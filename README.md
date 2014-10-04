@@ -1,16 +1,14 @@
-CAM
-===
+# CAM
 
 CIL Assembly Manipulator (CAM) is a project providing high-level API to read and emit CLR assemblies and modules. As its side-kick, this repository is also home for UtilPack. UtilPack is small and very portable class library containing various useful classes and extension methods.
 
-Usage
-=====
+## Usage
 
 Currently there isn't that much documentation.
 The starting point is always `CILReflectionContext` (acquireable from `CILAssemblyManipulator.DotNET` assembly), and there are extension methods to provide easy wrapping of native System.Reflection objects into CILAssembly variants.
 
-Threadsafety
-============
+## Threadsafety
+
 Separate `CILReflectionContexts` are always threadsafe as they don't interact with each other.
 The following threadsafety rules apply within the same `CILReflectionContext`:
 * reading operations are always threadsafe (including making generic instances of types and methods),
