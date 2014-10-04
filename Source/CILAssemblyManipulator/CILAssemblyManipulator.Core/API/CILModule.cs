@@ -1,0 +1,293 @@
+﻿/*
+ * Copyright 2013 Stanislav Muhametsin. All rights Reserved.
+ *
+ * Licensed  under the  Apache License,  Version 2.0  (the "License");
+ * you may not use  this file  except in  compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *   http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed  under the  License is distributed on an "AS IS" BASIS,
+ * WITHOUT  WARRANTIES OR CONDITIONS  OF ANY KIND, either  express  or
+ * implied.
+ *
+ * See the License for the specific language governing permissions and
+ * limitations under the License. 
+ */
+using System;
+using System.Collections.Generic;
+using System.IO;
+using System.Linq;
+using System.Text.RegularExpressions;
+using CILAssemblyManipulator.API;
+using CILAssemblyManipulator.Implementation;
+using CILAssemblyManipulator.Implementation.Physical;
+using CollectionsWithRoles.API;
+using CommonUtils;
+
+namespace CILAssemblyManipulator.API
+{
+   /// <summary>
+   /// This interface represents a module in CIL environment. The interface roughly corresponds to <see cref="System.Reflection.Module"/>. See ECMA specification for more information about CIL modules.
+   /// </summary>
+   public interface CILModule :
+      CILCustomAttributeContainer,
+      CILElementWithSimpleName,
+      CILElementCapableOfDefiningType,
+      CILElementWithContext
+   {
+      /// <summary>
+      /// Gets the <see cref="CILAssembly">assembly</see> containing this module.
+      /// </summary>
+      /// <value>The <see cref="CILAssembly">assembly</see> containing this module.</value>
+      /// <seealso cref="System.Reflection.Module.Assembly"/>
+      CILAssembly Assembly { get; }
+
+      /// <summary>
+      /// Gets all top-level (not nested) types defined in this module.
+      /// </summary>
+      /// <value>All top-level (not nested) types defined in this module.</value>
+      ListQuery<CILType> DefinedTypes { get; }
+
+      /// <summary>
+      /// Gets the module initializer type. This type, among other things, contains globally declared methods. See ECMA specification for more information about module initializer type.
+      /// </summary>
+      /// <value>The module initializer type.</value>
+      CILType ModuleInitializer { get; }
+
+      /// <summary>
+      /// Gets or sets the <c>mscorlib</c> module associated with this <see cref="CILModule"/>.
+      /// </summary>
+      /// <value>The <c>mscorlib</c> module associated with this <see cref="CILModule"/>.</value>
+      CILModule AssociatedMSCorLibModule { get; set; }
+
+      /// <summary>
+      /// Resolves a type string of any type defined in this module.
+      /// </summary>
+      /// <param name="typeString">The textual name of the type.</param>
+      /// <param name="throwOnError">Whether to throw an exception if matching type is not found.</param>
+      /// <returns>The resolved <see cref="CILType"/>.</returns>
+      /// <exception cref="ArgumentException">If <paramref name="throwOnError"/> is <c>true</c> and <see cref="CILType"/> could not be resolved for <paramref name="typeString"/>.</exception>
+      CILType GetTypeByName( String typeString, Boolean throwOnError = true );
+
+      /// <summary>
+      /// Gets the manifest resource information of this module.
+      /// </summary>
+      /// <value>The manifest resource information of this module.</value>
+      IDictionary<String, ManifestResource> ManifestResources { get; }
+   }
+
+   /// <summary>
+   /// This class is common base type for <see cref="ModuleManifestResource"/> and <see cref="EmbeddedManifestResource"/>.
+   /// </summary>
+   public abstract class ManifestResource
+   {
+      private ManifestResourceAttributes _attributes;
+
+      internal ManifestResource( ManifestResourceAttributes attributes )
+      {
+         this._attributes = attributes;
+      }
+
+      /// <summary>
+      /// Gets or sets the <see cref="ManifestResourceAttributes"/> associated with this manifest resource.
+      /// </summary>
+      /// <value>The <see cref="ManifestResourceAttributes"/> associated with this manifest resource.</value>
+      public ManifestResourceAttributes Attributes
+      {
+         get
+         {
+            return this._attributes;
+         }
+         set
+         {
+            this._attributes = value;
+         }
+      }
+   }
+
+   /// <summary>
+   /// This class represents a manifest resource which is other module.
+   /// </summary>
+   public sealed class ModuleManifestResource : ManifestResource
+   {
+      private readonly Lazy<CILModule> _module;
+
+      /// <summary>
+      /// Creates new instance of <see cref="ModuleManifestResource"/>.
+      /// </summary>
+      /// <param name="attributes">The <see cref="ManifestResourceAttributes"/> associated with this manifest resource.</param>
+      /// <param name="module">The module which acts as manifest resource.</param>
+      /// <exception cref="ArgumentNullException">If <paramref name="module"/> is <c>null</c>.</exception>
+      public ModuleManifestResource( ManifestResourceAttributes attributes, CILModule module )
+         : base( attributes )
+      {
+         ArgumentValidator.ValidateNotNull( "Module", module );
+         this._module = new Lazy<CILModule>( () => module, System.Threading.LazyThreadSafetyMode.ExecutionAndPublication ); ;
+      }
+
+      internal ModuleManifestResource( ManifestResourceAttributes attributes, Func<CILModule> module )
+         : base( attributes )
+      {
+         this._module = new Lazy<CILModule>( module, System.Threading.LazyThreadSafetyMode.ExecutionAndPublication );
+      }
+
+      /// <summary>
+      /// Gets the module that acts as manifest resource.
+      /// </summary>
+      /// <value>The module that acts as manifest resource.</value>
+      public CILModule Module
+      {
+         get
+         {
+            return this._module.Value;
+         }
+      }
+   }
+
+   /// <summary>
+   /// This class represents a manfiest resource which is in a file, and the file is not a CIL module.
+   /// </summary>
+   public sealed class FileManifestResource : ManifestResource
+   {
+      private readonly String _fileName;
+      private readonly Byte[] _hash;
+
+      /// <summary>
+      /// Creates a new instance of <see cref="FileManifestResource"/>.
+      /// </summary>
+      /// <param name="attributes">The <see cref="ManifestResourceAttributes"/> associated with this manifest resource.</param>
+      /// <param name="fileName">The name of the file containing the resource data. If <c>null</c>, this resource will be ignored when emitting the module.</param>
+      /// <param name="hash">
+      /// SHA1 hash of file contents.
+      /// If <c>null</c>, during emitting, the <see cref="EmittingArguments.FileStreamOpener"/> callback will be used to open file, and <see cref="CILReflectionContext.HashStreamLoadEvent"/> event to get things required to compute the hash.
+      /// </param>
+      /// <remarks>
+      /// If <paramref name="hash"/> is non-<c>null</c> (includes scenario when it is empty), then the hash will be written as is to metadata.
+      /// </remarks>
+      public FileManifestResource( ManifestResourceAttributes attributes, String fileName, Byte[] hash = null )
+         : base( attributes )
+      {
+         this._fileName = fileName;
+         this._hash = hash;
+      }
+
+      /// <summary>
+      /// Gets the file name of this manifest resource.
+      /// </summary>
+      /// <value>The file name of this manifest resource.</value>
+      public String FileName
+      {
+         get
+         {
+            return this._fileName;
+         }
+      }
+
+      /// <summary>
+      /// Gets the hash of the file contents.
+      /// </summary>
+      /// <value>The hash of the file contents.</value>
+      public Byte[] Hash
+      {
+         get
+         {
+            return this._hash;
+         }
+      }
+   }
+   /// <summary>
+   /// This class represents a manifest resource which will be embeddeed into the module when it is emitted.
+   /// </summary>
+   public sealed class EmbeddedManifestResource : ManifestResource
+   {
+      private readonly Byte[] _data;
+
+      /// <summary>
+      /// Creates new instance of <see cref="EmbeddedManifestResource"/>.
+      /// </summary>
+      /// <param name="attributes">The <see cref="ManifestResourceAttributes"/> associated with this embedded manifest resource.</param>
+      /// <param name="data">The raw data as byte array.</param>
+      public EmbeddedManifestResource( ManifestResourceAttributes attributes, Byte[] data )
+         : base( attributes )
+      {
+         this._data = data ?? Empty<Byte>.Array;
+      }
+
+      /// <summary>
+      /// Gets the raw data of this manifest resource.
+      /// </summary>
+      /// <value>The raw data of this manifest resource.</value>
+      public Byte[] Data
+      {
+         get
+         {
+            return this._data;
+         }
+      }
+   }
+}
+
+public static partial class E_CIL
+{
+   private static readonly Regex MODULE_NAME_WITHOUT_EXTENSION_REGEX = new Regex( @"\.(dll|exe|netmodule)$", RegexOptions.IgnoreCase );
+
+   /// <summary>
+   /// Gets or creates a new <see cref="CILModule"/> based on native <see cref="System.Reflection.Module"/>.
+   /// </summary>
+   /// <param name="module">The native module.</param>
+   /// <param name="ctx">The current reflection context.</param>
+   /// <returns><see cref="CILModule"/> wrapping existing native <see cref="System.Reflection.Module"/>.</returns>
+   /// <exception cref="ArgumentNullException">If <paramref name="module"/> or <paramref name="ctx"/> is <c>null</c>.</exception>
+   public static CILModule NewWrapper( this System.Reflection.Module module, CILReflectionContext ctx )
+   {
+      ArgumentValidator.ValidateNotNull( "Module", module );
+      ArgumentValidator.ValidateNotNull( "Reflection context", ctx );
+
+      return ( (CILReflectionContextImpl) ctx ).Cache.GetOrAdd( module );
+   }
+
+   /// <summary>
+   /// Gets the plain module name without '.dll', '.exe' or '.netmodule' extension.
+   /// </summary>
+   /// <param name="module">The module.</param>
+   /// <returns>The value of <see cref="CILElementWithSimpleName.Name"/> of the <paramref name="module"/> without '.dll', '.exe' or '.netmodule' extension.</returns>
+   /// <exception cref="ArgumentNullException">If <paramref name="module"/> is <c>null</c>.</exception>
+   public static String GetPlainModuleName( this CILModule module )
+   {
+      ArgumentValidator.ValidateNotNull( "Module", module );
+      return MODULE_NAME_WITHOUT_EXTENSION_REGEX.Replace( module.Name, "" );
+   }
+
+   /// <summary>
+   /// Adds a global method with the specified name, attributes, and calling conventions to <see cref="CILModule"/>.
+   /// </summary>
+   /// <param name="module">The module to add global method to.</param>
+   /// <param name="name">The name of the global method.</param>
+   /// <param name="attrs">The <see cref="MethodAttributes"/> of the global method.</param>
+   /// <param name="callingConventions">The <see cref="CallingConventions"/> of the global method.</param>
+   /// <returns>A newly created global method.</returns>
+   /// <seealso cref="CILMethod"/>
+   /// <see cref="CILModule.ModuleInitializer"/>
+   public static CILMethod AddGlobalMethod( this CILModule module, String name, MethodAttributes attrs, CallingConventions callingConventions )
+   {
+      return module.ModuleInitializer.AddMethod( name, attrs, callingConventions );
+   }
+
+   /// <summary>
+   /// Performs the emitting of the associated <see cref="CILModule"/> to <paramref name="stream"/>. See ECMA specification for more information about various PE and CLR header fields.
+   /// </summary>
+   /// <param name="module">The module to emit.</param>
+   /// <param name="stream">The stream to emit the associated <see cref="CILModule"/> to.</param>
+   /// <param name="emittingArgs">The <see cref="EmittingArguments"/>.</param>
+   /// <exception cref="ArgumentNullException">
+   /// If <paramref name="module"/>, <paramref name="stream"/> or <see cref="EmittingArguments.MetaDataVersion"/> of <paramref name="emittingArgs"/> is <c>null</c>.
+   /// Also if any of <see cref="EmittingArguments.CorLibName"/>, <see cref="EmittingArguments.ImportHintName"/> or <see cref="EmittingArguments.ImportDirectoryName"/> of <paramref name="emittingArgs"/> is used and is <c>null</c>.
+   /// </exception>
+   public static void EmitModule( this CILModule module, Stream stream, EmittingArguments emittingArgs )
+   {
+      new ModuleWriter( module )
+         .PerformEmitting( stream, emittingArgs );
+   }
+}

@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Project DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <PropertyGroup>
+    <CILMergeBaseDir Condition=" '$(CILMergeBaseDir)' == '' ">$(MSBuildThisFileDirectory)..</CILMergeBaseDir>
+    <CILMergeConfiguration Condition=" '$(CILMergeConfiguration)' == '' ">Debug</CILMergeConfiguration>
+    <CILMergePlatform Condition=" '$(CILMergePlatform)' == '' ">AnyCPU</CILMergePlatform>
+    <CILMergeBuildTargets Condition=" '$(CILMergeBuildTargets)' == '' ">GenerateKeyFile;GenerateAssemblyInfoFile;Build</CILMergeBuildTargets>
+    <CILMergeBuildTargets Condition=" '$(MonoBuild)' != '' ">DeleteTargetFrameworkFile;$(CILMergeBuildTargets)</CILMergeBuildTargets>
+  </PropertyGroup>
+  
+  <!-- Projects to build, in build order -->
+  <ItemGroup>
+    <CILMergeProject Include="$(CILMergeBaseDir)/Source/CILMerge/CILMerge.MSBuild/CILMerge.MSBuild.csproj" />
+  </ItemGroup>
+  
+  <Target Name="Build">
+    <!-- Build the Common Build Tools project (for AssemblyInfo task) -->
+    <MSBuild Projects="$(CILMergeBaseDir)/CommonBuildTools/CLR/Build/CommonBuildTools.build" />
+    
+    <!-- Build CILMerge projects -->
+    <MSBuild Projects="@(CILMergeProject)" Targets="$(CILMergeBuildTargets)" Properties="Configuration=$(CILMergeConfiguration);Platform=$(CILMergePlatform)" />    
+  </Target>
+</Project>

@@ -9,7 +9,7 @@ The starting point is always `CILReflectionContext` (acquireable from `CILAssemb
 
 ## Threadsafety
 
-Separate `CILReflectionContexts` are always threadsafe as they don't interact with each other.
+Separate `CILReflectionContext`s are always threadsafe as they don't interact with each other.
 The following threadsafety rules apply within the same `CILReflectionContext`:
 * reading operations are always threadsafe (including making generic instances of types and methods),
 * writing operations changing some single value (e.g. an enum or string) are threadsafe, and

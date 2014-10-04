@@ -1,0 +1,907 @@
+<?xml version="1.0"?>
+<doc>
+    <assembly>
+        <name>CollectionsWithRoles</name>
+    </assembly>
+    <members>
+        <member name="T:CollectionsWithRoles.API.ArrayMutable`2">
+            <summary>
+            This is <c>command</c> role interface for arrays. It defines methods which modify array.
+            </summary>
+            <typeparam name="TValue">The type of the elements in the array.</typeparam>
+            <typeparam name="TArrayQuery">The type of the <c>query</c> role of this array.</typeparam>
+        </member>
+        <member name="T:CollectionsWithRoles.API.CollectionWithIndexer`2">
+            <summary>
+            This is common interface for <see cref="T:CollectionsWithRoles.API.CollectionMutable`2"/> and <see cref="T:CollectionsWithRoles.API.ArrayMutable`2"/>.
+            </summary>
+            <typeparam name="TValue">The type of the elements in the collection or array.</typeparam>
+            <typeparam name="TCollectionQuery">The type of <c>query</c> role of this collection or array.</typeparam>
+        </member>
+        <member name="T:CollectionsWithRoles.API.CollectionWithQueryRole`1">
+            <summary>
+            This is common interface for collections and arrays.
+            </summary>
+            <typeparam name="TCollectionQuery">The type of <c>query</c> role of this collection or array.</typeparam>
+        </member>
+        <member name="P:CollectionsWithRoles.API.CollectionWithQueryRole`1.CQ">
+            <summary>
+            Returns the <c>query</c> role of this collection or array. The returned object can not be casted back to this interface.
+            </summary>
+            <value>The <c>query</c> role of this collection or array.</value>
+        </member>
+        <member name="P:CollectionsWithRoles.API.CollectionWithIndexer`2.Item(System.Int32)">
+            <summary>
+            Sets the element at the specified index.
+            </summary>
+            <param name="index">The zero-based index of the element to set.</param>
+            <value>The element at the specified index.</value>
+            <exception cref="T:System.ArgumentOutOfRangeException">The <paramref name="index"/> is not a valid index in this list.</exception>
+        </member>
+        <member name="T:CollectionsWithRoles.API.ArrayQuery`1">
+            <summary>
+            This is the <c>query</c> role for arrays. It defines methods which acquire information about the array without modifying it.
+            </summary>
+            <typeparam name="TValue">The type of the elements in the list.</typeparam>
+            <remarks>
+            Please note that the compiler won't be able to optimize <c>foreach</c> loop over this type like it can with native arrays.
+            If performance is critical, either use <c>for (var i = 0; i &lt; array.Count; ++i)</c> manually or TODO extension method.
+            </remarks>
+        </member>
+        <member name="T:CollectionsWithRoles.API.CollectionQueryWithIndexer`1">
+            <summary>
+            This is superinterface for <c>query</c> role of the list and array.
+            It defines a method for indexing list elements, using <c>out</c> variance for the type parameter.
+            </summary>
+            <typeparam name="TValue">The type of the elements in the list or array.</typeparam>
+        </member>
+        <member name="P:CollectionsWithRoles.API.CollectionQueryWithIndexer`1.Item(System.Int32)">
+            <summary>
+            Gets the element at the specified index.
+            </summary>
+            <param name="index">The zero-based index of the element to get.</param>
+            <returns>The element at the specified index.</returns>
+            <value>The element at the specified index.</value>
+            <exception cref="T:System.ArgumentOutOfRangeException">The <paramref name="index"/> is not a valid index in this list or array.</exception>
+        </member>
+        <member name="T:CollectionsWithRoles.API.CollectionWithCountQuery`1">
+            <summary>
+            This is common interface for <see cref="T:CollectionsWithRoles.API.CollectionQuery`1"/> and <see cref="T:CollectionsWithRoles.API.ArrayQuery`1"/>.
+            </summary>
+            <typeparam name="TValue">The type of the elements in the collection or array.</typeparam>
+        </member>
+        <member name="P:CollectionsWithRoles.API.CollectionWithCountQuery`1.Count">
+            <summary>
+            Gets the number of elements contained in this collection or array.
+            </summary>
+            <value>The number of elements contained in this collection or array.</value>
+        </member>
+        <member name="T:CollectionsWithRoles.API.ArrayHolder`1">
+            <summary>
+            This is common interface for <see cref="T:CollectionsWithRoles.API.ArrayProxy`1"/> and <see cref="T:CollectionsWithRoles.API.ArrayWithRoles`3"/>, providing a property to get the backing array.
+            </summary>
+            <typeparam name="TValue">The type of array elements.</typeparam>
+        </member>
+        <member name="P:CollectionsWithRoles.API.ArrayHolder`1.Array">
+            <summary>
+            Gets the backing array of this <see cref="T:CollectionsWithRoles.API.ArrayProxy`1"/> or <see cref="T:CollectionsWithRoles.API.ArrayWithRoles`3"/>.
+            </summary>
+            <value>The backing array of this <see cref="T:CollectionsWithRoles.API.ArrayProxy`1"/> or <see cref="T:CollectionsWithRoles.API.ArrayWithRoles`3"/>.</value>
+        </member>
+        <member name="T:CollectionsWithRoles.API.ArrayProxy`1">
+            <summary>
+            This is a <c>command</c> role wrapper around array that allows Command-Query Separation for normal arrays.
+            </summary>
+            <typeparam name="TValue">The type of the elements in the list.</typeparam>
+        </member>
+        <member name="T:CollectionsWithRoles.API.Mutable`2">
+            <summary>
+            This is base interface for all <c>command</c> roles related to interfaces in this namespace.
+            </summary>
+            <typeparam name="TMutableQuery">The type of the <c>mutable query</c> role. This role allows access to mutable elements, if this object is a collection.</typeparam>
+            <typeparam name="TImmutableQuery">The type of the <c>immutable query</c> role. This role allows access to immutable elements, if this objects is a collection.</typeparam>
+        </member>
+        <member name="P:CollectionsWithRoles.API.Mutable`2.MQ">
+            <summary>
+            Returns the <c>mutable query</c> role. This role allows access to mutable elements, if this object is a collection.
+            </summary>
+            <value>The <c>mutable query</c> role. This role allows access to mutable elements, if this object is a collection.</value>
+        </member>
+        <member name="T:CollectionsWithRoles.API.ArrayProxyQuery`1">
+            <summary>
+            This is a <c>query</c> role wrapper around array that allows Command-Query Separation for normal arrays.
+            </summary>
+            <typeparam name="TValue">The type of the elements in the list.</typeparam>
+        </member>
+        <member name="T:CollectionsWithRoles.API.MutableQuery`1">
+            <summary>
+            This is base interface for all <c>mutable query</c> roles related to interfaces in this namespace.
+            </summary>
+            <typeparam name="ImmutableQueryType">The type of the <c>immutable query</c> role. This role allows access to immutable elements, if this objects is a collection.</typeparam>
+        </member>
+        <member name="P:CollectionsWithRoles.API.MutableQuery`1.IQ">
+            <summary>
+            Returns the <c>immutable query</c> role. This role allows access to immutable elements, if this object is a collection.
+            </summary>
+            <value>The <c>immutable query</c> role. This role allows access to immutable elements, if this object is a collection.</value>
+        </member>
+        <member name="T:CollectionsWithRoles.API.ArrayWithRoles`3">
+            <summary>
+            This is <c>command</c> role for array, which supports Command-Query Separation of its elements.
+            </summary>
+            <typeparam name="TValue">The type of <c>command</c> role of the elements of this list.</typeparam>
+            <typeparam name="TValueQuery">The type of <c>query</c> role of the elements of this list.</typeparam>
+            <typeparam name="TValueImmutable">The type of <c>immutable query</c> role of the elements of this list.</typeparam>
+        </member>
+        <member name="T:CollectionsWithRoles.API.ArrayQueryOfMutables`3">
+            <summary>
+            This is <c>query of mutables</c> role for array, which supports Command-Query Separation of its elements.
+            </summary>
+            <typeparam name="TValue">The type of <c>command</c> role of the elements of this list.</typeparam>
+            <typeparam name="TValueQuery">The type of <c>query</c> role of the elements of this list.</typeparam>
+            <typeparam name="TValueImmutable">The type of <c>immutable query</c> role of the elements of this list.</typeparam>
+        </member>
+        <member name="T:CollectionsWithRoles.API.QueriesProvider`1">
+            <summary>
+            Common interface to provide <c>query</c> role of the elements in collections.
+            </summary>
+            <typeparam name="TQueries">The type of <c>query</c> role of the elements in collections.</typeparam>
+        </member>
+        <member name="P:CollectionsWithRoles.API.QueriesProvider`1.Queries">
+            <summary>
+            Returns <c>query</c> role of the collection of elements with type of <c>query</c> role of the collection elements.
+            </summary>
+            <value>The <c>query</c> role of the collection of elements with type of <c>query</c> role of the collection elements.</value>
+        </member>
+        <member name="T:CollectionsWithRoles.API.ArrayQueryOfQueries`2">
+            <summary>
+            This is <c>query of queries</c> role for array, which supports Command-Query Separation of its elements.
+            </summary>
+            <typeparam name="TValueQuery">The type of <c>query</c> role of the elements of this list.</typeparam>
+            <typeparam name="TValueImmutable">The type of <c>immutable query</c> role of the elements of this list.</typeparam>
+        </member>
+        <member name="T:CollectionsWithRoles.API.CollectionMutable`2">
+            <summary>
+            This is <c>command</c> role interface for collections. It defines methods which modify collection, in addition to providing getters for other roles of this collection.
+            </summary>
+            <typeparam name="TValue">The type of the elements in the collection.</typeparam>
+            <typeparam name="TCollectionQuery">The type of the <c>query</c> role of this collection.</typeparam>
+        </member>
+        <member name="T:CollectionsWithRoles.API.CollectionAdditionOnly`1">
+            <summary>
+            This is <c>addition-only</c> role interface for collections. It defines methods which modify collection by adding new elements to it.
+            </summary>
+            <typeparam name="TValue">The type of the elements in the collection.</typeparam>
+        </member>
+        <member name="M:CollectionsWithRoles.API.CollectionAdditionOnly`1.Add(`0)">
+            <summary>
+            Adds an item to the this collection.
+            </summary>
+            <param name="item">The object to add to this collection.</param>
+        </member>
+        <member name="M:CollectionsWithRoles.API.CollectionAdditionOnly`1.AddRange(System.Collections.Generic.IEnumerable{`0})">
+            <summary>
+            Adds the elements of the specified enumerable to this collection.
+            </summary>
+            <param name="items">The elements that should be added to this collection. The enumerable itself cannot be <c>null</c>, but it can contain elements that are <c>null</c>, if type <typeparamref name="TValue"/> is a reference type.</param>
+            <exception cref="T:System.ArgumentNullException">If <paramref name="items"/> is <c>null</c>.</exception>
+        </member>
+        <member name="M:CollectionsWithRoles.API.CollectionMutable`2.Remove(`0)">
+            <summary>
+            Removes the first occurrence of a specific object from this collection.
+            </summary>
+            <param name="item">The object to remove from this collection.</param>
+            <returns><c>true</c> if item was successfully removed from this collection; otherwise, <c>false</c>. This method also returns false if item is not found in this collection.</returns>
+        </member>
+        <member name="M:CollectionsWithRoles.API.CollectionMutable`2.Clear">
+            <summary>
+            Removes all items from this collection.
+            </summary>
+        </member>
+        <member name="P:CollectionsWithRoles.API.CollectionMutable`2.AO">
+            <summary>
+            Returns the <c>addition-only</c> role of this collection. The returned object can not be casted back to this interface.
+            </summary>
+            <value>The <c>addition-only</c> role of this collection.</value>
+        </member>
+        <member name="T:CollectionsWithRoles.API.CollectionQuery`1">
+            <summary>
+            This is <c>query</c> role interface for collections. It defines methods which do not modify the collection.
+            </summary>
+            <typeparam name="TValue">The type of the elements in the collection.</typeparam>
+        </member>
+        <member name="M:CollectionsWithRoles.API.CollectionQuery`1.Contains(`0,System.Collections.Generic.IEqualityComparer{`0})">
+            <summary>
+            Determines whether this collection contains a specific value.
+            </summary>
+            <param name="item">The object to locate in this collection.</param>
+            <param name="equalityComparer">The equality comparer to use when searching for object. If <c>null</c>, then default equality comparer is used.</param>
+            <returns><c>true</c> if item is found in this collection; otherwise, <c>false</c>.</returns>
+            <remarks>The <see cref="T:CollectionsWithRoles.API.DictionaryWithRoles`4"/> currently ignores the <paramref name="equalityComparer"/>.</remarks>
+        </member>
+        <member name="M:CollectionsWithRoles.API.CollectionQuery`1.CopyTo(`0[],System.Int32)">
+            <summary>
+            Copies the elements of this collection to an <see cref="T:System.Array"/>, starting at a particular index.
+            </summary>
+            <param name="array">The one-dimensional array that is the destination of the elements copied from this collection. The array must have zero-based indexing.</param>
+            <param name="arrayOffset">The zero-based index in array at which copying begins.</param>
+            <exception cref="T:System.ArgumentNullException"><paramref name="array"/> is <c>null</c>.</exception>
+            <exception cref="T:System.ArgumentOutOfRangeException"><paramref name="arrayOffset"/> is less than 0.</exception>
+            <exception cref="T:System.ArgumentException">The number of elements in this collection is greater than the available space from <paramref name="arrayOffset"/> to the end of the destination array.</exception>
+        </member>
+        <member name="T:CollectionsWithRoles.API.CollectionWithRoles`6">
+            <summary>
+            This is <c>command</c> role of the interface for all collections which support the Command-Query Separation of its elements.
+            </summary>
+            <typeparam name="TMutableQueryRole">The type of collection which provides <c>query</c> role over <c>command</c> -typed (<typeparamref name="TValue"/>) elements; it is also called <c>query of mutables</c> role.</typeparam>
+            <typeparam name="TQueriesQueryRole">The type of collection which provides <c>query</c> role over <c>query</c> -typed (<typeparamref name="TValueQuery"/>) elements; it is also called <c>query of queries</c> role.</typeparam>
+            <typeparam name="TImmutableQueryRole">The type of collection which provides <c>immutable query</c> role over <c>immutable query</c> -typed (<typeparamref name="TValueImmutable"/>) elements; it is also called <c>immutable query</c> role.</typeparam>
+            <typeparam name="TValue">The type of <c>command</c> role of the elements of this collection.</typeparam>
+            <typeparam name="TValueQuery">The type of <c>query</c> role of the elements of this collection.</typeparam>
+            <typeparam name="TValueImmutable">The type of <c>immutable query</c> role of the elements of this collection.</typeparam>
+        </member>
+        <member name="T:CollectionsWithRoles.API.CollectionQueryOfMutables`5">
+            <summary>
+            This is <c>query of mutables</c> role of the interface for all collections which support the Command-Query Separation of its elements.
+            </summary>
+            <typeparam name="TQueriesQueryRole">The type of collection which provides <c>query</c> role over <c>query</c> -typed (<typeparamref name="TValueQuery"/>) elements.</typeparam>
+            <typeparam name="TImmutableQueryRole">The type of collection which provides <c>immutable query</c> role over <c>immutable query</c> -typed (<typeparamref name="TValueImmutable"/>) elements.</typeparam>
+            <typeparam name="TValue">The type of <c>command</c> role of the elements of this collection.</typeparam>
+            <typeparam name="TValueQuery">The type of <c>query</c> role of the elements of this collection.</typeparam>
+            <typeparam name="TValueImmutable">The type of <c>immutable query</c> role of the elements of this collection.</typeparam>
+        </member>
+        <member name="T:CollectionsWithRoles.API.CollectionQueryOfQueries`3">
+            <summary>
+            This is <c>query of queries</c> role of the interface for all collections which support the Command-Query Separation of its elements.
+            </summary>
+            <typeparam name="TImmutableQueryRole">The type of collection which provides <c>immutable query</c> role over <c>immutable query</c> -typed (<typeparamref name="TValueImmutable"/>) elements.</typeparam>
+            <typeparam name="TValueQuery">The type of <c>query</c> role of the elements of this collection.</typeparam>
+            <typeparam name="TValueImmutable">The type of <c>immutable query</c> role of the elements of this collection.</typeparam>
+        </member>
+        <member name="T:CollectionsWithRoles.API.CollectionsFactory">
+            <summary>
+            This is factory interface to create all collections within this assembly.
+            </summary>
+            <remarks>TODO: make it possible to pass equality comparers for TValueQuery/TValueImmutable for sets.</remarks>
+        </member>
+        <member name="M:CollectionsWithRoles.API.CollectionsFactory.NewList``3(System.Collections.Generic.IList{``0})">
+            <summary>
+            Creates a new <see cref="T:CollectionsWithRoles.API.ListWithRoles`3"/> with given list. If <paramref name="listToUse"/> is <c>null</c>, then a new instance of <see cref="T:System.Collections.Generic.List`1"/> is used. Otherwise, the returned list has the same elements as the <paramref name="listToUse"/>. If the changes are made to <paramref name="listToUse"/>, the contents of returned list change accordingly, and vice versa.
+            </summary>
+            <typeparam name="TValue">The mutable type of the list elements.</typeparam>
+            <typeparam name="TValueQuery">The query type of the list elements.</typeparam>
+            <typeparam name="TValueImmutable">The immutable query type of the list elements.</typeparam>
+            <param name="listToUse">The list to use as basis for the returned list. May be <c>null</c>.</param>
+            <returns>A new <see cref="T:CollectionsWithRoles.API.ListWithRoles`3"/> object.</returns>
+        </member>
+        <member name="M:CollectionsWithRoles.API.CollectionsFactory.NewDictionary``4(System.Collections.Generic.IDictionary{``0,``1})">
+            <summary>
+            Creates a new <see cref="T:CollectionsWithRoles.API.DictionaryWithRoles`4"/> with given dictionary. If <paramref name="dictionaryToUse"/> is <c>null</c>, then a new instance of <see cref="T:System.Collections.Generic.Dictionary`2"/> is used. Otherwise, the returned dictionary has the same elements as the <paramref name="dictionaryToUse"/>. If the changes are made to <paramref name="dictionaryToUse"/>, the contents of returned dictionary change accordingly, and vice versa.
+            </summary>
+            <typeparam name="TKey">The type of dictionary keys.</typeparam>
+            <typeparam name="TValue">The mutable type of the dictionary values.</typeparam>
+            <typeparam name="TValueQuery">The query type of the dictionary values.</typeparam>
+            <typeparam name="TValueImmutable">The immutable query type of the dictionary values.</typeparam>
+            <param name="dictionaryToUse">The dictionary to use as basis for the returned dictionary. May be <c>null</c>.</param>
+            <returns>A new <see cref="T:CollectionsWithRoles.API.DictionaryWithRoles`4"/> object.</returns>
+        </member>
+        <member name="M:CollectionsWithRoles.API.CollectionsFactory.NewMemoryEfficientSet``3(System.Collections.Generic.ISet{``0})">
+            <summary>
+            Creates a new <see cref="T:CollectionsWithRoles.API.SetWithRoles`3"/> with given set. The returned set is memory-efficient, however it may be somewhat slower in certain operations. If <paramref name="setToUse"/> is <c>null</c>, then a new instance of <see cref="T:System.Collections.Generic.HashSet`1"/> is used. Otherwise, the returned set has the same elements as the <paramref name="setToUse"/>. If the changes are made to <paramref name="setToUse"/>, the contents of returned set change accordingly, and vice versa.
+            </summary>
+            <typeparam name="TValue">The mutable type of the set elements.</typeparam>
+            <typeparam name="TValueQuery">The query type of the set elements.</typeparam>
+            <typeparam name="TValueImmutable">The immutable query type of the set elements.</typeparam>
+            <param name="setToUse">The set to use as basis for the returned set. May be <c>null</c>.</param>
+            <returns>A new <see cref="T:CollectionsWithRoles.API.SetWithRoles`3"/> object.</returns>
+        </member>
+        <member name="M:CollectionsWithRoles.API.CollectionsFactory.NewFastSet``3(System.Collections.Generic.ISet{``0},System.Collections.Generic.ISet{``1},System.Collections.Generic.ISet{``2})">
+            <summary>
+            Creates a new <see cref="T:CollectionsWithRoles.API.SetWithRoles`3"/> with given set. The returned set is as quick as <see cref="T:System.Collections.Generic.HashSet`1"/>, however it maintains three different sets and is thus memory-inefficient. If <paramref name="setToUse"/> is <c>null</c>, then a new instance of <see cref="T:System.Collections.Generic.HashSet`1"/> is used. Otherwise, the returned set has the same elements as the <paramref name="setToUse"/>.  If the changes are made to <paramref name="setToUse"/>, the contents of returned set change accordingly, and vice versa. The same applies to <paramref name="queriesSet"/> and <paramref name="immutablesSet"/>.
+            </summary>
+            <typeparam name="TValue">The mutable type of the set elements.</typeparam>
+            <typeparam name="TValueQuery">The query type of the set elements.</typeparam>
+            <typeparam name="TValueImmutable">The immutable query type of the set elements.</typeparam>
+            <param name="setToUse">The set to use as basis for the returned set. May be <c>null</c>.</param>
+            <param name="queriesSet">The set of query-typed objects to use as basis for the returned set. May be <c>null</c>.</param>
+            <param name="immutablesSet">The set of immutable query-typed objects to use as basis for the returned set. May be <c>null</c>.</param>
+            <returns>A new <see cref="T:CollectionsWithRoles.API.SetWithRoles`3"/> object.</returns>
+            <exception cref="T:System.ArgumentException">If there is count mismatch between given sets.</exception>
+        </member>
+        <member name="M:CollectionsWithRoles.API.CollectionsFactory.NewArrayWithRoles``3(``0[])">
+            <summary>
+            Creates a new <see cref="T:CollectionsWithRoles.API.ArrayWithRoles`3"/> with given array. If <paramref name="array"/> is <c>null</c>, then empty array is used. Otherwise returned array has the same elements as given <paramref name="array"/>. If any changes are made to the <paramref name="array"/>, those contents of returned array change accordingly, and vice versa.
+            </summary>
+            <typeparam name="TValue">The mutable type of the array elements.</typeparam>
+            <typeparam name="TValueQuery">The query type of the array elements.</typeparam>
+            <typeparam name="TValueImmutable">The immutable query type of the array elements.</typeparam>
+            <param name="array">The array to use as basis for the returned array. May be <c>null</c>.</param>
+            <returns>A new <see cref="T:CollectionsWithRoles.API.ArrayWithRoles`3"/> object, or <see cref="P:CollectionsWithRoles.API.EmptyArrayWithRoles`3.Array"/> if <paramref name="array"/> is <c>null</c> or empty.</returns>
+        </member>
+        <member name="M:CollectionsWithRoles.API.CollectionsFactory.NewListProxy``1(System.Collections.Generic.IList{``0})">
+            <summary>
+            Creates a new <see cref="T:CollectionsWithRoles.API.ListProxy`1"/> with given list. If <paramref name="list"/> is <c>null</c>, a new empty <see cref="T:System.Collections.Generic.List`1"/> is used. Otherwise, the returned list proxy has same elements as <paramref name="list"/>.
+            </summary>
+            <typeparam name="TValue">The type of list elements.</typeparam>
+            <param name="list">The list to use as basis for the returned list. May be <c>null</c>.</param>
+            <returns>A new <see cref="T:CollectionsWithRoles.API.ListProxy`1"/> object.</returns>
+        </member>
+        <member name="M:CollectionsWithRoles.API.CollectionsFactory.NewDictionaryProxy``2(System.Collections.Generic.IDictionary{``0,``1})">
+            <summary>
+            Creates a new <see cref="T:CollectionsWithRoles.API.DictionaryProxy`2"/> with given dictionary. If <paramref name="dictionary"/> is <c>null</c>, a new empty <see cref="T:System.Collections.Generic.Dictionary`2"/> is used. Otherwise, the returned dictionary proxy has same content as <paramref name="dictionary"/>. If the changes are made to <paramref name="dictionary"/>, the contents of returned dictionary change accordingly, and vice versa.
+            </summary>
+            <typeparam name="TKey">The type of dictionary keys.</typeparam>
+            <typeparam name="TValue">The type of dictionary values.</typeparam>
+            <param name="dictionary">The dictionary to use as basis for the returned dictionary. May be <c>null</c>.</param>
+            <returns>A new <see cref="T:CollectionsWithRoles.API.DictionaryProxy`2"/> object.</returns>
+        </member>
+        <member name="M:CollectionsWithRoles.API.CollectionsFactory.NewSetProxy``1(System.Collections.Generic.ISet{``0})">
+            <summary>
+            Creates a new <see cref="T:CollectionsWithRoles.API.SetProxy`1"/> with given set. If <paramref name="set"/> is <c>null</c>, a new empty <see cref="T:System.Collections.Generic.HashSet`1"/> is used. Otherwise, the returned set proxy has same content as <paramref name="set"/>.  If the changes are made to <paramref name="set"/>, the contents of returned set change accordingly, and vice versa.
+            </summary>
+            <typeparam name="TValue">The type of set elements.</typeparam>
+            <param name="set">The set to use as basis for the returned set. May be <c>null</c>.</param>
+            <returns>A new <see cref="T:CollectionsWithRoles.API.SetProxy`1"/> object.</returns>
+        </member>
+        <member name="M:CollectionsWithRoles.API.CollectionsFactory.NewArrayProxy``1(``0[])">
+            <summary>
+            Creates a new <see cref="T:CollectionsWithRoles.API.ArrayProxy`1"/> with given array. If <paramref name="array"/> is <c>null</c>, an empty array is used. Otherwise, the returned array proxy has same elements as <paramref name="array"/>.
+            </summary>
+            <typeparam name="TValue">The type of array elements.</typeparam>
+            <param name="array">The array to use as basis for the returned set. May be <c>null</c>.</param>
+            <returns>A new <see cref="T:CollectionsWithRoles.API.ArrayProxy`1"/> object, or <see cref="P:CollectionsWithRoles.API.EmptyArrayProxy`1.Proxy"/> if <paramref name="array"/> is <c>null</c> or empty.</returns>
+        </member>
+        <member name="T:E_CWR">
+            <summary>
+            This is class to hold extension methods related to CollectionsWithRoles.API namespace.
+            </summary>
+        </member>
+        <member name="M:E_CWR.NewListProxyFromParams``1(CollectionsWithRoles.API.CollectionsFactory,``0[])">
+            <summary>
+            Creates a new <see cref="T:CollectionsWithRoles.API.ListProxy`1"/> directly from method parameters. The underlying list will be <see cref="T:System.Collections.Generic.List`1"/>.
+            </summary>
+            <typeparam name="TValue">The type of list elements.</typeparam>
+            <param name="factory">The <see cref="T:CollectionsWithRoles.API.CollectionsFactory"/>.</param>
+            <param name="values">The values for the returned list proxy to contain.</param>
+            <returns>A new <see cref="T:CollectionsWithRoles.API.ListProxy`1"/> with given values.</returns>
+            <exception cref="T:System.NullReferenceException">If <paramref name="factory"/> is <c>null</c>.</exception>
+        </member>
+        <member name="M:E_CWR.NewSetProxyFromParams``1(CollectionsWithRoles.API.CollectionsFactory,``0[])">
+            <summary>
+            Creates a new <see cref="T:CollectionsWithRoles.API.SetProxy`1"/> directly from method parameters. The underlying set will be <see cref="T:System.Collections.Generic.HashSet`1"/>.
+            </summary>
+            <typeparam name="TValue">The type of set elements.</typeparam>
+            <param name="factory">The <see cref="T:CollectionsWithRoles.API.CollectionsFactory"/>.</param>
+            <param name="values">The values for the returned set proxy to contain.</param>
+            <returns>A new <see cref="T:CollectionsWithRoles.API.SetProxy`1"/> with given values.</returns>
+            <exception cref="T:System.NullReferenceException">If <paramref name="factory"/> is <c>null</c>.</exception>
+        </member>
+        <member name="M:E_CWR.NewArrayProxyFromParams``1(CollectionsWithRoles.API.CollectionsFactory,``0[])">
+            <summary>
+            Creates a new <see cref="T:CollectionsWithRoles.API.ArrayProxy`1"/> directly from method parameters.
+            </summary>
+            <typeparam name="TValue">The type of array elements.</typeparam>
+            <param name="factory">The <see cref="T:CollectionsWithRoles.API.CollectionsFactory"/>.</param>
+            <param name="values">The values for the returned array proxy to contain.</param>
+            <returns>A new <see cref="T:CollectionsWithRoles.API.ArrayProxy`1"/> with given values.</returns>
+            <exception cref="T:System.NullReferenceException">If <paramref name="factory"/> is <c>null</c>.</exception>
+        </member>
+        <member name="M:E_CWR.ToArrayCWR``1(System.Collections.Generic.IEnumerable{``0},System.Boolean)">
+            <summary>
+            The default implementation of extension method <see cref="M:System.Linq.Enumerable.ToArray``1(System.Collections.Generic.IEnumerable{``0})"/> doesn't recognize other arrays or <see cref="T:CollectionsWithRoles.API.CollectionQuery`1"/> objects.
+            This method provides implementation of converting <see cref="T:System.Collections.Generic.IEnumerable`1"/>s to arrays that recognizes <see cref="T:CollectionsWithRoles.API.CollectionQuery`1"/> and other arrays.
+            </summary>
+            <typeparam name="T">The type of the elements of <paramref name="enumerable"/>.</typeparam>
+            <param name="enumerable">The <see cref="T:System.Collections.Generic.IEnumerable`1"/>.</param>
+            <param name="returnThisIfArray">If <c>true</c>, this method will check first whether <paramref name="enumerable"/> is an array, and return it. Otherwise, a new array is always created.</param>
+            <returns>An array with contents of <paramref name="enumerable"/>.</returns>
+            <exception cref="T:System.ArgumentNullException">If <paramref name="enumerable"/> is <c>null</c>.</exception>
+        </member>
+        <member name="M:E_CWR.ToArray``1(CollectionsWithRoles.API.CollectionQuery{``0})">
+            <summary>
+            Will override default <see cref="M:System.Linq.Enumerable.ToArray``1(System.Collections.Generic.IEnumerable{``0})"/> when the target object reference type is of <see cref="T:CollectionsWithRoles.API.CollectionQuery`1"/> or sub-type.
+            This method just calls <see cref="M:E_CWR.ToArrayCWR``1(System.Collections.Generic.IEnumerable{``0},System.Boolean)"/>.
+            </summary>
+            <typeparam name="T">The type of elements in collection.</typeparam>
+            <param name="collectionQ">The <see cref="T:CollectionsWithRoles.API.CollectionQuery`1"/>.</param>
+            <returns>The array containing same elements as <paramref name="collectionQ"/>.</returns>
+            <exception cref="T:System.ArgumentNullException">If <paramref name="collectionQ"/> is <c>null</c>.</exception>
+        </member>
+        <member name="M:E_CWR.TryAdd``3(CollectionsWithRoles.API.DictionaryMutable{``0,``1,``2},``0,``1)">
+            <summary>
+            Tries to add an element with the provided key and value to this dictionary.
+            </summary>
+            <typeparam name="TKey">The type of the keys in the dictionary.</typeparam>
+            <typeparam name="TValue">The type of the values in the dictionary.</typeparam>
+            <typeparam name="TDictionaryQuery">The type of the Query-role of the dictionary.</typeparam>
+            <param name="dic">The <see cref="T:CollectionsWithRoles.API.DictionaryMutable`3"/>.</param>
+            <param name="key">The key.</param>
+            <param name="value">The value.</param>
+            <returns><c>true</c> if an element was successfully added; <c>false</c> otherwise.</returns>
+            <exception cref="T:System.NullReferenceException">If <paramref name="dic"/> is <c>null</c>.</exception>
+        </member>
+        <member name="M:E_CWR.ForEach``1(CollectionsWithRoles.API.ArrayQuery{``0},System.Action{``0})">
+            <summary>
+            Helper function to perform simple for-loop (not the foreach loop with .GetEnumerator() calls) over a <see cref="T:CollectionsWithRoles.API.ArrayQuery`1"/>.
+            </summary>
+            <typeparam name="TValue">The type of array elements.</typeparam>
+            <param name="array">The array. If <c>null</c>, this method does nothing.</param>
+            <param name="action">The action to execute for each array element. If <c>null</c>, this method does nothing.</param>
+        </member>
+        <member name="T:CollectionsWithRoles.API.DictionaryMutable`3">
+            <summary>
+            This is <c>command</c> role interface for dictionaries. It defines methods which modify the dictionary.
+            </summary>
+            <typeparam name="TKey">The type of the keys of the dictionary.</typeparam>
+            <typeparam name="TValue">The type of the values of the dictionary.</typeparam>
+            <typeparam name="TDictionaryQuery">The type of <c>query</c> role of this dictionary.</typeparam>
+        </member>
+        <member name="M:CollectionsWithRoles.API.DictionaryMutable`3.Add(`0,`1)">
+            <summary>
+            Adds an element with the provided key and value to this dictionary.
+            </summary>
+            <param name="key">The object to use as the key of the element to add.</param>
+            <param name="value">The object to use as the value of the element to add.</param>
+            <exception cref="T:System.ArgumentNullException"><paramref name="key"/> is <c>null</c>.</exception>
+            <exception cref="T:System.ArgumentException">An element with the same key already exists in this dictionary.</exception>
+        </member>
+        <member name="M:CollectionsWithRoles.API.DictionaryMutable`3.Remove(`0)">
+            <summary>
+            Removes the element with the specified key from this dictionary.
+            </summary>
+            <returns><c>true</c> if the element is successfully removed; otherwise, <c>false</c>. This method also returns <c>false</c> if <paramref name="key"/> was not found in this dictionary.</returns>
+            <param name="key">The key of the element to remove.</param>
+            <exception cref="T:System.ArgumentNullException"><paramref name="key"/> is <c>null</c>.</exception>
+        </member>
+        <member name="P:CollectionsWithRoles.API.DictionaryMutable`3.Item(`0)">
+            <summary>
+            Sets the element with the specified key.
+            </summary>
+            <param name="key">The key of the element to set.</param>
+            <value>The element with the specified key.</value>
+            <exception cref="T:System.ArgumentNullException"><paramref name="key"/> is <c>null</c>.</exception>
+        </member>
+        <member name="T:CollectionsWithRoles.API.DictionaryQuery`2">
+            <summary>
+            This is <c>query</c> role interface for dictionaries. It defines methods which access the dictionary without modifying it.
+            </summary>
+            <typeparam name="TKey">The type of the keys of the dictionary.</typeparam>
+            <typeparam name="TValue">The type of the values of the dictionary.</typeparam>
+        </member>
+        <member name="M:CollectionsWithRoles.API.DictionaryQuery`2.ContainsKey(`0)">
+            <summary>
+            Determines whether this dictionary contains an element with the specified key.
+            </summary>
+            <returns><c>true</c> if this dictionary contains an element with the key; otherwise, <c>false</c>.</returns>
+            <param name="key">The key to locate in this dictionary.</param>
+            <exception cref="T:System.ArgumentNullException"><paramref name="key"/> is <c>null</c>.</exception>
+        </member>
+        <member name="M:CollectionsWithRoles.API.DictionaryQuery`2.TryGetValue(`0,`1@)">
+            <summary>
+            Gets the value associated with the specified key.
+            </summary>
+            <returns><c>true</c> if this dictionary contains an element with the specified key; otherwise, <c>false</c>.</returns>
+            <param name="key">The key whose value to get.</param>
+            <param name="value">When this method returns, the value associated with the specified key, if the key is found; otherwise, the default value for the <typeparamref name="TValue"/>. This parameter may be passed uninitialized.</param>
+            <exception cref="T:System.ArgumentNullException"><paramref name="key"/> is <c>null</c>.</exception>
+        </member>
+        <member name="P:CollectionsWithRoles.API.DictionaryQuery`2.Item(`0)">
+            <summary>
+            Gets the element with the specified key.
+            </summary>
+            <param name="key">The key of the element to get.</param>
+            <value>The element with the specified key.</value>
+            <exception cref="T:System.ArgumentNullException"><paramref name="key"/> is <c>null</c>.</exception>
+            <exception cref="T:System.Collections.Generic.KeyNotFoundException">No value found for <paramref name="key"/>.</exception>
+        </member>
+        <member name="P:CollectionsWithRoles.API.DictionaryQuery`2.Keys">
+            <summary>
+            Gets an <see cref="T:CollectionsWithRoles.API.CollectionQuery`1"/> containing the keys of this dictionary.
+            </summary>
+            <value>A <see cref="T:CollectionsWithRoles.API.CollectionQuery`1"/> containing the keys of this dictionary.</value>
+        </member>
+        <member name="P:CollectionsWithRoles.API.DictionaryQuery`2.Values">
+            <summary>
+            Gets an <see cref="T:CollectionsWithRoles.API.CollectionQuery`1"/> containing the values of this dictionary.
+            </summary>
+            <value>A <see cref="T:CollectionsWithRoles.API.CollectionQuery`1"/> containing the values of this dictionary.</value>
+        </member>
+        <member name="T:CollectionsWithRoles.API.DictionaryProxy`2">
+            <summary>
+            This is a <c>command</c> role wrapper around <see cref="T:System.Collections.Generic.IDictionary`2"/> that allows Command-Query Separation for normal dictionaries.
+            </summary>
+            <typeparam name="TKey">The type of the keys of the dictionary.</typeparam>
+            <typeparam name="TValue">The type of the values of the dictionary.</typeparam>
+        </member>
+        <member name="T:CollectionsWithRoles.API.DictionaryProxyQuery`2">
+            <summary>
+            This is a <c>query</c> role wrapper around <see cref="T:System.Collections.Generic.IDictionary`2"/> that allows Command-Query Separation for normal dictionaries.
+            </summary>
+            <typeparam name="TKey">The type of the keys of the dictionary.</typeparam>
+            <typeparam name="TValue">The type of the values of the dictionary.</typeparam>
+        </member>
+        <member name="T:CollectionsWithRoles.API.DictionaryWithRoles`4">
+            <summary>
+            This is <c>command</c> role for dictionary, which supports Command-Query Separation of its elements.
+            </summary>
+            <typeparam name="TKey">The type of the keys of the dictionary.</typeparam>
+            <typeparam name="TValue">The type of <c>command</c> role of the values of this dictionary.</typeparam>
+            <typeparam name="TValueQuery">The type of <c>query</c> role of the values of this dictionary.</typeparam>
+            <typeparam name="TValueImmutable">The type of <c>immutable query</c> role of the values of this dictionary.</typeparam>
+        </member>
+        <member name="T:CollectionsWithRoles.API.DictionaryQueryOfMutables`4">
+            <summary>
+            This is <c>query of mutables</c> role for dictionary, which supports Command-Query Separation of its elements.
+            </summary>
+            <typeparam name="TKey">The type of the keys of the dictionary.</typeparam>
+            <typeparam name="TValue">The type of <c>command</c> role of the values of this dictionary.</typeparam>
+            <typeparam name="TValueQuery">The type of <c>query</c> role of the values of this dictionary.</typeparam>
+            <typeparam name="TValueImmutable">The type of <c>immutable query</c> role of the values of this dictionary.</typeparam>
+        </member>
+        <member name="T:CollectionsWithRoles.API.DictionaryQueryOfQueries`3">
+            <summary>
+            This is <c>query of queries</c> role for dictionary, which supports Command-Query Separation of its elements.
+            </summary>
+            <typeparam name="TKey">The type of the keys of the dictionary.</typeparam>
+            <typeparam name="TValueQuery">The type of <c>query</c> role of the values of this dictionary.</typeparam>
+            <typeparam name="TValueImmutable">The type of <c>immutable query</c> role of the values of this dictionary.</typeparam>
+        </member>
+        <member name="T:CollectionsWithRoles.API.EmptyCollectionQuery`1">
+            <summary>
+            This class contains static properties to access query roles of empty lists and sets.
+            </summary>
+            <typeparam name="T">The type of the elements for the collection.</typeparam>
+        </member>
+        <member name="P:CollectionsWithRoles.API.EmptyCollectionQuery`1.List">
+            <summary>
+            Returns the empty <see cref="T:CollectionsWithRoles.API.ListQuery`1"/> instance.
+            </summary>
+            <value>The empty <see cref="T:CollectionsWithRoles.API.ListQuery`1"/> instance.</value>
+        </member>
+        <member name="P:CollectionsWithRoles.API.EmptyCollectionQuery`1.Set">
+            <summary>
+            Returns the empty <see cref="T:CollectionsWithRoles.API.SetQuery`1"/> instance.
+            </summary>
+            <value>The empty <see cref="T:CollectionsWithRoles.API.SetQuery`1"/> instance.</value>
+        </member>
+        <member name="T:CollectionsWithRoles.API.EmptyArrayProxy`1">
+            <summary>
+            This class contains static properties to access empty <see cref="T:CollectionsWithRoles.API.ArrayProxy`1"/> and <see cref="T:CollectionsWithRoles.API.ArrayQuery`1"/>.
+            </summary>
+            <typeparam name="TValue">The type of the elements for the array.</typeparam>
+        </member>
+        <member name="P:CollectionsWithRoles.API.EmptyArrayProxy`1.Proxy">
+            <summary>
+            Returns the empty <see cref="T:CollectionsWithRoles.API.ArrayProxy`1"/> instance.
+            </summary>
+            <value>The empty <see cref="T:CollectionsWithRoles.API.ArrayProxy`1"/> instance.</value>
+        </member>
+        <member name="P:CollectionsWithRoles.API.EmptyArrayProxy`1.Query">
+            <summary>
+            Returns the empty <see cref="T:CollectionsWithRoles.API.ArrayQuery`1"/> instance.
+            </summary>
+            <value>The empty <see cref="T:CollectionsWithRoles.API.ArrayQuery`1"/> instance.</value>
+        </member>
+        <member name="T:CollectionsWithRoles.API.EmptyArrayWithRoles`3">
+            <summary>
+            This class contains static properties to access empty <see cref="T:CollectionsWithRoles.API.ArrayWithRoles`3"/>, <see cref="T:CollectionsWithRoles.API.ArrayQueryOfMutables`3"/> and <see cref="T:CollectionsWithRoles.API.ArrayQueryOfQueries`2"/>.
+            </summary>
+            <typeparam name="TValue">The mutable type of the array elements.</typeparam>
+            <typeparam name="TValueQuery">The query type of the array elements.</typeparam>
+            <typeparam name="TValueImmutable">The immutable query type of the array elements.</typeparam>
+        </member>
+        <member name="P:CollectionsWithRoles.API.EmptyArrayWithRoles`3.Array">
+            <summary>
+            Returns the empty <see cref="T:CollectionsWithRoles.API.ArrayWithRoles`3"/> instance.
+            </summary>
+            <value>The empty <see cref="T:CollectionsWithRoles.API.ArrayWithRoles`3"/> instance.</value>
+        </member>
+        <member name="P:CollectionsWithRoles.API.EmptyArrayWithRoles`3.QueryOfMutable">
+            <summary>
+            Returns the empty <see cref="T:CollectionsWithRoles.API.ArrayQueryOfMutables`3"/> instance.
+            </summary>
+            <value>The empty <see cref="T:CollectionsWithRoles.API.ArrayQueryOfMutables`3"/> instance.</value>
+        </member>
+        <member name="P:CollectionsWithRoles.API.EmptyArrayWithRoles`3.QueryOfQueries">
+            <summary>
+            Returns the empty <see cref="T:CollectionsWithRoles.API.ArrayQueryOfQueries`2"/> instance.
+            </summary>
+            <value>The empty <see cref="T:CollectionsWithRoles.API.ArrayQueryOfQueries`2"/> instance.</value>
+        </member>
+        <member name="T:CollectionsWithRoles.API.EmptyDictionaryQuery`2">
+            <summary>
+            This class contains static property to access query role of empty dictionary.
+            </summary>
+            <typeparam name="TKey">The type of the key for the dictionary.</typeparam>
+            <typeparam name="TValue">The type of the value for the dictionary.</typeparam>
+        </member>
+        <member name="P:CollectionsWithRoles.API.EmptyDictionaryQuery`2.Dictionary">
+            <summary>
+            Returns the empty <see cref="T:CollectionsWithRoles.API.DictionaryQuery`2"/>.
+            </summary>
+            <value>The empty <see cref="T:CollectionsWithRoles.API.DictionaryQuery`2"/>.</value>
+        </member>
+        <member name="T:CollectionsWithRoles.API.ListMutable`2">
+            <summary>
+            This is <c>command</c> role interface for lists. It defines methods which modify list.
+            </summary>
+            <typeparam name="TValue">The type of the elements in the list.</typeparam>
+            <typeparam name="TListQuery">The type of the <c>query</c> role of this list.</typeparam>
+        </member>
+        <member name="M:CollectionsWithRoles.API.ListMutable`2.Insert(System.Int32,`0)">
+            <summary>
+            Inserts an item to this list at the specified index.
+            </summary>
+            <param name="index">The zero-based index at which item should be inserted.</param>
+            <param name="item">The object to insert into this list.</param>
+            <exception cref="T:System.ArgumentOutOfRangeException">The <paramref name="index"/> is not a valid index in this list.</exception>
+        </member>
+        <member name="M:CollectionsWithRoles.API.ListMutable`2.RemoveAt(System.Int32)">
+            <summary>
+            Removes the item at the specified index.
+            </summary>
+            <param name="index">The zero-based index of the item to remove.</param>
+            <exception cref="T:System.ArgumentOutOfRangeException">The <paramref name="index"/> is not a valid index in this list.</exception>
+        </member>
+        <member name="T:CollectionsWithRoles.API.ListQuery`1">
+            <summary>
+            This is the <c>query</c> role for lists. It defines methods which acquire information about the list without modifying it.
+            </summary>
+            <typeparam name="TValue">The type of the elements in the list.</typeparam>
+        </member>
+        <member name="M:CollectionsWithRoles.API.ListQuery`1.IndexOf(`0)">
+            <summary>
+            Determines the index of a specific item in this list.
+            </summary>
+            <param name="item">The object to locate in this list.</param>
+            <returns>The index of item if found in the list; otherwise, -1.</returns>
+        </member>
+        <member name="T:CollectionsWithRoles.API.ListProxy`1">
+            <summary>
+            This is a <c>command</c> role wrapper around <see cref="T:System.Collections.Generic.IList`1"/> that allows Command-Query Separation for normal lists.
+            </summary>
+            <typeparam name="TValue">The type of the elements in the list.</typeparam>
+        </member>
+        <member name="T:CollectionsWithRoles.API.ListProxyQuery`1">
+            <summary>
+            This is a <c>query</c> role wrapper around <see cref="T:System.Collections.Generic.IList`1"/> that allows Command-Query Separation for normal lists.
+            </summary>
+            <typeparam name="TValue">The type of the elements in the list.</typeparam>
+        </member>
+        <member name="T:CollectionsWithRoles.API.ListWithRoles`3">
+            <summary>
+            This is <c>command</c> role for list, which supports Command-Query Separation of its elements.
+            </summary>
+            <typeparam name="TValue">The type of <c>command</c> role of the elements of this list.</typeparam>
+            <typeparam name="TValueQuery">The type of <c>query</c> role of the elements of this list.</typeparam>
+            <typeparam name="TValueImmutable">The type of <c>immutable query</c> role of the elements of this list.</typeparam>
+        </member>
+        <member name="T:CollectionsWithRoles.API.ListQueryOfMutables`3">
+            <summary>
+            This is <c>query of mutables</c> role for list, which supports Command-Query Separation of its elements.
+            </summary>
+            <typeparam name="TValue">The type of <c>command</c> role of the elements of this list.</typeparam>
+            <typeparam name="TValueQuery">The type of <c>query</c> role of the elements of this list.</typeparam>
+            <typeparam name="TValueImmutable">The type of <c>immutable query</c> role of the elements of this list.</typeparam>
+        </member>
+        <member name="T:CollectionsWithRoles.API.ListQueryOfQueries`2">
+            <summary>
+            This is <c>query of queries</c> role for list, which supports Command-Query Separation of its elements.
+            </summary>
+            <typeparam name="TValueQuery">The type of <c>query</c> role of the elements of this list.</typeparam>
+            <typeparam name="TValueImmutable">The type of <c>immutable query</c> role of the elements of this list.</typeparam>
+        </member>
+        <member name="T:CollectionsWithRoles.API.SetMutable`2">
+            <summary>
+            This is <c>command</c> role interface for sets. It defines methods to modify the set.
+            </summary>
+            <typeparam name="TValue">The type of the elements in the set.</typeparam>
+            <typeparam name="TSetQuery">The type of <c>query</c> role of this set.</typeparam>
+        </member>
+        <member name="M:CollectionsWithRoles.API.SetMutable`2.Add(`0)">
+            <summary>
+            Adds an element to the current set and returns a value to indicate if the element was successfully added.
+            </summary>
+            <returns><c>true</c> if the element is added to the set; <c>false</c> if the element is already in the set.</returns>
+            <param name="item">The element to add to the set.</param>
+        </member>
+        <member name="M:CollectionsWithRoles.API.SetMutable`2.UnionWith(System.Collections.Generic.IEnumerable{`0})">
+            <summary>
+            Modifies the current set so that it contains all elements that are present in both the current set and in the specified collection.
+            </summary>
+            <param name="other">The collection to compare to the current set.</param>
+            <exception cref="T:System.ArgumentNullException"><paramref name="other"/> is <c>null</c>.</exception>
+        </member>
+        <member name="M:CollectionsWithRoles.API.SetMutable`2.IntersectWith(System.Collections.Generic.IEnumerable{`0})">
+            <summary>
+            Modifies the current set so that it contains only elements that are also in a specified collection.
+            </summary>
+            <param name="other">The collection to compare to the current set.</param>
+            <exception cref="T:System.ArgumentNullException"><paramref name="other"/> is <c>null</c>.</exception>
+        </member>
+        <member name="M:CollectionsWithRoles.API.SetMutable`2.ExceptWith(System.Collections.Generic.IEnumerable{`0})">
+            <summary>
+            Removes all elements in the specified collection from the current set.
+            </summary>
+            <param name="other">The collection of items to remove from the set.</param>
+            <exception cref="T:System.ArgumentNullException"><paramref name="other"/> is <c>null</c>.</exception>
+        </member>
+        <member name="M:CollectionsWithRoles.API.SetMutable`2.SymmetricExceptWith(System.Collections.Generic.IEnumerable{`0})">
+            <summary>
+            Modifies the current set so that it contains only elements that are present either in the current set or in the specified collection, but not both.
+            </summary>
+            <param name="other">The collection to compare to the current set.</param>
+            <exception cref="T:System.ArgumentNullException"><paramref name="other"/> is <c>null</c>.</exception>
+        </member>
+        <member name="T:CollectionsWithRoles.API.SetQuery`1">
+            <summary>
+            This is <c>query</c> role interface for sets. It defines methods to access the set without modifying it.
+            </summary>
+            <typeparam name="TValue">The type of the elements in the set.</typeparam>
+        </member>
+        <member name="M:CollectionsWithRoles.API.SetQuery`1.IsSubsetOf(System.Collections.Generic.IEnumerable{`0})">
+            <summary>
+            Determines whether a set is a subset of a specified collection.
+            </summary>
+            <returns>true if the current set is a subset of <paramref name="other"/>; otherwise, false.</returns>
+            <param name="other">The collection to compare to the current set.</param>
+            <exception cref="T:System.ArgumentNullException"><paramref name="other"/> is <c>null</c>.</exception>
+        </member>
+        <member name="M:CollectionsWithRoles.API.SetQuery`1.IsSupersetOf(System.Collections.Generic.IEnumerable{`0})">
+            <summary>
+            Determines whether the current set is a superset of a specified collection.
+            </summary>
+            <returns>true if the current set is a superset of <paramref name="other"/>; otherwise, false.</returns>
+            <param name="other">The collection to compare to the current set.</param>
+            <exception cref="T:System.ArgumentNullException"><paramref name="other"/> is <c>null</c>.</exception>
+        </member>
+        <member name="M:CollectionsWithRoles.API.SetQuery`1.IsProperSupersetOf(System.Collections.Generic.IEnumerable{`0})">
+            <summary>
+            Determines whether the current set is a correct superset of a specified collection.
+            </summary>
+            <returns>true if the <see cref="T:System.Collections.Generic.ISet`1"/> object is a correct superset of <paramref name="other"/>; otherwise, false.</returns>
+            <param name="other">The collection to compare to the current set. </param>
+            <exception cref="T:System.ArgumentNullException"><paramref name="other"/> is <c>null</c>.</exception>
+        </member>
+        <member name="M:CollectionsWithRoles.API.SetQuery`1.IsProperSubsetOf(System.Collections.Generic.IEnumerable{`0})">
+            <summary>
+            Determines whether the current set is a property (strict) subset of a specified collection.
+            </summary>
+            <returns>true if the current set is a correct subset of <paramref name="other"/>; otherwise, false.</returns>
+            <param name="other">The collection to compare to the current set.</param>
+            <exception cref="T:System.ArgumentNullException"><paramref name="other"/> is <c>null</c>.</exception>
+        </member>
+        <member name="M:CollectionsWithRoles.API.SetQuery`1.Overlaps(System.Collections.Generic.IEnumerable{`0})">
+            <summary>
+            Determines whether the current set overlaps with the specified collection.
+            </summary>
+            <returns>true if the current set and <paramref name="other"/> share at least one common element; otherwise, false.</returns>
+            <param name="other">The collection to compare to the current set.</param>
+            <exception cref="T:System.ArgumentNullException"><paramref name="other"/> is <c>null</c>.</exception>
+        </member>
+        <member name="M:CollectionsWithRoles.API.SetQuery`1.SetEquals(System.Collections.Generic.IEnumerable{`0})">
+            <summary>
+            Determines whether the current set and the specified collection contain the same elements.
+            </summary>
+            <returns>true if the current set is equal to <paramref name="other"/>; otherwise, false.</returns>
+            <param name="other">The collection to compare to the current set.</param>
+            <exception cref="T:System.ArgumentNullException"><paramref name="other"/> is <c>null</c>.</exception>
+        </member>
+        <member name="T:CollectionsWithRoles.API.SetWithRoles`3">
+            <summary>
+            This is <c>command</c> role for sets, which support Command-Query Separation of its elements.
+            </summary>
+            <typeparam name="TValue">The type of <c>command</c> role of the elements of this set.</typeparam>
+            <typeparam name="TValueQuery">The type of <c>query</c> role of the elements of this set.</typeparam>
+            <typeparam name="TValueImmutable">The type of <c>immutable query</c> role of the elements of this set.</typeparam>
+        </member>
+        <member name="T:CollectionsWithRoles.API.SetQueryOfMutables`3">
+            <summary>
+            This is <c>query of mutables</c> role for sets, which support Command-Query Separation of its elements.
+            </summary>
+            <typeparam name="TValue">The type of <c>command</c> role of the elements of this set.</typeparam>
+            <typeparam name="TValueQuery">The type of <c>query</c> role of the elements of this set.</typeparam>
+            <typeparam name="TValueImmutable">The type of <c>immutable query</c> role of the elements of this set.</typeparam>
+        </member>
+        <member name="T:CollectionsWithRoles.API.SetQueryOfQueries`2">
+            <summary>
+            Thi is <c>query of queries</c> role for sets, which support Command-Query Separation of its elements.
+            </summary>
+            <typeparam name="TValueQuery">The type of <c>query</c> role of the elements of this set.</typeparam>
+            <typeparam name="TValueImmutable">The type of <c>immutable query</c> role of the elements of this set.</typeparam>
+        </member>
+        <member name="T:CollectionsWithRoles.API.SetProxy`1">
+            <summary>
+            This is a <c>command</c> role wrapper around <see cref="T:System.Collections.Generic.ISet`1"/> that allows Command-Query Separation for normal sets.
+            </summary>
+            <typeparam name="TValue">The type of the elements in the set.</typeparam>
+        </member>
+        <member name="T:CollectionsWithRoles.API.SetProxyQuery`1">
+            <summary>
+            This is a <c>query</c> role wrapper around <see cref="T:System.Collections.Generic.ISet`1"/> that allows Command-Query Separation for normal lists.
+            </summary>
+            <typeparam name="TValue">The type of the elements in the set.</typeparam>
+        </member>
+        <member name="T:CollectionsWithRoles.Implementation.MutableQuerySkeleton`1">
+            <summary>
+            This is skeleton implementation for any <c>mutable query</c> role to be used with collections that support Command-Query Separation.
+            </summary>
+            <typeparam name="TImmutableQuery">The type of <c>immutable query</c> role.</typeparam>
+        </member>
+        <member name="M:CollectionsWithRoles.Implementation.MutableQuerySkeleton`1.#ctor(`0)">
+            <summary>
+            Creates a new <see cref="T:CollectionsWithRoles.Implementation.MutableQuerySkeleton`1"/> object.
+            </summary>
+            <param name="immutableQuery">The <c>immutable query</c> role of this object.</param>
+            <exception cref="T:System.ArgumentNullException">If <paramref name="immutableQuery"/> is <c>null</c>.</exception>
+        </member>
+        <member name="M:CollectionsWithRoles.Implementation.MutableQuerySkeleton`1.Equals(System.Object)">
+            <summary>
+            Delegates equality to <c>immutable query</c> role if applicable.
+            </summary>
+            <param name="obj">Another object.</param>
+            <returns><c>True</c> if <c>immutable query</c> role for both this and <paramref name="obj"/> returns <c>true</c>; <c>false</c> otherwise.</returns>
+        </member>
+        <member name="M:CollectionsWithRoles.Implementation.MutableQuerySkeleton`1.GetHashCode">
+            <summary>
+            Delegates hashcode creation to <c>immutable query</c> role.
+            </summary>
+            <returns>The hashcode of <c>immutable query</c> role.</returns>
+        </member>
+        <member name="M:CollectionsWithRoles.Implementation.MutableQuerySkeleton`1.ToString">
+            <summary>
+            Delegates string creation to <c>immutable query</c> role.
+            </summary>
+            <returns>The string representation of the <c>immutable query</c> role.</returns>
+        </member>
+        <member name="P:CollectionsWithRoles.Implementation.MutableQuerySkeleton`1.IQ">
+            <inheritdoc/>
+        </member>
+        <member name="T:CollectionsWithRoles.Implementation.CollectionsFactorySingleton">
+            <summary>
+            Class that exposes the <see cref="T:CollectionsWithRoles.API.CollectionsFactory"/> singleton.
+            </summary>
+        </member>
+        <member name="F:CollectionsWithRoles.Implementation.CollectionsFactorySingleton.DEFAULT_COLLECTIONS_FACTORY">
+            <summary>
+            Provides access to singleton <see cref="T:CollectionsWithRoles.API.CollectionsFactory"/> implementation.
+            </summary>
+        </member>
+        <member name="T:CollectionsWithRoles.Implementation.MutableSkeleton`2">
+            <summary>
+            This is skeleton implementation for any <c>command</c> role to be used with collections that support Command-Query Separation.
+            </summary>
+            <typeparam name="TMutableQuery">The type of <c>mutable query</c> role.</typeparam>
+            <typeparam name="TImmutableQuery">The type of <c>immutable query</c> role.</typeparam>
+        </member>
+        <member name="M:CollectionsWithRoles.Implementation.MutableSkeleton`2.#ctor(`0)">
+            <summary>
+            Creates a new <see cref="T:CollectionsWithRoles.Implementation.MutableSkeleton`2"/> object.
+            </summary>
+            <param name="mutableQuery">The <c>mutable query</c> role of this object.</param>
+            <exception cref="T:System.ArgumentNullException">If <paramref name="mutableQuery"/> is <c>null</c>.</exception>
+        </member>
+        <member name="M:CollectionsWithRoles.Implementation.MutableSkeleton`2.Equals(System.Object)">
+            <summary>
+            Delegates equality to <c>immutable query</c> role if applicable.
+            </summary>
+            <param name="obj">Another object.</param>
+            <returns><c>True</c> if <c>immutable query</c> role for both this and <paramref name="obj"/> returns <c>true</c>; <c>false</c> otherwise.</returns>
+        </member>
+        <member name="M:CollectionsWithRoles.Implementation.MutableSkeleton`2.GetHashCode">
+            <summary>
+            Delegates hashcode creation to <c>immutable query</c> role.
+            </summary>
+            <returns>The hashcode of <c>immutable query</c> role.</returns>
+        </member>
+        <member name="M:CollectionsWithRoles.Implementation.MutableSkeleton`2.ToString">
+            <summary>
+            Delegates string creation to <c>immutable query</c> role.
+            </summary>
+            <returns>The string representation of the <c>immutable query</c> role.</returns>
+        </member>
+        <member name="P:CollectionsWithRoles.Implementation.MutableSkeleton`2.MQ">
+            <inheritdoc/>
+        </member>
+    </members>
+</doc>

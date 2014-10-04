@@ -1,0 +1,98 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="4.0" DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <!-- 
+       TODO make one CILMerge.DLL merged DLL and make CILMerge.MSBuild and CILMerge.EXE use that.
+       The problem will be that CILMerge.MSBuild and CILMerge.EXE will need to be rebuilt using the new references.
+  -->
+  <Import Project="$(MSBuildExtensionsPath)\$(MSBuildToolsVersion)\Microsoft.Common.props" Condition="Exists('$(MSBuildExtensionsPath)\$(MSBuildToolsVersion)\Microsoft.Common.props')" />
+  <PropertyGroup>
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+    <Configuration Condition=" '$(Configuration)' == '' ">Debug</Configuration>
+    <Platform Condition=" '$(Platform)' == '' ">AnyCPU</Platform>
+    <ProjectGuid>{B9BBE0CA-0EBA-4FC9-B433-FE358DA4080B}</ProjectGuid>
+    <OutputType>Library</OutputType>
+    <AppDesignerFolder>Properties</AppDesignerFolder>
+    <RootNamespace>CILMerge</RootNamespace>
+    <AssemblyName>CILMerge.DLL</AssemblyName>
+    <TargetFrameworkVersion>v4.0</TargetFrameworkVersion>
+    <FileAlignment>512</FileAlignment>
+    <GenerateSerializationAssemblies>Off</GenerateSerializationAssemblies>
+    <TargetFrameworkProfile>Client</TargetFrameworkProfile>
+  </PropertyGroup>
+  <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|AnyCPU' ">
+    <DebugSymbols>true</DebugSymbols>
+    <DebugType>full</DebugType>
+    <Optimize>false</Optimize>
+    <OutputPath>..\..\..\Output\Debug\.NETApp\</OutputPath>
+    <DefineConstants>DEBUG;TRACE</DefineConstants>
+    <ErrorReport>prompt</ErrorReport>
+    <WarningLevel>4</WarningLevel>
+  </PropertyGroup>
+  <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Release|AnyCPU' ">
+    <DebugType>none</DebugType>
+    <Optimize>true</Optimize>
+    <OutputPath>..\..\..\Output\Release\.NETApp\</OutputPath>
+    <DefineConstants>TRACE</DefineConstants>
+    <ErrorReport>prompt</ErrorReport>
+    <WarningLevel>4</WarningLevel>
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)' == 'Debug_WP|AnyCPU'">
+    <DebugSymbols>true</DebugSymbols>
+    <OutputPath>..\..\..\Output\Debug\WP\</OutputPath>
+    <DefineConstants>TRACE;DEBUG;WP8_BUILD</DefineConstants>
+    <DebugType>full</DebugType>
+    <PlatformTarget>AnyCPU</PlatformTarget>
+    <ErrorReport>prompt</ErrorReport>
+    <CodeAnalysisRuleSet>MinimumRecommendedRules.ruleset</CodeAnalysisRuleSet>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)' == 'Release_WP|AnyCPU'">
+    <OutputPath>..\..\..\Output\Release\WP\</OutputPath>
+    <DefineConstants>TRACE;WP8_BUILD</DefineConstants>
+    <Optimize>true</Optimize>
+    <DebugType>none</DebugType>
+    <PlatformTarget>AnyCPU</PlatformTarget>
+    <ErrorReport>prompt</ErrorReport>
+    <CodeAnalysisRuleSet>MinimumRecommendedRules.ruleset</CodeAnalysisRuleSet>
+  </PropertyGroup>
+  <ItemGroup>
+    <Reference Include="System" />
+    <Reference Include="System.Core" />
+    <Reference Include="System.Xml.Linq" />
+    <Reference Include="System.Xml" />
+  </ItemGroup>
+  <ItemGroup>
+    <Compile Include="CILMerger.cs" />
+    <Compile Include="Options.cs" />
+    <Compile Include="PDB.cs" />
+    <Compile Include="Properties\AssemblyInfo.cs" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\..\CILAssemblyManipulator\CILAssemblyManipulator.DotNET\CILAssemblyManipulator.DotNET.csproj">
+      <Project>{719d1206-7193-4b77-be9b-5de2655132a6}</Project>
+      <Name>CILAssemblyManipulator.DotNET</Name>
+    </ProjectReference>
+    <ProjectReference Include="..\..\CILAssemblyManipulator\CILAssemblyManipulator.MResources\CILAssemblyManipulator.MResources.csproj">
+      <Project>{99fcb99e-c7eb-49d0-980f-86e61f874fcb}</Project>
+      <Name>CILAssemblyManipulator.MResources</Name>
+    </ProjectReference>
+    <ProjectReference Include="..\..\CILAssemblyManipulator\CILAssemblyManipulator.PDB\CILAssemblyManipulator.PDB.csproj">
+      <Project>{5f874824-aea5-45a0-a0a2-408210397b08}</Project>
+      <Name>CILAssemblyManipulator.PDB</Name>
+    </ProjectReference>
+    <ProjectReference Include="..\..\CILAssemblyManipulator\CILAssemblyManipulator.Core\CILAssemblyManipulator.Core.csproj">
+      <Project>{aeabb192-070f-4c75-bdae-7e29496026ae}</Project>
+      <Name>CILAssemblyManipulator</Name>
+    </ProjectReference>
+    <ProjectReference Include="..\..\CollectionsWithRoles\CollectionsWithRoles.csproj">
+      <Project>{7f7ebfb0-2bf4-44d8-b96f-accc5f99f529}</Project>
+      <Name>CollectionsWithRoles</Name>
+    </ProjectReference>
+    <ProjectReference Include="..\..\CommonUtils\CommonUtils.csproj">
+      <Project>{dba22cd8-ac89-4902-8e44-f4771875e781}</Project>
+      <Name>CommonUtils</Name>
+    </ProjectReference>
+  </ItemGroup>
+  <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
+  <Import Project="../../../CommonBuildTools/CLR/MSBuild/TargetFramework.targets" />
+</Project>

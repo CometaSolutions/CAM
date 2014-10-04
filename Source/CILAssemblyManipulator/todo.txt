@@ -1,0 +1,5 @@
+﻿TODO:
+ - StreamNames -> enum
+ - All table colum names -> enum
+ - Enclosing types string list -> EnclosingType TypeDefOrRef
+ - SignatureElementSchema with loop -> generic arg (Int32, UInt32, etc) so won't need Convert.ChangeType

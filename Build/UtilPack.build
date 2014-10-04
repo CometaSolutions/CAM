@@ -1,0 +1,61 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Project DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <PropertyGroup>
+    <UtilPackBaseDir Condition=" '$(UtilPackBaseDir)' == '' ">$(MSBuildThisFileDirectory)..</UtilPackBaseDir>
+    <UtilPackConfiguration Condition=" '$(UtilPackConfiguration)' == '' ">Debug</UtilPackConfiguration>
+    <UtilPackPlatform Condition=" '$(UtilPackPlatform)' == '' ">AnyCPU</UtilPackPlatform>
+    <UtilPackBuildTargets Condition=" '$(UtilPackBuildTargets)' == '' ">Build</UtilPackBuildTargets>
+    <UtilPackBuildTargets Condition=" '$(MonoBuild)' != '' ">DeleteTargetFrameworkFile;$(UtilPackBuildTargets)</UtilPackBuildTargets>
+    <UtilPackMergeTargets Condition=" '$(UtilPackMergeTargets)' == '' ">GenerateKeyFile;GenerateAssemblyInfoFile;$(UtilPackBuildTargets)</UtilPackMergeTargets>
+  </PropertyGroup>
+  
+  <!-- Projects to build, in build order -->
+  <ItemGroup>
+    <UtilpackProject Include="$(UtilPackBaseDir)/Source/CollectionsWithRoles/CollectionsWithRoles.csproj" />
+  </ItemGroup>
+  
+  <PropertyGroup Condition=" '$(GenerateNuSpec)' != '' ">
+      <NuSpec_OutputPath>$(MSBuildThisFileDirectory)../NuSpec/UtilPack.nuspec</NuSpec_OutputPath>
+      <NuSpec_ID>UtilPack</NuSpec_ID>
+      <NuSpec_VersionFilename>$(MSBuildThisFileDirectory)../Source/UtilPackVersion.txt</NuSpec_VersionFilename>
+      <NuSpec_Authors>Stanislav Muhametsin</NuSpec_Authors>
+      <NuSpec_Description>Utility Package for CLR is small and extremely portable library aimed to provide useful tools to read and write binary data, expose partial collection API (write-only, read-only, Command-Query Separation), and to work with CLR reflection.</NuSpec_Description>
+      <NuSpec_Title>Utility Package for CLR</NuSpec_Title>
+      <NuSpec_AutoCopyright>true</NuSpec_AutoCopyright>
+      <NuSpec_CopyrightInceptionYear>2014</NuSpec_CopyrightInceptionYear>
+      <NuSpec_LicenseURL>http://www.apache.org/licenses/LICENSE-2.0</NuSpec_LicenseURL>
+      <NuSpec_ProjectURL></NuSpec_ProjectURL>
+      <NuSpec_RequireLicenseAcceptance>false</NuSpec_RequireLicenseAcceptance>
+      <NuSpec_Summary>Utility Package is small DLL containing useful components for all kind of applications.</NuSpec_Summary>
+      <NuSpec_Tags>clr .net mono portable utility binary data read write collection command query separation reflection</NuSpec_Tags>
+      <NuSpec_FilesXML><![CDATA[
+        <file src="$(MSBuildThisFileDirectory)..\..\Output\Release\.NETApp\UtilPack.dll" target="lib\portable-net4+windows8\UtilPack.dll" />
+        <file src="$(MSBuildThisFileDirectory)..\..\Output\Release\.NETApp\UtilPack.xml" target="lib\portable-net4+windows8\UtilPack.xml" />
+        <file src="$(MSBuildThisFileDirectory)..\..\Output\Release\SL\UtilPack.dll" target="lib\portable-sl5+wp8\UtilPack.dll" />
+        <file src="$(MSBuildThisFileDirectory)..\..\Output\Release\SL\UtilPack.xml" target="lib\portable-sl5+wp8\UtilPack.xml" />
+        <file src="$(MSBuildThisFileDirectory)..\..\Output\Release\WP\UtilPack.dll" target="lib\wpa\UtilPack.dll" />
+        <file src="$(MSBuildThisFileDirectory)..\..\Output\Release\WP\UtilPack.xml" target="lib\wpa\UtilPack.xml" />
+        <file src="$(MSBuildThisFileDirectory)..\..\Output\Release\WP\UtilPack.pri" target="lib\wpa\UtilPack.pri" />
+      ]]></NuSpec_FilesXML>
+    </PropertyGroup>
+   <Import Project="$(MSBuildThisFileDirectory)../CommonBuildTools/CLR/MSBuild/NuSpec.targets" />
+
+  <Target Name="Build">
+    <!-- All projects require CILMerge task, so build that. -->
+    <MSBuild Projects="$(UtilPackBaseDir)/Build/CILMerge.build" Properties="CILMergeConfiguration=Release;CILMergePlatform=AnyCPU" />
+    
+    <!-- Build UtilPack projects -->
+    <MSBuild Projects="@(UtilpackProject)" Targets="$(UtilPackBuildTargets)" Properties="Configuration=$(UtilPackConfiguration);Platform=$(UtilPackPlatform)" />
+    
+    <!-- Build merged DLL -->
+    <MSBuild Projects="$(UtilPackBaseDir)/Source/UtilPack/UtilPack.csproj" Targets="$(UtilPackMergeTargets)" Properties="Configuration=$(UtilPackConfiguration);Platform=$(UtilPackPlatform)" />
+    
+    <!-- NuSpec file, if needed -->
+    <Error Condition=" '$(GenerateNuSpec)' != '' and '$(NuSpec_ReleaseNotes)' == '' " Text="Release notes must be provided if generating nuspect file." />
+
+    <CallTarget
+      Condition=" '$(GenerateNuSpec)' != '' "
+      Targets="GenerateNuSpecFile"
+      />
+  </Target>
+</Project>

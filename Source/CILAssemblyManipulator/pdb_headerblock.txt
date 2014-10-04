@@ -1,0 +1,326 @@
+After header, before indexing start:
+int32 - entries count
+int32 - hash bucket count
+int32 - count of int32's for buckets
+int32 - bucket presence bitset
+int32 - 0
+<entries>
+
+Original:
+
+00001000h: F8 62 51 3F C6 07 D3 11 90 53 00 C0 4F A3 02 A1 ; øbQ?Æ.Ó.S.ÀO£.¡
+00001010h: C4 45 4B 99 E9 E6 D2 11 90 3F 00 C0 4F A3 02 A1 ; ÄEK™éæÒ.?.ÀO£.¡
+00001020h: 0B 9D 86 5A 11 66 D3 11 BD 2A 00 00 F8 08 49 BD ; .†Z.fÓ.½*..ø.I½
+00001030h: 60 A6 6E 40 CF 64 82 4C B6 F0 42 D4 81 72 A7 99 ; `¦n@Ïd‚L¶ðBÔr§™
+00001040h: 10 00 00 00 00 00 00 00 A6 51 11 D6 72 ED A5 6B ; ........¦Q.Örí¥k
+00001050h: 91 1B 63 D9 96 68 E9 3D                         ; ‘.cÙ–hé=
+
+
+00001600h: 1B E2 30 01 80 00 00 00 00 00 00 00 00 00 00 00 ; .â0.€...........
+00001610h: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 ; ................
+00001620h: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 ; ................
+00001630h: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 ; ................
+00001640h: 01 00 00 00 02 00 00 00 01 00 00 00 02 00 00 00 ; ................
+00001650h: 00 00 00 00 39 00 00 00 28 00 00 00 1B E2 30 01 ; ....9...(....â0.
+00001660h: 00 00 00 00 58 00 00 00 01 00 00 00 00 00 00 00 ; ....X...........
+00001670h: 01 00 00 00 65 00 00 00 00 00 00 00 00 00 00 00 ; ....e...........
+
+Generated:
+00000600h: F8 62 51 3F C6 07 D3 11 90 53 00 C0 4F A3 02 A1 ; øbQ?Æ.Ó.S.ÀO£.¡
+00000610h: C4 45 4B 99 E9 E6 D2 11 90 3F 00 C0 4F A3 02 A1 ; ÄEK™éæÒ.?.ÀO£.¡
+00000620h: 0B 9D 86 5A 11 66 D3 11 BD 2A 00 00 F8 08 49 BD ; .†Z.fÓ.½*..ø.I½
+00000630h: 60 A6 6E 40 CF 64 82 4C B6 F0 42 D4 81 72 A7 99 ; `¦n@Ïd‚L¶ðBÔr§™
+00000640h: 10 00 00 00 00 00 00 00 A6 51 11 D6 72 ED A5 6B ; ........¦Q.Örí¥k
+00000650h: 91 1B 63 D9 96 68 E9 3D                         ; ‘.cÙ–hé=
+
+00000800h: 1B E2 30 01 80 00 00 00 00 00 00 00 00 00 00 00 ; .â0.€...........
+00000810h: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 ; ................
+00000820h: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 ; ................
+00000830h: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 ; ................
+00000840h: 01 00 00 00 02 00 00 00 01 00 00 00 02 00 00 00 ; ................
+00000850h: 00 00 00 00 39 00 00 00 28 00 00 00 1B E2 30 01 ; ....9...(....â0.
+00000860h: 00 00 00 00 58 00 00 00 01 00 00 00 00 00 00 00 ; ....X...........
+00000870h: 01 00 00 00 65 00 00 00 00 00 00 00 00 00 00 00 ; ....e...........
+
+
+1 file (A.cs) (idx - 0x39):
+00001640h: 01 00 00 00 02 00 00 00 01 00 00 00 02 00 00 00 ; ................ 0000 0010
+
+1 file (AA.cs) (idx - 0x3A):
+00001640h: 01 00 00 00 02 00 00 00 01 00 00 00 01 00 00 00 ; ................ 0000 0001
+
+1 file (AAA.cs) (idx - 0x3B):
+00001640h: 01 00 00 00 02 00 00 00 01 00 00 00 02 00 00 00 ; ................ 0000 0010
+
+2 files (A.cs, B.cs) (idx - 0x39[a.cs], 0xA7[b.cs]):
+00001840h: 02 00 00 00 04 00 00 00 01 00 00 00 0A 00 00 00 ; ................ 0000 1010
+Exchanging indices causes both A.cs and B.cs .language to fail.
+                   0A (1010) -> both fail.
+If set last int to 06 (0110) -> A works, B doesn't.
+If set last int to 05 (0101) -> both fail again.
+If last int set to 09 (1001) -> B works, A doesn't.
+                   01 (0001) -> both fail.
+                   02 (0010) -> both fail.
+                   03 (0011) -> A works, B doesn't.
+                   04 (0010) -> A works, B doesn't.
+                   07 (0111) -> both fail.
+                   08 (0100) -> both fail.
+                   0B (1011) -> both fail.
+                   0C (1100) -> both fail.
+                   0D (1101) -> both fail.
+                   0E (1110) -> both fail.
+                   0F (1111) -> both fail.
+2 files (AA.cs, B.cs) (idx - 0xA9, 0x3A):
+00001840h: 02 00 00 00 04 00 00 00 01 00 00 00 06 00 00 00 ; ................ 0000 0110
+
+2 files (AA.cs, BB.cs) (idx - 0x3A, 0xAA):
+00001840h: 02 00 00 00 04 00 00 00 01 00 00 00 0C 00 00 00 ; ................ 0000 1100
+
+2 files (A.cs, BB.cs) (idx - 0xA8[bb.cs], 0x39[a.cs]):
+00001840h: 02 00 00 00 04 00 00 00 01 00 00 00 03 00 00 00 ; ................ 0000 0011
+Exchanging indices causes A.cs .language to fail.
+
+3 files:
+00001a40h: 03 00 00 00 06 00 00 00 01 00 00 00 38 00 00 00 ; ............8... 0011 1000
+
+Apparently - amount of set bits = amount of present entries.
+
+Entry:
+int32 - search term name index
+int32 - entry byte count, including this int32
+int32 - signature, ignored
+int32 - checksum (?), ignored
+int32 - source data format (?), 0x58
+int32 - source file name index
+int32 - name index to empty string
+int32 - name index for source stream suffix
+int32 - something, 0x65
+int32 - 0
+int32 - 0
+
+idx - idx % hashbucket count
+
+313 - 1:   c:\work\trinity\git\repo\commons\qi4cs\qi4cs.core.architectures\model\singletonapplicationmodelimpl.cs
+106 - 2:   c:\work\trinity\git\repo\commons\qi4cs\qi4cs.core.architectures\assembling\singletonarchitectureimpl.cs
+3747 - 3:  c:\work\trinity\git\repo\commons\qi4cs\qi4cs.core.architectures\model\layeredapplicationserviceinjectionfunctionality.cs
+4631 - 3:  c:\work\trinity\git\repo\commons\qi4cs\qi4cs.core.architectures\assembling\layeredservicecompositeassemblydeclarationfornewimpl.cs
+3281 - 5:  c:\work\trinity\git\repo\commons\qi4cs\qi4cs.core.architectures\instance\layeredapplicationimpl.cs
+1405 - 1:  c:\work\trinity\git\repo\commons\qi4cs\qi4cs.core.architectures\model\singletonmodeltypesupport.cs
+2141 - 9:  c:\work\trinity\git\repo\commons\qi4cs\qi4cs.core.architectures\model\layeredmodeltypesupport.cs
+738 - 10:  c:\work\trinity\git\repo\commons\qi4cs\qi4cs.core.architectures\model\singletonapplicationstructureinjectionprovider.cs
+1205 - 9:  c:\work\trinity\git\repo\commons\qi4cs\qi4cs.core.architectures\assembling\singletonassemblerimpl.cs
+4172 - 12: c:\work\trinity\git\repo\commons\qi4cs\qi4cs.core.architectures\instance\layeredmodeltypesupport.cs
+4898 - 10: c:\work\trinity\git\repo\commons\qi4cs\qi4cs.core.architectures\assembling\layeredservicecompositeassemblydeclarationforexistingimpl.cs
+2923 - 11: c:\work\trinity\git\repo\commons\qi4cs\qi4cs.core.architectures\instance\moduleimpl.cs
+5625 - 9:  c:\work\trinity\git\repo\commons\qi4cs\qi4cs.core.architectures\assembling\layeredcompositeassemblydeclarationforexistingimpl.cs
+5372 - 16: c:\work\trinity\git\repo\commons\qi4cs\qi4cs.core.architectures\assembling\layeredcompositeassemblydeclarationfornewimpl.cs
+3970 - 18: c:\work\trinity\git\repo\commons\qi4cs\qi4cs.core.architectures\instance\singletonmodeltypesupport.cs
+3503 - 19: c:\work\trinity\git\repo\commons\qi4cs\qi4cs.core.architectures\model\layeredapplicationstructureinjectionfunctionality.cs
+4386 - 18: c:\work\trinity\git\repo\commons\qi4cs\qi4cs.core.architectures\assembling\layeredservicecompositeassemblyinfo.cs
+6676 - 20: c:\work\trinity\git\repo\commons\qi4cs\qi4cs.core.architectures\assembling\layeredmodeltypesupport.cs
+1791 - 23: c:\work\trinity\git\repo\commons\qi4cs\qi4cs.core.architectures\model\modulemodel.cs
+6264 - 24: c:\work\trinity\git\repo\commons\qi4cs\qi4cs.core.architectures\assembling\singletonmodeltypesupport.cs
+6471 - 23: c:\work\trinity\git\repo\commons\qi4cs\qi4cs.core.architectures\assembling\qi4csarchitecturefactory.cs
+3096 - 28: c:\work\trinity\git\repo\commons\qi4cs\qi4cs.core.architectures\instance\layerimpl.cs
+2736 - 32: c:\work\trinity\git\repo\commons\qi4cs\qi4cs.core.architectures\assembling\layerarchitectureimpl.cs
+6065 - 33: c:\work\trinity\git\repo\commons\qi4cs\qi4cs.core.architectures\common\compositeidgenerator.cs
+1960 - 36: c:\work\trinity\git\repo\commons\qi4cs\qi4cs.core.architectures\model\layermodel.cs
+2534 - 38: c:\work\trinity\git\repo\commons\qi4cs\qi4cs.core.architectures\assembling\layeredarchitectureimpl.cs
+5862 - 38: c:\work\trinity\git\repo\commons\qi4cs\qi4cs.core.architectures\assembling\layeredcompositeassemblerimpl.cs
+1605 - 45: c:\work\trinity\git\repo\commons\qi4cs\qi4cs.core.architectures\assembling\modulearchitectureimpl.cs
+5141 - 45: c:\work\trinity\git\repo\commons\qi4cs\qi4cs.core.architectures\assembling\layeredcompositeassemblyinfo.cs
+2335 - 47: c:\work\trinity\git\repo\commons\qi4cs\qi4cs.core.architectures\model\layeredapplicationmodel.cs
+981 - 45:  c:\work\trinity\git\repo\commons\qi4cs\qi4cs.core.architectures\model\singletonapplicationserviceinjectionfunctionality.cs
+517 - 49:  c:\work\trinity\git\repo\commons\qi4cs\qi4cs.core.architectures\instance\singletonapplicationimpl.cs
+
+c:\work\trinity\git\repo\commons\qi4cs\qi4cs.core.architectures\model\singletonapplicationmodelimpl.cs <- always needs to be lowercase? maybe search term? and VS etc uses always tolowercase when searching?
+hdr data
+c:\work\trinity\git\repo\commons\qi4cs\Qi4CS.Core.Architectures\Model\SingletonApplicationModelImpl.cs - file name, not needed
+ - not needed
+c:\work\trinity\git\repo\commons\qi4cs\qi4cs.core.architectures\model\singletonapplicationmodelimpl.cs <- stream name suffix
+ending data
+
+c:\work\trinity\git\repo\commons\qi4cs\qi4cs.core.architectures\assembling\singletonarchitectureimpl.cs
+c:\work\trinity\git\repo\commons\qi4cs\Qi4CS.Core.Architectures\Assembling\SingletonArchitectureImpl.cs
+
+c:\work\trinity\git\repo\commons\qi4cs\qi4cs.core.architectures\assembling\singletonarchitectureimpl.cs
+
+
+c:\work\trinity\git\repo\commons\qi4cs\qi4cs.core.architectures\model\layeredapplicationserviceinjectionfunctionality.cs
+c:\work\trinity\git\repo\commons\qi4cs\Qi4CS.Core.Architectures\Model\LayeredApplicationServiceInjectionFunctionality.cs
+
+c:\work\trinity\git\repo\commons\qi4cs\qi4cs.core.architectures\model\layeredapplicationserviceinjectionfunctionality.cs
+
+
+c:\work\trinity\git\repo\commons\qi4cs\qi4cs.core.architectures\assembling\layeredservicecompositeassemblydeclarationfornewimpl.cs
+c:\work\trinity\git\repo\commons\qi4cs\Qi4CS.Core.Architectures\Assembling\LayeredServiceCompositeAssemblyDeclarationForNewImpl.cs
+
+c:\work\trinity\git\repo\commons\qi4cs\qi4cs.core.architectures\assembling\layeredservicecompositeassemblydeclarationfornewimpl.cs
+
+
+c:\work\trinity\git\repo\commons\qi4cs\qi4cs.core.architectures\instance\layeredapplicationimpl.cs
+c:\work\trinity\git\repo\commons\qi4cs\Qi4CS.Core.Architectures\Instance\LayeredApplicationImpl.cs
+
+c:\work\trinity\git\repo\commons\qi4cs\qi4cs.core.architectures\instance\layeredapplicationimpl.cs
+
+
+c:\work\trinity\git\repo\commons\qi4cs\qi4cs.core.architectures\model\singletonmodeltypesupport.cs
+c:\work\trinity\git\repo\commons\qi4cs\Qi4CS.Core.Architectures\Model\SingletonModelTypeSupport.cs
+
+c:\work\trinity\git\repo\commons\qi4cs\qi4cs.core.architectures\model\singletonmodeltypesupport.cs
+
+
+c:\work\trinity\git\repo\commons\qi4cs\qi4cs.core.architectures\model\layeredmodeltypesupport.cs
+c:\work\trinity\git\repo\commons\qi4cs\Qi4CS.Core.Architectures\Model\LayeredModelTypeSupport.cs
+
+c:\work\trinity\git\repo\commons\qi4cs\qi4cs.core.architectures\model\layeredmodeltypesupport.cs
+
+
+c:\work\trinity\git\repo\commons\qi4cs\qi4cs.core.architectures\model\singletonapplicationstructureinjectionprovider.cs
+c:\work\trinity\git\repo\commons\qi4cs\Qi4CS.Core.Architectures\Model\SingletonApplicationStructureInjectionProvider.cs
+
+c:\work\trinity\git\repo\commons\qi4cs\qi4cs.core.architectures\model\singletonapplicationstructureinjectionprovider.cs
+
+
+c:\work\trinity\git\repo\commons\qi4cs\qi4cs.core.architectures\assembling\singletonassemblerimpl.cs
+c:\work\trinity\git\repo\commons\qi4cs\Qi4CS.Core.Architectures\Assembling\SingletonAssemblerImpl.cs
+
+c:\work\trinity\git\repo\commons\qi4cs\qi4cs.core.architectures\assembling\singletonassemblerimpl.cs
+
+
+c:\work\trinity\git\repo\commons\qi4cs\qi4cs.core.architectures\instance\layeredmodeltypesupport.cs
+c:\work\trinity\git\repo\commons\qi4cs\Qi4CS.Core.Architectures\Instance\LayeredModelTypeSupport.cs
+
+c:\work\trinity\git\repo\commons\qi4cs\qi4cs.core.architectures\instance\layeredmodeltypesupport.cs
+
+
+c:\work\trinity\git\repo\commons\qi4cs\qi4cs.core.architectures\assembling\layeredservicecompositeassemblydeclarationforexistingimpl.cs
+c:\work\trinity\git\repo\commons\qi4cs\Qi4CS.Core.Architectures\Assembling\LayeredServiceCompositeAssemblyDeclarationForExistingImpl.cs
+
+c:\work\trinity\git\repo\commons\qi4cs\qi4cs.core.architectures\assembling\layeredservicecompositeassemblydeclarationforexistingimpl.cs
+
+
+c:\work\trinity\git\repo\commons\qi4cs\qi4cs.core.architectures\instance\moduleimpl.cs
+c:\work\trinity\git\repo\commons\qi4cs\Qi4CS.Core.Architectures\Instance\ModuleImpl.cs
+
+c:\work\trinity\git\repo\commons\qi4cs\qi4cs.core.architectures\instance\moduleimpl.cs
+
+
+c:\work\trinity\git\repo\commons\qi4cs\qi4cs.core.architectures\assembling\layeredcompositeassemblydeclarationforexistingimpl.cs
+c:\work\trinity\git\repo\commons\qi4cs\Qi4CS.Core.Architectures\Assembling\LayeredCompositeAssemblyDeclarationForExistingImpl.cs
+
+c:\work\trinity\git\repo\commons\qi4cs\qi4cs.core.architectures\assembling\layeredcompositeassemblydeclarationforexistingimpl.cs
+
+
+c:\work\trinity\git\repo\commons\qi4cs\qi4cs.core.architectures\assembling\layeredcompositeassemblydeclarationfornewimpl.cs
+c:\work\trinity\git\repo\commons\qi4cs\Qi4CS.Core.Architectures\Assembling\LayeredCompositeAssemblyDeclarationForNewImpl.cs
+
+c:\work\trinity\git\repo\commons\qi4cs\qi4cs.core.architectures\assembling\layeredcompositeassemblydeclarationfornewimpl.cs
+
+
+c:\work\trinity\git\repo\commons\qi4cs\qi4cs.core.architectures\instance\singletonmodeltypesupport.cs
+c:\work\trinity\git\repo\commons\qi4cs\Qi4CS.Core.Architectures\Instance\SingletonModelTypeSupport.cs
+
+c:\work\trinity\git\repo\commons\qi4cs\qi4cs.core.architectures\instance\singletonmodeltypesupport.cs
+
+
+c:\work\trinity\git\repo\commons\qi4cs\qi4cs.core.architectures\model\layeredapplicationstructureinjectionfunctionality.cs
+c:\work\trinity\git\repo\commons\qi4cs\Qi4CS.Core.Architectures\Model\LayeredApplicationStructureInjectionFunctionality.cs
+
+c:\work\trinity\git\repo\commons\qi4cs\qi4cs.core.architectures\model\layeredapplicationstructureinjectionfunctionality.cs
+
+
+c:\work\trinity\git\repo\commons\qi4cs\qi4cs.core.architectures\assembling\layeredservicecompositeassemblyinfo.cs
+c:\work\trinity\git\repo\commons\qi4cs\Qi4CS.Core.Architectures\Assembling\LayeredServiceCompositeAssemblyInfo.cs
+
+c:\work\trinity\git\repo\commons\qi4cs\qi4cs.core.architectures\assembling\layeredservicecompositeassemblyinfo.cs
+
+
+c:\work\trinity\git\repo\commons\qi4cs\qi4cs.core.architectures\assembling\layeredmodeltypesupport.cs
+c:\work\trinity\git\repo\commons\qi4cs\Qi4CS.Core.Architectures\Assembling\LayeredModelTypeSupport.cs
+
+c:\work\trinity\git\repo\commons\qi4cs\qi4cs.core.architectures\assembling\layeredmodeltypesupport.cs
+
+
+c:\work\trinity\git\repo\commons\qi4cs\qi4cs.core.architectures\model\modulemodel.cs
+c:\work\trinity\git\repo\commons\qi4cs\Qi4CS.Core.Architectures\Model\ModuleModel.cs
+
+c:\work\trinity\git\repo\commons\qi4cs\qi4cs.core.architectures\model\modulemodel.cs
+
+
+c:\work\trinity\git\repo\commons\qi4cs\qi4cs.core.architectures\assembling\singletonmodeltypesupport.cs
+c:\work\trinity\git\repo\commons\qi4cs\Qi4CS.Core.Architectures\Assembling\SingletonModelTypeSupport.cs
+
+c:\work\trinity\git\repo\commons\qi4cs\qi4cs.core.architectures\assembling\singletonmodeltypesupport.cs
+
+
+c:\work\trinity\git\repo\commons\qi4cs\qi4cs.core.architectures\assembling\qi4csarchitecturefactory.cs
+c:\work\trinity\git\repo\commons\qi4cs\Qi4CS.Core.Architectures\Assembling\Qi4CSArchitectureFactory.cs
+
+c:\work\trinity\git\repo\commons\qi4cs\qi4cs.core.architectures\assembling\qi4csarchitecturefactory.cs
+
+
+c:\work\trinity\git\repo\commons\qi4cs\qi4cs.core.architectures\instance\layerimpl.cs
+c:\work\trinity\git\repo\commons\qi4cs\Qi4CS.Core.Architectures\Instance\LayerImpl.cs
+
+c:\work\trinity\git\repo\commons\qi4cs\qi4cs.core.architectures\instance\layerimpl.cs
+
+
+c:\work\trinity\git\repo\commons\qi4cs\qi4cs.core.architectures\assembling\layerarchitectureimpl.cs
+c:\work\trinity\git\repo\commons\qi4cs\Qi4CS.Core.Architectures\Assembling\LayerArchitectureImpl.cs
+
+c:\work\trinity\git\repo\commons\qi4cs\qi4cs.core.architectures\assembling\layerarchitectureimpl.cs
+
+
+c:\work\trinity\git\repo\commons\qi4cs\qi4cs.core.architectures\common\compositeidgenerator.cs
+c:\work\trinity\git\repo\commons\qi4cs\Qi4CS.Core.Architectures\Common\CompositeIDGenerator.cs
+
+c:\work\trinity\git\repo\commons\qi4cs\qi4cs.core.architectures\common\compositeidgenerator.cs
+
+
+c:\work\trinity\git\repo\commons\qi4cs\qi4cs.core.architectures\model\layermodel.cs
+c:\work\trinity\git\repo\commons\qi4cs\Qi4CS.Core.Architectures\Model\LayerModel.cs
+
+c:\work\trinity\git\repo\commons\qi4cs\qi4cs.core.architectures\model\layermodel.cs
+
+
+c:\work\trinity\git\repo\commons\qi4cs\qi4cs.core.architectures\assembling\layeredarchitectureimpl.cs
+c:\work\trinity\git\repo\commons\qi4cs\Qi4CS.Core.Architectures\Assembling\LayeredArchitectureImpl.cs
+
+c:\work\trinity\git\repo\commons\qi4cs\qi4cs.core.architectures\assembling\layeredarchitectureimpl.cs
+
+
+c:\work\trinity\git\repo\commons\qi4cs\qi4cs.core.architectures\assembling\layeredcompositeassemblerimpl.cs
+c:\work\trinity\git\repo\commons\qi4cs\Qi4CS.Core.Architectures\Assembling\LayeredCompositeAssemblerImpl.cs
+
+c:\work\trinity\git\repo\commons\qi4cs\qi4cs.core.architectures\assembling\layeredcompositeassemblerimpl.cs
+
+
+c:\work\trinity\git\repo\commons\qi4cs\qi4cs.core.architectures\assembling\modulearchitectureimpl.cs
+c:\work\trinity\git\repo\commons\qi4cs\Qi4CS.Core.Architectures\Assembling\ModuleArchitectureImpl.cs
+
+c:\work\trinity\git\repo\commons\qi4cs\qi4cs.core.architectures\assembling\modulearchitectureimpl.cs
+
+
+c:\work\trinity\git\repo\commons\qi4cs\qi4cs.core.architectures\assembling\layeredcompositeassemblyinfo.cs
+c:\work\trinity\git\repo\commons\qi4cs\Qi4CS.Core.Architectures\Assembling\LayeredCompositeAssemblyInfo.cs
+
+c:\work\trinity\git\repo\commons\qi4cs\qi4cs.core.architectures\assembling\layeredcompositeassemblyinfo.cs
+
+
+c:\work\trinity\git\repo\commons\qi4cs\qi4cs.core.architectures\model\layeredapplicationmodel.cs
+c:\work\trinity\git\repo\commons\qi4cs\Qi4CS.Core.Architectures\Model\LayeredApplicationModel.cs
+
+c:\work\trinity\git\repo\commons\qi4cs\qi4cs.core.architectures\model\layeredapplicationmodel.cs
+
+
+c:\work\trinity\git\repo\commons\qi4cs\qi4cs.core.architectures\model\singletonapplicationserviceinjectionfunctionality.cs
+c:\work\trinity\git\repo\commons\qi4cs\Qi4CS.Core.Architectures\Model\SingletonApplicationServiceInjectionFunctionality.cs
+
+c:\work\trinity\git\repo\commons\qi4cs\qi4cs.core.architectures\model\singletonapplicationserviceinjectionfunctionality.cs
+
+
+c:\work\trinity\git\repo\commons\qi4cs\qi4cs.core.architectures\instance\singletonapplicationimpl.cs
+c:\work\trinity\git\repo\commons\qi4cs\Qi4CS.Core.Architectures\Instance\SingletonApplicationImpl.cs
+
+c:\work\trinity\git\repo\commons\qi4cs\qi4cs.core.architectures\instance\singletonapplicationimpl.cs

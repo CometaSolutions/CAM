@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Project DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <PropertyGroup>
+    <CAMPortableBaseDir Condition=" '$(CAMPortableBaseDir)' == '' ">$(MSBuildThisFileDirectory)..</CAMPortableBaseDir>
+    <CAMPortableConfiguration Condition=" '$(CAMPortableConfiguration)' == '' ">Debug</CAMPortableConfiguration>
+    <CAMPortablePlatform Condition=" '$(CAMPortablePlatform)' == '' ">AnyCPU</CAMPortablePlatform>
+    <CAMPortableBuildTargets Condition=" '$(CAMPortableBuildTargets)' == '' ">Build</CAMPortableBuildTargets>
+    <CAMPortableBuildTargets Condition=" '$(MonoBuild)' != '' ">DeleteTargetFrameworkFile;$(CAMPortableBuildTargets)</CAMPortableBuildTargets>
+    <CAMPortableMergeTargets Condition=" '$(CAMPortableMergeTargets)' == '' ">GenerateKeyFile;GenerateAssemblyInfoFile;$(CAMPortableBuildTargets)</CAMPortableMergeTargets>
+    <UtilPackConfiguration Condition=" '$(UtilPackConfiguration)' == '' ">$(CAMPortableConfiguration)</UtilPackConfiguration>
+    <UtilPackPlatform Condition=" '$(UtilPackPlatform)' == '' ">$(CAMPortablePlatform)</UtilPackPlatform>
+  </PropertyGroup>
+  
+  <!-- Projects to build, in build order -->
+  <ItemGroup>
+    <CAMPortableProject Include="$(CAMPortableBaseDir)/Source/CILAssemblyManipulator/CILAssemblyManipulator.Core/CILAssemblyManipulator.Core.csproj" />
+    <CAMPortableProject Include="$(CAMPortableBaseDir)/Source/CILAssemblyManipulator/CILAssemblyManipulator.MResources/CILAssemblyManipulator.MResources.csproj" />
+    <CAMPortableProject Include="$(CAMPortableBaseDir)/Source/CILAssemblyManipulator/CILAssemblyManipulator.PDB/CILAssemblyManipulator.PDB.csproj" />
+  </ItemGroup>
+  
+  <Target Name="Build">
+    <!-- Build Utilpack. This will build Common Build Tools and CILMerge, both needed by this build -->
+    <MSBuild Projects="$(CAMPortableBaseDir)/Build/UtilPack.build" Properties="UtilPackConfiguration=$(UtilPackConfiguration);UtilPackPlatform=$(UtilPackPlatform)" />
+    
+    <!-- Build CAMPortable projects -->
+    <MSBuild Projects="@(CAMPortableProject)" Targets="$(CAMPortableBuildTargets)" Properties="Configuration=$(CAMPortableConfiguration);Platform=$(CAMPortablePlatform)" />
+    
+    <!-- Build merged DLL (force rebuild by touching the CAM core) -->
+    <Touch Files="$(CAMPortableBaseDir)/Source/CILAssemblyManipulator/CILAssemblyManipulator.Core/CILAssemblyManipulator.Core.csproj" ForceTouch="True" />
+    <MSBuild Projects="$(CAMPortableBaseDir)/Source/CILAssemblyManipulator/CILAssemblyManipulator.Portable/CILAssemblyManipulator.Portable.csproj" Targets="$(CAMPortableMergeTargets)" Properties="Configuration=$(CAMPortableConfiguration);Platform=$(CAMPortablePlatform);UseUtilpackReference=true" />
+  </Target>
+</Project>
