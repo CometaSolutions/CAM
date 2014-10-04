@@ -15,7 +15,8 @@
   </ItemGroup>
   
   <!-- NuSpec file information -->
-  <PropertyGroup Condition=" '$(GenerateNuSpec)' != '' ">
+  <PropertyGroup>
+      <UtilPackBaseDirNuSpec>$([System.IO.Path]::GetFullPath($(UtilPackBaseDir)))</UtilPackBaseDirNuSpec>
       <NuSpec_OutputPath>$(MSBuildThisFileDirectory)../NuSpec/UtilPack.nuspec</NuSpec_OutputPath>
       <NuSpec_ID>UtilPack</NuSpec_ID>
       <NuSpec_VersionFilename>$(MSBuildThisFileDirectory)../Source/UtilPackVersion.txt</NuSpec_VersionFilename>
@@ -30,13 +31,13 @@
       <NuSpec_Summary>Utility Package is small DLL containing useful components for all kind of applications.</NuSpec_Summary>
       <NuSpec_Tags>clr .net mono portable utility binary data read write collection command query separation reflection</NuSpec_Tags>
       <NuSpec_FilesXML><![CDATA[
-        <file src="$([System.IO.Path]::GetFullPath($(UtilPackBaseDir)\Output\Release\.NETApp\UtilPack.dll)" target="lib\portable-net4+windows8\UtilPack.dll" />
-        <file src="$([System.IO.Path]::GetFullPath($(UtilPackBaseDir)\Output\Release\.NETApp\UtilPack.xml)" target="lib\portable-net4+windows8\UtilPack.xml" />
-        <file src="$([System.IO.Path]::GetFullPath($(UtilPackBaseDir)\Output\Release\SL\UtilPack.dll)" target="lib\portable-sl5+wp8\UtilPack.dll" />
-        <file src="$([System.IO.Path]::GetFullPath($(UtilPackBaseDir)\Output\Release\SL\UtilPack.xml)" target="lib\portable-sl5+wp8\UtilPack.xml" />
-        <file src="$([System.IO.Path]::GetFullPath($(UtilPackBaseDir)\Output\Release\WP\UtilPack.dll)" target="lib\wpa\UtilPack.dll" />
-        <file src="$([System.IO.Path]::GetFullPath($(UtilPackBaseDir)\Output\Release\WP\UtilPack.xml)" target="lib\wpa\UtilPack.xml" />
-        <file src="$([System.IO.Path]::GetFullPath($(UtilPackBaseDir)\Output\Release\WP\UtilPack.pri)" target="lib\wpa\UtilPack.pri" />
+        <file src="$(UtilPackBaseDirNuSpec)\Output\Release\.NETApp\UtilPack.dll" target="lib\portable-net4+windows8\UtilPack.dll" />
+        <file src="$(UtilPackBaseDirNuSpec)\Output\Release\.NETApp\UtilPack.xml" target="lib\portable-net4+windows8\UtilPack.xml" />
+        <file src="$(UtilPackBaseDirNuSpec)\Output\Release\SL\UtilPack.dll" target="lib\portable-sl5+wp8\UtilPack.dll" />
+        <file src="$(UtilPackBaseDirNuSpec)\Output\Release\SL\UtilPack.xml" target="lib\portable-sl5+wp8\UtilPack.xml" />
+        <file src="$(UtilPackBaseDirNuSpec)\Output\Release\WP\UtilPack.dll" target="lib\wpa\UtilPack.dll" />
+        <file src="$(UtilPackBaseDirNuSpec)\Output\Release\WP\UtilPack.xml" target="lib\wpa\UtilPack.xml" />
+        <file src="$(UtilPackBaseDirNuSpec)\Output\Release\WP\UtilPack.pri" target="lib\wpa\UtilPack.pri" />
       ]]></NuSpec_FilesXML>
     </PropertyGroup>
   <Import Project="$(UtilPackBaseDir)/CommonBuildTools/CLR/MSBuild/NuSpec.targets" />
@@ -88,7 +89,6 @@
     <Exec Command="&quot;$(PEVerify)&quot; &quot;$(UtilPackBaseDir)\Output\Release\WP\UtilPack.dll&quot; /IL /MD /VERBOSE /NOLOGO" />
     
     <CallTarget
-      Condition=" '$(GenerateNuSpec)' != '' "
       Targets="GenerateNuSpecFile"
       />
   </Target>
