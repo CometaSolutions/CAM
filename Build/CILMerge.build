@@ -27,7 +27,7 @@
       <NuSpec_ProjectURL>https://github.com/CometaSolutions/CAM</NuSpec_ProjectURL>
       <NuSpec_RequireLicenseAcceptance>false</NuSpec_RequireLicenseAcceptance>
       <NuSpec_Summary>The CILMerge MSBuild task utilizes CILAssemblyManipulator project to perform the merge.</NuSpec_Summary>
-      <NuSpec_Tags>clr .net cil merge assembly build targets</NuSpec_Tags>
+      <NuSpec_Tags>clr .net cil il merge assembly build targets</NuSpec_Tags>
       <NuSpec_DevelopmentDependency>true</NuSpec_DevelopmentDependency>
       <NuSpec_FilesXML><![CDATA[
         <file src="$(CILMergeBaseDir)/../Output/Release/.NETApp/CILMerge.MSBuild.dll" target="build/CILMerge.MSBuild.dll" />

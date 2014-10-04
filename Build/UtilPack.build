@@ -58,5 +58,43 @@
       Condition=" '$(GenerateNuSpec)' != '' "
       Targets="GenerateNuSpecFile"
       />
+    
+    <!-- Verify generated DLLs -->    
+    <CallTarget
+      Condition=" '$(GenerateNuSpec)' != '' "
+      Targets="VerifyDLLsForNuSpec"
+      />
+  </Target>
+  
+  <Target Name="VerifyDLLsForNuSpec">
+    <!-- First, delete all files that won't be included in the NuGet package. -->
+    <ItemGroup>
+      <UtilPackFilesToDelete Include="$(UtilPackBaseDir)\Output\Release\.NETApp\CommonUtils.*"/>
+      <UtilPackFilesToDelete Include="$(UtilPackBaseDir)\Output\Release\.NETApp\CollectionsWithRoles.*"/>
+      <UtilPackFilesToDelete Include="$(UtilPackBaseDir)\Output\Release\SL\CommonUtils.*"/>
+      <UtilPackFilesToDelete Include="$(UtilPackBaseDir)\Output\Release\SL\CollectionsWithRoles.*"/>
+      <UtilPackFilesToDelete Include="$(UtilPackBaseDir)\Output\Release\WP\CommonUtils.*"/>
+      <UtilPackFilesToDelete Include="$(UtilPackBaseDir)\Output\Release\WP\CollectionsWithRoles.*"/>
+    </ItemGroup>
+    <Delete
+      Files="@(UtilPackFilesToDelete)"
+    />
+    
+    <!-- Then, run PEVerify for all DLLs that will be included in the NuGet package. -->
+    <GetFrameworkSdkPath>
+      <Output TaskParameter="Path" PropertyName="FrameworkSdkPath" />
+    </GetFrameworkSdkPath>
+    <ItemGroup>
+      <MatchingPEVerifyFile Include="$(FrameworkSdkPath)bin\*\PEVerify.exe" />
+    </ItemGroup>
+    <PropertyGroup>
+      <PEVerify>%(MatchingPEVerifyFile.Identity)</PEVerify>
+      <PEVerify Condition="!Exists('$(PEVerify)')">$(FrameworkSdkPath)bin\NETFX 4.0 Tools\PEVerify.exe</PEVerify>
+    </PropertyGroup>
+    
+    <!-- PEVerify requires path to executable to contain backwards slashes instead of forwards ones -->
+    <Exec Command="&quot;$(PEVerify)&quot; &quot;$(UtilPackBaseDir)\Output\Release\.NETApp\UtilPack.dll&quot; /IL /MD /VERBOSE /NOLOGO" />
+    <Exec Command="&quot;$(PEVerify)&quot; &quot;$(UtilPackBaseDir)\Output\Release\SL\UtilPack.dll&quot; /IL /MD /VERBOSE /NOLOGO" />
+    <Exec Command="&quot;$(PEVerify)&quot; &quot;$(UtilPackBaseDir)\Output\Release\WP\UtilPack.dll&quot; /IL /MD /VERBOSE /NOLOGO" />
   </Target>
 </Project>
