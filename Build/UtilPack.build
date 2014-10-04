@@ -30,13 +30,13 @@
       <NuSpec_Summary>Utility Package is small DLL containing useful components for all kind of applications.</NuSpec_Summary>
       <NuSpec_Tags>clr .net mono portable utility binary data read write collection command query separation reflection</NuSpec_Tags>
       <NuSpec_FilesXML><![CDATA[
-        <file src="$(UtilPackBaseDir)/Output/Release/.NETApp/UtilPack.dll" target="lib\portable-net4+windows8\UtilPack.dll" />
-        <file src="$(UtilPackBaseDir)/Output/Release/.NETApp/UtilPack.xml" target="lib\portable-net4+windows8\UtilPack.xml" />
-        <file src="$(UtilPackBaseDir)/Output/Release/SL/UtilPack.dll" target="lib\portable-sl5+wp8\UtilPack.dll" />
-        <file src="$(UtilPackBaseDir)/Output/Release/SL/UtilPack.xml" target="lib\portable-sl5+wp8\UtilPack.xml" />
-        <file src="$(UtilPackBaseDir)/Output/Release/WP/UtilPack.dll" target="lib\wpa\UtilPack.dll" />
-        <file src="$(UtilPackBaseDir)/Output/Release/WP/UtilPack.xml" target="lib\wpa\UtilPack.xml" />
-        <file src="$(UtilPackBaseDir)/Output/Release/WP/UtilPack.pri" target="lib\wpa\UtilPack.pri" />
+        <file src="$([System.IO.Path]::GetFullPath($(UtilPackBaseDir)\Output\Release\.NETApp\UtilPack.dll)" target="lib\portable-net4+windows8\UtilPack.dll" />
+        <file src="$([System.IO.Path]::GetFullPath($(UtilPackBaseDir)\Output\Release\.NETApp\UtilPack.xml)" target="lib\portable-net4+windows8\UtilPack.xml" />
+        <file src="$([System.IO.Path]::GetFullPath($(UtilPackBaseDir)\Output\Release\SL\UtilPack.dll)" target="lib\portable-sl5+wp8\UtilPack.dll" />
+        <file src="$([System.IO.Path]::GetFullPath($(UtilPackBaseDir)\Output\Release\SL\UtilPack.xml)" target="lib\portable-sl5+wp8\UtilPack.xml" />
+        <file src="$([System.IO.Path]::GetFullPath($(UtilPackBaseDir)\Output\Release\WP\UtilPack.dll)" target="lib\wpa\UtilPack.dll" />
+        <file src="$([System.IO.Path]::GetFullPath($(UtilPackBaseDir)\Output\Release\WP\UtilPack.xml)" target="lib\wpa\UtilPack.xml" />
+        <file src="$([System.IO.Path]::GetFullPath($(UtilPackBaseDir)\Output\Release\WP\UtilPack.pri)" target="lib\wpa\UtilPack.pri" />
       ]]></NuSpec_FilesXML>
     </PropertyGroup>
   <Import Project="$(UtilPackBaseDir)/CommonBuildTools/CLR/MSBuild/NuSpec.targets" />
@@ -54,19 +54,9 @@
     <!-- NuSpec file, if needed -->
     <Error Condition=" '$(GenerateNuSpec)' != '' and '$(NuSpec_ReleaseNotes)' == '' " Text="Release notes must be provided if generating nuspect file." />
 
-    <CallTarget
-      Condition=" '$(GenerateNuSpec)' != '' "
-      Targets="GenerateNuSpecFile"
-      />
-    
-    <!-- Verify generated DLLs -->    
-    <CallTarget
-      Condition=" '$(GenerateNuSpec)' != '' "
-      Targets="VerifyDLLsForNuSpec"
-      />
   </Target>
-  
-  <Target Name="VerifyDLLsForNuSpec">
+
+  <Target Name="UtilPackNuSpec">
     <!-- First, delete all files that won't be included in the NuGet package. -->
     <ItemGroup>
       <UtilPackFilesToDelete Include="$(UtilPackBaseDir)\Output\Release\.NETApp\CommonUtils.*"/>
@@ -96,5 +86,10 @@
     <Exec Command="&quot;$(PEVerify)&quot; &quot;$(UtilPackBaseDir)\Output\Release\.NETApp\UtilPack.dll&quot; /IL /MD /VERBOSE /NOLOGO" />
     <Exec Command="&quot;$(PEVerify)&quot; &quot;$(UtilPackBaseDir)\Output\Release\SL\UtilPack.dll&quot; /IL /MD /VERBOSE /NOLOGO" />
     <Exec Command="&quot;$(PEVerify)&quot; &quot;$(UtilPackBaseDir)\Output\Release\WP\UtilPack.dll&quot; /IL /MD /VERBOSE /NOLOGO" />
+    
+    <CallTarget
+      Condition=" '$(GenerateNuSpec)' != '' "
+      Targets="GenerateNuSpecFile"
+      />
   </Target>
 </Project>
