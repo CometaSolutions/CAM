@@ -11,6 +11,6 @@ The starting point is always `CILReflectionContext` (acquireable from `CILAssemb
 
 Separate `CILReflectionContext`s are always threadsafe as they don't interact with each other.
 The following threadsafety rules apply within the same `CILReflectionContext`:
-* reading operations are always threadsafe (including making generic instances of types and methods),
-* writing operations changing some single value (e.g. an enum or string) are threadsafe, and
-* writing operations changing collections (adding a module, type, method, method parameter, field, property, event, etc) are _not_ threadsafe
+* read operations are always threadsafe (including making generic instances of types and methods),
+* write operations changing some single value (e.g. an enum or string) are threadsafe, and
+* write operations changing collections (adding/removing a module, type, method, method parameter, field, property, event, etc) are _not_ threadsafe.
