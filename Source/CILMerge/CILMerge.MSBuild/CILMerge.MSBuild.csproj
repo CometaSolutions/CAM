@@ -74,6 +74,9 @@
       <Name>CILMerge.DLL</Name>
     </ProjectReference>
   </ItemGroup>
+  <ItemGroup>
+    <None Include="CILMergeTask.targets" />
+  </ItemGroup>
   <!-- Merge target assembly using the task itself -->
   <UsingTask TaskName="CILMerge.MSBuild.CILMergeTask" AssemblyFile="$(IntermediateOutputPath)$(AssemblyName).dll" />
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />

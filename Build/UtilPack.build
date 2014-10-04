@@ -14,6 +14,7 @@
     <UtilpackProject Include="$(UtilPackBaseDir)/Source/CollectionsWithRoles/CollectionsWithRoles.csproj" />
   </ItemGroup>
   
+  <!-- NuSpec file information -->
   <PropertyGroup Condition=" '$(GenerateNuSpec)' != '' ">
       <NuSpec_OutputPath>$(MSBuildThisFileDirectory)../NuSpec/UtilPack.nuspec</NuSpec_OutputPath>
       <NuSpec_ID>UtilPack</NuSpec_ID>
@@ -24,21 +25,21 @@
       <NuSpec_AutoCopyright>true</NuSpec_AutoCopyright>
       <NuSpec_CopyrightInceptionYear>2014</NuSpec_CopyrightInceptionYear>
       <NuSpec_LicenseURL>http://www.apache.org/licenses/LICENSE-2.0</NuSpec_LicenseURL>
-      <NuSpec_ProjectURL></NuSpec_ProjectURL>
+      <NuSpec_ProjectURL>https://github.com/CometaSolutions/CAM</NuSpec_ProjectURL>
       <NuSpec_RequireLicenseAcceptance>false</NuSpec_RequireLicenseAcceptance>
       <NuSpec_Summary>Utility Package is small DLL containing useful components for all kind of applications.</NuSpec_Summary>
       <NuSpec_Tags>clr .net mono portable utility binary data read write collection command query separation reflection</NuSpec_Tags>
       <NuSpec_FilesXML><![CDATA[
-        <file src="$(MSBuildThisFileDirectory)..\..\Output\Release\.NETApp\UtilPack.dll" target="lib\portable-net4+windows8\UtilPack.dll" />
-        <file src="$(MSBuildThisFileDirectory)..\..\Output\Release\.NETApp\UtilPack.xml" target="lib\portable-net4+windows8\UtilPack.xml" />
-        <file src="$(MSBuildThisFileDirectory)..\..\Output\Release\SL\UtilPack.dll" target="lib\portable-sl5+wp8\UtilPack.dll" />
-        <file src="$(MSBuildThisFileDirectory)..\..\Output\Release\SL\UtilPack.xml" target="lib\portable-sl5+wp8\UtilPack.xml" />
-        <file src="$(MSBuildThisFileDirectory)..\..\Output\Release\WP\UtilPack.dll" target="lib\wpa\UtilPack.dll" />
-        <file src="$(MSBuildThisFileDirectory)..\..\Output\Release\WP\UtilPack.xml" target="lib\wpa\UtilPack.xml" />
-        <file src="$(MSBuildThisFileDirectory)..\..\Output\Release\WP\UtilPack.pri" target="lib\wpa\UtilPack.pri" />
+        <file src="$(UtilPackBaseDir)/Output/Release/.NETApp/UtilPack.dll" target="lib\portable-net4+windows8\UtilPack.dll" />
+        <file src="$(UtilPackBaseDir)/Output/Release/.NETApp/UtilPack.xml" target="lib\portable-net4+windows8\UtilPack.xml" />
+        <file src="$(UtilPackBaseDir)/Output/Release/SL/UtilPack.dll" target="lib\portable-sl5+wp8\UtilPack.dll" />
+        <file src="$(UtilPackBaseDir)/Output/Release/SL/UtilPack.xml" target="lib\portable-sl5+wp8\UtilPack.xml" />
+        <file src="$(UtilPackBaseDir)/Output/Release/WP/UtilPack.dll" target="lib\wpa\UtilPack.dll" />
+        <file src="$(UtilPackBaseDir)/Output/Release/WP/UtilPack.xml" target="lib\wpa\UtilPack.xml" />
+        <file src="$(UtilPackBaseDir)/Output/Release/WP/UtilPack.pri" target="lib\wpa\UtilPack.pri" />
       ]]></NuSpec_FilesXML>
     </PropertyGroup>
-   <Import Project="$(MSBuildThisFileDirectory)../CommonBuildTools/CLR/MSBuild/NuSpec.targets" />
+  <Import Project="$(UtilPackBaseDir)/CommonBuildTools/CLR/MSBuild/NuSpec.targets" />
 
   <Target Name="Build">
     <!-- All projects require CILMerge task, so build that. -->

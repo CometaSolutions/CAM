@@ -13,6 +13,29 @@
     <CILMergeProject Include="$(CILMergeBaseDir)/Source/CILMerge/CILMerge.MSBuild/CILMerge.MSBuild.csproj" />
   </ItemGroup>
   
+  <!-- NuSpec file information -->
+  <PropertyGroup Condition=" '$(GenerateNuSpec)' != '' ">
+      <NuSpec_OutputPath>$(MSBuildThisFileDirectory)../NuSpec/CILMerge.nuspec</NuSpec_OutputPath>
+      <NuSpec_ID>CILMerge.MSBuild</NuSpec_ID>
+      <NuSpec_VersionFilename>$(MSBuildThisFileDirectory)../Source/CILMergeVersion.txt</NuSpec_VersionFilename>
+      <NuSpec_Authors>Stanislav Muhametsin</NuSpec_Authors>
+      <NuSpec_Description>Provides a MSBuild task to merge multiple CIL assemblies into one.</NuSpec_Description>
+      <NuSpec_Title>CILMerge MSBuild task.</NuSpec_Title>
+      <NuSpec_AutoCopyright>true</NuSpec_AutoCopyright>
+      <NuSpec_CopyrightInceptionYear>2014</NuSpec_CopyrightInceptionYear>
+      <NuSpec_LicenseURL>http://www.apache.org/licenses/LICENSE-2.0</NuSpec_LicenseURL>
+      <NuSpec_ProjectURL>https://github.com/CometaSolutions/CAM</NuSpec_ProjectURL>
+      <NuSpec_RequireLicenseAcceptance>false</NuSpec_RequireLicenseAcceptance>
+      <NuSpec_Summary>The CILMerge MSBuild task utilizes CILAssemblyManipulator project to perform the merge.</NuSpec_Summary>
+      <NuSpec_Tags>clr .net cil merge assembly build targets</NuSpec_Tags>
+      <NuSpec_DevelopmentDependency>true</NuSpec_DevelopmentDependency>
+      <NuSpec_FilesXML><![CDATA[
+        <file src="$(CILMergeBaseDir)/../Output/Release/.NETApp/CILMerge.MSBuild.dll" target="build/CILMerge.MSBuild.dll" />
+        <file src="$(CILMergeBaseDir)/../Source/CILMerge/CILMerge.MSBuild/CILMergeTask.targets" target="build/CILMerge.MSBuild.targets" />
+      ]]></NuSpec_FilesXML>
+    </PropertyGroup>
+  <Import Project="$(MSBuildThisFileDirectory)../CommonBuildTools/CLR/MSBuild/NuSpec.targets" />
+  
   <Target Name="Build">
     <!-- Build the Common Build Tools project (for AssemblyInfo task) -->
     <MSBuild Projects="$(CILMergeBaseDir)/CommonBuildTools/CLR/Build/CommonBuildTools.build" />
