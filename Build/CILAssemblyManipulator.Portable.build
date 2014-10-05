@@ -48,8 +48,8 @@
     <NuSpec_Tags>clr .net cil il emit read assembly module dynamic generator</NuSpec_Tags>
     <NuSpec_DevelopmentDependency>true</NuSpec_DevelopmentDependency>
     <NuSpec_FilesXML><![CDATA[
-      <file src="$(CAMPortableBaseDirNuSpec)\Output\Release\.NETApp\CILAssemblyManipulator.Portable.dll" target="lib\portable-net4+win8\CILAssemblyManipulator.Portable.dll" />
-      <file src="$(CAMPortableBaseDirNuSpec)\Output\Release\.NETApp\CILAssemblyManipulator.Portable.xml" target="lib\portable-net4+win8\CILAssemblyManipulator.Portable.xml" />
+      <file src="$(CAMPortableBaseDirNuSpec)\Output\Release\.NETApp\CILAssemblyManipulator.Portable.dll" target="lib\portable-net40+win8\CILAssemblyManipulator.Portable.dll" />
+      <file src="$(CAMPortableBaseDirNuSpec)\Output\Release\.NETApp\CILAssemblyManipulator.Portable.xml" target="lib\portable-net40+win8\CILAssemblyManipulator.Portable.xml" />
     ]]></NuSpec_FilesXML>
     <NuSpec_DependenciesXML><![CDATA[
       <group>
