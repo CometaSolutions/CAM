@@ -50,9 +50,9 @@
       <file src="$(UtilPackBaseDirNuSpec)\Output\Release\.NETApp\UtilPack.xml" target="lib\portable-net40+win\UtilPack.xml" />
       <file src="$(UtilPackBaseDirNuSpec)\Output\Release\SL\UtilPack.dll" target="lib\portable-net45+sl50+win+wp80\UtilPack.dll" />
       <file src="$(UtilPackBaseDirNuSpec)\Output\Release\SL\UtilPack.xml" target="lib\portable-net45+sl50+win+wp80\UtilPack.xml" />
-      <file src="$(UtilPackBaseDirNuSpec)\Output\Release\WP\UtilPack.dll" target="lib\wpa\UtilPack.dll" />
-      <file src="$(UtilPackBaseDirNuSpec)\Output\Release\WP\UtilPack.xml" target="lib\wpa\UtilPack.xml" />
-      <file src="$(UtilPackBaseDirNuSpec)\Output\Release\WP\UtilPack.pri" target="lib\wpa\UtilPack.pri" />
+      <file src="$(UtilPackBaseDirNuSpec)\Output\Release\WP\UtilPack.dll" target="lib\wpa81\UtilPack.dll" />
+      <file src="$(UtilPackBaseDirNuSpec)\Output\Release\WP\UtilPack.xml" target="lib\wpa81\UtilPack.xml" />
+      <file src="$(UtilPackBaseDirNuSpec)\Output\Release\WP\UtilPack.pri" target="lib\wpa81\UtilPack.pri" />
     ]]></NuSpec_FilesXML>
   </PropertyGroup>
     
