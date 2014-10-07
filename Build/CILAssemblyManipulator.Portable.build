@@ -46,7 +46,6 @@
     <NuSpec_RequireLicenseAcceptance>false</NuSpec_RequireLicenseAcceptance>
     <NuSpec_Summary>CIL Assembly Manipulator is a portable assembly for reading and emitting CLR metadata files.</NuSpec_Summary>
     <NuSpec_Tags>clr .net cil il emit read assembly module dynamic generator</NuSpec_Tags>
-    <NuSpec_DevelopmentDependency>true</NuSpec_DevelopmentDependency>
     <NuSpec_FilesXML><![CDATA[
       <file src="$(CAMPortableBaseDirNuSpec)\Output\Release\.NETApp\CILAssemblyManipulator.Portable.dll" target="lib\portable-net40+win\CILAssemblyManipulator.Portable.dll" />
       <file src="$(CAMPortableBaseDirNuSpec)\Output\Release\.NETApp\CILAssemblyManipulator.Portable.xml" target="lib\portable-net40+win\CILAssemblyManipulator.Portable.xml" />

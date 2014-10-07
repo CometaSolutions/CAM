@@ -40,7 +40,6 @@
     <NuSpec_RequireLicenseAcceptance>false</NuSpec_RequireLicenseAcceptance>
     <NuSpec_Summary>CIL Assembly Manipulator .NET provides a fully working CILReflectionContext to use.</NuSpec_Summary>
     <NuSpec_Tags>clr .net cil il emit read assembly module dynamic generator .net</NuSpec_Tags>
-    <NuSpec_DevelopmentDependency>true</NuSpec_DevelopmentDependency>
     <NuSpec_FilesXML><![CDATA[
       <file src="$(CAMDotNETBaseDirNuSpec)\Output\Release\.NETApp\CILAssemblyManipulator.DotNET.dll" target="lib\net40-client\CILAssemblyManipulator.DotNET.dll" />
       <file src="$(CAMDotNETBaseDirNuSpec)\Output\Release\.NETApp\CILAssemblyManipulator.DotNET.xml" target="lib\net40-client\CILAssemblyManipulator.DotNET.xml" />
