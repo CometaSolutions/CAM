@@ -68,7 +68,7 @@ namespace CILAssemblyManipulator.Implementation
             var retVal = mapped.Equals( fieldArg.DeclaringType ) ? fieldArg : mapped.DeclaredFields.FirstOrDefault( f => f.Name == fieldArg.Name && MatchParameterTypes( fieldArg.FieldType, f.FieldType ) );
             if ( retVal == null )
             {
-               throw new InvalidOperationException( "Failed to map field " + fieldArg + "." );
+               throw new InvalidOperationException( "Failed to map field " + fieldArg + " of declaring type " + fieldArg.DeclaringType + "." );
             }
             return retVal;
          } );
@@ -202,7 +202,7 @@ namespace CILAssemblyManipulator.Implementation
             var retVal = mapped.Equals( ctorArg.DeclaringType ) ? ctorArg : mapped.Constructors.FirstOrDefault( c => this.MatchMethodAttrsAndParameters( ctorArg, c ) );
             if ( retVal == null )
             {
-               throw new InvalidOperationException( "Failed to map constructor " + ctor + "." );
+               throw new InvalidOperationException( "Failed to map constructor " + ctor + " of declaring type " + ctor.DeclaringType + "." );
             }
             return retVal;
          } );
@@ -229,7 +229,7 @@ namespace CILAssemblyManipulator.Implementation
 
             if ( result == null )
             {
-               throw new InvalidOperationException( "Failed to map method " + methodToUse + "." );
+               throw new InvalidOperationException( "Failed to map method " + methodToUse + " of declaring type" + methodToUse.DeclaringType + "." );
             }
 
             if ( gArgs != null )
