@@ -229,7 +229,7 @@ namespace CILAssemblyManipulator.Implementation
 
             if ( result == null )
             {
-               throw new InvalidOperationException( "Failed to map method " + methodToUse + " of declaring type" + methodToUse.DeclaringType + "." );
+               throw new InvalidOperationException( "Failed to map method " + methodToUse + " of declaring type " + methodToUse.DeclaringType + "." );
             }
 
             if ( gArgs != null )
