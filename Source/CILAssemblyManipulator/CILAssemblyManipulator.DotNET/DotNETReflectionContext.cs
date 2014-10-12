@@ -40,18 +40,27 @@ namespace CILAssemblyManipulator.DotNET
       /// <param name="msCorLibName">This will hold the detected assembly name that acts as <c>mscorlib</c> assembly of the framework-</param>
       /// <param name="frameworkDisplayName">This will hold the detected display name of the framework.</param>
       /// <param name="targetFWDir">This will hold the detected full path to the target framework assemblies.</param>
+      /// <param name="defaultTargetFWPath">The default target framework path, if the XML file does not define target framework path. If none provider, a directory up one level from the given XML path will be used.</param>
       /// <returns>The result of <see cref="FrameworkMonikerInfo.ReadAssemblyInformationFromRedistXMLFile"/> method.</returns>
       public static IDictionary<String, Tuple<Version, Byte[]>> ReadAssemblyInformationFromRedistXMLFile(
          String redistXMLFilePath,
          out String msCorLibName,
          out String frameworkDisplayName,
-         out String targetFWDir )
+         out String targetFWDir,
+         String defaultTargetFWPath = null
+         )
       {
          var redistListDir = Path.GetDirectoryName( redistXMLFilePath );
+         if ( defaultTargetFWPath == null )
+         {
+            defaultTargetFWPath = Directory.GetParent( redistListDir ).FullName;
+         }
+
          IDictionary<String, Tuple<Version, Byte[]>> retVal;
          using ( var stream = File.Open( redistXMLFilePath, FileMode.Open, FileAccess.Read, FileShare.Read ) )
          {
             retVal = FrameworkMonikerInfo.ReadAssemblyInformationFromRedistXMLFile(
+                                 defaultTargetFWPath,
                                  stream,
                                  targetFWPathArg =>
                                  {
@@ -60,6 +69,10 @@ namespace CILAssemblyManipulator.DotNET
                                  },
                                  () => DotNETReflectionContext.CreateDotNETContext(),
                                  assFN => File.Open( assFN, FileMode.Open, FileAccess.Read, FileShare.Read ),
+                                 ( targetFWPathArg, simpleAssemblyName ) =>
+                                 {
+                                    return File.Exists( Path.Combine( targetFWPathArg, simpleAssemblyName + ".dll" ) );
+                                 },
                                  out msCorLibName,
                                  out frameworkDisplayName,
                                  out targetFWDir
@@ -464,7 +477,8 @@ namespace CILAssemblyManipulator.DotNET
          if ( e.Member != null )
          {
             attrs = e.Member.GetCustomAttributesData();
-         } else if (e.Type != null)
+         }
+         else if ( e.Type != null )
          {
             attrs = e.Type.GetCustomAttributesData();
          }

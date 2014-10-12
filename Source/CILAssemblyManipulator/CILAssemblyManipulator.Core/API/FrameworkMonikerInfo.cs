@@ -178,16 +178,30 @@ namespace CILAssemblyManipulator.API
       /// <summary>
       /// This method reads assembly information from the <c>FrameworkList.xml</c> located in reference assemblies sud-directory <c>RedistList</c>.
       /// </summary>
+      /// <param name="defaultTargetFWDir">This will be the default target framework directory if XML file does not define <c>TargetFrameworkDirectory</c> attribute.</param>
       /// <param name="stream">The opened file to <c>FrameworkList.xml</c>.</param>
-      /// <param name="assemblyFilenameEnumerator">The callback to enumerate all assembly files in the directory. This will be used if <c>TargetFrameworkDirectory</c> attribute of <c>FileList</c> element is present, and will receive the attribute as parameter. The callback is supposed to return full paths to all assemblies in the specified, potentially relative, directory.</param>
-      /// <param name="ctxFactory">The callback to create a new <see cref="CILReflectionContext"/>. This will only be used if <c>TargetFrameworkDirectory</c> attribute is present in <c>FileList</c> element.</param>
-      /// <param name="streamOpener">The callback to open assemblies in the target framework directory. This will only be used if <c>TargetFrameworkDirectory</c> attribute is present in <c>FileList</c> element.</param>
+      /// <param name="assemblyFilenameEnumerator">The callback to enumerate all assembly files in the directory. Will be used only if assembly file list is not present in XML file.</param>
+      /// <param name="ctxFactory">The callback to create a new <see cref="CILReflectionContext"/>. Will be used only if assembly file list is not present in XML file.</param>
+      /// <param name="streamOpener">The callback to open assemblies in the target framework directory. Will be used only if assembly file list is not present in XML file.</param>
+      /// <param name="fileExistsCheck">The callback to check for file existence. Will be used only if assembly file list is present in XML file. The first argument is target framework directory, and second argument is assembly name.</param>
       /// <param name="msCorLibName">The detected name of the assembly which acts as <c>mscorlib</c> assembly of this framework.</param>
       /// <param name="frameworkDisplayName">The detected display name of the framework.</param>
       /// <param name="targetFWDir">The detected value of target framework directory, potentially relative.</param>
       /// <returns>Assembly information persisted in the file.</returns>
+      /// <exception cref="ArgumentNullException">If <paramref name="assemblyFilenameEnumerator"/> or <paramref name="ctxFactory"/> is <c>null</c>.</exception>
       /// <exception cref="InvalidDataException">If the <c>FrameworkList.xml</c> is in malformed format.</exception>
-      public static IDictionary<String, Tuple<Version, Byte[]>> ReadAssemblyInformationFromRedistXMLFile( Stream stream, Func<String, IEnumerable<String>> assemblyFilenameEnumerator, Func<CILReflectionContext> ctxFactory, Func<String, Stream> streamOpener, out String msCorLibName, out String frameworkDisplayName, out String targetFWDir )
+      /// <exception cref="InvalidOperationException">If the <c>FrameworkList.xml</c> does not define <c>TargetFrameworkDirectory</c> attribute and <paramref name="defaultTargetFWDir"/> is <c>null</c> or empty.</exception>
+      public static IDictionary<String, Tuple<Version, Byte[]>> ReadAssemblyInformationFromRedistXMLFile(
+         String defaultTargetFWDir,
+         Stream stream,
+         Func<String, IEnumerable<String>> assemblyFilenameEnumerator,
+         Func<CILReflectionContext> ctxFactory,
+         Func<String, Stream> streamOpener,
+         Func<String, String, Boolean> fileExistsCheck,
+         out String msCorLibName,
+         out String frameworkDisplayName,
+         out String targetFWDir
+         )
       {
          var xmlSettings = new System.Xml.XmlReaderSettings();
          xmlSettings.CloseInput = false;
@@ -205,25 +219,38 @@ namespace CILAssemblyManipulator.API
 
             var asses = new List<Tuple<String, Version, Byte[]>>();
 
-            // On Mono, .NETFramework assemblies are not enumerated in the FrameworkList.xml (which sucks).
-            targetFWDir = xml.GetAttribute( "TargetFrameworkDirectory" );
 
+            targetFWDir = xml.GetAttribute( "TargetFrameworkDirectory" );
             if ( String.IsNullOrEmpty( targetFWDir ) )
             {
-               if ( !xml.ReadToDescendant( "File" ) )
+               // Can't trust <FileList> element children, since they contain facade assemblies as well.
+               targetFWDir = defaultTargetFWDir;
+               if ( String.IsNullOrEmpty( targetFWDir ) )
                {
-                  throw new InvalidDataException( "FrameworkList.xml seems to be in invalid format (File)." );
+                  throw new InvalidOperationException( "Failed to resolve target framework moniker directory, as XML redistribution list file did not contain 'TargetFrameworkDirectory' attribute nor default target framework directory was specified." );
                }
+            }
+
+            // If the <FileList> is present, we need to read the file information while checking that the file really exists
+            if ( xml.ReadToDescendant( "File" ) )
+            {
+               ArgumentValidator.ValidateNotNull( "File existence checker", fileExistsCheck );
 
                do
                {
-                  asses.Add( Tuple.Create( xml.GetAttribute( "AssemblyName" ), Version.Parse( xml.GetAttribute( "Version" ) ), StringConversions.HexStr2ByteArray( xml.GetAttribute( "PublicKeyToken" ) ) ) );
+                  var simpleAssemblyName = xml.GetAttribute( "AssemblyName" );
+                  if ( fileExistsCheck( targetFWDir, simpleAssemblyName ) )
+                  {
+                     asses.Add( Tuple.Create( simpleAssemblyName, Version.Parse( xml.GetAttribute( "Version" ) ), StringConversions.HexStr2ByteArray( xml.GetAttribute( "PublicKeyToken" ) ) ) );
+                  }
                } while ( xml.ReadToNextSibling( "File" ) );
             }
             else
             {
+               // On Mono, .NETFramework assemblies are not enumerated in the FrameworkList.xml, making this process really slow
                ArgumentValidator.ValidateNotNull( "Assembly file name enumerator", assemblyFilenameEnumerator );
                ArgumentValidator.ValidateNotNull( "CIL Reflection Context factory", ctxFactory );
+               ArgumentValidator.ValidateNotNull( "Stream opener", streamOpener );
 
                using ( var ctx = ctxFactory() )
                {
@@ -232,9 +259,16 @@ namespace CILAssemblyManipulator.API
                      var eArgs = EmittingArguments.CreateForLoadingAssembly();
                      using ( var curStream = streamOpener( fn ) )
                      {
-                        var ass = ctx.LoadAssembly( curStream, eArgs );
-                        var an = ass.Name;
-                        asses.Add( Tuple.Create( an.Name, new Version( an.MajorVersion, an.MinorVersion, an.BuildNumber, an.Revision ), ass.GetPublicKeyToken() ) );
+                        try
+                        {
+                           var ass = ctx.LoadAssembly( curStream, eArgs );
+                           var an = ass.Name;
+                           asses.Add( Tuple.Create( an.Name, new Version( an.MajorVersion, an.MinorVersion, an.BuildNumber, an.Revision ), ass.GetPublicKeyToken() ) );
+                        }
+                        catch
+                        {
+                           // Ignore - some non-CLI files present sometimes as well here.
+                        }
                      }
                   }
                }

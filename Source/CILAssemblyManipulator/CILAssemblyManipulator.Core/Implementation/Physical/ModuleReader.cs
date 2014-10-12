@@ -227,11 +227,11 @@ namespace CILAssemblyManipulator.Implementation.Physical
          for ( var i = 0; i < md.fieldRVA.Length; ++i )
          {
             var curRVA = md.fieldRVA[i].Item1;
-            var array = new Byte[CalculateFieldTypeSize( md.field[md.fieldRVA[i].Item2.idx].Item3 )];
-            // Field RVA should be non-zero
-            stream.SeekFromBegin( this.ResolveRVA( curRVA ) );
             try
             {
+               var array = new Byte[CalculateFieldTypeSize( md.field[md.fieldRVA[i].Item2.idx].Item3 )];
+               // Field RVA should be non-zero
+               stream.SeekFromBegin( this.ResolveRVA( curRVA ) );
                stream.ReadWholeArray( array );
                this._fieldRVAContents[i] = array;
             }
@@ -239,7 +239,7 @@ namespace CILAssemblyManipulator.Implementation.Physical
             {
                // Sometimes, field RVA points outside the file (some C++ thing?)
                // TODO report exception... or maybe add to some kind of list in EmittingArguments?
-               this._fieldRVAContents[i] = null;
+               //this._fieldRVAContents[i] = null;
             }
          }
 
