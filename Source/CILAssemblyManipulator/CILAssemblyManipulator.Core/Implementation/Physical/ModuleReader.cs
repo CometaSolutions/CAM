@@ -1492,7 +1492,7 @@ namespace CILAssemblyManipulator.Implementation.Physical
          var name = caBLOB.ReadLenPrefixedUTF8String( ref idx );
          var valueTuple = this.ReadCAFixedArgument( caBLOB, ref idx, type );
          return CILCustomAttributeFactory.NewNamedArgument(
-            declType.BaseTypeChain().SelectMany( t => isField ? (IEnumerable<CILElementForNamedCustomAttribute>) t.DeclaredFields : t.DeclaredProperties ).First( e => String.Equals( e.Name, name ) ),
+            declType.GetBaseTypeChain().SelectMany( t => isField ? (IEnumerable<CILElementForNamedCustomAttribute>) t.DeclaredFields : t.DeclaredProperties ).First( e => String.Equals( e.Name, name ) ),
             CILCustomAttributeFactory.NewTypedArgument( valueTuple.Item2, valueTuple.Item1 )
             );
       }

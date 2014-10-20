@@ -14,11 +14,9 @@
     <ProjectTypeGuids>{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}</ProjectTypeGuids>
     <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
     <GenerateSerializationAssemblies>Off</GenerateSerializationAssemblies>
-
     <TargetPlatformIdentifier Condition=" '$(Configuration)' == 'Debug_WP' or '$(Configuration)' == 'Release_WP' ">WindowsPhoneApp</TargetPlatformIdentifier>
     <TargetPlatformVersion Condition=" '$(Configuration)' == 'Debug_WP' or '$(Configuration)' == 'Release_WP' ">8.1</TargetPlatformVersion>
     <ProjectTypeGuids Condition=" '$(Configuration)' == 'Debug_WP' or '$(Configuration)' == 'Release_WP' ">{76F1466A-8B6D-4E39-A767-685A06062A39};$(ProjectTypeGuids)</ProjectTypeGuids>
-    
     <TargetFrameworkProfile Condition=" '$(Configuration)' != 'Debug_WP' and '$(Configuration)' != 'Release_WP' ">Profile5</TargetFrameworkProfile>
     <TargetFrameworkVersion Condition=" '$(Configuration)' != 'Debug_WP' and '$(Configuration)' != 'Release_WP' ">v4.0</TargetFrameworkVersion>
     <ProjectTypeGuids Condition=" '$(Configuration)' != 'Debug_WP' and '$(Configuration)' != 'Release_WP' ">{786C830F-07A1-408B-BD7F-6EE04809D6DB};$(ProjectTypeGuids)</ProjectTypeGuids>
@@ -94,6 +92,7 @@
     <Compile Include="API\OpCodes.cs" />
     <Compile Include="API\FrameworkMonikerInfo.cs" />
     <Compile Include="API\Utils.cs" />
+    <Compile Include="API\CILAssemblyLoader.cs" />
     <Compile Include="Implementation\CILCustomAttributes.cs" />
     <Compile Include="Implementation\CILReflectionContext.cs" />
     <Compile Include="Implementation\CILCustomModifier.cs" />
@@ -128,9 +127,7 @@
       <HintPath>$(OutputPath)UtilPack.dll</HintPath>
     </Reference>
   </ItemGroup>
-
   <Import Condition=" '$(Configuration)' != 'Debug_WP' and '$(Configuration)' != 'Release_WP' " Project="$(MSBuildExtensionsPath32)\Microsoft\Portable\$(TargetFrameworkVersion)\Microsoft.Portable.CSharp.targets" />
   <Import Condition=" '$(Configuration)' == 'Debug_WP' or '$(Configuration)' == 'Release_WP' " Project="$(MSBuildExtensionsPath)\Microsoft\WindowsXaml\v$(VisualStudioVersion)\Microsoft.Windows.UI.Xaml.CSharp.targets" />
-
   <Import Project="../../../CommonBuildTools/CLR/MSBuild/TargetFramework.targets" />
 </Project>

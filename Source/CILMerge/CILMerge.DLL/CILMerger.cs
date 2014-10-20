@@ -383,11 +383,11 @@ namespace CILMerge
       private static readonly System.Reflection.PropertyInfo ALLOW_MULTIPLE_PROP = typeof( AttributeUsageAttribute ).GetProperty( "AllowMultiple" );
 
       private readonly CILMerger _merger;
-      private readonly ConcurrentDictionary<String, CILModule> _allModules;
-      private readonly ConcurrentDictionary<CILModule, EmittingArguments> _loadingArgs;
+      //private readonly ConcurrentDictionary<String, CILModule> _allModules;
+      //private readonly ConcurrentDictionary<CILModule, EmittingArguments> _loadingArgs;
       private readonly CILMergeOptions _options;
       private readonly CILReflectionContext _ctx;
-      private readonly PortabilityHelper _portableHelper;
+      private readonly CILAssemblyLoader _assemblyLoader;
       private readonly ISet<String> _allInputTypeNames;
       private readonly ISet<String> _typesByName;
       private readonly IDictionary<CILTypeBase, CILTypeBase> _typeMapping;
@@ -414,8 +414,8 @@ namespace CILMerge
          this._merger = merger;
          this._options = options;
          this._ctx = ctx;
-         this._allModules = new ConcurrentDictionary<String, CILModule>();
-         this._loadingArgs = new ConcurrentDictionary<CILModule, EmittingArguments>();
+         //this._allModules = new ConcurrentDictionary<String, CILModule>();
+         //this._loadingArgs = new ConcurrentDictionary<CILModule, EmittingArguments>();
          this._typesByName = new HashSet<String>();
          this._typeMapping = new Dictionary<CILTypeBase, CILTypeBase>();
          this._methodMapping = new Dictionary<CILMethodBase, CILMethodBase>();
@@ -423,7 +423,7 @@ namespace CILMerge
          this._eventMapping = new Dictionary<CILEvent, CILEvent>();
          this._propertyMapping = new Dictionary<CILProperty, CILProperty>();
 
-         this._portableHelper = new PortabilityHelper( this, this._options.ReferenceAssembliesDirectory );
+         this._assemblyLoader = ctx.CreateAssemblyLoader( this._options.ReferenceAssembliesDirectory );
 
          this._inputModules = new List<CILModule>();
          this._allInputTypeNames = options.Union ?
@@ -482,8 +482,8 @@ namespace CILMerge
          this.LoadAllInputModules();
 
          // Save input emitting arguments for possible PDB emission later.
-         var inputEArgs = this._loadingArgs.Values.ToArray();
-         var inputFileNames = this._allModules.Keys.ToArray();
+         var inputEArgs = this._assemblyLoader.CurrentlyLoadedModules.Select( m => this._assemblyLoader.GetEmittingArgumentsFor( m ) ).ToArray();
+         var inputFileNames = this._assemblyLoader.CurrentlyLoadedModules.Select( m => this._assemblyLoader.GetResourceFor( m ) ).ToArray();
 
          // Create target module
          this._targetModule = this._ctx.NewBlankAssembly( Path.GetFileNameWithoutExtension( this._options.OutPath ) ).AddModule( Path.GetFileName( this._options.OutPath ) );
@@ -613,11 +613,11 @@ namespace CILMerge
                throw this.NewCILMergeException( ExitCode.ErrorAccessingSNFile, "Error accessing strong name file " + keyFile + ".", exc );
             }
          }
-         var pEArgs = this._loadingArgs[this._primaryModule];
+         var pEArgs = this._assemblyLoader.GetEmittingArgumentsFor( this._primaryModule );
 
-         var fwInfo = this._portableHelper[pEArgs];
+         var fwInfo = this._assemblyLoader.GetFrameworkInfoFor( this._primaryModule );
 
-         this._targetModule.AssociatedMSCorLibModule = GetMainModuleOrFirst( this.LoadLibAssemblyFromPath( this._portableHelper.GetDirectory( pEArgs ), fwInfo.MsCorLibAssembly, false ) );
+         this._targetModule.AssociatedMSCorLibModule = this._primaryModule.AssociatedMSCorLibModule; // fwInfo.GetMainModuleOrFirst( this.LoadLibAssemblyFromPath( this._portableHelper.GetDirectory( pEArgs ), fwInfo.MsCorLibAssembly, false ) );
          var mKind = this._options.Target.HasValue ?
             this._options.Target.Value :
             pEArgs.ModuleKind;
@@ -654,7 +654,7 @@ namespace CILMerge
                aName.Flags &= ~AssemblyFlags.PublicKey;
             }
          };
-         if ( !this._options.NoDebug && this._inputModules.Any( im => this._loadingArgs[im].DebugInformation != null ) )
+         if ( !this._options.NoDebug && this._inputModules.Any( im => this._assemblyLoader.GetEmittingArgumentsFor( im ).DebugInformation != null ) )
          {
             this._pdbHelper = new PDBHelper( eArgs, this._options.OutPath );
          }
@@ -1081,6 +1081,10 @@ namespace CILMerge
       private T ProcessTypeRef<T>( T typeRef )
          where T : class, CILTypeBase
       {
+         if ( typeRef is CILTypeOrTypeParameter && ( (CILTypeOrTypeParameter) typeRef ).Name == "PDBScopeOrFunction" )
+         {
+
+         }
          return typeRef == null ?
             null :
             (T) this._typeMapping.GetOrAdd( typeRef, tr =>
@@ -1136,7 +1140,16 @@ namespace CILMerge
                      TypeForwardingInfo tf;
                      if ( ass.TryGetTypeForwarder( tResult.Name, tResult.Namespace, out tf ) )
                      {
-                        mappedType = GetMainModuleOrFirst( this.LoadLibAssembly( result.Module, tf.AssemblyName ) ).GetTypeByName( typeStr, false );
+                        CILAssembly targetAss;
+                        if ( this._assemblyLoader.TryResolveReference( result.Module, tf.AssemblyName, out targetAss ) )
+                        {
+                           mappedType = GetMainModuleOrFirst( targetAss )
+                              .GetTypeByName( typeStr, false );
+                        }
+                        else
+                        {
+                           throw this.NewCILMergeException( ExitCode.UnresolvedAssemblyReference, "Failed to resolve " + tf.AssemblyName + " from " + result.Module + "." );
+                        }
                      }
                   }
                   if ( mappedType == null )
@@ -1312,9 +1325,9 @@ namespace CILMerge
          if ( attrSource != null )
          {
             // Copy all attributes from module assembly
-            EmittingArguments eArgs; CILModule mod;
-            this.LoadModuleAndArgs( attrSource, out eArgs, out mod, ExitCode.AttrFileSpecifiedButDoesNotExist, "There was an error accessing assembly attribute file " + attrSource + "." );
-            this.ProcessCustomAttributes( this._targetModule, mod.Assembly );
+            //EmittingArguments eArgs; CILModule mod;
+            //this.LoadModuleAndArgs( attrSource, out eArgs, out mod, ExitCode.AttrFileSpecifiedButDoesNotExist, "There was an error accessing assembly attribute file " + attrSource + "." );
+            this.ProcessCustomAttributes( this._targetModule, this._assemblyLoader.LoadAssemblyFrom( attrSource ) );
          }
          else
          {
@@ -1400,7 +1413,13 @@ namespace CILMerge
 
          this.DoPotentiallyInParallel( paths, ( isRunningInParallel, path ) =>
          {
-            var mod = this.LoadInputModule( path );
+            var mod = this._assemblyLoader.LoadModuleFrom( path );
+            var eArgs = this._assemblyLoader.GetEmittingArgumentsFor( mod );
+            if ( !eArgs.ModuleFlags.IsILOnly() && !this._options.ZeroPEKind )
+            {
+               throw this.NewCILMergeException( ExitCode.NonILOnlyModule, "The module " + mod.Name + " is not IL-only." );
+            }
+
             lock ( this._inputModules )
             {
                this._inputModules.Add( mod );
@@ -1409,184 +1428,75 @@ namespace CILMerge
 
          if ( this._options.Closed )
          {
-            foreach ( var mod in paths.Select( p => this._allModules[p] ).ToArray() )
+            foreach ( var mod in this._inputModules.ToArray() )
             {
-               foreach ( var aRef in this._loadingArgs[mod].AssemblyRefs )
-               {
-                  this.LoadLibAssembly( mod, aRef, true );
-               }
+               this.LoadModuleForClosedSet( mod );
             }
          }
 
-         this._primaryModule = this._allModules[paths[0]];
+         this._assemblyLoader.ModuleLoadedEvent += _assemblyLoader_ModuleLoadedEvent;
+
+         this._primaryModule = this._assemblyLoader.LoadModuleFrom( paths[0] );
       }
 
-      private CILModule LoadInputModule( String path )
+      private void LoadModuleForClosedSet( CILModule mod )
       {
-         path = Path.GetFullPath( path ); // Removes all "..\.." etc.
-         return this._allModules.GetOrAdd( path, pathInner =>
+         foreach ( var aRef in this._assemblyLoader.GetEmittingArgumentsFor( mod ).AssemblyRefs )
          {
-            //Console.WriteLine( "LOADING INPUT MODULE FROM " + path + "." );
-            EmittingArguments eArgs; CILModule mod;
-            this.LoadModuleAndArgs( pathInner, out eArgs, out mod, ExitCode.ErrorAccessingInputFile, "Error accessing input file " + pathInner + "." );
-
-            if ( !eArgs.ModuleFlags.IsILOnly() && !this._options.ZeroPEKind )
-            {
-               throw this.NewCILMergeException( ExitCode.NonILOnlyModule, "The module " + mod.Name + " is not IL-only." );
-            }
-            this._loadingArgs.TryAdd( mod, eArgs );
-            return mod;
-         } );
-      }
-
-      private void LoadModuleAndArgs( String path, out EmittingArguments eArgs, out CILModule module, ExitCode errorCode, String errorMessage )
-      {
-         eArgs = EmittingArguments.CreateForLoadingModule( this.LoadLibAssembly );
-         eArgs.LazyLoad = true; // Just to make sure - it is important to be set as true, otherwise we load things too soon.
-
-         try
-         {
-            using ( var fs = File.Open( path, FileMode.Open, FileAccess.Read, FileShare.Read ) )
-            {
-               module = this._ctx.LoadModule( fs, eArgs );
-            }
-         }
-         catch ( Exception exc )
-         {
-            throw this.NewCILMergeException( errorCode, errorMessage, exc );
-         }
-
-         // Deduce mscorlib name
-         FrameworkMonikerInfo fwInfo;
-         if ( eArgs.FrameworkName == null || eArgs.FrameworkVersion == null )
-         {
-            // Part of the target framework most likely
-            String fwName, fwVersion, fwProfile;
-            fwInfo = this._portableHelper.TryGetFrameworkInfo( Path.GetDirectoryName( path ), out fwName, out fwVersion, out fwProfile ) ?
-               this._portableHelper[fwName, fwVersion, fwProfile] :
-               null;
-         }
-         else
-         {
-            fwInfo = this._portableHelper[eArgs];
-         }
-
-         if ( fwInfo == null )
-         {
-            throw this.NewCILMergeException( ExitCode.FailedToDeduceTargetFramework, "Failed to deduce target framework for assembly " + path + ". Make sure TargetFrameworkAttribute is present." );
-         }
-
-         eArgs.CorLibName = fwInfo.MsCorLibAssembly;
-         var corLibVersion = fwInfo.Assemblies[eArgs.CorLibName].Item1;
-         eArgs.CorLibMajor = (UInt16) corLibVersion.Major;
-         eArgs.CorLibMinor = (UInt16) corLibVersion.Minor;
-         eArgs.CorLibBuild = (UInt16) corLibVersion.Build;
-         eArgs.CorLibRevision = (UInt16) corLibVersion.Revision;
-      }
-
-      private CILAssembly LoadLibAssembly( CILModule thisModule, CILAssemblyName name )
-      {
-         return this.LoadLibAssembly( thisModule, name, false );
-      }
-
-      private CILAssembly LoadLibAssembly( CILModule thisModule, CILAssemblyName name, Boolean loadForClosedSet )
-      {
-         var assName = name.Name;
-         var suitableFolder = ( this._options.LibPaths ?? Empty<String>.Array ).FirstOrDefault( p => p != null && AssemblyExistsInDirectory( p, assName ) );
-         CILAssembly result = null;
-         if ( suitableFolder == null && !loadForClosedSet )
-         {
-            var eArgs = this._loadingArgs[thisModule];
-            if ( eArgs.FrameworkName == null || eArgs.FrameworkVersion == null )
-            {
-               // System library most likely
-               // TODO bidi-map for _allModules (now just one directional module -> filename)
-               suitableFolder = Path.GetDirectoryName( this._allModules.First( kvp => kvp.Value.Equals( thisModule ) ).Key );
-            }
-            else
-            {
-               // Client library referencing system library
-               suitableFolder = this._portableHelper.GetDirectory( eArgs );
-            }
-         }
-
-         if ( result == null && suitableFolder != null )
-         {
-            result = this.LoadLibAssemblyFromPath( suitableFolder, assName, loadForClosedSet );
-         }
-
-         if ( result != null && suitableFolder != null )
-         {
-            String rFWName, rFWVersion, rFWProfile;
-            var primaryArgs = this._loadingArgs[this._inputModules[0]];
-            if ( primaryArgs.FrameworkName != null
-                && primaryArgs.FrameworkVersion != null
-                && this._portableHelper.TryGetFrameworkInfo( suitableFolder, out rFWName, out rFWVersion, out rFWProfile )
-                && !String.Equals( primaryArgs.FrameworkName, rFWName ) // || !String.Equals( primaryArgs.FrameworkVersion, rFWVersion ) )
+            var aRefCopy = new CILAssemblyName( aRef );
+            String res; CILModule dummy;
+            if ( this._assemblyLoader.Callbacks.TryResolveAssemblyFilePath( this._assemblyLoader.GetResourceFor( mod ), aRefCopy, out res )
+               && !this._assemblyLoader.TryGetLoadedModule( res, out dummy )
                )
             {
-               // We are changing framework (e.g. merging .NET assembly with PCLs)
-
-               // Add mapping from loaded assembly to target framework assembly
-               if ( this._pcl2TargetMapping == null )
-               {
-                  this._pcl2TargetMapping = new Dictionary<CILAssembly, CILAssembly>();
-               }
-               // Key - this framework library, value - primary input module target framework library
-               if ( !this._pcl2TargetMapping.ContainsKey( result ) )
-               {
-                  this._pcl2TargetMapping.Add( result, this.LoadLibAssemblyFromPath( this._portableHelper.GetDirectory( primaryArgs ), result.Name.Name, false ) );
-               }
+               // Load the assembly
+               var anotherMod = this._assemblyLoader.LoadModuleFrom( res );
+               this._inputModules.Add( anotherMod );
+               this.LoadModuleForClosedSet( anotherMod );
             }
          }
-
-         if ( result == null && !loadForClosedSet )
-         {
-            throw this.NewCILMergeException( ExitCode.UnresolvedAssemblyReference, "Unresolved assembly reference from " + thisModule + " to " + name + "." );
-         }
-         return result;
       }
 
-      private static Boolean AssemblyExistsInDirectory( String dir, String assName )
+      private void _assemblyLoader_ModuleLoadedEvent( object sender, ModuleLoadedEventArgs e )
       {
-         return File.Exists( Path.Combine( dir, assName ) + ".dll" ) || File.Exists( Path.Combine( dir, assName ) + ".exe" );
-      }
-
-      private CILAssembly LoadLibAssemblyFromPath( String folder, String assName, Boolean loadForClosedSet )
-      {
-         folder = Path.GetFullPath( folder ); // Remove ..\..\ etc.
-         var dllPath = Path.Combine( folder, assName ) + ".dll";
-         var fn = File.Exists( dllPath ) ?
-            dllPath :
-            Path.Combine( folder, assName ) + ".exe";
-         var factoryCalled = false;
-         var mod = this._allModules.GetOrAdd( fn, fnInner =>
+         //if (this._inputModules.Count > 0)
+         //{
+         // Only react after we have loaded primary module
+         String rFWName, rFWVersion, rFWProfile;
+         var primaryArgs = this._assemblyLoader.GetEmittingArgumentsFor( this._inputModules[0] );
+         if ( primaryArgs.FrameworkName != null
+             && primaryArgs.FrameworkVersion != null
+             && e.EmittingArguments.FrameworkName == null
+             && e.EmittingArguments.FrameworkVersion == null
+             && this._assemblyLoader.Callbacks.TryGetFrameworkInfo( e.Resource, out rFWName, out rFWVersion, out rFWProfile )
+             && !String.Equals( primaryArgs.FrameworkName, rFWName ) // || !String.Equals( primaryArgs.FrameworkVersion, rFWVersion ) )
+            )
          {
-            //Console.WriteLine( "LOADING LIBRARY MODULE FROM " + fnInner + "." );
-            factoryCalled = true;
-            try
-            {
-               EmittingArguments eArgs; CILModule mmod;
-               this.LoadModuleAndArgs( fn, out eArgs, out mmod, ExitCode.ErrorAccessingReferencedAssembly, "Error accessing referenced assembly " + fn + "." );
-               this._loadingArgs.TryAdd( mmod, eArgs );
-               return mmod;
-            }
-            catch ( Exception exc )
-            {
-               throw this.NewCILMergeException( ExitCode.ErrorAccessingReferencedAssembly, "Error accessing referenced assembly " + fn + ".", exc );
-            }
-         } );
+            // We are changing framework (e.g. merging .NET assembly with PCLs)
 
-         if ( loadForClosedSet && factoryCalled )
-         {
-            this._inputModules.Add( mod );
-            // Process all references
-            foreach ( var aRef in this._loadingArgs[mod].AssemblyRefs )
+            // Add mapping from loaded assembly to target framework assembly
+            if ( this._pcl2TargetMapping == null )
             {
-               this.LoadLibAssembly( mod, aRef, true );
+               this._pcl2TargetMapping = new Dictionary<CILAssembly, CILAssembly>();
+            }
+            // Key - this framework library, value - primary input module target framework library
+            var loadedAssembly = e.Module.Assembly;
+            String targetFWRes;
+
+            if ( !this._pcl2TargetMapping.ContainsKey( loadedAssembly )
+               && this._assemblyLoader.Callbacks.TryGetFrameworkAssemblyPath(
+               e.Resource,
+               new CILAssemblyName( loadedAssembly.Name ),
+               primaryArgs.FrameworkName,
+               primaryArgs.FrameworkVersion,
+               primaryArgs.FrameworkProfile,
+               out targetFWRes
+               ) )
+            {
+               this._pcl2TargetMapping.Add( loadedAssembly, this._assemblyLoader.LoadModuleFrom( targetFWRes ).Assembly );
             }
          }
-         return mod == null ? null : mod.Assembly;
+         //}
       }
 
       //private Byte[] GetPublicKeyToken( Byte[] pk )

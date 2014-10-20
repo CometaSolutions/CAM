@@ -60,6 +60,7 @@
     <Reference Include="System.Xml" />
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="DotNETAssemblyLoader.cs" />
     <Compile Include="DotNETReflectionContext.cs" />
     <Compile Include="..\..\AssemblyInfo\$(AssemblyName).cs">
       <Link>Properties\$(AssemblyName).AssemblyInfo.cs</Link>
@@ -70,25 +71,29 @@
       <Project>{aeabb192-070f-4c75-bdae-7e29496026ae}</Project>
       <Name>CILAssemblyManipulator</Name>
     </ProjectReference>
+     <ProjectReference Condition=" '$(UseUtilpackReference)' == '' " Include="..\..\CommonUtils\CommonUtils.csproj">
+        <Project>{dba22cd8-ac89-4902-8e44-f4771875e781}</Project>
+        <Name>CommonUtils</Name>
+     </ProjectReference>
   </ItemGroup>
   <ItemGroup Condition=" '$(UseUtilpackReference)' != '' ">
     <Reference Include="CILAssemblyManipulator.Portable">
       <HintPath>$(OutputPath)CILAssemblyManipulator.Portable.dll</HintPath>
     </Reference>
+    <Reference Include="UtilPack">
+        <HintPath>$(OutputPath)UtilPack.dll</HintPath>
+     </Reference>
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
-  
   <PropertyGroup Condition=" '$(UseUtilpackReference)' != '' ">
     <SignAssembly>true</SignAssembly>
     <KeyFilePath>$(MSBuildThisFileDirectory)..\..\..\Keys\CAM.snk</KeyFilePath>
     <AssemblyOriginatorKeyFile>$(KeyFilePath)</AssemblyOriginatorKeyFile>
   </PropertyGroup>
-  
   <!-- Create .snk file if it doesn't exist to ensure smooth build -->
   <Import Project="$(MSBuildThisFileDirectory)../../../CommonBuildTools/CLR/MSBuild/CreateKeyFileIfNeeded.targets" />
-  
   <Import Project="../../../CommonBuildTools/CLR/MSBuild/TargetFramework.targets" />
-    <!-- Assembly information -->
+  <!-- Assembly information -->
   <PropertyGroup>
     <AssemblyInfoCLSCompliant>true</AssemblyInfoCLSCompliant>
     <AssemblyInfoOutputFile>$(MSBuildThisFileDirectory)/../../AssemblyInfo/$(AssemblyName).cs</AssemblyInfoOutputFile>
@@ -101,5 +106,4 @@
     <AssemblyInfoVersionFilename>$(MSBuildThisFileDirectory)/../../CILAssemblyManipulatorVersion.txt</AssemblyInfoVersionFilename>
   </PropertyGroup>
   <Import Project="$(MSBuildThisFileDirectory)../../../CommonBuildTools/CLR/MSBuild/AssemblyInfo.targets" />
-  
 </Project>

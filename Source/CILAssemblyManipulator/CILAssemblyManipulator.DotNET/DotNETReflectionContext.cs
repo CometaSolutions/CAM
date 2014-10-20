@@ -34,6 +34,23 @@ namespace CILAssemblyManipulator.DotNET
    public static class DotNETReflectionContext
    {
       /// <summary>
+      /// This will create a new <see cref="CILAssemblyLoader"/> using <see cref="DotNETCILAssemblyLoaderCallbacks"/> as the callbacks object for <see cref="CILAssemblyLoader"/>.
+      /// </summary>
+      /// <param name="ctx">The <see cref="CILReflectionContext"/>.</param>
+      /// <param name="referenceAssembliesDir">The optional directory containing reference assembly information. See <see cref="GetDefaultReferenceAssemblyPath"/> for more information. This method will use the value of <see cref="GetDefaultReferenceAssemblyPath"/> if this parameter is <c>null</c>.</param>
+      /// <returns>A new <see cref="CILAssemblyLoader"/> bound to this <see cref="CILReflectionContext"/>.</returns>
+      public static CILAssemblyLoader CreateAssemblyLoader( this CILReflectionContext ctx, String referenceAssembliesDir = null )
+      {
+         return new CILAssemblyLoader(
+            ctx,
+            new DotNETCILAssemblyLoaderCallbacks( referenceAssembliesDir ),
+            Environment.OSVersion.Platform.FileNamesCaseSensitive() ?
+               StringComparer.Ordinal :
+               StringComparer.OrdinalIgnoreCase
+            );
+      }
+
+      /// <summary>
       /// This is helper method to provide well-known defaults for some parameters of <see cref="FrameworkMonikerInfo.ReadAssemblyInformationFromRedistXMLFile"/> method.
       /// </summary>
       /// <param name="redistXMLFilePath">The location of the <c>FrameworkList.xml</c> file.</param>
@@ -641,6 +658,13 @@ namespace CILAssemblyManipulator.DotNET
       private static void ThrowFromLastWin32Error()
       {
          throw new System.ComponentModel.Win32Exception( Marshal.GetLastWin32Error() );
+      }
+
+      internal static Boolean FileNamesCaseSensitive( this PlatformID platform )
+      {
+         return platform == PlatformID.Unix
+            || platform == PlatformID.MacOSX
+            || platform == (PlatformID) 128; // Mono value for unix
       }
 
    }

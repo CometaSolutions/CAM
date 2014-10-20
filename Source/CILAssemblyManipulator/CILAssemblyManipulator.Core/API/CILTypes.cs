@@ -920,9 +920,9 @@ public static partial class E_CIL
    /// </summary>
    /// <param name="type">The type to extract full inheritance chain from.</param>
    /// <returns>Enumerable for full inheritance chain of <paramref name="type"/>. Will be empty if <paramref name="type"/> is <c>null</c>.</returns>
-   public static IEnumerable<CILType> FullInheritanceChain( this CILType type )
+   public static IEnumerable<CILType> GetFullInheritanceChain( this CILType type )
    {
-      return type == null ? EMPTY_TYPES : type.BaseTypeChain().Concat( type.AllImplementedInterfaces( false ) );
+      return type == null ? EMPTY_TYPES : type.GetBaseTypeChain().Concat( type.GetAllImplementedInterfaces( false ) );
    }
 
    /// <summary>
@@ -932,19 +932,25 @@ public static partial class E_CIL
    /// <param name="includeThisIfInterface">Whether to include <paramref name="type"/> if it is an interface into the result.</param>
    /// <returns>The enumerable for all implemented interfaces of <paramref name="type"/>. Will be empty if <paramref name="type"/> is <c>null</c>.</returns>
    /// <seealso cref="System.Type.GetInterfaces()"/>
-   public static IEnumerable<CILType> AllImplementedInterfaces( this CILType type, Boolean includeThisIfInterface )
+   public static IEnumerable<CILType> GetAllImplementedInterfaces( this CILType type, Boolean includeThisIfInterface )
    {
-      return type == null ? EMPTY_TYPES : type.BaseTypeChain().SelectMany( t => t.AsDepthFirstEnumerable( t2 => t2.DeclaredInterfaces ) ).Skip( includeThisIfInterface && type.Attributes.IsInterface() ? 0 : 1 );
+      return type == null ? EMPTY_TYPES : type.GetBaseTypeChain().SelectMany( t => t.AsDepthFirstEnumerable( t2 => t2.DeclaredInterfaces ).Skip( 1 ) ).Skip( includeThisIfInterface && type.Attributes.IsInterface() ? 0 : 1 );
    }
 
    /// <summary>
    /// Returns the enumerable for base type inheritance hierarchy of <paramref name="type"/>.
    /// </summary>
    /// <param name="type">The type to extract base type inheritance hierarchy from.</param>
+   /// <param name="includeThisType">Whether to include <paramref name="type"/> in the resulting enumerable.</param>
    /// <returns>The enumerable for base type inheritance hierarchy of <paramref name="type"/>. Will be empty if <paramref name="type"/> is <c>null</c>.</returns>
-   public static IEnumerable<CILType> BaseTypeChain( this CILType type )
+   public static IEnumerable<CILType> GetBaseTypeChain( this CILType type, Boolean includeThisType = true )
    {
-      return type.AsSingleBranchEnumerable( t => t.BaseType );
+      var retVal = type.AsSingleBranchEnumerable( t => t.BaseType );
+      if ( !includeThisType )
+      {
+         retVal = retVal.Skip( 1 );
+      }
+      return retVal;
    }
 
    /// <summary>
