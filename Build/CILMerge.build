@@ -39,14 +39,14 @@
     <NuSpec_Tags>clr .net cil il merge assembly build targets</NuSpec_Tags>
     <NuSpec_DevelopmentDependency>true</NuSpec_DevelopmentDependency>
     <NuSpec_FilesXML><![CDATA[
-      <file src="$(CILMergeBaseDirNuSpec)\Output\Release\.NETApp\CILMerge.MSBuild.dll" target="build\CILMerge.MSBuild.dll" />
+      <file src="$(CILMergeBaseDirNuSpec)\Output\Release\dotNET\CILMerge.MSBuild.dll" target="build\CILMerge.MSBuild.dll" />
       <file src="$(CILMergeBaseDirNuSpec)\Source\CILMerge\CILMerge.MSBuild\CILMergeTask.targets" target="build\CILMerge.MSBuild.targets" />
     ]]></NuSpec_FilesXML>
   </PropertyGroup>
   
   <!-- Files for PEVerify -->
   <ItemGroup>
-      <PEVerifyFiles Include="$(CILMergeBaseDir)\Output\Release\.NETApp\CILMerge.MSBuild.dll" />
+      <PEVerifyFiles Include="$(CILMergeBaseDir)\Output\Release\dotNET\CILMerge.MSBuild.dll" />
   </ItemGroup>
   
   <Import Project="$(CILMergeBaseDir)/CommonBuildTools/CLR/MSBuild/NuSpec.targets" />
@@ -57,8 +57,8 @@
     <!-- First, delete all files that won't be included in the NuGet package. -->
     <ItemGroup>
       <CILMergeFilesToDelete
-        Include="$(CILMergeBaseDir)\Output\Release\.NETApp\*.*"
-        Exclude="$(CILMergeBaseDir)\Output\Release\.NETApp\CILMerge.MSBuild.*"
+        Include="$(CILMergeBaseDir)\Output\Release\dotNET\*.*"
+        Exclude="$(CILMergeBaseDir)\Output\Release\dotNET\CILMerge.MSBuild.*"
         />
     </ItemGroup>
     <Delete

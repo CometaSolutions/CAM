@@ -41,8 +41,8 @@
     <NuSpec_Summary>CIL Assembly Manipulator .NET provides a fully working CILReflectionContext to use.</NuSpec_Summary>
     <NuSpec_Tags>clr .net cil il emit read assembly module dynamic generator .net</NuSpec_Tags>
     <NuSpec_FilesXML><![CDATA[
-      <file src="$(CAMDotNETBaseDirNuSpec)\Output\Release\.NETApp\CILAssemblyManipulator.DotNET.dll" target="lib\net40-client\CILAssemblyManipulator.DotNET.dll" />
-      <file src="$(CAMDotNETBaseDirNuSpec)\Output\Release\.NETApp\CILAssemblyManipulator.DotNET.xml" target="lib\net40-client\CILAssemblyManipulator.DotNET.xml" />
+      <file src="$(CAMDotNETBaseDirNuSpec)\Output\Release\dotNET\CILAssemblyManipulator.DotNET.dll" target="lib\net40-client\CILAssemblyManipulator.DotNET.dll" />
+      <file src="$(CAMDotNETBaseDirNuSpec)\Output\Release\dotNET\CILAssemblyManipulator.DotNET.xml" target="lib\net40-client\CILAssemblyManipulator.DotNET.xml" />
     ]]></NuSpec_FilesXML>
     <NuSpec_DependenciesXML><![CDATA[
       <group>
@@ -54,7 +54,7 @@
   
   <!-- Files for PEVerify -->
   <ItemGroup>
-      <PEVerifyFiles Include="$(CAMDotNETBaseDir)\Output\Release\.NETApp\CILAssemblyManipulator.Portable.dll" />
+      <PEVerifyFiles Include="$(CAMDotNETBaseDir)\Output\Release\dotNET\CILAssemblyManipulator.Portable.dll" />
   </ItemGroup>
   
   <Import Project="$(CAMDotNETBaseDir)/CommonBuildTools/CLR/MSBuild/NuSpec.targets" />
@@ -65,8 +65,8 @@
     <!-- First, delete all files that won't be included in the NuGet package. -->
     <ItemGroup>
       <CAMDotNETFilesToDelete
-        Include="$(CAMDotNETBaseDir)\Output\Release\.NETApp\*.*"
-        Exclude="$(CAMDotNETBaseDir)\Output\Release\.NETApp\CILAssemblyManipulator.DotNET.*;$(CAMDotNETBaseDir)\Output\Release\.NETApp\CILAssemblyManipulator.Portable.dll;$(CAMDotNETBaseDir)\Output\Release\.NETApp\UtilPack.dll"
+        Include="$(CAMDotNETBaseDir)\Output\Release\dotNET\*.*"
+        Exclude="$(CAMDotNETBaseDir)\Output\Release\dotNET\CILAssemblyManipulator.DotNET.*;$(CAMDotNETBaseDir)\Output\Release\dotNET\CILAssemblyManipulator.Portable.dll;$(CAMDotNETBaseDir)\Output\Release\dotNET\UtilPack.dll"
         />
     </ItemGroup>
     <Delete

@@ -205,12 +205,12 @@ namespace CommonUtils
       private sealed class UndoUnitEnumerable : IEnumerable<T>
       {
          private readonly UndoUnitBuffer<T> _buffer;
-         private readonly Boolean _followNextLinks;
-         internal UndoUnitEnumerable( UndoUnitBuffer<T> buffer, Boolean followNextLinks )
+         private readonly Boolean _isUndo;
+         internal UndoUnitEnumerable( UndoUnitBuffer<T> buffer, Boolean isUndo )
          {
             ArgumentValidator.ValidateNotNull( "Buffer", buffer );
             this._buffer = buffer;
-            this._followNextLinks = followNextLinks;
+            this._isUndo = isUndo;
          }
          private sealed class Enumerator : IEnumerator<T>
          {
@@ -222,8 +222,19 @@ namespace CommonUtils
             internal Enumerator( UndoUnitEnumerable enumerable )
             {
                this._enumerable = enumerable;
-               var cur = enumerable._buffer._current;
-               this._startingNode = cur == null ? null : cur.Item1;
+               UndoUnitNode node;
+               if ( enumerable._isUndo )
+               {
+                  // Undo-order
+                  enumerable._buffer.TryGetNextToUndoNode( out node );
+               }
+               else
+               {
+                  // Redo-order
+                  enumerable._buffer.TryGetNextToRedoNode( out node );
+               }
+               this._startingNode = node;
+               this._node = this._startingNode;
                this._version = enumerable._buffer._units.Version;
             }
             public T Current
@@ -247,12 +258,12 @@ namespace CommonUtils
                if ( retVal )
                {
                   this._current = this._node.Value;
-                  var followNext = this._enumerable._followNextLinks;
-                  this._node = followNext ? this._node.Next : this._node.Previous;
+                  var isRedo = !this._enumerable._isUndo;
+                  this._node = isRedo ? this._node.Next : this._node.Previous;
                   var list = this._enumerable._buffer._units;
                   if ( Object.ReferenceEquals(
                   this._node,
-                  followNext ? list.First : list.Last
+                  isRedo ? list.First : list.Last
                   ) )
                   {
                      this._node = null;
@@ -286,11 +297,13 @@ namespace CommonUtils
             return this.GetEnumerator();
          }
       }
+
       private Int32 _undoBufferLength;
       private readonly UndoUnitList _units;
       // next to undo - 1. node 2. its index
       // Will be null if nothing left to undo
       private Tuple<UndoUnitNode, Int32> _current;
+
       /// <summary>
       /// Creates new instance of <see cref="UndoUnitBuffer{T}"/> with given buffer length.
       /// </summary>
@@ -301,6 +314,7 @@ namespace CommonUtils
          this._units = new UndoUnitList();
          this.BufferLength = undoBufferLength;
       }
+
       /// <summary>
       /// This method should be invoked whenever a normal operation (not an undo or redo) completes within an application and should be added as newest undoable unit.
       /// </summary>
@@ -337,6 +351,7 @@ namespace CommonUtils
          // (if this class is used threadsafely, this will be O(1) operation )
          this.CheckLength();
       }
+
       /// <summary>
       /// Tries to get the next unit to undo. This operation will not modify the buffer state.
       /// </summary>
@@ -347,15 +362,12 @@ namespace CommonUtils
       /// </remarks>
       public Boolean TryGetNextToUndo( out T unit )
       {
-         // Get the next unit to undo
-         var node = this._current;
-         // If it is null, we can't undo anymore
-         var retVal = node != null;
-         // Get the unit, if can
-         unit = retVal ? node.Item1.Value : default( T );
-         // Return success status
+         UndoUnitNode node;
+         var retVal = this.TryGetNextToUndoNode( out node );
+         unit = retVal ? node.Value : default( T );
          return retVal;
       }
+
       /// <summary>
       /// Tries to get the next unit to redo. This operation will not modify the buffer state.
       /// </summary>
@@ -366,26 +378,12 @@ namespace CommonUtils
       /// </remarks>
       public Boolean TryGetNextToRedo( out T unit )
       {
-         // Get next unit to undo
-         var node = this._current;
-         Boolean retVal;
-         // Check if we have anything to undo
-         if ( node == null )
-         {
-            // If there is nothing to undo, we can redo only if there are undo units in buffer
-            retVal = this._units.Count > 0;
-            // The undo unit will be the first unit of the buffer
-            unit = retVal ? this._units.First.Value : default( T );
-         }
-         else
-         {
-            // If there is something to undo, we can redo only if next to undo is not the last unit in buffer
-            retVal = !this.IsLast( node );
-            // The undo unit will be the next value of the next-to-undo item.
-            unit = retVal ? node.Item1.Next.Value : default( T );
-         }
+         UndoUnitNode node;
+         var retVal = this.TryGetNextToRedoNode( out node );
+         unit = retVal ? node.Value : default( T );
          return retVal;
       }
+
       /// <summary>
       /// This method will signal the buffer that an undo operation was successfully completed, and the state will be modified accordingly.
       /// </summary>
@@ -405,6 +403,7 @@ namespace CommonUtils
          var cur = this._current;
          this._current = this.IsFirst( cur ) ? null : Tuple.Create( cur.Item1.Previous, cur.Item2 - 1 );
       }
+
       /// <summary>
       /// This method will signal the buffer that a redo operation was successfully completed, and the state will be modified accordingly.
       /// </summary>
@@ -442,6 +441,7 @@ namespace CommonUtils
          }
          this._current = Tuple.Create( newCurrent, cur == null ? 0 : ( cur.Item2 + 1 ) );
       }
+
       /// <summary>
       /// Gets or sets the maximum amount of undo units this buffer can hold.
       /// </summary>
@@ -466,6 +466,7 @@ namespace CommonUtils
             this.CheckLength();
          }
       }
+
       /// <summary>
       /// Gets the total amount of undo units currently held by this buffer.
       /// </summary>
@@ -480,6 +481,7 @@ namespace CommonUtils
             return this._units.Count;
          }
       }
+
       /// <summary>
       /// Removes all units from this buffer.
       /// </summary>
@@ -491,6 +493,7 @@ namespace CommonUtils
          this._units.Clear();
          this._current = null;
       }
+
       /// <summary>
       /// Returns units to undo as an <see cref="IEnumerable{T}"/>.
       /// The first element is next to undo as per state of buffer, the second is next to undo after that, etc.
@@ -500,10 +503,10 @@ namespace CommonUtils
       {
          get
          {
-            var cur = this._current;
-            return new UndoUnitEnumerable( this, false );
+            return new UndoUnitEnumerable( this, true );
          }
       }
+
       /// <summary>
       /// Returns units to redo as an <see cref="IEnumerable{T}"/>.
       /// The first element is next to redo as per state of buffer, the second is next to redo after that, etc.
@@ -513,10 +516,10 @@ namespace CommonUtils
       {
          get
          {
-            var cur = this._current;
-            return new UndoUnitEnumerable( this, true );
+            return new UndoUnitEnumerable( this, false );
          }
       }
+
       //public IEnumerable<UndoUnit> UndoUnits
       //{
       // get
@@ -541,20 +544,59 @@ namespace CommonUtils
             this._current = null;
          }
       }
+
       private Boolean IsLast( Tuple<UndoUnitNode, Int32> nodeInfo )
       {
          return Object.ReferenceEquals( this._units.Last, nodeInfo.Item1 );
       }
+
       private Boolean IsFirst( Tuple<UndoUnitNode, Int32> nodeInfo )
       {
          return Object.ReferenceEquals( this._units.First, nodeInfo.Item1 );
       }
+
       internal void ThrowUnderflow( Boolean isUndo )
       {
          throw new InvalidOperationException( ( isUndo ? "Undo" : "Redo" ) + " stack underflow." );
       }
+
+      private Boolean TryGetNextToUndoNode( out UndoUnitNode uNode )
+      {
+         // Get the next unit to undo
+         var node = this._current;
+         // If it is null, we can't undo anymore
+         var retVal = node != null;
+         // Get the unit, if can
+         uNode = retVal ? node.Item1 : null;
+         // Return success status
+         return retVal;
+      }
+
+      private Boolean TryGetNextToRedoNode( out UndoUnitNode uNode )
+      {
+         // Get next unit to undo
+         var node = this._current;
+         Boolean retVal;
+         // Check if we have anything to undo
+         if ( node == null )
+         {
+            // If there is nothing to undo, we can redo only if there are undo units in buffer
+            retVal = this._units.Count > 0;
+            // The undo unit will be the first unit of the buffer
+            uNode = retVal ? this._units.First : null;
+         }
+         else
+         {
+            // If there is something to undo, we can redo only if next to undo is not the last unit in buffer
+            retVal = !this.IsLast( node );
+            // The undo unit will be the next value of the next-to-undo item.
+            uNode = retVal ? node.Item1.Next : null;
+         }
+         return retVal;
+      }
    }
 }
+
 public static partial class E_CommonUtils
 {
    /// <summary>

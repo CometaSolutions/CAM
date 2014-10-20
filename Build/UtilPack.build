@@ -46,8 +46,8 @@
     <NuSpec_Summary>Utility Package is small DLL containing useful components for all kind of applications.</NuSpec_Summary>
     <NuSpec_Tags>clr .net mono portable utility binary data read write collection command query separation reflection</NuSpec_Tags>
     <NuSpec_FilesXML><![CDATA[
-      <file src="$(UtilPackBaseDirNuSpec)\Output\Release\.NETApp\UtilPack.dll" target="lib\portable-net40+win\UtilPack.dll" />
-      <file src="$(UtilPackBaseDirNuSpec)\Output\Release\.NETApp\UtilPack.xml" target="lib\portable-net40+win\UtilPack.xml" />
+      <file src="$(UtilPackBaseDirNuSpec)\Output\Release\dotNET\UtilPack.dll" target="lib\portable-net40+win\UtilPack.dll" />
+      <file src="$(UtilPackBaseDirNuSpec)\Output\Release\dotNET\UtilPack.xml" target="lib\portable-net40+win\UtilPack.xml" />
       <file src="$(UtilPackBaseDirNuSpec)\Output\Release\SL\UtilPack.dll" target="lib\portable-net45+sl50+win+wp80\UtilPack.dll" />
       <file src="$(UtilPackBaseDirNuSpec)\Output\Release\SL\UtilPack.xml" target="lib\portable-net45+sl50+win+wp80\UtilPack.xml" />
       <file src="$(UtilPackBaseDirNuSpec)\Output\Release\WP\UtilPack.dll" target="lib\wpa81\UtilPack.dll" />
@@ -58,7 +58,7 @@
     
   <!-- Files for PEVerify -->
   <ItemGroup>
-      <PEVerifyFiles Include="$(UtilPackBaseDir)\Output\Release\.NETApp\UtilPack.dll" />
+      <PEVerifyFiles Include="$(UtilPackBaseDir)\Output\Release\dotNET\UtilPack.dll" />
       <PEVerifyFiles Include="$(UtilPackBaseDir)\Output\Release\SL\UtilPack.dll" />
       <PEVerifyFiles Include="$(UtilPackBaseDir)\Output\Release\SL\UtilPack.dll" />
   </ItemGroup>
@@ -70,11 +70,11 @@
   <Target Name="UtilPackNuSpec">
     <!-- First, delete all files that won't be included in the NuGet package. -->
     <ItemGroup>
-      <UtilPackFilesToPersist Include="$(UtilPackBaseDir)\Output\Release\.NETApp\UtilPack.*"/>
+      <UtilPackFilesToPersist Include="$(UtilPackBaseDir)\Output\Release\dotNET\UtilPack.*"/>
       <UtilPackFilesToPersist Include="$(UtilPackBaseDir)\Output\Release\SL\UtilPack.*"/>
       <UtilPackFilesToPersist Include="$(UtilPackBaseDir)\Output\Release\WP\UtilPack.*"/>
       
-      <UtilPackFilesToDelete Include="$(UtilPackBaseDir)\Output\Release\.NETApp\*.*"/>
+      <UtilPackFilesToDelete Include="$(UtilPackBaseDir)\Output\Release\dotNET\*.*"/>
       <UtilPackFilesToDelete Include="$(UtilPackBaseDir)\Output\Release\SL\*.*"/>
       <UtilPackFilesToDelete Include="$(UtilPackBaseDir)\Output\Release\WP\*.*"/>
       <UtilPackFilesToDelete Remove="@(UtilPackFilesToPersist)"/>

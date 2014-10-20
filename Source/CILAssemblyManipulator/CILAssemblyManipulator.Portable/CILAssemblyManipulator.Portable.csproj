@@ -27,7 +27,7 @@
     <DebugSymbols>true</DebugSymbols>
     <DebugType>full</DebugType>
     <Optimize>false</Optimize>
-    <OutputPath>..\..\..\Output\Debug\.NETApp\</OutputPath>
+    <OutputPath>..\..\..\Output\Debug\dotNET\</OutputPath>
     <DefineConstants>DEBUG;TRACE</DefineConstants>
     <ErrorReport>prompt</ErrorReport>
     <WarningLevel>4</WarningLevel>
@@ -35,7 +35,7 @@
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Release|AnyCPU' ">
     <DebugType>none</DebugType>
     <Optimize>true</Optimize>
-    <OutputPath>..\..\..\Output\Release\.NETApp\</OutputPath>
+    <OutputPath>..\..\..\Output\Release\dotNET\</OutputPath>
     <DefineConstants>TRACE</DefineConstants>
     <ErrorReport>prompt</ErrorReport>
     <WarningLevel>4</WarningLevel>
@@ -98,7 +98,7 @@
   <Import Project="$(MSBuildThisFileDirectory)../../../CommonBuildTools/CLR/MSBuild/CreateKeyFileIfNeeded.targets" />
 
   <!-- Merge DLLs -->  
-  <UsingTask TaskName="CILMerge.MSBuild.CILMergeTask" AssemblyFile="..\..\..\Output\Release\.NETApp\CILMerge.MSBuild.dll" />
+  <UsingTask TaskName="CILMerge.MSBuild.CILMergeTask" AssemblyFile="..\..\..\Output\Release\dotNET\CILMerge.MSBuild.dll" />
   <PropertyGroup Condition=" '$(Configuration)' == 'Release' or '$(Configuration)' == 'Release_WP' ">
     <CILMergeNoDebug>True</CILMergeNoDebug>
   </PropertyGroup>
