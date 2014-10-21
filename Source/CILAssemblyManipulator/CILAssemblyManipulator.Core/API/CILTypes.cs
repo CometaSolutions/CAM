@@ -934,9 +934,15 @@ public static partial class E_CIL
    /// <seealso cref="System.Type.GetInterfaces()"/>
    public static IEnumerable<CILType> GetAllImplementedInterfaces( this CILType type, Boolean includeThisIfInterface )
    {
-      return type == null ? EMPTY_TYPES : type.GetBaseTypeChain()
-         .SelectMany( t => t.AsDepthFirstEnumerable( t2 => t2.DeclaredInterfaces ) )
-         .Skip( includeThisIfInterface && type.Attributes.IsInterface() ? 0 : 1 );
+      var retVal = type == null ? EMPTY_TYPES : ( type.Attributes.IsInterface() ?
+         type.AsDepthFirstEnumerable( t => t.DeclaredInterfaces ) :
+         type.GetBaseTypeChain().SelectMany( t => t.AsDepthFirstEnumerable( t2 => t2.DeclaredInterfaces ).Skip( 1 ) ) );
+      if ( type != null && type.Attributes.IsInterface() && !includeThisIfInterface )
+      {
+         retVal = retVal.Skip( 1 );
+      }
+
+      return retVal;
    }
 
    /// <summary>
