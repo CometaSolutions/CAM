@@ -1,0 +1,132 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="4.0" DefaultTargets="GenerateKeyFile;GenerateAssemblyInfoFile;Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <Import Project="$(MSBuildExtensionsPath)\$(MSBuildToolsVersion)\Microsoft.Common.props" Condition="Exists('$(MSBuildExtensionsPath)\$(MSBuildToolsVersion)\Microsoft.Common.props')" />
+  <PropertyGroup>
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+    <Configuration Condition=" '$(Configuration)' == '' ">Debug</Configuration>
+    <Platform Condition=" '$(Platform)' == '' ">AnyCPU</Platform>
+    <ProjectGuid>{5CCF622D-5695-410C-B753-ABA937698414}</ProjectGuid>
+    <OutputType>Library</OutputType>
+    <AppDesignerFolder>Properties</AppDesignerFolder>
+    <RootNamespace>CILMerge.MSBuild</RootNamespace>
+    <AssemblyName>CILMerge.MSBuild</AssemblyName>
+    <TargetFrameworkVersion>v4.0</TargetFrameworkVersion>
+    <FileAlignment>512</FileAlignment>
+    <GenerateSerializationAssemblies>Off</GenerateSerializationAssemblies>
+  </PropertyGroup>
+  <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|AnyCPU' ">
+    <DebugSymbols>true</DebugSymbols>
+    <DebugType>full</DebugType>
+    <Optimize>false</Optimize>
+    <OutputPath>..\..\..\Output\Debug\dotNET\</OutputPath>
+    <DefineConstants>DEBUG;TRACE</DefineConstants>
+    <ErrorReport>prompt</ErrorReport>
+    <WarningLevel>4</WarningLevel>
+  </PropertyGroup>
+  <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Release|AnyCPU' ">
+    <DebugType>none</DebugType>
+    <Optimize>true</Optimize>
+    <OutputPath>..\..\..\Output\Release\dotNET\</OutputPath>
+    <DefineConstants>TRACE</DefineConstants>
+    <ErrorReport>prompt</ErrorReport>
+    <WarningLevel>4</WarningLevel>
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)' == 'Debug_WP|AnyCPU'">
+    <DebugSymbols>true</DebugSymbols>
+    <OutputPath>..\..\..\Output\Debug\WP\</OutputPath>
+    <DefineConstants>TRACE;DEBUG;WP8_BUILD</DefineConstants>
+    <DebugType>full</DebugType>
+    <PlatformTarget>AnyCPU</PlatformTarget>
+    <ErrorReport>prompt</ErrorReport>
+    <CodeAnalysisRuleSet>MinimumRecommendedRules.ruleset</CodeAnalysisRuleSet>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)' == 'Release_WP|AnyCPU'">
+    <OutputPath>..\..\..\Output\Release\WP\</OutputPath>
+    <DefineConstants>TRACE;WP8_BUILD</DefineConstants>
+    <Optimize>true</Optimize>
+    <DebugType>none</DebugType>
+    <PlatformTarget>AnyCPU</PlatformTarget>
+    <ErrorReport>prompt</ErrorReport>
+    <CodeAnalysisRuleSet>MinimumRecommendedRules.ruleset</CodeAnalysisRuleSet>
+  </PropertyGroup>
+  <ItemGroup>
+    <Reference Include="Microsoft.Build.Framework" />
+    <Reference Include="Microsoft.Build.Utilities.v4.0" />
+    <Reference Include="System" />
+    <Reference Include="System.Core" />
+    <Reference Include="System.Xml.Linq" />
+    <Reference Include="System.Xml" />
+  </ItemGroup>
+  <ItemGroup>
+    <Compile Include="..\..\AssemblyInfo\$(AssemblyName).cs">
+      <Link>Properties\$(AssemblyName).AssemblyInfo.cs</Link>
+    </Compile>
+    <Compile Include="CILMergeTask.cs" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Condition=" '$(UseUtilpackReference)' == '' " Include="..\..\CILAssemblyManipulator\CILAssemblyManipulator.Core\CILAssemblyManipulator.Core.csproj">
+      <Project>{aeabb192-070f-4c75-bdae-7e29496026ae}</Project>
+      <Name>CILAssemblyManipulator</Name>
+    </ProjectReference>
+    <ProjectReference Include="..\CILMerge.DLL\CILMerge.DLL.csproj">
+      <Project>{b9bbe0ca-0eba-4fc9-b433-fe358da4080b}</Project>
+      <Name>CILMerge.DLL</Name>
+    </ProjectReference>
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="CILMergeTask.targets" />
+  </ItemGroup>
+  <!-- Merge target assembly using the task itself -->
+  <UsingTask TaskName="CILMerge.MSBuild.CILMergeTask" AssemblyFile="$(IntermediateOutputPath)$(AssemblyName).dll" />
+  <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
+  <Import Project="../../../CommonBuildTools/CLR/MSBuild/TargetFramework.targets" />
+  <!-- This is after Import since ProjectDir is set there -->
+  <PropertyGroup>
+    <KeyFilePath>$(ProjectDir)..\..\..\Keys\CILMerge.snk</KeyFilePath>
+  </PropertyGroup>
+  <!-- Copying dependencies: http://blog.alexyakunin.com/2009/09/making-msbuild-visual-studio-to.html -->
+  <Target Condition="'$(Configuration)' != 'Debug'" Name="AfterBuild">
+    <CreateItem Include="@(ReferencePath)" Condition="'%(CopyLocal)'=='true'">
+      <Output TaskParameter="Include" ItemName="DirectlyDependentAssemblies" />
+    </CreateItem>
+    <CreateItem Include="@(ReferenceDependencyPaths)" Condition="'%(CopyLocal)'=='true'">
+      <Output TaskParameter="Include" ItemName="IndirectlyDependentAssemblies" />
+    </CreateItem>
+    <!-- Copy direct dependencies which are set to be copied locally -->
+    <Copy SourceFiles="%(DirectlyDependentAssemblies.FullPath)" DestinationFolder="$(IntermediateOutputPath)" SkipUnchangedFiles="true" />
+    <!-- Copy indirect dependencies which are set to be copied locally -->
+    <Copy SourceFiles="%(IndirectlyDependentAssemblies.FullPath)" DestinationFolder="$(IntermediateOutputPath)" SkipUnchangedFiles="true" />
+    <!-- Have to use Exec task in order for the MSBuild not to lock the assembly -->
+    <PropertyGroup>
+      <MSBuildExeName Condition=" '$(MonoBuild)' == '' ">$(MSBuildBinPath)\msbuild.exe</MSBuildExeName>
+      <MSBuildExeName Condition=" '$(MonoBuild)' != '' and '$(OS)' != 'Unix' ">$(MSBuildBinPath)\..\..\..\bin\xbuild.bat</MSBuildExeName>
+      <MSBuildExeName Condition=" '$(MonoBuild)' != '' and '$(OS)' == 'Unix' ">/usr/bin/xbuild</MSBuildExeName>
+    </PropertyGroup>
+    <Exec Command="&quot;$(MSBuildExeName)&quot; /t:MergeThisTask /p:&quot;Configuration=$(Configuration)&quot; /p:&quot;Platform=$(Platform)&quot; &quot;$(MSBuildProjectFullPath)&quot;" />
+  </Target>
+  <!-- Create .snk file if it doesn't exist to ensure smooth build -->
+  <Import Project="$(MSBuildThisFileDirectory)../../../CommonBuildTools/CLR/MSBuild/CreateKeyFileIfNeeded.targets" />
+  <Target Name="MergeThisTask">
+    <CILMerge.MSBuild.CILMergeTask InputAssemblies="@(IntermediateAssembly)" OutDir="$(ProjectDir)$(OutputPath)" Union="True" Closed="True" Internalize="True" UseFullPublicKeyForRefs="True" XmlDocs="True" KeyFile="$(KeyFilePath)" />
+  </Target>
+  <!-- Assembly information -->
+  <PropertyGroup>
+    <AssemblyInfoCLSCompliant>true</AssemblyInfoCLSCompliant>
+    <AssemblyInfoOutputFile>$(MSBuildThisFileDirectory)/../../AssemblyInfo/$(AssemblyName).cs</AssemblyInfoOutputFile>
+    <AssemblyInfoDescription>MSBuild task for merging CIL assemblies.</AssemblyInfoDescription>
+    <AssemblyInfoAppendAssemblyCopyrightYears>true</AssemblyInfoAppendAssemblyCopyrightYears>
+    <AssemblyInfoAssemblyInceptionYear>2013</AssemblyInfoAssemblyInceptionYear>
+    <AssemblyInfoCopyrightAuthors>Stanislav Muhametsin</AssemblyInfoCopyrightAuthors>
+    <AssemblyInfoCompany>Cometa Solutions Ltd</AssemblyInfoCompany>
+    <AssemblyInfoTrademark>CILMerge</AssemblyInfoTrademark>
+    <AssemblyInfoVersionFilename>$(MSBuildThisFileDirectory)/../../CILMergeVersion.txt</AssemblyInfoVersionFilename>
+  </PropertyGroup>
+  <Import Project="../../../CommonBuildTools/CLR/MSBuild/AssemblyInfo.targets" />
+  <!-- NuSpec file -->
+  <!-- <PropertyGroup>
+    <NuSpecTemplateFile>$(MSBuildThisFileDirectory)../../NuSpec/CILMerge.nuspec.template</NuSpecTemplateFile>
+    <NuSpecFile>$(MSBuildThisFileDirectory)../../NuSpec/CILMerge.nuspec</NuSpecFile>
+  </PropertyGroup>
+  <Import Project="../../../Build/NuGetSpec.targets" /> -->
+</Project>

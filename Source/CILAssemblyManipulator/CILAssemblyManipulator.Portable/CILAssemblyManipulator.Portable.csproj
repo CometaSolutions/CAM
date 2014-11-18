@@ -1,0 +1,124 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="4.0" DefaultTargets="GenerateKeyFile;GenerateAssemblyInfoFile;Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <Import Project="$(MSBuildExtensionsPath)\$(MSBuildToolsVersion)\Microsoft.Common.props" Condition="Exists('$(MSBuildExtensionsPath)\$(MSBuildToolsVersion)\Microsoft.Common.props')" />
+  <PropertyGroup>
+    <MinimumVisualStudioVersion>10.0</MinimumVisualStudioVersion>
+    <Configuration Condition=" '$(Configuration)' == '' ">Debug</Configuration>
+    <Platform Condition=" '$(Platform)' == '' ">AnyCPU</Platform>
+    <ProjectGuid>{CFA5CD16-C054-41BF-9409-EAAEFD277AEC}</ProjectGuid>
+    <OutputType>Library</OutputType>
+    <AppDesignerFolder>Properties</AppDesignerFolder>
+    <RootNamespace>CILAssemblyManipulator.Portable</RootNamespace>
+    <AssemblyName>CILAssemblyManipulator.Portable</AssemblyName>
+    <DefaultLanguage>en-US</DefaultLanguage>
+    <FileAlignment>512</FileAlignment>
+    <ProjectTypeGuids>{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}</ProjectTypeGuids>
+
+    <TargetPlatformIdentifier Condition=" '$(Configuration)' == 'Debug_WP' or '$(Configuration)' == 'Release_WP' ">WindowsPhoneApp</TargetPlatformIdentifier>
+    <TargetPlatformVersion Condition=" '$(Configuration)' == 'Debug_WP' or '$(Configuration)' == 'Release_WP' ">8.1</TargetPlatformVersion>
+    <ProjectTypeGuids Condition=" '$(Configuration)' == 'Debug_WP' or '$(Configuration)' == 'Release_WP' ">{76F1466A-8B6D-4E39-A767-685A06062A39};$(ProjectTypeGuids)</ProjectTypeGuids>
+    
+    <TargetFrameworkProfile Condition=" '$(Configuration)' != 'Debug_WP' and '$(Configuration)' != 'Release_WP' ">Profile5</TargetFrameworkProfile>
+    <TargetFrameworkVersion Condition=" '$(Configuration)' != 'Debug_WP' and '$(Configuration)' != 'Release_WP' ">v4.0</TargetFrameworkVersion>
+    <ProjectTypeGuids Condition=" '$(Configuration)' != 'Debug_WP' and '$(Configuration)' != 'Release_WP' ">{786C830F-07A1-408B-BD7F-6EE04809D6DB};$(ProjectTypeGuids)</ProjectTypeGuids>
+
+  </PropertyGroup>
+  <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|AnyCPU' ">
+    <DebugSymbols>true</DebugSymbols>
+    <DebugType>full</DebugType>
+    <Optimize>false</Optimize>
+    <OutputPath>..\..\..\Output\Debug\dotNET\</OutputPath>
+    <DefineConstants>DEBUG;TRACE</DefineConstants>
+    <ErrorReport>prompt</ErrorReport>
+    <WarningLevel>4</WarningLevel>
+  </PropertyGroup>
+  <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Release|AnyCPU' ">
+    <DebugType>none</DebugType>
+    <Optimize>true</Optimize>
+    <OutputPath>..\..\..\Output\Release\dotNET\</OutputPath>
+    <DefineConstants>TRACE</DefineConstants>
+    <ErrorReport>prompt</ErrorReport>
+    <WarningLevel>4</WarningLevel>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)' == 'Debug_WP|AnyCPU'">
+    <DebugSymbols>true</DebugSymbols>
+    <OutputPath>..\..\..\Output\Debug\WP\</OutputPath>
+    <DefineConstants>TRACE;DEBUG;NETFX_CORE;WINDOWS_PHONE_APP</DefineConstants>
+    <DebugType>full</DebugType>
+    <PlatformTarget>AnyCPU</PlatformTarget>
+    <ErrorReport>prompt</ErrorReport>
+    <CodeAnalysisRuleSet>MinimumRecommendedRules.ruleset</CodeAnalysisRuleSet>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)' == 'Release_WP|AnyCPU'">
+    <OutputPath>..\..\..\Output\Release\WP\</OutputPath>
+    <DefineConstants>TRACE;NETFX_CORE;WINDOWS_PHONE_APP</DefineConstants>
+    <Optimize>true</Optimize>
+    <DebugType>none</DebugType>
+    <PlatformTarget>AnyCPU</PlatformTarget>
+    <ErrorReport>prompt</ErrorReport>
+    <CodeAnalysisRuleSet>MinimumRecommendedRules.ruleset</CodeAnalysisRuleSet>
+  </PropertyGroup>
+  <ItemGroup>
+    <Compile Include="..\..\AssemblyInfo\$(AssemblyName).cs">
+      <Link>Properties\$(AssemblyName).AssemblyInfo.cs</Link>
+    </Compile>
+  </ItemGroup>
+  
+  <ItemGroup>
+    <!-- A reference to the entire .NET Framework is automatically included -->
+    <ProjectReference Include="..\CILAssemblyManipulator.Core\CILAssemblyManipulator.Core.csproj">
+      <Project>{aeabb192-070f-4c75-bdae-7e29496026ae}</Project>
+      <Name>CILAssemblyManipulator.Core</Name>
+    </ProjectReference>
+    <ProjectReference Include="..\CILAssemblyManipulator.MResources\CILAssemblyManipulator.MResources.csproj">
+      <Project>{99fcb99e-c7eb-49d0-980f-86e61f874fcb}</Project>
+      <Name>CILAssemblyManipulator.MResources</Name>
+    </ProjectReference>
+    <ProjectReference Include="..\CILAssemblyManipulator.PDB\CILAssemblyManipulator.PDB.csproj">
+      <Project>{5f874824-aea5-45a0-a0a2-408210397b08}</Project>
+      <Name>CILAssemblyManipulator.PDB</Name>
+    </ProjectReference>
+  </ItemGroup>
+  <ItemGroup Condition=" '$(UseUtilpackReference)' != '' ">
+    <Reference Include="UtilPack">
+      <HintPath>$(OutputPath)UtilPack.dll</HintPath>
+    </Reference>
+  </ItemGroup>
+  
+  <PropertyGroup>
+    <KeyFilePath>$(MSBuildThisFileDirectory)..\..\..\Keys\CAM.snk</KeyFilePath>
+  </PropertyGroup>
+  
+  <Import Condition=" '$(Configuration)' != 'Debug_WP' and '$(Configuration)' != 'Release_WP' " Project="$(MSBuildExtensionsPath32)\Microsoft\Portable\$(TargetFrameworkVersion)\Microsoft.Portable.CSharp.targets" />
+  <Import Condition=" '$(Configuration)' == 'Debug_WP' or '$(Configuration)' == 'Release_WP' " Project="$(MSBuildExtensionsPath)\Microsoft\WindowsXaml\v$(VisualStudioVersion)\Microsoft.Windows.UI.Xaml.CSharp.targets" />
+  
+  <Import Project="../../../CommonBuildTools/CLR/MSBuild/TargetFramework.targets" />
+  
+    <!-- Create .snk file if it doesn't exist to ensure smooth build -->
+  <Import Project="$(MSBuildThisFileDirectory)../../../CommonBuildTools/CLR/MSBuild/CreateKeyFileIfNeeded.targets" />
+
+  <!-- Merge DLLs -->  
+  <UsingTask TaskName="CILMerge.MSBuild.CILMergeTask" AssemblyFile="..\..\..\Output\Release\dotNET\CILMerge.MSBuild.dll" />
+  <PropertyGroup Condition=" '$(Configuration)' == 'Release' or '$(Configuration)' == 'Release_WP' ">
+    <CILMergeNoDebug>True</CILMergeNoDebug>
+  </PropertyGroup>
+  <Target Name="AfterBuild">
+    <!-- TODO Output logging info when all projects have XML document files -->
+    <CILMerge.MSBuild.CILMergeTask InputAssemblies="@(IntermediateAssembly);$(ProjectDir)$(OutputPath)CILAssemblyManipulator.Core.dll;$(ProjectDir)$(OutputPath)CILAssemblyManipulator.MResources.dll;$(ProjectDir)$(OutputPath)CILAssemblyManipulator.PDB.dll" OutDir="$(ProjectDir)$(OutputPath)" Union="True" XmlDocs="True" UseFullPublicKeyForRefs="True" DoLogging="False" NoDebug="$(CILMergeNoDebug)" KeyFile="$(KeyFilePath)" />
+  </Target>
+  
+    <!-- Assembly information -->
+  <PropertyGroup>
+    <AssemblyInfoCLSCompliant>true</AssemblyInfoCLSCompliant>
+    <AssemblyInfoOutputFile>$(MSBuildThisFileDirectory)/../../AssemblyInfo/$(AssemblyName).cs</AssemblyInfoOutputFile>
+    <AssemblyInfoDescription>CIL Assembly Manipulator (CAM) assembly providing support for emitting CIL code.</AssemblyInfoDescription>
+    <AssemblyInfoCompany>Cometa Solutions Ltd</AssemblyInfoCompany>
+    <AssemblyInfoTrademark>CAM</AssemblyInfoTrademark>
+    <AssemblyInfoAppendAssemblyCopyrightYears>true</AssemblyInfoAppendAssemblyCopyrightYears>
+    <AssemblyInfoAssemblyInceptionYear>2013</AssemblyInfoAssemblyInceptionYear>
+    <AssemblyInfoCopyrightAuthors>Stanislav Muhametsin</AssemblyInfoCopyrightAuthors>
+    <AssemblyInfoVersionFilename>$(MSBuildThisFileDirectory)/../../CILAssemblyManipulatorVersion.txt</AssemblyInfoVersionFilename>
+  </PropertyGroup>
+  <Import Project="$(MSBuildThisFileDirectory)../../../CommonBuildTools/CLR/MSBuild/AssemblyInfo.targets" />
+  
+</Project>

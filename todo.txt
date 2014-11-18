@@ -1,0 +1,6 @@
+CILAssemblyManipulator:
+ - Provide Lock -properties for all cases where locking is required
+ - Make the project build in WPA8.1 (will require addressing the issue of methods which can have same signature with certain generic arguments).
+ - Refactor IsSubclassOf -method.
+ - Add 'CILElementKind' (enum, e.g. "Assembly", "Module", "Type", etc) getter to all relevant interfaces returned by various properties and methods.
+ - Add missing values of ParameterAttributes.

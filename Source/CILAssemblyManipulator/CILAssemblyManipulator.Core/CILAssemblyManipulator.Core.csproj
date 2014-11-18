@@ -1,0 +1,133 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="4.0" DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <Import Project="$(MSBuildExtensionsPath)\$(MSBuildToolsVersion)\Microsoft.Common.props" Condition="Exists('$(MSBuildExtensionsPath)\$(MSBuildToolsVersion)\Microsoft.Common.props')" />
+  <PropertyGroup>
+    <MinimumVisualStudioVersion>10.0</MinimumVisualStudioVersion>
+    <Configuration Condition=" '$(Configuration)' == '' ">Debug</Configuration>
+    <Platform Condition=" '$(Platform)' == '' ">AnyCPU</Platform>
+    <ProjectGuid>{AEABB192-070F-4C75-BDAE-7E29496026AE}</ProjectGuid>
+    <OutputType>Library</OutputType>
+    <AppDesignerFolder>Properties</AppDesignerFolder>
+    <RootNamespace>CILAssemblyManipulator</RootNamespace>
+    <AssemblyName>CILAssemblyManipulator.Core</AssemblyName>
+    <FileAlignment>512</FileAlignment>
+    <ProjectTypeGuids>{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}</ProjectTypeGuids>
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+    <GenerateSerializationAssemblies>Off</GenerateSerializationAssemblies>
+    <TargetPlatformIdentifier Condition=" '$(Configuration)' == 'Debug_WP' or '$(Configuration)' == 'Release_WP' ">WindowsPhoneApp</TargetPlatformIdentifier>
+    <TargetPlatformVersion Condition=" '$(Configuration)' == 'Debug_WP' or '$(Configuration)' == 'Release_WP' ">8.1</TargetPlatformVersion>
+    <ProjectTypeGuids Condition=" '$(Configuration)' == 'Debug_WP' or '$(Configuration)' == 'Release_WP' ">{76F1466A-8B6D-4E39-A767-685A06062A39};$(ProjectTypeGuids)</ProjectTypeGuids>
+    <TargetFrameworkProfile Condition=" '$(Configuration)' != 'Debug_WP' and '$(Configuration)' != 'Release_WP' ">Profile5</TargetFrameworkProfile>
+    <TargetFrameworkVersion Condition=" '$(Configuration)' != 'Debug_WP' and '$(Configuration)' != 'Release_WP' ">v4.0</TargetFrameworkVersion>
+    <ProjectTypeGuids Condition=" '$(Configuration)' != 'Debug_WP' and '$(Configuration)' != 'Release_WP' ">{786C830F-07A1-408B-BD7F-6EE04809D6DB};$(ProjectTypeGuids)</ProjectTypeGuids>
+  </PropertyGroup>
+  <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|AnyCPU' ">
+    <DebugSymbols>true</DebugSymbols>
+    <DebugType>full</DebugType>
+    <Optimize>false</Optimize>
+    <OutputPath>..\..\..\Output\Debug\dotNET\</OutputPath>
+    <DefineConstants>DEBUG;TRACE</DefineConstants>
+    <ErrorReport>prompt</ErrorReport>
+    <WarningLevel>4</WarningLevel>
+  </PropertyGroup>
+  <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Release|AnyCPU' ">
+    <DebugType>none</DebugType>
+    <Optimize>true</Optimize>
+    <OutputPath>..\..\..\Output\Release\dotNET\</OutputPath>
+    <DefineConstants>TRACE</DefineConstants>
+    <ErrorReport>prompt</ErrorReport>
+    <WarningLevel>4</WarningLevel>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)' == 'Debug_WP|AnyCPU'">
+    <DebugSymbols>true</DebugSymbols>
+    <OutputPath>..\..\..\Output\Debug\WP\</OutputPath>
+    <DefineConstants>TRACE;DEBUG;NETFX_CORE;WINDOWS_PHONE_APP</DefineConstants>
+    <DebugType>full</DebugType>
+    <PlatformTarget>AnyCPU</PlatformTarget>
+    <ErrorReport>prompt</ErrorReport>
+    <CodeAnalysisRuleSet>MinimumRecommendedRules.ruleset</CodeAnalysisRuleSet>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)' == 'Release_WP|AnyCPU'">
+    <OutputPath>..\..\..\Output\Release\WP\</OutputPath>
+    <DefineConstants>TRACE;NETFX_CORE;WINDOWS_PHONE_APP</DefineConstants>
+    <Optimize>true</Optimize>
+    <DebugType>none</DebugType>
+    <PlatformTarget>AnyCPU</PlatformTarget>
+    <ErrorReport>prompt</ErrorReport>
+    <CodeAnalysisRuleSet>MinimumRecommendedRules.ruleset</CodeAnalysisRuleSet>
+  </PropertyGroup>
+  <PropertyGroup Condition=" '$(MonoBuild)' == '' and '$(Configuration)' != 'Debug_WP' and '$(Configuration)' != 'Release_WP' ">
+    <DocumentationFile>$(OutputPath)$(AssemblyName).xml</DocumentationFile>
+  </PropertyGroup>
+  <ItemGroup Condition=" '$(UseUtilpackReference)' == '' ">
+    <ProjectReference Include="..\..\CollectionsWithRoles\CollectionsWithRoles.csproj">
+      <Project>{7f7ebfb0-2bf4-44d8-b96f-accc5f99f529}</Project>
+      <Name>CollectionsWithRoles</Name>
+    </ProjectReference>
+    <ProjectReference Include="..\..\CommonUtils\CommonUtils.csproj">
+      <Project>{dba22cd8-ac89-4902-8e44-f4771875e781}</Project>
+      <Name>CommonUtils</Name>
+    </ProjectReference>
+  </ItemGroup>
+  <ItemGroup>
+    <Compile Include="API\CILReflectionContextExtensions.cs" />
+    <Compile Include="API\Consts.cs" />
+    <Compile Include="API\StreamExtensions.cs" />
+    <Compile Include="API\CILAssembly.cs" />
+    <Compile Include="API\CILCustomAttributes.cs" />
+    <Compile Include="API\CILCustomModifier.cs" />
+    <Compile Include="API\CILEvent.cs" />
+    <Compile Include="API\CILField.cs" />
+    <Compile Include="API\CILMethods.cs" />
+    <Compile Include="API\CILModule.cs" />
+    <Compile Include="API\CILParameters.cs" />
+    <Compile Include="API\CILProperty.cs" />
+    <Compile Include="API\CILReflectionContext.cs" />
+    <Compile Include="API\CILTypes.cs" />
+    <Compile Include="API\Commons.cs" />
+    <Compile Include="API\Emitting.cs" />
+    <Compile Include="API\Enums.cs" />
+    <Compile Include="API\Exceptions.cs" />
+    <Compile Include="API\MethodIL.cs" />
+    <Compile Include="API\OpCodes.cs" />
+    <Compile Include="API\FrameworkMonikerInfo.cs" />
+    <Compile Include="API\Utils.cs" />
+    <Compile Include="API\CILAssemblyLoader.cs" />
+    <Compile Include="Implementation\CILCustomAttributes.cs" />
+    <Compile Include="Implementation\CILReflectionContext.cs" />
+    <Compile Include="Implementation\CILCustomModifier.cs" />
+    <Compile Include="Implementation\Emitting.cs" />
+    <Compile Include="Implementation\Physical\BitUtils.cs" />
+    <Compile Include="Implementation\Physical\CryptoUtils.cs" />
+    <Compile Include="Implementation\Physical\HeaderFieldValues.cs" />
+    <Compile Include="Implementation\Physical\MetaDataConstants.cs" />
+    <Compile Include="Implementation\Physical\MetaDataReader.cs" />
+    <Compile Include="Implementation\Physical\MetaDataWriter.cs" />
+    <Compile Include="Implementation\Physical\ModuleWriter.cs" />
+    <Compile Include="Implementation\Physical\MethodILWriter.cs" />
+    <Compile Include="Implementation\Physical\MethodIL.cs" />
+    <Compile Include="Implementation\Physical\ModuleReader.cs" />
+    <Compile Include="API\OpCodeInfos.cs" />
+    <Compile Include="Implementation\Physical\Signatures.cs" />
+    <Compile Include="Implementation\Physical\Tables.cs" />
+    <Compile Include="Implementation\Physical\Tokens.cs" />
+    <Compile Include="Implementation\CILAssembly.cs" />
+    <Compile Include="Implementation\CILEvent.cs" />
+    <Compile Include="Implementation\CILField.cs" />
+    <Compile Include="Implementation\CILMethods.cs" />
+    <Compile Include="Implementation\CILModule.cs" />
+    <Compile Include="Implementation\CILParameters.cs" />
+    <Compile Include="Implementation\CILProperty.cs" />
+    <Compile Include="Implementation\CILTypes.cs" />
+    <Compile Include="Implementation\Commons.cs" />
+    <Compile Include="Properties\AssemblyInfo.cs" />
+  </ItemGroup>
+  <ItemGroup Condition=" '$(UseUtilpackReference)' != '' ">
+    <Reference Include="UtilPack">
+      <HintPath>$(OutputPath)UtilPack.dll</HintPath>
+    </Reference>
+  </ItemGroup>
+  <Import Condition=" '$(Configuration)' != 'Debug_WP' and '$(Configuration)' != 'Release_WP' " Project="$(MSBuildExtensionsPath32)\Microsoft\Portable\$(TargetFrameworkVersion)\Microsoft.Portable.CSharp.targets" />
+  <Import Condition=" '$(Configuration)' == 'Debug_WP' or '$(Configuration)' == 'Release_WP' " Project="$(MSBuildExtensionsPath)\Microsoft\WindowsXaml\v$(VisualStudioVersion)\Microsoft.Windows.UI.Xaml.CSharp.targets" />
+  <Import Project="../../../CommonBuildTools/CLR/MSBuild/TargetFramework.targets" />
+</Project>

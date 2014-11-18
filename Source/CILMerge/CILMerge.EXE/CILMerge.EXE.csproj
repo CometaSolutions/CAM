@@ -1,0 +1,121 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="4.0" DefaultTargets="GenerateAssemblyInfoFile;Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <Import Project="$(MSBuildExtensionsPath)\$(MSBuildToolsVersion)\Microsoft.Common.props" Condition="Exists('$(MSBuildExtensionsPath)\$(MSBuildToolsVersion)\Microsoft.Common.props')" />
+  <PropertyGroup>
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+    <Configuration Condition=" '$(Configuration)' == '' ">Debug</Configuration>
+    <Platform Condition=" '$(Platform)' == '' ">AnyCPU</Platform>
+    <ProjectGuid>{5A1DFC90-1497-475C-8141-D5633D24F891}</ProjectGuid>
+    <OutputType>Exe</OutputType>
+    <AppDesignerFolder>Properties</AppDesignerFolder>
+    <RootNamespace>CILMerge</RootNamespace>
+    <AssemblyName>CILMerge</AssemblyName>
+    <TargetFrameworkVersion>v4.0</TargetFrameworkVersion>
+    <TargetFrameworkProfile>Client</TargetFrameworkProfile>
+    <FileAlignment>512</FileAlignment>
+    <GenerateSerializationAssemblies>Off</GenerateSerializationAssemblies>
+  </PropertyGroup>
+  <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|AnyCPU' ">
+    <DebugSymbols>true</DebugSymbols>
+    <DebugType>full</DebugType>
+    <Optimize>false</Optimize>
+    <OutputPath>..\..\..\Output\Debug\dotNET\</OutputPath>
+    <DefineConstants>DEBUG;TRACE</DefineConstants>
+    <ErrorReport>prompt</ErrorReport>
+    <WarningLevel>4</WarningLevel>
+  </PropertyGroup>
+  <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Release|AnyCPU' ">
+    <DebugType>none</DebugType>
+    <Optimize>true</Optimize>
+    <OutputPath>..\..\..\Output\Release\dotNET\</OutputPath>
+    <DefineConstants>TRACE</DefineConstants>
+    <ErrorReport>prompt</ErrorReport>
+    <WarningLevel>4</WarningLevel>
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)' == 'Debug_WP|AnyCPU'">
+    <DebugSymbols>true</DebugSymbols>
+    <OutputPath>..\..\..\Output\Debug\WP\</OutputPath>
+    <DefineConstants>TRACE;DEBUG;WP8_BUILD</DefineConstants>
+    <DebugType>full</DebugType>
+    <PlatformTarget>AnyCPU</PlatformTarget>
+    <ErrorReport>prompt</ErrorReport>
+    <CodeAnalysisRuleSet>MinimumRecommendedRules.ruleset</CodeAnalysisRuleSet>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)' == 'Release_WP|AnyCPU'">
+    <OutputPath>..\..\..\Output\Release\WP\</OutputPath>
+    <DefineConstants>TRACE;WP8_BUILD</DefineConstants>
+    <Optimize>true</Optimize>
+    <DebugType>none</DebugType>
+    <PlatformTarget>AnyCPU</PlatformTarget>
+    <ErrorReport>prompt</ErrorReport>
+    <CodeAnalysisRuleSet>MinimumRecommendedRules.ruleset</CodeAnalysisRuleSet>
+  </PropertyGroup>
+  <ItemGroup>
+    <Reference Include="System" />
+    <Reference Include="System.Core" />
+    <Reference Include="System.Xml.Linq" />
+    <Reference Include="System.Xml" />
+  </ItemGroup>
+  <ItemGroup>
+    <Compile Include="..\..\AssemblyInfo\$(AssemblyName).cs">
+      <Link>Properties\$(AssemblyName).AssemblyInfo.cs</Link>
+    </Compile>
+    <Compile Include="CILMerge.cs" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\..\ApplicationParameters\ApplicationParameters.csproj">
+      <Project>{30ff1a5b-c34f-4569-8955-03cb6dc30ed1}</Project>
+      <Name>ApplicationParameters</Name>
+    </ProjectReference>
+    <ProjectReference Condition=" '$(UseUtilpackReference)' == '' " Include="..\..\CILAssemblyManipulator\CILAssemblyManipulator.DotNET\CILAssemblyManipulator.DotNET.csproj">
+      <Project>{719d1206-7193-4b77-be9b-5de2655132a6}</Project>
+      <Name>CILAssemblyManipulator.DotNET</Name>
+    </ProjectReference>
+    <ProjectReference Condition=" '$(UseUtilpackReference)' == '' " Include="..\..\CILAssemblyManipulator\CILAssemblyManipulator.PDB\CILAssemblyManipulator.PDB.csproj">
+      <Project>{5f874824-aea5-45a0-a0a2-408210397b08}</Project>
+      <Name>CILAssemblyManipulator.PDB</Name>
+    </ProjectReference>
+    <ProjectReference Condition=" '$(UseUtilpackReference)' == '' " Include="..\..\CILAssemblyManipulator\CILAssemblyManipulator.Core\CILAssemblyManipulator.Core.csproj">
+      <Project>{aeabb192-070f-4c75-bdae-7e29496026ae}</Project>
+      <Name>CILAssemblyManipulator</Name>
+    </ProjectReference>
+    <ProjectReference Condition=" '$(UseUtilpackReference)' == '' " Include="..\..\CollectionsWithRoles\CollectionsWithRoles.csproj">
+      <Project>{7f7ebfb0-2bf4-44d8-b96f-accc5f99f529}</Project>
+      <Name>CollectionsWithRoles</Name>
+    </ProjectReference>
+    <ProjectReference Condition=" '$(UseUtilpackReference)' == '' " Include="..\..\CommonUtils\CommonUtils.csproj">
+      <Project>{dba22cd8-ac89-4902-8e44-f4771875e781}</Project>
+      <Name>CommonUtils</Name>
+    </ProjectReference>
+    <ProjectReference Include="..\CILMerge.DLL\CILMerge.DLL.csproj">
+      <Project>{b9bbe0ca-0eba-4fc9-b433-fe358da4080b}</Project>
+      <Name>CILMerge.DLL</Name>
+    </ProjectReference>
+  </ItemGroup>
+  <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
+  <Import Project="../../../CommonBuildTools/CLR/MSBuild/TargetFramework.targets" />
+  <!-- <UsingTask TaskName="CILMerge.MSBuild.CILMergeTask" AssemblyFile="..\..\..\DLLRelease\CILMerge.MSBuild.dll" />
+   <Target  Condition="'$(Configuration)' != 'Debug'" Name="AfterBuild">
+     <CILMerge.MSBuild.CILMergeTask
+        InputAssemblies="@(IntermediateAssembly)"
+        OutDir="$(ProjectDir)$(OutputPath)"
+        Union="True"
+        Closed="True"
+        XmlDocs="True"
+        UseFullPublicKeyForRefs="True"
+        />
+  </Target> -->
+  <!-- Assembly information -->
+  <PropertyGroup>
+    <AssemblyInfoCLSCompliant>true</AssemblyInfoCLSCompliant>
+    <AssemblyInfoOutputFile>$(MSBuildThisFileDirectory)/../../AssemblyInfo/$(AssemblyName).cs</AssemblyInfoOutputFile>
+    <AssemblyInfoDescription>CIL executable for merging CIL assemblies.</AssemblyInfoDescription>
+    <AssemblyInfoCompany>Cometa Solutions Ltd</AssemblyInfoCompany>
+    <AssemblyInfoTrademark>CILMerge</AssemblyInfoTrademark>
+    <AssemblyInfoVersionFilename>$(MSBuildThisFileDirectory)/../../CILMergeVersion.txt</AssemblyInfoVersionFilename>
+    <AssemblyInfoAppendAssemblyCopyrightYears>true</AssemblyInfoAppendAssemblyCopyrightYears>
+    <AssemblyInceptionYear>2014</AssemblyInceptionYear>
+  </PropertyGroup>
+  <Import Project="../../../CommonBuildTools/CLR/MSBuild/AssemblyInfo.targets" />
+</Project>

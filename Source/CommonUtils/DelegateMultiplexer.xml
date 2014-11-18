@@ -1,0 +1,23 @@
+﻿<doc>
+   <members>
+      <member name="T:CommonUtils.DelegateMultiplexer`2">
+         <summary>This class implements <see cref="T:CommonUtils.Multiplexer`2"/> with <see cref="T:System.Delegate" /> as constraint for values.</summary>
+         <typeparam name="TKey">The key type.</typeparam>
+         <typeparam name="TDelegate">The type of delegate.</typeparam>
+         <remarks>
+            This class is very useful when one multiplexes a single event, e.g. when having one <c>PropertyChanged</c> event based on property name, but allowing to register to events fired on specific property change.
+            In that case, the <typeparamref name="TKey"/> would be <see cref="T:System.String"/> and <typeparamref name="TDelegate"/> would be the type of event.
+         </remarks>
+      </member>
+      <member name="M:CommonUtils.DelegateMultiplexer`2.#ctor(System.Collections.Generic.IEqualityComparer{`0})">
+         <summary>Creates a new instance of <see cref="T:CommonUtils.DelegateMultiplexer`2"/> with optional custom equality comparer for keys.</summary>
+         <param name="equalityComparer">The optional custom equality comparer for keys.</param>
+      </member>
+      <member name="M:CommonUtils.DelegateMultiplexer`2.Combine(`1,`1)">
+         <inheritdoc />
+      </member>
+      <member name="M:CommonUtils.DelegateMultiplexer`2.Remove(`1,`1)">
+         <inheritdoc />
+      </member>
+   </members>
+</doc>
