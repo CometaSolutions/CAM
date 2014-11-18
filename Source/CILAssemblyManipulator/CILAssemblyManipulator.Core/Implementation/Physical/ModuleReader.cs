@@ -227,11 +227,11 @@ namespace CILAssemblyManipulator.Implementation.Physical
          for ( var i = 0; i < md.fieldRVA.Length; ++i )
          {
             var curRVA = md.fieldRVA[i].Item1;
-            var array = new Byte[CalculateFieldTypeSize( md.field[md.fieldRVA[i].Item2.idx].Item3 )];
-            // Field RVA should be non-zero
-            stream.SeekFromBegin( this.ResolveRVA( curRVA ) );
             try
             {
+               var array = new Byte[CalculateFieldTypeSize( md.field[md.fieldRVA[i].Item2.idx].Item3 )];
+               // Field RVA should be non-zero
+               stream.SeekFromBegin( this.ResolveRVA( curRVA ) );
                stream.ReadWholeArray( array );
                this._fieldRVAContents[i] = array;
             }
@@ -239,7 +239,7 @@ namespace CILAssemblyManipulator.Implementation.Physical
             {
                // Sometimes, field RVA points outside the file (some C++ thing?)
                // TODO report exception... or maybe add to some kind of list in EmittingArguments?
-               this._fieldRVAContents[i] = null;
+               //this._fieldRVAContents[i] = null;
             }
          }
 
@@ -1492,7 +1492,7 @@ namespace CILAssemblyManipulator.Implementation.Physical
          var name = caBLOB.ReadLenPrefixedUTF8String( ref idx );
          var valueTuple = this.ReadCAFixedArgument( caBLOB, ref idx, type );
          return CILCustomAttributeFactory.NewNamedArgument(
-            declType.BaseTypeChain().SelectMany( t => isField ? (IEnumerable<CILElementForNamedCustomAttribute>) t.DeclaredFields : t.DeclaredProperties ).First( e => String.Equals( e.Name, name ) ),
+            declType.GetBaseTypeChain().SelectMany( t => isField ? (IEnumerable<CILElementForNamedCustomAttribute>) t.DeclaredFields : t.DeclaredProperties ).First( e => String.Equals( e.Name, name ) ),
             CILCustomAttributeFactory.NewTypedArgument( valueTuple.Item2, valueTuple.Item1 )
             );
       }

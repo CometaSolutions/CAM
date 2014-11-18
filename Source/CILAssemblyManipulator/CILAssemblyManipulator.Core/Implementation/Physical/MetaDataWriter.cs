@@ -1567,7 +1567,7 @@ namespace CILAssemblyManipulator.Implementation.Physical
          if ( !retVal )
          {
             // Check whether it is declarative security attribute
-            retVal = ca.Constructor.DeclaringType.BaseTypeChain().Any( bt => String.Equals( Consts.SECURITY_ATTR, bt.GetFullName() ) && Object.Equals( this._module.AssociatedMSCorLibModule, bt.Module ) );
+            retVal = ca.Constructor.DeclaringType.GetBaseTypeChain().Any( bt => String.Equals( Consts.SECURITY_ATTR, bt.GetFullName() ) && Object.Equals( this._module.AssociatedMSCorLibModule, bt.Module ) );
          }
          return retVal;
       }

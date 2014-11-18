@@ -65,7 +65,12 @@ namespace CILAssemblyManipulator.Implementation
          return this._fieldCache.GetOrAdd( field, fieldArg =>
          {
             var mapped = this.MapType( fieldArg.DeclaringType );
-            return mapped.Equals( fieldArg.DeclaringType ) ? fieldArg : mapped.DeclaredFields.First( f => f.Name == fieldArg.Name && MatchParameterTypes( fieldArg.FieldType, f.FieldType ) );
+            var retVal = mapped.Equals( fieldArg.DeclaringType ) ? fieldArg : mapped.DeclaredFields.FirstOrDefault( f => f.Name == fieldArg.Name && MatchParameterTypes( fieldArg.FieldType, f.FieldType ) );
+            if ( retVal == null )
+            {
+               throw new InvalidOperationException( "Failed to map field " + fieldArg + " of declaring type " + fieldArg.DeclaringType + "." );
+            }
+            return retVal;
          } );
       }
 
@@ -96,13 +101,20 @@ namespace CILAssemblyManipulator.Implementation
       {
          return this._typeParameterCache.GetOrAdd( tParam, tParamArg =>
          {
-            if ( tParamArg.DeclaringMethod != null )
+            try
             {
-               return (CILTypeParameter) this.MapMethod( tParamArg.DeclaringMethod ).GenericArguments[tParamArg.GenericParameterPosition];
+               if ( tParamArg.DeclaringMethod != null )
+               {
+                  return (CILTypeParameter) this.MapMethod( tParamArg.DeclaringMethod ).GenericArguments[tParamArg.GenericParameterPosition];
+               }
+               else
+               {
+                  return (CILTypeParameter) this.MapType( tParamArg.DeclaringType ).GenericArguments[tParamArg.GenericParameterPosition];
+               }
             }
-            else
+            catch ( IndexOutOfRangeException )
             {
-               return (CILTypeParameter) this.MapType( tParamArg.DeclaringType ).GenericArguments[tParamArg.GenericParameterPosition];
+               throw new InvalidOperationException( "Failed to map " + tParam + " of declaring type " + tParam.DeclaringType + ( tParam.DeclaringMethod == null ? "" : ( " and of declaring method " + tParam.DeclaringMethod + " " ) ) + "." );
             }
          } );
       }
@@ -128,7 +140,7 @@ namespace CILAssemblyManipulator.Implementation
 
                if ( typeArgToUse.DeclaringType != null )
                {
-                  result = this.MapType( typeArgToUse.DeclaringType ).DeclaredNestedTypes.First( t => String.Equals( t.Name, typeArgToUse.Name ) );
+                  result = this.MapType( typeArgToUse.DeclaringType ).DeclaredNestedTypes.FirstOrDefault( t => String.Equals( t.Name, typeArgToUse.Name ) );
                }
                else
                {
@@ -159,10 +171,7 @@ namespace CILAssemblyManipulator.Implementation
                            }
                         }
 
-                        if ( result == null )
-                        {
-                           throw new InvalidOperationException( "Could not find mapping for type " + typeArgToUse + "." );
-                        }
+
                      }
                   }
                   else
@@ -170,6 +179,12 @@ namespace CILAssemblyManipulator.Implementation
                      result = typeArgToUse;
                   }
                }
+
+               if ( result == null )
+               {
+                  throw new InvalidOperationException( "Failed to map type " + typeArgToUse + "." );
+               }
+
                if ( gArgs != null )
                {
                   result = result.MakeGenericType( gArgs.Select( gArg => this.MapTypeBase( gArg ) ).ToArray() );
@@ -184,7 +199,12 @@ namespace CILAssemblyManipulator.Implementation
          return this._ctorCache.GetOrAdd( ctor, ctorArg =>
          {
             var mapped = this.MapType( ctorArg.DeclaringType );
-            return mapped.Equals( ctorArg.DeclaringType ) ? ctorArg : mapped.Constructors.First( c => this.MatchMethodAttrsAndParameters( ctorArg, c ) );
+            var retVal = mapped.Equals( ctorArg.DeclaringType ) ? ctorArg : mapped.Constructors.FirstOrDefault( c => this.MatchMethodAttrsAndParameters( ctorArg, c ) );
+            if ( retVal == null )
+            {
+               throw new InvalidOperationException( "Failed to map constructor " + ctor + " of declaring type " + ctor.DeclaringType + "." );
+            }
+            return retVal;
          } );
       }
 
@@ -201,11 +221,17 @@ namespace CILAssemblyManipulator.Implementation
             var mapped = this.MapType( methodArg.DeclaringType );
             var result = mapped.Equals( methodToUse.DeclaringType ) ?
                methodToUse :
-               mapped.DeclaredMethods.First(
+               mapped.DeclaredMethods.FirstOrDefault(
                   m => String.Equals( m.Name, methodToUse.Name )
                      && m.GenericArguments.Count == ( gArgs == null ? 0 : gArgs.Count )
                      && MatchParameterTypes( methodToUse.ReturnParameter.ParameterType, m.ReturnParameter.ParameterType )
                      && this.MatchMethodAttrsAndParameters( methodToUse, m ) );
+
+            if ( result == null )
+            {
+               throw new InvalidOperationException( "Failed to map method " + methodToUse + " of declaring type " + methodToUse.DeclaringType + "." );
+            }
+
             if ( gArgs != null )
             {
                result = result.MakeGenericMethod( gArgs.Select( gArg => this.MapTypeBase( gArg ) ).ToArray() );

@@ -34,24 +34,50 @@ namespace CILAssemblyManipulator.DotNET
    public static class DotNETReflectionContext
    {
       /// <summary>
+      /// This will create a new <see cref="CILAssemblyLoader"/> using <see cref="DotNETCILAssemblyLoaderCallbacks"/> as the callbacks object for <see cref="CILAssemblyLoader"/>.
+      /// </summary>
+      /// <param name="ctx">The <see cref="CILReflectionContext"/>.</param>
+      /// <param name="referenceAssembliesDir">The optional directory containing reference assembly information. See <see cref="GetDefaultReferenceAssemblyPath"/> for more information. This method will use the value of <see cref="GetDefaultReferenceAssemblyPath"/> if this parameter is <c>null</c>.</param>
+      /// <returns>A new <see cref="CILAssemblyLoader"/> bound to this <see cref="CILReflectionContext"/>.</returns>
+      public static CILAssemblyLoader CreateAssemblyLoader( this CILReflectionContext ctx, String referenceAssembliesDir = null )
+      {
+         return new CILAssemblyLoader(
+            ctx,
+            new DotNETCILAssemblyLoaderCallbacks( referenceAssembliesDir ),
+            Environment.OSVersion.Platform.FileNamesCaseSensitive() ?
+               StringComparer.Ordinal :
+               StringComparer.OrdinalIgnoreCase
+            );
+      }
+
+      /// <summary>
       /// This is helper method to provide well-known defaults for some parameters of <see cref="FrameworkMonikerInfo.ReadAssemblyInformationFromRedistXMLFile"/> method.
       /// </summary>
       /// <param name="redistXMLFilePath">The location of the <c>FrameworkList.xml</c> file.</param>
       /// <param name="msCorLibName">This will hold the detected assembly name that acts as <c>mscorlib</c> assembly of the framework-</param>
       /// <param name="frameworkDisplayName">This will hold the detected display name of the framework.</param>
       /// <param name="targetFWDir">This will hold the detected full path to the target framework assemblies.</param>
+      /// <param name="defaultTargetFWPath">The default target framework path, if the XML file does not define target framework path. If none provider, a directory up one level from the given XML path will be used.</param>
       /// <returns>The result of <see cref="FrameworkMonikerInfo.ReadAssemblyInformationFromRedistXMLFile"/> method.</returns>
       public static IDictionary<String, Tuple<Version, Byte[]>> ReadAssemblyInformationFromRedistXMLFile(
          String redistXMLFilePath,
          out String msCorLibName,
          out String frameworkDisplayName,
-         out String targetFWDir )
+         out String targetFWDir,
+         String defaultTargetFWPath = null
+         )
       {
          var redistListDir = Path.GetDirectoryName( redistXMLFilePath );
+         if ( defaultTargetFWPath == null )
+         {
+            defaultTargetFWPath = Directory.GetParent( redistListDir ).FullName;
+         }
+
          IDictionary<String, Tuple<Version, Byte[]>> retVal;
          using ( var stream = File.Open( redistXMLFilePath, FileMode.Open, FileAccess.Read, FileShare.Read ) )
          {
             retVal = FrameworkMonikerInfo.ReadAssemblyInformationFromRedistXMLFile(
+                                 defaultTargetFWPath,
                                  stream,
                                  targetFWPathArg =>
                                  {
@@ -60,6 +86,10 @@ namespace CILAssemblyManipulator.DotNET
                                  },
                                  () => DotNETReflectionContext.CreateDotNETContext(),
                                  assFN => File.Open( assFN, FileMode.Open, FileAccess.Read, FileShare.Read ),
+                                 ( targetFWPathArg, simpleAssemblyName ) =>
+                                 {
+                                    return File.Exists( Path.Combine( targetFWPathArg, simpleAssemblyName + ".dll" ) );
+                                 },
                                  out msCorLibName,
                                  out frameworkDisplayName,
                                  out targetFWDir
@@ -464,7 +494,8 @@ namespace CILAssemblyManipulator.DotNET
          if ( e.Member != null )
          {
             attrs = e.Member.GetCustomAttributesData();
-         } else if (e.Type != null)
+         }
+         else if ( e.Type != null )
          {
             attrs = e.Type.GetCustomAttributesData();
          }
@@ -627,6 +658,13 @@ namespace CILAssemblyManipulator.DotNET
       private static void ThrowFromLastWin32Error()
       {
          throw new System.ComponentModel.Win32Exception( Marshal.GetLastWin32Error() );
+      }
+
+      internal static Boolean FileNamesCaseSensitive( this PlatformID platform )
+      {
+         return platform == PlatformID.Unix
+            || platform == PlatformID.MacOSX
+            || platform == (PlatformID) 128; // Mono value for unix
       }
 
    }

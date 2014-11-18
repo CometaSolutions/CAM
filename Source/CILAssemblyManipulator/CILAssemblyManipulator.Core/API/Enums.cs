@@ -1604,6 +1604,18 @@ public static partial class E_CIL
    }
 
    /// <summary>
+   /// Checks whether type attribute represents an abstract type.
+   /// </summary>
+   /// <param name="attrs">The <see cref="TypeAttributes"/>.</param>
+   /// <returns><c>true</c> if <paramref name="attrs"/> represents an abstract type; <c>false</c> otherwise.</returns>
+   /// <seealso cref="System.Type.IsAbstract"/>
+   /// <seealso cref="TypeAttributes.Abstract"/>
+   public static Boolean IsAbstract( this TypeAttributes attrs )
+   {
+      return ( attrs & TypeAttributes.Abstract ) != 0;
+   }
+
+   /// <summary>
    /// Checks whether type attribute represents an automatically laid out type.
    /// </summary>
    /// <param name="attrs">The <see cref="TypeAttributes"/>.</param>
@@ -1709,14 +1721,23 @@ public static partial class E_CIL
    }
 
    /// <summary>
-   /// Checks whether given <see cref="TypeAttributes"/> signify that the type may be accessed from other assembly.
+   /// Checks whether given <see cref="TypeAttributes"/> signify that the type may be accessed from other assembly, that is, the visibility is one of <see cref="TypeAttributes.Public"/>, <see cref="TypeAttributes.NestedPublic"/>, <see cref="TypeAttributes.NestedFamily"/> or <see cref="TypeAttributes.NestedFamORAssem"/>.
    /// This check does not take into account any <see cref="System.Runtime.CompilerServices.InternalsVisibleToAttribute"/>d applied to the assembly.
    /// </summary>
    /// <param name="attrs">The <see cref="TypeAttributes"/>.</param>
    /// <returns><c>true</c> if the type with given <see cref="TypeAttributes"/> may be accessed to other assembly without the use of <see cref="System.Runtime.CompilerServices.InternalsVisibleToAttribute"/>; <c>false</c> otherwise.</returns>
    public static Boolean IsVisibleToOutsideOfDefinedAssembly( this TypeAttributes attrs )
    {
-      return ( ( attrs & TypeAttributes.VisibilityMask ) & ( TypeAttributes.Public | TypeAttributes.NestedPublic | TypeAttributes.NestedFamily | TypeAttributes.NestedFamORAssem ) ) != 0;
+      switch ( ( attrs & TypeAttributes.VisibilityMask ) )
+      {
+         case TypeAttributes.Public:
+         case TypeAttributes.NestedPublic:
+         case TypeAttributes.NestedFamily:
+         case TypeAttributes.NestedFamORAssem:
+            return true;
+         default:
+            return false;
+      }
    }
 
    /// <summary>
@@ -2555,6 +2576,66 @@ public static partial class E_CIL
       }
       // TODO preserve sig?
       return result;
+   }
+
+   /// <summary>
+   /// Checks whether generic parameter attributes represent a covariant (<c>out</c>) type parameter.
+   /// </summary>
+   /// <param name="attrs">The <see cref="GenericParameterAttributes"/>.</param>
+   /// <returns><c>true</c> if <paramref name="attrs"/> represents covariant (<c>out</c>) type parameter; <c>false</c> otherwise.</returns>
+   /// <seealso cref="GenericParameterAttributes"/>
+   /// <seealso cref="GenericParameterAttributes.Covariant"/>
+   public static Boolean IsCovariant( this GenericParameterAttributes attrs )
+   {
+      return ( attrs & GenericParameterAttributes.Covariant ) != 0;
+   }
+
+   /// <summary>
+   /// Checks whether generic parameter attributes represent a contravariant (<c>in</c>) type parameter.
+   /// </summary>
+   /// <param name="attrs">The <see cref="GenericParameterAttributes"/>.</param>
+   /// <returns><c>true</c> if <paramref name="attrs"/> represents contravariant (<c>in</c>) type parameter; <c>false</c> otherwise.</returns>
+   /// <seealso cref="GenericParameterAttributes"/>
+   /// <seealso cref="GenericParameterAttributes.Contravariant"/>
+   public static Boolean IsContravariant( this GenericParameterAttributes attrs )
+   {
+      return ( attrs & GenericParameterAttributes.Contravariant ) != 0;
+   }
+
+   /// <summary>
+   /// Checks whether generic parameter attributes have a reference type constraint (<c>class</c>).
+   /// </summary>
+   /// <param name="attrs">The <see cref="GenericParameterAttributes"/>.</param>
+   /// <returns><c>true</c> if <paramref name="attrs"/> has a reference type constraint (<c>class</c>); <c>false</c> otherwise.</returns>
+   /// <seealso cref="GenericParameterAttributes"/>
+   /// <seealso cref="GenericParameterAttributes.Covariant"/>
+   public static Boolean HasReferenceConstraint( this GenericParameterAttributes attrs )
+   {
+      return ( attrs & GenericParameterAttributes.ReferenceTypeConstraint ) != 0;
+   }
+
+   /// <summary>
+   /// Checks whether generic parameter attributes have a non-null type constraint (<c>struct</c>).
+   /// </summary>
+   /// <param name="attrs">The <see cref="GenericParameterAttributes"/>.</param>
+   /// <returns><c>true</c> if <paramref name="attrs"/> has a non-null type constraint (<c>struct</c>); <c>false</c> otherwise.</returns>
+   /// <seealso cref="GenericParameterAttributes"/>
+   /// <seealso cref="GenericParameterAttributes.Covariant"/>
+   public static Boolean HasNotNullConstraint( this GenericParameterAttributes attrs )
+   {
+      return ( attrs & GenericParameterAttributes.NotNullableValueTypeConstraint ) != 0;
+   }
+
+   /// <summary>
+   /// Checks whether generic parameter attributes have a default constructor constraint (<c>new()</c>).
+   /// </summary>
+   /// <param name="attrs">The <see cref="GenericParameterAttributes"/>.</param>
+   /// <returns><c>true</c> if <paramref name="attrs"/> has a default constructor constraint (<c>new()</c>); <c>false</c> otherwise.</returns>
+   /// <seealso cref="GenericParameterAttributes"/>
+   /// <seealso cref="GenericParameterAttributes.Covariant"/>
+   public static Boolean HasDefaultConstructorConstraint( this GenericParameterAttributes attrs )
+   {
+      return ( attrs & GenericParameterAttributes.DefaultConstructorConstraint ) != 0;
    }
 
 }

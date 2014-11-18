@@ -216,22 +216,41 @@ namespace CILAssemblyManipulator.Implementation.Physical
       internal static TableIndex? ReadCodedTableIndex( System.IO.Stream stream, CodedTableIndexKind indexKind, IDictionary<CodedTableIndexKind, Boolean> tRefSizes, Byte[] tmpArray, Boolean throwOnNull = true )
       {
          var idx = tRefSizes[indexKind] ? stream.ReadU32( tmpArray ) : stream.ReadU16( tmpArray );
-         if ( idx == 0 )
+
+         TableIndex? retVal;
+         if ( CheckRowIndex( indexKind, throwOnNull, idx ) )
+         {
+            var possibleTables = GetTablesForCodedIndex( indexKind );
+            var rowIdx = ( idx >> possibleTables.Item3 );
+            if ( CheckRowIndex( indexKind, throwOnNull, rowIdx ) )
+            {
+               retVal = new TableIndex( possibleTables.Item1[possibleTables.Item2 & idx].Value, (Int32) rowIdx - 1 );
+            }
+            else
+            {
+               retVal = null;
+            }
+         }
+         else
+         {
+            retVal = null;
+         }
+
+         return retVal;
+      }
+
+      private static Boolean CheckRowIndex( CodedTableIndexKind indexKind, Boolean throwOnNull, UInt32 index )
+      {
+         var retVal = index > 0;
+         if ( !retVal )
          {
             if ( throwOnNull )
             {
                throw new BadImageFormatException( "Found null coded table index when shouldn't (table reference kind: " + indexKind + ")." );
             }
-            else
-            {
-               return null;
-            }
          }
-         else
-         {
-            var possibleTables = GetTablesForCodedIndex( indexKind );
-            return new TableIndex( possibleTables.Item1[possibleTables.Item2 & idx].Value, (Int32) ( idx >> possibleTables.Item3 ) - 1 );
-         }
+
+         return retVal;
       }
 
       // Zero-based
