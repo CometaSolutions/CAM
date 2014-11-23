@@ -134,19 +134,21 @@ public static partial class E_CIL
    {
       ArgumentValidator.ValidateNotNull( "Event", evt );
 
-      var result = evt.AddMethod == null ?
-         Enumerable.Empty<Tuple<MethodSemanticsAttributes, CILMethod>>() :
-         Enumerable.Repeat( Tuple.Create( MethodSemanticsAttributes.AddOn, evt.AddMethod ), 1 );
-
+      if ( evt.AddMethod != null )
+      {
+         yield return Tuple.Create( MethodSemanticsAttributes.AddOn, evt.AddMethod );
+      }
       if ( evt.RemoveMethod != null )
       {
-         result = result.Concat( Enumerable.Repeat( Tuple.Create( MethodSemanticsAttributes.RemoveOn, evt.RemoveMethod ), 1 ) );
+         yield return Tuple.Create( MethodSemanticsAttributes.RemoveOn, evt.RemoveMethod );
       }
       if ( evt.RaiseMethod != null )
       {
-         result = result.Concat( Enumerable.Repeat( Tuple.Create( MethodSemanticsAttributes.Fire, evt.RaiseMethod ), 1 ) );
+         yield return Tuple.Create( MethodSemanticsAttributes.Fire, evt.RaiseMethod );
       }
-      result = result.Concat( evt.OtherMethods.Where( method => method != null ).Select( method => Tuple.Create( MethodSemanticsAttributes.Other, method ) ) );
-      return result;
+      foreach ( var otherMethod in evt.OtherMethods.Where( m => m != null ) )
+      {
+         yield return Tuple.Create( MethodSemanticsAttributes.Other, otherMethod );
+      }
    }
 }
