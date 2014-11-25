@@ -212,7 +212,8 @@ namespace CILAssemblyManipulator.Implementation
       {
          return this._methodCache.GetOrAdd( method, methodArg =>
          {
-            var gArgs = method.GenericArguments.Count > 0 && !method.IsGenericDefinition() ? method.GenericArguments : null;
+            var gArgsCount = method.GenericArguments.Count;
+            var gArgs = gArgsCount > 0 && !method.IsGenericDefinition() ? method.GenericArguments : null;
             var methodToUse = methodArg;
             if ( gArgs != null )
             {
@@ -223,7 +224,7 @@ namespace CILAssemblyManipulator.Implementation
                methodToUse :
                mapped.DeclaredMethods.FirstOrDefault(
                   m => String.Equals( m.Name, methodToUse.Name )
-                     && m.GenericArguments.Count == ( gArgs == null ? 0 : gArgs.Count )
+                     && m.GenericArguments.Count == gArgsCount
                      && MatchParameterTypes( methodToUse.ReturnParameter.ParameterType, m.ReturnParameter.ParameterType )
                      && this.MatchMethodAttrsAndParameters( methodToUse, m ) );
 
