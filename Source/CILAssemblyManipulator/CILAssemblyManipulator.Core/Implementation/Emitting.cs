@@ -242,24 +242,35 @@ namespace CILAssemblyManipulator.Implementation
          } );
       }
 
-      private static String GetTypeString( CILType type )
+      private static Boolean MatchParameterTypesTextually( CILType type1, CILType type2 )
       {
-         return ( type.Namespace == null || type.Namespace.Length == 0 ? "" : ( type.Namespace + "." ) ) + type.Name;
+         return String.Equals( type1.Namespace, type2.Namespace ) && String.Equals( type1.Name, type2.Name );
       }
 
       private static Boolean MatchParameterTypes( CILTypeBase type1, CILTypeBase type2 )
       {
-         // TODO if tParam -> match also decl method
          // TODO we here assume that portable assemblies won't contain method signature types
-         if ( TypeKind.MethodSignature == type1.TypeKind || TypeKind.MethodSignature == type2.TypeKind )
+         var retVal = type1 == null && type2 == null;
+         if ( !retVal && type1 != null && type2 != null && type1.TypeKind == type2.TypeKind )
          {
-            return false;
+            if ( type1.TypeKind == TypeKind.Type )
+            {
+               var t1 = (CILType) type1;
+               var t2 = (CILType) type2;
+
+               retVal = MatchParameterTypesTextually( t1, t2 )
+                  && MatchParameterTypes( t1.ElementType, t2.ElementType )
+                  && t1.ElementKind == t2.ElementKind
+                  && Object.Equals( t1.ArrayInformation, t2.ArrayInformation );
+            }
+            else if ( type1.TypeKind == TypeKind.TypeParameter )
+            {
+               retVal = ( (CILTypeParameter) type1 ).GenericParameterPosition == ( (CILTypeParameter) type2 ).GenericParameterPosition
+                  && MatchParameterTypes( ( (CILTypeParameter) type1 ).DeclaringType, ( (CILTypeParameter) type2 ).DeclaringType );
+            }
          }
-         return type1 == null && type2 == null || ( type1 != null && type2 != null && type1.TypeKind == type2.TypeKind
-            && ( type1.TypeKind == TypeKind.Type ?
-                ( GetTypeString( (CILType) type1 ) == GetTypeString( (CILType) type2 ) ) :
-                ( ( (CILTypeParameter) type1 ).GenericParameterPosition == ( (CILTypeParameter) type2 ).GenericParameterPosition
-                  && MatchParameterTypes( ( (CILTypeParameter) type1 ).DeclaringType, ( (CILTypeParameter) type2 ).DeclaringType ) ) ) );
+
+         return retVal;
       }
    }
    internal class AssemblyLoaderFromBasePath

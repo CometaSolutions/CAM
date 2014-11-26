@@ -515,6 +515,9 @@ namespace CILAssemblyManipulator.API
                case TypeKind.MethodSignature:
                   builder.Append( type.ToString() );
                   break;
+               case TypeKind.TypeParameter:
+                  builder.Append( ( (CILTypeParameter) type ).Name );
+                  break;
             }
          }
       }

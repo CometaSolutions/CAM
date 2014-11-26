@@ -155,6 +155,6 @@ namespace CollectionsWithRoles.Implementation
       /// <summary>
       /// Provides access to singleton <see cref="CollectionsFactory"/> implementation.
       /// </summary>
-      public static CollectionsFactory DEFAULT_COLLECTIONS_FACTORY = new CollectionsFactoryImpl();
+      public static readonly CollectionsFactory DEFAULT_COLLECTIONS_FACTORY = new CollectionsFactoryImpl();
    }
 }
