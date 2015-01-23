@@ -106,23 +106,17 @@ public static partial class E_CIL
    public static IEnumerable<Tuple<MethodSemanticsAttributes, CILMethod>> GetSemanticMethods( this CILProperty property )
    {
       ArgumentValidator.ValidateNotNull( "Property", property );
-      IEnumerable<Tuple<MethodSemanticsAttributes, CILMethod>> result;
       var getter = property.GetMethod;
       if ( getter != null )
       {
-         result = Enumerable.Repeat( Tuple.Create( MethodSemanticsAttributes.Getter, getter ), 1 );
-      }
-      else
-      {
-         result = Enumerable.Empty<Tuple<MethodSemanticsAttributes, CILMethod>>();
+         yield return Tuple.Create( MethodSemanticsAttributes.Getter, getter );
       }
 
       var setter = property.SetMethod;
       if ( setter != null )
       {
-         result = result.Concat( Enumerable.Repeat( Tuple.Create( MethodSemanticsAttributes.Setter, setter ), 1 ) );
+         yield return Tuple.Create( MethodSemanticsAttributes.Setter, setter );
       }
-      return result;
    }
 
    /// <summary>

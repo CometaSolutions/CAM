@@ -37,7 +37,6 @@ namespace CILAssemblyManipulator.Implementation
       private readonly Lazy<CILType> moduleInitializer;
       private readonly SettableLazy<CILModule> associatedMSCorLib;
       private readonly ConcurrentDictionary<String, CILType> typeNameCache;
-      private readonly Func<String, CILType> typeNameCachePopulator;
       private readonly IDictionary<String, ManifestResource> manifestResources;
 
       internal CILModuleImpl( CILReflectionContextImpl ctx, Int32 anID, System.Reflection.Module mod )
@@ -53,7 +52,6 @@ namespace CILAssemblyManipulator.Implementation
             ref this.moduleInitializer,
             ref this.associatedMSCorLib,
             ref this.typeNameCache,
-            ref this.typeNameCachePopulator,
             ref this.manifestResources,
             mod.Name, // match.Success ? mName.Substring( 0, match.Index ) : mName,
             () => ctx.Cache.GetOrAdd( mod.Assembly ),
@@ -79,7 +77,6 @@ namespace CILAssemblyManipulator.Implementation
             ref this.moduleInitializer,
             ref this.associatedMSCorLib,
             ref this.typeNameCache,
-            ref this.typeNameCachePopulator,
             ref this.manifestResources,
             name,
             () => ass,
@@ -101,7 +98,6 @@ namespace CILAssemblyManipulator.Implementation
             ref this.moduleInitializer,
             ref this.associatedMSCorLib,
             ref this.typeNameCache,
-            ref this.typeNameCachePopulator,
             ref this.manifestResources,
             name,
             ass,
@@ -120,7 +116,6 @@ namespace CILAssemblyManipulator.Implementation
          ref Lazy<CILType> moduleInitializer,
          ref SettableLazy<CILModule> associatedMSCorLib,
          ref ConcurrentDictionary<String, CILType> typeNameCache,
-         ref Func<String, CILType> typeNameCachePopulator,
          ref IDictionary<String, ManifestResource> manifestResources,
          String aName,
          Func<CILAssembly> assemblyFunc,
@@ -138,7 +133,6 @@ namespace CILAssemblyManipulator.Implementation
          associatedMSCorLib = new SettableLazy<CILModule>( associatedMSCorLibFunc );
          typeNameCache = new ConcurrentDictionary<String, CILType>();
          manifestResources = mResources ?? new Dictionary<String, ManifestResource>();
-         typeNameCachePopulator = me.FindTypeByName;
       }
 
       private CILType BuildModuleInitializerType()
@@ -246,10 +240,18 @@ namespace CILAssemblyManipulator.Implementation
 
       public CILType GetTypeByName( String typeString, Boolean throwOnError = true )
       {
-         var result = this.FindTypeByName( typeString );
-         if ( throwOnError && result == null )
+         CILType result;
+         if ( !this.typeNameCache.TryGetValue( typeString, out result ) )
          {
-            throw new ArgumentException( "Could not find type " + typeString + "." );
+            result = this.FindTypeByName( typeString );
+            if ( throwOnError && result == null )
+            {
+               throw new ArgumentException( "Could not find type " + typeString + "." );
+            }
+            if ( result != null )
+            {
+               this.typeNameCache.TryAdd( typeString, result );
+            }
          }
          return result;
       }

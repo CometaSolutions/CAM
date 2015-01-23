@@ -65,9 +65,9 @@ namespace CILAssemblyManipulator.Implementation
 #if WINDOWS_PHONE_APP
                   type.GetTypeCode()
 #else
-                  (CILTypeCode) Type.GetTypeCode( type )
+ (CILTypeCode) Type.GetTypeCode( type )
 #endif
-                  ;
+;
                if ( tc == (CILTypeCode) 2 )
                {
                   // DBNull
@@ -77,7 +77,7 @@ namespace CILAssemblyManipulator.Implementation
 #if WINDOWS_PHONE_APP
             .GetTypeInfo()
 #endif
-                  .Assembly ) && type.FullName != null )
+.Assembly ) && type.FullName != null )
                {
                   // Check for void, typedbyref, valuetype, enum, etc
                   if ( !TC_MAPPING.TryGetValue( type.FullName, out tc ) )
@@ -312,13 +312,13 @@ namespace CILAssemblyManipulator.Implementation
 #if WINDOWS_PHONE_APP
          .GetTypeInfo()
 #endif
-         .IsGenericTypeDefinition;
+.IsGenericTypeDefinition;
 
-         if (type
+         if ( type
 #if WINDOWS_PHONE_APP
          .GetTypeInfo()
 #endif
-         .IsGenericType && !isGDef)
+.IsGenericType && !isGDef )
          {
             throw new ArgumentException( "This constructor may only be used for non-generic types or generic type defintions." );
          }
@@ -328,17 +328,17 @@ namespace CILAssemblyManipulator.Implementation
             throw new ArgumentException( "This constructor may only be used for non-array, non-pointer, and non-byref types." );
          }
          var nGDef = isGDef ? type : null;
-         var tAttrs = (TypeAttributes)type
+         var tAttrs = (TypeAttributes) type
 #if WINDOWS_PHONE_APP
          .GetTypeInfo()
 #endif
-         .Attributes;
+.Attributes;
          var bType = type
 #if WINDOWS_PHONE_APP
          .GetTypeInfo()
 #endif
-         .BaseType;
-         
+.BaseType;
+
          InitFields(
             ref this.typeAttributes,
             ref this.elementKind,
@@ -357,7 +357,7 @@ namespace CILAssemblyManipulator.Implementation
             ref this.baseType,
             ref this.declaredInterfaces,
             ref this.securityInfo,
-            new SettableValueForEnums<TypeAttributes>(tAttrs),
+            new SettableValueForEnums<TypeAttributes>( tAttrs ),
             null,
             null,
             () => ctx.CollectionsFactory.NewListProxy<CILTypeBase>(
@@ -368,59 +368,59 @@ namespace CILAssemblyManipulator.Implementation
             new LazyWithLock<ListProxy<CILType>>( () => ctx.CollectionsFactory.NewListProxy<CILType>(
                type.GetNestedTypes(
 #if !WINDOWS_PHONE_APP
-               System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.NonPublic
+ System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.NonPublic
 #endif
-               )
+ )
                   .Select( nested => (CILType) ctx.Cache.GetOrAdd( nested ) )
                   .ToList() ) ),
             () => ctx.CollectionsFactory.NewListProxy<CILField>(
                type.GetFields(
 #if !WINDOWS_PHONE_APP
-               System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.Static | System.Reflection.BindingFlags.DeclaredOnly
+ System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.Static | System.Reflection.BindingFlags.DeclaredOnly
 #endif
-               )
+ )
                   .Select( field => ctx.Cache.GetOrAdd( field ) )
                   .ToList() ),
             () => ctx.Cache.GetOrAdd( type.GetElementType() ),
             () => ctx.CollectionsFactory.NewListProxy<CILMethod>(
                type.GetMethods(
 #if !WINDOWS_PHONE_APP
-               System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.Static | System.Reflection.BindingFlags.DeclaredOnly
+ System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.Static | System.Reflection.BindingFlags.DeclaredOnly
 #endif
-               )
+ )
                   .Select( method => ctx.Cache.GetOrAdd( method ) )
                   .ToList()
                ),
             () => ctx.CollectionsFactory.NewListProxy<CILConstructor>(
                type.GetConstructors(
 #if !WINDOWS_PHONE_APP
-               System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.Static | System.Reflection.BindingFlags.DeclaredOnly
+ System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.Static | System.Reflection.BindingFlags.DeclaredOnly
 #endif
-               )
+ )
                   .Select( ctor => ctx.Cache.GetOrAdd( ctor ) )
                   .ToList()
                ),
             () => ctx.CollectionsFactory.NewListProxy<CILProperty>(
                type.GetProperties(
 #if !WINDOWS_PHONE_APP
-               System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.Static | System.Reflection.BindingFlags.DeclaredOnly
+ System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.Static | System.Reflection.BindingFlags.DeclaredOnly
 #endif
-               )
+ )
                   .Select( property => ctx.Cache.GetOrAdd( property ) )
                   .ToList()
                ),
             () => ctx.CollectionsFactory.NewListProxy<CILEvent>(
                type.GetEvents(
 #if !WINDOWS_PHONE_APP
-               System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.Static | System.Reflection.BindingFlags.DeclaredOnly
+ System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.Static | System.Reflection.BindingFlags.DeclaredOnly
 #endif
-               )
+ )
                   .Select( evt => ctx.Cache.GetOrAdd( evt ) )
                   .ToList()
                ),
             new SettableLazy<ClassLayout?>( () =>
             {
-               if (tAttrs.IsExplicitLayout() || tAttrs.IsSequentialLayout())
+               if ( tAttrs.IsExplicitLayout() || tAttrs.IsSequentialLayout() )
                {
                   var args = new TypeLayoutEventArgs( type );
                   ctx.LaunchTypeLayoutLoadEvent( args );
@@ -431,11 +431,11 @@ namespace CILAssemblyManipulator.Implementation
                   return null;
                }
             } ),
-            () => (CILType)ctx.Cache.GetOrAdd(bType),
+            () => (CILType) ctx.Cache.GetOrAdd( bType ),
             () =>
             {
                var iFaces = type.GetInterfaces().GetBottomTypes();
-               if (bType != null)
+               if ( bType != null )
                {
                   var iFacesSet = new HashSet<Type>( iFaces );
                   var bIFaces = bType.GetInterfaces();
@@ -623,12 +623,7 @@ namespace CILAssemblyManipulator.Implementation
 
       public override String ToString()
       {
-         return this.ToString( true );
-      }
-
-      private String ToString( Boolean appendGArgs )
-      {
-         return Utils.CreateTypeString( this, null, appendGArgs );
+         return Utils.CreateTypeString( this, null, true );
       }
 
       internal override String GetNameString()
@@ -1206,18 +1201,18 @@ namespace CILAssemblyManipulator.Implementation
 #if WINDOWS_PHONE_APP
          .GetTypeInfo()
 #endif
-         .GenericParameterAttributes,
+.GenericParameterAttributes,
             type.GenericParameterPosition,
             () => ctx.Cache.GetOrAdd( (System.Reflection.MethodInfo) type
 #if WINDOWS_PHONE_APP
          .GetTypeInfo()
 #endif
-         .DeclaringMethod ),
+.DeclaringMethod ),
             () => ctx.CollectionsFactory.NewListProxy<CILTypeBase>( type
 #if WINDOWS_PHONE_APP
          .GetTypeInfo()
 #endif
-         .GetGenericParameterConstraints().Select( constraint => ctx.Cache.GetOrAdd( constraint ) ).ToList() )
+.GetGenericParameterConstraints().Select( constraint => ctx.Cache.GetOrAdd( constraint ) ).ToList() )
             );
       }
 

@@ -725,6 +725,14 @@ namespace CILAssemblyManipulator.API
       /// </summary>
       Out = 0x0002,
       /// <summary>
+      /// Parameter is a local identifier (lcid).
+      /// </summary>
+      Lcid = 0x0004,
+      /// <summary>
+      /// Parameter is a return value.
+      /// </summary>
+      Retval = 0x0008,
+      /// <summary>
       /// Parameter is optional.
       /// </summary>
       Optional = 0x0010,

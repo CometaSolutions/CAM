@@ -942,7 +942,7 @@ public static partial class E_CIL
          retVal = retVal.Skip( 1 );
       }
 
-      return retVal;
+      return retVal.Distinct();
    }
 
    /// <summary>
