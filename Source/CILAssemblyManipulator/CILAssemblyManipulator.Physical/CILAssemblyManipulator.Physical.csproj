@@ -1,0 +1,89 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="4.0" DefaultTargets="GenerateKeyFile;GenerateAssemblyInfoFile;Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <Import Project="$(MSBuildExtensionsPath)\$(MSBuildToolsVersion)\Microsoft.Common.props" Condition="Exists('$(MSBuildExtensionsPath)\$(MSBuildToolsVersion)\Microsoft.Common.props')" />
+  <PropertyGroup>
+    <MinimumVisualStudioVersion>10.0</MinimumVisualStudioVersion>
+    <Configuration Condition=" '$(Configuration)' == '' ">Debug</Configuration>
+    <Platform Condition=" '$(Platform)' == '' ">AnyCPU</Platform>
+    <ProjectGuid>{BA297806-A89F-4A3B-945B-08729853DF75}</ProjectGuid>
+    <OutputType>Library</OutputType>
+    <AppDesignerFolder>Properties</AppDesignerFolder>
+    <RootNamespace>CILAssemblyManipulator.Physical</RootNamespace>
+    <AssemblyName>CILAssemblyManipulator.Physical</AssemblyName>
+    <DefaultLanguage>en-US</DefaultLanguage>
+    <FileAlignment>512</FileAlignment>
+    <ProjectTypeGuids>{786C830F-07A1-408B-BD7F-6EE04809D6DB};{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}</ProjectTypeGuids>
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+    <TargetFrameworkProfile>Profile328</TargetFrameworkProfile>
+    <TargetFrameworkVersion>v4.0</TargetFrameworkVersion>
+  </PropertyGroup>
+  <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|AnyCPU' ">
+    <DebugSymbols>true</DebugSymbols>
+    <DebugType>full</DebugType>
+    <Optimize>false</Optimize>
+    <OutputPath>..\..\..\Output\Debug\dotNET\</OutputPath>
+    <DefineConstants>DEBUG;TRACE</DefineConstants>
+    <ErrorReport>prompt</ErrorReport>
+    <WarningLevel>4</WarningLevel>
+  </PropertyGroup>
+  <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Release|AnyCPU' ">
+    <DebugType>pdbonly</DebugType>
+    <Optimize>true</Optimize>
+    <OutputPath>.\..\..\Output\Release\dotNET\</OutputPath>
+    <DefineConstants>TRACE</DefineConstants>
+    <ErrorReport>prompt</ErrorReport>
+    <WarningLevel>4</WarningLevel>
+  </PropertyGroup>
+  <!-- <PropertyGroup Condition=" '$(MonoBuild)' == '' and '$(Configuration)' != 'Debug_WP' and '$(Configuration)' != 'Release_WP' ">
+    <DocumentationFile>$(OutputPath)$(AssemblyName).xml</DocumentationFile>
+  </PropertyGroup> -->
+  <PropertyGroup>
+    <KeyFilePath>$(MSBuildThisFileDirectory)..\..\..\Keys\CAM.snk</KeyFilePath>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)' == 'Debug_SL|AnyCPU'">
+    <OutputPath>bin\Debug_SL\</OutputPath>
+  </PropertyGroup>
+  <ItemGroup Condition=" '$(UseUtilpackReference)' == '' ">
+    <ProjectReference Include="..\..\CollectionsWithRoles\CollectionsWithRoles.csproj">
+      <Project>{7f7ebfb0-2bf4-44d8-b96f-accc5f99f529}</Project>
+      <Name>CollectionsWithRoles</Name>
+    </ProjectReference>
+    <ProjectReference Include="..\..\CommonUtils\CommonUtils.csproj">
+      <Project>{dba22cd8-ac89-4902-8e44-f4771875e781}</Project>
+      <Name>CommonUtils</Name>
+    </ProjectReference>
+  </ItemGroup>
+  <ItemGroup>
+    <Compile Include="..\..\AssemblyInfo\$(AssemblyName).cs">
+      <Link>Properties\$(AssemblyName).AssemblyInfo.cs</Link>
+    </Compile>
+    <Compile Include="Enums.cs" />
+    <Compile Include="MetaData.cs" />
+    <Compile Include="Module.cs" />
+    <Compile Include="Utils.cs" />
+  </ItemGroup>
+  <ItemGroup Condition=" '$(UseUtilpackReference)' != '' ">
+    <Reference Include="UtilPack">
+      <HintPath>$(OutputPath)UtilPack.dll</HintPath>
+    </Reference>
+  </ItemGroup>
+  <Import Project="$(MSBuildExtensionsPath32)\Microsoft\Portable\$(TargetFrameworkVersion)\Microsoft.Portable.CSharp.targets" />
+  
+  <!-- Create .snk file if it doesn't exist to ensure smooth build -->
+  <Import Project="$(MSBuildThisFileDirectory)../../../CommonBuildTools/CLR/MSBuild/CreateKeyFileIfNeeded.targets" />
+
+  <Import Project="../../../CommonBuildTools/CLR/MSBuild/TargetFramework.targets" />
+  <!-- Assembly information -->
+  <PropertyGroup>
+    <AssemblyInfoCLSCompliant>true</AssemblyInfoCLSCompliant>
+    <AssemblyInfoOutputFile>$(MSBuildThisFileDirectory)/../../AssemblyInfo/$(AssemblyName).cs</AssemblyInfoOutputFile>
+    <AssemblyInfoDescription>CIL Assembly Manipulator (CAM) assembly providing API oriented on physical representation on CIL files.</AssemblyInfoDescription>
+    <AssemblyInfoCompany>Cometa Solutions Ltd</AssemblyInfoCompany>
+    <AssemblyInfoTrademark>CAM</AssemblyInfoTrademark>
+    <AssemblyInfoAppendAssemblyCopyrightYears>true</AssemblyInfoAppendAssemblyCopyrightYears>
+    <AssemblyInfoAssemblyInceptionYear>2015</AssemblyInfoAssemblyInceptionYear>
+    <AssemblyInfoCopyrightAuthors>Stanislav Muhametsin</AssemblyInfoCopyrightAuthors>
+    <AssemblyInfoVersionFilename>$(MSBuildThisFileDirectory)/../../CILAssemblyManipulatorVersion.txt</AssemblyInfoVersionFilename>
+  </PropertyGroup>
+  <Import Project="$(MSBuildThisFileDirectory)../../../CommonBuildTools/CLR/MSBuild/AssemblyInfo.targets" />
+</Project>
