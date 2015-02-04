@@ -53,7 +53,7 @@ namespace CILAssemblyManipulator.Physical
    {
       public FieldAttributes Attributes { get; set; }
       public String Name { get; set; }
-      public Byte[] Signature { get; set; }
+      public FieldSignature Signature { get; set; }
    }
 
    public sealed class MethodDefinition
@@ -62,7 +62,7 @@ namespace CILAssemblyManipulator.Physical
       public MethodImplAttributes ImplementationAttributes { get; set; }
       public MethodAttributes Attributes { get; set; }
       public String Name { get; set; }
-      public Byte[] Signature { get; set; }
+      public MethodDefinitionSignature Signature { get; set; }
       public TableIndex ParameterList { get; set; }
    }
 
@@ -88,7 +88,7 @@ namespace CILAssemblyManipulator.Physical
    {
       public TableIndex DeclaringType { get; set; }
       public String Name { get; set; }
-      public Byte[] Signature { get; set; }
+      public AbstractSignature Signature { get; set; }
    }
 
    public sealed class ConstantDefinition
@@ -132,7 +132,7 @@ namespace CILAssemblyManipulator.Physical
 
    public sealed class StandaloneSignature
    {
-      public Byte[] Signature { get; set; }
+      public AbstractSignature Signature { get; set; }
    }
 
    public sealed class EventMap
@@ -158,7 +158,7 @@ namespace CILAssemblyManipulator.Physical
    {
       public PropertyAttributes Attributes { get; set; }
       public String Name { get; set; }
-      public Byte[] Signature { get; set; }
+      public PropertySignature Signature { get; set; }
    }
 
    public sealed class MethodSemantics
@@ -182,7 +182,7 @@ namespace CILAssemblyManipulator.Physical
 
    public sealed class TypeSpecification
    {
-      public Byte[] Signature { get; set; }
+      public TypeSignature Signature { get; set; }
    }
 
    public sealed class MethodImplementationMap
@@ -266,7 +266,7 @@ namespace CILAssemblyManipulator.Physical
    public sealed class MethodSpecification
    {
       TableIndex Method { get; set; }
-      Byte[] Signature { get; set; }
+      TypeSignature Signature { get; set; } // TODO might need own type for method specs
    }
 
    public sealed class GenericParameterConstraintDefinition
