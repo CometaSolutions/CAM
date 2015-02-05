@@ -35,72 +35,72 @@ namespace CILAssemblyManipulator.Physical
 
    public interface CILMetaData
    {
-      IList<ModuleDefinition> ModuleDefinitions { get; set; }
+      IList<ModuleDefinition> ModuleDefinitions { get; }
 
-      IList<TypeReference> TypeReferences { get; set; }
+      IList<TypeReference> TypeReferences { get; }
 
-      IList<TypeDefinition> TypeDefinitions { get; set; }
+      IList<TypeDefinition> TypeDefinitions { get; }
 
-      IList<FieldDefinition> FieldDefinitions { get; set; }
+      IList<FieldDefinition> FieldDefinitions { get; }
 
-      IList<MethodDefinition> MethodDefinitions { get; set; }
+      IList<MethodDefinition> MethodDefinitions { get; }
 
-      IList<ParameterDefinition> ParameterDefinitions { get; set; }
+      IList<ParameterDefinition> ParameterDefinitions { get; }
 
-      IList<InterfaceImplementation> InterfaceImplementations { get; set; }
+      IList<InterfaceImplementation> InterfaceImplementations { get; }
 
-      IList<MemberReference> MemberReferences { get; set; }
+      IList<MemberReference> MemberReferences { get; }
 
-      IList<ConstantDefinition> ConstantDefinitions { get; set; }
+      IList<ConstantDefinition> ConstantDefinitions { get; }
 
-      IList<CustomAttributeDefinition> CustomAttributeDefinitions { get; set; }
+      IList<CustomAttributeDefinition> CustomAttributeDefinitions { get; }
 
-      IList<FieldMarshal> FieldMarshals { get; set; }
+      IList<FieldMarshal> FieldMarshals { get; }
 
-      IList<SecurityDefinition> SecurityDefinitions { get; set; }
+      IList<SecurityDefinition> SecurityDefinitions { get; }
 
-      IList<ClassLayout> ClassLayouts { get; set; }
+      IList<ClassLayout> ClassLayouts { get; }
 
-      IList<FieldLayout> FieldLayouts { get; set; }
+      IList<FieldLayout> FieldLayouts { get; }
 
-      IList<StandaloneSignature> StandaloneSignatures { get; set; }
+      IList<StandaloneSignature> StandaloneSignatures { get; }
 
-      IList<EventMap> EventMaps { get; set; }
+      IList<EventMap> EventMaps { get; }
 
-      IList<EventDefinition> EventDefinitions { get; set; }
+      IList<EventDefinition> EventDefinitions { get; }
 
-      IList<PropertyMap> PropertyMaps { get; set; }
+      IList<PropertyMap> PropertyMaps { get; }
 
-      IList<PropertyDefinition> PropertyDefinitions { get; set; }
+      IList<PropertyDefinition> PropertyDefinitions { get; }
 
-      IList<MethodSemantics> MethodSemanticss { get; set; }
+      IList<MethodSemantics> MethodSemantics { get; }
 
-      IList<MethodImplementation> MethodImplementations { get; set; }
+      IList<MethodImplementation> MethodImplementations { get; }
 
-      IList<ModuleReference> ModuleReferences { get; set; }
+      IList<ModuleReference> ModuleReferences { get; }
 
-      IList<TypeSpecification> TypeSpecifications { get; set; }
+      IList<TypeSpecification> TypeSpecifications { get; }
 
-      IList<MethodImplementationMap> MethodImplementationMaps { get; set; }
+      IList<MethodImplementationMap> MethodImplementationMaps { get; }
 
-      IList<FieldRVA> FieldRVAs { get; set; }
+      IList<FieldRVA> FieldRVAs { get; }
 
-      IList<AssemblyDefinition> AssemblyDefinitions { get; set; }
+      IList<AssemblyDefinition> AssemblyDefinitions { get; }
 
-      IList<AssemblyReference> AssemblyReferences { get; set; }
+      IList<AssemblyReference> AssemblyReferences { get; }
 
-      IList<FileReference> FileReferences { get; set; }
+      IList<FileReference> FileReferences { get; }
 
-      IList<ExportedTypes> ExportedTypess { get; set; }
+      IList<ExportedTypes> ExportedTypess { get; }
 
-      IList<ManifestResource> ManifestResources { get; set; }
+      IList<ManifestResource> ManifestResources { get; }
 
-      IList<NestedClassDefinition> NestedClassDefinitions { get; set; }
+      IList<NestedClassDefinition> NestedClassDefinitions { get; }
 
-      IList<GenericParameterDefinition> GenericParameterDefinitions { get; set; }
+      IList<GenericParameterDefinition> GenericParameterDefinitions { get; }
 
-      IList<MethodSpecification> MethodSpecifications { get; set; }
+      IList<MethodSpecification> MethodSpecifications { get; }
 
-      IList<GenericParameterConstraintDefinition> GenericParameterConstraintDefinitions { get; set; }
+      IList<GenericParameterConstraintDefinition> GenericParameterConstraintDefinitions { get; }
    }
 }

@@ -58,8 +58,12 @@
       <Link>Properties\$(AssemblyName).AssemblyInfo.cs</Link>
     </Compile>
     <Compile Include="Enums.cs" />
+    <Compile Include="IL.cs" />
+    <Compile Include="Implementation\Module.Reading.cs" />
+    <Compile Include="Implementation\Module.cs" />
     <Compile Include="MetaData.cs" />
     <Compile Include="Module.cs" />
+    <Compile Include="OpCodes.cs" />
     <Compile Include="Utils.cs" />
   </ItemGroup>
   <ItemGroup Condition=" '$(UseUtilpackReference)' != '' ">
@@ -67,11 +71,10 @@
       <HintPath>$(OutputPath)UtilPack.dll</HintPath>
     </Reference>
   </ItemGroup>
+  <ItemGroup />
   <Import Project="$(MSBuildExtensionsPath32)\Microsoft\Portable\$(TargetFrameworkVersion)\Microsoft.Portable.CSharp.targets" />
-  
   <!-- Create .snk file if it doesn't exist to ensure smooth build -->
   <Import Project="$(MSBuildThisFileDirectory)../../../CommonBuildTools/CLR/MSBuild/CreateKeyFileIfNeeded.targets" />
-
   <Import Project="../../../CommonBuildTools/CLR/MSBuild/TargetFramework.targets" />
   <!-- Assembly information -->
   <PropertyGroup>

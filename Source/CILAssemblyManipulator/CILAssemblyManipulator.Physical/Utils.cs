@@ -553,7 +553,7 @@ namespace CILAssemblyManipulator.Physical
       internal static readonly Tuple<Tables?[], UInt32, Int32> RESOLUTION_SCOPE = Tuple.Create( RESOLUTION_SCOPE_ARRAY, GetTagBitMask( RESOLUTION_SCOPE_ARRAY ), GetTagBitSize( RESOLUTION_SCOPE_ARRAY ) );
       internal static readonly Tuple<Tables?[], UInt32, Int32> TYPE_OR_METHOD_DEF = Tuple.Create( TYPE_OR_METHOD_DEF_ARRAY, GetTagBitMask( TYPE_OR_METHOD_DEF_ARRAY ), GetTagBitSize( TYPE_OR_METHOD_DEF_ARRAY ) );
 
-      private static readonly IDictionary<Tables, Func<UInt32[], Int32, Int32, Int32, Int32>> TABLE_WIDTH_CALCULATOR;
+      private static readonly IDictionary<Tables, Func<Int32[], Int32, Int32, Int32, Int32>> TABLE_WIDTH_CALCULATOR;
       internal static readonly IDictionary<CILTypeCode, SignatureElementTypes> TYPECODE_MAPPING_SIMPLE = new Dictionary<CILTypeCode, SignatureElementTypes>()
       {
          { CILTypeCode.Boolean, SignatureElementTypes.Boolean },
@@ -595,7 +595,7 @@ namespace CILAssemblyManipulator.Physical
 
       static MetaDataConstants()
       {
-         var dic2 = new Dictionary<Tables, Func<UInt32[], Int32, Int32, Int32, Int32>>( Consts.AMOUNT_OF_TABLES );
+         var dic2 = new Dictionary<Tables, Func<Int32[], Int32, Int32, Int32, Int32>>( Consts.AMOUNT_OF_TABLES );
          dic2.Add( Tables.Module, ( tableSizes, strWidth, guidWidth, blobWidth ) => Consts.TWO_BYTE_SIZE + strWidth + guidWidth + guidWidth + guidWidth );
          dic2.Add( Tables.TypeRef, ( tableSizes, strWidth, guidWidth, blobWidth ) => GetTableIndexSizeCoded( tableSizes, RESOLUTION_SCOPE ) + strWidth + strWidth );
          dic2.Add( Tables.TypeDef, ( tableSizes, strWidth, guidWidth, blobWidth ) => Consts.FOUR_BYTE_SIZE + strWidth + strWidth + GetTableIndexSizeCoded( tableSizes, TYPE_DEF_OR_REF ) + GetTableIndexSizeSimple( tableSizes, Tables.Field ) + GetTableIndexSizeSimple( tableSizes, Tables.MethodDef ) );
@@ -634,14 +634,14 @@ namespace CILAssemblyManipulator.Physical
          TABLE_WIDTH_CALCULATOR = dic2;
       }
 
-      private static Int32 GetTableIndexSizeSimple( UInt32[] tableSizes, Tables referencedTable )
+      private static Int32 GetTableIndexSizeSimple( Int32[] tableSizes, Tables referencedTable )
       {
          return tableSizes[(Int32) referencedTable] > UInt16.MaxValue ? 4 : 2;
       }
 
-      private static Int32 GetTableIndexSizeCoded( UInt32[] tableSizes, Tuple<Tables?[], UInt32, Int32> referencedTables )
+      private static Int32 GetTableIndexSizeCoded( Int32[] tableSizes, Tuple<Tables?[], UInt32, Int32> referencedTables )
       {
-         UInt32 max = 0;
+         Int32 max = 0;
          var array = referencedTables.Item1;
          for ( var i = 0; i < array.Length; ++i )
          {
@@ -665,7 +665,7 @@ namespace CILAssemblyManipulator.Physical
          return ( TAGMASK_MASK >> ( 32 - GetTagBitSize( tables ) ) );
       }
 
-      internal static IDictionary<CodedTableIndexKind, Boolean> GetCodedTableIndexSizes( UInt32[] tableSizes )
+      internal static IDictionary<CodedTableIndexKind, Boolean> GetCodedTableIndexSizes( Int32[] tableSizes )
       {
          var tRefWidths = new Dictionary<CodedTableIndexKind, Boolean>();
          tRefWidths.Add( CodedTableIndexKind.TypeDefOrRef, MetaDataConstants.GetTableIndexSizeCoded( tableSizes, TYPE_DEF_OR_REF ) == sizeof( Int32 ) );
@@ -684,7 +684,7 @@ namespace CILAssemblyManipulator.Physical
          return tRefWidths;
       }
 
-      internal static Int32 CalculateTableWidth( Tables table, UInt32[] tableSizes, Int32 sysStringIndexSize, Int32 guidIndexSize, Int32 blobIndexSize )
+      internal static Int32 CalculateTableWidth( Tables table, Int32[] tableSizes, Int32 sysStringIndexSize, Int32 guidIndexSize, Int32 blobIndexSize )
       {
          return MetaDataConstants.TABLE_WIDTH_CALCULATOR[table]( tableSizes, sysStringIndexSize, guidIndexSize, blobIndexSize );
       }
@@ -739,7 +739,7 @@ namespace CILAssemblyManipulator.Physical
       }
 
       // Zero-based
-      internal static TableIndex ReadSimpleTableIndex( System.IO.Stream stream, Tables targetTable, UInt32[] tableSizes, Byte[] tmpArray )
+      internal static TableIndex ReadSimpleTableIndex( System.IO.Stream stream, Tables targetTable, Int32[] tableSizes, Byte[] tmpArray )
       {
          return new TableIndex( targetTable, ( (Int32) ( tableSizes[(Int32) targetTable] > UInt16.MaxValue ? stream.ReadU32( tmpArray ) : stream.ReadU16( tmpArray ) ) ) - 1 );
       }
@@ -843,8 +843,13 @@ namespace CILAssemblyManipulator.Physical
       /// </remarks>
       internal static UInt32 ReadU32( this Stream stream, Byte[] i32Array )
       {
+         return (UInt32) stream.ReadI32( i32Array );
+      }
+
+      internal static Int32 ReadI32( this Stream stream, Byte[] i32Array )
+      {
          stream.ReadSpecificAmount( i32Array, 0, 4 );
-         return (UInt32) i32Array.ReadInt32LEFromBytesNoRef( 0 );
+         return i32Array.ReadInt32LEFromBytesNoRef( 0 );
       }
 
       /// <summary>
@@ -858,9 +863,14 @@ namespace CILAssemblyManipulator.Physical
       /// </remarks>
       internal static UInt16 ReadU16( this Stream stream, Byte[] i16Array )
       {
+         return (UInt16) stream.ReadI16( i16Array );
+      }
+
+      internal static Int16 ReadI16( this Stream stream, Byte[] i16Array )
+      {
          stream.ReadSpecificAmount( i16Array, 0, 2 );
          var dummy = 0;
-         return i16Array.ReadUInt16LEFromBytes( ref dummy );
+         return i16Array.ReadInt16LEFromBytes( ref dummy );
       }
 
       internal static String ReadZeroTerminatedString( this Stream stream, UInt32 length, Encoding encoding )

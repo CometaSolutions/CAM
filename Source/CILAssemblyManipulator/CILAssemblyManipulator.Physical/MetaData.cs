@@ -1,5 +1,4 @@
-﻿using CILAssemblyManipulator.Physical;
-/*
+﻿/*
  * Copyright 2015 Stanislav Muhametsin. All rights Reserved.
  *
  * Licensed  under the  Apache License,  Version 2.0  (the "License");
@@ -20,6 +19,8 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
+using CILAssemblyManipulator.Physical;
+using CommonUtils;
 
 namespace CILAssemblyManipulator.Physical
 {
@@ -68,7 +69,43 @@ namespace CILAssemblyManipulator.Physical
 
    public sealed class MethodILDefinition
    {
+      private readonly IList<MethodExceptionBlock> _exceptionBlocks;
+      private readonly IList<OpCodeInfo> _opCodes;
 
+      public MethodILDefinition( Int32 exceptionBlockCount = 0, Int32 opCodeCount = 0 )
+      {
+         this._exceptionBlocks = new List<MethodExceptionBlock>( exceptionBlockCount );
+         this._opCodes = new List<OpCodeInfo>( opCodeCount );
+      }
+
+      public Boolean InitLocals { get; set; }
+      public LocalVariablesSignature Locals { get; set; }
+      public IList<MethodExceptionBlock> ExceptionBlocks
+      {
+         get
+         {
+            return this._exceptionBlocks;
+         }
+      }
+      public IList<OpCodeInfo> OpCodes
+      {
+         get
+         {
+            return this._opCodes;
+         }
+      }
+
+   }
+
+   public sealed class MethodExceptionBlock
+   {
+      public ExceptionBlockType BlockType { get; set; }
+      public Int32 TryOffset { get; set; }
+      public Int32 TryLength { get; set; }
+      public Int32 HandlerOffset { get; set; }
+      public Int32 HandlerLength { get; set; }
+      public TableIndex? ExceptionType { get; set; }
+      public Int32 FilterOffset { get; set; }
    }
 
    public sealed class ParameterDefinition
@@ -102,19 +139,19 @@ namespace CILAssemblyManipulator.Physical
    {
       public TableIndex Parent { get; set; }
       public TableIndex Type { get; set; }
-      public Byte[] Value { get; set; }
+      public Byte[] Value { get; set; } // TODO own type for custom attribute data
    }
    public sealed class FieldMarshal
    {
       public TableIndex Parent { get; set; }
-      public Byte[] NativeType { get; set; }
+      public MarshalingInfo NativeType { get; set; }
    }
 
    public sealed class SecurityDefinition
    {
       public Int16 Action { get; set; }
       public TableIndex Parent { get; set; }
-      public Byte[] PermissionSet { get; set; }
+      public Byte[] PermissionSet { get; set; } // TODO own type for security info?
    }
 
    public sealed class ClassLayout
@@ -266,7 +303,7 @@ namespace CILAssemblyManipulator.Physical
    public sealed class MethodSpecification
    {
       TableIndex Method { get; set; }
-      TypeSignature Signature { get; set; } // TODO might need own type for method specs
+      GenericMethodSignature Signature { get; set; }
    }
 
    public sealed class GenericParameterConstraintDefinition
@@ -360,7 +397,8 @@ namespace CILAssemblyManipulator.Physical
       Field,
       Property,
       LocalVariable,
-      Type
+      Type,
+      GenericMethodInstantiation
    }
 
    public abstract class AbstractSignature
@@ -371,13 +409,14 @@ namespace CILAssemblyManipulator.Physical
    public abstract class AbstractMethodSignature : AbstractSignature
    {
       private readonly IList<ParameterSignature> _parameters;
-      public AbstractMethodSignature( Int32 parameterCount = 0 )
+
+      protected AbstractMethodSignature( Int32 parameterCount )
       {
          this._parameters = new List<ParameterSignature>( parameterCount );
       }
 
       public SignatureStarters SignatureStarter { get; set; }
-      public Boolean GenericArgumentCount { get; set; }
+      public Int32 GenericArgumentCount { get; set; }
       public ParameterSignature ReturnType { get; set; }
       public IList<ParameterSignature> Parameters
       {
@@ -386,10 +425,79 @@ namespace CILAssemblyManipulator.Physical
             return this._parameters;
          }
       }
+
+      protected static void ReadFromBytes(
+         Byte[] sig,
+         ref Int32 idx,
+         out SignatureStarters elementType,
+         out Int32 genericCount,
+         out ParameterSignature returnParameter,
+         out ParameterSignature[] parameters,
+         out Int32 sentinelMark
+         )
+      {
+         elementType = (SignatureStarters) sig.ReadByteFromBytes( ref idx );
+         genericCount = 0;
+         if ( elementType.IsGeneric() )
+         {
+            genericCount = sig.DecompressUInt32( ref idx );
+         }
+
+         var amountOfParams = sig.DecompressUInt32( ref idx );
+         returnParameter = ReadParameter( sig, ref idx );
+         sentinelMark = -1;
+         if ( amountOfParams > 0 )
+         {
+            parameters = new ParameterSignature[amountOfParams];
+            for ( var i = 0; i < amountOfParams; ++i )
+            {
+               if ( sig[idx] == (Byte) SignatureElementTypes.Sentinel )
+               {
+                  sentinelMark = i;
+               }
+               parameters[i] = ReadParameter( sig, ref idx );
+            }
+         }
+         else
+         {
+            parameters = Empty<ParameterSignature>.Array;
+         }
+
+      }
+
+      internal static ParameterSignature ReadParameter( Byte[] sig, ref Int32 idx )
+      {
+         var retVal = new ParameterSignature();
+         CustomModifierSignature.AddFromBytes( sig, ref idx, retVal.CustomModifiers );
+         var elementType = (SignatureElementTypes) sig.ReadByteFromBytes( ref idx );
+         TypeSignature type;
+         if ( elementType == SignatureElementTypes.TypedByRef )
+         {
+            type = SimpleTypeSignature.TypedByRef;
+         }
+         else
+         {
+            if ( elementType == SignatureElementTypes.ByRef )
+            {
+               retVal.IsByRef = true;
+            }
+            else
+            {
+               // Go backwards
+               --idx;
+            }
+            type = TypeSignature.ReadFromBytes( sig, ref idx );
+         }
+         return retVal;
+      }
    }
 
    public sealed class MethodDefinitionSignature : AbstractMethodSignature
    {
+      public MethodDefinitionSignature( Int32 parameterCount = 0 )
+         : base( parameterCount )
+      {
+      }
 
       public override SignatureKind SignatureKind
       {
@@ -397,6 +505,31 @@ namespace CILAssemblyManipulator.Physical
          {
             return SignatureKind.MethodDefinition;
          }
+      }
+
+      public static MethodDefinitionSignature ReadFromBytes( Byte[] sig, ref Int32 idx )
+      {
+         SignatureStarters elementType;
+         Int32 genericCount;
+         ParameterSignature returnParameter;
+         ParameterSignature[] parameters;
+         Int32 sentinelMark;
+         ReadFromBytes( sig, ref idx, out elementType, out genericCount, out returnParameter, out parameters, out sentinelMark );
+         if ( sentinelMark != -1 )
+         {
+            throw new BadImageFormatException( "Method definition signature had sentinel mark." );
+         }
+         var retVal = new MethodDefinitionSignature( parameters.Length )
+         {
+            GenericArgumentCount = genericCount,
+            ReturnType = returnParameter,
+            SignatureStarter = elementType,
+         };
+         foreach ( var p in parameters )
+         {
+            retVal.Parameters.Add( p );
+         }
+         return retVal;
       }
    }
 
@@ -424,6 +557,33 @@ namespace CILAssemblyManipulator.Physical
          {
             return SignatureKind.MethodReference;
          }
+      }
+
+      public static MethodReferenceSignature ReadFromBytes( Byte[] sig, ref Int32 idx )
+      {
+         SignatureStarters elementType;
+         Int32 genericCount;
+         ParameterSignature returnParameter;
+         ParameterSignature[] parameters;
+         Int32 sentinelMark;
+         ReadFromBytes( sig, ref idx, out elementType, out genericCount, out returnParameter, out parameters, out sentinelMark );
+         var pLength = sentinelMark == -1 ? parameters.Length : sentinelMark;
+         var vLength = sentinelMark == -1 ? 0 : ( parameters.Length - sentinelMark );
+         var retVal = new MethodReferenceSignature( pLength, vLength )
+         {
+            GenericArgumentCount = genericCount,
+            ReturnType = returnParameter,
+            SignatureStarter = elementType,
+         };
+         for ( var i = 0; i < pLength; ++i )
+         {
+            retVal.Parameters.Add( parameters[i] );
+         }
+         for ( var i = 0; i < vLength; ++i )
+         {
+            retVal.VarArgsParameters.Add( parameters[i + pLength] );
+         }
+         return retVal;
       }
    }
 
@@ -461,6 +621,14 @@ namespace CILAssemblyManipulator.Physical
             return SignatureKind.Field;
          }
       }
+
+      public static FieldSignature ReadFromBytes( Byte[] sig, ref Int32 idx )
+      {
+         var retVal = new FieldSignature();
+         CustomModifierSignature.AddFromBytes( sig, ref idx, retVal.CustomModifiers );
+         retVal.Type = TypeSignature.ReadFromBytes( sig, ref idx );
+         return retVal;
+      }
    }
 
    public sealed class PropertySignature : AbstractSignatureWithCustomMods
@@ -490,6 +658,25 @@ namespace CILAssemblyManipulator.Physical
             return this._parameters;
          }
       }
+
+      public static PropertySignature ReadFromBytes( Byte[] sig, ref Int32 idx )
+      {
+         var starter = (SignatureStarters) sig.ReadByteFromBytes( ref idx );
+         if ( !starter.IsProperty() )
+         {
+            throw new BadImageFormatException( "The first byte of property signature must have " + SignatureStarters.Property + " flag." );
+         }
+         var paramCount = sig.DecompressUInt32( ref idx );
+         var retVal = new PropertySignature( parameterCount: paramCount );
+         CustomModifierSignature.AddFromBytes( sig, ref idx, retVal.CustomModifiers );
+         retVal.PropertyType = TypeSignature.ReadFromBytes( sig, ref idx );
+         for ( var i = 0; i < paramCount; ++i )
+         {
+            retVal.Parameters.Add( AbstractMethodSignature.ReadParameter( sig, ref idx ) );
+         }
+
+         return retVal;
+      }
    }
 
    public sealed class LocalVariablesSignature : AbstractSignature
@@ -516,17 +703,56 @@ namespace CILAssemblyManipulator.Physical
             return this._locals;
          }
       }
-   }
 
-   public sealed class LocalVariableSignature : ParameterOrLocalVariableSignature
-   {
-      public LocalVariableSignature( Int32 customModCount = 0 )
-         : base( customModCount )
+      public static LocalVariablesSignature ReadFromBytes( Byte[] sig, ref Int32 idx )
       {
+         if ( IsLocalVariablesSignature( sig, idx ) )
+         {
+            ++idx;
+         }
+         else
+         {
+            throw new BadImageFormatException( "The first byte of locals signature must be " + SignatureStarters.LocalSignature + "." );
+         }
+         var lCount = sig.DecompressUInt32( ref idx );
+         var retVal = new LocalVariablesSignature( lCount );
+         for ( var i = 0; i < lCount; ++i )
+         {
+            var local = new LocalVariableSignature();
+            var elementType = (SignatureElementTypes) sig[idx];
+            if ( elementType == SignatureElementTypes.TypedByRef )
+            {
+               local.Type = SimpleTypeSignature.TypedByRef;
+               ++idx; // Mark this byte read
+            }
+            else
+            {
+               CustomModifierSignature.AddFromBytes( sig, ref idx, local.CustomModifiers );
+               elementType = (SignatureElementTypes) sig[idx];
+               if ( elementType == SignatureElementTypes.Pinned )
+               {
+                  local.IsPinned = true;
+                  ++idx;
+                  elementType = (SignatureElementTypes) sig[idx];
+               }
+               if ( elementType == SignatureElementTypes.ByRef )
+               {
+                  local.IsByRef = true;
+                  ++idx;
+               }
+               local.Type = TypeSignature.ReadFromBytes( sig, ref idx );
+            }
+            retVal.Locals.Add( local );
+         }
 
+         return retVal;
       }
 
-      public Boolean IsPinned { get; set; }
+      internal static Boolean IsLocalVariablesSignature( Byte[] sig, Int32 idx )
+      {
+         var starter = (SignatureStarters) sig[idx];
+         return starter == SignatureStarters.LocalSignature;
+      }
    }
 
    public abstract class ParameterOrLocalVariableSignature
@@ -550,6 +776,17 @@ namespace CILAssemblyManipulator.Physical
       public TypeSignature Type { get; set; }
    }
 
+   public sealed class LocalVariableSignature : ParameterOrLocalVariableSignature
+   {
+      public LocalVariableSignature( Int32 customModCount = 0 )
+         : base( customModCount )
+      {
+
+      }
+
+      public Boolean IsPinned { get; set; }
+   }
+
    public sealed class ParameterSignature : ParameterOrLocalVariableSignature
    {
       public ParameterSignature( Int32 customModCount = 0 )
@@ -563,6 +800,39 @@ namespace CILAssemblyManipulator.Physical
    {
       public Boolean IsOptional { get; set; }
       public TableIndex CustomModifierType { get; set; }
+
+      public static CustomModifierSignature ReadFromBytes( Byte[] sig, ref Int32 idx )
+      {
+         var curByte = sig[idx];
+         CustomModifierSignature retVal;
+         if ( curByte == (Byte) SignatureElementTypes.CModOpt || curByte == (Byte) SignatureElementTypes.CModReqd )
+         {
+            ++idx;
+            retVal = new CustomModifierSignature()
+            {
+               CustomModifierType = new TableIndex( TokenUtils.DecodeTypeDefOrRefOrSpec( sig, ref idx ) ),
+               IsOptional = curByte == (Byte) SignatureElementTypes.CModOpt
+            };
+         }
+         else
+         {
+            retVal = null;
+         }
+         return retVal;
+      }
+
+      public static void AddFromBytes( Byte[] sig, ref Int32 idx, IList<CustomModifierSignature> customMods )
+      {
+         CustomModifierSignature curMod;
+         do
+         {
+            curMod = ReadFromBytes( sig, ref idx );
+            if ( curMod != null )
+            {
+               customMods.Add( curMod );
+            }
+         } while ( curMod != null );
+      }
    }
 
    public abstract class TypeSignature : AbstractSignature
@@ -578,6 +848,129 @@ namespace CILAssemblyManipulator.Physical
       }
 
       public abstract TypeSignatureKind TypeSignatureKind { get; }
+
+      public static TypeSignature ReadFromBytes( Byte[] sig, ref Int32 idx )
+      {
+         Int32 auxiliary;
+         var elementType = (SignatureElementTypes) sig[idx++];
+         switch ( elementType )
+         {
+            case SignatureElementTypes.End:
+               return null;
+            case SignatureElementTypes.Boolean:
+               return SimpleTypeSignature.Boolean;
+            case SignatureElementTypes.Char:
+               return SimpleTypeSignature.Char;
+            case SignatureElementTypes.I1:
+               return SimpleTypeSignature.SByte;
+            case SignatureElementTypes.U1:
+               return SimpleTypeSignature.Byte;
+            case SignatureElementTypes.I2:
+               return SimpleTypeSignature.Int16;
+            case SignatureElementTypes.U2:
+               return SimpleTypeSignature.UInt16;
+            case SignatureElementTypes.I4:
+               return SimpleTypeSignature.Int32;
+            case SignatureElementTypes.U4:
+               return SimpleTypeSignature.UInt32;
+            case SignatureElementTypes.I8:
+               return SimpleTypeSignature.Int64;
+            case SignatureElementTypes.U8:
+               return SimpleTypeSignature.UInt64;
+            case SignatureElementTypes.R4:
+               return SimpleTypeSignature.Single;
+            case SignatureElementTypes.R8:
+               return SimpleTypeSignature.Double;
+            case SignatureElementTypes.I:
+               return SimpleTypeSignature.IntPtr;
+            case SignatureElementTypes.U:
+               return SimpleTypeSignature.UIntPtr;
+            case SignatureElementTypes.String:
+               return SimpleTypeSignature.String;
+            case SignatureElementTypes.Object:
+               return SimpleTypeSignature.Object;
+            case SignatureElementTypes.Void:
+               return SimpleTypeSignature.Void;
+            case SignatureElementTypes.Array:
+               var arrayType = ReadFromBytes( sig, ref idx );
+               var arraySig = ReadArrayInfo( sig, ref idx );
+               arraySig.ArrayType = arrayType;
+               return arraySig;
+            case SignatureElementTypes.Class:
+            case SignatureElementTypes.ValueType:
+            case SignatureElementTypes.GenericInst:
+               var isGeneric = elementType == SignatureElementTypes.GenericInst;
+               TableIndex actualType;
+               if ( isGeneric )
+               {
+                  elementType = (SignatureElementTypes) sig[idx++];
+               }
+               actualType = new TableIndex( TokenUtils.DecodeTypeDefOrRefOrSpec( sig, ref idx ) );
+               auxiliary = isGeneric ? sig.DecompressUInt32( ref idx ) : 0;
+               var classOrValue = new ClassOrValueTypeSignature( auxiliary )
+               {
+                  IsClass = elementType == SignatureElementTypes.Class,
+                  Type = actualType
+               };
+               if ( auxiliary > 0 )
+               {
+                  for ( var i = 0; i < auxiliary; ++i )
+                  {
+                     classOrValue.GenericArguments.Add( ReadFromBytes( sig, ref idx ) );
+                  }
+               }
+               return classOrValue;
+            case SignatureElementTypes.FnPtr:
+               return new FunctionPointerTypeSignature()
+               {
+                  MethodSignature = MethodReferenceSignature.ReadFromBytes( sig, ref idx )
+               };
+            case SignatureElementTypes.MVar:
+            case SignatureElementTypes.Var:
+               return new GenericParameterTypeSignature()
+               {
+                  GenericParameterIndex = sig.DecompressUInt32( ref idx ),
+                  IsTypeParameter = elementType == SignatureElementTypes.Var
+               };
+            case SignatureElementTypes.Ptr:
+               var ptr = new PointerTypeSignature();
+               CustomModifierSignature.AddFromBytes( sig, ref idx, ptr.CustomModifiers );
+               ptr.Type = ReadFromBytes( sig, ref idx );
+               return ptr;
+            case SignatureElementTypes.SzArray:
+               var szArr = new SimpleArrayTypeSignature();
+               CustomModifierSignature.AddFromBytes( sig, ref idx, szArr.CustomModifiers );
+               szArr.ArrayType = ReadFromBytes( sig, ref idx );
+               return szArr;
+            default:
+               throw new BadImageFormatException( "Unknown type starter: " + elementType );
+         }
+
+      }
+
+      private static ComplexArrayTypeSignature ReadArrayInfo( Byte[] sig, ref Int32 idx )
+      {
+         var rank = sig.DecompressUInt32( ref idx );
+         var curSize = sig.DecompressUInt32( ref idx );
+         var retVal = new ComplexArrayTypeSignature( sizesCount: curSize ); // TODO skip thru sizes and detect lower bound count
+         retVal.Rank = rank;
+         while ( curSize > 0 )
+         {
+            retVal.Sizes.Add( sig.DecompressUInt32( ref idx ) );
+            --curSize;
+         }
+         curSize = sig.DecompressUInt32( ref idx );
+         var loBounds = curSize > 0 ?
+            new Int32[curSize] :
+            null;
+         while ( curSize > 0 )
+         {
+            retVal.LowerBounds.Add( sig.DecompressInt32( ref idx ) );
+            --curSize;
+         }
+         return retVal;
+      }
+
    }
 
    public enum TypeSignatureKind : byte
@@ -602,7 +995,7 @@ namespace CILAssemblyManipulator.Physical
       public static readonly SimpleTypeSignature Int32 = new SimpleTypeSignature( SignatureElementTypes.I4 );
       public static readonly SimpleTypeSignature UInt32 = new SimpleTypeSignature( SignatureElementTypes.U4 );
       public static readonly SimpleTypeSignature Int64 = new SimpleTypeSignature( SignatureElementTypes.I8 );
-      public static readonly SimpleTypeSignature UIn64 = new SimpleTypeSignature( SignatureElementTypes.U8 );
+      public static readonly SimpleTypeSignature UInt64 = new SimpleTypeSignature( SignatureElementTypes.U8 );
       public static readonly SimpleTypeSignature Single = new SimpleTypeSignature( SignatureElementTypes.R4 );
       public static readonly SimpleTypeSignature Double = new SimpleTypeSignature( SignatureElementTypes.R8 );
       public static readonly SimpleTypeSignature IntPtr = new SimpleTypeSignature( SignatureElementTypes.I );
@@ -610,6 +1003,7 @@ namespace CILAssemblyManipulator.Physical
       public static readonly SimpleTypeSignature Object = new SimpleTypeSignature( SignatureElementTypes.Object );
       public static readonly SimpleTypeSignature String = new SimpleTypeSignature( SignatureElementTypes.String );
       public static readonly SimpleTypeSignature Void = new SimpleTypeSignature( SignatureElementTypes.Void );
+      public static readonly SimpleTypeSignature TypedByRef = new SimpleTypeSignature( SignatureElementTypes.TypedByRef );
 
       private readonly SignatureElementTypes _type;
 
@@ -681,7 +1075,7 @@ namespace CILAssemblyManipulator.Physical
          }
       }
 
-      public AbstractMethodSignature MethodSignature { get; set; }
+      public MethodReferenceSignature MethodSignature { get; set; }
    }
 
    public sealed class PointerTypeSignature : TypeSignature
@@ -778,6 +1172,356 @@ namespace CILAssemblyManipulator.Physical
          }
       }
    }
+
+   public sealed class GenericMethodSignature : AbstractSignature
+   {
+      private readonly IList<TypeSignature> _genericArguments;
+
+      public GenericMethodSignature( Int32 genericArgumentsCount = 0 )
+      {
+         this._genericArguments = new List<TypeSignature>( genericArgumentsCount );
+      }
+
+      public override SignatureKind SignatureKind
+      {
+         get
+         {
+            return SignatureKind.GenericMethodInstantiation;
+         }
+      }
+
+      public IList<TypeSignature> GenericArguments
+      {
+         get
+         {
+            return this._genericArguments;
+         }
+      }
+
+      public static GenericMethodSignature ReadFromBytes( Byte[] sig, ref Int32 idx )
+      {
+         var elementType = (SignatureElementTypes) sig.ReadByteFromBytes( ref idx );
+         if ( elementType != SignatureElementTypes.GenericInst )
+         {
+            throw new BadImageFormatException( "First byte of generic method instantiation signature must be " + SignatureElementTypes.GenericInst + "." );
+         }
+         var genericArgumentsCount = sig.DecompressUInt32( ref idx );
+         var retVal = new GenericMethodSignature( genericArgumentsCount );
+         for ( var i = 0; i < genericArgumentsCount; ++i )
+         {
+            retVal.GenericArguments.Add( TypeSignature.ReadFromBytes( sig, ref idx ) );
+         }
+         return retVal;
+      }
+   }
+
+   /// <summary>
+   /// This class represents marshalling information used for CIL parameters and fields.
+   /// The instances of this class are created via static methods in this class.
+   /// </summary>
+   /// <seealso cref="CILElementWithMarshalingInfo"/>
+   /// <seealso cref="CILField"/>
+   /// <seealso cref="CILParameter"/>
+   public sealed class MarshalingInfo
+   {
+      internal const UnmanagedType NATIVE_TYPE_MAX = (UnmanagedType) 0x50;
+      internal const Int32 NO_INDEX = -1;
+
+      private readonly UnmanagedType _ut;
+
+      private readonly VarEnum _safeArrayType;
+      private readonly String _safeArrayUserDefinedType;
+      private readonly Int32 _iidParameterIndex;
+      private readonly UnmanagedType _arrayType;
+      private readonly Int32 _sizeParamIndex;
+      private readonly Int32 _constSize;
+      private readonly String _marshalType;
+      private readonly String _marshalCookie;
+
+      /// <summary>
+      /// Creates a new instance of <see cref="MarshalingInfo"/> with all values as specified.
+      /// </summary>
+      /// <param name="ut">The <see cref="UnmanagedType"/>.</param>
+      /// <param name="safeArrayType">The <see cref="VarEnum"/> of safe array elements.</param>
+      /// <param name="safeArrayUDType">The user-defined type of safe array elements.</param>
+      /// <param name="iidParamIdx">The zero-based index of <c>iid_is</c> parameter in COM interop.</param>
+      /// <param name="arrayType">The <see cref="UnmanagedType"/> of array elements.</param>
+      /// <param name="sizeParamIdx">The zero-based index of array size parameter.</param>
+      /// <param name="constSize">The size of additional array elements.</param>
+      /// <param name="marshalType">The type name of custom marshaler.</param>
+      /// <param name="marshalCookie">The cookie for custom marshaler.</param>
+      public MarshalingInfo(
+         UnmanagedType ut,
+         VarEnum safeArrayType,
+         String safeArrayUDType,
+         Int32 iidParamIdx,
+         UnmanagedType arrayType,
+         Int32 sizeParamIdx,
+         Int32 constSize,
+         String marshalType,
+         String marshalCookie
+         )
+      {
+         this._ut = ut;
+         this._safeArrayType = safeArrayType;
+         this._safeArrayUserDefinedType = safeArrayUDType;
+         this._iidParameterIndex = Math.Max( NO_INDEX, iidParamIdx );
+         this._arrayType = arrayType == (UnmanagedType) 0 ? NATIVE_TYPE_MAX : arrayType;
+         this._sizeParamIndex = Math.Max( NO_INDEX, sizeParamIdx );
+         this._constSize = Math.Max( NO_INDEX, constSize );
+         this._marshalType = marshalType;
+         this._marshalCookie = marshalCookie;
+      }
+
+      /// <summary>
+      /// Gets the <see cref="UnmanagedType" /> value the data is to be marshaled as.
+      /// </summary>
+      /// <value>The <see cref="UnmanagedType" /> value the data is to be marshaled as.</value>
+      public UnmanagedType Value
+      {
+         get
+         {
+            return this._ut;
+         }
+      }
+
+      /// <summary>
+      /// Gets the element type for <see cref="UnmanagedType.SafeArray"/>.
+      /// </summary>
+      /// <value>The element type for <see cref="UnmanagedType.SafeArray"/>.</value>
+      public VarEnum SafeArrayType
+      {
+         get
+         {
+            return this._safeArrayType;
+         }
+      }
+
+      /// <summary>
+      /// Gets the element type for <see cref="UnmanagedType.SafeArray"/> when <see cref="SafeArrayType"/> is <see cref="VarEnum.VT_USERDEFINED"/>.
+      /// </summary>
+      /// <value>The element type for <see cref="UnmanagedType.SafeArray"/> when <see cref="SafeArrayType"/> is <see cref="VarEnum.VT_USERDEFINED"/>.</value>
+      public String SafeArrayUserDefinedType
+      {
+         get
+         {
+            return this._safeArrayUserDefinedType;
+         }
+      }
+
+      /// <summary>
+      /// Gets the zero-based parameter index of the unmanaged iid_is attribute used by COM.
+      /// </summary>
+      /// <value>The parameter index of the unmanaged iid_is attribute used by COM.</value>
+      public Int32 IIDParameterIndex
+      {
+         get
+         {
+            return this._iidParameterIndex;
+         }
+      }
+
+      /// <summary>
+      /// Gets the type of the array for <see cref="UnmanagedType.ByValArray"/> or <see cref="UnmanagedType.LPArray"/>.
+      /// </summary>
+      /// <value>The type of the array for <see cref="UnmanagedType.ByValArray"/> or <see cref="UnmanagedType.LPArray"/>.</value>
+      public UnmanagedType ArrayType
+      {
+         get
+         {
+            return this._arrayType;
+         }
+      }
+
+      /// <summary>
+      /// Gets the zero-based index of the parameter containing the count of the array elements.
+      /// </summary>
+      /// <value>The zero-based index of the parameter containing the count of the array elements.</value>
+      public Int32 SizeParameterIndex
+      {
+         get
+         {
+            return this._sizeParamIndex;
+         }
+      }
+
+      /// <summary>
+      /// Gets the number of elements of fixed-length array or the number of character (not bytes) in a string.
+      /// </summary>
+      /// <value>The number of elements of fixed-length array or the number of character (not bytes) in a string.</value>
+      public Int32 ConstSize
+      {
+         get
+         {
+            return this._constSize;
+         }
+      }
+
+      /// <summary>
+      /// Gets the fully-qualified name of a custom marshaler.
+      /// </summary>
+      /// <value>The fully-qualified name of a custom marshaler.</value>
+      public String MarshalType
+      {
+         get
+         {
+            return this._marshalType;
+         }
+      }
+
+      /// <summary>
+      /// Gets the additional information for custom marshaler.
+      /// </summary>
+      /// <value>The additional information for custom marshaler.</value>
+      public String MarshalCookie
+      {
+         get
+         {
+            return this._marshalCookie;
+         }
+      }
+
+      /// <summary>
+      /// Marshals field or parameter as native instric type.
+      /// </summary>
+      /// <param name="ut">The native instric type.</param>
+      /// <returns>A new <see cref="MarshalingInfo"/> with given information.</returns>
+      /// <exception cref="ArgumentException">If <see cref="E_CIL.IsNativeInstric(UnmanagedType)"/> returns <c>false</c> for <paramref name="ut"/>.</exception>
+      public static MarshalingInfo MarshalAs( UnmanagedType ut )
+      {
+         if ( ut.IsNativeInstric() )
+         {
+            return new MarshalingInfo( ut, VarEnum.VT_EMPTY, null, NO_INDEX, NATIVE_TYPE_MAX, NO_INDEX, NO_INDEX, null, null );
+         }
+         else
+         {
+            throw new ArgumentException( "This method may be used only on native instrict unmanaged types." );
+         }
+      }
+
+      /// <summary>
+      /// Marshals field or parameter as <see cref="UnmanagedType.ByValTStr"/>.
+      /// </summary>
+      /// <param name="size">The size of the string.</param>
+      /// <returns>A new <see cref="MarshalingInfo"/> with given information.</returns>
+      /// <exception cref="ArgumentOutOfRangeException">If <paramref name="size"/> is less than zero.</exception>
+      public static MarshalingInfo MarshalAsByValTStr( Int32 size )
+      {
+         if ( size < 0 )
+         {
+            throw new ArgumentOutOfRangeException( "The size for in-line character array must be at least zero." );
+         }
+         return new MarshalingInfo( UnmanagedType.ByValTStr, VarEnum.VT_EMPTY, null, NO_INDEX, NATIVE_TYPE_MAX, NO_INDEX, size, null, null );
+      }
+
+      /// <summary>
+      /// Marshals field or parameter as <see cref="UnmanagedType.IUnknown"/>.
+      /// </summary>
+      /// <param name="iidParamIndex">The zero-based index for <c>iid_is</c> parameter.</param>
+      /// <returns>A new <see cref="MarshalingInfo"/> with given information.</returns>
+      public static MarshalingInfo MarshalAsIUnknown( Int32 iidParamIndex = NO_INDEX )
+      {
+         return MarshalAsIUnknownOrIDispatch( true, iidParamIndex );
+      }
+
+      /// <summary>
+      /// Marshals field or parameter as <see cref="UnmanagedType.IDispatch"/>.
+      /// </summary>
+      /// <param name="iidParamIndex">The zero-based index for <c>iid_is</c> parameter.</param>
+      /// <returns>A new <see cref="MarshalingInfo"/> with given information.</returns>
+      public static MarshalingInfo MarshalAsIDispatch( Int32 iidParamIndex = NO_INDEX )
+      {
+         return MarshalAsIUnknownOrIDispatch( false, iidParamIndex );
+      }
+
+      private static MarshalingInfo MarshalAsIUnknownOrIDispatch( Boolean unknown, Int32 iidParamIndex )
+      {
+         return new MarshalingInfo( unknown ? UnmanagedType.IUnknown : UnmanagedType.IDispatch, VarEnum.VT_EMPTY, null, iidParamIndex, NATIVE_TYPE_MAX, NO_INDEX, NO_INDEX, null, null );
+      }
+
+      /// <summary>
+      /// Marshals field or parameter as <see cref="UnmanagedType.SafeArray"/> without any further information.
+      /// </summary>
+      /// <returns>A new <see cref="MarshalingInfo"/> with given information.</returns>
+      public static MarshalingInfo MarshalAsSafeArray()
+      {
+         return MarshalAsSafeArray( VarEnum.VT_EMPTY, null );
+      }
+
+      /// <summary>
+      /// Marshals field or parameter as <see cref="UnmanagedType.SafeArray"/> with specified array element type.
+      /// </summary>
+      /// <param name="elementType">The type of array elements.</param>
+      /// <returns>A new <see cref="MarshalingInfo"/> with given information.</returns>
+      /// <exception cref="ArgumentException">If <paramref name="elementType"/> is <see cref="VarEnum.VT_USERDEFINED"/>. Use <see cref="MarshalAsSafeArray(CILType)"/> method to specify safe arrays with user-defined types.</exception>
+      /// <seealso cref="VarEnum"/>
+      public static MarshalingInfo MarshalAsSafeArray( VarEnum elementType )
+      {
+         if ( VarEnum.VT_USERDEFINED == elementType )
+         {
+            throw new ArgumentException( "Use other method for userdefined safe array types." );
+         }
+         return MarshalAsSafeArray( elementType, null );
+      }
+
+      /// <summary>
+      /// Marshals field or parameter as <see cref="UnmanagedType.SafeArray"/> with user-defined array element type.
+      /// </summary>
+      /// <param name="elementType">The type of array elements. May be <c>null</c>, then no type information is included.</param>
+      /// <returns>A new <see cref="MarshalingInfo"/> with given information.</returns>
+      public static MarshalingInfo MarshalAsSafeArray( String elementType )
+      {
+         return MarshalAsSafeArray( elementType == null ? VarEnum.VT_EMPTY : VarEnum.VT_USERDEFINED, elementType );
+      }
+
+      private static MarshalingInfo MarshalAsSafeArray( VarEnum elementType, String udType )
+      {
+         return new MarshalingInfo( UnmanagedType.SafeArray, elementType, udType, NO_INDEX, NATIVE_TYPE_MAX, NO_INDEX, NO_INDEX, null, null );
+      }
+
+      /// <summary>
+      /// Marshals field or parameter as <see cref="UnmanagedType.ByValArray"/>.
+      /// </summary>
+      /// <param name="size">The size of the array.</param>
+      /// <param name="elementType">The optional type information about array elements.</param>
+      /// <returns>A new <see cref="MarshalingInfo"/> with given information.</returns>
+      /// <exception cref="ArgumentOutOfRangeException">If <paramref name="size"/> is less than zero.</exception>
+      public static MarshalingInfo MarshalAsByValArray( Int32 size, UnmanagedType elementType = NATIVE_TYPE_MAX )
+      {
+         if ( size < 0 )
+         {
+            throw new ArgumentOutOfRangeException( "The size for by-val array must be at least zero." );
+         }
+         return new MarshalingInfo( UnmanagedType.ByValArray, VarEnum.VT_EMPTY, null, NO_INDEX, elementType, NO_INDEX, size, null, null );
+      }
+
+      /// <summary>
+      /// Marshals field or parameter as <see cref="UnmanagedType.LPArray"/>.
+      /// </summary>
+      /// <param name="sizeParamIdx">The zero-based index for parameter containing array size.</param>
+      /// <param name="constSize">The size of additional elements.</param>
+      /// <param name="elementType">The optional type information about array elements.</param>
+      /// <returns>A new <see cref="MarshalingInfo"/> with given information.</returns>
+      public static MarshalingInfo MarshalAsLPArray( Int32 sizeParamIdx = NO_INDEX, Int32 constSize = 0, UnmanagedType elementType = NATIVE_TYPE_MAX )
+      {
+         return new MarshalingInfo( UnmanagedType.LPArray, VarEnum.VT_EMPTY, null, NO_INDEX, elementType, sizeParamIdx, constSize, null, null );
+      }
+
+      /// <summary>
+      /// Marshals field or parameter using custom marshalling.
+      /// </summary>
+      /// <param name="customMarshalerTypeName">The fully qualified type name of the custom marshaler.Must implement <see cref="T:System.Runtime.InteropServices.ICustomMarshaler"/>.</param>
+      /// <param name="marshalCookie">The string information to pass for marshaler creation function.</param>
+      /// <returns>A new <see cref="MarshalingInfo"/> with given information.</returns>
+      /// <exception cref="ArgumentNullException">If <paramref name="customMarshalerTypeName"/> is <c>null</c>.</exception>
+      /// <seealso href="http://msdn.microsoft.com/en-us/library/system.runtime.interopservices.icustommarshaler.aspx"/>
+      public static MarshalingInfo MarshalAsCustom( String customMarshalerTypeName, String marshalCookie = null )
+      {
+         ArgumentValidator.ValidateNotNull( "Custom marshaler typename", customMarshalerTypeName );
+         return new MarshalingInfo( UnmanagedType.CustomMarshaler, VarEnum.VT_EMPTY, null, NO_INDEX, NATIVE_TYPE_MAX, NO_INDEX, NO_INDEX, customMarshalerTypeName, marshalCookie );
+      }
+
+   }
 }
 
 public static partial class E_CILPhysical
@@ -805,5 +1549,10 @@ public static partial class E_CILPhysical
    public static Boolean IsGeneric( this SignatureStarters starter )
    {
       return ( starter & SignatureStarters.Generic ) != 0;
+   }
+
+   public static Boolean IsProperty( this SignatureStarters starter )
+   {
+      return ( starter & SignatureStarters.Property ) != 0;
    }
 }

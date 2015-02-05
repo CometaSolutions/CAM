@@ -1517,6 +1517,29 @@ namespace CILAssemblyManipulator.Physical
       CA_Property = 0x54,
       CA_Enum = 0x55
    }
+
+   /// <summary>
+   /// This enumeration contains all values for possible exception block types of IL.
+   /// </summary>
+   public enum ExceptionBlockType
+   {
+      /// <summary>
+      /// The exception block type is try-catch statement.
+      /// </summary>
+      Exception = 0x0000,
+      /// <summary>
+      /// The exception block type is filter clause.
+      /// </summary>
+      Filter = 0x0001,
+      /// <summary>
+      /// The exception block type is try-finally statement.
+      /// </summary>
+      Finally = 0x0002,
+      /// <summary>
+      /// The exception block type is fault.
+      /// </summary>
+      Fault = 0x0004
+   }
 }
 
 /// <summary>
