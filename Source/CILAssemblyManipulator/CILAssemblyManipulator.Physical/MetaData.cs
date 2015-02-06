@@ -1038,6 +1038,14 @@ namespace CILAssemblyManipulator.Physical
             return TypeSignatureKind.Simple;
          }
       }
+
+      public SignatureElementTypes SimpleType
+      {
+         get
+         {
+            return this._type;
+         }
+      }
    }
 
    public sealed class ClassOrValueTypeSignature : TypeSignature

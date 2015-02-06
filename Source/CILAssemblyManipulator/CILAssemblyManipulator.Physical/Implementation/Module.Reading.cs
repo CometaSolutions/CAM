@@ -24,6 +24,23 @@ using System.Text;
 
 namespace CILAssemblyManipulator.Physical.Implementation
 {
+   internal class LoadingArguments
+   {
+      private readonly SectionInfo[] _sections;
+
+      internal LoadingArguments( SectionInfo[] sections )
+      {
+         this._sections = sections;
+      }
+
+      internal SectionInfo[] Sections
+      {
+         get
+         {
+            return this._sections;
+         }
+      }
+   }
    internal static class ModuleReader
    {
       internal class BLOBContainer : AbstractHeapContainer
@@ -225,7 +242,10 @@ namespace CILAssemblyManipulator.Physical.Implementation
       private const Byte WIDE_GUID_FLAG = 0x02;
       private const Byte WIDE_BLOB_FLAG = 0x04;
 
-      internal static CILMetaData ReadMetadata( Stream stream, out String versionStr )
+      internal static CILMetaData ReadMetadata(
+         LoadingArguments loadingArgs,
+         Stream stream,
+         out String versionStr )
       {
          var mdRoot = stream.Position;
 
@@ -662,11 +682,33 @@ namespace CILAssemblyManipulator.Physical.Implementation
          {
             if ( i != 0 )
             {
+               var offset = ResolveRVA( methodDefRVAs[i], loadingArgs.Sections );
+               if ( offset < stream.Length )
+               {
+                  stream.SeekFromBegin( offset );
+                  retVal.MethodDefinitions[i].IL = ReadMethodILDefinition( stream, userStrings );
+               }
             }
          }
 
          // Read all field RVA content
+         for ( var i = 0; i < fieldDefRVAs.Length; ++i )
+         {
+            var offset = ResolveRVA( fieldDefRVAs[i], loadingArgs.Sections );
+            UInt32 size;
+            if (
+               TryCalculateFieldTypeSize( retVal, retVal.FieldRVAs[i].Field.idx, out size )
+               && offset + size < stream.Length
+               )
+            {
+               // Sometimes there are field RVAs that are unresolvable...
+               var bytes = new Byte[size];
+               stream.SeekFromBegin( offset );
+               stream.ReadWholeArray( bytes );
+               retVal.FieldRVAs[i].Data = bytes;
+            }
 
+         }
          return retVal;
       }
 
@@ -696,6 +738,183 @@ namespace CILAssemblyManipulator.Physical.Implementation
             MethodReferenceSignature.ReadFromBytes( bytes, ref idx );
       }
 
+      private static Int64 ResolveRVA( Int64 rva, SectionInfo[] sections )
+      {
+         for ( var i = 0; i < sections.Length; ++i )
+         {
+            var sec = sections[i];
+            if ( sec.virtualAddress <= rva && rva < (Int64) ( sec.virtualAddress + sec.virtualSize ) )
+            {
+               return (Int64) sec.rawPointer + ( rva - sec.virtualAddress );
+            }
+         }
+         throw new ArgumentException( "Could not resolve RVA " + rva + "." );
+      }
+
+      private static Boolean TryCalculateFieldTypeSize( CILMetaData md, Int32 fieldIdx, out UInt32 size )
+      {
+         var retVal = fieldIdx < md.FieldDefinitions.Count;
+         size = 0u;
+         if ( retVal )
+         {
+            var fieldSig = md.FieldDefinitions[fieldIdx].Signature;
+            var type = fieldSig.Type;
+            retVal = false;
+            size = 0u;
+            switch ( type.TypeSignatureKind )
+            {
+               case TypeSignatureKind.Simple:
+                  retVal = true;
+                  switch ( ( (SimpleTypeSignature) type ).SimpleType )
+                  {
+                     case SignatureElementTypes.Boolean:
+                        size = sizeof( Boolean ); // TODO is this actually 1 or 4?
+                        break;
+                     case SignatureElementTypes.I1:
+                     case SignatureElementTypes.U1:
+                        size = 1;
+                        break;
+                     case SignatureElementTypes.I2:
+                     case SignatureElementTypes.U2:
+                     case SignatureElementTypes.Char:
+                        size = 2;
+                        break;
+                     case SignatureElementTypes.I4:
+                     case SignatureElementTypes.U4:
+                     case SignatureElementTypes.R4:
+                     case SignatureElementTypes.FnPtr:
+                     case SignatureElementTypes.Ptr: // I am not 100% sure of this.
+                        size = 4;
+                        break;
+                     case SignatureElementTypes.I8:
+                     case SignatureElementTypes.U8:
+                     case SignatureElementTypes.R8:
+                        size = 8;
+                        break;
+                     default:
+                        retVal = false;
+                        break;
+                  }
+                  break;
+               case TypeSignatureKind.ClassOrValue:
+                  var c = (ClassOrValueTypeSignature) type;
+
+                  var typeIdx = c.Type;
+                  if ( typeIdx.table == Tables.TypeDef && typeIdx.idx < md.TypeDefinitions.Count )
+                  {
+                     // Only possible for types defined in this module
+                     var typeRow = md.TypeDefinitions[typeIdx.idx];
+                     var extendInfo = typeRow.BaseType;
+                     if ( extendInfo.HasValue )
+                     {
+                        var isEnum = IsEnum( md, extendInfo );
+                        if ( isEnum )
+                        {
+                           // First non-static field of enum type is the field containing enum value
+                           var fieldStartIdx = typeRow.FieldList.idx;
+                           var fieldEndIdx = typeIdx.idx + 1 >= md.TypeDefinitions.Count ?
+                              md.FieldDefinitions.Count :
+                              md.TypeDefinitions[typeIdx.idx].FieldList.idx;
+                           for ( var i = fieldStartIdx; i < fieldEndIdx; ++i )
+                           {
+                              if ( !md.FieldDefinitions[i].Attributes.IsStatic() )
+                              {
+                                 // We have found non-static field of the enum type -> this field should be primitive and the size thus calculable
+                                 retVal = TryCalculateFieldTypeSize( md, i, out size );
+                                 break;
+                              }
+                           }
+                        }
+                        else if ( extendInfo.Value.table == Tables.TypeDef )
+                        {
+                           var cilIdx = GetReferencingRowsFromOrdered( md.ClassLayouts, Tables.TypeDef, typeIdx.idx, row => row.Parent );
+                           if ( cilIdx.Any() )
+                           {
+                              var first = cilIdx.First();
+                              retVal = first < md.ClassLayouts.Count;
+                              if ( retVal )
+                              {
+                                 size = (UInt32) md.ClassLayouts[first].ClassSize;
+                              }
+                           }
+
+                        }
+                     }
+                  }
+                  break;
+            }
+         }
+         return retVal;
+      }
+
+      private static Boolean IsEnum( CILMetaData md, TableIndex? tIdx )
+      {
+         var result = tIdx.HasValue && tIdx.Value.table != Tables.TypeSpec;
+         if ( result )
+         {
+            var idx = tIdx.Value.idx;
+            String tn = null, ns = null;
+            if ( tIdx.Value.table == Tables.TypeDef )
+            {
+               result = idx < md.TypeDefinitions.Count;
+               if ( result )
+               {
+                  tn = md.TypeDefinitions[idx].Name;
+                  ns = md.TypeDefinitions[idx].Namespace;
+               }
+            }
+            else
+            {
+               result = idx < md.TypeReferences.Count;
+               if ( result )
+               {
+                  tn = md.TypeReferences[idx].Name;
+                  ns = md.TypeReferences[idx].Namespace;
+               }
+            }
+
+            result = String.Equals( tn, Consts.ENUM_TYPENAME ) && String.Equals( ns, Consts.ENUM_NAMESPACE );
+         }
+         return result;
+      }
+
+      private static IEnumerable<Int32> GetReferencingRowsFromOrdered<T>( IList<T> array, Tables targetTable, Int32 targetIndex, Func<T, TableIndex> fullIndexExtractor )
+      {
+         // Use binary search to find first one
+         // Use the deferred equality detection version in order to find the smallest index matching the target index
+         var max = array.Count - 1;
+         var min = 0;
+         while ( min < max )
+         {
+            var mid = ( min + max ) >> 1; // We can safely add before shifting, since table indices are supposed to be max 3 bytes long anyway.
+            if ( fullIndexExtractor( array[mid] ).idx < targetIndex )
+            {
+               min = mid + 1;
+            }
+            else
+            {
+               max = mid;
+            }
+         }
+
+         // By calling explicit ReturnWhile method, calculating index using binary search will not be done when re-enumerating the enumerable.
+         return min == max && fullIndexExtractor( array[min] ).idx == targetIndex ?
+            ReturnWhile( array, targetTable, targetIndex, fullIndexExtractor, min ) :
+            Empty<Int32>.Enumerable;
+      }
+
+      private static IEnumerable<Int32> ReturnWhile<T>( IList<T> array, Tables targetTable, Int32 targetIndex, Func<T, TableIndex> fullIndexExtractor, Int32 idx )
+      {
+         do
+         {
+            if ( fullIndexExtractor( array[idx] ).table == targetTable )
+            {
+               yield return idx;
+            }
+            ++idx;
+         } while ( idx < array.Count && fullIndexExtractor( array[idx] ).idx == targetIndex );
+      }
+
       [Flags]
       internal enum MethodHeaderFlags
       {
@@ -714,7 +933,7 @@ namespace CILAssemblyManipulator.Physical.Implementation
          MoreSections = 0x80
       }
 
-      internal static MethodILDefinition ReadMethodDefinition( System.IO.Stream stream, UserStringContainer userStrings )
+      internal static MethodILDefinition ReadMethodILDefinition( System.IO.Stream stream, UserStringContainer userStrings )
       {
          var FORMAT_MASK = 0x00000001;
          var FLAG_MASK = 0x00000FFF;

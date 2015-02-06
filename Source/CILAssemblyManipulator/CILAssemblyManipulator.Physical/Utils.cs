@@ -959,7 +959,9 @@ namespace CILAssemblyManipulator.Physical
       internal const String STRING = "System.String";
       internal const String TYPE = "System.Type";
       internal const String VALUE_TYPE = "System.ValueType";
-      internal const String ENUM = "System.Enum";
+      internal const String ENUM_NAMESPACE = "System";
+      internal const String ENUM_TYPENAME = "Enum";
+      internal const String ENUM = ENUM_NAMESPACE + "." + ENUM_TYPENAME;
       internal const String SECURITY_ATTR = "System.Security.Permissions.SecurityAttribute";
       internal const String SECURITY_ACTION = "System.Security.Permissions.SecurityAction";
       internal const String PERMISSION_SET = "System.Security.Permissions.PermissionSetAttribute";
