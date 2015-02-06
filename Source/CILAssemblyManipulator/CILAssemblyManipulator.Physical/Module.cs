@@ -91,7 +91,7 @@ namespace CILAssemblyManipulator.Physical
 
       IList<FileReference> FileReferences { get; }
 
-      IList<ExportedTypes> ExportedTypess { get; }
+      IList<ExportedType> ExportedTypess { get; }
 
       IList<ManifestResource> ManifestResources { get; }
 

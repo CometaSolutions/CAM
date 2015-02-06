@@ -912,11 +912,6 @@ namespace CILAssemblyManipulator.Physical
          }
          return new String( charBuf, 0, charBufSize );
       }
-
-      internal static UInt32 ReadHeapIndex( this Stream stream, Boolean wideIndex, Byte[] tmpArray )
-      {
-         return wideIndex ? stream.ReadU32( tmpArray ) : stream.ReadU16( tmpArray );
-      }
    }
 
    internal static class Consts

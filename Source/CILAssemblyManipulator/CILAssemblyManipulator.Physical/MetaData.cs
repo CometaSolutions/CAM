@@ -79,7 +79,7 @@ namespace CILAssemblyManipulator.Physical
       }
 
       public Boolean InitLocals { get; set; }
-      public LocalVariablesSignature Locals { get; set; }
+      public TableIndex? LocalsSignatureIndex { get; set; }
       public IList<MethodExceptionBlock> ExceptionBlocks
       {
          get
@@ -94,7 +94,6 @@ namespace CILAssemblyManipulator.Physical
             return this._opCodes;
          }
       }
-
    }
 
    public sealed class MethodExceptionBlock
@@ -111,7 +110,7 @@ namespace CILAssemblyManipulator.Physical
    public sealed class ParameterDefinition
    {
       public ParameterAttributes Attributes { get; set; }
-      public Int16 Sequence { get; set; }
+      public Int32 Sequence { get; set; }
       public String Name { get; set; }
    }
 
@@ -264,52 +263,52 @@ namespace CILAssemblyManipulator.Physical
 
    public sealed class FileReference
    {
-      FileAttributes Attributes { get; set; }
-      String Name { get; set; }
-      Byte[] HashValue { get; set; }
+      public FileAttributes Attributes { get; set; }
+      public String Name { get; set; }
+      public Byte[] HashValue { get; set; }
    }
 
-   public sealed class ExportedTypes
+   public sealed class ExportedType
    {
-      TypeAttributes Attributes { get; set; }
-      Int32 TypeDefinitionIndex { get; set; }
-      String Name { get; set; }
-      String Namespace { get; set; }
-      TableIndex Implementation { get; set; }
+      public TypeAttributes Attributes { get; set; }
+      public Int32 TypeDefinitionIndex { get; set; }
+      public String Name { get; set; }
+      public String Namespace { get; set; }
+      public TableIndex Implementation { get; set; }
    }
 
    public sealed class ManifestResource
    {
-      Int64 Offset { get; set; }
-      ManifestResourceAttributes Attributes { get; set; }
-      String Name { get; set; }
-      TableIndex? Implementation { get; set; }
+      public Int64 Offset { get; set; }
+      public ManifestResourceAttributes Attributes { get; set; }
+      public String Name { get; set; }
+      public TableIndex? Implementation { get; set; }
    }
 
    public sealed class NestedClassDefinition
    {
-      TableIndex NestedClass { get; set; }
-      TableIndex EnclosingClass { get; set; }
+      public TableIndex NestedClass { get; set; }
+      public TableIndex EnclosingClass { get; set; }
    }
 
    public sealed class GenericParameterDefinition
    {
-      Int16 GenericParameterIndex { get; set; }
-      GenericParameterAttributes Attributes { get; set; }
-      TableIndex Owner { get; set; }
-      String Name { get; set; }
+      public Int16 GenericParameterIndex { get; set; }
+      public GenericParameterAttributes Attributes { get; set; }
+      public TableIndex Owner { get; set; }
+      public String Name { get; set; }
    }
 
    public sealed class MethodSpecification
    {
-      TableIndex Method { get; set; }
-      GenericMethodSignature Signature { get; set; }
+      public TableIndex Method { get; set; }
+      public GenericMethodSignature Signature { get; set; }
    }
 
    public sealed class GenericParameterConstraintDefinition
    {
-      TableIndex Owner { get; set; }
-      TableIndex Constraint { get; set; }
+      public TableIndex Owner { get; set; }
+      public TableIndex Constraint { get; set; }
    }
 
    public struct TableIndex
@@ -486,7 +485,7 @@ namespace CILAssemblyManipulator.Physical
                // Go backwards
                --idx;
             }
-            type = TypeSignature.ReadFromBytes( sig, ref idx );
+            type = TypeSignature.ReadFromBytesWithRef( sig, ref idx );
          }
          return retVal;
       }
@@ -507,7 +506,12 @@ namespace CILAssemblyManipulator.Physical
          }
       }
 
-      public static MethodDefinitionSignature ReadFromBytes( Byte[] sig, ref Int32 idx )
+      public static MethodDefinitionSignature ReadFromBytes( Byte[] sig, Int32 idx )
+      {
+         return ReadFromBytesWithRef( sig, ref idx );
+      }
+
+      public static MethodDefinitionSignature ReadFromBytesWithRef( Byte[] sig, ref Int32 idx )
       {
          SignatureStarters elementType;
          Int32 genericCount;
@@ -622,11 +626,16 @@ namespace CILAssemblyManipulator.Physical
          }
       }
 
-      public static FieldSignature ReadFromBytes( Byte[] sig, ref Int32 idx )
+      public static FieldSignature ReadFromBytes( Byte[] sig, Int32 idx )
+      {
+         return ReadFromBytesWithRef( sig, ref idx );
+      }
+
+      public static FieldSignature ReadFromBytesWithRef( Byte[] sig, ref Int32 idx )
       {
          var retVal = new FieldSignature();
          CustomModifierSignature.AddFromBytes( sig, ref idx, retVal.CustomModifiers );
-         retVal.Type = TypeSignature.ReadFromBytes( sig, ref idx );
+         retVal.Type = TypeSignature.ReadFromBytesWithRef( sig, ref idx );
          return retVal;
       }
    }
@@ -659,7 +668,12 @@ namespace CILAssemblyManipulator.Physical
          }
       }
 
-      public static PropertySignature ReadFromBytes( Byte[] sig, ref Int32 idx )
+      public static PropertySignature ReadFromBytes( Byte[] sig, Int32 idx )
+      {
+         return ReadFromBytesWithRef( sig, ref idx );
+      }
+
+      public static PropertySignature ReadFromBytesWithRef( Byte[] sig, ref Int32 idx )
       {
          var starter = (SignatureStarters) sig.ReadByteFromBytes( ref idx );
          if ( !starter.IsProperty() )
@@ -669,7 +683,7 @@ namespace CILAssemblyManipulator.Physical
          var paramCount = sig.DecompressUInt32( ref idx );
          var retVal = new PropertySignature( parameterCount: paramCount );
          CustomModifierSignature.AddFromBytes( sig, ref idx, retVal.CustomModifiers );
-         retVal.PropertyType = TypeSignature.ReadFromBytes( sig, ref idx );
+         retVal.PropertyType = TypeSignature.ReadFromBytesWithRef( sig, ref idx );
          for ( var i = 0; i < paramCount; ++i )
          {
             retVal.Parameters.Add( AbstractMethodSignature.ReadParameter( sig, ref idx ) );
@@ -740,7 +754,7 @@ namespace CILAssemblyManipulator.Physical
                   local.IsByRef = true;
                   ++idx;
                }
-               local.Type = TypeSignature.ReadFromBytes( sig, ref idx );
+               local.Type = TypeSignature.ReadFromBytesWithRef( sig, ref idx );
             }
             retVal.Locals.Add( local );
          }
@@ -849,7 +863,12 @@ namespace CILAssemblyManipulator.Physical
 
       public abstract TypeSignatureKind TypeSignatureKind { get; }
 
-      public static TypeSignature ReadFromBytes( Byte[] sig, ref Int32 idx )
+      public static TypeSignature ReadFromBytes( Byte[] sig, Int32 idx )
+      {
+         return ReadFromBytesWithRef( sig, ref idx );
+      }
+
+      public static TypeSignature ReadFromBytesWithRef( Byte[] sig, ref Int32 idx )
       {
          Int32 auxiliary;
          var elementType = (SignatureElementTypes) sig[idx++];
@@ -892,7 +911,7 @@ namespace CILAssemblyManipulator.Physical
             case SignatureElementTypes.Void:
                return SimpleTypeSignature.Void;
             case SignatureElementTypes.Array:
-               var arrayType = ReadFromBytes( sig, ref idx );
+               var arrayType = ReadFromBytesWithRef( sig, ref idx );
                var arraySig = ReadArrayInfo( sig, ref idx );
                arraySig.ArrayType = arrayType;
                return arraySig;
@@ -916,7 +935,7 @@ namespace CILAssemblyManipulator.Physical
                {
                   for ( var i = 0; i < auxiliary; ++i )
                   {
-                     classOrValue.GenericArguments.Add( ReadFromBytes( sig, ref idx ) );
+                     classOrValue.GenericArguments.Add( ReadFromBytesWithRef( sig, ref idx ) );
                   }
                }
                return classOrValue;
@@ -935,12 +954,12 @@ namespace CILAssemblyManipulator.Physical
             case SignatureElementTypes.Ptr:
                var ptr = new PointerTypeSignature();
                CustomModifierSignature.AddFromBytes( sig, ref idx, ptr.CustomModifiers );
-               ptr.Type = ReadFromBytes( sig, ref idx );
+               ptr.Type = ReadFromBytesWithRef( sig, ref idx );
                return ptr;
             case SignatureElementTypes.SzArray:
                var szArr = new SimpleArrayTypeSignature();
                CustomModifierSignature.AddFromBytes( sig, ref idx, szArr.CustomModifiers );
-               szArr.ArrayType = ReadFromBytes( sig, ref idx );
+               szArr.ArrayType = ReadFromBytesWithRef( sig, ref idx );
                return szArr;
             default:
                throw new BadImageFormatException( "Unknown type starter: " + elementType );
@@ -1198,7 +1217,12 @@ namespace CILAssemblyManipulator.Physical
          }
       }
 
-      public static GenericMethodSignature ReadFromBytes( Byte[] sig, ref Int32 idx )
+      public static GenericMethodSignature ReadFromBytes( Byte[] sig, Int32 idx )
+      {
+         return ReadFromBytesWithRef( sig, ref idx );
+      }
+
+      public static GenericMethodSignature ReadFromBytesWithRef( Byte[] sig, ref Int32 idx )
       {
          var elementType = (SignatureElementTypes) sig.ReadByteFromBytes( ref idx );
          if ( elementType != SignatureElementTypes.GenericInst )
@@ -1209,7 +1233,7 @@ namespace CILAssemblyManipulator.Physical
          var retVal = new GenericMethodSignature( genericArgumentsCount );
          for ( var i = 0; i < genericArgumentsCount; ++i )
          {
-            retVal.GenericArguments.Add( TypeSignature.ReadFromBytes( sig, ref idx ) );
+            retVal.GenericArguments.Add( TypeSignature.ReadFromBytesWithRef( sig, ref idx ) );
          }
          return retVal;
       }
@@ -1519,6 +1543,104 @@ namespace CILAssemblyManipulator.Physical
       {
          ArgumentValidator.ValidateNotNull( "Custom marshaler typename", customMarshalerTypeName );
          return new MarshalingInfo( UnmanagedType.CustomMarshaler, VarEnum.VT_EMPTY, null, NO_INDEX, NATIVE_TYPE_MAX, NO_INDEX, NO_INDEX, customMarshalerTypeName, marshalCookie );
+      }
+
+      public static MarshalingInfo ReadFromBytes( Byte[] sig, Int32 idx )
+      {
+         return ReadFromBytesWithRef( sig, ref idx );
+      }
+
+      public static MarshalingInfo ReadFromBytesWithRef( Byte[] sig, ref Int32 idx )
+      {
+         var sIdx = 0;
+         var ut = (UnmanagedType) sig[sIdx++];
+         MarshalingInfo result;
+         if ( ut.IsNativeInstric() )
+         {
+            result = MarshalingInfo.MarshalAs( ut );
+         }
+         else
+         {
+            Int32 constSize, paramIdx;
+            UnmanagedType arrElementType;
+            switch ( ut )
+            {
+               case UnmanagedType.ByValTStr:
+                  result = MarshalingInfo.MarshalAsByValTStr( sig.DecompressUInt32( ref sIdx ) );
+                  break;
+               case UnmanagedType.IUnknown:
+                  result = MarshalingInfo.MarshalAsIUnknown( sIdx < sig.Length ? sig.DecompressUInt32( ref sIdx ) : MarshalingInfo.NO_INDEX );
+                  break;
+               case UnmanagedType.IDispatch:
+                  result = MarshalingInfo.MarshalAsIDispatch( sIdx < sig.Length ? sig.DecompressUInt32( ref sIdx ) : MarshalingInfo.NO_INDEX );
+                  break;
+               case UnmanagedType.SafeArray:
+                  if ( sIdx < sig.Length )
+                  {
+                     var ve = (VarEnum) sig.DecompressUInt32( ref sIdx );
+                     if ( VarEnum.VT_USERDEFINED == ve )
+                     {
+                        if ( sIdx < sig.Length )
+                        {
+                           result = MarshalingInfo.MarshalAsSafeArray( sig.ReadLenPrefixedUTF8String( ref sIdx ) );
+                        }
+                        else
+                        {
+                           // Fallback in erroneus blob - just plain safe array
+                           result = MarshalingInfo.MarshalAsSafeArray();
+                        }
+                     }
+                     else
+                     {
+                        result = MarshalingInfo.MarshalAsSafeArray( ve );
+                     }
+                  }
+                  else
+                  {
+                     result = MarshalingInfo.MarshalAsSafeArray();
+                  }
+                  break;
+               case UnmanagedType.ByValArray:
+                  constSize = sig.DecompressUInt32( ref sIdx );
+                  result = MarshalingInfo.MarshalAsByValArray(
+                     constSize,
+                     sIdx < sig.Length ?
+                        (UnmanagedType) sig.DecompressUInt32( ref sIdx ) :
+                        MarshalingInfo.NATIVE_TYPE_MAX );
+                  break;
+               case UnmanagedType.LPArray:
+                  arrElementType = (UnmanagedType) sig[sIdx++];
+                  paramIdx = MarshalingInfo.NO_INDEX;
+                  constSize = MarshalingInfo.NO_INDEX;
+                  if ( sIdx < sig.Length )
+                  {
+                     paramIdx = sig.DecompressUInt32( ref sIdx );
+                     if ( sIdx < sig.Length )
+                     {
+                        constSize = sig.DecompressUInt32( ref sIdx );
+                        if ( sIdx < sig.Length && sig.DecompressUInt32( ref sIdx ) == 0 )
+                        {
+                           paramIdx = MarshalingInfo.NO_INDEX; // No size parameter index was specified
+                        }
+                     }
+                  }
+                  result = MarshalingInfo.MarshalAsLPArray( paramIdx, constSize, arrElementType );
+                  break;
+               case UnmanagedType.CustomMarshaler:
+                  // For some reason, there are two compressed ints at this point
+                  sig.DecompressUInt32( ref sIdx );
+                  sig.DecompressUInt32( ref sIdx );
+
+                  var mTypeStr = sig.ReadLenPrefixedUTF8String( ref sIdx );
+                  var mCookie = sig.ReadLenPrefixedUTF8String( ref sIdx );
+                  result = MarshalingInfo.MarshalAsCustom( mTypeStr, mCookie );
+                  break;
+               default:
+                  result = null;
+                  break;
+            }
+         }
+         return result;
       }
 
    }

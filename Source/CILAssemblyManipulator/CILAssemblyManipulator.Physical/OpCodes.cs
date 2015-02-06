@@ -901,10 +901,11 @@ namespace CILAssemblyManipulator.Physical
       public static readonly OpCode Readonly_;
 
       internal static IDictionary<OpCodeEncoding, OpCode> Codes;
-
+      internal static IDictionary<OpCodeEncoding, OpCodeInfo> CodeInfosWithNoOperand;
       static OpCodes()
       {
          Codes = new Dictionary<OpCodeEncoding, OpCode>();
+         CodeInfosWithNoOperand = new Dictionary<OpCodeEncoding, OpCodeInfo>();
 
          Nop = new OpCode( OpCodeEncoding.Nop, StackBehaviourPop.Pop0, StackBehaviourPush.Push0, OperandType.InlineNone, OpCodeType.Primitive, FlowControl.Next, false );
          Break = new OpCode( OpCodeEncoding.Break, StackBehaviourPop.Pop0, StackBehaviourPush.Push0, OperandType.InlineNone, OpCodeType.Primitive, FlowControl.Break, false );
@@ -1217,6 +1218,10 @@ namespace CILAssemblyManipulator.Physical
          this._stackChange = stackChange;
 
          OpCodes.Codes.Add( encoded, this );
+         if ( OperandType.InlineNone == operand )
+         {
+            OpCodes.CodeInfosWithNoOperand.Add( encoded, new OpCodeInfoWithNoOperand( this ) );
+         }
       }
 
       /// <summary>

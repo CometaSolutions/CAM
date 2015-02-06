@@ -89,7 +89,7 @@ namespace CILAssemblyManipulator.Physical.Implementation
       private readonly IList<AssemblyDefinition> _assemblyDefinitions;
       private readonly IList<AssemblyReference> _assemblyReferences;
       private readonly IList<FileReference> _fileReferences;
-      private readonly IList<ExportedTypes> _exportedTypess;
+      private readonly IList<ExportedType> _exportedTypess;
       private readonly IList<ManifestResource> _manifestResources;
       private readonly IList<NestedClassDefinition> _nestedClassDefinitions;
       private readonly IList<GenericParameterDefinition> _genericParameterDefinitions;
@@ -132,7 +132,7 @@ namespace CILAssemblyManipulator.Physical.Implementation
          this._assemblyDefinitions = new List<AssemblyDefinition>( sizes[(Int32) Tables.Assembly] );
          this._assemblyReferences = new List<AssemblyReference>( sizes[(Int32) Tables.AssemblyRef] );
          this._fileReferences = new List<FileReference>( sizes[(Int32) Tables.File] );
-         this._exportedTypess = new List<ExportedTypes>( sizes[(Int32) Tables.ExportedType] );
+         this._exportedTypess = new List<ExportedType>( sizes[(Int32) Tables.ExportedType] );
          this._manifestResources = new List<ManifestResource>( sizes[(Int32) Tables.ManifestResource] );
          this._nestedClassDefinitions = new List<NestedClassDefinition>( sizes[(Int32) Tables.NestedClass] );
          this._genericParameterDefinitions = new List<GenericParameterDefinition>( sizes[(Int32) Tables.GenericParameter] );
@@ -364,7 +364,7 @@ namespace CILAssemblyManipulator.Physical.Implementation
          }
       }
 
-      public IList<ExportedTypes> ExportedTypess
+      public IList<ExportedType> ExportedTypess
       {
          get
          {

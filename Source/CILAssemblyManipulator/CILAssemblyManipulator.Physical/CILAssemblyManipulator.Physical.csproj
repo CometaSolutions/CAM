@@ -40,9 +40,6 @@
   <PropertyGroup>
     <KeyFilePath>$(MSBuildThisFileDirectory)..\..\..\Keys\CAM.snk</KeyFilePath>
   </PropertyGroup>
-  <PropertyGroup Condition="'$(Configuration)|$(Platform)' == 'Debug_SL|AnyCPU'">
-    <OutputPath>bin\Debug_SL\</OutputPath>
-  </PropertyGroup>
   <ItemGroup Condition=" '$(UseUtilpackReference)' == '' ">
     <ProjectReference Include="..\..\CollectionsWithRoles\CollectionsWithRoles.csproj">
       <Project>{7f7ebfb0-2bf4-44d8-b96f-accc5f99f529}</Project>

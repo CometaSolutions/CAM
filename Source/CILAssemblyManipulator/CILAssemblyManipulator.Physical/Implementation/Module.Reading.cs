@@ -1,4 +1,5 @@
-﻿/*
+﻿using CommonUtils;
+/*
  * Copyright 2015 Stanislav Muhametsin. All rights Reserved.
  *
  * Licensed  under the  Apache License,  Version 2.0  (the "License");
@@ -25,26 +26,24 @@ namespace CILAssemblyManipulator.Physical.Implementation
 {
    internal static class ModuleReader
    {
-      internal class BLOBContainer
+      internal class BLOBContainer : AbstractHeapContainer
       {
          private static readonly Byte[] EMPTY_ARRAY = new Byte[0];
 
-         private readonly Byte[] _bytes;
-         private readonly IDictionary<UInt32, Byte[]> _blobs;
+         private readonly IDictionary<Int32, Byte[]> _blobs;
 
-         internal BLOBContainer( Stream stream, UInt32 size )
+         internal BLOBContainer( Byte[] tmpArray, Stream stream, IDictionary<String, Tuple<Int64, UInt32>> streamSizeInfo )
+            : base( tmpArray, stream, streamSizeInfo, Consts.BLOB_STREAM_NAME )
          {
-            this._bytes = new Byte[size];
-            stream.ReadWholeArray( this._bytes );
-            this._blobs = new Dictionary<UInt32, Byte[]>();
+            this._blobs = new Dictionary<Int32, Byte[]>();
          }
 
-         internal Byte[] GetBLOB( UInt32 idx )
+         internal Byte[] GetBLOB( Int32 idx )
          {
             Byte[] result;
             if ( !this._blobs.TryGetValue( idx, out result ) )
             {
-               var idxToGive = (Int32) idx;
+               var idxToGive = idx;
                var length = this._bytes.DecompressUInt32( ref idxToGive );
                if ( length == 0 )
                {
@@ -60,25 +59,63 @@ namespace CILAssemblyManipulator.Physical.Implementation
             return result;
          }
 
+         internal Byte[] ReadBLOB( Stream stream )
+         {
+            return this.GetBLOB( this.ReadHeapIndex( stream ) );
+         }
+
          // Useful when reading signatures - don't need to create array for each.
-         internal Byte[] WholeBLOBStream
+         internal Byte[] WholeBLOBArray
          {
             get
             {
                return this._bytes;
             }
          }
+
+         internal Int32 GetBLOBIndex( Stream stream )
+         {
+            var idx = this.ReadHeapIndex( stream );
+            this._bytes.DecompressUInt32( ref idx );
+            return idx;
+         }
       }
 
-      internal abstract class AbstractStringContainer
+      internal abstract class AbstractHeapContainer
+      {
+
+         protected readonly Byte[] _tmpArray;
+         protected readonly Byte[] _bytes;
+
+         internal AbstractHeapContainer( Byte[] tmpArray, Stream stream, IDictionary<String, Tuple<Int64, UInt32>> streamSizeInfo, String name )
+         {
+            this._tmpArray = tmpArray;
+            Tuple<Int64, UInt32> tuple;
+            if ( streamSizeInfo.TryGetValue( name, out tuple ) )
+            {
+               stream.SeekFromBegin( tuple.Item1 );
+               this._bytes = new Byte[tuple.Item2];
+               stream.ReadWholeArray( this._bytes );
+            }
+         }
+
+         public Boolean IsWideIndex { get; set; }
+
+         internal Int32 ReadHeapIndex( Stream stream )
+         {
+            return this.IsWideIndex ? stream.ReadI32( this._tmpArray ) : stream.ReadU16( this._tmpArray );
+         }
+
+      }
+
+      internal abstract class AbstractStringContainer : AbstractHeapContainer
       {
          internal protected readonly IDictionary<Int32, String> _strings;
          internal protected readonly Encoding _encoding;
-         internal protected readonly Byte[] _bytes;
-         protected AbstractStringContainer( Stream stream, UInt32 size, Encoding encoding )
+
+         protected AbstractStringContainer( Byte[] tmpArray, Stream stream, IDictionary<String, Tuple<Int64, UInt32>> streamSizeInfo, String name, Encoding encoding )
+            : base( tmpArray, stream, streamSizeInfo, name )
          {
-            this._bytes = new Byte[size];
-            stream.ReadWholeArray( this._bytes );
             this._encoding = encoding;
             this._strings = new Dictionary<Int32, String>();
          }
@@ -88,8 +125,8 @@ namespace CILAssemblyManipulator.Physical.Implementation
 
       internal class SysStringContainer : AbstractStringContainer
       {
-         internal SysStringContainer( Stream stream, UInt32 size )
-            : base( stream, size, MetaDataConstants.SYS_STRING_ENCODING )
+         internal SysStringContainer( Byte[] tmpArray, Stream stream, IDictionary<String, Tuple<Int64, UInt32>> streamSizeInfo )
+            : base( tmpArray, stream, streamSizeInfo, Consts.SYS_STRING_STREAM_NAME, MetaDataConstants.SYS_STRING_ENCODING )
          {
 
          }
@@ -117,12 +154,17 @@ namespace CILAssemblyManipulator.Physical.Implementation
             }
             return result;
          }
+
+         internal String ReadSysString( Stream stream )
+         {
+            return this.GetString( this.ReadHeapIndex( stream ) );
+         }
       }
 
       internal class UserStringContainer : AbstractStringContainer
       {
-         internal UserStringContainer( Stream stream, UInt32 size )
-            : base( stream, size, MetaDataConstants.USER_STRING_ENCODING )
+         internal UserStringContainer( Byte[] tmpArray, Stream stream, IDictionary<String, Tuple<Int64, UInt32>> streamSizeInfo )
+            : base( tmpArray, stream, streamSizeInfo, Consts.USER_STRING_STREAM_NAME, MetaDataConstants.USER_STRING_ENCODING )
          {
 
          }
@@ -151,17 +193,15 @@ namespace CILAssemblyManipulator.Physical.Implementation
 
       }
 
-      internal class GUIDContainer
+      internal class GUIDContainer : AbstractHeapContainer
       {
-         private readonly Byte[] _bytes;
 
-         internal GUIDContainer( Stream stream, UInt32 size )
+         internal GUIDContainer( Byte[] tmpArray, Stream stream, IDictionary<String, Tuple<Int64, UInt32>> streamSizeInfo )
+            : base( tmpArray, stream, streamSizeInfo, Consts.GUID_STREAM_NAME )
          {
-            this._bytes = new Byte[size];
-            stream.ReadWholeArray( this._bytes );
          }
 
-         internal Guid? GetGUID( UInt32 idx )
+         internal Guid? GetGUID( Int32 idx )
          {
             if ( idx == 0 )
             {
@@ -170,21 +210,22 @@ namespace CILAssemblyManipulator.Physical.Implementation
             else
             {
                var array = new Byte[Consts.GUID_SIZE];
-               Buffer.BlockCopy( this._bytes, ( (Int32) idx - 1 ) % Consts.GUID_SIZE, array, 0, Consts.GUID_SIZE );
+               Buffer.BlockCopy( this._bytes, ( idx - 1 ) % Consts.GUID_SIZE, array, 0, Consts.GUID_SIZE );
                return new Guid( array );
             }
+         }
+
+         internal Guid? ReadGUID( Stream stream )
+         {
+            return this.GetGUID( this.ReadHeapIndex( stream ) );
          }
       }
 
       private const Byte WIDE_SYS_STRING_FLAG = 0x01;
       private const Byte WIDE_GUID_FLAG = 0x02;
       private const Byte WIDE_BLOB_FLAG = 0x04;
-      private const Int32 SYS_STR_WIDTH_INDEX = 0;
-      private const Int32 GUID_WIDTH_INDEX = 1;
-      private const Int32 BLOB_WIDTH_INDEX = 2;
-      private const Int32 MAX_WIDTH_INDEX = 3;
 
-      internal CILMetaData ReadMetadata( Stream stream, out String versionStr )
+      internal static CILMetaData ReadMetadata( Stream stream, out String versionStr )
       {
          var mdRoot = stream.Position;
 
@@ -206,7 +247,7 @@ namespace CILAssemblyManipulator.Physical.Implementation
          var amountOfStreams = stream.ReadU16( tmpArray );
 
          // Stream headers
-         var streamDic = new Dictionary<String, Tuple<UInt32, UInt32>>();
+         var streamDic = new Dictionary<String, Tuple<Int64, UInt32>>();
          //var totalRead = 12 // Sig, major & minor version, reserved
          //   + versionStrByteLen // Version string
          //   + 4; // Flags, amount of streams
@@ -215,46 +256,35 @@ namespace CILAssemblyManipulator.Physical.Implementation
             var offset = stream.ReadU32( tmpArray );
             var size = stream.ReadU32( tmpArray );
             //UInt32 streamStringBytesLen;
-            streamDic.Add( stream.ReadAlignedASCIIString( 32 ), Tuple.Create( offset, size ) );
+            streamDic.Add( stream.ReadAlignedASCIIString( 32 ), Tuple.Create( mdRoot + offset, size ) );
             //totalRead += streamStringBytesLen + 8;
          }
 
          // Read all streams except table stream
-         SysStringContainer sysStrings = null;
-         GUIDContainer guids = null;
-         BLOBContainer blobs = null;
-         UserStringContainer userStrings = null;
-         foreach ( var kvp in streamDic )
-         {
-            stream.SeekFromBegin( mdRoot + kvp.Value.Item1 );
-            switch ( kvp.Key )
-            {
-               case Consts.SYS_STRING_STREAM_NAME:
-                  sysStrings = new SysStringContainer( stream, kvp.Value.Item2 );
-                  break;
-               case Consts.USER_STRING_STREAM_NAME:
-                  userStrings = new UserStringContainer( stream, kvp.Value.Item2 );
-                  break;
-               case Consts.GUID_STREAM_NAME:
-                  guids = new GUIDContainer( stream, kvp.Value.Item2 );
-                  break;
-               case Consts.BLOB_STREAM_NAME:
-                  blobs = new BLOBContainer( stream, kvp.Value.Item2 );
-                  break;
-            }
-         }
+         SysStringContainer sysStrings = new SysStringContainer( tmpArray, stream, streamDic );
+         GUIDContainer guids = new GUIDContainer( tmpArray, stream, streamDic );
+         BLOBContainer blobs = new BLOBContainer( tmpArray, stream, streamDic );
+         UserStringContainer userStrings = new UserStringContainer( tmpArray, stream, streamDic );
 
          // Read table stream
-         stream.SeekFromBegin( mdRoot + streamDic[Consts.TABLE_STREAM_NAME].Item1
+         stream.SeekFromBegin( streamDic[Consts.TABLE_STREAM_NAME].Item1
             + 6 // Skip reserved + major & minor versions
             );
 
          // Stream index sizes
          var b = stream.ReadByteFromStream();
-         var streamWidths = new Boolean[MAX_WIDTH_INDEX];
-         streamWidths[SYS_STR_WIDTH_INDEX] = ( b & WIDE_SYS_STRING_FLAG ) != 0;
-         streamWidths[GUID_WIDTH_INDEX] = ( b & WIDE_GUID_FLAG ) != 0;
-         streamWidths[BLOB_WIDTH_INDEX] = ( b & WIDE_BLOB_FLAG ) != 0;
+         if ( ( b & WIDE_SYS_STRING_FLAG ) != 0 )
+         {
+            sysStrings.IsWideIndex = true;
+         }
+         if ( ( b & WIDE_GUID_FLAG ) != 0 )
+         {
+            guids.IsWideIndex = true;
+         }
+         if ( ( b & WIDE_BLOB_FLAG ) != 0 )
+         {
+            blobs.IsWideIndex = true;
+         }
 
          stream.SeekFromCurrent( 1 ); // Skip reserved
 
@@ -280,6 +310,8 @@ namespace CILAssemblyManipulator.Physical.Implementation
          // Read actual tables
          var retVal = new CILMetadataImpl( tableSizes );
          var tRefSizes = MetaDataConstants.GetCodedTableIndexSizes( tableSizes );
+         var methodDefRVAs = new Int64[tableSizes[(Int32) Tables.MethodDef]];
+         var fieldDefRVAs = new Int64[tableSizes[(Int32) Tables.FieldRVA]];
          for ( var curTable = 0; curTable < Consts.AMOUNT_OF_TABLES; ++curTable )
          {
             switch ( (Tables) curTable )
@@ -287,281 +319,325 @@ namespace CILAssemblyManipulator.Physical.Implementation
                // VS2012 evaluates positional arguments from left to right, so creating Tuple inside lambda should work correctly
                // This is not so in VS2010 ( see http://msdn.microsoft.com/en-us/library/hh678682.aspx )
                case Tables.Module:
-                  ReadTable( retVal.ModuleDefinitions, curTable, tableSizes, () =>
+                  ReadTable( retVal.ModuleDefinitions, curTable, tableSizes, i =>
                      new ModuleDefinition()
                      {
                         Generation = stream.ReadI16( tmpArray ),
-                        Name = ReadSysString( stream, sysStrings, streamWidths, tmpArray ),
-                        ModuleGUID = ReadGUID( stream, guids, streamWidths, tmpArray ),
-                        EditAndContinueGUID = ReadGUID( stream, guids, streamWidths, tmpArray ),
-                        EditAndContinueBaseGUID = ReadGUID( stream, guids, streamWidths, tmpArray )
+                        Name = sysStrings.ReadSysString( stream ),
+                        ModuleGUID = guids.ReadGUID( stream ),
+                        EditAndContinueGUID = guids.ReadGUID( stream ),
+                        EditAndContinueBaseGUID = guids.ReadGUID( stream )
                      }
                   );
                   break;
                case Tables.TypeRef:
-                  ReadTable( retVal.TypeReferences, curTable, tableSizes, () =>
+                  ReadTable( retVal.TypeReferences, curTable, tableSizes, i =>
                      new TypeReference()
                      {
                         ResolutionScope = MetaDataConstants.ReadCodedTableIndex( stream, CodedTableIndexKind.ResolutionScope, tRefSizes, tmpArray, false ),
-                        Name = ReadSysString( stream, sysStrings, streamWidths, tmpArray ),
-                        Namespace = ReadSysString( stream, sysStrings, streamWidths, tmpArray )
+                        Name = sysStrings.ReadSysString( stream ),
+                        Namespace = sysStrings.ReadSysString( stream )
                      } );
                   break;
                case Tables.TypeDef:
-                  ReadTable( retVal.TypeDefinitions, curTable, tableSizes, () =>
+                  ReadTable( retVal.TypeDefinitions, curTable, tableSizes, i =>
                      new TypeDefinition()
                      {
                         Attributes = (TypeAttributes) stream.ReadU32( tmpArray ),
-                        Name = ReadSysString( stream, sysStrings, streamWidths, tmpArray ),
-                        Namespace = ReadSysString( stream, sysStrings, streamWidths, tmpArray ),
+                        Name = sysStrings.ReadSysString( stream ),
+                        Namespace = sysStrings.ReadSysString( stream ),
                         BaseType = MetaDataConstants.ReadCodedTableIndex( stream, CodedTableIndexKind.TypeDefOrRef, tRefSizes, tmpArray, false ),
                         FieldList = MetaDataConstants.ReadSimpleTableIndex( stream, Tables.Field, tableSizes, tmpArray ),
                         MethodList = MetaDataConstants.ReadSimpleTableIndex( stream, Tables.MethodDef, tableSizes, tmpArray )
                      } );
                   break;
                case Tables.Field:
-                  ReadTable( ref this.field, curTable, tableSizes, () =>
-                     Tuple.Create(
-                        (FieldAttributes) stream.ReadU16( tmpArray ),
-                        ReadSysString( stream, sysStrings, streamWidths, tmpArray ),
-                        ReadBLOB( stream, blobs, streamWidths, tmpArray )
-                     ) );
+                  ReadTable( retVal.FieldDefinitions, curTable, tableSizes, i =>
+                     new FieldDefinition()
+                     {
+                        Attributes = (FieldAttributes) stream.ReadU16( tmpArray ),
+                        Name = sysStrings.ReadSysString( stream ),
+                        Signature = FieldSignature.ReadFromBytes( blobs.WholeBLOBArray, blobs.GetBLOBIndex( stream ) )
+                     } );
                   break;
                case Tables.MethodDef:
-                  ReadTable( ref this.methodDef, curTable, tableSizes, () =>
-                     Tuple.Create(
-                        stream.ReadU32( tmpArray ),
-                        (MethodImplAttributes) stream.ReadU16( tmpArray ),
-                        (MethodAttributes) stream.ReadU16( tmpArray ),
-                        ReadSysString( stream, sysStrings, streamWidths, tmpArray ),
-                        ReadBLOB( stream, blobs, streamWidths, tmpArray ),
-                        MetaDataConstants.ReadSimpleTableIndex( stream, Tables.Parameter, tableSizes, tmpArray )
-                     ) );
+                  ReadTable( retVal.MethodDefinitions, curTable, tableSizes, i =>
+                  {
+                     methodDefRVAs[i] = stream.ReadI32( tmpArray );
+                     return new MethodDefinition()
+                     {
+                        ImplementationAttributes = (MethodImplAttributes) stream.ReadU16( tmpArray ),
+                        Attributes = (MethodAttributes) stream.ReadU16( tmpArray ),
+                        Name = sysStrings.ReadSysString( stream ),
+                        Signature = MethodDefinitionSignature.ReadFromBytes( blobs.WholeBLOBArray, blobs.GetBLOBIndex( stream ) ),
+                        ParameterList = MetaDataConstants.ReadSimpleTableIndex( stream, Tables.Parameter, tableSizes, tmpArray )
+                     };
+                  } );
                   break;
                case Tables.Parameter:
-                  ReadTable( ref this.param, curTable, tableSizes, () =>
-                     Tuple.Create(
-                        (ParameterAttributes) stream.ReadU16( tmpArray ),
-                        stream.ReadU16( tmpArray ),
-                        ReadSysString( stream, sysStrings, streamWidths, tmpArray )
-                     ) );
+                  ReadTable( retVal.ParameterDefinitions, curTable, tableSizes, i =>
+                     new ParameterDefinition()
+                     {
+                        Attributes = (ParameterAttributes) stream.ReadU16( tmpArray ),
+                        Sequence = stream.ReadU16( tmpArray ),
+                        Name = sysStrings.ReadSysString( stream )
+                     } );
                   break;
                case Tables.InterfaceImpl:
-                  ReadTable( ref this.interfaceImpl, curTable, tableSizes, () =>
-                     Tuple.Create(
-                        MetaDataConstants.ReadSimpleTableIndex( stream, Tables.TypeDef, tableSizes, tmpArray ),
-                        MetaDataConstants.ReadCodedTableIndex( stream, CodedTableIndexKind.TypeDefOrRef, tRefSizes, tmpArray ).Value
-                     ) );
+                  ReadTable( retVal.InterfaceImplementations, curTable, tableSizes, i =>
+                     new InterfaceImplementation()
+                     {
+                        Class = MetaDataConstants.ReadSimpleTableIndex( stream, Tables.TypeDef, tableSizes, tmpArray ),
+                        Interface = MetaDataConstants.ReadCodedTableIndex( stream, CodedTableIndexKind.TypeDefOrRef, tRefSizes, tmpArray ).Value
+                     } );
                   break;
                case Tables.MemberRef:
-                  ReadTable( ref this.memberRef, curTable, tableSizes, () =>
-                     Tuple.Create(
-                        MetaDataConstants.ReadCodedTableIndex( stream, CodedTableIndexKind.MemberRefParent, tRefSizes, tmpArray ).Value,
-                        ReadSysString( stream, sysStrings, streamWidths, tmpArray ),
-                        ReadBLOB( stream, blobs, streamWidths, tmpArray )
-                     ) );
+                  ReadTable( retVal.MemberReferences, curTable, tableSizes, i =>
+                     new MemberReference()
+                     {
+                        DeclaringType = MetaDataConstants.ReadCodedTableIndex( stream, CodedTableIndexKind.MemberRefParent, tRefSizes, tmpArray ).Value,
+                        Name = sysStrings.ReadSysString( stream ),
+                        Signature = ReadMemberRefSignature( blobs.WholeBLOBArray, blobs.GetBLOBIndex( stream ) )
+                     } );
                   break;
                case Tables.Constant:
-                  ReadTable( ref this.constant, curTable, tableSizes, () =>
-                     Tuple.Create(
-                        stream.ReadU16( tmpArray ),
-                        MetaDataConstants.ReadCodedTableIndex( stream, CodedTableIndexKind.HasConstant, tRefSizes, tmpArray ).Value,
-                        ReadBLOB( stream, blobs, streamWidths, tmpArray )
-                     ) );
+                  ReadTable( retVal.ConstantDefinitions, curTable, tableSizes, i =>
+                     new ConstantDefinition()
+                     {
+                        Type = (SignatureElementTypes) stream.ReadU16( tmpArray ),
+                        Parent = MetaDataConstants.ReadCodedTableIndex( stream, CodedTableIndexKind.HasConstant, tRefSizes, tmpArray ).Value,
+                        Value = blobs.ReadBLOB( stream )
+                     } );
                   break;
                case Tables.CustomAttribute:
-                  ReadTable( ref this.customAttribute, curTable, tableSizes, () =>
-                     Tuple.Create(
-                        MetaDataConstants.ReadCodedTableIndex( stream, CodedTableIndexKind.HasCustomAttribute, tRefSizes, tmpArray ).Value,
-                        MetaDataConstants.ReadCodedTableIndex( stream, CodedTableIndexKind.CustomAttributeType, tRefSizes, tmpArray ).Value,
-                        ReadBLOB( stream, blobs, streamWidths, tmpArray )
-                     ) );
+                  ReadTable( retVal.CustomAttributeDefinitions, curTable, tableSizes, i =>
+                     new CustomAttributeDefinition()
+                     {
+                        Parent = MetaDataConstants.ReadCodedTableIndex( stream, CodedTableIndexKind.HasCustomAttribute, tRefSizes, tmpArray ).Value,
+                        Type = MetaDataConstants.ReadCodedTableIndex( stream, CodedTableIndexKind.CustomAttributeType, tRefSizes, tmpArray ).Value,
+                        Value = blobs.ReadBLOB( stream )
+                     } );
                   break;
                case Tables.FieldMarshal:
-                  ReadTable( ref this.fieldMarshal, curTable, tableSizes, () =>
-                     Tuple.Create(
-                        MetaDataConstants.ReadCodedTableIndex( stream, CodedTableIndexKind.HasFieldMarshal, tRefSizes, tmpArray ).Value,
-                        ReadBLOB( stream, blobs, streamWidths, tmpArray )
-                     ) );
+                  ReadTable( retVal.FieldMarshals, curTable, tableSizes, i =>
+                     new FieldMarshal()
+                     {
+                        Parent = MetaDataConstants.ReadCodedTableIndex( stream, CodedTableIndexKind.HasFieldMarshal, tRefSizes, tmpArray ).Value,
+                        NativeType = MarshalingInfo.ReadFromBytes( blobs.WholeBLOBArray, blobs.GetBLOBIndex( stream ) )
+                     } );
                   break;
                case Tables.DeclSecurity:
-                  ReadTable( ref this.declSecurity, curTable, tableSizes, () =>
-                     Tuple.Create(
-                        stream.ReadU16( tmpArray ),
-                        MetaDataConstants.ReadCodedTableIndex( stream, CodedTableIndexKind.HasDeclSecurity, tRefSizes, tmpArray ).Value,
-                        ReadBLOB( stream, blobs, streamWidths, tmpArray )
-                     ) );
+                  ReadTable( retVal.SecurityDefinitions, curTable, tableSizes, i =>
+                     new SecurityDefinition()
+                     {
+                        Action = stream.ReadI16( tmpArray ),
+                        Parent = MetaDataConstants.ReadCodedTableIndex( stream, CodedTableIndexKind.HasDeclSecurity, tRefSizes, tmpArray ).Value,
+                        PermissionSet = blobs.ReadBLOB( stream )
+                     } );
                   break;
                case Tables.ClassLayout:
-                  ReadTable( ref this.classLayout, curTable, tableSizes, () =>
-                     Tuple.Create(
-                        stream.ReadU16( tmpArray ),
-                        stream.ReadU32( tmpArray ),
-                        MetaDataConstants.ReadSimpleTableIndex( stream, Tables.TypeDef, tableSizes, tmpArray )
-                     ) );
+                  ReadTable( retVal.ClassLayouts, curTable, tableSizes, i =>
+                     new ClassLayout()
+                     {
+                        PackingSize = stream.ReadI16( tmpArray ),
+                        ClassSize = stream.ReadI32( tmpArray ),
+                        Parent = MetaDataConstants.ReadSimpleTableIndex( stream, Tables.TypeDef, tableSizes, tmpArray )
+                     } );
                   break;
                case Tables.FieldLayout:
-                  ReadTable( ref this.fieldLayout, curTable, tableSizes, () =>
-                     Tuple.Create(
-                        stream.ReadU32( tmpArray ),
-                        MetaDataConstants.ReadSimpleTableIndex( stream, Tables.Field, tableSizes, tmpArray )
-                     ) );
+                  ReadTable( retVal.FieldLayouts, curTable, tableSizes, i =>
+                     new FieldLayout()
+                     {
+                        Offset = stream.ReadI32( tmpArray ),
+                        Field = MetaDataConstants.ReadSimpleTableIndex( stream, Tables.Field, tableSizes, tmpArray )
+                     } );
                   break;
                case Tables.StandaloneSignature:
-                  ReadTable( ref this.standaloneSig, curTable, tableSizes, () => ReadBLOB( stream, blobs, streamWidths, tmpArray ) );
+                  ReadTable( retVal.StandaloneSignatures, curTable, tableSizes, i =>
+                     new StandaloneSignature()
+                     {
+                        Signature = ReadStandaloneSignature( blobs.WholeBLOBArray, blobs.GetBLOBIndex( stream ) )
+                     } );
                   break;
                case Tables.EventMap:
-                  ReadTable( ref this.eventMap, curTable, tableSizes, () =>
-                     Tuple.Create(
-                        MetaDataConstants.ReadSimpleTableIndex( stream, Tables.TypeDef, tableSizes, tmpArray ),
-                        MetaDataConstants.ReadSimpleTableIndex( stream, Tables.Event, tableSizes, tmpArray )
-                     ) );
+                  ReadTable( retVal.EventMaps, curTable, tableSizes, i =>
+                     new EventMap()
+                     {
+                        Parent = MetaDataConstants.ReadSimpleTableIndex( stream, Tables.TypeDef, tableSizes, tmpArray ),
+                        EventList = MetaDataConstants.ReadSimpleTableIndex( stream, Tables.Event, tableSizes, tmpArray )
+                     } );
                   break;
                case Tables.Event:
-                  ReadTable( ref this.events, curTable, tableSizes, () =>
-                     Tuple.Create(
-                        (EventAttributes) stream.ReadU16( tmpArray ),
-                        ReadSysString( stream, sysStrings, streamWidths, tmpArray ),
-                        MetaDataConstants.ReadCodedTableIndex( stream, CodedTableIndexKind.TypeDefOrRef, tRefSizes, tmpArray ).Value
-                     ) );
+                  ReadTable( retVal.EventDefinitions, curTable, tableSizes, i =>
+                     new EventDefinition()
+                     {
+                        Attributes = (EventAttributes) stream.ReadU16( tmpArray ),
+                        Name = sysStrings.ReadSysString( stream ),
+                        EventType = MetaDataConstants.ReadCodedTableIndex( stream, CodedTableIndexKind.TypeDefOrRef, tRefSizes, tmpArray ).Value
+                     } );
                   break;
                case Tables.PropertyMap:
-                  ReadTable( ref this.propertyMap, curTable, tableSizes, () =>
-                     Tuple.Create(
-                        MetaDataConstants.ReadSimpleTableIndex( stream, Tables.TypeDef, tableSizes, tmpArray ),
-                        MetaDataConstants.ReadSimpleTableIndex( stream, Tables.Property, tableSizes, tmpArray )
-                     ) );
+                  ReadTable( retVal.PropertyMaps, curTable, tableSizes, i =>
+                     new PropertyMap()
+                     {
+                        Parent = MetaDataConstants.ReadSimpleTableIndex( stream, Tables.TypeDef, tableSizes, tmpArray ),
+                        PropertyList = MetaDataConstants.ReadSimpleTableIndex( stream, Tables.Property, tableSizes, tmpArray )
+                     } );
                   break;
                case Tables.Property:
-                  ReadTable( ref this.property, curTable, tableSizes, () =>
-                     Tuple.Create(
-                        (PropertyAttributes) stream.ReadU16( tmpArray ),
-                        ReadSysString( stream, sysStrings, streamWidths, tmpArray ),
-                        ReadBLOB( stream, blobs, streamWidths, tmpArray )
-                     ) );
+                  ReadTable( retVal.PropertyDefinitions, curTable, tableSizes, i =>
+                     new PropertyDefinition()
+                     {
+                        Attributes = (PropertyAttributes) stream.ReadU16( tmpArray ),
+                        Name = sysStrings.ReadSysString( stream ),
+                        Signature = PropertySignature.ReadFromBytes( blobs.WholeBLOBArray, blobs.GetBLOBIndex( stream ) )
+                     } );
                   break;
                case Tables.MethodSemantics:
-                  ReadTable( ref this.methodSemantics, curTable, tableSizes, () =>
-                     Tuple.Create(
-                        (MethodSemanticsAttributes) stream.ReadU16( tmpArray ),
-                        MetaDataConstants.ReadSimpleTableIndex( stream, Tables.MethodDef, tableSizes, tmpArray ),
-                        MetaDataConstants.ReadCodedTableIndex( stream, CodedTableIndexKind.HasSemantics, tRefSizes, tmpArray ).Value
-                     ) );
+                  ReadTable( retVal.MethodSemantics, curTable, tableSizes, i =>
+                     new MethodSemantics()
+                     {
+                        Attributes = (MethodSemanticsAttributes) stream.ReadU16( tmpArray ),
+                        Method = MetaDataConstants.ReadSimpleTableIndex( stream, Tables.MethodDef, tableSizes, tmpArray ),
+                        Associaton = MetaDataConstants.ReadCodedTableIndex( stream, CodedTableIndexKind.HasSemantics, tRefSizes, tmpArray ).Value
+                     } );
                   break;
                case Tables.MethodImpl:
-                  ReadTable( ref this.methodImpl, curTable, tableSizes, () =>
-                     Tuple.Create(
-                        MetaDataConstants.ReadSimpleTableIndex( stream, Tables.TypeDef, tableSizes, tmpArray ),
-                        MetaDataConstants.ReadCodedTableIndex( stream, CodedTableIndexKind.MethodDefOrRef, tRefSizes, tmpArray ).Value,
-                        MetaDataConstants.ReadCodedTableIndex( stream, CodedTableIndexKind.MethodDefOrRef, tRefSizes, tmpArray ).Value
-                     ) );
+                  ReadTable( retVal.MethodImplementations, curTable, tableSizes, i =>
+                     new MethodImplementation()
+                     {
+                        Class = MetaDataConstants.ReadSimpleTableIndex( stream, Tables.TypeDef, tableSizes, tmpArray ),
+                        MethodBody = MetaDataConstants.ReadCodedTableIndex( stream, CodedTableIndexKind.MethodDefOrRef, tRefSizes, tmpArray ).Value,
+                        MethodDeclaration = MetaDataConstants.ReadCodedTableIndex( stream, CodedTableIndexKind.MethodDefOrRef, tRefSizes, tmpArray ).Value
+                     } );
                   break;
                case Tables.ModuleRef:
-                  ReadTable( ref this.moduleRef, curTable, tableSizes, () => ReadSysString( stream, sysStrings, streamWidths, tmpArray ) );
+                  ReadTable( retVal.ModuleReferences, curTable, tableSizes, i =>
+                     new ModuleReference()
+                     {
+                        ModuleRefeference = sysStrings.ReadSysString( stream )
+                     } );
                   break;
                case Tables.TypeSpec:
-                  ReadTable( ref this.typeSpec, curTable, tableSizes, () => ReadBLOB( stream, blobs, streamWidths, tmpArray ) );
+                  ReadTable( retVal.TypeSpecifications, curTable, tableSizes, i =>
+                     new TypeSpecification()
+                     {
+                        Signature = TypeSignature.ReadFromBytes( blobs.WholeBLOBArray, blobs.GetBLOBIndex( stream ) )
+                     } );
                   break;
                case Tables.ImplMap:
-                  ReadTable( ref this.implMap, curTable, tableSizes, () =>
-                     Tuple.Create(
-                        (PInvokeAttributes) stream.ReadU16( tmpArray ),
-                        MetaDataConstants.ReadCodedTableIndex( stream, CodedTableIndexKind.MemberForwarded, tRefSizes, tmpArray ).Value,
-                        ReadSysString( stream, sysStrings, streamWidths, tmpArray ),
-                        MetaDataConstants.ReadSimpleTableIndex( stream, Tables.ModuleRef, tableSizes, tmpArray )
-                     ) );
+                  ReadTable( retVal.MethodImplementationMaps, curTable, tableSizes, i =>
+                     new MethodImplementationMap()
+                     {
+                        Attributes = (PInvokeAttributes) stream.ReadU16( tmpArray ),
+                        MemberForwarded = MetaDataConstants.ReadCodedTableIndex( stream, CodedTableIndexKind.MemberForwarded, tRefSizes, tmpArray ).Value,
+                        ImportName = sysStrings.ReadSysString( stream ),
+                        ImportScope = MetaDataConstants.ReadSimpleTableIndex( stream, Tables.ModuleRef, tableSizes, tmpArray )
+                     } );
                   break;
                case Tables.FieldRVA:
-                  ReadTable( ref this.fieldRVA, curTable, tableSizes, () =>
-                     Tuple.Create(
-                        stream.ReadU32( tmpArray ),
-                        MetaDataConstants.ReadSimpleTableIndex( stream, Tables.Field, tableSizes, tmpArray )
-                     ) );
+                  ReadTable( retVal.FieldRVAs, curTable, tableSizes, i =>
+                  {
+                     fieldDefRVAs[i] = stream.ReadI32( tmpArray );
+                     return new FieldRVA()
+                     {
+                        Field = MetaDataConstants.ReadSimpleTableIndex( stream, Tables.Field, tableSizes, tmpArray )
+                     };
+                  } );
                   break;
                case Tables.Assembly:
-                  ReadTable( ref this.assembly, curTable, tableSizes, () =>
-                     Tuples.Create(
-                        (AssemblyHashAlgorithm) stream.ReadU32( tmpArray ),
-                        stream.ReadU16( tmpArray ),
-                        stream.ReadU16( tmpArray ),
-                        stream.ReadU16( tmpArray ),
-                        stream.ReadU16( tmpArray ),
-                        (AssemblyFlags) stream.ReadU32( tmpArray ),
-                        ReadBLOB( stream, blobs, streamWidths, tmpArray ),
-                        ReadSysString( stream, sysStrings, streamWidths, tmpArray ),
-                        ReadSysString( stream, sysStrings, streamWidths, tmpArray )
-                     ) );
+                  ReadTable( retVal.AssemblyDefinitions, curTable, tableSizes, i =>
+                     new AssemblyDefinition()
+                     {
+                        HashAlgorithm = (AssemblyHashAlgorithm) stream.ReadU32( tmpArray ),
+                        VersionMajor = stream.ReadU16( tmpArray ),
+                        VersionMinor = stream.ReadU16( tmpArray ),
+                        VersionBuild = stream.ReadU16( tmpArray ),
+                        VersionRevision = stream.ReadU16( tmpArray ),
+                        Attributes = (AssemblyFlags) stream.ReadU32( tmpArray ),
+                        PublicKey = blobs.ReadBLOB( stream ),
+                        Name = sysStrings.ReadSysString( stream ),
+                        Culture = sysStrings.ReadSysString( stream )
+                     } );
                   break;
                case Tables.AssemblyRef:
-                  ReadTable( ref this.assemblyRef, curTable, tableSizes, () =>
-                     Tuples.Create(
-                        stream.ReadU16( tmpArray ),
-                        stream.ReadU16( tmpArray ),
-                        stream.ReadU16( tmpArray ),
-                        stream.ReadU16( tmpArray ),
-                        (AssemblyFlags) stream.ReadU32( tmpArray ),
-                        ReadBLOB( stream, blobs, streamWidths, tmpArray ),
-                        ReadSysString( stream, sysStrings, streamWidths, tmpArray ),
-                        ReadSysString( stream, sysStrings, streamWidths, tmpArray ),
-                        ReadBLOB( stream, blobs, streamWidths, tmpArray )
-                     ) );
+                  ReadTable( retVal.AssemblyReferences, curTable, tableSizes, i =>
+                     new AssemblyReference()
+                     {
+                        VersionMajor = stream.ReadU16( tmpArray ),
+                        VersionMinor = stream.ReadU16( tmpArray ),
+                        VersionBuild = stream.ReadU16( tmpArray ),
+                        VersionRevision = stream.ReadU16( tmpArray ),
+                        Attributes = (AssemblyFlags) stream.ReadU32( tmpArray ),
+                        PublicKeyOrToken = blobs.ReadBLOB( stream ),
+                        Name = sysStrings.ReadSysString( stream ),
+                        Culture = sysStrings.ReadSysString( stream ),
+                        HashValue = blobs.ReadBLOB( stream )
+                     } );
                   break;
                case Tables.File:
-                  ReadTable( ref this.file, curTable, tableSizes, () =>
-                     Tuple.Create(
-                        (FileAttributes) stream.ReadU32( tmpArray ),
-                        ReadSysString( stream, sysStrings, streamWidths, tmpArray ),
-                        ReadBLOB( stream, blobs, streamWidths, tmpArray )
-                     ) );
+                  ReadTable( retVal.FileReferences, curTable, tableSizes, i =>
+                     new FileReference()
+                     {
+                        Attributes = (FileAttributes) stream.ReadU32( tmpArray ),
+                        Name = sysStrings.ReadSysString( stream ),
+                        HashValue = blobs.ReadBLOB( stream )
+                     } );
                   break;
                case Tables.ExportedType:
-                  ReadTable( ref this.exportedType, curTable, tableSizes, () =>
-                     Tuple.Create(
-                        (TypeAttributes) stream.ReadU32( tmpArray ),
-                        stream.ReadU32( tmpArray ),
-                        ReadSysString( stream, sysStrings, streamWidths, tmpArray ),
-                        ReadSysString( stream, sysStrings, streamWidths, tmpArray ),
-                        MetaDataConstants.ReadCodedTableIndex( stream, CodedTableIndexKind.Implementation, tRefSizes, tmpArray ).Value
-                     ) );
+                  ReadTable( retVal.ExportedTypess, curTable, tableSizes, i =>
+                     new ExportedType()
+                     {
+                        Attributes = (TypeAttributes) stream.ReadU32( tmpArray ),
+                        TypeDefinitionIndex = stream.ReadI32( tmpArray ),
+                        Name = sysStrings.ReadSysString( stream ),
+                        Namespace = sysStrings.ReadSysString( stream ),
+                        Implementation = MetaDataConstants.ReadCodedTableIndex( stream, CodedTableIndexKind.Implementation, tRefSizes, tmpArray ).Value
+                     } );
                   break;
                case Tables.ManifestResource:
-                  ReadTable( ref this.manifestResource, curTable, tableSizes, () =>
-                     Tuple.Create(
-                        stream.ReadU32( tmpArray ),
-                        (ManifestResourceAttributes) stream.ReadU32( tmpArray ),
-                        ReadSysString( stream, sysStrings, streamWidths, tmpArray ),
-                        MetaDataConstants.ReadCodedTableIndex( stream, CodedTableIndexKind.Implementation, tRefSizes, tmpArray, false )
-                     ) );
+                  ReadTable( retVal.ManifestResources, curTable, tableSizes, i =>
+                     new ManifestResource()
+                     {
+                        Offset = stream.ReadU32( tmpArray ),
+                        Attributes = (ManifestResourceAttributes) stream.ReadU32( tmpArray ),
+                        Name = sysStrings.ReadSysString( stream ),
+                        Implementation = MetaDataConstants.ReadCodedTableIndex( stream, CodedTableIndexKind.Implementation, tRefSizes, tmpArray, false )
+                     } );
                   break;
                case Tables.NestedClass:
-                  ReadTable( ref this.nestedClass, curTable, tableSizes, () =>
-                     Tuple.Create(
-                        MetaDataConstants.ReadSimpleTableIndex( stream, Tables.TypeDef, tableSizes, tmpArray ),
-                        MetaDataConstants.ReadSimpleTableIndex( stream, Tables.TypeDef, tableSizes, tmpArray )
-                     ) );
+                  ReadTable( retVal.NestedClassDefinitions, curTable, tableSizes, i =>
+                     new NestedClassDefinition()
+                     {
+                        NestedClass = MetaDataConstants.ReadSimpleTableIndex( stream, Tables.TypeDef, tableSizes, tmpArray ),
+                        EnclosingClass = MetaDataConstants.ReadSimpleTableIndex( stream, Tables.TypeDef, tableSizes, tmpArray )
+                     } );
                   break;
                case Tables.GenericParameter:
-                  ReadTable( ref this.genericParam, curTable, tableSizes, () =>
-                     Tuple.Create(
-                        stream.ReadU16( tmpArray ),
-                        (GenericParameterAttributes) stream.ReadU16( tmpArray ),
-                        MetaDataConstants.ReadCodedTableIndex( stream, CodedTableIndexKind.TypeOrMethodDef, tRefSizes, tmpArray ).Value,
-                        ReadSysString( stream, sysStrings, streamWidths, tmpArray )
-                     ) );
+                  ReadTable( retVal.GenericParameterDefinitions, curTable, tableSizes, i =>
+                     new GenericParameterDefinition()
+                     {
+                        GenericParameterIndex = stream.ReadI16( tmpArray ),
+                        Attributes = (GenericParameterAttributes) stream.ReadU16( tmpArray ),
+                        Owner = MetaDataConstants.ReadCodedTableIndex( stream, CodedTableIndexKind.TypeOrMethodDef, tRefSizes, tmpArray ).Value,
+                        Name = sysStrings.ReadSysString( stream )
+                     } );
                   break;
                case Tables.MethodSpec:
-                  ReadTable( ref this.methodSpec, curTable, tableSizes, () =>
-                     Tuple.Create(
-                        MetaDataConstants.ReadCodedTableIndex( stream, CodedTableIndexKind.MethodDefOrRef, tRefSizes, tmpArray ).Value,
-                        ReadBLOB( stream, blobs, streamWidths, tmpArray )
-                     ) );
+                  ReadTable( retVal.MethodSpecifications, curTable, tableSizes, i =>
+                     new MethodSpecification()
+                     {
+                        Method = MetaDataConstants.ReadCodedTableIndex( stream, CodedTableIndexKind.MethodDefOrRef, tRefSizes, tmpArray ).Value,
+                        Signature = GenericMethodSignature.ReadFromBytes( blobs.WholeBLOBArray, blobs.GetBLOBIndex( stream ) )
+                     } );
                   break;
                case Tables.GenericParameterConstraint:
-                  ReadTable( ref this.genericParamConstraint, curTable, tableSizes, () =>
-                     Tuple.Create(
-                        MetaDataConstants.ReadSimpleTableIndex( stream, Tables.GenericParameter, tableSizes, tmpArray ),
-                        MetaDataConstants.ReadCodedTableIndex( stream, CodedTableIndexKind.TypeDefOrRef, tRefSizes, tmpArray ).Value
-                     ) );
+                  ReadTable( retVal.GenericParameterConstraintDefinitions, curTable, tableSizes, i =>
+                     new GenericParameterConstraintDefinition()
+                     {
+                        Owner = MetaDataConstants.ReadSimpleTableIndex( stream, Tables.GenericParameter, tableSizes, tmpArray ),
+                        Constraint = MetaDataConstants.ReadCodedTableIndex( stream, CodedTableIndexKind.TypeDefOrRef, tRefSizes, tmpArray ).Value
+                     } );
                   break;
                case Tables.FieldPtr:
                case Tables.MethodPtr:
@@ -574,16 +650,27 @@ namespace CILAssemblyManipulator.Physical.Implementation
                case Tables.AssemblyOS:
                case Tables.AssemblyRefProcessor:
                case Tables.AssemblyRefOS:
-                  // Skip
+                  // Skip (TODO skip stream too... but would need to know table row size for that)
                   break;
                default:
                   throw new BadImageFormatException( "Unknown table: " + curTable );
             }
          }
 
+         // Read all IL code
+         for ( var i = 0; i < methodDefRVAs.Length; ++i )
+         {
+            if ( i != 0 )
+            {
+            }
+         }
+
+         // Read all field RVA content
+
+         return retVal;
       }
 
-      private static void ReadTable<T>( IList<T> tableArray, Int32 curTable, Int32[] tableSizes, Func<T> rowReader )
+      private static void ReadTable<T>( IList<T> tableArray, Int32 curTable, Int32[] tableSizes, Func<Int32, T> rowReader )
       {
          // TODO - calculate table width, thus reading whole table into single array
          // Then give array as argument to rowReader
@@ -591,23 +678,190 @@ namespace CILAssemblyManipulator.Physical.Implementation
          var len = tableSizes[curTable];
          for ( var i = 0; i < len; ++i )
          {
-            tableArray.Add( rowReader() );
+            tableArray.Add( rowReader( i ) );
          }
       }
 
-      private static String ReadSysString( Stream stream, SysStringContainer sysStrings, Boolean[] streamWidths, Byte[] tmpArray )
+      private static AbstractSignature ReadMemberRefSignature( Byte[] bytes, Int32 idx )
       {
-         return sysStrings.GetString( (Int32) stream.ReadHeapIndex( streamWidths[SYS_STR_WIDTH_INDEX], tmpArray ) );
+         return (SignatureStarters) bytes[idx] == SignatureStarters.Field ?
+            (AbstractSignature) FieldSignature.ReadFromBytesWithRef( bytes, ref idx ) :
+            MethodReferenceSignature.ReadFromBytes( bytes, ref idx );
       }
 
-      private static Guid? ReadGUID( Stream stream, GUIDContainer guids, Boolean[] streamWidths, Byte[] tmpArray )
+      private static AbstractSignature ReadStandaloneSignature( Byte[] bytes, Int32 idx )
       {
-         return guids.GetGUID( stream.ReadHeapIndex( streamWidths[GUID_WIDTH_INDEX], tmpArray ) );
+         return (SignatureStarters) bytes[idx] == SignatureStarters.LocalSignature ?
+            (AbstractSignature) LocalVariablesSignature.ReadFromBytes( bytes, ref idx ) :
+            MethodReferenceSignature.ReadFromBytes( bytes, ref idx );
       }
 
-      private static Byte[] ReadBLOB( Stream stream, BLOBContainer blobs, Boolean[] streamWidths, Byte[] tmpArray )
+      [Flags]
+      internal enum MethodHeaderFlags
       {
-         return blobs.GetBLOB( stream.ReadHeapIndex( streamWidths[BLOB_WIDTH_INDEX], tmpArray ) );
+         TinyFormat = 0x2,
+         FatFormat = 0x3,
+         MoreSections = 0x8,
+         InitLocals = 0x10
+      }
+
+      [Flags]
+      internal enum MethodDataFlags
+      {
+         ExceptionHandling = 0x1,
+         OptimizeILTable = 0x2,
+         FatFormat = 0x40,
+         MoreSections = 0x80
+      }
+
+      internal static MethodILDefinition ReadMethodDefinition( System.IO.Stream stream, UserStringContainer userStrings )
+      {
+         var FORMAT_MASK = 0x00000001;
+         var FLAG_MASK = 0x00000FFF;
+         var SEC_SIZE_MASK = 0xFFFFFF00u;
+         var SEC_FLAG_MASK = 0x000000FFu;
+
+
+         var b = (Int32) stream.ReadByteFromStream();
+         var retVal = new MethodILDefinition();
+         var tmpArray = new Byte[8];
+         if ( ( FORMAT_MASK & b ) == 0 )
+         {
+            // Tiny header - no locals, no exceptions, no extra data
+            CreateOpCodes( retVal, stream, b >> 2, tmpArray, userStrings );
+            retVal.InitLocals = false;
+         }
+         else
+         {
+            stream.SeekFromCurrent( -1 );
+
+            b = stream.ReadU16( tmpArray );
+            var flags = (MethodHeaderFlags) ( b & FLAG_MASK );
+            retVal.InitLocals = ( flags & MethodHeaderFlags.InitLocals ) != 0;
+            var headerSize = ( b >> 12 ) * 4; // Header size is written as amount of integers
+            // Skip max stack
+            stream.SeekFromCurrent( 2 );
+            var codeSize = stream.ReadI32( tmpArray );
+            var localSigToken = stream.ReadI32( tmpArray );
+            if ( localSigToken != 0 )
+            {
+               retVal.LocalsSignatureIndex = new TableIndex( localSigToken );
+            }
+
+            if ( headerSize != 12 )
+            {
+               stream.SeekFromCurrent( BitUtils.MultipleOf4( headerSize - 12 ) );
+            }
+
+            // Read code
+            CreateOpCodes( retVal, stream, codeSize, tmpArray, userStrings );
+
+            stream.SeekFromCurrent( BitUtils.MultipleOf4( codeSize ) - codeSize );
+
+            var excList = new List<MethodExceptionBlock>();
+            if ( ( flags & MethodHeaderFlags.MoreSections ) != 0 )
+            {
+               // Read sections
+               MethodDataFlags secFlags;
+               do
+               {
+                  var secHeader = stream.ReadU32( tmpArray );
+                  secFlags = (MethodDataFlags) ( secHeader & SEC_FLAG_MASK );
+                  var secByteSize = ( secHeader & SEC_SIZE_MASK ) >> 8;
+                  secByteSize -= 4;
+                  var isFat = ( secFlags & MethodDataFlags.FatFormat ) != 0;
+                  while ( secByteSize > 0 )
+                  {
+                     var eType = (ExceptionBlockType) ( isFat ? stream.ReadU32( tmpArray ) : stream.ReadU16( tmpArray ) );
+                     retVal.ExceptionBlocks.Add( new MethodExceptionBlock()
+                     {
+                        BlockType = eType,
+                        TryOffset = isFat ? stream.ReadI32( tmpArray ) : stream.ReadU16( tmpArray ),
+                        TryLength = isFat ? stream.ReadI32( tmpArray ) : stream.ReadByteFromStream(),
+                        HandlerOffset = isFat ? stream.ReadI32( tmpArray ) : stream.ReadU16( tmpArray ),
+                        HandlerLength = isFat ? stream.ReadI32( tmpArray ) : stream.ReadByteFromStream(),
+                        ExceptionType = eType == ExceptionBlockType.Filter ? (TableIndex?) null : new TableIndex( stream.ReadI32( tmpArray ) ),
+                        FilterOffset = eType == ExceptionBlockType.Filter ? stream.ReadI32( tmpArray ) : 0
+                     } );
+                     secByteSize -= ( isFat ? 24u : 12u );
+                  }
+               } while ( ( secFlags & MethodDataFlags.MoreSections ) != 0 );
+            }
+         }
+
+         return retVal;
+      }
+
+      private static void CreateOpCodes( MethodILDefinition methodIL, Stream stream, Int32 codeSize, Byte[] tmpArray, UserStringContainer userStrings )
+      {
+         var current = 0;
+         var opCodes = methodIL.OpCodes;
+         while ( current < codeSize )
+         {
+            var curInstruction = (Int32) stream.ReadByteFromStream();
+            ++current;
+            if ( curInstruction == OpCode.MAX_ONE_BYTE_INSTRUCTION )
+            {
+               curInstruction = ( curInstruction << 8 ) | (Int32) stream.ReadByteFromStream();
+               ++current;
+            }
+
+            var code = OpCodes.Codes[(OpCodeEncoding) curInstruction];
+
+            switch ( code.OperandType )
+            {
+               case OperandType.InlineNone:
+                  opCodes.Add( OpCodes.CodeInfosWithNoOperand[(OpCodeEncoding) curInstruction] );
+                  break;
+               case OperandType.ShortInlineBrTarget:
+               case OperandType.ShortInlineI:
+                  opCodes.Add( new OpCodeInfoWithInt32( code, (Int32) ( (SByte) stream.ReadByteFromStream() ) ) );
+                  break;
+               case OperandType.ShortInlineVar:
+                  opCodes.Add( new OpCodeInfoWithInt32( code, stream.ReadByteFromStream() ) );
+                  break;
+               case OperandType.ShortInlineR:
+                  stream.ReadSpecificAmount( tmpArray, 0, sizeof( Single ) );
+                  opCodes.Add( new OpCodeInfoWithSingle( code, tmpArray.ReadSingleLEFromBytesNoRef( 0 ) ) );
+                  break;
+               case OperandType.InlineBrTarget:
+               case OperandType.InlineI:
+                  opCodes.Add( new OpCodeInfoWithInt32( code, stream.ReadI32( tmpArray ) ) );
+                  break;
+               case OperandType.InlineVar:
+                  opCodes.Add( new OpCodeInfoWithInt32( code, stream.ReadU16( tmpArray ) ) );
+                  break;
+               case OperandType.InlineR:
+                  stream.ReadSpecificAmount( tmpArray, 0, sizeof( Double ) );
+                  opCodes.Add( new OpCodeInfoWithDouble( code, tmpArray.ReadDoubleLEFromBytesNoRef( 0 ) ) );
+                  break;
+               case OperandType.InlineI8:
+                  stream.ReadSpecificAmount( tmpArray, 0, sizeof( Int64 ) );
+                  opCodes.Add( new OpCodeInfoWithInt64( code, tmpArray.ReadInt64LEFromBytesNoRef( 0 ) ) );
+                  break;
+               case OperandType.InlineString:
+                  opCodes.Add( new OpCodeInfoWithString( code, userStrings.GetString( stream.ReadI32( tmpArray ) & TokenUtils.INDEX_MASK ) ) );
+                  break;
+               case OperandType.InlineField:
+               case OperandType.InlineMethod:
+               case OperandType.InlineType:
+               case OperandType.InlineTok:
+               case OperandType.InlineSig:
+                  opCodes.Add( new OpCodeInfoWithToken( code, new TableIndex( stream.ReadI32( tmpArray ) ) ) );
+                  break;
+               case OperandType.InlineSwitch:
+                  var count = stream.ReadI32( tmpArray );
+                  var info = new OpCodeInfoWithSwitch( code, count );
+                  for ( var i = 0; i < count; ++i )
+                  {
+                     info.Offsets.Add( stream.ReadI32( tmpArray ) );
+                  }
+                  opCodes.Add( info );
+                  break;
+               default:
+                  throw new ArgumentException( "Unknown operand type: " + code.OperandType + " for " + code + "." );
+            }
+         }
       }
    }
 }
