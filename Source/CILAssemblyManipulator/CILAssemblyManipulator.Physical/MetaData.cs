@@ -131,7 +131,7 @@ namespace CILAssemblyManipulator.Physical
    {
       public SignatureElementTypes Type { get; set; }
       public TableIndex Parent { get; set; }
-      public Byte[] Value { get; set; }
+      public Object Value { get; set; }
    }
 
    public sealed class CustomAttributeDefinition

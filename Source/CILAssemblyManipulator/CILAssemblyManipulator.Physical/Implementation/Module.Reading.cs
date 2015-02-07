@@ -93,6 +93,13 @@ namespace CILAssemblyManipulator.Physical.Implementation
             this._bytes.DecompressUInt32( ref idx );
             return idx;
          }
+
+         internal Int32 GetBLOBIndex( Stream stream, out Int32 blobSize )
+         {
+            var idx = this.ReadHeapIndex( stream );
+            blobSize = this._bytes.DecompressUInt32( ref idx );
+            return idx;
+         }
       }
 
       internal abstract class AbstractHeapContainer
@@ -535,12 +542,15 @@ namespace CILAssemblyManipulator.Physical.Implementation
                   break;
                case Tables.Constant:
                   ReadTable( retVal.ConstantDefinitions, curTable, tableSizes, i =>
-                     new ConstantDefinition()
+                  {
+                     var constType = (SignatureElementTypes) stream.ReadU16( tmpArray );
+                     return new ConstantDefinition()
                      {
-                        Type = (SignatureElementTypes) stream.ReadU16( tmpArray ),
+                        Type = constType,
                         Parent = MetaDataConstants.ReadCodedTableIndex( stream, CodedTableIndexKind.HasConstant, tRefSizes, tmpArray ).Value,
-                        Value = blobs.ReadBLOB( stream )
-                     } );
+                        Value = ReadConstantValue( blobs, stream, constType )
+                     };
+                  } );
                   break;
                case Tables.CustomAttribute:
                   ReadTable( retVal.CustomAttributeDefinitions, curTable, tableSizes, i =>
@@ -1027,6 +1037,49 @@ namespace CILAssemblyManipulator.Physical.Implementation
             }
             ++idx;
          } while ( idx < array.Count && fullIndexExtractor( array[idx] ).Index == targetIndex );
+      }
+
+      private static Object ReadConstantValue( BLOBContainer blobContainer, Stream stream, SignatureElementTypes constType )
+      {
+         var blob = blobContainer.WholeBLOBArray;
+         Int32 blobSize;
+         var idx = blobContainer.GetBLOBIndex( stream, out  blobSize );
+         switch ( constType )
+         {
+            case SignatureElementTypes.Boolean:
+               return blob.ReadByteFromBytes( ref idx ) == 1;
+            case SignatureElementTypes.Char:
+               return Convert.ToChar( blob.ReadUInt16LEFromBytes( ref idx ) );
+            case SignatureElementTypes.I1:
+               return blob.ReadSByteFromBytes( ref idx );
+            case SignatureElementTypes.U1:
+               return blob.ReadByteFromBytes( ref idx );
+            case SignatureElementTypes.I2:
+               return blob.ReadInt16LEFromBytes( ref idx );
+            case SignatureElementTypes.U2:
+               return blob.ReadUInt16LEFromBytes( ref idx );
+            case SignatureElementTypes.I4:
+               return blob.ReadInt32LEFromBytes( ref idx );
+            case SignatureElementTypes.U4:
+               return blob.ReadUInt32LEFromBytes( ref idx );
+            case SignatureElementTypes.I8:
+               return blob.ReadInt64LEFromBytes( ref idx );
+            case SignatureElementTypes.U8:
+               return blob.ReadUInt64LEFromBytes( ref idx );
+            case SignatureElementTypes.R4:
+               return blob.ReadSingleLEFromBytes( ref idx );
+            case SignatureElementTypes.R8:
+               return blob.ReadDoubleLEFromBytes( ref idx );
+            case SignatureElementTypes.String:
+               return MetaDataConstants.USER_STRING_ENCODING.GetString( blob, idx, blobSize );
+            default:
+               //idx = blob.ReadInt32LEFromBytesNoRef( 0 );
+               //if ( idx != 0 )
+               //{
+               //   throw new BadImageFormatException( "Other const types than primitives should be serialized as zero int32's." );
+               //}
+               return null;
+         }
       }
 
       [Flags]
