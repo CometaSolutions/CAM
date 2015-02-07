@@ -1232,8 +1232,8 @@ namespace CILAssemblyManipulator.Physical
 
       public static GenericMethodSignature ReadFromBytesWithRef( Byte[] sig, ref Int32 idx )
       {
-         var elementType = (SignatureElementTypes) sig.ReadByteFromBytes( ref idx );
-         if ( elementType != SignatureElementTypes.GenericInst )
+         var elementType = (SignatureStarters) sig.ReadByteFromBytes( ref idx );
+         if ( elementType != SignatureStarters.MethodSpecGenericInst )
          {
             throw new BadImageFormatException( "First byte of generic method instantiation signature must be " + SignatureElementTypes.GenericInst + "." );
          }

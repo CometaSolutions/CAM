@@ -24,23 +24,20 @@ using System.Text;
 
 namespace CILAssemblyManipulator.Physical.Implementation
 {
-   internal class LoadingArguments
+
+
+   internal struct DataDir
    {
-      private readonly SectionInfo[] _sections;
+      internal UInt32 rva;
+      internal UInt32 size;
 
-      internal LoadingArguments( SectionInfo[] sections )
+      internal DataDir( Stream stream, Byte[] tmpArray )
       {
-         this._sections = sections;
-      }
-
-      internal SectionInfo[] Sections
-      {
-         get
-         {
-            return this._sections;
-         }
+         this.rva = stream.ReadU32( tmpArray );
+         this.size = stream.ReadU32( tmpArray );
       }
    }
+
    internal static class ModuleReader
    {
       internal class BLOBContainer : AbstractHeapContainer
@@ -242,9 +239,125 @@ namespace CILAssemblyManipulator.Physical.Implementation
       private const Byte WIDE_GUID_FLAG = 0x02;
       private const Byte WIDE_BLOB_FLAG = 0x04;
 
-      internal static CILMetaData ReadMetadata(
-         LoadingArguments loadingArgs,
+      public static CILMetaData ReadFromStream(
+         Stream stream
+         )
+      {
+         HeadersData headers;
+         return ReadFromStream( stream, out headers );
+      }
+
+      public static CILMetaData ReadFromStream(
          Stream stream,
+         out HeadersData headers
+         )
+      {
+
+         Byte[] tmpArray = new Byte[8];
+
+         // DOS header, skip to lfa new
+         stream.SeekFromBegin( 60 );
+
+         // PE file header
+         // Skip to PE file header, and skip magic
+         var suuka = stream.ReadU32( tmpArray );
+         stream.SeekFromBegin( suuka + 4 );
+
+         // Architecture
+         var architecture = (ImageFileMachine) stream.ReadU16( tmpArray );
+
+         // Amount of sections
+         var amountOfSections = stream.ReadU16( tmpArray );
+
+         // Skip timestamp, symbol table pointer, number of symbols
+         stream.SeekFromCurrent( 12 );
+
+         // Optional header size
+         stream.ReadU16( tmpArray );
+
+         // Characteristics
+         var characteristics = stream.ReadU16( tmpArray );
+
+         // PE Optional header
+         // Skip standard fields and all NT-specific fields until subsystem
+         stream.SeekFromCurrent( 68 ); // Value is the same for both pe32 & pe64, since BaseOfData is lacking from pe64
+
+         // Subsystem
+         var subsystem = stream.ReadU16( tmpArray );
+
+         // DLL flags
+         var dllFlags = (DLLFlags) stream.ReadU16( tmpArray );
+
+         // Skip to debug header
+         stream.SeekFromCurrent( architecture.RequiresPE64() ? 88 : 72 ); // PE64 requires 8 bytes for stack reserve & commit sizes, and heap reserve & commit sizes
+         var debugDD = new DataDir( stream, tmpArray );
+
+         // Skip to CLI header
+         stream.SeekFromCurrent( 56 );
+
+         // CLI header
+         var cliDD = new DataDir( stream, tmpArray );
+
+         // Reserved
+         stream.SeekFromCurrent( 8 );
+
+         // Read sections
+         var sections = new SectionInfo[amountOfSections];
+         for ( var i = 0u; i < amountOfSections; ++i )
+         {
+            // VS2012 evaluates positional arguments from left to right, so creating Tuple should work correctly
+            // This is not so in VS2010 ( see http://msdn.microsoft.com/en-us/library/hh678682.aspx )
+            stream.ReadWholeArray( tmpArray ); // tmpArray is 8 bytes long
+            sections[i] = new SectionInfo(
+               tmpArray.ReadZeroTerminatedASCIIStringFromBytes(), // Section name
+               stream.ReadU32( tmpArray ), // Virtual size
+               stream.ReadU32( tmpArray ), // Virtual address
+               stream.ReadU32( tmpArray ), // Raw data size
+               stream.ReadU32( tmpArray ) // Raw data pointer
+               );
+            // Skip number of relocation & line numbers, and section characteristics
+            stream.SeekFromCurrent( 16 );
+         }
+
+         // CLI header, skip magic and runtime versions
+         stream.SeekFromBegin( ResolveRVA( cliDD.rva, sections ) + 8 );
+
+         // Metadata datadirectory
+         var mdDD = new DataDir( stream, tmpArray );
+
+         // Module flags
+         var moduleFlags = (ModuleFlags) stream.ReadU32( tmpArray );
+
+         // Entrypoint token
+         var epToken = (Int32) stream.ReadU32( tmpArray );
+
+         // Resources data directory
+         var rsrcDD = new DataDir( stream, tmpArray );
+
+         // Strong name
+         //var snDD = new DataDir( stream, tmpArray );
+
+         // Skip code manager table, virtual table fixups, export address table jumps, and managed native header data directories
+         //stream.SeekFromCurrent( 32 );
+
+         // Metadata
+         stream.SeekFromBegin( ResolveRVA( mdDD.rva, sections ) );
+         String mdVersion;
+         var retVal = ReadMetadata(
+            stream,
+            sections,
+            out mdVersion
+            );
+
+         // TODO
+         headers = null;
+
+         return retVal;
+      }
+
+      internal static CILMetaData ReadMetadata(
+         Stream stream,
+         SectionInfo[] sections,
          out String versionStr )
       {
          var mdRoot = stream.Position;
@@ -680,9 +793,10 @@ namespace CILAssemblyManipulator.Physical.Implementation
          // Read all IL code
          for ( var i = 0; i < methodDefRVAs.Length; ++i )
          {
-            if ( i != 0 )
+            var rva = methodDefRVAs[i];
+            if ( rva != 0 )
             {
-               var offset = ResolveRVA( methodDefRVAs[i], loadingArgs.Sections );
+               var offset = ResolveRVA( rva, sections );
                if ( offset < stream.Length )
                {
                   stream.SeekFromBegin( offset );
@@ -694,7 +808,7 @@ namespace CILAssemblyManipulator.Physical.Implementation
          // Read all field RVA content
          for ( var i = 0; i < fieldDefRVAs.Length; ++i )
          {
-            var offset = ResolveRVA( fieldDefRVAs[i], loadingArgs.Sections );
+            var offset = ResolveRVA( fieldDefRVAs[i], sections );
             UInt32 size;
             if (
                TryCalculateFieldTypeSize( retVal, retVal.FieldRVAs[i].Field.idx, out size )
@@ -999,7 +1113,7 @@ namespace CILAssemblyManipulator.Physical.Implementation
                         TryLength = isFat ? stream.ReadI32( tmpArray ) : stream.ReadByteFromStream(),
                         HandlerOffset = isFat ? stream.ReadI32( tmpArray ) : stream.ReadU16( tmpArray ),
                         HandlerLength = isFat ? stream.ReadI32( tmpArray ) : stream.ReadByteFromStream(),
-                        ExceptionType = eType == ExceptionBlockType.Filter ? (TableIndex?) null : new TableIndex( stream.ReadI32( tmpArray ) ),
+                        ExceptionType = eType == ExceptionBlockType.Filter ? (TableIndex?) null : ReadExceptionType( stream, tmpArray ),
                         FilterOffset = eType == ExceptionBlockType.Filter ? stream.ReadI32( tmpArray ) : 0
                      } );
                      secByteSize -= ( isFat ? 24u : 12u );
@@ -1009,6 +1123,12 @@ namespace CILAssemblyManipulator.Physical.Implementation
          }
 
          return retVal;
+      }
+
+      private static TableIndex? ReadExceptionType( Stream stream, Byte[] tmpArray )
+      {
+         var token = stream.ReadI32( tmpArray );
+         return token == 0 ? (TableIndex?) null : new TableIndex( token );
       }
 
       private static void CreateOpCodes( MethodILDefinition methodIL, Stream stream, Int32 codeSize, Byte[] tmpArray, UserStringContainer userStrings )
@@ -1034,31 +1154,39 @@ namespace CILAssemblyManipulator.Physical.Implementation
                   break;
                case OperandType.ShortInlineBrTarget:
                case OperandType.ShortInlineI:
+                  current += sizeof( Byte );
                   opCodes.Add( new OpCodeInfoWithInt32( code, (Int32) ( (SByte) stream.ReadByteFromStream() ) ) );
                   break;
                case OperandType.ShortInlineVar:
+                  current += sizeof( Byte );
                   opCodes.Add( new OpCodeInfoWithInt32( code, stream.ReadByteFromStream() ) );
                   break;
                case OperandType.ShortInlineR:
                   stream.ReadSpecificAmount( tmpArray, 0, sizeof( Single ) );
+                  current += sizeof( Single );
                   opCodes.Add( new OpCodeInfoWithSingle( code, tmpArray.ReadSingleLEFromBytesNoRef( 0 ) ) );
                   break;
                case OperandType.InlineBrTarget:
                case OperandType.InlineI:
+                  current += sizeof( Int32 );
                   opCodes.Add( new OpCodeInfoWithInt32( code, stream.ReadI32( tmpArray ) ) );
                   break;
                case OperandType.InlineVar:
+                  current += sizeof( Int16 );
                   opCodes.Add( new OpCodeInfoWithInt32( code, stream.ReadU16( tmpArray ) ) );
                   break;
                case OperandType.InlineR:
+                  current += sizeof( Double );
                   stream.ReadSpecificAmount( tmpArray, 0, sizeof( Double ) );
                   opCodes.Add( new OpCodeInfoWithDouble( code, tmpArray.ReadDoubleLEFromBytesNoRef( 0 ) ) );
                   break;
                case OperandType.InlineI8:
+                  current += sizeof( Int64 );
                   stream.ReadSpecificAmount( tmpArray, 0, sizeof( Int64 ) );
                   opCodes.Add( new OpCodeInfoWithInt64( code, tmpArray.ReadInt64LEFromBytesNoRef( 0 ) ) );
                   break;
                case OperandType.InlineString:
+                  current += sizeof( Int32 );
                   opCodes.Add( new OpCodeInfoWithString( code, userStrings.GetString( stream.ReadI32( tmpArray ) & TokenUtils.INDEX_MASK ) ) );
                   break;
                case OperandType.InlineField:
@@ -1066,10 +1194,12 @@ namespace CILAssemblyManipulator.Physical.Implementation
                case OperandType.InlineType:
                case OperandType.InlineTok:
                case OperandType.InlineSig:
+                  current += sizeof( Int32 );
                   opCodes.Add( new OpCodeInfoWithToken( code, new TableIndex( stream.ReadI32( tmpArray ) ) ) );
                   break;
                case OperandType.InlineSwitch:
                   var count = stream.ReadI32( tmpArray );
+                  current += sizeof( Int32 ) + count * sizeof( Int32 );
                   var info = new OpCodeInfoWithSwitch( code, count );
                   for ( var i = 0; i < count; ++i )
                   {

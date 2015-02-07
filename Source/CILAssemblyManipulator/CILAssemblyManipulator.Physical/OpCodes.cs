@@ -1136,16 +1136,59 @@ namespace CILAssemblyManipulator.Physical
    {
       internal const Int32 MAX_ONE_BYTE_INSTRUCTION = 0xFE;
 
-      private readonly StackBehaviourPop _stackPop;
-      private readonly StackBehaviourPush _stackPush;
-      private readonly OperandType _operand;
-      private readonly OpCodeType _type;
-      private readonly FlowControl _flowControl;
-      private readonly Boolean _unconditionallyEndsBulkOfCode;
-      private readonly Int32 _stackChange;
-      private readonly Int32 _size;
-      private readonly Byte _byte1;
-      private readonly Byte _byte2;
+
+      private const UInt64 STACK_POP_MASK = 0x1FU;
+
+      private const UInt64 STACK_PUSH_MASK = 0x1E0U;
+      private const Int32 STACK_PUSH_SHIFT = 5;
+
+      private const UInt64 OPERAND_TYPE_MASK = 0x3E00U;
+      private const Int32 OPERAND_TYPE_SHIFT = STACK_PUSH_SHIFT + 4;
+
+      private const UInt64 OPCODE_TYPE_MASK = 0x1C000U;
+      private const Int32 OPCODE_TYPE_SHIFT = OPERAND_TYPE_SHIFT + 5;
+
+      private const UInt64 FLOW_CONTROL_MASK = 0x1E0000U;
+      private const Int32 FLOW_CONTROL_SHIFT = OPCODE_TYPE_SHIFT + 3;
+
+      private const UInt64 SIZE_MASK = 0x200000U;
+      private const Int32 SIZE_SHIFT = FLOW_CONTROL_SHIFT + 4;
+
+      private const UInt64 BYTE_1_MASK = 0x3FC00000U;
+      private const Int32 BYTE_1_SHIFT = SIZE_SHIFT + 1;
+
+      private const UInt64 BYTE_2_MASK = 0x3FC0000000U;
+      private const Int32 BYTE_2_SHIFT = BYTE_1_SHIFT + 8;
+
+      private const UInt64 STACK_CHANGE_MASK = 0x1C000000000U;
+      private const Int32 STACK_CHANGE_SHIFT = BYTE_2_SHIFT + 8;
+
+      private const UInt64 ENDS_BLK_CODE_MASK = 0x20000000000U;
+      private const Int32 ENDS_BLK_CODE_SHIFT = STACK_CHANGE_SHIFT + 3;
+
+      // Bits 0-4 (5 bits): StackBehaviourPop
+      // Bits 5-8 (4 bits): StackBehaviourPush
+      // Bits 9-13 (5 bits): OperandType
+      // Bits 14-16 (3 bits): OpCodeType
+      // Bits 17-20 (4 bits): FlowControl
+      // Bit 21: Size (0 = 1, 1 = 2)
+      // Bits 22-37 (16 bits): Bytes 1 & 2
+      // Bits 38-40 (3 bits): Stack change (0 = -3, 1 = -2, etc)
+      // Bit 41: Unconditionally ends bulk of code (1 = true, 0 = false)
+      private readonly UInt64 _state;
+
+
+
+      //private readonly StackBehaviourPop _stackPop;
+      //private readonly StackBehaviourPush _stackPush;
+      //private readonly OperandType _operand;
+      //private readonly OpCodeType _type;
+      //private readonly FlowControl _flowControl;
+      //private readonly Boolean _unconditionallyEndsBulkOfCode;
+      //private readonly Int32 _stackChange;
+      //private readonly Int32 _size;
+      //private readonly Byte _byte1;
+      //private readonly Byte _byte2;
 
       // TODO consider saving state (stack_pop, stack_push, operand, type, flow-ctrl, size) into single UInt32
       internal OpCode(
@@ -1158,15 +1201,6 @@ namespace CILAssemblyManipulator.Physical
          Boolean unconditionallyEndsBulkOfCode
          )
       {
-         this._size = ( (Int32) encoded ) > MAX_ONE_BYTE_INSTRUCTION ? 2 : 1;
-         this._byte1 = (Byte) ( ( (Int32) encoded ) >> 8 );
-         this._byte2 = (Byte) encoded;
-         this._stackPop = stackPop;
-         this._stackPush = stackPush;
-         this._operand = operand;
-         this._type = type;
-         this._flowControl = flowControl;
-         this._unconditionallyEndsBulkOfCode = unconditionallyEndsBulkOfCode;
          var stackChange = 0;
          switch ( stackPop )
          {
@@ -1215,7 +1249,34 @@ namespace CILAssemblyManipulator.Physical
                stackChange += 2;
                break;
          }
-         this._stackChange = stackChange;
+
+         var size = ( (Int32) encoded ) > MAX_ONE_BYTE_INSTRUCTION ? 1 : 0;
+         var byte1 = (Byte) ( ( (Int32) encoded ) >> 8 );
+         var byte2 = (Byte) encoded;
+         this._state =
+             ( (UInt64) (UInt32) stackPop )
+             | ( ( (UInt64) stackPush ) << STACK_PUSH_SHIFT )
+             | ( ( (UInt64) operand ) << OPERAND_TYPE_SHIFT )
+             | ( ( (UInt64) type ) << OPCODE_TYPE_SHIFT )
+             | ( ( (UInt64) flowControl ) << FLOW_CONTROL_SHIFT )
+             | ( ( (UInt64) size ) << SIZE_SHIFT )
+             | ( ( (UInt64) byte1 ) << BYTE_1_SHIFT )
+             | ( ( (UInt64) byte2 ) << BYTE_2_SHIFT )
+             | ( ( (UInt64) stackChange + 3 ) << STACK_CHANGE_SHIFT )
+             | ( ( unconditionallyEndsBulkOfCode ? 1U : 0U ) << ENDS_BLK_CODE_SHIFT )
+             ;
+
+
+         //this._size = ( (Int32) encoded ) > MAX_ONE_BYTE_INSTRUCTION ? 1 : 0;
+         //this._byte1 = (Byte) ( ( (Int32) encoded ) >> 8 );
+         //this._byte2 = (Byte) encoded;
+         //this._stackPop = stackPop;
+         //this._stackPush = stackPush;
+         //this._operand = operand;
+         //this._type = type;
+         //this._flowControl = flowControl;
+         //this._unconditionallyEndsBulkOfCode = unconditionallyEndsBulkOfCode;
+         //this._stackChange = stackChange;
 
          OpCodes.Codes.Add( encoded, this );
          if ( OperandType.InlineNone == operand )
@@ -1244,7 +1305,7 @@ namespace CILAssemblyManipulator.Physical
       {
          get
          {
-            return this._size;
+            return (Int32) ( ( this._state & SIZE_MASK ) >> SIZE_SHIFT ) + 1;
          }
       }
 
@@ -1256,7 +1317,7 @@ namespace CILAssemblyManipulator.Physical
       {
          get
          {
-            return this._stackPop;
+            return (StackBehaviourPop) ( this._state & STACK_POP_MASK );
          }
       }
 
@@ -1268,7 +1329,7 @@ namespace CILAssemblyManipulator.Physical
       {
          get
          {
-            return this._stackPush;
+            return (StackBehaviourPush) ( ( this._state & STACK_PUSH_MASK ) >> STACK_PUSH_SHIFT );
          }
       }
 
@@ -1280,7 +1341,7 @@ namespace CILAssemblyManipulator.Physical
       {
          get
          {
-            return this._operand;
+            return (OperandType) ( ( this._state & OPERAND_TYPE_MASK ) >> OPERAND_TYPE_SHIFT );
          }
       }
 
@@ -1292,7 +1353,7 @@ namespace CILAssemblyManipulator.Physical
       {
          get
          {
-            return this._type;
+            return (OpCodeType) ( ( this._state & OPCODE_TYPE_MASK ) >> OPCODE_TYPE_SHIFT );
          }
       }
 
@@ -1304,7 +1365,7 @@ namespace CILAssemblyManipulator.Physical
       {
          get
          {
-            return this._flowControl;
+            return (FlowControl) ( ( this._state & FLOW_CONTROL_MASK ) >> FLOW_CONTROL_SHIFT );
          }
       }
 
@@ -1316,7 +1377,7 @@ namespace CILAssemblyManipulator.Physical
       {
          get
          {
-            return this._stackChange;
+            return (Int32) ( ( this._state & STACK_CHANGE_MASK ) >> STACK_CHANGE_SHIFT ) - 3;
          }
       }
 
@@ -1336,10 +1397,10 @@ namespace CILAssemblyManipulator.Physical
       {
          get
          {
-            Int32 cur = this._byte2;
-            if ( this._size > 1 )
+            Int32 cur = this.Byte2;
+            if ( this.Size > 1 )
             {
-               cur = cur | ( this._byte1 << 8 );
+               cur = cur | ( this.Byte1 << 8 );
             }
             return cur;
          }
@@ -1353,7 +1414,7 @@ namespace CILAssemblyManipulator.Physical
       {
          get
          {
-            return this._byte1;
+            return (Byte) ( ( this._state & BYTE_1_MASK ) >> BYTE_1_SHIFT );
          }
       }
 
@@ -1365,7 +1426,7 @@ namespace CILAssemblyManipulator.Physical
       {
          get
          {
-            return this._byte2;
+            return (Byte) ( ( this._state & BYTE_2_MASK ) >> BYTE_2_SHIFT );
          }
       }
 
@@ -1373,7 +1434,7 @@ namespace CILAssemblyManipulator.Physical
       {
          get
          {
-            return this._unconditionallyEndsBulkOfCode;
+            return ( ( this._state & ENDS_BLK_CODE_MASK ) >> ENDS_BLK_CODE_SHIFT ) != 0;
          }
       }
 

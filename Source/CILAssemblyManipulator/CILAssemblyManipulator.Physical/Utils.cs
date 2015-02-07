@@ -975,12 +975,23 @@ namespace CILAssemblyManipulator.Physical
       internal readonly UInt32 rawSize;
       internal readonly UInt32 rawPointer;
 
-      internal SectionInfo( Stream sink, SectionInfo? prevSection, UInt32 bytesWrittenInThisSection, UInt32 sectionAlignment, UInt32 fileAlignment, Boolean actuallyPad )
+      internal SectionInfo( String name, UInt32 virtualSize, UInt32 virtualAddress, UInt32 rawSize, UInt32 rawPointer )
       {
-         this.virtualSize = bytesWrittenInThisSection;
-         this.virtualAddress = prevSection.HasValue ? ( prevSection.Value.virtualAddress + BitUtils.MultipleOf( sectionAlignment, prevSection.Value.virtualSize ) ) : sectionAlignment;
-         this.rawPointer = prevSection.HasValue ? ( prevSection.Value.rawPointer + prevSection.Value.rawSize ) : fileAlignment; // prevSection.rawSize should always be multiple of file alignment
-         this.rawSize = BitUtils.MultipleOf( fileAlignment, bytesWrittenInThisSection );
+         this.virtualSize = virtualSize;
+         this.virtualAddress = virtualAddress;
+         this.rawSize = rawSize;
+         this.rawPointer = rawPointer;
+      }
+
+      internal SectionInfo( Stream sink, String name, SectionInfo? prevSection, UInt32 bytesWrittenInThisSection, UInt32 sectionAlignment, UInt32 fileAlignment, Boolean actuallyPad )
+         : this(
+         name,
+         bytesWrittenInThisSection,
+         prevSection.HasValue ? ( prevSection.Value.virtualAddress + BitUtils.MultipleOf( sectionAlignment, prevSection.Value.virtualSize ) ) : sectionAlignment,
+          BitUtils.MultipleOf( fileAlignment, bytesWrittenInThisSection ),
+         prevSection.HasValue ? ( prevSection.Value.rawPointer + prevSection.Value.rawSize ) : fileAlignment // prevSection.rawSize should always be multiple of file alignment
+         )
+      {
          if ( actuallyPad )
          {
             for ( var i = this.virtualSize; i < this.rawSize; ++i )

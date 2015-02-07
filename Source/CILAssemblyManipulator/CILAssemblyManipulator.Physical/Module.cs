@@ -17,6 +17,7 @@
  */
 using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
 using System.Text;
 
@@ -102,5 +103,19 @@ namespace CILAssemblyManipulator.Physical
       IList<MethodSpecification> MethodSpecifications { get; }
 
       IList<GenericParameterConstraintDefinition> GenericParameterConstraintDefinitions { get; }
+   }
+
+   public static class CILModuleIO
+   {
+      public static CILMetaData ReadModule( Stream stream )
+      {
+         HeadersData headers;
+         return ReadModule( stream, out headers );
+      }
+
+      public static CILMetaData ReadModule( Stream stream, out HeadersData headers )
+      {
+         return CILAssemblyManipulator.Physical.Implementation.ModuleReader.ReadFromStream( stream, out headers );
+      }
    }
 }
