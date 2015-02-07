@@ -811,7 +811,7 @@ namespace CILAssemblyManipulator.Physical.Implementation
             var offset = ResolveRVA( fieldDefRVAs[i], sections );
             UInt32 size;
             if (
-               TryCalculateFieldTypeSize( retVal, retVal.FieldRVAs[i].Field.idx, out size )
+               TryCalculateFieldTypeSize( retVal, retVal.FieldRVAs[i].Field.Index, out size )
                && offset + size < stream.Length
                )
             {
@@ -914,10 +914,10 @@ namespace CILAssemblyManipulator.Physical.Implementation
                   var c = (ClassOrValueTypeSignature) type;
 
                   var typeIdx = c.Type;
-                  if ( typeIdx.table == Tables.TypeDef && typeIdx.idx < md.TypeDefinitions.Count )
+                  if ( typeIdx.Table == Tables.TypeDef && typeIdx.Index < md.TypeDefinitions.Count )
                   {
                      // Only possible for types defined in this module
-                     var typeRow = md.TypeDefinitions[typeIdx.idx];
+                     var typeRow = md.TypeDefinitions[typeIdx.Index];
                      var extendInfo = typeRow.BaseType;
                      if ( extendInfo.HasValue )
                      {
@@ -925,10 +925,10 @@ namespace CILAssemblyManipulator.Physical.Implementation
                         if ( isEnum )
                         {
                            // First non-static field of enum type is the field containing enum value
-                           var fieldStartIdx = typeRow.FieldList.idx;
-                           var fieldEndIdx = typeIdx.idx + 1 >= md.TypeDefinitions.Count ?
+                           var fieldStartIdx = typeRow.FieldList.Index;
+                           var fieldEndIdx = typeIdx.Index + 1 >= md.TypeDefinitions.Count ?
                               md.FieldDefinitions.Count :
-                              md.TypeDefinitions[typeIdx.idx].FieldList.idx;
+                              md.TypeDefinitions[typeIdx.Index].FieldList.Index;
                            for ( var i = fieldStartIdx; i < fieldEndIdx; ++i )
                            {
                               if ( !md.FieldDefinitions[i].Attributes.IsStatic() )
@@ -939,9 +939,9 @@ namespace CILAssemblyManipulator.Physical.Implementation
                               }
                            }
                         }
-                        else if ( extendInfo.Value.table == Tables.TypeDef )
+                        else if ( extendInfo.Value.Table == Tables.TypeDef )
                         {
-                           var cilIdx = GetReferencingRowsFromOrdered( md.ClassLayouts, Tables.TypeDef, typeIdx.idx, row => row.Parent );
+                           var cilIdx = GetReferencingRowsFromOrdered( md.ClassLayouts, Tables.TypeDef, typeIdx.Index, row => row.Parent );
                            if ( cilIdx.Any() )
                            {
                               var first = cilIdx.First();
@@ -963,12 +963,12 @@ namespace CILAssemblyManipulator.Physical.Implementation
 
       private static Boolean IsEnum( CILMetaData md, TableIndex? tIdx )
       {
-         var result = tIdx.HasValue && tIdx.Value.table != Tables.TypeSpec;
+         var result = tIdx.HasValue && tIdx.Value.Table != Tables.TypeSpec;
          if ( result )
          {
-            var idx = tIdx.Value.idx;
+            var idx = tIdx.Value.Index;
             String tn = null, ns = null;
-            if ( tIdx.Value.table == Tables.TypeDef )
+            if ( tIdx.Value.Table == Tables.TypeDef )
             {
                result = idx < md.TypeDefinitions.Count;
                if ( result )
@@ -1001,7 +1001,7 @@ namespace CILAssemblyManipulator.Physical.Implementation
          while ( min < max )
          {
             var mid = ( min + max ) >> 1; // We can safely add before shifting, since table indices are supposed to be max 3 bytes long anyway.
-            if ( fullIndexExtractor( array[mid] ).idx < targetIndex )
+            if ( fullIndexExtractor( array[mid] ).Index < targetIndex )
             {
                min = mid + 1;
             }
@@ -1012,7 +1012,7 @@ namespace CILAssemblyManipulator.Physical.Implementation
          }
 
          // By calling explicit ReturnWhile method, calculating index using binary search will not be done when re-enumerating the enumerable.
-         return min == max && fullIndexExtractor( array[min] ).idx == targetIndex ?
+         return min == max && fullIndexExtractor( array[min] ).Index == targetIndex ?
             ReturnWhile( array, targetTable, targetIndex, fullIndexExtractor, min ) :
             Empty<Int32>.Enumerable;
       }
@@ -1021,12 +1021,12 @@ namespace CILAssemblyManipulator.Physical.Implementation
       {
          do
          {
-            if ( fullIndexExtractor( array[idx] ).table == targetTable )
+            if ( fullIndexExtractor( array[idx] ).Table == targetTable )
             {
                yield return idx;
             }
             ++idx;
-         } while ( idx < array.Count && fullIndexExtractor( array[idx] ).idx == targetIndex );
+         } while ( idx < array.Count && fullIndexExtractor( array[idx] ).Index == targetIndex );
       }
 
       [Flags]
