@@ -6,6 +6,7 @@ using System.Text;
 
 namespace CILAssemblyManipulator.Physical
 {
+   using CommonUtils;
    using TRVA = UInt32;
 
    internal static class TokenUtils
@@ -813,8 +814,11 @@ namespace CILAssemblyManipulator.Physical
       TypeOrMethodDef
    }
 
-   internal static class StreamExtensions
+   internal static class InternalExtensions
    {
+      private const Char ESCAPE_CHAR = '\\';
+      private static readonly Char[] ESCAPABLE_CHARS_WITHIN_TYPESTRING = { ESCAPE_CHAR, ',', '+', '&', '*', '[', ']' };
+      private static readonly Char[] CHARS_ENDING_SIMPLE_TYPENAME = { '&', '*', '[' };
 
       /// <summary>
       /// Using specified auxiliary array, reads a <see cref="UInt64"/> from <see cref="Stream"/>.
@@ -912,6 +916,326 @@ namespace CILAssemblyManipulator.Physical
          }
          return new String( charBuf, 0, charBufSize );
       }
+
+      internal static IEnumerable<Int32> GetReferencingRowsFromOrdered<T>( this IList<T> array, Tables targetTable, Int32 targetIndex, Func<T, TableIndex> fullIndexExtractor )
+      {
+         // Use binary search to find first one
+         // Use the deferred equality detection version in order to find the smallest index matching the target index
+         var max = array.Count - 1;
+         var min = 0;
+         while ( min < max )
+         {
+            var mid = ( min + max ) >> 1; // We can safely add before shifting, since table indices are supposed to be max 3 bytes long anyway.
+            if ( fullIndexExtractor( array[mid] ).Index < targetIndex )
+            {
+               min = mid + 1;
+            }
+            else
+            {
+               max = mid;
+            }
+         }
+
+         // By calling explicit ReturnWhile method, calculating index using binary search will not be done when re-enumerating the enumerable.
+         return min == max && fullIndexExtractor( array[min] ).Index == targetIndex ?
+            ReturnWhile( array, targetTable, targetIndex, fullIndexExtractor, min ) :
+            Empty<Int32>.Enumerable;
+      }
+
+      private static IEnumerable<Int32> ReturnWhile<T>( IList<T> array, Tables targetTable, Int32 targetIndex, Func<T, TableIndex> fullIndexExtractor, Int32 idx )
+      {
+         do
+         {
+            if ( fullIndexExtractor( array[idx] ).Table == targetTable )
+            {
+               yield return idx;
+            }
+            ++idx;
+         } while ( idx < array.Count && fullIndexExtractor( array[idx] ).Index == targetIndex );
+      }
+
+
+      internal static String CreateTypeString( this TypeSignature type, CILMetaData moduleBeingEmitted, Boolean appendGArgs )
+      {
+
+         String typeString;
+         if ( type == null )
+         {
+            typeString = null;
+         }
+         else
+         {
+            // TODO probably should forbid whitespace characters to be within type and assembly names?
+            var builder = new StringBuilder();
+            CreateTypeString( type, moduleBeingEmitted, builder, appendGArgs );
+            typeString = builder.ToString();
+         }
+         return typeString;
+      }
+
+      private static void CreateTypeString( TypeSignature type, CILMetaData md, StringBuilder builder, Boolean appendGArgs )
+      {
+         const String TYPE_ASSEMBLY_SEPARATOR = ", ";
+
+         var otherAssemblyRef = CreateTypeStringCore( type, md, builder, appendGArgs );
+         if ( otherAssemblyRef != null )
+         {
+            builder
+               .Insert( 0, "[" )
+               .Append( TYPE_ASSEMBLY_SEPARATOR )
+               .Append( otherAssemblyRef.ToStringForTypeName() ); // Assembly name will be escaped.
+
+         }
+      }
+
+      private static AssemblyReference CreateTypeStringCore( TypeSignature type, CILMetaData md, StringBuilder builder, Boolean appendGArgs )
+      {
+         AssemblyReference retVal = null;
+         switch ( type.TypeSignatureKind )
+         {
+            case TypeSignatureKind.ComplexArray:
+               var cArray = (ComplexArrayTypeSignature) type;
+               retVal = CreateTypeStringCore( cArray.ArrayType, md, builder, appendGArgs );
+               CreateArrayString( cArray, builder );
+               break;
+            case TypeSignatureKind.SimpleArray:
+               retVal = CreateTypeStringCore( ( (AbstractArrayTypeSignature) type ).ArrayType, md, builder, appendGArgs );
+               CreateArrayString( null, builder );
+               break;
+            case TypeSignatureKind.Pointer:
+               retVal = CreateTypeStringCore( ( (PointerTypeSignature) type ).Type, md, builder, appendGArgs );
+               builder.Append( '*' );
+               break;
+            case TypeSignatureKind.ClassOrValue:
+               retVal = CreateTypeStringFromTableIndex( md, ( (ClassOrValueTypeSignature) type ).Type, builder, appendGArgs );
+               break;
+            case TypeSignatureKind.GenericParameter:
+               throw new NotImplementedException();
+            case TypeSignatureKind.FunctionPointer:
+               throw new NotImplementedException();
+         }
+
+         return retVal;
+      }
+
+      private static AssemblyReference CreateTypeStringFromTableIndex( this CILMetaData md, TableIndex tIndex, StringBuilder builder, Boolean appendGArgs )
+      {
+         var index = tIndex.Index;
+         AssemblyReference retVal = null;
+         switch ( tIndex.Table )
+         {
+            case Tables.TypeDef:
+               if ( index < md.TypeDefinitions.Count )
+               {
+                  var tDef = md.TypeDefinitions[index];
+                  var declTypeRows = md.NestedClassDefinitions.GetReferencingRowsFromOrdered( Tables.TypeDef, index, row => row.NestedClass );
+                  if ( declTypeRows.Any() )
+                  {
+                     var declTypeRow = declTypeRows.First();
+                     if ( declTypeRow < md.NestedClassDefinitions.Count )
+                     {
+                        CreateTypeStringFromTableIndex( md, md.NestedClassDefinitions[declTypeRow].EnclosingClass, builder, false );
+                        builder.Append( '+' );
+                     }
+                  }
+                  else
+                  {
+                     var ns = tDef.Namespace;
+                     if ( !String.IsNullOrEmpty( ns ) )
+                     {
+                        builder.Append( EscapeSomeString( ns ) ).Append( '.' );
+                     }
+                  }
+                  builder.Append( EscapeSomeString( tDef.Name ) );
+               }
+               break;
+            case Tables.TypeRef:
+               if ( index < md.TypeReferences.Count )
+               {
+                  var tRef = md.TypeReferences[index];
+                  var resScope = tRef.ResolutionScope;
+                  if ( resScope.HasValue && resScope.Value.Table == Tables.TypeRef )
+                  {
+                     CreateTypeStringFromTableIndex( md, resScope.Value, builder, false );
+                     builder.Append( '+' );
+                  }
+                  else
+                  {
+                     var ns = tRef.Namespace;
+                     if ( !String.IsNullOrEmpty( ns ) )
+                     {
+                        builder.Append( EscapeSomeString( ns ) ).Append( '.' );
+                     }
+                  }
+                  builder.Append( EscapeSomeString( tRef.Name ) );
+                  if ( resScope.HasValue && resScope.Value.Table == Tables.AssemblyRef && resScope.Value.Index < md.AssemblyReferences.Count )
+                  {
+                     retVal = md.AssemblyReferences[resScope.Value.Index];
+                  }
+               }
+               break;
+            case Tables.TypeSpec:
+               if ( index < md.TypeSpecifications.Count )
+               {
+                  var tSig = md.TypeSpecifications[index].Signature as ClassOrValueTypeSignature;
+                  if ( tSig != null )
+                  {
+                     retVal = CreateTypeStringFromTableIndex( md, tSig.Type, builder, false );
+
+                     if ( appendGArgs )
+                     {
+                        var gArgs = tSig.GenericArguments;
+                        builder.Append( '[' );
+                        for ( var i = 0; i < gArgs.Count; ++i )
+                        {
+                           builder.Append( '[' );
+                           CreateTypeString( gArgs[i], md, true );
+                           builder.Append( ']' );
+                           if ( i < gArgs.Count - 1 )
+                           {
+                              builder.Append( ',' );
+                           }
+                        }
+                        builder.Append( ']' );
+                     }
+                  }
+               }
+               break;
+         }
+
+         return retVal;
+      }
+
+      private static void CreateArrayString( ComplexArrayTypeSignature complexArray, StringBuilder builder )
+      {
+         builder.Append( '[' );
+         if ( complexArray != null )
+         {
+            if ( complexArray.Rank == 1 && complexArray.Sizes.Count == 0 && complexArray.LowerBounds.Count == 0 )
+            {
+               // Special case
+               builder.Append( '*' );
+            }
+            else
+            {
+               for ( var i = 0; i < complexArray.Rank; ++i )
+               {
+                  var appendLoBound = i < complexArray.LowerBounds.Count;
+                  if ( appendLoBound )
+                  {
+                     var loBound = complexArray.LowerBounds[i];
+                     appendLoBound = loBound != 0;
+                     if ( appendLoBound )
+                     {
+                        builder.Append( loBound ).Append( ".." );
+                     }
+                  }
+                  if ( i < complexArray.Sizes.Count )
+                  {
+                     builder.Append( complexArray.Sizes[i] );
+                  }
+                  else if ( appendLoBound )
+                  {
+                     builder.Append( '.' );
+                  }
+
+                  if ( i < complexArray.Rank - 1 )
+                  {
+                     builder.Append( ',' );
+                  }
+               }
+            }
+         }
+         builder.Append( ']' );
+
+      }
+
+      // As specified in combination of
+      // http://msdn.microsoft.com/en-us/library/yfsftwz6%28v=vs.110%29.aspx 
+      // and
+      // http://msdn.microsoft.com/en-us/library/system.type.assemblyqualifiedname.aspx
+      internal static String UnescapeSomeString( String str )
+      {
+         return str == null ? null : UnescapeSomeString( str, 0, str.Length );
+      }
+
+      internal static String EscapeSomeString( String str )
+      {
+         return str == null ? null : EscapeSomeString( str, 0, str.Length );
+      }
+
+      internal static String EscapeSomeString( String str, Int32 startIdx, Int32 count )
+      {
+         if ( str != null )
+         {
+            if ( str.IndexOfAny( ESCAPABLE_CHARS_WITHIN_TYPESTRING, startIdx, count ) >= 0 )
+            {
+               // String contains characters that should be escaped
+               var chars = new Char[count * 2];
+               var cIdx = 0;
+               for ( var i = startIdx; i < count; ++i )
+               {
+                  var ch = str[i];
+                  if ( Array.IndexOf( ESCAPABLE_CHARS_WITHIN_TYPESTRING, ch ) >= 0 )
+                  {
+                     chars[cIdx++] = ESCAPE_CHAR;
+                  }
+                  chars[cIdx++] = ch;
+               }
+               str = new String( chars, 0, cIdx );
+            }
+            else if ( startIdx > 0 || count < str.Length )
+            {
+               str = str.Substring( startIdx, count );
+            }
+         }
+         return str;
+      }
+
+      internal static String UnescapeSomeString( String str, Int32 startIdx, Int32 count )
+      {
+         if ( str != null )
+         {
+            if ( str.IndexOf( ESCAPE_CHAR, startIdx, count ) >= 0 )
+            {
+               // String contains escaped charcters
+               var chars = new Char[count];
+               var prevWasEscaped = false;
+               var curLen = 0;
+               for ( var i = startIdx; i < count; ++i )
+               {
+                  var ch = str[i];
+                  if ( ch != ESCAPE_CHAR || prevWasEscaped )
+                  {
+                     chars[curLen] = ch;
+                     ++curLen;
+                     prevWasEscaped = false;
+                  }
+                  else
+                  {
+                     prevWasEscaped = true;
+                  }
+               }
+               str = new String( chars, 0, curLen );
+            }
+            else if ( startIdx > 0 || count < str.Length )
+            {
+               str = str.Substring( startIdx, count );
+            }
+         }
+         return str;
+      }
+
+      private static String ToStringForTypeName( this AssemblyReference aRef )
+      {
+         // mscorlib, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089
+         return EscapeSomeString( aRef.Name ) +
+            Consts.ASSEMBLY_NAME_ELEMENTS_SEPARATOR + ' ' + Consts.VERSION + Consts.ASSEMBLY_NAME_ELEMENT_VALUE_SEPARATOR + aRef.VersionMajor + Consts.VERSION_SEPARATOR + aRef.VersionMinor + Consts.VERSION_SEPARATOR + aRef.VersionBuild + Consts.VERSION_SEPARATOR + aRef.VersionRevision +
+            Consts.ASSEMBLY_NAME_ELEMENTS_SEPARATOR + ' ' + Consts.CULTURE + Consts.ASSEMBLY_NAME_ELEMENT_VALUE_SEPARATOR + ( aRef.Culture == null || aRef.Culture.Trim().Length == 0 ? Consts.NEUTRAL_CULTURE : aRef.Culture ) +
+            ( aRef.PublicKeyOrToken.IsNullOrEmpty() ? "" :
+            ( Consts.ASSEMBLY_NAME_ELEMENTS_SEPARATOR + ' ' + ( ( (AssemblyFlags) aRef.Attributes ).IsFullPublicKey() ? Consts.PUBLIC_KEY : Consts.PUBLIC_KEY_TOKEN ) + Consts.ASSEMBLY_NAME_ELEMENT_VALUE_SEPARATOR + StringConversions.ByteArray2HexStr( aRef.PublicKeyOrToken, 0, aRef.PublicKeyOrToken.Length, false ) )
+               );
+      }
    }
 
    internal static class Consts
@@ -966,6 +1290,17 @@ namespace CILAssemblyManipulator.Physical
       internal const String SECURITY_ACTION = "System.Security.Permissions.SecurityAction";
       internal const String PERMISSION_SET = "System.Security.Permissions.PermissionSetAttribute";
       internal const String PERMISSION_SET_XML_PROP = "XML";
+
+
+      internal const Char ASSEMBLY_NAME_ELEMENTS_SEPARATOR = ',';
+      internal const Char ASSEMBLY_NAME_ELEMENT_VALUE_SEPARATOR = '=';
+      internal const Char VERSION_SEPARATOR = '.';
+      internal const String VERSION = "Version";
+      internal const String CULTURE = "Culture";
+      internal const String PUBLIC_KEY_TOKEN = "PublicKeyToken";
+      internal const String PUBLIC_KEY = "PublicKey";
+      internal const String NEUTRAL_CULTURE = "neutral";
+      internal const String NEUTRAL_CULTURE_NAME = "";
    }
 
    internal struct SectionInfo

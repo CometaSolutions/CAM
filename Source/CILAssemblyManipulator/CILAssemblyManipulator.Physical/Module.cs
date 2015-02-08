@@ -20,6 +20,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Text;
+using CommonUtils;
 
 namespace CILAssemblyManipulator.Physical
 {
@@ -105,17 +106,51 @@ namespace CILAssemblyManipulator.Physical
       IList<GenericParameterConstraintDefinition> GenericParameterConstraintDefinitions { get; }
    }
 
-   public static class CILModuleIO
+   public sealed class ModuleLoadingArguments
    {
-      public static CILMetaData ReadModule( Stream stream )
+      public event EventHandler<CustomAttributeConstructorTypeResolveEventArgs> CustomAttributeConstructorResolveEvent;
+
+      internal CustomAttributeArgumentType ResolveCustomAttributeConstructorArgumentType( ClassOrValueTypeSignature type )
       {
-         HeadersData headers;
-         return ReadModule( stream, out headers );
+         var args = new CustomAttributeConstructorTypeResolveEventArgs( type );
+         this.CustomAttributeConstructorResolveEvent.InvokeEventIfNotNull( evt => evt( this, args ) );
+         return args.ResolvedReference;
+      }
+   }
+
+   public sealed class CustomAttributeConstructorTypeResolveEventArgs : EventArgs
+   {
+      private readonly ClassOrValueTypeSignature _type;
+
+      internal CustomAttributeConstructorTypeResolveEventArgs( ClassOrValueTypeSignature referenceToResolve )
+      {
+         ArgumentValidator.ValidateNotNull( "Member reference", referenceToResolve );
+
+         this._type = referenceToResolve;
       }
 
-      public static CILMetaData ReadModule( Stream stream, out HeadersData headers )
+      public ClassOrValueTypeSignature ReferenceToResolve
       {
-         return CILAssemblyManipulator.Physical.Implementation.ModuleReader.ReadFromStream( stream, out headers );
+         get
+         {
+            return this._type;
+         }
+      }
+
+      public CustomAttributeArgumentType ResolvedReference { get; set; }
+   }
+
+   public static class CILModuleIO
+   {
+      public static CILMetaData ReadModule( ModuleLoadingArguments loadingArgs, Stream stream )
+      {
+         HeadersData headers;
+         return ReadModule( loadingArgs, stream, out headers );
+      }
+
+      public static CILMetaData ReadModule( ModuleLoadingArguments loadingArgs, Stream stream, out HeadersData headers )
+      {
+         return CILAssemblyManipulator.Physical.Implementation.ModuleReader.ReadFromStream( loadingArgs, stream, out headers );
       }
    }
 }

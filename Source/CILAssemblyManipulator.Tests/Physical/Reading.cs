@@ -33,7 +33,9 @@ namespace CILAssemblyManipulator.Tests.Physical
       {
          using ( var fs = File.OpenRead( new Uri( typeof( CILModuleIO ).Assembly.CodeBase ).LocalPath ) )
          {
-            var thisMD = CILModuleIO.ReadModule( fs );
+            var lArgs = new ModuleLoadingArguments();
+
+            var thisMD = CILModuleIO.ReadModule( lArgs, fs );
          }
       }
    }

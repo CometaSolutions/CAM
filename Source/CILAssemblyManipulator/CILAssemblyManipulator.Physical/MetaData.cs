@@ -80,6 +80,7 @@ namespace CILAssemblyManipulator.Physical
 
       public Boolean InitLocals { get; set; }
       public TableIndex? LocalsSignatureIndex { get; set; }
+
       public IList<MethodExceptionBlock> ExceptionBlocks
       {
          get
@@ -87,6 +88,7 @@ namespace CILAssemblyManipulator.Physical
             return this._exceptionBlocks;
          }
       }
+
       public IList<OpCodeInfo> OpCodes
       {
          get
@@ -138,7 +140,7 @@ namespace CILAssemblyManipulator.Physical
    {
       public TableIndex Parent { get; set; }
       public TableIndex Type { get; set; }
-      public Byte[] Value { get; set; } // TODO own type for custom attribute data
+      public CustomAttributeSignature Signature { get; set; }
    }
    public sealed class FieldMarshal
    {
@@ -506,6 +508,7 @@ namespace CILAssemblyManipulator.Physical
             }
             type = TypeSignature.ReadFromBytesWithRef( sig, ref idx );
          }
+         retVal.Type = type;
          return retVal;
       }
    }
@@ -1670,6 +1673,129 @@ namespace CILAssemblyManipulator.Physical
          return result;
       }
 
+   }
+
+   public sealed class CustomAttributeSignature
+   {
+      private readonly IList<CustomAttributeTypedArgument> _typedArgs;
+      private readonly IList<CustomAttributeNamedArgument> _namedArgs;
+
+      public CustomAttributeSignature( Int32 typedArgsCount = 0, Int32 namedArgsCount = 0 )
+      {
+         this._typedArgs = new List<CustomAttributeTypedArgument>( typedArgsCount );
+         this._namedArgs = new List<CustomAttributeNamedArgument>( namedArgsCount );
+      }
+
+      public IList<CustomAttributeTypedArgument> TypedArguments
+      {
+         get
+         {
+            return this._typedArgs;
+         }
+      }
+
+      public IList<CustomAttributeNamedArgument> NamedArguments
+      {
+         get
+         {
+            return this._namedArgs;
+         }
+      }
+   }
+
+   public sealed class CustomAttributeTypedArgument
+   {
+      // Note: enums will be deserialized as their underlying enum types
+      public Object Value { get; set; }
+      public CustomAttributeArgumentType Type { get; set; }
+   }
+
+   public sealed class CustomAttributeNamedArgument
+   {
+      public CustomAttributeTypedArgument Value { get; set; }
+      public String Name { get; set; }
+      public Boolean IsField { get; set; }
+   }
+
+   public enum CustomAttributeArgumentTypeKind
+   {
+      Simple,
+      TypeString,
+      Array
+   }
+
+   public abstract class CustomAttributeArgumentType
+   {
+      public abstract CustomAttributeArgumentTypeKind ArgumentTypeKind { get; }
+   }
+
+   public sealed class CustomAttributeArgumentSimple : CustomAttributeArgumentType
+   {
+      public static readonly CustomAttributeArgumentSimple Boolean = new CustomAttributeArgumentSimple( SignatureElementTypes.Boolean );
+      public static readonly CustomAttributeArgumentSimple Char = new CustomAttributeArgumentSimple( SignatureElementTypes.Char );
+      public static readonly CustomAttributeArgumentSimple SByte = new CustomAttributeArgumentSimple( SignatureElementTypes.I1 );
+      public static readonly CustomAttributeArgumentSimple Byte = new CustomAttributeArgumentSimple( SignatureElementTypes.U1 );
+      public static readonly CustomAttributeArgumentSimple Int16 = new CustomAttributeArgumentSimple( SignatureElementTypes.I2 );
+      public static readonly CustomAttributeArgumentSimple UInt16 = new CustomAttributeArgumentSimple( SignatureElementTypes.U2 );
+      public static readonly CustomAttributeArgumentSimple Int32 = new CustomAttributeArgumentSimple( SignatureElementTypes.I4 );
+      public static readonly CustomAttributeArgumentSimple UInt32 = new CustomAttributeArgumentSimple( SignatureElementTypes.U4 );
+      public static readonly CustomAttributeArgumentSimple Int64 = new CustomAttributeArgumentSimple( SignatureElementTypes.I8 );
+      public static readonly CustomAttributeArgumentSimple UInt64 = new CustomAttributeArgumentSimple( SignatureElementTypes.U8 );
+      public static readonly CustomAttributeArgumentSimple Single = new CustomAttributeArgumentSimple( SignatureElementTypes.R4 );
+      public static readonly CustomAttributeArgumentSimple Double = new CustomAttributeArgumentSimple( SignatureElementTypes.R8 );
+      public static readonly CustomAttributeArgumentSimple String = new CustomAttributeArgumentSimple( SignatureElementTypes.String );
+      public static readonly CustomAttributeArgumentSimple Type = new CustomAttributeArgumentSimple( SignatureElementTypes.Type );
+      public static readonly CustomAttributeArgumentSimple Object = new CustomAttributeArgumentSimple( SignatureElementTypes.Object );
+
+      private SignatureElementTypes _kind;
+
+      private CustomAttributeArgumentSimple( SignatureElementTypes kind )
+      {
+         this._kind = kind;
+      }
+
+      public override CustomAttributeArgumentTypeKind ArgumentTypeKind
+      {
+         get
+         {
+            return CustomAttributeArgumentTypeKind.Simple;
+         }
+      }
+
+      public SignatureElementTypes SimpleType
+      {
+         get
+         {
+            return this._kind;
+         }
+      }
+   }
+
+   public sealed class CustomAttributeArgumentTypeString : CustomAttributeArgumentType
+   {
+      public override CustomAttributeArgumentTypeKind ArgumentTypeKind
+      {
+         get
+         {
+            return CustomAttributeArgumentTypeKind.TypeString;
+         }
+      }
+
+      public String TypeString { get; set; }
+   }
+
+   public sealed class CustomAttributeArgumentTypeArray : CustomAttributeArgumentType
+   {
+
+      public override CustomAttributeArgumentTypeKind ArgumentTypeKind
+      {
+         get
+         {
+            return CustomAttributeArgumentTypeKind.Array;
+         }
+      }
+
+      public CustomAttributeArgumentType ArrayType { get; set; }
    }
 }
 

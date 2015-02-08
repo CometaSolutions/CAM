@@ -247,14 +247,7 @@ namespace CILAssemblyManipulator.Physical.Implementation
       private const Byte WIDE_BLOB_FLAG = 0x04;
 
       public static CILMetaData ReadFromStream(
-         Stream stream
-         )
-      {
-         HeadersData headers;
-         return ReadFromStream( stream, out headers );
-      }
-
-      public static CILMetaData ReadFromStream(
+         ModuleLoadingArguments loadingArgs,
          Stream stream,
          out HeadersData headers
          )
@@ -351,6 +344,7 @@ namespace CILAssemblyManipulator.Physical.Implementation
          stream.SeekFromBegin( ResolveRVA( mdDD.rva, sections ) );
          String mdVersion;
          var retVal = ReadMetadata(
+            loadingArgs,
             stream,
             sections,
             out mdVersion
@@ -363,9 +357,11 @@ namespace CILAssemblyManipulator.Physical.Implementation
       }
 
       internal static CILMetaData ReadMetadata(
+         ModuleLoadingArguments loadingArgs,
          Stream stream,
          SectionInfo[] sections,
-         out String versionStr )
+         out String versionStr
+         )
       {
          var mdRoot = stream.Position;
 
@@ -554,12 +550,15 @@ namespace CILAssemblyManipulator.Physical.Implementation
                   break;
                case Tables.CustomAttribute:
                   ReadTable( retVal.CustomAttributeDefinitions, curTable, tableSizes, i =>
-                     new CustomAttributeDefinition()
+                  {
+                     var ca = new CustomAttributeDefinition()
                      {
                         Parent = MetaDataConstants.ReadCodedTableIndex( stream, CodedTableIndexKind.HasCustomAttribute, tRefSizes, tmpArray ).Value,
                         Type = MetaDataConstants.ReadCodedTableIndex( stream, CodedTableIndexKind.CustomAttributeType, tRefSizes, tmpArray ).Value,
-                        Value = blobs.ReadBLOB( stream )
-                     } );
+                     };
+                     ca.Signature = ReadCustomAttributeSignature( loadingArgs, blobs, stream, retVal, ca.Type );
+                     return ca;
+                  } );
                   break;
                case Tables.FieldMarshal:
                   ReadTable( retVal.FieldMarshals, curTable, tableSizes, i =>
@@ -857,9 +856,17 @@ namespace CILAssemblyManipulator.Physical.Implementation
 
       private static AbstractSignature ReadStandaloneSignature( Byte[] bytes, Int32 idx )
       {
+         // From https://social.msdn.microsoft.com/Forums/en-US/b4252eab-7aae-4456-9829-2707c8459e13/pinned-fields-in-the-common-language-runtime?forum=netfxtoolsdev
+         // After messing around further, and noticing that even the C# compiler emits Field signatures in the StandAloneSig table, the signatures seem to relate to PDB debugging symbols.
+         // When you emit symbols with the Debug or Release versions of your code, I'm guessing a StandAloneSig entry is injected and referred to by the PDB file.
+         // If you are in release mode and you generate no PDB info, the StandAloneSig table contains no Field signatures.
+         // One such condition for the emission of such information is constants within the scope of a method body.
+         // Original thread:  http://www.netframeworkdev.com/building-development-diagnostic-tools-for-net/field-signatures-in-standalonesig-table-30658.shtml
          return (SignatureStarters) bytes[idx] == SignatureStarters.LocalSignature ?
             (AbstractSignature) LocalVariablesSignature.ReadFromBytes( bytes, ref idx ) :
-            MethodReferenceSignature.ReadFromBytes( bytes, ref idx );
+            ( (SignatureStarters) bytes[idx] == SignatureStarters.Field ?
+               null : // We could parse field signature but it sometimes may contain stuff like Pinned etc, which would just mess it up
+               MethodReferenceSignature.ReadFromBytes( bytes, ref idx ) );
       }
 
       private static Int64 ResolveRVA( Int64 rva, SectionInfo[] sections )
@@ -951,7 +958,7 @@ namespace CILAssemblyManipulator.Physical.Implementation
                         }
                         else if ( extendInfo.Value.Table == Tables.TypeDef )
                         {
-                           var cilIdx = GetReferencingRowsFromOrdered( md.ClassLayouts, Tables.TypeDef, typeIdx.Index, row => row.Parent );
+                           var cilIdx = md.ClassLayouts.GetReferencingRowsFromOrdered( Tables.TypeDef, typeIdx.Index, row => row.Parent );
                            if ( cilIdx.Any() )
                            {
                               var first = cilIdx.First();
@@ -1002,48 +1009,12 @@ namespace CILAssemblyManipulator.Physical.Implementation
          return result;
       }
 
-      private static IEnumerable<Int32> GetReferencingRowsFromOrdered<T>( IList<T> array, Tables targetTable, Int32 targetIndex, Func<T, TableIndex> fullIndexExtractor )
-      {
-         // Use binary search to find first one
-         // Use the deferred equality detection version in order to find the smallest index matching the target index
-         var max = array.Count - 1;
-         var min = 0;
-         while ( min < max )
-         {
-            var mid = ( min + max ) >> 1; // We can safely add before shifting, since table indices are supposed to be max 3 bytes long anyway.
-            if ( fullIndexExtractor( array[mid] ).Index < targetIndex )
-            {
-               min = mid + 1;
-            }
-            else
-            {
-               max = mid;
-            }
-         }
-
-         // By calling explicit ReturnWhile method, calculating index using binary search will not be done when re-enumerating the enumerable.
-         return min == max && fullIndexExtractor( array[min] ).Index == targetIndex ?
-            ReturnWhile( array, targetTable, targetIndex, fullIndexExtractor, min ) :
-            Empty<Int32>.Enumerable;
-      }
-
-      private static IEnumerable<Int32> ReturnWhile<T>( IList<T> array, Tables targetTable, Int32 targetIndex, Func<T, TableIndex> fullIndexExtractor, Int32 idx )
-      {
-         do
-         {
-            if ( fullIndexExtractor( array[idx] ).Table == targetTable )
-            {
-               yield return idx;
-            }
-            ++idx;
-         } while ( idx < array.Count && fullIndexExtractor( array[idx] ).Index == targetIndex );
-      }
 
       private static Object ReadConstantValue( BLOBContainer blobContainer, Stream stream, SignatureElementTypes constType )
       {
          var blob = blobContainer.WholeBLOBArray;
          Int32 blobSize;
-         var idx = blobContainer.GetBLOBIndex( stream, out  blobSize );
+         var idx = blobContainer.GetBLOBIndex( stream, out blobSize );
          switch ( constType )
          {
             case SignatureElementTypes.Boolean:
@@ -1264,6 +1235,303 @@ namespace CILAssemblyManipulator.Physical.Implementation
                   throw new ArgumentException( "Unknown operand type: " + code.OperandType + " for " + code + "." );
             }
          }
+      }
+
+      private static CustomAttributeSignature ReadCustomAttributeSignature(
+         ModuleLoadingArguments loadingArgs,
+         BLOBContainer blobContainer,
+         Stream stream,
+         CILMetaData md,
+         TableIndex methodRef
+         )
+      {
+         Int32 blobSize;
+         var idx = blobContainer.GetBLOBIndex( stream, out blobSize );
+         CustomAttributeSignature retVal;
+         if ( blobSize > 2 )
+         {
+            AbstractMethodSignature ctorSig;
+            switch ( methodRef.Table )
+            {
+               case Tables.MethodDef:
+                  ctorSig = methodRef.Index < md.MethodDefinitions.Count ?
+                     md.MethodDefinitions[methodRef.Index].Signature :
+                     null;
+                  break;
+               case Tables.MemberRef:
+                  ctorSig = methodRef.Index < md.MemberReferences.Count ?
+                     md.MemberReferences[methodRef.Index].Signature as AbstractMethodSignature :
+                     null;
+                  break;
+               default:
+                  ctorSig = null;
+                  break;
+            }
+            if ( ctorSig == null )
+            {
+               retVal = new CustomAttributeSignature();
+            }
+            else
+            {
+               retVal = new CustomAttributeSignature( typedArgsCount: ctorSig.Parameters.Count );
+               if ( !ReadCustomAttributeSignature( loadingArgs, md, blobContainer.WholeBLOBArray, idx, retVal, ctorSig ) )
+               {
+                  // Resolving external types for constructor failed
+                  retVal = null;
+               }
+            }
+         }
+         else
+         {
+            retVal = new CustomAttributeSignature();
+         }
+
+         return retVal;
+      }
+
+      private static Boolean ReadCustomAttributeSignature( ModuleLoadingArguments loadingArgs, CILMetaData md, Byte[] blob, Int32 idx, CustomAttributeSignature retVal, AbstractMethodSignature ctorSig )
+      {
+         idx += 2; // Skip prolog
+
+         for ( var i = 0; i < ctorSig.Parameters.Count; ++i )
+         {
+            var caType = TypeSignatureToCustomAttributeType( loadingArgs, md, ctorSig.Parameters[i].Type );
+            if ( caType == null )
+            {
+               // We don't know the size of the type -> stop
+               retVal.TypedArguments.Clear();
+               break;
+            }
+            retVal.TypedArguments.Add( ReadCAFixedArgument( blob, ref idx, caType ) );
+         }
+
+         // Check if we had failed to resolve ctor type before.
+         var success = retVal.TypedArguments.Count == ctorSig.Parameters.Count;
+         if ( success )
+         {
+            var namedCount = blob.ReadUInt16LEFromBytes( ref idx );
+            for ( var i = 0; i < namedCount; ++i )
+            {
+               retVal.NamedArguments.Add( ReadCANamedArg( blob, ref idx ) );
+            }
+         }
+
+         return success;
+      }
+
+      private static CustomAttributeArgumentType TypeSignatureToCustomAttributeType( ModuleLoadingArguments loadingArgs, CILMetaData md, TypeSignature type )
+      {
+         switch ( type.TypeSignatureKind )
+         {
+            case TypeSignatureKind.SimpleArray:
+               return new CustomAttributeArgumentTypeArray()
+               {
+                  ArrayType = TypeSignatureToCustomAttributeType( loadingArgs, md, ( (SimpleArrayTypeSignature) type ).ArrayType )
+               };
+            case TypeSignatureKind.Simple:
+               switch ( ( (SimpleTypeSignature) type ).SimpleType )
+               {
+                  case SignatureElementTypes.Boolean:
+                     return CustomAttributeArgumentSimple.Boolean;
+                  case SignatureElementTypes.Char:
+                     return CustomAttributeArgumentSimple.Char;
+                  case SignatureElementTypes.I1:
+                     return CustomAttributeArgumentSimple.SByte;
+                  case SignatureElementTypes.U1:
+                     return CustomAttributeArgumentSimple.Byte;
+                  case SignatureElementTypes.I2:
+                     return CustomAttributeArgumentSimple.Int16;
+                  case SignatureElementTypes.U2:
+                     return CustomAttributeArgumentSimple.UInt16;
+                  case SignatureElementTypes.I4:
+                     return CustomAttributeArgumentSimple.Int32;
+                  case SignatureElementTypes.U4:
+                     return CustomAttributeArgumentSimple.UInt32;
+                  case SignatureElementTypes.I8:
+                     return CustomAttributeArgumentSimple.Int64;
+                  case SignatureElementTypes.U8:
+                     return CustomAttributeArgumentSimple.UInt64;
+                  case SignatureElementTypes.R4:
+                     return CustomAttributeArgumentSimple.Single;
+                  case SignatureElementTypes.R8:
+                     return CustomAttributeArgumentSimple.Double;
+                  case SignatureElementTypes.String:
+                     return CustomAttributeArgumentSimple.String;
+                  case SignatureElementTypes.Object:
+                     return CustomAttributeArgumentSimple.Object;
+                  case SignatureElementTypes.Type:
+                     return CustomAttributeArgumentSimple.Type;
+                  default:
+                     return null;
+               }
+            case TypeSignatureKind.ClassOrValue:
+               return loadingArgs.ResolveCustomAttributeConstructorArgumentType( (ClassOrValueTypeSignature) type );
+            default:
+               return null;
+         }
+      }
+
+      private static CustomAttributeTypedArgument ReadCAFixedArgument( Byte[] caBLOB, ref Int32 idx, CustomAttributeArgumentType type )
+      {
+         Object value;
+         if ( type == null )
+         {
+            value = null;
+         }
+         else
+         {
+            switch ( type.ArgumentTypeKind )
+            {
+               case CustomAttributeArgumentTypeKind.Array:
+                  var amount = caBLOB.ReadInt32LEFromBytes( ref idx );
+                  if ( ( (UInt32) amount ) == 0xFFFFFFFF )
+                  {
+                     value = null;
+                  }
+                  else
+                  {
+                     var array = new Object[amount];
+                     var elemType = ( (CustomAttributeArgumentTypeArray) type ).ArrayType;
+                     for ( var i = 0; i < amount; ++i )
+                     {
+                        array[i] = ReadCAFixedArgument( caBLOB, ref idx, elemType ).Value;
+                     }
+                     value = array;
+                  }
+                  break;
+               case CustomAttributeArgumentTypeKind.Simple:
+                  switch ( ( (CustomAttributeArgumentSimple) type ).SimpleType )
+                  {
+                     case SignatureElementTypes.Boolean:
+                        value = caBLOB.ReadByteFromBytes( ref idx ) == 1;
+                        break;
+                     case SignatureElementTypes.Char:
+                        value = Convert.ToChar( caBLOB.ReadUInt16LEFromBytes( ref idx ) );
+                        break;
+                     case SignatureElementTypes.I1:
+                        value = caBLOB.ReadSByteFromBytes( ref idx );
+                        break;
+                     case SignatureElementTypes.U1:
+                        value = caBLOB.ReadByteFromBytes( ref idx );
+                        break;
+                     case SignatureElementTypes.I2:
+                        value = caBLOB.ReadInt16LEFromBytes( ref idx );
+                        break;
+                     case SignatureElementTypes.U2:
+                        value = caBLOB.ReadUInt32LEFromBytes( ref idx );
+                        break;
+                     case SignatureElementTypes.I4:
+                        value = caBLOB.ReadInt32LEFromBytes( ref idx );
+                        break;
+                     case SignatureElementTypes.U4:
+                        value = caBLOB.ReadUInt32LEFromBytes( ref idx );
+                        break;
+                     case SignatureElementTypes.I8:
+                        value = caBLOB.ReadInt64LEFromBytes( ref idx );
+                        break;
+                     case SignatureElementTypes.U8:
+                        value = caBLOB.ReadUInt64LEFromBytes( ref idx );
+                        break;
+                     case SignatureElementTypes.R4:
+                        value = caBLOB.ReadSingleLEFromBytes( ref idx );
+                        break;
+                     case SignatureElementTypes.R8:
+                        value = caBLOB.ReadDoubleLEFromBytes( ref idx );
+                        break;
+                     case SignatureElementTypes.String:
+                        value = caBLOB.ReadLenPrefixedUTF8String( ref idx );
+                        break;
+                     case SignatureElementTypes.Object:
+                        type = ReadCAFieldOrPropType( caBLOB, ref idx );
+                        value = ReadCAFixedArgument( caBLOB, ref idx, type ).Value;
+                        break;
+                     case SignatureElementTypes.Type:
+                        value = caBLOB.ReadLenPrefixedUTF8String( ref idx );
+                        break;
+                     default:
+                        value = null;
+                        break;
+                  }
+                  break;
+               case CustomAttributeArgumentTypeKind.TypeString:
+                  value = caBLOB.ReadLenPrefixedUTF8String( ref idx );
+                  break;
+               default:
+                  value = null;
+                  break;
+            }
+         }
+
+         return new CustomAttributeTypedArgument()
+         {
+            Type = type,
+            Value = value
+         };
+      }
+
+      private static CustomAttributeArgumentType ReadCAFieldOrPropType( Byte[] array, ref Int32 idx )
+      {
+         var sigType = (SignatureElementTypes) array.ReadByteFromBytes( ref idx );
+         switch ( sigType )
+         {
+            case SignatureElementTypes.CA_Enum:
+               return new CustomAttributeArgumentTypeString()
+               {
+                  TypeString = array.ReadLenPrefixedUTF8String( ref idx )
+               };
+            case SignatureElementTypes.SzArray:
+               return new CustomAttributeArgumentTypeArray()
+               {
+                  ArrayType = ReadCAFieldOrPropType( array, ref idx )
+               };
+            case SignatureElementTypes.CA_Boxed:
+               return CustomAttributeArgumentSimple.Object;
+            case SignatureElementTypes.Boolean:
+               return CustomAttributeArgumentSimple.Boolean;
+            case SignatureElementTypes.Char:
+               return CustomAttributeArgumentSimple.Char;
+            case SignatureElementTypes.I1:
+               return CustomAttributeArgumentSimple.SByte;
+            case SignatureElementTypes.U1:
+               return CustomAttributeArgumentSimple.Byte;
+            case SignatureElementTypes.I2:
+               return CustomAttributeArgumentSimple.Int16;
+            case SignatureElementTypes.U2:
+               return CustomAttributeArgumentSimple.UInt16;
+            case SignatureElementTypes.I4:
+               return CustomAttributeArgumentSimple.Int32;
+            case SignatureElementTypes.U4:
+               return CustomAttributeArgumentSimple.UInt32;
+            case SignatureElementTypes.I8:
+               return CustomAttributeArgumentSimple.Int64;
+            case SignatureElementTypes.U8:
+               return CustomAttributeArgumentSimple.UInt64;
+            case SignatureElementTypes.R4:
+               return CustomAttributeArgumentSimple.Single;
+            case SignatureElementTypes.R8:
+               return CustomAttributeArgumentSimple.Double;
+            case SignatureElementTypes.String:
+               return CustomAttributeArgumentSimple.String;
+            case SignatureElementTypes.Type:
+               return CustomAttributeArgumentSimple.Type;
+            default:
+               return null;
+         }
+      }
+
+      private static CustomAttributeNamedArgument ReadCANamedArg( Byte[] blob, ref Int32 idx )
+      {
+         var isField = (SignatureElementTypes) blob.ReadByteFromBytes( ref idx ) == SignatureElementTypes.CA_Field;
+
+         var type = ReadCAFieldOrPropType( blob, ref idx );
+         var name = blob.ReadLenPrefixedUTF8String( ref idx );
+         var typedArg = ReadCAFixedArgument( blob, ref idx, type );
+         return new CustomAttributeNamedArgument()
+         {
+            IsField = isField,
+            Name = name,
+            Value = typedArg
+         };
       }
    }
 }
