@@ -106,18 +106,6 @@ namespace CILAssemblyManipulator.Physical
       List<GenericParameterConstraintDefinition> GenericParameterConstraintDefinitions { get; }
    }
 
-   public sealed class ModuleLoadingArguments
-   {
-      public event EventHandler<CustomAttributeTypeResolveEventArgs> CustomAttributeConstructorResolveEvent;
-
-      internal CILMetaData ResolveAssemblyReference( String assemblyName, AssemblyInformationForResolving? assemblyInfo )
-      {
-         var args = new CustomAttributeTypeResolveEventArgs( assemblyName, assemblyInfo );
-         this.CustomAttributeConstructorResolveEvent.InvokeEventIfNotNull( evt => evt( this, args ) );
-         return args.ResolvedAssembly;
-      }
-   }
-
    public sealed class CustomAttributeTypeResolveEventArgs : EventArgs
    {
       private readonly String _assemblyName;
@@ -215,17 +203,45 @@ namespace CILAssemblyManipulator.Physical
       }
    }
 
-   public static class CILModuleIO
+   public sealed class ModuleReadResult
    {
-      public static CILMetaData ReadModule( ModuleLoadingArguments loadingArgs, Stream stream )
+      private readonly CILMetaData _md;
+      private readonly HeadersData _headers;
+
+      internal ModuleReadResult( CILMetaData md, HeadersData headers )
       {
-         HeadersData headers;
-         return ReadModule( loadingArgs, stream, out headers );
+         ArgumentValidator.ValidateNotNull( "Metadata", md );
+         //ArgumentValidator.ValidateNotNull( "Headers", headers );
+
+         this._md = md;
+         this._headers = headers;
       }
 
-      public static CILMetaData ReadModule( ModuleLoadingArguments loadingArgs, Stream stream, out HeadersData headers )
+      public CILMetaData MetaData
       {
-         return CILAssemblyManipulator.Physical.Implementation.ModuleReader.ReadFromStream( loadingArgs, stream, out headers );
+         get
+         {
+            return this._md;
+         }
+      }
+
+      public HeadersData Headers
+      {
+         get
+         {
+            return this._headers;
+         }
+      }
+   }
+
+   public static class CILModuleIO
+   {
+
+      public static ModuleReadResult ReadModule( Stream stream )
+      {
+         HeadersData headers;
+         var md = CILAssemblyManipulator.Physical.Implementation.ModuleReader.ReadFromStream( stream, out headers );
+         return new ModuleReadResult( md, headers );
       }
    }
 }

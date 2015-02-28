@@ -54,13 +54,12 @@ namespace CILAssemblyManipulator.Tests.Physical
       {
          using ( var fs = File.OpenRead( new Uri( assembly.CodeBase ).LocalPath ) )
          {
-            var lArgs = new ModuleLoadingArguments();
+            var thisMDResult = CILModuleIO.ReadModule( fs );
 
-            var thisMD = CILModuleIO.ReadModule( lArgs, fs );
 
             if ( validationAction != null )
             {
-               validationAction( thisMD );
+               validationAction( thisMDResult.MetaData );
             }
          }
       }

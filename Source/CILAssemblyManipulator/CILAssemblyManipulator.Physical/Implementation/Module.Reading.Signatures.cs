@@ -32,7 +32,6 @@ namespace CILAssemblyManipulator.Physical.Implementation
       }
 
       private static AbstractCustomAttributeSignature ReadCustomAttributeSignature(
-         ModuleLoadingArguments loadingArgs,
          BLOBContainer blobContainer,
          Stream stream,
          CILMetaData md,
@@ -64,7 +63,7 @@ namespace CILAssemblyManipulator.Physical.Implementation
             }
             if ( ctorSig != null )
             {
-               retVal = ReadCustomAttributeSignature( loadingArgs, md, blobContainer.WholeBLOBArray, idx, ctorSig, typeResolveCache );
+               retVal = ReadCustomAttributeSignature( md, blobContainer.WholeBLOBArray, idx, ctorSig, typeResolveCache );
             }
          }
 
@@ -77,7 +76,6 @@ namespace CILAssemblyManipulator.Physical.Implementation
       }
 
       private static AbstractCustomAttributeSignature ReadCustomAttributeSignature(
-         ModuleLoadingArguments loadingArgs,
          CILMetaData md,
          Byte[] blob,
          Int32 idx,
@@ -92,7 +90,7 @@ namespace CILAssemblyManipulator.Physical.Implementation
 
          for ( var i = 0; i < ctorSig.Parameters.Count; ++i )
          {
-            var caType = ConvertTypeSignatureToCustomAttributeType( loadingArgs, md, ctorSig.Parameters[i].Type, typeResolveCache );
+            var caType = ConvertTypeSignatureToCustomAttributeType( md, ctorSig.Parameters[i].Type, typeResolveCache );
             if ( caType == null )
             {
                // We don't know the size of the type -> stop
@@ -130,7 +128,6 @@ namespace CILAssemblyManipulator.Physical.Implementation
       }
 
       private static CustomAttributeArgumentType ConvertTypeSignatureToCustomAttributeType(
-         ModuleLoadingArguments loadingArgs,
          CILMetaData md,
          TypeSignature type,
          CATypeResolveCache typeResolveCache
@@ -140,7 +137,7 @@ namespace CILAssemblyManipulator.Physical.Implementation
          {
             case TypeSignatureKind.SimpleArray:
                var arrayType = new CustomAttributeArgumentTypeArray();
-               var caType = ConvertTypeSignatureToCustomAttributeType( loadingArgs, md, ( (SimpleArrayTypeSignature) type ).ArrayType, typeResolveCache );
+               var caType = ConvertTypeSignatureToCustomAttributeType( md, ( (SimpleArrayTypeSignature) type ).ArrayType, typeResolveCache );
                if ( caType == null )
                {
                   return null;
@@ -154,7 +151,7 @@ namespace CILAssemblyManipulator.Physical.Implementation
                return ResolveCATypeSimple( ( (SimpleTypeSignature) type ).SimpleType );
             case TypeSignatureKind.ClassOrValue:
                // Either enum or System.Type
-               return ResolveCATypeFromTableIndex( loadingArgs, md, ( (ClassOrValueTypeSignature) type ).Type, typeResolveCache );
+               return ResolveCATypeFromTableIndex( md, ( (ClassOrValueTypeSignature) type ).Type, typeResolveCache );
             default:
                return null;
          }
@@ -200,7 +197,6 @@ namespace CILAssemblyManipulator.Physical.Implementation
       }
 
       private static CustomAttributeArgumentType ResolveCATypeFromTableIndex(
-         ModuleLoadingArguments loadingArgs,
          CILMetaData md,
          TableIndex tIdx,
          CATypeResolveCache typeResolveCache
@@ -226,7 +222,7 @@ namespace CILAssemblyManipulator.Physical.Implementation
                var tSpec = md.TypeSpecifications.GetOrNull( idx );
                retVal = tSpec == null ?
                   null :
-                  ConvertTypeSignatureToCustomAttributeType( loadingArgs, md, tSpec.Signature, typeResolveCache );
+                  ConvertTypeSignatureToCustomAttributeType( md, tSpec.Signature, typeResolveCache );
                break;
             default:
                retVal = null;
@@ -755,8 +751,6 @@ namespace CILAssemblyManipulator.Physical.Implementation
             }
          }
 
-         private readonly ModuleLoadingArguments _loadingArgs;
-
          private readonly IDictionary<AssemblyInformationForResolving, CILMetaData> _mdResolveCacheByAssemblyInfo;
          private readonly IDictionary<String, CILMetaData> _mdResolveCacheByName;
 
@@ -764,16 +758,21 @@ namespace CILAssemblyManipulator.Physical.Implementation
          private readonly IDictionary<CILMetaData, MDSpecificCache> _mdCaches;
          private readonly Func<CILMetaData, MDSpecificCache> _mdCacheFactory;
 
-         internal CATypeResolveCache( ModuleLoadingArguments loadingArgs )
+         public CATypeResolveCache()
          {
-            ArgumentValidator.ValidateNotNull( "Loading arguments", loadingArgs );
-
-
-            this._loadingArgs = loadingArgs;
             this._mdResolveCacheByAssemblyInfo = new Dictionary<AssemblyInformationForResolving, CILMetaData>();
             this._mdResolveCacheByName = new Dictionary<String, CILMetaData>();
             this._mdCaches = new Dictionary<CILMetaData, MDSpecificCache>();
             this._mdCacheFactory = this.MDSpecificCacheFactory;
+         }
+
+         public event EventHandler<CustomAttributeTypeResolveEventArgs> CustomAttributeConstructorResolveEvent;
+
+         internal CILMetaData ResolveAssemblyReference( String assemblyName, AssemblyInformationForResolving? assemblyInfo )
+         {
+            var args = new CustomAttributeTypeResolveEventArgs( assemblyName, assemblyInfo );
+            this.CustomAttributeConstructorResolveEvent.InvokeEventIfNotNull( evt => evt( this, args ) );
+            return args.ResolvedAssembly;
          }
 
          internal CILMetaData ResolveAssemblyByAssemblyInformation( CILMetaData md, AssemblyInformation information, Boolean isFullPublicKey )
@@ -783,7 +782,7 @@ namespace CILAssemblyManipulator.Physical.Implementation
                ai =>
                {
                   // TODO put ca-sigs list behind lazy. then we can use md.AssemblyDefinition table here to check if assembly name is in fact this assembly!
-                  return this._loadingArgs.ResolveAssemblyReference( null, ai );
+                  return this.ResolveAssemblyReference( null, ai );
                } );
          }
 
@@ -797,7 +796,7 @@ namespace CILAssemblyManipulator.Physical.Implementation
             Boolean isFullPublicKey;
             return AssemblyInformation.TryParse( assemblyString, out aInfo, out isFullPublicKey ) ?
                ResolveAssemblyByAssemblyInformation( md, aInfo, isFullPublicKey ) :
-               this._mdResolveCacheByName.GetOrAdd_NotThreadSafe( assemblyString, assString => this._loadingArgs.ResolveAssemblyReference( assString, null ) );
+               this._mdResolveCacheByName.GetOrAdd_NotThreadSafe( assemblyString, assString => this.ResolveAssemblyReference( assString, null ) );
          }
 
          internal CustomAttributeArgumentType ResolveTypeFromFullName( CILMetaData md, String typeString )

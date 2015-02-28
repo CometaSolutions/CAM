@@ -42,34 +42,19 @@ namespace CILAssemblyManipulator.Physical.Implementation
    {
       internal class BLOBContainer : AbstractHeapContainer
       {
-         private static readonly Byte[] EMPTY_ARRAY = new Byte[0];
-
-         private readonly IDictionary<Int32, Byte[]> _blobs;
 
          internal BLOBContainer( Byte[] tmpArray, Stream stream, IDictionary<String, Tuple<Int64, UInt32>> streamSizeInfo )
             : base( tmpArray, stream, streamSizeInfo, Consts.BLOB_STREAM_NAME )
          {
-            this._blobs = new Dictionary<Int32, Byte[]>();
          }
 
          internal Byte[] GetBLOB( Int32 idx )
          {
-            Byte[] result;
-            if ( !this._blobs.TryGetValue( idx, out result ) )
-            {
-               var idxToGive = idx;
-               var length = this._bytes.DecompressUInt32( ref idxToGive );
-               if ( length == 0 )
-               {
-                  // There might be no more bytes after this
-                  result = EMPTY_ARRAY;
-               }
-               else
-               {
-                  result = this._bytes.CreateAndBlockCopyTo( ref idxToGive, length );
-               }
-               this._blobs.Add( idx, result );
-            }
+            var idxToGive = idx;
+            var length = this._bytes.DecompressUInt32( ref idxToGive );
+            var result = length <= 0 ?
+               Empty<Byte>.Array :
+               this._bytes.CreateAndBlockCopyTo( ref idxToGive, length );
             return result;
          }
 
@@ -255,7 +240,6 @@ namespace CILAssemblyManipulator.Physical.Implementation
       private const Byte WIDE_BLOB_FLAG = 0x04;
 
       public static CILMetaData ReadFromStream(
-         ModuleLoadingArguments loadingArgs,
          Stream stream,
          out HeadersData headers
          )
@@ -352,7 +336,6 @@ namespace CILAssemblyManipulator.Physical.Implementation
          stream.SeekFromBegin( ResolveRVA( mdDD.rva, sections ) );
          String mdVersion;
          var retVal = ReadMetadata(
-            loadingArgs,
             stream,
             sections,
             out mdVersion
@@ -365,7 +348,6 @@ namespace CILAssemblyManipulator.Physical.Implementation
       }
 
       internal static CILMetaData ReadMetadata(
-         ModuleLoadingArguments loadingArgs,
          Stream stream,
          SectionInfo[] sections,
          out String versionStr
@@ -456,7 +438,7 @@ namespace CILAssemblyManipulator.Physical.Implementation
          var tRefSizes = MetaDataConstants.GetCodedTableIndexSizes( tableSizes );
          var methodDefRVAs = new Int64[tableSizes[(Int32) Tables.MethodDef]];
          var fieldDefRVAs = new Int64[tableSizes[(Int32) Tables.FieldRVA]];
-         var typeResolveCache = new CATypeResolveCache( loadingArgs );
+         var typeResolveCache = new CATypeResolveCache();
 
          for ( var curTable = 0; curTable < Consts.AMOUNT_OF_TABLES; ++curTable )
          {
@@ -566,7 +548,7 @@ namespace CILAssemblyManipulator.Physical.Implementation
                         Parent = MetaDataConstants.ReadCodedTableIndex( stream, CodedTableIndexKind.HasCustomAttribute, tRefSizes, tmpArray ).Value,
                         Type = MetaDataConstants.ReadCodedTableIndex( stream, CodedTableIndexKind.CustomAttributeType, tRefSizes, tmpArray ).Value,
                      };
-                     ca.Signature = ReadCustomAttributeSignature( loadingArgs, blobs, stream, retVal, ca.Type, typeResolveCache );
+                     ca.Signature = ReadCustomAttributeSignature( blobs, stream, retVal, ca.Type, typeResolveCache );
                      return ca;
                   } );
                   break;
