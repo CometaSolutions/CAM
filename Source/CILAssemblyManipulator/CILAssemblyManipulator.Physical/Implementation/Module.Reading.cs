@@ -1014,12 +1014,21 @@ namespace CILAssemblyManipulator.Physical.Implementation
 
       private static Boolean IsEnum( CILMetaData md, TableIndex? tIdx )
       {
+         return IsSystemType( md, tIdx, Consts.ENUM_NAMESPACE, Consts.ENUM_TYPENAME );
+      }
+
+      private static Boolean IsSystemType( CILMetaData md, TableIndex? tIdx, String systemNS, String systemTN )
+      {
          var result = tIdx.HasValue && tIdx.Value.Table != Tables.TypeSpec;
+
          if ( result )
          {
-            var idx = tIdx.Value.Index;
+            var tIdxValue = tIdx.Value;
+            var table = tIdxValue.Table;
+            var idx = tIdxValue.Index;
+
             String tn = null, ns = null;
-            if ( tIdx.Value.Table == Tables.TypeDef )
+            if ( table == Tables.TypeDef )
             {
                result = idx < md.TypeDefinitions.Count;
                if ( result )
@@ -1028,9 +1037,12 @@ namespace CILAssemblyManipulator.Physical.Implementation
                   ns = md.TypeDefinitions[idx].Namespace;
                }
             }
-            else
+            else if ( table == Tables.TypeRef )
             {
-               result = idx < md.TypeReferences.Count;
+               var tRef = md.TypeReferences.GetOrNull( idx );
+               result = tRef != null
+                  && tRef.ResolutionScope.HasValue
+                  && tRef.ResolutionScope.Value.Table == Tables.AssemblyRef; // TODO check for 'mscorlib', except that sometimes it may be System.Runtime ...
                if ( result )
                {
                   tn = md.TypeReferences[idx].Name;
@@ -1038,11 +1050,10 @@ namespace CILAssemblyManipulator.Physical.Implementation
                }
             }
 
-            result = String.Equals( tn, Consts.ENUM_TYPENAME ) && String.Equals( ns, Consts.ENUM_NAMESPACE );
+            result = String.Equals( tn, systemTN ) && String.Equals( ns, systemNS );
          }
          return result;
       }
-
 
       private static Object ReadConstantValue( BLOBContainer blobContainer, Stream stream, SignatureElementTypes constType )
       {

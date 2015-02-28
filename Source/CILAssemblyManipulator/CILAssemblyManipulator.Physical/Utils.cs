@@ -21,29 +21,10 @@ namespace CILAssemblyManipulator.Physical
       private const Int32 TYPE_REF_MASK = ( (Byte) Tables.TypeRef ) << 24; // 0x1000000;
       private const Int32 TYPE_SPEC_MASK = ( (Byte) Tables.TypeSpec ) << 24; // 0x1B000000;
 
-      internal static Tuple<Tables, Int32> DecodeToken( Int32 token )
-      {
-         Tables table;
-         Int32 index;
-         DecodeToken( token, out table, out index );
-         return Tuple.Create( table, index );
-      }
-
-      internal static Tables DecodeTokenTable( Int32 token )
-      {
-         return (Tables) ( unchecked( (UInt32) token ) >> 24 );
-      }
-
       internal static void DecodeToken( Int32 token, out Tables table, out Int32 index )
       {
          table = (Tables) ( unchecked( (UInt32) token ) >> 24 );
          index = token & INDEX_MASK;
-      }
-
-      internal static void DecodeTokenZeroBased( Int32 token, out Tables table, out Int32 index )
-      {
-         table = (Tables) ( unchecked( (UInt32) token ) >> 24 );
-         index = ( token & INDEX_MASK ) - 1;
       }
 
       internal static Int32 EncodeToken( Tuple<Tables, Int32> tableRef )
@@ -1430,11 +1411,16 @@ namespace CILAssemblyManipulator.Physical
       internal const String INT_PTR = "System.IntPtr";
       internal const String UINT_PTR = "System.UIntPtr";
       internal const String STRING = "System.String";
-      internal const String TYPE = "System.Type";
+
       internal const String VALUE_TYPE = "System.ValueType";
       internal const String ENUM_NAMESPACE = "System";
       internal const String ENUM_TYPENAME = "Enum";
+      internal const String TYPE_NAMESPACE = "System";
+      internal const String TYPE_TYPENAME = "Type";
+
+      internal const String TYPE = TYPE_NAMESPACE + "." + TYPE_TYPENAME;
       internal const String ENUM = ENUM_NAMESPACE + "." + ENUM_TYPENAME;
+
       internal const String SECURITY_ATTR = "System.Security.Permissions.SecurityAttribute";
       internal const String SECURITY_ACTION = "System.Security.Permissions.SecurityAction";
       internal const String PERMISSION_SET = "System.Security.Permissions.PermissionSetAttribute";

@@ -37,18 +37,31 @@ namespace CILAssemblyManipulator.Tests.Physical
       [Test]
       public void TestReadingMSCorLib()
       {
-         TestReading( typeof( Object ).Assembly );
+         TestReading( typeof( Object ).Assembly, md =>
+         {
+            foreach ( var ca in md.CustomAttributeDefinitions )
+            {
+               var sig = ca.Signature;
+               Assert.IsNotNull( sig );
+               Assert.IsNotInstanceOf<RawCustomAttributeSignature>( sig );
+            }
+         } );
          // TODO: check that all custom attribute sigs are resolved
          // check that all security declarations have non-null custom attribute named args
       }
 
-      private void TestReading( System.Reflection.Assembly assembly )
+      private void TestReading( System.Reflection.Assembly assembly, Action<CILMetaData> validationAction = null )
       {
          using ( var fs = File.OpenRead( new Uri( assembly.CodeBase ).LocalPath ) )
          {
             var lArgs = new ModuleLoadingArguments();
 
             var thisMD = CILModuleIO.ReadModule( lArgs, fs );
+
+            if ( validationAction != null )
+            {
+               validationAction( thisMD );
+            }
          }
       }
    }

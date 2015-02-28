@@ -591,32 +591,26 @@ namespace CILAssemblyManipulator.Physical
 
    public struct TableIndex
    {
-      private readonly Tables _table;
-      private readonly Int32 _idx; // Zero-based
+      private readonly Int32 _token;
+
+      // index is zero-based
       internal TableIndex( Tables aTable, Int32 anIdx )
       {
-         if ( anIdx < 0 )
-         {
-            throw new BadImageFormatException( "Simple index to table " + aTable + " was null." );
-         }
-         this._table = aTable;
-         this._idx = anIdx;
+         this._token = ( (Int32) aTable << 24 ) | anIdx;
       }
 
       internal TableIndex( Int32 token )
       {
-         TokenUtils.DecodeTokenZeroBased( token, out this._table, out this._idx );
-         if ( Index < 0 )
-         {
-            throw new BadImageFormatException( "Token had zero as index (" + this + ")." );
-         }
+         // Index is zero-based in CAM
+         this._token = ( ( token & TokenUtils.INDEX_MASK ) - 1 ) | ( token & ~TokenUtils.INDEX_MASK );
+
       }
 
       public Tables Table
       {
          get
          {
-            return this._table;
+            return (Tables) ( this._token >> 24 );
          }
       }
 
@@ -627,7 +621,7 @@ namespace CILAssemblyManipulator.Physical
       {
          get
          {
-            return this._idx;
+            return this._token & TokenUtils.INDEX_MASK;
          }
       }
 

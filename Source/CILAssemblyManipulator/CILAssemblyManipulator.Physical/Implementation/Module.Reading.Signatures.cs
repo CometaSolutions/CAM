@@ -211,10 +211,14 @@ namespace CILAssemblyManipulator.Physical.Implementation
          switch ( tIdx.Table )
          {
             case Tables.TypeDef:
-               retVal = typeResolveCache.ResolveTypeFromTypeDef( md, tIdx.Index );
+               retVal = IsTypeType( md, tIdx ) ?
+                  CustomAttributeArgumentSimple.Type :
+                  typeResolveCache.ResolveTypeFromTypeDef( md, tIdx.Index );
                break;
             case Tables.TypeRef:
-               retVal = typeResolveCache.ResolveTypeFromTypeRef( md, idx );
+               retVal = IsTypeType( md, tIdx ) ?   // Avoid loading mscorlib metadata if this is type
+                  CustomAttributeArgumentSimple.Type :
+                  typeResolveCache.ResolveTypeFromTypeRef( md, idx );
                break;
             case Tables.TypeSpec:
                // Should never happen but one never knows...
@@ -232,9 +236,9 @@ namespace CILAssemblyManipulator.Physical.Implementation
          return retVal;
       }
 
-      private static Boolean IsTypeType()
+      private static Boolean IsTypeType( CILMetaData md, TableIndex? tIdx )
       {
-         // TODO
+         return IsSystemType( md, tIdx, Consts.TYPE_NAMESPACE, Consts.TYPE_TYPENAME );
       }
 
       private static Boolean TryReadCAFixedArgument(
