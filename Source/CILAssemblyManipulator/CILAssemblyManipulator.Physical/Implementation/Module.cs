@@ -61,40 +61,40 @@ namespace CILAssemblyManipulator.Physical.Implementation
    {
       private static readonly Int32[] EMPTY_SIZES = Enumerable.Repeat( 0, Consts.AMOUNT_OF_TABLES ).ToArray();
 
-      private readonly IList<ModuleDefinition> _moduleDefinitions;
-      private readonly IList<TypeReference> _typeReferences;
-      private readonly IList<TypeDefinition> _typeDefinitions;
-      private readonly IList<FieldDefinition> _fieldDefinitions;
-      private readonly IList<MethodDefinition> _methodDefinitions;
-      private readonly IList<ParameterDefinition> _parameterDefinitions;
-      private readonly IList<InterfaceImplementation> _interfaceImplementations;
-      private readonly IList<MemberReference> _memberReferences;
-      private readonly IList<ConstantDefinition> _constantDefinitions;
-      private readonly IList<CustomAttributeDefinition> _customAttributeDefinitions;
-      private readonly IList<FieldMarshal> _fieldMarshals;
-      private readonly IList<SecurityDefinition> _securityDefinitions;
-      private readonly IList<ClassLayout> _classLayouts;
-      private readonly IList<FieldLayout> _fieldLayouts;
-      private readonly IList<StandaloneSignature> _standaloneSignatures;
-      private readonly IList<EventMap> _eventMaps;
-      private readonly IList<EventDefinition> _eventDefinitions;
-      private readonly IList<PropertyMap> _propertyMaps;
-      private readonly IList<PropertyDefinition> _propertyDefinitions;
-      private readonly IList<MethodSemantics> _methodSemantics;
-      private readonly IList<MethodImplementation> _methodImplementations;
-      private readonly IList<ModuleReference> _moduleReferences;
-      private readonly IList<TypeSpecification> _typeSpecifications;
-      private readonly IList<MethodImplementationMap> _methodImplementationMaps;
-      private readonly IList<FieldRVA> _fieldRVAs;
-      private readonly IList<AssemblyDefinition> _assemblyDefinitions;
-      private readonly IList<AssemblyReference> _assemblyReferences;
-      private readonly IList<FileReference> _fileReferences;
-      private readonly IList<ExportedType> _exportedTypess;
-      private readonly IList<ManifestResource> _manifestResources;
-      private readonly IList<NestedClassDefinition> _nestedClassDefinitions;
-      private readonly IList<GenericParameterDefinition> _genericParameterDefinitions;
-      private readonly IList<MethodSpecification> _methodSpecifications;
-      private readonly IList<GenericParameterConstraintDefinition> _genericParameterConstraintDefinitions;
+      private readonly List<ModuleDefinition> _moduleDefinitions;
+      private readonly List<TypeReference> _typeReferences;
+      private readonly List<TypeDefinition> _typeDefinitions;
+      private readonly List<FieldDefinition> _fieldDefinitions;
+      private readonly List<MethodDefinition> _methodDefinitions;
+      private readonly List<ParameterDefinition> _parameterDefinitions;
+      private readonly List<InterfaceImplementation> _interfaceImplementations;
+      private readonly List<MemberReference> _memberReferences;
+      private readonly List<ConstantDefinition> _constantDefinitions;
+      private readonly List<CustomAttributeDefinition> _customAttributeDefinitions;
+      private readonly List<FieldMarshal> _fieldMarshals;
+      private readonly List<SecurityDefinition> _securityDefinitions;
+      private readonly List<ClassLayout> _classLayouts;
+      private readonly List<FieldLayout> _fieldLayouts;
+      private readonly List<StandaloneSignature> _standaloneSignatures;
+      private readonly List<EventMap> _eventMaps;
+      private readonly List<EventDefinition> _eventDefinitions;
+      private readonly List<PropertyMap> _propertyMaps;
+      private readonly List<PropertyDefinition> _propertyDefinitions;
+      private readonly List<MethodSemantics> _methodSemantics;
+      private readonly List<MethodImplementation> _methodImplementations;
+      private readonly List<ModuleReference> _moduleReferences;
+      private readonly List<TypeSpecification> _typeSpecifications;
+      private readonly List<MethodImplementationMap> _methodImplementationMaps;
+      private readonly List<FieldRVA> _fieldRVAs;
+      private readonly List<AssemblyDefinition> _assemblyDefinitions;
+      private readonly List<AssemblyReference> _assemblyReferences;
+      private readonly List<FileReference> _fileReferences;
+      private readonly List<ExportedType> _exportedTypess;
+      private readonly List<ManifestResource> _manifestResources;
+      private readonly List<NestedClassDefinition> _nestedClassDefinitions;
+      private readonly List<GenericParameterDefinition> _genericParameterDefinitions;
+      private readonly List<MethodSpecification> _methodSpecifications;
+      private readonly List<GenericParameterConstraintDefinition> _genericParameterConstraintDefinitions;
 
       internal CILMetadataImpl()
          : this( EMPTY_SIZES )
@@ -140,7 +140,7 @@ namespace CILAssemblyManipulator.Physical.Implementation
          this._genericParameterConstraintDefinitions = new List<GenericParameterConstraintDefinition>( sizes[(Int32) Tables.GenericParameterConstraint] );
       }
 
-      public IList<ModuleDefinition> ModuleDefinitions
+      public List<ModuleDefinition> ModuleDefinitions
       {
          get
          {
@@ -148,7 +148,7 @@ namespace CILAssemblyManipulator.Physical.Implementation
          }
       }
 
-      public IList<TypeReference> TypeReferences
+      public List<TypeReference> TypeReferences
       {
          get
          {
@@ -156,7 +156,7 @@ namespace CILAssemblyManipulator.Physical.Implementation
          }
       }
 
-      public IList<TypeDefinition> TypeDefinitions
+      public List<TypeDefinition> TypeDefinitions
       {
          get
          {
@@ -164,7 +164,7 @@ namespace CILAssemblyManipulator.Physical.Implementation
          }
       }
 
-      public IList<FieldDefinition> FieldDefinitions
+      public List<FieldDefinition> FieldDefinitions
       {
          get
          {
@@ -172,7 +172,7 @@ namespace CILAssemblyManipulator.Physical.Implementation
          }
       }
 
-      public IList<MethodDefinition> MethodDefinitions
+      public List<MethodDefinition> MethodDefinitions
       {
          get
          {
@@ -180,7 +180,7 @@ namespace CILAssemblyManipulator.Physical.Implementation
          }
       }
 
-      public IList<ParameterDefinition> ParameterDefinitions
+      public List<ParameterDefinition> ParameterDefinitions
       {
          get
          {
@@ -188,7 +188,7 @@ namespace CILAssemblyManipulator.Physical.Implementation
          }
       }
 
-      public IList<InterfaceImplementation> InterfaceImplementations
+      public List<InterfaceImplementation> InterfaceImplementations
       {
          get
          {
@@ -196,7 +196,7 @@ namespace CILAssemblyManipulator.Physical.Implementation
          }
       }
 
-      public IList<MemberReference> MemberReferences
+      public List<MemberReference> MemberReferences
       {
          get
          {
@@ -204,7 +204,7 @@ namespace CILAssemblyManipulator.Physical.Implementation
          }
       }
 
-      public IList<ConstantDefinition> ConstantDefinitions
+      public List<ConstantDefinition> ConstantDefinitions
       {
          get
          {
@@ -212,7 +212,7 @@ namespace CILAssemblyManipulator.Physical.Implementation
          }
       }
 
-      public IList<CustomAttributeDefinition> CustomAttributeDefinitions
+      public List<CustomAttributeDefinition> CustomAttributeDefinitions
       {
          get
          {
@@ -220,7 +220,7 @@ namespace CILAssemblyManipulator.Physical.Implementation
          }
       }
 
-      public IList<FieldMarshal> FieldMarshals
+      public List<FieldMarshal> FieldMarshals
       {
          get
          {
@@ -228,7 +228,7 @@ namespace CILAssemblyManipulator.Physical.Implementation
          }
       }
 
-      public IList<SecurityDefinition> SecurityDefinitions
+      public List<SecurityDefinition> SecurityDefinitions
       {
          get
          {
@@ -236,7 +236,7 @@ namespace CILAssemblyManipulator.Physical.Implementation
          }
       }
 
-      public IList<ClassLayout> ClassLayouts
+      public List<ClassLayout> ClassLayouts
       {
          get
          {
@@ -244,7 +244,7 @@ namespace CILAssemblyManipulator.Physical.Implementation
          }
       }
 
-      public IList<FieldLayout> FieldLayouts
+      public List<FieldLayout> FieldLayouts
       {
          get
          {
@@ -252,7 +252,7 @@ namespace CILAssemblyManipulator.Physical.Implementation
          }
       }
 
-      public IList<StandaloneSignature> StandaloneSignatures
+      public List<StandaloneSignature> StandaloneSignatures
       {
          get
          {
@@ -260,7 +260,7 @@ namespace CILAssemblyManipulator.Physical.Implementation
          }
       }
 
-      public IList<EventMap> EventMaps
+      public List<EventMap> EventMaps
       {
          get
          {
@@ -268,7 +268,7 @@ namespace CILAssemblyManipulator.Physical.Implementation
          }
       }
 
-      public IList<EventDefinition> EventDefinitions
+      public List<EventDefinition> EventDefinitions
       {
          get
          {
@@ -276,7 +276,7 @@ namespace CILAssemblyManipulator.Physical.Implementation
          }
       }
 
-      public IList<PropertyMap> PropertyMaps
+      public List<PropertyMap> PropertyMaps
       {
          get
          {
@@ -284,7 +284,7 @@ namespace CILAssemblyManipulator.Physical.Implementation
          }
       }
 
-      public IList<PropertyDefinition> PropertyDefinitions
+      public List<PropertyDefinition> PropertyDefinitions
       {
          get
          {
@@ -292,7 +292,7 @@ namespace CILAssemblyManipulator.Physical.Implementation
          }
       }
 
-      public IList<MethodSemantics> MethodSemantics
+      public List<MethodSemantics> MethodSemantics
       {
          get
          {
@@ -300,7 +300,7 @@ namespace CILAssemblyManipulator.Physical.Implementation
          }
       }
 
-      public IList<MethodImplementation> MethodImplementations
+      public List<MethodImplementation> MethodImplementations
       {
          get
          {
@@ -308,7 +308,7 @@ namespace CILAssemblyManipulator.Physical.Implementation
          }
       }
 
-      public IList<ModuleReference> ModuleReferences
+      public List<ModuleReference> ModuleReferences
       {
          get
          {
@@ -316,7 +316,7 @@ namespace CILAssemblyManipulator.Physical.Implementation
          }
       }
 
-      public IList<TypeSpecification> TypeSpecifications
+      public List<TypeSpecification> TypeSpecifications
       {
          get
          {
@@ -324,7 +324,7 @@ namespace CILAssemblyManipulator.Physical.Implementation
          }
       }
 
-      public IList<MethodImplementationMap> MethodImplementationMaps
+      public List<MethodImplementationMap> MethodImplementationMaps
       {
          get
          {
@@ -332,7 +332,7 @@ namespace CILAssemblyManipulator.Physical.Implementation
          }
       }
 
-      public IList<FieldRVA> FieldRVAs
+      public List<FieldRVA> FieldRVAs
       {
          get
          {
@@ -340,7 +340,7 @@ namespace CILAssemblyManipulator.Physical.Implementation
          }
       }
 
-      public IList<AssemblyDefinition> AssemblyDefinitions
+      public List<AssemblyDefinition> AssemblyDefinitions
       {
          get
          {
@@ -348,7 +348,7 @@ namespace CILAssemblyManipulator.Physical.Implementation
          }
       }
 
-      public IList<AssemblyReference> AssemblyReferences
+      public List<AssemblyReference> AssemblyReferences
       {
          get
          {
@@ -356,7 +356,7 @@ namespace CILAssemblyManipulator.Physical.Implementation
          }
       }
 
-      public IList<FileReference> FileReferences
+      public List<FileReference> FileReferences
       {
          get
          {
@@ -364,7 +364,7 @@ namespace CILAssemblyManipulator.Physical.Implementation
          }
       }
 
-      public IList<ExportedType> ExportedTypess
+      public List<ExportedType> ExportedTypess
       {
          get
          {
@@ -372,7 +372,7 @@ namespace CILAssemblyManipulator.Physical.Implementation
          }
       }
 
-      public IList<ManifestResource> ManifestResources
+      public List<ManifestResource> ManifestResources
       {
          get
          {
@@ -380,7 +380,7 @@ namespace CILAssemblyManipulator.Physical.Implementation
          }
       }
 
-      public IList<NestedClassDefinition> NestedClassDefinitions
+      public List<NestedClassDefinition> NestedClassDefinitions
       {
          get
          {
@@ -388,7 +388,7 @@ namespace CILAssemblyManipulator.Physical.Implementation
          }
       }
 
-      public IList<GenericParameterDefinition> GenericParameterDefinitions
+      public List<GenericParameterDefinition> GenericParameterDefinitions
       {
          get
          {
@@ -396,7 +396,7 @@ namespace CILAssemblyManipulator.Physical.Implementation
          }
       }
 
-      public IList<MethodSpecification> MethodSpecifications
+      public List<MethodSpecification> MethodSpecifications
       {
          get
          {
@@ -404,7 +404,7 @@ namespace CILAssemblyManipulator.Physical.Implementation
          }
       }
 
-      public IList<GenericParameterConstraintDefinition> GenericParameterConstraintDefinitions
+      public List<GenericParameterConstraintDefinition> GenericParameterConstraintDefinitions
       {
          get
          {

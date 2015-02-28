@@ -29,9 +29,22 @@ namespace CILAssemblyManipulator.Tests.Physical
    {
 
       [Test]
-      public static void TestReadingCAMAssemblies()
+      public void TestReadingCAMAssemblies()
       {
-         using ( var fs = File.OpenRead( new Uri( typeof( CILModuleIO ).Assembly.CodeBase ).LocalPath ) )
+         TestReading( typeof( CILModuleIO ).Assembly );
+      }
+
+      [Test]
+      public void TestReadingMSCorLib()
+      {
+         TestReading( typeof( Object ).Assembly );
+         // TODO: check that all custom attribute sigs are resolved
+         // check that all security declarations have non-null custom attribute named args
+      }
+
+      private void TestReading( System.Reflection.Assembly assembly )
+      {
+         using ( var fs = File.OpenRead( new Uri( assembly.CodeBase ).LocalPath ) )
          {
             var lArgs = new ModuleLoadingArguments();
 

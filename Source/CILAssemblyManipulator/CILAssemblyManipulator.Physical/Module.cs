@@ -37,107 +37,182 @@ namespace CILAssemblyManipulator.Physical
 
    public interface CILMetaData
    {
-      IList<ModuleDefinition> ModuleDefinitions { get; }
+      List<ModuleDefinition> ModuleDefinitions { get; }
 
-      IList<TypeReference> TypeReferences { get; }
+      List<TypeReference> TypeReferences { get; }
 
-      IList<TypeDefinition> TypeDefinitions { get; }
+      List<TypeDefinition> TypeDefinitions { get; }
 
-      IList<FieldDefinition> FieldDefinitions { get; }
+      List<FieldDefinition> FieldDefinitions { get; }
 
-      IList<MethodDefinition> MethodDefinitions { get; }
+      List<MethodDefinition> MethodDefinitions { get; }
 
-      IList<ParameterDefinition> ParameterDefinitions { get; }
+      List<ParameterDefinition> ParameterDefinitions { get; }
 
-      IList<InterfaceImplementation> InterfaceImplementations { get; }
+      List<InterfaceImplementation> InterfaceImplementations { get; }
 
-      IList<MemberReference> MemberReferences { get; }
+      List<MemberReference> MemberReferences { get; }
 
-      IList<ConstantDefinition> ConstantDefinitions { get; }
+      List<ConstantDefinition> ConstantDefinitions { get; }
 
-      IList<CustomAttributeDefinition> CustomAttributeDefinitions { get; }
+      List<CustomAttributeDefinition> CustomAttributeDefinitions { get; }
 
-      IList<FieldMarshal> FieldMarshals { get; }
+      List<FieldMarshal> FieldMarshals { get; }
 
-      IList<SecurityDefinition> SecurityDefinitions { get; }
+      List<SecurityDefinition> SecurityDefinitions { get; }
 
-      IList<ClassLayout> ClassLayouts { get; }
+      List<ClassLayout> ClassLayouts { get; }
 
-      IList<FieldLayout> FieldLayouts { get; }
+      List<FieldLayout> FieldLayouts { get; }
 
-      IList<StandaloneSignature> StandaloneSignatures { get; }
+      List<StandaloneSignature> StandaloneSignatures { get; }
 
-      IList<EventMap> EventMaps { get; }
+      List<EventMap> EventMaps { get; }
 
-      IList<EventDefinition> EventDefinitions { get; }
+      List<EventDefinition> EventDefinitions { get; }
 
-      IList<PropertyMap> PropertyMaps { get; }
+      List<PropertyMap> PropertyMaps { get; }
 
-      IList<PropertyDefinition> PropertyDefinitions { get; }
+      List<PropertyDefinition> PropertyDefinitions { get; }
 
-      IList<MethodSemantics> MethodSemantics { get; }
+      List<MethodSemantics> MethodSemantics { get; }
 
-      IList<MethodImplementation> MethodImplementations { get; }
+      List<MethodImplementation> MethodImplementations { get; }
 
-      IList<ModuleReference> ModuleReferences { get; }
+      List<ModuleReference> ModuleReferences { get; }
 
-      IList<TypeSpecification> TypeSpecifications { get; }
+      List<TypeSpecification> TypeSpecifications { get; }
 
-      IList<MethodImplementationMap> MethodImplementationMaps { get; }
+      List<MethodImplementationMap> MethodImplementationMaps { get; }
 
-      IList<FieldRVA> FieldRVAs { get; }
+      List<FieldRVA> FieldRVAs { get; }
 
-      IList<AssemblyDefinition> AssemblyDefinitions { get; }
+      List<AssemblyDefinition> AssemblyDefinitions { get; }
 
-      IList<AssemblyReference> AssemblyReferences { get; }
+      List<AssemblyReference> AssemblyReferences { get; }
 
-      IList<FileReference> FileReferences { get; }
+      List<FileReference> FileReferences { get; }
 
-      IList<ExportedType> ExportedTypess { get; }
+      List<ExportedType> ExportedTypess { get; }
 
-      IList<ManifestResource> ManifestResources { get; }
+      List<ManifestResource> ManifestResources { get; }
 
-      IList<NestedClassDefinition> NestedClassDefinitions { get; }
+      List<NestedClassDefinition> NestedClassDefinitions { get; }
 
-      IList<GenericParameterDefinition> GenericParameterDefinitions { get; }
+      List<GenericParameterDefinition> GenericParameterDefinitions { get; }
 
-      IList<MethodSpecification> MethodSpecifications { get; }
+      List<MethodSpecification> MethodSpecifications { get; }
 
-      IList<GenericParameterConstraintDefinition> GenericParameterConstraintDefinitions { get; }
+      List<GenericParameterConstraintDefinition> GenericParameterConstraintDefinitions { get; }
    }
 
    public sealed class ModuleLoadingArguments
    {
-      public event EventHandler<CustomAttributeConstructorTypeResolveEventArgs> CustomAttributeConstructorResolveEvent;
+      public event EventHandler<CustomAttributeTypeResolveEventArgs> CustomAttributeConstructorResolveEvent;
 
-      internal CustomAttributeArgumentType ResolveCustomAttributeConstructorArgumentType( ClassOrValueTypeSignature type )
+      internal CILMetaData ResolveAssemblyReference( String assemblyName, AssemblyInformationForResolving? assemblyInfo )
       {
-         var args = new CustomAttributeConstructorTypeResolveEventArgs( type );
+         var args = new CustomAttributeTypeResolveEventArgs( assemblyName, assemblyInfo );
          this.CustomAttributeConstructorResolveEvent.InvokeEventIfNotNull( evt => evt( this, args ) );
-         return args.ResolvedReference;
+         return args.ResolvedAssembly;
       }
    }
 
-   public sealed class CustomAttributeConstructorTypeResolveEventArgs : EventArgs
+   public sealed class CustomAttributeTypeResolveEventArgs : EventArgs
    {
-      private readonly ClassOrValueTypeSignature _type;
+      private readonly String _assemblyName;
+      private readonly AssemblyInformationForResolving? _assemblyInfo;
 
-      internal CustomAttributeConstructorTypeResolveEventArgs( ClassOrValueTypeSignature referenceToResolve )
+      internal CustomAttributeTypeResolveEventArgs( String assemblyName, AssemblyInformationForResolving? assemblyInfo )
       {
-         ArgumentValidator.ValidateNotNull( "Member reference", referenceToResolve );
-
-         this._type = referenceToResolve;
+         this._assemblyName = assemblyName;
+         this._assemblyInfo = assemblyInfo;
       }
 
-      public ClassOrValueTypeSignature ReferenceToResolve
+      /// <summary>
+      /// This may be <c>null</c>! This means that it is mscorlib assembly, (or possibly another module?)
+      /// </summary>
+      public String UnparsedAssemblyName
       {
          get
          {
-            return this._type;
+            return this._assemblyName;
          }
       }
 
-      public CustomAttributeArgumentType ResolvedReference { get; set; }
+      public AssemblyInformationForResolving? ExistingAssemblyInformation
+      {
+         get
+         {
+            return this._assemblyInfo;
+         }
+      }
+
+      public CILMetaData ResolvedAssembly { get; set; }
+   }
+
+   public struct AssemblyInformationForResolving : IEquatable<AssemblyInformationForResolving>
+   {
+      private readonly AssemblyInformation _information;
+      private readonly Boolean _isFullPublicKey;
+
+      public AssemblyInformationForResolving( AssemblyInformation information, Boolean isFullPublicKey )
+      {
+         ArgumentValidator.ValidateNotNull( "Assembly information", information );
+
+         this._information = information;
+         this._isFullPublicKey = isFullPublicKey;
+      }
+
+      public AssemblyInformation AssemblyInformation
+      {
+         get
+         {
+            return this._information;
+         }
+      }
+
+      public Boolean IsFullPublicKey
+      {
+         get
+         {
+            return this._isFullPublicKey;
+         }
+      }
+
+      public override Boolean Equals( Object obj )
+      {
+         return obj is AssemblyInformationForResolving ?
+            this.Equals( (AssemblyInformationForResolving) obj ) :
+            false;
+      }
+
+      public override Int32 GetHashCode()
+      {
+         return this._information.Name.GetHashCodeSafe();
+      }
+
+      public Boolean Equals( AssemblyInformationForResolving other )
+      {
+         return this._isFullPublicKey == other._isFullPublicKey
+               && Equals( this._information, other._information );
+      }
+
+      private static Boolean Equals( AssemblyInformation x, AssemblyInformation y )
+      {
+         return Object.ReferenceEquals( x, y )
+            || ( x != null
+               && y != null
+               && String.Equals( x.Name, y.Name )
+               && x.VersionMajor == y.VersionMajor
+               && x.VersionMinor == y.VersionMinor
+               && x.VersionBuild == y.VersionBuild
+               && x.VersionRevision == y.VersionRevision
+               && String.Equals( x.Culture, y.Culture )
+               && ArrayEqualityComparer<Byte>.DefaultArrayEqualityComparer.Equals( x.PublicKeyOrToken, y.PublicKeyOrToken )
+            );
+
+      }
    }
 
    public static class CILModuleIO

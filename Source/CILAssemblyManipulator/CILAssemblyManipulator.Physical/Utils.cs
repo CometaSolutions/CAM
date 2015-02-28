@@ -917,6 +917,20 @@ namespace CILAssemblyManipulator.Physical
          return new String( charBuf, 0, charBufSize );
       }
 
+      // For some reason, this method is missing from PCL
+      internal static Int32 FindIndex<T>( this IList<T> list, Predicate<T> match )
+      {
+         var max = list.Count;
+         for ( var i = 0; i < max; ++i )
+         {
+            if ( match( list[i] ) )
+            {
+               return i;
+            }
+         }
+         return -1;
+      }
+
       internal static IEnumerable<Int32> GetReferencingRowsFromOrdered<T>( this IList<T> array, Tables targetTable, Int32 targetIndex, Func<T, TableIndex> fullIndexExtractor )
       {
          // Use binary search to find first one
@@ -954,6 +968,130 @@ namespace CILAssemblyManipulator.Physical
          } while ( idx < array.Count && fullIndexExtractor( array[idx] ).Index == targetIndex );
       }
 
+      // If there is an assembly name, there will be ", " but not "\, " in type string.
+      private const String TYPE_ASSEMBLY_SEPARATOR = ", ";
+      private const Char NESTED_TYPE_SEPARATOR = '+';
+      private const Char NAMESPACE_SEPARATOR = '.';
+
+      internal static Boolean ParseFullTypeString( this String str, out String typeString, out String assemblyString )
+      {
+         Int32 typeLength;
+         var retVal = str.GetFirstSeparatorsFromFullTypeString( TYPE_ASSEMBLY_SEPARATOR, out typeLength );
+         if ( retVal )
+         {
+            // Assembly name present
+            typeString = str.Substring( 0, typeLength );
+            assemblyString = str.Substring( typeLength + TYPE_ASSEMBLY_SEPARATOR.Length );
+         }
+         else
+         {
+            // Assembly name not present
+            typeString = str;
+            assemblyString = null;
+         }
+
+         return retVal;
+      }
+
+      internal static Boolean ParseTypeNameStringForNestedType( this String str, out String enclosingTypeName, out String nestedTypeName )
+      {
+         Int32 enclosingTypeLength;
+         var retVal = str.GetLastSeparatorsFromTypeString( NESTED_TYPE_SEPARATOR, out enclosingTypeLength );
+         if ( retVal )
+         {
+            // This is nested type
+            enclosingTypeName = str.Substring( 0, enclosingTypeLength );
+            nestedTypeName = str.Substring( enclosingTypeLength + 1 );
+         }
+         else
+         {
+            // This is top-level type
+            enclosingTypeName = null;
+            nestedTypeName = str;
+         }
+
+         return retVal;
+      }
+
+      internal static Boolean ParseTypeNameStringForNamespace( this String str, out String ns, out String name )
+      {
+         Int32 nsLength;
+         var retVal = str.GetLastSeparatorsFromTypeString( NAMESPACE_SEPARATOR, out nsLength );
+         if ( retVal )
+         {
+            // Type name has namespace
+            ns = str.Substring( 0, nsLength );
+            name = str.Substring( nsLength + 1 );
+         }
+         else
+         {
+            // Type name does not have namespace
+            ns = null;
+            name = str;
+         }
+
+         return retVal;
+      }
+
+      private static Boolean GetLastSeparatorsFromTypeString( this String str, Char separatorChar, out Int32 firstLength )
+      {
+         // Length needs to be at least 3 for even have namespace (namespace + dot + type name)
+         var retVal = str.Length >= 3;
+         firstLength = -1;
+         if ( retVal )
+         {
+            var curIdx = str.Length - 1;
+            Int32 sepIdx;
+            do
+            {
+               sepIdx = str.LastIndexOf( separatorChar, curIdx );
+               if ( sepIdx > 0 && str[sepIdx - 1] == ESCAPE_CHAR )
+               {
+                  curIdx -= 2;
+                  sepIdx = -1;
+               }
+               else
+               {
+                  --curIdx;
+               }
+            } while ( curIdx > 0 && sepIdx == -1 );
+
+            retVal = sepIdx > 0;
+            if ( retVal )
+            {
+               firstLength = sepIdx;
+            }
+         }
+
+         return retVal;
+      }
+
+      private static Boolean GetFirstSeparatorsFromFullTypeString( this String str, String separatorString, out Int32 firstLength )
+      {
+         var strMax = 0;
+         var curIdx = -1;
+         while ( strMax < str.Length
+            && ( curIdx = str.IndexOf( separatorString, strMax ) ) > 0
+            && str[curIdx - 1] == ESCAPE_CHAR )
+         {
+            strMax = curIdx + separatorString.Length;
+         }
+
+         var retVal = !( curIdx < 0 || strMax >= str.Length );
+         if ( retVal )
+         {
+            // Separator present, mark its length
+            firstLength = curIdx;
+         }
+         else
+         {
+            // Separator not present, so full string is length of first part
+            firstLength = str.Length;
+         }
+
+         return retVal;
+      }
+
 
       internal static String CreateTypeString( this TypeSignature type, CILMetaData moduleBeingEmitted, Boolean appendGArgs )
       {
@@ -975,13 +1113,12 @@ namespace CILAssemblyManipulator.Physical
 
       private static void CreateTypeString( TypeSignature type, CILMetaData md, StringBuilder builder, Boolean appendGArgs )
       {
-         const String TYPE_ASSEMBLY_SEPARATOR = ", ";
-
          var otherAssemblyRef = CreateTypeStringCore( type, md, builder, appendGArgs );
          if ( otherAssemblyRef != null )
          {
             builder
                .Insert( 0, "[" )
+               .Append( ']' )
                .Append( TYPE_ASSEMBLY_SEPARATOR )
                .Append( otherAssemblyRef.ToStringForTypeName() ); // Assembly name will be escaped.
 
@@ -1106,6 +1243,11 @@ namespace CILAssemblyManipulator.Physical
          return retVal;
       }
 
+      //private static String GetFullNameFromTypeName( this String typeName, String ns )
+      //{
+      //   return String.IsNullOrEmpty( ns ) ? typeName : ( ns + "." + typeName );
+      //}
+
       private static void CreateArrayString( ComplexArrayTypeSignature complexArray, StringBuilder builder )
       {
          builder.Append( '[' );
@@ -1229,12 +1371,19 @@ namespace CILAssemblyManipulator.Physical
       private static String ToStringForTypeName( this AssemblyReference aRef )
       {
          // mscorlib, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089
-         return EscapeSomeString( aRef.Name ) +
-            Consts.ASSEMBLY_NAME_ELEMENTS_SEPARATOR + ' ' + Consts.VERSION + Consts.ASSEMBLY_NAME_ELEMENT_VALUE_SEPARATOR + aRef.VersionMajor + Consts.VERSION_SEPARATOR + aRef.VersionMinor + Consts.VERSION_SEPARATOR + aRef.VersionBuild + Consts.VERSION_SEPARATOR + aRef.VersionRevision +
-            Consts.ASSEMBLY_NAME_ELEMENTS_SEPARATOR + ' ' + Consts.CULTURE + Consts.ASSEMBLY_NAME_ELEMENT_VALUE_SEPARATOR + ( aRef.Culture == null || aRef.Culture.Trim().Length == 0 ? Consts.NEUTRAL_CULTURE : aRef.Culture ) +
-            ( aRef.PublicKeyOrToken.IsNullOrEmpty() ? "" :
-            ( Consts.ASSEMBLY_NAME_ELEMENTS_SEPARATOR + ' ' + ( ( (AssemblyFlags) aRef.Attributes ).IsFullPublicKey() ? Consts.PUBLIC_KEY : Consts.PUBLIC_KEY_TOKEN ) + Consts.ASSEMBLY_NAME_ELEMENT_VALUE_SEPARATOR + StringConversions.ByteArray2HexStr( aRef.PublicKeyOrToken, 0, aRef.PublicKeyOrToken.Length, false ) )
+         var aInfo = aRef.AssemblyInformation;
+         return EscapeSomeString( aInfo.Name ) +
+            Consts.ASSEMBLY_NAME_ELEMENTS_SEPARATOR + ' ' + Consts.VERSION + Consts.ASSEMBLY_NAME_ELEMENT_VALUE_SEPARATOR + aInfo.VersionMajor + Consts.VERSION_SEPARATOR + aInfo.VersionMinor + Consts.VERSION_SEPARATOR + aInfo.VersionBuild + Consts.VERSION_SEPARATOR + aInfo.VersionRevision +
+            Consts.ASSEMBLY_NAME_ELEMENTS_SEPARATOR + ' ' + Consts.CULTURE + Consts.ASSEMBLY_NAME_ELEMENT_VALUE_SEPARATOR + ( aInfo.Culture == null || aInfo.Culture.Trim().Length == 0 ? Consts.NEUTRAL_CULTURE : aInfo.Culture ) +
+            ( aInfo.PublicKeyOrToken.IsNullOrEmpty() ? "" :
+            ( Consts.ASSEMBLY_NAME_ELEMENTS_SEPARATOR + ' ' + ( ( (AssemblyFlags) aRef.Attributes ).IsFullPublicKey() ? Consts.PUBLIC_KEY : Consts.PUBLIC_KEY_TOKEN ) + Consts.ASSEMBLY_NAME_ELEMENT_VALUE_SEPARATOR + StringConversions.ByteArray2HexStr( aInfo.PublicKeyOrToken, 0, aInfo.PublicKeyOrToken.Length, false ) )
                );
+      }
+
+      internal static T GetOrNull<T>( this IList<T> list, Int32 idx )
+         where T : class
+      {
+         return idx < list.Count ? list[idx] : null;
       }
    }
 
