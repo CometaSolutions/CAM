@@ -36,16 +36,13 @@ namespace CommonUtils
       static BinaryUtils()
       {
          var arr = new Int32[256];
-         for ( var i = 0; i < 256; ++i )
+         for ( var i = 2; i < 256; ++i )
          {
             arr[i] = 1 + arr[i / 2];
          }
          arr[0] = -1;
          LOG_TABLE_256 = arr;
       }
-
-
-
 
       /// <summary>
       /// Rotates given <paramref name="value"/> left <paramref name="shift"/> amount of bytes.
