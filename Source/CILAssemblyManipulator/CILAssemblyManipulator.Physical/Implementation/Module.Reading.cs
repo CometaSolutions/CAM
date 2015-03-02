@@ -1,5 +1,4 @@
-﻿using CommonUtils;
-/*
+﻿/*
  * Copyright 2015 Stanislav Muhametsin. All rights Reserved.
  *
  * Licensed  under the  Apache License,  Version 2.0  (the "License");
@@ -16,6 +15,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License. 
  */
+using CommonUtils;
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -38,7 +38,7 @@ namespace CILAssemblyManipulator.Physical.Implementation
       }
    }
 
-   internal static partial class ModuleReader
+   internal static class ModuleReader
    {
       internal class BLOBContainer : AbstractHeapContainer
       {
@@ -298,7 +298,7 @@ namespace CILAssemblyManipulator.Physical.Implementation
             // This is not so in VS2010 ( see http://msdn.microsoft.com/en-us/library/hh678682.aspx )
             stream.ReadWholeArray( tmpArray ); // tmpArray is 8 bytes long
             sections[i] = new SectionInfo(
-               tmpArray.ReadZeroTerminatedASCIIStringFromBytes(), // Section name
+               //tmpArray.ReadZeroTerminatedASCIIStringFromBytes(), // Section name
                stream.ReadU32( tmpArray ), // Virtual size
                stream.ReadU32( tmpArray ), // Virtual address
                stream.ReadU32( tmpArray ), // Raw data size

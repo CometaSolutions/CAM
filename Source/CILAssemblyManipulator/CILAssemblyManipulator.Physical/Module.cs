@@ -30,9 +30,195 @@ namespace CILAssemblyManipulator.Physical
       CILMetaData MetaData { get; }
    }
 
-   public interface HeadersData
+   public sealed class HeadersData
    {
+      /// <summary>
+      /// Gets or sets the <see cref="ModuleKind"/> of the module.
+      /// </summary>
+      /// <value>The <see cref="ModuleKind"/> of the module being emitted or loaded.</value>
+      public ModuleKind ModuleKind { get; set; }
 
+      /// <summary>
+      /// Gets or set the optional index to MethodDef table where CLR entry point method resides.
+      /// </summary>
+      /// <value>The optional index to MethodDef table where CLR entry point method resides.</value>
+      public Int32? CLREntryPointIndex { get; set; }
+
+      /// <summary>
+      /// Gets or sets the version string of the metadata (metadata root, 'Version' field).
+      /// </summary>
+      /// <value>The version string of the metadata (metadata root, 'Version' field) of the module being emitted or loaded..</value>
+      public String MetaDataVersion { get; set; }
+
+      /// <summary>
+      /// Gets or sets the <see cref="ImageFileMachine"/> of the module (PE file header, 'Machine' field).
+      /// </summary>
+      /// <value>The <see cref="ImageFileMachine"/> of the module (PE file header, 'Machine' field) of the module being emitted or loaded.</value>
+      public ImageFileMachine Machine { get; set; }
+
+      /// <summary>
+      /// Gets or sets the major version of the #~ stream.
+      /// </summary>
+      /// <value>The major version of the #~ stream of the module being emitted or loaded.</value>
+      public Byte TableHeapMajor { get; set; }
+
+      /// <summary>
+      /// Gets or sets the minor version of the #~ stream.
+      /// </summary>
+      /// <value>The minor version of the #~ stream of the module being emitted or loaded.</value>
+      public Byte TableHeapMinor { get; set; }
+
+      /// <summary>
+      /// Gets or sets the base of the emitted image file (PE header, Windows NT-specific, 'Image Base' field).
+      /// Should be a multiple of <c>0x10000</c>.
+      /// </summary>
+      /// <value>The base of the emitted image file (PE header, Windows NT-specific, 'Image Base' field) of the module being emitted or loaded.</value>
+      [CLSCompliant( false )]
+      public UInt64 ImageBase { get; set; }
+
+      /// <summary>
+      /// Gets or sets the file alignment of the emitted image file (PE header, Windows NT-specific, 'File Alignment' field).
+      /// Should be at least <c>0x200</c>.
+      /// </summary>
+      /// <value>The file alignment of the emitted image file (PE header, Windows NT-specific, 'File Alignment' field) of the module being emitted or loaded.</value>
+      [CLSCompliant( false )]
+      public UInt32 FileAlignment { get; set; }
+
+      /// <summary>
+      /// Gets or sets the section alignment of the emitted image file (PE header, Windows NT-specific, 'Section Alignment' field).
+      /// Should be greater than <see cref="FileAlignment"/>.
+      /// </summary>
+      /// <value>The section alignment of the emitted image file (PE header, Windows NT-specific, 'Section Alignment' field) of the module being emitted or loaded.</value>
+      [CLSCompliant( false )]
+      public UInt32 SectionAlignment { get; set; }
+
+      /// <summary>
+      /// Gets or sets the stack reserve size (PE header, Windows NT-specific, 'Stack Reserve Size' field).
+      /// Should be <c>0x100000</c>.
+      /// </summary>
+      /// <value>The stack reserve size (PE header, Windows NT-specific, 'Stack Reserve Size' field) of the module being emitted or loaded.</value>
+      [CLSCompliant( false )]
+      public UInt64 StackReserve { get; set; }
+
+      /// <summary>
+      /// Gets or sets the stack commit size (PE header, Windows NT-specific, 'Stack Commit Size' field).
+      /// Should be <c>0x1000</c>.
+      /// </summary>
+      /// <value>The stack commit size (PE header, Windows NT-specific, 'Stack Commit Size' field) of the module being emitted or loaded.</value>
+      [CLSCompliant( false )]
+      public UInt64 StackCommit { get; set; }
+
+      /// <summary>
+      /// Gets or sets the heap reserve size (PE header, Windows NT-specific, 'Heap Reserve Size' field).
+      /// Should be <c>0x100000</c>.
+      /// </summary>
+      /// <value>The heap reserve size (PE header, Windows NT-specific, 'Heap Reserve Size' field) of the module being emitted or loaded.</value>
+      [CLSCompliant( false )]
+      public UInt64 HeapReserve { get; set; }
+
+      /// <summary>
+      /// Gets or sets the heap commit size (PE header, Windows NT-specific, 'Heap Commit Size' field).
+      /// Should be <c>0x1000</c>.
+      /// </summary>
+      /// <value>The heap commit size (PE header, Windows NT-specific, 'Heap Commit Size' field) of the module being emitted or loaded.</value>
+      [CLSCompliant( false )]
+      public UInt64 HeapCommit { get; set; }
+
+      /// <summary>
+      /// Gets or sets the name of the entries to import from runtime engine (typically <c>"mscoree.dll"</c>) (Hint/Name table, 'Name' field).
+      /// Should be <c>"_CorExeMain"</c> for a .exe file and <c>"_CorDllMain"</c> for a .dll file.
+      /// </summary>
+      /// <value>The name of the entries to import from runtime engine (typically <c>"mscoree.dll"</c>) (Hint/Name table, 'Name' field) of the module being emitted or loaded.</value>
+      public String ImportHintName { get; set; }
+
+      /// <summary>
+      /// Gets or sets the name of the runtime engine to import <see cref="ImportHintName"/> from (Import tables, 'Name' field).
+      /// Should be <c>"mscoree.dll"</c>.
+      /// </summary>
+      /// <value>The name of the runtime engine to import <see cref="ImportHintName"/> from (Import tables, 'Name' field) of the module being emitted or loaded.</value>
+      public String ImportDirectoryName { get; set; }
+
+      /// <summary>
+      /// Gets or sets the instruction at PE entrypoint to load the code section.
+      /// It should be <c>0x25FF</c>.
+      /// </summary>
+      /// <value>The instruction at PE entrypoint to load the code section of the module being emitted.</value>
+      public Int16 EntryPointInstruction { get; set; }
+
+      /// <summary>
+      /// Gets or sets the major version of the linker (PE header standard, 'LMajor' field).
+      /// </summary>
+      /// <value>The major version of the linker (PE header standard, 'LMajor' field) of the module being emitted or loaded.</value>
+      public Byte LinkerMajor { get; set; }
+
+      /// <summary>
+      /// Gets or sets the minor version of the linker (PE header standard, 'LMinor' field).
+      /// </summary>
+      /// <value>The minor version of the linker (PE header standard, 'LMinor' field) of the module being emitted.</value>
+      public Byte LinkerMinor { get; set; }
+
+      /// <summary>
+      /// Gets or sets the major version of the OS (PE header, Windows NT-specific, 'OS Major' field).
+      /// </summary>
+      /// <value>The major version of the OS (PE header, Windows NT-specific, 'OS Major' field) of the module being emitted or loaded.</value>
+      [CLSCompliant( false )]
+      public UInt16 OSMajor { get; set; }
+
+      /// <summary>
+      /// Gets or sets the minor version of the OS (PE header, Windows NT-specific, 'OS Minor' field).
+      /// </summary>
+      /// <value>The minor version of the OS (PE header, Windows NT-specific, 'OS Minor' field) of the module being emitted or loaded.</value>
+      [CLSCompliant( false )]
+      public UInt16 OSMinor { get; set; }
+
+      /// <summary>
+      /// Gets or sets the user-specific major version (PE header, Windows NT-specific, 'User Major' field).
+      /// </summary>
+      /// <value>The user-specific major version (PE header, Windows NT-specific, 'User Major' field) of the module being emitted or loaded.</value>
+      [CLSCompliant( false )]
+      public UInt16 UserMajor { get; set; }
+
+      /// <summary>
+      /// Gets or sets the user-specific minor version (PE header, Windows NT-specific, 'User Minor' field).
+      /// </summary>
+      /// <value>The user-specific minor version (PE header, Windows NT-specific, 'User Minor' field) of the module being emitted or loaded.</value>
+      [CLSCompliant( false )]
+      public UInt16 UserMinor { get; set; }
+
+      /// <summary>
+      /// Gets or sets the major version of the subsystem (PE header, Windows NT-specific, 'SubSys Major' field).
+      /// </summary>
+      /// <value>The major version of the subsystem (PE header, Windows NT-specific, 'SubSys Major' field) of the module being emitted or loaded.</value>
+      [CLSCompliant( false )]
+      public UInt16 SubSysMajor { get; set; }
+
+      /// <summary>
+      /// Gets or sets the minor version of the subsystem (PE header, Windows NT-specific, 'SubSys Minor' field).
+      /// </summary>
+      /// <value>The minor version of the subsystem (PE header, Windows NT-specific, 'SubSys Minor' field) of the module being emitted or loaded.</value>
+      [CLSCompliant( false )]
+      public UInt16 SubSysMinor { get; set; }
+
+      /// <summary>
+      /// Gets or sets the major version of the targeted CLI (CLI header, 'MajorRuntimeVersion' field).
+      /// Should be at least <c>2</c>.
+      /// </summary>
+      /// <value>The major version of the targeted CLI (CLI header, 'MajorRuntimeVersion' field) of the module being emitted or loaded.</value>
+      [CLSCompliant( false )]
+      public UInt16 CLIMajor { get; set; }
+
+      /// <summary>
+      /// Gets or sets the minor version of the targeted CLI (CLI header, 'MinorRuntimeVersion' field).
+      /// </summary>
+      /// <value>The minor version of the targeted CLI (CLI header, 'MinorRuntimeVersion' field) of the module being emitted or loaded.</value>
+      [CLSCompliant( false )]
+      public UInt16 CLIMinor { get; set; }
+
+      /// <summary>
+      /// Gets or sets the flag signalling to use high entropy address space layout randomization ( see <see href="http://msdn.microsoft.com/en-us/library/hh156527.aspx"/> ).
+      /// </summary>
+      /// <value>Whether to use high entropy address space layout randomization.</value>
+      public Boolean HighEntropyVA { get; set; }
    }
 
    public interface CILMetaData
@@ -234,14 +420,4 @@ namespace CILAssemblyManipulator.Physical
       }
    }
 
-   public static class CILModuleIO
-   {
-
-      public static ModuleReadResult ReadModule( Stream stream )
-      {
-         HeadersData headers;
-         var md = CILAssemblyManipulator.Physical.Implementation.ModuleReader.ReadFromStream( stream, out headers );
-         return new ModuleReadResult( md, headers );
-      }
-   }
 }

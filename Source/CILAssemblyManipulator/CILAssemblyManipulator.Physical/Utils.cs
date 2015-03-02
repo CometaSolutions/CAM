@@ -1445,7 +1445,7 @@ namespace CILAssemblyManipulator.Physical
       internal readonly UInt32 rawSize;
       internal readonly UInt32 rawPointer;
 
-      internal SectionInfo( String name, UInt32 virtualSize, UInt32 virtualAddress, UInt32 rawSize, UInt32 rawPointer )
+      internal SectionInfo( UInt32 virtualSize, UInt32 virtualAddress, UInt32 rawSize, UInt32 rawPointer )
       {
          this.virtualSize = virtualSize;
          this.virtualAddress = virtualAddress;
@@ -1453,9 +1453,8 @@ namespace CILAssemblyManipulator.Physical
          this.rawPointer = rawPointer;
       }
 
-      internal SectionInfo( Stream sink, String name, SectionInfo? prevSection, UInt32 bytesWrittenInThisSection, UInt32 sectionAlignment, UInt32 fileAlignment, Boolean actuallyPad )
+      internal SectionInfo( Stream sink, SectionInfo? prevSection, UInt32 bytesWrittenInThisSection, UInt32 sectionAlignment, UInt32 fileAlignment, Boolean actuallyPad )
          : this(
-         name,
          bytesWrittenInThisSection,
          prevSection.HasValue ? ( prevSection.Value.virtualAddress + BitUtils.MultipleOf( sectionAlignment, prevSection.Value.virtualSize ) ) : sectionAlignment,
           BitUtils.MultipleOf( fileAlignment, bytesWrittenInThisSection ),

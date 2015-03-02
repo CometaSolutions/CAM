@@ -56,11 +56,14 @@
     </Compile>
     <Compile Include="Enums.cs" />
     <Compile Include="IL.cs" />
+    <Compile Include="Implementation\CryptoUtils.cs" />
     <Compile Include="Implementation\Module.Reading.cs" />
     <Compile Include="Implementation\Module.cs" />
+    <Compile Include="Implementation\Module.Writing.cs" />
     <Compile Include="MetaData.cs" />
     <Compile Include="MetaData.Resolving.cs" />
     <Compile Include="Module.cs" />
+    <Compile Include="Module.IO.cs" />
     <Compile Include="OpCodes.cs" />
     <Compile Include="Utils.cs" />
   </ItemGroup>
