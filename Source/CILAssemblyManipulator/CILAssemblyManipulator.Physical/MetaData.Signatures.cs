@@ -1426,13 +1426,28 @@ namespace CILAssemblyManipulator.Physical
       public CustomAttributeArgumentType ArrayType { get; set; }
    }
 
+   public abstract class AbstractSecurityInformation
+   {
+      /// <summary>
+      /// Gets or sets the type of the security attribute.
+      /// </summary>
+      /// <value>The type of the security attribute.</value>
+      public String SecurityAttributeType { get; set; }
+   }
+
+   public sealed class RawSecurityInformation : AbstractSecurityInformation
+   {
+      public Int32 ArgumentCount { get; set; }
+      public Byte[] Bytes { get; set; }
+   }
+
    /// <summary>
    /// This class represents a single security attribute declaration.
    /// Instances of this class are created via <see cref="CILElementWithSecurityInformation.AddDeclarativeSecurity(API.SecurityAction, CILType)"/> method.
    /// </summary>
    /// <seealso cref="CILElementWithSecurityInformation"/>
    /// <seealso cref="CILElementWithSecurityInformation.AddDeclarativeSecurity(API.SecurityAction, CILType)"/>
-   public sealed class SecurityInformation
+   public sealed class SecurityInformation : AbstractSecurityInformation
    {
       private readonly IList<CustomAttributeNamedArgument> _namedArguments;
 
@@ -1440,12 +1455,6 @@ namespace CILAssemblyManipulator.Physical
       {
          this._namedArguments = new List<CustomAttributeNamedArgument>( namedArgumentsCount );
       }
-
-      /// <summary>
-      /// Gets or sets the type of the security attribute.
-      /// </summary>
-      /// <value>The type of the security attribute.</value>
-      public String SecurityAttributeType { get; set; }
 
       /// <summary>
       /// Gets the <see cref="CILCustomAttributeNamedArgument"/>s of this security attribute declaration.

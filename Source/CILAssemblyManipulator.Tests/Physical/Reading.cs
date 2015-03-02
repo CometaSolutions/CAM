@@ -39,11 +39,26 @@ namespace CILAssemblyManipulator.Tests.Physical
       {
          TestReading( typeof( Object ).Assembly, md =>
          {
-            foreach ( var ca in md.CustomAttributeDefinitions )
+            for ( var i = 0; i < md.CustomAttributeDefinitions.Count; ++i )
             {
+               var ca = md.CustomAttributeDefinitions[i];
                var sig = ca.Signature;
                Assert.IsNotNull( sig );
                Assert.IsNotInstanceOf<RawCustomAttributeSignature>( sig );
+            }
+
+            for ( var i = 0; i < md.SecurityDefinitions.Count; ++i )
+            {
+               var sec = md.SecurityDefinitions[i];
+               foreach ( var permission in sec.PermissionSets )
+               {
+                  Assert.IsNotNull( permission );
+                  Assert.IsNotInstanceOf<RawSecurityInformation>( permission );
+                  foreach ( var arg in ( (SecurityInformation) permission ).NamedArguments )
+                  {
+                     Assert.IsNotNull( arg );
+                  }
+               }
             }
          } );
          // TODO: check that all custom attribute sigs are resolved
@@ -52,14 +67,16 @@ namespace CILAssemblyManipulator.Tests.Physical
 
       private void TestReading( System.Reflection.Assembly assembly, Action<CILMetaData> validationAction = null )
       {
+         var resolver = new MetaDataResolver();
          using ( var fs = File.OpenRead( new Uri( assembly.CodeBase ).LocalPath ) )
          {
-            var thisMDResult = CILModuleIO.ReadModule( fs );
+            var md = CILModuleIO.ReadModule( fs );
 
+            resolver.ResolveEverything( md.MetaData );
 
             if ( validationAction != null )
             {
-               validationAction( thisMDResult.MetaData );
+               validationAction( md.MetaData );
             }
          }
       }

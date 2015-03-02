@@ -151,11 +151,11 @@ namespace CILAssemblyManipulator.Physical
 
    public sealed class SecurityDefinition
    {
-      private readonly IList<SecurityInformation> _permissionSets;
+      private readonly IList<AbstractSecurityInformation> _permissionSets;
 
       public SecurityDefinition( Int32 permissionSetsCount = 0 )
       {
-         this._permissionSets = new List<SecurityInformation>( permissionSetsCount );
+         this._permissionSets = new List<AbstractSecurityInformation>( permissionSetsCount );
       }
 
       /// <summary>
@@ -163,8 +163,10 @@ namespace CILAssemblyManipulator.Physical
       /// </summary>
       /// <value>The <see cref="SecurityAction"/> associated with this security attribute declaration.</value>
       public SecurityAction Action { get; set; }
+
       public TableIndex Parent { get; set; }
-      public IList<SecurityInformation> PermissionSets
+
+      public IList<AbstractSecurityInformation> PermissionSets
       {
          get
          {

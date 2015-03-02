@@ -106,12 +106,12 @@ namespace CILAssemblyManipulator.Physical
       List<GenericParameterConstraintDefinition> GenericParameterConstraintDefinitions { get; }
    }
 
-   public sealed class CustomAttributeTypeResolveEventArgs : EventArgs
+   public sealed class AssemblyReferenceResolveEventArgs : EventArgs
    {
       private readonly String _assemblyName;
       private readonly AssemblyInformationForResolving? _assemblyInfo;
 
-      internal CustomAttributeTypeResolveEventArgs( String assemblyName, AssemblyInformationForResolving? assemblyInfo )
+      internal AssemblyReferenceResolveEventArgs( String assemblyName, AssemblyInformationForResolving? assemblyInfo )
       {
          this._assemblyName = assemblyName;
          this._assemblyInfo = assemblyInfo;

@@ -74,16 +74,14 @@ namespace CILAssemblyManipulator.Physical.Implementation
 
          internal Int32 GetBLOBIndex( Stream stream )
          {
-            var idx = this.ReadHeapIndex( stream );
-            this._bytes.DecompressUInt32( ref idx );
-            return idx;
+            Int32 heapIndex, blobSize;
+            return this.GetBLOBIndex( stream, out heapIndex, out blobSize );
          }
 
          internal Int32 GetBLOBIndex( Stream stream, out Int32 blobSize )
          {
-            var idx = this.ReadHeapIndex( stream );
-            blobSize = this._bytes.DecompressUInt32( ref idx );
-            return idx;
+            Int32 heapIndex;
+            return this.GetBLOBIndex( stream, out heapIndex, out blobSize );
          }
 
          internal Int32 GetBLOBIndex( Stream stream, out Int32 heapIndex, out Int32 blobSize )
@@ -438,7 +436,6 @@ namespace CILAssemblyManipulator.Physical.Implementation
          var tRefSizes = MetaDataConstants.GetCodedTableIndexSizes( tableSizes );
          var methodDefRVAs = new Int64[tableSizes[(Int32) Tables.MethodDef]];
          var fieldDefRVAs = new Int64[tableSizes[(Int32) Tables.FieldRVA]];
-         var typeResolveCache = new CATypeResolveCache();
 
          for ( var curTable = 0; curTable < Consts.AMOUNT_OF_TABLES; ++curTable )
          {
@@ -543,13 +540,25 @@ namespace CILAssemblyManipulator.Physical.Implementation
                case Tables.CustomAttribute:
                   ReadTable( retVal.CustomAttributeDefinitions, curTable, tableSizes, i =>
                   {
-                     var ca = new CustomAttributeDefinition()
+                     var caDef = new CustomAttributeDefinition()
                      {
                         Parent = MetaDataConstants.ReadCodedTableIndex( stream, CodedTableIndexKind.HasCustomAttribute, tRefSizes, tmpArray ).Value,
-                        Type = MetaDataConstants.ReadCodedTableIndex( stream, CodedTableIndexKind.CustomAttributeType, tRefSizes, tmpArray ).Value,
+                        Type = MetaDataConstants.ReadCodedTableIndex( stream, CodedTableIndexKind.CustomAttributeType, tRefSizes, tmpArray ).Value
                      };
-                     ca.Signature = ReadCustomAttributeSignature( blobs, stream, retVal, ca.Type, typeResolveCache );
-                     return ca;
+                     Int32 caBlobIndex, caBlobSize;
+                     blobs.GetBLOBIndex( stream, out caBlobIndex, out caBlobSize );
+                     AbstractCustomAttributeSignature caSig;
+                     if ( caBlobSize <= 2 )
+                     {
+                        // Empty blob
+                        caSig = new CustomAttributeSignature();
+                     }
+                     else
+                     {
+                        caSig = new RawCustomAttributeSignature() { Bytes = blobs.GetBLOB( caBlobIndex ) };
+                     }
+                     caDef.Signature = caSig;
+                     return caDef;
                   } );
                   break;
                case Tables.FieldMarshal:
@@ -568,7 +577,7 @@ namespace CILAssemblyManipulator.Physical.Implementation
                         Action = (SecurityAction) stream.ReadI16( tmpArray ),
                         Parent = MetaDataConstants.ReadCodedTableIndex( stream, CodedTableIndexKind.HasDeclSecurity, tRefSizes, tmpArray ).Value
                      };
-                     ReadSecurityBLOB( retVal, blobs, stream, sec, typeResolveCache );
+                     ReadSecurityBLOB( retVal, blobs, stream, sec );
                      return sec;
                   } );
                   break;
@@ -999,7 +1008,7 @@ namespace CILAssemblyManipulator.Physical.Implementation
          return IsSystemType( md, tIdx, Consts.ENUM_NAMESPACE, Consts.ENUM_TYPENAME );
       }
 
-      private static Boolean IsSystemType( CILMetaData md, TableIndex? tIdx, String systemNS, String systemTN )
+      internal static Boolean IsSystemType( CILMetaData md, TableIndex? tIdx, String systemNS, String systemTN )
       {
          var result = tIdx.HasValue && tIdx.Value.Table != Tables.TypeSpec;
 
@@ -1264,6 +1273,98 @@ namespace CILAssemblyManipulator.Physical.Implementation
          }
       }
 
+      private static AbstractSignature ReadMemberRefSignature( Byte[] bytes, Int32 idx )
+      {
+         return (SignatureStarters) bytes[idx] == SignatureStarters.Field ?
+            (AbstractSignature) FieldSignature.ReadFromBytesWithRef( bytes, ref idx ) :
+            MethodReferenceSignature.ReadFromBytes( bytes, ref idx );
+      }
 
+      private static AbstractSignature ReadStandaloneSignature( Byte[] bytes, Int32 idx )
+      {
+         // From https://social.msdn.microsoft.com/Forums/en-US/b4252eab-7aae-4456-9829-2707c8459e13/pinned-fields-in-the-common-language-runtime?forum=netfxtoolsdev
+         // After messing around further, and noticing that even the C# compiler emits Field signatures in the StandAloneSig table, the signatures seem to relate to PDB debugging symbols.
+         // When you emit symbols with the Debug or Release versions of your code, I'm guessing a StandAloneSig entry is injected and referred to by the PDB file.
+         // If you are in release mode and you generate no PDB info, the StandAloneSig table contains no Field signatures.
+         // One such condition for the emission of such information is constants within the scope of a method body.
+         // Original thread:  http://www.netframeworkdev.com/building-development-diagnostic-tools-for-net/field-signatures-in-standalonesig-table-30658.shtml
+         return (SignatureStarters) bytes[idx] == SignatureStarters.LocalSignature ?
+            (AbstractSignature) LocalVariablesSignature.ReadFromBytes( bytes, ref idx ) :
+            ( (SignatureStarters) bytes[idx] == SignatureStarters.Field ?
+               null : // We could parse field signature but it sometimes may contain stuff like Pinned etc, which would just mess it up
+               MethodReferenceSignature.ReadFromBytes( bytes, ref idx ) );
+      }
+
+      private static void ReadSecurityBLOB(
+         CILMetaData md,
+         BLOBContainer blobs,
+         Stream stream,
+         SecurityDefinition declSecurity
+         )
+      {
+         Int32 blobSize;
+         var bIdx = blobs.GetBLOBIndex( stream, out blobSize );
+         if ( blobSize > 0 )
+         {
+            var blob = blobs.WholeBLOBArray;
+
+            if ( blob[bIdx] == MetaDataConstants.DECL_SECURITY_HEADER )
+            {
+               // New (.NET 2.0+) security spec
+               ++bIdx;
+               // Amount of security attributes
+               var attrCount = blob.DecompressUInt32( ref bIdx );
+               for ( var j = 0; j < attrCount; ++j )
+               {
+                  var secType = blob.ReadLenPrefixedUTF8String( ref bIdx );
+                  // There is an amount of remaining bytes here
+                  var attributeByteCount = blob.DecompressUInt32( ref bIdx );
+                  var copyStart = bIdx;
+                  // Now, amount of named args
+                  var argCount = blob.DecompressUInt32( ref bIdx );
+                  var bytesToCopy = attributeByteCount - ( bIdx - copyStart );
+                  AbstractSecurityInformation secInfo;
+                  if ( argCount <= 0 )
+                  {
+                     secInfo = new SecurityInformation()
+                     {
+                        SecurityAttributeType = secType
+                     };
+                     bIdx += bytesToCopy;
+                  }
+                  else
+                  {
+                     secInfo = new RawSecurityInformation()
+                     {
+                        SecurityAttributeType = secType,
+                        ArgumentCount = argCount,
+                        Bytes = blob.CreateAndBlockCopyTo( ref bIdx, bytesToCopy )
+                     };
+                  }
+                  declSecurity.PermissionSets.Add( secInfo );
+               }
+            }
+            else
+            {
+               // Old (.NET 1.x) security spec
+               // Create a single SecurityInformation with PermissionSetAttribute type and XML property argument containing the XML of the blob
+               var secInfo = new SecurityInformation( 1 )
+               {
+                  SecurityAttributeType = Consts.PERMISSION_SET
+               };
+               secInfo.NamedArguments.Add( new CustomAttributeNamedArgument()
+               {
+                  IsField = false,
+                  Name = Consts.PERMISSION_SET_XML_PROP,
+                  Value = new CustomAttributeTypedArgument()
+                  {
+                     Type = CustomAttributeArgumentSimple.String,
+                     Value = MetaDataConstants.USER_STRING_ENCODING.GetString( blob, bIdx, blobSize )
+                  }
+               } );
+               declSecurity.PermissionSets.Add( secInfo );
+            }
+         }
+      }
    }
 }

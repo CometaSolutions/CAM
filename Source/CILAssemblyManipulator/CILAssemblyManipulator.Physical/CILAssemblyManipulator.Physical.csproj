@@ -59,6 +59,7 @@
     <Compile Include="Implementation\Module.Reading.cs" />
     <Compile Include="Implementation\Module.cs" />
     <Compile Include="MetaData.cs" />
+    <Compile Include="MetaData.Resolving.cs" />
     <Compile Include="Module.cs" />
     <Compile Include="OpCodes.cs" />
     <Compile Include="Utils.cs" />
@@ -70,9 +71,6 @@
   </ItemGroup>
   <ItemGroup>
     <Compile Include="MetaData.Signatures.cs" />
-  </ItemGroup>
-  <ItemGroup>
-    <Compile Include="Implementation\Module.Reading.Signatures.cs" />
   </ItemGroup>
   <Import Project="$(MSBuildExtensionsPath32)\Microsoft\Portable\$(TargetFrameworkVersion)\Microsoft.Portable.CSharp.targets" />
   <!-- Create .snk file if it doesn't exist to ensure smooth build -->
