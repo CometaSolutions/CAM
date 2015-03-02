@@ -1177,20 +1177,6 @@ namespace CILAssemblyManipulator.Physical
       // Bit 41: Unconditionally ends bulk of code (1 = true, 0 = false)
       private readonly UInt64 _state;
 
-
-
-      //private readonly StackBehaviourPop _stackPop;
-      //private readonly StackBehaviourPush _stackPush;
-      //private readonly OperandType _operand;
-      //private readonly OpCodeType _type;
-      //private readonly FlowControl _flowControl;
-      //private readonly Boolean _unconditionallyEndsBulkOfCode;
-      //private readonly Int32 _stackChange;
-      //private readonly Int32 _size;
-      //private readonly Byte _byte1;
-      //private readonly Byte _byte2;
-
-      // TODO consider saving state (stack_pop, stack_push, operand, type, flow-ctrl, size) into single UInt32
       internal OpCode(
          OpCodeEncoding encoded,
          StackBehaviourPop stackPop,
@@ -1265,18 +1251,6 @@ namespace CILAssemblyManipulator.Physical
              | ( ( (UInt64) stackChange + 3 ) << STACK_CHANGE_SHIFT )
              | ( ( unconditionallyEndsBulkOfCode ? 1U : 0U ) << ENDS_BLK_CODE_SHIFT )
              ;
-
-
-         //this._size = ( (Int32) encoded ) > MAX_ONE_BYTE_INSTRUCTION ? 1 : 0;
-         //this._byte1 = (Byte) ( ( (Int32) encoded ) >> 8 );
-         //this._byte2 = (Byte) encoded;
-         //this._stackPop = stackPop;
-         //this._stackPush = stackPush;
-         //this._operand = operand;
-         //this._type = type;
-         //this._flowControl = flowControl;
-         //this._unconditionallyEndsBulkOfCode = unconditionallyEndsBulkOfCode;
-         //this._stackChange = stackChange;
 
          OpCodes.Codes.Add( encoded, this );
          if ( OperandType.InlineNone == operand )

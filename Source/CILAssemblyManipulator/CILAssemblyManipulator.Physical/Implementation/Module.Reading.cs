@@ -50,11 +50,10 @@ namespace CILAssemblyManipulator.Physical.Implementation
 
          internal Byte[] GetBLOB( Int32 idx )
          {
-            var idxToGive = idx;
-            var length = this._bytes.DecompressUInt32( ref idxToGive );
+            var length = this._bytes.DecompressUInt32( ref idx );
             var result = length <= 0 ?
                Empty<Byte>.Array :
-               this._bytes.CreateAndBlockCopyTo( ref idxToGive, length );
+               this._bytes.CreateAndBlockCopyTo( ref idx, length );
             return result;
          }
 
