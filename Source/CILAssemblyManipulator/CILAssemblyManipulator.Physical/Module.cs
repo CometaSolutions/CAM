@@ -42,7 +42,7 @@ namespace CILAssemblyManipulator.Physical
       /// Gets or set the optional index to MethodDef table where CLR entry point method resides.
       /// </summary>
       /// <value>The optional index to MethodDef table where CLR entry point method resides.</value>
-      public Int32? CLREntryPointIndex { get; set; }
+      public TableIndex? CLREntryPointIndex { get; set; }
 
       /// <summary>
       /// Gets or sets the version string of the metadata (metadata root, 'Version' field).
@@ -219,6 +219,18 @@ namespace CILAssemblyManipulator.Physical
       /// </summary>
       /// <value>Whether to use high entropy address space layout randomization.</value>
       public Boolean HighEntropyVA { get; set; }
+
+      /// <summary>
+      /// Gets or sets the <see cref="ModuleFlags"/> of the module (CLI header, 'Flags' field).
+      /// </summary>
+      /// <value>The <see cref="ModuleFlags"/> of the module (CLI header, 'Flags' field) being emitted or loaded.</value>
+      public ModuleFlags ModuleFlags { get; set; }
+
+      /// <summary>
+      /// During emitting, if this property is not <c>null</c>, then the debug directory with the information specified by <see cref="EmittingDebugInformation"/> is written.
+      /// During loading, if the PE file contains debug directory, this property is set to reflect the data of the debug directory.
+      /// </summary>
+      public EmittingDebugInformation DebugInformation { get; set; }
    }
 
    public interface CILMetaData
@@ -292,103 +304,6 @@ namespace CILAssemblyManipulator.Physical
       List<GenericParameterConstraintDefinition> GenericParameterConstraintDefinitions { get; }
    }
 
-   public sealed class AssemblyReferenceResolveEventArgs : EventArgs
-   {
-      private readonly String _assemblyName;
-      private readonly AssemblyInformationForResolving? _assemblyInfo;
-
-      internal AssemblyReferenceResolveEventArgs( String assemblyName, AssemblyInformationForResolving? assemblyInfo )
-      {
-         this._assemblyName = assemblyName;
-         this._assemblyInfo = assemblyInfo;
-      }
-
-      /// <summary>
-      /// This may be <c>null</c>! This means that it is mscorlib assembly, (or possibly another module?)
-      /// </summary>
-      public String UnparsedAssemblyName
-      {
-         get
-         {
-            return this._assemblyName;
-         }
-      }
-
-      public AssemblyInformationForResolving? ExistingAssemblyInformation
-      {
-         get
-         {
-            return this._assemblyInfo;
-         }
-      }
-
-      public CILMetaData ResolvedAssembly { get; set; }
-   }
-
-   public struct AssemblyInformationForResolving : IEquatable<AssemblyInformationForResolving>
-   {
-      private readonly AssemblyInformation _information;
-      private readonly Boolean _isFullPublicKey;
-
-      public AssemblyInformationForResolving( AssemblyInformation information, Boolean isFullPublicKey )
-      {
-         ArgumentValidator.ValidateNotNull( "Assembly information", information );
-
-         this._information = information;
-         this._isFullPublicKey = isFullPublicKey;
-      }
-
-      public AssemblyInformation AssemblyInformation
-      {
-         get
-         {
-            return this._information;
-         }
-      }
-
-      public Boolean IsFullPublicKey
-      {
-         get
-         {
-            return this._isFullPublicKey;
-         }
-      }
-
-      public override Boolean Equals( Object obj )
-      {
-         return obj is AssemblyInformationForResolving ?
-            this.Equals( (AssemblyInformationForResolving) obj ) :
-            false;
-      }
-
-      public override Int32 GetHashCode()
-      {
-         return this._information.Name.GetHashCodeSafe();
-      }
-
-      public Boolean Equals( AssemblyInformationForResolving other )
-      {
-         return this._isFullPublicKey == other._isFullPublicKey
-               && Equals( this._information, other._information );
-      }
-
-      private static Boolean Equals( AssemblyInformation x, AssemblyInformation y )
-      {
-         return Object.ReferenceEquals( x, y )
-            || ( x != null
-               && y != null
-               && String.Equals( x.Name, y.Name )
-               && x.VersionMajor == y.VersionMajor
-               && x.VersionMinor == y.VersionMinor
-               && x.VersionBuild == y.VersionBuild
-               && x.VersionRevision == y.VersionRevision
-               && String.Equals( x.Culture, y.Culture )
-               && ArrayEqualityComparer<Byte>.DefaultArrayEqualityComparer.Equals( x.PublicKeyOrToken, y.PublicKeyOrToken )
-            );
-
-      }
-   }
-
    public sealed class ModuleReadResult
    {
       private readonly CILMetaData _md;
@@ -420,4 +335,121 @@ namespace CILAssemblyManipulator.Physical
       }
    }
 
+   /// <summary>
+   /// This class contains information about the debug directory of PE files.
+   /// </summary>
+   /// <seealso href="http://msdn.microsoft.com/en-us/library/windows/desktop/ms680307%28v=vs.85%29.aspx"/>
+   public sealed class EmittingDebugInformation
+   {
+      private Int32 _characteristics;
+      private Int32 _timestamp;
+      private Int16 _versionMajor;
+      private Int16 _versionMinor;
+      private Int32 _type;
+      private Byte[] _debugDirData;
+
+      /// <summary>
+      /// Creates new instance of <see cref="EmittingDebugInformation"/>.
+      /// </summary>
+      public EmittingDebugInformation()
+      {
+
+      }
+
+      /// <summary>
+      /// Gets or sets the characteristics field of the debug directory.
+      /// </summary>
+      /// <value>The characteristics field of the debug directory.</value>
+      public Int32 Characteristics
+      {
+         get
+         {
+            return this._characteristics;
+         }
+         set
+         {
+            this._characteristics = value;
+         }
+      }
+
+      /// <summary>
+      /// Gets or sets the timestamp field of the debug directory.
+      /// </summary>
+      /// <value>The timestamp field of the debug directory.</value>
+      public Int32 Timestamp
+      {
+         get
+         {
+            return this._timestamp;
+         }
+         set
+         {
+            this._timestamp = value;
+         }
+      }
+
+      /// <summary>
+      /// Gets or sets the major version of the debug directory.
+      /// </summary>
+      /// <value>The major version of the debug directory.</value>
+      public Int16 VersionMajor
+      {
+         get
+         {
+            return this._versionMajor;
+         }
+         set
+         {
+            this._versionMajor = value;
+         }
+      }
+
+      /// <summary>
+      /// Gets or sets the minor version of the debug directory.
+      /// </summary>
+      /// <value>The minor version of the debug directory.</value>
+      public Int16 VersionMinor
+      {
+         get
+         {
+            return this._versionMinor;
+         }
+         set
+         {
+            this._versionMinor = value;
+         }
+      }
+
+      /// <summary>
+      /// Gets or sets the type field of the debug directory.
+      /// </summary>
+      /// <value>The field of the debug directory.</value>
+      public Int32 DebugType
+      {
+         get
+         {
+            return this._type;
+         }
+         set
+         {
+            this._type = value;
+         }
+      }
+
+      /// <summary>
+      /// Gets or sets the binary data of the debug directory.
+      /// </summary>
+      /// <value>The binary data of the debug directory.</value>
+      public Byte[] DebugData
+      {
+         get
+         {
+            return this._debugDirData;
+         }
+         set
+         {
+            this._debugDirData = value;
+         }
+      }
+   }
 }

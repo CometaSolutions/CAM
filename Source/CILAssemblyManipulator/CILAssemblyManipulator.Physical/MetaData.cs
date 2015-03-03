@@ -259,15 +259,41 @@ namespace CILAssemblyManipulator.Physical
 
    public sealed class AssemblyDefinition
    {
+      private readonly AssemblyInformation _assemblyInfo;
+
+      public AssemblyDefinition()
+      {
+         this._assemblyInfo = new AssemblyInformation();
+      }
+
       public AssemblyFlags Attributes { get; set; }
-      public AssemblyInformation AssemblyInformation { get; set; }
+      public AssemblyInformation AssemblyInformation
+      {
+         get
+         {
+            return this._assemblyInfo;
+         }
+      }
       public AssemblyHashAlgorithm HashAlgorithm { get; set; }
    }
 
    public sealed class AssemblyReference
    {
+      private readonly AssemblyInformation _assemblyInfo;
+
+      public AssemblyReference()
+      {
+         this._assemblyInfo = new AssemblyInformation();
+      }
+
       public AssemblyFlags Attributes { get; set; }
-      public AssemblyInformation AssemblyInformation { get; set; }
+      public AssemblyInformation AssemblyInformation
+      {
+         get
+         {
+            return this._assemblyInfo;
+         }
+      }
       public Byte[] HashValue { get; set; }
    }
 
@@ -563,6 +589,9 @@ namespace CILAssemblyManipulator.Physical
       public ManifestResourceAttributes Attributes { get; set; }
       public String Name { get; set; }
       public TableIndex? Implementation { get; set; }
+
+      // This will be used only if Implementation is null
+      public Byte[] DataInCurrentFile { get; set; }
    }
 
    public sealed class NestedClassDefinition
@@ -626,6 +655,16 @@ namespace CILAssemblyManipulator.Physical
             return this._token & TokenUtils.INDEX_MASK;
          }
       }
+
+      internal Int32 ZeroBasedToken
+      {
+         get
+         {
+            return this._token;
+         }
+      }
+
+
 
       public override string ToString()
       {
@@ -715,5 +754,65 @@ public static partial class E_CILPhysical
    public static Boolean IsProperty( this SignatureStarters starter )
    {
       return ( starter & SignatureStarters.Property ) != 0;
+   }
+
+   public static LocalVariablesSignature GetLocalsSignatureForMethodOrNull( this CILMetaData md, Int32 methodDefIndex )
+   {
+      var method = md.MethodDefinitions.GetOrNull( methodDefIndex );
+      LocalVariablesSignature retVal;
+      if ( method == null )
+      {
+         retVal = null;
+      }
+      else
+      {
+         var il = method.IL;
+         var tIdx = il.LocalsSignatureIndex;
+         if ( tIdx.HasValue )
+         {
+            var idx = tIdx.Value.Index;
+            var list = md.StandaloneSignatures;
+            retVal = idx >= 0 && idx < list.Count ?
+               list[idx].Signature as LocalVariablesSignature :
+               null;
+         }
+         else
+         {
+            retVal = null;
+         }
+      }
+
+      return retVal;
+   }
+
+   /// <summary>
+   /// Checks whether the method is eligible to have method body. See ECMA specification (condition 33 for MethodDef table) for exact condition of methods having method bodies. In addition to that, the <see cref="E_CIL.IsIL"/> must return <c>true</c>.
+   /// </summary>
+   /// <param name="method">The method to check.</param>
+   /// <returns><c>true</c> if the <paramref name="method"/> is non-<c>null</c> and can have IL method body; <c>false</c> otherwise.</returns>
+   /// <seealso cref="E_CIL.IsIL"/>
+   /// <seealso cref="E_CIL.CanEmitIL"/>
+   public static Boolean HasILMethodBody( this MethodDefinition method )
+   {
+      return method != null && method.Attributes.CanEmitIL() && method.ImplementationAttributes.IsIL();
+   }
+
+   // Returns token with 1-based indexing, or zero if tableIdx has no value
+   internal static Int32 CreateTokenForEmittingOptionalTableIndex( this TableIndex? tableIdx )
+   {
+      return tableIdx.HasValue ?
+         ZeroBasedTokenToOneBasedToken( tableIdx.Value.ZeroBasedToken ) :
+         0;
+   }
+
+   // Returns token with 1-based indexing
+   internal static Int32 CreateTokenForEmittingMandatoryTableIndex( this TableIndex tableIdx )
+   {
+      return ZeroBasedTokenToOneBasedToken( tableIdx.ZeroBasedToken );
+   }
+
+   private static Int32 ZeroBasedTokenToOneBasedToken( Int32 token )
+   {
+      return ( ( token & TokenUtils.INDEX_MASK ) + 1 ) | ( token & ~TokenUtils.INDEX_MASK );
    }
 }

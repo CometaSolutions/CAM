@@ -834,6 +834,102 @@ namespace CILAssemblyManipulator.Physical
 
    }
 
+   public sealed class AssemblyReferenceResolveEventArgs : EventArgs
+   {
+      private readonly String _assemblyName;
+      private readonly AssemblyInformationForResolving? _assemblyInfo;
+
+      internal AssemblyReferenceResolveEventArgs( String assemblyName, AssemblyInformationForResolving? assemblyInfo )
+      {
+         this._assemblyName = assemblyName;
+         this._assemblyInfo = assemblyInfo;
+      }
+
+      /// <summary>
+      /// This may be <c>null</c>! This means that it is mscorlib assembly, (or possibly another module?)
+      /// </summary>
+      public String UnparsedAssemblyName
+      {
+         get
+         {
+            return this._assemblyName;
+         }
+      }
+
+      public AssemblyInformationForResolving? ExistingAssemblyInformation
+      {
+         get
+         {
+            return this._assemblyInfo;
+         }
+      }
+
+      public CILMetaData ResolvedAssembly { get; set; }
+   }
+
+   public struct AssemblyInformationForResolving : IEquatable<AssemblyInformationForResolving>
+   {
+      private readonly AssemblyInformation _information;
+      private readonly Boolean _isFullPublicKey;
+
+      public AssemblyInformationForResolving( AssemblyInformation information, Boolean isFullPublicKey )
+      {
+         ArgumentValidator.ValidateNotNull( "Assembly information", information );
+
+         this._information = information;
+         this._isFullPublicKey = isFullPublicKey;
+      }
+
+      public AssemblyInformation AssemblyInformation
+      {
+         get
+         {
+            return this._information;
+         }
+      }
+
+      public Boolean IsFullPublicKey
+      {
+         get
+         {
+            return this._isFullPublicKey;
+         }
+      }
+
+      public override Boolean Equals( Object obj )
+      {
+         return obj is AssemblyInformationForResolving ?
+            this.Equals( (AssemblyInformationForResolving) obj ) :
+            false;
+      }
+
+      public override Int32 GetHashCode()
+      {
+         return this._information.Name.GetHashCodeSafe();
+      }
+
+      public Boolean Equals( AssemblyInformationForResolving other )
+      {
+         return this._isFullPublicKey == other._isFullPublicKey
+               && Equals( this._information, other._information );
+      }
+
+      private static Boolean Equals( AssemblyInformation x, AssemblyInformation y )
+      {
+         return Object.ReferenceEquals( x, y )
+            || ( x != null
+               && y != null
+               && String.Equals( x.Name, y.Name )
+               && x.VersionMajor == y.VersionMajor
+               && x.VersionMinor == y.VersionMinor
+               && x.VersionBuild == y.VersionBuild
+               && x.VersionRevision == y.VersionRevision
+               && String.Equals( x.Culture, y.Culture )
+               && ArrayEqualityComparer<Byte>.DefaultArrayEqualityComparer.Equals( x.PublicKeyOrToken, y.PublicKeyOrToken )
+            );
+
+      }
+   }
 }
 
 public static partial class E_CILPhysical

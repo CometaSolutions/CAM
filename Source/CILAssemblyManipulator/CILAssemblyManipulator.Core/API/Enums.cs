@@ -178,7 +178,7 @@ namespace CILAssemblyManipulator.API
       /// </summary>
       Public = 0x0001,
       /// <summary>
-      /// The resource is prive to the assembly.
+      /// The resource is private to the assembly.
       /// </summary>
       Private = 0x0002
    }

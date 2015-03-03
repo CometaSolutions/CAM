@@ -241,6 +241,7 @@ namespace CILAssemblyManipulator.Physical.Implementation
          out HeadersData headers
          )
       {
+         headers = new HeadersData();
 
          Byte[] tmpArray = new Byte[8];
 
@@ -254,6 +255,7 @@ namespace CILAssemblyManipulator.Physical.Implementation
 
          // Architecture
          var architecture = (ImageFileMachine) stream.ReadU16( tmpArray );
+         headers.Machine = architecture;
 
          // Amount of sections
          var amountOfSections = stream.ReadU16( tmpArray );
@@ -276,6 +278,7 @@ namespace CILAssemblyManipulator.Physical.Implementation
 
          // DLL flags
          var dllFlags = (DLLFlags) stream.ReadU16( tmpArray );
+
 
          // Skip to debug header
          stream.SeekFromCurrent( architecture.RequiresPE64() ? 88 : 72 ); // PE64 requires 8 bytes for stack reserve & commit sizes, and heap reserve & commit sizes
@@ -318,7 +321,11 @@ namespace CILAssemblyManipulator.Physical.Implementation
          var moduleFlags = (ModuleFlags) stream.ReadU32( tmpArray );
 
          // Entrypoint token
-         var epToken = (Int32) stream.ReadU32( tmpArray );
+         var epToken = stream.ReadI32( tmpArray );
+         if ( epToken != 0 )
+         {
+            headers.CLREntryPointIndex = new TableIndex( epToken );
+         }
 
          // Resources data directory
          var rsrcDD = new DataDir( stream, tmpArray );
@@ -335,6 +342,7 @@ namespace CILAssemblyManipulator.Physical.Implementation
          var retVal = ReadMetadata(
             stream,
             sections,
+            rsrcDD,
             out mdVersion
             );
 
@@ -347,6 +355,7 @@ namespace CILAssemblyManipulator.Physical.Implementation
       internal static CILMetaData ReadMetadata(
          Stream stream,
          SectionInfo[] sections,
+         DataDir rsrcDD,
          out String versionStr
          )
       {
@@ -695,39 +704,33 @@ namespace CILAssemblyManipulator.Physical.Implementation
                   {
                      var assDef = new AssemblyDefinition()
                      {
-                        HashAlgorithm = (AssemblyHashAlgorithm) stream.ReadU32( tmpArray ),
-                        AssemblyInformation = new AssemblyInformation()
-                        {
-                           VersionMajor = stream.ReadU16( tmpArray ),
-                           VersionMinor = stream.ReadU16( tmpArray ),
-                           VersionBuild = stream.ReadU16( tmpArray ),
-                           VersionRevision = stream.ReadU16( tmpArray ),
-                        },
-                        Attributes = (AssemblyFlags) stream.ReadU32( tmpArray )
+                        HashAlgorithm = (AssemblyHashAlgorithm) stream.ReadU32( tmpArray )
                      };
-                     assDef.AssemblyInformation.PublicKeyOrToken = blobs.ReadBLOB( stream );
-                     assDef.AssemblyInformation.Name = sysStrings.ReadSysString( stream );
-                     assDef.AssemblyInformation.Culture = sysStrings.ReadSysString( stream );
+                     var assInfo = assDef.AssemblyInformation;
+                     assInfo.VersionMajor = stream.ReadU16( tmpArray );
+                     assInfo.VersionMinor = stream.ReadU16( tmpArray );
+                     assInfo.VersionBuild = stream.ReadU16( tmpArray );
+                     assInfo.VersionRevision = stream.ReadU16( tmpArray );
+                     assDef.Attributes = (AssemblyFlags) stream.ReadU32( tmpArray );
+                     assInfo.PublicKeyOrToken = blobs.ReadBLOB( stream );
+                     assInfo.Name = sysStrings.ReadSysString( stream );
+                     assInfo.Culture = sysStrings.ReadSysString( stream );
                      return assDef;
                   } );
                   break;
                case Tables.AssemblyRef:
                   ReadTable( retVal.AssemblyReferences, curTable, tableSizes, i =>
                   {
-                     var assRef = new AssemblyReference()
-                     {
-                        AssemblyInformation = new AssemblyInformation()
-                        {
-                           VersionMajor = stream.ReadU16( tmpArray ),
-                           VersionMinor = stream.ReadU16( tmpArray ),
-                           VersionBuild = stream.ReadU16( tmpArray ),
-                           VersionRevision = stream.ReadU16( tmpArray )
-                        },
-                        Attributes = (AssemblyFlags) stream.ReadU32( tmpArray )
-                     };
-                     assRef.AssemblyInformation.PublicKeyOrToken = blobs.ReadBLOB( stream );
-                     assRef.AssemblyInformation.Name = sysStrings.ReadSysString( stream );
-                     assRef.AssemblyInformation.Culture = sysStrings.ReadSysString( stream );
+                     var assRef = new AssemblyReference();
+                     var assInfo = assRef.AssemblyInformation;
+                     assInfo.VersionMajor = stream.ReadU16( tmpArray );
+                     assInfo.VersionMinor = stream.ReadU16( tmpArray );
+                     assInfo.VersionBuild = stream.ReadU16( tmpArray );
+                     assInfo.VersionRevision = stream.ReadU16( tmpArray );
+                     assRef.Attributes = (AssemblyFlags) stream.ReadI32( tmpArray );
+                     assInfo.PublicKeyOrToken = blobs.ReadBLOB( stream );
+                     assInfo.Name = sysStrings.ReadSysString( stream );
+                     assInfo.Culture = sysStrings.ReadSysString( stream );
                      assRef.HashValue = blobs.ReadBLOB( stream );
                      return assRef;
                   } );
@@ -847,6 +850,24 @@ namespace CILAssemblyManipulator.Physical.Implementation
             }
 
          }
+
+         // Read all raw manifest resources
+         var hasEmbeddedResources = rsrcDD.rva > 0 && rsrcDD.size > 0;
+         if ( hasEmbeddedResources )
+         {
+            var rsrcOffset = ResolveRVA( rsrcDD.rva, sections );
+            var rsrcSize = (Int64) rsrcDD.size;
+            foreach ( var mRes in retVal.ManifestResources.Where( m => !m.Implementation.HasValue && m.Offset < rsrcSize ) )
+            {
+               // Read embedded resource
+               stream.SeekFromBegin( rsrcOffset + mRes.Offset );
+               var length = stream.ReadU32( tmpArray );
+               var data = new Byte[length];
+               stream.ReadWholeArray( data );
+               mRes.DataInCurrentFile = data;
+            }
+         }
+
          return retVal;
       }
 
@@ -1205,48 +1226,49 @@ namespace CILAssemblyManipulator.Physical.Implementation
             }
 
             var code = OpCodes.Codes[(OpCodeEncoding) curInstruction];
+            OpCodeInfo info;
 
             switch ( code.OperandType )
             {
                case OperandType.InlineNone:
-                  opCodes.Add( OpCodes.CodeInfosWithNoOperand[(OpCodeEncoding) curInstruction] );
+                  info = OpCodes.CodeInfosWithNoOperand[(OpCodeEncoding) curInstruction];
                   break;
                case OperandType.ShortInlineBrTarget:
                case OperandType.ShortInlineI:
                   current += sizeof( Byte );
-                  opCodes.Add( new OpCodeInfoWithInt32( code, (Int32) ( (SByte) stream.ReadByteFromStream() ) ) );
+                  info = new OpCodeInfoWithInt32( code, (Int32) ( (SByte) stream.ReadByteFromStream() ) );
                   break;
                case OperandType.ShortInlineVar:
                   current += sizeof( Byte );
-                  opCodes.Add( new OpCodeInfoWithInt32( code, stream.ReadByteFromStream() ) );
+                  info = new OpCodeInfoWithInt32( code, stream.ReadByteFromStream() );
                   break;
                case OperandType.ShortInlineR:
                   stream.ReadSpecificAmount( tmpArray, 0, sizeof( Single ) );
                   current += sizeof( Single );
-                  opCodes.Add( new OpCodeInfoWithSingle( code, tmpArray.ReadSingleLEFromBytesNoRef( 0 ) ) );
+                  info = new OpCodeInfoWithSingle( code, tmpArray.ReadSingleLEFromBytesNoRef( 0 ) );
                   break;
                case OperandType.InlineBrTarget:
                case OperandType.InlineI:
                   current += sizeof( Int32 );
-                  opCodes.Add( new OpCodeInfoWithInt32( code, stream.ReadI32( tmpArray ) ) );
+                  info = new OpCodeInfoWithInt32( code, stream.ReadI32( tmpArray ) );
                   break;
                case OperandType.InlineVar:
                   current += sizeof( Int16 );
-                  opCodes.Add( new OpCodeInfoWithInt32( code, stream.ReadU16( tmpArray ) ) );
+                  info = new OpCodeInfoWithInt32( code, stream.ReadU16( tmpArray ) );
                   break;
                case OperandType.InlineR:
                   current += sizeof( Double );
                   stream.ReadSpecificAmount( tmpArray, 0, sizeof( Double ) );
-                  opCodes.Add( new OpCodeInfoWithDouble( code, tmpArray.ReadDoubleLEFromBytesNoRef( 0 ) ) );
+                  info = new OpCodeInfoWithDouble( code, tmpArray.ReadDoubleLEFromBytesNoRef( 0 ) );
                   break;
                case OperandType.InlineI8:
                   current += sizeof( Int64 );
                   stream.ReadSpecificAmount( tmpArray, 0, sizeof( Int64 ) );
-                  opCodes.Add( new OpCodeInfoWithInt64( code, tmpArray.ReadInt64LEFromBytesNoRef( 0 ) ) );
+                  info = new OpCodeInfoWithInt64( code, tmpArray.ReadInt64LEFromBytesNoRef( 0 ) );
                   break;
                case OperandType.InlineString:
                   current += sizeof( Int32 );
-                  opCodes.Add( new OpCodeInfoWithString( code, userStrings.GetString( stream.ReadI32( tmpArray ) & TokenUtils.INDEX_MASK ) ) );
+                  info = new OpCodeInfoWithString( code, userStrings.GetString( stream.ReadI32( tmpArray ) & TokenUtils.INDEX_MASK ) );
                   break;
                case OperandType.InlineField:
                case OperandType.InlineMethod:
@@ -1254,21 +1276,23 @@ namespace CILAssemblyManipulator.Physical.Implementation
                case OperandType.InlineTok:
                case OperandType.InlineSig:
                   current += sizeof( Int32 );
-                  opCodes.Add( new OpCodeInfoWithToken( code, new TableIndex( stream.ReadI32( tmpArray ) ) ) );
+                  info = new OpCodeInfoWithToken( code, new TableIndex( stream.ReadI32( tmpArray ) ) );
                   break;
                case OperandType.InlineSwitch:
                   var count = stream.ReadI32( tmpArray );
                   current += sizeof( Int32 ) + count * sizeof( Int32 );
-                  var info = new OpCodeInfoWithSwitch( code, count );
+                  var sInfo = new OpCodeInfoWithSwitch( code, count );
                   for ( var i = 0; i < count; ++i )
                   {
-                     info.Offsets.Add( stream.ReadI32( tmpArray ) );
+                     sInfo.Offsets.Add( stream.ReadI32( tmpArray ) );
                   }
-                  opCodes.Add( info );
+                  info = sInfo;
                   break;
                default:
                   throw new ArgumentException( "Unknown operand type: " + code.OperandType + " for " + code + "." );
             }
+
+            opCodes.Add( info );
          }
       }
 

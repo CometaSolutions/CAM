@@ -1166,6 +1166,9 @@ namespace CILAssemblyManipulator.Physical
       private const UInt64 ENDS_BLK_CODE_MASK = 0x20000000000U;
       private const Int32 ENDS_BLK_CODE_SHIFT = STACK_CHANGE_SHIFT + 3;
 
+      private const UInt64 OPERAND_SIZE_MASK = 0x3C0000000000U;
+      private const Int32 OPERAND_SIZE_SHIFT = ENDS_BLK_CODE_SHIFT + 1;
+
       // Bits 0-4 (5 bits): StackBehaviourPop
       // Bits 5-8 (4 bits): StackBehaviourPush
       // Bits 9-13 (5 bits): OperandType
@@ -1175,6 +1178,7 @@ namespace CILAssemblyManipulator.Physical
       // Bits 22-37 (16 bits): Bytes 1 & 2
       // Bits 38-40 (3 bits): Stack change (0 = -3, 1 = -2, etc)
       // Bit 41: Unconditionally ends bulk of code (1 = true, 0 = false)
+      // Bits 42-45 (4bits): Operand size in bytes
       private readonly UInt64 _state;
 
       internal OpCode(
@@ -1239,6 +1243,37 @@ namespace CILAssemblyManipulator.Physical
          var size = ( (Int32) encoded ) > MAX_ONE_BYTE_INSTRUCTION ? 1 : 0;
          var byte1 = (Byte) ( ( (Int32) encoded ) >> 8 );
          var byte2 = (Byte) encoded;
+         UInt64 operandSize;
+         switch ( operand )
+         {
+            case OperandType.InlineNone:
+               operandSize = 0U;
+               break;
+            case OperandType.ShortInlineBrTarget:
+            case OperandType.ShortInlineI:
+            case OperandType.ShortInlineVar:
+               operandSize = 1U;
+               break;
+            case OperandType.InlineBrTarget:
+            case OperandType.InlineField:
+            case OperandType.InlineI:
+            case OperandType.InlineMethod:
+            case OperandType.InlineSig:
+            case OperandType.InlineString:
+            case OperandType.InlineSwitch:
+            case OperandType.InlineTok:
+            case OperandType.InlineType:
+            case OperandType.ShortInlineR:
+               operandSize = 4U;
+               break;
+            case OperandType.InlineI8:
+            case OperandType.InlineR:
+               operandSize = 8U;
+               break;
+            default:
+               operandSize = 0U;
+               break;
+         }
          this._state =
              ( (UInt64) (UInt32) stackPop )
              | ( ( (UInt64) stackPush ) << STACK_PUSH_SHIFT )
@@ -1250,6 +1285,7 @@ namespace CILAssemblyManipulator.Physical
              | ( ( (UInt64) byte2 ) << BYTE_2_SHIFT )
              | ( ( (UInt64) stackChange + 3 ) << STACK_CHANGE_SHIFT )
              | ( ( unconditionallyEndsBulkOfCode ? 1U : 0U ) << ENDS_BLK_CODE_SHIFT )
+             | ( operandSize << OPERAND_SIZE_SHIFT )
              ;
 
          OpCodes.Codes.Add( encoded, this );
@@ -1377,6 +1413,14 @@ namespace CILAssemblyManipulator.Physical
                cur = cur | ( this.Byte1 << 8 );
             }
             return cur;
+         }
+      }
+
+      internal Int32 OperandSize
+      {
+         get
+         {
+            return (Int32) ( ( this._state & OPERAND_SIZE_MASK ) >> OPERAND_SIZE_SHIFT );
          }
       }
 
@@ -2403,9 +2447,6 @@ namespace CILAssemblyManipulator.Physical
       InlineMethod,
       /// <summary>No operand.</summary>
       InlineNone,
-      // <summary>The operand is reserved and should not be used.</summary>
-      //Reserved,
-
       /// <summary>The operand is a 64-bit IEEE floating point number.</summary>
       InlineR,
       /// <summary>The operand is a 32-bit metadata signature token.</summary>
