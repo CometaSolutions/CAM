@@ -114,19 +114,14 @@ namespace CILAssemblyManipulator.Physical
          return array.ReadZeroTerminatedStringFromBytes( ref idx, encoding );
       }
 
-      internal static Byte[] WriteHeapIndex( this Byte[] array, ref Int32 idx, UInt32 heapIndex, Boolean wideIndex )
+      internal static Byte[] WriteCodedTableIndex( this Byte[] array, ref Int32 idx, CodedTableIndexKind codedKind, TableIndex? tIdx, IDictionary<CodedTableIndexKind, Boolean> wideIndices )
       {
-         return wideIndex ? array.WriteUInt32LEToBytes( ref idx, heapIndex ) : array.WriteUInt16LEToBytes( ref idx, (UInt16) heapIndex );
+         return wideIndices[codedKind] ? array.WriteInt32LEToBytes( ref idx, MetaDataConstants.GetCodedTableIndex( codedKind, tIdx ) ) : array.WriteUInt16LEToBytes( ref idx, (UInt16) MetaDataConstants.GetCodedTableIndex( codedKind, tIdx ) );
       }
 
-      internal static Byte[] WriteCodedTableIndex( this Byte[] array, ref Int32 idx, CodedTableIndexKind codedKind, Int32 codedIndex, IDictionary<CodedTableIndexKind, Boolean> wideIndices )
+      internal static Byte[] WriteSimpleTableIndex( this Byte[] array, ref Int32 idx, TableIndex tIdx, Int32[] tableSizes )
       {
-         return wideIndices[codedKind] ? array.WriteInt32LEToBytes( ref idx, codedIndex ) : array.WriteUInt16LEToBytes( ref idx, (UInt16) codedIndex );
-      }
-
-      internal static Byte[] WriteSimpleTableIndex( this Byte[] array, ref Int32 idx, Tables table, Int32 tableIndex, UInt32[] tableSizes )
-      {
-         return tableSizes[(Int32) table] > UInt16.MaxValue ? array.WriteInt32LEToBytes( ref idx, tableIndex ) : array.WriteUInt16LEToBytes( ref idx, (UInt16) tableIndex );
+         return tableSizes[(Int32) tIdx.Table] > UInt16.MaxValue ? array.WriteInt32LEToBytes( ref idx, ( tIdx.Index + 1 ) ) : array.WriteUInt16LEToBytes( ref idx, (UInt16) ( tIdx.Index + 1 ) );
       }
 
       internal static String ReadZeroTerminatedASCIIStringFromBytes( this Byte[] array )
@@ -380,7 +375,7 @@ namespace CILAssemblyManipulator.Physical
          }
       }
 
-      internal static UInt32 GetEncodedIntSize( Int32 value )
+      internal static Int32 GetEncodedIntSize( Int32 value )
       {
          if ( value >= INT_ONE_BYTE_MIN && value <= INT_ONE_BYTE_MAX )
          {
@@ -400,7 +395,7 @@ namespace CILAssemblyManipulator.Physical
          }
       }
 
-      internal static UInt32 GetEncodedUIntSize( Int32 value )
+      internal static Int32 GetEncodedUIntSize( Int32 value )
       {
          if ( value < 0 )
          {
@@ -634,13 +629,21 @@ namespace CILAssemblyManipulator.Physical
          return MetaDataConstants.TABLE_WIDTH_CALCULATOR[table]( tableSizes, sysStringIndexSize, guidIndexSize, blobIndexSize );
       }
 
-      internal static Int32 GetCodedTableIndex( CodedTableIndexKind indexKind, Int32 token )
+      internal static Int32 GetCodedTableIndex( CodedTableIndexKind indexKind, TableIndex? tIdx )
       {
-         Tables table;
-         Int32 idx;
-         TokenUtils.DecodeToken( token, out table, out idx );
-         var possibleTables = GetTablesForCodedIndex( indexKind );
-         return ( idx << possibleTables.Item3 ) | Array.IndexOf( possibleTables.Item1, table );
+         Int32 retVal;
+         if ( tIdx.HasValue )
+         {
+            var tIdxValue = tIdx.Value;
+            var possibleTables = GetTablesForCodedIndex( indexKind );
+            retVal = ( ( tIdxValue.Index + 1 ) << possibleTables.Item3 ) | Array.IndexOf( possibleTables.Item1, tIdxValue.Table );
+         }
+         else
+         {
+            retVal = 0;
+         }
+
+         return retVal;
       }
 
       internal static TableIndex? ReadCodedTableIndex( System.IO.Stream stream, CodedTableIndexKind indexKind, IDictionary<CodedTableIndexKind, Boolean> tRefSizes, Byte[] tmpArray, Boolean throwOnNull = true )

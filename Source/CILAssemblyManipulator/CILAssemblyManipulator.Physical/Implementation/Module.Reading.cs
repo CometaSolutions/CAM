@@ -40,10 +40,10 @@ namespace CILAssemblyManipulator.Physical.Implementation
 
    internal static class ModuleReader
    {
-      internal class BLOBContainer : AbstractHeapContainer
+      internal class BLOBHeapReader : AbstractHeapReader
       {
 
-         internal BLOBContainer( Byte[] tmpArray, Stream stream, IDictionary<String, Tuple<Int64, UInt32>> streamSizeInfo )
+         internal BLOBHeapReader( Byte[] tmpArray, Stream stream, IDictionary<String, Tuple<Int64, UInt32>> streamSizeInfo )
             : base( tmpArray, stream, streamSizeInfo, Consts.BLOB_STREAM_NAME )
          {
          }
@@ -92,13 +92,13 @@ namespace CILAssemblyManipulator.Physical.Implementation
          }
       }
 
-      internal abstract class AbstractHeapContainer
+      internal abstract class AbstractHeapReader
       {
 
          protected readonly Byte[] _tmpArray;
          protected readonly Byte[] _bytes;
 
-         internal AbstractHeapContainer( Byte[] tmpArray, Stream stream, IDictionary<String, Tuple<Int64, UInt32>> streamSizeInfo, String name )
+         internal AbstractHeapReader( Byte[] tmpArray, Stream stream, IDictionary<String, Tuple<Int64, UInt32>> streamSizeInfo, String name )
          {
             this._tmpArray = tmpArray;
             Tuple<Int64, UInt32> tuple;
@@ -119,12 +119,12 @@ namespace CILAssemblyManipulator.Physical.Implementation
 
       }
 
-      internal abstract class AbstractStringContainer : AbstractHeapContainer
+      internal abstract class AbstractStringHeapReader : AbstractHeapReader
       {
          internal protected readonly IDictionary<Int32, String> _strings;
          internal protected readonly Encoding _encoding;
 
-         protected AbstractStringContainer( Byte[] tmpArray, Stream stream, IDictionary<String, Tuple<Int64, UInt32>> streamSizeInfo, String name, Encoding encoding )
+         protected AbstractStringHeapReader( Byte[] tmpArray, Stream stream, IDictionary<String, Tuple<Int64, UInt32>> streamSizeInfo, String name, Encoding encoding )
             : base( tmpArray, stream, streamSizeInfo, name )
          {
             this._encoding = encoding;
@@ -134,9 +134,9 @@ namespace CILAssemblyManipulator.Physical.Implementation
          internal abstract String GetString( Int32 idx );
       }
 
-      internal class SysStringContainer : AbstractStringContainer
+      internal class SysStringHeapReader : AbstractStringHeapReader
       {
-         internal SysStringContainer( Byte[] tmpArray, Stream stream, IDictionary<String, Tuple<Int64, UInt32>> streamSizeInfo )
+         internal SysStringHeapReader( Byte[] tmpArray, Stream stream, IDictionary<String, Tuple<Int64, UInt32>> streamSizeInfo )
             : base( tmpArray, stream, streamSizeInfo, Consts.SYS_STRING_STREAM_NAME, MetaDataConstants.SYS_STRING_ENCODING )
          {
 
@@ -172,9 +172,9 @@ namespace CILAssemblyManipulator.Physical.Implementation
          }
       }
 
-      internal class UserStringContainer : AbstractStringContainer
+      internal class UserStringHeapReader : AbstractStringHeapReader
       {
-         internal UserStringContainer( Byte[] tmpArray, Stream stream, IDictionary<String, Tuple<Int64, UInt32>> streamSizeInfo )
+         internal UserStringHeapReader( Byte[] tmpArray, Stream stream, IDictionary<String, Tuple<Int64, UInt32>> streamSizeInfo )
             : base( tmpArray, stream, streamSizeInfo, Consts.USER_STRING_STREAM_NAME, MetaDataConstants.USER_STRING_ENCODING )
          {
 
@@ -204,10 +204,10 @@ namespace CILAssemblyManipulator.Physical.Implementation
 
       }
 
-      internal class GUIDContainer : AbstractHeapContainer
+      internal class GUIDHeapReader : AbstractHeapReader
       {
 
-         internal GUIDContainer( Byte[] tmpArray, Stream stream, IDictionary<String, Tuple<Int64, UInt32>> streamSizeInfo )
+         internal GUIDHeapReader( Byte[] tmpArray, Stream stream, IDictionary<String, Tuple<Int64, UInt32>> streamSizeInfo )
             : base( tmpArray, stream, streamSizeInfo, Consts.GUID_STREAM_NAME )
          {
          }
@@ -393,10 +393,10 @@ namespace CILAssemblyManipulator.Physical.Implementation
          }
 
          // Read all streams except table stream
-         SysStringContainer sysStrings = new SysStringContainer( tmpArray, stream, streamDic );
-         GUIDContainer guids = new GUIDContainer( tmpArray, stream, streamDic );
-         BLOBContainer blobs = new BLOBContainer( tmpArray, stream, streamDic );
-         UserStringContainer userStrings = new UserStringContainer( tmpArray, stream, streamDic );
+         SysStringHeapReader sysStrings = new SysStringHeapReader( tmpArray, stream, streamDic );
+         GUIDHeapReader guids = new GUIDHeapReader( tmpArray, stream, streamDic );
+         BLOBHeapReader blobs = new BLOBHeapReader( tmpArray, stream, streamDic );
+         UserStringHeapReader userStrings = new UserStringHeapReader( tmpArray, stream, streamDic );
 
          // Read table stream
          stream.SeekFromBegin( streamDic[Consts.TABLE_STREAM_NAME].Item1
@@ -669,7 +669,7 @@ namespace CILAssemblyManipulator.Physical.Implementation
                   ReadTable( retVal.ModuleReferences, curTable, tableSizes, i =>
                      new ModuleReference()
                      {
-                        ModuleReference = sysStrings.ReadSysString( stream )
+                        ModuleName = sysStrings.ReadSysString( stream )
                      } );
                   break;
                case Tables.TypeSpec:
@@ -1066,7 +1066,7 @@ namespace CILAssemblyManipulator.Physical.Implementation
          return result;
       }
 
-      private static Object ReadConstantValue( BLOBContainer blobContainer, Stream stream, SignatureElementTypes constType )
+      private static Object ReadConstantValue( BLOBHeapReader blobContainer, Stream stream, SignatureElementTypes constType )
       {
          var blob = blobContainer.WholeBLOBArray;
          Int32 blobSize;
@@ -1127,7 +1127,7 @@ namespace CILAssemblyManipulator.Physical.Implementation
          MoreSections = 0x80
       }
 
-      internal static MethodILDefinition ReadMethodILDefinition( System.IO.Stream stream, UserStringContainer userStrings )
+      internal static MethodILDefinition ReadMethodILDefinition( System.IO.Stream stream, UserStringHeapReader userStrings )
       {
          var FORMAT_MASK = 0x00000001;
          var FLAG_MASK = 0x00000FFF;
@@ -1211,7 +1211,7 @@ namespace CILAssemblyManipulator.Physical.Implementation
          return token == 0 ? (TableIndex?) null : new TableIndex( token );
       }
 
-      private static void CreateOpCodes( MethodILDefinition methodIL, Stream stream, Int32 codeSize, Byte[] tmpArray, UserStringContainer userStrings )
+      private static void CreateOpCodes( MethodILDefinition methodIL, Stream stream, Int32 codeSize, Byte[] tmpArray, UserStringHeapReader userStrings )
       {
          var current = 0;
          var opCodes = methodIL.OpCodes;
@@ -1320,7 +1320,7 @@ namespace CILAssemblyManipulator.Physical.Implementation
 
       private static void ReadSecurityBLOB(
          CILMetaData md,
-         BLOBContainer blobs,
+         BLOBHeapReader blobs,
          Stream stream,
          SecurityDefinition declSecurity
          )

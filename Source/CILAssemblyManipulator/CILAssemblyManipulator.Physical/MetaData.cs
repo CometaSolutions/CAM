@@ -235,7 +235,7 @@ namespace CILAssemblyManipulator.Physical
 
    public sealed class ModuleReference
    {
-      public String ModuleReference { get; set; }
+      public String ModuleName { get; set; }
    }
 
    public sealed class TypeSpecification
@@ -634,7 +634,6 @@ namespace CILAssemblyManipulator.Physical
       {
          // Index is zero-based in CAM
          this._token = ( ( token & TokenUtils.INDEX_MASK ) - 1 ) | ( token & ~TokenUtils.INDEX_MASK );
-
       }
 
       public Tables Table
