@@ -26,7 +26,8 @@ namespace CILAssemblyManipulator.Physical
    {
       private readonly OpCode _code;
 
-      protected OpCodeInfo( OpCode code )
+      // Disable inheritance to other assemblies
+      internal OpCodeInfo( OpCode code )
       {
          this._code = code;
       }
@@ -44,7 +45,8 @@ namespace CILAssemblyManipulator.Physical
 
    public abstract class OpCodeInfoWithOperand<TOperand> : OpCodeInfo
    {
-      protected OpCodeInfoWithOperand( OpCode code, TOperand operand )
+      // Disable inheritance to other assemblies
+      internal OpCodeInfoWithOperand( OpCode code, TOperand operand )
          : base( code )
       {
          this.Operand = operand;

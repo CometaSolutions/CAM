@@ -22,6 +22,8 @@ using System.Linq;
 using System.Text;
 using CommonUtils;
 using System.Threading;
+using CILAssemblyManipulator.Physical;
+using CILAssemblyManipulator.Physical.Implementation;
 
 namespace CILAssemblyManipulator.Physical.Implementation
 {
@@ -36,9 +38,20 @@ namespace CILAssemblyManipulator.Physical.Implementation
       //internal const UInt64 DEFAULT_HEAP_RESERVE = 0x100000; // ECMA-335, p. 280
       //internal const UInt64 DEFAULT_HEAP_COMMIT = 0x1000; // ECMA-335, p. 280
 
+      private const Int32 MD_MAX_VERSION_LENGTH = 255;
+      private const Int32 MD_IDX = 0;
+      private const Int32 SYS_STRINGS_IDX = 1;
+      private const Int32 USER_STRINGS_IDX = 2;
+      private const Int32 GUID_IDX = 3;
+      private const Int32 BLOB_IDX = 4;
+      private const Int32 HEAP_COUNT = 5;
+
+
       internal const String CODE_SECTION_NAME = ".text";
       internal const String RESOURCE_SECTION_NAME = ".rsrc";
       internal const String RELOCATION_SECTION_NAME = ".reloc";
+
+      private static readonly Encoding MetaDataStringEncoding = new UTF8Encoding( false, true );
 
       internal static void WriteModule(
          CILMetaData md,
@@ -173,75 +186,19 @@ namespace CILAssemblyManipulator.Physical.Implementation
          // Cheat a bit - skip now, and re-visit it after all other emitting is done
          sink.Seek( revisitableArraySize + snSize + snPadding, SeekOrigin.Current );
 
-         // Create heap helpers
-         var usersStrings = new UsersStringHeapEmittingInfo();
-         var sysStrings = new SystemStringHeapEmittingInfo();
-
          // First section
          // Start with method ILs
          // Current offset within section
          var currentOffset = iatSize + snSize + snPadding + HeaderFieldOffsetsAndLengths.CLI_HEADER_SIZE;
-         var methodRVAs = new List<UInt32>( md.MethodDefinitions.Count );
+         UserStringHeapEmittingInfo usersStrings; IList<UInt32> methodRVAs;
+         WriteMethodDefsIL( md, sink, codeSectionVirtualOffset, isPE64, ref currentOffset, out usersStrings, out methodRVAs );
 
-         for ( var i = 0; i < md.MethodDefinitions.Count; )
-         {
-            var method = md.MethodDefinitions[i];
-            UInt32 thisMethodRVA;
-            if ( method.HasILMethodBody() )
-            {
-               Boolean isTiny;
-               var array = new MethodILWriter( md, i, usersStrings )
-                  .PerformEmitting( currentOffset, out isTiny );
-               if ( !isTiny )
-               {
-                  sink.SkipToNextAlignment( ref currentOffset, 4 );
-               }
-               thisMethodRVA = codeSectionVirtualOffset + currentOffset;
-               sink.Write( array );
-               currentOffset += (UInt32) array.Length;
-            }
-            else
-            {
-               thisMethodRVA = 0u;
-            }
-            methodRVAs.Add( thisMethodRVA );
-         }
+         // Write manifest resources & field RVAs here
+         UInt32 mResRVA, mResSize; IList<UInt32?> mResInfo; IList<UInt32> fieldRVAs;
+         WriteDataBeforeMD( md, sink, codeSectionVirtualOffset, isPE64, out mResRVA, out mResSize, out mResInfo, out fieldRVAs, ref currentOffset );
 
-         // Write padding
-         sink.SkipToNextAlignment( ref currentOffset, isPE64 ? 0x10u : 0x04u );
-
-         // Write manifest resources here
-         var mRes = md.ManifestResources.Where( mr => mr.Implementation == null );
-         var mResInfo = new List<UInt32>();
-         var mResRVA = mRes.Any() ?
-            codeSectionVirtualOffset + currentOffset :
-            0u;
-         var mResSize = 0u;
-         if ( mResRVA > 0u )
-         {
-            var tmpArray = new Byte[4];
-            foreach ( var mr in mRes )
-            {
-               var data = mr.DataInCurrentFile;
-               if ( data == null )
-               {
-                  data = Empty<Byte>.Array;
-               }
-               mResInfo.Add( mResSize );
-               tmpArray.WriteInt32LEToBytesNoRef( 0, data.Length );
-               sink.Write( tmpArray );
-               sink.Write( data );
-               mResSize += 4 + (UInt32) data.Length;
-            }
-
-            // Write padding
-            currentOffset += mResSize;
-            sink.SkipToNextAlignment( ref currentOffset, isPE64 ? 0x10u : 0x04u );
-         }
-         // Finalize & write metadata
          var mdRVA = codeSectionVirtualOffset + currentOffset;
-         UInt32 addedToOffsetBeforeMD;
-         var mdSize = md.WriteMetaData( sink, mdRVA, eArgs, methodRVAs, mResInfo, out addedToOffsetBeforeMD );
+         var mdSize = md.WriteMetaData( sink, mdRVA, eArgs, methodRVAs, mResInfo );
          mdRVA += addedToOffsetBeforeMD;
          currentOffset += mdSize + addedToOffsetBeforeMD;
 
@@ -616,6 +573,801 @@ namespace CILAssemblyManipulator.Physical.Implementation
          x = x | ( x >> 16 );
          return x - ( x >> 1 );
       }
+
+      private static void WriteMethodDefsIL(
+         CILMetaData md,
+         Stream sink,
+         UInt32 codeSectionVirtualOffset,
+         Boolean isPE64,
+         ref UInt32 currentOffset,
+         out UserStringHeapEmittingInfo usersStrings,
+         out IList<UInt32> methodRVAs
+         )
+      {
+         // Create users string heap
+         usersStrings = new UserStringHeapEmittingInfo();
+         methodRVAs = new List<UInt32>( md.MethodDefinitions.Count );
+
+         for ( var i = 0; i < md.MethodDefinitions.Count; )
+         {
+            var method = md.MethodDefinitions[i];
+            UInt32 thisMethodRVA;
+            if ( method.HasILMethodBody() )
+            {
+               Boolean isTiny;
+               var array = new MethodILWriter( md, i, usersStrings )
+                  .PerformEmitting( currentOffset, out isTiny );
+               if ( !isTiny )
+               {
+                  sink.SkipToNextAlignment( ref currentOffset, 4 );
+               }
+               thisMethodRVA = codeSectionVirtualOffset + currentOffset;
+               sink.Write( array );
+               currentOffset += (UInt32) array.Length;
+            }
+            else
+            {
+               thisMethodRVA = 0u;
+            }
+            methodRVAs.Add( thisMethodRVA );
+         }
+
+         // Write padding
+         sink.SkipToNextAlignment( ref currentOffset, isPE64 ? 0x10u : 0x04u );
+      }
+
+      private static void WriteDataBeforeMD(
+         CILMetaData md,
+         Stream sink,
+         UInt32 codeSectionVirtualOffset,
+         Boolean isPE64,
+         out UInt32 resourcesRVA,
+         out UInt32 resourcesSize,
+         out IList<UInt32?> mResInfo,
+         out IList<UInt32> fieldRVAs,
+         ref UInt32 currentOffset
+         )
+      {
+         // Write manifest resources here
+         var mResInfos = md.ManifestResources;
+         mResInfo = new List<UInt32?>( mResInfos.Count );
+         resourcesSize = 0u;
+         var tmpArray = new Byte[4];
+         foreach ( var mr in mResInfos )
+         {
+            if ( mr.Implementation == null )
+            {
+               var data = mr.DataInCurrentFile;
+               if ( data == null )
+               {
+                  data = Empty<Byte>.Array;
+               }
+               mResInfo.Add( resourcesSize );
+               tmpArray.WriteInt32LEToBytesNoRef( 0, data.Length );
+               sink.Write( tmpArray );
+               sink.Write( data );
+               resourcesSize += 4 + (UInt32) data.Length;
+            }
+            else
+            {
+               mResInfo.Add( null );
+            }
+         }
+
+         if ( resourcesSize > 0 )
+         {
+            resourcesRVA = codeSectionVirtualOffset + currentOffset;
+            // Write padding
+            currentOffset += resourcesSize;
+            sink.SkipToNextAlignment( ref currentOffset, isPE64 ? 0x10u : 0x04u );
+         }
+         else
+         {
+            resourcesRVA = 0u;
+         }
+
+         // Write field RVAs here
+         var mdFRVAs = md.FieldRVAs;
+         fieldRVAs = new List<UInt32>( mdFRVAs.Count );
+         var fRVA = 0u;
+         foreach ( var fRVAInfo in mdFRVAs )
+         {
+            fieldRVAs.Add( codeSectionVirtualOffset + fRVA );
+            var data = fRVAInfo.Data;
+            sink.Write( data );
+            fRVA += (UInt32) data.Length;
+         }
+
+         if ( fRVA > 0u )
+         {
+            currentOffset += fRVA;
+         }
+
+         sink.SkipToNextAlignment( ref currentOffset, 0x04u );
+      }
+
+      //This assumes that sink offset is at multiple of 4.
+      private static UInt32 WriteMetaData(
+         CILMetaData md,
+         Stream sink,
+         UInt32 currentRVA,
+         HeadersData headers,
+         EmittingArguments eArgs,
+         UserStringHeapEmittingInfo userStrings,
+         IList<UInt32> methodRVAs,
+         IList<UInt32> embeddedManifestResourceOffsets,
+         Byte[] zeroArray,
+         out UInt32 addedToOffsetBeforeMD
+         )
+      {
+         // Actual meta-data
+         var metaDataVersion = headers.MetaDataVersion;
+         var versionStringSize = MetaDataStringEncoding.GetByteCount( metaDataVersion ) + 1;
+         if ( versionStringSize > MD_MAX_VERSION_LENGTH )
+         {
+            throw new ArgumentException( "Metadata version must be at maximum " + MD_MAX_VERSION_LENGTH + " bytes long after encoding it using " + MetaDataStringEncoding + "." );
+         }
+
+         // Then write the data to the byte sink
+         // ECMA-335, pp. 271-272
+         var streamHeaders = new Int32[HEAP_COUNT];
+         var streamSizes = new UInt32[HEAP_COUNT];
+
+         BLOBContainer blob; SystemStringHeapEmittingInfo sysStrings; IList<Guid> guids; Object[] heapInfos;
+         CreateMDHeaps( md, out blob, out sysStrings, out guids, out heapInfos );
+
+         var hasSysStrings = sysStrings.Accessed;
+         var hasUserStrings = userStrings.Accessed;
+         var hasGuids = guids.Count > 0;
+         var hasBlobs = blob.Accessed;
+
+         if ( hasSysStrings )
+         {
+            // Store offset to array to streamHeaders
+            // This offset, for each stream, tells where to write first field of stream header (offset from metadata root)
+            streamHeaders[SYS_STRINGS_IDX] = 8 + BitUtils.MultipleOf4( Consts.SYS_STRING_STREAM_NAME.Length + 1 );
+            streamSizes[SYS_STRINGS_IDX] = BitUtils.MultipleOf4( sysStrings.Size );
+         }
+         if ( hasUserStrings )
+         {
+            streamHeaders[USER_STRINGS_IDX] = 8 + BitUtils.MultipleOf4( Consts.USER_STRING_STREAM_NAME.Length + 1 );
+            streamSizes[USER_STRINGS_IDX] = BitUtils.MultipleOf4( userStrings.Size );
+         }
+         if ( hasGuids )
+         {
+            streamHeaders[GUID_IDX] = 8 + BitUtils.MultipleOf4( Consts.GUID_STREAM_NAME.Length + 1 );
+            streamSizes[GUID_IDX] = BitUtils.MultipleOf4( ( (UInt32) guids.Count ) * Consts.GUID_SIZE );
+         }
+         if ( hasBlobs )
+         {
+            streamHeaders[BLOB_IDX] = 8 + BitUtils.MultipleOf4( Consts.BLOB_STREAM_NAME.Length + 1 );
+            streamSizes[BLOB_IDX] = BitUtils.MultipleOf4( blob.Size );
+         }
+
+         var wideSysStringIndex = streamSizes[SYS_STRINGS_IDX] > UInt16.MaxValue;
+         var wideGUIDIndex = streamSizes[GUID_IDX] > UInt16.MaxValue;
+         var wideBLOBIndex = streamSizes[BLOB_IDX] > UInt16.MaxValue;
+         var sysStringIndexSize = wideSysStringIndex ? 4 : 2;
+         var guidIndexSize = wideGUIDIndex ? 4 : 2;
+         var blobIndexSize = wideBLOBIndex ? 4 : 2;
+
+         var tableSizes = new Int32[Consts.AMOUNT_OF_TABLES];
+         tableSizes[(Int32) Tables.Module] = md.ModuleDefinitions.Count;
+         tableSizes[(Int32) Tables.TypeRef] = md.TypeReferences.Count;
+         tableSizes[(Int32) Tables.TypeDef] = md.TypeDefinitions.Count;
+         tableSizes[(Int32) Tables.Field] = md.FieldDefinitions.Count;
+         tableSizes[(Int32) Tables.MethodDef] = md.MethodDefinitions.Count;
+         tableSizes[(Int32) Tables.Parameter] = md.ParameterDefinitions.Count;
+         tableSizes[(Int32) Tables.InterfaceImpl] = md.InterfaceImplementations.Count;
+         tableSizes[(Int32) Tables.MemberRef] = md.MemberReferences.Count;
+         tableSizes[(Int32) Tables.Constant] = md.ConstantDefinitions.Count;
+         tableSizes[(Int32) Tables.CustomAttribute] = md.CustomAttributeDefinitions.Count;
+         tableSizes[(Int32) Tables.FieldMarshal] = md.FieldMarshals.Count;
+         tableSizes[(Int32) Tables.DeclSecurity] = md.SecurityDefinitions.Count;
+         tableSizes[(Int32) Tables.ClassLayout] = md.ClassLayouts.Count;
+         tableSizes[(Int32) Tables.FieldLayout] = md.FieldLayouts.Count;
+         tableSizes[(Int32) Tables.StandaloneSignature] = md.StandaloneSignatures.Count;
+         tableSizes[(Int32) Tables.EventMap] = md.EventMaps.Count;
+         tableSizes[(Int32) Tables.Event] = md.EventDefinitions.Count;
+         tableSizes[(Int32) Tables.PropertyMap] = md.PropertyMaps.Count;
+         tableSizes[(Int32) Tables.Property] = md.PropertyDefinitions.Count;
+         tableSizes[(Int32) Tables.MethodSemantics] = md.MethodSemantics.Count;
+         tableSizes[(Int32) Tables.MethodImpl] = md.MethodImplementations.Count;
+         tableSizes[(Int32) Tables.ModuleRef] = md.ModuleReferences.Count;
+         tableSizes[(Int32) Tables.TypeSpec] = md.TypeSpecifications.Count;
+         tableSizes[(Int32) Tables.ImplMap] = md.MethodImplementationMaps.Count;
+         tableSizes[(Int32) Tables.FieldRVA] = md.FieldRVAs.Count;
+         tableSizes[(Int32) Tables.Assembly] = md.AssemblyDefinitions.Count;
+         tableSizes[(Int32) Tables.AssemblyRef] = md.AssemblyReferences.Count;
+         tableSizes[(Int32) Tables.File] = md.FieldDefinitions.Count;
+         tableSizes[(Int32) Tables.ExportedType] = md.ExportedTypess.Count;
+         tableSizes[(Int32) Tables.ManifestResource] = md.ManifestResources.Count;
+         tableSizes[(Int32) Tables.NestedClass] = md.NestedClassDefinitions.Count;
+         tableSizes[(Int32) Tables.GenericParameter] = md.GenericParameterDefinitions.Count;
+         tableSizes[(Int32) Tables.MethodSpec] = md.MethodSpecifications.Count;
+         tableSizes[(Int32) Tables.GenericParameterConstraint] = md.GenericParameterConstraintDefinitions.Count;
+
+         var tableWidths = new Int32[tableSizes.Length];
+         for ( var i = 0; i < tableWidths.Length; ++i )
+         {
+            if ( tableSizes[i] > 0 )
+            {
+               tableWidths[i] = MetaDataConstants.CalculateTableWidth( (Tables) i, tableSizes, sysStringIndexSize, guidIndexSize, blobIndexSize );
+            }
+         }
+
+         var tRefWidths = MetaDataConstants.GetCodedTableIndexSizes( tableSizes );
+
+         var versionStringSize4 = BitUtils.MultipleOf4( versionStringSize );
+         var mdHeaderSize = 24 + 4 * (UInt32) tableSizes.Count( size => size > 0 );
+         streamHeaders[MD_IDX] = 8 + BitUtils.MultipleOf4( Consts.TABLE_STREAM_NAME.Length );
+         var mdStreamSize = mdHeaderSize + tableSizes.Select( ( size, idx ) => (UInt32) size * (UInt32) tableWidths[idx] ).Sum();
+         var mdStreamSize4 = BitUtils.MultipleOf4( mdStreamSize );
+         streamSizes[MD_IDX] = mdStreamSize4;
+
+         var anArray = new Byte[16 // Header start
+            + versionStringSize4 // Version string
+            + 4 // Header end
+            + streamHeaders.Sum() // Stream headers
+            + mdHeaderSize
+            ];
+         // Metadata root
+         var offset = 0;
+         anArray.WriteUInt32LEToBytes( ref offset, MD_SIGNATURE )
+            .WriteUInt16LEToBytes( ref offset, MD_MAJOR )
+            .WriteUInt16LEToBytes( ref offset, MD_MINOR )
+            .WriteUInt32LEToBytes( ref offset, MD_RESERVED )
+            .WriteInt32LEToBytes( ref offset, versionStringSize4 )
+            .WriteStringToBytes( ref offset, MetaDataStringEncoding, metaDataVersion )
+            .Skip( ref offset, versionStringSize4 - versionStringSize + 1 )
+            .WriteUInt16LEToBytes( ref offset, MD_FLAGS )
+            .WriteUInt16LEToBytes( ref offset, (UInt16) streamHeaders.Count( stream => stream > 0 ) )
+            // #~ header
+            .WriteInt32LEToBytes( ref offset, offset + streamHeaders.Sum() )
+            .WriteUInt32LEToBytes( ref offset, mdStreamSize4 )
+            .WriteStringToBytes( ref offset, MetaDataStringEncoding, Consts.TABLE_STREAM_NAME )
+            .Skip( ref offset, 4 - ( offset % 4 ) );
+
+         if ( hasSysStrings )
+         {
+            // #String header
+            anArray.WriteUInt32LEToBytes( ref offset, (UInt32) offset + (UInt32) streamHeaders.Skip( SYS_STRINGS_IDX ).Sum() + streamSizes.Take( SYS_STRINGS_IDX ).Sum() )
+               .WriteUInt32LEToBytes( ref offset, streamSizes[SYS_STRINGS_IDX] )
+               .WriteStringToBytes( ref offset, MetaDataStringEncoding, Consts.SYS_STRING_STREAM_NAME )
+               .Skip( ref offset, 4 - ( offset % 4 ) );
+         }
+
+         if ( hasUserStrings )
+         {
+            // #US header
+            anArray.WriteUInt32LEToBytes( ref offset, (UInt32) offset + (UInt32) streamHeaders.Skip( USER_STRINGS_IDX ).Sum() + streamSizes.Take( USER_STRINGS_IDX ).Sum() )
+               .WriteUInt32LEToBytes( ref offset, streamSizes[USER_STRINGS_IDX] )
+               .WriteStringToBytes( ref offset, MetaDataStringEncoding, Consts.USER_STRING_STREAM_NAME )
+               .Skip( ref offset, 4 - ( offset % 4 ) );
+         }
+
+         if ( hasGuids )
+         {
+            // #Guid header
+            anArray.WriteUInt32LEToBytes( ref offset, (UInt32) offset + (UInt32) streamHeaders.Skip( GUID_IDX ).Sum() + streamSizes.Take( GUID_IDX ).Sum() )
+               .WriteUInt32LEToBytes( ref offset, streamSizes[GUID_IDX] )
+               .WriteStringToBytes( ref offset, MetaDataStringEncoding, Consts.GUID_STREAM_NAME )
+               .Skip( ref offset, 4 - ( offset % 4 ) );
+         }
+
+         if ( hasBlobs )
+         {
+            // #Blob header
+            anArray.WriteUInt32LEToBytes( ref offset, (UInt32) offset + (UInt32) streamHeaders.Skip( BLOB_IDX ).Sum() + streamSizes.Take( BLOB_IDX ).Sum() )
+               .WriteUInt32LEToBytes( ref offset, streamSizes[BLOB_IDX] )
+               .WriteStringToBytes( ref offset, MetaDataStringEncoding, Consts.BLOB_STREAM_NAME )
+               .Skip( ref offset, 4 - ( offset % 4 ) );
+         }
+
+         // Write the end of the header
+         // Header (ECMA-335, p. 273)
+         var validBitvector = 0L;
+         for ( var i = tableSizes.Length - 1; i >= 0; --i )
+         {
+            validBitvector = validBitvector << 1;
+            if ( tableSizes[i] > 0 )
+            {
+               validBitvector |= 1;
+            }
+         }
+         anArray.WriteInt32LEToBytes( ref offset, TABLE_STREAM_RESERVED )
+            .WriteByteToBytes( ref offset, headers.TableHeapMajor )
+            .WriteByteToBytes( ref offset, headers.TableHeapMinor )
+            .WriteByteToBytes( ref offset, (Byte) ( Convert.ToInt32( wideSysStringIndex ) | ( Convert.ToInt32( wideGUIDIndex ) << 1 ) | ( Convert.ToInt32( wideBLOBIndex ) << 2 ) ) )
+            .WriteByteToBytes( ref offset, TABLE_STREAM_RESERVED_2 )
+            .WriteInt64LEToBytes( ref offset, validBitvector )
+            .WriteInt64LEToBytes( ref offset, SORTED_TABLES );
+         for ( var i = 0; i < tableSizes.Length; ++i )
+         {
+            if ( tableSizes[i] > 0 )
+            {
+               anArray.WriteInt32LEToBytes( ref offset, tableSizes[i] );
+            }
+         }
+
+#if DEBUG
+         if ( offset != anArray.Length )
+         {
+            throw new Exception( "Debyyg" );
+         }
+#endif
+
+         // Write the full CLI header
+         sink.Write( anArray );
+
+         // Then, write the binary representation of the tables
+         // ECMA-335, p. 239
+         ForEachRow( md.ModuleDefinitions, tableWidths, sink, ( array, idx, listIdx, blobIdx, module ) => array
+            .WriteInt16LEToBytes( ref idx, 0 ) // Generation
+            .WriteHeapIndex( ref idx, this._sysStrings.GetString( module.Name ), wideSysStringIndex ) // Name
+            .WriteHeapIndex( ref idx, 1, wideGUIDIndex ) // MvId
+            .WriteHeapIndex( ref idx, 0, wideGUIDIndex ) // EncId
+            .WriteHeapIndex( ref idx, 0, wideGUIDIndex ) // EncBaseId
+            );
+         // ECMA-335, p. 247
+         // TypeRef may contain types which result in duplicate rows - avoid that
+         ForEachRow( this._typeRef, tableWidths, sink, ( array, idx, listIdx, blobIdx, typeRef ) => array
+            .WriteCodedTableIndex( ref idx, CodedTableIndexKind.ResolutionScope, MetaDataConstants.GetCodedTableIndex( CodedTableIndexKind.ResolutionScope, typeRef.Item1 ), tRefWidths ) // ResolutionScope
+            .WriteHeapIndex( ref idx, this._sysStrings.GetString( typeRef.Item2 ), wideSysStringIndex ) // TypeName
+            .WriteHeapIndex( ref idx, this._sysStrings.GetString( typeRef.Item3 ), wideSysStringIndex ) // TypeNamespace
+            );
+         // ECMA-335, p. 243
+         ForEachRow( this._typeDef, tableWidths, sink, ( array, idx, listIdx, blobIdx, typeDef ) => array
+            .WriteInt32LEToBytes( ref idx, (Int32) ( (CILType) typeDef ).Attributes ) // Flags
+            .WriteHeapIndex( ref idx, this._sysStrings.GetString( typeDef.Name ), wideSysStringIndex ) // TypeName
+            .WriteHeapIndex( ref idx, this._sysStrings.GetString( typeDef.Namespace ), wideSysStringIndex ) // TypeNamespace
+            .WriteCodedTableIndex( ref idx, CodedTableIndexKind.TypeDefOrRef, typeDefExtends[listIdx], tRefWidths ) // Extends
+            .WriteSimpleTableIndex( ref idx, Tables.Field, this._typeDefFieldAndMethodIndices[listIdx].Item1, tableSizes ) // FieldList
+            .WriteSimpleTableIndex( ref idx, Tables.MethodDef, this._typeDefFieldAndMethodIndices[listIdx].Item2, tableSizes ) // MethodList
+            );
+         // ECMA-335, p. 223
+         ForEachRow( this._fieldDef, tableWidths, sink, ( array, idx, listIdx, blobIdx, fDef ) => array
+            .WriteInt16LEToBytes( ref idx, (Int16) fDef.Attributes ) // FieldAttributes
+            .WriteHeapIndex( ref idx, this._sysStrings.GetString( fDef.Name ), wideSysStringIndex ) // Name
+            .WriteHeapIndex( ref idx, blobIdx, wideBLOBIndex ) // Signature
+            );
+         // ECMA-335, p. 233
+         ForEachRow( this._methodDef, tableWidths, sink, ( array, idx, listIdx, blobIdx, mDef ) => array
+            .WriteUInt32LEToBytes( ref idx, methodRVAs.GetOrDefault( mDef, 0u ) ) // RVA
+            .WriteInt16LEToBytes( ref idx, (Int16) mDef.ImplementationAttributes ) // ImplFlags
+            .WriteInt16LEToBytes( ref idx, (Int16) mDef.Attributes ) // Flags
+            .WriteHeapIndex( ref idx, this._sysStrings.GetString( mDef.GetName() ), wideSysStringIndex ) // Name
+            .WriteHeapIndex( ref idx, blobIdx, wideBLOBIndex ) // Signature
+            .WriteSimpleTableIndex( ref idx, Tables.Parameter, this._methodDefParamIndices[listIdx], tableSizes )
+            );
+         // ECMA-335, p. 240
+         ForEachRow( this._paramDef, tableWidths, sink, ( array, idx, listIdx, blobIdx, pDef ) => array
+            .WriteInt16LEToBytes( ref idx, (Int16) pDef.Attributes ) // Flags
+            .WriteUInt16LEToBytes( ref idx, (UInt16) ( pDef.Position + 1 ) ) // Sequence
+            .WriteHeapIndex( ref idx, this._sysStrings.GetString( pDef.Name ), wideSysStringIndex ) // Name
+            );
+         // ECMA-335, p. 231
+         ForEachElement( Tables.InterfaceImpl, this._interfaceImpl, tableWidths, sink, ( array, idx, listIdx, item ) => array
+            .WriteSimpleTableIndex( ref idx, Tables.TypeDef, item.Item1, tableSizes ) // Class
+            .WriteCodedTableIndex( ref idx, CodedTableIndexKind.TypeDefOrRef, item.Item2, tRefWidths ) // Interface
+            );
+         // ECMA-335, p. 232
+         ForEachRow( this._memberRef, tableWidths, sink, ( array, idx, listIdx, blobIdx, mRef ) => array
+            .WriteCodedTableIndex( ref idx, CodedTableIndexKind.MemberRefParent, MetaDataConstants.GetCodedTableIndex( CodedTableIndexKind.MemberRefParent, this._memberRef._keys[listIdx].Item1 ), tRefWidths ) // Class
+            .WriteHeapIndex( ref idx, this._sysStrings.GetString( mRef is CILElementWithSimpleName ? ( (CILElementWithSimpleName) mRef ).Name : ( (CILConstructor) mRef ).GetName() ), wideSysStringIndex ) // Name
+            .WriteHeapIndex( ref idx, blobIdx, wideBLOBIndex ) // Signature
+            );
+         // ECMA-335, p. 216
+         ForEachElement( Tables.Constant, this._constants, tableWidths, sink, ( array, idx, listIdx, tuple ) => array
+            .WriteInt16LEToBytes( ref idx, tuple.Item1 )
+            .WriteCodedTableIndex( ref idx, CodedTableIndexKind.HasConstant, tuple.Item2, tRefWidths )
+            .WriteHeapIndex( ref idx, tuple.Item3, wideBLOBIndex )
+            );
+         // ECMA-335, p. 216
+         ForEachElement( Tables.CustomAttribute, this._customAttributes, tableWidths, sink, ( array, idx, listIdx, tuple ) => array
+            .WriteCodedTableIndex( ref idx, CodedTableIndexKind.HasCustomAttribute, tuple.Item1, tRefWidths ) // Parent
+            .WriteCodedTableIndex( ref idx, CodedTableIndexKind.CustomAttributeType, tuple.Item2, tRefWidths ) // Type
+            .WriteHeapIndex( ref idx, tuple.Item3, wideBLOBIndex )
+            );
+         // ECMA-335, p.226
+         ForEachElement( Tables.FieldMarshal, this._marshals, tableWidths, sink, ( array, idx, listIdx, tuple ) => array
+            .WriteCodedTableIndex( ref idx, CodedTableIndexKind.HasFieldMarshal, tuple.Item1, tRefWidths ) // Parent
+            .WriteHeapIndex( ref idx, tuple.Item2, wideBLOBIndex ) // NativeType
+            );
+         // ECMA-335, p. 218
+         ForEachElement( Tables.DeclSecurity, this._declSecurity, tableWidths, sink, ( array, idx, listIdx, tuple ) => array
+            .WriteUInt16LEToBytes( ref idx, tuple.Item1 ) // Action
+            .WriteCodedTableIndex( ref idx, CodedTableIndexKind.HasDeclSecurity, tuple.Item2, tRefWidths ) // Parent
+            .WriteHeapIndex( ref idx, tuple.Item3, wideBLOBIndex ) // PermissionSet
+            );
+         // ECMA-335 p. 215
+         ForEachElement( Tables.ClassLayout, this._classLayout, tableWidths, sink, ( array, idx, listIdx, tuple ) => array
+            .WriteInt16LEToBytes( ref idx, tuple.Item1 ) // PackingSize
+            .WriteInt32LEToBytes( ref idx, tuple.Item2 ) // ClassSize
+            .WriteSimpleTableIndex( ref idx, Tables.TypeDef, tuple.Item3, tableSizes ) // Parent
+            );
+         // ECMA-335 p. 225
+         ForEachElement( Tables.FieldLayout, this._fieldLayout, tableWidths, sink, ( array, idx, listIdx, tuple ) => array
+            .WriteInt32LEToBytes( ref idx, tuple.Item1 ) // Offset
+            .WriteSimpleTableIndex( ref idx, Tables.Field, tuple.Item2, tableSizes ) // Field
+            );
+         // ECMA-335 p. 243
+         ForEachRow( this._standaloneSig, tableWidths, sink, ( array, idx, listIdx, blobIdx, sig ) => array
+            .WriteHeapIndex( ref idx, blobIdx, wideBLOBIndex ) // Signature
+            );
+         // ECMA-335 p. 220
+         ForEachElement( Tables.EventMap, this._eventMap, tableWidths, sink, ( array, idx, listIdx, tuple ) => array
+            .WriteSimpleTableIndex( ref idx, Tables.TypeDef, tuple.Item1, tableSizes ) // Parent
+            .WriteSimpleTableIndex( ref idx, Tables.Event, tuple.Item2, tableSizes ) // EventList
+            );
+         // ECMA-335 p. 221
+         ForEachRow( this._eventDef, tableWidths, sink, ( array, idx, listIdx, blobIdx, evt ) => array
+            .WriteUInt16LEToBytes( ref idx, (UInt16) evt.Attributes ) // EventFlags
+            .WriteHeapIndex( ref idx, this._sysStrings.GetString( evt.Name ), wideSysStringIndex ) // Name
+            .WriteCodedTableIndex( ref idx, CodedTableIndexKind.TypeDefOrRef, evtTypes[listIdx], tRefWidths ) // EventType
+            );
+         // ECMA-335 p. 242
+         ForEachElement( Tables.PropertyMap, this._propertyMap, tableWidths, sink, ( array, idx, listIdx, tuple ) => array
+            .WriteSimpleTableIndex( ref idx, Tables.TypeDef, tuple.Item1, tableSizes ) // Parent
+            .WriteSimpleTableIndex( ref idx, Tables.Property, tuple.Item2, tableSizes ) // PropertyList
+            );
+         // ECMA-335 p. 242
+         ForEachRow( this._propertyDef, tableWidths, sink, ( array, idx, listIdx, blobIdx, prop ) => array
+            .WriteUInt16LEToBytes( ref idx, (UInt16) prop.Attributes ) // Flags
+            .WriteHeapIndex( ref idx, this._sysStrings.GetString( prop.Name ), wideSysStringIndex ) // Name
+            .WriteHeapIndex( ref idx, blobIdx, wideBLOBIndex ) // Type
+            );
+         // ECMA-335 p. 237
+         ForEachElement( Tables.MethodSemantics, this._methodSemantics, tableWidths, sink, ( array, idx, listIdx, tuple ) => array
+            .WriteUInt16LEToBytes( ref idx, tuple.Item1 ) // Semantics
+            .WriteSimpleTableIndex( ref idx, Tables.MethodDef, tuple.Item2, tableSizes ) // Method
+            .WriteCodedTableIndex( ref idx, CodedTableIndexKind.HasSemantics, tuple.Item3, tRefWidths ) // Association
+            );
+         // ECMA-335 p. 237
+         ForEachElement( Tables.MethodImpl, this._methodImpl, tableWidths, sink, ( array, idx, listIdx, tuple ) => array
+            .WriteSimpleTableIndex( ref idx, Tables.TypeDef, tuple.Item1, tableSizes ) // Class
+            .WriteCodedTableIndex( ref idx, CodedTableIndexKind.MethodDefOrRef, tuple.Item2, tRefWidths ) // MethodBody
+            .WriteCodedTableIndex( ref idx, CodedTableIndexKind.MethodDefOrRef, tuple.Item3, tRefWidths ) // MethodDeclaration
+            );
+         // ECMA-335, p. 239
+         ForEachElement( Tables.ModuleRef, this._moduleRef._list, tableWidths, sink, ( array, idx, listIdx, mRef ) => array
+            .WriteHeapIndex( ref idx, this._sysStrings.GetString( mRef ), wideSysStringIndex ) // Name
+            );
+         // ECMA-335, p. 248
+         ForEachRow( this._typeSpec, tableWidths, sink, ( array, idx, listIdx, blobIdx, tSpec ) => array
+            .WriteHeapIndex( ref idx, blobIdx, wideBLOBIndex ) // Signature
+            );
+         // ECMA-335, p. 230
+         ForEachElement( Tables.ImplMap, this._implMap, tableWidths, sink, ( array, idx, listIdx, tuple ) => array
+            .WriteUInt16LEToBytes( ref idx, (UInt16) tuple.Item1 ) // PInvokeAttributes
+            .WriteCodedTableIndex( ref idx, CodedTableIndexKind.MemberForwarded, tuple.Item2, tRefWidths ) // MemberForwarded
+            .WriteHeapIndex( ref idx, tuple.Item3, wideSysStringIndex ) // Import name
+            .WriteSimpleTableIndex( ref idx, Tables.ModuleRef, tuple.Item4, tableSizes ) // Import scope
+            );
+         // ECMA-335, p. 227
+         ForEachElement( Tables.FieldRVA, this._fieldsWithRVA, tableWidths, sink, ( array, idx, listIdx, item ) => array
+            .WriteUInt32LEToBytes( ref idx, fRVAs[listIdx] )
+            .WriteSimpleTableIndex( ref idx, Tables.Field, this._fieldsWithRVA[listIdx], tableSizes )
+            );
+         // ECMA-335, p. 211
+         ForEachRow( this._assembly, tableWidths, sink, ( array, idx, listIdx, blobIdx, ass ) => array
+            .WriteInt32LEToBytes( ref idx, (Int32) ass.HashAlgorithm ) // HashAlgId
+            .WriteUInt16LEToBytes( ref idx, (UInt16) ass.MajorVersion ) // MajorVersion
+            .WriteUInt16LEToBytes( ref idx, (UInt16) ass.MinorVersion ) // MinorVersion
+            .WriteUInt16LEToBytes( ref idx, (UInt16) ass.BuildNumber ) // BuildNumber
+            .WriteUInt16LEToBytes( ref idx, (UInt16) ass.Revision ) // RevisionNumber
+            .WriteInt32LEToBytes( ref idx, (Int32) ( ass.Flags & ~AssemblyFlags.PublicKey ) ) // Flags (Don't set public key flag)
+            .WriteHeapIndex( ref idx, this._blob.GetBLOB( this._assemblyName.PublicKey ), wideBLOBIndex ) // PublicKey
+            .WriteHeapIndex( ref idx, this._sysStrings.GetString( ass.Name ), wideSysStringIndex ) // Name
+            .WriteHeapIndex( ref idx, this._sysStrings.GetString( ass.Culture ), wideSysStringIndex ) // Culture
+            );
+         // ECMA-335, p. 212
+         ForEachElement( Tables.AssemblyRef, this._assemblyRef, tableWidths, sink, ( array, idx, listIdx, ass ) => array
+            .WriteUInt16LEToBytes( ref idx, (UInt16) ass.MajorVersion ) // MajorVersion
+            .WriteUInt16LEToBytes( ref idx, (UInt16) ass.MinorVersion ) // MinorVersion
+            .WriteUInt16LEToBytes( ref idx, (UInt16) ass.BuildNumber ) // BuildNumber
+            .WriteUInt16LEToBytes( ref idx, (UInt16) ass.Revision ) // RevisionNumber
+            .WriteInt32LEToBytes( ref idx, (Int32) ass.Flags ) // Flags
+            .WriteHeapIndex( ref idx, this._blob.GetBLOB( ass.PublicKey.IsNullOrEmpty() ? null : ass.PublicKey ), wideBLOBIndex ) // PublicKey
+            .WriteHeapIndex( ref idx, this._sysStrings.GetString( ass.Name ), wideSysStringIndex ) // Name
+            .WriteHeapIndex( ref idx, this._sysStrings.GetString( ass.Culture ), wideSysStringIndex ) // Culture
+            .WriteHeapIndex( ref idx, this._aRefHashes[listIdx], wideBLOBIndex ) // HashValue
+            );
+         ForEachElement( Tables.File, this._files.Values.OrderBy( t => t.Item1 ).ToList(), tableWidths, sink, ( array, idx, listIdx, file ) => array
+            .WriteUInt32LEToBytes( ref idx, (UInt32) file.Item2 )
+            .WriteHeapIndex( ref idx, file.Item3, wideSysStringIndex )
+            .WriteHeapIndex( ref idx, file.Item4, wideBLOBIndex )
+            );
+         ForEachElement( Tables.ExportedType, this._exportedTypes, tableWidths, sink, ( array, idx, listIdx, tuple ) => array
+            .WriteUInt32LEToBytes( ref idx, (UInt32) tuple.Item1 ) // TypeAttributes
+            .WriteInt32LEToBytes( ref idx, tuple.Item2 ) // TypeDef index in other (!) assembly
+            .WriteHeapIndex( ref idx, this._sysStrings.GetString( tuple.Item3 ), wideSysStringIndex ) // TypeName
+            .WriteHeapIndex( ref idx, this._sysStrings.GetString( tuple.Item4 ), wideSysStringIndex ) // TypeNamespace
+            .WriteCodedTableIndex( ref idx, CodedTableIndexKind.Implementation, tuple.Item5, tRefWidths ) // Implementation
+            );
+         ForEachElement( Tables.ManifestResource, this._module.ManifestResources, tableWidths, sink, ( array, idx, listIdx, kvp ) =>
+         {
+            UInt32 mOffset;
+            Int32 impl = 0;
+            var add = embeddedManifestResourceOffsets.TryGetValue( kvp.Key, out mOffset );
+            if ( !add )
+            {
+               add = moduleResRefIndices.ContainsKey( kvp.Key );
+               if ( add )
+               {
+                  add = true;
+                  mOffset = 0u;
+                  impl = MetaDataConstants.GetCodedTableIndex( CodedTableIndexKind.Implementation, moduleResRefIndices[kvp.Key] );
+               }
+            }
+
+            if ( add )
+            {
+               array
+                  .WriteUInt32LEToBytes( ref idx, mOffset ) // Offset
+                  .WriteUInt32LEToBytes( ref idx, (UInt32) kvp.Value.Attributes ) // Flags
+                  .WriteHeapIndex( ref idx, this._sysStrings.GetString( kvp.Key ), wideSysStringIndex ) // Name
+                  .WriteCodedTableIndex( ref idx, CodedTableIndexKind.Implementation, impl, tRefWidths ); // Implementation
+            }
+         } );
+         // ECMA-335, p. 240
+         ForEachElement( Tables.NestedClass, this._nestedClass, tableWidths, sink, ( array, idx, listIdx, tuple ) => array
+            .WriteSimpleTableIndex( ref idx, Tables.TypeDef, tuple.Item1, tableSizes )
+            .WriteSimpleTableIndex( ref idx, Tables.TypeDef, tuple.Item2, tableSizes )
+            );
+         // ECMA-335, p. 228
+         ForEachRow( this._gParamDef, tableWidths, sink, ( array, idx, listIdx, blobIdx, gParam ) => array
+            .WriteUInt16LEToBytes( ref idx, (UInt16) gParam.GenericParameterPosition ) // Number
+            .WriteUInt16LEToBytes( ref idx, (UInt16) gParam.Attributes ) // Flags
+            .WriteCodedTableIndex( ref idx, CodedTableIndexKind.TypeOrMethodDef, this._gParamOwners[listIdx], tRefWidths ) // Owner
+            .WriteHeapIndex( ref idx, this._sysStrings.GetString( gParam.Name ), wideSysStringIndex ) // Name
+            );
+         // ECMA-335, p. 238
+         ForEachRow( this._methodSpec, tableWidths, sink, ( array, idx, listIdx, blobIdx, mSpec ) => array
+            .WriteCodedTableIndex( ref idx, CodedTableIndexKind.MethodDefOrRef, MetaDataConstants.GetCodedTableIndex( CodedTableIndexKind.MethodDefOrRef, this._methodSpec._keys[listIdx] ), tRefWidths ) // Method
+            .WriteHeapIndex( ref idx, blobIdx, wideBLOBIndex ) // Instantiation
+            );
+         // ECMA-335, p. 229
+         ForEachElement( Tables.GenericParameterConstraint, this._gParamConstraints, tableWidths, sink, ( array, idx, listIdx, tuple ) => array
+            .WriteSimpleTableIndex( ref idx, Tables.GenericParameter, tuple.Item1, tableSizes ) // Owner
+            .WriteCodedTableIndex( ref idx, CodedTableIndexKind.TypeDefOrRef, tuple.Item2, tRefWidths ) // Constraint
+            );
+         // Padding
+         for ( var i = mdStreamSize; i < mdStreamSize4; i++ )
+         {
+            sink.WriteByte( 0 );
+         }
+
+         // #String
+         sysStrings.WriteStrings( sink );
+
+         // #US
+         userStrings.WriteStrings( sink );
+
+         // #Guid
+         foreach ( var guid in guids )
+         {
+            sink.Write( guid.ToByteArray() );
+         }
+
+         // #Blob
+         blob.WriteBLOBs( sink );
+
+         var total = (UInt32) anArray.Length + streamSizes.Sum() - mdHeaderSize;
+
+         return total;
+      }
+
+      private static void ForEachElement<T>( Tables table, ICollection<T> list, Int32[] tableWidths, Stream sink, Action<Byte[], Int32, Int32, T> writeAction )
+      {
+         var count = list.Count;
+         if ( count > 0 )
+         {
+
+            var width = tableWidths[(Int32) table];
+            var array = new Byte[width * count];
+            var idx = 0;
+            var listIdx = 0;
+            foreach ( var item in list )
+            {
+               writeAction( array, idx, listIdx, item );
+               idx += width;
+               ++listIdx;
+            }
+            sink.Write( array );
+#if DEBUG
+            if ( idx != array.Length )
+            {
+               throw new Exception( "Something went wrong when emitting metadata array: emitted " + idx + " instead of expected " + array.Length + " bytes." );
+            }
+#endif
+         }
+      }
+
+      private static void CreateMDHeaps(
+         CILMetaData md,
+         out BLOBContainer blobsParam,
+         out SystemStringHeapEmittingInfo sysStringsParam,
+         out IList<Guid> guidsParam,
+         out Object[] heapInfos
+         )
+      {
+         var blobs = new BLOBContainer();
+         var sysStrings = new SystemStringHeapEmittingInfo();
+         var guids = new List<Guid>();
+         heapInfos = new Object[Consts.AMOUNT_OF_TABLES];
+
+         var blobHelper = new BinaryHeapEmittingInfo();
+         var auxHelper = new BinaryHeapEmittingInfo(); // For writing security BLOBs
+         // 0x00 Module
+         ProcessTableForHeaps4( Tables.Module, md.ModuleDefinitions, heapInfos, mod => new HeapInfo4( sysStrings.GetOrAddString( mod.Name ), GetGUIDIndex( guids, mod.ModuleGUID ), GetGUIDIndex( guids, mod.EditAndContinueGUID ), GetGUIDIndex( guids, mod.EditAndContinueBaseGUID ) ) );
+         // 0x01 TypeRef
+         ProcessTableForHeaps2( Tables.TypeRef, md.TypeReferences, heapInfos, tr => new HeapInfo2( sysStrings.GetOrAddString( tr.Name ), sysStrings.GetOrAddString( tr.Namespace ) ) );
+         // 0x02 TypeDef
+         ProcessTableForHeaps2( Tables.TypeDef, md.TypeDefinitions, heapInfos, td => new HeapInfo2( sysStrings.GetOrAddString( td.Name ), sysStrings.GetOrAddString( td.Namespace ) ) );
+         // 0x04 FieldDef
+         ProcessTableForHeaps2( Tables.Field, md.FieldDefinitions, heapInfos, f => new HeapInfo2( sysStrings.GetOrAddString( f.Name ), blobs.GetBLOB( blobHelper.CreateFieldSignature( f.Signature ) ) ) );
+         // 0x06 MethodDef
+         ProcessTableForHeaps2( Tables.MethodDef, md.MethodDefinitions, heapInfos, m => new HeapInfo2( sysStrings.GetOrAddString( m.Name ), blobs.GetBLOB( blobHelper.CreateMethodSignature( m.Signature ) ) ) );
+         // 0x08 Parameter
+         ProcessTableForHeaps1( Tables.Parameter, md.ParameterDefinitions, heapInfos, p => new HeapInfo1( sysStrings.GetOrAddString( p.Name ) ) );
+         // 0x0A MemberRef
+         ProcessTableForHeaps2( Tables.MemberRef, md.MemberReferences, heapInfos, m => new HeapInfo2( sysStrings.GetOrAddString( m.Name ), blobs.GetBLOB( blobHelper.CreateMemberRefSignature( m.Signature ) ) ) );
+         // 0x0B Constant
+         ProcessTableForHeaps1( Tables.Constant, md.ConstantDefinitions, heapInfos, c => new HeapInfo1( blobs.GetBLOB( blobHelper.CreateConstantBytes( c.Value ) ) ) );
+         // 0x0C CustomAttribute
+         ProcessTableForHeaps1( Tables.CustomAttribute, md.CustomAttributeDefinitions, heapInfos, ca => new HeapInfo1( blobs.GetBLOB( blobHelper.CreateCustomAttributeSignature( ca.Signature ) ) ) );
+         // 0x0D FieldMarshal
+         ProcessTableForHeaps1( Tables.FieldMarshal, md.FieldMarshals, heapInfos, fm => new HeapInfo1( blobs.GetBLOB( blobHelper.CreateMarshalSpec( fm.NativeType ) ) ) );
+         // 0x0E Security definitions
+         ProcessTableForHeaps1( Tables.DeclSecurity, md.SecurityDefinitions, heapInfos, sd => new HeapInfo1( blobs.GetBLOB( blobHelper.CreateSecuritySignature( sd, auxHelper ) ) ) );
+         // 0x11 Standalone sig
+         ProcessTableForHeaps1( Tables.StandaloneSignature, md.StandaloneSignatures, heapInfos, s => new HeapInfo1( blobs.GetBLOB( blobHelper.CreateStandaloneSignature( s.Signature ) ) ) );
+         // 0x14 Event
+         ProcessTableForHeaps1( Tables.Event, md.EventDefinitions, heapInfos, e => new HeapInfo1( sysStrings.GetOrAddString( e.Name ) ) );
+         // 0x17 Property
+         ProcessTableForHeaps2( Tables.Property, md.PropertyDefinitions, heapInfos, p => new HeapInfo2( sysStrings.GetOrAddString( p.Name ), blobs.GetBLOB( blobHelper.CreatePropertySignature( p.Signature ) ) ) );
+         // 0x1A ModuleRef
+         ProcessTableForHeaps1( Tables.ModuleRef, md.ModuleReferences, heapInfos, mr => new HeapInfo1( sysStrings.GetOrAddString( mr.ModuleReference ) ) );
+         // 0x1B TypeSpec
+         ProcessTableForHeaps1( Tables.TypeSpec, md.TypeSpecifications, heapInfos, t => new HeapInfo1( blobs.GetBLOB( blobHelper.CreateTypeSignature( t.Signature ) ) ) );
+         // 0x1C ImplMap
+         ProcessTableForHeaps1( Tables.ImplMap, md.MethodImplementationMaps, heapInfos, mim => new HeapInfo1( sysStrings.GetOrAddString( mim.ImportName ) ) );
+         // 0x20 Assembly
+         ProcessTableForHeaps3( Tables.Assembly, md.AssemblyDefinitions, heapInfos, ad => new HeapInfo3( blobs.GetBLOB( ad.AssemblyInformation.PublicKeyOrToken ), sysStrings.GetOrAddString( ad.AssemblyInformation.Name ), sysStrings.GetOrAddString( ad.AssemblyInformation.Culture ) ) );
+         // 0x21 AssemblyRef
+         ProcessTableForHeaps4( Tables.AssemblyRef, md.AssemblyReferences, heapInfos, ar => new HeapInfo4( blobs.GetBLOB( ar.AssemblyInformation.PublicKeyOrToken ), sysStrings.GetOrAddString( ar.AssemblyInformation.Name ), sysStrings.GetOrAddString( ar.AssemblyInformation.Culture ), blobs.GetBLOB( ar.HashValue ) ) );
+         // 0x26 File
+         ProcessTableForHeaps2( Tables.File, md.FileReferences, heapInfos, f => new HeapInfo2( sysStrings.GetOrAddString( f.Name ), blobs.GetBLOB( f.HashValue ) ) );
+         // 0x27 ExportedType
+         ProcessTableForHeaps2( Tables.ExportedType, md.ExportedTypess, heapInfos, e => new HeapInfo2( sysStrings.GetOrAddString( e.Name ), sysStrings.GetOrAddString( e.Namespace ) ) );
+         // 0x28 ManifestResource
+         ProcessTableForHeaps1( Tables.ManifestResource, md.ManifestResources, heapInfos, m => new HeapInfo1( sysStrings.GetOrAddString( m.Name ) ) );
+         // 0x2A GenericParameter
+         ProcessTableForHeaps1( Tables.GenericParameter, md.GenericParameterDefinitions, heapInfos, g => new HeapInfo1( sysStrings.GetOrAddString( g.Name ) ) );
+         // 0x2B MethosSpec
+         ProcessTableForHeaps1( Tables.MethodSpec, md.MethodSpecifications, heapInfos, m => new HeapInfo1( blobs.GetBLOB( blobHelper.CreateMethodSpecSignature( m.Signature ) ) ) );
+
+         // We're done
+         blobsParam = blobs;
+         sysStringsParam = sysStrings;
+         guidsParam = guids;
+      }
+
+      private static void ProcessTableForHeaps1<T>( Tables tableEnum, List<T> table, Object[] heapInfos, Func<T, HeapInfo1> heapInfoExtractor )
+      {
+         var heapInfoList = new List<HeapInfo1>( table.Count );
+         foreach ( var row in table )
+         {
+            heapInfoList.Add( heapInfoExtractor( row ) );
+         }
+         heapInfos[(Int32) tableEnum] = heapInfoList;
+      }
+
+      private static void ProcessTableForHeaps2<T>( Tables tableEnum, List<T> table, Object[] heapInfos, Func<T, HeapInfo2> heapInfoExtractor )
+      {
+         var heapInfoList = new List<HeapInfo2>( table.Count );
+         foreach ( var row in table )
+         {
+            heapInfoList.Add( heapInfoExtractor( row ) );
+         }
+         heapInfos[(Int32) tableEnum] = heapInfoList;
+      }
+
+      private static void ProcessTableForHeaps3<T>( Tables tableEnum, List<T> table, Object[] heapInfos, Func<T, HeapInfo3> heapInfoExtractor )
+      {
+         var heapInfoList = new List<HeapInfo3>( table.Count );
+         foreach ( var row in table )
+         {
+            heapInfoList.Add( heapInfoExtractor( row ) );
+         }
+         heapInfos[(Int32) tableEnum] = heapInfoList;
+      }
+
+      private static void ProcessTableForHeaps4<T>( Tables tableEnum, List<T> table, Object[] heapInfos, Func<T, HeapInfo4> heapInfoExtractor )
+      {
+         var heapInfoList = new List<HeapInfo4>( table.Count );
+         foreach ( var row in table )
+         {
+            heapInfoList.Add( heapInfoExtractor( row ) );
+         }
+         heapInfos[(Int32) tableEnum] = heapInfoList;
+      }
+
+
+      private struct HeapInfo1
+      {
+         internal readonly UInt32 Heap1;
+
+         internal HeapInfo1( UInt32 heap1 )
+         {
+            this.Heap1 = heap1;
+         }
+      }
+
+      private struct HeapInfo2
+      {
+         internal readonly UInt32 Heap1;
+         internal readonly UInt32 Heap2;
+
+         internal HeapInfo2( UInt32 heap1, UInt32 heap2 )
+         {
+            this.Heap1 = heap1;
+            this.Heap2 = heap2;
+         }
+      }
+
+      private struct HeapInfo3
+      {
+         internal readonly UInt32 Heap1;
+         internal readonly UInt32 Heap2;
+         internal readonly UInt32 Heap3;
+
+         internal HeapInfo3( UInt32 heap1, UInt32 heap2, UInt32 heap3 )
+         {
+            this.Heap1 = heap1;
+            this.Heap2 = heap2;
+            this.Heap3 = heap3;
+         }
+      }
+
+      private struct HeapInfo4
+      {
+         internal readonly UInt32 Heap1;
+         internal readonly UInt32 Heap2;
+         internal readonly UInt32 Heap3;
+         internal readonly UInt32 Heap4;
+
+         internal HeapInfo4( UInt32 heap1, UInt32 heap2, UInt32 heap3, UInt32 heap4 )
+         {
+            this.Heap1 = heap1;
+            this.Heap2 = heap2;
+            this.Heap3 = heap3;
+            this.Heap4 = heap4;
+         }
+      }
+
+      private static UInt32 GetGUIDIndex( IList<Guid> guids, Guid? guid )
+      {
+         UInt32 retVal;
+         if ( guid.HasValue )
+         {
+            var idx = guids.IndexOf( guid.Value );
+            if ( idx < 0 )
+            {
+               idx = guids.Count;
+               guids.Add( guid.Value );
+            }
+            retVal = (UInt32) idx;
+         }
+         else
+         {
+            retVal = 0u;
+         }
+
+         return retVal;
+      }
+
    }
 
    internal static class HeaderFieldPossibleValues
@@ -776,14 +1528,14 @@ namespace CILAssemblyManipulator.Physical.Implementation
       private readonly Int32 _methodDefIndex;
       private readonly MethodDefinition _method;
       private readonly MethodILDefinition _methodIL;
-      private readonly UsersStringHeapEmittingInfo _usersStringHeap;
+      private readonly UserStringHeapEmittingInfo _usersStringHeap;
       private readonly Byte[] _ilCode;
       private readonly Int32[] _stackSizes;
       private Int32 _ilCodeCount;
       private Int32 _currentStack;
       private Int32 _maxStack;
 
-      internal MethodILWriter( CILMetaData md, Int32 idx, UsersStringHeapEmittingInfo usersStringHeap )
+      internal MethodILWriter( CILMetaData md, Int32 idx, UserStringHeapEmittingInfo usersStringHeap )
       {
          this._md = md;
          this._methodDefIndex = idx;
@@ -854,7 +1606,7 @@ namespace CILAssemblyManipulator.Physical.Implementation
                   this._ilCode.WriteInt64LEToBytes( ref this._ilCodeCount, (Int64) ( (OpCodeInfoWithInt64) codeInfo ).Operand );
                   break;
                case OperandType.InlineString:
-                  this._ilCode.WriteInt32LEToBytes( ref this._ilCodeCount, (Int32) ( this._usersStringHeap.GetOrAddString( ( (OpCodeInfoWithString) codeInfo ).Operand, true ) | USER_STRING_MASK ) );
+                  this._ilCode.WriteInt32LEToBytes( ref this._ilCodeCount, (Int32) ( this._usersStringHeap.GetOrAddString( ( (OpCodeInfoWithString) codeInfo ).Operand ) | USER_STRING_MASK ) );
                   break;
                case OperandType.InlineField:
                case OperandType.InlineMethod:
@@ -917,7 +1669,7 @@ namespace CILAssemblyManipulator.Physical.Implementation
             }
          }
 
-         // Emit opcodes and arguments
+         // Emit opcodes and operands
          foreach ( var info in this._methodIL.OpCodes )
          {
             this.Emit( info );
@@ -1264,7 +2016,7 @@ namespace CILAssemblyManipulator.Physical.Implementation
          this._accessed = false;
       }
 
-      internal UInt32 GetOrAddString( String str, Boolean acceptNonEmpty )
+      internal UInt32 GetOrAddString( String str ) //, Boolean acceptNonEmpty )
       {
          if ( !this._accessed )
          {
@@ -1273,7 +2025,7 @@ namespace CILAssemblyManipulator.Physical.Implementation
 
          UInt32 result;
          Tuple<UInt32, Int32> strInfo;
-         if ( str == null || ( str.Length == 0 && !acceptNonEmpty ) )
+         if ( str == null ) // || ( str.Length == 0 && !acceptNonEmpty ) )
          {
             result = 0;
          }
@@ -1358,9 +2110,9 @@ namespace CILAssemblyManipulator.Physical.Implementation
       }
    }
 
-   internal sealed class UsersStringHeapEmittingInfo : StringHeapEmittingInfo
+   internal sealed class UserStringHeapEmittingInfo : StringHeapEmittingInfo
    {
-      internal UsersStringHeapEmittingInfo()
+      internal UserStringHeapEmittingInfo()
          : base( MetaDataConstants.USER_STRING_ENCODING, true )
       {
 
@@ -1397,6 +2149,949 @@ namespace CILAssemblyManipulator.Physical.Implementation
          : base( MetaDataConstants.SYS_STRING_ENCODING, false )
       {
 
+      }
+   }
+
+   internal class BLOBContainer
+   {
+      private readonly IDictionary<Byte[], UInt32> _blobIndices;
+      private readonly IList<Byte[]> _blobs;
+      private UInt32 _curIdx;
+      private Boolean _accessed;
+
+
+      internal BLOBContainer()
+      {
+         this._blobIndices = new Dictionary<Byte[], UInt32>( ArrayEqualityComparer<Byte>.DefaultArrayEqualityComparer );
+         this._blobs = new List<Byte[]>();
+         this._curIdx = 1;
+         this._accessed = false;
+      }
+
+      internal UInt32 GetOrAddBLOB( Byte[] blob )
+      {
+         if ( !this._accessed )
+         {
+            this._accessed = true;
+         }
+
+         if ( blob == null )
+         {
+            return 0;
+         }
+         else
+         {
+            UInt32 result;
+            if ( !this._blobIndices.TryGetValue( blob, out result ) )
+            {
+               result = this._curIdx;
+               this._blobIndices.Add( blob, result );
+               this._blobs.Add( blob );
+               this._curIdx += (UInt32) blob.Length + BitUtils.GetEncodedUIntSize( blob.Length );
+            }
+            return result;
+         }
+      }
+
+      internal UInt32 GetBLOB( Byte[] blob )
+      {
+         return blob == null ? 0 : this._blobIndices[blob];
+      }
+
+      internal UInt32 Size
+      {
+         get
+         {
+            return this._curIdx;
+         }
+      }
+
+      internal Boolean Accessed
+      {
+         get
+         {
+            return this._accessed;
+         }
+      }
+
+      internal void WriteBLOBs( Stream sink )
+      {
+         if ( this._accessed )
+         {
+            sink.WriteByte( 0 );
+            var byteCount = 1u;
+            if ( this._blobs.Count > 0 )
+            {
+               var tmpArray = new Byte[4];
+               foreach ( var blob in this._blobs )
+               {
+                  var i = 0;
+                  tmpArray.CompressUInt32( ref i, blob.Length );
+                  sink.Write( tmpArray, 0, i );
+                  sink.Write( blob );
+                  byteCount += (UInt32) i + (UInt32) blob.Length;
+               }
+            }
+            sink.SkipToNextAlignment( ref byteCount, 4 );
+         }
+      }
+   }
+
+   internal sealed class BinaryHeapEmittingInfo
+   {
+
+      private const Int32 DEFAULT_BLOCK_SIZE = 512;
+
+      private readonly Int32 _blockSize;
+      private readonly IList<Byte[]> _prevBlocks;
+      private readonly IList<Int32> _prevBlockSizes;
+      private readonly Encoding _stringEncoding;
+      private Byte[] _curBlock;
+      private Int32 _curCount;
+      private Int32 _prevBlockIndex;
+
+      internal BinaryHeapEmittingInfo()
+         : this( DEFAULT_BLOCK_SIZE )
+      {
+
+      }
+
+      internal BinaryHeapEmittingInfo( Int32 blockSize )
+      {
+         this._blockSize = Math.Max( blockSize, DEFAULT_BLOCK_SIZE );
+         this._prevBlocks = new List<Byte[]>();
+         this._prevBlockSizes = new List<Int32>();
+         this._curCount = 0;
+         this._prevBlockIndex = 0;
+         this._curBlock = new Byte[this._blockSize];
+         this._stringEncoding = new UTF8Encoding( false, true );
+      }
+
+      internal void AddByte( Byte aByte )
+      {
+         this.EnsureSize( 1 );
+         this._curBlock[this._curCount++] = aByte;
+      }
+
+      internal void AddSByte( SByte sByte )
+      {
+         this.EnsureSize( 1 );
+         this._curBlock[this._curCount++] = (Byte) sByte;
+      }
+
+      internal void AddUncompressedInt16( Int16 val )
+      {
+         this.EnsureSize( 2 );
+         this._curBlock.WriteInt16LEToBytes( ref this._curCount, val );
+      }
+
+      internal void AddUncompressedUInt16( UInt16 val )
+      {
+         this.EnsureSize( 2 );
+         this._curBlock.WriteUInt16LEToBytes( ref this._curCount, val );
+      }
+
+      internal void AddUncompressedInt32( Int32 value )
+      {
+         this.EnsureSize( 4 );
+         this._curBlock.WriteInt32LEToBytes( ref this._curCount, value );
+      }
+
+      internal void AddUncompressedUInt32( UInt32 value )
+      {
+         this.EnsureSize( 4 );
+         this._curBlock.WriteUInt32LEToBytes( ref this._curCount, value );
+      }
+
+      internal void AddUncompressedInt64( Int64 value )
+      {
+         this.EnsureSize( 8 );
+         this._curBlock.WriteInt64LEToBytes( ref this._curCount, value );
+      }
+
+      internal void AddUncompressedUInt64( UInt64 value )
+      {
+         this.EnsureSize( 8 );
+         this._curBlock.WriteUInt64LEToBytes( ref this._curCount, value );
+      }
+
+      internal void AddUncompressedSingle( Single value )
+      {
+         this.EnsureSize( 4 );
+         this._curBlock.WriteSingleLEToBytes( ref this._curCount, value );
+      }
+
+      internal void AddUncompressedDouble( Double value )
+      {
+         this.EnsureSize( 8 );
+         this._curBlock.WriteDoubleLEToBytes( ref this._curCount, value );
+      }
+
+      internal void AddCAString( String str )
+      {
+         if ( str == null )
+         {
+            this.AddByte( 0xFF );
+         }
+         else
+         {
+            var size = this._stringEncoding.GetByteCount( str );
+            this.AddCompressedUInt32( size );
+            if ( this._curCount + size > this._blockSize )
+            {
+               this.AddBytes( this._stringEncoding.GetBytes( str ) );
+            }
+            else
+            {
+               this._curCount += this._stringEncoding.GetBytes( str, 0, str.Length, this._curBlock, this._curCount );
+            }
+         }
+      }
+
+      //internal void AddTypeString( String typeString )
+      //{
+      //   this.AddCAString( typeString ); // Utils.CreateTypeString( type, moduleBeingEmitted, true ) );
+      //}
+
+      internal void AddNormalString( String str )
+      {
+         // This is used only when storing string in constants table. The string must be stored using user string encoding (UTF16).
+         if ( str == null )
+         {
+            this.AddByte( 0x00 );
+         }
+         else
+         {
+            var size = MetaDataConstants.USER_STRING_ENCODING.GetByteCount( str );
+            if ( this._curCount + size > this._blockSize )
+            {
+               this.AddBytes( MetaDataConstants.USER_STRING_ENCODING.GetBytes( str ) );
+            }
+            else
+            {
+               this._curCount += MetaDataConstants.USER_STRING_ENCODING.GetBytes( str, 0, str.Length, this._curBlock, this._curCount );
+            }
+         }
+      }
+
+      internal void AddBytes( Byte[] bytes )
+      {
+         if ( bytes != null )
+         {
+            var written = 0;
+            while ( written < bytes.Length )
+            {
+               if ( this._curCount == this._blockSize )
+               {
+                  this.EnsureSize( 1u );
+               }
+               var amountToWrite = Math.Min( bytes.Length - written, this._blockSize - this._curCount );
+               this.EnsureSize( (UInt32) amountToWrite );
+               Array.Copy( bytes, written, this._curBlock, this._curCount, amountToWrite );
+               written += amountToWrite;
+               this._curCount += amountToWrite;
+            }
+         }
+      }
+
+      internal void AddTDRSToken( TableIndex token )
+      {
+         this.AddCompressedUInt32( TokenUtils.EncodeTypeDefOrRefOrSpec( token.CreateTokenForEmittingMandatoryTableIndex() ) );
+      }
+
+      internal void AddCompressedUInt32( Int32 value )
+      {
+         this.EnsureSize( BitUtils.GetEncodedUIntSize( value ) );
+         this._curBlock.CompressUInt32( ref this._curCount, value );
+      }
+
+      internal void AddCompressedInt32( Int32 value )
+      {
+         this.EnsureSize( BitUtils.GetEncodedIntSize( value ) );
+         this._curBlock.CompressInt32( ref this._curCount, value );
+      }
+
+      internal void AddSigByte( SignatureElementTypes sigType )
+      {
+         this.AddByte( (Byte) sigType );
+      }
+
+      internal void AddSigStarterByte( SignatureStarters sigStarter )
+      {
+         this.AddByte( (Byte) sigStarter );
+      }
+
+      internal Byte[] CreateByteArray()
+      {
+         Byte[] result;
+         if ( this._curCount == 0 && this._prevBlockIndex == 0 )
+         {
+            result = Empty<Byte>.Array;
+         }
+         else
+         {
+            result = new Byte[this._prevBlockSizes.Sum() + this._curCount];
+            var curIdx = 0;
+            for ( var i = 0; i < this._prevBlocks.Count; ++i )
+            {
+               Array.Copy( this._prevBlocks[i], 0, result, curIdx, this._prevBlockSizes[i] );
+               curIdx += this._prevBlockSizes[i];
+            }
+            Array.Copy( this._curBlock, 0, result, curIdx, this._curCount );
+
+            this.Reset();
+         }
+         return result;
+      }
+
+      private void EnsureSize( UInt32 size )
+      {
+         if ( this._blockSize < this._curCount + size )
+         {
+            if ( this._prevBlockIndex >= this._prevBlocks.Count )
+            {
+               this._prevBlocks.Add( this._curBlock );
+               this._prevBlockSizes.Add( this._curCount );
+            }
+            else
+            {
+               this._prevBlocks[this._prevBlockIndex] = this._curBlock;
+               this._prevBlockSizes[this._prevBlockIndex] = this._curCount;
+            }
+            ++this._prevBlockIndex;
+            this._curBlock = this._prevBlockIndex < this._prevBlocks.Count ?
+               this._prevBlocks[this._prevBlockIndex] :
+               new Byte[this._blockSize];
+            this._curCount = 0;
+         }
+      }
+
+      private void Reset()
+      {
+         if ( this._prevBlockIndex > 0 )
+         {
+            this._curBlock = this._prevBlocks[0];
+         }
+         this._prevBlockIndex = 0;
+         this._curCount = 0;
+      }
+
+   }
+
+   //// Maybe move to UtilPack ?
+   //internal static class Testing
+   //{
+   //   public static Int32 MostEfficientCount<T, U>( this T enumerable )
+   //      where T : IEnumerable<U>
+   //   {
+   //      var array = enumerable as Array;
+   //      if ( array != null )
+   //      {
+   //         return array.Length;
+   //      }
+   //      else
+   //      {
+   //          var collection = enumerable as ICollection<U>;
+   //          return collection != null ?
+   //             collection.Count :
+   //             enumerable.Count();
+   //      }
+   //   }
+   //}
+}
+
+public static partial class E_CILPhysical
+{
+   private static readonly ClassOrValueTypeSignature DummyClassOrValueTypeSignature = new ClassOrValueTypeSignature();
+
+   internal static Byte[] CreateFieldSignature( this BinaryHeapEmittingInfo info, FieldSignature sig )
+   {
+      info.WriteFieldSignature( sig );
+      return info.CreateByteArray();
+   }
+
+   internal static Byte[] CreateMethodSignature( this BinaryHeapEmittingInfo info, AbstractMethodSignature sig )
+   {
+      info.WriteMethodSignature( sig );
+      return info.CreateByteArray();
+   }
+
+   internal static Byte[] CreateMemberRefSignature( this BinaryHeapEmittingInfo info, AbstractSignature sig )
+   {
+      return sig.SignatureKind == SignatureKind.Field ?
+         info.CreateFieldSignature( (FieldSignature) sig ) :
+         info.CreateMethodSignature( (MethodReferenceSignature) sig );
+   }
+
+   internal static Byte[] CreateConstantBytes( this BinaryHeapEmittingInfo info, Object constant )
+   {
+      info.WriteConstantValue( constant );
+      return info.CreateByteArray();
+   }
+
+   internal static Byte[] CreateCustomAttributeSignature( this BinaryHeapEmittingInfo info, AbstractCustomAttributeSignature sig )
+   {
+      Byte[] retVal;
+      if ( sig != null ) // sig.TypedArguments.Count > 0 || sig.NamedArguments.Count > 0 )
+      {
+         var sigg = sig as CustomAttributeSignature;
+         if ( sigg != null )
+         {
+            info.WriteCustomAttributeSignature( sigg );
+            retVal = info.CreateByteArray();
+         }
+         else
+         {
+
+            retVal = ( (RawCustomAttributeSignature) sig ).Bytes;
+         }
+      }
+      else
+      {
+         // Signature missing
+         retVal = null;
+      }
+      return retVal;
+   }
+
+   internal static Byte[] CreateMarshalSpec( this BinaryHeapEmittingInfo info, MarshalingInfo marshal )
+   {
+      info.WriteMarshalInfo( marshal );
+      return info.CreateByteArray();
+   }
+
+   internal static Byte[] CreateSecuritySignature( this BinaryHeapEmittingInfo info, SecurityDefinition security, BinaryHeapEmittingInfo aux )
+   {
+      info.WriteSecuritySignature( security, aux );
+      return info.CreateByteArray();
+   }
+
+   internal static Byte[] CreateStandaloneSignature( this BinaryHeapEmittingInfo info, AbstractSignature sig )
+   {
+      var locals = sig as LocalVariablesSignature;
+      if ( locals != null )
+      {
+         info.WriteLocalsSignature( locals );
+      }
+      else
+      {
+         info.WriteMethodSignature( sig as AbstractMethodSignature );
+      }
+      return info.CreateByteArray();
+   }
+
+   internal static Byte[] CreatePropertySignature( this BinaryHeapEmittingInfo info, PropertySignature sig )
+   {
+      info.WritePropertySignature( sig );
+      return info.CreateByteArray();
+   }
+
+   internal static Byte[] CreateTypeSignature( this BinaryHeapEmittingInfo info, TypeSignature sig )
+   {
+      info.WriteTypeSignature( sig );
+      return info.CreateByteArray();
+   }
+
+   internal static Byte[] CreateMethodSpecSignature( this BinaryHeapEmittingInfo info, GenericMethodSignature sig )
+   {
+      info.WriteMethodSpecSignature( sig );
+      return info.CreateByteArray();
+   }
+
+   internal static void WriteFieldSignature( this BinaryHeapEmittingInfo info, FieldSignature sig )
+   {
+      if ( sig != null )
+      {
+         info.AddSigStarterByte( SignatureStarters.Field );
+         info.WriteCustomModifiers( sig.CustomModifiers );
+         info.WriteTypeSignature( sig.Type );
+      }
+   }
+
+   private static void WriteCustomModifiers( this BinaryHeapEmittingInfo info, IList<CustomModifierSignature> mods )
+   {
+      if ( mods.Count > 0 )
+      {
+         foreach ( var mod in mods )
+         {
+            info.AddSigByte( mod.IsOptional ? SignatureElementTypes.CModOpt : SignatureElementTypes.CModReqd );
+            info.AddTDRSToken( mod.CustomModifierType );
+         }
+      }
+   }
+
+   private static void WriteTypeSignature( this BinaryHeapEmittingInfo info, TypeSignature type )
+   {
+      switch ( type.TypeSignatureKind )
+      {
+         case TypeSignatureKind.Simple:
+            info.AddSigByte( ( (SimpleTypeSignature) type ).SimpleType );
+            break;
+         case TypeSignatureKind.SimpleArray:
+            info.AddSigByte( SignatureElementTypes.SzArray );
+            var szArray = (SimpleArrayTypeSignature) type;
+            info.WriteCustomModifiers( szArray.CustomModifiers );
+            info.WriteTypeSignature( szArray.ArrayType );
+            break;
+         case TypeSignatureKind.ComplexArray:
+            info.AddSigByte( SignatureElementTypes.Array );
+            var array = (ComplexArrayTypeSignature) type;
+            info.WriteTypeSignature( array.ArrayType );
+            info.AddCompressedUInt32( array.Rank );
+            info.AddCompressedUInt32( array.Sizes.Count );
+            foreach ( var size in array.Sizes )
+            {
+               info.AddCompressedUInt32( size );
+            }
+            info.AddCompressedUInt32( array.LowerBounds.Count );
+            foreach ( var lobo in array.LowerBounds )
+            {
+               info.AddCompressedInt32( lobo );
+            }
+            break;
+         case TypeSignatureKind.ClassOrValue:
+            var clazz = (ClassOrValueTypeSignature) type;
+            var gArgs = clazz.GenericArguments;
+            var isGenericType = gArgs.Count > 0;
+            if ( isGenericType )
+            {
+               info.AddSigByte( SignatureElementTypes.GenericInst );
+            }
+            info.AddSigByte( clazz.IsClass ? SignatureElementTypes.Class : SignatureElementTypes.ValueType );
+            info.AddTDRSToken( clazz.Type );
+            if ( isGenericType )
+            {
+               info.AddCompressedUInt32( gArgs.Count );
+               foreach ( var gArg in gArgs )
+               {
+                  info.WriteTypeSignature( gArg );
+               }
+            }
+            break;
+         case TypeSignatureKind.GenericParameter:
+            var gParam = (GenericParameterTypeSignature) type;
+            info.AddSigByte( gParam.IsTypeParameter ? SignatureElementTypes.Var : SignatureElementTypes.MVar );
+            info.AddCompressedUInt32( gParam.GenericParameterIndex );
+            break;
+         case TypeSignatureKind.FunctionPointer:
+            info.AddSigByte( SignatureElementTypes.FnPtr );
+            info.WriteMethodSignature( ( (FunctionPointerTypeSignature) type ).MethodSignature );
+            throw new NotImplementedException();
+         case TypeSignatureKind.Pointer:
+            info.AddSigByte( SignatureElementTypes.Ptr );
+            var ptr = (PointerTypeSignature) type;
+            info.WriteCustomModifiers( ptr.CustomModifiers );
+            info.WriteTypeSignature( ptr.Type );
+            break;
+
+      }
+   }
+
+   private static void WriteMethodSignature( this BinaryHeapEmittingInfo info, AbstractMethodSignature method )
+   {
+      if ( method != null )
+      {
+         var starter = method.SignatureStarter;
+         info.AddSigStarterByte( method.SignatureStarter );
+
+         if ( starter.IsGeneric() )
+         {
+            info.AddCompressedUInt32( method.GenericArgumentCount );
+         }
+
+         info.AddCompressedUInt32( method.Parameters.Count );
+
+         info.WriteParameterSignature( method.ReturnType );
+
+         foreach ( var param in method.Parameters )
+         {
+            info.WriteParameterSignature( param );
+         }
+
+         if ( method.SignatureKind == SignatureKind.MethodReference )
+         {
+            var mRef = (MethodReferenceSignature) method;
+            if ( mRef.VarArgsParameters.Count > 0 )
+            {
+               info.AddSigByte( SignatureElementTypes.Sentinel );
+               foreach ( var v in mRef.VarArgsParameters )
+               {
+                  info.WriteParameterSignature( v );
+               }
+            }
+         }
+      }
+   }
+
+   private static void WriteParameterSignature( this BinaryHeapEmittingInfo info, ParameterSignature parameter )
+   {
+      info.WriteCustomModifiers( parameter.CustomModifiers );
+      if ( SimpleTypeSignature.TypedByRef.Equals( parameter.Type ) )
+      {
+         info.AddSigByte( SignatureElementTypes.TypedByRef );
+      }
+      else
+      {
+         if ( parameter.IsByRef )
+         {
+            info.AddSigByte( SignatureElementTypes.ByRef );
+         }
+
+         info.WriteTypeSignature( parameter.Type );
+      }
+   }
+
+   private static void WriteConstantValue( this BinaryHeapEmittingInfo info, Object constant )
+   {
+      if ( constant == null )
+      {
+         info.AddUncompressedInt32( 0 );
+      }
+      else
+      {
+         switch ( Type.GetTypeCode( constant.GetType() ) )
+         {
+            case TypeCode.Boolean:
+               info.AddByte( Convert.ToBoolean( constant ) ? (Byte) 1 : (Byte) 0 );
+               break;
+            case TypeCode.SByte:
+               info.AddSByte( Convert.ToSByte( constant ) );
+               break;
+            case TypeCode.Byte:
+               info.AddByte( Convert.ToByte( constant ) );
+               break;
+            case TypeCode.Char:
+               info.AddUncompressedUInt16( Convert.ToUInt16( Convert.ToChar( constant ) ) );
+               break;
+            case TypeCode.Int16:
+               info.AddUncompressedInt16( Convert.ToInt16( constant ) );
+               break;
+            case TypeCode.UInt16:
+               info.AddUncompressedUInt16( Convert.ToUInt16( constant ) );
+               break;
+            case TypeCode.Int32:
+               info.AddUncompressedInt32( Convert.ToInt32( constant ) );
+               break;
+            case TypeCode.UInt32:
+               info.AddUncompressedUInt32( Convert.ToUInt32( constant ) );
+               break;
+            case TypeCode.Int64:
+               info.AddUncompressedInt64( Convert.ToInt64( constant ) );
+               break;
+            case TypeCode.UInt64:
+               info.AddUncompressedUInt64( Convert.ToUInt64( constant ) );
+               break;
+            case TypeCode.Single:
+               info.AddUncompressedSingle( Convert.ToSingle( constant ) );
+               break;
+            case TypeCode.Double:
+               info.AddUncompressedDouble( Convert.ToDouble( constant ) );
+               break;
+            case TypeCode.String:
+               info.AddNormalString( Convert.ToString( constant ) );
+               break;
+            default:
+               info.AddUncompressedInt32( 0 );
+               break;
+         }
+      }
+   }
+
+   private static void WriteCustomAttributeSignature( this BinaryHeapEmittingInfo info, CustomAttributeSignature attrData )
+   {
+      // Prolog
+      info.AddByte( 1 );
+      info.AddByte( 0 );
+
+      // Fixed args
+      for ( var i = 0; i < attrData.TypedArguments.Count; ++i )
+      {
+         var arg = attrData.TypedArguments[i];
+         info.WriteCustomAttributeFixedArg( arg.Type, arg.Value );
+      }
+
+      // Named args
+      info.AddUncompressedUInt16( (UInt16) attrData.NamedArguments.Count );
+      foreach ( var arg in attrData.NamedArguments )
+      {
+         info.WriteCustomAttributeNamedArg( arg );
+      }
+   }
+
+   private static void WriteCustomAttributeFixedArg( this BinaryHeapEmittingInfo info, CustomAttributeArgumentType argType, Object arg )
+   {
+      switch ( argType.ArgumentTypeKind )
+      {
+         case CustomAttributeArgumentTypeKind.Array:
+            if ( arg == null )
+            {
+               info.AddUncompressedInt32( unchecked( (Int32) 0xFFFFFFFF ) );
+            }
+            else
+            {
+               info.AddUncompressedInt32( ( (Array) arg ).Length );
+               argType = ( (CustomAttributeArgumentTypeArray) argType ).ArrayType;
+
+               foreach ( var elem in (Array) arg )
+               {
+                  info.WriteCustomAttributeFixedArg( argType, elem );
+               }
+            }
+            break;
+         case CustomAttributeArgumentTypeKind.Simple:
+            switch ( ( (CustomAttributeArgumentSimple) argType ).SimpleType )
+            {
+               case SignatureElementTypes.Boolean:
+                  info.AddByte( Convert.ToBoolean( arg ) ? (Byte) 1 : (Byte) 0 );
+                  break;
+               case SignatureElementTypes.I1:
+                  info.AddSByte( Convert.ToSByte( arg ) );
+                  break;
+               case SignatureElementTypes.U1:
+                  info.AddByte( Convert.ToByte( arg ) );
+                  break;
+               case SignatureElementTypes.Char:
+                  info.AddUncompressedUInt16( Convert.ToUInt16( Convert.ToChar( arg ) ) );
+                  break;
+               case SignatureElementTypes.I2:
+                  info.AddUncompressedInt16( Convert.ToInt16( arg ) );
+                  break;
+               case SignatureElementTypes.U2:
+                  info.AddUncompressedUInt16( Convert.ToUInt16( arg ) );
+                  break;
+               case SignatureElementTypes.I4:
+                  info.AddUncompressedInt32( Convert.ToInt32( arg ) );
+                  break;
+               case SignatureElementTypes.U4:
+                  info.AddUncompressedUInt32( Convert.ToUInt32( arg ) );
+                  break;
+               case SignatureElementTypes.I8:
+                  info.AddUncompressedInt64( Convert.ToInt64( arg ) );
+                  break;
+               case SignatureElementTypes.U8:
+                  info.AddUncompressedUInt64( Convert.ToUInt64( arg ) );
+                  break;
+               case SignatureElementTypes.R4:
+                  info.AddUncompressedSingle( Convert.ToSingle( arg ) );
+                  break;
+               case SignatureElementTypes.R8:
+                  info.AddUncompressedDouble( Convert.ToDouble( arg ) );
+                  break;
+               case SignatureElementTypes.String:
+               case SignatureElementTypes.Type:
+                  info.AddCAString( arg == null ? null : Convert.ToString( arg ) );
+                  break;
+               case SignatureElementTypes.Object:
+                  if ( arg == null )
+                  {
+                     // Nulls are serialized as null strings
+                     if ( !CustomAttributeArgumentSimple.String.Equals( argType ) )
+                     {
+                        argType = CustomAttributeArgumentSimple.String;
+                     }
+                  }
+                  info.WriteCustomAttributeFieldOrPropType( argType );
+                  info.WriteCustomAttributeFixedArg( argType, arg );
+                  break;
+            }
+            break;
+         case CustomAttributeArgumentTypeKind.TypeString:
+            info.AddCAString( ( (CustomAttributeArgumentTypeEnum) argType ).TypeString );
+            info.WriteConstantValue( arg );
+            break;
+      }
+   }
+
+   private static void WriteCustomAttributeNamedArg( this BinaryHeapEmittingInfo info, CustomAttributeNamedArgument arg )
+   {
+      var elem = arg.IsField ? SignatureElementTypes.CA_Field : SignatureElementTypes.CA_Property;
+      info.AddSigByte( elem );
+      var typedValue = arg.Value;
+      info.WriteCustomAttributeFieldOrPropType( typedValue.Type );
+      info.AddCAString( arg.Name );
+      info.WriteCustomAttributeFixedArg( typedValue.Type, typedValue.Value );
+   }
+
+
+   private static void WriteCustomAttributeFieldOrPropType( this BinaryHeapEmittingInfo info, CustomAttributeArgumentType type )
+   {
+      switch ( type.ArgumentTypeKind )
+      {
+         case CustomAttributeArgumentTypeKind.Array:
+            info.AddSigByte( SignatureElementTypes.SzArray );
+            info.WriteCustomAttributeFieldOrPropType( ( (CustomAttributeArgumentTypeArray) type ).ArrayType );
+            break;
+         case CustomAttributeArgumentTypeKind.Simple:
+            var sigStarter = ( (CustomAttributeArgumentSimple) type ).SimpleType;
+            if ( sigStarter == SignatureElementTypes.Object )
+            {
+               sigStarter = SignatureElementTypes.CA_Boxed;
+            }
+            info.AddSigByte( ( (CustomAttributeArgumentSimple) type ).SimpleType );
+            break;
+         case CustomAttributeArgumentTypeKind.TypeString:
+            info.AddSigByte( SignatureElementTypes.CA_Enum );
+            info.AddCAString( ( (CustomAttributeArgumentTypeEnum) type ).TypeString );
+            break;
+      }
+   }
+
+   private static void WriteMarshalInfo( this BinaryHeapEmittingInfo info, MarshalingInfo marshal )
+   {
+      if ( marshal != null )
+      {
+         info.AddCompressedUInt32( (Int32) marshal.Value );
+         if ( !marshal.Value.IsNativeInstric() )
+         {
+            // Apparently Microsoft's implementation differs from ECMA-335 standard:
+            // there the index of first parameter is 1, here all indices are zero-based.
+            switch ( (UnmanagedType) marshal.Value )
+            {
+               case UnmanagedType.ByValTStr:
+                  info.AddCompressedUInt32( marshal.ConstSize );
+                  break;
+               case UnmanagedType.IUnknown:
+               case UnmanagedType.IDispatch:
+                  if ( marshal.IIDParameterIndex >= 0 )
+                  {
+                     info.AddCompressedUInt32( marshal.IIDParameterIndex );
+                  }
+                  break;
+               case UnmanagedType.SafeArray:
+                  if ( marshal.SafeArrayType != VarEnum.VT_EMPTY )
+                  {
+                     info.AddCompressedUInt32( (Int32) marshal.SafeArrayType );
+                     if ( VarEnum.VT_USERDEFINED == marshal.SafeArrayType )
+                     {
+                        info.AddCAString( marshal.SafeArrayUserDefinedType );
+                     }
+                  }
+                  break;
+               case UnmanagedType.ByValArray:
+                  info.AddCompressedUInt32( marshal.ConstSize );
+                  if ( marshal.ArrayType != MarshalingInfo.NATIVE_TYPE_MAX )
+                  {
+                     info.AddCompressedUInt32( (Int32) marshal.ArrayType );
+                  }
+                  break;
+               case UnmanagedType.LPArray:
+                  info.AddCompressedUInt32( (Int32) marshal.ArrayType );
+                  var hasSize = marshal.SizeParameterIndex != MarshalingInfo.NO_INDEX;
+                  info.AddCompressedUInt32( hasSize ? marshal.SizeParameterIndex : 0 );
+                  if ( marshal.ConstSize != MarshalingInfo.NO_INDEX )
+                  {
+                     info.AddCompressedUInt32( marshal.ConstSize );
+                     info.AddCompressedUInt32( hasSize ? 1 : 0 ); // Indicate whether size-parameter was specified
+                  }
+                  break;
+               case UnmanagedType.CustomMarshaler:
+                  // For some reason, there are two compressed ints at this point
+                  info.AddCompressedUInt32( 0 );
+                  info.AddCompressedUInt32( 0 );
+                  info.AddCAString( marshal.MarshalType );
+                  info.AddCAString( marshal.MarshalCookie ?? "" );
+                  break;
+               default:
+                  break;
+            }
+         }
+      }
+   }
+
+   private static void WriteSecuritySignature( this BinaryHeapEmittingInfo info, SecurityDefinition security, BinaryHeapEmittingInfo aux )
+   {
+      // TODO currently only newer format, .NET 1 format not supported for writing
+      info.AddByte( MetaDataConstants.DECL_SECURITY_HEADER );
+      var permissions = security.PermissionSets;
+      info.AddCompressedUInt32( permissions.Count );
+      foreach ( var sec in permissions )
+      {
+         info.AddCAString( sec.SecurityAttributeType );
+         var secInfo = sec as SecurityInformation;
+         Byte[] secInfoBLOB;
+         if ( secInfo != null )
+         {
+            // For some silly reason, the amount of bytes taken to serialize named attributes is stored at this point. Sigh...
+            foreach ( var arg in secInfo.NamedArguments )
+            {
+               aux.WriteCustomAttributeNamedArg( arg );
+            }
+            // Now write to sec blob
+            secInfoBLOB = aux.CreateByteArray();
+            // The length of named arguments blob
+            info.AddCompressedUInt32( secInfoBLOB.Length + (Int32) BitUtils.GetEncodedUIntSize( secInfo.NamedArguments.Count ) );
+            // The amount of named arguments
+            info.AddCompressedUInt32( secInfo.NamedArguments.Count );
+         }
+         else
+         {
+            secInfoBLOB = ( (RawSecurityInformation) sec ).Bytes;
+         }
+
+         info.AddBytes( secInfoBLOB );
+      }
+
+   }
+
+   private static void WriteLocalsSignature( this BinaryHeapEmittingInfo info, LocalVariablesSignature sig )
+   {
+      if ( sig != null )
+      {
+         info.AddSigStarterByte( SignatureStarters.LocalSignature );
+         var locals = sig.Locals;
+         info.AddCompressedUInt32( locals.Count );
+         foreach ( var local in locals )
+         {
+            if ( SimpleTypeSignature.TypedByRef.Equals( local.Type ) )
+            {
+               info.AddSigByte( SignatureElementTypes.TypedByRef );
+            }
+            else
+            {
+               info.WriteCustomModifiers( local.CustomModifiers );
+               if ( local.IsPinned )
+               {
+                  info.AddSigByte( SignatureElementTypes.Pinned );
+               }
+
+               if ( local.IsByRef )
+               {
+                  info.AddSigByte( SignatureElementTypes.ByRef );
+               }
+               info.WriteTypeSignature( local.Type );
+            }
+         }
+      }
+   }
+
+   private static void WritePropertySignature( this BinaryHeapEmittingInfo info, PropertySignature sig )
+   {
+      if ( sig != null )
+      {
+         var starter = SignatureStarters.Property;
+         if ( sig.HasThis )
+         {
+            starter |= SignatureStarters.HasThis;
+         }
+         info.AddSigStarterByte( starter );
+         info.AddCompressedUInt32( sig.Parameters.Count );
+         info.WriteCustomModifiers( sig.CustomModifiers );
+         info.WriteTypeSignature( sig.PropertyType );
+
+         foreach ( var param in sig.Parameters )
+         {
+            info.WriteParameterSignature( param );
+         }
+      }
+   }
+
+   private static void WriteMethodSpecSignature( this BinaryHeapEmittingInfo info, GenericMethodSignature sig )
+   {
+      info.AddSigStarterByte( SignatureStarters.MethodSpecGenericInst );
+      info.AddCompressedUInt32( sig.GenericArguments.Count );
+      foreach ( var gArg in sig.GenericArguments )
+      {
+         info.WriteTypeSignature( gArg );
       }
    }
 }

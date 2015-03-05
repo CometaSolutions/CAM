@@ -599,7 +599,7 @@ namespace CILAssemblyManipulator.Physical
                   this.ResolveTypeFromTypeDef( md, tIdx.Index );
                break;
             case Tables.TypeRef:
-               retVal = IsTypeType( md, tIdx ) ?   // Avoid loading mscorlib metadata if this is type
+               retVal = IsTypeType( md, tIdx ) ? // Avoid loading mscorlib metadata if this is System.Type
                   CustomAttributeArgumentSimple.Type :
                   this.ResolveTypeFromTypeRef( md, idx );
                break;
@@ -735,7 +735,7 @@ namespace CILAssemblyManipulator.Physical
                   }
                   break;
                case CustomAttributeArgumentTypeKind.TypeString:
-                  type = this.ResolveTypeFromFullName( md, ( (CustomAttributeArgumentTypeString) type ).TypeString );
+                  type = this.ResolveTypeFromFullName( md, ( (CustomAttributeArgumentTypeEnum) type ).TypeString );
                   success = TryReadCAFixedArgument( md, caBLOB, ref idx, type, out nestedCAType );
                   value = success ? nestedCAType.Value : null;
                   break;
@@ -760,7 +760,7 @@ namespace CILAssemblyManipulator.Physical
          switch ( sigType )
          {
             case SignatureElementTypes.CA_Enum:
-               return new CustomAttributeArgumentTypeString()
+               return new CustomAttributeArgumentTypeEnum()
                {
                   TypeString = array.ReadLenPrefixedUTF8String( ref idx )
                };

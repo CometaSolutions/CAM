@@ -235,7 +235,7 @@ namespace CILAssemblyManipulator.Physical
 
    public sealed class ModuleReference
    {
-      public String ModuleRefeference { get; set; }
+      public String ModuleReference { get; set; }
    }
 
    public sealed class TypeSpecification

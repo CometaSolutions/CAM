@@ -669,7 +669,7 @@ namespace CILAssemblyManipulator.Physical.Implementation
                   ReadTable( retVal.ModuleReferences, curTable, tableSizes, i =>
                      new ModuleReference()
                      {
-                        ModuleRefeference = sysStrings.ReadSysString( stream )
+                        ModuleReference = sysStrings.ReadSysString( stream )
                      } );
                   break;
                case Tables.TypeSpec:

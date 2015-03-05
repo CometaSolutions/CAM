@@ -38,6 +38,7 @@ namespace CILAssemblyManipulator.Implementation.Physical
       private const Int32 USER_STRINGS_IDX = 2;
       private const Int32 GUID_IDX = 3;
       private const Int32 BLOB_IDX = 4;
+      private const Int32 HEAP_COUNT = 5;
 
       // ECMA-335, p. 271 
       private const UInt32 MD_SIGNATURE = 0x424A5342;
@@ -1446,11 +1447,11 @@ namespace CILAssemblyManipulator.Implementation.Physical
                   || ( constant != null
                      && !MetaDataConstants.TYPECODE_MAPPING_SIMPLE.TryGetValue(
 #if WINDOWS_PHONE_APP
-                     E_CIL.GetTypeCode
+ E_CIL.GetTypeCode
 #else
                      (CILTypeCode) Type.GetTypeCode
 #endif
-                  (constant.GetType() ), out sig ) 
+( constant.GetType() ), out sig )
                      ) )
                {
                   if ( constant != null && dv.Item1.IsValueType() )

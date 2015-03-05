@@ -1,5 +1,4 @@
-﻿using CommonUtils;
-/*
+﻿/*
  * Copyright 2015 Stanislav Muhametsin. All rights Reserved.
  *
  * Licensed  under the  Apache License,  Version 2.0  (the "License");
@@ -20,6 +19,8 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
+using CommonUtils;
+using CILAssemblyManipulator.Physical;
 
 namespace CILAssemblyManipulator.Physical
 {
@@ -36,6 +37,12 @@ namespace CILAssemblyManipulator.Physical
 
    public abstract class AbstractSignature
    {
+      // Disable inheritance to other assemblies
+      internal AbstractSignature()
+      {
+
+      }
+
       public abstract SignatureKind SignatureKind { get; }
    }
 
@@ -43,7 +50,8 @@ namespace CILAssemblyManipulator.Physical
    {
       private readonly IList<ParameterSignature> _parameters;
 
-      protected AbstractMethodSignature( Int32 parameterCount )
+      // Disable inheritance to other assemblies
+      internal AbstractMethodSignature( Int32 parameterCount )
       {
          this._parameters = new List<ParameterSignature>( parameterCount );
       }
@@ -230,7 +238,8 @@ namespace CILAssemblyManipulator.Physical
    {
       private readonly IList<CustomModifierSignature> _customMods;
 
-      protected AbstractSignatureWithCustomMods( Int32 customModCount )
+      // Disable inheritance to other assemblies
+      internal AbstractSignatureWithCustomMods( Int32 customModCount )
       {
          this._customMods = new List<CustomModifierSignature>( customModCount );
       }
@@ -413,7 +422,8 @@ namespace CILAssemblyManipulator.Physical
    {
       private readonly IList<CustomModifierSignature> _customMods;
 
-      protected ParameterOrLocalVariableSignature( Int32 customModCount )
+      // Disable inheritance to other assemblies
+      internal ParameterOrLocalVariableSignature( Int32 customModCount )
       {
          this._customMods = new List<CustomModifierSignature>( customModCount );
       }
@@ -491,7 +501,11 @@ namespace CILAssemblyManipulator.Physical
 
    public abstract class TypeSignature : AbstractSignature
    {
+      // Disable inheritance to other assemblies
+      internal TypeSignature()
+      {
 
+      }
 
       public override SignatureKind SignatureKind
       {
@@ -775,6 +789,12 @@ namespace CILAssemblyManipulator.Physical
 
    public abstract class AbstractArrayTypeSignature : TypeSignature
    {
+      // Disable inheritance to other assemblies
+      internal AbstractArrayTypeSignature()
+      {
+
+      }
+
       public TypeSignature ArrayType { get; set; }
    }
 
@@ -1295,7 +1315,11 @@ namespace CILAssemblyManipulator.Physical
 
    public abstract class AbstractCustomAttributeSignature
    {
+      // Disable inheritance to other assemblies
+      internal AbstractCustomAttributeSignature()
+      {
 
+      }
    }
 
    public sealed class RawCustomAttributeSignature : AbstractCustomAttributeSignature
@@ -1354,6 +1378,12 @@ namespace CILAssemblyManipulator.Physical
 
    public abstract class CustomAttributeArgumentType
    {
+      // Disable inheritance to other assemblies
+      internal CustomAttributeArgumentType()
+      {
+
+      }
+
       public abstract CustomAttributeArgumentTypeKind ArgumentTypeKind { get; }
    }
 
@@ -1373,7 +1403,7 @@ namespace CILAssemblyManipulator.Physical
       public static readonly CustomAttributeArgumentSimple Double = new CustomAttributeArgumentSimple( SignatureElementTypes.R8 );
       public static readonly CustomAttributeArgumentSimple String = new CustomAttributeArgumentSimple( SignatureElementTypes.String );
       public static readonly CustomAttributeArgumentSimple Type = new CustomAttributeArgumentSimple( SignatureElementTypes.Type );
-      public static readonly CustomAttributeArgumentSimple Object = new CustomAttributeArgumentSimple( SignatureElementTypes.Object );
+      internal static readonly CustomAttributeArgumentSimple Object = new CustomAttributeArgumentSimple( SignatureElementTypes.Object );
 
       private SignatureElementTypes _kind;
 
@@ -1399,7 +1429,7 @@ namespace CILAssemblyManipulator.Physical
       }
    }
 
-   public sealed class CustomAttributeArgumentTypeString : CustomAttributeArgumentType
+   public sealed class CustomAttributeArgumentTypeEnum : CustomAttributeArgumentType
    {
       public override CustomAttributeArgumentTypeKind ArgumentTypeKind
       {
@@ -1428,6 +1458,12 @@ namespace CILAssemblyManipulator.Physical
 
    public abstract class AbstractSecurityInformation
    {
+      // Disable inheritance to other assemblies
+      internal AbstractSecurityInformation()
+      {
+
+      }
+
       /// <summary>
       /// Gets or sets the type of the security attribute.
       /// </summary>

@@ -88,6 +88,8 @@ namespace CILAssemblyManipulator.Physical
    {
       private enum EncodingForcePolicy : byte { DontForce, Force2Byte, Force4Byte }
 
+      private static readonly Byte[] ZeroArray = new Byte[0x10];
+
       internal static String ReadLenPrefixedUTF8String( this Byte[] caBLOB, ref Int32 idx )
       {
          var tmp = caBLOB[idx];
@@ -182,18 +184,18 @@ namespace CILAssemblyManipulator.Physical
          }
       }
 
-      public static Byte[] SkipToNextAlignment( this Byte[] array, ref Int32 idx, Int32 alignment )
-      {
-         idx += MultipleOf( alignment, idx ) - idx;
-         return array;
-      }
+      //public static Byte[] SkipToNextAlignment( this Byte[] array, ref Int32 idx, Int32 alignment )
+      //{
+      //   idx += MultipleOf( alignment, idx ) - idx;
+      //   return array;
+      //}
 
+      // Max alignment is 0x10 !!!
       public static UInt32 SkipToNextAlignment( this Stream sink, ref UInt32 idx, UInt32 alignment )
       {
          var amountToSkip = MultipleOf( alignment, idx ) - idx;
          // Instead of skipping, actually fill with zeroes
-         sink.Write( new Byte[amountToSkip] );
-         //sink.Seek( amountToSkip, SeekOrigin.Current );
+         sink.Write( ZeroArray, (Int32) amountToSkip );
          idx += amountToSkip;
          return amountToSkip;
       }
@@ -536,45 +538,6 @@ namespace CILAssemblyManipulator.Physical
       internal static readonly Tuple<Tables?[], UInt32, Int32> TYPE_OR_METHOD_DEF = Tuple.Create( TYPE_OR_METHOD_DEF_ARRAY, GetTagBitMask( TYPE_OR_METHOD_DEF_ARRAY ), GetTagBitSize( TYPE_OR_METHOD_DEF_ARRAY ) );
 
       private static readonly IDictionary<Tables, Func<Int32[], Int32, Int32, Int32, Int32>> TABLE_WIDTH_CALCULATOR;
-      internal static readonly IDictionary<CILTypeCode, SignatureElementTypes> TYPECODE_MAPPING_SIMPLE = new Dictionary<CILTypeCode, SignatureElementTypes>()
-      {
-         { CILTypeCode.Boolean, SignatureElementTypes.Boolean },
-         { CILTypeCode.Char, SignatureElementTypes.Char },
-         { CILTypeCode.SByte, SignatureElementTypes.I1 },
-         { CILTypeCode.Byte, SignatureElementTypes.U1 },
-         { CILTypeCode.Int16, SignatureElementTypes.I2 },
-         { CILTypeCode.UInt16, SignatureElementTypes.U2 },
-         { CILTypeCode.Int32, SignatureElementTypes.I4 },
-         { CILTypeCode.UInt32, SignatureElementTypes.U4 },
-         { CILTypeCode.Int64, SignatureElementTypes.I8 },
-         { CILTypeCode.UInt64, SignatureElementTypes.U8 },
-         { CILTypeCode.Single, SignatureElementTypes.R4 },
-         { CILTypeCode.Double, SignatureElementTypes.R8 },
-         { CILTypeCode.String, SignatureElementTypes.String },
-      };
-
-      internal static readonly IDictionary<CILTypeCode, SignatureElementTypes> TYPECODE_MAPPING_FULL = new Dictionary<CILTypeCode, SignatureElementTypes>()
-      {
-         { CILTypeCode.Boolean, SignatureElementTypes.Boolean },
-         { CILTypeCode.Char, SignatureElementTypes.Char },
-         { CILTypeCode.SByte, SignatureElementTypes.I1 },
-         { CILTypeCode.Byte, SignatureElementTypes.U1 },
-         { CILTypeCode.Int16, SignatureElementTypes.I2 },
-         { CILTypeCode.UInt16, SignatureElementTypes.U2 },
-         { CILTypeCode.Int32, SignatureElementTypes.I4 },
-         { CILTypeCode.UInt32, SignatureElementTypes.U4 },
-         { CILTypeCode.Int64, SignatureElementTypes.I8 },
-         { CILTypeCode.UInt64, SignatureElementTypes.U8 },
-         { CILTypeCode.Single, SignatureElementTypes.R4 },
-         { CILTypeCode.Double, SignatureElementTypes.R8 },
-         { CILTypeCode.String, SignatureElementTypes.String },
-         { CILTypeCode.Void, SignatureElementTypes.Void },
-         { CILTypeCode.TypedByRef, SignatureElementTypes.TypedByRef },
-         { CILTypeCode.IntPtr, SignatureElementTypes.I },
-         { CILTypeCode.UIntPtr, SignatureElementTypes.U },
-         { CILTypeCode.SystemObject, SignatureElementTypes.Object },
-      };
-
       static MetaDataConstants()
       {
          var dic2 = new Dictionary<Tables, Func<Int32[], Int32, Int32, Int32, Int32>>( Consts.AMOUNT_OF_TABLES );
