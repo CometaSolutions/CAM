@@ -241,7 +241,7 @@ namespace CILAssemblyManipulator.Physical.Implementation
          out HeadersData headers
          )
       {
-         headers = new HeadersData();
+         headers = new HeadersData( false );
 
          Byte[] tmpArray = new Byte[8];
 
@@ -250,8 +250,8 @@ namespace CILAssemblyManipulator.Physical.Implementation
 
          // PE file header
          // Skip to PE file header, and skip magic
-         var suuka = stream.ReadU32( tmpArray );
-         stream.SeekFromBegin( suuka + 4 );
+         var lfaNew = stream.ReadU32( tmpArray );
+         stream.SeekFromBegin( lfaNew + 4 );
 
          // Architecture
          var architecture = (ImageFileMachine) stream.ReadU16( tmpArray );
@@ -338,16 +338,13 @@ namespace CILAssemblyManipulator.Physical.Implementation
 
          // Metadata
          stream.SeekFromBegin( ResolveRVA( mdDD.rva, sections ) );
-         String mdVersion;
          var retVal = ReadMetadata(
             stream,
             sections,
             rsrcDD,
-            out mdVersion
+            headers
             );
 
-         // TODO
-         headers = null;
 
          return retVal;
       }
@@ -356,7 +353,7 @@ namespace CILAssemblyManipulator.Physical.Implementation
          Stream stream,
          SectionInfo[] sections,
          DataDir rsrcDD,
-         out String versionStr
+         HeadersData headers
          )
       {
          var mdRoot = stream.Position;
@@ -370,7 +367,7 @@ namespace CILAssemblyManipulator.Physical.Implementation
 
          // Read version string
          var versionStrByteLen = stream.ReadU32( tmpArray );
-         versionStr = stream.ReadZeroTerminatedString( versionStrByteLen, utf8 );
+         headers.MetaDataVersion = stream.ReadZeroTerminatedString( versionStrByteLen, utf8 );
 
          // Skip flags
          stream.SeekFromCurrent( 2 );
@@ -745,7 +742,7 @@ namespace CILAssemblyManipulator.Physical.Implementation
                      } );
                   break;
                case Tables.ExportedType:
-                  ReadTable( retVal.ExportedTypess, curTable, tableSizes, i =>
+                  ReadTable( retVal.ExportedTypes, curTable, tableSizes, i =>
                      new ExportedType()
                      {
                         Attributes = (TypeAttributes) stream.ReadU32( tmpArray ),

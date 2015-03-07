@@ -25,19 +25,19 @@ using System.IO;
 
 namespace CILAssemblyManipulator.Tests.Physical
 {
-   public class ReadingTest
+   public class ReadingTest : AbstractCAMTest
    {
 
-      [Test]
+      //[Test]
       public void TestReadingCAMAssemblies()
       {
          TestReading( typeof( CILModuleIO ).Assembly );
       }
 
-      [Test]
+      //[Test]
       public void TestReadingMSCorLib()
       {
-         TestReading( typeof( Object ).Assembly, md =>
+         TestReading( MSCorLib, md =>
          {
             for ( var i = 0; i < md.CustomAttributeDefinitions.Count; ++i )
             {

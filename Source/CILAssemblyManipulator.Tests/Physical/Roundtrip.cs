@@ -19,10 +19,41 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
+using NUnit.Framework;
+using System.IO;
+using CILAssemblyManipulator.Physical;
 
 namespace CILAssemblyManipulator.Tests.Physical
 {
-   public interface Roundtrip
+   public class RoundtripTest : AbstractCAMTest
    {
+      [Test]
+      public void TestRoundtripMSCorLib()
+      {
+         PerformRoundtripTest( MSCorLibLocation );
+      }
+
+      private static void PerformRoundtripTest( String fileLocation )
+      {
+         ModuleReadResult read1;
+         using ( var fs = File.OpenRead( fileLocation ) )
+         {
+            read1 = fs.ReadModule();
+         }
+
+         Byte[] written;
+         using ( var ms = new MemoryStream() )
+         {
+            read1.MetaData.WriteModule( ms, read1.Headers, null );
+            written = ms.ToArray();
+         }
+
+         ModuleReadResult read2;
+         using ( var ms = new MemoryStream( written ) )
+         {
+            read2 = ms.ReadModule();
+         }
+      }
+
    }
 }

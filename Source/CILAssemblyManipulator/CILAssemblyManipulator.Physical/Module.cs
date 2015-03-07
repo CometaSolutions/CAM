@@ -32,6 +32,20 @@ namespace CILAssemblyManipulator.Physical
 
    public sealed class HeadersData
    {
+      public HeadersData()
+         : this( true )
+      {
+
+      }
+
+      internal HeadersData( Boolean populateDefaults )
+      {
+         if ( populateDefaults )
+         {
+            // TODO default values...
+         }
+      }
+
       /// <summary>
       /// Gets or sets the <see cref="ModuleKind"/> of the module.
       /// </summary>
@@ -291,7 +305,7 @@ namespace CILAssemblyManipulator.Physical
 
       List<FileReference> FileReferences { get; }
 
-      List<ExportedType> ExportedTypess { get; }
+      List<ExportedType> ExportedTypes { get; }
 
       List<ManifestResource> ManifestResources { get; }
 
@@ -333,6 +347,11 @@ namespace CILAssemblyManipulator.Physical
             return this._headers;
          }
       }
+   }
+
+   public sealed class ModuleWriteResult
+   {
+      // TODO: hash value for .netmodules part of strong-named assemblies
    }
 
    /// <summary>

@@ -444,11 +444,18 @@ namespace CILAssemblyManipulator.Physical
    public static class CILModuleIO
    {
 
-      public static ModuleReadResult ReadModule( Stream stream )
+      public static ModuleReadResult ReadModule( this Stream stream )
       {
          HeadersData headers;
          var md = CILAssemblyManipulator.Physical.Implementation.ModuleReader.ReadFromStream( stream, out headers );
          return new ModuleReadResult( md, headers );
+      }
+
+      public static ModuleWriteResult WriteModule( this CILMetaData md, Stream stream, HeadersData headers = null, EmittingArguments eArgs = null )
+      {
+         CILAssemblyManipulator.Physical.Implementation.ModuleWriter.WriteModule( md, headers ?? new HeadersData(), eArgs ?? new EmittingArguments(), stream );
+
+         return new ModuleWriteResult();
       }
    }
 }

@@ -364,7 +364,7 @@ namespace CILAssemblyManipulator.Physical.Implementation
          }
       }
 
-      public List<ExportedType> ExportedTypess
+      public List<ExportedType> ExportedTypes
       {
          get
          {

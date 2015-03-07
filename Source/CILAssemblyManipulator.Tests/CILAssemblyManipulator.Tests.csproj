@@ -41,6 +41,7 @@
     <Reference Include="System.Xml" />
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="AbstractCAMTest.cs" />
     <Compile Include="Physical\Reading.cs" />
     <Compile Include="Physical\Roundtrip.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />

@@ -169,30 +169,33 @@ namespace CILAssemblyManipulator.Physical.Implementation
             }
 
             // Create RSA parameters and process public key so that it will have proper, full format.
-            Byte[] pk;
-            rParams = CryptoUtils.CreateSigningInformationFromKeyBLOB( pkToProcess, algoOverride, out pk, out signingAlgorithm );
-            thisAssemblyPublicKey = pk;
-            snSize = (UInt32) rParams.Modulus.Length;
+            Byte[] pk; String errorString;
+            if ( CryptoUtils.TryCreateSigningInformationFromKeyBLOB( pkToProcess, algoOverride, out pk, out signingAlgorithm, out rParams, out errorString ) )
+            {
+               thisAssemblyPublicKey = pk;
+               snSize = (UInt32) rParams.Modulus.Length;
+            }
+            else if ( thisAssemblyPublicKey != null && thisAssemblyPublicKey.Length == 16 ) // The "Standard Public Key", ECMA-335 p. 116
+            {
+               snSize = 0x100;
+            }
+            else
+            {
+               throw new CryptographicException( errorString );
+            }
          }
          else
          {
             rParams = default( RSAParameters );
          }
 
-         var hashStreamArgsForThisHashComputing = new Lazy<HashStreamLoadEventArgs>( () => eArgs.LaunchHashStreamEvent( signingAlgorithm, true ), LazyThreadSafetyMode.None );
-         var hashStreamArgsForTokenComputing = signingAlgorithm == AssemblyHashAlgorithm.SHA1 ?
-            hashStreamArgsForThisHashComputing :
-            new Lazy<HashStreamLoadEventArgs>( () => eArgs.LaunchHashStreamEvent( AssemblyHashAlgorithm.SHA1, false ) );
+         //var hashStreamArgsForTokenComputing = signingAlgorithm == AssemblyHashAlgorithm.SHA1 ?
+         //   hashStreamArgsForThisHashComputing :
+         //   new Lazy<HashStreamLoadEventArgs>( () => eArgs.LaunchHashStreamEvent( AssemblyHashAlgorithm.SHA1, false ) );
 
          if ( useStrongName || delaySign )
          {
             snRVA = codeSectionVirtualOffset + iatSize + HeaderFieldOffsetsAndLengths.CLI_HEADER_SIZE;
-            if ( snSize <= 32 )
-            {
-               // The "Standard Public Key", ECMA-335 p. 116
-               // It is replaced by the runtime with 128 bytes key
-               snSize = 128;
-            }
             snPadding = BitUtils.MultipleOf4( snSize ) - snSize;
          }
 
@@ -213,7 +216,7 @@ namespace CILAssemblyManipulator.Physical.Implementation
          WriteDataBeforeMD( md, sink, codeSectionVirtualOffset, isPE64, out mResRVA, out mResSize, out mResInfo, out fieldRVAs, ref currentOffset );
 
          var mdRVA = codeSectionVirtualOffset + currentOffset;
-         var mdSize = 0u; // md.WriteMetaData( sink, mdRVA, eArgs, methodRVAs, mResInfo );
+         var mdSize = WriteMetaData( md, sink, headers, eArgs, usersStrings, methodRVAs, fieldRVAs, mResInfo, thisAssemblyPublicKey );
          currentOffset += mdSize;
 
          // Pad
@@ -472,10 +475,12 @@ namespace CILAssemblyManipulator.Physical.Implementation
                // Try create RSA first
                var rsaArgs = strongName.ContainerName == null ? new RSACreationEventArgs( rParams ) : new RSACreationEventArgs( strongName.ContainerName );
                eArgs.LaunchRSACreationEvent( rsaArgs );
+               //var hashStreamArgsForThisHashComputing = new Lazy<HashStreamLoadEventArgs>( () => eArgs.LaunchHashStreamEvent( signingAlgorithm, true ), LazyThreadSafetyMode.None );
+
                using ( var rsa = rsaArgs.RSA )
                {
                   var buffer = new Byte[MetaDataConstants.STREAM_COPY_BUFFER_SIZE];
-                  var hashEvtArgs = hashStreamArgsForThisHashComputing.Value;
+                  var hashEvtArgs = eArgs.LaunchHashStreamEvent( signingAlgorithm, true ); // hashStreamArgsForThisHashComputing.Value;
                   var hashStream = hashEvtArgs.CryptoStream;
                   var hashGetter = hashEvtArgs.HashGetter;
                   var transform = hashEvtArgs.Transform;
@@ -547,10 +552,10 @@ namespace CILAssemblyManipulator.Physical.Implementation
          {
             eArgs.ImageBase -= eArgs.ImageBase % IMAGE_BASE_MULTIPLE;
          }
-         if ( eArgs.SectionAlignment <= eArgs.FileAlignment )
-         {
-            throw new ArgumentException( "Section alignment " + eArgs.SectionAlignment + " must be greater than file alignment " + eArgs.FileAlignment + "." );
-         }
+         //if ( eArgs.SectionAlignment <= eArgs.FileAlignment )
+         //{
+         //   throw new ArgumentException( "Section alignment " + eArgs.SectionAlignment + " must be greater than file alignment " + eArgs.FileAlignment + "." );
+         //}
 
          isPE64 = eArgs.Machine.RequiresPE64();
          hasRelocations = eArgs.Machine.RequiresRelocations();
@@ -578,6 +583,7 @@ namespace CILAssemblyManipulator.Physical.Implementation
       }
 
       // From http://my.safaribooksonline.com/book/information-technology-and-software-development/0201914654/power-of-2-boundaries/ch03lev1sec2
+      // Greatest power of 2 less than or equal to x
       private static UInt32 FLP2( UInt32 x )
       {
          x = x | ( x >> 1 );
@@ -586,6 +592,17 @@ namespace CILAssemblyManipulator.Physical.Implementation
          x = x | ( x >> 8 );
          x = x | ( x >> 16 );
          return x - ( x >> 1 );
+      }
+      // Least power of 2 greater than or equal to x
+      internal static UInt32 CLP2( UInt32 x )
+      {
+         x = x - 1;
+         x = x | ( x >> 1 );
+         x = x | ( x >> 2 );
+         x = x | ( x >> 4 );
+         x = x | ( x >> 8 );
+         x = x | ( x >> 16 );
+         return x + 1;
       }
 
       private static void WriteMethodDefsIL(
@@ -602,7 +619,7 @@ namespace CILAssemblyManipulator.Physical.Implementation
          usersStrings = new UserStringHeapWriter();
          methodRVAs = new List<UInt32>( md.MethodDefinitions.Count );
 
-         for ( var i = 0; i < md.MethodDefinitions.Count; )
+         for ( var i = 0; i < md.MethodDefinitions.Count; ++i )
          {
             var method = md.MethodDefinitions[i];
             UInt32 thisMethodRVA;
@@ -704,13 +721,12 @@ namespace CILAssemblyManipulator.Physical.Implementation
       private static UInt32 WriteMetaData(
          CILMetaData md,
          Stream sink,
-         UInt32 currentRVA,
          HeadersData headers,
          EmittingArguments eArgs,
          UserStringHeapWriter userStrings,
          IList<UInt32> methodRVAs,
          IList<UInt32> fieldRVAs,
-         IList<UInt32> embeddedManifestResourceOffsets,
+         IList<UInt32?> embeddedManifestOffsets,
          Byte[] thisAssemblyPublicKey
          )
       {
@@ -740,22 +756,22 @@ namespace CILAssemblyManipulator.Physical.Implementation
             // Store offset to array to streamHeaders
             // This offset, for each stream, tells where to write first field of stream header (offset from metadata root)
             streamHeaders[SYS_STRINGS_IDX] = 8 + BitUtils.MultipleOf4( Consts.SYS_STRING_STREAM_NAME.Length + 1 );
-            streamSizes[SYS_STRINGS_IDX] = BitUtils.MultipleOf4( sysStrings.Size );
+            streamSizes[SYS_STRINGS_IDX] = sysStrings.Size;
          }
          if ( hasUserStrings )
          {
             streamHeaders[USER_STRINGS_IDX] = 8 + BitUtils.MultipleOf4( Consts.USER_STRING_STREAM_NAME.Length + 1 );
-            streamSizes[USER_STRINGS_IDX] = BitUtils.MultipleOf4( userStrings.Size );
+            streamSizes[USER_STRINGS_IDX] = userStrings.Size;
          }
          if ( hasGuids )
          {
             streamHeaders[GUID_IDX] = 8 + BitUtils.MultipleOf4( Consts.GUID_STREAM_NAME.Length + 1 );
-            streamSizes[GUID_IDX] = BitUtils.MultipleOf4( guids.Size );
+            streamSizes[GUID_IDX] = guids.Size;
          }
          if ( hasBlobs )
          {
             streamHeaders[BLOB_IDX] = 8 + BitUtils.MultipleOf4( Consts.BLOB_STREAM_NAME.Length + 1 );
-            streamSizes[BLOB_IDX] = BitUtils.MultipleOf4( blobs.Size );
+            streamSizes[BLOB_IDX] = blobs.Size;
          }
 
          var tableSizes = new Int32[Consts.AMOUNT_OF_TABLES];
@@ -786,8 +802,8 @@ namespace CILAssemblyManipulator.Physical.Implementation
          tableSizes[(Int32) Tables.FieldRVA] = md.FieldRVAs.Count;
          tableSizes[(Int32) Tables.Assembly] = md.AssemblyDefinitions.Count;
          tableSizes[(Int32) Tables.AssemblyRef] = md.AssemblyReferences.Count;
-         tableSizes[(Int32) Tables.File] = md.FieldDefinitions.Count;
-         tableSizes[(Int32) Tables.ExportedType] = md.ExportedTypess.Count;
+         tableSizes[(Int32) Tables.File] = md.FileReferences.Count;
+         tableSizes[(Int32) Tables.ExportedType] = md.ExportedTypes.Count;
          tableSizes[(Int32) Tables.ManifestResource] = md.ManifestResources.Count;
          tableSizes[(Int32) Tables.NestedClass] = md.NestedClassDefinitions.Count;
          tableSizes[(Int32) Tables.GenericParameter] = md.GenericParameterDefinitions.Count;
@@ -812,18 +828,19 @@ namespace CILAssemblyManipulator.Physical.Implementation
          var tRefWidths = MetaDataConstants.GetCodedTableIndexSizes( tableSizes );
 
          var versionStringSize4 = BitUtils.MultipleOf4( versionStringSize );
-         var mdHeaderSize = 24 + 4 * (UInt32) tableSizes.Count( size => size > 0 );
+         var tableStreamHeaderSize = 24 + 4 * (UInt32) tableSizes.Count( size => size > 0 );
          streamHeaders[MD_IDX] = 8 + BitUtils.MultipleOf4( Consts.TABLE_STREAM_NAME.Length );
-         var mdStreamSize = mdHeaderSize + tableSizes.Select( ( size, idx ) => (UInt32) size * (UInt32) tableWidths[idx] ).Sum();
-         var mdStreamSize4 = BitUtils.MultipleOf4( mdStreamSize );
-         streamSizes[MD_IDX] = mdStreamSize4;
+         var tableStreamSize = tableStreamHeaderSize + tableSizes.Select( ( size, idx ) => (UInt32) size * (UInt32) tableWidths[idx] ).Sum();
+         var tableStreamSize4 = BitUtils.MultipleOf4( tableStreamSize );
+         streamSizes[MD_IDX] = tableStreamSize4;
 
          var anArray = new Byte[16 // Header start
             + versionStringSize4 // Version string
             + 4 // Header end
             + streamHeaders.Sum() // Stream headers
-            + mdHeaderSize
+            + tableStreamHeaderSize // Table stream header
             ];
+
          // Metadata root
          var offset = 0;
          anArray.WriteUInt32LEToBytes( ref offset, MD_SIGNATURE )
@@ -834,47 +851,58 @@ namespace CILAssemblyManipulator.Physical.Implementation
             .WriteStringToBytes( ref offset, MetaDataStringEncoding, metaDataVersion )
             .Skip( ref offset, versionStringSize4 - versionStringSize + 1 )
             .WriteUInt16LEToBytes( ref offset, MD_FLAGS )
-            .WriteUInt16LEToBytes( ref offset, (UInt16) streamHeaders.Count( stream => stream > 0 ) )
-            // #~ header
-            .WriteInt32LEToBytes( ref offset, offset + streamHeaders.Sum() )
-            .WriteUInt32LEToBytes( ref offset, mdStreamSize4 )
+            .WriteUInt16LEToBytes( ref offset, (UInt16) streamHeaders.Count( stream => stream > 0 ) );
+         var curStreamOffset = (UInt32) anArray.Length - tableStreamHeaderSize; // Table stream starts immediately after MD root
+
+         // #~ header
+         anArray.WriteUInt32LEToBytes( ref offset, curStreamOffset )
+            .WriteUInt32LEToBytes( ref offset, tableStreamSize4 )
             .WriteStringToBytes( ref offset, MetaDataStringEncoding, Consts.TABLE_STREAM_NAME )
             .Skip( ref offset, 4 - ( offset % 4 ) );
+         curStreamOffset += tableStreamSize4;
 
          if ( hasSysStrings )
          {
             // #String header
-            anArray.WriteUInt32LEToBytes( ref offset, (UInt32) offset + (UInt32) streamHeaders.Skip( SYS_STRINGS_IDX ).Sum() + streamSizes.Take( SYS_STRINGS_IDX ).Sum() )
-               .WriteUInt32LEToBytes( ref offset, streamSizes[SYS_STRINGS_IDX] )
+            var size = streamSizes[SYS_STRINGS_IDX];
+            anArray.WriteUInt32LEToBytes( ref offset, curStreamOffset )
+               .WriteUInt32LEToBytes( ref offset, size )
                .WriteStringToBytes( ref offset, MetaDataStringEncoding, Consts.SYS_STRING_STREAM_NAME )
                .Skip( ref offset, 4 - ( offset % 4 ) );
+            curStreamOffset += size;
          }
 
          if ( hasUserStrings )
          {
             // #US header
-            anArray.WriteUInt32LEToBytes( ref offset, (UInt32) offset + (UInt32) streamHeaders.Skip( USER_STRINGS_IDX ).Sum() + streamSizes.Take( USER_STRINGS_IDX ).Sum() )
-               .WriteUInt32LEToBytes( ref offset, streamSizes[USER_STRINGS_IDX] )
+            var size = streamSizes[USER_STRINGS_IDX];
+            anArray.WriteUInt32LEToBytes( ref offset, curStreamOffset )
+               .WriteUInt32LEToBytes( ref offset, size )
                .WriteStringToBytes( ref offset, MetaDataStringEncoding, Consts.USER_STRING_STREAM_NAME )
                .Skip( ref offset, 4 - ( offset % 4 ) );
+            curStreamOffset += size;
          }
 
          if ( hasGuids )
          {
             // #Guid header
-            anArray.WriteUInt32LEToBytes( ref offset, (UInt32) offset + (UInt32) streamHeaders.Skip( GUID_IDX ).Sum() + streamSizes.Take( GUID_IDX ).Sum() )
-               .WriteUInt32LEToBytes( ref offset, streamSizes[GUID_IDX] )
+            var size = streamSizes[GUID_IDX];
+            anArray.WriteUInt32LEToBytes( ref offset, curStreamOffset )
+               .WriteUInt32LEToBytes( ref offset, size )
                .WriteStringToBytes( ref offset, MetaDataStringEncoding, Consts.GUID_STREAM_NAME )
                .Skip( ref offset, 4 - ( offset % 4 ) );
+            curStreamOffset += size;
          }
 
          if ( hasBlobs )
          {
             // #Blob header
-            anArray.WriteUInt32LEToBytes( ref offset, (UInt32) offset + (UInt32) streamHeaders.Skip( BLOB_IDX ).Sum() + streamSizes.Take( BLOB_IDX ).Sum() )
-               .WriteUInt32LEToBytes( ref offset, streamSizes[BLOB_IDX] )
+            var size = streamSizes[BLOB_IDX];
+            anArray.WriteUInt32LEToBytes( ref offset, curStreamOffset )
+               .WriteUInt32LEToBytes( ref offset, size )
                .WriteStringToBytes( ref offset, MetaDataStringEncoding, Consts.BLOB_STREAM_NAME )
                .Skip( ref offset, 4 - ( offset % 4 ) );
+            curStreamOffset += size;
          }
 
          // Write the end of the header
@@ -910,12 +938,10 @@ namespace CILAssemblyManipulator.Physical.Implementation
          }
 #endif
 
-         // Write the full CLI header
+         // Write the MD header + table stream header
          sink.Write( anArray );
-         var cliHeaderSize = anArray.Length;
 
-
-         // Then, write the binary representation of the tables
+         // Table stream tables start right here
          // ECMA-335, p. 239
          ForEachElement<ModuleDefinition, HeapInfo4>( Tables.Module, md.ModuleDefinitions, tableWidths, sink, heapInfos, ref anArray, ( array, idx, listIdx, module, heapInfo ) => array
             .WriteInt16LEToBytes( ref idx, module.Generation ) // Generation
@@ -953,7 +979,7 @@ namespace CILAssemblyManipulator.Physical.Implementation
             .WriteInt16LEToBytes( ref idx, (Int16) mDef.Attributes ) // Flags
             .WriteHeapIndex( ref idx, sysStrings, heapInfo.Heap1 ) // Name
             .WriteHeapIndex( ref idx, blobs, heapInfo.Heap2 ) // Signature
-            .WriteSimpleTableIndex( ref idx, mDef.ParameterList, tableSizes )
+            .WriteSimpleTableIndex( ref idx, mDef.ParameterList, tableSizes ) // ParamList
             );
          // ECMA-335, p. 240
          ForEachElement<ParameterDefinition, HeapInfo1>( Tables.Parameter, md.ParameterDefinitions, tableWidths, sink, heapInfos, ref anArray, ( array, idx, listIdx, pDef, heapInfo ) => array
@@ -974,9 +1000,9 @@ namespace CILAssemblyManipulator.Physical.Implementation
             );
          // ECMA-335, p. 216
          ForEachElement<ConstantDefinition, HeapInfo1>( Tables.Constant, md.ConstantDefinitions, tableWidths, sink, heapInfos, ref anArray, ( array, idx, listIdx, constant, heapInfo ) => array
-            .WriteInt16LEToBytes( ref idx, (Int16) constant.Type )
-            .WriteCodedTableIndex( ref idx, CodedTableIndexKind.HasConstant, constant.Parent, tRefWidths )
-            .WriteHeapIndex( ref idx, blobs, heapInfo.Heap1 )
+            .WriteInt16LEToBytes( ref idx, (Int16) constant.Type ) // Type
+            .WriteCodedTableIndex( ref idx, CodedTableIndexKind.HasConstant, constant.Parent, tRefWidths ) // Parent
+            .WriteHeapIndex( ref idx, blobs, heapInfo.Heap1 ) // Value
             );
          // ECMA-335, p. 216
          ForEachElement<CustomAttributeDefinition, HeapInfo1>( Tables.CustomAttribute, md.CustomAttributeDefinitions, tableWidths, sink, heapInfos, ref anArray, ( array, idx, listIdx, ca, heapInfo ) => array
@@ -1093,7 +1119,7 @@ namespace CILAssemblyManipulator.Physical.Implementation
             .WriteHeapIndex( ref idx, sysStrings, heapInfo.Heap1 ) // Name
             .WriteHeapIndex( ref idx, blobs, heapInfo.Heap2 ) // HashValue
             );
-         ForEachElement<ExportedType, HeapInfo2>( Tables.ExportedType, md.ExportedTypess, tableWidths, sink, heapInfos, ref anArray, ( array, idx, listIdx, eType, heapInfo ) => array
+         ForEachElement<ExportedType, HeapInfo2>( Tables.ExportedType, md.ExportedTypes, tableWidths, sink, heapInfos, ref anArray, ( array, idx, listIdx, eType, heapInfo ) => array
             .WriteInt32LEToBytes( ref idx, (Int32) eType.Attributes ) // TypeAttributes
             .WriteInt32LEToBytes( ref idx, eType.TypeDefinitionIndex ) // TypeDef index in other (!) assembly
             .WriteHeapIndex( ref idx, sysStrings, heapInfo.Heap1 ) // TypeName
@@ -1101,7 +1127,7 @@ namespace CILAssemblyManipulator.Physical.Implementation
             .WriteCodedTableIndex( ref idx, CodedTableIndexKind.Implementation, eType.Implementation, tRefWidths ) // Implementation
             );
          ForEachElement<ManifestResource, HeapInfo1>( Tables.ManifestResource, md.ManifestResources, tableWidths, sink, heapInfos, ref anArray, ( array, idx, listIdx, mRes, heapInfo ) => array
-            .WriteUInt32LEToBytes( ref idx, (UInt32) mRes.Offset ) // Offset
+            .WriteUInt32LEToBytes( ref idx, embeddedManifestOffsets[listIdx] ?? (UInt32) mRes.Offset ) // Offset
             .WriteInt32LEToBytes( ref idx, (Int32) mRes.Attributes ) // Flags
             .WriteHeapIndex( ref idx, sysStrings, heapInfo.Heap1 ) // Name
             .WriteCodedTableIndex( ref idx, CodedTableIndexKind.Implementation, mRes.Implementation, tRefWidths ) // Implementation
@@ -1129,7 +1155,7 @@ namespace CILAssemblyManipulator.Physical.Implementation
             .WriteCodedTableIndex( ref idx, CodedTableIndexKind.TypeDefOrRef, gConstraint.Constraint, tRefWidths ) // Constraint
             );
          // Padding
-         for ( var i = mdStreamSize; i < mdStreamSize4; i++ )
+         for ( var i = tableStreamSize; i < tableStreamSize4; i++ )
          {
             sink.WriteByte( 0 );
          }
@@ -1140,9 +1166,7 @@ namespace CILAssemblyManipulator.Physical.Implementation
          guids.WriteHeap( sink );
          blobs.WriteHeap( sink );
 
-         var total = (UInt32) cliHeaderSize + streamSizes.Sum() - mdHeaderSize;
-
-         return total;
+         return curStreamOffset;
       }
 
       private static void ForEachElement<T, U>(
@@ -1279,7 +1303,7 @@ namespace CILAssemblyManipulator.Physical.Implementation
          // 0x26 File
          ProcessTableForHeaps2( Tables.File, md.FileReferences, heapInfos, f => new HeapInfo2( sysStrings.GetOrAddString( f.Name ), blobs.GetOrAddBLOB( f.HashValue ) ) );
          // 0x27 ExportedType
-         ProcessTableForHeaps2( Tables.ExportedType, md.ExportedTypess, heapInfos, e => new HeapInfo2( sysStrings.GetOrAddString( e.Name ), sysStrings.GetOrAddString( e.Namespace ) ) );
+         ProcessTableForHeaps2( Tables.ExportedType, md.ExportedTypes, heapInfos, e => new HeapInfo2( sysStrings.GetOrAddString( e.Name ), sysStrings.GetOrAddString( e.Namespace ) ) );
          // 0x28 ManifestResource
          ProcessTableForHeaps1( Tables.ManifestResource, md.ManifestResources, heapInfos, m => new HeapInfo1( sysStrings.GetOrAddString( m.Name ) ) );
          // 0x2A GenericParameter
@@ -1592,6 +1616,7 @@ namespace CILAssemblyManipulator.Physical.Implementation
          this._ilCode.WriteByteToBytes( ref this._ilCodeCount, code.Byte2 );
 
          var operandType = code.OperandType;
+         var curCodeOffset = this._ilCodeCount;
          if ( operandType != OperandType.InlineNone )
          {
             Object methodOrLabelOrManyLabels = null;
@@ -1655,7 +1680,7 @@ namespace CILAssemblyManipulator.Physical.Implementation
                   throw new ArgumentException( "Unknown operand type: " + code.OperandType + " for " + code + "." );
             }
 
-            this.UpdateStackSize( code, methodOrLabelOrManyLabels );
+            this.UpdateStackSize( code, curCodeOffset, methodOrLabelOrManyLabels );
          }
       }
 
@@ -1890,9 +1915,9 @@ namespace CILAssemblyManipulator.Physical.Implementation
          return result;
       }
 
-      private void UpdateStackSize( OpCode code, Object methodOrLabelOrManyLabels )
+      private void UpdateStackSize( OpCode code, Int32 codeByteOffset, Object methodOrLabelOrManyLabels )
       {
-         var curStacksize = Math.Max( this._currentStack, this._stackSizes[this._ilCodeCount] );
+         var curStacksize = Math.Max( this._currentStack, this._stackSizes[codeByteOffset] );
          if ( FlowControl.Call == code.FlowControl )
          {
             this.UpdateStackSizeForMethod( code, (TableIndex) methodOrLabelOrManyLabels, ref curStacksize );
@@ -1917,8 +1942,8 @@ namespace CILAssemblyManipulator.Physical.Implementation
                   this.UpdateStackSizeAtBranchTarget( (Int32) methodOrLabelOrManyLabels, curStacksize );
                   break;
                case OperandType.InlineSwitch:
-                  var labels = (Int32[]) methodOrLabelOrManyLabels;
-                  for ( var i = 0; i < labels.Length; ++i )
+                  var labels = (IList<Int32>) methodOrLabelOrManyLabels;
+                  for ( var i = 0; i < labels.Count; ++i )
                   {
                      this.UpdateStackSizeAtBranchTarget( labels[i], curStacksize );
                   }
@@ -2027,9 +2052,9 @@ namespace CILAssemblyManipulator.Physical.Implementation
       protected Boolean _isWide;
       private Boolean _accessed;
 
-      internal AbstractHeapWriter()
+      internal AbstractHeapWriter( UInt32 startingIndex = 1 )
       {
-         this._curIndex = 1;
+         this._curIndex = startingIndex;
       }
 
       public void SetIsWideIndex()
@@ -2052,7 +2077,7 @@ namespace CILAssemblyManipulator.Physical.Implementation
       {
          get
          {
-            return this._curIndex;
+            return BitUtils.MultipleOf4( this._curIndex );
          }
       }
 
@@ -2261,6 +2286,7 @@ namespace CILAssemblyManipulator.Physical.Implementation
       private readonly IDictionary<Guid, UInt32> _guids;
 
       internal GUIDHeapWriter()
+         : base( 0 )
       {
          this._guids = new Dictionary<Guid, UInt32>();
       }
@@ -2477,8 +2503,11 @@ namespace CILAssemblyManipulator.Physical.Implementation
          if ( this._bytes.Length < this._curCount + size )
          {
             var oldArray = this._bytes;
-            this._bytes = new Byte[oldArray.Length * 2];
-            Array.Copy( oldArray, 0, this._bytes, 0, oldArray.Length );
+            this._bytes = new Byte[ModuleWriter.CLP2( (UInt32) this._curCount + (UInt32) size )];
+            if ( this._curCount > 0 )
+            {
+               Array.Copy( oldArray, 0, this._bytes, 0, oldArray.Length );
+            }
          }
          //if ( this._blockSize < this._curCount + size )
          //{
@@ -2500,6 +2529,13 @@ namespace CILAssemblyManipulator.Physical.Implementation
          //}
       }
 
+      internal Int32 CurCount
+      {
+         get
+         {
+            return this._curCount;
+         }
+      }
       //private void Reset()
       //{
       //   if ( this._prevBlockIndex > 0 )
@@ -2607,16 +2643,19 @@ public static partial class E_CILPhysical
 
    internal static Byte[] CreateStandaloneSignature( this ByteArrayHelper info, AbstractSignature sig )
    {
-      var locals = sig as LocalVariablesSignature;
-      if ( locals != null )
+      if ( sig != null )
       {
-         info.WriteLocalsSignature( locals );
+         var locals = sig as LocalVariablesSignature;
+         if ( locals != null )
+         {
+            info.WriteLocalsSignature( locals );
+         }
+         else
+         {
+            info.WriteMethodSignature( sig as AbstractMethodSignature );
+         }
       }
-      else
-      {
-         info.WriteMethodSignature( sig as AbstractMethodSignature );
-      }
-      return info.CreateByteArray();
+      return info.CurCount == 0 ? null : info.CreateByteArray();
    }
 
    internal static Byte[] CreatePropertySignature( this ByteArrayHelper info, PropertySignature sig )
@@ -3050,7 +3089,7 @@ public static partial class E_CILPhysical
          Byte[] secInfoBLOB;
          if ( secInfo != null )
          {
-            // For some silly reason, the amount of bytes taken to serialize named attributes is stored at this point. Sigh...
+            // Store arguments in separate bytes
             foreach ( var arg in secInfo.NamedArguments )
             {
                aux.WriteCustomAttributeNamedArg( arg );
@@ -3064,6 +3103,8 @@ public static partial class E_CILPhysical
          }
          else
          {
+            var rawBytes = ( (RawSecurityInformation) sec ).Bytes;
+            info.AddCompressedUInt32( rawBytes.Length );
             secInfoBLOB = ( (RawSecurityInformation) sec ).Bytes;
          }
 
