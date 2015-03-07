@@ -162,10 +162,6 @@ namespace CILAssemblyManipulator.Physical
          ParameterSignature[] parameters;
          Int32 sentinelMark;
          ReadFromBytes( sig, ref idx, out elementType, out genericCount, out returnParameter, out parameters, out sentinelMark );
-         if ( sentinelMark != -1 )
-         {
-            throw new BadImageFormatException( "Method definition signature had sentinel mark." );
-         }
          var retVal = new MethodDefinitionSignature( parameters.Length )
          {
             GenericArgumentCount = genericCount,
@@ -278,13 +274,17 @@ namespace CILAssemblyManipulator.Physical
       public static FieldSignature ReadFromBytesWithRef( Byte[] sig, ref Int32 idx )
       {
          var starter = (SignatureStarters) sig.ReadByteFromBytes( ref idx );
-         if ( starter != SignatureStarters.Field )
+         FieldSignature retVal;
+         if ( starter == SignatureStarters.Field )
          {
-            throw new BadImageFormatException( "The first byte of property signature must have " + SignatureStarters.Property + " flag." );
+            retVal = new FieldSignature();
+            CustomModifierSignature.AddFromBytes( sig, ref idx, retVal.CustomModifiers );
+            retVal.Type = TypeSignature.ReadFromBytesWithRef( sig, ref idx );
          }
-         var retVal = new FieldSignature();
-         CustomModifierSignature.AddFromBytes( sig, ref idx, retVal.CustomModifiers );
-         retVal.Type = TypeSignature.ReadFromBytesWithRef( sig, ref idx );
+         else
+         {
+            retVal = null;
+         }
          return retVal;
       }
    }
@@ -325,17 +325,21 @@ namespace CILAssemblyManipulator.Physical
       public static PropertySignature ReadFromBytesWithRef( Byte[] sig, ref Int32 idx )
       {
          var starter = (SignatureStarters) sig.ReadByteFromBytes( ref idx );
-         if ( !starter.IsProperty() )
+         PropertySignature retVal;
+         if ( starter.IsProperty() )
          {
-            throw new BadImageFormatException( "The first byte of property signature must have " + SignatureStarters.Property + " flag." );
+            var paramCount = sig.DecompressUInt32( ref idx );
+            retVal = new PropertySignature( parameterCount: paramCount );
+            CustomModifierSignature.AddFromBytes( sig, ref idx, retVal.CustomModifiers );
+            retVal.PropertyType = TypeSignature.ReadFromBytesWithRef( sig, ref idx );
+            for ( var i = 0; i < paramCount; ++i )
+            {
+               retVal.Parameters.Add( AbstractMethodSignature.ReadParameter( sig, ref idx ) );
+            }
          }
-         var paramCount = sig.DecompressUInt32( ref idx );
-         var retVal = new PropertySignature( parameterCount: paramCount );
-         CustomModifierSignature.AddFromBytes( sig, ref idx, retVal.CustomModifiers );
-         retVal.PropertyType = TypeSignature.ReadFromBytesWithRef( sig, ref idx );
-         for ( var i = 0; i < paramCount; ++i )
+         else
          {
-            retVal.Parameters.Add( AbstractMethodSignature.ReadParameter( sig, ref idx ) );
+            retVal = null;
          }
 
          return retVal;
@@ -369,52 +373,46 @@ namespace CILAssemblyManipulator.Physical
 
       public static LocalVariablesSignature ReadFromBytes( Byte[] sig, ref Int32 idx )
       {
-         if ( IsLocalVariablesSignature( sig, idx ) )
+         var starter = (SignatureStarters) sig.ReadByteFromBytes( ref idx );
+         LocalVariablesSignature retVal;
+         if ( starter == SignatureStarters.LocalSignature )
          {
-            ++idx;
+            var lCount = sig.DecompressUInt32( ref idx );
+            retVal = new LocalVariablesSignature( lCount );
+            for ( var i = 0; i < lCount; ++i )
+            {
+               var local = new LocalVariableSignature();
+               var elementType = (SignatureElementTypes) sig[idx];
+               if ( elementType == SignatureElementTypes.TypedByRef )
+               {
+                  local.Type = SimpleTypeSignature.TypedByRef;
+                  ++idx; // Mark this byte read
+               }
+               else
+               {
+                  CustomModifierSignature.AddFromBytes( sig, ref idx, local.CustomModifiers );
+                  elementType = (SignatureElementTypes) sig[idx];
+                  if ( elementType == SignatureElementTypes.Pinned )
+                  {
+                     local.IsPinned = true;
+                     ++idx;
+                     elementType = (SignatureElementTypes) sig[idx];
+                  }
+                  if ( elementType == SignatureElementTypes.ByRef )
+                  {
+                     local.IsByRef = true;
+                     ++idx;
+                  }
+                  local.Type = TypeSignature.ReadFromBytesWithRef( sig, ref idx );
+               }
+               retVal.Locals.Add( local );
+            }
          }
          else
          {
-            throw new BadImageFormatException( "The first byte of locals signature must be " + SignatureStarters.LocalSignature + "." );
+            retVal = null;
          }
-         var lCount = sig.DecompressUInt32( ref idx );
-         var retVal = new LocalVariablesSignature( lCount );
-         for ( var i = 0; i < lCount; ++i )
-         {
-            var local = new LocalVariableSignature();
-            var elementType = (SignatureElementTypes) sig[idx];
-            if ( elementType == SignatureElementTypes.TypedByRef )
-            {
-               local.Type = SimpleTypeSignature.TypedByRef;
-               ++idx; // Mark this byte read
-            }
-            else
-            {
-               CustomModifierSignature.AddFromBytes( sig, ref idx, local.CustomModifiers );
-               elementType = (SignatureElementTypes) sig[idx];
-               if ( elementType == SignatureElementTypes.Pinned )
-               {
-                  local.IsPinned = true;
-                  ++idx;
-                  elementType = (SignatureElementTypes) sig[idx];
-               }
-               if ( elementType == SignatureElementTypes.ByRef )
-               {
-                  local.IsByRef = true;
-                  ++idx;
-               }
-               local.Type = TypeSignature.ReadFromBytesWithRef( sig, ref idx );
-            }
-            retVal.Locals.Add( local );
-         }
-
          return retVal;
-      }
-
-      internal static Boolean IsLocalVariablesSignature( Byte[] sig, Int32 idx )
-      {
-         var starter = (SignatureStarters) sig[idx];
-         return starter == SignatureStarters.LocalSignature;
       }
    }
 
@@ -616,7 +614,7 @@ namespace CILAssemblyManipulator.Physical
                szArr.ArrayType = ReadFromBytesWithRef( sig, ref idx );
                return szArr;
             default:
-               throw new BadImageFormatException( "Unknown type starter: " + elementType );
+               return null;
          }
 
       }
@@ -893,15 +891,20 @@ namespace CILAssemblyManipulator.Physical
       public static GenericMethodSignature ReadFromBytesWithRef( Byte[] sig, ref Int32 idx )
       {
          var elementType = (SignatureStarters) sig.ReadByteFromBytes( ref idx );
-         if ( elementType != SignatureStarters.MethodSpecGenericInst )
+         GenericMethodSignature retVal;
+         if ( elementType == SignatureStarters.MethodSpecGenericInst )
          {
-            throw new BadImageFormatException( "First byte of generic method instantiation signature must be " + SignatureElementTypes.GenericInst + "." );
+
+            var genericArgumentsCount = sig.DecompressUInt32( ref idx );
+            retVal = new GenericMethodSignature( genericArgumentsCount );
+            for ( var i = 0; i < genericArgumentsCount; ++i )
+            {
+               retVal.GenericArguments.Add( TypeSignature.ReadFromBytesWithRef( sig, ref idx ) );
+            }
          }
-         var genericArgumentsCount = sig.DecompressUInt32( ref idx );
-         var retVal = new GenericMethodSignature( genericArgumentsCount );
-         for ( var i = 0; i < genericArgumentsCount; ++i )
+         else
          {
-            retVal.GenericArguments.Add( TypeSignature.ReadFromBytesWithRef( sig, ref idx ) );
+            retVal = null;
          }
          return retVal;
       }

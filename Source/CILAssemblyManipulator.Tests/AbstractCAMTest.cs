@@ -19,6 +19,8 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
+using CILAssemblyManipulator.Physical;
+using NUnit.Framework;
 
 namespace CILAssemblyManipulator.Tests
 {
@@ -40,6 +42,31 @@ namespace CILAssemblyManipulator.Tests
          get
          {
             return _msCorLibLocation;
+         }
+      }
+
+      public static void ValidateAllIsResolved( CILMetaData md )
+      {
+         for ( var i = 0; i < md.CustomAttributeDefinitions.Count; ++i )
+         {
+            var ca = md.CustomAttributeDefinitions[i];
+            var sig = ca.Signature;
+            Assert.IsNotNull( sig );
+            Assert.IsNotInstanceOf<RawCustomAttributeSignature>( sig );
+         }
+
+         for ( var i = 0; i < md.SecurityDefinitions.Count; ++i )
+         {
+            var sec = md.SecurityDefinitions[i];
+            foreach ( var permission in sec.PermissionSets )
+            {
+               Assert.IsNotNull( permission );
+               Assert.IsNotInstanceOf<RawSecurityInformation>( permission );
+               foreach ( var arg in ( (SecurityInformation) permission ).NamedArguments )
+               {
+                  Assert.IsNotNull( arg );
+               }
+            }
          }
       }
    }

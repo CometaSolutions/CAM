@@ -442,6 +442,9 @@ namespace CILAssemblyManipulator.Physical.Implementation
          var methodDefRVAs = new Int64[tableSizes[(Int32) Tables.MethodDef]];
          var fieldDefRVAs = new Int64[tableSizes[(Int32) Tables.FieldRVA]];
 
+         // Try resolve purely local custom attributes and security blobs by creating new resolver but not registering to an event
+         var resolver = new MetaDataResolver();
+
          for ( var curTable = 0; curTable < Consts.AMOUNT_OF_TABLES; ++curTable )
          {
             switch ( (Tables) curTable )
@@ -551,7 +554,7 @@ namespace CILAssemblyManipulator.Physical.Implementation
                         Type = MetaDataConstants.ReadCodedTableIndex( stream, CodedTableIndexKind.CustomAttributeType, tRefSizes, tmpArray ).Value
                      };
                      Int32 caBlobIndex, caBlobSize;
-                     blobs.GetBLOBIndex( stream, out caBlobIndex, out caBlobSize );
+                     var bArrayIdx = blobs.GetBLOBIndex( stream, out caBlobIndex, out caBlobSize );
                      AbstractCustomAttributeSignature caSig;
                      if ( caBlobSize <= 2 )
                      {
@@ -560,7 +563,12 @@ namespace CILAssemblyManipulator.Physical.Implementation
                      }
                      else
                      {
-                        caSig = new RawCustomAttributeSignature() { Bytes = blobs.GetBLOB( caBlobIndex ) };
+                        caSig = resolver.TryResolveCustomAttributeSignature( retVal, blobs.WholeBLOBArray, bArrayIdx, caDef.Type );
+                        if ( caSig == null )
+                        {
+                           // Resolving failed
+                           caSig = new RawCustomAttributeSignature() { Bytes = blobs.GetBLOB( caBlobIndex ) };
+                        }
                      }
                      caDef.Signature = caSig;
                      return caDef;

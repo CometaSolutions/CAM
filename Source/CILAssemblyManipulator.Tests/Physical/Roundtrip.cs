@@ -30,15 +30,22 @@ namespace CILAssemblyManipulator.Tests.Physical
       [Test]
       public void TestRoundtripMSCorLib()
       {
-         PerformRoundtripTest( MSCorLibLocation );
+         PerformRoundtripTest( MSCorLibLocation, ValidateAllIsResolved, ValidateAllIsResolved );
       }
 
-      private static void PerformRoundtripTest( String fileLocation )
+      private static void PerformRoundtripTest( String fileLocation, Action<CILMetaData> afterFirstRead, Action<CILMetaData> afterSecondRead )
       {
+         var resolver = new MetaDataResolver();
          ModuleReadResult read1;
          using ( var fs = File.OpenRead( fileLocation ) )
          {
             read1 = fs.ReadModule();
+         }
+
+         resolver.ResolveEverything( read1.MetaData );
+         if ( afterFirstRead != null )
+         {
+            afterFirstRead( read1.MetaData );
          }
 
          Byte[] written;
@@ -52,6 +59,12 @@ namespace CILAssemblyManipulator.Tests.Physical
          using ( var ms = new MemoryStream( written ) )
          {
             read2 = ms.ReadModule();
+         }
+
+         resolver.ResolveEverything( read2.MetaData );
+         if ( afterSecondRead != null )
+         {
+            afterSecondRead( read2.MetaData );
          }
       }
 

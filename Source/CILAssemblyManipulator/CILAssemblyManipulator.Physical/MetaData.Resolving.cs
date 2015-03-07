@@ -294,33 +294,10 @@ namespace CILAssemblyManipulator.Physical
             var caSig = customAttribute.Signature as RawCustomAttributeSignature;
             if ( caSig != null )
             {
-
-               AbstractMethodSignature ctorSig;
-               var methodRef = customAttribute.Type;
-               switch ( methodRef.Table )
+               var ca = this.TryResolveCustomAttributeSignature( md, caSig.Bytes, 0, customAttribute.Type );
+               if ( ca != null )
                {
-                  case Tables.MethodDef:
-                     ctorSig = methodRef.Index < md.MethodDefinitions.Count ?
-                        md.MethodDefinitions[methodRef.Index].Signature :
-                        null;
-                     break;
-                  case Tables.MemberRef:
-                     ctorSig = methodRef.Index < md.MemberReferences.Count ?
-                        md.MemberReferences[methodRef.Index].Signature as AbstractMethodSignature :
-                        null;
-                     break;
-                  default:
-                     ctorSig = null;
-                     break;
-               }
-
-               if ( ctorSig != null )
-               {
-                  var ca = this.ReadCustomAttributeSignature( md, caSig, ctorSig );
-                  if ( ca != null )
-                  {
-                     customAttribute.Signature = ca;
-                  }
+                  customAttribute.Signature = ca;
                }
             }
          }
@@ -369,55 +346,77 @@ namespace CILAssemblyManipulator.Physical
          }
       }
 
-      private CustomAttributeSignature ReadCustomAttributeSignature(
+      internal CustomAttributeSignature TryResolveCustomAttributeSignature(
          CILMetaData md,
-         RawCustomAttributeSignature rawSignature,
-         AbstractMethodSignature ctorSig
+         Byte[] blob,
+         Int32 idx,
+         TableIndex caTypeTableIndex
          )
       {
-         var idx = 0;
-         var startIdx = idx;
-         var blob = rawSignature.Bytes;
-         var retVal = new CustomAttributeSignature( typedArgsCount: ctorSig.Parameters.Count );
 
-         idx += 2; // Skip prolog
-
-         for ( var i = 0; i < ctorSig.Parameters.Count; ++i )
+         AbstractMethodSignature ctorSig;
+         switch ( caTypeTableIndex.Table )
          {
-            var caType = this.ConvertTypeSignatureToCustomAttributeType( md, ctorSig.Parameters[i].Type );
-            if ( caType == null )
-            {
-               // We don't know the size of the type -> stop
-               retVal.TypedArguments.Clear();
+            case Tables.MethodDef:
+               ctorSig = caTypeTableIndex.Index < md.MethodDefinitions.Count ?
+                  md.MethodDefinitions[caTypeTableIndex.Index].Signature :
+                  null;
                break;
-            }
-            else
-            {
-               retVal.TypedArguments.Add( ReadCAFixedArgument( md, blob, ref idx, caType ) );
-            }
+            case Tables.MemberRef:
+               ctorSig = caTypeTableIndex.Index < md.MemberReferences.Count ?
+                  md.MemberReferences[caTypeTableIndex.Index].Signature as AbstractMethodSignature :
+                  null;
+               break;
+            default:
+               ctorSig = null;
+               break;
          }
 
-         // Check if we had failed to resolve ctor type before.
-         var success = retVal.TypedArguments.Count == ctorSig.Parameters.Count;
+         var success = ctorSig != null;
+         CustomAttributeSignature retVal = null;
          if ( success )
          {
-            var namedCount = blob.ReadUInt16LEFromBytes( ref idx );
-            for ( var i = 0; i < namedCount && success; ++i )
-            {
-               var caNamedArg = this.ReadCANamedArgument( md, blob, ref idx );
+            var startIdx = idx;
+            retVal = new CustomAttributeSignature( typedArgsCount: ctorSig.Parameters.Count );
 
-               if ( caNamedArg == null )
+            idx += 2; // Skip prolog
+
+            for ( var i = 0; i < ctorSig.Parameters.Count; ++i )
+            {
+               var caType = this.ConvertTypeSignatureToCustomAttributeType( md, ctorSig.Parameters[i].Type );
+               if ( caType == null )
                {
                   // We don't know the size of the type -> stop
-                  success = false;
+                  retVal.TypedArguments.Clear();
+                  break;
                }
                else
                {
-                  retVal.NamedArguments.Add( caNamedArg );
+                  retVal.TypedArguments.Add( ReadCAFixedArgument( md, blob, ref idx, caType ) );
+               }
+            }
+
+            // Check if we had failed to resolve ctor type before.
+            success = retVal.TypedArguments.Count == ctorSig.Parameters.Count;
+            if ( success )
+            {
+               var namedCount = blob.ReadUInt16LEFromBytes( ref idx );
+               for ( var i = 0; i < namedCount && success; ++i )
+               {
+                  var caNamedArg = this.ReadCANamedArgument( md, blob, ref idx );
+
+                  if ( caNamedArg == null )
+                  {
+                     // We don't know the size of the type -> stop
+                     success = false;
+                  }
+                  else
+                  {
+                     retVal.NamedArguments.Add( caNamedArg );
+                  }
                }
             }
          }
-
          return success ? retVal : null;
       }
 
@@ -444,7 +443,10 @@ namespace CILAssemblyManipulator.Physical
                return ResolveCATypeSimple( ( (SimpleTypeSignature) type ).SimpleType );
             case TypeSignatureKind.ClassOrValue:
                // Either enum or System.Type
-               return this.ResolveCATypeFromTableIndex( md, ( (ClassOrValueTypeSignature) type ).Type );
+               var tIdx = ( (ClassOrValueTypeSignature) type ).Type;
+               return IsTypeType( md, tIdx ) ? // Avoid loading mscorlib metadata if this is System.Type
+                  CustomAttributeArgumentSimple.Type :
+                  this.ResolveCATypeFromTableIndex( md, tIdx );
             default:
                return null;
          }
@@ -594,14 +596,10 @@ namespace CILAssemblyManipulator.Physical
          switch ( tIdx.Table )
          {
             case Tables.TypeDef:
-               retVal = IsTypeType( md, tIdx ) ?
-                  CustomAttributeArgumentSimple.Type :
-                  this.ResolveTypeFromTypeDef( md, tIdx.Index );
+               retVal = this.ResolveTypeFromTypeDef( md, tIdx.Index );
                break;
             case Tables.TypeRef:
-               retVal = IsTypeType( md, tIdx ) ? // Avoid loading mscorlib metadata if this is System.Type
-                  CustomAttributeArgumentSimple.Type :
-                  this.ResolveTypeFromTypeRef( md, idx );
+               retVal = this.ResolveTypeFromTypeRef( md, idx );
                break;
             case Tables.TypeSpec:
                // Should never happen but one never knows...
@@ -804,7 +802,7 @@ namespace CILAssemblyManipulator.Physical
          }
       }
 
-      private CustomAttributeNamedArgument ReadCANamedArgument(
+      internal CustomAttributeNamedArgument ReadCANamedArgument(
          CILMetaData md,
          Byte[] blob,
          ref Int32 idx

@@ -28,41 +28,16 @@ namespace CILAssemblyManipulator.Tests.Physical
    public class ReadingTest : AbstractCAMTest
    {
 
-      //[Test]
+      [Test]
       public void TestReadingCAMAssemblies()
       {
          TestReading( typeof( CILModuleIO ).Assembly );
       }
 
-      //[Test]
+      [Test]
       public void TestReadingMSCorLib()
       {
-         TestReading( MSCorLib, md =>
-         {
-            for ( var i = 0; i < md.CustomAttributeDefinitions.Count; ++i )
-            {
-               var ca = md.CustomAttributeDefinitions[i];
-               var sig = ca.Signature;
-               Assert.IsNotNull( sig );
-               Assert.IsNotInstanceOf<RawCustomAttributeSignature>( sig );
-            }
-
-            for ( var i = 0; i < md.SecurityDefinitions.Count; ++i )
-            {
-               var sec = md.SecurityDefinitions[i];
-               foreach ( var permission in sec.PermissionSets )
-               {
-                  Assert.IsNotNull( permission );
-                  Assert.IsNotInstanceOf<RawSecurityInformation>( permission );
-                  foreach ( var arg in ( (SecurityInformation) permission ).NamedArguments )
-                  {
-                     Assert.IsNotNull( arg );
-                  }
-               }
-            }
-         } );
-         // TODO: check that all custom attribute sigs are resolved
-         // check that all security declarations have non-null custom attribute named args
+         TestReading( MSCorLib, ValidateAllIsResolved );
       }
 
       private void TestReading( System.Reflection.Assembly assembly, Action<CILMetaData> validationAction = null )
@@ -80,5 +55,7 @@ namespace CILAssemblyManipulator.Tests.Physical
             }
          }
       }
+
+
    }
 }
