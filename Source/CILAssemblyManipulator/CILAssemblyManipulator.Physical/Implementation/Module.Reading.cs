@@ -1147,6 +1147,8 @@ namespace CILAssemblyManipulator.Physical.Implementation
          {
             // Tiny header - no locals, no exceptions, no extra data
             CreateOpCodes( retVal, stream, b >> 2, tmpArray, userStrings );
+            // Max stack is 8
+            retVal.MaxStackSize = 8;
             retVal.InitLocals = false;
          }
          else
@@ -1157,8 +1159,8 @@ namespace CILAssemblyManipulator.Physical.Implementation
             var flags = (MethodHeaderFlags) ( b & FLAG_MASK );
             retVal.InitLocals = ( flags & MethodHeaderFlags.InitLocals ) != 0;
             var headerSize = ( b >> 12 ) * 4; // Header size is written as amount of integers
-            // Skip max stack
-            stream.SeekFromCurrent( 2 );
+            // Read max stack
+            retVal.MaxStackSize = stream.ReadU16( tmpArray );
             var codeSize = stream.ReadI32( tmpArray );
             var localSigToken = stream.ReadI32( tmpArray );
             if ( localSigToken != 0 )

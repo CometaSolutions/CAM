@@ -66,6 +66,8 @@ namespace CILAssemblyManipulator.Tests.Physical
          {
             afterSecondRead( read2.MetaData );
          }
+
+         // TODO test equality...
       }
 
    }

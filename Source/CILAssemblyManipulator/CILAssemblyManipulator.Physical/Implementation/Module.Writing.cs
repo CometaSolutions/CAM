@@ -1576,10 +1576,7 @@ namespace CILAssemblyManipulator.Physical.Implementation
       private readonly MethodILDefinition _methodIL;
       private readonly UserStringHeapWriter _usersStringHeap;
       private readonly Byte[] _ilCode;
-      private readonly Int32[] _stackSizes;
       private Int32 _ilCodeCount;
-      private Int32 _currentStack;
-      private Int32 _maxStack;
 
       internal MethodILWriter( CILMetaData md, Int32 idx, UserStringHeapWriter usersStringHeap )
       {
@@ -1589,20 +1586,8 @@ namespace CILAssemblyManipulator.Physical.Implementation
 
          this._method = md.MethodDefinitions[idx];
          this._methodIL = this._method.IL;
-         this._ilCode = new Byte[this._methodIL.OpCodes.Sum( oci =>
-         {
-            var oc = oci.OpCode;
-            var ocSize = oc.Size + oc.OperandSize;
-            if ( oci.InfoKind == OpCodeOperandKind.OperandSwitch )
-            {
-               ocSize += ( (OpCodeInfoWithSwitch) oci ).Offsets.Count * sizeof( Int32 );
-            }
-            return ocSize;
-         } )];
-         this._stackSizes = new Int32[this._ilCode.Length];
+         this._ilCode = new Byte[this._methodIL.OpCodes.Sum( oci => oci.ByteSize )];
          this._ilCodeCount = 0;
-         this._currentStack = 0;
-         this._maxStack = 0;
       }
 
       private void Emit( OpCodeInfo codeInfo )
@@ -1679,8 +1664,6 @@ namespace CILAssemblyManipulator.Physical.Implementation
                default:
                   throw new ArgumentException( "Unknown operand type: " + code.OperandType + " for " + code + "." );
             }
-
-            this.UpdateStackSize( code, curCodeOffset, methodOrLabelOrManyLabels );
          }
       }
 
@@ -1700,21 +1683,6 @@ namespace CILAssemblyManipulator.Physical.Implementation
                   -1
                   );
             } );
-
-         // Setup stack sizes based on exception blocks
-         foreach ( var block in allExceptionBlocksCorrectlyOrdered )
-         {
-            switch ( block.BlockType )
-            {
-               case ExceptionBlockType.Exception:
-                  this._stackSizes[block.HandlerOffset] = 1;
-                  break;
-               case ExceptionBlockType.Filter:
-                  this._stackSizes[block.HandlerOffset] = 1;
-                  this._stackSizes[block.FilterOffset] = 1;
-                  break;
-            }
-         }
 
          // Emit opcodes and operands
          foreach ( var info in this._methodIL.OpCodes )
@@ -1784,9 +1752,10 @@ namespace CILAssemblyManipulator.Physical.Implementation
          // Write method header, extra data sections, and IL
          Byte[] result;
          var localSig = this._md.GetLocalsSignatureForMethodOrNull( this._methodDefIndex );
+         var maxStack = this._methodIL.MaxStackSize;
          isTiny = this._ilCodeCount < 64
             && exceptionBlocks.Length == 0
-            && this._maxStack <= 8
+            && maxStack <= 8
             && ( localSig == null || localSig.Locals.Count == 0 );
          var resultIndex = 0;
          var hasAnyExc = false;
@@ -1832,7 +1801,7 @@ namespace CILAssemblyManipulator.Physical.Implementation
             }
 
             result.WriteInt16LEToBytes( ref resultIndex, (Int16) ( ( (Int32) flags ) | ( 3 << 12 ) ) )
-               .WriteInt16LEToBytes( ref resultIndex, (Int16) this._maxStack )
+               .WriteUInt16LEToBytes( ref resultIndex, (UInt16) maxStack )
                .WriteInt32LEToBytes( ref resultIndex, this._ilCodeCount )
                .WriteInt32LEToBytes( ref resultIndex, this._methodIL.LocalsSignatureIndex.CreateTokenForEmittingOptionalTableIndex() );
          }
@@ -1915,116 +1884,6 @@ namespace CILAssemblyManipulator.Physical.Implementation
          return result;
       }
 
-      private void UpdateStackSize( OpCode code, Int32 codeByteOffset, Object methodOrLabelOrManyLabels )
-      {
-         var curStacksize = Math.Max( this._currentStack, this._stackSizes[codeByteOffset] );
-         if ( FlowControl.Call == code.FlowControl )
-         {
-            this.UpdateStackSizeForMethod( code, (TableIndex) methodOrLabelOrManyLabels, ref curStacksize );
-         }
-         else
-         {
-            curStacksize += code.StackChange;
-         }
-
-         // Save max stack here
-         this._maxStack = Math.Max( curStacksize, this._maxStack );
-
-         // Copy branch stack size
-         if ( curStacksize > 0 )
-         {
-            switch ( code.OperandType )
-            {
-               case OperandType.InlineBrTarget:
-                  this.UpdateStackSizeAtBranchTarget( (Int32) methodOrLabelOrManyLabels, curStacksize );
-                  break;
-               case OperandType.ShortInlineBrTarget:
-                  this.UpdateStackSizeAtBranchTarget( (Int32) methodOrLabelOrManyLabels, curStacksize );
-                  break;
-               case OperandType.InlineSwitch:
-                  var labels = (IList<Int32>) methodOrLabelOrManyLabels;
-                  for ( var i = 0; i < labels.Count; ++i )
-                  {
-                     this.UpdateStackSizeAtBranchTarget( labels[i], curStacksize );
-                  }
-                  break;
-            }
-         }
-
-         // Set stack to zero if required
-         if ( code.UnconditionallyEndsBulkOfCode )
-         {
-            curStacksize = 0;
-         }
-
-         // Save current size for next iteration
-         this._currentStack = curStacksize;
-      }
-
-      private void UpdateStackSizeForMethod( OpCode code, TableIndex method, ref Int32 curStacksize )
-      {
-         var sig = this.ResolveSignatureFromTableIndex( method );
-
-         if ( sig != null )
-         {
-            if ( sig.SignatureStarter.IsHasThis() && OpCodes.Newobj != code )
-            {
-               // Pop 'this'
-               --curStacksize;
-            }
-
-            // Pop parameters
-            curStacksize -= sig.Parameters.Count;
-            var refSig = sig as MethodReferenceSignature;
-            if ( refSig != null )
-            {
-               curStacksize -= refSig.VarArgsParameters.Count;
-            }
-
-            if ( OpCodes.Calli == code )
-            {
-               // Pop function pointer
-               --curStacksize;
-            }
-
-            var rType = sig.ReturnType.Type;
-
-            // TODO we could check here for stack underflow!
-
-            if ( OpCodes.Newobj == code
-               || rType.TypeSignatureKind != TypeSignatureKind.Simple
-               || ( (SimpleTypeSignature) rType ).SimpleType != SignatureElementTypes.Void
-               )
-            {
-               // Push return value
-               ++curStacksize;
-            }
-         }
-      }
-
-      private AbstractMethodSignature ResolveSignatureFromTableIndex( TableIndex method )
-      {
-         var mIdx = method.Index;
-         switch ( method.Table )
-         {
-            case Tables.MethodDef:
-               return this._md.MethodDefinitions[mIdx].Signature;
-            case Tables.MemberRef:
-               return this._md.MemberReferences[mIdx].Signature as AbstractMethodSignature;
-            case Tables.StandaloneSignature:
-               return this._md.StandaloneSignatures[mIdx].Signature as AbstractMethodSignature;
-            case Tables.MethodSpec:
-               return this.ResolveSignatureFromTableIndex( this._md.MethodSpecifications[mIdx].Method );
-            default:
-               return null;
-         }
-      }
-
-      private void UpdateStackSizeAtBranchTarget( Int32 jump, Int32 stackSize )
-      {
-         var idx = this._ilCodeCount + jump;
-         this._stackSizes[idx] = Math.Max( this._stackSizes[idx], stackSize );
-      }
 
    }
 

@@ -41,6 +41,15 @@ namespace CILAssemblyManipulator.Physical
       }
 
       public abstract OpCodeOperandKind InfoKind { get; }
+
+      // Returns code size + operand size
+      public virtual Int32 ByteSize
+      {
+         get
+         {
+            return this._code.Size + this._code.OperandSize;
+         }
+      }
    }
 
    public abstract class OpCodeInfoWithOperand<TOperand> : OpCodeInfo
@@ -178,6 +187,14 @@ namespace CILAssemblyManipulator.Physical
          get
          {
             return this._offsets;
+         }
+      }
+
+      public override int ByteSize
+      {
+         get
+         {
+            return base.ByteSize + this._offsets.Count * sizeof( Int32 );
          }
       }
    }

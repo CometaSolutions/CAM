@@ -80,6 +80,7 @@ namespace CILAssemblyManipulator.Physical
 
       public Boolean InitLocals { get; set; }
       public TableIndex? LocalsSignatureIndex { get; set; }
+      public Int32 MaxStackSize { get; set; }
 
       public IList<MethodExceptionBlock> ExceptionBlocks
       {
@@ -725,6 +726,53 @@ namespace CILAssemblyManipulator.Physical
 
 public static partial class E_CILPhysical
 {
+   private sealed class StackCalculationInfo
+   {
+      private Int32 _maxStack;
+      private readonly Int32[] _stackSizes;
+      private readonly CILMetaData _md;
+
+      internal StackCalculationInfo( CILMetaData md, Int32 ilByteCount )
+      {
+         this._md = md;
+         this._stackSizes = new Int32[ilByteCount];
+         this._maxStack = 0;
+      }
+
+      public Int32 CurrentStack { get; set; }
+      public Int32 CurrentCodeByteOffset { get; set; }
+      public Int32 NextCodeByteOffset { get; set; }
+      public Int32 MaxStack
+      {
+         get
+         {
+            return this._maxStack;
+         }
+      }
+      public CILMetaData MD
+      {
+         get
+         {
+            return this._md;
+         }
+      }
+      public Int32[] StackSizes
+      {
+         get
+         {
+            return this._stackSizes;
+         }
+      }
+
+      public void UpdateMaxStack( Int32 newMaxStack )
+      {
+         if ( this._maxStack < newMaxStack )
+         {
+            this._maxStack = newMaxStack;
+         }
+      }
+   }
+
    public static Boolean IsHasThis( this SignatureStarters starter )
    {
       return ( starter & SignatureStarters.HasThis ) != 0;
@@ -813,5 +861,205 @@ public static partial class E_CILPhysical
    private static Int32 ZeroBasedTokenToOneBasedToken( Int32 token )
    {
       return ( ( token & TokenUtils.INDEX_MASK ) + 1 ) | ( token & ~TokenUtils.INDEX_MASK );
+   }
+
+   public static Int32 CalculateStackSize( this CILMetaData md, Int32 methodIndex )
+   {
+      var mDef = md.MethodDefinitions.GetOrNull( methodIndex );
+      var retVal = -1;
+      if ( mDef != null )
+      {
+         var il = mDef.IL;
+         if ( il != null )
+         {
+            var state = new StackCalculationInfo( md, il.OpCodes.Sum( oc => oc.ByteSize ) );
+
+            // Setup exception block stack sizes
+            foreach ( var block in il.ExceptionBlocks )
+            {
+               switch ( block.BlockType )
+               {
+                  case ExceptionBlockType.Exception:
+                     state.StackSizes[block.HandlerOffset] = 1;
+                     break;
+                  case ExceptionBlockType.Filter:
+                     state.StackSizes[block.HandlerOffset] = 1;
+                     state.StackSizes[block.FilterOffset] = 1;
+                     break;
+               }
+            }
+
+            // Calculate actual max stack
+            foreach ( var codeInfo in il.OpCodes )
+            {
+               var code = codeInfo.OpCode;
+
+               state.CurrentCodeByteOffset += code.Size;
+               state.NextCodeByteOffset += codeInfo.ByteSize;
+               Object methodOrLabelOrManyLabels = null;
+               var operandType = code.OperandType;
+               if ( operandType != OperandType.InlineNone )
+               {
+                  switch ( operandType )
+                  {
+                     case OperandType.ShortInlineBrTarget:
+                        methodOrLabelOrManyLabels = ( (OpCodeInfoWithInt32) codeInfo ).Operand;
+                        break;
+                     case OperandType.InlineBrTarget:
+                        methodOrLabelOrManyLabels = ( (OpCodeInfoWithInt32) codeInfo ).Operand;
+                        break;
+                     case OperandType.InlineMethod:
+                     case OperandType.InlineType:
+                     case OperandType.InlineTok:
+                     case OperandType.InlineSig:
+                        methodOrLabelOrManyLabels = ( (OpCodeInfoWithToken) codeInfo ).Operand;
+                        break;
+                     case OperandType.InlineSwitch:
+                        methodOrLabelOrManyLabels = ( (OpCodeInfoWithSwitch) codeInfo ).Offsets;
+                        break;
+                  }
+               }
+
+               UpdateStackSize( state, code, methodOrLabelOrManyLabels );
+            }
+
+            retVal = state.MaxStack;
+         }
+      }
+
+      return retVal;
+   }
+
+   private static void UpdateStackSize(
+      StackCalculationInfo state,
+      OpCode code,
+      Object methodOrLabelOrManyLabels
+      )
+   {
+      var curStacksize = Math.Max( state.CurrentStack, state.StackSizes[state.CurrentCodeByteOffset] );
+      if ( FlowControl.Call == code.FlowControl )
+      {
+         curStacksize = UpdateStackSizeForMethod( state, code, (TableIndex) methodOrLabelOrManyLabels, curStacksize );
+      }
+      else
+      {
+         curStacksize += code.StackChange;
+      }
+
+      // Save max stack here
+      state.UpdateMaxStack( curStacksize );
+
+      // Copy branch stack size
+      if ( curStacksize > 0 )
+      {
+         switch ( code.OperandType )
+         {
+            case OperandType.InlineBrTarget:
+               UpdateStackSizeAtBranchTarget( state, (Int32) methodOrLabelOrManyLabels, curStacksize );
+               break;
+            case OperandType.ShortInlineBrTarget:
+               UpdateStackSizeAtBranchTarget( state, (Int32) methodOrLabelOrManyLabels, curStacksize );
+               break;
+            case OperandType.InlineSwitch:
+               var offsets = (IList<Int32>) methodOrLabelOrManyLabels;
+               for ( var i = 0; i < offsets.Count; ++i )
+               {
+                  UpdateStackSizeAtBranchTarget( state, offsets[i], curStacksize );
+               }
+               break;
+         }
+      }
+
+      // Set stack to zero if required
+      if ( code.UnconditionallyEndsBulkOfCode )
+      {
+         curStacksize = 0;
+      }
+
+      // Save current size for next iteration
+      state.CurrentStack = curStacksize;
+   }
+
+   private static Int32 UpdateStackSizeForMethod(
+      StackCalculationInfo state,
+      OpCode code,
+      TableIndex method,
+      Int32 curStacksize
+      )
+   {
+      var sig = ResolveSignatureFromTableIndex( state, method );
+
+      if ( sig != null )
+      {
+         if ( sig.SignatureStarter.IsHasThis() && OpCodes.Newobj != code )
+         {
+            // Pop 'this'
+            --curStacksize;
+         }
+
+         // Pop parameters
+         curStacksize -= sig.Parameters.Count;
+         var refSig = sig as MethodReferenceSignature;
+         if ( refSig != null )
+         {
+            curStacksize -= refSig.VarArgsParameters.Count;
+         }
+
+         if ( OpCodes.Calli == code )
+         {
+            // Pop function pointer
+            --curStacksize;
+         }
+
+         var rType = sig.ReturnType.Type;
+
+         // TODO we could check here for stack underflow!
+
+         if ( OpCodes.Newobj == code
+            || rType.TypeSignatureKind != TypeSignatureKind.Simple
+            || ( (SimpleTypeSignature) rType ).SimpleType != SignatureElementTypes.Void
+            )
+         {
+            // Push return value
+            ++curStacksize;
+         }
+      }
+
+      return curStacksize;
+   }
+
+   private static AbstractMethodSignature ResolveSignatureFromTableIndex(
+      StackCalculationInfo state,
+      TableIndex method
+      )
+   {
+      var mIdx = method.Index;
+      switch ( method.Table )
+      {
+         case Tables.MethodDef:
+            var mDef = state.MD.MethodDefinitions.GetOrNull( mIdx );
+            return mDef == null ? null : mDef.Signature;
+         case Tables.MemberRef:
+            var mRef = state.MD.MemberReferences.GetOrNull( mIdx );
+            return mRef == null ? null : mRef.Signature as AbstractMethodSignature;
+         case Tables.StandaloneSignature:
+            var sig = state.MD.StandaloneSignatures.GetOrNull( mIdx );
+            return sig == null ? null : sig.Signature as AbstractMethodSignature;
+         case Tables.MethodSpec:
+            var mSpec = state.MD.MethodSpecifications.GetOrNull( mIdx );
+            return mSpec == null ? null : ResolveSignatureFromTableIndex( state, mSpec.Method );
+         default:
+            return null;
+      }
+   }
+
+   private static void UpdateStackSizeAtBranchTarget(
+      StackCalculationInfo state,
+      Int32 jump,
+      Int32 stackSize
+      )
+   {
+      var idx = state.NextCodeByteOffset + jump;
+      state.StackSizes[idx] = Math.Max( state.StackSizes[idx], stackSize );
    }
 }
