@@ -625,7 +625,8 @@ namespace CILAssemblyManipulator.Physical.Implementation
          {
             var method = md.MethodDefinitions[i];
             UInt32 thisMethodRVA;
-            if ( method.HasILMethodBody() )
+            var il = method.IL;
+            if ( il != null )
             {
                var writer = new MethodILWriter( md, i, usersStrings, byteArrayHelper );
                if ( !writer.IsTinyHeader )
