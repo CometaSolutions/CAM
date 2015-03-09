@@ -208,15 +208,16 @@ namespace CILAssemblyManipulator.Physical.Implementation
          // Start with method ILs
          // Current offset within section
          var currentOffset = iatSize + snSize + snPadding + HeaderFieldOffsetsAndLengths.CLI_HEADER_SIZE;
+         var byteArrayHelper = new ByteArrayHelper();
          UserStringHeapWriter usersStrings; IList<UInt32> methodRVAs;
-         WriteMethodDefsIL( md, sink, codeSectionVirtualOffset, isPE64, ref currentOffset, out usersStrings, out methodRVAs );
+         WriteMethodDefsIL( md, sink, codeSectionVirtualOffset, isPE64, byteArrayHelper, ref currentOffset, out usersStrings, out methodRVAs );
 
          // Write manifest resources & field RVAs here
          UInt32 mResRVA, mResSize; IList<UInt32?> mResInfo; IList<UInt32> fieldRVAs;
          WriteDataBeforeMD( md, sink, codeSectionVirtualOffset, isPE64, out mResRVA, out mResSize, out mResInfo, out fieldRVAs, ref currentOffset );
 
          var mdRVA = codeSectionVirtualOffset + currentOffset;
-         var mdSize = WriteMetaData( md, sink, headers, eArgs, usersStrings, methodRVAs, fieldRVAs, mResInfo, thisAssemblyPublicKey );
+         var mdSize = WriteMetaData( md, sink, headers, eArgs, usersStrings, byteArrayHelper, methodRVAs, fieldRVAs, mResInfo, thisAssemblyPublicKey );
          currentOffset += mdSize;
 
          // Pad
@@ -610,6 +611,7 @@ namespace CILAssemblyManipulator.Physical.Implementation
          Stream sink,
          UInt32 codeSectionVirtualOffset,
          Boolean isPE64,
+         ByteArrayHelper byteArrayHelper,
          ref UInt32 currentOffset,
          out UserStringHeapWriter usersStrings,
          out IList<UInt32> methodRVAs
@@ -625,16 +627,14 @@ namespace CILAssemblyManipulator.Physical.Implementation
             UInt32 thisMethodRVA;
             if ( method.HasILMethodBody() )
             {
-               Boolean isTiny;
-               var array = new MethodILWriter( md, i, usersStrings )
-                  .PerformEmitting( currentOffset, out isTiny );
-               if ( !isTiny )
+               var writer = new MethodILWriter( md, i, usersStrings, byteArrayHelper );
+               if ( !writer.IsTinyHeader )
                {
                   sink.SkipToNextAlignment( ref currentOffset, 4 );
                }
+
                thisMethodRVA = codeSectionVirtualOffset + currentOffset;
-               sink.Write( array );
-               currentOffset += (UInt32) array.Length;
+               currentOffset += (UInt32) writer.PerformEmitting( sink );
             }
             else
             {
@@ -724,6 +724,7 @@ namespace CILAssemblyManipulator.Physical.Implementation
          HeadersData headers,
          EmittingArguments eArgs,
          UserStringHeapWriter userStrings,
+         ByteArrayHelper byteArrayHelper,
          IList<UInt32> methodRVAs,
          IList<UInt32> fieldRVAs,
          IList<UInt32?> embeddedManifestOffsets,
@@ -744,7 +745,7 @@ namespace CILAssemblyManipulator.Physical.Implementation
          var streamSizes = new UInt32[HEAP_COUNT];
 
          BLOBHeapWriter blobs; SystemStringHeapWriter sysStrings; GUIDHeapWriter guids; Object[] heapInfos;
-         CreateMDHeaps( md, thisAssemblyPublicKey, out blobs, out sysStrings, out guids, out heapInfos );
+         CreateMDHeaps( md, thisAssemblyPublicKey, byteArrayHelper, out blobs, out sysStrings, out guids, out heapInfos );
 
          var hasSysStrings = sysStrings.Accessed;
          var hasUserStrings = userStrings.Accessed;
@@ -943,7 +944,7 @@ namespace CILAssemblyManipulator.Physical.Implementation
 
          // Table stream tables start right here
          // ECMA-335, p. 239
-         ForEachElement<ModuleDefinition, HeapInfo4>( Tables.Module, md.ModuleDefinitions, tableWidths, sink, heapInfos, ref anArray, ( array, idx, listIdx, module, heapInfo ) => array
+         ForEachElement<ModuleDefinition, HeapInfo4>( Tables.Module, md.ModuleDefinitions, tableWidths, sink, heapInfos, byteArrayHelper, ( array, idx, listIdx, module, heapInfo ) => array
             .WriteInt16LEToBytes( ref idx, module.Generation ) // Generation
             .WriteHeapIndex( ref idx, sysStrings, heapInfo.Heap1 ) // Name
             .WriteHeapIndex( ref idx, guids, heapInfo.Heap2 ) // MvId
@@ -952,13 +953,13 @@ namespace CILAssemblyManipulator.Physical.Implementation
             );
          // ECMA-335, p. 247
          // TypeRef may contain types which result in duplicate rows - avoid that
-         ForEachElement<TypeReference, HeapInfo2>( Tables.TypeRef, md.TypeReferences, tableWidths, sink, heapInfos, ref anArray, ( array, idx, listIdx, typeRef, heapInfo ) => array
+         ForEachElement<TypeReference, HeapInfo2>( Tables.TypeRef, md.TypeReferences, tableWidths, sink, heapInfos, byteArrayHelper, ( array, idx, listIdx, typeRef, heapInfo ) => array
             .WriteCodedTableIndex( ref idx, CodedTableIndexKind.ResolutionScope, typeRef.ResolutionScope, tRefWidths ) // ResolutionScope
             .WriteHeapIndex( ref idx, sysStrings, heapInfo.Heap1 ) // TypeName
             .WriteHeapIndex( ref idx, sysStrings, heapInfo.Heap2 ) // TypeNamespace
             );
          // ECMA-335, p. 243
-         ForEachElement<TypeDefinition, HeapInfo2>( Tables.TypeDef, md.TypeDefinitions, tableWidths, sink, heapInfos, ref anArray, ( array, idx, listIdx, typeDef, heapInfo ) => array
+         ForEachElement<TypeDefinition, HeapInfo2>( Tables.TypeDef, md.TypeDefinitions, tableWidths, sink, heapInfos, byteArrayHelper, ( array, idx, listIdx, typeDef, heapInfo ) => array
             .WriteInt32LEToBytes( ref idx, (Int32) typeDef.Attributes ) // Flags
             .WriteHeapIndex( ref idx, sysStrings, heapInfo.Heap1 ) // TypeName
             .WriteHeapIndex( ref idx, sysStrings, heapInfo.Heap2 ) // TypeNamespace
@@ -967,13 +968,13 @@ namespace CILAssemblyManipulator.Physical.Implementation
             .WriteSimpleTableIndex( ref idx, typeDef.MethodList, tableSizes ) // MethodList
             );
          // ECMA-335, p. 223
-         ForEachElement<FieldDefinition, HeapInfo2>( Tables.Field, md.FieldDefinitions, tableWidths, sink, heapInfos, ref anArray, ( array, idx, listIdx, fDef, heapInfo ) => array
+         ForEachElement<FieldDefinition, HeapInfo2>( Tables.Field, md.FieldDefinitions, tableWidths, sink, heapInfos, byteArrayHelper, ( array, idx, listIdx, fDef, heapInfo ) => array
             .WriteInt16LEToBytes( ref idx, (Int16) fDef.Attributes ) // FieldAttributes
             .WriteHeapIndex( ref idx, sysStrings, heapInfo.Heap1 ) // Name
             .WriteHeapIndex( ref idx, blobs, heapInfo.Heap2 ) // Signature
             );
          // ECMA-335, p. 233
-         ForEachElement<MethodDefinition, HeapInfo2>( Tables.MethodDef, md.MethodDefinitions, tableWidths, sink, heapInfos, ref anArray, ( array, idx, listIdx, mDef, heapInfo ) => array
+         ForEachElement<MethodDefinition, HeapInfo2>( Tables.MethodDef, md.MethodDefinitions, tableWidths, sink, heapInfos, byteArrayHelper, ( array, idx, listIdx, mDef, heapInfo ) => array
             .WriteUInt32LEToBytes( ref idx, methodRVAs[listIdx] ) // RVA
             .WriteInt16LEToBytes( ref idx, (Int16) mDef.ImplementationAttributes ) // ImplFlags
             .WriteInt16LEToBytes( ref idx, (Int16) mDef.Attributes ) // Flags
@@ -982,116 +983,116 @@ namespace CILAssemblyManipulator.Physical.Implementation
             .WriteSimpleTableIndex( ref idx, mDef.ParameterList, tableSizes ) // ParamList
             );
          // ECMA-335, p. 240
-         ForEachElement<ParameterDefinition, HeapInfo1>( Tables.Parameter, md.ParameterDefinitions, tableWidths, sink, heapInfos, ref anArray, ( array, idx, listIdx, pDef, heapInfo ) => array
+         ForEachElement<ParameterDefinition, HeapInfo1>( Tables.Parameter, md.ParameterDefinitions, tableWidths, sink, heapInfos, byteArrayHelper, ( array, idx, listIdx, pDef, heapInfo ) => array
             .WriteInt16LEToBytes( ref idx, (Int16) pDef.Attributes ) // Flags
             .WriteUInt16LEToBytes( ref idx, (UInt16) pDef.Sequence ) // Sequence
             .WriteHeapIndex( ref idx, sysStrings, heapInfo.Heap1 ) // Name
             );
          // ECMA-335, p. 231
-         ForEachElement( Tables.InterfaceImpl, md.InterfaceImplementations, tableWidths, sink, ref anArray, ( array, idx, listIdx, item ) => array
+         ForEachElement( Tables.InterfaceImpl, md.InterfaceImplementations, tableWidths, sink, byteArrayHelper, ( array, idx, listIdx, item ) => array
             .WriteSimpleTableIndex( ref idx, item.Class, tableSizes ) // Class
             .WriteCodedTableIndex( ref idx, CodedTableIndexKind.TypeDefOrRef, item.Interface, tRefWidths ) // Interface
             );
          // ECMA-335, p. 232
-         ForEachElement<MemberReference, HeapInfo2>( Tables.MemberRef, md.MemberReferences, tableWidths, sink, heapInfos, ref anArray, ( array, idx, listIdx, mRef, heapInfo ) => array
+         ForEachElement<MemberReference, HeapInfo2>( Tables.MemberRef, md.MemberReferences, tableWidths, sink, heapInfos, byteArrayHelper, ( array, idx, listIdx, mRef, heapInfo ) => array
             .WriteCodedTableIndex( ref idx, CodedTableIndexKind.MemberRefParent, mRef.DeclaringType, tRefWidths ) // Class
             .WriteHeapIndex( ref idx, sysStrings, heapInfo.Heap1 ) // Name
             .WriteHeapIndex( ref idx, blobs, heapInfo.Heap2 ) // Signature
             );
          // ECMA-335, p. 216
-         ForEachElement<ConstantDefinition, HeapInfo1>( Tables.Constant, md.ConstantDefinitions, tableWidths, sink, heapInfos, ref anArray, ( array, idx, listIdx, constant, heapInfo ) => array
+         ForEachElement<ConstantDefinition, HeapInfo1>( Tables.Constant, md.ConstantDefinitions, tableWidths, sink, heapInfos, byteArrayHelper, ( array, idx, listIdx, constant, heapInfo ) => array
             .WriteInt16LEToBytes( ref idx, (Int16) constant.Type ) // Type
             .WriteCodedTableIndex( ref idx, CodedTableIndexKind.HasConstant, constant.Parent, tRefWidths ) // Parent
             .WriteHeapIndex( ref idx, blobs, heapInfo.Heap1 ) // Value
             );
          // ECMA-335, p. 216
-         ForEachElement<CustomAttributeDefinition, HeapInfo1>( Tables.CustomAttribute, md.CustomAttributeDefinitions, tableWidths, sink, heapInfos, ref anArray, ( array, idx, listIdx, ca, heapInfo ) => array
+         ForEachElement<CustomAttributeDefinition, HeapInfo1>( Tables.CustomAttribute, md.CustomAttributeDefinitions, tableWidths, sink, heapInfos, byteArrayHelper, ( array, idx, listIdx, ca, heapInfo ) => array
             .WriteCodedTableIndex( ref idx, CodedTableIndexKind.HasCustomAttribute, ca.Parent, tRefWidths ) // Parent
             .WriteCodedTableIndex( ref idx, CodedTableIndexKind.CustomAttributeType, ca.Type, tRefWidths ) // Type
             .WriteHeapIndex( ref idx, blobs, heapInfo.Heap1 )
             );
          // ECMA-335, p.226
-         ForEachElement<FieldMarshal, HeapInfo1>( Tables.FieldMarshal, md.FieldMarshals, tableWidths, sink, heapInfos, ref anArray, ( array, idx, listIdx, fm, heapInfo ) => array
+         ForEachElement<FieldMarshal, HeapInfo1>( Tables.FieldMarshal, md.FieldMarshals, tableWidths, sink, heapInfos, byteArrayHelper, ( array, idx, listIdx, fm, heapInfo ) => array
             .WriteCodedTableIndex( ref idx, CodedTableIndexKind.HasFieldMarshal, fm.Parent, tRefWidths ) // Parent
             .WriteHeapIndex( ref idx, blobs, heapInfo.Heap1 ) // NativeType
             );
          // ECMA-335, p. 218
-         ForEachElement<SecurityDefinition, HeapInfo1>( Tables.DeclSecurity, md.SecurityDefinitions, tableWidths, sink, heapInfos, ref anArray, ( array, idx, listIdx, sec, heapInfo ) => array
+         ForEachElement<SecurityDefinition, HeapInfo1>( Tables.DeclSecurity, md.SecurityDefinitions, tableWidths, sink, heapInfos, byteArrayHelper, ( array, idx, listIdx, sec, heapInfo ) => array
             .WriteInt16LEToBytes( ref idx, (Int16) sec.Action ) // Action
             .WriteCodedTableIndex( ref idx, CodedTableIndexKind.HasDeclSecurity, sec.Parent, tRefWidths ) // Parent
             .WriteHeapIndex( ref idx, blobs, heapInfo.Heap1 ) // PermissionSet
             );
          // ECMA-335 p. 215
-         ForEachElement( Tables.ClassLayout, md.ClassLayouts, tableWidths, sink, ref anArray, ( array, idx, listIdx, cl ) => array
+         ForEachElement( Tables.ClassLayout, md.ClassLayouts, tableWidths, sink, byteArrayHelper, ( array, idx, listIdx, cl ) => array
             .WriteInt16LEToBytes( ref idx, cl.PackingSize ) // PackingSize
             .WriteInt32LEToBytes( ref idx, cl.ClassSize ) // ClassSize
             .WriteSimpleTableIndex( ref idx, cl.Parent, tableSizes ) // Parent
             );
          // ECMA-335 p. 225
-         ForEachElement( Tables.FieldLayout, md.FieldLayouts, tableWidths, sink, ref anArray, ( array, idx, listIdx, fl ) => array
+         ForEachElement( Tables.FieldLayout, md.FieldLayouts, tableWidths, sink, byteArrayHelper, ( array, idx, listIdx, fl ) => array
             .WriteInt32LEToBytes( ref idx, fl.Offset ) // Offset
             .WriteSimpleTableIndex( ref idx, fl.Field, tableSizes ) // Field
             );
          // ECMA-335 p. 243
-         ForEachElement<StandaloneSignature, HeapInfo1>( Tables.StandaloneSignature, md.StandaloneSignatures, tableWidths, sink, heapInfos, ref anArray, ( array, idx, listIdx, sig, heapInfo ) => array
+         ForEachElement<StandaloneSignature, HeapInfo1>( Tables.StandaloneSignature, md.StandaloneSignatures, tableWidths, sink, heapInfos, byteArrayHelper, ( array, idx, listIdx, sig, heapInfo ) => array
             .WriteHeapIndex( ref idx, blobs, heapInfo.Heap1 ) // Signature
             );
          // ECMA-335 p. 220
-         ForEachElement( Tables.EventMap, md.EventMaps, tableWidths, sink, ref anArray, ( array, idx, listIdx, em ) => array
+         ForEachElement( Tables.EventMap, md.EventMaps, tableWidths, sink, byteArrayHelper, ( array, idx, listIdx, em ) => array
             .WriteSimpleTableIndex( ref idx, em.Parent, tableSizes ) // Parent
             .WriteSimpleTableIndex( ref idx, em.EventList, tableSizes ) // EventList
             );
          // ECMA-335 p. 221
-         ForEachElement<EventDefinition, HeapInfo1>( Tables.Event, md.EventDefinitions, tableWidths, sink, heapInfos, ref anArray, ( array, idx, listIdx, evt, heapInfo ) => array
+         ForEachElement<EventDefinition, HeapInfo1>( Tables.Event, md.EventDefinitions, tableWidths, sink, heapInfos, byteArrayHelper, ( array, idx, listIdx, evt, heapInfo ) => array
             .WriteInt16LEToBytes( ref idx, (Int16) evt.Attributes ) // EventFlags
             .WriteHeapIndex( ref idx, sysStrings, heapInfo.Heap1 ) // Name
             .WriteCodedTableIndex( ref idx, CodedTableIndexKind.TypeDefOrRef, evt.EventType, tRefWidths ) // EventType
             );
          // ECMA-335 p. 242
-         ForEachElement( Tables.PropertyMap, md.PropertyMaps, tableWidths, sink, ref anArray, ( array, idx, listIdx, pm ) => array
+         ForEachElement( Tables.PropertyMap, md.PropertyMaps, tableWidths, sink, byteArrayHelper, ( array, idx, listIdx, pm ) => array
             .WriteSimpleTableIndex( ref idx, pm.Parent, tableSizes ) // Parent
             .WriteSimpleTableIndex( ref idx, pm.PropertyList, tableSizes ) // PropertyList
             );
          // ECMA-335 p. 242
-         ForEachElement<PropertyDefinition, HeapInfo2>( Tables.Property, md.PropertyDefinitions, tableWidths, sink, heapInfos, ref anArray, ( array, idx, listIdx, prop, heapInfo ) => array
+         ForEachElement<PropertyDefinition, HeapInfo2>( Tables.Property, md.PropertyDefinitions, tableWidths, sink, heapInfos, byteArrayHelper, ( array, idx, listIdx, prop, heapInfo ) => array
             .WriteInt16LEToBytes( ref idx, (Int16) prop.Attributes ) // Flags
             .WriteHeapIndex( ref idx, sysStrings, heapInfo.Heap1 ) // Name
             .WriteHeapIndex( ref idx, blobs, heapInfo.Heap2 ) // Type
             );
          // ECMA-335 p. 237
-         ForEachElement( Tables.MethodSemantics, md.MethodSemantics, tableWidths, sink, ref anArray, ( array, idx, listIdx, ms ) => array
+         ForEachElement( Tables.MethodSemantics, md.MethodSemantics, tableWidths, sink, byteArrayHelper, ( array, idx, listIdx, ms ) => array
             .WriteInt16LEToBytes( ref idx, (Int16) ms.Attributes ) // Semantics
             .WriteSimpleTableIndex( ref idx, ms.Method, tableSizes ) // Method
             .WriteCodedTableIndex( ref idx, CodedTableIndexKind.HasSemantics, ms.Associaton, tRefWidths ) // Association
             );
          // ECMA-335 p. 237
-         ForEachElement( Tables.MethodImpl, md.MethodImplementations, tableWidths, sink, ref anArray, ( array, idx, listIdx, mi ) => array
+         ForEachElement( Tables.MethodImpl, md.MethodImplementations, tableWidths, sink, byteArrayHelper, ( array, idx, listIdx, mi ) => array
             .WriteSimpleTableIndex( ref idx, mi.Class, tableSizes ) // Class
             .WriteCodedTableIndex( ref idx, CodedTableIndexKind.MethodDefOrRef, mi.MethodBody, tRefWidths ) // MethodBody
             .WriteCodedTableIndex( ref idx, CodedTableIndexKind.MethodDefOrRef, mi.MethodDeclaration, tRefWidths ) // MethodDeclaration
             );
          // ECMA-335, p. 239
-         ForEachElement<ModuleReference, HeapInfo1>( Tables.ModuleRef, md.ModuleReferences, tableWidths, sink, heapInfos, ref anArray, ( array, idx, listIdx, modRef, heapInfo ) => array
+         ForEachElement<ModuleReference, HeapInfo1>( Tables.ModuleRef, md.ModuleReferences, tableWidths, sink, heapInfos, byteArrayHelper, ( array, idx, listIdx, modRef, heapInfo ) => array
             .WriteHeapIndex( ref idx, sysStrings, heapInfo.Heap1 ) // Name
             );
          // ECMA-335, p. 248
-         ForEachElement<TypeSpecification, HeapInfo1>( Tables.TypeSpec, md.TypeSpecifications, tableWidths, sink, heapInfos, ref anArray, ( array, idx, listIdx, tSpec, heapInfo ) => array
+         ForEachElement<TypeSpecification, HeapInfo1>( Tables.TypeSpec, md.TypeSpecifications, tableWidths, sink, heapInfos, byteArrayHelper, ( array, idx, listIdx, tSpec, heapInfo ) => array
             .WriteHeapIndex( ref idx, blobs, heapInfo.Heap1 ) // Signature
             );
          // ECMA-335, p. 230
-         ForEachElement<MethodImplementationMap, HeapInfo1>( Tables.ImplMap, md.MethodImplementationMaps, tableWidths, sink, heapInfos, ref anArray, ( array, idx, listIdx, mim, heapInfo ) => array
+         ForEachElement<MethodImplementationMap, HeapInfo1>( Tables.ImplMap, md.MethodImplementationMaps, tableWidths, sink, heapInfos, byteArrayHelper, ( array, idx, listIdx, mim, heapInfo ) => array
             .WriteInt16LEToBytes( ref idx, (Int16) mim.Attributes ) // PInvokeAttributes
             .WriteCodedTableIndex( ref idx, CodedTableIndexKind.MemberForwarded, mim.MemberForwarded, tRefWidths ) // MemberForwarded
             .WriteHeapIndex( ref idx, sysStrings, heapInfo.Heap1 ) // Import name
             .WriteSimpleTableIndex( ref idx, mim.ImportScope, tableSizes ) // Import scope
             );
          // ECMA-335, p. 227
-         ForEachElement( Tables.FieldRVA, md.FieldRVAs, tableWidths, sink, ref anArray, ( array, idx, listIdx, fRVA ) => array
+         ForEachElement( Tables.FieldRVA, md.FieldRVAs, tableWidths, sink, byteArrayHelper, ( array, idx, listIdx, fRVA ) => array
             .WriteUInt32LEToBytes( ref idx, fieldRVAs[listIdx] )
             .WriteSimpleTableIndex( ref idx, fRVA.Field, tableSizes )
             );
          // ECMA-335, p. 211
-         ForEachElement<AssemblyDefinition, HeapInfo3>( Tables.Assembly, md.AssemblyDefinitions, tableWidths, sink, heapInfos, ref anArray, ( array, idx, listIdx, ass, heapInfo ) => array
+         ForEachElement<AssemblyDefinition, HeapInfo3>( Tables.Assembly, md.AssemblyDefinitions, tableWidths, sink, heapInfos, byteArrayHelper, ( array, idx, listIdx, ass, heapInfo ) => array
             .WriteInt32LEToBytes( ref idx, (Int32) ass.HashAlgorithm ) // HashAlgId
             .WriteUInt16LEToBytes( ref idx, (UInt16) ass.AssemblyInformation.VersionMajor ) // MajorVersion
             .WriteUInt16LEToBytes( ref idx, (UInt16) ass.AssemblyInformation.VersionMinor ) // MinorVersion
@@ -1103,7 +1104,7 @@ namespace CILAssemblyManipulator.Physical.Implementation
             .WriteHeapIndex( ref idx, sysStrings, heapInfo.Heap3 ) // Culture
             );
          // ECMA-335, p. 212
-         ForEachElement<AssemblyReference, HeapInfo4>( Tables.AssemblyRef, md.AssemblyReferences, tableWidths, sink, heapInfos, ref anArray, ( array, idx, listIdx, assRef, heapInfo ) => array
+         ForEachElement<AssemblyReference, HeapInfo4>( Tables.AssemblyRef, md.AssemblyReferences, tableWidths, sink, heapInfos, byteArrayHelper, ( array, idx, listIdx, assRef, heapInfo ) => array
             .WriteUInt16LEToBytes( ref idx, (UInt16) assRef.AssemblyInformation.VersionMajor ) // MajorVersion
             .WriteUInt16LEToBytes( ref idx, (UInt16) assRef.AssemblyInformation.VersionMinor ) // MinorVersion
             .WriteUInt16LEToBytes( ref idx, (UInt16) assRef.AssemblyInformation.VersionBuild ) // BuildNumber
@@ -1114,43 +1115,43 @@ namespace CILAssemblyManipulator.Physical.Implementation
             .WriteHeapIndex( ref idx, sysStrings, heapInfo.Heap3 ) // Culture
             .WriteHeapIndex( ref idx, blobs, heapInfo.Heap4 ) // HashValue
             );
-         ForEachElement<FileReference, HeapInfo2>( Tables.File, md.FileReferences, tableWidths, sink, heapInfos, ref anArray, ( array, idx, listIdx, file, heapInfo ) => array
+         ForEachElement<FileReference, HeapInfo2>( Tables.File, md.FileReferences, tableWidths, sink, heapInfos, byteArrayHelper, ( array, idx, listIdx, file, heapInfo ) => array
             .WriteInt32LEToBytes( ref idx, (Int32) file.Attributes ) // Flags
             .WriteHeapIndex( ref idx, sysStrings, heapInfo.Heap1 ) // Name
             .WriteHeapIndex( ref idx, blobs, heapInfo.Heap2 ) // HashValue
             );
-         ForEachElement<ExportedType, HeapInfo2>( Tables.ExportedType, md.ExportedTypes, tableWidths, sink, heapInfos, ref anArray, ( array, idx, listIdx, eType, heapInfo ) => array
+         ForEachElement<ExportedType, HeapInfo2>( Tables.ExportedType, md.ExportedTypes, tableWidths, sink, heapInfos, byteArrayHelper, ( array, idx, listIdx, eType, heapInfo ) => array
             .WriteInt32LEToBytes( ref idx, (Int32) eType.Attributes ) // TypeAttributes
             .WriteInt32LEToBytes( ref idx, eType.TypeDefinitionIndex ) // TypeDef index in other (!) assembly
             .WriteHeapIndex( ref idx, sysStrings, heapInfo.Heap1 ) // TypeName
             .WriteHeapIndex( ref idx, sysStrings, heapInfo.Heap2 ) // TypeNamespace
             .WriteCodedTableIndex( ref idx, CodedTableIndexKind.Implementation, eType.Implementation, tRefWidths ) // Implementation
             );
-         ForEachElement<ManifestResource, HeapInfo1>( Tables.ManifestResource, md.ManifestResources, tableWidths, sink, heapInfos, ref anArray, ( array, idx, listIdx, mRes, heapInfo ) => array
+         ForEachElement<ManifestResource, HeapInfo1>( Tables.ManifestResource, md.ManifestResources, tableWidths, sink, heapInfos, byteArrayHelper, ( array, idx, listIdx, mRes, heapInfo ) => array
             .WriteUInt32LEToBytes( ref idx, embeddedManifestOffsets[listIdx] ?? (UInt32) mRes.Offset ) // Offset
             .WriteInt32LEToBytes( ref idx, (Int32) mRes.Attributes ) // Flags
             .WriteHeapIndex( ref idx, sysStrings, heapInfo.Heap1 ) // Name
             .WriteCodedTableIndex( ref idx, CodedTableIndexKind.Implementation, mRes.Implementation, tRefWidths ) // Implementation
             );
          // ECMA-335, p. 240
-         ForEachElement( Tables.NestedClass, md.NestedClassDefinitions, tableWidths, sink, ref anArray, ( array, idx, listIdx, nc ) => array
+         ForEachElement( Tables.NestedClass, md.NestedClassDefinitions, tableWidths, sink, byteArrayHelper, ( array, idx, listIdx, nc ) => array
             .WriteSimpleTableIndex( ref idx, nc.NestedClass, tableSizes ) // NestedClass
             .WriteSimpleTableIndex( ref idx, nc.EnclosingClass, tableSizes ) // EnclosingClass
             );
          // ECMA-335, p. 228
-         ForEachElement<GenericParameterDefinition, HeapInfo1>( Tables.GenericParameter, md.GenericParameterDefinitions, tableWidths, sink, heapInfos, ref anArray, ( array, idx, listIdx, gParam, heapInfo ) => array
+         ForEachElement<GenericParameterDefinition, HeapInfo1>( Tables.GenericParameter, md.GenericParameterDefinitions, tableWidths, sink, heapInfos, byteArrayHelper, ( array, idx, listIdx, gParam, heapInfo ) => array
             .WriteUInt16LEToBytes( ref idx, (UInt16) gParam.GenericParameterIndex ) // Number
             .WriteInt16LEToBytes( ref idx, (Int16) gParam.Attributes ) // Flags
             .WriteCodedTableIndex( ref idx, CodedTableIndexKind.TypeOrMethodDef, gParam.Owner, tRefWidths ) // Owner
             .WriteHeapIndex( ref idx, sysStrings, heapInfo.Heap1 ) // Name
             );
          // ECMA-335, p. 238
-         ForEachElement<MethodSpecification, HeapInfo1>( Tables.MethodSpec, md.MethodSpecifications, tableWidths, sink, heapInfos, ref anArray, ( array, idx, listIdx, mSpec, heapInfo ) => array
+         ForEachElement<MethodSpecification, HeapInfo1>( Tables.MethodSpec, md.MethodSpecifications, tableWidths, sink, heapInfos, byteArrayHelper, ( array, idx, listIdx, mSpec, heapInfo ) => array
             .WriteCodedTableIndex( ref idx, CodedTableIndexKind.MethodDefOrRef, mSpec.Method, tRefWidths ) // Method
             .WriteHeapIndex( ref idx, blobs, heapInfo.Heap1 ) // Instantiation
             );
          // ECMA-335, p. 229
-         ForEachElement( Tables.GenericParameterConstraint, md.GenericParameterConstraintDefinitions, tableWidths, sink, ref anArray, ( array, idx, listIdx, gConstraint ) => array
+         ForEachElement( Tables.GenericParameterConstraint, md.GenericParameterConstraintDefinitions, tableWidths, sink, byteArrayHelper, ( array, idx, listIdx, gConstraint ) => array
             .WriteSimpleTableIndex( ref idx, gConstraint.Owner, tableSizes ) // Owner
             .WriteCodedTableIndex( ref idx, CodedTableIndexKind.TypeDefOrRef, gConstraint.Constraint, tRefWidths ) // Constraint
             );
@@ -1175,7 +1176,7 @@ namespace CILAssemblyManipulator.Physical.Implementation
          Int32[] tableWidths,
          Stream sink,
          Object[] heapInfos,
-         ref Byte[] array,
+         ByteArrayHelper byteArrayHelper,
          Action<Byte[], Int32, Int32, T, U> writeAction
          )
       {
@@ -1183,10 +1184,11 @@ namespace CILAssemblyManipulator.Physical.Implementation
          if ( count > 0 )
          {
             Int32 width;
-            var arrayLen = CheckArrayForTableEmitting( tableEnum, count, tableWidths, ref array, out width );
+            var arrayLen = CheckArrayForTableEmitting( tableEnum, count, tableWidths, byteArrayHelper, out width );
             var idx = 0;
             var tableIdx = 0;
             var heapInfoList = (List<U>) heapInfos[(Int32) tableEnum];
+            var array = byteArrayHelper.Array;
             foreach ( var item in table )
             {
                writeAction( array, idx, tableIdx, item, heapInfoList[tableIdx] );
@@ -1208,7 +1210,7 @@ namespace CILAssemblyManipulator.Physical.Implementation
          ICollection<T> table,
          Int32[] tableWidths,
          Stream sink,
-         ref Byte[] array,
+         ByteArrayHelper byteArrayHelper,
          Action<Byte[], Int32, Int32, T> writeAction
          )
       {
@@ -1216,9 +1218,10 @@ namespace CILAssemblyManipulator.Physical.Implementation
          if ( count > 0 )
          {
             Int32 width;
-            var arrayLen = CheckArrayForTableEmitting( tableEnum, count, tableWidths, ref array, out width );
+            var arrayLen = CheckArrayForTableEmitting( tableEnum, count, tableWidths, byteArrayHelper, out width );
             var idx = 0;
             var tableIdx = 0;
+            var array = byteArrayHelper.Array;
             foreach ( var item in table )
             {
                writeAction( array, idx, tableIdx, item );
@@ -1235,20 +1238,18 @@ namespace CILAssemblyManipulator.Physical.Implementation
          }
       }
 
-      private static Int32 CheckArrayForTableEmitting( Tables tableEnum, Int32 rowCount, Int32[] tableWidths, ref Byte[] array, out Int32 width )
+      private static Int32 CheckArrayForTableEmitting( Tables tableEnum, Int32 rowCount, Int32[] tableWidths, ByteArrayHelper byteArrayHelper, out Int32 width )
       {
          width = tableWidths[(Int32) tableEnum];
          var arrayLen = width * rowCount;
-         if ( array == null || array.Length < arrayLen )
-         {
-            array = new Byte[arrayLen];
-         }
+         byteArrayHelper.EnsureSize( arrayLen );
          return arrayLen;
       }
 
       private static void CreateMDHeaps(
          CILMetaData md,
          Byte[] thisAssemblyPublicKey,
+         ByteArrayHelper byteArrayHelper,
          out BLOBHeapWriter blobsParam,
          out SystemStringHeapWriter sysStringsParam,
          out GUIDHeapWriter guidsParam,
@@ -1260,7 +1261,6 @@ namespace CILAssemblyManipulator.Physical.Implementation
          var guids = new GUIDHeapWriter();
          heapInfos = new Object[Consts.AMOUNT_OF_TABLES];
 
-         var blobHelper = new ByteArrayHelper();
          var auxHelper = new ByteArrayHelper(); // For writing security BLOBs
          // 0x00 Module
          ProcessTableForHeaps4( Tables.Module, md.ModuleDefinitions, heapInfos, mod => new HeapInfo4( sysStrings.GetOrAddString( mod.Name ), guids.GetOrAddGUID( mod.ModuleGUID ), guids.GetOrAddGUID( mod.EditAndContinueGUID ), guids.GetOrAddGUID( mod.EditAndContinueBaseGUID ) ) );
@@ -1269,31 +1269,31 @@ namespace CILAssemblyManipulator.Physical.Implementation
          // 0x02 TypeDef
          ProcessTableForHeaps2( Tables.TypeDef, md.TypeDefinitions, heapInfos, td => new HeapInfo2( sysStrings.GetOrAddString( td.Name ), sysStrings.GetOrAddString( td.Namespace ) ) );
          // 0x04 FieldDef
-         ProcessTableForHeaps2( Tables.Field, md.FieldDefinitions, heapInfos, f => new HeapInfo2( sysStrings.GetOrAddString( f.Name ), blobs.GetOrAddBLOB( blobHelper.CreateFieldSignature( f.Signature ) ) ) );
+         ProcessTableForHeaps2( Tables.Field, md.FieldDefinitions, heapInfos, f => new HeapInfo2( sysStrings.GetOrAddString( f.Name ), blobs.GetOrAddBLOB( byteArrayHelper.CreateFieldSignature( f.Signature ) ) ) );
          // 0x06 MethodDef
-         ProcessTableForHeaps2( Tables.MethodDef, md.MethodDefinitions, heapInfos, m => new HeapInfo2( sysStrings.GetOrAddString( m.Name ), blobs.GetOrAddBLOB( blobHelper.CreateMethodSignature( m.Signature ) ) ) );
+         ProcessTableForHeaps2( Tables.MethodDef, md.MethodDefinitions, heapInfos, m => new HeapInfo2( sysStrings.GetOrAddString( m.Name ), blobs.GetOrAddBLOB( byteArrayHelper.CreateMethodSignature( m.Signature ) ) ) );
          // 0x08 Parameter
          ProcessTableForHeaps1( Tables.Parameter, md.ParameterDefinitions, heapInfos, p => new HeapInfo1( sysStrings.GetOrAddString( p.Name ) ) );
          // 0x0A MemberRef
-         ProcessTableForHeaps2( Tables.MemberRef, md.MemberReferences, heapInfos, m => new HeapInfo2( sysStrings.GetOrAddString( m.Name ), blobs.GetOrAddBLOB( blobHelper.CreateMemberRefSignature( m.Signature ) ) ) );
+         ProcessTableForHeaps2( Tables.MemberRef, md.MemberReferences, heapInfos, m => new HeapInfo2( sysStrings.GetOrAddString( m.Name ), blobs.GetOrAddBLOB( byteArrayHelper.CreateMemberRefSignature( m.Signature ) ) ) );
          // 0x0B Constant
-         ProcessTableForHeaps1( Tables.Constant, md.ConstantDefinitions, heapInfos, c => new HeapInfo1( blobs.GetOrAddBLOB( blobHelper.CreateConstantBytes( c.Value ) ) ) );
+         ProcessTableForHeaps1( Tables.Constant, md.ConstantDefinitions, heapInfos, c => new HeapInfo1( blobs.GetOrAddBLOB( byteArrayHelper.CreateConstantBytes( c.Value ) ) ) );
          // 0x0C CustomAttribute
-         ProcessTableForHeaps1( Tables.CustomAttribute, md.CustomAttributeDefinitions, heapInfos, ca => new HeapInfo1( blobs.GetOrAddBLOB( blobHelper.CreateCustomAttributeSignature( ca.Signature ) ) ) );
+         ProcessTableForHeaps1( Tables.CustomAttribute, md.CustomAttributeDefinitions, heapInfos, ca => new HeapInfo1( blobs.GetOrAddBLOB( byteArrayHelper.CreateCustomAttributeSignature( ca.Signature ) ) ) );
          // 0x0D FieldMarshal
-         ProcessTableForHeaps1( Tables.FieldMarshal, md.FieldMarshals, heapInfos, fm => new HeapInfo1( blobs.GetOrAddBLOB( blobHelper.CreateMarshalSpec( fm.NativeType ) ) ) );
+         ProcessTableForHeaps1( Tables.FieldMarshal, md.FieldMarshals, heapInfos, fm => new HeapInfo1( blobs.GetOrAddBLOB( byteArrayHelper.CreateMarshalSpec( fm.NativeType ) ) ) );
          // 0x0E Security definitions
-         ProcessTableForHeaps1( Tables.DeclSecurity, md.SecurityDefinitions, heapInfos, sd => new HeapInfo1( blobs.GetOrAddBLOB( blobHelper.CreateSecuritySignature( sd, auxHelper ) ) ) );
+         ProcessTableForHeaps1( Tables.DeclSecurity, md.SecurityDefinitions, heapInfos, sd => new HeapInfo1( blobs.GetOrAddBLOB( byteArrayHelper.CreateSecuritySignature( sd, auxHelper ) ) ) );
          // 0x11 Standalone sig
-         ProcessTableForHeaps1( Tables.StandaloneSignature, md.StandaloneSignatures, heapInfos, s => new HeapInfo1( blobs.GetOrAddBLOB( blobHelper.CreateStandaloneSignature( s.Signature ) ) ) );
+         ProcessTableForHeaps1( Tables.StandaloneSignature, md.StandaloneSignatures, heapInfos, s => new HeapInfo1( blobs.GetOrAddBLOB( byteArrayHelper.CreateStandaloneSignature( s.Signature ) ) ) );
          // 0x14 Event
          ProcessTableForHeaps1( Tables.Event, md.EventDefinitions, heapInfos, e => new HeapInfo1( sysStrings.GetOrAddString( e.Name ) ) );
          // 0x17 Property
-         ProcessTableForHeaps2( Tables.Property, md.PropertyDefinitions, heapInfos, p => new HeapInfo2( sysStrings.GetOrAddString( p.Name ), blobs.GetOrAddBLOB( blobHelper.CreatePropertySignature( p.Signature ) ) ) );
+         ProcessTableForHeaps2( Tables.Property, md.PropertyDefinitions, heapInfos, p => new HeapInfo2( sysStrings.GetOrAddString( p.Name ), blobs.GetOrAddBLOB( byteArrayHelper.CreatePropertySignature( p.Signature ) ) ) );
          // 0x1A ModuleRef
          ProcessTableForHeaps1( Tables.ModuleRef, md.ModuleReferences, heapInfos, mr => new HeapInfo1( sysStrings.GetOrAddString( mr.ModuleName ) ) );
          // 0x1B TypeSpec
-         ProcessTableForHeaps1( Tables.TypeSpec, md.TypeSpecifications, heapInfos, t => new HeapInfo1( blobs.GetOrAddBLOB( blobHelper.CreateTypeSignature( t.Signature ) ) ) );
+         ProcessTableForHeaps1( Tables.TypeSpec, md.TypeSpecifications, heapInfos, t => new HeapInfo1( blobs.GetOrAddBLOB( byteArrayHelper.CreateTypeSignature( t.Signature ) ) ) );
          // 0x1C ImplMap
          ProcessTableForHeaps1( Tables.ImplMap, md.MethodImplementationMaps, heapInfos, mim => new HeapInfo1( sysStrings.GetOrAddString( mim.ImportName ) ) );
          // 0x20 Assembly
@@ -1309,7 +1309,7 @@ namespace CILAssemblyManipulator.Physical.Implementation
          // 0x2A GenericParameter
          ProcessTableForHeaps1( Tables.GenericParameter, md.GenericParameterDefinitions, heapInfos, g => new HeapInfo1( sysStrings.GetOrAddString( g.Name ) ) );
          // 0x2B MethosSpec
-         ProcessTableForHeaps1( Tables.MethodSpec, md.MethodSpecifications, heapInfos, m => new HeapInfo1( blobs.GetOrAddBLOB( blobHelper.CreateMethodSpecSignature( m.Signature ) ) ) );
+         ProcessTableForHeaps1( Tables.MethodSpec, md.MethodSpecifications, heapInfos, m => new HeapInfo1( blobs.GetOrAddBLOB( byteArrayHelper.CreateMethodSpecSignature( m.Signature ) ) ) );
 
          // We're done
          blobs.SetIsWideIndex();
@@ -1567,41 +1567,105 @@ namespace CILAssemblyManipulator.Physical.Implementation
    internal sealed class MethodILWriter
    {
       private const UInt32 USER_STRING_MASK = 0x70 << 24;
-      private const Int32 MAX_SMALL_EXC_HANDLERS_IN_ONE_SECTION = 20;
-      private const Int32 METHOD_DATA_SECTION_SIZE = 4;
+      private const Int32 METHOD_DATA_SECTION_HEADER_SIZE = 4;
+      private const Int32 SMALL_EXC_BLOCK_SIZE = 12;
+      private const Int32 LARGE_EXC_BLOCK_SIZE = 24;
+      private const Int32 MAX_SMALL_EXC_HANDLERS_IN_ONE_SECTION = ( Byte.MaxValue - METHOD_DATA_SECTION_HEADER_SIZE ) / SMALL_EXC_BLOCK_SIZE; // 20
+      private const Int32 MAX_LARGE_EXC_HANDLERS_IN_ONE_SECTION = ( 0x00FFFFFF - METHOD_DATA_SECTION_HEADER_SIZE ) / LARGE_EXC_BLOCK_SIZE; // 699050
+      private const Int32 FAT_HEADER_SIZE = 12;
 
       private readonly CILMetaData _md;
-      private readonly Int32 _methodDefIndex;
-      private readonly MethodDefinition _method;
       private readonly MethodILDefinition _methodIL;
       private readonly UserStringHeapWriter _usersStringHeap;
-      private readonly Byte[] _ilCode;
-      private Int32 _ilCodeCount;
+      private readonly Boolean _isTiny;
+      private readonly Boolean _exceptionSectionsAreLarge;
 
-      internal MethodILWriter( CILMetaData md, Int32 idx, UserStringHeapWriter usersStringHeap )
+      private readonly Byte[] _array;
+      private readonly Int32 _ilCodeByteCount;
+      private Int32 _arrayIndex;
+
+#if DEBUG
+      private readonly Int32 _calculatedSize;
+#endif
+
+      internal MethodILWriter( CILMetaData md, Int32 idx, UserStringHeapWriter usersStringHeap, ByteArrayHelper bytes )
       {
          this._md = md;
-         this._methodDefIndex = idx;
          this._usersStringHeap = usersStringHeap;
 
-         this._method = md.MethodDefinitions[idx];
-         this._methodIL = this._method.IL;
-         this._ilCode = new Byte[this._methodIL.OpCodes.Sum( oci => oci.ByteSize )];
-         this._ilCodeCount = 0;
+         var methodIL = md.MethodDefinitions[idx].IL;
+         this._methodIL = methodIL;
+
+         // Start by calculating the size of just IL code
+         var arraySize = methodIL.OpCodes.Sum( oci => oci.ByteSize );
+         this._ilCodeByteCount = arraySize;
+
+         // Then calculate the size of headers and other stuff
+         var localSig = this._md.GetLocalsSignatureForMethodOrNull( idx );
+         var exceptionBlocks = methodIL.ExceptionBlocks;
+         // PEVerify doesn't like mixed small and fat blocks at all (however, at least Cecil understands that kind of situation)
+         // Apparently, PEVerify doesn't like multiple small blocks either (Cecil still loads code fine)
+         // So to use small exception blocks at all, all the blocks must be small, and there must be a limited amount of them
+         var allAreSmall = exceptionBlocks.Count <= MAX_SMALL_EXC_HANDLERS_IN_ONE_SECTION
+            && exceptionBlocks.All( excBlock =>
+            {
+               return excBlock.TryLength <= Byte.MaxValue
+                  && excBlock.HandlerLength <= Byte.MaxValue
+                  && excBlock.TryOffset <= UInt16.MaxValue
+                  && excBlock.HandlerOffset <= UInt16.MaxValue;
+            } );
+
+         var maxStack = methodIL.MaxStackSize;
+
+         var excCount = exceptionBlocks.Count;
+         var hasAnyExc = excCount > 0;
+         this._isTiny = arraySize < 64
+            && !hasAnyExc
+            && maxStack <= 8
+            && ( localSig == null || localSig.Locals.Count == 0 );
+
+         if ( this._isTiny )
+         {
+            // Can use tiny header
+            ++arraySize;
+         }
+         else
+         {
+            // Use fat header
+            arraySize += FAT_HEADER_SIZE;
+            if ( hasAnyExc )
+            {
+               // Skip to next boundary of 4
+               arraySize = BitUtils.MultipleOf4( arraySize );
+               var excBlockSize = allAreSmall ? SMALL_EXC_BLOCK_SIZE : LARGE_EXC_BLOCK_SIZE;
+               var maxExcHandlersInOnSection = allAreSmall ? MAX_SMALL_EXC_HANDLERS_IN_ONE_SECTION : MAX_LARGE_EXC_HANDLERS_IN_ONE_SECTION;
+               arraySize += BinaryUtils.AmountOfPagesTaken( excCount, maxExcHandlersInOnSection ) * METHOD_DATA_SECTION_HEADER_SIZE +
+                  excCount * excBlockSize;
+            }
+         }
+
+         this._exceptionSectionsAreLarge = hasAnyExc && !allAreSmall;
+
+         bytes.EnsureSize( arraySize );
+         this._array = bytes.Array;
+         this._arrayIndex = 0;
+
+#if DEBUG
+         this._calculatedSize = arraySize;
+#endif
       }
 
-      private void Emit( OpCodeInfo codeInfo )
+      private void EmitOpCodeInfo( OpCodeInfo codeInfo )
       {
          var code = codeInfo.OpCode;
 
          if ( code.Size > 1 )
          {
-            this._ilCode.WriteByteToBytes( ref this._ilCodeCount, code.Byte1 );
+            this._array.WriteByteToBytes( ref this._arrayIndex, code.Byte1 );
          }
-         this._ilCode.WriteByteToBytes( ref this._ilCodeCount, code.Byte2 );
+         this._array.WriteByteToBytes( ref this._arrayIndex, code.Byte2 );
 
          var operandType = code.OperandType;
-         var curCodeOffset = this._ilCodeCount;
          if ( operandType != OperandType.InlineNone )
          {
             Object methodOrLabelOrManyLabels = null;
@@ -1610,35 +1674,35 @@ namespace CILAssemblyManipulator.Physical.Implementation
             {
                case OperandType.ShortInlineI:
                case OperandType.ShortInlineVar:
-                  this._ilCode.WriteByteToBytes( ref this._ilCodeCount, (Byte) ( (OpCodeInfoWithInt32) codeInfo ).Operand );
+                  this._array.WriteByteToBytes( ref this._arrayIndex, (Byte) ( (OpCodeInfoWithInt32) codeInfo ).Operand );
                   break;
                case OperandType.ShortInlineBrTarget:
                   i32 = ( (OpCodeInfoWithInt32) codeInfo ).Operand;
                   methodOrLabelOrManyLabels = i32;
-                  this._ilCode.WriteByteToBytes( ref this._ilCodeCount, (Byte) i32 );
+                  this._array.WriteByteToBytes( ref this._arrayIndex, (Byte) i32 );
                   break;
                case OperandType.ShortInlineR:
-                  this._ilCode.WriteSingleLEToBytes( ref this._ilCodeCount, (Single) ( (OpCodeInfoWithSingle) codeInfo ).Operand );
+                  this._array.WriteSingleLEToBytes( ref this._arrayIndex, (Single) ( (OpCodeInfoWithSingle) codeInfo ).Operand );
                   break;
                case OperandType.InlineBrTarget:
                   i32 = ( (OpCodeInfoWithInt32) codeInfo ).Operand;
                   methodOrLabelOrManyLabels = i32;
-                  this._ilCode.WriteInt32LEToBytes( ref this._ilCodeCount, i32 );
+                  this._array.WriteInt32LEToBytes( ref this._arrayIndex, i32 );
                   break;
                case OperandType.InlineI:
-                  this._ilCode.WriteInt32LEToBytes( ref this._ilCodeCount, ( (OpCodeInfoWithInt32) codeInfo ).Operand );
+                  this._array.WriteInt32LEToBytes( ref this._arrayIndex, ( (OpCodeInfoWithInt32) codeInfo ).Operand );
                   break;
                case OperandType.InlineVar:
-                  this._ilCode.WriteInt16LEToBytes( ref this._ilCodeCount, (Int16) ( (OpCodeInfoWithInt32) codeInfo ).Operand );
+                  this._array.WriteInt16LEToBytes( ref this._arrayIndex, (Int16) ( (OpCodeInfoWithInt32) codeInfo ).Operand );
                   break;
                case OperandType.InlineR:
-                  this._ilCode.WriteDoubleLEToBytes( ref this._ilCodeCount, (Double) ( (OpCodeInfoWithDouble) codeInfo ).Operand );
+                  this._array.WriteDoubleLEToBytes( ref this._arrayIndex, (Double) ( (OpCodeInfoWithDouble) codeInfo ).Operand );
                   break;
                case OperandType.InlineI8:
-                  this._ilCode.WriteInt64LEToBytes( ref this._ilCodeCount, (Int64) ( (OpCodeInfoWithInt64) codeInfo ).Operand );
+                  this._array.WriteInt64LEToBytes( ref this._arrayIndex, (Int64) ( (OpCodeInfoWithInt64) codeInfo ).Operand );
                   break;
                case OperandType.InlineString:
-                  this._ilCode.WriteInt32LEToBytes( ref this._ilCodeCount, (Int32) ( this._usersStringHeap.GetOrAddString( ( (OpCodeInfoWithString) codeInfo ).Operand ) | USER_STRING_MASK ) );
+                  this._array.WriteInt32LEToBytes( ref this._arrayIndex, (Int32) ( this._usersStringHeap.GetOrAddString( ( (OpCodeInfoWithString) codeInfo ).Operand ) | USER_STRING_MASK ) );
                   break;
                case OperandType.InlineField:
                case OperandType.InlineMethod:
@@ -1650,14 +1714,14 @@ namespace CILAssemblyManipulator.Physical.Implementation
                   {
                      methodOrLabelOrManyLabels = tIdx;
                   }
-                  this._ilCode.WriteInt32LEToBytes( ref this._ilCodeCount, tIdx.CreateTokenForEmittingMandatoryTableIndex() );
+                  this._array.WriteInt32LEToBytes( ref this._arrayIndex, tIdx.CreateTokenForEmittingMandatoryTableIndex() );
                   break;
                case OperandType.InlineSwitch:
                   var offsets = ( (OpCodeInfoWithSwitch) codeInfo ).Offsets;
-                  this._ilCode.WriteInt32LEToBytes( ref this._ilCodeCount, offsets.Count );
+                  this._array.WriteInt32LEToBytes( ref this._arrayIndex, offsets.Count );
                   foreach ( var offset in offsets )
                   {
-                     this._ilCode.WriteInt32LEToBytes( ref this._ilCodeCount, offset );
+                     this._array.WriteInt32LEToBytes( ref this._arrayIndex, offset );
                   }
                   methodOrLabelOrManyLabels = offsets;
                   break;
@@ -1667,131 +1731,44 @@ namespace CILAssemblyManipulator.Physical.Implementation
          }
       }
 
-      internal Byte[] PerformEmitting( UInt32 currentOffset, out Boolean isTiny )
+      public Boolean IsTinyHeader
+      {
+         get
+         {
+            return this._isTiny;
+         }
+      }
+
+      internal Int32 PerformEmitting( Stream stream )
       {
          // Remember that inner exception blocks must precede outer ones
-         var allExceptionBlocksCorrectlyOrdered = this._methodIL.ExceptionBlocks.ToArray();
-         Array.Sort(
-            allExceptionBlocksCorrectlyOrdered,
-            ( item1, item2 ) =>
-            {
-               // Return -1 if item1 is inner block of item2, 0 if they are same, 1 if item1 is not inner block of item2
-               return Object.ReferenceEquals( item1, item2 ) ? 0 :
-                  ( item1.TryOffset >= item2.HandlerOffset + item2.HandlerLength
-                     || ( item1.TryOffset <= item2.TryOffset && item1.HandlerOffset + item1.HandlerLength > item2.HandlerOffset + item2.HandlerLength ) ?
-                  1 :
-                  -1
-                  );
-            } );
+         //var allExceptionBlocksCorrectlyOrdered = this._methodIL.ExceptionBlocks.ToArray();
+         //Array.Sort(
+         //   allExceptionBlocksCorrectlyOrdered,
+         //   ( item1, item2 ) =>
+         //   {
+         //      // Return -1 if item1 is inner block of item2, 0 if they are same, 1 if item1 is not inner block of item2
+         //      return Object.ReferenceEquals( item1, item2 ) ? 0 :
+         //         ( item1.TryOffset >= item2.HandlerOffset + item2.HandlerLength
+         //            || ( item1.TryOffset <= item2.TryOffset && item1.HandlerOffset + item1.HandlerLength > item2.HandlerOffset + item2.HandlerLength ) ?
+         //         1 :
+         //         -1
+         //         );
+         //   } );
 
-         // Emit opcodes and operands
-         foreach ( var info in this._methodIL.OpCodes )
+         var exceptionBlocks = this._methodIL.ExceptionBlocks;
+         var hasAnyExceptions = exceptionBlocks.Count > 0;
+         // Header
+         if ( this._isTiny )
          {
-            this.Emit( info );
-         }
-
-         // Create exception blocks with byte offsets
-         var exceptionBlocks = new Byte[allExceptionBlocksCorrectlyOrdered.Length][];
-         var exceptionFormats = new Boolean[exceptionBlocks.Length];
-
-         // TODO PEVerify doesn't like mixed small and fat blocks at all (however, at least Cecil understands that kind of situation)
-         // TODO Apparently, PEVerify doesn't like multiple small blocks either (Cecil still loads code fine)
-         // Also, because of exception block ordering, it is easier to do this way.
-         var allAreSmall = allExceptionBlocksCorrectlyOrdered.Length <= MAX_SMALL_EXC_HANDLERS_IN_ONE_SECTION
-            && allExceptionBlocksCorrectlyOrdered.All( excBlock =>
-            {
-               return excBlock.TryLength <= Byte.MaxValue
-                  && excBlock.HandlerLength <= Byte.MaxValue
-                  && excBlock.TryOffset <= UInt16.MaxValue
-                  && excBlock.HandlerOffset <= UInt16.MaxValue;
-            } );
-
-         for ( var i = 0; i < exceptionBlocks.Length; ++i )
-         {
-            // ECMA-335, pp. 286-287
-            var block = allExceptionBlocksCorrectlyOrdered[i];
-            Int32 idx = 0;
-            Byte[] array;
-            var tryOffset = block.TryOffset;
-            var tryLength = block.TryLength;
-            var handlerOffset = block.HandlerOffset;
-            var handlerLength = block.HandlerLength;
-            var useSmallFormat = allAreSmall &&
-               tryLength <= Byte.MaxValue && handlerLength <= Byte.MaxValue && tryOffset <= UInt16.MaxValue && handlerOffset <= UInt16.MaxValue;
-            exceptionFormats[i] = useSmallFormat;
-            if ( useSmallFormat )
-            {
-               array = new Byte[12];
-               array.WriteInt16LEToBytes( ref idx, (Int16) block.BlockType )
-                  .WriteUInt16LEToBytes( ref idx, (UInt16) tryOffset )
-                  .WriteByteToBytes( ref idx, (Byte) tryLength )
-                  .WriteUInt16LEToBytes( ref idx, (UInt16) handlerOffset )
-                  .WriteByteToBytes( ref idx, (Byte) handlerLength );
-            }
-            else
-            {
-               array = new Byte[24];
-               array.WriteInt32LEToBytes( ref idx, (Int32) block.BlockType )
-                  .WriteInt32LEToBytes( ref idx, tryOffset )
-                  .WriteInt32LEToBytes( ref idx, tryLength )
-                  .WriteInt32LEToBytes( ref idx, handlerOffset )
-                  .WriteInt32LEToBytes( ref idx, handlerLength );
-            }
-
-            if ( ExceptionBlockType.Exception == block.BlockType )
-            {
-               array.WriteInt32LEToBytes( ref idx, block.ExceptionType.CreateTokenForEmittingOptionalTableIndex() );
-            }
-            else if ( ExceptionBlockType.Filter == block.BlockType )
-            {
-               array.WriteInt32LEToBytes( ref idx, block.FilterOffset );
-            }
-            exceptionBlocks[i] = array;
-         }
-
-         // Write method header, extra data sections, and IL
-         Byte[] result;
-         var localSig = this._md.GetLocalsSignatureForMethodOrNull( this._methodDefIndex );
-         var maxStack = this._methodIL.MaxStackSize;
-         isTiny = this._ilCodeCount < 64
-            && exceptionBlocks.Length == 0
-            && maxStack <= 8
-            && ( localSig == null || localSig.Locals.Count == 0 );
-         var resultIndex = 0;
-         var hasAnyExc = false;
-         var hasSmallExc = false;
-         var hasLargExc = false;
-         var smallExcCount = 0;
-         var largeExcCount = 0;
-         var amountToNext4ByteBoundary = 0;
-         if ( isTiny )
-         {
-            // Can use tiny header
-            result = new Byte[this._ilCodeCount + 1];
-            result[resultIndex++] = (Byte) ( (Int32) MethodHeaderFlags.TinyFormat | ( this._ilCodeCount << 2 ) );
+            // Tiny header - one byte
+            this._array.WriteByteToBytes( ref this._arrayIndex, (Byte) ( (Int32) MethodHeaderFlags.TinyFormat | ( this._ilCodeByteCount << 2 ) ) );
          }
          else
          {
-            // Use fat header
-            hasAnyExc = exceptionBlocks.Length > 0;
-            hasSmallExc = hasAnyExc && exceptionFormats.Any( excFormat => excFormat );
-            hasLargExc = hasAnyExc && exceptionFormats.Any( excFormat => !excFormat );
-            smallExcCount = hasSmallExc ? exceptionFormats.Count( excFormat => excFormat ) : 0;
-            largeExcCount = hasLargExc ? exceptionFormats.Count( excFormat => !excFormat ) : 0;
-            var offsetAfterIL = (Int32) ( BitUtils.MultipleOf4( currentOffset ) + 12 + (UInt32) this._ilCodeCount );
-            amountToNext4ByteBoundary = BitUtils.MultipleOf4( offsetAfterIL ) - offsetAfterIL;
-
-            result = new Byte[12
-               + this._ilCodeCount +
-               ( hasAnyExc ? amountToNext4ByteBoundary : 0 ) +
-               ( hasSmallExc ? METHOD_DATA_SECTION_SIZE : 0 ) +
-               ( hasLargExc ? METHOD_DATA_SECTION_SIZE : 0 ) +
-               smallExcCount * 12 +
-               ( smallExcCount / MAX_SMALL_EXC_HANDLERS_IN_ONE_SECTION ) * METHOD_DATA_SECTION_SIZE + // (Amount of extra section headers ) * section size
-               largeExcCount * 24
-               ];
+            // Fat header - 12 bytes
             var flags = MethodHeaderFlags.FatFormat;
-            if ( hasAnyExc )
+            if ( hasAnyExceptions )
             {
                flags |= MethodHeaderFlags.MoreSections;
             }
@@ -1800,88 +1777,96 @@ namespace CILAssemblyManipulator.Physical.Implementation
                flags |= MethodHeaderFlags.InitLocals;
             }
 
-            result.WriteInt16LEToBytes( ref resultIndex, (Int16) ( ( (Int32) flags ) | ( 3 << 12 ) ) )
-               .WriteUInt16LEToBytes( ref resultIndex, (UInt16) maxStack )
-               .WriteInt32LEToBytes( ref resultIndex, this._ilCodeCount )
-               .WriteInt32LEToBytes( ref resultIndex, this._methodIL.LocalsSignatureIndex.CreateTokenForEmittingOptionalTableIndex() );
+            this._array.WriteInt16LEToBytes( ref this._arrayIndex, (Int16) ( ( (Int32) flags ) | ( 3 << 12 ) ) )
+               .WriteUInt16LEToBytes( ref this._arrayIndex, (UInt16) this._methodIL.MaxStackSize )
+               .WriteInt32LEToBytes( ref this._arrayIndex, this._ilCodeByteCount )
+               .WriteInt32LEToBytes( ref this._arrayIndex, this._methodIL.LocalsSignatureIndex.CreateTokenForEmittingOptionalTableIndex() );
          }
 
-         Array.Copy( this._ilCode, 0, result, resultIndex, this._ilCodeCount );
-         resultIndex += this._ilCodeCount;
 
-         if ( hasAnyExc )
+         // Emit IL code
+         foreach ( var info in this._methodIL.OpCodes )
+         {
+            this.EmitOpCodeInfo( info );
+         }
+
+         // Emit exception block infos
+         if ( hasAnyExceptions )
          {
             var processedIndices = new HashSet<Int32>();
-            resultIndex += amountToNext4ByteBoundary;
+            this._arrayIndex = BitUtils.MultipleOf4( this._arrayIndex );
             var flags = MethodDataFlags.ExceptionHandling;
-            // First, write fat sections
-            if ( hasLargExc )
+            var excCount = exceptionBlocks.Count;
+            var isLarge = this._exceptionSectionsAreLarge;
+            var maxExceptionHandlersInOneSections = isLarge ? MAX_LARGE_EXC_HANDLERS_IN_ONE_SECTION : MAX_SMALL_EXC_HANDLERS_IN_ONE_SECTION;
+            var excBlockSize = isLarge ? LARGE_EXC_BLOCK_SIZE : SMALL_EXC_BLOCK_SIZE;
+            var curExcIndex = 0;
+            while ( excCount > 0 )
             {
-               // TODO like with small sections, what if too many exception clauses to be fit into DataSize?
-               flags |= MethodDataFlags.FatFormat;
-               if ( hasSmallExc )
+               var amountToBeWritten = Math.Min( excCount, maxExceptionHandlersInOneSections );
+               if ( amountToBeWritten < excCount )
                {
                   flags |= MethodDataFlags.MoreSections;
                }
-               result.WriteByteToBytes( ref resultIndex, (Byte) flags )
-                  .WriteInt32LEToBytes( ref resultIndex, largeExcCount * 24 + METHOD_DATA_SECTION_SIZE );
-               --resultIndex;
-               for ( var i = 0; i < exceptionBlocks.Length; ++i )
+               else
                {
-                  if ( !exceptionFormats[i] && processedIndices.Add( i ) )
+                  flags = flags & ~( MethodDataFlags.MoreSections );
+               }
+
+               this._array.WriteByteToBytes( ref this._arrayIndex, (Byte) flags )
+                  .WriteInt32LEToBytes( ref this._arrayIndex, amountToBeWritten * excBlockSize + METHOD_DATA_SECTION_HEADER_SIZE );
+               --this._arrayIndex;
+
+               // Subtract this here since amountToBeWritten will change
+               excCount -= amountToBeWritten;
+
+               if ( isLarge )
+               {
+                  while ( amountToBeWritten > 0 )
                   {
-                     var length = exceptionBlocks[i].Length;
-                     Array.Copy( exceptionBlocks[i], 0, result, resultIndex, length );
-                     resultIndex += length;
+                     // Write large exc
+                     var block = exceptionBlocks[curExcIndex];
+                     this._array.WriteInt32LEToBytes( ref this._arrayIndex, (Int32) block.BlockType )
+                     .WriteInt32LEToBytes( ref this._arrayIndex, block.TryOffset )
+                     .WriteInt32LEToBytes( ref this._arrayIndex, block.TryLength )
+                     .WriteInt32LEToBytes( ref this._arrayIndex, block.HandlerOffset )
+                     .WriteInt32LEToBytes( ref this._arrayIndex, block.HandlerLength )
+                     .WriteInt32LEToBytes( ref this._arrayIndex, block.FilterOffset );
+                     ++curExcIndex;
+                     --amountToBeWritten;
                   }
                }
-            }
-            // Then, write small sections
-            // If exception counts * 12 + 4 are > Byte.MaxValue, have to write several sections
-            // (Max 20 handlers per section)
-            flags = MethodDataFlags.ExceptionHandling;
-            if ( hasSmallExc )
-            {
-               var curSmallIdx = 0;
-               while ( smallExcCount > 0 )
+               else
                {
-                  var amountToBeWritten = Math.Min( smallExcCount, MAX_SMALL_EXC_HANDLERS_IN_ONE_SECTION );
-                  if ( amountToBeWritten < smallExcCount )
+                  while ( amountToBeWritten > 0 )
                   {
-                     flags |= MethodDataFlags.MoreSections;
+                     var block = exceptionBlocks[curExcIndex];
+                     // Write small exception
+                     this._array.WriteInt16LEToBytes( ref this._arrayIndex, (Int16) block.BlockType )
+                        .WriteUInt16LEToBytes( ref this._arrayIndex, (UInt16) block.TryOffset )
+                        .WriteByteToBytes( ref this._arrayIndex, (Byte) block.TryLength )
+                        .WriteUInt16LEToBytes( ref this._arrayIndex, (UInt16) block.HandlerOffset )
+                        .WriteByteToBytes( ref this._arrayIndex, (Byte) block.HandlerLength )
+                        .WriteInt32LEToBytes( ref this._arrayIndex, block.FilterOffset );
+                     ++curExcIndex;
+                     --amountToBeWritten;
                   }
-                  else
-                  {
-                     flags = flags & ~( MethodDataFlags.MoreSections );
-                  }
-
-                  result.WriteByteToBytes( ref resultIndex, (Byte) flags )
-                     .WriteByteToBytes( ref resultIndex, (Byte) ( amountToBeWritten * 12 + METHOD_DATA_SECTION_SIZE ) )
-                     .WriteInt16LEToBytes( ref resultIndex, 0 );
-                  var amountActuallyWritten = 0;
-                  while ( curSmallIdx < exceptionBlocks.Length && amountActuallyWritten < amountToBeWritten )
-                  {
-                     if ( exceptionFormats[curSmallIdx] )
-                     {
-                        var length = exceptionBlocks[curSmallIdx].Length;
-                        Array.Copy( exceptionBlocks[curSmallIdx], 0, result, resultIndex, length );
-                        resultIndex += length;
-                        ++amountActuallyWritten;
-                     }
-                     ++curSmallIdx;
-                  }
-                  smallExcCount -= amountToBeWritten;
                }
-            }
 
+            }
          }
+
+         // Write array
+         stream.Write( this._array, this._arrayIndex );
+
 #if DEBUG
-         if ( resultIndex != result.Length )
+         if ( this._arrayIndex != this._calculatedSize )
          {
-            throw new Exception( "Something went wrong when emitting method headers and body. Emitted " + resultIndex + " bytes, but was supposed to emit " + result.Length + " bytes." );
+            throw new Exception( "Something went wrong when emitting method headers and body. Emitted " + this._arrayIndex + " bytes, but was supposed to emit " + this._calculatedSize + " bytes." );
          }
 #endif
-         return result;
+
+         return this._arrayIndex;
       }
 
 
@@ -2309,7 +2294,7 @@ namespace CILAssemblyManipulator.Physical.Implementation
          if ( !bytes.IsNullOrEmpty() )
          {
             this.EnsureSize( bytes.Length );
-            Array.Copy( bytes, 0, this._bytes, this._curCount, bytes.Length );
+            System.Array.Copy( bytes, 0, this._bytes, this._curCount, bytes.Length );
             this._curCount += bytes.Length;
          }
       }
@@ -2351,13 +2336,13 @@ namespace CILAssemblyManipulator.Physical.Implementation
          else
          {
             result = new Byte[this._curCount];
-            Array.Copy( this._bytes, 0, result, 0, result.Length );
+            System.Array.Copy( this._bytes, 0, result, 0, result.Length );
             this._curCount = 0;
          }
          return result;
       }
 
-      private void EnsureSize( Int32 size )
+      internal void EnsureSize( Int32 size )
       {
          if ( this._bytes.Length < this._curCount + size )
          {
@@ -2365,7 +2350,7 @@ namespace CILAssemblyManipulator.Physical.Implementation
             this._bytes = new Byte[ModuleWriter.CLP2( (UInt32) this._curCount + (UInt32) size )];
             if ( this._curCount > 0 )
             {
-               Array.Copy( oldArray, 0, this._bytes, 0, oldArray.Length );
+               System.Array.Copy( oldArray, 0, this._bytes, 0, oldArray.Length );
             }
          }
          //if ( this._blockSize < this._curCount + size )
@@ -2393,6 +2378,14 @@ namespace CILAssemblyManipulator.Physical.Implementation
          get
          {
             return this._curCount;
+         }
+      }
+
+      internal Byte[] Array
+      {
+         get
+         {
+            return this._bytes;
          }
       }
       //private void Reset()
