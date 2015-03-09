@@ -839,7 +839,7 @@ public static partial class E_CILPhysical
    /// <returns><c>true</c> if the <paramref name="method"/> is non-<c>null</c> and can have IL method body; <c>false</c> otherwise.</returns>
    /// <seealso cref="E_CIL.IsIL"/>
    /// <seealso cref="E_CIL.CanEmitIL"/>
-   public static Boolean HasILMethodBody( this MethodDefinition method )
+   public static Boolean ShouldHaveMethodBody( this MethodDefinition method )
    {
       return method != null && method.Attributes.CanEmitIL() && method.ImplementationAttributes.IsIL();
    }
