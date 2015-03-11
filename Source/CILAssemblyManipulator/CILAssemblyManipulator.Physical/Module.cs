@@ -47,12 +47,6 @@ namespace CILAssemblyManipulator.Physical
       }
 
       /// <summary>
-      /// Gets or sets the <see cref="ModuleKind"/> of the module.
-      /// </summary>
-      /// <value>The <see cref="ModuleKind"/> of the module being emitted or loaded.</value>
-      public ModuleKind ModuleKind { get; set; }
-
-      /// <summary>
       /// Gets or set the optional index to MethodDef table where CLR entry point method resides.
       /// </summary>
       /// <value>The optional index to MethodDef table where CLR entry point method resides.</value>

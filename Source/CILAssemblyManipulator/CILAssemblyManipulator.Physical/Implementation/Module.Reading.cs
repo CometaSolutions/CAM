@@ -397,8 +397,10 @@ namespace CILAssemblyManipulator.Physical.Implementation
 
          // Read table stream
          stream.SeekFromBegin( streamDic[Consts.TABLE_STREAM_NAME].Item1
-            + 6 // Skip reserved + major & minor versions
+            + 4 // Skip reserved
             );
+         headers.TableHeapMajor = stream.ReadByteFromStream();
+         headers.TableHeapMinor = stream.ReadByteFromStream();
 
          // Stream index sizes
          var b = stream.ReadByteFromStream();

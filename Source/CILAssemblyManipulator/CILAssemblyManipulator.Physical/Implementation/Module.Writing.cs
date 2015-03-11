@@ -80,16 +80,16 @@ namespace CILAssemblyManipulator.Physical.Implementation
          ArgumentValidator.ValidateNotNull( "Emitting arguments", eArgs );
 
          Boolean isPE64, hasRelocations;
-         UInt16 peOptionalHeaderSize;
+         UInt16 peOptionalHeaderSize, machine;
          UInt32 numSections, iatSize;
-         CheckHeaders( headers, out isPE64, out hasRelocations, out numSections, out peOptionalHeaderSize, out iatSize );
+         CheckHeaders( headers, out isPE64, out hasRelocations, out numSections, out peOptionalHeaderSize, out iatSize, out machine );
 
          // 2. Initialize variables
          var fAlign = headers.FileAlignment;
          var sAlign = headers.SectionAlignment;
          var importHintName = headers.ImportHintName;
          var imageBase = headers.ImageBase;
-         var moduleKind = headers.ModuleKind;
+         var moduleKind = eArgs.ModuleKind;
          var strongName = eArgs.StrongName;
 
 
@@ -100,15 +100,22 @@ namespace CILAssemblyManipulator.Physical.Implementation
             clrEntryPointToken = TokenUtils.EncodeToken( entryPoint.Value.Table, entryPoint.Value.Index + 1 );
          }
 
+
+         var byteArrayHelper = new ByteArrayHelper();
+
          // 3. Write module
          // Start emitting headers
          // MS-DOS header
-         var currentArray = new Byte[HeaderFieldOffsetsAndLengths.DOS_HEADER_AND_PE_SIG.Length];
-         Array.Copy( HeaderFieldOffsetsAndLengths.DOS_HEADER_AND_PE_SIG, currentArray, HeaderFieldOffsetsAndLengths.DOS_HEADER_AND_PE_SIG.Length );
-         sink.Write( currentArray );
+         var curArrayLen = HeaderFieldOffsetsAndLengths.DOS_HEADER_AND_PE_SIG.Length;
+         byteArrayHelper.EnsureSize( curArrayLen );
+         var currentArray = byteArrayHelper.Array;
+         Array.Copy( HeaderFieldOffsetsAndLengths.DOS_HEADER_AND_PE_SIG, currentArray, curArrayLen );
+         sink.Write( currentArray, 0, curArrayLen );
 
          // PE file header
-         currentArray = new Byte[HeaderFieldOffsetsAndLengths.PE_FILE_HEADER_SIZE];
+         curArrayLen = HeaderFieldOffsetsAndLengths.PE_FILE_HEADER_SIZE;
+         byteArrayHelper.EnsureSize( curArrayLen );
+         currentArray = byteArrayHelper.Array;
          var characteristics = HeaderFieldPossibleValues.IMAGE_FILE_EXECUTABLE_IMAGE | ( isPE64 ? HeaderFieldPossibleValues.IMAGE_FILE_LARGE_ADDRESS_AWARE : HeaderFieldPossibleValues.IMAGE_FILE_32BIT_MACHINE );
          if ( moduleKind.IsDLL() )
          {
@@ -116,13 +123,13 @@ namespace CILAssemblyManipulator.Physical.Implementation
          }
          var idx = 0;
          currentArray
-            .WriteUInt16LEToBytes( ref idx, (UInt16) headers.Machine )
+            .WriteUInt16LEToBytes( ref idx, machine )
             .WriteUInt16LEToBytes( ref idx, (UInt16) numSections )
             .WriteInt32LEToBytes( ref idx, Convert.ToInt32( DateTime.Now.Subtract( new DateTime( 1970, 1, 1, 0, 0, 0 ) ).TotalSeconds ) )
             .Skip( ref idx, 8 )
             .WriteUInt16LEToBytes( ref idx, peOptionalHeaderSize )
             .WriteInt16LEToBytes( ref idx, (Int16) characteristics );
-         sink.Write( currentArray );
+         sink.Write( currentArray, 0, curArrayLen );
 
          // PE optional header + section headers + padding + IAT + CLI header + Strong signature
          var codeSectionVirtualOffset = sAlign;
@@ -199,8 +206,8 @@ namespace CILAssemblyManipulator.Physical.Implementation
             snPadding = BitUtils.MultipleOf4( snSize ) - snSize;
          }
 
-         var revisitableOffset = HeaderFieldOffsetsAndLengths.DOS_HEADER_AND_PE_SIG.Length + currentArray.Length;
-         var revisitableArraySize = fAlign + iatSize + HeaderFieldOffsetsAndLengths.CLI_HEADER_SIZE - revisitableOffset;
+         var revisitableOffset = HeaderFieldOffsetsAndLengths.DOS_HEADER_AND_PE_SIG.Length + curArrayLen;
+         var revisitableArraySize = (Int32) ( fAlign + iatSize + HeaderFieldOffsetsAndLengths.CLI_HEADER_SIZE - revisitableOffset );
          // Cheat a bit - skip now, and re-visit it after all other emitting is done
          sink.Seek( revisitableArraySize + snSize + snPadding, SeekOrigin.Current );
 
@@ -208,7 +215,6 @@ namespace CILAssemblyManipulator.Physical.Implementation
          // Start with method ILs
          // Current offset within section
          var currentOffset = iatSize + snSize + snPadding + HeaderFieldOffsetsAndLengths.CLI_HEADER_SIZE;
-         var byteArrayHelper = new ByteArrayHelper();
          UserStringHeapWriter usersStrings; IList<UInt32> methodRVAs;
          WriteMethodDefsIL( md, sink, codeSectionVirtualOffset, isPE64, byteArrayHelper, ref currentOffset, out usersStrings, out methodRVAs );
 
@@ -230,7 +236,9 @@ namespace CILAssemblyManipulator.Physical.Implementation
          {
             dbgRVA = codeSectionVirtualOffset + currentOffset;
             var dbgData = dbgInfo.DebugData;
-            currentArray = new Byte[MetaDataConstants.DEBUG_DD_SIZE + dbgData.Length];
+            curArrayLen = MetaDataConstants.DEBUG_DD_SIZE + dbgData.Length;
+            byteArrayHelper.EnsureSize( curArrayLen );
+            currentArray = byteArrayHelper.Array;
             idx = 0;
             currentArray
                .WriteInt32LEToBytes( ref idx, dbgInfo.Characteristics )
@@ -242,8 +250,8 @@ namespace CILAssemblyManipulator.Physical.Implementation
                .WriteUInt32LEToBytes( ref idx, dbgRVA + MetaDataConstants.DEBUG_DD_SIZE )
                .WriteUInt32LEToBytes( ref idx, fAlign + currentOffset + (UInt32) idx + 4 ) // Pointer to data, end Debug Data Directory
                .BlockCopyFrom( ref idx, dbgData );
-            sink.Write( currentArray );
-            currentOffset += (UInt32) currentArray.Length;
+            sink.Write( currentArray, 0, curArrayLen );
+            currentOffset += (UInt32) curArrayLen;
             sink.SkipToNextAlignment( ref currentOffset, 0x4 );
          }
 
@@ -259,35 +267,43 @@ namespace CILAssemblyManipulator.Physical.Implementation
             // First, the table
             importDirectoryRVA = codeSectionVirtualOffset + currentOffset;
             importDirectorySize = HeaderFieldOffsetsAndLengths.IMPORT_DIRECTORY_SIZE;
-            currentArray = new Byte[importDirectorySize];
+            curArrayLen = HeaderFieldOffsetsAndLengths.IMPORT_DIRECTORY_SIZE;
+            byteArrayHelper.EnsureSize( curArrayLen );
+            currentArray = byteArrayHelper.Array;
             idx = 0;
             currentArray
-               .WriteUInt32LEToBytes( ref idx, codeSectionVirtualOffset + currentOffset + (UInt32) currentArray.Length ) // RVA of the ILT
+               .WriteUInt32LEToBytes( ref idx, codeSectionVirtualOffset + currentOffset + (UInt32) curArrayLen ) // RVA of the ILT
                .WriteInt32LEToBytes( ref idx, 0 ) // DateTimeStamp
                .WriteInt32LEToBytes( ref idx, 0 ) // ForwarderChain
-               .WriteUInt32LEToBytes( ref idx, codeSectionVirtualOffset + currentOffset + (UInt32) currentArray.Length + HeaderFieldOffsetsAndLengths.ILT_SIZE + HeaderFieldOffsetsAndLengths.HINT_NAME_MIN_SIZE + (UInt32) importHintName.Length + 1 ) // RVA of Import Directory name (mscoree.dll)  
-               .WriteUInt32LEToBytes( ref idx, codeSectionVirtualOffset ); // RVA of Import Address Table
-            // The rest are zeroes
-            sink.Write( currentArray );
-            currentOffset += (UInt32) currentArray.Length;
+               .WriteUInt32LEToBytes( ref idx, codeSectionVirtualOffset + currentOffset + (UInt32) curArrayLen + HeaderFieldOffsetsAndLengths.ILT_SIZE + HeaderFieldOffsetsAndLengths.HINT_NAME_MIN_SIZE + (UInt32) importHintName.Length + 1 ) // RVA of Import Directory name (mscoree.dll)  
+               .WriteUInt32LEToBytes( ref idx, codeSectionVirtualOffset ) // RVA of Import Address Table
+               .ZeroOut( ref idx, curArrayLen - idx ); // The rest are zeroes
+
+            sink.Write( currentArray, 0, curArrayLen );
+            currentOffset += (UInt32) curArrayLen;
 
             // ILT
-            currentArray = new Byte[HeaderFieldOffsetsAndLengths.ILT_SIZE];
+            curArrayLen = HeaderFieldOffsetsAndLengths.ILT_SIZE;
+            byteArrayHelper.EnsureSize( curArrayLen );
+            currentArray = byteArrayHelper.Array;
             idx = 0;
             currentArray
-               .WriteUInt32LEToBytes( ref idx, codeSectionVirtualOffset + currentOffset + (UInt32) currentArray.Length ); // RVA of the hint/name table
-            // The rest are zeroes
-            sink.Write( currentArray );
-            currentOffset += (UInt32) currentArray.Length;
+               .WriteUInt32LEToBytes( ref idx, codeSectionVirtualOffset + currentOffset + (UInt32) curArrayLen ) // RVA of the hint/name table
+               .ZeroOut( ref idx, curArrayLen - idx ); // The rest are zeroes
+            sink.Write( currentArray, 0, curArrayLen );
+            currentOffset += (UInt32) curArrayLen;
 
             // Hint/Name table
-            currentArray = new Byte[HeaderFieldOffsetsAndLengths.HINT_NAME_MIN_SIZE + importHintName.Length + 1];
+            curArrayLen = HeaderFieldOffsetsAndLengths.HINT_NAME_MIN_SIZE + importHintName.Length + 1;
+            byteArrayHelper.EnsureSize( curArrayLen );
+            currentArray = byteArrayHelper.Array;
             hnRVA = currentOffset + codeSectionVirtualOffset;
             // Skip first two bytes
-            idx = HeaderFieldOffsetsAndLengths.HINT_NAME_MIN_SIZE;
+            idx = 0;
+            currentArray.ZeroOut( ref idx, HeaderFieldOffsetsAndLengths.HINT_NAME_MIN_SIZE );
             currentArray.WriteASCIIString( ref idx, importHintName, true );
-            sink.Write( currentArray );
-            currentOffset += (UInt32) currentArray.Length;
+            sink.Write( currentArray, 0, curArrayLen );
+            currentOffset += (UInt32) curArrayLen;
 
             // Import DirectoryName
             foreach ( var chr in headers.ImportDirectoryName )
@@ -305,13 +321,15 @@ namespace CILAssemblyManipulator.Physical.Implementation
 
             // Then, a PE entrypoint
             entryPointCodeRVA = currentOffset + codeSectionVirtualOffset;
-            currentArray = new Byte[sizeof( Int16 ) + sizeof( Int32 )];
+            curArrayLen = sizeof( Int16 ) + sizeof( Int32 );
+            byteArrayHelper.EnsureSize( curArrayLen );
+            currentArray = byteArrayHelper.Array;
             idx = 0;
             currentArray
                .WriteInt16LEToBytes( ref idx, headers.EntryPointInstruction )
                .WriteUInt32LEToBytes( ref idx, (UInt32) imageBase + codeSectionVirtualOffset );
-            sink.Write( currentArray );
-            currentOffset += (UInt32) currentArray.Length;
+            sink.Write( currentArray, 0, curArrayLen );
+            currentOffset += (UInt32) curArrayLen;
          }
 
          // TODO Win32 resources section
@@ -332,21 +350,25 @@ namespace CILAssemblyManipulator.Physical.Implementation
             var relocRVA = entryPointCodeRVA + 2;
             var pageRVA = relocRVA & ~( RELOCATION_PAGE_SIZE - 1 );
 
-            currentArray = new Byte[HeaderFieldOffsetsAndLengths.RELOC_ARRAY_BASE_SIZE];
+            curArrayLen = HeaderFieldOffsetsAndLengths.RELOC_ARRAY_BASE_SIZE;
+            byteArrayHelper.EnsureSize( curArrayLen );
+            currentArray = byteArrayHelper.Array;
             idx = 0;
             currentArray
                .WriteUInt32LEToBytes( ref idx, pageRVA )
                .WriteUInt32LEToBytes( ref idx, HeaderFieldOffsetsAndLengths.RELOC_ARRAY_BASE_SIZE ) // Block size
                .WriteUInt32LEToBytes( ref idx, ( RELOCATION_FIXUP_TYPE << 12 ) + relocRVA - pageRVA ); // Type (high 4 bits) + Offset (lower 12 bits) + dummy entry (16 bits)
-            sink.Write( currentArray );
-            currentOffset += (UInt32) currentArray.Length;
+            sink.Write( currentArray, 0, curArrayLen );
+            currentOffset += (UInt32) curArrayLen;
 
             relocSectionInfo = new SectionInfo( sink, prevSectionInfo, currentOffset, sAlign, fAlign, true );
             prevSectionInfo = relocSectionInfo;
          }
 
          // Revisit PE optional header + section headers + padding + IAT + CLI header
-         currentArray = new Byte[revisitableArraySize];
+         curArrayLen = revisitableArraySize;
+         byteArrayHelper.EnsureSize( curArrayLen );
+         currentArray = byteArrayHelper.Array;
          idx = 0;
          // PE optional header, ECMA-335 pp. 279-281
          // Standard fields
@@ -461,13 +483,13 @@ namespace CILAssemblyManipulator.Physical.Implementation
             .WriteZeroDataDirectory( ref idx ) // ExportAddressTableJumps
             .WriteZeroDataDirectory( ref idx ); // ManagedNativeHeader
 #if DEBUG
-         if ( idx != currentArray.Length )
+         if ( idx != curArrayLen )
          {
-            throw new Exception( "Something went wrong when emitting file headers. Emitted " + idx + " bytes, but was supposed to emit " + currentArray.Length + " bytes." );
+            throw new Exception( "Something went wrong when emitting file headers. Emitted " + idx + " bytes, but was supposed to emit " + curArrayLen + " bytes." );
          }
 #endif
          sink.Seek( revisitableOffset, SeekOrigin.Begin );
-         sink.Write( currentArray );
+         sink.Write( currentArray, 0, curArrayLen );
 
          if ( computingHash )
          {
@@ -519,11 +541,13 @@ namespace CILAssemblyManipulator.Physical.Implementation
                }
             }
 
-            currentArray = new Byte[8];
+            curArrayLen = 8;
+            byteArrayHelper.EnsureSize( curArrayLen );
+            currentArray = byteArrayHelper.Array;
             idx = 0;
             currentArray.WriteDataDirectory( ref idx, snRVA, snSize );
             sink.Seek( snDataDirOffset, SeekOrigin.Begin );
-            sink.Write( currentArray );
+            sink.Write( currentArray, 0, curArrayLen );
          }
       }
 
@@ -533,7 +557,8 @@ namespace CILAssemblyManipulator.Physical.Implementation
          out Boolean hasRelocations,
          out UInt32 numSections,
          out UInt16 peOptionalHeaderSize,
-         out UInt32 iatSize
+         out UInt32 iatSize,
+         out UInt16 machine
          )
       {
          if ( eArgs.FileAlignment < MIN_FILE_ALIGNMENT )
@@ -558,8 +583,9 @@ namespace CILAssemblyManipulator.Physical.Implementation
          //   throw new ArgumentException( "Section alignment " + eArgs.SectionAlignment + " must be greater than file alignment " + eArgs.FileAlignment + "." );
          //}
 
-         isPE64 = eArgs.Machine.RequiresPE64();
-         hasRelocations = eArgs.Machine.RequiresRelocations();
+         var machineEnum = eArgs.Machine;
+         isPE64 = machineEnum.RequiresPE64();
+         hasRelocations = machineEnum.RequiresRelocations();
          numSections = isPE64 ? 1u : 2u; // TODO resource-section
          peOptionalHeaderSize = isPE64 ? HeaderFieldOffsetsAndLengths.PE_OPTIONAL_HEADER_SIZE_64 : HeaderFieldOffsetsAndLengths.PE_OPTIONAL_HEADER_SIZE_32;
          iatSize = hasRelocations ? HeaderFieldOffsetsAndLengths.IAT_SIZE : 0u; // No Import tables if no relocations
@@ -571,6 +597,7 @@ namespace CILAssemblyManipulator.Physical.Implementation
             eArgs.HeapReserve = CheckValueFor32PE( eArgs.HeapReserve );
             eArgs.HeapCommit = CheckValueFor32PE( eArgs.HeapCommit );
          }
+         machine = (UInt16) machineEnum;
       }
 
       private static UInt64 CheckValueFor32PE( UInt64 value )
@@ -3026,5 +3053,13 @@ public static partial class E_CILPhysical
       {
          info.WriteTypeSignature( gArg );
       }
+   }
+
+   // TODO Move to Utilpack
+   public static Byte[] ZeroOut( this Byte[] array, ref Int32 idx, Int32 count )
+   {
+      array.Fill( idx, count, (Byte) 0 );
+      idx += count;
+      return array;
    }
 }

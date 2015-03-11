@@ -314,38 +314,81 @@ public static partial class E_CommonUtils
    /// <typeparam name="T">The type of array elements.</typeparam>
    /// <param name="destinationArray">The array to be filled with values.</param>
    /// <param name="value">The values to fill array with.</param>
+   /// <returns>The <paramref name="destinationArray"/></returns>
    /// <remarks>
    /// Source code is found at <see href="http://stackoverflow.com/questions/5943850/fastest-way-to-fill-an-array-with-a-single-value"/> and <see href="http://coding.grax.com/2014/04/better-array-fill-function.html"/>.
    /// According to first link, "<c>In my test with 20,000,000 array items, this function is twice as fast as a for loop.</c>".
    /// </remarks>
    /// <exception cref="ArgumentNullException">If <paramref name="destinationArray"/> or <paramref name="value"/> are null.</exception>
    /// <exception cref="ArgumentException">If <paramref name="destinationArray"/> is not empty, and length of <paramref name="value"/> is greater than length of <paramref name="destinationArray"/>.</exception>
-   public static void Fill<T>( this T[] destinationArray, params T[] value )
+   public static T[] Fill<T>( this T[] destinationArray, params T[] value )
+   {
+      return destinationArray.Fill( 0, destinationArray.Length, value );
+   }
+
+   /// <summary>
+   /// This is method to quickly fill array with values, utilizing the fact that <see cref="Array.Copy(Array, Array, Int32)"/> methods are very, very fast.
+   /// </summary>
+   /// <typeparam name="T">The type of array elements.</typeparam>
+   /// <param name="destinationArray">The array to be filled with values.</param>
+   /// <param name="value">The values to fill array with.</param>
+   /// <param name="offset">The offset at which to start filling array.</param>
+   /// <returns>The <paramref name="destinationArray"/></returns>
+   /// <remarks>
+   /// Source code is found at <see href="http://stackoverflow.com/questions/5943850/fastest-way-to-fill-an-array-with-a-single-value"/> and <see href="http://coding.grax.com/2014/04/better-array-fill-function.html"/>.
+   /// According to first link, "<c>In my test with 20,000,000 array items, this function is twice as fast as a for loop.</c>".
+   /// </remarks>
+   /// <exception cref="ArgumentNullException">If <paramref name="destinationArray"/> or <paramref name="value"/> are null.</exception>
+   /// <exception cref="ArgumentException">If <paramref name="destinationArray"/> is not empty, and length of <paramref name="value"/> is greater than length of <paramref name="destinationArray"/>.</exception>
+   public static T[] Fill<T>( this T[] destinationArray, Int32 offset, params T[] value )
+   {
+      return destinationArray.Fill( offset, destinationArray.Length - offset, value );
+   }
+
+   /// <summary>
+   /// This is method to quickly fill array with values, utilizing the fact that <see cref="Array.Copy(Array, Array, Int32)"/> methods are very, very fast.
+   /// </summary>
+   /// <typeparam name="T">The type of array elements.</typeparam>
+   /// <param name="destinationArray">The array to be filled with values.</param>
+   /// <param name="value">The values to fill array with.</param>
+   /// <param name="offset">The offset at which to start filling array.</param>
+   /// <param name="count">How many items to fill.</param>
+   /// <returns>The <paramref name="destinationArray"/></returns>
+   /// <remarks>
+   /// Source code is found at <see href="http://stackoverflow.com/questions/5943850/fastest-way-to-fill-an-array-with-a-single-value"/> and <see href="http://coding.grax.com/2014/04/better-array-fill-function.html"/>.
+   /// According to first link, "<c>In my test with 20,000,000 array items, this function is twice as fast as a for loop.</c>".
+   /// </remarks>
+   /// <exception cref="ArgumentNullException">If <paramref name="destinationArray"/> or <paramref name="value"/> are null.</exception>
+   /// <exception cref="ArgumentException">If <paramref name="destinationArray"/> is not empty, and length of <paramref name="value"/> is greater than length of <paramref name="destinationArray"/>.</exception>
+   public static T[] Fill<T>( this T[] destinationArray, Int32 offset, Int32 count, params T[] value )
    {
       ArgumentValidator.ValidateNotNull( "Destination array", destinationArray );
       ArgumentValidator.ValidateNotNull( "Value array", value );
-
+      destinationArray.CheckArrayArguments( offset, count );
 
       if ( destinationArray.Length > 0 )
       {
-         if ( value.Length > destinationArray.Length )
+         var max = offset + count;
+         if ( value.Length > count )
          {
-            throw new ArgumentException( "Length of value array must not be more than length of destination" );
+            throw new ArgumentException( "Length of value array must not be more than count in destination" );
          }
 
          // set the initial array value
-         Array.Copy( value, destinationArray, value.Length );
+         Array.Copy( value, offset, destinationArray, 0, value.Length );
 
-         var arrayToFillHalfLength = destinationArray.Length / 2;
-         int copyLength;
+         var arrayToFillHalfLength = count / 2;
+         Int32 copyLength;
 
          for ( copyLength = value.Length; copyLength < arrayToFillHalfLength; copyLength <<= 1 )
          {
-            Array.Copy( destinationArray, 0, destinationArray, copyLength, copyLength );
+            Array.Copy( destinationArray, offset, destinationArray, offset + copyLength, copyLength );
          }
 
-         Array.Copy( destinationArray, 0, destinationArray, copyLength, destinationArray.Length - copyLength );
+         Array.Copy( destinationArray, offset, destinationArray, offset + copyLength, count - copyLength );
       }
+
+      return destinationArray;
    }
 
    /// <summary>

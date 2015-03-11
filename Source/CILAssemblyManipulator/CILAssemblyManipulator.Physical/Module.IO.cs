@@ -138,6 +138,12 @@ namespace CILAssemblyManipulator.Physical
       /// <value>Whether to delay signing procedure.</value>
       public Boolean DelaySign { get; set; }
 
+      /// <summary>
+      /// Gets or sets the <see cref="ModuleKind"/> of the module.
+      /// </summary>
+      /// <value>The <see cref="ModuleKind"/> of the module being emitted or loaded.</value>
+      public ModuleKind ModuleKind { get; set; }
+
 
       internal Byte[] ExtractPublicKeyFromCSP( String cspName )
       {
