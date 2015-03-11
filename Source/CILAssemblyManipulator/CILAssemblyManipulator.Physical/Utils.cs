@@ -162,7 +162,7 @@ namespace CILAssemblyManipulator.Physical
          {
             return array
                .WriteASCIIString( ref idx, secName, false ) // Name
-               .Skip( ref idx, 8 - secName.Length ) // Zero padding
+               .ZeroOut( ref idx, 8 - secName.Length ) // Zero padding
                .WriteUInt32LEToBytes( ref idx, secInfo.virtualSize ) // VirtualSize
                .WriteUInt32LEToBytes( ref idx, secInfo.virtualAddress ) // VirtualAddress
                .WriteUInt32LEToBytes( ref idx, secInfo.rawSize ) // SizeOfRawData

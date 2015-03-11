@@ -323,7 +323,7 @@ public static partial class E_CommonUtils
    /// <exception cref="ArgumentException">If <paramref name="destinationArray"/> is not empty, and length of <paramref name="value"/> is greater than length of <paramref name="destinationArray"/>.</exception>
    public static T[] Fill<T>( this T[] destinationArray, params T[] value )
    {
-      return destinationArray.Fill( 0, destinationArray.Length, value );
+      return destinationArray.FillWithOffsetAndCount( 0, destinationArray.Length, value );
    }
 
    /// <summary>
@@ -340,9 +340,9 @@ public static partial class E_CommonUtils
    /// </remarks>
    /// <exception cref="ArgumentNullException">If <paramref name="destinationArray"/> or <paramref name="value"/> are null.</exception>
    /// <exception cref="ArgumentException">If <paramref name="destinationArray"/> is not empty, and length of <paramref name="value"/> is greater than length of <paramref name="destinationArray"/>.</exception>
-   public static T[] Fill<T>( this T[] destinationArray, Int32 offset, params T[] value )
+   public static T[] FillWithOffset<T>( this T[] destinationArray, Int32 offset, params T[] value )
    {
-      return destinationArray.Fill( offset, destinationArray.Length - offset, value );
+      return destinationArray.FillWithOffsetAndCount( offset, destinationArray.Length - offset, value );
    }
 
    /// <summary>
@@ -360,10 +360,10 @@ public static partial class E_CommonUtils
    /// </remarks>
    /// <exception cref="ArgumentNullException">If <paramref name="destinationArray"/> or <paramref name="value"/> are null.</exception>
    /// <exception cref="ArgumentException">If <paramref name="destinationArray"/> is not empty, and length of <paramref name="value"/> is greater than length of <paramref name="destinationArray"/>.</exception>
-   public static T[] Fill<T>( this T[] destinationArray, Int32 offset, Int32 count, params T[] value )
+   public static T[] FillWithOffsetAndCount<T>( this T[] destinationArray, Int32 offset, Int32 count, params T[] value )
    {
       ArgumentValidator.ValidateNotNull( "Destination array", destinationArray );
-      ArgumentValidator.ValidateNotNull( "Value array", value );
+      ArgumentValidator.ValidateNotEmpty( "Value array", value );
       destinationArray.CheckArrayArguments( offset, count );
 
       if ( destinationArray.Length > 0 )
@@ -375,12 +375,11 @@ public static partial class E_CommonUtils
          }
 
          // set the initial array value
-         Array.Copy( value, offset, destinationArray, 0, value.Length );
+         Array.Copy( value, 0, destinationArray, offset, value.Length );
 
-         var arrayToFillHalfLength = count / 2;
          Int32 copyLength;
 
-         for ( copyLength = value.Length; copyLength < arrayToFillHalfLength; copyLength <<= 1 )
+         for ( copyLength = value.Length; copyLength + copyLength < count; copyLength <<= 1 )
          {
             Array.Copy( destinationArray, offset, destinationArray, offset + copyLength, copyLength );
          }

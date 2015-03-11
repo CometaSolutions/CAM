@@ -28,6 +28,22 @@ namespace CILAssemblyManipulator.Tests.Physical
    public class ReadingTest : AbstractCAMTest
    {
 
+
+      // TODO move to UtilPack
+      //[Test]
+      //public void TestArrayFill()
+      //{
+      //   const Int32 VALUE = 6;
+
+      //   for ( var i = 1; i < UInt16.MaxValue; ++i )
+      //   {
+      //      var array = new Int32[i];
+      //      array.Fill( VALUE );
+      //      Assert.IsTrue( array.All( v => v == VALUE ) );
+      //   }
+
+      //}
+
       [Test]
       public void TestReadingCAMAssemblies()
       {

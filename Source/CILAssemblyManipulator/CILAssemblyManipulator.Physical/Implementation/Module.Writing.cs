@@ -110,7 +110,7 @@ namespace CILAssemblyManipulator.Physical.Implementation
          byteArrayHelper.EnsureSize( curArrayLen );
          var currentArray = byteArrayHelper.Array;
          Array.Copy( HeaderFieldOffsetsAndLengths.DOS_HEADER_AND_PE_SIG, currentArray, curArrayLen );
-         sink.Write( currentArray, 0, curArrayLen );
+         sink.Write( currentArray, curArrayLen );
 
          // PE file header
          curArrayLen = HeaderFieldOffsetsAndLengths.PE_FILE_HEADER_SIZE;
@@ -126,10 +126,10 @@ namespace CILAssemblyManipulator.Physical.Implementation
             .WriteUInt16LEToBytes( ref idx, machine )
             .WriteUInt16LEToBytes( ref idx, (UInt16) numSections )
             .WriteInt32LEToBytes( ref idx, Convert.ToInt32( DateTime.Now.Subtract( new DateTime( 1970, 1, 1, 0, 0, 0 ) ).TotalSeconds ) )
-            .Skip( ref idx, 8 )
+            .ZeroOut( ref idx, 8 )
             .WriteUInt16LEToBytes( ref idx, peOptionalHeaderSize )
             .WriteInt16LEToBytes( ref idx, (Int16) characteristics );
-         sink.Write( currentArray, 0, curArrayLen );
+         sink.Write( currentArray, curArrayLen );
 
          // PE optional header + section headers + padding + IAT + CLI header + Strong signature
          var codeSectionVirtualOffset = sAlign;
@@ -220,8 +220,9 @@ namespace CILAssemblyManipulator.Physical.Implementation
 
          // Write manifest resources & field RVAs here
          UInt32 mResRVA, mResSize; IList<UInt32?> mResInfo; IList<UInt32> fieldRVAs;
-         WriteDataBeforeMD( md, sink, codeSectionVirtualOffset, isPE64, out mResRVA, out mResSize, out mResInfo, out fieldRVAs, ref currentOffset );
+         WriteDataBeforeMD( md, sink, codeSectionVirtualOffset, isPE64, byteArrayHelper, out mResRVA, out mResSize, out mResInfo, out fieldRVAs, ref currentOffset );
 
+         // Write metadata streams (tables & heaps)
          var mdRVA = codeSectionVirtualOffset + currentOffset;
          var mdSize = WriteMetaData( md, sink, headers, eArgs, usersStrings, byteArrayHelper, methodRVAs, fieldRVAs, mResInfo, thisAssemblyPublicKey );
          currentOffset += mdSize;
@@ -250,7 +251,7 @@ namespace CILAssemblyManipulator.Physical.Implementation
                .WriteUInt32LEToBytes( ref idx, dbgRVA + MetaDataConstants.DEBUG_DD_SIZE )
                .WriteUInt32LEToBytes( ref idx, fAlign + currentOffset + (UInt32) idx + 4 ) // Pointer to data, end Debug Data Directory
                .BlockCopyFrom( ref idx, dbgData );
-            sink.Write( currentArray, 0, curArrayLen );
+            sink.Write( currentArray, curArrayLen );
             currentOffset += (UInt32) curArrayLen;
             sink.SkipToNextAlignment( ref currentOffset, 0x4 );
          }
@@ -279,7 +280,7 @@ namespace CILAssemblyManipulator.Physical.Implementation
                .WriteUInt32LEToBytes( ref idx, codeSectionVirtualOffset ) // RVA of Import Address Table
                .ZeroOut( ref idx, curArrayLen - idx ); // The rest are zeroes
 
-            sink.Write( currentArray, 0, curArrayLen );
+            sink.Write( currentArray, curArrayLen );
             currentOffset += (UInt32) curArrayLen;
 
             // ILT
@@ -290,7 +291,7 @@ namespace CILAssemblyManipulator.Physical.Implementation
             currentArray
                .WriteUInt32LEToBytes( ref idx, codeSectionVirtualOffset + currentOffset + (UInt32) curArrayLen ) // RVA of the hint/name table
                .ZeroOut( ref idx, curArrayLen - idx ); // The rest are zeroes
-            sink.Write( currentArray, 0, curArrayLen );
+            sink.Write( currentArray, curArrayLen );
             currentOffset += (UInt32) curArrayLen;
 
             // Hint/Name table
@@ -302,7 +303,7 @@ namespace CILAssemblyManipulator.Physical.Implementation
             idx = 0;
             currentArray.ZeroOut( ref idx, HeaderFieldOffsetsAndLengths.HINT_NAME_MIN_SIZE );
             currentArray.WriteASCIIString( ref idx, importHintName, true );
-            sink.Write( currentArray, 0, curArrayLen );
+            sink.Write( currentArray, curArrayLen );
             currentOffset += (UInt32) curArrayLen;
 
             // Import DirectoryName
@@ -328,7 +329,7 @@ namespace CILAssemblyManipulator.Physical.Implementation
             currentArray
                .WriteInt16LEToBytes( ref idx, headers.EntryPointInstruction )
                .WriteUInt32LEToBytes( ref idx, (UInt32) imageBase + codeSectionVirtualOffset );
-            sink.Write( currentArray, 0, curArrayLen );
+            sink.Write( currentArray, curArrayLen );
             currentOffset += (UInt32) curArrayLen;
          }
 
@@ -358,7 +359,7 @@ namespace CILAssemblyManipulator.Physical.Implementation
                .WriteUInt32LEToBytes( ref idx, pageRVA )
                .WriteUInt32LEToBytes( ref idx, HeaderFieldOffsetsAndLengths.RELOC_ARRAY_BASE_SIZE ) // Block size
                .WriteUInt32LEToBytes( ref idx, ( RELOCATION_FIXUP_TYPE << 12 ) + relocRVA - pageRVA ); // Type (high 4 bits) + Offset (lower 12 bits) + dummy entry (16 bits)
-            sink.Write( currentArray, 0, curArrayLen );
+            sink.Write( currentArray, curArrayLen );
             currentOffset += (UInt32) curArrayLen;
 
             relocSectionInfo = new SectionInfo( sink, prevSectionInfo, currentOffset, sAlign, fAlign, true );
@@ -449,7 +450,7 @@ namespace CILAssemblyManipulator.Physical.Implementation
          var headersSize = (UInt32) ( revisitableOffset + idx );
 
          // Skip to beginning of .text section
-         currentArray.Skip( ref idx, (Int32) ( fAlign - (UInt32) revisitableOffset - idx ) );
+         currentArray.ZeroOut( ref idx, (Int32) ( fAlign - (UInt32) revisitableOffset - idx ) );
 
          // Write IAT if needed
          if ( hasRelocations )
@@ -489,7 +490,7 @@ namespace CILAssemblyManipulator.Physical.Implementation
          }
 #endif
          sink.Seek( revisitableOffset, SeekOrigin.Begin );
-         sink.Write( currentArray, 0, curArrayLen );
+         sink.Write( currentArray, curArrayLen );
 
          if ( computingHash )
          {
@@ -547,7 +548,7 @@ namespace CILAssemblyManipulator.Physical.Implementation
             idx = 0;
             currentArray.WriteDataDirectory( ref idx, snRVA, snSize );
             sink.Seek( snDataDirOffset, SeekOrigin.Begin );
-            sink.Write( currentArray, 0, curArrayLen );
+            sink.Write( currentArray, curArrayLen );
          }
       }
 
@@ -680,6 +681,7 @@ namespace CILAssemblyManipulator.Physical.Implementation
          Stream sink,
          UInt32 codeSectionVirtualOffset,
          Boolean isPE64,
+         ByteArrayHelper byteArrayHelper,
          out UInt32 resourcesRVA,
          out UInt32 resourcesSize,
          out IList<UInt32?> mResInfo,
@@ -691,7 +693,9 @@ namespace CILAssemblyManipulator.Physical.Implementation
          var mResInfos = md.ManifestResources;
          mResInfo = new List<UInt32?>( mResInfos.Count );
          resourcesSize = 0u;
-         var tmpArray = new Byte[4];
+         var arrayLen = sizeof( Int32 );
+         byteArrayHelper.EnsureSize( arrayLen );
+         var array = byteArrayHelper.Array;
          foreach ( var mr in mResInfos )
          {
             if ( mr.Implementation == null )
@@ -702,8 +706,8 @@ namespace CILAssemblyManipulator.Physical.Implementation
                   data = Empty<Byte>.Array;
                }
                mResInfo.Add( resourcesSize );
-               tmpArray.WriteInt32LEToBytesNoRef( 0, data.Length );
-               sink.Write( tmpArray );
+               array.WriteInt32LEToBytesNoRef( 0, data.Length );
+               sink.Write( array, arrayLen );
                sink.Write( data );
                resourcesSize += 4 + (UInt32) data.Length;
             }
@@ -857,18 +861,19 @@ namespace CILAssemblyManipulator.Physical.Implementation
          var tRefWidths = MetaDataConstants.GetCodedTableIndexSizes( tableSizes );
 
          var versionStringSize4 = BitUtils.MultipleOf4( versionStringSize );
-         var tableStreamHeaderSize = 24 + 4 * (UInt32) tableSizes.Count( size => size > 0 );
+         var tableStreamHeaderSize = 24 + 4 * tableSizes.Count( size => size > 0 );
          streamHeaders[MD_IDX] = 8 + BitUtils.MultipleOf4( Consts.TABLE_STREAM_NAME.Length );
-         var tableStreamSize = tableStreamHeaderSize + tableSizes.Select( ( size, idx ) => (UInt32) size * (UInt32) tableWidths[idx] ).Sum();
+         var tableStreamSize = (UInt32) tableStreamHeaderSize + tableSizes.Select( ( size, idx ) => (UInt32) size * (UInt32) tableWidths[idx] ).Sum();
          var tableStreamSize4 = BitUtils.MultipleOf4( tableStreamSize );
          streamSizes[MD_IDX] = tableStreamSize4;
 
-         var anArray = new Byte[16 // Header start
+         var arrayLen = 16 // Header start
             + versionStringSize4 // Version string
             + 4 // Header end
             + streamHeaders.Sum() // Stream headers
-            + tableStreamHeaderSize // Table stream header
-            ];
+            + tableStreamHeaderSize; // Table stream header
+         byteArrayHelper.EnsureSize( arrayLen );
+         var anArray = byteArrayHelper.Array;
 
          // Metadata root
          var offset = 0;
@@ -878,16 +883,16 @@ namespace CILAssemblyManipulator.Physical.Implementation
             .WriteUInt32LEToBytes( ref offset, MD_RESERVED )
             .WriteInt32LEToBytes( ref offset, versionStringSize4 )
             .WriteStringToBytes( ref offset, MetaDataStringEncoding, metaDataVersion )
-            .Skip( ref offset, versionStringSize4 - versionStringSize + 1 )
+            .ZeroOut( ref offset, versionStringSize4 - versionStringSize + 1 )
             .WriteUInt16LEToBytes( ref offset, MD_FLAGS )
             .WriteUInt16LEToBytes( ref offset, (UInt16) streamHeaders.Count( stream => stream > 0 ) );
-         var curStreamOffset = (UInt32) anArray.Length - tableStreamHeaderSize; // Table stream starts immediately after MD root
+         var curStreamOffset = (UInt32) ( arrayLen - tableStreamHeaderSize ); // Table stream starts immediately after MD root
 
          // #~ header
          anArray.WriteUInt32LEToBytes( ref offset, curStreamOffset )
             .WriteUInt32LEToBytes( ref offset, tableStreamSize4 )
             .WriteStringToBytes( ref offset, MetaDataStringEncoding, Consts.TABLE_STREAM_NAME )
-            .Skip( ref offset, 4 - ( offset % 4 ) );
+            .ZeroOut( ref offset, 4 - ( offset % 4 ) );
          curStreamOffset += tableStreamSize4;
 
          if ( hasSysStrings )
@@ -897,7 +902,7 @@ namespace CILAssemblyManipulator.Physical.Implementation
             anArray.WriteUInt32LEToBytes( ref offset, curStreamOffset )
                .WriteUInt32LEToBytes( ref offset, size )
                .WriteStringToBytes( ref offset, MetaDataStringEncoding, Consts.SYS_STRING_STREAM_NAME )
-               .Skip( ref offset, 4 - ( offset % 4 ) );
+               .ZeroOut( ref offset, 4 - ( offset % 4 ) );
             curStreamOffset += size;
          }
 
@@ -908,7 +913,7 @@ namespace CILAssemblyManipulator.Physical.Implementation
             anArray.WriteUInt32LEToBytes( ref offset, curStreamOffset )
                .WriteUInt32LEToBytes( ref offset, size )
                .WriteStringToBytes( ref offset, MetaDataStringEncoding, Consts.USER_STRING_STREAM_NAME )
-               .Skip( ref offset, 4 - ( offset % 4 ) );
+               .ZeroOut( ref offset, 4 - ( offset % 4 ) );
             curStreamOffset += size;
          }
 
@@ -919,7 +924,7 @@ namespace CILAssemblyManipulator.Physical.Implementation
             anArray.WriteUInt32LEToBytes( ref offset, curStreamOffset )
                .WriteUInt32LEToBytes( ref offset, size )
                .WriteStringToBytes( ref offset, MetaDataStringEncoding, Consts.GUID_STREAM_NAME )
-               .Skip( ref offset, 4 - ( offset % 4 ) );
+               .ZeroOut( ref offset, 4 - ( offset % 4 ) );
             curStreamOffset += size;
          }
 
@@ -930,7 +935,7 @@ namespace CILAssemblyManipulator.Physical.Implementation
             anArray.WriteUInt32LEToBytes( ref offset, curStreamOffset )
                .WriteUInt32LEToBytes( ref offset, size )
                .WriteStringToBytes( ref offset, MetaDataStringEncoding, Consts.BLOB_STREAM_NAME )
-               .Skip( ref offset, 4 - ( offset % 4 ) );
+               .ZeroOut( ref offset, 4 - ( offset % 4 ) );
             curStreamOffset += size;
          }
 
@@ -961,14 +966,14 @@ namespace CILAssemblyManipulator.Physical.Implementation
          }
 
 #if DEBUG
-         if ( offset != anArray.Length )
+         if ( offset != arrayLen )
          {
             throw new Exception( "Debyyg" );
          }
 #endif
 
          // Write the MD header + table stream header
-         sink.Write( anArray );
+         sink.Write( anArray, arrayLen );
 
          // Table stream tables start right here
          // ECMA-335, p. 239
@@ -1190,10 +1195,10 @@ namespace CILAssemblyManipulator.Physical.Implementation
          }
 
          // Done with tables, write other heaps
-         sysStrings.WriteHeap( sink );
-         userStrings.WriteHeap( sink );
-         guids.WriteHeap( sink );
-         blobs.WriteHeap( sink );
+         sysStrings.WriteHeap( sink, byteArrayHelper );
+         userStrings.WriteHeap( sink, byteArrayHelper );
+         guids.WriteHeap( sink, byteArrayHelper );
+         blobs.WriteHeap( sink, byteArrayHelper );
 
          return curStreamOffset;
       }
@@ -1223,11 +1228,11 @@ namespace CILAssemblyManipulator.Physical.Implementation
                idx += width;
                ++tableIdx;
             }
-            sink.Write( array, 0, arrayLen );
+            sink.Write( array, arrayLen );
 #if DEBUG
             if ( idx != arrayLen )
             {
-               throw new Exception( "Something went wrong when emitting metadata array: emitted " + idx + " instead of expected " + array.Length + " bytes." );
+               throw new Exception( "Something went wrong when emitting metadata array: emitted " + idx + " instead of expected " + arrayLen + " bytes." );
             }
 #endif
          }
@@ -1256,11 +1261,11 @@ namespace CILAssemblyManipulator.Physical.Implementation
                idx += width;
                ++tableIdx;
             }
-            sink.Write( array, 0, arrayLen );
+            sink.Write( array, arrayLen );
 #if DEBUG
             if ( idx != arrayLen )
             {
-               throw new Exception( "Something went wrong when emitting metadata array: emitted " + idx + " instead of expected " + array.Length + " bytes." );
+               throw new Exception( "Something went wrong when emitting metadata array: emitted " + idx + " instead of expected " + arrayLen + " bytes." );
             }
 #endif
          }
@@ -1961,7 +1966,7 @@ namespace CILAssemblyManipulator.Physical.Implementation
          }
       }
 
-      public abstract void WriteHeap( Stream stream );
+      public abstract void WriteHeap( Stream stream, ByteArrayHelper byteArrayHelper );
 
       protected void CheckAccessed()
       {
@@ -1977,13 +1982,11 @@ namespace CILAssemblyManipulator.Physical.Implementation
    internal abstract class AbstractStringHeapWriter : AbstractHeapWriter
    {
       private readonly IDictionary<String, KeyValuePair<UInt32, Int32>> _strings;
-      private readonly Boolean _saveSize;
       private readonly Encoding _encoding;
 
-      internal AbstractStringHeapWriter( Encoding encoding, Boolean saveSize )
+      internal AbstractStringHeapWriter( Encoding encoding )
       {
          this._encoding = encoding;
-         this._saveSize = saveSize;
          this._strings = new Dictionary<String, KeyValuePair<UInt32, Int32>>();
       }
 
@@ -2012,61 +2015,73 @@ namespace CILAssemblyManipulator.Physical.Implementation
          return result;
       }
 
-      public override void WriteHeap( Stream stream )
+      public override void WriteHeap( Stream stream, ByteArrayHelper byteArrayHelper )
       {
          if ( this.Accessed )
          {
             stream.WriteByte( 0 );
             if ( this._strings.Count > 0 )
             {
-               var array = new Byte[BitUtils.MultipleOf4( this._curIndex ) - 1];
-               var i = 0;
                foreach ( var kvp in this._strings )
                {
-                  if ( this._saveSize )
-                  {
-                     array.CompressUInt32( ref i, kvp.Value.Value );
-                  }
-                  i += this.Serialize( kvp.Key, array, i );
-                  if ( !this._saveSize )
-                  {
-                     array[i++] = 0;
-                  }
+                  var arrayLen = kvp.Value.Value;
+                  byteArrayHelper.EnsureSize( arrayLen );
+                  this.Serialize( kvp.Key, byteArrayHelper );
+                  stream.Write( byteArrayHelper.Array, arrayLen );
                }
-               stream.Write( array );
             }
+            var tmp = this._curIndex;
+            stream.SkipToNextAlignment( ref this._curIndex, 4 );
          }
       }
 
       private void AddString( String str )
       {
-         var byteCount = this._encoding.GetByteCount( str ) + 1;
+         var byteCount = this.GetByteCountForString( str );
          this._strings.Add( str, new KeyValuePair<UInt32, Int32>( this._curIndex, byteCount ) );
          this._curIndex += (UInt32) byteCount;
-         if ( this._saveSize )
+      }
+
+      protected Encoding Encoding
+      {
+         get
          {
-            this._curIndex += (UInt32) BitUtils.GetEncodedUIntSize( byteCount );
+            return this._encoding;
          }
       }
 
-      protected virtual Int32 Serialize( String str, Byte[] array, Int32 arrayIndex )
-      {
-         return this._encoding.GetBytes( str, 0, str.Length, array, arrayIndex );
-      }
+      protected abstract Int32 GetByteCountForString( String str );
+
+      protected abstract void Serialize( String str, ByteArrayHelper byteArrayHelper );
    }
 
    internal sealed class UserStringHeapWriter : AbstractStringHeapWriter
    {
       internal UserStringHeapWriter()
-         : base( MetaDataConstants.USER_STRING_ENCODING, true )
+         : base( MetaDataConstants.USER_STRING_ENCODING )
       {
 
       }
 
-      protected override Int32 Serialize( String str, Byte[] array, Int32 arrayIndex )
+
+      protected override Int32 GetByteCountForString( String str )
       {
-         var oldIdx = arrayIndex;
-         byte lastByte = 0;
+         var retVal = str.Length * 2 // Each character is 2 bytes
+            + 1; // Trailing byte (zero or 1)
+         retVal += BitUtils.GetEncodedUIntSize( retVal ); // How many bytes it will take to compress the byte count
+         return retVal;
+      }
+
+      protected override void Serialize( String str, ByteArrayHelper byteArrayHelper )
+      {
+         // Byte array helper has already been set up to hold array size
+         var array = byteArrayHelper.Array;
+         // Byte count
+         var arrayIndex = 0;
+         array.CompressUInt32( ref arrayIndex, str.Length * 2 + 1 );
+
+         // Actual string
+         Byte lastByte = 0;
          for ( var i = 0; i < str.Length; ++i )
          {
             var chr = str[i];
@@ -2083,17 +2098,32 @@ namespace CILAssemblyManipulator.Physical.Implementation
                lastByte = 1;
             }
          }
+         // Trailing byte (zero or 1)
          array[arrayIndex++] = lastByte;
-         return arrayIndex - oldIdx;
       }
    }
 
    internal sealed class SystemStringHeapWriter : AbstractStringHeapWriter
    {
       internal SystemStringHeapWriter()
-         : base( MetaDataConstants.SYS_STRING_ENCODING, false )
+         : base( MetaDataConstants.SYS_STRING_ENCODING )
       {
 
+      }
+
+      protected override Int32 GetByteCountForString( String str )
+      {
+         return this.Encoding.GetByteCount( str ) // Byte count for string
+            + 1; // Trailing zero
+      }
+
+      protected override void Serialize( String str, ByteArrayHelper byteArrayHelper )
+      {
+         // Byte array helper has already been set up to hold array size
+         var array = byteArrayHelper.Array;
+         var byteCount = this.Encoding.GetBytes( str, 0, str.Length, array, 0 );
+         // Remember trailing zero
+         array[byteCount] = 0;
       }
    }
 
@@ -2130,7 +2160,7 @@ namespace CILAssemblyManipulator.Physical.Implementation
          return result;
       }
 
-      public override void WriteHeap( Stream stream )
+      public override void WriteHeap( Stream stream, ByteArrayHelper byteArrayHelper )
       {
          if ( this.Accessed )
          {
@@ -2138,12 +2168,13 @@ namespace CILAssemblyManipulator.Physical.Implementation
             var byteCount = 1u;
             if ( this._blobs.Count > 0 )
             {
-               var tmpArray = new Byte[4];
+               byteArrayHelper.EnsureSize( 4 );
+               var array = byteArrayHelper.Array;
                foreach ( var blob in this._blobs )
                {
                   var i = 0;
-                  tmpArray.CompressUInt32( ref i, blob.Length );
-                  stream.Write( tmpArray, 0, i );
+                  array.CompressUInt32( ref i, blob.Length );
+                  stream.Write( array, i );
                   stream.Write( blob );
                   byteCount += (UInt32) i + (UInt32) blob.Length;
                }
@@ -2185,17 +2216,16 @@ namespace CILAssemblyManipulator.Physical.Implementation
          return result;
       }
 
-      public override void WriteHeap( Stream stream )
+      public override void WriteHeap( Stream stream, ByteArrayHelper byteArrayHelper )
       {
          if ( this.Accessed )
          {
-            var array = new Byte[this._guids.Count * Consts.GUID_SIZE];
+            byteArrayHelper.EnsureSize( Consts.GUID_SIZE );
+
             foreach ( var kvp in this._guids )
             {
-               var idx = ( ( (Int32) kvp.Value ) - 1 ) * Consts.GUID_SIZE;
-               array.BlockCopyFrom( ref idx, kvp.Key.ToByteArray() );
+               stream.Write( kvp.Key.ToByteArray() );
             }
-            stream.Write( array );
          }
       }
    }
@@ -2381,24 +2411,6 @@ namespace CILAssemblyManipulator.Physical.Implementation
                System.Array.Copy( oldArray, 0, this._bytes, 0, oldArray.Length );
             }
          }
-         //if ( this._blockSize < this._curCount + size )
-         //{
-         //   if ( this._prevBlockIndex >= this._prevBlocks.Count )
-         //   {
-         //      this._prevBlocks.Add( this._curBlock );
-         //      this._prevBlockSizes.Add( this._curCount );
-         //   }
-         //   else
-         //   {
-         //      this._prevBlocks[this._prevBlockIndex] = this._curBlock;
-         //      this._prevBlockSizes[this._prevBlockIndex] = this._curCount;
-         //   }
-         //   ++this._prevBlockIndex;
-         //   this._curBlock = this._prevBlockIndex < this._prevBlocks.Count ?
-         //      this._prevBlocks[this._prevBlockIndex] :
-         //      new Byte[this._blockSize];
-         //   this._curCount = 0;
-         //}
       }
 
       internal Int32 CurCount
@@ -3058,7 +3070,7 @@ public static partial class E_CILPhysical
    // TODO Move to Utilpack
    public static Byte[] ZeroOut( this Byte[] array, ref Int32 idx, Int32 count )
    {
-      array.Fill( idx, count, (Byte) 0 );
+      array.FillWithOffsetAndCount( idx, count, (Byte) 0 );
       idx += count;
       return array;
    }
