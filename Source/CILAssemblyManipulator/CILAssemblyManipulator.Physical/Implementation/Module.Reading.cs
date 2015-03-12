@@ -617,7 +617,7 @@ namespace CILAssemblyManipulator.Physical.Implementation
                   ReadTable( retVal.StandaloneSignatures, curTable, tableSizes, i =>
                      new StandaloneSignature()
                      {
-                        Signature = ReadStandaloneSignature( blobs.WholeBLOBArray, blobs.GetBLOBIndex( stream ) )
+                        Signature = ReadStandaloneSignature( blobs, stream )
                      } );
                   break;
                case Tables.EventMap:
@@ -1312,8 +1312,11 @@ namespace CILAssemblyManipulator.Physical.Implementation
             MethodReferenceSignature.ReadFromBytes( bytes, ref idx );
       }
 
-      private static AbstractSignature ReadStandaloneSignature( Byte[] bytes, Int32 idx )
+      private static AbstractSignature ReadStandaloneSignature( BLOBHeapReader blob, Stream stream )
       {
+         Int32 heapIndex, blobSize;
+         var idx = blob.GetBLOBIndex( stream, out heapIndex, out blobSize );
+         var bytes = blob.WholeBLOBArray;
          // From https://social.msdn.microsoft.com/Forums/en-US/b4252eab-7aae-4456-9829-2707c8459e13/pinned-fields-in-the-common-language-runtime?forum=netfxtoolsdev
          // After messing around further, and noticing that even the C# compiler emits Field signatures in the StandAloneSig table, the signatures seem to relate to PDB debugging symbols.
          // When you emit symbols with the Debug or Release versions of your code, I'm guessing a StandAloneSig entry is injected and referred to by the PDB file.
@@ -1323,7 +1326,7 @@ namespace CILAssemblyManipulator.Physical.Implementation
          return (SignatureStarters) bytes[idx] == SignatureStarters.LocalSignature ?
             (AbstractSignature) LocalVariablesSignature.ReadFromBytes( bytes, ref idx ) :
             ( (SignatureStarters) bytes[idx] == SignatureStarters.Field ?
-               null : // We could parse field signature but it sometimes may contain stuff like Pinned etc, which would just mess it up
+               (AbstractSignature) new RawSignature() { Bytes = blob.GetBLOB( heapIndex ) } : // We could parse field signature but it sometimes may contain stuff like Pinned etc, which would just mess it up
                MethodReferenceSignature.ReadFromBytes( bytes, ref idx ) );
       }
 

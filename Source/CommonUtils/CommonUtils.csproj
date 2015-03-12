@@ -96,6 +96,7 @@
     <None Include="DelegateMultiplexer.xml" />
     <None Include="EventInvoking.xml" />
     <Compile Include="EventInvoking.il" />
+    <Compile Include="NullableComparer.cs" />
     <Compile Include="TimeComparers.cs" />
     <Compile Include="TypeUtils.cs" />
     <Compile Include="UndoBuffer.cs" />
@@ -121,7 +122,6 @@
   <Import Condition=" '$(TargetPlatformIdentifier)' == 'WindowsPhoneApp' " Project="$(MSBuildExtensionsPath)\Microsoft\WindowsXaml\v$(VisualStudioVersion)\Microsoft.Windows.UI.Xaml.CSharp.targets" />
   <Import Project="../../CommonBuildTools/CLR/MSBuild/TargetFramework.targets" />
   <Import Project="../../CommonBuildTools/CLR/MSBuild/MergeXMLDocs.targets" />
-  
   <!-- From http://blogs.clariusconsulting.net/kzu/how-to-perform-regular-expression-based-replacements-on-files-with-msbuild/ (and that is based on nuget task) -->
   <!-- Extended here to support different output filename and multiple finds -->
   <!--

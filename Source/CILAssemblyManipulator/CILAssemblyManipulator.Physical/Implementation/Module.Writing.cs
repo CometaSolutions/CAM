@@ -732,18 +732,12 @@ namespace CILAssemblyManipulator.Physical.Implementation
          // Write field RVAs here
          var mdFRVAs = md.FieldRVAs;
          fieldRVAs = new List<UInt32>( mdFRVAs.Count );
-         var fRVA = 0u;
          foreach ( var fRVAInfo in mdFRVAs )
          {
-            fieldRVAs.Add( codeSectionVirtualOffset + fRVA );
+            fieldRVAs.Add( codeSectionVirtualOffset + currentOffset );
             var data = fRVAInfo.Data;
             sink.Write( data );
-            fRVA += (UInt32) data.Length;
-         }
-
-         if ( fRVA > 0u )
-         {
-            currentOffset += fRVA;
+            currentOffset += (UInt32) data.Length;
          }
 
          sink.SkipToNextAlignment( ref currentOffset, 0x04u );
@@ -1131,7 +1125,7 @@ namespace CILAssemblyManipulator.Physical.Implementation
             .WriteUInt16LEToBytes( ref idx, (UInt16) ass.AssemblyInformation.VersionMinor ) // MinorVersion
             .WriteUInt16LEToBytes( ref idx, (UInt16) ass.AssemblyInformation.VersionBuild ) // BuildNumber
             .WriteUInt16LEToBytes( ref idx, (UInt16) ass.AssemblyInformation.VersionRevision ) // RevisionNumber
-            .WriteInt32LEToBytes( ref idx, (Int32) ( ass.Attributes & ~AssemblyFlags.PublicKey ) ) // Flags (Don't set public key flag)
+            .WriteInt32LEToBytes( ref idx, (Int32) ass.Attributes ) // Flags
             .WriteHeapIndex( ref idx, blobs, heapInfo.Heap1 ) // PublicKey
             .WriteHeapIndex( ref idx, sysStrings, heapInfo.Heap2 ) // Name
             .WriteHeapIndex( ref idx, sysStrings, heapInfo.Heap3 ) // Culture
@@ -2165,7 +2159,6 @@ namespace CILAssemblyManipulator.Physical.Implementation
          if ( this.Accessed )
          {
             stream.WriteByte( 0 );
-            var byteCount = 1u;
             if ( this._blobs.Count > 0 )
             {
                byteArrayHelper.EnsureSize( 4 );
@@ -2176,10 +2169,10 @@ namespace CILAssemblyManipulator.Physical.Implementation
                   array.CompressUInt32( ref i, blob.Length );
                   stream.Write( array, i );
                   stream.Write( blob );
-                  byteCount += (UInt32) i + (UInt32) blob.Length;
                }
             }
-            stream.SkipToNextAlignment( ref byteCount, 4 );
+            var tmp = this._curIndex;
+            stream.SkipToNextAlignment( ref tmp, 4 );
          }
       }
    }
@@ -2400,7 +2393,7 @@ namespace CILAssemblyManipulator.Physical.Implementation
          return result;
       }
 
-      internal void EnsureSize( Int32 size )
+      internal void EnsureSize( Int32 size ) // , SizeKind = (Absolute | Incremental [default] ) 
       {
          if ( this._bytes.Length < this._curCount + size )
          {
@@ -2544,7 +2537,15 @@ public static partial class E_CILPhysical
          }
          else
          {
-            info.WriteMethodSignature( sig as AbstractMethodSignature );
+            var raw = sig as RawSignature;
+            if ( raw != null )
+            {
+               info.AddBytes( raw.Bytes );
+            }
+            else
+            {
+               info.WriteMethodSignature( sig as AbstractMethodSignature );
+            }
          }
       }
       return info.CurCount == 0 ? null : info.CreateByteArray();

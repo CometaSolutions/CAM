@@ -67,49 +67,6 @@ namespace CILAssemblyManipulator.Physical
       public TableIndex ParameterList { get; set; }
    }
 
-   public sealed class MethodILDefinition
-   {
-      private readonly IList<MethodExceptionBlock> _exceptionBlocks;
-      private readonly IList<OpCodeInfo> _opCodes;
-
-      public MethodILDefinition( Int32 exceptionBlockCount = 0, Int32 opCodeCount = 0 )
-      {
-         this._exceptionBlocks = new List<MethodExceptionBlock>( exceptionBlockCount );
-         this._opCodes = new List<OpCodeInfo>( opCodeCount );
-      }
-
-      public Boolean InitLocals { get; set; }
-      public TableIndex? LocalsSignatureIndex { get; set; }
-      public Int32 MaxStackSize { get; set; }
-
-      public IList<MethodExceptionBlock> ExceptionBlocks
-      {
-         get
-         {
-            return this._exceptionBlocks;
-         }
-      }
-
-      public IList<OpCodeInfo> OpCodes
-      {
-         get
-         {
-            return this._opCodes;
-         }
-      }
-   }
-
-   public sealed class MethodExceptionBlock
-   {
-      public ExceptionBlockType BlockType { get; set; }
-      public Int32 TryOffset { get; set; }
-      public Int32 TryLength { get; set; }
-      public Int32 HandlerOffset { get; set; }
-      public Int32 HandlerLength { get; set; }
-      public TableIndex? ExceptionType { get; set; }
-      public Int32 FilterOffset { get; set; }
-   }
-
    public sealed class ParameterDefinition
    {
       public ParameterAttributes Attributes { get; set; }
@@ -152,7 +109,7 @@ namespace CILAssemblyManipulator.Physical
 
    public sealed class SecurityDefinition
    {
-      private readonly IList<AbstractSecurityInformation> _permissionSets;
+      private readonly List<AbstractSecurityInformation> _permissionSets;
 
       public SecurityDefinition( Int32 permissionSetsCount = 0 )
       {
@@ -167,7 +124,7 @@ namespace CILAssemblyManipulator.Physical
 
       public TableIndex Parent { get; set; }
 
-      public IList<AbstractSecurityInformation> PermissionSets
+      public List<AbstractSecurityInformation> PermissionSets
       {
          get
          {
@@ -298,7 +255,7 @@ namespace CILAssemblyManipulator.Physical
       public Byte[] HashValue { get; set; }
    }
 
-   public sealed class AssemblyInformation
+   public sealed class AssemblyInformation : IEquatable<AssemblyInformation>
    {
       public Int32 VersionMajor { get; set; }
       public Int32 VersionMinor { get; set; }
@@ -307,6 +264,37 @@ namespace CILAssemblyManipulator.Physical
       public Byte[] PublicKeyOrToken { get; set; }
       public String Name { get; set; }
       public String Culture { get; set; }
+
+      public override Boolean Equals( Object obj )
+      {
+         return this.Equals( obj as AssemblyInformation );
+      }
+
+      public override Int32 GetHashCode()
+      {
+         unchecked
+         {
+            return
+               (
+                  ( 17 * 23 + this.Name.GetHashCodeSafe()
+                  ) * 23 + this.VersionMajor.GetHashCodeSafe()
+               ) * 23 + this.VersionMinor.GetHashCodeSafe();
+         }
+      }
+
+      public Boolean Equals( AssemblyInformation other )
+      {
+         return Object.ReferenceEquals( this, other ) ||
+            ( other != null
+            && String.Equals( this.Name, other.Name )
+            && this.VersionMajor == other.VersionMajor
+            && this.VersionMinor == other.VersionMinor
+            && this.VersionBuild == other.VersionBuild
+            && this.VersionRevision == other.VersionRevision
+            && ArrayEqualityComparer<Byte>.DefaultArrayEqualityComparer.Equals( this.PublicKeyOrToken, other.PublicKeyOrToken )
+            && String.Equals( this.Culture, other.Culture )
+            );
+      }
 
       private const Int32 NOT_FOUND = -1;
 
@@ -621,7 +609,7 @@ namespace CILAssemblyManipulator.Physical
       public TableIndex Constraint { get; set; }
    }
 
-   public struct TableIndex
+   public struct TableIndex : IEquatable<TableIndex>, IComparable<TableIndex>, IComparable
    {
       private readonly Int32 _token;
 
@@ -664,11 +652,82 @@ namespace CILAssemblyManipulator.Physical
          }
       }
 
+      public override Boolean Equals( Object obj )
+      {
+         return obj is TableIndex && this.Equals( (TableIndex) obj );
+      }
 
+      public override Int32 GetHashCode()
+      {
+         return this._token;
+      }
 
-      public override string ToString()
+      public Boolean Equals( TableIndex other )
+      {
+         return this._token == other._token;
+      }
+
+      public override String ToString()
       {
          return this.Table + "[" + this.Index + "]";
+      }
+
+      public Int32 CompareTo( TableIndex other )
+      {
+         var retVal = this.Table.CompareTo( other.Table );
+         if ( retVal == 0 )
+         {
+            retVal = this.Index.CompareTo( other.Index );
+         }
+
+         return retVal;
+      }
+
+      int IComparable.CompareTo( object obj )
+      {
+         if ( obj == null )
+         {
+            // This is always 'greater' than null
+            return 1;
+         }
+         else if ( obj is TableIndex )
+         {
+            return this.CompareTo( (TableIndex) obj );
+         }
+         else
+         {
+            throw new ArgumentException( "Given object must be of type " + this.GetType() + " or null." );
+         }
+      }
+
+      public static Boolean operator ==( TableIndex x, TableIndex y )
+      {
+         return x.Equals( y );
+      }
+
+      public static Boolean operator !=( TableIndex x, TableIndex y )
+      {
+         return !( x == y );
+      }
+
+      public static Boolean operator <( TableIndex x, TableIndex y )
+      {
+         return x.CompareTo( y ) < 0;
+      }
+
+      public static Boolean operator >( TableIndex x, TableIndex y )
+      {
+         return x.CompareTo( y ) > 0;
+      }
+
+      public static Boolean operator <=( TableIndex x, TableIndex y )
+      {
+         return !( x > y );
+      }
+
+      public static Boolean operator >=( TableIndex x, TableIndex y )
+      {
+         return !( x < y );
       }
    }
 

@@ -22,6 +22,50 @@ using System.Text;
 
 namespace CILAssemblyManipulator.Physical
 {
+   public sealed class MethodILDefinition
+   {
+      private readonly IList<MethodExceptionBlock> _exceptionBlocks;
+      private readonly IList<OpCodeInfo> _opCodes;
+
+      public MethodILDefinition( Int32 exceptionBlockCount = 0, Int32 opCodeCount = 0 )
+      {
+         this._exceptionBlocks = new List<MethodExceptionBlock>( exceptionBlockCount );
+         this._opCodes = new List<OpCodeInfo>( opCodeCount );
+      }
+
+      public Boolean InitLocals { get; set; }
+      public TableIndex? LocalsSignatureIndex { get; set; }
+      public Int32 MaxStackSize { get; set; }
+
+      public IList<MethodExceptionBlock> ExceptionBlocks
+      {
+         get
+         {
+            return this._exceptionBlocks;
+         }
+      }
+
+      public IList<OpCodeInfo> OpCodes
+      {
+         get
+         {
+            return this._opCodes;
+         }
+      }
+   }
+
+   public sealed class MethodExceptionBlock
+   {
+      public ExceptionBlockType BlockType { get; set; }
+      public Int32 TryOffset { get; set; }
+      public Int32 TryLength { get; set; }
+      public Int32 HandlerOffset { get; set; }
+      public Int32 HandlerLength { get; set; }
+      public TableIndex? ExceptionType { get; set; }
+      public Int32 FilterOffset { get; set; }
+   }
+
+
    public abstract class OpCodeInfo
    {
       private readonly OpCode _code;

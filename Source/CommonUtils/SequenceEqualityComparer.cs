@@ -251,7 +251,7 @@ namespace CommonUtils
    /// <seealso cref="SequenceEqualityComparer{T,U}"/>
    public sealed class ArrayEqualityComparer<T> : IEqualityComparer<T[]>
    {
-      private static readonly IEqualityComparer<T[]> INSTANCE = new ArrayEqualityComparer<T>();
+      private static readonly IEqualityComparer<T[]> INSTANCE = new ArrayEqualityComparer<T>( null );
 
       /// <summary>
       /// Returns the equality comparer for arrays with element type <typeparamref name="T"/> which will use default equality comparer for the elements of the array.
@@ -277,11 +277,6 @@ namespace CommonUtils
 
       private readonly IEqualityComparer<T> _itemComparer;
 
-      private ArrayEqualityComparer()
-         : this( null )
-      {
-
-      }
 
       private ArrayEqualityComparer( IEqualityComparer<T> itemComparer )
       {
@@ -300,13 +295,14 @@ namespace CommonUtils
          else
          {
             result = y != null && x.Length == y.Length;
-            if ( result )
+            if ( result && x.Length > 0 )
             {
-               for ( var i = 0; i < x.Length; ++i )
+               var max = x.Length;
+               for ( var i = 0; i < max; ++i )
                {
-                  result = this._itemComparer.Equals( x[i], y[i] );
-                  if ( !result )
+                  if ( !this._itemComparer.Equals( x[i], y[i] ) )
                   {
+                     result = false;
                      break;
                   }
                }
@@ -324,7 +320,8 @@ namespace CommonUtils
             result = 17;
             unchecked // Overflow is fine, just wrap
             {
-               for ( var i = 0; i < obj.Length; ++i )
+               var max = obj.Length;
+               for ( var i = 0; i < max; ++i )
                {
                   result = result * 23 + this._itemComparer.GetHashCode( obj[i] );
                }
@@ -334,5 +331,248 @@ namespace CommonUtils
       }
 
       #endregion
+   }
+
+   /// <summary>
+   /// This class provides content-based equality comparing for collections. It is still possible to use <see cref="SequenceEqualityComparer{T,U}"/> for collections and have same result, but this class will be faster.
+   /// </summary>
+   /// <typeparam name="T">The type of collection, e.g. <see cref="IList{X}"/>.</typeparam>
+   /// <typeparam name="U">The type of the elements of the collection.</typeparam>
+   /// <seealso cref="SequenceEqualityComparer{T,U}"/>
+   public sealed class CollectionEqualityComparer<T, U> : IEqualityComparer<T>
+      where T : ICollection<U>
+   {
+      private static readonly IEqualityComparer<T> INSTANCE = new CollectionEqualityComparer<T, U>( null );
+
+      /// <summary>
+      /// Returns the equality comparer for collections with element type <typeparamref name="T"/> which will use default equality comparer for the elements of the array.
+      /// </summary>
+      /// <value>The equality comparer for collections with element type <typeparamref name="T"/> which will use default equality comparer for the elements of the array.</value>
+      public static IEqualityComparer<T> DefaultArrayEqualityComparer
+      {
+         get
+         {
+            return INSTANCE;
+         }
+      }
+
+      /// <summary>
+      /// Creates a new equality comparer for collections with element type <typeparamref name="T"/> which will use the given equality comparer for the elements of the collection.
+      /// </summary>
+      /// <param name="itemComparer">The equality comparer to use when comparing elements of the collection.</param>
+      /// <returns>A new equality comparer for collections with element type <typeparamref name="T"/> which will use the given equality comparer for the elements of the collection.</returns>
+      public static IEqualityComparer<T> NewCollectionEqualityComparer( IEqualityComparer<U> itemComparer )
+      {
+         return new CollectionEqualityComparer<T, U>( itemComparer );
+      }
+
+      /// <summary>
+      /// Checks equality of given collections without creating a new instance of this class.
+      /// </summary>
+      /// <param name="x">The first collection. May be <c>null</c>.</param>
+      /// <param name="y">The second collection. May be <c>null</c>.</param>
+      /// <param name="itemComparer">The optional equality comparer for items of the collection. If <c>null</c>, the default will be used.</param>
+      /// <returns>Whether two collections equal.</returns>
+      public static Boolean Equals( T x, T y, IEqualityComparer<U> itemComparer = null )
+      {
+         return EqualsImpl( x, y, itemComparer ?? EqualityComparer<U>.Default );
+      }
+
+      /// <summary>
+      /// Calculates the hash code of given collection without creating a new instance of this class.
+      /// </summary>
+      /// <param name="obj">The colleciton. May be <c>null</c>.</param>
+      /// <param name="itemComparer">The optional equality comparer for items of the collection. If <c>null</c>, the default will be used.</param>
+      /// <returns>The hash code for given collection.</returns>
+      public static Int32 GetHashCode( T obj, IEqualityComparer<U> itemComparer = null )
+      {
+         return GetHashCodeImpl( obj, itemComparer ?? EqualityComparer<U>.Default );
+      }
+
+      private static Boolean EqualsImpl( T x, T y, IEqualityComparer<U> itemComparer )
+      {
+         Boolean result;
+         if ( x == null )
+         {
+            result = y == null;
+         }
+         else
+         {
+            result = y != null && x.Count == y.Count;
+            if ( result && x.Count > 0 )
+            {
+               using ( var xEnum = x.GetEnumerator() )
+               using ( var yEnum = y.GetEnumerator() )
+               {
+                  while ( xEnum.MoveNext() && yEnum.MoveNext() ) // this should always work since .Count was the same...
+                  {
+                     if ( !itemComparer.Equals( xEnum.Current, yEnum.Current ) )
+                     {
+                        result = false;
+                        break;
+                     }
+                  }
+               }
+            }
+         }
+         return result;
+      }
+
+      private static Int32 GetHashCodeImpl( T obj, IEqualityComparer<U> itemComparer )
+      {
+         var result = 0;
+         if ( obj != null )
+         {
+            // Jon Skeet's answer on http://stackoverflow.com/questions/263400/what-is-the-best-algorithm-for-an-overridden-system-object-gethashcode
+            result = 17;
+            unchecked // Overflow is fine, just wrap
+            {
+               foreach ( var item in obj )
+               {
+                  result = result * 23 + itemComparer.GetHashCode( item );
+               }
+            }
+         }
+         return result;
+      }
+
+      private readonly IEqualityComparer<U> _itemComparer;
+
+
+      private CollectionEqualityComparer( IEqualityComparer<U> itemComparer )
+      {
+         this._itemComparer = itemComparer ?? EqualityComparer<U>.Default;
+      }
+
+      Boolean IEqualityComparer<T>.Equals( T x, T y )
+      {
+         return EqualsImpl( x, y, this._itemComparer );
+      }
+
+      Int32 IEqualityComparer<T>.GetHashCode( T obj )
+      {
+         return GetHashCodeImpl( obj, this._itemComparer );
+      }
+   }
+
+   /// <summary>
+   /// This class provides content-based equality comparing for lists. It is still possible to use <see cref="SequenceEqualityComparer{T,U}"/> or <see cref="CollectionEqualityComparer{T, U}"/> for lists and have same result, but this class will be faster and will not use heap memory.
+   /// </summary>
+   /// <typeparam name="T">The type of list, e.g. <see cref="List{X}"/>.</typeparam>
+   /// <typeparam name="U">The type of the elements of the list.</typeparam>
+   /// <seealso cref="SequenceEqualityComparer{T,U}"/>
+   /// <seealso cref="CollectionEqualityComparer{T, U}"/>
+   public sealed class ListEqualityComparer<T, U> : IEqualityComparer<T>
+      where T : IList<U>
+   {
+      private static readonly IEqualityComparer<T> INSTANCE = new ListEqualityComparer<T, U>( null );
+
+      /// <summary>
+      /// Returns the equality comparer for lists with element type <typeparamref name="T"/> which will use default equality comparer for the elements of the array.
+      /// </summary>
+      /// <value>The equality comparer for lists with element type <typeparamref name="T"/> which will use default equality comparer for the elements of the array.</value>
+      public static IEqualityComparer<T> DefaultArrayEqualityComparer
+      {
+         get
+         {
+            return INSTANCE;
+         }
+      }
+
+      /// <summary>
+      /// Creates a new equality comparer for lists with element type <typeparamref name="T"/> which will use the given equality comparer for the elements of the list.
+      /// </summary>
+      /// <param name="itemComparer">The equality comparer to use when comparing elements of the list.</param>
+      /// <returns>A new equality comparer for lists with element type <typeparamref name="T"/> which will use the given equality comparer for the elements of the list.</returns>
+      public static IEqualityComparer<T> NewCollectionEqualityComparer( IEqualityComparer<U> itemComparer )
+      {
+         return new ListEqualityComparer<T, U>( itemComparer );
+      }
+
+      /// <summary>
+      /// Checks equality of given lists without creating a new instance of this class.
+      /// </summary>
+      /// <param name="x">The first list. May be <c>null</c>.</param>
+      /// <param name="y">The second list. May be <c>null</c>.</param>
+      /// <param name="itemComparer">The optional equality comparer for items of the list. If <c>null</c>, the default will be used.</param>
+      /// <returns>Whether two lists equal.</returns>
+      public static Boolean Equals( T x, T y, IEqualityComparer<U> itemComparer = null )
+      {
+         return EqualsImpl( x, y, itemComparer ?? EqualityComparer<U>.Default );
+      }
+
+      /// <summary>
+      /// Calculates the hash code of given list without creating a new instance of this class.
+      /// </summary>
+      /// <param name="obj">The colleciton. May be <c>null</c>.</param>
+      /// <param name="itemComparer">The optional equality comparer for items of the list. If <c>null</c>, the default will be used.</param>
+      /// <returns>The hash code for given list.</returns>
+      public static Int32 GetHashCode( T obj, IEqualityComparer<U> itemComparer = null )
+      {
+         return GetHashCodeImpl( obj, itemComparer ?? EqualityComparer<U>.Default );
+      }
+
+      private static Boolean EqualsImpl( T x, T y, IEqualityComparer<U> itemComparer )
+      {
+         Boolean result;
+         if ( x == null )
+         {
+            result = y == null;
+         }
+         else
+         {
+            result = y != null && x.Count == y.Count;
+            if ( result && x.Count > 0 )
+            {
+               var max = x.Count;
+               for ( var i = 0; i < max; ++i )
+               {
+                  if ( !itemComparer.Equals( x[i], y[i] ) )
+                  {
+                     result = false;
+                     break;
+                  }
+               }
+            }
+         }
+         return result;
+      }
+
+      private static Int32 GetHashCodeImpl( T obj, IEqualityComparer<U> itemComparer )
+      {
+         var result = 0;
+         if ( obj != null )
+         {
+            // Jon Skeet's answer on http://stackoverflow.com/questions/263400/what-is-the-best-algorithm-for-an-overridden-system-object-gethashcode
+            result = 17;
+            unchecked // Overflow is fine, just wrap
+            {
+               var max = obj.Count;
+               for ( var i = 0; i < max; ++i )
+               {
+                  result = result * 23 + itemComparer.GetHashCode( obj[i] );
+               }
+            }
+         }
+         return result;
+      }
+
+      private readonly IEqualityComparer<U> _itemComparer;
+
+
+      private ListEqualityComparer( IEqualityComparer<U> itemComparer )
+      {
+         this._itemComparer = itemComparer ?? EqualityComparer<U>.Default;
+      }
+
+      Boolean IEqualityComparer<T>.Equals( T x, T y )
+      {
+         return EqualsImpl( x, y, this._itemComparer );
+      }
+
+      Int32 IEqualityComparer<T>.GetHashCode( T obj )
+      {
+         return GetHashCodeImpl( obj, this._itemComparer );
+      }
    }
 }

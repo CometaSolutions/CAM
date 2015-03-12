@@ -32,7 +32,8 @@ namespace CILAssemblyManipulator.Physical
       Property,
       LocalVariable,
       Type,
-      GenericMethodInstantiation
+      GenericMethodInstantiation,
+      RawSignature
    }
 
    public abstract class AbstractSignature
@@ -46,9 +47,26 @@ namespace CILAssemblyManipulator.Physical
       public abstract SignatureKind SignatureKind { get; }
    }
 
+   public sealed class RawSignature : AbstractSignature
+   {
+      public RawSignature()
+      {
+
+      }
+
+      public Byte[] Bytes { get; set; }
+      public override SignatureKind SignatureKind
+      {
+         get
+         {
+            return SignatureKind.RawSignature;
+         }
+      }
+   }
+
    public abstract class AbstractMethodSignature : AbstractSignature
    {
-      private readonly IList<ParameterSignature> _parameters;
+      private readonly List<ParameterSignature> _parameters;
 
       // Disable inheritance to other assemblies
       internal AbstractMethodSignature( Int32 parameterCount )
@@ -59,7 +77,7 @@ namespace CILAssemblyManipulator.Physical
       public SignatureStarters SignatureStarter { get; set; }
       public Int32 GenericArgumentCount { get; set; }
       public ParameterSignature ReturnType { get; set; }
-      public IList<ParameterSignature> Parameters
+      public List<ParameterSignature> Parameters
       {
          get
          {
@@ -178,7 +196,7 @@ namespace CILAssemblyManipulator.Physical
 
    public sealed class MethodReferenceSignature : AbstractMethodSignature
    {
-      private readonly IList<ParameterSignature> _varArgsParameters;
+      private readonly List<ParameterSignature> _varArgsParameters;
 
       public MethodReferenceSignature( Int32 parameterCount = 0, Int32 varArgsParameterCount = 0 )
          : base( parameterCount )
@@ -186,7 +204,7 @@ namespace CILAssemblyManipulator.Physical
          this._varArgsParameters = new List<ParameterSignature>( varArgsParameterCount );
       }
 
-      public IList<ParameterSignature> VarArgsParameters
+      public List<ParameterSignature> VarArgsParameters
       {
          get
          {
@@ -232,7 +250,7 @@ namespace CILAssemblyManipulator.Physical
 
    public abstract class AbstractSignatureWithCustomMods : AbstractSignature
    {
-      private readonly IList<CustomModifierSignature> _customMods;
+      private readonly List<CustomModifierSignature> _customMods;
 
       // Disable inheritance to other assemblies
       internal AbstractSignatureWithCustomMods( Int32 customModCount )
@@ -240,7 +258,7 @@ namespace CILAssemblyManipulator.Physical
          this._customMods = new List<CustomModifierSignature>( customModCount );
       }
 
-      public IList<CustomModifierSignature> CustomModifiers
+      public List<CustomModifierSignature> CustomModifiers
       {
          get
          {
@@ -291,7 +309,7 @@ namespace CILAssemblyManipulator.Physical
 
    public sealed class PropertySignature : AbstractSignatureWithCustomMods
    {
-      private readonly IList<ParameterSignature> _parameters;
+      private readonly List<ParameterSignature> _parameters;
 
       public PropertySignature( Int32 customModCount = 0, Int32 parameterCount = 0 )
          : base( customModCount )
@@ -309,7 +327,7 @@ namespace CILAssemblyManipulator.Physical
 
       public Boolean HasThis { get; set; }
       public TypeSignature PropertyType { get; set; }
-      public IList<ParameterSignature> Parameters
+      public List<ParameterSignature> Parameters
       {
          get
          {
@@ -348,7 +366,7 @@ namespace CILAssemblyManipulator.Physical
 
    public sealed class LocalVariablesSignature : AbstractSignature
    {
-      private readonly IList<LocalVariableSignature> _locals;
+      private readonly List<LocalVariableSignature> _locals;
 
       public LocalVariablesSignature( Int32 localsCount = 0 )
       {
@@ -363,7 +381,7 @@ namespace CILAssemblyManipulator.Physical
          }
       }
 
-      public IList<LocalVariableSignature> Locals
+      public List<LocalVariableSignature> Locals
       {
          get
          {
@@ -418,7 +436,7 @@ namespace CILAssemblyManipulator.Physical
 
    public abstract class ParameterOrLocalVariableSignature
    {
-      private readonly IList<CustomModifierSignature> _customMods;
+      private readonly List<CustomModifierSignature> _customMods;
 
       // Disable inheritance to other assemblies
       internal ParameterOrLocalVariableSignature( Int32 customModCount )
@@ -426,7 +444,7 @@ namespace CILAssemblyManipulator.Physical
          this._customMods = new List<CustomModifierSignature>( customModCount );
       }
 
-      public IList<CustomModifierSignature> CustomModifiers
+      public List<CustomModifierSignature> CustomModifiers
       {
          get
          {
@@ -702,7 +720,7 @@ namespace CILAssemblyManipulator.Physical
 
    public sealed class ClassOrValueTypeSignature : TypeSignature
    {
-      private readonly IList<TypeSignature> _genericArguments;
+      private readonly List<TypeSignature> _genericArguments;
 
       public ClassOrValueTypeSignature( Int32 genericArgumentsCount = 0 )
       {
@@ -719,7 +737,7 @@ namespace CILAssemblyManipulator.Physical
 
       public Boolean IsClass { get; set; }
       public TableIndex Type { get; set; }
-      public IList<TypeSignature> GenericArguments
+      public List<TypeSignature> GenericArguments
       {
          get
          {
@@ -759,7 +777,7 @@ namespace CILAssemblyManipulator.Physical
 
    public sealed class PointerTypeSignature : TypeSignature
    {
-      private readonly IList<CustomModifierSignature> _customMods;
+      private readonly List<CustomModifierSignature> _customMods;
 
       public PointerTypeSignature( Int32 customModCount = 0 )
       {
@@ -774,7 +792,7 @@ namespace CILAssemblyManipulator.Physical
          }
       }
 
-      public IList<CustomModifierSignature> CustomModifiers
+      public List<CustomModifierSignature> CustomModifiers
       {
          get
          {
@@ -798,8 +816,8 @@ namespace CILAssemblyManipulator.Physical
 
    public sealed class ComplexArrayTypeSignature : AbstractArrayTypeSignature
    {
-      private readonly IList<Int32> _sizes;
-      private readonly IList<Int32> _lowerBounds;
+      private readonly List<Int32> _sizes;
+      private readonly List<Int32> _lowerBounds;
 
       public ComplexArrayTypeSignature( Int32 sizesCount = 0, Int32 lowerBoundsCount = 0 )
       {
@@ -816,14 +834,14 @@ namespace CILAssemblyManipulator.Physical
       }
 
       public Int32 Rank { get; set; }
-      public IList<Int32> Sizes
+      public List<Int32> Sizes
       {
          get
          {
             return this._sizes;
          }
       }
-      public IList<Int32> LowerBounds
+      public List<Int32> LowerBounds
       {
          get
          {
@@ -834,7 +852,7 @@ namespace CILAssemblyManipulator.Physical
 
    public sealed class SimpleArrayTypeSignature : AbstractArrayTypeSignature
    {
-      private readonly IList<CustomModifierSignature> _customMods;
+      private readonly List<CustomModifierSignature> _customMods;
 
       public SimpleArrayTypeSignature( Int32 customModCount = 0 )
       {
@@ -849,7 +867,7 @@ namespace CILAssemblyManipulator.Physical
          }
       }
 
-      public IList<CustomModifierSignature> CustomModifiers
+      public List<CustomModifierSignature> CustomModifiers
       {
          get
          {
@@ -860,7 +878,7 @@ namespace CILAssemblyManipulator.Physical
 
    public sealed class GenericMethodSignature : AbstractSignature
    {
-      private readonly IList<TypeSignature> _genericArguments;
+      private readonly List<TypeSignature> _genericArguments;
 
       public GenericMethodSignature( Int32 genericArgumentsCount = 0 )
       {
@@ -875,7 +893,7 @@ namespace CILAssemblyManipulator.Physical
          }
       }
 
-      public IList<TypeSignature> GenericArguments
+      public List<TypeSignature> GenericArguments
       {
          get
          {
@@ -1332,8 +1350,8 @@ namespace CILAssemblyManipulator.Physical
 
    public sealed class CustomAttributeSignature : AbstractCustomAttributeSignature
    {
-      private readonly IList<CustomAttributeTypedArgument> _typedArgs;
-      private readonly IList<CustomAttributeNamedArgument> _namedArgs;
+      private readonly List<CustomAttributeTypedArgument> _typedArgs;
+      private readonly List<CustomAttributeNamedArgument> _namedArgs;
 
       public CustomAttributeSignature( Int32 typedArgsCount = 0, Int32 namedArgsCount = 0 )
       {
@@ -1341,7 +1359,7 @@ namespace CILAssemblyManipulator.Physical
          this._namedArgs = new List<CustomAttributeNamedArgument>( namedArgsCount );
       }
 
-      public IList<CustomAttributeTypedArgument> TypedArguments
+      public List<CustomAttributeTypedArgument> TypedArguments
       {
          get
          {
@@ -1349,7 +1367,7 @@ namespace CILAssemblyManipulator.Physical
          }
       }
 
-      public IList<CustomAttributeNamedArgument> NamedArguments
+      public List<CustomAttributeNamedArgument> NamedArguments
       {
          get
          {
@@ -1488,7 +1506,7 @@ namespace CILAssemblyManipulator.Physical
    /// <seealso cref="CILElementWithSecurityInformation.AddDeclarativeSecurity(API.SecurityAction, CILType)"/>
    public sealed class SecurityInformation : AbstractSecurityInformation
    {
-      private readonly IList<CustomAttributeNamedArgument> _namedArguments;
+      private readonly List<CustomAttributeNamedArgument> _namedArguments;
 
       internal SecurityInformation( Int32 namedArgumentsCount = 0 )
       {
@@ -1499,7 +1517,7 @@ namespace CILAssemblyManipulator.Physical
       /// Gets the <see cref="CILCustomAttributeNamedArgument"/>s of this security attribute declaration.
       /// </summary>
       /// <value>The <see cref="CILCustomAttributeNamedArgument"/>s of this security attribute declaration.</value>
-      public IList<CustomAttributeNamedArgument> NamedArguments
+      public List<CustomAttributeNamedArgument> NamedArguments
       {
          get
          {
