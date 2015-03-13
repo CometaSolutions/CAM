@@ -63,6 +63,7 @@ namespace CILAssemblyManipulator.Physical
       private static IEqualityComparer<GenericParameterConstraintDefinition> _GenericParameterConstraintDefinitionEqualityComparer = null;
 
       private static IEqualityComparer<AbstractSignature> _AbstractSignatureEqualityComparer = null;
+      private static IEqualityComparer<RawSignature> _RawSignatureEqualityComparer = null;
       private static IEqualityComparer<AbstractMethodSignature> _AbstractMethodSignatureEqualityComparer = null;
       private static IEqualityComparer<MethodDefinitionSignature> _MethodDefinitionSignatureEqualityComparer = null;
       private static IEqualityComparer<MethodReferenceSignature> _MethodReferenceSignatureEqualityComparer = null;
@@ -595,6 +596,20 @@ namespace CILAssemblyManipulator.Physical
             {
                retVal = ComparerFromFunctions.NewEqualityComparer<AbstractSignature>( Equality_AbstractSignature, HashCode_AbstractSignature );
                _AbstractSignatureEqualityComparer = retVal;
+            }
+            return retVal;
+         }
+      }
+
+      public static IEqualityComparer<RawSignature> RawSignatureEqualityComparer
+      {
+         get
+         {
+            var retVal = _RawSignatureEqualityComparer;
+            if ( retVal == null )
+            {
+               retVal = ComparerFromFunctions.NewEqualityComparer<RawSignature>( Equality_RawSignature, HashCode_RawSignature );
+               _RawSignatureEqualityComparer = retVal;
             }
             return retVal;
          }
@@ -1433,7 +1448,7 @@ namespace CILAssemblyManipulator.Physical
                case SignatureKind.GenericMethodInstantiation:
                   retVal = GenericMethodSignatureEqualityComparer.Equals( x as GenericMethodSignature, y as GenericMethodSignature );
                   break;
-               case SignatureKind.LocalVariable:
+               case SignatureKind.LocalVariables:
                   retVal = LocalVariablesSignatureEqualityComparer.Equals( x as LocalVariablesSignature, y as LocalVariablesSignature );
                   break;
                case SignatureKind.MethodDefinition:
@@ -1449,16 +1464,19 @@ namespace CILAssemblyManipulator.Physical
                   retVal = TypeSignatureEqualityComparer.Equals( x as TypeSignature, y as TypeSignature );
                   break;
                case SignatureKind.RawSignature:
-                  retVal = Equality_RawSignature_NoReferenceEquals( x as RawSignature, y as RawSignature );
+                  retVal = RawSignatureEqualityComparer.Equals( x as RawSignature, y as RawSignature );
                   break;
             }
          }
          return retVal;
       }
 
-      private static Boolean Equality_RawSignature_NoReferenceEquals( RawSignature x, RawSignature y )
+      private static Boolean Equality_RawSignature( RawSignature x, RawSignature y )
       {
-         return x != null && y != null && ArrayEqualityComparer<Byte>.DefaultArrayEqualityComparer.Equals( x.Bytes, y.Bytes );
+         return Object.ReferenceEquals( x, y ) ||
+         ( x != null && y != null
+            && ArrayEqualityComparer<Byte>.DefaultArrayEqualityComparer.Equals( x.Bytes, y.Bytes )
+         );
       }
 
       private static Boolean Equality_AbstractMethodSignature( AbstractMethodSignature x, AbstractMethodSignature y )
@@ -1818,332 +1836,422 @@ namespace CILAssemblyManipulator.Physical
 
       private static Int32 HashCode_ModuleDefinition( ModuleDefinition x )
       {
-         throw new NotImplementedException();
+         return x == null ? 0 : x.Name.GetHashCodeSafe( 1 );
       }
 
       private static Int32 HashCode_TypeReference( TypeReference x )
       {
-         throw new NotImplementedException();
+         return x == null ? 0 : x.Name.GetHashCodeSafe( 1 );
       }
 
       private static Int32 HashCode_TypeDefinition( TypeDefinition x )
       {
-         throw new NotImplementedException();
+         return x == null ? 0 : x.Name.GetHashCodeSafe( 1 );
       }
 
       private static Int32 HashCode_FieldDefinition( FieldDefinition x )
       {
-         throw new NotImplementedException();
+         return x == null ? 0 : x.Name.GetHashCodeSafe( 1 ); // TODO might need to include something else to hashcode?
       }
 
       private static Int32 HashCode_MethodDefinition( MethodDefinition x )
       {
-         throw new NotImplementedException();
+         return x == null ? 0 : ( ( 17 * 23 + x.Name.GetHashCodeSafe( 1 ) ) * 23 + x.ParameterList.GetHashCode() );
       }
 
       private static Int32 HashCode_ParameterDefinition( ParameterDefinition x )
       {
-         throw new NotImplementedException();
+         return x == null ? 0 : ( ( 17 * 23 + x.Name.GetHashCodeSafe( 1 ) ) * 23 + x.Sequence );
       }
 
       private static Int32 HashCode_InterfaceImplementation( InterfaceImplementation x )
       {
-         throw new NotImplementedException();
+         return x == null ? 0 : ( ( 17 * 23 + x.Class.GetHashCode() ) * 23 + x.Interface.GetHashCode() );
       }
 
       private static Int32 HashCode_MemberReference( MemberReference x )
       {
-         throw new NotImplementedException();
+         return x == null ? 0 : ( ( 17 * 23 + x.Name.GetHashCodeSafe( 1 ) ) * 23 + x.DeclaringType.GetHashCode() );
       }
 
       private static Int32 HashCode_ConstantDefinition( ConstantDefinition x )
       {
-         throw new NotImplementedException();
+         return x == null ? 0 : x.Parent.GetHashCode();
       }
 
       private static Int32 HashCode_CustomAttributeDefinition( CustomAttributeDefinition x )
       {
-         throw new NotImplementedException();
+         return x == null ? 0 : ( ( 17 * 23 + x.Parent.GetHashCode() ) * 23 + x.Type.GetHashCode() );
       }
 
       private static Int32 HashCode_FieldMarshal( FieldMarshal x )
       {
-         throw new NotImplementedException();
+         return x == null ? 0 : x.Parent.GetHashCode();
       }
 
       private static Int32 HashCode_SecurityDefinition( SecurityDefinition x )
       {
-         throw new NotImplementedException();
+         return x == null ? 0 : x.Parent.GetHashCode();
       }
 
       private static Int32 HashCode_ClassLayout( ClassLayout x )
       {
-         throw new NotImplementedException();
+         return x == null ? 0 : x.Parent.GetHashCode();
       }
 
       private static Int32 HashCode_FieldLayout( FieldLayout x )
       {
-         throw new NotImplementedException();
+         return x == null ? 0 : x.Field.GetHashCode();
       }
 
       private static Int32 HashCode_StandaloneSignature( StandaloneSignature x )
       {
-         throw new NotImplementedException();
+         return x == null ? 0 : HashCode_AbstractSignature( x.Signature );
       }
 
       private static Int32 HashCode_EventMap( EventMap x )
       {
-         throw new NotImplementedException();
+         return x == null ? 0 : ( ( 17 * 23 + x.Parent.GetHashCode() ) * 23 + x.EventList.GetHashCode() );
       }
 
       private static Int32 HashCode_EventDefinition( EventDefinition x )
       {
-         throw new NotImplementedException();
+         return x == null ? 0 : ( ( 17 * 23 + x.Name.GetHashCodeSafe( 1 ) ) * 23 + x.EventType.GetHashCode() );
       }
 
       private static Int32 HashCode_PropertyMap( PropertyMap x )
       {
-         throw new NotImplementedException();
+         return x == null ? 0 : ( ( 17 * 23 + x.Parent.GetHashCode() ) * 23 + x.PropertyList.GetHashCode() );
       }
 
       private static Int32 HashCode_PropertyDefinition( PropertyDefinition x )
       {
-         throw new NotImplementedException();
+         return x == null ? 0 : ( ( 17 * 23 + x.Name.GetHashCodeSafe( 1 ) ) * 23 + HashCode_PropertySignature( x.Signature ) );
       }
 
       private static Int32 HashCode_MethodSemantics( MethodSemantics x )
       {
-         throw new NotImplementedException();
+         return x == null ? 0 : ( ( 17 * 23 + x.Method.GetHashCode() ) * 23 + x.Associaton.GetHashCode() );
       }
 
       private static Int32 HashCode_MethodImplementation( MethodImplementation x )
       {
-         throw new NotImplementedException();
+         return x == null ? 0 : ( ( 17 * 23 + x.Class.GetHashCode() ) * 23 + x.MethodBody.GetHashCode() );
       }
 
       private static Int32 HashCode_ModuleReference( ModuleReference x )
       {
-         throw new NotImplementedException();
+         return x == null ? 0 : x.ModuleName.GetHashCodeSafe( 1 );
       }
 
       private static Int32 HashCode_TypeSpecification( TypeSpecification x )
       {
-         throw new NotImplementedException();
+         return x == null ? 0 : HashCode_TypeSignature( x.Signature );
       }
 
       private static Int32 HashCode_MethodImplementationMap( MethodImplementationMap x )
       {
-         throw new NotImplementedException();
+         return x == null ? 0 : ( ( 17 * 23 + x.ImportName.GetHashCodeSafe( 1 ) ) * 23 + x.MemberForwarded.GetHashCode() );
       }
 
       private static Int32 HashCode_FieldRVA( FieldRVA x )
       {
-         throw new NotImplementedException();
+         return x == null ? 0 : x.Field.GetHashCode();
       }
 
       private static Int32 HashCode_AssemblyDefinition( AssemblyDefinition x )
       {
-         throw new NotImplementedException();
+         return x == null ? 0 : x.AssemblyInformation.GetHashCodeSafe( 1 );
       }
 
       private static Int32 HashCode_AssemblyReference( AssemblyReference x )
       {
-         throw new NotImplementedException();
+         return x == null ? 0 : x.AssemblyInformation.GetHashCodeSafe( 1 );
       }
 
       private static Int32 HashCode_FileReference( FileReference x )
       {
-         throw new NotImplementedException();
+         return x == null ? 0 : x.Name.GetHashCodeSafe( 1 );
       }
 
       private static Int32 HashCode_ExportedType( ExportedType x )
       {
-         throw new NotImplementedException();
+         return x == null ? 0 : x.Name.GetHashCodeSafe( 1 );
       }
 
       private static Int32 HashCode_ManifestResource( ManifestResource x )
       {
-         throw new NotImplementedException();
+         return x == null ? 0 : x.Name.GetHashCodeSafe( 1 );
       }
 
       private static Int32 HashCode_NestedClassDefinition( NestedClassDefinition x )
       {
-         throw new NotImplementedException();
+         return x == null ? 0 : ( ( 17 * 23 + x.NestedClass.GetHashCode() ) * 23 + x.EnclosingClass.GetHashCode() );
       }
 
       private static Int32 HashCode_GenericParameterDefinition( GenericParameterDefinition x )
       {
-         throw new NotImplementedException();
+         return x == null ? 0 : ( ( 17 * 23 + x.Name.GetHashCodeSafe( 1 ) ) * 23 + x.GenericParameterIndex );
       }
 
       private static Int32 HashCode_MethodSpecification( MethodSpecification x )
       {
-         throw new NotImplementedException();
+         return x == null ? 0 : ( ( 17 * 23 + x.Method.GetHashCode() ) * 23 + HashCode_GenericMethodSignature( x.Signature ) );
       }
 
       private static Int32 HashCode_GenericParameterConstraintDefinition( GenericParameterConstraintDefinition x )
       {
-         throw new NotImplementedException();
+         return x == null ? 0 : ( ( 17 * 23 + x.Owner.GetHashCode() ) * 23 + x.Constraint.GetHashCode() );
       }
 
       private static Int32 HashCode_AbstractSignature( AbstractSignature x )
       {
-         throw new NotImplementedException();
+         if ( x == null )
+         {
+            return 0;
+         }
+         else
+         {
+            switch ( x.SignatureKind )
+            {
+               case SignatureKind.Field:
+                  return HashCode_FieldSignature( x as FieldSignature );
+               case SignatureKind.GenericMethodInstantiation:
+                  return HashCode_GenericMethodSignature( x as GenericMethodSignature );
+               case SignatureKind.LocalVariables:
+                  return HashCode_LocalVariablesSignature( x as LocalVariablesSignature );
+               case SignatureKind.MethodDefinition:
+                  return HashCode_MethodDefinitionSignature( x as MethodDefinitionSignature );
+               case SignatureKind.MethodReference:
+                  return HashCode_MethodReferenceSignature( x as MethodReferenceSignature );
+               case SignatureKind.Property:
+                  return HashCode_PropertySignature( x as PropertySignature );
+               case SignatureKind.RawSignature:
+                  return HashCode_RawSignature( x as RawSignature );
+               case SignatureKind.Type:
+                  return HashCode_TypeSignature( x as TypeSignature );
+               default:
+                  return 0;
+            }
+         }
+
+      }
+
+      private static Int32 HashCode_RawSignature( RawSignature x )
+      {
+         return ArrayEqualityComparer<Byte>.DefaultArrayEqualityComparer.GetHashCode( x.Bytes );
       }
 
       private static Int32 HashCode_AbstractMethodSignature( AbstractMethodSignature x )
       {
-         throw new NotImplementedException();
+         return x == null ? 0 : ( ( 17 * 23 + HashCode_ParameterSignature( x.ReturnType ) ) * 23 + ListEqualityComparer<List<ParameterSignature>, ParameterSignature>.GetHashCode( x.Parameters, ParameterSignatureEqualityComparer ) );
       }
 
       private static Int32 HashCode_MethodDefinitionSignature( MethodDefinitionSignature x )
       {
-         throw new NotImplementedException();
+         return HashCode_AbstractMethodSignature( x );
       }
 
       private static Int32 HashCode_MethodReferenceSignature( MethodReferenceSignature x )
       {
-         throw new NotImplementedException();
+         // Ignore varargs when calculating hash code
+         return HashCode_AbstractMethodSignature( x );
       }
 
       private static Int32 HashCode_FieldSignature( FieldSignature x )
       {
-         throw new NotImplementedException();
+         return x == null ? 0 : HashCode_TypeSignature( x.Type );
       }
 
       private static Int32 HashCode_PropertySignature( PropertySignature x )
       {
-         throw new NotImplementedException();
+         return x == null ? 0 : ( ( 17 * 23 + HashCode_TypeSignature( x.PropertyType ) ) * 23 + ListEqualityComparer<List<ParameterSignature>, ParameterSignature>.GetHashCode( x.Parameters, ParameterSignatureEqualityComparer ) );
       }
 
       private static Int32 HashCode_LocalVariablesSignature( LocalVariablesSignature x )
       {
-         throw new NotImplementedException();
+         return x == null ? 0 : ( 17 * 23 + ListEqualityComparer<List<LocalVariableSignature>, LocalVariableSignature>.GetHashCode( x.Locals, LocalVariableSignatureEqualityComparer ) );
       }
 
       private static Int32 HashCode_LocalVariableSignature( LocalVariableSignature x )
       {
-         throw new NotImplementedException();
+         return x == null ? 0 : HashCode_TypeSignature( x.Type );
       }
 
       private static Int32 HashCode_ParameterSignature( ParameterSignature x )
       {
-         throw new NotImplementedException();
+         return x == null ? 0 : HashCode_TypeSignature( x.Type );
       }
 
       private static Int32 HashCode_CustomModifierSignature( CustomModifierSignature x )
       {
-         throw new NotImplementedException();
+         return x == null ? 0 : x.CustomModifierType.GetHashCode();
       }
 
       private static Int32 HashCode_TypeSignature( TypeSignature x )
       {
-         throw new NotImplementedException();
+         if ( x == null )
+         {
+            return 0;
+         }
+         else
+         {
+            switch ( x.TypeSignatureKind )
+            {
+               case TypeSignatureKind.Simple:
+                  return HashCode_SimpleTypeSignature( x as SimpleTypeSignature );
+               case TypeSignatureKind.ClassOrValue:
+                  return HashCode_ClassOrValueTypeSignature( x as ClassOrValueTypeSignature );
+               case TypeSignatureKind.GenericParameter:
+                  return HashCode_GenericParameterTypeSignature( x as GenericParameterTypeSignature );
+               case TypeSignatureKind.FunctionPointer:
+                  return HashCode_FunctionPointerTypeSignature( x as FunctionPointerTypeSignature );
+               case TypeSignatureKind.Pointer:
+                  return HashCode_PointerTypeSignature( x as PointerTypeSignature );
+               case TypeSignatureKind.ComplexArray:
+                  return HashCode_ComplexArrayTypeSignature( x as ComplexArrayTypeSignature );
+               case TypeSignatureKind.SimpleArray:
+                  return HashCode_SimpleArrayTypeSignature( x as SimpleArrayTypeSignature );
+               default:
+                  return 0;
+            }
+         }
       }
 
-      //private static Int32 HashCode_SimpleTypeSignature( SimpleTypeSignature x )
-      //{
-      //   throw new NotImplementedException();
-      //}
+      private static Int32 HashCode_SimpleTypeSignature( SimpleTypeSignature x )
+      {
+         return x == null ? 0 : (Int32) x.SimpleType;
+      }
 
-      //private static Int32 HashCode_ClassOrValueTypeSignature( ClassOrValueTypeSignature x )
-      //{
-      //   throw new NotImplementedException();
-      //}
+      private static Int32 HashCode_ClassOrValueTypeSignature( ClassOrValueTypeSignature x )
+      {
+         return x == null ? 0 : x.Type.GetHashCode();
+      }
 
-      //private static Int32 HashCode_GenericParameterTypeSignature( GenericParameterTypeSignature x )
-      //{
-      //   throw new NotImplementedException();
-      //}
+      private static Int32 HashCode_GenericParameterTypeSignature( GenericParameterTypeSignature x )
+      {
+         return x == null ? 0 : x.GenericParameterIndex.GetHashCode();
+      }
 
-      //private static Int32 HashCode_FunctionPointerTypeSignature( FunctionPointerTypeSignature x )
-      //{
-      //   throw new NotImplementedException();
-      //}
+      private static Int32 HashCode_FunctionPointerTypeSignature( FunctionPointerTypeSignature x )
+      {
+         return x == null ? 0 : HashCode_MethodReferenceSignature( x.MethodSignature );
+      }
 
-      //private static Int32 HashCode_PointerTypeSignature( PointerTypeSignature x )
-      //{
-      //   throw new NotImplementedException();
-      //}
+      private static Int32 HashCode_PointerTypeSignature( PointerTypeSignature x )
+      {
+         return x == null ? 0 : ( 17 * 23 + HashCode_TypeSignature( x.Type ) );
+      }
 
-      //private static Int32 HashCode_ComplexArrayTypeSignature( ComplexArrayTypeSignature x )
-      //{
-      //   throw new NotImplementedException();
-      //}
+      private static Int32 HashCode_ComplexArrayTypeSignature( ComplexArrayTypeSignature x )
+      {
+         return x == null ? 0 : ( ( 17 * 23 + x.Rank ) * 23 + HashCode_TypeSignature( x.ArrayType ) );
+      }
 
-      //private static Int32 HashCode_SimpleArrayTypeSignature( SimpleArrayTypeSignature x )
-      //{
-      //   throw new NotImplementedException();
-      //}
+      private static Int32 HashCode_SimpleArrayTypeSignature( SimpleArrayTypeSignature x )
+      {
+         return x == null ? 0 : ( 17 * 41 + HashCode_TypeSignature( x.ArrayType ) );
+      }
 
       private static Int32 HashCode_GenericMethodSignature( GenericMethodSignature x )
       {
-         throw new NotImplementedException();
+         return x == null ? 0 : ListEqualityComparer<List<TypeSignature>, TypeSignature>.GetHashCode( x.GenericArguments, TypeSignatureEqualityComparer );
       }
 
       private static Int32 HashCode_AbstractCustomAttributeSignature( AbstractCustomAttributeSignature x )
       {
-         throw new NotImplementedException();
+         return x == null ? 0 : ( x is CustomAttributeSignature ? HashCode_CustomAttributeSignature( x as CustomAttributeSignature ) : HashCode_RawCustomAttributeSignature( x as RawCustomAttributeSignature ) );
       }
 
       private static Int32 HashCode_RawCustomAttributeSignature( RawCustomAttributeSignature x )
       {
-         throw new NotImplementedException();
+         return x == null ? 0 : ArrayEqualityComparer<Byte>.DefaultArrayEqualityComparer.GetHashCode( x.Bytes );
       }
 
       private static Int32 HashCode_CustomAttributeSignature( CustomAttributeSignature x )
       {
-         throw new NotImplementedException();
+         return x == null ? 0 : ListEqualityComparer<List<CustomAttributeTypedArgument>, CustomAttributeTypedArgument>.GetHashCode( x.TypedArguments, CustomAttributeTypedArgumentEqualityComparer );
       }
 
       private static Int32 HashCode_CustomAttributeTypedArgument( CustomAttributeTypedArgument x )
       {
-         throw new NotImplementedException();
+         return x == null ? 0 : HashCode_CustomAttributeValue( x.Value );
+      }
+
+      private static Int32 HashCode_CustomAttributeValue( Object x )
+      {
+         return x == null ? 0 : ( x is Array ? HashCode_Array( x as Array ) : x.GetHashCode() );
+      }
+
+      private static Int32 HashCode_Array( Array x )
+      {
+         Int32 retVal;
+         if ( x == null )
+         {
+            retVal = 0;
+         }
+         else
+         {
+            retVal = 17;
+            var max = x.Length;
+            if ( max > 0 )
+            {
+               unchecked
+               {
+                  for ( var i = 0; i < max; ++i )
+                  {
+                     retVal = retVal * 23 + HashCode_CustomAttributeValue( x.GetValue( i ) );
+                  }
+               }
+            }
+         }
+
+         return retVal;
       }
 
       private static Int32 HashCode_CustomAttributeNamedArgument( CustomAttributeNamedArgument x )
       {
-         throw new NotImplementedException();
+         return x == null ? 0 : ( ( 17 * 23 + x.Name.GetHashCodeSafe( 1 ) ) * 23 + HashCode_CustomAttributeTypedArgument( x.Value ) );
       }
 
-      private static Int32 HashCode_CustomAttributeArgumentType( CustomAttributeArgumentType x )
-      {
-         throw new NotImplementedException();
-      }
+      //private static Int32 HashCode_CustomAttributeArgumentType( CustomAttributeArgumentType x )
+      //{
+      //   throw new NotImplementedException();
+      //}
 
-      private static Int32 HashCode_CustomAttributeArgumentSimple( CustomAttributeArgumentSimple x )
-      {
-         throw new NotImplementedException();
-      }
+      //private static Int32 HashCode_CustomAttributeArgumentSimple( CustomAttributeArgumentSimple x )
+      //{
+      //   throw new NotImplementedException();
+      //}
 
-      private static Int32 HashCode_CustomAttributeArgumentTypeEnum( CustomAttributeArgumentTypeEnum x )
-      {
-         throw new NotImplementedException();
-      }
+      //private static Int32 HashCode_CustomAttributeArgumentTypeEnum( CustomAttributeArgumentTypeEnum x )
+      //{
+      //   throw new NotImplementedException();
+      //}
 
-      private static Int32 HashCode_CustomAttributeArgumentTypeArray( CustomAttributeArgumentTypeArray x )
-      {
-         throw new NotImplementedException();
-      }
+      //private static Int32 HashCode_CustomAttributeArgumentTypeArray( CustomAttributeArgumentTypeArray x )
+      //{
+      //   throw new NotImplementedException();
+      //}
 
       private static Int32 HashCode_AbstractSecurityInformation( AbstractSecurityInformation x )
       {
-         throw new NotImplementedException();
+         return x == null ? 0 : ( x is SecurityInformation ? HashCode_SecurityInformation( x as SecurityInformation ) : HashCode_RawSecurityInformation( x as RawSecurityInformation ) );
       }
 
       private static Int32 HashCode_RawSecurityInformation( RawSecurityInformation x )
       {
-         throw new NotImplementedException();
+         return x == null ? 0 : ArrayEqualityComparer<Byte>.DefaultArrayEqualityComparer.GetHashCode( x.Bytes );
       }
 
       private static Int32 HashCode_SecurityInformation( SecurityInformation x )
       {
-         throw new NotImplementedException();
+         return x == null ? 0 : ( ( 17 * 23 + x.SecurityAttributeType.GetHashCodeSafe( 1 ) ) * 23 + ListEqualityComparer<List<CustomAttributeNamedArgument>, CustomAttributeNamedArgument>.GetHashCode( x.NamedArguments, CustomAttributeNamedArgumentEqualityComparer ) );
       }
 
       private static Int32 HashCode_MarshalingInfo( MarshalingInfo x )
       {
-         throw new NotImplementedException();
+         return x == null ? 0 : ( ( 17 * 23 + x.MarshalType.GetHashCodeSafe( 1 ) ) * 23 + (Int32) x.Value );
       }
 
 

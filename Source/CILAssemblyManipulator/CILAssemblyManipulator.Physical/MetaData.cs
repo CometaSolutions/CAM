@@ -277,8 +277,8 @@ namespace CILAssemblyManipulator.Physical
             return
                (
                   ( 17 * 23 + this.Name.GetHashCodeSafe()
-                  ) * 23 + this.VersionMajor.GetHashCodeSafe()
-               ) * 23 + this.VersionMinor.GetHashCodeSafe();
+                  ) * 23 + this.VersionMajor.GetHashCode()
+               ) * 23 + this.VersionMinor.GetHashCode();
          }
       }
 

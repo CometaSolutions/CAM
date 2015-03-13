@@ -86,9 +86,23 @@ public static partial class E_CommonUtils
    /// <param name="obj">The object.</param>
    /// <param name="nullString">The string to return if <paramref name="obj"/> is <c>null</c>.</param>
    /// <returns>The result of <see cref="Object.ToString"/> if <paramref name="obj"/> is not <c>null</c>, <paramref name="nullString"/> otherwise.</returns>
-   public static String ToStringSafe( this Object obj, String nullString = "" )
+   public static String ToStringSafe<T>( this T obj, String nullString = "" )
+      where T : class
    {
       return obj == null ? nullString : obj.ToString();
+   }
+
+   /// <summary>
+   /// Helper method to return string value of <see cref="Nullable{T}.Value"/> or custom string if the nullable does not have a value.
+   /// </summary>
+   /// <typeparam name="T">The nullable value type.</typeparam>
+   /// <param name="obj">The nullable struct.</param>
+   /// <param name="nullString">The string to return if <paramref name="obj"/> does not have a value.</param>
+   /// <returns>The string of the nullable value or <paramref name="nullString"/> if <paramref name="obj"/> does not have a value.</returns>
+   public static String ToStringSafe<T>( this T? obj, String nullString = "" )
+      where T : struct
+   {
+      return obj.HasValue ? obj.Value.ToString() : nullString;
    }
 
    /// <summary>
@@ -97,9 +111,23 @@ public static partial class E_CommonUtils
    /// <param name="obj">The object.</param>
    /// <param name="nullHashCode">The hash code to return if <paramref name="obj"/> is <c>null</c>.</param>
    /// <returns>The result of <see cref="Object.GetHashCode"/> if <paramref name="obj"/> is not <c>null</c>, <paramref name="nullHashCode"/> otherwise.</returns>
-   public static Int32 GetHashCodeSafe( this Object obj, Int32 nullHashCode = 0 )
+   public static Int32 GetHashCodeSafe<T>( this T obj, Int32 nullHashCode = 0 )
+      where T : class
    {
       return obj == null ? nullHashCode : obj.GetHashCode();
+   }
+
+   /// <summary>
+   /// Helper method to return hash code of <see cref="Nullable{T}.Value"/> or custom hash code if the nullable does not have a value.
+   /// </summary>
+   /// <typeparam name="T">The nullable value type.</typeparam>
+   /// <param name="obj">The nullable struct.</param>
+   /// <param name="nullHashCode">The hash code to return if <paramref name="obj"/> does not have a value.</param>
+   /// <returns>The hash code of the nullable value or <paramref name="nullHashCode"/> if <paramref name="obj"/> does not have a value.</returns>
+   public static Int32 GetHashCodeSafe<T>( this T? obj, Int32 nullHashCode = 0 )
+      where T : struct
+   {
+      return obj.HasValue ? obj.Value.GetHashCode() : nullHashCode;
    }
 
    /// <summary>

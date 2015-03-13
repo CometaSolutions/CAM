@@ -30,7 +30,7 @@ namespace CILAssemblyManipulator.Physical
       MethodReference,
       Field,
       Property,
-      LocalVariable,
+      LocalVariables,
       Type,
       GenericMethodInstantiation,
       RawSignature
@@ -377,7 +377,7 @@ namespace CILAssemblyManipulator.Physical
       {
          get
          {
-            return SignatureKind.LocalVariable;
+            return SignatureKind.LocalVariables;
          }
       }
 
