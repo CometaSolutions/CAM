@@ -880,6 +880,11 @@ namespace CILAssemblyManipulator.Physical
 
       internal static IEnumerable<Int32> GetReferencingRowsFromOrdered<T>( this IList<T> array, Tables targetTable, Int32 targetIndex, Func<T, TableIndex> fullIndexExtractor )
       {
+         return array.GetReferencingRowsFromOrderedWithIndex( targetTable, targetIndex, idx => fullIndexExtractor( array[idx] ) );
+      }
+
+      internal static IEnumerable<Int32> GetReferencingRowsFromOrderedWithIndex<T>( this IList<T> array, Tables targetTable, Int32 targetIndex, Func<Int32, TableIndex> fullIndexExtractor )
+      {
          // Use binary search to find first one
          // Use the deferred equality detection version in order to find the smallest index matching the target index
          var max = array.Count - 1;
@@ -887,7 +892,7 @@ namespace CILAssemblyManipulator.Physical
          while ( min < max )
          {
             var mid = ( min + max ) >> 1; // We can safely add before shifting, since table indices are supposed to be max 3 bytes long anyway.
-            if ( fullIndexExtractor( array[mid] ).Index < targetIndex )
+            if ( fullIndexExtractor( mid ).Index < targetIndex )
             {
                min = mid + 1;
             }
@@ -898,21 +903,21 @@ namespace CILAssemblyManipulator.Physical
          }
 
          // By calling explicit ReturnWhile method, calculating index using binary search will not be done when re-enumerating the enumerable.
-         return min == max && fullIndexExtractor( array[min] ).Index == targetIndex ?
+         return min == max && fullIndexExtractor( min ).Index == targetIndex ?
             ReturnWhile( array, targetTable, targetIndex, fullIndexExtractor, min ) :
             Empty<Int32>.Enumerable;
       }
 
-      private static IEnumerable<Int32> ReturnWhile<T>( IList<T> array, Tables targetTable, Int32 targetIndex, Func<T, TableIndex> fullIndexExtractor, Int32 idx )
+      private static IEnumerable<Int32> ReturnWhile<T>( IList<T> array, Tables targetTable, Int32 targetIndex, Func<Int32, TableIndex> fullIndexExtractor, Int32 idx )
       {
          do
          {
-            if ( fullIndexExtractor( array[idx] ).Table == targetTable )
+            if ( fullIndexExtractor( idx ).Table == targetTable )
             {
                yield return idx;
             }
             ++idx;
-         } while ( idx < array.Count && fullIndexExtractor( array[idx] ).Index == targetIndex );
+         } while ( idx < array.Count && fullIndexExtractor( idx ).Index == targetIndex );
       }
 
       // If there is an assembly name, there will be ", " but not "\, " in type string.

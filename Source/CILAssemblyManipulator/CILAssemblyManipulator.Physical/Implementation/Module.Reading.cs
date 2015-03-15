@@ -967,17 +967,14 @@ namespace CILAssemblyManipulator.Physical.Implementation
                         }
                         else if ( extendInfo.Value.Table == Tables.TypeDef )
                         {
-                           var cilIdx = md.ClassLayouts.GetReferencingRowsFromOrdered( Tables.TypeDef, typeIdx.Index, row => row.Parent );
-                           if ( cilIdx.Any() )
+                           var cilIdx = md.ClassLayouts
+                              .GetReferencingRowsFromOrdered( Tables.TypeDef, typeIdx.Index, row => row.Parent )
+                              .FirstOrDefaultCustom( -1 );
+                           retVal = cilIdx >= 0 && cilIdx <= md.ClassLayouts.Count;
+                           if ( retVal )
                            {
-                              var first = cilIdx.First();
-                              retVal = first < md.ClassLayouts.Count;
-                              if ( retVal )
-                              {
-                                 size = (UInt32) md.ClassLayouts[first].ClassSize;
-                              }
+                              size = (UInt32) md.ClassLayouts[cilIdx].ClassSize;
                            }
-
                         }
 
                      }

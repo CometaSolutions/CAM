@@ -42,6 +42,7 @@
   </ItemGroup>
   <ItemGroup>
     <Compile Include="AbstractCAMTest.cs" />
+    <Compile Include="Physical\Ordering.cs" />
     <Compile Include="Physical\Reading.cs" />
     <Compile Include="Physical\Roundtrip.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />

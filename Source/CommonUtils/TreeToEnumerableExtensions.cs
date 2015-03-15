@@ -16,6 +16,7 @@
  * limitations under the License. 
  */
 using System;
+using System.Linq;
 using System.Collections.Generic;
 
 namespace CommonUtils
@@ -75,20 +76,43 @@ namespace CommonUtils
       /// <summary>
       /// Using a starting node and function get child, returns enumerable which walks transitively through all nodes accessible from the starting node. Does not check for loops, so StackOverflowException is guaranteed if there are loops.
       /// </summary>
-      /// <typeparam name="T">The type of the node</typeparam>
-      /// <param name="head">Starting node</param>
-      /// <param name="childFunc">Function to return child given a single node</param>
+      /// <typeparam name="T">The type of the node.</typeparam>
+      /// <param name="head">Starting node.</param>
+      /// <param name="childFunc">Function to return child given a single node.</param>
       /// <param name="endCondition">Customizable condition to end enumeration. By default it will end when the child returned by <paramref name="childFunc"/> will be <c>default(T)</c></param>
-      /// <returns>Enumerable to walk through all nodes accessible from the start node</returns>
+      /// <returns>Enumerable to walk through all nodes accessible from the start node.</returns>
       public static IEnumerable<T> AsSingleBranchEnumerable<T>( this T head, Func<T, T> childFunc, Func<T, Boolean> endCondition = null )
-         where T : class
       {
-         var cur = head;
-         while ( endCondition == null ? ( cur != default( T ) ) : !endCondition( cur ) )
+         // Check end condition variable
+         if ( endCondition == null )
          {
-            yield return cur;
-            cur = childFunc( cur );
+            var def = default( T );
+            endCondition = x => Object.Equals( x, def );
          }
+         while ( !endCondition( head ) )
+         {
+            yield return head;
+            head = childFunc( head );
+         }
+      }
+
+      /// <summary>
+      /// Using a starting node and function get child, returns enumerable which walks transitively through all nodes accessible from the starting node. Does not check for loops, so StackOverflowException is guaranteed if there are loops.
+      /// </summary>
+      /// <typeparam name="T">The type of the node.</typeparam>
+      /// <param name="head">Starting node.</param>
+      /// <param name="childFunc">Function to return child given a single node.</param>
+      /// <param name="includeFirst">Whether to include <paramref name="head"/> in the result, assuming it passes the test of <paramref name="endCondition"/> callack.</param>
+      /// <param name="endCondition">Customizable condition to end enumeration. By default it will end when the child returned by <paramref name="childFunc"/> will be <c>default(T)</c></param>
+      /// <returns>Enumerable to walk through all nodes accessible from the start node.</returns>
+      public static IEnumerable<T> AsSingleBranchEnumerable<T>( this T head, Func<T, T> childFunc, Boolean includeFirst, Func<T, Boolean> endCondition = null )
+      {
+         var retVal = head.AsSingleBranchEnumerable( childFunc, endCondition );
+         if ( !includeFirst )
+         {
+            retVal = retVal.Skip( 1 );
+         }
+         return retVal;
       }
    }
 }

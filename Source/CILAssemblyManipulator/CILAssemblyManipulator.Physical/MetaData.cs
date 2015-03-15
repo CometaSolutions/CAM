@@ -614,7 +614,7 @@ namespace CILAssemblyManipulator.Physical
       private readonly Int32 _token;
 
       // index is zero-based
-      internal TableIndex( Tables aTable, Int32 anIdx )
+      public TableIndex( Tables aTable, Int32 anIdx )
       {
          this._token = ( (Int32) aTable << 24 ) | anIdx;
       }
@@ -901,6 +901,285 @@ public static partial class E_CILPhysical
    public static Boolean ShouldHaveMethodBody( this MethodDefinition method )
    {
       return method != null && method.Attributes.CanEmitIL() && method.ImplementationAttributes.IsIL();
+   }
+
+   public static void OrderTablesAndUpdateSignatures( this CILMetaData md )
+   {
+      // 1. Create dictionary <Typedef, Int32> with reference-equality-comparer, which has the original index of each type-def
+      //var originalTDefIndices = md.TypeDefinitions
+      //   .Select( ( tDef, tDefIdx ) => new KeyValuePair<TypeDefinition, Int32>( tDef, tDefIdx ) )
+      //   .ToDictionary( kvp => kvp.Key, kvp => kvp.Value, ReferenceEqualityComparer<TypeDefinition>.ReferenceBasedComparer );
+
+      // 2. Sort NestedClass table (NestedClass) and remove duplicates
+      // Start with thise because sorting TypeDef requires accessing NestedClass table and therefore it is quicker to first sort NestedClass table
+      var nestedClass = md.NestedClassDefinitions;
+      var nestedClassIndices = CreateIndexArray( nestedClass.Count );
+      nestedClass.SortMDTable( nestedClassIndices, ( x, y ) => Comparers.NestedClassDefinitionComparer.Compare( x, y ) );
+      CheckMDDuplicatesSorted( nestedClass, nestedClassIndices, ( x, y ) => x.NestedClass == y.NestedClass );
+
+      // 3. Sort TypeDef, use dictionary created in step 1 to get original index, and then get nested-type index from sorted NestedClass with binary search
+      //    When checking whether type x is enclosing type of type y, need to walk through whole enclosing-type chain (i.e. x may be enclosed type of z, which may be enclosed type of y)
+      var typeDef = md.TypeDefinitions;
+      var typeDefIndices = CreateIndexArray( typeDef.Count );
+      typeDef.SortMDTableWithInt32Comparison( typeDefIndices, ( x, y ) =>
+      {
+         // If x is greater than y, that means that typedef at index x has y in its declaring type chain
+         // If y is greater than x, that means that typedef at index y has x in its declaring type chain
+         // Otherwise, the order doesn't matter so we can consider them the same
+         return x.GetDeclaringTypeChain( nestedClass ).Contains( y ) ?
+            1 : ( y.GetDeclaringTypeChain( nestedClass ).Contains( x ) ?
+               -1 :
+               0 );
+      } );
+      // ECMA-335:
+      // There shall be no duplicate rows in the TypeDef table, based on 
+      // TypeNamespace+TypeName (unless this is a nested type - see below)  [ERROR] 
+      // If this is a nested type, there shall be no duplicate row in the  TypeDef table, based 
+      // upon TypeNamespace+TypeName+OwnerRowInNestedClassTable  [ERROR] 
+      typeDef.CheckMDDuplicatesUnsorted( typeDefIndices, ( x, y ) =>
+      {
+         // return true only if both non-null
+         var xTD = typeDef[x];
+         var yTD = typeDef[y];
+         var retVal = xTD != null && yTD != null;
+         if ( retVal )
+         {
+            var xDecl = x.GetDeclaringTypeChain( nestedClass ).FirstOrDefaultCustom( -1 );
+            var yDecl = y.GetDeclaringTypeChain( nestedClass ).FirstOrDefaultCustom( -1 );
+            retVal = String.Equals( xTD.Name, yTD.Name )
+               && String.Equals( xTD.Namespace, yTD.Namespace )
+               && xDecl == yDecl;
+         }
+         return retVal;
+      }, x => typeDef[x].Name.GetHashCodeSafe() );
+
+      // 4. Update NestedClass indices, sort NestedClass again, and now remove duplicates
+      TableIndex aux;
+      for ( var i = 0; i < nestedClass.Count; ++i )
+      {
+         var nc = nestedClass[i];
+         if ( nc != null )
+         {
+            if ( nc.NestedClass.TryUpdateTableIndex( typeDefIndices, out aux ) )
+            {
+               nc.NestedClass = aux;
+            }
+            if ( nc.EnclosingClass.TryUpdateTableIndex( typeDefIndices, out aux ) )
+            {
+               nc.EnclosingClass = aux;
+            }
+         }
+      }
+      PopulateIndexArray( nestedClassIndices );
+      nestedClass.SortMDTable( nestedClassIndices, ( x, y ) => Comparers.NestedClassDefinitionComparer.Compare( x, y ) );
+      CheckMDDuplicatesSorted( nestedClass, nestedClassIndices, ( x, y ) => x.NestedClass == y.NestedClass );
+
+      // 5. Sort MethodDef table and update references in TypeDef table
+
+      // 6. Sort ParameterDef table and update references in MethodDef table
+
+      // 7. Sort FieldDef tkable and update references in TypeDef table
+
+      // 8. Sort InterfaceImpl table ( Class, Interface)
+
+      // 9. Sort ConstantDef table (Parent)
+
+      // 10. Sort FieldMarshal table (Parent)
+
+      // 11. Sort SecurityDefinition table (Parent)
+
+      // 12. Sort ClassLayout table (Parent)
+
+      // 13. Sort FieldLayout table (Field)
+
+      // 14. Sort MethodSemantics table (Association)
+
+      // 15. Sort MethodImpl table (Class)
+
+      // 16. Sort ImplMap table (MemberForwarded)
+
+      // 17. Sort FieldRVA table (Field)
+
+      // 18. Sort GenericParamDef table (Owner, Sequence)
+
+      // 19. Sort GenericParameterConstraint table (Owner)
+
+      // 20. Sort CustomAttributeDef table (Parent)
+
+      // Update table indices for:
+      // EventMap
+      // EventDefinition
+      // PropertyMap
+
+      // When updating signatures: only TableIndex appearing in signatures is TypeDefOrRefOrSpec.
+      // So save TypeDef index change and update TableIndices of all signatures (since TypeRef and TypeSpec won't be rearranged)
+
+      // Now remove duplicates from:
+      // AssemblyReference
+
+   }
+
+   private static Boolean TryUpdateTableIndex( this TableIndex current, Int32[] targetTableIndices, out TableIndex newIndex )
+   {
+      var curIdx = current.Index;
+      var newIdx = targetTableIndices[curIdx];
+      var retVal = curIdx != newIdx;
+      newIndex = retVal ?
+         new TableIndex( current.Table, newIdx ) :
+         current;
+      return retVal;
+   }
+
+   private static void SortMDTable<T>( this List<T> table, Int32[] indices, Comparison<T> comparison )
+   {
+      table.SortMDTableWithInt32Comparison( indices, ( x, y ) => comparison( table[x], table[y] ) );
+   }
+
+   private static void SortMDTableWithInt32Comparison<T>( this List<T> table, Int32[] indices, Comparison<Int32> comparison )
+   {
+      // If within 'indices' array, we have value '2' at index '0', it means that within the 'table', there should be value at index '0' which is currently at index '2'
+      var count = table.Count;
+      if ( count > 1 )
+      {
+         // Sort in such way that we know how indices are shuffled
+         Array.Sort( indices, ( x, y ) => comparison( x, y ) );
+
+         // Reshuffle according to indices
+         // List.ToArray() is close to constant time because of Array.Copy being close to constant time
+         // The only loss is somewhat bigger memory allocation
+         var copy = table.ToArray();
+         for ( var i = 0; i < count; ++i )
+         {
+            table[indices[i]] = copy[i];
+         }
+      }
+   }
+
+   // Assumes list is sorted
+   private static Boolean CheckMDDuplicatesSorted<T>( List<T> list, Int32[] indices, Func<T, T, Boolean> duplicateComparer )
+      where T : class
+   {
+      var foundDuplicates = false;
+      var count = list.Count;
+      if ( count > 1 )
+      {
+         var prevNotNullIndex = 0;
+         for ( var i = 1; i < count; ++i )
+         {
+            if ( duplicateComparer( list[i], list[prevNotNullIndex] ) )
+            {
+               if ( !foundDuplicates )
+               {
+                  foundDuplicates = true;
+               }
+
+               list.AfterFindingDuplicate( indices, i, prevNotNullIndex );
+            }
+            else
+            {
+               prevNotNullIndex = i;
+            }
+         }
+      }
+
+      return foundDuplicates;
+   }
+
+   private static Boolean CheckMDDuplicatesUnsorted<T>( this List<T> list, Int32[] indices, Func<Int32, Int32, Boolean> duplicateComparer, Func<Int32, Int32> hashCode )
+      where T : class
+   {
+      // TODO use HashSet ? would require hash-code callback as well then
+      var foundDuplicates = false;
+      var count = list.Count;
+      if ( count > 1 )
+      {
+         var set = new HashSet<Int32>( ComparerFromFunctions.NewEqualityComparer( duplicateComparer, hashCode ) );
+         for ( var i = 0; i < list.Count; ++i )
+         {
+            if ( !set.Add( i ) )
+            {
+               if ( !foundDuplicates )
+               {
+                  foundDuplicates = true;
+               }
+
+               var actualIndex = 0;
+               while ( !duplicateComparer( i, actualIndex ) )
+               {
+                  ++actualIndex;
+               }
+
+               list.AfterFindingDuplicate( indices, i, actualIndex );
+            }
+         }
+      }
+
+      return foundDuplicates;
+   }
+
+   private static void AfterFindingDuplicate<T>( this List<T> list, Int32[] indices, Int32 current, Int32 prevNotNullIndex )
+      where T : class
+   {
+      // Mark as duplicate - replace value with null
+      list[current] = null;
+
+      // Update index which point to this to point to previous instead
+      for ( var j = 0; j < indices.Length; ++j )
+      {
+         if ( indices[j] == current )
+         {
+            indices[j] = prevNotNullIndex;
+            break;
+         }
+      }
+   }
+
+   private static Int32[] CreateIndexArray( Int32 size )
+   {
+      var retVal = new Int32[size];
+      PopulateIndexArray( retVal );
+      return retVal;
+   }
+
+   private static void PopulateIndexArray( Int32[] array )
+   {
+      var size = array.Length;
+      // This might get called for already-used index array
+      // Therefore, start from 0
+      for ( var i = 0; i < size; ++i )
+      {
+         array[i] = i;
+      }
+   }
+
+   private static IEnumerable<Int32> GetDeclaringTypeChain( this Int32 typeDefIndex, IList<NestedClassDefinition> sortedNestedClass )
+   {
+      return typeDefIndex.AsSingleBranchEnumerable( cur =>
+         {
+            var nIdx = sortedNestedClass.FindDeclaringTypeIndexFromSortedNestedClass( cur );
+            if ( nIdx != -1 )
+            {
+               nIdx = sortedNestedClass[nIdx].EnclosingClass.Index;
+            }
+            return nIdx;
+         }, false, cur => cur == -1 || cur == typeDefIndex ); // Stop also when we hit the same index again (illegal situation but possible), and don't include itself
+   }
+
+   private static Int32 FindDeclaringTypeIndexFromSortedNestedClass( this IList<NestedClassDefinition> sortedNestedClass, Int32 currentTypeDefIndex )
+   {
+      using ( var xDeclTypeRows = sortedNestedClass.GetReferencingRowsFromOrderedWithIndex( Tables.TypeDef, currentTypeDefIndex, nIdx =>
+      {
+         while ( sortedNestedClass[nIdx] == null )
+         {
+            --nIdx;
+         }
+         return sortedNestedClass[nIdx].NestedClass;
+      } ).GetEnumerator() )
+      {
+         return xDeclTypeRows.MoveNext() ?
+            xDeclTypeRows.Current : // has declaring type. 
+            -1; // does not have declaring type. 
+      }
    }
 
    // Returns token with 1-based indexing, or zero if tableIdx has no value

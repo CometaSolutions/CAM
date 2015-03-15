@@ -96,6 +96,8 @@ namespace CILAssemblyManipulator.Physical
       //private static IEqualityComparer<SecurityInformation> _SecurityInformationEqualityComparer = null;
       private static IEqualityComparer<MarshalingInfo> _MarshalingInfoEqualityComparer = null;
 
+      private static IComparer<NestedClassDefinition> _NestedClassDefinitionComparer = null;
+
       public static IEqualityComparer<CILMetaData> MetaDataComparer
       {
          get
@@ -1048,6 +1050,21 @@ namespace CILAssemblyManipulator.Physical
                retVal = ComparerFromFunctions.NewEqualityComparer<MarshalingInfo>( Equality_MarshalingInfo, HashCode_MarshalingInfo );
                _MarshalingInfoEqualityComparer = retVal;
             }
+            return retVal;
+         }
+      }
+
+      public static IComparer<NestedClassDefinition> NestedClassDefinitionComparer
+      {
+         get
+         {
+            var retVal = _NestedClassDefinitionComparer;
+            if ( retVal == null )
+            {
+               retVal = ComparerFromFunctions.NewComparer<NestedClassDefinition>( Comparison_NestedClassDefinition );
+               _NestedClassDefinitionComparer = retVal;
+            }
+
             return retVal;
          }
       }
@@ -2254,6 +2271,10 @@ namespace CILAssemblyManipulator.Physical
          return x == null ? 0 : ( ( 17 * 23 + x.MarshalType.GetHashCodeSafe( 1 ) ) * 23 + (Int32) x.Value );
       }
 
-
+      private static Int32 Comparison_NestedClassDefinition( NestedClassDefinition x, NestedClassDefinition y )
+      {
+         // Sort by 'NestedClass' table index
+         return x.NestedClass.Index.CompareTo( y.NestedClass.Index );
+      }
    }
 }

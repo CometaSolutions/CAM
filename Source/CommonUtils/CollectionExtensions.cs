@@ -406,18 +406,36 @@ public static partial class E_CommonUtils
       }
    }
 
+   ///// <summary>
+   ///// This method will return a fast reversed enumerable of a given array, without the buffer overhead of <see cref="Enumerable.Reverse{T}(IEnumerable{T})"/> extension method.
+   ///// </summary>
+   ///// <typeparam name="T">The type of array elements.</typeparam>
+   ///// <param name="array">The array.</param>
+   ///// <returns>Enumerable that will traverse the <paramref name="array"/> in reversed order, without using any buffers.</returns>
+   ///// <exception cref="NullReferenceException">If <paramref name="array"/> is <c>null</c>.</exception>
+   //public static IEnumerable<T> ReverseFast<T>( this T[] array )
+   //{
+   //   for ( var i = array.Length - 1; i >= 0; --i )
+   //   {
+   //      yield return array[i];
+   //   }
+   //}
+
    /// <summary>
-   /// This method will return a fast reversed enumerable of a given array, without the buffer overhead of <see cref="Enumerable.Reverse{T}(IEnumerable{T})"/> extension method.
+   /// Acts like <see cref="Enumerable.FirstOrDefault{T}(IEnumerable{T})"/>, except the value which is returned when there are no elements can be customized.
    /// </summary>
-   /// <typeparam name="T">The type of array elements.</typeparam>
-   /// <param name="array">The array.</param>
-   /// <returns>Enumerable that will traverse the <paramref name="array"/> in reversed order, without using any buffers.</returns>
-   /// <exception cref="NullReferenceException">If <paramref name="array"/> is <c>null</c>.</exception>
-   public static IEnumerable<T> ReverseFast<T>( this T[] array )
+   /// <typeparam name="T">The type of elements in the enumerable.</typeparam>
+   /// <param name="enumerable">The enumerable.</param>
+   /// <param name="defaultValue">The value to return when there are no elements in the enumerable.</param>
+   /// <returns>The first element of the enumerable, or <paramref name="defaultValue"/> if there are no elements in the enumerable.</returns>
+   public static T FirstOrDefaultCustom<T>( this IEnumerable<T> enumerable, T defaultValue = default(T) )
    {
-      for ( var i = array.Length - 1; i >= 0; --i )
+      using ( var enumerator = enumerable.GetEnumerator() )
       {
-         yield return array[i];
+         return enumerator.MoveNext() ?
+            enumerator.Current :
+            defaultValue;
       }
    }
+
 }

@@ -35,7 +35,7 @@ public static partial class E_CommonUtils
 #if WINDOWS_PHONE_APP
          .GetTypeInfo()
 #endif
-         .IsGenericType ? type.GetGenericTypeDefinition() : type;
+.IsGenericType ? type.GetGenericTypeDefinition() : type;
    }
 
    /// <summary>
@@ -49,7 +49,7 @@ public static partial class E_CommonUtils
 #if WINDOWS_PHONE_APP
          .GetTypeInfo()
 #endif
-         .ContainsGenericParameters && !type.IsGenericParameter ? type.GetGenericTypeDefinition() : type;
+.ContainsGenericParameters && !type.IsGenericParameter ? type.GetGenericTypeDefinition() : type;
    }
 
    ///// <summary>
@@ -130,22 +130,22 @@ public static partial class E_CommonUtils
 #if WINDOWS_PHONE_APP
 .GetTypeInfo()
 #endif
-         .IsAssignableFrom(
+.IsAssignableFrom(
          subType
 #if WINDOWS_PHONE_APP
 .GetTypeInfo()
 #endif
-         )
+ )
             || ( parentType
 #if WINDOWS_PHONE_APP
 .GetTypeInfo()
 #endif
-            .IsGenericTypeDefinition
+.IsGenericTypeDefinition
                   && subType.GetAllParentTypes().Any( b => b
 #if WINDOWS_PHONE_APP
 .GetTypeInfo()
 #endif
-                     .IsGenericType && b.GetGenericTypeDefinition().Equals( parentType ) )
+.IsGenericType && b.GetGenericTypeDefinition().Equals( parentType ) )
                )
             );
    }
@@ -187,28 +187,28 @@ public static partial class E_CommonUtils
    /// <returns>All the implemented interfaces of <paramref name="type"/>. If <paramref name="type"/> is interface, it is also included. If <paramref name="type"/> is <c>null</c>, empty enumerable is returned.</returns>
    public static IEnumerable<Type> GetImplementedInterfaces( this Type type, Boolean includeItself = true )
    {
-      if (type != null)
+      if ( type != null )
       {
 #if WINDOWS_PHONE_APP
          var ti = type.GetTypeInfo();
 #endif
-         if (includeItself &&
+         if ( includeItself &&
 #if WINDOWS_PHONE_APP
          ti.IsInterface
 #else
-            type.IsInterface
+ type.IsInterface
 #endif
-            )
+ )
          {
             yield return type;
          }
-         foreach(var iFace in 
+         foreach ( var iFace in
 #if WINDOWS_PHONE_APP
             ti.ImplementedInterfaces
 #else
-            type.GetInterfaces()
+ type.GetInterfaces()
 #endif
-            )
+ )
          {
             yield return iFace;
          }
@@ -227,20 +227,18 @@ public static partial class E_CommonUtils
 #if WINDOWS_PHONE_APP
 .GetTypeInfo()
 #endif
-         .IsInterface ?
+.IsInterface ?
          Empty<Type>.Enumerable :
-         ( includeItself ?
-            type :
-            ( type == null ? null : type
+         type
 #if WINDOWS_PHONE_APP
 .GetTypeInfo()
 #endif
-            .BaseType )
-         ).AsSingleBranchEnumerable( t => t
+.AsSingleBranchEnumerable( t => t
 #if WINDOWS_PHONE_APP
 .GetTypeInfo()
 #endif
-            .BaseType );
+.BaseType, includeFirst: includeItself
+         );
    }
 
    /// <summary>
@@ -255,7 +253,7 @@ public static partial class E_CommonUtils
 #if WINDOWS_PHONE_APP
 .GetTypeInfo()
 #endif
-         .BaseType ) ).GetClassHierarchy().Concat( type.GetImplementedInterfaces( includeItself ) );
+.BaseType ) ).GetClassHierarchy().Concat( type.GetImplementedInterfaces( includeItself ) );
    }
 
    /// <summary>
@@ -307,7 +305,7 @@ public static partial class E_CommonUtils
 #if WINDOWS_PHONE_APP
          .GetTypeInfo()
 #endif
-         .IsGenericType ? Empty<Type>.Array : type.GetGenericArguments();
+.IsGenericType ? Empty<Type>.Array : type.GetGenericArguments();
    }
 
    /// <summary>
@@ -426,9 +424,9 @@ public static partial class E_CommonUtils
 #if WINDOWS_PHONE_APP
          .GetMethod
 #else
-         .GetGetMethod( true )
+.GetGetMethod( true )
 #endif
-         ;
+;
       if ( result == null )
       {
          throw new ArgumentException( "Could not find property getter for property " + propertyName + " in type " + type + "." );
@@ -455,9 +453,9 @@ public static partial class E_CommonUtils
 #if WINDOWS_PHONE_APP
          .SetMethod
 #else
-         .GetSetMethod()
+.GetSetMethod()
 #endif
-         ;
+;
       if ( result == null )
       {
          throw new ArgumentException( "Could not find property setter for property " + propertyName + " in type " + type + "." );
@@ -807,7 +805,7 @@ public static partial class E_CommonUtils
       }
       methods = type.GetMethods( flags );
 #endif
-      return methods.Where(m => String.Equals(m.Name, methodName));
+      return methods.Where( m => String.Equals( m.Name, methodName ) );
    }
 
    private static IEnumerable<FieldInfo> GetFieldsPortable( this Type type, String fieldName, Boolean acceptNonPublic )
@@ -866,8 +864,8 @@ public static partial class E_CommonUtils
 
    private static IEnumerable<PropertyInfo> GetPropertiesPortable( this Type type, String propertyName, Boolean acceptNonPublic )
    {
-      ArgumentValidator.ValidateNotNull("Type", type);
-      ArgumentValidator.ValidateNotNull("Property name", propertyName);
+      ArgumentValidator.ValidateNotNull( "Type", type );
+      ArgumentValidator.ValidateNotNull( "Property name", propertyName );
 
       IEnumerable<PropertyInfo> props;
 #if WINDOWS_PHONE_APP

@@ -205,5 +205,65 @@ namespace CommonUtils
          }
          return highest;
       }
+
+      /// <summary>
+      /// Computes greatest common denominator without recursion.
+      /// </summary>
+      /// <param name="x">The first number.</param>
+      /// <param name="y">The second number.</param>
+      /// <returns>The greatest common denominator of <paramref name="x"/> and <paramref name="y"/>.</returns>
+      public static Int32 GCD( Int32 x, Int32 y )
+      {
+         // Unwind recursion
+         while ( y != 0 )
+         {
+            var tmp = y;
+            y = x % y;
+            x = tmp;
+         }
+
+         return x;
+      }
+
+      /// <summary>
+      /// Computes greatest common denominator without recursion, for <see cref="Int64"/>.
+      /// </summary>
+      /// <param name="x">The first number.</param>
+      /// <param name="y">The second number.</param>
+      /// <returns>The greatest common denominator of <paramref name="x"/> and <paramref name="y"/>.</returns>
+      public static Int64 GCD64( Int64 x, Int64 y )
+      {
+         // Unwind recursion
+         while ( y != 0 )
+         {
+            var tmp = y;
+            y = x % y;
+            x = tmp;
+         }
+
+         return x;
+      }
+
+      /// <summary>
+      /// Computes least common multiplier (by using greatest common denominator).
+      /// </summary>
+      /// <param name="x">The first number.</param>
+      /// <param name="y">The second number.</param>
+      /// <returns>The least common multiplier of <paramref name="x"/> and <paramref name="y"/>.</returns>
+      public static Int32 LCM( Int32 x, Int32 y )
+      {
+         return ( x * y ) / GCD( x, y );
+      }
+
+      /// <summary>
+      /// Computes least common multiplier (by using greatest common denominator), for <see cref="Int64"/>.
+      /// </summary>
+      /// <param name="x">The first number.</param>
+      /// <param name="y">The second number.</param>
+      /// <returns>The least common multiplier of <paramref name="x"/> and <paramref name="y"/>.</returns>
+      public static Int64 LCM64( Int64 x, Int64 y )
+      {
+         return ( x * y ) / GCD64( x, y );
+      }
    }
 }

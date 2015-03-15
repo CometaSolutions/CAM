@@ -312,6 +312,14 @@ namespace CILAssemblyManipulator.Physical
       List<GenericParameterConstraintDefinition> GenericParameterConstraintDefinitions { get; }
    }
 
+   public static class CILMetaDataFactory
+   {
+      public static CILMetaData NewMetaData()
+      {
+         return new CILAssemblyManipulator.Physical.Implementation.CILMetadataImpl();
+      }
+   }
+
    public sealed class ModuleReadResult
    {
       private readonly CILMetaData _md;
