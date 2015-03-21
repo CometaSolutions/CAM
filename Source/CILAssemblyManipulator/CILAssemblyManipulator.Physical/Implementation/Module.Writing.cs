@@ -2652,7 +2652,7 @@ public static partial class E_CILPhysical
             info.AddSigByte( SignatureElementTypes.Ptr );
             var ptr = (PointerTypeSignature) type;
             info.WriteCustomModifiers( ptr.CustomModifiers );
-            info.WriteTypeSignature( ptr.Type );
+            info.WriteTypeSignature( ptr.PointerType );
             break;
 
       }

@@ -624,7 +624,7 @@ namespace CILAssemblyManipulator.Physical
             case SignatureElementTypes.Ptr:
                var ptr = new PointerTypeSignature();
                CustomModifierSignature.AddFromBytes( sig, ref idx, ptr.CustomModifiers );
-               ptr.Type = ReadFromBytesWithRef( sig, ref idx );
+               ptr.PointerType = ReadFromBytesWithRef( sig, ref idx );
                return ptr;
             case SignatureElementTypes.SzArray:
                var szArr = new SimpleArrayTypeSignature();
@@ -800,7 +800,7 @@ namespace CILAssemblyManipulator.Physical
          }
       }
 
-      public TypeSignature Type { get; set; }
+      public TypeSignature PointerType { get; set; }
    }
 
    public abstract class AbstractArrayTypeSignature : TypeSignature

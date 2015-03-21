@@ -96,7 +96,28 @@ namespace CILAssemblyManipulator.Physical
       //private static IEqualityComparer<SecurityInformation> _SecurityInformationEqualityComparer = null;
       private static IEqualityComparer<MarshalingInfo> _MarshalingInfoEqualityComparer = null;
 
+      private static IComparer<ClassLayout> _ClassLayoutComparer = null;
+      private static IComparer<ConstantDefinition> _ConstantDefinitionComparer = null;
+      private static IComparer<CustomAttributeDefinition> _CustomAttributeDefinitionComparer = null;
+      private static IComparer<SecurityDefinition> _SecurityDefinitionComparer = null;
+      private static IComparer<FieldLayout> _FieldLayoutComparer = null;
+      private static IComparer<FieldMarshal> _FieldMarshalComparer = null;
+      private static IComparer<FieldRVA> _FieldRVAComparer = null;
+      private static IComparer<GenericParameterDefinition> _GenericParameterDefinitionComparer = null;
+      private static IComparer<GenericParameterConstraintDefinition> _GenericParameterConstraintDefinitionComparer = null;
+      private static IComparer<MethodImplementationMap> _MethodImplementationMapComparer = null;
+      private static IComparer<InterfaceImplementation> _InterfaceImplementationComparer = null;
+      private static IComparer<MethodImplementation> _MethodImplementationComparer = null;
+      private static IComparer<MethodSemantics> _MethodSemanticsComparer = null;
       private static IComparer<NestedClassDefinition> _NestedClassDefinitionComparer = null;
+
+      private static IComparer<TableIndex> _HasConstantComparer = null;
+      private static IComparer<TableIndex> _HasCustomAttributeComparer = null;
+      private static IComparer<TableIndex> _HasFieldMarshallComparer = null;
+      private static IComparer<TableIndex> _HasDeclSecurityComparer = null;
+      private static IComparer<TableIndex> _HasSemanticsComparer = null;
+      private static IComparer<TableIndex> _MemberForwardedComparer = null;
+      private static IComparer<TableIndex> _TypeOrMethodDefComparer = null;
 
       public static IEqualityComparer<CILMetaData> MetaDataComparer
       {
@@ -1054,6 +1075,188 @@ namespace CILAssemblyManipulator.Physical
          }
       }
 
+      public static IComparer<ClassLayout> ClassLayoutComparer
+      {
+         get
+         {
+            var retVal = _ClassLayoutComparer;
+            if ( retVal == null )
+            {
+               retVal = ComparerFromFunctions.NewComparer<ClassLayout>( Comparison_ClassLayout );
+               _ClassLayoutComparer = retVal;
+            }
+            return retVal;
+         }
+      }
+
+      public static IComparer<ConstantDefinition> ConstantDefinitionComparer
+      {
+         get
+         {
+            var retVal = _ConstantDefinitionComparer;
+            if ( retVal == null )
+            {
+               retVal = ComparerFromFunctions.NewComparer<ConstantDefinition>( Comparison_ConstantDefinition );
+               _ConstantDefinitionComparer = retVal;
+            }
+            return retVal;
+         }
+      }
+
+      public static IComparer<CustomAttributeDefinition> CustomAttributeDefinitionComparer
+      {
+         get
+         {
+            var retVal = _CustomAttributeDefinitionComparer;
+            if ( retVal == null )
+            {
+               retVal = ComparerFromFunctions.NewComparer<CustomAttributeDefinition>( Comparison_CustomAttributeDefinition );
+               _CustomAttributeDefinitionComparer = retVal;
+            }
+            return retVal;
+         }
+      }
+
+      public static IComparer<SecurityDefinition> SecurityDefinitionComparer
+      {
+         get
+         {
+            var retVal = _SecurityDefinitionComparer;
+            if ( retVal == null )
+            {
+               retVal = ComparerFromFunctions.NewComparer<SecurityDefinition>( Comparison_SecurityDefinition );
+               _SecurityDefinitionComparer = retVal;
+            }
+            return retVal;
+         }
+      }
+
+      public static IComparer<FieldLayout> FieldLayoutComparer
+      {
+         get
+         {
+            var retVal = _FieldLayoutComparer;
+            if ( retVal == null )
+            {
+               retVal = ComparerFromFunctions.NewComparer<FieldLayout>( Comparison_FieldLayout );
+               _FieldLayoutComparer = retVal;
+            }
+            return retVal;
+         }
+      }
+
+      public static IComparer<FieldMarshal> FieldMarshalComparer
+      {
+         get
+         {
+            var retVal = _FieldMarshalComparer;
+            if ( retVal == null )
+            {
+               retVal = ComparerFromFunctions.NewComparer<FieldMarshal>( Comparison_FieldMarshal );
+               _FieldMarshalComparer = retVal;
+            }
+            return retVal;
+         }
+      }
+
+      public static IComparer<FieldRVA> FieldRVAComparer
+      {
+         get
+         {
+            var retVal = _FieldRVAComparer;
+            if ( retVal == null )
+            {
+               retVal = ComparerFromFunctions.NewComparer<FieldRVA>( Comparison_FieldRVA );
+               _FieldRVAComparer = retVal;
+            }
+            return retVal;
+         }
+      }
+
+      public static IComparer<GenericParameterDefinition> GenericParameterDefinitionComparer
+      {
+         get
+         {
+            var retVal = _GenericParameterDefinitionComparer;
+            if ( retVal == null )
+            {
+               retVal = ComparerFromFunctions.NewComparer<GenericParameterDefinition>( Comparison_GenericParameterDefinition );
+               _GenericParameterDefinitionComparer = retVal;
+            }
+            return retVal;
+         }
+      }
+
+      public static IComparer<GenericParameterConstraintDefinition> GenericParameterConstraintDefinitionComparer
+      {
+         get
+         {
+            var retVal = _GenericParameterConstraintDefinitionComparer;
+            if ( retVal == null )
+            {
+               retVal = ComparerFromFunctions.NewComparer<GenericParameterConstraintDefinition>( Comparison_GenericParameterConstraintDefinition );
+               _GenericParameterConstraintDefinitionComparer = retVal;
+            }
+            return retVal;
+         }
+      }
+
+      public static IComparer<MethodImplementationMap> MethodImplementationMapComparer
+      {
+         get
+         {
+            var retVal = _MethodImplementationMapComparer;
+            if ( retVal == null )
+            {
+               retVal = ComparerFromFunctions.NewComparer<MethodImplementationMap>( Comparison_MethodImplementationMap );
+               _MethodImplementationMapComparer = retVal;
+            }
+            return retVal;
+         }
+      }
+
+      public static IComparer<InterfaceImplementation> InterfaceImplementationComparer
+      {
+         get
+         {
+            var retVal = _InterfaceImplementationComparer;
+            if ( retVal == null )
+            {
+               retVal = ComparerFromFunctions.NewComparer<InterfaceImplementation>( Comparison_InterfaceImplementation );
+               _InterfaceImplementationComparer = retVal;
+            }
+            return retVal;
+         }
+      }
+
+      public static IComparer<MethodImplementation> MethodImplementationComparer
+      {
+         get
+         {
+            var retVal = _MethodImplementationComparer;
+            if ( retVal == null )
+            {
+               retVal = ComparerFromFunctions.NewComparer<MethodImplementation>( Comparison_MethodImplementation );
+               _MethodImplementationComparer = retVal;
+            }
+            return retVal;
+         }
+      }
+
+      public static IComparer<MethodSemantics> MethodSemanticsComparer
+      {
+         get
+         {
+            var retVal = _MethodSemanticsComparer;
+            if ( retVal == null )
+            {
+               retVal = ComparerFromFunctions.NewComparer<MethodSemantics>( Comparison_MethodSemantics );
+               _MethodSemanticsComparer = retVal;
+            }
+            return retVal;
+         }
+      }
+
       public static IComparer<NestedClassDefinition> NestedClassDefinitionComparer
       {
          get
@@ -1064,11 +1267,108 @@ namespace CILAssemblyManipulator.Physical
                retVal = ComparerFromFunctions.NewComparer<NestedClassDefinition>( Comparison_NestedClassDefinition );
                _NestedClassDefinitionComparer = retVal;
             }
-
             return retVal;
          }
       }
 
+      public static IComparer<TableIndex> HasConstantComparer
+      {
+         get
+         {
+            var retVal = _HasConstantComparer;
+            if ( retVal == null )
+            {
+               var tableOrderArray = CreateTableOrderArray( Tables.Field, Tables.Parameter, Tables.Property );
+               retVal = ComparerFromFunctions.NewComparer<TableIndex>( ( x, y ) => x.CompareTo( y, tableOrderArray ) );
+               _HasConstantComparer = retVal;
+            }
+            return retVal;
+         }
+      }
+
+      public static IComparer<TableIndex> HasCustomAttributeComparer
+      {
+         get
+         {
+            var retVal = _HasCustomAttributeComparer;
+            if ( retVal == null )
+            {
+               var tableOrderArray = CreateTableOrderArray( Tables.MethodDef, Tables.Field, Tables.TypeRef, Tables.TypeDef, Tables.Parameter, Tables.InterfaceImpl, Tables.MemberRef, Tables.Module, Tables.DeclSecurity, Tables.Property, Tables.Event, Tables.StandaloneSignature, Tables.ModuleRef, Tables.TypeSpec, Tables.Assembly, Tables.AssemblyRef, Tables.File, Tables.ExportedType, Tables.ManifestResource, Tables.GenericParameter, Tables.GenericParameterConstraint, Tables.MethodSpec );
+               retVal = ComparerFromFunctions.NewComparer<TableIndex>( ( x, y ) => x.CompareTo( y, tableOrderArray ) );
+            }
+            return retVal;
+         }
+      }
+
+      public static IComparer<TableIndex> HasFieldMarshallComparer
+      {
+         get
+         {
+            var retVal = _HasFieldMarshallComparer;
+            if ( retVal == null )
+            {
+               var tableOrderArray = CreateTableOrderArray( Tables.Field, Tables.Parameter );
+               retVal = ComparerFromFunctions.NewComparer<TableIndex>( ( x, y ) => x.CompareTo( y, tableOrderArray ) );
+            }
+            return retVal;
+         }
+      }
+
+      public static IComparer<TableIndex> HasDeclSecurityComparer
+      {
+         get
+         {
+            var retVal = _HasDeclSecurityComparer;
+            if ( retVal == null )
+            {
+               var tableOrderArray = CreateTableOrderArray( Tables.TypeDef, Tables.MethodDef, Tables.Assembly );
+               retVal = ComparerFromFunctions.NewComparer<TableIndex>( ( x, y ) => x.CompareTo( y, tableOrderArray ) );
+            }
+            return retVal;
+         }
+      }
+
+      public static IComparer<TableIndex> HasSemanticsComparer
+      {
+         get
+         {
+            var retVal = _HasSemanticsComparer;
+            if ( retVal == null )
+            {
+               var tableOrderArray = CreateTableOrderArray( Tables.Event, Tables.Property );
+               retVal = ComparerFromFunctions.NewComparer<TableIndex>( ( x, y ) => x.CompareTo( y, tableOrderArray ) );
+            }
+            return retVal;
+         }
+      }
+
+      public static IComparer<TableIndex> MemberForwardedComparer
+      {
+         get
+         {
+            var retVal = _MemberForwardedComparer;
+            if ( retVal == null )
+            {
+               var tableOrderArray = CreateTableOrderArray( Tables.Field, Tables.MethodDef );
+               retVal = ComparerFromFunctions.NewComparer<TableIndex>( ( x, y ) => x.CompareTo( y, tableOrderArray ) );
+            }
+            return retVal;
+         }
+      }
+
+      public static IComparer<TableIndex> TypeOrMethodDefComparer
+      {
+         get
+         {
+            var retVal = _TypeOrMethodDefComparer;
+            if ( retVal == null )
+            {
+               var tableOrderArray = CreateTableOrderArray( Tables.TypeDef, Tables.MethodDef );
+               retVal = ComparerFromFunctions.NewComparer<TableIndex>( ( x, y ) => x.CompareTo( y, tableOrderArray ) );
+            }
+            return retVal;
+         }
+      }
 
       private static Boolean Equality_MetaData( CILMetaData x, CILMetaData y )
       {
@@ -1117,9 +1417,9 @@ namespace CILAssemblyManipulator.Physical
             ( x != null && y != null
             && String.Equals( x.Name, y.Name )
             && x.Generation == y.Generation
-            && NullableEqualityComparer<Guid>.DefaultComparer.Equals( x.ModuleGUID, y.ModuleGUID )
-            && NullableEqualityComparer<Guid>.DefaultComparer.Equals( x.EditAndContinueGUID, y.EditAndContinueGUID )
-            && NullableEqualityComparer<Guid>.DefaultComparer.Equals( x.EditAndContinueBaseGUID, y.EditAndContinueBaseGUID )
+            && NullableEqualityComparer<Guid>.Equals( x.ModuleGUID, y.ModuleGUID )
+            && NullableEqualityComparer<Guid>.Equals( x.EditAndContinueGUID, y.EditAndContinueGUID )
+            && NullableEqualityComparer<Guid>.Equals( x.EditAndContinueBaseGUID, y.EditAndContinueBaseGUID )
             );
       }
 
@@ -1129,7 +1429,7 @@ namespace CILAssemblyManipulator.Physical
             ( x != null && y != null
             && String.Equals( x.Name, y.Name )
             && String.Equals( x.Namespace, y.Namespace )
-            && NullableEqualityComparer<TableIndex>.DefaultComparer.Equals( x.ResolutionScope, y.ResolutionScope )
+            && NullableEqualityComparer<TableIndex>.Equals( x.ResolutionScope, y.ResolutionScope )
             );
       }
 
@@ -1140,7 +1440,7 @@ namespace CILAssemblyManipulator.Physical
             && String.Equals( x.Name, y.Name )
             && String.Equals( x.Namespace, y.Namespace )
             && x.Attributes == y.Attributes
-            && NullableEqualityComparer<TableIndex>.DefaultComparer.Equals( x.BaseType, y.BaseType )
+            && NullableEqualityComparer<TableIndex>.Equals( x.BaseType, y.BaseType )
             && x.FieldList.Equals( y.FieldList )
             && x.MethodList.Equals( y.MethodList )
             );
@@ -1405,7 +1705,7 @@ namespace CILAssemblyManipulator.Physical
          var retVal = Object.ReferenceEquals( x, y ) ||
              ( x != null && y != null
              && String.Equals( x.Name, y.Name )
-             && NullableEqualityComparer<TableIndex>.DefaultComparer.Equals( x.Implementation, y.Implementation )
+             && NullableEqualityComparer<TableIndex>.Equals( x.Implementation, y.Implementation )
              && ( !x.Implementation.HasValue || x.Offset == y.Offset )
              && x.Attributes == y.Attributes
              && ArrayEqualityComparer<Byte>.DefaultArrayEqualityComparer.Equals( x.DataInCurrentFile, y.DataInCurrentFile )
@@ -1664,7 +1964,7 @@ namespace CILAssemblyManipulator.Physical
       private static Boolean Equality_PointerTypeSignature_NoReferenceEquals( PointerTypeSignature x, PointerTypeSignature y )
       {
          return x != null && y != null
-            && TypeSignatureEqualityComparer.Equals( x.Type, y.Type )
+            && TypeSignatureEqualityComparer.Equals( x.PointerType, y.PointerType )
             && Equality_CustomModifierSignatures( x.CustomModifiers, y.CustomModifiers );
       }
 
@@ -1858,12 +2158,12 @@ namespace CILAssemblyManipulator.Physical
 
       private static Int32 HashCode_TypeReference( TypeReference x )
       {
-         return x == null ? 0 : x.Name.GetHashCodeSafe( 1 );
+         return x == null ? 0 : ( ( 17 * 23 + x.Name.GetHashCodeSafe( 1 ) ) * 23 + x.Namespace.GetHashCodeSafe( 1 ) );
       }
 
       private static Int32 HashCode_TypeDefinition( TypeDefinition x )
       {
-         return x == null ? 0 : x.Name.GetHashCodeSafe( 1 );
+         return x == null ? 0 : ( ( 17 * 23 + x.Name.GetHashCodeSafe( 1 ) ) * 23 + x.Namespace.GetHashCodeSafe( 1 ) );
       }
 
       private static Int32 HashCode_FieldDefinition( FieldDefinition x )
@@ -2157,7 +2457,7 @@ namespace CILAssemblyManipulator.Physical
 
       private static Int32 HashCode_PointerTypeSignature( PointerTypeSignature x )
       {
-         return x == null ? 0 : ( 17 * 23 + HashCode_TypeSignature( x.Type ) );
+         return x == null ? 0 : ( 17 * 23 + HashCode_TypeSignature( x.PointerType ) );
       }
 
       private static Int32 HashCode_ComplexArrayTypeSignature( ComplexArrayTypeSignature x )
@@ -2271,10 +2571,108 @@ namespace CILAssemblyManipulator.Physical
          return x == null ? 0 : ( ( 17 * 23 + x.MarshalType.GetHashCodeSafe( 1 ) ) * 23 + (Int32) x.Value );
       }
 
+      private static Int32 Comparison_ClassLayout( ClassLayout x, ClassLayout y )
+      {
+         // Parent (simple index) is primary key
+         return x.Parent.Index.CompareTo( y.Parent.Index );
+      }
+
+      private static Int32 Comparison_ConstantDefinition( ConstantDefinition x, ConstantDefinition y )
+      {
+         // Parent (coded index) is primary key
+         return HasConstantComparer.Compare( x.Parent, y.Parent );
+      }
+
+      private static Int32 Comparison_CustomAttributeDefinition( CustomAttributeDefinition x, CustomAttributeDefinition y )
+      {
+         // Parent (coded index) is primary key
+         return HasCustomAttributeComparer.Compare( x.Parent, y.Parent );
+      }
+
+      private static Int32 Comparison_SecurityDefinition( SecurityDefinition x, SecurityDefinition y )
+      {
+         // Parent (coded index) is primary key
+         return HasDeclSecurityComparer.Compare( x.Parent, y.Parent );
+      }
+
+      private static Int32 Comparison_FieldLayout( FieldLayout x, FieldLayout y )
+      {
+         // Field (simple index) is primary key
+         return x.Field.Index.CompareTo( y.Field.Index );
+      }
+
+      private static Int32 Comparison_FieldMarshal( FieldMarshal x, FieldMarshal y )
+      {
+         // Parent (coded index) is primary key
+         return HasFieldMarshallComparer.Compare( x.Parent, y.Parent );
+      }
+
+      private static Int32 Comparison_FieldRVA( FieldRVA x, FieldRVA y )
+      {
+         // Field (simple index) is primary key
+         return x.Field.Index.CompareTo( y.Field.Index );
+      }
+
+      private static Int32 Comparison_GenericParameterDefinition( GenericParameterDefinition x, GenericParameterDefinition y )
+      {
+         // Owner (coded index) is primary key, Sequence is secondary key
+         var retVal = TypeOrMethodDefComparer.Compare( x.Owner, y.Owner );
+         if ( retVal == 0 )
+         {
+            retVal = x.GenericParameterIndex.CompareTo( y.GenericParameterIndex );
+         }
+         return retVal;
+      }
+
+      private static Int32 Comparison_GenericParameterConstraintDefinition( GenericParameterConstraintDefinition x, GenericParameterConstraintDefinition y )
+      {
+         // Owner (simple index) is primary key
+         return x.Owner.Index.CompareTo( y.Owner.Index );
+      }
+
+      private static Int32 Comparison_MethodImplementationMap( MethodImplementationMap x, MethodImplementationMap y )
+      {
+         // MemberForwarded (coded index) is primary key
+         return MemberForwardedComparer.Compare( x.MemberForwarded, y.MemberForwarded );
+      }
+
+      private static Int32 Comparison_InterfaceImplementation( InterfaceImplementation x, InterfaceImplementation y )
+      {
+         // Primary key 'Class', secondary key 'Interface'
+         var retVal = x.Class.Index.CompareTo( y.Class.Index );
+         if ( retVal == 0 )
+         {
+            retVal = x.Interface.Index.CompareTo( y.Interface.Index );
+         }
+         return retVal;
+      }
+
+      private static Int32 Comparison_MethodImplementation( MethodImplementation x, MethodImplementation y )
+      {
+         // Class (simple index) is primary key
+         return x.Class.Index.CompareTo( y.Class.Index );
+      }
+
+      private static Int32 Comparison_MethodSemantics( MethodSemantics x, MethodSemantics y )
+      {
+         // Associaton (coded index) is primary key
+         return HasSemanticsComparer.Compare( x.Associaton, y.Associaton );
+      }
+
       private static Int32 Comparison_NestedClassDefinition( NestedClassDefinition x, NestedClassDefinition y )
       {
          // Sort by 'NestedClass' table index
          return x.NestedClass.Index.CompareTo( y.NestedClass.Index );
+      }
+
+      private static Int32[] CreateTableOrderArray( params Tables[] tablesInOrder )
+      {
+         var retVal = new Int32[Consts.AMOUNT_OF_TABLES];
+         for ( var i = 0; i < tablesInOrder.Length; ++i )
+         {
+            retVal[(Int32) tablesInOrder[i]] = i;
+         }
+         return retVal;
       }
    }
 }

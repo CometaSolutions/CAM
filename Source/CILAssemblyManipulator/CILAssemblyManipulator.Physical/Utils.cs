@@ -1092,7 +1092,7 @@ namespace CILAssemblyManipulator.Physical
                CreateArrayString( null, builder );
                break;
             case TypeSignatureKind.Pointer:
-               retVal = CreateTypeStringCore( ( (PointerTypeSignature) type ).Type, md, builder, appendGArgs );
+               retVal = CreateTypeStringCore( ( (PointerTypeSignature) type ).PointerType, md, builder, appendGArgs );
                builder.Append( '*' );
                break;
             case TypeSignatureKind.ClassOrValue:

@@ -255,307 +255,6 @@ namespace CILAssemblyManipulator.Physical
       public Byte[] HashValue { get; set; }
    }
 
-   public sealed class AssemblyInformation : IEquatable<AssemblyInformation>
-   {
-      public Int32 VersionMajor { get; set; }
-      public Int32 VersionMinor { get; set; }
-      public Int32 VersionBuild { get; set; }
-      public Int32 VersionRevision { get; set; }
-      public Byte[] PublicKeyOrToken { get; set; }
-      public String Name { get; set; }
-      public String Culture { get; set; }
-
-      public override Boolean Equals( Object obj )
-      {
-         return this.Equals( obj as AssemblyInformation );
-      }
-
-      public override Int32 GetHashCode()
-      {
-         unchecked
-         {
-            return
-               (
-                  ( 17 * 23 + this.Name.GetHashCodeSafe()
-                  ) * 23 + this.VersionMajor.GetHashCode()
-               ) * 23 + this.VersionMinor.GetHashCode();
-         }
-      }
-
-      public Boolean Equals( AssemblyInformation other )
-      {
-         return Object.ReferenceEquals( this, other ) ||
-            ( other != null
-            && String.Equals( this.Name, other.Name )
-            && this.VersionMajor == other.VersionMajor
-            && this.VersionMinor == other.VersionMinor
-            && this.VersionBuild == other.VersionBuild
-            && this.VersionRevision == other.VersionRevision
-            && ArrayEqualityComparer<Byte>.DefaultArrayEqualityComparer.Equals( this.PublicKeyOrToken, other.PublicKeyOrToken )
-            && String.Equals( this.Culture, other.Culture )
-            );
-      }
-
-      private const Int32 NOT_FOUND = -1;
-
-      private enum Elements
-      {
-         Version,
-         Culture,
-         PublicKey,
-         PublicKeyToken,
-         Other
-      }
-
-      private const Char ASSEMBLY_NAME_ELEMENTS_SEPARATOR = ',';
-      private const Char ASSEMBLY_NAME_ELEMENT_VALUE_SEPARATOR = '=';
-      private const Char VERSION_SEPARATOR = '.';
-      private const String VERSION = "Version";
-      private const String CULTURE = "Culture";
-      private const String PUBLIC_KEY_TOKEN = "PublicKeyToken";
-      private const String PUBLIC_KEY = "PublicKey";
-      private const String NEUTRAL_CULTURE = "neutral";
-      private const String NEUTRAL_CULTURE_NAME = "";
-
-      public static AssemblyInformation Parse( String textualAssemblyName )
-      {
-         Boolean isFullPublicKey;
-         return Parse( textualAssemblyName, out isFullPublicKey );
-      }
-
-      /// <summary>
-      /// Tries to parse given textual assembly name and throws <see cref="FormatException"/> if parsing is unsuccessful.
-      /// </summary>
-      /// <param name="textualAssemblyName">The textual assembly name.</param>
-      /// <returns>An instance <see cref="AssemblyInformation"/> with parsed components.</returns>
-      /// <exception cref="FormatException">If <paramref name="textualAssemblyName"/> is not a valid assembly name as whole.</exception>
-      /// <remarks>
-      /// The <see cref="System.Reflection.AssemblyName(String)"/> constructor apparently requires that the assembly of the referenced name actually exists and will try to load it.
-      /// Because of this, this method implements pure parsing of assembly name, without caring whether it actually exists or not.
-      /// The <see href="http://msdn.microsoft.com/en-us/library/yfsftwz6%28v=vs.110%29.aspx">Specifying Fully Qualified Type Names</see> resource at MSDN provides information about textual assembly names.
-      /// </remarks>
-      public static AssemblyInformation Parse( String textualAssemblyName, out Boolean isFullPublicKey )
-      {
-         AssemblyInformation an;
-         if ( TryParse( textualAssemblyName, out an, out isFullPublicKey ) )
-         {
-            return an;
-         }
-         else
-         {
-            throw new FormatException( "The string " + textualAssemblyName + " does not represent a CIL assembly name." );
-         }
-      }
-
-      /// <summary>
-      /// Tries to parse textual name of the assembly into a <see cref="AssemblyInformation"/>.
-      /// </summary>
-      /// <param name="textualAssemblyName">The textual assembly name.</param>
-      /// <param name="assemblyName">If <paramref name="textualAssemblyName"/> is <c>null</c>, this will be <c>null</c>. Otherwise, this will hold a new instance of <see cref="CILAssemblyName"/> with any successfully parsed components.</param>
-      /// <returns><c>true</c> if <paramref name="textualAssemblyName"/> was successfully parsed till the end; <c>false</c> otherwise.</returns>
-      /// <remarks>
-      /// The <see cref="System.Reflection.AssemblyName(String)"/> constructor apparently requires that the assembly of the referenced name actually exists and will try to load it.
-      /// Because of this, this method implements pure parsing of assembly name, without caring whether it actually exists or not.
-      /// The <see href="http://msdn.microsoft.com/en-us/library/yfsftwz6%28v=vs.110%29.aspx">Specifying Fully Qualified Type Names</see> resource at MSDN provides information about textual assembly names.
-      /// </remarks>
-      public static Boolean TryParse( String textualAssemblyName, out AssemblyInformation assemblyName, out Boolean isFullPublicKey )
-      {
-         var success = !String.IsNullOrEmpty( textualAssemblyName );
-         isFullPublicKey = false;
-         if ( success )
-         {
-            assemblyName = new AssemblyInformation();
-
-            // First, name
-            var nameIdx = TryParseName( textualAssemblyName );
-            // Name may contain escape characters
-            assemblyName.Name = InternalExtensions.UnescapeSomeString( textualAssemblyName, 0, nameIdx );
-
-            success = !String.IsNullOrEmpty( assemblyName.Name );
-            if ( success )
-            {
-
-               // Then, other components. Other components shouldn't contain escaped characters.
-               var publicKeyOrTokenEncountered = false;
-               while ( success && nameIdx < textualAssemblyName.Length )
-               {
-                  success = textualAssemblyName[nameIdx] == ASSEMBLY_NAME_ELEMENTS_SEPARATOR;
-                  if ( success )
-                  {
-                     // Skip following whitespaces
-                     while ( ++nameIdx < textualAssemblyName.Length && Char.IsWhiteSpace( textualAssemblyName[nameIdx] ) ) ;
-
-                     success = nameIdx < textualAssemblyName.Length;
-                     if ( success )
-                     {
-                        // Find next separator
-                        var aux = NextSeparatorIdx( textualAssemblyName, ASSEMBLY_NAME_ELEMENT_VALUE_SEPARATOR, nameIdx );
-                        success = aux > 0 && aux < textualAssemblyName.Length - 1 - nameIdx;
-                        if ( success )
-                        {
-                           var el = GetElement( textualAssemblyName, nameIdx, aux );
-                           nameIdx += aux + 1;
-                           switch ( el )
-                           {
-                              case Elements.Version:
-                                 success = TryParseVersion( assemblyName, textualAssemblyName, ref nameIdx );
-                                 break;
-                              case Elements.Culture:
-                                 success = TryParseCulture( assemblyName, textualAssemblyName, ref nameIdx );
-                                 break;
-                              case Elements.PublicKeyToken:
-                                 if ( !publicKeyOrTokenEncountered )
-                                 {
-                                    publicKeyOrTokenEncountered = true;
-                                    success = TryParsePublicKeyFullOrToken( assemblyName, textualAssemblyName, ref nameIdx );
-                                 }
-                                 break;
-                              case Elements.PublicKey:
-                                 if ( !publicKeyOrTokenEncountered )
-                                 {
-                                    publicKeyOrTokenEncountered = true;
-                                    isFullPublicKey = true;
-
-                                    success = TryParsePublicKeyFullOrToken( assemblyName, textualAssemblyName, ref nameIdx );
-                                 }
-                                 break;
-                              default:
-                                 success = false;
-                                 break;
-                           }
-                        }
-                     }
-                  }
-               }
-               // Return true only if successfully parsed whole string till the end.
-               success = success && nameIdx == textualAssemblyName.Length;
-            }
-         }
-         else
-         {
-            assemblyName = null;
-         }
-         return success;
-      }
-
-      private static Int32 NextSeparatorIdx( String str, Char separator, Int32 startIdx = 0 )
-      {
-         var result = str.IndexOf( separator, startIdx );
-         return ( result == NOT_FOUND ? str.Length : result ) - startIdx;
-      }
-
-      private static Elements GetElement( String str, Int32 idx, Int32 aux )
-      {
-         Elements result;
-         if ( String.Compare( str, idx, VERSION, 0, aux, StringComparison.OrdinalIgnoreCase ) == 0 )
-         {
-            result = Elements.Version;
-         }
-         else if ( String.Compare( str, idx, CULTURE, 0, aux, StringComparison.OrdinalIgnoreCase ) == 0 )
-         {
-            result = Elements.Culture;
-         }
-         else if ( String.Compare( str, idx, PUBLIC_KEY_TOKEN, 0, aux, StringComparison.OrdinalIgnoreCase ) == 0 )
-         {
-            result = Elements.PublicKeyToken;
-         }
-         else if ( String.Compare( str, idx, PUBLIC_KEY, 0, aux, StringComparison.OrdinalIgnoreCase ) == 0 )
-         {
-            result = Elements.PublicKey;
-         }
-         else
-         {
-            result = Elements.Other;
-         }
-         return result;
-      }
-
-      private static Int32 TryParseName( String fullAssemblyName )
-      {
-         var nameIdx = 0;
-         var dontMatch = false;
-         while ( nameIdx < fullAssemblyName.Length && ( dontMatch || fullAssemblyName[nameIdx] != ASSEMBLY_NAME_ELEMENTS_SEPARATOR ) )
-         {
-            if ( !dontMatch && fullAssemblyName[nameIdx] == '\\' )
-            {
-               // The escaped character follows.
-               dontMatch = true;
-            }
-            else if ( dontMatch )
-            {
-               // Previous character was escape character
-               dontMatch = false;
-            }
-            ++nameIdx;
-         }
-
-         // dontMatch will be true if string ended with escape character but no actual character to escape followed.
-         return dontMatch ? 0 : nameIdx;
-      }
-
-      private static Boolean TryParseVersion( AssemblyInformation assemblyName, String fullAssemblyName, ref Int32 nameIdx )
-      {
-         var aux = NextSeparatorIdx( fullAssemblyName, VERSION_SEPARATOR, nameIdx );
-         UInt16 tmp = 0;
-         var success = aux > 0 && UInt16.TryParse( fullAssemblyName.Substring( nameIdx, aux ), out tmp );
-         if ( success )
-         {
-            assemblyName.VersionMajor = tmp;
-            nameIdx += aux + 1;
-            aux = NextSeparatorIdx( fullAssemblyName, VERSION_SEPARATOR, nameIdx );
-            success = aux > 0 && UInt16.TryParse( fullAssemblyName.Substring( nameIdx, aux ), out tmp );
-            if ( success )
-            {
-               assemblyName.VersionMinor = tmp;
-               nameIdx += aux + 1;
-               aux = NextSeparatorIdx( fullAssemblyName, VERSION_SEPARATOR, nameIdx );
-               success = aux > 0 && UInt16.TryParse( fullAssemblyName.Substring( nameIdx, aux ), out tmp );
-               if ( success )
-               {
-                  assemblyName.VersionBuild = tmp;
-                  nameIdx += aux + 1;
-                  aux = NextSeparatorIdx( fullAssemblyName, ASSEMBLY_NAME_ELEMENTS_SEPARATOR, nameIdx );
-                  success = aux > 0 && UInt16.TryParse( fullAssemblyName.Substring( nameIdx, aux ), out tmp );
-                  if ( success )
-                  {
-                     nameIdx += aux;
-                     assemblyName.VersionRevision = tmp;
-                  }
-               }
-            }
-         }
-         return success;
-      }
-
-      private static Boolean TryParseCulture( AssemblyInformation assemblyName, String fullAssemblyName, ref Int32 nameIdx )
-      {
-         var aux = NextSeparatorIdx( fullAssemblyName, ASSEMBLY_NAME_ELEMENTS_SEPARATOR, nameIdx );
-         var success = aux > 0;
-         if ( success )
-         {
-            assemblyName.Culture = fullAssemblyName.Substring( nameIdx, aux );
-            nameIdx += aux;
-            if ( String.Equals( "\"\"", assemblyName.Culture ) || String.Compare( assemblyName.Culture, NEUTRAL_CULTURE, StringComparison.OrdinalIgnoreCase ) == 0 )
-            {
-               assemblyName.Culture = NEUTRAL_CULTURE_NAME;
-            }
-         }
-         return success;
-      }
-
-      private static Boolean TryParsePublicKeyFullOrToken( AssemblyInformation assemblyName, String fullAssemblyName, ref Int32 nameIdx )
-      {
-         var aux = NextSeparatorIdx( fullAssemblyName, ASSEMBLY_NAME_ELEMENTS_SEPARATOR, nameIdx );
-         var success = aux > 0;
-         if ( success && !String.Equals( "null", fullAssemblyName.Substring( nameIdx, aux ), StringComparison.OrdinalIgnoreCase ) )
-         {
-            assemblyName.PublicKeyOrToken = StringConversions.HexStr2ByteArray( fullAssemblyName, nameIdx, 0, 0 );
-         }
-         nameIdx += aux;
-         return success;
-      }
-   }
-
    public sealed class FileReference
    {
       public FileAttributes Attributes { get; set; }
@@ -683,7 +382,17 @@ namespace CILAssemblyManipulator.Physical
          return retVal;
       }
 
-      int IComparable.CompareTo( object obj )
+      internal Int32 CompareTo( TableIndex other, Int32[] tableOrderArray )
+      {
+         var retVal = this.Index.CompareTo( other.Index );
+         if ( retVal == 0 )
+         {
+            retVal = tableOrderArray[(Int32) this.Table].CompareTo( tableOrderArray[(Int32) other.Table] );
+         }
+         return retVal;
+      }
+
+      int IComparable.CompareTo( Object obj )
       {
          if ( obj == null )
          {
@@ -785,13 +494,13 @@ namespace CILAssemblyManipulator.Physical
 
 public static partial class E_CILPhysical
 {
-   private sealed class StackCalculationInfo
+   private sealed class StackCalculationState
    {
       private Int32 _maxStack;
       private readonly Int32[] _stackSizes;
       private readonly CILMetaData _md;
 
-      internal StackCalculationInfo( CILMetaData md, Int32 ilByteCount )
+      internal StackCalculationState( CILMetaData md, Int32 ilByteCount )
       {
          this._md = md;
          this._stackSizes = new Int32[ilByteCount];
@@ -828,6 +537,67 @@ public static partial class E_CILPhysical
          if ( this._maxStack < newMaxStack )
          {
             this._maxStack = newMaxStack;
+         }
+      }
+   }
+
+   private sealed class SignatureReorderState
+   {
+      private readonly CILMetaData _md;
+      private readonly Int32[][] _tableIndices;
+      private readonly IDictionary<Object, Object> _visitedInfo;
+      private Boolean _updatedAny;
+
+      internal SignatureReorderState( CILMetaData md, Int32[][] tableIndices )
+      {
+         this._md = md;
+         this._tableIndices = tableIndices;
+         this._visitedInfo = new Dictionary<Object, Object>();
+         this._updatedAny = false;
+      }
+
+      public CILMetaData MD
+      {
+         get
+         {
+            return this._md;
+         }
+      }
+
+      public Int32[][] TableIndices
+      {
+         get
+         {
+            return this._tableIndices;
+         }
+      }
+
+      public IDictionary<Object, Object> VisitedInfo
+      {
+         get
+         {
+            return this._visitedInfo;
+         }
+      }
+
+      public Boolean ChangedAny
+      {
+         get
+         {
+            return this._updatedAny;
+         }
+      }
+
+      public void ResetChangedAny()
+      {
+         this._updatedAny = false;
+      }
+
+      public void ProcessedTableIndex( Boolean changed )
+      {
+         if ( changed && !this._updatedAny )
+         {
+            this._updatedAny = true;
          }
       }
    }
@@ -903,6 +673,115 @@ public static partial class E_CILPhysical
       return method != null && method.Attributes.CanEmitIL() && method.ImplementationAttributes.IsIL();
    }
 
+   public static TableIndex ChangeIndex( this TableIndex index, Int32 newIndex )
+   {
+      return new TableIndex( index.Table, newIndex );
+   }
+
+   public static Object GetByTableIndex( this CILMetaData md, TableIndex index )
+   {
+      switch ( index.Table )
+      {
+         case Tables.Module:
+            if ( index.Index == 0 )
+            {
+               return md;
+            }
+            else
+            {
+               throw new ArgumentOutOfRangeException( "Module table index should always be zero." );
+            }
+         case Tables.TypeRef:
+            return md.TypeReferences[index.Index];
+         case Tables.TypeDef:
+            return md.TypeDefinitions[index.Index];
+         case Tables.Field:
+            return md.FieldDefinitions[index.Index];
+         case Tables.MethodDef:
+            return md.MethodDefinitions[index.Index];
+         case Tables.Parameter:
+            return md.ParameterDefinitions[index.Index];
+         case Tables.InterfaceImpl:
+            return md.InterfaceImplementations[index.Index];
+         case Tables.MemberRef:
+            return md.MemberReferences[index.Index];
+         case Tables.Constant:
+            return md.ConstantDefinitions[index.Index];
+         case Tables.CustomAttribute:
+            return md.CustomAttributeDefinitions[index.Index];
+         case Tables.FieldMarshal:
+            return md.FieldMarshals[index.Index];
+         case Tables.DeclSecurity:
+            return md.SecurityDefinitions[index.Index];
+         case Tables.ClassLayout:
+            return md.ClassLayouts[index.Index];
+         case Tables.FieldLayout:
+            return md.FieldLayouts[index.Index];
+         case Tables.StandaloneSignature:
+            return md.StandaloneSignatures[index.Index];
+         case Tables.EventMap:
+            return md.EventMaps[index.Index];
+         case Tables.Event:
+            return md.EventDefinitions[index.Index];
+         case Tables.PropertyMap:
+            return md.PropertyMaps[index.Index];
+         case Tables.Property:
+            return md.PropertyDefinitions[index.Index];
+         case Tables.MethodSemantics:
+            return md.MethodSemantics[index.Index];
+         case Tables.MethodImpl:
+            return md.MethodImplementations[index.Index];
+         case Tables.ModuleRef:
+            return md.ModuleReferences[index.Index];
+         case Tables.TypeSpec:
+            return md.TypeSpecifications[index.Index];
+         case Tables.ImplMap:
+            return md.MethodImplementationMaps[index.Index];
+         case Tables.FieldRVA:
+            return md.FieldRVAs[index.Index];
+         case Tables.Assembly:
+            return md.AssemblyDefinitions[index.Index];
+         case Tables.AssemblyRef:
+            return md.AssemblyReferences[index.Index];
+         case Tables.File:
+            return md.FieldDefinitions[index.Index];
+         case Tables.ExportedType:
+            return md.ExportedTypes[index.Index];
+         case Tables.ManifestResource:
+            return md.ManifestResources[index.Index];
+         case Tables.NestedClass:
+            return md.NestedClassDefinitions[index.Index];
+         case Tables.GenericParameter:
+            return md.GenericParameterDefinitions[index.Index];
+         case Tables.MethodSpec:
+            return md.MethodSpecifications[index.Index];
+         case Tables.GenericParameterConstraint:
+            return md.GenericParameterConstraintDefinitions[index.Index];
+         case Tables.FieldPtr:
+         case Tables.MethodPtr:
+         case Tables.ParameterPtr:
+         case Tables.EventPtr:
+         case Tables.PropertyPtr:
+         case Tables.EncLog:
+         case Tables.EncMap:
+         case Tables.AssemblyProcessor:
+         case Tables.AssemblyOS:
+         case Tables.AssemblyRefProcessor:
+         case Tables.AssemblyRefOS:
+         default:
+            throw new ArgumentOutOfRangeException( "The table " + index.Table + " does not have representation in this framework." );
+      }
+   }
+
+   // Assumes that all lists of CILMetaData have only non-null elements.
+   // Assumes that MethodList, FieldList indices in TypeDef and ParameterList in MethodDef are all ordered correctly.
+   // TODO check that everything works even though <Module> class is not a first row in TypeDef table
+   // Duplicates not checked from the following tables:
+   // TypeDef
+   // MethodDef
+   // FieldDef
+   // PropertyDef
+   // EventDef
    public static void OrderTablesAndUpdateSignatures( this CILMetaData md )
    {
       // 1. Create dictionary <Typedef, Int32> with reference-equality-comparer, which has the original index of each type-def
@@ -911,16 +790,63 @@ public static partial class E_CILPhysical
       //   .ToDictionary( kvp => kvp.Key, kvp => kvp.Value, ReferenceEqualityComparer<TypeDefinition>.ReferenceBasedComparer );
 
       // 2. Sort NestedClass table (NestedClass) and remove duplicates
-      // Start with thise because sorting TypeDef requires accessing NestedClass table and therefore it is quicker to first sort NestedClass table
+      // Start with this because sorting TypeDef requires accessing NestedClass table and therefore it is quicker to first sort NestedClass table
       var nestedClass = md.NestedClassDefinitions;
       var nestedClassIndices = CreateIndexArray( nestedClass.Count );
-      nestedClass.SortMDTable( nestedClassIndices, ( x, y ) => Comparers.NestedClassDefinitionComparer.Compare( x, y ) );
+      nestedClass.SortMDTable( nestedClassIndices, Comparers.NestedClassDefinitionComparer );
       CheckMDDuplicatesSorted( nestedClass, nestedClassIndices, ( x, y ) => x.NestedClass == y.NestedClass );
+
+      var typeDef = md.TypeDefinitions;
+      var methodDef = md.MethodDefinitions;
+      var fieldDef = md.FieldDefinitions;
+      var paramDef = md.ParameterDefinitions;
+      var tDefCount = typeDef.Count;
+      var mDefCount = methodDef.Count;
+      var fDefCount = fieldDef.Count;
+      var pDefCount = paramDef.Count;
+      var typeDefIndices = CreateIndexArray( tDefCount );
+
+      // We have to pre-calculate method and field counts for types
+      // We have to do this BEFORE typedef table is re-ordered
+      var methodAndFieldCounts = new KeyValuePair<Int32, Int32>[tDefCount];
+      for ( var i = 0; i < tDefCount; ++i )
+      {
+         var curTD = typeDef[i];
+         Int32 mMax, fMax;
+         if ( i + 1 < tDefCount )
+         {
+            var nextTD = typeDef[i + 1];
+            mMax = nextTD.MethodList.Index;
+            fMax = nextTD.FieldList.Index;
+         }
+         else
+         {
+            mMax = mDefCount;
+            fMax = fDefCount;
+         }
+         methodAndFieldCounts[i] = new KeyValuePair<Int32, Int32>( mMax - curTD.MethodList.Index, fMax - curTD.FieldList.Index );
+      }
+
+      // We have to pre-calculate param count for methods
+      // We have to do this BEFORE methoddef table is re-ordered
+      var paramCounts = new Int32[mDefCount];
+      for ( var i = 0; i < mDefCount; ++i )
+      {
+         var curMD = methodDef[i];
+         Int32 max;
+         if ( i + 1 < mDefCount )
+         {
+            max = methodDef[i + 1].ParameterList.Index;
+         }
+         else
+         {
+            max = pDefCount;
+         }
+         paramCounts[i] = max - curMD.ParameterList.Index;
+      }
 
       // 3. Sort TypeDef, use dictionary created in step 1 to get original index, and then get nested-type index from sorted NestedClass with binary search
       //    When checking whether type x is enclosing type of type y, need to walk through whole enclosing-type chain (i.e. x may be enclosed type of z, which may be enclosed type of y)
-      var typeDef = md.TypeDefinitions;
-      var typeDefIndices = CreateIndexArray( typeDef.Count );
       typeDef.SortMDTableWithInt32Comparison( typeDefIndices, ( x, y ) =>
       {
          // If x is greater than y, that means that typedef at index x has y in its declaring type chain
@@ -936,24 +862,24 @@ public static partial class E_CILPhysical
       // TypeNamespace+TypeName (unless this is a nested type - see below)  [ERROR] 
       // If this is a nested type, there shall be no duplicate row in the  TypeDef table, based 
       // upon TypeNamespace+TypeName+OwnerRowInNestedClassTable  [ERROR] 
-      typeDef.CheckMDDuplicatesUnsorted( typeDefIndices, ( x, y ) =>
-      {
-         // return true only if both non-null
-         var xTD = typeDef[x];
-         var yTD = typeDef[y];
-         var retVal = xTD != null && yTD != null;
-         if ( retVal )
-         {
-            var xDecl = x.GetDeclaringTypeChain( nestedClass ).FirstOrDefaultCustom( -1 );
-            var yDecl = y.GetDeclaringTypeChain( nestedClass ).FirstOrDefaultCustom( -1 );
-            retVal = String.Equals( xTD.Name, yTD.Name )
-               && String.Equals( xTD.Namespace, yTD.Namespace )
-               && xDecl == yDecl;
-         }
-         return retVal;
-      }, x => typeDef[x].Name.GetHashCodeSafe() );
+      //typeDef.CheckMDDuplicatesUnsorted( typeDefIndices, ( x, y ) =>
+      //{
+      //   // return true only if both non-null
+      //   var xTD = typeDef[x];
+      //   var yTD = typeDef[y];
+      //   var retVal = xTD != null && yTD != null;
+      //   if ( retVal )
+      //   {
+      //      var xDecl = x.GetDeclaringTypeChain( nestedClass ).FirstOrDefaultCustom( -1 );
+      //      var yDecl = y.GetDeclaringTypeChain( nestedClass ).FirstOrDefaultCustom( -1 );
+      //      retVal = String.Equals( xTD.Name, yTD.Name )
+      //         && String.Equals( xTD.Namespace, yTD.Namespace )
+      //         && xDecl == yDecl;
+      //   }
+      //   return retVal;
+      //}, x => typeDef[x].Name.GetHashCodeSafe() );
 
-      // 4. Update NestedClass indices, sort NestedClass again, and now remove duplicates
+      // 4. Update NestedClass indices, sort NestedClass again, and remove duplicates again
       TableIndex aux;
       for ( var i = 0; i < nestedClass.Count; ++i )
       {
@@ -971,22 +897,94 @@ public static partial class E_CILPhysical
          }
       }
       PopulateIndexArray( nestedClassIndices );
-      nestedClass.SortMDTable( nestedClassIndices, ( x, y ) => Comparers.NestedClassDefinitionComparer.Compare( x, y ) );
+      nestedClass.SortMDTable( nestedClassIndices, Comparers.NestedClassDefinitionComparer );
       CheckMDDuplicatesSorted( nestedClass, nestedClassIndices, ( x, y ) => x.NestedClass == y.NestedClass );
 
       // 5. Sort MethodDef table and update references in TypeDef table
+      var methodDefIndices = methodDef.ReOrderMDTableWithAscendingReferences(
+         typeDef,
+         typeDefIndices,
+         td => td.MethodList.Index,
+         ( td, mIdx ) => td.MethodList = new TableIndex( Tables.MethodDef, mIdx ),
+         tdIdx => methodAndFieldCounts[tdIdx].Key
+         );
 
       // 6. Sort ParameterDef table and update references in MethodDef table
+      var paramDefIndices = paramDef.ReOrderMDTableWithAscendingReferences(
+         methodDef,
+         methodDefIndices,
+         mDef => mDef.ParameterList.Index,
+         ( mDef, pIdx ) => mDef.ParameterList = new TableIndex( Tables.Parameter, pIdx ),
+         mdIdx => paramCounts[mdIdx]
+         );
 
-      // 7. Sort FieldDef tkable and update references in TypeDef table
+      // 7. Sort FieldDef table and update references in TypeDef table
+      var fDefIndices = fieldDef.ReOrderMDTableWithAscendingReferences(
+         typeDef,
+         typeDefIndices,
+         td => td.FieldList.Index,
+         ( td, fIdx ) => td.FieldList = new TableIndex( Tables.Field, fIdx ),
+         tdIdx => methodAndFieldCounts[tdIdx].Value
+         );
+
+      // 8. Remove duplicates from AssemblyRef table (since reordering of the TypeRef table will require the indices in this table to be present)
+      // ECMA-335: The AssemblyRef table shall contain no duplicates (where duplicate rows are deemd  to be those having the same MajorVersion, MinorVersion, BuildNumber, RevisionNumber, PublicKeyOrToken, Name, and Culture) [WARNING] 
+      var aRefs = md.AssemblyReferences;
+      var aRefIndices = CreateIndexArray( aRefs.Count );
+      aRefs.CheckMDDuplicatesUnsorted( aRefIndices, ( x, y ) =>
+      {
+         var xRef = aRefs[x];
+         var yRef = aRefs[y];
+         return xRef.AssemblyInformation.Equals( yRef.AssemblyInformation );
+      }, x => aRefs[x].AssemblyInformation.GetHashCode() );
+
+      // 9. Remove duplicates from ModuleRef table (since reordering of the TypeRef table will require the indices in this table to be present)
+      // ECMA-335: There should be no duplicate rows  [WARNING] 
+      var mRefs = md.ModuleReferences;
+      var mRefIndices = CreateIndexArray( mRefs.Count );
+      mRefs.CheckMDDuplicatesUnsorted( mRefIndices, ( x, y ) => String.Equals( mRefs[x].ModuleName, mRefs[y].ModuleName ), x => mRefs[x].ModuleName.GetHashCodeSafe() );
+
+      var allTableIndices = new Int32[Consts.AMOUNT_OF_TABLES][];
+      // ECMA-335: IL tokens shall be from TypeDef, TypeRef, TypeSpec, MethodDef, FieldDef, MemberRef or MethodSpec tables.
+      // All table indices in signatures should only ever reference TypeDef, TypeRef or TypeSpec tables.
+      // Tables with signatures are: FieldDef, MethodDef, MemberRef, CustomAttribute, DeclSecurity, StandaloneSignature, PropertyDef, TypeSpecification, MethodSpecification
+      // The ones that have rules for duplicates: MemberRef, StandaloneSignature, PropertyDef, TypeSpecification, MethodSpecification
+      // We will not handle PropertyDef (nor EventDef) duplicates
+      // The ones without duplicates will be handled later (those are CustomAttribute, DeclSecurity)
+      allTableIndices[(Int32) Tables.TypeDef] = typeDefIndices;
+      allTableIndices[(Int32) Tables.TypeRef] = CreateIndexArray( md.TypeReferences.Count );
+      allTableIndices[(Int32) Tables.TypeSpec] = CreateIndexArray( md.TypeSpecifications.Count );
+      allTableIndices[(Int32) Tables.MethodDef] = methodDefIndices;
+      allTableIndices[(Int32) Tables.Field] = fDefIndices;
+      allTableIndices[(Int32) Tables.MemberRef] = CreateIndexArray( md.MemberReferences.Count );
+      allTableIndices[(Int32) Tables.MethodSpec] = CreateIndexArray( md.MethodSpecifications.Count );
+      allTableIndices[(Int32) Tables.StandaloneSignature] = CreateIndexArray( md.StandaloneSignatures.Count );
+      allTableIndices[(Int32) Tables.AssemblyRef] = aRefIndices;
+      allTableIndices[(Int32) Tables.ModuleRef] = mRefIndices;
+
+      // Keep updating and removing duplicates from TypeRef, TypeSpec, MemberRef, MethodSpec, StandaloneSignature and Property tables, while updating all signatures and IL code
+      md.UpdateSignaturesAndILWhileRemovingDuplicates( allTableIndices );
+
+      // Now begins the part that mostly updates and sorts the table indices to tables
+      allTableIndices[(Int32) Tables.Parameter] = paramDefIndices;
 
       // 8. Sort InterfaceImpl table ( Class, Interface)
+      md.InterfaceImplementations.UpdateMDTableIndicesAndSort(
+         Tables.InterfaceImpl,
+         allTableIndices,
+         Comparers.InterfaceImplementationComparer,
+         ( iFaceImpl, indices ) => iFaceImpl.UpdateMDTableWithTableIndices2( indices, i => i.Class, ( i, c ) => i.Class = c, i => i.Interface, ( i, iface ) => i.Interface = iface )
+         );
 
       // 9. Sort ConstantDef table (Parent)
+      md.ConstantDefinitions.UpdateMDTableIndicesAndSort(
+         Tables.Constant,
+         allTableIndices,
+         Comparers.ConstantDefinitionComparer,
+         ( constant, indices ) => constant.UpdateMDTableWithTableIndices1( indices, c => c.Parent, ( c, p ) => c.Parent = p )
+         );
 
       // 10. Sort FieldMarshal table (Parent)
-
-      // 11. Sort SecurityDefinition table (Parent)
 
       // 12. Sort ClassLayout table (Parent)
 
@@ -1010,13 +1008,65 @@ public static partial class E_CILPhysical
       // EventMap
       // EventDefinition
       // PropertyMap
+      // PropertyDefinition
 
-      // When updating signatures: only TableIndex appearing in signatures is TypeDefOrRefOrSpec.
-      // So save TypeDef index change and update TableIndices of all signatures (since TypeRef and TypeSpec won't be rearranged)
+   }
 
-      // Now remove duplicates from:
-      // AssemblyReference
+   private static void UpdateMDTableIndicesAndSort<T>( this List<T> table, Tables thisTable, Int32[][] allTableIndices, IComparer<T> comparer, Action<List<T>, Int32[][]> tableUpdateCallback )
+   {
+      var thisTableIndices = CreateIndexArray( table.Count );
+      tableUpdateCallback( table, allTableIndices );
+      table.SortMDTable( thisTableIndices, comparer );
+      allTableIndices[(Int32) thisTable] = thisTableIndices;
+   }
 
+   private static void UpdateMDTableWithTableIndices1<T>( this List<T> table, Int32[][] tableIndices, Func<T, TableIndex> tableIndexGetter1, Action<T, TableIndex> tableIndexSetter1 )
+   {
+      foreach ( var row in table )
+      {
+         row.ProcessSingleTableIndexToUpdate( tableIndices, tableIndexGetter1, tableIndexSetter1 );
+      }
+   }
+
+   private static void UpdateMDTableWithTableIndices1Nullable<T>( this List<T> table, Int32[][] tableIndices, Func<T, TableIndex?> tableIndexGetter1, Action<T, TableIndex> tableIndexSetter1 )
+   {
+      foreach ( var row in table )
+      {
+         row.ProcessSingleTableIndexToUpdateNullable( tableIndices, tableIndexGetter1, tableIndexSetter1 );
+      }
+   }
+
+   private static void UpdateMDTableWithTableIndices2<T>( this List<T> table, Int32[][] tableIndices, Func<T, TableIndex> tableIndexGetter1, Action<T, TableIndex> tableIndexSetter1, Func<T, TableIndex> tableIndexGetter2, Action<T, TableIndex> tableIndexSetter2 )
+   {
+      foreach ( var row in table )
+      {
+         row.ProcessSingleTableIndexToUpdate( tableIndices, tableIndexGetter1, tableIndexSetter1 );
+         row.ProcessSingleTableIndexToUpdate( tableIndices, tableIndexGetter2, tableIndexSetter2 );
+      }
+   }
+
+   private static void ProcessSingleTableIndexToUpdate<T>( this T row, Int32[][] tableIndices, Func<T, TableIndex> tableIndexGetter, Action<T, TableIndex> tableIndexSetter )
+   {
+      row.ProcessSingleTableIndexToUpdateWithTableIndex( tableIndices, tableIndexGetter( row ), tableIndexSetter );
+   }
+
+   private static void ProcessSingleTableIndexToUpdateWithTableIndex<T>( this T row, Int32[][] tableIndices, TableIndex tableIndex, Action<T, TableIndex> tableIndexSetter )
+   {
+      var table = tableIndex.Table;
+      var newIndex = tableIndices[(Int32) table][tableIndex.Index];
+      if ( newIndex != tableIndex.Index )
+      {
+         tableIndexSetter( row, new TableIndex( table, newIndex ) );
+      }
+   }
+
+   private static void ProcessSingleTableIndexToUpdateNullable<T>( this T row, Int32[][] tableIndices, Func<T, TableIndex?> tableIndexGetter, Action<T, TableIndex> tableIndexSetter )
+   {
+      var tIdx = tableIndexGetter( row );
+      if ( tIdx.HasValue )
+      {
+         row.ProcessSingleTableIndexToUpdateWithTableIndex( tableIndices, tIdx.Value, tableIndexSetter );
+      }
    }
 
    private static Boolean TryUpdateTableIndex( this TableIndex current, Int32[] targetTableIndices, out TableIndex newIndex )
@@ -1028,6 +1078,11 @@ public static partial class E_CILPhysical
          new TableIndex( current.Table, newIdx ) :
          current;
       return retVal;
+   }
+
+   private static void SortMDTable<T>( this List<T> table, Int32[] indices, IComparer<T> comparer )
+   {
+      table.SortMDTableWithInt32Comparison( indices, ( x, y ) => comparer.Compare( table[x], table[y] ) );
    }
 
    private static void SortMDTable<T>( this List<T> table, Int32[] indices, Comparison<T> comparison )
@@ -1053,6 +1108,59 @@ public static partial class E_CILPhysical
             table[indices[i]] = copy[i];
          }
       }
+   }
+
+   private static Int32[] ReOrderMDTableWithAscendingReferences<T, U>( this List<T> table, List<U> referencingTable, Int32[] referencingTableIndices, Func<U, Int32> referenceIndexGetter, Action<U, Int32> referenceIndexSetter, Func<Int32, Int32> referenceCountGetter )
+   {
+      var refTableCount = referencingTable.Count;
+      var thisTableIndices = CreateIndexArray( table.Count );
+
+      // Comments talk about typedefs and methoddefs but this method is generalized to handle any two tables with ascending reference pattern
+      // This loop walks one typedef at a time, updating methoddef index and re-ordering methoddef array as needed
+      for ( Int32 tIdx = 0, mIdx = 0; tIdx < refTableCount; ++tIdx )
+      {
+         var curTD = referencingTable[tIdx];
+
+         // Inclusive min (the method where current typedef points to)
+         var min = referenceIndexGetter( curTD );
+
+         // The count must be pre-calculated - we can't use typedef table to calculate that, as this for loop modifies the reference (e.g. MethodList property of TypeDefinition)
+         var blockCount = referenceCountGetter( referencingTableIndices[tIdx] );
+
+         if ( min != mIdx )
+         {
+            if ( blockCount > 0 )
+            {
+               // At least one element
+               var array = new T[blockCount];
+
+               // Save old elements into array
+               table.CopyTo( mIdx, array, 0, blockCount );
+
+               // Overwrite old elements in list with the this type's method list, and update method def indices
+               for ( var i = 0; i < blockCount; ++i )
+               {
+                  var mDefIdx = thisTableIndices[i + min];
+                  table[i + mIdx] = table[mDefIdx];
+                  thisTableIndices[mDefIdx] = i + mIdx;
+               }
+
+               // Use elements in array to overwite elements we just read into current section
+               for ( var i = 0; i < blockCount; ++i )
+               {
+                  table[i + min] = array[i];
+                  thisTableIndices[i + mIdx] = i + min;
+               }
+            }
+
+            // Set methoddef index for this typedef
+            referenceIndexSetter( curTD, mIdx );
+         }
+
+         mIdx += blockCount;
+      }
+
+      return thisTableIndices;
    }
 
    // Assumes list is sorted
@@ -1085,10 +1193,15 @@ public static partial class E_CILPhysical
       return foundDuplicates;
    }
 
+   private static Boolean CheckMDDuplicatesUnsorted<T>( this List<T> list, Int32[] indices, IEqualityComparer<T> comparer )
+      where T : class
+   {
+      return list.CheckMDDuplicatesUnsorted( indices, ( x, y ) => comparer.Equals( list[x], list[y] ), x => comparer.GetHashCode( list[x] ) );
+   }
+
    private static Boolean CheckMDDuplicatesUnsorted<T>( this List<T> list, Int32[] indices, Func<Int32, Int32, Boolean> duplicateComparer, Func<Int32, Int32> hashCode )
       where T : class
    {
-      // TODO use HashSet ? would require hash-code callback as well then
       var foundDuplicates = false;
       var count = list.Count;
       if ( count > 1 )
@@ -1096,7 +1209,7 @@ public static partial class E_CILPhysical
          var set = new HashSet<Int32>( ComparerFromFunctions.NewEqualityComparer( duplicateComparer, hashCode ) );
          for ( var i = 0; i < list.Count; ++i )
          {
-            if ( !set.Add( i ) )
+            if ( list[i] != null && !set.Add( i ) )
             {
                if ( !foundDuplicates )
                {
@@ -1104,7 +1217,7 @@ public static partial class E_CILPhysical
                }
 
                var actualIndex = 0;
-               while ( !duplicateComparer( i, actualIndex ) )
+               while ( list[actualIndex] == null || !duplicateComparer( i, actualIndex ) )
                {
                   ++actualIndex;
                }
@@ -1150,6 +1263,314 @@ public static partial class E_CILPhysical
       {
          array[i] = i;
       }
+   }
+
+   private static void UpdateSignaturesAndILWhileRemovingDuplicates( this CILMetaData md, Int32[][] tableIndices )
+   {
+      var tRefs = md.TypeReferences;
+      var tSpecs = md.TypeSpecifications;
+      var memberRefs = md.MemberReferences;
+      var mSpecs = md.MethodSpecifications;
+      var standAloneSigs = md.StandaloneSignatures;
+      var props = md.PropertyDefinitions;
+      var updateState = new SignatureReorderState( md, tableIndices );
+      Boolean removedTypeRefDuplicates, removedTSpecDuplicates, removedMemberRefDuplicates, removedMethodSpecDuplicates, removedStandaloneSigDuplicates, updatedSignatureTableIndices, updatedILTableIndices;
+      // This has to be done in loop since modifying e.g. type specs will modify signatures, and thus might result in more typeref, typespec or memberref duplicates
+      do
+      {
+         // ECMA-335:  There shall be no duplicate rows, where a duplicate has the same ResolutionScope, TypeName and TypeNamespace  [ERROR] 
+         tRefs.UpdateMDTableWithTableIndices1Nullable( tableIndices, tRef => tRef.ResolutionScope, ( tRef, resScope ) => tRef.ResolutionScope = resScope );
+         removedTypeRefDuplicates = tRefs.CheckMDDuplicatesUnsorted( tableIndices[(Int32) Tables.TypeRef], Comparers.TypeReferenceEqualityComparer );
+
+         // ECMA-335: There shall be no duplicate rows, based upon Signature  [ERROR] 
+         removedTSpecDuplicates = tSpecs.CheckMDDuplicatesUnsorted( tableIndices[(Int32) Tables.TypeSpec], Comparers.TypeSpecificationEqualityComparer );
+
+         // ECMA-335:  The MemberRef table shall contain no duplicates, where duplicate rows have the same Class, Name, and Signature  [WARNING] 
+         memberRefs.UpdateMDTableWithTableIndices1( tableIndices, mRef => mRef.DeclaringType, ( mRef, dType ) => mRef.DeclaringType = dType );
+         removedMemberRefDuplicates = memberRefs.CheckMDDuplicatesUnsorted( tableIndices[(Int32) Tables.MemberRef], Comparers.MemberReferenceEqualityComparer );
+
+         // ECMA-335: There shall be no duplicate rows based upon Method+Instantiation  [ERROR] 
+         mSpecs.UpdateMDTableWithTableIndices1( tableIndices, mSpec => mSpec.Method, ( mSpec, method ) => mSpec.Method = method );
+         removedMethodSpecDuplicates = mSpecs.CheckMDDuplicatesUnsorted( tableIndices[(Int32) Tables.MethodSpec], Comparers.MethodSpecificationEqualityComparer );
+
+         // ECMA-335: Duplicates allowed (but we will make them all unique anyway)
+         removedStandaloneSigDuplicates = standAloneSigs.CheckMDDuplicatesUnsorted( tableIndices[(Int32) Tables.StandaloneSignature], Comparers.StandaloneSignatureEqualityComparer );
+
+         // We shall not check for property duplicates as they don't really bother this algorithm and we don't know generic enough case to handle them
+
+         // Update signatures
+         updateState.ResetChangedAny();
+         updateState.UpdateSignatures();
+         updatedSignatureTableIndices = updateState.ChangedAny;
+
+         // Update table indices in IL
+         updateState.ResetChangedAny();
+         updateState.UpdateIL();
+         updatedILTableIndices = updateState.ChangedAny;
+      } while ( updatedSignatureTableIndices || updatedILTableIndices );
+   }
+
+   // This method updates all signature table indices and returns true if any table index was modified
+   private static void UpdateSignatures( this SignatureReorderState state )
+   {
+      var md = state.MD;
+      // 1. FieldDef
+      foreach ( var field in md.FieldDefinitions.Where( f => f != null ) )
+      {
+         state.UpdateFieldSignature( field.Signature );
+      }
+
+      // 2. MethodDef
+      foreach ( var method in md.MethodDefinitions.Where( m => m != null ) )
+      {
+         state.UpdateMethodDefSignature( method.Signature );
+      }
+
+      // 3. MemberRef
+      foreach ( var member in md.MemberReferences.Where( m => m != null ) )
+      {
+         state.UpdateAbstractSignature( member.Signature );
+      }
+
+      // 4. StandaloneSignature
+      foreach ( var sig in md.StandaloneSignatures.Where( s => s != null ) )
+      {
+         state.UpdateAbstractSignature( sig.Signature );
+      }
+
+      // 5. PropertyDef
+      foreach ( var prop in md.PropertyDefinitions ) // No need for null check as property definition is not sorted nor checked for duplicates
+      {
+         state.UpdatePropertySignature( prop.Signature );
+      }
+
+      // 6. TypeSpec
+      foreach ( var tSpec in md.TypeSpecifications.Where( t => t != null ) )
+      {
+         state.UpdateTypeSignature( tSpec.Signature );
+      }
+
+      // 7. MethodSpecification
+      foreach ( var mSpec in md.MethodSpecifications.Where( m => m != null ) )
+      {
+         state.UpdateGenericMethodSignature( mSpec.Signature );
+      }
+
+      // CustomAttribute and DeclarativeSecurity signatures do not reference table indices, so they can be skipped
+   }
+
+   private static void UpdateIL( this SignatureReorderState state )
+   {
+      foreach ( var mDef in state.MD.MethodDefinitions )
+      {
+         var il = mDef.IL;
+         if ( il != null )
+         {
+            // Local signature
+            var localIdx = il.LocalsSignatureIndex;
+            Int32 newIdx;
+            if ( state.SignatureOrILTableIndexDiffersNullable( localIdx, il, out newIdx ) )
+            {
+               il.LocalsSignatureIndex = localIdx.Value.ChangeIndex( newIdx );
+            }
+
+            // Exception blocks
+            foreach ( var block in il.ExceptionBlocks )
+            {
+               var excIdx = block.ExceptionType;
+               if ( state.SignatureOrILTableIndexDiffersNullable( excIdx, block, out newIdx ) )
+               {
+                  block.ExceptionType = excIdx.Value.ChangeIndex( newIdx );
+               }
+            }
+
+            // Op codes
+            foreach ( var code in il.OpCodes.Where( code => code.InfoKind == OpCodeOperandKind.OperandToken ) )
+            {
+               var codeInfo = (OpCodeInfoWithToken) code;
+               var token = codeInfo.Operand;
+               if ( state.SignatureOrILTableIndexDiffers( token, code, out newIdx ) )
+               {
+                  codeInfo.Operand = token.ChangeIndex( newIdx );
+               }
+            }
+         }
+      }
+   }
+
+   private static void UpdateAbstractSignature( this SignatureReorderState state, AbstractSignature sig )
+   {
+      switch ( sig.SignatureKind )
+      {
+         case SignatureKind.Field:
+            state.UpdateFieldSignature( (FieldSignature) sig );
+            break;
+         case SignatureKind.GenericMethodInstantiation:
+            state.UpdateGenericMethodSignature( (GenericMethodSignature) sig );
+            break;
+         case SignatureKind.LocalVariables:
+            state.UpdateLocalVariablesSignature( (LocalVariablesSignature) sig );
+            break;
+         case SignatureKind.MethodDefinition:
+            state.UpdateMethodDefSignature( (MethodDefinitionSignature) sig );
+            break;
+         case SignatureKind.MethodReference:
+            state.UpdateMethodRefSignature( (MethodReferenceSignature) sig );
+            break;
+         case SignatureKind.Property:
+            state.UpdatePropertySignature( (PropertySignature) sig );
+            break;
+         case SignatureKind.Type:
+            state.UpdateTypeSignature( (TypeSignature) sig );
+            break;
+      }
+   }
+
+   private static void UpdateFieldSignature( this SignatureReorderState state, FieldSignature sig )
+   {
+      state.UpdateSignatureCustomModifiers( sig.CustomModifiers );
+      state.UpdateTypeSignature( sig.Type );
+   }
+
+   private static void UpdateGenericMethodSignature( this SignatureReorderState state, GenericMethodSignature sig )
+   {
+      foreach ( var gArg in sig.GenericArguments )
+      {
+         state.UpdateTypeSignature( gArg );
+      }
+   }
+
+   private static void UpdateLocalVariablesSignature( this SignatureReorderState state, LocalVariablesSignature sig )
+   {
+      state.UpdateParameterSignatures( sig.Locals );
+   }
+
+   private static void UpdatePropertySignature( this SignatureReorderState state, PropertySignature sig )
+   {
+      state.UpdateSignatureCustomModifiers( sig.CustomModifiers );
+      state.UpdateParameterSignatures( sig.Parameters );
+      state.UpdateTypeSignature( sig.PropertyType );
+   }
+
+   private static void UpdateTypeSignature( this SignatureReorderState state, TypeSignature sig )
+   {
+      switch ( sig.TypeSignatureKind )
+      {
+         case TypeSignatureKind.ClassOrValue:
+            var clazz = (ClassOrValueTypeSignature) sig;
+            Int32 newIdx;
+            var type = clazz.Type;
+            if ( state.SignatureOrILTableIndexDiffers( type, clazz, out newIdx ) )
+            {
+               clazz.Type = type.ChangeIndex( newIdx );
+            }
+            foreach ( var gArg in clazz.GenericArguments )
+            {
+               state.UpdateTypeSignature( gArg );
+            }
+            break;
+         case TypeSignatureKind.ComplexArray:
+            state.UpdateTypeSignature( ( (ComplexArrayTypeSignature) sig ).ArrayType );
+            break;
+         case TypeSignatureKind.FunctionPointer:
+            state.UpdateMethodRefSignature( ( (FunctionPointerTypeSignature) sig ).MethodSignature );
+            break;
+         case TypeSignatureKind.Pointer:
+            var ptr = (PointerTypeSignature) sig;
+            state.UpdateSignatureCustomModifiers( ptr.CustomModifiers );
+            state.UpdateTypeSignature( ptr.PointerType );
+            break;
+         case TypeSignatureKind.SimpleArray:
+            var array = (SimpleArrayTypeSignature) sig;
+            state.UpdateSignatureCustomModifiers( array.CustomModifiers );
+            state.UpdateTypeSignature( array.ArrayType );
+            break;
+      }
+   }
+
+   private static void UpdateSignatureCustomModifiers( this SignatureReorderState state, IList<CustomModifierSignature> mods )
+   {
+      Int32 newIndex;
+      foreach ( var mod in mods )
+      {
+         var idx = mod.CustomModifierType;
+         if ( state.SignatureOrILTableIndexDiffers( idx, mod, out newIndex ) )
+         {
+            mod.CustomModifierType = idx.ChangeIndex( newIndex );
+         }
+      }
+   }
+
+   private static void UpdateAbstractMethodSignature( this SignatureReorderState state, AbstractMethodSignature sig )
+   {
+      state.UpdateParameterSignature( sig.ReturnType );
+      state.UpdateParameterSignatures( sig.Parameters );
+   }
+
+   private static void UpdateMethodDefSignature( this SignatureReorderState state, MethodDefinitionSignature sig )
+   {
+      state.UpdateAbstractMethodSignature( sig );
+   }
+
+   private static void UpdateMethodRefSignature( this SignatureReorderState state, MethodReferenceSignature sig )
+   {
+      state.UpdateAbstractMethodSignature( sig );
+      state.UpdateParameterSignatures( sig.VarArgsParameters );
+   }
+
+   private static void UpdateParameterSignatures<T>( this SignatureReorderState state, List<T> parameters )
+      where T : ParameterOrLocalVariableSignature
+   {
+      foreach ( var param in parameters )
+      {
+         state.UpdateParameterSignature( param );
+      }
+   }
+
+   private static void UpdateParameterSignature( this SignatureReorderState state, ParameterOrLocalVariableSignature parameter )
+   {
+      state.UpdateSignatureCustomModifiers( parameter.CustomModifiers );
+      state.UpdateTypeSignature( parameter.Type );
+   }
+
+   private static Boolean SignatureOrILTableIndexDiffersNullable( this SignatureReorderState state, this TableIndex? index, Object parent, out Int32 newIndex )
+   {
+      var retVal = index.HasValue;
+      if ( retVal )
+      {
+         state.SignatureOrILTableIndexDiffers( index.Value, parent, out newIndex );
+      }
+      else
+      {
+         newIndex = -1;
+      }
+      return retVal;
+   }
+
+   private static Boolean SignatureOrILTableIndexDiffers( this SignatureReorderState state, TableIndex index, Object parent, out Int32 newIndex )
+   {
+      var oldIndex = index.Index;
+      var visitedDic = state.VisitedInfo;
+      var retVal = !visitedDic.ContainsKey( parent ); // Check whether we have already visited this index
+      // Even if we have already visited this, have to check here whether target is null
+      // If target is null, that means that after visiting, the target became duplicate and was removed
+      // So we need to update it again
+      if ( retVal || state.MD.GetByTableIndex( index ) == null )
+      {
+         if ( retVal )
+         {
+            visitedDic.Add( parent, parent );
+         }
+         newIndex = state.TableIndices[(Int32) index.Table][oldIndex]; // TODO NullRef if not TypeDef/TypeRef/TypeSpec, ArrayIndexOutOfBounds if invalid index!
+         retVal = oldIndex != newIndex;
+         // Mark that we have changed an index
+         state.ProcessedTableIndex( retVal );
+      }
+      else
+      {
+         newIndex = -1;
+      }
+      return retVal;
    }
 
    private static IEnumerable<Int32> GetDeclaringTypeChain( this Int32 typeDefIndex, IList<NestedClassDefinition> sortedNestedClass )
@@ -1210,7 +1631,7 @@ public static partial class E_CILPhysical
          var il = mDef.IL;
          if ( il != null )
          {
-            var state = new StackCalculationInfo( md, il.OpCodes.Sum( oc => oc.ByteSize ) );
+            var state = new StackCalculationState( md, il.OpCodes.Sum( oc => oc.ByteSize ) );
 
             // Setup exception block stack sizes
             foreach ( var block in il.ExceptionBlocks )
@@ -1230,35 +1651,9 @@ public static partial class E_CILPhysical
             // Calculate actual max stack
             foreach ( var codeInfo in il.OpCodes )
             {
-               var code = codeInfo.OpCode;
-
-               state.CurrentCodeByteOffset += code.Size;
+               state.CurrentCodeByteOffset += codeInfo.OpCode.Size;
                state.NextCodeByteOffset += codeInfo.ByteSize;
-               Object methodOrLabelOrManyLabels = null;
-               var operandType = code.OperandType;
-               if ( operandType != OperandType.InlineNone )
-               {
-                  switch ( operandType )
-                  {
-                     case OperandType.ShortInlineBrTarget:
-                        methodOrLabelOrManyLabels = ( (OpCodeInfoWithInt32) codeInfo ).Operand;
-                        break;
-                     case OperandType.InlineBrTarget:
-                        methodOrLabelOrManyLabels = ( (OpCodeInfoWithInt32) codeInfo ).Operand;
-                        break;
-                     case OperandType.InlineMethod:
-                     case OperandType.InlineType:
-                     case OperandType.InlineTok:
-                     case OperandType.InlineSig:
-                        methodOrLabelOrManyLabels = ( (OpCodeInfoWithToken) codeInfo ).Operand;
-                        break;
-                     case OperandType.InlineSwitch:
-                        methodOrLabelOrManyLabels = ( (OpCodeInfoWithSwitch) codeInfo ).Offsets;
-                        break;
-                  }
-               }
-
-               UpdateStackSize( state, code, methodOrLabelOrManyLabels );
+               UpdateStackSize( state, codeInfo );
             }
 
             retVal = state.MaxStack;
@@ -1269,15 +1664,15 @@ public static partial class E_CILPhysical
    }
 
    private static void UpdateStackSize(
-      StackCalculationInfo state,
-      OpCode code,
-      Object methodOrLabelOrManyLabels
+      StackCalculationState state,
+      OpCodeInfo codeInfo
       )
    {
+      var code = codeInfo.OpCode;
       var curStacksize = Math.Max( state.CurrentStack, state.StackSizes[state.CurrentCodeByteOffset] );
       if ( FlowControl.Call == code.FlowControl )
       {
-         curStacksize = UpdateStackSizeForMethod( state, code, (TableIndex) methodOrLabelOrManyLabels, curStacksize );
+         curStacksize = UpdateStackSizeForMethod( state, code, ( (OpCodeInfoWithToken) codeInfo ).Operand, curStacksize );
       }
       else
       {
@@ -1293,13 +1688,13 @@ public static partial class E_CILPhysical
          switch ( code.OperandType )
          {
             case OperandType.InlineBrTarget:
-               UpdateStackSizeAtBranchTarget( state, (Int32) methodOrLabelOrManyLabels, curStacksize );
+               UpdateStackSizeAtBranchTarget( state, ( (OpCodeInfoWithInt32) codeInfo ).Operand, curStacksize );
                break;
             case OperandType.ShortInlineBrTarget:
-               UpdateStackSizeAtBranchTarget( state, (Int32) methodOrLabelOrManyLabels, curStacksize );
+               UpdateStackSizeAtBranchTarget( state, ( (OpCodeInfoWithInt32) codeInfo ).Operand, curStacksize );
                break;
             case OperandType.InlineSwitch:
-               var offsets = (IList<Int32>) methodOrLabelOrManyLabels;
+               var offsets = ( (OpCodeInfoWithSwitch) codeInfo ).Offsets;
                for ( var i = 0; i < offsets.Count; ++i )
                {
                   UpdateStackSizeAtBranchTarget( state, offsets[i], curStacksize );
@@ -1319,7 +1714,7 @@ public static partial class E_CILPhysical
    }
 
    private static Int32 UpdateStackSizeForMethod(
-      StackCalculationInfo state,
+      StackCalculationState state,
       OpCode code,
       TableIndex method,
       Int32 curStacksize
@@ -1367,7 +1762,7 @@ public static partial class E_CILPhysical
    }
 
    private static AbstractMethodSignature ResolveSignatureFromTableIndex(
-      StackCalculationInfo state,
+      StackCalculationState state,
       TableIndex method
       )
    {
@@ -1392,7 +1787,7 @@ public static partial class E_CILPhysical
    }
 
    private static void UpdateStackSizeAtBranchTarget(
-      StackCalculationInfo state,
+      StackCalculationState state,
       Int32 jump,
       Int32 stackSize
       )
