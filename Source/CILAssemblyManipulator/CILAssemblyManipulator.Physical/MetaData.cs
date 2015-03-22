@@ -784,12 +784,12 @@ public static partial class E_CILPhysical
    // EventDef
    public static void OrderTablesAndUpdateSignatures( this CILMetaData md )
    {
-      // 1. Create dictionary <Typedef, Int32> with reference-equality-comparer, which has the original index of each type-def
+      // Create dictionary <Typedef, Int32> with reference-equality-comparer, which has the original index of each type-def
       //var originalTDefIndices = md.TypeDefinitions
       //   .Select( ( tDef, tDefIdx ) => new KeyValuePair<TypeDefinition, Int32>( tDef, tDefIdx ) )
       //   .ToDictionary( kvp => kvp.Key, kvp => kvp.Value, ReferenceEqualityComparer<TypeDefinition>.ReferenceBasedComparer );
 
-      // 2. Sort NestedClass table (NestedClass) and remove duplicates
+      // Sort NestedClass table (NestedClass) and remove duplicates
       // Start with this because sorting TypeDef requires accessing NestedClass table and therefore it is quicker to first sort NestedClass table
       var nestedClass = md.NestedClassDefinitions;
       var nestedClassIndices = CreateIndexArray( nestedClass.Count );
@@ -845,7 +845,6 @@ public static partial class E_CILPhysical
          paramCounts[i] = max - curMD.ParameterList.Index;
       }
 
-      // 3. Sort TypeDef, use dictionary created in step 1 to get original index, and then get nested-type index from sorted NestedClass with binary search
       //    When checking whether type x is enclosing type of type y, need to walk through whole enclosing-type chain (i.e. x may be enclosed type of z, which may be enclosed type of y)
       typeDef.SortMDTableWithInt32Comparison( typeDefIndices, ( x, y ) =>
       {
@@ -879,7 +878,7 @@ public static partial class E_CILPhysical
       //   return retVal;
       //}, x => typeDef[x].Name.GetHashCodeSafe() );
 
-      // 4. Update NestedClass indices, sort NestedClass again, and remove duplicates again
+      // Update NestedClass indices, sort NestedClass again, and remove duplicates again
       TableIndex aux;
       for ( var i = 0; i < nestedClass.Count; ++i )
       {
@@ -900,7 +899,7 @@ public static partial class E_CILPhysical
       nestedClass.SortMDTable( nestedClassIndices, Comparers.NestedClassDefinitionComparer );
       CheckMDDuplicatesSorted( nestedClass, nestedClassIndices, ( x, y ) => x.NestedClass == y.NestedClass );
 
-      // 5. Sort MethodDef table and update references in TypeDef table
+      // Sort MethodDef table and update references in TypeDef table
       var methodDefIndices = methodDef.ReOrderMDTableWithAscendingReferences(
          typeDef,
          typeDefIndices,
@@ -909,7 +908,7 @@ public static partial class E_CILPhysical
          tdIdx => methodAndFieldCounts[tdIdx].Key
          );
 
-      // 6. Sort ParameterDef table and update references in MethodDef table
+      // Sort ParameterDef table and update references in MethodDef table
       var paramDefIndices = paramDef.ReOrderMDTableWithAscendingReferences(
          methodDef,
          methodDefIndices,
@@ -918,7 +917,7 @@ public static partial class E_CILPhysical
          mdIdx => paramCounts[mdIdx]
          );
 
-      // 7. Sort FieldDef table and update references in TypeDef table
+      // Sort FieldDef table and update references in TypeDef table
       var fDefIndices = fieldDef.ReOrderMDTableWithAscendingReferences(
          typeDef,
          typeDefIndices,
@@ -927,7 +926,7 @@ public static partial class E_CILPhysical
          tdIdx => methodAndFieldCounts[tdIdx].Value
          );
 
-      // 8. Remove duplicates from AssemblyRef table (since reordering of the TypeRef table will require the indices in this table to be present)
+      // Remove duplicates from AssemblyRef table (since reordering of the TypeRef table will require the indices in this table to be present)
       // ECMA-335: The AssemblyRef table shall contain no duplicates (where duplicate rows are deemd  to be those having the same MajorVersion, MinorVersion, BuildNumber, RevisionNumber, PublicKeyOrToken, Name, and Culture) [WARNING] 
       var aRefs = md.AssemblyReferences;
       var aRefIndices = CreateIndexArray( aRefs.Count );
@@ -938,7 +937,7 @@ public static partial class E_CILPhysical
          return xRef.AssemblyInformation.Equals( yRef.AssemblyInformation );
       }, x => aRefs[x].AssemblyInformation.GetHashCode() );
 
-      // 9. Remove duplicates from ModuleRef table (since reordering of the TypeRef table will require the indices in this table to be present)
+      // Remove duplicates from ModuleRef table (since reordering of the TypeRef table will require the indices in this table to be present)
       // ECMA-335: There should be no duplicate rows  [WARNING] 
       var mRefs = md.ModuleReferences;
       var mRefIndices = CreateIndexArray( mRefs.Count );
@@ -961,63 +960,175 @@ public static partial class E_CILPhysical
       allTableIndices[(Int32) Tables.StandaloneSignature] = CreateIndexArray( md.StandaloneSignatures.Count );
       allTableIndices[(Int32) Tables.AssemblyRef] = aRefIndices;
       allTableIndices[(Int32) Tables.ModuleRef] = mRefIndices;
+      allTableIndices[(Int32) Tables.Module] = CreateIndexArray( md.ModuleDefinitions.Count );
 
       // Keep updating and removing duplicates from TypeRef, TypeSpec, MemberRef, MethodSpec, StandaloneSignature and Property tables, while updating all signatures and IL code
       md.UpdateSignaturesAndILWhileRemovingDuplicates( allTableIndices );
 
-      // Now begins the part that mostly updates and sorts the table indices to tables
+      // Prepare table indices
       allTableIndices[(Int32) Tables.Parameter] = paramDefIndices;
+      // Create table index arrays for tables which are untouched (but can be used by various table indices in table rows)
+      allTableIndices[(Int32) Tables.Assembly] = CreateIndexArray( md.AssemblyDefinitions.Count );
+      allTableIndices[(Int32) Tables.File] = CreateIndexArray( md.FileReferences.Count );
+      allTableIndices[(Int32) Tables.Property] = CreateIndexArray( md.PropertyDefinitions.Count );
 
-      // 8. Sort InterfaceImpl table ( Class, Interface)
-      md.InterfaceImplementations.UpdateMDTableIndicesAndSort(
+      // Update EventDefinition
+      md.EventDefinitions.UpdateMDTableIndices(
+         Tables.Event,
+         allTableIndices,
+         null,
+         ( ed, indices ) => ed.UpdateMDTableWithTableIndices1( indices, e => e.EventType, ( e, t ) => e.EventType = t )
+         );
+
+      // Update EventMap
+      md.EventMaps.UpdateMDTableIndices(
+         Tables.EventMap,
+         allTableIndices,
+         null,
+         ( em, indices ) => em.UpdateMDTableWithTableIndices2( indices, e => e.Parent, ( e, p ) => e.Parent = p, e => e.EventList, ( e, l ) => e.EventList = l )
+         );
+
+      // No table indices in PropertyDefinition
+
+      // Update PropertyMap
+      md.PropertyMaps.UpdateMDTableIndices(
+         Tables.PropertyMap,
+         allTableIndices,
+         null,
+         ( pm, indices ) => pm.UpdateMDTableWithTableIndices2( indices, p => p.Parent, ( p, pp ) => p.Parent = pp, p => p.PropertyList, ( p, pl ) => p.PropertyList = pl )
+         );
+
+      // Sort InterfaceImpl table ( Class, Interface)
+      md.InterfaceImplementations.UpdateMDTableIndices(
          Tables.InterfaceImpl,
          allTableIndices,
          Comparers.InterfaceImplementationComparer,
          ( iFaceImpl, indices ) => iFaceImpl.UpdateMDTableWithTableIndices2( indices, i => i.Class, ( i, c ) => i.Class = c, i => i.Interface, ( i, iface ) => i.Interface = iface )
          );
 
-      // 9. Sort ConstantDef table (Parent)
-      md.ConstantDefinitions.UpdateMDTableIndicesAndSort(
+      // Sort ConstantDef table (Parent)
+      md.ConstantDefinitions.UpdateMDTableIndices(
          Tables.Constant,
          allTableIndices,
          Comparers.ConstantDefinitionComparer,
          ( constant, indices ) => constant.UpdateMDTableWithTableIndices1( indices, c => c.Parent, ( c, p ) => c.Parent = p )
          );
 
-      // 10. Sort FieldMarshal table (Parent)
+      // Sort FieldMarshal table (Parent)
+      md.FieldMarshals.UpdateMDTableIndices(
+         Tables.FieldMarshal,
+         allTableIndices,
+         Comparers.FieldMarshalComparer,
+         ( marshal, indices ) => marshal.UpdateMDTableWithTableIndices1( indices, f => f.Parent, ( f, p ) => f.Parent = p )
+         );
 
-      // 12. Sort ClassLayout table (Parent)
+      // Sort DeclSecurity table (Parent)
+      md.SecurityDefinitions.UpdateMDTableIndices(
+         Tables.DeclSecurity,
+         allTableIndices,
+         Comparers.SecurityDefinitionComparer,
+         ( sec, indices ) => sec.UpdateMDTableWithTableIndices1( indices, s => s.Parent, ( s, p ) => s.Parent = p )
+         );
 
-      // 13. Sort FieldLayout table (Field)
+      // Sort ClassLayout table (Parent)
+      md.ClassLayouts.UpdateMDTableIndices(
+         Tables.ClassLayout,
+         allTableIndices,
+         Comparers.ClassLayoutComparer,
+         ( clazz, indices ) => clazz.UpdateMDTableWithTableIndices1( indices, c => c.Parent, ( c, p ) => c.Parent = p )
+         );
 
-      // 14. Sort MethodSemantics table (Association)
+      // Sort FieldLayout table (Field)
+      md.FieldLayouts.UpdateMDTableIndices(
+         Tables.FieldLayout,
+         allTableIndices,
+         Comparers.FieldLayoutComparer,
+         ( fieldLayout, indices ) => fieldLayout.UpdateMDTableWithTableIndices1( indices, f => f.Field, ( f, p ) => f.Field = p )
+         );
 
-      // 15. Sort MethodImpl table (Class)
+      // Sort MethodSemantics table (Association)
+      md.MethodSemantics.UpdateMDTableIndices(
+         Tables.MethodSemantics,
+         allTableIndices,
+         Comparers.MethodSemanticsComparer,
+         ( semantics, indices ) => semantics.UpdateMDTableWithTableIndices2( indices, s => s.Method, ( s, m ) => s.Method = m, s => s.Associaton, ( s, a ) => s.Associaton = a )
+         );
 
-      // 16. Sort ImplMap table (MemberForwarded)
+      // Sort MethodImpl table (Class)
+      md.MethodImplementations.UpdateMDTableIndices(
+         Tables.MethodImpl,
+         allTableIndices,
+         Comparers.MethodImplementationComparer,
+         ( impl, indices ) => impl.UpdateMDTableWithTableIndices3( indices, i => i.Class, ( i, c ) => i.Class = c, i => i.MethodBody, ( i, b ) => i.MethodBody = b, i => i.MethodDeclaration, ( i, d ) => i.MethodDeclaration = d )
+         );
 
-      // 17. Sort FieldRVA table (Field)
+      // Sort ImplMap table (MemberForwarded)
+      md.MethodImplementationMaps.UpdateMDTableIndices(
+         Tables.ImplMap,
+         allTableIndices,
+         Comparers.MethodImplementationMapComparer,
+         ( map, indices ) => map.UpdateMDTableWithTableIndices2( indices, m => m.MemberForwarded, ( m, mem ) => m.MemberForwarded = mem, m => m.ImportScope, ( m, i ) => m.ImportScope = i )
+         );
 
-      // 18. Sort GenericParamDef table (Owner, Sequence)
+      // Sort FieldRVA table (Field)
+      md.FieldRVAs.UpdateMDTableIndices(
+         Tables.FieldRVA,
+         allTableIndices,
+         Comparers.FieldRVAComparer,
+         ( fieldRVAs, indices ) => fieldRVAs.UpdateMDTableWithTableIndices1( indices, f => f.Field, ( f, field ) => f.Field = field )
+         );
 
-      // 19. Sort GenericParameterConstraint table (Owner)
+      // Sort GenericParamDef table (Owner, Sequence)
+      md.GenericParameterDefinitions.UpdateMDTableIndices(
+         Tables.GenericParameter,
+         allTableIndices,
+         Comparers.GenericParameterDefinitionComparer,
+         ( gDef, indices ) => gDef.UpdateMDTableWithTableIndices1( indices, g => g.Owner, ( g, o ) => g.Owner = o )
+         );
 
-      // 20. Sort CustomAttributeDef table (Parent)
+      // Sort GenericParameterConstraint table (Owner)
+      md.GenericParameterConstraintDefinitions.UpdateMDTableIndices(
+         Tables.GenericParameterConstraint,
+         allTableIndices,
+         Comparers.GenericParameterConstraintDefinitionComparer,
+         ( gDef, indices ) => gDef.UpdateMDTableWithTableIndices2( indices, g => g.Owner, ( g, o ) => g.Owner = o, g => g.Constraint, ( g, c ) => g.Constraint = c )
+         );
 
-      // Update table indices for:
-      // EventMap
-      // EventDefinition
-      // PropertyMap
-      // PropertyDefinition
+      // Update ExportedType
+      md.ExportedTypes.UpdateMDTableIndices(
+         Tables.ExportedType,
+         allTableIndices,
+         null,
+         ( et, indices ) => et.UpdateMDTableWithTableIndices1( indices, e => e.Implementation, ( e, i ) => e.Implementation = i )
+         );
+
+      // Update ManifestResource
+      md.ManifestResources.UpdateMDTableIndices(
+         Tables.ManifestResource,
+         allTableIndices,
+         null,
+         ( mr, indices ) => mr.UpdateMDTableWithTableIndices1Nullable( indices, m => m.Implementation, ( m, i ) => m.Implementation = i )
+         );
+
+      // Sort CustomAttributeDef table (Parent) 
+      md.CustomAttributeDefinitions.UpdateMDTableIndices(
+         Tables.CustomAttribute,
+         allTableIndices,
+         Comparers.CustomAttributeDefinitionComparer,
+         ( ca, indices ) => ca.UpdateMDTableWithTableIndices2( indices, c => c.Parent, ( c, p ) => c.Parent = p, c => c.Type, ( c, t ) => c.Type = t )
+         );
 
    }
 
-   private static void UpdateMDTableIndicesAndSort<T>( this List<T> table, Tables thisTable, Int32[][] allTableIndices, IComparer<T> comparer, Action<List<T>, Int32[][]> tableUpdateCallback )
+   private static void UpdateMDTableIndices<T>( this List<T> table, Tables thisTable, Int32[][] allTableIndices, IComparer<T> comparer, Action<List<T>, Int32[][]> tableUpdateCallback )
    {
       var thisTableIndices = CreateIndexArray( table.Count );
-      tableUpdateCallback( table, allTableIndices );
-      table.SortMDTable( thisTableIndices, comparer );
       allTableIndices[(Int32) thisTable] = thisTableIndices;
+      tableUpdateCallback( table, allTableIndices );
+      if ( comparer != null )
+      {
+         table.SortMDTable( thisTableIndices, comparer );
+      }
    }
 
    private static void UpdateMDTableWithTableIndices1<T>( this List<T> table, Int32[][] tableIndices, Func<T, TableIndex> tableIndexGetter1, Action<T, TableIndex> tableIndexSetter1 )
@@ -1042,6 +1153,16 @@ public static partial class E_CILPhysical
       {
          row.ProcessSingleTableIndexToUpdate( tableIndices, tableIndexGetter1, tableIndexSetter1 );
          row.ProcessSingleTableIndexToUpdate( tableIndices, tableIndexGetter2, tableIndexSetter2 );
+      }
+   }
+
+   private static void UpdateMDTableWithTableIndices3<T>( this List<T> table, Int32[][] tableIndices, Func<T, TableIndex> tableIndexGetter1, Action<T, TableIndex> tableIndexSetter1, Func<T, TableIndex> tableIndexGetter2, Action<T, TableIndex> tableIndexSetter2, Func<T, TableIndex> tableIndexGetter3, Action<T, TableIndex> tableIndexSetter3 )
+   {
+      foreach ( var row in table )
+      {
+         row.ProcessSingleTableIndexToUpdate( tableIndices, tableIndexGetter1, tableIndexSetter1 );
+         row.ProcessSingleTableIndexToUpdate( tableIndices, tableIndexGetter2, tableIndexSetter2 );
+         row.ProcessSingleTableIndexToUpdate( tableIndices, tableIndexGetter3, tableIndexSetter3 );
       }
    }
 
@@ -1533,12 +1654,12 @@ public static partial class E_CILPhysical
       state.UpdateTypeSignature( parameter.Type );
    }
 
-   private static Boolean SignatureOrILTableIndexDiffersNullable( this SignatureReorderState state, this TableIndex? index, Object parent, out Int32 newIndex )
+   private static Boolean SignatureOrILTableIndexDiffersNullable( this SignatureReorderState state, TableIndex? index, Object parent, out Int32 newIndex )
    {
       var retVal = index.HasValue;
       if ( retVal )
       {
-         state.SignatureOrILTableIndexDiffers( index.Value, parent, out newIndex );
+         retVal = state.SignatureOrILTableIndexDiffers( index.Value, parent, out newIndex );
       }
       else
       {
@@ -1551,13 +1672,14 @@ public static partial class E_CILPhysical
    {
       var oldIndex = index.Index;
       var visitedDic = state.VisitedInfo;
-      var retVal = !visitedDic.ContainsKey( parent ); // Check whether we have already visited this index
+      var notVisisted = !visitedDic.ContainsKey( parent ); // Check whether we have already visited this index
       // Even if we have already visited this, have to check here whether target is null
       // If target is null, that means that after visiting, the target became duplicate and was removed
       // So we need to update it again
-      if ( retVal || state.MD.GetByTableIndex( index ) == null )
+      var retVal = notVisisted || state.MD.GetByTableIndex( index ) == null;
+      if ( retVal )
       {
-         if ( retVal )
+         if ( notVisisted )
          {
             visitedDic.Add( parent, parent );
          }

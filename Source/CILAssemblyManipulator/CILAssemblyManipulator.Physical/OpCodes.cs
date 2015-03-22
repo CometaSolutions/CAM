@@ -1274,6 +1274,7 @@ namespace CILAssemblyManipulator.Physical
                operandSize = 0U;
                break;
          }
+
          this._state =
              ( (UInt64) (UInt32) stackPop )
              | ( ( (UInt64) stackPush ) << STACK_PUSH_SHIFT )
@@ -1284,10 +1285,20 @@ namespace CILAssemblyManipulator.Physical
              | ( ( (UInt64) byte1 ) << BYTE_1_SHIFT )
              | ( ( (UInt64) byte2 ) << BYTE_2_SHIFT )
              | ( ( (UInt64) stackChange + 3 ) << STACK_CHANGE_SHIFT )
-             | ( ( unconditionallyEndsBulkOfCode ? 1U : 0U ) << ENDS_BLK_CODE_SHIFT )
-             | ( operandSize << OPERAND_SIZE_SHIFT )
+             | ( ( unconditionallyEndsBulkOfCode ? 1UL : 0UL ) << ENDS_BLK_CODE_SHIFT )
+             | ( ( (UInt64) operandSize ) << OPERAND_SIZE_SHIFT )
              ;
-
+#if DEBUG
+         System.Diagnostics.Debug.Assert( this.Value == encoded );
+         System.Diagnostics.Debug.Assert( this.StackPop == stackPop );
+         System.Diagnostics.Debug.Assert( this.StackPush == stackPush );
+         System.Diagnostics.Debug.Assert( this.OpCodeType == type );
+         System.Diagnostics.Debug.Assert( this.FlowControl == flowControl );
+         System.Diagnostics.Debug.Assert( this.OperandType == operand );
+         System.Diagnostics.Debug.Assert( this.UnconditionallyEndsBulkOfCode == unconditionallyEndsBulkOfCode );
+         System.Diagnostics.Debug.Assert( this.StackChange == stackChange );
+         System.Diagnostics.Debug.Assert( (UInt64) this.OperandSize == operandSize );
+#endif
          OpCodes.Codes.Add( encoded, this );
          if ( OperandType.InlineNone == operand )
          {

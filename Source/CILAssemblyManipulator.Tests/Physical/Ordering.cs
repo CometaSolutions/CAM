@@ -28,16 +28,16 @@ namespace CILAssemblyManipulator.Tests.Physical
    {
 
       [Test]
-      public void TestOrdering()
+      public void TestNestedClassOrdering()
       {
          const String NS = "TestNamespace";
-         const String TYPE_1 = "TestType1";
-         const String TYPE_2 = "TestType2";
+         const String NESTED_CLASS_NAME = "NestedType";
+         const String ENCLOSING_CLASS_NAME = "EnclosingType";
          var md = CILMetaDataFactory.NewMetaData();
 
          // Create some types
-         md.TypeDefinitions.Add( new TypeDefinition() { Namespace = NS, Name = TYPE_1 } );
-         md.TypeDefinitions.Add( new TypeDefinition() { Namespace = NS, Name = TYPE_2 } );
+         md.TypeDefinitions.Add( new TypeDefinition() { Namespace = NS, Name = NESTED_CLASS_NAME } );
+         md.TypeDefinitions.Add( new TypeDefinition() { Namespace = NS, Name = ENCLOSING_CLASS_NAME } );
 
          // Add wrong nested-class definition (enclosing type is greater than nested type)
          md.NestedClassDefinitions.Add( new NestedClassDefinition()
@@ -52,8 +52,16 @@ namespace CILAssemblyManipulator.Tests.Physical
 
          Assert.AreEqual( 1, md.NestedClassDefinitions.Count );
          Assert.AreEqual( 2, md.TypeDefinitions.Count );
-         Assert.AreEqual( TYPE_1, md.TypeDefinitions[md.NestedClassDefinitions[0].NestedClass.Index].Name );
-         Assert.AreEqual( TYPE_2, md.TypeDefinitions[md.NestedClassDefinitions[0].EnclosingClass.Index].Name );
+         Assert.AreEqual( NESTED_CLASS_NAME, md.TypeDefinitions[md.NestedClassDefinitions[0].NestedClass.Index].Name );
+         Assert.AreEqual( ENCLOSING_CLASS_NAME, md.TypeDefinitions[md.NestedClassDefinitions[0].EnclosingClass.Index].Name );
+      }
+
+      [Test]
+      public void TestMSCorLibOrdering()
+      {
+         var md = ReadFromFile( MSCorLibLocation );
+         md.MetaData.OrderTablesAndUpdateSignatures();
+         ValidateOrderAndIntegrity( md.MetaData );
       }
 
 

@@ -59,16 +59,13 @@ namespace CILAssemblyManipulator.Tests.Physical
       private void TestReading( System.Reflection.Assembly assembly, Action<CILMetaData> validationAction = null )
       {
          var resolver = new MetaDataResolver();
-         using ( var fs = File.OpenRead( new Uri( assembly.CodeBase ).LocalPath ) )
+         var md = ReadFromAssembly( assembly );
+
+         resolver.ResolveEverything( md.MetaData );
+
+         if ( validationAction != null )
          {
-            var md = CILModuleIO.ReadModule( fs );
-
-            resolver.ResolveEverything( md.MetaData );
-
-            if ( validationAction != null )
-            {
-               validationAction( md.MetaData );
-            }
+            validationAction( md.MetaData );
          }
       }
 

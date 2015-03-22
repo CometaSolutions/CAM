@@ -21,6 +21,7 @@ using System.Linq;
 using System.Text;
 using CILAssemblyManipulator.Physical;
 using NUnit.Framework;
+using System.IO;
 
 namespace CILAssemblyManipulator.Tests
 {
@@ -67,6 +68,19 @@ namespace CILAssemblyManipulator.Tests
                   Assert.IsNotNull( arg );
                }
             }
+         }
+      }
+
+      public static ModuleReadResult ReadFromAssembly( System.Reflection.Assembly assembly )
+      {
+         return ReadFromFile( new Uri( assembly.CodeBase ).LocalPath );
+      }
+
+      public static ModuleReadResult ReadFromFile( String fileName )
+      {
+         using ( var fs = File.OpenRead( fileName ) )
+         {
+            return CILModuleIO.ReadModule( fs );
          }
       }
    }
