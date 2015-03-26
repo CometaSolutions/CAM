@@ -936,7 +936,7 @@ public static partial class E_CIL
    {
       var retVal = type == null ? EMPTY_TYPES : ( type.Attributes.IsInterface() ?
          type.AsDepthFirstEnumerable( t => t.DeclaredInterfaces ) :
-         type.GetBaseTypeChain().SelectMany( t => t.AsDepthFirstEnumerable( t2 => t2.DeclaredInterfaces ).Skip( 1 ) ) );
+         type.GetBaseTypeChain().SelectMany( t => t.AsDepthFirstEnumerable( t2 => t2.DeclaredInterfaces, false ) ) );
       if ( type != null && type.Attributes.IsInterface() && !includeThisIfInterface )
       {
          retVal = retVal.Skip( 1 );

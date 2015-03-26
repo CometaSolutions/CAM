@@ -438,4 +438,27 @@ public static partial class E_CommonUtils
       }
    }
 
+   /// <summary>
+   /// This extension method will make enumerable stop returning more items after it detects a loop in the sequence when enumerating.
+   /// </summary>
+   /// <typeparam name="T">The type of elements of <see cref="IEnumerable{T}"/>.</typeparam>
+   /// <param name="enumerable">The <see cref="IEnumerable{T}"/>.</param>
+   /// <param name="equalityComparer">The equality comparer to use when detecting loops. If <c>null</c>, the default will be used.</param>
+   /// <returns>Enumerable which will end when it detects a loop.</returns>
+   public static IEnumerable<T> EndOnFirstLoop<T>( this IEnumerable<T> enumerable, IEqualityComparer<T> equalityComparer = null )
+   {
+      var set = new HashSet<T>( equalityComparer );
+      foreach ( var item in enumerable )
+      {
+         if ( set.Add( item ) )
+         {
+            yield return item;
+         }
+         else
+         {
+            yield break;
+         }
+      }
+   }
+
 }

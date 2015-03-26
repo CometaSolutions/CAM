@@ -782,19 +782,15 @@ public static partial class E_CILPhysical
    // FieldDef
    // PropertyDef
    // EventDef
+   // NestedClass
+
+   // TypeDef and MethodDef can not have duplicate instances of same object!!
    public static void OrderTablesAndUpdateSignatures( this CILMetaData md )
    {
       // Create dictionary <Typedef, Int32> with reference-equality-comparer, which has the original index of each type-def
       //var originalTDefIndices = md.TypeDefinitions
       //   .Select( ( tDef, tDefIdx ) => new KeyValuePair<TypeDefinition, Int32>( tDef, tDefIdx ) )
       //   .ToDictionary( kvp => kvp.Key, kvp => kvp.Value, ReferenceEqualityComparer<TypeDefinition>.ReferenceBasedComparer );
-
-      // Sort NestedClass table (NestedClass) and remove duplicates
-      // Start with this because sorting TypeDef requires accessing NestedClass table and therefore it is quicker to first sort NestedClass table
-      var nestedClass = md.NestedClassDefinitions;
-      var nestedClassIndices = CreateIndexArray( nestedClass.Count );
-      nestedClass.SortMDTable( nestedClassIndices, Comparers.NestedClassDefinitionComparer );
-      CheckMDDuplicatesSorted( nestedClass, nestedClassIndices, ( x, y ) => x.NestedClass == y.NestedClass );
 
       var typeDef = md.TypeDefinitions;
       var methodDef = md.MethodDefinitions;
@@ -804,11 +800,10 @@ public static partial class E_CILPhysical
       var mDefCount = methodDef.Count;
       var fDefCount = fieldDef.Count;
       var pDefCount = paramDef.Count;
-      var typeDefIndices = CreateIndexArray( tDefCount );
 
       // We have to pre-calculate method and field counts for types
       // We have to do this BEFORE typedef table is re-ordered
-      var methodAndFieldCounts = new KeyValuePair<Int32, Int32>[tDefCount];
+      var methodAndFieldCounts = new Dictionary<TypeDefinition, KeyValuePair<Int32, Int32>>( tDefCount, ReferenceEqualityComparer<TypeDefinition>.ReferenceBasedComparer );
       for ( var i = 0; i < tDefCount; ++i )
       {
          var curTD = typeDef[i];
@@ -824,12 +819,12 @@ public static partial class E_CILPhysical
             mMax = mDefCount;
             fMax = fDefCount;
          }
-         methodAndFieldCounts[i] = new KeyValuePair<Int32, Int32>( mMax - curTD.MethodList.Index, fMax - curTD.FieldList.Index );
+         methodAndFieldCounts.Add( curTD, new KeyValuePair<Int32, Int32>( mMax - curTD.MethodList.Index, fMax - curTD.FieldList.Index ) );
       }
 
       // We have to pre-calculate param count for methods
       // We have to do this BEFORE methoddef table is re-ordered
-      var paramCounts = new Int32[mDefCount];
+      var paramCounts = new Dictionary<MethodDefinition, Int32>( mDefCount, ReferenceEqualityComparer<MethodDefinition>.ReferenceBasedComparer );
       for ( var i = 0; i < mDefCount; ++i )
       {
          var curMD = methodDef[i];
@@ -842,20 +837,102 @@ public static partial class E_CILPhysical
          {
             max = pDefCount;
          }
-         paramCounts[i] = max - curMD.ParameterList.Index;
+         paramCounts.Add( curMD, max - curMD.ParameterList.Index );
       }
 
-      //    When checking whether type x is enclosing type of type y, need to walk through whole enclosing-type chain (i.e. x may be enclosed type of z, which may be enclosed type of y)
-      typeDef.SortMDTableWithInt32Comparison( typeDefIndices, ( x, y ) =>
+      // We need to sort TypeDef table first
+      // It has special sorting constraint: enclosing type must precede nested type.
+      var typeDefIndices = CreateIndexArray( tDefCount );
+
+      // So, start by reading nested class data into more easily accessible data structure
+      var nestedClass = md.NestedClassDefinitions;
+      //var nestedClassIndices = CreateIndexArray( nestedClass.Count );
+
+      // Remove duplicates
+      //nestedClass.CheckMDDuplicatesUnsorted(nestedClassIndices, (x, y) => nestedClass[x].NestedClass == nestedClass[y].NestedClass, x => nestedClass[x].NestedClass.GetHashCode());
+
+      var typeDefOrderingChanged = nestedClass.Any( nc => nc.NestedClass.Index < nc.EnclosingClass.Index );
+      if ( typeDefOrderingChanged )
       {
-         // If x is greater than y, that means that typedef at index x has y in its declaring type chain
-         // If y is greater than x, that means that typedef at index y has x in its declaring type chain
-         // Otherwise, the order doesn't matter so we can consider them the same
-         return x.GetDeclaringTypeChain( nestedClass ).Contains( y ) ?
-            1 : ( y.GetDeclaringTypeChain( nestedClass ).Contains( x ) ?
-               -1 :
-               0 );
-      } );
+         // Create data structure
+         var nestedClassInfo = new Dictionary<Int32, List<Int32>>(); // Key - enclosing type which is lower in TypeDef table than its nested type, Value: list of nested types higher in TypeDef table
+         var nestedTypeIndices = new HashSet<Int32>();
+         // Populate data structure
+         foreach ( var nc in nestedClass )
+         {
+            var enclosing = nc.EnclosingClass.Index;
+            var nested = nc.NestedClass.Index;
+            nestedClassInfo
+                  .GetOrAdd_NotThreadSafe( enclosing, i => new List<Int32>( 1 ) )
+                  .Add( nested );
+            nestedTypeIndices.Add( nested );
+         }
+
+
+         // Now we can sort TypeDef table
+
+         // Probably most simple and efficient way is to just add nested types right after enclosing types, in BFS style and update typeDefIndices as we go.
+         var tDefCopy = typeDef.ToArray();
+         for ( Int32 i = 0, tDefCopyIdx = 0; i < tDefCount; ++i, ++tDefCopyIdx )
+         {
+            // If we encounter nested type HERE, it means that this nested type is above of enclosing type in the table, skip that
+            while ( nestedTypeIndices.Contains( tDefCopyIdx ) )
+            {
+               ++tDefCopyIdx;
+            }
+
+            // Type at index 'tDefCopyIdx' is guaranteed now to be top-level type
+            if ( i != tDefCopyIdx )
+            {
+               typeDef[i] = tDefCopy[tDefCopyIdx];
+               typeDefIndices[tDefCopyIdx] = i;
+            }
+
+            // Does this type has nested types
+            if ( nestedClassInfo.ContainsKey( tDefCopyIdx ) )
+            {
+               // Iterate all nested types with BFS
+               foreach ( var nested in tDefCopyIdx.AsBreadthFirstEnumerable( cur =>
+                  {
+                     List<Int32> nestedTypes;
+                     return nestedClassInfo.TryGetValue( cur, out nestedTypes ) ?
+                        nestedTypes :
+                        Empty<Int32>.Enumerable;
+                  }, false ) // Skip this type
+               .EndOnFirstLoop() ) // Detect loops to avoid infite enumerable
+               {
+                  typeDef[++i] = tDefCopy[nested];
+                  typeDefIndices[nested] = i;
+               }
+            }
+         }
+      }
+
+
+      //// Sort NestedClass table (NestedClass) and remove duplicates
+      //// Start with this because sorting TypeDef requires accessing NestedClass table and therefore it is quicker to first sort NestedClass table
+      //var nestedClass = md.NestedClassDefinitions;
+      //var nestedClassIndices = CreateIndexArray( nestedClass.Count );
+      //nestedClass.SortMDTable( nestedClassIndices, Comparers.NestedClassDefinitionComparer );
+      //CheckMDDuplicatesSorted( nestedClass, nestedClassIndices, ( x, y ) => x.NestedClass == y.NestedClass );
+
+
+
+      ////    When checking whether type x is enclosing type of type y, need to walk through whole enclosing-type chain (i.e. x may be enclosed type of z, which may be enclosed type of y)
+      //var typeDefIndices = CreateIndexArray( tDefCount );
+      //TODO maybe another algorithm should be done
+      //   this just does not seem to work
+      //typeDef.SortMDTableWithInt32Comparison( typeDefIndices, ( x, y ) =>
+      //{
+      //   // If x is greater than y, that means that typedef at index x has y in its declaring type chain
+      //   // If y is greater than x, that means that typedef at index y has x in its declaring type chain
+      //   // Otherwise, sort in original order
+
+      //   return x.GetDeclaringTypeChain( nestedClass ).Contains( y ) ?
+      //      1 : ( y.GetDeclaringTypeChain( nestedClass ).Contains( x ) ?
+      //         -1 :
+      //         0 ); // TODO: x.CompareTo( y ) (when bugs are fixed)
+      //} );
       // ECMA-335:
       // There shall be no duplicate rows in the TypeDef table, based on 
       // TypeNamespace+TypeName (unless this is a nested type - see below)  [ERROR] 
@@ -895,9 +972,11 @@ public static partial class E_CILPhysical
             }
          }
       }
-      PopulateIndexArray( nestedClassIndices );
-      nestedClass.SortMDTable( nestedClassIndices, Comparers.NestedClassDefinitionComparer );
-      CheckMDDuplicatesSorted( nestedClass, nestedClassIndices, ( x, y ) => x.NestedClass == y.NestedClass );
+      //PopulateIndexArray( nestedClassIndices );
+      nestedClass.Sort( Comparers.NestedClassDefinitionComparer );
+      //CheckMDDuplicatesSorted( nestedClass, nestedClassIndices, ( x, y ) => x.NestedClass == y.NestedClass );
+
+      // TODO MethodDef, ParameterDef, FieldDef does not need re-ordering if TypeDef has not been re-ordered.
 
       // Sort MethodDef table and update references in TypeDef table
       var methodDefIndices = methodDef.ReOrderMDTableWithAscendingReferences(
@@ -1132,6 +1211,7 @@ public static partial class E_CILPhysical
    }
 
    private static void UpdateMDTableWithTableIndices1<T>( this List<T> table, Int32[][] tableIndices, Func<T, TableIndex> tableIndexGetter1, Action<T, TableIndex> tableIndexSetter1 )
+      where T : class
    {
       foreach ( var row in table )
       {
@@ -1140,6 +1220,7 @@ public static partial class E_CILPhysical
    }
 
    private static void UpdateMDTableWithTableIndices1Nullable<T>( this List<T> table, Int32[][] tableIndices, Func<T, TableIndex?> tableIndexGetter1, Action<T, TableIndex> tableIndexSetter1 )
+      where T : class
    {
       foreach ( var row in table )
       {
@@ -1148,6 +1229,7 @@ public static partial class E_CILPhysical
    }
 
    private static void UpdateMDTableWithTableIndices2<T>( this List<T> table, Int32[][] tableIndices, Func<T, TableIndex> tableIndexGetter1, Action<T, TableIndex> tableIndexSetter1, Func<T, TableIndex> tableIndexGetter2, Action<T, TableIndex> tableIndexSetter2 )
+      where T : class
    {
       foreach ( var row in table )
       {
@@ -1157,6 +1239,7 @@ public static partial class E_CILPhysical
    }
 
    private static void UpdateMDTableWithTableIndices3<T>( this List<T> table, Int32[][] tableIndices, Func<T, TableIndex> tableIndexGetter1, Action<T, TableIndex> tableIndexSetter1, Func<T, TableIndex> tableIndexGetter2, Action<T, TableIndex> tableIndexSetter2, Func<T, TableIndex> tableIndexGetter3, Action<T, TableIndex> tableIndexSetter3 )
+      where T : class
    {
       foreach ( var row in table )
       {
@@ -1167,11 +1250,16 @@ public static partial class E_CILPhysical
    }
 
    private static void ProcessSingleTableIndexToUpdate<T>( this T row, Int32[][] tableIndices, Func<T, TableIndex> tableIndexGetter, Action<T, TableIndex> tableIndexSetter )
+      where T : class
    {
-      row.ProcessSingleTableIndexToUpdateWithTableIndex( tableIndices, tableIndexGetter( row ), tableIndexSetter );
+      if ( row != null )
+      {
+         row.ProcessSingleTableIndexToUpdateWithTableIndex( tableIndices, tableIndexGetter( row ), tableIndexSetter );
+      }
    }
 
    private static void ProcessSingleTableIndexToUpdateWithTableIndex<T>( this T row, Int32[][] tableIndices, TableIndex tableIndex, Action<T, TableIndex> tableIndexSetter )
+      where T : class
    {
       var table = tableIndex.Table;
       var newIndex = tableIndices[(Int32) table][tableIndex.Index];
@@ -1182,11 +1270,15 @@ public static partial class E_CILPhysical
    }
 
    private static void ProcessSingleTableIndexToUpdateNullable<T>( this T row, Int32[][] tableIndices, Func<T, TableIndex?> tableIndexGetter, Action<T, TableIndex> tableIndexSetter )
+      where T : class
    {
-      var tIdx = tableIndexGetter( row );
-      if ( tIdx.HasValue )
+      if ( row != null )
       {
-         row.ProcessSingleTableIndexToUpdateWithTableIndex( tableIndices, tIdx.Value, tableIndexSetter );
+         var tIdx = tableIndexGetter( row );
+         if ( tIdx.HasValue )
+         {
+            row.ProcessSingleTableIndexToUpdateWithTableIndex( tableIndices, tIdx.Value, tableIndexSetter );
+         }
       }
    }
 
@@ -1231,7 +1323,7 @@ public static partial class E_CILPhysical
       }
    }
 
-   private static Int32[] ReOrderMDTableWithAscendingReferences<T, U>( this List<T> table, List<U> referencingTable, Int32[] referencingTableIndices, Func<U, Int32> referenceIndexGetter, Action<U, Int32> referenceIndexSetter, Func<Int32, Int32> referenceCountGetter )
+   private static Int32[] ReOrderMDTableWithAscendingReferences<T, U>( this List<T> table, List<U> referencingTable, Int32[] referencingTableIndices, Func<U, Int32> referenceIndexGetter, Action<U, Int32> referenceIndexSetter, Func<U, Int32> referenceCountGetter )
    {
       var refTableCount = referencingTable.Count;
       var thisTableIndices = CreateIndexArray( table.Count );
@@ -1246,12 +1338,13 @@ public static partial class E_CILPhysical
          var min = referenceIndexGetter( curTD );
 
          // The count must be pre-calculated - we can't use typedef table to calculate that, as this for loop modifies the reference (e.g. MethodList property of TypeDefinition)
-         var blockCount = referenceCountGetter( referencingTableIndices[tIdx] );
+         var blockCount = referenceCountGetter( curTD );
 
-         if ( min != mIdx )
+         if ( blockCount > 0 )
          {
-            if ( blockCount > 0 )
+            if ( min != mIdx )
             {
+
                // At least one element
                var array = new T[blockCount];
 
@@ -1269,16 +1362,20 @@ public static partial class E_CILPhysical
                // Use elements in array to overwite elements we just read into current section
                for ( var i = 0; i < blockCount; ++i )
                {
-                  table[i + min] = array[i];
-                  thisTableIndices[i + mIdx] = i + min;
+                  var mDefIdx = thisTableIndices[i + min];
+                  table[mDefIdx] = array[i];
+                  thisTableIndices[i + mIdx] = mDefIdx;
                }
             }
 
-            // Set methoddef index for this typedef
-            referenceIndexSetter( curTD, mIdx );
+
+
+            mIdx += blockCount;
          }
 
-         mIdx += blockCount;
+         // Set methoddef index for this typedef
+         referenceIndexSetter( curTD, mIdx );
+
       }
 
       return thisTableIndices;
@@ -1697,18 +1794,19 @@ public static partial class E_CILPhysical
 
    private static IEnumerable<Int32> GetDeclaringTypeChain( this Int32 typeDefIndex, IList<NestedClassDefinition> sortedNestedClass )
    {
+
       return typeDefIndex.AsSingleBranchEnumerable( cur =>
          {
-            var nIdx = sortedNestedClass.FindDeclaringTypeIndexFromSortedNestedClass( cur );
+            var nIdx = sortedNestedClass.FindRowFromSortedNestedClass( cur );
             if ( nIdx != -1 )
             {
                nIdx = sortedNestedClass[nIdx].EnclosingClass.Index;
             }
             return nIdx;
-         }, false, cur => cur == -1 || cur == typeDefIndex ); // Stop also when we hit the same index again (illegal situation but possible), and don't include itself
+         }, cur => cur == -1 || cur == typeDefIndex, false ); // Stop also when we hit the same index again (illegal situation but possible), and don't include itself
    }
 
-   private static Int32 FindDeclaringTypeIndexFromSortedNestedClass( this IList<NestedClassDefinition> sortedNestedClass, Int32 currentTypeDefIndex )
+   private static Int32 FindRowFromSortedNestedClass( this IList<NestedClassDefinition> sortedNestedClass, Int32 currentTypeDefIndex )
    {
       using ( var xDeclTypeRows = sortedNestedClass.GetReferencingRowsFromOrderedWithIndex( Tables.TypeDef, currentTypeDefIndex, nIdx =>
       {
