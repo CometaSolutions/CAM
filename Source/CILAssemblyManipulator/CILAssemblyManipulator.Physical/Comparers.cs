@@ -1977,8 +1977,8 @@ namespace CILAssemblyManipulator.Physical
       {
          return Equality_AbstractArrayTypeSignature_NoReferenceEquals( x, y )
             && x.Rank == y.Rank
-            && ListEqualityComparer<List<Int32>, Int32>.DefaultArrayEqualityComparer.Equals( x.Sizes, y.Sizes )
-            && ListEqualityComparer<List<Int32>, Int32>.DefaultArrayEqualityComparer.Equals( x.LowerBounds, y.LowerBounds );
+            && ListEqualityComparer<List<Int32>, Int32>.DefaultListEqualityComparer.Equals( x.Sizes, y.Sizes )
+            && ListEqualityComparer<List<Int32>, Int32>.DefaultListEqualityComparer.Equals( x.LowerBounds, y.LowerBounds );
       }
 
       private static Boolean Equality_SimpleArrayTypeSignature_NoReferenceEquals( SimpleArrayTypeSignature x, SimpleArrayTypeSignature y )
@@ -2173,7 +2173,7 @@ namespace CILAssemblyManipulator.Physical
 
       private static Int32 HashCode_MethodDefinition( MethodDefinition x )
       {
-         return x == null ? 0 : ( ( 17 * 23 + x.Name.GetHashCodeSafe( 1 ) ) * 23 + x.ParameterList.GetHashCode() );
+         return x == null ? 0 : ( ( 17 * 23 + x.Name.GetHashCodeSafe( 1 ) ) * 23 + x.Signature.Parameters.Count );
       }
 
       private static Int32 HashCode_ParameterDefinition( ParameterDefinition x )

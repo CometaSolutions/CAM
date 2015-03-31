@@ -348,7 +348,7 @@ namespace CommonUtils
       /// Returns the equality comparer for collections with element type <typeparamref name="T"/> which will use default equality comparer for the elements of the array.
       /// </summary>
       /// <value>The equality comparer for collections with element type <typeparamref name="T"/> which will use default equality comparer for the elements of the array.</value>
-      public static IEqualityComparer<T> DefaultArrayEqualityComparer
+      public static IEqualityComparer<T> DefaultCollectionEqualityComparer
       {
          get
          {
@@ -471,7 +471,7 @@ namespace CommonUtils
       /// Returns the equality comparer for lists with element type <typeparamref name="T"/> which will use default equality comparer for the elements of the array.
       /// </summary>
       /// <value>The equality comparer for lists with element type <typeparamref name="T"/> which will use default equality comparer for the elements of the array.</value>
-      public static IEqualityComparer<T> DefaultArrayEqualityComparer
+      public static IEqualityComparer<T> DefaultListEqualityComparer
       {
          get
          {
@@ -484,7 +484,7 @@ namespace CommonUtils
       /// </summary>
       /// <param name="itemComparer">The equality comparer to use when comparing elements of the list.</param>
       /// <returns>A new equality comparer for lists with element type <typeparamref name="T"/> which will use the given equality comparer for the elements of the list.</returns>
-      public static IEqualityComparer<T> NewCollectionEqualityComparer( IEqualityComparer<U> itemComparer )
+      public static IEqualityComparer<T> NewListEqualityComparer( IEqualityComparer<U> itemComparer )
       {
          return new ListEqualityComparer<T, U>( itemComparer );
       }

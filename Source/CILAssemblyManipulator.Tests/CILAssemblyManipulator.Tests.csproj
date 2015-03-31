@@ -52,6 +52,10 @@
       <Project>{ba297806-a89f-4a3b-945b-08729853df75}</Project>
       <Name>CILAssemblyManipulator.Physical</Name>
     </ProjectReference>
+    <ProjectReference Include="..\CommonUtils\CommonUtils.csproj">
+      <Project>{dba22cd8-ac89-4902-8e44-f4771875e781}</Project>
+      <Name>CommonUtils</Name>
+    </ProjectReference>
   </ItemGroup>
   <ItemGroup>
     <None Include="packages.config" />

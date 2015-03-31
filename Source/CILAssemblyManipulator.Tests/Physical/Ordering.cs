@@ -21,6 +21,7 @@ using System.Linq;
 using System.Text;
 using CILAssemblyManipulator.Physical;
 using NUnit.Framework;
+using CommonUtils;
 
 namespace CILAssemblyManipulator.Tests.Physical
 {
@@ -46,9 +47,7 @@ namespace CILAssemblyManipulator.Tests.Physical
             EnclosingClass = new TableIndex( Tables.TypeDef, 1 )
          } );
 
-         md.OrderTablesAndUpdateSignatures();
-
-         ValidateOrderAndIntegrity( md );
+         ReOrderAndValidate( md );
 
          Assert.AreEqual( 1, md.NestedClassDefinitions.Count );
          Assert.AreEqual( 2, md.TypeDefinitions.Count );
@@ -60,13 +59,16 @@ namespace CILAssemblyManipulator.Tests.Physical
       public void TestMSCorLibOrdering()
       {
          var md = ReadFromFile( MSCorLibLocation );
-         md.MetaData.OrderTablesAndUpdateSignatures();
-         ValidateOrderAndIntegrity( md.MetaData );
+         ReOrderAndValidate( md.MetaData );
       }
 
 
-      private static void ValidateOrderAndIntegrity( CILMetaData md )
+      private static void ReOrderAndValidate( CILMetaData md )
       {
+         var oldInfo = new ModuleLogicalInfo( md );
+         md.OrderTablesAndUpdateSignatures();
+         /////////////////////// Order
+
          // 1. TypeDef - enclosing class definition must precede nested class definition
          foreach ( var nc in md.NestedClassDefinitions )
          {
@@ -80,6 +82,10 @@ namespace CILAssemblyManipulator.Tests.Physical
             Assert.AreEqual( nc.EnclosingClass.Table, Tables.TypeDef );
             return nc.NestedClass.Index;
          } );
+
+         //////////////////////// Integrity
+         var newInfo = new ModuleLogicalInfo( md );
+         Assert.AreEqual( oldInfo, newInfo );
       }
 
       private static void AssertOrderBySingleSimpleColumn<T>( List<T> table, Func<T, Int32> pkExtractor )
@@ -88,6 +94,124 @@ namespace CILAssemblyManipulator.Tests.Physical
          {
             Assert.Less( pkExtractor( table[i - 1] ), pkExtractor( table[i] ) );
          }
+      }
+   }
+
+   internal sealed class ModuleLogicalInfo : IEquatable<ModuleLogicalInfo>
+   {
+      private readonly String _name;
+      private readonly ISet<TypeLogicalInfo> _types;
+
+      internal ModuleLogicalInfo( CILMetaData md )
+      {
+         this._types = new HashSet<TypeLogicalInfo>( md.TypeDefinitions.Select( ( td, idx ) => new TypeLogicalInfo( md, idx ) ) );
+      }
+
+      public override Boolean Equals( Object obj )
+      {
+         return this.Equals( obj as ModuleLogicalInfo );
+      }
+
+      public override Int32 GetHashCode()
+      {
+         return this._types.Count * 23;
+      }
+
+      public Boolean Equals( ModuleLogicalInfo other )
+      {
+         var retVal = ReferenceEquals( this, other )
+         || (
+            other != null
+            && this._types.SetEquals( other._types )
+            );
+         if ( !retVal )
+         {
+
+         }
+
+         return retVal;
+      }
+   }
+
+   internal sealed class TypeLogicalInfo : IEquatable<TypeLogicalInfo>
+   {
+      private readonly TypeDefinition _type;
+      private readonly ISet<MethodLogicalInfo> _methods;
+      private readonly ISet<FieldDefinition> _fields;
+
+      internal TypeLogicalInfo( CILMetaData md, Int32 typeDefIndex )
+      {
+         this._type = md.TypeDefinitions[typeDefIndex];
+         this._methods = new HashSet<MethodLogicalInfo>( md.GetTypeMethodIndices( typeDefIndex ).Select( idx => new MethodLogicalInfo( md, idx ) ) );
+         this._fields = new HashSet<FieldDefinition>( md.GetTypeFields( typeDefIndex ), ReferenceEqualityComparer<FieldDefinition>.ReferenceBasedComparer );
+      }
+
+      public override Boolean Equals( Object obj )
+      {
+         return this.Equals( obj as TypeLogicalInfo );
+      }
+
+      public override Int32 GetHashCode()
+      {
+         return Comparers.TypeDefinitionEqualityComparer.GetHashCode( this._type );
+      }
+
+      public Boolean Equals( TypeLogicalInfo other )
+      {
+         var retVal = ReferenceEquals( this, other )
+         || (
+            other != null
+            && ReferenceEquals( other._type, this._type )
+            && this._methods.SetEquals( other._methods )
+            && this._fields.SetEquals( other._fields )
+            );
+         if ( !retVal )
+         {
+            var refEquals = ReferenceEquals( other._type, this._type );
+            if ( refEquals )
+            {
+               var methodsEqual = this._methods.SetEquals( other._methods );
+               var fieldsEqual = this._fields.SetEquals( other._fields );
+            }
+         }
+         return retVal;
+      }
+   }
+
+   internal sealed class MethodLogicalInfo : IEquatable<MethodLogicalInfo>
+   {
+      private readonly MethodDefinition _method;
+      private readonly IList<ParameterDefinition> _parameters;
+
+      internal MethodLogicalInfo( CILMetaData md, Int32 methodDefIndex )
+      {
+         this._method = md.MethodDefinitions[methodDefIndex];
+         this._parameters = md.GetMethodParameterIndices( methodDefIndex ).Select( idx => md.ParameterDefinitions[idx] ).ToList();
+      }
+
+      public override Boolean Equals( Object obj )
+      {
+         return this.Equals( obj as MethodLogicalInfo );
+      }
+
+      public override Int32 GetHashCode()
+      {
+         return Comparers.MethodDefinitionEqualityComparer.GetHashCode( this._method );
+      }
+
+      public Boolean Equals( MethodLogicalInfo other )
+      {
+         var retVal = ReferenceEquals( this, other )
+            || (
+            other != null
+            && ReferenceEquals( this._method, other._method )
+            && ListEqualityComparer<IList<ParameterDefinition>, ParameterDefinition>.Equals( this._parameters, other._parameters, ReferenceEqualityComparer<ParameterDefinition>.ReferenceBasedComparer )
+            );
+         if ( !retVal )
+         {
+
+         }
+         return retVal;
       }
    }
 }

@@ -673,6 +673,54 @@ public static partial class E_CILPhysical
       return method != null && method.Attributes.CanEmitIL() && method.ImplementationAttributes.IsIL();
    }
 
+   public static IEnumerable<MethodDefinition> GetTypeMethods( this CILMetaData md, Int32 typeDefIndex )
+   {
+      return md.GetTypeMethodIndices( typeDefIndex ).Select( idx => md.MethodDefinitions[idx] );
+   }
+
+   public static IEnumerable<FieldDefinition> GetTypeFields( this CILMetaData md, Int32 typeDefIndex )
+   {
+      return md.GetTypeFieldIndices( typeDefIndex ).Select( idx => md.FieldDefinitions[idx] );
+   }
+
+   public static IEnumerable<ParameterDefinition> GetMethodParameters( this CILMetaData md, Int32 methodDefIndex )
+   {
+      return md.GetMethodParameterIndices( methodDefIndex ).Select( idx => md.ParameterDefinitions[idx] );
+   }
+
+   public static IEnumerable<Int32> GetTypeMethodIndices( this CILMetaData md, Int32 typeDefIndex )
+   {
+      return md.TypeDefinitions.GetTargetIndicesForAscendingReferenceListTable( md.MethodDefinitions.Count, typeDefIndex, td => td.MethodList.Index );
+   }
+
+   public static IEnumerable<Int32> GetTypeFieldIndices( this CILMetaData md, Int32 typeDefIndex )
+   {
+      return md.TypeDefinitions.GetTargetIndicesForAscendingReferenceListTable( md.FieldDefinitions.Count, typeDefIndex, td => td.FieldList.Index );
+   }
+
+   public static IEnumerable<Int32> GetMethodParameterIndices( this CILMetaData md, Int32 methodDefIndex )
+   {
+      return md.MethodDefinitions.GetTargetIndicesForAscendingReferenceListTable( md.ParameterDefinitions.Count, methodDefIndex, mdef => mdef.ParameterList.Index );
+   }
+
+   internal static IEnumerable<Int32> GetTargetIndicesForAscendingReferenceListTable<T>( this List<T> tableWithReferences, Int32 targetTableCount, Int32 tableWithReferencesIndex, Func<T, Int32> referenceExtractor )
+   {
+      if ( tableWithReferencesIndex < 0 || tableWithReferencesIndex >= tableWithReferences.Count )
+      {
+         throw new ArgumentOutOfRangeException( "Table index." );
+      }
+
+      var min = referenceExtractor( tableWithReferences[tableWithReferencesIndex] );
+      var max = tableWithReferencesIndex < tableWithReferences.Count - 1 ?
+         referenceExtractor( tableWithReferences[tableWithReferencesIndex + 1] ) :
+         targetTableCount;
+      while ( min < max )
+      {
+         yield return min;
+         ++min;
+      }
+   }
+
    public static TableIndex ChangeIndex( this TableIndex index, Int32 newIndex )
    {
       return new TableIndex( index.Table, newIndex );
@@ -851,7 +899,8 @@ public static partial class E_CILPhysical
       // Remove duplicates
       //nestedClass.CheckMDDuplicatesUnsorted(nestedClassIndices, (x, y) => nestedClass[x].NestedClass == nestedClass[y].NestedClass, x => nestedClass[x].NestedClass.GetHashCode());
 
-      var typeDefOrderingChanged = nestedClass.Any( nc => nc.NestedClass.Index < nc.EnclosingClass.Index );
+      // TODO TEMP only for testing.
+      var typeDefOrderingChanged = true; // nestedClass.Any( nc => nc.NestedClass.Index < nc.EnclosingClass.Index );
       if ( typeDefOrderingChanged )
       {
          // Create data structure
@@ -1326,56 +1375,73 @@ public static partial class E_CILPhysical
    private static Int32[] ReOrderMDTableWithAscendingReferences<T, U>( this List<T> table, List<U> referencingTable, Int32[] referencingTableIndices, Func<U, Int32> referenceIndexGetter, Action<U, Int32> referenceIndexSetter, Func<U, Int32> referenceCountGetter )
    {
       var refTableCount = referencingTable.Count;
-      var thisTableIndices = CreateIndexArray( table.Count );
-
-      // Comments talk about typedefs and methoddefs but this method is generalized to handle any two tables with ascending reference pattern
-      // This loop walks one typedef at a time, updating methoddef index and re-ordering methoddef array as needed
-      for ( Int32 tIdx = 0, mIdx = 0; tIdx < refTableCount; ++tIdx )
+      var thisTableCount = table.Count;
+      var thisTableIndices = CreateIndexArray( thisTableCount );
+      if ( thisTableCount > 0 )
       {
-         var curTD = referencingTable[tIdx];
+         var originalTable = table.ToArray();
 
-         // Inclusive min (the method where current typedef points to)
-         var min = referenceIndexGetter( curTD );
-
-         // The count must be pre-calculated - we can't use typedef table to calculate that, as this for loop modifies the reference (e.g. MethodList property of TypeDefinition)
-         var blockCount = referenceCountGetter( curTD );
-
-         if ( blockCount > 0 )
+         // Comments talk about typedefs and methoddefs but this method is generalized to handle any two tables with ascending reference pattern
+         // This loop walks one typedef at a time, updating methoddef index and re-ordering methoddef array as needed
+         for ( Int32 tIdx = 0, mIdx = 0; tIdx < refTableCount; ++tIdx )
          {
-            if ( min != mIdx )
+            var curTD = referencingTable[tIdx];
+
+            // Inclusive min (the method where current typedef points to)
+            var min = thisTableIndices[referenceIndexGetter( curTD )];
+
+            // The count must be pre-calculated - we can't use typedef table to calculate that, as this for loop modifies the reference (e.g. MethodList property of TypeDefinition)
+            var blockCount = referenceCountGetter( curTD );
+
+            if ( blockCount > 0 )
             {
-
-               // At least one element
-               var array = new T[blockCount];
-
-               // Save old elements into array
-               table.CopyTo( mIdx, array, 0, blockCount );
-
-               // Overwrite old elements in list with the this type's method list, and update method def indices
                for ( var i = 0; i < blockCount; ++i )
                {
-                  var mDefIdx = thisTableIndices[i + min];
-                  table[i + mIdx] = table[mDefIdx];
-                  thisTableIndices[mDefIdx] = i + mIdx;
+                  var thisMethodIndex = mIdx + i;
+                  var originalIndex = min + i;
+                  table[thisMethodIndex] = originalTable[originalIndex];
+                  thisTableIndices[originalIndex] = thisMethodIndex;
                }
 
-               // Use elements in array to overwite elements we just read into current section
-               for ( var i = 0; i < blockCount; ++i )
-               {
-                  var mDefIdx = thisTableIndices[i + min];
-                  table[mDefIdx] = array[i];
-                  thisTableIndices[i + mIdx] = mDefIdx;
-               }
+               mIdx += blockCount;
             }
+            //if ( blockCount > 0 )
+            //{
 
 
+            //   //if ( min != mIdx )
+            //   //{
 
-            mIdx += blockCount;
+            //   // At least one element
+            //   var array = new T[blockCount];
+
+            //   // Save old elements into array
+            //   table.CopyTo( mIdx, array, 0, blockCount );
+
+            //   // Overwrite old elements in list with the this type's method list, and update method def indices
+            //   for ( var i = 0; i < blockCount; ++i )
+            //   {
+            //      var mDefIdx = thisTableIndices[i + min];
+            //      table[i + mIdx] = table[mDefIdx];
+            //      thisTableIndices[mDefIdx] = i + mIdx;
+            //   }
+
+            //   // Use elements in array to overwite elements we just read into current section
+            //   for ( var i = 0; i < blockCount; ++i )
+            //   {
+            //      var mDefIdx = thisTableIndices[i + originalMin];
+            //      table[mDefIdx] = array[i];
+            //      thisTableIndices[i + mIdx] = mDefIdx;
+            //   }
+            //   //}
+
+            //   mIdx += blockCount;
+
+            //}
+
+            // Set methoddef index for this typedef
+            referenceIndexSetter( curTD, mIdx - blockCount );
          }
-
-         // Set methoddef index for this typedef
-         referenceIndexSetter( curTD, mIdx );
-
       }
 
       return thisTableIndices;
