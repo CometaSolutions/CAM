@@ -1526,3 +1526,157 @@ namespace CILAssemblyManipulator.Physical
       }
    }
 }
+
+public static partial class E_CILPhysical
+{
+   public static TSignature CreateDeepCopy<TSignature>( this TSignature sig )
+      where TSignature : AbstractSignature
+   {
+      switch ( sig.SignatureKind )
+      {
+         case SignatureKind.Field:
+            return CloneFieldSignature( sig as FieldSignature ) as TSignature;
+         case SignatureKind.GenericMethodInstantiation:
+            return CloneGenericMethodSignature( sig as GenericMethodSignature ) as TSignature;
+         case SignatureKind.LocalVariables:
+            return CloneLocalsSignature( sig as LocalVariablesSignature ) as TSignature;
+         case SignatureKind.MethodDefinition:
+            return CloneMethodDefSignature( sig as MethodDefinitionSignature ) as TSignature;
+         case SignatureKind.MethodReference:
+            return CloneMethodRefSignature( sig as MethodReferenceSignature ) as TSignature;
+         case SignatureKind.Type:
+            return CloneTypeSignature( sig as TypeSignature ) as TSignature;
+         default:
+            throw new NotSupportedException( "Invalid signature kind: " + sig.SignatureKind + "." );
+      }
+   }
+
+   private static TypeSignature CloneTypeSignature( TypeSignature sig )
+   {
+      TypeSignature retVal;
+      switch ( sig.TypeSignatureKind )
+      {
+         case TypeSignatureKind.ClassOrValue:
+            var clazz = (ClassOrValueTypeSignature) sig;
+            var clazzClone = new ClassOrValueTypeSignature( clazz.GenericArguments.Count )
+            {
+               IsClass = clazz.IsClass,
+               Type = clazz.Type
+            };
+            clazzClone.GenericArguments.AddRange( clazz.GenericArguments.Select( gArg => CloneTypeSignature( gArg ) ) );
+            retVal = clazzClone;
+            break;
+         case TypeSignatureKind.ComplexArray:
+            var cArray = (ComplexArrayTypeSignature) sig;
+            var cClone = new ComplexArrayTypeSignature( cArray.Sizes.Count, cArray.LowerBounds.Count )
+            {
+               Rank = cArray.Rank,
+               ArrayType = CloneTypeSignature( cArray.ArrayType )
+            };
+            cClone.LowerBounds.AddRange( cArray.LowerBounds );
+            cClone.Sizes.AddRange( cArray.Sizes );
+            retVal = cClone;
+            break;
+         case TypeSignatureKind.FunctionPointer:
+            retVal = new FunctionPointerTypeSignature()
+            {
+               MethodSignature = CloneMethodRefSignature( ( (FunctionPointerTypeSignature) sig ).MethodSignature )
+            };
+            break;
+         case TypeSignatureKind.Pointer:
+            var ptr = (PointerTypeSignature) sig;
+            var ptrClone = new PointerTypeSignature( ptr.CustomModifiers.Count )
+            {
+               PointerType = CloneTypeSignature( ptr.PointerType )
+            };
+            ptrClone.CustomModifiers.AddRange( ptr.CustomModifiers );
+            retVal = ptrClone;
+            break;
+         case TypeSignatureKind.GenericParameter:
+         case TypeSignatureKind.Simple:
+            retVal = sig;
+            break;
+         case TypeSignatureKind.SimpleArray:
+            var array = (SimpleArrayTypeSignature) sig;
+            var clone = new SimpleArrayTypeSignature( array.CustomModifiers.Count )
+            {
+               ArrayType = CloneTypeSignature( array.ArrayType )
+            };
+            clone.CustomModifiers.AddRange( array.CustomModifiers );
+            retVal = clone;
+            break;
+         default:
+            throw new NotSupportedException( "Invalid type signature kind: " + sig.TypeSignatureKind );
+      }
+
+      return retVal;
+   }
+
+   private static void PopulateAbstractMethodSignature( AbstractMethodSignature original, AbstractMethodSignature clone )
+   {
+      clone.GenericArgumentCount = original.GenericArgumentCount;
+      clone.SignatureStarter = original.SignatureStarter;
+      clone.ReturnType = CloneParameterSignature( original.ReturnType );
+      clone.Parameters.AddRange( original.Parameters.Select( p => CloneParameterSignature( p ) ) );
+   }
+
+   private static MethodReferenceSignature CloneMethodRefSignature( MethodReferenceSignature methodRef )
+   {
+      var retVal = new MethodReferenceSignature( methodRef.Parameters.Count, methodRef.VarArgsParameters.Count );
+      PopulateAbstractMethodSignature( methodRef, retVal );
+      retVal.VarArgsParameters.AddRange( methodRef.VarArgsParameters.Select( p => CloneParameterSignature( p ) ) );
+      return retVal;
+   }
+
+   private static MethodDefinitionSignature CloneMethodDefSignature( MethodDefinitionSignature methodDef )
+   {
+      var retVal = new MethodDefinitionSignature( methodDef.Parameters.Count );
+      PopulateAbstractMethodSignature( methodDef, retVal );
+      return retVal;
+   }
+
+   private static ParameterSignature CloneParameterSignature( ParameterSignature paramSig )
+   {
+      var retVal = new ParameterSignature( paramSig.CustomModifiers.Count )
+      {
+         IsByRef = paramSig.IsByRef,
+         Type = CloneTypeSignature( paramSig.Type )
+      };
+      retVal.CustomModifiers.AddRange( paramSig.CustomModifiers );
+      return retVal;
+   }
+
+   private static GenericMethodSignature CloneGenericMethodSignature( GenericMethodSignature gSig )
+   {
+      var retVal = new GenericMethodSignature( gSig.GenericArguments.Count );
+      retVal.GenericArguments.AddRange( gSig.GenericArguments.Select( gArg => CloneTypeSignature( gArg ) ) );
+      return retVal;
+   }
+
+   private static FieldSignature CloneFieldSignature( FieldSignature sig )
+   {
+      var retVal = new FieldSignature( sig.CustomModifiers.Count );
+      retVal.Type = CloneTypeSignature( sig.Type );
+      retVal.CustomModifiers.AddRange( sig.CustomModifiers );
+      return retVal;
+   }
+
+   private static LocalVariablesSignature CloneLocalsSignature( LocalVariablesSignature locals )
+   {
+      var retVal = new LocalVariablesSignature( locals.Locals.Count );
+      retVal.Locals.AddRange( locals.Locals.Select( l => CloneLocalSignature( l ) ) );
+      return retVal;
+   }
+
+   private static LocalVariableSignature CloneLocalSignature( LocalVariableSignature local )
+   {
+      var retVal = new LocalVariableSignature( local.CustomModifiers.Count )
+      {
+         IsByRef = local.IsByRef,
+         IsPinned = local.IsPinned,
+         Type = CloneTypeSignature( local.Type )
+      };
+      retVal.CustomModifiers.AddRange( local.CustomModifiers );
+      return retVal;
+   }
+}

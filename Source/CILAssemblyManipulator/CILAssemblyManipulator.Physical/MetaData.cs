@@ -636,7 +636,7 @@ public static partial class E_CILPhysical
    {
       var method = md.MethodDefinitions.GetOrNull( methodDefIndex );
       LocalVariablesSignature retVal;
-      if ( method == null )
+      if ( method == null || method.IL == null )
       {
          retVal = null;
       }
@@ -833,7 +833,7 @@ public static partial class E_CILPhysical
    // NestedClass
 
    // TypeDef and MethodDef can not have duplicate instances of same object!!
-   public static void OrderTablesAndUpdateSignatures( this CILMetaData md )
+   public static Int32[][] OrderTablesAndUpdateSignatures( this CILMetaData md )
    {
       // Create dictionary <Typedef, Int32> with reference-equality-comparer, which has the original index of each type-def
       //var originalTDefIndices = md.TypeDefinitions
@@ -1021,9 +1021,10 @@ public static partial class E_CILPhysical
             }
          }
       }
-      //PopulateIndexArray( nestedClassIndices );
-      nestedClass.Sort( Comparers.NestedClassDefinitionComparer );
-      //CheckMDDuplicatesSorted( nestedClass, nestedClassIndices, ( x, y ) => x.NestedClass == y.NestedClass );
+      var ncIndices = CreateIndexArray( nestedClass.Count );
+      nestedClass.SortMDTable( ncIndices, Comparers.NestedClassDefinitionComparer );
+      //nestedClass.Sort( Comparers.NestedClassDefinitionComparer );
+
 
       // TODO MethodDef, ParameterDef, FieldDef does not need re-ordering if TypeDef has not been re-ordered.
 
@@ -1099,6 +1100,14 @@ public static partial class E_CILPhysical
       allTableIndices[(Int32) Tables.Assembly] = CreateIndexArray( md.AssemblyDefinitions.Count );
       allTableIndices[(Int32) Tables.File] = CreateIndexArray( md.FileReferences.Count );
       allTableIndices[(Int32) Tables.Property] = CreateIndexArray( md.PropertyDefinitions.Count );
+
+      // Update TypeDef
+      typeDef.UpdateMDTableIndices(
+         Tables.TypeDef,
+         allTableIndices,
+         null,
+         ( td, indices ) => td.UpdateMDTableWithTableIndices1Nullable( allTableIndices, t => t.BaseType, ( t, b ) => t.BaseType = b )
+         );
 
       // Update EventDefinition
       md.EventDefinitions.UpdateMDTableIndices(
@@ -1246,12 +1255,21 @@ public static partial class E_CILPhysical
          ( ca, indices ) => ca.UpdateMDTableWithTableIndices2( indices, c => c.Parent, ( c, p ) => c.Parent = p, c => c.Type, ( c, t ) => c.Type = t )
          );
 
+      allTableIndices[(Int32) Tables.NestedClass] = ncIndices;
+      return allTableIndices;
+
    }
 
    private static void UpdateMDTableIndices<T>( this List<T> table, Tables thisTable, Int32[][] allTableIndices, IComparer<T> comparer, Action<List<T>, Int32[][]> tableUpdateCallback )
+      where T : class
    {
-      var thisTableIndices = CreateIndexArray( table.Count );
-      allTableIndices[(Int32) thisTable] = thisTableIndices;
+      var thisTableIndices = allTableIndices[(Int32) thisTable];
+      if ( thisTableIndices == null )
+      {
+         thisTableIndices = CreateIndexArray( table.Count );
+         allTableIndices[(Int32) thisTable] = thisTableIndices;
+      }
+
       tableUpdateCallback( table, allTableIndices );
       if ( comparer != null )
       {
@@ -1343,34 +1361,60 @@ public static partial class E_CILPhysical
    }
 
    private static void SortMDTable<T>( this List<T> table, Int32[] indices, IComparer<T> comparer )
-   {
-      table.SortMDTableWithInt32Comparison( indices, ( x, y ) => comparer.Compare( table[x], table[y] ) );
-   }
-
-   private static void SortMDTable<T>( this List<T> table, Int32[] indices, Comparison<T> comparison )
-   {
-      table.SortMDTableWithInt32Comparison( indices, ( x, y ) => comparison( table[x], table[y] ) );
-   }
-
-   private static void SortMDTableWithInt32Comparison<T>( this List<T> table, Int32[] indices, Comparison<Int32> comparison )
+      where T : class
    {
       // If within 'indices' array, we have value '2' at index '0', it means that within the 'table', there should be value at index '0' which is currently at index '2'
       var count = table.Count;
       if ( count > 1 )
       {
-         // Sort in such way that we know how indices are shuffled
-         Array.Sort( indices, ( x, y ) => comparison( x, y ) );
-
-         // Reshuffle according to indices
-         // List.ToArray() is close to constant time because of Array.Copy being close to constant time
-         // The only loss is somewhat bigger memory allocation
+         // 1. Make a copy of array
          var copy = table.ToArray();
+
+         // 2. Sort original array
+         table.Sort( comparer );
+
+         // 3. For each element, do a binary search to find where it is now after sorting
          for ( var i = 0; i < count; ++i )
          {
-            table[indices[i]] = copy[i];
+            var idx = table.BinarySearchDeferredEqualityDetection( copy[i], comparer );
+            while ( !ReferenceEquals( copy[i], table[idx] ) )
+            {
+               ++idx;
+            }
+            indices[i] = idx;
          }
       }
+
+
+
+      //table.SortMDTableWithInt32Comparison( indices, ( x, y ) => comparer.Compare( table[x], table[y] ) );
    }
+
+   //private static void SortMDTable<T>( this List<T> table, Int32[] indices, Comparison<T> comparison )
+   //{
+   //   table.SortMDTableWithInt32Comparison( indices, ( x, y ) => comparison( table[x], table[y] ) );
+   //}
+
+   // This was wrong. This gives us lookup: "given new index X, what is old index Y?", which is exactly opposite from what we want it to be.
+   //private static void SortMDTableWithInt32Comparison<T>( this List<T> table, Int32[] indices, Comparison<Int32> comparison )
+   //{
+   //   // If within 'indices' array, we have value '2' at index '0', it means that within the 'table', there should be value at index '0' which is currently at index '2'
+   //   var count = table.Count;
+   //   if ( count > 1 )
+   //   {
+   //      // Sort in such way that we know how indices are shuffled
+   //      Array.Sort( indices, ( x, y ) => comparison( x, y ) );
+
+   //      // Reshuffle according to indices
+   //      // List.ToArray() is close to constant time because of Array.Copy being close to constant time
+   //      // The only loss is somewhat bigger memory allocation
+   //      var copy = table.ToArray();
+   //      for ( var i = 0; i < count; ++i )
+   //      {
+   //         table[indices[i]] = copy[i];
+   //      }
+   //   }
+   //}
 
    private static Int32[] ReOrderMDTableWithAscendingReferences<T, U>( this List<T> table, List<U> referencingTable, Int32[] referencingTableIndices, Func<U, Int32> referenceIndexGetter, Action<U, Int32> referenceIndexSetter, Func<U, Int32> referenceCountGetter )
    {
