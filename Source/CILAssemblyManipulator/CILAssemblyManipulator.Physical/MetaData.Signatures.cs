@@ -1589,7 +1589,7 @@ public static partial class E_CILPhysical
             {
                PointerType = CloneTypeSignature( ptr.PointerType )
             };
-            ptrClone.CustomModifiers.AddRange( ptr.CustomModifiers );
+            ptrClone.CustomModifiers.AddRange( ptr.CustomModifiers.CloneCustomMods() );
             retVal = ptrClone;
             break;
          case TypeSignatureKind.GenericParameter:
@@ -1602,7 +1602,7 @@ public static partial class E_CILPhysical
             {
                ArrayType = CloneTypeSignature( array.ArrayType )
             };
-            clone.CustomModifiers.AddRange( array.CustomModifiers );
+            clone.CustomModifiers.AddRange( array.CustomModifiers.CloneCustomMods() );
             retVal = clone;
             break;
          default:
@@ -1642,7 +1642,7 @@ public static partial class E_CILPhysical
          IsByRef = paramSig.IsByRef,
          Type = CloneTypeSignature( paramSig.Type )
       };
-      retVal.CustomModifiers.AddRange( paramSig.CustomModifiers );
+      retVal.CustomModifiers.AddRange( paramSig.CustomModifiers.CloneCustomMods() );
       return retVal;
    }
 
@@ -1657,7 +1657,7 @@ public static partial class E_CILPhysical
    {
       var retVal = new FieldSignature( sig.CustomModifiers.Count );
       retVal.Type = CloneTypeSignature( sig.Type );
-      retVal.CustomModifiers.AddRange( sig.CustomModifiers );
+      retVal.CustomModifiers.AddRange( sig.CustomModifiers.CloneCustomMods() );
       return retVal;
    }
 
@@ -1676,7 +1676,19 @@ public static partial class E_CILPhysical
          IsPinned = local.IsPinned,
          Type = CloneTypeSignature( local.Type )
       };
-      retVal.CustomModifiers.AddRange( local.CustomModifiers );
+      retVal.CustomModifiers.AddRange( local.CustomModifiers.CloneCustomMods() );
       return retVal;
+   }
+
+   private static IEnumerable<CustomModifierSignature> CloneCustomMods( this List<CustomModifierSignature> original )
+   {
+      foreach ( var cm in original )
+      {
+         yield return new CustomModifierSignature()
+         {
+            IsOptional = cm.IsOptional,
+            CustomModifierType = cm.CustomModifierType
+         };
+      }
    }
 }

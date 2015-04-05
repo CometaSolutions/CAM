@@ -595,8 +595,8 @@ namespace CILAssemblyManipulator.Tests.Physical
       private readonly MethodDefinition _method;
       private readonly IList<ParameterDefinition> _parameters;
       private readonly SignatureInfo<LocalVariablesSignature> _locals;
-      private readonly IDictionary<Int32, Tuple<Tables, Object>> _ilTableIndices;
-      private readonly IDictionary<Int32, Tuple<Tables, Object>> _exceptionClasses;
+      private readonly IDictionary<Int32, Object> _ilTableInfos;
+      private readonly IDictionary<Int32, Object> _exceptionClasses;
 
       internal MethodLogicalInfo( CILMetaData md, Int32 methodDefIndex )
       {
@@ -610,15 +610,16 @@ namespace CILAssemblyManipulator.Tests.Physical
          var il = this._method.IL;
          if ( il != null )
          {
-            this._ilTableIndices = il.OpCodes
-               .Where( c => c.InfoKind == OpCodeOperandKind.OperandToken )
-               .Cast<OpCodeInfoWithToken>()
-               .Select( ( c, i ) => Tuple.Create( i, c.Operand.Table, CreateHelperObjectFromToken( md, c.Operand ) ) )
-               .ToDictionary( t => t.Item1, t => Tuple.Create( t.Item2, t.Item3 ) );
+            this._ilTableInfos = il.OpCodes
+               .Select( ( c, i ) => Tuple.Create( c, i ) )
+               .Where( t => t.Item1.InfoKind == OpCodeOperandKind.OperandToken )
+               .Select( t => Tuple.Create( t.Item2, CreateHelperObjectFromToken( md, ( (OpCodeInfoWithToken) t.Item1 ).Operand ) ) )
+               .ToDictionary( t => t.Item1, t => t.Item2 );
             this._exceptionClasses = il.ExceptionBlocks
-               .Where( b => b.ExceptionType.HasValue )
-               .Select( ( b, i ) => Tuple.Create( i, b.ExceptionType.Value.Table, CreateHelperObjectFromToken( md, b.ExceptionType.Value ) ) )
-               .ToDictionary( t => t.Item1, t => Tuple.Create( t.Item2, t.Item3 ) );
+               .Select( ( b, i ) => Tuple.Create( b, i ) )
+               .Where( t => t.Item1.ExceptionType.HasValue )
+               .Select( t => Tuple.Create( t.Item2, CreateHelperObjectFromToken( md, t.Item1.ExceptionType.Value ) ) )
+               .ToDictionary( t => t.Item1, t => t.Item2 );
          }
 
       }
@@ -629,23 +630,27 @@ namespace CILAssemblyManipulator.Tests.Physical
 
          if ( retVal )
          {
-            var curParams = args.MD.GetMethodParameters( methodDefIndex ).ToArray();
-            var curLocals = args.MD.GetLocalsSignatureForMethodOrNull( methodDefIndex );
+            var md = args.MD;
+            var curParams = md.GetMethodParameters( methodDefIndex ).ToArray();
+            var curLocals = md.GetLocalsSignatureForMethodOrNull( methodDefIndex );
 
             retVal = ListEqualityComparer<IList<ParameterDefinition>, ParameterDefinition>.Equals( this._parameters, curParams, ReferenceEqualityComparer<ParameterDefinition>.ReferenceBasedComparer )
-            && ( ( this._locals == null && curLocals == null ) || ( this._locals != null && curLocals != null && this._locals.IsMatch( curLocals, args ) ) );
+            && ( ( this._locals == null && curLocals == null ) || ( this._locals != null && curLocals != null && this._locals.IsMatch( curLocals, args ) ) )
+            && (
+               ( this._ilTableInfos == null && this._exceptionClasses == null && other.IL == null )
+               ||
+                ( this._ilTableInfos != null && this._exceptionClasses != null && other.IL != null
+                && this._ilTableInfos.All( kvp => MatchHelperObject( kvp.Value, md, ( (OpCodeInfoWithToken) other.IL.OpCodes[kvp.Key] ).Operand, args ) )
+                && this._exceptionClasses.All( kvp => MatchHelperObject( kvp.Value, md, other.IL.ExceptionBlocks[kvp.Key].ExceptionType.Value, args ) )
+                )
+               );
 
             if ( !retVal )
             {
 
             }
          }
-         //&& (
-         //   ( this._ilTableIndices == null && this._exceptionClasses == null && other._ilTableIndices == null && other._exceptionClasses == null )
-         //   ||
-         //   ( this._ilTableIndices != null && this._exceptionClasses != null && other._ilTableIndices != null && other._exceptionClasses != null
-         //      )
-         //   )
+
          //);
          return retVal;
       }

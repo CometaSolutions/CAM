@@ -552,7 +552,7 @@ public static partial class E_CILPhysical
       {
          this._md = md;
          this._tableIndices = tableIndices;
-         this._visitedInfo = new Dictionary<Object, Object>();
+         this._visitedInfo = new Dictionary<Object, Object>( ReferenceEqualityComparer<Object>.ReferenceBasedComparer );
          this._updatedAny = false;
       }
 
@@ -728,97 +728,202 @@ public static partial class E_CILPhysical
 
    public static Object GetByTableIndex( this CILMetaData md, TableIndex index )
    {
-      switch ( index.Table )
+      Object retVal;
+      if ( !md.TryGetByTableIndex( index, out retVal ) )
       {
-         case Tables.Module:
-            if ( index.Index == 0 )
-            {
-               return md;
-            }
-            else
-            {
-               throw new ArgumentOutOfRangeException( "Module table index should always be zero." );
-            }
-         case Tables.TypeRef:
-            return md.TypeReferences[index.Index];
-         case Tables.TypeDef:
-            return md.TypeDefinitions[index.Index];
-         case Tables.Field:
-            return md.FieldDefinitions[index.Index];
-         case Tables.MethodDef:
-            return md.MethodDefinitions[index.Index];
-         case Tables.Parameter:
-            return md.ParameterDefinitions[index.Index];
-         case Tables.InterfaceImpl:
-            return md.InterfaceImplementations[index.Index];
-         case Tables.MemberRef:
-            return md.MemberReferences[index.Index];
-         case Tables.Constant:
-            return md.ConstantDefinitions[index.Index];
-         case Tables.CustomAttribute:
-            return md.CustomAttributeDefinitions[index.Index];
-         case Tables.FieldMarshal:
-            return md.FieldMarshals[index.Index];
-         case Tables.DeclSecurity:
-            return md.SecurityDefinitions[index.Index];
-         case Tables.ClassLayout:
-            return md.ClassLayouts[index.Index];
-         case Tables.FieldLayout:
-            return md.FieldLayouts[index.Index];
-         case Tables.StandaloneSignature:
-            return md.StandaloneSignatures[index.Index];
-         case Tables.EventMap:
-            return md.EventMaps[index.Index];
-         case Tables.Event:
-            return md.EventDefinitions[index.Index];
-         case Tables.PropertyMap:
-            return md.PropertyMaps[index.Index];
-         case Tables.Property:
-            return md.PropertyDefinitions[index.Index];
-         case Tables.MethodSemantics:
-            return md.MethodSemantics[index.Index];
-         case Tables.MethodImpl:
-            return md.MethodImplementations[index.Index];
-         case Tables.ModuleRef:
-            return md.ModuleReferences[index.Index];
-         case Tables.TypeSpec:
-            return md.TypeSpecifications[index.Index];
-         case Tables.ImplMap:
-            return md.MethodImplementationMaps[index.Index];
-         case Tables.FieldRVA:
-            return md.FieldRVAs[index.Index];
-         case Tables.Assembly:
-            return md.AssemblyDefinitions[index.Index];
-         case Tables.AssemblyRef:
-            return md.AssemblyReferences[index.Index];
-         case Tables.File:
-            return md.FieldDefinitions[index.Index];
-         case Tables.ExportedType:
-            return md.ExportedTypes[index.Index];
-         case Tables.ManifestResource:
-            return md.ManifestResources[index.Index];
-         case Tables.NestedClass:
-            return md.NestedClassDefinitions[index.Index];
-         case Tables.GenericParameter:
-            return md.GenericParameterDefinitions[index.Index];
-         case Tables.MethodSpec:
-            return md.MethodSpecifications[index.Index];
-         case Tables.GenericParameterConstraint:
-            return md.GenericParameterConstraintDefinitions[index.Index];
-         case Tables.FieldPtr:
-         case Tables.MethodPtr:
-         case Tables.ParameterPtr:
-         case Tables.EventPtr:
-         case Tables.PropertyPtr:
-         case Tables.EncLog:
-         case Tables.EncMap:
-         case Tables.AssemblyProcessor:
-         case Tables.AssemblyOS:
-         case Tables.AssemblyRefProcessor:
-         case Tables.AssemblyRefOS:
-         default:
-            throw new ArgumentOutOfRangeException( "The table " + index.Table + " does not have representation in this framework." );
+         switch ( index.Table )
+         {
+            case Tables.Module:
+            case Tables.TypeRef:
+            case Tables.TypeDef:
+            case Tables.Field:
+            case Tables.MethodDef:
+            case Tables.Parameter:
+            case Tables.InterfaceImpl:
+            case Tables.MemberRef:
+            case Tables.Constant:
+            case Tables.CustomAttribute:
+            case Tables.FieldMarshal:
+            case Tables.DeclSecurity:
+            case Tables.ClassLayout:
+            case Tables.FieldLayout:
+            case Tables.StandaloneSignature:
+            case Tables.EventMap:
+            case Tables.Event:
+            case Tables.PropertyMap:
+            case Tables.Property:
+            case Tables.MethodSemantics:
+            case Tables.MethodImpl:
+            case Tables.ModuleRef:
+            case Tables.TypeSpec:
+            case Tables.ImplMap:
+            case Tables.FieldRVA:
+            case Tables.Assembly:
+            case Tables.AssemblyRef:
+            case Tables.File:
+            case Tables.ExportedType:
+            case Tables.ManifestResource:
+            case Tables.NestedClass:
+            case Tables.GenericParameter:
+            case Tables.MethodSpec:
+            case Tables.GenericParameterConstraint:
+               throw new ArgumentOutOfRangeException( "Table index " + index + " was out of range." );
+            case Tables.FieldPtr:
+            case Tables.MethodPtr:
+            case Tables.ParameterPtr:
+            case Tables.EventPtr:
+            case Tables.PropertyPtr:
+            case Tables.EncLog:
+            case Tables.EncMap:
+            case Tables.AssemblyProcessor:
+            case Tables.AssemblyOS:
+            case Tables.AssemblyRefProcessor:
+            case Tables.AssemblyRefOS:
+            default:
+               throw new InvalidOperationException( "The table " + index.Table + " does not have representation in this framework." );
+         }
       }
+
+      return retVal;
+   }
+
+   public static Boolean TryGetByTableIndex( this CILMetaData md, TableIndex index, out Object row )
+   {
+      // TODO check table size!
+
+      var retVal = index.Index >= 0;
+      row = null;
+      if ( retVal )
+      {
+         switch ( index.Table )
+         {
+            case Tables.Module:
+               if ( index.Index == 0 )
+               {
+                  row = md;
+               }
+               else
+               {
+                  retVal = false;
+               }
+               break;
+            case Tables.TypeRef:
+               row = md.TypeReferences[index.Index];
+               break;
+            case Tables.TypeDef:
+               row = md.TypeDefinitions[index.Index];
+               break;
+            case Tables.Field:
+               row = md.FieldDefinitions[index.Index];
+               break;
+            case Tables.MethodDef:
+               row = md.MethodDefinitions[index.Index];
+               break;
+            case Tables.Parameter:
+               row = md.ParameterDefinitions[index.Index];
+               break;
+            case Tables.InterfaceImpl:
+               row = md.InterfaceImplementations[index.Index];
+               break;
+            case Tables.MemberRef:
+               row = md.MemberReferences[index.Index];
+               break;
+            case Tables.Constant:
+               row = md.ConstantDefinitions[index.Index];
+               break;
+            case Tables.CustomAttribute:
+               row = md.CustomAttributeDefinitions[index.Index];
+               break;
+            case Tables.FieldMarshal:
+               row = md.FieldMarshals[index.Index];
+               break;
+            case Tables.DeclSecurity:
+               row = md.SecurityDefinitions[index.Index];
+               break;
+            case Tables.ClassLayout:
+               row = md.ClassLayouts[index.Index];
+               break;
+            case Tables.FieldLayout:
+               row = md.FieldLayouts[index.Index];
+               break;
+            case Tables.StandaloneSignature:
+               row = md.StandaloneSignatures[index.Index];
+               break;
+            case Tables.EventMap:
+               row = md.EventMaps[index.Index];
+               break;
+            case Tables.Event:
+               row = md.EventDefinitions[index.Index];
+               break;
+            case Tables.PropertyMap:
+               row = md.PropertyMaps[index.Index];
+               break;
+            case Tables.Property:
+               row = md.PropertyDefinitions[index.Index];
+               break;
+            case Tables.MethodSemantics:
+               row = md.MethodSemantics[index.Index];
+               break;
+            case Tables.MethodImpl:
+               row = md.MethodImplementations[index.Index];
+               break;
+            case Tables.ModuleRef:
+               row = md.ModuleReferences[index.Index];
+               break;
+            case Tables.TypeSpec:
+               row = md.TypeSpecifications[index.Index];
+               break;
+            case Tables.ImplMap:
+               row = md.MethodImplementationMaps[index.Index];
+               break;
+            case Tables.FieldRVA:
+               row = md.FieldRVAs[index.Index];
+               break;
+            case Tables.Assembly:
+               row = md.AssemblyDefinitions[index.Index];
+               break;
+            case Tables.AssemblyRef:
+               row = md.AssemblyReferences[index.Index];
+               break;
+            case Tables.File:
+               row = md.FieldDefinitions[index.Index];
+               break;
+            case Tables.ExportedType:
+               row = md.ExportedTypes[index.Index];
+               break;
+            case Tables.ManifestResource:
+               row = md.ManifestResources[index.Index];
+               break;
+            case Tables.NestedClass:
+               row = md.NestedClassDefinitions[index.Index];
+               break;
+            case Tables.GenericParameter:
+               row = md.GenericParameterDefinitions[index.Index];
+               break;
+            case Tables.MethodSpec:
+               row = md.MethodSpecifications[index.Index];
+               break;
+            case Tables.GenericParameterConstraint:
+               row = md.GenericParameterConstraintDefinitions[index.Index];
+               break;
+            case Tables.FieldPtr:
+            case Tables.MethodPtr:
+            case Tables.ParameterPtr:
+            case Tables.EventPtr:
+            case Tables.PropertyPtr:
+            case Tables.EncLog:
+            case Tables.EncMap:
+            case Tables.AssemblyProcessor:
+            case Tables.AssemblyOS:
+            case Tables.AssemblyRefProcessor:
+            case Tables.AssemblyRefOS:
+            default:
+               retVal = false;
+               break;
+         }
+      }
+
+      return retVal;
    }
 
    // Assumes that all lists of CILMetaData have only non-null elements.
@@ -835,74 +940,94 @@ public static partial class E_CILPhysical
    // TypeDef and MethodDef can not have duplicate instances of same object!!
    public static Int32[][] OrderTablesAndUpdateSignatures( this CILMetaData md )
    {
-      // Create dictionary <Typedef, Int32> with reference-equality-comparer, which has the original index of each type-def
-      //var originalTDefIndices = md.TypeDefinitions
-      //   .Select( ( tDef, tDefIdx ) => new KeyValuePair<TypeDefinition, Int32>( tDef, tDefIdx ) )
-      //   .ToDictionary( kvp => kvp.Key, kvp => kvp.Value, ReferenceEqualityComparer<TypeDefinition>.ReferenceBasedComparer );
+      var allTableIndices = new Int32[Consts.AMOUNT_OF_TABLES][];
 
+      // Start by re-ordering structural (TypeDef, MethodDef, ParamDef, Field, NestedClass) tables
+      md.ReOrderStructuralTables( allTableIndices );
+
+      // Keep updating and removing duplicates from TypeRef, TypeSpec, MemberRef, MethodSpec, StandaloneSignature and Property tables, while updating all signatures and IL code
+      md.UpdateSignaturesAndILWhileRemovingDuplicates( allTableIndices );
+
+      // Update and sort the remaining tables which don't have signatures
+      md.UpdateAndSortTablesWithNoSignatures( allTableIndices );
+      return allTableIndices;
+   }
+
+   // Re-orders TypeDef, MethodDef, ParamDef, Field, and NestedClass tables, if necessary
+   private static void ReOrderStructuralTables( this CILMetaData md, Int32[][] allTableIndices )
+   {
       var typeDef = md.TypeDefinitions;
       var methodDef = md.MethodDefinitions;
       var fieldDef = md.FieldDefinitions;
       var paramDef = md.ParameterDefinitions;
+      var nestedClass = md.NestedClassDefinitions;
       var tDefCount = typeDef.Count;
       var mDefCount = methodDef.Count;
       var fDefCount = fieldDef.Count;
       var pDefCount = paramDef.Count;
+      var ncCount = nestedClass.Count;
 
-      // We have to pre-calculate method and field counts for types
-      // We have to do this BEFORE typedef table is re-ordered
-      var methodAndFieldCounts = new Dictionary<TypeDefinition, KeyValuePair<Int32, Int32>>( tDefCount, ReferenceEqualityComparer<TypeDefinition>.ReferenceBasedComparer );
-      for ( var i = 0; i < tDefCount; ++i )
-      {
-         var curTD = typeDef[i];
-         Int32 mMax, fMax;
-         if ( i + 1 < tDefCount )
-         {
-            var nextTD = typeDef[i + 1];
-            mMax = nextTD.MethodList.Index;
-            fMax = nextTD.FieldList.Index;
-         }
-         else
-         {
-            mMax = mDefCount;
-            fMax = fDefCount;
-         }
-         methodAndFieldCounts.Add( curTD, new KeyValuePair<Int32, Int32>( mMax - curTD.MethodList.Index, fMax - curTD.FieldList.Index ) );
-      }
-
-      // We have to pre-calculate param count for methods
-      // We have to do this BEFORE methoddef table is re-ordered
-      var paramCounts = new Dictionary<MethodDefinition, Int32>( mDefCount, ReferenceEqualityComparer<MethodDefinition>.ReferenceBasedComparer );
-      for ( var i = 0; i < mDefCount; ++i )
-      {
-         var curMD = methodDef[i];
-         Int32 max;
-         if ( i + 1 < mDefCount )
-         {
-            max = methodDef[i + 1].ParameterList.Index;
-         }
-         else
-         {
-            max = pDefCount;
-         }
-         paramCounts.Add( curMD, max - curMD.ParameterList.Index );
-      }
-
-      // We need to sort TypeDef table first
-      // It has special sorting constraint: enclosing type must precede nested type.
       var typeDefIndices = CreateIndexArray( tDefCount );
+      var methodDefIndices = CreateIndexArray( mDefCount );
+      var paramDefIndices = CreateIndexArray( pDefCount );
+      var fDefIndices = CreateIndexArray( fDefCount );
+      var ncIndices = CreateIndexArray( ncCount );
+
+      // Set table indices
+      allTableIndices[(Int32) Tables.TypeDef] = typeDefIndices;
+      allTableIndices[(Int32) Tables.MethodDef] = methodDefIndices;
+      allTableIndices[(Int32) Tables.Field] = fDefIndices;
+      allTableIndices[(Int32) Tables.Parameter] = paramDefIndices;
+      allTableIndices[(Int32) Tables.NestedClass] = ncIndices;
 
       // So, start by reading nested class data into more easily accessible data structure
-      var nestedClass = md.NestedClassDefinitions;
-      //var nestedClassIndices = CreateIndexArray( nestedClass.Count );
 
-      // Remove duplicates
-      //nestedClass.CheckMDDuplicatesUnsorted(nestedClassIndices, (x, y) => nestedClass[x].NestedClass == nestedClass[y].NestedClass, x => nestedClass[x].NestedClass.GetHashCode());
-
-      // TODO TEMP only for testing.
+      // TypeDef table has special constraint - enclosing class must precede nested class.
+      // In other words, for all rows in NestedClass table, the EnclosingClass index must be less than NestedClass index
+      // All the tables that are handled in this method will only be needed to re-shuffle if TypeDef table changes, that is, if there are violating rows in NestedClass table.
       var typeDefOrderingChanged = true; // nestedClass.Any( nc => nc.NestedClass.Index < nc.EnclosingClass.Index );
+
       if ( typeDefOrderingChanged )
       {
+         // We have to pre-calculate method and field counts for types
+         // We have to do this BEFORE typedef table is re-ordered
+         var methodAndFieldCounts = new Dictionary<TypeDefinition, KeyValuePair<Int32, Int32>>( tDefCount, ReferenceEqualityComparer<TypeDefinition>.ReferenceBasedComparer );
+         for ( var i = 0; i < tDefCount; ++i )
+         {
+            var curTD = typeDef[i];
+            Int32 mMax, fMax;
+            if ( i + 1 < tDefCount )
+            {
+               var nextTD = typeDef[i + 1];
+               mMax = nextTD.MethodList.Index;
+               fMax = nextTD.FieldList.Index;
+            }
+            else
+            {
+               mMax = mDefCount;
+               fMax = fDefCount;
+            }
+            methodAndFieldCounts.Add( curTD, new KeyValuePair<Int32, Int32>( mMax - curTD.MethodList.Index, fMax - curTD.FieldList.Index ) );
+         }
+
+         // We have to pre-calculate param count for methods
+         // We have to do this BEFORE methoddef table is re-ordered
+         var paramCounts = new Dictionary<MethodDefinition, Int32>( mDefCount, ReferenceEqualityComparer<MethodDefinition>.ReferenceBasedComparer );
+         for ( var i = 0; i < mDefCount; ++i )
+         {
+            var curMD = methodDef[i];
+            Int32 max;
+            if ( i + 1 < mDefCount )
+            {
+               max = methodDef[i + 1].ParameterList.Index;
+            }
+            else
+            {
+               max = pDefCount;
+            }
+            paramCounts.Add( curMD, max - curMD.ParameterList.Index );
+         }
+
          // Create data structure
          var nestedClassInfo = new Dictionary<Int32, List<Int32>>(); // Key - enclosing type which is lower in TypeDef table than its nested type, Value: list of nested types higher in TypeDef table
          var nestedTypeIndices = new HashSet<Int32>();
@@ -942,12 +1067,12 @@ public static partial class E_CILPhysical
             {
                // Iterate all nested types with BFS
                foreach ( var nested in tDefCopyIdx.AsBreadthFirstEnumerable( cur =>
-                  {
-                     List<Int32> nestedTypes;
-                     return nestedClassInfo.TryGetValue( cur, out nestedTypes ) ?
-                        nestedTypes :
-                        Empty<Int32>.Enumerable;
-                  }, false ) // Skip this type
+               {
+                  List<Int32> nestedTypes;
+                  return nestedClassInfo.TryGetValue( cur, out nestedTypes ) ?
+                     nestedTypes :
+                     Empty<Int32>.Enumerable;
+               }, false ) // Skip this type
                .EndOnFirstLoop() ) // Detect loops to avoid infite enumerable
                {
                   typeDef[++i] = tDefCopy[nested];
@@ -955,154 +1080,57 @@ public static partial class E_CILPhysical
                }
             }
          }
+         // Update NestedClass indices and sort NestedClass
+         nestedClass.UpdateMDTableWithTableIndices2(
+            allTableIndices,
+            nc => nc.NestedClass,
+            ( nc, ncIdx ) => nc.NestedClass = ncIdx,
+            nc => nc.EnclosingClass,
+            ( nc, ecIdx ) => nc.EnclosingClass = ecIdx
+            );
+         nestedClass.SortMDTable( ncIndices, Comparers.NestedClassDefinitionComparer );
+
+         // Sort MethodDef table and update references in TypeDef table
+         methodDef.ReOrderMDTableWithAscendingReferences(
+            methodDefIndices,
+            typeDef,
+            typeDefIndices,
+            td => td.MethodList.Index,
+            ( td, mIdx ) => td.MethodList = new TableIndex( Tables.MethodDef, mIdx ),
+            tdIdx => methodAndFieldCounts[tdIdx].Key
+            );
+
+         // Sort ParameterDef table and update references in MethodDef table
+         paramDef.ReOrderMDTableWithAscendingReferences(
+            paramDefIndices,
+            methodDef,
+            methodDefIndices,
+            mDef => mDef.ParameterList.Index,
+            ( mDef, pIdx ) => mDef.ParameterList = new TableIndex( Tables.Parameter, pIdx ),
+            mdIdx => paramCounts[mdIdx]
+            );
+
+         // Sort FieldDef table and update references in TypeDef table
+         fieldDef.ReOrderMDTableWithAscendingReferences(
+            fDefIndices,
+            typeDef,
+            typeDefIndices,
+            td => td.FieldList.Index,
+            ( td, fIdx ) => td.FieldList = new TableIndex( Tables.Field, fIdx ),
+            tdIdx => methodAndFieldCounts[tdIdx].Value
+            );
       }
+   }
 
-
-      //// Sort NestedClass table (NestedClass) and remove duplicates
-      //// Start with this because sorting TypeDef requires accessing NestedClass table and therefore it is quicker to first sort NestedClass table
-      //var nestedClass = md.NestedClassDefinitions;
-      //var nestedClassIndices = CreateIndexArray( nestedClass.Count );
-      //nestedClass.SortMDTable( nestedClassIndices, Comparers.NestedClassDefinitionComparer );
-      //CheckMDDuplicatesSorted( nestedClass, nestedClassIndices, ( x, y ) => x.NestedClass == y.NestedClass );
-
-
-
-      ////    When checking whether type x is enclosing type of type y, need to walk through whole enclosing-type chain (i.e. x may be enclosed type of z, which may be enclosed type of y)
-      //var typeDefIndices = CreateIndexArray( tDefCount );
-      //TODO maybe another algorithm should be done
-      //   this just does not seem to work
-      //typeDef.SortMDTableWithInt32Comparison( typeDefIndices, ( x, y ) =>
-      //{
-      //   // If x is greater than y, that means that typedef at index x has y in its declaring type chain
-      //   // If y is greater than x, that means that typedef at index y has x in its declaring type chain
-      //   // Otherwise, sort in original order
-
-      //   return x.GetDeclaringTypeChain( nestedClass ).Contains( y ) ?
-      //      1 : ( y.GetDeclaringTypeChain( nestedClass ).Contains( x ) ?
-      //         -1 :
-      //         0 ); // TODO: x.CompareTo( y ) (when bugs are fixed)
-      //} );
-      // ECMA-335:
-      // There shall be no duplicate rows in the TypeDef table, based on 
-      // TypeNamespace+TypeName (unless this is a nested type - see below)  [ERROR] 
-      // If this is a nested type, there shall be no duplicate row in the  TypeDef table, based 
-      // upon TypeNamespace+TypeName+OwnerRowInNestedClassTable  [ERROR] 
-      //typeDef.CheckMDDuplicatesUnsorted( typeDefIndices, ( x, y ) =>
-      //{
-      //   // return true only if both non-null
-      //   var xTD = typeDef[x];
-      //   var yTD = typeDef[y];
-      //   var retVal = xTD != null && yTD != null;
-      //   if ( retVal )
-      //   {
-      //      var xDecl = x.GetDeclaringTypeChain( nestedClass ).FirstOrDefaultCustom( -1 );
-      //      var yDecl = y.GetDeclaringTypeChain( nestedClass ).FirstOrDefaultCustom( -1 );
-      //      retVal = String.Equals( xTD.Name, yTD.Name )
-      //         && String.Equals( xTD.Namespace, yTD.Namespace )
-      //         && xDecl == yDecl;
-      //   }
-      //   return retVal;
-      //}, x => typeDef[x].Name.GetHashCodeSafe() );
-
-      // Update NestedClass indices, sort NestedClass again, and remove duplicates again
-      TableIndex aux;
-      for ( var i = 0; i < nestedClass.Count; ++i )
-      {
-         var nc = nestedClass[i];
-         if ( nc != null )
-         {
-            if ( nc.NestedClass.TryUpdateTableIndex( typeDefIndices, out aux ) )
-            {
-               nc.NestedClass = aux;
-            }
-            if ( nc.EnclosingClass.TryUpdateTableIndex( typeDefIndices, out aux ) )
-            {
-               nc.EnclosingClass = aux;
-            }
-         }
-      }
-      var ncIndices = CreateIndexArray( nestedClass.Count );
-      nestedClass.SortMDTable( ncIndices, Comparers.NestedClassDefinitionComparer );
-      //nestedClass.Sort( Comparers.NestedClassDefinitionComparer );
-
-
-      // TODO MethodDef, ParameterDef, FieldDef does not need re-ordering if TypeDef has not been re-ordered.
-
-      // Sort MethodDef table and update references in TypeDef table
-      var methodDefIndices = methodDef.ReOrderMDTableWithAscendingReferences(
-         typeDef,
-         typeDefIndices,
-         td => td.MethodList.Index,
-         ( td, mIdx ) => td.MethodList = new TableIndex( Tables.MethodDef, mIdx ),
-         tdIdx => methodAndFieldCounts[tdIdx].Key
-         );
-
-      // Sort ParameterDef table and update references in MethodDef table
-      var paramDefIndices = paramDef.ReOrderMDTableWithAscendingReferences(
-         methodDef,
-         methodDefIndices,
-         mDef => mDef.ParameterList.Index,
-         ( mDef, pIdx ) => mDef.ParameterList = new TableIndex( Tables.Parameter, pIdx ),
-         mdIdx => paramCounts[mdIdx]
-         );
-
-      // Sort FieldDef table and update references in TypeDef table
-      var fDefIndices = fieldDef.ReOrderMDTableWithAscendingReferences(
-         typeDef,
-         typeDefIndices,
-         td => td.FieldList.Index,
-         ( td, fIdx ) => td.FieldList = new TableIndex( Tables.Field, fIdx ),
-         tdIdx => methodAndFieldCounts[tdIdx].Value
-         );
-
-      // Remove duplicates from AssemblyRef table (since reordering of the TypeRef table will require the indices in this table to be present)
-      // ECMA-335: The AssemblyRef table shall contain no duplicates (where duplicate rows are deemd  to be those having the same MajorVersion, MinorVersion, BuildNumber, RevisionNumber, PublicKeyOrToken, Name, and Culture) [WARNING] 
-      var aRefs = md.AssemblyReferences;
-      var aRefIndices = CreateIndexArray( aRefs.Count );
-      aRefs.CheckMDDuplicatesUnsorted( aRefIndices, ( x, y ) =>
-      {
-         var xRef = aRefs[x];
-         var yRef = aRefs[y];
-         return xRef.AssemblyInformation.Equals( yRef.AssemblyInformation );
-      }, x => aRefs[x].AssemblyInformation.GetHashCode() );
-
-      // Remove duplicates from ModuleRef table (since reordering of the TypeRef table will require the indices in this table to be present)
-      // ECMA-335: There should be no duplicate rows  [WARNING] 
-      var mRefs = md.ModuleReferences;
-      var mRefIndices = CreateIndexArray( mRefs.Count );
-      mRefs.CheckMDDuplicatesUnsorted( mRefIndices, ( x, y ) => String.Equals( mRefs[x].ModuleName, mRefs[y].ModuleName ), x => mRefs[x].ModuleName.GetHashCodeSafe() );
-
-      var allTableIndices = new Int32[Consts.AMOUNT_OF_TABLES][];
-      // ECMA-335: IL tokens shall be from TypeDef, TypeRef, TypeSpec, MethodDef, FieldDef, MemberRef or MethodSpec tables.
-      // All table indices in signatures should only ever reference TypeDef, TypeRef or TypeSpec tables.
-      // Tables with signatures are: FieldDef, MethodDef, MemberRef, CustomAttribute, DeclSecurity, StandaloneSignature, PropertyDef, TypeSpecification, MethodSpecification
-      // The ones that have rules for duplicates: MemberRef, StandaloneSignature, PropertyDef, TypeSpecification, MethodSpecification
-      // We will not handle PropertyDef (nor EventDef) duplicates
-      // The ones without duplicates will be handled later (those are CustomAttribute, DeclSecurity)
-      allTableIndices[(Int32) Tables.TypeDef] = typeDefIndices;
-      allTableIndices[(Int32) Tables.TypeRef] = CreateIndexArray( md.TypeReferences.Count );
-      allTableIndices[(Int32) Tables.TypeSpec] = CreateIndexArray( md.TypeSpecifications.Count );
-      allTableIndices[(Int32) Tables.MethodDef] = methodDefIndices;
-      allTableIndices[(Int32) Tables.Field] = fDefIndices;
-      allTableIndices[(Int32) Tables.MemberRef] = CreateIndexArray( md.MemberReferences.Count );
-      allTableIndices[(Int32) Tables.MethodSpec] = CreateIndexArray( md.MethodSpecifications.Count );
-      allTableIndices[(Int32) Tables.StandaloneSignature] = CreateIndexArray( md.StandaloneSignatures.Count );
-      allTableIndices[(Int32) Tables.AssemblyRef] = aRefIndices;
-      allTableIndices[(Int32) Tables.ModuleRef] = mRefIndices;
-      allTableIndices[(Int32) Tables.Module] = CreateIndexArray( md.ModuleDefinitions.Count );
-
-      // Keep updating and removing duplicates from TypeRef, TypeSpec, MemberRef, MethodSpec, StandaloneSignature and Property tables, while updating all signatures and IL code
-      md.UpdateSignaturesAndILWhileRemovingDuplicates( allTableIndices );
-
-      // Prepare table indices
-      allTableIndices[(Int32) Tables.Parameter] = paramDefIndices;
+   private static void UpdateAndSortTablesWithNoSignatures( this CILMetaData md, Int32[][] allTableIndices )
+   {
       // Create table index arrays for tables which are untouched (but can be used by various table indices in table rows)
       allTableIndices[(Int32) Tables.Assembly] = CreateIndexArray( md.AssemblyDefinitions.Count );
       allTableIndices[(Int32) Tables.File] = CreateIndexArray( md.FileReferences.Count );
       allTableIndices[(Int32) Tables.Property] = CreateIndexArray( md.PropertyDefinitions.Count );
 
       // Update TypeDef
-      typeDef.UpdateMDTableIndices(
+      md.TypeDefinitions.UpdateMDTableIndices(
          Tables.TypeDef,
          allTableIndices,
          null,
@@ -1255,9 +1283,6 @@ public static partial class E_CILPhysical
          ( ca, indices ) => ca.UpdateMDTableWithTableIndices2( indices, c => c.Parent, ( c, p ) => c.Parent = p, c => c.Type, ( c, t ) => c.Type = t )
          );
 
-      allTableIndices[(Int32) Tables.NestedClass] = ncIndices;
-      return allTableIndices;
-
    }
 
    private static void UpdateMDTableIndices<T>( this List<T> table, Tables thisTable, Int32[][] allTableIndices, IComparer<T> comparer, Action<List<T>, Int32[][]> tableUpdateCallback )
@@ -1277,21 +1302,21 @@ public static partial class E_CILPhysical
       }
    }
 
-   private static void UpdateMDTableWithTableIndices1<T>( this List<T> table, Int32[][] tableIndices, Func<T, TableIndex> tableIndexGetter1, Action<T, TableIndex> tableIndexSetter1 )
+   private static void UpdateMDTableWithTableIndices1<T>( this List<T> table, Int32[][] tableIndices, Func<T, TableIndex> tableIndexGetter1, Action<T, TableIndex> tableIndexSetter1, Func<T, TableIndex, Boolean> rowAdditionalCheck = null )
       where T : class
    {
       foreach ( var row in table )
       {
-         row.ProcessSingleTableIndexToUpdate( tableIndices, tableIndexGetter1, tableIndexSetter1 );
+         row.ProcessSingleTableIndexToUpdate( tableIndices, tableIndexGetter1, tableIndexSetter1, rowAdditionalCheck );
       }
    }
 
-   private static void UpdateMDTableWithTableIndices1Nullable<T>( this List<T> table, Int32[][] tableIndices, Func<T, TableIndex?> tableIndexGetter1, Action<T, TableIndex> tableIndexSetter1 )
+   private static void UpdateMDTableWithTableIndices1Nullable<T>( this List<T> table, Int32[][] tableIndices, Func<T, TableIndex?> tableIndexGetter1, Action<T, TableIndex> tableIndexSetter1, Func<T, TableIndex, Boolean> rowAdditionalCheck = null )
       where T : class
    {
       foreach ( var row in table )
       {
-         row.ProcessSingleTableIndexToUpdateNullable( tableIndices, tableIndexGetter1, tableIndexSetter1 );
+         row.ProcessSingleTableIndexToUpdateNullable( tableIndices, tableIndexGetter1, tableIndexSetter1, rowAdditionalCheck );
       }
    }
 
@@ -1300,8 +1325,8 @@ public static partial class E_CILPhysical
    {
       foreach ( var row in table )
       {
-         row.ProcessSingleTableIndexToUpdate( tableIndices, tableIndexGetter1, tableIndexSetter1 );
-         row.ProcessSingleTableIndexToUpdate( tableIndices, tableIndexGetter2, tableIndexSetter2 );
+         row.ProcessSingleTableIndexToUpdate( tableIndices, tableIndexGetter1, tableIndexSetter1, null );
+         row.ProcessSingleTableIndexToUpdate( tableIndices, tableIndexGetter2, tableIndexSetter2, null );
       }
    }
 
@@ -1310,33 +1335,33 @@ public static partial class E_CILPhysical
    {
       foreach ( var row in table )
       {
-         row.ProcessSingleTableIndexToUpdate( tableIndices, tableIndexGetter1, tableIndexSetter1 );
-         row.ProcessSingleTableIndexToUpdate( tableIndices, tableIndexGetter2, tableIndexSetter2 );
-         row.ProcessSingleTableIndexToUpdate( tableIndices, tableIndexGetter3, tableIndexSetter3 );
+         row.ProcessSingleTableIndexToUpdate( tableIndices, tableIndexGetter1, tableIndexSetter1, null );
+         row.ProcessSingleTableIndexToUpdate( tableIndices, tableIndexGetter2, tableIndexSetter2, null );
+         row.ProcessSingleTableIndexToUpdate( tableIndices, tableIndexGetter3, tableIndexSetter3, null );
       }
    }
 
-   private static void ProcessSingleTableIndexToUpdate<T>( this T row, Int32[][] tableIndices, Func<T, TableIndex> tableIndexGetter, Action<T, TableIndex> tableIndexSetter )
+   private static void ProcessSingleTableIndexToUpdate<T>( this T row, Int32[][] tableIndices, Func<T, TableIndex> tableIndexGetter, Action<T, TableIndex> tableIndexSetter, Func<T, TableIndex, Boolean> rowAdditionalCheck )
       where T : class
    {
       if ( row != null )
       {
-         row.ProcessSingleTableIndexToUpdateWithTableIndex( tableIndices, tableIndexGetter( row ), tableIndexSetter );
+         row.ProcessSingleTableIndexToUpdateWithTableIndex( tableIndices, tableIndexGetter( row ), tableIndexSetter, rowAdditionalCheck );
       }
    }
 
-   private static void ProcessSingleTableIndexToUpdateWithTableIndex<T>( this T row, Int32[][] tableIndices, TableIndex tableIndex, Action<T, TableIndex> tableIndexSetter )
+   private static void ProcessSingleTableIndexToUpdateWithTableIndex<T>( this T row, Int32[][] tableIndices, TableIndex tableIndex, Action<T, TableIndex> tableIndexSetter, Func<T, TableIndex, Boolean> rowAdditionalCheck )
       where T : class
    {
       var table = tableIndex.Table;
       var newIndex = tableIndices[(Int32) table][tableIndex.Index];
-      if ( newIndex != tableIndex.Index )
+      if ( newIndex != tableIndex.Index && ( rowAdditionalCheck == null || rowAdditionalCheck( row, tableIndex ) ) )
       {
          tableIndexSetter( row, new TableIndex( table, newIndex ) );
       }
    }
 
-   private static void ProcessSingleTableIndexToUpdateNullable<T>( this T row, Int32[][] tableIndices, Func<T, TableIndex?> tableIndexGetter, Action<T, TableIndex> tableIndexSetter )
+   private static void ProcessSingleTableIndexToUpdateNullable<T>( this T row, Int32[][] tableIndices, Func<T, TableIndex?> tableIndexGetter, Action<T, TableIndex> tableIndexSetter, Func<T, TableIndex, Boolean> rowAdditionalCheck )
       where T : class
    {
       if ( row != null )
@@ -1344,20 +1369,9 @@ public static partial class E_CILPhysical
          var tIdx = tableIndexGetter( row );
          if ( tIdx.HasValue )
          {
-            row.ProcessSingleTableIndexToUpdateWithTableIndex( tableIndices, tIdx.Value, tableIndexSetter );
+            row.ProcessSingleTableIndexToUpdateWithTableIndex( tableIndices, tIdx.Value, tableIndexSetter, rowAdditionalCheck );
          }
       }
-   }
-
-   private static Boolean TryUpdateTableIndex( this TableIndex current, Int32[] targetTableIndices, out TableIndex newIndex )
-   {
-      var curIdx = current.Index;
-      var newIdx = targetTableIndices[curIdx];
-      var retVal = curIdx != newIdx;
-      newIndex = retVal ?
-         new TableIndex( current.Table, newIdx ) :
-         current;
-      return retVal;
    }
 
    private static void SortMDTable<T>( this List<T> table, Int32[] indices, IComparer<T> comparer )
@@ -1416,11 +1430,11 @@ public static partial class E_CILPhysical
    //   }
    //}
 
-   private static Int32[] ReOrderMDTableWithAscendingReferences<T, U>( this List<T> table, List<U> referencingTable, Int32[] referencingTableIndices, Func<U, Int32> referenceIndexGetter, Action<U, Int32> referenceIndexSetter, Func<U, Int32> referenceCountGetter )
+   private static void ReOrderMDTableWithAscendingReferences<T, U>( this List<T> table, Int32[] thisTableIndices, List<U> referencingTable, Int32[] referencingTableIndices, Func<U, Int32> referenceIndexGetter, Action<U, Int32> referenceIndexSetter, Func<U, Int32> referenceCountGetter )
    {
       var refTableCount = referencingTable.Count;
       var thisTableCount = table.Count;
-      var thisTableIndices = CreateIndexArray( thisTableCount );
+
       if ( thisTableCount > 0 )
       {
          var originalTable = table.ToArray();
@@ -1449,46 +1463,11 @@ public static partial class E_CILPhysical
 
                mIdx += blockCount;
             }
-            //if ( blockCount > 0 )
-            //{
-
-
-            //   //if ( min != mIdx )
-            //   //{
-
-            //   // At least one element
-            //   var array = new T[blockCount];
-
-            //   // Save old elements into array
-            //   table.CopyTo( mIdx, array, 0, blockCount );
-
-            //   // Overwrite old elements in list with the this type's method list, and update method def indices
-            //   for ( var i = 0; i < blockCount; ++i )
-            //   {
-            //      var mDefIdx = thisTableIndices[i + min];
-            //      table[i + mIdx] = table[mDefIdx];
-            //      thisTableIndices[mDefIdx] = i + mIdx;
-            //   }
-
-            //   // Use elements in array to overwite elements we just read into current section
-            //   for ( var i = 0; i < blockCount; ++i )
-            //   {
-            //      var mDefIdx = thisTableIndices[i + originalMin];
-            //      table[mDefIdx] = array[i];
-            //      thisTableIndices[i + mIdx] = mDefIdx;
-            //   }
-            //   //}
-
-            //   mIdx += blockCount;
-
-            //}
 
             // Set methoddef index for this typedef
             referenceIndexSetter( curTD, mIdx - blockCount );
          }
       }
-
-      return thisTableIndices;
    }
 
    // Assumes list is sorted
@@ -1595,6 +1574,38 @@ public static partial class E_CILPhysical
 
    private static void UpdateSignaturesAndILWhileRemovingDuplicates( this CILMetaData md, Int32[][] tableIndices )
    {
+      // Remove duplicates from AssemblyRef table (since reordering of the TypeRef table will require the indices in this table to be present)
+      // ECMA-335: The AssemblyRef table shall contain no duplicates (where duplicate rows are deemd  to be those having the same MajorVersion, MinorVersion, BuildNumber, RevisionNumber, PublicKeyOrToken, Name, and Culture) [WARNING] 
+      var aRefs = md.AssemblyReferences;
+      var aRefIndices = CreateIndexArray( aRefs.Count );
+      aRefs.CheckMDDuplicatesUnsorted( aRefIndices, ( x, y ) =>
+      {
+         var xRef = aRefs[x];
+         var yRef = aRefs[y];
+         return xRef.AssemblyInformation.Equals( yRef.AssemblyInformation );
+      }, x => aRefs[x].AssemblyInformation.GetHashCode() );
+
+      // Remove duplicates from ModuleRef table (since reordering of the TypeRef table will require the indices in this table to be present)
+      // ECMA-335: There should be no duplicate rows  [WARNING] 
+      var mRefs = md.ModuleReferences;
+      var mRefIndices = CreateIndexArray( mRefs.Count );
+      mRefs.CheckMDDuplicatesUnsorted( mRefIndices, ( x, y ) => String.Equals( mRefs[x].ModuleName, mRefs[y].ModuleName ), x => mRefs[x].ModuleName.GetHashCodeSafe() );
+
+      // ECMA-335: IL tokens shall be from TypeDef, TypeRef, TypeSpec, MethodDef, FieldDef, MemberRef, MethodSpec or StandaloneSignature tables.
+      // All table indices in signatures should only ever reference TypeDef, TypeRef or TypeSpec tables.
+      // Tables with signatures are: FieldDef, MethodDef, MemberRef, CustomAttribute, DeclSecurity, StandaloneSignature, PropertyDef, TypeSpecification, MethodSpecification
+      // The ones that have rules for duplicates: MemberRef, StandaloneSignature, PropertyDef, TypeSpecification, MethodSpecification
+      // We will not handle PropertyDef (nor EventDef) duplicates
+      // The ones without duplicates will be handled later (those are CustomAttribute, DeclSecurity)
+      tableIndices[(Int32) Tables.TypeRef] = CreateIndexArray( md.TypeReferences.Count );
+      tableIndices[(Int32) Tables.TypeSpec] = CreateIndexArray( md.TypeSpecifications.Count );
+      tableIndices[(Int32) Tables.MemberRef] = CreateIndexArray( md.MemberReferences.Count );
+      tableIndices[(Int32) Tables.MethodSpec] = CreateIndexArray( md.MethodSpecifications.Count );
+      tableIndices[(Int32) Tables.StandaloneSignature] = CreateIndexArray( md.StandaloneSignatures.Count );
+      tableIndices[(Int32) Tables.AssemblyRef] = aRefIndices;
+      tableIndices[(Int32) Tables.ModuleRef] = mRefIndices;
+      tableIndices[(Int32) Tables.Module] = CreateIndexArray( md.ModuleDefinitions.Count );
+
       var tRefs = md.TypeReferences;
       var tSpecs = md.TypeSpecifications;
       var memberRefs = md.MemberReferences;
@@ -1607,18 +1618,33 @@ public static partial class E_CILPhysical
       do
       {
          // ECMA-335:  There shall be no duplicate rows, where a duplicate has the same ResolutionScope, TypeName and TypeNamespace  [ERROR] 
-         tRefs.UpdateMDTableWithTableIndices1Nullable( tableIndices, tRef => tRef.ResolutionScope, ( tRef, resScope ) => tRef.ResolutionScope = resScope );
+         tRefs.UpdateMDTableWithTableIndices1Nullable(
+            tableIndices,
+            tRef => tRef.ResolutionScope,
+            ( tRef, resScope ) => tRef.ResolutionScope = resScope,
+            ( tRef, resScope ) => updateState.CheckRowTableIndexWhenHandlingSignatures( resScope, tRef )
+            );
          removedTypeRefDuplicates = tRefs.CheckMDDuplicatesUnsorted( tableIndices[(Int32) Tables.TypeRef], Comparers.TypeReferenceEqualityComparer );
 
          // ECMA-335: There shall be no duplicate rows, based upon Signature  [ERROR] 
          removedTSpecDuplicates = tSpecs.CheckMDDuplicatesUnsorted( tableIndices[(Int32) Tables.TypeSpec], Comparers.TypeSpecificationEqualityComparer );
 
          // ECMA-335:  The MemberRef table shall contain no duplicates, where duplicate rows have the same Class, Name, and Signature  [WARNING] 
-         memberRefs.UpdateMDTableWithTableIndices1( tableIndices, mRef => mRef.DeclaringType, ( mRef, dType ) => mRef.DeclaringType = dType );
+         memberRefs.UpdateMDTableWithTableIndices1(
+            tableIndices,
+            mRef => mRef.DeclaringType,
+            ( mRef, dType ) => mRef.DeclaringType = dType,
+            ( mRef, dType ) => updateState.CheckRowTableIndexWhenHandlingSignatures( dType, mRef )
+            );
          removedMemberRefDuplicates = memberRefs.CheckMDDuplicatesUnsorted( tableIndices[(Int32) Tables.MemberRef], Comparers.MemberReferenceEqualityComparer );
 
          // ECMA-335: There shall be no duplicate rows based upon Method+Instantiation  [ERROR] 
-         mSpecs.UpdateMDTableWithTableIndices1( tableIndices, mSpec => mSpec.Method, ( mSpec, method ) => mSpec.Method = method );
+         mSpecs.UpdateMDTableWithTableIndices1(
+            tableIndices,
+            mSpec => mSpec.Method,
+            ( mSpec, method ) => mSpec.Method = method,
+            ( mSpec, method ) => updateState.CheckRowTableIndexWhenHandlingSignatures( method, mSpec )
+            );
          removedMethodSpecDuplicates = mSpecs.CheckMDDuplicatesUnsorted( tableIndices[(Int32) Tables.MethodSpec], Comparers.MethodSpecificationEqualityComparer );
 
          // ECMA-335: Duplicates allowed (but we will make them all unique anyway)
@@ -1877,19 +1903,10 @@ public static partial class E_CILPhysical
 
    private static Boolean SignatureOrILTableIndexDiffers( this SignatureReorderState state, TableIndex index, Object parent, out Int32 newIndex )
    {
-      var oldIndex = index.Index;
-      var visitedDic = state.VisitedInfo;
-      var notVisisted = !visitedDic.ContainsKey( parent ); // Check whether we have already visited this index
-      // Even if we have already visited this, have to check here whether target is null
-      // If target is null, that means that after visiting, the target became duplicate and was removed
-      // So we need to update it again
-      var retVal = notVisisted || state.MD.GetByTableIndex( index ) == null;
+      var retVal = state.CheckRowTableIndexWhenHandlingSignatures( index, parent );
       if ( retVal )
       {
-         if ( notVisisted )
-         {
-            visitedDic.Add( parent, parent );
-         }
+         var oldIndex = index.Index;
          newIndex = state.TableIndices[(Int32) index.Table][oldIndex]; // TODO NullRef if not TypeDef/TypeRef/TypeSpec, ArrayIndexOutOfBounds if invalid index!
          retVal = oldIndex != newIndex;
          // Mark that we have changed an index
@@ -1899,6 +1916,22 @@ public static partial class E_CILPhysical
       {
          newIndex = -1;
       }
+
+      return retVal;
+   }
+
+   private static Boolean CheckRowTableIndexWhenHandlingSignatures( this SignatureReorderState state, TableIndex index, Object parent )
+   {
+      var notVisited = !state.VisitedInfo.ContainsKey( parent );// Check whether we have already visited this index
+      // Even if we have already visited this, have to check here whether target is null
+      // If target is null, that means that after visiting, the target became duplicate and was removed
+      // So we need to update it again
+      var retVal = notVisited || state.MD.GetByTableIndex( index ) == null;
+      if ( notVisited )
+      {
+         state.VisitedInfo.Add( parent, parent );
+      }
+
       return retVal;
    }
 
