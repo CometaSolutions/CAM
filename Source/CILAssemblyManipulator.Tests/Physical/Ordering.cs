@@ -63,6 +63,69 @@ namespace CILAssemblyManipulator.Tests.Physical
          ReOrderAndValidate( md.MetaData );
       }
 
+      [Test]
+      public void TestCAMOrdering()
+      {
+         var md = ReadFromFile( CAMLocation );
+         ReOrderAndValidate( md.MetaData );
+      }
+
+      [Test]
+      public void TestDuplicateRemovingWithOneDuplicate()
+      {
+         var md = CILMetaDataFactory.NewMetaData();
+         md.TypeDefinitions.Add( new TypeDefinition() { Namespace = "TestNS", Name = "TestType" } );
+         var method = new MethodDefinition() { Name = "TestMethod", IL = new MethodILDefinition(), Signature = new MethodDefinitionSignature( 1 ) };
+         md.MethodDefinitions.Add( method );
+         var typeSpec = new ClassOrValueTypeSignature() { Type = new TableIndex( Tables.TypeDef, 0 ), IsClass = false };
+
+         AddDuplicateRowToMD( md, method, typeSpec );
+
+         ReOrderAndValidate( md );
+
+         Assert.AreEqual( 1, md.TypeSpecifications.Count );
+         Assert.AreEqual( new TableIndex( Tables.TypeSpec, 0 ), ( (ClassOrValueTypeSignature) md.MethodDefinitions[0].Signature.Parameters[0].Type ).Type );
+         Assert.AreEqual( new TableIndex( Tables.TypeSpec, 0 ), ( (OpCodeInfoWithToken) md.MethodDefinitions[0].IL.OpCodes[0] ).Operand );
+      }
+
+      [Test]
+      public void TestDuplicateRemovingWithTwoDuplicates()
+      {
+         var md = CILMetaDataFactory.NewMetaData();
+         md.TypeDefinitions.Add( new TypeDefinition() { Namespace = "TestNS", Name = "TestType" } );
+         var method = new MethodDefinition() { Name = "TestMethod", IL = new MethodILDefinition(), Signature = new MethodDefinitionSignature( 1 ) };
+         md.MethodDefinitions.Add( method );
+         var typeSpec = new ClassOrValueTypeSignature() { Type = new TableIndex( Tables.TypeDef, 0 ), IsClass = false };
+
+         var method2 = new MethodDefinition() { Name = "TestMethod2", IL = new MethodILDefinition(), Signature = new MethodDefinitionSignature( 1 ) };
+         md.MethodDefinitions.Add( method2 );
+         var typeSpec2 = new ClassOrValueTypeSignature( 1 ) { Type = new TableIndex( Tables.TypeDef, 0 ), IsClass = true };
+
+         AddDuplicateRowToMD( md, method, typeSpec );
+         AddDuplicateRowToMD( md, method2, typeSpec2 );
+
+
+         ReOrderAndValidate( md );
+
+         Assert.AreEqual( 2, md.TypeSpecifications.Count );
+         Assert.AreEqual( new TableIndex( Tables.TypeSpec, 0 ), ( (ClassOrValueTypeSignature) md.MethodDefinitions[0].Signature.Parameters[0].Type ).Type );
+         Assert.AreEqual( new TableIndex( Tables.TypeSpec, 0 ), ( (OpCodeInfoWithToken) md.MethodDefinitions[0].IL.OpCodes[0] ).Operand );
+         Assert.AreEqual( new TableIndex( Tables.TypeSpec, 1 ), ( (ClassOrValueTypeSignature) md.MethodDefinitions[1].Signature.Parameters[0].Type ).Type );
+         Assert.AreEqual( new TableIndex( Tables.TypeSpec, 1 ), ( (OpCodeInfoWithToken) md.MethodDefinitions[1].IL.OpCodes[0] ).Operand );
+      }
+
+      private static void AddDuplicateRowToMD( CILMetaData md, MethodDefinition method, TypeSignature typeSpec )
+      {
+         var typeSpecIndex = md.TypeSpecifications.Count;
+         var type = new ClassOrValueTypeSignature() { Type = new TableIndex( Tables.TypeSpec, typeSpecIndex ) };
+         method.Signature.Parameters.Add( new ParameterSignature() { Type = type } );
+         method.Signature.ReturnType = new ParameterSignature() { Type = SimpleTypeSignature.Void };
+         method.IL.OpCodes.Add( new OpCodeInfoWithToken( OpCodes.Ldtoken, new TableIndex( Tables.TypeSpec, typeSpecIndex + 1 ) ) );
+
+         var typeSpecRow = new TypeSpecification() { Signature = typeSpec };
+         md.TypeSpecifications.Add( typeSpecRow );
+         md.TypeSpecifications.Add( typeSpecRow );
+      }
 
       private static void ReOrderAndValidate( CILMetaData md )
       {

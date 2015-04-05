@@ -47,7 +47,7 @@ namespace CILAssemblyManipulator.Tests.Physical
       [Test]
       public void TestReadingCAMAssemblies()
       {
-         TestReading( typeof( CILModuleIO ).Assembly );
+         TestReading( CAM );
       }
 
       [Test]

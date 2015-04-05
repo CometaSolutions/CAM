@@ -544,6 +544,7 @@ public static partial class E_CILPhysical
    private sealed class SignatureReorderState
    {
       private readonly CILMetaData _md;
+      private readonly ISet<TableIndex> _duplicatesThisRound;
       private readonly Int32[][] _tableIndices;
       private readonly IDictionary<Object, Object> _visitedInfo;
       private Boolean _updatedAny;
@@ -551,8 +552,9 @@ public static partial class E_CILPhysical
       internal SignatureReorderState( CILMetaData md, Int32[][] tableIndices )
       {
          this._md = md;
+         this._duplicatesThisRound = new HashSet<TableIndex>();
          this._tableIndices = tableIndices;
-         this._visitedInfo = new Dictionary<Object, Object>( ReferenceEqualityComparer<Object>.ReferenceBasedComparer );
+         this._visitedInfo = new Dictionary<Object, Object>();
          this._updatedAny = false;
       }
 
@@ -561,6 +563,14 @@ public static partial class E_CILPhysical
          get
          {
             return this._md;
+         }
+      }
+
+      public ISet<TableIndex> DuplicatesThisRound
+      {
+         get
+         {
+            return this._duplicatesThisRound;
          }
       }
 
@@ -600,6 +610,38 @@ public static partial class E_CILPhysical
             this._updatedAny = true;
          }
       }
+   }
+
+   private sealed class MetaDataReOrderState
+   {
+      private readonly IDictionary<Tables, ISet<Int32>> _duplicates;
+
+      internal MetaDataReOrderState()
+      {
+         this._duplicates = new Dictionary<Tables, ISet<Int32>>();
+      }
+
+      public IDictionary<Tables, ISet<Int32>> Duplicates
+      {
+         get
+         {
+            return this._duplicates;
+         }
+      }
+
+      public void MarkDuplicate( Tables table, Int32 idx )
+      {
+         this._duplicates
+            .GetOrAdd_NotThreadSafe( table, t => new HashSet<Int32>() )
+            .Add( idx );
+      }
+
+      //public Boolean IsDuplicate( Tables table, Int32 idx )
+      //{
+      //   ISet<Int32> set;
+      //   return this._duplicates.TryGetValue( table, out set )
+      //      && set.Contains( idx );
+      //}
    }
 
    public static Boolean IsHasThis( this SignatureStarters starter )
@@ -946,10 +988,14 @@ public static partial class E_CILPhysical
       md.ReOrderStructuralTables( allTableIndices );
 
       // Keep updating and removing duplicates from TypeRef, TypeSpec, MemberRef, MethodSpec, StandaloneSignature and Property tables, while updating all signatures and IL code
-      md.UpdateSignaturesAndILWhileRemovingDuplicates( allTableIndices );
+      var reorderState = new MetaDataReOrderState();
+      md.UpdateSignaturesAndILWhileRemovingDuplicates( allTableIndices, reorderState );
 
       // Update and sort the remaining tables which don't have signatures
       md.UpdateAndSortTablesWithNoSignatures( allTableIndices );
+
+      // Remove duplicates
+      md.RemoveDuplicatesAfterSorting( reorderState );
       return allTableIndices;
    }
 
@@ -1041,8 +1087,6 @@ public static partial class E_CILPhysical
                   .Add( nested );
             nestedTypeIndices.Add( nested );
          }
-
-
          // Now we can sort TypeDef table
 
          // Probably most simple and efficient way is to just add nested types right after enclosing types, in BFS style and update typeDefIndices as we go.
@@ -1282,7 +1326,55 @@ public static partial class E_CILPhysical
          Comparers.CustomAttributeDefinitionComparer,
          ( ca, indices ) => ca.UpdateMDTableWithTableIndices2( indices, c => c.Parent, ( c, p ) => c.Parent = p, c => c.Type, ( c, t ) => c.Type = t )
          );
+   }
 
+   private static void RemoveDuplicatesAfterSorting( this CILMetaData md, MetaDataReOrderState reorderState )
+   {
+      foreach ( var kvp in reorderState.Duplicates )
+      {
+         var table = kvp.Key;
+         var indices = kvp.Value;
+         switch ( table )
+         {
+            case Tables.AssemblyRef:
+               md.AssemblyReferences.RemoveDuplicatesFromTable( indices );
+               break;
+            case Tables.ModuleRef:
+               md.ModuleReferences.RemoveDuplicatesFromTable( indices );
+               break;
+            case Tables.TypeSpec:
+               md.TypeSpecifications.RemoveDuplicatesFromTable( indices );
+               break;
+            case Tables.TypeRef:
+               md.TypeReferences.RemoveDuplicatesFromTable( indices );
+               break;
+            case Tables.MemberRef:
+               md.MemberReferences.RemoveDuplicatesFromTable( indices );
+               break;
+            case Tables.MethodSpec:
+               md.MethodSpecifications.RemoveDuplicatesFromTable( indices );
+               break;
+            case Tables.StandaloneSignature:
+               md.StandaloneSignatures.RemoveDuplicatesFromTable( indices );
+               break;
+         }
+      }
+   }
+
+   private static void RemoveDuplicatesFromTable<T>( this List<T> table, ISet<Int32> indices )
+   {
+      var max = table.Count;
+      for ( Int32 curIdx = 0, originalIdx = 0; originalIdx < max; ++originalIdx )
+      {
+         if ( indices.Contains( originalIdx ) )
+         {
+            table.RemoveAt( curIdx );
+         }
+         else
+         {
+            ++curIdx;
+         }
+      }
    }
 
    private static void UpdateMDTableIndices<T>( this List<T> table, Tables thisTable, Int32[][] allTableIndices, IComparer<T> comparer, Action<List<T>, Int32[][]> tableUpdateCallback )
@@ -1302,66 +1394,70 @@ public static partial class E_CILPhysical
       }
    }
 
-   private static void UpdateMDTableWithTableIndices1<T>( this List<T> table, Int32[][] tableIndices, Func<T, TableIndex> tableIndexGetter1, Action<T, TableIndex> tableIndexSetter1, Func<T, TableIndex, Boolean> rowAdditionalCheck = null )
+   private static void UpdateMDTableWithTableIndices1<T>( this List<T> table, Int32[][] tableIndices, Func<T, TableIndex> tableIndexGetter1, Action<T, TableIndex> tableIndexSetter1, Func<T, Int32, TableIndex, Boolean> rowAdditionalCheck = null )
       where T : class
    {
-      foreach ( var row in table )
+      for ( var i = 0; i < table.Count; ++i )
       {
-         row.ProcessSingleTableIndexToUpdate( tableIndices, tableIndexGetter1, tableIndexSetter1, rowAdditionalCheck );
+         var row = table[i];
+         row.ProcessSingleTableIndexToUpdate( i, tableIndices, tableIndexGetter1, tableIndexSetter1, rowAdditionalCheck );
       }
    }
 
-   private static void UpdateMDTableWithTableIndices1Nullable<T>( this List<T> table, Int32[][] tableIndices, Func<T, TableIndex?> tableIndexGetter1, Action<T, TableIndex> tableIndexSetter1, Func<T, TableIndex, Boolean> rowAdditionalCheck = null )
+   private static void UpdateMDTableWithTableIndices1Nullable<T>( this List<T> table, Int32[][] tableIndices, Func<T, TableIndex?> tableIndexGetter1, Action<T, TableIndex> tableIndexSetter1, Func<T, Int32, TableIndex, Boolean> rowAdditionalCheck = null )
       where T : class
    {
-      foreach ( var row in table )
+      for ( var i = 0; i < table.Count; ++i )
       {
-         row.ProcessSingleTableIndexToUpdateNullable( tableIndices, tableIndexGetter1, tableIndexSetter1, rowAdditionalCheck );
+         var row = table[i];
+         row.ProcessSingleTableIndexToUpdateNullable( i, tableIndices, tableIndexGetter1, tableIndexSetter1, rowAdditionalCheck );
       }
    }
 
    private static void UpdateMDTableWithTableIndices2<T>( this List<T> table, Int32[][] tableIndices, Func<T, TableIndex> tableIndexGetter1, Action<T, TableIndex> tableIndexSetter1, Func<T, TableIndex> tableIndexGetter2, Action<T, TableIndex> tableIndexSetter2 )
       where T : class
    {
-      foreach ( var row in table )
+      for ( var i = 0; i < table.Count; ++i )
       {
-         row.ProcessSingleTableIndexToUpdate( tableIndices, tableIndexGetter1, tableIndexSetter1, null );
-         row.ProcessSingleTableIndexToUpdate( tableIndices, tableIndexGetter2, tableIndexSetter2, null );
+         var row = table[i];
+         row.ProcessSingleTableIndexToUpdate( i, tableIndices, tableIndexGetter1, tableIndexSetter1, null );
+         row.ProcessSingleTableIndexToUpdate( i, tableIndices, tableIndexGetter2, tableIndexSetter2, null );
       }
    }
 
    private static void UpdateMDTableWithTableIndices3<T>( this List<T> table, Int32[][] tableIndices, Func<T, TableIndex> tableIndexGetter1, Action<T, TableIndex> tableIndexSetter1, Func<T, TableIndex> tableIndexGetter2, Action<T, TableIndex> tableIndexSetter2, Func<T, TableIndex> tableIndexGetter3, Action<T, TableIndex> tableIndexSetter3 )
       where T : class
    {
-      foreach ( var row in table )
+      for ( var i = 0; i < table.Count; ++i )
       {
-         row.ProcessSingleTableIndexToUpdate( tableIndices, tableIndexGetter1, tableIndexSetter1, null );
-         row.ProcessSingleTableIndexToUpdate( tableIndices, tableIndexGetter2, tableIndexSetter2, null );
-         row.ProcessSingleTableIndexToUpdate( tableIndices, tableIndexGetter3, tableIndexSetter3, null );
+         var row = table[i];
+         row.ProcessSingleTableIndexToUpdate( i, tableIndices, tableIndexGetter1, tableIndexSetter1, null );
+         row.ProcessSingleTableIndexToUpdate( i, tableIndices, tableIndexGetter2, tableIndexSetter2, null );
+         row.ProcessSingleTableIndexToUpdate( i, tableIndices, tableIndexGetter3, tableIndexSetter3, null );
       }
    }
 
-   private static void ProcessSingleTableIndexToUpdate<T>( this T row, Int32[][] tableIndices, Func<T, TableIndex> tableIndexGetter, Action<T, TableIndex> tableIndexSetter, Func<T, TableIndex, Boolean> rowAdditionalCheck )
+   private static void ProcessSingleTableIndexToUpdate<T>( this T row, Int32 rowIndex, Int32[][] tableIndices, Func<T, TableIndex> tableIndexGetter, Action<T, TableIndex> tableIndexSetter, Func<T, Int32, TableIndex, Boolean> rowAdditionalCheck )
       where T : class
    {
       if ( row != null )
       {
-         row.ProcessSingleTableIndexToUpdateWithTableIndex( tableIndices, tableIndexGetter( row ), tableIndexSetter, rowAdditionalCheck );
+         row.ProcessSingleTableIndexToUpdateWithTableIndex( rowIndex, tableIndices, tableIndexGetter( row ), tableIndexSetter, rowAdditionalCheck );
       }
    }
 
-   private static void ProcessSingleTableIndexToUpdateWithTableIndex<T>( this T row, Int32[][] tableIndices, TableIndex tableIndex, Action<T, TableIndex> tableIndexSetter, Func<T, TableIndex, Boolean> rowAdditionalCheck )
+   private static void ProcessSingleTableIndexToUpdateWithTableIndex<T>( this T row, Int32 rowIndex, Int32[][] tableIndices, TableIndex tableIndex, Action<T, TableIndex> tableIndexSetter, Func<T, Int32, TableIndex, Boolean> rowAdditionalCheck )
       where T : class
    {
       var table = tableIndex.Table;
       var newIndex = tableIndices[(Int32) table][tableIndex.Index];
-      if ( newIndex != tableIndex.Index && ( rowAdditionalCheck == null || rowAdditionalCheck( row, tableIndex ) ) )
+      if ( newIndex != tableIndex.Index && ( rowAdditionalCheck == null || rowAdditionalCheck( row, rowIndex, tableIndex ) ) )
       {
          tableIndexSetter( row, new TableIndex( table, newIndex ) );
       }
    }
 
-   private static void ProcessSingleTableIndexToUpdateNullable<T>( this T row, Int32[][] tableIndices, Func<T, TableIndex?> tableIndexGetter, Action<T, TableIndex> tableIndexSetter, Func<T, TableIndex, Boolean> rowAdditionalCheck )
+   private static void ProcessSingleTableIndexToUpdateNullable<T>( this T row, Int32 rowIndex, Int32[][] tableIndices, Func<T, TableIndex?> tableIndexGetter, Action<T, TableIndex> tableIndexSetter, Func<T, Int32, TableIndex, Boolean> rowAdditionalCheck )
       where T : class
    {
       if ( row != null )
@@ -1369,7 +1465,7 @@ public static partial class E_CILPhysical
          var tIdx = tableIndexGetter( row );
          if ( tIdx.HasValue )
          {
-            row.ProcessSingleTableIndexToUpdateWithTableIndex( tableIndices, tIdx.Value, tableIndexSetter, rowAdditionalCheck );
+            row.ProcessSingleTableIndexToUpdateWithTableIndex( rowIndex, tableIndices, tIdx.Value, tableIndexSetter, rowAdditionalCheck );
          }
       }
    }
@@ -1446,13 +1542,15 @@ public static partial class E_CILPhysical
             var curTD = referencingTable[tIdx];
 
             // Inclusive min (the method where current typedef points to)
-            var min = thisTableIndices[referenceIndexGetter( curTD )];
+            var originalMin = referenceIndexGetter( curTD );
 
             // The count must be pre-calculated - we can't use typedef table to calculate that, as this for loop modifies the reference (e.g. MethodList property of TypeDefinition)
             var blockCount = referenceCountGetter( curTD );
 
             if ( blockCount > 0 )
             {
+               var min = thisTableIndices[originalMin];
+
                for ( var i = 0; i < blockCount; ++i )
                {
                   var thisMethodIndex = mIdx + i;
@@ -1470,43 +1568,43 @@ public static partial class E_CILPhysical
       }
    }
 
-   // Assumes list is sorted
-   private static Boolean CheckMDDuplicatesSorted<T>( List<T> list, Int32[] indices, Func<T, T, Boolean> duplicateComparer )
+   //// Assumes list is sorted
+   //private static Boolean CheckMDDuplicatesSorted<T>( List<T> list, Int32[] indices, Func<T, T, Boolean> duplicateComparer )
+   //   where T : class
+   //{
+   //   var foundDuplicates = false;
+   //   var count = list.Count;
+   //   if ( count > 1 )
+   //   {
+   //      var prevNotNullIndex = 0;
+   //      for ( var i = 1; i < count; ++i )
+   //      {
+   //         if ( duplicateComparer( list[i], list[prevNotNullIndex] ) )
+   //         {
+   //            if ( !foundDuplicates )
+   //            {
+   //               foundDuplicates = true;
+   //            }
+
+   //            list.AfterFindingDuplicate( indices, i, prevNotNullIndex );
+   //         }
+   //         else
+   //         {
+   //            prevNotNullIndex = i;
+   //         }
+   //      }
+   //   }
+
+   //   return foundDuplicates;
+   //}
+
+   private static Boolean CheckMDDuplicatesUnsorted<T>( this List<T> list, Int32[] indices, Tables table, MetaDataReOrderState reorderState, IEqualityComparer<T> comparer )
       where T : class
    {
-      var foundDuplicates = false;
-      var count = list.Count;
-      if ( count > 1 )
-      {
-         var prevNotNullIndex = 0;
-         for ( var i = 1; i < count; ++i )
-         {
-            if ( duplicateComparer( list[i], list[prevNotNullIndex] ) )
-            {
-               if ( !foundDuplicates )
-               {
-                  foundDuplicates = true;
-               }
-
-               list.AfterFindingDuplicate( indices, i, prevNotNullIndex );
-            }
-            else
-            {
-               prevNotNullIndex = i;
-            }
-         }
-      }
-
-      return foundDuplicates;
+      return list.CheckMDDuplicatesUnsorted( indices, table, reorderState, ( x, y ) => comparer.Equals( list[x], list[y] ), x => comparer.GetHashCode( list[x] ) );
    }
 
-   private static Boolean CheckMDDuplicatesUnsorted<T>( this List<T> list, Int32[] indices, IEqualityComparer<T> comparer )
-      where T : class
-   {
-      return list.CheckMDDuplicatesUnsorted( indices, ( x, y ) => comparer.Equals( list[x], list[y] ), x => comparer.GetHashCode( list[x] ) );
-   }
-
-   private static Boolean CheckMDDuplicatesUnsorted<T>( this List<T> list, Int32[] indices, Func<Int32, Int32, Boolean> duplicateComparer, Func<Int32, Int32> hashCode )
+   private static Boolean CheckMDDuplicatesUnsorted<T>( this List<T> list, Int32[] indices, Tables table, MetaDataReOrderState reorderState, Func<Int32, Int32, Boolean> duplicateComparer, Func<Int32, Int32> hashCode )
       where T : class
    {
       var foundDuplicates = false;
@@ -1518,6 +1616,8 @@ public static partial class E_CILPhysical
          {
             if ( list[i] != null && !set.Add( i ) )
             {
+               reorderState.MarkDuplicate( table, i );
+
                if ( !foundDuplicates )
                {
                   foundDuplicates = true;
@@ -1529,8 +1629,12 @@ public static partial class E_CILPhysical
                   ++actualIndex;
                }
 
-               list.AfterFindingDuplicate( indices, i, actualIndex );
+               // Mark as duplicate - replace value with null
+               list[i] = null;
+
+               list.AfterFindingDuplicate( indices, indices[i], indices[actualIndex] );
             }
+
          }
       }
 
@@ -1540,16 +1644,16 @@ public static partial class E_CILPhysical
    private static void AfterFindingDuplicate<T>( this List<T> list, Int32[] indices, Int32 current, Int32 prevNotNullIndex )
       where T : class
    {
-      // Mark as duplicate - replace value with null
-      list[current] = null;
-
       // Update index which point to this to point to previous instead
       for ( var j = 0; j < indices.Length; ++j )
       {
          if ( indices[j] == current )
          {
             indices[j] = prevNotNullIndex;
-            break;
+         }
+         else if ( indices[j] > current )
+         {
+            --indices[j];
          }
       }
    }
@@ -1572,13 +1676,13 @@ public static partial class E_CILPhysical
       }
    }
 
-   private static void UpdateSignaturesAndILWhileRemovingDuplicates( this CILMetaData md, Int32[][] tableIndices )
+   private static void UpdateSignaturesAndILWhileRemovingDuplicates( this CILMetaData md, Int32[][] tableIndices, MetaDataReOrderState reorderState )
    {
       // Remove duplicates from AssemblyRef table (since reordering of the TypeRef table will require the indices in this table to be present)
       // ECMA-335: The AssemblyRef table shall contain no duplicates (where duplicate rows are deemd  to be those having the same MajorVersion, MinorVersion, BuildNumber, RevisionNumber, PublicKeyOrToken, Name, and Culture) [WARNING] 
       var aRefs = md.AssemblyReferences;
       var aRefIndices = CreateIndexArray( aRefs.Count );
-      aRefs.CheckMDDuplicatesUnsorted( aRefIndices, ( x, y ) =>
+      aRefs.CheckMDDuplicatesUnsorted( aRefIndices, Tables.AssemblyRef, reorderState, ( x, y ) =>
       {
          var xRef = aRefs[x];
          var yRef = aRefs[y];
@@ -1589,7 +1693,7 @@ public static partial class E_CILPhysical
       // ECMA-335: There should be no duplicate rows  [WARNING] 
       var mRefs = md.ModuleReferences;
       var mRefIndices = CreateIndexArray( mRefs.Count );
-      mRefs.CheckMDDuplicatesUnsorted( mRefIndices, ( x, y ) => String.Equals( mRefs[x].ModuleName, mRefs[y].ModuleName ), x => mRefs[x].ModuleName.GetHashCodeSafe() );
+      mRefs.CheckMDDuplicatesUnsorted( mRefIndices, Tables.ModuleRef, reorderState, ( x, y ) => String.Equals( mRefs[x].ModuleName, mRefs[y].ModuleName ), x => mRefs[x].ModuleName.GetHashCodeSafe() );
 
       // ECMA-335: IL tokens shall be from TypeDef, TypeRef, TypeSpec, MethodDef, FieldDef, MemberRef, MethodSpec or StandaloneSignature tables.
       // All table indices in signatures should only ever reference TypeDef, TypeRef or TypeSpec tables.
@@ -1617,40 +1721,45 @@ public static partial class E_CILPhysical
       // This has to be done in loop since modifying e.g. type specs will modify signatures, and thus might result in more typeref, typespec or memberref duplicates
       do
       {
+         var startingDuplicates = new HashSet<TableIndex>( reorderState.Duplicates.SelectMany( kvp => kvp.Value.Select( i => new TableIndex( kvp.Key, i ) ) ) );
+
          // ECMA-335:  There shall be no duplicate rows, where a duplicate has the same ResolutionScope, TypeName and TypeNamespace  [ERROR] 
          tRefs.UpdateMDTableWithTableIndices1Nullable(
             tableIndices,
             tRef => tRef.ResolutionScope,
             ( tRef, resScope ) => tRef.ResolutionScope = resScope,
-            ( tRef, resScope ) => updateState.CheckRowTableIndexWhenHandlingSignatures( resScope, tRef )
+            ( tRef, tRefIdx, resScope ) => updateState.CheckRowTableIndexWhenHandlingSignatures( resScope, new TableIndex( Tables.TypeRef, tRefIdx ) )
             );
-         removedTypeRefDuplicates = tRefs.CheckMDDuplicatesUnsorted( tableIndices[(Int32) Tables.TypeRef], Comparers.TypeReferenceEqualityComparer );
+         removedTypeRefDuplicates = tRefs.CheckMDDuplicatesUnsorted( tableIndices[(Int32) Tables.TypeRef], Tables.TypeRef, reorderState, Comparers.TypeReferenceEqualityComparer );
 
          // ECMA-335: There shall be no duplicate rows, based upon Signature  [ERROR] 
-         removedTSpecDuplicates = tSpecs.CheckMDDuplicatesUnsorted( tableIndices[(Int32) Tables.TypeSpec], Comparers.TypeSpecificationEqualityComparer );
+         removedTSpecDuplicates = tSpecs.CheckMDDuplicatesUnsorted( tableIndices[(Int32) Tables.TypeSpec], Tables.TypeSpec, reorderState, Comparers.TypeSpecificationEqualityComparer );
 
          // ECMA-335:  The MemberRef table shall contain no duplicates, where duplicate rows have the same Class, Name, and Signature  [WARNING] 
          memberRefs.UpdateMDTableWithTableIndices1(
             tableIndices,
             mRef => mRef.DeclaringType,
             ( mRef, dType ) => mRef.DeclaringType = dType,
-            ( mRef, dType ) => updateState.CheckRowTableIndexWhenHandlingSignatures( dType, mRef )
+            ( mRef, mRefIdx, dType ) => updateState.CheckRowTableIndexWhenHandlingSignatures( dType, new TableIndex( Tables.MemberRef, mRefIdx ) )
             );
-         removedMemberRefDuplicates = memberRefs.CheckMDDuplicatesUnsorted( tableIndices[(Int32) Tables.MemberRef], Comparers.MemberReferenceEqualityComparer );
+         removedMemberRefDuplicates = memberRefs.CheckMDDuplicatesUnsorted( tableIndices[(Int32) Tables.MemberRef], Tables.MemberRef, reorderState, Comparers.MemberReferenceEqualityComparer );
 
          // ECMA-335: There shall be no duplicate rows based upon Method+Instantiation  [ERROR] 
          mSpecs.UpdateMDTableWithTableIndices1(
             tableIndices,
             mSpec => mSpec.Method,
             ( mSpec, method ) => mSpec.Method = method,
-            ( mSpec, method ) => updateState.CheckRowTableIndexWhenHandlingSignatures( method, mSpec )
+            ( mSpec, mSpecIdx, method ) => updateState.CheckRowTableIndexWhenHandlingSignatures( method, new TableIndex( Tables.MethodSpec, mSpecIdx ) )
             );
-         removedMethodSpecDuplicates = mSpecs.CheckMDDuplicatesUnsorted( tableIndices[(Int32) Tables.MethodSpec], Comparers.MethodSpecificationEqualityComparer );
+         removedMethodSpecDuplicates = mSpecs.CheckMDDuplicatesUnsorted( tableIndices[(Int32) Tables.MethodSpec], Tables.MethodSpec, reorderState, Comparers.MethodSpecificationEqualityComparer );
 
          // ECMA-335: Duplicates allowed (but we will make them all unique anyway)
-         removedStandaloneSigDuplicates = standAloneSigs.CheckMDDuplicatesUnsorted( tableIndices[(Int32) Tables.StandaloneSignature], Comparers.StandaloneSignatureEqualityComparer );
+         removedStandaloneSigDuplicates = standAloneSigs.CheckMDDuplicatesUnsorted( tableIndices[(Int32) Tables.StandaloneSignature], Tables.StandaloneSignature, reorderState, Comparers.StandaloneSignatureEqualityComparer );
 
-         // We shall not check for property duplicates as they don't really bother this algorithm and we don't know generic enough case to handle them
+         // Calculate the duplicates
+         startingDuplicates.SymmetricExceptWith( reorderState.Duplicates.SelectMany( kvp => kvp.Value.Select( i => new TableIndex( kvp.Key, i ) ) ) );
+         updateState.DuplicatesThisRound.Clear();
+         updateState.DuplicatesThisRound.UnionWith( startingDuplicates );
 
          // Update signatures
          updateState.ResetChangedAny();
@@ -1922,14 +2031,15 @@ public static partial class E_CILPhysical
 
    private static Boolean CheckRowTableIndexWhenHandlingSignatures( this SignatureReorderState state, TableIndex index, Object parent )
    {
-      var notVisited = !state.VisitedInfo.ContainsKey( parent );// Check whether we have already visited this index
+      var visitedInfo = state.VisitedInfo;
+      var notVisited = !visitedInfo.ContainsKey( parent );// Check whether we have already visited this index
       // Even if we have already visited this, have to check here whether target is null
       // If target is null, that means that after visiting, the target became duplicate and was removed
       // So we need to update it again
-      var retVal = notVisited || state.MD.GetByTableIndex( index ) == null;
+      var retVal = notVisited || state.DuplicatesThisRound.Contains( index );
       if ( notVisited )
       {
-         state.VisitedInfo.Add( parent, parent );
+         visitedInfo.Add( parent, parent );
       }
 
       return retVal;

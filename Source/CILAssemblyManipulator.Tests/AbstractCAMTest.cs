@@ -30,6 +30,9 @@ namespace CILAssemblyManipulator.Tests
       private static readonly System.Reflection.Assembly _msCorLib = typeof( Object ).Assembly;
       private static readonly String _msCorLibLocation = new Uri( _msCorLib.CodeBase ).LocalPath;
 
+      private static readonly System.Reflection.Assembly _cam = typeof( CILMetaData ).Assembly;
+      private static readonly String _camLocation = new Uri( _cam.CodeBase ).LocalPath;
+
       protected static System.Reflection.Assembly MSCorLib
       {
          get
@@ -43,6 +46,22 @@ namespace CILAssemblyManipulator.Tests
          get
          {
             return _msCorLibLocation;
+         }
+      }
+
+      protected static System.Reflection.Assembly CAM
+      {
+         get
+         {
+            return _cam;
+         }
+      }
+
+      protected static String CAMLocation
+      {
+         get
+         {
+            return _camLocation;
          }
       }
 

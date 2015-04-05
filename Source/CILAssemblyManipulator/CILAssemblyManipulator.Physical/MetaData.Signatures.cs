@@ -1546,9 +1546,20 @@ public static partial class E_CILPhysical
             return CloneMethodRefSignature( sig as MethodReferenceSignature ) as TSignature;
          case SignatureKind.Type:
             return CloneTypeSignature( sig as TypeSignature ) as TSignature;
+         case SignatureKind.RawSignature:
+            return CloneRawSignature( sig as RawSignature ) as TSignature;
+         case SignatureKind.Property:
+            return ClonePropertySignature( sig as PropertySignature ) as TSignature;
          default:
             throw new NotSupportedException( "Invalid signature kind: " + sig.SignatureKind + "." );
       }
+   }
+
+   private static RawSignature CloneRawSignature( RawSignature sig )
+   {
+      var idx = 0;
+      var bytes = sig.Bytes;
+      return new RawSignature() { Bytes = bytes.CreateAndBlockCopyTo( ref idx, bytes.Length ) };
    }
 
    private static TypeSignature CloneTypeSignature( TypeSignature sig )
@@ -1677,6 +1688,18 @@ public static partial class E_CILPhysical
          Type = CloneTypeSignature( local.Type )
       };
       retVal.CustomModifiers.AddRange( local.CustomModifiers.CloneCustomMods() );
+      return retVal;
+   }
+
+   private static PropertySignature ClonePropertySignature( PropertySignature sig )
+   {
+      var retVal = new PropertySignature( sig.CustomModifiers.Count, sig.Parameters.Count )
+      {
+         HasThis = sig.HasThis,
+         PropertyType = CloneTypeSignature( sig.PropertyType )
+      };
+      retVal.CustomModifiers.AddRange( sig.CustomModifiers.CloneCustomMods() );
+      retVal.Parameters.AddRange( sig.Parameters.Select( p => CloneParameterSignature( p ) ) );
       return retVal;
    }
 
