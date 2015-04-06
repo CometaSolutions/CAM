@@ -461,4 +461,53 @@ public static partial class E_CommonUtils
       }
    }
 
+   /// <summary>
+   /// Checks whether two arrays are of same size and they have the same elements.
+   /// </summary>
+   /// <typeparam name="T">The type of array elements.</typeparam>
+   /// <param name="x">The first array.</param>
+   /// <param name="y">The second array.</param>
+   /// <param name="comparer">The optional equality comparer for array elements.</param>
+   /// <returns><c>true</c> if <paramref name="x"/> and <paramref name="y"/> are of same size and have same elements; <c>false</c> otherwise.</returns>
+   public static Boolean ArraysDeepEquals<T>( this T[] x, T[] y, IEqualityComparer<T> comparer = null )
+   {
+      var retVal = ReferenceEquals( x, y );
+      if ( !retVal && x != null && y != null && x.Length == y.Length && x.Length > 0 )
+      {
+         if ( comparer == null )
+         {
+            comparer = EqualityComparer<T>.Default;
+         }
+         var max = x.Length;
+         var i = 0;
+         for ( ; i < max && comparer.Equals( x[i], y[i] ); ++i ) ;
+         retVal = i == max;
+      }
+
+      return retVal;
+   }
+
+   /// <summary>
+   /// Method for checking whether two arrays are of same size and they have the same elements, when the type of array elements is unknown.
+   /// </summary>
+   /// <param name="x">The first array.</param>
+   /// <param name="y">The second array.</param>
+   /// <param name="comparer">The optional equality comparer for array elements.</param>
+   /// <returns><c>true</c> if <paramref name="x"/> and <paramref name="y"/> are of same size and have same elements; <c>false</c> otherwise.</returns>
+   public static Boolean ArraysDeepEqualUntyped( this Array x, Array y, IEqualityComparer<Object> comparer = null )
+   {
+      var retVal = ReferenceEquals( x, y );
+      if ( !retVal && x != null && y != null && x.Length == y.Length && x.Length > 0 && x.Rank == y.Rank )
+      {
+         if ( comparer == null )
+         {
+            comparer = EqualityComparer<Object>.Default;
+         }
+         var max = x.Length;
+         var i = 0;
+         for ( ; i < max && comparer.Equals( x.GetValue( i ), y.GetValue( i ) ); ++i ) ;
+         retVal = i == max;
+      }
+      return retVal;
+   }
 }

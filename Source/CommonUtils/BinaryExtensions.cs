@@ -1535,4 +1535,18 @@ public static partial class E_CommonUtils
       } while ( cont );
       return array;
    }
+
+   /// <summary>
+   /// Fills array with zeroes, starting at specified offset and writing specified amount of zeroes.
+   /// </summary>
+   /// <param name="array">The byte array.</param>
+   /// <param name="idx">The index to start. Will be incremented by <paramref name="count"/> when this method finishes.</param>
+   /// <param name="count">The amount of zeroes to write.</param>
+   /// <returns>The <paramref name="array"/>.</returns>
+   public static Byte[] ZeroOut( this Byte[] array, ref Int32 idx, Int32 count )
+   {
+      array.FillWithOffsetAndCount( idx, count, (Byte) 0 );
+      idx += count;
+      return array;
+   }
 }

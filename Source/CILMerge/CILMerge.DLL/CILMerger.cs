@@ -1819,29 +1819,18 @@ namespace CILMerge
 
       public void Dispose()
       {
-         try
+         Exception pdbException;
+         var pdbOK = this._pdbHelper.DisposeSafely( out pdbException );
+         Exception cspException = null;
+         var cspOK = !this._csp.IsValueCreated || this._csp.Value.DisposeSafely( out cspException );
+         if ( !pdbOK )
          {
-            var pdb = this._pdbHelper;
-            if ( pdb != null )
-            {
-               pdb.Dispose();
-            }
-            if ( this._csp.IsValueCreated )
-            {
-               this._csp.Value.Dispose();
-            }
+            throw this.NewCILMergeException( ExitCode.ErrorWritingPDB, "Error writing PDB file for " + this._options.OutPath + ".", pdbException );
          }
-         catch ( Exception exc )
+         if ( !cspOK )
          {
-            //if ( exc is PDBException )
-            //{
-            throw this.NewCILMergeException( ExitCode.ErrorWritingPDB, "Error writing PDB file for " + this._options.OutPath + ".", exc );
-            //}
-            //else
-            //{
-            //throw this.NewCILMergeException( ExitCode.ErrorAccessingTargetPDB, "Error accessing target PDB file for " + this._options.OutPath + ".", exc );
-            //}
-
+            // TODO log
+            this.Log( MessageLevel.Info, "Error while disposing CSP provider: {0}.", cspException.Message );
          }
       }
 

@@ -260,34 +260,66 @@ namespace CILAssemblyManipulator.Physical.Implementation
          // Amount of sections
          var amountOfSections = stream.ReadU16( tmpArray );
 
-         // Skip timestamp, symbol table pointer, number of symbols
-         stream.SeekFromCurrent( 12 );
-
-         // Optional header size
-         stream.ReadU16( tmpArray );
+         // Skip timestamp, symbol table pointer, number of symbols, optional header size
+         stream.SeekFromCurrent( 14 );
 
          // Characteristics
          var characteristics = stream.ReadU16( tmpArray );
 
          // PE Optional header
-         // Skip standard fields and all NT-specific fields until subsystem
-         stream.SeekFromCurrent( 68 ); // Value is the same for both pe32 & pe64, since BaseOfData is lacking from pe64
+         // Skip magic
+         stream.SeekFromCurrent( 2 );
+         headers.LinkerMajor = stream.ReadByteFromStream();
+         headers.LinkerMinor = stream.ReadByteFromStream();
+
+         // Skip sizes (x3)
+         stream.SeekFromCurrent( 12 );
+         var nativeEPRVA = stream.ReadU32( tmpArray );
+
+         // Skip base of code, and base of data (base of data is not stored in pe64 files)
+         var isPE64 = architecture.RequiresPE64();
+         stream.SeekFromCurrent( isPE64 ? 4 : 8 );
+
+         headers.ImageBase = isPE64 ? stream.ReadU64( tmpArray ) : stream.ReadU32( tmpArray );
+         headers.SectionAlignment = stream.ReadU32( tmpArray );
+         headers.FileAlignment = stream.ReadU32( tmpArray );
+         headers.OSMajor = stream.ReadU16( tmpArray );
+         headers.OSMinor = stream.ReadU16( tmpArray );
+         headers.UserMajor = stream.ReadU16( tmpArray );
+         headers.UserMinor = stream.ReadU16( tmpArray );
+         headers.SubSysMajor = stream.ReadU16( tmpArray );
+         headers.SubSysMinor = stream.ReadU16( tmpArray );
+
+         // Skip reserved, image size, header size, file checksum
+         stream.SeekFromCurrent( 16 );
 
          // Subsystem
          var subsystem = stream.ReadU16( tmpArray );
 
          // DLL flags
          var dllFlags = (DLLFlags) stream.ReadU16( tmpArray );
+         headers.HighEntropyVA = dllFlags.HasFlag( DLLFlags.HighEntropyVA );
 
+         // Stack reserve, stack commit, heap reserve, heap commit
+         headers.StackReserve = isPE64 ? stream.ReadU64( tmpArray ) : stream.ReadU32( tmpArray );
+         headers.StackCommit = isPE64 ? stream.ReadU64( tmpArray ) : stream.ReadU32( tmpArray );
+         headers.HeapReserve = isPE64 ? stream.ReadU64( tmpArray ) : stream.ReadU32( tmpArray );
+         headers.HeapCommit = isPE64 ? stream.ReadU64( tmpArray ) : stream.ReadU32( tmpArray );
+
+         // Skip to import directory
+         stream.SeekFromCurrent( 16 );
+         var importDD = new DataDir( stream, tmpArray );
 
          // Skip to debug header
-         stream.SeekFromCurrent( architecture.RequiresPE64() ? 88 : 72 ); // PE64 requires 8 bytes for stack reserve & commit sizes, and heap reserve & commit sizes
+         stream.SeekFromCurrent( 32 );
          var debugDD = new DataDir( stream, tmpArray );
 
-         // Skip to CLI header
-         stream.SeekFromCurrent( 56 );
+         // Skip to IAT header
+         stream.SeekFromCurrent( 40 );
+         var iatDD = new DataDir( stream, tmpArray );
 
-         // CLI header
+         // Skip to CLI header
+         stream.SeekFromCurrent( 8 );
          var cliDD = new DataDir( stream, tmpArray );
 
          // Reserved
@@ -297,6 +329,7 @@ namespace CILAssemblyManipulator.Physical.Implementation
          var sections = new SectionInfo[amountOfSections];
          for ( var i = 0u; i < amountOfSections; ++i )
          {
+            // Outdated comment but still relevant for actual bug related to positional arguments:
             // VS2012 evaluates positional arguments from left to right, so creating Tuple should work correctly
             // This is not so in VS2010 ( see http://msdn.microsoft.com/en-us/library/hh678682.aspx )
             stream.ReadWholeArray( tmpArray ); // tmpArray is 8 bytes long
@@ -311,14 +344,40 @@ namespace CILAssemblyManipulator.Physical.Implementation
             stream.SeekFromCurrent( 16 );
          }
 
-         // CLI header, skip magic and runtime versions
-         stream.SeekFromBegin( ResolveRVA( cliDD.rva, sections ) + 8 );
+         if ( importDD.rva > 0 )
+         {
+            // Read Import table
+            stream.SeekFromBegin( ResolveRVA( importDD.rva, sections ) + 12 );
+            var importRVA = stream.ReadU32( tmpArray );
+            stream.SeekFromBegin( ResolveRVA( importRVA, sections ) );
+            headers.ImportDirectoryName = stream.ReadZeroTerminatedASCIIString();
+         }
+
+         if ( iatDD.rva > 0 )
+         {
+            // Read IAT for hint name
+            stream.SeekFromBegin( ResolveRVA( iatDD.rva, sections ) );
+            var hnRVA = stream.ReadU32( tmpArray );
+            stream.SeekFromBegin( ResolveRVA( hnRVA, sections ) + 2 );
+            headers.ImportHintName = stream.ReadZeroTerminatedASCIIString();
+         }
+
+         if ( nativeEPRVA > 0 )
+         {
+            stream.SeekFromBegin( ResolveRVA( nativeEPRVA, sections ) );
+            headers.EntryPointInstruction = stream.ReadI16( tmpArray );
+         }
+
+         // CLI header, skip magic
+         stream.SeekFromBegin( ResolveRVA( cliDD.rva, sections ) + 4 );
+         headers.CLIMajor = stream.ReadU16( tmpArray );
+         headers.CLIMinor = stream.ReadU16( tmpArray );
 
          // Metadata datadirectory
          var mdDD = new DataDir( stream, tmpArray );
 
          // Module flags
-         var moduleFlags = (ModuleFlags) stream.ReadU32( tmpArray );
+         headers.ModuleFlags = (ModuleFlags) stream.ReadU32( tmpArray );
 
          // Entrypoint token
          var epToken = stream.ReadI32( tmpArray );
@@ -345,6 +404,26 @@ namespace CILAssemblyManipulator.Physical.Implementation
             headers
             );
 
+         // Read debug info
+         if ( debugDD.rva > 0 )
+         {
+            stream.SeekFromBegin( ResolveRVA( debugDD.rva, sections ) );
+            var dbg = new EmittingDebugInformation( false )
+            {
+               Characteristics = stream.ReadI32( tmpArray ),
+               Timestamp = stream.ReadI32( tmpArray ),
+               VersionMajor = stream.ReadI16( tmpArray ),
+               VersionMinor = stream.ReadI16( tmpArray ),
+               DebugType = stream.ReadI32( tmpArray )
+            };
+            var data = new Byte[stream.ReadI32( tmpArray )];
+            var dataRVA = stream.ReadU32( tmpArray );
+            var dataPtr = stream.ReadU32( tmpArray );
+            stream.SeekFromBegin( dataPtr );
+            stream.ReadWholeArray( data );
+            dbg.DebugData = data;
+            headers.DebugInformation = dbg;
+         }
 
          return retVal;
       }

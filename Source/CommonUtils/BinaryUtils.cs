@@ -265,5 +265,49 @@ namespace CommonUtils
       {
          return ( x * y ) / GCD64( x, y );
       }
+
+      /// <summary>
+      /// Returns greatest power of 2 less than or equal to given number.
+      /// </summary>
+      /// <param name="x">The number.</param>
+      /// <returns>The greatest power of 2 less than or equal to <paramref name="x"/>.</returns>
+      [CLSCompliant( false )]
+      public static UInt32 FLP2( UInt32 x )
+      {
+         return ( 1u << Log2( x ) );
+      }
+
+      /// <summary>
+      /// Returns greatest power of 2 less than or equal to given number.
+      /// </summary>
+      /// <param name="x">The number.</param>
+      /// <returns>The greatest power of 2 less than or equal to <paramref name="x"/>.</returns>
+      [CLSCompliant( false )]
+      public static UInt64 FLP2( UInt64 x )
+      {
+         return ( 1u << Log2( x ) );
+      }
+
+      /// <summary>
+      /// Returns least power of 2 greater than or equal to given number.
+      /// </summary>
+      /// <param name="x">The number.</param>
+      /// <returns>The least power of 2 greater than or equal to <paramref name="x"/>.</returns>
+      [CLSCompliant( false )]
+      public static UInt32 CLP2( UInt32 x )
+      {
+         return x == 0 ? 0 : ( 1u << ( 1 + Log2( x - 1 ) ) );
+      }
+
+      /// <summary>
+      /// Returns least power of 2 greater than or equal to given number.
+      /// </summary>
+      /// <param name="x">The number.</param>
+      /// <returns>The least power of 2 greater than or equal to <paramref name="x"/>.</returns>
+      [CLSCompliant( false )]
+      public static UInt64 CLP2( UInt64 x )
+      {
+         return x == 0 ? 0 : ( 1ul << ( 1 + Log2( x - 1 ) ) );
+      }
    }
 }

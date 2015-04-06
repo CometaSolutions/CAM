@@ -119,6 +119,8 @@ namespace CILAssemblyManipulator.Physical
       private static IComparer<TableIndex> _MemberForwardedComparer = null;
       private static IComparer<TableIndex> _TypeOrMethodDefComparer = null;
 
+      private static IEqualityComparer<Object> _CAValueEqualityComparer = ComparerFromFunctions.NewEqualityComparer<Object>( Equality_CustomAttributeValue, x => { throw new NotSupportedException(); } );
+
       public static IEqualityComparer<CILMetaData> MetaDataComparer
       {
          get
@@ -2029,27 +2031,7 @@ namespace CILAssemblyManipulator.Physical
 
       private static Boolean Equality_CustomAttributeValue( Object x, Object y )
       {
-         return Object.Equals( x, y ) || Equality_Arrays_NoReferenceEquals( x as Array, y as Array );
-      }
-
-      private static Boolean Equality_Arrays_NoReferenceEquals( Array x, Array y )
-      {
-         // TODO move this method to utilpack
-         var retVal = x != null && y != null && x.Length == y.Length; // Arrays only supported for custom attribute values, and only simple arrays, so checking for multiple dimensions is not required here
-         if ( retVal )
-         {
-            var max = x.Length;
-            for ( var i = 0; i < max; ++i )
-            {
-               if ( !Equality_CustomAttributeValue( x.GetValue( i ), y.GetValue( i ) ) )
-               {
-                  retVal = false;
-                  break;
-               }
-            }
-         }
-
-         return retVal;
+         return Object.Equals( x, y ) || ( x as Array ).ArraysDeepEqualUntyped( y as Array, _CAValueEqualityComparer );
       }
 
       private static Boolean Equality_CustomAttributeNamedArgument( CustomAttributeNamedArgument x, CustomAttributeNamedArgument y )

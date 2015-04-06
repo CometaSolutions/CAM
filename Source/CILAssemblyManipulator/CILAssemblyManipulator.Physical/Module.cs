@@ -373,8 +373,16 @@ namespace CILAssemblyManipulator.Physical
       /// Creates new instance of <see cref="EmittingDebugInformation"/>.
       /// </summary>
       public EmittingDebugInformation()
+         : this( true )
       {
+      }
 
+      internal EmittingDebugInformation( Boolean setDefaults )
+      {
+         if ( setDefaults )
+         {
+            this._type = MetaDataConstants.CODE_VIEW_DEBUG_TYPE;
+         }
       }
 
       /// <summary>
@@ -445,6 +453,7 @@ namespace CILAssemblyManipulator.Physical
       /// Gets or sets the type field of the debug directory.
       /// </summary>
       /// <value>The field of the debug directory.</value>
+      /// <remarks>By default this is <c>CodeView</c> debug type (<c>2</c>).</remarks>
       public Int32 DebugType
       {
          get

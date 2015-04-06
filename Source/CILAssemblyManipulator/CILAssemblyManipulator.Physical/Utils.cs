@@ -832,11 +832,15 @@ namespace CILAssemblyManipulator.Physical
       }
 
 
-      internal static String ReadZeroTerminatedASCIIString( this Stream stream, UInt32 length )
+      internal static String ReadZeroTerminatedASCIIString( this Stream stream )
       {
-         var buf = new Byte[length];
-         stream.ReadWholeArray( buf );
-         return buf.ReadZeroTerminatedASCIIStringFromBytes();
+         Byte b;
+         var bytez = new List<Byte>();
+         while ( ( b = stream.ReadByteFromStream() ) != 0 )
+         {
+            bytez.Add( b );
+         }
+         return bytez.ToArray().ReadZeroTerminatedASCIIStringFromBytes();
       }
 
       internal static String ReadAlignedASCIIString( this Stream stream, Int32 maxLength )

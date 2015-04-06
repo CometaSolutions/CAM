@@ -117,7 +117,8 @@ namespace CILAssemblyManipulator.Physical.Implementation
          byteArrayHelper.EnsureSize( curArrayLen );
          currentArray = byteArrayHelper.Array;
          var characteristics = HeaderFieldPossibleValues.IMAGE_FILE_EXECUTABLE_IMAGE | ( isPE64 ? HeaderFieldPossibleValues.IMAGE_FILE_LARGE_ADDRESS_AWARE : HeaderFieldPossibleValues.IMAGE_FILE_32BIT_MACHINE );
-         if ( moduleKind.IsDLL() )
+         var isDLL = moduleKind.IsDLL();
+         if ( isDLL )
          {
             characteristics |= HeaderFieldPossibleValues.IMAGE_FILE_DLL;
          }
@@ -246,7 +247,7 @@ namespace CILAssemblyManipulator.Physical.Implementation
                .WriteInt32LEToBytes( ref idx, dbgInfo.Timestamp )
                .WriteInt16LEToBytes( ref idx, dbgInfo.VersionMajor )
                .WriteInt16LEToBytes( ref idx, dbgInfo.VersionMinor )
-               .WriteInt32LEToBytes( ref idx, MetaDataConstants.CODE_VIEW_DEBUG_TYPE )
+               .WriteInt32LEToBytes( ref idx, dbgInfo.DebugType )
                .WriteInt32LEToBytes( ref idx, dbgData.Length )
                .WriteUInt32LEToBytes( ref idx, dbgRVA + MetaDataConstants.DEBUG_DD_SIZE )
                .WriteUInt32LEToBytes( ref idx, fAlign + currentOffset + (UInt32) idx + 4 ) // Pointer to data, end Debug Data Directory
@@ -328,7 +329,7 @@ namespace CILAssemblyManipulator.Physical.Implementation
             idx = 0;
             currentArray
                .WriteInt16LEToBytes( ref idx, headers.EntryPointInstruction )
-               .WriteUInt32LEToBytes( ref idx, (UInt32) imageBase + codeSectionVirtualOffset );
+               .WriteUInt32LEToBytes( ref idx, isDLL ? 0u : (UInt32) imageBase + codeSectionVirtualOffset );
             sink.Write( currentArray, curArrayLen );
             currentOffset += (UInt32) curArrayLen;
          }
@@ -562,23 +563,24 @@ namespace CILAssemblyManipulator.Physical.Implementation
          out UInt16 machine
          )
       {
-         if ( eArgs.FileAlignment < MIN_FILE_ALIGNMENT )
-         {
-            eArgs.FileAlignment = MIN_FILE_ALIGNMENT;
-         }
-         else
-         {
-            eArgs.FileAlignment = FLP2( eArgs.FileAlignment );
-         }
+         //if ( eArgs.FileAlignment < MIN_FILE_ALIGNMENT )
+         //{
+         //   eArgs.FileAlignment = MIN_FILE_ALIGNMENT;
+         //}
+         //else
+         //{
+         //   eArgs.FileAlignment = BinaryUtils.FLP2( eArgs.FileAlignment );
+         //}
 
-         if ( eArgs.ImageBase < IMAGE_BASE_MULTIPLE )
-         {
-            eArgs.ImageBase = IMAGE_BASE_MULTIPLE;
-         }
-         else
-         {
-            eArgs.ImageBase -= eArgs.ImageBase % IMAGE_BASE_MULTIPLE;
-         }
+         //if ( eArgs.ImageBase < IMAGE_BASE_MULTIPLE )
+         //{
+         //   eArgs.ImageBase = IMAGE_BASE_MULTIPLE;
+         //}
+         //else
+         //{
+
+         //   eArgs.ImageBase -= eArgs.ImageBase % IMAGE_BASE_MULTIPLE;
+         //}
          //if ( eArgs.SectionAlignment <= eArgs.FileAlignment )
          //{
          //   throw new ArgumentException( "Section alignment " + eArgs.SectionAlignment + " must be greater than file alignment " + eArgs.FileAlignment + "." );
@@ -590,14 +592,14 @@ namespace CILAssemblyManipulator.Physical.Implementation
          numSections = isPE64 ? 1u : 2u; // TODO resource-section
          peOptionalHeaderSize = isPE64 ? HeaderFieldOffsetsAndLengths.PE_OPTIONAL_HEADER_SIZE_64 : HeaderFieldOffsetsAndLengths.PE_OPTIONAL_HEADER_SIZE_32;
          iatSize = hasRelocations ? HeaderFieldOffsetsAndLengths.IAT_SIZE : 0u; // No Import tables if no relocations
-         if ( !isPE64 )
-         {
-            eArgs.ImageBase = CheckValueFor32PE( eArgs.ImageBase );
-            eArgs.StackReserve = CheckValueFor32PE( eArgs.StackReserve );
-            eArgs.StackCommit = CheckValueFor32PE( eArgs.StackCommit );
-            eArgs.HeapReserve = CheckValueFor32PE( eArgs.HeapReserve );
-            eArgs.HeapCommit = CheckValueFor32PE( eArgs.HeapCommit );
-         }
+         //if ( !isPE64 )
+         //{
+         //   eArgs.ImageBase = CheckValueFor32PE( eArgs.ImageBase );
+         //   eArgs.StackReserve = CheckValueFor32PE( eArgs.StackReserve );
+         //   eArgs.StackCommit = CheckValueFor32PE( eArgs.StackCommit );
+         //   eArgs.HeapReserve = CheckValueFor32PE( eArgs.HeapReserve );
+         //   eArgs.HeapCommit = CheckValueFor32PE( eArgs.HeapCommit );
+         //}
          machine = (UInt16) machineEnum;
       }
 
@@ -611,28 +613,7 @@ namespace CILAssemblyManipulator.Physical.Implementation
          return ModuleKind.Windows == kind ? ( isCEApp ? HeaderFieldPossibleValues.IMAGE_SUBSYSTEM_WINDOWS_CE_GUI : HeaderFieldPossibleValues.IMAGE_SUBSYSTEM_WINDOWS_GUI ) : HeaderFieldPossibleValues.IMAGE_SUBSYSTEM_WINDOWS_CUI;
       }
 
-      // From http://my.safaribooksonline.com/book/information-technology-and-software-development/0201914654/power-of-2-boundaries/ch03lev1sec2
-      // Greatest power of 2 less than or equal to x
-      private static UInt32 FLP2( UInt32 x )
-      {
-         x = x | ( x >> 1 );
-         x = x | ( x >> 2 );
-         x = x | ( x >> 4 );
-         x = x | ( x >> 8 );
-         x = x | ( x >> 16 );
-         return x - ( x >> 1 );
-      }
-      // Least power of 2 greater than or equal to x
-      internal static UInt32 CLP2( UInt32 x )
-      {
-         x = x - 1;
-         x = x | ( x >> 1 );
-         x = x | ( x >> 2 );
-         x = x | ( x >> 4 );
-         x = x | ( x >> 8 );
-         x = x | ( x >> 16 );
-         return x + 1;
-      }
+
 
       private static void WriteMethodDefsIL(
          CILMetaData md,
@@ -2398,7 +2379,7 @@ namespace CILAssemblyManipulator.Physical.Implementation
          if ( this._bytes.Length < this._curCount + size )
          {
             var oldArray = this._bytes;
-            this._bytes = new Byte[ModuleWriter.CLP2( (UInt32) this._curCount + (UInt32) size )];
+            this._bytes = new Byte[BinaryUtils.CLP2( (UInt32) this._curCount + (UInt32) size )];
             if ( this._curCount > 0 )
             {
                System.Array.Copy( oldArray, 0, this._bytes, 0, oldArray.Length );
@@ -3068,11 +3049,5 @@ public static partial class E_CILPhysical
       }
    }
 
-   // TODO Move to Utilpack
-   public static Byte[] ZeroOut( this Byte[] array, ref Int32 idx, Int32 count )
-   {
-      array.FillWithOffsetAndCount( idx, count, (Byte) 0 );
-      idx += count;
-      return array;
-   }
+
 }
