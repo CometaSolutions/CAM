@@ -408,7 +408,7 @@ namespace CILAssemblyManipulator.Physical.Implementation
          if ( debugDD.rva > 0 )
          {
             stream.SeekFromBegin( ResolveRVA( debugDD.rva, sections ) );
-            var dbg = new EmittingDebugInformation( false )
+            var dbg = new DebugInformation( false )
             {
                Characteristics = stream.ReadI32( tmpArray ),
                Timestamp = stream.ReadI32( tmpArray ),

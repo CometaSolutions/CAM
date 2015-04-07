@@ -29,8 +29,8 @@ namespace CILAssemblyManipulator.Physical.Implementation
 {
    internal static class ModuleWriter
    {
-      internal const Int32 MIN_FILE_ALIGNMENT = 0x200;
-      internal const UInt64 IMAGE_BASE_MULTIPLE = 0x10000; // ECMA-335, p. 279
+      //internal const Int32 MIN_FILE_ALIGNMENT = 0x200;
+      //internal const UInt64 IMAGE_BASE_MULTIPLE = 0x10000; // ECMA-335, p. 279
       internal const UInt32 RELOCATION_PAGE_SIZE = 0x1000; // ECMA-335, p. 282
       internal const UInt32 RELOCATION_FIXUP_TYPE = 0x3; // ECMA-335, p. 282
       //internal const UInt64 DEFAULT_STACK_RESERVE = 0x100000; // ECMA-335, p. 280
@@ -80,16 +80,22 @@ namespace CILAssemblyManipulator.Physical.Implementation
          ArgumentValidator.ValidateNotNull( "Emitting arguments", eArgs );
 
          Boolean isPE64, hasRelocations;
-         UInt16 peOptionalHeaderSize, machine;
+         UInt16 peOptionalHeaderSize;
          UInt32 numSections, iatSize;
-         CheckHeaders( headers, out isPE64, out hasRelocations, out numSections, out peOptionalHeaderSize, out iatSize, out machine );
+         CheckHeaders( headers, out isPE64, out hasRelocations, out numSections, out peOptionalHeaderSize, out iatSize );
+
+         var moduleKind = eArgs.ModuleKind;
+         var isDLL = moduleKind.IsDLL();
 
          // 2. Initialize variables
          var fAlign = headers.FileAlignment;
          var sAlign = headers.SectionAlignment;
          var importHintName = headers.ImportHintName;
+         if ( String.IsNullOrEmpty( importHintName ) )
+         {
+            importHintName = isDLL ? HeadersData.HINTNAME_FOR_DLL : HeadersData.HINTNAME_FOR_EXE;
+         }
          var imageBase = headers.ImageBase;
-         var moduleKind = eArgs.ModuleKind;
          var strongName = eArgs.StrongName;
 
 
@@ -117,14 +123,13 @@ namespace CILAssemblyManipulator.Physical.Implementation
          byteArrayHelper.EnsureSize( curArrayLen );
          currentArray = byteArrayHelper.Array;
          var characteristics = HeaderFieldPossibleValues.IMAGE_FILE_EXECUTABLE_IMAGE | ( isPE64 ? HeaderFieldPossibleValues.IMAGE_FILE_LARGE_ADDRESS_AWARE : HeaderFieldPossibleValues.IMAGE_FILE_32BIT_MACHINE );
-         var isDLL = moduleKind.IsDLL();
          if ( isDLL )
          {
             characteristics |= HeaderFieldPossibleValues.IMAGE_FILE_DLL;
          }
          var idx = 0;
          currentArray
-            .WriteUInt16LEToBytes( ref idx, machine )
+            .WriteUInt16LEToBytes( ref idx, (UInt16) headers.Machine )
             .WriteUInt16LEToBytes( ref idx, (UInt16) numSections )
             .WriteInt32LEToBytes( ref idx, Convert.ToInt32( DateTime.Now.Subtract( new DateTime( 1970, 1, 1, 0, 0, 0 ) ).TotalSeconds ) )
             .ZeroOut( ref idx, 8 )
@@ -559,8 +564,7 @@ namespace CILAssemblyManipulator.Physical.Implementation
          out Boolean hasRelocations,
          out UInt32 numSections,
          out UInt16 peOptionalHeaderSize,
-         out UInt32 iatSize,
-         out UInt16 machine
+         out UInt32 iatSize
          )
       {
          //if ( eArgs.FileAlignment < MIN_FILE_ALIGNMENT )
@@ -589,7 +593,7 @@ namespace CILAssemblyManipulator.Physical.Implementation
          var machineEnum = eArgs.Machine;
          isPE64 = machineEnum.RequiresPE64();
          hasRelocations = machineEnum.RequiresRelocations();
-         numSections = isPE64 ? 1u : 2u; // TODO resource-section
+         numSections = isPE64 ? 1u : 2u; // TODO win32-resource-section
          peOptionalHeaderSize = isPE64 ? HeaderFieldOffsetsAndLengths.PE_OPTIONAL_HEADER_SIZE_64 : HeaderFieldOffsetsAndLengths.PE_OPTIONAL_HEADER_SIZE_32;
          iatSize = hasRelocations ? HeaderFieldOffsetsAndLengths.IAT_SIZE : 0u; // No Import tables if no relocations
          //if ( !isPE64 )
@@ -600,7 +604,7 @@ namespace CILAssemblyManipulator.Physical.Implementation
          //   eArgs.HeapReserve = CheckValueFor32PE( eArgs.HeapReserve );
          //   eArgs.HeapCommit = CheckValueFor32PE( eArgs.HeapCommit );
          //}
-         machine = (UInt16) machineEnum;
+         //machine = (UInt16) machineEnum;
       }
 
       private static UInt64 CheckValueFor32PE( UInt64 value )

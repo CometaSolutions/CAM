@@ -32,6 +32,9 @@ namespace CILAssemblyManipulator.Physical
 
    public sealed class HeadersData
    {
+      internal const String HINTNAME_FOR_DLL = "_CorDllMain";
+      internal const String HINTNAME_FOR_EXE = "_CorExeMain";
+
       public HeadersData()
          : this( true )
       {
@@ -42,7 +45,30 @@ namespace CILAssemblyManipulator.Physical
       {
          if ( populateDefaults )
          {
-            // TODO default values...
+            this.Machine = ImageFileMachine.I386;
+            this.ImageBase = 0x00400000;
+            this.FileAlignment = 0x200;
+            this.SectionAlignment = 0x2000;
+            this.StackReserve = 0x100000; // ECMA-335, p. 280
+            this.StackCommit = 0x1000; // ECMA-335, p. 280
+            this.HeapReserve = 0x100000; // ECMA-335, p. 280
+            this.HeapCommit = 0x1000; // ECMA-335, p. 280
+            this.ImportDirectoryName = "mscoree.dll"; // ECMA-335, p. 282
+            this.EntryPointInstruction = 0x25FF; // ECMA-335, p. 279
+            this.LinkerMajor = 0x0B;
+            this.LinkerMinor = 0x00;
+            this.OSMajor = 0x04;
+            this.OSMinor = 0x00;
+            this.UserMajor = 0x00;
+            this.UserMinor = 0x00;
+            this.SubSysMajor = 0x04;
+            this.SubSysMinor = 0x00;
+            this.CLIMajor = 2;
+            this.CLIMinor = 5;
+            this.MetaDataVersion = "v4.0.30319";
+            this.TableHeapMajor = 2;
+            this.TableHeapMinor = 0;
+            this.ModuleFlags = ModuleFlags.ILOnly;
          }
       }
 
@@ -235,10 +261,10 @@ namespace CILAssemblyManipulator.Physical
       public ModuleFlags ModuleFlags { get; set; }
 
       /// <summary>
-      /// During emitting, if this property is not <c>null</c>, then the debug directory with the information specified by <see cref="EmittingDebugInformation"/> is written.
+      /// During emitting, if this property is not <c>null</c>, then the debug directory with the information specified by <see cref="DebugInformation"/> is written.
       /// During loading, if the PE file contains debug directory, this property is set to reflect the data of the debug directory.
       /// </summary>
-      public EmittingDebugInformation DebugInformation { get; set; }
+      public DebugInformation DebugInformation { get; set; }
    }
 
    public interface CILMetaData
@@ -360,7 +386,7 @@ namespace CILAssemblyManipulator.Physical
    /// This class contains information about the debug directory of PE files.
    /// </summary>
    /// <seealso href="http://msdn.microsoft.com/en-us/library/windows/desktop/ms680307%28v=vs.85%29.aspx"/>
-   public sealed class EmittingDebugInformation
+   public sealed class DebugInformation
    {
       private Int32 _characteristics;
       private Int32 _timestamp;
@@ -370,14 +396,14 @@ namespace CILAssemblyManipulator.Physical
       private Byte[] _debugDirData;
 
       /// <summary>
-      /// Creates new instance of <see cref="EmittingDebugInformation"/>.
+      /// Creates new instance of <see cref="DebugInformation"/>.
       /// </summary>
-      public EmittingDebugInformation()
+      public DebugInformation()
          : this( true )
       {
       }
 
-      internal EmittingDebugInformation( Boolean setDefaults )
+      internal DebugInformation( Boolean setDefaults )
       {
          if ( setDefaults )
          {

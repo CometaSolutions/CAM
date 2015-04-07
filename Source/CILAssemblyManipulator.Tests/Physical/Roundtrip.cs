@@ -67,8 +67,8 @@ namespace CILAssemblyManipulator.Tests.Physical
             afterSecondRead( read2.MetaData );
          }
 
-         // TODO check headers equality
          Assert.IsTrue( Comparers.MetaDataComparer.Equals( read1.MetaData, read2.MetaData ) );
+         Assert.IsTrue( Comparers.HeadersEqualityComparer.Equals( read1.Headers, read2.Headers ) );
       }
 
    }

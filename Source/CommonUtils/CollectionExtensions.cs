@@ -287,28 +287,6 @@ public static partial class E_CommonUtils
    }
 
    /// <summary>
-   /// Helper method to check whether an array is <c>null</c> or empty.
-   /// </summary>
-   /// <typeparam name="T">The type of array elements.</typeparam>
-   /// <param name="array">The array.</param>
-   /// <returns><c>true</c> if <paramref name="array"/> is <c>null</c> or empty; <c>false</c> otherwise.</returns>
-   public static Boolean IsEmptyOrNull<T>( this T[] array )
-   {
-      return array == null || array.Length <= 0;
-   }
-
-   /// <summary>
-   /// Helper method to check whether an enumerable is <c>null</c> or empty.
-   /// </summary>
-   /// <typeparam name="T">The type of enumerable elements.</typeparam>
-   /// <param name="enumerable">The enumerable.</param>
-   /// <returns><c>true</c> if <paramref name="enumerable"/> is <c>null</c> or empty; <c>false</c> otherwise.</returns>
-   public static Boolean IsEmptyOrNull<T>( this IEnumerable<T> enumerable )
-   {
-      return enumerable == null || !enumerable.Any();
-   }
-
-   /// <summary>
    /// This is method to quickly fill array with values, utilizing the fact that <see cref="Array.Copy(Array, Array, Int32)"/> methods are very, very fast.
    /// </summary>
    /// <typeparam name="T">The type of array elements.</typeparam>

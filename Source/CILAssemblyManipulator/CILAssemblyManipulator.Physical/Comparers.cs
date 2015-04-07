@@ -74,26 +74,11 @@ namespace CILAssemblyManipulator.Physical
       private static IEqualityComparer<ParameterSignature> _ParameterSignatureEqualityComparer = null;
       private static IEqualityComparer<CustomModifierSignature> _CustomModifierSignatureEqualityComparer = null;
       private static IEqualityComparer<TypeSignature> _TypeSignatureEqualityComparer = null;
-      //private static IEqualityComparer<SimpleTypeSignature> _SimpleTypeSignatureEqualityComparer = null;
-      //private static IEqualityComparer<ClassOrValueTypeSignature> _ClassOrValueTypeSignatureEqualityComparer = null;
-      //private static IEqualityComparer<GenericParameterTypeSignature> _GenericParameterTypeSignatureEqualityComparer = null;
-      //private static IEqualityComparer<FunctionPointerTypeSignature> _FunctionPointerTypeSignatureEqualityComparer = null;
-      //private static IEqualityComparer<PointerTypeSignature> _PointerTypeSignatureEqualityComparer = null;
-      //private static IEqualityComparer<ComplexArrayTypeSignature> _ComplexArrayTypeSignatureEqualityComparer = null;
-      //private static IEqualityComparer<SimpleArrayTypeSignature> _SimpleArrayTypeSignatureEqualityComparer = null;
       private static IEqualityComparer<GenericMethodSignature> _GenericMethodSignatureEqualityComparer = null;
       private static IEqualityComparer<AbstractCustomAttributeSignature> _AbstractCustomAttributeSignatureEqualityComparer = null;
-      //private static IEqualityComparer<RawCustomAttributeSignature> _RawCustomAttributeSignatureEqualityComparer = null;
-      //private static IEqualityComparer<CustomAttributeSignature> _CustomAttributeSignatureEqualityComparer = null;
       private static IEqualityComparer<CustomAttributeTypedArgument> _CustomAttributeTypedArgumentEqualityComparer = null;
       private static IEqualityComparer<CustomAttributeNamedArgument> _CustomAttributeNamedArgumentEqualityComparer = null;
-      //private static IEqualityComparer<CustomAttributeArgumentType> _CustomAttributeArgumentTypeEqualityComparer = null;
-      //private static IEqualityComparer<CustomAttributeArgumentSimple> _CustomAttributeArgumentSimpleEqualityComparer = null;
-      //private static IEqualityComparer<CustomAttributeArgumentTypeEnum> _CustomAttributeArgumentTypeEnumEqualityComparer = null;
-      //private static IEqualityComparer<CustomAttributeArgumentTypeArray> _CustomAttributeArgumentTypeArrayEqualityComparer = null;
       private static IEqualityComparer<AbstractSecurityInformation> _AbstractSecurityInformationEqualityComparer = null;
-      //private static IEqualityComparer<RawSecurityInformation> _RawSecurityInformationEqualityComparer = null;
-      //private static IEqualityComparer<SecurityInformation> _SecurityInformationEqualityComparer = null;
       private static IEqualityComparer<MarshalingInfo> _MarshalingInfoEqualityComparer = null;
 
       private static IComparer<ClassLayout> _ClassLayoutComparer = null;
@@ -120,6 +105,8 @@ namespace CILAssemblyManipulator.Physical
       private static IComparer<TableIndex> _TypeOrMethodDefComparer = null;
 
       private static IEqualityComparer<Object> _CAValueEqualityComparer = ComparerFromFunctions.NewEqualityComparer<Object>( Equality_CustomAttributeValue, x => { throw new NotSupportedException(); } );
+
+      private static IEqualityComparer<HeadersData> _HeadersEqualityComparer = null;
 
       public static IEqualityComparer<CILMetaData> MetaDataComparer
       {
@@ -783,104 +770,6 @@ namespace CILAssemblyManipulator.Physical
          }
       }
 
-      //public static IEqualityComparer<SimpleTypeSignature> SimpleTypeSignatureEqualityComparer
-      //{
-      //   get
-      //   {
-      //      var retVal = _SimpleTypeSignatureEqualityComparer;
-      //      if ( retVal == null )
-      //      {
-      //         retVal = ComparerFromFunctions.NewEqualityComparer<SimpleTypeSignature>( Equality_SimpleTypeSignature, HashCode_SimpleTypeSignature );
-      //         _SimpleTypeSignatureEqualityComparer = retVal;
-      //      }
-      //      return retVal;
-      //   }
-      //}
-
-      //public static IEqualityComparer<ClassOrValueTypeSignature> ClassOrValueTypeSignatureEqualityComparer
-      //{
-      //   get
-      //   {
-      //      var retVal = _ClassOrValueTypeSignatureEqualityComparer;
-      //      if ( retVal == null )
-      //      {
-      //         retVal = ComparerFromFunctions.NewEqualityComparer<ClassOrValueTypeSignature>( Equality_ClassOrValueTypeSignature, HashCode_ClassOrValueTypeSignature );
-      //         _ClassOrValueTypeSignatureEqualityComparer = retVal;
-      //      }
-      //      return retVal;
-      //   }
-      //}
-
-      //public static IEqualityComparer<GenericParameterTypeSignature> GenericParameterTypeSignatureEqualityComparer
-      //{
-      //   get
-      //   {
-      //      var retVal = _GenericParameterTypeSignatureEqualityComparer;
-      //      if ( retVal == null )
-      //      {
-      //         retVal = ComparerFromFunctions.NewEqualityComparer<GenericParameterTypeSignature>( Equality_GenericParameterTypeSignature, HashCode_GenericParameterTypeSignature );
-      //         _GenericParameterTypeSignatureEqualityComparer = retVal;
-      //      }
-      //      return retVal;
-      //   }
-      //}
-
-      //public static IEqualityComparer<FunctionPointerTypeSignature> FunctionPointerTypeSignatureEqualityComparer
-      //{
-      //   get
-      //   {
-      //      var retVal = _FunctionPointerTypeSignatureEqualityComparer;
-      //      if ( retVal == null )
-      //      {
-      //         retVal = ComparerFromFunctions.NewEqualityComparer<FunctionPointerTypeSignature>( Equality_FunctionPointerTypeSignature, HashCode_FunctionPointerTypeSignature );
-      //         _FunctionPointerTypeSignatureEqualityComparer = retVal;
-      //      }
-      //      return retVal;
-      //   }
-      //}
-
-      //public static IEqualityComparer<PointerTypeSignature> PointerTypeSignatureEqualityComparer
-      //{
-      //   get
-      //   {
-      //      var retVal = _PointerTypeSignatureEqualityComparer;
-      //      if ( retVal == null )
-      //      {
-      //         retVal = ComparerFromFunctions.NewEqualityComparer<PointerTypeSignature>( Equality_PointerTypeSignature, HashCode_PointerTypeSignature );
-      //         _PointerTypeSignatureEqualityComparer = retVal;
-      //      }
-      //      return retVal;
-      //   }
-      //}
-
-      //public static IEqualityComparer<ComplexArrayTypeSignature> ComplexArrayTypeSignatureEqualityComparer
-      //{
-      //   get
-      //   {
-      //      var retVal = _ComplexArrayTypeSignatureEqualityComparer;
-      //      if ( retVal == null )
-      //      {
-      //         retVal = ComparerFromFunctions.NewEqualityComparer<ComplexArrayTypeSignature>( Equality_ComplexArrayTypeSignature, HashCode_ComplexArrayTypeSignature );
-      //         _ComplexArrayTypeSignatureEqualityComparer = retVal;
-      //      }
-      //      return retVal;
-      //   }
-      //}
-
-      //public static IEqualityComparer<SimpleArrayTypeSignature> SimpleArrayTypeSignatureEqualityComparer
-      //{
-      //   get
-      //   {
-      //      var retVal = _SimpleArrayTypeSignatureEqualityComparer;
-      //      if ( retVal == null )
-      //      {
-      //         retVal = ComparerFromFunctions.NewEqualityComparer<SimpleArrayTypeSignature>( Equality_SimpleArrayTypeSignature, HashCode_SimpleArrayTypeSignature );
-      //         _SimpleArrayTypeSignatureEqualityComparer = retVal;
-      //      }
-      //      return retVal;
-      //   }
-      //}
-
       public static IEqualityComparer<GenericMethodSignature> GenericMethodSignatureEqualityComparer
       {
          get
@@ -908,34 +797,6 @@ namespace CILAssemblyManipulator.Physical
             return retVal;
          }
       }
-
-      //public static IEqualityComparer<RawCustomAttributeSignature> RawCustomAttributeSignatureEqualityComparer
-      //{
-      //   get
-      //   {
-      //      var retVal = _RawCustomAttributeSignatureEqualityComparer;
-      //      if ( retVal == null )
-      //      {
-      //         retVal = ComparerFromFunctions.NewEqualityComparer<RawCustomAttributeSignature>( Equality_RawCustomAttributeSignature, HashCode_RawCustomAttributeSignature );
-      //         _RawCustomAttributeSignatureEqualityComparer = retVal;
-      //      }
-      //      return retVal;
-      //   }
-      //}
-
-      //public static IEqualityComparer<CustomAttributeSignature> CustomAttributeSignatureEqualityComparer
-      //{
-      //   get
-      //   {
-      //      var retVal = _CustomAttributeSignatureEqualityComparer;
-      //      if ( retVal == null )
-      //      {
-      //         retVal = ComparerFromFunctions.NewEqualityComparer<CustomAttributeSignature>( Equality_CustomAttributeSignature, HashCode_CustomAttributeSignature );
-      //         _CustomAttributeSignatureEqualityComparer = retVal;
-      //      }
-      //      return retVal;
-      //   }
-      //}
 
       public static IEqualityComparer<CustomAttributeTypedArgument> CustomAttributeTypedArgumentEqualityComparer
       {
@@ -965,62 +826,6 @@ namespace CILAssemblyManipulator.Physical
          }
       }
 
-      //public static IEqualityComparer<CustomAttributeArgumentType> CustomAttributeArgumentTypeEqualityComparer
-      //{
-      //   get
-      //   {
-      //      var retVal = _CustomAttributeArgumentTypeEqualityComparer;
-      //      if ( retVal == null )
-      //      {
-      //         retVal = ComparerFromFunctions.NewEqualityComparer<CustomAttributeArgumentType>( Equality_CustomAttributeArgumentType, HashCode_CustomAttributeArgumentType );
-      //         _CustomAttributeArgumentTypeEqualityComparer = retVal;
-      //      }
-      //      return retVal;
-      //   }
-      //}
-
-      //public static IEqualityComparer<CustomAttributeArgumentSimple> CustomAttributeArgumentSimpleEqualityComparer
-      //{
-      //   get
-      //   {
-      //      var retVal = _CustomAttributeArgumentSimpleEqualityComparer;
-      //      if ( retVal == null )
-      //      {
-      //         retVal = ComparerFromFunctions.NewEqualityComparer<CustomAttributeArgumentSimple>( Equality_CustomAttributeArgumentSimple, HashCode_CustomAttributeArgumentSimple );
-      //         _CustomAttributeArgumentSimpleEqualityComparer = retVal;
-      //      }
-      //      return retVal;
-      //   }
-      //}
-
-      //public static IEqualityComparer<CustomAttributeArgumentTypeEnum> CustomAttributeArgumentTypeEnumEqualityComparer
-      //{
-      //   get
-      //   {
-      //      var retVal = _CustomAttributeArgumentTypeEnumEqualityComparer;
-      //      if ( retVal == null )
-      //      {
-      //         retVal = ComparerFromFunctions.NewEqualityComparer<CustomAttributeArgumentTypeEnum>( Equality_CustomAttributeArgumentTypeEnum, HashCode_CustomAttributeArgumentTypeEnum );
-      //         _CustomAttributeArgumentTypeEnumEqualityComparer = retVal;
-      //      }
-      //      return retVal;
-      //   }
-      //}
-
-      //public static IEqualityComparer<CustomAttributeArgumentTypeArray> CustomAttributeArgumentTypeArrayEqualityComparer
-      //{
-      //   get
-      //   {
-      //      var retVal = _CustomAttributeArgumentTypeArrayEqualityComparer;
-      //      if ( retVal == null )
-      //      {
-      //         retVal = ComparerFromFunctions.NewEqualityComparer<CustomAttributeArgumentTypeArray>( Equality_CustomAttributeArgumentTypeArray, HashCode_CustomAttributeArgumentTypeArray );
-      //         _CustomAttributeArgumentTypeArrayEqualityComparer = retVal;
-      //      }
-      //      return retVal;
-      //   }
-      //}
-
       public static IEqualityComparer<AbstractSecurityInformation> AbstractSecurityInformationEqualityComparer
       {
          get
@@ -1035,33 +840,6 @@ namespace CILAssemblyManipulator.Physical
          }
       }
 
-      //public static IEqualityComparer<RawSecurityInformation> RawSecurityInformationEqualityComparer
-      //{
-      //   get
-      //   {
-      //      var retVal = _RawSecurityInformationEqualityComparer;
-      //      if ( retVal == null )
-      //      {
-      //         retVal = ComparerFromFunctions.NewEqualityComparer<RawSecurityInformation>( Equality_RawSecurityInformation, HashCode_RawSecurityInformation );
-      //         _RawSecurityInformationEqualityComparer = retVal;
-      //      }
-      //      return retVal;
-      //   }
-      //}
-
-      //public static IEqualityComparer<SecurityInformation> SecurityInformationEqualityComparer
-      //{
-      //   get
-      //   {
-      //      var retVal = _SecurityInformationEqualityComparer;
-      //      if ( retVal == null )
-      //      {
-      //         retVal = ComparerFromFunctions.NewEqualityComparer<SecurityInformation>( Equality_SecurityInformation, HashCode_SecurityInformation );
-      //         _SecurityInformationEqualityComparer = retVal;
-      //      }
-      //      return retVal;
-      //   }
-      //}
 
       public static IEqualityComparer<MarshalingInfo> MarshalingInfoEqualityComparer
       {
@@ -1072,6 +850,20 @@ namespace CILAssemblyManipulator.Physical
             {
                retVal = ComparerFromFunctions.NewEqualityComparer<MarshalingInfo>( Equality_MarshalingInfo, HashCode_MarshalingInfo );
                _MarshalingInfoEqualityComparer = retVal;
+            }
+            return retVal;
+         }
+      }
+
+      public static IEqualityComparer<HeadersData> HeadersEqualityComparer
+      {
+         get
+         {
+            var retVal = _HeadersEqualityComparer;
+            if ( retVal == null )
+            {
+               retVal = ComparerFromFunctions.NewEqualityComparer<HeadersData>( Equality_HeadersData, HashCode_HeadersData );
+               _HeadersEqualityComparer = retVal;
             }
             return retVal;
          }
@@ -2125,6 +1917,51 @@ namespace CILAssemblyManipulator.Physical
          );
       }
 
+      private static Boolean Equality_HeadersData( HeadersData x, HeadersData y )
+      {
+         return Object.ReferenceEquals( x, y ) ||
+            ( x != null & y != null
+            && x.Machine == y.Machine
+            && String.Equals( x.MetaDataVersion, y.MetaDataVersion )
+            && String.Equals( x.ImportHintName, y.ImportHintName )
+            && x.ModuleFlags == y.ModuleFlags
+            && NullableEqualityComparer<TableIndex>.DefaultComparer.Equals( x.CLREntryPointIndex, y.CLREntryPointIndex )
+            && Equality_DebugInfo( x.DebugInformation, y.DebugInformation )
+            && x.ImageBase == y.ImageBase
+            && x.FileAlignment == y.FileAlignment
+            && x.SectionAlignment == y.SectionAlignment
+            && x.StackReserve == y.StackReserve
+            && x.StackCommit == y.StackCommit
+            && x.HeapReserve == y.HeapReserve
+            && x.HeapCommit == y.HeapCommit
+            && x.HighEntropyVA == y.HighEntropyVA
+            && String.Equals( x.ImportDirectoryName, y.ImportDirectoryName )
+            && x.EntryPointInstruction == y.EntryPointInstruction
+            && x.LinkerMajor == y.LinkerMajor
+            && x.LinkerMinor == y.LinkerMinor
+            && x.OSMajor == y.OSMajor
+            && x.OSMinor == y.OSMinor
+            && x.SubSysMajor == y.SubSysMajor
+            && x.SubSysMinor == y.SubSysMinor
+            && x.CLIMajor == y.CLIMajor
+            && x.CLIMinor == y.CLIMinor
+            && x.TableHeapMajor == y.TableHeapMajor
+            && x.TableHeapMinor == y.TableHeapMinor
+            );
+      }
+
+      private static Boolean Equality_DebugInfo( DebugInformation x, DebugInformation y )
+      {
+         return Object.ReferenceEquals( x, y ) ||
+            ( x != null && y != null
+            && x.Timestamp == y.Timestamp
+            && x.Characteristics == y.Characteristics
+            && x.DebugType == y.DebugType
+            && x.VersionMajor == y.VersionMajor
+            && x.VersionMinor == y.VersionMinor
+            && ArrayEqualityComparer<Byte>.DefaultArrayEqualityComparer.Equals( x.DebugData, y.DebugData )
+            );
+      }
 
       private static Int32 HashCode_MetaData( CILMetaData x )
       {
@@ -2513,26 +2350,6 @@ namespace CILAssemblyManipulator.Physical
          return x == null ? 0 : ( ( 17 * 23 + x.Name.GetHashCodeSafe( 1 ) ) * 23 + HashCode_CustomAttributeTypedArgument( x.Value ) );
       }
 
-      //private static Int32 HashCode_CustomAttributeArgumentType( CustomAttributeArgumentType x )
-      //{
-      //   throw new NotImplementedException();
-      //}
-
-      //private static Int32 HashCode_CustomAttributeArgumentSimple( CustomAttributeArgumentSimple x )
-      //{
-      //   throw new NotImplementedException();
-      //}
-
-      //private static Int32 HashCode_CustomAttributeArgumentTypeEnum( CustomAttributeArgumentTypeEnum x )
-      //{
-      //   throw new NotImplementedException();
-      //}
-
-      //private static Int32 HashCode_CustomAttributeArgumentTypeArray( CustomAttributeArgumentTypeArray x )
-      //{
-      //   throw new NotImplementedException();
-      //}
-
       private static Int32 HashCode_AbstractSecurityInformation( AbstractSecurityInformation x )
       {
          return x == null ? 0 : ( x is SecurityInformation ? HashCode_SecurityInformation( x as SecurityInformation ) : HashCode_RawSecurityInformation( x as RawSecurityInformation ) );
@@ -2551,6 +2368,11 @@ namespace CILAssemblyManipulator.Physical
       private static Int32 HashCode_MarshalingInfo( MarshalingInfo x )
       {
          return x == null ? 0 : ( ( 17 * 23 + x.MarshalType.GetHashCodeSafe( 1 ) ) * 23 + (Int32) x.Value );
+      }
+
+      private static Int32 HashCode_HeadersData( HeadersData x )
+      {
+         return x == null ? 0 : ( ( 17 * 23 + (Int32) x.Machine ) * 23 + x.MetaDataVersion.GetHashCodeSafe( 1 ) );
       }
 
       private static Int32 Comparison_ClassLayout( ClassLayout x, ClassLayout y )
