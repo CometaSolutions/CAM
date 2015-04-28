@@ -212,7 +212,7 @@ namespace CILAssemblyManipulator.Physical.Implementation
             snPadding = BitUtils.MultipleOf4( snSize ) - snSize;
          }
 
-         var revisitableOffset = HeaderFieldOffsetsAndLengths.DOS_HEADER_AND_PE_SIG.Length + curArrayLen;
+         var revisitableOffset = HeaderFieldOffsetsAndLengths.DOS_HEADER_AND_PE_SIG.Length + HeaderFieldOffsetsAndLengths.PE_FILE_HEADER_SIZE;
          var revisitableArraySize = (Int32) ( fAlign + iatSize + HeaderFieldOffsetsAndLengths.CLI_HEADER_SIZE - revisitableOffset );
          // Cheat a bit - skip now, and re-visit it after all other emitting is done
          sink.Seek( revisitableArraySize + snSize + snPadding, SeekOrigin.Current );
@@ -659,6 +659,7 @@ namespace CILAssemblyManipulator.Physical.Implementation
 
          // Write padding
          sink.SkipToNextAlignment( ref currentOffset, isPE64 ? 0x10u : 0x04u );
+
       }
 
       private static void WriteDataBeforeMD(
@@ -1992,6 +1993,14 @@ namespace CILAssemblyManipulator.Physical.Implementation
             }
          }
          return result;
+      }
+
+      internal Int32 StringCount
+      {
+         get
+         {
+            return this._strings.Count;
+         }
       }
 
       public override void WriteHeap( Stream stream, ByteArrayHelper byteArrayHelper )

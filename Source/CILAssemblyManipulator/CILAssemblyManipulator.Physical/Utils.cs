@@ -150,9 +150,7 @@ namespace CILAssemblyManipulator.Physical
 
       public static Byte[] WriteZeroDataDirectory( this Byte[] array, ref Int32 idx )
       {
-         // Assume array was already zeroes
-         idx += 8;
-         return array;
+         return array.ZeroOut( ref idx, 8 );
       }
 
       // ECMA-335, p. 281

@@ -42,6 +42,12 @@ namespace CILAssemblyManipulator.Physical
 
    public sealed class TypeDefinition
    {
+      public TypeDefinition()
+      {
+         this.FieldList = new TableIndex( Tables.Field, 0 );
+         this.MethodList = new TableIndex( Tables.MethodDef, 0 );
+      }
+
       public TypeAttributes Attributes { get; set; }
       public String Name { get; set; }
       public String Namespace { get; set; }
@@ -59,6 +65,11 @@ namespace CILAssemblyManipulator.Physical
 
    public sealed class MethodDefinition
    {
+      public MethodDefinition()
+      {
+         this.ParameterList = new TableIndex( Tables.Parameter, 0 );
+      }
+
       public MethodILDefinition IL { get; set; }
       public MethodImplAttributes ImplementationAttributes { get; set; }
       public MethodAttributes Attributes { get; set; }
@@ -76,6 +87,11 @@ namespace CILAssemblyManipulator.Physical
 
    public sealed class InterfaceImplementation
    {
+      public InterfaceImplementation()
+      {
+         this.Class = new TableIndex( Tables.TypeDef, 0 );
+      }
+
       public TableIndex Class { get; set; }
       public TableIndex Interface { get; set; }
    }
@@ -135,6 +151,11 @@ namespace CILAssemblyManipulator.Physical
 
    public sealed class ClassLayout
    {
+      public ClassLayout()
+      {
+         this.Parent = new TableIndex( Tables.TypeDef, 0 );
+      }
+
       public Int16 PackingSize { get; set; }
       public Int32 ClassSize { get; set; }
       public TableIndex Parent { get; set; }
@@ -142,6 +163,11 @@ namespace CILAssemblyManipulator.Physical
 
    public sealed class FieldLayout
    {
+      public FieldLayout()
+      {
+         this.Field = new TableIndex( Tables.Field, 0 );
+      }
+
       public Int32 Offset { get; set; }
       public TableIndex Field { get; set; }
    }
@@ -153,6 +179,12 @@ namespace CILAssemblyManipulator.Physical
 
    public sealed class EventMap
    {
+      public EventMap()
+      {
+         this.Parent = new TableIndex( Tables.TypeDef, 0 );
+         this.EventList = new TableIndex( Tables.Event, 0 );
+      }
+
       public TableIndex Parent { get; set; }
       public TableIndex EventList { get; set; }
    }
@@ -166,6 +198,12 @@ namespace CILAssemblyManipulator.Physical
 
    public sealed class PropertyMap
    {
+      public PropertyMap()
+      {
+         this.Parent = new TableIndex( Tables.TypeDef, 0 );
+         this.PropertyList = new TableIndex( Tables.Property, 0 );
+      }
+
       public TableIndex Parent { get; set; }
       public TableIndex PropertyList { get; set; }
    }
@@ -179,6 +217,11 @@ namespace CILAssemblyManipulator.Physical
 
    public sealed class MethodSemantics
    {
+      public MethodSemantics()
+      {
+         this.Method = new TableIndex( Tables.MethodDef, 0 );
+      }
+
       public MethodSemanticsAttributes Attributes { get; set; }
       public TableIndex Method { get; set; }
       public TableIndex Associaton { get; set; }
@@ -186,6 +229,11 @@ namespace CILAssemblyManipulator.Physical
 
    public sealed class MethodImplementation
    {
+      public MethodImplementation()
+      {
+         this.Class = new TableIndex( Tables.TypeDef, 0 );
+      }
+
       public TableIndex Class { get; set; }
       public TableIndex MethodBody { get; set; }
       public TableIndex MethodDeclaration { get; set; }
@@ -203,6 +251,11 @@ namespace CILAssemblyManipulator.Physical
 
    public sealed class MethodImplementationMap
    {
+      public MethodImplementationMap()
+      {
+         this.ImportScope = new TableIndex( Tables.ModuleRef, 0 );
+      }
+
       public PInvokeAttributes Attributes { get; set; }
       public TableIndex MemberForwarded { get; set; }
       public String ImportName { get; set; }
@@ -211,6 +264,11 @@ namespace CILAssemblyManipulator.Physical
 
    public sealed class FieldRVA
    {
+      public FieldRVA()
+      {
+         this.Field = new TableIndex( Tables.Field, 0 );
+      }
+
       public Byte[] Data { get; set; }
       public TableIndex Field { get; set; }
    }
@@ -284,6 +342,12 @@ namespace CILAssemblyManipulator.Physical
 
    public sealed class NestedClassDefinition
    {
+      public NestedClassDefinition()
+      {
+         this.NestedClass = new TableIndex( Tables.TypeDef, 0 );
+         this.EnclosingClass = new TableIndex( Tables.TypeDef, 0 );
+      }
+
       public TableIndex NestedClass { get; set; }
       public TableIndex EnclosingClass { get; set; }
    }
@@ -304,6 +368,11 @@ namespace CILAssemblyManipulator.Physical
 
    public sealed class GenericParameterConstraintDefinition
    {
+      public GenericParameterConstraintDefinition()
+      {
+         this.Owner = new TableIndex( Tables.GenericParameter, 0 );
+      }
+
       public TableIndex Owner { get; set; }
       public TableIndex Constraint { get; set; }
    }
