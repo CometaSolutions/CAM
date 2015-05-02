@@ -59,15 +59,15 @@ namespace CILAssemblyManipulator.Tests.Physical
       [Test]
       public void TestMSCorLibOrdering()
       {
-         var md = ReadFromFile( MSCorLibLocation );
-         ReOrderAndValidate( md.MetaData );
+         var md = ReadFromFile( MSCorLibLocation, null );
+         ReOrderAndValidate( md );
       }
 
       [Test]
       public void TestCAMOrdering()
       {
-         var md = ReadFromFile( CAMLocation );
-         ReOrderAndValidate( md.MetaData );
+         var md = ReadFromFile( CAMLocation, null );
+         ReOrderAndValidate( md );
       }
 
       [Test]

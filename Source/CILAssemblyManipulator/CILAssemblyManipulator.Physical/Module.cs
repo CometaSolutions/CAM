@@ -346,42 +346,6 @@ namespace CILAssemblyManipulator.Physical
       }
    }
 
-   public sealed class ModuleReadResult
-   {
-      private readonly CILMetaData _md;
-      private readonly HeadersData _headers;
-
-      internal ModuleReadResult( CILMetaData md, HeadersData headers )
-      {
-         ArgumentValidator.ValidateNotNull( "Metadata", md );
-         //ArgumentValidator.ValidateNotNull( "Headers", headers );
-
-         this._md = md;
-         this._headers = headers;
-      }
-
-      public CILMetaData MetaData
-      {
-         get
-         {
-            return this._md;
-         }
-      }
-
-      public HeadersData Headers
-      {
-         get
-         {
-            return this._headers;
-         }
-      }
-   }
-
-   public sealed class ModuleWriteResult
-   {
-      // TODO: hash value for .netmodules part of strong-named assemblies
-   }
-
    /// <summary>
    /// This class contains information about the debug directory of PE files.
    /// </summary>

@@ -77,6 +77,12 @@
   <ItemGroup>
     <Compile Include="MetaData.Signatures.cs" />
   </ItemGroup>
+  <PropertyGroup Condition=" '$(UseUtilpackReference)' != '' ">
+    <SignAssembly>true</SignAssembly>
+    <KeyFilePath>$(MSBuildThisFileDirectory)..\..\..\Keys\CAM.snk</KeyFilePath>
+    <AssemblyOriginatorKeyFile>$(KeyFilePath)</AssemblyOriginatorKeyFile>
+  </PropertyGroup>
+   
   <Import Project="$(MSBuildExtensionsPath32)\Microsoft\Portable\$(TargetFrameworkVersion)\Microsoft.Portable.CSharp.targets" />
   <!-- Create .snk file if it doesn't exist to ensure smooth build -->
   <Import Project="$(MSBuildThisFileDirectory)../../../CommonBuildTools/CLR/MSBuild/CreateKeyFileIfNeeded.targets" />
@@ -94,4 +100,5 @@
     <AssemblyInfoVersionFilename>$(MSBuildThisFileDirectory)/../../CILAssemblyManipulatorVersion.txt</AssemblyInfoVersionFilename>
   </PropertyGroup>
   <Import Project="$(MSBuildThisFileDirectory)../../../CommonBuildTools/CLR/MSBuild/AssemblyInfo.targets" />
+   
 </Project>

@@ -70,7 +70,6 @@ namespace CILAssemblyManipulator.Physical.Implementation
 
       internal static void WriteModule(
          CILMetaData md,
-         HeadersData headers,
          EmittingArguments eArgs,
          Stream sink
          )
@@ -78,10 +77,12 @@ namespace CILAssemblyManipulator.Physical.Implementation
          // 1. Check arguments
          ArgumentValidator.ValidateNotNull( "Stream", sink );
          ArgumentValidator.ValidateNotNull( "Emitting arguments", eArgs );
+         ArgumentValidator.ValidateNotNull( "Headers", eArgs.Headers );
 
          Boolean isPE64, hasRelocations;
          UInt16 peOptionalHeaderSize;
          UInt32 numSections, iatSize;
+         var headers = eArgs.Headers;
          CheckHeaders( headers, out isPE64, out hasRelocations, out numSections, out peOptionalHeaderSize, out iatSize );
 
          var moduleKind = eArgs.ModuleKind;
@@ -148,6 +149,9 @@ namespace CILAssemblyManipulator.Physical.Implementation
          var thisAssemblyPublicKey = md.AssemblyDefinitions.Count > 0 ?
             md.AssemblyDefinitions[0].AssemblyInformation.PublicKeyOrToken :
             null;
+
+
+
          var delaySign = eArgs.DelaySign || ( !useStrongName && !thisAssemblyPublicKey.IsNullOrEmpty() );
          RSAParameters rParams;
          var signingAlgorithm = AssemblyHashAlgorithm.SHA1;
@@ -221,16 +225,16 @@ namespace CILAssemblyManipulator.Physical.Implementation
          // Start with method ILs
          // Current offset within section
          var currentOffset = iatSize + snSize + snPadding + HeaderFieldOffsetsAndLengths.CLI_HEADER_SIZE;
-         UserStringHeapWriter usersStrings; IList<UInt32> methodRVAs;
-         WriteMethodDefsIL( md, sink, codeSectionVirtualOffset, isPE64, byteArrayHelper, ref currentOffset, out usersStrings, out methodRVAs );
+         UserStringHeapWriter usersStrings;
+         WriteMethodDefsIL( md, sink, codeSectionVirtualOffset, isPE64, byteArrayHelper, eArgs.MethodRVAs, ref currentOffset, out usersStrings );
 
          // Write manifest resources & field RVAs here
-         UInt32 mResRVA, mResSize; IList<UInt32?> mResInfo; IList<UInt32> fieldRVAs;
-         WriteDataBeforeMD( md, sink, codeSectionVirtualOffset, isPE64, byteArrayHelper, out mResRVA, out mResSize, out mResInfo, out fieldRVAs, ref currentOffset );
+         UInt32 mResRVA, mResSize;
+         WriteDataBeforeMD( md, sink, codeSectionVirtualOffset, isPE64, byteArrayHelper, eArgs, out mResRVA, out mResSize, ref currentOffset );
 
          // Write metadata streams (tables & heaps)
          var mdRVA = codeSectionVirtualOffset + currentOffset;
-         var mdSize = WriteMetaData( md, sink, headers, eArgs, usersStrings, byteArrayHelper, methodRVAs, fieldRVAs, mResInfo, thisAssemblyPublicKey );
+         var mdSize = WriteMetaData( md, sink, headers, eArgs, usersStrings, byteArrayHelper, thisAssemblyPublicKey );
          currentOffset += mdSize;
 
          // Pad
@@ -545,6 +549,8 @@ namespace CILAssemblyManipulator.Physical.Implementation
                   // Write strong name
                   sink.Seek( snRVA - codeSectionVirtualOffset + fAlign, SeekOrigin.Begin );
                   sink.Write( strongNameArray );
+
+                  eArgs.StrongNameHashValue = strongNameArray;
                }
             }
 
@@ -625,14 +631,15 @@ namespace CILAssemblyManipulator.Physical.Implementation
          UInt32 codeSectionVirtualOffset,
          Boolean isPE64,
          ByteArrayHelper byteArrayHelper,
+         List<Int32> methodRVAs,
          ref UInt32 currentOffset,
-         out UserStringHeapWriter usersStrings,
-         out IList<UInt32> methodRVAs
+         out UserStringHeapWriter usersStrings
          )
       {
          // Create users string heap
          usersStrings = new UserStringHeapWriter();
-         methodRVAs = new List<UInt32>( md.MethodDefinitions.Count );
+         methodRVAs.Clear();
+         methodRVAs.Capacity = md.MethodDefinitions.Count;
 
          for ( var i = 0; i < md.MethodDefinitions.Count; ++i )
          {
@@ -648,13 +655,13 @@ namespace CILAssemblyManipulator.Physical.Implementation
                }
 
                thisMethodRVA = codeSectionVirtualOffset + currentOffset;
-               currentOffset += (UInt32) writer.PerformEmitting( sink );
+               currentOffset += writer.PerformEmitting( sink );
             }
             else
             {
                thisMethodRVA = 0u;
             }
-            methodRVAs.Add( thisMethodRVA );
+            methodRVAs.Add( (Int32) thisMethodRVA );
          }
 
          // Write padding
@@ -668,16 +675,18 @@ namespace CILAssemblyManipulator.Physical.Implementation
          UInt32 codeSectionVirtualOffset,
          Boolean isPE64,
          ByteArrayHelper byteArrayHelper,
+         EmittingArguments eArgs,
          out UInt32 resourcesRVA,
          out UInt32 resourcesSize,
-         out IList<UInt32?> mResInfo,
-         out IList<UInt32> fieldRVAs,
          ref UInt32 currentOffset
          )
       {
          // Write manifest resources here
          var mResInfos = md.ManifestResources;
-         mResInfo = new List<UInt32?>( mResInfos.Count );
+         var mResInfo = eArgs.EmbeddedManifestResourceOffsets;
+         mResInfo.Clear();
+         mResInfo.Capacity = mResInfos.Count;
+
          resourcesSize = 0u;
          var arrayLen = sizeof( Int32 );
          byteArrayHelper.EnsureSize( arrayLen );
@@ -691,7 +700,7 @@ namespace CILAssemblyManipulator.Physical.Implementation
                {
                   data = Empty<Byte>.Array;
                }
-               mResInfo.Add( resourcesSize );
+               mResInfo.Add( (Int32) resourcesSize );
                array.WriteInt32LEToBytesNoRef( 0, data.Length );
                sink.Write( array, arrayLen );
                sink.Write( data );
@@ -717,10 +726,12 @@ namespace CILAssemblyManipulator.Physical.Implementation
 
          // Write field RVAs here
          var mdFRVAs = md.FieldRVAs;
-         fieldRVAs = new List<UInt32>( mdFRVAs.Count );
+         var fieldRVAs = eArgs.FieldRVAs;
+         fieldRVAs.Clear();
+         fieldRVAs.Capacity = mdFRVAs.Count;
          foreach ( var fRVAInfo in mdFRVAs )
          {
-            fieldRVAs.Add( codeSectionVirtualOffset + currentOffset );
+            fieldRVAs.Add( (Int32) ( codeSectionVirtualOffset + currentOffset ) );
             var data = fRVAInfo.Data;
             sink.Write( data );
             currentOffset += (UInt32) data.Length;
@@ -737,9 +748,6 @@ namespace CILAssemblyManipulator.Physical.Implementation
          EmittingArguments eArgs,
          UserStringHeapWriter userStrings,
          ByteArrayHelper byteArrayHelper,
-         IList<UInt32> methodRVAs,
-         IList<UInt32> fieldRVAs,
-         IList<UInt32?> embeddedManifestOffsets,
          Byte[] thisAssemblyPublicKey
          )
       {
@@ -988,7 +996,7 @@ namespace CILAssemblyManipulator.Physical.Implementation
             );
          // ECMA-335, p. 233
          ForEachElement<MethodDefinition, HeapInfo2>( Tables.MethodDef, md.MethodDefinitions, tableWidths, sink, heapInfos, byteArrayHelper, ( array, idx, listIdx, mDef, heapInfo ) => array
-            .WriteUInt32LEToBytes( ref idx, methodRVAs[listIdx] ) // RVA
+            .WriteUInt32LEToBytes( ref idx, (UInt32) eArgs.MethodRVAs[listIdx] ) // RVA
             .WriteInt16LEToBytes( ref idx, (Int16) mDef.ImplementationAttributes ) // ImplFlags
             .WriteInt16LEToBytes( ref idx, (Int16) mDef.Attributes ) // Flags
             .WriteHeapIndex( ref idx, sysStrings, heapInfo.Heap1 ) // Name
@@ -1101,7 +1109,7 @@ namespace CILAssemblyManipulator.Physical.Implementation
             );
          // ECMA-335, p. 227
          ForEachElement( Tables.FieldRVA, md.FieldRVAs, tableWidths, sink, byteArrayHelper, ( array, idx, listIdx, fRVA ) => array
-            .WriteUInt32LEToBytes( ref idx, fieldRVAs[listIdx] )
+            .WriteUInt32LEToBytes( ref idx, (UInt32) eArgs.FieldRVAs[listIdx] )
             .WriteSimpleTableIndex( ref idx, fRVA.Field, tableSizes )
             );
          // ECMA-335, p. 211
@@ -1141,7 +1149,7 @@ namespace CILAssemblyManipulator.Physical.Implementation
             .WriteCodedTableIndex( ref idx, CodedTableIndexKind.Implementation, eType.Implementation, tRefWidths ) // Implementation
             );
          ForEachElement<ManifestResource, HeapInfo1>( Tables.ManifestResource, md.ManifestResources, tableWidths, sink, heapInfos, byteArrayHelper, ( array, idx, listIdx, mRes, heapInfo ) => array
-            .WriteUInt32LEToBytes( ref idx, embeddedManifestOffsets[listIdx] ?? (UInt32) mRes.Offset ) // Offset
+            .WriteUInt32LEToBytes( ref idx, (UInt32) ( eArgs.EmbeddedManifestResourceOffsets[listIdx] ?? mRes.Offset ) ) // Offset
             .WriteInt32LEToBytes( ref idx, (Int32) mRes.Attributes ) // Flags
             .WriteHeapIndex( ref idx, sysStrings, heapInfo.Heap1 ) // Name
             .WriteCodedTableIndex( ref idx, CodedTableIndexKind.Implementation, mRes.Implementation, tRefWidths ) // Implementation
@@ -1752,23 +1760,8 @@ namespace CILAssemblyManipulator.Physical.Implementation
          }
       }
 
-      internal Int32 PerformEmitting( Stream stream )
+      internal UInt32 PerformEmitting( Stream stream )
       {
-         // Remember that inner exception blocks must precede outer ones
-         //var allExceptionBlocksCorrectlyOrdered = this._methodIL.ExceptionBlocks.ToArray();
-         //Array.Sort(
-         //   allExceptionBlocksCorrectlyOrdered,
-         //   ( item1, item2 ) =>
-         //   {
-         //      // Return -1 if item1 is inner block of item2, 0 if they are same, 1 if item1 is not inner block of item2
-         //      return Object.ReferenceEquals( item1, item2 ) ? 0 :
-         //         ( item1.TryOffset >= item2.HandlerOffset + item2.HandlerLength
-         //            || ( item1.TryOffset <= item2.TryOffset && item1.HandlerOffset + item1.HandlerLength > item2.HandlerOffset + item2.HandlerLength ) ?
-         //         1 :
-         //         -1
-         //         );
-         //   } );
-
          var exceptionBlocks = this._methodIL.ExceptionBlocks;
          var hasAnyExceptions = exceptionBlocks.Count > 0;
          // Header
@@ -1879,7 +1872,7 @@ namespace CILAssemblyManipulator.Physical.Implementation
          }
 #endif
 
-         return this._arrayIndex;
+         return (UInt32) this._arrayIndex;
       }
 
 

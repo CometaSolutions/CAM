@@ -31,7 +31,11 @@ namespace CILAssemblyManipulator.Tests.Physical
       [Test]
       public void TestEmittingModuleWithTypeButNoMethods()
       {
-         var md = CreateMinimalAssembly( "SimpleTestAssembly1" );
+         const String NAME = "TestType";
+         const String NS = "TestNamespace";
+         const String ASSEMBLY = "SimpleTestAssembly1";
+
+         var md = CreateMinimalAssembly( ASSEMBLY );
 
          // mscorlib-reference
          //var mscorLib = new AssemblyReference();
@@ -52,20 +56,25 @@ namespace CILAssemblyManipulator.Tests.Physical
          {
             Attributes = TypeAttributes.Interface | TypeAttributes.Abstract,
             //BaseType = new TableIndex( Tables.TypeRef, 0 ),
-            Name = "TestType",
-            Namespace = "TestNamespace"
+            Name = NAME,
+            Namespace = NS
          };
          md.TypeDefinitions.Add( testType );
 
          TestRuntimeAssembly( md,
             //bytes =>
             //{
-            //   File.WriteAllBytes( "SimpleTestAssembly1.dll", bytes );
+            //   File.WriteAllBytes( ASSEMBLY + ".dll", bytes );
             //},
             assembly =>
             {
                var typez = assembly.GetTypes();
                Assert.AreEqual( typez.Length, 1 );
+               var type = typez[0];
+               Assert.AreEqual( NAME, type.Name );
+               Assert.AreEqual( NS, type.Namespace );
+               Assert.AreEqual( assembly.GetName().Name, ASSEMBLY );
+               Assert.AreEqual( TypeAttributes.Interface | TypeAttributes.Abstract, (TypeAttributes) type.Attributes );
             } );
 
       }
@@ -75,7 +84,7 @@ namespace CILAssemblyManipulator.Tests.Physical
          var md = CreateMinimalModule( assemblyName + ".dll" );
          var aDef = new AssemblyDefinition();
          aDef.AssemblyInformation.Name = "SimpleTestAssembly1";
-         aDef.HashAlgorithm = AssemblyHashAlgorithm.SHA1;
+         //aDef.HashAlgorithm = AssemblyHashAlgorithm.SHA1;
          md.AssemblyDefinitions.Add( aDef );
 
          return md;
@@ -103,16 +112,15 @@ namespace CILAssemblyManipulator.Tests.Physical
 
       private static void TestRuntimeAssembly(
          CILMetaData md,
-         /*Action<Byte[]> arrayAction,*/
+         //Action<Byte[]> arrayAction,
          Action<System.Reflection.Assembly> action,
-         HeadersData headers = null,
          EmittingArguments eArgs = null
          )
       {
          Byte[] bytez;
          using ( var ms = new MemoryStream() )
          {
-            md.WriteModule( ms, headers, eArgs );
+            md.WriteModule( ms, eArgs );
             bytez = ms.ToArray();
          }
          //arrayAction( bytez );

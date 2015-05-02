@@ -238,10 +238,10 @@ namespace CILAssemblyManipulator.Physical.Implementation
 
       public static CILMetaData ReadFromStream(
          Stream stream,
-         out HeadersData headers
+         ReadingArguments rArgs
          )
       {
-         headers = new HeadersData( false );
+         var headers = new HeadersData( false );
 
          Byte[] tmpArray = new Byte[8];
 
@@ -390,7 +390,7 @@ namespace CILAssemblyManipulator.Physical.Implementation
          var rsrcDD = new DataDir( stream, tmpArray );
 
          // Strong name
-         //var snDD = new DataDir( stream, tmpArray );
+         var snDD = new DataDir( stream, tmpArray );
 
          // Skip code manager table, virtual table fixups, export address table jumps, and managed native header data directories
          //stream.SeekFromCurrent( 32 );
@@ -401,7 +401,7 @@ namespace CILAssemblyManipulator.Physical.Implementation
             stream,
             sections,
             rsrcDD,
-            headers
+            rArgs
             );
 
          // Read debug info
@@ -425,6 +425,15 @@ namespace CILAssemblyManipulator.Physical.Implementation
             headers.DebugInformation = dbg;
          }
 
+         // Read strong name contents
+         if ( snDD.rva > 0 )
+         {
+            stream.SeekFromBegin( ResolveRVA( snDD.rva, sections ) );
+            var array = new Byte[snDD.size];
+            stream.ReadWholeArray( array );
+            rArgs.StrongNameHashValue = array;
+         }
+
          return retVal;
       }
 
@@ -432,9 +441,10 @@ namespace CILAssemblyManipulator.Physical.Implementation
          Stream stream,
          SectionInfo[] sections,
          DataDir rsrcDD,
-         HeadersData headers
+         ReadingArguments rArgs
          )
       {
+         var headers = rArgs.Headers;
          var mdRoot = stream.Position;
 
          // Prepare variables
@@ -520,8 +530,11 @@ namespace CILAssemblyManipulator.Physical.Implementation
          // Read actual tables
          var retVal = new CILMetadataImpl( tableSizes );
          var tRefSizes = MetaDataConstants.GetCodedTableIndexSizes( tableSizes );
-         var methodDefRVAs = new Int64[tableSizes[(Int32) Tables.MethodDef]];
-         var fieldDefRVAs = new Int64[tableSizes[(Int32) Tables.FieldRVA]];
+         var methodDefRVAs = rArgs.MethodRVAs;
+         methodDefRVAs.Capacity = tableSizes[(Int32) Tables.MethodDef];
+
+         var fieldDefRVAs = rArgs.FieldRVAs;
+         fieldDefRVAs.Capacity = tableSizes[(Int32) Tables.FieldRVA];
 
          // Try resolve purely local custom attributes and security blobs by creating new resolver but not registering to an event
          var resolver = new MetaDataResolver();
@@ -577,7 +590,7 @@ namespace CILAssemblyManipulator.Physical.Implementation
                case Tables.MethodDef:
                   ReadTable( retVal.MethodDefinitions, curTable, tableSizes, i =>
                   {
-                     methodDefRVAs[i] = stream.ReadI32( tmpArray );
+                     methodDefRVAs.Add( stream.ReadI32( tmpArray ) );
                      return new MethodDefinition()
                      {
                         ImplementationAttributes = (MethodImplAttributes) stream.ReadU16( tmpArray ),
@@ -778,7 +791,7 @@ namespace CILAssemblyManipulator.Physical.Implementation
                case Tables.FieldRVA:
                   ReadTable( retVal.FieldRVAs, curTable, tableSizes, i =>
                   {
-                     fieldDefRVAs[i] = stream.ReadI32( tmpArray );
+                     fieldDefRVAs.Add( stream.ReadI32( tmpArray ) );
                      return new FieldRVA()
                      {
                         Field = MetaDataConstants.ReadSimpleTableIndex( stream, Tables.Field, tableSizes, tmpArray )
@@ -845,7 +858,7 @@ namespace CILAssemblyManipulator.Physical.Implementation
                   ReadTable( retVal.ManifestResources, curTable, tableSizes, i =>
                      new ManifestResource()
                      {
-                        Offset = stream.ReadU32( tmpArray ),
+                        Offset = (Int32) stream.ReadU32( tmpArray ),
                         Attributes = (ManifestResourceAttributes) stream.ReadU32( tmpArray ),
                         Name = sysStrings.ReadSysString( stream ),
                         Implementation = MetaDataConstants.ReadCodedTableIndex( stream, CodedTableIndexKind.Implementation, tRefSizes, tmpArray, false )
@@ -904,9 +917,9 @@ namespace CILAssemblyManipulator.Physical.Implementation
          }
 
          // Read all IL code
-         for ( var i = 0; i < methodDefRVAs.Length; ++i )
+         for ( var i = 0; i < methodDefRVAs.Count; ++i )
          {
-            var rva = methodDefRVAs[i];
+            var rva = (UInt32) methodDefRVAs[i];
             if ( rva != 0 )
             {
                var offset = ResolveRVA( rva, sections );
@@ -919,9 +932,9 @@ namespace CILAssemblyManipulator.Physical.Implementation
          }
 
          // Read all field RVA content
-         for ( var i = 0; i < fieldDefRVAs.Length; ++i )
+         for ( var i = 0; i < fieldDefRVAs.Count; ++i )
          {
-            var offset = ResolveRVA( fieldDefRVAs[i], sections );
+            var offset = ResolveRVA( (UInt32) fieldDefRVAs[i], sections );
             UInt32 size;
             if (
                TryCalculateFieldTypeSize( retVal, retVal.FieldRVAs[i].Field.Index, out size )
@@ -942,15 +955,26 @@ namespace CILAssemblyManipulator.Physical.Implementation
          if ( hasEmbeddedResources )
          {
             var rsrcOffset = ResolveRVA( rsrcDD.rva, sections );
-            var rsrcSize = (Int64) rsrcDD.size;
-            foreach ( var mRes in retVal.ManifestResources.Where( m => !m.Implementation.HasValue && m.Offset < rsrcSize ) )
+            var rsrcSize = rsrcDD.size;
+            var rsrcOffsets = rArgs.EmbeddedManifestResourceOffsets;
+            foreach ( var mRes in retVal.ManifestResources )
             {
-               // Read embedded resource
-               stream.SeekFromBegin( rsrcOffset + mRes.Offset );
-               var length = stream.ReadU32( tmpArray );
-               var data = new Byte[length];
-               stream.ReadWholeArray( data );
-               mRes.DataInCurrentFile = data;
+               Int32? offsetToAdd;
+               if ( !mRes.Implementation.HasValue && (UInt32) mRes.Offset < rsrcSize )
+               {
+                  // Read embedded resource
+                  offsetToAdd = mRes.Offset;
+                  stream.SeekFromBegin( rsrcOffset + (UInt32) offsetToAdd );
+                  var length = stream.ReadU32( tmpArray );
+                  var data = new Byte[length];
+                  stream.ReadWholeArray( data );
+                  mRes.DataInCurrentFile = data;
+               }
+               else
+               {
+                  offsetToAdd = null;
+               }
+               rsrcOffsets.Add( offsetToAdd );
             }
          }
 

@@ -331,7 +331,10 @@ namespace CILAssemblyManipulator.Physical
 
    public sealed class ManifestResource
    {
-      public Int64 Offset { get; set; }
+      /// <summary>
+      /// This value is interpreted as unsigned 4-byte integer.
+      /// </summary>
+      public Int32 Offset { get; set; }
       public ManifestResourceAttributes Attributes { get; set; }
       public String Name { get; set; }
       public TableIndex? Implementation { get; set; }
@@ -1065,6 +1068,10 @@ public static partial class E_CILPhysical
 
       // Remove duplicates
       md.RemoveDuplicatesAfterSorting( reorderState );
+
+      // Sort exception blocks of all ILs
+      md.SortMethodILExceptionBlocks();
+
       return allTableIndices;
    }
 
@@ -1567,6 +1574,25 @@ public static partial class E_CILPhysical
 
 
       //table.SortMDTableWithInt32Comparison( indices, ( x, y ) => comparer.Compare( table[x], table[y] ) );
+   }
+
+   private static void SortMethodILExceptionBlocks( this CILMetaData md )
+   {
+      // Remember that inner exception blocks must precede outer ones
+      foreach ( var il in md.MethodDefinitions.Where( methodDef => methodDef.IL != null ).Select( methodDef => methodDef.IL ) )
+      {
+         il.ExceptionBlocks.Sort(
+            ( item1, item2 ) =>
+            {
+               // Return -1 if item1 is inner block of item2, 0 if they are same, 1 if item1 is not inner block of item2
+               return Object.ReferenceEquals( item1, item2 ) || ( item1.TryOffset == item2.TryOffset && item1.HandlerOffset == item2.HandlerOffset ) ? 0 :
+                  ( item1.TryOffset >= item2.HandlerOffset + item2.HandlerLength
+                     || ( item1.TryOffset <= item2.TryOffset && item1.HandlerOffset + item1.HandlerLength > item2.HandlerOffset + item2.HandlerLength ) ?
+                  1 :
+                  -1
+                  );
+            } );
+      }
    }
 
    //private static void SortMDTable<T>( this List<T> table, Int32[] indices, Comparison<T> comparison )

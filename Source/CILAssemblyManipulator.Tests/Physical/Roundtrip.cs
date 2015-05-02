@@ -36,39 +36,42 @@ namespace CILAssemblyManipulator.Tests.Physical
       private static void PerformRoundtripTest( String fileLocation, Action<CILMetaData> afterFirstRead, Action<CILMetaData> afterSecondRead )
       {
          var resolver = new MetaDataResolver();
-         ModuleReadResult read1;
+
+         var rArgs1 = new ReadingArguments();
+         CILMetaData read1;
          using ( var fs = File.OpenRead( fileLocation ) )
          {
-            read1 = fs.ReadModule();
+            read1 = fs.ReadModule( rArgs1 );
          }
 
-         resolver.ResolveEverything( read1.MetaData );
+         resolver.ResolveEverything( read1 );
          if ( afterFirstRead != null )
          {
-            afterFirstRead( read1.MetaData );
+            afterFirstRead( read1 );
          }
 
          Byte[] written;
          using ( var ms = new MemoryStream() )
          {
-            read1.MetaData.WriteModule( ms, read1.Headers, null );
+            read1.WriteModule( ms, new EmittingArguments() { Headers = rArgs1.Headers } );
             written = ms.ToArray();
          }
 
-         ModuleReadResult read2;
+         var rArgs2 = new ReadingArguments();
+         CILMetaData read2;
          using ( var ms = new MemoryStream( written ) )
          {
-            read2 = ms.ReadModule();
+            read2 = ms.ReadModule( rArgs2 );
          }
 
-         resolver.ResolveEverything( read2.MetaData );
+         resolver.ResolveEverything( read2 );
          if ( afterSecondRead != null )
          {
-            afterSecondRead( read2.MetaData );
+            afterSecondRead( read2 );
          }
 
-         Assert.IsTrue( Comparers.MetaDataComparer.Equals( read1.MetaData, read2.MetaData ) );
-         Assert.IsTrue( Comparers.HeadersEqualityComparer.Equals( read1.Headers, read2.Headers ) );
+         Assert.IsTrue( Comparers.MetaDataComparer.Equals( read1, read2 ) );
+         Assert.IsTrue( Comparers.HeadersEqualityComparer.Equals( rArgs1.Headers, rArgs2.Headers ) );
       }
 
    }

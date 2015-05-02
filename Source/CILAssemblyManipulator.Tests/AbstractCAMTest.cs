@@ -90,12 +90,12 @@ namespace CILAssemblyManipulator.Tests
          }
       }
 
-      public static ModuleReadResult ReadFromAssembly( System.Reflection.Assembly assembly )
+      public static CILMetaData ReadFromAssembly( System.Reflection.Assembly assembly, ReadingArguments rArgs )
       {
-         return ReadFromFile( new Uri( assembly.CodeBase ).LocalPath );
+         return ReadFromFile( new Uri( assembly.CodeBase ).LocalPath, rArgs );
       }
 
-      public static ModuleReadResult ReadFromFile( String fileName )
+      public static CILMetaData ReadFromFile( String fileName, ReadingArguments rArgs )
       {
          using ( var fs = File.OpenRead( fileName ) )
          {

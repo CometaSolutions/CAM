@@ -24,8 +24,8 @@ namespace CILAssemblyManipulator.Physical
 {
    public sealed class MethodILDefinition
    {
-      private readonly IList<MethodExceptionBlock> _exceptionBlocks;
-      private readonly IList<OpCodeInfo> _opCodes;
+      private readonly List<MethodExceptionBlock> _exceptionBlocks;
+      private readonly List<OpCodeInfo> _opCodes;
 
       public MethodILDefinition( Int32 exceptionBlockCount = 0, Int32 opCodeCount = 0 )
       {
@@ -37,7 +37,7 @@ namespace CILAssemblyManipulator.Physical
       public TableIndex? LocalsSignatureIndex { get; set; }
       public Int32 MaxStackSize { get; set; }
 
-      public IList<MethodExceptionBlock> ExceptionBlocks
+      public List<MethodExceptionBlock> ExceptionBlocks
       {
          get
          {
@@ -45,7 +45,7 @@ namespace CILAssemblyManipulator.Physical
          }
       }
 
-      public IList<OpCodeInfo> OpCodes
+      public List<OpCodeInfo> OpCodes
       {
          get
          {

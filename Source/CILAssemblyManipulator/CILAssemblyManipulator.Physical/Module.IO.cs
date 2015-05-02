@@ -88,10 +88,69 @@ namespace CILAssemblyManipulator.Physical
       }
    }
 
+   public abstract class IOArguments
+   {
+      private readonly List<Int32> _methodRVAs;
+      private readonly List<Int32> _fieldRVAs;
+      private readonly List<Int32?> _embeddedManifestResourceOffsets;
+
+      public IOArguments()
+      {
+         this._methodRVAs = new List<Int32>();
+         this._fieldRVAs = new List<Int32>();
+         this._embeddedManifestResourceOffsets = new List<Int32?>();
+      }
+
+      /// <summary>
+      /// The values are interpreted as unsigned 4-byte integers.
+      /// </summary>
+      public List<Int32> MethodRVAs
+      {
+         get
+         {
+            return this._methodRVAs;
+         }
+      }
+
+      /// <summary>
+      /// The values are interpreted as unsigned 4-byte integers.
+      /// </summary>
+      public List<Int32> FieldRVAs
+      {
+         get
+         {
+            return this._fieldRVAs;
+         }
+      }
+
+      /// <summary>
+      /// If has value, then <see cref="ManifestResource"/> at this index is embedded in the module, and is located at given offset. Otherwise, the <see cref="ManifestResource"/> is located at another file.
+      /// </summary>
+      public List<Int32?> EmbeddedManifestResourceOffsets
+      {
+         get
+         {
+            return this._embeddedManifestResourceOffsets;
+         }
+      }
+
+      public HeadersData Headers { get; set; }
+
+      public Byte[] StrongNameHashValue { get; set; }
+   }
+
+   /// <summary>
+   /// Class containing information specific to reading the module.
+   /// </summary>
+   public sealed class ReadingArguments : IOArguments
+   {
+
+   }
+
    /// <summary>
    /// Class containing information specific to writing the module.
    /// </summary>
-   public sealed class EmittingArguments
+   public sealed class EmittingArguments : IOArguments
    {
       /// <summary>
       /// This event occurs when a public key is being exported from a named cryptographic service provider.
@@ -450,18 +509,34 @@ namespace CILAssemblyManipulator.Physical
    public static class CILModuleIO
    {
 
-      public static ModuleReadResult ReadModule( this Stream stream )
+      public static CILMetaData ReadModule( this Stream stream, ReadingArguments rArgs = null )
       {
-         HeadersData headers;
-         var md = CILAssemblyManipulator.Physical.Implementation.ModuleReader.ReadFromStream( stream, out headers );
-         return new ModuleReadResult( md, headers );
+         if ( rArgs == null )
+         {
+            rArgs = new ReadingArguments();
+         }
+
+         if ( rArgs.Headers == null )
+         {
+            rArgs.Headers = new HeadersData();
+         }
+
+         return CILAssemblyManipulator.Physical.Implementation.ModuleReader.ReadFromStream( stream, rArgs );
       }
 
-      public static ModuleWriteResult WriteModule( this CILMetaData md, Stream stream, HeadersData headers = null, EmittingArguments eArgs = null )
+      public static void WriteModule( this CILMetaData md, Stream stream, EmittingArguments eArgs = null )
       {
-         CILAssemblyManipulator.Physical.Implementation.ModuleWriter.WriteModule( md, headers ?? new HeadersData(), eArgs ?? new EmittingArguments(), stream );
+         if ( eArgs == null )
+         {
+            eArgs = new EmittingArguments();
+         }
 
-         return new ModuleWriteResult();
+         if ( eArgs.Headers == null )
+         {
+            eArgs.Headers = new HeadersData();
+         }
+
+         CILAssemblyManipulator.Physical.Implementation.ModuleWriter.WriteModule( md, eArgs, stream );
       }
    }
 }
