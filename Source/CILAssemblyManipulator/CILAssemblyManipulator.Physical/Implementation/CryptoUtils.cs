@@ -178,22 +178,4 @@ namespace CILAssemblyManipulator.Physical.Implementation
          return retVal;
       }
    }
-
-   /// <summary>
-   /// This exception is thrown whenever something goes wrong when emitting a strong-signed module.
-   /// </summary>
-   public class CryptographicException : Exception
-   {
-      internal CryptographicException( String msg )
-         : this( msg, null )
-      {
-
-      }
-
-      internal CryptographicException( String msg, Exception inner )
-         : base( msg, inner )
-      {
-
-      }
-   }
 }

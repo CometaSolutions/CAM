@@ -29,12 +29,18 @@ namespace CILAssemblyManipulator.Physical
    {
       private sealed class MDSpecificCache
       {
+         private static readonly Object NULL = new Object();
+
          private readonly MetaDataResolver _owner;
          private readonly CILMetaData _md;
 
+         private readonly IDictionary<Object, MDSpecificCache> _assemblyResolveFreeFormCache;
+         private readonly IDictionary<Int32, MDSpecificCache> _assembliesByInfoCache;
+         private readonly IDictionary<Int32, MDSpecificCache> _modulesCache;
+
          private readonly IDictionary<KeyValuePair<String, String>, Int32> _topLevelTypeCache; // Key: ns + type pair, Value: TypeDef index
          private readonly IDictionary<Int32, CustomAttributeArgumentType> _typeDefCache; // Key: TypeDef index, Value: CA type
-         private readonly IDictionary<Int32, Tuple<CILMetaData, Int32>> _typeRefCache; // Key: TypeRef index, Value: TypeDef index in another metadata
+         private readonly IDictionary<Int32, Tuple<MDSpecificCache, Int32>> _typeRefCache; // Key: TypeRef index, Value: TypeDef index in another metadata
          private readonly IDictionary<String, Int32> _typeNameCache; // Key - type name (ns + enclosing classes + type name), Value - TypeDef index
 
          internal MDSpecificCache( MetaDataResolver owner, CILMetaData md )
@@ -45,10 +51,50 @@ namespace CILAssemblyManipulator.Physical
             this._owner = owner;
             this._md = md;
 
+            this._assemblyResolveFreeFormCache = new Dictionary<Object, MDSpecificCache>();
+            this._assembliesByInfoCache = new Dictionary<Int32, MDSpecificCache>();
+            this._modulesCache = new Dictionary<Int32, MDSpecificCache>();
+
             this._topLevelTypeCache = new Dictionary<KeyValuePair<String, String>, Int32>();
             this._typeDefCache = new Dictionary<Int32, CustomAttributeArgumentType>();
-            this._typeRefCache = new Dictionary<Int32, Tuple<CILMetaData, Int32>>();
+            this._typeRefCache = new Dictionary<Int32, Tuple<MDSpecificCache, Int32>>();
             this._typeNameCache = new Dictionary<String, Int32>();
+         }
+
+         internal CILMetaData MD
+         {
+            get
+            {
+               return this._md;
+            }
+         }
+
+         internal MDSpecificCache ResolveCacheByAssemblyString( String assemblyString )
+         {
+            var parseSuccessful = false;
+            Object key;
+            if ( String.IsNullOrEmpty( assemblyString ) )
+            {
+               key = NULL;
+            }
+            else
+            {
+               AssemblyInformation aInfo;
+               Boolean isFullPublicKey;
+               parseSuccessful = AssemblyInformation.TryParse( assemblyString, out aInfo, out isFullPublicKey );
+               key = parseSuccessful ?
+                  (Object) new AssemblyInformationForResolving( aInfo, isFullPublicKey ) :
+                  assemblyString;
+            }
+
+            return this._assemblyResolveFreeFormCache.GetOrAdd_NotThreadSafe(
+               key,
+               kkey => this._owner.ResolveAssemblyReferenceWithEvent(
+                  this._md,
+                  parseSuccessful ? null : assemblyString,
+                  parseSuccessful ? (AssemblyInformationForResolving) kkey : (AssemblyInformationForResolving?) null
+                  )
+               );
          }
 
          internal CustomAttributeArgumentType ResolveTypeFromTypeName( String typeName )
@@ -109,13 +155,12 @@ namespace CILAssemblyManipulator.Physical
 
          internal CustomAttributeArgumentType ResolveTypeFromTypeRef( Int32 index )
          {
-            CILMetaData otherMD; Int32 tDefIndex;
+            MDSpecificCache otherMD; Int32 tDefIndex;
             this.ResolveTypeFromTypeRef( index, out otherMD, out tDefIndex );
-            var otherCache = this.GetOtherCache( otherMD );
-            return otherCache == null ? null : otherCache.ResolveTypeFromTypeDef( index );
+            return otherMD == null ? null : otherMD.ResolveTypeFromTypeDef( index );
          }
 
-         private void ResolveTypeFromTypeRef( Int32 index, out CILMetaData otherMDParam, out Int32 tDefIndexParam )
+         private void ResolveTypeFromTypeRef( Int32 index, out MDSpecificCache otherMDParam, out Int32 tDefIndexParam )
          {
             var tuple = this._typeRefCache.GetOrAdd_NotThreadSafe( index, idx =>
             {
@@ -123,49 +168,46 @@ namespace CILAssemblyManipulator.Physical
                var tRef = md.TypeReferences.GetOrNull( idx );
 
                var tDefIndex = -1;
-               CILMetaData otherMD;
+               MDSpecificCache otherMD;
                if ( tRef == null )
                {
                   otherMD = null;
                }
                else
                {
-                  otherMD = md;
+                  otherMD = this;
                   if ( tRef.ResolutionScope.HasValue )
                   {
                      var resScope = tRef.ResolutionScope.Value;
                      var resIdx = resScope.Index;
-                     MDSpecificCache otherCache;
                      switch ( resScope.Table )
                      {
                         case Tables.TypeRef:
                            // Nested type
                            this.ResolveTypeFromTypeRef( resIdx, out otherMD, out tDefIndex );
-                           otherCache = this.GetOtherCache( otherMD );
-                           if ( otherCache != null )
+                           if ( otherMD != null )
                            {
-                              tDefIndex = otherCache.FindNestedTypeIndex( tDefIndex, tRef.Name );
+                              tDefIndex = otherMD.FindNestedTypeIndex( tDefIndex, tRef.Name );
                            }
-
                            break;
                         case Tables.ModuleRef:
                            // Same assembly, different module
-                           throw new NotImplementedException( "Module reference in type reference row." );
+                           otherMD = this.ResolveModuleReference( resIdx );
+                           if ( otherMD != null )
+                           {
+                              tDefIndex = otherMD.ResolveTopLevelType( tRef.Name, tRef.Namespace );
+                           }
+                           break;
                         case Tables.Module:
                            // Same as type-def
                            tDefIndex = resIdx;
                            break;
                         case Tables.AssemblyRef:
-                           // Resolve assembly ref -> CILMetaData
-                           // Then recursion with different metadata
-                           var aRef = md.AssemblyReferences.GetOrNull( resIdx );
-                           otherMD = aRef == null ?
-                              null :
-                              this._owner.ResolveAssemblyByAssemblyInformation( md, aRef.AssemblyInformation, aRef.Attributes.IsFullPublicKey() );
-                           otherCache = this.GetOtherCache( otherMD );
-                           if ( otherCache != null )
+                           // Different assembly
+                           otherMD = this.ResolveAssemblyReference( resIdx );
+                           if ( otherMD != null )
                            {
-                              tDefIndex = otherCache.ResolveTopLevelType( tRef.Name, tRef.Namespace );
+                              tDefIndex = otherMD.ResolveTopLevelType( tRef.Name, tRef.Namespace );
                            }
                            break;
                      }
@@ -254,32 +296,41 @@ namespace CILAssemblyManipulator.Physical
             return retVal;
          }
 
-         private MDSpecificCache GetOtherCache( CILMetaData otherMD )
+         private MDSpecificCache ResolveModuleReference( Int32 modRefIdx )
          {
-            return otherMD == null ?
-               null :
-               (
-                  Object.ReferenceEquals( this, otherMD ) ?
-                  this :
-                  null
-               );
+            return this._modulesCache.GetOrAdd_NotThreadSafe(
+               modRefIdx,
+               idx =>
+               {
+                  var mRef = this._md.ModuleReferences.GetOrNull( idx );
+                  return mRef == null ? null : this._owner.ResolveModuleReferenceWithEvent( this._md, mRef.ModuleName );
+               } );
+         }
+
+         private MDSpecificCache ResolveAssemblyReference( Int32 aRefIdx )
+         {
+            return this._assembliesByInfoCache.GetOrAdd_NotThreadSafe(
+               aRefIdx,
+               idx =>
+               {
+                  var aRef = this._md.AssemblyReferences.GetOrNull( idx );
+                  return aRef == null ? null : this._owner.ResolveAssemblyReferenceWithEvent( this._md, null, new AssemblyInformationForResolving( aRef.AssemblyInformation, aRef.Attributes.IsFullPublicKey() ) );
+               } );
          }
       }
 
-      private readonly IDictionary<AssemblyInformationForResolving, CILMetaData> _mdResolveCacheByAssemblyInfo;
-      private readonly IDictionary<String, CILMetaData> _mdResolveCacheByName;
       private readonly IDictionary<CILMetaData, MDSpecificCache> _mdCaches;
       private readonly Func<CILMetaData, MDSpecificCache> _mdCacheFactory;
 
       public MetaDataResolver()
       {
-         this._mdResolveCacheByAssemblyInfo = new Dictionary<AssemblyInformationForResolving, CILMetaData>();
-         this._mdResolveCacheByName = new Dictionary<String, CILMetaData>();
          this._mdCaches = new Dictionary<CILMetaData, MDSpecificCache>();
          this._mdCacheFactory = this.MDSpecificCacheFactory;
       }
 
       public event EventHandler<AssemblyReferenceResolveEventArgs> AssemblyReferenceResolveEvent;
+
+      public event EventHandler<ModuleReferenceResolveEventArgs> ModuleReferenceResolveEvent;
 
       public void ResolveCustomAttributeSignature(
          CILMetaData md,
@@ -453,35 +504,23 @@ namespace CILAssemblyManipulator.Physical
       }
 
 
-      private CILMetaData ResolveAssemblyReference( String assemblyName, AssemblyInformationForResolving? assemblyInfo )
+      private MDSpecificCache ResolveAssemblyReferenceWithEvent( CILMetaData thisMD, String assemblyName, AssemblyInformationForResolving? assemblyInfo )
       {
-         var args = new AssemblyReferenceResolveEventArgs( assemblyName, assemblyInfo );
+         var args = new AssemblyReferenceResolveEventArgs( thisMD, assemblyName, assemblyInfo );
          this.AssemblyReferenceResolveEvent.InvokeEventIfNotNull( evt => evt( this, args ) );
-         return args.ResolvedAssembly;
+         return this.GetCacheFor( args.ResolvedMetaData );
       }
 
-      private CILMetaData ResolveAssemblyByAssemblyInformation( CILMetaData md, AssemblyInformation information, Boolean isFullPublicKey )
+      private MDSpecificCache ResolveModuleReferenceWithEvent( CILMetaData thisMD, String moduleName )
       {
-         return this._mdResolveCacheByAssemblyInfo.GetOrAdd_NotThreadSafe(
-            new AssemblyInformationForResolving( information, isFullPublicKey ),
-            ai =>
-            {
-               // TODO put ca-sigs list behind lazy. then we can use md.AssemblyDefinition table here to check if assembly name is in fact this assembly!
-               return this.ResolveAssemblyReference( null, ai );
-            } );
+         var args = new ModuleReferenceResolveEventArgs( thisMD, moduleName );
+         this.ModuleReferenceResolveEvent.InvokeEventIfNotNull( evt => evt( this, args ) );
+         return this.GetCacheFor( args.ResolvedMetaData );
       }
 
-      private CILMetaData ResolveAssemblyByString( CILMetaData md, String assemblyString )
+      private MDSpecificCache ResolveAssemblyByString( CILMetaData md, String assemblyString )
       {
-         if ( assemblyString == null )
-         {
-            assemblyString = String.Empty;
-         }
-         AssemblyInformation aInfo;
-         Boolean isFullPublicKey;
-         return AssemblyInformation.TryParse( assemblyString, out aInfo, out isFullPublicKey ) ?
-            ResolveAssemblyByAssemblyInformation( md, aInfo, isFullPublicKey ) :
-            this._mdResolveCacheByName.GetOrAdd_NotThreadSafe( assemblyString, assString => this.ResolveAssemblyReference( assString, null ) );
+         return this.GetCacheFor( md ).ResolveCacheByAssemblyString( assemblyString );
       }
 
       private CustomAttributeArgumentType ResolveTypeFromFullName( CILMetaData md, String typeString )
@@ -494,19 +533,9 @@ namespace CILAssemblyManipulator.Physical
 
          String typeName, assemblyName;
          var assemblyNamePresent = typeString.ParseFullTypeString( out typeName, out assemblyName );
-         CILMetaData targetModule;
-         if ( assemblyNamePresent )
-         {
-            // Other assembly
-            targetModule = this.ResolveAssemblyByString( md, assemblyName );
-         }
-         else
-         {
-            // This assembly or mscorlib
-            targetModule = md;
-         }
+         var targetModule = assemblyNamePresent ? this.ResolveAssemblyByString( md, assemblyName ) : this.GetCacheFor( md );
 
-         var retVal = this.UseMDCache( targetModule, c => c.ResolveTypeFromTypeName( typeName ) );
+         var retVal = targetModule == null ? null : targetModule.ResolveTypeFromTypeName( typeName );
          if ( retVal == null && !assemblyNamePresent )
          {
             // TODO try 'mscorlib' unless this is mscorlib
@@ -832,12 +861,55 @@ namespace CILAssemblyManipulator.Physical
 
    }
 
-   public sealed class AssemblyReferenceResolveEventArgs : EventArgs
+   public abstract class AssemblyOrModuleReferenceResolveEventArgs : EventArgs
+   {
+      private readonly CILMetaData _thisMD;
+
+      internal AssemblyOrModuleReferenceResolveEventArgs( CILMetaData thisMD )
+      {
+         ArgumentValidator.ValidateNotNull( "This metadata", thisMD );
+
+         this._thisMD = thisMD;
+      }
+
+      public CILMetaData ThisMetaData
+      {
+         get
+         {
+            return this._thisMD;
+         }
+      }
+
+
+      public CILMetaData ResolvedMetaData { get; set; }
+   }
+
+   public sealed class ModuleReferenceResolveEventArgs : AssemblyOrModuleReferenceResolveEventArgs
+   {
+      private readonly String _moduleName;
+
+      internal ModuleReferenceResolveEventArgs( CILMetaData thisMD, String moduleName )
+         : base( thisMD )
+      {
+         this._moduleName = moduleName;
+      }
+
+      public String ModuleName
+      {
+         get
+         {
+            return this._moduleName;
+         }
+      }
+   }
+
+   public sealed class AssemblyReferenceResolveEventArgs : AssemblyOrModuleReferenceResolveEventArgs
    {
       private readonly String _assemblyName;
       private readonly AssemblyInformationForResolving? _assemblyInfo;
 
-      internal AssemblyReferenceResolveEventArgs( String assemblyName, AssemblyInformationForResolving? assemblyInfo )
+      internal AssemblyReferenceResolveEventArgs( CILMetaData thisMD, String assemblyName, AssemblyInformationForResolving? assemblyInfo )
+         : base( thisMD )
       {
          this._assemblyName = assemblyName;
          this._assemblyInfo = assemblyInfo;
@@ -862,7 +934,6 @@ namespace CILAssemblyManipulator.Physical
          }
       }
 
-      public CILMetaData ResolvedAssembly { get; set; }
    }
 
    public struct AssemblyInformationForResolving : IEquatable<AssemblyInformationForResolving>

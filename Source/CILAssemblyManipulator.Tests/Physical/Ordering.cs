@@ -151,6 +151,8 @@ namespace CILAssemblyManipulator.Tests.Physical
             return nc.NestedClass.Index;
          } );
 
+         // TODO all other tables as well...
+
          //////////////////////// Integrity
          Assert.IsTrue( logicalInfo.IsMatch( matchArgs ) );
       }

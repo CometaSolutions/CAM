@@ -33,6 +33,12 @@ using CommonUtils;
 
 namespace CILMerge
 {
+   public class CILModuleLoader
+   {
+
+   }
+
+
    public class CILMerger : IDisposable
    {
       private readonly CILMergeOptions _options;
@@ -1825,7 +1831,7 @@ namespace CILMerge
          var cspOK = !this._csp.IsValueCreated || this._csp.Value.DisposeSafely( out cspException );
          if ( !pdbOK )
          {
-            throw this.NewCILMergeException( ExitCode.ErrorWritingPDB, "Error writing PDB file for " + this._options.OutPath + ".", pdbException );
+            this.Log( MessageLevel.Warning, "Error writing PDB file for {0}. Error:\n{1}", this._options.OutPath, pdbException );
          }
          if ( !cspOK )
          {
