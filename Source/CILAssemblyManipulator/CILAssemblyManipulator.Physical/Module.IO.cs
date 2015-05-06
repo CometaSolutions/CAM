@@ -174,8 +174,7 @@ namespace CILAssemblyManipulator.Physical
 
       /// <summary>
       /// During emitting, if the module is main module and should be strong-name signed, this <see cref="StrongNameKeyPair"/> will be used.
-      /// Set <c>null</c> if the module should not be strong-name signed.
-      /// This property is not used during loading.
+      /// Set to <c>null</c> if the module should not be strong-name signed.
       /// </summary>
       /// <value>The strong name of the module being emitted.</value>
       public StrongNameKeyPair StrongName { get; set; }

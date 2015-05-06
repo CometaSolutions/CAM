@@ -29,7 +29,7 @@ public static partial class E_CommonUtils
    /// <typeparam name="TValue">The type of the values in <paramref name="dictionary"/>.</typeparam>
    /// <param name="dictionary">The dictionary to get value from. If value does not exist for <paramref name="key"/>, it will be added to dictionary.</param>
    /// <param name="key">The key to use to search value from <paramref name="dictionary"/>.</param>
-   /// <param name="valueFactory">The lambda to generate value.</param>
+   /// <param name="valueFactory">The callback to generate value.</param>
    /// <returns>The value which was either found in <paramref name="dictionary"/> or created by <paramref name="valueFactory"/>.</returns>
    /// <exception cref="ArgumentNullException">If value is not found from <paramref name="dictionary"/> using <paramref name="key"/>, and <paramref name="valueFactory"/> is <c>null</c>.</exception>
    /// <exception cref="NullReferenceException">If <paramref name="dictionary"/> is <c>null</c>.</exception>
@@ -52,7 +52,7 @@ public static partial class E_CommonUtils
    /// <typeparam name="TValue">The type of the values in <paramref name="dictionary"/>.</typeparam>
    /// <param name="dictionary">The dictionary to get value from. If value does not exist for <paramref name="key"/>, it will be added to dictionary.</param>
    /// <param name="key">The key to use to search value from <paramref name="dictionary"/>.</param>
-   /// <param name="valueFactory">The lambda to generate value. The parameter will be <paramref name="key"/>.</param>
+   /// <param name="valueFactory">The callback to generate value. The parameter will be <paramref name="key"/>.</param>
    /// <returns>The value which was either found in <paramref name="dictionary"/> or created by <paramref name="valueFactory"/>.</returns>
    /// <exception cref="ArgumentNullException">If value is not found from <paramref name="dictionary"/> using <paramref name="key"/>, and <paramref name="valueFactory"/> is <c>null</c>.</exception>
    /// <exception cref="NullReferenceException">If <paramref name="dictionary"/> is <c>null</c>.</exception>
@@ -66,6 +66,73 @@ public static partial class E_CommonUtils
          dictionary.Add( key, result );
       }
       return result;
+   }
+
+   ///// <summary>
+   ///// Gets or adds value from <paramref name="dictionary"/> given a <paramref name="key"/>, using <paramref name="valueFactory"/> as value factory. Threadsafe - will lock given lock or whole dictionary when adding.
+   ///// </summary>
+   ///// <typeparam name="TKey">The type of the keys in <paramref name="dictionary"/>.</typeparam>
+   ///// <typeparam name="TValue">The type of the values in <paramref name="dictionary"/>.</typeparam>
+   ///// <param name="dictionary">The dictionary to get value from. If value does not exist for <paramref name="key"/>, it will be added to dictionary.</param>
+   ///// <param name="key">The key to use to search value from <paramref name="dictionary"/>.</param>
+   ///// <param name="valueFactory">The callback to generate value. The parameter will be <paramref name="key"/>.</param>
+   ///// <param name="added">This parameter will be <c>true</c> if this method added a new value to dictionary; <c>false</c> otherwise.</param>
+   ///// <param name="lockToUse">The lock to use when the value does not exist. If not given (is <c>null</c>), the dictionary itself will be used as lock.</param>
+   ///// <returns>The value which was either found in <paramref name="dictionary"/> or created by <paramref name="valueFactory"/>.</returns>
+   ///// <exception cref="ArgumentNullException">If value is not found from <paramref name="dictionary"/> using <paramref name="key"/>, and <paramref name="valueFactory"/> is <c>null</c>.</exception>
+   ///// <exception cref="NullReferenceException">If <paramref name="dictionary"/> is <c>null</c>.</exception>
+   //public static TValue GetOrAdd_WithLock<TKey, TValue>( this IDictionary<TKey, TValue> dictionary, TKey key, Func<TKey, TValue> valueFactory, out Boolean added, Object lockToUse = null )
+   //{
+   //   TValue value;
+   //   added = false;
+   //   if ( !dictionary.TryGetValue( key, out value ) )
+   //   {
+   //      ArgumentValidator.ValidateNotNull( "Value factory", valueFactory );
+
+   //      lock ( lockToUse ?? dictionary )
+   //      {
+   //         if ( !dictionary.TryGetValue( key, out value ) )
+   //         {
+   //            value = valueFactory( key );
+   //            dictionary.Add( key, value );
+   //            added = true;
+   //         }
+   //      }
+   //   }
+
+   //   return value;
+   //}
+
+   /// <summary>
+   /// Gets or adds value from <paramref name="dictionary"/> given a <paramref name="key"/>, using <paramref name="valueFactory"/> as value factory. Threadsafe - will lock given lock or whole dictionary when adding.
+   /// </summary>
+   /// <typeparam name="TKey">The type of the keys in <paramref name="dictionary"/>.</typeparam>
+   /// <typeparam name="TValue">The type of the values in <paramref name="dictionary"/>.</typeparam>
+   /// <param name="dictionary">The dictionary to get value from. If value does not exist for <paramref name="key"/>, it will be added to dictionary.</param>
+   /// <param name="key">The key to use to search value from <paramref name="dictionary"/>.</param>
+   /// <param name="valueFactory">The callback to generate value. The parameter will be <paramref name="key"/>.</param>
+   /// <param name="lockToUse">The lock to use when the value does not exist. If not given (is <c>null</c>), the dictionary itself will be used as lock.</param>
+   /// <returns>The value which was either found in <paramref name="dictionary"/> or created by <paramref name="valueFactory"/>.</returns>
+   /// <exception cref="ArgumentNullException">If value is not found from <paramref name="dictionary"/> using <paramref name="key"/>, and <paramref name="valueFactory"/> is <c>null</c>.</exception>
+   /// <exception cref="NullReferenceException">If <paramref name="dictionary"/> is <c>null</c>.</exception>
+   public static TValue GetOrAdd_WithLock<TKey, TValue>( this IDictionary<TKey, TValue> dictionary, TKey key, Func<TKey, TValue> valueFactory, Object lockToUse = null )
+   {
+      TValue value;
+      if ( !dictionary.TryGetValue( key, out value ) )
+      {
+         ArgumentValidator.ValidateNotNull( "Value factory", valueFactory );
+
+         lock ( lockToUse ?? dictionary )
+         {
+            if ( !dictionary.TryGetValue( key, out value ) )
+            {
+               value = valueFactory( key );
+               dictionary.Add( key, value );
+            }
+         }
+      }
+
+      return value;
    }
 
    /// <summary>

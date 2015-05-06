@@ -561,7 +561,96 @@ namespace CILAssemblyManipulator.Physical
       TypeSpec = 0x1B
    }
 
+   // System.Runtime.Versioning.FrameworkName is amazingly missing from all PCL framework assemblies.
+   public sealed class TargetFrameworkInfo
+   {
+      private readonly String _fwName;
+      private readonly String _fwVersion;
+      private readonly String _fwProfile;
 
+      public TargetFrameworkInfo( String name, String version, String profile )
+      {
+         this._fwName = name;
+         this._fwVersion = version;
+         this._fwProfile = profile;
+      }
+
+      public String Identifier
+      {
+         get
+         {
+            return this._fwName;
+         }
+      }
+
+      public String Version
+      {
+         get
+         {
+            return this._fwVersion;
+         }
+      }
+
+      public String Profile
+      {
+         get
+         {
+            return this._fwProfile;
+         }
+      }
+
+
+      private const String PROFILE_PREFIX = "Profile=";
+      private const String VERSION_PREFIX = "Version=";
+      private const Char SEPARATOR = ',';
+
+      public static Boolean TryParse( String str, out TargetFrameworkInfo fwInfo )
+      {
+         var retVal = !String.IsNullOrEmpty( str );
+         if ( retVal )
+         {
+            // First, framework name
+            var idx = str.IndexOf( SEPARATOR );
+            var fwName = idx == -1 ? str : str.Substring( 0, idx );
+
+            String fwVersion = null, fwProfile = null;
+            if ( idx > 0 )
+            {
+
+               // Then, framework version
+               idx = str.IndexOf( VERSION_PREFIX, idx, StringComparison.Ordinal );
+               var nextIdx = idx + VERSION_PREFIX.Length;
+               var endIdx = str.IndexOf( SEPARATOR, nextIdx );
+               if ( endIdx == -1 )
+               {
+                  endIdx = str.Length;
+               }
+               fwVersion = idx != -1 && nextIdx < str.Length ? str.Substring( nextIdx, endIdx - nextIdx ) : null;
+
+               // Then, profile
+               if ( idx > 0 )
+               {
+                  idx = str.IndexOf( PROFILE_PREFIX, idx, StringComparison.Ordinal );
+                  nextIdx = idx + PROFILE_PREFIX.Length;
+                  endIdx = str.IndexOf( SEPARATOR, nextIdx );
+                  if ( endIdx == -1 )
+                  {
+                     endIdx = str.Length;
+                  }
+                  fwProfile = idx != -1 && nextIdx < str.Length ? str.Substring( nextIdx, endIdx - nextIdx ) : null;
+               }
+            }
+
+            fwInfo = new TargetFrameworkInfo( fwName, fwVersion, fwProfile );
+         }
+         else
+         {
+            fwInfo = null;
+         }
+
+         return retVal;
+      }
+   }
 }
 
 public static partial class E_CILPhysical
@@ -2292,7 +2381,8 @@ public static partial class E_CILPhysical
 
       if ( sig != null )
       {
-         if ( sig.SignatureStarter.IsHasThis() && OpCodes.Newobj != code )
+         var isNewObj = code.Value != OpCodeEncoding.Newobj;
+         if ( sig.SignatureStarter.IsHasThis() && !isNewObj )
          {
             // Pop 'this'
             --curStacksize;
@@ -2306,7 +2396,7 @@ public static partial class E_CILPhysical
             curStacksize -= refSig.VarArgsParameters.Count;
          }
 
-         if ( OpCodes.Calli == code )
+         if ( code.Value == OpCodeEncoding.Calli )
          {
             // Pop function pointer
             --curStacksize;
@@ -2316,7 +2406,7 @@ public static partial class E_CILPhysical
 
          // TODO we could check here for stack underflow!
 
-         if ( OpCodes.Newobj == code
+         if ( isNewObj
             || rType.TypeSignatureKind != TypeSignatureKind.Simple
             || ( (SimpleTypeSignature) rType ).SimpleType != SignatureElementTypes.Void
             )
@@ -2360,7 +2450,86 @@ public static partial class E_CILPhysical
       Int32 stackSize
       )
    {
-      var idx = state.NextCodeByteOffset + jump;
-      state.StackSizes[idx] = Math.Max( state.StackSizes[idx], stackSize );
+      if ( jump >= 0 )
+      {
+         var idx = state.NextCodeByteOffset + jump;
+         state.StackSizes[idx] = Math.Max( state.StackSizes[idx], stackSize );
+      }
+   }
+
+   public static Boolean TryGetTargetFrameworkInformation( this CILMetaData md, out TargetFrameworkInfo fwInfo, MetaDataResolver resolverToUse = null )
+   {
+      fwInfo = md.CustomAttributeDefinitions
+         .Where( ( ca, caIdx ) =>
+         {
+            var isTargetFWAttribute = false;
+            if ( ca.Parent.Table == Tables.Assembly
+            && md.AssemblyDefinitions.GetOrNull( ca.Parent.Index ) != null
+            && ca.Type.Table == Tables.MemberRef ) // Remember that framework assemblies don't have TargetFrameworkAttribute defined
+            {
+               var memberRef = md.MemberReferences.GetOrNull( ca.Type.Index );
+               if ( memberRef != null
+                  && memberRef.Signature.SignatureKind == SignatureKind.MethodReference
+                  && memberRef.DeclaringType.Table == Tables.TypeRef
+                  && String.Equals( memberRef.Name, ".ctor" )
+                  )
+               {
+                  var typeRef = md.TypeReferences.GetOrNull( memberRef.DeclaringType.Index );
+                  if ( typeRef != null
+                     && typeRef.ResolutionScope.HasValue
+                     && typeRef.ResolutionScope.Value.Table == Tables.AssemblyRef
+                     && String.Equals( typeRef.Namespace, "System.Runtime.Versioning" )
+                     && String.Equals( typeRef.Name, "TargetFrameworkAttribute" )
+                     )
+                  {
+                     if ( ca.Signature is RawCustomAttributeSignature )
+                     {
+                        // Use resolver with no events, so nothing additional will be loaded (and is not required, as both arguments are strings
+                        ( resolverToUse ?? new MetaDataResolver() ).ResolveCustomAttributeSignature( md, caIdx );
+                     }
+
+                     var caSig = ca.Signature as CustomAttributeSignature;
+                     if ( caSig != null
+                        && caSig.TypedArguments.Count > 0
+                        && caSig.TypedArguments[0].Type.IsSimpleTypeOfKind( SignatureElementTypes.String )
+                        )
+                     {
+                        // Resolving succeeded
+                        isTargetFWAttribute = true;
+                     }
+#if DEBUG
+                     else
+                     {
+                        // Breakpoint (resolving failed, even though it should have succeeded
+                     }
+#endif
+                  }
+               }
+            }
+            return isTargetFWAttribute;
+         } )
+         .Select( ca =>
+         {
+
+            var fwInfoString = ( (CustomAttributeSignature) ca.Signature ).TypedArguments[0].Value.ToStringSafe( null );
+            //var displayName = caSig.NamedArguments.Count > 0
+            //   && String.Equals( caSig.NamedArguments[0].Name, "FrameworkDisplayName" )
+            //   && caSig.NamedArguments[0].Value.Type.IsSimpleTypeOfKind( SignatureElementTypes.String ) ?
+            //   caSig.NamedArguments[0].Value.Value.ToStringSafe( null ) :
+            //   null;
+            TargetFrameworkInfo thisFWInfo;
+            return TargetFrameworkInfo.TryParse( fwInfoString, out thisFWInfo ) ? thisFWInfo : null;
+
+         } )
+         .FirstOrDefault();
+
+      return fwInfo != null;
+   }
+
+
+   public static Boolean IsSimpleTypeOfKind( this CustomAttributeArgumentType caType, SignatureElementTypes typeKind )
+   {
+      return caType.ArgumentTypeKind == CustomAttributeArgumentTypeKind.Simple
+         && ( (CustomAttributeArgumentTypeSimple) caType ).SimpleType == typeKind;
    }
 }

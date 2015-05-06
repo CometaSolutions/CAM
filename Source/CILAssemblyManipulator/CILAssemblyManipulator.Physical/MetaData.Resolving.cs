@@ -496,7 +496,7 @@ namespace CILAssemblyManipulator.Physical
                // Either enum or System.Type
                var tIdx = ( (ClassOrValueTypeSignature) type ).Type;
                return IsTypeType( md, tIdx ) ? // Avoid loading mscorlib metadata if this is System.Type
-                  CustomAttributeArgumentSimple.Type :
+                  CustomAttributeArgumentTypeSimple.Type :
                   this.ResolveCATypeFromTableIndex( md, tIdx );
             default:
                return null;
@@ -576,40 +576,40 @@ namespace CILAssemblyManipulator.Physical
       }
 
 
-      private static CustomAttributeArgumentSimple ResolveCATypeSimple( SignatureElementTypes elementType )
+      private static CustomAttributeArgumentTypeSimple ResolveCATypeSimple( SignatureElementTypes elementType )
       {
          switch ( elementType )
          {
             case SignatureElementTypes.Boolean:
-               return CustomAttributeArgumentSimple.Boolean;
+               return CustomAttributeArgumentTypeSimple.Boolean;
             case SignatureElementTypes.Char:
-               return CustomAttributeArgumentSimple.Char;
+               return CustomAttributeArgumentTypeSimple.Char;
             case SignatureElementTypes.I1:
-               return CustomAttributeArgumentSimple.SByte;
+               return CustomAttributeArgumentTypeSimple.SByte;
             case SignatureElementTypes.U1:
-               return CustomAttributeArgumentSimple.Byte;
+               return CustomAttributeArgumentTypeSimple.Byte;
             case SignatureElementTypes.I2:
-               return CustomAttributeArgumentSimple.Int16;
+               return CustomAttributeArgumentTypeSimple.Int16;
             case SignatureElementTypes.U2:
-               return CustomAttributeArgumentSimple.UInt16;
+               return CustomAttributeArgumentTypeSimple.UInt16;
             case SignatureElementTypes.I4:
-               return CustomAttributeArgumentSimple.Int32;
+               return CustomAttributeArgumentTypeSimple.Int32;
             case SignatureElementTypes.U4:
-               return CustomAttributeArgumentSimple.UInt32;
+               return CustomAttributeArgumentTypeSimple.UInt32;
             case SignatureElementTypes.I8:
-               return CustomAttributeArgumentSimple.Int64;
+               return CustomAttributeArgumentTypeSimple.Int64;
             case SignatureElementTypes.U8:
-               return CustomAttributeArgumentSimple.UInt64;
+               return CustomAttributeArgumentTypeSimple.UInt64;
             case SignatureElementTypes.R4:
-               return CustomAttributeArgumentSimple.Single;
+               return CustomAttributeArgumentTypeSimple.Single;
             case SignatureElementTypes.R8:
-               return CustomAttributeArgumentSimple.Double;
+               return CustomAttributeArgumentTypeSimple.Double;
             case SignatureElementTypes.String:
-               return CustomAttributeArgumentSimple.String;
+               return CustomAttributeArgumentTypeSimple.String;
             case SignatureElementTypes.Object:
-               return CustomAttributeArgumentSimple.Object;
+               return CustomAttributeArgumentTypeSimple.Object;
             case SignatureElementTypes.Type:
-               return CustomAttributeArgumentSimple.Type;
+               return CustomAttributeArgumentTypeSimple.Type;
             default:
                return null;
          }
@@ -707,7 +707,7 @@ namespace CILAssemblyManipulator.Physical
                   }
                   break;
                case CustomAttributeArgumentTypeKind.Simple:
-                  switch ( ( (CustomAttributeArgumentSimple) type ).SimpleType )
+                  switch ( ( (CustomAttributeArgumentTypeSimple) type ).SimpleType )
                   {
                      case SignatureElementTypes.Boolean:
                         value = caBLOB.ReadByteFromBytes( ref idx ) == 1;
@@ -797,35 +797,35 @@ namespace CILAssemblyManipulator.Physical
                   ArrayType = ReadCAFieldOrPropType( array, ref idx )
                };
             case SignatureElementTypes.CA_Boxed:
-               return CustomAttributeArgumentSimple.Object;
+               return CustomAttributeArgumentTypeSimple.Object;
             case SignatureElementTypes.Boolean:
-               return CustomAttributeArgumentSimple.Boolean;
+               return CustomAttributeArgumentTypeSimple.Boolean;
             case SignatureElementTypes.Char:
-               return CustomAttributeArgumentSimple.Char;
+               return CustomAttributeArgumentTypeSimple.Char;
             case SignatureElementTypes.I1:
-               return CustomAttributeArgumentSimple.SByte;
+               return CustomAttributeArgumentTypeSimple.SByte;
             case SignatureElementTypes.U1:
-               return CustomAttributeArgumentSimple.Byte;
+               return CustomAttributeArgumentTypeSimple.Byte;
             case SignatureElementTypes.I2:
-               return CustomAttributeArgumentSimple.Int16;
+               return CustomAttributeArgumentTypeSimple.Int16;
             case SignatureElementTypes.U2:
-               return CustomAttributeArgumentSimple.UInt16;
+               return CustomAttributeArgumentTypeSimple.UInt16;
             case SignatureElementTypes.I4:
-               return CustomAttributeArgumentSimple.Int32;
+               return CustomAttributeArgumentTypeSimple.Int32;
             case SignatureElementTypes.U4:
-               return CustomAttributeArgumentSimple.UInt32;
+               return CustomAttributeArgumentTypeSimple.UInt32;
             case SignatureElementTypes.I8:
-               return CustomAttributeArgumentSimple.Int64;
+               return CustomAttributeArgumentTypeSimple.Int64;
             case SignatureElementTypes.U8:
-               return CustomAttributeArgumentSimple.UInt64;
+               return CustomAttributeArgumentTypeSimple.UInt64;
             case SignatureElementTypes.R4:
-               return CustomAttributeArgumentSimple.Single;
+               return CustomAttributeArgumentTypeSimple.Single;
             case SignatureElementTypes.R8:
-               return CustomAttributeArgumentSimple.Double;
+               return CustomAttributeArgumentTypeSimple.Double;
             case SignatureElementTypes.String:
-               return CustomAttributeArgumentSimple.String;
+               return CustomAttributeArgumentTypeSimple.String;
             case SignatureElementTypes.Type:
-               return CustomAttributeArgumentSimple.Type;
+               return CustomAttributeArgumentTypeSimple.Type;
             default:
                return null;
          }

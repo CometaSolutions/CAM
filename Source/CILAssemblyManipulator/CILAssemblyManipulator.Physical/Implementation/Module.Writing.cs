@@ -2797,7 +2797,7 @@ public static partial class E_CILPhysical
             }
             break;
          case CustomAttributeArgumentTypeKind.Simple:
-            switch ( ( (CustomAttributeArgumentSimple) argType ).SimpleType )
+            switch ( ( (CustomAttributeArgumentTypeSimple) argType ).SimpleType )
             {
                case SignatureElementTypes.Boolean:
                   info.AddByte( Convert.ToBoolean( arg ) ? (Byte) 1 : (Byte) 0 );
@@ -2843,9 +2843,9 @@ public static partial class E_CILPhysical
                   if ( arg == null )
                   {
                      // Nulls are serialized as null strings
-                     if ( !CustomAttributeArgumentSimple.String.Equals( argType ) )
+                     if ( !CustomAttributeArgumentTypeSimple.String.Equals( argType ) )
                      {
-                        argType = CustomAttributeArgumentSimple.String;
+                        argType = CustomAttributeArgumentTypeSimple.String;
                      }
                   }
                   info.WriteCustomAttributeFieldOrPropType( argType );
@@ -2880,12 +2880,12 @@ public static partial class E_CILPhysical
             info.WriteCustomAttributeFieldOrPropType( ( (CustomAttributeArgumentTypeArray) type ).ArrayType );
             break;
          case CustomAttributeArgumentTypeKind.Simple:
-            var sigStarter = ( (CustomAttributeArgumentSimple) type ).SimpleType;
+            var sigStarter = ( (CustomAttributeArgumentTypeSimple) type ).SimpleType;
             if ( sigStarter == SignatureElementTypes.Object )
             {
                sigStarter = SignatureElementTypes.CA_Boxed;
             }
-            info.AddSigByte( ( (CustomAttributeArgumentSimple) type ).SimpleType );
+            info.AddSigByte( ( (CustomAttributeArgumentTypeSimple) type ).SimpleType );
             break;
          case CustomAttributeArgumentTypeKind.TypeString:
             info.AddSigByte( SignatureElementTypes.CA_Enum );

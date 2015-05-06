@@ -858,36 +858,36 @@ public static partial class E_CIL
          result;
    }
 
-   /// <summary>
-   /// Tries to get PCL profile based on <see cref="TargetFrameworkAttribute"/> applied on <see cref="CILAssembly"/>.
-   /// </summary>
-   /// <param name="assembly">The <see cref="CILAssembly"/>.</param>
-   /// <param name="fwName">This will contain the framework name, if attribute is successfully found, otherwise <c>null</c>.</param>
-   /// <param name="fwVersion">This will contain the framework version, if attribute is successfully found, otherwise <c>null</c>.</param>
-   /// <param name="fwProfile">This will contain the framework profile, if attribute is successfully found, otherwise <c>null</c>.</param>
-   /// <remarks>
-   /// This method works by detecting an custom attribute of type <c>System.Runtime.Versioning.TargetFrameworkAttribute</c> which contains one constructor argument of type <see cref="String"/>.
-   /// Then the method tries to detect to parse the required information by assuming the string is in format <c>&lt;fwName&gt;,Version=&lt;fwVersion&gt;,Profile=&lt;fwProfile&gt;</c>, where version and profile information are optional.
-   /// </remarks>
-   public static void TryGetTargetFrameworkInfoBasedOnAttribute( this CILAssembly assembly, out String fwName, out String fwVersion, out String fwProfile )
-   {
-      fwName = null;
-      fwVersion = null;
-      fwProfile = null;
-      if ( assembly != null )
-      {
-         foreach ( var cd in assembly.CustomAttributeData )
-         {
-            if ( String.Equals( cd.Constructor.DeclaringType.Name, "TargetFrameworkAttribute" )
-            && String.Equals( cd.Constructor.DeclaringType.Namespace, "System.Runtime.Versioning" )
-            && cd.ConstructorArguments.Count == 1
-            && cd.ConstructorArguments[0].Value is String )
-            {
-               break;
-            }
-         }
-      }
-   }
+   ///// <summary>
+   ///// Tries to get PCL profile based on <see cref="TargetFrameworkAttribute"/> applied on <see cref="CILAssembly"/>.
+   ///// </summary>
+   ///// <param name="assembly">The <see cref="CILAssembly"/>.</param>
+   ///// <param name="fwName">This will contain the framework name, if attribute is successfully found, otherwise <c>null</c>.</param>
+   ///// <param name="fwVersion">This will contain the framework version, if attribute is successfully found, otherwise <c>null</c>.</param>
+   ///// <param name="fwProfile">This will contain the framework profile, if attribute is successfully found, otherwise <c>null</c>.</param>
+   ///// <remarks>
+   ///// This method works by detecting an custom attribute of type <c>System.Runtime.Versioning.TargetFrameworkAttribute</c> which contains one constructor argument of type <see cref="String"/>.
+   ///// Then the method tries to detect to parse the required information by assuming the string is in format <c>&lt;fwName&gt;,Version=&lt;fwVersion&gt;,Profile=&lt;fwProfile&gt;</c>, where version and profile information are optional.
+   ///// </remarks>
+   //public static void TryGetTargetFrameworkInfoBasedOnAttribute( this CILAssembly assembly, out String fwName, out String fwVersion, out String fwProfile )
+   //{
+   //   fwName = null;
+   //   fwVersion = null;
+   //   fwProfile = null;
+   //   if ( assembly != null )
+   //   {
+   //      foreach ( var cd in assembly.CustomAttributeData )
+   //      {
+   //         if ( String.Equals( cd.Constructor.DeclaringType.Name, "TargetFrameworkAttribute" )
+   //         && String.Equals( cd.Constructor.DeclaringType.Namespace, "System.Runtime.Versioning" )
+   //         && cd.ConstructorArguments.Count == 1
+   //         && cd.ConstructorArguments[0].Value is String )
+   //         {
+   //            break;
+   //         }
+   //      }
+   //   }
+   //}
 
    /// <summary>
    /// Adds a <see cref="TargetFrameworkAttribute"/> to the <see cref="CILAssembly"/> which represents information for given target framework.

@@ -129,6 +129,9 @@ namespace CILAssemblyManipulator.Tests.Physical
 
       private static void ReOrderAndValidate( CILMetaData md )
       {
+         var resolver = new MetaDataResolver();
+         resolver.ResolveEverything( md );
+
          var logicalInfo = new ModuleLogicalInfo( md );
          // Create args BEFORE sorting
          var matchArgs = new MatchArgs( md );

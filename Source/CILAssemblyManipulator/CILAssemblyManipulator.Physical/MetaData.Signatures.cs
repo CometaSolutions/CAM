@@ -1408,27 +1408,27 @@ namespace CILAssemblyManipulator.Physical
       public abstract CustomAttributeArgumentTypeKind ArgumentTypeKind { get; }
    }
 
-   public sealed class CustomAttributeArgumentSimple : CustomAttributeArgumentType
+   public sealed class CustomAttributeArgumentTypeSimple : CustomAttributeArgumentType
    {
-      public static readonly CustomAttributeArgumentSimple Boolean = new CustomAttributeArgumentSimple( SignatureElementTypes.Boolean );
-      public static readonly CustomAttributeArgumentSimple Char = new CustomAttributeArgumentSimple( SignatureElementTypes.Char );
-      public static readonly CustomAttributeArgumentSimple SByte = new CustomAttributeArgumentSimple( SignatureElementTypes.I1 );
-      public static readonly CustomAttributeArgumentSimple Byte = new CustomAttributeArgumentSimple( SignatureElementTypes.U1 );
-      public static readonly CustomAttributeArgumentSimple Int16 = new CustomAttributeArgumentSimple( SignatureElementTypes.I2 );
-      public static readonly CustomAttributeArgumentSimple UInt16 = new CustomAttributeArgumentSimple( SignatureElementTypes.U2 );
-      public static readonly CustomAttributeArgumentSimple Int32 = new CustomAttributeArgumentSimple( SignatureElementTypes.I4 );
-      public static readonly CustomAttributeArgumentSimple UInt32 = new CustomAttributeArgumentSimple( SignatureElementTypes.U4 );
-      public static readonly CustomAttributeArgumentSimple Int64 = new CustomAttributeArgumentSimple( SignatureElementTypes.I8 );
-      public static readonly CustomAttributeArgumentSimple UInt64 = new CustomAttributeArgumentSimple( SignatureElementTypes.U8 );
-      public static readonly CustomAttributeArgumentSimple Single = new CustomAttributeArgumentSimple( SignatureElementTypes.R4 );
-      public static readonly CustomAttributeArgumentSimple Double = new CustomAttributeArgumentSimple( SignatureElementTypes.R8 );
-      public static readonly CustomAttributeArgumentSimple String = new CustomAttributeArgumentSimple( SignatureElementTypes.String );
-      public static readonly CustomAttributeArgumentSimple Type = new CustomAttributeArgumentSimple( SignatureElementTypes.Type );
-      internal static readonly CustomAttributeArgumentSimple Object = new CustomAttributeArgumentSimple( SignatureElementTypes.Object );
+      public static readonly CustomAttributeArgumentTypeSimple Boolean = new CustomAttributeArgumentTypeSimple( SignatureElementTypes.Boolean );
+      public static readonly CustomAttributeArgumentTypeSimple Char = new CustomAttributeArgumentTypeSimple( SignatureElementTypes.Char );
+      public static readonly CustomAttributeArgumentTypeSimple SByte = new CustomAttributeArgumentTypeSimple( SignatureElementTypes.I1 );
+      public static readonly CustomAttributeArgumentTypeSimple Byte = new CustomAttributeArgumentTypeSimple( SignatureElementTypes.U1 );
+      public static readonly CustomAttributeArgumentTypeSimple Int16 = new CustomAttributeArgumentTypeSimple( SignatureElementTypes.I2 );
+      public static readonly CustomAttributeArgumentTypeSimple UInt16 = new CustomAttributeArgumentTypeSimple( SignatureElementTypes.U2 );
+      public static readonly CustomAttributeArgumentTypeSimple Int32 = new CustomAttributeArgumentTypeSimple( SignatureElementTypes.I4 );
+      public static readonly CustomAttributeArgumentTypeSimple UInt32 = new CustomAttributeArgumentTypeSimple( SignatureElementTypes.U4 );
+      public static readonly CustomAttributeArgumentTypeSimple Int64 = new CustomAttributeArgumentTypeSimple( SignatureElementTypes.I8 );
+      public static readonly CustomAttributeArgumentTypeSimple UInt64 = new CustomAttributeArgumentTypeSimple( SignatureElementTypes.U8 );
+      public static readonly CustomAttributeArgumentTypeSimple Single = new CustomAttributeArgumentTypeSimple( SignatureElementTypes.R4 );
+      public static readonly CustomAttributeArgumentTypeSimple Double = new CustomAttributeArgumentTypeSimple( SignatureElementTypes.R8 );
+      public static readonly CustomAttributeArgumentTypeSimple String = new CustomAttributeArgumentTypeSimple( SignatureElementTypes.String );
+      public static readonly CustomAttributeArgumentTypeSimple Type = new CustomAttributeArgumentTypeSimple( SignatureElementTypes.Type );
+      internal static readonly CustomAttributeArgumentTypeSimple Object = new CustomAttributeArgumentTypeSimple( SignatureElementTypes.Object );
 
       private SignatureElementTypes _kind;
 
-      private CustomAttributeArgumentSimple( SignatureElementTypes kind )
+      private CustomAttributeArgumentTypeSimple( SignatureElementTypes kind )
       {
          this._kind = kind;
       }

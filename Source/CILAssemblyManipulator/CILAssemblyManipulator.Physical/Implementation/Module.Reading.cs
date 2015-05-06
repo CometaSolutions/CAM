@@ -537,7 +537,7 @@ namespace CILAssemblyManipulator.Physical.Implementation
          fieldDefRVAs.Capacity = tableSizes[(Int32) Tables.FieldRVA];
 
          // Try resolve purely local custom attributes and security blobs by creating new resolver but not registering to an event
-         var resolver = new MetaDataResolver();
+         //var resolver = new MetaDataResolver();
 
          for ( var curTable = 0; curTable < Consts.AMOUNT_OF_TABLES; ++curTable )
          {
@@ -657,12 +657,12 @@ namespace CILAssemblyManipulator.Physical.Implementation
                      }
                      else
                      {
-                        caSig = resolver.TryResolveCustomAttributeSignature( retVal, blobs.WholeBLOBArray, bArrayIdx, caDef.Type );
-                        if ( caSig == null )
-                        {
-                           // Resolving failed
-                           caSig = new RawCustomAttributeSignature() { Bytes = blobs.GetBLOB( caBlobIndex ) };
-                        }
+                        //caSig = resolver.TryResolveCustomAttributeSignature( retVal, blobs.WholeBLOBArray, bArrayIdx, caDef.Type );
+                        //if ( caSig == null )
+                        //{
+                        // Resolving failed
+                        caSig = new RawCustomAttributeSignature() { Bytes = blobs.GetBLOB( caBlobIndex ) };
+                        //}
                      }
                      caDef.Signature = caSig;
                      return caDef;
@@ -1493,7 +1493,7 @@ namespace CILAssemblyManipulator.Physical.Implementation
                   Name = Consts.PERMISSION_SET_XML_PROP,
                   Value = new CustomAttributeTypedArgument()
                   {
-                     Type = CustomAttributeArgumentSimple.String,
+                     Type = CustomAttributeArgumentTypeSimple.String,
                      Value = MetaDataConstants.USER_STRING_ENCODING.GetString( blob, bIdx, blobSize )
                   }
                } );

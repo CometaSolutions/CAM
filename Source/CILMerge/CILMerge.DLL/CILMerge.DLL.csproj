@@ -84,6 +84,10 @@
       <Project>{aeabb192-070f-4c75-bdae-7e29496026ae}</Project>
       <Name>CILAssemblyManipulator</Name>
     </ProjectReference>
+    <ProjectReference Include="..\..\CILAssemblyManipulator\CILAssemblyManipulator.Physical\CILAssemblyManipulator.Physical.csproj">
+      <Project>{ba297806-a89f-4a3b-945b-08729853df75}</Project>
+      <Name>CILAssemblyManipulator.Physical</Name>
+    </ProjectReference>
     <ProjectReference Include="..\..\CollectionsWithRoles\CollectionsWithRoles.csproj">
       <Project>{7f7ebfb0-2bf4-44d8-b96f-accc5f99f529}</Project>
       <Name>CollectionsWithRoles</Name>

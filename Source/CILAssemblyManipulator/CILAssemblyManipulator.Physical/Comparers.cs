@@ -1844,7 +1844,7 @@ namespace CILAssemblyManipulator.Physical
             switch ( x.ArgumentTypeKind )
             {
                case CustomAttributeArgumentTypeKind.Simple:
-                  retVal = Equality_CustomAttributeArgumentSimple_NoReferenceEquals( x as CustomAttributeArgumentSimple, y as CustomAttributeArgumentSimple );
+                  retVal = Equality_CustomAttributeArgumentSimple_NoReferenceEquals( x as CustomAttributeArgumentTypeSimple, y as CustomAttributeArgumentTypeSimple );
                   break;
                case CustomAttributeArgumentTypeKind.TypeString:
                   retVal = Equality_CustomAttributeArgumentTypeEnum_NoReferenceEquals( x as CustomAttributeArgumentTypeEnum, y as CustomAttributeArgumentTypeEnum );
@@ -1858,7 +1858,7 @@ namespace CILAssemblyManipulator.Physical
          return retVal;
       }
 
-      private static Boolean Equality_CustomAttributeArgumentSimple_NoReferenceEquals( CustomAttributeArgumentSimple x, CustomAttributeArgumentSimple y )
+      private static Boolean Equality_CustomAttributeArgumentSimple_NoReferenceEquals( CustomAttributeArgumentTypeSimple x, CustomAttributeArgumentTypeSimple y )
       {
          return x != null && y != null && x.SimpleType == y.SimpleType;
       }
