@@ -399,31 +399,7 @@ namespace CILAssemblyManipulator.Physical
             retVal = new LocalVariablesSignature( lCount );
             for ( var i = 0; i < lCount; ++i )
             {
-               var local = new LocalVariableSignature();
-               var elementType = (SignatureElementTypes) sig[idx];
-               if ( elementType == SignatureElementTypes.TypedByRef )
-               {
-                  local.Type = SimpleTypeSignature.TypedByRef;
-                  ++idx; // Mark this byte read
-               }
-               else
-               {
-                  CustomModifierSignature.AddFromBytes( sig, ref idx, local.CustomModifiers );
-                  elementType = (SignatureElementTypes) sig[idx];
-                  if ( elementType == SignatureElementTypes.Pinned )
-                  {
-                     local.IsPinned = true;
-                     ++idx;
-                     elementType = (SignatureElementTypes) sig[idx];
-                  }
-                  if ( elementType == SignatureElementTypes.ByRef )
-                  {
-                     local.IsByRef = true;
-                     ++idx;
-                  }
-                  local.Type = TypeSignature.ReadFromBytesWithRef( sig, ref idx );
-               }
-               retVal.Locals.Add( local );
+               retVal.Locals.Add( LocalVariableSignature.ReadFromBytes( sig, ref idx ) );
             }
          }
          else
@@ -465,6 +441,36 @@ namespace CILAssemblyManipulator.Physical
       }
 
       public Boolean IsPinned { get; set; }
+
+      public static LocalVariableSignature ReadFromBytes( Byte[] sig, ref Int32 idx )
+      {
+         var local = new LocalVariableSignature();
+         var elementType = (SignatureElementTypes) sig[idx];
+         if ( elementType == SignatureElementTypes.TypedByRef )
+         {
+            local.Type = SimpleTypeSignature.TypedByRef;
+            ++idx; // Mark this byte read
+         }
+         else
+         {
+            CustomModifierSignature.AddFromBytes( sig, ref idx, local.CustomModifiers );
+            elementType = (SignatureElementTypes) sig[idx];
+            if ( elementType == SignatureElementTypes.Pinned )
+            {
+               local.IsPinned = true;
+               ++idx;
+               elementType = (SignatureElementTypes) sig[idx];
+            }
+            if ( elementType == SignatureElementTypes.ByRef )
+            {
+               local.IsByRef = true;
+               ++idx;
+            }
+            local.Type = TypeSignature.ReadFromBytesWithRef( sig, ref idx );
+         }
+
+         return local;
+      }
    }
 
    public sealed class ParameterSignature : ParameterOrLocalVariableSignature
@@ -1529,40 +1535,40 @@ namespace CILAssemblyManipulator.Physical
 
 public static partial class E_CILPhysical
 {
-   public static TSignature CreateDeepCopy<TSignature>( this TSignature sig )
+   public static TSignature CreateDeepCopy<TSignature>( this TSignature sig, Func<TableIndex, TableIndex> tableIndexTranslator = null )
       where TSignature : AbstractSignature
    {
       switch ( sig.SignatureKind )
       {
          case SignatureKind.Field:
-            return CloneFieldSignature( sig as FieldSignature ) as TSignature;
+            return CloneFieldSignature( sig as FieldSignature, tableIndexTranslator ) as TSignature;
          case SignatureKind.GenericMethodInstantiation:
-            return CloneGenericMethodSignature( sig as GenericMethodSignature ) as TSignature;
+            return CloneGenericMethodSignature( sig as GenericMethodSignature, tableIndexTranslator ) as TSignature;
          case SignatureKind.LocalVariables:
-            return CloneLocalsSignature( sig as LocalVariablesSignature ) as TSignature;
+            return CloneLocalsSignature( sig as LocalVariablesSignature, tableIndexTranslator ) as TSignature;
          case SignatureKind.MethodDefinition:
-            return CloneMethodDefSignature( sig as MethodDefinitionSignature ) as TSignature;
+            return CloneMethodDefSignature( sig as MethodDefinitionSignature, tableIndexTranslator ) as TSignature;
          case SignatureKind.MethodReference:
-            return CloneMethodRefSignature( sig as MethodReferenceSignature ) as TSignature;
+            return CloneMethodRefSignature( sig as MethodReferenceSignature, tableIndexTranslator ) as TSignature;
          case SignatureKind.Type:
-            return CloneTypeSignature( sig as TypeSignature ) as TSignature;
+            return CloneTypeSignature( sig as TypeSignature, tableIndexTranslator ) as TSignature;
          case SignatureKind.RawSignature:
-            return CloneRawSignature( sig as RawSignature ) as TSignature;
+            return CloneRawSignature( sig as RawSignature, tableIndexTranslator ) as TSignature;
          case SignatureKind.Property:
-            return ClonePropertySignature( sig as PropertySignature ) as TSignature;
+            return ClonePropertySignature( sig as PropertySignature, tableIndexTranslator ) as TSignature;
          default:
             throw new NotSupportedException( "Invalid signature kind: " + sig.SignatureKind + "." );
       }
    }
 
-   private static RawSignature CloneRawSignature( RawSignature sig )
+   private static RawSignature CloneRawSignature( RawSignature sig, Func<TableIndex, TableIndex> tableIndexTranslator )
    {
       var idx = 0;
       var bytes = sig.Bytes;
       return new RawSignature() { Bytes = bytes.CreateAndBlockCopyTo( ref idx, bytes.Length ) };
    }
 
-   private static TypeSignature CloneTypeSignature( TypeSignature sig )
+   private static TypeSignature CloneTypeSignature( TypeSignature sig, Func<TableIndex, TableIndex> tableIndexTranslator )
    {
       TypeSignature retVal;
       switch ( sig.TypeSignatureKind )
@@ -1572,9 +1578,9 @@ public static partial class E_CILPhysical
             var clazzClone = new ClassOrValueTypeSignature( clazz.GenericArguments.Count )
             {
                IsClass = clazz.IsClass,
-               Type = clazz.Type
+               Type = tableIndexTranslator == null ? clazz.Type : tableIndexTranslator( clazz.Type )
             };
-            clazzClone.GenericArguments.AddRange( clazz.GenericArguments.Select( gArg => CloneTypeSignature( gArg ) ) );
+            clazzClone.GenericArguments.AddRange( clazz.GenericArguments.Select( gArg => CloneTypeSignature( gArg, tableIndexTranslator ) ) );
             retVal = clazzClone;
             break;
          case TypeSignatureKind.ComplexArray:
@@ -1582,7 +1588,7 @@ public static partial class E_CILPhysical
             var cClone = new ComplexArrayTypeSignature( cArray.Sizes.Count, cArray.LowerBounds.Count )
             {
                Rank = cArray.Rank,
-               ArrayType = CloneTypeSignature( cArray.ArrayType )
+               ArrayType = CloneTypeSignature( cArray.ArrayType, tableIndexTranslator )
             };
             cClone.LowerBounds.AddRange( cArray.LowerBounds );
             cClone.Sizes.AddRange( cArray.Sizes );
@@ -1591,16 +1597,16 @@ public static partial class E_CILPhysical
          case TypeSignatureKind.FunctionPointer:
             retVal = new FunctionPointerTypeSignature()
             {
-               MethodSignature = CloneMethodRefSignature( ( (FunctionPointerTypeSignature) sig ).MethodSignature )
+               MethodSignature = CloneMethodRefSignature( ( (FunctionPointerTypeSignature) sig ).MethodSignature, tableIndexTranslator )
             };
             break;
          case TypeSignatureKind.Pointer:
             var ptr = (PointerTypeSignature) sig;
             var ptrClone = new PointerTypeSignature( ptr.CustomModifiers.Count )
             {
-               PointerType = CloneTypeSignature( ptr.PointerType )
+               PointerType = CloneTypeSignature( ptr.PointerType, tableIndexTranslator )
             };
-            ptrClone.CustomModifiers.AddRange( ptr.CustomModifiers.CloneCustomMods() );
+            ptrClone.CustomModifiers.AddRange( ptr.CustomModifiers.CloneCustomMods( tableIndexTranslator ) );
             retVal = ptrClone;
             break;
          case TypeSignatureKind.GenericParameter:
@@ -1611,9 +1617,9 @@ public static partial class E_CILPhysical
             var array = (SimpleArrayTypeSignature) sig;
             var clone = new SimpleArrayTypeSignature( array.CustomModifiers.Count )
             {
-               ArrayType = CloneTypeSignature( array.ArrayType )
+               ArrayType = CloneTypeSignature( array.ArrayType, tableIndexTranslator )
             };
-            clone.CustomModifiers.AddRange( array.CustomModifiers.CloneCustomMods() );
+            clone.CustomModifiers.AddRange( array.CustomModifiers.CloneCustomMods( tableIndexTranslator ) );
             retVal = clone;
             break;
          default:
@@ -1623,94 +1629,94 @@ public static partial class E_CILPhysical
       return retVal;
    }
 
-   private static void PopulateAbstractMethodSignature( AbstractMethodSignature original, AbstractMethodSignature clone )
+   private static void PopulateAbstractMethodSignature( AbstractMethodSignature original, AbstractMethodSignature clone, Func<TableIndex, TableIndex> tableIndexTranslator )
    {
       clone.GenericArgumentCount = original.GenericArgumentCount;
       clone.SignatureStarter = original.SignatureStarter;
-      clone.ReturnType = CloneParameterSignature( original.ReturnType );
-      clone.Parameters.AddRange( original.Parameters.Select( p => CloneParameterSignature( p ) ) );
+      clone.ReturnType = CloneParameterSignature( original.ReturnType, tableIndexTranslator );
+      clone.Parameters.AddRange( original.Parameters.Select( p => CloneParameterSignature( p, tableIndexTranslator ) ) );
    }
 
-   private static MethodReferenceSignature CloneMethodRefSignature( MethodReferenceSignature methodRef )
+   private static MethodReferenceSignature CloneMethodRefSignature( MethodReferenceSignature methodRef, Func<TableIndex, TableIndex> tableIndexTranslator )
    {
       var retVal = new MethodReferenceSignature( methodRef.Parameters.Count, methodRef.VarArgsParameters.Count );
-      PopulateAbstractMethodSignature( methodRef, retVal );
-      retVal.VarArgsParameters.AddRange( methodRef.VarArgsParameters.Select( p => CloneParameterSignature( p ) ) );
+      PopulateAbstractMethodSignature( methodRef, retVal, tableIndexTranslator );
+      retVal.VarArgsParameters.AddRange( methodRef.VarArgsParameters.Select( p => CloneParameterSignature( p, tableIndexTranslator ) ) );
       return retVal;
    }
 
-   private static MethodDefinitionSignature CloneMethodDefSignature( MethodDefinitionSignature methodDef )
+   private static MethodDefinitionSignature CloneMethodDefSignature( MethodDefinitionSignature methodDef, Func<TableIndex, TableIndex> tableIndexTranslator )
    {
       var retVal = new MethodDefinitionSignature( methodDef.Parameters.Count );
-      PopulateAbstractMethodSignature( methodDef, retVal );
+      PopulateAbstractMethodSignature( methodDef, retVal, tableIndexTranslator );
       return retVal;
    }
 
-   private static ParameterSignature CloneParameterSignature( ParameterSignature paramSig )
+   private static ParameterSignature CloneParameterSignature( ParameterSignature paramSig, Func<TableIndex, TableIndex> tableIndexTranslator )
    {
       var retVal = new ParameterSignature( paramSig.CustomModifiers.Count )
       {
          IsByRef = paramSig.IsByRef,
-         Type = CloneTypeSignature( paramSig.Type )
+         Type = CloneTypeSignature( paramSig.Type, tableIndexTranslator )
       };
-      retVal.CustomModifiers.AddRange( paramSig.CustomModifiers.CloneCustomMods() );
+      retVal.CustomModifiers.AddRange( paramSig.CustomModifiers.CloneCustomMods( tableIndexTranslator ) );
       return retVal;
    }
 
-   private static GenericMethodSignature CloneGenericMethodSignature( GenericMethodSignature gSig )
+   private static GenericMethodSignature CloneGenericMethodSignature( GenericMethodSignature gSig, Func<TableIndex, TableIndex> tableIndexTranslator )
    {
       var retVal = new GenericMethodSignature( gSig.GenericArguments.Count );
-      retVal.GenericArguments.AddRange( gSig.GenericArguments.Select( gArg => CloneTypeSignature( gArg ) ) );
+      retVal.GenericArguments.AddRange( gSig.GenericArguments.Select( gArg => CloneTypeSignature( gArg, tableIndexTranslator ) ) );
       return retVal;
    }
 
-   private static FieldSignature CloneFieldSignature( FieldSignature sig )
+   private static FieldSignature CloneFieldSignature( FieldSignature sig, Func<TableIndex, TableIndex> tableIndexTranslator )
    {
       var retVal = new FieldSignature( sig.CustomModifiers.Count );
-      retVal.Type = CloneTypeSignature( sig.Type );
-      retVal.CustomModifiers.AddRange( sig.CustomModifiers.CloneCustomMods() );
+      retVal.Type = CloneTypeSignature( sig.Type, tableIndexTranslator );
+      retVal.CustomModifiers.AddRange( sig.CustomModifiers.CloneCustomMods( tableIndexTranslator ) );
       return retVal;
    }
 
-   private static LocalVariablesSignature CloneLocalsSignature( LocalVariablesSignature locals )
+   private static LocalVariablesSignature CloneLocalsSignature( LocalVariablesSignature locals, Func<TableIndex, TableIndex> tableIndexTranslator )
    {
       var retVal = new LocalVariablesSignature( locals.Locals.Count );
-      retVal.Locals.AddRange( locals.Locals.Select( l => CloneLocalSignature( l ) ) );
+      retVal.Locals.AddRange( locals.Locals.Select( l => CloneLocalSignature( l, tableIndexTranslator ) ) );
       return retVal;
    }
 
-   private static LocalVariableSignature CloneLocalSignature( LocalVariableSignature local )
+   private static LocalVariableSignature CloneLocalSignature( LocalVariableSignature local, Func<TableIndex, TableIndex> tableIndexTranslator )
    {
       var retVal = new LocalVariableSignature( local.CustomModifiers.Count )
       {
          IsByRef = local.IsByRef,
          IsPinned = local.IsPinned,
-         Type = CloneTypeSignature( local.Type )
+         Type = CloneTypeSignature( local.Type, tableIndexTranslator )
       };
-      retVal.CustomModifiers.AddRange( local.CustomModifiers.CloneCustomMods() );
+      retVal.CustomModifiers.AddRange( local.CustomModifiers.CloneCustomMods( tableIndexTranslator ) );
       return retVal;
    }
 
-   private static PropertySignature ClonePropertySignature( PropertySignature sig )
+   private static PropertySignature ClonePropertySignature( PropertySignature sig, Func<TableIndex, TableIndex> tableIndexTranslator )
    {
       var retVal = new PropertySignature( sig.CustomModifiers.Count, sig.Parameters.Count )
       {
          HasThis = sig.HasThis,
-         PropertyType = CloneTypeSignature( sig.PropertyType )
+         PropertyType = CloneTypeSignature( sig.PropertyType, tableIndexTranslator )
       };
-      retVal.CustomModifiers.AddRange( sig.CustomModifiers.CloneCustomMods() );
-      retVal.Parameters.AddRange( sig.Parameters.Select( p => CloneParameterSignature( p ) ) );
+      retVal.CustomModifiers.AddRange( sig.CustomModifiers.CloneCustomMods( tableIndexTranslator ) );
+      retVal.Parameters.AddRange( sig.Parameters.Select( p => CloneParameterSignature( p, tableIndexTranslator ) ) );
       return retVal;
    }
 
-   private static IEnumerable<CustomModifierSignature> CloneCustomMods( this List<CustomModifierSignature> original )
+   private static IEnumerable<CustomModifierSignature> CloneCustomMods( this List<CustomModifierSignature> original, Func<TableIndex, TableIndex> tableIndexTranslator )
    {
       foreach ( var cm in original )
       {
          yield return new CustomModifierSignature()
          {
             IsOptional = cm.IsOptional,
-            CustomModifierType = cm.CustomModifierType
+            CustomModifierType = tableIndexTranslator == null ? cm.CustomModifierType : tableIndexTranslator( cm.CustomModifierType )
          };
       }
    }

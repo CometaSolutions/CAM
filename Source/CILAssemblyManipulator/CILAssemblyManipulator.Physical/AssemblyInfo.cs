@@ -15,6 +15,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License. 
  */
+using CILAssemblyManipulator.Physical;
 using CommonUtils;
 using System;
 using System.Collections.Generic;
@@ -52,6 +53,11 @@ namespace CILAssemblyManipulator.Physical
 
       public Boolean Equals( AssemblyInformation other )
       {
+         return this.Equals( other, true );
+      }
+
+      public Boolean Equals( AssemblyInformation other, Boolean comparePublicKeyOrToken )
+      {
          return Object.ReferenceEquals( this, other ) ||
             ( other != null
             && String.Equals( this.Name, other.Name )
@@ -59,7 +65,7 @@ namespace CILAssemblyManipulator.Physical
             && this.VersionMinor == other.VersionMinor
             && this.VersionBuild == other.VersionBuild
             && this.VersionRevision == other.VersionRevision
-            && ArrayEqualityComparer<Byte>.DefaultArrayEqualityComparer.Equals( this.PublicKeyOrToken, other.PublicKeyOrToken )
+            && ( !comparePublicKeyOrToken || ArrayEqualityComparer<Byte>.DefaultArrayEqualityComparer.Equals( this.PublicKeyOrToken, other.PublicKeyOrToken ) )
             && String.Equals( this.Culture, other.Culture )
             );
       }
@@ -84,6 +90,39 @@ namespace CILAssemblyManipulator.Physical
       private const String PUBLIC_KEY = "PublicKey";
       private const String NEUTRAL_CULTURE = "neutral";
       private const String NEUTRAL_CULTURE_NAME = "";
+
+      public String ToString(
+         Boolean appendCultureIfNeutral,
+         Boolean isFullPublicKey
+         )
+      {
+         var sb = new StringBuilder( this.Name );
+         sb.Append( ASSEMBLY_NAME_ELEMENTS_SEPARATOR + " " + VERSION + ASSEMBLY_NAME_ELEMENT_VALUE_SEPARATOR )
+            .Append( this.VersionMajor )
+            .Append( VERSION_SEPARATOR )
+            .Append( this.VersionMinor )
+            .Append( VERSION_SEPARATOR )
+            .Append( this.VersionBuild )
+            .Append( VERSION_SEPARATOR )
+            .Append( this.VersionRevision );
+
+         var culture = this.Culture;
+         var isNullOrEmptyCulture = String.IsNullOrEmpty( culture );
+         if ( !isNullOrEmptyCulture || appendCultureIfNeutral )
+         {
+            sb.Append( ASSEMBLY_NAME_ELEMENTS_SEPARATOR + " " + CULTURE + ASSEMBLY_NAME_ELEMENT_VALUE_SEPARATOR )
+               .Append( isNullOrEmptyCulture ? NEUTRAL_CULTURE : culture );
+         }
+
+         var pKey = this.PublicKeyOrToken;
+         if ( !pKey.IsNullOrEmpty() )
+         {
+            sb.Append( ASSEMBLY_NAME_ELEMENTS_SEPARATOR + " " + ( isFullPublicKey ? PUBLIC_KEY : PUBLIC_KEY_TOKEN ) + ASSEMBLY_NAME_ELEMENT_VALUE_SEPARATOR )
+               .Append( StringConversions.ByteArray2HexStr( pKey, false ) );
+         }
+
+         return sb.ToString();
+      }
 
       public static AssemblyInformation Parse( String textualAssemblyName )
       {
@@ -303,7 +342,7 @@ namespace CILAssemblyManipulator.Physical
          {
             assemblyName.Culture = fullAssemblyName.Substring( nameIdx, aux );
             nameIdx += aux;
-            if ( String.Equals( "\"\"", assemblyName.Culture ) || String.Compare( assemblyName.Culture, NEUTRAL_CULTURE, StringComparison.OrdinalIgnoreCase ) == 0 )
+            if ( String.Equals( "\"\"", assemblyName.Culture ) || String.Equals( assemblyName.Culture, NEUTRAL_CULTURE, StringComparison.OrdinalIgnoreCase ) )
             {
                assemblyName.Culture = NEUTRAL_CULTURE_NAME;
             }
@@ -322,5 +361,35 @@ namespace CILAssemblyManipulator.Physical
          nameIdx += aux;
          return success;
       }
+   }
+}
+
+public static partial class E_CILPhysical
+{
+   public static void DeepCopyContentsTo( this AssemblyInformation source, AssemblyInformation destination )
+   {
+      destination.Name = source.Name;
+      destination.VersionMajor = source.VersionMajor;
+      destination.VersionMinor = source.VersionMinor;
+      destination.VersionBuild = source.VersionBuild;
+      destination.VersionRevision = source.VersionRevision;
+      destination.Culture = source.Culture;
+      destination.PublicKeyOrToken = source.PublicKeyOrToken.IsNullOrEmpty() ? source.PublicKeyOrToken : source.PublicKeyOrToken.CreateBlockCopy();
+   }
+
+   public static AssemblyInformation CreateDeepCopy( this AssemblyInformation assemblyInfo )
+   {
+      return assemblyInfo == null ?
+         null :
+         new AssemblyInformation()
+         {
+            Name = assemblyInfo.Name,
+            VersionMajor = assemblyInfo.VersionMajor,
+            VersionMinor = assemblyInfo.VersionMinor,
+            VersionBuild = assemblyInfo.VersionBuild,
+            VersionRevision = assemblyInfo.VersionRevision,
+            Culture = assemblyInfo.Culture,
+            PublicKeyOrToken = assemblyInfo.PublicKeyOrToken.IsNullOrEmpty() ? assemblyInfo.PublicKeyOrToken : assemblyInfo.PublicKeyOrToken.CreateBlockCopy()
+         };
    }
 }

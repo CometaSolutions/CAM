@@ -25,7 +25,7 @@ using System.Text.RegularExpressions;
 using System.Threading;
 using System.Xml.Linq;
 using System.Xml.XPath;
-using CILAssemblyManipulator.API;
+//using CILAssemblyManipulator.API;
 using CILAssemblyManipulator.DotNET;
 using CILAssemblyManipulator.MResources;
 using CILAssemblyManipulator.PDB;
@@ -91,25 +91,38 @@ namespace CILMerge
             // TODO more extensions?
 
             // Then, try lookup in target framework directory, if we can parse target framework attribute
-
-            var targetFW = this._targetFrameworks.GetOrAdd_WithLock( thisMetaData, thisMD =>
+            path = this.GetTargetFrameworkPathFor( thisMetaData );
+            if ( path != null )
             {
-               TargetFrameworkInfo fwInfo;
-               return thisMD.TryGetTargetFrameworkInformation( out fwInfo ) ? fwInfo : null;
-            } );
-
-            if ( targetFW != null )
-            {
-               path = Path.Combine( this._fwBasePath, targetFW.Identifier, targetFW.Version );
-               if ( !String.IsNullOrEmpty( targetFW.Profile ) )
-               {
-                  path = Path.Combine( path, "Profile", targetFW.Profile );
-               }
-
-               yield return Path.Combine( path, assemblyRefInfo.Value.AssemblyInformation.Name + ".dll" );
+               yield return Path.Combine( path, assRefName + ".dll" );
             }
 
          }
+      }
+
+      public String GetTargetFrameworkPathFor( CILMetaData md )
+      {
+         var targetFW = this._targetFrameworks.GetOrAdd_WithLock( md, thisMD =>
+         {
+            TargetFrameworkInfo fwInfo;
+            return thisMD.TryGetTargetFrameworkInformation( out fwInfo ) ? fwInfo : null;
+         } );
+
+         String retVal;
+         if ( targetFW != null )
+         {
+            retVal = Path.Combine( this._fwBasePath, targetFW.Identifier, targetFW.Version );
+            if ( !String.IsNullOrEmpty( targetFW.Profile ) )
+            {
+               retVal = Path.Combine( retVal, "Profile", targetFW.Profile );
+            }
+         }
+         else
+         {
+            retVal = null;
+         }
+
+         return retVal;
       }
 
       public static String GetDefaultReferenceAssemblyPath()
@@ -143,6 +156,14 @@ namespace CILMerge
       {
 
       }
+
+      protected override Boolean IsThreadSafe
+      {
+         get
+         {
+            return true;
+         }
+      }
    }
 
    public class CILMetaDataLoaderThreadSafeConcurrent : CILMetaDataLoaderWithCallbacks<ConcurrentDictionary<String, CILMetaData>>
@@ -165,12 +186,6 @@ namespace CILMerge
          {
             resolver.ResolveEverything( metaData );
          }
-      }
-
-      protected override void AddAtomicallyToInfoDictionaryIfNeeded( Dictionary<CILMetaData, Tuple<String, ReadingArguments, MetaDataResolver>> dictionary, CILMetaData md, Func<CILMetaData, Tuple<String, ReadingArguments, MetaDataResolver>> factory )
-      {
-         // Use simple with_lock here as the adding operation is very inexpensive (no need to read from IO etc)
-         dictionary.GetOrAdd_WithLock( md, factory );
       }
    }
 
@@ -395,10 +410,11 @@ namespace CILMerge
       NoTargetFrameworkMoniker,
       FailedToDeduceTargetFramework,
       FailedToReadTargetFrameworkMonikerInformation,
-      FailedToMapPDBType
+      FailedToMapPDBType,
+      VariableTypeGenericParameterCount
    }
 
-   internal class CILAssemblyMerger : IDisposable
+   internal class CILAssemblyMerger
    {
       private class PortabilityHelper
       {
@@ -534,20 +550,19 @@ namespace CILMerge
 
       private readonly CILMerger _merger;
       private readonly CILMergeOptions _options;
+      private readonly CILMetaDataLoaderResourceCallbacksForFiles _loaderCallbacks;
       private readonly CILMetaDataLoader _moduleLoader;
+
+      private readonly List<CILMetaData> _inputModules;
+      private CILMetaData _primaryModule;
+      private CILMetaData _targetModule;
 
       // Key: one of input modules. Value: dictionary; Key: table index in input module. Value: table index in output module
       private readonly IDictionary<CILMetaData, IDictionary<TableIndex, TableIndex>> _tableIndexMappings;
-
-      // Algo:
-      // 1. Construct TypeDef table (merge types if needed & change names if needed)
-      // 2. Construct NestedType table (use mappings) (TODO: shall CAM.Physical re-order algo remove duplicates from NestedClass? I think so, but it doesn't do that right now... )
-      // 3. Construct MethodDef, ParameterDef, FieldDef, PropertyDef, EventDef tables (duplicates of those not removed by re-order algo)
-      // 4. Construct TypeRef table. Make sure to change TypeRef tokens to other input modules into TypeDef/TypeSpec tokens
-      // 5. Concatenate all other tables. Except custom attributes for assembly!
-      // 6. Walk through all rows, signatures, and IL of target module. Update each table index based on mappings
-      // 7. Invoke re-order algo, and emit module.
-
+      // Key: table index in target module, Value: input module, and corresponding index in corresponding table in the input module
+      private readonly IDictionary<TableIndex, Tuple<CILMetaData, Int32>> _targetTableIndexMappings;
+      // Key one of input modules. Value: dictionary; Key: full type name, value: type def index in TARGET module
+      private readonly IDictionary<CILMetaData, IDictionary<String, Int32>> _inputModuleTypeNames;
 
 
       private readonly CILReflectionContext _ctx;
@@ -559,16 +574,12 @@ namespace CILMerge
       private readonly IDictionary<CILField, CILField> _fieldMapping;
       private readonly IDictionary<CILEvent, CILEvent> _eventMapping;
       private readonly IDictionary<CILProperty, CILProperty> _propertyMapping;
-      private readonly IList<CILModule> _inputModules;
       private readonly Lazy<Regex[]> _excludeRegexes;
       private readonly String _inputBasePath;
       //private readonly TextWriter _logStream;
       //private readonly Boolean _disposeLogStream;
-      private readonly IDictionary<Tuple<String, String>, String> _typeRenames;
       private readonly IDictionary<String, CILAssemblyName> _assemblyNameCache;
 
-      private CILModule _targetModule;
-      private CILModule _primaryModule;
       private IDictionary<CILAssembly, CILAssembly> _pcl2TargetMapping;
       private PDBHelper _pdbHelper;
       private readonly Lazy<System.Security.Cryptography.SHA1CryptoServiceProvider> _csp;
@@ -577,10 +588,12 @@ namespace CILMerge
       {
          this._merger = merger;
          this._options = options;
-         var loaderCallbacks = new CILMetaDataLoaderResourceCallbacksForFiles( options.ReferenceAssembliesDirectory );
+
+         this._inputModules = new List<CILMetaData>();
+         this._loaderCallbacks = new CILMetaDataLoaderResourceCallbacksForFiles( options.ReferenceAssembliesDirectory );
          this._moduleLoader = options.Parallel ?
-            (CILMetaDataLoader) new CILMetaDataLoaderThreadSafeConcurrentForFiles( loaderCallbacks ) :
-            new CILMetaDataLoaderNotThreadSafeForFiles( loaderCallbacks );
+            (CILMetaDataLoader) new CILMetaDataLoaderThreadSafeConcurrentForFiles( this._loaderCallbacks ) :
+            new CILMetaDataLoaderNotThreadSafeForFiles( this._loaderCallbacks );
 
 
          this._ctx = ctx;
@@ -595,7 +608,6 @@ namespace CILMerge
 
          this._assemblyLoader = ctx.CreateAssemblyLoader( this._options.ReferenceAssembliesDirectory );
 
-         this._inputModules = new List<CILModule>();
          this._allInputTypeNames = options.Union ?
             null :
             new HashSet<String>();
@@ -645,6 +657,1403 @@ namespace CILMerge
          this._csp = new Lazy<System.Security.Cryptography.SHA1CryptoServiceProvider>( () => new System.Security.Cryptography.SHA1CryptoServiceProvider(), LazyThreadSafetyMode.ExecutionAndPublication );
       }
 
+      internal EmittingArguments MergeAssemblies()
+      {
+         // First of all, load all input modules
+         this.LoadAllInputModules();
+
+         // Then, create target module
+         var eArgs = this.CreateEmittingArgumentsForTargetModule();
+         this.CreateTargetAssembly( eArgs );
+
+         // Process target module
+         // 1. Create structural tables
+         var typeDefInfo = this.ConstructStructuralTables();
+         // 2. Create tables used in signatures and IL tokens
+         this.ConstructTablesUsedInSignaturesAndILTokens( typeDefInfo, eArgs );
+         // 3. Create signatures and IL
+         this.ConstructSignaturesAndMethodIL();
+         // 4. Create the rest of the tables
+         this.ConstructTheRestOfTheTables();
+         // 5. Create assembly & module custom attributes
+         this.ApplyAssemblyAndModuleCustomAttributes();
+         // 6. Re-order and remove duplicates from tables
+         this._targetModule.OrderTablesAndRemoveDuplicates();
+         // 7. Emit module
+         // Emit the module
+         var targetModule = this._targetModule;
+         try
+         {
+            using ( var fs = File.Open( this._options.OutPath, FileMode.Create, FileAccess.ReadWrite, FileShare.None ) )
+            {
+               targetModule.WriteModule( fs, eArgs );
+            }
+         }
+         catch ( Exception exc )
+         {
+            throw this.NewCILMergeException( ExitCode.ErrorAccessingTargetFile, "Error accessing target file " + this._options.OutPath + "(" + exc + ").", exc );
+         }
+
+         // 8. Merge PDBs, if needed
+         if ( !this._options.NoDebug && this._inputModules.Any( im => this._moduleLoader.GetReadingArgumentsForMetaData( im ).Headers.DebugInformation != null ) )
+         {
+            using ( var pdbHelper = new PDBHelper( targetModule, eArgs, this._options.OutPath ) )
+            {
+
+            }
+         }
+
+         return eArgs;
+      }
+
+      private void LoadAllInputModules()
+      {
+         var paths = this._options.InputAssemblies;
+         if ( paths == null || paths.Length == 0 )
+         {
+            throw this.NewCILMergeException( ExitCode.NoInputAssembly, "Input assembly list must contain at least one assembly." );
+         }
+
+         if ( this._options.AllowWildCards )
+         {
+            paths = paths.SelectMany( path =>
+            {
+               return path.IndexOf( '*' ) == -1 && path.IndexOf( '?' ) == -1 ?
+                  (IEnumerable<String>) new[] { path } :
+                  Directory.EnumerateFiles( Path.IsPathRooted( path ) ? Path.GetDirectoryName( path ) : this._inputBasePath, Path.GetFileName( path ) );
+            } ).Select( path => Path.GetFullPath( path ) ).ToArray();
+         }
+         else
+         {
+            paths = paths.Select( path => Path.IsPathRooted( path ) ? path : Path.Combine( this._inputBasePath, path ) ).ToArray();
+         }
+
+         paths = paths.Distinct().ToArray();
+
+         this.DoPotentiallyInParallel( paths, ( isRunningInParallel, path ) =>
+         {
+            var mod = this._moduleLoader.LoadAndResolve( path );
+            var rArgs = this._moduleLoader.GetReadingArgumentsForMetaData( mod );
+            if ( !rArgs.Headers.ModuleFlags.IsILOnly() && !this._options.ZeroPEKind )
+            {
+               throw this.NewCILMergeException( ExitCode.NonILOnlyModule, "The module in " + path + " is not IL-only." );
+            }
+         } );
+
+         this._inputModules.AddRange( paths.Select( p => this._moduleLoader.GetOrLoadMetaData( p ) ) );
+
+         this._primaryModule = this._inputModules[0];
+
+         if ( this._options.Closed )
+         {
+            var set = new HashSet<CILMetaData>( this._inputModules, ReferenceEqualityComparer<CILMetaData>.ReferenceBasedComparer );
+            foreach ( var mod in this._inputModules.ToArray() )
+            {
+               this.LoadModuleForClosedSet( mod, set );
+            }
+            set.UnionWith( this._inputModules );
+            this._inputModules.Clear();
+
+            // Add primary module as first one
+            this._inputModules.Add( this._primaryModule );
+
+            // Add the rest
+            set.Remove( this._primaryModule );
+            this._inputModules.AddRange( set );
+         }
+
+      }
+
+      private void LoadModuleForClosedSet( CILMetaData md, ISet<CILMetaData> curLoaded )
+      {
+         var thisPath = this._moduleLoader.GetResourceFor( md );
+
+         // Load all modules
+         foreach ( var moduleRef in md.FileReferences.Where( f => f.Attributes.ContainsMetadata() ) )
+         {
+            var path = this._loaderCallbacks
+               .GetPossibleResourcesForModuleReference( thisPath, md, moduleRef.Name )
+               .FirstOrDefault( p => this._loaderCallbacks.IsValidResource( p ) );
+            if ( String.IsNullOrEmpty( path ) )
+            {
+               this.Log( MessageLevel.Warning, "Failed to find module referenced in " + thisPath + "." );
+            }
+            else
+            {
+               var otherModule = this._moduleLoader.LoadAndResolve( path );
+               if ( curLoaded.Add( otherModule ) )
+               {
+                  this.LoadModuleForClosedSet( otherModule, curLoaded );
+               }
+            }
+         }
+
+         // Load all referenced assemblies, except target framework ones.
+         var thisDir = Path.GetDirectoryName( thisPath );
+         var fwDir = this._loaderCallbacks.GetTargetFrameworkPathFor( md );
+         foreach ( var aRef in md.AssemblyReferences )
+         {
+            var path = this._loaderCallbacks
+               .GetPossibleResourcesForAssemblyReference( thisPath, md, aRef.NewInformationForResolving(), null )
+               .Where( p => fwDir == null || !p.StartsWith( fwDir ) )
+               .FirstOrDefault( p => this._loaderCallbacks.IsValidResource( p ) );
+            if ( !String.IsNullOrEmpty( path ) )
+            {
+               var otherAssembly = this._moduleLoader.LoadAndResolve( path );
+               if ( curLoaded.Add( otherAssembly ) )
+               {
+                  this.LoadModuleForClosedSet( otherAssembly, curLoaded );
+               }
+            }
+         }
+      }
+
+      private CILAssemblyManipulator.Physical.EmittingArguments CreateEmittingArgumentsForTargetModule()
+      {
+         // Prepare strong _name
+         var keyFile = this._options.KeyFile;
+         CILAssemblyManipulator.Physical.StrongNameKeyPair sn = null;
+         if ( keyFile != null )
+         {
+            try
+            {
+               sn = new CILAssemblyManipulator.Physical.StrongNameKeyPair( File.ReadAllBytes( keyFile ) );
+            }
+            catch ( Exception exc )
+            {
+               throw this.NewCILMergeException( ExitCode.ErrorAccessingSNFile, "Error accessing strong name file " + keyFile + ".", exc );
+            }
+         }
+         else if ( !String.IsNullOrEmpty( this._options.CSPName ) )
+         {
+            sn = new CILAssemblyManipulator.Physical.StrongNameKeyPair( this._options.CSPName );
+         }
+
+         // Prepare emitting arguments
+         var pEArgs = this._moduleLoader.GetReadingArgumentsForMetaData( this._primaryModule );
+         var pHeaders = pEArgs.Headers;
+
+         var eArgs = new CILAssemblyManipulator.Physical.EmittingArguments();
+         var eHeaders = pEArgs.Headers.CreateCopy();
+         eArgs.Headers = eHeaders;
+         eHeaders.DebugInformation = null;
+         eHeaders.FileAlignment = (UInt32) this._options.Align;
+         eHeaders.SubSysMajor = (UInt16) this._options.SubsystemMajor;
+         eHeaders.SubSysMinor = (UInt16) this._options.SubsystemMinor;
+         eHeaders.HighEntropyVA = this._options.HighEntropyVA;
+
+         eArgs.DelaySign = this._options.DelaySign;
+         eArgs.SigningAlgorithm = this._options.SigningAlgorithm;
+         return eArgs;
+      }
+
+      private void CreateTargetAssembly( CILAssemblyManipulator.Physical.EmittingArguments eArgs )
+      {
+         var outPath = this._options.OutPath;
+         var targetMD = CILMetaDataFactory.CreateMinimalAssembly( Path.GetFileNameWithoutExtension( outPath ), Path.GetExtension( outPath ) );
+         var primaryAInfo = this._primaryModule.AssemblyDefinitions[0].AssemblyInformation;
+         var aInfo = targetMD.AssemblyDefinitions[0].AssemblyInformation;
+
+         aInfo.Culture = primaryAInfo.Culture;
+         if ( eArgs.StrongName != null )
+         {
+            aInfo.PublicKeyOrToken = eArgs.CryptoCallbacks.CreatePublicKeyFromStrongName( eArgs.StrongName );
+         }
+
+         if ( this._options.VerMajor > -1 )
+         {
+            // Version was specified explictly
+            aInfo.VersionMajor = this._options.VerMajor;
+            aInfo.VersionMinor = this._options.VerMinor;
+            aInfo.VersionBuild = this._options.VerBuild;
+            aInfo.VersionRevision = this._options.VerRevision;
+         }
+         else
+         {
+            var an2 = this._primaryModule.AssemblyDefinitions.Count > 0 ?
+               this._primaryModule.AssemblyDefinitions[0].AssemblyInformation :
+               new AssemblyInformation();
+
+            aInfo.VersionMajor = an2.VersionMajor;
+            aInfo.VersionMinor = an2.VersionMinor;
+            aInfo.VersionBuild = an2.VersionBuild;
+            aInfo.VersionRevision = an2.VersionRevision;
+         }
+
+         this._targetModule = targetMD;
+      }
+
+      // Constructs TypeDef, NestedClass, MethodDef, ParamDef, GenericParameter tables to target module
+      private IList<IList<Tuple<CILMetaData, Int32>>> ConstructStructuralTables()
+      {
+         //var nestedTypeInfo = new Dictionary<CILMetaData, IDictionary<Int32, IList<Int32>>>( ReferenceEqualityComparer<CILMetaData>.ReferenceBasedComparer );
+         var enclosingTypeInfo = new Dictionary<CILMetaData, IDictionary<Int32, Int32>>( ReferenceEqualityComparer<CILMetaData>.ReferenceBasedComparer );
+         var genericParamInfo = new Dictionary<CILMetaData, IDictionary<TableIndex, IList<Int32>>>( ReferenceEqualityComparer<CILMetaData>.ReferenceBasedComparer );
+
+         // Populate enclosing type info
+         foreach ( var md in this._inputModules )
+         {
+            //var ntDic = new Dictionary<Int32, IList<Int32>>();
+            var eDic = new Dictionary<Int32, Int32>();
+            var gDic = new Dictionary<TableIndex, IList<Int32>>();
+            foreach ( var nt in md.NestedClassDefinitions )
+            {
+               //ntDic
+               //   .GetOrAdd_NotThreadSafe( nt.EnclosingClass.Index, e => new List<Int32>() )
+               //   .Add( nt.NestedClass.Index );
+               eDic[nt.NestedClass.Index] = nt.EnclosingClass.Index;
+            }
+
+            for ( var i = 0; i < md.GenericParameterDefinitions.Count; ++i )
+            {
+               gDic
+                  .GetOrAdd_NotThreadSafe( md.GenericParameterDefinitions[i].Owner, g => new List<Int32>() )
+                  .Add( i );
+            }
+
+            //nestedTypeInfo.Add( md, ntDic );
+            enclosingTypeInfo.Add( md, eDic );
+            genericParamInfo.Add( md, gDic );
+         }
+
+         // Create type strings
+         var typeStrings = new Dictionary<CILMetaData, IDictionary<Int32, String>>( ReferenceEqualityComparer<CILMetaData>.ReferenceBasedComparer );
+         foreach ( var md in this._inputModules )
+         {
+            var thisTypeStrings = new Dictionary<Int32, String>();
+            var thisEnclosingTypeInfo = enclosingTypeInfo[md];
+
+            for ( var tDefIdx = 1; tDefIdx < md.TypeDefinitions.Count; ++tDefIdx ) // Skip <Module> type
+            {
+               var typeString = CreateTypeString( md.TypeDefinitions, tDefIdx, thisEnclosingTypeInfo );
+               thisTypeStrings.Add( tDefIdx, typeString );
+
+            }
+            typeStrings.Add( md, thisTypeStrings );
+         }
+
+         // Construct TypeDef table
+         var currentlyAddedTypeNames = new Dictionary<String, Int32>();
+         ISet<String> allTypeStringsSet = null;
+         var targetModule = this._targetModule;
+         var targetTypeDefs = targetModule.TypeDefinitions;
+         var targetTypeInfo = new List<IList<Tuple<CILMetaData, Int32>>>();
+         // Add type info for <Module> type
+         targetTypeInfo.Add( this._inputModules
+            .Where( m => m.TypeDefinitions.Count > 0 )
+            .Select( m => Tuple.Create( m, 0 ) )
+            .ToList()
+            );
+
+         foreach ( var md in this._inputModules )
+         {
+            var thisTypeStrings = typeStrings[md];
+            var thisEnclosingTypeInfo = enclosingTypeInfo[md];
+            var thisModuleMapping = new Dictionary<TableIndex, TableIndex>();
+            var thisTypeStringInfo = new Dictionary<String, Int32>();
+
+            // Add <Module> type mapping and info
+            thisModuleMapping.Add( new TableIndex( Tables.TypeDef, 0 ), new TableIndex( Tables.TypeDef, 0 ) );
+
+            // Process other types
+            for ( var tDefIdx = 1; tDefIdx < md.TypeDefinitions.Count; ++tDefIdx ) // Skip <Module> type
+            {
+               var targetTDefIdx = targetTypeDefs.Count;
+               var tDef = md.TypeDefinitions[tDefIdx];
+               var typeStr = thisTypeStrings[tDefIdx];
+               var added = currentlyAddedTypeNames.TryAdd_NotThreadSafe( typeStr, targetTDefIdx );
+               var typeAttrs = this.GetNewTypeAttributesForType( md, tDefIdx, thisEnclosingTypeInfo.ContainsKey( tDefIdx ), typeStr );
+               var newName = tDef.Name;
+               IList<Tuple<CILMetaData, Int32>> thisMergedTypes;
+               if ( added || this.IsDuplicateOK( ref newName, typeStr, typeAttrs, typeStrings, ref allTypeStringsSet ) )
+               {
+                  targetTypeDefs.Add( new TypeDefinition()
+                  {
+                     Name = newName,
+                     Namespace = tDef.Namespace,
+                     Attributes = typeAttrs
+                  } );
+                  thisMergedTypes = new List<Tuple<CILMetaData, Int32>>();
+                  targetTypeInfo.Add( thisMergedTypes );
+               }
+               else if ( this._options.Union )
+               {
+                  targetTDefIdx = currentlyAddedTypeNames[typeStr];
+                  thisMergedTypes = targetTypeInfo[targetTDefIdx];
+               }
+               else
+               {
+                  throw this.NewCILMergeException( ExitCode.DuplicateTypeName, "The type " + typeStr + " appears in more than one assembly." );
+               }
+
+               thisModuleMapping.Add( new TableIndex( Tables.TypeDef, tDefIdx ), new TableIndex( Tables.TypeDef, targetTDefIdx ) );
+               thisMergedTypes.Add( Tuple.Create( md, tDefIdx ) );
+               thisTypeStringInfo.Add( typeStr, targetTDefIdx );
+            }
+
+            this._tableIndexMappings.Add( md, thisModuleMapping );
+            this._inputModuleTypeNames.Add( md, thisTypeStringInfo );
+         }
+
+         // Construct GenericParameter, NestedClass, FieldDef, MethodDef, ParamDef tables
+         var targetTableIndexMappings = this._targetTableIndexMappings;
+         for ( var tDefIdx = 0; tDefIdx < targetTypeDefs.Count; ++tDefIdx )
+         {
+            var thisTypeInfo = targetTypeInfo[tDefIdx];
+            var gParameters = thisTypeInfo.Select( t =>
+               {
+                  IList<Int32> gParams;
+                  genericParamInfo[t.Item1].TryGetValue( new TableIndex( Tables.TypeDef, t.Item2 ), out gParams );
+                  return gParams;
+               } )
+               .ToArray();
+
+            if ( !gParameters
+               .Select( gParams => gParams == null ? 0 : gParams.Count )
+               .EmptyOrAllEqual()
+               )
+            {
+               var first = thisTypeInfo[0];
+               throw this.NewCILMergeException( ExitCode.VariableTypeGenericParameterCount, "Type " + typeStrings[first.Item1][first.Item2] + " has different amount of generic arguments in different modules." );
+            }
+            else if ( gParameters.Length > 0 )
+            {
+               // GenericParameter, for type
+               // Just use generic parameters from first suitable input module
+               var gParamModule = thisTypeInfo[0].Item1;
+               foreach ( var gParamIdx in gParameters[0] )
+               {
+                  targetTableIndexMappings.Add( new TableIndex( Tables.GenericParameter, targetModule.GenericParameterDefinitions.Count ), Tuple.Create( gParamModule, gParamIdx ) );
+                  var gParam = gParamModule.GenericParameterDefinitions[gParamIdx];
+                  targetModule.GenericParameterDefinitions.Add( new GenericParameterDefinition()
+                  {
+                     Attributes = gParam.Attributes,
+                     GenericParameterIndex = gParam.GenericParameterIndex,
+                     Name = gParam.Name,
+                     Owner = new TableIndex( Tables.TypeDef, tDefIdx )
+                  } );
+               }
+            }
+
+            var tDef = targetTypeDefs[tDefIdx];
+
+            foreach ( var typeInfo in thisTypeInfo )
+            {
+               var inputMD = typeInfo.Item1;
+               var inputTDefIdx = typeInfo.Item2;
+               var thisGenericParamInfo = genericParamInfo[inputMD];
+
+               // NestedClass
+               var thisEnclosingInfo = enclosingTypeInfo[inputMD];
+               Int32 enclosingTypeIdx;
+               if ( thisEnclosingInfo.TryGetValue( inputTDefIdx, out enclosingTypeIdx ) )
+               {
+                  targetModule.NestedClassDefinitions.Add( new NestedClassDefinition()
+                  {
+                     NestedClass = new TableIndex( Tables.TypeDef, tDefIdx ),
+                     EnclosingClass = this._tableIndexMappings[inputMD][new TableIndex( Tables.TypeDef, enclosingTypeIdx )]
+                  } );
+               }
+
+               // FieldDef
+               tDef.FieldList = new TableIndex( Tables.Field, targetModule.FieldDefinitions.Count );
+               foreach ( var fDefIdx in inputMD.GetTypeFieldIndices( inputTDefIdx ) )
+               {
+                  targetTableIndexMappings.Add( new TableIndex( Tables.Field, targetModule.FieldDefinitions.Count ), Tuple.Create( inputMD, fDefIdx ) );
+                  var fDef = inputMD.FieldDefinitions[fDefIdx];
+                  targetModule.FieldDefinitions.Add( new FieldDefinition()
+                  {
+                     Attributes = fDef.Attributes,
+                     Name = fDef.Name,
+                  } );
+               }
+
+               // MethodDef
+               tDef.MethodList = new TableIndex( Tables.MethodDef, targetModule.MethodDefinitions.Count );
+               foreach ( var mDefIdx in inputMD.GetTypeMethodIndices( inputTDefIdx ) )
+               {
+                  var targetMDefIdx = targetModule.MethodDefinitions.Count;
+                  targetTableIndexMappings.Add( new TableIndex( Tables.MethodDef, targetMDefIdx ), Tuple.Create( inputMD, mDefIdx ) );
+                  var mDef = inputMD.MethodDefinitions[mDefIdx];
+                  targetModule.MethodDefinitions.Add( new MethodDefinition()
+                  {
+                     Attributes = mDef.Attributes,
+                     ImplementationAttributes = mDef.ImplementationAttributes,
+                     Name = mDef.Name,
+                     ParameterList = new TableIndex( Tables.Parameter, targetModule.ParameterDefinitions.Count ),
+                  } );
+
+                  // GenericParameter, for method
+                  IList<Int32> methodGParams;
+                  if ( thisGenericParamInfo.TryGetValue( new TableIndex( Tables.MethodDef, mDefIdx ), out methodGParams ) )
+                  {
+                     foreach ( var methodGParamIdx in methodGParams )
+                     {
+                        targetTableIndexMappings.Add( new TableIndex( Tables.GenericParameter, targetModule.GenericParameterDefinitions.Count ), Tuple.Create( inputMD, methodGParamIdx ) );
+                        var methodGParam = inputMD.GenericParameterDefinitions[methodGParamIdx];
+                        targetModule.GenericParameterDefinitions.Add( new GenericParameterDefinition()
+                        {
+                           Attributes = methodGParam.Attributes,
+                           GenericParameterIndex = methodGParam.GenericParameterIndex,
+                           Name = methodGParam.Name,
+                           Owner = new TableIndex( Tables.MethodDef, targetMDefIdx )
+                        } );
+                     }
+                  }
+
+                  // ParamDef
+                  foreach ( var pDefIdx in inputMD.GetMethodParameterIndices( mDefIdx ) )
+                  {
+                     targetTableIndexMappings.Add( new TableIndex( Tables.Parameter, targetModule.ParameterDefinitions.Count ), Tuple.Create( inputMD, pDefIdx ) );
+                     var pDef = inputMD.ParameterDefinitions[pDefIdx];
+                     targetModule.ParameterDefinitions.Add( new ParameterDefinition()
+                     {
+                        Attributes = pDef.Attributes,
+                        Name = pDef.Name,
+                        Sequence = pDef.Sequence
+                     } );
+                  }
+               }
+            }
+         }
+
+         return targetTypeInfo;
+      }
+
+      private void ConstructTablesUsedInSignaturesAndILTokens(
+         IList<IList<Tuple<CILMetaData, Int32>>> targetTypeInfo,
+         EmittingArguments eArgs
+         )
+      {
+         // AssemblyRef (used by MemberRef table)
+         var hashStreamLazy = new Lazy<HashStreamInfo>( () => eArgs.CryptoCallbacks.CreateHashStream( AssemblyHashAlgorithm.SHA1 ), LazyThreadSafetyMode.None );
+
+         var inputModulesByAssemblyRef = this._inputModules
+            .Where( m => m.AssemblyDefinitions.Count > 0 )
+            .ToDictionary( m =>
+            {
+               var aRef = new AssemblyReference();
+               m.AssemblyDefinitions[0].AssemblyInformation.DeepCopyContentsTo( aRef.AssemblyInformation );
+               return aRef;
+            },
+            m => m,
+            ComparerFromFunctions.NewEqualityComparer<AssemblyReference>(
+               ( x, y ) =>
+               {
+                  Boolean retVal;
+                  var xa = x.AssemblyInformation;
+                  var ya = y.AssemblyInformation;
+                  if ( x.Attributes.IsFullPublicKey() == y.Attributes.IsFullPublicKey() )
+                  {
+                     retVal = xa.Equals( ya );
+                  }
+                  else
+                  {
+                     retVal = xa.Equals( ya, false );
+                     if ( retVal
+                        && !xa.PublicKeyOrToken.IsNullOrEmpty()
+                        && !ya.PublicKeyOrToken.IsNullOrEmpty()
+                        )
+                     {
+                        Byte[] xBytes, yBytes;
+                        if ( x.Attributes.IsFullPublicKey() )
+                        {
+                           // Create public key token for x and compare with y
+                           xBytes = hashStreamLazy.Value.ComputePublicKeyToken( xa.PublicKeyOrToken );
+                           yBytes = ya.PublicKeyOrToken;
+                        }
+                        else
+                        {
+                           // Create public key token for y and compare with x
+                           xBytes = xa.PublicKeyOrToken;
+                           yBytes = hashStreamLazy.Value.ComputePublicKeyToken( ya.PublicKeyOrToken );
+                        }
+                        retVal = ArrayEqualityComparer<Byte>.DefaultArrayEqualityComparer.Equals( xBytes, yBytes );
+                     }
+                  }
+                  return retVal;
+               },
+               x => x.AssemblyInformation.GetHashCode()
+            ) );
+
+         this.MergeTables(
+            Tables.AssemblyRef,
+            md => md.AssemblyReferences,
+            ( md, inputIdx, thisIdx ) => !inputModulesByAssemblyRef.ContainsKey( md.AssemblyReferences[inputIdx.Index] ),
+            ( md, aRef, thisIdx ) =>
+            {
+               var newARef = new AssemblyReference()
+               {
+                  Attributes = aRef.Attributes,
+                  HashValue = aRef.HashValue
+               };
+               aRef.AssemblyInformation.DeepCopyContentsTo( newARef.AssemblyInformation );
+               return newARef;
+            } );
+
+         // ModuleRef (used by MemberRef table)
+         // Skip the actual module references (but keep the ones from ImplMap table)
+         this.MergeTables(
+            Tables.ModuleRef,
+            md => md.ModuleReferences,
+            ( md, inputIdx, thisIdx ) => md.MethodImplementationMaps.Any( iMap => iMap.ImportScope.Equals( inputIdx ) )
+               || !this.IsAssemblyNetModulePartOfInputModules( md, inputIdx.Index ),
+            ( md, mRef, thisIdx ) => new ModuleReference()
+            {
+               ModuleName = mRef.ModuleName
+            } );
+
+         // TypeRef (used by signatures/IL tokens)
+         this.MergeTables(
+            Tables.TypeRef,
+            md => md.TypeReferences,
+            ( md, inputIdx, thisIdx ) =>
+            {
+               // Check whether this will be a TypeRef or TypeDef row in target module
+               String dummy;
+               var tDefIdx = this.GetTargetModuleTypeDefIndexForInputModuleTypeRef( md, inputIdx, thisIdx, out dummy );
+               var retVal = tDefIdx < 0;
+               if ( !retVal )
+               {
+                  // This type ref is actually a type def in target module
+                  this._tableIndexMappings[md].Add( inputIdx, new TableIndex( Tables.TypeDef, tDefIdx ) );
+               }
+               return retVal;
+            },
+            ( md, tRef, thisIdx ) => new TypeReference()
+            {
+               Name = tRef.Name,
+               Namespace = tRef.Namespace,
+            } );
+
+         // Non-null ResolutionScope indexes:
+         // Module (already processed)
+         // ModuleRef (already processed)
+         // AssemblyRef (already processed)
+         // TypeRef (just processed)
+         // Update TypeRef.ResolutionScope separately
+         this.SetTableIndicesNullable(
+            Tables.TypeRef,
+            md => md.TypeReferences,
+            tRef => tRef.ResolutionScope,
+            ( tRef, resScope ) => tRef.ResolutionScope = resScope
+            );
+
+         // TypeSpec (used by signatures/IL tokens)
+         this.MergeTables(
+            Tables.TypeSpec,
+            md => md.TypeSpecifications,
+            null,
+            ( md, tSpec, thisIdx ) => new TypeSpecification()
+            {
+
+            } );
+
+         // MemberRef (used by IL tokens)
+         // DeclaringType indexes:
+         // MethodDef (already processed)
+         // ModuleRef (already processed, possibly missing rows)
+         // TypeDef (already processed)
+         // TypeRef (already processed)
+         // TypeSpec (already processed)
+         // Update MemberReference.DeclaringType in place.
+         this.MergeTables(
+            Tables.MemberRef,
+            md => md.MemberReferences,
+            null,
+            ( md, mRef, thisIdx ) => new MemberReference()
+            {
+               DeclaringType = mRef.DeclaringType.Table == Tables.ModuleRef && !this._tableIndexMappings[md].ContainsKey( mRef.DeclaringType ) ?
+                  new TableIndex( Tables.TypeDef, 0 ) :
+                  this.TranslateTableIndex( md, mRef.DeclaringType ),
+               Name = mRef.Name
+            } );
+
+         // MethodSpec (used by IL tokens)
+         // Method indexes:
+         // MethodDef (already processed)
+         // MemberRef (already processed)
+         // Update MethodSpec.Method in place
+         this.MergeTables(
+            Tables.MethodSpec,
+            md => md.MethodSpecifications,
+            null,
+            ( md, mSpec, thisIdx ) => new MethodSpecification()
+            {
+               Method = this.TranslateTableIndex( md, mSpec.Method )
+            } );
+
+         // StandaloneSignature (used by IL tokens)
+         this.MergeTables(
+            Tables.StandaloneSignature,
+            md => md.StandaloneSignatures,
+            null,
+            ( md, sig, thisIdx ) => new StandaloneSignature()
+            {
+
+            } );
+
+         // Revisit TypeDef table and process its BaseType references
+         // TypeDef.BaseType indexes:
+         // TypeDef (already processed)
+         // TypeRef (already processed)
+         // TypeSpec (already processed)
+         // Update TypeDef.BaseType separately
+         this.SetTableIndicesNullable(
+            Tables.TypeDef,
+            md => md.TypeDefinitions,
+            tDefIdx => targetTypeInfo[tDefIdx][0], // TODO check that base types are 'same' (would involve creating assembly-qualified type string, and even then should take into account the effects of Retargetable assembly ref attribute)
+            tDef => tDef.BaseType,
+            ( tDef, bType ) => tDef.BaseType = bType
+            );
+      }
+
+      private Int32 GetTargetModuleTypeDefIndexForInputModuleTypeRef(
+         CILMetaData inputModule,
+         TableIndex inputIndex,
+         TableIndex targetIndex,
+         out String thisTypeString
+         )
+      {
+         var tRef = inputModule.TypeReferences[inputIndex.Index];
+         var resScopeNullable = tRef.ResolutionScope;
+         var retVal = -1;
+         thisTypeString = null;
+         if ( resScopeNullable.HasValue )
+         {
+            var resScope = resScopeNullable.Value;
+            switch ( resScope.Table )
+            {
+               case Tables.TypeRef:
+                  retVal = this.GetTargetModuleTypeDefIndexForInputModuleTypeRef( inputModule, resScope, targetIndex, out thisTypeString );
+                  if ( retVal >= 0 )
+                  {
+                     retVal = this._inputModuleTypeNames[inputModule][thisTypeString + "+" + tRef.Name];
+                  }
+                  break;
+               case Tables.ModuleRef:
+               case Tables.AssemblyRef:
+               case Tables.Module:
+                  if ( resScope.Table == Tables.Module || !this._tableIndexMappings[inputModule].ContainsKey( resScope ) )
+                  {
+                     thisTypeString = CreateTypeStringFromTopLevelType( tRef.Namespace, tRef.Name );
+                     retVal = this._inputModuleTypeNames[inputModule][thisTypeString];
+                  }
+                  break;
+            }
+         }
+         else
+         {
+            throw new NotImplementedException( "ExportedType as ResolutionScope in TypeRef table." );
+         }
+
+         return retVal;
+      }
+
+      private void ConstructSignaturesAndMethodIL()
+      {
+         // 1. Create all tables which are still unprocessed, and have signatures.
+         this.MergeTables(
+            Tables.Property,
+            md => md.PropertyDefinitions,
+            null,
+            ( md, pDef, thisIdx ) => new PropertyDefinition()
+            {
+               Attributes = pDef.Attributes,
+               Name = pDef.Name
+            } );
+
+         // CustomAttribute and DeclarativeSecurity signatures do not reference table indices, so they can be skipped
+
+         // 2. Create all signatures
+         // Signatures reference only TypeDef, TypeRef, and TypeSpec tables, all of which should've been processed in ConstructNonStructuralTablesUsedInSignaturesAndILTokens method
+         var targetModule = this._targetModule;
+         // FieldDef
+         for ( var i = 0; i < targetModule.FieldDefinitions.Count; ++i )
+         {
+            var inputInfo = this._targetTableIndexMappings[new TableIndex( Tables.Field, i )];
+            var inputModule = inputInfo.Item1;
+            var thisMappings = this._tableIndexMappings[inputModule];
+            targetModule.FieldDefinitions[i].Signature =
+               inputModule.FieldDefinitions[inputInfo.Item2].Signature.CreateDeepCopy( tIdx => thisMappings[tIdx] );
+         }
+
+         // MethodDef
+         for ( var i = 0; i < targetModule.MethodDefinitions.Count; ++i )
+         {
+            var inputInfo = this._targetTableIndexMappings[new TableIndex( Tables.MethodDef, i )];
+            var inputModule = inputInfo.Item1;
+            var thisMappings = this._tableIndexMappings[inputModule];
+            var inputMethodDef = inputModule.MethodDefinitions[inputInfo.Item2];
+            var targetMethodDef = targetModule.MethodDefinitions[i];
+            targetMethodDef.Signature = inputMethodDef.Signature.CreateDeepCopy( tIdx => thisMappings[tIdx] );
+
+            // Create IL
+            // IL tokens reference only TypeDef, TypeRef, TypeSpec, MethodDef, FieldDef, MemberRef, MethodSpec or StandaloneSignature tables, all of which should've been processed in ConstructNonStructuralTablesUsedInSignaturesAndILTokens method
+            var inputIL = inputMethodDef.IL;
+            var targetIL = new MethodILDefinition( inputIL.ExceptionBlocks.Count, inputIL.OpCodes.Count );
+            targetMethodDef.IL = targetIL;
+            targetIL.ExceptionBlocks.AddRange( inputIL.ExceptionBlocks.Select( eb => new MethodExceptionBlock()
+            {
+               BlockType = eb.BlockType,
+               ExceptionType = eb.ExceptionType.HasValue ? thisMappings[eb.ExceptionType.Value] : (TableIndex?) null,
+               FilterOffset = eb.FilterOffset,
+               HandlerLength = eb.HandlerLength,
+               HandlerOffset = eb.HandlerOffset,
+               TryLength = eb.TryLength,
+               TryOffset = eb.TryOffset
+            } ) );
+            targetIL.InitLocals = inputIL.InitLocals;
+            targetIL.LocalsSignatureIndex = inputIL.LocalsSignatureIndex.HasValue ? thisMappings[inputIL.LocalsSignatureIndex.Value] : (TableIndex?) null;
+            targetIL.MaxStackSize = inputIL.MaxStackSize;
+            targetIL.OpCodes.AddRange( inputIL.OpCodes.Select<OpCodeInfo, OpCodeInfo>( oc =>
+            {
+               switch ( oc.InfoKind )
+               {
+                  case OpCodeOperandKind.OperandInteger:
+                     return new OpCodeInfoWithInt32( oc.OpCode, ( (OpCodeInfoWithInt32) oc ).Operand );
+                  case OpCodeOperandKind.OperandInteger64:
+                     return new OpCodeInfoWithInt64( oc.OpCode, ( (OpCodeInfoWithInt64) oc ).Operand );
+                  case OpCodeOperandKind.OperandNone:
+                     return new OpCodeInfoWithNoOperand( oc.OpCode );
+                  case OpCodeOperandKind.OperandR4:
+                     return new OpCodeInfoWithSingle( oc.OpCode, ( (OpCodeInfoWithSingle) oc ).Operand );
+                  case OpCodeOperandKind.OperandR8:
+                     return new OpCodeInfoWithDouble( oc.OpCode, ( (OpCodeInfoWithDouble) oc ).Operand );
+                  case OpCodeOperandKind.OperandString:
+                     return new OpCodeInfoWithString( oc.OpCode, ( (OpCodeInfoWithString) oc ).Operand );
+                  case OpCodeOperandKind.OperandSwitch:
+                     var ocSwitch = (OpCodeInfoWithSwitch) oc;
+                     var ocSwitchTarget = new OpCodeInfoWithSwitch( oc.OpCode, ocSwitch.Offsets.Count );
+                     ocSwitchTarget.Offsets.AddRange( ocSwitch.Offsets );
+                     return ocSwitchTarget;
+                  case OpCodeOperandKind.OperandToken:
+                     return new OpCodeInfoWithToken( oc.OpCode, thisMappings[( (OpCodeInfoWithToken) oc ).Operand] );
+                  default:
+                     throw new NotSupportedException( "Unknown op code kind: " + oc.InfoKind + "." );
+               }
+            } ) );
+
+         }
+
+         // MemberRef
+         for ( var i = 0; i < targetModule.MemberReferences.Count; ++i )
+         {
+            var inputInfo = this._targetTableIndexMappings[new TableIndex( Tables.MemberRef, i )];
+            var inputModule = inputInfo.Item1;
+            var thisMappings = this._tableIndexMappings[inputModule];
+            targetModule.MemberReferences[i].Signature =
+               inputModule.MemberReferences[inputInfo.Item2].Signature.CreateDeepCopy( tIdx => thisMappings[tIdx] );
+         }
+
+         // StandaloneSignature
+         for ( var i = 0; i < targetModule.StandaloneSignatures.Count; ++i )
+         {
+            var inputInfo = this._targetTableIndexMappings[new TableIndex( Tables.StandaloneSignature, i )];
+            var inputModule = inputInfo.Item1;
+            var thisMappings = this._tableIndexMappings[inputModule];
+            targetModule.StandaloneSignatures[i].Signature =
+               inputModule.StandaloneSignatures[inputInfo.Item2].Signature.CreateDeepCopy( tIdx => thisMappings[tIdx] );
+         }
+
+         // PropertyDef
+         for ( var i = 0; i < targetModule.PropertyDefinitions.Count; ++i )
+         {
+            var inputInfo = this._targetTableIndexMappings[new TableIndex( Tables.Property, i )];
+            var inputModule = inputInfo.Item1;
+            var thisMappings = this._tableIndexMappings[inputModule];
+            targetModule.PropertyDefinitions[i].Signature =
+               inputModule.PropertyDefinitions[inputInfo.Item2].Signature.CreateDeepCopy( tIdx => thisMappings[tIdx] );
+         }
+
+         // TypeSpec
+         for ( var i = 0; i < targetModule.TypeSpecifications.Count; ++i )
+         {
+            var inputInfo = this._targetTableIndexMappings[new TableIndex( Tables.TypeSpec, i )];
+            var inputModule = inputInfo.Item1;
+            var thisMappings = this._tableIndexMappings[inputModule];
+            targetModule.TypeSpecifications[i].Signature =
+               inputModule.TypeSpecifications[inputInfo.Item2].Signature.CreateDeepCopy( tIdx => thisMappings[tIdx] );
+         }
+
+         // MethodSpecification
+         for ( var i = 0; i < targetModule.MethodSpecifications.Count; ++i )
+         {
+            var inputInfo = this._targetTableIndexMappings[new TableIndex( Tables.MethodSpec, i )];
+            var inputModule = inputInfo.Item1;
+            var thisMappings = this._tableIndexMappings[inputModule];
+            targetModule.MethodSpecifications[i].Signature =
+               inputModule.MethodSpecifications[inputInfo.Item2].Signature.CreateDeepCopy( tIdx => thisMappings[tIdx] );
+         }
+
+         // CustomAttribute and DeclarativeSecurity signatures do not reference table indices, so they are processed in ConstructTheRestOfTheTables method
+
+      }
+
+      private void ConstructTheRestOfTheTables()
+      {
+         // EventDef
+         this.MergeTables(
+            Tables.Event,
+            md => md.EventDefinitions,
+            null,
+            ( md, evt, thisIdx ) => new EventDefinition()
+            {
+               Attributes = evt.Attributes,
+               EventType = this.TranslateTableIndex( md, evt.EventType ), // TypeRef, TypeDef, TypeSpec -> already processed
+               Name = evt.Name
+            } );
+
+         // EventMap
+         this.MergeTables(
+            Tables.EventMap,
+            md => md.EventMaps,
+            null,
+            ( md, evtMap, thisIdx ) => new EventMap()
+            {
+               EventList = this.TranslateTableIndex( md, evtMap.EventList ), // Event -> already processed
+               Parent = this.TranslateTableIndex( md, evtMap.Parent ) // TypeDef -> already processed
+            } );
+
+         // PropertyMap
+         this.MergeTables(
+            Tables.PropertyMap,
+            md => md.PropertyMaps,
+            null,
+            ( md, propMap, thisIdx ) => new PropertyMap()
+            {
+               Parent = this.TranslateTableIndex( md, propMap.Parent ), // TypeDef -> already processed
+               PropertyList = this.TranslateTableIndex( md, propMap.PropertyList ) // Property -> already processed
+            } );
+
+         // InterfaceImpl
+         this.MergeTables(
+            Tables.InterfaceImpl,
+            md => md.InterfaceImplementations,
+            null,
+            ( md, impl, thisIdx ) => new InterfaceImplementation()
+            {
+               Class = this.TranslateTableIndex( md, impl.Class ), // TypeDef -> already processed
+               Interface = this.TranslateTableIndex( md, impl.Interface ) // TypeDef/TypeRef/TypeSpec -> already processed
+            } );
+
+         // ConstantDef
+         this.MergeTables(
+            Tables.Constant,
+            md => md.ConstantDefinitions,
+            null,
+            ( md, constant, thisIdx ) => new ConstantDefinition()
+            {
+               Parent = this.TranslateTableIndex( md, constant.Parent ), // ParamDef/FieldDef/PropertyDef -> already processed
+               Type = constant.Type,
+               Value = constant.Value
+            } );
+
+         // FieldMarshal
+         this.MergeTables(
+            Tables.FieldMarshal,
+            md => md.FieldMarshals,
+            null,
+            ( md, marshal, thisIdx ) => new FieldMarshal()
+            {
+               NativeType = this.ProcessMarshalingInfo( marshal.NativeType ),
+               Parent = this.TranslateTableIndex( md, marshal.Parent ) // ParamDef/FieldDef -> already processed
+            } );
+
+         // DeclSecurity
+         this.MergeTables(
+            Tables.DeclSecurity,
+            md => md.SecurityDefinitions,
+            null,
+            ( md, sec, thisIdx ) =>
+            {
+               var retVal = new SecurityDefinition( sec.PermissionSets.Count )
+               {
+                  Action = sec.Action,
+                  Parent = this.TranslateTableIndex( md, sec.Parent ) // TypeDef/MethodDef/AssemblyDef -> already processed
+               };
+               foreach ( var permissionSet in sec.PermissionSets )
+               {
+                  retVal.PermissionSets.Add( this.ProcessPermissionSet( permissionSet ) );
+               }
+               return retVal;
+            } );
+
+         // ClassLayout
+         this.MergeTables(
+            Tables.ClassLayout,
+            md => md.ClassLayouts,
+            null,
+            ( md, layout, thisIx ) => new ClassLayout()
+            {
+               ClassSize = layout.ClassSize,
+               PackingSize = layout.PackingSize,
+               Parent = this.TranslateTableIndex( md, layout.Parent ) // TypeDef -> already processed
+            } );
+
+         // FieldLayout
+         this.MergeTables(
+            Tables.FieldLayout,
+            md => md.FieldLayouts,
+            null,
+            ( md, layout, thisIdx ) => new FieldLayout()
+            {
+               Field = this.TranslateTableIndex( md, layout.Field ), // FieldDef -> already processed
+               Offset = layout.Offset
+            } );
+
+         // MethodSemantics
+         this.MergeTables(
+            Tables.MethodSemantics,
+            md => md.MethodSemantics,
+            null,
+            ( md, semantics, thisIdx ) => new MethodSemantics()
+            {
+               Associaton = this.TranslateTableIndex( md, semantics.Associaton ), // Event/Property -> already processed
+               Attributes = semantics.Attributes,
+               Method = this.TranslateTableIndex( md, semantics.Method ) // MethodDef -> already processed
+            } );
+
+         // MethodImpl
+         this.MergeTables(
+            Tables.MethodImpl,
+            md => md.MethodImplementations,
+            null,
+            ( md, impl, thisIdx ) => new MethodImplementation()
+            {
+               Class = this.TranslateTableIndex( md, impl.Class ), // TypeDef -> already processed
+               MethodBody = this.TranslateTableIndex( md, impl.MethodBody ), // MethodDef/MemberRef -> already processed
+               MethodDeclaration = this.TranslateTableIndex( md, impl.MethodDeclaration ) // MetodDef/MemberRef -> already processed
+            } );
+
+         // ImplMap
+         this.MergeTables(
+            Tables.ImplMap,
+            md => md.MethodImplementationMaps,
+            null,
+            ( md, map, thisIdx ) => new MethodImplementationMap()
+            {
+               Attributes = map.Attributes,
+               ImportName = map.ImportName,
+               ImportScope = this.TranslateTableIndex( md, map.ImportScope ), // ModuleRef -> already processed
+               MemberForwarded = this.TranslateTableIndex( md, map.MemberForwarded ) // FieldDef/MethodDef -> already processed
+            } );
+
+         // FieldRVA
+         this.MergeTables(
+            Tables.FieldRVA,
+            md => md.FieldRVAs,
+            null,
+            ( md, fRVA, thisIdx ) => new FieldRVA()
+            {
+               Data = fRVA.Data.CreateBlockCopy(),
+               Field = this.TranslateTableIndex( md, fRVA.Field ) // FieldDef -> already processed
+            } );
+
+         // GenericParameterConstraint
+         this.MergeTables(
+            Tables.GenericParameterConstraint,
+            md => md.GenericParameterConstraintDefinitions,
+            null,
+            ( md, constraint, thisIdx ) => new GenericParameterConstraintDefinition()
+            {
+               Constraint = this.TranslateTableIndex( md, constraint.Constraint ), // TypeDef/TypeRef/TypeSpec -> already processed
+               Owner = this.TranslateTableIndex( md, constraint.Owner ) // GenericParameterDefinition -> already processed
+            } );
+
+         // ExportedType
+         this.MergeTables(
+            Tables.ExportedType,
+            md => md.ExportedTypes,
+            ( md, inputIdx, thisIdx ) => this.ExportedTypeRowStaysInTargetModule( md, md.ExportedTypes[inputIdx.Index] ),
+            ( md, eType, thisIdx ) => new ExportedType()
+            {
+               Attributes = eType.Attributes,
+               Name = eType.Name,
+               Namespace = eType.Namespace,
+               TypeDefinitionIndex = eType.TypeDefinitionIndex
+            } );
+         // ExportedType may reference itself -> update Implementation only now
+         this.SetTableIndices1(
+            Tables.ExportedType,
+            md => md.ExportedTypes,
+            eType => eType.Implementation,
+            ( eType, impl ) => eType.Implementation = impl
+            );
+
+         // FileReference
+         this.MergeTables(
+            Tables.File,
+            md => md.FileReferences,
+            ( md, inputIdx, thisIdx ) =>
+            {
+               var file = md.FileReferences[inputIdx.Index];
+               return !file.Attributes.ContainsMetadata() || true; // TODO skip all those netmodules that are part of input modules
+            },
+            ( md, file, thisIdx ) => new FileReference()
+            {
+               Attributes = file.Attributes,
+               HashValue = file.HashValue,
+               Name = file.Name
+            } );
+
+         // ManifestResource
+         this.MergeTables(
+            Tables.ManifestResource,
+            md => md.ManifestResources,
+            null,
+            ( md, resource, thisIdx ) => new ManifestResource()
+            {
+               Attributes = resource.Attributes,
+               DataInCurrentFile = resource.DataInCurrentFile, // Don't copy, as it may be big
+               Implementation = resource.Implementation.HasValue ? this.TranslateTableIndex( md, resource.Implementation.Value ) : (TableIndex?) null, // File/AssemblyRef -> already processed
+               Name = resource.Name,
+               Offset = resource.Offset
+            } );
+
+         // CustomAttributeDef
+         this.MergeTables(
+            Tables.CustomAttribute,
+            md => md.CustomAttributeDefinitions,
+            ( md, inputIdx, thisIdx ) =>
+            {
+               var parent = md.CustomAttributeDefinitions[inputIdx.Index].Parent;
+               Boolean retVal;
+               switch ( parent.Table )
+               {
+                  case Tables.Assembly:
+                  case Tables.Module:
+                     // Skip altogether
+                     retVal = false;
+                     break;
+                  default:
+                     // Include only if there is matching row in target module
+                     retVal = this._tableIndexMappings[md].ContainsKey( parent );
+                     break;
+               }
+               return retVal;
+            },
+            ( md, ca, thisIdx ) => new CustomAttributeDefinition()
+            {
+               Parent = this.TranslateTableIndex( md, ca.Parent ),
+               Signature = this.ProcessCustomAttributeSignature( ca.Signature ), // TypeDef/MethodDef/FieldDef/ParamDef/TypeRef/InterfaceImpl/MemberRef/ModuleDef/DeclSecurity/PropertyDef/EventDef/StandAloneSig/ModuleRef/TypeSpec/AssemblyDef/AssemblyRef/File/ExportedType/ManifestResource/GenericParameterDefinition/GenericParameterDefinitionConstraint/MethodSpec -> AssemblyDef and ModuleDef are skipped, ModuleRef and AssemblyRef are skipped for those who don't have row in target module
+               Type = this.TranslateTableIndex( md, ca.Type ) // MethodDef/MemberRef -> already processed
+            } );
+      }
+
+      private void ApplyAssemblyAndModuleCustomAttributes()
+      {
+         // TODO
+      }
+
+      private void MergeTables<T>(
+         Tables tableKind,
+         Func<CILMetaData, List<T>> tableExtractor,
+         Func<CILMetaData, TableIndex, TableIndex, Boolean> filter,
+         Func<CILMetaData, T, TableIndex, T> copyFunc
+         )
+      {
+         var targetTable = tableExtractor( this._targetModule );
+         System.Diagnostics.Debug.Assert( targetTable.Count == 0, "Merging non-empty table in target module!" );
+         foreach ( var md in this._inputModules )
+         {
+            var inputTable = tableExtractor( md );
+            var thisMappings = this._tableIndexMappings[md];
+            for ( var i = 0; i < inputTable.Count; ++i )
+            {
+               var inputIndex = new TableIndex( tableKind, i );
+               var targetIndex = new TableIndex( tableKind, targetTable.Count );
+               if ( filter == null || filter( md, inputIndex, targetIndex ) )
+               {
+                  this._targetTableIndexMappings.Add( targetIndex, Tuple.Create( md, i ) );
+                  thisMappings.Add( inputIndex, targetIndex );
+
+                  targetTable.Add( copyFunc( md, inputTable[i], targetIndex ) );
+               }
+            }
+         }
+      }
+
+      private void SetTableIndicesNullable<T>(
+         Tables tableKind,
+         Func<CILMetaData, List<T>> tableExtractor,
+         Func<T, TableIndex?> tableIndexGetter,
+         Action<T, TableIndex> tableIndexSetter
+         )
+      {
+         this.SetTableIndicesNullable(
+            tableKind,
+            tableExtractor,
+            i => this._targetTableIndexMappings[new TableIndex( tableKind, i )],
+            tableIndexGetter,
+            tableIndexSetter
+            );
+      }
+
+      private void SetTableIndicesNullable<T>(
+         Tables tableKind,
+         Func<CILMetaData, List<T>> tableExtractor,
+         Func<Int32, Tuple<CILMetaData, Int32>> inputInfoGetter,
+         Func<T, TableIndex?> tableIndexGetter,
+         Action<T, TableIndex> tableIndexSetter
+         )
+      {
+         var targetTable = tableExtractor( this._targetModule );
+         for ( var i = 0; i < targetTable.Count; ++i )
+         {
+            var inputInfo = inputInfoGetter( i );
+            var inputModule = inputInfo.Item1;
+            var inputTableIndexNullable = tableIndexGetter( tableExtractor( inputModule )[inputInfo.Item2] );
+            if ( inputTableIndexNullable.HasValue )
+            {
+               var inputTableIndex = inputTableIndexNullable.Value;
+               var targetTableIndex = this._tableIndexMappings[inputModule][inputTableIndex];
+               tableIndexSetter( targetTable[i], targetTableIndex );
+            }
+         }
+      }
+
+      private void SetTableIndices1<T>(
+         Tables tableKind,
+         Func<CILMetaData, List<T>> tableExtractor,
+         Func<T, TableIndex> tableIndexGetter,
+         Action<T, TableIndex> tableIndexSetter
+         )
+      {
+         var targetTable = tableExtractor( this._targetModule );
+         for ( var i = 0; i < targetTable.Count; ++i )
+         {
+            var inputInfo = this._targetTableIndexMappings[new TableIndex( tableKind, i )];
+            var inputModule = inputInfo.Item1;
+            var inputTableIndex = tableIndexGetter( tableExtractor( inputModule )[inputInfo.Item2] );
+            var targetTableIndex = this._tableIndexMappings[inputModule][inputTableIndex];
+            tableIndexSetter( targetTable[i], targetTableIndex );
+         }
+      }
+
+      private TableIndex TranslateTableIndex(
+         CILMetaData inputModule,
+         TableIndex inputTableIndex
+         )
+      {
+         return this._tableIndexMappings[inputModule][inputTableIndex];
+      }
+
+      private Boolean ExportedTypeRowStaysInTargetModule( CILMetaData inputModule, ExportedType exportedType )
+      {
+         var impl = exportedType.Implementation;
+         switch ( impl.Table )
+         {
+            case Tables.ExportedType:
+               // Nested type - return whatever the enclosing type is
+               return this.ExportedTypeRowStaysInTargetModule( inputModule, inputModule.ExportedTypes[impl.Index] );
+            case Tables.File:
+               // The target module will be single-module assembly, so there shouldn't be any of these
+               return false;
+            case Tables.AssemblyRef:
+               // This row stays only if the assembly ref is present in target module
+               return this._tableIndexMappings[inputModule].ContainsKey( impl );
+            default:
+               return false;
+         }
+      }
+
+      private static String CreateTypeString( IList<TypeDefinition> typeDefs, Int32 tDefIndex, IDictionary<Int32, Int32> enclosingTypeInfo )
+      {
+         var sb = new StringBuilder( typeDefs[tDefIndex].Name );
+
+         // Iterate: thisType -> enclosingType -> ... -> outMostEnclosingType
+         // Use loop detection to avoid nasty stack overflows with faulty modules
+         var last = tDefIndex;
+         using ( var enumerator = tDefIndex.AsSingleBranchEnumerableWithLoopDetection(
+            cur =>
+            {
+               Int32 enclosingTypeIdx;
+               return enclosingTypeInfo.TryGetValue( tDefIndex, out enclosingTypeIdx ) ?
+                  enclosingTypeIdx :
+                  -1;
+            },
+            endCondition: cur => cur >= 0,
+            includeFirst: false
+            ).GetEnumerator() )
+         {
+            while ( enumerator.MoveNext() )
+            {
+               var enclosingTypeIdx = enumerator.Current;
+               sb.Insert( 0, "+" )
+                  .Insert( 0, typeDefs[enclosingTypeIdx].Name );
+               last = enclosingTypeIdx;
+            }
+         }
+
+         var ns = typeDefs[last].Namespace;
+         if ( !String.IsNullOrEmpty( ns ) )
+         {
+            sb.Insert( 0, "." )
+               .Insert( 0, ns );
+         }
+
+         return sb.ToString();
+      }
+
+      private static String CreateTypeStringFromTopLevelType( String ns, String name )
+      {
+         return String.IsNullOrEmpty( ns ) ? name : ( ns + "." + name );
+      }
+
+      private Boolean IsAssemblyNetModulePartOfInputModules( CILMetaData inputModule, Int32 moduleRefIdx )
+      {
+         var modRefPath = Path.Combine( Path.GetDirectoryName( this._moduleLoader.GetResourceFor( inputModule ) ), inputModule.ModuleReferences[moduleRefIdx].ModuleName );
+         return this._inputModules
+            .Where( md => md.AssemblyDefinitions.Count == 0 )
+            .Select( m => this._moduleLoader.GetResourceFor( m ) )
+            .Any( p => String.Equals( p, modRefPath ) ); // TODO maybe case-insensitive match??
+      }
+
+      private TypeAttributes GetNewTypeAttributesForType(
+         CILMetaData md,
+         Int32 tDefIndex,
+         Boolean hasEnclosingType,
+         String typeString )
+      {
+         var attrs = md.TypeDefinitions[tDefIndex].Attributes;
+         // TODO cache all modules assembly def strings so we wouldn't call AssemblyDefinition.ToString() too excessively
+         if ( this._options.Internalize
+            && !this._primaryModule.Equals( md )
+            && !this._excludeRegexes.Value.Any(
+               reg => reg.IsMatch( typeString )
+               || ( md.AssemblyDefinitions.Count > 0 && reg.IsMatch( "[" + md.AssemblyDefinitions[0] + "]" + typeString ) )
+               )
+            )
+         {
+            // Have to make this type internal
+            if ( !hasEnclosingType )
+            {
+               attrs &= ~TypeAttributes.VisibilityMask;
+            }
+            else if ( attrs.IsNestedPublic() )
+            {
+               attrs |= TypeAttributes.VisibilityMask;
+               attrs &= ( ( ~TypeAttributes.VisibilityMask ) | TypeAttributes.NestedAssembly );
+            }
+            else if ( attrs.IsNestedFamily() || attrs.IsNestedFamilyORAssembly() )
+            {
+               attrs |= TypeAttributes.VisibilityMask;
+               attrs &= ( ~TypeAttributes.VisibilityMask ) | TypeAttributes.NestedFamANDAssem;
+            }
+         }
+         return attrs;
+      }
+
+      private Boolean IsDuplicateOK(
+         ref String newName,
+         String fullTypeString,
+         TypeAttributes newTypeAttrs,
+         IDictionary<CILMetaData, IDictionary<Int32, String>> allTypeStrings,
+         ref ISet<String> allTypeStringsSet
+         )
+      {
+         var retVal = !this._options.Union
+            && ( !newTypeAttrs.IsVisibleToOutsideOfDefinedAssembly()
+               || this._options.AllowDuplicateTypes == null
+               || this._options.AllowDuplicateTypes.Contains( fullTypeString )
+               );
+         if ( retVal )
+         {
+            // Have to rename
+            if ( allTypeStringsSet == null )
+            {
+               allTypeStringsSet = new HashSet<String>( allTypeStrings.Values.SelectMany( dic => dic.Values ) );
+            }
+
+            var i = 2;
+            var namePrefix = fullTypeString;
+            do
+            {
+               fullTypeString = namePrefix + "_" + i;
+               ++i;
+            } while ( !allTypeStringsSet.Add( fullTypeString ) );
+
+            newName = newName + "_" + i;
+         }
+         return retVal;
+      }
+
+      private MarshalingInfo ProcessMarshalingInfo( MarshalingInfo inputMarshalingInfo )
+      {
+         if ( !String.IsNullOrEmpty( inputMarshalingInfo.MarshalType ) )
+         {
+            throw new NotImplementedException( "Custom type information in marshaling info." );
+         }
+         else if ( !String.IsNullOrEmpty( inputMarshalingInfo.SafeArrayUserDefinedType ) )
+         {
+            throw new NotImplementedException( "Custom array type information in marshaling info." );
+         }
+         {
+            return new MarshalingInfo(
+               inputMarshalingInfo.Value,
+               inputMarshalingInfo.SafeArrayType,
+               inputMarshalingInfo.SafeArrayUserDefinedType,
+               inputMarshalingInfo.IIDParameterIndex,
+               inputMarshalingInfo.ArrayType,
+               inputMarshalingInfo.SizeParameterIndex,
+               inputMarshalingInfo.ConstSize,
+               inputMarshalingInfo.MarshalType,
+               inputMarshalingInfo.MarshalCookie
+               );
+         }
+      }
+
+      private AbstractSecurityInformation ProcessPermissionSet( AbstractSecurityInformation inputSecurityInfo )
+      {
+         throw new NotImplementedException();
+      }
+
+      private AbstractCustomAttributeSignature ProcessCustomAttributeSignature( AbstractCustomAttributeSignature sig )
+      {
+         throw new NotImplementedException();
+      }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
       internal Tuple<String[], IDictionary<Tuple<String, String>, String>> EmitTargetAssembly()
       {
          // TODO log all options here.
@@ -659,7 +2068,7 @@ namespace CILMerge
          this._targetModule = this._ctx.NewBlankAssembly( Path.GetFileNameWithoutExtension( this._options.OutPath ) ).AddModule( Path.GetFileName( this._options.OutPath ) );
 
          // Get emitting arguments already at this stage - this will also set the correct AssociatedMSCorLib for the target module.
-         var targetEArgs = this.GetEmittingArgumentsForTargetModule();
+         var targetEArgs = this.CreateEmittingArgumentsForTargetModule();
 
          if ( !this._options.Union )
          {
@@ -767,75 +2176,7 @@ namespace CILMerge
          return token == 0u ? 0u : (UInt32) targetEArgs.GetSignatureTokenFor( this._methodMapping[inputEArgs.ResolveSignatureToken( (Int32) token ).FirstOrDefault() ?? thisMethod] );
       }
 
-      private EmittingArguments GetEmittingArgumentsForTargetModule()
-      {
-         // Prepare strong _name
-         var keyFile = this._options.KeyFile;
-         StrongNameKeyPair sn = null;
-         if ( keyFile != null )
-         {
-            try
-            {
-               sn = new StrongNameKeyPair( File.ReadAllBytes( keyFile ) );
-            }
-            catch ( Exception exc )
-            {
-               throw this.NewCILMergeException( ExitCode.ErrorAccessingSNFile, "Error accessing strong name file " + keyFile + ".", exc );
-            }
-         }
-         var pEArgs = this._assemblyLoader.GetEmittingArgumentsFor( this._primaryModule );
 
-         var fwInfo = this._assemblyLoader.GetFrameworkInfoFor( this._primaryModule );
-
-         this._targetModule.AssociatedMSCorLibModule = this._primaryModule.AssociatedMSCorLibModule; // fwInfo.GetMainModuleOrFirst( this.LoadLibAssemblyFromPath( this._portableHelper.GetDirectory( pEArgs ), fwInfo.MsCorLibAssembly, false ) );
-         var mKind = this._options.Target.HasValue ?
-            this._options.Target.Value :
-            pEArgs.ModuleKind;
-         var eArgs = EmittingArguments.CreateForEmittingAnyModule(
-            sn,
-            pEArgs.Machine,
-            this._options.TargetPlatform.HasValue ? this._options.TargetPlatform.Value : TargetRuntime.Net_4_0,
-            mKind,
-            mKind.IsDLL() ? null : pEArgs.CLREntryPoint
-            );
-         var msCorLibVersion = fwInfo.Assemblies[fwInfo.MsCorLibAssembly].Item1;
-         eArgs.CorLibMajor = (UInt16) msCorLibVersion.Major;
-         eArgs.CorLibMinor = (UInt16) msCorLibVersion.Minor;
-         eArgs.CorLibBuild = (UInt16) msCorLibVersion.Build;
-         eArgs.CorLibRevision = (UInt16) msCorLibVersion.Revision;
-
-         if ( String.Equals( pEArgs.FrameworkName, FrameworkMonikerInfo.DEFAULT_PCL_FW_NAME ) )
-         {
-            eArgs.AssemblyRefProcessor += aRef =>
-            {
-               if ( fwInfo.Assemblies.ContainsKey( aRef.Name ) )
-               {
-                  aRef.Flags |= AssemblyFlags.Retargetable;
-               }
-            };
-         }
-
-         eArgs.FileAlignment = (UInt32) this._options.Align;
-         eArgs.AssemblyRefProcessor += aName =>
-         {
-            if ( aName.Flags.IsFullPublicKey() && aName.PublicKey != null && !this._options.UseFullPublicKeyForRefs )
-            {
-               aName.PublicKey = this._ctx.ComputePublicKeyToken( aName.PublicKey );// this.GetPublicKeyToken( aName.PublicKey );
-               aName.Flags &= ~AssemblyFlags.PublicKey;
-            }
-         };
-         if ( !this._options.NoDebug && this._inputModules.Any( im => this._assemblyLoader.GetEmittingArgumentsFor( im ).DebugInformation != null ) )
-         {
-            this._pdbHelper = new PDBHelper( eArgs, this._options.OutPath );
-         }
-         eArgs.UseFullPublicKeyInAssemblyReferences = this._options.UseFullPublicKeyForRefs;
-         eArgs.DelaySign = this._options.DelaySign;
-         eArgs.SigningAlgorithm = this._options.SigningAlgorithm;
-         eArgs.SubSysMajor = (UInt16) this._options.SubsystemMajor;
-         eArgs.SubSysMinor = (UInt16) this._options.SubsystemMinor;
-         eArgs.HighEntropyVA = this._options.HighEntropyVA;
-         return eArgs;
-      }
 
       private void ProcessTargetModule( Boolean creating )
       {
@@ -1559,73 +2900,7 @@ namespace CILMerge
          return retVal;
       }
 
-      private void LoadAllInputModules()
-      {
-         var paths = this._options.InputAssemblies;
-         if ( paths == null || paths.Length == 0 )
-         {
-            throw this.NewCILMergeException( ExitCode.NoInputAssembly, "Input assembly list must contain at least one assembly." );
-         }
 
-         if ( this._options.AllowWildCards )
-         {
-            paths = paths.SelectMany( path =>
-            {
-               return path.IndexOf( '*' ) == -1 && path.IndexOf( '?' ) == -1 ?
-                  (IEnumerable<String>) new[] { path } :
-                  Directory.EnumerateFiles( Path.IsPathRooted( path ) ? Path.GetDirectoryName( path ) : this._inputBasePath, Path.GetFileName( path ) );
-            } ).Select( path => Path.GetFullPath( path ) ).ToArray();
-         }
-         else
-         {
-            paths = paths.Select( path => Path.IsPathRooted( path ) ? path : Path.Combine( this._inputBasePath, path ) ).ToArray();
-         }
-
-         this.DoPotentiallyInParallel( paths, ( isRunningInParallel, path ) =>
-         {
-            var mod = this._assemblyLoader.LoadModuleFrom( path );
-            var eArgs = this._assemblyLoader.GetEmittingArgumentsFor( mod );
-            if ( !eArgs.ModuleFlags.IsILOnly() && !this._options.ZeroPEKind )
-            {
-               throw this.NewCILMergeException( ExitCode.NonILOnlyModule, "The module " + mod.Name + " is not IL-only." );
-            }
-
-            lock ( this._inputModules )
-            {
-               this._inputModules.Add( mod );
-            }
-         } );
-
-         if ( this._options.Closed )
-         {
-            foreach ( var mod in this._inputModules.ToArray() )
-            {
-               this.LoadModuleForClosedSet( mod );
-            }
-         }
-
-         this._assemblyLoader.ModuleLoadedEvent += _assemblyLoader_ModuleLoadedEvent;
-
-         this._primaryModule = this._assemblyLoader.LoadModuleFrom( paths[0] );
-      }
-
-      private void LoadModuleForClosedSet( CILModule mod )
-      {
-         foreach ( var aRef in this._assemblyLoader.GetEmittingArgumentsFor( mod ).AssemblyRefs )
-         {
-            var aRefCopy = new CILAssemblyName( aRef );
-            String res; CILModule dummy;
-            if ( this._assemblyLoader.Callbacks.TryResolveAssemblyFilePath( this._assemblyLoader.GetResourceFor( mod ), aRefCopy, out res )
-               && !this._assemblyLoader.TryGetLoadedModule( res, out dummy )
-               )
-            {
-               // Load the assembly
-               var anotherMod = this._assemblyLoader.LoadModuleFrom( res );
-               this._inputModules.Add( anotherMod );
-               this.LoadModuleForClosedSet( anotherMod );
-            }
-         }
-      }
 
       private void _assemblyLoader_ModuleLoadedEvent( object sender, ModuleLoadedEventArgs e )
       {
@@ -2034,6 +3309,17 @@ namespace CILMerge
       internal static void TryAdd<TKey, TValue>( this IDictionary<TKey, TValue> dic, TKey key, TValue value )
       {
          dic.Add( key, value );
+      }
+
+      internal static Boolean TryAdd_NotThreadSafe<TKey, TValue>( this IDictionary<TKey, TValue> dic, TKey key, TValue value )
+      {
+         var retVal = !dic.ContainsKey( key );
+         if ( retVal )
+         {
+            dic.Add( key, value );
+         }
+
+         return retVal;
       }
 
 

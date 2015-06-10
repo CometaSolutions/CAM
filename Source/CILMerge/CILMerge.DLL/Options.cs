@@ -20,7 +20,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Text;
-using CILAssemblyManipulator.API;
+using CILAssemblyManipulator.Physical;
 
 namespace CILMerge
 {
@@ -39,17 +39,20 @@ namespace CILMerge
       string[] InputAssemblies { get; set; }
       bool Internalize { get; set; }
       string KeyFile { get; set; }
-      CILAssemblyManipulator.API.AssemblyHashAlgorithm? SigningAlgorithm { get; set; }
+      string CSPName { get; set; }
+      CILAssemblyManipulator.Physical.AssemblyHashAlgorithm? SigningAlgorithm { get; set; }
       string[] LibPaths { get; set; }
       bool DoLogging { get; set; }
       string LogFile { get; set; }
       bool NoDebug { get; set; }
       string OutPath { get; set; }
       bool Parallel { get; set; }
-      CILAssemblyManipulator.API.ModuleKind? Target { get; set; }
-      CILAssemblyManipulator.API.TargetRuntime? TargetPlatform { get; set; }
+      CILAssemblyManipulator.Physical.ModuleKind? Target { get; set; }
+      // TODO replace this with 'metadata version string' or similar property.
+      //CILAssemblyManipulator.Physical.TargetRuntime? TargetPlatform { get; set; }
       string ReferenceAssembliesDirectory { get; set; }
       bool Union { get; set; }
+      // TODO this option might be removed. Setting this to true would require loading all referenced assemblies of input modules (to find out their full public key) which don't have full public key in their refs.
       bool UseFullPublicKeyForRefs { get; set; }
       bool Verbose { get; set; }
       int VerBuild { get; set; }
@@ -88,7 +91,7 @@ namespace CILMerge
       private String _attrSource;
       private Boolean _allowMultipleAssemblyAttributes;
       private ModuleKind? _target;
-      private TargetRuntime? _targetPlatform;
+      //private TargetRuntime? _targetPlatform;
       private String _refAssDir;
       private Boolean _xmlDocs;
       private String[] _libPaths;
@@ -132,7 +135,7 @@ namespace CILMerge
       public String AttrSource { get { return this._attrSource; } set { this._attrSource = value; } }
       public Boolean AllowMultipleAssemblyAttributes { get { return this._allowMultipleAssemblyAttributes; } set { this._allowMultipleAssemblyAttributes = value; } }
       public ModuleKind? Target { get { return this._target; } set { this._target = value; } }
-      public TargetRuntime? TargetPlatform { get { return this._targetPlatform; } set { this._targetPlatform = value; } }
+      //public TargetRuntime? TargetPlatform { get { return this._targetPlatform; } set { this._targetPlatform = value; } }
       public String ReferenceAssembliesDirectory { get { return this._refAssDir; } set { this._refAssDir = value; } }
       public Boolean XmlDocs { get { return this._xmlDocs; } set { this._xmlDocs = value; } }
       public String[] LibPaths { get { return this._libPaths; } set { this._libPaths = value; } }

@@ -314,7 +314,7 @@ namespace CILAssemblyManipulator.Physical
                idx =>
                {
                   var aRef = this._md.AssemblyReferences.GetOrNull( idx );
-                  return aRef == null ? null : this._owner.ResolveAssemblyReferenceWithEvent( this._md, null, new AssemblyInformationForResolving( aRef.AssemblyInformation, aRef.Attributes.IsFullPublicKey() ) );
+                  return aRef == null ? null : this._owner.ResolveAssemblyReferenceWithEvent( this._md, null, aRef.NewInformationForResolving() );
                } );
          }
       }
@@ -1028,5 +1028,10 @@ public static partial class E_CILPhysical
       {
          action( resolver, md, i );
       }
+   }
+
+   public static AssemblyInformationForResolving NewInformationForResolving( this AssemblyReference assemblyRef )
+   {
+      return new AssemblyInformationForResolving( assemblyRef.AssemblyInformation, assemblyRef.Attributes.IsFullPublicKey() );
    }
 }

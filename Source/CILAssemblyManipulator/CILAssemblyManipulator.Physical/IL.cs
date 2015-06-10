@@ -157,6 +157,7 @@ namespace CILAssemblyManipulator.Physical
       }
    }
 
+   // TODO instead of ctor, make factory method for this, and cache all instances...
    public sealed class OpCodeInfoWithNoOperand : OpCodeInfo
    {
       public OpCodeInfoWithNoOperand( OpCode code )
@@ -210,7 +211,7 @@ namespace CILAssemblyManipulator.Physical
 
    public sealed class OpCodeInfoWithSwitch : OpCodeInfo
    {
-      private readonly IList<Int32> _offsets;
+      private readonly List<Int32> _offsets;
 
       public OpCodeInfoWithSwitch( OpCode code, Int32 offsetsCount = 0 )
          : base( code )
@@ -226,7 +227,7 @@ namespace CILAssemblyManipulator.Physical
          }
       }
 
-      public IList<Int32> Offsets
+      public List<Int32> Offsets
       {
          get
          {
@@ -234,7 +235,7 @@ namespace CILAssemblyManipulator.Physical
          }
       }
 
-      public override int ByteSize
+      public override Int32 ByteSize
       {
          get
          {

@@ -265,6 +265,41 @@ namespace CILAssemblyManipulator.Physical
       /// During loading, if the PE file contains debug directory, this property is set to reflect the data of the debug directory.
       /// </summary>
       public DebugInformation DebugInformation { get; set; }
+
+      public HeadersData CreateCopy()
+      {
+         return new HeadersData()
+         {
+            CLREntryPointIndex = this.CLREntryPointIndex,
+            MetaDataVersion = this.MetaDataVersion,
+            Machine = this.Machine,
+            TableHeapMajor = this.TableHeapMajor,
+            TableHeapMinor = this.TableHeapMinor,
+            ImageBase = this.ImageBase,
+            FileAlignment = this.FileAlignment,
+            SectionAlignment = this.SectionAlignment,
+            StackReserve = this.StackReserve,
+            StackCommit = this.StackCommit,
+            HeapReserve = this.HeapReserve,
+            HeapCommit = this.HeapCommit,
+            ImportHintName = this.ImportHintName,
+            ImportDirectoryName = this.ImportDirectoryName,
+            EntryPointInstruction = this.EntryPointInstruction,
+            LinkerMajor = this.LinkerMajor,
+            LinkerMinor = this.LinkerMinor,
+            OSMajor = this.OSMajor,
+            OSMinor = this.OSMinor,
+            UserMajor = this.UserMajor,
+            UserMinor = this.UserMinor,
+            SubSysMajor = this.SubSysMajor,
+            SubSysMinor = this.SubSysMinor,
+            CLIMajor = this.CLIMajor,
+            CLIMinor = this.CLIMinor,
+            HighEntropyVA = this.HighEntropyVA,
+            ModuleFlags = this.ModuleFlags,
+            DebugInformation = this.DebugInformation,
+         };
+      }
    }
 
    public interface CILMetaData
@@ -340,9 +375,40 @@ namespace CILAssemblyManipulator.Physical
 
    public static class CILMetaDataFactory
    {
-      public static CILMetaData NewMetaData()
+      public static CILMetaData NewBlankMetaData()
       {
          return new CILAssemblyManipulator.Physical.Implementation.CILMetadataImpl();
+      }
+
+      public static CILMetaData CreateMinimalAssembly( String assemblyName, String extension = "dll" )
+      {
+         var md = CreateMinimalModule( assemblyName + "." + extension );
+
+         var aDef = new AssemblyDefinition();
+         aDef.AssemblyInformation.Name = assemblyName;
+         md.AssemblyDefinitions.Add( aDef );
+
+         return md;
+      }
+
+      public static CILMetaData CreateMinimalModule( String moduleName )
+      {
+         var md = CILMetaDataFactory.NewBlankMetaData();
+
+         // Module definition
+         md.ModuleDefinitions.Add( new ModuleDefinition()
+         {
+            Name = moduleName,
+            ModuleGUID = Guid.NewGuid()
+         } );
+
+         // Module type
+         md.TypeDefinitions.Add( new TypeDefinition()
+         {
+            Name = "<Module>"
+         } );
+
+         return md;
       }
    }
 

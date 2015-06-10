@@ -55,6 +55,7 @@
       <Link>Properties\$(AssemblyName).AssemblyInfo.cs</Link>
     </Compile>
     <Compile Include="AssemblyInfo.cs" />
+    <Compile Include="Crypto.cs" />
     <Compile Include="Enums.cs" />
     <Compile Include="Comparers.cs" />
     <Compile Include="IL.cs" />

@@ -150,12 +150,16 @@ namespace CILAssemblyManipulator.Physical.Implementation
             md.AssemblyDefinitions[0].AssemblyInformation.PublicKeyOrToken :
             null;
 
-
-
          var delaySign = eArgs.DelaySign || ( !useStrongName && !thisAssemblyPublicKey.IsNullOrEmpty() );
          RSAParameters rParams;
          var signingAlgorithm = AssemblyHashAlgorithm.SHA1;
          var computingHash = useStrongName || delaySign;
+
+         var cryptoCallbacks = eArgs.CryptoCallbacks;
+         if ( useStrongName && cryptoCallbacks == null )
+         {
+            throw new InvalidOperationException( "Assembly should be strong-named, but the crypto callbacks are not provided." );
+         }
 
          if ( computingHash )
          {
@@ -175,7 +179,7 @@ namespace CILAssemblyManipulator.Physical.Implementation
             {
                if ( thisAssemblyPublicKey.IsNullOrEmpty() )
                {
-                  thisAssemblyPublicKey = eArgs.ExtractPublicKeyFromCSP( strongName.ContainerName );
+                  thisAssemblyPublicKey = cryptoCallbacks.ExtractPublicKeyFromCSPContainerAndCheck( strongName.ContainerName );
                }
                pkToProcess = thisAssemblyPublicKey;
             }
@@ -194,6 +198,7 @@ namespace CILAssemblyManipulator.Physical.Implementation
             }
             else if ( thisAssemblyPublicKey != null && thisAssemblyPublicKey.Length == 16 ) // The "Standard Public Key", ECMA-335 p. 116
             {
+               // TODO investigate this.
                snSize = 0x100;
             }
             else
@@ -234,7 +239,7 @@ namespace CILAssemblyManipulator.Physical.Implementation
 
          // Write metadata streams (tables & heaps)
          var mdRVA = codeSectionVirtualOffset + currentOffset;
-         var mdSize = WriteMetaData( md, sink, headers, eArgs, usersStrings, byteArrayHelper, thisAssemblyPublicKey );
+         var mdSize = WriteMetaData( md, sink, headers, eArgs, usersStrings, byteArrayHelper );
          currentOffset += mdSize;
 
          // Pad
@@ -506,20 +511,16 @@ namespace CILAssemblyManipulator.Physical.Implementation
          {
             if ( !delaySign )
             {
-               // Try create RSA first
-               var rsaArgs = strongName.ContainerName == null ? new RSACreationEventArgs( rParams ) : new RSACreationEventArgs( strongName.ContainerName );
-               eArgs.LaunchRSACreationEvent( rsaArgs );
-               //var hashStreamArgsForThisHashComputing = new Lazy<HashStreamLoadEventArgs>( () => eArgs.LaunchHashStreamEvent( signingAlgorithm, true ), LazyThreadSafetyMode.None );
 
-               using ( var rsa = rsaArgs.RSA )
+               using ( var rsa = ( strongName.ContainerName == null ? cryptoCallbacks.CreateRSAFromParameters( rParams ) : cryptoCallbacks.CreateRSAFromCSPContainer( strongName.ContainerName ) ) )
                {
                   var buffer = new Byte[MetaDataConstants.STREAM_COPY_BUFFER_SIZE];
-                  var hashEvtArgs = eArgs.LaunchHashStreamEvent( signingAlgorithm, true ); // hashStreamArgsForThisHashComputing.Value;
+                  var hashEvtArgs = cryptoCallbacks.CreateHashStreamAndCheck( signingAlgorithm, true, true, false, true );
                   var hashStream = hashEvtArgs.CryptoStream;
                   var hashGetter = hashEvtArgs.HashGetter;
                   var transform = hashEvtArgs.Transform;
 
-                  RSASignatureCreationEventArgs sigArgs;
+                  Byte[] strongNameArray;
                   using ( var tf = transform )
                   {
                      using ( var cryptoStream = hashStream() )
@@ -534,12 +535,11 @@ namespace CILAssemblyManipulator.Physical.Implementation
                         sink.Seek( snSize + snPadding, SeekOrigin.Current );
                         sink.CopyStream( cryptoStream, buffer );
                      }
-                     sigArgs = new RSASignatureCreationEventArgs( rsa, signingAlgorithm, hashGetter() );
+
+                     strongNameArray = cryptoCallbacks.CreateRSASignatureAndCheck( rsa, signingAlgorithm.GetAlgorithmName(), hashGetter() );
                   }
 
 
-                  eArgs.LaunchRSASignatureCreationEvent( sigArgs );
-                  var strongNameArray = sigArgs.Signature;
                   if ( snSize != strongNameArray.Length )
                   {
                      throw new CryptographicException( "Calculated and actual strong name size differ (calculated: " + snSize + ", actual: " + strongNameArray.Length + ")." );
@@ -747,8 +747,8 @@ namespace CILAssemblyManipulator.Physical.Implementation
          HeadersData headers,
          EmittingArguments eArgs,
          UserStringHeapWriter userStrings,
-         ByteArrayHelper byteArrayHelper,
-         Byte[] thisAssemblyPublicKey
+         ByteArrayHelper byteArrayHelper
+         //Byte[] thisAssemblyPublicKey
          )
       {
          // Actual meta-data
@@ -765,7 +765,7 @@ namespace CILAssemblyManipulator.Physical.Implementation
          var streamSizes = new UInt32[HEAP_COUNT];
 
          BLOBHeapWriter blobs; SystemStringHeapWriter sysStrings; GUIDHeapWriter guids; Object[] heapInfos;
-         CreateMDHeaps( md, thisAssemblyPublicKey, byteArrayHelper, out blobs, out sysStrings, out guids, out heapInfos );
+         CreateMDHeaps( md, byteArrayHelper, out blobs, out sysStrings, out guids, out heapInfos );
 
          var hasSysStrings = sysStrings.Accessed;
          var hasUserStrings = userStrings.Accessed;
@@ -1269,7 +1269,7 @@ namespace CILAssemblyManipulator.Physical.Implementation
 
       private static void CreateMDHeaps(
          CILMetaData md,
-         Byte[] thisAssemblyPublicKey,
+         //Byte[] thisAssemblyPublicKey,
          ByteArrayHelper byteArrayHelper,
          out BLOBHeapWriter blobsParam,
          out SystemStringHeapWriter sysStringsParam,
@@ -1318,7 +1318,7 @@ namespace CILAssemblyManipulator.Physical.Implementation
          // 0x1C ImplMap
          ProcessTableForHeaps1( Tables.ImplMap, md.MethodImplementationMaps, heapInfos, mim => new HeapInfo1( sysStrings.GetOrAddString( mim.ImportName ) ) );
          // 0x20 Assembly
-         ProcessTableForHeaps3( Tables.Assembly, md.AssemblyDefinitions, heapInfos, ad => new HeapInfo3( blobs.GetOrAddBLOB( thisAssemblyPublicKey ), sysStrings.GetOrAddString( ad.AssemblyInformation.Name ), sysStrings.GetOrAddString( ad.AssemblyInformation.Culture ) ) );
+         ProcessTableForHeaps3( Tables.Assembly, md.AssemblyDefinitions, heapInfos, ad => new HeapInfo3( blobs.GetOrAddBLOB( ad.AssemblyInformation.PublicKeyOrToken ), sysStrings.GetOrAddString( ad.AssemblyInformation.Name ), sysStrings.GetOrAddString( ad.AssemblyInformation.Culture ) ) );
          // 0x21 AssemblyRef
          ProcessTableForHeaps4( Tables.AssemblyRef, md.AssemblyReferences, heapInfos, ar => new HeapInfo4( blobs.GetOrAddBLOB( ar.AssemblyInformation.PublicKeyOrToken ), sysStrings.GetOrAddString( ar.AssemblyInformation.Name ), sysStrings.GetOrAddString( ar.AssemblyInformation.Culture ), blobs.GetOrAddBLOB( ar.HashValue ) ) );
          // 0x26 File
@@ -1735,7 +1735,7 @@ namespace CILAssemblyManipulator.Physical.Implementation
                   {
                      methodOrLabelOrManyLabels = tIdx;
                   }
-                  this._array.WriteInt32LEToBytes( ref this._arrayIndex, tIdx.CreateTokenForEmittingMandatoryTableIndex() );
+                  this._array.WriteInt32LEToBytes( ref this._arrayIndex, tIdx.OneBasedToken );
                   break;
                case OperandType.InlineSwitch:
                   var offsets = ( (OpCodeInfoWithSwitch) codeInfo ).Offsets;
@@ -1786,7 +1786,7 @@ namespace CILAssemblyManipulator.Physical.Implementation
             this._array.WriteInt16LEToBytes( ref this._arrayIndex, (Int16) ( ( (Int32) flags ) | ( 3 << 12 ) ) )
                .WriteUInt16LEToBytes( ref this._arrayIndex, (UInt16) this._methodIL.MaxStackSize )
                .WriteInt32LEToBytes( ref this._arrayIndex, this._ilCodeByteCount )
-               .WriteInt32LEToBytes( ref this._arrayIndex, this._methodIL.LocalsSignatureIndex.CreateTokenForEmittingOptionalTableIndex() );
+               .WriteInt32LEToBytes( ref this._arrayIndex, this._methodIL.LocalsSignatureIndex.GetOneBasedToken() );
          }
 
 
@@ -2339,7 +2339,7 @@ namespace CILAssemblyManipulator.Physical.Implementation
 
       internal void AddTDRSToken( TableIndex token )
       {
-         this.AddCompressedUInt32( TokenUtils.EncodeTypeDefOrRefOrSpec( token.CreateTokenForEmittingMandatoryTableIndex() ) );
+         this.AddCompressedUInt32( TokenUtils.EncodeTypeDefOrRefOrSpec( token.OneBasedToken ) );
       }
 
       internal void AddCompressedUInt32( Int32 value )

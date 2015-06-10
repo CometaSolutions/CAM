@@ -35,7 +35,7 @@ namespace CILAssemblyManipulator.Tests.Physical
          const String NS = "TestNamespace";
          const String NESTED_CLASS_NAME = "NestedType";
          const String ENCLOSING_CLASS_NAME = "EnclosingType";
-         var md = CILMetaDataFactory.NewMetaData();
+         var md = CILMetaDataFactory.NewBlankMetaData();
 
          // Create some types
          md.TypeDefinitions.Add( new TypeDefinition() { Namespace = NS, Name = NESTED_CLASS_NAME } );
@@ -73,7 +73,7 @@ namespace CILAssemblyManipulator.Tests.Physical
       [Test]
       public void TestDuplicateRemovingWithOneDuplicate()
       {
-         var md = CILMetaDataFactory.NewMetaData();
+         var md = CILMetaDataFactory.NewBlankMetaData();
          md.TypeDefinitions.Add( new TypeDefinition() { Namespace = "TestNS", Name = "TestType" } );
          var method = new MethodDefinition() { Name = "TestMethod", IL = new MethodILDefinition(), Signature = new MethodDefinitionSignature( 1 ) };
          md.MethodDefinitions.Add( method );
@@ -91,7 +91,7 @@ namespace CILAssemblyManipulator.Tests.Physical
       [Test]
       public void TestDuplicateRemovingWithTwoDuplicates()
       {
-         var md = CILMetaDataFactory.NewMetaData();
+         var md = CILMetaDataFactory.NewBlankMetaData();
          md.TypeDefinitions.Add( new TypeDefinition() { Namespace = "TestNS", Name = "TestType" } );
          var method = new MethodDefinition() { Name = "TestMethod", IL = new MethodILDefinition(), Signature = new MethodDefinitionSignature( 1 ) };
          md.MethodDefinitions.Add( method );
@@ -137,7 +137,7 @@ namespace CILAssemblyManipulator.Tests.Physical
          var matchArgs = new MatchArgs( md );
 
          // Perform Sort
-         var tableIndexTranslationInfo = md.OrderTablesAndUpdateSignatures();
+         var tableIndexTranslationInfo = md.OrderTablesAndRemoveDuplicates();
          /////////////////////// Order
 
          // 1. TypeDef - enclosing class definition must precede nested class definition

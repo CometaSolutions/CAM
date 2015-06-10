@@ -35,7 +35,7 @@ namespace CILAssemblyManipulator.Tests.Physical
          const String NS = "TestNamespace";
          const String ASSEMBLY = "SimpleTestAssembly1";
 
-         var md = CreateMinimalAssembly( ASSEMBLY );
+         var md = CILMetaDataFactory.CreateMinimalAssembly( ASSEMBLY );
 
          // mscorlib-reference
          //var mscorLib = new AssemblyReference();
@@ -77,37 +77,6 @@ namespace CILAssemblyManipulator.Tests.Physical
                Assert.AreEqual( TypeAttributes.Interface | TypeAttributes.Abstract, (TypeAttributes) type.Attributes );
             } );
 
-      }
-
-      private static CILMetaData CreateMinimalAssembly( String assemblyName )
-      {
-         var md = CreateMinimalModule( assemblyName + ".dll" );
-         var aDef = new AssemblyDefinition();
-         aDef.AssemblyInformation.Name = "SimpleTestAssembly1";
-         //aDef.HashAlgorithm = AssemblyHashAlgorithm.SHA1;
-         md.AssemblyDefinitions.Add( aDef );
-
-         return md;
-      }
-
-      private static CILMetaData CreateMinimalModule( String moduleName )
-      {
-         var md = CILMetaDataFactory.NewMetaData();
-
-         // Module definition
-         md.ModuleDefinitions.Add( new ModuleDefinition()
-         {
-            Name = moduleName,
-            ModuleGUID = Guid.NewGuid()
-         } );
-
-         // Module type
-         md.TypeDefinitions.Add( new TypeDefinition()
-         {
-            Name = "<Module>"
-         } );
-
-         return md;
       }
 
       private static void TestRuntimeAssembly(

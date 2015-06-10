@@ -58,8 +58,28 @@ public static partial class E_CommonUtils
    /// <exception cref="NullReferenceException">If <paramref name="dictionary"/> is <c>null</c>.</exception>
    public static TValue GetOrAdd_NotThreadSafe<TKey, TValue>( this IDictionary<TKey, TValue> dictionary, TKey key, Func<TKey, TValue> valueFactory )
    {
+      Boolean added;
+      return dictionary.GetOrAdd_NotThreadSafe( key, valueFactory, out added );
+   }
+
+
+   /// <summary>
+   /// Gets or adds value from <paramref name="dictionary"/> given a <paramref name="key"/>, using <paramref name="valueFactory"/> as value factory. Not threadsafe.
+   /// </summary>
+   /// <typeparam name="TKey">The type of the keys in <paramref name="dictionary"/>.</typeparam>
+   /// <typeparam name="TValue">The type of the values in <paramref name="dictionary"/>.</typeparam>
+   /// <param name="dictionary">The dictionary to get value from. If value does not exist for <paramref name="key"/>, it will be added to dictionary.</param>
+   /// <param name="key">The key to use to search value from <paramref name="dictionary"/>.</param>
+   /// <param name="valueFactory">The callback to generate value. The parameter will be <paramref name="key"/>.</param>
+   /// <param name="added">This parameter will be <c>true</c> if this method added a new value to dictionary; <c>false</c> otherwise.</param>
+   /// <returns>The value which was either found in <paramref name="dictionary"/> or created by <paramref name="valueFactory"/>.</returns>
+   /// <exception cref="ArgumentNullException">If value is not found from <paramref name="dictionary"/> using <paramref name="key"/>, and <paramref name="valueFactory"/> is <c>null</c>.</exception>
+   /// <exception cref="NullReferenceException">If <paramref name="dictionary"/> is <c>null</c>.</exception>
+   public static TValue GetOrAdd_NotThreadSafe<TKey, TValue>( this IDictionary<TKey, TValue> dictionary, TKey key, Func<TKey, TValue> valueFactory, out Boolean added )
+   {
       TValue result;
-      if ( !dictionary.TryGetValue( key, out result ) )
+      added = !dictionary.TryGetValue( key, out result );
+      if ( added )
       {
          ArgumentValidator.ValidateNotNull( "Value factory", valueFactory );
          result = valueFactory( key );
@@ -68,40 +88,40 @@ public static partial class E_CommonUtils
       return result;
    }
 
-   ///// <summary>
-   ///// Gets or adds value from <paramref name="dictionary"/> given a <paramref name="key"/>, using <paramref name="valueFactory"/> as value factory. Threadsafe - will lock given lock or whole dictionary when adding.
-   ///// </summary>
-   ///// <typeparam name="TKey">The type of the keys in <paramref name="dictionary"/>.</typeparam>
-   ///// <typeparam name="TValue">The type of the values in <paramref name="dictionary"/>.</typeparam>
-   ///// <param name="dictionary">The dictionary to get value from. If value does not exist for <paramref name="key"/>, it will be added to dictionary.</param>
-   ///// <param name="key">The key to use to search value from <paramref name="dictionary"/>.</param>
-   ///// <param name="valueFactory">The callback to generate value. The parameter will be <paramref name="key"/>.</param>
-   ///// <param name="added">This parameter will be <c>true</c> if this method added a new value to dictionary; <c>false</c> otherwise.</param>
-   ///// <param name="lockToUse">The lock to use when the value does not exist. If not given (is <c>null</c>), the dictionary itself will be used as lock.</param>
-   ///// <returns>The value which was either found in <paramref name="dictionary"/> or created by <paramref name="valueFactory"/>.</returns>
-   ///// <exception cref="ArgumentNullException">If value is not found from <paramref name="dictionary"/> using <paramref name="key"/>, and <paramref name="valueFactory"/> is <c>null</c>.</exception>
-   ///// <exception cref="NullReferenceException">If <paramref name="dictionary"/> is <c>null</c>.</exception>
-   //public static TValue GetOrAdd_WithLock<TKey, TValue>( this IDictionary<TKey, TValue> dictionary, TKey key, Func<TKey, TValue> valueFactory, out Boolean added, Object lockToUse = null )
-   //{
-   //   TValue value;
-   //   added = false;
-   //   if ( !dictionary.TryGetValue( key, out value ) )
-   //   {
-   //      ArgumentValidator.ValidateNotNull( "Value factory", valueFactory );
+   /// <summary>
+   /// Gets or adds value from <paramref name="dictionary"/> given a <paramref name="key"/>, using <paramref name="valueFactory"/> as value factory. Threadsafe - will lock given lock or whole dictionary when adding.
+   /// </summary>
+   /// <typeparam name="TKey">The type of the keys in <paramref name="dictionary"/>.</typeparam>
+   /// <typeparam name="TValue">The type of the values in <paramref name="dictionary"/>.</typeparam>
+   /// <param name="dictionary">The dictionary to get value from. If value does not exist for <paramref name="key"/>, it will be added to dictionary.</param>
+   /// <param name="key">The key to use to search value from <paramref name="dictionary"/>.</param>
+   /// <param name="valueFactory">The callback to generate value. The parameter will be <paramref name="key"/>.</param>
+   /// <param name="added">This parameter will be <c>true</c> if this method added a new value to dictionary; <c>false</c> otherwise.</param>
+   /// <param name="lockToUse">The lock to use when the value does not exist. If not given (is <c>null</c>), the dictionary itself will be used as lock.</param>
+   /// <returns>The value which was either found in <paramref name="dictionary"/> or created by <paramref name="valueFactory"/>.</returns>
+   /// <exception cref="ArgumentNullException">If value is not found from <paramref name="dictionary"/> using <paramref name="key"/>, and <paramref name="valueFactory"/> is <c>null</c>.</exception>
+   /// <exception cref="NullReferenceException">If <paramref name="dictionary"/> is <c>null</c>.</exception>
+   public static TValue GetOrAdd_WithLock<TKey, TValue>( this IDictionary<TKey, TValue> dictionary, TKey key, Func<TKey, TValue> valueFactory, out Boolean added, Object lockToUse = null )
+   {
+      TValue value;
+      added = false;
+      if ( !dictionary.TryGetValue( key, out value ) )
+      {
+         ArgumentValidator.ValidateNotNull( "Value factory", valueFactory );
 
-   //      lock ( lockToUse ?? dictionary )
-   //      {
-   //         if ( !dictionary.TryGetValue( key, out value ) )
-   //         {
-   //            value = valueFactory( key );
-   //            dictionary.Add( key, value );
-   //            added = true;
-   //         }
-   //      }
-   //   }
+         lock ( lockToUse ?? dictionary )
+         {
+            if ( !dictionary.TryGetValue( key, out value ) )
+            {
+               value = valueFactory( key );
+               dictionary.Add( key, value );
+               added = true;
+            }
+         }
+      }
 
-   //   return value;
-   //}
+      return value;
+   }
 
    /// <summary>
    /// Gets or adds value from <paramref name="dictionary"/> given a <paramref name="key"/>, using <paramref name="valueFactory"/> as value factory. Threadsafe - will lock given lock or whole dictionary when adding.
@@ -117,22 +137,8 @@ public static partial class E_CommonUtils
    /// <exception cref="NullReferenceException">If <paramref name="dictionary"/> is <c>null</c>.</exception>
    public static TValue GetOrAdd_WithLock<TKey, TValue>( this IDictionary<TKey, TValue> dictionary, TKey key, Func<TKey, TValue> valueFactory, Object lockToUse = null )
    {
-      TValue value;
-      if ( !dictionary.TryGetValue( key, out value ) )
-      {
-         ArgumentValidator.ValidateNotNull( "Value factory", valueFactory );
-
-         lock ( lockToUse ?? dictionary )
-         {
-            if ( !dictionary.TryGetValue( key, out value ) )
-            {
-               value = valueFactory( key );
-               dictionary.Add( key, value );
-            }
-         }
-      }
-
-      return value;
+      Boolean added;
+      return dictionary.GetOrAdd_WithLock( key, valueFactory, out added, lockToUse );
    }
 
    /// <summary>
@@ -287,6 +293,45 @@ public static partial class E_CommonUtils
    public static Boolean IsNullOrEmpty<T>( this IEnumerable<T> enumerable )
    {
       return enumerable == null || !enumerable.Any();
+   }
+
+   /// <summary>
+   /// Checks that the enumerable is either empty, or all of its values are considered to be same.
+   /// </summary>
+   /// <typeparam name="T">The enumerable element type.</typeparam>
+   /// <param name="enumerable">The enumerable.</param>
+   /// <param name="equalityComparer">The optional equality comparer to use when comparing values, default will be used if none is supplied.</param>
+   /// <returns><c>true</c> if <paramref name="enumerable"/> is empty or all of its values are considered to be the same; <c>false</c> otherwise.</returns>
+   /// <remarks>
+   /// This method will enumerable <paramref name="enumerable"/> exactly once, and has a <c>O(n)</c> performance time.
+   /// </remarks>
+   /// <exception cref="NullReferenceException">If <paramref name="enumerable"/> is <c>null</c>.</exception>
+   public static Boolean EmptyOrAllEqual<T>( this IEnumerable<T> enumerable, IEqualityComparer<T> equalityComparer = null )
+   {
+      Boolean retVal;
+      using ( var enumerator = enumerable.GetEnumerator() )
+      {
+         retVal = !enumerator.MoveNext();
+         if ( !retVal )
+         {
+            var first = enumerator.Current;
+            if ( equalityComparer == null )
+            {
+               equalityComparer = EqualityComparer<T>.Default;
+            }
+
+            retVal = true;
+            while ( retVal && enumerator.MoveNext() )
+            {
+               if ( !equalityComparer.Equals( first, enumerator.Current ) )
+               {
+                  retVal = false;
+               }
+            }
+         }
+      }
+
+      return retVal;
    }
 
    /// <summary>

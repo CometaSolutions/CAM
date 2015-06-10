@@ -1,4 +1,5 @@
-﻿/*
+﻿using CILAssemblyManipulator.Physical;
+/*
  * Copyright 2015 Stanislav Muhametsin. All rights Reserved.
  *
  * Licensed  under the  Apache License,  Version 2.0  (the "License");
@@ -152,25 +153,26 @@ namespace CILAssemblyManipulator.Physical
    /// </summary>
    public sealed class EmittingArguments : IOArguments
    {
-      /// <summary>
-      /// This event occurs when a public key is being exported from a named cryptographic service provider.
-      /// </summary>
-      event EventHandler<CSPPublicKeyEventArgs> CSPPublicKeyEvent;
 
-      /// <summary>
-      /// This event occurs when a <see cref="CILMetaData"/> is emitted with a strong name. The event handler should set the <see cref="HashStreamLoadEventArgs.CryptoStream"/>, <see cref="HashStreamLoadEventArgs.HashGetter"/> and <see cref="HashStreamLoadEventArgs.Transform"/> properties. This assembly can not do this since many security and cryptographic functions are not present in this portable profile.
-      /// </summary>
-      event EventHandler<HashStreamLoadEventArgs> HashStreamLoadEvent;
+      ///// <summary>
+      ///// This event occurs when a public key is being exported from a named cryptographic service provider.
+      ///// </summary>
+      //event EventHandler<CSPPublicKeyEventArgs> CSPPublicKeyEvent;
 
-      /// <summary>
-      /// This event occurs when a <see cref="CILMetaData"/> is emitted with a strong name. The event handler should set the <see cref="RSACreationEventArgs.RSA"/> property. This assembly can not do this since many security and cryptographic functions are not present in this portable profile.
-      /// </summary>
-      event EventHandler<RSACreationEventArgs> RSACreationEvent;
+      ///// <summary>
+      ///// This event occurs when a <see cref="CILMetaData"/> is emitted with a strong name. The event handler should set the <see cref="HashStreamLoadEventArgs.CryptoStream"/>, <see cref="HashStreamLoadEventArgs.HashGetter"/> and <see cref="HashStreamLoadEventArgs.Transform"/> properties. This assembly can not do this since many security and cryptographic functions are not present in this portable profile.
+      ///// </summary>
+      //event EventHandler<HashStreamLoadEventArgs> HashStreamLoadEvent;
 
-      /// <summary>
-      /// This event occurs when a <see cref="CILMetaData"/> is emitted with a strong name. The event handler should set the <see cref="RSASignatureCreationEventArgs.Signature"/> property. This assembly can not do this since many security and cryptographic functions are not present in this portable profile.
-      /// </summary>
-      event EventHandler<RSASignatureCreationEventArgs> RSASignatureCreationEvent;
+      ///// <summary>
+      ///// This event occurs when a <see cref="CILMetaData"/> is emitted with a strong name. The event handler should set the <see cref="RSACreationEventArgs.RSA"/> property. This assembly can not do this since many security and cryptographic functions are not present in this portable profile.
+      ///// </summary>
+      //event EventHandler<RSACreationEventArgs> RSACreationEvent;
+
+      ///// <summary>
+      ///// This event occurs when a <see cref="CILMetaData"/> is emitted with a strong name. The event handler should set the <see cref="RSASignatureCreationEventArgs.Signature"/> property. This assembly can not do this since many security and cryptographic functions are not present in this portable profile.
+      ///// </summary>
+      //event EventHandler<RSASignatureCreationEventArgs> RSASignatureCreationEvent;
 
       /// <summary>
       /// During emitting, if the module is main module and should be strong-name signed, this <see cref="StrongNameKeyPair"/> will be used.
@@ -202,308 +204,226 @@ namespace CILAssemblyManipulator.Physical
       /// <value>The <see cref="ModuleKind"/> of the module being emitted or loaded.</value>
       public ModuleKind ModuleKind { get; set; }
 
+      public CryptoCallbacks CryptoCallbacks { get; set; }
 
-      internal Byte[] ExtractPublicKeyFromCSP( String cspName )
-      {
-         var args = new CSPPublicKeyEventArgs( cspName );
-         this.CSPPublicKeyEvent.InvokeEventIfNotNull( evt => evt( this, args ) );
-         var pk = args.PublicKey;
-         if ( pk.IsNullOrEmpty() )
-         {
-            throw new InvalidOperationException( "The public key of CSP \"" + cspName + "\" could not be resolved." );
-         }
-         return pk;
-      }
-
-      internal HashStreamLoadEventArgs LaunchHashStreamEvent( AssemblyHashAlgorithm algo, Boolean checkCryptoStreamAndTransform )
-      {
-         var args = new HashStreamLoadEventArgs( algo );
-         this.HashStreamLoadEvent.InvokeEventIfNotNull( evt => evt( this, args ) );
-         var cryptoStream = args.CryptoStream;
-         var hashGetter = args.HashGetter;
-         var transform = args.Transform;
-         if ( hashGetter == null || ( checkCryptoStreamAndTransform && ( cryptoStream == null || transform == null ) ) )
-         {
-            throw new InvalidOperationException( "Reflection context's HashStreamLoadEvent handler returned invalid crypto stream result." );
-         }
-
-         return args;
-      }
-
-      internal void LaunchRSACreationEvent( RSACreationEventArgs args )
-      {
-         this.RSACreationEvent.InvokeEventIfNotNull( evt => evt( this, args ) );
-      }
-
-      internal void LaunchRSASignatureCreationEvent( RSASignatureCreationEventArgs args )
-      {
-         this.RSASignatureCreationEvent.InvokeEventIfNotNull( evt => evt( this, args ) );
-      }
    }
 
-   /// <summary>
-   /// This is identical to System.Security.Cryptography.RSAParameters struct.
-   /// </summary>
-   public struct RSAParameters
-   {
+   ///// <summary>
+   ///// This is event argument class for <see cref="CILReflectionContext.CSPPublicKeyEvent"/> event.
+   ///// </summary>
+   //public sealed class CSPPublicKeyEventArgs : EventArgs
+   //{
+   //   private readonly String _cspName;
 
-      /// <summary>
-      /// Represents the <c>D</c> parameter for the RSA algorithm.
-      /// </summary>
-      public Byte[] D;
+   //   internal CSPPublicKeyEventArgs( String cspName )
+   //   {
+   //      ArgumentValidator.ValidateNotNull( "Cryptographic service provider name", cspName );
 
-      /// <summary>
-      /// Represents the <c>DP</c> parameter for the RSA algorithm.
-      /// </summary>
-      public Byte[] DP;
+   //      this._cspName = cspName;
+   //   }
 
-      /// <summary>
-      /// Represents the <c>DQ</c> parameter for the RSA algorithm.
-      /// </summary>
-      public Byte[] DQ;
+   //   /// <summary>
+   //   /// Gets the name of the cryptographic service provider.
+   //   /// </summary>
+   //   /// <value>The name of the cryptographic service provider.</value>
+   //   public String CSPName
+   //   {
+   //      get
+   //      {
+   //         return this._cspName;
+   //      }
+   //   }
 
-      /// <summary>
-      /// Represents the <c>Exponent</c> parameter for the RSA algorithm.
-      /// </summary>
-      public Byte[] Exponent;
+   //   /// <summary>
+   //   /// Gets or sets the public key of the named cryptographic service provider.
+   //   /// </summary>
+   //   /// <value>The public key of the named cryptographic service provider.</value>
+   //   public Byte[] PublicKey { get; set; }
+   //}
 
-      /// <summary>
-      /// Represents the <c>InverseQ</c> parameter for the RSA algorithm.
-      /// </summary>
-      public Byte[] InverseQ;
+   ///// <summary>
+   ///// The event argument class used by <see cref="CILReflectionContext.RSACreationEvent"/> event.
+   ///// </summary>
+   //public sealed class RSACreationEventArgs : EventArgs
+   //{
+   //   private readonly String _keyPairContainer;
+   //   private readonly RSAParameters? _rsaParams;
 
-      /// <summary>
-      /// Represents the <c>Modulus</c> parameter for the RSA algorithm.
-      /// </summary>
-      public Byte[] Modulus;
+   //   internal RSACreationEventArgs( String containerName )
+   //      : this( containerName, null )
+   //   {
+   //   }
 
-      /// <summary>
-      /// Represents the <c>P</c> parameter for the RSA algorithm.
-      /// </summary>
-      public Byte[] P;
+   //   internal RSACreationEventArgs( RSAParameters rsaParams )
+   //      : this( null, rsaParams )
+   //   {
+   //   }
 
-      /// <summary>
-      /// Represents the <c>Q</c> parameter for the RSA algorithm.
-      /// </summary>
-      public Byte[] Q;
-   }
+   //   private RSACreationEventArgs( String containerName, RSAParameters? rsaParams )
+   //   {
+   //      this._keyPairContainer = containerName;
+   //      this._rsaParams = rsaParams;
+   //   }
 
-   /// <summary>
-   /// This is event argument class for <see cref="CILReflectionContext.CSPPublicKeyEvent"/> event.
-   /// </summary>
-   public sealed class CSPPublicKeyEventArgs : EventArgs
-   {
-      private readonly String _cspName;
+   //   /// <summary>
+   //   /// Gets the key-pair container name to use when creating <see cref="RSA"/>. May be <c>null</c> if no named key-pair container should be used.
+   //   /// </summary>
+   //   /// <value>Key-pair container name to use when creating <see cref="RSA"/>. May be <c>null</c> if no named key-pair container should be used.</value>
+   //   /// <remarks>One of the properties <see cref="KeyPairContainer"/> and <see cref="RSAParameters"/> is always non-<c>null</c>.</remarks>
+   //   public String KeyPairContainer
+   //   {
+   //      get
+   //      {
+   //         return this._keyPairContainer;
+   //      }
+   //   }
 
-      internal CSPPublicKeyEventArgs( String cspName )
-      {
-         ArgumentValidator.ValidateNotNull( "Cryptographic service provider name", cspName );
+   //   /// <summary>
+   //   /// Gets the RSA parameters for the resulting <see cref="RSA"/>. May be <c>null</c> if named container should be used for creating <see cref="RSA"/>.
+   //   /// </summary>
+   //   /// <value>The RSA parameters for the resulting <see cref="RSA"/>. May be <c>null</c> if named container should be used for creating <see cref="RSA"/>.</value>
+   //   public RSAParameters? RSAParameters
+   //   {
+   //      get
+   //      {
+   //         return this._rsaParams;
+   //      }
+   //   }
 
-         this._cspName = cspName;
-      }
+   //   /// <summary>
+   //   /// Gets or sets the RSA algorithm to use based on <see cref="KeyPairContainer"/> or <see cref="RSAParameters"/> property.
+   //   /// </summary>
+   //   /// <value>The RSA algorithm to use based on <see cref="KeyPairContainer"/> or <see cref="RSAParameters"/> property.</value>
+   //   /// <remarks>Event handlers should set this property.</remarks>
+   //   public IDisposable RSA { get; set; }
+   //}
 
-      /// <summary>
-      /// Gets the name of the cryptographic service provider.
-      /// </summary>
-      /// <value>The name of the cryptographic service provider.</value>
-      public String CSPName
-      {
-         get
-         {
-            return this._cspName;
-         }
-      }
+   ///// <summary>
+   ///// The event argument class used by <see cref="CILReflectionContext.RSASignatureCreationEvent"/> event.
+   ///// </summary>
+   //public sealed class RSASignatureCreationEventArgs : EventArgs
+   //{
+   //   private readonly IDisposable _rsa;
+   //   private readonly String _hashAlgorithm;
+   //   private readonly Byte[] _contentsHash;
 
-      /// <summary>
-      /// Gets or sets the public key of the named cryptographic service provider.
-      /// </summary>
-      /// <value>The public key of the named cryptographic service provider.</value>
-      public Byte[] PublicKey { get; set; }
-   }
+   //   internal RSASignatureCreationEventArgs( IDisposable rsa, AssemblyHashAlgorithm algorithm, Byte[] contentsHash )
+   //   {
+   //      this._rsa = rsa;
+   //      this._hashAlgorithm = algorithm.GetAlgorithmName();
+   //      this._contentsHash = contentsHash;
+   //   }
 
-   /// <summary>
-   /// The event argument class used by <see cref="CILReflectionContext.RSACreationEvent"/> event.
-   /// </summary>
-   public sealed class RSACreationEventArgs : EventArgs
-   {
-      private readonly String _keyPairContainer;
-      private readonly RSAParameters? _rsaParams;
+   //   /// <summary>
+   //   /// Gets the RSA algorithm to use.
+   //   /// </summary>
+   //   /// <value>The RSA algorithm to use.</value>
+   //   public IDisposable RSA
+   //   {
+   //      get
+   //      {
+   //         return this._rsa;
+   //      }
+   //   }
 
-      internal RSACreationEventArgs( String containerName )
-         : this( containerName, null )
-      {
-      }
+   //   /// <summary>
+   //   /// Gets the hash algorithm to use.
+   //   /// </summary>
+   //   /// <value>The hash algorithm to use.</value>
+   //   public String HashAlgorithm
+   //   {
+   //      get
+   //      {
+   //         return this._hashAlgorithm;
+   //      }
+   //   }
 
-      internal RSACreationEventArgs( RSAParameters rsaParams )
-         : this( null, rsaParams )
-      {
-      }
+   //   /// <summary>
+   //   /// Gets the hash of the file contents.
+   //   /// </summary>
+   //   /// <value>The hash of the file contents.</value>
+   //   public Byte[] ContentsHash
+   //   {
+   //      get
+   //      {
+   //         return this._contentsHash;
+   //      }
+   //   }
 
-      private RSACreationEventArgs( String containerName, RSAParameters? rsaParams )
-      {
-         this._keyPairContainer = containerName;
-         this._rsaParams = rsaParams;
-      }
+   //   /// <summary>
+   //   /// Gets or sets the signature calculated using <see cref="RSA"/>, with the hash algorithm <see cref="HashAlgorithm"/> and given <see cref="ContentsHash"/>.
+   //   /// </summary>
+   //   /// <value>The signature calculated using <see cref="RSA"/>, with the hash algorithm <see cref="HashAlgorithm"/> and given <see cref="ContentsHash"/>.</value>
+   //   /// <remarks>Event handlers should set this property.</remarks>
+   //   public Byte[] Signature { get; set; }
+   //}
 
-      /// <summary>
-      /// Gets the key-pair container name to use when creating <see cref="RSA"/>. May be <c>null</c> if no named key-pair container should be used.
-      /// </summary>
-      /// <value>Key-pair container name to use when creating <see cref="RSA"/>. May be <c>null</c> if no named key-pair container should be used.</value>
-      /// <remarks>One of the properties <see cref="KeyPairContainer"/> and <see cref="RSAParameters"/> is always non-<c>null</c>.</remarks>
-      public String KeyPairContainer
-      {
-         get
-         {
-            return this._keyPairContainer;
-         }
-      }
+   ///// <summary>
+   ///// The event argument class used by <see cref="CILReflectionContext.HashStreamLoadEvent"/> event.
+   ///// </summary>
+   //public sealed class HashStreamLoadEventArgs : EventArgs
+   //{
+   //   private readonly AssemblyHashAlgorithm _algorithm;
 
-      /// <summary>
-      /// Gets the RSA parameters for the resulting <see cref="RSA"/>. May be <c>null</c> if named container should be used for creating <see cref="RSA"/>.
-      /// </summary>
-      /// <value>The RSA parameters for the resulting <see cref="RSA"/>. May be <c>null</c> if named container should be used for creating <see cref="RSA"/>.</value>
-      public RSAParameters? RSAParameters
-      {
-         get
-         {
-            return this._rsaParams;
-         }
-      }
+   //   internal HashStreamLoadEventArgs( AssemblyHashAlgorithm algo )
+   //   {
+   //      this._algorithm = algo;
+   //   }
 
-      /// <summary>
-      /// Gets or sets the RSA algorithm to use based on <see cref="KeyPairContainer"/> or <see cref="RSAParameters"/> property.
-      /// </summary>
-      /// <value>The RSA algorithm to use based on <see cref="KeyPairContainer"/> or <see cref="RSAParameters"/> property.</value>
-      /// <remarks>Event handlers should set this property.</remarks>
-      public IDisposable RSA { get; set; }
-   }
+   //   /// <summary>
+   //   /// Gets the hash algorithm for the hash stream.
+   //   /// </summary>
+   //   /// <value>The hash algorithm for the hash stream.</value>
+   //   public AssemblyHashAlgorithm Algorithm
+   //   {
+   //      get
+   //      {
+   //         return this._algorithm;
+   //      }
+   //   }
 
-   /// <summary>
-   /// The event argument class used by <see cref="CILReflectionContext.RSASignatureCreationEvent"/> event.
-   /// </summary>
-   public sealed class RSASignatureCreationEventArgs : EventArgs
-   {
-      private readonly IDisposable _rsa;
-      private readonly String _hashAlgorithm;
-      private readonly Byte[] _contentsHash;
+   //   /// <summary>
+   //   /// Gets or sets the resulting hash stream creator callback.
+   //   /// </summary>
+   //   /// <value>The resulting hash stream creator callback.</value>
+   //   /// <remarks>
+   //   /// Event handlers should set this property.
+   //   /// This should be set to the callback creating cryptographic stream.
+   //   /// Typically the callback will just invoke the <see cref="M:System.Security.Cryptography.CryptoStream#ctor(System.IO.Stream, System.Security.Cryptography.ICryptoTransform, System.Security.Cryptography.CryptoStreamMode)"/> constructor, and pass <see cref="Stream.Null"/> as first parameter, the resulting <see cref="Transform"/> as second parameter, and <see cref="F:System.Security.Cryptography.CryptoStreamMode.Write"/> as third parameter.
+   //   /// </remarks>
+   //   public Func<Stream> CryptoStream { set; get; }
 
-      internal RSASignatureCreationEventArgs( IDisposable rsa, AssemblyHashAlgorithm algorithm, Byte[] contentsHash )
-      {
-         this._rsa = rsa;
-         this._hashAlgorithm = algorithm.GetAlgorithmName();
-         this._contentsHash = contentsHash;
-      }
+   //   /// <summary>
+   //   /// Gets or sets the callback to get hash from the transform.
+   //   /// </summary>
+   //   /// <value>The callback to get hash from the transform.</value>
+   //   /// <remarks>
+   //   /// Event handlers should set this property.
+   //   /// This callback will be used to get the hash after the copying file contents to crypto stream.
+   //   /// Typically the callback will just cast the parameter to <see cref="T:System.Security.Cryptography.HashAlgorithm"/> and return its <see cref="P:System.Security.Cryptography.HashAlgorithm.Hash"/> property.
+   //   /// </remarks>
+   //   public Func<Byte[]> HashGetter { get; set; }
 
-      /// <summary>
-      /// Gets the RSA algorithm to use.
-      /// </summary>
-      /// <value>The RSA algorithm to use.</value>
-      public IDisposable RSA
-      {
-         get
-         {
-            return this._rsa;
-         }
-      }
+   //   /// <summary>
+   //   /// Gets or sets the callback to compute hash from byte array using the transform.
+   //   /// </summary>
+   //   /// <value>The callback to compute hash from byte array.</value>
+   //   /// <remarks>
+   //   /// Event handlers should set this property.
+   //   /// This callback will be used to compute public key tokens.
+   //   /// </remarks>
+   //   public Func<Byte[], Byte[]> ComputeHash { get; set; }
 
-      /// <summary>
-      /// Gets the hash algorithm to use.
-      /// </summary>
-      /// <value>The hash algorithm to use.</value>
-      public String HashAlgorithm
-      {
-         get
-         {
-            return this._hashAlgorithm;
-         }
-      }
-
-      /// <summary>
-      /// Gets the hash of the file contents.
-      /// </summary>
-      /// <value>The hash of the file contents.</value>
-      public Byte[] ContentsHash
-      {
-         get
-         {
-            return this._contentsHash;
-         }
-      }
-
-      /// <summary>
-      /// Gets or sets the signature calculated using <see cref="RSA"/>, with the hash algorithm <see cref="HashAlgorithm"/> and given <see cref="ContentsHash"/>.
-      /// </summary>
-      /// <value>The signature calculated using <see cref="RSA"/>, with the hash algorithm <see cref="HashAlgorithm"/> and given <see cref="ContentsHash"/>.</value>
-      /// <remarks>Event handlers should set this property.</remarks>
-      public Byte[] Signature { get; set; }
-   }
-
-   /// <summary>
-   /// The event argument class used by <see cref="CILReflectionContext.HashStreamLoadEvent"/> event.
-   /// </summary>
-   public sealed class HashStreamLoadEventArgs : EventArgs
-   {
-      private readonly AssemblyHashAlgorithm _algorithm;
-
-      internal HashStreamLoadEventArgs( AssemblyHashAlgorithm algo )
-      {
-         this._algorithm = algo;
-      }
-
-      /// <summary>
-      /// Gets the hash algorithm for the hash stream.
-      /// </summary>
-      /// <value>The hash algorithm for the hash stream.</value>
-      public AssemblyHashAlgorithm Algorithm
-      {
-         get
-         {
-            return this._algorithm;
-         }
-      }
-
-      /// <summary>
-      /// Gets or sets the resulting hash stream creator callback.
-      /// </summary>
-      /// <value>The resulting hash stream creator callback.</value>
-      /// <remarks>
-      /// Event handlers should set this property.
-      /// This should be set to the callback creating cryptographic stream.
-      /// Typically the callback will just invoke the <see cref="M:System.Security.Cryptography.CryptoStream#ctor(System.IO.Stream, System.Security.Cryptography.ICryptoTransform, System.Security.Cryptography.CryptoStreamMode)"/> constructor, and pass <see cref="Stream.Null"/> as first parameter, the resulting <see cref="Transform"/> as second parameter, and <see cref="F:System.Security.Cryptography.CryptoStreamMode.Write"/> as third parameter.
-      /// </remarks>
-      public Func<Stream> CryptoStream { set; get; }
-
-      /// <summary>
-      /// Gets or sets the callback to get hash from the transform.
-      /// </summary>
-      /// <value>The callback to get hash from the transform.</value>
-      /// <remarks>
-      /// Event handlers should set this property.
-      /// This callback will be used to get the hash after the copying file contents to crypto stream.
-      /// Typically the callback will just cast the parameter to <see cref="T:System.Security.Cryptography.HashAlgorithm"/> and return its <see cref="P:System.Security.Cryptography.HashAlgorithm.Hash"/> property.
-      /// </remarks>
-      public Func<Byte[]> HashGetter { get; set; }
-
-      /// <summary>
-      /// Gets or sets the callback to compute hash from byte array using the transform.
-      /// </summary>
-      /// <value>The callback to compute hash from byte array.</value>
-      /// <remarks>
-      /// Event handlers should set this property.
-      /// This callback will be used to compute public key tokens.
-      /// </remarks>
-      public Func<Byte[], Byte[]> ComputeHash { get; set; }
-
-      /// <summary>
-      /// Gets or sets the cryptographic transform object.
-      /// </summary>
-      /// <value>The cryptographic transform object.</value>
-      /// <remarks>
-      /// Event handlers should set this propery.
-      /// Once the transform is not needed, the <see cref="IDisposable.Dispose"/> method will be called for it.
-      /// </remarks>
-      public IDisposable Transform { get; set; }
-   }
+   //   /// <summary>
+   //   /// Gets or sets the cryptographic transform object.
+   //   /// </summary>
+   //   /// <value>The cryptographic transform object.</value>
+   //   /// <remarks>
+   //   /// Event handlers should set this propery.
+   //   /// Once the transform is not needed, the <see cref="IDisposable.Dispose"/> method will be called for it.
+   //   /// </remarks>
+   //   public IDisposable Transform { get; set; }
+   //}
 
    /// <summary>
    /// This exception is thrown whenever something goes wrong when emitting a strong-signed module.

@@ -1312,6 +1312,21 @@ public static partial class E_CommonUtils
       return new Guid( array.CreateAndBlockCopyTo( ref idx, 16 ) );
    }
 
+
+   /// <summary>
+   /// Creates a new byte array, which will be a copy of given byte array.
+   /// </summary>
+   /// <param name="sourceArray">The array to copy bytes from.</param>
+   /// <returns>A new array having its contents copied from <paramref name="sourceArray"/>.</returns>
+   /// <remarks>
+   /// The <see cref="Buffer.BlockCopy(Array, Int32, Array, Int32, Int32)"/> method will be used to copy bytes.
+   /// </remarks>
+   public static Byte[] CreateBlockCopy( this Byte[] sourceArray )
+   {
+      var idx = 0;
+      return sourceArray.IsNullOrEmpty() ? sourceArray : sourceArray.CreateAndBlockCopyTo( ref idx, sourceArray.Length );
+   }
+
    /// <summary>
    /// Creates a new byte array, which will have given amount of bytes copied from given source array starting at specified index.
    /// </summary>
@@ -1338,6 +1353,7 @@ public static partial class E_CommonUtils
    /// <returns>The <paramref name="targetArray"/>.</returns>
    public static Byte[] BlockCopyTo( this Byte[] sourceArray, ref Int32 sourceArrayIndex, Byte[] targetArray, Int32 targetArrayIndex, Int32 amount )
    {
+      // TODO Does Buffer.BlockCopy support Int64 for source position?
       Buffer.BlockCopy( sourceArray, sourceArrayIndex, targetArray, targetArrayIndex, amount );
       sourceArrayIndex += amount;
       return targetArray;
@@ -1354,6 +1370,7 @@ public static partial class E_CommonUtils
    /// <returns>The <paramref name="targetArray"/>.</returns>
    public static Byte[] BlockCopyFrom( this Byte[] targetArray, ref Int32 targetArrayIndex, Byte[] sourceArray, Int32 sourceArrayIndex, Int32 amount )
    {
+      // TODO Does Buffer.BlockCopy support Int64 for source position?
       Buffer.BlockCopy( sourceArray, sourceArrayIndex, targetArray, targetArrayIndex, amount );
       targetArrayIndex += amount;
       return targetArray;

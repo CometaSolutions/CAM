@@ -50,8 +50,12 @@ namespace CILMerge
       private readonly String _fn;
       private readonly ISymUnmanagedWriter2 _unmanagedWriter;
       private readonly IDictionary<String, ISymUnmanagedDocumentWriter> _unmanagedDocs;
-      private readonly CILAssemblyManipulator.API.EmittingArguments _eArgs;
-      internal PDBHelper( CILAssemblyManipulator.API.EmittingArguments eArgs, String outPath )
+      private readonly CILAssemblyManipulator.Physical.EmittingArguments _eArgs;
+      internal PDBHelper(
+         CILAssemblyManipulator.Physical.CILMetaData module,
+         CILAssemblyManipulator.Physical.EmittingArguments eArgs,
+         String outPath
+         )
       {
          Object writer;
          CoCreateInstance( ref UNMANAGED_WRITER_GUID, null, 1u, ref SYM_WRITER_GUID, out writer );
@@ -62,7 +66,7 @@ namespace CILMerge
          this._fn = System.IO.Path.ChangeExtension( outPath, "pdb" );
          this._eArgs = eArgs;
          // Initialize writer
-         this._unmanagedWriter.Initialize2( new MDHelper( eArgs ), this._tmpFN, null, true, this._fn );
+         this._unmanagedWriter.Initialize2( new MDHelper( module, eArgs ), this._tmpFN, null, true, this._fn );
 
          // Get debug header data
          Int32 dbgHdrSize;
@@ -70,17 +74,17 @@ namespace CILMerge
          // Get size of debug directory
          this._unmanagedWriter.GetDebugInfo( out debugDir, 0, out dbgHdrSize, null );
          // Get the data of debug directory
-         var debugDirContents = new byte[dbgHdrSize];
+         var debugDirContents = new Byte[dbgHdrSize];
          this._unmanagedWriter.GetDebugInfo( out debugDir, dbgHdrSize, out dbgHdrSize, debugDirContents );
          // Set information for CILAssemblyManipulator emitter
-         var dbgInfo = new CILAssemblyManipulator.API.EmittingDebugInformation();
+         var dbgInfo = new CILAssemblyManipulator.Physical.DebugInformation();
          dbgInfo.Characteristics = debugDir.Characteristics;
          dbgInfo.Timestamp = debugDir.TimeDateStamp;
          dbgInfo.VersionMajor = debugDir.MajorVersion;
          dbgInfo.VersionMinor = debugDir.MinorVersion;
          dbgInfo.DebugType = debugDir.Type;
          dbgInfo.DebugData = debugDirContents;
-         eArgs.DebugInformation = dbgInfo;
+         eArgs.Headers.DebugInformation = dbgInfo;
       }
 
       internal String PDBFileLocation
@@ -160,14 +164,10 @@ namespace CILMerge
       public void Dispose()
       {
          // Remember set entry point before writing out.
-         var ep = this._eArgs.CLREntryPoint;
-         if ( ep != null )
+         var ep = this._eArgs.Headers.CLREntryPointIndex;
+         if ( ep.HasValue )
          {
-            Int32 token;
-            if ( this._eArgs.MetadataInfo.TryGetTokenForMethodDefinition( ep, out token ) )
-            {
-               this._unmanagedWriter.SetUserEntryPoint( new SymbolToken( token ) );
-            }
+            this._unmanagedWriter.SetUserEntryPoint( new SymbolToken( ep.Value.OneBasedToken ) );
          }
          this._unmanagedWriter.Close();
          try
@@ -541,11 +541,14 @@ namespace CILMerge
 
    internal class MDHelper : IMetaDataEmit, IMetaDataImport
    {
-      private readonly CILAssemblyManipulator.API.EmittingArguments _eArgs;
+      private readonly CILAssemblyManipulator.Physical.CILMetaData _module;
+      private readonly CILAssemblyManipulator.Physical.EmittingArguments _eArgs;
 
-      internal MDHelper( CILAssemblyManipulator.API.EmittingArguments eArgs )
+      internal MDHelper( CILAssemblyManipulator.Physical.CILMetaData module, CILAssemblyManipulator.Physical.EmittingArguments eArgs )
       {
+         ArgumentValidator.ValidateNotNull( "Module", module );
          ArgumentValidator.ValidateNotNull( "Emitting arguments", eArgs );
+         this._module = module;
          this._eArgs = eArgs;
       }
 

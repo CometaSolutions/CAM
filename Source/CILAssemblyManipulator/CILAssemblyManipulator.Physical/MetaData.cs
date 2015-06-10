@@ -283,6 +283,7 @@ namespace CILAssemblyManipulator.Physical
       }
 
       public AssemblyFlags Attributes { get; set; }
+
       public AssemblyInformation AssemblyInformation
       {
          get
@@ -290,7 +291,13 @@ namespace CILAssemblyManipulator.Physical
             return this._assemblyInfo;
          }
       }
+
       public AssemblyHashAlgorithm HashAlgorithm { get; set; }
+
+      public override String ToString()
+      {
+         return this.AssemblyInformation.ToString( true, true );
+      }
    }
 
    public sealed class AssemblyReference
@@ -303,6 +310,7 @@ namespace CILAssemblyManipulator.Physical
       }
 
       public AssemblyFlags Attributes { get; set; }
+
       public AssemblyInformation AssemblyInformation
       {
          get
@@ -310,7 +318,13 @@ namespace CILAssemblyManipulator.Physical
             return this._assemblyInfo;
          }
       }
+
       public Byte[] HashValue { get; set; }
+
+      public override String ToString()
+      {
+         return this.AssemblyInformation.ToString( true, this.Attributes.IsFullPublicKey() );
+      }
    }
 
    public sealed class FileReference
@@ -415,11 +429,19 @@ namespace CILAssemblyManipulator.Physical
          }
       }
 
-      internal Int32 ZeroBasedToken
+      public Int32 ZeroBasedToken
       {
          get
          {
             return this._token;
+         }
+      }
+
+      public Int32 OneBasedToken
+      {
+         get
+         {
+            return ( ( this._token & TokenUtils.INDEX_MASK ) + 1 ) | ( this._token & ~TokenUtils.INDEX_MASK );
          }
       }
 
@@ -1138,10 +1160,9 @@ public static partial class E_CILPhysical
    // FieldDef
    // PropertyDef
    // EventDef
-   // NestedClass
 
    // TypeDef and MethodDef can not have duplicate instances of same object!!
-   public static Int32[][] OrderTablesAndUpdateSignatures( this CILMetaData md )
+   public static Int32[][] OrderTablesAndRemoveDuplicates( this CILMetaData md )
    {
       var allTableIndices = new Int32[Consts.AMOUNT_OF_TABLES][];
 
@@ -1167,6 +1188,10 @@ public static partial class E_CILPhysical
    // Re-orders TypeDef, MethodDef, ParamDef, Field, and NestedClass tables, if necessary
    private static void ReOrderStructuralTables( this CILMetaData md, Int32[][] allTableIndices )
    {
+      // No matter what, we have to remove nested class duplicates
+      // Don't need to keep track of changes - nested class table is not referenced by anything
+      md.NestedClassDefinitions.RemoveDuplicatesUnsortedInPlace( Comparers.NestedClassDefinitionEqualityComparer );
+
       var typeDef = md.TypeDefinitions;
       var methodDef = md.MethodDefinitions;
       var fieldDef = md.FieldDefinitions;
@@ -1190,6 +1215,7 @@ public static partial class E_CILPhysical
       allTableIndices[(Int32) Tables.Field] = fDefIndices;
       allTableIndices[(Int32) Tables.Parameter] = paramDefIndices;
       allTableIndices[(Int32) Tables.NestedClass] = ncIndices;
+
 
       // So, start by reading nested class data into more easily accessible data structure
 
@@ -1289,6 +1315,7 @@ public static partial class E_CILPhysical
                }
             }
          }
+
          // Update NestedClass indices and sort NestedClass
          nestedClass.UpdateMDTableWithTableIndices2(
             allTableIndices,
@@ -1493,6 +1520,27 @@ public static partial class E_CILPhysical
          );
    }
 
+   private static void RemoveDuplicatesUnsortedInPlace<T>( this List<T> table, IEqualityComparer<T> equalityComparer )
+   {
+      var count = table.Count;
+      if ( count > 1 )
+      {
+         var set = new HashSet<T>( equalityComparer );
+         for ( var i = 0; i < table.Count; )
+         {
+            var item = table[i];
+            if ( set.Add( item ) )
+            {
+               ++i;
+            }
+            else
+            {
+               table.RemoveAt( i );
+            }
+         }
+      }
+   }
+
    private static void RemoveDuplicatesAfterSorting( this CILMetaData md, MetaDataReOrderState reorderState )
    {
       foreach ( var kvp in reorderState.Duplicates )
@@ -1521,6 +1569,9 @@ public static partial class E_CILPhysical
                break;
             case Tables.StandaloneSignature:
                md.StandaloneSignatures.RemoveDuplicatesFromTable( indices );
+               break;
+            case Tables.NestedClass:
+               md.NestedClassDefinitions.RemoveDuplicatesFromTable( indices );
                break;
          }
       }
@@ -2261,22 +2312,11 @@ public static partial class E_CILPhysical
    }
 
    // Returns token with 1-based indexing, or zero if tableIdx has no value
-   internal static Int32 CreateTokenForEmittingOptionalTableIndex( this TableIndex? tableIdx )
+   internal static Int32 GetOneBasedToken( this TableIndex? tableIdx )
    {
       return tableIdx.HasValue ?
-         ZeroBasedTokenToOneBasedToken( tableIdx.Value.ZeroBasedToken ) :
+         tableIdx.Value.OneBasedToken :
          0;
-   }
-
-   // Returns token with 1-based indexing
-   internal static Int32 CreateTokenForEmittingMandatoryTableIndex( this TableIndex tableIdx )
-   {
-      return ZeroBasedTokenToOneBasedToken( tableIdx.ZeroBasedToken );
-   }
-
-   private static Int32 ZeroBasedTokenToOneBasedToken( Int32 token )
-   {
-      return ( ( token & TokenUtils.INDEX_MASK ) + 1 ) | ( token & ~TokenUtils.INDEX_MASK );
    }
 
    public static Int32 CalculateStackSize( this CILMetaData md, Int32 methodIndex )
@@ -2526,10 +2566,36 @@ public static partial class E_CILPhysical
       return fwInfo != null;
    }
 
+   public static TargetFrameworkInfo GetTargetFrameworkInformationOrNull( this CILMetaData md, MetaDataResolver resolverToUse = null )
+   {
+      TargetFrameworkInfo retVal;
+      return md.TryGetTargetFrameworkInformation( out retVal, resolverToUse ) ?
+         retVal :
+         null;
+   }
+
 
    public static Boolean IsSimpleTypeOfKind( this CustomAttributeArgumentType caType, SignatureElementTypes typeKind )
    {
       return caType.ArgumentTypeKind == CustomAttributeArgumentTypeKind.Simple
          && ( (CustomAttributeArgumentTypeSimple) caType ).SimpleType == typeKind;
+   }
+
+   public static Boolean CanBeReferencedFromIL( this Tables table )
+   {
+      switch ( table )
+      {
+         case Tables.TypeDef:
+         case Tables.TypeRef:
+         case Tables.TypeSpec:
+         case Tables.MethodDef:
+         case Tables.Field:
+         case Tables.MemberRef:
+         case Tables.MethodSpec:
+         case Tables.StandaloneSignature:
+            return true;
+         default:
+            return false;
+      }
    }
 }

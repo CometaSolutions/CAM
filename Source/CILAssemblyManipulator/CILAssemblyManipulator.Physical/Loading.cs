@@ -34,6 +34,12 @@ namespace CILAssemblyManipulator.Physical
 
       // The metaData must be one of the metaDatas loaded by this loader
       Boolean ResolveMetaData( CILMetaData metaData );
+
+      // null if given module is not loaded by this loader
+      ReadingArguments GetReadingArgumentsForMetaData( CILMetaData metaData );
+
+      // null if given module is not loaded by this loader
+      String GetResourceFor( CILMetaData metaData );
    }
 
    public abstract class AbstractCILMetaDataLoader<TDictionary> : CILMetaDataLoader
@@ -95,15 +101,15 @@ namespace CILAssemblyManipulator.Physical
             }
          } );
 
-         var added = false;
-         this.AddAtomicallyToInfoDictionaryIfNeeded( this._moduleInfos, retVal, md =>
+         Boolean added;
+         if ( this.IsThreadSafe )
          {
-            var resolver = new MetaDataResolver();
-            resolver.AssemblyReferenceResolveEvent += _resolver_AssemblyReferenceResolveEvent;
-            resolver.ModuleReferenceResolveEvent += _resolver_ModuleReferenceResolveEvent;
-            added = true;
-            return Tuple.Create( resource, rArgs, resolver );
-         } );
+            this._moduleInfos.GetOrAdd_WithLock( retVal, md => this.ModuleInfoFactory( resource, md, rArgs ), out added );
+         }
+         else
+         {
+            this._moduleInfos.GetOrAdd_NotThreadSafe( retVal, md => this.ModuleInfoFactory( resource, md, rArgs ), out added );
+         }
 
          if ( added )
          {
@@ -112,6 +118,8 @@ namespace CILAssemblyManipulator.Physical
 
          return retVal;
       }
+
+
 
       public Boolean ResolveMetaData( CILMetaData metaData )
       {
@@ -126,6 +134,31 @@ namespace CILAssemblyManipulator.Physical
          return retVal;
       }
 
+      public ReadingArguments GetReadingArgumentsForMetaData( CILMetaData metaData )
+      {
+         TModuleInfo moduleInfo;
+         return this._moduleInfos.TryGetValue( metaData, out moduleInfo ) ?
+            moduleInfo.Item2 :
+            null;
+      }
+
+      public String GetResourceFor( CILMetaData metaData )
+      {
+         TModuleInfo moduleInfo;
+         return this._moduleInfos.TryGetValue( metaData, out moduleInfo ) ?
+            moduleInfo.Item1 :
+            null;
+      }
+
+      private TModuleInfo ModuleInfoFactory( String resource, CILMetaData md, ReadingArguments rArgs )
+      {
+         var resolver = new MetaDataResolver();
+         resolver.AssemblyReferenceResolveEvent += _resolver_AssemblyReferenceResolveEvent;
+         resolver.ModuleReferenceResolveEvent += _resolver_ModuleReferenceResolveEvent;
+         return Tuple.Create( resource, rArgs, resolver );
+      }
+
+
       protected TDictionary Dictionary
       {
          get
@@ -134,6 +167,8 @@ namespace CILAssemblyManipulator.Physical
          }
 
       }
+
+      protected abstract Boolean IsThreadSafe { get; }
 
       // Something like Path.GetFullPath(..)
       protected abstract String SanitizeResource( String resource );
@@ -150,7 +185,7 @@ namespace CILAssemblyManipulator.Physical
 
       protected abstract void PerformResolving( MetaDataResolver resolver, CILMetaData metaData );
 
-      protected abstract void AddAtomicallyToInfoDictionaryIfNeeded( Dictionary<CILMetaData, TModuleInfo> dictionary, CILMetaData md, Func<CILMetaData, TModuleInfo> factory );
+
    }
 
    public interface CILMetaDataLoaderResourceCallbacks
@@ -225,9 +260,12 @@ namespace CILAssemblyManipulator.Physical
          resolver.ResolveEverything( metaData );
       }
 
-      protected override void AddAtomicallyToInfoDictionaryIfNeeded( Dictionary<CILMetaData, TModuleInfo> dictionary, CILMetaData md, Func<CILMetaData, TModuleInfo> factory )
+      protected override Boolean IsThreadSafe
       {
-         dictionary.GetOrAdd_NotThreadSafe( md, factory );
+         get
+         {
+            return false;
+         }
       }
    }
 
@@ -256,9 +294,12 @@ namespace CILAssemblyManipulator.Physical
          }
       }
 
-      protected override void AddAtomicallyToInfoDictionaryIfNeeded( Dictionary<CILMetaData, TModuleInfo> dictionary, CILMetaData md, Func<CILMetaData, TModuleInfo> factory )
+      protected override Boolean IsThreadSafe
       {
-         dictionary.GetOrAdd_WithLock( md, factory );
+         get
+         {
+            return true;
+         }
       }
    }
 }

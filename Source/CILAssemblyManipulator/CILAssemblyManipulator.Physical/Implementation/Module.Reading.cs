@@ -1423,11 +1423,31 @@ namespace CILAssemblyManipulator.Physical.Implementation
          // If you are in release mode and you generate no PDB info, the StandAloneSig table contains no Field signatures.
          // One such condition for the emission of such information is constants within the scope of a method body.
          // Original thread:  http://www.netframeworkdev.com/building-development-diagnostic-tools-for-net/field-signatures-in-standalonesig-table-30658.shtml
-         return (SignatureStarters) bytes[idx] == SignatureStarters.LocalSignature ?
-            (AbstractSignature) LocalVariablesSignature.ReadFromBytes( bytes, ref idx ) :
-            ( (SignatureStarters) bytes[idx] == SignatureStarters.Field ?
-               (AbstractSignature) new RawSignature() { Bytes = blob.GetBLOB( heapIndex ) } : // We could parse field signature but it sometimes may contain stuff like Pinned etc, which would just mess it up
-               MethodReferenceSignature.ReadFromBytes( bytes, ref idx ) );
+         var sigStarter = (SignatureStarters) bytes[idx];
+         AbstractSignature retVal;
+         if ( sigStarter == SignatureStarters.LocalSignature )
+         {
+            retVal = LocalVariablesSignature.ReadFromBytes( bytes, ref idx );
+         }
+         else if ( sigStarter == SignatureStarters.Field )
+         {
+            ++idx;
+            retVal = new LocalVariablesSignature( 1 );
+            ( (LocalVariablesSignature) retVal ).Locals.Add( LocalVariableSignature.ReadFromBytes( bytes, ref idx ) );
+         }
+         else
+         {
+            // ??
+            retVal = new RawSignature() { Bytes = blob.GetBLOB( heapIndex ) };
+         }
+
+         return retVal;
+
+         //return (SignatureStarters) bytes[idx] == SignatureStarters.LocalSignature ?
+         //   (AbstractSignature) LocalVariablesSignature.ReadFromBytes( bytes, ref idx ) :
+         //   ( (SignatureStarters) bytes[idx] == SignatureStarters.Field ?
+         //      (AbstractSignature)   new RawSignature() { Bytes = blob.GetBLOB( heapIndex ) } : // We could parse field signature but it sometimes may contain stuff like Pinned etc, which would just mess it up
+         //      MethodReferenceSignature.ReadFromBytes( bytes, ref idx ) );
       }
 
       private static void ReadSecurityBLOB(
