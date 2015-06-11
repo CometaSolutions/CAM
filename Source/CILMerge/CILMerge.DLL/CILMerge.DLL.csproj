@@ -68,10 +68,6 @@
     <Compile Include="Properties\AssemblyInfo.cs" />
   </ItemGroup>
   <ItemGroup>
-    <ProjectReference Include="..\..\CILAssemblyManipulator\CILAssemblyManipulator.DotNET\CILAssemblyManipulator.DotNET.csproj">
-      <Project>{719d1206-7193-4b77-be9b-5de2655132a6}</Project>
-      <Name>CILAssemblyManipulator.DotNET</Name>
-    </ProjectReference>
     <ProjectReference Include="..\..\CILAssemblyManipulator\CILAssemblyManipulator.MResources\CILAssemblyManipulator.MResources.csproj">
       <Project>{99fcb99e-c7eb-49d0-980f-86e61f874fcb}</Project>
       <Name>CILAssemblyManipulator.MResources</Name>
@@ -79,10 +75,6 @@
     <ProjectReference Include="..\..\CILAssemblyManipulator\CILAssemblyManipulator.PDB\CILAssemblyManipulator.PDB.csproj">
       <Project>{5f874824-aea5-45a0-a0a2-408210397b08}</Project>
       <Name>CILAssemblyManipulator.PDB</Name>
-    </ProjectReference>
-    <ProjectReference Include="..\..\CILAssemblyManipulator\CILAssemblyManipulator.Core\CILAssemblyManipulator.Core.csproj">
-      <Project>{aeabb192-070f-4c75-bdae-7e29496026ae}</Project>
-      <Name>CILAssemblyManipulator</Name>
     </ProjectReference>
     <ProjectReference Include="..\..\CILAssemblyManipulator\CILAssemblyManipulator.Physical\CILAssemblyManipulator.Physical.csproj">
       <Project>{ba297806-a89f-4a3b-945b-08729853df75}</Project>

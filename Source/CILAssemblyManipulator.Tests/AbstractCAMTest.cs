@@ -22,6 +22,7 @@ using System.Text;
 using CILAssemblyManipulator.Physical;
 using NUnit.Framework;
 using System.IO;
+using CILMerge;
 
 namespace CILAssemblyManipulator.Tests
 {
@@ -32,6 +33,9 @@ namespace CILAssemblyManipulator.Tests
 
       private static readonly System.Reflection.Assembly _cam = typeof( CILMetaData ).Assembly;
       private static readonly String _camLocation = new Uri( _cam.CodeBase ).LocalPath;
+
+      private static readonly System.Reflection.Assembly _merge = typeof( CILMerger ).Assembly;
+      private static readonly String _mergeLocation = new Uri( _merge.CodeBase ).LocalPath;
 
       protected static System.Reflection.Assembly MSCorLib
       {
@@ -62,6 +66,22 @@ namespace CILAssemblyManipulator.Tests
          get
          {
             return _camLocation;
+         }
+      }
+
+      protected static System.Reflection.Assembly CILMerge
+      {
+         get
+         {
+            return _merge;
+         }
+      }
+
+      protected static String CILMergeLocation
+      {
+         get
+         {
+            return _mergeLocation;
          }
       }
 

@@ -25,12 +25,11 @@ using System.Text.RegularExpressions;
 using System.Threading;
 using System.Xml.Linq;
 using System.Xml.XPath;
-//using CILAssemblyManipulator.API;
-using CILAssemblyManipulator.DotNET;
 using CILAssemblyManipulator.MResources;
 using CILAssemblyManipulator.PDB;
 using CommonUtils;
 using CILAssemblyManipulator.Physical;
+using System.Runtime.InteropServices;
 
 namespace CILMerge
 {
@@ -179,6 +178,14 @@ namespace CILMerge
          return this.Dictionary.GetOrAdd( resource, factory );
       }
 
+      protected override Boolean IsThreadSafe
+      {
+         get
+         {
+            return true;
+         }
+      }
+
       protected override void PerformResolving( MetaDataResolver resolver, CILMetaData metaData )
       {
          // In case we are trying to resolve same module concurrently
@@ -197,6 +204,281 @@ namespace CILMerge
 
       }
    }
+
+   public class CryptoCallbacksDotNET : CryptoCallbacks
+   {
+      private Boolean _canUseManagedCryptoAlgorithms;
+      private Boolean _canUseCNGCryptoAlgorithms;
+
+      public CryptoCallbacksDotNET()
+      {
+         this._canUseManagedCryptoAlgorithms = true;
+         this._canUseCNGCryptoAlgorithms = true;
+      }
+
+      public HashStreamInfo CreateHashStream( AssemblyHashAlgorithm algorithm )
+      {
+         System.Security.Cryptography.HashAlgorithm transform;
+         switch ( algorithm )
+         {
+            case AssemblyHashAlgorithm.MD5:
+               transform = GetTransform( null, () => new System.Security.Cryptography.MD5Cng(), () => new System.Security.Cryptography.MD5CryptoServiceProvider() );
+               break;
+            case AssemblyHashAlgorithm.SHA1:
+               transform = GetTransform( () => new System.Security.Cryptography.SHA1Managed(), () => new System.Security.Cryptography.SHA1Cng(), () => new System.Security.Cryptography.SHA1CryptoServiceProvider() );
+               break;
+            case AssemblyHashAlgorithm.SHA256:
+               transform = GetTransform( () => new System.Security.Cryptography.SHA256Managed(), () => new System.Security.Cryptography.SHA256Cng(), () => new System.Security.Cryptography.SHA256CryptoServiceProvider() );
+               break;
+            case AssemblyHashAlgorithm.SHA384:
+               transform = GetTransform( () => new System.Security.Cryptography.SHA384Managed(), () => new System.Security.Cryptography.SHA384Cng(), () => new System.Security.Cryptography.SHA384CryptoServiceProvider() );
+               break;
+            case AssemblyHashAlgorithm.SHA512:
+               transform = GetTransform( () => new System.Security.Cryptography.SHA512Managed(), () => new System.Security.Cryptography.SHA512Cng(), () => new System.Security.Cryptography.SHA512CryptoServiceProvider() );
+               break;
+            case AssemblyHashAlgorithm.None:
+               throw new InvalidOperationException( "Tried to create hash stream with no hash algorithm" );
+            default:
+               throw new ArgumentException( "Unknown hash algorithm: " + algorithm + "." );
+         }
+
+         return new HashStreamInfo(
+            algorithm,
+            () => new System.Security.Cryptography.CryptoStream( Stream.Null, transform, System.Security.Cryptography.CryptoStreamMode.Write ),
+            () => transform.Hash,
+            bytes => transform.ComputeHash( bytes ),
+            transform );
+      }
+
+      public IDisposable CreateRSAFromCSPContainer( String containerName )
+      {
+         var csp = new System.Security.Cryptography.CspParameters { Flags = System.Security.Cryptography.CspProviderFlags.UseMachineKeyStore };
+         if ( containerName != null )
+         {
+            csp.KeyContainerName = containerName;
+            csp.KeyNumber = 2;
+         }
+         return new System.Security.Cryptography.RSACryptoServiceProvider( csp );
+      }
+
+      public IDisposable CreateRSAFromParameters( RSAParameters parameters )
+      {
+         System.Security.Cryptography.RSA result = null;
+         var rParams = new System.Security.Cryptography.RSAParameters()
+         {
+            D = parameters.D,
+            DP = parameters.DP,
+            DQ = parameters.DQ,
+            Exponent = parameters.Exponent,
+            InverseQ = parameters.InverseQ,
+            Modulus = parameters.Modulus,
+            P = parameters.P,
+            Q = parameters.Q
+         };
+         try
+         {
+            result = System.Security.Cryptography.RSA.Create();
+            result.ImportParameters( rParams );
+         }
+         catch ( System.Security.Cryptography.CryptographicException )
+         {
+            var success = false;
+            try
+            {
+               // Try SP without key container name instead
+               result = (System.Security.Cryptography.RSA) this.CreateRSAFromCSPContainer( null );
+               result.ImportParameters( rParams );
+               success = true;
+            }
+            catch
+            {
+               // Ignore
+            }
+
+            if ( !success )
+            {
+               throw;
+            }
+         }
+         return result;
+      }
+
+      public Byte[] CreateRSASignature( IDisposable rsa, String hashAlgorithmName, Byte[] contentsHash )
+      {
+         var formatter = new System.Security.Cryptography.RSAPKCS1SignatureFormatter( (System.Security.Cryptography.AsymmetricAlgorithm) rsa );
+         formatter.SetHashAlgorithm( hashAlgorithmName );
+         return formatter.CreateSignature( contentsHash );
+      }
+
+      private System.Security.Cryptography.HashAlgorithm GetTransform(
+         Func<System.Security.Cryptography.HashAlgorithm> managedVersion,
+         Func<System.Security.Cryptography.HashAlgorithm> cngVersion,
+         Func<System.Security.Cryptography.HashAlgorithm> spVersion
+         )
+      {
+         if ( this._canUseManagedCryptoAlgorithms && managedVersion != null )
+         {
+            try
+            {
+               return managedVersion();
+            }
+            catch
+            {
+               this._canUseManagedCryptoAlgorithms = false;
+            }
+         }
+         if ( this._canUseCNGCryptoAlgorithms )
+         {
+            try
+            {
+               return cngVersion();
+            }
+            catch
+            {
+               this._canUseCNGCryptoAlgorithms = false;
+            }
+         }
+         return spVersion();
+      }
+
+      public Byte[] ExtractPublicKeyFromCSPContainer( String containterName )
+      {
+#if MONO
+         throw new NotSupportedException("This is not supported on Mono framework.");
+#else
+         Byte[] pk;
+         Int32 winError1, winError2;
+         if ( !TryExportCSPPublicKey( containterName, 0, out pk, out winError1 ) // Try user-specific key first
+            && !TryExportCSPPublicKey( containterName, 32u, out pk, out winError2 ) ) // Then try machine-specific key (32u = CRYPT_MACHINE_KEYSET )
+         {
+            throw new InvalidOperationException( "Error when using user keystore: " + GetWin32ErrorString( winError1 ) + "\nError when using machine keystore: " + GetWin32ErrorString( winError2 ) );
+         }
+         return pk;
+#endif
+      }
+
+#if !MONO
+      private static String GetWin32ErrorString( Int32 errorCode )
+      {
+         return new System.ComponentModel.Win32Exception( errorCode ).Message + " ( Win32 error code: 0x" + Convert.ToString( errorCode, 16 ) + ").";
+      }
+
+      // Much of this code is adapted by disassembling KeyPal.exe, available at http://www.jensign.com/KeyPal/index.html
+      private static Boolean TryExportCSPPublicKey( String cspName, UInt32 keyType, out Byte[] pk, out Int32 winError )
+      {
+         var dwProvType = 1u;
+         var ctxPtr = IntPtr.Zero;
+         winError = 0;
+         pk = null;
+         var retVal = false;
+         try
+         {
+            if ( Win32.CryptAcquireContext( out ctxPtr, cspName, "Microsoft Base Cryptographic Provider v1.0", dwProvType, keyType )
+               || Win32.CryptAcquireContext( out ctxPtr, cspName, "Microsoft Strong Cryptographic Provider", dwProvType, keyType )
+               || Win32.CryptAcquireContext( out ctxPtr, cspName, "Microsoft Enhanced Cryptographic Provider v1.0", dwProvType, keyType ) )
+            {
+               IntPtr keyPtr = IntPtr.Zero;
+               try
+               {
+                  if ( Win32.CryptGetUserKey( ctxPtr, 2u, out keyPtr ) ) // 2 = AT_SIGNATURE
+                  {
+                     IntPtr expKeyPtr = IntPtr.Zero; // When exporting public key, this is zero
+                     var arraySize = 0u;
+                     if ( Win32.CryptExportKey( keyPtr, expKeyPtr, 6u, 0u, null, ref arraySize ) ) // 6 = PublicKey
+                     {
+                        pk = new Byte[arraySize];
+                        if ( Win32.CryptExportKey( keyPtr, expKeyPtr, 6u, 0u, pk, ref arraySize ) )
+                        {
+                           retVal = true;
+                        }
+                        else
+                        {
+                           winError = Marshal.GetLastWin32Error();
+                        }
+                     }
+                     else
+                     {
+                        winError = Marshal.GetLastWin32Error();
+                     }
+                  }
+                  else
+                  {
+                     winError = Marshal.GetLastWin32Error();
+                  }
+               }
+               finally
+               {
+                  if ( keyPtr != IntPtr.Zero )
+                  {
+                     Win32.CryptDestroyKey( keyPtr );
+                  }
+               }
+            }
+            else
+            {
+               winError = Marshal.GetLastWin32Error();
+            }
+         }
+         finally
+         {
+            if ( ctxPtr != IntPtr.Zero )
+            {
+               Win32.CryptReleaseContext( ctxPtr, 0u );
+            }
+         }
+         return retVal;
+      }
+
+      private static void ThrowFromLastWin32Error()
+      {
+         throw new System.ComponentModel.Win32Exception( Marshal.GetLastWin32Error() );
+      }
+
+      private static class Win32
+      {
+         // http://msdn.microsoft.com/en-us/library/windows/desktop/aa379886%28v=vs.85%29.aspx
+         [DllImport( "advapi32.dll", CharSet = CharSet.Auto, SetLastError = true )]
+         internal static extern Boolean CryptAcquireContext(
+            [Out] out IntPtr hProv,
+            [In, System.Runtime.InteropServices.MarshalAs( System.Runtime.InteropServices.UnmanagedType.LPWStr )] String pszContainer,
+            [In, System.Runtime.InteropServices.MarshalAs( System.Runtime.InteropServices.UnmanagedType.LPWStr )] String pszProvider,
+            [In] UInt32 dwProvType,
+            [In] UInt32 dwFlags );
+
+         // http://msdn.microsoft.com/en-us/library/windows/desktop/aa380268%28v=vs.85%29.aspx
+         [DllImport( "advapi32.dll" )]
+         internal static extern Boolean CryptReleaseContext(
+            [In] IntPtr hProv,
+            [In] UInt32 dwFlags
+            );
+
+         // http://msdn.microsoft.com/en-us/library/windows/desktop/aa380199%28v=vs.85%29.aspx
+         [DllImport( "advapi32.dll" )]
+         internal static extern Boolean CryptGetUserKey(
+            [In] IntPtr hProv,
+            [In] UInt32 dwKeySpec,
+            [Out] out IntPtr hKey
+            );
+
+         // http://msdn.microsoft.com/en-us/library/windows/desktop/aa379918%28v=vs.85%29.aspx
+         [DllImport( "advapi32.dll" )]
+         internal static extern Boolean CryptDestroyKey( [In] IntPtr hKey );
+
+         // http://msdn.microsoft.com/en-us/library/windows/desktop/aa379931%28v=vs.85%29.aspx
+         [DllImport( "advapi32.dll", SetLastError = true )]
+         internal static extern Boolean CryptExportKey(
+            [In] IntPtr hKey,
+            [In] IntPtr hExpKey,
+            [In] UInt32 dwBlobType,
+            [In] UInt32 dwFlags,
+            [In] Byte[] pbData,
+            [In, Out] ref UInt32 dwDataLen );
+      }
+
+#endif
+
+   }
+
 
    public class CILMerger : IDisposable
    {
@@ -235,13 +517,8 @@ namespace CILMerge
       public void PerformMerge()
       {
          // Merge assemblies
-         var assemblyMergeResult = DotNETReflectionContext.UseDotNETContext( ctx =>
-         {
-            using ( var assMerger = new CILAssemblyMerger( this, this._options, Environment.CurrentDirectory, ctx ) )
-            {
-               return assMerger.EmitTargetAssembly();
-            }
-         } );
+         var assemblyMergeResult = new CILAssemblyMerger( this, this._options, Environment.CurrentDirectory )
+            .MergeModules();
 
          if ( this._options.XmlDocs )
          {
@@ -250,16 +527,17 @@ namespace CILMerge
          }
       }
 
-      private void MergeXMLDocs( Tuple<String[], IDictionary<Tuple<String, String>, String>> assemblyMergeResult )
+      private void MergeXMLDocs( CILModuleMergeResult[] assemblyMergeResult )
       {
-         var xmlDocs = new ConcurrentDictionary<String, XDocument>();
+         var xmlDocs = new ConcurrentDictionary<CILModuleMergeResult, XDocument>( ReferenceEqualityComparer<CILModuleMergeResult>.ReferenceBasedComparer );
 
          // TODO on *nix, comparison should maybe be case-sensitive.
          var outXmlPath = Path.ChangeExtension( this._options.OutPath, ".xml" );
-         this.DoPotentiallyInParallel( assemblyMergeResult.Item1, ( isRunningInParallel, ass ) =>
+         this.DoPotentiallyInParallel( assemblyMergeResult, ( isRunningInParallel, mResult ) =>
          {
             XDocument xDoc = null;
-            var xfn = Path.ChangeExtension( ass, ".xml" );
+            var path = mResult.ModulePath;
+            var xfn = Path.ChangeExtension( path, ".xml" );
             if ( !String.Equals( Path.GetFullPath( xfn ), outXmlPath, StringComparison.OrdinalIgnoreCase ) )
             {
                try
@@ -298,27 +576,28 @@ namespace CILMerge
             }
             if ( xDoc != null )
             {
-               xmlDocs.TryAdd( ass, xDoc );
+               xmlDocs.TryAdd( mResult, xDoc );
             }
          } );
 
 
-         var renameDic = assemblyMergeResult.Item2;
          using ( var fs = File.Open( outXmlPath, FileMode.Create, FileAccess.Write, FileShare.Read ) )
          {
             // Create and save document (Need to use XmlWriter if 4-space indent needs to be preserved, the XElement saves using 2-space indent and it is not customizable).
             new XElement( "doc",
                new XElement( "assembly", new XElement( "name", Path.GetFileNameWithoutExtension( this._options.OutPath ) ) ), // Assembly name
-               new XElement( "members", xmlDocs.Select( kvp => Tuple.Create( kvp.Key, kvp.Value.XPathSelectElements( "/doc/members/*" ) ) )
+               new XElement( "members", xmlDocs
+                  .Select( kvp => Tuple.Create( kvp.Key, kvp.Value.XPathSelectElements( "/doc/members/*" ) ) )
                   .SelectMany( tuple =>
                   {
-                     if ( renameDic != null )
+                     var renameDic = tuple.Item1.TypeRenames;
+                     if ( renameDic.Count > 0 )
                      {
                         foreach ( var el in tuple.Item2 )
                         {
                            var nameAttr = el.Attribute( "name" );
                            String typeName;
-                           if ( nameAttr != null && nameAttr.Value.StartsWith( "T:" ) && renameDic.TryGetValue( Tuple.Create( tuple.Item1, el.Attribute( "name" ).Value.Substring( 2 ) ), out typeName ) )
+                           if ( nameAttr != null && nameAttr.Value.StartsWith( "T:" ) && renameDic.TryGetValue( el.Attribute( "name" ).Value.Substring( 2 ), out typeName ) )
                            {
                               // The name was changed during merge.
                               // TODO need to do same for members, etc.
@@ -414,136 +693,142 @@ namespace CILMerge
       VariableTypeGenericParameterCount
    }
 
+   internal class CILModuleMergeResult
+   {
+      public String ModulePath { get; set; }
+      public IDictionary<String, String> TypeRenames { get; set; }
+   }
+
    internal class CILAssemblyMerger
    {
-      private class PortabilityHelper
-      {
-         private readonly String _referenceAssembliesPath;
-         private readonly IDictionary<Tuple<String, String, String>, FrameworkMonikerInfo> _dic;
-         private readonly CILAssemblyMerger _merger;
-         private readonly IDictionary<FrameworkMonikerInfo, String> _explicitDirectories;
+      //private class PortabilityHelper
+      //{
+      //   private readonly String _referenceAssembliesPath;
+      //   private readonly IDictionary<Tuple<String, String, String>, FrameworkMonikerInfo> _dic;
+      //   private readonly CILAssemblyMerger _merger;
+      //   private readonly IDictionary<FrameworkMonikerInfo, String> _explicitDirectories;
 
-         internal PortabilityHelper( CILAssemblyMerger merger, String referenceAssembliesPath )
-         {
-            this._merger = merger;
-            this._referenceAssembliesPath = Path.GetFullPath( referenceAssembliesPath ?? DotNETReflectionContext.GetDefaultReferenceAssemblyPath() );
-            this._dic = new Dictionary<Tuple<String, String, String>, FrameworkMonikerInfo>();
-            this._explicitDirectories = new Dictionary<FrameworkMonikerInfo, String>();
-         }
+      //   internal PortabilityHelper( CILAssemblyMerger merger, String referenceAssembliesPath )
+      //   {
+      //      this._merger = merger;
+      //      this._referenceAssembliesPath = Path.GetFullPath( referenceAssembliesPath ?? DotNETReflectionContext.GetDefaultReferenceAssemblyPath() );
+      //      this._dic = new Dictionary<Tuple<String, String, String>, FrameworkMonikerInfo>();
+      //      this._explicitDirectories = new Dictionary<FrameworkMonikerInfo, String>();
+      //   }
 
-         public FrameworkMonikerInfo this[EmittingArguments eArgs]
-         {
-            get
-            {
-               return this[eArgs.FrameworkName, eArgs.FrameworkVersion, eArgs.FrameworkProfile];
-            }
-         }
+      //   public FrameworkMonikerInfo this[EmittingArguments eArgs]
+      //   {
+      //      get
+      //      {
+      //         return this[eArgs.FrameworkName, eArgs.FrameworkVersion, eArgs.FrameworkProfile];
+      //      }
+      //   }
 
-         public FrameworkMonikerInfo this[String fwName, String fwVersion, String fwProfile]
-         {
-            get
-            {
-               ArgumentValidator.ValidateNotNull( "Framework name", fwName );
-               ArgumentValidator.ValidateNotNull( "Framework version", fwVersion );
-               FrameworkMonikerInfo moniker;
-               var key = Tuple.Create( fwName, fwVersion, fwProfile );
-               if ( !this._dic.TryGetValue( key, out moniker ) )
-               {
-                  var dir = this.GetDirectory( fwName, fwVersion, fwProfile );
-                  if ( !Directory.Exists( dir ) )
-                  {
-                     throw this._merger.NewCILMergeException( ExitCode.NoTargetFrameworkMoniker, "Couldn't find framework moniker info for framework \"" + fwName + "\", version \"" + fwVersion + "\"" + ( String.IsNullOrEmpty( fwProfile ) ? "" : ( ", profile \"" + fwProfile + "\"" ) ) + " (reference assembly path: " + this._referenceAssembliesPath + ")." );
-                  }
-                  else
-                  {
-                     var redistListDir = Path.Combine( dir, "RedistList" );
-                     var fn = Path.Combine( redistListDir, "FrameworkList.xml" );
-                     String msCorLibName; String fwDisplayName; String targetFWDir;
-                     try
-                     {
-                        moniker = new FrameworkMonikerInfo( fwName, fwVersion, fwProfile, DotNETReflectionContext.ReadAssemblyInformationFromRedistXMLFile(
-                                 fn,
-                                 out msCorLibName,
-                                 out fwDisplayName,
-                                 out targetFWDir
-                                 ), msCorLibName, fwDisplayName );
-                        if ( !String.IsNullOrEmpty( targetFWDir ) )
-                        {
-                           this._explicitDirectories.Add( moniker, targetFWDir );
-                        }
-                     }
-                     catch ( Exception exc )
-                     {
-                        throw this._merger.NewCILMergeException( ExitCode.FailedToReadTargetFrameworkMonikerInformation, "Failed to read FrameworkList.xml from " + fn + " (" + exc.Message + ").", exc );
-                     }
-                  }
-               }
-               return moniker;
-            }
-         }
+      //   public FrameworkMonikerInfo this[String fwName, String fwVersion, String fwProfile]
+      //   {
+      //      get
+      //      {
+      //         ArgumentValidator.ValidateNotNull( "Framework name", fwName );
+      //         ArgumentValidator.ValidateNotNull( "Framework version", fwVersion );
+      //         FrameworkMonikerInfo moniker;
+      //         var key = Tuple.Create( fwName, fwVersion, fwProfile );
+      //         if ( !this._dic.TryGetValue( key, out moniker ) )
+      //         {
+      //            var dir = this.GetDirectory( fwName, fwVersion, fwProfile );
+      //            if ( !Directory.Exists( dir ) )
+      //            {
+      //               throw this._merger.NewCILMergeException( ExitCode.NoTargetFrameworkMoniker, "Couldn't find framework moniker info for framework \"" + fwName + "\", version \"" + fwVersion + "\"" + ( String.IsNullOrEmpty( fwProfile ) ? "" : ( ", profile \"" + fwProfile + "\"" ) ) + " (reference assembly path: " + this._referenceAssembliesPath + ")." );
+      //            }
+      //            else
+      //            {
+      //               var redistListDir = Path.Combine( dir, "RedistList" );
+      //               var fn = Path.Combine( redistListDir, "FrameworkList.xml" );
+      //               String msCorLibName; String fwDisplayName; String targetFWDir;
+      //               try
+      //               {
+      //                  moniker = new FrameworkMonikerInfo( fwName, fwVersion, fwProfile, DotNETReflectionContext.ReadAssemblyInformationFromRedistXMLFile(
+      //                           fn,
+      //                           out msCorLibName,
+      //                           out fwDisplayName,
+      //                           out targetFWDir
+      //                           ), msCorLibName, fwDisplayName );
+      //                  if ( !String.IsNullOrEmpty( targetFWDir ) )
+      //                  {
+      //                     this._explicitDirectories.Add( moniker, targetFWDir );
+      //                  }
+      //               }
+      //               catch ( Exception exc )
+      //               {
+      //                  throw this._merger.NewCILMergeException( ExitCode.FailedToReadTargetFrameworkMonikerInformation, "Failed to read FrameworkList.xml from " + fn + " (" + exc.Message + ").", exc );
+      //               }
+      //            }
+      //         }
+      //         return moniker;
+      //      }
+      //   }
 
-         public String GetDirectory( EmittingArguments eArgs )
-         {
-            var fwInfo = this[eArgs];
-            String retVal;
-            return this._explicitDirectories.TryGetValue( fwInfo, out retVal ) ?
-               retVal :
-               this.GetDirectory( eArgs.FrameworkName, eArgs.FrameworkVersion, eArgs.FrameworkProfile );
-         }
+      //   public String GetDirectory( EmittingArguments eArgs )
+      //   {
+      //      var fwInfo = this[eArgs];
+      //      String retVal;
+      //      return this._explicitDirectories.TryGetValue( fwInfo, out retVal ) ?
+      //         retVal :
+      //         this.GetDirectory( eArgs.FrameworkName, eArgs.FrameworkVersion, eArgs.FrameworkProfile );
+      //   }
 
-         private String GetDirectory( String fwName, String fwVersion, String fwProfile )
-         {
-            var retVal = Path.Combine( this._referenceAssembliesPath, fwName, fwVersion );
-            if ( !String.IsNullOrEmpty( fwProfile ) )
-            {
-               retVal = Path.Combine( retVal, "Profile", fwProfile );
-            }
-            return retVal;
-         }
+      //   private String GetDirectory( String fwName, String fwVersion, String fwProfile )
+      //   {
+      //      var retVal = Path.Combine( this._referenceAssembliesPath, fwName, fwVersion );
+      //      if ( !String.IsNullOrEmpty( fwProfile ) )
+      //      {
+      //         retVal = Path.Combine( retVal, "Profile", fwProfile );
+      //      }
+      //      return retVal;
+      //   }
 
-         public Boolean TryGetFrameworkInfo( String dir, out String fwName, out String fwVersion, out String fwProfile )
-         {
-            dir = Path.GetFullPath( dir );
-            fwName = null;
-            fwVersion = null;
-            fwProfile = null;
-            var retVal = dir.StartsWith( this._referenceAssembliesPath ) && dir.Length > this._referenceAssembliesPath.Length;
-            if ( retVal )
-            {
-               dir = dir.Substring( this._referenceAssembliesPath.Length );
-               var dirs = dir.Split( new[] { Path.DirectorySeparatorChar }, StringSplitOptions.RemoveEmptyEntries );
-               retVal = dirs.Length >= 2;
-               if ( retVal )
-               {
-                  fwName = dirs[0];
-                  fwVersion = dirs[1];
-                  fwProfile = dirs.Length >= 4 ? dirs[3] : null;
-               }
-            }
-            else
-            {
-               // See if this framework is explicitly defined elsewhere
-               var fwInfo = this._explicitDirectories.Where( kvp => String.Equals( dir, kvp.Value ) ).Select( kvp => kvp.Key ).FirstOrDefault();
-               retVal = fwInfo != null;
-               if ( retVal )
-               {
-                  fwName = fwInfo.FrameworkName;
-                  fwVersion = fwInfo.FrameworkVersion;
-                  fwProfile = fwInfo.ProfileName;
-               }
-            }
-            return retVal;
-         }
+      //   public Boolean TryGetFrameworkInfo( String dir, out String fwName, out String fwVersion, out String fwProfile )
+      //   {
+      //      dir = Path.GetFullPath( dir );
+      //      fwName = null;
+      //      fwVersion = null;
+      //      fwProfile = null;
+      //      var retVal = dir.StartsWith( this._referenceAssembliesPath ) && dir.Length > this._referenceAssembliesPath.Length;
+      //      if ( retVal )
+      //      {
+      //         dir = dir.Substring( this._referenceAssembliesPath.Length );
+      //         var dirs = dir.Split( new[] { Path.DirectorySeparatorChar }, StringSplitOptions.RemoveEmptyEntries );
+      //         retVal = dirs.Length >= 2;
+      //         if ( retVal )
+      //         {
+      //            fwName = dirs[0];
+      //            fwVersion = dirs[1];
+      //            fwProfile = dirs.Length >= 4 ? dirs[3] : null;
+      //         }
+      //      }
+      //      else
+      //      {
+      //         // See if this framework is explicitly defined elsewhere
+      //         var fwInfo = this._explicitDirectories.Where( kvp => String.Equals( dir, kvp.Value ) ).Select( kvp => kvp.Key ).FirstOrDefault();
+      //         retVal = fwInfo != null;
+      //         if ( retVal )
+      //         {
+      //            fwName = fwInfo.FrameworkName;
+      //            fwVersion = fwInfo.FrameworkVersion;
+      //            fwProfile = fwInfo.ProfileName;
+      //         }
+      //      }
+      //      return retVal;
+      //   }
 
-         public String ReferenceAssembliesPath
-         {
-            get
-            {
-               return this._referenceAssembliesPath;
-            }
-         }
+      //   public String ReferenceAssembliesPath
+      //   {
+      //      get
+      //      {
+      //         return this._referenceAssembliesPath;
+      //      }
+      //   }
 
-      }
+      //}
 
       private static readonly Type ATTRIBUTE_USAGE_TYPE = typeof( AttributeUsageAttribute );
       private static readonly System.Reflection.PropertyInfo ALLOW_MULTIPLE_PROP = typeof( AttributeUsageAttribute ).GetProperty( "AllowMultiple" );
@@ -552,8 +837,11 @@ namespace CILMerge
       private readonly CILMergeOptions _options;
       private readonly CILMetaDataLoaderResourceCallbacksForFiles _loaderCallbacks;
       private readonly CILMetaDataLoader _moduleLoader;
+      private readonly CryptoCallbacks _cryptoCallbacks;
 
       private readonly List<CILMetaData> _inputModules;
+      private readonly IDictionary<AssemblyReference, CILMetaData> _inputModulesAsAssemblyReferences;
+      private readonly IDictionary<CILMetaData, IDictionary<String, CILMetaData>> _inputModulesAsModuleReferences;
       private CILMetaData _primaryModule;
       private CILMetaData _targetModule;
 
@@ -564,27 +852,29 @@ namespace CILMerge
       // Key one of input modules. Value: dictionary; Key: full type name, value: type def index in TARGET module
       private readonly IDictionary<CILMetaData, IDictionary<String, Int32>> _inputModuleTypeNames;
 
-
-      private readonly CILReflectionContext _ctx;
-      private readonly CILAssemblyLoader _assemblyLoader;
-      private readonly ISet<String> _allInputTypeNames;
-      private readonly ISet<String> _typesByName;
-      private readonly IDictionary<CILTypeBase, CILTypeBase> _typeMapping;
-      private readonly IDictionary<CILMethodBase, CILMethodBase> _methodMapping;
-      private readonly IDictionary<CILField, CILField> _fieldMapping;
-      private readonly IDictionary<CILEvent, CILEvent> _eventMapping;
-      private readonly IDictionary<CILProperty, CILProperty> _propertyMapping;
+      private readonly IList<String> _targetTypeNames;
       private readonly Lazy<Regex[]> _excludeRegexes;
       private readonly String _inputBasePath;
-      //private readonly TextWriter _logStream;
-      //private readonly Boolean _disposeLogStream;
-      private readonly IDictionary<String, CILAssemblyName> _assemblyNameCache;
 
-      private IDictionary<CILAssembly, CILAssembly> _pcl2TargetMapping;
-      private PDBHelper _pdbHelper;
-      private readonly Lazy<System.Security.Cryptography.SHA1CryptoServiceProvider> _csp;
 
-      internal CILAssemblyMerger( CILMerger merger, CILMergeOptions options, String inputBasePath, CILReflectionContext ctx )
+      //private readonly CILReflectionContext _ctx;
+      //private readonly CILAssemblyLoader _assemblyLoader;
+      //private readonly ISet<String> _allInputTypeNames;
+      //private readonly ISet<String> _typesByName;
+      //private readonly IDictionary<CILTypeBase, CILTypeBase> _typeMapping;
+      //private readonly IDictionary<CILMethodBase, CILMethodBase> _methodMapping;
+      //private readonly IDictionary<CILField, CILField> _fieldMapping;
+      //private readonly IDictionary<CILEvent, CILEvent> _eventMapping;
+      //private readonly IDictionary<CILProperty, CILProperty> _propertyMapping;
+      ////private readonly TextWriter _logStream;
+      ////private readonly Boolean _disposeLogStream;
+      //private readonly IDictionary<String, CILAssemblyName> _assemblyNameCache;
+
+      //private IDictionary<CILAssembly, CILAssembly> _pcl2TargetMapping;
+      //private PDBHelper _pdbHelper;
+      //private readonly Lazy<System.Security.Cryptography.SHA1CryptoServiceProvider> _csp;
+
+      internal CILAssemblyMerger( CILMerger merger, CILMergeOptions options, String inputBasePath )
       {
          this._merger = merger;
          this._options = options;
@@ -594,27 +884,75 @@ namespace CILMerge
          this._moduleLoader = options.Parallel ?
             (CILMetaDataLoader) new CILMetaDataLoaderThreadSafeConcurrentForFiles( this._loaderCallbacks ) :
             new CILMetaDataLoaderNotThreadSafeForFiles( this._loaderCallbacks );
+         this._cryptoCallbacks = new CryptoCallbacksDotNET();
+         var hashStreamLazy = new Lazy<HashStreamInfo>( () => this._cryptoCallbacks.CreateHashStream( AssemblyHashAlgorithm.SHA1 ), LazyThreadSafetyMode.None );
+         this._inputModulesAsAssemblyReferences = new Dictionary<AssemblyReference, CILMetaData>(
+            ComparerFromFunctions.NewEqualityComparer<AssemblyReference>(
+               ( x, y ) =>
+               {
+                  Boolean retVal;
+                  var xa = x.AssemblyInformation;
+                  var ya = y.AssemblyInformation;
+                  if ( x.Attributes.IsFullPublicKey() == y.Attributes.IsFullPublicKey() )
+                  {
+                     retVal = xa.Equals( ya );
+                  }
+                  else
+                  {
+                     retVal = xa.Equals( ya, false );
+                     if ( retVal
+                        && !xa.PublicKeyOrToken.IsNullOrEmpty()
+                        && !ya.PublicKeyOrToken.IsNullOrEmpty()
+                        )
+                     {
+                        Byte[] xBytes, yBytes;
+                        if ( x.Attributes.IsFullPublicKey() )
+                        {
+                           // Create public key token for x and compare with y
+                           xBytes = hashStreamLazy.Value.ComputePublicKeyToken( xa.PublicKeyOrToken );
+                           yBytes = ya.PublicKeyOrToken;
+                        }
+                        else
+                        {
+                           // Create public key token for y and compare with x
+                           xBytes = xa.PublicKeyOrToken;
+                           yBytes = hashStreamLazy.Value.ComputePublicKeyToken( ya.PublicKeyOrToken );
+                        }
+                        retVal = ArrayEqualityComparer<Byte>.DefaultArrayEqualityComparer.Equals( xBytes, yBytes );
+                     }
+                  }
+                  return retVal;
+               },
+               x => x.AssemblyInformation.GetHashCode()
+            ) );
+         this._inputModulesAsModuleReferences = new Dictionary<CILMetaData, IDictionary<String, CILMetaData>>();
+         this._tableIndexMappings = new Dictionary<CILMetaData, IDictionary<TableIndex, TableIndex>>( ReferenceEqualityComparer<CILMetaData>.ReferenceBasedComparer );
+         this._targetTableIndexMappings = new Dictionary<TableIndex, Tuple<CILMetaData, Int32>>();
+         this._inputModuleTypeNames = new Dictionary<CILMetaData, IDictionary<String, Int32>>( ReferenceEqualityComparer<CILMetaData>.ReferenceBasedComparer );
+         this._targetTypeNames = new List<String>();
 
 
-         this._ctx = ctx;
-         //this._allModules = new ConcurrentDictionary<String, CILModule>();
-         //this._loadingArgs = new ConcurrentDictionary<CILModule, EmittingArguments>();
-         this._typesByName = new HashSet<String>();
-         this._typeMapping = new Dictionary<CILTypeBase, CILTypeBase>();
-         this._methodMapping = new Dictionary<CILMethodBase, CILMethodBase>();
-         this._fieldMapping = new Dictionary<CILField, CILField>();
-         this._eventMapping = new Dictionary<CILEvent, CILEvent>();
-         this._propertyMapping = new Dictionary<CILProperty, CILProperty>();
 
-         this._assemblyLoader = ctx.CreateAssemblyLoader( this._options.ReferenceAssembliesDirectory );
 
-         this._allInputTypeNames = options.Union ?
-            null :
-            new HashSet<String>();
-         this._typeRenames = options.Union ?
-            null :
-            new Dictionary<Tuple<String, String>, String>();
-         this._assemblyNameCache = new Dictionary<String, CILAssemblyName>();
+         //this._ctx = ctx;
+         ////this._allModules = new ConcurrentDictionary<String, CILModule>();
+         ////this._loadingArgs = new ConcurrentDictionary<CILModule, EmittingArguments>();
+         //this._typesByName = new HashSet<String>();
+         //this._typeMapping = new Dictionary<CILTypeBase, CILTypeBase>();
+         //this._methodMapping = new Dictionary<CILMethodBase, CILMethodBase>();
+         //this._fieldMapping = new Dictionary<CILField, CILField>();
+         //this._eventMapping = new Dictionary<CILEvent, CILEvent>();
+         //this._propertyMapping = new Dictionary<CILProperty, CILProperty>();
+
+         //this._assemblyLoader = ctx.CreateAssemblyLoader( this._options.ReferenceAssembliesDirectory );
+
+         //this._allInputTypeNames = options.Union ?
+         //   null :
+         //   new HashSet<String>();
+         //this._typeRenames = options.Union ?
+         //   null :
+         //   new Dictionary<Tuple<String, String>, String>();
+         //this._assemblyNameCache = new Dictionary<String, CILAssemblyName>();
          this._excludeRegexes = new Lazy<Regex[]>( () =>
          {
             var excl = options.ExcludeFile;
@@ -635,29 +973,29 @@ namespace CILMerge
             }
          }, LazyThreadSafetyMode.None );
          this._inputBasePath = inputBasePath ?? Environment.CurrentDirectory;
-         if ( this._options.DoLogging )
-         {
-            // TODO
-            //var logFile = this._options.LogFile;
-            //logFile = logFile == null ?
-            //   null :
-            //   Path.GetFullPath( logFile );
-            //try
-            //{
-            //   this._disposeLogStream = !String.IsNullOrEmpty( logFile );
-            //   this._logStream = this._disposeLogStream ?
-            //      new StreamWriter( logFile, false, Encoding.UTF8 ) :
-            //      Console.Out;
-            //}
-            //catch ( Exception exc )
-            //{
-            //   throw this.NewCILMergeException( ExitCode.ErrorAccessingLogFile, "Error accessing log file " + logFile + ".", exc );
-            //}
-         }
-         this._csp = new Lazy<System.Security.Cryptography.SHA1CryptoServiceProvider>( () => new System.Security.Cryptography.SHA1CryptoServiceProvider(), LazyThreadSafetyMode.ExecutionAndPublication );
+         //if ( this._options.DoLogging )
+         //{
+         //   // TODO
+         //   //var logFile = this._options.LogFile;
+         //   //logFile = logFile == null ?
+         //   //   null :
+         //   //   Path.GetFullPath( logFile );
+         //   //try
+         //   //{
+         //   //   this._disposeLogStream = !String.IsNullOrEmpty( logFile );
+         //   //   this._logStream = this._disposeLogStream ?
+         //   //      new StreamWriter( logFile, false, Encoding.UTF8 ) :
+         //   //      Console.Out;
+         //   //}
+         //   //catch ( Exception exc )
+         //   //{
+         //   //   throw this.NewCILMergeException( ExitCode.ErrorAccessingLogFile, "Error accessing log file " + logFile + ".", exc );
+         //   //}
+         //}
+         //this._csp = new Lazy<System.Security.Cryptography.SHA1CryptoServiceProvider>( () => new System.Security.Cryptography.SHA1CryptoServiceProvider(), LazyThreadSafetyMode.ExecutionAndPublication );
       }
 
-      internal EmittingArguments MergeAssemblies()
+      internal CILModuleMergeResult[] MergeModules()
       {
          // First of all, load all input modules
          this.LoadAllInputModules();
@@ -678,7 +1016,7 @@ namespace CILMerge
          // 5. Create assembly & module custom attributes
          this.ApplyAssemblyAndModuleCustomAttributes();
          // 6. Re-order and remove duplicates from tables
-         this._targetModule.OrderTablesAndRemoveDuplicates();
+         var reorderResult = this._targetModule.OrderTablesAndRemoveDuplicates();
          // 7. Emit module
          // Emit the module
          var targetModule = this._targetModule;
@@ -697,13 +1035,43 @@ namespace CILMerge
          // 8. Merge PDBs, if needed
          if ( !this._options.NoDebug && this._inputModules.Any( im => this._moduleLoader.GetReadingArgumentsForMetaData( im ).Headers.DebugInformation != null ) )
          {
-            using ( var pdbHelper = new PDBHelper( targetModule, eArgs, this._options.OutPath ) )
+            // TODO update _tableIndexMappings based on reorderResult
+            try
             {
+               using ( var pdbHelper = new PDBHelper( targetModule, eArgs, this._options.OutPath ) )
+               {
 
+               }
+            }
+            catch ( Exception exc )
+            {
+               this.Log( MessageLevel.Warning, "Error when creating PDB file for {0}. Error:\n{1}", this._options.OutPath, exc );
             }
          }
 
-         return eArgs;
+         return this._inputModules
+            .Select( m => new CILModuleMergeResult()
+            {
+               ModulePath = this._moduleLoader.GetResourceFor( m ),
+               TypeRenames = this.CreateRenameDictionaryForInputModule( m )
+            } )
+         .ToArray();
+      }
+
+      private IDictionary<String, String> CreateRenameDictionaryForInputModule( CILMetaData inputModule )
+      {
+         var retVal = new Dictionary<String, String>();
+         foreach ( var kvp in this._inputModuleTypeNames[inputModule] )
+         {
+            var oldName = kvp.Key;
+            var newName = this._targetTypeNames[kvp.Value];
+            if ( !String.Equals( oldName, newName ) )
+            {
+               retVal.Add( oldName, newName );
+            }
+         }
+
+         return retVal;
       }
 
       private void LoadAllInputModules()
@@ -762,6 +1130,33 @@ namespace CILMerge
             this._inputModules.AddRange( set );
          }
 
+         // Build helper data structures for input modules
+         foreach ( var inputModule in this._inputModules.Where( m => m.AssemblyDefinitions.Count > 0 ) )
+         {
+            var aRef = new AssemblyReference();
+            inputModule.AssemblyDefinitions[0].AssemblyInformation.DeepCopyContentsTo( aRef.AssemblyInformation );
+            aRef.Attributes = AssemblyFlags.PublicKey;
+            this._inputModulesAsAssemblyReferences.Add( aRef, inputModule );
+         }
+
+         foreach ( var inputModule in this._inputModules )
+         {
+            var dic = new Dictionary<String, CILMetaData>();
+            foreach ( var f in inputModule.GetModuleFileReferences() )
+            {
+               var modRefPath = Path.Combine( Path.GetDirectoryName( this._moduleLoader.GetResourceFor( inputModule ) ), f.Name );
+               var targetInputModule = this._inputModules
+                  .Where( md => md.AssemblyDefinitions.Count == 0 )
+                  .FirstOrDefault( md => String.Equals( this._moduleLoader.GetResourceFor( md ), modRefPath ) ); // TODO maybe case-insensitive match??
+               if ( targetInputModule != null )
+               {
+                  dic[f.Name] = targetInputModule;
+               }
+            }
+
+            this._inputModulesAsModuleReferences.Add( inputModule, dic );
+
+         }
       }
 
       private void LoadModuleForClosedSet( CILMetaData md, ISet<CILMetaData> curLoaded )
@@ -837,13 +1232,16 @@ namespace CILMerge
          var eHeaders = pEArgs.Headers.CreateCopy();
          eArgs.Headers = eHeaders;
          eHeaders.DebugInformation = null;
-         eHeaders.FileAlignment = (UInt32) this._options.Align;
+         eHeaders.FileAlignment = (UInt32) this._options.FileAlign;
          eHeaders.SubSysMajor = (UInt16) this._options.SubsystemMajor;
          eHeaders.SubSysMinor = (UInt16) this._options.SubsystemMinor;
          eHeaders.HighEntropyVA = this._options.HighEntropyVA;
+         var md = this._options.MetadataVersionString;
+         eHeaders.MetaDataVersion = String.IsNullOrEmpty( md ) ? pHeaders.MetaDataVersion : md;
 
          eArgs.DelaySign = this._options.DelaySign;
          eArgs.SigningAlgorithm = this._options.SigningAlgorithm;
+
          return eArgs;
       }
 
@@ -938,12 +1336,14 @@ namespace CILMerge
          var targetModule = this._targetModule;
          var targetTypeDefs = targetModule.TypeDefinitions;
          var targetTypeInfo = new List<IList<Tuple<CILMetaData, Int32>>>();
+         var targetTypeFullNames = this._targetTypeNames;
          // Add type info for <Module> type
          targetTypeInfo.Add( this._inputModules
             .Where( m => m.TypeDefinitions.Count > 0 )
             .Select( m => Tuple.Create( m, 0 ) )
             .ToList()
             );
+         targetTypeFullNames.Add( targetTypeDefs[0].Name );
 
          foreach ( var md in this._inputModules )
          {
@@ -965,7 +1365,8 @@ namespace CILMerge
                var typeAttrs = this.GetNewTypeAttributesForType( md, tDefIdx, thisEnclosingTypeInfo.ContainsKey( tDefIdx ), typeStr );
                var newName = tDef.Name;
                IList<Tuple<CILMetaData, Int32>> thisMergedTypes;
-               if ( added || this.IsDuplicateOK( ref newName, typeStr, typeAttrs, typeStrings, ref allTypeStringsSet ) )
+               var thisTypeFullName = typeStr;
+               if ( added || this.IsDuplicateOK( ref newName, typeStr, ref thisTypeFullName, typeAttrs, typeStrings, ref allTypeStringsSet ) )
                {
                   targetTypeDefs.Add( new TypeDefinition()
                   {
@@ -975,6 +1376,7 @@ namespace CILMerge
                   } );
                   thisMergedTypes = new List<Tuple<CILMetaData, Int32>>();
                   targetTypeInfo.Add( thisMergedTypes );
+                  targetTypeFullNames.Add( thisTypeFullName );
                }
                else if ( this._options.Union )
                {
@@ -1016,14 +1418,16 @@ namespace CILMerge
                var first = thisTypeInfo[0];
                throw this.NewCILMergeException( ExitCode.VariableTypeGenericParameterCount, "Type " + typeStrings[first.Item1][first.Item2] + " has different amount of generic arguments in different modules." );
             }
-            else if ( gParameters.Length > 0 )
+            else if ( gParameters[0] != null )
             {
                // GenericParameter, for type
                // Just use generic parameters from first suitable input module
                var gParamModule = thisTypeInfo[0].Item1;
                foreach ( var gParamIdx in gParameters[0] )
                {
-                  targetTableIndexMappings.Add( new TableIndex( Tables.GenericParameter, targetModule.GenericParameterDefinitions.Count ), Tuple.Create( gParamModule, gParamIdx ) );
+                  var targetGParamIdx = new TableIndex( Tables.GenericParameter, targetModule.GenericParameterDefinitions.Count );
+                  targetTableIndexMappings.Add( targetGParamIdx, Tuple.Create( gParamModule, gParamIdx ) );
+                  this._tableIndexMappings[gParamModule].Add( new TableIndex( Tables.GenericParameter, gParamIdx ), targetGParamIdx );
                   var gParam = gParamModule.GenericParameterDefinitions[gParamIdx];
                   targetModule.GenericParameterDefinitions.Add( new GenericParameterDefinition()
                   {
@@ -1042,6 +1446,7 @@ namespace CILMerge
                var inputMD = typeInfo.Item1;
                var inputTDefIdx = typeInfo.Item2;
                var thisGenericParamInfo = genericParamInfo[inputMD];
+               var thisTableMappings = this._tableIndexMappings[inputMD];
 
                // NestedClass
                var thisEnclosingInfo = enclosingTypeInfo[inputMD];
@@ -1051,7 +1456,7 @@ namespace CILMerge
                   targetModule.NestedClassDefinitions.Add( new NestedClassDefinition()
                   {
                      NestedClass = new TableIndex( Tables.TypeDef, tDefIdx ),
-                     EnclosingClass = this._tableIndexMappings[inputMD][new TableIndex( Tables.TypeDef, enclosingTypeIdx )]
+                     EnclosingClass = thisTableMappings[new TableIndex( Tables.TypeDef, enclosingTypeIdx )]
                   } );
                }
 
@@ -1059,7 +1464,9 @@ namespace CILMerge
                tDef.FieldList = new TableIndex( Tables.Field, targetModule.FieldDefinitions.Count );
                foreach ( var fDefIdx in inputMD.GetTypeFieldIndices( inputTDefIdx ) )
                {
-                  targetTableIndexMappings.Add( new TableIndex( Tables.Field, targetModule.FieldDefinitions.Count ), Tuple.Create( inputMD, fDefIdx ) );
+                  var targetFIdx = new TableIndex( Tables.Field, targetModule.FieldDefinitions.Count );
+                  targetTableIndexMappings.Add( targetFIdx, Tuple.Create( inputMD, fDefIdx ) );
+                  thisTableMappings.Add( new TableIndex( Tables.Field, fDefIdx ), targetFIdx );
                   var fDef = inputMD.FieldDefinitions[fDefIdx];
                   targetModule.FieldDefinitions.Add( new FieldDefinition()
                   {
@@ -1074,6 +1481,7 @@ namespace CILMerge
                {
                   var targetMDefIdx = targetModule.MethodDefinitions.Count;
                   targetTableIndexMappings.Add( new TableIndex( Tables.MethodDef, targetMDefIdx ), Tuple.Create( inputMD, mDefIdx ) );
+                  thisTableMappings.Add( new TableIndex( Tables.MethodDef, mDefIdx ), new TableIndex( Tables.MethodDef, targetMDefIdx ) );
                   var mDef = inputMD.MethodDefinitions[mDefIdx];
                   targetModule.MethodDefinitions.Add( new MethodDefinition()
                   {
@@ -1089,7 +1497,9 @@ namespace CILMerge
                   {
                      foreach ( var methodGParamIdx in methodGParams )
                      {
-                        targetTableIndexMappings.Add( new TableIndex( Tables.GenericParameter, targetModule.GenericParameterDefinitions.Count ), Tuple.Create( inputMD, methodGParamIdx ) );
+                        var targetGParamIdx = new TableIndex( Tables.GenericParameter, targetModule.GenericParameterDefinitions.Count );
+                        targetTableIndexMappings.Add( targetGParamIdx, Tuple.Create( inputMD, methodGParamIdx ) );
+                        thisTableMappings.Add( new TableIndex( Tables.GenericParameter, methodGParamIdx ), targetGParamIdx );
                         var methodGParam = inputMD.GenericParameterDefinitions[methodGParamIdx];
                         targetModule.GenericParameterDefinitions.Add( new GenericParameterDefinition()
                         {
@@ -1104,7 +1514,9 @@ namespace CILMerge
                   // ParamDef
                   foreach ( var pDefIdx in inputMD.GetMethodParameterIndices( mDefIdx ) )
                   {
-                     targetTableIndexMappings.Add( new TableIndex( Tables.Parameter, targetModule.ParameterDefinitions.Count ), Tuple.Create( inputMD, pDefIdx ) );
+                     var targetPIdx = new TableIndex( Tables.Parameter, targetModule.ParameterDefinitions.Count );
+                     targetTableIndexMappings.Add( targetPIdx, Tuple.Create( inputMD, pDefIdx ) );
+                     thisTableMappings.Add( new TableIndex( Tables.Parameter, pDefIdx ), targetPIdx );
                      var pDef = inputMD.ParameterDefinitions[pDefIdx];
                      targetModule.ParameterDefinitions.Add( new ParameterDefinition()
                      {
@@ -1126,61 +1538,11 @@ namespace CILMerge
          )
       {
          // AssemblyRef (used by MemberRef table)
-         var hashStreamLazy = new Lazy<HashStreamInfo>( () => eArgs.CryptoCallbacks.CreateHashStream( AssemblyHashAlgorithm.SHA1 ), LazyThreadSafetyMode.None );
-
-         var inputModulesByAssemblyRef = this._inputModules
-            .Where( m => m.AssemblyDefinitions.Count > 0 )
-            .ToDictionary( m =>
-            {
-               var aRef = new AssemblyReference();
-               m.AssemblyDefinitions[0].AssemblyInformation.DeepCopyContentsTo( aRef.AssemblyInformation );
-               return aRef;
-            },
-            m => m,
-            ComparerFromFunctions.NewEqualityComparer<AssemblyReference>(
-               ( x, y ) =>
-               {
-                  Boolean retVal;
-                  var xa = x.AssemblyInformation;
-                  var ya = y.AssemblyInformation;
-                  if ( x.Attributes.IsFullPublicKey() == y.Attributes.IsFullPublicKey() )
-                  {
-                     retVal = xa.Equals( ya );
-                  }
-                  else
-                  {
-                     retVal = xa.Equals( ya, false );
-                     if ( retVal
-                        && !xa.PublicKeyOrToken.IsNullOrEmpty()
-                        && !ya.PublicKeyOrToken.IsNullOrEmpty()
-                        )
-                     {
-                        Byte[] xBytes, yBytes;
-                        if ( x.Attributes.IsFullPublicKey() )
-                        {
-                           // Create public key token for x and compare with y
-                           xBytes = hashStreamLazy.Value.ComputePublicKeyToken( xa.PublicKeyOrToken );
-                           yBytes = ya.PublicKeyOrToken;
-                        }
-                        else
-                        {
-                           // Create public key token for y and compare with x
-                           xBytes = xa.PublicKeyOrToken;
-                           yBytes = hashStreamLazy.Value.ComputePublicKeyToken( ya.PublicKeyOrToken );
-                        }
-                        retVal = ArrayEqualityComparer<Byte>.DefaultArrayEqualityComparer.Equals( xBytes, yBytes );
-                     }
-                  }
-                  return retVal;
-               },
-               x => x.AssemblyInformation.GetHashCode()
-            ) );
-
          this.MergeTables(
             Tables.AssemblyRef,
             md => md.AssemblyReferences,
-            ( md, inputIdx, thisIdx ) => !inputModulesByAssemblyRef.ContainsKey( md.AssemblyReferences[inputIdx.Index] ),
-            ( md, aRef, thisIdx ) =>
+            ( md, inputIdx, thisIdx ) => !this._inputModulesAsAssemblyReferences.ContainsKey( md.AssemblyReferences[inputIdx.Index] ),
+            ( md, aRef, inputIdx, thisIdx ) =>
             {
                var newARef = new AssemblyReference()
                {
@@ -1196,9 +1558,8 @@ namespace CILMerge
          this.MergeTables(
             Tables.ModuleRef,
             md => md.ModuleReferences,
-            ( md, inputIdx, thisIdx ) => md.MethodImplementationMaps.Any( iMap => iMap.ImportScope.Equals( inputIdx ) )
-               || !this.IsAssemblyNetModulePartOfInputModules( md, inputIdx.Index ),
-            ( md, mRef, thisIdx ) => new ModuleReference()
+            ( md, inputIdx, thisIdx ) => !this._inputModulesAsModuleReferences[md].ContainsKey( md.ModuleReferences[inputIdx.Index].ModuleName ),
+            ( md, mRef, inputIdx, thisIdx ) => new ModuleReference()
             {
                ModuleName = mRef.ModuleName
             } );
@@ -1220,7 +1581,7 @@ namespace CILMerge
                }
                return retVal;
             },
-            ( md, tRef, thisIdx ) => new TypeReference()
+            ( md, tRef, inputIdx, thisIdx ) => new TypeReference()
             {
                Name = tRef.Name,
                Namespace = tRef.Namespace,
@@ -1244,7 +1605,7 @@ namespace CILMerge
             Tables.TypeSpec,
             md => md.TypeSpecifications,
             null,
-            ( md, tSpec, thisIdx ) => new TypeSpecification()
+            ( md, tSpec, inputIdx, thisIdx ) => new TypeSpecification()
             {
 
             } );
@@ -1261,7 +1622,7 @@ namespace CILMerge
             Tables.MemberRef,
             md => md.MemberReferences,
             null,
-            ( md, mRef, thisIdx ) => new MemberReference()
+            ( md, mRef, inputIdx, thisIdx ) => new MemberReference()
             {
                DeclaringType = mRef.DeclaringType.Table == Tables.ModuleRef && !this._tableIndexMappings[md].ContainsKey( mRef.DeclaringType ) ?
                   new TableIndex( Tables.TypeDef, 0 ) :
@@ -1278,7 +1639,7 @@ namespace CILMerge
             Tables.MethodSpec,
             md => md.MethodSpecifications,
             null,
-            ( md, mSpec, thisIdx ) => new MethodSpecification()
+            ( md, mSpec, inputIdx, thisIdx ) => new MethodSpecification()
             {
                Method = this.TranslateTableIndex( md, mSpec.Method )
             } );
@@ -1288,7 +1649,7 @@ namespace CILMerge
             Tables.StandaloneSignature,
             md => md.StandaloneSignatures,
             null,
-            ( md, sig, thisIdx ) => new StandaloneSignature()
+            ( md, sig, inputIdx, thisIdx ) => new StandaloneSignature()
             {
 
             } );
@@ -1322,6 +1683,7 @@ namespace CILMerge
          if ( resScopeNullable.HasValue )
          {
             var resScope = resScopeNullable.Value;
+            CILMetaData referencedModule = null;
             switch ( resScope.Table )
             {
                case Tables.TypeRef:
@@ -1332,14 +1694,26 @@ namespace CILMerge
                   }
                   break;
                case Tables.ModuleRef:
-               case Tables.AssemblyRef:
-               case Tables.Module:
-                  if ( resScope.Table == Tables.Module || !this._tableIndexMappings[inputModule].ContainsKey( resScope ) )
+                  if ( !this._tableIndexMappings[inputModule].ContainsKey( resScope ) )
                   {
-                     thisTypeString = CreateTypeStringFromTopLevelType( tRef.Namespace, tRef.Name );
-                     retVal = this._inputModuleTypeNames[inputModule][thisTypeString];
+                     referencedModule = this._inputModulesAsModuleReferences[inputModule][inputModule.ModuleReferences[resScope.Index].ModuleName];
                   }
                   break;
+               case Tables.AssemblyRef:
+                  if ( !this._tableIndexMappings[inputModule].ContainsKey( resScope ) )
+                  {
+                     referencedModule = this._inputModulesAsAssemblyReferences[inputModule.AssemblyReferences[resScope.Index]];
+                  }
+                  break;
+               case Tables.Module:
+                  referencedModule = inputModule;
+                  break;
+            }
+
+            if ( referencedModule != null )
+            {
+               thisTypeString = CreateTypeStringFromTopLevelType( tRef.Namespace, tRef.Name );
+               retVal = this._inputModuleTypeNames[referencedModule][thisTypeString];
             }
          }
          else
@@ -1357,7 +1731,7 @@ namespace CILMerge
             Tables.Property,
             md => md.PropertyDefinitions,
             null,
-            ( md, pDef, thisIdx ) => new PropertyDefinition()
+            ( md, pDef, inputIdx, thisIdx ) => new PropertyDefinition()
             {
                Attributes = pDef.Attributes,
                Name = pDef.Name
@@ -1391,48 +1765,51 @@ namespace CILMerge
             // Create IL
             // IL tokens reference only TypeDef, TypeRef, TypeSpec, MethodDef, FieldDef, MemberRef, MethodSpec or StandaloneSignature tables, all of which should've been processed in ConstructNonStructuralTablesUsedInSignaturesAndILTokens method
             var inputIL = inputMethodDef.IL;
-            var targetIL = new MethodILDefinition( inputIL.ExceptionBlocks.Count, inputIL.OpCodes.Count );
-            targetMethodDef.IL = targetIL;
-            targetIL.ExceptionBlocks.AddRange( inputIL.ExceptionBlocks.Select( eb => new MethodExceptionBlock()
+            if ( inputIL != null )
             {
-               BlockType = eb.BlockType,
-               ExceptionType = eb.ExceptionType.HasValue ? thisMappings[eb.ExceptionType.Value] : (TableIndex?) null,
-               FilterOffset = eb.FilterOffset,
-               HandlerLength = eb.HandlerLength,
-               HandlerOffset = eb.HandlerOffset,
-               TryLength = eb.TryLength,
-               TryOffset = eb.TryOffset
-            } ) );
-            targetIL.InitLocals = inputIL.InitLocals;
-            targetIL.LocalsSignatureIndex = inputIL.LocalsSignatureIndex.HasValue ? thisMappings[inputIL.LocalsSignatureIndex.Value] : (TableIndex?) null;
-            targetIL.MaxStackSize = inputIL.MaxStackSize;
-            targetIL.OpCodes.AddRange( inputIL.OpCodes.Select<OpCodeInfo, OpCodeInfo>( oc =>
-            {
-               switch ( oc.InfoKind )
+               var targetIL = new MethodILDefinition( inputIL.ExceptionBlocks.Count, inputIL.OpCodes.Count );
+               targetMethodDef.IL = targetIL;
+               targetIL.ExceptionBlocks.AddRange( inputIL.ExceptionBlocks.Select( eb => new MethodExceptionBlock()
                {
-                  case OpCodeOperandKind.OperandInteger:
-                     return new OpCodeInfoWithInt32( oc.OpCode, ( (OpCodeInfoWithInt32) oc ).Operand );
-                  case OpCodeOperandKind.OperandInteger64:
-                     return new OpCodeInfoWithInt64( oc.OpCode, ( (OpCodeInfoWithInt64) oc ).Operand );
-                  case OpCodeOperandKind.OperandNone:
-                     return new OpCodeInfoWithNoOperand( oc.OpCode );
-                  case OpCodeOperandKind.OperandR4:
-                     return new OpCodeInfoWithSingle( oc.OpCode, ( (OpCodeInfoWithSingle) oc ).Operand );
-                  case OpCodeOperandKind.OperandR8:
-                     return new OpCodeInfoWithDouble( oc.OpCode, ( (OpCodeInfoWithDouble) oc ).Operand );
-                  case OpCodeOperandKind.OperandString:
-                     return new OpCodeInfoWithString( oc.OpCode, ( (OpCodeInfoWithString) oc ).Operand );
-                  case OpCodeOperandKind.OperandSwitch:
-                     var ocSwitch = (OpCodeInfoWithSwitch) oc;
-                     var ocSwitchTarget = new OpCodeInfoWithSwitch( oc.OpCode, ocSwitch.Offsets.Count );
-                     ocSwitchTarget.Offsets.AddRange( ocSwitch.Offsets );
-                     return ocSwitchTarget;
-                  case OpCodeOperandKind.OperandToken:
-                     return new OpCodeInfoWithToken( oc.OpCode, thisMappings[( (OpCodeInfoWithToken) oc ).Operand] );
-                  default:
-                     throw new NotSupportedException( "Unknown op code kind: " + oc.InfoKind + "." );
-               }
-            } ) );
+                  BlockType = eb.BlockType,
+                  ExceptionType = eb.ExceptionType.HasValue ? thisMappings[eb.ExceptionType.Value] : (TableIndex?) null,
+                  FilterOffset = eb.FilterOffset,
+                  HandlerLength = eb.HandlerLength,
+                  HandlerOffset = eb.HandlerOffset,
+                  TryLength = eb.TryLength,
+                  TryOffset = eb.TryOffset
+               } ) );
+               targetIL.InitLocals = inputIL.InitLocals;
+               targetIL.LocalsSignatureIndex = inputIL.LocalsSignatureIndex.HasValue ? thisMappings[inputIL.LocalsSignatureIndex.Value] : (TableIndex?) null;
+               targetIL.MaxStackSize = inputIL.MaxStackSize;
+               targetIL.OpCodes.AddRange( inputIL.OpCodes.Select<OpCodeInfo, OpCodeInfo>( oc =>
+               {
+                  switch ( oc.InfoKind )
+                  {
+                     case OpCodeOperandKind.OperandInteger:
+                        return new OpCodeInfoWithInt32( oc.OpCode, ( (OpCodeInfoWithInt32) oc ).Operand );
+                     case OpCodeOperandKind.OperandInteger64:
+                        return new OpCodeInfoWithInt64( oc.OpCode, ( (OpCodeInfoWithInt64) oc ).Operand );
+                     case OpCodeOperandKind.OperandNone:
+                        return new OpCodeInfoWithNoOperand( oc.OpCode );
+                     case OpCodeOperandKind.OperandR4:
+                        return new OpCodeInfoWithSingle( oc.OpCode, ( (OpCodeInfoWithSingle) oc ).Operand );
+                     case OpCodeOperandKind.OperandR8:
+                        return new OpCodeInfoWithDouble( oc.OpCode, ( (OpCodeInfoWithDouble) oc ).Operand );
+                     case OpCodeOperandKind.OperandString:
+                        return new OpCodeInfoWithString( oc.OpCode, ( (OpCodeInfoWithString) oc ).Operand );
+                     case OpCodeOperandKind.OperandSwitch:
+                        var ocSwitch = (OpCodeInfoWithSwitch) oc;
+                        var ocSwitchTarget = new OpCodeInfoWithSwitch( oc.OpCode, ocSwitch.Offsets.Count );
+                        ocSwitchTarget.Offsets.AddRange( ocSwitch.Offsets );
+                        return ocSwitchTarget;
+                     case OpCodeOperandKind.OperandToken:
+                        return new OpCodeInfoWithToken( oc.OpCode, thisMappings[( (OpCodeInfoWithToken) oc ).Operand] );
+                     default:
+                        throw new NotSupportedException( "Unknown op code kind: " + oc.InfoKind + "." );
+                  }
+               } ) );
+            }
 
          }
 
@@ -1497,7 +1874,7 @@ namespace CILMerge
             Tables.Event,
             md => md.EventDefinitions,
             null,
-            ( md, evt, thisIdx ) => new EventDefinition()
+            ( md, evt, inputIdx, thisIdx ) => new EventDefinition()
             {
                Attributes = evt.Attributes,
                EventType = this.TranslateTableIndex( md, evt.EventType ), // TypeRef, TypeDef, TypeSpec -> already processed
@@ -1509,7 +1886,7 @@ namespace CILMerge
             Tables.EventMap,
             md => md.EventMaps,
             null,
-            ( md, evtMap, thisIdx ) => new EventMap()
+            ( md, evtMap, inputIdx, thisIdx ) => new EventMap()
             {
                EventList = this.TranslateTableIndex( md, evtMap.EventList ), // Event -> already processed
                Parent = this.TranslateTableIndex( md, evtMap.Parent ) // TypeDef -> already processed
@@ -1520,7 +1897,7 @@ namespace CILMerge
             Tables.PropertyMap,
             md => md.PropertyMaps,
             null,
-            ( md, propMap, thisIdx ) => new PropertyMap()
+            ( md, propMap, inputIdx, thisIdx ) => new PropertyMap()
             {
                Parent = this.TranslateTableIndex( md, propMap.Parent ), // TypeDef -> already processed
                PropertyList = this.TranslateTableIndex( md, propMap.PropertyList ) // Property -> already processed
@@ -1531,7 +1908,7 @@ namespace CILMerge
             Tables.InterfaceImpl,
             md => md.InterfaceImplementations,
             null,
-            ( md, impl, thisIdx ) => new InterfaceImplementation()
+            ( md, impl, inputIdx, thisIdx ) => new InterfaceImplementation()
             {
                Class = this.TranslateTableIndex( md, impl.Class ), // TypeDef -> already processed
                Interface = this.TranslateTableIndex( md, impl.Interface ) // TypeDef/TypeRef/TypeSpec -> already processed
@@ -1542,7 +1919,7 @@ namespace CILMerge
             Tables.Constant,
             md => md.ConstantDefinitions,
             null,
-            ( md, constant, thisIdx ) => new ConstantDefinition()
+            ( md, constant, inputIdx, thisIdx ) => new ConstantDefinition()
             {
                Parent = this.TranslateTableIndex( md, constant.Parent ), // ParamDef/FieldDef/PropertyDef -> already processed
                Type = constant.Type,
@@ -1554,7 +1931,7 @@ namespace CILMerge
             Tables.FieldMarshal,
             md => md.FieldMarshals,
             null,
-            ( md, marshal, thisIdx ) => new FieldMarshal()
+            ( md, marshal, inputIdx, thisIdx ) => new FieldMarshal()
             {
                NativeType = this.ProcessMarshalingInfo( marshal.NativeType ),
                Parent = this.TranslateTableIndex( md, marshal.Parent ) // ParamDef/FieldDef -> already processed
@@ -1565,16 +1942,16 @@ namespace CILMerge
             Tables.DeclSecurity,
             md => md.SecurityDefinitions,
             null,
-            ( md, sec, thisIdx ) =>
+            ( md, sec, inputIdx, thisIdx ) =>
             {
                var retVal = new SecurityDefinition( sec.PermissionSets.Count )
                {
                   Action = sec.Action,
                   Parent = this.TranslateTableIndex( md, sec.Parent ) // TypeDef/MethodDef/AssemblyDef -> already processed
                };
-               foreach ( var permissionSet in sec.PermissionSets )
+               for ( var i = 0; i < sec.PermissionSets.Count; ++i )
                {
-                  retVal.PermissionSets.Add( this.ProcessPermissionSet( permissionSet ) );
+                  retVal.PermissionSets.Add( this.ProcessPermissionSet( md, inputIdx.Index, i, sec.PermissionSets[i] ) );
                }
                return retVal;
             } );
@@ -1584,7 +1961,7 @@ namespace CILMerge
             Tables.ClassLayout,
             md => md.ClassLayouts,
             null,
-            ( md, layout, thisIx ) => new ClassLayout()
+            ( md, layout, inputIdx, thisIx ) => new ClassLayout()
             {
                ClassSize = layout.ClassSize,
                PackingSize = layout.PackingSize,
@@ -1596,7 +1973,7 @@ namespace CILMerge
             Tables.FieldLayout,
             md => md.FieldLayouts,
             null,
-            ( md, layout, thisIdx ) => new FieldLayout()
+            ( md, layout, inputIdx, thisIdx ) => new FieldLayout()
             {
                Field = this.TranslateTableIndex( md, layout.Field ), // FieldDef -> already processed
                Offset = layout.Offset
@@ -1607,7 +1984,7 @@ namespace CILMerge
             Tables.MethodSemantics,
             md => md.MethodSemantics,
             null,
-            ( md, semantics, thisIdx ) => new MethodSemantics()
+            ( md, semantics, inputIdx, thisIdx ) => new MethodSemantics()
             {
                Associaton = this.TranslateTableIndex( md, semantics.Associaton ), // Event/Property -> already processed
                Attributes = semantics.Attributes,
@@ -1619,7 +1996,7 @@ namespace CILMerge
             Tables.MethodImpl,
             md => md.MethodImplementations,
             null,
-            ( md, impl, thisIdx ) => new MethodImplementation()
+            ( md, impl, inputIdx, thisIdx ) => new MethodImplementation()
             {
                Class = this.TranslateTableIndex( md, impl.Class ), // TypeDef -> already processed
                MethodBody = this.TranslateTableIndex( md, impl.MethodBody ), // MethodDef/MemberRef -> already processed
@@ -1631,7 +2008,7 @@ namespace CILMerge
             Tables.ImplMap,
             md => md.MethodImplementationMaps,
             null,
-            ( md, map, thisIdx ) => new MethodImplementationMap()
+            ( md, map, inputIdx, thisIdx ) => new MethodImplementationMap()
             {
                Attributes = map.Attributes,
                ImportName = map.ImportName,
@@ -1644,7 +2021,7 @@ namespace CILMerge
             Tables.FieldRVA,
             md => md.FieldRVAs,
             null,
-            ( md, fRVA, thisIdx ) => new FieldRVA()
+            ( md, fRVA, inputIdx, thisIdx ) => new FieldRVA()
             {
                Data = fRVA.Data.CreateBlockCopy(),
                Field = this.TranslateTableIndex( md, fRVA.Field ) // FieldDef -> already processed
@@ -1654,8 +2031,8 @@ namespace CILMerge
          this.MergeTables(
             Tables.GenericParameterConstraint,
             md => md.GenericParameterConstraintDefinitions,
-            null,
-            ( md, constraint, thisIdx ) => new GenericParameterConstraintDefinition()
+            ( md, inputIdx, thisIdx ) => this._tableIndexMappings[md].ContainsKey( inputIdx ),
+            ( md, constraint, inputIdx, thisIdx ) => new GenericParameterConstraintDefinition()
             {
                Constraint = this.TranslateTableIndex( md, constraint.Constraint ), // TypeDef/TypeRef/TypeSpec -> already processed
                Owner = this.TranslateTableIndex( md, constraint.Owner ) // GenericParameterDefinition -> already processed
@@ -1666,7 +2043,7 @@ namespace CILMerge
             Tables.ExportedType,
             md => md.ExportedTypes,
             ( md, inputIdx, thisIdx ) => this.ExportedTypeRowStaysInTargetModule( md, md.ExportedTypes[inputIdx.Index] ),
-            ( md, eType, thisIdx ) => new ExportedType()
+            ( md, eType, inputIdx, thisIdx ) => new ExportedType()
             {
                Attributes = eType.Attributes,
                Name = eType.Name,
@@ -1690,7 +2067,7 @@ namespace CILMerge
                var file = md.FileReferences[inputIdx.Index];
                return !file.Attributes.ContainsMetadata() || true; // TODO skip all those netmodules that are part of input modules
             },
-            ( md, file, thisIdx ) => new FileReference()
+            ( md, file, inputIdx, thisIdx ) => new FileReference()
             {
                Attributes = file.Attributes,
                HashValue = file.HashValue,
@@ -1698,18 +2075,23 @@ namespace CILMerge
             } );
 
          // ManifestResource
+         var resDic = new Dictionary<String, IList<Tuple<CILMetaData, ManifestResource>>>();
+         foreach ( var inputModule in this._inputModules )
+         {
+            foreach ( var res in inputModule.ManifestResources )
+            {
+               resDic
+                  .GetOrAdd_NotThreadSafe( res.Name, n => new List<Tuple<CILMetaData, ManifestResource>>() )
+                  .Add( Tuple.Create( inputModule, res ) );
+            }
+         }
+         var resNameSet = new HashSet<String>();
          this.MergeTables(
             Tables.ManifestResource,
             md => md.ManifestResources,
-            null,
-            ( md, resource, thisIdx ) => new ManifestResource()
-            {
-               Attributes = resource.Attributes,
-               DataInCurrentFile = resource.DataInCurrentFile, // Don't copy, as it may be big
-               Implementation = resource.Implementation.HasValue ? this.TranslateTableIndex( md, resource.Implementation.Value ) : (TableIndex?) null, // File/AssemblyRef -> already processed
-               Name = resource.Name,
-               Offset = resource.Offset
-            } );
+            ( md, inputIdx, thisIdx ) => resNameSet.Add( md.ManifestResources[inputIdx.Index].Name ),
+            ( md, resource, inputIdx, thisIdx ) => this.ProcessManifestResource( md, resource.Name, resDic )
+            );
 
          // CustomAttributeDef
          this.MergeTables(
@@ -1733,24 +2115,62 @@ namespace CILMerge
                }
                return retVal;
             },
-            ( md, ca, thisIdx ) => new CustomAttributeDefinition()
+            ( md, ca, inputIdx, thisIdx ) => new CustomAttributeDefinition()
             {
-               Parent = this.TranslateTableIndex( md, ca.Parent ),
-               Signature = this.ProcessCustomAttributeSignature( ca.Signature ), // TypeDef/MethodDef/FieldDef/ParamDef/TypeRef/InterfaceImpl/MemberRef/ModuleDef/DeclSecurity/PropertyDef/EventDef/StandAloneSig/ModuleRef/TypeSpec/AssemblyDef/AssemblyRef/File/ExportedType/ManifestResource/GenericParameterDefinition/GenericParameterDefinitionConstraint/MethodSpec -> AssemblyDef and ModuleDef are skipped, ModuleRef and AssemblyRef are skipped for those who don't have row in target module
-               Type = this.TranslateTableIndex( md, ca.Type ) // MethodDef/MemberRef -> already processed
+               Parent = this.TranslateTableIndex( md, ca.Parent ), // TypeDef/MethodDef/FieldDef/ParamDef/TypeRef/InterfaceImpl/MemberRef/ModuleDef/DeclSecurity/PropertyDef/EventDef/StandAloneSig/ModuleRef/TypeSpec/AssemblyDef/AssemblyRef/File/ExportedType/ManifestResource/GenericParameterDefinition/GenericParameterDefinitionConstraint/MethodSpec -> AssemblyDef and ModuleDef are skipped, ModuleRef and AssemblyRef are skipped for those who don't have row in target module
+               Signature = this.ProcessCustomAttributeSignature( md, inputIdx.Index, ca.Signature ),
+               Type = this.TranslateTableIndex( md, ca.Type ) // Type: MethodDef/MemberRef -> already processed
             } );
       }
 
       private void ApplyAssemblyAndModuleCustomAttributes()
       {
-         // TODO
+         var attrSource = this._options.AttrSource;
+         this.CopyModuleAndAssemblyAttributesFrom(
+            String.IsNullOrEmpty( attrSource ) ?
+               ( this._options.CopyAttributes ?
+                this._inputModules :
+                this._primaryModule.Singleton() ) :
+            this._moduleLoader.GetOrLoadMetaData( attrSource ).Singleton()
+            );
+      }
+
+      private void CopyModuleAndAssemblyAttributesFrom( IEnumerable<CILMetaData> modules )
+      {
+         var targetCA = this._targetModule.CustomAttributeDefinitions;
+         foreach ( var m in modules )
+         {
+            if ( this._inputModules.IndexOf( m ) >= 0 )
+            {
+               for ( var i = 0; i < m.CustomAttributeDefinitions.Count; ++i )
+               {
+                  var ca = m.CustomAttributeDefinitions[i];
+                  if ( ca.Parent.Table == Tables.Assembly || ca.Parent.Table == Tables.Module )
+                  {
+                     targetCA.Add( new CustomAttributeDefinition()
+                     {
+                        Parent = ca.Parent,
+                        Signature = this.ProcessCustomAttributeSignature( m, i, ca.Signature ),
+                        Type = this.TranslateTableIndex( m, ca.Type )
+                     } );
+                  }
+               }
+            }
+            else
+            {
+               // Table index translate methods want input module as source.
+               // Most likely need to make input modules into IList<Tuple<CILMetaData, Boolean>>, where Boolean would indicate whether the module should be merged
+               // Then MergeTables method would just simply not add the row to table if merged = false
+               throw new NotImplementedException( "Custom attribute source from other than input assembly is not yet implemented." );
+            }
+         }
       }
 
       private void MergeTables<T>(
          Tables tableKind,
          Func<CILMetaData, List<T>> tableExtractor,
          Func<CILMetaData, TableIndex, TableIndex, Boolean> filter,
-         Func<CILMetaData, T, TableIndex, T> copyFunc
+         Func<CILMetaData, T, TableIndex, TableIndex, T> copyFunc
          )
       {
          var targetTable = tableExtractor( this._targetModule );
@@ -1768,7 +2188,7 @@ namespace CILMerge
                   this._targetTableIndexMappings.Add( targetIndex, Tuple.Create( md, i ) );
                   thisMappings.Add( inputIndex, targetIndex );
 
-                  targetTable.Add( copyFunc( md, inputTable[i], targetIndex ) );
+                  targetTable.Add( copyFunc( md, inputTable[i], inputIndex, targetIndex ) );
                }
             }
          }
@@ -1873,7 +2293,7 @@ namespace CILMerge
                   enclosingTypeIdx :
                   -1;
             },
-            endCondition: cur => cur >= 0,
+            endCondition: cur => cur < 0,
             includeFirst: false
             ).GetEnumerator() )
          {
@@ -1899,15 +2319,6 @@ namespace CILMerge
       private static String CreateTypeStringFromTopLevelType( String ns, String name )
       {
          return String.IsNullOrEmpty( ns ) ? name : ( ns + "." + name );
-      }
-
-      private Boolean IsAssemblyNetModulePartOfInputModules( CILMetaData inputModule, Int32 moduleRefIdx )
-      {
-         var modRefPath = Path.Combine( Path.GetDirectoryName( this._moduleLoader.GetResourceFor( inputModule ) ), inputModule.ModuleReferences[moduleRefIdx].ModuleName );
-         return this._inputModules
-            .Where( md => md.AssemblyDefinitions.Count == 0 )
-            .Select( m => this._moduleLoader.GetResourceFor( m ) )
-            .Any( p => String.Equals( p, modRefPath ) ); // TODO maybe case-insensitive match??
       }
 
       private TypeAttributes GetNewTypeAttributesForType(
@@ -1948,6 +2359,7 @@ namespace CILMerge
       private Boolean IsDuplicateOK(
          ref String newName,
          String fullTypeString,
+         ref String newFullTypeString,
          TypeAttributes newTypeAttrs,
          IDictionary<CILMetaData, IDictionary<Int32, String>> allTypeStrings,
          ref ISet<String> allTypeStringsSet
@@ -1974,6 +2386,7 @@ namespace CILMerge
                ++i;
             } while ( !allTypeStringsSet.Add( fullTypeString ) );
 
+            newFullTypeString = fullTypeString;
             newName = newName + "_" + i;
          }
          return retVal;
@@ -2004,1111 +2417,211 @@ namespace CILMerge
          }
       }
 
-      private AbstractSecurityInformation ProcessPermissionSet( AbstractSecurityInformation inputSecurityInfo )
+      private AbstractSecurityInformation ProcessPermissionSet( CILMetaData md, Int32 declSecurityIdx, Int32 permissionSetIdx, AbstractSecurityInformation inputSecurityInfo )
+      {
+
+         AbstractSecurityInformation retVal;
+         switch ( inputSecurityInfo.SecurityInformationKind )
+         {
+            case SecurityInformationKind.Raw:
+               this.Log( MessageLevel.Warning, "Unresolved security information BLOB in {0}, at table index {1}, permission set {2}.", this._moduleLoader.GetResourceFor( md ), declSecurityIdx, permissionSetIdx );
+               var raw = (RawSecurityInformation) inputSecurityInfo;
+               retVal = new RawSecurityInformation()
+               {
+                  ArgumentCount = raw.ArgumentCount,
+                  Bytes = raw.Bytes.CreateBlockCopy()
+               };
+               break;
+            case SecurityInformationKind.Resolved:
+               var resolved = (SecurityInformation) inputSecurityInfo;
+               var args = resolved.NamedArguments;
+               resolved = new SecurityInformation( resolved.NamedArguments.Count );
+               retVal = resolved;
+               resolved.NamedArguments.AddRange( args.Select( arg => this.ProcessCANamedArg( arg ) ) );
+               break;
+            default:
+               throw new NotSupportedException( "Unsupported security information kind: " + inputSecurityInfo.SecurityInformationKind + "." );
+         }
+         retVal.SecurityAttributeType = this.ProcessTypeString( inputSecurityInfo.SecurityAttributeType );
+         return retVal;
+      }
+
+      private String ProcessTypeString( String typeString )
       {
          throw new NotImplementedException();
       }
 
-      private AbstractCustomAttributeSignature ProcessCustomAttributeSignature( AbstractCustomAttributeSignature sig )
+      private AbstractCustomAttributeSignature ProcessCustomAttributeSignature( CILMetaData md, Int32 caIdx, AbstractCustomAttributeSignature sig )
       {
-         throw new NotImplementedException();
-      }
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-      internal Tuple<String[], IDictionary<Tuple<String, String>, String>> EmitTargetAssembly()
-      {
-         // TODO log all options here.
-
-         this.LoadAllInputModules();
-
-         // Save input emitting arguments for possible PDB emission later.
-         var inputEArgs = this._assemblyLoader.CurrentlyLoadedModules.Select( m => this._assemblyLoader.GetEmittingArgumentsFor( m ) ).ToArray();
-         var inputFileNames = this._assemblyLoader.CurrentlyLoadedModules.Select( m => this._assemblyLoader.GetResourceFor( m ) ).ToArray();
-
-         // Create target module
-         this._targetModule = this._ctx.NewBlankAssembly( Path.GetFileNameWithoutExtension( this._options.OutPath ) ).AddModule( Path.GetFileName( this._options.OutPath ) );
-
-         // Get emitting arguments already at this stage - this will also set the correct AssociatedMSCorLib for the target module.
-         var targetEArgs = this.CreateEmittingArgumentsForTargetModule();
-
-         if ( !this._options.Union )
+         AbstractCustomAttributeSignature retVal;
+         switch ( sig.CustomAttributeSignatureKind )
          {
-            // Have to generate set of all used type names in order for renaming to be stable.
-            foreach ( var t in this._inputModules.SelectMany( m => m.DefinedTypes.SelectMany( t => t.AsDepthFirstEnumerable( tt => tt.DeclaredNestedTypes ) ) ) )
-            {
-               this._allInputTypeNames.Add( t.ToString() );
-            }
-         }
-
-         var an = this._targetModule.Assembly.Name;
-         an.Culture = this._primaryModule.Assembly.Name.Culture;
-         if ( targetEArgs.StrongName != null )
-         {
-            an.PublicKey = targetEArgs.StrongName.KeyPair.ToArray();
-         }
-         if ( this._options.VerMajor > -1 )
-         {
-            // Version was specified explictly
-            an.MajorVersion = this._options.VerMajor;
-            an.MinorVersion = this._options.VerMinor;
-            an.BuildNumber = this._options.VerBuild;
-            an.Revision = this._options.VerRevision;
-         }
-         else
-         {
-            var an2 = this._primaryModule.Assembly.Name;
-            an.MajorVersion = an2.MajorVersion;
-            an.MinorVersion = an2.MinorVersion;
-            an.BuildNumber = an2.BuildNumber;
-            an.Revision = an2.Revision;
-         }
-
-         // Two sweeps - first create structure
-         this.ProcessTargetModule( true );
-
-         // Then add type references and IL
-         this.ProcessTargetModule( false );
-
-         // Then merge resources
-         if ( !this._options.NoResources )
-         {
-            this.MergeResources();
-         }
-
-         // Remember process entry point
-         targetEArgs.CLREntryPoint = this.ProcessMethodRef( targetEArgs.CLREntryPoint );
-
-         // Emit the module
-         try
-         {
-            using ( var fs = File.Open( this._options.OutPath, FileMode.Create, FileAccess.ReadWrite, FileShare.None ) )
-            {
-               this._targetModule.EmitModule( fs, targetEArgs );
-            }
-         }
-         catch ( Exception exc )
-         {
-            throw this.NewCILMergeException( ExitCode.ErrorAccessingTargetFile, "Error accessing target file " + this._options.OutPath + "(" + exc + ").", exc );
-         }
-
-         var badRefs = targetEArgs.AssemblyRefs.Where( aName => this._inputModules.Any( m => m.Assembly.Name.CorePropertiesEqual( aName ) ) ).ToArray();
-         if ( badRefs.Length > 0 )
-         {
-            throw this.NewCILMergeException( ExitCode.FailedToProduceCorrectResult, "Internal error: the resulting assembly still references " + String.Join( ", ", (Object[]) badRefs ) + "." );
-         }
-
-         // Merge PDBs
-         if ( this._pdbHelper != null )
-         {
-            this.MergePDBs( targetEArgs, inputEArgs );
-         }
-
-         return Tuple.Create( inputFileNames, this._typeRenames == null || this._typeRenames.Count == 0 ? null : this._typeRenames );
-      }
-
-      private void MapPDBScopeOrFunction( PDBScopeOrFunction scp, EmittingArguments targetEArgs, EmittingArguments eArg, CILMethodBase thisMethod )
-      {
-         foreach ( var slot in scp.Slots )
-         {
-            slot.TypeToken = this.MapTypeToken( targetEArgs, eArg, thisMethod, slot.TypeToken );
-         }
-         foreach ( var subScope in scp.Scopes )
-         {
-            this.MapPDBScopeOrFunction( subScope, targetEArgs, eArg, thisMethod );
-         }
-      }
-
-      private UInt32 MapMethodToken( EmittingArguments targetEArgs, EmittingArguments inputEArgs, CILMethodBase thisMethod, UInt32 token )
-      {
-         return token == 0u ? 0u : (UInt32) targetEArgs.GetTokenFor( this._methodMapping[(CILMethodBase) inputEArgs.ResolveToken( thisMethod, (Int32) token )] ).Value;
-      }
-
-      private UInt32 MapTypeToken( EmittingArguments targetEArgs, EmittingArguments inputEArgs, CILMethodBase thisMethod, UInt32 token )
-      {
-         // Sometimes, there is a field signature in Standalone table. Reason for this is in ( http://msdn.developer-works.com/article/13221925/Pinned+Fields+in+the+Common+Language+Runtime , unavailable at 2014, viewable through goole cache http://webcache.googleusercontent.com/search?q=cache:UeFk80O2rGMJ:http://msdn.developer-works.com/article/13221925/Pinned%2BFields%2Bin%2Bthe%2BCommon%2BLanguage%2BRuntime%2Bstandalonesig+contains+field+signatures&oe=utf-8&rls=org.mozilla:en-US:official&client=firefox-a&channel=sb&gfe_rd=cr&hl=fi&ct=clnk&gws_rd=cr )
-         // Shortly, the field signature seems to be generated for constant values within the method (sometimes) or when a field is used as by-ref parameter.
-         // The ECMA standard, however, explicitly prohibits to have anything else except LOCALSIG and METHOD signatures in Standalone table.
-         // The PDB, however, requires a token, which would represent the type of the slot (for some reason), and thus the faulty rows are being emitted to Standalone table.
-
-         // This doesn't affect much at runtime, since these faulty Standalone rows are only used from within the PDB file, and never from within the CIL file.
-         // However, we cannot emit such Standalone rows during emitting stage.
-         // Therefore, detect this formally erroneus situation here, and mark that this slot should just use the normal standalone sig token of this method.
-         // A bit hack-ish but oh well...
-         return token == 0u ? 0u : (UInt32) targetEArgs.GetSignatureTokenFor( this._methodMapping[inputEArgs.ResolveSignatureToken( (Int32) token ).FirstOrDefault() ?? thisMethod] );
-      }
-
-
-
-      private void ProcessTargetModule( Boolean creating )
-      {
-         // Don't do this in parallel - too much congestion.
-         // Process primary module first in case of _name conflicts
-         foreach ( var mod in this._inputModules )
-         {
-            this.ProcessModule( mod, creating );
-         }
-
-         if ( !creating )
-         {
-            this.ProcessTargetAssemblyAttributes();
-         }
-      }
-
-      private void ProcessModule( CILModule inputModule, Boolean creating )
-      {
-         foreach ( var t in inputModule.DefinedTypes )
-         {
-            this.ProcessTypeDefinition( this._targetModule, t, creating );
-         }
-      }
-
-      private void ProcessTypeDefinition( CILElementCapableOfDefiningType owner, CILType oldType, Boolean creating )
-      {
-         CILType newType;
-         if ( creating )
-         {
-            var typeStr = oldType.ToString();
-            var added = this._typesByName.Add( typeStr );
-            var typeAttrs = this.GetNewTypeAttributesForType( owner, oldType, typeStr );
-            var newName = oldType.Name;
-            if ( added || this.IsDuplicateOK( ref newName, typeStr, typeAttrs ) )
-            {
-               newType = this.AddNewTypeToTarget( owner, oldType, typeAttrs, newName );
-               if ( !added )
+            case CustomAttributeSignatureKind.Raw:
+               this.Log( MessageLevel.Warning, "Unresolved custom attribute BLOB in {0}, at table index {1}.", this._moduleLoader.GetResourceFor( md ), caIdx );
+               retVal = new RawCustomAttributeSignature()
                {
-                  // Rename occurred, save information
-                  this._typeRenames.Add( Tuple.Create( oldType.Module.Assembly.Name.Name, typeStr ), newType.ToString() );
-               }
-            }
-            else if ( this._options.Union )
-            {
-               newType = this._targetModule.GetTypeByName( typeStr );
-               this._typeMapping.TryAdd( oldType, newType );
-            }
-            else
-            {
-               throw this.NewCILMergeException( ExitCode.DuplicateTypeName, "The type " + oldType + " appears in more than one assembly." );
-            }
-         }
-         else
-         {
-            newType = (CILType) this._typeMapping[oldType];
-         }
-
-         if ( creating )
-         {
-            newType.Layout = oldType.Layout;
-            newType.Namespace = oldType.Namespace;
-         }
-         else
-         {
-            this.ProcessCustomAttributes( newType, oldType );
-            newType.AddDeclaredInterfaces( oldType.DeclaredInterfaces.Select( this.ProcessTypeRef ).ToArray() );
-            newType.BaseType = this.ProcessTypeRef( oldType.BaseType );
-            this.ProcessGenericParameters( newType, oldType );
-            this.ProcessDeclSecurity( newType, oldType );
-         }
-
-         // Process type structure
-         foreach ( var nt in oldType.DeclaredNestedTypes )
-         {
-            this.ProcessTypeDefinition( newType, nt, creating );
-         }
-         foreach ( var ctor in oldType.Constructors )
-         {
-            this.ProcessConstructor( newType, ctor, creating );
-         }
-         foreach ( var method in oldType.DeclaredMethods )
-         {
-            this.ProcessMethod( newType, method, creating );
-         }
-         foreach ( var field in oldType.DeclaredFields )
-         {
-            this.ProcessField( newType, field, creating );
-         }
-         foreach ( var prop in oldType.DeclaredProperties )
-         {
-            this.ProcessProperty( newType, prop, creating );
-         }
-         foreach ( var evt in oldType.DeclaredEvents )
-         {
-            this.ProcessEvent( newType, evt, creating );
-         }
-      }
-
-      private void ProcessDeclSecurity( CILElementWithSecurityInformation newElem, CILElementWithSecurityInformation oldElem )
-      {
-         foreach ( var ds in oldElem.DeclarativeSecurity.Values.SelectMany( l => l ) )
-         {
-            var nds = newElem.AddDeclarativeSecurity( ds.SecurityAction, ds.SecurityAttributeType );
-            foreach ( var na in ds.NamedArguments )
-            {
-               nds.NamedArguments.Add( this.ProcessCustomAttributeNamedArg( na ) );
-            }
-         }
-      }
-
-      private void ProcessGenericParameters<TGDef>( CILElementWithGenericArguments<TGDef> newElem, CILElementWithGenericArguments<TGDef> oldElem )
-         where TGDef : class
-      {
-         foreach ( CILTypeParameter gp in oldElem.GenericArguments )
-         {
-            var newGP = (CILTypeParameter) newElem.GenericArguments[gp.GenericParameterPosition];
-            newGP.AddGenericParameterConstraints( gp.GenericParameterConstraints.Select( c => this.ProcessTypeRef( c ) ).ToArray() );
-            newGP.Attributes = gp.Attributes;
-            this.ProcessCustomAttributes( newGP, gp );
-         }
-      }
-
-      private TypeAttributes GetNewTypeAttributesForType( CILElementCapableOfDefiningType owner, CILType oldType, String typeString )
-      {
-         var attrs = oldType.Attributes;
-         if ( this._options.Internalize && !this._primaryModule.Equals( oldType.Module ) && !this._excludeRegexes.Value.Any( reg => reg.IsMatch( typeString ) || reg.IsMatch( "[" + oldType.Module.Assembly.Name.Name + "]" + typeString ) ) )
-         {
-            // Have to make this type internal
-            if ( owner is CILModule )
-            {
-               attrs &= ~TypeAttributes.VisibilityMask;
-            }
-            else if ( attrs.IsNestedPublic() )
-            {
-               attrs |= TypeAttributes.VisibilityMask;
-               attrs &= ( ( ~TypeAttributes.VisibilityMask ) | TypeAttributes.NestedAssembly );
-            }
-            else if ( attrs.IsNestedFamily() || attrs.IsNestedFamilyORAssembly() )
-            {
-               attrs |= TypeAttributes.VisibilityMask;
-               attrs &= ( ~TypeAttributes.VisibilityMask ) | TypeAttributes.NestedFamANDAssem;
-            }
-         }
-         return attrs;
-      }
-
-      private CILType AddNewTypeToTarget( CILElementCapableOfDefiningType owner, CILType other, TypeAttributes attrs, String newName )
-      {
-         var t = owner.AddType( newName ?? other.Name, attrs, other.TypeCode );
-         this._typeMapping.TryAdd( other, t );
-         if ( other.GenericArguments.Any() )
-         {
-            foreach ( var gp in t.DefineGenericParameters( other.GenericArguments.Select( g => ( (CILTypeParameter) g ).Name ).ToArray() ) )
-            {
-               this._typeMapping.TryAdd( other.GenericArguments[gp.GenericParameterPosition], gp );
-            }
-         }
-         return t;
-      }
-
-      private void ProcessConstructor( CILType newType, CILConstructor ctor, Boolean creating )
-      {
-         CILConstructor newCtor = creating ?
-            newType.AddConstructor( ctor.Attributes, ctor.CallingConvention ) :
-            (CILConstructor) this._methodMapping[ctor];
-         this.ProcessMethodBase( newCtor, ctor, creating );
-      }
-
-      private void ProcessMethod( CILType newType, CILMethod method, Boolean creating )
-      {
-         CILMethod newMethod = creating ?
-            newType.AddMethod( method.Name, method.Attributes, method.CallingConvention ) :
-            (CILMethod) this._methodMapping[method];
-         this.ProcessMethodBase( newMethod, method, creating );
-         this.ProcessParameter( newMethod.ReturnParameter, method.ReturnParameter, creating );
-         if ( creating )
-         {
-            newMethod.PlatformInvokeModuleName = method.PlatformInvokeModuleName;
-            newMethod.PlatformInvokeName = method.PlatformInvokeName;
-            newMethod.PlatformInvokeAttributes = method.PlatformInvokeAttributes;
-            foreach ( var g in newMethod.DefineGenericParameters( method.GenericArguments.Select( g => ( (CILTypeParameter) g ).Name ).ToArray() ) )
-            {
-               this._typeMapping.TryAdd( method.GenericArguments[g.GenericParameterPosition], g );
-            }
-         }
-         else
-         {
-            newMethod.AddOverriddenMethods( method.OverriddenMethods.Select( this.ProcessMethodRef ).ToArray() );
-            this.ProcessGenericParameters( newMethod, method );
-         }
-      }
-
-      private void ProcessMethodBase( CILMethodBase newMethod, CILMethodBase oldMethod, Boolean creating )
-      {
-         if ( creating )
-         {
-            this._methodMapping.TryAdd( oldMethod, newMethod );
-            newMethod.ImplementationAttributes = oldMethod.ImplementationAttributes;
-         }
-         foreach ( var p in oldMethod.Parameters )
-         {
-            var newP = creating ?
-               newMethod.AddParameter( p.Name, p.Attributes, null ) :
-               newMethod.Parameters[p.Position];
-            this.ProcessParameter( newP, p, creating );
-         }
-         if ( !creating )
-         {
-            this.ProcessCustomAttributes( newMethod, oldMethod );
-            this.ProcessDeclSecurity( newMethod, oldMethod );
-
-            if ( oldMethod.HasILMethodBody() )
-            {
-               var oldIL = oldMethod.MethodIL;
-               var newIL = newMethod.MethodIL;
-               // First, define labels
-               var newLabels = newIL.DefineLabels( oldIL.LabelCount );
-
-               // Then define locals
-               foreach ( var local in oldIL.Locals )
-               {
-                  newIL.DeclareLocal( this.ProcessTypeRef( local.LocalType ), local.IsPinned );
-               }
-               // Then define exception blocks
-               foreach ( var eBlock in oldIL.ExceptionBlocks )
-               {
-                  newIL.AddExceptionBlockInfo( new ExceptionBlockInfo(
-                     eBlock.EndLabel,
-                     eBlock.TryOffset,
-                     eBlock.TryLength,
-                     eBlock.HandlerOffset,
-                     eBlock.HandlerLength,
-                     this.ProcessTypeRef( eBlock.ExceptionType ),
-                     eBlock.FilterOffset,
-                     eBlock.BlockType ) );
-               }
-               // Then copy IL opcode infos
-               foreach ( var info in oldIL.OpCodeInfos )
-               {
-                  switch ( info.InfoKind )
-                  {
-                     case OpCodeInfoKind.Branch:
-                     case OpCodeInfoKind.BranchOrLeaveFixed:
-                     case OpCodeInfoKind.Leave:
-                     case OpCodeInfoKind.OperandInt32:
-                     case OpCodeInfoKind.OperandInt64:
-                     case OpCodeInfoKind.OperandNone:
-                     case OpCodeInfoKind.OperandR4:
-                     case OpCodeInfoKind.OperandR8:
-                     case OpCodeInfoKind.OperandString:
-                     case OpCodeInfoKind.OperandUInt16:
-                     case OpCodeInfoKind.Switch:
-                        // Just add the info - labels etc should remain the same.
-                        newIL.Add( info );
-                        break;
-                     case OpCodeInfoKind.NormalOrVirtual:
-                        var i1 = (OpCodeInfoForNormalOrVirtual) info;
-                        newIL.Add( new OpCodeInfoForNormalOrVirtual( this.ProcessMethodRef( i1.ReflectionObject ), i1.NormalCode, i1.VirtualCode ) );
-                        break;
-                     case OpCodeInfoKind.OperandCtorToken:
-                        var i2 = (OpCodeInfoWithCtorToken) info;
-                        newIL.Add( new OpCodeInfoWithCtorToken( i2.Code, this.ProcessMethodRef( i2.ReflectionObject ), i2.UseGenericDefinitionIfPossible ) );
-                        break;
-                     case OpCodeInfoKind.OperandFieldToken:
-                        var i3 = (OpCodeInfoWithFieldToken) info;
-                        newIL.Add( new OpCodeInfoWithFieldToken( i3.Code, this.ProcessFieldRef( i3.ReflectionObject ), i3.UseGenericDefinitionIfPossible ) );
-                        break;
-                     case OpCodeInfoKind.OperandMethodSigToken:
-                        var i4 = (OpCodeInfoWithMethodSig) info;
-                        //Tuple<CILCustomModifier[], CILTypeBase>[] varArgs = null;
-                        //if ( i4.VarArgs != null )
-                        //{
-                        //   varArgs = i4.VarArgs.Select( va => Tuple.Create( va.Item1.Select( cm => this.ProcessCustomModifier( cm ) ).ToArray(), this.ProcessTypeRef( va.Item2 ) ) ).ToArray();
-                        //}
-                        newIL.Add( new OpCodeInfoWithMethodSig( this.ProcessTypeRef( i4.ReflectionObject ), i4.VarArgs ) );
-                        break;
-                     case OpCodeInfoKind.OperandMethodToken:
-                        var i5 = (OpCodeInfoWithMethodToken) info;
-                        //var mRef = this.ProcessMethodRef( i5.ReflectionObject );
-                        //OpCodeInfo opToAdd;
-                        //if ( ( OpCodeEncoding.Call == i5.Code.Value || OpCodeEncoding.Ldftn == i5.Code.Value )
-                        //     && this._pcl2TargetMapping != null
-                        //     && this._loadingArgs[oldMethod.DeclaringType.Module].AssemblyRefs.FirstOrDefault( ar => ar.CorePropertiesEqual( i5.ReflectionObject.DeclaringType.Module.Assembly.Name ) && ar.Flags.IsRetargetable() ) != null
-                        //   )
-                        //{
-                        //   // When mapping pcl to .NET, replace .Call with .Callvirt where applicable
-                        //   opToAdd = OpCodeEncoding.Call == i5.Code.Value ? OpCodeInfoForNormalOrVirtual.OpCodeInfoForCall( mRef ) : OpCodeInfoForNormalOrVirtual.OpCodeInfoForLdFtn( mRef );
-                        //}
-                        //else
-                        //{
-                        //   opToAdd = new OpCodeInfoWithMethodToken( i5.Code, mRef, i5.UseGenericDefinitionIfPossible );
-                        //}
-                        // TODO proper detection of base.Method(); However, maybe someone actually wants to .Call a virtual method from outside base.Method() context?
-                        // At the moment there is no code to distinguish reliably between base.Method(); and this.AnotherMethod();.
-                        // Adding a OpCodeInfoForNormalOrVirtual results in possible stackoverflow exceptions caused by merged code.
-                        // Add instruction as-is, causing some verification errors in resulting merged assembly when retargeting PCL to .NET (better than stackoverflow).
-                        newIL.Add( new OpCodeInfoWithMethodToken( i5.Code, this.ProcessMethodRef( i5.ReflectionObject ), i5.UseGenericDefinitionIfPossible ) );
-                        break;
-                     case OpCodeInfoKind.OperandTypeToken:
-                        var i6 = (OpCodeInfoWithTypeToken) info;
-                        newIL.Add( new OpCodeInfoWithTypeToken( i6.Code, this.ProcessTypeRef( i6.ReflectionObject ), i6.UseGenericDefinitionIfPossible ) );
-                        break;
-                  }
-                  if ( !this._options.NoDebug && info.InfoKind == OpCodeInfoKind.Branch || info.InfoKind == OpCodeInfoKind.Leave )
-                  {
-                     throw this.NewCILMergeException( ExitCode.DebugInfoNotEasilyMergeable, "Found dynamic branch opcode info, which would possibly change method IL size and line offsets." );
-                  }
-               }
-               // Finally, mark labels
-               var curLblOffset = 0;
-               foreach ( var lblOffset in oldIL.LabelOffsets )
-               {
-                  newIL.MarkLabel( newLabels[curLblOffset], lblOffset );
-                  ++curLblOffset;
-               }
-            }
-         }
-      }
-
-      private void ProcessParameter( CILParameter newParameter, CILParameter oldParameter, Boolean creating )
-      {
-         if ( creating )
-         {
-            newParameter.Name = oldParameter.Name;
-            if ( oldParameter.Attributes.HasDefault() )
-            {
-               newParameter.ConstantValue = oldParameter.ConstantValue;
-            }
-         }
-         else
-         {
-            this.ProcessCustomAttributes( newParameter, oldParameter );
-            this.ProcessCustomModifiers( newParameter, oldParameter );
-            newParameter.ParameterType = this.ProcessTypeRef( oldParameter.ParameterType );
-            this.ProcessMarshalInfo( newParameter, oldParameter );
-         }
-      }
-
-      private void ProcessMarshalInfo( CILElementWithMarshalingInfo newElement, CILElementWithMarshalingInfo oldElement )
-      {
-         var mi = oldElement.MarshalingInformation;
-         if ( mi != null )
-         {
-            newElement.MarshalingInformation = new MarshalingInfo( mi.Value, mi.SafeArrayType, this.ProcessTypeRef( mi.SafeArrayUserDefinedType ), mi.IIDParameterIndex, mi.ArrayType, mi.SizeParameterIndex, mi.ConstSize, this.ProcessTypeString( mi.MarshalType ), null, mi.MarshalCookie );
-         }
-      }
-
-      private void ProcessField( CILType newType, CILField oldField, Boolean creating )
-      {
-         var newField = creating ?
-            newType.AddField( oldField.Name, null, oldField.Attributes ) :
-            this._fieldMapping[oldField];
-         if ( creating )
-         {
-            this._fieldMapping.TryAdd( oldField, newField );
-            if ( oldField.Attributes.HasDefault() )
-            {
-               newField.ConstantValue = oldField.ConstantValue;
-            }
-            newField.FieldOffset = oldField.FieldOffset;
-            newField.InitialValue = oldField.InitialValue;
-         }
-         else
-         {
-            this.ProcessCustomAttributes( newField, oldField );
-            this.ProcessCustomModifiers( newField, oldField );
-            newField.FieldType = this.ProcessTypeRef( oldField.FieldType );
-            this.ProcessMarshalInfo( newField, oldField );
-         }
-      }
-
-      private void ProcessProperty( CILType newType, CILProperty oldProperty, Boolean creating )
-      {
-         var newProperty = creating ?
-            newType.AddProperty( oldProperty.Name, oldProperty.Attributes ) :
-            this._propertyMapping[oldProperty];
-         if ( creating )
-         {
-            this._propertyMapping.TryAdd( oldProperty, newProperty );
-            if ( oldProperty.Attributes.HasDefault() )
-            {
-               newProperty.ConstantValue = oldProperty.ConstantValue;
-            }
-         }
-         else
-         {
-            this.ProcessCustomAttributes( newProperty, oldProperty );
-            this.ProcessCustomModifiers( oldProperty, newProperty );
-            newProperty.GetMethod = this.ProcessMethodRef( oldProperty.GetMethod );
-            newProperty.SetMethod = this.ProcessMethodRef( oldProperty.SetMethod );
-         }
-      }
-
-      private void ProcessEvent( CILType newType, CILEvent oldEvent, Boolean creating )
-      {
-         var newEvent = creating ?
-            newType.AddEvent( oldEvent.Name, oldEvent.Attributes, null ) :
-            this._eventMapping[oldEvent];
-         if ( creating )
-         {
-            this._eventMapping.TryAdd( oldEvent, newEvent );
-         }
-         else
-         {
-            this.ProcessCustomAttributes( newEvent, oldEvent );
-            newEvent.AddMethod = this.ProcessMethodRef( oldEvent.AddMethod );
-            newEvent.RemoveMethod = this.ProcessMethodRef( oldEvent.RemoveMethod );
-            newEvent.RaiseMethod = this.ProcessMethodRef( oldEvent.RaiseMethod );
-            newEvent.EventHandlerType = this.ProcessTypeRef( oldEvent.EventHandlerType );
-         }
-      }
-
-      private T ProcessTypeRef<T>( T typeRef )
-         where T : class, CILTypeBase
-      {
-         if ( typeRef is CILTypeOrTypeParameter && ( (CILTypeOrTypeParameter) typeRef ).Name == "PDBScopeOrFunction" )
-         {
-
-         }
-         return typeRef == null ?
-            null :
-            (T) this._typeMapping.GetOrAdd( typeRef, tr =>
-            {
-               CILTypeBase result = typeRef;
-               switch ( typeRef.TypeKind )
-               {
-                  case TypeKind.Type:
-                     var t = (CILType) typeRef;
-                     if ( t.ElementKind.HasValue )
-                     {
-                        // Array/ByRef/Pointer type, save mapped element type.
-                        result = this.ProcessTypeRef( t.ElementType ).MakeElementType( t.ElementKind.Value, t.ArrayInformation );
-                     }
-                     else if ( t.GenericArguments.Count > 0 && !t.IsGenericTypeDefinition() )
-                     {
-                        // Generic type which is not generic definition, save mapped generic definition
-                        result = this.ProcessTypeRef( t.GenericDefinition ).MakeGenericType( t.GenericArguments.Select( g => this.ProcessTypeRef( g ) ).ToArray() );
-                     }
-                     break;
-                  case TypeKind.TypeParameter:
-                     var tp = (CILTypeParameter) typeRef;
-                     if ( tp.DeclaringMethod == null )
-                     {
-                        result = this.ProcessTypeRef( tp.DeclaringType ).GenericArguments[tp.GenericParameterPosition];
-                     }
-                     else
-                     {
-                        result = this.ProcessMethodRef( tp.DeclaringMethod ).GenericArguments[tp.GenericParameterPosition];
-                     }
-                     break;
-                  case TypeKind.MethodSignature:
-                     var ms = (CILMethodSignature) typeRef;
-                     result = this._ctx.NewMethodSignature(
-                              this._targetModule,
-                              ms.CallingConvention,
-                              this.ProcessTypeRef( ms.ReturnParameter.ParameterType ),
-                              ms.ReturnParameter.CustomModifiers.Select( cm => this.ProcessCustomModifier( cm ) ).ToArray(),
-                              ms.Parameters.Select( p => Tuple.Create( p.CustomModifiers.Select( cm => this.ProcessCustomModifier( cm ) ).ToArray(), this.ProcessTypeRef( p.ParameterType ) ) ).ToArray()
-                              );
-                     break;
-               }
-               CILAssembly ass;
-               if ( this._pcl2TargetMapping != null && result is CILType && ( (CILType) result ).IsTrueDefinition && this._pcl2TargetMapping.TryGetValue( result.Module.Assembly, out ass ) )
-               {
-                  // Map PCL type to target framework type
-                  var tResult = (CILType) result;
-                  var typeStr = tResult.GetFullName();
-                  var mappedType = GetMainModuleOrFirst( ass ).GetTypeByName( typeStr, false );
-                  if ( mappedType == null )
-                  {
-                     // Try process type forwarders
-                     TypeForwardingInfo tf;
-                     if ( ass.TryGetTypeForwarder( tResult.Name, tResult.Namespace, out tf ) )
-                     {
-                        CILAssembly targetAss;
-                        if ( this._assemblyLoader.TryResolveReference( result.Module, tf.AssemblyName, out targetAss ) )
-                        {
-                           mappedType = GetMainModuleOrFirst( targetAss )
-                              .GetTypeByName( typeStr, false );
-                        }
-                        else
-                        {
-                           throw this.NewCILMergeException( ExitCode.UnresolvedAssemblyReference, "Failed to resolve " + tf.AssemblyName + " from " + result.Module + "." );
-                        }
-                     }
-                  }
-                  if ( mappedType == null )
-                  {
-                     throw this.NewCILMergeException( ExitCode.PCL2TargetTypeFail, "Failed to find type " + result + " from target framework." );
-                  }
-                  result = mappedType;
-               }
-               return result;
-            } );
-      }
-
-      private void ProcessCustomModifiers( CILElementWithCustomModifiers newElement, CILElementWithCustomModifiers oldElement )
-      {
-         foreach ( var mod in oldElement.CustomModifiers )
-         {
-            newElement.AddCustomModifier( this.ProcessTypeRef( mod.Modifier ), mod.Optionality );
-         }
-      }
-
-      private CILCustomModifier ProcessCustomModifier( CILCustomModifier mod )
-      {
-         return CILCustomModifierFactory.CreateModifier( mod.Optionality, this.ProcessTypeRef( mod.Modifier ) );
-      }
-
-      private TMethod ProcessMethodRef<TMethod>( TMethod method )
-         where TMethod : class,CILMethodBase
-      {
-         return method == null ?
-            null :
-            (TMethod) this._methodMapping.GetOrAdd( method, mm =>
-            {
-               CILMethodBase result = mm;
-               var m = method as CILMethod;
-
-               if ( m != null && m.HasGenericArguments() && !m.IsGenericMethodDefinition() )
-               {
-                  result = this.ProcessMethodRef( m.GenericDefinition ).MakeGenericMethod( m.GenericArguments.Select( g => this.ProcessTypeRef( g ) ).ToArray() );
-               }
-               else if ( method.DeclaringType.IsGenericType() && !method.DeclaringType.IsGenericTypeDefinition() )
-               {
-                  result = this.ProcessMethodRef( method.ChangeDeclaringTypeUT( method.DeclaringType.GenericDefinition.GenericArguments.ToArray() ) )
-                     .ChangeDeclaringTypeUT( method.DeclaringType.GenericArguments.Select( g => this.ProcessTypeRef( g ) ).ToArray() );
-               }
-               else if ( this._pcl2TargetMapping != null )
-               {
-                  var tt = this.ProcessTypeRef( method.DeclaringType );
-                  if ( !tt.Equals( method.DeclaringType ) )
-                  {
-                     if ( result is CILConstructor )
-                     {
-                        result = tt.Constructors.FirstOrDefault( ctor => this.MatchMethodParams( (CILConstructor) result, ctor ) );
-                     }
-                     else
-                     {
-                        result = tt.DeclaredMethods.FirstOrDefault( mtd => String.Equals( mtd.Name, result.GetName() ) && this.MatchMethodParams( (CILMethod) result, mtd ) && this.MatchMethodParam( ( (CILMethod) result ).ReturnParameter, mtd.ReturnParameter ) && ( (CILMethod) result ).GenericArguments.Count == mtd.GenericArguments.Count );
-                     }
-                     if ( result == null )
-                     {
-                        throw this.NewCILMergeException( ExitCode.PCL2TargetMethodFail, "Failed to find method " + mm + " from target framework." );
-                     }
-                  }
-               }
-               return result;
-            } );
-      }
-
-      private Boolean MatchMethodParams<TMethod>( TMethod pclMethod, TMethod targetMethod )
-         where TMethod : CILMethodBase
-      {
-         return pclMethod.Parameters.Count == targetMethod.Parameters.Count &&
-            pclMethod.Parameters.All( p => this.MatchMethodParam( p, targetMethod.Parameters[p.Position] ) );
-      }
-
-      private Boolean MatchMethodParam( CILParameter pclParam, CILParameter targetParam )
-      {
-         return String.Equals( pclParam.ParameterType.ToString(), targetParam.ParameterType.ToString() );// targetParam.ParameterType.Equals( this.ProcessTypeRef( pclParam.ParameterType ) );
-      }
-
-      private CILField ProcessFieldRef( CILField field )
-      {
-         return field == null ?
-            null :
-            this._fieldMapping.GetOrAdd( field, ff =>
-            {
-               var result = ff;
-               if ( field.DeclaringType.IsGenericType() && !field.DeclaringType.IsGenericTypeDefinition() )
-               {
-                  result = this.ProcessFieldRef( field.ChangeDeclaringType( field.DeclaringType.GenericDefinition.GenericArguments.ToArray() ) )
-                     .ChangeDeclaringType( field.DeclaringType.GenericArguments.Select( g => this.ProcessTypeRef( g ) ).ToArray() );
-               }
-               else if ( this._pcl2TargetMapping != null )
-               {
-                  var tt = this.ProcessTypeRef( field.DeclaringType );
-                  if ( !tt.Equals( field.DeclaringType ) )
-                  {
-                     result = tt.DeclaredFields.FirstOrDefault( f => String.Equals( f.Name, result.Name ) && String.Equals( f.FieldType.ToString(), result.FieldType.ToString() ) );//   f.FieldType.Equals( this.ProcessTypeRef( result.FieldType ) ) );
-                     if ( result == null )
-                     {
-                        throw this.NewCILMergeException( ExitCode.PCL2TargetFieldFail, "Failed to find field " + field + " from target framework." );
-                     }
-                  }
-               }
-               return result;
-            } );
-      }
-
-      private void ProcessCustomAttributes( CILCustomAttributeContainer newContainer, CILCustomAttributeContainer oldContainer )
-      {
-         foreach ( var attr in oldContainer.CustomAttributeData )
-         {
-            this.ProcessCustomAttribute( newContainer, attr );
-         }
-      }
-
-      private CILCustomAttribute ProcessCustomAttribute( CILCustomAttributeContainer container, CILCustomAttribute attr )
-      {
-         return container.AddCustomAttribute(
-            this.ProcessMethodRef( attr.Constructor ),
-            attr.ConstructorArguments.Select( this.ProcessCustomAttributeTypedArg ),
-            attr.NamedArguments.Select( this.ProcessCustomAttributeNamedArg ) );
-      }
-
-      private CILCustomAttributeTypedArgument ProcessCustomAttributeTypedArg( CILCustomAttributeTypedArgument arg )
-      {
-         return CILCustomAttributeFactory.NewTypedArgument( this.ProcessTypeRef( arg.ArgumentType ), arg.Value is CILTypeBase ? this.ProcessTypeRef( (CILTypeBase) arg.Value ) : arg.Value );
-      }
-
-      private CILCustomAttributeNamedArgument ProcessCustomAttributeNamedArg( CILCustomAttributeNamedArgument arg )
-      {
-         return CILCustomAttributeFactory.NewNamedArgument( this.ProcessCustomAttributeNamedOwner( arg.NamedMember ), this.ProcessCustomAttributeTypedArg( arg.TypedValue ) );
-      }
-
-      private CILElementForNamedCustomAttribute ProcessCustomAttributeNamedOwner( CILElementForNamedCustomAttribute element )
-      {
-         return element is CILField ? (CILElementForNamedCustomAttribute) this.ProcessFieldRef( (CILField) element ) : this.ProcessPropertyRef( (CILProperty) element );
-      }
-
-      private CILProperty ProcessPropertyRef( CILProperty prop )
-      {
-         return prop == null ?
-            null :
-            this._propertyMapping.GetOrAdd( prop, p =>
-            {
-               var result = p;
-               if ( prop.DeclaringType.IsGenericType() && !prop.DeclaringType.IsGenericTypeDefinition() )
-               {
-                  result = this.ProcessPropertyRef( prop.ChangeDeclaringType( prop.DeclaringType.GenericDefinition.GenericArguments.ToArray() ) )
-                     .ChangeDeclaringType( prop.DeclaringType.GenericArguments.Select( g => this.ProcessTypeRef( g ) ).ToArray() );
-               }
-               return result;
-            } );
-      }
-
-      private CILEvent ProcessEventRef( CILEvent evt )
-      {
-         return evt == null ?
-            null :
-            this._eventMapping.GetOrAdd( evt, e =>
-            {
-               var result = e;
-               if ( evt.DeclaringType.IsGenericType() && !evt.DeclaringType.IsGenericTypeDefinition() )
-               {
-                  result = this.ProcessEventRef( evt.ChangeDeclaringType( evt.DeclaringType.GenericDefinition.GenericArguments.ToArray() ) )
-                     .ChangeDeclaringType( evt.DeclaringType.GenericArguments.Select( g => this.ProcessTypeRef( g ) ).ToArray() );
-               }
-               return result;
-            } );
-      }
-      private void ProcessTargetAssemblyAttributes()
-      {
-         var attrSource = this._options.AttrSource;
-         if ( attrSource != null )
-         {
-            // Copy all attributes from module assembly
-            //EmittingArguments eArgs; CILModule mod;
-            //this.LoadModuleAndArgs( attrSource, out eArgs, out mod, ExitCode.AttrFileSpecifiedButDoesNotExist, "There was an error accessing assembly attribute file " + attrSource + "." );
-            this.ProcessCustomAttributes( this._targetModule, this._assemblyLoader.LoadAssemblyFrom( attrSource ) );
-         }
-         else
-         {
-            // Primary module always first.
-            var mods = this._options.CopyAttributes ?
-               this._inputModules.ToArray() :
-               new[] { this._primaryModule };
-
-            var set = new HashSet<CILCustomAttribute>( ComparerFromFunctions.NewEqualityComparer<CILCustomAttribute>( ( attr1, attr2 ) =>
-            {
-               return String.Equals( attr1.Constructor.DeclaringType.GetAssemblyQualifiedName(), attr2.Constructor.DeclaringType.GetAssemblyQualifiedName() );
-            }, attr => attr.Constructor.DeclaringType.ToString().GetHashCode() ) );
-            var allowMultipleOption = this._options.AllowMultipleAssemblyAttributes;
-            foreach ( var mod in mods )
-            {
-               foreach ( var ca in mod.Assembly.CustomAttributeData )
-               {
-                  if ( !set.Add( ca ) )
-                  {
-                     if ( allowMultipleOption
-                        && ca.Constructor.DeclaringType.CustomAttributeData.Any( ca2 =>
-                        String.Equals( ATTRIBUTE_USAGE_TYPE.FullName, ca2.Constructor.DeclaringType.GetFullName() )
-                        && ca2.NamedArguments.Any( na =>
-                           String.Equals( na.NamedMember.Name, ALLOW_MULTIPLE_PROP.Name )
-                           && na.TypedValue.Value is Boolean
-                           && (Boolean) na.TypedValue.Value ) ) )
-                     {
-                        this.ProcessCustomAttribute( this._targetModule.Assembly, ca );
-                     }
-                     else
-                     {
-                        set.Remove( ca );
-                        set.Add( ca );
-                     }
-                  }
-               }
-            }
-            foreach ( var ca in set )
-            {
-               this.ProcessCustomAttribute( this._targetModule.Assembly, ca );
-            }
-         }
-      }
-
-      private Boolean IsDuplicateOK( ref String newName, String fullTypeString, TypeAttributes newTypeAttrs )
-      {
-         var retVal = !this._options.Union && ( !newTypeAttrs.IsVisibleToOutsideOfDefinedAssembly() || this._options.AllowDuplicateTypes == null || this._options.AllowDuplicateTypes.Contains( fullTypeString ) );
-         if ( retVal )
-         {
-            // Have to rename
-            var i = 2;
-            var namePrefix = newName;
-            do
-            {
-               newName = namePrefix + i;
-               ++i;
-            } while ( !this._allInputTypeNames.Add( newName ) );
+                  Bytes = ( (RawCustomAttributeSignature) sig ).Bytes.CreateBlockCopy()
+               };
+               break;
+            case CustomAttributeSignatureKind.Resolved:
+               var resolved = (CustomAttributeSignature) sig;
+               var resolvedRetVal = new CustomAttributeSignature( resolved.TypedArguments.Count, resolved.NamedArguments.Count );
+               resolvedRetVal.TypedArguments.AddRange( resolved.TypedArguments.Select( arg => this.ProcessCATypedArg( arg ) ) );
+               resolvedRetVal.NamedArguments.AddRange( resolved.NamedArguments.Select( arg => this.ProcessCANamedArg( arg ) ) );
+               retVal = resolvedRetVal;
+               break;
+            default:
+               throw new NotSupportedException( "Unsupported custom attribute signature kind: " + sig.CustomAttributeSignatureKind + "." );
          }
          return retVal;
       }
 
-
-
-      private void _assemblyLoader_ModuleLoadedEvent( object sender, ModuleLoadedEventArgs e )
+      private CustomAttributeNamedArgument ProcessCANamedArg( CustomAttributeNamedArgument arg )
       {
-         //if (this._inputModules.Count > 0)
-         //{
-         // Only react after we have loaded primary module
-         String rFWName, rFWVersion, rFWProfile;
-         var primaryArgs = this._assemblyLoader.GetEmittingArgumentsFor( this._inputModules[0] );
-         if ( primaryArgs.FrameworkName != null
-             && primaryArgs.FrameworkVersion != null
-             && e.EmittingArguments.FrameworkName == null
-             && e.EmittingArguments.FrameworkVersion == null
-             && this._assemblyLoader.Callbacks.TryGetFrameworkInfo( e.Resource, out rFWName, out rFWVersion, out rFWProfile )
-             && !String.Equals( primaryArgs.FrameworkName, rFWName ) // || !String.Equals( primaryArgs.FrameworkVersion, rFWVersion ) )
-            )
+         return new CustomAttributeNamedArgument()
          {
-            // We are changing framework (e.g. merging .NET assembly with PCLs)
+            IsField = arg.IsField,
+            Name = arg.Name,
+            Value = this.ProcessCATypedArg( arg.Value )
+         };
+      }
 
-            // Add mapping from loaded assembly to target framework assembly
-            if ( this._pcl2TargetMapping == null )
+      private CustomAttributeTypedArgument ProcessCATypedArg( CustomAttributeTypedArgument arg )
+      {
+         return new CustomAttributeTypedArgument()
+         {
+            Type = this.ProcessCATypedArgType( arg.Type ),
+            Value = arg.Type.IsSimpleTypeOfKind( SignatureElementTypes.Type ) ? this.ProcessTypeString( (String) arg.Value ) : arg.Value
+         };
+      }
+
+      private CustomAttributeArgumentType ProcessCATypedArgType( CustomAttributeArgumentType type )
+      {
+         switch ( type.ArgumentTypeKind )
+         {
+            case CustomAttributeArgumentTypeKind.Array:
+               return new CustomAttributeArgumentTypeArray()
+               {
+                  ArrayType = this.ProcessCATypedArgType( ( (CustomAttributeArgumentTypeArray) type ).ArrayType )
+               };
+            case CustomAttributeArgumentTypeKind.Simple:
+               return type;
+            case CustomAttributeArgumentTypeKind.TypeString:
+               return new CustomAttributeArgumentTypeEnum()
+               {
+                  TypeString = this.ProcessTypeString( ( (CustomAttributeArgumentTypeEnum) type ).TypeString )
+               };
+            default:
+               throw new NotSupportedException( "Unsupported custom attribute typed argument type: " + type.ArgumentTypeKind + "." );
+         }
+      }
+
+      private ManifestResource ProcessManifestResource(
+         CILMetaData md,
+         String resourceName,
+         IDictionary<String, IList<Tuple<CILMetaData, ManifestResource>>> resourcesByName
+         )
+      {
+         var list = resourcesByName[resourceName];
+         if ( list.Count > 1 )
+         {
+            if ( !this._options.AllowDuplicateResources )
             {
-               this._pcl2TargetMapping = new Dictionary<CILAssembly, CILAssembly>();
+               this.Log( MessageLevel.Warning, "Ignoring duplicate resource {0} in modules {1}.", resourceName, String.Join( ", ", list.Skip( 1 ).Select( t => this._moduleLoader.GetResourceFor( t.Item1 ) ) ) );
+               var first = list[0];
+               list = new List<Tuple<CILMetaData, ManifestResource>>()
+               {
+                  first
+               };
             }
-            // Key - this framework library, value - primary input module target framework library
-            var loadedAssembly = e.Module.Assembly;
-            String targetFWRes;
-
-            if ( !this._pcl2TargetMapping.ContainsKey( loadedAssembly )
-               && this._assemblyLoader.Callbacks.TryGetFrameworkAssemblyPath(
-               e.Resource,
-               new CILAssemblyName( loadedAssembly.Name ),
-               primaryArgs.FrameworkName,
-               primaryArgs.FrameworkVersion,
-               primaryArgs.FrameworkProfile,
-               out targetFWRes
-               ) )
+            else if ( list.All( t => !t.Item2.IsEmbeddedResource() ) )
             {
-               this._pcl2TargetMapping.Add( loadedAssembly, this._assemblyLoader.LoadModuleFrom( targetFWRes ).Assembly );
+               // All are external resource -> just use one
+               this.Log( MessageLevel.Warning, "Multiple external resource {0} in modules {1}, using resource from first module.", resourceName, String.Join( ", ", list.Select( t => this._moduleLoader.GetResourceFor( t.Item1 ) ) ) );
+               var first = list[0];
+               list = new List<Tuple<CILMetaData, ManifestResource>>()
+               {
+                  first
+               };
+            }
+            else if ( list.Any( t => !t.Item2.IsEmbeddedResource() ) )
+            {
+               var embedded = list.Where( t => t.Item2.IsEmbeddedResource() );
+               this.Log( MessageLevel.Warning, "Resource {0} is not embedded in all input modules, merging only embedded ones from modules {1}.", resourceName, String.Join( ", ", embedded.Select( t => this._moduleLoader.GetResourceFor( t.Item1 ) ) ) );
+               list = embedded.ToList();
             }
          }
-         //}
-      }
 
-      //private Byte[] GetPublicKeyToken( Byte[] pk )
-      //{
-      //   var hash = this._csp.Value.ComputeHash( pk );
-      //   return hash.Skip( hash.Length - 8 ).Reverse().ToArray();
-      //}
-
-      private static CILModule GetMainModuleOrFirst( CILAssembly ass )
-      {
-         return ass.MainModule ?? ass.Modules[0];
-      }
-
-      private CILMergeException NewCILMergeException( ExitCode code, String message, Exception inner = null )
-      {
-         return this._merger.NewCILMergeException( code, message, inner );
-      }
-
-      private void Log( MessageLevel mLevel, String formatString, params Object[] args )
-      {
-         this._merger.Log( mLevel, formatString, args );
-      }
-
-      private void DoPotentiallyInParallel<T>( IEnumerable<T> enumerable, Action<Boolean, T> action )
-      {
-         this._merger.DoPotentiallyInParallel( enumerable, action );
-      }
-
-      private void MergeResources()
-      {
-         foreach ( var mod in this._inputModules )
+         var firstRes = list[0].Item2;
+         var retVal = new ManifestResource()
          {
-            foreach ( var kvp in mod.ManifestResources )
+            Attributes = firstRes.Attributes,
+            Implementation = firstRes.Implementation,
+            Name = resourceName,
+            Offset = firstRes.Offset
+         };
+
+         if ( firstRes.IsEmbeddedResource() )
+         {
+            // Then all resources are embedded
+            using ( var strm = new MemoryStream() )
             {
-               if ( this._targetModule.ManifestResources.ContainsKey( kvp.Key ) )
+               var rw = new System.Resources.ResourceWriter( strm );
+               foreach ( var tuple in list )
                {
-                  if ( !this._options.AllowDuplicateResources )
+                  var inputResource = tuple.Item2;
+                  var data = inputResource.DataInCurrentFile;
+                  Boolean wasResourceManager;
+                  foreach ( var resx in MResourcesIO.GetResourceInfo( data, out wasResourceManager ) )
                   {
-                     this.Log( MessageLevel.Warning, "Ignoring duplicate resource {0} in module {1}.", kvp.Key, mod );
-                  }
-               }
-               else
-               {
-                  var res = kvp.Value;
-                  ManifestResource resourceToAdd = null;
-                  if ( res is EmbeddedManifestResource )
-                  {
-                     var data = ( (EmbeddedManifestResource) res ).Data;
-                     var strm = new MemoryStream( data.Length );
-                     var rw = new System.Resources.ResourceWriter( strm );
-                     Boolean wasResourceManager;
-                     foreach ( var resx in MResourcesIO.GetResourceInfo( data, out wasResourceManager ) )
+                     var resName = resx.Name;
+                     var resType = resx.Type;
+                     if ( !resx.IsUserDefinedType && String.Equals( "ResourceTypeCode.String", resType ) )
                      {
-                        var resName = resx.Item1;
-                        var resType = resx.Item2;
-                        if ( !resx.Item3 && String.Equals( "ResourceTypeCode.String", resType ) )
+                        // In case there is textual information about types serialized, have to fix that.
+                        var idx = resx.DataOffset;
+                        var strlen = data.ReadInt32Encoded7Bit( ref idx );
+                        rw.AddResource( resName, this.ProcessTypeString( data.ReadStringWithEncoding( ref idx, strlen, Encoding.UTF8 ) ) );
+                     }
+                     else
+                     {
+                        var newTypeStr = this.ProcessTypeString( resType );
+                        if ( String.Equals( newTypeStr, resType ) )
                         {
-                           // In case there is textual information about types serialized, have to fix that.
-                           var idx = resx.Item4;
-                           var strlen = data.ReadInt32Encoded7Bit( ref idx );
-                           rw.AddResource( resName, this.ProcessTypeString( data.ReadStringWithEncoding( ref idx, strlen, Encoding.UTF8 ) ) );
+                           // Predefined ResourceTypeCode or pure reference type, add right away
+                           var array = new Byte[resx.DataSize];
+                           var dataStart = resx.DataOffset;
+                           data.BlockCopyFrom( ref dataStart, array );
+                           rw.AddResourceData( resName, resType, array );
                         }
                         else
                         {
-                           var newTypeStr = this.ProcessTypeString( resType );
-                           if ( String.Equals( newTypeStr, resType ) )
+                           // Have to fix records one by one
+                           var idx = resx.DataOffset;
+                           var records = MResourcesIO.ReadNRBFRecords( data, ref idx, idx + resx.DataSize );
+                           foreach ( var rec in records )
                            {
-                              // Predefined ResourceTypeCode or pure reference type, add right away
-                              var array = new Byte[resx.Item5];
-                              var dataStart = resx.Item4;
-                              data.BlockCopyFrom( ref dataStart, array );
-                              rw.AddResourceData( resName, resType, array );
+                              this.ProcessNRBFRecord( rec );
                            }
-                           else
-                           {
-                              // Have to fix records one by one
-                              var idx = resx.Item4;
-                              var records = MResourcesIO.ReadNRBFRecords( data, ref idx, idx + resx.Item5 );
-                              foreach ( var rec in records )
-                              {
-                                 this.ProcessNRBFRecord( rec );
-                              }
-                              var strm2 = new MemoryStream();
-                              MResourcesIO.WriteNRBFRecords( records, strm2 );
-                              rw.AddResourceData( resName, newTypeStr, strm2.ToArray() );
-                           }
+                           var strm2 = new MemoryStream();
+                           MResourcesIO.WriteNRBFRecords( records, strm2 );
+                           rw.AddResourceData( resName, newTypeStr, strm2.ToArray() );
                         }
                      }
-                     rw.Generate();
-                     resourceToAdd = new EmbeddedManifestResource( res.Attributes, strm.ToArray() );
-                  }
-
-                  else
-                  {
-                     var resMod = ( (ModuleManifestResource) res ).Module;
-                     if ( resMod != null && !this._inputModules.Any( m => Object.Equals( m, resMod ) ) )
-                     {
-                        // Resource module which is not part of the input modules - add it to make an assembly-ref module manifest
-                        resourceToAdd = res;
-                     }
-                     // TODO - what if resource-module is part of input modules... ? Should we add link to embedded resource?
-                  }
-                  if ( resourceToAdd != null )
-                  {
-                     this._targetModule.ManifestResources.Add( kvp.Key, resourceToAdd );
                   }
                }
-            }
 
-         }
-      }
-
-      private String ProcessTypeString( String typeStr )
-      {
-         if ( !String.IsNullOrEmpty( typeStr ) )
-         {
-            var idx = typeStr.IndexOf( ", " );
-            if ( idx > 0 && idx < typeStr.Length - 2 ) // Skip empty type names and type names without assembly name (will be automatically correct)
-            {
-               var aStartIdx = idx;
-               // Skip whitespaces after comma
-               while ( ++aStartIdx < typeStr.Length && Char.IsWhiteSpace( typeStr[aStartIdx] ) ) ;
-               var assName = typeStr.Substring( aStartIdx );
-               // Check whether we actually need to fix the name
-               if ( !String.Equals( assName, this.ProcessAssemblyName( assName ) ) )
-               {
-                  typeStr = this.ProcessTypeName( this._assemblyNameCache[assName].Name, typeStr.Substring( 0, idx ) ); // No need for assembly name since resulting type will be in the target assembly
-               }
+               rw.Generate();
+               retVal.DataInCurrentFile = strm.ToArray();
             }
          }
-
-         return typeStr;
-      }
-
-      private String ProcessTypeName( String simpleAssName, String typeName )
-      {
-         String str;
-         if ( this._typeRenames.TryGetValue( Tuple.Create( simpleAssName, typeName ), out str ) )
+         else
          {
-            typeName = str;
+            // None are embedded, meaning that there is only one resource, just use its implementation table index
+            retVal.Implementation = firstRes.Implementation;
          }
-         return typeName;
-      }
 
-      private String ProcessAssemblyName( String assName )
-      {
-         if ( !String.IsNullOrEmpty( assName ) )
-         {
-            var an = this._assemblyNameCache.GetOrAdd_NotThreadSafe( assName, ani =>
-            {
-               CILAssemblyName anii;
-               if ( CILAssemblyName.TryParse( ani, out anii ) )
-               {
-                  return anii;
-               }
-               else
-               {
-                  return null;
-               }
-            } );
-            if ( this._inputModules.Any( m => m.Assembly.Name.CorePropertiesEqual( an ) ) )
-            {
-               // TODO this can be optimized so .ToString() wouldn't need to be called every time
-               assName = this._targetModule.Assembly.Name.ToString();
-            }
-         }
-         return assName;
+         return retVal;
       }
 
       private void ProcessNRBFRecord( AbstractRecord record )
@@ -3151,29 +2664,1103 @@ namespace CILMerge
          var tmp = element.AssemblyName;
          if ( tmp != null )
          {
-            var tmp2 = this.ProcessAssemblyName( tmp );
-            if ( !String.Equals( tmp, tmp2 ) )
-            {
-               element.AssemblyName = tmp2;
-            }
-            tmp2 = this.ProcessTypeName( this._assemblyNameCache[tmp].Name, element.TypeName );
-            if ( !String.Equals( element.TypeName, tmp2 ) )
-            {
-               element.TypeName = tmp2;
-            }
+            CILMetaData referencedInputAssembly;
+            element.AssemblyName = this.ProcessAssemblyName( tmp, out referencedInputAssembly );
+            element.TypeName = this.ProcessTypeName( referencedInputAssembly, element.TypeName );
          }
       }
 
-      private void MergePDBs( EmittingArguments targetEArgs, EmittingArguments[] inputEArgs )
+      private String ProcessTypeName( CILMetaData referencedInputAssembly, String typeName )
+      {
+         if ( referencedInputAssembly != null )
+         {
+            Int32 tDefIdx;
+            if ( this._inputModuleTypeNames[referencedInputAssembly].TryGetValue( typeName, out tDefIdx ) )
+            {
+               typeName = this._targetTypeNames[tDefIdx];
+            }
+            else
+            {
+               this.Log( MessageLevel.Warning, "Resource of type {0} from input module {1} did not have corresponding type within module itself.", typeName, this._moduleLoader.GetResourceFor( referencedInputAssembly ) );
+            }
+         }
+         return typeName;
+      }
+
+      private String ProcessAssemblyName( String assName, out CILMetaData referencedInputAssembly )
+      {
+         AssemblyInformation assInfo; Boolean isFullPublicKey;
+         referencedInputAssembly = null;
+         if ( AssemblyInformation.TryParse( assName, out assInfo, out isFullPublicKey ) )
+         {
+
+            var aRef = new AssemblyReference();
+            assInfo.DeepCopyContentsTo( aRef.AssemblyInformation );
+            if ( isFullPublicKey )
+            {
+               aRef.Attributes = AssemblyFlags.PublicKey;
+            }
+            if ( this._inputModulesAsAssemblyReferences.TryGetValue( aRef, out referencedInputAssembly ) )
+            {
+               // TODO maybe assembly name should be null/empty, since in same assembly??
+               assName = this._targetModule.AssemblyDefinitions[0].ToString();
+            }
+         }
+
+         return assName;
+      }
+
+      private void Log( MessageLevel mLevel, String formatString, params Object[] args )
+      {
+         this._merger.Log( mLevel, formatString, args );
+      }
+
+      private CILMergeException NewCILMergeException( ExitCode code, String message, Exception inner = null )
+      {
+         return this._merger.NewCILMergeException( code, message, inner );
+      }
+
+      private void DoPotentiallyInParallel<T>( IEnumerable<T> enumerable, Action<Boolean, T> action )
+      {
+         this._merger.DoPotentiallyInParallel( enumerable, action );
+      }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+      //internal Tuple<String[], IDictionary<Tuple<String, String>, String>> EmitTargetAssembly()
+      //{
+      //   // TODO log all options here.
+
+      //   this.LoadAllInputModules();
+
+      //   // Save input emitting arguments for possible PDB emission later.
+      //   var inputEArgs = this._assemblyLoader.CurrentlyLoadedModules.Select( m => this._assemblyLoader.GetEmittingArgumentsFor( m ) ).ToArray();
+      //   var inputFileNames = this._assemblyLoader.CurrentlyLoadedModules.Select( m => this._assemblyLoader.GetResourceFor( m ) ).ToArray();
+
+      //   // Create target module
+      //   this._targetModule = this._ctx.NewBlankAssembly( Path.GetFileNameWithoutExtension( this._options.OutPath ) ).AddModule( Path.GetFileName( this._options.OutPath ) );
+
+      //   // Get emitting arguments already at this stage - this will also set the correct AssociatedMSCorLib for the target module.
+      //   var targetEArgs = this.CreateEmittingArgumentsForTargetModule();
+
+      //   if ( !this._options.Union )
+      //   {
+      //      // Have to generate set of all used type names in order for renaming to be stable.
+      //      foreach ( var t in this._inputModules.SelectMany( m => m.DefinedTypes.SelectMany( t => t.AsDepthFirstEnumerable( tt => tt.DeclaredNestedTypes ) ) ) )
+      //      {
+      //         this._allInputTypeNames.Add( t.ToString() );
+      //      }
+      //   }
+
+      //   var an = this._targetModule.Assembly.Name;
+      //   an.Culture = this._primaryModule.Assembly.Name.Culture;
+      //   if ( targetEArgs.StrongName != null )
+      //   {
+      //      an.PublicKey = targetEArgs.StrongName.KeyPair.ToArray();
+      //   }
+      //   if ( this._options.VerMajor > -1 )
+      //   {
+      //      // Version was specified explictly
+      //      an.MajorVersion = this._options.VerMajor;
+      //      an.MinorVersion = this._options.VerMinor;
+      //      an.BuildNumber = this._options.VerBuild;
+      //      an.Revision = this._options.VerRevision;
+      //   }
+      //   else
+      //   {
+      //      var an2 = this._primaryModule.Assembly.Name;
+      //      an.MajorVersion = an2.MajorVersion;
+      //      an.MinorVersion = an2.MinorVersion;
+      //      an.BuildNumber = an2.BuildNumber;
+      //      an.Revision = an2.Revision;
+      //   }
+
+      //   // Two sweeps - first create structure
+      //   this.ProcessTargetModule( true );
+
+      //   // Then add type references and IL
+      //   this.ProcessTargetModule( false );
+
+      //   // Then merge resources
+      //   if ( !this._options.NoResources )
+      //   {
+      //      this.MergeResources();
+      //   }
+
+      //   // Remember process entry point
+      //   targetEArgs.CLREntryPoint = this.ProcessMethodRef( targetEArgs.CLREntryPoint );
+
+      //   // Emit the module
+      //   try
+      //   {
+      //      using ( var fs = File.Open( this._options.OutPath, FileMode.Create, FileAccess.ReadWrite, FileShare.None ) )
+      //      {
+      //         this._targetModule.EmitModule( fs, targetEArgs );
+      //      }
+      //   }
+      //   catch ( Exception exc )
+      //   {
+      //      throw this.NewCILMergeException( ExitCode.ErrorAccessingTargetFile, "Error accessing target file " + this._options.OutPath + "(" + exc + ").", exc );
+      //   }
+
+      //   var badRefs = targetEArgs.AssemblyRefs.Where( aName => this._inputModules.Any( m => m.Assembly.Name.CorePropertiesEqual( aName ) ) ).ToArray();
+      //   if ( badRefs.Length > 0 )
+      //   {
+      //      throw this.NewCILMergeException( ExitCode.FailedToProduceCorrectResult, "Internal error: the resulting assembly still references " + String.Join( ", ", (Object[]) badRefs ) + "." );
+      //   }
+
+      //   // Merge PDBs
+      //   if ( this._pdbHelper != null )
+      //   {
+      //      this.MergePDBs( targetEArgs, inputEArgs );
+      //   }
+
+      //   return Tuple.Create( inputFileNames, this._typeRenames == null || this._typeRenames.Count == 0 ? null : this._typeRenames );
+      //}
+
+
+
+
+
+      //private void ProcessTargetModule( Boolean creating )
+      //{
+      //   // Don't do this in parallel - too much congestion.
+      //   // Process primary module first in case of _name conflicts
+      //   foreach ( var mod in this._inputModules )
+      //   {
+      //      this.ProcessModule( mod, creating );
+      //   }
+
+      //   if ( !creating )
+      //   {
+      //      this.ProcessTargetAssemblyAttributes();
+      //   }
+      //}
+
+      //private void ProcessModule( CILModule inputModule, Boolean creating )
+      //{
+      //   foreach ( var t in inputModule.DefinedTypes )
+      //   {
+      //      this.ProcessTypeDefinition( this._targetModule, t, creating );
+      //   }
+      //}
+
+      //private void ProcessTypeDefinition( CILElementCapableOfDefiningType owner, CILType oldType, Boolean creating )
+      //{
+      //   CILType newType;
+      //   if ( creating )
+      //   {
+      //      var typeStr = oldType.ToString();
+      //      var added = this._typesByName.Add( typeStr );
+      //      var typeAttrs = this.GetNewTypeAttributesForType( owner, oldType, typeStr );
+      //      var newName = oldType.Name;
+      //      if ( added || this.IsDuplicateOK( ref newName, typeStr, typeAttrs ) )
+      //      {
+      //         newType = this.AddNewTypeToTarget( owner, oldType, typeAttrs, newName );
+      //         if ( !added )
+      //         {
+      //            // Rename occurred, save information
+      //            this._typeRenames.Add( Tuple.Create( oldType.Module.Assembly.Name.Name, typeStr ), newType.ToString() );
+      //         }
+      //      }
+      //      else if ( this._options.Union )
+      //      {
+      //         newType = this._targetModule.GetTypeByName( typeStr );
+      //         this._typeMapping.TryAdd( oldType, newType );
+      //      }
+      //      else
+      //      {
+      //         throw this.NewCILMergeException( ExitCode.DuplicateTypeName, "The type " + oldType + " appears in more than one assembly." );
+      //      }
+      //   }
+      //   else
+      //   {
+      //      newType = (CILType) this._typeMapping[oldType];
+      //   }
+
+      //   if ( creating )
+      //   {
+      //      newType.Layout = oldType.Layout;
+      //      newType.Namespace = oldType.Namespace;
+      //   }
+      //   else
+      //   {
+      //      this.ProcessCustomAttributes( newType, oldType );
+      //      newType.AddDeclaredInterfaces( oldType.DeclaredInterfaces.Select( this.ProcessTypeRef ).ToArray() );
+      //      newType.BaseType = this.ProcessTypeRef( oldType.BaseType );
+      //      this.ProcessGenericParameters( newType, oldType );
+      //      this.ProcessDeclSecurity( newType, oldType );
+      //   }
+
+      //   // Process type structure
+      //   foreach ( var nt in oldType.DeclaredNestedTypes )
+      //   {
+      //      this.ProcessTypeDefinition( newType, nt, creating );
+      //   }
+      //   foreach ( var ctor in oldType.Constructors )
+      //   {
+      //      this.ProcessConstructor( newType, ctor, creating );
+      //   }
+      //   foreach ( var method in oldType.DeclaredMethods )
+      //   {
+      //      this.ProcessMethod( newType, method, creating );
+      //   }
+      //   foreach ( var field in oldType.DeclaredFields )
+      //   {
+      //      this.ProcessField( newType, field, creating );
+      //   }
+      //   foreach ( var prop in oldType.DeclaredProperties )
+      //   {
+      //      this.ProcessProperty( newType, prop, creating );
+      //   }
+      //   foreach ( var evt in oldType.DeclaredEvents )
+      //   {
+      //      this.ProcessEvent( newType, evt, creating );
+      //   }
+      //}
+
+      //private void ProcessDeclSecurity( CILElementWithSecurityInformation newElem, CILElementWithSecurityInformation oldElem )
+      //{
+      //   foreach ( var ds in oldElem.DeclarativeSecurity.Values.SelectMany( l => l ) )
+      //   {
+      //      var nds = newElem.AddDeclarativeSecurity( ds.SecurityAction, ds.SecurityAttributeType );
+      //      foreach ( var na in ds.NamedArguments )
+      //      {
+      //         nds.NamedArguments.Add( this.ProcessCustomAttributeNamedArg( na ) );
+      //      }
+      //   }
+      //}
+
+      //private void ProcessGenericParameters<TGDef>( CILElementWithGenericArguments<TGDef> newElem, CILElementWithGenericArguments<TGDef> oldElem )
+      //   where TGDef : class
+      //{
+      //   foreach ( CILTypeParameter gp in oldElem.GenericArguments )
+      //   {
+      //      var newGP = (CILTypeParameter) newElem.GenericArguments[gp.GenericParameterPosition];
+      //      newGP.AddGenericParameterConstraints( gp.GenericParameterConstraints.Select( c => this.ProcessTypeRef( c ) ).ToArray() );
+      //      newGP.Attributes = gp.Attributes;
+      //      this.ProcessCustomAttributes( newGP, gp );
+      //   }
+      //}
+
+      //private TypeAttributes GetNewTypeAttributesForType( CILElementCapableOfDefiningType owner, CILType oldType, String typeString )
+      //{
+      //   var attrs = oldType.Attributes;
+      //   if ( this._options.Internalize && !this._primaryModule.Equals( oldType.Module ) && !this._excludeRegexes.Value.Any( reg => reg.IsMatch( typeString ) || reg.IsMatch( "[" + oldType.Module.Assembly.Name.Name + "]" + typeString ) ) )
+      //   {
+      //      // Have to make this type internal
+      //      if ( owner is CILModule )
+      //      {
+      //         attrs &= ~TypeAttributes.VisibilityMask;
+      //      }
+      //      else if ( attrs.IsNestedPublic() )
+      //      {
+      //         attrs |= TypeAttributes.VisibilityMask;
+      //         attrs &= ( ( ~TypeAttributes.VisibilityMask ) | TypeAttributes.NestedAssembly );
+      //      }
+      //      else if ( attrs.IsNestedFamily() || attrs.IsNestedFamilyORAssembly() )
+      //      {
+      //         attrs |= TypeAttributes.VisibilityMask;
+      //         attrs &= ( ~TypeAttributes.VisibilityMask ) | TypeAttributes.NestedFamANDAssem;
+      //      }
+      //   }
+      //   return attrs;
+      //}
+
+      //private CILType AddNewTypeToTarget( CILElementCapableOfDefiningType owner, CILType other, TypeAttributes attrs, String newName )
+      //{
+      //   var t = owner.AddType( newName ?? other.Name, attrs, other.TypeCode );
+      //   this._typeMapping.TryAdd( other, t );
+      //   if ( other.GenericArguments.Any() )
+      //   {
+      //      foreach ( var gp in t.DefineGenericParameters( other.GenericArguments.Select( g => ( (CILTypeParameter) g ).Name ).ToArray() ) )
+      //      {
+      //         this._typeMapping.TryAdd( other.GenericArguments[gp.GenericParameterPosition], gp );
+      //      }
+      //   }
+      //   return t;
+      //}
+
+      //private void ProcessConstructor( CILType newType, CILConstructor ctor, Boolean creating )
+      //{
+      //   CILConstructor newCtor = creating ?
+      //      newType.AddConstructor( ctor.Attributes, ctor.CallingConvention ) :
+      //      (CILConstructor) this._methodMapping[ctor];
+      //   this.ProcessMethodBase( newCtor, ctor, creating );
+      //}
+
+      //private void ProcessMethod( CILType newType, CILMethod method, Boolean creating )
+      //{
+      //   CILMethod newMethod = creating ?
+      //      newType.AddMethod( method.Name, method.Attributes, method.CallingConvention ) :
+      //      (CILMethod) this._methodMapping[method];
+      //   this.ProcessMethodBase( newMethod, method, creating );
+      //   this.ProcessParameter( newMethod.ReturnParameter, method.ReturnParameter, creating );
+      //   if ( creating )
+      //   {
+      //      newMethod.PlatformInvokeModuleName = method.PlatformInvokeModuleName;
+      //      newMethod.PlatformInvokeName = method.PlatformInvokeName;
+      //      newMethod.PlatformInvokeAttributes = method.PlatformInvokeAttributes;
+      //      foreach ( var g in newMethod.DefineGenericParameters( method.GenericArguments.Select( g => ( (CILTypeParameter) g ).Name ).ToArray() ) )
+      //      {
+      //         this._typeMapping.TryAdd( method.GenericArguments[g.GenericParameterPosition], g );
+      //      }
+      //   }
+      //   else
+      //   {
+      //      newMethod.AddOverriddenMethods( method.OverriddenMethods.Select( this.ProcessMethodRef ).ToArray() );
+      //      this.ProcessGenericParameters( newMethod, method );
+      //   }
+      //}
+
+      //private void ProcessMethodBase( CILMethodBase newMethod, CILMethodBase oldMethod, Boolean creating )
+      //{
+      //   if ( creating )
+      //   {
+      //      this._methodMapping.TryAdd( oldMethod, newMethod );
+      //      newMethod.ImplementationAttributes = oldMethod.ImplementationAttributes;
+      //   }
+      //   foreach ( var p in oldMethod.Parameters )
+      //   {
+      //      var newP = creating ?
+      //         newMethod.AddParameter( p.Name, p.Attributes, null ) :
+      //         newMethod.Parameters[p.Position];
+      //      this.ProcessParameter( newP, p, creating );
+      //   }
+      //   if ( !creating )
+      //   {
+      //      this.ProcessCustomAttributes( newMethod, oldMethod );
+      //      this.ProcessDeclSecurity( newMethod, oldMethod );
+
+      //      if ( oldMethod.HasILMethodBody() )
+      //      {
+      //         var oldIL = oldMethod.MethodIL;
+      //         var newIL = newMethod.MethodIL;
+      //         // First, define labels
+      //         var newLabels = newIL.DefineLabels( oldIL.LabelCount );
+
+      //         // Then define locals
+      //         foreach ( var local in oldIL.Locals )
+      //         {
+      //            newIL.DeclareLocal( this.ProcessTypeRef( local.LocalType ), local.IsPinned );
+      //         }
+      //         // Then define exception blocks
+      //         foreach ( var eBlock in oldIL.ExceptionBlocks )
+      //         {
+      //            newIL.AddExceptionBlockInfo( new ExceptionBlockInfo(
+      //               eBlock.EndLabel,
+      //               eBlock.TryOffset,
+      //               eBlock.TryLength,
+      //               eBlock.HandlerOffset,
+      //               eBlock.HandlerLength,
+      //               this.ProcessTypeRef( eBlock.ExceptionType ),
+      //               eBlock.FilterOffset,
+      //               eBlock.BlockType ) );
+      //         }
+      //         // Then copy IL opcode infos
+      //         foreach ( var info in oldIL.OpCodeInfos )
+      //         {
+      //            switch ( info.InfoKind )
+      //            {
+      //               case OpCodeInfoKind.Branch:
+      //               case OpCodeInfoKind.BranchOrLeaveFixed:
+      //               case OpCodeInfoKind.Leave:
+      //               case OpCodeInfoKind.OperandInt32:
+      //               case OpCodeInfoKind.OperandInt64:
+      //               case OpCodeInfoKind.OperandNone:
+      //               case OpCodeInfoKind.OperandR4:
+      //               case OpCodeInfoKind.OperandR8:
+      //               case OpCodeInfoKind.OperandString:
+      //               case OpCodeInfoKind.OperandUInt16:
+      //               case OpCodeInfoKind.Switch:
+      //                  // Just add the info - labels etc should remain the same.
+      //                  newIL.Add( info );
+      //                  break;
+      //               case OpCodeInfoKind.NormalOrVirtual:
+      //                  var i1 = (OpCodeInfoForNormalOrVirtual) info;
+      //                  newIL.Add( new OpCodeInfoForNormalOrVirtual( this.ProcessMethodRef( i1.ReflectionObject ), i1.NormalCode, i1.VirtualCode ) );
+      //                  break;
+      //               case OpCodeInfoKind.OperandCtorToken:
+      //                  var i2 = (OpCodeInfoWithCtorToken) info;
+      //                  newIL.Add( new OpCodeInfoWithCtorToken( i2.Code, this.ProcessMethodRef( i2.ReflectionObject ), i2.UseGenericDefinitionIfPossible ) );
+      //                  break;
+      //               case OpCodeInfoKind.OperandFieldToken:
+      //                  var i3 = (OpCodeInfoWithFieldToken) info;
+      //                  newIL.Add( new OpCodeInfoWithFieldToken( i3.Code, this.ProcessFieldRef( i3.ReflectionObject ), i3.UseGenericDefinitionIfPossible ) );
+      //                  break;
+      //               case OpCodeInfoKind.OperandMethodSigToken:
+      //                  var i4 = (OpCodeInfoWithMethodSig) info;
+      //                  //Tuple<CILCustomModifier[], CILTypeBase>[] varArgs = null;
+      //                  //if ( i4.VarArgs != null )
+      //                  //{
+      //                  //   varArgs = i4.VarArgs.Select( va => Tuple.Create( va.Item1.Select( cm => this.ProcessCustomModifier( cm ) ).ToArray(), this.ProcessTypeRef( va.Item2 ) ) ).ToArray();
+      //                  //}
+      //                  newIL.Add( new OpCodeInfoWithMethodSig( this.ProcessTypeRef( i4.ReflectionObject ), i4.VarArgs ) );
+      //                  break;
+      //               case OpCodeInfoKind.OperandMethodToken:
+      //                  var i5 = (OpCodeInfoWithMethodToken) info;
+      //                  //var mRef = this.ProcessMethodRef( i5.ReflectionObject );
+      //                  //OpCodeInfo opToAdd;
+      //                  //if ( ( OpCodeEncoding.Call == i5.Code.Value || OpCodeEncoding.Ldftn == i5.Code.Value )
+      //                  //     && this._pcl2TargetMapping != null
+      //                  //     && this._loadingArgs[oldMethod.DeclaringType.Module].AssemblyRefs.FirstOrDefault( ar => ar.CorePropertiesEqual( i5.ReflectionObject.DeclaringType.Module.Assembly.Name ) && ar.Flags.IsRetargetable() ) != null
+      //                  //   )
+      //                  //{
+      //                  //   // When mapping pcl to .NET, replace .Call with .Callvirt where applicable
+      //                  //   opToAdd = OpCodeEncoding.Call == i5.Code.Value ? OpCodeInfoForNormalOrVirtual.OpCodeInfoForCall( mRef ) : OpCodeInfoForNormalOrVirtual.OpCodeInfoForLdFtn( mRef );
+      //                  //}
+      //                  //else
+      //                  //{
+      //                  //   opToAdd = new OpCodeInfoWithMethodToken( i5.Code, mRef, i5.UseGenericDefinitionIfPossible );
+      //                  //}
+      //                  // TODO proper detection of base.Method(); However, maybe someone actually wants to .Call a virtual method from outside base.Method() context?
+      //                  // At the moment there is no code to distinguish reliably between base.Method(); and this.AnotherMethod();.
+      //                  // Adding a OpCodeInfoForNormalOrVirtual results in possible stackoverflow exceptions caused by merged code.
+      //                  // Add instruction as-is, causing some verification errors in resulting merged assembly when retargeting PCL to .NET (better than stackoverflow).
+      //                  newIL.Add( new OpCodeInfoWithMethodToken( i5.Code, this.ProcessMethodRef( i5.ReflectionObject ), i5.UseGenericDefinitionIfPossible ) );
+      //                  break;
+      //               case OpCodeInfoKind.OperandTypeToken:
+      //                  var i6 = (OpCodeInfoWithTypeToken) info;
+      //                  newIL.Add( new OpCodeInfoWithTypeToken( i6.Code, this.ProcessTypeRef( i6.ReflectionObject ), i6.UseGenericDefinitionIfPossible ) );
+      //                  break;
+      //            }
+      //            if ( !this._options.NoDebug && info.InfoKind == OpCodeInfoKind.Branch || info.InfoKind == OpCodeInfoKind.Leave )
+      //            {
+      //               throw this.NewCILMergeException( ExitCode.DebugInfoNotEasilyMergeable, "Found dynamic branch opcode info, which would possibly change method IL size and line offsets." );
+      //            }
+      //         }
+      //         // Finally, mark labels
+      //         var curLblOffset = 0;
+      //         foreach ( var lblOffset in oldIL.LabelOffsets )
+      //         {
+      //            newIL.MarkLabel( newLabels[curLblOffset], lblOffset );
+      //            ++curLblOffset;
+      //         }
+      //      }
+      //   }
+      //}
+
+      //private void ProcessParameter( CILParameter newParameter, CILParameter oldParameter, Boolean creating )
+      //{
+      //   if ( creating )
+      //   {
+      //      newParameter.Name = oldParameter.Name;
+      //      if ( oldParameter.Attributes.HasDefault() )
+      //      {
+      //         newParameter.ConstantValue = oldParameter.ConstantValue;
+      //      }
+      //   }
+      //   else
+      //   {
+      //      this.ProcessCustomAttributes( newParameter, oldParameter );
+      //      this.ProcessCustomModifiers( newParameter, oldParameter );
+      //      newParameter.ParameterType = this.ProcessTypeRef( oldParameter.ParameterType );
+      //      this.ProcessMarshalInfo( newParameter, oldParameter );
+      //   }
+      //}
+
+      //private void ProcessMarshalInfo( CILElementWithMarshalingInfo newElement, CILElementWithMarshalingInfo oldElement )
+      //{
+      //   var mi = oldElement.MarshalingInformation;
+      //   if ( mi != null )
+      //   {
+      //      newElement.MarshalingInformation = new MarshalingInfo( mi.Value, mi.SafeArrayType, this.ProcessTypeRef( mi.SafeArrayUserDefinedType ), mi.IIDParameterIndex, mi.ArrayType, mi.SizeParameterIndex, mi.ConstSize, this.ProcessTypeString( mi.MarshalType ), null, mi.MarshalCookie );
+      //   }
+      //}
+
+      //private void ProcessField( CILType newType, CILField oldField, Boolean creating )
+      //{
+      //   var newField = creating ?
+      //      newType.AddField( oldField.Name, null, oldField.Attributes ) :
+      //      this._fieldMapping[oldField];
+      //   if ( creating )
+      //   {
+      //      this._fieldMapping.TryAdd( oldField, newField );
+      //      if ( oldField.Attributes.HasDefault() )
+      //      {
+      //         newField.ConstantValue = oldField.ConstantValue;
+      //      }
+      //      newField.FieldOffset = oldField.FieldOffset;
+      //      newField.InitialValue = oldField.InitialValue;
+      //   }
+      //   else
+      //   {
+      //      this.ProcessCustomAttributes( newField, oldField );
+      //      this.ProcessCustomModifiers( newField, oldField );
+      //      newField.FieldType = this.ProcessTypeRef( oldField.FieldType );
+      //      this.ProcessMarshalInfo( newField, oldField );
+      //   }
+      //}
+
+      //private void ProcessProperty( CILType newType, CILProperty oldProperty, Boolean creating )
+      //{
+      //   var newProperty = creating ?
+      //      newType.AddProperty( oldProperty.Name, oldProperty.Attributes ) :
+      //      this._propertyMapping[oldProperty];
+      //   if ( creating )
+      //   {
+      //      this._propertyMapping.TryAdd( oldProperty, newProperty );
+      //      if ( oldProperty.Attributes.HasDefault() )
+      //      {
+      //         newProperty.ConstantValue = oldProperty.ConstantValue;
+      //      }
+      //   }
+      //   else
+      //   {
+      //      this.ProcessCustomAttributes( newProperty, oldProperty );
+      //      this.ProcessCustomModifiers( oldProperty, newProperty );
+      //      newProperty.GetMethod = this.ProcessMethodRef( oldProperty.GetMethod );
+      //      newProperty.SetMethod = this.ProcessMethodRef( oldProperty.SetMethod );
+      //   }
+      //}
+
+      //private void ProcessEvent( CILType newType, CILEvent oldEvent, Boolean creating )
+      //{
+      //   var newEvent = creating ?
+      //      newType.AddEvent( oldEvent.Name, oldEvent.Attributes, null ) :
+      //      this._eventMapping[oldEvent];
+      //   if ( creating )
+      //   {
+      //      this._eventMapping.TryAdd( oldEvent, newEvent );
+      //   }
+      //   else
+      //   {
+      //      this.ProcessCustomAttributes( newEvent, oldEvent );
+      //      newEvent.AddMethod = this.ProcessMethodRef( oldEvent.AddMethod );
+      //      newEvent.RemoveMethod = this.ProcessMethodRef( oldEvent.RemoveMethod );
+      //      newEvent.RaiseMethod = this.ProcessMethodRef( oldEvent.RaiseMethod );
+      //      newEvent.EventHandlerType = this.ProcessTypeRef( oldEvent.EventHandlerType );
+      //   }
+      //}
+
+      //private T ProcessTypeRef<T>( T typeRef )
+      //   where T : class, CILTypeBase
+      //{
+      //   if ( typeRef is CILTypeOrTypeParameter && ( (CILTypeOrTypeParameter) typeRef ).Name == "PDBScopeOrFunction" )
+      //   {
+
+      //   }
+      //   return typeRef == null ?
+      //      null :
+      //      (T) this._typeMapping.GetOrAdd( typeRef, tr =>
+      //      {
+      //         CILTypeBase result = typeRef;
+      //         switch ( typeRef.TypeKind )
+      //         {
+      //            case TypeKind.Type:
+      //               var t = (CILType) typeRef;
+      //               if ( t.ElementKind.HasValue )
+      //               {
+      //                  // Array/ByRef/Pointer type, save mapped element type.
+      //                  result = this.ProcessTypeRef( t.ElementType ).MakeElementType( t.ElementKind.Value, t.ArrayInformation );
+      //               }
+      //               else if ( t.GenericArguments.Count > 0 && !t.IsGenericTypeDefinition() )
+      //               {
+      //                  // Generic type which is not generic definition, save mapped generic definition
+      //                  result = this.ProcessTypeRef( t.GenericDefinition ).MakeGenericType( t.GenericArguments.Select( g => this.ProcessTypeRef( g ) ).ToArray() );
+      //               }
+      //               break;
+      //            case TypeKind.TypeParameter:
+      //               var tp = (CILTypeParameter) typeRef;
+      //               if ( tp.DeclaringMethod == null )
+      //               {
+      //                  result = this.ProcessTypeRef( tp.DeclaringType ).GenericArguments[tp.GenericParameterPosition];
+      //               }
+      //               else
+      //               {
+      //                  result = this.ProcessMethodRef( tp.DeclaringMethod ).GenericArguments[tp.GenericParameterPosition];
+      //               }
+      //               break;
+      //            case TypeKind.MethodSignature:
+      //               var ms = (CILMethodSignature) typeRef;
+      //               result = this._ctx.NewMethodSignature(
+      //                        this._targetModule,
+      //                        ms.CallingConvention,
+      //                        this.ProcessTypeRef( ms.ReturnParameter.ParameterType ),
+      //                        ms.ReturnParameter.CustomModifiers.Select( cm => this.ProcessCustomModifier( cm ) ).ToArray(),
+      //                        ms.Parameters.Select( p => Tuple.Create( p.CustomModifiers.Select( cm => this.ProcessCustomModifier( cm ) ).ToArray(), this.ProcessTypeRef( p.ParameterType ) ) ).ToArray()
+      //                        );
+      //               break;
+      //         }
+      //         CILAssembly ass;
+      //         if ( this._pcl2TargetMapping != null && result is CILType && ( (CILType) result ).IsTrueDefinition && this._pcl2TargetMapping.TryGetValue( result.Module.Assembly, out ass ) )
+      //         {
+      //            // Map PCL type to target framework type
+      //            var tResult = (CILType) result;
+      //            var typeStr = tResult.GetFullName();
+      //            var mappedType = GetMainModuleOrFirst( ass ).GetTypeByName( typeStr, false );
+      //            if ( mappedType == null )
+      //            {
+      //               // Try process type forwarders
+      //               TypeForwardingInfo tf;
+      //               if ( ass.TryGetTypeForwarder( tResult.Name, tResult.Namespace, out tf ) )
+      //               {
+      //                  CILAssembly targetAss;
+      //                  if ( this._assemblyLoader.TryResolveReference( result.Module, tf.AssemblyName, out targetAss ) )
+      //                  {
+      //                     mappedType = GetMainModuleOrFirst( targetAss )
+      //                        .GetTypeByName( typeStr, false );
+      //                  }
+      //                  else
+      //                  {
+      //                     throw this.NewCILMergeException( ExitCode.UnresolvedAssemblyReference, "Failed to resolve " + tf.AssemblyName + " from " + result.Module + "." );
+      //                  }
+      //               }
+      //            }
+      //            if ( mappedType == null )
+      //            {
+      //               throw this.NewCILMergeException( ExitCode.PCL2TargetTypeFail, "Failed to find type " + result + " from target framework." );
+      //            }
+      //            result = mappedType;
+      //         }
+      //         return result;
+      //      } );
+      //}
+
+      //private void ProcessCustomModifiers( CILElementWithCustomModifiers newElement, CILElementWithCustomModifiers oldElement )
+      //{
+      //   foreach ( var mod in oldElement.CustomModifiers )
+      //   {
+      //      newElement.AddCustomModifier( this.ProcessTypeRef( mod.Modifier ), mod.Optionality );
+      //   }
+      //}
+
+      //private CILCustomModifier ProcessCustomModifier( CILCustomModifier mod )
+      //{
+      //   return CILCustomModifierFactory.CreateModifier( mod.Optionality, this.ProcessTypeRef( mod.Modifier ) );
+      //}
+
+      //private TMethod ProcessMethodRef<TMethod>( TMethod method )
+      //   where TMethod : class,CILMethodBase
+      //{
+      //   return method == null ?
+      //      null :
+      //      (TMethod) this._methodMapping.GetOrAdd( method, mm =>
+      //      {
+      //         CILMethodBase result = mm;
+      //         var m = method as CILMethod;
+
+      //         if ( m != null && m.HasGenericArguments() && !m.IsGenericMethodDefinition() )
+      //         {
+      //            result = this.ProcessMethodRef( m.GenericDefinition ).MakeGenericMethod( m.GenericArguments.Select( g => this.ProcessTypeRef( g ) ).ToArray() );
+      //         }
+      //         else if ( method.DeclaringType.IsGenericType() && !method.DeclaringType.IsGenericTypeDefinition() )
+      //         {
+      //            result = this.ProcessMethodRef( method.ChangeDeclaringTypeUT( method.DeclaringType.GenericDefinition.GenericArguments.ToArray() ) )
+      //               .ChangeDeclaringTypeUT( method.DeclaringType.GenericArguments.Select( g => this.ProcessTypeRef( g ) ).ToArray() );
+      //         }
+      //         else if ( this._pcl2TargetMapping != null )
+      //         {
+      //            var tt = this.ProcessTypeRef( method.DeclaringType );
+      //            if ( !tt.Equals( method.DeclaringType ) )
+      //            {
+      //               if ( result is CILConstructor )
+      //               {
+      //                  result = tt.Constructors.FirstOrDefault( ctor => this.MatchMethodParams( (CILConstructor) result, ctor ) );
+      //               }
+      //               else
+      //               {
+      //                  result = tt.DeclaredMethods.FirstOrDefault( mtd => String.Equals( mtd.Name, result.GetName() ) && this.MatchMethodParams( (CILMethod) result, mtd ) && this.MatchMethodParam( ( (CILMethod) result ).ReturnParameter, mtd.ReturnParameter ) && ( (CILMethod) result ).GenericArguments.Count == mtd.GenericArguments.Count );
+      //               }
+      //               if ( result == null )
+      //               {
+      //                  throw this.NewCILMergeException( ExitCode.PCL2TargetMethodFail, "Failed to find method " + mm + " from target framework." );
+      //               }
+      //            }
+      //         }
+      //         return result;
+      //      } );
+      //}
+
+      //private Boolean MatchMethodParams<TMethod>( TMethod pclMethod, TMethod targetMethod )
+      //   where TMethod : CILMethodBase
+      //{
+      //   return pclMethod.Parameters.Count == targetMethod.Parameters.Count &&
+      //      pclMethod.Parameters.All( p => this.MatchMethodParam( p, targetMethod.Parameters[p.Position] ) );
+      //}
+
+      //private Boolean MatchMethodParam( CILParameter pclParam, CILParameter targetParam )
+      //{
+      //   return String.Equals( pclParam.ParameterType.ToString(), targetParam.ParameterType.ToString() );// targetParam.ParameterType.Equals( this.ProcessTypeRef( pclParam.ParameterType ) );
+      //}
+
+      //private CILField ProcessFieldRef( CILField field )
+      //{
+      //   return field == null ?
+      //      null :
+      //      this._fieldMapping.GetOrAdd( field, ff =>
+      //      {
+      //         var result = ff;
+      //         if ( field.DeclaringType.IsGenericType() && !field.DeclaringType.IsGenericTypeDefinition() )
+      //         {
+      //            result = this.ProcessFieldRef( field.ChangeDeclaringType( field.DeclaringType.GenericDefinition.GenericArguments.ToArray() ) )
+      //               .ChangeDeclaringType( field.DeclaringType.GenericArguments.Select( g => this.ProcessTypeRef( g ) ).ToArray() );
+      //         }
+      //         else if ( this._pcl2TargetMapping != null )
+      //         {
+      //            var tt = this.ProcessTypeRef( field.DeclaringType );
+      //            if ( !tt.Equals( field.DeclaringType ) )
+      //            {
+      //               result = tt.DeclaredFields.FirstOrDefault( f => String.Equals( f.Name, result.Name ) && String.Equals( f.FieldType.ToString(), result.FieldType.ToString() ) );//   f.FieldType.Equals( this.ProcessTypeRef( result.FieldType ) ) );
+      //               if ( result == null )
+      //               {
+      //                  throw this.NewCILMergeException( ExitCode.PCL2TargetFieldFail, "Failed to find field " + field + " from target framework." );
+      //               }
+      //            }
+      //         }
+      //         return result;
+      //      } );
+      //}
+
+      //private void ProcessCustomAttributes( CILCustomAttributeContainer newContainer, CILCustomAttributeContainer oldContainer )
+      //{
+      //   foreach ( var attr in oldContainer.CustomAttributeData )
+      //   {
+      //      this.ProcessCustomAttribute( newContainer, attr );
+      //   }
+      //}
+
+      //private CILCustomAttribute ProcessCustomAttribute( CILCustomAttributeContainer container, CILCustomAttribute attr )
+      //{
+      //   return container.AddCustomAttribute(
+      //      this.ProcessMethodRef( attr.Constructor ),
+      //      attr.ConstructorArguments.Select( this.ProcessCustomAttributeTypedArg ),
+      //      attr.NamedArguments.Select( this.ProcessCustomAttributeNamedArg ) );
+      //}
+
+      //private CILCustomAttributeTypedArgument ProcessCustomAttributeTypedArg( CILCustomAttributeTypedArgument arg )
+      //{
+      //   return CILCustomAttributeFactory.NewTypedArgument( this.ProcessTypeRef( arg.ArgumentType ), arg.Value is CILTypeBase ? this.ProcessTypeRef( (CILTypeBase) arg.Value ) : arg.Value );
+      //}
+
+      //private CILCustomAttributeNamedArgument ProcessCustomAttributeNamedArg( CILCustomAttributeNamedArgument arg )
+      //{
+      //   return CILCustomAttributeFactory.NewNamedArgument( this.ProcessCustomAttributeNamedOwner( arg.NamedMember ), this.ProcessCustomAttributeTypedArg( arg.TypedValue ) );
+      //}
+
+      //private CILElementForNamedCustomAttribute ProcessCustomAttributeNamedOwner( CILElementForNamedCustomAttribute element )
+      //{
+      //   return element is CILField ? (CILElementForNamedCustomAttribute) this.ProcessFieldRef( (CILField) element ) : this.ProcessPropertyRef( (CILProperty) element );
+      //}
+
+      //private CILProperty ProcessPropertyRef( CILProperty prop )
+      //{
+      //   return prop == null ?
+      //      null :
+      //      this._propertyMapping.GetOrAdd( prop, p =>
+      //      {
+      //         var result = p;
+      //         if ( prop.DeclaringType.IsGenericType() && !prop.DeclaringType.IsGenericTypeDefinition() )
+      //         {
+      //            result = this.ProcessPropertyRef( prop.ChangeDeclaringType( prop.DeclaringType.GenericDefinition.GenericArguments.ToArray() ) )
+      //               .ChangeDeclaringType( prop.DeclaringType.GenericArguments.Select( g => this.ProcessTypeRef( g ) ).ToArray() );
+      //         }
+      //         return result;
+      //      } );
+      //}
+
+      //private CILEvent ProcessEventRef( CILEvent evt )
+      //{
+      //   return evt == null ?
+      //      null :
+      //      this._eventMapping.GetOrAdd( evt, e =>
+      //      {
+      //         var result = e;
+      //         if ( evt.DeclaringType.IsGenericType() && !evt.DeclaringType.IsGenericTypeDefinition() )
+      //         {
+      //            result = this.ProcessEventRef( evt.ChangeDeclaringType( evt.DeclaringType.GenericDefinition.GenericArguments.ToArray() ) )
+      //               .ChangeDeclaringType( evt.DeclaringType.GenericArguments.Select( g => this.ProcessTypeRef( g ) ).ToArray() );
+      //         }
+      //         return result;
+      //      } );
+      //}
+      //private void ProcessTargetAssemblyAttributes()
+      //{
+      //   var attrSource = this._options.AttrSource;
+      //   if ( attrSource != null )
+      //   {
+      //      // Copy all attributes from module assembly
+      //      //EmittingArguments eArgs; CILModule mod;
+      //      //this.LoadModuleAndArgs( attrSource, out eArgs, out mod, ExitCode.AttrFileSpecifiedButDoesNotExist, "There was an error accessing assembly attribute file " + attrSource + "." );
+      //      this.ProcessCustomAttributes( this._targetModule, this._assemblyLoader.LoadAssemblyFrom( attrSource ) );
+      //   }
+      //   else
+      //   {
+      //      // Primary module always first.
+      //      var mods = this._options.CopyAttributes ?
+      //         this._inputModules.ToArray() :
+      //         new[] { this._primaryModule };
+
+      //      var set = new HashSet<CILCustomAttribute>( ComparerFromFunctions.NewEqualityComparer<CILCustomAttribute>( ( attr1, attr2 ) =>
+      //      {
+      //         return String.Equals( attr1.Constructor.DeclaringType.GetAssemblyQualifiedName(), attr2.Constructor.DeclaringType.GetAssemblyQualifiedName() );
+      //      }, attr => attr.Constructor.DeclaringType.ToString().GetHashCode() ) );
+      //      var allowMultipleOption = this._options.AllowMultipleAssemblyAttributes;
+      //      foreach ( var mod in mods )
+      //      {
+      //         foreach ( var ca in mod.Assembly.CustomAttributeData )
+      //         {
+      //            if ( !set.Add( ca ) )
+      //            {
+      //               if ( allowMultipleOption
+      //                  && ca.Constructor.DeclaringType.CustomAttributeData.Any( ca2 =>
+      //                  String.Equals( ATTRIBUTE_USAGE_TYPE.FullName, ca2.Constructor.DeclaringType.GetFullName() )
+      //                  && ca2.NamedArguments.Any( na =>
+      //                     String.Equals( na.NamedMember.Name, ALLOW_MULTIPLE_PROP.Name )
+      //                     && na.TypedValue.Value is Boolean
+      //                     && (Boolean) na.TypedValue.Value ) ) )
+      //               {
+      //                  this.ProcessCustomAttribute( this._targetModule.Assembly, ca );
+      //               }
+      //               else
+      //               {
+      //                  set.Remove( ca );
+      //                  set.Add( ca );
+      //               }
+      //            }
+      //         }
+      //      }
+      //      foreach ( var ca in set )
+      //      {
+      //         this.ProcessCustomAttribute( this._targetModule.Assembly, ca );
+      //      }
+      //   }
+      //}
+
+      //private Boolean IsDuplicateOK( ref String newName, String fullTypeString, TypeAttributes newTypeAttrs )
+      //{
+      //   var retVal = !this._options.Union && ( !newTypeAttrs.IsVisibleToOutsideOfDefinedAssembly() || this._options.AllowDuplicateTypes == null || this._options.AllowDuplicateTypes.Contains( fullTypeString ) );
+      //   if ( retVal )
+      //   {
+      //      // Have to rename
+      //      var i = 2;
+      //      var namePrefix = newName;
+      //      do
+      //      {
+      //         newName = namePrefix + i;
+      //         ++i;
+      //      } while ( !this._allInputTypeNames.Add( newName ) );
+      //   }
+      //   return retVal;
+      //}
+
+
+
+      //private void _assemblyLoader_ModuleLoadedEvent( object sender, ModuleLoadedEventArgs e )
+      //{
+      //   //if (this._inputModules.Count > 0)
+      //   //{
+      //   // Only react after we have loaded primary module
+      //   String rFWName, rFWVersion, rFWProfile;
+      //   var primaryArgs = this._assemblyLoader.GetEmittingArgumentsFor( this._inputModules[0] );
+      //   if ( primaryArgs.FrameworkName != null
+      //       && primaryArgs.FrameworkVersion != null
+      //       && e.EmittingArguments.FrameworkName == null
+      //       && e.EmittingArguments.FrameworkVersion == null
+      //       && this._assemblyLoader.Callbacks.TryGetFrameworkInfo( e.Resource, out rFWName, out rFWVersion, out rFWProfile )
+      //       && !String.Equals( primaryArgs.FrameworkName, rFWName ) // || !String.Equals( primaryArgs.FrameworkVersion, rFWVersion ) )
+      //      )
+      //   {
+      //      // We are changing framework (e.g. merging .NET assembly with PCLs)
+
+      //      // Add mapping from loaded assembly to target framework assembly
+      //      if ( this._pcl2TargetMapping == null )
+      //      {
+      //         this._pcl2TargetMapping = new Dictionary<CILAssembly, CILAssembly>();
+      //      }
+      //      // Key - this framework library, value - primary input module target framework library
+      //      var loadedAssembly = e.Module.Assembly;
+      //      String targetFWRes;
+
+      //      if ( !this._pcl2TargetMapping.ContainsKey( loadedAssembly )
+      //         && this._assemblyLoader.Callbacks.TryGetFrameworkAssemblyPath(
+      //         e.Resource,
+      //         new CILAssemblyName( loadedAssembly.Name ),
+      //         primaryArgs.FrameworkName,
+      //         primaryArgs.FrameworkVersion,
+      //         primaryArgs.FrameworkProfile,
+      //         out targetFWRes
+      //         ) )
+      //      {
+      //         this._pcl2TargetMapping.Add( loadedAssembly, this._assemblyLoader.LoadModuleFrom( targetFWRes ).Assembly );
+      //      }
+      //   }
+      //   //}
+      //}
+
+      ////private Byte[] GetPublicKeyToken( Byte[] pk )
+      ////{
+      ////   var hash = this._csp.Value.ComputeHash( pk );
+      ////   return hash.Skip( hash.Length - 8 ).Reverse().ToArray();
+      ////}
+
+      //private static CILModule GetMainModuleOrFirst( CILAssembly ass )
+      //{
+      //   return ass.MainModule ?? ass.Modules[0];
+      //}
+
+
+
+
+
+
+      //private void MergeResources()
+      //{
+      //   foreach ( var mod in this._inputModules )
+      //   {
+      //      foreach ( var kvp in mod.ManifestResources )
+      //      {
+      //         if ( this._targetModule.ManifestResources.ContainsKey( kvp.Key ) )
+      //         {
+      //            if ( !this._options.AllowDuplicateResources )
+      //            {
+      //               this.Log( MessageLevel.Warning, "Ignoring duplicate resource {0} in module {1}.", kvp.Key, mod );
+      //            }
+      //         }
+      //         else
+      //         {
+      //            var res = kvp.Value;
+      //            ManifestResource resourceToAdd = null;
+      //            if ( res is EmbeddedManifestResource )
+      //            {
+      //               var data = ( (EmbeddedManifestResource) res ).Data;
+      //               var strm = new MemoryStream( data.Length );
+      //               var rw = new System.Resources.ResourceWriter( strm );
+      //               Boolean wasResourceManager;
+      //               foreach ( var resx in MResourcesIO.GetResourceInfo( data, out wasResourceManager ) )
+      //               {
+      //                  var resName = resx.Name;
+      //                  var resType = resx.Type;
+      //                  if ( !resx.IsUserDefinedType && String.Equals( "ResourceTypeCode.String", resType ) )
+      //                  {
+      //                     // In case there is textual information about types serialized, have to fix that.
+      //                     var idx = resx.DataOffset;
+      //                     var strlen = data.ReadInt32Encoded7Bit( ref idx );
+      //                     rw.AddResource( resName, this.ProcessTypeString( data.ReadStringWithEncoding( ref idx, strlen, Encoding.UTF8 ) ) );
+      //                  }
+      //                  else
+      //                  {
+      //                     var newTypeStr = this.ProcessTypeString( resType );
+      //                     if ( String.Equals( newTypeStr, resType ) )
+      //                     {
+      //                        // Predefined ResourceTypeCode or pure reference type, add right away
+      //                        var array = new Byte[resx.Item5];
+      //                        var dataStart = resx.Item4;
+      //                        data.BlockCopyFrom( ref dataStart, array );
+      //                        rw.AddResourceData( resName, resType, array );
+      //                     }
+      //                     else
+      //                     {
+      //                        // Have to fix records one by one
+      //                        var idx = resx.Item4;
+      //                        var records = MResourcesIO.ReadNRBFRecords( data, ref idx, idx + resx.Item5 );
+      //                        foreach ( var rec in records )
+      //                        {
+      //                           this.ProcessNRBFRecord( rec );
+      //                        }
+      //                        var strm2 = new MemoryStream();
+      //                        MResourcesIO.WriteNRBFRecords( records, strm2 );
+      //                        rw.AddResourceData( resName, newTypeStr, strm2.ToArray() );
+      //                     }
+      //                  }
+      //               }
+      //               rw.Generate();
+      //               resourceToAdd = new EmbeddedManifestResource( res.Attributes, strm.ToArray() );
+      //            }
+
+      //            else
+      //            {
+      //               var resMod = ( (ModuleManifestResource) res ).Module;
+      //               if ( resMod != null && !this._inputModules.Any( m => Object.Equals( m, resMod ) ) )
+      //               {
+      //                  // Resource module which is not part of the input modules - add it to make an assembly-ref module manifest
+      //                  resourceToAdd = res;
+      //               }
+      //               // TODO - what if resource-module is part of input modules... ? Should we add link to embedded resource?
+      //            }
+      //            if ( resourceToAdd != null )
+      //            {
+      //               this._targetModule.ManifestResources.Add( kvp.Key, resourceToAdd );
+      //            }
+      //         }
+      //      }
+
+      //   }
+      //}
+
+      //private String ProcessTypeString( String typeStr )
+      //{
+      //   if ( !String.IsNullOrEmpty( typeStr ) )
+      //   {
+      //      var idx = typeStr.IndexOf( ", " );
+      //      if ( idx > 0 && idx < typeStr.Length - 2 ) // Skip empty type names and type names without assembly name (will be automatically correct)
+      //      {
+      //         var aStartIdx = idx;
+      //         // Skip whitespaces after comma
+      //         while ( ++aStartIdx < typeStr.Length && Char.IsWhiteSpace( typeStr[aStartIdx] ) ) ;
+      //         var assName = typeStr.Substring( aStartIdx );
+      //         // Check whether we actually need to fix the name
+      //         if ( !String.Equals( assName, this.ProcessAssemblyName( assName ) ) )
+      //         {
+      //            typeStr = this.ProcessTypeName( this._assemblyNameCache[assName].Name, typeStr.Substring( 0, idx ) ); // No need for assembly name since resulting type will be in the target assembly
+      //         }
+      //      }
+      //   }
+
+      //   return typeStr;
+      //}
+
+
+
+
+
+      private void MergePDBs( PDBHelper pdbHelper, EmittingArguments targetEArgs, EmittingArguments[] inputEArgs )
       {
          // Merge PDBs
          var bag = new ConcurrentBag<PDBInstance>();
-         this.DoPotentiallyInParallel( inputEArgs, ( isRunningInParallel, eArg ) =>
+         this.DoPotentiallyInParallel( this._inputModules, ( isRunningInParallel, inputModule ) =>
          {
-            if ( eArg.DebugInformation != null && eArg.DebugInformation.DebugType == 2 ) // CodeView
+            var eArg = this._moduleLoader.GetReadingArgumentsForMetaData( inputModule );
+            var headers = eArg.Headers;
+            var debugInfo = headers.DebugInformation;
+            if ( debugInfo != null && debugInfo.DebugType == 2 ) // CodeView
             {
                var pdbFNStartIdx = 24;
-               var pdbFN = eArg.DebugInformation.DebugData.ReadZeroTerminatedStringFromBytes( ref pdbFNStartIdx, Encoding.UTF8 );
+               var pdbFN = debugInfo.DebugData.ReadZeroTerminatedStringFromBytes( ref pdbFNStartIdx, Encoding.UTF8 );
                if ( pdbFN != null )
                {
                   PDBInstance iPDB = null;
@@ -3195,11 +3782,11 @@ namespace CILMerge
                      // Translate all tokens
                      foreach ( var func in iPDB.Modules.SelectMany( m => m.Functions ) )
                      {
-                        var thisMethod = (CILMethodBase) eArg.ResolveToken( null, (Int32) func.Token );
-                        func.Token = this.MapMethodToken( targetEArgs, eArg, thisMethod, func.Token );
-                        func.ForwardingMethodToken = this.MapMethodToken( targetEArgs, eArg, thisMethod, func.ForwardingMethodToken );
-                        func.ModuleForwardingMethodToken = this.MapMethodToken( targetEArgs, eArg, thisMethod, func.ModuleForwardingMethodToken );
-                        this.MapPDBScopeOrFunction( func, targetEArgs, eArg, thisMethod );
+                        //var thisMethod = TableIndex.FromOneBasedToken( (Int32) func.Token ); // (CILMethodBase) eArg.ResolveToken( null, (Int32) func.Token );
+                        func.Token = this.MapMethodToken( inputModule, func.Token );// this.MapMethodToken( targetEArgs, eArg, thisMethod, func.Token );
+                        func.ForwardingMethodToken = this.MapMethodToken( inputModule, func.ForwardingMethodToken ); // this.MapMethodToken( targetEArgs, eArg, thisMethod, func.ForwardingMethodToken );
+                        func.ModuleForwardingMethodToken = this.MapMethodToken( inputModule, func.ModuleForwardingMethodToken );// this.MapMethodToken( targetEArgs, eArg, thisMethod, func.ModuleForwardingMethodToken );
+                        this.MapPDBScopeOrFunction( func, inputModule ); // this.MapPDBScopeOrFunction( func, targetEArgs, eArg, thisMethod );
                         //if ( func.AsyncMethodInfo != null )
                         //{
                         //   func.AsyncMethodInfo.KickoffMethodToken = this.MapMethodToken( targetEArgs, eArg, thisMethod, func.AsyncMethodInfo.KickoffMethodToken );
@@ -3236,50 +3823,62 @@ namespace CILMerge
             }
          }
 
-         // Write PDB
-         //try
-         //{
-         //using ( var fs = File.Open( targetEArgs.DebugInformation.DebugFileLocation, FileMode.Create, FileAccess.Write, FileShare.Read ) )
-         //{
-         //pdb.WriteToStream( fs, targetEArgs.DebugInformation.Timestamp );
-
-         this._pdbHelper.ProcessPDB( pdb );
-         //}
-         //}
-         //catch ( Exception exc )
-         //{
-         //   if ( exc is PDBException )
-         //   {
-         //      throw this.NewCILMergeException( ExitCode.ErrorWritingPDB, "Error writing PDB file for " + this._options.OutPath + ".", exc );
-         //   }
-         //   else
-         //   {
-         //      throw this.NewCILMergeException( ExitCode.ErrorAccessingTargetPDB, "Error accessing target PDB file for " + this._options.OutPath + ".", exc );
-         //   }
-
-         //}
+         pdbHelper.ProcessPDB( pdb );
       }
 
-      #region IDisposable Members
-
-      public void Dispose()
+      private void MapPDBScopeOrFunction( PDBScopeOrFunction scp, CILMetaData inputModule )
       {
-         Exception pdbException;
-         var pdbOK = this._pdbHelper.DisposeSafely( out pdbException );
-         Exception cspException = null;
-         var cspOK = !this._csp.IsValueCreated || this._csp.Value.DisposeSafely( out cspException );
-         if ( !pdbOK )
+         foreach ( var slot in scp.Slots )
          {
-            this.Log( MessageLevel.Warning, "Error writing PDB file for {0}. Error:\n{1}", this._options.OutPath, pdbException );
+            slot.TypeToken = this.MapTypeToken( inputModule, slot.TypeToken );
          }
-         if ( !cspOK )
+         foreach ( var subScope in scp.Scopes )
          {
-            // TODO log
-            this.Log( MessageLevel.Info, "Error while disposing CSP provider: {0}.", cspException.Message );
+            this.MapPDBScopeOrFunction( subScope, inputModule );
          }
       }
 
-      #endregion
+      private UInt32 MapMethodToken( CILMetaData inputModule, UInt32 token )
+      {
+         throw new NotImplementedException();
+         //return token == 0u ? 0u : (UInt32) targetEArgs.GetTokenFor( this._methodMapping[(CILMethodBase) inputEArgs.ResolveToken( thisMethod, (Int32) token )] ).Value;
+      }
+
+      private UInt32 MapTypeToken( CILMetaData inputModule, UInt32 token )
+      {
+         // Sometimes, there is a field signature in Standalone table. Reason for this is in ( http://msdn.developer-works.com/article/13221925/Pinned+Fields+in+the+Common+Language+Runtime , unavailable at 2014, viewable through goole cache http://webcache.googleusercontent.com/search?q=cache:UeFk80O2rGMJ:http://msdn.developer-works.com/article/13221925/Pinned%2BFields%2Bin%2Bthe%2BCommon%2BLanguage%2BRuntime%2Bstandalonesig+contains+field+signatures&oe=utf-8&rls=org.mozilla:en-US:official&client=firefox-a&channel=sb&gfe_rd=cr&hl=fi&ct=clnk&gws_rd=cr )
+         // Shortly, the field signature seems to be generated for constant values within the method (sometimes) or when a field is used as by-ref parameter.
+         // The ECMA standard, however, explicitly prohibits to have anything else except LOCALSIG and METHOD signatures in Standalone table.
+         // The PDB, however, requires a token, which would represent the type of the slot (for some reason), and thus the faulty rows are being emitted to Standalone table.
+
+         // This doesn't affect much at runtime, since these faulty Standalone rows are only used from within the PDB file, and never from within the CIL file.
+         // However, we cannot emit such Standalone rows during emitting stage.
+         // Therefore, detect this formally erroneus situation here, and mark that this slot should just use the normal standalone sig token of this method.
+         // A bit hack-ish but oh well...
+         //return token == 0u ? 0u : (UInt32) targetEArgs.GetSignatureTokenFor( this._methodMapping[inputEArgs.ResolveSignatureToken( (Int32) token ).FirstOrDefault() ?? thisMethod] );
+         throw new NotImplementedException();
+      }
+
+      //#region IDisposable Members
+
+      //public void Dispose()
+      //{
+      //   Exception pdbException;
+      //   var pdbOK = this._pdbHelper.DisposeSafely( out pdbException );
+      //   Exception cspException = null;
+      //   var cspOK = !this._csp.IsValueCreated || this._csp.Value.DisposeSafely( out cspException );
+      //   if ( !pdbOK )
+      //   {
+      //      this.Log( MessageLevel.Warning, "Error writing PDB file for {0}. Error:\n{1}", this._options.OutPath, pdbException );
+      //   }
+      //   if ( !cspOK )
+      //   {
+      //      // TODO log
+      //      this.Log( MessageLevel.Info, "Error while disposing CSP provider: {0}.", cspException.Message );
+      //   }
+      //}
+
+      //#endregion
    }
 
    internal class CILMergeException : Exception
@@ -3295,21 +3894,21 @@ namespace CILMerge
 
    internal static class E_Internal
    {
-      internal static TValue GetOrAdd<TKey, TValue>( this IDictionary<TKey, TValue> dic, TKey key, Func<TKey, TValue> factory )
-      {
-         TValue val;
-         if ( !dic.TryGetValue( key, out val ) )
-         {
-            val = factory( key );
-            dic.Add( key, val );
-         }
-         return val;
-      }
+      //internal static TValue GetOrAdd<TKey, TValue>( this IDictionary<TKey, TValue> dic, TKey key, Func<TKey, TValue> factory )
+      //{
+      //   TValue val;
+      //   if ( !dic.TryGetValue( key, out val ) )
+      //   {
+      //      val = factory( key );
+      //      dic.Add( key, val );
+      //   }
+      //   return val;
+      //}
 
-      internal static void TryAdd<TKey, TValue>( this IDictionary<TKey, TValue> dic, TKey key, TValue value )
-      {
-         dic.Add( key, value );
-      }
+      //internal static void TryAdd<TKey, TValue>( this IDictionary<TKey, TValue> dic, TKey key, TValue value )
+      //{
+      //   dic.Add( key, value );
+      //}
 
       internal static Boolean TryAdd_NotThreadSafe<TKey, TValue>( this IDictionary<TKey, TValue> dic, TKey key, TValue value )
       {

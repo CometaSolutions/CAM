@@ -21,7 +21,7 @@ using System.IO;
 using System.Linq;
 using System.Text;
 using ApplicationParameters;
-using CILAssemblyManipulator.API;
+using CILAssemblyManipulator.Physical;
 
 namespace CILMerge
 {
@@ -185,26 +185,23 @@ namespace CILMerge
             switch ( trString )
             {
                case "v1":
-                  options.TargetPlatform = TargetRuntime.Net_1_0;
+                  options.MetadataVersionString = CILMergeOptionsImpl.MD_NET_1_0;
                   break;
                case "v1.1":
-                  options.TargetPlatform = TargetRuntime.Net_1_1;
+                  options.MetadataVersionString = CILMergeOptionsImpl.MD_NET_1_1;
                   break;
                case "v2":
-                  options.TargetPlatform = TargetRuntime.Net_2_0;
+                  options.MetadataVersionString = CILMergeOptionsImpl.MD_NET_2_0;
                   break;
                case "v4":
-                  options.TargetPlatform = TargetRuntime.Net_4_0;
+                  options.MetadataVersionString = CILMergeOptionsImpl.MD_NET_4_0;
                   break;
                default:
-                  TargetRuntime tr;
-                  if ( Enum.TryParse( trString, true, out tr ) )
-                  {
-                     options.TargetPlatform = tr;
-                  }
+                  options.MetadataVersionString = trString;
                   break;
             }
          }
+
          options.XmlDocs = args.GetSingleOptionOrNull( XML_DOCS ).GetOrDefault( false );
          options.LibPaths = args.GetMultipleOptionsOrEmpty( LIB ).Select( o => o.OptionValueAsString ).ToArray();
          var internalizeOption = args.GetSingleOptionOrNull( INTERNALIZE );
@@ -215,7 +212,7 @@ namespace CILMerge
          }
          options.DelaySign = args.GetSingleOptionOrNull( DELAY_SIGN ).GetOrDefault( false );
          options.UseFullPublicKeyForRefs = args.GetSingleOptionOrNull( USE_FULL_PUBLIC_KEY_FOR_REFERENCES ).GetOrDefault( false );
-         options.Align = args.GetSingleOptionOrNull( ALIGN ).GetOrDefault( MIN_FILE_ALIGN );
+         options.FileAlign = args.GetSingleOptionOrNull( ALIGN ).GetOrDefault( MIN_FILE_ALIGN );
          options.Closed = args.GetSingleOptionOrNull( CLOSED ).GetOrDefault( false );
          var dups = args.GetMultipleOptionsOrEmpty( ALLOW_DUP );
          options.AllowDuplicateTypes = dups.Count > 0 ?

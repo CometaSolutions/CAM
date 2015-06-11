@@ -496,7 +496,7 @@ namespace CILAssemblyManipulator.Physical
             ++idx;
             retVal = new CustomModifierSignature()
             {
-               CustomModifierType = new TableIndex( TokenUtils.DecodeTypeDefOrRefOrSpec( sig, ref idx ) ),
+               CustomModifierType = TableIndex.FromOneBasedToken( TokenUtils.DecodeTypeDefOrRefOrSpec( sig, ref idx ) ),
                IsOptional = curByte == (Byte) SignatureElementTypes.CModOpt
             };
          }
@@ -600,7 +600,7 @@ namespace CILAssemblyManipulator.Physical
                {
                   elementType = (SignatureElementTypes) sig[idx++];
                }
-               actualType = new TableIndex( TokenUtils.DecodeTypeDefOrRefOrSpec( sig, ref idx ) );
+               actualType = TableIndex.FromOneBasedToken( TokenUtils.DecodeTypeDefOrRefOrSpec( sig, ref idx ) );
                auxiliary = isGeneric ? sig.DecompressUInt32( ref idx ) : 0;
                var classOrValue = new ClassOrValueTypeSignature( auxiliary )
                {
@@ -1247,8 +1247,7 @@ namespace CILAssemblyManipulator.Physical
 
       public static MarshalingInfo ReadFromBytesWithRef( Byte[] sig, ref Int32 idx )
       {
-         var sIdx = 0;
-         var ut = (UnmanagedType) sig[sIdx++];
+         var ut = (UnmanagedType) sig[idx++];
          MarshalingInfo result;
          if ( ut.IsNativeInstric() )
          {
@@ -1261,23 +1260,23 @@ namespace CILAssemblyManipulator.Physical
             switch ( ut )
             {
                case UnmanagedType.ByValTStr:
-                  result = MarshalingInfo.MarshalAsByValTStr( sig.DecompressUInt32( ref sIdx ) );
+                  result = MarshalingInfo.MarshalAsByValTStr( sig.DecompressUInt32( ref idx ) );
                   break;
                case UnmanagedType.IUnknown:
-                  result = MarshalingInfo.MarshalAsIUnknown( sIdx < sig.Length ? sig.DecompressUInt32( ref sIdx ) : MarshalingInfo.NO_INDEX );
+                  result = MarshalingInfo.MarshalAsIUnknown( idx < sig.Length ? sig.DecompressUInt32( ref idx ) : MarshalingInfo.NO_INDEX );
                   break;
                case UnmanagedType.IDispatch:
-                  result = MarshalingInfo.MarshalAsIDispatch( sIdx < sig.Length ? sig.DecompressUInt32( ref sIdx ) : MarshalingInfo.NO_INDEX );
+                  result = MarshalingInfo.MarshalAsIDispatch( idx < sig.Length ? sig.DecompressUInt32( ref idx ) : MarshalingInfo.NO_INDEX );
                   break;
                case UnmanagedType.SafeArray:
-                  if ( sIdx < sig.Length )
+                  if ( idx < sig.Length )
                   {
-                     var ve = (VarEnum) sig.DecompressUInt32( ref sIdx );
+                     var ve = (VarEnum) sig.DecompressUInt32( ref idx );
                      if ( VarEnum.VT_USERDEFINED == ve )
                      {
-                        if ( sIdx < sig.Length )
+                        if ( idx < sig.Length )
                         {
-                           result = MarshalingInfo.MarshalAsSafeArray( sig.ReadLenPrefixedUTF8String( ref sIdx ) );
+                           result = MarshalingInfo.MarshalAsSafeArray( sig.ReadLenPrefixedUTF8String( ref idx ) );
                         }
                         else
                         {
@@ -1296,24 +1295,24 @@ namespace CILAssemblyManipulator.Physical
                   }
                   break;
                case UnmanagedType.ByValArray:
-                  constSize = sig.DecompressUInt32( ref sIdx );
+                  constSize = sig.DecompressUInt32( ref idx );
                   result = MarshalingInfo.MarshalAsByValArray(
                      constSize,
-                     sIdx < sig.Length ?
-                        (UnmanagedType) sig.DecompressUInt32( ref sIdx ) :
+                     idx < sig.Length ?
+                        (UnmanagedType) sig.DecompressUInt32( ref idx ) :
                         MarshalingInfo.NATIVE_TYPE_MAX );
                   break;
                case UnmanagedType.LPArray:
-                  arrElementType = (UnmanagedType) sig[sIdx++];
+                  arrElementType = (UnmanagedType) sig[idx++];
                   paramIdx = MarshalingInfo.NO_INDEX;
                   constSize = MarshalingInfo.NO_INDEX;
-                  if ( sIdx < sig.Length )
+                  if ( idx < sig.Length )
                   {
-                     paramIdx = sig.DecompressUInt32( ref sIdx );
-                     if ( sIdx < sig.Length )
+                     paramIdx = sig.DecompressUInt32( ref idx );
+                     if ( idx < sig.Length )
                      {
-                        constSize = sig.DecompressUInt32( ref sIdx );
-                        if ( sIdx < sig.Length && sig.DecompressUInt32( ref sIdx ) == 0 )
+                        constSize = sig.DecompressUInt32( ref idx );
+                        if ( idx < sig.Length && sig.DecompressUInt32( ref idx ) == 0 )
                         {
                            paramIdx = MarshalingInfo.NO_INDEX; // No size parameter index was specified
                         }
@@ -1323,11 +1322,11 @@ namespace CILAssemblyManipulator.Physical
                   break;
                case UnmanagedType.CustomMarshaler:
                   // For some reason, there are two compressed ints at this point
-                  sig.DecompressUInt32( ref sIdx );
-                  sig.DecompressUInt32( ref sIdx );
+                  sig.DecompressUInt32( ref idx );
+                  sig.DecompressUInt32( ref idx );
 
-                  var mTypeStr = sig.ReadLenPrefixedUTF8String( ref sIdx );
-                  var mCookie = sig.ReadLenPrefixedUTF8String( ref sIdx );
+                  var mTypeStr = sig.ReadLenPrefixedUTF8String( ref idx );
+                  var mCookie = sig.ReadLenPrefixedUTF8String( ref idx );
                   result = MarshalingInfo.MarshalAsCustom( mTypeStr, mCookie );
                   break;
                default:
@@ -1347,11 +1346,26 @@ namespace CILAssemblyManipulator.Physical
       {
 
       }
+
+      public abstract CustomAttributeSignatureKind CustomAttributeSignatureKind { get; }
+   }
+
+   public enum CustomAttributeSignatureKind
+   {
+      Raw,
+      Resolved
    }
 
    public sealed class RawCustomAttributeSignature : AbstractCustomAttributeSignature
    {
       public Byte[] Bytes { get; set; }
+      public override CustomAttributeSignatureKind CustomAttributeSignatureKind
+      {
+         get
+         {
+            return CustomAttributeSignatureKind.Raw;
+         }
+      }
    }
 
    public sealed class CustomAttributeSignature : AbstractCustomAttributeSignature
@@ -1363,6 +1377,14 @@ namespace CILAssemblyManipulator.Physical
       {
          this._typedArgs = new List<CustomAttributeTypedArgument>( typedArgsCount );
          this._namedArgs = new List<CustomAttributeNamedArgument>( namedArgsCount );
+      }
+
+      public override CustomAttributeSignatureKind CustomAttributeSignatureKind
+      {
+         get
+         {
+            return CustomAttributeSignatureKind.Resolved;
+         }
       }
 
       public List<CustomAttributeTypedArgument> TypedArguments
@@ -1496,12 +1518,27 @@ namespace CILAssemblyManipulator.Physical
       /// </summary>
       /// <value>The type of the security attribute.</value>
       public String SecurityAttributeType { get; set; }
+
+      public abstract SecurityInformationKind SecurityInformationKind { get; }
+   }
+
+   public enum SecurityInformationKind
+   {
+      Resolved,
+      Raw
    }
 
    public sealed class RawSecurityInformation : AbstractSecurityInformation
    {
       public Int32 ArgumentCount { get; set; }
       public Byte[] Bytes { get; set; }
+      public override SecurityInformationKind SecurityInformationKind
+      {
+         get
+         {
+            return SecurityInformationKind.Raw;
+         }
+      }
    }
 
    /// <summary>
@@ -1514,7 +1551,7 @@ namespace CILAssemblyManipulator.Physical
    {
       private readonly List<CustomAttributeNamedArgument> _namedArguments;
 
-      internal SecurityInformation( Int32 namedArgumentsCount = 0 )
+      public SecurityInformation( Int32 namedArgumentsCount = 0 )
       {
          this._namedArguments = new List<CustomAttributeNamedArgument>( namedArgumentsCount );
       }
@@ -1528,6 +1565,14 @@ namespace CILAssemblyManipulator.Physical
          get
          {
             return this._namedArguments;
+         }
+      }
+
+      public override SecurityInformationKind SecurityInformationKind
+      {
+         get
+         {
+            return SecurityInformationKind.Resolved;
          }
       }
    }

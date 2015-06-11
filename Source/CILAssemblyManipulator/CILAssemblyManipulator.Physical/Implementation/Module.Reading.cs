@@ -383,7 +383,7 @@ namespace CILAssemblyManipulator.Physical.Implementation
          var epToken = stream.ReadI32( tmpArray );
          if ( epToken != 0 )
          {
-            headers.CLREntryPointIndex = new TableIndex( epToken );
+            headers.CLREntryPointIndex = TableIndex.FromOneBasedToken( epToken );
          }
 
          // Resources data directory
@@ -960,7 +960,7 @@ namespace CILAssemblyManipulator.Physical.Implementation
             foreach ( var mRes in retVal.ManifestResources )
             {
                Int32? offsetToAdd;
-               if ( !mRes.Implementation.HasValue && (UInt32) mRes.Offset < rsrcSize )
+               if ( mRes.IsEmbeddedResource() && (UInt32) mRes.Offset < rsrcSize )
                {
                   // Read embedded resource
                   offsetToAdd = mRes.Offset;
@@ -1267,7 +1267,7 @@ namespace CILAssemblyManipulator.Physical.Implementation
             var localSigToken = stream.ReadI32( tmpArray );
             if ( localSigToken != 0 )
             {
-               retVal.LocalsSignatureIndex = new TableIndex( localSigToken );
+               retVal.LocalsSignatureIndex = TableIndex.FromOneBasedToken( localSigToken );
             }
 
             if ( headerSize != 12 )
@@ -1317,7 +1317,7 @@ namespace CILAssemblyManipulator.Physical.Implementation
       private static TableIndex? ReadExceptionType( Stream stream, Byte[] tmpArray )
       {
          var token = stream.ReadI32( tmpArray );
-         return token == 0 ? (TableIndex?) null : new TableIndex( token );
+         return token == 0 ? (TableIndex?) null : TableIndex.FromOneBasedToken( token );
       }
 
       private static void CreateOpCodes( MethodILDefinition methodIL, Stream stream, Int32 codeSize, Byte[] tmpArray, UserStringHeapReader userStrings )
@@ -1385,7 +1385,7 @@ namespace CILAssemblyManipulator.Physical.Implementation
                case OperandType.InlineTok:
                case OperandType.InlineSig:
                   current += sizeof( Int32 );
-                  info = new OpCodeInfoWithToken( code, new TableIndex( stream.ReadI32( tmpArray ) ) );
+                  info = new OpCodeInfoWithToken( code, TableIndex.FromOneBasedToken( stream.ReadI32( tmpArray ) ) );
                   break;
                case OperandType.InlineSwitch:
                   var count = stream.ReadI32( tmpArray );

@@ -24,6 +24,15 @@ using CommonUtils;
 
 namespace CILAssemblyManipulator.MResources
 {
+   public sealed class ResourceItem
+   {
+      public String Name { get; set; }
+      public String Type { get; set; }
+      public Boolean IsUserDefinedType { get; set; }
+      public Int32 DataOffset { get; set; }
+      public Int32 DataSize { get; set; }
+   }
+
    public static partial class MResourcesIO
    {
       private const UInt32 RES_MANAGER_HEADER_MAGIC = 0xBEEFCACEu;
@@ -36,7 +45,7 @@ namespace CILAssemblyManipulator.MResources
       // Item3 - whether type is user-defined
       // Item4 - offset in array where data starts
       // Item5 - size of data
-      public static IEnumerable<Tuple<String, String, Boolean, Int32, Int32>> GetResourceInfo( Byte[] array, out Boolean wasResourceManager, Int32 idx = 0 )
+      public static IEnumerable<ResourceItem> GetResourceInfo( Byte[] array, out Boolean wasResourceManager, Int32 idx = 0 )
       {
          // See http://www.dotnetframework.org/default.aspx/4@0/4@0/untmp/DEVDIV_TFS/Dev10/Releases/RTMRel/ndp/clr/src/BCL/System/Resources/RuntimeResourceSet@cs/1305376/RuntimeResourceSet@cs for some explanation of format
          // Or ResReader.cs in ILRepack
@@ -44,65 +53,73 @@ namespace CILAssemblyManipulator.MResources
          var startIdx = idx;
          var resHdrMagic = array.ReadUInt32LEFromBytes( ref idx );
          wasResourceManager = RES_MANAGER_HEADER_MAGIC == resHdrMagic;
-         if ( wasResourceManager )
+         return wasResourceManager ?
+            GetResourceInfoFromResourceManagerData( array, startIdx, idx ) :
+            Empty<ResourceItem>.Enumerable;
+      }
+
+      private static IEnumerable<ResourceItem> GetResourceInfoFromResourceManagerData( Byte[] array, Int32 startIdx, Int32 idx )
+      {
+         if ( array.ReadInt32LEFromBytes( ref idx ) > 1 ) // Resource manager version
          {
-            if ( array.ReadInt32LEFromBytes( ref idx ) > 1 ) // Resource manager version
-            {
-               idx += array.ReadInt32LEFromBytes( ref idx ); // Amount of bytes to skip
-            }
-            else
-            {
-               idx += 4; // Skip amount of bytes to skip
-               var strLen = array.ReadInt32Encoded7Bit( ref idx ); // Skip resource reader typename
-               idx += strLen;
-               strLen = array.ReadInt32Encoded7Bit( ref idx ); // Skip resource set typename
-               idx += strLen;
-            }
-            var version = array.ReadInt32LEFromBytes( ref idx ); // Version
-            var resCount = array.ReadInt32LEFromBytes( ref idx ); // Amount of resources
-            var types = new String[array.ReadInt32LEFromBytes( ref idx )]; // Type strings
-            for ( var i = 0; i < types.Length; ++i )
-            {
-               types[i] = array.Read7BitLengthPrefixedString( ref idx );
-            }
-            // Skip to next alignment of 8
-            idx += 8 - ( idx & 7 );
-            // Skip name hashes
-            idx += 4 * resCount;
-            var namePositions = array.ReadInt32ArrayLEFromBytes( ref idx, resCount ); // Relative positions of names
-
-            var dataOffset = startIdx + array.ReadInt32LEFromBytes( ref idx ); // Data section offset
-            var nameOffset = idx; // Names follow right after this
-
-            // Read names and data offsets of resources
-            var dataNamesAndOffsets = new Tuple<String, Int32>[resCount];
-            for ( var i = 0; i < resCount; ++i )
-            {
-               var iIdx = nameOffset + namePositions[i];
-               // VS2012 should guarantee that parameters are executed in this order.
-               dataNamesAndOffsets[i] = Tuple.Create( array.Read7BitLengthPrefixedString( ref iIdx, UTF16LE ), dataOffset + array.ReadInt32LEFromBytes( ref iIdx ) );
-            }
-            Array.Sort( dataNamesAndOffsets, ( t1, t2 ) => t1.Item2.CompareTo( t2.Item2 ) ); // Sort information according to data offset
-
-            // Return enumerable
-            return Enumerable.Range( 0, resCount ).Select( resIdx =>
-            {
-               var iIdx = dataNamesAndOffsets[resIdx].Item2;
-               var tIdx = array.ReadInt32Encoded7Bit( ref iIdx );
-               var isUserType = version != 1 && tIdx >= (Int32) ResourceTypeCode.StartOfUserTypes;
-               var resType = version == 1 ?
-                  types[tIdx] :
-                  ( isUserType ?
-                     types[tIdx - (Int32) ResourceTypeCode.StartOfUserTypes] :
-                     ( "ResourceTypeCode." + (ResourceTypeCode) tIdx )
-                  );
-               return Tuple.Create( dataNamesAndOffsets[resIdx].Item1, resType, isUserType, iIdx, ( resIdx < resCount - 1 ? dataNamesAndOffsets[resIdx + 1].Item2 : array.Length ) - iIdx );
-            } );
+            idx += array.ReadInt32LEFromBytes( ref idx ); // Amount of bytes to skip
          }
          else
          {
-            return Empty<Tuple<String, String, Boolean, Int32, Int32>>.Enumerable;
+            idx += 4; // Skip amount of bytes to skip
+            var strLen = array.ReadInt32Encoded7Bit( ref idx ); // Skip resource reader typename
+            idx += strLen;
+            strLen = array.ReadInt32Encoded7Bit( ref idx ); // Skip resource set typename
+            idx += strLen;
          }
+         var version = array.ReadInt32LEFromBytes( ref idx ); // Version
+         var resCount = array.ReadInt32LEFromBytes( ref idx ); // Amount of resources
+         var types = new String[array.ReadInt32LEFromBytes( ref idx )]; // Type strings
+         for ( var i = 0; i < types.Length; ++i )
+         {
+            types[i] = array.Read7BitLengthPrefixedString( ref idx );
+         }
+         // Skip to next alignment of 8
+         idx += 8 - ( idx & 7 );
+         // Skip name hashes
+         idx += 4 * resCount;
+         var namePositions = array.ReadInt32ArrayLEFromBytes( ref idx, resCount ); // Relative positions of names
+
+         var dataOffset = startIdx + array.ReadInt32LEFromBytes( ref idx ); // Data section offset
+         var nameOffset = idx; // Names follow right after this
+
+         // Read names and data offsets of resources
+         var dataNamesAndOffsets = new Tuple<String, Int32>[resCount];
+         for ( var i = 0; i < resCount; ++i )
+         {
+            var iIdx = nameOffset + namePositions[i];
+            // VS2012 should guarantee that parameters are executed in this order.
+            dataNamesAndOffsets[i] = Tuple.Create( array.Read7BitLengthPrefixedString( ref iIdx, UTF16LE ), dataOffset + array.ReadInt32LEFromBytes( ref iIdx ) );
+         }
+         Array.Sort( dataNamesAndOffsets, ( t1, t2 ) => t1.Item2.CompareTo( t2.Item2 ) ); // Sort information according to data offset
+
+         // Return enumerable
+         for ( var i = 0; i < resCount; ++i )
+         {
+            var iIdx = dataNamesAndOffsets[i].Item2;
+            var tIdx = array.ReadInt32Encoded7Bit( ref iIdx );
+            var isUserType = version != 1 && tIdx >= (Int32) ResourceTypeCode.StartOfUserTypes;
+            var resType = version == 1 ?
+               types[tIdx] :
+               ( isUserType ?
+                  types[tIdx - (Int32) ResourceTypeCode.StartOfUserTypes] :
+                  ( "ResourceTypeCode." + (ResourceTypeCode) tIdx )
+               );
+            yield return new ResourceItem()
+            {
+               Name = dataNamesAndOffsets[i].Item1,
+               Type = resType,
+               IsUserDefinedType = isUserType,
+               DataOffset = iIdx,
+               DataSize = ( i < resCount - 1 ? dataNamesAndOffsets[i + 1].Item2 : array.Length ) - iIdx
+            };
+         }
+
       }
 
       public static IList<AbstractRecord> ReadNRBFRecords( Byte[] array, ref Int32 idx, Int32 maxIndex )

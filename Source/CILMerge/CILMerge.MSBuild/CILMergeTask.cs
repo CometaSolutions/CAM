@@ -100,7 +100,7 @@ namespace CILMerge.MSBuild
 
       #region CILMergeOptions Members
 
-      public Int32 Align { get; set; }
+      public Int32 FileAlign { get; set; }
 
       public Boolean AllowDuplicateResources { get; set; }
 

@@ -400,14 +400,13 @@ namespace CILAssemblyManipulator.Physical
 
       // index is zero-based
       public TableIndex( Tables aTable, Int32 anIdx )
+         : this( ( (Int32) aTable << 24 ) | anIdx )
       {
-         this._token = ( (Int32) aTable << 24 ) | anIdx;
       }
 
       internal TableIndex( Int32 token )
       {
-         // Index is zero-based in CAM
-         this._token = ( ( token & TokenUtils.INDEX_MASK ) - 1 ) | ( token & ~TokenUtils.INDEX_MASK );
+         this._token = token;
       }
 
       public Tables Table
@@ -531,6 +530,16 @@ namespace CILAssemblyManipulator.Physical
       public static Boolean operator >=( TableIndex x, TableIndex y )
       {
          return !( x < y );
+      }
+
+      public static TableIndex FromOneBasedToken( Int32 token )
+      {
+         return new TableIndex( ( ( token & TokenUtils.INDEX_MASK ) - 1 ) | ( token & ~TokenUtils.INDEX_MASK ) );
+      }
+
+      public static TableIndex FromZeroBasedToken( Int32 token )
+      {
+         return new TableIndex( token );
       }
    }
 
@@ -1164,6 +1173,10 @@ public static partial class E_CILPhysical
    // TypeDef and MethodDef can not have duplicate instances of same object!!
    public static Int32[][] OrderTablesAndRemoveDuplicates( this CILMetaData md )
    {
+      // TODO maybe just create a new CILMetaData which would be a sorted version of this??
+      // Would simplify a lot of things, and possibly could be even faster (unless given md is already in order)
+
+
       var allTableIndices = new Int32[Consts.AMOUNT_OF_TABLES][];
 
       // Start by re-ordering structural (TypeDef, MethodDef, ParamDef, Field, NestedClass) tables
@@ -1222,7 +1235,7 @@ public static partial class E_CILPhysical
       // TypeDef table has special constraint - enclosing class must precede nested class.
       // In other words, for all rows in NestedClass table, the EnclosingClass index must be less than NestedClass index
       // All the tables that are handled in this method will only be needed to re-shuffle if TypeDef table changes, that is, if there are violating rows in NestedClass table.
-      var typeDefOrderingChanged = true; // nestedClass.Any( nc => nc.NestedClass.Index < nc.EnclosingClass.Index );
+      var typeDefOrderingChanged = nestedClass.Any( nc => nc.NestedClass.Index < nc.EnclosingClass.Index );
 
       if ( typeDefOrderingChanged )
       {
@@ -1928,7 +1941,7 @@ public static partial class E_CILPhysical
       // ECMA-335: There should be no duplicate rows  [WARNING] 
       var mRefs = md.ModuleReferences;
       var mRefIndices = CreateIndexArray( mRefs.Count );
-      mRefs.CheckMDDuplicatesUnsorted( mRefIndices, Tables.ModuleRef, reorderState, ( x, y ) => String.Equals( mRefs[x].ModuleName, mRefs[y].ModuleName ), x => mRefs[x].ModuleName.GetHashCodeSafe() );
+      mRefs.CheckMDDuplicatesUnsorted( mRefIndices, Tables.ModuleRef, reorderState, Comparers.ModuleReferenceEqualityComparer );
 
       // ECMA-335: IL tokens shall be from TypeDef, TypeRef, TypeSpec, MethodDef, FieldDef, MemberRef, MethodSpec or StandaloneSignature tables.
       // All table indices in signatures should only ever reference TypeDef, TypeRef or TypeSpec tables.
@@ -2597,5 +2610,15 @@ public static partial class E_CILPhysical
          default:
             return false;
       }
+   }
+
+   public static Boolean IsEmbeddedResource( this ManifestResource resource )
+   {
+      return !resource.Implementation.HasValue;
+   }
+
+   public static IEnumerable<FileReference> GetModuleFileReferences( this CILMetaData md )
+   {
+      return md.FileReferences.Where( f => f.Attributes.ContainsMetadata() );
    }
 }

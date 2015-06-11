@@ -543,6 +543,8 @@ namespace CILMerge
    {
       private readonly CILAssemblyManipulator.Physical.CILMetaData _module;
       private readonly CILAssemblyManipulator.Physical.EmittingArguments _eArgs;
+      private readonly IList<Int32> _methodDeclaringTypes;
+      private readonly IDictionary<Int32, Int32> _typeEnclosingTypes;
 
       internal MDHelper( CILAssemblyManipulator.Physical.CILMetaData module, CILAssemblyManipulator.Physical.EmittingArguments eArgs )
       {
@@ -550,6 +552,23 @@ namespace CILMerge
          ArgumentValidator.ValidateNotNull( "Emitting arguments", eArgs );
          this._module = module;
          this._eArgs = eArgs;
+
+         var methodDeclaringTypes = new List<Int32>( module.MethodDefinitions.Count );
+         for ( var i = 0; i < module.TypeDefinitions.Count; ++i )
+         {
+            // Don't use loop variable in lambda
+            var cur = i;
+            methodDeclaringTypes.AddRange( module.GetTypeMethodIndices( cur ).Select( m => cur ) );
+         }
+         this._methodDeclaringTypes = methodDeclaringTypes;
+
+         var typeEnclosingTypes = new Dictionary<Int32, Int32>( module.NestedClassDefinitions.Count );
+         foreach ( var nc in module.NestedClassDefinitions )
+         {
+            typeEnclosingTypes[nc.NestedClass.Index] = nc.EnclosingClass.Index;
+         }
+         this._typeEnclosingTypes = typeEnclosingTypes;
+
       }
 
       #region IMetaDataEmit Members
@@ -850,21 +869,26 @@ namespace CILMerge
 
       public uint GetTypeDefProps( uint td, IntPtr szTypeDef, uint cchTypeDef, out uint pchTypeDef, IntPtr pdwTypeDefFlags )
       {
-         CILAssemblyManipulator.API.CILType cilType;
-         Int32 retVal;
-         if ( this._eArgs.MetadataInfo.TryGetTypeDefinitionForToken( (Int32) td, out cilType ) )
+         var tDefs = this._module.TypeDefinitions;
+         var tIdx = CILAssemblyManipulator.Physical.TableIndex.FromOneBasedToken( (Int32) td );
+         CILAssemblyManipulator.Physical.TableIndex? baseType;
+         if ( tIdx.Index < tDefs.Count )
          {
-            pchTypeDef = PDBHelper.WriteStringUnmanaged( szTypeDef, cchTypeDef, cilType.Name );
-            PDBHelper.WriteInt32Unmanaged( pdwTypeDefFlags, (Int32) cilType.Attributes );
-            this._eArgs.MetadataInfo.TryGetTokenForTypeDefinition( cilType.BaseType, out retVal );
+            var tDef = tDefs[tIdx.Index];
+            pchTypeDef = PDBHelper.WriteStringUnmanaged( szTypeDef, cchTypeDef, tDef.Name );
+            PDBHelper.WriteInt32Unmanaged( pdwTypeDefFlags, (Int32) tDef.Attributes );
+            baseType = tDef.BaseType;
          }
          else
          {
             Marshal.WriteInt16( szTypeDef, 0 );
             pchTypeDef = 1;
-            retVal = 0;
+            baseType = null;
          }
-         return (UInt32) retVal;
+
+         return (UInt32) ( baseType.HasValue ?
+            baseType.Value.OneBasedToken :
+            0 );
       }
 
       public uint GetInterfaceImplProps( uint iiImpl, out uint pClass )
@@ -954,25 +978,30 @@ namespace CILMerge
 
       public uint GetMethodProps( uint mb, out uint pClass, IntPtr szMethod, uint cchMethod, out uint pchMethod, IntPtr pdwAttr, IntPtr ppvSigBlob, IntPtr pcbSigBlob, IntPtr pulCodeRVA )
       {
-         CILAssemblyManipulator.API.CILMethodBase method;
-         Int32 retVal;
-         if ( this._eArgs.MetadataInfo.TryGetMethodDefinitionForToken( (Int32) mb, out method ) )
+         var mDefs = this._module.MethodDefinitions;
+         var mIdx = CILAssemblyManipulator.Physical.TableIndex.FromOneBasedToken( (Int32) mb );
+
+         Int32 implAttrs;
+         if ( mIdx.Index < mDefs.Count )
          {
-            this._eArgs.MetadataInfo.TryGetTokenForTypeDefinition( method.DeclaringType, out retVal );
-            pClass = (UInt32) retVal;
-            pchMethod = PDBHelper.WriteStringUnmanaged( szMethod, cchMethod, method.GetName() );
-            PDBHelper.WriteInt32Unmanaged( pdwAttr, (Int32) method.Attributes );
-            PDBHelper.WriteInt32Unmanaged( pulCodeRVA, this._eArgs.MetadataInfo.MethodRVAs[method] );
-            retVal = (Int32) method.ImplementationAttributes;
+            var mDef = mDefs[mIdx.Index];
+            pchMethod = PDBHelper.WriteStringUnmanaged( szMethod, cchMethod, mDef.Name );
+            PDBHelper.WriteInt32Unmanaged( pdwAttr, (Int32) mDef.Attributes );
+            PDBHelper.WriteInt32Unmanaged( pulCodeRVA, this._eArgs.MethodRVAs[mIdx.Index] );
+            implAttrs = (Int32) mDef.ImplementationAttributes;
+            pClass = (UInt32) new CILAssemblyManipulator.Physical.TableIndex(
+               CILAssemblyManipulator.Physical.Tables.TypeDef,
+               this._methodDeclaringTypes[mIdx.Index] ).OneBasedToken;
          }
          else
          {
             Marshal.WriteInt16( szMethod, 0 );
             pchMethod = 1;
             pClass = 0;
-            retVal = 0;
+            implAttrs = 0;
          }
-         return (UInt32) retVal;
+
+         return (UInt32) implAttrs;
       }
 
       public uint GetMemberRefProps( uint mr, ref uint ptk, StringBuilder szMember, uint cchMember, out uint pchMember, out IntPtr ppvSigBlob )
@@ -1132,11 +1161,11 @@ namespace CILMerge
 
       public uint GetNestedClassProps( uint tdNestedClass )
       {
-         CILAssemblyManipulator.API.CILType type;
-         this._eArgs.MetadataInfo.TryGetTypeDefinitionForToken( (Int32) tdNestedClass, out type );
-         Int32 retVal;
-         this._eArgs.MetadataInfo.TryGetTokenForTypeDefinition( type == null ? null : type.DeclaringType, out retVal );
-         return (UInt32) retVal;
+         var nestedIdx = CILAssemblyManipulator.Physical.TableIndex.FromOneBasedToken( (Int32) tdNestedClass );
+         Int32 enclosingTypeIdx;
+         return (UInt32) ( this._typeEnclosingTypes.TryGetValue( nestedIdx.Index, out enclosingTypeIdx ) ?
+            new CILAssemblyManipulator.Physical.TableIndex( CILAssemblyManipulator.Physical.Tables.TypeDef, enclosingTypeIdx ).OneBasedToken :
+            0 );
       }
 
       public uint GetNativeCallConvFromSig( IntPtr pvSig, uint cbSig )

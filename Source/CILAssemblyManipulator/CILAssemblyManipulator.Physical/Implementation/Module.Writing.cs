@@ -693,7 +693,7 @@ namespace CILAssemblyManipulator.Physical.Implementation
          var array = byteArrayHelper.Array;
          foreach ( var mr in mResInfos )
          {
-            if ( mr.Implementation == null )
+            if ( mr.IsEmbeddedResource() )
             {
                var data = mr.DataInCurrentFile;
                if ( data == null )
