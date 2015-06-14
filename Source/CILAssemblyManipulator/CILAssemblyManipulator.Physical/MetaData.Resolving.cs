@@ -157,7 +157,7 @@ namespace CILAssemblyManipulator.Physical
          {
             MDSpecificCache otherMD; Int32 tDefIndex;
             this.ResolveTypeFromTypeRef( index, out otherMD, out tDefIndex );
-            return otherMD == null ? null : otherMD.ResolveTypeFromTypeDef( index );
+            return otherMD == null ? null : otherMD.ResolveTypeFromTypeDef( tDefIndex );
          }
 
          private void ResolveTypeFromTypeRef( Int32 index, out MDSpecificCache otherMDParam, out Int32 tDefIndexParam )

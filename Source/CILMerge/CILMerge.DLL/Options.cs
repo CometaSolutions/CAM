@@ -66,6 +66,9 @@ namespace CILMerge
       Int32 SubsystemMajor { get; set; }
       Int32 SubsystemMinor { get; set; }
       Boolean HighEntropyVA { get; set; }
+
+      // When merging non-portable libraries with portable libraries, if non-portable library implements something that has retargetable ref in its signature -> PEVerify will think that the signatures are not matching
+      Boolean KeepRetargetableRefs { get; set; }
    }
 
    public interface CILMergeLogCallback
@@ -125,5 +128,6 @@ namespace CILMerge
       public Int32 SubsystemMajor { get; set; }
       public Int32 SubsystemMinor { get; set; }
       public Boolean HighEntropyVA { get; set; }
+      public Boolean KeepRetargetableRefs { get; set; }
    }
 }

@@ -40,6 +40,8 @@ namespace CILAssemblyManipulator.Physical
 
       // null if given module is not loaded by this loader
       String GetResourceFor( CILMetaData metaData );
+
+      MetaDataResolver CreateNewResolver();
    }
 
    public abstract class AbstractCILMetaDataLoader<TDictionary> : CILMetaDataLoader
@@ -150,11 +152,17 @@ namespace CILAssemblyManipulator.Physical
             null;
       }
 
-      private TModuleInfo ModuleInfoFactory( String resource, CILMetaData md, ReadingArguments rArgs )
+      public MetaDataResolver CreateNewResolver()
       {
          var resolver = new MetaDataResolver();
          resolver.AssemblyReferenceResolveEvent += _resolver_AssemblyReferenceResolveEvent;
          resolver.ModuleReferenceResolveEvent += _resolver_ModuleReferenceResolveEvent;
+         return resolver;
+      }
+
+      private TModuleInfo ModuleInfoFactory( String resource, CILMetaData md, ReadingArguments rArgs )
+      {
+         var resolver = this.CreateNewResolver();
          return Tuple.Create( resource, rArgs, resolver );
       }
 

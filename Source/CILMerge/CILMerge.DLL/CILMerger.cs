@@ -107,6 +107,11 @@ namespace CILMerge
             return thisMD.TryGetTargetFrameworkInformation( out fwInfo ) ? fwInfo : null;
          } );
 
+         return this.GetTargetFrameworkPathForFrameworkInfo( targetFW );
+      }
+
+      public String GetTargetFrameworkPathForFrameworkInfo( TargetFrameworkInfo targetFW )
+      {
          String retVal;
          if ( targetFW != null )
          {
@@ -517,8 +522,11 @@ namespace CILMerge
       public void PerformMerge()
       {
          // Merge assemblies
-         var assemblyMergeResult = new CILAssemblyMerger( this, this._options, Environment.CurrentDirectory )
-            .MergeModules();
+         CILModuleMergeResult[] assemblyMergeResult;
+         using ( var assMerger = new CILAssemblyMerger( this, this._options, Environment.CurrentDirectory ) )
+         {
+            assemblyMergeResult = assMerger.MergeModules();
+         }
 
          if ( this._options.XmlDocs )
          {
@@ -690,7 +698,8 @@ namespace CILMerge
       FailedToDeduceTargetFramework,
       FailedToReadTargetFrameworkMonikerInformation,
       FailedToMapPDBType,
-      VariableTypeGenericParameterCount
+      VariableTypeGenericParameterCount,
+      NoTargetFrameworkSpecified
    }
 
    internal class CILModuleMergeResult
@@ -699,7 +708,7 @@ namespace CILMerge
       public IDictionary<String, String> TypeRenames { get; set; }
    }
 
-   internal class CILAssemblyMerger
+   internal class CILAssemblyMerger : AbstractDisposable, IDisposable
    {
       //private class PortabilityHelper
       //{
@@ -856,6 +865,7 @@ namespace CILMerge
       private readonly Lazy<Regex[]> _excludeRegexes;
       private readonly String _inputBasePath;
 
+      private readonly Lazy<HashStreamInfo> _publicKeyComputer;
 
       //private readonly CILReflectionContext _ctx;
       //private readonly CILAssemblyLoader _assemblyLoader;
@@ -880,12 +890,14 @@ namespace CILMerge
          this._options = options;
 
          this._inputModules = new List<CILMetaData>();
-         this._loaderCallbacks = new CILMetaDataLoaderResourceCallbacksForFiles( options.ReferenceAssembliesDirectory );
+         this._loaderCallbacks = new CILMetaDataLoaderResourceCallbacksForFiles(
+            referenceAssemblyBasePath: options.ReferenceAssembliesDirectory
+            );
          this._moduleLoader = options.Parallel ?
             (CILMetaDataLoader) new CILMetaDataLoaderThreadSafeConcurrentForFiles( this._loaderCallbacks ) :
             new CILMetaDataLoaderNotThreadSafeForFiles( this._loaderCallbacks );
          this._cryptoCallbacks = new CryptoCallbacksDotNET();
-         var hashStreamLazy = new Lazy<HashStreamInfo>( () => this._cryptoCallbacks.CreateHashStream( AssemblyHashAlgorithm.SHA1 ), LazyThreadSafetyMode.None );
+         this._publicKeyComputer = new Lazy<HashStreamInfo>( () => this._cryptoCallbacks.CreateHashStream( AssemblyHashAlgorithm.SHA1 ), LazyThreadSafetyMode.None );
          this._inputModulesAsAssemblyReferences = new Dictionary<AssemblyReference, CILMetaData>(
             ComparerFromFunctions.NewEqualityComparer<AssemblyReference>(
                ( x, y ) =>
@@ -909,14 +921,14 @@ namespace CILMerge
                         if ( x.Attributes.IsFullPublicKey() )
                         {
                            // Create public key token for x and compare with y
-                           xBytes = hashStreamLazy.Value.ComputePublicKeyToken( xa.PublicKeyOrToken );
+                           xBytes = this._publicKeyComputer.Value.ComputePublicKeyToken( xa.PublicKeyOrToken );
                            yBytes = ya.PublicKeyOrToken;
                         }
                         else
                         {
                            // Create public key token for y and compare with x
                            xBytes = xa.PublicKeyOrToken;
-                           yBytes = hashStreamLazy.Value.ComputePublicKeyToken( ya.PublicKeyOrToken );
+                           yBytes = this._publicKeyComputer.Value.ComputePublicKeyToken( ya.PublicKeyOrToken );
                         }
                         retVal = ArrayEqualityComparer<Byte>.DefaultArrayEqualityComparer.Equals( xBytes, yBytes );
                      }
@@ -1015,10 +1027,12 @@ namespace CILMerge
          this.ConstructTheRestOfTheTables();
          // 5. Create assembly & module custom attributes
          this.ApplyAssemblyAndModuleCustomAttributes();
-         // 6. Re-order and remove duplicates from tables
+         // 6. Fix regargetable assembly references if needed
+         // Do it here, after TargetFrameworkAttribute has been applied specified
+         this.FixRetargetableAssemblyReferences();
+         // 7. Re-order and remove duplicates from tables
          var reorderResult = this._targetModule.OrderTablesAndRemoveDuplicates();
-         // 7. Emit module
-         // Emit the module
+         // 8. Emit module
          var targetModule = this._targetModule;
          try
          {
@@ -1056,6 +1070,44 @@ namespace CILMerge
                TypeRenames = this.CreateRenameDictionaryForInputModule( m )
             } )
          .ToArray();
+      }
+
+      private void FixRetargetableAssemblyReferences()
+      {
+         if ( !this._options.KeepRetargetableRefs )
+         {
+            var targetFWInfo = new Lazy<TargetFrameworkInfo>( () =>
+            {
+               var fwInfo = this._targetModule.GetTargetFrameworkInformationOrNull( this._moduleLoader.CreateNewResolver() );
+               if ( fwInfo == null )
+               {
+                  throw this.NewCILMergeException( ExitCode.NoTargetFrameworkSpecified, "TODO: allow specifying target framework info (id, version, profile) through options." );
+               }
+               return fwInfo;
+            }, LazyThreadSafetyMode.None );
+
+            foreach ( var inputModule in this._inputModules )
+            {
+               var aRefs = inputModule.AssemblyReferences;
+               for ( var i = 0; i < aRefs.Count; ++i )
+               {
+                  var aRef = aRefs[i];
+                  if ( aRef.Attributes.IsRetargetable() )
+                  {
+                     var aInfo = aRef.AssemblyInformation;
+                     var correspondingNewAssembly = this._moduleLoader.GetOrLoadMetaData( Path.Combine( this._loaderCallbacks.GetTargetFrameworkPathForFrameworkInfo( targetFWInfo.Value ), aInfo.Name + ".dll" ) );
+                     aRef.Attributes &= ( ~AssemblyFlags.Retargetable );
+                     var targetARef = this._targetModule.AssemblyReferences[this._tableIndexMappings[inputModule][new TableIndex( Tables.AssemblyRef, i )].Index];
+                     var aDefInfo = correspondingNewAssembly.AssemblyDefinitions[0].AssemblyInformation;
+                     aDefInfo.DeepCopyContentsTo( targetARef.AssemblyInformation );
+                     if ( !targetARef.Attributes.IsFullPublicKey() && !this._options.UseFullPublicKeyForRefs )
+                     {
+                        targetARef.AssemblyInformation.PublicKeyOrToken = this._publicKeyComputer.Value.ComputePublicKeyToken( aDefInfo.PublicKeyOrToken );
+                     }
+                  }
+               }
+            }
+         }
       }
 
       private IDictionary<String, String> CreateRenameDictionaryForInputModule( CILMetaData inputModule )
@@ -2031,7 +2083,7 @@ namespace CILMerge
          this.MergeTables(
             Tables.GenericParameterConstraint,
             md => md.GenericParameterConstraintDefinitions,
-            ( md, inputIdx, thisIdx ) => this._tableIndexMappings[md].ContainsKey( inputIdx ),
+            null,
             ( md, constraint, inputIdx, thisIdx ) => new GenericParameterConstraintDefinition()
             {
                Constraint = this.TranslateTableIndex( md, constraint.Constraint ), // TypeDef/TypeRef/TypeSpec -> already processed
@@ -2725,7 +2777,13 @@ namespace CILMerge
          this._merger.DoPotentiallyInParallel( enumerable, action );
       }
 
-
+      protected override void Dispose( Boolean disposing )
+      {
+         if ( disposing && this._publicKeyComputer.IsValueCreated )
+         {
+            this._publicKeyComputer.Value.Transform.DisposeSafely();
+         }
+      }
 
 
 

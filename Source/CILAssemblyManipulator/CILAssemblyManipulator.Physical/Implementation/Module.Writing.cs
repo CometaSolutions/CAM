@@ -648,14 +648,16 @@ namespace CILAssemblyManipulator.Physical.Implementation
             var il = method.IL;
             if ( il != null )
             {
-               var writer = new MethodILWriter( md, i, usersStrings, byteArrayHelper );
-               if ( !writer.IsTinyHeader )
+               Boolean isTinyHeader;
+               var methodILByteCount = EmitMethodIL( md, i, usersStrings, byteArrayHelper, out isTinyHeader );
+               if ( !isTinyHeader )
                {
                   sink.SkipToNextAlignment( ref currentOffset, 4 );
                }
 
+               sink.Write( byteArrayHelper.Array, methodILByteCount );
                thisMethodRVA = codeSectionVirtualOffset + currentOffset;
-               currentOffset += writer.PerformEmitting( sink );
+               currentOffset += (UInt32) methodILByteCount;
             }
             else
             {
@@ -738,6 +740,290 @@ namespace CILAssemblyManipulator.Physical.Implementation
          }
 
          sink.SkipToNextAlignment( ref currentOffset, 0x04u );
+      }
+
+      private const Int32 METHOD_DATA_SECTION_HEADER_SIZE = 4;
+      private const Int32 SMALL_EXC_BLOCK_SIZE = 12;
+      private const Int32 LARGE_EXC_BLOCK_SIZE = 24;
+      private const Int32 MAX_SMALL_EXC_HANDLERS_IN_ONE_SECTION = ( Byte.MaxValue - METHOD_DATA_SECTION_HEADER_SIZE ) / SMALL_EXC_BLOCK_SIZE; // 20
+      private const Int32 MAX_LARGE_EXC_HANDLERS_IN_ONE_SECTION = ( 0x00FFFFFF - METHOD_DATA_SECTION_HEADER_SIZE ) / LARGE_EXC_BLOCK_SIZE; // 699050
+      private const Int32 FAT_HEADER_SIZE = 12;
+
+      internal static Int32 EmitMethodIL(
+         CILMetaData md,
+         Int32 methodIndex,
+         UserStringHeapWriter usersStringHeap,
+         ByteArrayHelper bytes,
+         out Boolean isTinyHeader
+         )
+      {
+         var il = md.MethodDefinitions[methodIndex].IL;
+         var locals = md.GetLocalsSignatureForMethodOrNull( methodIndex );
+         Boolean exceptionSectionsAreLarge; Int32 wholeMethodByteCount;
+         var ilCodeByteCount = CalculateByteSizeForMethod( il, locals, out isTinyHeader, out exceptionSectionsAreLarge, out wholeMethodByteCount );
+         var exceptionBlocks = il.ExceptionBlocks;
+         var hasAnyExceptions = exceptionBlocks.Count > 0;
+
+         bytes.EnsureSize( wholeMethodByteCount );
+         var array = bytes.Array;
+         var idx = 0;
+
+         // Header
+         if ( isTinyHeader )
+         {
+            // Tiny header - one byte
+            array.WriteByteToBytes( ref idx, (Byte) ( (Int32) MethodHeaderFlags.TinyFormat | ( ilCodeByteCount << 2 ) ) );
+         }
+         else
+         {
+            // Fat header - 12 bytes
+            var flags = MethodHeaderFlags.FatFormat;
+            if ( hasAnyExceptions )
+            {
+               flags |= MethodHeaderFlags.MoreSections;
+            }
+            if ( il.InitLocals )
+            {
+               flags |= MethodHeaderFlags.InitLocals;
+            }
+
+            array.WriteInt16LEToBytes( ref idx, (Int16) ( ( (Int32) flags ) | ( 3 << 12 ) ) )
+               .WriteUInt16LEToBytes( ref idx, (UInt16) il.MaxStackSize )
+               .WriteInt32LEToBytes( ref idx, ilCodeByteCount )
+               .WriteInt32LEToBytes( ref idx, il.LocalsSignatureIndex.GetOneBasedToken() );
+         }
+
+
+         // Emit IL code
+         foreach ( var info in il.OpCodes )
+         {
+            EmitOpCodeInfo( info, array, ref idx, usersStringHeap );
+         }
+
+         // Emit exception block infos
+         if ( hasAnyExceptions )
+         {
+            var processedIndices = new HashSet<Int32>();
+            array.ZeroOut( ref idx, BitUtils.MultipleOf4( idx ) - idx );
+            var flags = MethodDataFlags.ExceptionHandling;
+            if ( exceptionSectionsAreLarge )
+            {
+               flags |= MethodDataFlags.FatFormat;
+            }
+            var excCount = exceptionBlocks.Count;
+            var maxExceptionHandlersInOneSections = exceptionSectionsAreLarge ? MAX_LARGE_EXC_HANDLERS_IN_ONE_SECTION : MAX_SMALL_EXC_HANDLERS_IN_ONE_SECTION;
+            var excBlockSize = exceptionSectionsAreLarge ? LARGE_EXC_BLOCK_SIZE : SMALL_EXC_BLOCK_SIZE;
+            var curExcIndex = 0;
+            while ( excCount > 0 )
+            {
+               var amountToBeWritten = Math.Min( excCount, maxExceptionHandlersInOneSections );
+               if ( amountToBeWritten < excCount )
+               {
+                  flags |= MethodDataFlags.MoreSections;
+               }
+               else
+               {
+                  flags = flags & ~( MethodDataFlags.MoreSections );
+               }
+
+               array.WriteByteToBytes( ref idx, (Byte) flags )
+                  .WriteInt32LEToBytes( ref idx, amountToBeWritten * excBlockSize + METHOD_DATA_SECTION_HEADER_SIZE );
+               --idx;
+
+               // Subtract this here since amountToBeWritten will change
+               excCount -= amountToBeWritten;
+
+               if ( exceptionSectionsAreLarge )
+               {
+                  while ( amountToBeWritten > 0 )
+                  {
+                     // Write large exc
+                     var block = exceptionBlocks[curExcIndex];
+                     array.WriteInt32LEToBytes( ref idx, (Int32) block.BlockType )
+                     .WriteInt32LEToBytes( ref idx, block.TryOffset )
+                     .WriteInt32LEToBytes( ref idx, block.TryLength )
+                     .WriteInt32LEToBytes( ref idx, block.HandlerOffset )
+                     .WriteInt32LEToBytes( ref idx, block.HandlerLength )
+                     .WriteInt32LEToBytes( ref idx, block.BlockType == ExceptionBlockType.Exception && block.ExceptionType.HasValue ? block.ExceptionType.Value.OneBasedToken : block.FilterOffset );
+                     ++curExcIndex;
+                     --amountToBeWritten;
+                  }
+               }
+               else
+               {
+                  while ( amountToBeWritten > 0 )
+                  {
+                     var block = exceptionBlocks[curExcIndex];
+                     // Write small exception
+                     array.WriteInt16LEToBytes( ref idx, (Int16) block.BlockType )
+                        .WriteUInt16LEToBytes( ref idx, (UInt16) block.TryOffset )
+                        .WriteByteToBytes( ref idx, (Byte) block.TryLength )
+                        .WriteUInt16LEToBytes( ref idx, (UInt16) block.HandlerOffset )
+                        .WriteByteToBytes( ref idx, (Byte) block.HandlerLength )
+                        .WriteInt32LEToBytes( ref idx, block.BlockType == ExceptionBlockType.Exception && block.ExceptionType.HasValue ? block.ExceptionType.Value.OneBasedToken : block.FilterOffset );
+                     ++curExcIndex;
+                     --amountToBeWritten;
+                  }
+               }
+
+            }
+         }
+
+#if DEBUG
+         if ( idx != wholeMethodByteCount )
+         {
+            throw new Exception( "Something went wrong when emitting method headers and body. Emitted " + idx + " bytes, but was supposed to emit " + wholeMethodByteCount + " bytes." );
+         }
+#endif
+
+         return idx;
+      }
+
+      private static void EmitOpCodeInfo( OpCodeInfo codeInfo, Byte[] array, ref Int32 idx, UserStringHeapWriter usersStrings )
+      {
+         const UInt32 USER_STRING_MASK = 0x70 << 24;
+
+         var code = codeInfo.OpCode;
+
+         if ( code.Size > 1 )
+         {
+            array.WriteByteToBytes( ref idx, code.Byte1 );
+         }
+         array.WriteByteToBytes( ref idx, code.Byte2 );
+
+         var operandType = code.OperandType;
+         if ( operandType != OperandType.InlineNone )
+         {
+            Object methodOrLabelOrManyLabels = null;
+            Int32 i32;
+            switch ( operandType )
+            {
+               case OperandType.ShortInlineI:
+               case OperandType.ShortInlineVar:
+                  array.WriteByteToBytes( ref idx, (Byte) ( (OpCodeInfoWithInt32) codeInfo ).Operand );
+                  break;
+               case OperandType.ShortInlineBrTarget:
+                  i32 = ( (OpCodeInfoWithInt32) codeInfo ).Operand;
+                  methodOrLabelOrManyLabels = i32;
+                  array.WriteByteToBytes( ref idx, (Byte) i32 );
+                  break;
+               case OperandType.ShortInlineR:
+                  array.WriteSingleLEToBytes( ref idx, (Single) ( (OpCodeInfoWithSingle) codeInfo ).Operand );
+                  break;
+               case OperandType.InlineBrTarget:
+                  i32 = ( (OpCodeInfoWithInt32) codeInfo ).Operand;
+                  methodOrLabelOrManyLabels = i32;
+                  array.WriteInt32LEToBytes( ref idx, i32 );
+                  break;
+               case OperandType.InlineI:
+                  array.WriteInt32LEToBytes( ref idx, ( (OpCodeInfoWithInt32) codeInfo ).Operand );
+                  break;
+               case OperandType.InlineVar:
+                  array.WriteInt16LEToBytes( ref idx, (Int16) ( (OpCodeInfoWithInt32) codeInfo ).Operand );
+                  break;
+               case OperandType.InlineR:
+                  array.WriteDoubleLEToBytes( ref idx, (Double) ( (OpCodeInfoWithDouble) codeInfo ).Operand );
+                  break;
+               case OperandType.InlineI8:
+                  array.WriteInt64LEToBytes( ref idx, (Int64) ( (OpCodeInfoWithInt64) codeInfo ).Operand );
+                  break;
+               case OperandType.InlineString:
+                  array.WriteInt32LEToBytes( ref idx, (Int32) ( usersStrings.GetOrAddString( ( (OpCodeInfoWithString) codeInfo ).Operand ) | USER_STRING_MASK ) );
+                  break;
+               case OperandType.InlineField:
+               case OperandType.InlineMethod:
+               case OperandType.InlineType:
+               case OperandType.InlineTok:
+               case OperandType.InlineSig:
+                  var tIdx = ( (OpCodeInfoWithToken) codeInfo ).Operand;
+                  if ( operandType != OperandType.InlineField )
+                  {
+                     methodOrLabelOrManyLabels = tIdx;
+                  }
+                  array.WriteInt32LEToBytes( ref idx, tIdx.OneBasedToken );
+                  break;
+               case OperandType.InlineSwitch:
+                  var offsets = ( (OpCodeInfoWithSwitch) codeInfo ).Offsets;
+                  array.WriteInt32LEToBytes( ref idx, offsets.Count );
+                  foreach ( var offset in offsets )
+                  {
+                     array.WriteInt32LEToBytes( ref idx, offset );
+                  }
+                  methodOrLabelOrManyLabels = offsets;
+                  break;
+               default:
+                  throw new ArgumentException( "Unknown operand type: " + code.OperandType + " for " + code + "." );
+            }
+         }
+      }
+
+      private static Int32 CalculateByteSizeForMethod(
+         MethodILDefinition methodIL,
+         LocalVariablesSignature localSig,
+         out Boolean isTinyHeader,
+         out Boolean exceptionSectionsAreLarge,
+         out Int32 wholeMethodByteCount
+         )
+      {
+
+
+
+         // Start by calculating the size of just IL code
+         var arraySize = methodIL.OpCodes.Sum( oci => oci.ByteSize );
+         var ilCodeByteCount = arraySize;
+
+         // Then calculate the size of headers and other stuff
+         var exceptionBlocks = methodIL.ExceptionBlocks;
+         // PEVerify doesn't like mixed small and fat blocks at all (however, at least Cecil understands that kind of situation)
+         // Apparently, PEVerify doesn't like multiple small blocks either (Cecil still loads code fine)
+         // So to use small exception blocks at all, all the blocks must be small, and there must be a limited amount of them
+         var allAreSmall = exceptionBlocks.Count <= MAX_SMALL_EXC_HANDLERS_IN_ONE_SECTION
+            && exceptionBlocks.All( excBlock =>
+            {
+               return excBlock.TryLength <= Byte.MaxValue
+                  && excBlock.HandlerLength <= Byte.MaxValue
+                  && excBlock.TryOffset <= UInt16.MaxValue
+                  && excBlock.HandlerOffset <= UInt16.MaxValue;
+            } );
+
+         var maxStack = methodIL.MaxStackSize;
+
+         var excCount = exceptionBlocks.Count;
+         var hasAnyExc = excCount > 0;
+         isTinyHeader = arraySize < 64
+            && !hasAnyExc
+            && maxStack <= 8
+            && ( localSig == null || localSig.Locals.Count == 0 );
+
+         if ( isTinyHeader )
+         {
+            // Can use tiny header
+            ++arraySize;
+         }
+         else
+         {
+            // Use fat header
+            arraySize += FAT_HEADER_SIZE;
+            if ( hasAnyExc )
+            {
+               // Skip to next boundary of 4
+               arraySize = BitUtils.MultipleOf4( arraySize );
+               var excBlockSize = allAreSmall ? SMALL_EXC_BLOCK_SIZE : LARGE_EXC_BLOCK_SIZE;
+               var maxExcHandlersInOnSection = allAreSmall ? MAX_SMALL_EXC_HANDLERS_IN_ONE_SECTION : MAX_LARGE_EXC_HANDLERS_IN_ONE_SECTION;
+               arraySize += BinaryUtils.AmountOfPagesTaken( excCount, maxExcHandlersInOnSection ) * METHOD_DATA_SECTION_HEADER_SIZE +
+                  excCount * excBlockSize;
+            }
+         }
+
+         exceptionSectionsAreLarge = hasAnyExc && !allAreSmall;
+
+         wholeMethodByteCount = arraySize;
+
+         return ilCodeByteCount;
+
+         //bytes.EnsureSize( arraySize );
+         //this._array = bytes.Array;
+         //this._arrayIndex = 0;
       }
 
       //This assumes that sink offset is at multiple of 4.
@@ -1583,299 +1869,6 @@ namespace CILAssemblyManipulator.Physical.Implementation
       #region Relocation Section
       internal const Int32 RELOC_ARRAY_BASE_SIZE = 12;
       #endregion
-   }
-
-   internal sealed class MethodILWriter
-   {
-      private const UInt32 USER_STRING_MASK = 0x70 << 24;
-      private const Int32 METHOD_DATA_SECTION_HEADER_SIZE = 4;
-      private const Int32 SMALL_EXC_BLOCK_SIZE = 12;
-      private const Int32 LARGE_EXC_BLOCK_SIZE = 24;
-      private const Int32 MAX_SMALL_EXC_HANDLERS_IN_ONE_SECTION = ( Byte.MaxValue - METHOD_DATA_SECTION_HEADER_SIZE ) / SMALL_EXC_BLOCK_SIZE; // 20
-      private const Int32 MAX_LARGE_EXC_HANDLERS_IN_ONE_SECTION = ( 0x00FFFFFF - METHOD_DATA_SECTION_HEADER_SIZE ) / LARGE_EXC_BLOCK_SIZE; // 699050
-      private const Int32 FAT_HEADER_SIZE = 12;
-
-      private readonly CILMetaData _md;
-      private readonly MethodILDefinition _methodIL;
-      private readonly UserStringHeapWriter _usersStringHeap;
-      private readonly Boolean _isTiny;
-      private readonly Boolean _exceptionSectionsAreLarge;
-
-      private readonly Byte[] _array;
-      private readonly Int32 _ilCodeByteCount;
-      private Int32 _arrayIndex;
-
-#if DEBUG
-      private readonly Int32 _calculatedSize;
-#endif
-
-      internal MethodILWriter( CILMetaData md, Int32 idx, UserStringHeapWriter usersStringHeap, ByteArrayHelper bytes )
-      {
-         this._md = md;
-         this._usersStringHeap = usersStringHeap;
-
-         var methodIL = md.MethodDefinitions[idx].IL;
-         this._methodIL = methodIL;
-
-         // Start by calculating the size of just IL code
-         var arraySize = methodIL.OpCodes.Sum( oci => oci.ByteSize );
-         this._ilCodeByteCount = arraySize;
-
-         // Then calculate the size of headers and other stuff
-         var localSig = this._md.GetLocalsSignatureForMethodOrNull( idx );
-         var exceptionBlocks = methodIL.ExceptionBlocks;
-         // PEVerify doesn't like mixed small and fat blocks at all (however, at least Cecil understands that kind of situation)
-         // Apparently, PEVerify doesn't like multiple small blocks either (Cecil still loads code fine)
-         // So to use small exception blocks at all, all the blocks must be small, and there must be a limited amount of them
-         var allAreSmall = exceptionBlocks.Count <= MAX_SMALL_EXC_HANDLERS_IN_ONE_SECTION
-            && exceptionBlocks.All( excBlock =>
-            {
-               return excBlock.TryLength <= Byte.MaxValue
-                  && excBlock.HandlerLength <= Byte.MaxValue
-                  && excBlock.TryOffset <= UInt16.MaxValue
-                  && excBlock.HandlerOffset <= UInt16.MaxValue;
-            } );
-
-         var maxStack = methodIL.MaxStackSize;
-
-         var excCount = exceptionBlocks.Count;
-         var hasAnyExc = excCount > 0;
-         this._isTiny = arraySize < 64
-            && !hasAnyExc
-            && maxStack <= 8
-            && ( localSig == null || localSig.Locals.Count == 0 );
-
-         if ( this._isTiny )
-         {
-            // Can use tiny header
-            ++arraySize;
-         }
-         else
-         {
-            // Use fat header
-            arraySize += FAT_HEADER_SIZE;
-            if ( hasAnyExc )
-            {
-               // Skip to next boundary of 4
-               arraySize = BitUtils.MultipleOf4( arraySize );
-               var excBlockSize = allAreSmall ? SMALL_EXC_BLOCK_SIZE : LARGE_EXC_BLOCK_SIZE;
-               var maxExcHandlersInOnSection = allAreSmall ? MAX_SMALL_EXC_HANDLERS_IN_ONE_SECTION : MAX_LARGE_EXC_HANDLERS_IN_ONE_SECTION;
-               arraySize += BinaryUtils.AmountOfPagesTaken( excCount, maxExcHandlersInOnSection ) * METHOD_DATA_SECTION_HEADER_SIZE +
-                  excCount * excBlockSize;
-            }
-         }
-
-         this._exceptionSectionsAreLarge = hasAnyExc && !allAreSmall;
-
-         bytes.EnsureSize( arraySize );
-         this._array = bytes.Array;
-         this._arrayIndex = 0;
-
-#if DEBUG
-         this._calculatedSize = arraySize;
-#endif
-      }
-
-      private void EmitOpCodeInfo( OpCodeInfo codeInfo )
-      {
-         var code = codeInfo.OpCode;
-
-         if ( code.Size > 1 )
-         {
-            this._array.WriteByteToBytes( ref this._arrayIndex, code.Byte1 );
-         }
-         this._array.WriteByteToBytes( ref this._arrayIndex, code.Byte2 );
-
-         var operandType = code.OperandType;
-         if ( operandType != OperandType.InlineNone )
-         {
-            Object methodOrLabelOrManyLabels = null;
-            Int32 i32;
-            switch ( operandType )
-            {
-               case OperandType.ShortInlineI:
-               case OperandType.ShortInlineVar:
-                  this._array.WriteByteToBytes( ref this._arrayIndex, (Byte) ( (OpCodeInfoWithInt32) codeInfo ).Operand );
-                  break;
-               case OperandType.ShortInlineBrTarget:
-                  i32 = ( (OpCodeInfoWithInt32) codeInfo ).Operand;
-                  methodOrLabelOrManyLabels = i32;
-                  this._array.WriteByteToBytes( ref this._arrayIndex, (Byte) i32 );
-                  break;
-               case OperandType.ShortInlineR:
-                  this._array.WriteSingleLEToBytes( ref this._arrayIndex, (Single) ( (OpCodeInfoWithSingle) codeInfo ).Operand );
-                  break;
-               case OperandType.InlineBrTarget:
-                  i32 = ( (OpCodeInfoWithInt32) codeInfo ).Operand;
-                  methodOrLabelOrManyLabels = i32;
-                  this._array.WriteInt32LEToBytes( ref this._arrayIndex, i32 );
-                  break;
-               case OperandType.InlineI:
-                  this._array.WriteInt32LEToBytes( ref this._arrayIndex, ( (OpCodeInfoWithInt32) codeInfo ).Operand );
-                  break;
-               case OperandType.InlineVar:
-                  this._array.WriteInt16LEToBytes( ref this._arrayIndex, (Int16) ( (OpCodeInfoWithInt32) codeInfo ).Operand );
-                  break;
-               case OperandType.InlineR:
-                  this._array.WriteDoubleLEToBytes( ref this._arrayIndex, (Double) ( (OpCodeInfoWithDouble) codeInfo ).Operand );
-                  break;
-               case OperandType.InlineI8:
-                  this._array.WriteInt64LEToBytes( ref this._arrayIndex, (Int64) ( (OpCodeInfoWithInt64) codeInfo ).Operand );
-                  break;
-               case OperandType.InlineString:
-                  this._array.WriteInt32LEToBytes( ref this._arrayIndex, (Int32) ( this._usersStringHeap.GetOrAddString( ( (OpCodeInfoWithString) codeInfo ).Operand ) | USER_STRING_MASK ) );
-                  break;
-               case OperandType.InlineField:
-               case OperandType.InlineMethod:
-               case OperandType.InlineType:
-               case OperandType.InlineTok:
-               case OperandType.InlineSig:
-                  var tIdx = ( (OpCodeInfoWithToken) codeInfo ).Operand;
-                  if ( operandType != OperandType.InlineField )
-                  {
-                     methodOrLabelOrManyLabels = tIdx;
-                  }
-                  this._array.WriteInt32LEToBytes( ref this._arrayIndex, tIdx.OneBasedToken );
-                  break;
-               case OperandType.InlineSwitch:
-                  var offsets = ( (OpCodeInfoWithSwitch) codeInfo ).Offsets;
-                  this._array.WriteInt32LEToBytes( ref this._arrayIndex, offsets.Count );
-                  foreach ( var offset in offsets )
-                  {
-                     this._array.WriteInt32LEToBytes( ref this._arrayIndex, offset );
-                  }
-                  methodOrLabelOrManyLabels = offsets;
-                  break;
-               default:
-                  throw new ArgumentException( "Unknown operand type: " + code.OperandType + " for " + code + "." );
-            }
-         }
-      }
-
-      public Boolean IsTinyHeader
-      {
-         get
-         {
-            return this._isTiny;
-         }
-      }
-
-      internal UInt32 PerformEmitting( Stream stream )
-      {
-         var exceptionBlocks = this._methodIL.ExceptionBlocks;
-         var hasAnyExceptions = exceptionBlocks.Count > 0;
-         // Header
-         if ( this._isTiny )
-         {
-            // Tiny header - one byte
-            this._array.WriteByteToBytes( ref this._arrayIndex, (Byte) ( (Int32) MethodHeaderFlags.TinyFormat | ( this._ilCodeByteCount << 2 ) ) );
-         }
-         else
-         {
-            // Fat header - 12 bytes
-            var flags = MethodHeaderFlags.FatFormat;
-            if ( hasAnyExceptions )
-            {
-               flags |= MethodHeaderFlags.MoreSections;
-            }
-            if ( this._methodIL.InitLocals )
-            {
-               flags |= MethodHeaderFlags.InitLocals;
-            }
-
-            this._array.WriteInt16LEToBytes( ref this._arrayIndex, (Int16) ( ( (Int32) flags ) | ( 3 << 12 ) ) )
-               .WriteUInt16LEToBytes( ref this._arrayIndex, (UInt16) this._methodIL.MaxStackSize )
-               .WriteInt32LEToBytes( ref this._arrayIndex, this._ilCodeByteCount )
-               .WriteInt32LEToBytes( ref this._arrayIndex, this._methodIL.LocalsSignatureIndex.GetOneBasedToken() );
-         }
-
-
-         // Emit IL code
-         foreach ( var info in this._methodIL.OpCodes )
-         {
-            this.EmitOpCodeInfo( info );
-         }
-
-         // Emit exception block infos
-         if ( hasAnyExceptions )
-         {
-            var processedIndices = new HashSet<Int32>();
-            this._arrayIndex = BitUtils.MultipleOf4( this._arrayIndex );
-            var flags = MethodDataFlags.ExceptionHandling;
-            var excCount = exceptionBlocks.Count;
-            var isLarge = this._exceptionSectionsAreLarge;
-            var maxExceptionHandlersInOneSections = isLarge ? MAX_LARGE_EXC_HANDLERS_IN_ONE_SECTION : MAX_SMALL_EXC_HANDLERS_IN_ONE_SECTION;
-            var excBlockSize = isLarge ? LARGE_EXC_BLOCK_SIZE : SMALL_EXC_BLOCK_SIZE;
-            var curExcIndex = 0;
-            while ( excCount > 0 )
-            {
-               var amountToBeWritten = Math.Min( excCount, maxExceptionHandlersInOneSections );
-               if ( amountToBeWritten < excCount )
-               {
-                  flags |= MethodDataFlags.MoreSections;
-               }
-               else
-               {
-                  flags = flags & ~( MethodDataFlags.MoreSections );
-               }
-
-               this._array.WriteByteToBytes( ref this._arrayIndex, (Byte) flags )
-                  .WriteInt32LEToBytes( ref this._arrayIndex, amountToBeWritten * excBlockSize + METHOD_DATA_SECTION_HEADER_SIZE );
-               --this._arrayIndex;
-
-               // Subtract this here since amountToBeWritten will change
-               excCount -= amountToBeWritten;
-
-               if ( isLarge )
-               {
-                  while ( amountToBeWritten > 0 )
-                  {
-                     // Write large exc
-                     var block = exceptionBlocks[curExcIndex];
-                     this._array.WriteInt32LEToBytes( ref this._arrayIndex, (Int32) block.BlockType )
-                     .WriteInt32LEToBytes( ref this._arrayIndex, block.TryOffset )
-                     .WriteInt32LEToBytes( ref this._arrayIndex, block.TryLength )
-                     .WriteInt32LEToBytes( ref this._arrayIndex, block.HandlerOffset )
-                     .WriteInt32LEToBytes( ref this._arrayIndex, block.HandlerLength )
-                     .WriteInt32LEToBytes( ref this._arrayIndex, block.FilterOffset );
-                     ++curExcIndex;
-                     --amountToBeWritten;
-                  }
-               }
-               else
-               {
-                  while ( amountToBeWritten > 0 )
-                  {
-                     var block = exceptionBlocks[curExcIndex];
-                     // Write small exception
-                     this._array.WriteInt16LEToBytes( ref this._arrayIndex, (Int16) block.BlockType )
-                        .WriteUInt16LEToBytes( ref this._arrayIndex, (UInt16) block.TryOffset )
-                        .WriteByteToBytes( ref this._arrayIndex, (Byte) block.TryLength )
-                        .WriteUInt16LEToBytes( ref this._arrayIndex, (UInt16) block.HandlerOffset )
-                        .WriteByteToBytes( ref this._arrayIndex, (Byte) block.HandlerLength )
-                        .WriteInt32LEToBytes( ref this._arrayIndex, block.FilterOffset );
-                     ++curExcIndex;
-                     --amountToBeWritten;
-                  }
-               }
-
-            }
-         }
-
-         // Write array
-         stream.Write( this._array, this._arrayIndex );
-
-#if DEBUG
-         if ( this._arrayIndex != this._calculatedSize )
-         {
-            throw new Exception( "Something went wrong when emitting method headers and body. Emitted " + this._arrayIndex + " bytes, but was supposed to emit " + this._calculatedSize + " bytes." );
-         }
-#endif
-
-         return (UInt32) this._arrayIndex;
-      }
-
-
    }
 
    [Flags]

@@ -733,24 +733,67 @@ public static partial class E_CILPhysical
       }
    }
 
-   private sealed class SignatureReorderState
+   private sealed class SignatureReOrderState
    {
-      private readonly CILMetaData _md;
-      private readonly ISet<TableIndex> _duplicatesThisRound;
-      private readonly Int32[][] _tableIndices;
-      private readonly IDictionary<Object, Object> _visitedInfo;
-      private Boolean _updatedAny;
+      private readonly MetaDataReOrderState _reorderState;
+      private ISet<TableIndex> _tableIndicesToProcess;
 
-      internal SignatureReorderState( CILMetaData md, Int32[][] tableIndices )
+      internal SignatureReOrderState( MetaDataReOrderState reorderState )
       {
-         this._md = md;
-         this._duplicatesThisRound = new HashSet<TableIndex>();
-         this._tableIndices = tableIndices;
-         this._visitedInfo = new Dictionary<Object, Object>();
-         this._updatedAny = false;
+         this._reorderState = reorderState;
+      }
+
+      public MetaDataReOrderState ReOrderState
+      {
+         get
+         {
+            return this._reorderState;
+         }
       }
 
       public CILMetaData MD
+      {
+         get
+         {
+            return this._reorderState.MetaData;
+         }
+      }
+
+      public ISet<TableIndex> TableIndicesToProcess
+      {
+         get
+         {
+            if ( this._tableIndicesToProcess == null )
+            {
+               this._tableIndicesToProcess = new HashSet<TableIndex>();
+            }
+            return this._tableIndicesToProcess;
+         }
+      }
+
+      public Boolean ShouldProcess( TableIndex tIdx )
+      {
+         return this._tableIndicesToProcess == null || this._tableIndicesToProcess.Contains( tIdx );
+      }
+
+   }
+
+   private sealed class MetaDataReOrderState
+   {
+      private readonly CILMetaData _md;
+      private readonly IDictionary<Tables, IDictionary<Int32, Int32>> _duplicates;
+      private readonly Int32[][] _finalIndices;
+      private readonly Object[][] _currentTargets;
+
+      internal MetaDataReOrderState( CILMetaData md )
+      {
+         this._md = md;
+         this._duplicates = new Dictionary<Tables, IDictionary<Int32, Int32>>();
+         this._finalIndices = new Int32[Consts.AMOUNT_OF_TABLES][];
+         this._currentTargets = new Object[Consts.AMOUNT_OF_TABLES][];
+      }
+
+      public CILMetaData MetaData
       {
          get
          {
@@ -758,62 +801,7 @@ public static partial class E_CILPhysical
          }
       }
 
-      public ISet<TableIndex> DuplicatesThisRound
-      {
-         get
-         {
-            return this._duplicatesThisRound;
-         }
-      }
-
-      public Int32[][] TableIndices
-      {
-         get
-         {
-            return this._tableIndices;
-         }
-      }
-
-      public IDictionary<Object, Object> VisitedInfo
-      {
-         get
-         {
-            return this._visitedInfo;
-         }
-      }
-
-      public Boolean ChangedAny
-      {
-         get
-         {
-            return this._updatedAny;
-         }
-      }
-
-      public void ResetChangedAny()
-      {
-         this._updatedAny = false;
-      }
-
-      public void ProcessedTableIndex( Boolean changed )
-      {
-         if ( changed && !this._updatedAny )
-         {
-            this._updatedAny = true;
-         }
-      }
-   }
-
-   private sealed class MetaDataReOrderState
-   {
-      private readonly IDictionary<Tables, ISet<Int32>> _duplicates;
-
-      internal MetaDataReOrderState()
-      {
-         this._duplicates = new Dictionary<Tables, ISet<Int32>>();
-      }
-
-      public IDictionary<Tables, ISet<Int32>> Duplicates
+      public IDictionary<Tables, IDictionary<Int32, Int32>> Duplicates
       {
          get
          {
@@ -821,19 +809,90 @@ public static partial class E_CILPhysical
          }
       }
 
-      public void MarkDuplicate( Tables table, Int32 idx )
+      public Int32[][] FinalIndices
       {
-         this._duplicates
-            .GetOrAdd_NotThreadSafe( table, t => new HashSet<Int32>() )
-            .Add( idx );
+         get
+         {
+            return this._finalIndices;
+         }
       }
 
-      //public Boolean IsDuplicate( Tables table, Int32 idx )
-      //{
-      //   ISet<Int32> set;
-      //   return this._duplicates.TryGetValue( table, out set )
-      //      && set.Contains( idx );
-      //}
+      public void MarkDuplicate( Tables table, Int32 idx, Int32 actualIndex )
+      {
+         var thisDuplicates = this._duplicates
+            .GetOrAdd_NotThreadSafe( table, t => new Dictionary<Int32, Int32>() );
+         thisDuplicates
+            .Add( idx, actualIndex );
+         // Update all other duplicates as well
+         foreach ( var kvp in thisDuplicates.ToArray() )
+         {
+            if ( kvp.Value == idx )
+            {
+               thisDuplicates.Remove( kvp.Key );
+               thisDuplicates.Add( kvp.Key, actualIndex );
+            }
+         }
+
+         var targets = this._currentTargets[(Int32) table];
+         targets[idx] = targets[actualIndex];
+      }
+
+      public Boolean IsDuplicate( TableIndex index )
+      {
+         IDictionary<Int32, Int32> tableDuplicates;
+         return this._duplicates.TryGetValue( index.Table, out tableDuplicates )
+            && tableDuplicates.ContainsKey( index.Index );
+      }
+
+      public Boolean IsDuplicate( TableIndex index, out Int32 newIndex )
+      {
+         IDictionary<Int32, Int32> tableDuplicates;
+         newIndex = -1;
+         var retVal = this._duplicates.TryGetValue( index.Table, out tableDuplicates )
+            && tableDuplicates.TryGetValue( index.Index, out newIndex );
+         if ( !retVal )
+         {
+            newIndex = -1;
+         }
+         return retVal;
+      }
+
+      public Int32[] GetOrCreateIndexArray<T>( Tables table, List<T> list )
+         where T : class
+      {
+         var retVal = this._finalIndices[(Int32) table];
+         if ( retVal == null )
+         {
+            retVal = new Int32[list.Count];
+            var targets = new Object[list.Count];
+            for ( var i = 0; i < retVal.Length; ++i )
+            {
+               retVal[i] = i;
+               targets[i] = list[i];
+            }
+            this._finalIndices[(Int32) table] = retVal;
+            this._currentTargets[(Int32) table] = targets;
+         }
+         return retVal;
+      }
+
+      public Int32 GetFinalIndex( TableIndex index )
+      {
+         return this._finalIndices[(Int32) index.Table][index.Index];
+      }
+
+      public Int32 GetFinalIndex( Tables table, Int32 index )
+      {
+         return this._finalIndices[(Int32) table][index];
+      }
+
+      public T GetTargetByIndex<T>( TableIndex index )
+         where T : class
+      {
+         return (T) this._currentTargets[(Int32) index.Table][index.Index];
+      }
+
+
    }
 
    public static Boolean IsHasThis( this SignatureStarters starter )
@@ -1177,30 +1236,31 @@ public static partial class E_CILPhysical
       // Would simplify a lot of things, and possibly could be even faster (unless given md is already in order)
 
 
-      var allTableIndices = new Int32[Consts.AMOUNT_OF_TABLES][];
+      //var allTableIndices = new Int32[Consts.AMOUNT_OF_TABLES][];
+      var reorderState = new MetaDataReOrderState( md );
 
       // Start by re-ordering structural (TypeDef, MethodDef, ParamDef, Field, NestedClass) tables
-      md.ReOrderStructuralTables( allTableIndices );
+      reorderState.ReOrderStructuralTables();
 
       // Keep updating and removing duplicates from TypeRef, TypeSpec, MemberRef, MethodSpec, StandaloneSignature and Property tables, while updating all signatures and IL code
-      var reorderState = new MetaDataReOrderState();
-      md.UpdateSignaturesAndILWhileRemovingDuplicates( allTableIndices, reorderState );
+      reorderState.UpdateSignaturesAndILWhileRemovingDuplicates();
 
       // Update and sort the remaining tables which don't have signatures
-      md.UpdateAndSortTablesWithNoSignatures( allTableIndices );
+      reorderState.UpdateAndSortTablesWithNoSignatures();
 
       // Remove duplicates
-      md.RemoveDuplicatesAfterSorting( reorderState );
+      reorderState.RemoveDuplicatesAfterSorting();
 
       // Sort exception blocks of all ILs
       md.SortMethodILExceptionBlocks();
 
-      return allTableIndices;
+      return reorderState.FinalIndices;
    }
 
    // Re-orders TypeDef, MethodDef, ParamDef, Field, and NestedClass tables, if necessary
-   private static void ReOrderStructuralTables( this CILMetaData md, Int32[][] allTableIndices )
+   private static void ReOrderStructuralTables( this MetaDataReOrderState reorderState )
    {
+      var md = reorderState.MetaData;
       // No matter what, we have to remove nested class duplicates
       // Don't need to keep track of changes - nested class table is not referenced by anything
       md.NestedClassDefinitions.RemoveDuplicatesUnsortedInPlace( Comparers.NestedClassDefinitionEqualityComparer );
@@ -1216,18 +1276,11 @@ public static partial class E_CILPhysical
       var pDefCount = paramDef.Count;
       var ncCount = nestedClass.Count;
 
-      var typeDefIndices = CreateIndexArray( tDefCount );
-      var methodDefIndices = CreateIndexArray( mDefCount );
-      var paramDefIndices = CreateIndexArray( pDefCount );
-      var fDefIndices = CreateIndexArray( fDefCount );
-      var ncIndices = CreateIndexArray( ncCount );
-
-      // Set table indices
-      allTableIndices[(Int32) Tables.TypeDef] = typeDefIndices;
-      allTableIndices[(Int32) Tables.MethodDef] = methodDefIndices;
-      allTableIndices[(Int32) Tables.Field] = fDefIndices;
-      allTableIndices[(Int32) Tables.Parameter] = paramDefIndices;
-      allTableIndices[(Int32) Tables.NestedClass] = ncIndices;
+      var typeDefIndices = reorderState.GetOrCreateIndexArray( Tables.TypeDef, typeDef );
+      var methodDefIndices = reorderState.GetOrCreateIndexArray( Tables.MethodDef, methodDef );
+      var paramDefIndices = reorderState.GetOrCreateIndexArray( Tables.Parameter, paramDef );
+      var fDefIndices = reorderState.GetOrCreateIndexArray( Tables.Field, fieldDef );
+      var ncIndices = reorderState.GetOrCreateIndexArray( Tables.NestedClass, nestedClass );
 
 
       // So, start by reading nested class data into more easily accessible data structure
@@ -1330,8 +1383,8 @@ public static partial class E_CILPhysical
          }
 
          // Update NestedClass indices and sort NestedClass
-         nestedClass.UpdateMDTableWithTableIndices2(
-            allTableIndices,
+         reorderState.UpdateMDTableWithTableIndices2(
+            md.NestedClassDefinitions,
             nc => nc.NestedClass,
             ( nc, ncIdx ) => nc.NestedClass = ncIdx,
             nc => nc.EnclosingClass,
@@ -1340,7 +1393,8 @@ public static partial class E_CILPhysical
          nestedClass.SortMDTable( ncIndices, Comparers.NestedClassDefinitionComparer );
 
          // Sort MethodDef table and update references in TypeDef table
-         methodDef.ReOrderMDTableWithAscendingReferences(
+         reorderState.ReOrderMDTableWithAscendingReferences(
+            methodDef,
             methodDefIndices,
             typeDef,
             typeDefIndices,
@@ -1350,7 +1404,8 @@ public static partial class E_CILPhysical
             );
 
          // Sort ParameterDef table and update references in MethodDef table
-         paramDef.ReOrderMDTableWithAscendingReferences(
+         reorderState.ReOrderMDTableWithAscendingReferences(
+            paramDef,
             paramDefIndices,
             methodDef,
             methodDefIndices,
@@ -1360,7 +1415,8 @@ public static partial class E_CILPhysical
             );
 
          // Sort FieldDef table and update references in TypeDef table
-         fieldDef.ReOrderMDTableWithAscendingReferences(
+         reorderState.ReOrderMDTableWithAscendingReferences(
+            fieldDef,
             fDefIndices,
             typeDef,
             typeDefIndices,
@@ -1371,165 +1427,166 @@ public static partial class E_CILPhysical
       }
    }
 
-   private static void UpdateAndSortTablesWithNoSignatures( this CILMetaData md, Int32[][] allTableIndices )
+   private static void UpdateAndSortTablesWithNoSignatures( this MetaDataReOrderState reorderState )
    {
+      var md = reorderState.MetaData;
       // Create table index arrays for tables which are untouched (but can be used by various table indices in table rows)
-      allTableIndices[(Int32) Tables.Assembly] = CreateIndexArray( md.AssemblyDefinitions.Count );
-      allTableIndices[(Int32) Tables.File] = CreateIndexArray( md.FileReferences.Count );
-      allTableIndices[(Int32) Tables.Property] = CreateIndexArray( md.PropertyDefinitions.Count );
+      reorderState.GetOrCreateIndexArray( Tables.Assembly, md.AssemblyDefinitions );
+      reorderState.GetOrCreateIndexArray( Tables.File, md.FileReferences );
+      reorderState.GetOrCreateIndexArray( Tables.Property, md.PropertyDefinitions );
 
       // Update TypeDef
-      md.TypeDefinitions.UpdateMDTableIndices(
+      reorderState.UpdateMDTableIndices(
+         md.TypeDefinitions,
          Tables.TypeDef,
-         allTableIndices,
          null,
-         ( td, indices ) => td.UpdateMDTableWithTableIndices1Nullable( allTableIndices, t => t.BaseType, ( t, b ) => t.BaseType = b )
+         ( td, indices ) => reorderState.UpdateMDTableWithTableIndices1Nullable( td, t => t.BaseType, ( t, b ) => t.BaseType = b )
          );
 
       // Update EventDefinition
-      md.EventDefinitions.UpdateMDTableIndices(
+      reorderState.UpdateMDTableIndices(
+         md.EventDefinitions,
          Tables.Event,
-         allTableIndices,
          null,
-         ( ed, indices ) => ed.UpdateMDTableWithTableIndices1( indices, e => e.EventType, ( e, t ) => e.EventType = t )
+         ( ed, indices ) => reorderState.UpdateMDTableWithTableIndices1( ed, e => e.EventType, ( e, t ) => e.EventType = t )
          );
 
       // Update EventMap
-      md.EventMaps.UpdateMDTableIndices(
+      reorderState.UpdateMDTableIndices(
+         md.EventMaps,
          Tables.EventMap,
-         allTableIndices,
          null,
-         ( em, indices ) => em.UpdateMDTableWithTableIndices2( indices, e => e.Parent, ( e, p ) => e.Parent = p, e => e.EventList, ( e, l ) => e.EventList = l )
+         ( em, indices ) => reorderState.UpdateMDTableWithTableIndices2( em, e => e.Parent, ( e, p ) => e.Parent = p, e => e.EventList, ( e, l ) => e.EventList = l )
          );
 
       // No table indices in PropertyDefinition
 
       // Update PropertyMap
-      md.PropertyMaps.UpdateMDTableIndices(
+      reorderState.UpdateMDTableIndices(
+         md.PropertyMaps,
          Tables.PropertyMap,
-         allTableIndices,
          null,
-         ( pm, indices ) => pm.UpdateMDTableWithTableIndices2( indices, p => p.Parent, ( p, pp ) => p.Parent = pp, p => p.PropertyList, ( p, pl ) => p.PropertyList = pl )
+         ( pm, indices ) => reorderState.UpdateMDTableWithTableIndices2( pm, p => p.Parent, ( p, pp ) => p.Parent = pp, p => p.PropertyList, ( p, pl ) => p.PropertyList = pl )
          );
 
       // Sort InterfaceImpl table ( Class, Interface)
-      md.InterfaceImplementations.UpdateMDTableIndices(
+      reorderState.UpdateMDTableIndices(
+         md.InterfaceImplementations,
          Tables.InterfaceImpl,
-         allTableIndices,
          Comparers.InterfaceImplementationComparer,
-         ( iFaceImpl, indices ) => iFaceImpl.UpdateMDTableWithTableIndices2( indices, i => i.Class, ( i, c ) => i.Class = c, i => i.Interface, ( i, iface ) => i.Interface = iface )
+         ( iFaceImpl, indices ) => reorderState.UpdateMDTableWithTableIndices2( iFaceImpl, i => i.Class, ( i, c ) => i.Class = c, i => i.Interface, ( i, iface ) => i.Interface = iface )
          );
 
       // Sort ConstantDef table (Parent)
-      md.ConstantDefinitions.UpdateMDTableIndices(
+      reorderState.UpdateMDTableIndices(
+         md.ConstantDefinitions,
          Tables.Constant,
-         allTableIndices,
          Comparers.ConstantDefinitionComparer,
-         ( constant, indices ) => constant.UpdateMDTableWithTableIndices1( indices, c => c.Parent, ( c, p ) => c.Parent = p )
+         ( constant, indices ) => reorderState.UpdateMDTableWithTableIndices1( constant, c => c.Parent, ( c, p ) => c.Parent = p )
          );
 
       // Sort FieldMarshal table (Parent)
-      md.FieldMarshals.UpdateMDTableIndices(
+      reorderState.UpdateMDTableIndices(
+         md.FieldMarshals,
          Tables.FieldMarshal,
-         allTableIndices,
          Comparers.FieldMarshalComparer,
-         ( marshal, indices ) => marshal.UpdateMDTableWithTableIndices1( indices, f => f.Parent, ( f, p ) => f.Parent = p )
+         ( marshal, indices ) => reorderState.UpdateMDTableWithTableIndices1( marshal, f => f.Parent, ( f, p ) => f.Parent = p )
          );
 
       // Sort DeclSecurity table (Parent)
-      md.SecurityDefinitions.UpdateMDTableIndices(
+      reorderState.UpdateMDTableIndices(
+         md.SecurityDefinitions,
          Tables.DeclSecurity,
-         allTableIndices,
          Comparers.SecurityDefinitionComparer,
-         ( sec, indices ) => sec.UpdateMDTableWithTableIndices1( indices, s => s.Parent, ( s, p ) => s.Parent = p )
+         ( sec, indices ) => reorderState.UpdateMDTableWithTableIndices1( sec, s => s.Parent, ( s, p ) => s.Parent = p )
          );
 
       // Sort ClassLayout table (Parent)
-      md.ClassLayouts.UpdateMDTableIndices(
+      reorderState.UpdateMDTableIndices(
+         md.ClassLayouts,
          Tables.ClassLayout,
-         allTableIndices,
          Comparers.ClassLayoutComparer,
-         ( clazz, indices ) => clazz.UpdateMDTableWithTableIndices1( indices, c => c.Parent, ( c, p ) => c.Parent = p )
+         ( clazz, indices ) => reorderState.UpdateMDTableWithTableIndices1( clazz, c => c.Parent, ( c, p ) => c.Parent = p )
          );
 
       // Sort FieldLayout table (Field)
-      md.FieldLayouts.UpdateMDTableIndices(
+      reorderState.UpdateMDTableIndices(
+         md.FieldLayouts,
          Tables.FieldLayout,
-         allTableIndices,
          Comparers.FieldLayoutComparer,
-         ( fieldLayout, indices ) => fieldLayout.UpdateMDTableWithTableIndices1( indices, f => f.Field, ( f, p ) => f.Field = p )
+         ( fieldLayout, indices ) => reorderState.UpdateMDTableWithTableIndices1( fieldLayout, f => f.Field, ( f, p ) => f.Field = p )
          );
 
       // Sort MethodSemantics table (Association)
-      md.MethodSemantics.UpdateMDTableIndices(
+      reorderState.UpdateMDTableIndices(
+         md.MethodSemantics,
          Tables.MethodSemantics,
-         allTableIndices,
          Comparers.MethodSemanticsComparer,
-         ( semantics, indices ) => semantics.UpdateMDTableWithTableIndices2( indices, s => s.Method, ( s, m ) => s.Method = m, s => s.Associaton, ( s, a ) => s.Associaton = a )
+         ( semantics, indices ) => reorderState.UpdateMDTableWithTableIndices2( semantics, s => s.Method, ( s, m ) => s.Method = m, s => s.Associaton, ( s, a ) => s.Associaton = a )
          );
 
       // Sort MethodImpl table (Class)
-      md.MethodImplementations.UpdateMDTableIndices(
+      reorderState.UpdateMDTableIndices(
+         md.MethodImplementations,
          Tables.MethodImpl,
-         allTableIndices,
          Comparers.MethodImplementationComparer,
-         ( impl, indices ) => impl.UpdateMDTableWithTableIndices3( indices, i => i.Class, ( i, c ) => i.Class = c, i => i.MethodBody, ( i, b ) => i.MethodBody = b, i => i.MethodDeclaration, ( i, d ) => i.MethodDeclaration = d )
+         ( impl, indices ) => reorderState.UpdateMDTableWithTableIndices3( impl, i => i.Class, ( i, c ) => i.Class = c, i => i.MethodBody, ( i, b ) => i.MethodBody = b, i => i.MethodDeclaration, ( i, d ) => i.MethodDeclaration = d )
          );
 
       // Sort ImplMap table (MemberForwarded)
-      md.MethodImplementationMaps.UpdateMDTableIndices(
+      reorderState.UpdateMDTableIndices(
+         md.MethodImplementationMaps,
          Tables.ImplMap,
-         allTableIndices,
          Comparers.MethodImplementationMapComparer,
-         ( map, indices ) => map.UpdateMDTableWithTableIndices2( indices, m => m.MemberForwarded, ( m, mem ) => m.MemberForwarded = mem, m => m.ImportScope, ( m, i ) => m.ImportScope = i )
+         ( map, indices ) => reorderState.UpdateMDTableWithTableIndices2( map, m => m.MemberForwarded, ( m, mem ) => m.MemberForwarded = mem, m => m.ImportScope, ( m, i ) => m.ImportScope = i )
          );
 
       // Sort FieldRVA table (Field)
-      md.FieldRVAs.UpdateMDTableIndices(
+      reorderState.UpdateMDTableIndices(
+         md.FieldRVAs,
          Tables.FieldRVA,
-         allTableIndices,
          Comparers.FieldRVAComparer,
-         ( fieldRVAs, indices ) => fieldRVAs.UpdateMDTableWithTableIndices1( indices, f => f.Field, ( f, field ) => f.Field = field )
+         ( fieldRVAs, indices ) => reorderState.UpdateMDTableWithTableIndices1( fieldRVAs, f => f.Field, ( f, field ) => f.Field = field )
          );
 
       // Sort GenericParamDef table (Owner, Sequence)
-      md.GenericParameterDefinitions.UpdateMDTableIndices(
+      reorderState.UpdateMDTableIndices(
+         md.GenericParameterDefinitions,
          Tables.GenericParameter,
-         allTableIndices,
          Comparers.GenericParameterDefinitionComparer,
-         ( gDef, indices ) => gDef.UpdateMDTableWithTableIndices1( indices, g => g.Owner, ( g, o ) => g.Owner = o )
+         ( gDef, indices ) => reorderState.UpdateMDTableWithTableIndices1( gDef, g => g.Owner, ( g, o ) => g.Owner = o )
          );
 
       // Sort GenericParameterConstraint table (Owner)
-      md.GenericParameterConstraintDefinitions.UpdateMDTableIndices(
+      reorderState.UpdateMDTableIndices(
+         md.GenericParameterConstraintDefinitions,
          Tables.GenericParameterConstraint,
-         allTableIndices,
          Comparers.GenericParameterConstraintDefinitionComparer,
-         ( gDef, indices ) => gDef.UpdateMDTableWithTableIndices2( indices, g => g.Owner, ( g, o ) => g.Owner = o, g => g.Constraint, ( g, c ) => g.Constraint = c )
+         ( gDef, indices ) => reorderState.UpdateMDTableWithTableIndices2( gDef, g => g.Owner, ( g, o ) => g.Owner = o, g => g.Constraint, ( g, c ) => g.Constraint = c )
          );
 
       // Update ExportedType
-      md.ExportedTypes.UpdateMDTableIndices(
+      reorderState.UpdateMDTableIndices(
+         md.ExportedTypes,
          Tables.ExportedType,
-         allTableIndices,
          null,
-         ( et, indices ) => et.UpdateMDTableWithTableIndices1( indices, e => e.Implementation, ( e, i ) => e.Implementation = i )
+         ( et, indices ) => reorderState.UpdateMDTableWithTableIndices1( et, e => e.Implementation, ( e, i ) => e.Implementation = i )
          );
 
       // Update ManifestResource
-      md.ManifestResources.UpdateMDTableIndices(
+      reorderState.UpdateMDTableIndices(
+         md.ManifestResources,
          Tables.ManifestResource,
-         allTableIndices,
          null,
-         ( mr, indices ) => mr.UpdateMDTableWithTableIndices1Nullable( indices, m => m.Implementation, ( m, i ) => m.Implementation = i )
+         ( mr, indices ) => reorderState.UpdateMDTableWithTableIndices1Nullable( mr, m => m.Implementation, ( m, i ) => m.Implementation = i )
          );
 
       // Sort CustomAttributeDef table (Parent) 
-      md.CustomAttributeDefinitions.UpdateMDTableIndices(
+      reorderState.UpdateMDTableIndices(
+         md.CustomAttributeDefinitions,
          Tables.CustomAttribute,
-         allTableIndices,
          Comparers.CustomAttributeDefinitionComparer,
-         ( ca, indices ) => ca.UpdateMDTableWithTableIndices2( indices, c => c.Parent, ( c, p ) => c.Parent = p, c => c.Type, ( c, t ) => c.Type = t )
+         ( ca, indices ) => reorderState.UpdateMDTableWithTableIndices2( ca, c => c.Parent, ( c, p ) => c.Parent = p, c => c.Type, ( c, t ) => c.Type = t )
          );
    }
 
@@ -1554,8 +1611,9 @@ public static partial class E_CILPhysical
       }
    }
 
-   private static void RemoveDuplicatesAfterSorting( this CILMetaData md, MetaDataReOrderState reorderState )
+   private static void RemoveDuplicatesAfterSorting( this MetaDataReOrderState reorderState )
    {
+      var md = reorderState.MetaData;
       foreach ( var kvp in reorderState.Duplicates )
       {
          var table = kvp.Key;
@@ -1590,12 +1648,12 @@ public static partial class E_CILPhysical
       }
    }
 
-   private static void RemoveDuplicatesFromTable<T>( this List<T> table, ISet<Int32> indices )
+   private static void RemoveDuplicatesFromTable<T>( this List<T> table, IDictionary<Int32, Int32> indices )
    {
       var max = table.Count;
       for ( Int32 curIdx = 0, originalIdx = 0; originalIdx < max; ++originalIdx )
       {
-         if ( indices.Contains( originalIdx ) )
+         if ( indices.ContainsKey( originalIdx ) )
          {
             table.RemoveAt( curIdx );
          }
@@ -1606,87 +1664,97 @@ public static partial class E_CILPhysical
       }
    }
 
-   private static void UpdateMDTableIndices<T>( this List<T> table, Tables thisTable, Int32[][] allTableIndices, IComparer<T> comparer, Action<List<T>, Int32[][]> tableUpdateCallback )
+   private static void UpdateMDTableIndices<T>(
+      this MetaDataReOrderState reorderState,
+      List<T> table,
+      Tables thisTable,
+      IComparer<T> comparer,
+      Action<List<T>, Int32[]> tableUpdateCallback
+      )
       where T : class
    {
-      var thisTableIndices = allTableIndices[(Int32) thisTable];
-      if ( thisTableIndices == null )
-      {
-         thisTableIndices = CreateIndexArray( table.Count );
-         allTableIndices[(Int32) thisTable] = thisTableIndices;
-      }
-
-      tableUpdateCallback( table, allTableIndices );
+      var thisTableIndices = reorderState.GetOrCreateIndexArray( thisTable, table );
+      tableUpdateCallback( table, thisTableIndices );
       if ( comparer != null )
       {
          table.SortMDTable( thisTableIndices, comparer );
       }
    }
 
-   private static void UpdateMDTableWithTableIndices1<T>( this List<T> table, Int32[][] tableIndices, Func<T, TableIndex> tableIndexGetter1, Action<T, TableIndex> tableIndexSetter1, Func<T, Int32, TableIndex, Boolean> rowAdditionalCheck = null )
+   private static void UpdateMDTableWithTableIndices1<T>( this MetaDataReOrderState reorderState, List<T> table, Func<T, TableIndex> tableIndexGetter1, Action<T, TableIndex> tableIndexSetter1, Func<T, Int32, TableIndex, Boolean> rowAdditionalCheck = null )
+      where T : class
+   {
+      for ( var i = 0; i < table.Count; ++i )
+      {
+         reorderState.ProcessSingleTableIndexToUpdate( table[i], i, tableIndexGetter1, tableIndexSetter1, rowAdditionalCheck );
+      }
+   }
+
+   private static void UpdateMDTableWithTableIndices1Nullable<T>(
+      this MetaDataReOrderState reorderState,
+      List<T> table,
+      Func<T, TableIndex?> tableIndexGetter1,
+      Action<T, TableIndex> tableIndexSetter1,
+      Func<T, Int32, TableIndex, Boolean> rowAdditionalCheck = null
+      )
+      where T : class
+   {
+      for ( var i = 0; i < table.Count; ++i )
+      {
+         reorderState.ProcessSingleTableIndexToUpdateNullable( table[i], i, tableIndexGetter1, tableIndexSetter1, rowAdditionalCheck );
+      }
+   }
+
+   private static void UpdateMDTableWithTableIndices2<T>(
+      this MetaDataReOrderState reorderState,
+      List<T> table,
+      Func<T, TableIndex> tableIndexGetter1,
+      Action<T, TableIndex> tableIndexSetter1,
+      Func<T, TableIndex> tableIndexGetter2,
+      Action<T, TableIndex> tableIndexSetter2
+      )
       where T : class
    {
       for ( var i = 0; i < table.Count; ++i )
       {
          var row = table[i];
-         row.ProcessSingleTableIndexToUpdate( i, tableIndices, tableIndexGetter1, tableIndexSetter1, rowAdditionalCheck );
+         reorderState.ProcessSingleTableIndexToUpdate( row, i, tableIndexGetter1, tableIndexSetter1, null );
+         reorderState.ProcessSingleTableIndexToUpdate( row, i, tableIndexGetter2, tableIndexSetter2, null );
       }
    }
 
-   private static void UpdateMDTableWithTableIndices1Nullable<T>( this List<T> table, Int32[][] tableIndices, Func<T, TableIndex?> tableIndexGetter1, Action<T, TableIndex> tableIndexSetter1, Func<T, Int32, TableIndex, Boolean> rowAdditionalCheck = null )
+   private static void UpdateMDTableWithTableIndices3<T>( this MetaDataReOrderState reorderState, List<T> table, Func<T, TableIndex> tableIndexGetter1, Action<T, TableIndex> tableIndexSetter1, Func<T, TableIndex> tableIndexGetter2, Action<T, TableIndex> tableIndexSetter2, Func<T, TableIndex> tableIndexGetter3, Action<T, TableIndex> tableIndexSetter3 )
       where T : class
    {
       for ( var i = 0; i < table.Count; ++i )
       {
          var row = table[i];
-         row.ProcessSingleTableIndexToUpdateNullable( i, tableIndices, tableIndexGetter1, tableIndexSetter1, rowAdditionalCheck );
+         reorderState.ProcessSingleTableIndexToUpdate( row, i, tableIndexGetter1, tableIndexSetter1, null );
+         reorderState.ProcessSingleTableIndexToUpdate( row, i, tableIndexGetter2, tableIndexSetter2, null );
+         reorderState.ProcessSingleTableIndexToUpdate( row, i, tableIndexGetter3, tableIndexSetter3, null );
       }
    }
 
-   private static void UpdateMDTableWithTableIndices2<T>( this List<T> table, Int32[][] tableIndices, Func<T, TableIndex> tableIndexGetter1, Action<T, TableIndex> tableIndexSetter1, Func<T, TableIndex> tableIndexGetter2, Action<T, TableIndex> tableIndexSetter2 )
-      where T : class
-   {
-      for ( var i = 0; i < table.Count; ++i )
-      {
-         var row = table[i];
-         row.ProcessSingleTableIndexToUpdate( i, tableIndices, tableIndexGetter1, tableIndexSetter1, null );
-         row.ProcessSingleTableIndexToUpdate( i, tableIndices, tableIndexGetter2, tableIndexSetter2, null );
-      }
-   }
-
-   private static void UpdateMDTableWithTableIndices3<T>( this List<T> table, Int32[][] tableIndices, Func<T, TableIndex> tableIndexGetter1, Action<T, TableIndex> tableIndexSetter1, Func<T, TableIndex> tableIndexGetter2, Action<T, TableIndex> tableIndexSetter2, Func<T, TableIndex> tableIndexGetter3, Action<T, TableIndex> tableIndexSetter3 )
-      where T : class
-   {
-      for ( var i = 0; i < table.Count; ++i )
-      {
-         var row = table[i];
-         row.ProcessSingleTableIndexToUpdate( i, tableIndices, tableIndexGetter1, tableIndexSetter1, null );
-         row.ProcessSingleTableIndexToUpdate( i, tableIndices, tableIndexGetter2, tableIndexSetter2, null );
-         row.ProcessSingleTableIndexToUpdate( i, tableIndices, tableIndexGetter3, tableIndexSetter3, null );
-      }
-   }
-
-   private static void ProcessSingleTableIndexToUpdate<T>( this T row, Int32 rowIndex, Int32[][] tableIndices, Func<T, TableIndex> tableIndexGetter, Action<T, TableIndex> tableIndexSetter, Func<T, Int32, TableIndex, Boolean> rowAdditionalCheck )
+   private static void ProcessSingleTableIndexToUpdate<T>( this MetaDataReOrderState reorderState, T row, Int32 rowIndex, Func<T, TableIndex> tableIndexGetter, Action<T, TableIndex> tableIndexSetter, Func<T, Int32, TableIndex, Boolean> rowAdditionalCheck )
       where T : class
    {
       if ( row != null )
       {
-         row.ProcessSingleTableIndexToUpdateWithTableIndex( rowIndex, tableIndices, tableIndexGetter( row ), tableIndexSetter, rowAdditionalCheck );
+         reorderState.ProcessSingleTableIndexToUpdateWithTableIndex( row, rowIndex, tableIndexGetter( row ), tableIndexSetter, rowAdditionalCheck );
       }
    }
 
-   private static void ProcessSingleTableIndexToUpdateWithTableIndex<T>( this T row, Int32 rowIndex, Int32[][] tableIndices, TableIndex tableIndex, Action<T, TableIndex> tableIndexSetter, Func<T, Int32, TableIndex, Boolean> rowAdditionalCheck )
+   private static void ProcessSingleTableIndexToUpdateWithTableIndex<T>( this MetaDataReOrderState reorderState, T row, Int32 rowIndex, TableIndex tableIndex, Action<T, TableIndex> tableIndexSetter, Func<T, Int32, TableIndex, Boolean> rowAdditionalCheck )
       where T : class
    {
-      var table = tableIndex.Table;
-      var newIndex = tableIndices[(Int32) table][tableIndex.Index];
+      var newIndex = reorderState.GetFinalIndex( tableIndex );
       if ( newIndex != tableIndex.Index && ( rowAdditionalCheck == null || rowAdditionalCheck( row, rowIndex, tableIndex ) ) )
       {
-         tableIndexSetter( row, new TableIndex( table, newIndex ) );
+         tableIndexSetter( row, new TableIndex( tableIndex.Table, newIndex ) );
       }
    }
 
-   private static void ProcessSingleTableIndexToUpdateNullable<T>( this T row, Int32 rowIndex, Int32[][] tableIndices, Func<T, TableIndex?> tableIndexGetter, Action<T, TableIndex> tableIndexSetter, Func<T, Int32, TableIndex, Boolean> rowAdditionalCheck )
+   private static void ProcessSingleTableIndexToUpdateNullable<T>( this MetaDataReOrderState reorderState, T row, Int32 rowIndex, Func<T, TableIndex?> tableIndexGetter, Action<T, TableIndex> tableIndexSetter, Func<T, Int32, TableIndex, Boolean> rowAdditionalCheck )
       where T : class
    {
       if ( row != null )
@@ -1694,7 +1762,7 @@ public static partial class E_CILPhysical
          var tIdx = tableIndexGetter( row );
          if ( tIdx.HasValue )
          {
-            row.ProcessSingleTableIndexToUpdateWithTableIndex( rowIndex, tableIndices, tIdx.Value, tableIndexSetter, rowAdditionalCheck );
+            reorderState.ProcessSingleTableIndexToUpdateWithTableIndex( row, rowIndex, tIdx.Value, tableIndexSetter, rowAdditionalCheck );
          }
       }
    }
@@ -1774,7 +1842,16 @@ public static partial class E_CILPhysical
    //   }
    //}
 
-   private static void ReOrderMDTableWithAscendingReferences<T, U>( this List<T> table, Int32[] thisTableIndices, List<U> referencingTable, Int32[] referencingTableIndices, Func<U, Int32> referenceIndexGetter, Action<U, Int32> referenceIndexSetter, Func<U, Int32> referenceCountGetter )
+   private static void ReOrderMDTableWithAscendingReferences<T, U>(
+      this MetaDataReOrderState reorderState,
+      List<T> table,
+      Int32[] thisTableIndices,
+      List<U> referencingTable,
+      Int32[] referencingTableIndices,
+      Func<U, Int32> referenceIndexGetter,
+      Action<U, Int32> referenceIndexSetter,
+      Func<U, Int32> referenceCountGetter
+      )
    {
       var refTableCount = referencingTable.Count;
       var thisTableCount = table.Count;
@@ -1846,25 +1923,25 @@ public static partial class E_CILPhysical
    //   return foundDuplicates;
    //}
 
-   private static Boolean CheckMDDuplicatesUnsorted<T>( this List<T> list, Int32[] indices, Tables table, MetaDataReOrderState reorderState, IEqualityComparer<T> comparer )
-      where T : class
-   {
-      return list.CheckMDDuplicatesUnsorted( indices, table, reorderState, ( x, y ) => comparer.Equals( list[x], list[y] ), x => comparer.GetHashCode( list[x] ) );
-   }
-
-   private static Boolean CheckMDDuplicatesUnsorted<T>( this List<T> list, Int32[] indices, Tables table, MetaDataReOrderState reorderState, Func<Int32, Int32, Boolean> duplicateComparer, Func<Int32, Int32> hashCode )
+   private static Boolean CheckMDDuplicatesUnsorted<T>(
+      this MetaDataReOrderState reorderState,
+      List<T> list,
+      Int32[] indices,
+      Tables table,
+      IEqualityComparer<T> comparer
+      )
       where T : class
    {
       var foundDuplicates = false;
       var count = list.Count;
       if ( count > 1 )
       {
-         var set = new HashSet<Int32>( ComparerFromFunctions.NewEqualityComparer( duplicateComparer, hashCode ) );
+         var set = new HashSet<T>( comparer );
          for ( var i = 0; i < list.Count; ++i )
          {
-            if ( list[i] != null && !set.Add( i ) )
+            var cur = list[i];
+            if ( cur != null && !set.Add( cur ) )
             {
-               reorderState.MarkDuplicate( table, i );
 
                if ( !foundDuplicates )
                {
@@ -1872,12 +1949,13 @@ public static partial class E_CILPhysical
                }
 
                var actualIndex = 0;
-               while ( list[actualIndex] == null || !duplicateComparer( i, actualIndex ) )
+               while ( list[actualIndex] == null || !comparer.Equals( cur, list[actualIndex] ) )
                {
                   ++actualIndex;
                }
 
                // Mark as duplicate - replace value with null
+               reorderState.MarkDuplicate( table, i, actualIndex );
                list[i] = null;
 
                list.AfterFindingDuplicate( indices, indices[i], indices[actualIndex] );
@@ -1906,12 +1984,12 @@ public static partial class E_CILPhysical
       }
    }
 
-   private static Int32[] CreateIndexArray( Int32 size )
-   {
-      var retVal = new Int32[size];
-      PopulateIndexArray( retVal );
-      return retVal;
-   }
+   //private static Int32[] CreateIndexArray( Int32 size )
+   //{
+   //   var retVal = new Int32[size];
+   //   PopulateIndexArray( retVal );
+   //   return retVal;
+   //}
 
    private static void PopulateIndexArray( Int32[] array )
    {
@@ -1924,105 +2002,232 @@ public static partial class E_CILPhysical
       }
    }
 
-   private static void UpdateSignaturesAndILWhileRemovingDuplicates( this CILMetaData md, Int32[][] tableIndices, MetaDataReOrderState reorderState )
+   private static void UpdateSignaturesAndILWhileRemovingDuplicates( this MetaDataReOrderState reorderState )
    {
+      var md = reorderState.MetaData;
+
       // Remove duplicates from AssemblyRef table (since reordering of the TypeRef table will require the indices in this table to be present)
       // ECMA-335: The AssemblyRef table shall contain no duplicates (where duplicate rows are deemd  to be those having the same MajorVersion, MinorVersion, BuildNumber, RevisionNumber, PublicKeyOrToken, Name, and Culture) [WARNING] 
       var aRefs = md.AssemblyReferences;
-      var aRefIndices = CreateIndexArray( aRefs.Count );
-      aRefs.CheckMDDuplicatesUnsorted( aRefIndices, Tables.AssemblyRef, reorderState, ( x, y ) =>
-      {
-         var xRef = aRefs[x];
-         var yRef = aRefs[y];
-         return xRef.AssemblyInformation.Equals( yRef.AssemblyInformation );
-      }, x => aRefs[x].AssemblyInformation.GetHashCode() );
+      var aRefIndices = reorderState.GetOrCreateIndexArray( Tables.AssemblyRef, aRefs );
+      reorderState.CheckMDDuplicatesUnsorted(
+         aRefs,
+         aRefIndices,
+         Tables.AssemblyRef,
+         ComparerFromFunctions.NewEqualityComparer<AssemblyReference>(
+            ( x, y ) => x.AssemblyInformation.Equals( y.AssemblyInformation ),
+            x => x.AssemblyInformation.GetHashCode() )
+         );
 
       // Remove duplicates from ModuleRef table (since reordering of the TypeRef table will require the indices in this table to be present)
       // ECMA-335: There should be no duplicate rows  [WARNING] 
       var mRefs = md.ModuleReferences;
-      var mRefIndices = CreateIndexArray( mRefs.Count );
-      mRefs.CheckMDDuplicatesUnsorted( mRefIndices, Tables.ModuleRef, reorderState, Comparers.ModuleReferenceEqualityComparer );
+      var mRefIndices = reorderState.GetOrCreateIndexArray( Tables.ModuleRef, mRefs );
+      reorderState.CheckMDDuplicatesUnsorted(
+         mRefs,
+         mRefIndices,
+         Tables.ModuleRef,
+         Comparers.ModuleReferenceEqualityComparer
+         );
 
-      // ECMA-335: IL tokens shall be from TypeDef, TypeRef, TypeSpec, MethodDef, FieldDef, MemberRef, MethodSpec or StandaloneSignature tables.
-      // All table indices in signatures should only ever reference TypeDef, TypeRef or TypeSpec tables.
-      // Tables with signatures are: FieldDef, MethodDef, MemberRef, CustomAttribute, DeclSecurity, StandaloneSignature, PropertyDef, TypeSpecification, MethodSpecification
-      // The ones that have rules for duplicates: MemberRef, StandaloneSignature, PropertyDef, TypeSpecification, MethodSpecification
-      // We will not handle PropertyDef (nor EventDef) duplicates
-      // The ones without duplicates will be handled later (those are CustomAttribute, DeclSecurity)
-      tableIndices[(Int32) Tables.TypeRef] = CreateIndexArray( md.TypeReferences.Count );
-      tableIndices[(Int32) Tables.TypeSpec] = CreateIndexArray( md.TypeSpecifications.Count );
-      tableIndices[(Int32) Tables.MemberRef] = CreateIndexArray( md.MemberReferences.Count );
-      tableIndices[(Int32) Tables.MethodSpec] = CreateIndexArray( md.MethodSpecifications.Count );
-      tableIndices[(Int32) Tables.StandaloneSignature] = CreateIndexArray( md.StandaloneSignatures.Count );
-      tableIndices[(Int32) Tables.AssemblyRef] = aRefIndices;
-      tableIndices[(Int32) Tables.ModuleRef] = mRefIndices;
-      tableIndices[(Int32) Tables.Module] = CreateIndexArray( md.ModuleDefinitions.Count );
 
+      // TypeRef
+      // ECMA-335:  There shall be no duplicate rows, where a duplicate has the same ResolutionScope, TypeName and TypeNamespace  [ERROR] 
+      // Do in a loop, since TypeRef may reference itself
       var tRefs = md.TypeReferences;
-      var tSpecs = md.TypeSpecifications;
-      var memberRefs = md.MemberReferences;
-      var mSpecs = md.MethodSpecifications;
-      var standAloneSigs = md.StandaloneSignatures;
-      var props = md.PropertyDefinitions;
-      var updateState = new SignatureReorderState( md, tableIndices );
-      Boolean removedTypeRefDuplicates, removedTSpecDuplicates, removedMemberRefDuplicates, removedMethodSpecDuplicates, removedStandaloneSigDuplicates, updatedSignatureTableIndices, updatedILTableIndices;
-      // This has to be done in loop since modifying e.g. type specs will modify signatures, and thus might result in more typeref, typespec or memberref duplicates
+      var tRefIndices = reorderState.GetOrCreateIndexArray( Tables.TypeRef, tRefs );
+      // Create index array for Module table, as TypeRef.ResolutionScope may reference that.
+      reorderState.GetOrCreateIndexArray( Tables.Module, md.ModuleDefinitions );
+      Boolean removedDuplicates;
+      var updateState = new SignatureReOrderState( reorderState );
       do
       {
-         var startingDuplicates = new HashSet<TableIndex>( reorderState.Duplicates.SelectMany( kvp => kvp.Value.Select( i => new TableIndex( kvp.Key, i ) ) ) );
-
-         // ECMA-335:  There shall be no duplicate rows, where a duplicate has the same ResolutionScope, TypeName and TypeNamespace  [ERROR] 
-         tRefs.UpdateMDTableWithTableIndices1Nullable(
-            tableIndices,
+         reorderState.UpdateMDTableWithTableIndices1Nullable(
+            tRefs,
             tRef => tRef.ResolutionScope,
             ( tRef, resScope ) => tRef.ResolutionScope = resScope,
-            ( tRef, tRefIdx, resScope ) => updateState.CheckRowTableIndexWhenHandlingSignatures( resScope, new TableIndex( Tables.TypeRef, tRefIdx ) )
+            ( tRef, tRefIdx, resScope ) => updateState.ShouldProcess( resScope )
             );
-         removedTypeRefDuplicates = tRefs.CheckMDDuplicatesUnsorted( tableIndices[(Int32) Tables.TypeRef], Tables.TypeRef, reorderState, Comparers.TypeReferenceEqualityComparer );
-
-         // ECMA-335: There shall be no duplicate rows, based upon Signature  [ERROR] 
-         removedTSpecDuplicates = tSpecs.CheckMDDuplicatesUnsorted( tableIndices[(Int32) Tables.TypeSpec], Tables.TypeSpec, reorderState, Comparers.TypeSpecificationEqualityComparer );
-
-         // ECMA-335:  The MemberRef table shall contain no duplicates, where duplicate rows have the same Class, Name, and Signature  [WARNING] 
-         memberRefs.UpdateMDTableWithTableIndices1(
-            tableIndices,
-            mRef => mRef.DeclaringType,
-            ( mRef, dType ) => mRef.DeclaringType = dType,
-            ( mRef, mRefIdx, dType ) => updateState.CheckRowTableIndexWhenHandlingSignatures( dType, new TableIndex( Tables.MemberRef, mRefIdx ) )
+         removedDuplicates = updateState.CheckMDDuplicatesUnsortedWithSignatureReOrderState(
+            Tables.TypeRef,
+            tRefs,
+            tRefIndices,
+            Comparers.TypeReferenceEqualityComparer
             );
-         removedMemberRefDuplicates = memberRefs.CheckMDDuplicatesUnsorted( tableIndices[(Int32) Tables.MemberRef], Tables.MemberRef, reorderState, Comparers.MemberReferenceEqualityComparer );
+      } while ( removedDuplicates );
 
-         // ECMA-335: There shall be no duplicate rows based upon Method+Instantiation  [ERROR] 
-         mSpecs.UpdateMDTableWithTableIndices1(
-            tableIndices,
-            mSpec => mSpec.Method,
-            ( mSpec, method ) => mSpec.Method = method,
-            ( mSpec, mSpecIdx, method ) => updateState.CheckRowTableIndexWhenHandlingSignatures( method, new TableIndex( Tables.MethodSpec, mSpecIdx ) )
-            );
-         removedMethodSpecDuplicates = mSpecs.CheckMDDuplicatesUnsorted( tableIndices[(Int32) Tables.MethodSpec], Tables.MethodSpec, reorderState, Comparers.MethodSpecificationEqualityComparer );
-
-         // ECMA-335: Duplicates allowed (but we will make them all unique anyway)
-         removedStandaloneSigDuplicates = standAloneSigs.CheckMDDuplicatesUnsorted( tableIndices[(Int32) Tables.StandaloneSignature], Tables.StandaloneSignature, reorderState, Comparers.StandaloneSignatureEqualityComparer );
-
-         // Calculate the duplicates
-         startingDuplicates.SymmetricExceptWith( reorderState.Duplicates.SelectMany( kvp => kvp.Value.Select( i => new TableIndex( kvp.Key, i ) ) ) );
-         updateState.DuplicatesThisRound.Clear();
-         updateState.DuplicatesThisRound.UnionWith( startingDuplicates );
-
-         // Update signatures
-         updateState.ResetChangedAny();
+      // TypeSpec
+      // ECMA-335: There shall be no duplicate rows, based upon Signature  [ERROR] 
+      // This is the last of three tables (TypeDef, TypeRef, TypeSpec) which may appear in signatures, so update all signatures also.
+      // Furthermore, updating signatures may also cause this table to start having duplicates.
+      // So remove duplicates and update signatures in a loop
+      var tSpecs = md.TypeSpecifications;
+      var tSpecIndices = reorderState.GetOrCreateIndexArray( Tables.TypeSpec, tSpecs );
+      updateState = new SignatureReOrderState( reorderState );
+      do
+      {
          updateState.UpdateSignatures();
-         updatedSignatureTableIndices = updateState.ChangedAny;
+         removedDuplicates = updateState.CheckMDDuplicatesUnsortedWithSignatureReOrderState(
+            Tables.TypeSpec,
+            tSpecs,
+            tSpecIndices,
+            Comparers.TypeSpecificationEqualityComparer
+            );
 
-         // Update table indices in IL
-         updateState.ResetChangedAny();
-         updateState.UpdateIL();
-         updatedILTableIndices = updateState.ChangedAny;
-      } while ( updatedSignatureTableIndices || updatedILTableIndices );
+      } while ( removedDuplicates );
+
+      // ECMA-335: IL tokens shall be from TypeDef, TypeRef, TypeSpec, MethodDef, FieldDef, MemberRef, MethodSpec or StandaloneSignature tables.
+      // The only unprocessed tables from those are MemberRef, MethodSpec and StandaloneSignature
+      // ECMA-335:  The MemberRef table shall contain no duplicates, where duplicate rows have the same Class, Name, and Signature  [WARNING] 
+      var memberRefs = md.MemberReferences;
+      var memberRefIndices = reorderState.GetOrCreateIndexArray( Tables.MemberRef, memberRefs );
+      reorderState.UpdateMDTableWithTableIndices1(
+         memberRefs,
+         mRef => mRef.DeclaringType,
+         ( mRef, dType ) => mRef.DeclaringType = dType
+         );
+      reorderState.CheckMDDuplicatesUnsorted(
+         memberRefs,
+         memberRefIndices,
+         Tables.MemberRef,
+         Comparers.MemberReferenceEqualityComparer
+         );
+
+      // MethodSpec
+      // ECMA-335: There shall be no duplicate rows based upon Method+Instantiation  [ERROR] 
+      var mSpecs = md.MethodSpecifications;
+      var mSpecIndices = reorderState.GetOrCreateIndexArray( Tables.MethodSpec, mSpecs );
+      reorderState.UpdateMDTableWithTableIndices1(
+         mSpecs,
+         mSpec => mSpec.Method,
+         ( mSpec, method ) => mSpec.Method = method
+         );
+      reorderState.CheckMDDuplicatesUnsorted(
+         mSpecs,
+         mSpecIndices,
+         Tables.MethodSpec,
+         Comparers.MethodSpecificationEqualityComparer
+         );
+
+      // StandaloneSignature
+      // ECMA-335: Duplicates allowed (but we will make them all unique anyway)
+      var standaloneSigs = md.StandaloneSignatures;
+      var standaloneSigIndices = reorderState.GetOrCreateIndexArray( Tables.StandaloneSignature, standaloneSigs );
+      reorderState.CheckMDDuplicatesUnsorted(
+         standaloneSigs,
+         standaloneSigIndices,
+         Tables.StandaloneSignature,
+         Comparers.StandaloneSignatureEqualityComparer
+         );
+
+      // Now update IL
+      reorderState.UpdateIL();
+
+
+
+      //// ECMA-335: IL tokens shall be from TypeDef, TypeRef, TypeSpec, MethodDef, FieldDef, MemberRef, MethodSpec or StandaloneSignature tables.
+      //// All table indices in signatures should only ever reference TypeDef, TypeRef or TypeSpec tables.
+      //// Tables with signatures are: FieldDef, MethodDef, MemberRef, CustomAttribute, DeclSecurity, StandaloneSignature, PropertyDef, TypeSpecification, MethodSpecification
+      //// The ones that have rules for duplicates: MemberRef, StandaloneSignature, PropertyDef, TypeSpecification, MethodSpecification
+      //// We will not handle PropertyDef (nor EventDef) duplicates
+      //// The ones without duplicates will be handled later (those are CustomAttribute, DeclSecurity)
+      //tableIndices[(Int32) Tables.MemberRef] = CreateIndexArray( md.MemberReferences.Count );
+      //tableIndices[(Int32) Tables.MethodSpec] = CreateIndexArray( md.MethodSpecifications.Count );
+      //tableIndices[(Int32) Tables.StandaloneSignature] = CreateIndexArray( md.StandaloneSignatures.Count );
+
+
+      //var memberRefs = md.MemberReferences;
+      //var mSpecs = md.MethodSpecifications;
+      //var standAloneSigs = md.StandaloneSignatures;
+      //var props = md.PropertyDefinitions;
+      //Boolean removedTypeRefDuplicates, removedTSpecDuplicates, removedMemberRefDuplicates, removedMethodSpecDuplicates, removedStandaloneSigDuplicates, updatedSignatureTableIndices, updatedILTableIndices;
+      //// This has to be done in loop since modifying e.g. type specs will modify signatures, and thus might result in more typeref, typespec or memberref duplicates
+      //do
+      //{
+      //   var startingDuplicates = new HashSet<TableIndex>( reorderState.Duplicates.SelectMany( kvp => kvp.Value.Select( i => new TableIndex( kvp.Key, i ) ) ) );
+
+      //   // ECMA-335:  There shall be no duplicate rows, where a duplicate has the same ResolutionScope, TypeName and TypeNamespace  [ERROR] 
+      //   tRefs.UpdateMDTableWithTableIndices1Nullable(
+      //      tableIndices,
+      //      tRef => tRef.ResolutionScope,
+      //      ( tRef, resScope ) => tRef.ResolutionScope = resScope,
+      //      ( tRef, tRefIdx, resScope ) => updateState.CheckRowTableIndexWhenHandlingSignatures( resScope, new TableIndex( Tables.TypeRef, tRefIdx ) )
+      //      );
+      //   removedTypeRefDuplicates = tRefs.CheckMDDuplicatesUnsorted( tableIndices[(Int32) Tables.TypeRef], Tables.TypeRef, reorderState, Comparers.TypeReferenceEqualityComparer );
+
+      //   // ECMA-335: There shall be no duplicate rows, based upon Signature  [ERROR] 
+      //   removedTSpecDuplicates = tSpecs.CheckMDDuplicatesUnsorted( tableIndices[(Int32) Tables.TypeSpec], Tables.TypeSpec, reorderState, Comparers.TypeSpecificationEqualityComparer );
+
+      //   // ECMA-335:  The MemberRef table shall contain no duplicates, where duplicate rows have the same Class, Name, and Signature  [WARNING] 
+      //   memberRefs.UpdateMDTableWithTableIndices1(
+      //      tableIndices,
+      //      mRef => mRef.DeclaringType,
+      //      ( mRef, dType ) => mRef.DeclaringType = dType,
+      //      ( mRef, mRefIdx, dType ) => updateState.CheckRowTableIndexWhenHandlingSignatures( dType, new TableIndex( Tables.MemberRef, mRefIdx ) )
+      //      );
+      //   removedMemberRefDuplicates = memberRefs.CheckMDDuplicatesUnsorted( tableIndices[(Int32) Tables.MemberRef], Tables.MemberRef, reorderState, Comparers.MemberReferenceEqualityComparer );
+
+      //   // ECMA-335: There shall be no duplicate rows based upon Method+Instantiation  [ERROR] 
+      //   mSpecs.UpdateMDTableWithTableIndices1(
+      //      tableIndices,
+      //      mSpec => mSpec.Method,
+      //      ( mSpec, method ) => mSpec.Method = method,
+      //      ( mSpec, mSpecIdx, method ) => updateState.CheckRowTableIndexWhenHandlingSignatures( method, new TableIndex( Tables.MethodSpec, mSpecIdx ) )
+      //      );
+      //   removedMethodSpecDuplicates = mSpecs.CheckMDDuplicatesUnsorted( tableIndices[(Int32) Tables.MethodSpec], Tables.MethodSpec, reorderState, Comparers.MethodSpecificationEqualityComparer );
+
+      //   // ECMA-335: Duplicates allowed (but we will make them all unique anyway)
+      //   removedStandaloneSigDuplicates = standAloneSigs.CheckMDDuplicatesUnsorted( tableIndices[(Int32) Tables.StandaloneSignature], Tables.StandaloneSignature, reorderState, Comparers.StandaloneSignatureEqualityComparer );
+
+      //   // Calculate the duplicates
+      //   startingDuplicates.SymmetricExceptWith( reorderState.Duplicates.SelectMany( kvp => kvp.Value.Select( i => new TableIndex( kvp.Key, i ) ) ) );
+      //   updateState.DuplicatesThisRound.Clear();
+      //   updateState.DuplicatesThisRound.UnionWith( startingDuplicates );
+
+      //   // Update signatures
+      //   updateState.ResetChangedAny();
+      //   updateState.UpdateSignatures();
+      //   updatedSignatureTableIndices = updateState.ChangedAny;
+
+      //   // Update table indices in IL
+      //   updateState.ResetChangedAny();
+      //   updateState.UpdateIL();
+      //   updatedILTableIndices = updateState.ChangedAny;
+      //} while ( updatedSignatureTableIndices || updatedILTableIndices );
+   }
+
+   private static Boolean CheckMDDuplicatesUnsortedWithSignatureReOrderState<T>(
+      this SignatureReOrderState state,
+      Tables table,
+      List<T> tableList,
+      Int32[] tableIndices,
+      IEqualityComparer<T> equalityComparer
+      )
+      where T : class
+   {
+      var reorderState = state.ReOrderState;
+      var thisTableDuplicates = reorderState.Duplicates.GetOrAdd_NotThreadSafe( table, t => new Dictionary<Int32, Int32>() );
+      var prevDuplicates = thisTableDuplicates.Keys.ToArray();
+      var removedDuplicates = reorderState.CheckMDDuplicatesUnsorted(
+         tableList,
+         tableIndices,
+         table,
+         equalityComparer
+         );
+      if ( removedDuplicates )
+      {
+         var newDuplicates = thisTableDuplicates.Keys.ToArray();
+         var tSpecsToProcess = state.TableIndicesToProcess;
+         tSpecsToProcess.Clear();
+         tSpecsToProcess.UnionWith( newDuplicates.Select( i => new TableIndex( table, i ) ) );
+         tSpecsToProcess.ExceptWith( prevDuplicates.Select( i => new TableIndex( table, i ) ) );
+      }
+
+      return removedDuplicates;
    }
 
    // This method updates all signature table indices and returns true if any table index was modified
-   private static void UpdateSignatures( this SignatureReorderState state )
+   private static void UpdateSignatures( this SignatureReOrderState state )
    {
       var md = state.MD;
       // 1. FieldDef
@@ -2070,28 +2275,35 @@ public static partial class E_CILPhysical
       // CustomAttribute and DeclarativeSecurity signatures do not reference table indices, so they can be skipped
    }
 
-   private static void UpdateIL( this SignatureReorderState state )
+   private static void UpdateIL( this MetaDataReOrderState state )
    {
-      foreach ( var mDef in state.MD.MethodDefinitions )
+      foreach ( var mDef in state.MetaData.MethodDefinitions )
       {
          var il = mDef.IL;
          if ( il != null )
          {
             // Local signature
             var localIdx = il.LocalsSignatureIndex;
-            Int32 newIdx;
-            if ( state.SignatureOrILTableIndexDiffersNullable( localIdx, il, out newIdx ) )
+            if ( localIdx.HasValue )
             {
-               il.LocalsSignatureIndex = localIdx.Value.ChangeIndex( newIdx );
+               var newIdx = state.GetFinalIndex( localIdx.Value );
+               if ( newIdx != localIdx.Value.Index )
+               {
+                  il.LocalsSignatureIndex = localIdx.Value.ChangeIndex( newIdx );
+               }
             }
 
             // Exception blocks
             foreach ( var block in il.ExceptionBlocks )
             {
                var excIdx = block.ExceptionType;
-               if ( state.SignatureOrILTableIndexDiffersNullable( excIdx, block, out newIdx ) )
+               if ( excIdx.HasValue )
                {
-                  block.ExceptionType = excIdx.Value.ChangeIndex( newIdx );
+                  var newIdx = state.GetFinalIndex( excIdx.Value );
+                  if ( newIdx != excIdx.Value.Index )
+                  {
+                     block.ExceptionType = excIdx.Value.ChangeIndex( newIdx );
+                  }
                }
             }
 
@@ -2100,7 +2312,8 @@ public static partial class E_CILPhysical
             {
                var codeInfo = (OpCodeInfoWithToken) code;
                var token = codeInfo.Operand;
-               if ( state.SignatureOrILTableIndexDiffers( token, code, out newIdx ) )
+               var newIdx = state.GetFinalIndex( token );
+               if ( newIdx != token.Index )
                {
                   codeInfo.Operand = token.ChangeIndex( newIdx );
                }
@@ -2109,7 +2322,7 @@ public static partial class E_CILPhysical
       }
    }
 
-   private static void UpdateAbstractSignature( this SignatureReorderState state, AbstractSignature sig )
+   private static void UpdateAbstractSignature( this SignatureReOrderState state, AbstractSignature sig )
    {
       switch ( sig.SignatureKind )
       {
@@ -2137,13 +2350,13 @@ public static partial class E_CILPhysical
       }
    }
 
-   private static void UpdateFieldSignature( this SignatureReorderState state, FieldSignature sig )
+   private static void UpdateFieldSignature( this SignatureReOrderState state, FieldSignature sig )
    {
       state.UpdateSignatureCustomModifiers( sig.CustomModifiers );
       state.UpdateTypeSignature( sig.Type );
    }
 
-   private static void UpdateGenericMethodSignature( this SignatureReorderState state, GenericMethodSignature sig )
+   private static void UpdateGenericMethodSignature( this SignatureReOrderState state, GenericMethodSignature sig )
    {
       foreach ( var gArg in sig.GenericArguments )
       {
@@ -2151,29 +2364,32 @@ public static partial class E_CILPhysical
       }
    }
 
-   private static void UpdateLocalVariablesSignature( this SignatureReorderState state, LocalVariablesSignature sig )
+   private static void UpdateLocalVariablesSignature( this SignatureReOrderState state, LocalVariablesSignature sig )
    {
       state.UpdateParameterSignatures( sig.Locals );
    }
 
-   private static void UpdatePropertySignature( this SignatureReorderState state, PropertySignature sig )
+   private static void UpdatePropertySignature( this SignatureReOrderState state, PropertySignature sig )
    {
       state.UpdateSignatureCustomModifiers( sig.CustomModifiers );
       state.UpdateParameterSignatures( sig.Parameters );
       state.UpdateTypeSignature( sig.PropertyType );
    }
 
-   private static void UpdateTypeSignature( this SignatureReorderState state, TypeSignature sig )
+   private static void UpdateTypeSignature( this SignatureReOrderState state, TypeSignature sig )
    {
       switch ( sig.TypeSignatureKind )
       {
          case TypeSignatureKind.ClassOrValue:
             var clazz = (ClassOrValueTypeSignature) sig;
-            Int32 newIdx;
             var type = clazz.Type;
-            if ( state.SignatureOrILTableIndexDiffers( type, clazz, out newIdx ) )
+            if ( state.ShouldProcess( type ) )
             {
-               clazz.Type = type.ChangeIndex( newIdx );
+               var newIdx = state.ReOrderState.GetFinalIndex( type );
+               if ( newIdx != type.Index )
+               {
+                  clazz.Type = type.ChangeIndex( newIdx );
+               }
             }
             foreach ( var gArg in clazz.GenericArguments )
             {
@@ -2199,37 +2415,40 @@ public static partial class E_CILPhysical
       }
    }
 
-   private static void UpdateSignatureCustomModifiers( this SignatureReorderState state, IList<CustomModifierSignature> mods )
+   private static void UpdateSignatureCustomModifiers( this SignatureReOrderState state, IList<CustomModifierSignature> mods )
    {
-      Int32 newIndex;
       foreach ( var mod in mods )
       {
          var idx = mod.CustomModifierType;
-         if ( state.SignatureOrILTableIndexDiffers( idx, mod, out newIndex ) )
+         if ( state.ShouldProcess( idx ) )
          {
-            mod.CustomModifierType = idx.ChangeIndex( newIndex );
+            var newIdx = state.ReOrderState.GetFinalIndex( idx );
+            if ( newIdx != idx.Index )
+            {
+               mod.CustomModifierType = idx.ChangeIndex( newIdx );
+            }
          }
       }
    }
 
-   private static void UpdateAbstractMethodSignature( this SignatureReorderState state, AbstractMethodSignature sig )
+   private static void UpdateAbstractMethodSignature( this SignatureReOrderState state, AbstractMethodSignature sig )
    {
       state.UpdateParameterSignature( sig.ReturnType );
       state.UpdateParameterSignatures( sig.Parameters );
    }
 
-   private static void UpdateMethodDefSignature( this SignatureReorderState state, MethodDefinitionSignature sig )
+   private static void UpdateMethodDefSignature( this SignatureReOrderState state, MethodDefinitionSignature sig )
    {
       state.UpdateAbstractMethodSignature( sig );
    }
 
-   private static void UpdateMethodRefSignature( this SignatureReorderState state, MethodReferenceSignature sig )
+   private static void UpdateMethodRefSignature( this SignatureReOrderState state, MethodReferenceSignature sig )
    {
       state.UpdateAbstractMethodSignature( sig );
       state.UpdateParameterSignatures( sig.VarArgsParameters );
    }
 
-   private static void UpdateParameterSignatures<T>( this SignatureReorderState state, List<T> parameters )
+   private static void UpdateParameterSignatures<T>( this SignatureReOrderState state, List<T> parameters )
       where T : ParameterOrLocalVariableSignature
    {
       foreach ( var param in parameters )
@@ -2238,60 +2457,67 @@ public static partial class E_CILPhysical
       }
    }
 
-   private static void UpdateParameterSignature( this SignatureReorderState state, ParameterOrLocalVariableSignature parameter )
+   private static void UpdateParameterSignature( this SignatureReOrderState state, ParameterOrLocalVariableSignature parameter )
    {
       state.UpdateSignatureCustomModifiers( parameter.CustomModifiers );
       state.UpdateTypeSignature( parameter.Type );
    }
 
-   private static Boolean SignatureOrILTableIndexDiffersNullable( this SignatureReorderState state, TableIndex? index, Object parent, out Int32 newIndex )
-   {
-      var retVal = index.HasValue;
-      if ( retVal )
-      {
-         retVal = state.SignatureOrILTableIndexDiffers( index.Value, parent, out newIndex );
-      }
-      else
-      {
-         newIndex = -1;
-      }
-      return retVal;
-   }
+   //private static Boolean SignatureOrILTableIndexDiffersNullable( this SignatureReorderState state, TableIndex? index, Object parent, out Int32 newIndex )
+   //{
+   //   var retVal = index.HasValue;
+   //   if ( retVal )
+   //   {
+   //      retVal = state.SignatureOrILTableIndexDiffers( index.Value, parent, out newIndex );
+   //   }
+   //   else
+   //   {
+   //      newIndex = -1;
+   //   }
+   //   return retVal;
+   //}
 
-   private static Boolean SignatureOrILTableIndexDiffers( this SignatureReorderState state, TableIndex index, Object parent, out Int32 newIndex )
-   {
-      var retVal = state.CheckRowTableIndexWhenHandlingSignatures( index, parent );
-      if ( retVal )
-      {
-         var oldIndex = index.Index;
-         newIndex = state.TableIndices[(Int32) index.Table][oldIndex]; // TODO NullRef if not TypeDef/TypeRef/TypeSpec, ArrayIndexOutOfBounds if invalid index!
-         retVal = oldIndex != newIndex;
-         // Mark that we have changed an index
-         state.ProcessedTableIndex( retVal );
-      }
-      else
-      {
-         newIndex = -1;
-      }
+   //private static Boolean SignatureOrILTableIndexDiffers( this SignatureReorderState state, TableIndex index, Object parent, out Int32 newIndex )
+   //{
+   //   var targetIndices = state.TableIndices[(Int32) index.Table];
+   //   var retVal = ( state.IsFirstRound || targetIndices[index.Index] == null );
+   //   if ( retVal )
+   //   {
 
-      return retVal;
-   }
+   //   }
 
-   private static Boolean CheckRowTableIndexWhenHandlingSignatures( this SignatureReorderState state, TableIndex index, Object parent )
-   {
-      var visitedInfo = state.VisitedInfo;
-      var notVisited = !visitedInfo.ContainsKey( parent );// Check whether we have already visited this index
-      // Even if we have already visited this, have to check here whether target is null
-      // If target is null, that means that after visiting, the target became duplicate and was removed
-      // So we need to update it again
-      var retVal = notVisited || state.DuplicatesThisRound.Contains( index );
-      if ( notVisited )
-      {
-         visitedInfo.Add( parent, parent );
-      }
+   //   var retVal = state.CheckRowTableIndexWhenHandlingSignatures( index, parent );
+   //   if ( retVal )
+   //   {
+   //      var oldIndex = index.Index;
+   //      newIndex = state.TableIndices[(Int32) index.Table][oldIndex]; // TODO NullRef if not TypeDef/TypeRef/TypeSpec, ArrayIndexOutOfBounds if invalid index!
+   //      retVal = oldIndex != newIndex;
+   //      // Mark that we have changed an index
+   //      state.ProcessedTableIndex( retVal );
+   //   }
+   //   else
+   //   {
+   //      newIndex = -1;
+   //   }
 
-      return retVal;
-   }
+   //   return retVal;
+   //}
+
+   //private static Boolean CheckRowTableIndexWhenHandlingSignatures( this SignatureReorderState state, TableIndex index, Object parent )
+   //{
+   //   var visitedInfo = state.VisitedInfo;
+   //   var notVisited = !visitedInfo.ContainsKey( parent );// Check whether we have already visited this index
+   //   // Even if we have already visited this, have to check here whether target is null
+   //   // If target is null, that means that after visiting, the target became duplicate and was removed
+   //   // So we need to update it again
+   //   var retVal = notVisited || state.DuplicatesThisRound.Contains( index );
+   //   if ( notVisited )
+   //   {
+   //      visitedInfo.Add( parent, parent );
+   //   }
+
+   //   return retVal;
+   //}
 
    private static IEnumerable<Int32> GetDeclaringTypeChain( this Int32 typeDefIndex, IList<NestedClassDefinition> sortedNestedClass )
    {

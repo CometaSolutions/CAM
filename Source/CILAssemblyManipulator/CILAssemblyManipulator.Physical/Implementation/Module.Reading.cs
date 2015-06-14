@@ -1167,8 +1167,10 @@ namespace CILAssemblyManipulator.Physical.Implementation
                   ns = md.TypeReferences[idx].Namespace;
                }
             }
-
-            result = String.Equals( tn, systemTN ) && String.Equals( ns, systemNS );
+            if ( result )
+            {
+               result = String.Equals( tn, systemTN ) && String.Equals( ns, systemNS );
+            }
          }
          return result;
       }

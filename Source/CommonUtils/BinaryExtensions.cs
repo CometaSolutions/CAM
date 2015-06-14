@@ -1497,7 +1497,7 @@ public static partial class E_CommonUtils
    /// This kind of variable-length encoding is used by <see cref="System.IO.BinaryReader"/> when it deserializes strings.
    /// </summary>
    /// <param name="array">The byte array.</param>
-   /// <param name="idx">The index in the <paramref name="array"/> where to start to read 7-bit encoded <see cref="Int32"/>. This parameter wil lbe incremented by how many bytes were needed to read the value.</param>
+   /// <param name="idx">The index in the <paramref name="array"/> where to start to read 7-bit encoded <see cref="Int32"/>. This parameter will be incremented by how many bytes were needed to read the value.</param>
    /// <param name="throwOnInvalid">
    /// Whether to throw an <see cref="InvalidOperationException"/> if the integer has invalid encoded value.
    /// The value is considered to be encoded in invalid way if fifth byte has its highest bit set.
@@ -1562,8 +1562,11 @@ public static partial class E_CommonUtils
    /// <returns>The <paramref name="array"/>.</returns>
    public static Byte[] ZeroOut( this Byte[] array, ref Int32 idx, Int32 count )
    {
-      array.FillWithOffsetAndCount( idx, count, (Byte) 0 );
-      idx += count;
+      if ( count > 0 )
+      {
+         array.FillWithOffsetAndCount( idx, count, (Byte) 0 );
+         idx += count;
+      }
       return array;
    }
 }
