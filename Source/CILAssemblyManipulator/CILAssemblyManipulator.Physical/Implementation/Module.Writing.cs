@@ -343,7 +343,7 @@ namespace CILAssemblyManipulator.Physical.Implementation
             idx = 0;
             currentArray
                .WriteInt16LEToBytes( ref idx, headers.EntryPointInstruction )
-               .WriteUInt32LEToBytes( ref idx, isDLL ? 0u : (UInt32) imageBase + codeSectionVirtualOffset );
+               .WriteUInt32LEToBytes( ref idx, (UInt32) imageBase + codeSectionVirtualOffset );
             sink.Write( currentArray, curArrayLen );
             currentOffset += (UInt32) curArrayLen;
          }
