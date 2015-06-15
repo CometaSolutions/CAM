@@ -4106,14 +4106,22 @@ namespace CILMerge
       //#endregion
    }
 
-   internal class CILMergeException : Exception
+   public class CILMergeException : Exception
    {
-      internal readonly ExitCode _exitCode;
+      private readonly ExitCode _exitCode;
 
       internal CILMergeException( ExitCode exitCode, String msg, Exception inner )
          : base( msg, inner )
       {
          this._exitCode = exitCode;
+      }
+
+      public ExitCode ExitCode
+      {
+         get
+         {
+            return this._exitCode;
+         }
       }
    }
 

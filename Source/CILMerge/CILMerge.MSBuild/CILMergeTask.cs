@@ -19,9 +19,9 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
-using CILAssemblyManipulator.API;
 using Microsoft.Build.Framework;
 using Microsoft.Build.Utilities;
+using CILAssemblyManipulator.Physical;
 
 namespace CILMerge.MSBuild
 {
@@ -139,8 +139,6 @@ namespace CILMerge.MSBuild
 
       public ModuleKind? Target { get; set; }
 
-      public TargetRuntime? TargetPlatform { get; set; }
-
       public String ReferenceAssembliesDirectory { get; set; }
 
       public Boolean Union { get; set; }
@@ -163,11 +161,13 @@ namespace CILMerge.MSBuild
 
       public Boolean NoResources { get; set; }
 
-      CILMergeLogCallback CILMergeOptions.CILLogCallback { get; set; }
-
       public Int32 SubsystemMajor { get; set; }
       public Int32 SubsystemMinor { get; set; }
       public Boolean HighEntropyVA { get; set; }
+
+      public String MetadataVersionString { get; set; }
+      public Boolean KeepRetargetableRefs { get; set; }
+      public String CSPName { get; set; }
 
       #endregion
 

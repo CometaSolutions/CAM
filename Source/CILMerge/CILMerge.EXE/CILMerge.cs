@@ -151,7 +151,7 @@ namespace CILMerge
          }
          catch ( CILMergeException cExc )
          {
-            retVal = cExc._exitCode;
+            retVal = cExc.ExitCode;
             Console.Error.WriteLine( "Error: " + cExc.Message );
          }
          catch ( Exception exc )
