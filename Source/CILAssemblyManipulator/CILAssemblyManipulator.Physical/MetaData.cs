@@ -532,6 +532,13 @@ namespace CILAssemblyManipulator.Physical
          return !( x < y );
       }
 
+      public static TableIndex? FromOneBasedTokenNullable( Int32 token )
+      {
+         return token == 0 ?
+            (TableIndex?) null :
+            FromOneBasedToken( token );
+      }
+
       public static TableIndex FromOneBasedToken( Int32 token )
       {
          return new TableIndex( ( ( token & TokenUtils.INDEX_MASK ) - 1 ) | ( token & ~TokenUtils.INDEX_MASK ) );

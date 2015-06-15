@@ -241,7 +241,7 @@ namespace CILAssemblyManipulator.Physical.Implementation
          ReadingArguments rArgs
          )
       {
-         var headers = new HeadersData( false );
+         var headers = rArgs.Headers;
 
          Byte[] tmpArray = new Byte[8];
 
@@ -380,11 +380,7 @@ namespace CILAssemblyManipulator.Physical.Implementation
          headers.ModuleFlags = (ModuleFlags) stream.ReadU32( tmpArray );
 
          // Entrypoint token
-         var epToken = stream.ReadI32( tmpArray );
-         if ( epToken != 0 )
-         {
-            headers.CLREntryPointIndex = TableIndex.FromOneBasedToken( epToken );
-         }
+         headers.CLREntryPointIndex = TableIndex.FromOneBasedTokenNullable( stream.ReadI32( tmpArray ) );
 
          // Resources data directory
          var rsrcDD = new DataDir( stream, tmpArray );
@@ -1266,11 +1262,7 @@ namespace CILAssemblyManipulator.Physical.Implementation
             // Read max stack
             retVal.MaxStackSize = stream.ReadU16( tmpArray );
             var codeSize = stream.ReadI32( tmpArray );
-            var localSigToken = stream.ReadI32( tmpArray );
-            if ( localSigToken != 0 )
-            {
-               retVal.LocalsSignatureIndex = TableIndex.FromOneBasedToken( localSigToken );
-            }
+            retVal.LocalsSignatureIndex = TableIndex.FromOneBasedTokenNullable( stream.ReadI32( tmpArray ) );
 
             if ( headerSize != 12 )
             {
@@ -1304,7 +1296,7 @@ namespace CILAssemblyManipulator.Physical.Implementation
                         TryLength = isFat ? stream.ReadI32( tmpArray ) : stream.ReadByteFromStream(),
                         HandlerOffset = isFat ? stream.ReadI32( tmpArray ) : stream.ReadU16( tmpArray ),
                         HandlerLength = isFat ? stream.ReadI32( tmpArray ) : stream.ReadByteFromStream(),
-                        ExceptionType = eType == ExceptionBlockType.Filter ? (TableIndex?) null : ReadExceptionType( stream, tmpArray ),
+                        ExceptionType = eType == ExceptionBlockType.Filter ? (TableIndex?) null : TableIndex.FromOneBasedTokenNullable( stream.ReadI32( tmpArray ) ),
                         FilterOffset = eType == ExceptionBlockType.Filter ? stream.ReadI32( tmpArray ) : 0
                      } );
                      secByteSize -= ( isFat ? 24u : 12u );
@@ -1314,12 +1306,6 @@ namespace CILAssemblyManipulator.Physical.Implementation
          }
 
          return retVal;
-      }
-
-      private static TableIndex? ReadExceptionType( Stream stream, Byte[] tmpArray )
-      {
-         var token = stream.ReadI32( tmpArray );
-         return token == 0 ? (TableIndex?) null : TableIndex.FromOneBasedToken( token );
       }
 
       private static void CreateOpCodes( MethodILDefinition methodIL, Stream stream, Int32 codeSize, Byte[] tmpArray, UserStringHeapReader userStrings )

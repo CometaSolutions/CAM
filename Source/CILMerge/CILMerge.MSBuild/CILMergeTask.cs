@@ -63,10 +63,10 @@ namespace CILMerge.MSBuild
                this.OutPath = inputs[0];
             }
 
-            if ( this.DoLogging && this.LogFile == null )
-            {
-               ( (CILMergeOptions) this ).CILLogCallback = this;
-            }
+            //if ( this.DoLogging && this.LogFile == null )
+            //{
+            //   ( (CILMergeOptions) this ).CILLogCallback = this;
+            //}
 
             if ( this.LibPaths == null || this.LibPaths.Length == 0 )
             {
@@ -83,10 +83,7 @@ namespace CILMerge.MSBuild
 
             try
             {
-               using ( var merger = new CILMerger( this ) )
-               {
-                  merger.PerformMerge();
-               }
+               new CILMerger( this, this ).PerformMerge();
                retVal = true;
             }
             catch ( Exception exc )
@@ -133,8 +130,6 @@ namespace CILMerge.MSBuild
       public String[] LibPaths { get; set; }
 
       public Boolean DoLogging { get; set; }
-
-      public String LogFile { get; set; }
 
       public Boolean NoDebug { get; set; }
 

@@ -21,6 +21,7 @@ using System.IO;
 using System.Linq;
 using System.Text;
 using CILAssemblyManipulator.Physical;
+using CommonUtils;
 
 namespace CILMerge
 {
@@ -43,7 +44,7 @@ namespace CILMerge
       CILAssemblyManipulator.Physical.AssemblyHashAlgorithm? SigningAlgorithm { get; set; }
       string[] LibPaths { get; set; }
       bool DoLogging { get; set; }
-      string LogFile { get; set; }
+      //string LogFile { get; set; }
       bool NoDebug { get; set; }
       string OutPath { get; set; }
       bool Parallel { get; set; }
@@ -60,7 +61,7 @@ namespace CILMerge
       int VerRevision { get; set; }
       bool XmlDocs { get; set; }
       bool ZeroPEKind { get; set; }
-      CILMergeLogCallback CILLogCallback { get; set; }
+      //CILMergeLogCallback CILLogCallback { get; set; }
       bool NoResources { get; set; }
 
       Int32 SubsystemMajor { get; set; }
@@ -74,6 +75,43 @@ namespace CILMerge
    public interface CILMergeLogCallback
    {
       void Log( MessageLevel mLevel, String formatString, params Object[] args );
+   }
+
+   public abstract class AbstractCILMergeLogCallback : CILMergeLogCallback
+   {
+
+      public abstract void Log( MessageLevel mLevel, String formatString, Object[] args );
+
+      protected static String CreateMessageString( MessageLevel mLevel, String formatString, Object[] args )
+      {
+         return String.Format( "{0}: {1}", mLevel, (Object) String.Format( formatString, args ) );
+      }
+   }
+
+   public class ConsoleCILMergeLogCallback : StreamWriterCILMergeLogCallback
+   {
+      public ConsoleCILMergeLogCallback()
+         : base( Console.Out )
+      {
+
+      }
+   }
+
+   public class StreamWriterCILMergeLogCallback : AbstractCILMergeLogCallback
+   {
+      private readonly TextWriter _writer;
+
+      public StreamWriterCILMergeLogCallback( TextWriter writer )
+      {
+         ArgumentValidator.ValidateNotNull( "Stream writer", writer );
+
+         this._writer = writer;
+      }
+
+      public override void Log( MessageLevel mLevel, String formatString, Object[] args )
+      {
+         this._writer.WriteLine( CreateMessageString( mLevel, formatString, args ) );
+      }
    }
 
    public class CILMergeOptionsImpl : CILMergeOptions
@@ -95,7 +133,7 @@ namespace CILMerge
       public String CSPName { get; set; }
       public AssemblyHashAlgorithm? SigningAlgorithm { get; set; }
       public Boolean DoLogging { get; set; }
-      public String LogFile { get; set; }
+      //public String LogFile { get; set; }
       public Int32 VerMajor { get; set; }
       public Int32 VerMinor { get; set; }
       public Int32 VerBuild { get; set; }
@@ -124,7 +162,7 @@ namespace CILMerge
       public String[] InputAssemblies { get; set; }
       public Boolean AllowWildCards { get; set; }
       public Boolean NoResources { get; set; }
-      public CILMergeLogCallback CILLogCallback { get; set; }
+      //public CILMergeLogCallback CILLogCallback { get; set; }
       public Int32 SubsystemMajor { get; set; }
       public Int32 SubsystemMinor { get; set; }
       public Boolean HighEntropyVA { get; set; }

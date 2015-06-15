@@ -30,6 +30,7 @@ using CILAssemblyManipulator.PDB;
 using CommonUtils;
 using CILAssemblyManipulator.Physical;
 using System.Runtime.InteropServices;
+using System.Diagnostics;
 
 namespace CILMerge
 {
@@ -485,13 +486,12 @@ namespace CILMerge
    }
 
 
-   public class CILMerger : IDisposable
+   public class CILMerger
    {
       private readonly CILMergeOptions _options;
-      private readonly Boolean _disposeLogStream;
-      private readonly TextWriter _logStream;
+      private readonly CILMergeLogCallback _log;
 
-      public CILMerger( CILMergeOptions options )
+      public CILMerger( CILMergeOptions options, CILMergeLogCallback logCallback )
       {
          if ( options == null )
          {
@@ -501,123 +501,242 @@ namespace CILMerge
 
          if ( this._options.DoLogging )
          {
-            var logFile = this._options.LogFile;
-            logFile = logFile == null ?
-               null :
-               Path.GetFullPath( logFile );
-            try
-            {
-               this._disposeLogStream = !String.IsNullOrEmpty( logFile );
-               this._logStream = this._disposeLogStream ?
-                  new StreamWriter( logFile, false, Encoding.UTF8 ) :
-                  Console.Out;
-            }
-            catch ( Exception exc )
-            {
-               throw this.NewCILMergeException( ExitCode.ErrorAccessingLogFile, "Error accessing log file " + logFile + ".", exc );
-            }
+            this._log = logCallback;
          }
       }
 
       public void PerformMerge()
       {
-         // Merge assemblies
-         CILModuleMergeResult[] assemblyMergeResult;
+         // 1. Merge assemblies
+         CILModuleMergeResult assemblyMergeResult;
          using ( var assMerger = new CILAssemblyMerger( this, this._options, Environment.CurrentDirectory ) )
          {
             assemblyMergeResult = assMerger.MergeModules();
          }
 
+         // 2. Merge PDBs
+         var pdbHelper = assemblyMergeResult.PDBHelper;
+         if ( pdbHelper != null )
+         {
+            try
+            {
+               this.DoWithStopWatch( "Merging PDB files", () =>
+               {
+                  using ( pdbHelper )
+                  {
+                     this.MergePDBs( pdbHelper, assemblyMergeResult );
+                  }
+               } );
+            }
+            catch ( Exception exc )
+            {
+               this.Log( MessageLevel.Warning, "Error when creating PDB file for {0}. Error:\n{1}", this._options.OutPath, exc );
+            }
+         }
+
          if ( this._options.XmlDocs )
          {
-            // Merge documentation
+            // 3. Merge documentation
             this.MergeXMLDocs( assemblyMergeResult );
          }
       }
 
-      private void MergeXMLDocs( CILModuleMergeResult[] assemblyMergeResult )
+      private void MergePDBs( PDBHelper pdbHelper, CILModuleMergeResult mergeResult )
       {
-         var xmlDocs = new ConcurrentDictionary<CILModuleMergeResult, XDocument>( ReferenceEqualityComparer<CILModuleMergeResult>.ReferenceBasedComparer );
-
-         // TODO on *nix, comparison should maybe be case-sensitive.
-         var outXmlPath = Path.ChangeExtension( this._options.OutPath, ".xml" );
-         this.DoPotentiallyInParallel( assemblyMergeResult, ( isRunningInParallel, mResult ) =>
+         // Merge PDBs
+         var bag = new ConcurrentBag<PDBInstance>();
+         this.DoPotentiallyInParallel( mergeResult.InputMergeResults, ( isRunningInParallel, iResult ) =>
          {
-            XDocument xDoc = null;
-            var path = mResult.ModulePath;
-            var xfn = Path.ChangeExtension( path, ".xml" );
-            if ( !String.Equals( Path.GetFullPath( xfn ), outXmlPath, StringComparison.OrdinalIgnoreCase ) )
+
+            var eArg = iResult.ReadingArguments;
+            var headers = eArg.Headers;
+            var debugInfo = headers.DebugInformation;
+            if ( debugInfo != null && debugInfo.DebugType == 2 ) // CodeView
             {
-               try
+               var pdbFNStartIdx = 24;
+               var pdbFN = debugInfo.DebugData.ReadZeroTerminatedStringFromBytes( ref pdbFNStartIdx, Encoding.UTF8 );
+               if ( pdbFN != null )
                {
-                  xDoc = XDocument.Load( xfn );
-               }
-               catch
-               {
-                  // Ignore
-               }
-            }
-            if ( xDoc == null )
-            {
-               // Try load from lib paths
-               xfn = Path.GetFileName( xfn );
-               foreach ( var p in this._options.LibPaths )
-               {
-                  var curXfn = Path.Combine( p, xfn );
-                  if ( !String.Equals( Path.GetFullPath( curXfn ), outXmlPath, StringComparison.OrdinalIgnoreCase ) )
+                  PDBInstance iPDB = null;
+                  try
                   {
-                     try
+                     using ( var fs = File.Open( pdbFN, FileMode.Open, FileAccess.Read, FileShare.Read ) )
                      {
-                        xDoc = XDocument.Load( curXfn );
-                        xfn = curXfn;
+                        iPDB = PDBIO.FromStream( fs );
                      }
-                     catch
+                  }
+                  catch ( Exception exc )
+                  {
+                     this.Log( MessageLevel.Warning, "Could not open file {0} because of {1}.", pdbFN, exc );
+                  }
+
+                  if ( iPDB != null )
+                  {
+                     bag.Add( iPDB );
+                     // Translate all tokens
+                     foreach ( var func in iPDB.Modules.SelectMany( m => m.Functions ) )
                      {
-                        // Ignore
-                     }
-                     if ( xDoc != null )
-                     {
-                        break;
+                        func.Token = this.MapMethodToken( iResult, func.Token );
+                        func.ForwardingMethodToken = this.MapMethodToken( iResult, func.ForwardingMethodToken );
+                        func.ModuleForwardingMethodToken = this.MapMethodToken( iResult, func.ModuleForwardingMethodToken );
+                        this.MapPDBScopeOrFunction( func, iResult );
+                        //if ( func.AsyncMethodInfo != null )
+                        //{
+                        //   func.AsyncMethodInfo.KickoffMethodToken = this.MapMethodToken( targetEArgs, eArg, thisMethod, func.AsyncMethodInfo.KickoffMethodToken );
+                        //   foreach ( var syncP in func.AsyncMethodInfo.SynchronizationPoints )
+                        //   {
+                        //      syncP.ContinuationMethodToken = this.MapMethodToken( targetEArgs, eArg, thisMethod, syncP.ContinuationMethodToken );
+                        //   }
+                        //}
                      }
                   }
                }
             }
-            if ( xDoc != null )
-            {
-               xmlDocs.TryAdd( mResult, xDoc );
-            }
          } );
 
-
-         using ( var fs = File.Open( outXmlPath, FileMode.Create, FileAccess.Write, FileShare.Read ) )
+         var pdb = new PDBInstance();
+         //pdb.Age = (UInt32) targetEArgs.DebugInformation.DebugFileAge;
+         //pdb.DebugGUID = targetEArgs.DebugInformation.DebugFileGUID;
+         // Add all information. Should be ok, since all IL offsets remain unchanged, and all tokens are translated.
+         foreach ( var currentPDB in bag )
          {
-            // Create and save document (Need to use XmlWriter if 4-space indent needs to be preserved, the XElement saves using 2-space indent and it is not customizable).
-            new XElement( "doc",
-               new XElement( "assembly", new XElement( "name", Path.GetFileNameWithoutExtension( this._options.OutPath ) ) ), // Assembly name
-               new XElement( "members", xmlDocs
-                  .Select( kvp => Tuple.Create( kvp.Key, kvp.Value.XPathSelectElements( "/doc/members/*" ) ) )
-                  .SelectMany( tuple =>
+            // Merge sources
+            foreach ( var src in currentPDB.Sources )
+            {
+               pdb.TryAddSource( src.Name, src );
+            }
+            // Merge modules
+            foreach ( var mod in currentPDB.Modules )
+            {
+               var curMod = pdb.GetOrAddModule( mod.Name );
+               foreach ( var func in mod.Functions )
+               {
+                  curMod.Functions.Add( func );
+               }
+            }
+         }
+
+         pdbHelper.ProcessPDB( pdb );
+      }
+
+      private void MapPDBScopeOrFunction( PDBScopeOrFunction scp, InputModuleMergeResult mergeResult )
+      {
+         foreach ( var slot in scp.Slots )
+         {
+            slot.TypeToken = this.MapTypeToken( mergeResult, slot.TypeToken );
+         }
+         foreach ( var subScope in scp.Scopes )
+         {
+            this.MapPDBScopeOrFunction( subScope, mergeResult );
+         }
+      }
+
+      private UInt32 MapMethodToken( InputModuleMergeResult mergeResult, UInt32 token )
+      {
+         var inputToken = TableIndex.FromOneBasedTokenNullable( (Int32) token );
+         TableIndex targetToken;
+         return inputToken.HasValue && mergeResult.InputToTargetMapping.TryGetValue( inputToken.Value, out targetToken ) ?
+            (UInt32) targetToken.OneBasedToken :
+            0u;
+      }
+
+      private UInt32 MapTypeToken( InputModuleMergeResult mergeResult, UInt32 token )
+      {
+         var inputToken = TableIndex.FromOneBasedTokenNullable( (Int32) token );
+         TableIndex targetToken;
+         return inputToken.HasValue && mergeResult.InputToTargetMapping.TryGetValue( inputToken.Value, out targetToken ) ?
+            (UInt32) targetToken.OneBasedToken :
+            0u;
+      }
+
+      private void MergeXMLDocs( CILModuleMergeResult assemblyMergeResult )
+      {
+         var xmlDocs = new ConcurrentDictionary<InputModuleMergeResult, XDocument>( ReferenceEqualityComparer<InputModuleMergeResult>.ReferenceBasedComparer );
+
+         this.DoWithStopWatch( "Merging XML document files", () =>
+         {
+
+            // TODO on *nix, comparison should maybe be case-sensitive.
+            var outXmlPath = Path.ChangeExtension( this._options.OutPath, ".xml" );
+            var libPaths = this._options.LibPaths;
+            this.DoPotentiallyInParallel( assemblyMergeResult.InputMergeResults, ( isRunningInParallel, mResult ) =>
+            {
+               XDocument xDoc = null;
+               var path = mResult.ModulePath;
+               var xfn = Path.ChangeExtension( path, ".xml" );
+               if ( !String.Equals( Path.GetFullPath( xfn ), outXmlPath, StringComparison.OrdinalIgnoreCase ) )
+               {
+                  try
                   {
-                     var renameDic = tuple.Item1.TypeRenames;
-                     if ( renameDic.Count > 0 )
+                     xDoc = XDocument.Load( xfn );
+                  }
+                  catch
+                  {
+                     // Ignore
+                  }
+               }
+               if ( xDoc == null && !libPaths.IsNullOrEmpty() )
+               {
+                  // Try load from lib paths
+                  xfn = Path.GetFileName( xfn );
+                  foreach ( var p in libPaths )
+                  {
+                     var curXfn = Path.Combine( p, xfn );
+                     if ( !String.Equals( Path.GetFullPath( curXfn ), outXmlPath, StringComparison.OrdinalIgnoreCase ) )
                      {
-                        foreach ( var el in tuple.Item2 )
+                        try
                         {
-                           var nameAttr = el.Attribute( "name" );
-                           String typeName;
-                           if ( nameAttr != null && nameAttr.Value.StartsWith( "T:" ) && renameDic.TryGetValue( el.Attribute( "name" ).Value.Substring( 2 ), out typeName ) )
-                           {
-                              // The name was changed during merge.
-                              // TODO need to do same for members, etc.
-                              nameAttr.SetValue( typeName );
-                           }
+                           xDoc = XDocument.Load( curXfn );
+                           xfn = curXfn;
+                        }
+                        catch
+                        {
+                           // Ignore
+                        }
+                        if ( xDoc != null )
+                        {
+                           break;
                         }
                      }
-                     return tuple.Item2;
-                  } )
-               )
-            ).Save( fs );
-         }
+                  }
+               }
+               if ( xDoc != null )
+               {
+                  xmlDocs.TryAdd( mResult, xDoc );
+               }
+            } );
+
+
+            using ( var fs = File.Open( outXmlPath, FileMode.Create, FileAccess.Write, FileShare.Read ) )
+            {
+               // Create and save document (Need to use XmlWriter if 4-space indent needs to be preserved, the XElement saves using 2-space indent and it is not customizable).
+               new XElement( "doc",
+                  new XElement( "assembly", new XElement( "name", Path.GetFileNameWithoutExtension( this._options.OutPath ) ) ), // Assembly name
+                  new XElement( "members", xmlDocs
+                     .Select( kvp => Tuple.Create( kvp.Key, kvp.Value.XPathSelectElements( "/doc/members/*" ) ) )
+                     .SelectMany( tuple =>
+                     {
+                        var renameDic = tuple.Item1.TypeRenames;
+                        if ( renameDic.Count > 0 )
+                        {
+                           foreach ( var el in tuple.Item2 )
+                           {
+                              var nameAttr = el.Attribute( "name" );
+                              String typeName;
+                              if ( nameAttr != null && nameAttr.Value.StartsWith( "T:" ) && renameDic.TryGetValue( el.Attribute( "name" ).Value.Substring( 2 ), out typeName ) )
+                              {
+                                 // The name was changed during merge.
+                                 // TODO need to do same for members, etc.
+                                 nameAttr.SetValue( typeName );
+                              }
+                           }
+                        }
+                        return tuple.Item2;
+                     } )
+                  )
+               ).Save( fs );
+            }
+         } );
       }
 
       internal CILMergeException NewCILMergeException( ExitCode code, String message, Exception inner = null )
@@ -628,14 +747,9 @@ namespace CILMerge
 
       internal void Log( MessageLevel mLevel, String formatString, params Object[] args )
       {
-         if ( this._logStream != null )
+         if ( this._log != null )
          {
-            this._logStream.Write( mLevel.ToString().ToUpper() + ": " );
-            this._logStream.WriteLine( formatString, (Object[]) args );
-         }
-         else if ( this._options.CILLogCallback != null )
-         {
-            this._options.CILLogCallback.Log( mLevel, formatString, args );
+            this._log.Log( mLevel, formatString, args );
          }
       }
 
@@ -654,17 +768,17 @@ namespace CILMerge
          }
       }
 
-      #region IDisposable Members
-
-      public void Dispose()
+      internal void DoWithStopWatch( String what, Action action )
       {
-         if ( this._disposeLogStream && this._logStream != null )
-         {
-            this._logStream.Dispose();
-         }
+         var sw = new Stopwatch();
+         sw.Start();
+
+         action();
+
+         sw.Stop();
+         this.Log( MessageLevel.Info, what + " took {0} ms.", sw.ElapsedMilliseconds );
       }
 
-      #endregion
    }
 
    public enum MessageLevel { Warning, Error, Info }
@@ -704,15 +818,117 @@ namespace CILMerge
 
    internal class CILModuleMergeResult
    {
-      private readonly Lazy<IDictionary<TableIndex, TableIndex>> _inputToTargetMapping;
+      private readonly InputModuleMergeResult[] _inputMergeResults;
+      private readonly CILMetaData _targetModule;
+      private readonly EmittingArguments _emittingArguments;
+      private readonly PDBHelper _pdbHelper;
 
-      public CILModuleMergeResult( Func<IDictionary<TableIndex, TableIndex>> inputToTargetFactory )
+      internal CILModuleMergeResult(
+         CILMetaData targetModule,
+         EmittingArguments emittingArguments,
+         PDBHelper pdbHelper,
+         IEnumerable<InputModuleMergeResult> inputMergeResults
+         )
       {
-         this._inputToTargetMapping = new Lazy<IDictionary<TableIndex, TableIndex>>( inputToTargetFactory, LazyThreadSafetyMode.ExecutionAndPublication );
+         ArgumentValidator.ValidateNotNull( "Target module", targetModule );
+         ArgumentValidator.ValidateNotNull( "Emitting arguments", emittingArguments );
+         ArgumentValidator.ValidateNotNull( "Input merge results", inputMergeResults );
+
+         this._targetModule = targetModule;
+         this._emittingArguments = emittingArguments;
+         this._inputMergeResults = inputMergeResults.ToArray();
+         this._pdbHelper = pdbHelper;
+         ArgumentValidator.ValidateNotEmpty( "Input merge results", this._inputMergeResults );
       }
 
-      public String ModulePath { get; set; }
-      public IDictionary<String, String> TypeRenames { get; set; }
+      public CILMetaData TargetModule
+      {
+         get
+         {
+            return this._targetModule;
+         }
+      }
+
+      public EmittingArguments EmittingArguments
+      {
+         get
+         {
+            return this._emittingArguments;
+         }
+      }
+
+      public InputModuleMergeResult[] InputMergeResults
+      {
+         get
+         {
+            return this._inputMergeResults;
+         }
+      }
+
+      public PDBHelper PDBHelper
+      {
+         get
+         {
+            return this._pdbHelper;
+         }
+      }
+
+   }
+
+
+   internal class InputModuleMergeResult
+   {
+      private readonly CILMetaData _inputModule;
+      private readonly String _modulePath;
+      private readonly ReadingArguments _readingArguments;
+      private readonly Lazy<IDictionary<String, String>> _typeRenames;
+      private readonly Lazy<IDictionary<TableIndex, TableIndex>> _inputToTargetMapping;
+
+      public InputModuleMergeResult(
+         CILMetaData inputModule,
+         String modulePath,
+         ReadingArguments readingArguments,
+         Func<IDictionary<String, String>> typeRenames,
+         Func<IDictionary<TableIndex, TableIndex>> inputToTarget
+         )
+      {
+         ArgumentValidator.ValidateNotNull( "Input module", inputModule );
+         ArgumentValidator.ValidateNotEmpty( "Module path", modulePath );
+         ArgumentValidator.ValidateNotNull( "Reading arguments", readingArguments );
+         ArgumentValidator.ValidateNotNull( "Type renames", typeRenames );
+         ArgumentValidator.ValidateNotNull( "Input to target mapping", inputToTarget );
+
+         this._inputModule = inputModule;
+         this._modulePath = modulePath;
+         this._readingArguments = readingArguments;
+         this._typeRenames = new Lazy<IDictionary<String, String>>( typeRenames, LazyThreadSafetyMode.ExecutionAndPublication );
+         this._inputToTargetMapping = new Lazy<IDictionary<TableIndex, TableIndex>>( inputToTarget, LazyThreadSafetyMode.ExecutionAndPublication );
+      }
+
+      public String ModulePath
+      {
+         get
+         {
+            return this._modulePath;
+         }
+      }
+
+      public ReadingArguments ReadingArguments
+      {
+         get
+         {
+            return this._readingArguments;
+         }
+      }
+
+      public IDictionary<String, String> TypeRenames
+      {
+         get
+         {
+            return this._typeRenames.Value;
+         }
+      }
+
       public IDictionary<TableIndex, TableIndex> InputToTargetMapping
       {
          get
@@ -1021,72 +1237,86 @@ namespace CILMerge
          //this._csp = new Lazy<System.Security.Cryptography.SHA1CryptoServiceProvider>( () => new System.Security.Cryptography.SHA1CryptoServiceProvider(), LazyThreadSafetyMode.ExecutionAndPublication );
       }
 
-      internal CILModuleMergeResult[] MergeModules()
+      internal CILModuleMergeResult MergeModules()
       {
-         // First of all, load all input modules
-         this.LoadAllInputModules();
-
-         // Then, create target module
-         var eArgs = this.CreateEmittingArgumentsForTargetModule();
-         this.CreateTargetAssembly( eArgs );
-
-         // Process target module
-         // 1. Create structural tables
-         var typeDefInfo = this.ConstructStructuralTables();
-         // 2. Create tables used in signatures and IL tokens
-         this.ConstructTablesUsedInSignaturesAndILTokens( typeDefInfo, eArgs );
-         // 3. Create signatures and IL
-         this.ConstructSignaturesAndMethodIL();
-         // 4. Create the rest of the tables
-         this.ConstructTheRestOfTheTables();
-         // 5. Create assembly & module custom attributes
-         this.ApplyAssemblyAndModuleCustomAttributes();
-         // 6. Fix regargetable assembly references if needed
-         // Do it here, after TargetFrameworkAttribute has been applied specified
-         this.FixRetargetableAssemblyReferences();
-         // 7. Re-order and remove duplicates from tables
-         var reorderResult = this._targetModule.OrderTablesAndRemoveDuplicates();
-         // 8. Emit module
-         var targetModule = this._targetModule;
-         try
+         EmittingArguments eArgs = null;
+         Int32[][] reorderResult = null;
+         PDBHelper pdbHelper = null;
+         this._merger.DoWithStopWatch( "Merging modules and assemblies as a whole", () =>
          {
-            using ( var fs = File.Open( this._options.OutPath, FileMode.Create, FileAccess.ReadWrite, FileShare.None ) )
+
+            // First of all, load all input modules
+            this._merger.DoWithStopWatch( "Part 1: Loading input assemblies and modules", () =>
             {
-               targetModule.WriteModule( fs, eArgs );
-            }
-         }
-         catch ( Exception exc )
-         {
-            throw this.NewCILMergeException( ExitCode.ErrorAccessingTargetFile, "Error accessing target file " + this._options.OutPath + "(" + exc + ").", exc );
-         }
+               this.LoadAllInputModules();
+            } );
 
-         // 8. Merge PDBs, if needed
-         if ( !this._options.NoDebug && this._inputModules.Any( im => this._moduleLoader.GetReadingArgumentsForMetaData( im ).Headers.DebugInformation != null ) )
-         {
-            // TODO update _tableIndexMappings based on reorderResult
-            try
+
+            // Then, create target module
+            eArgs = this.CreateEmittingArgumentsForTargetModule();
+            this.CreateTargetAssembly( eArgs );
+
+            this._merger.DoWithStopWatch( "Part 2: Populating target module", () =>
             {
-               using ( var pdbHelper = new PDBHelper( targetModule, eArgs, this._options.OutPath ) )
+               // 1. Create structural tables
+               var typeDefInfo = this.ConstructStructuralTables();
+               // 2. Create tables used in signatures and IL tokens
+               this.ConstructTablesUsedInSignaturesAndILTokens( typeDefInfo, eArgs );
+               // 3. Create signatures and IL
+               this.ConstructSignaturesAndMethodIL();
+               // 4. Create the rest of the tables
+               this.ConstructTheRestOfTheTables();
+               // 5. Create assembly & module custom attributes
+               this.ApplyAssemblyAndModuleCustomAttributes();
+               // 6. Fix regargetable assembly references if needed
+               // Do it here, after TargetFrameworkAttribute has been applied specified
+               this.FixRetargetableAssemblyReferences();
+            } );
+            // Process target module
+
+            this._merger.DoWithStopWatch( "Part 3: Reordering target module tables and removing duplicates", () =>
+            {
+               // 7. Re-order and remove duplicates from tables
+               reorderResult = this._targetModule.OrderTablesAndRemoveDuplicates();
+            } );
+
+            // Prepare PDB
+
+            // Create PDB helper here, so it would modify EmittingArguments *before* actual emitting
+            pdbHelper = !this._options.NoDebug && this._inputModules.Any( m => this._moduleLoader.GetReadingArgumentsForMetaData( m ).Headers.DebugInformation != null ) ?
+               new PDBHelper( this._targetModule, eArgs, this._options.OutPath ) :
+               null;
+
+            this._merger.DoWithStopWatch( "Part 4: Writing target module", () =>
+            {
+               // 8. Emit module
+               try
                {
-
+                  using ( var fs = File.Open( this._options.OutPath, FileMode.Create, FileAccess.ReadWrite, FileShare.None ) )
+                  {
+                     this._targetModule.WriteModule( fs, eArgs );
+                  }
                }
-            }
-            catch ( Exception exc )
-            {
-               this.Log( MessageLevel.Warning, "Error when creating PDB file for {0}. Error:\n{1}", this._options.OutPath, exc );
-            }
-         }
+               catch ( Exception exc )
+               {
+                  throw this.NewCILMergeException( ExitCode.ErrorAccessingTargetFile, "Error accessing target file " + this._options.OutPath + "(" + exc + ").", exc );
+               }
 
-         return this._inputModules
-            .Select( m => new CILModuleMergeResult( () =>
-            {
-               throw new NotImplementedException();
-            } )
-            {
-               ModulePath = this._moduleLoader.GetResourceFor( m ),
-               TypeRenames = this.CreateRenameDictionaryForInputModule( m )
-            } )
-         .ToArray();
+            } );
+         } );
+
+         return new CILModuleMergeResult(
+            this._targetModule,
+            eArgs,
+            pdbHelper,
+            this._inputModules.Select( m => new InputModuleMergeResult(
+               m,
+               this._moduleLoader.GetResourceFor( m ),
+               this._moduleLoader.GetReadingArgumentsForMetaData( m ),
+               () => this.CreateRenameDictionaryForInputModule( m ),
+               () => this.CreateTableIndexMappingForInputModule( m, reorderResult )
+               ) )
+            );
       }
 
       private void FixRetargetableAssemblyReferences()
@@ -1128,7 +1358,7 @@ namespace CILMerge
 
          if ( this._options.UseFullPublicKeyForRefs )
          {
-            // TODO...
+            throw new NotImplementedException( "Full public key refs." );
          }
       }
 
@@ -1148,8 +1378,26 @@ namespace CILMerge
          return retVal;
       }
 
+      private IDictionary<TableIndex, TableIndex> CreateTableIndexMappingForInputModule( CILMetaData inputModule, Int32[][] reorderingResult )
+      {
+         var mapping = this._tableIndexMappings[inputModule];
+         return mapping.ToDictionary(
+            kvp => kvp.Key,
+            kvp =>
+            {
+               var targetIndex = kvp.Value;
+               var reorderingMapping = reorderingResult[(Int32) targetIndex.Table];
+               return reorderingMapping == null ?
+                  targetIndex :
+                  new TableIndex( targetIndex.Table, reorderingMapping[targetIndex.Index] );
+            } );
+      }
+
+
+
       private void LoadAllInputModules()
       {
+
          var paths = this._options.InputAssemblies;
          if ( paths == null || paths.Length == 0 )
          {
@@ -1279,6 +1527,7 @@ namespace CILMerge
 
       private CILAssemblyManipulator.Physical.EmittingArguments CreateEmittingArgumentsForTargetModule()
       {
+
          // Prepare strong _name
          var keyFile = this._options.KeyFile;
          CILAssemblyManipulator.Physical.StrongNameKeyPair sn = null;
@@ -1353,6 +1602,8 @@ namespace CILMerge
          }
 
          this._targetModule = targetMD;
+
+
       }
 
       // Constructs TypeDef, NestedClass, MethodDef, ParamDef, GenericParameter tables to target module
@@ -3831,116 +4082,7 @@ namespace CILMerge
 
 
 
-      private void MergePDBs( PDBHelper pdbHelper, EmittingArguments targetEArgs, EmittingArguments[] inputEArgs )
-      {
-         // Merge PDBs
-         var bag = new ConcurrentBag<PDBInstance>();
-         this.DoPotentiallyInParallel( this._inputModules, ( isRunningInParallel, inputModule ) =>
-         {
-            var eArg = this._moduleLoader.GetReadingArgumentsForMetaData( inputModule );
-            var headers = eArg.Headers;
-            var debugInfo = headers.DebugInformation;
-            if ( debugInfo != null && debugInfo.DebugType == 2 ) // CodeView
-            {
-               var pdbFNStartIdx = 24;
-               var pdbFN = debugInfo.DebugData.ReadZeroTerminatedStringFromBytes( ref pdbFNStartIdx, Encoding.UTF8 );
-               if ( pdbFN != null )
-               {
-                  PDBInstance iPDB = null;
-                  try
-                  {
-                     using ( var fs = File.Open( pdbFN, FileMode.Open, FileAccess.Read, FileShare.Read ) )
-                     {
-                        iPDB = PDBIO.FromStream( fs );
-                     }
-                  }
-                  catch ( Exception exc )
-                  {
-                     this.Log( MessageLevel.Warning, "Could not open file {0} because of {1}.", pdbFN, exc );
-                  }
 
-                  if ( iPDB != null )
-                  {
-                     bag.Add( iPDB );
-                     // Translate all tokens
-                     foreach ( var func in iPDB.Modules.SelectMany( m => m.Functions ) )
-                     {
-                        //var thisMethod = TableIndex.FromOneBasedToken( (Int32) func.Token ); // (CILMethodBase) eArg.ResolveToken( null, (Int32) func.Token );
-                        func.Token = this.MapMethodToken( inputModule, func.Token );// this.MapMethodToken( targetEArgs, eArg, thisMethod, func.Token );
-                        func.ForwardingMethodToken = this.MapMethodToken( inputModule, func.ForwardingMethodToken ); // this.MapMethodToken( targetEArgs, eArg, thisMethod, func.ForwardingMethodToken );
-                        func.ModuleForwardingMethodToken = this.MapMethodToken( inputModule, func.ModuleForwardingMethodToken );// this.MapMethodToken( targetEArgs, eArg, thisMethod, func.ModuleForwardingMethodToken );
-                        this.MapPDBScopeOrFunction( func, inputModule ); // this.MapPDBScopeOrFunction( func, targetEArgs, eArg, thisMethod );
-                        //if ( func.AsyncMethodInfo != null )
-                        //{
-                        //   func.AsyncMethodInfo.KickoffMethodToken = this.MapMethodToken( targetEArgs, eArg, thisMethod, func.AsyncMethodInfo.KickoffMethodToken );
-                        //   foreach ( var syncP in func.AsyncMethodInfo.SynchronizationPoints )
-                        //   {
-                        //      syncP.ContinuationMethodToken = this.MapMethodToken( targetEArgs, eArg, thisMethod, syncP.ContinuationMethodToken );
-                        //   }
-                        //}
-                     }
-                  }
-               }
-            }
-         } );
-
-         var pdb = new PDBInstance();
-         //pdb.Age = (UInt32) targetEArgs.DebugInformation.DebugFileAge;
-         //pdb.DebugGUID = targetEArgs.DebugInformation.DebugFileGUID;
-         // Add all information. Should be ok, since all IL offsets remain unchanged, and all tokens are translated.
-         foreach ( var currentPDB in bag )
-         {
-            // Merge sources
-            foreach ( var src in currentPDB.Sources )
-            {
-               pdb.TryAddSource( src.Name, src );
-            }
-            // Merge modules
-            foreach ( var mod in currentPDB.Modules )
-            {
-               var curMod = pdb.GetOrAddModule( mod.Name );
-               foreach ( var func in mod.Functions )
-               {
-                  curMod.Functions.Add( func );
-               }
-            }
-         }
-
-         pdbHelper.ProcessPDB( pdb );
-      }
-
-      private void MapPDBScopeOrFunction( PDBScopeOrFunction scp, CILMetaData inputModule )
-      {
-         foreach ( var slot in scp.Slots )
-         {
-            slot.TypeToken = this.MapTypeToken( inputModule, slot.TypeToken );
-         }
-         foreach ( var subScope in scp.Scopes )
-         {
-            this.MapPDBScopeOrFunction( subScope, inputModule );
-         }
-      }
-
-      private UInt32 MapMethodToken( CILMetaData inputModule, UInt32 token )
-      {
-         throw new NotImplementedException();
-         //return token == 0u ? 0u : (UInt32) targetEArgs.GetTokenFor( this._methodMapping[(CILMethodBase) inputEArgs.ResolveToken( thisMethod, (Int32) token )] ).Value;
-      }
-
-      private UInt32 MapTypeToken( CILMetaData inputModule, UInt32 token )
-      {
-         // Sometimes, there is a field signature in Standalone table. Reason for this is in ( http://msdn.developer-works.com/article/13221925/Pinned+Fields+in+the+Common+Language+Runtime , unavailable at 2014, viewable through goole cache http://webcache.googleusercontent.com/search?q=cache:UeFk80O2rGMJ:http://msdn.developer-works.com/article/13221925/Pinned%2BFields%2Bin%2Bthe%2BCommon%2BLanguage%2BRuntime%2Bstandalonesig+contains+field+signatures&oe=utf-8&rls=org.mozilla:en-US:official&client=firefox-a&channel=sb&gfe_rd=cr&hl=fi&ct=clnk&gws_rd=cr )
-         // Shortly, the field signature seems to be generated for constant values within the method (sometimes) or when a field is used as by-ref parameter.
-         // The ECMA standard, however, explicitly prohibits to have anything else except LOCALSIG and METHOD signatures in Standalone table.
-         // The PDB, however, requires a token, which would represent the type of the slot (for some reason), and thus the faulty rows are being emitted to Standalone table.
-
-         // This doesn't affect much at runtime, since these faulty Standalone rows are only used from within the PDB file, and never from within the CIL file.
-         // However, we cannot emit such Standalone rows during emitting stage.
-         // Therefore, detect this formally erroneus situation here, and mark that this slot should just use the normal standalone sig token of this method.
-         // A bit hack-ish but oh well...
-         //return token == 0u ? 0u : (UInt32) targetEArgs.GetSignatureTokenFor( this._methodMapping[inputEArgs.ResolveSignatureToken( (Int32) token ).FirstOrDefault() ?? thisMethod] );
-         throw new NotImplementedException();
-      }
 
       //#region IDisposable Members
 

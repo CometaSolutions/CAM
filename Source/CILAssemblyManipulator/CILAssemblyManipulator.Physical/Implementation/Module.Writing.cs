@@ -844,7 +844,7 @@ namespace CILAssemblyManipulator.Physical.Implementation
                      .WriteInt32LEToBytes( ref idx, block.TryLength )
                      .WriteInt32LEToBytes( ref idx, block.HandlerOffset )
                      .WriteInt32LEToBytes( ref idx, block.HandlerLength )
-                     .WriteInt32LEToBytes( ref idx, block.BlockType == ExceptionBlockType.Exception && block.ExceptionType.HasValue ? block.ExceptionType.Value.OneBasedToken : block.FilterOffset );
+                     .WriteInt32LEToBytes( ref idx, block.BlockType != ExceptionBlockType.Filter ? block.ExceptionType.GetOneBasedToken() : block.FilterOffset );
                      ++curExcIndex;
                      --amountToBeWritten;
                   }
@@ -860,7 +860,7 @@ namespace CILAssemblyManipulator.Physical.Implementation
                         .WriteByteToBytes( ref idx, (Byte) block.TryLength )
                         .WriteUInt16LEToBytes( ref idx, (UInt16) block.HandlerOffset )
                         .WriteByteToBytes( ref idx, (Byte) block.HandlerLength )
-                        .WriteInt32LEToBytes( ref idx, block.BlockType == ExceptionBlockType.Exception && block.ExceptionType.HasValue ? block.ExceptionType.Value.OneBasedToken : block.FilterOffset );
+                        .WriteInt32LEToBytes( ref idx, block.BlockType != ExceptionBlockType.Filter ? block.ExceptionType.GetOneBasedToken() : block.FilterOffset );
                      ++curExcIndex;
                      --amountToBeWritten;
                   }

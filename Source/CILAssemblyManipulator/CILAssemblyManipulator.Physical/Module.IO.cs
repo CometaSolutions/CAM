@@ -455,7 +455,7 @@ namespace CILAssemblyManipulator.Physical
 
          if ( rArgs.Headers == null )
          {
-            rArgs.Headers = new HeadersData();
+            rArgs.Headers = new HeadersData(false);
          }
 
          return CILAssemblyManipulator.Physical.Implementation.ModuleReader.ReadFromStream( stream, rArgs );
