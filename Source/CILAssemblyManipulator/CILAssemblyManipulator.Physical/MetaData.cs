@@ -736,11 +736,15 @@ public static partial class E_CILPhysical
    private sealed class SignatureReOrderState
    {
       private readonly MetaDataReOrderState _reorderState;
-      private ISet<TableIndex> _tableIndicesToProcess;
+      private readonly Tables _table;
+      private Int32 _currentMinDuplicate;
+      private Int32[] _prevDuplicates;
 
-      internal SignatureReOrderState( MetaDataReOrderState reorderState )
+      internal SignatureReOrderState( MetaDataReOrderState reorderState, Tables table )
       {
          this._reorderState = reorderState;
+         this._table = table;
+         this._currentMinDuplicate = -1;
       }
 
       public MetaDataReOrderState ReOrderState
@@ -759,21 +763,27 @@ public static partial class E_CILPhysical
          }
       }
 
-      public ISet<TableIndex> TableIndicesToProcess
+      public void BeforeDuplicateRemoval()
       {
-         get
+         if ( this._currentMinDuplicate >= 0 )
          {
-            if ( this._tableIndicesToProcess == null )
-            {
-               this._tableIndicesToProcess = new HashSet<TableIndex>();
-            }
-            return this._tableIndicesToProcess;
+            this._prevDuplicates = this._reorderState.Duplicates[this._table].Keys.ToArray();
          }
+      }
+
+      public void AfterDuplicateRemoval()
+      {
+         var duplicates = new HashSet<Int32>( this._reorderState.Duplicates[this._table].Keys );
+         if ( this._prevDuplicates != null )
+         {
+            duplicates.ExceptWith( this._prevDuplicates );
+         }
+         this._currentMinDuplicate = duplicates.Min();
       }
 
       public Boolean ShouldProcess( TableIndex tIdx )
       {
-         return this._tableIndicesToProcess == null || this._tableIndicesToProcess.Contains( tIdx );
+         return this._table != tIdx.Table || this._currentMinDuplicate <= tIdx.Index;
       }
 
    }
@@ -1942,7 +1952,6 @@ public static partial class E_CILPhysical
             var cur = list[i];
             if ( cur != null && !set.Add( cur ) )
             {
-
                if ( !foundDuplicates )
                {
                   foundDuplicates = true;
@@ -2039,7 +2048,7 @@ public static partial class E_CILPhysical
       // Create index array for Module table, as TypeRef.ResolutionScope may reference that.
       reorderState.GetOrCreateIndexArray( Tables.Module, md.ModuleDefinitions );
       Boolean removedDuplicates;
-      var updateState = new SignatureReOrderState( reorderState );
+      var updateState = new SignatureReOrderState( reorderState, Tables.TypeRef );
       do
       {
          reorderState.UpdateMDTableWithTableIndices1Nullable(
@@ -2063,7 +2072,7 @@ public static partial class E_CILPhysical
       // So remove duplicates and update signatures in a loop
       var tSpecs = md.TypeSpecifications;
       var tSpecIndices = reorderState.GetOrCreateIndexArray( Tables.TypeSpec, tSpecs );
-      updateState = new SignatureReOrderState( reorderState );
+      updateState = new SignatureReOrderState( reorderState, Tables.TypeSpec );
       do
       {
          updateState.UpdateSignatures();
@@ -2206,8 +2215,7 @@ public static partial class E_CILPhysical
       where T : class
    {
       var reorderState = state.ReOrderState;
-      var thisTableDuplicates = reorderState.Duplicates.GetOrAdd_NotThreadSafe( table, t => new Dictionary<Int32, Int32>() );
-      var prevDuplicates = thisTableDuplicates.Keys.ToArray();
+      state.BeforeDuplicateRemoval();
       var removedDuplicates = reorderState.CheckMDDuplicatesUnsorted(
          tableList,
          tableIndices,
@@ -2216,11 +2224,7 @@ public static partial class E_CILPhysical
          );
       if ( removedDuplicates )
       {
-         var newDuplicates = thisTableDuplicates.Keys.ToArray();
-         var tSpecsToProcess = state.TableIndicesToProcess;
-         tSpecsToProcess.Clear();
-         tSpecsToProcess.UnionWith( newDuplicates.Select( i => new TableIndex( table, i ) ) );
-         tSpecsToProcess.ExceptWith( prevDuplicates.Select( i => new TableIndex( table, i ) ) );
+         state.AfterDuplicateRemoval();
       }
 
       return removedDuplicates;
