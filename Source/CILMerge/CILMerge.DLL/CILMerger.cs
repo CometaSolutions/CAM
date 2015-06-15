@@ -704,8 +704,22 @@ namespace CILMerge
 
    internal class CILModuleMergeResult
    {
+      private readonly Lazy<IDictionary<TableIndex, TableIndex>> _inputToTargetMapping;
+
+      public CILModuleMergeResult( Func<IDictionary<TableIndex, TableIndex>> inputToTargetFactory )
+      {
+         this._inputToTargetMapping = new Lazy<IDictionary<TableIndex, TableIndex>>( inputToTargetFactory, LazyThreadSafetyMode.ExecutionAndPublication );
+      }
+
       public String ModulePath { get; set; }
       public IDictionary<String, String> TypeRenames { get; set; }
+      public IDictionary<TableIndex, TableIndex> InputToTargetMapping
+      {
+         get
+         {
+            return this._inputToTargetMapping.Value;
+         }
+      }
    }
 
    internal class CILAssemblyMerger : AbstractDisposable, IDisposable
@@ -1064,7 +1078,10 @@ namespace CILMerge
          }
 
          return this._inputModules
-            .Select( m => new CILModuleMergeResult()
+            .Select( m => new CILModuleMergeResult( () =>
+            {
+               throw new NotImplementedException();
+            } )
             {
                ModulePath = this._moduleLoader.GetResourceFor( m ),
                TypeRenames = this.CreateRenameDictionaryForInputModule( m )
@@ -1107,6 +1124,11 @@ namespace CILMerge
                   }
                }
             }
+         }
+
+         if ( this._options.UseFullPublicKeyForRefs )
+         {
+            // TODO...
          }
       }
 
@@ -2446,27 +2468,30 @@ namespace CILMerge
 
       private MarshalingInfo ProcessMarshalingInfo( MarshalingInfo inputMarshalingInfo )
       {
+         String processedMarshalType = null, processedArrayUDType = null;
          if ( !String.IsNullOrEmpty( inputMarshalingInfo.MarshalType ) )
          {
-            throw new NotImplementedException( "Custom type information in marshaling info." );
+            processedMarshalType = this.ProcessTypeString( inputMarshalingInfo.MarshalType );
          }
-         else if ( !String.IsNullOrEmpty( inputMarshalingInfo.SafeArrayUserDefinedType ) )
+
+         if ( !String.IsNullOrEmpty( inputMarshalingInfo.SafeArrayUserDefinedType ) )
          {
-            throw new NotImplementedException( "Custom array type information in marshaling info." );
+            processedArrayUDType = this.ProcessTypeString( inputMarshalingInfo.SafeArrayUserDefinedType );
          }
-         {
-            return new MarshalingInfo(
-               inputMarshalingInfo.Value,
-               inputMarshalingInfo.SafeArrayType,
-               inputMarshalingInfo.SafeArrayUserDefinedType,
-               inputMarshalingInfo.IIDParameterIndex,
-               inputMarshalingInfo.ArrayType,
-               inputMarshalingInfo.SizeParameterIndex,
-               inputMarshalingInfo.ConstSize,
-               inputMarshalingInfo.MarshalType,
-               inputMarshalingInfo.MarshalCookie
-               );
-         }
+
+
+         return new MarshalingInfo(
+            inputMarshalingInfo.Value,
+            inputMarshalingInfo.SafeArrayType,
+            processedArrayUDType,
+            inputMarshalingInfo.IIDParameterIndex,
+            inputMarshalingInfo.ArrayType,
+            inputMarshalingInfo.SizeParameterIndex,
+            inputMarshalingInfo.ConstSize,
+            processedMarshalType,
+            inputMarshalingInfo.MarshalCookie
+            );
+
       }
 
       private AbstractSecurityInformation ProcessPermissionSet( CILMetaData md, Int32 declSecurityIdx, Int32 permissionSetIdx, AbstractSecurityInformation inputSecurityInfo )
@@ -2500,7 +2525,7 @@ namespace CILMerge
 
       private String ProcessTypeString( String typeString )
       {
-         throw new NotImplementedException();
+         throw new NotImplementedException( "TODO: Mapping type strings." );
       }
 
       private AbstractCustomAttributeSignature ProcessCustomAttributeSignature( CILMetaData md, Int32 caIdx, AbstractCustomAttributeSignature sig )

@@ -783,7 +783,7 @@ public static partial class E_CILPhysical
 
       public Boolean ShouldProcess( TableIndex tIdx )
       {
-         return this._table != tIdx.Table || this._currentMinDuplicate <= tIdx.Index;
+         return this._currentMinDuplicate == -1 || ( this._table == tIdx.Table && this._currentMinDuplicate <= tIdx.Index );
       }
 
    }
@@ -793,14 +793,12 @@ public static partial class E_CILPhysical
       private readonly CILMetaData _md;
       private readonly IDictionary<Tables, IDictionary<Int32, Int32>> _duplicates;
       private readonly Int32[][] _finalIndices;
-      private readonly Object[][] _currentTargets;
 
       internal MetaDataReOrderState( CILMetaData md )
       {
          this._md = md;
          this._duplicates = new Dictionary<Tables, IDictionary<Int32, Int32>>();
          this._finalIndices = new Int32[Consts.AMOUNT_OF_TABLES][];
-         this._currentTargets = new Object[Consts.AMOUNT_OF_TABLES][];
       }
 
       public CILMetaData MetaData
@@ -842,9 +840,6 @@ public static partial class E_CILPhysical
                thisDuplicates.Add( kvp.Key, actualIndex );
             }
          }
-
-         var targets = this._currentTargets[(Int32) table];
-         targets[idx] = targets[actualIndex];
       }
 
       public Boolean IsDuplicate( TableIndex index )
@@ -881,7 +876,6 @@ public static partial class E_CILPhysical
                targets[i] = list[i];
             }
             this._finalIndices[(Int32) table] = retVal;
-            this._currentTargets[(Int32) table] = targets;
          }
          return retVal;
       }
@@ -895,14 +889,6 @@ public static partial class E_CILPhysical
       {
          return this._finalIndices[(Int32) table][index];
       }
-
-      public T GetTargetByIndex<T>( TableIndex index )
-         where T : class
-      {
-         return (T) this._currentTargets[(Int32) index.Table][index.Index];
-      }
-
-
    }
 
    public static Boolean IsHasThis( this SignatureStarters starter )
@@ -2000,16 +1986,16 @@ public static partial class E_CILPhysical
    //   return retVal;
    //}
 
-   private static void PopulateIndexArray( Int32[] array )
-   {
-      var size = array.Length;
-      // This might get called for already-used index array
-      // Therefore, start from 0
-      for ( var i = 0; i < size; ++i )
-      {
-         array[i] = i;
-      }
-   }
+   //private static void PopulateIndexArray( Int32[] array )
+   //{
+   //   var size = array.Length;
+   //   // This might get called for already-used index array
+   //   // Therefore, start from 0
+   //   for ( var i = 0; i < size; ++i )
+   //   {
+   //      array[i] = i;
+   //   }
+   //}
 
    private static void UpdateSignaturesAndILWhileRemovingDuplicates( this MetaDataReOrderState reorderState )
    {
@@ -2523,36 +2509,36 @@ public static partial class E_CILPhysical
    //   return retVal;
    //}
 
-   private static IEnumerable<Int32> GetDeclaringTypeChain( this Int32 typeDefIndex, IList<NestedClassDefinition> sortedNestedClass )
-   {
+   //private static IEnumerable<Int32> GetDeclaringTypeChain( this Int32 typeDefIndex, IList<NestedClassDefinition> sortedNestedClass )
+   //{
 
-      return typeDefIndex.AsSingleBranchEnumerable( cur =>
-         {
-            var nIdx = sortedNestedClass.FindRowFromSortedNestedClass( cur );
-            if ( nIdx != -1 )
-            {
-               nIdx = sortedNestedClass[nIdx].EnclosingClass.Index;
-            }
-            return nIdx;
-         }, cur => cur == -1 || cur == typeDefIndex, false ); // Stop also when we hit the same index again (illegal situation but possible), and don't include itself
-   }
+   //   return typeDefIndex.AsSingleBranchEnumerable( cur =>
+   //      {
+   //         var nIdx = sortedNestedClass.FindRowFromSortedNestedClass( cur );
+   //         if ( nIdx != -1 )
+   //         {
+   //            nIdx = sortedNestedClass[nIdx].EnclosingClass.Index;
+   //         }
+   //         return nIdx;
+   //      }, cur => cur == -1 || cur == typeDefIndex, false ); // Stop also when we hit the same index again (illegal situation but possible), and don't include itself
+   //}
 
-   private static Int32 FindRowFromSortedNestedClass( this IList<NestedClassDefinition> sortedNestedClass, Int32 currentTypeDefIndex )
-   {
-      using ( var xDeclTypeRows = sortedNestedClass.GetReferencingRowsFromOrderedWithIndex( Tables.TypeDef, currentTypeDefIndex, nIdx =>
-      {
-         while ( sortedNestedClass[nIdx] == null )
-         {
-            --nIdx;
-         }
-         return sortedNestedClass[nIdx].NestedClass;
-      } ).GetEnumerator() )
-      {
-         return xDeclTypeRows.MoveNext() ?
-            xDeclTypeRows.Current : // has declaring type. 
-            -1; // does not have declaring type. 
-      }
-   }
+   //private static Int32 FindRowFromSortedNestedClass( this IList<NestedClassDefinition> sortedNestedClass, Int32 currentTypeDefIndex )
+   //{
+   //   using ( var xDeclTypeRows = sortedNestedClass.GetReferencingRowsFromOrderedWithIndex( Tables.TypeDef, currentTypeDefIndex, nIdx =>
+   //   {
+   //      while ( sortedNestedClass[nIdx] == null )
+   //      {
+   //         --nIdx;
+   //      }
+   //      return sortedNestedClass[nIdx].NestedClass;
+   //   } ).GetEnumerator() )
+   //   {
+   //      return xDeclTypeRows.MoveNext() ?
+   //         xDeclTypeRows.Current : // has declaring type. 
+   //         -1; // does not have declaring type. 
+   //   }
+   //}
 
    // Returns token with 1-based indexing, or zero if tableIdx has no value
    internal static Int32 GetOneBasedToken( this TableIndex? tableIdx )
