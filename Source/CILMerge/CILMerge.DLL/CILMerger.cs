@@ -1270,7 +1270,7 @@ namespace CILMerge
                this.ApplyAssemblyAndModuleCustomAttributes();
                // 6. Fix regargetable assembly references if needed
                // Do it here, after TargetFrameworkAttribute has been applied specified
-               this.FixRetargetableAssemblyReferences();
+               this.FixTargetAssemblyReferences();
             } );
             // Process target module
 
@@ -1319,8 +1319,13 @@ namespace CILMerge
             );
       }
 
-      private void FixRetargetableAssemblyReferences()
+      private void FixTargetAssemblyReferences()
       {
+         // We have to fix target assembly references, because if we are merging non-PCL library with PCL library, and non-PCL lib implements interface from PCL lib, their signatures will differ if assembly refs are not processed.
+         // This causes PEVerify errors.
+         var retargetableIndices = new HashSet<Int32>();
+
+         // TODO detect that 1. target fw is not portable and 2. any input module target FW is *different* than target module FW
          if ( !this._options.KeepRetargetableRefs )
          {
             var targetFWInfo = new Lazy<TargetFrameworkInfo>( () =>
@@ -1336,20 +1341,26 @@ namespace CILMerge
             foreach ( var inputModule in this._inputModules )
             {
                var aRefs = inputModule.AssemblyReferences;
+               var inputMappings = this._tableIndexMappings[inputModule];
                for ( var i = 0; i < aRefs.Count; ++i )
                {
-                  var aRef = aRefs[i];
-                  if ( aRef.Attributes.IsRetargetable() )
+                  TableIndex targetAssemblyRefIndex;
+                  if ( inputMappings.TryGetValue( new TableIndex( Tables.AssemblyRef, i ), out targetAssemblyRefIndex ) )
                   {
-                     var aInfo = aRef.AssemblyInformation;
-                     var correspondingNewAssembly = this._moduleLoader.GetOrLoadMetaData( Path.Combine( this._loaderCallbacks.GetTargetFrameworkPathForFrameworkInfo( targetFWInfo.Value ), aInfo.Name + ".dll" ) );
-                     aRef.Attributes &= ( ~AssemblyFlags.Retargetable );
-                     var targetARef = this._targetModule.AssemblyReferences[this._tableIndexMappings[inputModule][new TableIndex( Tables.AssemblyRef, i )].Index];
-                     var aDefInfo = correspondingNewAssembly.AssemblyDefinitions[0].AssemblyInformation;
-                     aDefInfo.DeepCopyContentsTo( targetARef.AssemblyInformation );
-                     if ( !targetARef.Attributes.IsFullPublicKey() && !this._options.UseFullPublicKeyForRefs )
+                     var aRef = aRefs[i];
+                     if ( aRef.Attributes.IsRetargetable() )
                      {
-                        targetARef.AssemblyInformation.PublicKeyOrToken = this._publicKeyComputer.Value.ComputePublicKeyToken( aDefInfo.PublicKeyOrToken );
+                        var aInfo = aRef.AssemblyInformation;
+                        var correspondingNewAssembly = this._moduleLoader.GetOrLoadMetaData( Path.Combine( this._loaderCallbacks.GetTargetFrameworkPathForFrameworkInfo( targetFWInfo.Value ), aInfo.Name + ".dll" ) );
+                        var targetARef = this._targetModule.AssemblyReferences[targetAssemblyRefIndex.Index];
+                        targetARef.Attributes &= ( ~AssemblyFlags.Retargetable );
+                        var aDefInfo = correspondingNewAssembly.AssemblyDefinitions[0].AssemblyInformation;
+                        aDefInfo.DeepCopyContentsTo( targetARef.AssemblyInformation );
+                        if ( !targetARef.Attributes.IsFullPublicKey() && !this._options.UseFullPublicKeyForRefs )
+                        {
+                           targetARef.AssemblyInformation.PublicKeyOrToken = this._publicKeyComputer.Value.ComputePublicKeyToken( aDefInfo.PublicKeyOrToken );
+                        }
+                        retargetableIndices.Add( targetAssemblyRefIndex.Index );
                      }
                   }
                }
@@ -1358,7 +1369,39 @@ namespace CILMerge
 
          if ( this._options.UseFullPublicKeyForRefs )
          {
-            throw new NotImplementedException( "Full public key refs." );
+            foreach ( var inputModule in this._inputModules )
+            {
+               var aRefs = inputModule.AssemblyReferences;
+               var inputModulePath = this._moduleLoader.GetResourceFor( inputModule );
+               var inputMappings = this._tableIndexMappings[inputModule];
+               for ( var i = 0; i < aRefs.Count; ++i )
+               {
+                  TableIndex targetAssemblyRefIndex;
+                  if ( inputMappings.TryGetValue( new TableIndex( Tables.AssemblyRef, i ), out targetAssemblyRefIndex ) )
+                  {
+                     var aRef = aRefs[i];
+                     if ( !aRef.Attributes.IsFullPublicKey() )
+                     {
+                        var aRefModule = this._loaderCallbacks.GetPossibleResourcesForAssemblyReference(
+                           inputModulePath,
+                           inputModule,
+                           new AssemblyInformationForResolving( aRef.AssemblyInformation, aRef.Attributes.IsFullPublicKey() ),
+                           null )
+                        .Where( p => File.Exists( p ) )
+                        .Select( p => this._moduleLoader.GetOrLoadMetaData( p ) )
+                        .Where( m => m.AssemblyDefinitions.Count > 0 )
+                        .FirstOrDefault();
+
+                        if ( aRefModule != null )
+                        {
+                           var targetARef = this._targetModule.AssemblyReferences[targetAssemblyRefIndex.Index];
+                           targetARef.AssemblyInformation.PublicKeyOrToken = aRefModule.AssemblyDefinitions[0].AssemblyInformation.PublicKeyOrToken.CreateBlockCopy();
+                           targetARef.Attributes |= AssemblyFlags.PublicKey;
+                        }
+                     }
+                  }
+               }
+            }
          }
       }
 
@@ -1555,7 +1598,7 @@ namespace CILMerge
          var eHeaders = pEArgs.Headers.CreateCopy();
          eArgs.Headers = eHeaders;
          eHeaders.DebugInformation = null;
-         eHeaders.FileAlignment = (UInt32) this._options.FileAlign;
+         eHeaders.FileAlignment = (UInt32) Math.Max( this._options.FileAlign, HeadersData.DEFAULT_FILE_ALIGNMENT );
          eHeaders.SubSysMajor = (UInt16) this._options.SubsystemMajor;
          eHeaders.SubSysMinor = (UInt16) this._options.SubsystemMinor;
          eHeaders.HighEntropyVA = this._options.HighEntropyVA;
@@ -2258,7 +2301,7 @@ namespace CILMerge
             null,
             ( md, marshal, inputIdx, thisIdx ) => new FieldMarshal()
             {
-               NativeType = this.ProcessMarshalingInfo( marshal.NativeType ),
+               NativeType = this.ProcessMarshalingInfo( md, marshal.NativeType ),
                Parent = this.TranslateTableIndex( md, marshal.Parent ) // ParamDef/FieldDef -> already processed
             } );
 
@@ -2717,17 +2760,17 @@ namespace CILMerge
          return retVal;
       }
 
-      private MarshalingInfo ProcessMarshalingInfo( MarshalingInfo inputMarshalingInfo )
+      private MarshalingInfo ProcessMarshalingInfo( CILMetaData inputModule, MarshalingInfo inputMarshalingInfo )
       {
          String processedMarshalType = null, processedArrayUDType = null;
          if ( !String.IsNullOrEmpty( inputMarshalingInfo.MarshalType ) )
          {
-            processedMarshalType = this.ProcessTypeString( inputMarshalingInfo.MarshalType );
+            processedMarshalType = this.ProcessTypeString( inputModule, inputMarshalingInfo.MarshalType );
          }
 
          if ( !String.IsNullOrEmpty( inputMarshalingInfo.SafeArrayUserDefinedType ) )
          {
-            processedArrayUDType = this.ProcessTypeString( inputMarshalingInfo.SafeArrayUserDefinedType );
+            processedArrayUDType = this.ProcessTypeString( inputModule, inputMarshalingInfo.SafeArrayUserDefinedType );
          }
 
 
@@ -2765,17 +2808,21 @@ namespace CILMerge
                var args = resolved.NamedArguments;
                resolved = new SecurityInformation( resolved.NamedArguments.Count );
                retVal = resolved;
-               resolved.NamedArguments.AddRange( args.Select( arg => this.ProcessCANamedArg( arg ) ) );
+               resolved.NamedArguments.AddRange( args.Select( arg => this.ProcessCANamedArg( md, arg ) ) );
                break;
             default:
                throw new NotSupportedException( "Unsupported security information kind: " + inputSecurityInfo.SecurityInformationKind + "." );
          }
-         retVal.SecurityAttributeType = this.ProcessTypeString( inputSecurityInfo.SecurityAttributeType );
+         retVal.SecurityAttributeType = this.ProcessTypeString( md, inputSecurityInfo.SecurityAttributeType );
          return retVal;
       }
 
-      private String ProcessTypeString( String typeString )
+      private String ProcessTypeString( CILMetaData inputModule, String typeString )
       {
+         // TODO:
+         // 1. Separate assembly & type string
+         // 2. If assembly name present, locate assembly. Otherwise use this module as type source.
+         // 3. If module is part of input modules, then use type remappings to get new type name. Otherwise leave the same.
          throw new NotImplementedException( "TODO: Mapping type strings." );
       }
 
@@ -2794,8 +2841,8 @@ namespace CILMerge
             case CustomAttributeSignatureKind.Resolved:
                var resolved = (CustomAttributeSignature) sig;
                var resolvedRetVal = new CustomAttributeSignature( resolved.TypedArguments.Count, resolved.NamedArguments.Count );
-               resolvedRetVal.TypedArguments.AddRange( resolved.TypedArguments.Select( arg => this.ProcessCATypedArg( arg ) ) );
-               resolvedRetVal.NamedArguments.AddRange( resolved.NamedArguments.Select( arg => this.ProcessCANamedArg( arg ) ) );
+               resolvedRetVal.TypedArguments.AddRange( resolved.TypedArguments.Select( arg => this.ProcessCATypedArg( md, arg ) ) );
+               resolvedRetVal.NamedArguments.AddRange( resolved.NamedArguments.Select( arg => this.ProcessCANamedArg( md, arg ) ) );
                retVal = resolvedRetVal;
                break;
             default:
@@ -2804,40 +2851,40 @@ namespace CILMerge
          return retVal;
       }
 
-      private CustomAttributeNamedArgument ProcessCANamedArg( CustomAttributeNamedArgument arg )
+      private CustomAttributeNamedArgument ProcessCANamedArg( CILMetaData inputModule, CustomAttributeNamedArgument arg )
       {
          return new CustomAttributeNamedArgument()
          {
             IsField = arg.IsField,
             Name = arg.Name,
-            Value = this.ProcessCATypedArg( arg.Value )
+            Value = this.ProcessCATypedArg( inputModule, arg.Value )
          };
       }
 
-      private CustomAttributeTypedArgument ProcessCATypedArg( CustomAttributeTypedArgument arg )
+      private CustomAttributeTypedArgument ProcessCATypedArg( CILMetaData inputModule, CustomAttributeTypedArgument arg )
       {
          return new CustomAttributeTypedArgument()
          {
-            Type = this.ProcessCATypedArgType( arg.Type ),
-            Value = arg.Type.IsSimpleTypeOfKind( SignatureElementTypes.Type ) ? this.ProcessTypeString( (String) arg.Value ) : arg.Value
+            Type = this.ProcessCATypedArgType( inputModule, arg.Type ),
+            Value = arg.Type.IsSimpleTypeOfKind( SignatureElementTypes.Type ) ? this.ProcessTypeString( inputModule, (String) arg.Value ) : arg.Value
          };
       }
 
-      private CustomAttributeArgumentType ProcessCATypedArgType( CustomAttributeArgumentType type )
+      private CustomAttributeArgumentType ProcessCATypedArgType( CILMetaData inputModule, CustomAttributeArgumentType type )
       {
          switch ( type.ArgumentTypeKind )
          {
             case CustomAttributeArgumentTypeKind.Array:
                return new CustomAttributeArgumentTypeArray()
                {
-                  ArrayType = this.ProcessCATypedArgType( ( (CustomAttributeArgumentTypeArray) type ).ArrayType )
+                  ArrayType = this.ProcessCATypedArgType( inputModule, ( (CustomAttributeArgumentTypeArray) type ).ArrayType )
                };
             case CustomAttributeArgumentTypeKind.Simple:
                return type;
             case CustomAttributeArgumentTypeKind.TypeString:
                return new CustomAttributeArgumentTypeEnum()
                {
-                  TypeString = this.ProcessTypeString( ( (CustomAttributeArgumentTypeEnum) type ).TypeString )
+                  TypeString = this.ProcessTypeString( inputModule, ( (CustomAttributeArgumentTypeEnum) type ).TypeString )
                };
             default:
                throw new NotSupportedException( "Unsupported custom attribute typed argument type: " + type.ArgumentTypeKind + "." );
@@ -2909,11 +2956,11 @@ namespace CILMerge
                         // In case there is textual information about types serialized, have to fix that.
                         var idx = resx.DataOffset;
                         var strlen = data.ReadInt32Encoded7Bit( ref idx );
-                        rw.AddResource( resName, this.ProcessTypeString( data.ReadStringWithEncoding( ref idx, strlen, Encoding.UTF8 ) ) );
+                        rw.AddResource( resName, this.ProcessTypeString( md, data.ReadStringWithEncoding( ref idx, strlen, Encoding.UTF8 ) ) );
                      }
                      else
                      {
-                        var newTypeStr = this.ProcessTypeString( resType );
+                        var newTypeStr = this.ProcessTypeString( md, resType );
                         if ( String.Equals( newTypeStr, resType ) )
                         {
                            // Predefined ResourceTypeCode or pure reference type, add right away
@@ -2929,7 +2976,7 @@ namespace CILMerge
                            var records = MResourcesIO.ReadNRBFRecords( data, ref idx, idx + resx.DataSize );
                            foreach ( var rec in records )
                            {
-                              this.ProcessNRBFRecord( rec );
+                              this.ProcessNRBFRecord( md, rec );
                            }
                            var strm2 = new MemoryStream();
                            MResourcesIO.WriteNRBFRecords( records, strm2 );
@@ -2952,14 +2999,14 @@ namespace CILMerge
          return retVal;
       }
 
-      private void ProcessNRBFRecord( AbstractRecord record )
+      private void ProcessNRBFRecord( CILMetaData inputModule, AbstractRecord record )
       {
          if ( record != null )
          {
             switch ( record.Kind )
             {
                case RecordKind.String:
-                  ( (StringRecord) record ).StringValue = this.ProcessTypeString( ( (StringRecord) record ).StringValue );
+                  ( (StringRecord) record ).StringValue = this.ProcessTypeString( inputModule, ( (StringRecord) record ).StringValue );
                   break;
                case RecordKind.Class:
                   var claas = (ClassRecord) record;
@@ -2967,20 +3014,20 @@ namespace CILMerge
                   foreach ( var member in claas.Members )
                   {
                      this.ProcessNRBFTypeInfo( member );
-                     this.ProcessNRBFRecord( member.Value as AbstractRecord );
+                     this.ProcessNRBFRecord( inputModule, member.Value as AbstractRecord );
                   }
                   break;
                case RecordKind.Array:
                   foreach ( var val in ( (ArrayRecord) record ).ValuesAsVector )
                   {
-                     this.ProcessNRBFRecord( val as AbstractRecord );
+                     this.ProcessNRBFRecord( inputModule, val as AbstractRecord );
                   }
                   break;
                case RecordKind.PrimitiveWrapper:
                   var wrapper = (PrimitiveWrapperRecord) record;
                   if ( wrapper.Value is String )
                   {
-                     wrapper.Value = this.ProcessTypeString( wrapper.Value as String );
+                     wrapper.Value = this.ProcessTypeString( inputModule, wrapper.Value as String );
                   }
                   break;
             }

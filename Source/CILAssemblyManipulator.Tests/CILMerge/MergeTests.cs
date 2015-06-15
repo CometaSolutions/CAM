@@ -39,7 +39,22 @@ namespace CILAssemblyManipulator.Tests.CILMerge
             Closed = true,
             Union = true,
             InputAssemblies = new[] { CILMergeLocation },
-            FileAlign = 0x200,
+            XmlDocs = true,
+            DoLogging = true
+         } );
+      }
+
+      [Test]
+      public void TestMergingCILMergeMSBuild()
+      {
+         this.PerformTest( new CILMergeOptionsImpl()
+         {
+            InputAssemblies = new[] { CILMergeLocation },
+            OutPath = Path.Combine( Path.GetDirectoryName( CILMergeLocation ), "CILMergeMerged.dll" ),
+            Union = true,
+            Closed = true,
+            Internalize = true,
+            UseFullPublicKeyForRefs = true,
             XmlDocs = true,
             DoLogging = true
          } );

@@ -32,6 +32,8 @@ namespace CILAssemblyManipulator.Physical
 
    public sealed class HeadersData
    {
+      public const Int32 DEFAULT_FILE_ALIGNMENT = 0x200;
+
       internal const String HINTNAME_FOR_DLL = "_CorDllMain";
       internal const String HINTNAME_FOR_EXE = "_CorExeMain";
 
@@ -47,7 +49,7 @@ namespace CILAssemblyManipulator.Physical
          {
             this.Machine = ImageFileMachine.I386;
             this.ImageBase = 0x00400000;
-            this.FileAlignment = 0x200;
+            this.FileAlignment = DEFAULT_FILE_ALIGNMENT;
             this.SectionAlignment = 0x2000;
             this.StackReserve = 0x100000; // ECMA-335, p. 280
             this.StackCommit = 0x1000; // ECMA-335, p. 280
