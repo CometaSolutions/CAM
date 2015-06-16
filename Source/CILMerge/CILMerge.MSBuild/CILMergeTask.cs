@@ -166,7 +166,7 @@ namespace CILMerge.MSBuild
       public Boolean HighEntropyVA { get; set; }
 
       public String MetadataVersionString { get; set; }
-      public Boolean KeepRetargetableRefs { get; set; }
+      public Boolean SkipFixingAssemblyReferences { get; set; }
       public String CSPName { get; set; }
 
       #endregion

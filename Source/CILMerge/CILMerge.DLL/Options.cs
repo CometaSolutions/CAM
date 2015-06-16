@@ -69,7 +69,7 @@ namespace CILMerge
       Boolean HighEntropyVA { get; set; }
 
       // When merging non-portable libraries with portable libraries, if non-portable library implements something that has retargetable ref in its signature -> PEVerify will think that the signatures are not matching
-      Boolean KeepRetargetableRefs { get; set; }
+      Boolean SkipFixingAssemblyReferences { get; set; }
    }
 
    public interface CILMergeLogCallback
@@ -90,7 +90,9 @@ namespace CILMerge
 
    public class ConsoleCILMergeLogCallback : StreamWriterCILMergeLogCallback
    {
-      public ConsoleCILMergeLogCallback()
+      public static readonly ConsoleCILMergeLogCallback Instance = new ConsoleCILMergeLogCallback();
+
+      private ConsoleCILMergeLogCallback()
          : base( Console.Out )
       {
 
@@ -166,6 +168,6 @@ namespace CILMerge
       public Int32 SubsystemMajor { get; set; }
       public Int32 SubsystemMinor { get; set; }
       public Boolean HighEntropyVA { get; set; }
-      public Boolean KeepRetargetableRefs { get; set; }
+      public Boolean SkipFixingAssemblyReferences { get; set; }
    }
 }

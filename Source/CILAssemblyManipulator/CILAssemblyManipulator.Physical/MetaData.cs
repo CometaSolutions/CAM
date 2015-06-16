@@ -605,12 +605,15 @@ namespace CILAssemblyManipulator.Physical
       private readonly String _fwName;
       private readonly String _fwVersion;
       private readonly String _fwProfile;
+      private readonly Boolean _assemblyRefsRetargetable;
 
       public TargetFrameworkInfo( String name, String version, String profile )
       {
          this._fwName = name;
          this._fwVersion = version;
          this._fwProfile = profile;
+         // TODO better
+         this._assemblyRefsRetargetable = String.Equals( this._fwName, ".NETPortable" );
       }
 
       public String Identifier
@@ -634,6 +637,14 @@ namespace CILAssemblyManipulator.Physical
          get
          {
             return this._fwProfile;
+         }
+      }
+
+      public Boolean AreFrameworkAssemblyReferencesRetargetable
+      {
+         get
+         {
+            return this._assemblyRefsRetargetable;
          }
       }
 
@@ -1223,16 +1234,18 @@ public static partial class E_CILPhysical
    }
 
    // Assumes that all lists of CILMetaData have only non-null elements.
+   // TypeDef and MethodDef can not have duplicate instances of same object!!
    // Assumes that MethodList, FieldList indices in TypeDef and ParameterList in MethodDef are all ordered correctly.
    // TODO check that everything works even though <Module> class is not a first row in TypeDef table
-   // Duplicates not checked from the following tables:
+   // Duplicates *not* checked from the following tables:
    // TypeDef
    // MethodDef
    // FieldDef
    // PropertyDef
    // EventDef
+   // ExportedType
 
-   // TypeDef and MethodDef can not have duplicate instances of same object!!
+
    public static Int32[][] OrderTablesAndRemoveDuplicates( this CILMetaData md )
    {
       // TODO maybe just create a new CILMetaData which would be a sorted version of this??

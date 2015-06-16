@@ -31,460 +31,10 @@ using CommonUtils;
 using CILAssemblyManipulator.Physical;
 using System.Runtime.InteropServices;
 using System.Diagnostics;
+using CILAssemblyManipulator.Physical.DotNET;
 
 namespace CILMerge
 {
-   public sealed class CILMetaDataLoaderResourceCallbacksForFiles : CILMetaDataLoaderResourceCallbacks
-   {
-      private readonly String _fwBasePath;
-      private readonly String _basePath;
-      private readonly IDictionary<CILMetaData, TargetFrameworkInfo> _targetFrameworks;
-
-      public CILMetaDataLoaderResourceCallbacksForFiles( String referenceAssemblyBasePath = null, String basePath = null )
-      {
-         this._fwBasePath = String.IsNullOrEmpty( referenceAssemblyBasePath ) ? GetDefaultReferenceAssemblyPath() : referenceAssemblyBasePath;
-         this._basePath = String.IsNullOrEmpty( basePath ) ? Environment.CurrentDirectory : basePath;
-         this._targetFrameworks = new Dictionary<CILMetaData, TargetFrameworkInfo>( ReferenceEqualityComparer<CILMetaData>.ReferenceBasedComparer );
-      }
-
-      public String SanitizeResource( String resource )
-      {
-         return Path.GetFullPath( Path.IsPathRooted( resource ) ? resource : Path.Combine( this._basePath, resource ) );
-      }
-
-      public Boolean IsValidResource( String resource )
-      {
-         return File.Exists( resource );
-      }
-
-      public Stream GetStreamFor( String resource )
-      {
-         return File.Open( resource, FileMode.Open, FileAccess.Read, FileShare.Read );
-      }
-
-      public IEnumerable<String> GetPossibleResourcesForModuleReference( String thisModulePath, CILMetaData thisMetaData, String moduleReferenceName )
-      {
-         if ( !moduleReferenceName.EndsWith( ".dll" ) )
-         {
-            moduleReferenceName += ".dll";
-         }
-         yield return Path.Combine(
-            Path.GetDirectoryName( thisModulePath ),
-            moduleReferenceName
-            );
-      }
-
-      public IEnumerable<String> GetPossibleResourcesForAssemblyReference( String thisModulePath, CILMetaData thisMetaData, AssemblyInformationForResolving? assemblyRefInfo, string unparsedAssemblyName )
-      {
-         // TODO need to emulate behaviour of .dll.config file as well!
-
-         // Process only those string references which are successfully parsed as assembly names
-         if ( assemblyRefInfo.HasValue )
-         {
-            var path = Path.GetDirectoryName( thisModulePath );
-            var assRefName = assemblyRefInfo.Value.AssemblyInformation.Name;
-
-            // First, try lookup in same folder
-            yield return Path.Combine( path, assRefName + ".dll" );
-            yield return Path.Combine( path, assRefName + ".exe" );
-            yield return Path.Combine( path, assRefName + ".winmd" );
-            // TODO more extensions?
-
-            // Then, try lookup in target framework directory, if we can parse target framework attribute
-            path = this.GetTargetFrameworkPathFor( thisMetaData );
-            if ( path != null )
-            {
-               yield return Path.Combine( path, assRefName + ".dll" );
-            }
-
-         }
-      }
-
-      public String GetTargetFrameworkPathFor( CILMetaData md )
-      {
-         var targetFW = this._targetFrameworks.GetOrAdd_WithLock( md, thisMD =>
-         {
-            TargetFrameworkInfo fwInfo;
-            return thisMD.TryGetTargetFrameworkInformation( out fwInfo ) ? fwInfo : null;
-         } );
-
-         return this.GetTargetFrameworkPathForFrameworkInfo( targetFW );
-      }
-
-      public String GetTargetFrameworkPathForFrameworkInfo( TargetFrameworkInfo targetFW )
-      {
-         String retVal;
-         if ( targetFW != null )
-         {
-            retVal = Path.Combine( this._fwBasePath, targetFW.Identifier, targetFW.Version );
-            if ( !String.IsNullOrEmpty( targetFW.Profile ) )
-            {
-               retVal = Path.Combine( retVal, "Profile", targetFW.Profile );
-            }
-         }
-         else
-         {
-            retVal = null;
-         }
-
-         return retVal;
-      }
-
-      public static String GetDefaultReferenceAssemblyPath()
-      {
-         switch ( Environment.OSVersion.Platform )
-         {
-            case PlatformID.Unix:
-               return @"/usr/lib/mono/xbuild-frameworks";
-            case PlatformID.MacOSX:
-               return @"/Library/Frameworks/Mono.framework/External/xbuild-frameworks";
-            default:
-               return @"C:/Program Files (x86)/Reference Assemblies/Microsoft/Framework";
-         }
-      }
-
-   }
-
-   public class CILMetaDataLoaderNotThreadSafeForFiles : CILMetaDataLoaderNotThreadSafe
-   {
-      public CILMetaDataLoaderNotThreadSafeForFiles( CILMetaDataLoaderResourceCallbacksForFiles callbacks = null )
-         : base( callbacks ?? new CILMetaDataLoaderResourceCallbacksForFiles() )
-      {
-
-      }
-   }
-
-   public class CILMetaDataLoaderThreadSafeSimpleForFiles : CILMetaDataLoaderThreadSafeSimple
-   {
-      public CILMetaDataLoaderThreadSafeSimpleForFiles( CILMetaDataLoaderResourceCallbacksForFiles callbacks = null )
-         : base( callbacks ?? new CILMetaDataLoaderResourceCallbacksForFiles() )
-      {
-
-      }
-
-      protected override Boolean IsThreadSafe
-      {
-         get
-         {
-            return true;
-         }
-      }
-   }
-
-   public class CILMetaDataLoaderThreadSafeConcurrent : CILMetaDataLoaderWithCallbacks<ConcurrentDictionary<String, CILMetaData>>
-   {
-      public CILMetaDataLoaderThreadSafeConcurrent( CILMetaDataLoaderResourceCallbacks callbacks )
-         : base( new ConcurrentDictionary<String, CILMetaData>(), callbacks )
-      {
-
-      }
-
-      protected override CILMetaData GetOrAddFromDictionary( String resource, Func<String, CILMetaData> factory )
-      {
-         return this.Dictionary.GetOrAdd( resource, factory );
-      }
-
-      protected override Boolean IsThreadSafe
-      {
-         get
-         {
-            return true;
-         }
-      }
-
-      protected override void PerformResolving( MetaDataResolver resolver, CILMetaData metaData )
-      {
-         // In case we are trying to resolve same module concurrently
-         lock ( resolver )
-         {
-            resolver.ResolveEverything( metaData );
-         }
-      }
-   }
-
-   public class CILMetaDataLoaderThreadSafeConcurrentForFiles : CILMetaDataLoaderThreadSafeConcurrent
-   {
-      public CILMetaDataLoaderThreadSafeConcurrentForFiles( CILMetaDataLoaderResourceCallbacksForFiles callbacks = null )
-         : base( callbacks ?? new CILMetaDataLoaderResourceCallbacksForFiles() )
-      {
-
-      }
-   }
-
-   public class CryptoCallbacksDotNET : CryptoCallbacks
-   {
-      private Boolean _canUseManagedCryptoAlgorithms;
-      private Boolean _canUseCNGCryptoAlgorithms;
-
-      public CryptoCallbacksDotNET()
-      {
-         this._canUseManagedCryptoAlgorithms = true;
-         this._canUseCNGCryptoAlgorithms = true;
-      }
-
-      public HashStreamInfo CreateHashStream( AssemblyHashAlgorithm algorithm )
-      {
-         System.Security.Cryptography.HashAlgorithm transform;
-         switch ( algorithm )
-         {
-            case AssemblyHashAlgorithm.MD5:
-               transform = GetTransform( null, () => new System.Security.Cryptography.MD5Cng(), () => new System.Security.Cryptography.MD5CryptoServiceProvider() );
-               break;
-            case AssemblyHashAlgorithm.SHA1:
-               transform = GetTransform( () => new System.Security.Cryptography.SHA1Managed(), () => new System.Security.Cryptography.SHA1Cng(), () => new System.Security.Cryptography.SHA1CryptoServiceProvider() );
-               break;
-            case AssemblyHashAlgorithm.SHA256:
-               transform = GetTransform( () => new System.Security.Cryptography.SHA256Managed(), () => new System.Security.Cryptography.SHA256Cng(), () => new System.Security.Cryptography.SHA256CryptoServiceProvider() );
-               break;
-            case AssemblyHashAlgorithm.SHA384:
-               transform = GetTransform( () => new System.Security.Cryptography.SHA384Managed(), () => new System.Security.Cryptography.SHA384Cng(), () => new System.Security.Cryptography.SHA384CryptoServiceProvider() );
-               break;
-            case AssemblyHashAlgorithm.SHA512:
-               transform = GetTransform( () => new System.Security.Cryptography.SHA512Managed(), () => new System.Security.Cryptography.SHA512Cng(), () => new System.Security.Cryptography.SHA512CryptoServiceProvider() );
-               break;
-            case AssemblyHashAlgorithm.None:
-               throw new InvalidOperationException( "Tried to create hash stream with no hash algorithm" );
-            default:
-               throw new ArgumentException( "Unknown hash algorithm: " + algorithm + "." );
-         }
-
-         return new HashStreamInfo(
-            algorithm,
-            () => new System.Security.Cryptography.CryptoStream( Stream.Null, transform, System.Security.Cryptography.CryptoStreamMode.Write ),
-            () => transform.Hash,
-            bytes => transform.ComputeHash( bytes ),
-            transform );
-      }
-
-      public IDisposable CreateRSAFromCSPContainer( String containerName )
-      {
-         var csp = new System.Security.Cryptography.CspParameters { Flags = System.Security.Cryptography.CspProviderFlags.UseMachineKeyStore };
-         if ( containerName != null )
-         {
-            csp.KeyContainerName = containerName;
-            csp.KeyNumber = 2;
-         }
-         return new System.Security.Cryptography.RSACryptoServiceProvider( csp );
-      }
-
-      public IDisposable CreateRSAFromParameters( RSAParameters parameters )
-      {
-         System.Security.Cryptography.RSA result = null;
-         var rParams = new System.Security.Cryptography.RSAParameters()
-         {
-            D = parameters.D,
-            DP = parameters.DP,
-            DQ = parameters.DQ,
-            Exponent = parameters.Exponent,
-            InverseQ = parameters.InverseQ,
-            Modulus = parameters.Modulus,
-            P = parameters.P,
-            Q = parameters.Q
-         };
-         try
-         {
-            result = System.Security.Cryptography.RSA.Create();
-            result.ImportParameters( rParams );
-         }
-         catch ( System.Security.Cryptography.CryptographicException )
-         {
-            var success = false;
-            try
-            {
-               // Try SP without key container name instead
-               result = (System.Security.Cryptography.RSA) this.CreateRSAFromCSPContainer( null );
-               result.ImportParameters( rParams );
-               success = true;
-            }
-            catch
-            {
-               // Ignore
-            }
-
-            if ( !success )
-            {
-               throw;
-            }
-         }
-         return result;
-      }
-
-      public Byte[] CreateRSASignature( IDisposable rsa, String hashAlgorithmName, Byte[] contentsHash )
-      {
-         var formatter = new System.Security.Cryptography.RSAPKCS1SignatureFormatter( (System.Security.Cryptography.AsymmetricAlgorithm) rsa );
-         formatter.SetHashAlgorithm( hashAlgorithmName );
-         return formatter.CreateSignature( contentsHash );
-      }
-
-      private System.Security.Cryptography.HashAlgorithm GetTransform(
-         Func<System.Security.Cryptography.HashAlgorithm> managedVersion,
-         Func<System.Security.Cryptography.HashAlgorithm> cngVersion,
-         Func<System.Security.Cryptography.HashAlgorithm> spVersion
-         )
-      {
-         if ( this._canUseManagedCryptoAlgorithms && managedVersion != null )
-         {
-            try
-            {
-               return managedVersion();
-            }
-            catch
-            {
-               this._canUseManagedCryptoAlgorithms = false;
-            }
-         }
-         if ( this._canUseCNGCryptoAlgorithms )
-         {
-            try
-            {
-               return cngVersion();
-            }
-            catch
-            {
-               this._canUseCNGCryptoAlgorithms = false;
-            }
-         }
-         return spVersion();
-      }
-
-      public Byte[] ExtractPublicKeyFromCSPContainer( String containterName )
-      {
-#if MONO
-         throw new NotSupportedException("This is not supported on Mono framework.");
-#else
-         Byte[] pk;
-         Int32 winError1, winError2;
-         if ( !TryExportCSPPublicKey( containterName, 0, out pk, out winError1 ) // Try user-specific key first
-            && !TryExportCSPPublicKey( containterName, 32u, out pk, out winError2 ) ) // Then try machine-specific key (32u = CRYPT_MACHINE_KEYSET )
-         {
-            throw new InvalidOperationException( "Error when using user keystore: " + GetWin32ErrorString( winError1 ) + "\nError when using machine keystore: " + GetWin32ErrorString( winError2 ) );
-         }
-         return pk;
-#endif
-      }
-
-#if !MONO
-      private static String GetWin32ErrorString( Int32 errorCode )
-      {
-         return new System.ComponentModel.Win32Exception( errorCode ).Message + " ( Win32 error code: 0x" + Convert.ToString( errorCode, 16 ) + ").";
-      }
-
-      // Much of this code is adapted by disassembling KeyPal.exe, available at http://www.jensign.com/KeyPal/index.html
-      private static Boolean TryExportCSPPublicKey( String cspName, UInt32 keyType, out Byte[] pk, out Int32 winError )
-      {
-         var dwProvType = 1u;
-         var ctxPtr = IntPtr.Zero;
-         winError = 0;
-         pk = null;
-         var retVal = false;
-         try
-         {
-            if ( Win32.CryptAcquireContext( out ctxPtr, cspName, "Microsoft Base Cryptographic Provider v1.0", dwProvType, keyType )
-               || Win32.CryptAcquireContext( out ctxPtr, cspName, "Microsoft Strong Cryptographic Provider", dwProvType, keyType )
-               || Win32.CryptAcquireContext( out ctxPtr, cspName, "Microsoft Enhanced Cryptographic Provider v1.0", dwProvType, keyType ) )
-            {
-               IntPtr keyPtr = IntPtr.Zero;
-               try
-               {
-                  if ( Win32.CryptGetUserKey( ctxPtr, 2u, out keyPtr ) ) // 2 = AT_SIGNATURE
-                  {
-                     IntPtr expKeyPtr = IntPtr.Zero; // When exporting public key, this is zero
-                     var arraySize = 0u;
-                     if ( Win32.CryptExportKey( keyPtr, expKeyPtr, 6u, 0u, null, ref arraySize ) ) // 6 = PublicKey
-                     {
-                        pk = new Byte[arraySize];
-                        if ( Win32.CryptExportKey( keyPtr, expKeyPtr, 6u, 0u, pk, ref arraySize ) )
-                        {
-                           retVal = true;
-                        }
-                        else
-                        {
-                           winError = Marshal.GetLastWin32Error();
-                        }
-                     }
-                     else
-                     {
-                        winError = Marshal.GetLastWin32Error();
-                     }
-                  }
-                  else
-                  {
-                     winError = Marshal.GetLastWin32Error();
-                  }
-               }
-               finally
-               {
-                  if ( keyPtr != IntPtr.Zero )
-                  {
-                     Win32.CryptDestroyKey( keyPtr );
-                  }
-               }
-            }
-            else
-            {
-               winError = Marshal.GetLastWin32Error();
-            }
-         }
-         finally
-         {
-            if ( ctxPtr != IntPtr.Zero )
-            {
-               Win32.CryptReleaseContext( ctxPtr, 0u );
-            }
-         }
-         return retVal;
-      }
-
-      private static void ThrowFromLastWin32Error()
-      {
-         throw new System.ComponentModel.Win32Exception( Marshal.GetLastWin32Error() );
-      }
-
-      private static class Win32
-      {
-         // http://msdn.microsoft.com/en-us/library/windows/desktop/aa379886%28v=vs.85%29.aspx
-         [DllImport( "advapi32.dll", CharSet = CharSet.Auto, SetLastError = true )]
-         internal static extern Boolean CryptAcquireContext(
-            [Out] out IntPtr hProv,
-            [In, System.Runtime.InteropServices.MarshalAs( System.Runtime.InteropServices.UnmanagedType.LPWStr )] String pszContainer,
-            [In, System.Runtime.InteropServices.MarshalAs( System.Runtime.InteropServices.UnmanagedType.LPWStr )] String pszProvider,
-            [In] UInt32 dwProvType,
-            [In] UInt32 dwFlags );
-
-         // http://msdn.microsoft.com/en-us/library/windows/desktop/aa380268%28v=vs.85%29.aspx
-         [DllImport( "advapi32.dll" )]
-         internal static extern Boolean CryptReleaseContext(
-            [In] IntPtr hProv,
-            [In] UInt32 dwFlags
-            );
-
-         // http://msdn.microsoft.com/en-us/library/windows/desktop/aa380199%28v=vs.85%29.aspx
-         [DllImport( "advapi32.dll" )]
-         internal static extern Boolean CryptGetUserKey(
-            [In] IntPtr hProv,
-            [In] UInt32 dwKeySpec,
-            [Out] out IntPtr hKey
-            );
-
-         // http://msdn.microsoft.com/en-us/library/windows/desktop/aa379918%28v=vs.85%29.aspx
-         [DllImport( "advapi32.dll" )]
-         internal static extern Boolean CryptDestroyKey( [In] IntPtr hKey );
-
-         // http://msdn.microsoft.com/en-us/library/windows/desktop/aa379931%28v=vs.85%29.aspx
-         [DllImport( "advapi32.dll", SetLastError = true )]
-         internal static extern Boolean CryptExportKey(
-            [In] IntPtr hKey,
-            [In] IntPtr hExpKey,
-            [In] UInt32 dwBlobType,
-            [In] UInt32 dwFlags,
-            [In] Byte[] pbData,
-            [In, Out] ref UInt32 dwDataLen );
-      }
-
-#endif
-
-   }
-
 
    public class CILMerger
    {
@@ -813,7 +363,9 @@ namespace CILMerge
       FailedToReadTargetFrameworkMonikerInformation,
       FailedToMapPDBType,
       VariableTypeGenericParameterCount,
-      NoTargetFrameworkSpecified
+      NoTargetFrameworkSpecified,
+      UnresolvableMemberReferenceToAnotherInputModule,
+      //ErrorMatchingMemberReferenceSignature
    }
 
    internal class CILModuleMergeResult
@@ -1088,8 +640,11 @@ namespace CILMerge
       private readonly IDictionary<CILMetaData, IDictionary<TableIndex, TableIndex>> _tableIndexMappings;
       // Key: table index in target module, Value: input module, and corresponding index in corresponding table in the input module
       private readonly IDictionary<TableIndex, Tuple<CILMetaData, Int32>> _targetTableIndexMappings;
-      // Key one of input modules. Value: dictionary; Key: full type name, value: type def index in TARGET module
-      private readonly IDictionary<CILMetaData, IDictionary<String, Int32>> _inputModuleTypeNames;
+      // Key: one of input modules. Value: dictionary; Key: full type name, value: type def index in TARGET module
+      private readonly IDictionary<CILMetaData, IDictionary<String, Int32>> _inputModuleTypeNamesInTargetModule;
+      // Key: on of input modules. Value: dictionary; Key: full type name, value: type def index in INPUT module
+      private readonly IDictionary<CILMetaData, IDictionary<String, Int32>> _inputModuleTypeNamesInInputModule;
+
 
       private readonly IList<String> _targetTypeNames;
       private readonly Lazy<Regex[]> _excludeRegexes;
@@ -1167,10 +722,11 @@ namespace CILMerge
                },
                x => x.AssemblyInformation.GetHashCode()
             ) );
-         this._inputModulesAsModuleReferences = new Dictionary<CILMetaData, IDictionary<String, CILMetaData>>();
+         this._inputModulesAsModuleReferences = new Dictionary<CILMetaData, IDictionary<String, CILMetaData>>( ReferenceEqualityComparer<CILMetaData>.ReferenceBasedComparer );
          this._tableIndexMappings = new Dictionary<CILMetaData, IDictionary<TableIndex, TableIndex>>( ReferenceEqualityComparer<CILMetaData>.ReferenceBasedComparer );
          this._targetTableIndexMappings = new Dictionary<TableIndex, Tuple<CILMetaData, Int32>>();
-         this._inputModuleTypeNames = new Dictionary<CILMetaData, IDictionary<String, Int32>>( ReferenceEqualityComparer<CILMetaData>.ReferenceBasedComparer );
+         this._inputModuleTypeNamesInTargetModule = new Dictionary<CILMetaData, IDictionary<String, Int32>>( ReferenceEqualityComparer<CILMetaData>.ReferenceBasedComparer );
+         this._inputModuleTypeNamesInInputModule = new Dictionary<CILMetaData, IDictionary<String, Int32>>( ReferenceEqualityComparer<CILMetaData>.ReferenceBasedComparer );
          this._targetTypeNames = new List<String>();
 
 
@@ -1325,18 +881,16 @@ namespace CILMerge
          // This causes PEVerify errors.
          var retargetableInfos = new HashSet<Int32>();
 
-         // TODO *ACTUALLY* we always need to fix retargetable refs for all assemblies that target different framework than this
-         // Just make them retargetable again, if target module target FW is .NETPortable!
-         if ( !this._options.KeepRetargetableRefs )
+         if ( !this._options.SkipFixingAssemblyReferences )
          {
-            var targetFWInfo = new Lazy<TargetFrameworkInfo>( () =>
+            var targetFW = new Lazy<TargetFrameworkInfo>( () =>
             {
-               var fwInfo = this._targetModule.GetTargetFrameworkInformationOrNull( this._moduleLoader.CreateNewResolver() );
-               if ( fwInfo == null )
+               var fw = this._targetModule.GetTargetFrameworkInformationOrNull( this._moduleLoader.CreateNewResolver() );
+               if ( fw == null )
                {
                   throw this.NewCILMergeException( ExitCode.NoTargetFrameworkSpecified, "TODO: allow specifying target framework info (id, version, profile) through options." );
                }
-               return fwInfo;
+               return fw;
             }, LazyThreadSafetyMode.None );
 
             foreach ( var inputModule in this._inputModules )
@@ -1352,9 +906,12 @@ namespace CILMerge
                      if ( aRef.Attributes.IsRetargetable() )
                      {
                         var aInfo = aRef.AssemblyInformation;
-                        var correspondingNewAssembly = this._moduleLoader.GetOrLoadMetaData( Path.Combine( this._loaderCallbacks.GetTargetFrameworkPathForFrameworkInfo( targetFWInfo.Value ), aInfo.Name + ".dll" ) );
+                        var correspondingNewAssembly = this._moduleLoader.GetOrLoadMetaData( Path.Combine( this._loaderCallbacks.GetTargetFrameworkPathForFrameworkInfo( targetFW.Value ), aInfo.Name + ".dll" ) );
                         var targetARef = this._targetModule.AssemblyReferences[targetAssemblyRefIndex.Index];
-                        targetARef.Attributes &= ( ~AssemblyFlags.Retargetable );
+                        if ( !targetFW.Value.AreFrameworkAssemblyReferencesRetargetable )
+                        {
+                           targetARef.Attributes &= ( ~AssemblyFlags.Retargetable );
+                        }
                         var aDefInfo = correspondingNewAssembly.AssemblyDefinitions[0].AssemblyInformation;
                         aDefInfo.DeepCopyContentsTo( targetARef.AssemblyInformation );
                         if ( !targetARef.Attributes.IsFullPublicKey() && !this._options.UseFullPublicKeyForRefs )
@@ -1381,26 +938,23 @@ namespace CILMerge
                   if ( inputMappings.TryGetValue( new TableIndex( Tables.AssemblyRef, i ), out targetAssemblyRefIndex ) )
                   {
                      var aRef = aRefs[i];
-                     if ( !aRef.Attributes.IsFullPublicKey() )
+                     if ( !aRef.Attributes.IsFullPublicKey() && !retargetableInfos.Contains( targetAssemblyRefIndex.Index ) )
                      {
-                        if ( !retargetableInfos.Contains( targetAssemblyRefIndex.Index ) )
-                        {
-                           var aRefModule = this._loaderCallbacks.GetPossibleResourcesForAssemblyReference(
-                              inputModulePath,
-                              inputModule,
-                              new AssemblyInformationForResolving( aRef.AssemblyInformation, aRef.Attributes.IsFullPublicKey() ),
-                              null )
-                           .Where( p => File.Exists( p ) )
-                           .Select( p => this._moduleLoader.GetOrLoadMetaData( p ) )
-                           .Where( m => m.AssemblyDefinitions.Count > 0 )
-                           .FirstOrDefault();
+                        var aRefModule = this._loaderCallbacks.GetPossibleResourcesForAssemblyReference(
+                           inputModulePath,
+                           inputModule,
+                           new AssemblyInformationForResolving( aRef.AssemblyInformation, aRef.Attributes.IsFullPublicKey() ),
+                           null )
+                        .Where( p => File.Exists( p ) )
+                        .Select( p => this._moduleLoader.GetOrLoadMetaData( p ) )
+                        .Where( m => m.AssemblyDefinitions.Count > 0 )
+                        .FirstOrDefault();
 
-                           if ( aRefModule != null )
-                           {
-                              var targetARef = this._targetModule.AssemblyReferences[targetAssemblyRefIndex.Index];
-                              targetARef.AssemblyInformation.PublicKeyOrToken = aRefModule.AssemblyDefinitions[0].AssemblyInformation.PublicKeyOrToken.CreateBlockCopy();
-                              targetARef.Attributes |= AssemblyFlags.PublicKey;
-                           }
+                        if ( aRefModule != null )
+                        {
+                           var targetARef = this._targetModule.AssemblyReferences[targetAssemblyRefIndex.Index];
+                           targetARef.AssemblyInformation.PublicKeyOrToken = aRefModule.AssemblyDefinitions[0].AssemblyInformation.PublicKeyOrToken.CreateBlockCopy();
+                           targetARef.Attributes |= AssemblyFlags.PublicKey;
                         }
                      }
                   }
@@ -1412,7 +966,7 @@ namespace CILMerge
       private IDictionary<String, String> CreateRenameDictionaryForInputModule( CILMetaData inputModule )
       {
          var retVal = new Dictionary<String, String>();
-         foreach ( var kvp in this._inputModuleTypeNames[inputModule] )
+         foreach ( var kvp in this._inputModuleTypeNamesInTargetModule[inputModule] )
          {
             var oldName = kvp.Key;
             var newName = this._targetTypeNames[kvp.Value];
@@ -1618,7 +1172,7 @@ namespace CILMerge
       private void CreateTargetAssembly( CILAssemblyManipulator.Physical.EmittingArguments eArgs )
       {
          var outPath = this._options.OutPath;
-         var targetMD = CILMetaDataFactory.CreateMinimalAssembly( Path.GetFileNameWithoutExtension( outPath ), Path.GetExtension( outPath ) );
+         var targetMD = CILMetaDataFactory.CreateMinimalAssembly( Path.GetFileNameWithoutExtension( outPath ), Path.GetExtension( outPath ).Substring( 1 ) ); // Skip dot
          var primaryAInfo = this._primaryModule.AssemblyDefinitions[0].AssemblyInformation;
          var aInfo = targetMD.AssemblyDefinitions[0].AssemblyInformation;
 
@@ -1691,15 +1245,18 @@ namespace CILMerge
          foreach ( var md in this._inputModules )
          {
             var thisTypeStrings = new Dictionary<Int32, String>();
+            var thisTypeStringInInput = new Dictionary<String, Int32>();
             var thisEnclosingTypeInfo = enclosingTypeInfo[md];
 
             for ( var tDefIdx = 1; tDefIdx < md.TypeDefinitions.Count; ++tDefIdx ) // Skip <Module> type
             {
                var typeString = CreateTypeString( md.TypeDefinitions, tDefIdx, thisEnclosingTypeInfo );
                thisTypeStrings.Add( tDefIdx, typeString );
+               thisTypeStringInInput.Add( typeString, tDefIdx );
 
             }
             typeStrings.Add( md, thisTypeStrings );
+            this._inputModuleTypeNamesInInputModule.Add( md, thisTypeStringInInput );
          }
 
          // Construct TypeDef table
@@ -1766,7 +1323,7 @@ namespace CILMerge
             }
 
             this._tableIndexMappings.Add( md, thisModuleMapping );
-            this._inputModuleTypeNames.Add( md, thisTypeStringInfo );
+            this._inputModuleTypeNamesInTargetModule.Add( md, thisTypeStringInfo );
          }
 
          // Construct GenericParameter, NestedClass, FieldDef, MethodDef, ParamDef tables
@@ -1937,19 +1494,23 @@ namespace CILMerge
             } );
 
          // TypeRef (used by signatures/IL tokens)
+         var typeRefInputModules = new Dictionary<CILMetaData, IDictionary<Int32, Tuple<CILMetaData, String>>>();
          this.MergeTables(
             Tables.TypeRef,
             md => md.TypeReferences,
             ( md, inputIdx, thisIdx ) =>
             {
                // Check whether this will be a TypeRef or TypeDef row in target module
-               String dummy;
-               var tDefIdx = this.GetTargetModuleTypeDefIndexForInputModuleTypeRef( md, inputIdx, thisIdx, out dummy );
+               String typeString; CILMetaData refModule;
+               var tDefIdx = this.GetTargetModuleTypeDefIndexForInputModuleTypeRef( md, inputIdx, thisIdx, out typeString, out refModule );
                var retVal = tDefIdx < 0;
                if ( !retVal )
                {
                   // This type ref is actually a type def in target module
                   this._tableIndexMappings[md].Add( inputIdx, new TableIndex( Tables.TypeDef, tDefIdx ) );
+                  typeRefInputModules
+                     .GetOrAdd_NotThreadSafe( md, mdd => new Dictionary<Int32, Tuple<CILMetaData, String>>() )
+                     .Add( inputIdx.Index, Tuple.Create( refModule, typeString ) );
                }
                return retVal;
             },
@@ -1993,7 +1554,63 @@ namespace CILMerge
          this.MergeTables(
             Tables.MemberRef,
             md => md.MemberReferences,
-            null,
+            ( md, inputIdx, thisIdx ) =>
+            {
+               // If member ref declaring type ends up being, replace with corresponding MethodDef/FieldDef reference
+               var mRef = md.MemberReferences[inputIdx.Index];
+               var thisMappings = this._tableIndexMappings[md];
+               var declType = mRef.DeclaringType;
+               var targetDeclaringType = thisMappings[declType];
+               var isActuallyInTargetModule = declType.Table == Tables.TypeRef && targetDeclaringType.Table == Tables.TypeDef;
+               if ( isActuallyInTargetModule )
+               {
+                  var mRefName = mRef.Name;
+                  var targetModule = this._targetModule;
+                  var targetFields = targetModule.FieldDefinitions;
+
+                  Tables targetMRefTable;
+                  Int32 targetMRefIndex;
+                  switch ( mRef.Signature.SignatureKind )
+                  {
+                     case SignatureKind.Field:
+                        // Match simply by name
+                        targetMRefTable = Tables.Field;
+                        targetMRefIndex = this._targetModule
+                           .GetTypeFieldIndices( targetDeclaringType.Index )
+                           .Where( fi => String.Equals( mRefName, this._targetModule.FieldDefinitions[fi].Name ) )
+                           .FirstOrDefaultCustom( -1 );
+                        break;
+                     case SignatureKind.MethodReference:
+                        // Match by name and signature
+                        targetMRefTable = Tables.MethodDef;
+                        var moduleContainingMethodDefInfo = typeRefInputModules[md][declType.Index];
+                        var moduleContainingMethodDef = moduleContainingMethodDefInfo.Item1;
+                        var methodDefContainingTypeIndex = this._inputModuleTypeNamesInInputModule[moduleContainingMethodDef][moduleContainingMethodDefInfo.Item2];
+                        targetMRefIndex = moduleContainingMethodDef.GetTypeMethodIndices( methodDefContainingTypeIndex )
+                           .Where( mi => String.Equals( mRefName, moduleContainingMethodDef.MethodDefinitions[mi].Name ) && this.MatchTargetMethodSignatureToMemberRefMethodSignature( moduleContainingMethodDef, md, moduleContainingMethodDef.MethodDefinitions[mi].Signature, (MethodReferenceSignature) mRef.Signature ) )
+                           .FirstOrDefaultCustom( -1 );
+                        if ( targetMRefIndex >= 0 )
+                        {
+                           targetMRefIndex = this._tableIndexMappings[moduleContainingMethodDef][new TableIndex( Tables.MethodDef, targetMRefIndex )].Index;
+                        }
+                        break;
+                     default:
+                        targetMRefTable = (Tables) Byte.MaxValue;
+                        targetMRefIndex = -1;
+                        break;
+
+                  }
+
+                  if ( targetMRefIndex == -1 )
+                  {
+                     throw this.NewCILMergeException( ExitCode.UnresolvableMemberReferenceToAnotherInputModule, "Unresolvable member reference in module " + this._moduleLoader.GetResourceFor( md ) + " at index " + inputIdx.Index + " to another input module" );
+                  }
+
+                  thisMappings.Add( inputIdx, new TableIndex( targetMRefTable, targetMRefIndex ) );
+               }
+
+               return !isActuallyInTargetModule;
+            },
             ( md, mRef, inputIdx, thisIdx ) => new MemberReference()
             {
                DeclaringType = mRef.DeclaringType.Table == Tables.ModuleRef && !this._tableIndexMappings[md].ContainsKey( mRef.DeclaringType ) ?
@@ -2041,28 +1658,182 @@ namespace CILMerge
             );
       }
 
+      private Boolean MatchTargetMethodSignatureToMemberRefMethodSignature( CILMetaData defModule, CILMetaData refModule, AbstractMethodSignature methodDef, AbstractMethodSignature methodRef )
+      {
+         return methodDef.SignatureStarter == methodRef.SignatureStarter
+            && methodDef.Parameters.Count == methodRef.Parameters.Count
+            && methodDef.Parameters
+               .Where( ( p, idx ) => this.MatchTargetParameterSignatureToMemberRefParameterSignature( defModule, refModule, p, methodRef.Parameters[idx] ) )
+               .Count() == methodDef.Parameters.Count
+            && this.MatchTargetParameterSignatureToMemberRefParameterSignature( defModule, refModule, methodDef.ReturnType, methodRef.ReturnType );
+      }
+
+      private Boolean MatchTargetParameterSignatureToMemberRefParameterSignature( CILMetaData defModule, CILMetaData refModule, ParameterSignature paramDef, ParameterSignature paramRef )
+      {
+         return paramDef.IsByRef == paramRef.IsByRef
+            && this.MatchTargetCustomModsToMemberRefCustomMods( defModule, refModule, paramDef.CustomModifiers, paramRef.CustomModifiers )
+            && this.MatchTargetTypeSignatureToMemberRefTypeSignature( defModule, refModule, paramDef.Type, paramRef.Type );
+      }
+
+      private Boolean MatchTargetCustomModsToMemberRefCustomMods( CILMetaData defModule, CILMetaData refModule, List<CustomModifierSignature> cmDef, List<CustomModifierSignature> cmRef )
+      {
+         return cmDef.Count == cmRef.Count
+            && cmDef
+               .Where( ( c, idx ) => c.IsOptional == cmRef[idx].IsOptional && this.MatchTargetSignatureTypeToMemberRefSignatureType( defModule, refModule, c.CustomModifierType, cmRef[idx].CustomModifierType ) )
+               .Count() == cmDef.Count;
+      }
+
+      private Boolean MatchTargetTypeSignatureToMemberRefTypeSignature( CILMetaData defModule, CILMetaData refModule, TypeSignature typeDef, TypeSignature typeRef )
+      {
+         var retVal = typeDef.TypeSignatureKind == typeRef.TypeSignatureKind;
+         if ( retVal )
+         {
+            switch ( typeDef.TypeSignatureKind )
+            {
+               case TypeSignatureKind.ClassOrValue:
+                  var classDef = (ClassOrValueTypeSignature) typeDef;
+                  var classRef = (ClassOrValueTypeSignature) typeRef;
+                  var gArgsDef = classDef.GenericArguments;
+                  var gArgsRef = classRef.GenericArguments;
+                  retVal = classDef.IsClass == classRef.IsClass
+                     && this.MatchTargetSignatureTypeToMemberRefSignatureType( defModule, refModule, classDef.Type, classRef.Type )
+                     && gArgsDef.Count == gArgsRef.Count
+                     && gArgsDef
+                        .Where( ( g, idx ) => this.MatchTargetTypeSignatureToMemberRefTypeSignature( defModule, refModule, g, gArgsRef[idx] ) )
+                        .Count() == gArgsDef.Count;
+                  break;
+               case TypeSignatureKind.ComplexArray:
+                  var arrayDef = (ComplexArrayTypeSignature) typeDef;
+                  var arrayRef = (ComplexArrayTypeSignature) typeRef;
+                  retVal = arrayDef.Rank == arrayRef.Rank
+                     && ListEqualityComparer<List<Int32>, Int32>.DefaultListEqualityComparer.Equals( arrayDef.Sizes, arrayRef.Sizes )
+                     && ListEqualityComparer<List<Int32>, Int32>.DefaultListEqualityComparer.Equals( arrayDef.LowerBounds, arrayRef.LowerBounds )
+                     && this.MatchTargetTypeSignatureToMemberRefTypeSignature( defModule, refModule, arrayDef.ArrayType, arrayRef.ArrayType );
+                  break;
+               case TypeSignatureKind.FunctionPointer:
+                  retVal = this.MatchTargetMethodSignatureToMemberRefMethodSignature( defModule, refModule, ( (FunctionPointerTypeSignature) typeDef ).MethodSignature, ( (FunctionPointerTypeSignature) typeRef ).MethodSignature );
+                  break;
+               case TypeSignatureKind.GenericParameter:
+                  var gDef = (GenericParameterTypeSignature) typeDef;
+                  var gRef = (GenericParameterTypeSignature) typeRef;
+                  retVal = gDef.IsTypeParameter == gRef.IsTypeParameter
+                     && gDef.GenericParameterIndex == gRef.GenericParameterIndex;
+                  break;
+               case TypeSignatureKind.Pointer:
+                  var ptrDef = (PointerTypeSignature) typeDef;
+                  var ptrRef = (PointerTypeSignature) typeRef;
+                  retVal = this.MatchTargetCustomModsToMemberRefCustomMods( defModule, refModule, ptrDef.CustomModifiers, ptrRef.CustomModifiers )
+                     && this.MatchTargetTypeSignatureToMemberRefTypeSignature( defModule, refModule, ptrDef.PointerType, ptrRef.PointerType );
+                  break;
+               case TypeSignatureKind.Simple:
+                  retVal = ( (SimpleTypeSignature) typeDef ).SimpleType == ( (SimpleTypeSignature) typeRef ).SimpleType;
+                  break;
+               case TypeSignatureKind.SimpleArray:
+                  var szArrayDef = (SimpleArrayTypeSignature) typeDef;
+                  var szArrayRef = (SimpleArrayTypeSignature) typeRef;
+                  retVal = this.MatchTargetCustomModsToMemberRefCustomMods( defModule, refModule, szArrayDef.CustomModifiers, szArrayRef.CustomModifiers )
+                     && this.MatchTargetTypeSignatureToMemberRefTypeSignature( defModule, refModule, szArrayDef.ArrayType, szArrayRef.ArrayType );
+                  break;
+               default:
+                  retVal = false;
+                  break;
+               //throw this.NewCILMergeException( ExitCode.ErrorMatchingMemberReferenceSignature, "Encountered unrecognized type signature kind: " + typeDef.TypeSignatureKind + "." );
+            }
+         }
+
+         return retVal;
+      }
+
+      private Boolean MatchTargetSignatureTypeToMemberRefSignatureType( CILMetaData defModule, CILMetaData refModule, TableIndex defIdx, TableIndex refIdx )
+      {
+         switch ( defIdx.Table )
+         {
+            case Tables.TypeDef:
+               return refIdx.Table == Tables.TypeRef && this._tableIndexMappings[defModule][defIdx] == this._tableIndexMappings[refModule][refIdx];
+            case Tables.TypeRef:
+               return refIdx.Table == Tables.TypeRef && this.MatchDefTypeRefToRefTypeRef( defModule, refModule, defIdx.Index, refIdx.Index );
+            case Tables.TypeSpec:
+               return refIdx.Table == Tables.TypeSpec && this.MatchTargetTypeSignatureToMemberRefTypeSignature( defModule, refModule, defModule.TypeSpecifications[defIdx.Index].Signature, refModule.TypeSpecifications[refIdx.Index].Signature );
+            default:
+               return false;
+         }
+      }
+
+      private Boolean MatchDefTypeRefToRefTypeRef( CILMetaData defModule, CILMetaData refModule, Int32 defIdx, Int32 refIdx )
+      {
+         var defTypeRef = defModule.TypeReferences[defIdx];
+         var refTypeRef = refModule.TypeReferences[refIdx];
+         var retVal = String.Equals( defTypeRef.Name, refTypeRef.Name )
+            && String.Equals( defTypeRef.Namespace, refTypeRef.Namespace );
+         if ( retVal )
+         {
+            var defResScopeNullable = defTypeRef.ResolutionScope;
+            var refResScopeNullable = refTypeRef.ResolutionScope;
+            if ( defResScopeNullable.HasValue == refResScopeNullable.HasValue )
+            {
+               if ( defResScopeNullable.HasValue )
+               {
+                  var defResScope = defResScopeNullable.Value;
+                  var refResScope = refResScopeNullable.Value;
+                  switch ( defResScope.Table )
+                  {
+                     case Tables.TypeRef:
+                        retVal = refResScope.Table == Tables.TypeRef
+                           && this.MatchDefTypeRefToRefTypeRef( defModule, refModule, defResScope.Index, refResScope.Index );
+                        break;
+                     case Tables.AssemblyRef:
+                        retVal = refResScope.Table == Tables.AssemblyRef
+                           && this._tableIndexMappings[defModule].ContainsKey( defResScope ) == this._tableIndexMappings[refModule].ContainsKey( refResScope );
+                        if ( retVal && this._tableIndexMappings[defModule].ContainsKey( defResScope ) )
+                        {
+                           retVal = defModule.AssemblyReferences[defResScope.Index].AssemblyInformation.Equals( refModule.AssemblyReferences[refResScope.Index].AssemblyInformation );
+                        }
+                        break;
+                     case Tables.Module:
+                     case Tables.ModuleRef:
+                        retVal = refResScope.Table == Tables.AssemblyRef
+                           && !this._tableIndexMappings[refModule].ContainsKey( refResScope );
+                        break;
+                     default:
+                        retVal = false;
+                        break;
+                  }
+
+               }
+               else
+               {
+                  // TODO Lazy mapping IDictionary<Tuple<String, String>, ExportedType> for each input module
+                  throw new NotImplementedException( "ExportedType in TypeRef while matching method definition and reference signatures." );
+               }
+            }
+         }
+
+         return retVal;
+      }
+
       private Int32 GetTargetModuleTypeDefIndexForInputModuleTypeRef(
          CILMetaData inputModule,
          TableIndex inputIndex,
          TableIndex targetIndex,
-         out String thisTypeString
+         out String thisTypeString,
+         out CILMetaData referencedModule
          )
       {
          var tRef = inputModule.TypeReferences[inputIndex.Index];
          var resScopeNullable = tRef.ResolutionScope;
          var retVal = -1;
          thisTypeString = null;
+         referencedModule = null;
          if ( resScopeNullable.HasValue )
          {
             var resScope = resScopeNullable.Value;
-            CILMetaData referencedModule = null;
             switch ( resScope.Table )
             {
                case Tables.TypeRef:
-                  retVal = this.GetTargetModuleTypeDefIndexForInputModuleTypeRef( inputModule, resScope, targetIndex, out thisTypeString );
-                  if ( retVal >= 0 )
+                  retVal = this.GetTargetModuleTypeDefIndexForInputModuleTypeRef( inputModule, resScope, targetIndex, out thisTypeString, out referencedModule );
+                  if ( referencedModule != null && retVal >= 0 )
                   {
-                     retVal = this._inputModuleTypeNames[inputModule][thisTypeString + "+" + tRef.Name];
+                     retVal = this._inputModuleTypeNamesInTargetModule[referencedModule][thisTypeString + "+" + tRef.Name];
                   }
                   break;
                case Tables.ModuleRef:
@@ -2082,10 +1853,10 @@ namespace CILMerge
                   break;
             }
 
-            if ( referencedModule != null )
+            if ( referencedModule != null && retVal == -1 )
             {
                thisTypeString = CreateTypeStringFromTopLevelType( tRef.Namespace, tRef.Name );
-               retVal = this._inputModuleTypeNames[referencedModule][thisTypeString];
+               retVal = this._inputModuleTypeNamesInTargetModule[referencedModule][thisTypeString];
             }
          }
          else
@@ -3054,7 +2825,7 @@ namespace CILMerge
          if ( referencedInputAssembly != null )
          {
             Int32 tDefIdx;
-            if ( this._inputModuleTypeNames[referencedInputAssembly].TryGetValue( typeName, out tDefIdx ) )
+            if ( this._inputModuleTypeNamesInTargetModule[referencedInputAssembly].TryGetValue( typeName, out tDefIdx ) )
             {
                typeName = this._targetTypeNames[tDefIdx];
             }

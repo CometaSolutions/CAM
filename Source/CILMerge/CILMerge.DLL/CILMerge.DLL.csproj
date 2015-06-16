@@ -76,6 +76,10 @@
       <Project>{5f874824-aea5-45a0-a0a2-408210397b08}</Project>
       <Name>CILAssemblyManipulator.PDB</Name>
     </ProjectReference>
+    <ProjectReference Include="..\..\CILAssemblyManipulator\CILAssemblyManipulator.Physical.DotNET\CILAssemblyManipulator.Physical.DotNET.csproj">
+      <Project>{05f9055a-a54f-41fe-b4d6-83abb1661e24}</Project>
+      <Name>CILAssemblyManipulator.Physical.DotNET</Name>
+    </ProjectReference>
     <ProjectReference Include="..\..\CILAssemblyManipulator\CILAssemblyManipulator.Physical\CILAssemblyManipulator.Physical.csproj">
       <Project>{ba297806-a89f-4a3b-945b-08729853df75}</Project>
       <Name>CILAssemblyManipulator.Physical</Name>

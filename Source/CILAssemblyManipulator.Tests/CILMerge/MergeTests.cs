@@ -29,23 +29,63 @@ namespace CILAssemblyManipulator.Tests.CILMerge
 {
    public class MergeTests : AbstractCAMTest
    {
+      private class TestCILMergeLogCallback : CILMergeLogCallback
+      {
+         private Boolean _warningsEncountered;
+         private Boolean _errorsEncountered;
+
+         public TestCILMergeLogCallback()
+         {
+
+         }
+
+
+         public void Log( MessageLevel mLevel, String formatString, Object[] args )
+         {
+            if ( mLevel == MessageLevel.Warning && !this._warningsEncountered )
+            {
+               this._warningsEncountered = true;
+            }
+            else if ( mLevel == MessageLevel.Error && !this._errorsEncountered )
+            {
+               this._errorsEncountered = true;
+            }
+            ConsoleCILMergeLogCallback.Instance.Log( mLevel, formatString, args );
+
+         }
+
+         public Boolean WarningsEncountered
+         {
+            get
+            {
+               return this._warningsEncountered;
+            }
+         }
+
+         public Boolean ErrorsEncountered
+         {
+            get
+            {
+               return this._errorsEncountered;
+            }
+         }
+      }
 
       [Test]
-      public void TestMergingCILMerge()
+      public void TestMergingCILMergeSimple()
       {
          this.PerformTest( new CILMergeOptionsImpl()
          {
+            InputAssemblies = new[] { CILMergeLocation },
             OutPath = Path.Combine( Path.GetDirectoryName( CILMergeLocation ), "CILMergeMerged.dll" ),
             Closed = true,
             Union = true,
-            InputAssemblies = new[] { CILMergeLocation },
-            XmlDocs = true,
-            DoLogging = true
+            NoDebug = true
          } );
       }
 
       [Test]
-      public void TestMergingCILMergeMSBuild()
+      public void TestMergingCILMergeMoreFeatures()
       {
          this.PerformTest( new CILMergeOptionsImpl()
          {
@@ -55,8 +95,27 @@ namespace CILAssemblyManipulator.Tests.CILMerge
             Closed = true,
             Internalize = true,
             UseFullPublicKeyForRefs = true,
-            XmlDocs = true,
-            DoLogging = true
+            XmlDocs = true
+         } );
+      }
+
+      [Test]
+      public void TestMergingCILMergeMSBuildTask()
+      {
+         var baseDir = Path.GetFullPath( Path.Combine( CILMergeLocation, "..", "..", "..", "..", ".." ) );
+
+         var outDir = Path.Combine( baseDir, "Output", "Release", "dotNET" );
+
+         this.PerformTest( new CILMergeOptionsImpl()
+         {
+            InputAssemblies = new[] { Path.Combine( baseDir, "Source", "CILMerge", "CILMerge.MSBuild", "obj", "Release", "CILMerge.MSBuild.dll" ) },
+            LibPaths = new[] { outDir },
+            OutPath = Path.Combine( outDir, "CILMerge.MSBuild.dll" ),
+            Union = true,
+            Closed = true,
+            Internalize = true,
+            UseFullPublicKeyForRefs = true,
+            XmlDocs = true
          } );
       }
 
@@ -67,11 +126,16 @@ namespace CILAssemblyManipulator.Tests.CILMerge
             options.OutPath = Path.GetFullPath( options.OutPath );
          }
 
-         var outFile = options.OutPath;
+         options.DoLogging = true;
 
-         new CILMerger( options, new ConsoleCILMergeLogCallback() )
+         var outFile = options.OutPath;
+         var logCallback = new TestCILMergeLogCallback();
+
+         new CILMerger( options, logCallback )
             .PerformMerge();
 
+         Assert.IsFalse( logCallback.WarningsEncountered, "Warnings encountered during merge." );
+         Assert.IsFalse( logCallback.ErrorsEncountered, "Errors encountered during merge." );
 
          RunPEVerify( outFile, !String.IsNullOrEmpty( options.KeyFile ) );
       }

@@ -10,7 +10,26 @@
   
   <!-- Projects to build, in build order -->
   <ItemGroup>
-    <CILMergeProject Include="$(CILMergeBaseDir)/Source/CILMerge/CILMerge.MSBuild/CILMerge.MSBuild.csproj" />
+    <CILMergeProject Include="$(CILMergeBaseDir)/Source/CollectionsWithRoles/CollectionsWithRoles.csproj">
+      <MergeProjectConfiguration>$(CILMergeConfiguration)_SL</MergeProjectConfiguration>
+      <MergeProjectTargets>Build</MergeProjectTargets>
+    </CILMergeProject>
+    <CILMergeProject Include="$(CILMergeBaseDir)/Source/CILAssemblyManipulator/CILAssemblyManipulator.PDB/CILAssemblyManipulator.PDB.csproj">
+      <MergeProjectConfiguration>$(CILMergeConfiguration)</MergeProjectConfiguration>
+      <MergeProjectTargets>Build</MergeProjectTargets>
+    </CILMergeProject>
+    <CILMergeProject Include="$(CILMergeBaseDir)/Source/CILAssemblyManipulator/CILAssemblyManipulator.MResources/CILAssemblyManipulator.MResources.csproj">
+      <MergeProjectConfiguration>$(CILMergeConfiguration)</MergeProjectConfiguration>
+      <MergeProjectTargets>Build</MergeProjectTargets>
+    </CILMergeProject>
+    <CILMergeProject Include="$(CILMergeBaseDir)/Source/CILAssemblyManipulator/CILAssemblyManipulator.Physical.DotNET/CILAssemblyManipulator.Physical.DotNET.csproj">
+      <MergeProjectConfiguration>$(CILMergeConfiguration)</MergeProjectConfiguration>
+      <MergeProjectTargets>GenerateAssemblyInfoFile;Build</MergeProjectTargets>
+    </CILMergeProject>
+    <CILMergeProject Include="$(CILMergeBaseDir)/Source/CILMerge/CILMerge.MSBuild/CILMerge.MSBuild.csproj">
+      <MergeProjectConfiguration>$(CILMergeConfiguration)</MergeProjectConfiguration>
+      <MergeProjectTargets>$(CILMergeBuildTargets)</MergeProjectTargets>
+    </CILMergeProject>
   </ItemGroup>
   
   <Target Name="Build">
@@ -18,7 +37,7 @@
     <MSBuild Projects="$(CILMergeBaseDir)/CommonBuildTools/CLR/Build/CommonBuildTools.build" />
     
     <!-- Build CILMerge projects -->
-    <MSBuild Projects="@(CILMergeProject)" Targets="$(CILMergeBuildTargets)" Properties="Configuration=$(CILMergeConfiguration);Platform=$(CILMergePlatform)" />    
+    <MSBuild Projects="@(CILMergeProject)" Targets="%(MergeProjectTargets)" Properties="Configuration=%(MergeProjectConfiguration);Platform=$(CILMergePlatform);IsCommandLineBuild=true" />
   </Target>
   
   <!-- NuSpec file information -->

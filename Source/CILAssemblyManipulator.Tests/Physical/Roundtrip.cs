@@ -72,7 +72,7 @@ namespace CILAssemblyManipulator.Tests.Physical
 
          Assert.IsTrue( Comparers.MetaDataComparer.Equals( read1, read2 ) );
          // We don't use public key when emitting module
-         rArgs1.Headers.ModuleFlags = ModuleFlags.ILOnly;
+         //rArgs1.Headers.ModuleFlags = ModuleFlags.ILOnly;
          Assert.IsTrue( Comparers.HeadersEqualityComparer.Equals( rArgs1.Headers, rArgs2.Headers ) );
       }
 
