@@ -99,7 +99,7 @@ namespace CILAssemblyManipulator.Tests.CILMerge
          } );
       }
 
-      //[Test]
+      [Test]
       public void TestMergingCILMergeMSBuildTask()
       {
          var baseDir = Path.GetFullPath( Path.Combine( CILMergeLocation, "..", "..", "..", "..", ".." ) );
@@ -115,11 +115,12 @@ namespace CILAssemblyManipulator.Tests.CILMerge
             Closed = true,
             Internalize = true,
             UseFullPublicKeyForRefs = true,
-            XmlDocs = true
+            XmlDocs = true,
+            KeyFile = Path.Combine( baseDir, "Keys", "CILMerge.snk" )
          } );
       }
 
-      [Test]
+      //[Test]
       public void TestMergingUtilPack()
       {
          var baseDir = Path.GetFullPath( Path.Combine( CILMergeLocation, "..", "..", "..", "..", ".." ) );
@@ -140,7 +141,8 @@ namespace CILAssemblyManipulator.Tests.CILMerge
             Internalize = true,
             UseFullPublicKeyForRefs = true,
             XmlDocs = true,
-            HighEntropyVA = true
+            HighEntropyVA = true,
+            KeyFile = Path.Combine( baseDir, "Keys", "UtilPack.snk" )
          } );
       }
 

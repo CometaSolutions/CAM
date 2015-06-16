@@ -1169,6 +1169,8 @@ namespace CILMerge
 
          eArgs.DelaySign = this._options.DelaySign;
          eArgs.SigningAlgorithm = this._options.SigningAlgorithm;
+         eArgs.StrongName = sn;
+         eArgs.CryptoCallbacks = this._cryptoCallbacks;
 
          return eArgs;
       }

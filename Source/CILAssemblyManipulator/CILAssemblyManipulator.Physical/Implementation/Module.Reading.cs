@@ -1073,7 +1073,7 @@ namespace CILAssemblyManipulator.Physical.Implementation
                         {
                            retVal = TryCalculateFieldTypeSize( md, classLayoutInfo, enumValueFieldIndex, out size, true ); // Last parameter true to prevent possible infinite recursion in case of malformed metadata
                         }
-                        else if ( extendInfo.Value.Table == Tables.TypeDef )
+                        else
                         {
                            ClassLayout layout;
                            if ( classLayoutInfo.Value.TryGetValue( typeIdx.Index, out layout ) )
