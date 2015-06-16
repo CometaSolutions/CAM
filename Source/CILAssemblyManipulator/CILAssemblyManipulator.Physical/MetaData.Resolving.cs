@@ -245,7 +245,7 @@ namespace CILAssemblyManipulator.Physical
 
                   // Check that this is not nested type
                   if ( suitableIndex >= 0
-                     && md.NestedClassDefinitions.GetReferencingRowsFromOrdered( Tables.TypeDef, suitableIndex, nc => nc.NestedClass ).Any() // this will be true if the type definition at index 'suitableIndex' has declaring type, i.e. it is nested type
+                     && md.NestedClassDefinitions.Any( nc => nc.NestedClass.Index == suitableIndex ) // TODO cache this? //.GetReferencingRowsFromOrdered( Tables.TypeDef, suitableIndex, nc => nc.NestedClass ).Any() // this will be true if the type definition at index 'suitableIndex' has declaring type, i.e. it is nested type
                      )
                   {
                      suitableIndex = -1;
@@ -326,6 +326,11 @@ namespace CILAssemblyManipulator.Physical
       {
          this._mdCaches = new Dictionary<CILMetaData, MDSpecificCache>();
          this._mdCacheFactory = this.MDSpecificCacheFactory;
+      }
+
+      public void ClearCache()
+      {
+         this._mdCaches.Clear();
       }
 
       public event EventHandler<AssemblyReferenceResolveEventArgs> AssemblyReferenceResolveEvent;

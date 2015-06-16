@@ -914,7 +914,11 @@ namespace CILMerge
                         }
                         var aDefInfo = correspondingNewAssembly.AssemblyDefinitions[0].AssemblyInformation;
                         aDefInfo.DeepCopyContentsTo( targetARef.AssemblyInformation );
-                        if ( !targetARef.Attributes.IsFullPublicKey() && !this._options.UseFullPublicKeyForRefs )
+                        if ( this._options.UseFullPublicKeyForRefs )
+                        {
+                           targetARef.Attributes |= AssemblyFlags.PublicKey;
+                        }
+                        else if ( !targetARef.Attributes.IsFullPublicKey() )
                         {
                            targetARef.AssemblyInformation.PublicKeyOrToken = this._publicKeyComputer.Value.ComputePublicKeyToken( aDefInfo.PublicKeyOrToken );
                         }
@@ -2594,11 +2598,38 @@ namespace CILMerge
 
       private String ProcessTypeString( CILMetaData inputModule, String typeString )
       {
-         // TODO:
-         // 1. Separate assembly & type string
-         // 2. If assembly name present, locate assembly. Otherwise use this module as type source.
-         // 3. If module is part of input modules, then use type remappings to get new type name. Otherwise leave the same.
-         throw new NotImplementedException( "TODO: Mapping type strings." );
+         String typeName, assemblyName;
+         CILMetaData moduleHoldingType;
+         if ( typeString.ParseFullTypeString( out typeName, out assemblyName ) )
+         {
+            AssemblyInformation aInfo; Boolean isFullPublicKey;
+            if ( AssemblyInformation.TryParse( assemblyName, out aInfo, out isFullPublicKey ) )
+            {
+               var aRef = new AssemblyReference();
+               if ( isFullPublicKey )
+               {
+                  aRef.Attributes = AssemblyFlags.PublicKey;
+               }
+               aInfo.DeepCopyContentsTo( aRef.AssemblyInformation );
+               this._inputModulesAsAssemblyReferences.TryGetValue( aRef, out moduleHoldingType );
+            }
+            else
+            {
+               this.Log( MessageLevel.Warning, "Type string contained malformed assembly name: \"{0}\", skipping.", assemblyName );
+               moduleHoldingType = null;
+            }
+         }
+         else
+         {
+            moduleHoldingType = this._inputModuleTypeNamesInInputModule[inputModule].ContainsKey( typeName ) ? inputModule : null;
+         }
+
+         if ( moduleHoldingType != null )
+         {
+            // The module holding the type is one of the input modules -> check renames
+            typeString = this._targetTypeNames[this._inputModuleTypeNamesInTargetModule[moduleHoldingType][typeName]];
+         }
+         return typeString;
       }
 
       private AbstractCustomAttributeSignature ProcessCustomAttributeSignature( CILMetaData md, Int32 caIdx, AbstractCustomAttributeSignature sig )

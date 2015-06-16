@@ -70,6 +70,7 @@
     <Compile Include="Module.IO.cs" />
     <Compile Include="OpCodes.cs" />
     <Compile Include="Utils.cs" />
+    <Compile Include="Utils_New.cs" />
   </ItemGroup>
   <ItemGroup>
     <Reference Include="UtilPack" Condition=" '$(UseUtilpackReference)' != '' ">

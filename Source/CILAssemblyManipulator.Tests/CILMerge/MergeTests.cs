@@ -71,7 +71,7 @@ namespace CILAssemblyManipulator.Tests.CILMerge
          }
       }
 
-      [Test]
+      //[Test]
       public void TestMergingCILMergeSimple()
       {
          this.PerformTest( new CILMergeOptionsImpl()
@@ -84,7 +84,7 @@ namespace CILAssemblyManipulator.Tests.CILMerge
          } );
       }
 
-      [Test]
+      //[Test]
       public void TestMergingCILMergeMoreFeatures()
       {
          this.PerformTest( new CILMergeOptionsImpl()
@@ -99,7 +99,7 @@ namespace CILAssemblyManipulator.Tests.CILMerge
          } );
       }
 
-      [Test]
+      //[Test]
       public void TestMergingCILMergeMSBuildTask()
       {
          var baseDir = Path.GetFullPath( Path.Combine( CILMergeLocation, "..", "..", "..", "..", ".." ) );
@@ -116,6 +116,31 @@ namespace CILAssemblyManipulator.Tests.CILMerge
             Internalize = true,
             UseFullPublicKeyForRefs = true,
             XmlDocs = true
+         } );
+      }
+
+      [Test]
+      public void TestMergingUtilPack()
+      {
+         var baseDir = Path.GetFullPath( Path.Combine( CILMergeLocation, "..", "..", "..", "..", ".." ) );
+
+         var outDir = Path.Combine( baseDir, "Output", "Release", "SL" );
+         this.PerformTest( new CILMergeOptionsImpl()
+         {
+            InputAssemblies = new[]
+            {
+               Path.Combine( baseDir, "Source", "UtilPack", "obj", "Release_SL", "UtilPack.dll" ),
+               Path.Combine(outDir, "CommonUtils.dll"),
+               Path.Combine(outDir, "CollectionsWithRoles.dll")
+            },
+            LibPaths = new[] { outDir },
+            OutPath = Path.Combine( outDir, "UtilPack.dll" ),
+            Union = true,
+            Closed = true,
+            Internalize = true,
+            UseFullPublicKeyForRefs = true,
+            XmlDocs = true,
+            HighEntropyVA = true
          } );
       }
 

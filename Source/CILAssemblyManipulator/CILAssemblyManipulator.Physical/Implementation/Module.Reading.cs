@@ -928,12 +928,21 @@ namespace CILAssemblyManipulator.Physical.Implementation
          }
 
          // Read all field RVA content
+         var layoutInfo = new Lazy<IDictionary<Int32, ClassLayout>>( () =>
+         {
+            var dic = new Dictionary<Int32, ClassLayout>();
+            foreach ( var layout in retVal.ClassLayouts )
+            {
+               dic[layout.Parent.Index] = layout;
+            }
+            return dic;
+         }, System.Threading.LazyThreadSafetyMode.None );
          for ( var i = 0; i < fieldDefRVAs.Count; ++i )
          {
             var offset = ResolveRVA( (UInt32) fieldDefRVAs[i], sections );
             UInt32 size;
             if (
-               TryCalculateFieldTypeSize( retVal, retVal.FieldRVAs[i].Field.Index, out size )
+               TryCalculateFieldTypeSize( retVal, layoutInfo, retVal.FieldRVAs[i].Field.Index, out size )
                && offset + size < stream.Length
                )
             {
@@ -1004,7 +1013,7 @@ namespace CILAssemblyManipulator.Physical.Implementation
          throw new ArgumentException( "Could not resolve RVA " + rva + "." );
       }
 
-      private static Boolean TryCalculateFieldTypeSize( CILMetaData md, Int32 fieldIdx, out UInt32 size, Boolean onlySimpleTypeValid = false )
+      private static Boolean TryCalculateFieldTypeSize( CILMetaData md, Lazy<IDictionary<Int32, ClassLayout>> classLayoutInfo, Int32 fieldIdx, out UInt32 size, Boolean onlySimpleTypeValid = false )
       {
          var retVal = fieldIdx < md.FieldDefinitions.Count;
          size = 0u;
@@ -1062,17 +1071,14 @@ namespace CILAssemblyManipulator.Physical.Implementation
                         var enumValueFieldIndex = GetEnumValueFieldIndex( md, typeIdx.Index, out extendInfo );
                         if ( enumValueFieldIndex >= 0 )
                         {
-                           retVal = TryCalculateFieldTypeSize( md, enumValueFieldIndex, out size, true ); // Last parameter true to prevent possible infinite recursion in case of malformed metadata
+                           retVal = TryCalculateFieldTypeSize( md, classLayoutInfo, enumValueFieldIndex, out size, true ); // Last parameter true to prevent possible infinite recursion in case of malformed metadata
                         }
                         else if ( extendInfo.Value.Table == Tables.TypeDef )
                         {
-                           var cilIdx = md.ClassLayouts
-                              .GetReferencingRowsFromOrdered( Tables.TypeDef, typeIdx.Index, row => row.Parent )
-                              .FirstOrDefaultCustom( -1 );
-                           retVal = cilIdx >= 0 && cilIdx <= md.ClassLayouts.Count;
-                           if ( retVal )
+                           ClassLayout layout;
+                           if ( classLayoutInfo.Value.TryGetValue( typeIdx.Index, out layout ) )
                            {
-                              size = (UInt32) md.ClassLayouts[cilIdx].ClassSize;
+                              size = (UInt32) layout.ClassSize;
                            }
                         }
 

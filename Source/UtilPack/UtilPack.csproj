@@ -133,7 +133,6 @@
       Closed="True"
       XmlDocs="True"
       UseFullPublicKeyForRefs="True"
-      DoLogging="False"
       NoDebug="$(CILMergeNoDebug)"
       KeyFile="$(KeyFilePath)"
       HighEntropyVA="true"
