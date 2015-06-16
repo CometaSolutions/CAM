@@ -1321,11 +1321,12 @@ namespace CILMerge
 
       private void FixTargetAssemblyReferences()
       {
-         // We have to fix target assembly references, because if we are merging non-PCL library with PCL library, and non-PCL lib implements interface from PCL lib, their signatures will differ if assembly refs are not processed.
+         // We have to fix target assembly references, because if we are merging non-PCL library with PCL library, and non-PCL lib implements interface from PCL lib, their signatures may differ if assembly refs are not processed.
          // This causes PEVerify errors.
-         var retargetableIndices = new HashSet<Int32>();
+         var retargetableInfos = new HashSet<Int32>();
 
-         // TODO detect that 1. target fw is not portable and 2. any input module target FW is *different* than target module FW
+         // TODO *ACTUALLY* we always need to fix retargetable refs for all assemblies that target different framework than this
+         // Just make them retargetable again, if target module target FW is .NETPortable!
          if ( !this._options.KeepRetargetableRefs )
          {
             var targetFWInfo = new Lazy<TargetFrameworkInfo>( () =>
@@ -1360,7 +1361,7 @@ namespace CILMerge
                         {
                            targetARef.AssemblyInformation.PublicKeyOrToken = this._publicKeyComputer.Value.ComputePublicKeyToken( aDefInfo.PublicKeyOrToken );
                         }
-                        retargetableIndices.Add( targetAssemblyRefIndex.Index );
+                        retargetableInfos.Add( targetAssemblyRefIndex.Index );
                      }
                   }
                }
@@ -1382,21 +1383,24 @@ namespace CILMerge
                      var aRef = aRefs[i];
                      if ( !aRef.Attributes.IsFullPublicKey() )
                      {
-                        var aRefModule = this._loaderCallbacks.GetPossibleResourcesForAssemblyReference(
-                           inputModulePath,
-                           inputModule,
-                           new AssemblyInformationForResolving( aRef.AssemblyInformation, aRef.Attributes.IsFullPublicKey() ),
-                           null )
-                        .Where( p => File.Exists( p ) )
-                        .Select( p => this._moduleLoader.GetOrLoadMetaData( p ) )
-                        .Where( m => m.AssemblyDefinitions.Count > 0 )
-                        .FirstOrDefault();
-
-                        if ( aRefModule != null )
+                        if ( !retargetableInfos.Contains( targetAssemblyRefIndex.Index ) )
                         {
-                           var targetARef = this._targetModule.AssemblyReferences[targetAssemblyRefIndex.Index];
-                           targetARef.AssemblyInformation.PublicKeyOrToken = aRefModule.AssemblyDefinitions[0].AssemblyInformation.PublicKeyOrToken.CreateBlockCopy();
-                           targetARef.Attributes |= AssemblyFlags.PublicKey;
+                           var aRefModule = this._loaderCallbacks.GetPossibleResourcesForAssemblyReference(
+                              inputModulePath,
+                              inputModule,
+                              new AssemblyInformationForResolving( aRef.AssemblyInformation, aRef.Attributes.IsFullPublicKey() ),
+                              null )
+                           .Where( p => File.Exists( p ) )
+                           .Select( p => this._moduleLoader.GetOrLoadMetaData( p ) )
+                           .Where( m => m.AssemblyDefinitions.Count > 0 )
+                           .FirstOrDefault();
+
+                           if ( aRefModule != null )
+                           {
+                              var targetARef = this._targetModule.AssemblyReferences[targetAssemblyRefIndex.Index];
+                              targetARef.AssemblyInformation.PublicKeyOrToken = aRefModule.AssemblyDefinitions[0].AssemblyInformation.PublicKeyOrToken.CreateBlockCopy();
+                              targetARef.Attributes |= AssemblyFlags.PublicKey;
+                           }
                         }
                      }
                   }
