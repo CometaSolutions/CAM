@@ -56,6 +56,12 @@
     <Reference Include="System.Core" />
     <Reference Include="System.Xml.Linq" />
     <Reference Include="System.Xml" />
+    <Reference Include="CommonUtils" Condition=" '$(UseUtilpackReference)' == '' And '$(IsCommandLineBuild)' != '' ">
+      <HintPath>$(OutputPath)CommonUtils.dll</HintPath>
+    </Reference>
+    <Reference Include="CollectionsWithRoles" Condition=" '$(UseUtilpackReference)' == '' And '$(IsCommandLineBuild)' != '' ">
+      <HintPath>$(OutputPath)CollectionsWithRoles.dll</HintPath>
+    </Reference>
   </ItemGroup>
   <ItemGroup>
     <Compile Include="..\..\AssemblyInfo\$(AssemblyName).cs">

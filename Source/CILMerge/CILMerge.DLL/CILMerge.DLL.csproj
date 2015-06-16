@@ -60,6 +60,12 @@
     <Reference Include="System.Core" />
     <Reference Include="System.Xml.Linq" />
     <Reference Include="System.Xml" />
+    <Reference Include="CommonUtils" Condition=" '$(UseUtilpackReference)' == '' And '$(IsCommandLineBuild)' != '' ">
+      <HintPath>$(OutputPath)CommonUtils.dll</HintPath>
+    </Reference>
+    <Reference Include="CollectionsWithRoles" Condition=" '$(UseUtilpackReference)' == '' And '$(IsCommandLineBuild)' != '' ">
+      <HintPath>$(OutputPath)CollectionsWithRoles.dll</HintPath>
+    </Reference>
   </ItemGroup>
   <ItemGroup>
     <Compile Include="CILMerger.cs" />
@@ -84,11 +90,11 @@
       <Project>{ba297806-a89f-4a3b-945b-08729853df75}</Project>
       <Name>CILAssemblyManipulator.Physical</Name>
     </ProjectReference>
-    <ProjectReference Include="..\..\CollectionsWithRoles\CollectionsWithRoles.csproj">
+    <ProjectReference Include="..\..\CollectionsWithRoles\CollectionsWithRoles.csproj" Condition=" '$(UseUtilpackReference)' == '' And '$(IsCommandLineBuild)' == ''">
       <Project>{7f7ebfb0-2bf4-44d8-b96f-accc5f99f529}</Project>
       <Name>CollectionsWithRoles</Name>
     </ProjectReference>
-    <ProjectReference Include="..\..\CommonUtils\CommonUtils.csproj">
+    <ProjectReference Include="..\..\CommonUtils\CommonUtils.csproj" Condition=" '$(UseUtilpackReference)' == '' And '$(IsCommandLineBuild)' == ''">
       <Project>{dba22cd8-ac89-4902-8e44-f4771875e781}</Project>
       <Name>CommonUtils</Name>
     </ProjectReference>
