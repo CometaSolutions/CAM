@@ -65,6 +65,10 @@
     <Compile Include="CILMergeTask.cs" />
   </ItemGroup>
   <ItemGroup>
+    <ProjectReference Condition=" '$(UseUtilpackReference)' == '' " Include="..\..\CILAssemblyManipulator\CILAssemblyManipulator.Physical.DotNET\CILAssemblyManipulator.Physical.DotNET.csproj">
+      <Project>{05f9055a-a54f-41fe-b4d6-83abb1661e24}</Project>
+      <Name>CILAssemblyManipulator.Physical.DotNET</Name>
+    </ProjectReference>
     <ProjectReference Condition=" '$(UseUtilpackReference)' == '' " Include="..\..\CILAssemblyManipulator\CILAssemblyManipulator.Physical\CILAssemblyManipulator.Physical.csproj">
       <Project>{ba297806-a89f-4a3b-945b-08729853df75}</Project>
       <Name>CILAssemblyManipulator.Physical</Name>
@@ -107,7 +111,7 @@
   <!-- Create .snk file if it doesn't exist to ensure smooth build -->
   <Import Project="$(MSBuildThisFileDirectory)../../../CommonBuildTools/CLR/MSBuild/CreateKeyFileIfNeeded.targets" />
   <Target Name="MergeThisTask">
-    <CILMerge.MSBuild.CILMergeTask InputAssemblies="@(IntermediateAssembly)" OutDir="$(ProjectDir)$(OutputPath)" Union="True" Closed="True" Internalize="True" UseFullPublicKeyForRefs="True" XmlDocs="True" KeyFile="$(KeyFilePath)" />
+    <CILMerge.MSBuild.CILMergeTask InputAssemblies="@(IntermediateAssembly)" OutDir="$(ProjectDir)$(OutputPath)" Union="True" Closed="True" Internalize="True" UseFullPublicKeyForRefs="True" XmlDocs="True" KeyFile="$(KeyFilePath)" VerifyOutput="True" />
   </Target>
   <!-- Assembly information -->
   <PropertyGroup>

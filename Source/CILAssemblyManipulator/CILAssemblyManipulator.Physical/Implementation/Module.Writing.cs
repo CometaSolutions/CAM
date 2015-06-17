@@ -68,7 +68,7 @@ namespace CILAssemblyManipulator.Physical.Implementation
 
       private static readonly Encoding MetaDataStringEncoding = new UTF8Encoding( false, true );
 
-      internal static void WriteModule(
+      internal static void WriteToStream(
          CILMetaData md,
          EmittingArguments eArgs,
          Stream sink
@@ -76,13 +76,22 @@ namespace CILAssemblyManipulator.Physical.Implementation
       {
          // 1. Check arguments
          ArgumentValidator.ValidateNotNull( "Stream", sink );
-         ArgumentValidator.ValidateNotNull( "Emitting arguments", eArgs );
-         ArgumentValidator.ValidateNotNull( "Headers", eArgs.Headers );
+
+         if ( eArgs == null )
+         {
+            eArgs = new EmittingArguments();
+         }
+
+         var headers = eArgs.Headers;
+
+         if ( headers == null )
+         {
+            headers = new HeadersData( true );
+         }
 
          Boolean isPE64, hasRelocations;
          UInt16 peOptionalHeaderSize;
          UInt32 numSections, iatSize;
-         var headers = eArgs.Headers;
          CheckHeaders( headers, out isPE64, out hasRelocations, out numSections, out peOptionalHeaderSize, out iatSize );
 
          var moduleKind = eArgs.ModuleKind;

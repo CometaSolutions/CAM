@@ -25,13 +25,13 @@ using System.IO;
 using CILMerge;
 using System.Diagnostics;
 using Microsoft.Win32;
+using CILAssemblyManipulator.Physical.DotNET;
 
 namespace CILAssemblyManipulator.Tests
 {
    public class AbstractCAMTest
    {
 
-      private static readonly Lazy<String> WinSDKBinPath = new Lazy<string>( () => GetWinSDKBinFolder(), System.Threading.LazyThreadSafetyMode.ExecutionAndPublication );
 
       private static readonly System.Reflection.Assembly _msCorLib = typeof( Object ).Assembly;
       private static readonly String _msCorLibLocation = new Uri( _msCorLib.CodeBase ).LocalPath;
@@ -128,111 +128,11 @@ namespace CILAssemblyManipulator.Tests
          }
       }
 
+
       protected static void RunPEVerify( String fileName, Boolean verifyStrongName )
       {
-         const String PEVERIFY_EXE = "PEVerify.exe";
-         var sdkPath = WinSDKBinPath.Value;
-
-         var peVerifyPath = Path.Combine( sdkPath, PEVERIFY_EXE );
-
-         // Call PEVerify
-         var startInfo = new ProcessStartInfo();
-         startInfo.FileName = peVerifyPath;
-         // Ignore loading direct pointer to delegate ctors.
-         startInfo.Arguments = "/IL /MD /VERBOSE /NOLOGO /HRESULT" + " \"" + fileName + "\"";
-         startInfo.CreateNoWindow = true;
-         startInfo.WorkingDirectory = Path.GetDirectoryName( fileName );// validationPath;
-         startInfo.RedirectStandardOutput = true;
-         startInfo.RedirectStandardError = true;
-         startInfo.UseShellExecute = false;
-         var process = Process.Start( startInfo );
-
-         // First 'read to end', only then wait for exit.
-         // Otherwise, might get stuck (forgot the link to StackOverflow which explained this).
-         var results = process.StandardOutput.ReadToEnd();
-         process.WaitForExit();
-
-         if ( !results.StartsWith( "All Classes and Methods in " + fileName + " Verified." ) )
-         {
-            throw new Exception( "PEVerify detected the following errors in " + fileName + ":\n" + results );
-         }
-
-         if ( verifyStrongName )
-         {
-            startInfo.FileName = Path.Combine( sdkPath, "sn.exe" );
-            if ( File.Exists( startInfo.FileName ) )
-            {
-               startInfo.Arguments = "-vf \"" + fileName + "\"";
-               process = Process.Start( startInfo );
-
-               results = process.StandardOutput.ReadToEnd();
-               process.WaitForExit();
-
-               var lines = results.Split( new Char[] { '\n', '\r' }, StringSplitOptions.RemoveEmptyEntries );
-
-               if ( !( lines.Length == 3 && String.Equals( lines[2], "Assembly '" + fileName + "' is valid" ) ) )
-               {
-                  throw new Exception( "Strong name validation detected the following errors in " + fileName + ":\n" + results );
-               }
-
-            }
-            else
-            {
-               throw new Exception( "The strong name utility sn.exe is not in same path as " + PEVERIFY_EXE + "." );
-            }
-         }
-
+         Verification.RunPEVerify( null, fileName, verifyStrongName );
       }
 
-      private static String GetWinSDKBinFolder()
-      {
-         String str;
-         if ( !TryGetWinSDKBinFolder( out str ) )
-         {
-            throw new InvalidOperationException( "Failed to localte WinSDK bin path." );
-         }
-
-         return str;
-      }
-
-      private static Boolean TryGetWinSDKBinFolder( out String path )
-      {
-         using ( var baseKey = RegistryKey.OpenBaseKey( RegistryHive.LocalMachine, RegistryView.Registry32 ) )
-         using ( var key = baseKey.OpenSubKey( @"SOFTWARE\Microsoft\Microsoft SDKs\Windows" ) )
-         {
-            path = null;
-            foreach ( var subKeyName in key.GetSubKeyNames().OrderByDescending( s => s ) )
-            {
-               using ( var subKey = key.OpenSubKey( subKeyName ) )
-               {
-                  var names = subKey.GetSubKeyNames();
-                  var suitablePath = names.FirstOrDefault( x => x.EndsWith( "-x64" ) );
-                  if ( String.IsNullOrEmpty( suitablePath ) )
-                  {
-                     suitablePath = names.FirstOrDefault( x => x.EndsWith( "-x86" ) );
-                     if ( String.IsNullOrEmpty( suitablePath ) )
-                     {
-                        suitablePath = names.FirstOrDefault();
-                     }
-                  }
-
-                  if ( !String.IsNullOrEmpty( suitablePath ) )
-                  {
-                     using ( var dirInfoKey = subKey.OpenSubKey( suitablePath ) )
-                     {
-                        path = dirInfoKey.GetValue( "InstallationFolder", null ).ToStringSafe( null );
-                     }
-                  }
-
-                  if ( path != null )
-                  {
-                     break;
-                  }
-               }
-            }
-         }
-
-         return path != null;
-      }
    }
 }

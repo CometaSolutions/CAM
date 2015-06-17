@@ -135,7 +135,8 @@
       UseFullPublicKeyForRefs="True"
       NoDebug="$(CILMergeNoDebug)"
       KeyFile="$(KeyFilePath)"
-      HighEntropyVA="true"
+      HighEntropyVA="True"
+      VerifyOutput="True"
       />
   </Target>
 

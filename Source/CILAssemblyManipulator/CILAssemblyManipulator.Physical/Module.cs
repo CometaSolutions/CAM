@@ -56,6 +56,7 @@ namespace CILAssemblyManipulator.Physical
             this.HeapReserve = 0x100000; // ECMA-335, p. 280
             this.HeapCommit = 0x1000; // ECMA-335, p. 280
             this.ImportDirectoryName = "mscoree.dll"; // ECMA-335, p. 282
+            this.ImportHintName = "_CorDllMain"; // ECMA-335, p. 282
             this.EntryPointInstruction = 0x25FF; // ECMA-335, p. 279
             this.LinkerMajor = 0x0B;
             this.LinkerMinor = 0x00;
@@ -78,6 +79,7 @@ namespace CILAssemblyManipulator.Physical
       /// Gets or set the optional index to MethodDef table where CLR entry point method resides.
       /// </summary>
       /// <value>The optional index to MethodDef table where CLR entry point method resides.</value>
+      /// <remarks>Remember to set <see cref="ImportHintName"/> as appropriate for EXE/DLL file.</remarks>
       public TableIndex? CLREntryPointIndex { get; set; }
 
       /// <summary>

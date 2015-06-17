@@ -38,6 +38,7 @@ namespace CILAssemblyManipulator.Tests.Physical
          var resolver = new MetaDataResolver();
 
          var rArgs1 = new ReadingArguments();
+
          CILMetaData read1;
          using ( var fs = File.OpenRead( fileLocation ) )
          {
@@ -58,6 +59,7 @@ namespace CILAssemblyManipulator.Tests.Physical
          }
 
          var rArgs2 = new ReadingArguments();
+
          CILMetaData read2;
          using ( var ms = new MemoryStream( written ) )
          {

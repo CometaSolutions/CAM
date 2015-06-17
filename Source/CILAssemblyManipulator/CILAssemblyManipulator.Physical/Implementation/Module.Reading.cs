@@ -236,12 +236,23 @@ namespace CILAssemblyManipulator.Physical.Implementation
       private const Byte WIDE_GUID_FLAG = 0x02;
       private const Byte WIDE_BLOB_FLAG = 0x04;
 
-      public static CILMetaData ReadFromStream(
+      internal static CILMetaData ReadFromStream(
          Stream stream,
          ReadingArguments rArgs
          )
       {
+         if ( rArgs == null )
+         {
+            rArgs = new ReadingArguments( false );
+         }
+
          var headers = rArgs.Headers;
+
+         var headersWereSet = headers != null;
+         if ( !headersWereSet )
+         {
+            headers = new HeadersData( false );
+         }
 
          Byte[] tmpArray = new Byte[8];
 
@@ -344,28 +355,32 @@ namespace CILAssemblyManipulator.Physical.Implementation
             stream.SeekFromCurrent( 16 );
          }
 
-         if ( importDD.rva > 0 )
+         if ( headersWereSet )
          {
-            // Read Import table
-            stream.SeekFromBegin( ResolveRVA( importDD.rva, sections ) + 12 );
-            var importRVA = stream.ReadU32( tmpArray );
-            stream.SeekFromBegin( ResolveRVA( importRVA, sections ) );
-            headers.ImportDirectoryName = stream.ReadZeroTerminatedASCIIString();
-         }
 
-         if ( iatDD.rva > 0 )
-         {
-            // Read IAT for hint name
-            stream.SeekFromBegin( ResolveRVA( iatDD.rva, sections ) );
-            var hnRVA = stream.ReadU32( tmpArray );
-            stream.SeekFromBegin( ResolveRVA( hnRVA, sections ) + 2 );
-            headers.ImportHintName = stream.ReadZeroTerminatedASCIIString();
-         }
+            if ( importDD.rva > 0 )
+            {
+               // Read Import table
+               stream.SeekFromBegin( ResolveRVA( importDD.rva, sections ) + 12 );
+               var importRVA = stream.ReadU32( tmpArray );
+               stream.SeekFromBegin( ResolveRVA( importRVA, sections ) );
+               headers.ImportDirectoryName = stream.ReadZeroTerminatedASCIIString();
+            }
 
-         if ( nativeEPRVA > 0 )
-         {
-            stream.SeekFromBegin( ResolveRVA( nativeEPRVA, sections ) );
-            headers.EntryPointInstruction = stream.ReadI16( tmpArray );
+            if ( iatDD.rva > 0 )
+            {
+               // Read IAT for hint name
+               stream.SeekFromBegin( ResolveRVA( iatDD.rva, sections ) );
+               var hnRVA = stream.ReadU32( tmpArray );
+               stream.SeekFromBegin( ResolveRVA( hnRVA, sections ) + 2 );
+               headers.ImportHintName = stream.ReadZeroTerminatedASCIIString();
+            }
+
+            if ( nativeEPRVA > 0 )
+            {
+               stream.SeekFromBegin( ResolveRVA( nativeEPRVA, sections ) );
+               headers.EntryPointInstruction = stream.ReadI16( tmpArray );
+            }
          }
 
          // CLI header, skip magic
@@ -397,37 +412,41 @@ namespace CILAssemblyManipulator.Physical.Implementation
             stream,
             sections,
             rsrcDD,
-            rArgs
+            rArgs,
+            headers
             );
 
-         // Read debug info
-         if ( debugDD.rva > 0 )
+         if ( headersWereSet )
          {
-            stream.SeekFromBegin( ResolveRVA( debugDD.rva, sections ) );
-            var dbg = new DebugInformation( false )
+            // Read debug info
+            if ( debugDD.rva > 0 )
             {
-               Characteristics = stream.ReadI32( tmpArray ),
-               Timestamp = stream.ReadI32( tmpArray ),
-               VersionMajor = stream.ReadI16( tmpArray ),
-               VersionMinor = stream.ReadI16( tmpArray ),
-               DebugType = stream.ReadI32( tmpArray )
-            };
-            var data = new Byte[stream.ReadI32( tmpArray )];
-            var dataRVA = stream.ReadU32( tmpArray );
-            var dataPtr = stream.ReadU32( tmpArray );
-            stream.SeekFromBegin( dataPtr );
-            stream.ReadWholeArray( data );
-            dbg.DebugData = data;
-            headers.DebugInformation = dbg;
-         }
+               stream.SeekFromBegin( ResolveRVA( debugDD.rva, sections ) );
+               var dbg = new DebugInformation( false )
+               {
+                  Characteristics = stream.ReadI32( tmpArray ),
+                  Timestamp = stream.ReadI32( tmpArray ),
+                  VersionMajor = stream.ReadI16( tmpArray ),
+                  VersionMinor = stream.ReadI16( tmpArray ),
+                  DebugType = stream.ReadI32( tmpArray )
+               };
+               var data = new Byte[stream.ReadI32( tmpArray )];
+               var dataRVA = stream.ReadU32( tmpArray );
+               var dataPtr = stream.ReadU32( tmpArray );
+               stream.SeekFromBegin( dataPtr );
+               stream.ReadWholeArray( data );
+               dbg.DebugData = data;
+               headers.DebugInformation = dbg;
+            }
 
-         // Read strong name contents
-         if ( snDD.rva > 0 )
-         {
-            stream.SeekFromBegin( ResolveRVA( snDD.rva, sections ) );
-            var array = new Byte[snDD.size];
-            stream.ReadWholeArray( array );
-            rArgs.StrongNameHashValue = array;
+            // Read strong name contents
+            if ( snDD.rva > 0 )
+            {
+               stream.SeekFromBegin( ResolveRVA( snDD.rva, sections ) );
+               var array = new Byte[snDD.size];
+               stream.ReadWholeArray( array );
+               rArgs.StrongNameHashValue = array;
+            }
          }
 
          return retVal;
@@ -437,10 +456,10 @@ namespace CILAssemblyManipulator.Physical.Implementation
          Stream stream,
          SectionInfo[] sections,
          DataDir rsrcDD,
-         ReadingArguments rArgs
+         ReadingArguments rArgs,
+         HeadersData headers
          )
       {
-         var headers = rArgs.Headers;
          var mdRoot = stream.Position;
 
          // Prepare variables
@@ -1064,11 +1083,11 @@ namespace CILAssemblyManipulator.Physical.Implementation
                      var c = (ClassOrValueTypeSignature) type;
 
                      var typeIdx = c.Type;
-                     if ( typeIdx.Table == Tables.TypeDef )
+                     retVal = typeIdx.Table == Tables.TypeDef;
+                     if ( retVal )
                      {
                         // Only possible for types defined in this module
-                        TableIndex? extendInfo;
-                        var enumValueFieldIndex = GetEnumValueFieldIndex( md, typeIdx.Index, out extendInfo );
+                        var enumValueFieldIndex = GetEnumValueFieldIndex( md, typeIdx.Index );
                         if ( enumValueFieldIndex >= 0 )
                         {
                            retVal = TryCalculateFieldTypeSize( md, classLayoutInfo, enumValueFieldIndex, out size, true ); // Last parameter true to prevent possible infinite recursion in case of malformed metadata
@@ -1092,8 +1111,7 @@ namespace CILAssemblyManipulator.Physical.Implementation
 
       internal static Int32 GetEnumValueFieldIndex(
          CILMetaData md,
-         Int32 tDefIndex,
-         out TableIndex? extendInfo
+         Int32 tDefIndex
          )
       {
          // Only possible for types defined in this module
@@ -1101,7 +1119,7 @@ namespace CILAssemblyManipulator.Physical.Implementation
          var retVal = -1;
          if ( typeRow != null )
          {
-            extendInfo = typeRow.BaseType;
+            var extendInfo = typeRow.BaseType;
             if ( extendInfo.HasValue )
             {
                var isEnum = IsEnum( md, extendInfo );
@@ -1123,10 +1141,6 @@ namespace CILAssemblyManipulator.Physical.Implementation
                   }
                }
             }
-         }
-         else
-         {
-            extendInfo = null;
          }
 
          return retVal;

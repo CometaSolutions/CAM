@@ -54,6 +54,7 @@
     </Compile>
     <Compile Include="CryptoCallbacks.cs" />
     <Compile Include="Loaders.cs" />
+    <Compile Include="Verification.cs" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\..\CollectionsWithRoles\CollectionsWithRoles.csproj" Condition=" '$(UseUtilpackReference)' == '' And '$(IsCommandLineBuild)' == '' ">
@@ -64,7 +65,7 @@
       <Project>{dba22cd8-ac89-4902-8e44-f4771875e781}</Project>
       <Name>CommonUtils</Name>
     </ProjectReference>
-    <ProjectReference Include="..\CILAssemblyManipulator.Physical\CILAssemblyManipulator.Physical.csproj" >
+    <ProjectReference Include="..\CILAssemblyManipulator.Physical\CILAssemblyManipulator.Physical.csproj">
       <Project>{ba297806-a89f-4a3b-945b-08729853df75}</Project>
       <Name>CILAssemblyManipulator.Physical</Name>
     </ProjectReference>

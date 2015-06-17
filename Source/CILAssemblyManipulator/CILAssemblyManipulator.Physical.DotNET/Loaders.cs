@@ -1,5 +1,4 @@
-﻿using CommonUtils;
-/*
+﻿/*
  * Copyright 2015 Stanislav Muhametsin. All rights Reserved.
  *
  * Licensed  under the  Apache License,  Version 2.0  (the "License");
@@ -16,6 +15,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License. 
  */
+using CommonUtils;
 using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;

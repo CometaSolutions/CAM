@@ -1136,7 +1136,7 @@ namespace CILMerge
          // Prepare strong _name
          var keyFile = this._options.KeyFile;
          CILAssemblyManipulator.Physical.StrongNameKeyPair sn = null;
-         if ( keyFile != null )
+         if ( !String.IsNullOrEmpty( keyFile ) )
          {
             try
             {

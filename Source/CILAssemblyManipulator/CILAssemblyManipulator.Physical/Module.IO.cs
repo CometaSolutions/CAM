@@ -145,7 +145,13 @@ namespace CILAssemblyManipulator.Physical
    /// </summary>
    public sealed class ReadingArguments : IOArguments
    {
-
+      public ReadingArguments( Boolean createHeaders = true )
+      {
+         if ( createHeaders )
+         {
+            this.Headers = new HeadersData( false );
+         }
+      }
    }
 
    /// <summary>
@@ -448,16 +454,6 @@ namespace CILAssemblyManipulator.Physical
 
       public static CILMetaData ReadModule( this Stream stream, ReadingArguments rArgs = null )
       {
-         if ( rArgs == null )
-         {
-            rArgs = new ReadingArguments();
-         }
-
-         if ( rArgs.Headers == null )
-         {
-            rArgs.Headers = new HeadersData(false);
-         }
-
          return CILAssemblyManipulator.Physical.Implementation.ModuleReader.ReadFromStream( stream, rArgs );
       }
 
@@ -473,7 +469,7 @@ namespace CILAssemblyManipulator.Physical
             eArgs.Headers = new HeadersData();
          }
 
-         CILAssemblyManipulator.Physical.Implementation.ModuleWriter.WriteModule( md, eArgs, stream );
+         CILAssemblyManipulator.Physical.Implementation.ModuleWriter.WriteToStream( md, eArgs, stream );
       }
    }
 }

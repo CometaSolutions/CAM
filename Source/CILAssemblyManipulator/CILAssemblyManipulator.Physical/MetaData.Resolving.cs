@@ -136,8 +136,7 @@ namespace CILAssemblyManipulator.Physical
                   .GetOrAdd_NotThreadSafe( index, idx =>
                   {
                      var md = this._md;
-                     TableIndex? dummy;
-                     var enumFieldIndex = ModuleReader.GetEnumValueFieldIndex( md, idx, out dummy );
+                     var enumFieldIndex = ModuleReader.GetEnumValueFieldIndex( md, idx );
 
                      CustomAttributeArgumentType retVal = null;
                      if ( enumFieldIndex >= 0 )

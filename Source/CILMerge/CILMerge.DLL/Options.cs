@@ -22,6 +22,7 @@ using System.Linq;
 using System.Text;
 using CILAssemblyManipulator.Physical;
 using CommonUtils;
+using CILMerge;
 
 namespace CILMerge
 {
@@ -169,5 +170,13 @@ namespace CILMerge
       public Int32 SubsystemMinor { get; set; }
       public Boolean HighEntropyVA { get; set; }
       public Boolean SkipFixingAssemblyReferences { get; set; }
+   }
+}
+
+public static partial class E_CILMerge
+{
+   public static Boolean OutputHasStrongName( this CILMergeOptions options )
+   {
+      return !String.IsNullOrEmpty( options.KeyFile ) || !String.IsNullOrEmpty( options.CSPName );
    }
 }

@@ -22,6 +22,7 @@ using System.Text;
 using Microsoft.Build.Framework;
 using Microsoft.Build.Utilities;
 using CILAssemblyManipulator.Physical;
+using CILAssemblyManipulator.Physical.DotNET;
 
 namespace CILMerge.MSBuild
 {
@@ -84,7 +85,20 @@ namespace CILMerge.MSBuild
             try
             {
                new CILMerger( this, this ).PerformMerge();
-               retVal = true;
+               String peVerifyError = null, snError = null;
+               retVal = !( this.VerifyOutput && Verification.RunPEVerify( null, this.OutPath, this.OutputHasStrongName(), out peVerifyError, out snError ) );
+               if ( !retVal )
+               {
+                  this.Log.LogError( "PEVerify and/or strong name validation failed." );
+                  if ( !String.IsNullOrEmpty( peVerifyError ) )
+                  {
+                     this.Log.LogError( "PEVerify error:\n{0}", peVerifyError );
+                  }
+                  if ( !String.IsNullOrEmpty( snError ) )
+                  {
+                     this.Log.LogError( "Strong name error:\n{0}", snError );
+                  }
+               }
             }
             catch ( Exception exc )
             {
@@ -192,6 +206,8 @@ namespace CILMerge.MSBuild
       #endregion
 
       public String OutDir { get; set; }
+
+      public Boolean VerifyOutput { get; set; }
 
       private static void ExpandPaths( String[] paths )
       {
