@@ -722,10 +722,15 @@ namespace CILAssemblyManipulator.Physical.Implementation
                   break;
                case Tables.StandaloneSignature:
                   ReadTable( retVal.StandaloneSignatures, curTable, tableSizes, i =>
-                     new StandaloneSignature()
+                  {
+                     Boolean wasFieldSig;
+                     var sig = ReadStandaloneSignature( blobs, stream, out wasFieldSig );
+                     return new StandaloneSignature()
                      {
-                        Signature = ReadStandaloneSignature( blobs, stream )
-                     } );
+                        Signature = sig,
+                        StoreSignatureAsFieldSignature = wasFieldSig
+                     };
+                  } );
                   break;
                case Tables.EventMap:
                   ReadTable( retVal.EventMaps, curTable, tableSizes, i =>
@@ -1420,25 +1425,22 @@ namespace CILAssemblyManipulator.Physical.Implementation
             MethodReferenceSignature.ReadFromBytes( bytes, ref idx );
       }
 
-      private static AbstractSignature ReadStandaloneSignature( BLOBHeapReader blob, Stream stream )
+      private static AbstractSignature ReadStandaloneSignature( BLOBHeapReader blob, Stream stream, out Boolean wasFieldSig )
       {
          Int32 heapIndex, blobSize;
          var idx = blob.GetBLOBIndex( stream, out heapIndex, out blobSize );
          var bytes = blob.WholeBLOBArray;
-         // From https://social.msdn.microsoft.com/Forums/en-US/b4252eab-7aae-4456-9829-2707c8459e13/pinned-fields-in-the-common-language-runtime?forum=netfxtoolsdev
-         // After messing around further, and noticing that even the C# compiler emits Field signatures in the StandAloneSig table, the signatures seem to relate to PDB debugging symbols.
-         // When you emit symbols with the Debug or Release versions of your code, I'm guessing a StandAloneSig entry is injected and referred to by the PDB file.
-         // If you are in release mode and you generate no PDB info, the StandAloneSig table contains no Field signatures.
-         // One such condition for the emission of such information is constants within the scope of a method body.
-         // Original thread:  http://www.netframeworkdev.com/building-development-diagnostic-tools-for-net/field-signatures-in-standalonesig-table-30658.shtml
+
          var sigStarter = (SignatureStarters) bytes[idx];
+         wasFieldSig = sigStarter == SignatureStarters.Field;
          AbstractSignature retVal;
          if ( sigStarter == SignatureStarters.LocalSignature )
          {
             retVal = LocalVariablesSignature.ReadFromBytes( bytes, ref idx );
          }
-         else if ( sigStarter == SignatureStarters.Field )
+         else if ( wasFieldSig )
          {
+            // Read as local signature instead of field signature, since we might encounter pinned etc stuff
             ++idx;
             retVal = new LocalVariablesSignature( 1 );
             ( (LocalVariablesSignature) retVal ).Locals.Add( LocalVariableSignature.ReadFromBytes( bytes, ref idx ) );

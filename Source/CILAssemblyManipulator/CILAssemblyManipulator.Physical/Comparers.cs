@@ -1353,6 +1353,7 @@ namespace CILAssemblyManipulator.Physical
       {
          return Object.ReferenceEquals( x, y ) ||
              ( x != null && y != null
+             && x.StoreSignatureAsFieldSignature == y.StoreSignatureAsFieldSignature
              && AbstractSignatureEqualityComparer.Equals( x.Signature, y.Signature )
              );
       }

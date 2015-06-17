@@ -1601,7 +1601,7 @@ namespace CILAssemblyManipulator.Physical.Implementation
          // 0x0E Security definitions
          ProcessTableForHeaps1( Tables.DeclSecurity, md.SecurityDefinitions, heapInfos, sd => new HeapInfo1( blobs.GetOrAddBLOB( byteArrayHelper.CreateSecuritySignature( sd, auxHelper ) ) ) );
          // 0x11 Standalone sig
-         ProcessTableForHeaps1( Tables.StandaloneSignature, md.StandaloneSignatures, heapInfos, s => new HeapInfo1( blobs.GetOrAddBLOB( byteArrayHelper.CreateStandaloneSignature( s.Signature ) ) ) );
+         ProcessTableForHeaps1( Tables.StandaloneSignature, md.StandaloneSignatures, heapInfos, s => new HeapInfo1( blobs.GetOrAddBLOB( byteArrayHelper.CreateStandaloneSignature( s ) ) ) );
          // 0x14 Event
          ProcessTableForHeaps1( Tables.Event, md.EventDefinitions, heapInfos, e => new HeapInfo1( sysStrings.GetOrAddString( e.Name ) ) );
          // 0x17 Property
@@ -2515,28 +2515,35 @@ public static partial class E_CILPhysical
       return info.CreateByteArray();
    }
 
-   internal static Byte[] CreateStandaloneSignature( this ByteArrayHelper info, AbstractSignature sig )
+   internal static Byte[] CreateStandaloneSignature( this ByteArrayHelper info, StandaloneSignature standaloneSig )
    {
-      if ( sig != null )
+      var sig = standaloneSig.Signature;
+      var locals = sig as LocalVariablesSignature;
+      if ( locals != null )
       {
-         var locals = sig as LocalVariablesSignature;
-         if ( locals != null )
+         if ( standaloneSig.StoreSignatureAsFieldSignature && locals.Locals.Count > 0 )
          {
-            info.WriteLocalsSignature( locals );
+            info.AddSigStarterByte( SignatureStarters.Field );
+            info.WriteLocalSignature( locals.Locals[0] );
          }
          else
          {
-            var raw = sig as RawSignature;
-            if ( raw != null )
-            {
-               info.AddBytes( raw.Bytes );
-            }
-            else
-            {
-               info.WriteMethodSignature( sig as AbstractMethodSignature );
-            }
+            info.WriteLocalsSignature( locals );
          }
       }
+      else
+      {
+         var raw = sig as RawSignature;
+         if ( raw != null )
+         {
+            info.AddBytes( raw.Bytes );
+         }
+         else
+         {
+            info.WriteMethodSignature( sig as AbstractMethodSignature );
+         }
+      }
+
       return info.CurCount == 0 ? null : info.CreateByteArray();
    }
 
@@ -3004,25 +3011,30 @@ public static partial class E_CILPhysical
          info.AddCompressedUInt32( locals.Count );
          foreach ( var local in locals )
          {
-            if ( SimpleTypeSignature.TypedByRef.Equals( local.Type ) )
-            {
-               info.AddSigByte( SignatureElementTypes.TypedByRef );
-            }
-            else
-            {
-               info.WriteCustomModifiers( local.CustomModifiers );
-               if ( local.IsPinned )
-               {
-                  info.AddSigByte( SignatureElementTypes.Pinned );
-               }
-
-               if ( local.IsByRef )
-               {
-                  info.AddSigByte( SignatureElementTypes.ByRef );
-               }
-               info.WriteTypeSignature( local.Type );
-            }
+            info.WriteLocalSignature( local );
          }
+      }
+   }
+
+   private static void WriteLocalSignature( this ByteArrayHelper info, LocalVariableSignature sig )
+   {
+      if ( SimpleTypeSignature.TypedByRef.Equals( sig.Type ) )
+      {
+         info.AddSigByte( SignatureElementTypes.TypedByRef );
+      }
+      else
+      {
+         info.WriteCustomModifiers( sig.CustomModifiers );
+         if ( sig.IsPinned )
+         {
+            info.AddSigByte( SignatureElementTypes.Pinned );
+         }
+
+         if ( sig.IsByRef )
+         {
+            info.AddSigByte( SignatureElementTypes.ByRef );
+         }
+         info.WriteTypeSignature( sig.Type );
       }
    }
 

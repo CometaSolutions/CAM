@@ -175,6 +175,15 @@ namespace CILAssemblyManipulator.Physical
    public sealed class StandaloneSignature
    {
       public AbstractSignature Signature { get; set; }
+
+      // From https://social.msdn.microsoft.com/Forums/en-US/b4252eab-7aae-4456-9829-2707c8459e13/pinned-fields-in-the-common-language-runtime?forum=netfxtoolsdev
+      // After messing around further, and noticing that even the C# compiler emits Field signatures in the StandAloneSig table, the signatures seem to relate to PDB debugging symbols.
+      // When you emit symbols with the Debug or Release versions of your code, I'm guessing a StandAloneSig entry is injected and referred to by the PDB file.
+      // If you are in release mode and you generate no PDB info, the StandAloneSig table contains no Field signatures.
+      // One such condition for the emission of such information is constants within the scope of a method body.
+      // Original thread:  http://www.netframeworkdev.com/building-development-diagnostic-tools-for-net/field-signatures-in-standalonesig-table-30658.shtml
+      public Boolean StoreSignatureAsFieldSignature { get; set; }
+
    }
 
    public sealed class EventMap
