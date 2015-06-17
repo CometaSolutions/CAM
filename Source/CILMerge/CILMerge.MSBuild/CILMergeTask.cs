@@ -85,8 +85,15 @@ namespace CILMerge.MSBuild
             try
             {
                new CILMerger( this, this ).PerformMerge();
+               var verify = this.VerifyOutput;
+               var outPath = this.OutPath;
+               if ( verify )
+               {
+                  this.Log.LogMessage( MessageImportance.High, "Verifying {0}.", outPath );
+               }
+
                String peVerifyError = null, snError = null;
-               retVal = !( this.VerifyOutput && Verification.RunPEVerify( null, this.OutPath, this.OutputHasStrongName(), out peVerifyError, out snError ) );
+               retVal = !( this.VerifyOutput && Verification.RunPEVerify( null, outPath, this.OutputHasStrongName(), out peVerifyError, out snError ) );
                if ( !retVal )
                {
                   this.Log.LogError( "PEVerify and/or strong name validation failed." );
@@ -198,7 +205,7 @@ namespace CILMerge.MSBuild
                this.Log.LogWarning( formatString, args );
                break;
             case MessageLevel.Info:
-               this.Log.LogMessage( MessageImportance.High, formatString, args );
+               this.Log.LogMessage( MessageImportance.Normal, formatString, args );
                break;
          }
       }

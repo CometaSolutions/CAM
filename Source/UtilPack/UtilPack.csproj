@@ -130,7 +130,6 @@
       InputAssemblies="@(IntermediateAssembly);$(ProjectDir)$(OutputPath)CommonUtils.dll;$(ProjectDir)$(OutputPath)CollectionsWithRoles.dll"
       OutDir="$(ProjectDir)$(OutputPath)"
       Union="True"
-      Closed="True"
       XmlDocs="True"
       UseFullPublicKeyForRefs="True"
       NoDebug="$(CILMergeNoDebug)"

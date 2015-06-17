@@ -16,7 +16,7 @@
   
   <Target Name="Build">
     <!-- All projects require CILMerge task, so build that. -->
-    <MSBuild Projects="$(UtilPackBaseDir)/Build/CILMerge.build" Properties="CILMergeConfiguration=Release;CILMergePlatform=AnyCPU" />
+    <MSBuild Condition=" '$(UtilpackSkipCILMerge)' == '' " Projects="$(UtilPackBaseDir)/Build/CILMerge.build" Properties="CILMergeConfiguration=Release;CILMergePlatform=AnyCPU" />
     
     <!-- Build UtilPack projects -->
     <MSBuild Projects="@(UtilpackProject)" Targets="$(UtilPackBuildTargets)" Properties="Configuration=$(UtilPackConfiguration);Platform=$(UtilPackPlatform)" />

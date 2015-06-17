@@ -41,6 +41,9 @@
     <Reference Include="UtilPack" Condition=" '$(UseUtilpackReference)' != '' ">
       <HintPath>$(OutputPath)UtilPack.dll</HintPath>
     </Reference>
+    <Reference Include="CILAssemblyManipulator.Physical.Portable" Condition=" '$(UseUtilpackReference)' != '' And '$(IsCommandLineBuild)' != '' ">
+      <HintPath>$(OutputPath)..\SL\CILAssemblyManipulator.Physical.Portable.dll</HintPath>
+    </Reference>
     <Reference Include="CommonUtils" Condition=" '$(UseUtilpackReference)' == '' And '$(IsCommandLineBuild)' != '' ">
       <HintPath>$(OutputPath)..\SL\CommonUtils.dll</HintPath>
     </Reference>
@@ -65,7 +68,7 @@
       <Project>{dba22cd8-ac89-4902-8e44-f4771875e781}</Project>
       <Name>CommonUtils</Name>
     </ProjectReference>
-    <ProjectReference Include="..\CILAssemblyManipulator.Physical\CILAssemblyManipulator.Physical.csproj">
+    <ProjectReference Include="..\CILAssemblyManipulator.Physical\CILAssemblyManipulator.Physical.csproj" Condition=" '$(UseUtilpackReference)' == '' ">
       <Project>{ba297806-a89f-4a3b-945b-08729853df75}</Project>
       <Name>CILAssemblyManipulator.Physical</Name>
     </ProjectReference>
@@ -75,7 +78,6 @@
   </PropertyGroup>
   <PropertyGroup Condition=" '$(UseUtilpackReference)' != '' ">
     <SignAssembly>true</SignAssembly>
-    <KeyFilePath>$(MSBuildThisFileDirectory)..\..\..\Keys\CAM.snk</KeyFilePath>
     <AssemblyOriginatorKeyFile>$(KeyFilePath)</AssemblyOriginatorKeyFile>
   </PropertyGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
@@ -86,7 +88,7 @@
   <PropertyGroup>
     <AssemblyInfoCLSCompliant>true</AssemblyInfoCLSCompliant>
     <AssemblyInfoOutputFile>$(MSBuildThisFileDirectory)/../../AssemblyInfo/$(AssemblyName).cs</AssemblyInfoOutputFile>
-    <AssemblyInfoDescription>Additional assembly providing additional functionality of CAM.Physical, requiring .NET framework.</AssemblyInfoDescription>
+    <AssemblyInfoDescription>Additional assembly extending the functionality of the CAM.Physical, requiring .NET framework.</AssemblyInfoDescription>
     <AssemblyInfoCompany>Cometa Solutions Ltd</AssemblyInfoCompany>
     <AssemblyInfoTrademark>CAM</AssemblyInfoTrademark>
     <AssemblyInfoAppendAssemblyCopyrightYears>true</AssemblyInfoAppendAssemblyCopyrightYears>
