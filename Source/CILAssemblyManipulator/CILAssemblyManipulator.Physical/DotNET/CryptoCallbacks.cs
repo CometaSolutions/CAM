@@ -15,6 +15,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License. 
  */
+#if !CAM_PHYSICAL_IS_PORTABLE
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -22,7 +23,7 @@ using System.Linq;
 using System.Runtime.InteropServices;
 using System.Text;
 
-namespace CILAssemblyManipulator.Physical.DotNET
+namespace CILAssemblyManipulator.Physical
 {
    public class CryptoCallbacksDotNET : CryptoCallbacks
    {
@@ -298,3 +299,4 @@ namespace CILAssemblyManipulator.Physical.DotNET
 
    }
 }
+#endif

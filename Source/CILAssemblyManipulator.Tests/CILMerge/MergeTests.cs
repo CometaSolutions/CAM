@@ -99,7 +99,7 @@ namespace CILAssemblyManipulator.Tests.CILMerge
          } );
       }
 
-      [Test]
+      //[Test]
       public void TestMergingCILMergeMSBuildTask()
       {
          var baseDir = Path.GetFullPath( Path.Combine( CILMergeLocation, "..", "..", "..", "..", ".." ) );
@@ -143,6 +143,32 @@ namespace CILAssemblyManipulator.Tests.CILMerge
             XmlDocs = true,
             HighEntropyVA = true,
             KeyFile = Path.Combine( baseDir, "Keys", "UtilPack.snk" )
+         } );
+      }
+
+      [Test]
+      public void TestMergingCAMPhysical()
+      {
+         var baseDir = Path.GetFullPath( Path.Combine( CILMergeLocation, "..", "..", "..", "..", ".." ) );
+
+         var outDir = Path.Combine( baseDir, "Output", "Debug", "dotNET" );
+         var outDirSL = Path.Combine( baseDir, "Output", "Debug", "SL" );
+
+         this.PerformTest( new CILMergeOptionsImpl()
+         {
+            InputAssemblies = new[]
+            {
+               Path.Combine( baseDir, "Source", "CILAssemblyManipulator", "CILAssemblyManipulator.Physical", "obj", "Debug_Portable", "CILAssemblyManipulator.Physical.dll" ),
+               Path.Combine( outDirSL, "CILAssemblyManipulator.MResources.dll" ),
+               Path.Combine( outDirSL, "CILAssemblyManipulator.PDB.dll" )
+            },
+            LibPaths = new[] { outDirSL },
+            OutPath = Path.Combine( outDirSL, "CILAssemblyManipulator.Physical.Testing.dll" ),
+            Union = true,
+            UseFullPublicKeyForRefs = true,
+            XmlDocs = true,
+            HighEntropyVA = true,
+            KeyFile = Path.Combine( baseDir, "Keys", "CAM.snk" )
          } );
       }
 

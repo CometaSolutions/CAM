@@ -384,9 +384,9 @@ namespace CILAssemblyManipulator.Physical
          return new CILAssemblyManipulator.Physical.Implementation.CILMetadataImpl();
       }
 
-      public static CILMetaData CreateMinimalAssembly( String assemblyName, String extension = "dll" )
+      public static CILMetaData CreateMinimalAssembly( String assemblyName, String moduleName )
       {
-         var md = CreateMinimalModule( assemblyName + "." + extension );
+         var md = CreateMinimalModule( moduleName );
 
          var aDef = new AssemblyDefinition();
          aDef.AssemblyInformation.Name = assemblyName;

@@ -36,12 +36,31 @@
     <!-- Build the Common Build Tools project (for AssemblyInfo task) -->
     <MSBuild Projects="$(CAMPhysicalBaseDir)/CommonBuildTools/CLR/Build/CommonBuildTools.build" />
     
-    <!-- Build UtilPack project (both SL and normal, normal is used by CAM.Physical.DotNET ) -->
+    <!-- Build UtilPack SL and .NET projects -->
     <MSBuild Projects="$(CAMPhysicalBaseDir)/Build/UtilPack.build" Properties="UtilpackConfiguration=$(CAMPhysicalConfiguration)_SL;CILMergePlatform=$(CAMPhysicalPlatform)" />
     <MSBuild Projects="$(CAMPhysicalBaseDir)/Build/UtilPack.build" Properties="UtilpackConfiguration=$(CAMPhysicalConfiguration);CILMergePlatform=$(CAMPhysicalPlatform);UtilpackSkipCILMerge=true" />
     
     <!-- Build CAMPhysical projects -->
-    <MSBuild Projects="@(CAMPhysicalProject)" Targets="%(CAMProjectTargets)" Properties="Configuration=%(CAMProjectConfiguration);Platform=$(CAMPhysicalPlatform);IsCommandLineBuild=true;UseUtilpackReference=true" />
+    <MSBuild
+      Projects="$(CAMPhysicalBaseDir)/Source/CILAssemblyManipulator/CILAssemblyManipulator.PDB/CILAssemblyManipulator.PDB.csproj"
+      Targets="Build"
+      Properties="Configuration=$(CAMPhysicalConfiguration);Platform=$(CAMPhysicalPlatform);IsCommandLineBuild=true;UseUtilpackReference=true"
+      />
+    <MSBuild
+      Projects="$(CAMPhysicalBaseDir)/Source/CILAssemblyManipulator/CILAssemblyManipulator.MResources/CILAssemblyManipulator.MResources.csproj"
+      Targets="Build"
+      Properties="Configuration=$(CAMPhysicalConfiguration);Platform=$(CAMPhysicalPlatform);IsCommandLineBuild=true;UseUtilpackReference=true"
+      />
+    <MSBuild
+      Projects="$(CAMPhysicalBaseDir)/Source/CILAssemblyManipulator/CILAssemblyManipulator.Physical/CILAssemblyManipulator.Physical.csproj"
+      Targets="$(CAMPhysicalBuildTargets)"
+      Properties="Configuration=$(CAMPhysicalConfiguration)_Portable;Platform=$(CAMPhysicalPlatform);IsCommandLineBuild=true;UseUtilpackReference=true;ProjectTypeGuids:{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}"
+      />
+    <MSBuild
+      Projects="$(CAMPhysicalBaseDir)/Source/CILAssemblyManipulator/CILAssemblyManipulator.Physical/CILAssemblyManipulator.Physical.csproj"
+      Targets="$(CAMPhysicalBuildTargets)"
+      Properties="Configuration=$(CAMPhysicalConfiguration);Platform=$(CAMPhysicalPlatform);IsCommandLineBuild=true;UseUtilpackReference=true"
+      />
   </Target>
   
   <!-- NuSpec file information -->

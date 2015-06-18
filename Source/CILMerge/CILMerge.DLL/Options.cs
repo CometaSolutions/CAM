@@ -71,6 +71,9 @@ namespace CILMerge
 
       // When merging non-portable libraries with portable libraries, if non-portable library implements something that has retargetable ref in its signature -> PEVerify will think that the signatures are not matching
       Boolean SkipFixingAssemblyReferences { get; set; }
+
+      String TargetAssemblyName { get; set; }
+      String TargetModuleName { get; set; }
    }
 
    public interface CILMergeLogCallback
@@ -170,6 +173,8 @@ namespace CILMerge
       public Int32 SubsystemMinor { get; set; }
       public Boolean HighEntropyVA { get; set; }
       public Boolean SkipFixingAssemblyReferences { get; set; }
+      public String TargetAssemblyName { get; set; }
+      public String TargetModuleName { get; set; }
    }
 }
 

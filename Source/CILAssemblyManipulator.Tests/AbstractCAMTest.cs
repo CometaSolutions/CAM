@@ -25,7 +25,6 @@ using System.IO;
 using CILMerge;
 using System.Diagnostics;
 using Microsoft.Win32;
-using CILAssemblyManipulator.Physical.DotNET;
 
 namespace CILAssemblyManipulator.Tests
 {

@@ -31,7 +31,6 @@ using CommonUtils;
 using CILAssemblyManipulator.Physical;
 using System.Runtime.InteropServices;
 using System.Diagnostics;
-using CILAssemblyManipulator.Physical.DotNET;
 
 namespace CILMerge
 {
@@ -731,7 +730,6 @@ namespace CILMerge
 
 
 
-
          //this._ctx = ctx;
          ////this._allModules = new ConcurrentDictionary<String, CILModule>();
          ////this._loadingArgs = new ConcurrentDictionary<CILModule, EmittingArguments>();
@@ -944,11 +942,7 @@ namespace CILMerge
                      var aRef = aRefs[i];
                      if ( !aRef.Attributes.IsFullPublicKey() && !retargetableInfos.Contains( targetAssemblyRefIndex.Index ) )
                      {
-                        var aRefModule = this._loaderCallbacks.GetPossibleResourcesForAssemblyReference(
-                           inputModulePath,
-                           inputModule,
-                           new AssemblyInformationForResolving( aRef.AssemblyInformation, aRef.Attributes.IsFullPublicKey() ),
-                           null )
+                        var aRefModule = this.GetPossibleResourcesForAssemblyReference( inputModule, aRef )
                         .Where( p => File.Exists( p ) )
                         .Select( p => this._moduleLoader.GetOrLoadMetaData( p ) )
                         .Where( m => m.AssemblyDefinitions.Count > 0 )
@@ -959,6 +953,10 @@ namespace CILMerge
                            var targetARef = this._targetModule.AssemblyReferences[targetAssemblyRefIndex.Index];
                            targetARef.AssemblyInformation.PublicKeyOrToken = aRefModule.AssemblyDefinitions[0].AssemblyInformation.PublicKeyOrToken.CreateBlockCopy();
                            targetARef.Attributes |= AssemblyFlags.PublicKey;
+                        }
+                        else
+                        {
+                           this.Log( MessageLevel.Warning, "Failed to get referenced assembly {0} in {1}, target module most likely won't have full public key in all of its assembly references.", aRef, inputModulePath );
                         }
                      }
                   }
@@ -1063,7 +1061,15 @@ namespace CILMerge
             var aRef = new AssemblyReference();
             inputModule.AssemblyDefinitions[0].AssemblyInformation.DeepCopyContentsTo( aRef.AssemblyInformation );
             aRef.Attributes = AssemblyFlags.PublicKey;
-            this._inputModulesAsAssemblyReferences.Add( aRef, inputModule );
+            CILMetaData existing;
+            if ( this._inputModulesAsAssemblyReferences.TryGetValue( aRef, out existing ) )
+            {
+               this.Log( MessageLevel.Warning, "Duplicate assembly based on full assembly name, paths: {0} and {1}.", this._moduleLoader.GetResourceFor( existing ), this._moduleLoader.GetResourceFor( inputModule ) );
+            }
+            else
+            {
+               this._inputModulesAsAssemblyReferences.Add( aRef, inputModule );
+            }
          }
 
          foreach ( var inputModule in this._inputModules )
@@ -1111,12 +1117,10 @@ namespace CILMerge
          }
 
          // Load all referenced assemblies, except target framework ones.
-         var thisDir = Path.GetDirectoryName( thisPath );
          var fwDir = this._loaderCallbacks.GetTargetFrameworkPathFor( md );
          foreach ( var aRef in md.AssemblyReferences )
          {
-            var path = this._loaderCallbacks
-               .GetPossibleResourcesForAssemblyReference( thisPath, md, aRef.NewInformationForResolving(), null )
+            var path = this.GetPossibleResourcesForAssemblyReference( md, aRef )
                .Where( p => fwDir == null || !p.StartsWith( fwDir ) )
                .FirstOrDefault( p => this._loaderCallbacks.IsValidResource( p ) );
             if ( !String.IsNullOrEmpty( path ) )
@@ -1128,6 +1132,24 @@ namespace CILMerge
                }
             }
          }
+      }
+
+      private IEnumerable<String> GetPossibleResourcesForAssemblyReference( CILMetaData inputModule, AssemblyReference assemblyRef )
+      {
+         var aRefInfo = assemblyRef.NewInformationForResolving();
+         var inputModulePath = this._moduleLoader.GetResourceFor( inputModule );
+         var retVal = this._loaderCallbacks
+            .GetPossibleResourcesForAssemblyReference( inputModulePath, inputModule, aRefInfo, null );
+         var libPaths = this._options.LibPaths;
+         if ( !libPaths.IsNullOrEmpty() )
+         {
+            var inputModuleDir = Path.GetDirectoryName( inputModulePath );
+            retVal = retVal.Concat( libPaths
+               .Where( lp => !String.Equals( Path.GetFullPath( lp ), inputModuleDir ) )
+               .SelectMany( lp => this._loaderCallbacks.GetPossibleResourcesForAssemblyReference( Path.Combine( lp, "dummy.dll" ), inputModule, aRefInfo, null ) )
+               );
+         }
+         return retVal;
       }
 
       private CILAssemblyManipulator.Physical.EmittingArguments CreateEmittingArgumentsForTargetModule()
@@ -1178,7 +1200,18 @@ namespace CILMerge
       private void CreateTargetAssembly( CILAssemblyManipulator.Physical.EmittingArguments eArgs )
       {
          var outPath = this._options.OutPath;
-         var targetMD = CILMetaDataFactory.CreateMinimalAssembly( Path.GetFileNameWithoutExtension( outPath ), Path.GetExtension( outPath ).Substring( 1 ) ); // Skip dot
+         var targetAssemblyName = this._options.TargetAssemblyName;
+         if ( String.IsNullOrEmpty( targetAssemblyName ) )
+         {
+            targetAssemblyName = Path.GetFileNameWithoutExtension( outPath );
+         }
+         var targetModuleName = this._options.TargetModuleName;
+         if ( String.IsNullOrEmpty( targetModuleName ) )
+         {
+            targetModuleName = targetAssemblyName + Path.GetExtension( outPath );
+         }
+
+         var targetMD = CILMetaDataFactory.CreateMinimalAssembly( targetAssemblyName, targetModuleName ); // Skip dot
          var primaryAInfo = this._primaryModule.AssemblyDefinitions[0].AssemblyInformation;
          var aInfo = targetMD.AssemblyDefinitions[0].AssemblyInformation;
 
@@ -2180,7 +2213,7 @@ namespace CILMerge
          this.MergeTables(
             Tables.GenericParameterConstraint,
             md => md.GenericParameterConstraintDefinitions,
-            null,
+            ( md, inputIdx, thisIdx ) => this._tableIndexMappings[md].ContainsKey( md.GenericParameterConstraintDefinitions[inputIdx.Index].Owner ),
             ( md, constraint, inputIdx, thisIdx ) => new GenericParameterConstraintDefinition()
             {
                Constraint = this.TranslateTableIndex( md, constraint.Constraint ), // TypeDef/TypeRef/TypeSpec -> already processed

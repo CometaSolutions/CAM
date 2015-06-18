@@ -15,6 +15,8 @@
  * See the License for the specific language governing permissions and
  * limitations under the License. 
  */
+#if !CAM_PHYSICAL_IS_PORTABLE
+
 using CommonUtils;
 using System;
 using System.Collections.Concurrent;
@@ -23,7 +25,7 @@ using System.IO;
 using System.Linq;
 using System.Text;
 
-namespace CILAssemblyManipulator.Physical.DotNET
+namespace CILAssemblyManipulator.Physical
 {
    public sealed class CILMetaDataLoaderResourceCallbacksForFiles : CILMetaDataLoaderResourceCallbacks
    {
@@ -206,3 +208,4 @@ namespace CILAssemblyManipulator.Physical.DotNET
 
 
 }
+#endif

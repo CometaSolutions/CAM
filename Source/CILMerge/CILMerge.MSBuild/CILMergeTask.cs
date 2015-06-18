@@ -22,7 +22,6 @@ using System.Text;
 using Microsoft.Build.Framework;
 using Microsoft.Build.Utilities;
 using CILAssemblyManipulator.Physical;
-using CILAssemblyManipulator.Physical.DotNET;
 
 namespace CILMerge.MSBuild
 {
@@ -189,6 +188,8 @@ namespace CILMerge.MSBuild
       public String MetadataVersionString { get; set; }
       public Boolean SkipFixingAssemblyReferences { get; set; }
       public String CSPName { get; set; }
+      public String TargetAssemblyName { get; set; }
+      public String TargetModuleName { get; set; }
 
       #endregion
 

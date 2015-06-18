@@ -35,7 +35,7 @@ namespace CILAssemblyManipulator.Tests.Physical
          const String NS = "TestNamespace";
          const String ASSEMBLY = "SimpleTestAssembly1";
 
-         var md = CILMetaDataFactory.CreateMinimalAssembly( ASSEMBLY );
+         var md = CILMetaDataFactory.CreateMinimalAssembly( ASSEMBLY, ASSEMBLY + ".dll" );
 
          // mscorlib-reference
          //var mscorLib = new AssemblyReference();
