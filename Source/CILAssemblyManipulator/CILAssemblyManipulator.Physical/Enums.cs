@@ -975,20 +975,20 @@ namespace CILAssemblyManipulator.Physical
    //   Net_4_0,
    //}
 
-   /// <summary>
-   /// Helper enumeration to separate custom modifiers into required and optional ones. See ECMA specification for more information about custom modifiers and their separation.
-   /// </summary>
-   public enum CILCustomModifierOptionality
-   {
-      /// <summary>
-      /// The custom modifier is required to be processed.
-      /// </summary>
-      Required,
-      /// <summary>
-      /// The custom modifier is not required to be processed.
-      /// </summary>
-      Optional
-   }
+   ///// <summary>
+   ///// Helper enumeration to separate custom modifiers into required and optional ones. See ECMA specification for more information about custom modifiers and their separation.
+   ///// </summary>
+   //public enum CILCustomModifierOptionality
+   //{
+   //   /// <summary>
+   //   /// The custom modifier is required to be processed.
+   //   /// </summary>
+   //   Required,
+   //   /// <summary>
+   //   /// The custom modifier is not required to be processed.
+   //   /// </summary>
+   //   Optional
+   //}
 
    [Flags]
    internal enum DLLFlags
@@ -2393,27 +2393,27 @@ public static partial class E_CILPhysical
    //   }
    //}
 
-   /// <summary>
-   /// Checks whether custom modifier optionality represents optional custom modifier.
-   /// </summary>
-   /// <param name="optionality">The <see cref="CILCustomModifierOptionality"/>.</param>
-   /// <returns><c>true</c> if <paramref name="optionality"/> represents optional custom modifier; <c>false</c> otherwise.</returns>
-   /// <seealso cref="CILCustomModifierOptionality.Optional"/>
-   public static Boolean IsOptional( this CILCustomModifierOptionality optionality )
-   {
-      return CILCustomModifierOptionality.Optional == optionality;
-   }
+   ///// <summary>
+   ///// Checks whether custom modifier optionality represents optional custom modifier.
+   ///// </summary>
+   ///// <param name="optionality">The <see cref="CILCustomModifierOptionality"/>.</param>
+   ///// <returns><c>true</c> if <paramref name="optionality"/> represents optional custom modifier; <c>false</c> otherwise.</returns>
+   ///// <seealso cref="CILCustomModifierOptionality.Optional"/>
+   //public static Boolean IsOptional( this CILCustomModifierOptionality optionality )
+   //{
+   //   return CILCustomModifierOptionality.Optional == optionality;
+   //}
 
-   /// <summary>
-   /// Checks whether custom modifier optionality represents required custom modifier.
-   /// </summary>
-   /// <param name="optionality">The <see cref="CILCustomModifierOptionality"/>.</param>
-   /// <returns><c>true</c> if <paramref name="optionality"/> represents required custom modifier; <c>false</c> otherwise.</returns>
-   /// <seealso cref="CILCustomModifierOptionality.Required"/>
-   public static Boolean IsRequired( this CILCustomModifierOptionality optionality )
-   {
-      return CILCustomModifierOptionality.Required == optionality;
-   }
+   ///// <summary>
+   ///// Checks whether custom modifier optionality represents required custom modifier.
+   ///// </summary>
+   ///// <param name="optionality">The <see cref="CILCustomModifierOptionality"/>.</param>
+   ///// <returns><c>true</c> if <paramref name="optionality"/> represents required custom modifier; <c>false</c> otherwise.</returns>
+   ///// <seealso cref="CILCustomModifierOptionality.Required"/>
+   //public static Boolean IsRequired( this CILCustomModifierOptionality optionality )
+   //{
+   //   return CILCustomModifierOptionality.Required == optionality;
+   //}
 
    /// <summary>
    /// Checks whether file attributes are marked to contain metadata.

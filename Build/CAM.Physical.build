@@ -80,19 +80,23 @@
     <NuSpec_Summary>The CAMPhysical MSBuild task utilizes CILAssemblyManipulator project to perform the merge.</NuSpec_Summary>
     <NuSpec_Tags>clr .net cil il assembly code emit generate read freeform</NuSpec_Tags>
     <NuSpec_FilesXML><![CDATA[
-      <file src="$(CAMPhysicalBaseDirNuSpec)\Output\Release\dotNET\CILAssemblyManipulator.Physical.Portable.dll" target="lib\portable-net40+sl50+win+wp80\CILAssemblyManipulator.Physical.Portable.dll" />
-      <file src="$(CAMPhysicalBaseDirNuSpec)\Output\Release\dotNET\CILAssemblyManipulator.Physical.Portable.xml" target="lib\portable-net40+sl50+win+wp80\CILAssemblyManipulator.Physical.Portable.xml" />
-      <file src="$(CAMPhysicalBaseDirNuSpec)\Output\Release\dotNET\CILAssemblyManipulator.Physical.Portable.dll" target="lib\net40\CILAssemblyManipulator.Physical.Portable.dll" />
-      <file src="$(CAMPhysicalBaseDirNuSpec)\Output\Release\dotNET\CILAssemblyManipulator.Physical.Portable.xml" target="lib\net40\CILAssemblyManipulator.Physical.Portable.xml" />
-      <file src="$(CAMPhysicalBaseDirNuSpec)\Output\Release\dotNET\CILAssemblyManipulator.Physical.DotNET.dll" target="lib\net40\CILAssemblyManipulator.Physical.Portable.dll" />
-      <file src="$(CAMPhysicalBaseDirNuSpec)\Output\Release\dotNET\CILAssemblyManipulator.Physical.DotNET.xml" target="lib\net40\CILAssemblyManipulator.Physical.Portable.xml" />
+      <file src="$(CAMPhysicalBaseDirNuSpec)\Output\Release\SL\CILAssemblyManipulator.Physical.Portable.dll" target="lib\portable-net40+sl50+win+wp80\CILAssemblyManipulator.Physical.dll" />
+      <file src="$(CAMPhysicalBaseDirNuSpec)\Output\Release\SL\CILAssemblyManipulator.Physical.xml" target="lib\portable-net40+sl50+win+wp80\CILAssemblyManipulator.Physical.xml" />
+      <file src="$(CAMPhysicalBaseDirNuSpec)\Output\Release\dotNET\CILAssemblyManipulator.Physical.DotNET.dll" target="lib\net40\CILAssemblyManipulator.Physical.dll" />
+      <file src="$(CAMPhysicalBaseDirNuSpec)\Output\Release\dotNET\CILAssemblyManipulator.Physical.xml" target="lib\net40\CILAssemblyManipulator.Physical.xml" />
     ]]></NuSpec_FilesXML>
+    <NuSpec_DependenciesXML><![CDATA[
+      <group>
+        <dependency id="UtilPack" version="$([System.IO.File]::ReadAllText($(CAMPhysicalBaseDirNuSpec)/Source/UtilPackVersion.txt))"/>
+      </group>
+    ]]></NuSpec_DependenciesXML>
   </PropertyGroup>
   
   <!-- Files for PEVerify -->
   <ItemGroup>
-      <PEVerifyFiles Include="$(CAMPhysicalBaseDir)\Output\Release\dotNET\CILAssemblyManipulator.Physical.Portable.dll" />
-      <PEVerifyFiles Include="$(CAMPhysicalBaseDir)\Output\Release\dotNET\CILAssemblyManipulator.Physical.DotNET.dll" />
+      <PEVerifySourceFiles Include="$(CAMPhysicalBaseDir)\Output\Release\SL\CILAssemblyManipulator.Physical.Portable.dll" />
+      <PEVerifySourceFiles Include="$(CAMPhysicalBaseDir)\Output\Release\dotNET\CILAssemblyManipulator.Physical.DotNET.dll" />
+      <PEVerifyFiles Include="$(CAMPhysicalBaseDir)\Output\Release\SL\CILAssemblyManipulator.Physical.dll" />
   </ItemGroup>
   
   <Import Project="$(CAMPhysicalBaseDir)/CommonBuildTools/CLR/MSBuild/NuSpec.targets" />
@@ -115,11 +119,21 @@
        
     <!-- Verify all .dll files exist -->
     <PropertyGroup>
-      <PEVerifyFilesCount>@(PEVerifyFiles->Count())</PEVerifyFilesCount>
+      <PEVerifyFilesCount>@(PEVerifySourceFiles->Count())</PEVerifyFilesCount>
     </PropertyGroup>
-    <Error Condition=" '$(PEVerifyFilesCount)' != '3' " Text="Not all required files for PEVerify are present." />
-    
+    <Error Condition=" '$(PEVerifyFilesCount)' != '2' " Text="Not all required files for PEVerify are present." />
+   
     <!-- Call PEVerify -->
+    <Copy
+      SourceFiles="$(CAMPhysicalBaseDir)\Output\Release\SL\CILAssemblyManipulator.Physical.Portable.dll"
+      DestinationFiles="$(CAMPhysicalBaseDir)\Output\Release\SL\CILAssemblyManipulator.Physical.dll"
+      />
+    <CallTarget Targets="PEVerifyFiles" />
+    
+    <Copy
+      SourceFiles="$(CAMPhysicalBaseDir)\Output\Release\dotNET\CILAssemblyManipulator.Physical.DotNET.dll"
+      DestinationFiles="$(CAMPhysicalBaseDir)\Output\Release\dotNET\CILAssemblyManipulator.Physical.dll"
+      />
     <CallTarget Targets="PEVerifyFiles" />
     
     <!-- Generate .nuspec file -->

@@ -157,10 +157,14 @@ namespace CILAssemblyManipulator.Physical
       }
    }
 
-   // TODO instead of ctor, make factory method for this, and cache all instances...
    public sealed class OpCodeInfoWithNoOperand : OpCodeInfo
    {
-      public OpCodeInfoWithNoOperand( OpCode code )
+      private static readonly IDictionary<OpCodeEncoding, OpCodeInfoWithNoOperand> CodeInfosWithNoOperand = OpCodes.AllOpCodes
+         .Where( c => c.OperandType == OperandType.InlineNone )
+         .ToDictionary( c => c.Value, c => new OpCodeInfoWithNoOperand( c ) );
+
+
+      private OpCodeInfoWithNoOperand( OpCode code )
          : base( code )
       {
 
@@ -171,6 +175,32 @@ namespace CILAssemblyManipulator.Physical
          get
          {
             return OpCodeOperandKind.OperandNone;
+         }
+      }
+
+      public static OpCodeInfoWithNoOperand GetInstanceFor( OpCodeEncoding encoded )
+      {
+         OpCodeInfoWithNoOperand retVal;
+         if ( CodeInfosWithNoOperand.TryGetValue( encoded, out retVal ) )
+         {
+            return retVal;
+         }
+         else
+         {
+            throw new ArgumentException( "Op code " + encoded + " is not operandless opcode." );
+         }
+      }
+
+      public static OpCodeInfoWithNoOperand GetInstanceFor( OpCode code )
+      {
+         return GetInstanceFor( code.Value );
+      }
+
+      public static IEnumerable<OpCodeEncoding> OperandlessCodes
+      {
+         get
+         {
+            return CodeInfosWithNoOperand.Keys;
          }
       }
    }

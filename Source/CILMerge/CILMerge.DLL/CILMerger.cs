@@ -651,6 +651,8 @@ namespace CILMerge
 
       private readonly Lazy<HashStreamInfo> _publicKeyComputer;
 
+      private readonly IEqualityComparer<AssemblyReference> _assemblyReferenceEqualityComparer;
+
       //private readonly CILReflectionContext _ctx;
       //private readonly CILAssemblyLoader _assemblyLoader;
       //private readonly ISet<String> _allInputTypeNames;
@@ -682,45 +684,45 @@ namespace CILMerge
             new CILMetaDataLoaderNotThreadSafeForFiles( this._loaderCallbacks );
          this._cryptoCallbacks = new CryptoCallbacksDotNET();
          this._publicKeyComputer = new Lazy<HashStreamInfo>( () => this._cryptoCallbacks.CreateHashStream( AssemblyHashAlgorithm.SHA1 ), LazyThreadSafetyMode.None );
-         this._inputModulesAsAssemblyReferences = new Dictionary<AssemblyReference, CILMetaData>(
-            ComparerFromFunctions.NewEqualityComparer<AssemblyReference>(
-               ( x, y ) =>
+         this._assemblyReferenceEqualityComparer = ComparerFromFunctions.NewEqualityComparer<AssemblyReference>(
+            ( x, y ) =>
+            {
+               Boolean retVal;
+               var xa = x.AssemblyInformation;
+               var ya = y.AssemblyInformation;
+               if ( x.Attributes.IsFullPublicKey() == y.Attributes.IsFullPublicKey() )
                {
-                  Boolean retVal;
-                  var xa = x.AssemblyInformation;
-                  var ya = y.AssemblyInformation;
-                  if ( x.Attributes.IsFullPublicKey() == y.Attributes.IsFullPublicKey() )
+                  retVal = xa.Equals( ya );
+               }
+               else
+               {
+                  retVal = xa.Equals( ya, false );
+                  if ( retVal
+                     && !xa.PublicKeyOrToken.IsNullOrEmpty()
+                     && !ya.PublicKeyOrToken.IsNullOrEmpty()
+                     )
                   {
-                     retVal = xa.Equals( ya );
-                  }
-                  else
-                  {
-                     retVal = xa.Equals( ya, false );
-                     if ( retVal
-                        && !xa.PublicKeyOrToken.IsNullOrEmpty()
-                        && !ya.PublicKeyOrToken.IsNullOrEmpty()
-                        )
+                     Byte[] xBytes, yBytes;
+                     if ( x.Attributes.IsFullPublicKey() )
                      {
-                        Byte[] xBytes, yBytes;
-                        if ( x.Attributes.IsFullPublicKey() )
-                        {
-                           // Create public key token for x and compare with y
-                           xBytes = this._publicKeyComputer.Value.ComputePublicKeyToken( xa.PublicKeyOrToken );
-                           yBytes = ya.PublicKeyOrToken;
-                        }
-                        else
-                        {
-                           // Create public key token for y and compare with x
-                           xBytes = xa.PublicKeyOrToken;
-                           yBytes = this._publicKeyComputer.Value.ComputePublicKeyToken( ya.PublicKeyOrToken );
-                        }
-                        retVal = ArrayEqualityComparer<Byte>.DefaultArrayEqualityComparer.Equals( xBytes, yBytes );
+                        // Create public key token for x and compare with y
+                        xBytes = this._publicKeyComputer.Value.ComputePublicKeyToken( xa.PublicKeyOrToken );
+                        yBytes = ya.PublicKeyOrToken;
                      }
+                     else
+                     {
+                        // Create public key token for y and compare with x
+                        xBytes = xa.PublicKeyOrToken;
+                        yBytes = this._publicKeyComputer.Value.ComputePublicKeyToken( ya.PublicKeyOrToken );
+                     }
+                     retVal = ArrayEqualityComparer<Byte>.DefaultArrayEqualityComparer.Equals( xBytes, yBytes );
                   }
-                  return retVal;
-               },
-               x => x.AssemblyInformation.GetHashCode()
-            ) );
+               }
+               return retVal;
+            },
+            x => x.AssemblyInformation.GetHashCode()
+            );
+         this._inputModulesAsAssemblyReferences = new Dictionary<AssemblyReference, CILMetaData>( this._assemblyReferenceEqualityComparer );
          this._inputModulesAsModuleReferences = new Dictionary<CILMetaData, IDictionary<String, CILMetaData>>( ReferenceEqualityComparer<CILMetaData>.ReferenceBasedComparer );
          this._tableIndexMappings = new Dictionary<CILMetaData, IDictionary<TableIndex, TableIndex>>( ReferenceEqualityComparer<CILMetaData>.ReferenceBasedComparer );
          this._targetTableIndexMappings = new Dictionary<TableIndex, Tuple<CILMetaData, Int32>>();
@@ -800,7 +802,7 @@ namespace CILMerge
          {
 
             // First of all, load all input modules
-            this._merger.DoWithStopWatch( "Part 1: Loading input assemblies and modules", () =>
+            this._merger.DoWithStopWatch( "Phase 1: Loading input assemblies and modules", () =>
             {
                this.LoadAllInputModules();
             } );
@@ -810,7 +812,7 @@ namespace CILMerge
             eArgs = this.CreateEmittingArgumentsForTargetModule();
             this.CreateTargetAssembly( eArgs );
 
-            this._merger.DoWithStopWatch( "Part 2: Populating target module", () =>
+            this._merger.DoWithStopWatch( "Phase 2: Populating target module", () =>
             {
                // 1. Create structural tables
                var typeDefInfo = this.ConstructStructuralTables();
@@ -828,7 +830,7 @@ namespace CILMerge
             } );
             // Process target module
 
-            this._merger.DoWithStopWatch( "Part 3: Reordering target module tables and removing duplicates", () =>
+            this._merger.DoWithStopWatch( "Phase 3: Reordering target module tables and removing duplicates", () =>
             {
                // 7. Re-order and remove duplicates from tables
                reorderResult = this._targetModule.OrderTablesAndRemoveDuplicates();
@@ -841,7 +843,7 @@ namespace CILMerge
                new PDBHelper( this._targetModule, eArgs, this._options.OutPath ) :
                null;
 
-            this._merger.DoWithStopWatch( "Part 4: Writing target module", () =>
+            this._merger.DoWithStopWatch( "Phase 4: Writing target module", () =>
             {
                // 8. Emit module
                try
@@ -1825,7 +1827,17 @@ namespace CILMerge
                            && this._tableIndexMappings[defModule].ContainsKey( defResScope ) == this._tableIndexMappings[refModule].ContainsKey( refResScope );
                         if ( retVal && this._tableIndexMappings[defModule].ContainsKey( defResScope ) )
                         {
-                           retVal = defModule.AssemblyReferences[defResScope.Index].AssemblyInformation.Equals( refModule.AssemblyReferences[refResScope.Index].AssemblyInformation );
+                           var defARef = defModule.AssemblyReferences[defResScope.Index];
+                           var refARef = refModule.AssemblyReferences[refResScope.Index];
+                           if ( defARef.Attributes.IsRetargetable() || refARef.Attributes.IsRetargetable() )
+                           {
+                              // Simple name match
+                              retVal = String.Equals( defARef.AssemblyInformation.Name, refARef.AssemblyInformation.Name );
+                           }
+                           else
+                           {
+                              retVal = this._assemblyReferenceEqualityComparer.Equals( defARef, refARef );
+                           }
                         }
                         break;
                      case Tables.Module:
@@ -1973,7 +1985,7 @@ namespace CILMerge
                      case OpCodeOperandKind.OperandInteger64:
                         return new OpCodeInfoWithInt64( oc.OpCode, ( (OpCodeInfoWithInt64) oc ).Operand );
                      case OpCodeOperandKind.OperandNone:
-                        return new OpCodeInfoWithNoOperand( oc.OpCode );
+                        return oc;
                      case OpCodeOperandKind.OperandR4:
                         return new OpCodeInfoWithSingle( oc.OpCode, ( (OpCodeInfoWithSingle) oc ).Operand );
                      case OpCodeOperandKind.OperandR8:

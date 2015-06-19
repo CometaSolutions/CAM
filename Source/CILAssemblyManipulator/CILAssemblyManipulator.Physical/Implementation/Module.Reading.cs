@@ -1353,7 +1353,7 @@ namespace CILAssemblyManipulator.Physical.Implementation
             switch ( code.OperandType )
             {
                case OperandType.InlineNone:
-                  info = OpCodes.CodeInfosWithNoOperand[(OpCodeEncoding) curInstruction];
+                  info = OpCodeInfoWithNoOperand.GetInstanceFor( (OpCodeEncoding) curInstruction );
                   break;
                case OperandType.ShortInlineBrTarget:
                case OperandType.ShortInlineI:

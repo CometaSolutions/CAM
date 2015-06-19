@@ -4,18 +4,18 @@
   <PropertyGroup>
     <Configuration Condition=" '$(Configuration)' == '' ">Debug</Configuration>
     <Platform Condition=" '$(Platform)' == '' ">AnyCPU</Platform>
-    <ProjectGuid>{F8BA1950-209D-477F-83D6-3F969C0CBEE6}</ProjectGuid>
+    <ProjectGuid>{A1DAC89C-5076-4455-83AF-261FAC8F4C7C}</ProjectGuid>
     <OutputType>Library</OutputType>
     <AppDesignerFolder>Properties</AppDesignerFolder>
-    <RootNamespace>CILAssemblyManipulator.Physical</RootNamespace>
-    <AssemblyName>CILAssemblyManipulator.Physical</AssemblyName>
+    <RootNamespace>CILAssemblyManipulator.Logical</RootNamespace>
+    <AssemblyName>CILAssemblyManipulator.Logical</AssemblyName>
     <FileAlignment>512</FileAlignment>
     <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
-    <CAMPhysicalIsPortable Condition=" '$(Configuration)' == 'Debug_Portable' Or '$(Configuration)' == 'Release_Portable' ">True</CAMPhysicalIsPortable>
+    <CAMLogicalIsPortable Condition=" '$(Configuration)' == 'Debug_Portable' Or '$(Configuration)' == 'Release_Portable' ">True</CAMLogicalIsPortable>
     <TargetFrameworkVersion>v4.0</TargetFrameworkVersion>
-    <TargetFrameworkProfile Condition=" '$(CAMPhysicalIsPortable)' != '' ">Profile328</TargetFrameworkProfile>
-    <TargetFrameworkProfile Condition=" '$(CAMPhysicalIsPortable)' == '' ">Client</TargetFrameworkProfile>
-    <DefineConstants Condition=" '$(CAMPhysicalIsPortable)' != ''">CAM_PHYSICAL_IS_PORTABLE</DefineConstants>
+    <TargetFrameworkProfile Condition=" '$(CAMLogicalIsPortable)' != '' ">Profile328</TargetFrameworkProfile>
+    <TargetFrameworkProfile Condition=" '$(CAMLogicalIsPortable)' == '' ">Client</TargetFrameworkProfile>
+    <DefineConstants Condition=" '$(CAMLogicalIsPortable)' != ''">CAM_LOGICAL_IS_PORTABLE</DefineConstants>
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|AnyCPU' ">
     <DebugSymbols>true</DebugSymbols>
@@ -58,16 +58,20 @@
     <DocumentationFile>$(OutputPath)$(AssemblyName).xml</DocumentationFile>
   </PropertyGroup> -->
   <ItemGroup>
-    <ProjectReference Include="..\..\CollectionsWithRoles\CollectionsWithRoles.csproj" Condition=" '$(UseUtilpackReference)' == '' And '$(IsCommandLineBuild)' == ''">
+    <ProjectReference Condition=" '$(IsCommandLineBuild)' == ''" Include="..\..\CollectionsWithRoles\CollectionsWithRoles.csproj">
       <Project>{7f7ebfb0-2bf4-44d8-b96f-accc5f99f529}</Project>
       <Name>CollectionsWithRoles</Name>
     </ProjectReference>
-    <ProjectReference Include="..\..\CommonUtils\CommonUtils.csproj" Condition=" '$(UseUtilpackReference)' == '' And '$(IsCommandLineBuild)' == ''">
+    <ProjectReference Condition=" '$(IsCommandLineBuild)' == ''" Include="..\..\CommonUtils\CommonUtils.csproj">
       <Project>{dba22cd8-ac89-4902-8e44-f4771875e781}</Project>
       <Name>CommonUtils</Name>
     </ProjectReference>
+    <ProjectReference Condition=" '$(IsCommandLineBuild)' == ''" Include="..\CILAssemblyManipulator.Physical\CILAssemblyManipulator.Physical.csproj">
+      <Project>{f8ba1950-209d-477f-83d6-3f969c0cbee6}</Project>
+      <Name>CILAssemblyManipulator.Physical</Name>
+    </ProjectReference>
   </ItemGroup>
-  <ItemGroup Condition=" '$(CAMPhysicalIsPortable)' == '' ">
+  <ItemGroup Condition=" '$(CAMLogicalIsPortable)' == '' ">
     <Reference Include="System" />
     <Reference Include="System.Core" />
     <Reference Include="System.Xml.Linq" />
@@ -75,50 +79,62 @@
     <Reference Include="System.Xml" />
   </ItemGroup>
   <ItemGroup>
-    <Reference Include="UtilPack" Condition=" '$(UseUtilpackReference)' != '' ">
+    <Reference Include="UtilPack" Condition=" '$(IsCommandLineBuild)' != '' ">
       <HintPath>$(OutputPath)UtilPack.dll</HintPath>
     </Reference>
-    <!-- Make these different names from ProjectReferences in Include attribute, so that 'go to definition' would work properly in IDE. -->
-    <Reference Include="CommonUtils_dll" Condition=" '$(UseUtilpackReference)' == '' And '$(IsCommandLineBuild)' != '' ">
-      <HintPath>$(OutputPath)CommonUtils.dll</HintPath>
-    </Reference>
-    <Reference Include="CollectionsWithRoles_dll" Condition=" '$(UseUtilpackReference)' == '' And '$(IsCommandLineBuild)' != '' ">
-      <HintPath>$(OutputPath)CollectionsWithRoles.dll</HintPath>
+    <Reference Include="CILAssemblyManipulator.Physical_dll" Condition=" '$(IsCommandLineBuild)' != '' ">
+      <HintPath>$(OutputPath)Merged\CILAssemblyManipulator.Physical.dll</HintPath>
     </Reference>
   </ItemGroup>
   <ItemGroup>
     <Compile Include="..\..\AssemblyInfo\$(AssemblyName).cs">
       <Link>Properties\$(AssemblyName).AssemblyInfo.cs</Link>
     </Compile>
-    <Compile Include="AssemblyInfo.cs" />
-    <Compile Include="Crypto.cs" />
-    <Compile Include="DotNET\CryptoCallbacks.cs" />
-    <Compile Include="DotNET\Loaders.cs" />
-    <Compile Include="DotNET\Verification.cs" />
+    <Compile Include="CILAssembly.cs" />
+    <Compile Include="CILAssemblyLoader.cs" />
+    <Compile Include="CILCustomAttributes.cs" />
+    <Compile Include="CILCustomModifier.cs" />
+    <Compile Include="CILEvent.cs" />
+    <Compile Include="CILField.cs" />
+    <Compile Include="CILMethods.cs" />
+    <Compile Include="CILModule.cs" />
+    <Compile Include="CILParameters.cs" />
+    <Compile Include="CILProperty.cs" />
+    <Compile Include="CILReflectionContext.cs" />
+    <Compile Include="CILReflectionContextExtensions.cs" />
+    <Compile Include="CILTypes.cs" />
+    <Compile Include="Commons.cs" />
+    <Compile Include="Consts.cs" />
+    <Compile Include="Emitting.cs" />
     <Compile Include="Enums.cs" />
-    <Compile Include="Comparers.cs" />
-    <Compile Include="IL.cs" />
-    <Compile Include="Implementation\CryptoUtils.cs" />
-    <Compile Include="Implementation\Module.Reading.cs" />
-    <Compile Include="Implementation\Module.cs" />
-    <Compile Include="Implementation\Module.Writing.cs" />
-    <Compile Include="Loading.cs" />
-    <Compile Include="MetaData.cs" />
-    <Compile Include="MetaData.Resolving.cs" />
-    <Compile Include="MetaData.Signatures.cs" />
-    <Compile Include="Module.cs" />
-    <Compile Include="Module.IO.cs" />
+    <Compile Include="Exceptions.cs" />
+    <Compile Include="FrameworkMonikerInfo.cs" />
+    <Compile Include="Implementation\CILAssembly.cs" />
+    <Compile Include="Implementation\CILCustomAttributes.cs" />
+    <Compile Include="Implementation\CILCustomModifier.cs" />
+    <Compile Include="Implementation\CILEvent.cs" />
+    <Compile Include="Implementation\CILField.cs" />
+    <Compile Include="Implementation\CILMethods.cs" />
+    <Compile Include="Implementation\CILModule.cs" />
+    <Compile Include="Implementation\CILParameters.cs" />
+    <Compile Include="Implementation\CILProperty.cs" />
+    <Compile Include="Implementation\CILReflectionContext.cs" />
+    <Compile Include="Implementation\CILTypes.cs" />
+    <Compile Include="Implementation\Commons.cs" />
+    <Compile Include="Implementation\MethodIL.cs" />
+    <Compile Include="MethodIL.cs" />
+    <Compile Include="OpCodeInfos.cs" />
     <Compile Include="OpCodes.cs" />
+    <Compile Include="StreamExtensions.cs" />
     <Compile Include="Utils.cs" />
-    <Compile Include="Utils_New.cs" />
   </ItemGroup>
   <PropertyGroup Condition=" '$(UseUtilpackReference)' != '' ">
     <SignAssembly>true</SignAssembly>
     <KeyFilePath>$(MSBuildThisFileDirectory)..\..\..\Keys\CAM.snk</KeyFilePath>
     <AssemblyOriginatorKeyFile>$(KeyFilePath)</AssemblyOriginatorKeyFile>
   </PropertyGroup>
-  <Import Condition=" '$(CAMPhysicalIsPortable)' == '' " Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
-  <Import Condition=" '$(CAMPhysicalIsPortable)' != '' " Project="$(MSBuildExtensionsPath32)\Microsoft\Portable\$(TargetFrameworkVersion)\Microsoft.Portable.CSharp.targets" />
+  <Import Condition=" '$(CAMLogicalIsPortable)' == '' " Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
+  <Import Condition=" '$(CAMLogicalIsPortable)' != '' " Project="$(MSBuildExtensionsPath32)\Microsoft\Portable\$(TargetFrameworkVersion)\Microsoft.Portable.CSharp.targets" />
   <!-- Create .snk file if it doesn't exist to ensure smooth build -->
   <Import Project="$(MSBuildThisFileDirectory)../../../CommonBuildTools/CLR/MSBuild/CreateKeyFileIfNeeded.targets" />
   <!-- <Import Project="../../../CommonBuildTools/CLR/MSBuild/TargetFramework.targets" /> -->
@@ -126,26 +142,13 @@
   <PropertyGroup>
     <AssemblyInfoCLSCompliant>true</AssemblyInfoCLSCompliant>
     <AssemblyInfoOutputFile>$(MSBuildThisFileDirectory)/../../AssemblyInfo/$(AssemblyName).cs</AssemblyInfoOutputFile>
-    <AssemblyInfoDescription>CIL Assembly Manipulator (CAM) assembly providing API oriented on physical representation on CIL files.</AssemblyInfoDescription>
+    <AssemblyInfoDescription>CIL Assembly Manipulator (CAM) assembly providing support for emitting CIL code.</AssemblyInfoDescription>
     <AssemblyInfoCompany>Cometa Solutions Ltd</AssemblyInfoCompany>
     <AssemblyInfoTrademark>CAM</AssemblyInfoTrademark>
     <AssemblyInfoAppendAssemblyCopyrightYears>true</AssemblyInfoAppendAssemblyCopyrightYears>
-    <AssemblyInfoAssemblyInceptionYear>2015</AssemblyInfoAssemblyInceptionYear>
+    <AssemblyInfoAssemblyInceptionYear>2013</AssemblyInfoAssemblyInceptionYear>
     <AssemblyInfoCopyrightAuthors>Stanislav Muhametsin</AssemblyInfoCopyrightAuthors>
     <AssemblyInfoVersionFilename>$(MSBuildThisFileDirectory)/../../CILAssemblyManipulatorVersion.txt</AssemblyInfoVersionFilename>
   </PropertyGroup>
   <Import Project="$(MSBuildThisFileDirectory)../../../CommonBuildTools/CLR/MSBuild/AssemblyInfo.targets" />
-  <!-- Merge DLLs -->
-  <UsingTask Condition=" '$(UseUtilpackReference)' != '' And '$(IsCommandLineBuild)' != '' " TaskName="CILMerge.MSBuild.CILMergeTask" AssemblyFile="..\..\..\Output\Release\dotNET\CILMerge.MSBuild.dll" />
-  <PropertyGroup Condition=" '$(Configuration)' == 'Release' Or '$(Configuration)' == 'Release_Portable' ">
-    <CILMergeNoDebug>True</CILMergeNoDebug>
-  </PropertyGroup>
-  <Target Condition=" '$(UseUtilpackReference)' != '' And '$(IsCommandLineBuild)' != '' " Name="AfterBuild">
-    <CILMerge.MSBuild.CILMergeTask InputAssemblies="@(IntermediateAssembly);$(MSBuildThisFileDirectory)$(OutputPath)..\SL\CILAssemblyManipulator.MResources.dll;$(MSBuildThisFileDirectory)$(OutputPath)..\SL\CILAssemblyManipulator.PDB.dll" OutDir="$(MSBuildThisFileDirectory)$(OutputPath)" Union="True" XmlDocs="True" UseFullPublicKeyForRefs="True" NoDebug="$(CILMergeNoDebug)" KeyFile="$(KeyFilePath)" VerifyOutput="true" />
-    <!-- <PropertyGroup>
-      <CAMPhysicalOutputSuffix Condition=" '$(CAMPhysicalIsPortable)' != '' " >Portable</CAMPhysicalOutputSuffix>
-      <CAMPhysicalOutputSuffix Condition=" '$(CAMPhysicalOutputSuffix)' == '' ">DotNET</CAMPhysicalOutputSuffix>
-    </PropertyGroup> -->
-    <Move SourceFiles="$(MSBuildThisFileDirectory)$(OutputPath)$(AssemblyName).dll" DestinationFiles="$(MSBuildThisFileDirectory)$(OutputPath)Merged\$(AssemblyName).dll" />
-  </Target>
 </Project>

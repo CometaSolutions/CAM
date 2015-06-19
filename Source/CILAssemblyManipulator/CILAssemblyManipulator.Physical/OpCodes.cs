@@ -900,12 +900,12 @@ namespace CILAssemblyManipulator.Physical
       /// </summary>
       public static readonly OpCode Readonly_;
 
-      internal static IDictionary<OpCodeEncoding, OpCode> Codes;
-      internal static IDictionary<OpCodeEncoding, OpCodeInfo> CodeInfosWithNoOperand;
+
+      internal static readonly IDictionary<OpCodeEncoding, OpCode> Codes;
+
       static OpCodes()
       {
          Codes = new Dictionary<OpCodeEncoding, OpCode>();
-         CodeInfosWithNoOperand = new Dictionary<OpCodeEncoding, OpCodeInfo>();
 
          Nop = new OpCode( OpCodeEncoding.Nop, StackBehaviourPop.Pop0, StackBehaviourPush.Push0, OperandType.InlineNone, OpCodeType.Primitive, FlowControl.Next, false );
          Break = new OpCode( OpCodeEncoding.Break, StackBehaviourPop.Pop0, StackBehaviourPush.Push0, OperandType.InlineNone, OpCodeType.Primitive, FlowControl.Break, false );
@@ -1127,6 +1127,35 @@ namespace CILAssemblyManipulator.Physical
          Readonly_ = new OpCode( OpCodeEncoding.Readonly_, StackBehaviourPop.Pop0, StackBehaviourPush.Push0, OperandType.InlineNone, OpCodeType.Prefix, FlowControl.Meta, false );
 
       }
+
+      public static OpCode GetCodeFor( OpCodeEncoding codeEnum )
+      {
+         OpCode retVal;
+         if ( Codes.TryGetValue( codeEnum, out retVal ) )
+         {
+            return retVal;
+         }
+         else
+         {
+            throw new ArgumentException( "Opcode " + codeEnum + " is invalid or not supported by this framework." );
+         }
+      }
+
+      public static IEnumerable<OpCodeEncoding> AllOpCodesEncoded
+      {
+         get
+         {
+            return Codes.Keys;
+         }
+      }
+
+      public static IEnumerable<OpCode> AllOpCodes
+      {
+         get
+         {
+            return Codes.Values;
+         }
+      }
    }
 
    /// <summary>
@@ -1134,6 +1163,9 @@ namespace CILAssemblyManipulator.Physical
    /// </summary>
    public struct OpCode
    {
+
+
+
       internal const Int32 MAX_ONE_BYTE_INSTRUCTION = 0xFE;
 
 
@@ -1300,10 +1332,6 @@ namespace CILAssemblyManipulator.Physical
          System.Diagnostics.Debug.Assert( (UInt64) this.OperandSize == operandSize );
 #endif
          OpCodes.Codes.Add( encoded, this );
-         if ( OperandType.InlineNone == operand )
-         {
-            OpCodes.CodeInfosWithNoOperand.Add( encoded, new OpCodeInfoWithNoOperand( this ) );
-         }
       }
 
       /// <summary>

@@ -34,6 +34,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "CILAssemblyManipulator.Test
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "CILAssemblyManipulator.Physical", "CILAssemblyManipulator\CILAssemblyManipulator.Physical\CILAssemblyManipulator.Physical.csproj", "{F8BA1950-209D-477F-83D6-3F969C0CBEE6}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "CILAssemblyManipulator.Logical", "CILAssemblyManipulator\CILAssemblyManipulator.Logical\CILAssemblyManipulator.Logical.csproj", "{A1DAC89C-5076-4455-83AF-261FAC8F4C7C}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug_SL|Any CPU = Debug_SL|Any CPU
@@ -175,6 +177,16 @@ Global
 		{F8BA1950-209D-477F-83D6-3F969C0CBEE6}.Release_WP|Any CPU.Build.0 = Release|Any CPU
 		{F8BA1950-209D-477F-83D6-3F969C0CBEE6}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{F8BA1950-209D-477F-83D6-3F969C0CBEE6}.Release|Any CPU.Build.0 = Release|Any CPU
+		{A1DAC89C-5076-4455-83AF-261FAC8F4C7C}.Debug_SL|Any CPU.ActiveCfg = Debug|Any CPU
+		{A1DAC89C-5076-4455-83AF-261FAC8F4C7C}.Debug_SL|Any CPU.Build.0 = Debug|Any CPU
+		{A1DAC89C-5076-4455-83AF-261FAC8F4C7C}.Debug_WP|Any CPU.ActiveCfg = Debug|Any CPU
+		{A1DAC89C-5076-4455-83AF-261FAC8F4C7C}.Debug_WP|Any CPU.Build.0 = Debug|Any CPU
+		{A1DAC89C-5076-4455-83AF-261FAC8F4C7C}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{A1DAC89C-5076-4455-83AF-261FAC8F4C7C}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{A1DAC89C-5076-4455-83AF-261FAC8F4C7C}.Release_WP|Any CPU.ActiveCfg = Release|Any CPU
+		{A1DAC89C-5076-4455-83AF-261FAC8F4C7C}.Release_WP|Any CPU.Build.0 = Release|Any CPU
+		{A1DAC89C-5076-4455-83AF-261FAC8F4C7C}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{A1DAC89C-5076-4455-83AF-261FAC8F4C7C}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

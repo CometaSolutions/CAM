@@ -28,12 +28,12 @@
     <CILMergeProject Include="$(CILMergeBaseDir)/Source/CILAssemblyManipulator/CILAssemblyManipulator.PDB/CILAssemblyManipulator.PDB.csproj">
       <!-- <MergeProjectPath>$(CILMergeBaseDir)/Source/CILAssemblyManipulator/CILAssemblyManipulator.PDB/CILAssemblyManipulator.PDB.csproj</MergeProjectPath>  -->
       <MergeProjectConfiguration>$(CILMergeConfiguration)</MergeProjectConfiguration>
-      <MergeProjectTargets>Build</MergeProjectTargets>
+      <MergeProjectTargets>Rebuild</MergeProjectTargets>
     </CILMergeProject>
     <CILMergeProject Include="$(CILMergeBaseDir)/Source/CILAssemblyManipulator/CILAssemblyManipulator.MResources/CILAssemblyManipulator.MResources.csproj">
       <!-- <MergeProjectPath>$(CILMergeBaseDir)/Source/CILAssemblyManipulator/CILAssemblyManipulator.MResources/CILAssemblyManipulator.MResources.csproj</MergeProjectPath>  -->
       <MergeProjectConfiguration>$(CILMergeConfiguration)</MergeProjectConfiguration>
-      <MergeProjectTargets>Build</MergeProjectTargets>
+      <MergeProjectTargets>Rebuild</MergeProjectTargets>
     </CILMergeProject>
     <CILMergeProject Include="$(CILMergeBaseDir)/Source/CILMerge/CILMerge.MSBuild/CILMerge.MSBuild.csproj">
       <!-- <MergeProjectPath>$(CILMergeBaseDir)/Source/CILMerge/CILMerge.MSBuild/CILMerge.MSBuild.csproj</MergeProjectPath> -->
