@@ -1316,10 +1316,10 @@ namespace CILAssemblyManipulator.Physical
       //         );
       //}
 
-      internal static T GetOrNull<T>( this IList<T> list, Int32 idx )
+      internal static T GetOrNull<T>( this MetaDataTable<T> list, Int32 idx )
          where T : class
       {
-         return idx < list.Count ? list[idx] : null;
+         return idx < list.RowCount ? list.TableContents[idx] : null;
       }
    }
 

@@ -141,7 +141,7 @@ namespace CILAssemblyManipulator.Physical
                      CustomAttributeArgumentType retVal = null;
                      if ( enumFieldIndex >= 0 )
                      {
-                        var sig = md.FieldDefinitions[enumFieldIndex].Signature.Type;
+                        var sig = md.FieldDefinitions.TableContents[enumFieldIndex].Signature.Type;
                         if ( sig != null && sig.TypeSignatureKind == TypeSignatureKind.Simple )
                         {
                            retVal = ResolveCATypeSimple( ( (SimpleTypeSignature) sig ).SimpleType );
@@ -235,7 +235,7 @@ namespace CILAssemblyManipulator.Physical
                   var tn = kvp.Value;
 
                   var hasNS = !String.IsNullOrEmpty( ns );
-                  var suitableIndex = md.TypeDefinitions.FindIndex( tDef =>
+                  var suitableIndex = md.TypeDefinitions.TableContents.FindIndex( tDef =>
                      String.Equals( tDef.Name, tn )
                      && (
                         ( hasNS && String.Equals( tDef.Namespace, ns ) )
@@ -244,7 +244,7 @@ namespace CILAssemblyManipulator.Physical
 
                   // Check that this is not nested type
                   if ( suitableIndex >= 0
-                     && md.NestedClassDefinitions.Any( nc => nc.NestedClass.Index == suitableIndex ) // TODO cache this? //.GetReferencingRowsFromOrdered( Tables.TypeDef, suitableIndex, nc => nc.NestedClass ).Any() // this will be true if the type definition at index 'suitableIndex' has declaring type, i.e. it is nested type
+                     && md.NestedClassDefinitions.TableContents.Any( nc => nc.NestedClass.Index == suitableIndex ) // TODO cache this? //.GetReferencingRowsFromOrdered( Tables.TypeDef, suitableIndex, nc => nc.NestedClass ).Any() // this will be true if the type definition at index 'suitableIndex' has declaring type, i.e. it is nested type
                      )
                   {
                      suitableIndex = -1;
@@ -271,7 +271,7 @@ namespace CILAssemblyManipulator.Physical
                {
                   // Find nested type, which has this type as its declaring type and its name equal to tRef's
                   // Skip to the first row where nested class index is greater than type def index (since in typedef table, all nested class definitions must follow encloding class definition)
-                  nestedTD = md.NestedClassDefinitions
+                  nestedTD = md.NestedClassDefinitions.TableContents
                      .SkipWhile( nc => nc.NestedClass.Index <= enclosingTypeIndex )
                      .Where( nc =>
                      {
@@ -413,13 +413,13 @@ namespace CILAssemblyManipulator.Physical
          switch ( caTypeTableIndex.Table )
          {
             case Tables.MethodDef:
-               ctorSig = caTypeTableIndex.Index < md.MethodDefinitions.Count ?
-                  md.MethodDefinitions[caTypeTableIndex.Index].Signature :
+               ctorSig = caTypeTableIndex.Index < md.MethodDefinitions.RowCount ?
+                  md.MethodDefinitions.TableContents[caTypeTableIndex.Index].Signature :
                   null;
                break;
             case Tables.MemberRef:
-               ctorSig = caTypeTableIndex.Index < md.MemberReferences.Count ?
-                  md.MemberReferences[caTypeTableIndex.Index].Signature as AbstractMethodSignature :
+               ctorSig = caTypeTableIndex.Index < md.MemberReferences.RowCount ?
+                  md.MemberReferences.TableContents[caTypeTableIndex.Index].Signature as AbstractMethodSignature :
                   null;
                break;
             default:
@@ -1023,11 +1023,12 @@ public static partial class E_CILPhysical
       resolver.ResolveAllSecurityInformation( md );
    }
 
-   private static void UseResolver<T>( this MetaDataResolver resolver, CILMetaData md, IList<T> list, Action<MetaDataResolver, CILMetaData, Int32> action )
+   private static void UseResolver<T>( this MetaDataResolver resolver, CILMetaData md, MetaDataTable<T> list, Action<MetaDataResolver, CILMetaData, Int32> action )
+      where T : class
    {
       ArgumentValidator.ValidateNotNull( "Metadata", md );
 
-      var max = list.Count;
+      var max = list.RowCount;
       for ( var i = 0; i < max; ++i )
       {
          action( resolver, md, i );

@@ -23,78 +23,44 @@ using CommonUtils;
 
 namespace CILAssemblyManipulator.Physical.Implementation
 {
-   internal sealed class CILModuleDataImpl : CILModuleData
-   {
-      private readonly HeadersData _headers;
-      private readonly CILMetaData _md;
-
-      internal CILModuleDataImpl(
-         HeadersData headers,
-         CILMetaData md
-         )
-      {
-         ArgumentValidator.ValidateNotNull( "Headers", headers );
-         ArgumentValidator.ValidateNotNull( "Metadata", md );
-
-         this._headers = headers;
-         this._md = md;
-      }
-
-      public HeadersData Headers
-      {
-         get
-         {
-            return this._headers;
-         }
-      }
-
-      public CILMetaData MetaData
-      {
-         get
-         {
-            return this._md;
-         }
-      }
-   }
-
    internal sealed class CILMetadataImpl : CILMetaData
    {
       private static readonly Int32[] EMPTY_SIZES = Enumerable.Repeat( 0, Consts.AMOUNT_OF_TABLES ).ToArray();
 
-      private readonly List<ModuleDefinition> _moduleDefinitions;
-      private readonly List<TypeReference> _typeReferences;
-      private readonly List<TypeDefinition> _typeDefinitions;
-      private readonly List<FieldDefinition> _fieldDefinitions;
-      private readonly List<MethodDefinition> _methodDefinitions;
-      private readonly List<ParameterDefinition> _parameterDefinitions;
-      private readonly List<InterfaceImplementation> _interfaceImplementations;
-      private readonly List<MemberReference> _memberReferences;
-      private readonly List<ConstantDefinition> _constantDefinitions;
-      private readonly List<CustomAttributeDefinition> _customAttributeDefinitions;
-      private readonly List<FieldMarshal> _fieldMarshals;
-      private readonly List<SecurityDefinition> _securityDefinitions;
-      private readonly List<ClassLayout> _classLayouts;
-      private readonly List<FieldLayout> _fieldLayouts;
-      private readonly List<StandaloneSignature> _standaloneSignatures;
-      private readonly List<EventMap> _eventMaps;
-      private readonly List<EventDefinition> _eventDefinitions;
-      private readonly List<PropertyMap> _propertyMaps;
-      private readonly List<PropertyDefinition> _propertyDefinitions;
-      private readonly List<MethodSemantics> _methodSemantics;
-      private readonly List<MethodImplementation> _methodImplementations;
-      private readonly List<ModuleReference> _moduleReferences;
-      private readonly List<TypeSpecification> _typeSpecifications;
-      private readonly List<MethodImplementationMap> _methodImplementationMaps;
-      private readonly List<FieldRVA> _fieldRVAs;
-      private readonly List<AssemblyDefinition> _assemblyDefinitions;
-      private readonly List<AssemblyReference> _assemblyReferences;
-      private readonly List<FileReference> _fileReferences;
-      private readonly List<ExportedType> _exportedTypess;
-      private readonly List<ManifestResource> _manifestResources;
-      private readonly List<NestedClassDefinition> _nestedClassDefinitions;
-      private readonly List<GenericParameterDefinition> _genericParameterDefinitions;
-      private readonly List<MethodSpecification> _methodSpecifications;
-      private readonly List<GenericParameterConstraintDefinition> _genericParameterConstraintDefinitions;
+      private readonly MetaDataTableImpl<ModuleDefinition> _moduleDefinitions;
+      private readonly MetaDataTableImpl<TypeReference> _typeReferences;
+      private readonly MetaDataTableImpl<TypeDefinition> _typeDefinitions;
+      private readonly MetaDataTableImpl<FieldDefinition> _fieldDefinitions;
+      private readonly MetaDataTableImpl<MethodDefinition> _methodDefinitions;
+      private readonly MetaDataTableImpl<ParameterDefinition> _parameterDefinitions;
+      private readonly MetaDataTableImpl<InterfaceImplementation> _interfaceImplementations;
+      private readonly MetaDataTableImpl<MemberReference> _memberReferences;
+      private readonly MetaDataTableImpl<ConstantDefinition> _constantDefinitions;
+      private readonly MetaDataTableImpl<CustomAttributeDefinition> _customAttributeDefinitions;
+      private readonly MetaDataTableImpl<FieldMarshal> _fieldMarshals;
+      private readonly MetaDataTableImpl<SecurityDefinition> _securityDefinitions;
+      private readonly MetaDataTableImpl<ClassLayout> _classLayouts;
+      private readonly MetaDataTableImpl<FieldLayout> _fieldLayouts;
+      private readonly MetaDataTableImpl<StandaloneSignature> _standaloneSignatures;
+      private readonly MetaDataTableImpl<EventMap> _eventMaps;
+      private readonly MetaDataTableImpl<EventDefinition> _eventDefinitions;
+      private readonly MetaDataTableImpl<PropertyMap> _propertyMaps;
+      private readonly MetaDataTableImpl<PropertyDefinition> _propertyDefinitions;
+      private readonly MetaDataTableImpl<MethodSemantics> _methodSemantics;
+      private readonly MetaDataTableImpl<MethodImplementation> _methodImplementations;
+      private readonly MetaDataTableImpl<ModuleReference> _moduleReferences;
+      private readonly MetaDataTableImpl<TypeSpecification> _typeSpecifications;
+      private readonly MetaDataTableImpl<MethodImplementationMap> _methodImplementationMaps;
+      private readonly MetaDataTableImpl<FieldRVA> _fieldRVAs;
+      private readonly MetaDataTableImpl<AssemblyDefinition> _assemblyDefinitions;
+      private readonly MetaDataTableImpl<AssemblyReference> _assemblyReferences;
+      private readonly MetaDataTableImpl<FileReference> _fileReferences;
+      private readonly MetaDataTableImpl<ExportedType> _exportedTypess;
+      private readonly MetaDataTableImpl<ManifestResource> _manifestResources;
+      private readonly MetaDataTableImpl<NestedClassDefinition> _nestedClassDefinitions;
+      private readonly MetaDataTableImpl<GenericParameterDefinition> _genericParameterDefinitions;
+      private readonly MetaDataTableImpl<MethodSpecification> _methodSpecifications;
+      private readonly MetaDataTableImpl<GenericParameterConstraintDefinition> _genericParameterConstraintDefinitions;
 
       internal CILMetadataImpl()
          : this( EMPTY_SIZES )
@@ -104,43 +70,43 @@ namespace CILAssemblyManipulator.Physical.Implementation
 
       internal CILMetadataImpl( Int32[] sizes )
       {
-         this._moduleDefinitions = new List<ModuleDefinition>( sizes[(Int32) Tables.Module] );
-         this._typeReferences = new List<TypeReference>( sizes[(Int32) Tables.TypeRef] );
-         this._typeDefinitions = new List<TypeDefinition>( sizes[(Int32) Tables.TypeDef] );
-         this._fieldDefinitions = new List<FieldDefinition>( sizes[(Int32) Tables.Field] );
-         this._methodDefinitions = new List<MethodDefinition>( sizes[(Int32) Tables.MethodDef] );
-         this._parameterDefinitions = new List<ParameterDefinition>( sizes[(Int32) Tables.Parameter] );
-         this._interfaceImplementations = new List<InterfaceImplementation>( sizes[(Int32) Tables.InterfaceImpl] );
-         this._memberReferences = new List<MemberReference>( sizes[(Int32) Tables.MemberRef] );
-         this._constantDefinitions = new List<ConstantDefinition>( sizes[(Int32) Tables.Constant] );
-         this._customAttributeDefinitions = new List<CustomAttributeDefinition>( sizes[(Int32) Tables.CustomAttribute] );
-         this._fieldMarshals = new List<FieldMarshal>( sizes[(Int32) Tables.FieldMarshal] );
-         this._securityDefinitions = new List<SecurityDefinition>( sizes[(Int32) Tables.DeclSecurity] );
-         this._classLayouts = new List<ClassLayout>( sizes[(Int32) Tables.ClassLayout] );
-         this._fieldLayouts = new List<FieldLayout>( sizes[(Int32) Tables.FieldLayout] );
-         this._standaloneSignatures = new List<StandaloneSignature>( sizes[(Int32) Tables.StandaloneSignature] );
-         this._eventMaps = new List<EventMap>( sizes[(Int32) Tables.EventMap] );
-         this._eventDefinitions = new List<EventDefinition>( sizes[(Int32) Tables.Event] );
-         this._propertyMaps = new List<PropertyMap>( sizes[(Int32) Tables.PropertyMap] );
-         this._propertyDefinitions = new List<PropertyDefinition>( sizes[(Int32) Tables.Property] );
-         this._methodSemantics = new List<MethodSemantics>( sizes[(Int32) Tables.MethodSemantics] );
-         this._methodImplementations = new List<MethodImplementation>( sizes[(Int32) Tables.MethodImpl] );
-         this._moduleReferences = new List<ModuleReference>( sizes[(Int32) Tables.ModuleRef] );
-         this._typeSpecifications = new List<TypeSpecification>( sizes[(Int32) Tables.TypeSpec] );
-         this._methodImplementationMaps = new List<MethodImplementationMap>( sizes[(Int32) Tables.ImplMap] );
-         this._fieldRVAs = new List<FieldRVA>( sizes[(Int32) Tables.FieldRVA] );
-         this._assemblyDefinitions = new List<AssemblyDefinition>( sizes[(Int32) Tables.Assembly] );
-         this._assemblyReferences = new List<AssemblyReference>( sizes[(Int32) Tables.AssemblyRef] );
-         this._fileReferences = new List<FileReference>( sizes[(Int32) Tables.File] );
-         this._exportedTypess = new List<ExportedType>( sizes[(Int32) Tables.ExportedType] );
-         this._manifestResources = new List<ManifestResource>( sizes[(Int32) Tables.ManifestResource] );
-         this._nestedClassDefinitions = new List<NestedClassDefinition>( sizes[(Int32) Tables.NestedClass] );
-         this._genericParameterDefinitions = new List<GenericParameterDefinition>( sizes[(Int32) Tables.GenericParameter] );
-         this._methodSpecifications = new List<MethodSpecification>( sizes[(Int32) Tables.MethodSpec] );
-         this._genericParameterConstraintDefinitions = new List<GenericParameterConstraintDefinition>( sizes[(Int32) Tables.GenericParameterConstraint] );
+         this._moduleDefinitions = new MetaDataTableImpl<ModuleDefinition>( Tables.Module, sizes[(Int32) Tables.Module] );
+         this._typeReferences = new MetaDataTableImpl<TypeReference>( Tables.TypeRef, sizes[(Int32) Tables.TypeRef] );
+         this._typeDefinitions = new MetaDataTableImpl<TypeDefinition>( Tables.TypeDef, sizes[(Int32) Tables.TypeDef] );
+         this._fieldDefinitions = new MetaDataTableImpl<FieldDefinition>( Tables.Field, sizes[(Int32) Tables.Field] );
+         this._methodDefinitions = new MetaDataTableImpl<MethodDefinition>( Tables.MethodDef, sizes[(Int32) Tables.MethodDef] );
+         this._parameterDefinitions = new MetaDataTableImpl<ParameterDefinition>( Tables.Parameter, sizes[(Int32) Tables.Parameter] );
+         this._interfaceImplementations = new MetaDataTableImpl<InterfaceImplementation>( Tables.InterfaceImpl, sizes[(Int32) Tables.InterfaceImpl] );
+         this._memberReferences = new MetaDataTableImpl<MemberReference>( Tables.MemberRef, sizes[(Int32) Tables.MemberRef] );
+         this._constantDefinitions = new MetaDataTableImpl<ConstantDefinition>( Tables.Constant, sizes[(Int32) Tables.Constant] );
+         this._customAttributeDefinitions = new MetaDataTableImpl<CustomAttributeDefinition>( Tables.CustomAttribute, sizes[(Int32) Tables.CustomAttribute] );
+         this._fieldMarshals = new MetaDataTableImpl<FieldMarshal>( Tables.FieldMarshal, sizes[(Int32) Tables.FieldMarshal] );
+         this._securityDefinitions = new MetaDataTableImpl<SecurityDefinition>( Tables.DeclSecurity, sizes[(Int32) Tables.DeclSecurity] );
+         this._classLayouts = new MetaDataTableImpl<ClassLayout>( Tables.ClassLayout, sizes[(Int32) Tables.ClassLayout] );
+         this._fieldLayouts = new MetaDataTableImpl<FieldLayout>( Tables.FieldLayout, sizes[(Int32) Tables.FieldLayout] );
+         this._standaloneSignatures = new MetaDataTableImpl<StandaloneSignature>( Tables.StandaloneSignature, sizes[(Int32) Tables.StandaloneSignature] );
+         this._eventMaps = new MetaDataTableImpl<EventMap>( Tables.EventMap, sizes[(Int32) Tables.EventMap] );
+         this._eventDefinitions = new MetaDataTableImpl<EventDefinition>( Tables.Event, sizes[(Int32) Tables.Event] );
+         this._propertyMaps = new MetaDataTableImpl<PropertyMap>( Tables.PropertyMap, sizes[(Int32) Tables.PropertyMap] );
+         this._propertyDefinitions = new MetaDataTableImpl<PropertyDefinition>( Tables.Property, sizes[(Int32) Tables.Property] );
+         this._methodSemantics = new MetaDataTableImpl<MethodSemantics>( Tables.MethodSemantics, sizes[(Int32) Tables.MethodSemantics] );
+         this._methodImplementations = new MetaDataTableImpl<MethodImplementation>( Tables.MethodImpl, sizes[(Int32) Tables.MethodImpl] );
+         this._moduleReferences = new MetaDataTableImpl<ModuleReference>( Tables.ModuleRef, sizes[(Int32) Tables.ModuleRef] );
+         this._typeSpecifications = new MetaDataTableImpl<TypeSpecification>( Tables.TypeSpec, sizes[(Int32) Tables.TypeSpec] );
+         this._methodImplementationMaps = new MetaDataTableImpl<MethodImplementationMap>( Tables.ImplMap, sizes[(Int32) Tables.ImplMap] );
+         this._fieldRVAs = new MetaDataTableImpl<FieldRVA>( Tables.FieldRVA, sizes[(Int32) Tables.FieldRVA] );
+         this._assemblyDefinitions = new MetaDataTableImpl<AssemblyDefinition>( Tables.Assembly, sizes[(Int32) Tables.Assembly] );
+         this._assemblyReferences = new MetaDataTableImpl<AssemblyReference>( Tables.AssemblyRef, sizes[(Int32) Tables.AssemblyRef] );
+         this._fileReferences = new MetaDataTableImpl<FileReference>( Tables.File, sizes[(Int32) Tables.File] );
+         this._exportedTypess = new MetaDataTableImpl<ExportedType>( Tables.ExportedType, sizes[(Int32) Tables.ExportedType] );
+         this._manifestResources = new MetaDataTableImpl<ManifestResource>( Tables.ManifestResource, sizes[(Int32) Tables.ManifestResource] );
+         this._nestedClassDefinitions = new MetaDataTableImpl<NestedClassDefinition>( Tables.NestedClass, sizes[(Int32) Tables.NestedClass] );
+         this._genericParameterDefinitions = new MetaDataTableImpl<GenericParameterDefinition>( Tables.GenericParameter, sizes[(Int32) Tables.GenericParameter] );
+         this._methodSpecifications = new MetaDataTableImpl<MethodSpecification>( Tables.MethodSpec, sizes[(Int32) Tables.MethodSpec] );
+         this._genericParameterConstraintDefinitions = new MetaDataTableImpl<GenericParameterConstraintDefinition>( Tables.GenericParameterConstraint, sizes[(Int32) Tables.GenericParameterConstraint] );
       }
 
-      public List<ModuleDefinition> ModuleDefinitions
+      public MetaDataTable<ModuleDefinition> ModuleDefinitions
       {
          get
          {
@@ -148,7 +114,7 @@ namespace CILAssemblyManipulator.Physical.Implementation
          }
       }
 
-      public List<TypeReference> TypeReferences
+      public MetaDataTable<TypeReference> TypeReferences
       {
          get
          {
@@ -156,7 +122,7 @@ namespace CILAssemblyManipulator.Physical.Implementation
          }
       }
 
-      public List<TypeDefinition> TypeDefinitions
+      public MetaDataTable<TypeDefinition> TypeDefinitions
       {
          get
          {
@@ -164,7 +130,7 @@ namespace CILAssemblyManipulator.Physical.Implementation
          }
       }
 
-      public List<FieldDefinition> FieldDefinitions
+      public MetaDataTable<FieldDefinition> FieldDefinitions
       {
          get
          {
@@ -172,7 +138,7 @@ namespace CILAssemblyManipulator.Physical.Implementation
          }
       }
 
-      public List<MethodDefinition> MethodDefinitions
+      public MetaDataTable<MethodDefinition> MethodDefinitions
       {
          get
          {
@@ -180,7 +146,7 @@ namespace CILAssemblyManipulator.Physical.Implementation
          }
       }
 
-      public List<ParameterDefinition> ParameterDefinitions
+      public MetaDataTable<ParameterDefinition> ParameterDefinitions
       {
          get
          {
@@ -188,7 +154,7 @@ namespace CILAssemblyManipulator.Physical.Implementation
          }
       }
 
-      public List<InterfaceImplementation> InterfaceImplementations
+      public MetaDataTable<InterfaceImplementation> InterfaceImplementations
       {
          get
          {
@@ -196,7 +162,7 @@ namespace CILAssemblyManipulator.Physical.Implementation
          }
       }
 
-      public List<MemberReference> MemberReferences
+      public MetaDataTable<MemberReference> MemberReferences
       {
          get
          {
@@ -204,7 +170,7 @@ namespace CILAssemblyManipulator.Physical.Implementation
          }
       }
 
-      public List<ConstantDefinition> ConstantDefinitions
+      public MetaDataTable<ConstantDefinition> ConstantDefinitions
       {
          get
          {
@@ -212,7 +178,7 @@ namespace CILAssemblyManipulator.Physical.Implementation
          }
       }
 
-      public List<CustomAttributeDefinition> CustomAttributeDefinitions
+      public MetaDataTable<CustomAttributeDefinition> CustomAttributeDefinitions
       {
          get
          {
@@ -220,7 +186,7 @@ namespace CILAssemblyManipulator.Physical.Implementation
          }
       }
 
-      public List<FieldMarshal> FieldMarshals
+      public MetaDataTable<FieldMarshal> FieldMarshals
       {
          get
          {
@@ -228,7 +194,7 @@ namespace CILAssemblyManipulator.Physical.Implementation
          }
       }
 
-      public List<SecurityDefinition> SecurityDefinitions
+      public MetaDataTable<SecurityDefinition> SecurityDefinitions
       {
          get
          {
@@ -236,7 +202,7 @@ namespace CILAssemblyManipulator.Physical.Implementation
          }
       }
 
-      public List<ClassLayout> ClassLayouts
+      public MetaDataTable<ClassLayout> ClassLayouts
       {
          get
          {
@@ -244,7 +210,7 @@ namespace CILAssemblyManipulator.Physical.Implementation
          }
       }
 
-      public List<FieldLayout> FieldLayouts
+      public MetaDataTable<FieldLayout> FieldLayouts
       {
          get
          {
@@ -252,7 +218,7 @@ namespace CILAssemblyManipulator.Physical.Implementation
          }
       }
 
-      public List<StandaloneSignature> StandaloneSignatures
+      public MetaDataTable<StandaloneSignature> StandaloneSignatures
       {
          get
          {
@@ -260,7 +226,7 @@ namespace CILAssemblyManipulator.Physical.Implementation
          }
       }
 
-      public List<EventMap> EventMaps
+      public MetaDataTable<EventMap> EventMaps
       {
          get
          {
@@ -268,7 +234,7 @@ namespace CILAssemblyManipulator.Physical.Implementation
          }
       }
 
-      public List<EventDefinition> EventDefinitions
+      public MetaDataTable<EventDefinition> EventDefinitions
       {
          get
          {
@@ -276,7 +242,7 @@ namespace CILAssemblyManipulator.Physical.Implementation
          }
       }
 
-      public List<PropertyMap> PropertyMaps
+      public MetaDataTable<PropertyMap> PropertyMaps
       {
          get
          {
@@ -284,7 +250,7 @@ namespace CILAssemblyManipulator.Physical.Implementation
          }
       }
 
-      public List<PropertyDefinition> PropertyDefinitions
+      public MetaDataTable<PropertyDefinition> PropertyDefinitions
       {
          get
          {
@@ -292,7 +258,7 @@ namespace CILAssemblyManipulator.Physical.Implementation
          }
       }
 
-      public List<MethodSemantics> MethodSemantics
+      public MetaDataTable<MethodSemantics> MethodSemantics
       {
          get
          {
@@ -300,7 +266,7 @@ namespace CILAssemblyManipulator.Physical.Implementation
          }
       }
 
-      public List<MethodImplementation> MethodImplementations
+      public MetaDataTable<MethodImplementation> MethodImplementations
       {
          get
          {
@@ -308,7 +274,7 @@ namespace CILAssemblyManipulator.Physical.Implementation
          }
       }
 
-      public List<ModuleReference> ModuleReferences
+      public MetaDataTable<ModuleReference> ModuleReferences
       {
          get
          {
@@ -316,7 +282,7 @@ namespace CILAssemblyManipulator.Physical.Implementation
          }
       }
 
-      public List<TypeSpecification> TypeSpecifications
+      public MetaDataTable<TypeSpecification> TypeSpecifications
       {
          get
          {
@@ -324,7 +290,7 @@ namespace CILAssemblyManipulator.Physical.Implementation
          }
       }
 
-      public List<MethodImplementationMap> MethodImplementationMaps
+      public MetaDataTable<MethodImplementationMap> MethodImplementationMaps
       {
          get
          {
@@ -332,7 +298,7 @@ namespace CILAssemblyManipulator.Physical.Implementation
          }
       }
 
-      public List<FieldRVA> FieldRVAs
+      public MetaDataTable<FieldRVA> FieldRVAs
       {
          get
          {
@@ -340,7 +306,7 @@ namespace CILAssemblyManipulator.Physical.Implementation
          }
       }
 
-      public List<AssemblyDefinition> AssemblyDefinitions
+      public MetaDataTable<AssemblyDefinition> AssemblyDefinitions
       {
          get
          {
@@ -348,7 +314,7 @@ namespace CILAssemblyManipulator.Physical.Implementation
          }
       }
 
-      public List<AssemblyReference> AssemblyReferences
+      public MetaDataTable<AssemblyReference> AssemblyReferences
       {
          get
          {
@@ -356,7 +322,7 @@ namespace CILAssemblyManipulator.Physical.Implementation
          }
       }
 
-      public List<FileReference> FileReferences
+      public MetaDataTable<FileReference> FileReferences
       {
          get
          {
@@ -364,7 +330,7 @@ namespace CILAssemblyManipulator.Physical.Implementation
          }
       }
 
-      public List<ExportedType> ExportedTypes
+      public MetaDataTable<ExportedType> ExportedTypes
       {
          get
          {
@@ -372,7 +338,7 @@ namespace CILAssemblyManipulator.Physical.Implementation
          }
       }
 
-      public List<ManifestResource> ManifestResources
+      public MetaDataTable<ManifestResource> ManifestResources
       {
          get
          {
@@ -380,7 +346,7 @@ namespace CILAssemblyManipulator.Physical.Implementation
          }
       }
 
-      public List<NestedClassDefinition> NestedClassDefinitions
+      public MetaDataTable<NestedClassDefinition> NestedClassDefinitions
       {
          get
          {
@@ -388,7 +354,7 @@ namespace CILAssemblyManipulator.Physical.Implementation
          }
       }
 
-      public List<GenericParameterDefinition> GenericParameterDefinitions
+      public MetaDataTable<GenericParameterDefinition> GenericParameterDefinitions
       {
          get
          {
@@ -396,7 +362,7 @@ namespace CILAssemblyManipulator.Physical.Implementation
          }
       }
 
-      public List<MethodSpecification> MethodSpecifications
+      public MetaDataTable<MethodSpecification> MethodSpecifications
       {
          get
          {
@@ -404,12 +370,70 @@ namespace CILAssemblyManipulator.Physical.Implementation
          }
       }
 
-      public List<GenericParameterConstraintDefinition> GenericParameterConstraintDefinitions
+      public MetaDataTable<GenericParameterConstraintDefinition> GenericParameterConstraintDefinitions
       {
          get
          {
             return this._genericParameterConstraintDefinitions;
          }
+      }
+   }
+
+   internal class MetaDataTableImpl<TRow> : MetaDataTable<TRow>
+      where TRow : class
+   {
+      private readonly Tables _tableKind;
+      private readonly List<TRow> _table;
+
+      internal MetaDataTableImpl( Tables tableKind, Int32 tableRowCapacity )
+      {
+         this._tableKind = tableKind;
+         this._table = new List<TRow>( tableRowCapacity );
+      }
+
+      public List<TRow> TableContents
+      {
+         get
+         {
+            return this._table;
+         }
+      }
+
+      public Tables TableKind
+      {
+         get
+         {
+            return this._tableKind;
+         }
+      }
+
+      public Int32 RowCount
+      {
+         get
+         {
+            return this._table.Count;
+         }
+      }
+
+      public IEnumerable<Object> TableContentsAsEnumerable
+      {
+         get
+         {
+            return this._table;
+         }
+      }
+
+
+      public Object this[Int32 idx]
+      {
+         get
+         {
+            return this._table[idx];
+         }
+         //set
+         //{
+         //   this._table[idx] = (TRow) value;
+         //}
       }
    }
 }

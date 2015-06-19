@@ -895,7 +895,7 @@ namespace CILMerge
 
             foreach ( var inputModule in this._inputModules )
             {
-               var aRefs = inputModule.AssemblyReferences;
+               var aRefs = inputModule.AssemblyReferences.TableContents;
                var inputMappings = this._tableIndexMappings[inputModule];
                for ( var i = 0; i < aRefs.Count; ++i )
                {
@@ -907,12 +907,12 @@ namespace CILMerge
                      {
                         var aInfo = aRef.AssemblyInformation;
                         var correspondingNewAssembly = this._moduleLoader.GetOrLoadMetaData( Path.Combine( this._loaderCallbacks.GetTargetFrameworkPathForFrameworkInfo( targetFW.Value ), aInfo.Name + ".dll" ) );
-                        var targetARef = this._targetModule.AssemblyReferences[targetAssemblyRefIndex.Index];
+                        var targetARef = this._targetModule.AssemblyReferences.TableContents[targetAssemblyRefIndex.Index];
                         if ( !targetFW.Value.AreFrameworkAssemblyReferencesRetargetable )
                         {
                            targetARef.Attributes &= ( ~AssemblyFlags.Retargetable );
                         }
-                        var aDefInfo = correspondingNewAssembly.AssemblyDefinitions[0].AssemblyInformation;
+                        var aDefInfo = correspondingNewAssembly.AssemblyDefinitions.TableContents[0].AssemblyInformation;
                         aDefInfo.DeepCopyContentsTo( targetARef.AssemblyInformation );
                         if ( this._options.UseFullPublicKeyForRefs )
                         {
@@ -933,7 +933,7 @@ namespace CILMerge
          {
             foreach ( var inputModule in this._inputModules )
             {
-               var aRefs = inputModule.AssemblyReferences;
+               var aRefs = inputModule.AssemblyReferences.TableContents;
                var inputModulePath = this._moduleLoader.GetResourceFor( inputModule );
                var inputMappings = this._tableIndexMappings[inputModule];
                for ( var i = 0; i < aRefs.Count; ++i )
@@ -947,13 +947,13 @@ namespace CILMerge
                         var aRefModule = this.GetPossibleResourcesForAssemblyReference( inputModule, aRef )
                         .Where( p => File.Exists( p ) )
                         .Select( p => this._moduleLoader.GetOrLoadMetaData( p ) )
-                        .Where( m => m.AssemblyDefinitions.Count > 0 )
+                        .Where( m => m.AssemblyDefinitions.RowCount > 0 )
                         .FirstOrDefault();
 
                         if ( aRefModule != null )
                         {
-                           var targetARef = this._targetModule.AssemblyReferences[targetAssemblyRefIndex.Index];
-                           targetARef.AssemblyInformation.PublicKeyOrToken = aRefModule.AssemblyDefinitions[0].AssemblyInformation.PublicKeyOrToken.CreateBlockCopy();
+                           var targetARef = this._targetModule.AssemblyReferences.TableContents[targetAssemblyRefIndex.Index];
+                           targetARef.AssemblyInformation.PublicKeyOrToken = aRefModule.AssemblyDefinitions.TableContents[0].AssemblyInformation.PublicKeyOrToken.CreateBlockCopy();
                            targetARef.Attributes |= AssemblyFlags.PublicKey;
                         }
                         else
@@ -1058,10 +1058,10 @@ namespace CILMerge
          }
 
          // Build helper data structures for input modules
-         foreach ( var inputModule in this._inputModules.Where( m => m.AssemblyDefinitions.Count > 0 ) )
+         foreach ( var inputModule in this._inputModules.Where( m => m.AssemblyDefinitions.RowCount > 0 ) )
          {
             var aRef = new AssemblyReference();
-            inputModule.AssemblyDefinitions[0].AssemblyInformation.DeepCopyContentsTo( aRef.AssemblyInformation );
+            inputModule.AssemblyDefinitions.TableContents[0].AssemblyInformation.DeepCopyContentsTo( aRef.AssemblyInformation );
             aRef.Attributes = AssemblyFlags.PublicKey;
             CILMetaData existing;
             if ( this._inputModulesAsAssemblyReferences.TryGetValue( aRef, out existing ) )
@@ -1081,7 +1081,7 @@ namespace CILMerge
             {
                var modRefPath = Path.Combine( Path.GetDirectoryName( this._moduleLoader.GetResourceFor( inputModule ) ), f.Name );
                var targetInputModule = this._inputModules
-                  .Where( md => md.AssemblyDefinitions.Count == 0 )
+                  .Where( md => md.AssemblyDefinitions.RowCount == 0 )
                   .FirstOrDefault( md => String.Equals( this._moduleLoader.GetResourceFor( md ), modRefPath ) ); // TODO maybe case-insensitive match??
                if ( targetInputModule != null )
                {
@@ -1099,7 +1099,7 @@ namespace CILMerge
          var thisPath = this._moduleLoader.GetResourceFor( md );
 
          // Load all modules
-         foreach ( var moduleRef in md.FileReferences.Where( f => f.Attributes.ContainsMetadata() ) )
+         foreach ( var moduleRef in md.GetModuleFileReferences() )
          {
             var path = this._loaderCallbacks
                .GetPossibleResourcesForModuleReference( thisPath, md, moduleRef.Name )
@@ -1120,7 +1120,7 @@ namespace CILMerge
 
          // Load all referenced assemblies, except target framework ones.
          var fwDir = this._loaderCallbacks.GetTargetFrameworkPathFor( md );
-         foreach ( var aRef in md.AssemblyReferences )
+         foreach ( var aRef in md.AssemblyReferences.TableContents )
          {
             var path = this.GetPossibleResourcesForAssemblyReference( md, aRef )
                .Where( p => fwDir == null || !p.StartsWith( fwDir ) )
@@ -1214,8 +1214,8 @@ namespace CILMerge
          }
 
          var targetMD = CILMetaDataFactory.CreateMinimalAssembly( targetAssemblyName, targetModuleName ); // Skip dot
-         var primaryAInfo = this._primaryModule.AssemblyDefinitions[0].AssemblyInformation;
-         var aInfo = targetMD.AssemblyDefinitions[0].AssemblyInformation;
+         var primaryAInfo = this._primaryModule.AssemblyDefinitions.TableContents[0].AssemblyInformation;
+         var aInfo = targetMD.AssemblyDefinitions.TableContents[0].AssemblyInformation;
 
          aInfo.Culture = primaryAInfo.Culture;
          if ( eArgs.StrongName != null )
@@ -1233,9 +1233,9 @@ namespace CILMerge
          }
          else
          {
-            var an2 = this._primaryModule.AssemblyDefinitions.Count > 0 ?
-               this._primaryModule.AssemblyDefinitions[0].AssemblyInformation :
-               new AssemblyInformation();
+            var an2 = primaryAInfo; // this._primaryModule.AssemblyDefinitions.Count > 0 ?
+            //this._primaryModule.AssemblyDefinitions[0].AssemblyInformation :
+            //new AssemblyInformation();
 
             aInfo.VersionMajor = an2.VersionMajor;
             aInfo.VersionMinor = an2.VersionMinor;
@@ -1261,18 +1261,18 @@ namespace CILMerge
             //var ntDic = new Dictionary<Int32, IList<Int32>>();
             var eDic = new Dictionary<Int32, Int32>();
             var gDic = new Dictionary<TableIndex, IList<Int32>>();
-            foreach ( var nt in md.NestedClassDefinitions )
+            foreach ( var nt in md.NestedClassDefinitions.TableContents )
             {
                //ntDic
                //   .GetOrAdd_NotThreadSafe( nt.EnclosingClass.Index, e => new List<Int32>() )
                //   .Add( nt.NestedClass.Index );
                eDic[nt.NestedClass.Index] = nt.EnclosingClass.Index;
             }
-
-            for ( var i = 0; i < md.GenericParameterDefinitions.Count; ++i )
+            var gDefs = md.GenericParameterDefinitions.TableContents;
+            for ( var i = 0; i < gDefs.Count; ++i )
             {
                gDic
-                  .GetOrAdd_NotThreadSafe( md.GenericParameterDefinitions[i].Owner, g => new List<Int32>() )
+                  .GetOrAdd_NotThreadSafe( gDefs[i].Owner, g => new List<Int32>() )
                   .Add( i );
             }
 
@@ -1289,7 +1289,7 @@ namespace CILMerge
             var thisTypeStringInInput = new Dictionary<String, Int32>();
             var thisEnclosingTypeInfo = enclosingTypeInfo[md];
 
-            for ( var tDefIdx = 1; tDefIdx < md.TypeDefinitions.Count; ++tDefIdx ) // Skip <Module> type
+            for ( var tDefIdx = 1; tDefIdx < md.TypeDefinitions.RowCount; ++tDefIdx ) // Skip <Module> type
             {
                var typeString = CreateTypeString( md.TypeDefinitions, tDefIdx, thisEnclosingTypeInfo );
                thisTypeStrings.Add( tDefIdx, typeString );
@@ -1304,12 +1304,12 @@ namespace CILMerge
          var currentlyAddedTypeNames = new Dictionary<String, Int32>();
          ISet<String> allTypeStringsSet = null;
          var targetModule = this._targetModule;
-         var targetTypeDefs = targetModule.TypeDefinitions;
+         var targetTypeDefs = targetModule.TypeDefinitions.TableContents;
          var targetTypeInfo = new List<IList<Tuple<CILMetaData, Int32>>>();
          var targetTypeFullNames = this._targetTypeNames;
          // Add type info for <Module> type
          targetTypeInfo.Add( this._inputModules
-            .Where( m => m.TypeDefinitions.Count > 0 )
+            .Where( m => m.TypeDefinitions.RowCount > 0 )
             .Select( m => Tuple.Create( m, 0 ) )
             .ToList()
             );
@@ -1326,10 +1326,10 @@ namespace CILMerge
             thisModuleMapping.Add( new TableIndex( Tables.TypeDef, 0 ), new TableIndex( Tables.TypeDef, 0 ) );
 
             // Process other types
-            for ( var tDefIdx = 1; tDefIdx < md.TypeDefinitions.Count; ++tDefIdx ) // Skip <Module> type
+            for ( var tDefIdx = 1; tDefIdx < md.TypeDefinitions.RowCount; ++tDefIdx ) // Skip <Module> type
             {
                var targetTDefIdx = targetTypeDefs.Count;
-               var tDef = md.TypeDefinitions[tDefIdx];
+               var tDef = md.TypeDefinitions.TableContents[tDefIdx];
                var typeStr = thisTypeStrings[tDefIdx];
                var added = currentlyAddedTypeNames.TryAdd_NotThreadSafe( typeStr, targetTDefIdx );
                var typeAttrs = this.GetNewTypeAttributesForType( md, tDefIdx, thisEnclosingTypeInfo.ContainsKey( tDefIdx ), typeStr );
@@ -1395,11 +1395,11 @@ namespace CILMerge
                var gParamModule = thisTypeInfo[0].Item1;
                foreach ( var gParamIdx in gParameters[0] )
                {
-                  var targetGParamIdx = new TableIndex( Tables.GenericParameter, targetModule.GenericParameterDefinitions.Count );
+                  var targetGParamIdx = new TableIndex( Tables.GenericParameter, targetModule.GenericParameterDefinitions.RowCount );
                   targetTableIndexMappings.Add( targetGParamIdx, Tuple.Create( gParamModule, gParamIdx ) );
                   this._tableIndexMappings[gParamModule].Add( new TableIndex( Tables.GenericParameter, gParamIdx ), targetGParamIdx );
-                  var gParam = gParamModule.GenericParameterDefinitions[gParamIdx];
-                  targetModule.GenericParameterDefinitions.Add( new GenericParameterDefinition()
+                  var gParam = gParamModule.GenericParameterDefinitions.TableContents[gParamIdx];
+                  targetModule.GenericParameterDefinitions.TableContents.Add( new GenericParameterDefinition()
                   {
                      Attributes = gParam.Attributes,
                      GenericParameterIndex = gParam.GenericParameterIndex,
@@ -1423,7 +1423,7 @@ namespace CILMerge
                Int32 enclosingTypeIdx;
                if ( thisEnclosingInfo.TryGetValue( inputTDefIdx, out enclosingTypeIdx ) )
                {
-                  targetModule.NestedClassDefinitions.Add( new NestedClassDefinition()
+                  targetModule.NestedClassDefinitions.TableContents.Add( new NestedClassDefinition()
                   {
                      NestedClass = new TableIndex( Tables.TypeDef, tDefIdx ),
                      EnclosingClass = thisTableMappings[new TableIndex( Tables.TypeDef, enclosingTypeIdx )]
@@ -1431,14 +1431,15 @@ namespace CILMerge
                }
 
                // FieldDef
-               tDef.FieldList = new TableIndex( Tables.Field, targetModule.FieldDefinitions.Count );
+               var tFDef = targetModule.FieldDefinitions.TableContents;
+               tDef.FieldList = new TableIndex( Tables.Field, tFDef.Count );
                foreach ( var fDefIdx in inputMD.GetTypeFieldIndices( inputTDefIdx ) )
                {
-                  var targetFIdx = new TableIndex( Tables.Field, targetModule.FieldDefinitions.Count );
+                  var targetFIdx = new TableIndex( Tables.Field, tFDef.Count );
                   targetTableIndexMappings.Add( targetFIdx, Tuple.Create( inputMD, fDefIdx ) );
                   thisTableMappings.Add( new TableIndex( Tables.Field, fDefIdx ), targetFIdx );
-                  var fDef = inputMD.FieldDefinitions[fDefIdx];
-                  targetModule.FieldDefinitions.Add( new FieldDefinition()
+                  var fDef = inputMD.FieldDefinitions.TableContents[fDefIdx];
+                  tFDef.Add( new FieldDefinition()
                   {
                      Attributes = fDef.Attributes,
                      Name = fDef.Name,
@@ -1446,32 +1447,35 @@ namespace CILMerge
                }
 
                // MethodDef
-               tDef.MethodList = new TableIndex( Tables.MethodDef, targetModule.MethodDefinitions.Count );
+               var tMDef = targetModule.MethodDefinitions.TableContents;
+               var tPDef = targetModule.ParameterDefinitions.TableContents;
+               tDef.MethodList = new TableIndex( Tables.MethodDef, tMDef.Count );
                foreach ( var mDefIdx in inputMD.GetTypeMethodIndices( inputTDefIdx ) )
                {
-                  var targetMDefIdx = targetModule.MethodDefinitions.Count;
+                  var targetMDefIdx = tMDef.Count;
                   targetTableIndexMappings.Add( new TableIndex( Tables.MethodDef, targetMDefIdx ), Tuple.Create( inputMD, mDefIdx ) );
                   thisTableMappings.Add( new TableIndex( Tables.MethodDef, mDefIdx ), new TableIndex( Tables.MethodDef, targetMDefIdx ) );
-                  var mDef = inputMD.MethodDefinitions[mDefIdx];
-                  targetModule.MethodDefinitions.Add( new MethodDefinition()
+                  var mDef = inputMD.MethodDefinitions.TableContents[mDefIdx];
+                  tMDef.Add( new MethodDefinition()
                   {
                      Attributes = mDef.Attributes,
                      ImplementationAttributes = mDef.ImplementationAttributes,
                      Name = mDef.Name,
-                     ParameterList = new TableIndex( Tables.Parameter, targetModule.ParameterDefinitions.Count ),
+                     ParameterList = new TableIndex( Tables.Parameter, tPDef.Count ),
                   } );
 
                   // GenericParameter, for method
                   IList<Int32> methodGParams;
                   if ( thisGenericParamInfo.TryGetValue( new TableIndex( Tables.MethodDef, mDefIdx ), out methodGParams ) )
                   {
+                     var tGDef = targetModule.GenericParameterDefinitions.TableContents;
                      foreach ( var methodGParamIdx in methodGParams )
                      {
-                        var targetGParamIdx = new TableIndex( Tables.GenericParameter, targetModule.GenericParameterDefinitions.Count );
+                        var targetGParamIdx = new TableIndex( Tables.GenericParameter, tGDef.Count );
                         targetTableIndexMappings.Add( targetGParamIdx, Tuple.Create( inputMD, methodGParamIdx ) );
                         thisTableMappings.Add( new TableIndex( Tables.GenericParameter, methodGParamIdx ), targetGParamIdx );
-                        var methodGParam = inputMD.GenericParameterDefinitions[methodGParamIdx];
-                        targetModule.GenericParameterDefinitions.Add( new GenericParameterDefinition()
+                        var methodGParam = inputMD.GenericParameterDefinitions.TableContents[methodGParamIdx];
+                        tGDef.Add( new GenericParameterDefinition()
                         {
                            Attributes = methodGParam.Attributes,
                            GenericParameterIndex = methodGParam.GenericParameterIndex,
@@ -1484,11 +1488,11 @@ namespace CILMerge
                   // ParamDef
                   foreach ( var pDefIdx in inputMD.GetMethodParameterIndices( mDefIdx ) )
                   {
-                     var targetPIdx = new TableIndex( Tables.Parameter, targetModule.ParameterDefinitions.Count );
+                     var targetPIdx = new TableIndex( Tables.Parameter, tPDef.Count );
                      targetTableIndexMappings.Add( targetPIdx, Tuple.Create( inputMD, pDefIdx ) );
                      thisTableMappings.Add( new TableIndex( Tables.Parameter, pDefIdx ), targetPIdx );
-                     var pDef = inputMD.ParameterDefinitions[pDefIdx];
-                     targetModule.ParameterDefinitions.Add( new ParameterDefinition()
+                     var pDef = inputMD.ParameterDefinitions.TableContents[pDefIdx];
+                     tPDef.Add( new ParameterDefinition()
                      {
                         Attributes = pDef.Attributes,
                         Name = pDef.Name,
@@ -1509,9 +1513,8 @@ namespace CILMerge
       {
          // AssemblyRef (used by MemberRef table)
          this.MergeTables(
-            Tables.AssemblyRef,
             md => md.AssemblyReferences,
-            ( md, inputIdx, thisIdx ) => !this._inputModulesAsAssemblyReferences.ContainsKey( md.AssemblyReferences[inputIdx.Index] ),
+            ( md, inputIdx, thisIdx ) => !this._inputModulesAsAssemblyReferences.ContainsKey( md.AssemblyReferences.TableContents[inputIdx.Index] ),
             ( md, aRef, inputIdx, thisIdx ) =>
             {
                var newARef = new AssemblyReference()
@@ -1526,9 +1529,8 @@ namespace CILMerge
          // ModuleRef (used by MemberRef table)
          // Skip the actual module references (but keep the ones from ImplMap table)
          this.MergeTables(
-            Tables.ModuleRef,
             md => md.ModuleReferences,
-            ( md, inputIdx, thisIdx ) => !this._inputModulesAsModuleReferences[md].ContainsKey( md.ModuleReferences[inputIdx.Index].ModuleName ),
+            ( md, inputIdx, thisIdx ) => !this._inputModulesAsModuleReferences[md].ContainsKey( md.ModuleReferences.TableContents[inputIdx.Index].ModuleName ),
             ( md, mRef, inputIdx, thisIdx ) => new ModuleReference()
             {
                ModuleName = mRef.ModuleName
@@ -1537,7 +1539,6 @@ namespace CILMerge
          // TypeRef (used by signatures/IL tokens)
          var typeRefInputModules = new Dictionary<CILMetaData, IDictionary<Int32, Tuple<CILMetaData, String>>>();
          this.MergeTables(
-            Tables.TypeRef,
             md => md.TypeReferences,
             ( md, inputIdx, thisIdx ) =>
             {
@@ -1568,7 +1569,6 @@ namespace CILMerge
          // TypeRef (just processed)
          // Update TypeRef.ResolutionScope separately
          this.SetTableIndicesNullable(
-            Tables.TypeRef,
             md => md.TypeReferences,
             tRef => tRef.ResolutionScope,
             ( tRef, resScope ) => tRef.ResolutionScope = resScope
@@ -1576,7 +1576,6 @@ namespace CILMerge
 
          // TypeSpec (used by signatures/IL tokens)
          this.MergeTables(
-            Tables.TypeSpec,
             md => md.TypeSpecifications,
             null,
             ( md, tSpec, inputIdx, thisIdx ) => new TypeSpecification()
@@ -1593,12 +1592,11 @@ namespace CILMerge
          // TypeSpec (already processed)
          // Update MemberReference.DeclaringType in place.
          this.MergeTables(
-            Tables.MemberRef,
             md => md.MemberReferences,
             ( md, inputIdx, thisIdx ) =>
             {
                // If member ref declaring type ends up being, replace with corresponding MethodDef/FieldDef reference
-               var mRef = md.MemberReferences[inputIdx.Index];
+               var mRef = md.MemberReferences.TableContents[inputIdx.Index];
                var thisMappings = this._tableIndexMappings[md];
                var declType = mRef.DeclaringType;
                var targetDeclaringType = thisMappings[declType];
@@ -1618,7 +1616,7 @@ namespace CILMerge
                         targetMRefTable = Tables.Field;
                         targetMRefIndex = this._targetModule
                            .GetTypeFieldIndices( targetDeclaringType.Index )
-                           .Where( fi => String.Equals( mRefName, this._targetModule.FieldDefinitions[fi].Name ) )
+                           .Where( fi => String.Equals( mRefName, this._targetModule.FieldDefinitions.TableContents[fi].Name ) )
                            .FirstOrDefaultCustom( -1 );
                         break;
                      case SignatureKind.MethodReference:
@@ -1628,7 +1626,7 @@ namespace CILMerge
                         var moduleContainingMethodDef = moduleContainingMethodDefInfo.Item1;
                         var methodDefContainingTypeIndex = this._inputModuleTypeNamesInInputModule[moduleContainingMethodDef][moduleContainingMethodDefInfo.Item2];
                         targetMRefIndex = moduleContainingMethodDef.GetTypeMethodIndices( methodDefContainingTypeIndex )
-                           .Where( mi => String.Equals( mRefName, moduleContainingMethodDef.MethodDefinitions[mi].Name ) && this.MatchTargetMethodSignatureToMemberRefMethodSignature( moduleContainingMethodDef, md, moduleContainingMethodDef.MethodDefinitions[mi].Signature, (MethodReferenceSignature) mRef.Signature ) )
+                           .Where( mi => String.Equals( mRefName, moduleContainingMethodDef.MethodDefinitions.TableContents[mi].Name ) && this.MatchTargetMethodSignatureToMemberRefMethodSignature( moduleContainingMethodDef, md, moduleContainingMethodDef.MethodDefinitions.TableContents[mi].Signature, (MethodReferenceSignature) mRef.Signature ) )
                            .FirstOrDefaultCustom( -1 );
                         if ( targetMRefIndex >= 0 )
                         {
@@ -1666,7 +1664,6 @@ namespace CILMerge
          // MemberRef (already processed)
          // Update MethodSpec.Method in place
          this.MergeTables(
-            Tables.MethodSpec,
             md => md.MethodSpecifications,
             null,
             ( md, mSpec, inputIdx, thisIdx ) => new MethodSpecification()
@@ -1676,7 +1673,6 @@ namespace CILMerge
 
          // StandaloneSignature (used by IL tokens)
          this.MergeTables(
-            Tables.StandaloneSignature,
             md => md.StandaloneSignatures,
             null,
             ( md, sig, inputIdx, thisIdx ) => new StandaloneSignature()
@@ -1691,7 +1687,6 @@ namespace CILMerge
          // TypeSpec (already processed)
          // Update TypeDef.BaseType separately
          this.SetTableIndicesNullable(
-            Tables.TypeDef,
             md => md.TypeDefinitions,
             tDefIdx => targetTypeInfo[tDefIdx][0], // TODO check that base types are 'same' (would involve creating assembly-qualified type string, and even then should take into account the effects of Retargetable assembly ref attribute)
             tDef => tDef.BaseType,
@@ -1794,7 +1789,7 @@ namespace CILMerge
             case Tables.TypeRef:
                return refIdx.Table == Tables.TypeRef && this.MatchDefTypeRefToRefTypeRef( defModule, refModule, defIdx.Index, refIdx.Index );
             case Tables.TypeSpec:
-               return refIdx.Table == Tables.TypeSpec && this.MatchTargetTypeSignatureToMemberRefTypeSignature( defModule, refModule, defModule.TypeSpecifications[defIdx.Index].Signature, refModule.TypeSpecifications[refIdx.Index].Signature );
+               return refIdx.Table == Tables.TypeSpec && this.MatchTargetTypeSignatureToMemberRefTypeSignature( defModule, refModule, defModule.TypeSpecifications.TableContents[defIdx.Index].Signature, refModule.TypeSpecifications.TableContents[refIdx.Index].Signature );
             default:
                return false;
          }
@@ -1802,8 +1797,8 @@ namespace CILMerge
 
       private Boolean MatchDefTypeRefToRefTypeRef( CILMetaData defModule, CILMetaData refModule, Int32 defIdx, Int32 refIdx )
       {
-         var defTypeRef = defModule.TypeReferences[defIdx];
-         var refTypeRef = refModule.TypeReferences[refIdx];
+         var defTypeRef = defModule.TypeReferences.TableContents[defIdx];
+         var refTypeRef = refModule.TypeReferences.TableContents[refIdx];
          var retVal = String.Equals( defTypeRef.Name, refTypeRef.Name )
             && String.Equals( defTypeRef.Namespace, refTypeRef.Namespace );
          if ( retVal )
@@ -1827,8 +1822,8 @@ namespace CILMerge
                            && this._tableIndexMappings[defModule].ContainsKey( defResScope ) == this._tableIndexMappings[refModule].ContainsKey( refResScope );
                         if ( retVal && this._tableIndexMappings[defModule].ContainsKey( defResScope ) )
                         {
-                           var defARef = defModule.AssemblyReferences[defResScope.Index];
-                           var refARef = refModule.AssemblyReferences[refResScope.Index];
+                           var defARef = defModule.AssemblyReferences.TableContents[defResScope.Index];
+                           var refARef = refModule.AssemblyReferences.TableContents[refResScope.Index];
                            if ( defARef.Attributes.IsRetargetable() || refARef.Attributes.IsRetargetable() )
                            {
                               // Simple name match
@@ -1870,7 +1865,7 @@ namespace CILMerge
          out CILMetaData referencedModule
          )
       {
-         var tRef = inputModule.TypeReferences[inputIndex.Index];
+         var tRef = inputModule.TypeReferences.TableContents[inputIndex.Index];
          var resScopeNullable = tRef.ResolutionScope;
          var retVal = -1;
          thisTypeString = null;
@@ -1890,13 +1885,13 @@ namespace CILMerge
                case Tables.ModuleRef:
                   if ( !this._tableIndexMappings[inputModule].ContainsKey( resScope ) )
                   {
-                     referencedModule = this._inputModulesAsModuleReferences[inputModule][inputModule.ModuleReferences[resScope.Index].ModuleName];
+                     referencedModule = this._inputModulesAsModuleReferences[inputModule][inputModule.ModuleReferences.TableContents[resScope.Index].ModuleName];
                   }
                   break;
                case Tables.AssemblyRef:
                   if ( !this._tableIndexMappings[inputModule].ContainsKey( resScope ) )
                   {
-                     referencedModule = this._inputModulesAsAssemblyReferences[inputModule.AssemblyReferences[resScope.Index]];
+                     referencedModule = this._inputModulesAsAssemblyReferences[inputModule.AssemblyReferences.TableContents[resScope.Index]];
                   }
                   break;
                case Tables.Module:
@@ -1922,7 +1917,6 @@ namespace CILMerge
       {
          // 1. Create all tables which are still unprocessed, and have signatures.
          this.MergeTables(
-            Tables.Property,
             md => md.PropertyDefinitions,
             null,
             ( md, pDef, inputIdx, thisIdx ) => new PropertyDefinition()
@@ -1937,23 +1931,24 @@ namespace CILMerge
          // Signatures reference only TypeDef, TypeRef, and TypeSpec tables, all of which should've been processed in ConstructNonStructuralTablesUsedInSignaturesAndILTokens method
          var targetModule = this._targetModule;
          // FieldDef
-         for ( var i = 0; i < targetModule.FieldDefinitions.Count; ++i )
+         var fDefs = targetModule.FieldDefinitions.TableContents;
+         for ( var i = 0; i < fDefs.Count; ++i )
          {
             var inputInfo = this._targetTableIndexMappings[new TableIndex( Tables.Field, i )];
             var inputModule = inputInfo.Item1;
             var thisMappings = this._tableIndexMappings[inputModule];
-            targetModule.FieldDefinitions[i].Signature =
-               inputModule.FieldDefinitions[inputInfo.Item2].Signature.CreateDeepCopy( tIdx => thisMappings[tIdx] );
+            fDefs[i].Signature = inputModule.FieldDefinitions.TableContents[inputInfo.Item2].Signature.CreateDeepCopy( tIdx => thisMappings[tIdx] );
          }
 
          // MethodDef
-         for ( var i = 0; i < targetModule.MethodDefinitions.Count; ++i )
+         var mDefs = targetModule.MethodDefinitions.TableContents;
+         for ( var i = 0; i < mDefs.Count; ++i )
          {
             var inputInfo = this._targetTableIndexMappings[new TableIndex( Tables.MethodDef, i )];
             var inputModule = inputInfo.Item1;
             var thisMappings = this._tableIndexMappings[inputModule];
-            var inputMethodDef = inputModule.MethodDefinitions[inputInfo.Item2];
-            var targetMethodDef = targetModule.MethodDefinitions[i];
+            var inputMethodDef = inputModule.MethodDefinitions.TableContents[inputInfo.Item2];
+            var targetMethodDef = mDefs[i];
             targetMethodDef.Signature = inputMethodDef.Signature.CreateDeepCopy( tIdx => thisMappings[tIdx] );
 
             // Create IL
@@ -2008,53 +2003,53 @@ namespace CILMerge
          }
 
          // MemberRef
-         for ( var i = 0; i < targetModule.MemberReferences.Count; ++i )
+         var mRefs = targetModule.MemberReferences.TableContents;
+         for ( var i = 0; i < mRefs.Count; ++i )
          {
             var inputInfo = this._targetTableIndexMappings[new TableIndex( Tables.MemberRef, i )];
             var inputModule = inputInfo.Item1;
             var thisMappings = this._tableIndexMappings[inputModule];
-            targetModule.MemberReferences[i].Signature =
-               inputModule.MemberReferences[inputInfo.Item2].Signature.CreateDeepCopy( tIdx => thisMappings[tIdx] );
+            mRefs[i].Signature = inputModule.MemberReferences.TableContents[inputInfo.Item2].Signature.CreateDeepCopy( tIdx => thisMappings[tIdx] );
          }
 
          // StandaloneSignature
-         for ( var i = 0; i < targetModule.StandaloneSignatures.Count; ++i )
+         var sSigs = targetModule.StandaloneSignatures.TableContents;
+         for ( var i = 0; i < sSigs.Count; ++i )
          {
             var inputInfo = this._targetTableIndexMappings[new TableIndex( Tables.StandaloneSignature, i )];
             var inputModule = inputInfo.Item1;
             var thisMappings = this._tableIndexMappings[inputModule];
-            targetModule.StandaloneSignatures[i].Signature =
-               inputModule.StandaloneSignatures[inputInfo.Item2].Signature.CreateDeepCopy( tIdx => thisMappings[tIdx] );
+            sSigs[i].Signature = inputModule.StandaloneSignatures.TableContents[inputInfo.Item2].Signature.CreateDeepCopy( tIdx => thisMappings[tIdx] );
          }
 
          // PropertyDef
-         for ( var i = 0; i < targetModule.PropertyDefinitions.Count; ++i )
+         var pDefs = targetModule.PropertyDefinitions.TableContents;
+         for ( var i = 0; i < pDefs.Count; ++i )
          {
             var inputInfo = this._targetTableIndexMappings[new TableIndex( Tables.Property, i )];
             var inputModule = inputInfo.Item1;
             var thisMappings = this._tableIndexMappings[inputModule];
-            targetModule.PropertyDefinitions[i].Signature =
-               inputModule.PropertyDefinitions[inputInfo.Item2].Signature.CreateDeepCopy( tIdx => thisMappings[tIdx] );
+            pDefs[i].Signature = inputModule.PropertyDefinitions.TableContents[inputInfo.Item2].Signature.CreateDeepCopy( tIdx => thisMappings[tIdx] );
          }
 
          // TypeSpec
-         for ( var i = 0; i < targetModule.TypeSpecifications.Count; ++i )
+         var tSpecs = targetModule.TypeSpecifications.TableContents;
+         for ( var i = 0; i < tSpecs.Count; ++i )
          {
             var inputInfo = this._targetTableIndexMappings[new TableIndex( Tables.TypeSpec, i )];
             var inputModule = inputInfo.Item1;
             var thisMappings = this._tableIndexMappings[inputModule];
-            targetModule.TypeSpecifications[i].Signature =
-               inputModule.TypeSpecifications[inputInfo.Item2].Signature.CreateDeepCopy( tIdx => thisMappings[tIdx] );
+            tSpecs[i].Signature = inputModule.TypeSpecifications.TableContents[inputInfo.Item2].Signature.CreateDeepCopy( tIdx => thisMappings[tIdx] );
          }
 
          // MethodSpecification
-         for ( var i = 0; i < targetModule.MethodSpecifications.Count; ++i )
+         var mSpecs = targetModule.MethodSpecifications.TableContents;
+         for ( var i = 0; i < mSpecs.Count; ++i )
          {
             var inputInfo = this._targetTableIndexMappings[new TableIndex( Tables.MethodSpec, i )];
             var inputModule = inputInfo.Item1;
             var thisMappings = this._tableIndexMappings[inputModule];
-            targetModule.MethodSpecifications[i].Signature =
-               inputModule.MethodSpecifications[inputInfo.Item2].Signature.CreateDeepCopy( tIdx => thisMappings[tIdx] );
+            mSpecs[i].Signature = inputModule.MethodSpecifications.TableContents[inputInfo.Item2].Signature.CreateDeepCopy( tIdx => thisMappings[tIdx] );
          }
 
          // CustomAttribute and DeclarativeSecurity signatures do not reference table indices, so they are processed in ConstructTheRestOfTheTables method
@@ -2065,7 +2060,6 @@ namespace CILMerge
       {
          // EventDef
          this.MergeTables(
-            Tables.Event,
             md => md.EventDefinitions,
             null,
             ( md, evt, inputIdx, thisIdx ) => new EventDefinition()
@@ -2077,7 +2071,6 @@ namespace CILMerge
 
          // EventMap
          this.MergeTables(
-            Tables.EventMap,
             md => md.EventMaps,
             null,
             ( md, evtMap, inputIdx, thisIdx ) => new EventMap()
@@ -2088,7 +2081,6 @@ namespace CILMerge
 
          // PropertyMap
          this.MergeTables(
-            Tables.PropertyMap,
             md => md.PropertyMaps,
             null,
             ( md, propMap, inputIdx, thisIdx ) => new PropertyMap()
@@ -2099,7 +2091,6 @@ namespace CILMerge
 
          // InterfaceImpl
          this.MergeTables(
-            Tables.InterfaceImpl,
             md => md.InterfaceImplementations,
             null,
             ( md, impl, inputIdx, thisIdx ) => new InterfaceImplementation()
@@ -2110,7 +2101,6 @@ namespace CILMerge
 
          // ConstantDef
          this.MergeTables(
-            Tables.Constant,
             md => md.ConstantDefinitions,
             null,
             ( md, constant, inputIdx, thisIdx ) => new ConstantDefinition()
@@ -2122,7 +2112,6 @@ namespace CILMerge
 
          // FieldMarshal
          this.MergeTables(
-            Tables.FieldMarshal,
             md => md.FieldMarshals,
             null,
             ( md, marshal, inputIdx, thisIdx ) => new FieldMarshal()
@@ -2133,7 +2122,6 @@ namespace CILMerge
 
          // DeclSecurity
          this.MergeTables(
-            Tables.DeclSecurity,
             md => md.SecurityDefinitions,
             null,
             ( md, sec, inputIdx, thisIdx ) =>
@@ -2152,7 +2140,6 @@ namespace CILMerge
 
          // ClassLayout
          this.MergeTables(
-            Tables.ClassLayout,
             md => md.ClassLayouts,
             null,
             ( md, layout, inputIdx, thisIx ) => new ClassLayout()
@@ -2164,7 +2151,6 @@ namespace CILMerge
 
          // FieldLayout
          this.MergeTables(
-            Tables.FieldLayout,
             md => md.FieldLayouts,
             null,
             ( md, layout, inputIdx, thisIdx ) => new FieldLayout()
@@ -2175,7 +2161,6 @@ namespace CILMerge
 
          // MethodSemantics
          this.MergeTables(
-            Tables.MethodSemantics,
             md => md.MethodSemantics,
             null,
             ( md, semantics, inputIdx, thisIdx ) => new MethodSemantics()
@@ -2187,7 +2172,6 @@ namespace CILMerge
 
          // MethodImpl
          this.MergeTables(
-            Tables.MethodImpl,
             md => md.MethodImplementations,
             null,
             ( md, impl, inputIdx, thisIdx ) => new MethodImplementation()
@@ -2199,7 +2183,6 @@ namespace CILMerge
 
          // ImplMap
          this.MergeTables(
-            Tables.ImplMap,
             md => md.MethodImplementationMaps,
             null,
             ( md, map, inputIdx, thisIdx ) => new MethodImplementationMap()
@@ -2212,7 +2195,6 @@ namespace CILMerge
 
          // FieldRVA
          this.MergeTables(
-            Tables.FieldRVA,
             md => md.FieldRVAs,
             null,
             ( md, fRVA, inputIdx, thisIdx ) => new FieldRVA()
@@ -2223,9 +2205,8 @@ namespace CILMerge
 
          // GenericParameterConstraint
          this.MergeTables(
-            Tables.GenericParameterConstraint,
             md => md.GenericParameterConstraintDefinitions,
-            ( md, inputIdx, thisIdx ) => this._tableIndexMappings[md].ContainsKey( md.GenericParameterConstraintDefinitions[inputIdx.Index].Owner ),
+            ( md, inputIdx, thisIdx ) => this._tableIndexMappings[md].ContainsKey( md.GenericParameterConstraintDefinitions.TableContents[inputIdx.Index].Owner ),
             ( md, constraint, inputIdx, thisIdx ) => new GenericParameterConstraintDefinition()
             {
                Constraint = this.TranslateTableIndex( md, constraint.Constraint ), // TypeDef/TypeRef/TypeSpec -> already processed
@@ -2234,9 +2215,8 @@ namespace CILMerge
 
          // ExportedType
          this.MergeTables(
-            Tables.ExportedType,
             md => md.ExportedTypes,
-            ( md, inputIdx, thisIdx ) => this.ExportedTypeRowStaysInTargetModule( md, md.ExportedTypes[inputIdx.Index] ),
+            ( md, inputIdx, thisIdx ) => this.ExportedTypeRowStaysInTargetModule( md, md.ExportedTypes.TableContents[inputIdx.Index] ),
             ( md, eType, inputIdx, thisIdx ) => new ExportedType()
             {
                Attributes = eType.Attributes,
@@ -2246,7 +2226,6 @@ namespace CILMerge
             } );
          // ExportedType may reference itself -> update Implementation only now
          this.SetTableIndices1(
-            Tables.ExportedType,
             md => md.ExportedTypes,
             eType => eType.Implementation,
             ( eType, impl ) => eType.Implementation = impl
@@ -2254,11 +2233,10 @@ namespace CILMerge
 
          // FileReference
          this.MergeTables(
-            Tables.File,
             md => md.FileReferences,
             ( md, inputIdx, thisIdx ) =>
             {
-               var file = md.FileReferences[inputIdx.Index];
+               var file = md.FileReferences.TableContents[inputIdx.Index];
                return !file.Attributes.ContainsMetadata() || true; // TODO skip all those netmodules that are part of input modules
             },
             ( md, file, inputIdx, thisIdx ) => new FileReference()
@@ -2272,7 +2250,7 @@ namespace CILMerge
          var resDic = new Dictionary<String, IList<Tuple<CILMetaData, ManifestResource>>>();
          foreach ( var inputModule in this._inputModules )
          {
-            foreach ( var res in inputModule.ManifestResources )
+            foreach ( var res in inputModule.ManifestResources.TableContents )
             {
                resDic
                   .GetOrAdd_NotThreadSafe( res.Name, n => new List<Tuple<CILMetaData, ManifestResource>>() )
@@ -2281,19 +2259,17 @@ namespace CILMerge
          }
          var resNameSet = new HashSet<String>();
          this.MergeTables(
-            Tables.ManifestResource,
             md => md.ManifestResources,
-            ( md, inputIdx, thisIdx ) => resNameSet.Add( md.ManifestResources[inputIdx.Index].Name ),
+            ( md, inputIdx, thisIdx ) => resNameSet.Add( md.ManifestResources.TableContents[inputIdx.Index].Name ),
             ( md, resource, inputIdx, thisIdx ) => this.ProcessManifestResource( md, resource.Name, resDic )
             );
 
          // CustomAttributeDef
          this.MergeTables(
-            Tables.CustomAttribute,
             md => md.CustomAttributeDefinitions,
             ( md, inputIdx, thisIdx ) =>
             {
-               var parent = md.CustomAttributeDefinitions[inputIdx.Index].Parent;
+               var parent = md.CustomAttributeDefinitions.TableContents[inputIdx.Index].Parent;
                Boolean retVal;
                switch ( parent.Table )
                {
@@ -2331,14 +2307,15 @@ namespace CILMerge
 
       private void CopyModuleAndAssemblyAttributesFrom( IEnumerable<CILMetaData> modules )
       {
-         var targetCA = this._targetModule.CustomAttributeDefinitions;
+         var targetCA = this._targetModule.CustomAttributeDefinitions.TableContents;
          foreach ( var m in modules )
          {
             if ( this._inputModules.IndexOf( m ) >= 0 )
             {
-               for ( var i = 0; i < m.CustomAttributeDefinitions.Count; ++i )
+               var iCA = m.CustomAttributeDefinitions.TableContents;
+               for ( var i = 0; i < iCA.Count; ++i )
                {
-                  var ca = m.CustomAttributeDefinitions[i];
+                  var ca = iCA[i];
                   if ( ca.Parent.Table == Tables.Assembly || ca.Parent.Table == Tables.Module )
                   {
                      targetCA.Add( new CustomAttributeDefinition()
@@ -2361,17 +2338,19 @@ namespace CILMerge
       }
 
       private void MergeTables<T>(
-         Tables tableKind,
-         Func<CILMetaData, List<T>> tableExtractor,
+         Func<CILMetaData, MetaDataTable<T>> tableExtractor,
          Func<CILMetaData, TableIndex, TableIndex, Boolean> filter,
          Func<CILMetaData, T, TableIndex, TableIndex, T> copyFunc
          )
+         where T : class
       {
-         var targetTable = tableExtractor( this._targetModule );
+         var targetMDTable = tableExtractor( this._targetModule );
+         var tableKind = targetMDTable.TableKind;
+         var targetTable = targetMDTable.TableContents;
          System.Diagnostics.Debug.Assert( targetTable.Count == 0, "Merging non-empty table in target module!" );
          foreach ( var md in this._inputModules )
          {
-            var inputTable = tableExtractor( md );
+            var inputTable = tableExtractor( md ).TableContents;
             var thisMappings = this._tableIndexMappings[md];
             for ( var i = 0; i < inputTable.Count; ++i )
             {
@@ -2389,14 +2368,14 @@ namespace CILMerge
       }
 
       private void SetTableIndicesNullable<T>(
-         Tables tableKind,
-         Func<CILMetaData, List<T>> tableExtractor,
+         Func<CILMetaData, MetaDataTable<T>> tableExtractor,
          Func<T, TableIndex?> tableIndexGetter,
          Action<T, TableIndex> tableIndexSetter
          )
+         where T : class
       {
+         var tableKind = tableExtractor( this._targetModule ).TableKind;
          this.SetTableIndicesNullable(
-            tableKind,
             tableExtractor,
             i => this._targetTableIndexMappings[new TableIndex( tableKind, i )],
             tableIndexGetter,
@@ -2405,19 +2384,19 @@ namespace CILMerge
       }
 
       private void SetTableIndicesNullable<T>(
-         Tables tableKind,
-         Func<CILMetaData, List<T>> tableExtractor,
+         Func<CILMetaData, MetaDataTable<T>> tableExtractor,
          Func<Int32, Tuple<CILMetaData, Int32>> inputInfoGetter,
          Func<T, TableIndex?> tableIndexGetter,
          Action<T, TableIndex> tableIndexSetter
          )
+         where T : class
       {
-         var targetTable = tableExtractor( this._targetModule );
+         var targetTable = tableExtractor( this._targetModule ).TableContents;
          for ( var i = 0; i < targetTable.Count; ++i )
          {
             var inputInfo = inputInfoGetter( i );
             var inputModule = inputInfo.Item1;
-            var inputTableIndexNullable = tableIndexGetter( tableExtractor( inputModule )[inputInfo.Item2] );
+            var inputTableIndexNullable = tableIndexGetter( tableExtractor( inputModule ).TableContents[inputInfo.Item2] );
             if ( inputTableIndexNullable.HasValue )
             {
                var inputTableIndex = inputTableIndexNullable.Value;
@@ -2428,18 +2407,20 @@ namespace CILMerge
       }
 
       private void SetTableIndices1<T>(
-         Tables tableKind,
-         Func<CILMetaData, List<T>> tableExtractor,
+         Func<CILMetaData, MetaDataTable<T>> tableExtractor,
          Func<T, TableIndex> tableIndexGetter,
          Action<T, TableIndex> tableIndexSetter
          )
+         where T : class
       {
-         var targetTable = tableExtractor( this._targetModule );
+         var targetMDTable = tableExtractor( this._targetModule );
+         var tableKind = targetMDTable.TableKind;
+         var targetTable = targetMDTable.TableContents;
          for ( var i = 0; i < targetTable.Count; ++i )
          {
             var inputInfo = this._targetTableIndexMappings[new TableIndex( tableKind, i )];
             var inputModule = inputInfo.Item1;
-            var inputTableIndex = tableIndexGetter( tableExtractor( inputModule )[inputInfo.Item2] );
+            var inputTableIndex = tableIndexGetter( tableExtractor( inputModule ).TableContents[inputInfo.Item2] );
             var targetTableIndex = this._tableIndexMappings[inputModule][inputTableIndex];
             tableIndexSetter( targetTable[i], targetTableIndex );
          }
@@ -2460,7 +2441,7 @@ namespace CILMerge
          {
             case Tables.ExportedType:
                // Nested type - return whatever the enclosing type is
-               return this.ExportedTypeRowStaysInTargetModule( inputModule, inputModule.ExportedTypes[impl.Index] );
+               return this.ExportedTypeRowStaysInTargetModule( inputModule, inputModule.ExportedTypes.TableContents[impl.Index] );
             case Tables.File:
                // The target module will be single-module assembly, so there shouldn't be any of these
                return false;
@@ -2472,8 +2453,9 @@ namespace CILMerge
          }
       }
 
-      private static String CreateTypeString( IList<TypeDefinition> typeDefs, Int32 tDefIndex, IDictionary<Int32, Int32> enclosingTypeInfo )
+      private static String CreateTypeString( MetaDataTable<TypeDefinition> mdTypeDefs, Int32 tDefIndex, IDictionary<Int32, Int32> enclosingTypeInfo )
       {
+         var typeDefs = mdTypeDefs.TableContents;
          var sb = new StringBuilder( typeDefs[tDefIndex].Name );
 
          // Iterate: thisType -> enclosingType -> ... -> outMostEnclosingType
@@ -2521,13 +2503,13 @@ namespace CILMerge
          Boolean hasEnclosingType,
          String typeString )
       {
-         var attrs = md.TypeDefinitions[tDefIndex].Attributes;
+         var attrs = md.TypeDefinitions.TableContents[tDefIndex].Attributes;
          // TODO cache all modules assembly def strings so we wouldn't call AssemblyDefinition.ToString() too excessively
          if ( this._options.Internalize
             && !this._primaryModule.Equals( md )
             && !this._excludeRegexes.Value.Any(
                reg => reg.IsMatch( typeString )
-               || ( md.AssemblyDefinitions.Count > 0 && reg.IsMatch( "[" + md.AssemblyDefinitions[0] + "]" + typeString ) )
+               || ( md.AssemblyDefinitions.RowCount > 0 && reg.IsMatch( "[" + md.AssemblyDefinitions[0] + "]" + typeString ) )
                )
             )
          {

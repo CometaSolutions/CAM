@@ -561,7 +561,7 @@ namespace CILAssemblyManipulator.Physical.Implementation
                // VS2012 evaluates positional arguments from left to right, so creating Tuple inside lambda should work correctly
                // This is not so in VS2010 ( see http://msdn.microsoft.com/en-us/library/hh678682.aspx )
                case Tables.Module:
-                  ReadTable( retVal.ModuleDefinitions, curTable, tableSizes, i =>
+                  ReadTable( retVal.ModuleDefinitions, tableSizes, i =>
                      new ModuleDefinition()
                      {
                         Generation = stream.ReadI16( tmpArray ),
@@ -573,7 +573,7 @@ namespace CILAssemblyManipulator.Physical.Implementation
                   );
                   break;
                case Tables.TypeRef:
-                  ReadTable( retVal.TypeReferences, curTable, tableSizes, i =>
+                  ReadTable( retVal.TypeReferences, tableSizes, i =>
                      new TypeReference()
                      {
                         ResolutionScope = MetaDataConstants.ReadCodedTableIndex( stream, CodedTableIndexKind.ResolutionScope, tRefSizes, tmpArray, false ),
@@ -582,7 +582,7 @@ namespace CILAssemblyManipulator.Physical.Implementation
                      } );
                   break;
                case Tables.TypeDef:
-                  ReadTable( retVal.TypeDefinitions, curTable, tableSizes, i =>
+                  ReadTable( retVal.TypeDefinitions, tableSizes, i =>
                      new TypeDefinition()
                      {
                         Attributes = (TypeAttributes) stream.ReadU32( tmpArray ),
@@ -594,7 +594,7 @@ namespace CILAssemblyManipulator.Physical.Implementation
                      } );
                   break;
                case Tables.Field:
-                  ReadTable( retVal.FieldDefinitions, curTable, tableSizes, i =>
+                  ReadTable( retVal.FieldDefinitions, tableSizes, i =>
                      new FieldDefinition()
                      {
                         Attributes = (FieldAttributes) stream.ReadU16( tmpArray ),
@@ -603,7 +603,7 @@ namespace CILAssemblyManipulator.Physical.Implementation
                      } );
                   break;
                case Tables.MethodDef:
-                  ReadTable( retVal.MethodDefinitions, curTable, tableSizes, i =>
+                  ReadTable( retVal.MethodDefinitions, tableSizes, i =>
                   {
                      methodDefRVAs.Add( stream.ReadI32( tmpArray ) );
                      return new MethodDefinition()
@@ -617,7 +617,7 @@ namespace CILAssemblyManipulator.Physical.Implementation
                   } );
                   break;
                case Tables.Parameter:
-                  ReadTable( retVal.ParameterDefinitions, curTable, tableSizes, i =>
+                  ReadTable( retVal.ParameterDefinitions, tableSizes, i =>
                      new ParameterDefinition()
                      {
                         Attributes = (ParameterAttributes) stream.ReadU16( tmpArray ),
@@ -626,7 +626,7 @@ namespace CILAssemblyManipulator.Physical.Implementation
                      } );
                   break;
                case Tables.InterfaceImpl:
-                  ReadTable( retVal.InterfaceImplementations, curTable, tableSizes, i =>
+                  ReadTable( retVal.InterfaceImplementations, tableSizes, i =>
                      new InterfaceImplementation()
                      {
                         Class = MetaDataConstants.ReadSimpleTableIndex( stream, Tables.TypeDef, tableSizes, tmpArray ),
@@ -634,7 +634,7 @@ namespace CILAssemblyManipulator.Physical.Implementation
                      } );
                   break;
                case Tables.MemberRef:
-                  ReadTable( retVal.MemberReferences, curTable, tableSizes, i =>
+                  ReadTable( retVal.MemberReferences, tableSizes, i =>
                      new MemberReference()
                      {
                         DeclaringType = MetaDataConstants.ReadCodedTableIndex( stream, CodedTableIndexKind.MemberRefParent, tRefSizes, tmpArray ).Value,
@@ -643,7 +643,7 @@ namespace CILAssemblyManipulator.Physical.Implementation
                      } );
                   break;
                case Tables.Constant:
-                  ReadTable( retVal.ConstantDefinitions, curTable, tableSizes, i =>
+                  ReadTable( retVal.ConstantDefinitions, tableSizes, i =>
                   {
                      var constType = (SignatureElementTypes) stream.ReadU16( tmpArray );
                      return new ConstantDefinition()
@@ -655,7 +655,7 @@ namespace CILAssemblyManipulator.Physical.Implementation
                   } );
                   break;
                case Tables.CustomAttribute:
-                  ReadTable( retVal.CustomAttributeDefinitions, curTable, tableSizes, i =>
+                  ReadTable( retVal.CustomAttributeDefinitions, tableSizes, i =>
                   {
                      var caDef = new CustomAttributeDefinition()
                      {
@@ -684,7 +684,7 @@ namespace CILAssemblyManipulator.Physical.Implementation
                   } );
                   break;
                case Tables.FieldMarshal:
-                  ReadTable( retVal.FieldMarshals, curTable, tableSizes, i =>
+                  ReadTable( retVal.FieldMarshals, tableSizes, i =>
                      new FieldMarshal()
                      {
                         Parent = MetaDataConstants.ReadCodedTableIndex( stream, CodedTableIndexKind.HasFieldMarshal, tRefSizes, tmpArray ).Value,
@@ -692,7 +692,7 @@ namespace CILAssemblyManipulator.Physical.Implementation
                      } );
                   break;
                case Tables.DeclSecurity:
-                  ReadTable( retVal.SecurityDefinitions, curTable, tableSizes, i =>
+                  ReadTable( retVal.SecurityDefinitions, tableSizes, i =>
                   {
                      var sec = new SecurityDefinition()
                      {
@@ -704,7 +704,7 @@ namespace CILAssemblyManipulator.Physical.Implementation
                   } );
                   break;
                case Tables.ClassLayout:
-                  ReadTable( retVal.ClassLayouts, curTable, tableSizes, i =>
+                  ReadTable( retVal.ClassLayouts, tableSizes, i =>
                      new ClassLayout()
                      {
                         PackingSize = stream.ReadI16( tmpArray ),
@@ -713,7 +713,7 @@ namespace CILAssemblyManipulator.Physical.Implementation
                      } );
                   break;
                case Tables.FieldLayout:
-                  ReadTable( retVal.FieldLayouts, curTable, tableSizes, i =>
+                  ReadTable( retVal.FieldLayouts, tableSizes, i =>
                      new FieldLayout()
                      {
                         Offset = stream.ReadI32( tmpArray ),
@@ -721,7 +721,7 @@ namespace CILAssemblyManipulator.Physical.Implementation
                      } );
                   break;
                case Tables.StandaloneSignature:
-                  ReadTable( retVal.StandaloneSignatures, curTable, tableSizes, i =>
+                  ReadTable( retVal.StandaloneSignatures, tableSizes, i =>
                   {
                      Boolean wasFieldSig;
                      var sig = ReadStandaloneSignature( blobs, stream, out wasFieldSig );
@@ -733,7 +733,7 @@ namespace CILAssemblyManipulator.Physical.Implementation
                   } );
                   break;
                case Tables.EventMap:
-                  ReadTable( retVal.EventMaps, curTable, tableSizes, i =>
+                  ReadTable( retVal.EventMaps, tableSizes, i =>
                      new EventMap()
                      {
                         Parent = MetaDataConstants.ReadSimpleTableIndex( stream, Tables.TypeDef, tableSizes, tmpArray ),
@@ -741,7 +741,7 @@ namespace CILAssemblyManipulator.Physical.Implementation
                      } );
                   break;
                case Tables.Event:
-                  ReadTable( retVal.EventDefinitions, curTable, tableSizes, i =>
+                  ReadTable( retVal.EventDefinitions, tableSizes, i =>
                      new EventDefinition()
                      {
                         Attributes = (EventAttributes) stream.ReadU16( tmpArray ),
@@ -750,7 +750,7 @@ namespace CILAssemblyManipulator.Physical.Implementation
                      } );
                   break;
                case Tables.PropertyMap:
-                  ReadTable( retVal.PropertyMaps, curTable, tableSizes, i =>
+                  ReadTable( retVal.PropertyMaps, tableSizes, i =>
                      new PropertyMap()
                      {
                         Parent = MetaDataConstants.ReadSimpleTableIndex( stream, Tables.TypeDef, tableSizes, tmpArray ),
@@ -758,7 +758,7 @@ namespace CILAssemblyManipulator.Physical.Implementation
                      } );
                   break;
                case Tables.Property:
-                  ReadTable( retVal.PropertyDefinitions, curTable, tableSizes, i =>
+                  ReadTable( retVal.PropertyDefinitions, tableSizes, i =>
                      new PropertyDefinition()
                      {
                         Attributes = (PropertyAttributes) stream.ReadU16( tmpArray ),
@@ -767,7 +767,7 @@ namespace CILAssemblyManipulator.Physical.Implementation
                      } );
                   break;
                case Tables.MethodSemantics:
-                  ReadTable( retVal.MethodSemantics, curTable, tableSizes, i =>
+                  ReadTable( retVal.MethodSemantics, tableSizes, i =>
                      new MethodSemantics()
                      {
                         Attributes = (MethodSemanticsAttributes) stream.ReadU16( tmpArray ),
@@ -776,7 +776,7 @@ namespace CILAssemblyManipulator.Physical.Implementation
                      } );
                   break;
                case Tables.MethodImpl:
-                  ReadTable( retVal.MethodImplementations, curTable, tableSizes, i =>
+                  ReadTable( retVal.MethodImplementations, tableSizes, i =>
                      new MethodImplementation()
                      {
                         Class = MetaDataConstants.ReadSimpleTableIndex( stream, Tables.TypeDef, tableSizes, tmpArray ),
@@ -785,21 +785,21 @@ namespace CILAssemblyManipulator.Physical.Implementation
                      } );
                   break;
                case Tables.ModuleRef:
-                  ReadTable( retVal.ModuleReferences, curTable, tableSizes, i =>
+                  ReadTable( retVal.ModuleReferences, tableSizes, i =>
                      new ModuleReference()
                      {
                         ModuleName = sysStrings.ReadSysString( stream )
                      } );
                   break;
                case Tables.TypeSpec:
-                  ReadTable( retVal.TypeSpecifications, curTable, tableSizes, i =>
+                  ReadTable( retVal.TypeSpecifications, tableSizes, i =>
                      new TypeSpecification()
                      {
                         Signature = TypeSignature.ReadFromBytes( blobs.WholeBLOBArray, blobs.GetBLOBIndex( stream ) )
                      } );
                   break;
                case Tables.ImplMap:
-                  ReadTable( retVal.MethodImplementationMaps, curTable, tableSizes, i =>
+                  ReadTable( retVal.MethodImplementationMaps, tableSizes, i =>
                      new MethodImplementationMap()
                      {
                         Attributes = (PInvokeAttributes) stream.ReadU16( tmpArray ),
@@ -809,7 +809,7 @@ namespace CILAssemblyManipulator.Physical.Implementation
                      } );
                   break;
                case Tables.FieldRVA:
-                  ReadTable( retVal.FieldRVAs, curTable, tableSizes, i =>
+                  ReadTable( retVal.FieldRVAs, tableSizes, i =>
                   {
                      fieldDefRVAs.Add( stream.ReadI32( tmpArray ) );
                      return new FieldRVA()
@@ -819,7 +819,7 @@ namespace CILAssemblyManipulator.Physical.Implementation
                   } );
                   break;
                case Tables.Assembly:
-                  ReadTable( retVal.AssemblyDefinitions, curTable, tableSizes, i =>
+                  ReadTable( retVal.AssemblyDefinitions, tableSizes, i =>
                   {
                      var assDef = new AssemblyDefinition()
                      {
@@ -838,7 +838,7 @@ namespace CILAssemblyManipulator.Physical.Implementation
                   } );
                   break;
                case Tables.AssemblyRef:
-                  ReadTable( retVal.AssemblyReferences, curTable, tableSizes, i =>
+                  ReadTable( retVal.AssemblyReferences, tableSizes, i =>
                   {
                      var assRef = new AssemblyReference();
                      var assInfo = assRef.AssemblyInformation;
@@ -855,7 +855,7 @@ namespace CILAssemblyManipulator.Physical.Implementation
                   } );
                   break;
                case Tables.File:
-                  ReadTable( retVal.FileReferences, curTable, tableSizes, i =>
+                  ReadTable( retVal.FileReferences, tableSizes, i =>
                      new FileReference()
                      {
                         Attributes = (FileAttributes) stream.ReadU32( tmpArray ),
@@ -864,7 +864,7 @@ namespace CILAssemblyManipulator.Physical.Implementation
                      } );
                   break;
                case Tables.ExportedType:
-                  ReadTable( retVal.ExportedTypes, curTable, tableSizes, i =>
+                  ReadTable( retVal.ExportedTypes, tableSizes, i =>
                      new ExportedType()
                      {
                         Attributes = (TypeAttributes) stream.ReadU32( tmpArray ),
@@ -875,7 +875,7 @@ namespace CILAssemblyManipulator.Physical.Implementation
                      } );
                   break;
                case Tables.ManifestResource:
-                  ReadTable( retVal.ManifestResources, curTable, tableSizes, i =>
+                  ReadTable( retVal.ManifestResources, tableSizes, i =>
                      new ManifestResource()
                      {
                         Offset = (Int32) stream.ReadU32( tmpArray ),
@@ -885,7 +885,7 @@ namespace CILAssemblyManipulator.Physical.Implementation
                      } );
                   break;
                case Tables.NestedClass:
-                  ReadTable( retVal.NestedClassDefinitions, curTable, tableSizes, i =>
+                  ReadTable( retVal.NestedClassDefinitions, tableSizes, i =>
                      new NestedClassDefinition()
                      {
                         NestedClass = MetaDataConstants.ReadSimpleTableIndex( stream, Tables.TypeDef, tableSizes, tmpArray ),
@@ -893,7 +893,7 @@ namespace CILAssemblyManipulator.Physical.Implementation
                      } );
                   break;
                case Tables.GenericParameter:
-                  ReadTable( retVal.GenericParameterDefinitions, curTable, tableSizes, i =>
+                  ReadTable( retVal.GenericParameterDefinitions, tableSizes, i =>
                      new GenericParameterDefinition()
                      {
                         GenericParameterIndex = stream.ReadI16( tmpArray ),
@@ -903,7 +903,7 @@ namespace CILAssemblyManipulator.Physical.Implementation
                      } );
                   break;
                case Tables.MethodSpec:
-                  ReadTable( retVal.MethodSpecifications, curTable, tableSizes, i =>
+                  ReadTable( retVal.MethodSpecifications, tableSizes, i =>
                      new MethodSpecification()
                      {
                         Method = MetaDataConstants.ReadCodedTableIndex( stream, CodedTableIndexKind.MethodDefOrRef, tRefSizes, tmpArray ).Value,
@@ -911,7 +911,7 @@ namespace CILAssemblyManipulator.Physical.Implementation
                      } );
                   break;
                case Tables.GenericParameterConstraint:
-                  ReadTable( retVal.GenericParameterConstraintDefinitions, curTable, tableSizes, i =>
+                  ReadTable( retVal.GenericParameterConstraintDefinitions, tableSizes, i =>
                      new GenericParameterConstraintDefinition()
                      {
                         Owner = MetaDataConstants.ReadSimpleTableIndex( stream, Tables.GenericParameter, tableSizes, tmpArray ),
@@ -946,7 +946,7 @@ namespace CILAssemblyManipulator.Physical.Implementation
                if ( offset < stream.Length )
                {
                   stream.SeekFromBegin( offset );
-                  retVal.MethodDefinitions[i].IL = ReadMethodILDefinition( stream, userStrings );
+                  retVal.MethodDefinitions.TableContents[i].IL = ReadMethodILDefinition( stream, userStrings );
                }
             }
          }
@@ -955,7 +955,7 @@ namespace CILAssemblyManipulator.Physical.Implementation
          var layoutInfo = new Lazy<IDictionary<Int32, ClassLayout>>( () =>
          {
             var dic = new Dictionary<Int32, ClassLayout>();
-            foreach ( var layout in retVal.ClassLayouts )
+            foreach ( var layout in retVal.ClassLayouts.TableContents )
             {
                dic[layout.Parent.Index] = layout;
             }
@@ -963,10 +963,11 @@ namespace CILAssemblyManipulator.Physical.Implementation
          }, System.Threading.LazyThreadSafetyMode.None );
          for ( var i = 0; i < fieldDefRVAs.Count; ++i )
          {
+            var fRVA = retVal.FieldRVAs.TableContents[i];
             var offset = ResolveRVA( (UInt32) fieldDefRVAs[i], sections );
             UInt32 size;
             if (
-               TryCalculateFieldTypeSize( retVal, layoutInfo, retVal.FieldRVAs[i].Field.Index, out size )
+               TryCalculateFieldTypeSize( retVal, layoutInfo, fRVA.Field.Index, out size )
                && offset + size < stream.Length
                )
             {
@@ -974,7 +975,7 @@ namespace CILAssemblyManipulator.Physical.Implementation
                var bytes = new Byte[size];
                stream.SeekFromBegin( offset );
                stream.ReadWholeArray( bytes );
-               retVal.FieldRVAs[i].Data = bytes;
+               fRVA.Data = bytes;
             }
 
          }
@@ -986,7 +987,7 @@ namespace CILAssemblyManipulator.Physical.Implementation
             var rsrcOffset = ResolveRVA( rsrcDD.rva, sections );
             var rsrcSize = rsrcDD.size;
             var rsrcOffsets = rArgs.EmbeddedManifestResourceOffsets;
-            foreach ( var mRes in retVal.ManifestResources )
+            foreach ( var mRes in retVal.ManifestResources.TableContents )
             {
                Int32? offsetToAdd;
                if ( mRes.IsEmbeddedResource() && (UInt32) mRes.Offset < rsrcSize )
@@ -1010,16 +1011,18 @@ namespace CILAssemblyManipulator.Physical.Implementation
          return retVal;
       }
 
-      private static void ReadTable<T>( IList<T> tableArray, Int32 curTable, Int32[] tableSizes, Func<Int32, T> rowReader )
+      private static void ReadTable<T>( MetaDataTable<T> tableArray, Int32[] tableSizes, Func<Int32, T> rowReader )
+         where T : class
       {
          // TODO - calculate table width, thus reading whole table into single array
          // Then give array as argument to rowReader
          // However, stream buffers things really well - is this really necessary? Not sure if performance boost will be worth it, and probably not good thing memory-wise if big tables are present.
-         var len = tableSizes[curTable];
+         var len = tableSizes[(Int32) tableArray.TableKind];
+         var list = tableArray.TableContents;
 
          for ( var i = 0; i < len; ++i )
          {
-            tableArray.Add( rowReader( i ) );
+            list.Add( rowReader( i ) );
          }
       }
 
@@ -1039,11 +1042,12 @@ namespace CILAssemblyManipulator.Physical.Implementation
 
       private static Boolean TryCalculateFieldTypeSize( CILMetaData md, Lazy<IDictionary<Int32, ClassLayout>> classLayoutInfo, Int32 fieldIdx, out UInt32 size, Boolean onlySimpleTypeValid = false )
       {
-         var retVal = fieldIdx < md.FieldDefinitions.Count;
+         var fDef = md.FieldDefinitions.TableContents;
+         var retVal = fieldIdx < fDef.Count;
          size = 0u;
          if ( retVal )
          {
-            var fieldSig = md.FieldDefinitions[fieldIdx].Signature;
+            var fieldSig = fDef[fieldIdx].Signature;
             var type = fieldSig.Type;
             retVal = false;
             switch ( type.TypeSignatureKind )
@@ -1132,12 +1136,14 @@ namespace CILAssemblyManipulator.Physical.Implementation
                {
                   // First non-static field of enum type is the field containing enum value
                   var fieldStartIdx = typeRow.FieldList.Index;
-                  var fieldEndIdx = tDefIndex + 1 >= md.TypeDefinitions.Count ?
-                     md.FieldDefinitions.Count :
-                     md.TypeDefinitions[tDefIndex + 1].FieldList.Index;
+                  var tDefs = md.TypeDefinitions.TableContents;
+                  var fDefs = md.FieldDefinitions.TableContents;
+                  var fieldEndIdx = tDefIndex + 1 >= tDefs.Count ?
+                     fDefs.Count :
+                     tDefs[tDefIndex + 1].FieldList.Index;
                   for ( var i = fieldStartIdx; i < fieldEndIdx; ++i )
                   {
-                     if ( !md.FieldDefinitions[i].Attributes.IsStatic() )
+                     if ( !fDefs[i].Attributes.IsStatic() )
                      {
                         // We have found non-static field of the enum type -> this field should be primitive and the size thus calculable
                         retVal = i;
@@ -1169,11 +1175,12 @@ namespace CILAssemblyManipulator.Physical.Implementation
             String tn = null, ns = null;
             if ( table == Tables.TypeDef )
             {
-               result = idx < md.TypeDefinitions.Count;
+               var tDefs = md.TypeDefinitions.TableContents;
+               result = idx < tDefs.Count;
                if ( result )
                {
-                  tn = md.TypeDefinitions[idx].Name;
-                  ns = md.TypeDefinitions[idx].Namespace;
+                  tn = tDefs[idx].Name;
+                  ns = tDefs[idx].Namespace;
                }
             }
             else if ( table == Tables.TypeRef )
@@ -1184,8 +1191,8 @@ namespace CILAssemblyManipulator.Physical.Implementation
                   && tRef.ResolutionScope.Value.Table == Tables.AssemblyRef; // TODO check for 'mscorlib', except that sometimes it may be System.Runtime ...
                if ( result )
                {
-                  tn = md.TypeReferences[idx].Name;
-                  ns = md.TypeReferences[idx].Namespace;
+                  tn = tRef.Name;
+                  ns = tRef.Namespace;
                }
             }
             if ( result )

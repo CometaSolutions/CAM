@@ -553,8 +553,8 @@ namespace CILMerge
          this._module = module;
          this._eArgs = eArgs;
 
-         var methodDeclaringTypes = new List<Int32>( module.MethodDefinitions.Count );
-         for ( var i = 0; i < module.TypeDefinitions.Count; ++i )
+         var methodDeclaringTypes = new List<Int32>( module.MethodDefinitions.RowCount );
+         for ( var i = 0; i < module.TypeDefinitions.RowCount; ++i )
          {
             // Don't use loop variable in lambda
             var cur = i;
@@ -562,8 +562,8 @@ namespace CILMerge
          }
          this._methodDeclaringTypes = methodDeclaringTypes;
 
-         var typeEnclosingTypes = new Dictionary<Int32, Int32>( module.NestedClassDefinitions.Count );
-         foreach ( var nc in module.NestedClassDefinitions )
+         var typeEnclosingTypes = new Dictionary<Int32, Int32>( module.NestedClassDefinitions.RowCount );
+         foreach ( var nc in module.NestedClassDefinitions.TableContents )
          {
             typeEnclosingTypes[nc.NestedClass.Index] = nc.EnclosingClass.Index;
          }
@@ -869,7 +869,7 @@ namespace CILMerge
 
       public uint GetTypeDefProps( uint td, IntPtr szTypeDef, uint cchTypeDef, out uint pchTypeDef, IntPtr pdwTypeDefFlags )
       {
-         var tDefs = this._module.TypeDefinitions;
+         var tDefs = this._module.TypeDefinitions.TableContents;
          var tIdx = CILAssemblyManipulator.Physical.TableIndex.FromOneBasedToken( (Int32) td );
          CILAssemblyManipulator.Physical.TableIndex? baseType;
          if ( tIdx.Index < tDefs.Count )
@@ -978,7 +978,7 @@ namespace CILMerge
 
       public uint GetMethodProps( uint mb, out uint pClass, IntPtr szMethod, uint cchMethod, out uint pchMethod, IntPtr pdwAttr, IntPtr ppvSigBlob, IntPtr pcbSigBlob, IntPtr pulCodeRVA )
       {
-         var mDefs = this._module.MethodDefinitions;
+         var mDefs = this._module.MethodDefinitions.TableContents;
          var mIdx = CILAssemblyManipulator.Physical.TableIndex.FromOneBasedToken( (Int32) mb );
 
          Int32 implAttrs;

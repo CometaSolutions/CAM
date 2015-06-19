@@ -833,7 +833,7 @@ namespace CILAssemblyManipulator.Physical
    }
 
    /// <summary>
-   /// This enumerable contains values for possible target platforms when emitting <see cref="CILModuleData"/>.
+   /// This enumerable contains values for possible target platforms when emitting <see cref="CILMetaData"/>.
    /// </summary>
    /// <remarks>This enumeration has same values as <c>System.Reflection.ImageFileMachine</c> enumeration. It will end up as 'Machine' field in PE file header.</remarks>
    public enum ImageFileMachine : short
@@ -856,7 +856,7 @@ namespace CILAssemblyManipulator.Physical
       ARMv7 = 0x01C4
    }
    /// <summary>
-   /// This enumeration contains values for what kind of code is contained within the module when emitting <see cref="CILModuleData"/>.
+   /// This enumeration contains values for what kind of code is contained within the module when emitting <see cref="CILMetaData"/>.
    /// </summary>
    /// <remarks>
    /// This enumeration partly overlaps <c>System.ReflectionPortableExecutableKinds</c> in its purpose.
@@ -893,7 +893,7 @@ namespace CILAssemblyManipulator.Physical
       /// </list>
       /// </para>
       /// <para>
-      /// Please note that if this flag is specified when emitting a <see cref="CILModuleData"/>, the flag <see cref="Required32Bit"/> should be set as well.
+      /// Please note that if this flag is specified when emitting a <see cref="CILMetaData"/>, the flag <see cref="Required32Bit"/> should be set as well.
       /// </para>
       /// </remarks>
       Preferred32Bit = 0x00020000

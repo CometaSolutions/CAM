@@ -155,8 +155,9 @@ namespace CILAssemblyManipulator.Physical.Implementation
          var snSize = 0u;
          var snRVA = 0u;
          var snPadding = 0u;
-         var thisAssemblyPublicKey = md.AssemblyDefinitions.Count > 0 ?
-            md.AssemblyDefinitions[0].AssemblyInformation.PublicKeyOrToken :
+         var aDefs = md.AssemblyDefinitions.TableContents;
+         var thisAssemblyPublicKey = aDefs.Count > 0 ?
+            aDefs[0].AssemblyInformation.PublicKeyOrToken :
             null;
 
          var delaySign = eArgs.DelaySign || ( !useStrongName && !thisAssemblyPublicKey.IsNullOrEmpty() );
@@ -647,12 +648,13 @@ namespace CILAssemblyManipulator.Physical.Implementation
       {
          // Create users string heap
          usersStrings = new UserStringHeapWriter();
+         var mDefs = md.MethodDefinitions.TableContents;
          methodRVAs.Clear();
-         methodRVAs.Capacity = md.MethodDefinitions.Count;
+         methodRVAs.Capacity = mDefs.Count;
 
-         for ( var i = 0; i < md.MethodDefinitions.Count; ++i )
+         for ( var i = 0; i < mDefs.Count; ++i )
          {
-            var method = md.MethodDefinitions[i];
+            var method = mDefs[i];
             UInt32 thisMethodRVA;
             var il = method.IL;
             if ( il != null )
@@ -693,7 +695,7 @@ namespace CILAssemblyManipulator.Physical.Implementation
          )
       {
          // Write manifest resources here
-         var mResInfos = md.ManifestResources;
+         var mResInfos = md.ManifestResources.TableContents;
          var mResInfo = eArgs.EmbeddedManifestResourceOffsets;
          mResInfo.Clear();
          mResInfo.Capacity = mResInfos.Count;
@@ -736,7 +738,7 @@ namespace CILAssemblyManipulator.Physical.Implementation
          }
 
          // Write field RVAs here
-         var mdFRVAs = md.FieldRVAs;
+         var mdFRVAs = md.FieldRVAs.TableContents;
          var fieldRVAs = eArgs.FieldRVAs;
          fieldRVAs.Clear();
          fieldRVAs.Capacity = mdFRVAs.Count;
@@ -766,7 +768,7 @@ namespace CILAssemblyManipulator.Physical.Implementation
          out Boolean isTinyHeader
          )
       {
-         var il = md.MethodDefinitions[methodIndex].IL;
+         var il = md.MethodDefinitions.TableContents[methodIndex].IL;
          var locals = md.GetLocalsSignatureForMethodOrNull( methodIndex );
          Boolean exceptionSectionsAreLarge; Int32 wholeMethodByteCount;
          var ilCodeByteCount = CalculateByteSizeForMethod( il, locals, out isTinyHeader, out exceptionSectionsAreLarge, out wholeMethodByteCount );
@@ -1091,40 +1093,40 @@ namespace CILAssemblyManipulator.Physical.Implementation
          }
 
          var tableSizes = new Int32[Consts.AMOUNT_OF_TABLES];
-         tableSizes[(Int32) Tables.Module] = md.ModuleDefinitions.Count;
-         tableSizes[(Int32) Tables.TypeRef] = md.TypeReferences.Count;
-         tableSizes[(Int32) Tables.TypeDef] = md.TypeDefinitions.Count;
-         tableSizes[(Int32) Tables.Field] = md.FieldDefinitions.Count;
-         tableSizes[(Int32) Tables.MethodDef] = md.MethodDefinitions.Count;
-         tableSizes[(Int32) Tables.Parameter] = md.ParameterDefinitions.Count;
-         tableSizes[(Int32) Tables.InterfaceImpl] = md.InterfaceImplementations.Count;
-         tableSizes[(Int32) Tables.MemberRef] = md.MemberReferences.Count;
-         tableSizes[(Int32) Tables.Constant] = md.ConstantDefinitions.Count;
-         tableSizes[(Int32) Tables.CustomAttribute] = md.CustomAttributeDefinitions.Count;
-         tableSizes[(Int32) Tables.FieldMarshal] = md.FieldMarshals.Count;
-         tableSizes[(Int32) Tables.DeclSecurity] = md.SecurityDefinitions.Count;
-         tableSizes[(Int32) Tables.ClassLayout] = md.ClassLayouts.Count;
-         tableSizes[(Int32) Tables.FieldLayout] = md.FieldLayouts.Count;
-         tableSizes[(Int32) Tables.StandaloneSignature] = md.StandaloneSignatures.Count;
-         tableSizes[(Int32) Tables.EventMap] = md.EventMaps.Count;
-         tableSizes[(Int32) Tables.Event] = md.EventDefinitions.Count;
-         tableSizes[(Int32) Tables.PropertyMap] = md.PropertyMaps.Count;
-         tableSizes[(Int32) Tables.Property] = md.PropertyDefinitions.Count;
-         tableSizes[(Int32) Tables.MethodSemantics] = md.MethodSemantics.Count;
-         tableSizes[(Int32) Tables.MethodImpl] = md.MethodImplementations.Count;
-         tableSizes[(Int32) Tables.ModuleRef] = md.ModuleReferences.Count;
-         tableSizes[(Int32) Tables.TypeSpec] = md.TypeSpecifications.Count;
-         tableSizes[(Int32) Tables.ImplMap] = md.MethodImplementationMaps.Count;
-         tableSizes[(Int32) Tables.FieldRVA] = md.FieldRVAs.Count;
-         tableSizes[(Int32) Tables.Assembly] = md.AssemblyDefinitions.Count;
-         tableSizes[(Int32) Tables.AssemblyRef] = md.AssemblyReferences.Count;
-         tableSizes[(Int32) Tables.File] = md.FileReferences.Count;
-         tableSizes[(Int32) Tables.ExportedType] = md.ExportedTypes.Count;
-         tableSizes[(Int32) Tables.ManifestResource] = md.ManifestResources.Count;
-         tableSizes[(Int32) Tables.NestedClass] = md.NestedClassDefinitions.Count;
-         tableSizes[(Int32) Tables.GenericParameter] = md.GenericParameterDefinitions.Count;
-         tableSizes[(Int32) Tables.MethodSpec] = md.MethodSpecifications.Count;
-         tableSizes[(Int32) Tables.GenericParameterConstraint] = md.GenericParameterConstraintDefinitions.Count;
+         tableSizes[(Int32) Tables.Module] = md.ModuleDefinitions.RowCount;
+         tableSizes[(Int32) Tables.TypeRef] = md.TypeReferences.RowCount;
+         tableSizes[(Int32) Tables.TypeDef] = md.TypeDefinitions.RowCount;
+         tableSizes[(Int32) Tables.Field] = md.FieldDefinitions.RowCount;
+         tableSizes[(Int32) Tables.MethodDef] = md.MethodDefinitions.RowCount;
+         tableSizes[(Int32) Tables.Parameter] = md.ParameterDefinitions.RowCount;
+         tableSizes[(Int32) Tables.InterfaceImpl] = md.InterfaceImplementations.RowCount;
+         tableSizes[(Int32) Tables.MemberRef] = md.MemberReferences.RowCount;
+         tableSizes[(Int32) Tables.Constant] = md.ConstantDefinitions.RowCount;
+         tableSizes[(Int32) Tables.CustomAttribute] = md.CustomAttributeDefinitions.RowCount;
+         tableSizes[(Int32) Tables.FieldMarshal] = md.FieldMarshals.RowCount;
+         tableSizes[(Int32) Tables.DeclSecurity] = md.SecurityDefinitions.RowCount;
+         tableSizes[(Int32) Tables.ClassLayout] = md.ClassLayouts.RowCount;
+         tableSizes[(Int32) Tables.FieldLayout] = md.FieldLayouts.RowCount;
+         tableSizes[(Int32) Tables.StandaloneSignature] = md.StandaloneSignatures.RowCount;
+         tableSizes[(Int32) Tables.EventMap] = md.EventMaps.RowCount;
+         tableSizes[(Int32) Tables.Event] = md.EventDefinitions.RowCount;
+         tableSizes[(Int32) Tables.PropertyMap] = md.PropertyMaps.RowCount;
+         tableSizes[(Int32) Tables.Property] = md.PropertyDefinitions.RowCount;
+         tableSizes[(Int32) Tables.MethodSemantics] = md.MethodSemantics.RowCount;
+         tableSizes[(Int32) Tables.MethodImpl] = md.MethodImplementations.RowCount;
+         tableSizes[(Int32) Tables.ModuleRef] = md.ModuleReferences.RowCount;
+         tableSizes[(Int32) Tables.TypeSpec] = md.TypeSpecifications.RowCount;
+         tableSizes[(Int32) Tables.ImplMap] = md.MethodImplementationMaps.RowCount;
+         tableSizes[(Int32) Tables.FieldRVA] = md.FieldRVAs.RowCount;
+         tableSizes[(Int32) Tables.Assembly] = md.AssemblyDefinitions.RowCount;
+         tableSizes[(Int32) Tables.AssemblyRef] = md.AssemblyReferences.RowCount;
+         tableSizes[(Int32) Tables.File] = md.FileReferences.RowCount;
+         tableSizes[(Int32) Tables.ExportedType] = md.ExportedTypes.RowCount;
+         tableSizes[(Int32) Tables.ManifestResource] = md.ManifestResources.RowCount;
+         tableSizes[(Int32) Tables.NestedClass] = md.NestedClassDefinitions.RowCount;
+         tableSizes[(Int32) Tables.GenericParameter] = md.GenericParameterDefinitions.RowCount;
+         tableSizes[(Int32) Tables.MethodSpec] = md.MethodSpecifications.RowCount;
+         tableSizes[(Int32) Tables.GenericParameterConstraint] = md.GenericParameterConstraintDefinitions.RowCount;
 
          var tableWidths = new Int32[tableSizes.Length];
          for ( var i = 0; i < tableWidths.Length; ++i )
@@ -1260,7 +1262,7 @@ namespace CILAssemblyManipulator.Physical.Implementation
 
          // Table stream tables start right here
          // ECMA-335, p. 239
-         ForEachElement<ModuleDefinition, HeapInfo4>( Tables.Module, md.ModuleDefinitions, tableWidths, sink, heapInfos, byteArrayHelper, ( array, idx, listIdx, module, heapInfo ) => array
+         ForEachElement<ModuleDefinition, HeapInfo4>( md.ModuleDefinitions, tableWidths, sink, heapInfos, byteArrayHelper, ( array, idx, listIdx, module, heapInfo ) => array
             .WriteInt16LEToBytes( ref idx, module.Generation ) // Generation
             .WriteHeapIndex( ref idx, sysStrings, heapInfo.Heap1 ) // Name
             .WriteHeapIndex( ref idx, guids, heapInfo.Heap2 ) // MvId
@@ -1269,13 +1271,13 @@ namespace CILAssemblyManipulator.Physical.Implementation
             );
          // ECMA-335, p. 247
          // TypeRef may contain types which result in duplicate rows - avoid that
-         ForEachElement<TypeReference, HeapInfo2>( Tables.TypeRef, md.TypeReferences, tableWidths, sink, heapInfos, byteArrayHelper, ( array, idx, listIdx, typeRef, heapInfo ) => array
+         ForEachElement<TypeReference, HeapInfo2>( md.TypeReferences, tableWidths, sink, heapInfos, byteArrayHelper, ( array, idx, listIdx, typeRef, heapInfo ) => array
             .WriteCodedTableIndex( ref idx, CodedTableIndexKind.ResolutionScope, typeRef.ResolutionScope, tRefWidths ) // ResolutionScope
             .WriteHeapIndex( ref idx, sysStrings, heapInfo.Heap1 ) // TypeName
             .WriteHeapIndex( ref idx, sysStrings, heapInfo.Heap2 ) // TypeNamespace
             );
          // ECMA-335, p. 243
-         ForEachElement<TypeDefinition, HeapInfo2>( Tables.TypeDef, md.TypeDefinitions, tableWidths, sink, heapInfos, byteArrayHelper, ( array, idx, listIdx, typeDef, heapInfo ) => array
+         ForEachElement<TypeDefinition, HeapInfo2>( md.TypeDefinitions, tableWidths, sink, heapInfos, byteArrayHelper, ( array, idx, listIdx, typeDef, heapInfo ) => array
             .WriteInt32LEToBytes( ref idx, (Int32) typeDef.Attributes ) // Flags
             .WriteHeapIndex( ref idx, sysStrings, heapInfo.Heap1 ) // TypeName
             .WriteHeapIndex( ref idx, sysStrings, heapInfo.Heap2 ) // TypeNamespace
@@ -1284,13 +1286,13 @@ namespace CILAssemblyManipulator.Physical.Implementation
             .WriteSimpleTableIndex( ref idx, typeDef.MethodList, tableSizes ) // MethodList
             );
          // ECMA-335, p. 223
-         ForEachElement<FieldDefinition, HeapInfo2>( Tables.Field, md.FieldDefinitions, tableWidths, sink, heapInfos, byteArrayHelper, ( array, idx, listIdx, fDef, heapInfo ) => array
+         ForEachElement<FieldDefinition, HeapInfo2>( md.FieldDefinitions, tableWidths, sink, heapInfos, byteArrayHelper, ( array, idx, listIdx, fDef, heapInfo ) => array
             .WriteInt16LEToBytes( ref idx, (Int16) fDef.Attributes ) // FieldAttributes
             .WriteHeapIndex( ref idx, sysStrings, heapInfo.Heap1 ) // Name
             .WriteHeapIndex( ref idx, blobs, heapInfo.Heap2 ) // Signature
             );
          // ECMA-335, p. 233
-         ForEachElement<MethodDefinition, HeapInfo2>( Tables.MethodDef, md.MethodDefinitions, tableWidths, sink, heapInfos, byteArrayHelper, ( array, idx, listIdx, mDef, heapInfo ) => array
+         ForEachElement<MethodDefinition, HeapInfo2>( md.MethodDefinitions, tableWidths, sink, heapInfos, byteArrayHelper, ( array, idx, listIdx, mDef, heapInfo ) => array
             .WriteUInt32LEToBytes( ref idx, (UInt32) eArgs.MethodRVAs[listIdx] ) // RVA
             .WriteInt16LEToBytes( ref idx, (Int16) mDef.ImplementationAttributes ) // ImplFlags
             .WriteInt16LEToBytes( ref idx, (Int16) mDef.Attributes ) // Flags
@@ -1299,116 +1301,116 @@ namespace CILAssemblyManipulator.Physical.Implementation
             .WriteSimpleTableIndex( ref idx, mDef.ParameterList, tableSizes ) // ParamList
             );
          // ECMA-335, p. 240
-         ForEachElement<ParameterDefinition, HeapInfo1>( Tables.Parameter, md.ParameterDefinitions, tableWidths, sink, heapInfos, byteArrayHelper, ( array, idx, listIdx, pDef, heapInfo ) => array
+         ForEachElement<ParameterDefinition, HeapInfo1>( md.ParameterDefinitions, tableWidths, sink, heapInfos, byteArrayHelper, ( array, idx, listIdx, pDef, heapInfo ) => array
             .WriteInt16LEToBytes( ref idx, (Int16) pDef.Attributes ) // Flags
             .WriteUInt16LEToBytes( ref idx, (UInt16) pDef.Sequence ) // Sequence
             .WriteHeapIndex( ref idx, sysStrings, heapInfo.Heap1 ) // Name
             );
          // ECMA-335, p. 231
-         ForEachElement( Tables.InterfaceImpl, md.InterfaceImplementations, tableWidths, sink, byteArrayHelper, ( array, idx, listIdx, item ) => array
+         ForEachElement( md.InterfaceImplementations, tableWidths, sink, byteArrayHelper, ( array, idx, listIdx, item ) => array
             .WriteSimpleTableIndex( ref idx, item.Class, tableSizes ) // Class
             .WriteCodedTableIndex( ref idx, CodedTableIndexKind.TypeDefOrRef, item.Interface, tRefWidths ) // Interface
             );
          // ECMA-335, p. 232
-         ForEachElement<MemberReference, HeapInfo2>( Tables.MemberRef, md.MemberReferences, tableWidths, sink, heapInfos, byteArrayHelper, ( array, idx, listIdx, mRef, heapInfo ) => array
+         ForEachElement<MemberReference, HeapInfo2>( md.MemberReferences, tableWidths, sink, heapInfos, byteArrayHelper, ( array, idx, listIdx, mRef, heapInfo ) => array
             .WriteCodedTableIndex( ref idx, CodedTableIndexKind.MemberRefParent, mRef.DeclaringType, tRefWidths ) // Class
             .WriteHeapIndex( ref idx, sysStrings, heapInfo.Heap1 ) // Name
             .WriteHeapIndex( ref idx, blobs, heapInfo.Heap2 ) // Signature
             );
          // ECMA-335, p. 216
-         ForEachElement<ConstantDefinition, HeapInfo1>( Tables.Constant, md.ConstantDefinitions, tableWidths, sink, heapInfos, byteArrayHelper, ( array, idx, listIdx, constant, heapInfo ) => array
+         ForEachElement<ConstantDefinition, HeapInfo1>( md.ConstantDefinitions, tableWidths, sink, heapInfos, byteArrayHelper, ( array, idx, listIdx, constant, heapInfo ) => array
             .WriteInt16LEToBytes( ref idx, (Int16) constant.Type ) // Type
             .WriteCodedTableIndex( ref idx, CodedTableIndexKind.HasConstant, constant.Parent, tRefWidths ) // Parent
             .WriteHeapIndex( ref idx, blobs, heapInfo.Heap1 ) // Value
             );
          // ECMA-335, p. 216
-         ForEachElement<CustomAttributeDefinition, HeapInfo1>( Tables.CustomAttribute, md.CustomAttributeDefinitions, tableWidths, sink, heapInfos, byteArrayHelper, ( array, idx, listIdx, ca, heapInfo ) => array
+         ForEachElement<CustomAttributeDefinition, HeapInfo1>( md.CustomAttributeDefinitions, tableWidths, sink, heapInfos, byteArrayHelper, ( array, idx, listIdx, ca, heapInfo ) => array
             .WriteCodedTableIndex( ref idx, CodedTableIndexKind.HasCustomAttribute, ca.Parent, tRefWidths ) // Parent
             .WriteCodedTableIndex( ref idx, CodedTableIndexKind.CustomAttributeType, ca.Type, tRefWidths ) // Type
             .WriteHeapIndex( ref idx, blobs, heapInfo.Heap1 )
             );
          // ECMA-335, p.226
-         ForEachElement<FieldMarshal, HeapInfo1>( Tables.FieldMarshal, md.FieldMarshals, tableWidths, sink, heapInfos, byteArrayHelper, ( array, idx, listIdx, fm, heapInfo ) => array
+         ForEachElement<FieldMarshal, HeapInfo1>( md.FieldMarshals, tableWidths, sink, heapInfos, byteArrayHelper, ( array, idx, listIdx, fm, heapInfo ) => array
             .WriteCodedTableIndex( ref idx, CodedTableIndexKind.HasFieldMarshal, fm.Parent, tRefWidths ) // Parent
             .WriteHeapIndex( ref idx, blobs, heapInfo.Heap1 ) // NativeType
             );
          // ECMA-335, p. 218
-         ForEachElement<SecurityDefinition, HeapInfo1>( Tables.DeclSecurity, md.SecurityDefinitions, tableWidths, sink, heapInfos, byteArrayHelper, ( array, idx, listIdx, sec, heapInfo ) => array
+         ForEachElement<SecurityDefinition, HeapInfo1>( md.SecurityDefinitions, tableWidths, sink, heapInfos, byteArrayHelper, ( array, idx, listIdx, sec, heapInfo ) => array
             .WriteInt16LEToBytes( ref idx, (Int16) sec.Action ) // Action
             .WriteCodedTableIndex( ref idx, CodedTableIndexKind.HasDeclSecurity, sec.Parent, tRefWidths ) // Parent
             .WriteHeapIndex( ref idx, blobs, heapInfo.Heap1 ) // PermissionSet
             );
          // ECMA-335 p. 215
-         ForEachElement( Tables.ClassLayout, md.ClassLayouts, tableWidths, sink, byteArrayHelper, ( array, idx, listIdx, cl ) => array
+         ForEachElement( md.ClassLayouts, tableWidths, sink, byteArrayHelper, ( array, idx, listIdx, cl ) => array
             .WriteInt16LEToBytes( ref idx, cl.PackingSize ) // PackingSize
             .WriteInt32LEToBytes( ref idx, cl.ClassSize ) // ClassSize
             .WriteSimpleTableIndex( ref idx, cl.Parent, tableSizes ) // Parent
             );
          // ECMA-335 p. 225
-         ForEachElement( Tables.FieldLayout, md.FieldLayouts, tableWidths, sink, byteArrayHelper, ( array, idx, listIdx, fl ) => array
+         ForEachElement( md.FieldLayouts, tableWidths, sink, byteArrayHelper, ( array, idx, listIdx, fl ) => array
             .WriteInt32LEToBytes( ref idx, fl.Offset ) // Offset
             .WriteSimpleTableIndex( ref idx, fl.Field, tableSizes ) // Field
             );
          // ECMA-335 p. 243
-         ForEachElement<StandaloneSignature, HeapInfo1>( Tables.StandaloneSignature, md.StandaloneSignatures, tableWidths, sink, heapInfos, byteArrayHelper, ( array, idx, listIdx, sig, heapInfo ) => array
+         ForEachElement<StandaloneSignature, HeapInfo1>( md.StandaloneSignatures, tableWidths, sink, heapInfos, byteArrayHelper, ( array, idx, listIdx, sig, heapInfo ) => array
             .WriteHeapIndex( ref idx, blobs, heapInfo.Heap1 ) // Signature
             );
          // ECMA-335 p. 220
-         ForEachElement( Tables.EventMap, md.EventMaps, tableWidths, sink, byteArrayHelper, ( array, idx, listIdx, em ) => array
+         ForEachElement( md.EventMaps, tableWidths, sink, byteArrayHelper, ( array, idx, listIdx, em ) => array
             .WriteSimpleTableIndex( ref idx, em.Parent, tableSizes ) // Parent
             .WriteSimpleTableIndex( ref idx, em.EventList, tableSizes ) // EventList
             );
          // ECMA-335 p. 221
-         ForEachElement<EventDefinition, HeapInfo1>( Tables.Event, md.EventDefinitions, tableWidths, sink, heapInfos, byteArrayHelper, ( array, idx, listIdx, evt, heapInfo ) => array
+         ForEachElement<EventDefinition, HeapInfo1>( md.EventDefinitions, tableWidths, sink, heapInfos, byteArrayHelper, ( array, idx, listIdx, evt, heapInfo ) => array
             .WriteInt16LEToBytes( ref idx, (Int16) evt.Attributes ) // EventFlags
             .WriteHeapIndex( ref idx, sysStrings, heapInfo.Heap1 ) // Name
             .WriteCodedTableIndex( ref idx, CodedTableIndexKind.TypeDefOrRef, evt.EventType, tRefWidths ) // EventType
             );
          // ECMA-335 p. 242
-         ForEachElement( Tables.PropertyMap, md.PropertyMaps, tableWidths, sink, byteArrayHelper, ( array, idx, listIdx, pm ) => array
+         ForEachElement( md.PropertyMaps, tableWidths, sink, byteArrayHelper, ( array, idx, listIdx, pm ) => array
             .WriteSimpleTableIndex( ref idx, pm.Parent, tableSizes ) // Parent
             .WriteSimpleTableIndex( ref idx, pm.PropertyList, tableSizes ) // PropertyList
             );
          // ECMA-335 p. 242
-         ForEachElement<PropertyDefinition, HeapInfo2>( Tables.Property, md.PropertyDefinitions, tableWidths, sink, heapInfos, byteArrayHelper, ( array, idx, listIdx, prop, heapInfo ) => array
+         ForEachElement<PropertyDefinition, HeapInfo2>( md.PropertyDefinitions, tableWidths, sink, heapInfos, byteArrayHelper, ( array, idx, listIdx, prop, heapInfo ) => array
             .WriteInt16LEToBytes( ref idx, (Int16) prop.Attributes ) // Flags
             .WriteHeapIndex( ref idx, sysStrings, heapInfo.Heap1 ) // Name
             .WriteHeapIndex( ref idx, blobs, heapInfo.Heap2 ) // Type
             );
          // ECMA-335 p. 237
-         ForEachElement( Tables.MethodSemantics, md.MethodSemantics, tableWidths, sink, byteArrayHelper, ( array, idx, listIdx, ms ) => array
+         ForEachElement( md.MethodSemantics, tableWidths, sink, byteArrayHelper, ( array, idx, listIdx, ms ) => array
             .WriteInt16LEToBytes( ref idx, (Int16) ms.Attributes ) // Semantics
             .WriteSimpleTableIndex( ref idx, ms.Method, tableSizes ) // Method
             .WriteCodedTableIndex( ref idx, CodedTableIndexKind.HasSemantics, ms.Associaton, tRefWidths ) // Association
             );
          // ECMA-335 p. 237
-         ForEachElement( Tables.MethodImpl, md.MethodImplementations, tableWidths, sink, byteArrayHelper, ( array, idx, listIdx, mi ) => array
+         ForEachElement( md.MethodImplementations, tableWidths, sink, byteArrayHelper, ( array, idx, listIdx, mi ) => array
             .WriteSimpleTableIndex( ref idx, mi.Class, tableSizes ) // Class
             .WriteCodedTableIndex( ref idx, CodedTableIndexKind.MethodDefOrRef, mi.MethodBody, tRefWidths ) // MethodBody
             .WriteCodedTableIndex( ref idx, CodedTableIndexKind.MethodDefOrRef, mi.MethodDeclaration, tRefWidths ) // MethodDeclaration
             );
          // ECMA-335, p. 239
-         ForEachElement<ModuleReference, HeapInfo1>( Tables.ModuleRef, md.ModuleReferences, tableWidths, sink, heapInfos, byteArrayHelper, ( array, idx, listIdx, modRef, heapInfo ) => array
+         ForEachElement<ModuleReference, HeapInfo1>( md.ModuleReferences, tableWidths, sink, heapInfos, byteArrayHelper, ( array, idx, listIdx, modRef, heapInfo ) => array
             .WriteHeapIndex( ref idx, sysStrings, heapInfo.Heap1 ) // Name
             );
          // ECMA-335, p. 248
-         ForEachElement<TypeSpecification, HeapInfo1>( Tables.TypeSpec, md.TypeSpecifications, tableWidths, sink, heapInfos, byteArrayHelper, ( array, idx, listIdx, tSpec, heapInfo ) => array
+         ForEachElement<TypeSpecification, HeapInfo1>( md.TypeSpecifications, tableWidths, sink, heapInfos, byteArrayHelper, ( array, idx, listIdx, tSpec, heapInfo ) => array
             .WriteHeapIndex( ref idx, blobs, heapInfo.Heap1 ) // Signature
             );
          // ECMA-335, p. 230
-         ForEachElement<MethodImplementationMap, HeapInfo1>( Tables.ImplMap, md.MethodImplementationMaps, tableWidths, sink, heapInfos, byteArrayHelper, ( array, idx, listIdx, mim, heapInfo ) => array
+         ForEachElement<MethodImplementationMap, HeapInfo1>( md.MethodImplementationMaps, tableWidths, sink, heapInfos, byteArrayHelper, ( array, idx, listIdx, mim, heapInfo ) => array
             .WriteInt16LEToBytes( ref idx, (Int16) mim.Attributes ) // PInvokeAttributes
             .WriteCodedTableIndex( ref idx, CodedTableIndexKind.MemberForwarded, mim.MemberForwarded, tRefWidths ) // MemberForwarded
             .WriteHeapIndex( ref idx, sysStrings, heapInfo.Heap1 ) // Import name
             .WriteSimpleTableIndex( ref idx, mim.ImportScope, tableSizes ) // Import scope
             );
          // ECMA-335, p. 227
-         ForEachElement( Tables.FieldRVA, md.FieldRVAs, tableWidths, sink, byteArrayHelper, ( array, idx, listIdx, fRVA ) => array
+         ForEachElement( md.FieldRVAs, tableWidths, sink, byteArrayHelper, ( array, idx, listIdx, fRVA ) => array
             .WriteUInt32LEToBytes( ref idx, (UInt32) eArgs.FieldRVAs[listIdx] )
             .WriteSimpleTableIndex( ref idx, fRVA.Field, tableSizes )
             );
          // ECMA-335, p. 211
-         ForEachElement<AssemblyDefinition, HeapInfo3>( Tables.Assembly, md.AssemblyDefinitions, tableWidths, sink, heapInfos, byteArrayHelper, ( array, idx, listIdx, ass, heapInfo ) => array
+         ForEachElement<AssemblyDefinition, HeapInfo3>( md.AssemblyDefinitions, tableWidths, sink, heapInfos, byteArrayHelper, ( array, idx, listIdx, ass, heapInfo ) => array
             .WriteInt32LEToBytes( ref idx, (Int32) ass.HashAlgorithm ) // HashAlgId
             .WriteUInt16LEToBytes( ref idx, (UInt16) ass.AssemblyInformation.VersionMajor ) // MajorVersion
             .WriteUInt16LEToBytes( ref idx, (UInt16) ass.AssemblyInformation.VersionMinor ) // MinorVersion
@@ -1420,7 +1422,7 @@ namespace CILAssemblyManipulator.Physical.Implementation
             .WriteHeapIndex( ref idx, sysStrings, heapInfo.Heap3 ) // Culture
             );
          // ECMA-335, p. 212
-         ForEachElement<AssemblyReference, HeapInfo4>( Tables.AssemblyRef, md.AssemblyReferences, tableWidths, sink, heapInfos, byteArrayHelper, ( array, idx, listIdx, assRef, heapInfo ) => array
+         ForEachElement<AssemblyReference, HeapInfo4>( md.AssemblyReferences, tableWidths, sink, heapInfos, byteArrayHelper, ( array, idx, listIdx, assRef, heapInfo ) => array
             .WriteUInt16LEToBytes( ref idx, (UInt16) assRef.AssemblyInformation.VersionMajor ) // MajorVersion
             .WriteUInt16LEToBytes( ref idx, (UInt16) assRef.AssemblyInformation.VersionMinor ) // MinorVersion
             .WriteUInt16LEToBytes( ref idx, (UInt16) assRef.AssemblyInformation.VersionBuild ) // BuildNumber
@@ -1431,43 +1433,43 @@ namespace CILAssemblyManipulator.Physical.Implementation
             .WriteHeapIndex( ref idx, sysStrings, heapInfo.Heap3 ) // Culture
             .WriteHeapIndex( ref idx, blobs, heapInfo.Heap4 ) // HashValue
             );
-         ForEachElement<FileReference, HeapInfo2>( Tables.File, md.FileReferences, tableWidths, sink, heapInfos, byteArrayHelper, ( array, idx, listIdx, file, heapInfo ) => array
+         ForEachElement<FileReference, HeapInfo2>( md.FileReferences, tableWidths, sink, heapInfos, byteArrayHelper, ( array, idx, listIdx, file, heapInfo ) => array
             .WriteInt32LEToBytes( ref idx, (Int32) file.Attributes ) // Flags
             .WriteHeapIndex( ref idx, sysStrings, heapInfo.Heap1 ) // Name
             .WriteHeapIndex( ref idx, blobs, heapInfo.Heap2 ) // HashValue
             );
-         ForEachElement<ExportedType, HeapInfo2>( Tables.ExportedType, md.ExportedTypes, tableWidths, sink, heapInfos, byteArrayHelper, ( array, idx, listIdx, eType, heapInfo ) => array
+         ForEachElement<ExportedType, HeapInfo2>( md.ExportedTypes, tableWidths, sink, heapInfos, byteArrayHelper, ( array, idx, listIdx, eType, heapInfo ) => array
             .WriteInt32LEToBytes( ref idx, (Int32) eType.Attributes ) // TypeAttributes
             .WriteInt32LEToBytes( ref idx, eType.TypeDefinitionIndex ) // TypeDef index in other (!) assembly
             .WriteHeapIndex( ref idx, sysStrings, heapInfo.Heap1 ) // TypeName
             .WriteHeapIndex( ref idx, sysStrings, heapInfo.Heap2 ) // TypeNamespace
             .WriteCodedTableIndex( ref idx, CodedTableIndexKind.Implementation, eType.Implementation, tRefWidths ) // Implementation
             );
-         ForEachElement<ManifestResource, HeapInfo1>( Tables.ManifestResource, md.ManifestResources, tableWidths, sink, heapInfos, byteArrayHelper, ( array, idx, listIdx, mRes, heapInfo ) => array
+         ForEachElement<ManifestResource, HeapInfo1>( md.ManifestResources, tableWidths, sink, heapInfos, byteArrayHelper, ( array, idx, listIdx, mRes, heapInfo ) => array
             .WriteUInt32LEToBytes( ref idx, (UInt32) ( eArgs.EmbeddedManifestResourceOffsets[listIdx] ?? mRes.Offset ) ) // Offset
             .WriteInt32LEToBytes( ref idx, (Int32) mRes.Attributes ) // Flags
             .WriteHeapIndex( ref idx, sysStrings, heapInfo.Heap1 ) // Name
             .WriteCodedTableIndex( ref idx, CodedTableIndexKind.Implementation, mRes.Implementation, tRefWidths ) // Implementation
             );
          // ECMA-335, p. 240
-         ForEachElement( Tables.NestedClass, md.NestedClassDefinitions, tableWidths, sink, byteArrayHelper, ( array, idx, listIdx, nc ) => array
+         ForEachElement( md.NestedClassDefinitions, tableWidths, sink, byteArrayHelper, ( array, idx, listIdx, nc ) => array
             .WriteSimpleTableIndex( ref idx, nc.NestedClass, tableSizes ) // NestedClass
             .WriteSimpleTableIndex( ref idx, nc.EnclosingClass, tableSizes ) // EnclosingClass
             );
          // ECMA-335, p. 228
-         ForEachElement<GenericParameterDefinition, HeapInfo1>( Tables.GenericParameter, md.GenericParameterDefinitions, tableWidths, sink, heapInfos, byteArrayHelper, ( array, idx, listIdx, gParam, heapInfo ) => array
+         ForEachElement<GenericParameterDefinition, HeapInfo1>( md.GenericParameterDefinitions, tableWidths, sink, heapInfos, byteArrayHelper, ( array, idx, listIdx, gParam, heapInfo ) => array
             .WriteUInt16LEToBytes( ref idx, (UInt16) gParam.GenericParameterIndex ) // Number
             .WriteInt16LEToBytes( ref idx, (Int16) gParam.Attributes ) // Flags
             .WriteCodedTableIndex( ref idx, CodedTableIndexKind.TypeOrMethodDef, gParam.Owner, tRefWidths ) // Owner
             .WriteHeapIndex( ref idx, sysStrings, heapInfo.Heap1 ) // Name
             );
          // ECMA-335, p. 238
-         ForEachElement<MethodSpecification, HeapInfo1>( Tables.MethodSpec, md.MethodSpecifications, tableWidths, sink, heapInfos, byteArrayHelper, ( array, idx, listIdx, mSpec, heapInfo ) => array
+         ForEachElement<MethodSpecification, HeapInfo1>( md.MethodSpecifications, tableWidths, sink, heapInfos, byteArrayHelper, ( array, idx, listIdx, mSpec, heapInfo ) => array
             .WriteCodedTableIndex( ref idx, CodedTableIndexKind.MethodDefOrRef, mSpec.Method, tRefWidths ) // Method
             .WriteHeapIndex( ref idx, blobs, heapInfo.Heap1 ) // Instantiation
             );
          // ECMA-335, p. 229
-         ForEachElement( Tables.GenericParameterConstraint, md.GenericParameterConstraintDefinitions, tableWidths, sink, byteArrayHelper, ( array, idx, listIdx, gConstraint ) => array
+         ForEachElement( md.GenericParameterConstraintDefinitions, tableWidths, sink, byteArrayHelper, ( array, idx, listIdx, gConstraint ) => array
             .WriteSimpleTableIndex( ref idx, gConstraint.Owner, tableSizes ) // Owner
             .WriteCodedTableIndex( ref idx, CodedTableIndexKind.TypeDefOrRef, gConstraint.Constraint, tRefWidths ) // Constraint
             );
@@ -1487,25 +1489,26 @@ namespace CILAssemblyManipulator.Physical.Implementation
       }
 
       private static void ForEachElement<T, U>(
-         Tables tableEnum,
-         ICollection<T> table,
+         MetaDataTable<T> mdTable,
          Int32[] tableWidths,
          Stream sink,
          Object[] heapInfos,
          ByteArrayHelper byteArrayHelper,
          Action<Byte[], Int32, Int32, T, U> writeAction
          )
+         where T : class
       {
-         var count = table.Count;
+         var count = mdTable.RowCount;
          if ( count > 0 )
          {
+            var tableEnum = mdTable.TableKind;
             Int32 width;
             var arrayLen = CheckArrayForTableEmitting( tableEnum, count, tableWidths, byteArrayHelper, out width );
             var idx = 0;
             var tableIdx = 0;
             var heapInfoList = (List<U>) heapInfos[(Int32) tableEnum];
             var array = byteArrayHelper.Array;
-            foreach ( var item in table )
+            foreach ( var item in mdTable.TableContents )
             {
                writeAction( array, idx, tableIdx, item, heapInfoList[tableIdx] );
                idx += width;
@@ -1522,23 +1525,24 @@ namespace CILAssemblyManipulator.Physical.Implementation
       }
 
       private static void ForEachElement<T>(
-         Tables tableEnum,
-         ICollection<T> table,
+         MetaDataTable<T> mdTable,
          Int32[] tableWidths,
          Stream sink,
          ByteArrayHelper byteArrayHelper,
          Action<Byte[], Int32, Int32, T> writeAction
          )
+         where T : class
       {
-         var count = table.Count;
+         var count = mdTable.RowCount;
          if ( count > 0 )
          {
+            var tableEnum = mdTable.TableKind;
             Int32 width;
             var arrayLen = CheckArrayForTableEmitting( tableEnum, count, tableWidths, byteArrayHelper, out width );
             var idx = 0;
             var tableIdx = 0;
             var array = byteArrayHelper.Array;
-            foreach ( var item in table )
+            foreach ( var item in mdTable.TableContents )
             {
                writeAction( array, idx, tableIdx, item );
                idx += width;
@@ -1579,53 +1583,53 @@ namespace CILAssemblyManipulator.Physical.Implementation
 
          var auxHelper = new ByteArrayHelper(); // For writing security BLOBs
          // 0x00 Module
-         ProcessTableForHeaps4( Tables.Module, md.ModuleDefinitions, heapInfos, mod => new HeapInfo4( sysStrings.GetOrAddString( mod.Name ), guids.GetOrAddGUID( mod.ModuleGUID ), guids.GetOrAddGUID( mod.EditAndContinueGUID ), guids.GetOrAddGUID( mod.EditAndContinueBaseGUID ) ) );
+         ProcessTableForHeaps4( md.ModuleDefinitions, heapInfos, mod => new HeapInfo4( sysStrings.GetOrAddString( mod.Name ), guids.GetOrAddGUID( mod.ModuleGUID ), guids.GetOrAddGUID( mod.EditAndContinueGUID ), guids.GetOrAddGUID( mod.EditAndContinueBaseGUID ) ) );
          // 0x01 TypeRef
-         ProcessTableForHeaps2( Tables.TypeRef, md.TypeReferences, heapInfos, tr => new HeapInfo2( sysStrings.GetOrAddString( tr.Name ), sysStrings.GetOrAddString( tr.Namespace ) ) );
+         ProcessTableForHeaps2( md.TypeReferences, heapInfos, tr => new HeapInfo2( sysStrings.GetOrAddString( tr.Name ), sysStrings.GetOrAddString( tr.Namespace ) ) );
          // 0x02 TypeDef
-         ProcessTableForHeaps2( Tables.TypeDef, md.TypeDefinitions, heapInfos, td => new HeapInfo2( sysStrings.GetOrAddString( td.Name ), sysStrings.GetOrAddString( td.Namespace ) ) );
+         ProcessTableForHeaps2( md.TypeDefinitions, heapInfos, td => new HeapInfo2( sysStrings.GetOrAddString( td.Name ), sysStrings.GetOrAddString( td.Namespace ) ) );
          // 0x04 FieldDef
-         ProcessTableForHeaps2( Tables.Field, md.FieldDefinitions, heapInfos, f => new HeapInfo2( sysStrings.GetOrAddString( f.Name ), blobs.GetOrAddBLOB( byteArrayHelper.CreateFieldSignature( f.Signature ) ) ) );
+         ProcessTableForHeaps2( md.FieldDefinitions, heapInfos, f => new HeapInfo2( sysStrings.GetOrAddString( f.Name ), blobs.GetOrAddBLOB( byteArrayHelper.CreateFieldSignature( f.Signature ) ) ) );
          // 0x06 MethodDef
-         ProcessTableForHeaps2( Tables.MethodDef, md.MethodDefinitions, heapInfos, m => new HeapInfo2( sysStrings.GetOrAddString( m.Name ), blobs.GetOrAddBLOB( byteArrayHelper.CreateMethodSignature( m.Signature ) ) ) );
+         ProcessTableForHeaps2( md.MethodDefinitions, heapInfos, m => new HeapInfo2( sysStrings.GetOrAddString( m.Name ), blobs.GetOrAddBLOB( byteArrayHelper.CreateMethodSignature( m.Signature ) ) ) );
          // 0x08 Parameter
-         ProcessTableForHeaps1( Tables.Parameter, md.ParameterDefinitions, heapInfos, p => new HeapInfo1( sysStrings.GetOrAddString( p.Name ) ) );
+         ProcessTableForHeaps1( md.ParameterDefinitions, heapInfos, p => new HeapInfo1( sysStrings.GetOrAddString( p.Name ) ) );
          // 0x0A MemberRef
-         ProcessTableForHeaps2( Tables.MemberRef, md.MemberReferences, heapInfos, m => new HeapInfo2( sysStrings.GetOrAddString( m.Name ), blobs.GetOrAddBLOB( byteArrayHelper.CreateMemberRefSignature( m.Signature ) ) ) );
+         ProcessTableForHeaps2( md.MemberReferences, heapInfos, m => new HeapInfo2( sysStrings.GetOrAddString( m.Name ), blobs.GetOrAddBLOB( byteArrayHelper.CreateMemberRefSignature( m.Signature ) ) ) );
          // 0x0B Constant
-         ProcessTableForHeaps1( Tables.Constant, md.ConstantDefinitions, heapInfos, c => new HeapInfo1( blobs.GetOrAddBLOB( byteArrayHelper.CreateConstantBytes( c.Value ) ) ) );
+         ProcessTableForHeaps1( md.ConstantDefinitions, heapInfos, c => new HeapInfo1( blobs.GetOrAddBLOB( byteArrayHelper.CreateConstantBytes( c.Value ) ) ) );
          // 0x0C CustomAttribute
-         ProcessTableForHeaps1( Tables.CustomAttribute, md.CustomAttributeDefinitions, heapInfos, ca => new HeapInfo1( blobs.GetOrAddBLOB( byteArrayHelper.CreateCustomAttributeSignature( ca.Signature ) ) ) );
+         ProcessTableForHeaps1( md.CustomAttributeDefinitions, heapInfos, ca => new HeapInfo1( blobs.GetOrAddBLOB( byteArrayHelper.CreateCustomAttributeSignature( ca.Signature ) ) ) );
          // 0x0D FieldMarshal
-         ProcessTableForHeaps1( Tables.FieldMarshal, md.FieldMarshals, heapInfos, fm => new HeapInfo1( blobs.GetOrAddBLOB( byteArrayHelper.CreateMarshalSpec( fm.NativeType ) ) ) );
+         ProcessTableForHeaps1( md.FieldMarshals, heapInfos, fm => new HeapInfo1( blobs.GetOrAddBLOB( byteArrayHelper.CreateMarshalSpec( fm.NativeType ) ) ) );
          // 0x0E Security definitions
-         ProcessTableForHeaps1( Tables.DeclSecurity, md.SecurityDefinitions, heapInfos, sd => new HeapInfo1( blobs.GetOrAddBLOB( byteArrayHelper.CreateSecuritySignature( sd, auxHelper ) ) ) );
+         ProcessTableForHeaps1( md.SecurityDefinitions, heapInfos, sd => new HeapInfo1( blobs.GetOrAddBLOB( byteArrayHelper.CreateSecuritySignature( sd, auxHelper ) ) ) );
          // 0x11 Standalone sig
-         ProcessTableForHeaps1( Tables.StandaloneSignature, md.StandaloneSignatures, heapInfos, s => new HeapInfo1( blobs.GetOrAddBLOB( byteArrayHelper.CreateStandaloneSignature( s ) ) ) );
+         ProcessTableForHeaps1( md.StandaloneSignatures, heapInfos, s => new HeapInfo1( blobs.GetOrAddBLOB( byteArrayHelper.CreateStandaloneSignature( s ) ) ) );
          // 0x14 Event
-         ProcessTableForHeaps1( Tables.Event, md.EventDefinitions, heapInfos, e => new HeapInfo1( sysStrings.GetOrAddString( e.Name ) ) );
+         ProcessTableForHeaps1( md.EventDefinitions, heapInfos, e => new HeapInfo1( sysStrings.GetOrAddString( e.Name ) ) );
          // 0x17 Property
-         ProcessTableForHeaps2( Tables.Property, md.PropertyDefinitions, heapInfos, p => new HeapInfo2( sysStrings.GetOrAddString( p.Name ), blobs.GetOrAddBLOB( byteArrayHelper.CreatePropertySignature( p.Signature ) ) ) );
+         ProcessTableForHeaps2( md.PropertyDefinitions, heapInfos, p => new HeapInfo2( sysStrings.GetOrAddString( p.Name ), blobs.GetOrAddBLOB( byteArrayHelper.CreatePropertySignature( p.Signature ) ) ) );
          // 0x1A ModuleRef
-         ProcessTableForHeaps1( Tables.ModuleRef, md.ModuleReferences, heapInfos, mr => new HeapInfo1( sysStrings.GetOrAddString( mr.ModuleName ) ) );
+         ProcessTableForHeaps1( md.ModuleReferences, heapInfos, mr => new HeapInfo1( sysStrings.GetOrAddString( mr.ModuleName ) ) );
          // 0x1B TypeSpec
-         ProcessTableForHeaps1( Tables.TypeSpec, md.TypeSpecifications, heapInfos, t => new HeapInfo1( blobs.GetOrAddBLOB( byteArrayHelper.CreateTypeSignature( t.Signature ) ) ) );
+         ProcessTableForHeaps1( md.TypeSpecifications, heapInfos, t => new HeapInfo1( blobs.GetOrAddBLOB( byteArrayHelper.CreateTypeSignature( t.Signature ) ) ) );
          // 0x1C ImplMap
-         ProcessTableForHeaps1( Tables.ImplMap, md.MethodImplementationMaps, heapInfos, mim => new HeapInfo1( sysStrings.GetOrAddString( mim.ImportName ) ) );
+         ProcessTableForHeaps1( md.MethodImplementationMaps, heapInfos, mim => new HeapInfo1( sysStrings.GetOrAddString( mim.ImportName ) ) );
          // 0x20 Assembly
-         ProcessTableForHeaps3( Tables.Assembly, md.AssemblyDefinitions, heapInfos, ad => new HeapInfo3( blobs.GetOrAddBLOB( ad.AssemblyInformation.PublicKeyOrToken ), sysStrings.GetOrAddString( ad.AssemblyInformation.Name ), sysStrings.GetOrAddString( ad.AssemblyInformation.Culture ) ) );
+         ProcessTableForHeaps3( md.AssemblyDefinitions, heapInfos, ad => new HeapInfo3( blobs.GetOrAddBLOB( ad.AssemblyInformation.PublicKeyOrToken ), sysStrings.GetOrAddString( ad.AssemblyInformation.Name ), sysStrings.GetOrAddString( ad.AssemblyInformation.Culture ) ) );
          // 0x21 AssemblyRef
-         ProcessTableForHeaps4( Tables.AssemblyRef, md.AssemblyReferences, heapInfos, ar => new HeapInfo4( blobs.GetOrAddBLOB( ar.AssemblyInformation.PublicKeyOrToken ), sysStrings.GetOrAddString( ar.AssemblyInformation.Name ), sysStrings.GetOrAddString( ar.AssemblyInformation.Culture ), blobs.GetOrAddBLOB( ar.HashValue ) ) );
+         ProcessTableForHeaps4( md.AssemblyReferences, heapInfos, ar => new HeapInfo4( blobs.GetOrAddBLOB( ar.AssemblyInformation.PublicKeyOrToken ), sysStrings.GetOrAddString( ar.AssemblyInformation.Name ), sysStrings.GetOrAddString( ar.AssemblyInformation.Culture ), blobs.GetOrAddBLOB( ar.HashValue ) ) );
          // 0x26 File
-         ProcessTableForHeaps2( Tables.File, md.FileReferences, heapInfos, f => new HeapInfo2( sysStrings.GetOrAddString( f.Name ), blobs.GetOrAddBLOB( f.HashValue ) ) );
+         ProcessTableForHeaps2( md.FileReferences, heapInfos, f => new HeapInfo2( sysStrings.GetOrAddString( f.Name ), blobs.GetOrAddBLOB( f.HashValue ) ) );
          // 0x27 ExportedType
-         ProcessTableForHeaps2( Tables.ExportedType, md.ExportedTypes, heapInfos, e => new HeapInfo2( sysStrings.GetOrAddString( e.Name ), sysStrings.GetOrAddString( e.Namespace ) ) );
+         ProcessTableForHeaps2( md.ExportedTypes, heapInfos, e => new HeapInfo2( sysStrings.GetOrAddString( e.Name ), sysStrings.GetOrAddString( e.Namespace ) ) );
          // 0x28 ManifestResource
-         ProcessTableForHeaps1( Tables.ManifestResource, md.ManifestResources, heapInfos, m => new HeapInfo1( sysStrings.GetOrAddString( m.Name ) ) );
+         ProcessTableForHeaps1( md.ManifestResources, heapInfos, m => new HeapInfo1( sysStrings.GetOrAddString( m.Name ) ) );
          // 0x2A GenericParameter
-         ProcessTableForHeaps1( Tables.GenericParameter, md.GenericParameterDefinitions, heapInfos, g => new HeapInfo1( sysStrings.GetOrAddString( g.Name ) ) );
+         ProcessTableForHeaps1( md.GenericParameterDefinitions, heapInfos, g => new HeapInfo1( sysStrings.GetOrAddString( g.Name ) ) );
          // 0x2B MethosSpec
-         ProcessTableForHeaps1( Tables.MethodSpec, md.MethodSpecifications, heapInfos, m => new HeapInfo1( blobs.GetOrAddBLOB( byteArrayHelper.CreateMethodSpecSignature( m.Signature ) ) ) );
+         ProcessTableForHeaps1( md.MethodSpecifications, heapInfos, m => new HeapInfo1( blobs.GetOrAddBLOB( byteArrayHelper.CreateMethodSpecSignature( m.Signature ) ) ) );
 
          // We're done
          blobs.SetIsWideIndex();
@@ -1637,44 +1641,48 @@ namespace CILAssemblyManipulator.Physical.Implementation
          guidsParam = guids;
       }
 
-      private static void ProcessTableForHeaps1<T>( Tables tableEnum, List<T> table, Object[] heapInfos, Func<T, HeapInfo1> heapInfoExtractor )
+      private static void ProcessTableForHeaps1<T>( MetaDataTable<T> table, Object[] heapInfos, Func<T, HeapInfo1> heapInfoExtractor )
+         where T : class
       {
-         var heapInfoList = new List<HeapInfo1>( table.Count );
-         foreach ( var row in table )
+         var heapInfoList = new List<HeapInfo1>( table.RowCount );
+         foreach ( var row in table.TableContents )
          {
             heapInfoList.Add( heapInfoExtractor( row ) );
          }
-         heapInfos[(Int32) tableEnum] = heapInfoList;
+         heapInfos[(Int32) table.TableKind] = heapInfoList;
       }
 
-      private static void ProcessTableForHeaps2<T>( Tables tableEnum, List<T> table, Object[] heapInfos, Func<T, HeapInfo2> heapInfoExtractor )
+      private static void ProcessTableForHeaps2<T>( MetaDataTable<T> table, Object[] heapInfos, Func<T, HeapInfo2> heapInfoExtractor )
+         where T : class
       {
-         var heapInfoList = new List<HeapInfo2>( table.Count );
-         foreach ( var row in table )
+         var heapInfoList = new List<HeapInfo2>( table.RowCount );
+         foreach ( var row in table.TableContents )
          {
             heapInfoList.Add( heapInfoExtractor( row ) );
          }
-         heapInfos[(Int32) tableEnum] = heapInfoList;
+         heapInfos[(Int32) table.TableKind] = heapInfoList;
       }
 
-      private static void ProcessTableForHeaps3<T>( Tables tableEnum, List<T> table, Object[] heapInfos, Func<T, HeapInfo3> heapInfoExtractor )
+      private static void ProcessTableForHeaps3<T>( MetaDataTable<T> table, Object[] heapInfos, Func<T, HeapInfo3> heapInfoExtractor )
+         where T : class
       {
-         var heapInfoList = new List<HeapInfo3>( table.Count );
-         foreach ( var row in table )
+         var heapInfoList = new List<HeapInfo3>( table.RowCount );
+         foreach ( var row in table.TableContents )
          {
             heapInfoList.Add( heapInfoExtractor( row ) );
          }
-         heapInfos[(Int32) tableEnum] = heapInfoList;
+         heapInfos[(Int32) table.TableKind] = heapInfoList;
       }
 
-      private static void ProcessTableForHeaps4<T>( Tables tableEnum, List<T> table, Object[] heapInfos, Func<T, HeapInfo4> heapInfoExtractor )
+      private static void ProcessTableForHeaps4<T>( MetaDataTable<T> table, Object[] heapInfos, Func<T, HeapInfo4> heapInfoExtractor )
+         where T : class
       {
-         var heapInfoList = new List<HeapInfo4>( table.Count );
-         foreach ( var row in table )
+         var heapInfoList = new List<HeapInfo4>( table.RowCount );
+         foreach ( var row in table.TableContents )
          {
             heapInfoList.Add( heapInfoExtractor( row ) );
          }
-         heapInfos[(Int32) tableEnum] = heapInfoList;
+         heapInfos[(Int32) table.TableKind] = heapInfoList;
       }
 
 

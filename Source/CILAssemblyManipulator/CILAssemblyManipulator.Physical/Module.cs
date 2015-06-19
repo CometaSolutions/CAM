@@ -24,10 +24,128 @@ using CommonUtils;
 
 namespace CILAssemblyManipulator.Physical
 {
-   public interface CILModuleData
+   public interface CILMetaData
    {
-      HeadersData Headers { get; }
-      CILMetaData MetaData { get; }
+      MetaDataTable<ModuleDefinition> ModuleDefinitions { get; }
+
+      MetaDataTable<TypeReference> TypeReferences { get; }
+
+      MetaDataTable<TypeDefinition> TypeDefinitions { get; }
+
+      MetaDataTable<FieldDefinition> FieldDefinitions { get; }
+
+      MetaDataTable<MethodDefinition> MethodDefinitions { get; }
+
+      MetaDataTable<ParameterDefinition> ParameterDefinitions { get; }
+
+      MetaDataTable<InterfaceImplementation> InterfaceImplementations { get; }
+
+      MetaDataTable<MemberReference> MemberReferences { get; }
+
+      MetaDataTable<ConstantDefinition> ConstantDefinitions { get; }
+
+      MetaDataTable<CustomAttributeDefinition> CustomAttributeDefinitions { get; }
+
+      MetaDataTable<FieldMarshal> FieldMarshals { get; }
+
+      MetaDataTable<SecurityDefinition> SecurityDefinitions { get; }
+
+      MetaDataTable<ClassLayout> ClassLayouts { get; }
+
+      MetaDataTable<FieldLayout> FieldLayouts { get; }
+
+      MetaDataTable<StandaloneSignature> StandaloneSignatures { get; }
+
+      MetaDataTable<EventMap> EventMaps { get; }
+
+      MetaDataTable<EventDefinition> EventDefinitions { get; }
+
+      MetaDataTable<PropertyMap> PropertyMaps { get; }
+
+      MetaDataTable<PropertyDefinition> PropertyDefinitions { get; }
+
+      MetaDataTable<MethodSemantics> MethodSemantics { get; }
+
+      MetaDataTable<MethodImplementation> MethodImplementations { get; }
+
+      MetaDataTable<ModuleReference> ModuleReferences { get; }
+
+      MetaDataTable<TypeSpecification> TypeSpecifications { get; }
+
+      MetaDataTable<MethodImplementationMap> MethodImplementationMaps { get; }
+
+      MetaDataTable<FieldRVA> FieldRVAs { get; }
+
+      MetaDataTable<AssemblyDefinition> AssemblyDefinitions { get; }
+
+      MetaDataTable<AssemblyReference> AssemblyReferences { get; }
+
+      MetaDataTable<FileReference> FileReferences { get; }
+
+      MetaDataTable<ExportedType> ExportedTypes { get; }
+
+      MetaDataTable<ManifestResource> ManifestResources { get; }
+
+      MetaDataTable<NestedClassDefinition> NestedClassDefinitions { get; }
+
+      MetaDataTable<GenericParameterDefinition> GenericParameterDefinitions { get; }
+
+      MetaDataTable<MethodSpecification> MethodSpecifications { get; }
+
+      MetaDataTable<GenericParameterConstraintDefinition> GenericParameterConstraintDefinitions { get; }
+   }
+
+   public interface MetaDataTable
+   {
+      Tables TableKind { get; }
+      Int32 RowCount { get; }
+      Object this[Int32 idx] { get; } // set; }
+      IEnumerable<Object> TableContentsAsEnumerable { get; }
+   }
+
+   public interface MetaDataTable<TRow> : MetaDataTable
+      where TRow : class
+   {
+      List<TRow> TableContents { get; }
+   }
+
+   public static class CILMetaDataFactory
+   {
+      public static CILMetaData NewBlankMetaData()
+      {
+         return new CILAssemblyManipulator.Physical.Implementation.CILMetadataImpl();
+      }
+
+      public static CILMetaData CreateMinimalAssembly( String assemblyName, String moduleName )
+      {
+         var md = CreateMinimalModule( moduleName );
+
+         var aDef = new AssemblyDefinition();
+         aDef.AssemblyInformation.Name = assemblyName;
+         md.AssemblyDefinitions.TableContents.Add( aDef );
+
+         return md;
+      }
+
+      public static CILMetaData CreateMinimalModule( String moduleName )
+      {
+         var md = CILMetaDataFactory.NewBlankMetaData();
+
+         // Module definition
+         md.ModuleDefinitions.TableContents.Add( new ModuleDefinition()
+         {
+            Name = moduleName,
+            ModuleGUID = Guid.NewGuid()
+         } );
+
+         // Module type
+         md.TypeDefinitions.TableContents.Add( new TypeDefinition()
+         {
+            Name = "<Module>"
+         } );
+
+         return md;
+      }
    }
 
    public sealed class HeadersData
@@ -303,116 +421,6 @@ namespace CILAssemblyManipulator.Physical
             ModuleFlags = this.ModuleFlags,
             DebugInformation = this.DebugInformation,
          };
-      }
-   }
-
-   public interface CILMetaData
-   {
-      List<ModuleDefinition> ModuleDefinitions { get; }
-
-      List<TypeReference> TypeReferences { get; }
-
-      List<TypeDefinition> TypeDefinitions { get; }
-
-      List<FieldDefinition> FieldDefinitions { get; }
-
-      List<MethodDefinition> MethodDefinitions { get; }
-
-      List<ParameterDefinition> ParameterDefinitions { get; }
-
-      List<InterfaceImplementation> InterfaceImplementations { get; }
-
-      List<MemberReference> MemberReferences { get; }
-
-      List<ConstantDefinition> ConstantDefinitions { get; }
-
-      List<CustomAttributeDefinition> CustomAttributeDefinitions { get; }
-
-      List<FieldMarshal> FieldMarshals { get; }
-
-      List<SecurityDefinition> SecurityDefinitions { get; }
-
-      List<ClassLayout> ClassLayouts { get; }
-
-      List<FieldLayout> FieldLayouts { get; }
-
-      List<StandaloneSignature> StandaloneSignatures { get; }
-
-      List<EventMap> EventMaps { get; }
-
-      List<EventDefinition> EventDefinitions { get; }
-
-      List<PropertyMap> PropertyMaps { get; }
-
-      List<PropertyDefinition> PropertyDefinitions { get; }
-
-      List<MethodSemantics> MethodSemantics { get; }
-
-      List<MethodImplementation> MethodImplementations { get; }
-
-      List<ModuleReference> ModuleReferences { get; }
-
-      List<TypeSpecification> TypeSpecifications { get; }
-
-      List<MethodImplementationMap> MethodImplementationMaps { get; }
-
-      List<FieldRVA> FieldRVAs { get; }
-
-      List<AssemblyDefinition> AssemblyDefinitions { get; }
-
-      List<AssemblyReference> AssemblyReferences { get; }
-
-      List<FileReference> FileReferences { get; }
-
-      List<ExportedType> ExportedTypes { get; }
-
-      List<ManifestResource> ManifestResources { get; }
-
-      List<NestedClassDefinition> NestedClassDefinitions { get; }
-
-      List<GenericParameterDefinition> GenericParameterDefinitions { get; }
-
-      List<MethodSpecification> MethodSpecifications { get; }
-
-      List<GenericParameterConstraintDefinition> GenericParameterConstraintDefinitions { get; }
-   }
-
-   public static class CILMetaDataFactory
-   {
-      public static CILMetaData NewBlankMetaData()
-      {
-         return new CILAssemblyManipulator.Physical.Implementation.CILMetadataImpl();
-      }
-
-      public static CILMetaData CreateMinimalAssembly( String assemblyName, String moduleName )
-      {
-         var md = CreateMinimalModule( moduleName );
-
-         var aDef = new AssemblyDefinition();
-         aDef.AssemblyInformation.Name = assemblyName;
-         md.AssemblyDefinitions.Add( aDef );
-
-         return md;
-      }
-
-      public static CILMetaData CreateMinimalModule( String moduleName )
-      {
-         var md = CILMetaDataFactory.NewBlankMetaData();
-
-         // Module definition
-         md.ModuleDefinitions.Add( new ModuleDefinition()
-         {
-            Name = moduleName,
-            ModuleGUID = Guid.NewGuid()
-         } );
-
-         // Module type
-         md.TypeDefinitions.Add( new TypeDefinition()
-         {
-            Name = "<Module>"
-         } );
-
-         return md;
       }
    }
 
