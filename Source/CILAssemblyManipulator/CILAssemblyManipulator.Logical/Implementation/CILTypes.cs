@@ -21,6 +21,7 @@ using System.Linq;
 using System.Threading;
 using CollectionsWithRoles.API;
 using CommonUtils;
+using CILAssemblyManipulator.Physical;
 
 namespace CILAssemblyManipulator.Logical.Implementation
 {
@@ -72,7 +73,7 @@ namespace CILAssemblyManipulator.Logical.Implementation
                   // DBNull
                   tc = CILTypeCode.Object;
                }
-               else if ( tc == CILTypeCode.Object && Utils.NATIVE_MSCORLIB.Equals( type
+               else if ( tc == CILTypeCode.Object && LogicalUtils.NATIVE_MSCORLIB.Equals( type
 #if WINDOWS_PHONE_APP
             .GetTypeInfo()
 #endif
@@ -298,7 +299,7 @@ namespace CILAssemblyManipulator.Logical.Implementation
       private readonly SettableLazy<ClassLayout?> layout;
       private readonly ResettableLazy<CILType> baseType;
       private readonly ResettableLazy<ListProxy<CILType>> declaredInterfaces;
-      private readonly Lazy<DictionaryWithRoles<SecurityAction, ListProxy<SecurityInformation>, ListProxyQuery<SecurityInformation>, ListQuery<SecurityInformation>>> securityInfo;
+      private readonly Lazy<DictionaryWithRoles<SecurityAction, ListProxy<LogicalSecurityInformation>, ListProxyQuery<LogicalSecurityInformation>, ListQuery<LogicalSecurityInformation>>> securityInfo;
 
       internal CILTypeImpl( CILReflectionContextImpl ctx, Int32 anID, Type type )
          : base( ctx, anID, type )
@@ -452,7 +453,7 @@ namespace CILAssemblyManipulator.Logical.Implementation
                   .Select( iFace => (CILType) ctx.Cache.GetOrAdd( iFace ) )
                   .ToList() );
             },
-            new Lazy<DictionaryWithRoles<SecurityAction, ListProxy<SecurityInformation>, ListProxyQuery<SecurityInformation>, ListQuery<SecurityInformation>>>( this.SecurityInfoFromAttributes, LazyThreadSafetyMode.ExecutionAndPublication ),
+            new Lazy<DictionaryWithRoles<SecurityAction, ListProxy<LogicalSecurityInformation>, ListProxyQuery<LogicalSecurityInformation>, ListQuery<LogicalSecurityInformation>>>( this.SecurityInfoFromAttributes, LazyThreadSafetyMode.ExecutionAndPublication ),
             true
             );
       }
@@ -516,7 +517,7 @@ namespace CILAssemblyManipulator.Logical.Implementation
          Func<ListProxy<CILProperty>> propertiesFunc,
          Func<ListProxy<CILEvent>> eventsFunc,
          SettableLazy<ClassLayout?> aLayout,
-         Lazy<DictionaryWithRoles<SecurityAction, ListProxy<SecurityInformation>, ListProxyQuery<SecurityInformation>, ListQuery<SecurityInformation>>> aSecurityInfo,
+         Lazy<DictionaryWithRoles<SecurityAction, ListProxy<LogicalSecurityInformation>, ListProxyQuery<LogicalSecurityInformation>, ListQuery<LogicalSecurityInformation>>> aSecurityInfo,
          Boolean resettablesAreSettable = false
          )
          : base( ctx, anID, cAttrDataFunc, TypeKind.Type, typeCode, aName, aNamespace, moduleFunc, declaringTypeFunc, resettablesAreSettable )
@@ -554,7 +555,7 @@ namespace CILAssemblyManipulator.Logical.Implementation
             aLayout,
             baseTypeFunc,
             declaredInterfacesFunc,
-            aSecurityInfo ?? new Lazy<DictionaryWithRoles<SecurityAction, ListProxy<SecurityInformation>, ListProxyQuery<SecurityInformation>, ListQuery<SecurityInformation>>>( () => ctx.CollectionsFactory.NewDictionary<SecurityAction, ListProxy<SecurityInformation>, ListProxyQuery<SecurityInformation>, ListQuery<SecurityInformation>>(), LazyThreadSafetyMode.ExecutionAndPublication ),
+            aSecurityInfo ?? new Lazy<DictionaryWithRoles<SecurityAction, ListProxy<LogicalSecurityInformation>, ListProxyQuery<LogicalSecurityInformation>, ListQuery<LogicalSecurityInformation>>>( () => ctx.CollectionsFactory.NewDictionary<SecurityAction, ListProxy<LogicalSecurityInformation>, ListProxyQuery<LogicalSecurityInformation>, ListQuery<LogicalSecurityInformation>>(), LazyThreadSafetyMode.ExecutionAndPublication ),
             resettablesAreSettable
             );
       }
@@ -576,7 +577,7 @@ namespace CILAssemblyManipulator.Logical.Implementation
          ref SettableLazy<ClassLayout?> layout,
          ref ResettableLazy<CILType> baseType,
          ref ResettableLazy<ListProxy<CILType>> declaredInterfaces,
-         ref Lazy<DictionaryWithRoles<SecurityAction, ListProxy<SecurityInformation>, ListProxyQuery<SecurityInformation>, ListQuery<SecurityInformation>>> securityInfo,
+         ref Lazy<DictionaryWithRoles<SecurityAction, ListProxy<LogicalSecurityInformation>, ListProxyQuery<LogicalSecurityInformation>, ListQuery<LogicalSecurityInformation>>> securityInfo,
          SettableValueForEnums<TypeAttributes> typeAttrsVal,
          ElementKind? anElementKind,
          GeneralArrayInfo anArrayInfo,
@@ -592,7 +593,7 @@ namespace CILAssemblyManipulator.Logical.Implementation
          SettableLazy<ClassLayout?> aLayout,
          Func<CILType> baseTypeFunc,
          Func<ListProxy<CILType>> declaredInterfacesFunc,
-         Lazy<DictionaryWithRoles<SecurityAction, ListProxy<SecurityInformation>, ListProxyQuery<SecurityInformation>, ListQuery<SecurityInformation>>> aSecurityInfo,
+         Lazy<DictionaryWithRoles<SecurityAction, ListProxy<LogicalSecurityInformation>, ListProxyQuery<LogicalSecurityInformation>, ListQuery<LogicalSecurityInformation>>> aSecurityInfo,
          Boolean resettablesAreSettable
          )
       {
@@ -622,14 +623,14 @@ namespace CILAssemblyManipulator.Logical.Implementation
 
       public override String ToString()
       {
-         return Utils.CreateTypeString( this, null, true );
+         return LogicalUtils.CreateTypeString( this, null, true );
       }
 
       internal override String GetNameString()
       {
          // TODO move this to Utils.
          var eKind = this.elementKind;
-         return eKind.HasValue ? ( ( (CILTypeOrParameterImpl) this.elementType.Value ).GetNameString() + Utils.CreateElementKindString( eKind.Value, this.arrayInfo ) ) : base.GetNameString();
+         return eKind.HasValue ? ( ( (CILTypeOrParameterImpl) this.elementType.Value ).GetNameString() + LogicalUtils.CreateElementKindString( eKind.Value, this.arrayInfo ) ) : base.GetNameString();
       }
 
 
@@ -1127,7 +1128,7 @@ namespace CILAssemblyManipulator.Logical.Implementation
 
       #endregion
 
-      public DictionaryQuery<SecurityAction, ListQuery<SecurityInformation>> DeclarativeSecurity
+      public DictionaryQuery<SecurityAction, ListQuery<LogicalSecurityInformation>> DeclarativeSecurity
       {
          get
          {
@@ -1135,30 +1136,30 @@ namespace CILAssemblyManipulator.Logical.Implementation
          }
       }
 
-      public SecurityInformation AddDeclarativeSecurity( SecurityAction action, CILType securityAttributeType )
+      public LogicalSecurityInformation AddDeclarativeSecurity( SecurityAction action, CILType securityAttributeType )
       {
          lock ( this.securityInfo.Value )
          {
-            ListProxy<SecurityInformation> list;
+            ListProxy<LogicalSecurityInformation> list;
             if ( !this.securityInfo.Value.CQ.TryGetValue( action, out list ) )
             {
-               list = this.context.CollectionsFactory.NewListProxy<SecurityInformation>();
+               list = this.context.CollectionsFactory.NewListProxy<LogicalSecurityInformation>();
                this.securityInfo.Value.Add( action, list );
             }
-            var result = new SecurityInformation( action, securityAttributeType );
+            var result = new LogicalSecurityInformation( action, securityAttributeType );
             list.Add( result );
             return result;
          }
       }
 
-      public Boolean RemoveDeclarativeSecurity( SecurityInformation information )
+      public Boolean RemoveDeclarativeSecurity( LogicalSecurityInformation information )
       {
          lock ( this.securityInfo.Value )
          {
             var result = information != null;
             if ( !result )
             {
-               ListProxy<SecurityInformation> list;
+               ListProxy<LogicalSecurityInformation> list;
                if ( this.securityInfo.Value.CQ.TryGetValue( information.SecurityAction, out list ) )
                {
                   result = list.Remove( information );
@@ -1168,7 +1169,7 @@ namespace CILAssemblyManipulator.Logical.Implementation
          }
       }
 
-      internal Lazy<DictionaryWithRoles<SecurityAction, ListProxy<SecurityInformation>, ListProxyQuery<SecurityInformation>, ListQuery<SecurityInformation>>> DeclarativeSecurityInternal
+      internal Lazy<DictionaryWithRoles<SecurityAction, ListProxy<LogicalSecurityInformation>, ListProxyQuery<LogicalSecurityInformation>, ListQuery<LogicalSecurityInformation>>> DeclarativeSecurityInternal
       {
          get
          {
@@ -1413,7 +1414,7 @@ namespace CILAssemblyManipulator.Logical.Implementation
       {
          get
          {
-            return CILAssemblyManipulator.API.TypeKind.MethodSignature;
+            return TypeKind.MethodSignature;
          }
       }
 

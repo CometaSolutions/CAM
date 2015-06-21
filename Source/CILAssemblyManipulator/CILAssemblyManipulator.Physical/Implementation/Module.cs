@@ -379,7 +379,7 @@ namespace CILAssemblyManipulator.Physical.Implementation
       }
    }
 
-   internal class MetaDataTableImpl<TRow> : MetaDataTable<TRow>
+   internal sealed class MetaDataTableImpl<TRow> : MetaDataTable<TRow>
       where TRow : class
    {
       private readonly Tables _tableKind;
@@ -424,16 +424,9 @@ namespace CILAssemblyManipulator.Physical.Implementation
       }
 
 
-      public Object this[Int32 idx]
+      public Object GetRowAt( Int32 idx )
       {
-         get
-         {
-            return this._table[idx];
-         }
-         //set
-         //{
-         //   this._table[idx] = (TRow) value;
-         //}
+         return this._table[idx];
       }
    }
 }

@@ -59,7 +59,7 @@ namespace CILAssemblyManipulator.Tests.Physical
             Name = NAME,
             Namespace = NS
          };
-         md.TypeDefinitions.Add( testType );
+         md.TypeDefinitions.TableContents.Add( testType );
 
          TestRuntimeAssembly( md,
             //bytes =>

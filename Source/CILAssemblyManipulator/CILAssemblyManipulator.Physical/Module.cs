@@ -99,7 +99,7 @@ namespace CILAssemblyManipulator.Physical
    {
       Tables TableKind { get; }
       Int32 RowCount { get; }
-      Object this[Int32 idx] { get; } // set; }
+      Object GetRowAt( Int32 idx );
       IEnumerable<Object> TableContentsAsEnumerable { get; }
    }
 

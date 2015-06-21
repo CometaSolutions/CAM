@@ -2509,7 +2509,7 @@ namespace CILMerge
             && !this._primaryModule.Equals( md )
             && !this._excludeRegexes.Value.Any(
                reg => reg.IsMatch( typeString )
-               || ( md.AssemblyDefinitions.RowCount > 0 && reg.IsMatch( "[" + md.AssemblyDefinitions[0] + "]" + typeString ) )
+               || ( md.AssemblyDefinitions.RowCount > 0 && reg.IsMatch( "[" + md.AssemblyDefinitions.TableContents[0] + "]" + typeString ) )
                )
             )
          {
@@ -2913,7 +2913,7 @@ namespace CILMerge
             if ( this._inputModulesAsAssemblyReferences.TryGetValue( aRef, out referencedInputAssembly ) )
             {
                // TODO maybe assembly name should be null/empty, since in same assembly??
-               assName = this._targetModule.AssemblyDefinitions[0].ToString();
+               assName = this._targetModule.AssemblyDefinitions.TableContents[0].ToString();
             }
          }
 

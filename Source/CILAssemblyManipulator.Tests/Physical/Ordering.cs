@@ -38,11 +38,11 @@ namespace CILAssemblyManipulator.Tests.Physical
          var md = CILMetaDataFactory.NewBlankMetaData();
 
          // Create some types
-         md.TypeDefinitions.Add( new TypeDefinition() { Namespace = NS, Name = NESTED_CLASS_NAME } );
-         md.TypeDefinitions.Add( new TypeDefinition() { Namespace = NS, Name = ENCLOSING_CLASS_NAME } );
+         md.TypeDefinitions.TableContents.Add( new TypeDefinition() { Namespace = NS, Name = NESTED_CLASS_NAME } );
+         md.TypeDefinitions.TableContents.Add( new TypeDefinition() { Namespace = NS, Name = ENCLOSING_CLASS_NAME } );
 
          // Add wrong nested-class definition (enclosing type is greater than nested type)
-         md.NestedClassDefinitions.Add( new NestedClassDefinition()
+         md.NestedClassDefinitions.TableContents.Add( new NestedClassDefinition()
          {
             NestedClass = new TableIndex( Tables.TypeDef, 0 ),
             EnclosingClass = new TableIndex( Tables.TypeDef, 1 )
@@ -50,10 +50,10 @@ namespace CILAssemblyManipulator.Tests.Physical
 
          ReOrderAndValidate( md );
 
-         Assert.AreEqual( 1, md.NestedClassDefinitions.Count );
-         Assert.AreEqual( 2, md.TypeDefinitions.Count );
-         Assert.AreEqual( NESTED_CLASS_NAME, md.TypeDefinitions[md.NestedClassDefinitions[0].NestedClass.Index].Name );
-         Assert.AreEqual( ENCLOSING_CLASS_NAME, md.TypeDefinitions[md.NestedClassDefinitions[0].EnclosingClass.Index].Name );
+         Assert.AreEqual( 1, md.NestedClassDefinitions.TableContents.Count );
+         Assert.AreEqual( 2, md.TypeDefinitions.TableContents.Count );
+         Assert.AreEqual( NESTED_CLASS_NAME, md.TypeDefinitions.TableContents[md.NestedClassDefinitions.TableContents[0].NestedClass.Index].Name );
+         Assert.AreEqual( ENCLOSING_CLASS_NAME, md.TypeDefinitions.TableContents[md.NestedClassDefinitions.TableContents[0].EnclosingClass.Index].Name );
       }
 
       [Test]
@@ -74,31 +74,31 @@ namespace CILAssemblyManipulator.Tests.Physical
       public void TestDuplicateRemovingWithOneDuplicate()
       {
          var md = CILMetaDataFactory.NewBlankMetaData();
-         md.TypeDefinitions.Add( new TypeDefinition() { Namespace = "TestNS", Name = "TestType" } );
+         md.TypeDefinitions.TableContents.Add( new TypeDefinition() { Namespace = "TestNS", Name = "TestType" } );
          var method = new MethodDefinition() { Name = "TestMethod", IL = new MethodILDefinition(), Signature = new MethodDefinitionSignature( 1 ) };
-         md.MethodDefinitions.Add( method );
+         md.MethodDefinitions.TableContents.Add( method );
          var typeSpec = new ClassOrValueTypeSignature() { Type = new TableIndex( Tables.TypeDef, 0 ), IsClass = false };
 
          AddDuplicateRowToMD( md, method, typeSpec );
 
          ReOrderAndValidate( md );
 
-         Assert.AreEqual( 1, md.TypeSpecifications.Count );
-         Assert.AreEqual( new TableIndex( Tables.TypeSpec, 0 ), ( (ClassOrValueTypeSignature) md.MethodDefinitions[0].Signature.Parameters[0].Type ).Type );
-         Assert.AreEqual( new TableIndex( Tables.TypeSpec, 0 ), ( (OpCodeInfoWithToken) md.MethodDefinitions[0].IL.OpCodes[0] ).Operand );
+         Assert.AreEqual( 1, md.TypeSpecifications.TableContents.Count );
+         Assert.AreEqual( new TableIndex( Tables.TypeSpec, 0 ), ( (ClassOrValueTypeSignature) md.MethodDefinitions.TableContents[0].Signature.Parameters[0].Type ).Type );
+         Assert.AreEqual( new TableIndex( Tables.TypeSpec, 0 ), ( (OpCodeInfoWithToken) md.MethodDefinitions.TableContents[0].IL.OpCodes[0] ).Operand );
       }
 
       [Test]
       public void TestDuplicateRemovingWithTwoDuplicates()
       {
          var md = CILMetaDataFactory.NewBlankMetaData();
-         md.TypeDefinitions.Add( new TypeDefinition() { Namespace = "TestNS", Name = "TestType" } );
+         md.TypeDefinitions.TableContents.Add( new TypeDefinition() { Namespace = "TestNS", Name = "TestType" } );
          var method = new MethodDefinition() { Name = "TestMethod", IL = new MethodILDefinition(), Signature = new MethodDefinitionSignature( 1 ) };
-         md.MethodDefinitions.Add( method );
+         md.MethodDefinitions.TableContents.Add( method );
          var typeSpec = new ClassOrValueTypeSignature() { Type = new TableIndex( Tables.TypeDef, 0 ), IsClass = false };
 
          var method2 = new MethodDefinition() { Name = "TestMethod2", IL = new MethodILDefinition(), Signature = new MethodDefinitionSignature( 1 ) };
-         md.MethodDefinitions.Add( method2 );
+         md.MethodDefinitions.TableContents.Add( method2 );
          var typeSpec2 = new ClassOrValueTypeSignature( 1 ) { Type = new TableIndex( Tables.TypeDef, 0 ), IsClass = true };
 
          AddDuplicateRowToMD( md, method, typeSpec );
@@ -107,24 +107,24 @@ namespace CILAssemblyManipulator.Tests.Physical
 
          ReOrderAndValidate( md );
 
-         Assert.AreEqual( 2, md.TypeSpecifications.Count );
-         Assert.AreEqual( new TableIndex( Tables.TypeSpec, 0 ), ( (ClassOrValueTypeSignature) md.MethodDefinitions[0].Signature.Parameters[0].Type ).Type );
-         Assert.AreEqual( new TableIndex( Tables.TypeSpec, 0 ), ( (OpCodeInfoWithToken) md.MethodDefinitions[0].IL.OpCodes[0] ).Operand );
-         Assert.AreEqual( new TableIndex( Tables.TypeSpec, 1 ), ( (ClassOrValueTypeSignature) md.MethodDefinitions[1].Signature.Parameters[0].Type ).Type );
-         Assert.AreEqual( new TableIndex( Tables.TypeSpec, 1 ), ( (OpCodeInfoWithToken) md.MethodDefinitions[1].IL.OpCodes[0] ).Operand );
+         Assert.AreEqual( 2, md.TypeSpecifications.TableContents.Count );
+         Assert.AreEqual( new TableIndex( Tables.TypeSpec, 0 ), ( (ClassOrValueTypeSignature) md.MethodDefinitions.TableContents[0].Signature.Parameters[0].Type ).Type );
+         Assert.AreEqual( new TableIndex( Tables.TypeSpec, 0 ), ( (OpCodeInfoWithToken) md.MethodDefinitions.TableContents[0].IL.OpCodes[0] ).Operand );
+         Assert.AreEqual( new TableIndex( Tables.TypeSpec, 1 ), ( (ClassOrValueTypeSignature) md.MethodDefinitions.TableContents[1].Signature.Parameters[0].Type ).Type );
+         Assert.AreEqual( new TableIndex( Tables.TypeSpec, 1 ), ( (OpCodeInfoWithToken) md.MethodDefinitions.TableContents[1].IL.OpCodes[0] ).Operand );
       }
 
       private static void AddDuplicateRowToMD( CILMetaData md, MethodDefinition method, TypeSignature typeSpec )
       {
-         var typeSpecIndex = md.TypeSpecifications.Count;
+         var typeSpecIndex = md.TypeSpecifications.RowCount;
          var type = new ClassOrValueTypeSignature() { Type = new TableIndex( Tables.TypeSpec, typeSpecIndex ) };
          method.Signature.Parameters.Add( new ParameterSignature() { Type = type } );
          method.Signature.ReturnType = new ParameterSignature() { Type = SimpleTypeSignature.Void };
          method.IL.OpCodes.Add( new OpCodeInfoWithToken( OpCodes.Ldtoken, new TableIndex( Tables.TypeSpec, typeSpecIndex + 1 ) ) );
 
          var typeSpecRow = new TypeSpecification() { Signature = typeSpec };
-         md.TypeSpecifications.Add( typeSpecRow );
-         md.TypeSpecifications.Add( typeSpecRow );
+         md.TypeSpecifications.TableContents.Add( typeSpecRow );
+         md.TypeSpecifications.TableContents.Add( typeSpecRow );
       }
 
       private static void ReOrderAndValidate( CILMetaData md )
@@ -141,13 +141,13 @@ namespace CILAssemblyManipulator.Tests.Physical
          /////////////////////// Order
 
          // 1. TypeDef - enclosing class definition must precede nested class definition
-         foreach ( var nc in md.NestedClassDefinitions )
+         foreach ( var nc in md.NestedClassDefinitions.TableContents )
          {
             Assert.Less( nc.EnclosingClass.Index, nc.NestedClass.Index );
          }
 
          // NestedClass - sorted by NestedClass column
-         AssertOrderBySingleSimpleColumn( md.NestedClassDefinitions, nc =>
+         AssertOrderBySingleSimpleColumn( md.NestedClassDefinitions.TableContents, nc =>
          {
             Assert.AreEqual( nc.NestedClass.Table, Tables.TypeDef );
             Assert.AreEqual( nc.EnclosingClass.Table, Tables.TypeDef );
@@ -183,11 +183,11 @@ namespace CILAssemblyManipulator.Tests.Physical
       internal MatchArgs( CILMetaData md )
       {
          this._md = md;
-         this._typeDefs = md.TypeDefinitions.ToArray();
-         this._originalTypeRefs = md.TypeReferences
+         this._typeDefs = md.TypeDefinitions.TableContents.ToArray();
+         this._originalTypeRefs = md.TypeReferences.TableContents
             .Select( ( tRef, idx ) => (AbstractTypeRefInfo) MethodLogicalInfo.CreateHelperObjectFromToken( md, new TableIndex( Tables.TypeRef, idx ) ) )
             .ToArray();
-         this._originalTypeSpecs = md.TypeSpecifications
+         this._originalTypeSpecs = md.TypeSpecifications.TableContents
             .Select( tSpec => new SignatureInfo<TypeSignature>( tSpec.Signature ) )
             .ToArray();
       }
@@ -260,24 +260,23 @@ namespace CILAssemblyManipulator.Tests.Physical
 
    internal sealed class ModuleLogicalInfo
    {
-      private readonly String _name;
       private readonly ISet<TypeLogicalInfo> _types;
 
       internal ModuleLogicalInfo( CILMetaData md )
       {
-         this._types = new HashSet<TypeLogicalInfo>( md.TypeDefinitions.Select( ( td, idx ) => new TypeLogicalInfo( md, idx ) ) );
+         this._types = new HashSet<TypeLogicalInfo>( md.TypeDefinitions.TableContents.Select( ( td, idx ) => new TypeLogicalInfo( md, idx ) ) );
       }
 
       public bool IsMatch( MatchArgs args )
       {
          var otherTypeDefs = args.MD.TypeDefinitions;
-         var retVal = this._types.Count == otherTypeDefs.Count;
+         var retVal = this._types.Count == otherTypeDefs.RowCount;
          var matched = new HashSet<TypeDefinition>( ReferenceEqualityComparer<TypeDefinition>.ReferenceBasedComparer );
          if ( retVal )
          {
             foreach ( var type in this._types )
             {
-               var matches = otherTypeDefs.Where( ( t, idx ) => type.IsMatch( t, idx, args ) ).ToArray();
+               var matches = otherTypeDefs.TableContents.Where( ( t, idx ) => type.IsMatch( t, idx, args ) ).ToArray();
                if ( matches.Length != 1 )
                {
                   retVal = false;
@@ -303,7 +302,7 @@ namespace CILAssemblyManipulator.Tests.Physical
 
       internal TypeLogicalInfo( CILMetaData md, Int32 typeDefIndex )
       {
-         this._type = md.TypeDefinitions[typeDefIndex];
+         this._type = md.TypeDefinitions.TableContents[typeDefIndex];
          this._methods = new List<MethodLogicalInfo>( md.GetTypeMethodIndices( typeDefIndex ).Select( idx => new MethodLogicalInfo( md, idx ) ) );
          this._fields = new List<FieldDefinition>( md.GetTypeFields( typeDefIndex ) );
          this._baseType = this._type.BaseType.HasValue ?
@@ -354,7 +353,7 @@ namespace CILAssemblyManipulator.Tests.Physical
       {
          return other.ResolutionScope.HasValue
             && other.ResolutionScope.Value.Table == Tables.TypeRef
-            && this.EnclosingInfo.IsMatch( args.MD.TypeReferences[other.ResolutionScope.Value.Index], args );
+            && this.EnclosingInfo.IsMatch( args.MD.TypeReferences.TableContents[other.ResolutionScope.Value.Index], args );
       }
    }
 
@@ -380,13 +379,13 @@ namespace CILAssemblyManipulator.Tests.Physical
                switch ( resScope.Table )
                {
                   case Tables.ModuleRef:
-                     retVal = Comparers.ModuleReferenceEqualityComparer.Equals( (ModuleReference) this.ResolutionScope, md.ModuleReferences[newIndex] );
+                     retVal = Comparers.ModuleReferenceEqualityComparer.Equals( (ModuleReference) this.ResolutionScope, md.ModuleReferences.TableContents[newIndex] );
                      break;
                   case Tables.Module:
-                     retVal = Comparers.ModuleDefinitionEqualityComparer.Equals( (ModuleDefinition) this.ResolutionScope, md.ModuleDefinitions[newIndex] );
+                     retVal = Comparers.ModuleDefinitionEqualityComparer.Equals( (ModuleDefinition) this.ResolutionScope, md.ModuleDefinitions.TableContents[newIndex] );
                      break;
                   case Tables.AssemblyRef:
-                     retVal = Comparers.AssemblyReferenceEqualityComparer.Equals( (AssemblyReference) this.ResolutionScope, md.AssemblyReferences[newIndex] );
+                     retVal = Comparers.AssemblyReferenceEqualityComparer.Equals( (AssemblyReference) this.ResolutionScope, md.AssemblyReferences.TableContents[newIndex] );
                      break;
                   default:
                      throw new NotSupportedException( "Resolution scope (" + resScope + ")" );
@@ -560,13 +559,13 @@ namespace CILAssemblyManipulator.Tests.Physical
             switch ( original.Table )
             {
                case Tables.TypeDef:
-                  retVal = ReferenceEquals( args.OriginalTypeDefs[original.Index], args.MD.TypeDefinitions[modified.Index] );
+                  retVal = ReferenceEquals( args.OriginalTypeDefs[original.Index], args.MD.TypeDefinitions.TableContents[modified.Index] );
                   break;
                case Tables.TypeRef:
-                  retVal = args.OriginalTypeRefs[original.Index].IsMatch( args.MD.TypeReferences[modified.Index], args );
+                  retVal = args.OriginalTypeRefs[original.Index].IsMatch( args.MD.TypeReferences.TableContents[modified.Index], args );
                   break;
                case Tables.TypeSpec:
-                  retVal = args.OriginalTypeSpecs[original.Index].IsMatch( args.MD.TypeSpecifications[modified.Index].Signature, args );
+                  retVal = args.OriginalTypeSpecs[original.Index].IsMatch( args.MD.TypeSpecifications.TableContents[modified.Index].Signature, args );
                   break;
                default:
                   throw new InvalidOperationException( "Signature had " + original + " as table index." );
@@ -602,19 +601,19 @@ namespace CILAssemblyManipulator.Tests.Physical
                switch ( declType.Table )
                {
                   case Tables.TypeDef:
-                     retVal = ReferenceEquals( this.DeclaringType, md.TypeDefinitions[newDeclType.Index] );
+                     retVal = ReferenceEquals( this.DeclaringType, md.TypeDefinitions.TableContents[newDeclType.Index] );
                      break;
                   case Tables.MethodDef:
-                     retVal = ReferenceEquals( this.DeclaringType, md.MethodDefinitions[newDeclType.Index] );
+                     retVal = ReferenceEquals( this.DeclaringType, md.MethodDefinitions.TableContents[newDeclType.Index] );
                      break;
                   case Tables.TypeRef:
-                     retVal = ( (AbstractTypeRefInfo) this.DeclaringType ).IsMatch( md.TypeReferences[newDeclType.Index], args );
+                     retVal = ( (AbstractTypeRefInfo) this.DeclaringType ).IsMatch( md.TypeReferences.TableContents[newDeclType.Index], args );
                      break;
                   case Tables.TypeSpec:
-                     retVal = ( (SignatureInfo<TypeSignature>) this.DeclaringType ).IsMatch( md.TypeSpecifications[newDeclType.Index].Signature, args );
+                     retVal = ( (SignatureInfo<TypeSignature>) this.DeclaringType ).IsMatch( md.TypeSpecifications.TableContents[newDeclType.Index].Signature, args );
                      break;
                   case Tables.ModuleRef:
-                     retVal = Comparers.ModuleReferenceEqualityComparer.Equals( (ModuleReference) this.DeclaringType, md.ModuleReferences[newDeclType.Index] );
+                     retVal = Comparers.ModuleReferenceEqualityComparer.Equals( (ModuleReference) this.DeclaringType, md.ModuleReferences.TableContents[newDeclType.Index] );
                      break;
                   default:
                      throw new NotSupportedException( "Declaring type (" + declType + ")" );
@@ -644,10 +643,10 @@ namespace CILAssemblyManipulator.Tests.Physical
                switch ( method.Table )
                {
                   case Tables.MethodDef:
-                     retVal = ReferenceEquals( this.Method, args.MD.MethodDefinitions[newMethod.Index] );
+                     retVal = ReferenceEquals( this.Method, args.MD.MethodDefinitions.TableContents[newMethod.Index] );
                      break;
                   case Tables.MemberRef:
-                     retVal = ( (MemberRefInfo) this.Method ).IsMatch( args.MD.MemberReferences[newMethod.Index], args );
+                     retVal = ( (MemberRefInfo) this.Method ).IsMatch( args.MD.MemberReferences.TableContents[newMethod.Index], args );
                      break;
                   default:
                      throw new NotSupportedException( "Method (" + method + ")" );
@@ -668,8 +667,8 @@ namespace CILAssemblyManipulator.Tests.Physical
 
       internal MethodLogicalInfo( CILMetaData md, Int32 methodDefIndex )
       {
-         this._method = md.MethodDefinitions[methodDefIndex];
-         this._parameters = md.GetMethodParameterIndices( methodDefIndex ).Select( idx => md.ParameterDefinitions[idx] ).ToList();
+         this._method = md.MethodDefinitions.TableContents[methodDefIndex];
+         this._parameters = md.GetMethodParameterIndices( methodDefIndex ).Select( idx => md.ParameterDefinitions.TableContents[idx] ).ToList();
          var locals = md.GetLocalsSignatureForMethodOrNull( methodDefIndex );
          if ( locals != null )
          {
@@ -732,7 +731,7 @@ namespace CILAssemblyManipulator.Tests.Physical
             case Tables.Field:
                return md.GetByTableIndex( token );
             case Tables.TypeRef:
-               var tRef = md.TypeReferences[token.Index];
+               var tRef = md.TypeReferences.TableContents[token.Index];
                return tRef.ResolutionScope.HasValue && tRef.ResolutionScope.Value.Table == Tables.TypeRef ?
                   (AbstractTypeRefInfo) new NestedTypeRefInfo()
                   {
@@ -748,7 +747,7 @@ namespace CILAssemblyManipulator.Tests.Physical
                      ResolutionScope = tRef.ResolutionScope.HasValue ? md.GetByTableIndex( tRef.ResolutionScope.Value ) : null
                   };
             case Tables.MemberRef:
-               var mRef = md.MemberReferences[token.Index];
+               var mRef = md.MemberReferences.TableContents[token.Index];
                return new MemberRefInfo()
                {
                   MemberRef = mRef,
@@ -757,7 +756,7 @@ namespace CILAssemblyManipulator.Tests.Physical
                   DeclaringType = mRef.DeclaringType.Table == Tables.ModuleRef ? md.GetByTableIndex( mRef.DeclaringType ) : CreateHelperObjectFromToken( md, mRef.DeclaringType )
                };
             case Tables.MethodSpec:
-               var mSpec = md.MethodSpecifications[token.Index];
+               var mSpec = md.MethodSpecifications.TableContents[token.Index];
                return new MethodSpecInfo()
                {
                   MethodSpec = mSpec,
@@ -766,9 +765,9 @@ namespace CILAssemblyManipulator.Tests.Physical
                   Method = CreateHelperObjectFromToken( md, mSpec.Method )
                };
             case Tables.TypeSpec:
-               return new SignatureInfo<TypeSignature>( md.TypeSpecifications[token.Index].Signature );
+               return new SignatureInfo<TypeSignature>( md.TypeSpecifications.TableContents[token.Index].Signature );
             case Tables.StandaloneSignature:
-               return new SignatureInfo<MethodReferenceSignature>( (MethodReferenceSignature) md.StandaloneSignatures[token.Index].Signature );
+               return new SignatureInfo<MethodReferenceSignature>( (MethodReferenceSignature) md.StandaloneSignatures.TableContents[token.Index].Signature );
             default:
                throw new InvalidOperationException( "Unrecognized token: " + token + "." );
          }
@@ -783,15 +782,15 @@ namespace CILAssemblyManipulator.Tests.Physical
             case Tables.Field:
                return ReferenceEquals( originalObject, md.GetByTableIndex( newIndex ) );
             case Tables.TypeRef:
-               return ( (AbstractTypeRefInfo) originalObject ).IsMatch( md.TypeReferences[newIndex.Index], args );
+               return ( (AbstractTypeRefInfo) originalObject ).IsMatch( md.TypeReferences.TableContents[newIndex.Index], args );
             case Tables.MemberRef:
-               return ( (MemberRefInfo) originalObject ).IsMatch( md.MemberReferences[newIndex.Index], args );
+               return ( (MemberRefInfo) originalObject ).IsMatch( md.MemberReferences.TableContents[newIndex.Index], args );
             case Tables.MethodSpec:
-               return ( (MethodSpecInfo) originalObject ).IsMatch( md.MethodSpecifications[newIndex.Index], args );
+               return ( (MethodSpecInfo) originalObject ).IsMatch( md.MethodSpecifications.TableContents[newIndex.Index], args );
             case Tables.TypeSpec:
-               return ( (SignatureInfo<TypeSignature>) originalObject ).IsMatch( md.TypeSpecifications[newIndex.Index].Signature, args );
+               return ( (SignatureInfo<TypeSignature>) originalObject ).IsMatch( md.TypeSpecifications.TableContents[newIndex.Index].Signature, args );
             case Tables.StandaloneSignature:
-               return ( (SignatureInfo<MethodReferenceSignature>) originalObject ).IsMatch( (MethodReferenceSignature) md.StandaloneSignatures[newIndex.Index].Signature, args );
+               return ( (SignatureInfo<MethodReferenceSignature>) originalObject ).IsMatch( (MethodReferenceSignature) md.StandaloneSignatures.TableContents[newIndex.Index].Signature, args );
             default:
                throw new InvalidOperationException( "Unrecognized token: " + newIndex + "." );
          }

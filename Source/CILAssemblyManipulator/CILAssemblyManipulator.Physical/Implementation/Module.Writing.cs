@@ -905,7 +905,6 @@ namespace CILAssemblyManipulator.Physical.Implementation
          var operandType = code.OperandType;
          if ( operandType != OperandType.InlineNone )
          {
-            Object methodOrLabelOrManyLabels = null;
             Int32 i32;
             switch ( operandType )
             {
@@ -915,7 +914,6 @@ namespace CILAssemblyManipulator.Physical.Implementation
                   break;
                case OperandType.ShortInlineBrTarget:
                   i32 = ( (OpCodeInfoWithInt32) codeInfo ).Operand;
-                  methodOrLabelOrManyLabels = i32;
                   array.WriteByteToBytes( ref idx, (Byte) i32 );
                   break;
                case OperandType.ShortInlineR:
@@ -923,7 +921,6 @@ namespace CILAssemblyManipulator.Physical.Implementation
                   break;
                case OperandType.InlineBrTarget:
                   i32 = ( (OpCodeInfoWithInt32) codeInfo ).Operand;
-                  methodOrLabelOrManyLabels = i32;
                   array.WriteInt32LEToBytes( ref idx, i32 );
                   break;
                case OperandType.InlineI:
@@ -947,10 +944,6 @@ namespace CILAssemblyManipulator.Physical.Implementation
                case OperandType.InlineTok:
                case OperandType.InlineSig:
                   var tIdx = ( (OpCodeInfoWithToken) codeInfo ).Operand;
-                  if ( operandType != OperandType.InlineField )
-                  {
-                     methodOrLabelOrManyLabels = tIdx;
-                  }
                   array.WriteInt32LEToBytes( ref idx, tIdx.OneBasedToken );
                   break;
                case OperandType.InlineSwitch:
@@ -960,7 +953,6 @@ namespace CILAssemblyManipulator.Physical.Implementation
                   {
                      array.WriteInt32LEToBytes( ref idx, offset );
                   }
-                  methodOrLabelOrManyLabels = offsets;
                   break;
                default:
                   throw new ArgumentException( "Unknown operand type: " + code.OperandType + " for " + code + "." );
@@ -976,9 +968,6 @@ namespace CILAssemblyManipulator.Physical.Implementation
          out Int32 wholeMethodByteCount
          )
       {
-
-
-
          // Start by calculating the size of just IL code
          var arraySize = methodIL.OpCodes.Sum( oci => oci.ByteSize );
          var ilCodeByteCount = arraySize;

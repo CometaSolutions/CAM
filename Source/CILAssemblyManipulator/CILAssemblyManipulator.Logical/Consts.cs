@@ -34,8 +34,9 @@ namespace CILAssemblyManipulator.Logical
       internal const Int32 FOUR_BYTE_SIZE = 4;
       internal const Int32 GUID_SIZE = 16;
 
+      internal const String SYSTEM_NS = "System";
 
-      internal const String MULTICAST_DELEGATE = "System.MulticastDelegate";
+      internal const String MULTICAST_DELEGATE = "MulticastDelegate";
       internal const String NULLABLE = "System.Nullable`1";
       internal const String LAZY = "System.Lazy`1";
       internal const String METHOD_INFO = "System.Reflection.MethodInfo";

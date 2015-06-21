@@ -1237,38 +1237,38 @@ namespace CILAssemblyManipulator.Physical
       //   return str == null ? null : UnescapeSomeString( str, 0, str.Length );
       //}
 
-      //internal static String EscapeSomeString( String str )
-      //{
-      //   return str == null ? null : EscapeSomeString( str, 0, str.Length );
-      //}
+      internal static String EscapeSomeString( this String str )
+      {
+         return str == null ? null : EscapeSomeString( str, 0, str.Length );
+      }
 
-      //internal static String EscapeSomeString( String str, Int32 startIdx, Int32 count )
-      //{
-      //   if ( str != null )
-      //   {
-      //      if ( str.IndexOfAny( ESCAPABLE_CHARS_WITHIN_TYPESTRING, startIdx, count ) >= 0 )
-      //      {
-      //         // String contains characters that should be escaped
-      //         var chars = new Char[count * 2];
-      //         var cIdx = 0;
-      //         for ( var i = startIdx; i < count; ++i )
-      //         {
-      //            var ch = str[i];
-      //            if ( Array.IndexOf( ESCAPABLE_CHARS_WITHIN_TYPESTRING, ch ) >= 0 )
-      //            {
-      //               chars[cIdx++] = ESCAPE_CHAR;
-      //            }
-      //            chars[cIdx++] = ch;
-      //         }
-      //         str = new String( chars, 0, cIdx );
-      //      }
-      //      else if ( startIdx > 0 || count < str.Length )
-      //      {
-      //         str = str.Substring( startIdx, count );
-      //      }
-      //   }
-      //   return str;
-      //}
+      internal static String EscapeSomeString( this String str, Int32 startIdx, Int32 count )
+      {
+         if ( str != null )
+         {
+            if ( str.IndexOfAny( ESCAPABLE_CHARS_WITHIN_TYPESTRING, startIdx, count ) >= 0 )
+            {
+               // String contains characters that should be escaped
+               var chars = new Char[count * 2];
+               var cIdx = 0;
+               for ( var i = startIdx; i < count; ++i )
+               {
+                  var ch = str[i];
+                  if ( Array.IndexOf( ESCAPABLE_CHARS_WITHIN_TYPESTRING, ch ) >= 0 )
+                  {
+                     chars[cIdx++] = ESCAPE_CHAR;
+                  }
+                  chars[cIdx++] = ch;
+               }
+               str = new String( chars, 0, cIdx );
+            }
+            else if ( startIdx > 0 || count < str.Length )
+            {
+               str = str.Substring( startIdx, count );
+            }
+         }
+         return str;
+      }
 
       internal static String UnescapeSomeString( String str, Int32 startIdx, Int32 count )
       {

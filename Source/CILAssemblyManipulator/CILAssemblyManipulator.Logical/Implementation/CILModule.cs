@@ -21,8 +21,9 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text.RegularExpressions;
 using System.Threading;
-using CollectionsWithRoles.API;
 using CommonUtils;
+using CILAssemblyManipulator.Physical;
+using CollectionsWithRoles.API;
 
 namespace CILAssemblyManipulator.Logical.Implementation
 {
@@ -136,12 +137,18 @@ namespace CILAssemblyManipulator.Logical.Implementation
 
       private CILType BuildModuleInitializerType()
       {
-         return this.context.Cache.NewBlankType( this.context.Cache.ResolveModuleID( this.id ), null, "<Module>", TypeAttributes.NotPublic | TypeAttributes.AnsiClass | TypeAttributes.AutoLayout, CILTypeCode.Object );
+         return this.context.Cache.NewBlankType(
+            this.context.Cache.ResolveModuleID( this.id ),
+            null,
+            "<Module>",
+            TypeAttributes.NotPublic | TypeAttributes.AnsiClass | TypeAttributes.AutoLayout,
+            CILTypeCode.Object
+            );
       }
 
       private CILModule LoadNativeMSCorLibModule()
       {
-         return this.context.Cache.GetOrAdd( Utils.NATIVE_MSCORLIB.GetModules()[0] );
+         return this.context.Cache.GetOrAdd( LogicalUtils.NATIVE_MSCORLIB.GetModules()[0] );
       }
 
       #region CILElementWithSimpleName Members

@@ -21,6 +21,7 @@ using System.Linq;
 using System.Threading;
 using CollectionsWithRoles.API;
 using CommonUtils;
+using CILAssemblyManipulator.Physical;
 
 namespace CILAssemblyManipulator.Logical.Implementation
 {
@@ -159,15 +160,15 @@ namespace CILAssemblyManipulator.Logical.Implementation
 
       #endregion
 
-      protected DictionaryWithRoles<SecurityAction, ListProxy<SecurityInformation>, ListProxyQuery<SecurityInformation>, ListQuery<SecurityInformation>> SecurityInfoFromAttributes()
+      protected DictionaryWithRoles<SecurityAction, ListProxy<LogicalSecurityInformation>, ListProxyQuery<LogicalSecurityInformation>, ListQuery<LogicalSecurityInformation>> SecurityInfoFromAttributes()
       {
-         return this.context.CollectionsFactory.NewDictionary<SecurityAction, ListProxy<SecurityInformation>, ListProxyQuery<SecurityInformation>, ListQuery<SecurityInformation>>( this.CustomAttributeData
+         return this.context.CollectionsFactory.NewDictionary<SecurityAction, ListProxy<LogicalSecurityInformation>, ListProxyQuery<LogicalSecurityInformation>, ListQuery<LogicalSecurityInformation>>( this.CustomAttributeData
             .Where( ca =>
-               ca.Constructor.DeclaringType.GetBaseTypeChain().Any( bt => String.Equals( Consts.SECURITY_ATTR, bt.GetFullName() ) && Object.Equals( Utils.NATIVE_MSCORLIB.NewWrapper( this.context ), bt.Module.Assembly ) )
+               ca.Constructor.DeclaringType.GetBaseTypeChain().Any( bt => String.Equals( Consts.SECURITY_ATTR, bt.GetFullName() ) && Object.Equals( LogicalUtils.NATIVE_MSCORLIB.NewWrapper( this.context ), bt.Module.Assembly ) )
                && ca.ConstructorArguments.Count > 0
                && String.Equals( ca.ConstructorArguments[0].ArgumentType.GetFullName(), Consts.SECURITY_ACTION ) )
             .GroupBy( ca => ca.ConstructorArguments[0].Value )
-            .ToDictionary( cag => (SecurityAction) cag.Key, cag => this.context.CollectionsFactory.NewListProxy( cag.Select( ca => new SecurityInformation( (SecurityAction) cag.Key, ca.Constructor.DeclaringType, ca.NamedArguments ) ).ToList() ) ) );
+            .ToDictionary( cag => (SecurityAction) cag.Key, cag => this.context.CollectionsFactory.NewListProxy( cag.Select( ca => new LogicalSecurityInformation( (SecurityAction) cag.Key, ca.Constructor.DeclaringType, ca.NamedArguments ) ).ToList() ) ) );
       }
    }
 
@@ -393,113 +394,6 @@ namespace CILAssemblyManipulator.Logical.Implementation
       }
    }
 
-   internal static class LogicalUtils
-   {
-      internal static void ThrowIfDeclaringTypeGenericButNotGDef( CILElementOwnedByType element )
-      {
-         var gDef = element.DeclaringType.GenericDefinition;
-         if ( gDef != null && !Object.ReferenceEquals( gDef, element.DeclaringType ) )
-         {
-            throw new InvalidOperationException( "This method can not be used on generic types, which are not generic type definitions." );
-         }
-      }
-
-      internal static void ThrowIfDeclaringTypeNotGeneric( CILElementOwnedByType element, CILTypeBase[] gArgs )
-      {
-         var gDef = element.DeclaringType.GenericDefinition;
-         if ( gDef == null && gArgs != null && gArgs.Length != 0 )
-         {
-            throw new InvalidOperationException( "This method can only be used on elements declared in generic types." );
-         }
-      }
-
-      internal static void CheckCyclity( this IEnumerable<CILTypeBase> graph, Object thisType )
-      {
-         if ( graph.Any( i => Object.ReferenceEquals( thisType, i ) ) )
-         {
-            throw new ArgumentException( "Cyclity detected between " + thisType + " and " + graph.First( i => Object.ReferenceEquals( thisType, i ) ) + "." );
-         }
-      }
-
-      internal static void CheckWhenDefiningGArgs( ListProxy<CILTypeBase> currentGArgs, String[] names )
-      {
-         if ( currentGArgs.MQ.Count > 0 )
-         {
-            throw new InvalidOperationException( "Generic arguments have already been defined." );
-         }
-      }
-
-      internal static Boolean RemoveFromResettableLazyList<T>( this ResettableLazy<ListProxy<T>> lazy, T value )
-      {
-         lock ( lazy.Lock )
-         {
-            return lazy.Value.Remove( value );
-         }
-      }
-
-      internal static T AddToResettableLazyList<T>( this ResettableLazy<ListProxy<T>> lazy, T value )
-      {
-         lock ( lazy.Lock )
-         {
-            lazy.Value.Add( value );
-         }
-         return value;
-      }
-
-      internal static void CheckMethodAttributesForOverriddenMethods( SettableValueForEnums<MethodAttributes> attrs, ListProxy<CILMethod> overriddenMethods )
-      {
-         if ( overriddenMethods.CQ.Any() )
-         {
-            attrs.Value = ( attrs.Value & ( ~MethodAttributes.MemberAccessMask ) ) | MethodAttributes.Private;
-         }
-      }
-
-      internal static void ThrowIfNotTrueDefinition( this CILCustomAttributeContainer element )
-      {
-         if ( element != null && !( (CILElementInstantiable) element ).IsTrueDefinition )
-         {
-            throw new ArgumentException( "Given argument is not true definition." );
-         }
-      }
-
-      internal static Boolean IsGenericDefinition<T>( this CILElementWithGenericArguments<T> element )
-         where T : class
-      {
-         return Object.ReferenceEquals( element, element.GenericDefinition );
-      }
-
-      internal static SignatureStarters GetSignatureStarter( this CallingConventions convs, Boolean isStatic, Boolean isGeneric )
-      {
-         var starter = SignatureStarters.Default;
-         if ( !isStatic )
-         {
-            starter |= SignatureStarters.HasThis;
-         }
-         if ( convs.IsExplicitThis() )
-         {
-            starter |= SignatureStarters.ExplicitThis;
-         }
-
-         if ( isGeneric )
-         {
-            starter |= SignatureStarters.Generic;
-         }
-         else if ( convs.IsVarArgs() )
-         {
-            starter |= SignatureStarters.VarArgs;
-         }
-         return starter;
-      }
-
-      internal static void CheckTypeForMethodSig( CILModule thisModule, ref CILTypeBase type )
-      {
-         if ( TypeKind.MethodSignature == type.TypeKind && !Object.Equals( thisModule, type.Module ) )
-         {
-            type = ( (CILMethodSignature) type ).CopyToOtherModule( thisModule );
-         }
-      }
-   }
-
    internal interface CILElementWithSimpleNameInternal
    {
       SettableValueForClasses<String> NameInternal { get; }
@@ -526,7 +420,7 @@ namespace CILAssemblyManipulator.Logical.Implementation
 
    internal interface CILElementWithMarshalInfoInternal
    {
-      SettableLazy<MarshalingInfo> MarshalingInfoInternal { get; }
+      SettableLazy<LogicalMarshalingInfo> MarshalingInfoInternal { get; }
    }
 
    internal interface CILParameterInternal : CILElementWithSimpleNameInternal, CILElementWithConstantValueInternal, CILElementWithCustomModifiersInternal, CILElementWithMarshalInfoInternal

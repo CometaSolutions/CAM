@@ -21,6 +21,7 @@ using System.Linq;
 using System.Threading;
 using CollectionsWithRoles.API;
 using CommonUtils;
+using CILAssemblyManipulator.Physical;
 
 namespace CILAssemblyManipulator.Logical.Implementation
 {
@@ -34,7 +35,7 @@ namespace CILAssemblyManipulator.Logical.Implementation
       private readonly SettableLazy<MethodIL> il;
       // Use SettableLazy instead of SettableValue here - we don't want to force this non-portable event to trigger every time.
       private readonly SettableLazy<MethodImplAttributes> methodImplementationAttributes;
-      private readonly Lazy<DictionaryWithRoles<SecurityAction, ListProxy<SecurityInformation>, ListProxyQuery<SecurityInformation>, ListQuery<SecurityInformation>>> securityInfo;
+      private readonly Lazy<DictionaryWithRoles<SecurityAction, ListProxy<LogicalSecurityInformation>, ListProxyQuery<LogicalSecurityInformation>, ListQuery<LogicalSecurityInformation>>> securityInfo;
 
       protected CILMethodBaseImpl(
          CILReflectionContextImpl ctx,
@@ -83,7 +84,7 @@ namespace CILAssemblyManipulator.Logical.Implementation
                {
                   var args = new MethodBodyLoadArgs( method );
                   ctx.LaunchMethodBodyLoadEvent( args );
-                  result = new CILAssemblyManipulator.Logical.Implementation.Physical.MethodILImpl( this.DeclaringType.Module, args );
+                  result = new MethodILImpl( this.DeclaringType.Module, args );
                }
                else
                {
@@ -97,7 +98,7 @@ namespace CILAssemblyManipulator.Logical.Implementation
                ctx.LaunchMethodImplAttributesEvent( args );
                return args.MethodImplementationAttributes;
             } ),
-            new Lazy<DictionaryWithRoles<SecurityAction, ListProxy<SecurityInformation>, ListProxyQuery<SecurityInformation>, ListQuery<SecurityInformation>>>( this.SecurityInfoFromAttributes, LazyThreadSafetyMode.ExecutionAndPublication ),
+            new Lazy<DictionaryWithRoles<SecurityAction, ListProxy<LogicalSecurityInformation>, ListProxyQuery<LogicalSecurityInformation>, ListQuery<LogicalSecurityInformation>>>( this.SecurityInfoFromAttributes, LazyThreadSafetyMode.ExecutionAndPublication ),
             true
             );
       }
@@ -113,7 +114,7 @@ namespace CILAssemblyManipulator.Logical.Implementation
          Func<ListProxy<CILParameter>> parametersFunc,
          Func<MethodIL> methodIL,
          SettableLazy<MethodImplAttributes> aMethodImplementationAttributes,
-         Lazy<DictionaryWithRoles<SecurityAction, ListProxy<SecurityInformation>, ListProxyQuery<SecurityInformation>, ListQuery<SecurityInformation>>> aSecurityInfo,
+         Lazy<DictionaryWithRoles<SecurityAction, ListProxy<LogicalSecurityInformation>, ListProxyQuery<LogicalSecurityInformation>, ListQuery<LogicalSecurityInformation>>> aSecurityInfo,
          Boolean resettablesAreSettable
          )
          : base( ctx, isCtor ? CILElementKind.Constructor : CILElementKind.Method, anID, cAttrDataFunc )
@@ -134,7 +135,7 @@ namespace CILAssemblyManipulator.Logical.Implementation
             parametersFunc,
             methodIL,
             aMethodImplementationAttributes,
-            aSecurityInfo ?? new Lazy<DictionaryWithRoles<SecurityAction, ListProxy<SecurityInformation>, ListProxyQuery<SecurityInformation>, ListQuery<SecurityInformation>>>( () => ctx.CollectionsFactory.NewDictionary<SecurityAction, ListProxy<SecurityInformation>, ListProxyQuery<SecurityInformation>, ListQuery<SecurityInformation>>(), LazyThreadSafetyMode.ExecutionAndPublication ),
+            aSecurityInfo ?? new Lazy<DictionaryWithRoles<SecurityAction, ListProxy<LogicalSecurityInformation>, ListProxyQuery<LogicalSecurityInformation>, ListQuery<LogicalSecurityInformation>>>( () => ctx.CollectionsFactory.NewDictionary<SecurityAction, ListProxy<LogicalSecurityInformation>, ListProxyQuery<LogicalSecurityInformation>, ListQuery<LogicalSecurityInformation>>(), LazyThreadSafetyMode.ExecutionAndPublication ),
             resettablesAreSettable
             );
       }
@@ -147,7 +148,7 @@ namespace CILAssemblyManipulator.Logical.Implementation
          ref ResettableLazy<ListProxy<CILParameter>> parameters,
          ref SettableLazy<MethodIL> il,
          ref SettableLazy<MethodImplAttributes> methodImplementationAttributes,
-         ref Lazy<DictionaryWithRoles<SecurityAction, ListProxy<SecurityInformation>, ListProxyQuery<SecurityInformation>, ListQuery<SecurityInformation>>> securityInfo,
+         ref Lazy<DictionaryWithRoles<SecurityAction, ListProxy<LogicalSecurityInformation>, ListProxyQuery<LogicalSecurityInformation>, ListQuery<LogicalSecurityInformation>>> securityInfo,
          SettableValueForEnums<CallingConventions> aCallingConvention,
          SettableValueForEnums<MethodAttributes> aMethodAttributes,
          MethodKind aMethodKind,
@@ -155,7 +156,7 @@ namespace CILAssemblyManipulator.Logical.Implementation
          Func<ListProxy<CILParameter>> parametersFunc,
          Func<MethodIL> methodIL,
          SettableLazy<MethodImplAttributes> aMethodImplementationAttributes,
-         Lazy<DictionaryWithRoles<SecurityAction, ListProxy<SecurityInformation>, ListProxyQuery<SecurityInformation>, ListQuery<SecurityInformation>>> securityInfoLazy,
+         Lazy<DictionaryWithRoles<SecurityAction, ListProxy<LogicalSecurityInformation>, ListProxyQuery<LogicalSecurityInformation>, ListQuery<LogicalSecurityInformation>>> securityInfoLazy,
          Boolean resettablesAreSettable
          )
       {
@@ -274,9 +275,9 @@ namespace CILAssemblyManipulator.Logical.Implementation
          }
       }
 
-      public API.MethodIL ResetMethodIL()
+      public MethodIL ResetMethodIL()
       {
-         API.MethodIL retVal = this.il.Value;
+         MethodIL retVal = this.il.Value;
 
          if ( retVal != null )
          {
@@ -337,7 +338,7 @@ namespace CILAssemblyManipulator.Logical.Implementation
          var gDef = this.declaringType.Value.GenericDefinition;
          var thisMethod = this.ThisOrGDef();
          return this.MakeGenericIfNeeded( this.context.Cache.MakeMethodWithGenericDeclaringType(
-            gDef == null ? this : ( API.MethodKind.Method == this.methodKind ? (CILMethodBase) gDef.DeclaredMethods[this.declaringType.Value.DeclaredMethods.IndexOf( (CILMethod) thisMethod )] : gDef.Constructors[this.declaringType.Value.Constructors.IndexOf( (CILConstructor) thisMethod )] ),
+            gDef == null ? this : ( MethodKind.Method == this.methodKind ? (CILMethodBase) gDef.DeclaredMethods[this.declaringType.Value.DeclaredMethods.IndexOf( (CILMethod) thisMethod )] : gDef.Constructors[this.declaringType.Value.Constructors.IndexOf( (CILConstructor) thisMethod )] ),
             args
          ) );
       }
@@ -368,7 +369,7 @@ namespace CILAssemblyManipulator.Logical.Implementation
          }
       }
 
-      public DictionaryQuery<SecurityAction, ListQuery<SecurityInformation>> DeclarativeSecurity
+      public DictionaryQuery<SecurityAction, ListQuery<LogicalSecurityInformation>> DeclarativeSecurity
       {
          get
          {
@@ -376,30 +377,30 @@ namespace CILAssemblyManipulator.Logical.Implementation
          }
       }
 
-      public SecurityInformation AddDeclarativeSecurity( SecurityAction action, CILType securityAttributeType )
+      public LogicalSecurityInformation AddDeclarativeSecurity( SecurityAction action, CILType securityAttributeType )
       {
          lock ( this.securityInfo.Value )
          {
-            ListProxy<SecurityInformation> list;
+            ListProxy<LogicalSecurityInformation> list;
             if ( !this.securityInfo.Value.CQ.TryGetValue( action, out list ) )
             {
-               list = this.context.CollectionsFactory.NewListProxy<SecurityInformation>();
+               list = this.context.CollectionsFactory.NewListProxy<LogicalSecurityInformation>();
                this.securityInfo.Value.Add( action, list );
             }
-            var result = new SecurityInformation( action, securityAttributeType );
+            var result = new LogicalSecurityInformation( action, securityAttributeType );
             list.Add( result );
             return result;
          }
       }
 
-      public Boolean RemoveDeclarativeSecurity( SecurityInformation information )
+      public Boolean RemoveDeclarativeSecurity( LogicalSecurityInformation information )
       {
          lock ( this.securityInfo.Value )
          {
             var result = information != null;
             if ( !result )
             {
-               ListProxy<SecurityInformation> list;
+               ListProxy<LogicalSecurityInformation> list;
                if ( this.securityInfo.Value.CQ.TryGetValue( information.SecurityAction, out list ) )
                {
                   result = list.Remove( information );
@@ -409,7 +410,7 @@ namespace CILAssemblyManipulator.Logical.Implementation
          }
       }
 
-      internal Lazy<DictionaryWithRoles<SecurityAction, ListProxy<SecurityInformation>, ListProxyQuery<SecurityInformation>, ListQuery<SecurityInformation>>> DeclarativeSecurityInternal
+      internal Lazy<DictionaryWithRoles<SecurityAction, ListProxy<LogicalSecurityInformation>, ListProxyQuery<LogicalSecurityInformation>, ListQuery<LogicalSecurityInformation>>> DeclarativeSecurityInternal
       {
          get
          {
@@ -467,7 +468,7 @@ namespace CILAssemblyManipulator.Logical.Implementation
          Func<ListProxy<CILParameter>> parametersFunc,
          Func<MethodIL> methodIL,
          SettableLazy<MethodImplAttributes> aMethodImplementationAttributes,
-         Lazy<DictionaryWithRoles<SecurityAction, ListProxy<SecurityInformation>, ListProxyQuery<SecurityInformation>, ListQuery<SecurityInformation>>> aSecurityInfo,
+         Lazy<DictionaryWithRoles<SecurityAction, ListProxy<LogicalSecurityInformation>, ListProxyQuery<LogicalSecurityInformation>, ListQuery<LogicalSecurityInformation>>> aSecurityInfo,
          Boolean resettablesAreSettable
          )
          : base( ctx, anID, true, cAttrDataFunc, aCallingConvention, aMethodAttributes, declaringTypeFunc, parametersFunc, methodIL, aMethodImplementationAttributes, aSecurityInfo, resettablesAreSettable )
@@ -605,14 +606,14 @@ namespace CILAssemblyManipulator.Logical.Implementation
          Func<CILType> declaringTypeFunc,
          Func<ListProxy<CILParameter>> parametersFunc,
          SettableLazy<MethodImplAttributes> aMethodImplementationAttributes,
-         Lazy<DictionaryWithRoles<SecurityAction, ListProxy<SecurityInformation>, ListProxyQuery<SecurityInformation>, ListQuery<SecurityInformation>>> aSecurityInformation,
+         Lazy<DictionaryWithRoles<SecurityAction, ListProxy<LogicalSecurityInformation>, ListProxyQuery<LogicalSecurityInformation>, ListQuery<LogicalSecurityInformation>>> aLogicalSecurityInformation,
          SettableValueForClasses<String> aName,
          Func<CILParameter> returnParameterFunc,
          Func<ListProxy<CILTypeBase>> gArgsFunc,
          Func<CILMethod> gDefFunc,
          Boolean resettablesAreSettable = false
          )
-         : this( ctx, anID, cAttrDataFunc, aCallingConvention, aMethodAttributes, declaringTypeFunc, parametersFunc, null, aMethodImplementationAttributes, aSecurityInformation, aName, returnParameterFunc, gArgsFunc, gDefFunc, null, null, null, null, resettablesAreSettable )
+         : this( ctx, anID, cAttrDataFunc, aCallingConvention, aMethodAttributes, declaringTypeFunc, parametersFunc, null, aMethodImplementationAttributes, aLogicalSecurityInformation, aName, returnParameterFunc, gArgsFunc, gDefFunc, null, null, null, null, resettablesAreSettable )
       {
 
       }
@@ -627,7 +628,7 @@ namespace CILAssemblyManipulator.Logical.Implementation
          Func<ListProxy<CILParameter>> parametersFunc,
          Func<MethodIL> methodIL,
          SettableLazy<MethodImplAttributes> aMethodImplementationAttributes,
-         Lazy<DictionaryWithRoles<SecurityAction, ListProxy<SecurityInformation>, ListProxyQuery<SecurityInformation>, ListQuery<SecurityInformation>>> aSecurityInformation,
+         Lazy<DictionaryWithRoles<SecurityAction, ListProxy<LogicalSecurityInformation>, ListProxyQuery<LogicalSecurityInformation>, ListQuery<LogicalSecurityInformation>>> aLogicalSecurityInformation,
          SettableValueForClasses<String> aName,
          Func<CILParameter> returnParameterFunc,
          Func<ListProxy<CILTypeBase>> gArgsFunc,
@@ -638,7 +639,7 @@ namespace CILAssemblyManipulator.Logical.Implementation
          SettableValueForClasses<String> aPInvokeModuleName,
          Boolean resettablesAreSettable
          )
-         : base( ctx, anID, false, cAttrDataFunc, aCallingConvention, aMethodAttributes, declaringTypeFunc, parametersFunc, methodIL, aMethodImplementationAttributes, aSecurityInformation, resettablesAreSettable )
+         : base( ctx, anID, false, cAttrDataFunc, aCallingConvention, aMethodAttributes, declaringTypeFunc, parametersFunc, methodIL, aMethodImplementationAttributes, aLogicalSecurityInformation, resettablesAreSettable )
       {
          InitFields(
             ref this.name,

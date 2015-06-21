@@ -422,4 +422,11 @@ public static partial class E_CIL
          method
             );
    }
+
+   private static Boolean IsSystemType( this CILModule thisModule, CILType other, String typeName, String typeNS = Consts.SYSTEM_NS )
+   {
+      return Object.Equals( thisModule.AssociatedMSCorLibModule, other.Module )
+         && String.Equals( other.Name, typeName )
+         && String.Equals( other.Namespace, typeNS );
+   }
 }

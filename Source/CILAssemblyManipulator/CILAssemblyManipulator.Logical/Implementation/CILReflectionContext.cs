@@ -24,7 +24,7 @@ using System.Threading;
 using CollectionsWithRoles.API;
 using CollectionsWithRoles.Implementation;
 using CommonUtils;
-using CILAssemblyManipulator.Logical.Implementation.Physical;
+using CILAssemblyManipulator.Physical;
 
 namespace CILAssemblyManipulator.Logical.Implementation
 {

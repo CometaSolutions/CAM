@@ -21,6 +21,7 @@ using System.Linq;
 using System.Threading;
 using CollectionsWithRoles.API;
 using CommonUtils;
+using CILAssemblyManipulator.Physical;
 
 namespace CILAssemblyManipulator.Logical.Implementation
 {
@@ -124,7 +125,7 @@ namespace CILAssemblyManipulator.Logical.Implementation
       private readonly ResettableLazy<CILTypeBase> parameterType;
       private readonly SettableLazy<Object> defaultValue;
       private readonly LazyWithLock<ListProxy<CILCustomModifier>> customModifiers;
-      private readonly SettableLazy<MarshalingInfo> marshalInfo;
+      private readonly SettableLazy<LogicalMarshalingInfo> marshalInfo;
 
       internal CILParameterImpl(
          CILReflectionContextImpl ctx,
@@ -151,7 +152,7 @@ namespace CILAssemblyManipulator.Logical.Implementation
             () => ctx.Cache.GetOrAdd( parameter.ParameterType ),
             new SettableLazy<Object>( () => ctx.LaunchConstantValueLoadEvent( new ConstantValueLoadArgs( parameter ) ) ),
             ctx.LaunchEventAndCreateCustomModifiers( new CustomModifierEventLoadArgs( parameter ) ),
-            new SettableLazy<MarshalingInfo>( () => MarshalingInfo.FromAttribute( parameter.GetCustomAttributes( true ).OfType<System.Runtime.InteropServices.MarshalAsAttribute>().FirstOrDefault(), ctx ) ),
+            new SettableLazy<LogicalMarshalingInfo>( () => LogicalMarshalingInfo.FromAttribute( parameter.GetCustomAttributes( true ).OfType<System.Runtime.InteropServices.MarshalAsAttribute>().FirstOrDefault(), ctx ) ),
             true
             );
       }
@@ -168,7 +169,7 @@ namespace CILAssemblyManipulator.Logical.Implementation
          () => paramType,
          new SettableLazy<Object>( () => null ),
          new LazyWithLock<ListProxy<CILCustomModifier>>( () => ctx.CollectionsFactory.NewListProxy<CILCustomModifier>() ),
-         new SettableLazy<MarshalingInfo>( () => null ),
+         new SettableLazy<LogicalMarshalingInfo>( () => null ),
          true
          )
       {
@@ -186,7 +187,7 @@ namespace CILAssemblyManipulator.Logical.Implementation
          Func<CILTypeBase> parameterTypeFunc,
          SettableLazy<Object> aDefaultValue,
          LazyWithLock<ListProxy<CILCustomModifier>> customMods,
-         SettableLazy<MarshalingInfo> marshalInfoVal,
+         SettableLazy<LogicalMarshalingInfo> marshalInfoVal,
          Boolean resettablesAreSettable = false
          )
          : base( ctx, CILElementKind.Parameter, anID, cAttrDataFunc )
@@ -220,7 +221,7 @@ namespace CILAssemblyManipulator.Logical.Implementation
          ref ResettableLazy<CILTypeBase> parameterType,
          ref SettableLazy<Object> defaultValue,
          ref LazyWithLock<ListProxy<CILCustomModifier>> customMods,
-         ref SettableLazy<MarshalingInfo> marshalInfo,
+         ref SettableLazy<LogicalMarshalingInfo> marshalInfo,
          SettableValueForEnums<ParameterAttributes> aParameterAttributes,
          Int32 aPosition,
          SettableValueForClasses<String> aName,
@@ -228,7 +229,7 @@ namespace CILAssemblyManipulator.Logical.Implementation
          Func<CILTypeBase> parameterTypeFunc,
          SettableLazy<Object> aDefaultValue,
          LazyWithLock<ListProxy<CILCustomModifier>> theCustomMods,
-         SettableLazy<MarshalingInfo> marshalInfoVal,
+         SettableLazy<LogicalMarshalingInfo> marshalInfoVal,
          Boolean resettablesAreSettable
          )
       {
@@ -396,9 +397,9 @@ namespace CILAssemblyManipulator.Logical.Implementation
 
       #region CILElementWithCustomModifiers Members
 
-      public CILCustomModifier AddCustomModifier( CILType type, CILCustomModifierOptionality optionality )
+      public CILCustomModifier AddCustomModifier( CILType type, Boolean isOptional )
       {
-         var result = new CILCustomModifierImpl( optionality, type );
+         var result = new CILCustomModifierImpl( isOptional, type );
          lock ( this.customModifiers.Lock )
          {
             this.customModifiers.Value.Add( result );
@@ -427,7 +428,7 @@ namespace CILAssemblyManipulator.Logical.Implementation
 
       #region CILElementWithMarshalingInfo Members
 
-      public MarshalingInfo MarshalingInformation
+      public LogicalMarshalingInfo MarshalingInformation
       {
          get
          {
@@ -451,7 +452,7 @@ namespace CILAssemblyManipulator.Logical.Implementation
 
       #region CILElementWithMarshalInfoInternal Members
 
-      SettableLazy<MarshalingInfo> CILElementWithMarshalInfoInternal.MarshalingInfoInternal
+      SettableLazy<LogicalMarshalingInfo> CILElementWithMarshalInfoInternal.MarshalingInfoInternal
       {
          get
          {

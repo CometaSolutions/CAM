@@ -1235,7 +1235,7 @@ public static partial class E_CILPhysical
    {
       MetaDataTable table;
       var retVal = md.TryGetByTable( index.Table, out table ) && index.Index <= table.RowCount;
-      row = retVal ? table[index.Index] : null;
+      row = retVal ? table.GetRowAt( index.Index ) : null;
       return retVal;
    }
 

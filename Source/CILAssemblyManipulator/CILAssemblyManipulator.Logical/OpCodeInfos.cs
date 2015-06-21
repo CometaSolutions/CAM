@@ -619,8 +619,8 @@ namespace CILAssemblyManipulator.Logical
       /// Creates a new instance of <see cref="LogicalOpCodeInfoWithFixedSizeOperandString"/>
       /// </summary>
       /// <param name="str"></param>
-      public LogicalOpCodeInfoWithFixedSizeOperandString( String str )
-         : base( OpCodes.Ldstr ) //, TOKEN_SIZE )
+      public LogicalOpCodeInfoWithFixedSizeOperandString( OpCode code, String str )
+         : base( code ) //, TOKEN_SIZE )
       {
          ArgumentValidator.ValidateNotNull( "String", str );
          this._string = str;

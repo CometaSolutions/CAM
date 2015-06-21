@@ -18,6 +18,7 @@
 using System;
 using CollectionsWithRoles.API;
 using CommonUtils;
+using CILAssemblyManipulator.Physical;
 
 namespace CILAssemblyManipulator.Logical.Implementation
 {
@@ -338,9 +339,9 @@ namespace CILAssemblyManipulator.Logical.Implementation
 
       #region CILElementWithCustomModifiers Members
 
-      public CILCustomModifier AddCustomModifier( CILType type, CILCustomModifierOptionality optionality )
+      public CILCustomModifier AddCustomModifier( CILType type, Boolean isOptional )
       {
-         var result = new CILCustomModifierImpl( optionality, type );
+         var result = new CILCustomModifierImpl( isOptional, type );
          lock ( this.customModifiers.Lock )
          {
             this.customModifiers.Value.Add( result );

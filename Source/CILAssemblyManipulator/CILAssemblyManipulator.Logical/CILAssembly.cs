@@ -272,36 +272,25 @@ namespace CILAssemblyManipulator.Logical
    /// </summary>
    public sealed class CILAssemblyName : CILElementWithSimpleName
    {
-      private const Int32 NOT_FOUND = -1;
-
-      private enum Elements
-      {
-         Version,
-         Culture,
-         PublicKey,
-         PublicKeyToken,
-         Other
-      }
-
-      private const Char ASSEMBLY_NAME_ELEMENTS_SEPARATOR = ',';
-      private const Char ASSEMBLY_NAME_ELEMENT_VALUE_SEPARATOR = '=';
-      private const Char VERSION_SEPARATOR = '.';
-      private const String VERSION = "Version";
-      private const String CULTURE = "Culture";
-      private const String PUBLIC_KEY_TOKEN = "PublicKeyToken";
-      private const String PUBLIC_KEY = "PublicKey";
-      private const String NEUTRAL_CULTURE = "neutral";
-      private const String NEUTRAL_CULTURE_NAME = "";
-
       private Int32 _hashAlgorithm;
       private Int32 _flags;
-      private String _culture;
-      private Int32 _majorVersion;
-      private Int32 _minorVersion;
-      private Int32 _buildNumber;
-      private Int32 _revision;
-      private Byte[] _publicKey;
-      private String _name;
+      private readonly AssemblyInformation _assemblyInfo;
+
+      public CILAssemblyName( AssemblyInformation assemblyInfo, Boolean isFullPublicKey )
+         : this(
+         assemblyInfo.Name,
+         assemblyInfo.VersionMajor,
+         assemblyInfo.VersionMinor,
+         assemblyInfo.VersionBuild,
+         assemblyInfo.VersionRevision,
+         culture: assemblyInfo.Culture,
+         pKey: assemblyInfo.PublicKeyOrToken,
+         flags: isFullPublicKey ? AssemblyFlags.PublicKey : AssemblyFlags.None
+         )
+      {
+
+      }
+
 
       /// <summary>
       /// Creates a new instance of <see cref="CILAssemblyName"/> with all fields set to default values.
@@ -324,9 +313,7 @@ namespace CILAssemblyManipulator.Logical
             var pk = otherName.PublicKey;
             if ( !pk.IsNullOrEmpty() )
             {
-               var thisPK = new Byte[pk.Length];
-               Array.Copy( pk, thisPK, pk.Length );
-               this._publicKey = thisPK;
+               this._assemblyInfo.PublicKeyOrToken = pk.CreateBlockCopy();
             }
          }
       }
@@ -344,17 +331,30 @@ namespace CILAssemblyManipulator.Logical
       /// <param name="pKey">Public key of the assembly name. Specify <c>null</c> or empty array to create assembly name without public key.</param>
       /// <param name="culture">Culture string of the assembly name. Specify <c>null</c> or empty string to create culture-neutral assembly name.</param>
       /// <returns>A new <see cref="CILAssemblyName"/> with specified parameters.</returns>
-      public CILAssemblyName( String name, Int32 major, Int32 minor, Int32 build, Int32 revision, AssemblyHashAlgorithm hashAlgorithm = AssemblyHashAlgorithm.None, AssemblyFlags flags = AssemblyFlags.None, Byte[] pKey = null, String culture = null )
+      public CILAssemblyName(
+         String name,
+         Int32 major,
+         Int32 minor,
+         Int32 build,
+         Int32 revision,
+         AssemblyHashAlgorithm hashAlgorithm = AssemblyHashAlgorithm.None,
+         AssemblyFlags flags = AssemblyFlags.None,
+         Byte[] pKey = null,
+         String culture = null
+         )
       {
          this._hashAlgorithm = (Int32) hashAlgorithm;
          this._flags = (Int32) flags;
-         this._majorVersion = major;
-         this._minorVersion = minor;
-         this._buildNumber = build;
-         this._revision = revision;
-         this._publicKey = pKey.IsNullOrEmpty() ? null : pKey;
-         this._name = name;
-         this._culture = culture;
+         this._assemblyInfo = new AssemblyInformation()
+         {
+            Name = name,
+            Culture = culture,
+            VersionMajor = major,
+            VersionMinor = minor,
+            VersionBuild = build,
+            VersionRevision = revision,
+            PublicKeyOrToken = pKey.IsNullOrEmpty() ? null : pKey
+         };
       }
 
       #region CILAssemblyName Members
@@ -401,11 +401,11 @@ namespace CILAssemblyManipulator.Logical
       {
          set
          {
-            Interlocked.Exchange( ref this._culture, value );
+            this._assemblyInfo.Culture = value;
          }
          get
          {
-            return this._culture;
+            return this._assemblyInfo.Culture;
          }
       }
 
@@ -417,11 +417,11 @@ namespace CILAssemblyManipulator.Logical
       {
          set
          {
-            Interlocked.Exchange( ref this._majorVersion, value );
+            this._assemblyInfo.VersionMajor = value;
          }
          get
          {
-            return this._majorVersion;
+            return this._assemblyInfo.VersionMajor;
          }
       }
 
@@ -433,11 +433,11 @@ namespace CILAssemblyManipulator.Logical
       {
          set
          {
-            Interlocked.Exchange( ref this._minorVersion, value );
+            this._assemblyInfo.VersionMinor = value;
          }
          get
          {
-            return this._minorVersion;
+            return this._assemblyInfo.VersionMinor;
          }
       }
 
@@ -449,11 +449,11 @@ namespace CILAssemblyManipulator.Logical
       {
          set
          {
-            Interlocked.Exchange( ref this._buildNumber, value );
+            this._assemblyInfo.VersionBuild = value;
          }
          get
          {
-            return this._buildNumber;
+            return this._assemblyInfo.VersionBuild;
          }
       }
 
@@ -465,11 +465,11 @@ namespace CILAssemblyManipulator.Logical
       {
          set
          {
-            Interlocked.Exchange( ref this._revision, value );
+            this._assemblyInfo.VersionRevision = value;
          }
          get
          {
-            return this._revision;
+            return this._assemblyInfo.VersionRevision;
          }
       }
 
@@ -481,11 +481,11 @@ namespace CILAssemblyManipulator.Logical
       {
          set
          {
-            Interlocked.Exchange( ref this._publicKey, value != null && !value.Any() ? null : value );
+            this._assemblyInfo.PublicKeyOrToken = value.IsNullOrEmpty() ? null : value;
          }
          get
          {
-            return this._publicKey;
+            return this._assemblyInfo.PublicKeyOrToken;
          }
       }
 
@@ -498,11 +498,11 @@ namespace CILAssemblyManipulator.Logical
       {
          set
          {
-            Interlocked.Exchange( ref this._name, value );
+            this._assemblyInfo.Name = value;
          }
          get
          {
-            return this._name;
+            return this._assemblyInfo.Name;
          }
       }
 
@@ -511,13 +511,7 @@ namespace CILAssemblyManipulator.Logical
       /// <inheritdoc />
       public override String ToString()
       {
-         // mscorlib, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089
-         return Utils.EscapeSomeString( this._name ) +
-            ASSEMBLY_NAME_ELEMENTS_SEPARATOR + ' ' + VERSION + ASSEMBLY_NAME_ELEMENT_VALUE_SEPARATOR + this._majorVersion + VERSION_SEPARATOR + this._minorVersion + VERSION_SEPARATOR + this._buildNumber + VERSION_SEPARATOR + this._revision +
-            ASSEMBLY_NAME_ELEMENTS_SEPARATOR + ' ' + CULTURE + ASSEMBLY_NAME_ELEMENT_VALUE_SEPARATOR + ( this._culture == null || this._culture.Trim().Length == 0 ? NEUTRAL_CULTURE : this._culture ) +
-            ( this._publicKey == null ? "" :
-            ( "" + ASSEMBLY_NAME_ELEMENTS_SEPARATOR + ' ' + ( ( (AssemblyFlags) this._flags ).IsFullPublicKey() ? PUBLIC_KEY : PUBLIC_KEY_TOKEN ) + ASSEMBLY_NAME_ELEMENT_VALUE_SEPARATOR + StringConversions.ByteArray2HexStr( this._publicKey, 0, this._publicKey.Length, false ) )
-               );
+         return this._assemblyInfo.ToString( true, this.Flags.IsFullPublicKey() );
       }
 
       /// <summary>
@@ -557,191 +551,12 @@ namespace CILAssemblyManipulator.Logical
       /// </remarks>
       public static Boolean TryParse( String textualAssemblyName, out CILAssemblyName assemblyName )
       {
-         var success = !String.IsNullOrEmpty( textualAssemblyName );
-         if ( success )
-         {
-            assemblyName = new CILAssemblyName();
-
-            // First, name
-            var nameIdx = TryParseName( textualAssemblyName );
-            // Name may contain escape characters
-            assemblyName._name = Utils.UnescapeSomeString( textualAssemblyName, 0, nameIdx );
-
-            success = !String.IsNullOrEmpty( assemblyName._name );
-            if ( success )
-            {
-
-               // Then, other components. Other components shouldn't contain escaped characters.
-               while ( success && nameIdx < textualAssemblyName.Length )
-               {
-                  success = textualAssemblyName[nameIdx] == ASSEMBLY_NAME_ELEMENTS_SEPARATOR;
-                  if ( success )
-                  {
-                     // Skip following whitespaces
-                     while ( ++nameIdx < textualAssemblyName.Length && Char.IsWhiteSpace( textualAssemblyName[nameIdx] ) ) ;
-
-                     success = nameIdx < textualAssemblyName.Length;
-                     if ( success )
-                     {
-                        // Find next separator
-                        var aux = NextSeparatorIdx( textualAssemblyName, ASSEMBLY_NAME_ELEMENT_VALUE_SEPARATOR, nameIdx );
-                        success = aux > 0 && aux < textualAssemblyName.Length - 1 - nameIdx;
-                        if ( success )
-                        {
-                           var el = GetElement( textualAssemblyName, nameIdx, aux );
-                           nameIdx += aux + 1;
-                           switch ( el )
-                           {
-                              case Elements.Version:
-                                 success = TryParseVersion( assemblyName, textualAssemblyName, ref nameIdx );
-                                 break;
-                              case Elements.Culture:
-                                 success = TryParseCulture( assemblyName, textualAssemblyName, ref nameIdx );
-                                 break;
-                              case Elements.PublicKeyToken:
-                                 success = TryParsePublicKeyFullOrToken( assemblyName, textualAssemblyName, ref nameIdx );
-                                 break;
-                              case Elements.PublicKey:
-                                 success = TryParsePublicKeyFullOrToken( assemblyName, textualAssemblyName, ref nameIdx );
-                                 if ( !assemblyName._publicKey.IsNullOrEmpty() )
-                                 {
-                                    assemblyName._flags |= (Int32) AssemblyFlags.PublicKey;
-                                 }
-                                 break;
-                              default:
-                                 success = false;
-                                 break;
-                           }
-                        }
-                     }
-                  }
-               }
-               // Return true only if successfully parsed whole string till the end.
-               success = success && nameIdx == textualAssemblyName.Length;
-            }
-         }
-         else
-         {
-            assemblyName = null;
-         }
-         return success;
-      }
-
-      private static Int32 NextSeparatorIdx( String str, Char separator, Int32 startIdx = 0 )
-      {
-         var result = str.IndexOf( separator, startIdx );
-         return ( result == NOT_FOUND ? str.Length : result ) - startIdx;
-      }
-
-      private static Elements GetElement( String str, Int32 idx, Int32 aux )
-      {
-         Elements result;
-         if ( String.Compare( str, idx, VERSION, 0, aux, StringComparison.OrdinalIgnoreCase ) == 0 )
-         {
-            result = Elements.Version;
-         }
-         else if ( String.Compare( str, idx, CULTURE, 0, aux, StringComparison.OrdinalIgnoreCase ) == 0 )
-         {
-            result = Elements.Culture;
-         }
-         else if ( String.Compare( str, idx, PUBLIC_KEY_TOKEN, 0, aux, StringComparison.OrdinalIgnoreCase ) == 0 )
-         {
-            result = Elements.PublicKeyToken;
-         }
-         else if ( String.Compare( str, idx, PUBLIC_KEY, 0, aux, StringComparison.OrdinalIgnoreCase ) == 0 )
-         {
-            result = Elements.PublicKey;
-         }
-         else
-         {
-            result = Elements.Other;
-         }
-         return result;
-      }
-
-      private static Int32 TryParseName( String fullAssemblyName )
-      {
-         var nameIdx = 0;
-         var dontMatch = false;
-         while ( nameIdx < fullAssemblyName.Length && ( dontMatch || fullAssemblyName[nameIdx] != ASSEMBLY_NAME_ELEMENTS_SEPARATOR ) )
-         {
-            if ( !dontMatch && fullAssemblyName[nameIdx] == '\\' )
-            {
-               // The escaped character follows.
-               dontMatch = true;
-            }
-            else if ( dontMatch )
-            {
-               // Previous character was escape character
-               dontMatch = false;
-            }
-            ++nameIdx;
-         }
-
-         // dontMatch will be true if string ended with escape character but no actual character to escape followed.
-         return dontMatch ? 0 : nameIdx;
-      }
-
-      private static Boolean TryParseVersion( CILAssemblyName assemblyName, String fullAssemblyName, ref Int32 nameIdx )
-      {
-         var aux = NextSeparatorIdx( fullAssemblyName, VERSION_SEPARATOR, nameIdx );
-         UInt16 tmp = 0;
-         var success = aux > 0 && UInt16.TryParse( fullAssemblyName.Substring( nameIdx, aux ), out tmp );
-         if ( success )
-         {
-            assemblyName._majorVersion = tmp;
-            nameIdx += aux + 1;
-            aux = NextSeparatorIdx( fullAssemblyName, VERSION_SEPARATOR, nameIdx );
-            success = aux > 0 && UInt16.TryParse( fullAssemblyName.Substring( nameIdx, aux ), out tmp );
-            if ( success )
-            {
-               assemblyName._minorVersion = tmp;
-               nameIdx += aux + 1;
-               aux = NextSeparatorIdx( fullAssemblyName, VERSION_SEPARATOR, nameIdx );
-               success = aux > 0 && UInt16.TryParse( fullAssemblyName.Substring( nameIdx, aux ), out tmp );
-               if ( success )
-               {
-                  assemblyName._buildNumber = tmp;
-                  nameIdx += aux + 1;
-                  aux = NextSeparatorIdx( fullAssemblyName, ASSEMBLY_NAME_ELEMENTS_SEPARATOR, nameIdx );
-                  success = aux > 0 && UInt16.TryParse( fullAssemblyName.Substring( nameIdx, aux ), out tmp );
-                  if ( success )
-                  {
-                     nameIdx += aux;
-                     assemblyName._revision = tmp;
-                  }
-               }
-            }
-         }
-         return success;
-      }
-
-      private static Boolean TryParseCulture( CILAssemblyName assemblyName, String fullAssemblyName, ref Int32 nameIdx )
-      {
-         var aux = NextSeparatorIdx( fullAssemblyName, ASSEMBLY_NAME_ELEMENTS_SEPARATOR, nameIdx );
-         var success = aux > 0;
-         if ( success )
-         {
-            assemblyName._culture = fullAssemblyName.Substring( nameIdx, aux );
-            nameIdx += aux;
-            if ( String.Equals( "\"\"", assemblyName._culture ) || String.Compare( assemblyName._culture, NEUTRAL_CULTURE, StringComparison.OrdinalIgnoreCase ) == 0 )
-            {
-               assemblyName._culture = NEUTRAL_CULTURE_NAME;
-            }
-         }
-         return success;
-      }
-
-      private static Boolean TryParsePublicKeyFullOrToken( CILAssemblyName assemblyName, String fullAssemblyName, ref Int32 nameIdx )
-      {
-         var aux = NextSeparatorIdx( fullAssemblyName, ASSEMBLY_NAME_ELEMENTS_SEPARATOR, nameIdx );
-         var success = aux > 0;
-         if ( success && !String.Equals( "null", fullAssemblyName.Substring( nameIdx, aux ), StringComparison.OrdinalIgnoreCase ) )
-         {
-            assemblyName._publicKey = StringConversions.HexStr2ByteArray( fullAssemblyName, nameIdx, 0, 0 );
-         }
-         nameIdx += aux;
-         return success;
+         AssemblyInformation info; Boolean wasFullPK;
+         var retVal = AssemblyInformation.TryParse( textualAssemblyName, out info, out wasFullPK );
+         assemblyName = retVal ?
+            new CILAssemblyName( info, wasFullPK ) :
+            null;
+         return retVal;
       }
 
    }
@@ -842,21 +657,21 @@ public static partial class E_CIL
             );
    }
 
-   /// <summary>
-   /// This extension method gets the public key token of the given <see cref="CILAssembly"/>.
-   /// If the <see cref="CILAssemblyName.Flags"/> specify that the assembly name is not using full public key, then the <see cref="CILAssemblyName.PublicKey"/> is returned directly.
-   /// Otherwise, the public key token is computed by using <see cref="CILReflectionContext.ComputePublicKeyToken"/> method.
-   /// </summary>
-   /// <param name="assembly">The <see cref="CILAssembly"/>.</param>
-   /// <returns>The public key token of the given <see cref="CILAssembly"/>.</returns>
-   public static Byte[] GetPublicKeyToken( this CILAssembly assembly )
-   {
-      var an = assembly.Name;
-      var result = an.PublicKey;
-      return an.Flags.IsFullPublicKey() && result != null && result.Length > 0 ?
-         assembly.ReflectionContext.ComputePublicKeyToken( result ) :
-         result;
-   }
+   ///// <summary>
+   ///// This extension method gets the public key token of the given <see cref="CILAssembly"/>.
+   ///// If the <see cref="CILAssemblyName.Flags"/> specify that the assembly name is not using full public key, then the <see cref="CILAssemblyName.PublicKey"/> is returned directly.
+   ///// Otherwise, the public key token is computed by using <see cref="CILReflectionContext.ComputePublicKeyToken"/> method.
+   ///// </summary>
+   ///// <param name="assembly">The <see cref="CILAssembly"/>.</param>
+   ///// <returns>The public key token of the given <see cref="CILAssembly"/>.</returns>
+   //public static Byte[] GetPublicKeyToken( this CILAssembly assembly )
+   //{
+   //   var an = assembly.Name;
+   //   var result = an.PublicKey;
+   //   return an.Flags.IsFullPublicKey() && result != null && result.Length > 0 ?
+   //      assembly.ReflectionContext.ComputePublicKeyToken( result ) :
+   //      result;
+   //}
 
    ///// <summary>
    ///// Tries to get PCL profile based on <see cref="TargetFrameworkAttribute"/> applied on <see cref="CILAssembly"/>.
@@ -889,49 +704,49 @@ public static partial class E_CIL
    //   }
    //}
 
-   /// <summary>
-   /// Adds a <see cref="TargetFrameworkAttribute"/> to the <see cref="CILAssembly"/> which represents information for given target framework.
-   /// </summary>
-   /// <param name="assembly">The <see cref="CILAssembly"/>.</param>
-   /// <param name="monikerInfo">The information about target framework, see <see cref="FrameworkMonikerInfo"/>.</param>
-   /// <param name="monikerMapper">The assembly mapper helper, created by <see cref="E_CIL.CreateMapperForFrameworkMoniker"/> method, or by creating <see cref="EmittingArguments"/> by <see cref="EmittingArguments.CreateForEmittingWithMoniker"/> method and accessing its <see cref="EmittingArguments.AssemblyMapper"/> property.</param>
-   /// <exception cref="NullReferenceException">If <paramref name="assembly"/> is <c>null</c>.</exception>
-   /// <exception cref="ArgumentNullException">If <paramref name="monikerInfo"/> or <paramref name="monikerMapper"/> is <c>null</c>.</exception>
-   public static void AddTargetFrameworkAttributeWithMonikerInfo( this CILAssembly assembly, FrameworkMonikerInfo monikerInfo, EmittingAssemblyMapper monikerMapper )
-   {
-      ArgumentValidator.ValidateNotNull( "Moniker info", monikerInfo );
-      ArgumentValidator.ValidateNotNull( "Moniker mapper", monikerMapper );
-      var targetFWType = (CILType) monikerMapper.MapTypeBase( ModuleReader.TARGET_FRAMEWORK_ATTRIBUTE_CTOR.DeclaringType.NewWrapper( assembly.ReflectionContext ) );
-      var targetFWCtor = targetFWType.Constructors.First( ctor => ctor.Parameters.Count == 1 && ctor.Parameters[0].ParameterType is CILType && ( (CILType) ctor.Parameters[0].ParameterType ).TypeCode == CILTypeCode.String );
-      var targetFWProp = targetFWType.DeclaredProperties.First( prop => prop.Name == ModuleReader.TARGET_FRAMEWORK_ATTRIBUTE_NAMED_PROPERTY.Name );
-      var fwString = monikerInfo.FrameworkName + ",Version=" + monikerInfo.FrameworkVersion;
-      if ( !String.IsNullOrEmpty( monikerInfo.ProfileName ) )
-      {
-         fwString += ",Profile=" + monikerInfo.ProfileName;
-      }
-      assembly.AddCustomAttribute(
-         targetFWCtor,
-         new CILCustomAttributeTypedArgument[] { CILCustomAttributeFactory.NewTypedArgument( (CILType) targetFWCtor.Parameters[0].ParameterType, fwString ) },
-         new CILCustomAttributeNamedArgument[] { CILCustomAttributeFactory.NewNamedArgument( targetFWProp, CILCustomAttributeFactory.NewTypedArgument( (CILType) targetFWProp.GetPropertyType(), monikerInfo.FrameworkDisplayName ) ) }
-      );
-   }
+   ///// <summary>
+   ///// Adds a <see cref="TargetFrameworkAttribute"/> to the <see cref="CILAssembly"/> which represents information for given target framework.
+   ///// </summary>
+   ///// <param name="assembly">The <see cref="CILAssembly"/>.</param>
+   ///// <param name="monikerInfo">The information about target framework, see <see cref="FrameworkMonikerInfo"/>.</param>
+   ///// <param name="monikerMapper">The assembly mapper helper, created by <see cref="E_CIL.CreateMapperForFrameworkMoniker"/> method, or by creating <see cref="EmittingArguments"/> by <see cref="EmittingArguments.CreateForEmittingWithMoniker"/> method and accessing its <see cref="EmittingArguments.AssemblyMapper"/> property.</param>
+   ///// <exception cref="NullReferenceException">If <paramref name="assembly"/> is <c>null</c>.</exception>
+   ///// <exception cref="ArgumentNullException">If <paramref name="monikerInfo"/> or <paramref name="monikerMapper"/> is <c>null</c>.</exception>
+   //public static void AddTargetFrameworkAttributeWithMonikerInfo( this CILAssembly assembly, FrameworkMonikerInfo monikerInfo, EmittingAssemblyMapper monikerMapper )
+   //{
+   //   ArgumentValidator.ValidateNotNull( "Moniker info", monikerInfo );
+   //   ArgumentValidator.ValidateNotNull( "Moniker mapper", monikerMapper );
+   //   var targetFWType = (CILType) monikerMapper.MapTypeBase( ModuleReader.TARGET_FRAMEWORK_ATTRIBUTE_CTOR.DeclaringType.NewWrapper( assembly.ReflectionContext ) );
+   //   var targetFWCtor = targetFWType.Constructors.First( ctor => ctor.Parameters.Count == 1 && ctor.Parameters[0].ParameterType is CILType && ( (CILType) ctor.Parameters[0].ParameterType ).TypeCode == CILTypeCode.String );
+   //   var targetFWProp = targetFWType.DeclaredProperties.First( prop => prop.Name == ModuleReader.TARGET_FRAMEWORK_ATTRIBUTE_NAMED_PROPERTY.Name );
+   //   var fwString = monikerInfo.FrameworkName + ",Version=" + monikerInfo.FrameworkVersion;
+   //   if ( !String.IsNullOrEmpty( monikerInfo.ProfileName ) )
+   //   {
+   //      fwString += ",Profile=" + monikerInfo.ProfileName;
+   //   }
+   //   assembly.AddCustomAttribute(
+   //      targetFWCtor,
+   //      new CILCustomAttributeTypedArgument[] { CILCustomAttributeFactory.NewTypedArgument( (CILType) targetFWCtor.Parameters[0].ParameterType, fwString ) },
+   //      new CILCustomAttributeNamedArgument[] { CILCustomAttributeFactory.NewNamedArgument( targetFWProp, CILCustomAttributeFactory.NewTypedArgument( (CILType) targetFWProp.GetPropertyType(), monikerInfo.FrameworkDisplayName ) ) }
+   //   );
+   //}
 
-   /// <summary>
-   /// Adds a <see cref="TargetFrameworkAttribute"/> to the <see cref="CILAssembly"/> which has given framework information.
-   /// This method should not be used when adding <see cref="TargetFrameworkAttribute"/> to Portable Class Libraries.
-   /// </summary>
-   /// <param name="assembly">The <see cref="CILAssembly"/>.</param>
-   /// <param name="fwName">The name of the target framework. This will be passed directly as string argument to the attribute constructor.</param>
-   /// <param name="fwDisplayName">The display name of the target framework.</param>
-   /// <exception cref="NullReferenceException">If <paramref name="assembly"/> is <c>null</c>.</exception>
-   public static void AddTargetFrameworkAttributeNative( this CILAssembly assembly, String fwName, String fwDisplayName )
-   {
-      assembly.AddCustomAttribute(
-         ModuleReader.TARGET_FRAMEWORK_ATTRIBUTE_CTOR.NewWrapper( assembly.ReflectionContext ),
-         new CILCustomAttributeTypedArgument[] { CILCustomAttributeFactory.NewTypedArgument( ModuleReader.TARGET_FRAMEWORK_ATTRIBUTE_CTOR.GetParameters().First().ParameterType.NewWrapperAsType( assembly.ReflectionContext ), fwName ) },
-         fwDisplayName == null ? null : new CILCustomAttributeNamedArgument[] { CILCustomAttributeFactory.NewNamedArgument( ModuleReader.TARGET_FRAMEWORK_ATTRIBUTE_NAMED_PROPERTY.NewWrapper( assembly.ReflectionContext ), CILCustomAttributeFactory.NewTypedArgument( (CILType) ModuleReader.TARGET_FRAMEWORK_ATTRIBUTE_NAMED_PROPERTY.NewWrapper( assembly.ReflectionContext ).GetPropertyType(), fwDisplayName ) ) }
-       );
-   }
+   ///// <summary>
+   ///// Adds a <see cref="TargetFrameworkAttribute"/> to the <see cref="CILAssembly"/> which has given framework information.
+   ///// This method should not be used when adding <see cref="TargetFrameworkAttribute"/> to Portable Class Libraries.
+   ///// </summary>
+   ///// <param name="assembly">The <see cref="CILAssembly"/>.</param>
+   ///// <param name="fwName">The name of the target framework. This will be passed directly as string argument to the attribute constructor.</param>
+   ///// <param name="fwDisplayName">The display name of the target framework.</param>
+   ///// <exception cref="NullReferenceException">If <paramref name="assembly"/> is <c>null</c>.</exception>
+   //public static void AddTargetFrameworkAttributeNative( this CILAssembly assembly, String fwName, String fwDisplayName )
+   //{
+   //   assembly.AddCustomAttribute(
+   //      ModuleReader.TARGET_FRAMEWORK_ATTRIBUTE_CTOR.NewWrapper( assembly.ReflectionContext ),
+   //      new CILCustomAttributeTypedArgument[] { CILCustomAttributeFactory.NewTypedArgument( ModuleReader.TARGET_FRAMEWORK_ATTRIBUTE_CTOR.GetParameters().First().ParameterType.NewWrapperAsType( assembly.ReflectionContext ), fwName ) },
+   //      fwDisplayName == null ? null : new CILCustomAttributeNamedArgument[] { CILCustomAttributeFactory.NewNamedArgument( ModuleReader.TARGET_FRAMEWORK_ATTRIBUTE_NAMED_PROPERTY.NewWrapper( assembly.ReflectionContext ), CILCustomAttributeFactory.NewTypedArgument( (CILType) ModuleReader.TARGET_FRAMEWORK_ATTRIBUTE_NAMED_PROPERTY.NewWrapper( assembly.ReflectionContext ).GetPropertyType(), fwDisplayName ) ) }
+   //    );
+   //}
 
    /// <summary>
    /// Helper method to try get <see cref="TypeForwardingInfo"/> based on type name and type namespace from <see cref="CILAssembly"/>.

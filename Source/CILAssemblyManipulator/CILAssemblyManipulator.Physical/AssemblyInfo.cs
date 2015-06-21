@@ -21,18 +21,129 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
+using System.Threading;
 
 namespace CILAssemblyManipulator.Physical
 {
    public sealed class AssemblyInformation : IEquatable<AssemblyInformation>
    {
-      public Int32 VersionMajor { get; set; }
-      public Int32 VersionMinor { get; set; }
-      public Int32 VersionBuild { get; set; }
-      public Int32 VersionRevision { get; set; }
-      public Byte[] PublicKeyOrToken { get; set; }
-      public String Name { get; set; }
-      public String Culture { get; set; }
+      private String _name;
+      private String _culture;
+      private Int32 _majorVersion;
+      private Int32 _minorVersion;
+      private Int32 _buildNumber;
+      private Int32 _revision;
+      private Byte[] _publicKeyOrToken;
+
+      public String Name
+      {
+         set
+         {
+            Interlocked.Exchange( ref this._name, value );
+         }
+         get
+         {
+            return this._name;
+         }
+      }
+
+      /// <summary>
+      /// Gets or sets the culture of the related assembly. Please note that culture-neutral assemblies have this property set to <c>null</c>.
+      /// </summary>
+      /// <value>The culture of the related assembly.</value>
+      public String Culture
+      {
+         set
+         {
+            Interlocked.Exchange( ref this._culture, value );
+         }
+         get
+         {
+            return this._culture;
+         }
+      }
+
+      /// <summary>
+      /// Gets or sets the major version of the related assembly. The value will be casted to <see cref="UInt16"/> when emitting.
+      /// </summary>
+      /// <value>The major version of the related assembly.</value>
+      public Int32 VersionMajor
+      {
+         set
+         {
+            Interlocked.Exchange( ref this._majorVersion, value );
+         }
+         get
+         {
+            return this._majorVersion;
+         }
+      }
+
+      /// <summary>
+      /// Gets or sets the minor version of the related assembly. The value will be casted to <see cref="UInt16"/> when emitting.
+      /// </summary>
+      /// <value>The minor version of the related assembly.</value>
+      public Int32 VersionMinor
+      {
+         set
+         {
+            Interlocked.Exchange( ref this._minorVersion, value );
+         }
+         get
+         {
+            return this._minorVersion;
+         }
+      }
+
+      /// <summary>
+      /// Gets or sets the build number of the related assembly. The value will be casted to <see cref="UInt16"/> when emitting.
+      /// </summary>
+      /// <value>The build number of the related assembly.</value>
+      public Int32 VersionBuild
+      {
+         set
+         {
+            Interlocked.Exchange( ref this._buildNumber, value );
+         }
+         get
+         {
+            return this._buildNumber;
+         }
+      }
+
+      /// <summary>
+      /// Gets or sets the revision of the related assembly. The value will be casted to <see cref="UInt16"/> when emitting.
+      /// </summary>
+      /// <value>The revision of the related assembly.</value>
+      public Int32 VersionRevision
+      {
+         set
+         {
+            Interlocked.Exchange( ref this._revision, value );
+         }
+         get
+         {
+            return this._revision;
+         }
+      }
+
+      /// <summary>
+      /// Gets or sets the public key of the related assembly. Set to <c>null</c> or empty array to remove the usage of public key in the related assembly.
+      /// </summary>
+      /// <value>The public key of the related assembly.</value>
+      public Byte[] PublicKeyOrToken
+      {
+         set
+         {
+            Interlocked.Exchange( ref this._publicKeyOrToken, value );
+         }
+         get
+         {
+            return this._publicKeyOrToken;
+         }
+      }
+
+
 
       public override Boolean Equals( Object obj )
       {
@@ -96,7 +207,7 @@ namespace CILAssemblyManipulator.Physical
          Boolean isFullPublicKey
          )
       {
-         var sb = new StringBuilder( this.Name );
+         var sb = new StringBuilder( this.Name.EscapeSomeString() );
          sb.Append( ASSEMBLY_NAME_ELEMENTS_SEPARATOR + " " + VERSION + ASSEMBLY_NAME_ELEMENT_VALUE_SEPARATOR )
             .Append( this.VersionMajor )
             .Append( VERSION_SEPARATOR )

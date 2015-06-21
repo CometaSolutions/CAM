@@ -91,17 +91,17 @@ namespace CILAssemblyManipulator.Tests
 
       public static void ValidateAllIsResolved( CILMetaData md )
       {
-         for ( var i = 0; i < md.CustomAttributeDefinitions.Count; ++i )
+         for ( var i = 0; i < md.CustomAttributeDefinitions.TableContents.Count; ++i )
          {
-            var ca = md.CustomAttributeDefinitions[i];
+            var ca = md.CustomAttributeDefinitions.TableContents[i];
             var sig = ca.Signature;
             Assert.IsNotNull( sig );
             Assert.IsNotInstanceOf<RawCustomAttributeSignature>( sig );
          }
 
-         for ( var i = 0; i < md.SecurityDefinitions.Count; ++i )
+         for ( var i = 0; i < md.SecurityDefinitions.TableContents.Count; ++i )
          {
-            var sec = md.SecurityDefinitions[i];
+            var sec = md.SecurityDefinitions.TableContents[i];
             foreach ( var permission in sec.PermissionSets )
             {
                Assert.IsNotNull( permission );

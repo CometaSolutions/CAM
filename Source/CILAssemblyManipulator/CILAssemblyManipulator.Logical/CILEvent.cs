@@ -107,7 +107,9 @@ public static partial class E_CIL
    /// <returns><c>true</c> if the event is non-<c>null</c> and multicast, that is, <see cref="MulticastDelegate"/> is assignable from event's <see cref="CILEvent.EventHandlerType"/>; <c>false</c> otherwise.</returns>
    public static Boolean IsMultiCast( this CILEvent evt )
    {
-      return evt != null && evt.DeclaringType.Module.AssociatedMSCorLibModule.GetTypeByName( Consts.MULTICAST_DELEGATE ).IsAssignableFrom( evt.EventHandlerType );
+      return evt != null && ( evt.EventHandlerType as CILType )
+         .GetBaseTypeChain()
+         .Any( bt => evt.DeclaringType.Module.IsSystemType( bt, Consts.MULTICAST_DELEGATE ) );
    }
 
    /// <summary>

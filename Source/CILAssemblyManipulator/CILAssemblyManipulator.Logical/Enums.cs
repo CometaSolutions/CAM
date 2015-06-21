@@ -18,6 +18,7 @@
 using System;
 using System.Collections.Generic;
 using CILAssemblyManipulator.Logical;
+using CILAssemblyManipulator.Physical;
 
 namespace CILAssemblyManipulator.Logical
 {
@@ -1460,9 +1461,10 @@ namespace CILAssemblyManipulator.Logical
    //      HString,
    //   }
    //}
+}
 
-   //public static partial class E_CIL
-   //{
+public static partial class E_CIL
+{
    //   /// <summary>
    //   /// Returns the textual representation of the <paramref name="algorithm"/>. In non-portable environment, this value can be used to set algorithm for strong name signature creation.
    //   /// </summary>
@@ -2531,60 +2533,60 @@ namespace CILAssemblyManipulator.Logical
    //      }
    //   }
 
-   //   /// <summary>
-   //   /// Using values from <see cref="System.Runtime.InteropServices.DllImportAttribute"/>, creates a corresponding <see cref="PInvokeAttributes"/>.
-   //   /// </summary>
-   //   /// <param name="attribute">The <see cref="System.Runtime.InteropServices.DllImportAttribute"/> to create <see cref="PInvokeAttributes"/> from.</param>
-   //   /// <returns>A <see cref="PInvokeAttributes"/> corresponding to <paramref name="attribute"/>.</returns>
-   //   public static PInvokeAttributes GetCorrespondingPInvokeAttributes( this System.Runtime.InteropServices.DllImportAttribute attribute )
-   //   {
-   //      var result = (PInvokeAttributes) 0;
-   //      if ( attribute.BestFitMapping )
-   //      {
-   //         result |= PInvokeAttributes.BestFitMapping;
-   //      }
-   //      switch ( attribute.CallingConvention )
-   //      {
-   //         case System.Runtime.InteropServices.CallingConvention.Cdecl:
-   //            result |= PInvokeAttributes.CallConvCDecl;
-   //            break;
-   //         case System.Runtime.InteropServices.CallingConvention.StdCall:
-   //            result |= PInvokeAttributes.CallConvStdcall;
-   //            break;
-   //         case System.Runtime.InteropServices.CallingConvention.ThisCall:
-   //            result |= PInvokeAttributes.CallConvThiscall;
-   //            break;
-   //         case System.Runtime.InteropServices.CallingConvention.Winapi:
-   //            result |= PInvokeAttributes.CallConvPlatformapi;
-   //            break;
-   //      }
-   //      switch ( attribute.CharSet )
-   //      {
-   //         case System.Runtime.InteropServices.CharSet.Ansi:
-   //            result |= PInvokeAttributes.CharsetAnsi;
-   //            break;
-   //         case System.Runtime.InteropServices.CharSet.Unicode:
-   //            result |= PInvokeAttributes.CharsetUnicode;
-   //            break;
-   //         default:
-   //            result |= PInvokeAttributes.CharsetAuto;
-   //            break;
-   //      }
-   //      if ( attribute.ExactSpelling )
-   //      {
-   //         result |= PInvokeAttributes.NoMangle;
-   //      }
-   //      if ( attribute.SetLastError )
-   //      {
-   //         result |= PInvokeAttributes.SupportsLastError;
-   //      }
-   //      if ( attribute.ThrowOnUnmappableChar )
-   //      {
-   //         result |= PInvokeAttributes.ThrowOnUnmappableChar;
-   //      }
-   //      // TODO preserve sig?
-   //      return result;
-   //   }
+   /// <summary>
+   /// Using values from <see cref="System.Runtime.InteropServices.DllImportAttribute"/>, creates a corresponding <see cref="PInvokeAttributes"/>.
+   /// </summary>
+   /// <param name="attribute">The <see cref="System.Runtime.InteropServices.DllImportAttribute"/> to create <see cref="PInvokeAttributes"/> from.</param>
+   /// <returns>A <see cref="PInvokeAttributes"/> corresponding to <paramref name="attribute"/>.</returns>
+   public static PInvokeAttributes GetCorrespondingPInvokeAttributes( this System.Runtime.InteropServices.DllImportAttribute attribute )
+   {
+      var result = (PInvokeAttributes) 0;
+      if ( attribute.BestFitMapping )
+      {
+         result |= PInvokeAttributes.BestFitMapping;
+      }
+      switch ( attribute.CallingConvention )
+      {
+         case System.Runtime.InteropServices.CallingConvention.Cdecl:
+            result |= PInvokeAttributes.CallConvCDecl;
+            break;
+         case System.Runtime.InteropServices.CallingConvention.StdCall:
+            result |= PInvokeAttributes.CallConvStdcall;
+            break;
+         case System.Runtime.InteropServices.CallingConvention.ThisCall:
+            result |= PInvokeAttributes.CallConvThiscall;
+            break;
+         case System.Runtime.InteropServices.CallingConvention.Winapi:
+            result |= PInvokeAttributes.CallConvPlatformapi;
+            break;
+      }
+      switch ( attribute.CharSet )
+      {
+         case System.Runtime.InteropServices.CharSet.Ansi:
+            result |= PInvokeAttributes.CharsetAnsi;
+            break;
+         case System.Runtime.InteropServices.CharSet.Unicode:
+            result |= PInvokeAttributes.CharsetUnicode;
+            break;
+         default:
+            result |= PInvokeAttributes.CharsetAuto;
+            break;
+      }
+      if ( attribute.ExactSpelling )
+      {
+         result |= PInvokeAttributes.NoMangle;
+      }
+      if ( attribute.SetLastError )
+      {
+         result |= PInvokeAttributes.SupportsLastError;
+      }
+      if ( attribute.ThrowOnUnmappableChar )
+      {
+         result |= PInvokeAttributes.ThrowOnUnmappableChar;
+      }
+      // TODO preserve sig?
+      return result;
+   }
 
    //   /// <summary>
    //   /// Checks whether generic parameter attributes represent a covariant (<c>out</c>) type parameter.
@@ -2644,6 +2646,4 @@ namespace CILAssemblyManipulator.Logical
    //   public static Boolean HasDefaultConstructorConstraint( this GenericParameterAttributes attrs )
    //   {
    //      return ( attrs & GenericParameterAttributes.DefaultConstructorConstraint ) != 0;
-   //   }
-
 }

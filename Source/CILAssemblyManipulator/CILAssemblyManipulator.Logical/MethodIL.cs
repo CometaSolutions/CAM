@@ -1662,7 +1662,7 @@ public static class E_MethodIL
    /// <exception cref="ArgumentNullException">If <paramref name="str"/> is <c>null</c>.</exception>
    public static MethodIL EmitLoadString( this MethodIL il, String str )
    {
-      return il.Add( new LogicalOpCodeInfoWithFixedSizeOperandString( str ) );
+      return il.Add( new LogicalOpCodeInfoWithFixedSizeOperandString( OpCodes.Ldstr, str ) );
    }
 
    /// <summary>
@@ -1846,7 +1846,7 @@ public static class E_MethodIL
    public static MethodIL EmitReflectionObjectOf( this MethodIL il, CILMethod targetMethod, Boolean useGDef = true )
    {
       var methodWrapper = ResolveMSCorLibMethod( il, METHOD_OF_METHOD );
-      var mscorlib = ( (MethodILImpl) il )._module.AssociatedMSCorLibModule;
+      var mscorlib = ( (MethodILImpl) il ).OwningModule.AssociatedMSCorLibModule;
       return il.Add( new LogicalOpCodeInfoWithMethodToken(
          OpCodes.Ldtoken,
          targetMethod,
@@ -1873,7 +1873,7 @@ public static class E_MethodIL
    public static MethodIL EmitReflectionObjectOf( this MethodIL il, CILConstructor targetCtor, Boolean useGDef = true )
    {
       var methodWrapper = ResolveMSCorLibMethod( il, METHOD_OF_METHOD );
-      var mscorlib = ( (MethodILImpl) il )._module.AssociatedMSCorLibModule;
+      var mscorlib = ( (MethodILImpl) il ).OwningModule.AssociatedMSCorLibModule;
       return il.Add( new LogicalOpCodeInfoWithCtorToken(
          OpCodes.Ldtoken,
          targetCtor,
@@ -2455,7 +2455,7 @@ public static class E_MethodIL
    {
       il.EmitLoadLocal( var )
          .EmitLoadInt32( 1 )
-         .EmitNumericConversion( ( (MethodILImpl) il )._module.AssociatedMSCorLibModule.GetTypeByName( Consts.INT32 ), var.LocalType, false )
+         .EmitNumericConversion( CILTypeCode.Int32, var.LocalType.GetTypeCode( CILTypeCode.Empty ), false ) // ( (MethodILImpl) il ).OwningModule.AssociatedMSCorLibModule.GetTypeByName( Consts.INT32 ), var.LocalType, false )
          .EmitAdd()
          .EmitStoreLocal( var );
    }
@@ -2472,7 +2472,7 @@ public static class E_MethodIL
    {
       il.EmitLoadLocal( var )
          .EmitLoadInt32( 1 )
-         .EmitNumericConversion( ( (MethodILImpl) il )._module.AssociatedMSCorLibModule.GetTypeByName( Consts.INT32 ), var.LocalType, false )
+         .EmitNumericConversion( CILTypeCode.Int32, var.LocalType.GetTypeCode( CILTypeCode.Empty ), false ) // ( (MethodILImpl) il ).OwningModule.AssociatedMSCorLibModule.GetTypeByName( Consts.INT32 ), var.LocalType, false )
          .EmitSubtract()
          .EmitStoreLocal( var );
    }
@@ -2929,14 +2929,14 @@ public static class E_MethodIL
 
    private static CILMethod ResolveMSCorLibMethod( MethodIL il, System.Reflection.MethodInfo nativeMethod )
    {
-      var mscorlib = ( (MethodILImpl) il )._module.AssociatedMSCorLibModule;
+      var mscorlib = ( (MethodILImpl) il ).OwningModule.AssociatedMSCorLibModule;
       var pCount = nativeMethod.GetParameters().Length;
       return mscorlib.GetTypeByName( nativeMethod.DeclaringType.FullName ).DeclaredMethods.First( m => m.Attributes == (MethodAttributes) nativeMethod.Attributes && m.Name == nativeMethod.Name && m.Parameters.Count == pCount && m.IsGenericMethodDefinition() == nativeMethod.IsGenericMethodDefinition );
    }
 
    private static CILConstructor ResolveMSCorLibCtor( MethodIL il, System.Reflection.ConstructorInfo nativeCtor )
    {
-      var mscorlib = ( (MethodILImpl) il )._module.AssociatedMSCorLibModule;
+      var mscorlib = ( (MethodILImpl) il ).OwningModule.AssociatedMSCorLibModule;
       var pCount = nativeCtor.GetParameters().Length;
       return mscorlib.GetTypeByName( nativeCtor.DeclaringType.FullName ).Constructors.First( c => c.Attributes == (MethodAttributes) nativeCtor.Attributes && c.Parameters.Count == pCount );
    }
