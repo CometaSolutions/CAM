@@ -225,7 +225,7 @@ namespace CILAssemblyManipulator.Physical
             tDefIndexParam = tuple.Item2;
          }
 
-         internal Int32 ResolveTopLevelType( String typeName, String typeNamespace )
+         private Int32 ResolveTopLevelType( String typeName, String typeNamespace )
          {
             return this._topLevelTypeCache
                .GetOrAdd_NotThreadSafe( new KeyValuePair<String, String>( typeNamespace, typeName ), kvp =>
@@ -254,7 +254,7 @@ namespace CILAssemblyManipulator.Physical
                } );
          }
 
-         internal Int32 FindNestedTypeIndex( Int32 enclosingTypeIndex, String nestedTypeName )
+         private Int32 FindNestedTypeIndex( Int32 enclosingTypeIndex, String nestedTypeName )
          {
             Int32 retVal;
             var md = this._md;
@@ -272,7 +272,7 @@ namespace CILAssemblyManipulator.Physical
                   // Find nested type, which has this type as its declaring type and its name equal to tRef's
                   // Skip to the first row where nested class index is greater than type def index (since in typedef table, all nested class definitions must follow encloding class definition)
                   nestedTD = md.NestedClassDefinitions.TableContents
-                     .SkipWhile( nc => nc.NestedClass.Index <= enclosingTypeIndex )
+                     //.SkipWhile( nc => nc.NestedClass.Index <= enclosingTypeIndex )
                      .Where( nc =>
                      {
                         var match = nc.EnclosingClass.Index == enclosingTypeIndex;
@@ -536,7 +536,7 @@ namespace CILAssemblyManipulator.Physical
          // 5. Resolve return value by CILMetaData + TableIndex pair
 
          String typeName, assemblyName;
-         var assemblyNamePresent = typeString.ParseFullTypeString( out typeName, out assemblyName );
+         var assemblyNamePresent = typeString.ParseAssemblyQualifiedTypeString( out typeName, out assemblyName );
          var targetModule = assemblyNamePresent ? this.ResolveAssemblyByString( md, assemblyName ) : this.GetCacheFor( md );
 
          var retVal = targetModule == null ? null : targetModule.ResolveTypeFromTypeName( typeName );
@@ -793,7 +793,7 @@ namespace CILAssemblyManipulator.Physical
             case SignatureElementTypes.CA_Enum:
                return new CustomAttributeArgumentTypeEnum()
                {
-                  TypeString = array.ReadLenPrefixedUTF8String( ref idx )
+                  TypeString = array.ReadLenPrefixedUTF8String( ref idx ).UnescapeCILTypeString()
                };
             case SignatureElementTypes.SzArray:
                return new CustomAttributeArgumentTypeArray()

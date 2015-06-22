@@ -61,7 +61,7 @@ namespace CILAssemblyManipulator.Logical.Implementation
          Byte[] rvaValue = null;
          if ( ( (FieldAttributes) field.Attributes ).HasRVA() )
          {
-            rvaValue = BitUtils.ObjectToByteArray( field.GetValue( null ) );
+            rvaValue = LogicalUtils.ObjectToByteArray( field.GetValue( null ) );
          }
 
          InitFields(
@@ -86,7 +86,7 @@ namespace CILAssemblyManipulator.Logical.Implementation
                var offset = field.GetCustomAttributes( true ).OfType<System.Runtime.InteropServices.FieldOffsetAttribute>().FirstOrDefault();
                return offset == null ? -1 : offset.Value;
             } ),
-            new SettableLazy<LogicalMarshalingInfo>( () => MarshalingInfo.FromAttribute( field.GetCustomAttributes( true ).OfType<System.Runtime.InteropServices.MarshalAsAttribute>().FirstOrDefault(), ctx ) ),
+            new SettableLazy<LogicalMarshalingInfo>( () => LogicalMarshalingInfo.FromAttribute( field.GetCustomAttributes( true ).OfType<System.Runtime.InteropServices.MarshalAsAttribute>().FirstOrDefault(), ctx ) ),
             true
             );
       }
@@ -353,7 +353,7 @@ namespace CILAssemblyManipulator.Logical.Implementation
          this.fieldType.Reset();
       }
 
-      SettableLazy<MarshalingInfo> CILElementWithMarshalInfoInternal.MarshalingInfoInternal
+      SettableLazy<LogicalMarshalingInfo> CILElementWithMarshalInfoInternal.MarshalingInfoInternal
       {
          get
          {
@@ -439,7 +439,7 @@ namespace CILAssemblyManipulator.Logical.Implementation
 
       #region CILElementWithMarshalingInfo Members
 
-      public MarshalingInfo MarshalingInformation
+      public LogicalMarshalingInfo MarshalingInformation
       {
          get
          {

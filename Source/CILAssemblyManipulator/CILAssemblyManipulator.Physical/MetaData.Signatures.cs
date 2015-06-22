@@ -1276,7 +1276,7 @@ namespace CILAssemblyManipulator.Physical
                      {
                         if ( idx < sig.Length )
                         {
-                           result = MarshalingInfo.MarshalAsSafeArray( sig.ReadLenPrefixedUTF8String( ref idx ) );
+                           result = MarshalingInfo.MarshalAsSafeArray( sig.ReadLenPrefixedUTF8String( ref idx ).UnescapeCILTypeString() );
                         }
                         else
                         {
@@ -1325,7 +1325,7 @@ namespace CILAssemblyManipulator.Physical
                   sig.DecompressUInt32( ref idx );
                   sig.DecompressUInt32( ref idx );
 
-                  var mTypeStr = sig.ReadLenPrefixedUTF8String( ref idx );
+                  var mTypeStr = sig.ReadLenPrefixedUTF8String( ref idx ).UnescapeCILTypeString();
                   var mCookie = sig.ReadLenPrefixedUTF8String( ref idx );
                   result = MarshalingInfo.MarshalAsCustom( mTypeStr, mCookie );
                   break;

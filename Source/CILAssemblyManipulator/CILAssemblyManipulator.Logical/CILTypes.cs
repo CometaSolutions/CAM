@@ -1065,7 +1065,7 @@ public static partial class E_CIL
    /// <exception cref="NullReferenceException">If <paramref name="type"/> is <c>null</c>.</exception>
    public static String GetFullName( this CILTypeOrTypeParameter type )
    {
-      return TypeKind.Type == type.TypeKind ? LogicalUtils.CreateTypeString( (CILType) type, null, false ) : type.Name;
+      return TypeKind.Type == type.TypeKind ? LogicalUtils.CreateTypeString( (CILType) type, false ) : type.Name;
    }
 
    /// <summary>

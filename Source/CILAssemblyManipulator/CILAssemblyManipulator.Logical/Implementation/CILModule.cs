@@ -246,6 +246,11 @@ namespace CILAssemblyManipulator.Logical.Implementation
 
       public CILType GetTypeByName( String typeString, Boolean throwOnError = true )
       {
+         // TODO better:
+         // Parse top-level type here, use cache to find it.
+         // Then walk nested types within another cache access factory func.
+         // Benefit: finding another nested type of enclosing type is faster.
+
          CILType result;
          if ( !this.typeNameCache.TryGetValue( typeString, out result ) )
          {
@@ -272,33 +277,28 @@ namespace CILAssemblyManipulator.Logical.Implementation
 
       #endregion
 
-      public override string ToString()
+      public override String ToString()
       {
          return this.name;
       }
 
       private CILType FindTypeByName( String ts )
       {
-         var pResult = Utils.ParseTypeString( ts );
+         String tlType, nType;
+         ts.ParseTypeNameStringForTopLevelType( out tlType, out nType );
+         String ns, tn;
+         tlType.ParseTypeNameStringForNamespace( out ns, out tn );
          CILType result;
-         if ( pResult.elementInfo == null && pResult.genericArguments == null )
+         lock ( this.types.Lock )
          {
-            lock ( this.types.Lock )
-            {
-               result = this.types.Value.CQ.FirstOrDefault( t => String.Equals( t.Namespace, pResult.nameSpace ) && String.Equals( t.Name, pResult.typeName ) );
-            }
-
-            if ( result != null && pResult.nestedTypes != null )
-            {
-               foreach ( var nt in pResult.nestedTypes )
-               {
-                  result = result == null ? null : result.DeclaredNestedTypes.FirstOrDefault( nested => String.Equals( nested.Name, nt ) );
-               }
-            }
+            result = this.types.Value.CQ.FirstOrDefault( t => String.Equals( t.Namespace, ns ) && String.Equals( t.Name, tn ) );
          }
-         else
+
+         while ( result != null && nType != null )
          {
-            result = null;
+            nType.ParseTypeNameStringForTopLevelType( out tlType, out tn );
+            result = result.DeclaredNestedTypes.FirstOrDefault( nested => String.Equals( nested.Name, tlType ) );
+            nType = tn;
          }
          return result;
       }

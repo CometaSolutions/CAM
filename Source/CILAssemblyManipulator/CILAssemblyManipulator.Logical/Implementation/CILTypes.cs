@@ -623,7 +623,7 @@ namespace CILAssemblyManipulator.Logical.Implementation
 
       public override String ToString()
       {
-         return LogicalUtils.CreateTypeString( this, null, true );
+         return LogicalUtils.CreateTypeString( this, true );
       }
 
       internal override String GetNameString()

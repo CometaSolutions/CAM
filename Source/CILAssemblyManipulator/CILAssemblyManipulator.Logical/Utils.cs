@@ -22,6 +22,7 @@ using System.Text;
 using System.Collections.Generic;
 using CILAssemblyManipulator.Physical;
 using CollectionsWithRoles.API;
+using System.Runtime.InteropServices;
 
 namespace CILAssemblyManipulator.Logical
 {
@@ -91,29 +92,6 @@ namespace CILAssemblyManipulator.Logical
       {
          return type != null && type.IsArray && type.Name.EndsWith( "]" ) && type.Name[type.Name.Length - 2] != '[';
       }
-
-      //      /// <summary>
-      //      /// Gets the <see cref="TargetRuntime"/> based on given metadata version string.
-      //      /// </summary>
-      //      /// <param name="mdVersion">The metadata version string.</param>
-      //      /// <returns>The <see cref="TargetRuntime"/> for <paramref name="mdVersion"/>.</returns>
-      //      /// <exception cref="ArgumentException">If <paramref name="mdVersion"/> is not recognized.</exception>
-      //      public static TargetRuntime GetTargetRuntimeBasedOnMetadataVersion( String mdVersion )
-      //      {
-      //         switch ( mdVersion )
-      //         {
-      //            case MD_NET_1_0:
-      //               return TargetRuntime.Net_1_0;
-      //            case MD_NET_1_1:
-      //               return TargetRuntime.Net_1_1;
-      //            case MD_NET_2_0:
-      //               return TargetRuntime.Net_2_0;
-      //            case MD_NET_4_0:
-      //               return TargetRuntime.Net_4_0;
-      //            default:
-      //               throw new ArgumentException( "Unrecognized metadata version string: " + mdVersion );
-      //         }
-      //      }
 
       //      /// <summary>
       //      /// Helper method to extact full public key from a private key CAPI BLOB.
@@ -427,103 +405,109 @@ namespace CILAssemblyManipulator.Logical
       //         return chIdx < 0 || startIdx >= str.Length ? -1 : chIdx;
       //      }
 
-      //      internal static String CreateTypeString( CILType type, CILModule moduleBeingEmitted, Boolean appendGArgs )
-      //      {
-      //         if ( moduleBeingEmitted == null )
-      //         {
-      //            moduleBeingEmitted = type.Module;
-      //         }
+      internal static String CreateTypeString( CILType type, Boolean appendGArgs )
+      {
+         String typeString;
+         if ( type == null )
+         {
+            typeString = null;
+         }
+         else
+         {
+            var builder = new StringBuilder();
+            CreateTypeStringCore( type, type.Module, builder, appendGArgs );
+            typeString = builder.ToString();
+         }
+         return typeString;
+      }
 
-      //         String typeString;
-      //         if ( type == null )
-      //         {
-      //            typeString = null;
-      //         }
-      //         else
-      //         {
-      //            // TODO probably should forbid whitespace characters to be within type and assembly names?
-      //            var builder = new StringBuilder();
-      //            CreateTypeString( type, moduleBeingEmitted, builder, appendGArgs, false );
-      //            typeString = builder.ToString();
-      //         }
-      //         return typeString;
-      //      }
-
-      //      private static void CreateTypeString( CILTypeBase type, CILModule moduleBeingEmitted, StringBuilder builder, Boolean appendGArgs, Boolean isGParam )
+      //private static void CreateTypeString( CILTypeBase type, CILModule moduleBeingEmitted, StringBuilder builder, Boolean appendGArgs, Boolean isGParam )
+      //{
+      //   var needsAssembly = moduleBeingEmitted != null && !moduleBeingEmitted.Assembly.Equals( type.Module.Assembly );
+      //   if ( isGParam && needsAssembly )
+      //   {
+      //      builder.Append( '[' );
+      //   }
+      //   CreateTypeStringCore( type, moduleBeingEmitted, builder, appendGArgs );
+      //   if ( needsAssembly )
+      //   {
+      //      builder
+      //         .Append( TYPE_ASSEMBLY_SEPARATOR )
+      //         .Append( type.Module.Assembly.Name.ToString() ); // Assembly name will be escaped.
+      //      if ( isGParam )
       //      {
-      //         var needsAssembly = moduleBeingEmitted != null && !moduleBeingEmitted.Assembly.Equals( type.Module.Assembly );
-      //         if ( isGParam && needsAssembly )
-      //         {
-      //            builder.Append( '[' );
-      //         }
-      //         CreateTypeStringCore( type, moduleBeingEmitted, builder, appendGArgs );
-      //         if ( needsAssembly )
-      //         {
-      //            builder
-      //               .Append( TYPE_ASSEMBLY_SEPARATOR )
-      //               .Append( type.Module.Assembly.Name.ToString() ); // Assembly name will be escaped.
-      //            if ( isGParam )
-      //            {
-      //               builder.Append( ']' );
-      //            }
-      //         }
+      //         builder.Append( ']' );
       //      }
+      //   }
+      //}
 
-      //      private static void CreateTypeStringCore( CILTypeBase type, CILModule moduleBeingEmitted, StringBuilder builder, Boolean appendGArgs )
-      //      {
-      //         var eKind = type.GetElementKind();
-      //         if ( eKind.HasValue )
-      //         {
-      //            CreateTypeStringCore( type.GetElementType(), moduleBeingEmitted, builder, appendGArgs );
-      //            CreateElementKindString( eKind.Value, ( (CILType) type ).ArrayInformation, builder );
-      //         }
-      //         else if ( appendGArgs && type.IsGenericType() && !type.ContainsGenericParameters() )
-      //         {
-      //            var typee = (CILType) type;
-      //            CreateTypeStringCore( typee.GenericDefinition, moduleBeingEmitted, builder, false );
-      //            builder.Append( '[' );
-      //            var gArgs = typee.GenericArguments;
-      //            for ( var i = 0; i < gArgs.Count; ++i )
-      //            {
-      //               CreateTypeString( gArgs[i], moduleBeingEmitted, builder, true, true );
-      //               if ( i < gArgs.Count - 1 )
-      //               {
-      //                  builder.Append( ',' );
-      //               }
-      //            }
-      //            builder.Append( ']' );
-      //         }
-      //         else
-      //         {
-      //            switch ( type.TypeKind )
-      //            {
-      //               case TypeKind.Type:
-      //                  var typee = (CILType) type;
-      //                  var dt = typee.DeclaringType;
-      //                  if ( dt == null )
-      //                  {
-      //                     var ns = typee.Namespace;
-      //                     if ( !String.IsNullOrEmpty( ns ) )
-      //                     {
-      //                        builder.Append( EscapeSomeString( ns ) ).Append( CILTypeImpl.NAMESPACE_SEPARATOR );
-      //                     }
-      //                  }
-      //                  else
-      //                  {
-      //                     CreateTypeStringCore( dt, moduleBeingEmitted, builder, false );
-      //                     builder.Append( '+' );
-      //                  }
-      //                  builder.Append( EscapeSomeString( typee.Name ) );
-      //                  break;
-      //               case TypeKind.MethodSignature:
-      //                  builder.Append( type.ToString() );
-      //                  break;
-      //               case TypeKind.TypeParameter:
-      //                  builder.Append( ( (CILTypeParameter) type ).Name );
-      //                  break;
-      //            }
-      //         }
-      //      }
+      private static void CreateTypeStringCore( CILTypeBase type, CILModule moduleBeingEmitted, StringBuilder builder, Boolean appendGArgs )
+      {
+         var eKind = type.GetElementKind();
+         if ( eKind.HasValue )
+         {
+            CreateTypeStringCore( type.GetElementType(), moduleBeingEmitted, builder, appendGArgs );
+            CreateElementKindString( eKind.Value, ( (CILType) type ).ArrayInformation, builder );
+         }
+         else if ( appendGArgs && type.IsGenericType() && !type.ContainsGenericParameters() )
+         {
+            var typee = (CILType) type;
+            CreateTypeStringCore( typee.GenericDefinition, moduleBeingEmitted, builder, false );
+            builder.Append( '[' );
+            var gArgs = typee.GenericArguments;
+            for ( var i = 0; i < gArgs.Count; ++i )
+            {
+               var needsAssembly = moduleBeingEmitted != null && !moduleBeingEmitted.Assembly.Equals( type.Module.Assembly );
+               if ( needsAssembly )
+               {
+                  builder.Append( '[' );
+               }
+               var gArg = gArgs[i];
+               CreateTypeStringCore( gArg, moduleBeingEmitted, builder, true );
+               if ( needsAssembly )
+               {
+                  builder
+                     .AppendAssemblyNameToTypeString( gArg.Module.Assembly.Name.ToString() ) // Assembly name will be escaped.
+                     .Append( ']' );
+               }
+               if ( i < gArgs.Count - 1 )
+               {
+                  builder.Append( ',' );
+               }
+            }
+            builder.Append( ']' );
+         }
+         else
+         {
+            switch ( type.TypeKind )
+            {
+               case TypeKind.Type:
+                  var typee = (CILType) type;
+                  var dt = typee.DeclaringType;
+                  if ( dt == null )
+                  {
+                     var ns = typee.Namespace;
+                     if ( !String.IsNullOrEmpty( ns ) )
+                     {
+                        builder.Append( ns.EscapeCILTypeString() ).Append( CILTypeImpl.NAMESPACE_SEPARATOR );
+                     }
+                  }
+                  else
+                  {
+                     CreateTypeStringCore( dt, moduleBeingEmitted, builder, false );
+                     builder.Append( '+' );
+                  }
+                  builder.Append( typee.Name.EscapeCILTypeString() );
+                  break;
+               case TypeKind.MethodSignature:
+                  builder.Append( type.ToString() );
+                  break;
+               case TypeKind.TypeParameter:
+                  builder.Append( ( (CILTypeParameter) type ).Name );
+                  break;
+            }
+         }
+      }
 
       internal static String CreateElementKindString( ElementKind elementKind, GeneralArrayInfo arrayInfo )
       {
@@ -585,82 +569,6 @@ namespace CILAssemblyManipulator.Logical
                break;
          }
       }
-
-      //      // As specified in combination of
-      //      // http://msdn.microsoft.com/en-us/library/yfsftwz6%28v=vs.110%29.aspx 
-      //      // and
-      //      // http://msdn.microsoft.com/en-us/library/system.type.assemblyqualifiedname.aspx
-      //      internal static String UnescapeSomeString( String str )
-      //      {
-      //         return str == null ? null : UnescapeSomeString( str, 0, str.Length );
-      //      }
-
-      //      internal static String EscapeSomeString( String str )
-      //      {
-      //         return str == null ? null : EscapeSomeString( str, 0, str.Length );
-      //      }
-
-      //      internal static String EscapeSomeString( String str, Int32 startIdx, Int32 count )
-      //      {
-      //         if ( str != null )
-      //         {
-      //            if ( str.IndexOfAny( ESCAPABLE_CHARS_WITHIN_TYPESTRING, startIdx, count ) >= 0 )
-      //            {
-      //               // String contains characters that should be escaped
-      //               var chars = new Char[count * 2];
-      //               var cIdx = 0;
-      //               for ( var i = startIdx; i < count; ++i )
-      //               {
-      //                  var ch = str[i];
-      //                  if ( Array.IndexOf( ESCAPABLE_CHARS_WITHIN_TYPESTRING, ch ) >= 0 )
-      //                  {
-      //                     chars[cIdx++] = ESCAPE_CHAR;
-      //                  }
-      //                  chars[cIdx++] = ch;
-      //               }
-      //               str = new String( chars, 0, cIdx );
-      //            }
-      //            else if ( startIdx > 0 || count < str.Length )
-      //            {
-      //               str = str.Substring( startIdx, count );
-      //            }
-      //         }
-      //         return str;
-      //      }
-
-      //      internal static String UnescapeSomeString( String str, Int32 startIdx, Int32 count )
-      //      {
-      //         if ( str != null )
-      //         {
-      //            if ( str.IndexOf( ESCAPE_CHAR, startIdx, count ) >= 0 )
-      //            {
-      //               // String contains escaped charcters
-      //               var chars = new Char[count];
-      //               var prevWasEscaped = false;
-      //               var curLen = 0;
-      //               for ( var i = startIdx; i < count; ++i )
-      //               {
-      //                  var ch = str[i];
-      //                  if ( ch != ESCAPE_CHAR || prevWasEscaped )
-      //                  {
-      //                     chars[curLen] = ch;
-      //                     ++curLen;
-      //                     prevWasEscaped = false;
-      //                  }
-      //                  else
-      //                  {
-      //                     prevWasEscaped = true;
-      //                  }
-      //               }
-      //               str = new String( chars, 0, curLen );
-      //            }
-      //            else if ( startIdx > 0 || count < str.Length )
-      //            {
-      //               str = str.Substring( startIdx, count );
-      //            }
-      //         }
-      //         return str;
-      //      }
 
       internal static void ThrowIfDeclaringTypeGenericButNotGDef( CILElementOwnedByType element )
       {
@@ -765,5 +673,27 @@ namespace CILAssemblyManipulator.Logical
             type = ( (CILMethodSignature) type ).CopyToOtherModule( thisModule );
          }
       }
+
+      // Mofidied from http://stackoverflow.com/questions/1068541/how-to-convert-a-value-type-to-byte-in-c
+      internal static Byte[] ObjectToByteArray( Object value )
+      {
+         var rawsize = Marshal.SizeOf( value );
+         var rawdata = new byte[rawsize];
+         var handle =
+             GCHandle.Alloc( rawdata,
+             GCHandleType.Pinned );
+         try
+         {
+            Marshal.StructureToPtr( value,
+                handle.AddrOfPinnedObject(),
+                false );
+         }
+         finally
+         {
+            handle.Free();
+         }
+         return rawdata;
+      }
+
    }
 }

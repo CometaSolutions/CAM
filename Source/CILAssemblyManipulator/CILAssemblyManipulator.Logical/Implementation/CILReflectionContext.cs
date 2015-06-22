@@ -36,8 +36,9 @@ namespace CILAssemblyManipulator.Logical.Implementation
       private readonly CILReflectionContextCache _cache;
       private readonly ListQuery<Type> _arrayInterfaces;
       private readonly ListQuery<Type> _multiDimArrayIFaces;
+      private readonly CryptoCallbacks _defaultCryptoCallbacks;
 
-      internal CILReflectionContextImpl( Type[] vectorArrayInterfaces, Type[] multiDimArrayIFaces )
+      internal CILReflectionContextImpl( Type[] vectorArrayInterfaces, Type[] multiDimArrayIFaces, CryptoCallbacks defaultCryptoCallbacks )
       {
          this._cf = CollectionsFactorySingleton.DEFAULT_COLLECTIONS_FACTORY;
          this._cache = new CILReflectionContextCache( this );
@@ -51,6 +52,7 @@ namespace CILAssemblyManipulator.Logical.Implementation
          }
          this._arrayInterfaces = this._cf.NewListProxy( vectorArrayInterfaces.Where( iFace => iFace != null ).GetBottomTypes().ToList() ).CQ;
          this._multiDimArrayIFaces = this._cf.NewListProxy( multiDimArrayIFaces.Where( iFace => iFace != null ).GetBottomTypes().ToList() ).CQ;
+         this._defaultCryptoCallbacks = defaultCryptoCallbacks;
       }
 
       #region CILReflectionContext Members
@@ -68,12 +70,15 @@ namespace CILAssemblyManipulator.Logical.Implementation
       public event EventHandler<TypeLayoutEventArgs> TypeLayoutLoadEvent;
       public event EventHandler<AssemblyNameEventArgs> AssemblyNameLoadEvent;
       public event EventHandler<CustomModifierEventLoadArgs> CustomModifierLoadEvent;
-
-      public event EventHandler<HashStreamLoadEventArgs> HashStreamLoadEvent;
-      public event EventHandler<RSACreationEventArgs> RSACreationEvent;
-      public event EventHandler<RSASignatureCreationEventArgs> RSASignatureCreationEvent;
-      public event EventHandler<CSPPublicKeyEventArgs> CSPPublicKeyEvent;
       public event EventHandler<AssemblyRefResolveFromLoadedAssemblyEventArgs> AssemblyReferenceResolveFromLoadedAssemblyEvent;
+
+      public CryptoCallbacks DefaultCryptoCallbacks
+      {
+         get
+         {
+            return this._defaultCryptoCallbacks;
+         }
+      }
 
       public CollectionsFactory CollectionsFactory
       {
@@ -99,36 +104,24 @@ namespace CILAssemblyManipulator.Logical.Implementation
          }
       }
 
-      public Byte[] ComputePublicKeyToken( Byte[] publicKey )
-      {
-         Byte[] retVal;
-         if ( publicKey == null || publicKey.Length == 0 )
-         {
-            retVal = publicKey;
-         }
-         else
-         {
-            var args = MetaDataWriter.GetArgsForPublicKeyTokenComputing( this );
-            using ( args.Transform )
-            {
-               retVal = args.ComputeHash( publicKey );
-            }
-            retVal = retVal.Skip( retVal.Length - 8 ).Reverse().ToArray();
-         }
-         return retVal;
-      }
-
-      public Byte[] ExtractPublicKeyFromCSP( String cspName )
-      {
-         var args = new CSPPublicKeyEventArgs( cspName );
-         this.CSPPublicKeyEvent.InvokeEventIfNotNull( evt => evt( this, args ) );
-         var pk = args.PublicKey;
-         if ( pk.IsNullOrEmpty() )
-         {
-            throw new InvalidOperationException( "The public key of CSP \"" + cspName + "\" could not be resolved." );
-         }
-         return pk;
-      }
+      //public Byte[] ComputePublicKeyToken( Byte[] publicKey )
+      //{
+      //   Byte[] retVal;
+      //   if ( publicKey == null || publicKey.Length == 0 )
+      //   {
+      //      retVal = publicKey;
+      //   }
+      //   else
+      //   {
+      //      var args = MetaDataWriter.GetArgsForPublicKeyTokenComputing( this );
+      //      using ( args.Transform )
+      //      {
+      //         retVal = args.ComputeHash( publicKey );
+      //      }
+      //      retVal = retVal.Skip( retVal.Length - 8 ).Reverse().ToArray();
+      //   }
+      //   return retVal;
+      //}
 
       #endregion
 
@@ -217,36 +210,8 @@ namespace CILAssemblyManipulator.Logical.Implementation
          return new LazyWithLock<ListProxy<CILCustomModifier>>( () =>
          {
             this.LaunchCustomModifiersLoadEvent( args );
-            return this.CollectionsFactory.NewListProxy<CILCustomModifier>( new List<CILCustomModifier>( args.RequiredModifiers.Select( mod => (CILCustomModifier) new CILCustomModifierImpl( CILCustomModifierOptionality.Required, (CILType) this.Cache.GetOrAdd( mod ) ) ).Concat( args.OptionalModifiers.Select( mod => (CILCustomModifier) new CILCustomModifierImpl( CILCustomModifierOptionality.Optional, (CILType) this.Cache.GetOrAdd( mod ) ) ) ) ) );
+            return this.CollectionsFactory.NewListProxy<CILCustomModifier>( new List<CILCustomModifier>( args.RequiredModifiers.Select( mod => (CILCustomModifier) new CILCustomModifierImpl( false, (CILType) this.Cache.GetOrAdd( mod ) ) ).Concat( args.OptionalModifiers.Select( mod => (CILCustomModifier) new CILCustomModifierImpl( true, (CILType) this.Cache.GetOrAdd( mod ) ) ) ) ) );
          } );
-      }
-
-      internal void LaunchHashStreamEvent( AssemblyHashAlgorithm algo, out Func<System.IO.Stream> cryptoStream, out Func<Byte[]> hashGetter, out IDisposable transform, Boolean checkCryptoStreamAndTransform = true )
-      {
-         var args = new HashStreamLoadEventArgs( algo );
-         this.HashStreamLoadEvent.InvokeEventIfNotNull( evt => evt( this, args ) );
-         cryptoStream = args.CryptoStream;
-         hashGetter = args.HashGetter;
-         transform = args.Transform;
-         if ( hashGetter == null || ( checkCryptoStreamAndTransform && ( cryptoStream == null || transform == null ) ) )
-         {
-            throw new InvalidOperationException( "Reflection context's HashStreamLoadEvent handler returned invalid crypto stream result." );
-         }
-      }
-
-      internal void LaunchHashStreamEvent( HashStreamLoadEventArgs args )
-      {
-         this.HashStreamLoadEvent.InvokeEventIfNotNull( evt => evt( this, args ) );
-      }
-
-      internal void LaunchRSACreationEvent( RSACreationEventArgs args )
-      {
-         this.RSACreationEvent.InvokeEventIfNotNull( evt => evt( this, args ) );
-      }
-
-      internal void LaunchRSASignatureCreationEvent( RSASignatureCreationEventArgs args )
-      {
-         this.RSASignatureCreationEvent.InvokeEventIfNotNull( evt => evt( this, args ) );
       }
 
       internal CILAssembly LaunchAssemblyRefResolveEvent( AssemblyRefResolveFromLoadedAssemblyEventArgs args )
@@ -798,7 +763,7 @@ namespace CILAssemblyManipulator.Logical.Implementation
                   () => cache.GetOrAdd( typeof( Int32 ) ),
                   new SettableLazy<Object>( () => null ),
                   new LazyWithLock<ListProxy<CILCustomModifier>>( () => cache._ctx.CollectionsFactory.NewListProxy<CILCustomModifier>() ),
-                  new SettableLazy<MarshalingInfo>( () => null )
+                  new SettableLazy<LogicalMarshalingInfo>( () => null )
                   )
              );
             Func<Int32, Int32, Boolean, CILParameter> valueParamFunc = ( methodID, pIdx, makeRef ) => cache._paramContainers.AcquireNew( pID => new CILParameterImpl(
@@ -820,7 +785,7 @@ namespace CILAssemblyManipulator.Logical.Implementation
                   },
                   new SettableLazy<Object>( () => null ),
                   new LazyWithLock<ListProxy<CILCustomModifier>>( () => cache._ctx.CollectionsFactory.NewListProxy<CILCustomModifier>() ),
-                  new SettableLazy<MarshalingInfo>( () => null )
+                  new SettableLazy<LogicalMarshalingInfo>( () => null )
                   )
             );
 
@@ -850,7 +815,7 @@ namespace CILAssemblyManipulator.Logical.Implementation
                         () => cache.GetOrAdd( typeof( void ) ),
                         new SettableLazy<Object>( () => null ),
                         new LazyWithLock<ListProxy<CILCustomModifier>>( () => cache._ctx.CollectionsFactory.NewListProxy<CILCustomModifier>() ),
-                        new SettableLazy<MarshalingInfo>( () => null )
+                        new SettableLazy<LogicalMarshalingInfo>( () => null )
                         )
                   ),
                   () => cache._ctx.CollectionsFactory.NewListProxy<CILTypeBase>(),
@@ -909,7 +874,7 @@ namespace CILAssemblyManipulator.Logical.Implementation
                   () => cache.GetOrAdd( typeof( Int32 ) ),
                   new SettableLazy<Object>( () => null ),
                   new LazyWithLock<ListProxy<CILCustomModifier>>( () => cache._ctx.CollectionsFactory.NewListProxy<CILCustomModifier>() ),
-                  new SettableLazy<MarshalingInfo>( () => null )
+                  new SettableLazy<LogicalMarshalingInfo>( () => null )
                   )
             );
 

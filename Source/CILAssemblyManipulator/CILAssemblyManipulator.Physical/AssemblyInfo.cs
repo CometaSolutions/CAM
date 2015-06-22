@@ -207,7 +207,7 @@ namespace CILAssemblyManipulator.Physical
          Boolean isFullPublicKey
          )
       {
-         var sb = new StringBuilder( this.Name.EscapeSomeString() );
+         var sb = new StringBuilder( this.Name.EscapeCILTypeString() );
          sb.Append( ASSEMBLY_NAME_ELEMENTS_SEPARATOR + " " + VERSION + ASSEMBLY_NAME_ELEMENT_VALUE_SEPARATOR )
             .Append( this.VersionMajor )
             .Append( VERSION_SEPARATOR )
@@ -287,7 +287,7 @@ namespace CILAssemblyManipulator.Physical
             // First, name
             var nameIdx = TryParseName( textualAssemblyName );
             // Name may contain escape characters
-            assemblyName.Name = InternalExtensions.UnescapeSomeString( textualAssemblyName, 0, nameIdx );
+            assemblyName.Name = textualAssemblyName.UnescapeCILTypeString( 0, nameIdx );
 
             success = !String.IsNullOrEmpty( assemblyName.Name );
             if ( success )

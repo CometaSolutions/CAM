@@ -905,13 +905,13 @@ namespace CILAssemblyManipulator.Logical
       //   emittingContext.Emit( emittingContext.GetMaxForLabel( this._targetLabel ) <= SByte.MaxValue ? this.ShortForm : this.LongForm, this._targetLabel );
       //}
 
-      internal override Int32 BranchTargetCount
-      {
-         get
-         {
-            return 1;
-         }
-      }
+      //internal override Int32 BranchTargetCount
+      //{
+      //   get
+      //   {
+      //      return 1;
+      //   }
+      //}
 
       /// <summary>
       /// Gets the version of the <see cref="OpCode"/> that uses short operand.

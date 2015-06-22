@@ -95,6 +95,8 @@ namespace CILAssemblyManipulator.Logical
       /// </summary>
       event EventHandler<CustomModifierEventLoadArgs> CustomModifierLoadEvent;
 
+      CryptoCallbacks DefaultCryptoCallbacks { get; }
+
       //      /// <summary>
       //      /// This event occurs when a <see cref="CILModule"/> is emitted with a strong name. The event handler should set the <see cref="HashStreamLoadEventArgs.CryptoStream"/>, <see cref="HashStreamLoadEventArgs.HashGetter"/> and <see cref="HashStreamLoadEventArgs.Transform"/> properties. This assembly can not do this since many security and cryptographic functions are not present in this portable profile.
       //      /// </summary>
@@ -167,10 +169,11 @@ namespace CILAssemblyManipulator.Logical
       /// </summary>
       /// <param name="vectorArrayInterfaces">All interfaces implemented by single-dimensional array types, besides the ones implemented by <see cref="System.Array"/>. Value <c>null</c> is interpreted as an empty array.</param>
       /// <param name="multiDimArrayIFaces">All interfaces implemented by multi-dimensional array types, besdies the ones implemented by <see cref="System.Array"/>. Value <c>null</c> is interpreted as an empty array.</param>
+      /// <param name="defaultCryptoCallbacks">The default callbacks for cryptographic functions. May be <c>null</c> if no default callbacks for cryptographic functions are provided.</param>
       /// <returns>A new instance of <see cref="CILReflectionContext"/>.</returns>
-      public static CILReflectionContext NewContext( Type[] vectorArrayInterfaces, Type[] multiDimArrayIFaces )
+      public static CILReflectionContext NewContext( Type[] vectorArrayInterfaces, Type[] multiDimArrayIFaces, CryptoCallbacks defaultCryptoCallbacks )
       {
-         return new CILReflectionContextImpl( vectorArrayInterfaces, multiDimArrayIFaces );
+         return new CILReflectionContextImpl( vectorArrayInterfaces, multiDimArrayIFaces, defaultCryptoCallbacks );
       }
    }
 

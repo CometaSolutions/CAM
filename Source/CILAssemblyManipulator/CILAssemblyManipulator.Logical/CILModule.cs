@@ -81,11 +81,11 @@ namespace CILAssemblyManipulator.Logical
    /// <summary>
    /// This class is common base type for <see cref="ModuleManifestResource"/> and <see cref="EmbeddedManifestResource"/>.
    /// </summary>
-   public abstract class ManifestResource
+   public abstract class AbstractLogicalManifestResource
    {
       private ManifestResourceAttributes _attributes;
 
-      internal ManifestResource( ManifestResourceAttributes attributes )
+      internal AbstractLogicalManifestResource( ManifestResourceAttributes attributes )
       {
          this._attributes = attributes;
       }
@@ -110,7 +110,7 @@ namespace CILAssemblyManipulator.Logical
    /// <summary>
    /// This class represents a manifest resource which is other module.
    /// </summary>
-   public sealed class ModuleManifestResource : ManifestResource
+   public sealed class ModuleManifestResource : AbstractLogicalManifestResource
    {
       private readonly Lazy<CILModule> _module;
 
@@ -149,7 +149,7 @@ namespace CILAssemblyManipulator.Logical
    /// <summary>
    /// This class represents a manfiest resource which is in a file, and the file is not a CIL module.
    /// </summary>
-   public sealed class FileManifestResource : ManifestResource
+   public sealed class FileManifestResource : AbstractLogicalManifestResource
    {
       private readonly String _fileName;
       private readonly Byte[] _hash;
@@ -200,7 +200,7 @@ namespace CILAssemblyManipulator.Logical
    /// <summary>
    /// This class represents a manifest resource which will be embeddeed into the module when it is emitted.
    /// </summary>
-   public sealed class EmbeddedManifestResource : ManifestResource
+   public sealed class EmbeddedManifestResource : AbstractLogicalManifestResource
    {
       private readonly Byte[] _data;
 

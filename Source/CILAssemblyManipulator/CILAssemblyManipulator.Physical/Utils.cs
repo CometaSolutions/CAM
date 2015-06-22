@@ -461,33 +461,6 @@ namespace CILAssemblyManipulator.Physical
          //return value % multiple == 0 ? value : ( multiple * ( ( value / multiple ) + 1 ) );
       }
 
-      //      // Mofidied from http://stackoverflow.com/questions/1068541/how-to-convert-a-value-type-to-byte-in-c
-      //      internal static Byte[] ObjectToByteArray( Object value )
-      //      {
-      //#if WINDOWS_PHONE_APP
-      //#else
-      //         var rawsize = Marshal.SizeOf( value );
-      //#endif
-      //         var rawdata = new byte[rawsize];
-      //         var handle =
-      //             GCHandle.Alloc( rawdata,
-      //             GCHandleType.Pinned );
-      //         try
-      //         {
-      //#if WINDOWS_PHONE_APP
-      //#else
-      //            Marshal.StructureToPtr( value,
-      //                handle.AddrOfPinnedObject(),
-      //                false );
-      //#endif
-      //         }
-      //         finally
-      //         {
-      //            handle.Free();
-      //         }
-      //         return rawdata;
-      //      }
-
       internal static UInt32 Sum( this IEnumerable<UInt32> enumerable )
       {
          var total = 0u;
@@ -778,10 +751,6 @@ namespace CILAssemblyManipulator.Physical
 
    internal static class InternalExtensions
    {
-      internal const Char ESCAPE_CHAR = '\\';
-      private static readonly Char[] ESCAPABLE_CHARS_WITHIN_TYPESTRING = { ESCAPE_CHAR, ',', '+', '&', '*', '[', ']' };
-      private static readonly Char[] CHARS_ENDING_SIMPLE_TYPENAME = { '&', '*', '[' };
-
       /// <summary>
       /// Using specified auxiliary array, reads a <see cref="UInt64"/> from <see cref="Stream"/>.
       /// </summary>
@@ -938,87 +907,6 @@ namespace CILAssemblyManipulator.Physical
       //      ++idx;
       //   } while ( idx < array.Count && fullIndexExtractor( idx ).Index == targetIndex );
       //}
-
-      private const Char NESTED_TYPE_SEPARATOR = '+';
-      private const Char NAMESPACE_SEPARATOR = '.';
-
-
-
-      internal static Boolean ParseTypeNameStringForNestedType( this String str, out String enclosingTypeName, out String nestedTypeName )
-      {
-         Int32 enclosingTypeLength;
-         var retVal = str.GetLastSeparatorsFromTypeString( NESTED_TYPE_SEPARATOR, out enclosingTypeLength );
-         if ( retVal )
-         {
-            // This is nested type
-            enclosingTypeName = str.Substring( 0, enclosingTypeLength );
-            nestedTypeName = str.Substring( enclosingTypeLength + 1 );
-         }
-         else
-         {
-            // This is top-level type
-            enclosingTypeName = null;
-            nestedTypeName = str;
-         }
-
-         return retVal;
-      }
-
-      internal static Boolean ParseTypeNameStringForNamespace( this String str, out String ns, out String name )
-      {
-         Int32 nsLength;
-         var retVal = str.GetLastSeparatorsFromTypeString( NAMESPACE_SEPARATOR, out nsLength );
-         if ( retVal )
-         {
-            // Type name has namespace
-            ns = str.Substring( 0, nsLength );
-            name = str.Substring( nsLength + 1 );
-         }
-         else
-         {
-            // Type name does not have namespace
-            ns = null;
-            name = str;
-         }
-
-         return retVal;
-      }
-
-      private static Boolean GetLastSeparatorsFromTypeString( this String str, Char separatorChar, out Int32 firstLength )
-      {
-         // Length needs to be at least 3 for even have namespace (namespace + dot + type name)
-         var retVal = str.Length >= 3;
-         firstLength = -1;
-         if ( retVal )
-         {
-            var curIdx = str.Length - 1;
-            Int32 sepIdx;
-            do
-            {
-               sepIdx = str.LastIndexOf( separatorChar, curIdx );
-               if ( sepIdx > 0 && str[sepIdx - 1] == ESCAPE_CHAR )
-               {
-                  curIdx -= 2;
-                  sepIdx = -1;
-               }
-               else
-               {
-                  --curIdx;
-               }
-            } while ( curIdx > 0 && sepIdx == -1 );
-
-            retVal = sepIdx > 0;
-            if ( retVal )
-            {
-               firstLength = sepIdx;
-            }
-         }
-
-         return retVal;
-      }
-
-
-
 
       //internal static String CreateTypeString( this TypeSignature type, CILMetaData moduleBeingEmitted, Boolean appendGArgs )
       //{
@@ -1227,82 +1115,6 @@ namespace CILAssemblyManipulator.Physical
       //   builder.Append( ']' );
 
       //}
-
-      //// As specified in combination of
-      //// http://msdn.microsoft.com/en-us/library/yfsftwz6%28v=vs.110%29.aspx 
-      //// and
-      //// http://msdn.microsoft.com/en-us/library/system.type.assemblyqualifiedname.aspx
-      //internal static String UnescapeSomeString( String str )
-      //{
-      //   return str == null ? null : UnescapeSomeString( str, 0, str.Length );
-      //}
-
-      internal static String EscapeSomeString( this String str )
-      {
-         return str == null ? null : EscapeSomeString( str, 0, str.Length );
-      }
-
-      internal static String EscapeSomeString( this String str, Int32 startIdx, Int32 count )
-      {
-         if ( str != null )
-         {
-            if ( str.IndexOfAny( ESCAPABLE_CHARS_WITHIN_TYPESTRING, startIdx, count ) >= 0 )
-            {
-               // String contains characters that should be escaped
-               var chars = new Char[count * 2];
-               var cIdx = 0;
-               for ( var i = startIdx; i < count; ++i )
-               {
-                  var ch = str[i];
-                  if ( Array.IndexOf( ESCAPABLE_CHARS_WITHIN_TYPESTRING, ch ) >= 0 )
-                  {
-                     chars[cIdx++] = ESCAPE_CHAR;
-                  }
-                  chars[cIdx++] = ch;
-               }
-               str = new String( chars, 0, cIdx );
-            }
-            else if ( startIdx > 0 || count < str.Length )
-            {
-               str = str.Substring( startIdx, count );
-            }
-         }
-         return str;
-      }
-
-      internal static String UnescapeSomeString( String str, Int32 startIdx, Int32 count )
-      {
-         if ( str != null )
-         {
-            if ( str.IndexOf( ESCAPE_CHAR, startIdx, count ) >= 0 )
-            {
-               // String contains escaped charcters
-               var chars = new Char[count];
-               var prevWasEscaped = false;
-               var curLen = 0;
-               for ( var i = startIdx; i < count; ++i )
-               {
-                  var ch = str[i];
-                  if ( ch != ESCAPE_CHAR || prevWasEscaped )
-                  {
-                     chars[curLen] = ch;
-                     ++curLen;
-                     prevWasEscaped = false;
-                  }
-                  else
-                  {
-                     prevWasEscaped = true;
-                  }
-               }
-               str = new String( chars, 0, curLen );
-            }
-            else if ( startIdx > 0 || count < str.Length )
-            {
-               str = str.Substring( startIdx, count );
-            }
-         }
-         return str;
-      }
 
       //private static String ToStringForTypeName( this AssemblyReference aRef )
       //{

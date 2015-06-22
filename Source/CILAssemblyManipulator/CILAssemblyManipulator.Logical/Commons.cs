@@ -744,7 +744,7 @@ namespace CILAssemblyManipulator.Logical
       /// Gets the security information associated with this method or type.
       /// </summary>
       /// <value>the security information associated with this method or type.</value>
-      DictionaryQuery<SecurityAction, ListQuery<SecurityInformation>> DeclarativeSecurity { get; }
+      DictionaryQuery<SecurityAction, ListQuery<LogicalSecurityInformation>> DeclarativeSecurity { get; }
 
       /// <summary>
       /// Adds a new <see cref="SecurityInformation"/> object to this method or type with specified <see cref="SecurityAction"/> and security attribute type.
