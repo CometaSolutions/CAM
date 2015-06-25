@@ -57,7 +57,6 @@ namespace CILAssemblyManipulator.Physical
             // Call PEVerify
             var startInfo = new ProcessStartInfo();
             startInfo.FileName = peVerifyPath;
-            // Ignore loading direct pointer to delegate ctors.
             startInfo.Arguments = "/IL /MD /VERBOSE /NOLOGO /HRESULT" + " \"" + fileName + "\"";
             startInfo.CreateNoWindow = true;
             startInfo.WorkingDirectory = Path.GetDirectoryName( fileName );// validationPath;

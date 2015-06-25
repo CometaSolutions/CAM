@@ -1105,6 +1105,16 @@ public static partial class E_CILPhysical
       return retVal;
    }
 
+   public static MetaDataTable GetByTable( this CILMetaData md, Tables tableKind )
+   {
+      MetaDataTable retVal;
+      if ( !md.TryGetByTable( tableKind, out retVal ) )
+      {
+         throw new ArgumentException( "Table " + tableKind + " is invalid or unsupported." );
+      }
+      return retVal;
+   }
+
    public static Boolean TryGetByTable( this CILMetaData md, Tables tableKind, out MetaDataTable table )
    {
       switch ( tableKind )
@@ -1237,6 +1247,11 @@ public static partial class E_CILPhysical
       var retVal = md.TryGetByTable( index.Table, out table ) && index.Index <= table.RowCount;
       row = retVal ? table.GetRowAt( index.Index ) : null;
       return retVal;
+   }
+
+   public static TableIndex GetNextTableIndexFor( this CILMetaData md, Tables table )
+   {
+      return new TableIndex( table, md.GetByTable( table ).RowCount );
    }
 
    // Assumes that all lists of CILMetaData have only non-null elements.
@@ -2134,78 +2149,6 @@ public static partial class E_CILPhysical
 
       // Now update IL
       reorderState.UpdateIL();
-
-
-
-      //// ECMA-335: IL tokens shall be from TypeDef, TypeRef, TypeSpec, MethodDef, FieldDef, MemberRef, MethodSpec or StandaloneSignature tables.
-      //// All table indices in signatures should only ever reference TypeDef, TypeRef or TypeSpec tables.
-      //// Tables with signatures are: FieldDef, MethodDef, MemberRef, CustomAttribute, DeclSecurity, StandaloneSignature, PropertyDef, TypeSpecification, MethodSpecification
-      //// The ones that have rules for duplicates: MemberRef, StandaloneSignature, PropertyDef, TypeSpecification, MethodSpecification
-      //// We will not handle PropertyDef (nor EventDef) duplicates
-      //// The ones without duplicates will be handled later (those are CustomAttribute, DeclSecurity)
-      //tableIndices[(Int32) Tables.MemberRef] = CreateIndexArray( md.MemberReferences.Count );
-      //tableIndices[(Int32) Tables.MethodSpec] = CreateIndexArray( md.MethodSpecifications.Count );
-      //tableIndices[(Int32) Tables.StandaloneSignature] = CreateIndexArray( md.StandaloneSignatures.Count );
-
-
-      //var memberRefs = md.MemberReferences;
-      //var mSpecs = md.MethodSpecifications;
-      //var standAloneSigs = md.StandaloneSignatures;
-      //var props = md.PropertyDefinitions;
-      //Boolean removedTypeRefDuplicates, removedTSpecDuplicates, removedMemberRefDuplicates, removedMethodSpecDuplicates, removedStandaloneSigDuplicates, updatedSignatureTableIndices, updatedILTableIndices;
-      //// This has to be done in loop since modifying e.g. type specs will modify signatures, and thus might result in more typeref, typespec or memberref duplicates
-      //do
-      //{
-      //   var startingDuplicates = new HashSet<TableIndex>( reorderState.Duplicates.SelectMany( kvp => kvp.Value.Select( i => new TableIndex( kvp.Key, i ) ) ) );
-
-      //   // ECMA-335:  There shall be no duplicate rows, where a duplicate has the same ResolutionScope, TypeName and TypeNamespace  [ERROR] 
-      //   tRefs.UpdateMDTableWithTableIndices1Nullable(
-      //      tableIndices,
-      //      tRef => tRef.ResolutionScope,
-      //      ( tRef, resScope ) => tRef.ResolutionScope = resScope,
-      //      ( tRef, tRefIdx, resScope ) => updateState.CheckRowTableIndexWhenHandlingSignatures( resScope, new TableIndex( Tables.TypeRef, tRefIdx ) )
-      //      );
-      //   removedTypeRefDuplicates = tRefs.CheckMDDuplicatesUnsorted( tableIndices[(Int32) Tables.TypeRef], Tables.TypeRef, reorderState, Comparers.TypeReferenceEqualityComparer );
-
-      //   // ECMA-335: There shall be no duplicate rows, based upon Signature  [ERROR] 
-      //   removedTSpecDuplicates = tSpecs.CheckMDDuplicatesUnsorted( tableIndices[(Int32) Tables.TypeSpec], Tables.TypeSpec, reorderState, Comparers.TypeSpecificationEqualityComparer );
-
-      //   // ECMA-335:  The MemberRef table shall contain no duplicates, where duplicate rows have the same Class, Name, and Signature  [WARNING] 
-      //   memberRefs.UpdateMDTableWithTableIndices1(
-      //      tableIndices,
-      //      mRef => mRef.DeclaringType,
-      //      ( mRef, dType ) => mRef.DeclaringType = dType,
-      //      ( mRef, mRefIdx, dType ) => updateState.CheckRowTableIndexWhenHandlingSignatures( dType, new TableIndex( Tables.MemberRef, mRefIdx ) )
-      //      );
-      //   removedMemberRefDuplicates = memberRefs.CheckMDDuplicatesUnsorted( tableIndices[(Int32) Tables.MemberRef], Tables.MemberRef, reorderState, Comparers.MemberReferenceEqualityComparer );
-
-      //   // ECMA-335: There shall be no duplicate rows based upon Method+Instantiation  [ERROR] 
-      //   mSpecs.UpdateMDTableWithTableIndices1(
-      //      tableIndices,
-      //      mSpec => mSpec.Method,
-      //      ( mSpec, method ) => mSpec.Method = method,
-      //      ( mSpec, mSpecIdx, method ) => updateState.CheckRowTableIndexWhenHandlingSignatures( method, new TableIndex( Tables.MethodSpec, mSpecIdx ) )
-      //      );
-      //   removedMethodSpecDuplicates = mSpecs.CheckMDDuplicatesUnsorted( tableIndices[(Int32) Tables.MethodSpec], Tables.MethodSpec, reorderState, Comparers.MethodSpecificationEqualityComparer );
-
-      //   // ECMA-335: Duplicates allowed (but we will make them all unique anyway)
-      //   removedStandaloneSigDuplicates = standAloneSigs.CheckMDDuplicatesUnsorted( tableIndices[(Int32) Tables.StandaloneSignature], Tables.StandaloneSignature, reorderState, Comparers.StandaloneSignatureEqualityComparer );
-
-      //   // Calculate the duplicates
-      //   startingDuplicates.SymmetricExceptWith( reorderState.Duplicates.SelectMany( kvp => kvp.Value.Select( i => new TableIndex( kvp.Key, i ) ) ) );
-      //   updateState.DuplicatesThisRound.Clear();
-      //   updateState.DuplicatesThisRound.UnionWith( startingDuplicates );
-
-      //   // Update signatures
-      //   updateState.ResetChangedAny();
-      //   updateState.UpdateSignatures();
-      //   updatedSignatureTableIndices = updateState.ChangedAny;
-
-      //   // Update table indices in IL
-      //   updateState.ResetChangedAny();
-      //   updateState.UpdateIL();
-      //   updatedILTableIndices = updateState.ChangedAny;
-      //} while ( updatedSignatureTableIndices || updatedILTableIndices );
    }
 
    private static Boolean CheckMDDuplicatesUnsortedWithSignatureReOrderState<T>(
@@ -2753,7 +2696,7 @@ public static partial class E_CILPhysical
                if ( memberRef != null
                   && memberRef.Signature.SignatureKind == SignatureKind.MethodReference
                   && memberRef.DeclaringType.Table == Tables.TypeRef
-                  && String.Equals( memberRef.Name, ".ctor" )
+                  && String.Equals( memberRef.Name, Miscellaneous.INSTANCE_CTOR_NAME )
                   )
                {
                   var typeRef = md.TypeReferences.GetOrNull( memberRef.DeclaringType.Index );

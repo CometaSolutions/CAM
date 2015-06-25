@@ -165,7 +165,7 @@ namespace CILAssemblyManipulator.Logical
    }
 }
 
-public static partial class E_CIL
+public static partial class E_CILLogical
 {
    /// <summary>
    /// Returns name of the member of the <see cref="CILCustomAttributeNamedArgument"/>.

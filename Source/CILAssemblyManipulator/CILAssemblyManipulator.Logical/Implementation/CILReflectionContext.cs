@@ -457,13 +457,14 @@ namespace CILAssemblyManipulator.Logical.Implementation
             }
             for ( var i = 0; i < gArgs.Length; ++i )
             {
-               if ( gArgs[i] == null )
+               var gArg = gArgs[i];
+               if ( gArg == null )
                {
                   throw new ArgumentNullException( "Generic argument at index " + i + " was null." );
                }
-               else if ( gArgs[i].IsPointerType() || gArgs[i].IsByRef() || gArgs[i].Equals( gArgs[i].Module.AssociatedMSCorLibModule.GetTypeByName( Consts.VOID ) ) )
+               else if ( gArg.IsPointerType() || gArg.IsByRef() || ( gArg.TypeKind != TypeKind.MethodSignature && gArg.Equals( ( (CILTypeOrTypeParameter) gArg ).Module.AssociatedMSCorLibModule.GetTypeByName( Consts.VOID ) ) ) )
                {
-                  throw new ArgumentException( "Generic argument " + gArgs[i] + " at index " + i + " was invalid." );
+                  throw new ArgumentException( "Generic argument " + gArg + " at index " + i + " was invalid." );
                }
             }
             return this._cache.GetOrAdd( gDef, this._outerCreator ).GetOrAdd( gArgs );
@@ -509,19 +510,15 @@ namespace CILAssemblyManipulator.Logical.Implementation
                      }
                      else
                      {
-                        foreach ( var g in gArgs )
+                        if ( gArgs.Any( g => g.TypeKind == TypeKind.MethodSignature && !g.Module.Equals( gDef.Module ) ) )
                         {
-                           if ( g.TypeKind == TypeKind.MethodSignature && !g.Module.Equals( gDef.Module ) )
+                           var gtmp = new CILTypeBase[gArgs.Length];
+                           Array.Copy( gArgs, gtmp, gArgs.Length );
+                           for ( var i = 0; i < gtmp.Length; ++i )
                            {
-                              var gtmp = new CILTypeBase[gArgs.Length];
-                              Array.Copy( gArgs, gtmp, gArgs.Length );
-                              for ( var i = 0; i < gtmp.Length; ++i )
-                              {
-                                 LogicalUtils.CheckTypeForMethodSig( gDef.Module, ref gtmp[i] );
-                              }
-                              gArgs = gtmp;
-                              break;
+                              LogicalUtils.CheckTypeForMethodSig( gDef.Module, ref gtmp[i] );
                            }
+                           gArgs = gtmp;
                         }
                         return creationFunc( gDefInstance, gArgs );
                      }
@@ -809,7 +806,7 @@ namespace CILAssemblyManipulator.Logical.Implementation
                         pID,
                         new LazyWithLock<ListProxy<CILCustomAttribute>>( () => cache._ctx.CollectionsFactory.NewListProxy<CILCustomAttribute>() ),
                         new SettableValueForEnums<ParameterAttributes>( ParameterAttributes.None ),
-                        E_CIL.RETURN_PARAMETER_POSITION,
+                        E_CILLogical.RETURN_PARAMETER_POSITION,
                         new SettableValueForClasses<String>( null ),
                         () => cache.ResolveMethodBaseID( curMID ),
                         () => cache.GetOrAdd( typeof( void ) ),
@@ -833,7 +830,7 @@ namespace CILAssemblyManipulator.Logical.Implementation
                   new SettableLazy<MethodImplAttributes>( () => MethodImplAttributes.IL ),
                   null,
                   new SettableValueForClasses<String>( "Address" ),
-                  () => valueParamFunc( curMID, E_CIL.RETURN_PARAMETER_POSITION, true ),
+                  () => valueParamFunc( curMID, E_CILLogical.RETURN_PARAMETER_POSITION, true ),
                   () => cache._ctx.CollectionsFactory.NewListProxy<CILTypeBase>(),
                   () => null
                   )
@@ -849,7 +846,7 @@ namespace CILAssemblyManipulator.Logical.Implementation
                   new SettableLazy<MethodImplAttributes>( () => MethodImplAttributes.IL ),
                   null,
                   new SettableValueForClasses<String>( "Get" ),
-                  () => valueParamFunc( curMID, E_CIL.RETURN_PARAMETER_POSITION, false ),
+                  () => valueParamFunc( curMID, E_CILLogical.RETURN_PARAMETER_POSITION, false ),
                   () => cache._ctx.CollectionsFactory.NewListProxy<CILTypeBase>(),
                   () => null
                   )
@@ -1379,7 +1376,7 @@ namespace CILAssemblyManipulator.Logical.Implementation
                () => this._ctx.CollectionsFactory.NewListProxy<CILConstructor>( ELEMENT_KIND_CTORS[kind]( this, type, id, arrayInfo ).ToList() ),
                () => this._ctx.CollectionsFactory.NewListProxy<CILProperty>( ELEMENT_KIND_PROPERTIES[kind]( this, type, id, arrayInfo ).ToList() ),
                () => this._ctx.CollectionsFactory.NewListProxy<CILEvent>( ELEMENT_KIND_EVENTS[kind]( this, type, id, arrayInfo ).ToList() ),
-               new SettableLazy<ClassLayout?>( () => null ),
+               new SettableLazy<LogicalClassLayout?>( () => null ),
                null
             ) );
       }

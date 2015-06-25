@@ -277,7 +277,7 @@ namespace CILAssemblyManipulator.Logical.Implementation
             this.ThrowIfNotCapableOfChanging();
             LogicalUtils.CheckTypeForMethodSig( this.method.Value.DeclaringType.Module, ref value );
             this.parameterType.Value = value;
-            this.context.Cache.ForAllGenericInstancesOf<CILMethodBase, CILMethodBaseInternal>( this.method.Value, method => ( (CILParameterInternal) ( this.position == E_CIL.RETURN_PARAMETER_POSITION ? ( (CILMethod) method ).ReturnParameter : ( (CILMethodBase) method ).Parameters[this.position] ) ).ResetParameterType() );
+            this.context.Cache.ForAllGenericInstancesOf<CILMethodBase, CILMethodBaseInternal>( this.method.Value, method => ( (CILParameterInternal) ( this.position == E_CILLogical.RETURN_PARAMETER_POSITION ? ( (CILMethod) method ).ReturnParameter : ( (CILMethodBase) method ).Parameters[this.position] ) ).ResetParameterType() );
          }
          get
          {

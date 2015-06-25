@@ -98,7 +98,7 @@ namespace CILAssemblyManipulator.Logical
    }
 }
 
-public static partial class E_CIL
+public static partial class E_CILLogical
 {
    /// <summary>
    /// Returns <c>true</c> if the event is multicast, that is, <see cref="MulticastDelegate"/> is assignable from event's <see cref="CILEvent.EventHandlerType"/>.

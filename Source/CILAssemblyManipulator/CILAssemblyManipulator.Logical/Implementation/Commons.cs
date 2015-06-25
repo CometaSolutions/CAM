@@ -458,7 +458,7 @@ namespace CILAssemblyManipulator.Logical.Implementation
    {
       SettableValueForEnums<TypeAttributes> TypeAttributesInternal { get; }
       LazyWithLock<ListProxy<CILType>> NestedTypesInternal { get; }
-      SettableLazy<ClassLayout?> ClassLayoutInternal { get; }
+      SettableLazy<LogicalClassLayout?> ClassLayoutInternal { get; }
       //SettableLazy<CILType> ForwardedTypeInternal { get; }
       void ResetBaseType();
       void ResetDeclaredInterfaces();

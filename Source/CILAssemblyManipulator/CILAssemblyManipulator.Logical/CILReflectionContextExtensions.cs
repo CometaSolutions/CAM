@@ -25,7 +25,7 @@ using CollectionsWithRoles.API;
 using CommonUtils;
 using CILAssemblyManipulator.Physical;
 
-public static partial class E_CIL
+public static partial class E_CILLogical
 {
    private static Func<CILModule, String, Stream> THROW_INVALID_OPERATION = ( mod, str ) =>
       {

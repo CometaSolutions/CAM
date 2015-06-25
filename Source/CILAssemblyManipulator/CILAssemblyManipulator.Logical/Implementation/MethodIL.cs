@@ -278,10 +278,9 @@ namespace CILAssemblyManipulator.Logical.Implementation
       public MethodIL MarkLabel( ILLabel label, Int32 idx )
       {
          this.CheckLabel( label );
-         this._labelOffsets[label.labelIdx] = idx;
+         this._labelOffsets[label.LabelIndex] = idx;
          return this;
       }
-
 
       public LocalBuilder DeclareLocal( CILTypeBase type, Boolean pinned = false )
       {
@@ -319,12 +318,11 @@ namespace CILAssemblyManipulator.Logical.Implementation
          }
       }
 
-      public IEnumerable<Int32> LabelOffsets
+      public Int32 GetLabelOffset( ILLabel label )
       {
-         get
-         {
-            return this._labelOffsets.Skip( 0 );
-         }
+         return label.LabelIndex < this._labelOffsets.Count ?
+            this._labelOffsets[label.LabelIndex] :
+            -1;
       }
 
       public IEnumerable<LocalBuilder> Locals
@@ -397,7 +395,7 @@ namespace CILAssemblyManipulator.Logical.Implementation
 
       private void CheckLabel( ILLabel label )
       {
-         var idx = label.labelIdx;
+         var idx = label.LabelIndex;
          if ( idx < 0 || idx >= this._labelOffsets.Count )
          {
             throw new ArgumentException( "Invalid label with index " + idx );

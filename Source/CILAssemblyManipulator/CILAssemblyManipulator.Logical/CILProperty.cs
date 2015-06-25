@@ -57,7 +57,7 @@ namespace CILAssemblyManipulator.Logical
    }
 }
 
-public static partial class E_CIL
+public static partial class E_CILLogical
 {
    private static readonly CILParameter[] EMPTY_PARAMS = new CILParameter[0];
 

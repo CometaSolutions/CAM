@@ -508,6 +508,18 @@ namespace CILAssemblyManipulator.Logical
 
       #endregion
 
+      /// <summary>
+      /// Returns the physical assembly information about this assembly.
+      /// </summary>
+      /// <value>The physical assembly information about this assembly.</value>
+      public AssemblyInformation AssemblyInformation
+      {
+         get
+         {
+            return this._assemblyInfo;
+         }
+      }
+
       /// <inheritdoc />
       public override String ToString()
       {
@@ -565,7 +577,7 @@ namespace CILAssemblyManipulator.Logical
 /// <summary>
 /// This class contains extension methods for elements in <see cref="CILAssemblyManipulator.Logical"/> namespace.
 /// </summary>
-public static partial class E_CIL
+public static partial class E_CILLogical
 {
    /// <summary>
    /// Gets all defined types in <paramref name="assembly"/>, including nested types.

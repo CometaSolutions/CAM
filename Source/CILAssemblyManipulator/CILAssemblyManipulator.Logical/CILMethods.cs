@@ -107,7 +107,7 @@ namespace CILAssemblyManipulator.Logical
       /// Gets the IL bytecode manager for this method. See ECMA specification for more information about IL bytecode.
       /// </summary>
       /// <value>The IL bytecode manager for this method.</value>
-      /// <remarks>This property will return <c>null</c> if this method can not emit IL, that is, if the <see cref="E_CIL.HasILMethodBody"/> returns <c>false</c>.</remarks>
+      /// <remarks>This property will return <c>null</c> if this method can not emit IL, that is, if the <see cref="E_CILLogical.HasILMethodBody"/> returns <c>false</c>.</remarks>
       /// <exception cref="NotSupportedException">If <see cref="CILElementInstantiable.IsTrueDefinition"/> returns <c>false</c>, meaning the <see cref="CILElementOwnedByType.DeclaringType"/> is a generic type but not generic type definition.</exception>
       MethodIL MethodIL { get; }
 
@@ -129,7 +129,7 @@ namespace CILAssemblyManipulator.Logical
       /// Discards old method body and creates a new one. Returns the old method body.
       /// </summary>
       /// <returns>Old value of <see cref="MethodIL"/>.</returns>
-      /// <remarks>This method will do nothing if the <see cref="E_CIL.HasILMethodBody"/> returns <c>false</c> for this <see cref="CILMethod"/>.</remarks>
+      /// <remarks>This method will do nothing if the <see cref="E_CILLogical.HasILMethodBody"/> returns <c>false</c> for this <see cref="CILMethod"/>.</remarks>
       /// <exception cref="NotSupportedException">If <see cref="CILElementInstantiable.IsTrueDefinition"/> returns <c>false</c>, meaning the <see cref="CILElementOwnedByType.DeclaringType"/> is a generic type but not generic type definition.</exception>
       MethodIL ResetMethodIL();
 
@@ -214,15 +214,15 @@ namespace CILAssemblyManipulator.Logical
    }
 }
 
-public static partial class E_CIL
+public static partial class E_CILLogical
 {
    /// <summary>
-   /// Checks whether the method is eligible to have method body. See ECMA specification (condition 33 for MethodDef table) for exact condition of methods having method bodies. In addition to that, the <see cref="E_CIL.IsIL"/> must return <c>true</c>.
+   /// Checks whether the method is eligible to have method body. See ECMA specification (condition 33 for MethodDef table) for exact condition of methods having method bodies. In addition to that, the <see cref="E_CILLogical.IsIL"/> must return <c>true</c>.
    /// </summary>
    /// <param name="method">The method to check.</param>
    /// <returns><c>true</c> if the <paramref name="method"/> is non-<c>null</c> and can have IL method body; <c>false</c> otherwise.</returns>
-   /// <seealso cref="E_CIL.IsIL"/>
-   /// <seealso cref="E_CIL.CanEmitIL"/>
+   /// <seealso cref="E_CILLogical.IsIL"/>
+   /// <seealso cref="E_CILLogical.CanEmitIL"/>
    public static Boolean HasILMethodBody( this CILMethodBase method )
    {
       return method != null && method.Attributes.CanEmitIL() && method.ImplementationAttributes.IsIL();
@@ -248,7 +248,7 @@ public static partial class E_CIL
    public static String GetName( this CILMethodBase method )
    {
       ArgumentValidator.ValidateNotNull( "Method", method );
-      return MethodKind.Method == method.MethodKind ? ( (CILMethod) method ).Name : ( method.Attributes.IsStatic() ? CILConstructorImpl.STATIC_CTOR_NAME : CILConstructorImpl.INSTANCE_CTOR_NAME );
+      return MethodKind.Method == method.MethodKind ? ( (CILMethod) method ).Name : ( method.Attributes.IsStatic() ? Miscellaneous.CLASS_CTOR_NAME : Miscellaneous.INSTANCE_CTOR_NAME );
    }
 
    /// <summary>
@@ -374,7 +374,7 @@ public static partial class E_CIL
    /// <param name="method">The method </param>
    /// <param name="args">The types to substitute the type parameters of this generic method definition.</param>
    /// <returns>A method representing the constructed method based on this generic method definition.</returns>
-   /// <exception cref="InvalidOperationException">The <paramref name="args"/> are non-<c>null</c> or contain at least one element, and the <paramref name="method"/> is not generic method definition, that is, <see cref="E_CIL.IsGenericMethodDefinition" /> returns <c>false</c> for <paramref name="method"/>.</exception>
+   /// <exception cref="InvalidOperationException">The <paramref name="args"/> are non-<c>null</c> or contain at least one element, and the <paramref name="method"/> is not generic method definition, that is, <see cref="E_CILLogical.IsGenericMethodDefinition" /> returns <c>false</c> for <paramref name="method"/>.</exception>
    /// <exception cref="ArgumentNullException">If <paramref name="method"/> is <c>null</c>.-or-<paramref name="args" /> is <c>null</c>.-or- Any element of <paramref name="args" /> is <c>null</c>. </exception>
    /// <exception cref="ArgumentException">The number of elements in <paramref name="args" /> is not the same as the number of type parameters of the current generic method definition.</exception>
    public static CILMethod MakeGenericMethod( this CILMethod method, params CILTypeBase[] args )

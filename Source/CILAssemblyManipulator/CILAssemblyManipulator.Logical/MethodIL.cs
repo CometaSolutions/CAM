@@ -73,10 +73,11 @@ namespace CILAssemblyManipulator.Logical
       MethodIL MarkLabel( ILLabel label, Int32 offset );
 
       /// <summary>
-      /// Gets all the offsets of <see cref="ILLabel"/>s defined for this method.
+      /// Gets the offset for <see cref="ILLabel"/> defined for this method.
       /// </summary>
-      /// <value>All the offsets of <see cref="ILLabel"/>s defined for this method.</value>
-      IEnumerable<Int32> LabelOffsets { get; }
+      /// <param name="label">The label.</param>
+      /// <returns>The offset of logical op code for given label, or <c>-1</c> if the lable has not been marked yet, or is invalid for this <see cref="MethodIL"/>.</returns>
+      Int32 GetLabelOffset( ILLabel label );
 
       /// <summary>
       /// Declares a new local with specified type and pinned status to this method body.
@@ -124,11 +125,19 @@ namespace CILAssemblyManipulator.Logical
    /// </summary>
    public struct ILLabel
    {
-      internal readonly Int32 labelIdx;
+      private readonly Int32 _labelIdx;
 
       internal ILLabel( Int32 labelIndex )
       {
-         this.labelIdx = labelIndex;
+         this._labelIdx = labelIndex;
+      }
+
+      internal Int32 LabelIndex
+      {
+         get
+         {
+            return this._labelIdx;
+         }
       }
    }
 
@@ -560,12 +569,43 @@ namespace CILAssemblyManipulator.Logical
       /// <seealso cref="OpCodes.Brtrue_S"/>
       IF_TRUE,
    }
+
+   public struct VarArgInstance
+   {
+      private readonly CILCustomModifier[] _mods;
+      private readonly CILTypeBase _type;
+
+      public VarArgInstance( CILTypeBase type )
+         : this( type, Empty<CILCustomModifier>.Array )
+      {
+
+      }
+
+      public VarArgInstance( CILTypeBase type, params CILCustomModifier[] mods )
+      {
+         this._type = type;
+         this._mods = mods;
+      }
+
+      public CILTypeBase Type
+      {
+         get
+         {
+            return this._type;
+         }
+      }
+
+      public CILCustomModifier[] CustomModifiers
+      {
+         get
+         {
+            return this._mods;
+         }
+      }
+   }
 }
-/// <summary>
-/// This class contains extension methods for <see cref="MethodIL"/>
-/// </summary>
-/// <remarks>Some of ideas for this class come from https://ironpython.svn.codeplex.com/svn/IronPython_Main/Runtime/Microsoft.Scripting.Core/Compiler/ILGen.cs .</remarks>
-public static class E_MethodIL
+
+public static partial class E_CILLogical
 {
    private static readonly System.Reflection.MethodInfo TYPE_OF_METHOD;
    private static readonly System.Reflection.MethodInfo METHOD_OF_METHOD;
@@ -585,7 +625,7 @@ public static class E_MethodIL
    private static readonly IDictionary<CILTypeCode, LogicalOpCodeInfo> UNCHECKED_UNSIGNED_CONV_OPCODES;
    private static readonly IDictionary<CILTypeCode, LogicalOpCodeInfo> UNCHECKED_SIGNED_CONV_OPCODES;
 
-   static E_MethodIL()
+   static E_CILLogical()
    {
       TYPE_OF_METHOD = typeof( Type ).LoadMethodOrThrow( "GetTypeFromHandle", null );
       METHOD_OF_METHOD = typeof( System.Reflection.MethodBase ).LoadMethodOrThrow( "GetMethodFromHandle", 2 );
@@ -773,7 +813,7 @@ public static class E_MethodIL
    /// <exception cref="ArgumentNullException">If <paramref name="methodSig"/> is <c>null</c>.</exception>
    public static MethodIL EmitCall( this MethodIL il, CILMethodSignature methodSig, params CILTypeBase[] varArgs )
    {
-      return EmitCall( il, methodSig, varArgs.Select( v => Tuple.Create( (CILCustomModifier[]) null, v ) ).ToArray() );
+      return EmitCall( il, methodSig, varArgs.Select( v => new VarArgInstance( v ) ).ToArray() );
    }
 
    /// <summary>
@@ -785,7 +825,7 @@ public static class E_MethodIL
    /// <returns><paramref name="il"/>.</returns>
    /// <exception cref="NullReferenceException">If <paramref name="il"/> is <c>null</c>.</exception>
    /// <exception cref="ArgumentNullException">If <paramref name="methodSig"/> is <c>null</c>.</exception>
-   public static MethodIL EmitCall( this MethodIL il, CILMethodSignature methodSig, params Tuple<CILCustomModifier[], CILTypeBase>[] varArgs )
+   public static MethodIL EmitCall( this MethodIL il, CILMethodSignature methodSig, params VarArgInstance[] varArgs )
    {
       ArgumentValidator.ValidateNotNull( "Method signature", methodSig );
       return il.Add( new LogicalOpCodeInfoWithMethodSig( methodSig, varArgs ) );

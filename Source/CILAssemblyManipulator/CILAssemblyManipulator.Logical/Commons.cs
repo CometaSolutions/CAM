@@ -491,7 +491,7 @@ namespace CILAssemblyManipulator.Logical
       /// </summary>
       /// <param name="ut">The native instric type.</param>
       /// <returns>A new <see cref="MarshalingInfo"/> with given information.</returns>
-      /// <exception cref="ArgumentException">If <see cref="E_CIL.IsNativeInstric(UnmanagedType)"/> returns <c>false</c> for <paramref name="ut"/>.</exception>
+      /// <exception cref="ArgumentException">If <see cref="E_CILLogical.IsNativeInstric(UnmanagedType)"/> returns <c>false</c> for <paramref name="ut"/>.</exception>
       public static LogicalMarshalingInfo MarshalAs( UnmanagedType ut )
       {
          if ( ut.IsNativeInstric() )
@@ -763,7 +763,7 @@ namespace CILAssemblyManipulator.Logical
    }
 }
 
-public static partial class E_CIL
+public static partial class E_CILLogical
 {
    /// <summary>
    /// Adds a new custom attribute which invokes the non-static parameterless constructor of the <paramref name="type"/>.

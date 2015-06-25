@@ -296,7 +296,7 @@ namespace CILAssemblyManipulator.Logical.Implementation
       private readonly ResettableLazy<ListProxy<CILConstructor>> ctors;
       private readonly ResettableLazy<ListProxy<CILProperty>> properties;
       private readonly ResettableLazy<ListProxy<CILEvent>> events;
-      private readonly SettableLazy<ClassLayout?> layout;
+      private readonly SettableLazy<LogicalClassLayout?> layout;
       private readonly ResettableLazy<CILType> baseType;
       private readonly ResettableLazy<ListProxy<CILType>> declaredInterfaces;
       private readonly Lazy<DictionaryWithRoles<SecurityAction, ListProxy<LogicalSecurityInformation>, ListProxyQuery<LogicalSecurityInformation>, ListQuery<LogicalSecurityInformation>>> securityInfo;
@@ -418,13 +418,13 @@ namespace CILAssemblyManipulator.Logical.Implementation
                   .Select( evt => ctx.Cache.GetOrAdd( evt ) )
                   .ToList()
                ),
-            new SettableLazy<ClassLayout?>( () =>
+            new SettableLazy<LogicalClassLayout?>( () =>
             {
                if ( tAttrs.IsExplicitLayout() || tAttrs.IsSequentialLayout() )
                {
                   var args = new TypeLayoutEventArgs( type );
                   ctx.LaunchTypeLayoutLoadEvent( args );
-                  return args.Layout == null ? (ClassLayout?) null : new ClassLayout { pack = args.Layout.Pack, size = args.Layout.Size };
+                  return args.Layout == null ? (LogicalClassLayout?) null : new LogicalClassLayout { pack = args.Layout.Pack, size = args.Layout.Size };
                }
                else
                {
@@ -485,7 +485,7 @@ namespace CILAssemblyManipulator.Logical.Implementation
          () => ctx.CollectionsFactory.NewListProxy<CILConstructor>(),
          () => ctx.CollectionsFactory.NewListProxy<CILProperty>(),
          () => ctx.CollectionsFactory.NewListProxy<CILEvent>(),
-         new SettableLazy<ClassLayout?>( () => null ),
+         new SettableLazy<LogicalClassLayout?>( () => null ),
          null,
          true
          )
@@ -516,7 +516,7 @@ namespace CILAssemblyManipulator.Logical.Implementation
          Func<ListProxy<CILConstructor>> ctorsFunc,
          Func<ListProxy<CILProperty>> propertiesFunc,
          Func<ListProxy<CILEvent>> eventsFunc,
-         SettableLazy<ClassLayout?> aLayout,
+         SettableLazy<LogicalClassLayout?> aLayout,
          Lazy<DictionaryWithRoles<SecurityAction, ListProxy<LogicalSecurityInformation>, ListProxyQuery<LogicalSecurityInformation>, ListQuery<LogicalSecurityInformation>>> aSecurityInfo,
          Boolean resettablesAreSettable = false
          )
@@ -574,7 +574,7 @@ namespace CILAssemblyManipulator.Logical.Implementation
          ref ResettableLazy<ListProxy<CILConstructor>> ctors,
          ref ResettableLazy<ListProxy<CILProperty>> properties,
          ref ResettableLazy<ListProxy<CILEvent>> events,
-         ref SettableLazy<ClassLayout?> layout,
+         ref SettableLazy<LogicalClassLayout?> layout,
          ref ResettableLazy<CILType> baseType,
          ref ResettableLazy<ListProxy<CILType>> declaredInterfaces,
          ref Lazy<DictionaryWithRoles<SecurityAction, ListProxy<LogicalSecurityInformation>, ListProxyQuery<LogicalSecurityInformation>, ListQuery<LogicalSecurityInformation>>> securityInfo,
@@ -590,7 +590,7 @@ namespace CILAssemblyManipulator.Logical.Implementation
          Func<ListProxy<CILConstructor>> ctorsFunc,
          Func<ListProxy<CILProperty>> propertiesFunc,
          Func<ListProxy<CILEvent>> eventsFunc,
-         SettableLazy<ClassLayout?> aLayout,
+         SettableLazy<LogicalClassLayout?> aLayout,
          Func<CILType> baseTypeFunc,
          Func<ListProxy<CILType>> declaredInterfacesFunc,
          Lazy<DictionaryWithRoles<SecurityAction, ListProxy<LogicalSecurityInformation>, ListProxyQuery<LogicalSecurityInformation>, ListQuery<LogicalSecurityInformation>>> aSecurityInfo,
@@ -674,14 +674,14 @@ namespace CILAssemblyManipulator.Logical.Implementation
          }
       }
 
-      public ClassLayout? Layout
+      public LogicalClassLayout? Layout
       {
          set
          {
-            if ( value.HasValue && this.typeAttributes.Value.IsInterface() )
-            {
-               throw new InvalidOperationException( "Setting class layout is not possible for interfaces." );
-            }
+            //if ( value.HasValue && this.typeAttributes.Value.IsInterface() )
+            //{
+            //   throw new InvalidOperationException( "Setting class layout is not possible for interfaces." );
+            //}
             this.layout.Value = value;
          }
          get
@@ -837,7 +837,7 @@ namespace CILAssemblyManipulator.Logical.Implementation
          }
       }
 
-      SettableLazy<ClassLayout?> CILTypeInternal.ClassLayoutInternal
+      SettableLazy<LogicalClassLayout?> CILTypeInternal.ClassLayoutInternal
       {
          get
          {
@@ -1366,7 +1366,7 @@ namespace CILAssemblyManipulator.Logical.Implementation
 
          this._module = module;
          this._callConv = callConv;
-         this._returnParam = new CILParameterSignatureImpl( ctx, this, E_CIL.RETURN_PARAMETER_POSITION, rpType, rpCMods );
+         this._returnParam = new CILParameterSignatureImpl( ctx, this, E_CILLogical.RETURN_PARAMETER_POSITION, rpType, rpCMods );
          var parameters = this._ctx.CollectionsFactory.NewListProxy<CILParameterSignature>();
          if ( paramsInfo != null )
          {

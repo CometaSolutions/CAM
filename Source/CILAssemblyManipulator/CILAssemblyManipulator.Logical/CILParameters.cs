@@ -79,13 +79,12 @@ namespace CILAssemblyManipulator.Logical
       /// Gets the type of this parameter.
       /// </summary>
       /// <value>The type of this parameter.</value>
-      /// <exception cref="NotSupportedException">For setter only. The exception is thrown when <see cref="CILElementInstantiable.IsTrueDefinition"/> returns <c>false</c>, meaning for the method owning this parameter, the method is generic method but not generic method definition, the <see cref="CILElementOwnedByType.DeclaringType"/> is a generic type but not generic type definition.</exception>
       /// <seealso cref="System.Reflection.ParameterInfo.ParameterType"/>
       CILTypeBase ParameterType { get; }
    }
 }
 
-public static partial class E_CIL
+public static partial class E_CILLogical
 {
    internal const Int32 RETURN_PARAMETER_POSITION = -1;
 

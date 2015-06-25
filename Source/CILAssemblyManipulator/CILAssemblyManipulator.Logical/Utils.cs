@@ -457,12 +457,15 @@ namespace CILAssemblyManipulator.Logical
             var gArgs = typee.GenericArguments;
             for ( var i = 0; i < gArgs.Count; ++i )
             {
-               var needsAssembly = moduleBeingEmitted != null && !moduleBeingEmitted.Assembly.Equals( type.Module.Assembly );
+               var gArg = gArgs[i];
+               var needsAssembly = moduleBeingEmitted != null
+                  && gArg.TypeKind != TypeKind.MethodSignature
+                  && !moduleBeingEmitted.Assembly.Equals( gArg.Module.Assembly );
                if ( needsAssembly )
                {
                   builder.Append( '[' );
                }
-               var gArg = gArgs[i];
+
                CreateTypeStringCore( gArg, moduleBeingEmitted, builder, true );
                if ( needsAssembly )
                {

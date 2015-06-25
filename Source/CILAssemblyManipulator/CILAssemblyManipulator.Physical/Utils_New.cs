@@ -33,6 +33,9 @@ namespace CILAssemblyManipulator.Physical
 
       private const String TYPE_ASSEMBLY_SEPARATOR = ", ";
 
+      public const String INSTANCE_CTOR_NAME = ".ctor";
+      public const String CLASS_CTOR_NAME = ".cctor";
+
       /// <summary>
       /// Detects whether type string is assembly name -qualified or not.
       /// </summary>

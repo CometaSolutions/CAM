@@ -29,7 +29,7 @@ namespace CILAssemblyManipulator.Logical
    /// </summary>
    public abstract class LogicalOpCodeInfoWithOneOpCode : LogicalOpCodeInfo
    {
-      internal readonly OpCode _opCode;
+      private readonly OpCode _opCode;
 
       internal LogicalOpCodeInfoWithOneOpCode( OpCode code )
       {
@@ -167,12 +167,31 @@ namespace CILAssemblyManipulator.Logical
       //}
    }
 
+   public abstract class LogicalOpCodeInfoWithFixedSizeOperand<TOperand> : LogicalOpCodeInfoWithFixedSizeOperand
+   {
+      private readonly TOperand _operand;
+
+      internal LogicalOpCodeInfoWithFixedSizeOperand( OpCode opCode, TOperand operand )
+         : base( opCode )
+      {
+         this._operand = operand;
+      }
+
+      public TOperand Operand
+      {
+         get
+         {
+            return this._operand;
+         }
+      }
+   }
+
    /// <summary>
    /// This is abstract class for all <see cref="LogicalOpCodeInfo"/>s which accept a token as operand.
    /// </summary>
    public abstract class LogicalOpCodeInfoWithTokenOperand : LogicalOpCodeInfoWithFixedSizeOperand
    {
-      internal readonly Boolean _useGDefIfPossible;
+      private readonly Boolean _useGDefIfPossible;
 
       internal LogicalOpCodeInfoWithTokenOperand( OpCode opCode, Boolean useGDefIfPossible )
          : base( opCode ) //, TOKEN_SIZE )
@@ -321,6 +340,7 @@ namespace CILAssemblyManipulator.Logical
       /// The default behaviour in such scenario is to emit TypeSpec token.
       /// </param>
       /// <exception cref="ArgumentNullException">If <paramref name="method"/> is <c>null</c>.</exception>
+      /// <remarks>TODO varargs parameters</remarks>
       public LogicalOpCodeInfoWithMethodToken( OpCode opCode, CILMethod method, Boolean useGDefIfPossible = false )
          : base( opCode, useGDefIfPossible )
       {
@@ -512,6 +532,7 @@ namespace CILAssemblyManipulator.Logical
       /// The default behaviour in such scenario is to emit TypeSpec token.
       /// </param>
       /// <exception cref="ArgumentNullException">If <paramref name="ctor"/> is <c>null</c>.</exception>
+      /// <remarks>TODO varargs parameters.</remarks>
       public LogicalOpCodeInfoWithCtorToken( OpCode opCode, CILConstructor ctor, Boolean useGDefIfPossible = false )
          : base( opCode, useGDefIfPossible )
       {
@@ -552,7 +573,7 @@ namespace CILAssemblyManipulator.Logical
    public sealed class LogicalOpCodeInfoWithMethodSig : LogicalOpCodeInfoWithTokenOperand
    {
       private readonly CILMethodSignature _methodSig;
-      private readonly Tuple<CILCustomModifier[], CILTypeBase>[] _varArgs;
+      private readonly VarArgInstance[] _varArgs;
 
       /// <summary>
       /// Creates a new instance of <see cref="LogicalOpCodeInfoWithMethodSig"/> with specified values.
@@ -560,7 +581,7 @@ namespace CILAssemblyManipulator.Logical
       /// <param name="methodSig">The <see cref="CILMethodSignature"/>.</param>
       /// <param name="varArgs">The variable arguments for this call site. May be <c>null</c> or empty for non-varargs call.</param>
       /// <exception cref="ArgumentNullException">If <paramref name="methodSig"/> is <c>null</c>.</exception>
-      public LogicalOpCodeInfoWithMethodSig( CILMethodSignature methodSig, Tuple<CILCustomModifier[], CILTypeBase>[] varArgs )
+      public LogicalOpCodeInfoWithMethodSig( CILMethodSignature methodSig, VarArgInstance[] varArgs )
          : base( OpCodes.Calli, false )
       {
          ArgumentValidator.ValidateNotNull( "Method signature", methodSig );
@@ -590,7 +611,7 @@ namespace CILAssemblyManipulator.Logical
       /// Gets the variable arguments for this call site.
       /// </summary>
       /// <value>The variable arguments for this call site.</value>
-      public Tuple<CILCustomModifier[], CILTypeBase>[] VarArgs
+      public VarArgInstance[] VarArgs
       {
          get
          {
@@ -611,19 +632,16 @@ namespace CILAssemblyManipulator.Logical
    /// <summary>
    /// This is class which will emit <see cref="OpCodes.Ldstr"/> with a string token as operand.
    /// </summary>
-   public sealed class LogicalOpCodeInfoWithFixedSizeOperandString : LogicalOpCodeInfoWithFixedSizeOperand
+   public sealed class LogicalOpCodeInfoWithFixedSizeOperandString : LogicalOpCodeInfoWithFixedSizeOperand<String>
    {
-      private readonly String _string;
-
       /// <summary>
       /// Creates a new instance of <see cref="LogicalOpCodeInfoWithFixedSizeOperandString"/>
       /// </summary>
       /// <param name="str"></param>
       public LogicalOpCodeInfoWithFixedSizeOperandString( OpCode code, String str )
-         : base( code ) //, TOKEN_SIZE )
+         : base( code, str ) //, TOKEN_SIZE )
       {
          ArgumentValidator.ValidateNotNull( "String", str );
-         this._string = str;
       }
 
       //internal override void EmitOpCode( MethodILWriter emittingContext )
@@ -631,13 +649,6 @@ namespace CILAssemblyManipulator.Logical
       //   emittingContext.Emit( this._opCode, this._string );
       //}
 
-      public String String
-      {
-         get
-         {
-            return this._string;
-         }
-      }
 
       /// <inheritdoc/>
       public override OpCodeInfoKind InfoKind
@@ -652,10 +663,8 @@ namespace CILAssemblyManipulator.Logical
    /// <summary>
    /// This is class which will emit specified <see cref="OpCode"/> with specified <c>short</c> or <c>byte</c> operand.
    /// </summary>
-   public sealed class LogicalOpCodeInfoWithFixedSizeOperandUInt16 : LogicalOpCodeInfoWithFixedSizeOperand
+   public sealed class LogicalOpCodeInfoWithFixedSizeOperandUInt16 : LogicalOpCodeInfoWithFixedSizeOperand<Int16>
    {
-      private readonly Int16 _int16;
-
       /// <summary>
       /// Creates a new instance of <see cref="LogicalOpCodeInfoWithFixedSizeOperandUInt16"/> with specified <see cref="OpCode"/> and operand.
       /// </summary>
@@ -666,9 +675,8 @@ namespace CILAssemblyManipulator.Logical
       /// Additionally, if <see cref="OpCode.OperandType"/> property of <paramref name="opCode"/> is <see cref="OperandType.ShortInlineVar"/>, the <paramref name="int16"/> will emitted as <see cref="Byte"/>.
       /// </remarks>
       public LogicalOpCodeInfoWithFixedSizeOperandUInt16( OpCode opCode, Int16 int16 )
-         : base( opCode ) //, opCode.OperandType == OperandType.ShortInlineVar ? (Byte) 1 : (Byte) 2 )
+         : base( opCode, int16 ) //, opCode.OperandType == OperandType.ShortInlineVar ? (Byte) 1 : (Byte) 2 )
       {
-         this._int16 = int16;
       }
 
       //internal override void EmitOpCode( MethodILWriter emittingContext )
@@ -696,10 +704,8 @@ namespace CILAssemblyManipulator.Logical
    /// <summary>
    /// This is class which will emit specified <see cref="OpCode"/> with specified <c>int</c> or <c>sbyte</c> operand.
    /// </summary>
-   public sealed class LogicalOpCodeInfoWithFixedSizeOperandInt32 : LogicalOpCodeInfoWithFixedSizeOperand
+   public sealed class LogicalOpCodeInfoWithFixedSizeOperandInt32 : LogicalOpCodeInfoWithFixedSizeOperand<Int32>
    {
-
-      private readonly Int32 _int32;
 
       /// <summary>
       /// Creates a new instane of <see cref="LogicalOpCodeInfoWithFixedSizeOperandInt32"/> with specified <see cref="OpCode"/> and operand.
@@ -710,9 +716,8 @@ namespace CILAssemblyManipulator.Logical
       /// If <see cref="OpCode.OperandType"/> property of <paramref name="opCode"/> is <see cref="OperandType.ShortInlineI"/>, the <paramref name="int32"/> will be emitted as <see cref="SByte"/>.
       /// </remarks>
       public LogicalOpCodeInfoWithFixedSizeOperandInt32( OpCode opCode, Int32 int32 )
-         : base( opCode ) //, opCode.OperandType == OperandType.ShortInlineI ? (Byte) 1 : (Byte) 4 )
+         : base( opCode, int32 ) //, opCode.OperandType == OperandType.ShortInlineI ? (Byte) 1 : (Byte) 4 )
       {
-         this._int32 = int32;
       }
 
       //internal override void EmitOpCode( MethodILWriter emittingContext )
@@ -740,9 +745,8 @@ namespace CILAssemblyManipulator.Logical
    /// <summary>
    /// This is class which will emit specified <see cref="OpCode"/> with specified <c>long</c> operand.
    /// </summary>
-   public sealed class LogicalOpCodeInfoWithFixedSizeOperandInt64 : LogicalOpCodeInfoWithFixedSizeOperand
+   public sealed class LogicalOpCodeInfoWithFixedSizeOperandInt64 : LogicalOpCodeInfoWithFixedSizeOperand<Int64>
    {
-      private readonly Int64 _int64;
 
       /// <summary>
       /// Creates a new instance of <see cref="LogicalOpCodeInfoWithFixedSizeOperandInt64"/> with specified <see cref="OpCode"/> and operand.
@@ -750,9 +754,8 @@ namespace CILAssemblyManipulator.Logical
       /// <param name="opCode">The <see cref="OpCode"/> to emit.</param>
       /// <param name="int64">The operand.</param>
       public LogicalOpCodeInfoWithFixedSizeOperandInt64( OpCode opCode, Int64 int64 )
-         : base( opCode ) //, (Byte) 8 )
+         : base( opCode, int64 ) //, (Byte) 8 )
       {
-         this._int64 = int64;
       }
 
       //internal override void EmitOpCode( MethodILWriter emittingContext )
@@ -773,9 +776,8 @@ namespace CILAssemblyManipulator.Logical
    /// <summary>
    /// This is class which will emit specified <see cref="OpCode"/> with specified <c>float</c> operand.
    /// </summary>
-   public sealed class LogicalOpCodeInfoWithFixedSizeOperandSingle : LogicalOpCodeInfoWithFixedSizeOperand
+   public sealed class LogicalOpCodeInfoWithFixedSizeOperandSingle : LogicalOpCodeInfoWithFixedSizeOperand<Single>
    {
-      private readonly Single _single;
 
       /// <summary>
       /// Creates a new instance of <see cref="LogicalOpCodeInfoWithFixedSizeOperandSingle"/> with specified <see cref="OpCode"/> and operand.
@@ -783,9 +785,8 @@ namespace CILAssemblyManipulator.Logical
       /// <param name="opCode">The <see cref="OpCode"/> to emit.</param>
       /// <param name="single">The operand.</param>
       public LogicalOpCodeInfoWithFixedSizeOperandSingle( OpCode opCode, Single single )
-         : base( opCode ) //, (Byte) 4 )
+         : base( opCode, single ) //, (Byte) 4 )
       {
-         this._single = single;
       }
 
       //internal override void EmitOpCode( MethodILWriter emittingContext )
@@ -806,9 +807,8 @@ namespace CILAssemblyManipulator.Logical
    /// <summary>
    /// This is class which will emit specified <see cref="OpCode"/> with specified <c>double</c> operand.
    /// </summary>
-   public sealed class LogicalOpCodeInfoWithFixedSizeOperandDouble : LogicalOpCodeInfoWithFixedSizeOperand
+   public sealed class LogicalOpCodeInfoWithFixedSizeOperandDouble : LogicalOpCodeInfoWithFixedSizeOperand<Double>
    {
-      private readonly Double _double;
 
       /// <summary>
       /// Creates a new instance of <see cref="LogicalOpCodeInfoWithFixedSizeOperandDouble"/> with specified <see cref="OpCode"/> and operand.
@@ -816,9 +816,8 @@ namespace CILAssemblyManipulator.Logical
       /// <param name="opCode">The <see cref="OpCode"/> to emit.</param>
       /// <param name="dbl">The operand.</param>
       public LogicalOpCodeInfoWithFixedSizeOperandDouble( OpCode opCode, Double dbl )
-         : base( opCode ) // , (Byte) 8 )
+         : base( opCode, dbl ) // , (Byte) 8 )
       {
-         this._double = dbl;
       }
 
       //internal override void EmitOpCode( MethodILWriter emittingContext )
@@ -892,7 +891,7 @@ namespace CILAssemblyManipulator.Logical
    {
 
 
-      internal readonly ILLabel _targetLabel;
+      private readonly ILLabel _targetLabel;
 
       internal LogicalOpCodeInfoForBranchingControlFlow( /* Int32 min, Int32 max,*/ ILLabel targetLabel )
       //: base( min, max )

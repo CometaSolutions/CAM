@@ -156,7 +156,7 @@ namespace CILAssemblyManipulator.Logical
       /// </summary>
       /// <value>The class layout of this <see cref="CILType"/>.</value>
       /// <seealso cref="ClassLayout"/>
-      ClassLayout? Layout { get; set; }
+      LogicalClassLayout? Layout { get; set; }
 
       /// <summary>
       /// Gets all the declared fields of this type.
@@ -410,7 +410,7 @@ namespace CILAssemblyManipulator.Logical
    /// This struct contains information about a layout of a <see cref="CILType"/>.
    /// </summary>
    /// <seealso cref="CILType.Layout"/>
-   public struct ClassLayout
+   public struct LogicalClassLayout
    {
       /// <summary>
       /// Contains the <c>pack</c> size for a type. See ECMA specification for more information about pack size (ClassLayout table).
@@ -509,7 +509,7 @@ namespace CILAssemblyManipulator.Logical
    }
 }
 
-public static partial class E_CIL
+public static partial class E_CILLogical
 {
    internal const Int32 VECTOR_ARRAY_RANK = 0;
 
@@ -561,7 +561,7 @@ public static partial class E_CIL
    /// <seealso cref="System.Type.IsGenericType"/>
    public static Boolean IsGenericType( this CILTypeBase type )
    {
-      return type != null && TypeKind.Type == type.TypeKind && ( (CILType) type ).GenericArguments.Any();
+      return type != null && TypeKind.Type == type.TypeKind && ( (CILType) type ).GenericArguments.Count > 0;
    }
 
    /// <summary>
@@ -749,7 +749,7 @@ public static partial class E_CIL
    /// <param name="type">The type to check.</param>
    /// <returns><c>true</c> if <paramref name="type"/> is non-<c>null</c> and is class; <c>false</c> otherwise.</returns>
    /// <seealso cref="System.Type.IsClass"/>
-   /// <seealso cref="E_CIL.IsClass(TypeAttributes)"/>
+   /// <seealso cref="E_CILLogical.IsClass(TypeAttributes)"/>
    public static Boolean IsClass( this CILTypeBase type )
    {
       return type != null && TypeKind.Type == type.TypeKind && ( (CILType) type ).Attributes.IsClass();
@@ -761,7 +761,7 @@ public static partial class E_CIL
    /// <param name="type">The type to check.</param>
    /// <returns><c>true</c> if <paramref name="type"/> is non-<c>null</c> and is interface; <c>false</c> otherwise.</returns>
    /// <seealso cref="System.Type.IsInterface"/>
-   /// <seealso cref="E_CIL.IsInterface(TypeAttributes)"/>
+   /// <seealso cref="E_CILLogical.IsInterface(TypeAttributes)"/>
    public static Boolean IsInterface( this CILTypeBase type )
    {
       return type != null && TypeKind.Type == type.TypeKind && ( (CILType) type ).Attributes.IsInterface();
@@ -875,7 +875,7 @@ public static partial class E_CIL
    /// <seealso cref="System.Type.IsGenericType"/>
    public static Boolean IsGenericType( this CILType type )
    {
-      return type != null && type.GenericArguments.Any();
+      return type != null && type.GenericArguments.Count > 0;
    }
 
    /// <summary>
@@ -1080,7 +1080,7 @@ public static partial class E_CIL
    }
 }
 
-public static partial class E_CIL
+public static partial class E_CILLogical
 {
    /// <summary>
    /// Gets or creates a new <see cref="CILTypeParameter"/> based on native <see cref="System.Type"/>.

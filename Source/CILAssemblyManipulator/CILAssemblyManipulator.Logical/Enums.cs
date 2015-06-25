@@ -1463,7 +1463,7 @@ namespace CILAssemblyManipulator.Logical
    //}
 }
 
-public static partial class E_CIL
+public static partial class E_CILLogical
 {
    //   /// <summary>
    //   /// Returns the textual representation of the <paramref name="algorithm"/>. In non-portable environment, this value can be used to set algorithm for strong name signature creation.

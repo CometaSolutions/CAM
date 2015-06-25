@@ -63,7 +63,7 @@ namespace CILAssemblyManipulator.Logical
    }
 }
 
-public static partial class E_CIL
+public static partial class E_CILLogical
 {
    /// <summary>
    /// Gets or creates a new <see cref="CILField"/> based on native <see cref="System.Reflection.FieldInfo"/>.

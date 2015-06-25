@@ -139,7 +139,7 @@ namespace CILAssemblyManipulator.Logical
       //      Byte[] ComputePublicKeyToken( Byte[] publicKey );
 
       /// <summary>
-      /// When a <see cref="CILAssembly"/> or <see cref="CILModule"/> is loaded via <see cref="E_CIL.LoadAssembly(CILReflectionContext, System.IO.Stream, EmittingArguments)"/> or <see cref="E_CIL.LoadModule(CILReflectionContext,System.IO.Stream, EmittingArguments)"/> methods, respectively, any access causing additional load of assemblies is triggered via this event, if the assembly loader function of the aforementioned methods is <c>null</c> or fails to load the assembly. The event handler should set the <see cref="AssemblyRefResolveFromLoadedAssemblyEventArgs.ResolvedAssembly"/> property.
+      /// When a <see cref="CILAssembly"/> or <see cref="CILModule"/> is loaded via <see cref="E_CILLogical.LoadAssembly(CILReflectionContext, System.IO.Stream, EmittingArguments)"/> or <see cref="E_CILLogical.LoadModule(CILReflectionContext,System.IO.Stream, EmittingArguments)"/> methods, respectively, any access causing additional load of assemblies is triggered via this event, if the assembly loader function of the aforementioned methods is <c>null</c> or fails to load the assembly. The event handler should set the <see cref="AssemblyRefResolveFromLoadedAssemblyEventArgs.ResolvedAssembly"/> property.
       /// </summary>
       event EventHandler<AssemblyRefResolveFromLoadedAssemblyEventArgs> AssemblyReferenceResolveFromLoadedAssemblyEvent;
 
@@ -1197,8 +1197,8 @@ namespace CILAssemblyManipulator.Logical
    /// <summary>
    /// The event argument class used by <see cref="CILReflectionContext.AssemblyReferenceResolveFromLoadedAssemblyEvent"/> event.
    /// </summary>
-   /// <seealso cref="E_CIL.LoadAssembly(CILReflectionContext, System.IO.Stream, EmittingArguments)"/>
-   /// <seealso cref="E_CIL.LoadModule(CILReflectionContext,System.IO.Stream, EmittingArguments)"/>
+   /// <seealso cref="E_CILLogical.LoadAssembly(CILReflectionContext, System.IO.Stream, EmittingArguments)"/>
+   /// <seealso cref="E_CILLogical.LoadModule(CILReflectionContext,System.IO.Stream, EmittingArguments)"/>
    public sealed class AssemblyRefResolveFromLoadedAssemblyEventArgs : EventArgs
    {
       private readonly CILAssemblyName _assName;

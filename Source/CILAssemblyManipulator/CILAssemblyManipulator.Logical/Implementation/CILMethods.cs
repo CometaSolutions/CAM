@@ -422,8 +422,6 @@ namespace CILAssemblyManipulator.Logical.Implementation
 
    internal class CILConstructorImpl : CILMethodBaseImpl, CILConstructor
    {
-      internal const String STATIC_CTOR_NAME = ".cctor";
-      internal const String INSTANCE_CTOR_NAME = ".ctor";
 
       internal CILConstructorImpl(
          CILReflectionContextImpl ctx,
@@ -478,7 +476,7 @@ namespace CILAssemblyManipulator.Logical.Implementation
 
       protected override String GetThisName()
       {
-         return this.methodAttributes.Value.IsStatic() ? STATIC_CTOR_NAME : INSTANCE_CTOR_NAME;
+         return this.methodAttributes.Value.IsStatic() ? Miscellaneous.CLASS_CTOR_NAME : Miscellaneous.INSTANCE_CTOR_NAME;
       }
 
       #region CILElementOwnedByChangeableType<CILConstructor> Members
@@ -585,7 +583,7 @@ namespace CILAssemblyManipulator.Logical.Implementation
             new SettableLazy<MethodImplAttributes>( () => MethodImplAttributes.IL ),
             null,
             new SettableValueForClasses<String>( name ),
-            () => ctx.Cache.NewBlankParameter( ctx.Cache.ResolveMethodBaseID( anID ), E_CIL.RETURN_PARAMETER_POSITION, null, ParameterAttributes.None, declaringType.Module.AssociatedMSCorLibModule.GetTypeByName( Consts.VOID ) ),
+            () => ctx.Cache.NewBlankParameter( ctx.Cache.ResolveMethodBaseID( anID ), E_CILLogical.RETURN_PARAMETER_POSITION, null, ParameterAttributes.None, declaringType.Module.AssociatedMSCorLibModule.GetTypeByName( Consts.VOID ) ),
             () => ctx.CollectionsFactory.NewListProxy<CILTypeBase>(),
             () => null,
             () => ctx.CollectionsFactory.NewListProxy<CILMethod>(),

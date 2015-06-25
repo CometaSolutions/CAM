@@ -229,7 +229,7 @@ namespace CILAssemblyManipulator.Logical
    }
 }
 
-public static partial class E_CIL
+public static partial class E_CILLogical
 {
    private static readonly Regex MODULE_NAME_WITHOUT_EXTENSION_REGEX = new Regex( @"\.(dll|exe|netmodule)$", RegexOptions.IgnoreCase );
 
