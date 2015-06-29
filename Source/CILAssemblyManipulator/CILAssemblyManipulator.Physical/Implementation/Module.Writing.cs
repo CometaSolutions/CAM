@@ -113,7 +113,7 @@ namespace CILAssemblyManipulator.Physical.Implementation
          var entryPoint = headers.CLREntryPointIndex;
          if ( entryPoint.HasValue )
          {
-            clrEntryPointToken = TokenUtils.EncodeToken( entryPoint.Value.Table, entryPoint.Value.Index + 1 );
+            clrEntryPointToken = entryPoint.Value.OneBasedToken;
          }
 
 
@@ -969,7 +969,7 @@ namespace CILAssemblyManipulator.Physical.Implementation
          )
       {
          // Start by calculating the size of just IL code
-         var arraySize = methodIL.OpCodes.Sum( oci => oci.ByteSize );
+         var arraySize = methodIL.OpCodes.Sum( oci => oci.GetTotalByteCount() );
          var ilCodeByteCount = arraySize;
 
          // Then calculate the size of headers and other stuff
@@ -2338,7 +2338,7 @@ namespace CILAssemblyManipulator.Physical.Implementation
 
       internal void AddTDRSToken( TableIndex token )
       {
-         this.AddCompressedUInt32( TokenUtils.EncodeTypeDefOrRefOrSpec( token.OneBasedToken ) );
+         this.AddCompressedUInt32( TableIndex.EncodeTypeDefOrRefOrSpec( token.OneBasedToken ) );
       }
 
       internal void AddCompressedUInt32( Int32 value )

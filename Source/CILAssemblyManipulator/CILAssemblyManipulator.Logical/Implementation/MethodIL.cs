@@ -27,7 +27,6 @@ namespace CILAssemblyManipulator.Logical.Implementation
    {
       internal const Int32 NO_OFFSET = -1;
 
-      private readonly CILReflectionContextImpl context;
       private readonly CILModule _module;
       private readonly IList<Int32> _labelOffsets;
       private readonly IList<LogicalOpCodeInfo> _opCodes;
@@ -41,7 +40,6 @@ namespace CILAssemblyManipulator.Logical.Implementation
          ArgumentValidator.ValidateNotNull( "Module", module );
 
          this._module = module;
-         this.context = (CILReflectionContextImpl) module.ReflectionContext;
          this._opCodes = new List<LogicalOpCodeInfo>();
          this._labelOffsets = new List<Int32>();
          this._allExceptionBlocks = new List<ExceptionBlockInfo>();
@@ -209,7 +207,7 @@ namespace CILAssemblyManipulator.Logical.Implementation
                      .ToArray() );
                   break;
                case OperandType.InlineSig:
-                  var methodSig = (Tuple<CILMethodSignature, Tuple<CILCustomModifier[], CILTypeBase>[]>) tokenResolver( ( (OpCodeInfoWithToken) physical ).Operand.OneBasedToken, ILResolveKind.Signature );
+                  var methodSig = (Tuple<CILMethodSignature, VarArgInstance[]>) tokenResolver( ( (OpCodeInfoWithToken) physical ).Operand.OneBasedToken, ILResolveKind.Signature );
                   logical = new LogicalOpCodeInfoWithMethodSig( methodSig.Item1, methodSig.Item2 );
                   break;
                default:
@@ -234,18 +232,18 @@ namespace CILAssemblyManipulator.Logical.Implementation
                this.MarkLabel( result, codeInfoILOffsets[block.Item4 + block.Item5] );
                return result;
             } ) );
-            info._blockType = block.Item1;
-            info._tryLength = codeInfoILOffsets[block.Item2 + block.Item3] - info._tryOffset;
-            info._handlerOffset = codeInfoILOffsets[block.Item4];
-            info._handlerLength = codeInfoILOffsets[block.Item4 + block.Item5] - info._handlerOffset;
+            info.BlockType = block.Item1;
+            info.TryLength = codeInfoILOffsets[block.Item2 + block.Item3] - info.TryOffset;
+            info.HandlerOffset = codeInfoILOffsets[block.Item4];
+            info.HandlerLength = codeInfoILOffsets[block.Item4 + block.Item5] - info.HandlerOffset;
             var excType = block.Item6;
             if ( excType != null )
             {
-               info._exceptionType = excType;
+               info.ExceptionType = excType;
             }
             if ( codeInfoILOffsets.ContainsKey( block.Item7 ) )
             {
-               info._filterOffset = block.Item7;
+               info.FilterOffset = block.Item7;
             }
             this._allExceptionBlocks.Add( info );
          }
@@ -258,6 +256,11 @@ namespace CILAssemblyManipulator.Logical.Implementation
          ArgumentValidator.ValidateNotNull( "Op code info", opCodeInfo );
          this._opCodes.Add( opCodeInfo );
          return this;
+      }
+
+      public LogicalOpCodeInfo GetOpCodeInfo( Int32 index )
+      {
+         return this._opCodes[index];
       }
 
       public Int32 OpCodeCount
@@ -369,7 +372,7 @@ namespace CILAssemblyManipulator.Logical.Implementation
       internal void BeginCatchBlock( CILTypeBase exceptionType )
       {
          var info = this._currentExceptionBlocks.Peek();
-         info._exceptionType = exceptionType;
+         info.ExceptionType = exceptionType;
          info.HandlerBegun( ExceptionBlockType.Exception, this._opCodes.Count );
       }
 
@@ -381,7 +384,7 @@ namespace CILAssemblyManipulator.Logical.Implementation
       internal void EndExceptionBlock()
       {
          var info = this._currentExceptionBlocks.Pop();
-         if ( ExceptionBlockType.Finally == info._blockType || ExceptionBlockType.Fault == info._blockType )
+         if ( ExceptionBlockType.Finally == info.BlockType || ExceptionBlockType.Fault == info.BlockType )
          {
             this.Add( LogicalOpCodeInfoWithNoOperand.GetInstanceFor( OpCodeEncoding.Endfinally ) );
          }
@@ -389,7 +392,7 @@ namespace CILAssemblyManipulator.Logical.Implementation
          //{
          //   // Let the caller decide whether to leave or rethrow
          //}
-         this.MarkLabel( info._endLabel );
+         this.MarkLabel( info.EndLabel );
          info.HandlerEnded( this._opCodes.Count );
       }
 

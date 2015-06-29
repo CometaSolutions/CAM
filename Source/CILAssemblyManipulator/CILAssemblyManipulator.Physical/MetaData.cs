@@ -405,6 +405,16 @@ namespace CILAssemblyManipulator.Physical
 
    public struct TableIndex : IEquatable<TableIndex>, IComparable<TableIndex>, IComparable
    {
+      private const Int32 INDEX_MASK = 0x00FFFFF;
+
+      private const Int32 TYPE_DEF = 0;
+      private const Int32 TYPE_REF = 1;
+      private const Int32 TYPE_SPEC = 2;
+      private const Int32 TDRS_TABLE_EXTRACT_MASK = 0x3;
+      private const Int32 TYPE_DEF_MASK = ( (Byte) Tables.TypeDef ) << 24; // 0x2000000;
+      private const Int32 TYPE_REF_MASK = ( (Byte) Tables.TypeRef ) << 24; // 0x1000000;
+      private const Int32 TYPE_SPEC_MASK = ( (Byte) Tables.TypeSpec ) << 24; // 0x1B000000;
+
       private readonly Int32 _token;
 
       // index is zero-based
@@ -433,7 +443,7 @@ namespace CILAssemblyManipulator.Physical
       {
          get
          {
-            return this._token & TokenUtils.INDEX_MASK;
+            return this._token & INDEX_MASK;
          }
       }
 
@@ -449,7 +459,7 @@ namespace CILAssemblyManipulator.Physical
       {
          get
          {
-            return ( ( this._token & TokenUtils.INDEX_MASK ) + 1 ) | ( this._token & ~TokenUtils.INDEX_MASK );
+            return ( ( this._token & INDEX_MASK ) + 1 ) | ( this._token & ~INDEX_MASK );
          }
       }
 
@@ -494,7 +504,7 @@ namespace CILAssemblyManipulator.Physical
          return retVal;
       }
 
-      int IComparable.CompareTo( Object obj )
+      Int32 IComparable.CompareTo( Object obj )
       {
          if ( obj == null )
          {
@@ -550,12 +560,54 @@ namespace CILAssemblyManipulator.Physical
 
       public static TableIndex FromOneBasedToken( Int32 token )
       {
-         return new TableIndex( ( ( token & TokenUtils.INDEX_MASK ) - 1 ) | ( token & ~TokenUtils.INDEX_MASK ) );
+         return new TableIndex( ( ( token & INDEX_MASK ) - 1 ) | ( token & ~INDEX_MASK ) );
       }
 
       public static TableIndex FromZeroBasedToken( Int32 token )
       {
          return new TableIndex( token );
+      }
+
+
+
+      internal static Int32 DecodeTypeDefOrRefOrSpec( Byte[] array, ref Int32 offset )
+      {
+         var decodedValue = array.DecompressUInt32( ref offset );
+         switch ( decodedValue & TDRS_TABLE_EXTRACT_MASK )
+         {
+            case TYPE_DEF:
+               decodedValue = TYPE_DEF_MASK | ( decodedValue >> 2 );
+               break;
+            case TYPE_REF:
+               decodedValue = TYPE_REF_MASK | ( decodedValue >> 2 );
+               break;
+            case TYPE_SPEC:
+               decodedValue = TYPE_SPEC_MASK | ( decodedValue >> 2 );
+               break;
+            default:
+               throw new ArgumentException( "Token table resolved to not supported: " + (Tables) ( decodedValue & TDRS_TABLE_EXTRACT_MASK ) + "." );
+         }
+         return decodedValue;
+      }
+
+      internal static Int32 EncodeTypeDefOrRefOrSpec( Int32 token )
+      {
+         Int32 encodedValue;
+         switch ( unchecked( (UInt32) token ) >> 24 )
+         {
+            case (UInt32) Tables.TypeDef:
+               encodedValue = ( ( INDEX_MASK & token ) << 2 ) | TYPE_DEF;
+               break;
+            case (UInt32) Tables.TypeRef:
+               encodedValue = ( ( INDEX_MASK & token ) << 2 ) | TYPE_REF;
+               break;
+            case (UInt32) Tables.TypeSpec:
+               encodedValue = ( ( INDEX_MASK & token ) << 2 ) | TYPE_SPEC;
+               break;
+            default:
+               throw new ArgumentException( "Token must reference one of the following tables: " + String.Join( ", ", Tables.TypeDef, Tables.TypeRef, Tables.TypeSpec ) + "." );
+         }
+         return encodedValue;
       }
    }
 
@@ -2513,7 +2565,7 @@ public static partial class E_CILPhysical
          var il = mDef.IL;
          if ( il != null )
          {
-            var state = new StackCalculationState( md, il.OpCodes.Sum( oc => oc.ByteSize ) );
+            var state = new StackCalculationState( md, il.OpCodes.Sum( oc => oc.GetTotalByteCount() ) );
 
             // Setup exception block stack sizes
             foreach ( var block in il.ExceptionBlocks )
@@ -2534,7 +2586,7 @@ public static partial class E_CILPhysical
             foreach ( var codeInfo in il.OpCodes )
             {
                state.CurrentCodeByteOffset += codeInfo.OpCode.Size;
-               state.NextCodeByteOffset += codeInfo.ByteSize;
+               state.NextCodeByteOffset += codeInfo.GetTotalByteCount();
                UpdateStackSize( state, codeInfo );
             }
 

@@ -1350,7 +1350,7 @@ namespace CILAssemblyManipulator.Physical.Implementation
             opCodes.Add( OpCodeInfo.ReadFromStream(
                stream,
                tmpArray,
-               strToken => userStrings.GetString( strToken & TokenUtils.INDEX_MASK ),
+               strToken => userStrings.GetString( TableIndex.FromZeroBasedToken( strToken ).Index ),
                out bytesRead )
                );
             current += bytesRead;

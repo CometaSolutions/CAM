@@ -294,6 +294,65 @@ public static partial class E_CILLogical
       }
    }
 
+   private sealed class PhysicalILCreationState
+   {
+      private readonly PhysicalCreationState _moduleState;
+      private readonly MethodIL _logicalIL;
+      private readonly MethodILDefinition _physicalIL;
+      private readonly Int32[] _opCodeInfoByteOffsets;
+      private readonly IDictionary<Int32, LogicalOpCodeInfoForBranchingControlFlow> _dynamicOpCodeInfos;
+
+      internal PhysicalILCreationState( PhysicalCreationState moduleState, MethodIL logicalIL, MethodILDefinition physicalIL )
+      {
+         this._moduleState = moduleState;
+         this._logicalIL = logicalIL;
+         this._physicalIL = physicalIL;
+         this._opCodeInfoByteOffsets = new Int32[logicalIL.OpCodeCount];
+         this._dynamicOpCodeInfos = new Dictionary<Int32, LogicalOpCodeInfoForBranchingControlFlow>();
+      }
+
+      public PhysicalCreationState ModuleState
+      {
+         get
+         {
+            return this._moduleState;
+         }
+      }
+
+      public MethodIL LogicalIL
+      {
+         get
+         {
+            return this._logicalIL;
+         }
+      }
+
+      public MethodILDefinition PhysicalIL
+      {
+         get
+         {
+            return this._physicalIL;
+         }
+      }
+
+      public Int32[] OpCodeInfoByteOffsets
+      {
+         get
+         {
+            return this._opCodeInfoByteOffsets;
+         }
+      }
+
+      public IDictionary<Int32, LogicalOpCodeInfoForBranchingControlFlow> DynamicOpCodeInfos
+      {
+         get
+         {
+            return this._dynamicOpCodeInfos;
+         }
+      }
+
+   }
+
    public static CILMetaData CreatePhysicalRepresentation( this CILModule module )
    {
       var retVal = CILMetaDataFactory.NewBlankMetaData();
@@ -441,13 +500,17 @@ public static partial class E_CILLogical
             mDef.Signature = state.CreateMethodDefSignature( method );
             if ( method.HasILMethodBody() )
             {
-               mDef.IL = state.ProcessLogicalForPhysical( method.MethodIL );
+               mDef.IL = state.ProcessLogicalForPhysical( method.MethodIL, state.GetMethodDefOrMemberRefOrMethodSpec( method ).Index );
             }
          }
       }
    }
 
-   private static MethodILDefinition ProcessLogicalForPhysical( this PhysicalCreationState state, MethodIL logicalIL )
+   private static MethodILDefinition ProcessLogicalForPhysical(
+      this PhysicalCreationState state,
+      MethodIL logicalIL,
+      Int32 methodDefIndex
+      )
    {
       var physicalIL = new MethodILDefinition( logicalIL.ExceptionBlocks.Count(), logicalIL.OpCodeCount )
       {
@@ -455,13 +518,16 @@ public static partial class E_CILLogical
          LocalsSignatureIndex = state.GetLocalsIndex( logicalIL )
       };
 
-      var logicalToByteOffset = new Int32[logicalIL.OpCodeCount];
+      var ilState = new PhysicalILCreationState( state, logicalIL, physicalIL );
+      var byteOffsets = ilState.OpCodeInfoByteOffsets;
+      var dynamicBranchInfos = ilState.DynamicOpCodeInfos;
       var pOpCodes = physicalIL.OpCodes;
       var branchCodeIndices = new List<Int32>();
-      var dynamicBranchInfos = new Dictionary<Int32, Tuple<OpCode, OpCode>>();
 
-      foreach ( var lOpCode in logicalIL.OpCodeInfos )
+      var curByteOffset = 0;
+      for ( var i = 0; i < logicalIL.OpCodeCount; ++i )
       {
+         var lOpCode = logicalIL.GetOpCodeInfo( i );
          OpCodeInfo pOpCode;
          switch ( lOpCode.InfoKind )
          {
@@ -518,8 +584,8 @@ public static partial class E_CILLogical
                break;
             case OpCodeInfoKind.Branch:
                var bl = (LogicalOpCodeInfoForBranch) lOpCode;
-               pOpCode = new OpCodeInfoWithInt32( bl.ShortForm, logicalIL.GetLabelOffset( bl.TargetLabel ) );
-               dynamicBranchInfos.Add( pOpCodes.Count, Tuple.Create( bl.ShortForm, bl.LongForm ) );
+               pOpCode = new OpCodeInfoWithInt32( bl.LongForm, logicalIL.GetLabelOffset( bl.TargetLabel ) );
+               dynamicBranchInfos.Add( pOpCodes.Count, bl );
                branchCodeIndices.Add( pOpCodes.Count );
                break;
             case OpCodeInfoKind.Switch:
@@ -531,8 +597,8 @@ public static partial class E_CILLogical
                break;
             case OpCodeInfoKind.Leave:
                var ll = (LogicalOpCodeInfoForLeave) lOpCode;
-               pOpCode = new OpCodeInfoWithInt32( ll.ShortForm, logicalIL.GetLabelOffset( ll.TargetLabel ) );
-               dynamicBranchInfos.Add( pOpCodes.Count, Tuple.Create( ll.ShortForm, ll.LongForm ) );
+               pOpCode = new OpCodeInfoWithInt32( ll.LongForm, logicalIL.GetLabelOffset( ll.TargetLabel ) );
+               dynamicBranchInfos.Add( pOpCodes.Count, ll );
                branchCodeIndices.Add( pOpCodes.Count );
                break;
             case OpCodeInfoKind.BranchOrLeaveFixed:
@@ -545,13 +611,154 @@ public static partial class E_CILLogical
          }
 
          pOpCodes.Add( pOpCode );
+
+         byteOffsets[i] = curByteOffset;
+         curByteOffset += pOpCode.GetTotalByteCount();
       }
 
       // First, walk through each dynamic branch code and decide between short and long notation
+      foreach ( var kvp in ilState.DynamicOpCodeInfos.OrderBy( t => t.Key ) )
+      {
+         var dynIdx = kvp.Key;
+         var max = ilState.GetMaxOffsetForLabel( dynIdx, byteOffsets[dynIdx] );
+         if ( max <= SByte.MaxValue )
+         {
+            // We can use short form - update op code and following byte offsets
+            var logical = kvp.Value;
+            var shortForm = logical.ShortForm;
+            // Use same operand, as it is absolute offset
+            pOpCodes[dynIdx] = new OpCodeInfoWithInt32( shortForm, ( (OpCodeInfoWithInt32) pOpCodes[dynIdx] ).Operand );
+            // Byte delta currently will always be 3
+            var byteDelta = logical.LongForm.GetTotalByteCount() - shortForm.GetTotalByteCount();
+            for ( var i = dynIdx + 1; i < byteOffsets.Length; ++i )
+            {
+               byteOffsets[i] -= byteDelta;
+            }
+         }
+      }
 
-      // Then, walk through each branch code and fix logical offset -> physical offset
+      // Then, walk through each branch code and fix logical absolute offset -> physical relative offset
+      foreach ( var i in branchCodeIndices )
+      {
+         var codeInfo = pOpCodes[i];
+         if ( codeInfo.InfoKind == OpCodeOperandKind.OperandSwitch )
+         {
+            var switchInfo = (OpCodeInfoWithSwitch) codeInfo;
+            var switchByteCount = switchInfo.GetTotalByteCount();
+            var targetList = switchInfo.Offsets;
+            for ( var j = 0; j < targetList.Count; ++j )
+            {
+               targetList[j] = ilState.TransformLogicalOffsetToPhysicalOffset( i, switchByteCount, targetList[j] );
+            }
+         }
+         else
+         {
+            var codeInfoBranch = (OpCodeInfoWithInt32) codeInfo;
+            var physicalOffset = ilState.TransformLogicalOffsetToPhysicalOffset( i, codeInfo.OpCode.GetTotalByteCount(), codeInfoBranch.Operand );
+
+            if ( codeInfoBranch.OpCode.OperandType == OperandType.ShortInlineBrTarget
+               && ( physicalOffset < SByte.MinValue
+                  || physicalOffset > SByte.MaxValue )
+               )
+            {
+               throw new InvalidOperationException( "Tried to use one-byte branch instruction for offset of amount " + physicalOffset + "." );
+            }
+            else
+            {
+               codeInfoBranch.Operand = physicalOffset;
+            }
+         }
+      }
+
+      // Create exception block infos, and place them in correct order
+      physicalIL.ExceptionBlocks.AddRange( logicalIL.ExceptionBlocks.Select( e => ilState.TransformLogicalExceptionBlockToPhysicalExceptionBlock( e ) ) );
+      physicalIL.SortExceptionBlocks();
+
+      // Finally, calculate max stack size
+      physicalIL.MaxStackSize = state.MetaData.CalculateStackSize( methodDefIndex );
 
       return physicalIL;
+   }
+
+   private static Int32 TransformLogicalOffsetToPhysicalOffset(
+      this PhysicalILCreationState state,
+      Int32 currentLogicalOffset,
+      Int32 currentCodeByteCount,
+      Int32 targetLogicalOffset
+      )
+   {
+      return state.OpCodeInfoByteOffsets[targetLogicalOffset] - ( state.OpCodeInfoByteOffsets[currentLogicalOffset] + currentCodeByteCount );
+   }
+
+   private static MethodExceptionBlock TransformLogicalExceptionBlockToPhysicalExceptionBlock(
+      this PhysicalILCreationState state,
+      ExceptionBlockInfo block
+      )
+   {
+      var retVal = new MethodExceptionBlock()
+      {
+         BlockType = block.BlockType,
+         ExceptionType = block.ExceptionType == null ? (TableIndex?) null : state.ModuleState.GetTypeDefOrRefOrSpec( block.ExceptionType, true ),
+         FilterOffset = state.OpCodeInfoByteOffsets[block.FilterOffset],
+         HandlerOffset = state.OpCodeInfoByteOffsets[block.HandlerOffset],
+         TryOffset = state.OpCodeInfoByteOffsets[block.TryOffset]
+      };
+      retVal.HandlerLength = state.OpCodeInfoByteOffsets[block.HandlerOffset + block.HandlerLength] - retVal.HandlerOffset;
+      retVal.TryLength = state.OpCodeInfoByteOffsets[block.TryOffset + block.TryLength] - retVal.TryOffset;
+      return retVal;
+   }
+
+   private static Int32 GetMaxOffsetForLabel(
+      this PhysicalILCreationState state,
+      Int32 currentOpCodeIndex,
+      Int32 currentByteCount,
+      Boolean optimize = true
+      )
+   {
+      var info = (OpCodeInfoWithInt32) state.PhysicalIL.OpCodes[currentOpCodeIndex];
+      var currentLabelOffset = info.Operand;
+      Int32 max;
+      if ( currentLabelOffset <= currentOpCodeIndex )
+      {
+         // Branching backwards into already processed part - just calculate the jump
+         // from this offset + byte count for short form (currently will be always 2)
+         // to target
+         max = currentByteCount + state.DynamicOpCodeInfos[currentOpCodeIndex].ShortForm.GetTotalByteCount() - state.OpCodeInfoByteOffsets[currentLabelOffset];
+      }
+      else if ( optimize )
+      {
+         // Branching forwards, and we need to calculate optimized amount of bytes to jump
+         // Recursively check each dynamic jump instruction
+         max = 0;
+         var physicalCodes = state.PhysicalIL.OpCodes;
+         currentByteCount += info.GetTotalByteCount();
+         for ( var i = currentOpCodeIndex + 1; i < physicalCodes.Count; ++i )
+         {
+            var curInfo = physicalCodes[i];
+            Int32 curByteSize;
+            LogicalOpCodeInfoForBranchingControlFlow dynamicOpCodeInfo;
+            if ( optimize && state.DynamicOpCodeInfos.TryGetValue( i, out dynamicOpCodeInfo ) )
+            {
+               var max2 = state.GetMaxOffsetForLabel( i, currentByteCount, false );
+               var suitableCode = max2 <= SByte.MaxValue ? dynamicOpCodeInfo.ShortForm : dynamicOpCodeInfo.LongForm;
+               curByteSize = suitableCode.GetTotalByteCount();
+            }
+            else
+            {
+               curByteSize = curInfo.GetTotalByteCount();
+            }
+
+            max += curByteSize;
+            currentByteCount += curByteSize;
+         }
+      }
+      else
+      {
+         // Branching forwards, and no need to calculate optimized amount of bytes to jump
+         // Just calculate the pessimistic amount (since we always set long form for dynamic op code infos, current info will be pessimistic variant)
+         max = currentByteCount + info.GetTotalByteCount() + state.OpCodeInfoByteOffsets[currentLabelOffset];
+      }
+      return max;
    }
 
    private static FieldSignature CreateFieldSignature( this PhysicalCreationState state, CILField field )

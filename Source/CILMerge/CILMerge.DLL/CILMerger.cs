@@ -2629,7 +2629,7 @@ namespace CILMerge
       {
          String typeName, assemblyName;
          CILMetaData moduleHoldingType;
-         if ( typeString.ParseFullTypeString( out typeName, out assemblyName ) )
+         if ( typeString.ParseAssemblyQualifiedTypeString( out typeName, out assemblyName ) )
          {
             AssemblyInformation aInfo; Boolean isFullPublicKey;
             if ( AssemblyInformation.TryParse( assemblyName, out aInfo, out isFullPublicKey ) )

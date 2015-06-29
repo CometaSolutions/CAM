@@ -1,4 +1,5 @@
-﻿/*
+﻿using CILAssemblyManipulator.Physical;
+/*
  * Copyright 2013 Stanislav Muhametsin. All rights Reserved.
  *
  * Licensed  under the  Apache License,  Version 2.0  (the "License");
@@ -87,12 +88,11 @@ namespace CILAssemblyManipulator.Physical
 
       public abstract OpCodeOperandKind InfoKind { get; }
 
-      // Returns code size + operand size
-      public virtual Int32 ByteSize
+      public virtual Int32 OperandByteSize
       {
          get
          {
-            return this._code.Size + this._code.OperandSize;
+            return this._code.OperandSize;
          }
       }
 
@@ -307,6 +307,14 @@ namespace CILAssemblyManipulator.Physical
          }
       }
 
+      public override Int32 OperandByteSize
+      {
+         get
+         {
+            return 0;
+         }
+      }
+
       public static OpCodeInfoWithNoOperand GetInstanceFor( OpCodeEncoding encoded )
       {
          OpCodeInfoWithNoOperand retVal;
@@ -394,11 +402,11 @@ namespace CILAssemblyManipulator.Physical
          }
       }
 
-      public override Int32 ByteSize
+      public override Int32 OperandByteSize
       {
          get
          {
-            return base.ByteSize + this._offsets.Count * sizeof( Int32 );
+            return base.OperandByteSize + this._offsets.Count * sizeof( Int32 );
          }
       }
    }
@@ -438,5 +446,23 @@ namespace CILAssemblyManipulator.Physical
       OperandString,
       /// <summary>The operand is the 32-bit integer argument to a switch instruction.</summary>
       OperandSwitch,
+   }
+}
+
+public static partial class E_CILPhysical
+{
+   public static Int32 GetTotalByteCount( this OpCodeInfo info )
+   {
+      return info.OpCode.Size + info.OperandByteSize;
+   }
+
+   public static void SortExceptionBlocks( this MethodILDefinition il )
+   {
+      il.ExceptionBlocks.Sort( ( x, y ) =>
+      {
+         // Return -1 if item1 is inner block of item2, 0 if they are same, 1 if item1 is not inner block of item2
+         return Object.ReferenceEquals( x, y ) ? 0 :
+            ( x.TryOffset >= y.HandlerOffset + y.HandlerLength || ( x.TryOffset <= y.TryOffset && x.HandlerOffset + x.HandlerLength > y.HandlerOffset + y.HandlerLength ) ? 1 : -1 );
+      } );
    }
 }

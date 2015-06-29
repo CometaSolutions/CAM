@@ -496,7 +496,7 @@ namespace CILAssemblyManipulator.Physical
             ++idx;
             retVal = new CustomModifierSignature()
             {
-               CustomModifierType = TableIndex.FromOneBasedToken( TokenUtils.DecodeTypeDefOrRefOrSpec( sig, ref idx ) ),
+               CustomModifierType = TableIndex.FromOneBasedToken( TableIndex.DecodeTypeDefOrRefOrSpec( sig, ref idx ) ),
                IsOptional = curByte == (Byte) SignatureElementTypes.CModOpt
             };
          }
@@ -600,7 +600,7 @@ namespace CILAssemblyManipulator.Physical
                {
                   elementType = (SignatureElementTypes) sig[idx++];
                }
-               actualType = TableIndex.FromOneBasedToken( TokenUtils.DecodeTypeDefOrRefOrSpec( sig, ref idx ) );
+               actualType = TableIndex.FromOneBasedToken( TableIndex.DecodeTypeDefOrRefOrSpec( sig, ref idx ) );
                auxiliary = isGeneric ? sig.DecompressUInt32( ref idx ) : 0;
                var classOrValue = new ClassOrValueTypeSignature( auxiliary )
                {

@@ -1,4 +1,5 @@
-﻿/*
+﻿using CILAssemblyManipulator.Physical;
+/*
  * Copyright 2013 Stanislav Muhametsin. All rights Reserved.
  *
  * Licensed  under the  Apache License,  Version 2.0  (the "License");
@@ -1455,7 +1456,7 @@ namespace CILAssemblyManipulator.Physical
          }
       }
 
-      internal Int32 OperandSize
+      public Int32 OperandSize
       {
          get
          {
@@ -2580,5 +2581,18 @@ namespace CILAssemblyManipulator.Physical
       Varpop,
       /// <summary>Pops a reference off the stack for the first operand, a value off the stack for the second operand, and a 32-bit integer off the stack for the third operand.</summary>
       Popref_popi_pop1
+   }
+}
+
+public static partial class E_CILPhysical
+{
+   /// <summary>
+   /// Note: Switch instruction has dynamic byte count.
+   /// </summary>
+   /// <param name="code"></param>
+   /// <returns></returns>
+   public static Int32 GetTotalByteCount( this OpCode code )
+   {
+      return code.Size + code.OperandSize;
    }
 }

@@ -46,6 +46,14 @@ namespace CILAssemblyManipulator.Logical
       MethodIL Add( LogicalOpCodeInfo opCodeInfo );
 
       /// <summary>
+      /// Gets the op code info at specified index in the list of <see cref="LogicalOpCodeInfo"/>s of this method body.
+      /// </summary>
+      /// <param name="index">The index of the op code info.</param>
+      /// <returns><see cref="LogicalOpCodeInfo"/> at specified index.</returns>
+      /// <exception cref="ArgumentOutOfRangeException">If index is too big.</exception>
+      LogicalOpCodeInfo GetOpCodeInfo( Int32 index );
+
+      /// <summary>
       /// Gets the amount of <see cref="LogicalOpCodeInfo"/>s in this method body.
       /// </summary>
       /// <value>The amount of <see cref="LogicalOpCodeInfo"/>s in this method body.</value>
@@ -291,14 +299,14 @@ namespace CILAssemblyManipulator.Logical
    /// </summary>
    public sealed class ExceptionBlockInfo
    {
-      internal readonly ILLabel _endLabel;
-      internal readonly Int32 _tryOffset;
-      internal Int32 _tryLength;
-      internal Int32 _handlerOffset;
-      internal Int32 _handlerLength;
-      internal CILTypeBase _exceptionType;
-      internal Int32 _filterOffset;
-      internal ExceptionBlockType _blockType;
+      private readonly ILLabel _endLabel;
+      private readonly Int32 _tryOffset;
+      private Int32 _tryLength;
+      private Int32 _handlerOffset;
+      private Int32 _handlerLength;
+      private CILTypeBase _exceptionType;
+      private Int32 _filterOffset;
+      private ExceptionBlockType _blockType;
 
       /// <summary>
       /// Creates a new instance of <see cref="ExceptionBlockInfo"/> with specified values.
@@ -410,6 +418,10 @@ namespace CILAssemblyManipulator.Logical
          {
             return this._tryLength;
          }
+         internal set
+         {
+            this._tryLength = value;
+         }
       }
 
       /// <summary>
@@ -421,6 +433,10 @@ namespace CILAssemblyManipulator.Logical
          get
          {
             return this._handlerOffset;
+         }
+         internal set
+         {
+            this._handlerOffset = value;
          }
       }
 
@@ -434,6 +450,10 @@ namespace CILAssemblyManipulator.Logical
          {
             return this._handlerLength;
          }
+         internal set
+         {
+            this._handlerLength = value;
+         }
       }
 
       /// <summary>
@@ -446,31 +466,11 @@ namespace CILAssemblyManipulator.Logical
          {
             return this._filterOffset;
          }
+         internal set
+         {
+            this._filterOffset = value;
+         }
       }
-   }
-
-   /// <summary>
-   /// This enumeration contains all values for possible exception block types of IL.
-   /// </summary>
-   /// <remarks>This enumeration is used in event argument class of <see cref="CILReflectionContext.MethodBodyLoadEvent"/>: <see cref="MethodBodyLoadArgs.ExceptionInfos"/>.</remarks>
-   public enum ExceptionBlockType
-   {
-      /// <summary>
-      /// The exception block type is try-catch statement.
-      /// </summary>
-      Exception = 0x0000,
-      /// <summary>
-      /// The exception block type is filter clause.
-      /// </summary>
-      Filter = 0x0001,
-      /// <summary>
-      /// The exception block type is try-finally statement.
-      /// </summary>
-      Finally = 0x0002,
-      /// <summary>
-      /// The exception block type is fault.
-      /// </summary>
-      Fault = 0x0004
    }
 
    /// <summary>
