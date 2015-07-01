@@ -707,7 +707,7 @@ namespace CILAssemblyManipulator.Physical.Implementation
                   ReadTable( retVal.ClassLayouts, tableSizes, i =>
                      new ClassLayout()
                      {
-                        PackingSize = stream.ReadI16( tmpArray ),
+                        PackingSize = stream.ReadU16( tmpArray ),
                         ClassSize = stream.ReadI32( tmpArray ),
                         Parent = MetaDataConstants.ReadSimpleTableIndex( stream, Tables.TypeDef, tableSizes, tmpArray )
                      } );
@@ -896,7 +896,7 @@ namespace CILAssemblyManipulator.Physical.Implementation
                   ReadTable( retVal.GenericParameterDefinitions, tableSizes, i =>
                      new GenericParameterDefinition()
                      {
-                        GenericParameterIndex = stream.ReadI16( tmpArray ),
+                        GenericParameterIndex = stream.ReadU16( tmpArray ),
                         Attributes = (GenericParameterAttributes) stream.ReadU16( tmpArray ),
                         Owner = MetaDataConstants.ReadCodedTableIndex( stream, CodedTableIndexKind.TypeOrMethodDef, tRefSizes, tmpArray ).Value,
                         Name = sysStrings.ReadSysString( stream )

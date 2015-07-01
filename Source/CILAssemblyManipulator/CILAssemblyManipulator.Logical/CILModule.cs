@@ -75,11 +75,30 @@ namespace CILAssemblyManipulator.Logical
       /// Gets the manifest resource information of this module.
       /// </summary>
       /// <value>The manifest resource information of this module.</value>
-      IDictionary<String, ManifestResource> ManifestResources { get; }
+      IDictionary<String, AbstractLogicalManifestResource> ManifestResources { get; }
    }
 
    /// <summary>
-   /// This class is common base type for <see cref="ModuleManifestResource"/> and <see cref="EmbeddedManifestResource"/>.
+   /// This enumeration describes what kind of manifest resource the <see cref="AbstractLogicalManifestResource"/> actually is.
+   /// </summary>
+   public enum ManifestResourceKind
+   {
+      /// <summary>
+      /// This manifest resource is <see cref="EmbeddedManifestResource"/>.
+      /// </summary>
+      Embedded,
+      /// <summary>
+      /// This manifest resource is <see cref="FileManifestResource"/>.
+      /// </summary>
+      AnotherFile,
+      /// <summary>
+      /// This manifest resource is <see cref="AssemblyManifestResource"/>.
+      /// </summary>
+      AnotherAssembly
+   }
+
+   /// <summary>
+   /// This class is common base type for <see cref="AssemblyManifestResource"/> and <see cref="EmbeddedManifestResource"/>.
    /// </summary>
    public abstract class AbstractLogicalManifestResource
    {
@@ -105,43 +124,58 @@ namespace CILAssemblyManipulator.Logical
             this._attributes = value;
          }
       }
+
+      /// <summary>
+      /// Returns enumeration telling what kind of manifest resource this is.
+      /// </summary>
+      /// <value>The enumeration telling what kind of manifest resource this is.</value>
+      /// <seealso cref="ManifestResourceKind"/>
+      public abstract ManifestResourceKind ManifestResourceKind { get; }
    }
 
    /// <summary>
    /// This class represents a manifest resource which is other module.
    /// </summary>
-   public sealed class ModuleManifestResource : AbstractLogicalManifestResource
+   public sealed class AssemblyManifestResource : AbstractLogicalManifestResource
    {
-      private readonly Lazy<CILModule> _module;
+      private readonly Lazy<CILAssembly> _assembly;
 
       /// <summary>
-      /// Creates new instance of <see cref="ModuleManifestResource"/>.
+      /// Creates new instance of <see cref="AssemblyManifestResource"/>.
       /// </summary>
       /// <param name="attributes">The <see cref="ManifestResourceAttributes"/> associated with this manifest resource.</param>
-      /// <param name="module">The module which acts as manifest resource.</param>
-      /// <exception cref="ArgumentNullException">If <paramref name="module"/> is <c>null</c>.</exception>
-      public ModuleManifestResource( ManifestResourceAttributes attributes, CILModule module )
+      /// <param name="assembly">The module which acts as manifest resource.</param>
+      /// <exception cref="ArgumentNullException">If <paramref name="assembly"/> is <c>null</c>.</exception>
+      public AssemblyManifestResource( ManifestResourceAttributes attributes, CILAssembly assembly )
          : base( attributes )
       {
-         ArgumentValidator.ValidateNotNull( "Module", module );
-         this._module = new Lazy<CILModule>( () => module, System.Threading.LazyThreadSafetyMode.ExecutionAndPublication ); ;
+         ArgumentValidator.ValidateNotNull( "Module", assembly );
+         this._assembly = new Lazy<CILAssembly>( () => assembly, System.Threading.LazyThreadSafetyMode.ExecutionAndPublication ); ;
       }
 
-      internal ModuleManifestResource( ManifestResourceAttributes attributes, Func<CILModule> module )
+      internal AssemblyManifestResource( ManifestResourceAttributes attributes, Func<CILAssembly> assembly )
          : base( attributes )
       {
-         this._module = new Lazy<CILModule>( module, System.Threading.LazyThreadSafetyMode.ExecutionAndPublication );
+         this._assembly = new Lazy<CILAssembly>( assembly, System.Threading.LazyThreadSafetyMode.ExecutionAndPublication );
       }
 
       /// <summary>
       /// Gets the module that acts as manifest resource.
       /// </summary>
       /// <value>The module that acts as manifest resource.</value>
-      public CILModule Module
+      public CILAssembly Assembly
       {
          get
          {
-            return this._module.Value;
+            return this._assembly.Value;
+         }
+      }
+
+      public override ManifestResourceKind ManifestResourceKind
+      {
+         get
+         {
+            return Logical.ManifestResourceKind.AnotherAssembly;
          }
       }
    }
@@ -196,6 +230,14 @@ namespace CILAssemblyManipulator.Logical
             return this._hash;
          }
       }
+
+      public override ManifestResourceKind ManifestResourceKind
+      {
+         get
+         {
+            return ManifestResourceKind.AnotherFile;
+         }
+      }
    }
    /// <summary>
    /// This class represents a manifest resource which will be embeddeed into the module when it is emitted.
@@ -224,6 +266,14 @@ namespace CILAssemblyManipulator.Logical
          get
          {
             return this._data;
+         }
+      }
+
+      public override ManifestResourceKind ManifestResourceKind
+      {
+         get
+         {
+            return ManifestResourceKind.Embedded;
          }
       }
    }
@@ -290,4 +340,22 @@ public static partial class E_CILLogical
    //   new ModuleWriter( module )
    //      .PerformEmitting( stream, emittingArgs );
    //}
+
+   /// <summary>
+   /// Returns enumerable of all types defined in this module, including module initializer type, and recursively all nested types.
+   /// </summary>
+   /// <param name="module">The module.</param>
+   /// <returns>An enumerable of all types defined in this module. Will be empty if <paramref name="module"/> is <c>null</c>.</returns>
+   public static IEnumerable<CILType> GetAllTypes( this CILModule module )
+   {
+      if ( module != null )
+      {
+         yield return module.ModuleInitializer;
+
+         foreach ( var type in module.DefinedTypes.SelectMany( t => t.AsDepthFirstEnumerable( tt => tt.DeclaredNestedTypes ) ) )
+         {
+            yield return type;
+         }
+      }
+   }
 }

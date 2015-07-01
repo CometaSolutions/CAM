@@ -1331,7 +1331,7 @@ namespace CILAssemblyManipulator.Physical.Implementation
             );
          // ECMA-335 p. 215
          ForEachElement( md.ClassLayouts, tableWidths, sink, byteArrayHelper, ( array, idx, listIdx, cl ) => array
-            .WriteInt16LEToBytes( ref idx, cl.PackingSize ) // PackingSize
+            .WriteUInt16LEToBytes( ref idx, (UInt16) cl.PackingSize ) // PackingSize
             .WriteInt32LEToBytes( ref idx, cl.ClassSize ) // ClassSize
             .WriteSimpleTableIndex( ref idx, cl.Parent, tableSizes ) // Parent
             );

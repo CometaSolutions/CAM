@@ -363,7 +363,7 @@ namespace CILMerge
       FailedToMapPDBType,
       VariableTypeGenericParameterCount,
       NoTargetFrameworkSpecified,
-      UnresolvableMemberReferenceToAnotherInputModule,
+      //UnresolvableMemberReferenceToAnotherInputModule,
       //ErrorMatchingMemberReferenceSignature
    }
 
@@ -1613,10 +1613,16 @@ namespace CILMerge
                   {
                      case SignatureKind.Field:
                         // Match simply by name
+                        // TODO maybe match also field signature as well?
                         targetMRefTable = Tables.Field;
                         targetMRefIndex = this._targetModule
                            .GetTypeFieldIndices( targetDeclaringType.Index )
-                           .Where( fi => String.Equals( mRefName, this._targetModule.FieldDefinitions.TableContents[fi].Name ) )
+                           .Where( fi =>
+                           {
+                              var fDef = this._targetModule.FieldDefinitions.TableContents[fi];
+                              return !fDef.Attributes.IsCompilerControlled()
+                                 && String.Equals( mRefName, fDef.Name );
+                           } )
                            .FirstOrDefaultCustom( -1 );
                         break;
                      case SignatureKind.MethodReference:
@@ -1626,7 +1632,13 @@ namespace CILMerge
                         var moduleContainingMethodDef = moduleContainingMethodDefInfo.Item1;
                         var methodDefContainingTypeIndex = this._inputModuleTypeNamesInInputModule[moduleContainingMethodDef][moduleContainingMethodDefInfo.Item2];
                         targetMRefIndex = moduleContainingMethodDef.GetTypeMethodIndices( methodDefContainingTypeIndex )
-                           .Where( mi => String.Equals( mRefName, moduleContainingMethodDef.MethodDefinitions.TableContents[mi].Name ) && this.MatchTargetMethodSignatureToMemberRefMethodSignature( moduleContainingMethodDef, md, moduleContainingMethodDef.MethodDefinitions.TableContents[mi].Signature, (MethodReferenceSignature) mRef.Signature ) )
+                           .Where( mi =>
+                           {
+                              var mDef = moduleContainingMethodDef.MethodDefinitions.TableContents[mi];
+                              return !mDef.Attributes.IsCompilerControlled()
+                                 && String.Equals( mRefName, mDef.Name )
+                                 && this.MatchTargetMethodSignatureToMemberRefMethodSignature( moduleContainingMethodDef, md, mDef.Signature, (MethodReferenceSignature) mRef.Signature );
+                           } )
                            .FirstOrDefaultCustom( -1 );
                         if ( targetMRefIndex >= 0 )
                         {
@@ -1642,10 +1654,13 @@ namespace CILMerge
 
                   if ( targetMRefIndex == -1 )
                   {
-                     throw this.NewCILMergeException( ExitCode.UnresolvableMemberReferenceToAnotherInputModule, "Unresolvable member reference in module " + this._moduleLoader.GetResourceFor( md ) + " at index " + inputIdx.Index + " to another input module" );
+                     this.Log( MessageLevel.Warning, "Unresolvable member reference in module " + this._moduleLoader.GetResourceFor( md ) + " at zero-based index " + inputIdx.Index + " to another input module." );
+                     isActuallyInTargetModule = false;
                   }
-
-                  thisMappings.Add( inputIdx, new TableIndex( targetMRefTable, targetMRefIndex ) );
+                  else
+                  {
+                     thisMappings.Add( inputIdx, new TableIndex( targetMRefTable, targetMRefIndex ) );
+                  }
                }
 
                return !isActuallyInTargetModule;

@@ -37,7 +37,7 @@ namespace CILAssemblyManipulator.Logical.Implementation
       private readonly Lazy<CILType> moduleInitializer;
       private readonly SettableLazy<CILModule> associatedMSCorLib;
       private readonly ConcurrentDictionary<String, CILType> typeNameCache;
-      private readonly IDictionary<String, ManifestResource> manifestResources;
+      private readonly IDictionary<String, AbstractLogicalManifestResource> manifestResources;
 
       internal CILModuleImpl( CILReflectionContextImpl ctx, Int32 anID, System.Reflection.Module mod )
          : base( ctx, anID, CILElementKind.Module, () => new CustomAttributeDataEventArgs( ctx, mod ) )
@@ -88,7 +88,7 @@ namespace CILAssemblyManipulator.Logical.Implementation
             );
       }
 
-      internal CILModuleImpl( CILReflectionContextImpl ctx, Int32 anID, LazyWithLock<ListProxy<CILCustomAttribute>> cAttrs, Func<CILAssembly> ass, String name, Func<CILType> moduleInitializerFunc, Func<ListProxy<CILType>> definedTypes, Func<CILModule> associatedMSCorLibFunc, IDictionary<String, ManifestResource> mResources )
+      internal CILModuleImpl( CILReflectionContextImpl ctx, Int32 anID, LazyWithLock<ListProxy<CILCustomAttribute>> cAttrs, Func<CILAssembly> ass, String name, Func<CILType> moduleInitializerFunc, Func<ListProxy<CILType>> definedTypes, Func<CILModule> associatedMSCorLibFunc, IDictionary<String, AbstractLogicalManifestResource> mResources )
          : base( ctx, CILElementKind.Module, anID, cAttrs )
       {
          InitFields(
@@ -116,13 +116,13 @@ namespace CILAssemblyManipulator.Logical.Implementation
          ref Lazy<CILType> moduleInitializer,
          ref SettableLazy<CILModule> associatedMSCorLib,
          ref ConcurrentDictionary<String, CILType> typeNameCache,
-         ref IDictionary<String, ManifestResource> manifestResources,
+         ref IDictionary<String, AbstractLogicalManifestResource> manifestResources,
          String aName,
          Func<CILAssembly> assemblyFunc,
          Func<ListProxy<CILType>> typesFunc,
          Func<CILType> moduleInitializerFunc,
          Func<CILModule> associatedMSCorLibFunc,
-         IDictionary<String, ManifestResource> mResources,
+         IDictionary<String, AbstractLogicalManifestResource> mResources,
          CILModuleImpl me
          )
       {
@@ -132,7 +132,7 @@ namespace CILAssemblyManipulator.Logical.Implementation
          moduleInitializer = new Lazy<CILType>( moduleInitializerFunc, LazyThreadSafetyMode.ExecutionAndPublication );
          associatedMSCorLib = new SettableLazy<CILModule>( associatedMSCorLibFunc );
          typeNameCache = new ConcurrentDictionary<String, CILType>();
-         manifestResources = mResources ?? new Dictionary<String, ManifestResource>();
+         manifestResources = mResources ?? new Dictionary<String, AbstractLogicalManifestResource>();
       }
 
       private CILType BuildModuleInitializerType()
@@ -267,7 +267,7 @@ namespace CILAssemblyManipulator.Logical.Implementation
          return result;
       }
 
-      public IDictionary<String, ManifestResource> ManifestResources
+      public IDictionary<String, AbstractLogicalManifestResource> ManifestResources
       {
          get
          {

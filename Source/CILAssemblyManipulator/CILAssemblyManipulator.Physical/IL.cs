@@ -460,7 +460,7 @@ public static partial class E_CILPhysical
    {
       il.ExceptionBlocks.Sort( ( x, y ) =>
       {
-         // Return -1 if item1 is inner block of item2, 0 if they are same, 1 if item1 is not inner block of item2
+         // Return -1 if x is inner block of y, 0 if they are same, 1 if x is not inner block of y
          return Object.ReferenceEquals( x, y ) ? 0 :
             ( x.TryOffset >= y.HandlerOffset + y.HandlerLength || ( x.TryOffset <= y.TryOffset && x.HandlerOffset + x.HandlerLength > y.HandlerOffset + y.HandlerLength ) ? 1 : -1 );
       } );

@@ -156,7 +156,7 @@ namespace CILAssemblyManipulator.Physical
          this.Parent = new TableIndex( Tables.TypeDef, 0 );
       }
 
-      public Int16 PackingSize { get; set; }
+      public Int32 PackingSize { get; set; }
       public Int32 ClassSize { get; set; }
       public TableIndex Parent { get; set; }
    }
@@ -380,7 +380,7 @@ namespace CILAssemblyManipulator.Physical
 
    public sealed class GenericParameterDefinition
    {
-      public Int16 GenericParameterIndex { get; set; }
+      public Int32 GenericParameterIndex { get; set; }
       public GenericParameterAttributes Attributes { get; set; }
       public TableIndex Owner { get; set; }
       public String Name { get; set; }
@@ -2585,9 +2585,9 @@ public static partial class E_CILPhysical
             // Calculate actual max stack
             foreach ( var codeInfo in il.OpCodes )
             {
-               state.CurrentCodeByteOffset += codeInfo.OpCode.Size;
                state.NextCodeByteOffset += codeInfo.GetTotalByteCount();
                UpdateStackSize( state, codeInfo );
+               state.CurrentCodeByteOffset += codeInfo.OpCode.Size;
             }
 
             retVal = state.MaxStack;
@@ -2658,7 +2658,7 @@ public static partial class E_CILPhysical
 
       if ( sig != null )
       {
-         var isNewObj = code.Value != OpCodeEncoding.Newobj;
+         var isNewObj = code.Value == OpCodeEncoding.Newobj;
          if ( sig.SignatureStarter.IsHasThis() && !isNewObj )
          {
             // Pop 'this'

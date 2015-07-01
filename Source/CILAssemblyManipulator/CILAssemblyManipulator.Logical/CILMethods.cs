@@ -22,6 +22,7 @@ using CILAssemblyManipulator.Logical.Implementation;
 using CollectionsWithRoles.API;
 using CommonUtils;
 using CILAssemblyManipulator.Physical;
+using System.Collections.Generic;
 
 namespace CILAssemblyManipulator.Logical
 {
@@ -182,7 +183,7 @@ namespace CILAssemblyManipulator.Logical
       /// </summary>
       /// <value>The list of all explicitly implemented methods of this method.</value>
       /// <remarks>See ECMA specification for more information about explicitly implemented methods (MethodImpl table).</remarks>
-      ListQuery<CILMethod> OverriddenMethods { get; }
+      ListQuery<CILMethod> OverriddenMethods { get; } // TODO since it is possible to specify methods from the base class inheritance chain in MethodImpl table, maybe the declaring type should have a property: IDictionary<CILMethod, IList<CILMethod>> OverriddenMethods?
 
       /// <summary>
       /// Gets or sets the <see cref="PInvokeAttributes"/> associated with this method.
@@ -421,6 +422,30 @@ public static partial class E_CILLogical
             method.Parameters.Select( param => Tuple.Create( ( (CILReflectionContextImpl) method.ReflectionContext ).CollectionsFactory.NewListProxyFromParams( param.CustomModifiers.ToArray() ), param.ParameterType ) ).ToList(),
          method
             );
+   }
+
+   /// <summary>
+   /// Returns all parameters of this method, including return parameter if the given method is of type <see cref="CILMethod"/>.
+   /// </summary>
+   /// <param name="method">The <see cref="CILMethodBase"/>.</param>
+   /// <returns>All the parameters of the given method. If <paramref name="method"/> is <c>null</c>, then this returns empty enumerable.</returns>
+   /// <remarks>
+   /// If <paramref name="method"/> is of type <see cref="CILMethod"/>, return parameter is always returned first.
+   /// </remarks>
+   public static IEnumerable<CILParameter> GetAllParameters( this CILMethodBase method )
+   {
+      if ( method != null )
+      {
+         if ( method.MethodKind == MethodKind.Method )
+         {
+            yield return ( (CILMethod) method ).ReturnParameter;
+         }
+
+         foreach ( var param in method.Parameters )
+         {
+            yield return param;
+         }
+      }
    }
 
    private static Boolean IsSystemType( this CILModule thisModule, CILType other, String typeName, String typeNS = Consts.SYSTEM_NS )

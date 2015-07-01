@@ -73,8 +73,9 @@ public static partial class E_CILLogical
       private readonly IDictionary<CILField, TableIndex> _fields;
       private readonly IDictionary<CILMethodBase, TableIndex> _methods;
       private readonly IDictionary<CILParameter, TableIndex> _parameters;
-      private readonly IDictionary<String, Int32> _moduleRefs;
-      private readonly IDictionary<CILAssembly, Int32> _assemblyRefs;
+      private readonly IDictionary<String, TableIndex> _moduleRefs;
+      private readonly IDictionary<CILAssembly, TableIndex> _assemblyRefs;
+      private readonly IDictionary<String, TableIndex> _fileRefs;
 
       internal PhysicalCreationState( CILModule module, CILMetaData md )
       {
@@ -85,8 +86,9 @@ public static partial class E_CILLogical
          this._fields = new Dictionary<CILField, TableIndex>();
          this._methods = new Dictionary<CILMethodBase, TableIndex>();
          this._parameters = new Dictionary<CILParameter, TableIndex>();
-         this._moduleRefs = new Dictionary<String, Int32>();
-         this._assemblyRefs = new Dictionary<CILAssembly, Int32>();
+         this._moduleRefs = new Dictionary<String, TableIndex>();
+         this._assemblyRefs = new Dictionary<CILAssembly, TableIndex>();
+         this._fileRefs = new Dictionary<String, TableIndex>();
       }
 
       public CILMetaData MetaData
@@ -97,26 +99,40 @@ public static partial class E_CILLogical
          }
       }
 
-      internal Int32 RecordTypeDef( CILType type )
+      public CILModule LogicalModule
       {
-         var tDefIdx = this._md.TypeDefinitions.RowCount;
-         this._typeDefOrRefOrSpec.Add( type, new TableIndex( Tables.TypeDef, tDefIdx ) );
-         return tDefIdx;
+         get
+         {
+            return this._module;
+         }
       }
 
-      internal void RecordFieldDef( CILField field )
+      internal TableIndex RecordTypeDef( CILType type )
       {
-         this._fields.Add( field, new TableIndex( Tables.Field, this._md.FieldDefinitions.RowCount ) );
+         var retVal = this._md.GetNextTableIndexFor( Tables.TypeDef );
+         this._typeDefOrRefOrSpec.Add( type, retVal );
+         return retVal;
       }
 
-      internal void RecordMethodDef( CILMethodBase method )
+      internal TableIndex RecordFieldDef( CILField field )
       {
-         this._methods.Add( method, new TableIndex( Tables.MethodDef, this._md.MethodDefinitions.RowCount ) );
+         var retVal = this._md.GetNextTableIndexFor( Tables.Field );
+         this._fields.Add( field, retVal );
+         return retVal;
       }
 
-      internal void RecordParamDef( CILParameter param )
+      internal TableIndex RecordMethodDef( CILMethodBase method )
       {
-         this._parameters.Add( param, new TableIndex( Tables.Parameter, this._md.ParameterDefinitions.RowCount ) );
+         var retVal = this._md.GetNextTableIndexFor( Tables.MethodDef );
+         this._methods.Add( method, retVal );
+         return retVal;
+      }
+
+      internal TableIndex RecordParamDef( CILParameter param )
+      {
+         var retVal = this._md.GetNextTableIndexFor( Tables.Parameter );
+         this._parameters.Add( param, retVal );
+         return retVal;
       }
 
       internal TableIndex GetTypeDefOrRefOrSpec( CILTypeBase type, Boolean convertTypeDefToTypeSpec = false )
@@ -199,14 +215,24 @@ public static partial class E_CILLogical
          } );
       }
 
-      internal TableIndex GetMethodDefOrMemberRefOrMethodSpec( CILMethodBase method, Boolean convertTypeDefToTypeSpec = false )
+      internal TableIndex GetMethodDefOrMemberRefOrMethodSpec( CILMethodBase method, Boolean useMemberRefForGenericMethodDefs = true, Boolean convertTypeDefToTypeSpec = false )
       {
          var created = false;
          var retVal = this._methods.GetOrAdd_NotThreadSafe( method, m =>
          {
             // Only MemberRef or MethodSpec possible here, since all MethodDefs should've been added at this point.
             created = true;
-            return this._md.GetNextTableIndexFor( m.MethodKind == MethodKind.Method && ( (CILMethod) m ).HasGenericArguments() ? Tables.MethodSpec : Tables.MemberRef );
+            Tables table = Tables.MemberRef;
+            if ( m.MethodKind == MethodKind.Method )
+            {
+               var mm = (CILMethod) m;
+               if ( mm.HasGenericArguments()
+                  && ( !mm.IsGenericMethodDefinition() || !useMemberRefForGenericMethodDefs ) )
+               {
+                  table = Tables.MethodSpec;
+               }
+            }
+            return this._md.GetNextTableIndexFor( table );
          } );
          if ( created )
          {
@@ -223,7 +249,7 @@ public static partial class E_CILLogical
                case Tables.MethodSpec:
                   this._md.MethodSpecifications.TableContents.Add( new MethodSpecification()
                   {
-                     Method = this.GetMethodDefOrMemberRefOrMethodSpec( ( (CILMethod) method ).GenericDefinition, convertTypeDefToTypeSpec ),
+                     Method = this.GetMethodDefOrMemberRefOrMethodSpec( ( (CILMethod) method ).GenericDefinition, true, convertTypeDefToTypeSpec ),
                      Signature = this.CreateGenericMethodSignature( (CILMethod) method )
                   } );
                   break;
@@ -239,16 +265,67 @@ public static partial class E_CILLogical
          throw new NotImplementedException();
       }
 
+      internal TableIndex? GetLocalsIndex( MethodIL il )
+      {
+         throw new NotImplementedException();
+      }
+
+      internal Boolean TryGetParamIndex( CILParameter param, out TableIndex paramIdx )
+      {
+         return this._parameters.TryGetValue( param, out paramIdx );
+      }
+
+      internal TableIndex GetModuleRef( String module )
+      {
+         return this._moduleRefs.GetOrAdd_NotThreadSafe( module, m =>
+         {
+            var retVal = this._md.GetNextTableIndexFor( Tables.ModuleRef );
+            this._md.ModuleReferences.TableContents.Add( new ModuleReference()
+            {
+               ModuleName = m
+            } );
+            return retVal;
+         } );
+      }
+
+      internal TableIndex GetFileRef( String fileName, FileAttributes attrs, Byte[] hashValue )
+      {
+         return this._fileRefs.GetOrAdd_NotThreadSafe( fileName, fn =>
+         {
+            var retVal = this._md.GetNextTableIndexFor( Tables.File );
+            this._md.FileReferences.TableContents.Add( new FileReference()
+            {
+               Attributes = attrs,
+               HashValue = hashValue,
+               Name = fn
+            } );
+            return retVal;
+         } );
+      }
+
+      internal TableIndex GetAssemblyRef( CILAssembly assembly )
+      {
+         return this._assemblyRefs.GetOrAdd_NotThreadSafe( assembly, a =>
+         {
+            var aRefs = this._md.AssemblyReferences.TableContents;
+            var retVal = aRefs.Count;
+            var an = assembly.Name;
+            var aRef = new AssemblyReference();
+            an.AssemblyInformation.DeepCopyContentsTo( aRef.AssemblyInformation );
+            if ( !an.PublicKey.IsNullOrEmpty() )
+            {
+               aRef.Attributes |= AssemblyFlags.PublicKey;
+            }
+            aRefs.Add( aRef );
+            return new TableIndex( Tables.AssemblyRef, retVal );
+         } );
+      }
+
       private TableIndex GetMemberRefDeclaringType( CILType type, Boolean convertTypeDefToTypeSpec = false )
       {
          return !this._module.Equals( type.Module ) && this._module.Assembly.Equals( type.Module.Assembly ) ?
             this.GetModuleRef( type.Module.Name ) :
             this.GetTypeDefOrRefOrSpec( type, convertTypeDefToTypeSpec );
-      }
-
-      internal TableIndex? GetLocalsIndex( MethodIL il )
-      {
-         throw new NotImplementedException();
       }
 
       private TableIndex GetResolutionScope( CILType type )
@@ -261,37 +338,9 @@ public static partial class E_CILLogical
             this.GetTypeDefOrRefOrSpec( type.DeclaringType ); // TypeRef
       }
 
-      private TableIndex GetModuleRef( String module )
-      {
-         return new TableIndex( Tables.ModuleRef, this._moduleRefs.GetOrAdd_NotThreadSafe( module, m =>
-         {
-            var modRefs = this._md.ModuleReferences.TableContents;
-            var retVal = modRefs.Count;
-            modRefs.Add( new ModuleReference()
-            {
-               ModuleName = m
-            } );
-            return retVal;
-         } ) );
-      }
 
-      private TableIndex GetAssemblyRef( CILAssembly assembly )
-      {
-         return new TableIndex( Tables.AssemblyRef, this._assemblyRefs.GetOrAdd_NotThreadSafe( assembly, a =>
-         {
-            var aRefs = this._md.AssemblyReferences.TableContents;
-            var retVal = aRefs.Count;
-            var an = assembly.Name;
-            var aRef = new AssemblyReference();
-            an.AssemblyInformation.DeepCopyContentsTo( aRef.AssemblyInformation );
-            if ( !an.PublicKey.IsNullOrEmpty() )
-            {
-               aRef.Attributes |= AssemblyFlags.PublicKey;
-            }
-            aRefs.Add( aRef );
-            return retVal;
-         } ) );
-      }
+
+
    }
 
    private sealed class PhysicalILCreationState
@@ -300,7 +349,7 @@ public static partial class E_CILLogical
       private readonly MethodIL _logicalIL;
       private readonly MethodILDefinition _physicalIL;
       private readonly Int32[] _opCodeInfoByteOffsets;
-      private readonly IDictionary<Int32, LogicalOpCodeInfoForBranchingControlFlow> _dynamicOpCodeInfos;
+      private readonly IList<Int32> _dynamicOpCodeInfos;
 
       internal PhysicalILCreationState( PhysicalCreationState moduleState, MethodIL logicalIL, MethodILDefinition physicalIL )
       {
@@ -308,7 +357,7 @@ public static partial class E_CILLogical
          this._logicalIL = logicalIL;
          this._physicalIL = physicalIL;
          this._opCodeInfoByteOffsets = new Int32[logicalIL.OpCodeCount];
-         this._dynamicOpCodeInfos = new Dictionary<Int32, LogicalOpCodeInfoForBranchingControlFlow>();
+         this._dynamicOpCodeInfos = new List<Int32>();
       }
 
       public PhysicalCreationState ModuleState
@@ -343,7 +392,7 @@ public static partial class E_CILLogical
          }
       }
 
-      public IDictionary<Int32, LogicalOpCodeInfoForBranchingControlFlow> DynamicOpCodeInfos
+      public IList<Int32> DynamicOpCodeInfos
       {
          get
          {
@@ -353,12 +402,30 @@ public static partial class E_CILLogical
 
    }
 
+   private static readonly IDictionary<CILTypeCode, SignatureElementTypes> TYPECODE_MAPPING_SIMPLE = new Dictionary<CILTypeCode, SignatureElementTypes>()
+   {
+      { CILTypeCode.Boolean, SignatureElementTypes.Boolean },
+      { CILTypeCode.Char, SignatureElementTypes.Char },
+      { CILTypeCode.SByte, SignatureElementTypes.I1 },
+      { CILTypeCode.Byte, SignatureElementTypes.U1 },
+      { CILTypeCode.Int16, SignatureElementTypes.I2 },
+      { CILTypeCode.UInt16, SignatureElementTypes.U2 },
+      { CILTypeCode.Int32, SignatureElementTypes.I4 },
+      { CILTypeCode.UInt32, SignatureElementTypes.U4 },
+      { CILTypeCode.Int64, SignatureElementTypes.I8 },
+      { CILTypeCode.UInt64, SignatureElementTypes.U8 },
+      { CILTypeCode.Single, SignatureElementTypes.R4 },
+      { CILTypeCode.Double, SignatureElementTypes.R8 },
+      { CILTypeCode.String, SignatureElementTypes.String },
+   };
+
    public static CILMetaData CreatePhysicalRepresentation( this CILModule module )
    {
       var retVal = CILMetaDataFactory.NewBlankMetaData();
 
       var state = new PhysicalCreationState( module, retVal );
       state.ProcessLogicalForPhysical( module );
+      state.PostProcessLogicalForPhysical( module );
 
       return retVal;
    }
@@ -372,63 +439,84 @@ public static partial class E_CILLogical
          ModuleGUID = Guid.NewGuid()
       } );
 
-      state.ProcessLogicalForPhysical( module.ModuleInitializer );
-      foreach ( var type in module.DefinedTypes )
-      {
-         state.ProcessLogicalForPhysical( type );
-      }
-
-      state.PostProcessLogicalForPhysical( module.ModuleInitializer );
-      foreach ( var type in module.DefinedTypes )
+      foreach ( var type in module.GetAllTypes() )
       {
          state.ProcessLogicalForPhysical( type );
       }
    }
 
-   private static void ProcessLogicalForPhysical( this PhysicalCreationState state, CILType typeInModule )
+   private static void ProcessLogicalForPhysical( this PhysicalCreationState state, CILType type )
    {
       var md = state.MetaData;
 
-      foreach ( var type in typeInModule.AsDepthFirstEnumerable( t => t.DeclaredNestedTypes ) )
+      var thisTypeDefIdx = state.RecordTypeDef( type );
+      md.TypeDefinitions.TableContents.Add( new TypeDefinition()
       {
-         var thisTypeDefIdx = state.RecordTypeDef( type );
-         md.TypeDefinitions.TableContents.Add( new TypeDefinition()
+         Name = type.Name,
+         Namespace = type.Namespace,
+         Attributes = type.Attributes,
+         FieldList = md.GetNextTableIndexFor( Tables.Field ),
+         MethodList = md.GetNextTableIndexFor( Tables.MethodDef )
+      } );
+
+      foreach ( var field in type.DeclaredFields )
+      {
+         state.ProcessLogicalForPhysical( field );
+      }
+
+      foreach ( var ctor in type.Constructors )
+      {
+         state.ProcessLogicalForPhysical( ctor );
+      }
+
+      foreach ( var method in type.DeclaredMethods )
+      {
+         state.ProcessLogicalForPhysical( method );
+      }
+
+      if ( type.DeclaringType != null )
+      {
+         md.NestedClassDefinitions.TableContents.Add( new NestedClassDefinition()
          {
-            Name = type.Name,
-            Namespace = type.Namespace,
-            Attributes = type.Attributes,
-            FieldList = new TableIndex( Tables.Field, md.FieldDefinitions.RowCount ),
-            MethodList = new TableIndex( Tables.MethodDef, md.MethodDefinitions.RowCount )
+            EnclosingClass = state.GetTypeDefOrRefOrSpec( type.DeclaringType ),
+            NestedClass = thisTypeDefIdx
          } );
+      }
+   }
 
-         foreach ( var field in type.DeclaredFields )
-         {
-            state.RecordFieldDef( field );
-            md.FieldDefinitions.TableContents.Add( new FieldDefinition()
-            {
-               Attributes = field.Attributes,
-               Name = field.Name
-            } );
-         }
+   private static void ProcessLogicalForPhysical( this PhysicalCreationState state, CILField field )
+   {
+      var fieldIdx = state.RecordFieldDef( field );
+      var md = state.MetaData;
+      md.FieldDefinitions.TableContents.Add( new FieldDefinition()
+      {
+         Attributes = field.Attributes,
+         Name = field.Name
+      } );
 
-         foreach ( var ctor in type.Constructors )
-         {
-            state.ProcessLogicalForPhysical( ctor );
-         }
+      if ( field.Attributes.HasDefault() )
+      {
+         state.AddToConstantTable( fieldIdx, field.ConstantValue );
+      }
 
-         foreach ( var method in type.DeclaredMethods )
+      // TODO Alternatively could just that .DeclaringType.Attributes.IsExplicitLayout()... ?
+      var offset = field.FieldOffset;
+      if ( offset != CILAssemblyManipulator.Logical.Implementation.CILFieldImpl.NO_OFFSET )
+      {
+         md.FieldLayouts.TableContents.Add( new FieldLayout()
          {
-            state.ProcessLogicalForPhysical( method );
-         }
-
-         if ( type.DeclaringType != null )
+            Field = fieldIdx,
+            Offset = offset
+         } );
+      }
+      var initialValue = field.InitialValue;
+      if ( initialValue != null )
+      {
+         md.FieldRVAs.TableContents.Add( new FieldRVA()
          {
-            md.NestedClassDefinitions.TableContents.Add( new NestedClassDefinition()
-            {
-               EnclosingClass = state.GetTypeDefOrRefOrSpec( type.DeclaringType ),
-               NestedClass = new TableIndex( Tables.TypeDef, thisTypeDefIdx )
-            } );
-         }
+            Data = initialValue,
+            Field = fieldIdx
+         } );
       }
    }
 
@@ -443,7 +531,7 @@ public static partial class E_CILLogical
          Attributes = method.Attributes,
          ImplementationAttributes = method.ImplementationAttributes,
          Name = method.GetName(),
-         ParameterList = new TableIndex( Tables.Parameter, paramDef.Count ),
+         ParameterList = md.GetNextTableIndexFor( Tables.Parameter )
       } );
 
 
@@ -465,43 +553,283 @@ public static partial class E_CILLogical
 
    private static void ProcessLogicalForPhysical( this PhysicalCreationState state, CILParameter param )
    {
-      state.RecordParamDef( param );
-      state.MetaData.ParameterDefinitions.TableContents.Add( new ParameterDefinition()
+      var paramIdx = state.RecordParamDef( param );
+      var md = state.MetaData;
+      md.ParameterDefinitions.TableContents.Add( new ParameterDefinition()
       {
          Attributes = param.Attributes,
          Name = param.Name,
          Sequence = param.Position + 1
       } );
+
+      if ( param.Attributes.HasDefault() )
+      {
+         state.AddToConstantTable( paramIdx, param.ConstantValue );
+      }
    }
 
-   private static void PostProcessLogicalForPhysical( this PhysicalCreationState state, CILType typeInModule )
+   private static void AddToConstantTable( this PhysicalCreationState state, TableIndex parent, Object constant )
+   {
+      SignatureElementTypes sig;
+      if ( constant == null )
+      {
+         sig = SignatureElementTypes.Class;
+      }
+      else
+      {
+         var tc =
+#if WINDOWS_PHONE_APP
+ E_CIL.GetTypeCode
+#else
+ (CILTypeCode) Type.GetTypeCode
+#endif
+( constant.GetType() );
+
+         if ( !TYPECODE_MAPPING_SIMPLE.TryGetValue( tc, out sig ) )
+         {
+            throw new InvalidOperationException( "Constant of type " + constant.GetType() + " is not supported." );
+         }
+      }
+
+      state.MetaData.ConstantDefinitions.TableContents.Add( new ConstantDefinition()
+      {
+         Parent = parent,
+         Type = sig,
+         Value = constant
+      } );
+   }
+
+   private static void PostProcessLogicalForPhysical( this PhysicalCreationState state, CILModule module )
+   {
+      state.AddToCustomAttributeTable( new TableIndex( Tables.Module, 0 ), module );
+      if ( module.Equals( module.Assembly.MainModule ) )
+      {
+         state.PostProcessLogicalForPhysical( module.Assembly );
+      }
+
+      foreach ( var type in module.GetAllTypes() )
+      {
+         state.ProcessLogicalForPhysical( type );
+      }
+
+      var md = state.MetaData;
+
+      // Only now create IL, as stack size calculation might need signatures created in previous stage
+      foreach ( var method in module.GetAllTypes().SelectMany( t => t.GetAllConstructorsAndMethods() ) )
+      {
+         if ( method.HasILMethodBody() )
+         {
+            var methodIdx = state.GetMethodDefOrMemberRefOrMethodSpec( method ).Index;
+            md.MethodDefinitions.TableContents[methodIdx].IL = state.ProcessLogicalForPhysical( method.MethodIL, methodIdx );
+         }
+      }
+
+      md.ManifestResources.TableContents.AddRange( module.ManifestResources.Select( kvp =>
+      {
+         var name = kvp.Key;
+         var res = kvp.Value;
+
+         var retVal = new ManifestResource()
+         {
+            Attributes = res.Attributes,
+            Name = name
+         };
+         switch ( res.ManifestResourceKind )
+         {
+            case ManifestResourceKind.Embedded:
+               retVal.DataInCurrentFile = ( (EmbeddedManifestResource) res ).Data;
+               break;
+            case ManifestResourceKind.AnotherFile:
+               var fRes = (FileManifestResource) res;
+               retVal.Implementation = state.GetFileRef( fRes.FileName, FileAttributes.ContainsNoMetadata, fRes.Hash );
+               break;
+            case ManifestResourceKind.AnotherAssembly:
+               var aRes = (AssemblyManifestResource) res;
+               retVal.Implementation = state.GetAssemblyRef( aRes.Assembly );
+               // TODO offset!!
+               retVal.Offset = -1;
+               break;
+         }
+         return retVal;
+      } ) );
+   }
+
+   private static void PostProcessLogicalForPhysical( this PhysicalCreationState state, CILAssembly assembly )
+   {
+      var md = state.MetaData;
+      var aDefIdx = md.GetNextTableIndexFor( Tables.Assembly );
+      var an = assembly.Name;
+      var aDef = new AssemblyDefinition()
+      {
+         Attributes = AssemblyFlags.PublicKey,
+         HashAlgorithm = an.HashAlgorithm
+      };
+      var aInfo = aDef.AssemblyInformation;
+      aInfo.Name = an.Name;
+      aInfo.Culture = an.Culture;
+      aInfo.VersionMajor = an.MajorVersion;
+      aInfo.VersionMinor = an.MinorVersion;
+      aInfo.VersionBuild = an.BuildNumber;
+      aInfo.VersionRevision = an.Revision;
+      aInfo.PublicKeyOrToken = an.PublicKey;
+      md.AssemblyDefinitions.TableContents.Add( aDef );
+
+      state.AddToCustomAttributeTable( aDefIdx, assembly );
+      foreach ( var otherMod in assembly.Modules.Where( m => !m.Equals( assembly.MainModule ) ) )
+      {
+         // TODO hash value!
+         state.GetFileRef( otherMod.Name, FileAttributes.ContainsMetadata, null );
+      }
+
+      // TODO ExportedType
+   }
+
+   private static void PostProcessLogicalForPhysical( this PhysicalCreationState state, CILType type )
+   {
+      var md = state.MetaData;
+      var typeIdx = state.GetTypeDefOrRefOrSpec( type );
+
+      // Set base type here, as it may be another type def!
+      var bType = type.BaseType;
+      if ( bType != null )
+      {
+         md.TypeDefinitions.TableContents[typeIdx.Index].BaseType = state.GetTypeDefOrRefOrSpec( bType );
+      }
+
+      // Process generic arguments
+      state.ProcessLogicalForPhysicalGArgs( type );
+
+      // Create signatures for methods
+      foreach ( var method in type.GetAllConstructorsAndMethods() )
+      {
+         state.PostProcessLogicalForPhysical( method );
+      }
+
+      // Create signatures for fields
+      foreach ( var field in type.DeclaredFields )
+      {
+         md.FieldDefinitions.TableContents[state.GetFieldDefOrMemberRef( field ).Index].Signature = state.CreateFieldSignature( field );
+      }
+
+      // Events first as Association table index in MethodSemantics is sorted with having Event first
+      foreach ( var evt in type.DeclaredEvents )
+      {
+         state.PostProcessLogicalForPhysical( evt );
+      }
+
+      foreach ( var property in type.DeclaredProperties )
+      {
+         state.PostProcessLogicalForPhysical( property );
+      }
+
+      state.AddToCustomAttributeTable( typeIdx, type );
+      state.AddToSecurityTable( typeIdx, type );
+      var layout = type.Layout;
+      if ( layout.HasValue )
+      {
+         md.ClassLayouts.TableContents.Add( new ClassLayout()
+         {
+            ClassSize = layout.Value.Size,
+            PackingSize = layout.Value.Pack,
+            Parent = typeIdx
+         } );
+      }
+      md.InterfaceImplementations.TableContents.AddRange( type.DeclaredInterfaces.Select( iFace => new InterfaceImplementation()
+      {
+         Class = typeIdx,
+         Interface = state.GetTypeDefOrRefOrSpec( iFace )
+      } ) );
+
+   }
+
+   private static void PostProcessLogicalForPhysical( this PhysicalCreationState state, CILField field )
+   {
+      var md = state.MetaData;
+      var fieldIdx = state.GetFieldDefOrMemberRef( field );
+      md.FieldDefinitions.TableContents[fieldIdx.Index].Signature = state.CreateFieldSignature( field );
+
+      state.AddToCustomAttributeTable( fieldIdx, field );
+      state.AddToMarshalTable( fieldIdx, field );
+   }
+
+   private static void PostProcessLogicalForPhysical( this PhysicalCreationState state, CILMethodBase method )
    {
 
       var md = state.MetaData;
-      foreach ( var type in typeInModule.AsDepthFirstEnumerable( t => t.DeclaredNestedTypes ) )
+      var methodIdx = state.GetMethodDefOrMemberRefOrMethodSpec( method );
+      var mDef = md.MethodDefinitions.TableContents[methodIdx.Index];
+      mDef.Signature = state.CreateMethodDefSignature( method );
+
+      state.AddToCustomAttributeTable( methodIdx, method );
+      state.AddToSecurityTable( methodIdx, method );
+
+      foreach ( var param in method.GetAllParameters() )
       {
-         // Set base type here, as it may be another type def!
-         var bType = type.BaseType;
-         if ( bType != null )
+         TableIndex paramIdx;
+         if ( state.TryGetParamIndex( param, out paramIdx ) )
          {
-            md.TypeDefinitions.TableContents[state.GetTypeDefOrRefOrSpec( type ).Index].BaseType = state.GetTypeDefOrRefOrSpec( bType );
+            state.AddToCustomAttributeTable( paramIdx, param );
+            state.AddToMarshalTable( paramIdx, param );
          }
+      }
 
-         // Create signatures for fields
-         foreach ( var field in type.DeclaredFields )
-         {
-            md.FieldDefinitions.TableContents[state.GetFieldDefOrMemberRef( field ).Index].Signature = state.CreateFieldSignature( field );
-         }
+      if ( method.MethodKind == MethodKind.Method )
+      {
+         // Create generic arguments for the method
+         var m = (CILMethod) method;
+         state.ProcessLogicalForPhysicalGArgs( m );
 
-         // Create signatures and IL for methods
-         foreach ( var method in type.Constructors.Cast<CILMethodBase>().Concat( type.DeclaredMethods ) )
+         var typeDefIdx = state.GetTypeDefOrRefOrSpec( method.DeclaringType );
+         md.MethodImplementations.TableContents.AddRange( m.OverriddenMethods.Select( om => new MethodImplementation()
          {
-            var mDef = md.MethodDefinitions.TableContents[state.GetMethodDefOrMemberRefOrMethodSpec( method ).Index];
-            mDef.Signature = state.CreateMethodDefSignature( method );
-            if ( method.HasILMethodBody() )
+            Class = typeDefIdx,
+            MethodBody = methodIdx,
+            MethodDeclaration = state.GetMethodDefOrMemberRefOrMethodSpec( om.GetTrueGenericDefinition() )
+         } ) );
+
+         if ( !String.IsNullOrEmpty( m.PlatformInvokeName ) && !String.IsNullOrEmpty( m.PlatformInvokeModuleName ) )
+         {
+            md.MethodImplementationMaps.TableContents.Add( new MethodImplementationMap()
             {
-               mDef.IL = state.ProcessLogicalForPhysical( method.MethodIL, state.GetMethodDefOrMemberRefOrMethodSpec( method ).Index );
-            }
+               Attributes = m.PlatformInvokeAttributes,
+               ImportName = m.PlatformInvokeName,
+               ImportScope = state.GetModuleRef( m.PlatformInvokeModuleName ),
+               MemberForwarded = methodIdx
+            } );
+         }
+      }
+   }
+
+   private static void ProcessLogicalForPhysicalGArgs(
+      this PhysicalCreationState state,
+      CILElementWithGenericArguments<Object> element
+      )
+   {
+      var md = state.MetaData;
+      var gArgOwner = element is CILType ?
+            state.GetTypeDefOrRefOrSpec( element as CILType ) :
+            state.GetMethodDefOrMemberRefOrMethodSpec( element as CILMethod );
+      foreach ( CILTypeParameter gArg in element.GenericArguments )
+      {
+         var gArgIndex = md.GetNextTableIndexFor( Tables.GenericParameter );
+
+         md.GenericParameterDefinitions.TableContents.Add( new GenericParameterDefinition()
+         {
+            Attributes = gArg.Attributes,
+            GenericParameterIndex = gArg.GenericParameterPosition,
+            Name = gArg.Name,
+            Owner = gArgOwner
+         } );
+         state.AddToCustomAttributeTable( gArgIndex, gArg );
+
+         var constraints = md.GenericParameterConstraintDefinitions.TableContents;
+         foreach ( var constraint in gArg.GenericParameterConstraints )
+         {
+            constraints.Add( new GenericParameterConstraintDefinition()
+            {
+               Owner = gArgIndex,
+               Constraint = state.GetTypeDefOrRefOrSpec( constraint, true )
+            } );
          }
       }
    }
@@ -524,6 +852,9 @@ public static partial class E_CILLogical
       var pOpCodes = physicalIL.OpCodes;
       var branchCodeIndices = new List<Int32>();
 
+      // I have a gut feeling that jumps fitting into SByte are much more common than the ones that would require longer, Int32 format
+      // Therefore whenever encountering dynamic branch or leave, use short form as a guess
+      // The costly algorithm to re-adjust byte offsets should arise less frequently that way
       var curByteOffset = 0;
       for ( var i = 0; i < logicalIL.OpCodeCount; ++i )
       {
@@ -544,11 +875,11 @@ public static partial class E_CILLogical
                break;
             case OpCodeInfoKind.OperandMethodToken:
                var lm = (LogicalOpCodeInfoWithMethodToken) lOpCode;
-               pOpCode = new OpCodeInfoWithToken( lm.Code, state.GetMethodDefOrMemberRefOrMethodSpec( lm.ReflectionObject, !lm.UseGenericDefinitionIfPossible ) );
+               pOpCode = new OpCodeInfoWithToken( lm.Code, state.GetMethodDefOrMemberRefOrMethodSpec( lm.ReflectionObject, false, !lm.UseGenericDefinitionIfPossible ) );
                break;
             case OpCodeInfoKind.OperandCtorToken:
                var ct = (LogicalOpCodeInfoWithCtorToken) lOpCode;
-               pOpCode = new OpCodeInfoWithToken( ct.Code, state.GetMethodDefOrMemberRefOrMethodSpec( ct.ReflectionObject, !ct.UseGenericDefinitionIfPossible ) );
+               pOpCode = new OpCodeInfoWithToken( ct.Code, state.GetMethodDefOrMemberRefOrMethodSpec( ct.ReflectionObject, false, !ct.UseGenericDefinitionIfPossible ) );
                break;
             case OpCodeInfoKind.OperandMethodSigToken:
                var lms = (LogicalOpCodeInfoWithMethodSig) lOpCode;
@@ -556,7 +887,7 @@ public static partial class E_CILLogical
                break;
             case OpCodeInfoKind.NormalOrVirtual:
                var lv = (LogicalOpCodeInfoForNormalOrVirtual) lOpCode;
-               pOpCode = new OpCodeInfoWithToken( lv.ReflectionObject.Attributes.IsStatic() ? lv.NormalCode : lv.VirtualCode, state.GetMethodDefOrMemberRefOrMethodSpec( lv.ReflectionObject, true ) );
+               pOpCode = new OpCodeInfoWithToken( lv.ReflectionObject.Attributes.IsStatic() ? lv.NormalCode : lv.VirtualCode, state.GetMethodDefOrMemberRefOrMethodSpec( lv.ReflectionObject, false, true ) );
                break;
             case OpCodeInfoKind.OperandString:
                var s = (LogicalOpCodeInfoWithFixedSizeOperandString) lOpCode;
@@ -584,8 +915,8 @@ public static partial class E_CILLogical
                break;
             case OpCodeInfoKind.Branch:
                var bl = (LogicalOpCodeInfoForBranch) lOpCode;
-               pOpCode = new OpCodeInfoWithInt32( bl.LongForm, logicalIL.GetLabelOffset( bl.TargetLabel ) );
-               dynamicBranchInfos.Add( pOpCodes.Count, bl );
+               pOpCode = new OpCodeInfoWithInt32( bl.ShortForm, logicalIL.GetLabelOffset( bl.TargetLabel ) );
+               dynamicBranchInfos.Add( pOpCodes.Count );
                branchCodeIndices.Add( pOpCodes.Count );
                break;
             case OpCodeInfoKind.Switch:
@@ -597,8 +928,8 @@ public static partial class E_CILLogical
                break;
             case OpCodeInfoKind.Leave:
                var ll = (LogicalOpCodeInfoForLeave) lOpCode;
-               pOpCode = new OpCodeInfoWithInt32( ll.LongForm, logicalIL.GetLabelOffset( ll.TargetLabel ) );
-               dynamicBranchInfos.Add( pOpCodes.Count, ll );
+               pOpCode = new OpCodeInfoWithInt32( ll.ShortForm, logicalIL.GetLabelOffset( ll.TargetLabel ) );
+               dynamicBranchInfos.Add( pOpCodes.Count );
                branchCodeIndices.Add( pOpCodes.Count );
                break;
             case OpCodeInfoKind.BranchOrLeaveFixed:
@@ -616,24 +947,21 @@ public static partial class E_CILLogical
          curByteOffset += pOpCode.GetTotalByteCount();
       }
 
-      // First, walk through each dynamic branch code and decide between short and long notation
-      foreach ( var kvp in ilState.DynamicOpCodeInfos.OrderBy( t => t.Key ) )
+      // Walk dynamic branch codes, and if offset is larger than SByte, then re-adjust as needed all the previous jumps that jump over this
+      for ( var i = 0; i < dynamicBranchInfos.Count; ++i )
       {
-         var dynIdx = kvp.Key;
-         var max = ilState.GetMaxOffsetForLabel( dynIdx, byteOffsets[dynIdx] );
-         if ( max <= SByte.MaxValue )
+         var opCodeOffset = dynamicBranchInfos[i];
+         var codeInfo = (OpCodeInfoWithInt32) pOpCodes[opCodeOffset];
+         var physicalOffset = ilState.TransformLogicalOffsetToPhysicalOffset( opCodeOffset, codeInfo.OpCode.GetTotalByteCount(), codeInfo.Operand );
+         if ( !codeInfo.Operand.IsShortJump() )
          {
-            // We can use short form - update op code and following byte offsets
-            var logical = kvp.Value;
-            var shortForm = logical.ShortForm;
-            // Use same operand, as it is absolute offset
-            pOpCodes[dynIdx] = new OpCodeInfoWithInt32( shortForm, ( (OpCodeInfoWithInt32) pOpCodes[dynIdx] ).Operand );
-            // Byte delta currently will always be 3
-            var byteDelta = logical.LongForm.GetTotalByteCount() - shortForm.GetTotalByteCount();
-            for ( var i = dynIdx + 1; i < byteOffsets.Length; ++i )
-            {
-               byteOffsets[i] -= byteDelta;
-            }
+            // Have to use long form
+            var newForm = ( (LogicalOpCodeInfoForBranchingControlFlow) logicalIL.GetOpCodeInfo( opCodeOffset ) ).LongForm;
+            pOpCodes[opCodeOffset] = new OpCodeInfoWithInt32( newForm, codeInfo.Operand );
+
+            // Fix byte offsets and recursively check all previous jumps that jump over this
+            ilState.UpdateAllByteOffsetsFollowing( opCodeOffset, newForm.GetTotalByteCount() - codeInfo.OpCode.GetTotalByteCount() );
+            ilState.AfterDynamicChangedToLongForm( opCodeOffset );
          }
       }
 
@@ -657,8 +985,7 @@ public static partial class E_CILLogical
             var physicalOffset = ilState.TransformLogicalOffsetToPhysicalOffset( i, codeInfo.OpCode.GetTotalByteCount(), codeInfoBranch.Operand );
 
             if ( codeInfoBranch.OpCode.OperandType == OperandType.ShortInlineBrTarget
-               && ( physicalOffset < SByte.MinValue
-                  || physicalOffset > SByte.MaxValue )
+               && !physicalOffset.IsShortJump()
                )
             {
                throw new InvalidOperationException( "Tried to use one-byte branch instruction for offset of amount " + physicalOffset + "." );
@@ -670,7 +997,7 @@ public static partial class E_CILLogical
          }
       }
 
-      // Create exception block infos, and place them in correct order
+      // Once the byte offset are done, create exception block infos, and place them in correct order
       physicalIL.ExceptionBlocks.AddRange( logicalIL.ExceptionBlocks.Select( e => ilState.TransformLogicalExceptionBlockToPhysicalExceptionBlock( e ) ) );
       physicalIL.SortExceptionBlocks();
 
@@ -688,6 +1015,52 @@ public static partial class E_CILLogical
       )
    {
       return state.OpCodeInfoByteOffsets[targetLogicalOffset] - ( state.OpCodeInfoByteOffsets[currentLogicalOffset] + currentCodeByteCount );
+   }
+
+   private static void AfterDynamicChangedToLongForm(
+      this PhysicalILCreationState state,
+      Int32 startingOpCodeIndex
+      )
+   {
+      var dynIndices = state.DynamicOpCodeInfos;
+      var currentOpCodeIndex = dynIndices[startingOpCodeIndex];
+      var pOpCodes = state.PhysicalIL.OpCodes;
+      for ( var idx = 0; idx < startingOpCodeIndex; ++idx )
+      {
+         var currentDynamicIndex = state.DynamicOpCodeInfos[idx];
+         var dynamicJump = (LogicalOpCodeInfoForBranchingControlFlow) state.LogicalIL.GetOpCodeInfo( currentDynamicIndex );
+         var codeInfo = (OpCodeInfoWithInt32) pOpCodes[currentDynamicIndex];
+         if ( codeInfo.Operand > currentOpCodeIndex && dynamicJump.ShortForm == codeInfo.OpCode )
+         {
+            // Short jump over the changed offset, see if we need to change this as well
+            var physicalOffset = state.TransformLogicalOffsetToPhysicalOffset( currentDynamicIndex, codeInfo.OpCode.GetTotalByteCount(), codeInfo.Operand );
+
+            if ( !physicalOffset.IsShortJump() )
+            {
+               // Have to use long form
+               var newForm = dynamicJump.LongForm;
+               pOpCodes[currentDynamicIndex] = new OpCodeInfoWithInt32( newForm, codeInfo.Operand );
+               // Modify all byte offsets following this.
+               state.UpdateAllByteOffsetsFollowing( currentDynamicIndex, newForm.GetTotalByteCount() - dynamicJump.ShortForm.GetTotalByteCount() );
+               // Re-check dynamic jumps between start and this.
+               state.AfterDynamicChangedToLongForm( idx );
+            }
+         }
+      }
+   }
+
+   private static Boolean IsShortJump( this Int32 jump )
+   {
+      return jump >= SByte.MinValue && jump <= SByte.MaxValue;
+   }
+
+   private static void UpdateAllByteOffsetsFollowing( this PhysicalILCreationState state, Int32 opCodeOffset, Int32 byteDelta )
+   {
+      var byteOffsets = state.OpCodeInfoByteOffsets;
+      for ( var i = opCodeOffset + 1; i < byteOffsets.Length; ++i )
+      {
+         byteOffsets[i] += byteDelta;
+      }
    }
 
    private static MethodExceptionBlock TransformLogicalExceptionBlockToPhysicalExceptionBlock(
@@ -708,57 +1081,82 @@ public static partial class E_CILLogical
       return retVal;
    }
 
-   private static Int32 GetMaxOffsetForLabel(
-      this PhysicalILCreationState state,
-      Int32 currentOpCodeIndex,
-      Int32 currentByteCount,
-      Boolean optimize = true
+   private static void PostProcessLogicalForPhysical(
+      this PhysicalCreationState state,
+      CILProperty property
       )
    {
-      var info = (OpCodeInfoWithInt32) state.PhysicalIL.OpCodes[currentOpCodeIndex];
-      var currentLabelOffset = info.Operand;
-      Int32 max;
-      if ( currentLabelOffset <= currentOpCodeIndex )
-      {
-         // Branching backwards into already processed part - just calculate the jump
-         // from this offset + byte count for short form (currently will be always 2)
-         // to target
-         max = currentByteCount + state.DynamicOpCodeInfos[currentOpCodeIndex].ShortForm.GetTotalByteCount() - state.OpCodeInfoByteOffsets[currentLabelOffset];
-      }
-      else if ( optimize )
-      {
-         // Branching forwards, and we need to calculate optimized amount of bytes to jump
-         // Recursively check each dynamic jump instruction
-         max = 0;
-         var physicalCodes = state.PhysicalIL.OpCodes;
-         currentByteCount += info.GetTotalByteCount();
-         for ( var i = currentOpCodeIndex + 1; i < physicalCodes.Count; ++i )
-         {
-            var curInfo = physicalCodes[i];
-            Int32 curByteSize;
-            LogicalOpCodeInfoForBranchingControlFlow dynamicOpCodeInfo;
-            if ( optimize && state.DynamicOpCodeInfos.TryGetValue( i, out dynamicOpCodeInfo ) )
-            {
-               var max2 = state.GetMaxOffsetForLabel( i, currentByteCount, false );
-               var suitableCode = max2 <= SByte.MaxValue ? dynamicOpCodeInfo.ShortForm : dynamicOpCodeInfo.LongForm;
-               curByteSize = suitableCode.GetTotalByteCount();
-            }
-            else
-            {
-               curByteSize = curInfo.GetTotalByteCount();
-            }
+      var typeDefIndex = state.GetTypeDefOrRefOrSpec( property.DeclaringType );
+      var md = state.MetaData;
 
-            max += curByteSize;
-            currentByteCount += curByteSize;
-         }
-      }
-      else
+      // Add to PropertyMap
+      var propIdx = md.GetNextTableIndexFor( Tables.Property );
+      md.PropertyMaps.TableContents.Add( new PropertyMap()
       {
-         // Branching forwards, and no need to calculate optimized amount of bytes to jump
-         // Just calculate the pessimistic amount (since we always set long form for dynamic op code infos, current info will be pessimistic variant)
-         max = currentByteCount + info.GetTotalByteCount() + state.OpCodeInfoByteOffsets[currentLabelOffset];
+         Parent = typeDefIndex,
+         PropertyList = propIdx
+      } );
+
+      // Add to Property
+      md.PropertyDefinitions.TableContents.Add( new PropertyDefinition()
+      {
+         Attributes = property.Attributes,
+         Name = property.Name,
+         Signature = state.CreatePropertySignature( property )
+      } );
+
+      // Add to method semantics
+      md.MethodSemantics.TableContents.AddRange( property.GetSemanticMethods().Select( method => new MethodSemantics()
+      {
+         Associaton = typeDefIndex,
+         Attributes = method.Item1,
+         Method = state.GetMethodDefOrMemberRefOrMethodSpec( method.Item2 )
+      } ) );
+
+      // Add to Constant
+      if ( property.Attributes.HasDefault() )
+      {
+         state.AddToConstantTable( propIdx, property.ConstantValue );
       }
-      return max;
+
+      // Add custom attributes
+      state.AddToCustomAttributeTable( propIdx, property );
+   }
+
+   private static void PostProcessLogicalForPhysical(
+      this PhysicalCreationState state,
+      CILEvent evt
+   )
+   {
+      var typeDefIndex = state.GetTypeDefOrRefOrSpec( evt.DeclaringType );
+      var md = state.MetaData;
+
+      // Add to EventMap
+      var evtIdx = md.GetNextTableIndexFor( Tables.Event );
+      md.EventMaps.TableContents.Add( new EventMap()
+      {
+         Parent = typeDefIndex,
+         EventList = evtIdx
+      } );
+
+      // Add to Event
+      md.EventDefinitions.TableContents.Add( new EventDefinition()
+      {
+         Attributes = evt.Attributes,
+         EventType = state.GetTypeDefOrRefOrSpec( evt.EventHandlerType ),
+         Name = evt.Name
+      } );
+
+      // Add to method semantics
+      md.MethodSemantics.TableContents.AddRange( evt.GetSemanticMethods().Select( method => new MethodSemantics()
+      {
+         Associaton = typeDefIndex,
+         Attributes = method.Item1,
+         Method = state.GetMethodDefOrMemberRefOrMethodSpec( method.Item2 )
+      } ) );
+
+      // Add custom attributes
+      state.AddToCustomAttributeTable( evtIdx, evt );
    }
 
    private static FieldSignature CreateFieldSignature( this PhysicalCreationState state, CILField field )
@@ -930,30 +1328,25 @@ public static partial class E_CILLogical
       var isGeneric = m.HasGenericArguments();
       sig.GenericArgumentCount = isGeneric ? 0 : m.GenericArguments.Count;
       sig.SignatureStarter = m.CallingConvention.GetSignatureStarter( method.Attributes.IsStatic(), isGeneric );
-      sig.ReturnType = state.CreateParameterSignature( m == null ? null : m.ReturnParameter );
+      sig.ReturnType = m == null ?
+         new ParameterSignature()
+         {
+            IsByRef = false,
+            Type = SimpleTypeSignature.Void
+         } :
+         state.CreateParameterSignature( m.ReturnParameter );
       sig.Parameters.AddRange( method.Parameters.Select( p => state.CreateParameterSignature( p ) ) );
    }
 
    private static ParameterSignature CreateParameterSignature( this PhysicalCreationState state, CILParameter parameter )
    {
-      ParameterSignature retVal;
-      if ( parameter == null )
+      var retVal = new ParameterSignature( parameter.CustomModifiers.Count )
       {
-         retVal = new ParameterSignature()
-         {
-            IsByRef = false,
-            Type = SimpleTypeSignature.Void
-         };
-      }
-      else
-      {
-         retVal = new ParameterSignature( parameter.CustomModifiers.Count )
-         {
-            IsByRef = parameter.ParameterType.IsByRef(),
-            Type = state.CreateTypeSignature( parameter.ParameterType )
-         };
-         state.AddCustomMods( parameter.CustomModifiers, retVal.CustomModifiers );
-      }
+         IsByRef = parameter.ParameterType.IsByRef(),
+         Type = state.CreateTypeSignature( parameter.ParameterType )
+      };
+      state.AddCustomMods( parameter.CustomModifiers, retVal.CustomModifiers );
+
       return retVal;
    }
 
@@ -974,4 +1367,242 @@ public static partial class E_CILLogical
       retVal.GenericArguments.AddRange( method.GenericArguments.Select( g => state.CreateTypeSignature( g ) ) );
       return retVal;
    }
+
+   private static PropertySignature CreatePropertySignature( this PhysicalCreationState state, CILProperty property )
+   {
+      var indexParameters = property.GetIndexParameters();
+
+      var retVal = new PropertySignature( property.CustomModifiers.Count, indexParameters.Count() )
+      {
+         HasThis = property.GetSemanticMethods().Any( m => !m.Item2.Attributes.IsStatic() ),
+         PropertyType = state.CreateTypeSignature( property.GetPropertyType() )
+      };
+      state.AddCustomMods( property.CustomModifiers, retVal.CustomModifiers );
+      retVal.Parameters.AddRange( indexParameters.Select( p => state.CreateParameterSignature( p ) ) );
+      return retVal;
+   }
+
+   private static void AddToCustomAttributeTable( this PhysicalCreationState state, TableIndex parent, CILCustomAttributeContainer attributeContainer )
+   {
+      state.MetaData.CustomAttributeDefinitions.TableContents.AddRange( attributeContainer.CustomAttributeData.Select( ca => new CustomAttributeDefinition()
+      {
+         Parent = parent,
+         Signature = state.CreateCASignature( ca ),
+         Type = state.GetMethodDefOrMemberRefOrMethodSpec( ca.Constructor )
+      } ) );
+   }
+
+   private static void AddToMarshalTable( this PhysicalCreationState state, TableIndex parent, CILElementWithMarshalingInfo element )
+   {
+      state.MetaData.FieldMarshals.TableContents.Add( new FieldMarshal()
+      {
+         NativeType = state.CreatePhysicalMarshalingInfo( element.MarshalingInformation ),
+         Parent = parent
+      } );
+   }
+
+   private static void AddToSecurityTable( this PhysicalCreationState state, TableIndex parent, CILElementWithSecurityInformation element )
+   {
+      state.MetaData.SecurityDefinitions.TableContents.AddRange( element.DeclarativeSecurity.Select( kvp =>
+      {
+         var action = kvp.Key;
+         var permissionSets = kvp.Value;
+         var retVal = new SecurityDefinition( permissionSets.Count )
+         {
+            Action = action,
+            Parent = parent
+         };
+         retVal.PermissionSets.AddRange( permissionSets.Select( ps => state.CreatePhysicalSecurityInfo( ps ) ) );
+         return retVal;
+      } ) );
+   }
+
+   private static CustomAttributeSignature CreateCASignature( this PhysicalCreationState state, CILCustomAttribute attribute )
+   {
+      var retVal = new CustomAttributeSignature( attribute.ConstructorArguments.Count, attribute.NamedArguments.Count );
+      retVal.TypedArguments.AddRange( attribute.ConstructorArguments.Select( arg => state.CreateCATypedArg( arg ) ) );
+      retVal.NamedArguments.AddRange( attribute.NamedArguments.Select( arg => state.CreateCANamedArg( arg ) ) );
+      return retVal;
+   }
+
+   private static CustomAttributeTypedArgument CreateCATypedArg( this PhysicalCreationState state, CILCustomAttributeTypedArgument arg )
+   {
+      var retVal = new CustomAttributeTypedArgument()
+      {
+         Type = state.CreateCAType( arg.ArgumentType )
+      };
+
+      var value = arg.Value;
+      state.ProcessCATypedArgValue( retVal.Type, ref value );
+      retVal.Value = value;
+      return retVal;
+   }
+
+   private static Boolean ProcessCATypedArgValue( this PhysicalCreationState state, CustomAttributeArgumentType type, ref Object value )
+   {
+      var retVal = false;
+      if ( value != null )
+      {
+         switch ( type.ArgumentTypeKind )
+         {
+            case CustomAttributeArgumentTypeKind.Array:
+               type = ( (CustomAttributeArgumentTypeArray) type ).ArrayType;
+               var array = (Array) value;
+               for ( var i = 0; i < array.Length; ++i )
+               {
+                  var cur = array.GetValue( i );
+                  if ( state.ProcessCATypedArgValue( type, ref cur ) )
+                  {
+                     array.SetValue( cur, i );
+                  }
+               }
+               break;
+            case CustomAttributeArgumentTypeKind.Simple:
+               if ( ( (CustomAttributeArgumentTypeSimple) type ).SimpleType == SignatureElementTypes.Type )
+               {
+                  // Convert System.Type or CILType to string
+                  CILType valueType;
+                  if ( value is Type )
+                  {
+                     valueType = ( (Type) value ).NewWrapperAsType( state.LogicalModule.ReflectionContext );
+                  }
+                  else
+                  {
+                     valueType = value as CILType;
+                  }
+
+                  if ( valueType == null )
+                  {
+                     // If string was specified directly, just let it pass
+                     if ( !( value is String ) )
+                     {
+                        throw new InvalidOperationException( "Custom attribute argument type was System.Type but the value was of type " + value.GetType() );
+                     }
+                  }
+                  else
+                  {
+                     value = state.CreateCATypeString( valueType );
+                  }
+               }
+               break;
+         }
+      }
+
+      return retVal;
+   }
+
+   private static CustomAttributeNamedArgument CreateCANamedArg( this PhysicalCreationState state, CILCustomAttributeNamedArgument arg )
+   {
+      return new CustomAttributeNamedArgument()
+      {
+         IsField = arg.NamedMember is CILField,
+         Name = arg.NamedMember.Name,
+         Value = state.CreateCATypedArg( arg.TypedValue )
+      };
+   }
+
+   private static CustomAttributeArgumentType CreateCAType( this PhysicalCreationState state, CILType type )
+   {
+      if ( type == null )
+      {
+         return CustomAttributeArgumentTypeSimple.String;
+      }
+      else if ( type.IsEnum() )
+      {
+         return new CustomAttributeArgumentTypeEnum()
+         {
+            TypeString = state.CreateCATypeString( type )
+         };
+      }
+      else
+      {
+         switch ( type.TypeCode )
+         {
+            case CILTypeCode.Boolean:
+               return CustomAttributeArgumentTypeSimple.Boolean;
+            case CILTypeCode.Char:
+               return CustomAttributeArgumentTypeSimple.Char;
+            case CILTypeCode.SByte:
+               return CustomAttributeArgumentTypeSimple.SByte;
+            case CILTypeCode.Byte:
+               return CustomAttributeArgumentTypeSimple.Byte;
+            case CILTypeCode.Int16:
+               return CustomAttributeArgumentTypeSimple.Int16;
+            case CILTypeCode.UInt16:
+               return CustomAttributeArgumentTypeSimple.UInt16;
+            case CILTypeCode.Int32:
+               return CustomAttributeArgumentTypeSimple.Int32;
+            case CILTypeCode.UInt32:
+               return CustomAttributeArgumentTypeSimple.UInt32;
+            case CILTypeCode.Int64:
+               return CustomAttributeArgumentTypeSimple.Int64;
+            case CILTypeCode.UInt64:
+               return CustomAttributeArgumentTypeSimple.UInt64;
+            case CILTypeCode.Single:
+               return CustomAttributeArgumentTypeSimple.Single;
+            case CILTypeCode.Double:
+               return CustomAttributeArgumentTypeSimple.Double;
+            case CILTypeCode.String:
+               return CustomAttributeArgumentTypeSimple.String;
+            case CILTypeCode.Type:
+               return CustomAttributeArgumentTypeSimple.Type;
+            default:
+               var valid = type.IsVectorArray();
+               CILType elType = null;
+               if ( valid )
+               {
+                  elType = type.ElementType as CILType;
+                  valid = elType != null;
+               }
+
+               if ( valid )
+               {
+                  return new CustomAttributeArgumentTypeArray()
+                  {
+                     ArrayType = state.CreateCAType( elType )
+                  };
+               }
+               else
+               {
+                  throw new InvalidOperationException( "The custom attribute argument type " + type + " is not valid." );
+               }
+         }
+      }
+   }
+
+   private static String CreateCATypeString( this PhysicalCreationState state, CILType type )
+   {
+      return type == null ?
+         null :
+         ( type.Module.Assembly.Equals( state.LogicalModule.Assembly ) ?
+               type.GetFullName() :
+               type.GetAssemblyQualifiedName() // TODO maybe do some kind of "IsSystemLibrary" check?
+         );
+   }
+
+   private static MarshalingInfo CreatePhysicalMarshalingInfo( this PhysicalCreationState state, LogicalMarshalingInfo marshalingInfo )
+   {
+      return new MarshalingInfo(
+         marshalingInfo.Value,
+         marshalingInfo.SafeArrayType,
+         state.CreateCATypeString( marshalingInfo.SafeArrayUserDefinedType ),
+         marshalingInfo.IIDParameterIndex,
+         marshalingInfo.ArrayType,
+         marshalingInfo.SizeParameterIndex,
+         marshalingInfo.ConstSize,
+         marshalingInfo.MarshalType ?? state.CreateCATypeString( marshalingInfo.MarshalTypeRef ),
+         marshalingInfo.MarshalCookie );
+
+   }
+
+   private static SecurityInformation CreatePhysicalSecurityInfo( this PhysicalCreationState state, LogicalSecurityInformation securityInfo )
+   {
+      var retVal = new SecurityInformation( securityInfo.NamedArguments.Count )
+      {
+         SecurityAttributeType = state.CreateCATypeString( securityInfo.SecurityAttributeType )
+      };
+      retVal.NamedArguments.AddRange( securityInfo.NamedArguments.Select( arg => state.CreateCANamedArg( arg ) ) );
+      return retVal;
+   }
+
 }

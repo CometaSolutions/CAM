@@ -412,14 +412,40 @@ namespace CILAssemblyManipulator.Logical
    /// <seealso cref="CILType.Layout"/>
    public struct LogicalClassLayout
    {
+      private readonly Int32 _pack;
+      private readonly Int32 _size;
+
+      /// <summary>
+      /// Creates a new class layout information with given class size, and optional packing size.
+      /// </summary>
+      /// <param name="size">The class size.</param>
+      /// <param name="pack">The packing size.</param>
+      public LogicalClassLayout( Int32 size, Int32 pack = 0 )
+      {
+         this._size = size;
+         this._pack = pack;
+      }
+
       /// <summary>
       /// Contains the <c>pack</c> size for a type. See ECMA specification for more information about pack size (ClassLayout table).
       /// </summary>
-      public Int32 pack;
+      public Int32 Pack
+      {
+         get
+         {
+            return this._pack;
+         }
+      }
       /// <summary>
       /// Contains the <c>size</c> of a type. See ECMA specification for more information about size (ClassLayout table).
       /// </summary>
-      public Int32 size;
+      public Int32 Size
+      {
+         get
+         {
+            return this._size;
+         }
+      }
    }
 
    /// <summary>
@@ -1078,10 +1104,7 @@ public static partial class E_CILLogical
    {
       return GetFullName( type ) + ", " + type.Module.Assembly.Name.ToString();
    }
-}
 
-public static partial class E_CILLogical
-{
    /// <summary>
    /// Gets or creates a new <see cref="CILTypeParameter"/> based on native <see cref="System.Type"/>.
    /// </summary>
@@ -1097,5 +1120,15 @@ public static partial class E_CILLogical
          throw new ArgumentException( "Type " + nType + " must be generic parameter." );
       }
       return (CILTypeParameter) nType.NewWrapper( ctx );
+   }
+
+   /// <summary>
+   /// Returns enumerable of all constructors and methods defined in this type.
+   /// </summary>
+   /// <param name="type">The <see cref="CILType"/>.</param>
+   /// <returns>An enumerable of all constructors and methods defined in this type. Will be empty if no constructors nor methods are defined, or if <paramref name="type"/> is <c>null</c>.</returns>
+   public static IEnumerable<CILMethodBase> GetAllConstructorsAndMethods( this CILType type )
+   {
+      return type == null ? Empty<CILMethodBase>.Enumerable : type.Constructors.Cast<CILMethodBase>().Concat( type.DeclaredMethods );
    }
 }
