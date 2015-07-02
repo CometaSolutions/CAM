@@ -105,7 +105,15 @@ namespace CILAssemblyManipulator.Physical
       {
          Int32 enclosingTypeLength;
          var retVal = str.GetFirstSeparatorsFromFullTypeString( NESTED_TYPE_SEPARATOR_STRING, out enclosingTypeLength );
-         SetNestedTypeStringResults( str, retVal, enclosingTypeLength, out topLevelTypeName, out nestedTypeName );
+         if ( retVal )
+         {
+            SetNestedTypeStringResults( str, retVal, enclosingTypeLength, out topLevelTypeName, out nestedTypeName );
+         }
+         else
+         {
+            topLevelTypeName = str;
+            nestedTypeName = null;
+         }
          return retVal;
       }
 

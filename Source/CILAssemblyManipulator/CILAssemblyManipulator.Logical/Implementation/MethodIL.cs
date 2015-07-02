@@ -352,6 +352,14 @@ namespace CILAssemblyManipulator.Logical.Implementation
 
       #endregion
 
+      internal IList<LocalBuilder> LocalsList
+      {
+         get
+         {
+            return this._locals;
+         }
+      }
+
       internal CILModule OwningModule
       {
          get

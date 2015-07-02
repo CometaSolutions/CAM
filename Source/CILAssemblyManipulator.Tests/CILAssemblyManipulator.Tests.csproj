@@ -43,6 +43,7 @@
   <ItemGroup>
     <Compile Include="AbstractCAMTest.cs" />
     <Compile Include="CILMerge\MergeTests.cs" />
+    <Compile Include="Logical\PhysicalInterop.cs" />
     <Compile Include="Physical\Emitting.cs" />
     <Compile Include="Physical\Ordering.cs" />
     <Compile Include="Physical\Reading.cs" />
@@ -50,6 +51,10 @@
     <Compile Include="Properties\AssemblyInfo.cs" />
   </ItemGroup>
   <ItemGroup>
+    <ProjectReference Include="..\CILAssemblyManipulator\CILAssemblyManipulator.Logical\CILAssemblyManipulator.Logical.csproj">
+      <Project>{a1dac89c-5076-4455-83af-261fac8f4c7c}</Project>
+      <Name>CILAssemblyManipulator.Logical</Name>
+    </ProjectReference>
     <ProjectReference Include="..\CILAssemblyManipulator\CILAssemblyManipulator.Physical\CILAssemblyManipulator.Physical.csproj">
       <Project>{ba297806-a89f-4a3b-945b-08729853df75}</Project>
       <Name>CILAssemblyManipulator.Physical</Name>

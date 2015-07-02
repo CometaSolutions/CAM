@@ -25,6 +25,7 @@ using System.IO;
 using CILMerge;
 using System.Diagnostics;
 using Microsoft.Win32;
+using CILAssemblyManipulator.Logical;
 
 namespace CILAssemblyManipulator.Tests
 {
@@ -35,8 +36,11 @@ namespace CILAssemblyManipulator.Tests
       private static readonly System.Reflection.Assembly _msCorLib = typeof( Object ).Assembly;
       private static readonly String _msCorLibLocation = new Uri( _msCorLib.CodeBase ).LocalPath;
 
-      private static readonly System.Reflection.Assembly _cam = typeof( CILMetaData ).Assembly;
-      private static readonly String _camLocation = new Uri( _cam.CodeBase ).LocalPath;
+      private static readonly System.Reflection.Assembly _camPhysical = typeof( CILMetaData ).Assembly;
+      private static readonly String _camPhysicalLocation = new Uri( _camPhysical.CodeBase ).LocalPath;
+
+      private static readonly System.Reflection.Assembly _camLogical = typeof( CILModule ).Assembly;
+      private static readonly String _camLogicalLocation = new Uri( _camLogical.CodeBase ).LocalPath;
 
       private static readonly System.Reflection.Assembly _merge = typeof( CILMerger ).Assembly;
       private static readonly String _mergeLocation = new Uri( _merge.CodeBase ).LocalPath;
@@ -57,19 +61,35 @@ namespace CILAssemblyManipulator.Tests
          }
       }
 
-      protected static System.Reflection.Assembly CAM
+      protected static System.Reflection.Assembly CAMPhysical
       {
          get
          {
-            return _cam;
+            return _camPhysical;
          }
       }
 
-      protected static String CAMLocation
+      protected static String CAMPhysicalLocation
       {
          get
          {
-            return _camLocation;
+            return _camPhysicalLocation;
+         }
+      }
+
+      protected static System.Reflection.Assembly CAMLogical
+      {
+         get
+         {
+            return _camLogical;
+         }
+      }
+
+      protected static String CAMLogicalLocation
+      {
+         get
+         {
+            return _camLogicalLocation;
          }
       }
 

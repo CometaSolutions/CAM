@@ -66,7 +66,7 @@ namespace CILAssemblyManipulator.Tests.Physical
       [Test]
       public void TestCAMOrdering()
       {
-         var md = ReadFromFile( CAMLocation, null );
+         var md = ReadFromFile( CAMPhysicalLocation, null );
          ReOrderAndValidate( md );
       }
 

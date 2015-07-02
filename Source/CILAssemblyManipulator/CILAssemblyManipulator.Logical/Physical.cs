@@ -65,6 +65,11 @@ public static partial class E_CILLogical
          }
       }
 
+      private static readonly IEqualityComparer<LocalBuilder> LocalsEqualityComparer = ComparerFromFunctions.NewEqualityComparer<LocalBuilder>(
+         ( x, y ) => x.LocalIndex == y.LocalIndex && x.LocalType.Equals( y.LocalType ) && x.IsPinned == y.IsPinned,
+         x => x.LocalType.GetHashCode()
+         );
+
       private readonly CILModule _module;
       private readonly CILMetaData _md;
 
@@ -76,6 +81,7 @@ public static partial class E_CILLogical
       private readonly IDictionary<String, TableIndex> _moduleRefs;
       private readonly IDictionary<CILAssembly, TableIndex> _assemblyRefs;
       private readonly IDictionary<String, TableIndex> _fileRefs;
+      private readonly IDictionary<IList<LocalBuilder>, TableIndex> _locals;
 
       internal PhysicalCreationState( CILModule module, CILMetaData md )
       {
@@ -89,6 +95,7 @@ public static partial class E_CILLogical
          this._moduleRefs = new Dictionary<String, TableIndex>();
          this._assemblyRefs = new Dictionary<CILAssembly, TableIndex>();
          this._fileRefs = new Dictionary<String, TableIndex>();
+         this._locals = new Dictionary<IList<LocalBuilder>, TableIndex>( ListEqualityComparer<IList<LocalBuilder>, LocalBuilder>.NewListEqualityComparer( LocalsEqualityComparer ) );
       }
 
       public CILMetaData MetaData
@@ -267,7 +274,19 @@ public static partial class E_CILLogical
 
       internal TableIndex? GetLocalsIndex( MethodIL il )
       {
-         throw new NotImplementedException();
+         var locals = ( (CILAssemblyManipulator.Logical.Implementation.MethodILImpl) il ).LocalsList;
+         return locals.Count == 0 ?
+            (TableIndex?) null :
+            this._locals.GetOrAdd_NotThreadSafe( locals, l =>
+            {
+               var retVal = this._md.GetNextTableIndexFor( Tables.StandaloneSignature );
+               this._md.StandaloneSignatures.TableContents.Add( new StandaloneSignature()
+               {
+                  StoreSignatureAsFieldSignature = false,
+                  Signature = this.CreateLocalsSignature( l )
+               } );
+               return retVal;
+            } );
       }
 
       internal Boolean TryGetParamIndex( CILParameter param, out TableIndex paramIdx )
@@ -439,6 +458,8 @@ public static partial class E_CILLogical
          ModuleGUID = Guid.NewGuid()
       } );
 
+      var kek = module.GetAllTypes().ToArray();
+
       foreach ( var type in module.GetAllTypes() )
       {
          state.ProcessLogicalForPhysical( type );
@@ -609,7 +630,7 @@ public static partial class E_CILLogical
 
       foreach ( var type in module.GetAllTypes() )
       {
-         state.ProcessLogicalForPhysical( type );
+         state.PostProcessLogicalForPhysical( type );
       }
 
       var md = state.MetaData;
@@ -620,7 +641,11 @@ public static partial class E_CILLogical
          if ( method.HasILMethodBody() )
          {
             var methodIdx = state.GetMethodDefOrMemberRefOrMethodSpec( method ).Index;
-            md.MethodDefinitions.TableContents[methodIdx].IL = state.ProcessLogicalForPhysical( method.MethodIL, methodIdx );
+            var physicalIL = state.ProcessLogicalForPhysical( method.MethodIL );
+            md.MethodDefinitions.TableContents[methodIdx].IL = physicalIL;
+
+            // Calculate max stack size here *after* we have set the .IL property of MethodDef
+            physicalIL.MaxStackSize = state.MetaData.CalculateStackSize( methodIdx );
          }
       }
 
@@ -836,8 +861,7 @@ public static partial class E_CILLogical
 
    private static MethodILDefinition ProcessLogicalForPhysical(
       this PhysicalCreationState state,
-      MethodIL logicalIL,
-      Int32 methodDefIndex
+      MethodIL logicalIL
       )
    {
       var physicalIL = new MethodILDefinition( logicalIL.ExceptionBlocks.Count(), logicalIL.OpCodeCount )
@@ -1001,8 +1025,7 @@ public static partial class E_CILLogical
       physicalIL.ExceptionBlocks.AddRange( logicalIL.ExceptionBlocks.Select( e => ilState.TransformLogicalExceptionBlockToPhysicalExceptionBlock( e ) ) );
       physicalIL.SortExceptionBlocks();
 
-      // Finally, calculate max stack size
-      physicalIL.MaxStackSize = state.MetaData.CalculateStackSize( methodDefIndex );
+
 
       return physicalIL;
    }
@@ -1072,11 +1095,14 @@ public static partial class E_CILLogical
       {
          BlockType = block.BlockType,
          ExceptionType = block.ExceptionType == null ? (TableIndex?) null : state.ModuleState.GetTypeDefOrRefOrSpec( block.ExceptionType, true ),
-         FilterOffset = state.OpCodeInfoByteOffsets[block.FilterOffset],
-         HandlerOffset = state.OpCodeInfoByteOffsets[block.HandlerOffset],
+         FilterOffset = block.FilterOffset < 0 ? 0 : state.OpCodeInfoByteOffsets[block.FilterOffset],
+         HandlerOffset = block.HandlerOffset < 0 ? 0 : state.OpCodeInfoByteOffsets[block.HandlerOffset],
          TryOffset = state.OpCodeInfoByteOffsets[block.TryOffset]
       };
-      retVal.HandlerLength = state.OpCodeInfoByteOffsets[block.HandlerOffset + block.HandlerLength] - retVal.HandlerOffset;
+      if ( block.HandlerOffset >= 0 )
+      {
+         retVal.HandlerLength = state.OpCodeInfoByteOffsets[block.HandlerOffset + block.HandlerLength] - retVal.HandlerOffset;
+      }
       retVal.TryLength = state.OpCodeInfoByteOffsets[block.TryOffset + block.TryLength] - retVal.TryOffset;
       return retVal;
    }
@@ -1326,8 +1352,8 @@ public static partial class E_CILLogical
    {
       var m = method.MethodKind == MethodKind.Method ? (CILMethod) method : null;
       var isGeneric = m.HasGenericArguments();
-      sig.GenericArgumentCount = isGeneric ? 0 : m.GenericArguments.Count;
-      sig.SignatureStarter = m.CallingConvention.GetSignatureStarter( method.Attributes.IsStatic(), isGeneric );
+      sig.GenericArgumentCount = isGeneric ? m.GenericArguments.Count : 0;
+      sig.SignatureStarter = method.CallingConvention.GetSignatureStarter( method.Attributes.IsStatic(), isGeneric );
       sig.ReturnType = m == null ?
          new ParameterSignature()
          {
@@ -1394,11 +1420,14 @@ public static partial class E_CILLogical
 
    private static void AddToMarshalTable( this PhysicalCreationState state, TableIndex parent, CILElementWithMarshalingInfo element )
    {
-      state.MetaData.FieldMarshals.TableContents.Add( new FieldMarshal()
+      if ( element.MarshalingInformation != null )
       {
-         NativeType = state.CreatePhysicalMarshalingInfo( element.MarshalingInformation ),
-         Parent = parent
-      } );
+         state.MetaData.FieldMarshals.TableContents.Add( new FieldMarshal()
+         {
+            NativeType = state.CreatePhysicalMarshalingInfo( element.MarshalingInformation ),
+            Parent = parent
+         } );
+      }
    }
 
    private static void AddToSecurityTable( this PhysicalCreationState state, TableIndex parent, CILElementWithSecurityInformation element )
@@ -1602,6 +1631,18 @@ public static partial class E_CILLogical
          SecurityAttributeType = state.CreateCATypeString( securityInfo.SecurityAttributeType )
       };
       retVal.NamedArguments.AddRange( securityInfo.NamedArguments.Select( arg => state.CreateCANamedArg( arg ) ) );
+      return retVal;
+   }
+
+   private static LocalVariablesSignature CreateLocalsSignature( this PhysicalCreationState state, IList<LocalBuilder> locals )
+   {
+      var retVal = new LocalVariablesSignature( locals.Count );
+      retVal.Locals.AddRange( locals.Select( lb => new LocalVariableSignature()
+      {
+         IsPinned = lb.IsPinned,
+         IsByRef = lb.LocalType.IsByRef(),
+         Type = state.CreateTypeSignature( lb.LocalType.IsByRef() ? lb.LocalType.GetElementType() : lb.LocalType )
+      } ) );
       return retVal;
    }
 

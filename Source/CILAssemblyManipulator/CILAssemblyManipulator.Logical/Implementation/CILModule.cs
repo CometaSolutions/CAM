@@ -137,13 +137,15 @@ namespace CILAssemblyManipulator.Logical.Implementation
 
       private CILType BuildModuleInitializerType()
       {
-         return this.context.Cache.NewBlankType(
+         var retVal = this.context.Cache.NewBlankType(
             this.context.Cache.ResolveModuleID( this.id ),
             null,
             "<Module>",
             TypeAttributes.NotPublic | TypeAttributes.AnsiClass | TypeAttributes.AutoLayout,
             CILTypeCode.Object
             );
+         retVal.BaseType = null;
+         return retVal;
       }
 
       private CILModule LoadNativeMSCorLibModule()

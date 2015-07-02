@@ -47,7 +47,7 @@ namespace CILAssemblyManipulator.Tests.Physical
       [Test]
       public void TestReadingCAMAssemblies()
       {
-         TestReading( CAM );
+         TestReading( CAMPhysical );
       }
 
       [Test]

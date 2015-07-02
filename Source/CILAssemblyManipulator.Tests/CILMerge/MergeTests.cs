@@ -27,6 +27,7 @@ using System.Text;
 
 namespace CILAssemblyManipulator.Tests.CILMerge
 {
+   [Ignore]
    public class MergeTests : AbstractCAMTest
    {
       private class TestCILMergeLogCallback : CILMergeLogCallback
@@ -99,7 +100,7 @@ namespace CILAssemblyManipulator.Tests.CILMerge
          } );
       }
 
-      //[Test]
+      [Test]
       public void TestMergingCILMergeMSBuildTask()
       {
          var baseDir = Path.GetFullPath( Path.Combine( CILMergeLocation, "..", "..", "..", "..", ".." ) );

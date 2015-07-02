@@ -427,7 +427,7 @@ namespace CILAssemblyManipulator.Logical
 
       private static void ctx_ModuleTypesLoadEvent( object sender, ModuleTypesEventArgs e )
       {
-         e.DefinedTypes = e.Module.GetTypes();
+         e.DefinedTypes = e.Module.GetTypes().Where( t => t.DeclaringType == null );
       }
 
       private static HashAlgorithm GetTransform( Func<HashAlgorithm> managedVersion, Func<HashAlgorithm> cngVersion, Func<HashAlgorithm> spVersion )
