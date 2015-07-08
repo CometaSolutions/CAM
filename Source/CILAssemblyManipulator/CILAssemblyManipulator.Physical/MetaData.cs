@@ -1253,7 +1253,7 @@ public static partial class E_CILPhysical
             table = md.AssemblyReferences;
             break;
          case Tables.File:
-            table = md.FieldDefinitions;
+            table = md.FileReferences;
             break;
          case Tables.ExportedType:
             table = md.ExportedTypes;
