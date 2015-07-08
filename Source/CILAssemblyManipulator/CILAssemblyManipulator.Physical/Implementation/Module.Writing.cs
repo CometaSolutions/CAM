@@ -1082,40 +1082,14 @@ namespace CILAssemblyManipulator.Physical.Implementation
          }
 
          var tableSizes = new Int32[Consts.AMOUNT_OF_TABLES];
-         tableSizes[(Int32) Tables.Module] = md.ModuleDefinitions.RowCount;
-         tableSizes[(Int32) Tables.TypeRef] = md.TypeReferences.RowCount;
-         tableSizes[(Int32) Tables.TypeDef] = md.TypeDefinitions.RowCount;
-         tableSizes[(Int32) Tables.Field] = md.FieldDefinitions.RowCount;
-         tableSizes[(Int32) Tables.MethodDef] = md.MethodDefinitions.RowCount;
-         tableSizes[(Int32) Tables.Parameter] = md.ParameterDefinitions.RowCount;
-         tableSizes[(Int32) Tables.InterfaceImpl] = md.InterfaceImplementations.RowCount;
-         tableSizes[(Int32) Tables.MemberRef] = md.MemberReferences.RowCount;
-         tableSizes[(Int32) Tables.Constant] = md.ConstantDefinitions.RowCount;
-         tableSizes[(Int32) Tables.CustomAttribute] = md.CustomAttributeDefinitions.RowCount;
-         tableSizes[(Int32) Tables.FieldMarshal] = md.FieldMarshals.RowCount;
-         tableSizes[(Int32) Tables.DeclSecurity] = md.SecurityDefinitions.RowCount;
-         tableSizes[(Int32) Tables.ClassLayout] = md.ClassLayouts.RowCount;
-         tableSizes[(Int32) Tables.FieldLayout] = md.FieldLayouts.RowCount;
-         tableSizes[(Int32) Tables.StandaloneSignature] = md.StandaloneSignatures.RowCount;
-         tableSizes[(Int32) Tables.EventMap] = md.EventMaps.RowCount;
-         tableSizes[(Int32) Tables.Event] = md.EventDefinitions.RowCount;
-         tableSizes[(Int32) Tables.PropertyMap] = md.PropertyMaps.RowCount;
-         tableSizes[(Int32) Tables.Property] = md.PropertyDefinitions.RowCount;
-         tableSizes[(Int32) Tables.MethodSemantics] = md.MethodSemantics.RowCount;
-         tableSizes[(Int32) Tables.MethodImpl] = md.MethodImplementations.RowCount;
-         tableSizes[(Int32) Tables.ModuleRef] = md.ModuleReferences.RowCount;
-         tableSizes[(Int32) Tables.TypeSpec] = md.TypeSpecifications.RowCount;
-         tableSizes[(Int32) Tables.ImplMap] = md.MethodImplementationMaps.RowCount;
-         tableSizes[(Int32) Tables.FieldRVA] = md.FieldRVAs.RowCount;
-         tableSizes[(Int32) Tables.Assembly] = md.AssemblyDefinitions.RowCount;
-         tableSizes[(Int32) Tables.AssemblyRef] = md.AssemblyReferences.RowCount;
-         tableSizes[(Int32) Tables.File] = md.FileReferences.RowCount;
-         tableSizes[(Int32) Tables.ExportedType] = md.ExportedTypes.RowCount;
-         tableSizes[(Int32) Tables.ManifestResource] = md.ManifestResources.RowCount;
-         tableSizes[(Int32) Tables.NestedClass] = md.NestedClassDefinitions.RowCount;
-         tableSizes[(Int32) Tables.GenericParameter] = md.GenericParameterDefinitions.RowCount;
-         tableSizes[(Int32) Tables.MethodSpec] = md.MethodSpecifications.RowCount;
-         tableSizes[(Int32) Tables.GenericParameterConstraint] = md.GenericParameterConstraintDefinitions.RowCount;
+         for ( var i = 0; i < Consts.AMOUNT_OF_TABLES; ++i )
+         {
+            MetaDataTable tbl;
+            if ( md.TryGetByTable( (Tables) i, out tbl ) )
+            {
+               tableSizes[i] = tbl.RowCount;
+            }
+         }
 
          var tableWidths = new Int32[tableSizes.Length];
          for ( var i = 0; i < tableWidths.Length; ++i )
@@ -1487,7 +1461,8 @@ namespace CILAssemblyManipulator.Physical.Implementation
          )
          where T : class
       {
-         var count = mdTable.RowCount;
+         var list = mdTable.TableContents;
+         var count = list.Count;
          if ( count > 0 )
          {
             var tableEnum = mdTable.TableKind;
@@ -1497,9 +1472,9 @@ namespace CILAssemblyManipulator.Physical.Implementation
             var tableIdx = 0;
             var heapInfoList = (List<U>) heapInfos[(Int32) tableEnum];
             var array = byteArrayHelper.Array;
-            foreach ( var item in mdTable.TableContents )
+            for ( var i = 0; i < count; ++i )
             {
-               writeAction( array, idx, tableIdx, item, heapInfoList[tableIdx] );
+               writeAction( array, idx, tableIdx, list[i], heapInfoList[tableIdx] );
                idx += width;
                ++tableIdx;
             }
@@ -1522,7 +1497,8 @@ namespace CILAssemblyManipulator.Physical.Implementation
          )
          where T : class
       {
-         var count = mdTable.RowCount;
+         var list = mdTable.TableContents;
+         var count = list.Count;
          if ( count > 0 )
          {
             var tableEnum = mdTable.TableKind;
@@ -1531,9 +1507,9 @@ namespace CILAssemblyManipulator.Physical.Implementation
             var idx = 0;
             var tableIdx = 0;
             var array = byteArrayHelper.Array;
-            foreach ( var item in mdTable.TableContents )
+            for ( var i = 0; i < count; ++i )
             {
-               writeAction( array, idx, tableIdx, item );
+               writeAction( array, idx, tableIdx, list[i] );
                idx += width;
                ++tableIdx;
             }
@@ -1633,8 +1609,9 @@ namespace CILAssemblyManipulator.Physical.Implementation
       private static void ProcessTableForHeaps1<T>( MetaDataTable<T> table, Object[] heapInfos, Func<T, HeapInfo1> heapInfoExtractor )
          where T : class
       {
-         var heapInfoList = new List<HeapInfo1>( table.RowCount );
-         foreach ( var row in table.TableContents )
+         var list = table.TableContents;
+         var heapInfoList = new List<HeapInfo1>( list.Count );
+         foreach ( var row in list )
          {
             heapInfoList.Add( heapInfoExtractor( row ) );
          }
@@ -1644,8 +1621,9 @@ namespace CILAssemblyManipulator.Physical.Implementation
       private static void ProcessTableForHeaps2<T>( MetaDataTable<T> table, Object[] heapInfos, Func<T, HeapInfo2> heapInfoExtractor )
          where T : class
       {
-         var heapInfoList = new List<HeapInfo2>( table.RowCount );
-         foreach ( var row in table.TableContents )
+         var list = table.TableContents;
+         var heapInfoList = new List<HeapInfo2>( list.Count );
+         foreach ( var row in list )
          {
             heapInfoList.Add( heapInfoExtractor( row ) );
          }
@@ -1655,8 +1633,9 @@ namespace CILAssemblyManipulator.Physical.Implementation
       private static void ProcessTableForHeaps3<T>( MetaDataTable<T> table, Object[] heapInfos, Func<T, HeapInfo3> heapInfoExtractor )
          where T : class
       {
-         var heapInfoList = new List<HeapInfo3>( table.RowCount );
-         foreach ( var row in table.TableContents )
+         var list = table.TableContents;
+         var heapInfoList = new List<HeapInfo3>( list.Count );
+         foreach ( var row in list )
          {
             heapInfoList.Add( heapInfoExtractor( row ) );
          }
@@ -1666,8 +1645,9 @@ namespace CILAssemblyManipulator.Physical.Implementation
       private static void ProcessTableForHeaps4<T>( MetaDataTable<T> table, Object[] heapInfos, Func<T, HeapInfo4> heapInfoExtractor )
          where T : class
       {
-         var heapInfoList = new List<HeapInfo4>( table.RowCount );
-         foreach ( var row in table.TableContents )
+         var list = table.TableContents;
+         var heapInfoList = new List<HeapInfo4>( list.Count );
+         foreach ( var row in list )
          {
             heapInfoList.Add( heapInfoExtractor( row ) );
          }

@@ -277,7 +277,7 @@ namespace CILAssemblyManipulator.Logical.Implementation
       // TODO move this to API
       internal const Int32 NO_ARRAY_RANK = -1;
       internal const String NESTED_TYPENAME_SEPARATOR = "+";
-      internal const String NAMESPACE_SEPARATOR = ".";
+      //internal const String NAMESPACE_SEPARATOR = ".";
       internal const String G_ARGS_START = "[";
       internal const String G_ARGS_END = "]";
 
@@ -614,11 +614,6 @@ namespace CILAssemblyManipulator.Logical.Implementation
          layout = aLayout;
          securityInfo = aSecurityInfo;
          gArgsLock = resettablesAreSettable ? new Object() : null;
-      }
-
-      internal static String CombineTypeAndNamespace( String typeName, String typeNamespace )
-      {
-         return ( typeNamespace != null && typeNamespace.Length > 0 ? ( typeNamespace + NAMESPACE_SEPARATOR ) : "" ) + typeName;
       }
 
       public override String ToString()

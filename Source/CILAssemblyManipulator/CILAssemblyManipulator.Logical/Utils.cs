@@ -48,6 +48,8 @@ namespace CILAssemblyManipulator.Logical
       //      private static readonly Char[] CHARS_ENDING_SIMPLE_TYPENAME = { '&', '*', '[' };
       //      private const String TYPE_ASSEMBLY_SEPARATOR = ", ";
 
+      private const String NAMESPACE_SEPARATOR = ".";
+
       /// <summary>
       /// Returns <see cref="ElementKind"/> of the given native type.
       /// </summary>
@@ -492,7 +494,7 @@ namespace CILAssemblyManipulator.Logical
                      var ns = typee.Namespace;
                      if ( !String.IsNullOrEmpty( ns ) )
                      {
-                        builder.Append( ns.EscapeCILTypeString() ).Append( CILTypeImpl.NAMESPACE_SEPARATOR );
+                        builder.Append( ns.EscapeCILTypeString() ).Append( NAMESPACE_SEPARATOR );
                      }
                   }
                   else
@@ -669,12 +671,40 @@ namespace CILAssemblyManipulator.Logical
          return starter;
       }
 
+      internal static CallingConventions GetCallingConventionFromSignature( this SignatureStarters starter )
+      {
+         // TODO is this method correct?
+         CallingConventions result = 0;
+         if ( starter.IsHasThis() )
+         {
+            result = CallingConventions.HasThis;
+         }
+         if ( starter.IsExplicitThis() )
+         {
+            result |= CallingConventions.ExplicitThis;
+         }
+         if ( starter.IsVarArg() )
+         {
+            result |= CallingConventions.VarArgs;
+         }
+         else if ( starter.IsGeneric() )
+         {
+            result |= CallingConventions.Standard;
+         }
+         return result;
+      }
+
       internal static void CheckTypeForMethodSig( CILModule thisModule, ref CILTypeBase type )
       {
          if ( TypeKind.MethodSignature == type.TypeKind && !Object.Equals( thisModule, type.Module ) )
          {
             type = ( (CILMethodSignature) type ).CopyToOtherModule( thisModule );
          }
+      }
+
+      internal static String CombineTypeAndNamespace( String typeName, String typeNamespace )
+      {
+         return ( typeNamespace != null && typeNamespace.Length > 0 ? ( typeNamespace + NAMESPACE_SEPARATOR ) : "" ) + typeName;
       }
 
       // Mofidied from http://stackoverflow.com/questions/1068541/how-to-convert-a-value-type-to-byte-in-c

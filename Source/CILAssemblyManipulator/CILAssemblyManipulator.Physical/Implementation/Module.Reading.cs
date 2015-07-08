@@ -1096,8 +1096,8 @@ namespace CILAssemblyManipulator.Physical.Implementation
                      if ( retVal )
                      {
                         // Only possible for types defined in this module
-                        var enumValueFieldIndex = GetEnumValueFieldIndex( md, typeIdx.Index );
-                        if ( enumValueFieldIndex >= 0 )
+                        Int32 enumValueFieldIndex;
+                        if ( md.TryGetEnumValueFieldIndex( typeIdx.Index, out enumValueFieldIndex ) )
                         {
                            retVal = TryCalculateFieldTypeSize( md, classLayoutInfo, enumValueFieldIndex, out size, true ); // Last parameter true to prevent possible infinite recursion in case of malformed metadata
                         }
@@ -1116,91 +1116,6 @@ namespace CILAssemblyManipulator.Physical.Implementation
             }
          }
          return retVal;
-      }
-
-      internal static Int32 GetEnumValueFieldIndex(
-         CILMetaData md,
-         Int32 tDefIndex
-         )
-      {
-         // Only possible for types defined in this module
-         var typeRow = md.TypeDefinitions.GetOrNull( tDefIndex );
-         var retVal = -1;
-         if ( typeRow != null )
-         {
-            var extendInfo = typeRow.BaseType;
-            if ( extendInfo.HasValue )
-            {
-               var isEnum = IsEnum( md, extendInfo );
-               if ( isEnum )
-               {
-                  // First non-static field of enum type is the field containing enum value
-                  var fieldStartIdx = typeRow.FieldList.Index;
-                  var tDefs = md.TypeDefinitions.TableContents;
-                  var fDefs = md.FieldDefinitions.TableContents;
-                  var fieldEndIdx = tDefIndex + 1 >= tDefs.Count ?
-                     fDefs.Count :
-                     tDefs[tDefIndex + 1].FieldList.Index;
-                  for ( var i = fieldStartIdx; i < fieldEndIdx; ++i )
-                  {
-                     if ( !fDefs[i].Attributes.IsStatic() )
-                     {
-                        // We have found non-static field of the enum type -> this field should be primitive and the size thus calculable
-                        retVal = i;
-                        break;
-                     }
-                  }
-               }
-            }
-         }
-
-         return retVal;
-      }
-
-      private static Boolean IsEnum( CILMetaData md, TableIndex? tIdx )
-      {
-         return IsSystemType( md, tIdx, Consts.ENUM_NAMESPACE, Consts.ENUM_TYPENAME );
-      }
-
-      internal static Boolean IsSystemType( CILMetaData md, TableIndex? tIdx, String systemNS, String systemTN )
-      {
-         var result = tIdx.HasValue && tIdx.Value.Table != Tables.TypeSpec;
-
-         if ( result )
-         {
-            var tIdxValue = tIdx.Value;
-            var table = tIdxValue.Table;
-            var idx = tIdxValue.Index;
-
-            String tn = null, ns = null;
-            if ( table == Tables.TypeDef )
-            {
-               var tDefs = md.TypeDefinitions.TableContents;
-               result = idx < tDefs.Count;
-               if ( result )
-               {
-                  tn = tDefs[idx].Name;
-                  ns = tDefs[idx].Namespace;
-               }
-            }
-            else if ( table == Tables.TypeRef )
-            {
-               var tRef = md.TypeReferences.GetOrNull( idx );
-               result = tRef != null
-                  && tRef.ResolutionScope.HasValue
-                  && tRef.ResolutionScope.Value.Table == Tables.AssemblyRef; // TODO check for 'mscorlib', except that sometimes it may be System.Runtime ...
-               if ( result )
-               {
-                  tn = tRef.Name;
-                  ns = tRef.Namespace;
-               }
-            }
-            if ( result )
-            {
-               result = String.Equals( tn, systemTN ) && String.Equals( ns, systemNS );
-            }
-         }
-         return result;
       }
 
       private static Object ReadConstantValue( BLOBHeapReader blobContainer, Stream stream, SignatureElementTypes constType )
@@ -1237,11 +1152,6 @@ namespace CILAssemblyManipulator.Physical.Implementation
             case SignatureElementTypes.String:
                return MetaDataConstants.USER_STRING_ENCODING.GetString( blob, idx, blobSize );
             default:
-               //idx = blob.ReadInt32LEFromBytesNoRef( 0 );
-               //if ( idx != 0 )
-               //{
-               //   throw new BadImageFormatException( "Other const types than primitives should be serialized as zero int32's." );
-               //}
                return null;
          }
       }

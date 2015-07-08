@@ -136,10 +136,9 @@ namespace CILAssemblyManipulator.Physical
                   .GetOrAdd_NotThreadSafe( index, idx =>
                   {
                      var md = this._md;
-                     var enumFieldIndex = ModuleReader.GetEnumValueFieldIndex( md, idx );
-
+                     Int32 enumFieldIndex;
                      CustomAttributeArgumentType retVal = null;
-                     if ( enumFieldIndex >= 0 )
+                     if ( md.TryGetEnumValueFieldIndex( idx, out enumFieldIndex ) )
                      {
                         var sig = md.FieldDefinitions.TableContents[enumFieldIndex].Signature.Type;
                         if ( sig != null && sig.TypeSignatureKind == TypeSignatureKind.Simple )
@@ -652,7 +651,7 @@ namespace CILAssemblyManipulator.Physical
 
       private static Boolean IsTypeType( CILMetaData md, TableIndex? tIdx )
       {
-         return ModuleReader.IsSystemType( md, tIdx, Consts.TYPE_NAMESPACE, Consts.TYPE_TYPENAME );
+         return md.IsSystemType( tIdx, Consts.TYPE_NAMESPACE, Consts.TYPE_TYPENAME );
       }
 
       private Boolean TryReadCAFixedArgument(

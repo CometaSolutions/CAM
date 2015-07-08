@@ -421,30 +421,18 @@ public static partial class E_CILLogical
 
    }
 
-   private static readonly IDictionary<CILTypeCode, SignatureElementTypes> TYPECODE_MAPPING_SIMPLE = new Dictionary<CILTypeCode, SignatureElementTypes>()
-   {
-      { CILTypeCode.Boolean, SignatureElementTypes.Boolean },
-      { CILTypeCode.Char, SignatureElementTypes.Char },
-      { CILTypeCode.SByte, SignatureElementTypes.I1 },
-      { CILTypeCode.Byte, SignatureElementTypes.U1 },
-      { CILTypeCode.Int16, SignatureElementTypes.I2 },
-      { CILTypeCode.UInt16, SignatureElementTypes.U2 },
-      { CILTypeCode.Int32, SignatureElementTypes.I4 },
-      { CILTypeCode.UInt32, SignatureElementTypes.U4 },
-      { CILTypeCode.Int64, SignatureElementTypes.I8 },
-      { CILTypeCode.UInt64, SignatureElementTypes.U8 },
-      { CILTypeCode.Single, SignatureElementTypes.R4 },
-      { CILTypeCode.Double, SignatureElementTypes.R8 },
-      { CILTypeCode.String, SignatureElementTypes.String },
-   };
-
-   public static CILMetaData CreatePhysicalRepresentation( this CILModule module )
+   public static CILMetaData CreatePhysicalRepresentation( this CILModule module, Boolean orderAndRemoveDuplicates = true )
    {
       var retVal = CILMetaDataFactory.NewBlankMetaData();
 
       var state = new PhysicalCreationState( module, retVal );
       state.ProcessLogicalForPhysical( module );
       state.PostProcessLogicalForPhysical( module );
+
+      if ( orderAndRemoveDuplicates )
+      {
+         retVal.OrderTablesAndRemoveDuplicates();
+      }
 
       return retVal;
    }
@@ -598,17 +586,51 @@ public static partial class E_CILLogical
       }
       else
       {
-         var tc =
-#if WINDOWS_PHONE_APP
- E_CIL.GetTypeCode
-#else
- (CILTypeCode) Type.GetTypeCode
-#endif
-( constant.GetType() );
+         var tc = Type.GetTypeCode( constant.GetType() );
 
-         if ( !TYPECODE_MAPPING_SIMPLE.TryGetValue( tc, out sig ) )
+         switch ( tc )
          {
-            throw new InvalidOperationException( "Constant of type " + constant.GetType() + " is not supported." );
+            case TypeCode.Boolean:
+               sig = SignatureElementTypes.Boolean;
+               break;
+            case TypeCode.Char:
+               sig = SignatureElementTypes.Char;
+               break;
+            case TypeCode.SByte:
+               sig = SignatureElementTypes.I1;
+               break;
+            case TypeCode.Byte:
+               sig = SignatureElementTypes.U1;
+               break;
+            case TypeCode.Int16:
+               sig = SignatureElementTypes.I2;
+               break;
+            case TypeCode.UInt16:
+               sig = SignatureElementTypes.U2;
+               break;
+            case TypeCode.Int32:
+               sig = SignatureElementTypes.I4;
+               break;
+            case TypeCode.UInt32:
+               sig = SignatureElementTypes.U4;
+               break;
+            case TypeCode.Int64:
+               sig = SignatureElementTypes.I8;
+               break;
+            case TypeCode.UInt64:
+               sig = SignatureElementTypes.U8;
+               break;
+            case TypeCode.Single:
+               sig = SignatureElementTypes.R4;
+               break;
+            case TypeCode.Double:
+               sig = SignatureElementTypes.R8;
+               break;
+            case TypeCode.String:
+               sig = SignatureElementTypes.String;
+               break;
+            default:
+               throw new InvalidOperationException( "Constant of type " + constant.GetType() + " is not supported." );
          }
       }
 
@@ -622,33 +644,34 @@ public static partial class E_CILLogical
 
    private static void PostProcessLogicalForPhysical( this PhysicalCreationState state, CILModule module )
    {
+      // Custom attributes
       state.AddToCustomAttributeTable( new TableIndex( Tables.Module, 0 ), module );
+
+      // Assembly definition, if main module
       if ( module.Equals( module.Assembly.MainModule ) )
       {
          state.PostProcessLogicalForPhysical( module.Assembly );
       }
 
+      // Rest of the type-related tables
       foreach ( var type in module.GetAllTypes() )
       {
          state.PostProcessLogicalForPhysical( type );
       }
 
+      // Only now calculate max stack sizes, as the calculation will need signatures created in post-processing types
       var md = state.MetaData;
-
-      // Only now create IL, as stack size calculation might need signatures created in previous stage
-      foreach ( var method in module.GetAllTypes().SelectMany( t => t.GetAllConstructorsAndMethods() ) )
+      var mDefs = md.MethodDefinitions.TableContents;
+      for ( var mIdx = 0; mIdx < mDefs.Count; ++mIdx )
       {
-         if ( method.HasILMethodBody() )
+         var mDef = mDefs[mIdx];
+         if ( mDef.IL != null )
          {
-            var methodIdx = state.GetMethodDefOrMemberRefOrMethodSpec( method ).Index;
-            var physicalIL = state.ProcessLogicalForPhysical( method.MethodIL );
-            md.MethodDefinitions.TableContents[methodIdx].IL = physicalIL;
-
-            // Calculate max stack size here *after* we have set the .IL property of MethodDef
-            physicalIL.MaxStackSize = state.MetaData.CalculateStackSize( methodIdx );
+            mDef.IL.MaxStackSize = md.CalculateStackSize( mIdx );
          }
       }
 
+      // Manifest resources
       md.ManifestResources.TableContents.AddRange( module.ManifestResources.Select( kvp =>
       {
          var name = kvp.Key;
@@ -784,6 +807,11 @@ public static partial class E_CILLogical
       var methodIdx = state.GetMethodDefOrMemberRefOrMethodSpec( method );
       var mDef = md.MethodDefinitions.TableContents[methodIdx.Index];
       mDef.Signature = state.CreateMethodDefSignature( method );
+
+      if ( method.HasILMethodBody() )
+      {
+         mDef.IL = state.ProcessLogicalForPhysical( method.MethodIL );
+      }
 
       state.AddToCustomAttributeTable( methodIdx, method );
       state.AddToSecurityTable( methodIdx, method );

@@ -24,7 +24,7 @@ using System.Text;
 
 namespace CILAssemblyManipulator.Tests.Logical
 {
-   public class PhysicalInterop : AbstractCAMTest
+   public class PhysicalInteropTest : AbstractCAMTest
    {
 
       [Test]
@@ -34,7 +34,6 @@ namespace CILAssemblyManipulator.Tests.Logical
          {
             var logical = CAMLogical.NewWrapper( ctx );
             var physical = logical.MainModule.CreatePhysicalRepresentation();
-            physical.OrderTablesAndRemoveDuplicates();
             Console.WriteLine( "Hmz" );
          } );
       }

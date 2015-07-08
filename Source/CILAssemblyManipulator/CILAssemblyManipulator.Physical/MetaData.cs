@@ -2845,4 +2845,88 @@ public static partial class E_CILPhysical
    {
       return md.FileReferences.TableContents.Where( f => f.Attributes.ContainsMetadata() );
    }
+
+   public static Boolean TryGetEnumValueFieldIndex(
+      this CILMetaData md,
+      Int32 tDefIndex,
+      out Int32 enumValueFieldIndex
+      )
+   {
+      var typeRow = md.TypeDefinitions.GetOrNull( tDefIndex );
+      enumValueFieldIndex = -1;
+      if ( typeRow != null )
+      {
+         var extendInfo = typeRow.BaseType;
+         if ( extendInfo.HasValue )
+         {
+            var isEnum = md.IsEnum( extendInfo );
+            if ( isEnum )
+            {
+               // First non-static field of enum type is the field containing enum value
+               var fDefs = md.FieldDefinitions.TableContents;
+               enumValueFieldIndex = md.GetTypeFieldIndices( tDefIndex )
+                  .Where( i => i < fDefs.Count && !fDefs[i].Attributes.IsStatic() )
+                  .FirstOrDefaultCustom( -1 );
+            }
+         }
+      }
+
+
+      return enumValueFieldIndex >= 0;
+   }
+
+   public static Boolean IsEnum(
+      this CILMetaData md,
+      TableIndex? tIdx
+      )
+   {
+      return md.IsSystemType( tIdx, Consts.ENUM_NAMESPACE, Consts.ENUM_TYPENAME );
+   }
+
+   internal static Boolean IsSystemType(
+      this CILMetaData md,
+      TableIndex? tIdx,
+      String systemNS,
+      String systemTN
+      )
+   {
+      var result = tIdx.HasValue && tIdx.Value.Table != Tables.TypeSpec;
+
+      if ( result )
+      {
+         var tIdxValue = tIdx.Value;
+         var table = tIdxValue.Table;
+         var idx = tIdxValue.Index;
+
+         String tn = null, ns = null;
+         if ( table == Tables.TypeDef )
+         {
+            var tDefs = md.TypeDefinitions.TableContents;
+            result = idx < tDefs.Count;
+            if ( result )
+            {
+               tn = tDefs[idx].Name;
+               ns = tDefs[idx].Namespace;
+            }
+         }
+         else if ( table == Tables.TypeRef )
+         {
+            var tRef = md.TypeReferences.GetOrNull( idx );
+            result = tRef != null
+               && tRef.ResolutionScope.HasValue
+               && tRef.ResolutionScope.Value.Table == Tables.AssemblyRef; // TODO check for 'mscorlib', except that sometimes it may be System.Runtime ...
+            if ( result )
+            {
+               tn = tRef.Name;
+               ns = tRef.Namespace;
+            }
+         }
+
+         if ( result )
+         {
+            result = String.Equals( tn, systemTN ) && String.Equals( ns, systemNS );
+         }
+      }
+      return result;
+   }
 }

@@ -1007,6 +1007,35 @@ namespace CILAssemblyManipulator.Logical
    //   }
 
    /// <summary>
+   /// This enumeration provides values for the calling convention of methods. See ECMA specification part with method signatures for more information.
+   /// </summary>
+   /// <seealso cref="System.Reflection.CallingConventions"/>
+   [Flags]
+   public enum CallingConventions
+   {
+      /// <summary>
+      /// The calling convention is determinated by the runtime. This should be used for static methods. For instance or virtual methods the <see cref="CallingConventions.HasThis"/> should be used.
+      /// </summary>
+      Standard = 0x01,
+      /// <summary>
+      /// The calling convention to use for methods with variable arguments.
+      /// </summary>
+      VarArgs = 0x02,
+      /// <summary>
+      /// Either <see cref="CallingConventions.Standard"/> or <see cref="CallingConventions.VarArgs"/> may be used.
+      /// </summary>
+      Any = 0x03,
+      /// <summary>
+      /// The calling convention to use for instance or virtual methods. The signature stored in metadata will then omit the first 'this' parameter.
+      /// </summary>
+      HasThis = 0x20,
+      /// <summary>
+      /// The calling convention to use for function-pointer signatures. The signature stored in metadata will contain the first 'this' parameter, as the type is thus unknown. When using <see cref="CallingConventions.ExplicitThis"/>, the <see cref="CallingConventions.HasThis"/> must be set too.
+      /// </summary>
+      ExplicitThis = 0x40
+   }
+
+   /// <summary>
    /// This is <see cref="TypeCode"/> enum without <see cref="F:System.TypeCode.DBNull"/> and with some extra other values.
    /// </summary>
    /// <remarks>
@@ -2586,6 +2615,50 @@ public static partial class E_CILLogical
       }
       // TODO preserve sig?
       return result;
+   }
+
+   /// <summary>
+   /// Checks whether calling conventions represents a method with standard calling conventions.
+   /// </summary>
+   /// <param name="conv">The <see cref="CallingConventions"/>.</param>
+   /// <returns><c>true</c> if <paramref name="conv"/> represents a method with standard calling conventions; <c>false</c> otherwise.</returns>
+   /// <seealso cref="CallingConventions.Standard"/>
+   public static Boolean IsStandard( this CallingConventions conv )
+   {
+      return ( conv & CallingConventions.Standard ) != 0;
+   }
+
+   /// <summary>
+   /// Checks whether calling conventions represents a method with variadic parameters.
+   /// </summary>
+   /// <param name="conv">The <see cref="CallingConventions"/>.</param>
+   /// <returns><c>true</c> if <paramref name="conv"/> represents a method with variadic parameters; <c>false</c> otherwise.</returns>
+   /// <seealso cref="CallingConventions.VarArgs"/>
+   public static Boolean IsVarArgs( this CallingConventions conv )
+   {
+      return ( conv & CallingConventions.VarArgs ) != 0;
+   }
+
+   /// <summary>
+   /// Checks whether calling conventions represents a method with implicit <c>this</c> first parameter.
+   /// </summary>
+   /// <param name="conv">The <see cref="CallingConventions"/>.</param>
+   /// <returns><c>true</c> if <paramref name="conv"/> represents a method with implicit <c>this</c> first parameter; <c>false</c> otherwise.</returns>
+   /// <seealso cref="CallingConventions.HasThis"/>
+   public static Boolean IsThis( this CallingConventions conv )
+   {
+      return ( conv & CallingConventions.HasThis ) != 0;
+   }
+
+   /// <summary>
+   /// Checks whether calling conventions represents a method with explicit <c>this</c> first parameter.
+   /// </summary>
+   /// <param name="conv">The <see cref="CallingConventions"/>.</param>
+   /// <returns><c>true</c> if <paramref name="conv"/> represents a method with explicit <c>this</c> first parameter; <c>false</c> otherwise.</returns>
+   /// <seealso cref="CallingConventions.ExplicitThis"/>
+   public static Boolean IsExplicitThis( this CallingConventions conv )
+   {
+      return ( conv & CallingConventions.ExplicitThis ) != 0;
    }
 
    //   /// <summary>

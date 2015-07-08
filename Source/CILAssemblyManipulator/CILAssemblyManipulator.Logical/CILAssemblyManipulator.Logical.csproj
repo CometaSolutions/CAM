@@ -127,7 +127,8 @@
     <Compile Include="MethodIL.cs" />
     <Compile Include="OpCodeInfos.cs" />
     <Compile Include="OpCodes.cs" />
-    <Compile Include="Physical.cs" />
+    <Compile Include="Physical.ToLogical.cs" />
+    <Compile Include="Physical.FromLogical.cs" />
     <Compile Include="StreamExtensions.cs" />
     <Compile Include="Utils.cs" />
   </ItemGroup>
