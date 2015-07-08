@@ -1056,6 +1056,16 @@ public static partial class E_CILPhysical
       return md.GetMethodParameterIndices( methodDefIndex ).Select( idx => md.ParameterDefinitions.TableContents[idx] );
    }
 
+   public static IEnumerable<PropertyDefinition> GetTypeProperties( this CILMetaData md, Int32 propertyMapIndex )
+   {
+      return md.GetTypePropertyIndices( propertyMapIndex ).Select( idx => md.PropertyDefinitions.TableContents[idx] );
+   }
+
+   public static IEnumerable<EventDefinition> GetTypeEvents( this CILMetaData md, Int32 eventMapIndex )
+   {
+      return md.GetTypeEventIndices( eventMapIndex ).Select( idx => md.EventDefinitions.TableContents[idx] );
+   }
+
    public static IEnumerable<Int32> GetTypeMethodIndices( this CILMetaData md, Int32 typeDefIndex )
    {
       return md.TypeDefinitions.GetTargetIndicesForAscendingReferenceListTable( md.MethodDefinitions.RowCount, typeDefIndex, td => td.MethodList.Index );
@@ -1069,6 +1079,16 @@ public static partial class E_CILPhysical
    public static IEnumerable<Int32> GetMethodParameterIndices( this CILMetaData md, Int32 methodDefIndex )
    {
       return md.MethodDefinitions.GetTargetIndicesForAscendingReferenceListTable( md.ParameterDefinitions.RowCount, methodDefIndex, mdef => mdef.ParameterList.Index );
+   }
+
+   public static IEnumerable<Int32> GetTypePropertyIndices( this CILMetaData md, Int32 propertyMapIndex )
+   {
+      return md.PropertyMaps.GetTargetIndicesForAscendingReferenceListTable( md.PropertyDefinitions.RowCount, propertyMapIndex, pMap => pMap.PropertyList.Index );
+   }
+
+   public static IEnumerable<Int32> GetTypeEventIndices( this CILMetaData md, Int32 eventMapIndex )
+   {
+      return md.EventMaps.GetTargetIndicesForAscendingReferenceListTable( md.EventDefinitions.RowCount, eventMapIndex, eMap => eMap.EventList.Index );
    }
 
    internal static IEnumerable<Int32> GetTargetIndicesForAscendingReferenceListTable<T>( this MetaDataTable<T> mdTableWithReferences, Int32 targetTableCount, Int32 tableWithReferencesIndex, Func<T, Int32> referenceExtractor )

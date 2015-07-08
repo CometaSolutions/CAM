@@ -760,14 +760,32 @@ public static partial class E_CILLogical
       }
 
       // Events first as Association table index in MethodSemantics is sorted with having Event first
-      foreach ( var evt in type.DeclaredEvents )
+      var evts = type.DeclaredEvents;
+      if ( evts.Count > 0 )
       {
-         state.PostProcessLogicalForPhysical( evt );
+         md.EventMaps.TableContents.Add( new EventMap()
+         {
+            Parent = typeIdx,
+            EventList = md.GetNextTableIndexFor( Tables.Event )
+         } );
+         foreach ( var evt in type.DeclaredEvents )
+         {
+            state.PostProcessLogicalForPhysical( evt );
+         }
       }
 
-      foreach ( var property in type.DeclaredProperties )
+      var props = type.DeclaredProperties;
+      if ( props.Count > 0 )
       {
-         state.PostProcessLogicalForPhysical( property );
+         md.PropertyMaps.TableContents.Add( new PropertyMap()
+         {
+            Parent = typeIdx,
+            PropertyList = md.GetNextTableIndexFor( Tables.Property )
+         } );
+         foreach ( var property in type.DeclaredProperties )
+         {
+            state.PostProcessLogicalForPhysical( property );
+         }
       }
 
       state.AddToCustomAttributeTable( typeIdx, type );
@@ -1143,13 +1161,7 @@ public static partial class E_CILLogical
       var typeDefIndex = state.GetTypeDefOrRefOrSpec( property.DeclaringType );
       var md = state.MetaData;
 
-      // Add to PropertyMap
       var propIdx = md.GetNextTableIndexFor( Tables.Property );
-      md.PropertyMaps.TableContents.Add( new PropertyMap()
-      {
-         Parent = typeDefIndex,
-         PropertyList = propIdx
-      } );
 
       // Add to Property
       md.PropertyDefinitions.TableContents.Add( new PropertyDefinition()
@@ -1185,13 +1197,7 @@ public static partial class E_CILLogical
       var typeDefIndex = state.GetTypeDefOrRefOrSpec( evt.DeclaringType );
       var md = state.MetaData;
 
-      // Add to EventMap
       var evtIdx = md.GetNextTableIndexFor( Tables.Event );
-      md.EventMaps.TableContents.Add( new EventMap()
-      {
-         Parent = typeDefIndex,
-         EventList = evtIdx
-      } );
 
       // Add to Event
       md.EventDefinitions.TableContents.Add( new EventDefinition()

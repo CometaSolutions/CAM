@@ -908,11 +908,12 @@ namespace CILAssemblyManipulator.Logical.Implementation
       public void AddDeclaredInterfaces( params CILType[] iFaces )
       {
          this.ThrowIfNotCapableOfChanging();
-         if ( iFaces.Any( iFace => TypeKind.Type != iFace.TypeKind || !( (CILType) iFace ).Attributes.IsInterface() ) )
+         if ( iFaces.Any( iFace => TypeKind.Type != iFace.TypeKind ) )
          {
-            throw new ArgumentException( "Given types must be interfaces" );
+            throw new ArgumentException( "Given types must be actual types (not type parameters or method signatures)." );
          }
-         iFaces.SelectMany( iFace => iFace.AsDepthFirstEnumerable( i => i.DeclaredInterfaces ) ).CheckCyclity( this );
+         // Since declared interfaces are mutable, no point checking this...
+         //iFaces.SelectMany( iFace => iFace.AsDepthFirstEnumerable( i => i.DeclaredInterfaces ) ).CheckCyclity( this );
          lock ( this.declaredInterfaces.Lock )
          {
             this.declaredInterfaces.Value.AddRange( iFaces.OnlyBottomTypes().Except( this.declaredInterfaces.Value.MQ ) );

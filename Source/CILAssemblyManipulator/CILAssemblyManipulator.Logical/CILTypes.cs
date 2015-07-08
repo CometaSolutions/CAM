@@ -308,7 +308,7 @@ namespace CILAssemblyManipulator.Logical
    /// <summary>
    /// This object contains information about non-vector arrays.
    /// </summary>
-   public sealed class GeneralArrayInfo
+   public sealed class GeneralArrayInfo : IEquatable<GeneralArrayInfo>
    {
       private readonly Int32 _rank;
       private readonly ArrayProxy<Int32> _sizes;
@@ -395,7 +395,8 @@ namespace CILAssemblyManipulator.Logical
          return ( this._rank << 26 ) | ( ( ArrayEqualityComparer<Int32>.DefaultArrayEqualityComparer.GetHashCode( this._sizes.Array ) ^ ArrayEqualityComparer<Int32>.DefaultArrayEqualityComparer.GetHashCode( this._lowerBounds.Array ) ) >> 6 );
       }
 
-      private Boolean Equals( GeneralArrayInfo other )
+      /// <inheritdoc />
+      public Boolean Equals( GeneralArrayInfo other )
       {
          return Object.ReferenceEquals( this, other )
             || ( other != null
