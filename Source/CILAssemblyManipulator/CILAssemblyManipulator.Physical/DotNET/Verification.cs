@@ -121,7 +121,7 @@ namespace CILAssemblyManipulator.Physical
             }
             else if ( !String.IsNullOrEmpty( snError ) )
             {
-               msg = "\nIn addition, strong name validation failed: " + snError;
+               msg += "\nIn addition, strong name validation failed: " + snError;
             }
 
             throw new VerificationException( msg );

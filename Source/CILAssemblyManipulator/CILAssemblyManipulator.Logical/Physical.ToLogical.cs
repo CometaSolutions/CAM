@@ -100,6 +100,9 @@ public static partial class E_CILLogical
 
          this._topLevelTypes = tlTypes;
          this._nestedTypes = nestedTypes;
+
+         this._simpleTypes = new Dictionary<SignatureElementTypes, CILType>();
+         this._topLevelTypesByName = new Dictionary<Tuple<String, String>, CILType>();
       }
 
       public CILModule Module
@@ -248,7 +251,7 @@ public static partial class E_CILLogical
                return this.ResolveTypeSignature( array.ArrayType, contextType, contextMethod ).MakeArrayType( array.Rank, array.Sizes.ToArray(), array.LowerBounds.ToArray() );
             case TypeSignatureKind.FunctionPointer:
                var fn = ( (FunctionPointerTypeSignature) sig ).MethodSignature;
-               this._module.ReflectionContext.NewMethodSignature(
+               return this._module.ReflectionContext.NewMethodSignature(
                   this._module,
                   (UnmanagedCallingConventions) fn.SignatureStarter,
                   this.ResolveParamSignature( fn.ReturnType, contextType, contextMethod ),
@@ -263,7 +266,7 @@ public static partial class E_CILLogical
             case TypeSignatureKind.Simple:
                return this._simpleTypes.GetOrAdd_NotThreadSafe( ( (SimpleTypeSignature) sig ).SimpleType, st =>
                {
-
+                  throw new NotImplementedException();
                } );
             case TypeSignatureKind.SimpleArray:
                return this.ResolveTypeSignature( ( (SimpleArrayTypeSignature) sig ).ArrayType, contextType, contextMethod ).MakeArrayType();

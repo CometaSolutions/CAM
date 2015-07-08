@@ -1469,14 +1469,12 @@ namespace CILAssemblyManipulator.Physical.Implementation
             Int32 width;
             var arrayLen = CheckArrayForTableEmitting( tableEnum, count, tableWidths, byteArrayHelper, out width );
             var idx = 0;
-            var tableIdx = 0;
             var heapInfoList = (List<U>) heapInfos[(Int32) tableEnum];
             var array = byteArrayHelper.Array;
             for ( var i = 0; i < count; ++i )
             {
-               writeAction( array, idx, tableIdx, list[i], heapInfoList[tableIdx] );
+               writeAction( array, idx, i, list[i], heapInfoList[i] );
                idx += width;
-               ++tableIdx;
             }
             sink.Write( array, arrayLen );
 #if DEBUG
@@ -1505,13 +1503,11 @@ namespace CILAssemblyManipulator.Physical.Implementation
             Int32 width;
             var arrayLen = CheckArrayForTableEmitting( tableEnum, count, tableWidths, byteArrayHelper, out width );
             var idx = 0;
-            var tableIdx = 0;
             var array = byteArrayHelper.Array;
             for ( var i = 0; i < count; ++i )
             {
-               writeAction( array, idx, tableIdx, list[i] );
+               writeAction( array, idx, i, list[i] );
                idx += width;
-               ++tableIdx;
             }
             sink.Write( array, arrayLen );
 #if DEBUG
