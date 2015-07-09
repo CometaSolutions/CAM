@@ -405,15 +405,24 @@ public static partial class E_CommonUtils
    /// <param name="destinationArray">The array to be filled with values.</param>
    /// <param name="value">The values to fill array with.</param>
    /// <returns>The <paramref name="destinationArray"/></returns>
-   /// <remarks>
-   /// Source code is found at <see href="http://stackoverflow.com/questions/5943850/fastest-way-to-fill-an-array-with-a-single-value"/> and <see href="http://coding.grax.com/2014/04/better-array-fill-function.html"/>.
-   /// According to first link, "<c>In my test with 20,000,000 array items, this function is twice as fast as a for loop.</c>".
-   /// </remarks>
    /// <exception cref="ArgumentNullException">If <paramref name="destinationArray"/> or <paramref name="value"/> are null.</exception>
    /// <exception cref="ArgumentException">If <paramref name="destinationArray"/> is not empty, and length of <paramref name="value"/> is greater than length of <paramref name="destinationArray"/>.</exception>
    public static T[] Fill<T>( this T[] destinationArray, params T[] value )
    {
       return destinationArray.FillWithOffsetAndCount( 0, destinationArray.Length, value );
+   }
+
+   /// <summary>
+   /// This is helper method to fill some class-based array with <c>null</c>s.
+   /// Since the call <c>array.Fill(null)</c> will cause the actual array to be <c>null</c> instead of creating an array with <c>null</c> value.
+   /// </summary>
+   /// <typeparam name="T">The type of array elements.</typeparam>
+   /// <param name="destinationArray">The array to be filled with values.</param>
+   /// <returns>The <paramref name="destinationArray"/></returns>
+   public static T[] FillWithNulls<T>( this T[] destinationArray )
+      where T : class
+   {
+      return destinationArray.Fill( new T[] { null } );
    }
 
    /// <summary>
@@ -424,10 +433,6 @@ public static partial class E_CommonUtils
    /// <param name="value">The values to fill array with.</param>
    /// <param name="offset">The offset at which to start filling array.</param>
    /// <returns>The <paramref name="destinationArray"/></returns>
-   /// <remarks>
-   /// Source code is found at <see href="http://stackoverflow.com/questions/5943850/fastest-way-to-fill-an-array-with-a-single-value"/> and <see href="http://coding.grax.com/2014/04/better-array-fill-function.html"/>.
-   /// According to first link, "<c>In my test with 20,000,000 array items, this function is twice as fast as a for loop.</c>".
-   /// </remarks>
    /// <exception cref="ArgumentNullException">If <paramref name="destinationArray"/> or <paramref name="value"/> are null.</exception>
    /// <exception cref="ArgumentException">If <paramref name="destinationArray"/> is not empty, and length of <paramref name="value"/> is greater than length of <paramref name="destinationArray"/>.</exception>
    public static T[] FillWithOffset<T>( this T[] destinationArray, Int32 offset, params T[] value )
@@ -445,8 +450,9 @@ public static partial class E_CommonUtils
    /// <param name="count">How many items to fill.</param>
    /// <returns>The <paramref name="destinationArray"/></returns>
    /// <remarks>
-   /// Source code is found at <see href="http://stackoverflow.com/questions/5943850/fastest-way-to-fill-an-array-with-a-single-value"/> and <see href="http://coding.grax.com/2014/04/better-array-fill-function.html"/>.
+   /// Original source code is found at <see href="http://stackoverflow.com/questions/5943850/fastest-way-to-fill-an-array-with-a-single-value"/> and <see href="http://coding.grax.com/2014/04/better-array-fill-function.html"/>.
    /// According to first link, "<c>In my test with 20,000,000 array items, this function is twice as fast as a for loop.</c>".
+   /// The source code was modified to fix a bug and also to support offset and count parameters.
    /// </remarks>
    /// <exception cref="ArgumentNullException">If <paramref name="destinationArray"/> or <paramref name="value"/> are null.</exception>
    /// <exception cref="ArgumentException">If <paramref name="destinationArray"/> is not empty, and length of <paramref name="value"/> is greater than length of <paramref name="destinationArray"/>.</exception>

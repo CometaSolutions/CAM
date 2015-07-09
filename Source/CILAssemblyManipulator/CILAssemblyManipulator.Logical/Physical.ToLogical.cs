@@ -17,6 +17,7 @@
  */
 using CILAssemblyManipulator.Logical;
 using CILAssemblyManipulator.Physical;
+using CommonUtils;
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -24,40 +25,148 @@ using System.Linq;
 using System.Text;
 using System.Threading;
 
+namespace CILAssemblyManipulator.Logical
+{
+   public sealed class LogicalAssemblyCreationResult
+   {
+      private readonly CILAssembly _assembly;
+      private readonly IDictionary<String, CILType> _typeDefs;
+      private readonly IDictionary<CILType, String> _typeDefStrings;
+
+      private readonly Object _lock;
+      private Action _basicStructurePopulator;
+      private Action _complexStructurePopulator;
+
+      internal LogicalAssemblyCreationResult( CILAssembly assembly, Action basicStructurePopulator, Action complexStructurePopulator )
+      {
+         ArgumentValidator.ValidateNotNull( "Assembly", assembly );
+         ArgumentValidator.ValidateNotNull( "Basic structure populator", basicStructurePopulator );
+         ArgumentValidator.ValidateNotNull( "Complex structure populator", complexStructurePopulator );
+
+         this._assembly = assembly;
+         this._basicStructurePopulator = basicStructurePopulator;
+         this._complexStructurePopulator = complexStructurePopulator;
+         this._lock = new Object();
+         this._typeDefs = new Dictionary<String, CILType>();
+         this._typeDefStrings = new Dictionary<CILType, String>();
+      }
+
+      public CILAssembly Assembly
+      {
+         get
+         {
+            this.PopulateComplexStructure();
+            return this._assembly;
+         }
+      }
+
+      internal CILType ResolveTopLevelType( String ns, String tn, Boolean throwOnError )
+      {
+         return this.ResolveTypeString( LogicalUtils.CombineTypeAndNamespace( tn, ns ), throwOnError );
+      }
+
+      internal CILType ResolveTypeString( String typeString, Boolean throwOnError )
+      {
+         // TODO maybe use exported types here too?
+         CILType retVal;
+         if ( !this._typeDefs.TryGetValue( typeString, out retVal ) && throwOnError )
+         {
+            throw new InvalidOperationException( "Failed to resolve type \"" + typeString + "\"." );
+         }
+         return retVal;
+      }
+
+      internal String ResolveType( CILType type )
+      {
+         String retVal;
+         if ( !this._typeDefStrings.TryGetValue( type, out retVal ) )
+         {
+            throw new InvalidOperationException( "Failed to get type string for type " );
+         }
+         return retVal;
+      }
+
+      internal void RecordTypeDef( String typeString, CILType type )
+      {
+         this._typeDefs.Add( typeString, type );
+         this._typeDefStrings.Add( type, typeString );
+      }
+
+      internal CILAssembly AssemblyInstance
+      {
+         get
+         {
+            return this._assembly;
+         }
+      }
+
+      internal void PopulateBasicStructure()
+      {
+         this.RunActionWithLock( ref this._basicStructurePopulator );
+      }
+
+      internal void PopulateComplexStructure()
+      {
+         this.PopulateBasicStructure();
+         this.RunActionWithLock( ref this._complexStructurePopulator );
+      }
+
+      private void RunActionWithLock( ref Action action )
+      {
+         if ( action != null )
+         {
+            lock ( this._lock )
+            {
+               if ( action != null )
+               {
+                  var actionVar = action;
+                  Interlocked.Exchange( ref action, null );
+                  actionVar();
+               }
+            }
+         }
+      }
+   }
+}
+
 public static partial class E_CILLogical
 {
-   private sealed class LogicalCreationState
+   internal sealed class LogicalCreationState
    {
+      private readonly LogicalAssemblyCreationResult _creationResult;
       private readonly CILModule _module;
       private readonly CILMetaData _md;
       private readonly Func<String, CILModule> _moduleRefResolver;
-      private readonly Func<CILAssemblyName, CILAssembly> _assemblyRefResolver;
+      private readonly Func<CILAssemblyName, LogicalAssemblyCreationResult> _assemblyRefResolver;
 
-      private readonly List<CILType> _typeDefs;
-      private readonly List<CILField> _fieldDefs;
-      private readonly List<CILMethodBase> _methodDefs;
-      private readonly List<CILParameter> _parameterDefs;
-      private readonly List<CILTypeParameter> _typeParameters;
-      private readonly List<CILModule> _moduleRefs;
-      private readonly List<CILAssembly> _assemblyRefs;
+      private readonly CILType[] _typeDefs;
+      private readonly CILField[] _fieldDefs;
+      private readonly CILMethodBase[] _methodDefs;
+      private readonly CILParameter[] _parameterDefs;
+      private readonly CILTypeParameter[] _typeParameters;
+      private readonly CILProperty[] _properties;
+      private readonly CILEvent[] _events;
+      private readonly CILModule[] _moduleRefs;
+      private readonly LogicalAssemblyCreationResult[] _assemblyRefs;
 
       private readonly ISet<Int32> _topLevelTypes;
       private readonly IDictionary<Int32, IList<Int32>> _nestedTypes;
 
       private readonly IDictionary<SignatureElementTypes, CILType> _simpleTypes;
-      private readonly List<CILType> _typeRefs;
-      private readonly IDictionary<Tuple<String, String>, CILType> _topLevelTypesByName;
+      private readonly CILType[] _typeRefs;
 
-      private readonly Lazy<CILModule> _associatedMSCorLib;
+      private readonly Lazy<LogicalAssemblyCreationResult> _associatedMSCorLib;
 
       internal LogicalCreationState(
+         LogicalAssemblyCreationResult creationResult,
          CILModule module,
          CILMetaData md,
          Func<String, CILModule> moduleRefResolver,
-         Func<CILAssemblyName, CILAssembly> assemblyRefResolver,
-         CILModule msCorLibOverride
+         Func<CILAssemblyName, LogicalAssemblyCreationResult> assemblyRefResolver,
+         LogicalAssemblyCreationResult msCorLibOverride
          )
       {
+         this._creationResult = creationResult;
          this._module = module;
          this._md = md;
          this._moduleRefResolver = moduleRefResolver;
@@ -72,7 +181,9 @@ public static partial class E_CILLogical
          this._typeParameters = PopulateWithNulls<CILTypeParameter>( md.GenericParameterDefinitions.RowCount );
          this._typeRefs = PopulateWithNulls<CILType>( md.TypeReferences.RowCount );
          this._moduleRefs = PopulateWithNulls<CILModule>( md.ModuleReferences.RowCount );
-         this._assemblyRefs = PopulateWithNulls<CILAssembly>( md.AssemblyReferences.RowCount );
+         this._properties = PopulateWithNulls<CILProperty>( md.PropertyDefinitions.RowCount );
+         this._events = PopulateWithNulls<CILEvent>( md.EventDefinitions.RowCount );
+         this._assemblyRefs = PopulateWithNulls<LogicalAssemblyCreationResult>( md.AssemblyReferences.RowCount );
 
          var nestedTypes = new Dictionary<Int32, IList<Int32>>();
          foreach ( var nc in md.NestedClassDefinitions.TableContents )
@@ -88,9 +199,8 @@ public static partial class E_CILLogical
          this._nestedTypes = nestedTypes;
 
          this._simpleTypes = new Dictionary<SignatureElementTypes, CILType>();
-         this._topLevelTypesByName = new Dictionary<Tuple<String, String>, CILType>();
 
-         this._associatedMSCorLib = new Lazy<CILModule>( () => this.ResolveMSCorLibModule( msCorLibOverride ), LazyThreadSafetyMode.None );
+         this._associatedMSCorLib = new Lazy<LogicalAssemblyCreationResult>( () => this.ResolveMSCorLibModule( msCorLibOverride ), LazyThreadSafetyMode.None );
       }
 
       public CILModule Module
@@ -125,7 +235,7 @@ public static partial class E_CILLogical
          }
       }
 
-      public CILModule AssociatedMSCorLibModule
+      public LogicalAssemblyCreationResult AssociatedMSCorLibModule
       {
          get
          {
@@ -158,14 +268,31 @@ public static partial class E_CILLogical
          return this._typeParameters[tParamIndex];
       }
 
+      internal CILProperty GetProperty( Int32 propDefIndex )
+      {
+         return this._properties[propDefIndex];
+      }
+
+      internal CILEvent GetEvent( Int32 eventDefIndex )
+      {
+         return this._events[eventDefIndex];
+      }
+
       internal void RecordTypeDef( CILType type, Int32 typeDefIndex )
       {
          this._typeDefs[typeDefIndex] = type;
 
+         String typeString;
          if ( this._topLevelTypes.Contains( typeDefIndex ) )
          {
-            this._topLevelTypesByName[Tuple.Create( type.Namespace, type.Name )] = type;
+            typeString = LogicalUtils.CombineTypeAndNamespace( type.Name, type.Namespace );
          }
+         else
+         {
+            typeString = LogicalUtils.CombineEnclsosingAndNestedType( this._creationResult.ResolveType( type.DeclaringType ), type.Name );
+         }
+
+         this._creationResult.RecordTypeDef( typeString, type );
       }
 
       internal void RecordFieldDef( CILField field, Int32 fieldDefIndex )
@@ -188,44 +315,58 @@ public static partial class E_CILLogical
          this._typeParameters[gParamIndex] = parameter;
       }
 
-      internal CILTypeBase ResolveTypeDefOrRefOrSpec( TableIndex index, CILType contextType, CILMethodBase contextMethod )
+      internal void RecordProperty( CILProperty property, Int32 propDefIndex )
+      {
+         this._properties[propDefIndex] = property;
+      }
+
+      internal void RecordEvent( CILEvent evt, Int32 evtDefIndex )
+      {
+         this._events[evtDefIndex] = evt;
+      }
+
+      internal CILTypeBase ResolveTypeDefOrRefOrSpec( TableIndex index, CILType contextType, CILMethodBase contextMethod, Boolean populateAssemblyRefStructure = false )
       {
          switch ( index.Table )
          {
             case Tables.TypeDef:
                return this._typeDefs[index.Index];
             case Tables.TypeRef:
-               return this._typeRefs.GetOrAdd_NotThreadSafe( index.Index, i => this.ResolveTypeRef( i ) );
+               return this._typeRefs.GetOrAdd_NotThreadSafe( index.Index, i => this.ResolveTypeRef( i, populateAssemblyRefStructure ) );
             case Tables.TypeSpec:
-               return this.ResolveTypeSpec( index.Index, contextType, contextMethod );
+               return this.ResolveTypeSpec( index.Index, contextType, contextMethod, populateAssemblyRefStructure );
             default:
                throw new InvalidOperationException( "Unexpected TypeDef/Ref/Spec: " + index + "." );
          }
       }
 
-      internal CILTypeBase ResolveTypeSignature( TypeSignature sig, CILType contextType, CILMethodBase contextMethod )
+      internal CILTypeBase ResolveTypeSignature( TypeSignature sig, CILType contextType, CILMethodBase contextMethod, Boolean populateAssemblyRefStructure = false )
       {
          switch ( sig.TypeSignatureKind )
          {
             case TypeSignatureKind.ClassOrValue:
                var clazz = (ClassOrValueTypeSignature) sig;
-               var cilClazz = this.ResolveTypeDefOrRefOrSpec( clazz.Type, contextType, contextMethod );
+               var cilClazz = this.ResolveTypeDefOrRefOrSpec( clazz.Type, contextType, contextMethod, populateAssemblyRefStructure );
                if ( clazz.GenericArguments.Count > 0 )
                {
-                  cilClazz = ( (CILType) cilClazz ).MakeGenericType( clazz.GenericArguments.Select( arg => this.ResolveTypeSignature( arg, contextType, contextMethod ) ).ToArray() );
+                  cilClazz = ( (CILType) cilClazz ).MakeGenericType( clazz.GenericArguments
+                     .Select( arg => this.ResolveTypeSignature( arg, contextType, contextMethod, populateAssemblyRefStructure ) )
+                     .ToArray()
+                     );
                }
                return cilClazz;
             case TypeSignatureKind.ComplexArray:
                var array = (ComplexArrayTypeSignature) sig;
-               return this.ResolveTypeSignature( array.ArrayType, contextType, contextMethod ).MakeArrayType( array.Rank, array.Sizes.ToArray(), array.LowerBounds.ToArray() );
+               return this.ResolveTypeSignature( array.ArrayType, contextType, contextMethod, populateAssemblyRefStructure )
+                  .MakeArrayType( array.Rank, array.Sizes.ToArray(), array.LowerBounds.ToArray() );
             case TypeSignatureKind.FunctionPointer:
                var fn = ( (FunctionPointerTypeSignature) sig ).MethodSignature;
                return this._module.ReflectionContext.NewMethodSignature(
                   this._module,
                   (UnmanagedCallingConventions) fn.SignatureStarter,
-                  this.ResolveParamSignature( fn.ReturnType, contextType, contextMethod ),
-                  fn.ReturnType.CustomModifiers.Select( cm => CILCustomModifierFactory.CreateModifier( cm.IsOptional, (CILType) this.ResolveTypeDefOrRefOrSpec( cm.CustomModifierType, contextType, contextMethod ) ) ).ToArray(),
-                  fn.Parameters.Select( p => Tuple.Create( p.CustomModifiers.Select( cm => CILCustomModifierFactory.CreateModifier( cm.IsOptional, (CILType) this.ResolveTypeDefOrRefOrSpec( cm.CustomModifierType, contextType, contextMethod ) ) ).ToArray(), this.ResolveParamSignature( p, contextType, contextMethod ) ) ).ToArray()
+                  this.ResolveParamSignature( fn.ReturnType, contextType, contextMethod, populateAssemblyRefStructure ),
+                  fn.ReturnType.CustomModifiers.Select( cm => CILCustomModifierFactory.CreateModifier( cm.IsOptional, (CILType) this.ResolveTypeDefOrRefOrSpec( cm.CustomModifierType, contextType, contextMethod, populateAssemblyRefStructure ) ) ).ToArray(),
+                  fn.Parameters.Select( p => Tuple.Create( p.CustomModifiers.Select( cm => CILCustomModifierFactory.CreateModifier( cm.IsOptional, (CILType) this.ResolveTypeDefOrRefOrSpec( cm.CustomModifierType, contextType, contextMethod, populateAssemblyRefStructure ) ) ).ToArray(), this.ResolveParamSignature( p, contextType, contextMethod ) ) ).ToArray()
                   );
             case TypeSignatureKind.GenericParameter:
                var gSig = (GenericParameterTypeSignature) sig;
@@ -260,19 +401,19 @@ public static partial class E_CILLogical
                   }
                }
             case TypeSignatureKind.Pointer:
-               return this.ResolveTypeSignature( ( (PointerTypeSignature) sig ).PointerType, contextType, contextMethod ).MakePointerType();
+               return this.ResolveTypeSignature( ( (PointerTypeSignature) sig ).PointerType, contextType, contextMethod, populateAssemblyRefStructure ).MakePointerType();
             case TypeSignatureKind.Simple:
                return this.ResolveSimpleType( ( (SimpleTypeSignature) sig ).SimpleType );
             case TypeSignatureKind.SimpleArray:
-               return this.ResolveTypeSignature( ( (SimpleArrayTypeSignature) sig ).ArrayType, contextType, contextMethod ).MakeArrayType();
+               return this.ResolveTypeSignature( ( (SimpleArrayTypeSignature) sig ).ArrayType, contextType, contextMethod, populateAssemblyRefStructure ).MakeArrayType();
             default:
                throw new InvalidOperationException( "Unrecognized type signature kind: " + sig.TypeSignatureKind + "." );
          }
       }
 
-      internal CILTypeBase ResolveParamSignature( ParameterOrLocalVariableSignature sig, CILType contextType, CILMethodBase contextMethod )
+      internal CILTypeBase ResolveParamSignature( ParameterOrLocalVariableSignature sig, CILType contextType, CILMethodBase contextMethod, Boolean populateAssemblyRefStructure = false )
       {
-         var retVal = this.ResolveTypeSignature( sig.Type, contextType, contextMethod );
+         var retVal = this.ResolveTypeSignature( sig.Type, contextType, contextMethod, populateAssemblyRefStructure );
          if ( sig.IsByRef )
          {
             retVal = retVal.MakeByRefType();
@@ -281,7 +422,7 @@ public static partial class E_CILLogical
          return retVal;
       }
 
-      internal CILType ResolveTypeString( String typeString )
+      internal CILType ResolveTypeString( String typeString, Boolean populateTargetStructure )
       {
          CILType retVal;
          if ( String.IsNullOrEmpty( typeString ) )
@@ -291,13 +432,17 @@ public static partial class E_CILLogical
          else
          {
             String type, assembly;
-            CILAssembly targetAssembly;
+            LogicalAssemblyCreationResult targetAssembly;
             if ( typeString.ParseAssemblyQualifiedTypeString( out type, out assembly ) )
             {
                CILAssemblyName aName;
                if ( CILAssemblyName.TryParse( assembly, out aName ) )
                {
                   targetAssembly = this._assemblyRefResolver( aName );
+                  if ( populateTargetStructure )
+                  {
+                     targetAssembly.PopulateBasicStructure();
+                  }
                }
                else
                {
@@ -306,11 +451,11 @@ public static partial class E_CILLogical
             }
             else
             {
-               targetAssembly = this._module.Assembly;
+               targetAssembly = this._creationResult;
             }
 
             // TODO maybe use exported types here too?
-            retVal = targetAssembly.MainModule.GetTypeByName( type.UnescapeCILTypeString() );
+            retVal = targetAssembly.ResolveTypeString( type.UnescapeCILTypeString(), true );
          }
 
          return retVal;
@@ -328,6 +473,10 @@ public static partial class E_CILLogical
       {
          var mRef = this._md.MemberReferences.TableContents[index];
          var declType = mRef.DeclaringType;
+         if ( index == 825 )
+         {
+
+         }
          CILType cilDeclType;
          switch ( declType.Table )
          {
@@ -335,10 +484,10 @@ public static partial class E_CILLogical
                cilDeclType = this.GetTypeDef( declType.Index );
                break;
             case Tables.TypeRef:
-               cilDeclType = this.ResolveTypeRef( declType.Index );
+               cilDeclType = this.ResolveTypeRef( declType.Index, true );
                break;
             case Tables.TypeSpec:
-               cilDeclType = this.ResolveTypeSpec( declType.Index, contextType, contextMethod ) as CILType;
+               cilDeclType = this.ResolveTypeSpec( declType.Index, contextType, contextMethod, true ) as CILType;
                break;
             case Tables.MethodDef:
                throw new NotImplementedException( "References to global methods/fields in other modules." );
@@ -352,28 +501,33 @@ public static partial class E_CILLogical
          var sig = mRef.Signature;
          var wasMethod = false;
          CILElementTokenizableInILCode retVal;
+         var declIsGeneric = cilDeclType.IsGenericType();
+         var declTypeToUse = declIsGeneric ? cilDeclType.GenericDefinition : cilDeclType;
          switch ( sig.SignatureKind )
          {
             case SignatureKind.Field:
                var fTypeSig = ( (FieldSignature) sig ).Type;
-               retVal = cilDeclType.DeclaredFields.FirstOrDefault( f =>
+               var field = declTypeToUse.DeclaredFields.FirstOrDefault( f =>
                   !f.Attributes.IsCompilerControlled()
                   && String.Equals( f.Name, mRef.Name )
                   && this.MatchCILTypeToSignature( f.FieldType, fTypeSig )
                   );
+               if ( field != null && declIsGeneric )
+               {
+                  field = field.ChangeDeclaringType( cilDeclType.GenericArguments.ToArray() );
+               }
+               retVal = field;
                break;
             case SignatureKind.MethodDefinition:
             case SignatureKind.MethodReference:
                wasMethod = true;
                var mSig = (AbstractMethodSignature) mRef.Signature;
                var isCtor = String.Equals( mRef.Name, Miscellaneous.CLASS_CTOR_NAME ) || String.Equals( mRef.Name, Miscellaneous.INSTANCE_CTOR_NAME );
-               var declIsGeneric = cilDeclType.IsGenericType();
-               var declTypeToUse = declIsGeneric ? cilDeclType.GenericDefinition : cilDeclType;
                var method = ( isCtor ? (IEnumerable<CILMethodBase>) declTypeToUse.Constructors : declTypeToUse.DeclaredMethods.Where( m => String.Equals( mRef.Name, m.Name ) ) )
                   .FirstOrDefault( m => this.MatchCILMethodParametersToSignature( m, mSig ) );
                if ( method != null && declIsGeneric )
                {
-                  method.ChangeDeclaringTypeUT( cilDeclType.GenericArguments.ToArray() );
+                  method = method.ChangeDeclaringTypeUT( cilDeclType.GenericArguments.ToArray() );
                }
                retVal = method;
                break;
@@ -474,7 +628,7 @@ public static partial class E_CILLogical
                   throw new InvalidOperationException( "Unsupported primitive type: " + sigType + "." );
             }
 
-            return this._associatedMSCorLib.Value.GetTypeByName( typeStr, true );
+            return this._associatedMSCorLib.Value.ResolveTypeString( typeStr, true );
          } );
       }
 
@@ -485,7 +639,7 @@ public static partial class E_CILLogical
             case Tables.TypeDef:
                return this.GetTypeDef( index.Index );
             case Tables.TypeRef:
-               return this.ResolveTypeRef( index.Index );
+               return this.ResolveTypeRef( index.Index, false );
             case Tables.TypeSpec:
                return this.ResolveTypeSpec( index.Index, contextType, contextMethod );
             case Tables.MethodDef:
@@ -531,7 +685,7 @@ public static partial class E_CILLogical
          }
       }
 
-      internal CILAssembly ResolveAssemblyRef( Int32 index )
+      internal LogicalAssemblyCreationResult ResolveAssemblyRef( Int32 index )
       {
          return this._assemblyRefs.GetOrAdd_NotThreadSafe( index, i =>
          {
@@ -540,16 +694,16 @@ public static partial class E_CILLogical
          } );
       }
 
-      private CILTypeBase ResolveTypeSpec( Int32 tSpecIdx, CILType contextType, CILMethodBase contextMethod )
+      private CILTypeBase ResolveTypeSpec( Int32 tSpecIdx, CILType contextType, CILMethodBase contextMethod, Boolean populateAssemblyRefStructure = false )
       {
          // TypeSpecs can't be cached, as they might resolve to different instances of logical types because of context type/method.
          // TODO : resolving type signature should indicate whether it had contextual elements (any GenericParameterTypeSignature's).
          // If not, then this type spec is cacheable.
-         return this.ResolveTypeSignature( this._md.TypeSpecifications.TableContents[tSpecIdx].Signature, contextType, contextMethod );
+         return this.ResolveTypeSignature( this._md.TypeSpecifications.TableContents[tSpecIdx].Signature, contextType, contextMethod, populateAssemblyRefStructure );
       }
 
 
-      private CILType ResolveTypeRef( Int32 tRefIdx )
+      private CILType ResolveTypeRef( Int32 tRefIdx, Boolean populateAssemblyRefStructure )
       {
          var tRef = this._md.TypeReferences.TableContents[tRefIdx];
          var resScopeNullable = tRef.ResolutionScope;
@@ -560,16 +714,21 @@ public static partial class E_CILLogical
             switch ( resScope.Table )
             {
                case Tables.TypeRef:
-                  retVal = this.ResolveTypeRef( resScope.Index ).DeclaredNestedTypes.FirstOrDefault( n => String.Equals( n.Namespace, tRef.Namespace ) && String.Equals( n.Name, tRef.Name ) );
+                  retVal = this.ResolveTypeRef( resScope.Index, populateAssemblyRefStructure )
+                     .DeclaredNestedTypes
+                     .FirstOrDefault( n => String.Equals( n.Namespace, tRef.Namespace ) && String.Equals( n.Name, tRef.Name ) );
                   break;
                case Tables.AssemblyRef:
                   // TODO type forwarding!!
-                  retVal = this.ResolveAssemblyRef( resScope.Index )
-                     .MainModule // TODO probably should seek whole ExportedTypes table!
-                     .GetTypeByName( LogicalUtils.CombineTypeAndNamespace( tRef.Name, tRef.Namespace ) );
+                  var aRef = this.ResolveAssemblyRef( resScope.Index );
+                  if ( populateAssemblyRefStructure )
+                  {
+                     aRef.PopulateBasicStructure();
+                  }
+                  retVal = aRef.ResolveTopLevelType( tRef.Namespace, tRef.Name, true );
                   break;
                case Tables.Module:
-                  this._topLevelTypesByName.TryGetValue( Tuple.Create( tRef.Namespace, tRef.Name ), out retVal );
+                  retVal = this._creationResult.ResolveTopLevelType( tRef.Namespace, tRef.Name, true );
                   break;
                case Tables.ModuleRef:
                   retVal = this.ResolveModuleRef( resScope.Index ).GetTypeByName( LogicalUtils.CombineTypeAndNamespace( tRef.Name, tRef.Namespace ) );
@@ -736,9 +895,53 @@ public static partial class E_CILLogical
 
       private Boolean MatchTypeRefs( CILType typeRefFromOtherModule, Int32 thisTypeRefIndex )
       {
-         // TODO: If no match, and this type ref represents retargetable type ref, perform textual match
-         // Also! need to look into type forwarding infos as well.
-         return typeRefFromOtherModule.Equals( this.ResolveTypeRef( thisTypeRefIndex ) );
+         var tRef = this._md.TypeReferences.TableContents[thisTypeRefIndex];
+         var retVal = typeRefFromOtherModule != null
+            && String.Equals( typeRefFromOtherModule.Name, tRef.Name )
+            && String.Equals( typeRefFromOtherModule.Namespace, tRef.Namespace );
+         if ( retVal )
+         {
+            retVal = false;
+            var resScopNullable = tRef.ResolutionScope;
+            if ( resScopNullable.HasValue )
+            {
+               var resScope = resScopNullable.Value;
+               switch ( resScope.Table )
+               {
+                  case Tables.TypeRef:
+                     retVal = this.MatchTypeRefs( typeRefFromOtherModule.DeclaringType, resScope.Index );
+                     break;
+                  case Tables.AssemblyRef:
+                     if ( typeRefFromOtherModule.DeclaringType == null )
+                     {
+                        // TODO need to look into type forwarding infos as well.
+                        var aRef = this._md.AssemblyReferences.TableContents[resScope.Index];
+                        var otherAssembly = typeRefFromOtherModule.Module.Assembly;
+                        retVal = aRef.Attributes.IsRetargetable() ?
+                           // Just match name
+                           String.Equals( aRef.AssemblyInformation.Name, otherAssembly.Name.Name ) :
+                           // Match whole assembly name
+                           this._module.ReflectionContext.DefaultAssemblyNameComparer.Equals( new CILAssemblyName( aRef.AssemblyInformation, aRef.Attributes.IsFullPublicKey() ), otherAssembly.Name );
+                     }
+                     break;
+                  case Tables.ModuleRef:
+                     retVal = typeRefFromOtherModule.DeclaringType == null
+                        && typeRefFromOtherModule.Module.Equals( this.ResolveModuleRef( resScope.Index ) );
+                     break;
+                  case Tables.Module:
+                     retVal = typeRefFromOtherModule.Equals( this._creationResult.ResolveTopLevelType( tRef.Namespace, tRef.Name, false ) );
+                     break;
+                  default:
+                     throw new InvalidOperationException( "Unsupported type reference reference scope: " + resScope + "." );
+               }
+            }
+            else
+            {
+               throw new NotImplementedException( "Null resolution scope in matching." );
+            }
+         }
+
+         return retVal;
       }
 
       private Boolean MatchComplexArrayInfo( GeneralArrayInfo cilInfo, ComplexArrayTypeSignature sig )
@@ -755,12 +958,12 @@ public static partial class E_CILLogical
             && array.Where( ( i, idx ) => idx == list[i] ).Count() == array.Count;
       }
 
-      private CILModule ResolveMSCorLibModule( CILModule msCorLibOverride )
+      private LogicalAssemblyCreationResult ResolveMSCorLibModule( LogicalAssemblyCreationResult msCorLibOverride )
       {
          // Try find "System.Object"
          var testTypeString = Consts.OBJECT;
 
-         var suitableModule = this.GetSuitableMSCorLibModules( msCorLibOverride ).FirstOrDefault( m => m.GetTypeByName( testTypeString, false ) != null );
+         var suitableModule = this.GetSuitableMSCorLibModules( msCorLibOverride ).FirstOrDefault( m => m.ResolveTypeString( testTypeString, false ) != null );
 
          if ( suitableModule == null )
          {
@@ -770,14 +973,14 @@ public static partial class E_CILLogical
          return suitableModule;
       }
 
-      private IEnumerable<CILModule> GetSuitableMSCorLibModules( CILModule msCorLibOverride )
+      private IEnumerable<LogicalAssemblyCreationResult> GetSuitableMSCorLibModules( LogicalAssemblyCreationResult msCorLibOverride )
       {
          if ( msCorLibOverride != null )
          {
             yield return msCorLibOverride;
          }
 
-         yield return this._module;
+         yield return this._creationResult;
 
          var aRefs = this._md.AssemblyReferences.TableContents;
          var aRefList = new List<Int32>( Enumerable.Range( 0, aRefs.Count )
@@ -845,22 +1048,17 @@ public static partial class E_CILLogical
 
          foreach ( var aRefIdx in aRefList )
          {
-            yield return this.ResolveAssemblyRef( aRefIdx ).MainModule;
-         }
-
-         if ( msCorLibOverride == null )
-         {
-            yield return typeof( Object ).Assembly.NewWrapper( this._module.ReflectionContext ).MainModule;
+            yield return this.ResolveAssemblyRef( aRefIdx );
          }
       }
    }
 
-   public static CILAssembly CreateLogicalRepresentation(
+   public static LogicalAssemblyCreationResult CreateLogicalRepresentation(
       this CILReflectionContext ctx,
       CILMetaData metaData,
       Func<String, CILMetaData> moduleResolver,
-      Func<CILMetaData, CILAssemblyName, CILAssembly> customAssemblyResolver = null,
-      CILModule msCorLibOverride = null
+      Func<CILMetaData, CILAssemblyName, LogicalAssemblyCreationResult> customAssemblyResolver = null,
+      LogicalAssemblyCreationResult msCorLibOverride = null
       )
    {
 
@@ -869,13 +1067,29 @@ public static partial class E_CILLogical
       {
          throw new InvalidOperationException( "The physical metadata does not contain assembly information." );
       }
-      var aDef = aDefList[0];
-      var retVal = ctx.NewBlankAssembly( aDef.AssemblyInformation.Name );
 
-      var an = retVal.Name;
+      var aDef = aDefList[0];
+      var assembly = ctx.NewBlankAssembly( aDef.AssemblyInformation.Name );
+      var an = assembly.Name;
       aDef.AssemblyInformation.DeepCopyContentsTo( an.AssemblyInformation );
       an.HashAlgorithm = aDef.HashAlgorithm;
       an.Flags = aDef.Attributes;
+
+      var allModuleStates = new Dictionary<String, LogicalCreationState>();
+      var retVal = new LogicalAssemblyCreationResult( assembly, () =>
+      {
+         foreach ( var state in allModuleStates.Values )
+         {
+            state.Module.AssociatedMSCorLibModule = state.AssociatedMSCorLibModule.AssemblyInstance.MainModule;
+            state.CreateBasicStructure();
+         }
+      }, () =>
+      {
+         foreach ( var state in allModuleStates.Values )
+         {
+            state.CreateComplexStructure();
+         }
+      } );
 
       var modList = metaData.ModuleDefinitions.TableContents;
       if ( modList.Count <= 0 )
@@ -884,7 +1098,6 @@ public static partial class E_CILLogical
       }
 
       // Adding first module will make it main module (TODO this is a bit un-intuitive...)
-      var allModuleStates = new Dictionary<String, LogicalCreationState>();
       var moduleRefResolver = new Func<String, CILModule>( modName =>
       {
          LogicalCreationState retModule;
@@ -894,26 +1107,8 @@ public static partial class E_CILLogical
          }
          return retModule.Module;
       } );
-      var assemblyRefResolver = new Func<CILMetaData, CILAssemblyName, CILAssembly>( ( thisMD, aName ) =>
-      {
-         CILAssembly resolvedAss = null;
-         if ( customAssemblyResolver != null )
-         {
-            resolvedAss = customAssemblyResolver( thisMD, aName );
-         }
-         if ( resolvedAss == null )
-         {
-            resolvedAss = ( (CILAssemblyManipulator.Logical.Implementation.CILReflectionContextImpl) ctx ).LaunchAssemblyRefResolveEvent( new AssemblyRefResolveFromLoadedAssemblyEventArgs( aName, ctx ) );
-         }
 
-         if ( resolvedAss == null )
-         {
-            throw new InvalidOperationException( "Failed to resolve " + aName + "." );
-         }
-
-         return resolvedAss;
-      } );
-      var mainModuleState = retVal.AddModule( modList[0].Name ).CreateLogicalCreationState( metaData, moduleRefResolver, assemblyRefResolver, msCorLibOverride );
+      var mainModuleState = retVal.CreateLogicalCreationState( assembly.AddModule( modList[0].Name ), metaData, moduleRefResolver, customAssemblyResolver, msCorLibOverride );
       allModuleStates[mainModuleState.Module.Name] = mainModuleState;
 
       foreach ( var module in metaData.FileReferences.TableContents.Where( f => f.Attributes.ContainsMetadata() ) )
@@ -925,39 +1120,33 @@ public static partial class E_CILLogical
             throw new InvalidOperationException( "Failed to resolve module \"" + moduleMD + "\"." );
          }
 
-         var cilModule = retVal.AddModule( name );
-         allModuleStates[name] = cilModule.CreateLogicalCreationState( moduleMD, moduleRefResolver, assemblyRefResolver, msCorLibOverride );
-      }
-
-      // Process rest of the stuff now because of possible cross-module references (we have to have instances of CILModule existing at this point)
-      foreach ( var state in allModuleStates.Values )
-      {
-         state.ProcessLogicalModule( state.Module );
+         var cilModule = assembly.AddModule( name );
+         allModuleStates[name] = retVal.CreateLogicalCreationState( cilModule, moduleMD, moduleRefResolver, customAssemblyResolver, msCorLibOverride );
       }
 
       return retVal;
    }
 
    private static LogicalCreationState CreateLogicalCreationState(
-      this CILModule module,
+      this LogicalAssemblyCreationResult creationResult,
+      CILModule module,
       CILMetaData metaData,
       Func<String, CILModule> moduleRefResolver,
-      Func<CILMetaData, CILAssemblyName, CILAssembly> customAssemblyResolver,
-      CILModule msCorLibOverride
+      Func<CILMetaData, CILAssemblyName, LogicalAssemblyCreationResult> customAssemblyResolver,
+      LogicalAssemblyCreationResult msCorLibOverride
       )
    {
-      // The module name is set by all places calling this method, so don't set that
-      // TODO assembly name resolver: add IEqualityComparer<CILAssemblyName> to CILReflectionContext, and cache resolved assemblies based on CILAssemblyName in the callback!
       var anEQComparer = module.ReflectionContext.DefaultAssemblyNameComparer;
-      var assemblyNameCache = new Dictionary<CILAssemblyName, CILAssembly>( anEQComparer );
-      var thisAN = module.Assembly.Name;
+      var assemblyNameCache = new Dictionary<CILAssemblyName, LogicalAssemblyCreationResult>( anEQComparer );
+      var thisAN = creationResult.AssemblyInstance.Name;
       var state = new LogicalCreationState(
+         creationResult,
          module,
          metaData,
          moduleRefResolver,
          aName => assemblyNameCache.GetOrAdd_NotThreadSafe( aName, an =>
             // Check for self-reference...
-            anEQComparer.Equals( thisAN, an ) ? module.Assembly : customAssemblyResolver( metaData, an ) ),
+            anEQComparer.Equals( thisAN, an ) ? creationResult : customAssemblyResolver( metaData, an ) ),
          msCorLibOverride
          );
 
@@ -978,7 +1167,7 @@ public static partial class E_CILLogical
          }
       }
 
-      module.AssociatedMSCorLibModule = state.AssociatedMSCorLibModule;
+      state.ProcessGenericParameters();
 
       return state;
    }
@@ -1161,22 +1350,6 @@ public static partial class E_CILLogical
       }
    }
 
-   private static void ProcessLogicalModule( this LogicalCreationState state, CILModule module )
-   {
-      var md = state.MetaData;
-
-      // TODO Associated MSCorLib
-
-      // Generic arguments
-      state.ProcessGenericParameters();
-
-      // Type definitions
-      state.ProcessTablesAfterStructureIsCreated();
-
-      // TODO ExportedType
-
-   }
-
    private static void ProcessGenericParameters( this LogicalCreationState state )
    {
       var md = state.MetaData;
@@ -1221,17 +1394,10 @@ public static partial class E_CILLogical
             cilGParam.Attributes = gParamTable[gParam].Attributes;
          }
       }
-
-      // Generic parameter constraints
-      foreach ( var gParamConstraint in md.GenericParameterConstraintDefinitions.TableContents )
-      {
-         var typeParam = state
-            .GetTypeParameter( gParamConstraint.Owner.Index );
-         typeParam.AddGenericParameterConstraints( state.ResolveTypeDefOrRefOrSpec( gParamConstraint.Constraint, typeParam.DeclaringType, typeParam.DeclaringMethod ) );
-      }
    }
 
-   private static void ProcessTablesAfterStructureIsCreated( this LogicalCreationState state )
+
+   private static void CreateBasicStructure( this LogicalCreationState state )
    {
       var md = state.MetaData;
       // TypeDef table
@@ -1244,7 +1410,7 @@ public static partial class E_CILLogical
          // Base type
          if ( tDef.BaseType.HasValue )
          {
-            cilType.BaseType = state.ResolveTypeDefOrRefOrSpec( tDef.BaseType.Value, cilType, null ) as CILType;
+            cilType.BaseType = state.ResolveTypeDefOrRefOrSpec( tDef.BaseType.Value, cilType, null, true ) as CILType;
          }
          else
          {
@@ -1283,21 +1449,8 @@ public static partial class E_CILLogical
          }
       }
 
-      // Create method IL
-      for ( var i = 0; i < md.MethodDefinitions.TableContents.Count; ++i )
-      {
-         state.CreateLogicalIL( i );
-      }
-
-      // Class layout table
-      foreach ( var layout in md.ClassLayouts.TableContents )
-      {
-         state.GetTypeDef( layout.Parent.Index ).Layout = new LogicalClassLayout( layout.ClassSize, layout.PackingSize );
-      }
-
       // Properties
       var pMaps = md.PropertyMaps.TableContents;
-      var allProperties = PopulateWithNulls<CILProperty>( md.PropertyDefinitions.RowCount );
       for ( var i = 0; i < pMaps.Count; ++i )
       {
          var type = state.GetTypeDef( pMaps[i].Parent.Index );
@@ -1306,13 +1459,12 @@ public static partial class E_CILLogical
             var prop = md.PropertyDefinitions.TableContents[propIdx];
             var cilProp = type.AddProperty( prop.Name, prop.Attributes );
             state.AddCustomModifiers( cilProp, prop.Signature.CustomModifiers, type, null );
-            allProperties[propIdx] = cilProp;
+            state.RecordProperty( cilProp, propIdx );
          }
       }
 
       // Events
       var eMaps = md.EventMaps.TableContents;
-      var allEvents = PopulateWithNulls<CILEvent>( md.EventDefinitions.RowCount );
       for ( var i = 0; i < eMaps.Count; ++i )
       {
          var type = state.GetTypeDef( eMaps[i].Parent.Index );
@@ -1320,8 +1472,26 @@ public static partial class E_CILLogical
          {
             var evt = md.EventDefinitions.TableContents[evtIdx];
             var cilEvt = type.AddEvent( evt.Name, evt.Attributes, state.ResolveTypeDefOrRefOrSpec( evt.EventType, type, null ) );
-            allEvents[evtIdx] = cilEvt;
+            state.RecordEvent( cilEvt, evtIdx );
          }
+      }
+   }
+
+   private static void CreateComplexStructure( this LogicalCreationState state )
+   {
+      var md = state.MetaData;
+      // Generic parameter constraints
+      foreach ( var gParamConstraint in md.GenericParameterConstraintDefinitions.TableContents )
+      {
+         var typeParam = state
+            .GetTypeParameter( gParamConstraint.Owner.Index );
+         typeParam.AddGenericParameterConstraints( state.ResolveTypeDefOrRefOrSpec( gParamConstraint.Constraint, typeParam.DeclaringType, typeParam.DeclaringMethod ) );
+      }
+
+      // Class layout table
+      foreach ( var layout in md.ClassLayouts.TableContents )
+      {
+         state.GetTypeDef( layout.Parent.Index ).Layout = new LogicalClassLayout( layout.ClassSize, layout.PackingSize );
       }
 
       // Method semantics
@@ -1332,22 +1502,22 @@ public static partial class E_CILLogical
          switch ( semantics.Attributes )
          {
             case MethodSemanticsAttributes.Getter:
-               allProperties[asso.Index].GetMethod = method;
+               state.GetProperty( asso.Index ).GetMethod = method;
                break;
             case MethodSemanticsAttributes.Setter:
-               allProperties[asso.Index].SetMethod = method;
+               state.GetProperty( asso.Index ).SetMethod = method;
                break;
             case MethodSemanticsAttributes.AddOn:
-               allEvents[asso.Index].AddMethod = method;
+               state.GetEvent( asso.Index ).AddMethod = method;
                break;
             case MethodSemanticsAttributes.RemoveOn:
-               allEvents[asso.Index].RemoveMethod = method;
+               state.GetEvent( asso.Index ).RemoveMethod = method;
                break;
             case MethodSemanticsAttributes.Fire:
-               allEvents[asso.Index].RaiseMethod = method;
+               state.GetEvent( asso.Index ).RaiseMethod = method;
                break;
             case MethodSemanticsAttributes.Other:
-               allEvents[asso.Index].AddOtherMethods( method );
+               state.GetEvent( asso.Index ).AddOtherMethods( method );
                break;
             default:
                throw new InvalidOperationException( "Unrecognized semantics attributes: " + semantics.Attributes + "." );
@@ -1368,7 +1538,7 @@ public static partial class E_CILLogical
                element = state.GetFieldDef( parent.Index );
                break;
             case Tables.Property:
-               element = allProperties[parent.Index];
+               element = state.GetProperty( parent.Index );
                break;
             default:
                throw new InvalidOperationException( "Unrecognized constant parent: " + parent + "." );
@@ -1409,13 +1579,13 @@ public static partial class E_CILLogical
             element.MarshalingInformation = new LogicalMarshalingInfo(
                marshalInfo.Value,
                marshalInfo.SafeArrayType,
-               state.ResolveTypeString( marshalInfo.SafeArrayUserDefinedType ),
+               state.ResolveTypeString( marshalInfo.SafeArrayUserDefinedType, false ),
                marshalInfo.IIDParameterIndex,
                marshalInfo.ArrayType,
                marshalInfo.SizeParameterIndex,
                marshalInfo.ConstSize,
                marshalInfo.MarshalType,
-               s => state.ResolveTypeString( s ),
+               s => state.ResolveTypeString( s, false ),
                marshalInfo.MarshalCookie
                );
          }
@@ -1523,7 +1693,8 @@ public static partial class E_CILLogical
                      throw new InvalidOperationException( "Unsupported security information kind: " + permission.SecurityInformationKind + "." );
                }
 
-               var declType = state.ResolveTypeString( permission.SecurityAttributeType );
+               // Populate target
+               var declType = state.ResolveTypeString( permission.SecurityAttributeType, true );
                var cilPermission = cilParent.AddDeclarativeSecurity( sec.Action, declType );
                cilPermission.NamedArguments.AddRange( namedArgs.Select( arg => state.CreateCANamedArg( declType, secIdx, arg ) ) );
             }
@@ -1552,7 +1723,7 @@ public static partial class E_CILLogical
                      resource = new FileManifestResource( mResource.Attributes, file.Name, file.HashValue.CreateBlockCopy() );
                      break;
                   case Tables.AssemblyRef:
-                     resource = new AssemblyManifestResource( mResource.Attributes, state.ResolveAssemblyRef( impl.Index ) );
+                     resource = new AssemblyManifestResource( mResource.Attributes, state.ResolveAssemblyRef( impl.Index ).AssemblyInstance );
                      break;
                   default:
                      throw new InvalidOperationException( "Unsupported manifest resource implementation: " + impl + "." );
@@ -1592,10 +1763,10 @@ public static partial class E_CILLogical
                cilOwner = state.Module;
                break;
             case Tables.Property:
-               cilOwner = allProperties[owner.Index];
+               cilOwner = state.GetProperty( owner.Index );
                break;
             case Tables.Event:
-               cilOwner = allEvents[owner.Index];
+               cilOwner = state.GetEvent( owner.Index );
                break;
             case Tables.Assembly:
                cilOwner = state.Module.Assembly;
@@ -1628,6 +1799,16 @@ public static partial class E_CILLogical
             state.AddCustomAttributeTo( cilOwner, i );
          }
       }
+
+      // Create method IL
+      var max = md.MethodDefinitions.TableContents.Count;
+      for ( var i = 0; i < max; ++i )
+      {
+         state.CreateLogicalIL( i );
+      }
+
+      // TODO ExportedType
+
    }
 
    private static void AddCustomAttributeTo( this LogicalCreationState state, CILCustomAttributeContainer owner, Int32 caIdx )
@@ -1678,7 +1859,7 @@ public static partial class E_CILLogical
          case CustomAttributeArgumentTypeKind.Array:
             return state.ResolveCAType( ( (CustomAttributeArgumentTypeArray) sigType ).ArrayType ).MakeArrayType();
          case CustomAttributeArgumentTypeKind.TypeString:
-            return state.ResolveTypeString( ( (CustomAttributeArgumentTypeEnum) sigType ).TypeString );
+            return state.ResolveTypeString( ( (CustomAttributeArgumentTypeEnum) sigType ).TypeString, false );
          default:
             throw new InvalidOperationException( "Unsupported custom attribute argument type: " + sigType.ArgumentTypeKind + "." );
       }
@@ -1831,23 +2012,23 @@ public static partial class E_CILLogical
       return codeOffset;
    }
 
-   private static T GetOrAdd_NotThreadSafe<T>( this List<T> list, Int32 index, Func<Int32, T> factory )
+   private static T GetOrAdd_NotThreadSafe<T>( this T[] array, Int32 index, Func<Int32, T> factory )
       where T : class
    {
-      var retVal = list[index];
+      var retVal = array[index];
       if ( retVal == null )
       {
          retVal = factory( index );
-         list[index] = retVal;
+         array[index] = retVal;
       }
       return retVal;
    }
 
-   public static List<T> PopulateWithNulls<T>( Int32 count )
+   public static T[] PopulateWithNulls<T>( Int32 count )
       where T : class
    {
-      var retVal = new List<T>( count );
-      retVal.AddRange( Enumerable.Repeat<T>( null, count ) );
+      var retVal = new T[count];
+      retVal.FillWithNulls();
       return retVal;
    }
 }

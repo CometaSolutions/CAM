@@ -702,7 +702,16 @@ public static partial class E_CILLogical
    /// <seealso cref="System.Type.IsValueType"/>
    public static Boolean IsValueType( this CILTypeBase type )
    {
-      return type != null && TypeKind.Type == type.TypeKind && ( (CILType) type ).BaseType != null && ( ( (CILType) type ).BaseType.TypeCode == CILTypeCode.Value || ( (CILType) type ).BaseType.TypeCode == CILTypeCode.Enum ); // ( (CILType) type ).BaseTypeChain().Any( bt => CILTypeCode.Value == bt.TypeCode );
+      var retVal = type != null
+         && TypeKind.Type == type.TypeKind;
+      if ( retVal )
+      {
+         var t = (CILType) type;
+         retVal = t.BaseType != null
+            && ( ( t.BaseType.TypeCode == CILTypeCode.Value && t.TypeCode != CILTypeCode.Enum )
+                 || t.BaseType.TypeCode == CILTypeCode.Enum );
+      }
+      return retVal;
    }
 
    /// <summary>
@@ -713,7 +722,10 @@ public static partial class E_CILLogical
    /// <seealso cref="System.Type.IsEnum"/>
    public static Boolean IsEnum( this CILTypeBase type )
    {
-      return type != null && TypeKind.Type == type.TypeKind && ( (CILType) type ).BaseType != null && ( (CILType) type ).BaseType.TypeCode == CILTypeCode.Enum;// .BaseTypeChain().Any( bt => CILTypeCode.Enum == bt.TypeCode );
+      return type != null
+         && TypeKind.Type == type.TypeKind
+         && ( (CILType) type ).BaseType != null
+         && ( (CILType) type ).BaseType.TypeCode == CILTypeCode.Enum;
    }
 
    /// <summary>
@@ -1071,7 +1083,7 @@ public static partial class E_CILLogical
    /// <returns><c>true</c> if <paramref name="type"/> is non-<c>null</c> and is vector array type; <c>false</c> otherwise.</returns>
    public static Boolean IsVectorArray( this CILType type )
    {
-      return type != null && type.ElementKind.Value == ElementKind.Array && type.ArrayInformation == null;
+      return type != null && type.ElementKind.HasValue && type.ElementKind.Value == ElementKind.Array && type.ArrayInformation == null;
    }
 
    /// <summary>
@@ -1081,7 +1093,7 @@ public static partial class E_CILLogical
    /// <returns><c>true</c> if <paramref name="type"/> is non-<c>null</c> and is general array type; <c>false</c> otherwise.</returns>
    public static Boolean IsMultiDimensionalArray( this CILType type )
    {
-      return type != null && type.ElementKind.Value == ElementKind.Array && type.ArrayInformation != null;
+      return type != null && type.ElementKind.HasValue && type.ElementKind.Value == ElementKind.Array && type.ArrayInformation != null;
    }
 
    /// <summary>

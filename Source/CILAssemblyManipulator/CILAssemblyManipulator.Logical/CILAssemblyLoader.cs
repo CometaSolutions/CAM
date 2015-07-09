@@ -34,7 +34,7 @@ namespace CILAssemblyManipulator.Logical
    }
 
    public abstract class AbstractCILAssemblyLoader<TDictionary>
-      where TDictionary : class, IDictionary<String, CILAssembly>
+      where TDictionary : class, IDictionary<String, LogicalAssemblyCreationResult>
    {
       private readonly TDictionary _assemblies;
       private readonly CILReflectionContext _ctx;
@@ -58,6 +58,21 @@ namespace CILAssemblyManipulator.Logical
 
       public CILAssembly LoadAssemblyFrom( String resource )
       {
+         return this.DoGetOrLoadAssemblyFrom( resource ).Assembly;
+      }
+
+      protected TDictionary Dictionary
+      {
+         get
+         {
+            return this._assemblies;
+         }
+      }
+
+      protected abstract LogicalAssemblyCreationResult GetOrAddFromDictionary( String resource, Func<String, LogicalAssemblyCreationResult> factory );
+
+      private LogicalAssemblyCreationResult DoGetOrLoadAssemblyFrom( String resource )
+      {
          var loader = this._mdLoader;
          var callbacks = loader.LoaderCallbacks;
          var md = loader.LoadAndResolve( resource );
@@ -65,7 +80,6 @@ namespace CILAssemblyManipulator.Logical
          // TODO instead, create blank assembly in factory
          // If created -> populate
          // If not -> return existing
-         TODO
          return this.GetOrAddFromDictionary( resource, aResource =>
             this._ctx.CreateLogicalRepresentation(
             md,
@@ -82,17 +96,7 @@ namespace CILAssemblyManipulator.Logical
             ) );
       }
 
-      protected TDictionary Dictionary
-      {
-         get
-         {
-            return this._assemblies;
-         }
-      }
-
-      protected abstract CILAssembly GetOrAddFromDictionary( String resource, Func<String, CILAssembly> factory );
-
-      private CILAssembly ResolveAssemblyReference( CILMetaData thisMD, CILAssemblyName aName )
+      private LogicalAssemblyCreationResult ResolveAssemblyReference( CILMetaData thisMD, CILAssemblyName aName )
       {
          var loader = this._mdLoader;
          var callbacks = loader.LoaderCallbacks;
@@ -102,39 +106,39 @@ namespace CILAssemblyManipulator.Logical
 
          return String.IsNullOrEmpty( aRefResource ) ?
             null :
-            this.LoadAssemblyFrom( aRefResource );
+            this.DoGetOrLoadAssemblyFrom( aRefResource );
       }
    }
 
-   public class CILAssemblyLoaderNotThreadSafe : AbstractCILAssemblyLoader<IDictionary<String, CILAssembly>>
+   public class CILAssemblyLoaderNotThreadSafe : AbstractCILAssemblyLoader<IDictionary<String, LogicalAssemblyCreationResult>>
    {
       public CILAssemblyLoaderNotThreadSafe(
          CILReflectionContext ctx,
          CILMetaDataLoaderWithCallbacks mdLoader
          )
-         : base( new Dictionary<String, CILAssembly>(), ctx, mdLoader )
+         : base( new Dictionary<String, LogicalAssemblyCreationResult>(), ctx, mdLoader )
       {
 
       }
 
-      protected override CILAssembly GetOrAddFromDictionary( String resource, Func<String, CILAssembly> factory )
+      protected override LogicalAssemblyCreationResult GetOrAddFromDictionary( String resource, Func<String, LogicalAssemblyCreationResult> factory )
       {
          return this.Dictionary.GetOrAdd_NotThreadSafe( resource, factory );
       }
    }
 
-   public class CILAssemblyLoaderThreadSafeSimpl : AbstractCILAssemblyLoader<IDictionary<String, CILAssembly>>
+   public class CILAssemblyLoaderThreadSafeSimpl : AbstractCILAssemblyLoader<IDictionary<String, LogicalAssemblyCreationResult>>
    {
       public CILAssemblyLoaderThreadSafeSimpl(
          CILReflectionContext ctx,
          CILMetaDataLoaderWithCallbacks mdLoader
          )
-         : base( new Dictionary<String, CILAssembly>(), ctx, mdLoader )
+         : base( new Dictionary<String, LogicalAssemblyCreationResult>(), ctx, mdLoader )
       {
 
       }
 
-      protected override CILAssembly GetOrAddFromDictionary( String resource, Func<String, CILAssembly> factory )
+      protected override LogicalAssemblyCreationResult GetOrAddFromDictionary( String resource, Func<String, LogicalAssemblyCreationResult> factory )
       {
          return this.Dictionary.GetOrAdd_WithLock( resource, factory );
       }

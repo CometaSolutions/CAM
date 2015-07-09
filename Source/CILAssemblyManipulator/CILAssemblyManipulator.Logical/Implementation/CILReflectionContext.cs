@@ -28,7 +28,7 @@ using CILAssemblyManipulator.Physical;
 
 namespace CILAssemblyManipulator.Logical.Implementation
 {
-   internal class CILReflectionContextImpl : CILReflectionContext
+   internal class CILReflectionContextImpl : AbstractDisposable, CILReflectionContext
    {
       private sealed class CILAssemblyNameEqualityComparer : AbstractDisposable, IEqualityComparer<CILAssemblyName>
       {
@@ -56,20 +56,27 @@ namespace CILAssemblyManipulator.Logical.Implementation
                   && !ya.PublicKeyOrToken.IsNullOrEmpty()
                   )
                {
-                  Byte[] xBytes, yBytes;
-                  if ( x.Flags.IsFullPublicKey() )
+                  if ( this._publicKeyComputer == null )
                   {
-                     // Create public key token for x and compare with y
-                     xBytes = this._publicKeyComputer.Value.ComputePublicKeyToken( xa.PublicKeyOrToken );
-                     yBytes = ya.PublicKeyOrToken;
+                     throw new NotSupportedException( "The crypto callbacks were not supplied to reflection context, so it is not possible to compare assembly name containing full public key and assembly name containing public key token." );
                   }
                   else
                   {
-                     // Create public key token for y and compare with x
-                     xBytes = xa.PublicKeyOrToken;
-                     yBytes = this._publicKeyComputer.Value.ComputePublicKeyToken( ya.PublicKeyOrToken );
+                     Byte[] xBytes, yBytes;
+                     if ( x.Flags.IsFullPublicKey() )
+                     {
+                        // Create public key token for x and compare with y
+                        xBytes = this._publicKeyComputer.Value.ComputePublicKeyToken( xa.PublicKeyOrToken );
+                        yBytes = ya.PublicKeyOrToken;
+                     }
+                     else
+                     {
+                        // Create public key token for y and compare with x
+                        xBytes = xa.PublicKeyOrToken;
+                        yBytes = this._publicKeyComputer.Value.ComputePublicKeyToken( ya.PublicKeyOrToken );
+                     }
+                     retVal = ArrayEqualityComparer<Byte>.DefaultArrayEqualityComparer.Equals( xBytes, yBytes );
                   }
-                  retVal = ArrayEqualityComparer<Byte>.DefaultArrayEqualityComparer.Equals( xBytes, yBytes );
                }
             }
             return retVal;
@@ -96,7 +103,7 @@ namespace CILAssemblyManipulator.Logical.Implementation
       private readonly ListQuery<Type> _arrayInterfaces;
       private readonly ListQuery<Type> _multiDimArrayIFaces;
       private readonly CryptoCallbacks _defaultCryptoCallbacks;
-      private readonly IEqualityComparer<CILAssemblyName> _defaultANComparer;
+      private readonly CILAssemblyNameEqualityComparer _defaultANComparer;
 
       internal CILReflectionContextImpl( Type[] vectorArrayInterfaces, Type[] multiDimArrayIFaces, CryptoCallbacks defaultCryptoCallbacks )
       {
@@ -305,10 +312,15 @@ namespace CILAssemblyManipulator.Logical.Implementation
          }
       }
 
-      public void Dispose()
+      protected override void Dispose( Boolean disposing )
       {
-         this._cache.Dispose();
+         if ( disposing )
+         {
+            this._cache.DisposeSafely();
+            this._defaultANComparer.DisposeSafely();
+         }
       }
+
    }
 
    internal class CILReflectionContextCache : IDisposable
@@ -531,7 +543,7 @@ namespace CILAssemblyManipulator.Logical.Implementation
                {
                   throw new ArgumentNullException( "Generic argument at index " + i + " was null." );
                }
-               else if ( gArg.IsPointerType() || gArg.IsByRef() || ( gArg.TypeKind != TypeKind.MethodSignature && gArg.Equals( ( (CILTypeOrTypeParameter) gArg ).Module.AssociatedMSCorLibModule.GetTypeByName( Consts.VOID ) ) ) )
+               else if ( gArg.IsPointerType() || gArg.IsByRef() || gArg.GetTypeCode( CILTypeCode.Empty ) == CILTypeCode.Void )
                {
                   throw new ArgumentException( "Generic argument " + gArg + " at index " + i + " was invalid." );
                }

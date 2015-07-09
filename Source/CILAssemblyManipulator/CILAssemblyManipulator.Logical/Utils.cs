@@ -49,6 +49,7 @@ namespace CILAssemblyManipulator.Logical
       //      private const String TYPE_ASSEMBLY_SEPARATOR = ", ";
 
       private const String NAMESPACE_SEPARATOR = ".";
+      private const Char NESTED_TYPE_SEPARATOR = '+';
 
       /// <summary>
       /// Returns <see cref="ElementKind"/> of the given native type.
@@ -500,7 +501,7 @@ namespace CILAssemblyManipulator.Logical
                   else
                   {
                      CreateTypeStringCore( dt, moduleBeingEmitted, builder, false );
-                     builder.Append( '+' );
+                     builder.Append( NESTED_TYPE_SEPARATOR );
                   }
                   builder.Append( typee.Name.EscapeCILTypeString() );
                   break;
@@ -705,6 +706,11 @@ namespace CILAssemblyManipulator.Logical
       internal static String CombineTypeAndNamespace( String typeName, String typeNamespace )
       {
          return ( typeNamespace != null && typeNamespace.Length > 0 ? ( typeNamespace + NAMESPACE_SEPARATOR ) : "" ) + typeName;
+      }
+
+      internal static String CombineEnclsosingAndNestedType( String enclosing, String nested )
+      {
+         return enclosing + NESTED_TYPE_SEPARATOR + nested;
       }
 
       // Mofidied from http://stackoverflow.com/questions/1068541/how-to-convert-a-value-type-to-byte-in-c

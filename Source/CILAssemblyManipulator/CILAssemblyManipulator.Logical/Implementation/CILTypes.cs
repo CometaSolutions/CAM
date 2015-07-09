@@ -1019,10 +1019,10 @@ namespace CILAssemblyManipulator.Logical.Implementation
       protected void CheckBaseType( CILType value )
       {
          this.ThrowIfNotCapableOfChanging();
-         if ( value != null )
-         {
-            value.AsSingleBranchEnumerable( type => type.BaseType ).CheckCyclity( this );
-         }
+         //if ( value != null )
+         //{
+         //   value.AsSingleBranchEnumerable( type => type.BaseType ).CheckCyclity( this );
+         //}
          // TODO check for sealed/valuetype/enum!
          // TODO If basetype is System.Enum, remember to update TypeCode
          // TODO check method impl!

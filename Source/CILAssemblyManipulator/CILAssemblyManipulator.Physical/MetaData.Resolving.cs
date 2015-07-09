@@ -114,7 +114,7 @@ namespace CILAssemblyManipulator.Physical
                var isNestedType = typeName.ParseTypeNameStringForNestedType( out enclosingType, out nestedType );
                if ( isNestedType )
                {
-                  this.ResolveTypeFromTypeName( typeName, out tDefIndex );
+                  this.ResolveTypeFromTypeName( enclosingType, out tDefIndex );
                   tDefIndex = this.FindNestedTypeIndex( tDefIndex, nestedType );
                }
                else
