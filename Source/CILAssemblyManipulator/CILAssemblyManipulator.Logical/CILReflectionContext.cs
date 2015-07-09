@@ -97,6 +97,8 @@ namespace CILAssemblyManipulator.Logical
 
       CryptoCallbacks DefaultCryptoCallbacks { get; }
 
+      IEqualityComparer<CILAssemblyName> DefaultAssemblyNameComparer { get; }
+
       //      /// <summary>
       //      /// This event occurs when a <see cref="CILModule"/> is emitted with a strong name. The event handler should set the <see cref="HashStreamLoadEventArgs.CryptoStream"/>, <see cref="HashStreamLoadEventArgs.HashGetter"/> and <see cref="HashStreamLoadEventArgs.Transform"/> properties. This assembly can not do this since many security and cryptographic functions are not present in this portable profile.
       //      /// </summary>

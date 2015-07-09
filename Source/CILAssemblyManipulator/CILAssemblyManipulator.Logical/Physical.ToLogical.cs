@@ -31,7 +31,7 @@ public static partial class E_CILLogical
       private readonly CILModule _module;
       private readonly CILMetaData _md;
       private readonly Func<String, CILModule> _moduleRefResolver;
-      private readonly Func<AssemblyReference, CILAssembly> _assemblyRefResolver;
+      private readonly Func<CILAssemblyName, CILAssembly> _assemblyRefResolver;
 
       private readonly List<CILType> _typeDefs;
       private readonly List<CILField> _fieldDefs;
@@ -54,7 +54,7 @@ public static partial class E_CILLogical
          CILModule module,
          CILMetaData md,
          Func<String, CILModule> moduleRefResolver,
-         Func<AssemblyReference, CILAssembly> assemblyRefResolver,
+         Func<CILAssemblyName, CILAssembly> assemblyRefResolver,
          CILModule msCorLibOverride
          )
       {
@@ -290,7 +290,27 @@ public static partial class E_CILLogical
          }
          else
          {
-            throw new NotImplementedException();
+            String type, assembly;
+            CILAssembly targetAssembly;
+            if ( typeString.ParseAssemblyQualifiedTypeString( out type, out assembly ) )
+            {
+               CILAssemblyName aName;
+               if ( CILAssemblyName.TryParse( assembly, out aName ) )
+               {
+                  targetAssembly = this._assemblyRefResolver( aName );
+               }
+               else
+               {
+                  throw new InvalidOperationException( "Unparseable assembly name: \"" + assembly + "\"." );
+               }
+            }
+            else
+            {
+               targetAssembly = this._module.Assembly;
+            }
+
+            // TODO maybe use exported types here too?
+            retVal = targetAssembly.MainModule.GetTypeByName( type.UnescapeCILTypeString() );
          }
 
          return retVal;
@@ -513,7 +533,11 @@ public static partial class E_CILLogical
 
       internal CILAssembly ResolveAssemblyRef( Int32 index )
       {
-         return this._assemblyRefs.GetOrAdd_NotThreadSafe( index, i => this._assemblyRefResolver( this._md.AssemblyReferences.TableContents[i] ) );
+         return this._assemblyRefs.GetOrAdd_NotThreadSafe( index, i =>
+         {
+            var aRef = this._md.AssemblyReferences.TableContents[i];
+            return this._assemblyRefResolver( new CILAssemblyName( aRef.AssemblyInformation, aRef.Attributes.IsFullPublicKey() ) );
+         } );
       }
 
       private CILTypeBase ResolveTypeSpec( Int32 tSpecIdx, CILType contextType, CILMethodBase contextMethod )
@@ -923,7 +947,20 @@ public static partial class E_CILLogical
       )
    {
       // The module name is set by all places calling this method, so don't set that
-      var state = new LogicalCreationState( module, metaData, moduleRefResolver, aRef => customAssemblyResolver( metaData, new CILAssemblyName( aRef.AssemblyInformation, aRef.Attributes.IsFullPublicKey() ) ), msCorLibOverride );
+      // TODO assembly name resolver: add IEqualityComparer<CILAssemblyName> to CILReflectionContext, and cache resolved assemblies based on CILAssemblyName in the callback!
+      var anEQComparer = module.ReflectionContext.DefaultAssemblyNameComparer;
+      var assemblyNameCache = new Dictionary<CILAssemblyName, CILAssembly>( anEQComparer );
+      var thisAN = module.Assembly.Name;
+      var state = new LogicalCreationState(
+         module,
+         metaData,
+         moduleRefResolver,
+         aName => assemblyNameCache.GetOrAdd_NotThreadSafe( aName, an =>
+            // Check for self-reference...
+            anEQComparer.Equals( thisAN, an ) ? module.Assembly : customAssemblyResolver( metaData, an ) ),
+         msCorLibOverride
+         );
+
 
       module.AssociatedMSCorLibModule = null;
 
@@ -1596,7 +1633,7 @@ public static partial class E_CILLogical
    private static void AddCustomAttributeTo( this LogicalCreationState state, CILCustomAttributeContainer owner, Int32 caIdx )
    {
       var ca = state.MetaData.CustomAttributeDefinitions.TableContents[caIdx];
-      var ctor = state.ResolveMethodDefOrMemberRef( ca.Parent, null, null ) as CILConstructor;
+      var ctor = state.ResolveMethodDefOrMemberRef( ca.Type, null, null ) as CILConstructor;
       if ( ctor != null )
       {
          var sig = ca.Signature;
@@ -1747,12 +1784,10 @@ public static partial class E_CILLogical
          }
 
          // Mark labels
-         var labelLogicalOffsets = new Dictionary<Int32, ILLabel>( labelByteOffsets.Count );
          foreach ( var kvp in labelByteOffsets )
          {
             var codeOffset = MapByteOffsetToCodeOffset( logicalByteOffsets, kvp.Value );
             retVal.MarkLabel( kvp.Key, codeOffset );
-            labelLogicalOffsets.Add( codeOffset, kvp.Key );
          }
 
          // Create locals

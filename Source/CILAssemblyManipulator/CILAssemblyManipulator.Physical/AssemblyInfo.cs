@@ -451,11 +451,11 @@ namespace CILAssemblyManipulator.Physical
          var success = aux > 0;
          if ( success )
          {
-            assemblyName.Culture = fullAssemblyName.Substring( nameIdx, aux );
+            var culture = fullAssemblyName.Substring( nameIdx, aux );
             nameIdx += aux;
-            if ( String.Equals( "\"\"", assemblyName.Culture ) || String.Equals( assemblyName.Culture, NEUTRAL_CULTURE, StringComparison.OrdinalIgnoreCase ) )
+            if ( culture.Length > 0 && !String.Equals( NEUTRAL_CULTURE, culture, StringComparison.OrdinalIgnoreCase ) && !String.Equals( "\"\"", culture ) )
             {
-               assemblyName.Culture = NEUTRAL_CULTURE_NAME;
+               assemblyName.Culture = culture;
             }
          }
          return success;

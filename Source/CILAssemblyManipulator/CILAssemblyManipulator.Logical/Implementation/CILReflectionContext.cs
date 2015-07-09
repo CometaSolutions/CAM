@@ -30,6 +30,65 @@ namespace CILAssemblyManipulator.Logical.Implementation
 {
    internal class CILReflectionContextImpl : CILReflectionContext
    {
+      private sealed class CILAssemblyNameEqualityComparer : AbstractDisposable, IEqualityComparer<CILAssemblyName>
+      {
+         private readonly Lazy<HashStreamInfo> _publicKeyComputer;
+
+         internal CILAssemblyNameEqualityComparer( CryptoCallbacks cryptoCallbacks )
+         {
+            this._publicKeyComputer = cryptoCallbacks == null ? null : new Lazy<HashStreamInfo>( () => cryptoCallbacks.CreateHashStream( AssemblyHashAlgorithm.SHA1 ), LazyThreadSafetyMode.None );
+         }
+
+         Boolean IEqualityComparer<CILAssemblyName>.Equals( CILAssemblyName x, CILAssemblyName y )
+         {
+            Boolean retVal;
+            var xa = x.AssemblyInformation;
+            var ya = y.AssemblyInformation;
+            if ( x.Flags.IsFullPublicKey() == y.Flags.IsFullPublicKey() )
+            {
+               retVal = xa.Equals( ya );
+            }
+            else
+            {
+               retVal = xa.Equals( ya, false );
+               if ( retVal
+                  && !xa.PublicKeyOrToken.IsNullOrEmpty()
+                  && !ya.PublicKeyOrToken.IsNullOrEmpty()
+                  )
+               {
+                  Byte[] xBytes, yBytes;
+                  if ( x.Flags.IsFullPublicKey() )
+                  {
+                     // Create public key token for x and compare with y
+                     xBytes = this._publicKeyComputer.Value.ComputePublicKeyToken( xa.PublicKeyOrToken );
+                     yBytes = ya.PublicKeyOrToken;
+                  }
+                  else
+                  {
+                     // Create public key token for y and compare with x
+                     xBytes = xa.PublicKeyOrToken;
+                     yBytes = this._publicKeyComputer.Value.ComputePublicKeyToken( ya.PublicKeyOrToken );
+                  }
+                  retVal = ArrayEqualityComparer<Byte>.DefaultArrayEqualityComparer.Equals( xBytes, yBytes );
+               }
+            }
+            return retVal;
+         }
+
+         Int32 IEqualityComparer<CILAssemblyName>.GetHashCode( CILAssemblyName obj )
+         {
+            return obj == null ? 0 : obj.Name.GetHashCodeSafe( 0 );
+         }
+
+         protected override void Dispose( Boolean disposing )
+         {
+            if ( disposing && this._publicKeyComputer != null && this._publicKeyComputer.IsValueCreated )
+            {
+               this._publicKeyComputer.Value.Transform.DisposeSafely();
+            }
+         }
+      }
+
       private static readonly System.Reflection.MethodInfo[] EMPTY_METHODS = new System.Reflection.MethodInfo[0];
 
       private readonly CollectionsFactory _cf;
@@ -37,6 +96,7 @@ namespace CILAssemblyManipulator.Logical.Implementation
       private readonly ListQuery<Type> _arrayInterfaces;
       private readonly ListQuery<Type> _multiDimArrayIFaces;
       private readonly CryptoCallbacks _defaultCryptoCallbacks;
+      private readonly IEqualityComparer<CILAssemblyName> _defaultANComparer;
 
       internal CILReflectionContextImpl( Type[] vectorArrayInterfaces, Type[] multiDimArrayIFaces, CryptoCallbacks defaultCryptoCallbacks )
       {
@@ -53,6 +113,7 @@ namespace CILAssemblyManipulator.Logical.Implementation
          this._arrayInterfaces = this._cf.NewListProxy( vectorArrayInterfaces.Where( iFace => iFace != null ).GetBottomTypes().ToList() ).CQ;
          this._multiDimArrayIFaces = this._cf.NewListProxy( multiDimArrayIFaces.Where( iFace => iFace != null ).GetBottomTypes().ToList() ).CQ;
          this._defaultCryptoCallbacks = defaultCryptoCallbacks;
+         this._defaultANComparer = new CILAssemblyNameEqualityComparer( defaultCryptoCallbacks );
       }
 
       #region CILReflectionContext Members
@@ -77,6 +138,14 @@ namespace CILAssemblyManipulator.Logical.Implementation
          get
          {
             return this._defaultCryptoCallbacks;
+         }
+      }
+
+      public IEqualityComparer<CILAssemblyName> DefaultAssemblyNameComparer
+      {
+         get
+         {
+            return this._defaultANComparer;
          }
       }
 

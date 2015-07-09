@@ -62,12 +62,17 @@ namespace CILAssemblyManipulator.Logical
          var callbacks = loader.LoaderCallbacks;
          var md = loader.LoadAndResolve( resource );
          resource = loader.GetResourceFor( md );
+         // TODO instead, create blank assembly in factory
+         // If created -> populate
+         // If not -> return existing
+         TODO
          return this.GetOrAddFromDictionary( resource, aResource =>
             this._ctx.CreateLogicalRepresentation(
             md,
             modName =>
             {
                var modRefResource = callbacks.GetPossibleResourcesForModuleReference( loader.GetResourceFor( md ), md, modName )
+                  .Select( r => callbacks.SanitizeResource( r ) )
                   .FirstOrDefault( r => callbacks.IsValidResource( r ) );
                return String.IsNullOrEmpty( modRefResource ) ?
                   null :
@@ -92,11 +97,12 @@ namespace CILAssemblyManipulator.Logical
          var loader = this._mdLoader;
          var callbacks = loader.LoaderCallbacks;
          var aRefResource = loader.LoaderCallbacks.GetPossibleResourcesForAssemblyReference( loader.GetResourceFor( thisMD ), thisMD, new AssemblyInformationForResolving( aName.AssemblyInformation, aName.Flags.IsFullPublicKey() ), null )
+            .Select( r => callbacks.SanitizeResource( r ) )
             .FirstOrDefault( r => callbacks.IsValidResource( r ) );
 
          return String.IsNullOrEmpty( aRefResource ) ?
             null :
-            this.GetOrAddFromDictionary( aRefResource, r => this.LoadAssemblyFrom( r ) );
+            this.LoadAssemblyFrom( aRefResource );
       }
    }
 
