@@ -250,7 +250,10 @@ public static partial class E_CILLogical
                   {
                      DeclaringType = this.GetMemberRefDeclaringType( method.DeclaringType, convertTypeDefToTypeSpec ),
                      Name = method.GetName(),
-                     Signature = this.CreateMethodRefSignature( method )
+                     Signature = this.CreateMethodRefSignature(
+                        method.DeclaringType.IsGenericType() ?
+                        method.ChangeDeclaringTypeUT( method.DeclaringType.GenericDefinition.GenericArguments.ToArray() ) :
+                        method )
                   } );
                   break;
                case Tables.MethodSpec:

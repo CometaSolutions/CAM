@@ -44,7 +44,7 @@ namespace CILAssemblyManipulator.Physical.Implementation
       {
 
          internal BLOBHeapReader( Byte[] tmpArray, Stream stream, IDictionary<String, Tuple<Int64, UInt32>> streamSizeInfo )
-            : base( tmpArray, stream, streamSizeInfo, Consts.BLOB_STREAM_NAME )
+            : base( tmpArray, stream, streamSizeInfo, MetaDataConstants.BLOB_STREAM_NAME )
          {
          }
 
@@ -137,7 +137,7 @@ namespace CILAssemblyManipulator.Physical.Implementation
       internal class SysStringHeapReader : AbstractStringHeapReader
       {
          internal SysStringHeapReader( Byte[] tmpArray, Stream stream, IDictionary<String, Tuple<Int64, UInt32>> streamSizeInfo )
-            : base( tmpArray, stream, streamSizeInfo, Consts.SYS_STRING_STREAM_NAME, MetaDataConstants.SYS_STRING_ENCODING )
+            : base( tmpArray, stream, streamSizeInfo, MetaDataConstants.SYS_STRING_STREAM_NAME, MetaDataConstants.SYS_STRING_ENCODING )
          {
 
          }
@@ -175,7 +175,7 @@ namespace CILAssemblyManipulator.Physical.Implementation
       internal class UserStringHeapReader : AbstractStringHeapReader
       {
          internal UserStringHeapReader( Byte[] tmpArray, Stream stream, IDictionary<String, Tuple<Int64, UInt32>> streamSizeInfo )
-            : base( tmpArray, stream, streamSizeInfo, Consts.USER_STRING_STREAM_NAME, MetaDataConstants.USER_STRING_ENCODING )
+            : base( tmpArray, stream, streamSizeInfo, MetaDataConstants.USER_STRING_STREAM_NAME, MetaDataConstants.USER_STRING_ENCODING )
          {
 
          }
@@ -208,7 +208,7 @@ namespace CILAssemblyManipulator.Physical.Implementation
       {
 
          internal GUIDHeapReader( Byte[] tmpArray, Stream stream, IDictionary<String, Tuple<Int64, UInt32>> streamSizeInfo )
-            : base( tmpArray, stream, streamSizeInfo, Consts.GUID_STREAM_NAME )
+            : base( tmpArray, stream, streamSizeInfo, MetaDataConstants.GUID_STREAM_NAME )
          {
          }
 
@@ -220,8 +220,8 @@ namespace CILAssemblyManipulator.Physical.Implementation
             }
             else
             {
-               var array = new Byte[Consts.GUID_SIZE];
-               Buffer.BlockCopy( this._bytes, ( idx - 1 ) % Consts.GUID_SIZE, array, 0, Consts.GUID_SIZE );
+               var array = new Byte[MetaDataConstants.GUID_SIZE];
+               Buffer.BlockCopy( this._bytes, ( idx - 1 ) % MetaDataConstants.GUID_SIZE, array, 0, MetaDataConstants.GUID_SIZE );
                return new Guid( array );
             }
          }
@@ -500,7 +500,7 @@ namespace CILAssemblyManipulator.Physical.Implementation
          UserStringHeapReader userStrings = new UserStringHeapReader( tmpArray, stream, streamDic );
 
          // Read table stream
-         stream.SeekFromBegin( streamDic[Consts.TABLE_STREAM_NAME].Item1
+         stream.SeekFromBegin( streamDic[MetaDataConstants.TABLE_STREAM_NAME].Item1
             + 4 // Skip reserved
             );
          headers.TableHeapMajor = stream.ReadByteFromStream();
@@ -1364,12 +1364,12 @@ namespace CILAssemblyManipulator.Physical.Implementation
                // Create a single SecurityInformation with PermissionSetAttribute type and XML property argument containing the XML of the blob
                var secInfo = new SecurityInformation( 1 )
                {
-                  SecurityAttributeType = Consts.PERMISSION_SET
+                  SecurityAttributeType = MetaDataConstants.PERMISSION_SET
                };
                secInfo.NamedArguments.Add( new CustomAttributeNamedArgument()
                {
                   IsField = false,
-                  Name = Consts.PERMISSION_SET_XML_PROP,
+                  Name = MetaDataConstants.PERMISSION_SET_XML_PROP,
                   Value = new CustomAttributeTypedArgument()
                   {
                      Type = CustomAttributeArgumentTypeSimple.String,

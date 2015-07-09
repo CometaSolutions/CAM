@@ -16,9 +16,11 @@
  * limitations under the License. 
  */
 using CILAssemblyManipulator.Logical;
+using CILAssemblyManipulator.Physical;
 using NUnit.Framework;
 using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
 using System.Text;
 
@@ -30,10 +32,23 @@ namespace CILAssemblyManipulator.Tests.Logical
       [Test]
       public void TestPhysicalInteropWithWrapperAssemblies()
       {
+         PerformRoundtripTest( CAMPhysicalLocation );
+      }
+
+      private static void PerformRoundtripTest( String mdLocation )
+      {
+         CILMetaData md;
+         using ( var fs = File.OpenRead( mdLocation ) )
+         {
+            md = fs.ReadModule();
+         }
          PerformTest( ctx =>
          {
-            var logical = CAMLogical.NewWrapper( ctx );
-            var physical = logical.MainModule.CreatePhysicalRepresentation();
+            var mdLoader = new CILMetaDataLoaderNotThreadSafeForFiles();
+            var loader = new CILAssemblyLoaderNotThreadSafe( ctx, mdLoader );
+            var logical = loader.LoadAssemblyFrom( mdLocation );
+            var physicalLoaded = mdLoader.GetOrLoadMetaData( mdLocation );
+            var physicalCreated = logical.MainModule.CreatePhysicalRepresentation();
             Console.WriteLine( "Hmz" );
          } );
       }

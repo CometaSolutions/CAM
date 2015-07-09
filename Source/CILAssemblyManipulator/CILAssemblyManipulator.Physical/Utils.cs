@@ -41,7 +41,7 @@ namespace CILAssemblyManipulator.Physical
          if ( tmp != 0xFF )
          {
             var len = caBLOB.DecompressUInt32( ref idx );
-            result = MetaDataConstants.SYS_STRING_ENCODING.GetString( caBLOB, idx, len );
+            result = CILAssemblyManipulator.Physical.Implementation.MetaDataConstants.SYS_STRING_ENCODING.GetString( caBLOB, idx, len );
             idx += len;
          }
          else
@@ -56,16 +56,6 @@ namespace CILAssemblyManipulator.Physical
       {
          Int32 idx = 0;
          return array.ReadZeroTerminatedStringFromBytes( ref idx, encoding );
-      }
-
-      internal static Byte[] WriteCodedTableIndex( this Byte[] array, ref Int32 idx, CodedTableIndexKind codedKind, TableIndex? tIdx, IDictionary<CodedTableIndexKind, Boolean> wideIndices )
-      {
-         return wideIndices[codedKind] ? array.WriteInt32LEToBytes( ref idx, MetaDataConstants.GetCodedTableIndex( codedKind, tIdx ) ) : array.WriteUInt16LEToBytes( ref idx, (UInt16) MetaDataConstants.GetCodedTableIndex( codedKind, tIdx ) );
-      }
-
-      internal static Byte[] WriteSimpleTableIndex( this Byte[] array, ref Int32 idx, TableIndex tIdx, Int32[] tableSizes )
-      {
-         return tableSizes[(Int32) tIdx.Table] > UInt16.MaxValue ? array.WriteInt32LEToBytes( ref idx, ( tIdx.Index + 1 ) ) : array.WriteUInt16LEToBytes( ref idx, (UInt16) ( tIdx.Index + 1 ) );
       }
 
       internal static String ReadZeroTerminatedASCIIStringFromBytes( this Byte[] array )
@@ -85,42 +75,6 @@ namespace CILAssemblyManipulator.Physical
          return new String( charBuf, 0, amountRead );
       }
 
-      public static Byte[] WriteDataDirectory( this Byte[] array, ref Int32 idx, UInt32 addr, UInt32 size )
-      {
-         return array
-            .WriteUInt32LEToBytes( ref idx, addr )
-            .WriteUInt32LEToBytes( ref idx, size );
-      }
-
-      public static Byte[] WriteZeroDataDirectory( this Byte[] array, ref Int32 idx )
-      {
-         return array.ZeroOut( ref idx, 8 );
-      }
-
-      // ECMA-335, p. 281
-      public static Byte[] WriteSectionInfo( this Byte[] array, ref Int32 idx, SectionInfo secInfo, String secName, UInt32 characteristics )
-      {
-         if ( secInfo.virtualSize > 0 )
-         {
-            return array
-               .WriteASCIIString( ref idx, secName, false ) // Name
-               .ZeroOut( ref idx, 8 - secName.Length ) // Zero padding
-               .WriteUInt32LEToBytes( ref idx, secInfo.virtualSize ) // VirtualSize
-               .WriteUInt32LEToBytes( ref idx, secInfo.virtualAddress ) // VirtualAddress
-               .WriteUInt32LEToBytes( ref idx, secInfo.rawSize ) // SizeOfRawData
-               .WriteUInt32LEToBytes( ref idx, secInfo.rawPointer ) // PointerToRawData
-               .WriteUInt32LEToBytes( ref idx, 0 ) // PointerToRelocations
-               .WriteUInt32LEToBytes( ref idx, 0 ) // PointerToLinenumbers
-               .WriteUInt16LEToBytes( ref idx, 0 ) // NumberOfRelocations
-               .WriteUInt16LEToBytes( ref idx, 0 ) // NumberOfLinenumbers
-               .WriteUInt32LEToBytes( ref idx, characteristics ); // Characteristics
-         }
-         else
-         {
-            return array;
-         }
-      }
-
       //public static Byte[] SkipToNextAlignment( this Byte[] array, ref Int32 idx, Int32 alignment )
       //{
       //   idx += MultipleOf( alignment, idx ) - idx;
@@ -128,7 +82,7 @@ namespace CILAssemblyManipulator.Physical
       //}
 
       // Max alignment is 0x10 !!!
-      public static UInt32 SkipToNextAlignment( this Stream sink, ref UInt32 idx, UInt32 alignment )
+      internal static UInt32 SkipToNextAlignment( this Stream sink, ref UInt32 idx, UInt32 alignment )
       {
          var amountToSkip = MultipleOf( alignment, idx ) - idx;
          // Instead of skipping, actually fill with zeroes
@@ -164,7 +118,7 @@ namespace CILAssemblyManipulator.Physical
       private const Int32 COMPLEMENT_MASK_TWO_BYTES = unchecked( (Int32) 0xFFFFE000 );
       private const Int32 COMPLEMENT_MASK_FOUR_BYTES = unchecked( (Int32) 0xF0000000 );
 
-      public static Int32 DecompressUInt32( this Byte[] array, ref Int32 offset )
+      internal static Int32 DecompressUInt32( this Byte[] array, ref Int32 offset )
       {
          Int32 first = array[offset];
          ++offset;
@@ -186,7 +140,7 @@ namespace CILAssemblyManipulator.Physical
          return result;
       }
 
-      public static Int32 DecompressInt32( this Byte[] array, ref Int32 offset )
+      internal static Int32 DecompressInt32( this Byte[] array, ref Int32 offset )
       {
          var oldOffset = offset;
          var decodedUInt = array.DecompressUInt32( ref offset );
@@ -230,12 +184,12 @@ namespace CILAssemblyManipulator.Physical
          return unchecked( (Int32) decodedUInt );
       }
 
-      public static void CompressUInt32( this Byte[] array, ref Int32 offset, Int32 value )
+      internal static void CompressUInt32( this Byte[] array, ref Int32 offset, Int32 value )
       {
          EncodeUInt32( array, ref offset, value, EncodingForcePolicy.DontForce );
       }
 
-      public static void CompressInt32( this  Byte[] array, ref Int32 offset, Int32 value )
+      internal static void CompressInt32( this  Byte[] array, ref Int32 offset, Int32 value )
       {
          Int32 uValue = value;
 
@@ -400,284 +354,7 @@ namespace CILAssemblyManipulator.Physical
          }
          return total;
       }
-   }
 
-   internal static class MetaDataConstants
-   {
-
-      internal static readonly Encoding SYS_STRING_ENCODING = new UTF8Encoding( false, true );
-      internal static readonly Encoding USER_STRING_ENCODING = new UnicodeEncoding( false, false, true );
-
-      private const UInt32 TAGMASK_MASK = 0xFFFFFFFF;
-
-      internal const Int32 DEBUG_DD_SIZE = 28;
-      internal const Int32 CODE_VIEW_DEBUG_TYPE = 2;
-
-      internal const Byte DECL_SECURITY_HEADER = 0x2E; // '.'
-      internal const Int32 STREAM_COPY_BUFFER_SIZE = 0x2000; // 2x typical windows page size
-
-      // ECMA-335, pp. 274-276
-      private static readonly Tables?[] TYPE_DEF_OR_REF_ARRAY = new Tables?[] { Tables.TypeDef, Tables.TypeRef, Tables.TypeSpec };
-      private static readonly Tables?[] HAS_CONSTANT_ARRAY = new Tables?[] { Tables.Field, Tables.Parameter, Tables.Property };
-      private static readonly Tables?[] HAS_CUSTOM_ATTRIBUTE_ARRAY = new Tables?[] { Tables.MethodDef, Tables.Field, Tables.TypeRef, Tables.TypeDef, Tables.Parameter,
-            Tables.InterfaceImpl, Tables.MemberRef, Tables.Module, Tables.DeclSecurity, Tables.Property, Tables.Event,
-            Tables.StandaloneSignature, Tables.ModuleRef, Tables.TypeSpec, Tables.Assembly, Tables.AssemblyRef, Tables.File,
-            Tables.ExportedType, Tables.ManifestResource, Tables.GenericParameter, Tables.GenericParameterConstraint, Tables.MethodSpec };
-      private static readonly Tables?[] HAS_FIELD_MARSHAL_ARRAY = new Tables?[] { Tables.Field, Tables.Parameter };
-      private static readonly Tables?[] HAS_DECL_SECURITY_ARRAY = new Tables?[] { Tables.TypeDef, Tables.MethodDef, Tables.Assembly };
-      private static readonly Tables?[] MEMBER_REF_PARENT_ARRAY = new Tables?[] { Tables.TypeDef, Tables.TypeRef, Tables.ModuleRef, Tables.MethodDef, Tables.TypeSpec };
-      private static readonly Tables?[] HAS_SEMANTICS_ARRAY = new Tables?[] { Tables.Event, Tables.Property };
-      private static readonly Tables?[] METHOD_DEF_OR_REF_ARRAY = new Tables?[] { Tables.MethodDef, Tables.MemberRef };
-      private static readonly Tables?[] MEMBER_FORWARDED_ARRAY = new Tables?[] { Tables.Field, Tables.MethodDef };
-      private static readonly Tables?[] IMPLEMENTATION_ARRAY = new Tables?[] { Tables.File, Tables.AssemblyRef, Tables.ExportedType };
-      private static readonly Tables?[] CUSTOM_ATTRIBUTE_TYPE_ARRAY = new Tables?[] { null, null, Tables.MethodDef, Tables.MemberRef, null };
-      private static readonly Tables?[] RESOLUTION_SCOPE_ARRAY = new Tables?[] { Tables.Module, Tables.ModuleRef, Tables.AssemblyRef, Tables.TypeRef };
-      private static readonly Tables?[] TYPE_OR_METHOD_DEF_ARRAY = new Tables?[] { Tables.TypeDef, Tables.MethodDef };
-      internal static readonly Tuple<Tables?[], UInt32, Int32> TYPE_DEF_OR_REF = Tuple.Create( TYPE_DEF_OR_REF_ARRAY, GetTagBitMask( TYPE_DEF_OR_REF_ARRAY ), GetTagBitSize( TYPE_DEF_OR_REF_ARRAY ) );
-      internal static readonly Tuple<Tables?[], UInt32, Int32> HAS_CONSTANT = Tuple.Create( HAS_CONSTANT_ARRAY, GetTagBitMask( HAS_CONSTANT_ARRAY ), GetTagBitSize( HAS_CONSTANT_ARRAY ) );
-      internal static readonly Tuple<Tables?[], UInt32, Int32> HAS_CUSTOM_ATTRIBUTE = Tuple.Create( HAS_CUSTOM_ATTRIBUTE_ARRAY, GetTagBitMask( HAS_CUSTOM_ATTRIBUTE_ARRAY ), GetTagBitSize( HAS_CUSTOM_ATTRIBUTE_ARRAY ) );
-      internal static readonly Tuple<Tables?[], UInt32, Int32> HAS_FIELD_MARSHAL = Tuple.Create( HAS_FIELD_MARSHAL_ARRAY, GetTagBitMask( HAS_FIELD_MARSHAL_ARRAY ), GetTagBitSize( HAS_FIELD_MARSHAL_ARRAY ) );
-      internal static readonly Tuple<Tables?[], UInt32, Int32> HAS_DECL_SECURITY = Tuple.Create( HAS_DECL_SECURITY_ARRAY, GetTagBitMask( HAS_DECL_SECURITY_ARRAY ), GetTagBitSize( HAS_DECL_SECURITY_ARRAY ) );
-      internal static readonly Tuple<Tables?[], UInt32, Int32> MEMBER_REF_PARENT = Tuple.Create( MEMBER_REF_PARENT_ARRAY, GetTagBitMask( MEMBER_REF_PARENT_ARRAY ), GetTagBitSize( MEMBER_REF_PARENT_ARRAY ) );
-      internal static readonly Tuple<Tables?[], UInt32, Int32> HAS_SEMANTICS = Tuple.Create( HAS_SEMANTICS_ARRAY, GetTagBitMask( HAS_SEMANTICS_ARRAY ), GetTagBitSize( HAS_SEMANTICS_ARRAY ) );
-      internal static readonly Tuple<Tables?[], UInt32, Int32> METHOD_DEF_OR_REF = Tuple.Create( METHOD_DEF_OR_REF_ARRAY, GetTagBitMask( METHOD_DEF_OR_REF_ARRAY ), GetTagBitSize( METHOD_DEF_OR_REF_ARRAY ) );
-      internal static readonly Tuple<Tables?[], UInt32, Int32> MEMBER_FORWARDED = Tuple.Create( MEMBER_FORWARDED_ARRAY, GetTagBitMask( MEMBER_FORWARDED_ARRAY ), GetTagBitSize( MEMBER_FORWARDED_ARRAY ) );
-      internal static readonly Tuple<Tables?[], UInt32, Int32> IMPLEMENTATION = Tuple.Create( IMPLEMENTATION_ARRAY, GetTagBitMask( IMPLEMENTATION_ARRAY ), GetTagBitSize( IMPLEMENTATION_ARRAY ) );
-      internal static readonly Tuple<Tables?[], UInt32, Int32> CUSTOM_ATTRIBUTE_TYPE = Tuple.Create( CUSTOM_ATTRIBUTE_TYPE_ARRAY, GetTagBitMask( CUSTOM_ATTRIBUTE_TYPE_ARRAY ), GetTagBitSize( CUSTOM_ATTRIBUTE_TYPE_ARRAY ) );
-      internal static readonly Tuple<Tables?[], UInt32, Int32> RESOLUTION_SCOPE = Tuple.Create( RESOLUTION_SCOPE_ARRAY, GetTagBitMask( RESOLUTION_SCOPE_ARRAY ), GetTagBitSize( RESOLUTION_SCOPE_ARRAY ) );
-      internal static readonly Tuple<Tables?[], UInt32, Int32> TYPE_OR_METHOD_DEF = Tuple.Create( TYPE_OR_METHOD_DEF_ARRAY, GetTagBitMask( TYPE_OR_METHOD_DEF_ARRAY ), GetTagBitSize( TYPE_OR_METHOD_DEF_ARRAY ) );
-
-      private static readonly IDictionary<Tables, Func<Int32[], Int32, Int32, Int32, Int32>> TABLE_WIDTH_CALCULATOR;
-      static MetaDataConstants()
-      {
-         var dic2 = new Dictionary<Tables, Func<Int32[], Int32, Int32, Int32, Int32>>( Consts.AMOUNT_OF_TABLES );
-         dic2.Add( Tables.Module, ( tableSizes, strWidth, guidWidth, blobWidth ) => Consts.TWO_BYTE_SIZE + strWidth + guidWidth + guidWidth + guidWidth );
-         dic2.Add( Tables.TypeRef, ( tableSizes, strWidth, guidWidth, blobWidth ) => GetTableIndexSizeCoded( tableSizes, RESOLUTION_SCOPE ) + strWidth + strWidth );
-         dic2.Add( Tables.TypeDef, ( tableSizes, strWidth, guidWidth, blobWidth ) => Consts.FOUR_BYTE_SIZE + strWidth + strWidth + GetTableIndexSizeCoded( tableSizes, TYPE_DEF_OR_REF ) + GetTableIndexSizeSimple( tableSizes, Tables.Field ) + GetTableIndexSizeSimple( tableSizes, Tables.MethodDef ) );
-         dic2.Add( Tables.Field, ( tableSizes, strWidth, guidWidth, blobWidth ) => Consts.TWO_BYTE_SIZE + strWidth + blobWidth );
-         dic2.Add( Tables.MethodDef, ( tableSizes, strWidth, guidWidth, blobWidth ) => sizeof( TRVA ) + Consts.TWO_BYTE_SIZE + Consts.TWO_BYTE_SIZE + strWidth + blobWidth + GetTableIndexSizeSimple( tableSizes, Tables.Parameter ) );
-         dic2.Add( Tables.Parameter, ( tableSizes, strWidth, guidWidth, blobWidth ) => Consts.TWO_BYTE_SIZE + Consts.TWO_BYTE_SIZE + strWidth );
-         dic2.Add( Tables.InterfaceImpl, ( tableSizes, strWidth, guidWidth, blobWidth ) => GetTableIndexSizeSimple( tableSizes, Tables.TypeDef ) + GetTableIndexSizeCoded( tableSizes, TYPE_DEF_OR_REF ) );
-         dic2.Add( Tables.MemberRef, ( tableSizes, strWidth, guidWidth, blobWidth ) => GetTableIndexSizeCoded( tableSizes, MEMBER_REF_PARENT ) + strWidth + blobWidth );
-         dic2.Add( Tables.Constant, ( tableSizes, strWidth, guidWidth, blobWidth ) => Consts.TWO_BYTE_SIZE + GetTableIndexSizeCoded( tableSizes, HAS_CONSTANT ) + blobWidth );
-         dic2.Add( Tables.CustomAttribute, ( tableSizes, strWidth, guidWidth, blobWidth ) => GetTableIndexSizeCoded( tableSizes, HAS_CUSTOM_ATTRIBUTE ) + GetTableIndexSizeCoded( tableSizes, CUSTOM_ATTRIBUTE_TYPE ) + blobWidth );
-         dic2.Add( Tables.FieldMarshal, ( tableSizes, strWidth, guidWidth, blobWidth ) => GetTableIndexSizeCoded( tableSizes, HAS_FIELD_MARSHAL ) + blobWidth );
-         dic2.Add( Tables.DeclSecurity, ( tableSizes, strWidth, guidWidth, blobWidth ) => Consts.TWO_BYTE_SIZE + GetTableIndexSizeCoded( tableSizes, HAS_DECL_SECURITY ) + blobWidth );
-         dic2.Add( Tables.ClassLayout, ( tableSizes, strWidth, guidWidth, blobWidth ) => Consts.TWO_BYTE_SIZE + Consts.FOUR_BYTE_SIZE + GetTableIndexSizeSimple( tableSizes, Tables.TypeDef ) );
-         dic2.Add( Tables.FieldLayout, ( tableSizes, strWidth, guidWidth, blobWidth ) => Consts.FOUR_BYTE_SIZE + GetTableIndexSizeSimple( tableSizes, Tables.Field ) );
-         dic2.Add( Tables.StandaloneSignature, ( tableSizes, strWidth, guidWidth, blobWidth ) => blobWidth );
-         dic2.Add( Tables.EventMap, ( tableSizes, strWidth, guidWidth, blobWidth ) => GetTableIndexSizeSimple( tableSizes, Tables.TypeDef ) + GetTableIndexSizeSimple( tableSizes, Tables.Event ) );
-         dic2.Add( Tables.Event, ( tableSizes, strWidth, guidWidth, blobWidth ) => Consts.TWO_BYTE_SIZE + strWidth + GetTableIndexSizeCoded( tableSizes, TYPE_DEF_OR_REF ) );
-         dic2.Add( Tables.PropertyMap, ( tableSizes, strWidth, guidWidth, blobWidth ) => GetTableIndexSizeSimple( tableSizes, Tables.TypeDef ) + GetTableIndexSizeSimple( tableSizes, Tables.Property ) );
-         dic2.Add( Tables.Property, ( tableSizes, strWidth, guidWidth, blobWidth ) => Consts.TWO_BYTE_SIZE + strWidth + blobWidth );
-         dic2.Add( Tables.MethodSemantics, ( tableSizes, strWidth, guidWidth, blobWidth ) => Consts.TWO_BYTE_SIZE + GetTableIndexSizeSimple( tableSizes, Tables.MethodDef ) + GetTableIndexSizeCoded( tableSizes, HAS_SEMANTICS ) );
-         dic2.Add( Tables.MethodImpl, ( tableSizes, strWidth, guidWidth, blobWidth ) => GetTableIndexSizeSimple( tableSizes, Tables.TypeDef ) + GetTableIndexSizeCoded( tableSizes, METHOD_DEF_OR_REF ) + GetTableIndexSizeCoded( tableSizes, METHOD_DEF_OR_REF ) );
-         dic2.Add( Tables.ModuleRef, ( tableSizes, strWidth, guidWidth, blobWidth ) => strWidth );
-         dic2.Add( Tables.TypeSpec, ( tableSizes, strWidth, guidWidth, blobWidth ) => blobWidth );
-         dic2.Add( Tables.ImplMap, ( tableSizes, strWidth, guidWidth, blobWidth ) => Consts.TWO_BYTE_SIZE + GetTableIndexSizeCoded( tableSizes, MEMBER_FORWARDED ) + strWidth + GetTableIndexSizeSimple( tableSizes, Tables.ModuleRef ) );
-         dic2.Add( Tables.FieldRVA, ( tableSizes, strWidth, guidWidth, blobWidth ) => sizeof( TRVA ) + GetTableIndexSizeSimple( tableSizes, Tables.Field ) );
-         dic2.Add( Tables.Assembly, ( tableSizes, strWidth, guidWidth, blobWidth ) => Consts.FOUR_BYTE_SIZE + Consts.TWO_BYTE_SIZE * 4 + Consts.FOUR_BYTE_SIZE + blobWidth + strWidth + strWidth );
-         dic2.Add( Tables.AssemblyRef, ( tableSizes, strWidth, guidWidth, blobWidth ) => Consts.TWO_BYTE_SIZE * 4 + Consts.FOUR_BYTE_SIZE + blobWidth + strWidth + strWidth + blobWidth );
-         dic2.Add( Tables.File, ( tableSizes, strWidth, guidWidth, blobWidth ) => Consts.FOUR_BYTE_SIZE + strWidth + blobWidth );
-         dic2.Add( Tables.ExportedType, ( tableSizes, strWidth, guidWidth, blobWidth ) => Consts.FOUR_BYTE_SIZE + Consts.FOUR_BYTE_SIZE + strWidth + strWidth + GetTableIndexSizeCoded( tableSizes, IMPLEMENTATION ) );
-         dic2.Add( Tables.ManifestResource, ( tableSizes, strWidth, guidWidth, blobWidth ) => Consts.FOUR_BYTE_SIZE + Consts.FOUR_BYTE_SIZE + strWidth + GetTableIndexSizeCoded( tableSizes, IMPLEMENTATION ) );
-         dic2.Add( Tables.NestedClass, ( tableSizes, strWidth, guidWidth, blobWidth ) => GetTableIndexSizeSimple( tableSizes, Tables.TypeDef ) + GetTableIndexSizeSimple( tableSizes, Tables.TypeDef ) );
-         dic2.Add( Tables.GenericParameter, ( tableSizes, strWidth, guidWidth, blobWidth ) => Consts.TWO_BYTE_SIZE + Consts.TWO_BYTE_SIZE + GetTableIndexSizeCoded( tableSizes, TYPE_OR_METHOD_DEF ) + strWidth );
-         dic2.Add( Tables.MethodSpec, ( tableSizes, strWidth, guidWidth, blobWidth ) => GetTableIndexSizeCoded( tableSizes, METHOD_DEF_OR_REF ) + blobWidth );
-         dic2.Add( Tables.GenericParameterConstraint, ( tableSizes, strWidth, guidWidth, blobWidth ) => GetTableIndexSizeSimple( tableSizes, Tables.GenericParameter ) + GetTableIndexSizeCoded( tableSizes, TYPE_DEF_OR_REF ) );
-
-         TABLE_WIDTH_CALCULATOR = dic2;
-      }
-
-      private static Int32 GetTableIndexSizeSimple( Int32[] tableSizes, Tables referencedTable )
-      {
-         return tableSizes[(Int32) referencedTable] > UInt16.MaxValue ? 4 : 2;
-      }
-
-      private static Int32 GetTableIndexSizeCoded( Int32[] tableSizes, Tuple<Tables?[], UInt32, Int32> referencedTables )
-      {
-         Int32 max = 0;
-         var array = referencedTables.Item1;
-         for ( var i = 0; i < array.Length; ++i )
-         {
-            if ( array[i].HasValue )
-            {
-               max = Math.Max( max, tableSizes[(Int32) array[i].Value] );
-            }
-         }
-         return max < ( UInt16.MaxValue >> referencedTables.Item3 ) ? 2 : 4;
-      }
-
-      private static Int32 GetTagBitSize( Tables?[] tables )
-      {
-         // If this would be executed really frequently, one could use lookup-table method from
-         // http://graphics.stanford.edu/~seander/bithacks.html#IntegerLogLookup 
-         return Convert.ToInt32( Math.Ceiling( Math.Log( tables.Length, 2.0d ) ) );
-      }
-
-      private static UInt32 GetTagBitMask( Tables?[] tables )
-      {
-         return ( TAGMASK_MASK >> ( 32 - GetTagBitSize( tables ) ) );
-      }
-
-      internal static IDictionary<CodedTableIndexKind, Boolean> GetCodedTableIndexSizes( Int32[] tableSizes )
-      {
-         var tRefWidths = new Dictionary<CodedTableIndexKind, Boolean>();
-         tRefWidths.Add( CodedTableIndexKind.TypeDefOrRef, MetaDataConstants.GetTableIndexSizeCoded( tableSizes, TYPE_DEF_OR_REF ) == sizeof( Int32 ) );
-         tRefWidths.Add( CodedTableIndexKind.HasConstant, MetaDataConstants.GetTableIndexSizeCoded( tableSizes, HAS_CONSTANT ) == sizeof( Int32 ) );
-         tRefWidths.Add( CodedTableIndexKind.HasCustomAttribute, MetaDataConstants.GetTableIndexSizeCoded( tableSizes, HAS_CUSTOM_ATTRIBUTE ) == sizeof( Int32 ) );
-         tRefWidths.Add( CodedTableIndexKind.HasFieldMarshal, MetaDataConstants.GetTableIndexSizeCoded( tableSizes, HAS_FIELD_MARSHAL ) == sizeof( Int32 ) );
-         tRefWidths.Add( CodedTableIndexKind.HasDeclSecurity, MetaDataConstants.GetTableIndexSizeCoded( tableSizes, HAS_DECL_SECURITY ) == sizeof( Int32 ) );
-         tRefWidths.Add( CodedTableIndexKind.MemberRefParent, MetaDataConstants.GetTableIndexSizeCoded( tableSizes, MEMBER_REF_PARENT ) == sizeof( Int32 ) );
-         tRefWidths.Add( CodedTableIndexKind.HasSemantics, MetaDataConstants.GetTableIndexSizeCoded( tableSizes, HAS_SEMANTICS ) == sizeof( Int32 ) );
-         tRefWidths.Add( CodedTableIndexKind.MethodDefOrRef, MetaDataConstants.GetTableIndexSizeCoded( tableSizes, METHOD_DEF_OR_REF ) == sizeof( Int32 ) );
-         tRefWidths.Add( CodedTableIndexKind.MemberForwarded, MetaDataConstants.GetTableIndexSizeCoded( tableSizes, MEMBER_FORWARDED ) == sizeof( Int32 ) );
-         tRefWidths.Add( CodedTableIndexKind.Implementation, MetaDataConstants.GetTableIndexSizeCoded( tableSizes, IMPLEMENTATION ) == sizeof( Int32 ) );
-         tRefWidths.Add( CodedTableIndexKind.CustomAttributeType, MetaDataConstants.GetTableIndexSizeCoded( tableSizes, CUSTOM_ATTRIBUTE_TYPE ) == sizeof( Int32 ) );
-         tRefWidths.Add( CodedTableIndexKind.ResolutionScope, MetaDataConstants.GetTableIndexSizeCoded( tableSizes, RESOLUTION_SCOPE ) == sizeof( Int32 ) );
-         tRefWidths.Add( CodedTableIndexKind.TypeOrMethodDef, MetaDataConstants.GetTableIndexSizeCoded( tableSizes, TYPE_OR_METHOD_DEF ) == sizeof( Int32 ) );
-         return tRefWidths;
-      }
-
-      internal static Int32 CalculateTableWidth( Tables table, Int32[] tableSizes, Int32 sysStringIndexSize, Int32 guidIndexSize, Int32 blobIndexSize )
-      {
-         return MetaDataConstants.TABLE_WIDTH_CALCULATOR[table]( tableSizes, sysStringIndexSize, guidIndexSize, blobIndexSize );
-      }
-
-      internal static Int32 GetCodedTableIndex( CodedTableIndexKind indexKind, TableIndex? tIdx )
-      {
-         Int32 retVal;
-         if ( tIdx.HasValue )
-         {
-            var tIdxValue = tIdx.Value;
-            var possibleTables = GetTablesForCodedIndex( indexKind );
-            retVal = ( ( tIdxValue.Index + 1 ) << possibleTables.Item3 ) | Array.IndexOf( possibleTables.Item1, tIdxValue.Table );
-         }
-         else
-         {
-            retVal = 0;
-         }
-
-         return retVal;
-      }
-
-      internal static TableIndex? ReadCodedTableIndex( System.IO.Stream stream, CodedTableIndexKind indexKind, IDictionary<CodedTableIndexKind, Boolean> tRefSizes, Byte[] tmpArray, Boolean throwOnNull = true )
-      {
-         var idx = tRefSizes[indexKind] ? stream.ReadU32( tmpArray ) : stream.ReadU16( tmpArray );
-
-         TableIndex? retVal;
-         if ( CheckRowIndex( indexKind, throwOnNull, idx ) )
-         {
-            var possibleTables = GetTablesForCodedIndex( indexKind );
-            var rowIdx = ( idx >> possibleTables.Item3 );
-            if ( CheckRowIndex( indexKind, throwOnNull, rowIdx ) )
-            {
-               retVal = new TableIndex( possibleTables.Item1[possibleTables.Item2 & idx].Value, (Int32) rowIdx - 1 );
-            }
-            else
-            {
-               retVal = null;
-            }
-         }
-         else
-         {
-            retVal = null;
-         }
-
-         return retVal;
-      }
-
-      private static Boolean CheckRowIndex( CodedTableIndexKind indexKind, Boolean throwOnNull, UInt32 index )
-      {
-         var retVal = index > 0;
-         if ( !retVal )
-         {
-            if ( throwOnNull )
-            {
-               throw new BadImageFormatException( "Found null coded table index when shouldn't (table reference kind: " + indexKind + ")." );
-            }
-         }
-
-         return retVal;
-      }
-
-      // Zero-based
-      internal static TableIndex ReadSimpleTableIndex( System.IO.Stream stream, Tables targetTable, Int32[] tableSizes, Byte[] tmpArray )
-      {
-         return new TableIndex( targetTable, ( (Int32) ( tableSizes[(Int32) targetTable] > UInt16.MaxValue ? stream.ReadU32( tmpArray ) : stream.ReadU16( tmpArray ) ) ) - 1 );
-      }
-
-      private static Tuple<Tables?[], UInt32, Int32> GetTablesForCodedIndex( CodedTableIndexKind indexKind )
-      {
-         Tuple<Tables?[], UInt32, Int32> possibleTables;
-         switch ( indexKind )
-         {
-            case CodedTableIndexKind.CustomAttributeType:
-               possibleTables = CUSTOM_ATTRIBUTE_TYPE;
-               break;
-            case CodedTableIndexKind.HasConstant:
-               possibleTables = HAS_CONSTANT;
-               break;
-            case CodedTableIndexKind.HasCustomAttribute:
-               possibleTables = HAS_CUSTOM_ATTRIBUTE;
-               break;
-            case CodedTableIndexKind.HasDeclSecurity:
-               possibleTables = HAS_DECL_SECURITY;
-               break;
-            case CodedTableIndexKind.HasFieldMarshal:
-               possibleTables = HAS_FIELD_MARSHAL;
-               break;
-            case CodedTableIndexKind.HasSemantics:
-               possibleTables = HAS_SEMANTICS;
-               break;
-            case CodedTableIndexKind.Implementation:
-               possibleTables = IMPLEMENTATION;
-               break;
-            case CodedTableIndexKind.MemberForwarded:
-               possibleTables = MEMBER_FORWARDED;
-               break;
-            case CodedTableIndexKind.MemberRefParent:
-               possibleTables = MEMBER_REF_PARENT;
-               break;
-            case CodedTableIndexKind.MethodDefOrRef:
-               possibleTables = METHOD_DEF_OR_REF;
-               break;
-            case CodedTableIndexKind.ResolutionScope:
-               possibleTables = RESOLUTION_SCOPE;
-               break;
-            case CodedTableIndexKind.TypeDefOrRef:
-               possibleTables = TYPE_DEF_OR_REF;
-               break;
-            case CodedTableIndexKind.TypeOrMethodDef:
-               possibleTables = TYPE_OR_METHOD_DEF;
-               break;
-            default:
-               throw new ArgumentException( "Unknown code table index kind: " + indexKind );
-         }
-         return possibleTables;
-      }
-   }
-
-   // ECMA-335, pp. 274-276
-   internal enum CodedTableIndexKind
-   {
-      TypeDefOrRef,
-      HasConstant,
-      HasCustomAttribute,
-      HasFieldMarshal,
-      HasDeclSecurity,
-      MemberRefParent,
-      HasSemantics,
-      MethodDefOrRef,
-      MemberForwarded,
-      Implementation,
-      CustomAttributeType,
-      ResolutionScope,
-      TypeOrMethodDef
-   }
-
-   internal static class InternalExtensions
-   {
       /// <summary>
       /// Using specified auxiliary array, reads a <see cref="UInt64"/> from <see cref="Stream"/>.
       /// </summary>
@@ -1064,108 +741,11 @@ namespace CILAssemblyManipulator.Physical
 
    internal static class Consts
    {
-      internal const String TABLE_STREAM_NAME = "#~";
-      internal const String SYS_STRING_STREAM_NAME = "#Strings";
-      internal const String USER_STRING_STREAM_NAME = "#US";
-      internal const String GUID_STREAM_NAME = "#GUID";
-      internal const String BLOB_STREAM_NAME = "#Blob";
-
-      internal const String MSCORLIB_NAME = "mscorlib";
-      internal const String NEW_MSCORLIB_NAME = "System.Runtime";
-
-      internal const Int32 TWO_BYTE_SIZE = 2;
-      internal const Int32 FOUR_BYTE_SIZE = 4;
-      internal const Int32 GUID_SIZE = 16;
-
       internal const Int32 AMOUNT_OF_TABLES = 0x2D; // Enum.GetValues( typeof( Tables ) ).Length;
 
-
-      internal const String MULTICAST_DELEGATE = "System.MulticastDelegate";
-      internal const String NULLABLE = "System.Nullable`1";
-      internal const String LAZY = "System.Lazy`1";
-      internal const String METHOD_INFO = "System.Reflection.MethodInfo";
-      internal const String CTOR_INFO = "System.Reflection.ConstructorInfo";
-      internal const String FIELD_INFO = "System.Reflection.FieldInfo";
-      internal const String BOOLEAN = "System.Boolean";
-      internal const String CHAR = "System.Char";
-      internal const String SBYTE = "System.SByte";
-      internal const String BYTE = "System.Byte";
-      internal const String INT16 = "System.Int16";
-      internal const String UINT16 = "System.UInt16";
-      internal const String INT32 = "System.Int32";
-      internal const String UINT32 = "System.UInt32";
-      internal const String INT64 = "System.Int64";
-      internal const String UINT64 = "System.UInt64";
-      internal const String SINGLE = "System.Single";
-      internal const String DOUBLE = "System.Double";
-      internal const String DECIMAL = "System.Decimal";
-      internal const String DATETIME = "System.DateTime";
-      internal const String VOID = "System.Void";
-      internal const String OBJECT = "System.Object";
-      internal const String INT_PTR = "System.IntPtr";
-      internal const String UINT_PTR = "System.UIntPtr";
-      internal const String STRING = "System.String";
-
-      internal const String VALUE_TYPE = "System.ValueType";
       internal const String ENUM_NAMESPACE = "System";
       internal const String ENUM_TYPENAME = "Enum";
       internal const String TYPE_NAMESPACE = "System";
       internal const String TYPE_TYPENAME = "Type";
-
-      internal const String TYPE = TYPE_NAMESPACE + "." + TYPE_TYPENAME;
-      internal const String ENUM = ENUM_NAMESPACE + "." + ENUM_TYPENAME;
-
-      internal const String SECURITY_ATTR = "System.Security.Permissions.SecurityAttribute";
-      internal const String SECURITY_ACTION = "System.Security.Permissions.SecurityAction";
-      internal const String PERMISSION_SET = "System.Security.Permissions.PermissionSetAttribute";
-      internal const String PERMISSION_SET_XML_PROP = "XML";
-
-
-      internal const Char ASSEMBLY_NAME_ELEMENTS_SEPARATOR = ',';
-      internal const Char ASSEMBLY_NAME_ELEMENT_VALUE_SEPARATOR = '=';
-      internal const Char VERSION_SEPARATOR = '.';
-      internal const String VERSION = "Version";
-      internal const String CULTURE = "Culture";
-      internal const String PUBLIC_KEY_TOKEN = "PublicKeyToken";
-      internal const String PUBLIC_KEY = "PublicKey";
-      internal const String NEUTRAL_CULTURE = "neutral";
-      internal const String NEUTRAL_CULTURE_NAME = "";
-   }
-
-   internal struct SectionInfo
-   {
-      internal readonly UInt32 virtualSize;
-      internal readonly UInt32 virtualAddress;
-      internal readonly UInt32 rawSize;
-      internal readonly UInt32 rawPointer;
-
-      internal SectionInfo( UInt32 virtualSize, UInt32 virtualAddress, UInt32 rawSize, UInt32 rawPointer )
-      {
-         this.virtualSize = virtualSize;
-         this.virtualAddress = virtualAddress;
-         this.rawSize = rawSize;
-         this.rawPointer = rawPointer;
-      }
-
-      internal SectionInfo( Stream sink, SectionInfo? prevSection, UInt32 bytesWrittenInThisSection, UInt32 sectionAlignment, UInt32 fileAlignment, Boolean actuallyPad )
-         : this(
-         bytesWrittenInThisSection,
-         prevSection.HasValue ? ( prevSection.Value.virtualAddress + BitUtils.MultipleOf( sectionAlignment, prevSection.Value.virtualSize ) ) : sectionAlignment,
-          BitUtils.MultipleOf( fileAlignment, bytesWrittenInThisSection ),
-         prevSection.HasValue ? ( prevSection.Value.rawPointer + prevSection.Value.rawSize ) : fileAlignment // prevSection.rawSize should always be multiple of file alignment
-         )
-      {
-         if ( actuallyPad )
-         {
-            for ( var i = this.virtualSize; i < this.rawSize; ++i )
-            {
-               sink.WriteByte( 0 );
-            }
-         }
-         else
-         {
-            sink.Seek( this.rawSize - this.virtualSize, SeekOrigin.Current );
-         }
-      }
    }
 }

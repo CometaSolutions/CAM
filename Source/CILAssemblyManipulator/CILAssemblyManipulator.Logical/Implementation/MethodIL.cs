@@ -31,7 +31,7 @@ namespace CILAssemblyManipulator.Logical.Implementation
       private readonly IList<Int32> _labelOffsets;
       private readonly IList<LogicalOpCodeInfo> _opCodes;
       private readonly IList<ExceptionBlockInfo> _allExceptionBlocks;
-      private readonly Stack<ExceptionBlockInfo> _currentExceptionBlocks;
+      private readonly Stack<Tuple<ExceptionBlockInfo, ILLabel>> _currentExceptionBlocks;
       private readonly IList<LocalBuilder> _locals;
       private Boolean _initLocals;
 
@@ -43,7 +43,7 @@ namespace CILAssemblyManipulator.Logical.Implementation
          this._opCodes = new List<LogicalOpCodeInfo>();
          this._labelOffsets = new List<Int32>();
          this._allExceptionBlocks = new List<ExceptionBlockInfo>();
-         this._currentExceptionBlocks = new Stack<ExceptionBlockInfo>();
+         this._currentExceptionBlocks = new Stack<Tuple<ExceptionBlockInfo, ILLabel>>();
          this._locals = new List<LocalBuilder>();
          this._initLocals = true; // Maybe set to false by default?
       }
@@ -226,12 +226,7 @@ namespace CILAssemblyManipulator.Logical.Implementation
          // And exception blocks
          foreach ( var block in excBlocks )
          {
-            var info = new ExceptionBlockInfo( codeInfoILOffsets[block.Item2], labelsDic.GetOrAdd_NotThreadSafe( block.Item4 + block.Item5, () =>
-            {
-               var result = this.DefineLabel();
-               this.MarkLabel( result, codeInfoILOffsets[block.Item4 + block.Item5] );
-               return result;
-            } ) );
+            var info = new ExceptionBlockInfo( codeInfoILOffsets[block.Item2] );
             info.BlockType = block.Item1;
             info.TryLength = codeInfoILOffsets[block.Item2 + block.Item3] - info.TryOffset;
             info.HandlerOffset = codeInfoILOffsets[block.Item4];
@@ -370,37 +365,36 @@ namespace CILAssemblyManipulator.Logical.Implementation
 
       internal ILLabel BeginExceptionBlock()
       {
-         var label = this.DefineLabel();
-         var info = new ExceptionBlockInfo( this._opCodes.Count, label );
+         var info = new ExceptionBlockInfo( this._opCodes.Count );
          this._allExceptionBlocks.Add( info );
-         this._currentExceptionBlocks.Push( info );
+
+         var label = this.DefineLabel();
+         this._currentExceptionBlocks.Push( Tuple.Create( info, label ) );
          return label;
       }
 
       internal void BeginCatchBlock( CILTypeBase exceptionType )
       {
-         var info = this._currentExceptionBlocks.Peek();
+         var info = this._currentExceptionBlocks.Peek().Item1;
          info.ExceptionType = exceptionType;
          info.HandlerBegun( ExceptionBlockType.Exception, this._opCodes.Count );
       }
 
       internal void BeginFinallyBlock()
       {
-         this._currentExceptionBlocks.Peek().HandlerBegun( ExceptionBlockType.Finally, this._opCodes.Count );
+         this._currentExceptionBlocks.Peek().Item1.HandlerBegun( ExceptionBlockType.Finally, this._opCodes.Count );
       }
 
       internal void EndExceptionBlock()
       {
-         var info = this._currentExceptionBlocks.Pop();
+         var tuple = this._currentExceptionBlocks.Pop();
+         var info = tuple.Item1;
          if ( ExceptionBlockType.Finally == info.BlockType || ExceptionBlockType.Fault == info.BlockType )
          {
             this.Add( LogicalOpCodeInfoWithNoOperand.GetInstanceFor( OpCodeEncoding.Endfinally ) );
          }
-         //else if ( ExceptionBlockType.Exception == info.blockType )
-         //{
-         //   // Let the caller decide whether to leave or rethrow
-         //}
-         this.MarkLabel( info.EndLabel );
+
+         this.MarkLabel( tuple.Item2 );
          info.HandlerEnded( this._opCodes.Count );
       }
 

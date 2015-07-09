@@ -490,7 +490,6 @@ namespace CILAssemblyManipulator.Logical.Implementation
          true
          )
       {
-
       }
 
       internal CILTypeImpl(

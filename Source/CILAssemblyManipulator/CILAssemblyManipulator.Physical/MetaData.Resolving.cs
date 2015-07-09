@@ -765,8 +765,8 @@ namespace CILAssemblyManipulator.Physical
                   }
                   break;
                case CustomAttributeArgumentTypeKind.TypeString:
-                  type = this.ResolveTypeFromFullName( md, ( (CustomAttributeArgumentTypeEnum) type ).TypeString );
-                  success = TryReadCAFixedArgument( md, caBLOB, ref idx, type, out nestedCAType );
+                  var actualType = this.ResolveTypeFromFullName( md, ( (CustomAttributeArgumentTypeEnum) type ).TypeString );
+                  success = TryReadCAFixedArgument( md, caBLOB, ref idx, actualType, out nestedCAType );
                   value = success ? nestedCAType.Value : null;
                   break;
                default:

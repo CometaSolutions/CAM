@@ -63,6 +63,7 @@ namespace CILAssemblyManipulator.Logical
       internal const String STRING = "System.String";
       internal const String TYPE = "System.Type";
       internal const String VALUE_TYPE = "System.ValueType";
+      internal const String TYPED_BY_REF = "System.TypedReference";
       internal const String ENUM = "System.Enum";
       internal const String SECURITY_ATTR = "System.Security.Permissions.SecurityAttribute";
       internal const String SECURITY_ACTION = "System.Security.Permissions.SecurityAction";

@@ -196,6 +196,11 @@ namespace CILAssemblyManipulator.Physical
 
    }
 
+   public interface CILMetaDataLoaderWithCallbacks : CILMetaDataLoader
+   {
+      CILMetaDataLoaderResourceCallbacks LoaderCallbacks { get; }
+   }
+
    public interface CILMetaDataLoaderResourceCallbacks
    {
       String SanitizeResource( String resource );
@@ -205,7 +210,7 @@ namespace CILAssemblyManipulator.Physical
       IEnumerable<String> GetPossibleResourcesForAssemblyReference( String thisModulePath, CILMetaData thisMetaData, AssemblyInformationForResolving? assemblyRefInfo, String unparsedAssemblyName );
    }
 
-   public abstract class CILMetaDataLoaderWithCallbacks<TDictionary> : AbstractCILMetaDataLoader<TDictionary>
+   public abstract class CILMetaDataLoaderWithCallbacks<TDictionary> : AbstractCILMetaDataLoader<TDictionary>, CILMetaDataLoaderWithCallbacks
       where TDictionary : class, IDictionary<String, CILMetaData>
    {
       private readonly CILMetaDataLoaderResourceCallbacks _resourceCallbacks;
@@ -219,6 +224,14 @@ namespace CILAssemblyManipulator.Physical
          ArgumentValidator.ValidateNotNull( "Resource callbacks", resourceCallbacks );
 
          this._resourceCallbacks = resourceCallbacks;
+      }
+
+      public CILMetaDataLoaderResourceCallbacks LoaderCallbacks
+      {
+         get
+         {
+            return this._resourceCallbacks;
+         }
       }
 
       protected override String SanitizeResource( String resource )

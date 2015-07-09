@@ -449,7 +449,7 @@ namespace CILAssemblyManipulator.Physical
       {
          if ( setDefaults )
          {
-            this._type = MetaDataConstants.CODE_VIEW_DEBUG_TYPE;
+            this._type = 2; // CodeView
          }
       }
 

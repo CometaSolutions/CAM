@@ -684,7 +684,7 @@ namespace CILAssemblyManipulator.Logical
    public class LogicalSecurityInformation
    {
       private CILType _securityAttributeType;
-      private readonly IList<CILCustomAttributeNamedArgument> _namedArguments;
+      private readonly List<CILCustomAttributeNamedArgument> _namedArguments;
       private readonly SecurityAction _action;
 
       internal LogicalSecurityInformation( SecurityAction action, CILType securityAttributeType, IEnumerable<CILCustomAttributeNamedArgument> namedArgs = null )
@@ -726,7 +726,7 @@ namespace CILAssemblyManipulator.Logical
       /// Gets the <see cref="CILCustomAttributeNamedArgument"/>s of this security attribute declaration.
       /// </summary>
       /// <value>The <see cref="CILCustomAttributeNamedArgument"/>s of this security attribute declaration.</value>
-      public IList<CILCustomAttributeNamedArgument> NamedArguments
+      public List<CILCustomAttributeNamedArgument> NamedArguments
       {
          get
          {

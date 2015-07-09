@@ -27,7 +27,7 @@ using System.Text;
 
 namespace CILAssemblyManipulator.Tests.CILMerge
 {
-   //[Ignore]
+   [Ignore]
    public class MergeTests : AbstractCAMTest
    {
       private class TestCILMergeLogCallback : CILMergeLogCallback

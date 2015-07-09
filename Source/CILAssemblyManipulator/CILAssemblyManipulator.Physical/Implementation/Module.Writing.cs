@@ -524,7 +524,7 @@ namespace CILAssemblyManipulator.Physical.Implementation
 
                using ( var rsa = ( strongName.ContainerName == null ? cryptoCallbacks.CreateRSAFromParameters( rParams ) : cryptoCallbacks.CreateRSAFromCSPContainer( strongName.ContainerName ) ) )
                {
-                  var buffer = new Byte[MetaDataConstants.STREAM_COPY_BUFFER_SIZE];
+                  var buffer = new Byte[0x2000]; // 2x typical windows page size
                   var hashEvtArgs = cryptoCallbacks.CreateHashStreamAndCheck( signingAlgorithm, true, true, false, true );
                   var hashStream = hashEvtArgs.CryptoStream;
                   var hashGetter = hashEvtArgs.HashGetter;
@@ -1062,22 +1062,22 @@ namespace CILAssemblyManipulator.Physical.Implementation
          {
             // Store offset to array to streamHeaders
             // This offset, for each stream, tells where to write first field of stream header (offset from metadata root)
-            streamHeaders[SYS_STRINGS_IDX] = 8 + BitUtils.MultipleOf4( Consts.SYS_STRING_STREAM_NAME.Length + 1 );
+            streamHeaders[SYS_STRINGS_IDX] = 8 + BitUtils.MultipleOf4( MetaDataConstants.SYS_STRING_STREAM_NAME.Length + 1 );
             streamSizes[SYS_STRINGS_IDX] = sysStrings.Size;
          }
          if ( hasUserStrings )
          {
-            streamHeaders[USER_STRINGS_IDX] = 8 + BitUtils.MultipleOf4( Consts.USER_STRING_STREAM_NAME.Length + 1 );
+            streamHeaders[USER_STRINGS_IDX] = 8 + BitUtils.MultipleOf4( MetaDataConstants.USER_STRING_STREAM_NAME.Length + 1 );
             streamSizes[USER_STRINGS_IDX] = userStrings.Size;
          }
          if ( hasGuids )
          {
-            streamHeaders[GUID_IDX] = 8 + BitUtils.MultipleOf4( Consts.GUID_STREAM_NAME.Length + 1 );
+            streamHeaders[GUID_IDX] = 8 + BitUtils.MultipleOf4( MetaDataConstants.GUID_STREAM_NAME.Length + 1 );
             streamSizes[GUID_IDX] = guids.Size;
          }
          if ( hasBlobs )
          {
-            streamHeaders[BLOB_IDX] = 8 + BitUtils.MultipleOf4( Consts.BLOB_STREAM_NAME.Length + 1 );
+            streamHeaders[BLOB_IDX] = 8 + BitUtils.MultipleOf4( MetaDataConstants.BLOB_STREAM_NAME.Length + 1 );
             streamSizes[BLOB_IDX] = blobs.Size;
          }
 
@@ -1110,7 +1110,7 @@ namespace CILAssemblyManipulator.Physical.Implementation
 
          var versionStringSize4 = BitUtils.MultipleOf4( versionStringSize );
          var tableStreamHeaderSize = 24 + 4 * tableSizes.Count( size => size > 0 );
-         streamHeaders[MD_IDX] = 8 + BitUtils.MultipleOf4( Consts.TABLE_STREAM_NAME.Length );
+         streamHeaders[MD_IDX] = 8 + BitUtils.MultipleOf4( MetaDataConstants.TABLE_STREAM_NAME.Length );
          var tableStreamSize = (UInt32) tableStreamHeaderSize + tableSizes.Select( ( size, idx ) => (UInt32) size * (UInt32) tableWidths[idx] ).Sum();
          var tableStreamSize4 = BitUtils.MultipleOf4( tableStreamSize );
          streamSizes[MD_IDX] = tableStreamSize4;
@@ -1139,7 +1139,7 @@ namespace CILAssemblyManipulator.Physical.Implementation
          // #~ header
          anArray.WriteUInt32LEToBytes( ref offset, curStreamOffset )
             .WriteUInt32LEToBytes( ref offset, tableStreamSize4 )
-            .WriteStringToBytes( ref offset, MetaDataStringEncoding, Consts.TABLE_STREAM_NAME )
+            .WriteStringToBytes( ref offset, MetaDataStringEncoding, MetaDataConstants.TABLE_STREAM_NAME )
             .ZeroOut( ref offset, 4 - ( offset % 4 ) );
          curStreamOffset += tableStreamSize4;
 
@@ -1149,7 +1149,7 @@ namespace CILAssemblyManipulator.Physical.Implementation
             var size = streamSizes[SYS_STRINGS_IDX];
             anArray.WriteUInt32LEToBytes( ref offset, curStreamOffset )
                .WriteUInt32LEToBytes( ref offset, size )
-               .WriteStringToBytes( ref offset, MetaDataStringEncoding, Consts.SYS_STRING_STREAM_NAME )
+               .WriteStringToBytes( ref offset, MetaDataStringEncoding, MetaDataConstants.SYS_STRING_STREAM_NAME )
                .ZeroOut( ref offset, 4 - ( offset % 4 ) );
             curStreamOffset += size;
          }
@@ -1160,7 +1160,7 @@ namespace CILAssemblyManipulator.Physical.Implementation
             var size = streamSizes[USER_STRINGS_IDX];
             anArray.WriteUInt32LEToBytes( ref offset, curStreamOffset )
                .WriteUInt32LEToBytes( ref offset, size )
-               .WriteStringToBytes( ref offset, MetaDataStringEncoding, Consts.USER_STRING_STREAM_NAME )
+               .WriteStringToBytes( ref offset, MetaDataStringEncoding, MetaDataConstants.USER_STRING_STREAM_NAME )
                .ZeroOut( ref offset, 4 - ( offset % 4 ) );
             curStreamOffset += size;
          }
@@ -1171,7 +1171,7 @@ namespace CILAssemblyManipulator.Physical.Implementation
             var size = streamSizes[GUID_IDX];
             anArray.WriteUInt32LEToBytes( ref offset, curStreamOffset )
                .WriteUInt32LEToBytes( ref offset, size )
-               .WriteStringToBytes( ref offset, MetaDataStringEncoding, Consts.GUID_STREAM_NAME )
+               .WriteStringToBytes( ref offset, MetaDataStringEncoding, MetaDataConstants.GUID_STREAM_NAME )
                .ZeroOut( ref offset, 4 - ( offset % 4 ) );
             curStreamOffset += size;
          }
@@ -1182,7 +1182,7 @@ namespace CILAssemblyManipulator.Physical.Implementation
             var size = streamSizes[BLOB_IDX];
             anArray.WriteUInt32LEToBytes( ref offset, curStreamOffset )
                .WriteUInt32LEToBytes( ref offset, size )
-               .WriteStringToBytes( ref offset, MetaDataStringEncoding, Consts.BLOB_STREAM_NAME )
+               .WriteStringToBytes( ref offset, MetaDataStringEncoding, MetaDataConstants.BLOB_STREAM_NAME )
                .ZeroOut( ref offset, 4 - ( offset % 4 ) );
             curStreamOffset += size;
          }
@@ -1703,6 +1703,16 @@ namespace CILAssemblyManipulator.Physical.Implementation
          }
       }
 
+      internal static Byte[] WriteCodedTableIndex( this Byte[] array, ref Int32 idx, CodedTableIndexKind codedKind, TableIndex? tIdx, IDictionary<CodedTableIndexKind, Boolean> wideIndices )
+      {
+         return wideIndices[codedKind] ? array.WriteInt32LEToBytes( ref idx, MetaDataConstants.GetCodedTableIndex( codedKind, tIdx ) ) : array.WriteUInt16LEToBytes( ref idx, (UInt16) MetaDataConstants.GetCodedTableIndex( codedKind, tIdx ) );
+      }
+
+      internal static Byte[] WriteSimpleTableIndex( this Byte[] array, ref Int32 idx, TableIndex tIdx, Int32[] tableSizes )
+      {
+         return tableSizes[(Int32) tIdx.Table] > UInt16.MaxValue ? array.WriteInt32LEToBytes( ref idx, ( tIdx.Index + 1 ) ) : array.WriteUInt16LEToBytes( ref idx, (UInt16) ( tIdx.Index + 1 ) );
+      }
+
    }
 
    internal static class HeaderFieldPossibleValues
@@ -2159,7 +2169,7 @@ namespace CILAssemblyManipulator.Physical.Implementation
             result = this._guids.GetOrAdd_NotThreadSafe( guid.Value, g =>
             {
                var retVal = (UInt32) this._guids.Count + 1;
-               this._curIndex += Consts.GUID_SIZE;
+               this._curIndex += MetaDataConstants.GUID_SIZE;
                return retVal;
             } );
          }
@@ -2175,7 +2185,7 @@ namespace CILAssemblyManipulator.Physical.Implementation
       {
          if ( this.Accessed )
          {
-            byteArrayHelper.EnsureSize( Consts.GUID_SIZE );
+            byteArrayHelper.EnsureSize( MetaDataConstants.GUID_SIZE );
 
             foreach ( var kvp in this._guids )
             {
@@ -2415,6 +2425,8 @@ namespace CILAssemblyManipulator.Physical.Implementation
    //      }
    //   }
    //}
+
+
 }
 
 public static partial class E_CILPhysical

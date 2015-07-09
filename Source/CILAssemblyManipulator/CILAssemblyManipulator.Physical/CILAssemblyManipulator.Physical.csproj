@@ -99,6 +99,7 @@
     <Compile Include="Comparers.cs" />
     <Compile Include="IL.cs" />
     <Compile Include="Implementation\CryptoUtils.cs" />
+    <Compile Include="Implementation\Module.IO.cs" />
     <Compile Include="Implementation\Module.Reading.cs" />
     <Compile Include="Implementation\Module.cs" />
     <Compile Include="Implementation\Module.Writing.cs" />

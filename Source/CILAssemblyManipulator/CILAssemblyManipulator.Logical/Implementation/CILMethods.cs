@@ -583,7 +583,7 @@ namespace CILAssemblyManipulator.Logical.Implementation
             new SettableLazy<MethodImplAttributes>( () => MethodImplAttributes.IL ),
             null,
             new SettableValueForClasses<String>( name ),
-            () => ctx.Cache.NewBlankParameter( ctx.Cache.ResolveMethodBaseID( anID ), E_CILLogical.RETURN_PARAMETER_POSITION, null, ParameterAttributes.None, declaringType.Module.AssociatedMSCorLibModule.GetTypeByName( Consts.VOID ) ),
+            () => ctx.Cache.NewBlankParameter( ctx.Cache.ResolveMethodBaseID( anID ), E_CILLogical.RETURN_PARAMETER_POSITION, null, ParameterAttributes.None, null ),
             () => ctx.CollectionsFactory.NewListProxy<CILTypeBase>(),
             () => null,
             () => ctx.CollectionsFactory.NewListProxy<CILMethod>(),

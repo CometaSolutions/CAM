@@ -131,7 +131,7 @@ namespace CILAssemblyManipulator.Logical
    /// <summary>
    /// This struct represents a label to be used when emitting IL code using <see cref="MethodIL"/>.
    /// </summary>
-   public struct ILLabel
+   public struct ILLabel : IEquatable<ILLabel>
    {
       private readonly Int32 _labelIdx;
 
@@ -146,6 +146,21 @@ namespace CILAssemblyManipulator.Logical
          {
             return this._labelIdx;
          }
+      }
+
+      public override Boolean Equals( Object obj )
+      {
+         return obj is ILLabel && this.Equals( (ILLabel) obj );
+      }
+
+      public override Int32 GetHashCode()
+      {
+         return 23 * this._labelIdx;
+      }
+
+      public Boolean Equals( ILLabel other )
+      {
+         return this._labelIdx == other._labelIdx;
       }
    }
 
@@ -299,7 +314,6 @@ namespace CILAssemblyManipulator.Logical
    /// </summary>
    public sealed class ExceptionBlockInfo
    {
-      private readonly ILLabel _endLabel;
       private readonly Int32 _tryOffset;
       private Int32 _tryLength;
       private Int32 _handlerOffset;
@@ -311,7 +325,6 @@ namespace CILAssemblyManipulator.Logical
       /// <summary>
       /// Creates a new instance of <see cref="ExceptionBlockInfo"/> with specified values.
       /// </summary>
-      /// <param name="endLabel">The label marking the end of this exception block.</param>
       /// <param name="tryOffset">The <see cref="LogicalOpCodeInfo"/>-based offset of the try-block.</param>
       /// <param name="tryLength">The <see cref="LogicalOpCodeInfo"/>-based length of the try-block.</param>
       /// <param name="handlerOffset">The <see cref="LogicalOpCodeInfo"/>-based offset of the handler block.</param>
@@ -319,8 +332,8 @@ namespace CILAssemblyManipulator.Logical
       /// <param name="exceptionType">The exception handling type or <c>null</c>.</param>
       /// <param name="filterOffset">The <see cref="LogicalOpCodeInfo"/>-based offset of the filter block.</param>
       /// <param name="blockType">The <see cref="ExceptionBlockType"/>.</param>
-      public ExceptionBlockInfo( ILLabel endLabel, Int32 tryOffset, Int32 tryLength, Int32 handlerOffset, Int32 handlerLength, CILTypeBase exceptionType, Int32 filterOffset, ExceptionBlockType blockType )
-         : this( tryOffset, endLabel )
+      public ExceptionBlockInfo( Int32 tryOffset, Int32 tryLength, Int32 handlerOffset, Int32 handlerLength, CILTypeBase exceptionType, Int32 filterOffset, ExceptionBlockType blockType )
+         : this( tryOffset )
       {
          this._tryLength = tryLength;
          this._handlerOffset = handlerOffset;
@@ -330,9 +343,8 @@ namespace CILAssemblyManipulator.Logical
          this._blockType = blockType;
       }
 
-      internal ExceptionBlockInfo( Int32 aTryOffset, ILLabel label )
+      internal ExceptionBlockInfo( Int32 aTryOffset )
       {
-         this._endLabel = label;
          this._tryOffset = aTryOffset;
          this._tryLength = -1;
          this._handlerOffset = -1;
@@ -381,18 +393,6 @@ namespace CILAssemblyManipulator.Logical
          set
          {
             this._blockType = value;
-         }
-      }
-
-      /// <summary>
-      /// Gets the label marking the end of this exception block.
-      /// </summary>
-      /// <value>The label marking the end of this exception block.</value>
-      public ILLabel EndLabel
-      {
-         get
-         {
-            return this._endLabel;
          }
       }
 

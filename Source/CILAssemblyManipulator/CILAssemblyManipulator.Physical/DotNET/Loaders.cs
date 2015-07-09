@@ -57,17 +57,30 @@ namespace CILAssemblyManipulator.Physical
 
       public IEnumerable<String> GetPossibleResourcesForModuleReference( String thisModulePath, CILMetaData thisMetaData, String moduleReferenceName )
       {
+         return this.FilterPossibleResources( thisModulePath, this.GetAllPossibleResourcesForModuleReference( thisModulePath, thisMetaData, moduleReferenceName ) );
+      }
+
+      public IEnumerable<String> GetPossibleResourcesForAssemblyReference( String thisModulePath, CILMetaData thisMetaData, AssemblyInformationForResolving? assemblyRefInfo, string unparsedAssemblyName )
+      {
+         return this.FilterPossibleResources( thisModulePath, this.GetAllPossibleResourcesForAssemblyReference( thisModulePath, thisMetaData, assemblyRefInfo, unparsedAssemblyName ) );
+      }
+
+      private IEnumerable<String> GetAllPossibleResourcesForModuleReference( String thisModulePath, CILMetaData thisMetaData, String moduleReferenceName )
+      {
          if ( !moduleReferenceName.EndsWith( ".dll" ) )
          {
             moduleReferenceName += ".dll";
          }
-         yield return Path.Combine(
+
+         var retVal = Path.Combine(
             Path.GetDirectoryName( thisModulePath ),
             moduleReferenceName
             );
+
+         yield return retVal;
       }
 
-      public IEnumerable<String> GetPossibleResourcesForAssemblyReference( String thisModulePath, CILMetaData thisMetaData, AssemblyInformationForResolving? assemblyRefInfo, string unparsedAssemblyName )
+      private IEnumerable<String> GetAllPossibleResourcesForAssemblyReference( String thisModulePath, CILMetaData thisMetaData, AssemblyInformationForResolving? assemblyRefInfo, string unparsedAssemblyName )
       {
          // TODO need to emulate behaviour of .dll.config file as well!
 
@@ -91,6 +104,12 @@ namespace CILAssemblyManipulator.Physical
             }
 
          }
+      }
+
+      private IEnumerable<String> FilterPossibleResources( String thisModulePath, IEnumerable<String> allPossibleResources )
+      {
+         // Don't return same resource, which might cause nasty infinite loops elsewhere
+         return allPossibleResources.Where( r => !String.Equals( thisModulePath, r ) ); // TODO path comparison (case-(in)sensitive)
       }
 
       public String GetTargetFrameworkPathFor( CILMetaData md )
