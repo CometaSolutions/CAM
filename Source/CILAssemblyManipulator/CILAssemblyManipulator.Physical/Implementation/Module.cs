@@ -428,5 +428,10 @@ namespace CILAssemblyManipulator.Physical.Implementation
       {
          return this._table[idx];
       }
+
+      public override String ToString()
+      {
+         return this._tableKind + ", row count: " + this._table.Count + ".";
+      }
    }
 }

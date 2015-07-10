@@ -418,7 +418,7 @@ public static partial class E_CILLogical
             null,
          MethodKind.Method == method.MethodKind ?
             ( (CILMethod) method ).ReturnParameter.ParameterType :
-            method.DeclaringType.Module.AssociatedMSCorLibModule.GetTypeByName( "System.Void" ),
+            method.DeclaringType.Module.AssociatedMSCorLibModule.GetTypeByName( Consts.VOID ),
             method.Parameters.Select( param => Tuple.Create( ( (CILReflectionContextImpl) method.ReflectionContext ).CollectionsFactory.NewListProxyFromParams( param.CustomModifiers.ToArray() ), param.ParameterType ) ).ToList(),
          method
             );

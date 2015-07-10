@@ -31,7 +31,7 @@ namespace CILAssemblyManipulator.Logical
    {
       private readonly CILAssembly _assembly;
       private readonly IDictionary<String, CILType> _typeDefs;
-      private readonly IDictionary<CILType, String> _typeDefStrings;
+      private readonly IDictionary<CILType, Tuple<String, TypeAttributes, TableIndex?>> _typeDefInfos;
 
       private readonly Object _lock;
       private Action _basicStructurePopulator;
@@ -48,7 +48,7 @@ namespace CILAssemblyManipulator.Logical
          this._complexStructurePopulator = complexStructurePopulator;
          this._lock = new Object();
          this._typeDefs = new Dictionary<String, CILType>();
-         this._typeDefStrings = new Dictionary<CILType, String>();
+         this._typeDefInfos = new Dictionary<CILType, Tuple<String, TypeAttributes, TableIndex?>>();
       }
 
       public CILAssembly Assembly
@@ -78,18 +78,23 @@ namespace CILAssemblyManipulator.Logical
 
       internal String ResolveType( CILType type )
       {
-         String retVal;
-         if ( !this._typeDefStrings.TryGetValue( type, out retVal ) )
+         return this.ResolveTypeInfo( type ).Item1;
+      }
+
+      internal Tuple<String, TypeAttributes, TableIndex?> ResolveTypeInfo( CILType type )
+      {
+         Tuple<String, TypeAttributes, TableIndex?> retVal;
+         if ( !this._typeDefInfos.TryGetValue( type, out retVal ) )
          {
             throw new InvalidOperationException( "Failed to get type string for type " );
          }
          return retVal;
       }
 
-      internal void RecordTypeDef( String typeString, CILType type )
+      internal void RecordTypeDef( CILType type, String typeString, TypeAttributes attrs, TableIndex? baseType )
       {
          this._typeDefs.Add( typeString, type );
-         this._typeDefStrings.Add( type, typeString );
+         this._typeDefInfos.Add( type, Tuple.Create( typeString, attrs, baseType ) );
       }
 
       internal CILAssembly AssemblyInstance
@@ -131,8 +136,129 @@ namespace CILAssemblyManipulator.Logical
 
 public static partial class E_CILLogical
 {
-   internal sealed class LogicalCreationState
+   private sealed class LogicalCreationState
    {
+      private struct TypeSpecInfo : IEquatable<TypeSpecInfo>
+      {
+         private readonly Int32 _idx;
+         private readonly CILType _contextType;
+         private readonly CILMethodBase _contextMethod;
+         private readonly Boolean _populateAssemblyRefSimpleStructure;
+
+         public TypeSpecInfo( Int32 idx, CILType contextType, CILMethodBase contextMethod, Boolean populateAssemblyRefSimpleStructure )
+         {
+            this._idx = idx;
+            this._contextType = contextType;
+            this._contextMethod = contextMethod;
+            this._populateAssemblyRefSimpleStructure = populateAssemblyRefSimpleStructure;
+         }
+
+         public override Boolean Equals( Object obj )
+         {
+            return obj is TypeSpecInfo && this.Equals( (TypeSpecInfo) obj );
+         }
+
+         public override Int32 GetHashCode()
+         {
+            return ( ( 17 * 23 + this._idx ) * 23 + this._contextType.GetHashCodeSafe() ) * 23 + this._contextMethod.GetHashCodeSafe();
+         }
+
+         public Boolean Equals( TypeSpecInfo other )
+         {
+            return this._idx == other._idx
+               && Equals( this._contextType, other._contextType )
+               && Equals( this._contextMethod, other._contextMethod )
+               && this._populateAssemblyRefSimpleStructure == other._populateAssemblyRefSimpleStructure;
+         }
+
+         public Int32 Index
+         {
+            get
+            {
+               return this._idx;
+            }
+         }
+
+         public CILType ContextType
+         {
+            get
+            {
+               return this._contextType;
+            }
+         }
+
+         public CILMethodBase ContextMethod
+         {
+            get
+            {
+               return this._contextMethod;
+            }
+         }
+
+         public Boolean PopulateAssemblyRefSimpleStructure
+         {
+            get
+            {
+               return this._populateAssemblyRefSimpleStructure;
+            }
+         }
+      }
+
+      private struct ContextualInfo : IEquatable<ContextualInfo>
+      {
+         private readonly Int32 _idx;
+         private readonly CILType _contextType;
+         private readonly CILMethodBase _contextMethod;
+
+         public ContextualInfo( Int32 idx, CILType contextType, CILMethodBase contextMethod )
+         {
+            this._idx = idx;
+            this._contextType = contextType;
+            this._contextMethod = contextMethod;
+         }
+
+         public override Boolean Equals( Object obj )
+         {
+            return obj is ContextualInfo && this.Equals( (ContextualInfo) obj );
+         }
+
+         public override Int32 GetHashCode()
+         {
+            return ( ( 17 * 23 + this._idx ) * 23 + this._contextType.GetHashCodeSafe() ) * 23 + this._contextMethod.GetHashCodeSafe();
+         }
+
+         public Boolean Equals( ContextualInfo other )
+         {
+            return this._idx == other._idx
+               && Equals( this._contextType, other._contextType )
+               && Equals( this._contextMethod, other._contextMethod );
+         }
+
+         public Int32 Index
+         {
+            get
+            {
+               return this._idx;
+            }
+         }
+
+         public CILType ContextType
+         {
+            get
+            {
+               return this._contextType;
+            }
+         }
+
+         public CILMethodBase ContextMethod
+         {
+            get
+            {
+               return this._contextMethod;
+            }
+         }
+      }
+
       private readonly LogicalAssemblyCreationResult _creationResult;
       private readonly CILModule _module;
       private readonly CILMetaData _md;
@@ -150,10 +276,13 @@ public static partial class E_CILLogical
       private readonly LogicalAssemblyCreationResult[] _assemblyRefs;
 
       private readonly ISet<Int32> _topLevelTypes;
-      private readonly IDictionary<Int32, IList<Int32>> _nestedTypes;
+      private readonly IDictionary<Int32, ISet<Int32>> _nestedTypes;
 
       private readonly IDictionary<SignatureElementTypes, CILType> _simpleTypes;
       private readonly CILType[] _typeRefs;
+      private readonly IDictionary<TypeSpecInfo, CILTypeBase> _typeSpecs;
+      private readonly IDictionary<ContextualInfo, IEnumerable<Tuple<CILTypeBase, Boolean>>> _locals;
+      private readonly IDictionary<ContextualInfo, CILMethod> _methodSpecs;
 
       private readonly Lazy<LogicalAssemblyCreationResult> _associatedMSCorLib;
 
@@ -185,11 +314,11 @@ public static partial class E_CILLogical
          this._events = PopulateWithNulls<CILEvent>( md.EventDefinitions.RowCount );
          this._assemblyRefs = PopulateWithNulls<LogicalAssemblyCreationResult>( md.AssemblyReferences.RowCount );
 
-         var nestedTypes = new Dictionary<Int32, IList<Int32>>();
+         var nestedTypes = new Dictionary<Int32, ISet<Int32>>();
          foreach ( var nc in md.NestedClassDefinitions.TableContents )
          {
             nestedTypes
-               .GetOrAdd_NotThreadSafe( nc.EnclosingClass.Index, i => new List<Int32>() )
+               .GetOrAdd_NotThreadSafe( nc.EnclosingClass.Index, i => new HashSet<Int32>() )
                .Add( nc.NestedClass.Index );
          }
          var tlTypes = new HashSet<Int32>( Enumerable.Range( 0, tDefCount ) );
@@ -199,6 +328,9 @@ public static partial class E_CILLogical
          this._nestedTypes = nestedTypes;
 
          this._simpleTypes = new Dictionary<SignatureElementTypes, CILType>();
+         this._typeSpecs = new Dictionary<TypeSpecInfo, CILTypeBase>();
+         this._locals = new Dictionary<ContextualInfo, IEnumerable<Tuple<CILTypeBase, Boolean>>>();
+         this._methodSpecs = new Dictionary<ContextualInfo, CILMethod>();
 
          this._associatedMSCorLib = new Lazy<LogicalAssemblyCreationResult>( () => this.ResolveMSCorLibModule( msCorLibOverride ), LazyThreadSafetyMode.None );
       }
@@ -219,7 +351,7 @@ public static partial class E_CILLogical
          }
       }
 
-      public IDictionary<Int32, IList<Int32>> NestedTypes
+      public IDictionary<Int32, ISet<Int32>> NestedTypes
       {
          get
          {
@@ -291,8 +423,8 @@ public static partial class E_CILLogical
          {
             typeString = LogicalUtils.CombineEnclsosingAndNestedType( this._creationResult.ResolveType( type.DeclaringType ), type.Name );
          }
-
-         this._creationResult.RecordTypeDef( typeString, type );
+         var tDef = this._md.TypeDefinitions.TableContents[typeDefIndex];
+         this._creationResult.RecordTypeDef( type, typeString, tDef.Attributes, tDef.BaseType );
       }
 
       internal void RecordFieldDef( CILField field, Int32 fieldDefIndex )
@@ -473,10 +605,6 @@ public static partial class E_CILLogical
       {
          var mRef = this._md.MemberReferences.TableContents[index];
          var declType = mRef.DeclaringType;
-         if ( index == 825 )
-         {
-
-         }
          CILType cilDeclType;
          switch ( declType.Table )
          {
@@ -649,17 +777,20 @@ public static partial class E_CILLogical
             case Tables.MemberRef:
                return this.ResolveMemberRef( index.Index, contextType, contextMethod );
             case Tables.MethodSpec:
-               var mSpec = this._md.MethodSpecifications.TableContents[index.Index];
-               var retVal = this.ResolveMethodDefOrMemberRef( mSpec.Method, contextType, contextMethod ) as CILMethod;
-               if ( retVal == null )
+               return this._methodSpecs.GetOrAdd_NotThreadSafe( new ContextualInfo( index.Index, contextType, contextMethod ), i =>
                {
-                  throw new InvalidOperationException( "Token resolved to constructor with generic arguments (" + index + ")." );
-               }
-               else
-               {
-                  retVal = retVal.MakeGenericMethod( mSpec.Signature.GenericArguments.Select( arg => this.ResolveTypeSignature( arg, contextType, contextMethod ) ).ToArray() );
-               }
-               return retVal;
+                  var mSpec = this._md.MethodSpecifications.TableContents[i.Index];
+                  var retVal = this.ResolveMethodDefOrMemberRef( mSpec.Method, i.ContextType, i.ContextMethod ) as CILMethod;
+                  if ( retVal == null )
+                  {
+                     throw new InvalidOperationException( "Token resolved to constructor with generic arguments (" + index + ")." );
+                  }
+                  else
+                  {
+                     retVal = retVal.MakeGenericMethod( mSpec.Signature.GenericArguments.Select( arg => this.ResolveTypeSignature( arg, i.ContextType, i.ContextMethod ) ).ToArray() );
+                  }
+                  return retVal;
+               } );
             case Tables.StandaloneSignature:
                throw new NotImplementedException( "StandaloneSignature as token." );
             default:
@@ -669,20 +800,17 @@ public static partial class E_CILLogical
 
       internal IEnumerable<Tuple<CILTypeBase, Boolean>> ResolveLocalsSignature( Int32 index, CILType contextType, CILMethodBase contextMethod )
       {
-         // Same as type specs: can't cache, but to optimize, should cache if context variables are not used
-         var sig = this._md.StandaloneSignatures.TableContents[index].Signature;
-         switch ( sig.SignatureKind )
+         return this._locals.GetOrAdd_NotThreadSafe( new ContextualInfo( index, contextType, contextMethod ), i =>
          {
-            case SignatureKind.LocalVariables:
-               var lSig = (LocalVariablesSignature) sig;
-               foreach ( var local in lSig.Locals )
-               {
-                  yield return Tuple.Create( this.ResolveParamSignature( local, contextType, contextMethod ), local.IsPinned );
-               }
-               break;
-            default:
-               throw new InvalidOperationException( "Unsupported local variable signature: " + sig.SignatureKind + "." );
-         }
+            var sig = this._md.StandaloneSignatures.TableContents[i.Index].Signature;
+            switch ( sig.SignatureKind )
+            {
+               case SignatureKind.LocalVariables:
+                  return this.DoResolveLocalsSignature( i.Index, i.ContextType, i.ContextMethod, (LocalVariablesSignature) sig );
+               default:
+                  throw new InvalidOperationException( "Unsupported local variable signature: " + sig.SignatureKind + "." );
+            }
+         } );
       }
 
       internal LogicalAssemblyCreationResult ResolveAssemblyRef( Int32 index )
@@ -694,12 +822,19 @@ public static partial class E_CILLogical
          } );
       }
 
+      private IEnumerable<Tuple<CILTypeBase, Boolean>> DoResolveLocalsSignature( Int32 index, CILType contextType, CILMethodBase contextMethod, LocalVariablesSignature sig )
+      {
+         foreach ( var local in sig.Locals )
+         {
+            yield return Tuple.Create( this.ResolveParamSignature( local, contextType, contextMethod ), local.IsPinned );
+         }
+      }
+
       private CILTypeBase ResolveTypeSpec( Int32 tSpecIdx, CILType contextType, CILMethodBase contextMethod, Boolean populateAssemblyRefStructure = false )
       {
-         // TypeSpecs can't be cached, as they might resolve to different instances of logical types because of context type/method.
-         // TODO : resolving type signature should indicate whether it had contextual elements (any GenericParameterTypeSignature's).
-         // If not, then this type spec is cacheable.
-         return this.ResolveTypeSignature( this._md.TypeSpecifications.TableContents[tSpecIdx].Signature, contextType, contextMethod, populateAssemblyRefStructure );
+         return this._typeSpecs.GetOrAdd_NotThreadSafe(
+            new TypeSpecInfo( tSpecIdx, contextType, contextMethod, populateAssemblyRefStructure ),
+            info => this.ResolveTypeSignature( this._md.TypeSpecifications.TableContents[info.Index].Signature, info.ContextType, info.ContextMethod, info.PopulateAssemblyRefSimpleStructure ) );
       }
 
 
@@ -963,7 +1098,18 @@ public static partial class E_CILLogical
          // Try find "System.Object"
          var testTypeString = Consts.OBJECT;
 
-         var suitableModule = this.GetSuitableMSCorLibModules( msCorLibOverride ).FirstOrDefault( m => m.ResolveTypeString( testTypeString, false ) != null );
+         var suitableModule = this.GetSuitableMSCorLibModules( msCorLibOverride ).FirstOrDefault( m =>
+         {
+            var testType = m.ResolveTypeString( testTypeString, false );
+            var retVal = testType != null;
+            if ( retVal )
+            {
+               // Perform additional checks
+               var typeInfo = m.ResolveTypeInfo( testType );
+               retVal = typeInfo.Item2.IsClass() && !typeInfo.Item3.HasValue;
+            }
+            return retVal;
+         } );
 
          if ( suitableModule == null )
          {
@@ -1244,7 +1390,7 @@ public static partial class E_CILLogical
       }
 
       // Nested types
-      IList<Int32> nestedList;
+      ISet<Int32> nestedList;
       if ( state.NestedTypes.TryGetValue( typeDefIndex, out nestedList ) )
       {
          foreach ( var nested in nestedList )
