@@ -436,7 +436,6 @@ public static partial class E_CILLogical
       {
          retVal.OrderTablesAndRemoveDuplicates();
       }
-
       return retVal;
    }
 
@@ -712,7 +711,7 @@ public static partial class E_CILLogical
       var an = assembly.Name;
       var aDef = new AssemblyDefinition()
       {
-         Attributes = AssemblyFlags.PublicKey,
+         Attributes = an.Flags,
          HashAlgorithm = an.HashAlgorithm
       };
       var aInfo = aDef.AssemblyInformation;

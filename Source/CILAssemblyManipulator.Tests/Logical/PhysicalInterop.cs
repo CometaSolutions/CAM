@@ -52,6 +52,11 @@ namespace CILAssemblyManipulator.Tests.Logical
             var logical = loader.LoadAssemblyFrom( mdLocation );
             var physicalLoaded = mdLoader.GetOrLoadMetaData( mdLocation );
             var physicalCreated = logical.MainModule.CreatePhysicalRepresentation();
+
+            var structure1 = new AssemblyStructureInfo( physicalLoaded );
+            var structure2 = new AssemblyStructureInfo( physicalLoaded );
+
+            Assert.IsTrue( structure1.Equals( structure2 ) );
             Console.WriteLine( "Hmz" );
          } );
       }
@@ -67,21 +72,87 @@ namespace CILAssemblyManipulator.Tests.Logical
 
    public abstract class StructuralElementWithCustomAttributes
    {
+      private readonly List<CustomAttributeStructure> _customAttributes;
+
       internal StructuralElementWithCustomAttributes()
       {
+         this._customAttributes = new List<CustomAttributeStructure>();
+      }
 
+      public abstract override Boolean Equals( Object obj );
+      public abstract override Int32 GetHashCode();
+
+      public List<CustomAttributeStructure> CustomAttributes
+      {
+         get
+         {
+            return this._customAttributes;
+         }
       }
 
       protected Boolean CheckCAArgs( StructuralElementWithCustomAttributes other )
       {
-         return true;
+         return ListEqualityComparer<List<CustomAttributeStructure>, CustomAttributeStructure>.DefaultListEqualityComparer.Equals( this.CustomAttributes, other.CustomAttributes );
+      }
+   }
+
+   public sealed class CustomAttributeStructure : IEquatable<CustomAttributeStructure>
+   {
+      public MethodDefOrRefStructure Constructor { get; set; }
+      public AbstractCustomAttributeSignature Signature { get; set; }
+
+      public override Boolean Equals( Object obj )
+      {
+         return this.Equals( obj as CustomAttributeStructure );
+      }
+
+      public override Int32 GetHashCode()
+      {
+         return this.Constructor.GetHashCodeSafe();
+      }
+
+      public Boolean Equals( CustomAttributeStructure other )
+      {
+         return ReferenceEquals( this, other )
+            || ( other != null
+            && Equals( this.Constructor, other.Constructor )
+            && Comparers.AbstractCustomAttributeSignatureEqualityComparer.Equals( this.Signature, other.Signature )
+            );
       }
    }
 
    public sealed class AssemblyStructureInfo : StructuralElementWithCustomAttributes, IEquatable<AssemblyStructureInfo>
    {
+      private readonly List<ModuleStructureInfo> _modules;
+
+      public AssemblyStructureInfo()
+      {
+         this._modules = new List<ModuleStructureInfo>();
+      }
+
+      public AssemblyStructureInfo( CILMetaData md )
+         : this()
+      {
+         var aDef = md.AssemblyDefinitions.TableContents[0];
+         var aInfo = new AssemblyInformation();
+         aDef.AssemblyInformation.DeepCopyContentsTo( aInfo );
+         this.AssemblyInfo = aInfo;
+         this.Attributes = aDef.Attributes;
+         this.HashAlgorithm = aDef.HashAlgorithm;
+         this.Modules.Add( new ModuleStructureInfo( this, md ) );
+      }
+
       public AssemblyInformation AssemblyInfo { get; set; }
+      public AssemblyFlags Attributes { get; set; }
+      public AssemblyHashAlgorithm HashAlgorithm { get; set; }
       public SecurityStructuralInfo SecurityInfo { get; set; }
+      public List<ModuleStructureInfo> Modules
+      {
+         get
+         {
+            return this._modules;
+         }
+      }
 
       public override Boolean Equals( Object obj )
       {
@@ -95,7 +166,15 @@ namespace CILAssemblyManipulator.Tests.Logical
 
       public Boolean Equals( AssemblyStructureInfo other )
       {
-         throw new NotImplementedException();
+         return ReferenceEquals( this, other )
+            || ( other != null
+            && this.AssemblyInfo.EqualsTypedEquatable( other.AssemblyInfo )
+            && this.Attributes == other.Attributes
+            && this.HashAlgorithm == other.HashAlgorithm
+            && this.SecurityInfo.EqualsTypedEquatable( other.SecurityInfo )
+            && new HashSet<ModuleStructureInfo>( this.Modules ).SetEquals( other.Modules )
+            && this.CheckCAArgs( other )
+            );
       }
    }
 
@@ -107,8 +186,10 @@ namespace CILAssemblyManipulator.Tests.Logical
       private readonly List<TypeRefDescription> _typeRefDescriptions;
       private readonly List<TypeSpecDescription> _typeSpecDescriptions;
 
-      public ModuleStructureInfo( AssemblyStructureInfo assembly, CILMetaData md )
+      internal ModuleStructureInfo( AssemblyStructureInfo assembly, CILMetaData md )
       {
+         this.Name = md.ModuleDefinitions.TableContents[0].Name;
+
          // TypeDefs
          var nestedTypes = new Dictionary<Int32, ISet<Int32>>();
          var enclosingTypes = new Dictionary<Int32, Int32>();
@@ -258,14 +339,31 @@ namespace CILAssemblyManipulator.Tests.Logical
             this._typeSpecDescriptions[i].Signature = new SignatureStructuralInfo( this, tSpec.Signature );
          }
 
-         this.PopulateStructure( assembly, md, fRefList, modRefList, aRefList );
+         this.PopulateStructure( assembly, md, this._typeRefDescriptions, this._typeSpecDescriptions, fRefList, modRefList, aRefList );
       }
 
       public String Name { get; set; }
+      public List<TypeDefDescription> TypeDefinitions
+      {
+         get
+         {
+            return this._typeDefDescriptions;
+         }
+      }
+      public List<ExportedTypeStructureInfo> ExportedTypes
+      {
+         get
+         {
+            return this._exportedTypes;
+         }
+      }
+
 
       private void PopulateStructure(
          AssemblyStructureInfo assembly,
          CILMetaData md,
+         IList<TypeRefDescription> typeRefList,
+         IList<TypeSpecDescription> typeSpecList,
          IList<FileReferenceStructureInfo> fileRefList,
          IList<ModuleRefStructureInfo> modRefList,
          IList<AssemblyRefStructureInfo> aRefList
@@ -329,7 +427,7 @@ namespace CILAssemblyManipulator.Tests.Logical
 
          for ( var i = 0; i < fDefs.Count; ++i )
          {
-            fDefList[i].Signatures = new SignatureStructuralInfo( this, fDefs[i].Signature );
+            fDefList[i].Signature = new SignatureStructuralInfo( this, fDefs[i].Signature );
          }
 
          for ( var i = 0; i < mDefs.Count; ++i )
@@ -380,10 +478,9 @@ namespace CILAssemblyManipulator.Tests.Logical
          // Generic Parameters
          var gArgs = md.GenericParameterDefinitions.TableContents;
          var gArgsList = new List<GenericParameterStructuralInfo>( gArgs.Count );
-         gArgsList.AddRange( gArgs.Select( gArg => new GenericParameterStructuralInfo( gArg ) ) );
-         for ( var i = 0; i < gArgs.Count; ++i )
+         gArgsList.AddRange( gArgs.Select( gArg =>
          {
-            var gArg = gArgs[i];
+            var gArgInfo = new GenericParameterStructuralInfo( gArg );
             List<GenericParameterStructuralInfo> thisArgs;
             var owner = gArg.Owner;
             switch ( owner.Table )
@@ -400,18 +497,23 @@ namespace CILAssemblyManipulator.Tests.Logical
             }
             if ( thisArgs != null )
             {
-               thisArgs.Add( gArgsList[i] );
+               thisArgs.Add( gArgInfo );
             }
-         }
+            return gArgInfo;
+         } ) );
 
          // Generic parameter constraints
-         foreach ( var gConstraint in md.GenericParameterConstraintDefinitions.TableContents )
+         var gArgConstraints = md.GenericParameterConstraintDefinitions.TableContents;
+         var gArgConstraintList = new List<GenericParameterConstraintStructuralInfo>( gArgConstraints.Count );
+         gArgConstraintList.AddRange( gArgConstraints.Select( gConstraint =>
          {
-            gArgsList[gConstraint.Owner.Index].Constraints.Add( new GenericParameterConstraintStructuralInfo()
+            var gConstraintInfo = new GenericParameterConstraintStructuralInfo()
             {
                Constraint = this.FromTypeDefOrRefOrSpec( gConstraint.Constraint )
-            } );
-         }
+            };
+            gArgsList[gConstraint.Owner.Index].Constraints.Add( gConstraintInfo );
+            return gConstraintInfo;
+         } ) );
 
          // Class layout
          foreach ( var layout in md.ClassLayouts.TableContents )
@@ -493,22 +595,23 @@ namespace CILAssemblyManipulator.Tests.Logical
          // Interface Impls
          var interfaces = md.InterfaceImplementations.TableContents;
          var interfaceList = new List<InterfaceImplStructuralInfo>( interfaces.Count );
-         interfaceList.AddRange( interfaces.Select( iFace => new InterfaceImplStructuralInfo()
+         interfaceList.AddRange( interfaces.Select( iFace =>
          {
-            InterfaceType = this.FromTypeDefOrRefOrSpec( iFace.Interface )
+            var iFaceInfo = new InterfaceImplStructuralInfo()
+            {
+               InterfaceType = this.FromTypeDefOrRefOrSpec( iFace.Interface )
+            };
+            tDefList[iFace.Class.Index].ImplementedInterfaces.Add( iFaceInfo );
+            return iFaceInfo;
          } ) );
-         for ( var i = 0; i < interfaces.Count; ++i )
-         {
-            tDefList[interfaces[i].Class.Index].ImplementedInterfaces.Add( interfaceList[i] );
-         }
+
          // DeclSecurity
          var security = md.SecurityDefinitions.TableContents;
          var securityList = new List<SecurityStructuralInfo>( security.Count );
-         securityList.AddRange( security.Select( sec => new SecurityStructuralInfo( sec ) ) );
-         for ( var i = 0; i < security.Count; ++i )
+         securityList.AddRange( security.Select( sec =>
          {
-            var secInfo = securityList[i];
-            var parent = security[i].Parent;
+            var secInfo = new SecurityStructuralInfo( sec );
+            var parent = sec.Parent;
             switch ( parent.Table )
             {
                case Tables.TypeDef:
@@ -521,13 +624,199 @@ namespace CILAssemblyManipulator.Tests.Logical
                   assembly.SecurityInfo = secInfo;
                   break;
             }
-         }
+            return secInfo;
+         } ) );
+
          // ManifestResource
+         var resources = md.ManifestResources.TableContents;
+         var resourceList = new List<ManifestResourceStructuralInfo>( resources.Count );
+         resourceList.AddRange( resources.Select( res =>
+         {
+            var resourceInfo = new ManifestResourceStructuralInfo( res );
+            var implNullable = res.Implementation;
+            ManifestResourceData data;
+            if ( implNullable.HasValue )
+            {
+               var impl = implNullable.Value;
+               switch ( impl.Table )
+               {
+                  case Tables.File:
+                     data = new ManifestResourceDataFile()
+                     {
+                        FileReference = fileRefList[impl.Index]
+                     };
+                     break;
+                  case Tables.AssemblyRef:
+                     data = new ManifestResourceDataAssemblyRef()
+                     {
+                        AssemblyRef = aRefList[impl.Index]
+                     };
+                     break;
+                  default:
+                     data = null;
+                     break;
+               }
+            }
+            else
+            {
+               data = new ManifestResourceDataEmbedded()
+               {
+                  Data = res.DataInCurrentFile.CreateBlockCopy()
+               };
+            }
+            if ( data != null )
+            {
+               resourceInfo.ManifestData = data;
+            }
+
+            return resourceInfo;
+         } ) );
+
          // MemberRefs
+         var memberRefs = md.MemberReferences.TableContents;
+         var memberRefList = new List<MemberReferenceStructuralInfo>( memberRefs.Count );
+         memberRefList.AddRange( memberRefs.Select( mRef =>
+         {
+            var mRefInfo = new MemberReferenceStructuralInfo( mRef );
+            mRefInfo.Signature = new SignatureStructuralInfo( this, mRef.Signature );
+            var parent = mRef.DeclaringType;
+            MemberReferenceParent parentInfo;
+            switch ( parent.Table )
+            {
+               case Tables.MethodDef:
+                  parentInfo = new MemberReferenceParentMethodDef()
+                  {
+                     Method = mDefList[parent.Index]
+                  };
+                  break;
+               case Tables.ModuleRef:
+                  parentInfo = new MemberReferenceParentModuleRef()
+                  {
+                     ModuleRef = modRefList[parent.Index]
+                  };
+                  break;
+               case Tables.TypeDef:
+               case Tables.TypeRef:
+               case Tables.TypeSpec:
+                  parentInfo = new MemberReferenceParentType()
+                  {
+                     Type = this.FromTypeDefOrRefOrSpec( parent )
+                  };
+                  break;
+               default:
+                  parentInfo = null;
+                  break;
+            }
+
+            if ( parentInfo != null )
+            {
+               mRefInfo.Parent = parentInfo;
+            }
+            return mRefInfo;
+         } ) );
          // MethodImpl
+         foreach ( var impl in md.MethodImplementations.TableContents )
+         {
+            tDefList[impl.Class.Index].OverriddenMethods.Add( new OverriddenMethodInfo( FromMethodDefOrMemberRef( mDefList, memberRefList, impl.MethodBody ), FromMethodDefOrMemberRef( mDefList, memberRefList, impl.MethodDeclaration ) ) );
+         }
          // StandaloneSig
+         var standaloneSigs = md.StandaloneSignatures.TableContents;
+         var standaloneSigList = new List<StandaloneSignatureStructure>( standaloneSigs.Count );
+         standaloneSigList.AddRange( standaloneSigs.Select( sig => new StandaloneSignatureStructure()
+         {
+            Signature = new SignatureStructuralInfo( this, sig.Signature )
+         } ) );
          // MethodSpec
+         var methodSpecs = md.MethodSpecifications.TableContents;
+         var methodSpecList = new List<MethodSpecificationStructure>( methodSpecs.Count );
+         methodSpecList.AddRange( methodSpecs.Select( mSpec => new MethodSpecificationStructure()
+         {
+            Signature = new SignatureStructuralInfo( this, mSpec.Signature ),
+            Method = FromMethodDefOrMemberRef( mDefList, memberRefList, mSpec.Method )
+         } ) );
          // Custom Attributes
+         foreach ( var ca in md.CustomAttributeDefinitions.TableContents )
+         {
+            var parent = ca.Parent;
+            StructuralElementWithCustomAttributes parentInfo;
+            switch ( parent.Table )
+            {
+               case Tables.TypeDef:
+                  parentInfo = this._typeDefDescriptions[parent.Index];
+                  break;
+               case Tables.ExportedType:
+                  parentInfo = this._exportedTypes[parent.Index];
+                  break;
+               case Tables.MethodDef:
+                  parentInfo = mDefList[parent.Index];
+                  break;
+               case Tables.Field:
+                  parentInfo = fDefList[parent.Index];
+                  break;
+               case Tables.Parameter:
+                  parentInfo = paramDefList[parent.Index];
+                  break;
+               case Tables.Module:
+                  parentInfo = this;
+                  break;
+               case Tables.Property:
+                  parentInfo = propDefList[parent.Index];
+                  break;
+               case Tables.Event:
+                  parentInfo = evtDefList[parent.Index];
+                  break;
+               case Tables.Assembly:
+                  parentInfo = assembly;
+                  break;
+               case Tables.GenericParameter:
+                  parentInfo = gArgsList[parent.Index];
+                  break;
+               case Tables.TypeRef:
+                  parentInfo = typeRefList[parent.Index];
+                  break;
+               case Tables.InterfaceImpl:
+                  parentInfo = interfaceList[parent.Index];
+                  break;
+               case Tables.MemberRef:
+                  parentInfo = memberRefList[parent.Index];
+                  break;
+               case Tables.DeclSecurity:
+                  parentInfo = securityList[parent.Index];
+                  break;
+               case Tables.StandaloneSignature:
+                  parentInfo = standaloneSigList[parent.Index];
+                  break;
+               case Tables.ModuleRef:
+                  parentInfo = modRefList[parent.Index];
+                  break;
+               case Tables.TypeSpec:
+                  parentInfo = typeSpecList[parent.Index];
+                  break;
+               case Tables.AssemblyRef:
+                  parentInfo = aRefList[parent.Index];
+                  break;
+               case Tables.File:
+                  parentInfo = fileRefList[parent.Index];
+                  break;
+               case Tables.ManifestResource:
+                  parentInfo = resourceList[parent.Index];
+                  break;
+               case Tables.GenericParameterConstraint:
+                  parentInfo = gArgConstraintList[parent.Index];
+                  break;
+               case Tables.MethodSpec:
+                  parentInfo = methodSpecList[parent.Index];
+                  break;
+               default:
+                  parentInfo = null;
+                  break;
+            }
+            parentInfo.CustomAttributes.Add( new CustomAttributeStructure()
+            {
+               Constructor = FromMethodDefOrMemberRef( mDefList, memberRefList, ca.Type ),
+               Signature = ca.Signature // TODO clone
+            } );
+         }
          // IL
       }
 
@@ -558,7 +847,31 @@ namespace CILAssemblyManipulator.Tests.Logical
 
       public Boolean Equals( ModuleStructureInfo other )
       {
-         throw new NotImplementedException();
+         var retVal = ReferenceEquals( this, other )
+            || ( other != null
+            && new HashSet<TypeDefDescription>( this.TypeDefinitions ).SetEquals( other.TypeDefinitions )
+            && new HashSet<ExportedTypeStructureInfo>( this.ExportedTypes ).SetEquals( other.ExportedTypes )
+            && this.CheckCAArgs( other )
+            );
+         if ( !retVal )
+         {
+
+         }
+
+         return retVal;
+      }
+
+      private static MethodDefOrRefStructure FromMethodDefOrMemberRef( List<MethodStructureInfo> mDefList, List<MemberReferenceStructuralInfo> mRefList, TableIndex index )
+      {
+         switch ( index.Table )
+         {
+            case Tables.MethodDef:
+               return mDefList[index.Index];
+            case Tables.MemberRef:
+               return mRefList[index.Index];
+            default:
+               return null;
+         }
       }
    }
 
@@ -580,12 +893,80 @@ namespace CILAssemblyManipulator.Tests.Logical
 
       public abstract override Boolean Equals( Object obj );
       public abstract override Int32 GetHashCode();
+
+      // For TypeDefs: create type string & compare (need ModuleStructureInfo)
+      // For TypeRefs: create type string & compare (don't need anything)
+      // For TypeSpecs: equal signatures.
+      public abstract Boolean EqualsTextual( AbstractTypeDescription other );
    }
 
-   public sealed class LayoutInfo
+   public sealed class LayoutInfo : IEquatable<LayoutInfo>
    {
       public Int32 ClassSize { get; set; }
       public Int32 PackingSize { get; set; }
+
+      public override Boolean Equals( Object obj )
+      {
+         return this.Equals( obj as LayoutInfo );
+      }
+
+      public override Int32 GetHashCode()
+      {
+         return ( 17 * 23 + this.ClassSize ) * 23 + this.PackingSize;
+      }
+
+      public Boolean Equals( LayoutInfo other )
+      {
+         return ReferenceEquals( this, other )
+            || ( other != null
+            && this.ClassSize == other.ClassSize
+            && this.PackingSize == other.PackingSize
+            );
+      }
+   }
+
+   public struct OverriddenMethodInfo : IEquatable<OverriddenMethodInfo>
+   {
+      private readonly MethodDefOrRefStructure _methodBody;
+      private readonly MethodDefOrRefStructure _methodDeclaration;
+
+      public OverriddenMethodInfo( MethodDefOrRefStructure methodBody, MethodDefOrRefStructure methodDeclaration )
+      {
+         this._methodBody = methodBody;
+         this._methodDeclaration = methodDeclaration;
+      }
+
+      public MethodDefOrRefStructure MethodBody
+      {
+         get
+         {
+            return this._methodBody;
+         }
+      }
+
+      public MethodDefOrRefStructure MethodDeclaration
+      {
+         get
+         {
+            return this._methodDeclaration;
+         }
+      }
+
+      public override Boolean Equals( Object obj )
+      {
+         return obj is OverriddenMethodInfo && this.Equals( (OverriddenMethodInfo) obj );
+      }
+
+      public override Int32 GetHashCode()
+      {
+         return this.MethodBody.GetHashCodeSafe();
+      }
+
+      public Boolean Equals( OverriddenMethodInfo other )
+      {
+         return Equals( this.MethodBody, other.MethodBody )
+            && Equals( this.MethodDeclaration, other.MethodDeclaration );
+      }
    }
 
    public sealed class TypeDefDescription : AbstractTypeDescription, IEquatable<TypeDefDescription>
@@ -598,6 +979,7 @@ namespace CILAssemblyManipulator.Tests.Logical
 
       private readonly List<InterfaceImplStructuralInfo> _interfaces;
       private readonly List<GenericParameterStructuralInfo> _genericParameters;
+      private readonly List<OverriddenMethodInfo> _overriddenMethods;
 
       internal TypeDefDescription()
       {
@@ -608,6 +990,7 @@ namespace CILAssemblyManipulator.Tests.Logical
          this._events = new List<EventStructuralInfo>();
          this._interfaces = new List<InterfaceImplStructuralInfo>();
          this._genericParameters = new List<GenericParameterStructuralInfo>();
+         this._overriddenMethods = new List<OverriddenMethodInfo>();
       }
 
       internal TypeDefDescription( TypeDefinition tDef )
@@ -689,6 +1072,14 @@ namespace CILAssemblyManipulator.Tests.Logical
          }
       }
 
+      public List<OverriddenMethodInfo> OverriddenMethods
+      {
+         get
+         {
+            return this._overriddenMethods;
+         }
+      }
+
       public override Boolean Equals( Object obj )
       {
          return this.Equals( obj as TypeDefDescription );
@@ -701,19 +1092,37 @@ namespace CILAssemblyManipulator.Tests.Logical
 
       public Boolean Equals( TypeDefDescription other )
       {
-         return ReferenceEquals( this, other )
+         var retVal = ReferenceEquals( this, other )
             || ( other != null
             && String.Equals( this.Name, other.Name )
             && String.Equals( this.Namespace, other.Namespace )
+            && Equals( this.BaseType, other.BaseType )
             && this.Attributes == other.Attributes
             && ListEqualityComparer<List<FieldStructureInfo>, FieldStructureInfo>.DefaultListEqualityComparer.Equals( this._fields, other._fields )
             && ListEqualityComparer<List<MethodStructureInfo>, MethodStructureInfo>.DefaultListEqualityComparer.Equals( this._methods, other._methods )
             && ListEqualityComparer<List<GenericParameterStructuralInfo>, GenericParameterStructuralInfo>.DefaultListEqualityComparer.Equals( this._genericParameters, other._genericParameters )
-            && new HashSet<InterfaceImplStructuralInfo>( this._interfaces ).SetEquals( new HashSet<InterfaceImplStructuralInfo>( other._interfaces ) )
-            && new HashSet<TypeDefDescription>( this._nestedTypes ).SetEquals( new HashSet<TypeDefDescription>( other._nestedTypes ) )
+            && new HashSet<PropertyStructuralInfo>( this.Properties ).SetEquals( other.Properties )
+            && new HashSet<EventStructuralInfo>( this.Events ).SetEquals( other.Events )
+            && new HashSet<InterfaceImplStructuralInfo>( this._interfaces ).SetEquals( other._interfaces )
             && this.SecurityInfo.EqualsTypedEquatable( other.SecurityInfo )
+            && ListEqualityComparer<List<OverriddenMethodInfo>, OverriddenMethodInfo>.DefaultListEqualityComparer.Equals( this.OverriddenMethods, other.OverriddenMethods )
+            && this.Layout.EqualsTypedEquatable( other.Layout )
+            && new HashSet<TypeDefDescription>( this._nestedTypes ).SetEquals( other._nestedTypes )
             && this.CheckCAArgs( other )
             );
+         if ( !retVal )
+         {
+            var kek = Equals( this.BaseType, other.BaseType );
+            var lol = this.CheckCAArgs( other );
+            var fug = ListEqualityComparer<List<FieldStructureInfo>, FieldStructureInfo>.DefaultListEqualityComparer.Equals( this._fields, other._fields );
+            var fyg = ListEqualityComparer<List<MethodStructureInfo>, MethodStructureInfo>.DefaultListEqualityComparer.Equals( this._methods, other._methods );
+         }
+         return retVal;
+      }
+
+      public override String ToString()
+      {
+         return Miscellaneous.CombineTypeAndNamespace( this.Name, this.Namespace );
       }
    }
 
@@ -730,6 +1139,10 @@ namespace CILAssemblyManipulator.Tests.Logical
          this.Name = tRef.Name;
          this.Namespace = tRef.Namespace;
       }
+
+      public String Name { get; set; }
+      public String Namespace { get; set; }
+      public TypeRefResolutionScope ResolutionScope { get; set; }
 
       public override TypeDescriptionKind TypeDescriptionKind
       {
@@ -760,11 +1173,10 @@ namespace CILAssemblyManipulator.Tests.Logical
             );
       }
 
-      public String Name { get; set; }
-      public String Namespace { get; set; }
-      public TypeRefResolutionScope ResolutionScope { get; set; }
-
-
+      public override String ToString()
+      {
+         return Miscellaneous.CombineTypeAndNamespace( this.Name, this.Namespace );
+      }
    }
 
    public enum TypeRefResolutionScopeKind
@@ -797,6 +1209,32 @@ namespace CILAssemblyManipulator.Tests.Logical
       }
 
       public TypeDefDescription TypeDef { get; set; }
+
+      public override TypeRefResolutionScopeKind ResolutionScopeKind
+      {
+         get
+         {
+            return TypeRefResolutionScopeKind.TypeDef;
+         }
+      }
+
+      public override Boolean Equals( Object obj )
+      {
+         return this.Equals( obj as TypeRefResolutionScopeTypeDef );
+      }
+
+      public override Int32 GetHashCode()
+      {
+         return this.TypeDef.GetHashCodeSafe();
+      }
+
+      public Boolean Equals( TypeRefResolutionScopeTypeDef other )
+      {
+         return ReferenceEquals( this, other )
+            || ( other != null
+            && this.TypeDef.EqualsTypedEquatable( other.TypeDef )
+            );
+      }
    }
 
    public sealed class TypeRefResolutionScopeNested : TypeRefResolutionScope, IEquatable<TypeRefResolutionScopeNested>
@@ -1031,6 +1469,28 @@ namespace CILAssemblyManipulator.Tests.Logical
       public String Name { get; set; }
       public String Namespace { get; set; }
       public ExportedTypeResolutionScope ResolutionScope { get; set; }
+
+      public override Boolean Equals( Object obj )
+      {
+         return this.Equals( obj as ExportedTypeStructureInfo );
+      }
+
+      public override Int32 GetHashCode()
+      {
+         return ( 17 * 23 + this.Name.GetHashCodeSafe() ) * 23 + this.Namespace.GetHashCodeSafe();
+      }
+
+      public Boolean Equals( ExportedTypeStructureInfo other )
+      {
+         return ReferenceEquals( this, other )
+            || ( other != null
+            && String.Equals( this.Name, other.Name )
+            && String.Equals( this.Namespace, other.Namespace )
+            && this.Attributes == other.Attributes
+            && this.TypeDefID == other.TypeDefID
+            && Equals( this.ResolutionScope, other.ResolutionScope )
+            );
+      }
    }
 
    public enum ExportedTypeResolutionScopeKind
@@ -1246,7 +1706,7 @@ namespace CILAssemblyManipulator.Tests.Logical
 
       public String Name { get; set; }
       public FieldAttributes Attributes { get; set; }
-      public SignatureStructuralInfo Signatures { get; set; }
+      public SignatureStructuralInfo Signature { get; set; }
       public Object ConstantValue { get; set; }
       public MarshalingInfo MarshalingInfo { get; set; }
       public Int32 FieldOffset { get; set; }
@@ -1260,16 +1720,16 @@ namespace CILAssemblyManipulator.Tests.Logical
 
       public override Int32 GetHashCode()
       {
-         return ( 17 * 23 + this.Name.GetHashCodeSafe() ) * 23 + this.Signatures.GetHashCodeSafe();
+         return ( 17 * 23 + this.Name.GetHashCodeSafe() ) * 23 + this.Signature.GetHashCodeSafe();
       }
 
       public Boolean Equals( FieldStructureInfo other )
       {
-         return ReferenceEquals( this, other )
+         var retVal = ReferenceEquals( this, other )
             || ( other != null
             && this.Attributes == other.Attributes
             && String.Equals( this.Name, other.Name )
-            && this.Signatures.EqualsTypedEquatable( other.Signatures )
+            && this.Signature.EqualsTypedEquatable( other.Signature )
             && Equals( this.ConstantValue, other.ConstantValue )
             && Comparers.MarshalingInfoEqualityComparer.Equals( this.MarshalingInfo, other.MarshalingInfo )
             && this.FieldOffset == other.FieldOffset
@@ -1277,11 +1737,28 @@ namespace CILAssemblyManipulator.Tests.Logical
             && this.PInvokeInfo.EqualsTypedEquatable( other.PInvokeInfo )
             && this.CheckCAArgs( other )
             );
+         if ( !retVal )
+         {
+
+         }
+         return retVal;
       }
 
+      public override String ToString()
+      {
+         return this.Name;
+      }
    }
 
-   public sealed class MethodStructureInfo : StructuralElementWithCustomAttributes, IEquatable<MethodStructureInfo>
+   public abstract class MethodDefOrRefStructure : StructuralElementWithCustomAttributes
+   {
+      internal MethodDefOrRefStructure()
+      {
+
+      }
+   }
+
+   public sealed class MethodStructureInfo : MethodDefOrRefStructure, IEquatable<MethodStructureInfo>
    {
       private readonly List<ParameterStructureInfo> _parameters;
       private readonly List<GenericParameterStructuralInfo> _genericParameters;
@@ -1335,7 +1812,7 @@ namespace CILAssemblyManipulator.Tests.Logical
 
       public Boolean Equals( MethodStructureInfo other )
       {
-         return ReferenceEquals( this, other )
+         var retVal = ReferenceEquals( this, other )
             || ( other != null
             && String.Equals( this.Name, other.Name )
             && this.Signature.EqualsTypedEquatable( other.Signature )
@@ -1347,6 +1824,17 @@ namespace CILAssemblyManipulator.Tests.Logical
             && this.SecurityInfo.EqualsTypedEquatable( other.SecurityInfo )
             && this.CheckCAArgs( other )
             );
+
+         if ( !retVal )
+         {
+
+         }
+         return retVal;
+      }
+
+      public override String ToString()
+      {
+         return this.Name;
       }
    }
 
@@ -1441,7 +1929,7 @@ namespace CILAssemblyManipulator.Tests.Logical
 
       public override Boolean Equals( Object obj )
       {
-         return base.Equals( obj );
+         return this.Equals( obj as PropertyStructuralInfo );
       }
 
       public override Int32 GetHashCode()
@@ -1459,6 +1947,11 @@ namespace CILAssemblyManipulator.Tests.Logical
             && Equals( this.ConstantValue, other.ConstantValue )
             && this.CheckCAArgs( other )
             );
+      }
+
+      public override String ToString()
+      {
+         return this.Name;
       }
    }
 
@@ -1498,6 +1991,11 @@ namespace CILAssemblyManipulator.Tests.Logical
             && this.Attributes == other.Attributes
             && this.CheckCAArgs( other )
             );
+      }
+
+      public override String ToString()
+      {
+         return this.Name;
       }
    }
 
@@ -1571,7 +2069,7 @@ namespace CILAssemblyManipulator.Tests.Logical
             && String.Equals( this.Name, other.Name )
             && this.GenericParameterIndex == other.GenericParameterIndex
             && this.Attributes == other.Attributes
-            && ListEqualityComparer<List<GenericParameterConstraintStructuralInfo>, GenericParameterConstraintStructuralInfo>.DefaultListEqualityComparer.Equals( this.Constraints, other.Constraints )
+            && new HashSet<GenericParameterConstraintStructuralInfo>( this.Constraints ).SetEquals( other.Constraints )
             && this.CheckCAArgs( other )
             );
       }
@@ -1665,7 +2163,7 @@ namespace CILAssemblyManipulator.Tests.Logical
 
       public override Int32 GetHashCode()
       {
-         return base.GetHashCode();
+         return ListEqualityComparer<List<AbstractSecurityInformation>, AbstractSecurityInformation>.DefaultListEqualityComparer.GetHashCode( this.PermissionSets );
       }
 
       public Boolean Equals( SecurityStructuralInfo other )
@@ -1675,6 +2173,375 @@ namespace CILAssemblyManipulator.Tests.Logical
             || ( other != null
             && this.SecurityAction == other.SecurityAction
             && ListEqualityComparer<List<AbstractSecurityInformation>, AbstractSecurityInformation>.NewListEqualityComparer( Comparers.AbstractSecurityInformationEqualityComparer ).Equals( this.PermissionSets, other.PermissionSets )
+            && this.CheckCAArgs( other )
+            );
+      }
+   }
+
+   public sealed class ManifestResourceStructuralInfo : StructuralElementWithCustomAttributes, IEquatable<ManifestResourceStructuralInfo>
+   {
+      internal ManifestResourceStructuralInfo()
+      {
+
+      }
+
+      internal ManifestResourceStructuralInfo( ManifestResource mRes )
+      {
+         this.Name = mRes.Name;
+         this.Attributes = mRes.Attributes;
+         this.Offset = mRes.Offset;
+      }
+
+      public ManifestResourceData ManifestData { get; set; }
+      public String Name { get; set; }
+      public ManifestResourceAttributes Attributes { get; set; }
+      public Int32 Offset { get; set; }
+
+      public override Boolean Equals( Object obj )
+      {
+         return this.Equals( obj as ManifestResourceStructuralInfo );
+      }
+
+      public override Int32 GetHashCode()
+      {
+         return this.Name.GetHashCodeSafe();
+      }
+
+      public Boolean Equals( ManifestResourceStructuralInfo other )
+      {
+         return ReferenceEquals( this, other )
+            || ( other != null
+            && String.Equals( this.Name, other.Name )
+            && Equals( this.ManifestData, other.ManifestData )
+            && this.Attributes == other.Attributes
+            && this.Offset == other.Offset
+            && this.CheckCAArgs( other )
+            );
+      }
+   }
+
+   public enum ManifestResourceDataKind
+   {
+      Embedded,
+      File,
+      AssemblyRef
+   }
+
+   public abstract class ManifestResourceData
+   {
+      internal ManifestResourceData()
+      {
+
+      }
+
+      public abstract ManifestResourceDataKind ManifestResourceDataKind { get; }
+      public abstract override Boolean Equals( Object obj );
+      public abstract override Int32 GetHashCode();
+   }
+
+   public sealed class ManifestResourceDataEmbedded : ManifestResourceData, IEquatable<ManifestResourceDataEmbedded>
+   {
+
+      public Byte[] Data { get; set; }
+
+      public override ManifestResourceDataKind ManifestResourceDataKind
+      {
+         get
+         {
+            return ManifestResourceDataKind.Embedded;
+         }
+      }
+
+      public override Boolean Equals( Object obj )
+      {
+         return this.Equals( obj as ManifestResourceDataEmbedded );
+      }
+
+      public override Int32 GetHashCode()
+      {
+         return ArrayEqualityComparer<Byte>.DefaultArrayEqualityComparer.GetHashCode( this.Data );
+      }
+
+      public Boolean Equals( ManifestResourceDataEmbedded other )
+      {
+         return ReferenceEquals( this, other )
+            || ( other != null
+            && ArrayEqualityComparer<Byte>.DefaultArrayEqualityComparer.Equals( this.Data, other.Data )
+            );
+      }
+   }
+
+   public sealed class ManifestResourceDataFile : ManifestResourceData, IEquatable<ManifestResourceDataFile>
+   {
+      public FileReferenceStructureInfo FileReference { get; set; }
+
+      public override ManifestResourceDataKind ManifestResourceDataKind
+      {
+         get
+         {
+            return ManifestResourceDataKind.Embedded;
+         }
+      }
+
+      public override Boolean Equals( Object obj )
+      {
+         return this.Equals( obj as ManifestResourceDataFile );
+      }
+
+      public override Int32 GetHashCode()
+      {
+         return this.FileReference.GetHashCodeSafe();
+      }
+
+      public Boolean Equals( ManifestResourceDataFile other )
+      {
+         return ReferenceEquals( this, other )
+            || ( other != null
+            && this.FileReference.EqualsTypedEquatable( other.FileReference )
+            );
+      }
+   }
+
+   public sealed class ManifestResourceDataAssemblyRef : ManifestResourceData, IEquatable<ManifestResourceDataAssemblyRef>
+   {
+      public AssemblyRefStructureInfo AssemblyRef { get; set; }
+
+      public override ManifestResourceDataKind ManifestResourceDataKind
+      {
+         get
+         {
+            return ManifestResourceDataKind.Embedded;
+         }
+      }
+
+      public override Boolean Equals( Object obj )
+      {
+         return this.Equals( obj as ManifestResourceDataAssemblyRef );
+      }
+
+      public override Int32 GetHashCode()
+      {
+         return this.AssemblyRef.GetHashCodeSafe();
+      }
+
+      public Boolean Equals( ManifestResourceDataAssemblyRef other )
+      {
+         return ReferenceEquals( this, other )
+            || ( other != null
+            && this.AssemblyRef.EqualsTypedEquatable( other.AssemblyRef )
+            );
+      }
+   }
+
+   public sealed class MemberReferenceStructuralInfo : MethodDefOrRefStructure, IEquatable<MemberReferenceStructuralInfo>
+   {
+      internal MemberReferenceStructuralInfo()
+      {
+
+      }
+
+      internal MemberReferenceStructuralInfo( MemberReference mRef )
+         : this()
+      {
+         this.Name = mRef.Name;
+      }
+
+      public String Name { get; set; }
+      public SignatureStructuralInfo Signature { get; set; }
+      public MemberReferenceParent Parent { get; set; }
+
+      public override Boolean Equals( Object obj )
+      {
+         return this.Equals( obj as MemberReferenceStructuralInfo );
+      }
+
+      public override Int32 GetHashCode()
+      {
+         return ( 17 * 23 + this.Name.GetHashCodeSafe() ) * 23 + this.Parent.GetHashCodeSafe();
+      }
+
+      public Boolean Equals( MemberReferenceStructuralInfo other )
+      {
+         return ReferenceEquals( this, other )
+            || ( other != null
+            && String.Equals( this.Name, other.Name )
+            && Equals( this.Parent, other.Parent )
+            && this.Signature.EqualsTypedEquatable( other.Signature )
+            && this.CheckCAArgs( other )
+            );
+      }
+   }
+
+   public enum MemberReferenceParentKind
+   {
+      MethodDef,
+      ModuleRef,
+      Type
+   }
+
+   public abstract class MemberReferenceParent
+   {
+      internal MemberReferenceParent()
+      {
+
+      }
+
+      public abstract MemberReferenceParentKind MemberReferenceParentKind { get; }
+      public abstract override Boolean Equals( Object obj );
+      public abstract override Int32 GetHashCode();
+   }
+
+   public sealed class MemberReferenceParentMethodDef : MemberReferenceParent, IEquatable<MemberReferenceParentMethodDef>
+   {
+
+      public MethodStructureInfo Method { get; set; }
+
+      public override MemberReferenceParentKind MemberReferenceParentKind
+      {
+         get
+         {
+            return MemberReferenceParentKind.MethodDef;
+         }
+      }
+
+      public override Boolean Equals( Object obj )
+      {
+         return this.Equals( obj as MemberReferenceParentMethodDef );
+      }
+
+      public override Int32 GetHashCode()
+      {
+         return this.Method.GetHashCodeSafe();
+      }
+
+      public Boolean Equals( MemberReferenceParentMethodDef other )
+      {
+         return ReferenceEquals( this, other )
+            || ( other != null
+            && this.Method.EqualsTypedEquatable( other.Method )
+            );
+      }
+   }
+
+   public sealed class MemberReferenceParentModuleRef : MemberReferenceParent, IEquatable<MemberReferenceParentModuleRef>
+   {
+
+      public ModuleRefStructureInfo ModuleRef { get; set; }
+
+      public override MemberReferenceParentKind MemberReferenceParentKind
+      {
+         get
+         {
+            return MemberReferenceParentKind.ModuleRef;
+         }
+      }
+
+      public override Boolean Equals( Object obj )
+      {
+         return this.Equals( obj as MemberReferenceParentModuleRef );
+      }
+
+      public override Int32 GetHashCode()
+      {
+         return this.ModuleRef.GetHashCodeSafe();
+      }
+
+      public Boolean Equals( MemberReferenceParentModuleRef other )
+      {
+         return ReferenceEquals( this, other )
+            || ( other != null
+            && this.ModuleRef.EqualsTypedEquatable( other.ModuleRef )
+            );
+      }
+   }
+
+   public sealed class MemberReferenceParentType : MemberReferenceParent, IEquatable<MemberReferenceParentType>
+   {
+
+      public AbstractTypeDescription Type { get; set; }
+
+      public override MemberReferenceParentKind MemberReferenceParentKind
+      {
+         get
+         {
+            return MemberReferenceParentKind.Type;
+         }
+      }
+
+      public override Boolean Equals( Object obj )
+      {
+         return this.Equals( obj as MemberReferenceParentType );
+      }
+
+      public override Int32 GetHashCode()
+      {
+         return this.Type.GetHashCodeSafe();
+      }
+
+      public Boolean Equals( MemberReferenceParentType other )
+      {
+         return ReferenceEquals( this, other )
+            || ( other != null
+            && Equals( this.Type, other.Type )
+            );
+      }
+   }
+
+   public sealed class StandaloneSignatureStructure : StructuralElementWithCustomAttributes, IEquatable<StandaloneSignatureStructure>
+   {
+      internal StandaloneSignatureStructure()
+      {
+
+      }
+
+      public SignatureStructuralInfo Signature { get; set; }
+
+      public override Boolean Equals( Object obj )
+      {
+         return this.Equals( obj as StandaloneSignatureStructure );
+      }
+
+      public override Int32 GetHashCode()
+      {
+         return this.Signature.GetHashCodeSafe();
+      }
+
+      public Boolean Equals( StandaloneSignatureStructure other )
+      {
+         return ReferenceEquals( this, other )
+            || ( other != null
+            && this.Signature.EqualsTypedEquatable( other.Signature )
+            && this.CheckCAArgs( other )
+            );
+      }
+   }
+
+   public sealed class MethodSpecificationStructure : StructuralElementWithCustomAttributes, IEquatable<MethodSpecificationStructure>
+   {
+      internal MethodSpecificationStructure()
+      {
+
+      }
+
+      public MethodDefOrRefStructure Method { get; set; }
+      public SignatureStructuralInfo Signature { get; set; }
+
+      public override Boolean Equals( Object obj )
+      {
+         return this.Equals( obj as MethodSpecificationStructure );
+      }
+
+      public override Int32 GetHashCode()
+      {
+         return this.Method.GetHashCodeSafe();
+      }
+
+      public Boolean Equals( MethodSpecificationStructure other )
+      {
+         return ReferenceEquals( this, other )
+            || ( other != null
+            && Equals( this.Method, other.Method )
+            && this.Signature.EqualsTypedEquatable( other.Signature )
             && this.CheckCAArgs( other )
             );
       }
@@ -1817,7 +2684,7 @@ namespace CILAssemblyManipulator.Tests.Logical
          var otherArgs = thisSig.GenericArguments;
          var retVal = thisSig.IsClass == otherSig.IsClass
             && thisArgs.Count == otherArgs.Count
-            && this.Module.FromTypeDefOrRefOrSpec( thisSig.Type ).Equals( otherModule.FromTypeDefOrRefOrSpec( otherSig.Type ) );
+            && this.Module.FromTypeDefOrRefOrSpec( thisSig.Type ).EqualsTextual( otherModule.FromTypeDefOrRefOrSpec( otherSig.Type ) );
          if ( retVal && thisArgs.Count > 0 )
          {
             var i = 0;
@@ -1857,7 +2724,7 @@ namespace CILAssemblyManipulator.Tests.Logical
          if ( retVal && thisMods.Count > 0 )
          {
             var i = 0;
-            while ( i < thisMods.Count && thisMods[i].IsOptional == otherMods[i].IsOptional && this.Module.FromTypeDefOrRefOrSpec( thisMods[i].CustomModifierType ).Equals( otherModule.FromTypeDefOrRefOrSpec( otherMods[i].CustomModifierType ) ) )
+            while ( i < thisMods.Count && thisMods[i].IsOptional == otherMods[i].IsOptional && this.Module.FromTypeDefOrRefOrSpec( thisMods[i].CustomModifierType ).EqualsTextual( otherModule.FromTypeDefOrRefOrSpec( otherMods[i].CustomModifierType ) ) )
             {
                ++i;
             }
