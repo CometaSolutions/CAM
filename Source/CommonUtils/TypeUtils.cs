@@ -622,15 +622,32 @@ public static partial class E_CommonUtils
    /// <item><description>are both non-<c>null</c> and <see cref="Object.Equals(Object)"/> returns <c>true</c>.</description></item>
    /// </list>
    /// </summary>
-   /// <typeparam name="U">The type of the objects.</typeparam>
+   /// <typeparam name="T">The type of the objects.</typeparam>
    /// <param name="first">The first object.</param>
    /// <param name="second">The second object.</param>
    /// <returns><c>true</c> if either 1. <paramref name="first"/> and <paramref name="second"/> are both <c>null</c>, or 2. both are non-<c>null</c> and <see cref="Object.Equals(Object)"/> returns <c>true</c>; <c>false</c> otherwise.</returns>
    /// <remarks>
    /// This is a variant of <see cref="Object.Equals(Object, Object)"/> method which forces both arguments to be casted to same type.
    /// </remarks>
-   public static Boolean EqualsTyped<U>( this U first, U second )
-      where U : class
+   public static Boolean EqualsTyped<T>( this T first, T second )
+      where T : class
+   {
+      return ( first == null && second == null ) || ( first != null && second != null && first.Equals( second ) );
+   }
+
+   /// <summary>
+   /// Returns <c>true</c> iff <paramref name="first"/> and <paramref name="second"/>
+   /// <list type="number">
+   /// <item><description>are both <c>null</c>, or</description></item>
+   /// <item><description>are both non-<c>null</c> and <see cref="IEquatable{T}.Equals(T)"/> returns <c>true</c>.</description></item>
+   /// </list>
+   /// </summary>
+   /// <typeparam name="T">The type of the objects.</typeparam>
+   /// <param name="first">The first object.</param>
+   /// <param name="second">The second object.</param>
+   /// <returns><c>true</c> if either 1. <paramref name="first"/> and <paramref name="second"/> are both <c>null</c>, or 2. both are non-<c>null</c> and <see cref="Object.Equals(Object)"/> returns <c>true</c>; <c>false</c> otherwise.</returns>
+   public static Boolean EqualsTypedEquatable<T>( this T first, T second )
+      where T : class, IEquatable<T>
    {
       return ( first == null && second == null ) || ( first != null && second != null && first.Equals( second ) );
    }

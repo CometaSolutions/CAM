@@ -298,14 +298,12 @@ namespace CommonUtils
             if ( result && x.Length > 0 )
             {
                var max = x.Length;
-               for ( var i = 0; i < max; ++i )
+               var i = 0;
+               while ( i < max && this._itemComparer.Equals( x[i], y[i] ) )
                {
-                  if ( !this._itemComparer.Equals( x[i], y[i] ) )
-                  {
-                     result = false;
-                     break;
-                  }
+                  ++i;
                }
+               result = i == max;
             }
          }
          return result;
@@ -525,14 +523,12 @@ namespace CommonUtils
             if ( result && x.Count > 0 )
             {
                var max = x.Count;
-               for ( var i = 0; i < max; ++i )
+               var i = 0;
+               while ( i < max && itemComparer.Equals( x[i], y[i] ) )
                {
-                  if ( !itemComparer.Equals( x[i], y[i] ) )
-                  {
-                     result = false;
-                     break;
-                  }
+                  ++i;
                }
+               result = i == max;
             }
          }
          return result;

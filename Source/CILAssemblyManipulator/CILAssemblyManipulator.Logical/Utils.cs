@@ -48,8 +48,6 @@ namespace CILAssemblyManipulator.Logical
       //      private static readonly Char[] CHARS_ENDING_SIMPLE_TYPENAME = { '&', '*', '[' };
       //      private const String TYPE_ASSEMBLY_SEPARATOR = ", ";
 
-      private const String NAMESPACE_SEPARATOR = ".";
-      private const Char NESTED_TYPE_SEPARATOR = '+';
 
       /// <summary>
       /// Returns <see cref="ElementKind"/> of the given native type.
@@ -495,13 +493,13 @@ namespace CILAssemblyManipulator.Logical
                      var ns = typee.Namespace;
                      if ( !String.IsNullOrEmpty( ns ) )
                      {
-                        builder.Append( ns.EscapeCILTypeString() ).Append( NAMESPACE_SEPARATOR );
+                        builder.Append( ns.EscapeCILTypeString() ).Append( Miscellaneous.NAMESPACE_SEPARATOR );
                      }
                   }
                   else
                   {
                      CreateTypeStringCore( dt, moduleBeingEmitted, builder, false );
-                     builder.Append( NESTED_TYPE_SEPARATOR );
+                     builder.Append( Miscellaneous.NESTED_TYPE_SEPARATOR );
                   }
                   builder.Append( typee.Name.EscapeCILTypeString() );
                   break;
@@ -594,13 +592,13 @@ namespace CILAssemblyManipulator.Logical
          }
       }
 
-      internal static void CheckCyclity( this IEnumerable<CILTypeBase> graph, Object thisType )
-      {
-         if ( graph.Any( i => Object.ReferenceEquals( thisType, i ) ) )
-         {
-            throw new ArgumentException( "Cyclity detected between " + thisType + " and " + graph.First( i => Object.ReferenceEquals( thisType, i ) ) + "." );
-         }
-      }
+      //internal static void CheckCyclity( this IEnumerable<CILTypeBase> graph, Object thisType )
+      //{
+      //   if ( graph.Any( i => Object.ReferenceEquals( thisType, i ) ) )
+      //   {
+      //      throw new ArgumentException( "Cyclity detected between " + thisType + " and " + graph.First( i => Object.ReferenceEquals( thisType, i ) ) + "." );
+      //   }
+      //}
 
       internal static void CheckWhenDefiningGArgs( ListProxy<CILTypeBase> currentGArgs, String[] names )
       {
@@ -701,16 +699,6 @@ namespace CILAssemblyManipulator.Logical
          {
             type = ( (CILMethodSignature) type ).CopyToOtherModule( thisModule );
          }
-      }
-
-      internal static String CombineTypeAndNamespace( String typeName, String typeNamespace )
-      {
-         return ( typeNamespace != null && typeNamespace.Length > 0 ? ( typeNamespace + NAMESPACE_SEPARATOR ) : "" ) + typeName;
-      }
-
-      internal static String CombineEnclsosingAndNestedType( String enclosing, String nested )
-      {
-         return enclosing + NESTED_TYPE_SEPARATOR + nested;
       }
 
       // Mofidied from http://stackoverflow.com/questions/1068541/how-to-convert-a-value-type-to-byte-in-c

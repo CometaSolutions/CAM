@@ -69,7 +69,7 @@ namespace CILMerge
          {
             try
             {
-               this.DoWithStopWatch( "Merging PDB files", () =>
+               this.DoWithStopWatch( "Merging PDB files to " + pdbHelper.PDBFileLocation, () =>
                {
                   using ( pdbHelper )
                   {

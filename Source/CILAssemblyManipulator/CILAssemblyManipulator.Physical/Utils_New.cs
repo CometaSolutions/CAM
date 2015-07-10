@@ -27,9 +27,9 @@ namespace CILAssemblyManipulator.Physical
       private const Char ESCAPE_CHAR = '\\';
       private static readonly Char[] ESCAPABLE_CHARS_WITHIN_TYPESTRING = { ESCAPE_CHAR, ',', '+', '&', '*', '[', ']' };
       private static readonly Char[] CHARS_ENDING_SIMPLE_TYPENAME = { '&', '*', '[' };
-      private const Char NESTED_TYPE_SEPARATOR = '+';
+      public const Char NESTED_TYPE_SEPARATOR = '+';
       private const String NESTED_TYPE_SEPARATOR_STRING = "+";
-      private const Char NAMESPACE_SEPARATOR = '.';
+      public const Char NAMESPACE_SEPARATOR = '.';
 
       private const String TYPE_ASSEMBLY_SEPARATOR = ", ";
 
@@ -293,6 +293,16 @@ namespace CILAssemblyManipulator.Physical
             }
          }
          return str;
+      }
+
+      public static String CombineTypeAndNamespace( String typeName, String typeNamespace )
+      {
+         return ( typeNamespace != null && typeNamespace.Length > 0 ? ( typeNamespace + NAMESPACE_SEPARATOR ) : "" ) + typeName;
+      }
+
+      public static String CombineEnclsosingAndNestedType( String enclosing, String nested )
+      {
+         return enclosing + NESTED_TYPE_SEPARATOR + nested;
       }
    }
 }

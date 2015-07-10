@@ -62,7 +62,7 @@ namespace CILAssemblyManipulator.Logical
 
       internal CILType ResolveTopLevelType( String ns, String tn, Boolean throwOnError )
       {
-         return this.ResolveTypeString( LogicalUtils.CombineTypeAndNamespace( tn, ns ), throwOnError );
+         return this.ResolveTypeString( Miscellaneous.CombineTypeAndNamespace( tn, ns ), throwOnError );
       }
 
       internal CILType ResolveTypeString( String typeString, Boolean throwOnError )
@@ -417,11 +417,11 @@ public static partial class E_CILLogical
          String typeString;
          if ( this._topLevelTypes.Contains( typeDefIndex ) )
          {
-            typeString = LogicalUtils.CombineTypeAndNamespace( type.Name, type.Namespace );
+            typeString = Miscellaneous.CombineTypeAndNamespace( type.Name, type.Namespace );
          }
          else
          {
-            typeString = LogicalUtils.CombineEnclsosingAndNestedType( this._creationResult.ResolveType( type.DeclaringType ), type.Name );
+            typeString = Miscellaneous.CombineEnclsosingAndNestedType( this._creationResult.ResolveType( type.DeclaringType ), type.Name );
          }
          var tDef = this._md.TypeDefinitions.TableContents[typeDefIndex];
          this._creationResult.RecordTypeDef( type, typeString, tDef.Attributes, tDef.BaseType );
@@ -866,7 +866,7 @@ public static partial class E_CILLogical
                   retVal = this._creationResult.ResolveTopLevelType( tRef.Namespace, tRef.Name, true );
                   break;
                case Tables.ModuleRef:
-                  retVal = this.ResolveModuleRef( resScope.Index ).GetTypeByName( LogicalUtils.CombineTypeAndNamespace( tRef.Name, tRef.Namespace ) );
+                  retVal = this.ResolveModuleRef( resScope.Index ).GetTypeByName( Miscellaneous.CombineTypeAndNamespace( tRef.Name, tRef.Namespace ) );
                   break;
                default:
                   throw new InvalidOperationException( "Unexpected TypeRef resolution scope: " + resScope + "." );
