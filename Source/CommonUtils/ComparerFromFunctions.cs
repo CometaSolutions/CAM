@@ -27,10 +27,10 @@ namespace CommonUtils
    {
       private sealed class EqualityComparerWithFunction<T> : IEqualityComparer<T>, System.Collections.IEqualityComparer
       {
-         private readonly Func<T, T, Boolean> _equalsFunc;
-         private readonly Func<T, Int32> _hashCodeFunc;
+         private readonly Equality<T> _equalsFunc;
+         private readonly HashCode<T> _hashCodeFunc;
 
-         internal EqualityComparerWithFunction( Func<T, T, Boolean> equalsFunc, Func<T, Int32> hashCodeFunc )
+         internal EqualityComparerWithFunction( Equality<T> equalsFunc, HashCode<T> hashCodeFunc )
          {
             ArgumentValidator.ValidateNotNull( "Equality function", equalsFunc );
             ArgumentValidator.ValidateNotNull( "Hash code function", hashCodeFunc );
@@ -98,7 +98,7 @@ namespace CommonUtils
       /// <returns>A new <see cref="IEqualityComparer{T}"/> which behaves as parameters specify.</returns>
       /// <exception cref="ArgumentNullException">If <paramref name="equals"/> or <paramref name="hashCode"/> is <c>null</c>.</exception>
       /// <remarks>The return value can be casted to <see cref="System.Collections.IEqualityComparer"/>.</remarks>
-      public static IEqualityComparer<T> NewEqualityComparer<T>( Func<T, T, Boolean> equals, Func<T, Int32> hashCode )
+      public static IEqualityComparer<T> NewEqualityComparer<T>( Equality<T> equals, HashCode<T> hashCode )
       {
          return new EqualityComparerWithFunction<T>( equals, hashCode );
       }

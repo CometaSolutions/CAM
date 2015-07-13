@@ -22,6 +22,23 @@ using System.Linq;
 namespace CommonUtils
 {
    /// <summary>
+   /// This is delegate used in equality comparisons when getting hash code is not required.
+   /// </summary>
+   /// <typeparam name="T">The type of items to compare.</typeparam>
+   /// <param name="x">The first item.</param>
+   /// <param name="y">The second item.</param>
+   /// <returns><c>true</c> if <paramref name="x"/> and <paramref name="y"/> are considered to be equal; <c>false</c> otherwise.</returns>
+   public delegate Boolean Equality<T>( T x, T y );
+
+   /// <summary>
+   /// This is delegate used in getting hash code, when equality is not required.
+   /// </summary>
+   /// <typeparam name="T">The type of items to get hash code of.</typeparam>
+   /// <param name="obj">The item.</param>
+   /// <returns>The hashcode for <paramref name="obj"/>.</returns>
+   public delegate Int32 HashCode<T>( T obj );
+
+   /// <summary>
    /// This class provides content-based equality comparing for sequences.
    /// </summary>
    /// <typeparam name="T">The type of the sequence.</typeparam>
@@ -275,17 +292,54 @@ namespace CommonUtils
          return new ArrayEqualityComparer<T>( itemComparer );
       }
 
-      private readonly IEqualityComparer<T> _itemComparer;
-
-
-      private ArrayEqualityComparer( IEqualityComparer<T> itemComparer )
+      /// <summary>
+      /// Checks equality of given collections without creating a new instance of this class.
+      /// </summary>
+      /// <param name="x">The first array. May be <c>null</c>.</param>
+      /// <param name="y">The second array. May be <c>null</c>.</param>
+      /// <param name="itemComparer">The optional equality comparer for items of the array. If <c>null</c>, the default will be used.</param>
+      /// <returns>Whether two collections equal.</returns>
+      public static Boolean Equals( T[] x, T[] y, IEqualityComparer<T> itemComparer = null )
       {
-         this._itemComparer = itemComparer ?? EqualityComparer<T>.Default;
+         return ArrayEquality_NoCheck( x, y, ( itemComparer ?? EqualityComparer<T>.Default ).Equals );
       }
 
-      #region IEqualityComparer<T[]> Members
+      /// <summary>
+      /// Calculates the hash code of given array without creating a new instance of this class.
+      /// </summary>
+      /// <param name="obj">The colleciton. May be <c>null</c>.</param>
+      /// <param name="itemComparer">The optional equality comparer for items of the array. If <c>null</c>, the default will be used.</param>
+      /// <returns>The hash code for given array.</returns>
+      public static Int32 GetHashCode( T[] obj, IEqualityComparer<T> itemComparer = null )
+      {
+         return ArrayHashCode_NoCheck( obj, ( itemComparer ?? EqualityComparer<T>.Default ).GetHashCode );
+      }
 
-      Boolean IEqualityComparer<T[]>.Equals( T[] x, T[] y )
+      /// <summary>
+      /// Helper method to check whether two arrays are considered to be equal given optional equality comparer for items.
+      /// </summary>
+      /// <param name="x">The first array. May be <c>null</c>.</param>
+      /// <param name="y">The second array. May be <c>null</c>.</param>
+      /// <param name="equality">The optional equality callback for items. If not supplied, a default callback (the <see cref="IEqualityComparer{T}.Equals(T, T)" /> method from <see cref="EqualityComparer{T}.Default"/> ) will be used.</param>
+      /// <returns><c>true</c> if both arrays are <c>null</c>, or both arrays are non null and have same amount and same items; <c>false</c> otherwise.</returns>
+      public static Boolean ArrayEquality( T[] x, T[] y, Equality<T> equality = null )
+      {
+         return ArrayEquality_NoCheck( x, y, equality ?? EqualityComparer<T>.Default.Equals );
+      }
+
+      /// <summary>
+      /// Helper method to calculate hash code for array.
+      /// </summary>
+      /// <param name="obj">The array. May be <c>null</c>.</param>
+      /// <param name="hashCode">The optional hashcode calculation callback. If not supplied, a default callback (the <see cref="IEqualityComparer{T}.GetHashCode(T)" /> method from <see cref="EqualityComparer{T}.Default"/> ) will be used.</param>
+      /// <returns>The hash code for <paramref name="obj" />.</returns>
+      public static Int32 ArrayHashCode( T[] obj, HashCode<T> hashCode = null )
+      {
+         ArgumentValidator.ValidateNotNull( "Hash code delegate", hashCode );
+         return ArrayHashCode_NoCheck( obj, hashCode ?? EqualityComparer<T>.Default.GetHashCode );
+      }
+
+      private static Boolean ArrayEquality_NoCheck( T[] x, T[] y, Equality<T> equality )
       {
          Boolean result;
          if ( x == null )
@@ -299,7 +353,7 @@ namespace CommonUtils
             {
                var max = x.Length;
                var i = 0;
-               while ( i < max && this._itemComparer.Equals( x[i], y[i] ) )
+               while ( i < max && equality( x[i], y[i] ) )
                {
                   ++i;
                }
@@ -309,7 +363,7 @@ namespace CommonUtils
          return result;
       }
 
-      Int32 IEqualityComparer<T[]>.GetHashCode( T[] obj )
+      private static Int32 ArrayHashCode_NoCheck( T[] obj, HashCode<T> hashCode )
       {
          var result = 0;
          if ( obj != null )
@@ -321,11 +375,36 @@ namespace CommonUtils
                var max = obj.Length;
                for ( var i = 0; i < max; ++i )
                {
-                  result = result * 23 + this._itemComparer.GetHashCode( obj[i] );
+                  result = result * 23 + hashCode( obj[i] );
                }
             }
          }
          return result;
+      }
+
+      private readonly Equality<T> _equality;
+      private readonly HashCode<T> _hashCode;
+
+      private ArrayEqualityComparer( IEqualityComparer<T> itemComparer )
+      {
+         if ( itemComparer == null )
+         {
+            itemComparer = EqualityComparer<T>.Default;
+         }
+         this._equality = itemComparer.Equals;
+         this._hashCode = itemComparer.GetHashCode;
+      }
+
+      #region IEqualityComparer<T[]> Members
+
+      Boolean IEqualityComparer<T[]>.Equals( T[] x, T[] y )
+      {
+         return ArrayEquality_NoCheck( x, y, this._equality );
+      }
+
+      Int32 IEqualityComparer<T[]>.GetHashCode( T[] obj )
+      {
+         return ArrayHashCode_NoCheck( obj, this._hashCode );
       }
 
       #endregion
@@ -373,7 +452,7 @@ namespace CommonUtils
       /// <returns>Whether two collections equal.</returns>
       public static Boolean Equals( T x, T y, IEqualityComparer<U> itemComparer = null )
       {
-         return EqualsImpl( x, y, itemComparer ?? EqualityComparer<U>.Default );
+         return CollectionEquality_NoCheck( x, y, ( itemComparer ?? EqualityComparer<U>.Default ).Equals );
       }
 
       /// <summary>
@@ -384,10 +463,33 @@ namespace CommonUtils
       /// <returns>The hash code for given collection.</returns>
       public static Int32 GetHashCode( T obj, IEqualityComparer<U> itemComparer = null )
       {
-         return GetHashCodeImpl( obj, itemComparer ?? EqualityComparer<U>.Default );
+         return CollectionHashCode_NoCheck( obj, ( itemComparer ?? EqualityComparer<U>.Default ).GetHashCode );
       }
 
-      private static Boolean EqualsImpl( T x, T y, IEqualityComparer<U> itemComparer )
+      /// <summary>
+      /// Helper method to check whether two collections are considered to be equal given optional equality comparer for items.
+      /// </summary>
+      /// <param name="x">The first collection. May be <c>null</c>.</param>
+      /// <param name="y">The second collection. May be <c>null</c>.</param>
+      /// <param name="equality">The optional equality callback for items. If not supplied, a default callback (the <see cref="IEqualityComparer{U}.Equals(U, U)" /> method from <see cref="EqualityComparer{U}.Default"/> ) will be used.</param>
+      /// <returns><c>true</c> if both collections are <c>null</c>, or both collections are non null and have same amount and same items; <c>false</c> otherwise.</returns>
+      public static Boolean CollectionEquality( T x, T y, Equality<U> equality = null )
+      {
+         return CollectionEquality_NoCheck( x, y, equality ?? EqualityComparer<U>.Default.Equals );
+      }
+
+      /// <summary>
+      /// Calculates the hash code of given collection without creating a new instance of this class.
+      /// </summary>
+      /// <param name="obj">The collection. May be <c>null</c>.</param>
+      /// <param name="hashCode">The optional equality comparer for items of the collection. If <c>null</c>, the default will be used.</param>
+      /// <returns>The hash code for given collection.</returns>
+      public static Int32 CollectionHashCode( T obj, HashCode<U> hashCode = null )
+      {
+         return CollectionHashCode_NoCheck( obj, hashCode ?? EqualityComparer<U>.Default.GetHashCode );
+      }
+
+      private static Boolean CollectionEquality_NoCheck( T x, T y, Equality<U> equality )
       {
          Boolean result;
          if ( x == null )
@@ -404,7 +506,7 @@ namespace CommonUtils
                {
                   while ( xEnum.MoveNext() && yEnum.MoveNext() ) // this should always work since .Count was the same...
                   {
-                     if ( !itemComparer.Equals( xEnum.Current, yEnum.Current ) )
+                     if ( !equality( xEnum.Current, yEnum.Current ) )
                      {
                         result = false;
                         break;
@@ -416,7 +518,7 @@ namespace CommonUtils
          return result;
       }
 
-      private static Int32 GetHashCodeImpl( T obj, IEqualityComparer<U> itemComparer )
+      private static Int32 CollectionHashCode_NoCheck( T obj, HashCode<U> hashCode )
       {
          var result = 0;
          if ( obj != null )
@@ -427,29 +529,34 @@ namespace CommonUtils
             {
                foreach ( var item in obj )
                {
-                  result = result * 23 + itemComparer.GetHashCode( item );
+                  result = result * 23 + hashCode( item );
                }
             }
          }
          return result;
       }
 
-      private readonly IEqualityComparer<U> _itemComparer;
-
+      private readonly Equality<U> _equality;
+      private readonly HashCode<U> _hashCode;
 
       private CollectionEqualityComparer( IEqualityComparer<U> itemComparer )
       {
-         this._itemComparer = itemComparer ?? EqualityComparer<U>.Default;
+         if ( itemComparer == null )
+         {
+            itemComparer = EqualityComparer<U>.Default;
+         }
+         this._equality = itemComparer.Equals;
+         this._hashCode = itemComparer.GetHashCode;
       }
 
       Boolean IEqualityComparer<T>.Equals( T x, T y )
       {
-         return EqualsImpl( x, y, this._itemComparer );
+         return CollectionEquality_NoCheck( x, y, this._equality );
       }
 
       Int32 IEqualityComparer<T>.GetHashCode( T obj )
       {
-         return GetHashCodeImpl( obj, this._itemComparer );
+         return CollectionHashCode_NoCheck( obj, this._hashCode );
       }
    }
 
@@ -496,21 +603,44 @@ namespace CommonUtils
       /// <returns>Whether two lists equal.</returns>
       public static Boolean Equals( T x, T y, IEqualityComparer<U> itemComparer = null )
       {
-         return EqualsImpl( x, y, itemComparer ?? EqualityComparer<U>.Default );
+         return ListEquality_NoCheck( x, y, ( itemComparer ?? EqualityComparer<U>.Default ).Equals );
       }
 
       /// <summary>
       /// Calculates the hash code of given list without creating a new instance of this class.
       /// </summary>
-      /// <param name="obj">The colleciton. May be <c>null</c>.</param>
+      /// <param name="obj">The list. May be <c>null</c>.</param>
       /// <param name="itemComparer">The optional equality comparer for items of the list. If <c>null</c>, the default will be used.</param>
       /// <returns>The hash code for given list.</returns>
       public static Int32 GetHashCode( T obj, IEqualityComparer<U> itemComparer = null )
       {
-         return GetHashCodeImpl( obj, itemComparer ?? EqualityComparer<U>.Default );
+         return ListHashCode_NoCheck( obj, ( itemComparer ?? EqualityComparer<U>.Default ).GetHashCode );
       }
 
-      private static Boolean EqualsImpl( T x, T y, IEqualityComparer<U> itemComparer )
+      /// <summary>
+      /// Helper method to check whether two lists are considered to be equal given optional equality comparer for items.
+      /// </summary>
+      /// <param name="x">The first list. May be <c>null</c>.</param>
+      /// <param name="y">The second list. May be <c>null</c>.</param>
+      /// <param name="equality">The optional equality callback for items. If not supplied, a default callback (the <see cref="IEqualityComparer{U}.Equals(U, U)" /> method from <see cref="EqualityComparer{U}.Default"/> ) will be used.</param>
+      /// <returns><c>true</c> if both lists are <c>null</c>, or both lists are non null and have same amount and same items; <c>false</c> otherwise.</returns>
+      public static Boolean ListEquality( T x, T y, Equality<U> equality = null )
+      {
+         return ListEquality_NoCheck( x, y, equality ?? EqualityComparer<U>.Default.Equals );
+      }
+
+      /// <summary>
+      /// Helper method to calculate hash code for list.
+      /// </summary>
+      /// <param name="obj">The list. May be <c>null</c>.</param>
+      /// <param name="hashCode">The optional hashcode calculation callback. If not supplied, a default callback (the <see cref="IEqualityComparer{T}.GetHashCode(T)" /> method from <see cref="EqualityComparer{T}.Default"/> ) will be used.</param>
+      /// <returns>The hash code for <paramref name="obj" />.</returns>
+      public static Int32 ListHashCode( T obj, HashCode<U> hashCode = null )
+      {
+         return ListHashCode_NoCheck( obj, hashCode ?? EqualityComparer<U>.Default.GetHashCode );
+      }
+
+      private static Boolean ListEquality_NoCheck( T x, T y, Equality<U> equality )
       {
          Boolean result;
          if ( x == null )
@@ -524,7 +654,7 @@ namespace CommonUtils
             {
                var max = x.Count;
                var i = 0;
-               while ( i < max && itemComparer.Equals( x[i], y[i] ) )
+               while ( i < max && equality( x[i], y[i] ) )
                {
                   ++i;
                }
@@ -534,7 +664,7 @@ namespace CommonUtils
          return result;
       }
 
-      private static Int32 GetHashCodeImpl( T obj, IEqualityComparer<U> itemComparer )
+      private static Int32 ListHashCode_NoCheck( T obj, HashCode<U> hashCode )
       {
          var result = 0;
          if ( obj != null )
@@ -546,29 +676,35 @@ namespace CommonUtils
                var max = obj.Count;
                for ( var i = 0; i < max; ++i )
                {
-                  result = result * 23 + itemComparer.GetHashCode( obj[i] );
+                  result = result * 23 + hashCode( obj[i] );
                }
             }
          }
          return result;
       }
 
-      private readonly IEqualityComparer<U> _itemComparer;
-
+      private readonly Equality<U> _equality;
+      private readonly HashCode<U> _hashCode;
 
       private ListEqualityComparer( IEqualityComparer<U> itemComparer )
       {
-         this._itemComparer = itemComparer ?? EqualityComparer<U>.Default;
+         if ( itemComparer == null )
+         {
+            itemComparer = EqualityComparer<U>.Default;
+         }
+
+         this._equality = itemComparer.Equals;
+         this._hashCode = itemComparer.GetHashCode;
       }
 
       Boolean IEqualityComparer<T>.Equals( T x, T y )
       {
-         return EqualsImpl( x, y, this._itemComparer );
+         return ListEquality_NoCheck( x, y, this._equality );
       }
 
       Int32 IEqualityComparer<T>.GetHashCode( T obj )
       {
-         return GetHashCodeImpl( obj, this._itemComparer );
+         return ListHashCode_NoCheck( obj, this._hashCode );
       }
    }
 }

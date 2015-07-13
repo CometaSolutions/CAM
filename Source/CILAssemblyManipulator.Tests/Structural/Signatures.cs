@@ -325,6 +325,51 @@ namespace CILAssemblyManipulator.Structural
             return this._type;
          }
       }
+
+      public static SimpleTypeStructureSignature GetByElement( SignatureElementTypes element )
+      {
+         switch ( element )
+         {
+            case SignatureElementTypes.Boolean:
+               return Boolean;
+            case SignatureElementTypes.Char:
+               return Char;
+            case SignatureElementTypes.I1:
+               return SByte;
+            case SignatureElementTypes.U1:
+               return Byte;
+            case SignatureElementTypes.I2:
+               return Int16;
+            case SignatureElementTypes.U2:
+               return UInt16;
+            case SignatureElementTypes.I4:
+               return Int32;
+            case SignatureElementTypes.U4:
+               return UInt32;
+            case SignatureElementTypes.I8:
+               return Int64;
+            case SignatureElementTypes.U8:
+               return UInt64;
+            case SignatureElementTypes.R4:
+               return Single;
+            case SignatureElementTypes.R8:
+               return Double;
+            case SignatureElementTypes.I:
+               return IntPtr;
+            case SignatureElementTypes.U:
+               return UIntPtr;
+            case SignatureElementTypes.Object:
+               return Object;
+            case SignatureElementTypes.String:
+               return String;
+            case SignatureElementTypes.Void:
+               return Void;
+            case SignatureElementTypes.TypedByRef:
+               return TypedByRef;
+            default:
+               throw new InvalidOperationException( "Element " + element + " does not represent simple type." );
+         }
+      }
    }
 
    public sealed class ClassOrValueTypeStructureSignature : TypeStructureSignature

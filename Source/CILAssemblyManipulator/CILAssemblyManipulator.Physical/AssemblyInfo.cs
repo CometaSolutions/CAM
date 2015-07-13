@@ -176,7 +176,7 @@ namespace CILAssemblyManipulator.Physical
             && this.VersionMinor == other.VersionMinor
             && this.VersionBuild == other.VersionBuild
             && this.VersionRevision == other.VersionRevision
-            && ( !comparePublicKeyOrToken || ArrayEqualityComparer<Byte>.DefaultArrayEqualityComparer.Equals( this.PublicKeyOrToken, other.PublicKeyOrToken ) )
+            && ( !comparePublicKeyOrToken || this.PublicKeyOrToken.IsNullOrEmpty() == other.PublicKeyOrToken.IsNullOrEmpty() || ArrayEqualityComparer<Byte>.DefaultArrayEqualityComparer.Equals( this.PublicKeyOrToken, other.PublicKeyOrToken ) )
             && String.Equals( this.Culture, other.Culture )
             );
       }

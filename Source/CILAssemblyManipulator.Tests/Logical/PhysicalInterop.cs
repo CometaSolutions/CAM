@@ -57,7 +57,7 @@ namespace CILAssemblyManipulator.Tests.Logical
             var structure1 = new AssemblyStructureInfo( physicalLoaded );
             var structure2 = new AssemblyStructureInfo( physicalLoaded );
 
-            Assert.IsTrue( structure1.Equals( structure2 ) );
+            Assert.IsTrue( AssemblyEquivalenceComparer.EqualityComparer.Equals( structure1, structure2 ) );
             Console.WriteLine( "Hmz" );
          } );
       }
@@ -70,10 +70,5 @@ namespace CILAssemblyManipulator.Tests.Logical
          }
       }
    }
-
-
-
-
-
 }
 
