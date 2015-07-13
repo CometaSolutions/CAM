@@ -31,7 +31,7 @@ using System.Threading;
 namespace CILAssemblyManipulator.Tests.Logical
 {
 
-   public class LogicalPhysicalInteropTest : AbstractCAMTest
+   public class LogicalInteropTest : AbstractCAMTest
    {
 
       //[Test]

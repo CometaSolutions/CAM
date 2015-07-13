@@ -43,14 +43,14 @@
   <ItemGroup>
     <Compile Include="AbstractCAMTest.cs" />
     <Compile Include="CILMerge\MergeTests.cs" />
-    <Compile Include="Logical\PhysicalInterop.cs" />
+    <Compile Include="Logical\Interop.cs" />
     <Compile Include="Physical\Emitting.cs" />
     <Compile Include="Physical\Ordering.cs" />
     <Compile Include="Physical\Reading.cs" />
     <Compile Include="Physical\Roundtrip.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
     <Compile Include="Structural\Equivalence.cs" />
-    <Compile Include="Structural\PhysicalInterop.cs" />
+    <Compile Include="Structural\Interop.cs" />
     <Compile Include="Structural\Signatures.cs" />
     <Compile Include="Structural\Structures.cs" />
   </ItemGroup>
