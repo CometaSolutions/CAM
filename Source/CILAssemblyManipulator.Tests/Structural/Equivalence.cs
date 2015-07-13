@@ -57,7 +57,7 @@ namespace CILAssemblyManipulator.Structural
                var modulesX = x.Modules;
                var modulesY = y.Modules;
                retVal = modulesX.Count == modulesY.Count;
-               if ( retVal )
+               if ( retVal && modulesX.Count > 0 )
                {
                   var modulesMatches = new Int32[modulesX.Count];
                   modulesMatches.Fill( -1 );
@@ -68,7 +68,6 @@ namespace CILAssemblyManipulator.Structural
                         .Where( idx => idx == -1 )
                         .Select( ( idx, matchIdx ) => Tuple.Create( matchIdx, new ModuleComparer( moduleX, modulesY[matchIdx] ) ) )
                         .FirstOrDefault( tuple => tuple.Item2.PerformEquivalenceCheckForModules() );
-                     var matchingModuleYIndex = matchingModuleYInfo.Item1;
 
                      if ( matchingModuleYInfo == null )
                      {
@@ -76,6 +75,7 @@ namespace CILAssemblyManipulator.Structural
                      }
                      else
                      {
+                        var matchingModuleYIndex = matchingModuleYInfo.Item1;
                         if ( moduleX.IsMainModule )
                         {
                            var moduleY = modulesY[matchingModuleYIndex];
@@ -101,6 +101,9 @@ namespace CILAssemblyManipulator.Structural
       }
    }
 
+   /// <summary>
+   /// TODO use reference-based dictionary to cache equality results for object (something like IDictionary{Tuple{Object, Object}, Boolean} )
+   /// </summary>
    public sealed class ModuleComparer
    {
       private readonly ModuleStructureInfo _xModule;
@@ -110,14 +113,15 @@ namespace CILAssemblyManipulator.Structural
       private readonly IEqualityComparer<ExportedTypeStructureInfo> _exportedTypeComparer;
       private readonly IEqualityComparer<PropertyStructuralInfo> _propertyComparer;
       private readonly IEqualityComparer<EventStructuralInfo> _eventComparer;
+      private readonly IEqualityComparer<SemanticMethodInfo> _semanticMethodComparer;
       private readonly IEqualityComparer<GenericParameterConstraintStructuralInfo> _gConstraintComparer;
-      private readonly IEqualityComparer<List<CustomAttributeStructure>> _caComparer;
+      private readonly IEqualityComparer<CustomAttributeStructure> _caComparer;
       private readonly IEqualityComparer<InterfaceImplStructuralInfo> _interfaceImplComparer;
       private readonly IEqualityComparer<OverriddenMethodInfo> _overriddenMethodComparer;
       private readonly IEqualityComparer<ManifestResourceStructuralInfo> _resourceComparer;
 
-      private readonly Lazy<IDictionary<AbstractTypeDescription, String>> _xTypeDefFullNames;
-      private readonly Lazy<IDictionary<AbstractTypeDescription, String>> _yTypeDefFullNames;
+      private readonly Lazy<IDictionary<TypeDefDescription, String>> _xTypeDefFullNames;
+      private readonly Lazy<IDictionary<TypeDefDescription, String>> _yTypeDefFullNames;
 
       public ModuleComparer( ModuleStructureInfo x, ModuleStructureInfo y )
       {
@@ -131,13 +135,14 @@ namespace CILAssemblyManipulator.Structural
          this._exportedTypeComparer = ComparerFromFunctions.NewEqualityComparer<ExportedTypeStructureInfo>( this.Equality_ExportedType, this.HashCode_ExportedType );
          this._propertyComparer = ComparerFromFunctions.NewEqualityComparer<PropertyStructuralInfo>( this.Equality_Property, this.HashCode_Property );
          this._eventComparer = ComparerFromFunctions.NewEqualityComparer<EventStructuralInfo>( this.Equality_Event, this.HashCode_Event );
+         this._semanticMethodComparer = ComparerFromFunctions.NewEqualityComparer<SemanticMethodInfo>( this.Equality_SemanticMethod, this.HashCode_SemanticMethod );
          this._gConstraintComparer = ComparerFromFunctions.NewEqualityComparer<GenericParameterConstraintStructuralInfo>( this.Equality_GenericParameterConstraint, this.HashCode_GenericParameterConstraint );
          this._resourceComparer = ComparerFromFunctions.NewEqualityComparer<ManifestResourceStructuralInfo>( this.Equality_ManifestResource, this.HashCode_ManifestResource );
 
-         this._caComparer = ListEqualityComparer<List<CustomAttributeStructure>, CustomAttributeStructure>.NewListEqualityComparer( ComparerFromFunctions.NewEqualityComparer<CustomAttributeStructure>( Equality_CustomAttribute, HashCode_CustomAttribute ) );
+         this._caComparer = ComparerFromFunctions.NewEqualityComparer<CustomAttributeStructure>( Equality_CustomAttribute, HashCode_CustomAttribute );
 
-         this._xTypeDefFullNames = new Lazy<IDictionary<AbstractTypeDescription, String>>( () => CreateTypeDefNameDictionary( x ), LazyThreadSafetyMode.None );
-         this._yTypeDefFullNames = new Lazy<IDictionary<AbstractTypeDescription, String>>( () => CreateTypeDefNameDictionary( y ), LazyThreadSafetyMode.None );
+         this._xTypeDefFullNames = new Lazy<IDictionary<TypeDefDescription, String>>( () => CreateTypeDefNameDictionary( x ), LazyThreadSafetyMode.None );
+         this._yTypeDefFullNames = new Lazy<IDictionary<TypeDefDescription, String>>( () => CreateTypeDefNameDictionary( y ), LazyThreadSafetyMode.None );
       }
 
       public Boolean PerformEquivalenceCheckForModules()
@@ -150,8 +155,8 @@ namespace CILAssemblyManipulator.Structural
          return ReferenceEquals( x, y )
             || ( x != null && y != null
             && Equality_Security( x.SecurityInfo, y.SecurityInfo )
-            && new HashSet<ModuleStructureInfo>( x.Modules, this._moduleComparer ).SetEquals( y.Modules )
-            && this._caComparer.Equals( x.CustomAttributes, y.CustomAttributes )
+            && ListEqualityComparer<List<ModuleStructureInfo>, ModuleStructureInfo>.IsPermutation( x.Modules, y.Modules, this._moduleComparer )
+            && ListEqualityComparer<List<CustomAttributeStructure>, CustomAttributeStructure>.IsPermutation( x.CustomAttributes, y.CustomAttributes, this._caComparer )
          );
       }
 
@@ -161,10 +166,10 @@ namespace CILAssemblyManipulator.Structural
             || ( x != null && y != null
             && String.Equals( x.Name, y.Name )
             && x.IsMainModule == y.IsMainModule
-            && new HashSet<TypeDefDescription>( x.TopLevelTypeDefinitions, this._typeDefComparer ).SetEquals( y.TopLevelTypeDefinitions )
-            && new HashSet<ExportedTypeStructureInfo>( x.ExportedTypes, this._exportedTypeComparer ).SetEquals( y.ExportedTypes )
-            && new HashSet<ManifestResourceStructuralInfo>( x.ManifestResources, this._resourceComparer ).SetEquals( y.ManifestResources )
-            && this._caComparer.Equals( x.CustomAttributes, y.CustomAttributes )
+            && ListEqualityComparer<List<TypeDefDescription>, TypeDefDescription>.IsPermutation( x.TopLevelTypeDefinitions, y.TopLevelTypeDefinitions, this._typeDefComparer )
+            && ListEqualityComparer<List<ExportedTypeStructureInfo>, ExportedTypeStructureInfo>.IsPermutation( x.ExportedTypes, y.ExportedTypes, this._exportedTypeComparer )
+            && ListEqualityComparer<List<ManifestResourceStructuralInfo>, ManifestResourceStructuralInfo>.IsPermutation( x.ManifestResources, y.ManifestResources, this._resourceComparer )
+            && ListEqualityComparer<List<CustomAttributeStructure>, CustomAttributeStructure>.IsPermutation( x.CustomAttributes, y.CustomAttributes, this._caComparer )
             );
       }
 
@@ -179,14 +184,14 @@ namespace CILAssemblyManipulator.Structural
             && ListEqualityComparer<List<FieldStructureInfo>, FieldStructureInfo>.ListEquality( x.Fields, y.Fields, this.Equality_Field )
             && ListEqualityComparer<List<MethodStructureInfo>, MethodStructureInfo>.ListEquality( x.Methods, y.Methods, this.Equality_Method )
             && ListEqualityComparer<List<GenericParameterStructuralInfo>, GenericParameterStructuralInfo>.ListEquality( x.GenericParameters, y.GenericParameters, this.Equality_GenericParameter )
-            && new HashSet<PropertyStructuralInfo>( x.Properties, this._propertyComparer ).SetEquals( y.Properties )
-            && new HashSet<EventStructuralInfo>( x.Events, this._eventComparer ).SetEquals( y.Events )
-            && new HashSet<InterfaceImplStructuralInfo>( x.ImplementedInterfaces, this._interfaceImplComparer ).SetEquals( y.ImplementedInterfaces )
+            && ListEqualityComparer<List<PropertyStructuralInfo>, PropertyStructuralInfo>.IsPermutation( x.Properties, y.Properties, this._propertyComparer )
+            && ListEqualityComparer<List<EventStructuralInfo>, EventStructuralInfo>.IsPermutation( x.Events, y.Events, this._eventComparer )
+            && ListEqualityComparer<List<InterfaceImplStructuralInfo>, InterfaceImplStructuralInfo>.IsPermutation( x.ImplementedInterfaces, y.ImplementedInterfaces, this._interfaceImplComparer )
             && Equality_Security( x.SecurityInfo, y.SecurityInfo )
-            && new HashSet<OverriddenMethodInfo>( x.OverriddenMethods, this._overriddenMethodComparer ).SetEquals( y.OverriddenMethods )
+            && ListEqualityComparer<List<OverriddenMethodInfo>, OverriddenMethodInfo>.IsPermutation( x.OverriddenMethods, y.OverriddenMethods, this._overriddenMethodComparer )
             && x.Layout.EqualsTypedEquatable( y.Layout )
-            && new HashSet<TypeDefDescription>( x.NestedTypes, this._typeDefComparer ).SetEquals( y.NestedTypes )
-            && this._caComparer.Equals( x.CustomAttributes, y.CustomAttributes )
+            && ListEqualityComparer<List<TypeDefDescription>, TypeDefDescription>.IsPermutation( x.NestedTypes, y.NestedTypes, this._typeDefComparer )
+            && ListEqualityComparer<List<CustomAttributeStructure>, CustomAttributeStructure>.IsPermutation( x.CustomAttributes, y.CustomAttributes, this._caComparer )
             );
       }
 
@@ -220,7 +225,7 @@ namespace CILAssemblyManipulator.Structural
             && x.FieldOffset == y.FieldOffset
             && ArrayEqualityComparer<Byte>.DefaultArrayEqualityComparer.Equals( x.FieldData, y.FieldData )
             && x.PInvokeInfo.EqualsTypedEquatable( y.PInvokeInfo )
-            && this._caComparer.Equals( x.CustomAttributes, y.CustomAttributes )
+            && ListEqualityComparer<List<CustomAttributeStructure>, CustomAttributeStructure>.IsPermutation( x.CustomAttributes, y.CustomAttributes, this._caComparer )
             );
       }
 
@@ -237,7 +242,7 @@ namespace CILAssemblyManipulator.Structural
             && x.PInvokeInfo.EqualsTypedEquatable( y.PInvokeInfo )
             && ListEqualityComparer<List<GenericParameterStructuralInfo>, GenericParameterStructuralInfo>.ListEquality( x.GenericParameters, y.GenericParameters, this.Equality_GenericParameter )
             && Equality_Security( x.SecurityInfo, y.SecurityInfo )
-            && this._caComparer.Equals( x.CustomAttributes, y.CustomAttributes )
+            && ListEqualityComparer<List<CustomAttributeStructure>, CustomAttributeStructure>.IsPermutation( x.CustomAttributes, y.CustomAttributes, this._caComparer )
             );
       }
 
@@ -249,7 +254,7 @@ namespace CILAssemblyManipulator.Structural
             && String.Equals( x.Name, y.Name )
             && x.Attributes == y.Attributes
             && Comparers.MarshalingInfoEqualityComparer.Equals( x.MarshalingInfo, y.MarshalingInfo )
-            && this._caComparer.Equals( x.CustomAttributes, y.CustomAttributes )
+            && ListEqualityComparer<List<CustomAttributeStructure>, CustomAttributeStructure>.IsPermutation( x.CustomAttributes, y.CustomAttributes, this._caComparer )
             );
       }
 
@@ -258,7 +263,7 @@ namespace CILAssemblyManipulator.Structural
          return ReferenceEquals( x, y )
             || ( x != null && y != null
             && Equality_TypeDefOrRefOrSpec( x.InterfaceType, y.InterfaceType )
-            && this._caComparer.Equals( x.CustomAttributes, y.CustomAttributes )
+            && ListEqualityComparer<List<CustomAttributeStructure>, CustomAttributeStructure>.IsPermutation( x.CustomAttributes, y.CustomAttributes, this._caComparer )
             );
       }
 
@@ -267,11 +272,13 @@ namespace CILAssemblyManipulator.Structural
          switch ( x.TypeDescriptionKind )
          {
             case TypeDescriptionKind.TypeDef:
+               var xDef = (TypeDefDescription) x;
+               var yDef = (TypeDefDescription) y;
                String xName; String yName;
-               return ( this._xTypeDefFullNames.TryGetValue( x, out xName ) ?
-                  this._yTypeDefFullNames.TryGetValue( y, out yName ) :
-                  ( this._yTypeDefFullNames.TryGetValue( x, out xName )
-                     && this._xTypeDefFullNames.TryGetValue( y, out yName )
+               return ( this._xTypeDefFullNames.Value.TryGetValue( xDef, out xName ) ?
+                  this._yTypeDefFullNames.Value.TryGetValue( yDef, out yName ) :
+                  ( this._yTypeDefFullNames.Value.TryGetValue( xDef, out xName )
+                     && this._xTypeDefFullNames.Value.TryGetValue( yDef, out yName )
                   ) ) && String.Equals( xName, yName );
             //if ( !this._typeDefFullNames1.TryGetValue( x, out xName ) )
             //{
@@ -290,12 +297,12 @@ namespace CILAssemblyManipulator.Structural
                return String.Equals( xx.Name, yy.Name )
                   && String.Equals( xx.Namespace, yy.Namespace )
                   && Equality_TypeRefResolutionScope( xx.ResolutionScope, yy.ResolutionScope )
-                  && this._caComparer.Equals( xx.CustomAttributes, yy.CustomAttributes );
+                  && ListEqualityComparer<List<CustomAttributeStructure>, CustomAttributeStructure>.IsPermutation( x.CustomAttributes, y.CustomAttributes, this._caComparer );
             case TypeDescriptionKind.TypeSpec:
                var xs = (TypeSpecDescription) x;
                var ys = (TypeSpecDescription) y;
                return Equality_Signature_Type( xs.Signature, ys.Signature )
-                  && this._caComparer.Equals( xs.CustomAttributes, ys.CustomAttributes );
+                  && ListEqualityComparer<List<CustomAttributeStructure>, CustomAttributeStructure>.IsPermutation( x.CustomAttributes, y.CustomAttributes, this._caComparer );
             default:
                throw new InvalidOperationException( "Invalid type ref or def or spec: " + x.TypeDescriptionKind + "." );
          }
@@ -334,7 +341,7 @@ namespace CILAssemblyManipulator.Structural
          return ReferenceEquals( x, y )
             || ( x != null && y != null
             && String.Equals( x.ModuleName, y.ModuleName )
-            && this._caComparer.Equals( x.CustomAttributes, y.CustomAttributes )
+            && ListEqualityComparer<List<CustomAttributeStructure>, CustomAttributeStructure>.IsPermutation( x.CustomAttributes, y.CustomAttributes, this._caComparer )
             );
       }
 
@@ -345,7 +352,7 @@ namespace CILAssemblyManipulator.Structural
             && x.AssemblyRef.EqualsTypedEquatable( y.AssemblyRef )
             && x.Attributes == y.Attributes
             && ArrayEqualityComparer<Byte>.DefaultArrayEqualityComparer.Equals( x.HashValue, y.HashValue )
-            && this._caComparer.Equals( x.CustomAttributes, y.CustomAttributes )
+            && ListEqualityComparer<List<CustomAttributeStructure>, CustomAttributeStructure>.IsPermutation( x.CustomAttributes, y.CustomAttributes, this._caComparer )
             );
       }
 
@@ -358,7 +365,7 @@ namespace CILAssemblyManipulator.Structural
             && x.Attributes == y.Attributes
             && x.TypeDefID == y.TypeDefID
             && Equality_ExportedTypeResolutionScope( x.ResolutionScope, y.ResolutionScope )
-            && this._caComparer.Equals( x.CustomAttributes, y.CustomAttributes )
+            && ListEqualityComparer<List<CustomAttributeStructure>, CustomAttributeStructure>.IsPermutation( x.CustomAttributes, y.CustomAttributes, this._caComparer )
             );
       }
 
@@ -369,7 +376,7 @@ namespace CILAssemblyManipulator.Structural
             && String.Equals( x.Name, y.Name )
             && x.Attributes == y.Attributes
             && ArrayEqualityComparer<Byte>.DefaultArrayEqualityComparer.Equals( x.HashValue, y.HashValue )
-            && this._caComparer.Equals( x.CustomAttributes, y.CustomAttributes )
+            && ListEqualityComparer<List<CustomAttributeStructure>, CustomAttributeStructure>.IsPermutation( x.CustomAttributes, y.CustomAttributes, this._caComparer )
             );
       }
 
@@ -379,7 +386,7 @@ namespace CILAssemblyManipulator.Structural
             || ( x != null && y != null
             && x.SecurityAction == y.SecurityAction
             && ListEqualityComparer<List<AbstractSecurityInformation>, AbstractSecurityInformation>.NewListEqualityComparer( Comparers.AbstractSecurityInformationEqualityComparer ).Equals( x.PermissionSets, y.PermissionSets )
-            && this._caComparer.Equals( x.CustomAttributes, y.CustomAttributes )
+            && ListEqualityComparer<List<CustomAttributeStructure>, CustomAttributeStructure>.IsPermutation( x.CustomAttributes, y.CustomAttributes, this._caComparer )
             );
       }
 
@@ -390,8 +397,9 @@ namespace CILAssemblyManipulator.Structural
             && String.Equals( x.Name, y.Name )
             && x.Attributes == y.Attributes
             && Equality_Signature_Property( x.Signature, y.Signature )
+            && ListEqualityComparer<List<SemanticMethodInfo>, SemanticMethodInfo>.IsPermutation( x.SemanticMethods, y.SemanticMethods, this._semanticMethodComparer )
             && Equals( x.ConstantValue, y.ConstantValue )
-            && this._caComparer.Equals( x.CustomAttributes, y.CustomAttributes )
+            && ListEqualityComparer<List<CustomAttributeStructure>, CustomAttributeStructure>.IsPermutation( x.CustomAttributes, y.CustomAttributes, this._caComparer )
             );
       }
 
@@ -401,9 +409,16 @@ namespace CILAssemblyManipulator.Structural
             || ( x != null && y != null
             && String.Equals( x.Name, y.Name )
             && Equality_TypeDefOrRefOrSpec( x.EventType, y.EventType )
+            && ListEqualityComparer<List<SemanticMethodInfo>, SemanticMethodInfo>.IsPermutation( x.SemanticMethods, y.SemanticMethods, this._semanticMethodComparer )
             && x.Attributes == y.Attributes
-            && this._caComparer.Equals( x.CustomAttributes, y.CustomAttributes )
+            && ListEqualityComparer<List<CustomAttributeStructure>, CustomAttributeStructure>.IsPermutation( x.CustomAttributes, y.CustomAttributes, this._caComparer )
             );
+      }
+
+      private Boolean Equality_SemanticMethod( SemanticMethodInfo x, SemanticMethodInfo y )
+      {
+         return x.Attributes == y.Attributes
+            && Equality_Method( x.Method, y.Method );
       }
 
       private Boolean Equality_MemberRef( MemberReferenceStructuralInfo x, MemberReferenceStructuralInfo y )
@@ -413,7 +428,7 @@ namespace CILAssemblyManipulator.Structural
             && String.Equals( x.Name, y.Name )
             && Equality_MemberReferenceParent( x.Parent, y.Parent )
             && Equality_Signature( x.Signature, y.Signature )
-            && this._caComparer.Equals( x.CustomAttributes, y.CustomAttributes )
+            && ListEqualityComparer<List<CustomAttributeStructure>, CustomAttributeStructure>.IsPermutation( x.CustomAttributes, y.CustomAttributes, this._caComparer )
             );
       }
 
@@ -424,8 +439,8 @@ namespace CILAssemblyManipulator.Structural
             && String.Equals( x.Name, y.Name )
             && x.GenericParameterIndex == y.GenericParameterIndex
             && x.Attributes == y.Attributes
-            && new HashSet<GenericParameterConstraintStructuralInfo>( x.Constraints, this._gConstraintComparer ).SetEquals( y.Constraints )
-            && this._caComparer.Equals( x.CustomAttributes, y.CustomAttributes )
+            && ListEqualityComparer<List<GenericParameterConstraintStructuralInfo>, GenericParameterConstraintStructuralInfo>.IsPermutation( x.Constraints, y.Constraints, this._gConstraintComparer )
+            && ListEqualityComparer<List<CustomAttributeStructure>, CustomAttributeStructure>.IsPermutation( x.CustomAttributes, y.CustomAttributes, this._caComparer )
             );
       }
 
@@ -434,7 +449,7 @@ namespace CILAssemblyManipulator.Structural
          return ReferenceEquals( x, y )
             || ( x != null && y != null
             && Equality_TypeDefOrRefOrSpec( x.Constraint, y.Constraint )
-            && this._caComparer.Equals( x.CustomAttributes, y.CustomAttributes )
+            && ListEqualityComparer<List<CustomAttributeStructure>, CustomAttributeStructure>.IsPermutation( x.CustomAttributes, y.CustomAttributes, this._caComparer )
             );
       }
 
@@ -446,7 +461,7 @@ namespace CILAssemblyManipulator.Structural
             && Equality_ManifestResourceData( x.ManifestData, y.ManifestData )
             && x.Attributes == y.Attributes
             && x.Offset == y.Offset
-            && this._caComparer.Equals( x.CustomAttributes, y.CustomAttributes )
+            && ListEqualityComparer<List<CustomAttributeStructure>, CustomAttributeStructure>.IsPermutation( x.CustomAttributes, y.CustomAttributes, this._caComparer )
             );
       }
 
@@ -455,7 +470,7 @@ namespace CILAssemblyManipulator.Structural
          return ReferenceEquals( x, y )
             || ( x != null && y != null
             && Equality_Signature( x.Signature, y.Signature )
-            && this._caComparer.Equals( x.CustomAttributes, y.CustomAttributes )
+            && ListEqualityComparer<List<CustomAttributeStructure>, CustomAttributeStructure>.IsPermutation( x.CustomAttributes, y.CustomAttributes, this._caComparer )
             );
       }
 
@@ -465,7 +480,7 @@ namespace CILAssemblyManipulator.Structural
             || ( x != null && y != null
             && Equality_MethodDefOrMemberRef( x.Method, y.Method )
             && Equality_Signature_GenericMethod( x.Signature, y.Signature )
-            && this._caComparer.Equals( x.CustomAttributes, y.CustomAttributes )
+            && ListEqualityComparer<List<CustomAttributeStructure>, CustomAttributeStructure>.IsPermutation( x.CustomAttributes, y.CustomAttributes, this._caComparer )
             );
       }
 
@@ -916,6 +931,11 @@ namespace CILAssemblyManipulator.Structural
          return x == null ? 0 : ( 17 * 23 + x.Name.GetHashCodeSafe() ) * 23 + HashCode_TypeDefOrRefOrSpec( x.EventType );
       }
 
+      private Int32 HashCode_SemanticMethod( SemanticMethodInfo x )
+      {
+         return ( 17 * 23 + (Int32) x.Attributes ) * 23 + HashCode_Method( x.Method );
+      }
+
       private Int32 HashCode_MemberRef( MemberReferenceStructuralInfo x )
       {
          return x == null ? 0 : ( ( 17 * 23 + x.Name.GetHashCodeSafe() ) * 23 + HashCode_Signature( x.Signature ) );
@@ -941,7 +961,7 @@ namespace CILAssemblyManipulator.Structural
          return x == null ? 0 : ( ( 17 * 23 + HashCode_MethodDefOrMemberRef( x.Method ) ) * 23 + HashCode_Signature( x.Signature ) );
       }
 
-      private static Int32 HashCode_Signature( AbstractStructureSignature x )
+      private Int32 HashCode_Signature( AbstractStructureSignature x )
       {
          if ( x == null )
          {
@@ -972,53 +992,53 @@ namespace CILAssemblyManipulator.Structural
 
       }
 
-      private static Int32 HashCode_AbstractMethodSignature( AbstractMethodStructureSignature x )
+      private Int32 HashCode_AbstractMethodSignature( AbstractMethodStructureSignature x )
       {
-         return x == null ? 0 : ( ( 17 * 23 + HashCode_ParameterSignature( x.ReturnType ) ) * 23 + ListEqualityComparer<List<ParameterStructureSignature>, ParameterStructureSignature>.GetHashCode( x.Parameters, ParameterSignatureEqualityComparer ) );
+         return x == null ? 0 : ( ( 17 * 23 + HashCode_ParameterSignature( x.ReturnType ) ) * 23 + ListEqualityComparer<List<ParameterStructureSignature>, ParameterStructureSignature>.ListHashCode( x.Parameters, HashCode_ParameterSignature ) );
       }
 
-      private static Int32 HashCode_MethodDefinitionSignature( MethodDefinitionStructureSignature x )
+      private Int32 HashCode_MethodDefinitionSignature( MethodDefinitionStructureSignature x )
       {
          return HashCode_AbstractMethodSignature( x );
       }
 
-      private static Int32 HashCode_MethodReferenceSignature( MethodReferenceStructureSignature x )
+      private Int32 HashCode_MethodReferenceSignature( MethodReferenceStructureSignature x )
       {
          // Ignore varargs when calculating hash code
          return HashCode_AbstractMethodSignature( x );
       }
 
-      private static Int32 HashCode_FieldSignature( FieldStructureSignature x )
+      private Int32 HashCode_FieldSignature( FieldStructureSignature x )
       {
          return x == null ? 0 : HashCode_TypeSignature( x.Type );
       }
 
-      private static Int32 HashCode_PropertySignature( PropertyStructureSignature x )
+      private Int32 HashCode_PropertySignature( PropertyStructureSignature x )
       {
-         return x == null ? 0 : ( ( 17 * 23 + HashCode_TypeSignature( x.PropertyType ) ) * 23 + ListEqualityComparer<List<ParameterStructureSignature>, ParameterStructureSignature>.GetHashCode( x.Parameters, ParameterSignatureEqualityComparer ) );
+         return x == null ? 0 : ( ( 17 * 23 + HashCode_TypeSignature( x.PropertyType ) ) * 23 + ListEqualityComparer<List<ParameterStructureSignature>, ParameterStructureSignature>.ListHashCode( x.Parameters, HashCode_ParameterSignature ) );
       }
 
-      private static Int32 HashCode_LocalVariablesSignature( LocalVariablesSignature x )
+      private Int32 HashCode_LocalVariablesSignature( LocalVariablesStructureSignature x )
       {
-         return x == null ? 0 : ( 17 * 23 + ListEqualityComparer<List<LocalVariableStructureSignature>, LocalVariableStructureSignature>.GetHashCode( x.Locals, LocalVariableSignatureEqualityComparer ) );
+         return x == null ? 0 : ( 17 * 23 + ListEqualityComparer<List<LocalVariableStructureSignature>, LocalVariableStructureSignature>.ListHashCode( x.Locals, HashCode_LocalVariableSignature ) );
       }
 
-      private static Int32 HashCode_LocalVariableSignature( LocalVariableStructureSignature x )
-      {
-         return x == null ? 0 : HashCode_TypeSignature( x.Type );
-      }
-
-      private static Int32 HashCode_ParameterSignature( ParameterStructureSignature x )
+      private Int32 HashCode_LocalVariableSignature( LocalVariableStructureSignature x )
       {
          return x == null ? 0 : HashCode_TypeSignature( x.Type );
       }
 
-      private static Int32 HashCode_CustomModifierSignature( CustomModifierStructureSignature x )
+      private Int32 HashCode_ParameterSignature( ParameterStructureSignature x )
+      {
+         return x == null ? 0 : HashCode_TypeSignature( x.Type );
+      }
+
+      private Int32 HashCode_CustomModifierSignature( CustomModifierStructureSignature x )
       {
          return x == null ? 0 : x.CustomModifierType.GetHashCode();
       }
 
-      private static Int32 HashCode_TypeSignature( TypeStructureSignature x )
+      private Int32 HashCode_TypeSignature( TypeStructureSignature x )
       {
          if ( x == null )
          {
@@ -1048,50 +1068,69 @@ namespace CILAssemblyManipulator.Structural
          }
       }
 
-      private static Int32 HashCode_SimpleTypeSignature( SimpleTypeStructureSignature x )
+      private Int32 HashCode_SimpleTypeSignature( SimpleTypeStructureSignature x )
       {
          return x == null ? 0 : (Int32) x.SimpleType;
       }
 
-      private static Int32 HashCode_ClassOrValueTypeSignature( ClassOrValueTypeStructureSignature x )
+      private Int32 HashCode_ClassOrValueTypeSignature( ClassOrValueTypeStructureSignature x )
       {
-         return x == null ? 0 : x.Type.GetHashCode();
+         return x == null ? 0 : this.HashCode_TypeDefOrRefOrSpec( x.Type );
       }
 
-      private static Int32 HashCode_GenericParameterTypeSignature( GenericParameterTypeStructureSignature x )
+      private Int32 HashCode_GenericParameterTypeSignature( GenericParameterTypeStructureSignature x )
       {
-         return x == null ? 0 : x.GenericParameterIndex.GetHashCode();
+         return x == null ? 0 : ( ( 17 * 23 + x.GenericParameterIndex.GetHashCode() ) * 23 + x.IsTypeParameter.GetHashCode() );
       }
 
-      private static Int32 HashCode_FunctionPointerTypeSignature( FunctionPointerTypeStructureSignature x )
+      private Int32 HashCode_FunctionPointerTypeSignature( FunctionPointerTypeStructureSignature x )
       {
          return x == null ? 0 : HashCode_MethodReferenceSignature( x.MethodSignature );
       }
 
-      private static Int32 HashCode_PointerTypeSignature( PointerTypeStructureSignature x )
+      private Int32 HashCode_PointerTypeSignature( PointerTypeStructureSignature x )
       {
          return x == null ? 0 : ( 17 * 23 + HashCode_TypeSignature( x.PointerType ) );
       }
 
-      private static Int32 HashCode_ComplexArrayTypeSignature( ComplexArrayTypeStructureSignature x )
+      private Int32 HashCode_ComplexArrayTypeSignature( ComplexArrayTypeStructureSignature x )
       {
          return x == null ? 0 : ( ( 17 * 23 + x.Rank ) * 23 + HashCode_TypeSignature( x.ArrayType ) );
       }
 
-      private static Int32 HashCode_SimpleArrayTypeSignature( SimpleArrayTypeStructureSignature x )
+      private Int32 HashCode_SimpleArrayTypeSignature( SimpleArrayTypeStructureSignature x )
       {
          return x == null ? 0 : ( 17 * 41 + HashCode_TypeSignature( x.ArrayType ) );
       }
 
-      private static Int32 HashCode_GenericMethodSignature( GenericMethodStructureSignature x )
+      private Int32 HashCode_GenericMethodSignature( GenericMethodStructureSignature x )
       {
          return x == null ? 0 : ListEqualityComparer<List<TypeStructureSignature>, TypeStructureSignature>.ListHashCode( x.GenericArguments, HashCode_TypeSignature );
       }
 
-      private static IDictionary<String, TypeDefDescription> CreateTypeDefNameDictionary( ModuleStructureInfo module )
+      private static IDictionary<TypeDefDescription, String> CreateTypeDefNameDictionary( ModuleStructureInfo module )
       {
+         var retVal = new Dictionary<TypeDefDescription, String>( ReferenceEqualityComparer<TypeDefDescription>.ReferenceBasedComparer );
+         foreach ( var type in module.TopLevelTypeDefinitions )
+         {
+            AddToTypeDefNameDictionary( retVal, null, type );
+         }
 
+         return retVal;
       }
 
+      private static void AddToTypeDefNameDictionary( IDictionary<TypeDefDescription, String> dictionary, String currentPrefix, TypeDefDescription currentType )
+      {
+         var typeString = Miscellaneous.CombineTypeAndNamespace( currentType.Name, currentType.Namespace );
+         if ( currentPrefix != null )
+         {
+            typeString = currentPrefix + typeString;
+         }
+         dictionary.Add( currentType, typeString );
+         foreach ( var nestedType in currentType.NestedTypes )
+         {
+            AddToTypeDefNameDictionary( dictionary, currentPrefix + typeString + Miscellaneous.NESTED_TYPE_SEPARATOR, nestedType );
+         }
+      }
    }
 }

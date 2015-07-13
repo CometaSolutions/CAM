@@ -30,11 +30,12 @@ using System.Threading;
 
 namespace CILAssemblyManipulator.Tests.Logical
 {
+
    public class LogicalPhysicalInteropTest : AbstractCAMTest
    {
 
-      [Test]
-      public void TestPhysicalInteropWithWrapperAssemblies()
+      //[Test]
+      public void TestPhysicalInteropCAMPhysicalAssembly()
       {
          PerformRoundtripTest( CAMPhysicalLocation );
       }

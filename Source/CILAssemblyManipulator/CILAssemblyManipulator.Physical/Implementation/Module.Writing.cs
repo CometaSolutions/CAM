@@ -2476,7 +2476,6 @@ public static partial class E_CILPhysical
          }
          else
          {
-
             retVal = ( (RawCustomAttributeSignature) sig ).Bytes;
          }
       }
@@ -2842,7 +2841,7 @@ public static partial class E_CILPhysical
                         argType = CustomAttributeArgumentTypeSimple.String;
                      }
                   }
-                  info.WriteCustomAttributeFieldOrPropType( argType );
+                  info.WriteCustomAttributeFieldOrPropType( ref argType, arg );
                   info.WriteCustomAttributeFixedArg( argType, arg );
                   break;
             }
@@ -2859,19 +2858,21 @@ public static partial class E_CILPhysical
       var elem = arg.IsField ? SignatureElementTypes.CA_Field : SignatureElementTypes.CA_Property;
       info.AddSigByte( elem );
       var typedValue = arg.Value;
-      info.WriteCustomAttributeFieldOrPropType( typedValue.Type );
+      var typedValueType = typedValue.Type;
+      var typedValueValue = typedValue.Value;
+      info.WriteCustomAttributeFieldOrPropType( ref typedValueType, typedValueValue );
       info.AddCAString( arg.Name );
-      info.WriteCustomAttributeFixedArg( typedValue.Type, typedValue.Value );
+      info.WriteCustomAttributeFixedArg( typedValueType, typedValueValue );
    }
 
-
-   private static void WriteCustomAttributeFieldOrPropType( this ByteArrayHelper info, CustomAttributeArgumentType type )
+   private static void WriteCustomAttributeFieldOrPropType( this ByteArrayHelper info, ref CustomAttributeArgumentType type, Object value )
    {
       switch ( type.ArgumentTypeKind )
       {
          case CustomAttributeArgumentTypeKind.Array:
             info.AddSigByte( SignatureElementTypes.SzArray );
-            info.WriteCustomAttributeFieldOrPropType( ( (CustomAttributeArgumentTypeArray) type ).ArrayType );
+            var arrayType = ( (CustomAttributeArgumentTypeArray) type ).ArrayType;
+            info.WriteCustomAttributeFieldOrPropType( ref arrayType, null );
             break;
          case CustomAttributeArgumentTypeKind.Simple:
             var sigStarter = ( (CustomAttributeArgumentTypeSimple) type ).SimpleType;
@@ -2884,6 +2885,57 @@ public static partial class E_CILPhysical
          case CustomAttributeArgumentTypeKind.TypeString:
             info.AddSigByte( SignatureElementTypes.CA_Enum );
             info.AddCAString( ( (CustomAttributeArgumentTypeEnum) type ).TypeString );
+            if ( value == null )
+            {
+               type = CustomAttributeArgumentTypeSimple.String;
+            }
+            else
+            {
+               switch ( Type.GetTypeCode( value.GetType() ) )
+               {
+                  case TypeCode.Boolean:
+                     type = CustomAttributeArgumentTypeSimple.Boolean;
+                     break;
+                  case TypeCode.Char:
+                     type = CustomAttributeArgumentTypeSimple.Char;
+                     break;
+                  case TypeCode.SByte:
+                     type = CustomAttributeArgumentTypeSimple.SByte;
+                     break;
+                  case TypeCode.Byte:
+                     type = CustomAttributeArgumentTypeSimple.Byte;
+                     break;
+                  case TypeCode.Int16:
+                     type = CustomAttributeArgumentTypeSimple.Int16;
+                     break;
+                  case TypeCode.UInt16:
+                     type = CustomAttributeArgumentTypeSimple.UInt16;
+                     break;
+                  case TypeCode.Int32:
+                     type = CustomAttributeArgumentTypeSimple.Int32;
+                     break;
+                  case TypeCode.UInt32:
+                     type = CustomAttributeArgumentTypeSimple.UInt32;
+                     break;
+                  case TypeCode.Int64:
+                     type = CustomAttributeArgumentTypeSimple.Int64;
+                     break;
+                  case TypeCode.UInt64:
+                     type = CustomAttributeArgumentTypeSimple.UInt64;
+                     break;
+                  case TypeCode.Single:
+                     type = CustomAttributeArgumentTypeSimple.Single;
+                     break;
+                  case TypeCode.Double:
+                     type = CustomAttributeArgumentTypeSimple.Double;
+                     break;
+                  case TypeCode.String:
+                     type = CustomAttributeArgumentTypeSimple.String;
+                     break;
+                  default:
+                     throw new NotSupportedException( "The custom attribute type was marked to be enum, but the actual value's type was: " + value.GetType() + "." );
+               }
+            }
             break;
       }
    }

@@ -737,18 +737,46 @@ namespace CILAssemblyManipulator.Structural
 
    public abstract class StructuralInfoWithSemanticsMethods : StructuralElementWithCustomAttributes
    {
-      private readonly List<Tuple<MethodSemanticsAttributes, MethodStructureInfo>> _semanticMethods;
+      private readonly List<SemanticMethodInfo> _semanticMethods;
 
       internal StructuralInfoWithSemanticsMethods()
       {
-         this._semanticMethods = new List<Tuple<MethodSemanticsAttributes, MethodStructureInfo>>();
+         this._semanticMethods = new List<SemanticMethodInfo>();
       }
 
-      public List<Tuple<MethodSemanticsAttributes, MethodStructureInfo>> SemanticMethods
+      public List<SemanticMethodInfo> SemanticMethods
       {
          get
          {
             return this._semanticMethods;
+         }
+      }
+   }
+
+   public struct SemanticMethodInfo
+   {
+      private readonly MethodSemanticsAttributes _attributes;
+      private readonly MethodStructureInfo _method;
+
+      public SemanticMethodInfo( MethodSemanticsAttributes attributes, MethodStructureInfo method )
+      {
+         this._attributes = attributes;
+         this._method = method;
+      }
+
+      public MethodSemanticsAttributes Attributes
+      {
+         get
+         {
+            return this._attributes;
+         }
+      }
+
+      public MethodStructureInfo Method
+      {
+         get
+         {
+            return this._method;
          }
       }
    }
@@ -957,7 +985,7 @@ namespace CILAssemblyManipulator.Structural
       {
          get
          {
-            return ManifestResourceDataKind.Embedded;
+            return ManifestResourceDataKind.File;
          }
       }
    }
@@ -970,7 +998,7 @@ namespace CILAssemblyManipulator.Structural
       {
          get
          {
-            return ManifestResourceDataKind.Embedded;
+            return ManifestResourceDataKind.AssemblyRef;
          }
       }
    }
@@ -1436,7 +1464,7 @@ public static partial class E_CILTests
 
          if ( semInfo != null )
          {
-            semInfo.SemanticMethods.Add( Tuple.Create( semantic.Attributes, mDefList[semantic.Method.Index] ) );
+            semInfo.SemanticMethods.Add( new SemanticMethodInfo( semantic.Attributes, mDefList[semantic.Method.Index] ) );
          }
       }
 

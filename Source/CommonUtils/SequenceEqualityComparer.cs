@@ -339,6 +339,31 @@ namespace CommonUtils
          return ArrayHashCode_NoCheck( obj, hashCode ?? EqualityComparer<T>.Default.GetHashCode );
       }
 
+      /// <summary>
+      /// Checks that arrays are each others permutation.
+      /// That is, both are of same length, and all elements contained in one, are also contained in another.
+      /// </summary>
+      /// <param name="x">The first array.</param>
+      /// <param name="y">The second array.</param>
+      /// <param name="itemComparer">The optional equality comparer for items of the array. If <c>null</c>, the default will be used.</param>
+      /// <returns><c>true</c> if <paramref name="x"/> and <paramref name="y"/> are of same length and contain same elements.</returns>
+      /// <remarks>
+      /// This is slightly better performing than just building a new <see cref="HashSet{T}"/> with given comparer and using <see cref="ISet{T}.SetEquals"/> method.
+      /// This method will check for reference equality for arrays, and that the arrays are of same length and contain at least one element before building a set.
+      /// </remarks>
+      public static Boolean IsPermutation( T[] x, T[] y, IEqualityComparer<T> itemComparer = null )
+      {
+         return ReferenceEquals( x, y )
+            || ( x != null && y != null
+            && x.Length == y.Length
+            && ( x.Length == 0
+               || ( x.Length == 1 ?
+                  ( itemComparer ?? EqualityComparer<T>.Default ).Equals( x[0], y[0] ) :
+                  new HashSet<T>( x, itemComparer ).SetEquals( y ) )
+               )
+            );
+      }
+
       private static Boolean ArrayEquality_NoCheck( T[] x, T[] y, Equality<T> equality )
       {
          Boolean result;
@@ -487,6 +512,31 @@ namespace CommonUtils
       public static Int32 CollectionHashCode( T obj, HashCode<U> hashCode = null )
       {
          return CollectionHashCode_NoCheck( obj, hashCode ?? EqualityComparer<U>.Default.GetHashCode );
+      }
+
+      /// <summary>
+      /// Checks that collections are each others permutation.
+      /// That is, the count of elements in both are the same, and all elements contained in one, are also contained in another.
+      /// </summary>
+      /// <param name="x">The first collection.</param>
+      /// <param name="y">The second collection.</param>
+      /// <param name="itemComparer">The optional equality comparer for items of the collection. If <c>null</c>, the default will be used.</param>
+      /// <returns><c>true</c> if <paramref name="x"/> and <paramref name="y"/> have same element count and contain same elements.</returns>
+      /// <remarks>
+      /// This is slightly better performing than just building a new <see cref="HashSet{T}"/> with given comparer and using <see cref="ISet{T}.SetEquals"/> method.
+      /// This method will check for reference equality for collections, and that the collection element count is same and contain at least one element before building a set.
+      /// </remarks>
+      public static Boolean IsPermutation( T x, T y, IEqualityComparer<U> itemComparer = null )
+      {
+         return ReferenceEquals( x, y )
+            || ( x != null && y != null
+            && x.Count == y.Count
+            && ( x.Count == 0
+               || ( x.Count == 1 ?
+                  ( itemComparer ?? EqualityComparer<U>.Default ).Equals( x.First(), y.First() ) :
+                  new HashSet<U>( x, itemComparer ).SetEquals( y ) )
+               )
+            );
       }
 
       private static Boolean CollectionEquality_NoCheck( T x, T y, Equality<U> equality )
@@ -638,6 +688,31 @@ namespace CommonUtils
       public static Int32 ListHashCode( T obj, HashCode<U> hashCode = null )
       {
          return ListHashCode_NoCheck( obj, hashCode ?? EqualityComparer<U>.Default.GetHashCode );
+      }
+
+      /// <summary>
+      /// Checks that lists are each others permutation.
+      /// That is, the count of elements in both are the same, and all elements contained in one, are also contained in another.
+      /// </summary>
+      /// <param name="x">The first list.</param>
+      /// <param name="y">The second list.</param>
+      /// <param name="itemComparer">The optional equality comparer for items of the list. If <c>null</c>, the default will be used.</param>
+      /// <returns><c>true</c> if <paramref name="x"/> and <paramref name="y"/> have same element count and contain same elements.</returns>
+      /// <remarks>
+      /// This is slightly better performing than just building a new <see cref="HashSet{T}"/> with given comparer and using <see cref="ISet{T}.SetEquals"/> method.
+      /// This method will check for reference equality for lists, and that the list element count is same and contain at least one element before building a set.
+      /// </remarks>
+      public static Boolean IsPermutation( T x, T y, IEqualityComparer<U> itemComparer = null )
+      {
+         return ReferenceEquals( x, y )
+            || ( x != null && y != null
+            && x.Count == y.Count
+            && ( x.Count == 0
+               || ( x.Count == 1 ?
+                  ( itemComparer ?? EqualityComparer<U>.Default ).Equals( x.First(), y.First() ) :
+                  new HashSet<U>( x, itemComparer ).SetEquals( y ) )
+               )
+            );
       }
 
       private static Boolean ListEquality_NoCheck( T x, T y, Equality<U> equality )

@@ -50,6 +50,7 @@
     <Compile Include="Physical\Roundtrip.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
     <Compile Include="Structural\Equivalence.cs" />
+    <Compile Include="Structural\PhysicalInterop.cs" />
     <Compile Include="Structural\Signatures.cs" />
     <Compile Include="Structural\Structures.cs" />
   </ItemGroup>
