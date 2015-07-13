@@ -25,7 +25,7 @@ using System.Threading;
 
 namespace CILAssemblyManipulator.Structural
 {
-   public sealed class AssemblyEquivalenceComparer : IEqualityComparer<AssemblyStructureInfo>
+   public sealed class AssemblyEquivalenceComparer : IEqualityComparer<AssemblyStructure>
    {
       private static readonly AssemblyEquivalenceComparer Instance = new AssemblyEquivalenceComparer();
 
@@ -34,7 +34,7 @@ namespace CILAssemblyManipulator.Structural
 
       }
 
-      public static IEqualityComparer<AssemblyStructureInfo> EqualityComparer
+      public static IEqualityComparer<AssemblyStructure> EqualityComparer
       {
          get
          {
@@ -42,7 +42,7 @@ namespace CILAssemblyManipulator.Structural
          }
       }
 
-      Boolean IEqualityComparer<AssemblyStructureInfo>.Equals( AssemblyStructureInfo x, AssemblyStructureInfo y )
+      Boolean IEqualityComparer<AssemblyStructure>.Equals( AssemblyStructure x, AssemblyStructure y )
       {
          var retVal = ReferenceEquals( x, y );
          if ( !retVal )
@@ -66,7 +66,7 @@ namespace CILAssemblyManipulator.Structural
                      var moduleX = modulesX[i];
                      var matchingModuleYInfo = modulesMatches
                         .Where( idx => idx == -1 )
-                        .Select( ( idx, matchIdx ) => Tuple.Create( matchIdx, new ModuleComparer( moduleX, modulesY[matchIdx] ) ) )
+                        .Select( ( idx, matchIdx ) => Tuple.Create( matchIdx, new ModuleEquivalenceComparer( moduleX, modulesY[matchIdx] ) ) )
                         .FirstOrDefault( tuple => tuple.Item2.PerformEquivalenceCheckForModules() );
 
                      if ( matchingModuleYInfo == null )
@@ -95,7 +95,7 @@ namespace CILAssemblyManipulator.Structural
          return retVal;
       }
 
-      Int32 IEqualityComparer<AssemblyStructureInfo>.GetHashCode( AssemblyStructureInfo obj )
+      Int32 IEqualityComparer<AssemblyStructure>.GetHashCode( AssemblyStructure obj )
       {
          return obj == null || obj.AssemblyInfo == null ? 0 : obj.AssemblyInfo.GetHashCode();
       }
@@ -104,122 +104,127 @@ namespace CILAssemblyManipulator.Structural
    /// <summary>
    /// TODO use reference-based dictionary to cache equality results for object (something like IDictionary{Tuple{Object, Object}, Boolean} )
    /// </summary>
-   public sealed class ModuleComparer
+   public sealed class ModuleEquivalenceComparer
    {
-      private readonly ModuleStructureInfo _xModule;
-      private readonly ModuleStructureInfo _yModule;
-      private readonly IEqualityComparer<ModuleStructureInfo> _moduleComparer;
-      private readonly IEqualityComparer<TypeDefDescription> _typeDefComparer;
-      private readonly IEqualityComparer<ExportedTypeStructureInfo> _exportedTypeComparer;
-      private readonly IEqualityComparer<PropertyStructuralInfo> _propertyComparer;
-      private readonly IEqualityComparer<EventStructuralInfo> _eventComparer;
+      private readonly ModuleStructure _xModule;
+      private readonly ModuleStructure _yModule;
+      private readonly IEqualityComparer<ModuleStructure> _moduleComparer;
+      private readonly IEqualityComparer<TypeDefinitionStructure> _typeDefComparer;
+      private readonly IEqualityComparer<ExportedTypeStructure> _exportedTypeComparer;
+      private readonly IEqualityComparer<PropertyStructure> _propertyComparer;
+      private readonly IEqualityComparer<EventStructure> _eventComparer;
       private readonly IEqualityComparer<SemanticMethodInfo> _semanticMethodComparer;
-      private readonly IEqualityComparer<GenericParameterConstraintStructuralInfo> _gConstraintComparer;
+      private readonly IEqualityComparer<GenericParameterConstraintStructure> _gConstraintComparer;
       private readonly IEqualityComparer<CustomAttributeStructure> _caComparer;
-      private readonly IEqualityComparer<InterfaceImplStructuralInfo> _interfaceImplComparer;
+      private readonly IEqualityComparer<InterfaceImplStructure> _interfaceImplComparer;
       private readonly IEqualityComparer<OverriddenMethodInfo> _overriddenMethodComparer;
-      private readonly IEqualityComparer<ManifestResourceStructuralInfo> _resourceComparer;
+      private readonly IEqualityComparer<ManifestResourceStructure> _resourceComparer;
+      private readonly IEqualityComparer<MethodExceptionBlockStructure> _methodExceptionComparer;
 
-      private readonly Lazy<IDictionary<TypeDefDescription, String>> _xTypeDefFullNames;
-      private readonly Lazy<IDictionary<TypeDefDescription, String>> _yTypeDefFullNames;
+      private readonly Lazy<IDictionary<TypeDefinitionStructure, String>> _xTypeDefFullNames;
+      private readonly Lazy<IDictionary<TypeDefinitionStructure, String>> _yTypeDefFullNames;
 
-      public ModuleComparer( ModuleStructureInfo x, ModuleStructureInfo y )
+      public ModuleEquivalenceComparer( ModuleStructure x, ModuleStructure y )
       {
+         ArgumentValidator.ValidateNotNull( "First module", x );
+         ArgumentValidator.ValidateNotNull( "Second module", y );
+
          this._xModule = x;
          this._yModule = y;
 
-         this._moduleComparer = ComparerFromFunctions.NewEqualityComparer<ModuleStructureInfo>( this.Equality_Module, this.HashCode_Module );
-         this._typeDefComparer = ComparerFromFunctions.NewEqualityComparer<TypeDefDescription>( this.Equality_TypeDefinition, this.HashCode_TypeDefinition );
-         this._interfaceImplComparer = ComparerFromFunctions.NewEqualityComparer<InterfaceImplStructuralInfo>( this.Equality_InterfaceImpl, this.HashCode_InterfaceImpl );
-         this._overriddenMethodComparer = ComparerFromFunctions.NewEqualityComparer<OverriddenMethodInfo>( this.Equality_OverriddenMethod, this.HashCode_OverriddenMethod );
-         this._exportedTypeComparer = ComparerFromFunctions.NewEqualityComparer<ExportedTypeStructureInfo>( this.Equality_ExportedType, this.HashCode_ExportedType );
-         this._propertyComparer = ComparerFromFunctions.NewEqualityComparer<PropertyStructuralInfo>( this.Equality_Property, this.HashCode_Property );
-         this._eventComparer = ComparerFromFunctions.NewEqualityComparer<EventStructuralInfo>( this.Equality_Event, this.HashCode_Event );
-         this._semanticMethodComparer = ComparerFromFunctions.NewEqualityComparer<SemanticMethodInfo>( this.Equality_SemanticMethod, this.HashCode_SemanticMethod );
-         this._gConstraintComparer = ComparerFromFunctions.NewEqualityComparer<GenericParameterConstraintStructuralInfo>( this.Equality_GenericParameterConstraint, this.HashCode_GenericParameterConstraint );
-         this._resourceComparer = ComparerFromFunctions.NewEqualityComparer<ManifestResourceStructuralInfo>( this.Equality_ManifestResource, this.HashCode_ManifestResource );
+         this._moduleComparer = ComparerFromFunctions.NewEqualityComparer<ModuleStructure>( this.Equivalence_Module, this.HashCode_Module );
+         this._typeDefComparer = ComparerFromFunctions.NewEqualityComparer<TypeDefinitionStructure>( this.Equivalence_TypeDefinition, this.HashCode_TypeDefinition );
+         this._interfaceImplComparer = ComparerFromFunctions.NewEqualityComparer<InterfaceImplStructure>( this.Equivalence_InterfaceImpl, this.HashCode_InterfaceImpl );
+         this._overriddenMethodComparer = ComparerFromFunctions.NewEqualityComparer<OverriddenMethodInfo>( this.Equivalence_OverriddenMethod, this.HashCode_OverriddenMethod );
+         this._exportedTypeComparer = ComparerFromFunctions.NewEqualityComparer<ExportedTypeStructure>( this.Equivalence_ExportedType, this.HashCode_ExportedType );
+         this._propertyComparer = ComparerFromFunctions.NewEqualityComparer<PropertyStructure>( this.Equivalence_Property, this.HashCode_Property );
+         this._eventComparer = ComparerFromFunctions.NewEqualityComparer<EventStructure>( this.Equivalence_Event, this.HashCode_Event );
+         this._semanticMethodComparer = ComparerFromFunctions.NewEqualityComparer<SemanticMethodInfo>( this.Equivalence_SemanticMethod, this.HashCode_SemanticMethod );
+         this._gConstraintComparer = ComparerFromFunctions.NewEqualityComparer<GenericParameterConstraintStructure>( this.Equivalence_GenericParameterConstraint, this.HashCode_GenericParameterConstraint );
+         this._resourceComparer = ComparerFromFunctions.NewEqualityComparer<ManifestResourceStructure>( this.Equivalence_ManifestResource, this.HashCode_ManifestResource );
+         this._methodExceptionComparer = ComparerFromFunctions.NewEqualityComparer<MethodExceptionBlockStructure>( this.Equivalence_MethodException, this.HashCode_MethodException );
 
-         this._caComparer = ComparerFromFunctions.NewEqualityComparer<CustomAttributeStructure>( Equality_CustomAttribute, HashCode_CustomAttribute );
+         this._caComparer = ComparerFromFunctions.NewEqualityComparer<CustomAttributeStructure>( Equivalence_CustomAttribute, HashCode_CustomAttribute );
 
-         this._xTypeDefFullNames = new Lazy<IDictionary<TypeDefDescription, String>>( () => CreateTypeDefNameDictionary( x ), LazyThreadSafetyMode.None );
-         this._yTypeDefFullNames = new Lazy<IDictionary<TypeDefDescription, String>>( () => CreateTypeDefNameDictionary( y ), LazyThreadSafetyMode.None );
+         this._xTypeDefFullNames = new Lazy<IDictionary<TypeDefinitionStructure, String>>( () => CreateTypeDefNameDictionary( x ), LazyThreadSafetyMode.None );
+         this._yTypeDefFullNames = new Lazy<IDictionary<TypeDefinitionStructure, String>>( () => CreateTypeDefNameDictionary( y ), LazyThreadSafetyMode.None );
       }
 
       public Boolean PerformEquivalenceCheckForModules()
       {
-         return this.Equality_Module( this._xModule, this._yModule );
+         return this.Equivalence_Module( this._xModule, this._yModule );
       }
 
-      internal Boolean PerformEquivalenceCheckForAssemblies( AssemblyStructureInfo x, AssemblyStructureInfo y )
+      internal Boolean PerformEquivalenceCheckForAssemblies( AssemblyStructure x, AssemblyStructure y )
       {
          return ReferenceEquals( x, y )
             || ( x != null && y != null
-            && Equality_Security( x.SecurityInfo, y.SecurityInfo )
-            && ListEqualityComparer<List<ModuleStructureInfo>, ModuleStructureInfo>.IsPermutation( x.Modules, y.Modules, this._moduleComparer )
+            && Equivalence_Security( x.SecurityInfo, y.SecurityInfo )
+            && ListEqualityComparer<List<ModuleStructure>, ModuleStructure>.IsPermutation( x.Modules, y.Modules, this._moduleComparer )
             && ListEqualityComparer<List<CustomAttributeStructure>, CustomAttributeStructure>.IsPermutation( x.CustomAttributes, y.CustomAttributes, this._caComparer )
          );
       }
 
-      private Boolean Equality_Module( ModuleStructureInfo x, ModuleStructureInfo y )
+      private Boolean Equivalence_Module( ModuleStructure x, ModuleStructure y )
       {
          return ReferenceEquals( x, y )
             || ( x != null && y != null
             && String.Equals( x.Name, y.Name )
             && x.IsMainModule == y.IsMainModule
-            && ListEqualityComparer<List<TypeDefDescription>, TypeDefDescription>.IsPermutation( x.TopLevelTypeDefinitions, y.TopLevelTypeDefinitions, this._typeDefComparer )
-            && ListEqualityComparer<List<ExportedTypeStructureInfo>, ExportedTypeStructureInfo>.IsPermutation( x.ExportedTypes, y.ExportedTypes, this._exportedTypeComparer )
-            && ListEqualityComparer<List<ManifestResourceStructuralInfo>, ManifestResourceStructuralInfo>.IsPermutation( x.ManifestResources, y.ManifestResources, this._resourceComparer )
+            && ListEqualityComparer<List<TypeDefinitionStructure>, TypeDefinitionStructure>.IsPermutation( x.TopLevelTypeDefinitions, y.TopLevelTypeDefinitions, this._typeDefComparer )
+            && ListEqualityComparer<List<ExportedTypeStructure>, ExportedTypeStructure>.IsPermutation( x.ExportedTypes, y.ExportedTypes, this._exportedTypeComparer )
+            && ListEqualityComparer<List<ManifestResourceStructure>, ManifestResourceStructure>.IsPermutation( x.ManifestResources, y.ManifestResources, this._resourceComparer )
             && ListEqualityComparer<List<CustomAttributeStructure>, CustomAttributeStructure>.IsPermutation( x.CustomAttributes, y.CustomAttributes, this._caComparer )
             );
       }
 
-      private Boolean Equality_TypeDefinition( TypeDefDescription x, TypeDefDescription y )
+      private Boolean Equivalence_TypeDefinition( TypeDefinitionStructure x, TypeDefinitionStructure y )
       {
          return ReferenceEquals( x, y )
             || ( x != null
             && String.Equals( x.Name, y.Name )
             && String.Equals( x.Namespace, y.Namespace )
-            && Equality_TypeDefOrRefOrSpec( x.BaseType, y.BaseType )
+            && Equivalence_TypeDefOrRefOrSpec( x.BaseType, y.BaseType )
             && x.Attributes == y.Attributes
-            && ListEqualityComparer<List<FieldStructureInfo>, FieldStructureInfo>.ListEquality( x.Fields, y.Fields, this.Equality_Field )
-            && ListEqualityComparer<List<MethodStructureInfo>, MethodStructureInfo>.ListEquality( x.Methods, y.Methods, this.Equality_Method )
-            && ListEqualityComparer<List<GenericParameterStructuralInfo>, GenericParameterStructuralInfo>.ListEquality( x.GenericParameters, y.GenericParameters, this.Equality_GenericParameter )
-            && ListEqualityComparer<List<PropertyStructuralInfo>, PropertyStructuralInfo>.IsPermutation( x.Properties, y.Properties, this._propertyComparer )
-            && ListEqualityComparer<List<EventStructuralInfo>, EventStructuralInfo>.IsPermutation( x.Events, y.Events, this._eventComparer )
-            && ListEqualityComparer<List<InterfaceImplStructuralInfo>, InterfaceImplStructuralInfo>.IsPermutation( x.ImplementedInterfaces, y.ImplementedInterfaces, this._interfaceImplComparer )
-            && Equality_Security( x.SecurityInfo, y.SecurityInfo )
+            && ListEqualityComparer<List<FieldStructure>, FieldStructure>.ListEquality( x.Fields, y.Fields, this.Equivalence_Field )
+            && ListEqualityComparer<List<MethodStructure>, MethodStructure>.ListEquality( x.Methods, y.Methods, this.Equivalence_Method )
+            && ListEqualityComparer<List<GenericParameterStructure>, GenericParameterStructure>.ListEquality( x.GenericParameters, y.GenericParameters, this.Equivalence_GenericParameter )
+            && ListEqualityComparer<List<PropertyStructure>, PropertyStructure>.IsPermutation( x.Properties, y.Properties, this._propertyComparer )
+            && ListEqualityComparer<List<EventStructure>, EventStructure>.IsPermutation( x.Events, y.Events, this._eventComparer )
+            && ListEqualityComparer<List<InterfaceImplStructure>, InterfaceImplStructure>.IsPermutation( x.ImplementedInterfaces, y.ImplementedInterfaces, this._interfaceImplComparer )
+            && Equivalence_Security( x.SecurityInfo, y.SecurityInfo )
             && ListEqualityComparer<List<OverriddenMethodInfo>, OverriddenMethodInfo>.IsPermutation( x.OverriddenMethods, y.OverriddenMethods, this._overriddenMethodComparer )
             && x.Layout.EqualsTypedEquatable( y.Layout )
-            && ListEqualityComparer<List<TypeDefDescription>, TypeDefDescription>.IsPermutation( x.NestedTypes, y.NestedTypes, this._typeDefComparer )
+            && ListEqualityComparer<List<TypeDefinitionStructure>, TypeDefinitionStructure>.IsPermutation( x.NestedTypes, y.NestedTypes, this._typeDefComparer )
             && ListEqualityComparer<List<CustomAttributeStructure>, CustomAttributeStructure>.IsPermutation( x.CustomAttributes, y.CustomAttributes, this._caComparer )
             );
       }
 
-      private Boolean Equality_CustomAttribute( CustomAttributeStructure x, CustomAttributeStructure y )
+      private Boolean Equivalence_CustomAttribute( CustomAttributeStructure x, CustomAttributeStructure y )
       {
          return ReferenceEquals( x, y )
             || ( x != null && y != null
-            && Equality_MethodDefOrMemberRef( x.Constructor, y.Constructor )
+            && Equivalence_MethodDefOrMemberRef( x.Constructor, y.Constructor )
             && Comparers.AbstractCustomAttributeSignatureEqualityComparer.Equals( x.Signature, y.Signature )
          );
       }
 
-      private Boolean Equality_TypeDefOrRefOrSpec( AbstractTypeDescription x, AbstractTypeDescription y )
+      private Boolean Equivalence_TypeDefOrRefOrSpec( AbstractTypeStructure x, AbstractTypeStructure y )
       {
          return ReferenceEquals( x, y )
             || ( x != null && y != null
             && x.TypeDescriptionKind == y.TypeDescriptionKind
-            && Equality_TypeDefOrRefOrSpec_SameKind( x, y )
+            && Equivalence_TypeDefOrRefOrSpec_SameKind( x, y )
             );
       }
 
-      private Boolean Equality_Field( FieldStructureInfo x, FieldStructureInfo y )
+      private Boolean Equivalence_Field( FieldStructure x, FieldStructure y )
       {
          return ReferenceEquals( x, y )
             || ( x != null && y != null
             && String.Equals( x.Name, y.Name )
             && x.Attributes == y.Attributes
-            && Equality_Signature_Field( x.Signature, y.Signature )
+            && Equivalence_Signature_Field( x.Signature, y.Signature )
             && Equals( x.ConstantValue, y.ConstantValue )
             && Comparers.MarshalingInfoEqualityComparer.Equals( x.MarshalingInfo, y.MarshalingInfo )
             && x.FieldOffset == y.FieldOffset
@@ -229,24 +234,24 @@ namespace CILAssemblyManipulator.Structural
             );
       }
 
-      private Boolean Equality_Method( MethodStructureInfo x, MethodStructureInfo y )
+      private Boolean Equivalence_Method( MethodStructure x, MethodStructure y )
       {
          return ReferenceEquals( x, y )
             || ( x != null && y != null
             && String.Equals( x.Name, y.Name )
-            && Equality_Signature_MethodDef( x.Signature, y.Signature )
-            && ListEqualityComparer<List<ParameterStructureInfo>, ParameterStructureInfo>.ListEquality( x.Parameters, y.Parameters, this.Equality_Parameter )
-            && Equality_MethodIL( x.IL, y.IL )
+            && Equivalence_Signature_MethodDef( x.Signature, y.Signature )
+            && ListEqualityComparer<List<ParameterStructure>, ParameterStructure>.ListEquality( x.Parameters, y.Parameters, this.Equivalence_Parameter )
+            && Equivalence_MethodIL( x.IL, y.IL )
             && x.Attributes == y.Attributes
             && x.ImplementationAttributes == y.ImplementationAttributes
             && x.PInvokeInfo.EqualsTypedEquatable( y.PInvokeInfo )
-            && ListEqualityComparer<List<GenericParameterStructuralInfo>, GenericParameterStructuralInfo>.ListEquality( x.GenericParameters, y.GenericParameters, this.Equality_GenericParameter )
-            && Equality_Security( x.SecurityInfo, y.SecurityInfo )
+            && ListEqualityComparer<List<GenericParameterStructure>, GenericParameterStructure>.ListEquality( x.GenericParameters, y.GenericParameters, this.Equivalence_GenericParameter )
+            && Equivalence_Security( x.SecurityInfo, y.SecurityInfo )
             && ListEqualityComparer<List<CustomAttributeStructure>, CustomAttributeStructure>.IsPermutation( x.CustomAttributes, y.CustomAttributes, this._caComparer )
             );
       }
 
-      private Boolean Equality_Parameter( ParameterStructureInfo x, ParameterStructureInfo y )
+      private Boolean Equivalence_Parameter( ParameterStructure x, ParameterStructure y )
       {
          return ReferenceEquals( x, y )
             || ( x != null && y != null
@@ -258,22 +263,22 @@ namespace CILAssemblyManipulator.Structural
             );
       }
 
-      private Boolean Equality_InterfaceImpl( InterfaceImplStructuralInfo x, InterfaceImplStructuralInfo y )
+      private Boolean Equivalence_InterfaceImpl( InterfaceImplStructure x, InterfaceImplStructure y )
       {
          return ReferenceEquals( x, y )
             || ( x != null && y != null
-            && Equality_TypeDefOrRefOrSpec( x.InterfaceType, y.InterfaceType )
+            && Equivalence_TypeDefOrRefOrSpec( x.InterfaceType, y.InterfaceType )
             && ListEqualityComparer<List<CustomAttributeStructure>, CustomAttributeStructure>.IsPermutation( x.CustomAttributes, y.CustomAttributes, this._caComparer )
             );
       }
 
-      private Boolean Equality_TypeDefOrRefOrSpec_SameKind( AbstractTypeDescription x, AbstractTypeDescription y )
+      private Boolean Equivalence_TypeDefOrRefOrSpec_SameKind( AbstractTypeStructure x, AbstractTypeStructure y )
       {
          switch ( x.TypeDescriptionKind )
          {
-            case TypeDescriptionKind.TypeDef:
-               var xDef = (TypeDefDescription) x;
-               var yDef = (TypeDefDescription) y;
+            case TypeStructureKind.TypeDef:
+               var xDef = (TypeDefinitionStructure) x;
+               var yDef = (TypeDefinitionStructure) y;
                String xName; String yName;
                return ( this._xTypeDefFullNames.Value.TryGetValue( xDef, out xName ) ?
                   this._yTypeDefFullNames.Value.TryGetValue( yDef, out yName ) :
@@ -291,52 +296,52 @@ namespace CILAssemblyManipulator.Structural
             //   return this._typeDefFullNames2.TryGetValue( y, out yName )
             //      && String.Equals( xName, yName );
             //}
-            case TypeDescriptionKind.TypeRef:
-               var xx = (TypeRefDescription) x;
-               var yy = (TypeRefDescription) y;
+            case TypeStructureKind.TypeRef:
+               var xx = (TypeReferenceStructure) x;
+               var yy = (TypeReferenceStructure) y;
                return String.Equals( xx.Name, yy.Name )
                   && String.Equals( xx.Namespace, yy.Namespace )
-                  && Equality_TypeRefResolutionScope( xx.ResolutionScope, yy.ResolutionScope )
+                  && Equivalence_TypeRefResolutionScope( xx.ResolutionScope, yy.ResolutionScope )
                   && ListEqualityComparer<List<CustomAttributeStructure>, CustomAttributeStructure>.IsPermutation( x.CustomAttributes, y.CustomAttributes, this._caComparer );
-            case TypeDescriptionKind.TypeSpec:
-               var xs = (TypeSpecDescription) x;
-               var ys = (TypeSpecDescription) y;
-               return Equality_Signature_Type( xs.Signature, ys.Signature )
+            case TypeStructureKind.TypeSpec:
+               var xs = (TypeSpecificationStructure) x;
+               var ys = (TypeSpecificationStructure) y;
+               return Equivalence_Signature_Type( xs.Signature, ys.Signature )
                   && ListEqualityComparer<List<CustomAttributeStructure>, CustomAttributeStructure>.IsPermutation( x.CustomAttributes, y.CustomAttributes, this._caComparer );
             default:
                throw new InvalidOperationException( "Invalid type ref or def or spec: " + x.TypeDescriptionKind + "." );
          }
       }
 
-      private Boolean Equality_MethodDefOrMemberRef( MethodDefOrMemberRefStructure x, MethodDefOrMemberRefStructure y )
+      private Boolean Equivalence_MethodDefOrMemberRef( MethodDefOrMemberRefStructure x, MethodDefOrMemberRefStructure y )
       {
          return ReferenceEquals( x, y )
             || ( x != null && y != null
-            && x.MethodRefKind == y.MethodRefKind
-            && Equality_MethodDefOrMemberRef_SameKind( x, y )
+            && x.MethodReferenceKind == y.MethodReferenceKind
+            && Equivalence_MethodDefOrMemberRef_SameKind( x, y )
             );
       }
 
-      private Boolean Equality_MethodDefOrMemberRef_SameKind( MethodDefOrMemberRefStructure x, MethodDefOrMemberRefStructure y )
+      private Boolean Equivalence_MethodDefOrMemberRef_SameKind( MethodDefOrMemberRefStructure x, MethodDefOrMemberRefStructure y )
       {
-         switch ( x.MethodRefKind )
+         switch ( x.MethodReferenceKind )
          {
-            case MethodRefKind.MethodDef:
-               return Equality_Method( (MethodStructureInfo) x, (MethodStructureInfo) y );
-            case MethodRefKind.MemberRef:
-               return Equality_MemberRef( (MemberReferenceStructuralInfo) x, (MemberReferenceStructuralInfo) y );
+            case MethodReferenceKind.MethodDef:
+               return Equivalence_Method( (MethodStructure) x, (MethodStructure) y );
+            case MethodReferenceKind.MemberRef:
+               return Equivalence_MemberRef( (MemberReferenceStructure) x, (MemberReferenceStructure) y );
             default:
-               throw new InvalidOperationException( "Invalid method def or member ref kind: " + x.MethodRefKind + "." );
+               throw new InvalidOperationException( "Invalid method def or member ref kind: " + x.MethodReferenceKind + "." );
          }
       }
 
-      private Boolean Equality_OverriddenMethod( OverriddenMethodInfo x, OverriddenMethodInfo y )
+      private Boolean Equivalence_OverriddenMethod( OverriddenMethodInfo x, OverriddenMethodInfo y )
       {
-         return Equality_MethodDefOrMemberRef( x.MethodBody, y.MethodBody )
-            && Equality_MethodDefOrMemberRef( x.MethodDeclaration, y.MethodDeclaration );
+         return Equivalence_MethodDefOrMemberRef( x.MethodBody, y.MethodBody )
+            && Equivalence_MethodDefOrMemberRef( x.MethodDeclaration, y.MethodDeclaration );
       }
 
-      private Boolean Equality_ModuleRef( ModuleRefStructureInfo x, ModuleRefStructureInfo y )
+      private Boolean Equivalence_ModuleRef( ModuleReferenceStructure x, ModuleReferenceStructure y )
       {
          return ReferenceEquals( x, y )
             || ( x != null && y != null
@@ -345,7 +350,7 @@ namespace CILAssemblyManipulator.Structural
             );
       }
 
-      private Boolean Equality_AssemblyRef( AssemblyRefStructureInfo x, AssemblyRefStructureInfo y )
+      private Boolean Equivalence_AssemblyRef( AssemblyReferenceStructure x, AssemblyReferenceStructure y )
       {
          return ReferenceEquals( x, y )
             || ( x != null && y != null
@@ -356,7 +361,7 @@ namespace CILAssemblyManipulator.Structural
             );
       }
 
-      private Boolean Equality_ExportedType( ExportedTypeStructureInfo x, ExportedTypeStructureInfo y )
+      private Boolean Equivalence_ExportedType( ExportedTypeStructure x, ExportedTypeStructure y )
       {
          return ReferenceEquals( x, y )
             || ( x != null && y != null
@@ -364,12 +369,12 @@ namespace CILAssemblyManipulator.Structural
             && String.Equals( x.Namespace, y.Namespace )
             && x.Attributes == y.Attributes
             && x.TypeDefID == y.TypeDefID
-            && Equality_ExportedTypeResolutionScope( x.ResolutionScope, y.ResolutionScope )
+            && Equivalence_ExportedTypeResolutionScope( x.ResolutionScope, y.ResolutionScope )
             && ListEqualityComparer<List<CustomAttributeStructure>, CustomAttributeStructure>.IsPermutation( x.CustomAttributes, y.CustomAttributes, this._caComparer )
             );
       }
 
-      private Boolean Equality_File( FileReferenceStructureInfo x, FileReferenceStructureInfo y )
+      private Boolean Equivalence_File( FileReferenceStructure x, FileReferenceStructure y )
       {
          return ReferenceEquals( x, y )
             || ( x != null && y != null
@@ -380,7 +385,7 @@ namespace CILAssemblyManipulator.Structural
             );
       }
 
-      private Boolean Equality_Security( SecurityStructuralInfo x, SecurityStructuralInfo y )
+      private Boolean Equivalence_Security( SecurityStructure x, SecurityStructure y )
       {
          return ReferenceEquals( x, y )
             || ( x != null && y != null
@@ -390,239 +395,314 @@ namespace CILAssemblyManipulator.Structural
             );
       }
 
-      private Boolean Equality_Property( PropertyStructuralInfo x, PropertyStructuralInfo y )
+      private Boolean Equivalence_Property( PropertyStructure x, PropertyStructure y )
       {
          return ReferenceEquals( x, y )
             || ( x != null && y != null
             && String.Equals( x.Name, y.Name )
             && x.Attributes == y.Attributes
-            && Equality_Signature_Property( x.Signature, y.Signature )
+            && Equivalence_Signature_Property( x.Signature, y.Signature )
             && ListEqualityComparer<List<SemanticMethodInfo>, SemanticMethodInfo>.IsPermutation( x.SemanticMethods, y.SemanticMethods, this._semanticMethodComparer )
             && Equals( x.ConstantValue, y.ConstantValue )
             && ListEqualityComparer<List<CustomAttributeStructure>, CustomAttributeStructure>.IsPermutation( x.CustomAttributes, y.CustomAttributes, this._caComparer )
             );
       }
 
-      private Boolean Equality_Event( EventStructuralInfo x, EventStructuralInfo y )
+      private Boolean Equivalence_Event( EventStructure x, EventStructure y )
       {
          return ReferenceEquals( x, y )
             || ( x != null && y != null
             && String.Equals( x.Name, y.Name )
-            && Equality_TypeDefOrRefOrSpec( x.EventType, y.EventType )
+            && Equivalence_TypeDefOrRefOrSpec( x.EventType, y.EventType )
             && ListEqualityComparer<List<SemanticMethodInfo>, SemanticMethodInfo>.IsPermutation( x.SemanticMethods, y.SemanticMethods, this._semanticMethodComparer )
             && x.Attributes == y.Attributes
             && ListEqualityComparer<List<CustomAttributeStructure>, CustomAttributeStructure>.IsPermutation( x.CustomAttributes, y.CustomAttributes, this._caComparer )
             );
       }
 
-      private Boolean Equality_SemanticMethod( SemanticMethodInfo x, SemanticMethodInfo y )
+      private Boolean Equivalence_SemanticMethod( SemanticMethodInfo x, SemanticMethodInfo y )
       {
          return x.Attributes == y.Attributes
-            && Equality_Method( x.Method, y.Method );
+            && Equivalence_Method( x.Method, y.Method );
       }
 
-      private Boolean Equality_MemberRef( MemberReferenceStructuralInfo x, MemberReferenceStructuralInfo y )
+      private Boolean Equivalence_MemberRef( MemberReferenceStructure x, MemberReferenceStructure y )
       {
          return ReferenceEquals( x, y )
             || ( x != null && y != null
             && String.Equals( x.Name, y.Name )
-            && Equality_MemberReferenceParent( x.Parent, y.Parent )
-            && Equality_Signature( x.Signature, y.Signature )
+            && Equivalence_MemberReferenceParent( x.Parent, y.Parent )
+            && Equivalence_Signature( x.Signature, y.Signature )
             && ListEqualityComparer<List<CustomAttributeStructure>, CustomAttributeStructure>.IsPermutation( x.CustomAttributes, y.CustomAttributes, this._caComparer )
             );
       }
 
-      private Boolean Equality_GenericParameter( GenericParameterStructuralInfo x, GenericParameterStructuralInfo y )
+      private Boolean Equivalence_GenericParameter( GenericParameterStructure x, GenericParameterStructure y )
       {
          return ReferenceEquals( x, y )
             || ( x != null && y != null
             && String.Equals( x.Name, y.Name )
             && x.GenericParameterIndex == y.GenericParameterIndex
             && x.Attributes == y.Attributes
-            && ListEqualityComparer<List<GenericParameterConstraintStructuralInfo>, GenericParameterConstraintStructuralInfo>.IsPermutation( x.Constraints, y.Constraints, this._gConstraintComparer )
+            && ListEqualityComparer<List<GenericParameterConstraintStructure>, GenericParameterConstraintStructure>.IsPermutation( x.Constraints, y.Constraints, this._gConstraintComparer )
             && ListEqualityComparer<List<CustomAttributeStructure>, CustomAttributeStructure>.IsPermutation( x.CustomAttributes, y.CustomAttributes, this._caComparer )
             );
       }
 
-      private Boolean Equality_GenericParameterConstraint( GenericParameterConstraintStructuralInfo x, GenericParameterConstraintStructuralInfo y )
+      private Boolean Equivalence_GenericParameterConstraint( GenericParameterConstraintStructure x, GenericParameterConstraintStructure y )
       {
          return ReferenceEquals( x, y )
             || ( x != null && y != null
-            && Equality_TypeDefOrRefOrSpec( x.Constraint, y.Constraint )
+            && Equivalence_TypeDefOrRefOrSpec( x.Constraint, y.Constraint )
             && ListEqualityComparer<List<CustomAttributeStructure>, CustomAttributeStructure>.IsPermutation( x.CustomAttributes, y.CustomAttributes, this._caComparer )
             );
       }
 
-      private Boolean Equality_ManifestResource( ManifestResourceStructuralInfo x, ManifestResourceStructuralInfo y )
+      private Boolean Equivalence_ManifestResource( ManifestResourceStructure x, ManifestResourceStructure y )
       {
          return ReferenceEquals( x, y )
             || ( x != null && y != null
             && String.Equals( x.Name, y.Name )
-            && Equality_ManifestResourceData( x.ManifestData, y.ManifestData )
+            && Equivalence_ManifestResourceData( x.ManifestData, y.ManifestData )
             && x.Attributes == y.Attributes
             && x.Offset == y.Offset
             && ListEqualityComparer<List<CustomAttributeStructure>, CustomAttributeStructure>.IsPermutation( x.CustomAttributes, y.CustomAttributes, this._caComparer )
             );
       }
 
-      private Boolean Equality_StandaloneSignature( StandaloneSignatureStructure x, StandaloneSignatureStructure y )
+      private Boolean Equivalence_StandaloneSignature( StandaloneSignatureStructure x, StandaloneSignatureStructure y )
       {
          return ReferenceEquals( x, y )
             || ( x != null && y != null
-            && Equality_Signature( x.Signature, y.Signature )
+            && Equivalence_Signature( x.Signature, y.Signature )
             && ListEqualityComparer<List<CustomAttributeStructure>, CustomAttributeStructure>.IsPermutation( x.CustomAttributes, y.CustomAttributes, this._caComparer )
             );
       }
 
-      private Boolean Equality_MethodSpec( MethodSpecificationStructure x, MethodSpecificationStructure y )
+      private Boolean Equivalence_MethodSpec( MethodSpecificationStructure x, MethodSpecificationStructure y )
       {
          return ReferenceEquals( x, y )
             || ( x != null && y != null
-            && Equality_MethodDefOrMemberRef( x.Method, y.Method )
-            && Equality_Signature_GenericMethod( x.Signature, y.Signature )
+            && Equivalence_MethodDefOrMemberRef( x.Method, y.Method )
+            && Equivalence_Signature_GenericMethod( x.Signature, y.Signature )
             && ListEqualityComparer<List<CustomAttributeStructure>, CustomAttributeStructure>.IsPermutation( x.CustomAttributes, y.CustomAttributes, this._caComparer )
             );
       }
 
-      private Boolean Equality_ManifestResourceData( ManifestResourceData x, ManifestResourceData y )
+      private Boolean Equivalence_MethodIL( MethodILStructureInfo x, MethodILStructureInfo y )
+      {
+         return ReferenceEquals( x, y )
+            || ( x != null && y != null
+            && this.Equivalence_StandaloneSignature( x.Locals, y.Locals )
+            && ListEqualityComparer<List<OpCodeStructure>, OpCodeStructure>.ListEquality( x.OpCodes, y.OpCodes, Equivalence_OpCode )
+            && ListEqualityComparer<List<MethodExceptionBlockStructure>, MethodExceptionBlockStructure>.IsPermutation( x.ExceptionBlocks, y.ExceptionBlocks, this._methodExceptionComparer )
+            && x.InitLocals == y.InitLocals
+            && x.MaxStackSize == y.MaxStackSize
+            );
+      }
+
+      private Boolean Equivalence_MethodException( MethodExceptionBlockStructure x, MethodExceptionBlockStructure y )
+      {
+         return ReferenceEquals( x, y )
+            || ( x != null && y != null
+            && x.BlockType == y.BlockType
+            && x.TryOffset == y.TryOffset
+            && x.TryLength == y.TryLength
+            && x.HandlerOffset == y.HandlerOffset
+            && x.HandlerLength == y.HandlerLength
+            && x.FilterOffset == y.FilterOffset
+            && Equivalence_TypeDefOrRefOrSpec( x.ExceptionType, y.ExceptionType )
+            );
+      }
+
+      private Boolean Equivalence_OpCode( OpCodeStructure x, OpCodeStructure y )
+      {
+         var retVal = ReferenceEquals( x, y );
+         if ( !retVal && x != null && y != null && x.OpCodeStructureKind == y.OpCodeStructureKind )
+         {
+            switch ( x.OpCodeStructureKind )
+            {
+               case OpCodeStructureKind.Simple:
+                  retVal = ( (OpCodeStructureSimple) x ).SimpleOpCode == ( (OpCodeStructureSimple) y ).SimpleOpCode;
+                  break;
+               case OpCodeStructureKind.Wrapper:
+                  retVal = Comparers.OpCodeInfoEqualityComparer.Equals( ( (OpCodeStructureWrapper) x ).PhysicalOpCode, ( (OpCodeStructureWrapper) y ).PhysicalOpCode );
+                  break;
+               case OpCodeStructureKind.WithReference:
+                  var xRef = (OpCodeStructureWithReference) x;
+                  var yRef = (OpCodeStructureWithReference) y;
+                  retVal = xRef.OpCode == yRef.OpCode && Equivalence_ILReference( xRef.Structure, yRef.Structure );
+                  break;
+            }
+         }
+         return retVal;
+      }
+
+      private Boolean Equivalence_ILReference( StructurePresentInIL x, StructurePresentInIL y )
+      {
+         var retVal = ReferenceEquals( x, y );
+         if ( !retVal && x != null && y != null && x.StructureTokenKind == y.StructureTokenKind )
+         {
+            switch ( x.StructureTokenKind )
+            {
+               case OpCodeStructureTokenKind.FieldDef:
+                  retVal = Equivalence_Field( (FieldStructure) x, (FieldStructure) y );
+                  break;
+               case OpCodeStructureTokenKind.MemberRef:
+                  retVal = Equivalence_MemberRef( (MemberReferenceStructure) x, (MemberReferenceStructure) y );
+                  break;
+               case OpCodeStructureTokenKind.MethodDef:
+                  retVal = Equivalence_Method( (MethodStructure) x, (MethodStructure) y );
+                  break;
+               case OpCodeStructureTokenKind.MethodSpec:
+                  retVal = Equivalence_MethodSpec( (MethodSpecificationStructure) x, (MethodSpecificationStructure) y );
+                  break;
+               case OpCodeStructureTokenKind.StandaloneSignature:
+                  retVal = Equivalence_StandaloneSignature( (StandaloneSignatureStructure) x, (StandaloneSignatureStructure) y );
+                  break;
+               case OpCodeStructureTokenKind.TypeDef:
+               case OpCodeStructureTokenKind.TypeRef:
+               case OpCodeStructureTokenKind.TypeSpec:
+                  retVal = Equivalence_TypeDefOrRefOrSpec( (AbstractTypeStructure) x, (AbstractTypeStructure) y );
+                  break;
+            }
+         }
+         return retVal;
+      }
+
+      private Boolean Equivalence_ManifestResourceData( ManifestResourceStructureData x, ManifestResourceStructureData y )
       {
          return ReferenceEquals( x, y )
             || ( x != null & y != null
             && x.ManifestResourceDataKind == y.ManifestResourceDataKind
-            && Equality_ManifestResourceData_SameKind( x, y )
+            && Equivalence_ManifestResourceData_SameKind( x, y )
             );
       }
 
-      private Boolean Equality_MethodIL( MethodILStructureInfo x, MethodILStructureInfo y )
-      {
-         return ReferenceEquals( x, y )
-            || ( x != null && y != null );
-      }
-
-      private Boolean Equality_ManifestResourceData_SameKind( ManifestResourceData x, ManifestResourceData y )
+      private Boolean Equivalence_ManifestResourceData_SameKind( ManifestResourceStructureData x, ManifestResourceStructureData y )
       {
          switch ( x.ManifestResourceDataKind )
          {
             case ManifestResourceDataKind.AssemblyRef:
-               return Equality_AssemblyRef( ( (ManifestResourceDataAssemblyRef) x ).AssemblyRef, ( (ManifestResourceDataAssemblyRef) y ).AssemblyRef );
+               return Equivalence_AssemblyRef( ( (ManifestResourceStructureDataAssemblyReference) x ).AssemblyRef, ( (ManifestResourceStructureDataAssemblyReference) y ).AssemblyRef );
             case ManifestResourceDataKind.Embedded:
-               return ArrayEqualityComparer<Byte>.DefaultArrayEqualityComparer.Equals( ( (ManifestResourceDataEmbedded) x ).Data, ( (ManifestResourceDataEmbedded) y ).Data );
+               return ArrayEqualityComparer<Byte>.DefaultArrayEqualityComparer.Equals( ( (ManifestResourceStructureDataEmbedded) x ).Data, ( (ManifestResourceStructureDataEmbedded) y ).Data );
             case ManifestResourceDataKind.File:
-               return Equality_File( ( (ManifestResourceDataFile) x ).FileReference, ( (ManifestResourceDataFile) y ).FileReference );
+               return Equivalence_File( ( (ManifestResourceStrucureDataFile) x ).FileReference, ( (ManifestResourceStrucureDataFile) y ).FileReference );
             default:
                throw new InvalidOperationException( "Invalid manifest resouce data kind: " + x.ManifestResourceDataKind + "." );
          }
       }
 
-      private Boolean Equality_TypeRefResolutionScope( TypeRefResolutionScope x, TypeRefResolutionScope y )
+      private Boolean Equivalence_TypeRefResolutionScope( TypeRefeferenceResolutionScope x, TypeRefeferenceResolutionScope y )
       {
          return ReferenceEquals( x, y )
             || ( x != null && y != null
             && x.ResolutionScopeKind == y.ResolutionScopeKind
-            && Equality_TypeRefResolutionScope_SameKind( x, y )
+            && Equivalence_TypeRefResolutionScope_SameKind( x, y )
             );
       }
 
-      private Boolean Equality_TypeRefResolutionScope_SameKind( TypeRefResolutionScope x, TypeRefResolutionScope y )
+      private Boolean Equivalence_TypeRefResolutionScope_SameKind( TypeRefeferenceResolutionScope x, TypeRefeferenceResolutionScope y )
       {
          switch ( x.ResolutionScopeKind )
          {
             case TypeRefResolutionScopeKind.Nested:
-               return Equality_TypeDefOrRefOrSpec( ( (TypeRefResolutionScopeNested) x ).EnclosingTypeRef, ( (TypeRefResolutionScopeNested) y ).EnclosingTypeRef );
+               return Equivalence_TypeDefOrRefOrSpec( ( (TypeReferenceResolutionScopeNested) x ).EnclosingTypeRef, ( (TypeReferenceResolutionScopeNested) y ).EnclosingTypeRef );
             case TypeRefResolutionScopeKind.TypeDef:
-               return Equality_TypeDefOrRefOrSpec( ( (TypeRefResolutionScopeTypeDef) x ).TypeDef, ( (TypeRefResolutionScopeTypeDef) y ).TypeDef );
+               return Equivalence_TypeDefOrRefOrSpec( ( (TypeReferenceResolutionScopeTypeDef) x ).TypeDef, ( (TypeReferenceResolutionScopeTypeDef) y ).TypeDef );
             case TypeRefResolutionScopeKind.ModuleRef:
-               return Equality_ModuleRef( ( (TypeRefResolutionScopeModuleRef) x ).ModuleRef, ( (TypeRefResolutionScopeModuleRef) y ).ModuleRef );
+               return Equivalence_ModuleRef( ( (TypeReferenceResolutionScopeModuleRef) x ).ModuleRef, ( (TypeReferenceResolutionScopeModuleRef) y ).ModuleRef );
             case TypeRefResolutionScopeKind.ExportedType:
-               return Equality_ExportedType( ( (TypeRefResolutionScopeExportedType) x ).ExportedType, ( (TypeRefResolutionScopeExportedType) y ).ExportedType );
+               return Equivalence_ExportedType( ( (TypeReferenceResolutionScopeExportedType) x ).ExportedType, ( (TypeReferenceResolutionScopeExportedType) y ).ExportedType );
             case TypeRefResolutionScopeKind.AssemblyRef:
-               return Equality_AssemblyRef( ( (TypeRefResolutionScopeAssemblyRef) x ).AssemblyRef, ( (TypeRefResolutionScopeAssemblyRef) y ).AssemblyRef );
+               return Equivalence_AssemblyRef( ( (TypeReferenceResolutionScopeAssemblyRef) x ).AssemblyRef, ( (TypeReferenceResolutionScopeAssemblyRef) y ).AssemblyRef );
             default:
                throw new InvalidOperationException( "Invalid type ref resolution scope: " + x.ResolutionScopeKind + "." );
          }
       }
 
-      private Boolean Equality_ExportedTypeResolutionScope( ExportedTypeResolutionScope x, ExportedTypeResolutionScope y )
+      private Boolean Equivalence_ExportedTypeResolutionScope( ExportedTypeResolutionScope x, ExportedTypeResolutionScope y )
       {
          return ReferenceEquals( x, y )
             || ( x != null && y != null
             && x.ResolutionScopeKind == y.ResolutionScopeKind
-            && Equality_ExportedTypeResolutionScope_SameKind( x, y )
+            && Equivalence_ExportedTypeResolutionScope_SameKind( x, y )
             );
       }
 
-      private Boolean Equality_ExportedTypeResolutionScope_SameKind( ExportedTypeResolutionScope x, ExportedTypeResolutionScope y )
+      private Boolean Equivalence_ExportedTypeResolutionScope_SameKind( ExportedTypeResolutionScope x, ExportedTypeResolutionScope y )
       {
          switch ( x.ResolutionScopeKind )
          {
             case ExportedTypeResolutionScopeKind.Nested:
-               return Equality_ExportedType( ( (ExportedTypeResolutionScopeNested) x ).EnclosingType, ( (ExportedTypeResolutionScopeNested) y ).EnclosingType );
+               return Equivalence_ExportedType( ( (ExportedTypeResolutionScopeNested) x ).EnclosingType, ( (ExportedTypeResolutionScopeNested) y ).EnclosingType );
             case ExportedTypeResolutionScopeKind.File:
-               return Equality_File( ( (ExportedTypeResolutionScopeFile) x ).File, ( (ExportedTypeResolutionScopeFile) y ).File );
+               return Equivalence_File( ( (ExportedTypeResolutionScopeFile) x ).File, ( (ExportedTypeResolutionScopeFile) y ).File );
             case ExportedTypeResolutionScopeKind.AssemblyRef:
-               return Equality_AssemblyRef( ( (ExportedTypeResolutionScopeAssemblyRef) x ).AssemblyRef, ( (ExportedTypeResolutionScopeAssemblyRef) y ).AssemblyRef );
+               return Equivalence_AssemblyRef( ( (ExportedTypeResolutionScopeAssemblyRef) x ).AssemblyRef, ( (ExportedTypeResolutionScopeAssemblyRef) y ).AssemblyRef );
             default:
                throw new InvalidOperationException( "Invalid exported type resolution scope: " + x.ResolutionScopeKind + "." );
          }
       }
 
-      private Boolean Equality_MemberReferenceParent( MemberReferenceParent x, MemberReferenceParent y )
+      private Boolean Equivalence_MemberReferenceParent( MemberReferenceParent x, MemberReferenceParent y )
       {
          return ReferenceEquals( x, y )
             || ( x != null && y != null
             && x.MemberReferenceParentKind == y.MemberReferenceParentKind
-            && Equality_MemberReferenceParent_SameKind( x, y )
+            && Equivalence_MemberReferenceParent_SameKind( x, y )
             );
       }
 
-      private Boolean Equality_MemberReferenceParent_SameKind( MemberReferenceParent x, MemberReferenceParent y )
+      private Boolean Equivalence_MemberReferenceParent_SameKind( MemberReferenceParent x, MemberReferenceParent y )
       {
          switch ( x.MemberReferenceParentKind )
          {
             case MemberReferenceParentKind.MethodDef:
-               return Equality_Method( ( (MemberReferenceParentMethodDef) x ).Method, ( (MemberReferenceParentMethodDef) y ).Method );
+               return Equivalence_Method( ( (MemberReferenceParentMethodDef) x ).Method, ( (MemberReferenceParentMethodDef) y ).Method );
             case MemberReferenceParentKind.ModuleRef:
-               return Equality_ModuleRef( ( (MemberReferenceParentModuleRef) x ).ModuleRef, ( (MemberReferenceParentModuleRef) y ).ModuleRef );
+               return Equivalence_ModuleRef( ( (MemberReferenceParentModuleRef) x ).ModuleRef, ( (MemberReferenceParentModuleRef) y ).ModuleRef );
             case MemberReferenceParentKind.Type:
-               return Equality_TypeDefOrRefOrSpec( ( (MemberReferenceParentType) x ).Type, ( (MemberReferenceParentType) y ).Type );
+               return Equivalence_TypeDefOrRefOrSpec( ( (MemberReferenceParentType) x ).Type, ( (MemberReferenceParentType) y ).Type );
             default:
                throw new InvalidOperationException( "Invalid member ref parent: " + x.MemberReferenceParentKind + "." );
          }
       }
 
-      private Boolean Equality_Signature( AbstractStructureSignature x, AbstractStructureSignature y )
+      private Boolean Equivalence_Signature( AbstractStructureSignature x, AbstractStructureSignature y )
       {
          return ReferenceEquals( x, y )
             || ( x != null && y != null
             && x.SignatureKind == y.SignatureKind
-            && Equality_Signature_SameKind( x, y )
+            && Equivalence_Signature_SameKind( x, y )
             );
       }
 
-      private Boolean Equality_Signature_SameKind( AbstractStructureSignature x, AbstractStructureSignature y )
+      private Boolean Equivalence_Signature_SameKind( AbstractStructureSignature x, AbstractStructureSignature y )
       {
          switch ( x.SignatureKind )
          {
             case StructureSignatureKind.Field:
-               return Equality_Signature_Field( (FieldStructureSignature) x, (FieldStructureSignature) y );
+               return Equivalence_Signature_Field( (FieldStructureSignature) x, (FieldStructureSignature) y );
             case StructureSignatureKind.GenericMethodInstantiation:
-               return Equality_Signature_GenericMethod( (GenericMethodStructureSignature) x, (GenericMethodStructureSignature) y );
+               return Equivalence_Signature_GenericMethod( (GenericMethodStructureSignature) x, (GenericMethodStructureSignature) y );
             case StructureSignatureKind.LocalVariables:
-               return Equality_Signature_Locals( (LocalVariablesStructureSignature) x, (LocalVariablesStructureSignature) y );
+               return Equivalence_Signature_Locals( (LocalVariablesStructureSignature) x, (LocalVariablesStructureSignature) y );
             case StructureSignatureKind.MethodDefinition:
-               return Equality_Signature_MethodDef( (MethodDefinitionStructureSignature) x, (MethodDefinitionStructureSignature) y );
+               return Equivalence_Signature_MethodDef( (MethodDefinitionStructureSignature) x, (MethodDefinitionStructureSignature) y );
             case StructureSignatureKind.MethodReference:
-               return Equality_Signature_MethodRef( (MethodReferenceStructureSignature) x, (MethodReferenceStructureSignature) y );
+               return Equivalence_Signature_MethodRef( (MethodReferenceStructureSignature) x, (MethodReferenceStructureSignature) y );
             case StructureSignatureKind.Property:
-               return Equality_Signature_Property( (PropertyStructureSignature) x, (PropertyStructureSignature) y );
+               return Equivalence_Signature_Property( (PropertyStructureSignature) x, (PropertyStructureSignature) y );
             case StructureSignatureKind.Type:
-               return Equality_Signature_Type( (TypeStructureSignature) x, (TypeStructureSignature) y );
+               return Equivalence_Signature_Type( (TypeStructureSignature) x, (TypeStructureSignature) y );
             default:
                throw new InvalidOperationException( "Invalid signature kind: " + x.SignatureKind + "." );
          }
       }
 
-      private Boolean Equality_Signature_Type( TypeStructureSignature thisSig, TypeStructureSignature otherSig )
+      private Boolean Equivalence_Signature_Type( TypeStructureSignature thisSig, TypeStructureSignature otherSig )
       {
          var retVal = ReferenceEquals( thisSig, otherSig );
          if ( !retVal )
@@ -636,13 +716,13 @@ namespace CILAssemblyManipulator.Structural
                   switch ( thisSig.TypeSignatureKind )
                   {
                      case TypeStructureSignatureKind.ClassOrValue:
-                        retVal = Equality_Signature_Type_ClassOrValue( (ClassOrValueTypeStructureSignature) thisSig, (ClassOrValueTypeStructureSignature) otherSig );
+                        retVal = Equivalence_Signature_Type_ClassOrValue( (ClassOrValueTypeStructureSignature) thisSig, (ClassOrValueTypeStructureSignature) otherSig );
                         break;
                      case TypeStructureSignatureKind.ComplexArray:
-                        retVal = Equality_Signature_Type_ComplexArray( (ComplexArrayTypeStructureSignature) thisSig, (ComplexArrayTypeStructureSignature) otherSig );
+                        retVal = Equivalence_Signature_Type_ComplexArray( (ComplexArrayTypeStructureSignature) thisSig, (ComplexArrayTypeStructureSignature) otherSig );
                         break;
                      case TypeStructureSignatureKind.FunctionPointer:
-                        retVal = Equality_Signature_MethodRef( ( (FunctionPointerTypeStructureSignature) thisSig ).MethodSignature, ( (FunctionPointerTypeStructureSignature) otherSig ).MethodSignature );
+                        retVal = Equivalence_Signature_MethodRef( ( (FunctionPointerTypeStructureSignature) thisSig ).MethodSignature, ( (FunctionPointerTypeStructureSignature) otherSig ).MethodSignature );
                         break;
                      case TypeStructureSignatureKind.GenericParameter:
                         var thisG = (GenericParameterTypeStructureSignature) thisSig;
@@ -651,13 +731,13 @@ namespace CILAssemblyManipulator.Structural
                            && thisG.IsTypeParameter == otherG.IsTypeParameter;
                         break;
                      case TypeStructureSignatureKind.Pointer:
-                        retVal = Equality_Signature_Type_Pointer( (PointerTypeStructureSignature) thisSig, (PointerTypeStructureSignature) otherSig );
+                        retVal = Equivalence_Signature_Type_Pointer( (PointerTypeStructureSignature) thisSig, (PointerTypeStructureSignature) otherSig );
                         break;
                      case TypeStructureSignatureKind.Simple:
                         retVal = ( (SimpleTypeStructureSignature) thisSig ).SimpleType == ( (SimpleTypeStructureSignature) otherSig ).SimpleType;
                         break;
                      case TypeStructureSignatureKind.SimpleArray:
-                        retVal = Equality_Signature_Type_SimpleArray( (SimpleArrayTypeStructureSignature) thisSig, (SimpleArrayTypeStructureSignature) otherSig );
+                        retVal = Equivalence_Signature_Type_SimpleArray( (SimpleArrayTypeStructureSignature) thisSig, (SimpleArrayTypeStructureSignature) otherSig );
                         break;
                      default:
                         retVal = false;
@@ -669,17 +749,17 @@ namespace CILAssemblyManipulator.Structural
          return retVal;
       }
 
-      private Boolean Equality_Signature_Type_ClassOrValue( ClassOrValueTypeStructureSignature thisSig, ClassOrValueTypeStructureSignature otherSig )
+      private Boolean Equivalence_Signature_Type_ClassOrValue( ClassOrValueTypeStructureSignature thisSig, ClassOrValueTypeStructureSignature otherSig )
       {
          var thisArgs = thisSig.GenericArguments;
          var otherArgs = thisSig.GenericArguments;
          var retVal = thisSig.IsClass == otherSig.IsClass
             && thisArgs.Count == otherArgs.Count
-            && Equality_TypeDefOrRefOrSpec( thisSig.Type, otherSig.Type );
+            && Equivalence_TypeDefOrRefOrSpec( thisSig.Type, otherSig.Type );
          if ( retVal && thisArgs.Count > 0 )
          {
             var i = 0;
-            while ( i < thisArgs.Count && Equality_Signature_Type( thisArgs[i], otherArgs[i] ) )
+            while ( i < thisArgs.Count && Equivalence_Signature_Type( thisArgs[i], otherArgs[i] ) )
             {
                ++i;
             }
@@ -689,33 +769,33 @@ namespace CILAssemblyManipulator.Structural
          return retVal;
       }
 
-      private Boolean Equality_Signature_Type_ComplexArray( ComplexArrayTypeStructureSignature thisSig, ComplexArrayTypeStructureSignature otherSig )
+      private Boolean Equivalence_Signature_Type_ComplexArray( ComplexArrayTypeStructureSignature thisSig, ComplexArrayTypeStructureSignature otherSig )
       {
          return thisSig.Rank == otherSig.Rank
             && ListEqualityComparer<List<Int32>, Int32>.DefaultListEqualityComparer.Equals( thisSig.LowerBounds, otherSig.LowerBounds )
             && ListEqualityComparer<List<Int32>, Int32>.DefaultListEqualityComparer.Equals( thisSig.Sizes, otherSig.Sizes )
-            && Equality_Signature_Type( thisSig.ArrayType, otherSig.ArrayType );
+            && Equivalence_Signature_Type( thisSig.ArrayType, otherSig.ArrayType );
       }
 
-      private Boolean Equality_Signature_Type_SimpleArray( SimpleArrayTypeStructureSignature thisSig, SimpleArrayTypeStructureSignature otherSig )
+      private Boolean Equivalence_Signature_Type_SimpleArray( SimpleArrayTypeStructureSignature thisSig, SimpleArrayTypeStructureSignature otherSig )
       {
-         return Equality_Signature_Mods( thisSig.CustomModifiers, otherSig.CustomModifiers )
-            && Equality_Signature_Type( thisSig.ArrayType, otherSig.ArrayType );
+         return Equivalence_Signature_Mods( thisSig.CustomModifiers, otherSig.CustomModifiers )
+            && Equivalence_Signature_Type( thisSig.ArrayType, otherSig.ArrayType );
       }
 
-      private Boolean Equality_Signature_Type_Pointer( PointerTypeStructureSignature thisSig, PointerTypeStructureSignature otherSig )
+      private Boolean Equivalence_Signature_Type_Pointer( PointerTypeStructureSignature thisSig, PointerTypeStructureSignature otherSig )
       {
-         return Equality_Signature_Mods( thisSig.CustomModifiers, otherSig.CustomModifiers )
-            && Equality_Signature_Type( thisSig.PointerType, otherSig.PointerType );
+         return Equivalence_Signature_Mods( thisSig.CustomModifiers, otherSig.CustomModifiers )
+            && Equivalence_Signature_Type( thisSig.PointerType, otherSig.PointerType );
       }
 
-      private Boolean Equality_Signature_Mods( List<CustomModifierStructureSignature> thisMods, List<CustomModifierStructureSignature> otherMods )
+      private Boolean Equivalence_Signature_Mods( List<CustomModifierStructureSignature> thisMods, List<CustomModifierStructureSignature> otherMods )
       {
          var retVal = thisMods.Count == otherMods.Count;
          if ( retVal && thisMods.Count > 0 )
          {
             var i = 0;
-            while ( i < thisMods.Count && thisMods[i].IsOptional == otherMods[i].IsOptional && Equality_TypeDefOrRefOrSpec( thisMods[i].CustomModifierType, otherMods[i].CustomModifierType ) )
+            while ( i < thisMods.Count && thisMods[i].IsOptional == otherMods[i].IsOptional && Equivalence_TypeDefOrRefOrSpec( thisMods[i].CustomModifierType, otherMods[i].CustomModifierType ) )
             {
                ++i;
             }
@@ -724,16 +804,16 @@ namespace CILAssemblyManipulator.Structural
          return retVal;
       }
 
-      private Boolean Equality_Signature_Field( FieldStructureSignature thisSig, FieldStructureSignature otherSig )
+      private Boolean Equivalence_Signature_Field( FieldStructureSignature thisSig, FieldStructureSignature otherSig )
       {
          return ReferenceEquals( thisSig, otherSig )
             || ( thisSig != null && otherSig != null
-            && Equality_Signature_Mods( thisSig.CustomModifiers, otherSig.CustomModifiers )
-            && Equality_Signature_Type( thisSig.Type, otherSig.Type )
+            && Equivalence_Signature_Mods( thisSig.CustomModifiers, otherSig.CustomModifiers )
+            && Equivalence_Signature_Type( thisSig.Type, otherSig.Type )
             );
       }
 
-      private Boolean Equality_Signature_GenericMethod( GenericMethodStructureSignature thisSig, GenericMethodStructureSignature otherSig )
+      private Boolean Equivalence_Signature_GenericMethod( GenericMethodStructureSignature thisSig, GenericMethodStructureSignature otherSig )
       {
          var retVal = ReferenceEquals( thisSig, otherSig );
          if ( !retVal )
@@ -747,7 +827,7 @@ namespace CILAssemblyManipulator.Structural
                if ( retVal && thisArgs.Count > 0 )
                {
                   var i = 0;
-                  while ( i < thisArgs.Count && Equality_Signature_Type( thisArgs[i], otherArgs[i] ) )
+                  while ( i < thisArgs.Count && Equivalence_Signature_Type( thisArgs[i], otherArgs[i] ) )
                   {
                      ++i;
                   }
@@ -758,18 +838,18 @@ namespace CILAssemblyManipulator.Structural
          return retVal;
       }
 
-      private Boolean Equality_Signature_MethodDef( MethodDefinitionStructureSignature thisSig, MethodDefinitionStructureSignature otherSig )
+      private Boolean Equivalence_Signature_MethodDef( MethodDefinitionStructureSignature thisSig, MethodDefinitionStructureSignature otherSig )
       {
-         return Equality_Signature_AbstractMethodSig( thisSig, otherSig );
+         return Equivalence_Signature_AbstractMethodSig( thisSig, otherSig );
       }
 
-      private Boolean Equality_Signature_MethodRef( MethodReferenceStructureSignature thisSig, MethodReferenceStructureSignature otherSig )
+      private Boolean Equivalence_Signature_MethodRef( MethodReferenceStructureSignature thisSig, MethodReferenceStructureSignature otherSig )
       {
-         return Equality_Signature_AbstractMethodSig( thisSig, otherSig )
-            && Equality_Signature_ParamOrLocalSigs( thisSig.VarArgsParameters, otherSig.VarArgsParameters );
+         return Equivalence_Signature_AbstractMethodSig( thisSig, otherSig )
+            && Equivalence_Signature_ParamOrLocalSigs( thisSig.VarArgsParameters, otherSig.VarArgsParameters );
       }
 
-      private Boolean Equality_Signature_AbstractMethodSig( AbstractMethodStructureSignature thisSig, AbstractMethodStructureSignature otherSig )
+      private Boolean Equivalence_Signature_AbstractMethodSig( AbstractMethodStructureSignature thisSig, AbstractMethodStructureSignature otherSig )
       {
          var retVal = ( thisSig == null ) == ( otherSig == null );
          if ( retVal && thisSig != null )
@@ -778,24 +858,24 @@ namespace CILAssemblyManipulator.Structural
             var otherParams = otherSig.Parameters;
             retVal = thisSig.SignatureStarter == otherSig.SignatureStarter
                && thisSig.GenericArgumentCount == otherSig.GenericArgumentCount
-               && Equality_Signature_ParamOrLocalSig( thisSig.ReturnType, otherSig.ReturnType );
+               && Equivalence_Signature_ParamOrLocalSig( thisSig.ReturnType, otherSig.ReturnType );
 
             if ( retVal && thisParams.Count > 0 )
             {
-               retVal = Equality_Signature_ParamOrLocalSigs( thisSig.Parameters, otherSig.Parameters );
+               retVal = Equivalence_Signature_ParamOrLocalSigs( thisSig.Parameters, otherSig.Parameters );
             }
          }
          return retVal;
       }
 
-      private Boolean Equality_Signature_ParamOrLocalSigs<TSig>( List<TSig> thisSigs, List<TSig> otherSigs )
+      private Boolean Equivalence_Signature_ParamOrLocalSigs<TSig>( List<TSig> thisSigs, List<TSig> otherSigs )
          where TSig : ParameterOrLocalVariableStructureSignature
       {
          var retVal = thisSigs.Count == otherSigs.Count;
          if ( retVal && thisSigs.Count > 0 )
          {
             var i = 0;
-            while ( i < thisSigs.Count && Equality_Signature_ParamOrLocalSig( thisSigs[i], otherSigs[i] ) )
+            while ( i < thisSigs.Count && Equivalence_Signature_ParamOrLocalSig( thisSigs[i], otherSigs[i] ) )
             {
                ++i;
             }
@@ -804,29 +884,29 @@ namespace CILAssemblyManipulator.Structural
          return retVal;
       }
 
-      private Boolean Equality_Signature_ParamOrLocalSig( ParameterOrLocalVariableStructureSignature thisSig, ParameterOrLocalVariableStructureSignature otherSig )
+      private Boolean Equivalence_Signature_ParamOrLocalSig( ParameterOrLocalVariableStructureSignature thisSig, ParameterOrLocalVariableStructureSignature otherSig )
       {
          return thisSig.IsByRef == otherSig.IsByRef
-            && Equality_Signature_Mods( thisSig.CustomModifiers, otherSig.CustomModifiers )
-            && Equality_Signature_Type( thisSig.Type, otherSig.Type );
+            && Equivalence_Signature_Mods( thisSig.CustomModifiers, otherSig.CustomModifiers )
+            && Equivalence_Signature_Type( thisSig.Type, otherSig.Type );
       }
 
-      private Boolean Equality_Signature_Property( PropertyStructureSignature thisSig, PropertyStructureSignature otherSig )
+      private Boolean Equivalence_Signature_Property( PropertyStructureSignature thisSig, PropertyStructureSignature otherSig )
       {
          return ReferenceEquals( thisSig, otherSig )
             || ( thisSig != null && otherSig != null
             && thisSig.HasThis == otherSig.HasThis
-            && Equality_Signature_Type( thisSig.PropertyType, otherSig.PropertyType )
-            && Equality_Signature_ParamOrLocalSigs( thisSig.Parameters, otherSig.Parameters )
-            && Equality_Signature_Mods( thisSig.CustomModifiers, otherSig.CustomModifiers )
+            && Equivalence_Signature_Type( thisSig.PropertyType, otherSig.PropertyType )
+            && Equivalence_Signature_ParamOrLocalSigs( thisSig.Parameters, otherSig.Parameters )
+            && Equivalence_Signature_Mods( thisSig.CustomModifiers, otherSig.CustomModifiers )
             );
       }
 
-      private Boolean Equality_Signature_Locals( LocalVariablesStructureSignature thisSig, LocalVariablesStructureSignature otherSig )
+      private Boolean Equivalence_Signature_Locals( LocalVariablesStructureSignature thisSig, LocalVariablesStructureSignature otherSig )
       {
          var thisLocals = thisSig.Locals;
          var otherLocals = otherSig.Locals;
-         var retVal = Equality_Signature_ParamOrLocalSigs( thisLocals, otherLocals );
+         var retVal = Equivalence_Signature_ParamOrLocalSigs( thisLocals, otherLocals );
          if ( retVal && thisLocals.Count > 0 )
          {
             var i = 0;
@@ -840,12 +920,12 @@ namespace CILAssemblyManipulator.Structural
          return retVal;
       }
 
-      private Int32 HashCode_Module( ModuleStructureInfo x )
+      private Int32 HashCode_Module( ModuleStructure x )
       {
          return x == null || x.Name == null ? 0 : x.Name.GetHashCode();
       }
 
-      private Int32 HashCode_TypeDefinition( TypeDefDescription x )
+      private Int32 HashCode_TypeDefinition( TypeDefinitionStructure x )
       {
          return x == null ? 0 : ( 17 * 23 + x.Name.GetHashCodeSafe() ) * 23 + x.Namespace.GetHashCodeSafe();
       }
@@ -855,32 +935,32 @@ namespace CILAssemblyManipulator.Structural
          return x == null ? 0 : HashCode_MethodDefOrMemberRef( x.Constructor );
       }
 
-      private Int32 HashCode_Method( MethodStructureInfo x )
+      private Int32 HashCode_Method( MethodStructure x )
       {
          return x == null ? 0 : ( ( 17 * 23 + x.Name.GetHashCodeSafe() ) * 23 + HashCode_Signature( x.Signature ) );
       }
 
-      private Int32 HashCode_InterfaceImpl( InterfaceImplStructuralInfo x )
+      private Int32 HashCode_InterfaceImpl( InterfaceImplStructure x )
       {
          return x == null ? 0 : HashCode_TypeDefOrRefOrSpec( x.InterfaceType );
       }
 
-      private Int32 HashCode_TypeDefOrRefOrSpec( AbstractTypeDescription x )
+      private Int32 HashCode_TypeDefOrRefOrSpec( AbstractTypeStructure x )
       {
          return x == null ? 0 : HashCode_TypeDefOrRefOrSpec_NotNull( x );
       }
 
-      private Int32 HashCode_TypeDefOrRefOrSpec_NotNull( AbstractTypeDescription x )
+      private Int32 HashCode_TypeDefOrRefOrSpec_NotNull( AbstractTypeStructure x )
       {
          switch ( x.TypeDescriptionKind )
          {
-            case TypeDescriptionKind.TypeDef:
-               return HashCode_TypeDefinition( (TypeDefDescription) x );
-            case TypeDescriptionKind.TypeRef:
-               var tRef = (TypeRefDescription) x;
+            case TypeStructureKind.TypeDef:
+               return HashCode_TypeDefinition( (TypeDefinitionStructure) x );
+            case TypeStructureKind.TypeRef:
+               var tRef = (TypeReferenceStructure) x;
                return ( 17 * 23 + tRef.Name.GetHashCodeSafe() ) * 23 + tRef.Namespace.GetHashCodeSafe();
-            case TypeDescriptionKind.TypeSpec:
-               return HashCode_Signature( ( (TypeSpecDescription) x ).Signature );
+            case TypeStructureKind.TypeSpec:
+               return HashCode_Signature( ( (TypeSpecificationStructure) x ).Signature );
             default:
                throw new InvalidOperationException( "Invalid type ref or def or spec: " + x.TypeDescriptionKind + "." );
          }
@@ -888,7 +968,7 @@ namespace CILAssemblyManipulator.Structural
 
       private Int32 HashCode_MethodDefOrMemberRef( MethodDefOrMemberRefStructure x )
       {
-         return x == null ? 0 : ( x.MethodRefKind == MethodRefKind.MethodDef ? HashCode_Method( (MethodStructureInfo) x ) : HashCode_MemberRef( (MemberReferenceStructuralInfo) x ) );
+         return x == null ? 0 : ( x.MethodReferenceKind == MethodReferenceKind.MethodDef ? HashCode_Method( (MethodStructure) x ) : HashCode_MemberRef( (MemberReferenceStructure) x ) );
       }
 
       private Int32 HashCode_OverriddenMethod( OverriddenMethodInfo x )
@@ -896,37 +976,37 @@ namespace CILAssemblyManipulator.Structural
          return ( 17 * 23 + HashCode_MethodDefOrMemberRef( x.MethodBody ) ) * 23 + HashCode_MethodDefOrMemberRef( x.MethodDeclaration );
       }
 
-      private Int32 HashCode_ModuleRef( ModuleRefStructureInfo x )
+      private Int32 HashCode_ModuleRef( ModuleReferenceStructure x )
       {
          return x == null ? 0 : x.ModuleName.GetHashCodeSafe();
       }
 
-      private Int32 HashCode_AssemblyRef( AssemblyRefStructureInfo x )
+      private Int32 HashCode_AssemblyRef( AssemblyReferenceStructure x )
       {
          return x == null ? 0 : x.AssemblyRef.GetHashCode();
       }
 
-      private Int32 HashCode_ExportedType( ExportedTypeStructureInfo x )
+      private Int32 HashCode_ExportedType( ExportedTypeStructure x )
       {
          return x == null ? 0 : ( ( 17 * 23 + x.Name.GetHashCodeSafe() ) * 23 + x.Namespace.GetHashCodeSafe() );
       }
 
-      private Int32 HashCode_File( FileReferenceStructureInfo x )
+      private Int32 HashCode_File( FileReferenceStructure x )
       {
          return x == null ? 0 : x.Name.GetHashCodeSafe();
       }
 
-      private Int32 HashCode_Security( SecurityStructuralInfo x )
+      private Int32 HashCode_Security( SecurityStructure x )
       {
          return x == null ? 0 : ListEqualityComparer<List<AbstractSecurityInformation>, AbstractSecurityInformation>.DefaultListEqualityComparer.GetHashCode( x.PermissionSets );
       }
 
-      private Int32 HashCode_Property( PropertyStructuralInfo x )
+      private Int32 HashCode_Property( PropertyStructure x )
       {
          return x == null ? 0 : ( ( 17 * 23 + x.Name.GetHashCodeSafe() ) * 23 + HashCode_Signature( x.Signature ) );
       }
 
-      private Int32 HashCode_Event( EventStructuralInfo x )
+      private Int32 HashCode_Event( EventStructure x )
       {
          return x == null ? 0 : ( 17 * 23 + x.Name.GetHashCodeSafe() ) * 23 + HashCode_TypeDefOrRefOrSpec( x.EventType );
       }
@@ -936,17 +1016,17 @@ namespace CILAssemblyManipulator.Structural
          return ( 17 * 23 + (Int32) x.Attributes ) * 23 + HashCode_Method( x.Method );
       }
 
-      private Int32 HashCode_MemberRef( MemberReferenceStructuralInfo x )
+      private Int32 HashCode_MemberRef( MemberReferenceStructure x )
       {
          return x == null ? 0 : ( ( 17 * 23 + x.Name.GetHashCodeSafe() ) * 23 + HashCode_Signature( x.Signature ) );
       }
 
-      private Int32 HashCode_GenericParameterConstraint( GenericParameterConstraintStructuralInfo x )
+      private Int32 HashCode_GenericParameterConstraint( GenericParameterConstraintStructure x )
       {
          return x == null ? 0 : HashCode_TypeDefOrRefOrSpec( x.Constraint );
       }
 
-      private Int32 HashCode_ManifestResource( ManifestResourceStructuralInfo x )
+      private Int32 HashCode_ManifestResource( ManifestResourceStructure x )
       {
          return x == null ? 0 : x.Name.GetHashCodeSafe();
       }
@@ -959,6 +1039,11 @@ namespace CILAssemblyManipulator.Structural
       private Int32 HashCode_MethodSpec( MethodSpecificationStructure x )
       {
          return x == null ? 0 : ( ( 17 * 23 + HashCode_MethodDefOrMemberRef( x.Method ) ) * 23 + HashCode_Signature( x.Signature ) );
+      }
+
+      private Int32 HashCode_MethodException( MethodExceptionBlockStructure x )
+      {
+         return x == null ? 0 : ( ( ( 17 * 23 + (Int32) x.BlockType ) * 23 + x.TryOffset ) * 23 + x.TryLength );
       }
 
       private Int32 HashCode_Signature( AbstractStructureSignature x )
@@ -1108,9 +1193,9 @@ namespace CILAssemblyManipulator.Structural
          return x == null ? 0 : ListEqualityComparer<List<TypeStructureSignature>, TypeStructureSignature>.ListHashCode( x.GenericArguments, HashCode_TypeSignature );
       }
 
-      private static IDictionary<TypeDefDescription, String> CreateTypeDefNameDictionary( ModuleStructureInfo module )
+      private static IDictionary<TypeDefinitionStructure, String> CreateTypeDefNameDictionary( ModuleStructure module )
       {
-         var retVal = new Dictionary<TypeDefDescription, String>( ReferenceEqualityComparer<TypeDefDescription>.ReferenceBasedComparer );
+         var retVal = new Dictionary<TypeDefinitionStructure, String>( ReferenceEqualityComparer<TypeDefinitionStructure>.ReferenceBasedComparer );
          foreach ( var type in module.TopLevelTypeDefinitions )
          {
             AddToTypeDefNameDictionary( retVal, null, type );
@@ -1119,7 +1204,7 @@ namespace CILAssemblyManipulator.Structural
          return retVal;
       }
 
-      private static void AddToTypeDefNameDictionary( IDictionary<TypeDefDescription, String> dictionary, String currentPrefix, TypeDefDescription currentType )
+      private static void AddToTypeDefNameDictionary( IDictionary<TypeDefinitionStructure, String> dictionary, String currentPrefix, TypeDefinitionStructure currentType )
       {
          var typeString = Miscellaneous.CombineTypeAndNamespace( currentType.Name, currentType.Namespace );
          if ( currentPrefix != null )

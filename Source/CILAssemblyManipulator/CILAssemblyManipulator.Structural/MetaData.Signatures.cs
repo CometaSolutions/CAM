@@ -16,7 +16,6 @@
  * limitations under the License. 
  */
 using CILAssemblyManipulator.Physical;
-using CommonUtils;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -249,7 +248,7 @@ namespace CILAssemblyManipulator.Structural
    public sealed class CustomModifierStructureSignature
    {
       public Boolean IsOptional { get; set; }
-      public AbstractTypeDescription CustomModifierType { get; set; }
+      public AbstractTypeStructure CustomModifierType { get; set; }
    }
 
    public abstract class TypeStructureSignature : AbstractStructureSignature
@@ -390,7 +389,7 @@ namespace CILAssemblyManipulator.Structural
       }
 
       public Boolean IsClass { get; set; }
-      public AbstractTypeDescription Type { get; set; }
+      public AbstractTypeStructure Type { get; set; }
       public List<TypeStructureSignature> GenericArguments
       {
          get

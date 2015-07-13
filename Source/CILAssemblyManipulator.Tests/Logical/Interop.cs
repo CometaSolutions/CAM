@@ -55,8 +55,8 @@ namespace CILAssemblyManipulator.Tests.Logical
             var physicalLoaded = mdLoader.GetOrLoadMetaData( mdLocation );
             var physicalCreated = logical.MainModule.CreatePhysicalRepresentation();
 
-            var structure1 = new AssemblyStructureInfo( physicalLoaded );
-            var structure2 = new AssemblyStructureInfo( physicalLoaded );
+            var structure1 = physicalLoaded.CreateStructuralRepresentation();
+            var structure2 = physicalLoaded.CreateStructuralRepresentation();
 
             Assert.IsTrue( AssemblyEquivalenceComparer.EqualityComparer.Equals( structure1, structure2 ) );
             Console.WriteLine( "Hmz" );

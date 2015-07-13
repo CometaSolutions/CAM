@@ -61,6 +61,9 @@ namespace CILAssemblyManipulator.Physical
       private static IEqualityComparer<GenericParameterDefinition> _GenericParameterDefinitionEqualityComparer = null;
       private static IEqualityComparer<MethodSpecification> _MethodSpecificationEqualityComparer = null;
       private static IEqualityComparer<GenericParameterConstraintDefinition> _GenericParameterConstraintDefinitionEqualityComparer = null;
+      private static IEqualityComparer<MethodILDefinition> _MethodILDefinitionEqualityComparer = null;
+      private static IEqualityComparer<MethodExceptionBlock> _MethodExceptionBlockEqualityComparer = null;
+      private static IEqualityComparer<OpCodeInfo> _OpCodeInfoEqualityComparer = null;
 
       private static IEqualityComparer<AbstractSignature> _AbstractSignatureEqualityComparer = null;
       private static IEqualityComparer<RawSignature> _RawSignatureEqualityComparer = null;
@@ -594,6 +597,48 @@ namespace CILAssemblyManipulator.Physical
             {
                retVal = ComparerFromFunctions.NewEqualityComparer<GenericParameterConstraintDefinition>( Equality_GenericParameterConstraintDefinition, HashCode_GenericParameterConstraintDefinition );
                _GenericParameterConstraintDefinitionEqualityComparer = retVal;
+            }
+            return retVal;
+         }
+      }
+
+      public static IEqualityComparer<MethodILDefinition> MethodILDefinitionEqualityComparer
+      {
+         get
+         {
+            var retVal = _MethodILDefinitionEqualityComparer;
+            if ( retVal == null )
+            {
+               retVal = ComparerFromFunctions.NewEqualityComparer<MethodILDefinition>( Equality_MethodILDefinition, HashCode_MethodILDefinition );
+               _MethodILDefinitionEqualityComparer = retVal;
+            }
+            return retVal;
+         }
+      }
+
+      public static IEqualityComparer<MethodExceptionBlock> MethodExceptionBlockEqualityComparer
+      {
+         get
+         {
+            var retVal = _MethodExceptionBlockEqualityComparer;
+            if ( retVal == null )
+            {
+               retVal = ComparerFromFunctions.NewEqualityComparer<MethodExceptionBlock>( Equality_MethodExceptionBlock, HashCode_MethodExceptionBlock );
+               _MethodExceptionBlockEqualityComparer = retVal;
+            }
+            return retVal;
+         }
+      }
+
+      public static IEqualityComparer<OpCodeInfo> OpCodeInfoEqualityComparer
+      {
+         get
+         {
+            var retVal = _OpCodeInfoEqualityComparer;
+            if ( retVal == null )
+            {
+               retVal = ComparerFromFunctions.NewEqualityComparer<OpCodeInfo>( Equality_OpCodeInfo, HashCode_OpCodeInfo );
+               _OpCodeInfoEqualityComparer = retVal;
             }
             return retVal;
          }
@@ -1259,6 +1304,7 @@ namespace CILAssemblyManipulator.Physical
             && x.ImplementationAttributes == y.ImplementationAttributes
             && x.ParameterList == y.ParameterList
             && MethodDefinitionSignatureEqualityComparer.Equals( x.Signature, y.Signature )
+            && Equality_MethodILDefinition( x.IL, y.IL )
             );
       }
 
@@ -1520,7 +1566,7 @@ namespace CILAssemblyManipulator.Physical
 
       private static Boolean Equality_GenericParameterDefinition( GenericParameterDefinition x, GenericParameterDefinition y )
       {
-         return Object.ReferenceEquals( x, y ) ||
+         return ReferenceEquals( x, y ) ||
              ( x != null && y != null
              && x.GenericParameterIndex == y.GenericParameterIndex
              && String.Equals( x.Name, y.Name )
@@ -1531,7 +1577,7 @@ namespace CILAssemblyManipulator.Physical
 
       private static Boolean Equality_MethodSpecification( MethodSpecification x, MethodSpecification y )
       {
-         return Object.ReferenceEquals( x, y ) ||
+         return ReferenceEquals( x, y ) ||
              ( x != null && y != null
              && x.Method == y.Method
              && GenericMethodSignatureEqualityComparer.Equals( x.Signature, y.Signature )
@@ -1540,11 +1586,75 @@ namespace CILAssemblyManipulator.Physical
 
       private static Boolean Equality_GenericParameterConstraintDefinition( GenericParameterConstraintDefinition x, GenericParameterConstraintDefinition y )
       {
-         return Object.ReferenceEquals( x, y ) ||
+         return ReferenceEquals( x, y ) ||
              ( x != null && y != null
              && x.Owner == y.Owner
              && x.Constraint == y.Constraint
              );
+      }
+
+      private static Boolean Equality_MethodILDefinition( MethodILDefinition x, MethodILDefinition y )
+      {
+         return ReferenceEquals( x, y ) ||
+            ( x != null && y != null
+            && NullableEqualityComparer<TableIndex>.Equals( x.LocalsSignatureIndex, y.LocalsSignatureIndex )
+            && ListEqualityComparer<List<OpCodeInfo>, OpCodeInfo>.ListEquality( x.OpCodes, y.OpCodes, Equality_OpCodeInfo )
+            && ListEqualityComparer<List<MethodExceptionBlock>, MethodExceptionBlock>.ListEquality( x.ExceptionBlocks, y.ExceptionBlocks, Equality_MethodExceptionBlock )
+            && x.InitLocals == y.InitLocals
+            && x.MaxStackSize == y.MaxStackSize
+            );
+      }
+
+      private static Boolean Equality_MethodExceptionBlock( MethodExceptionBlock x, MethodExceptionBlock y )
+      {
+         return ReferenceEquals( x, y ) ||
+            ( x != null && y != null
+            && x.BlockType == y.BlockType
+            && x.TryOffset == y.TryOffset
+            && x.TryLength == y.TryLength
+            && x.HandlerOffset == y.HandlerOffset
+            && x.HandlerLength == y.HandlerLength
+            && NullableEqualityComparer<TableIndex>.Equals( x.ExceptionType, y.ExceptionType )
+            && x.FilterOffset == y.FilterOffset
+            );
+      }
+
+      private static Boolean Equality_OpCodeInfo( OpCodeInfo x, OpCodeInfo y )
+      {
+         var retVal = Object.ReferenceEquals( x, y );
+         if ( !retVal && x != null && y != null && x.OpCode == y.OpCode && x.InfoKind == y.InfoKind )
+         {
+            switch ( x.InfoKind )
+            {
+               case OpCodeOperandKind.OperandInteger:
+                  retVal = ( (OpCodeInfoWithInt32) x ).Operand == ( (OpCodeInfoWithInt32) y ).Operand;
+                  break;
+               case OpCodeOperandKind.OperandInteger64:
+                  retVal = ( (OpCodeInfoWithInt64) x ).Operand == ( (OpCodeInfoWithInt64) y ).Operand;
+                  break;
+               case OpCodeOperandKind.OperandNone:
+                  retVal = true;
+                  break;
+               case OpCodeOperandKind.OperandR4:
+                  // Use .Equals in order for NaN's to work more intuitively
+                  retVal = ( (OpCodeInfoWithSingle) x ).Operand.Equals( ( (OpCodeInfoWithSingle) y ).Operand );
+                  break;
+               case OpCodeOperandKind.OperandR8:
+                  // Use .Equals in order for NaN's to work more intuitively
+                  retVal = ( (OpCodeInfoWithDouble) x ).Operand.Equals( ( (OpCodeInfoWithDouble) y ).Operand );
+                  break;
+               case OpCodeOperandKind.OperandString:
+                  retVal = String.Equals( ( (OpCodeInfoWithString) x ).Operand, ( (OpCodeInfoWithString) y ).Operand );
+                  break;
+               case OpCodeOperandKind.OperandSwitch:
+                  retVal = ListEqualityComparer<List<Int32>, Int32>.ListEquality( ( (OpCodeInfoWithSwitch) x ).Offsets, ( (OpCodeInfoWithSwitch) y ).Offsets );
+                  break;
+               case OpCodeOperandKind.OperandToken:
+                  retVal = ( (OpCodeInfoWithToken) x ).Operand == ( (OpCodeInfoWithToken) y ).Operand;
+                  break;
+            }
+         }
+         return retVal;
       }
 
       private static Boolean Equality_AbstractSignature( AbstractSignature x, AbstractSignature y )
@@ -2139,6 +2249,61 @@ namespace CILAssemblyManipulator.Physical
       private static Int32 HashCode_GenericParameterConstraintDefinition( GenericParameterConstraintDefinition x )
       {
          return x == null ? 0 : ( ( 17 * 23 + x.Owner.GetHashCode() ) * 23 + x.Constraint.GetHashCode() );
+      }
+
+      private static Int32 HashCode_MethodILDefinition( MethodILDefinition x )
+      {
+         return x == null ? 0 : ( ( 17 * 23 + x.LocalsSignatureIndex.GetHashCodeSafe() ) * 23 + SequenceEqualityComparer<IEnumerable<OpCodeInfo>, OpCodeInfo>.SequenceHashCode( x.OpCodes.Take( 10 ), HashCode_OpCodeInfo ) );
+      }
+
+      private static Int32 HashCode_MethodExceptionBlock( MethodExceptionBlock x )
+      {
+         return x == null ? 0 : ( ( ( 17 * 23 + (Int32) x.BlockType ) * 23 + x.TryOffset ) * 23 + x.TryLength );
+      }
+
+      private static Int32 HashCode_OpCodeInfo( OpCodeInfo x )
+      {
+         Int32 retVal;
+         if ( x == null )
+         {
+            retVal = 0;
+         }
+         else
+         {
+            retVal = 17 * 23 + x.OpCode.GetHashCode();
+            var infoKind = x.InfoKind;
+            if ( infoKind != OpCodeOperandKind.OperandNone )
+            {
+               Int32 operandHashCode;
+               switch ( x.InfoKind )
+               {
+                  case OpCodeOperandKind.OperandInteger:
+                     operandHashCode = ( (OpCodeInfoWithInt32) x ).Operand;
+                     break;
+                  case OpCodeOperandKind.OperandInteger64:
+                     operandHashCode = ( (OpCodeInfoWithInt64) x ).Operand.GetHashCode();
+                     break;
+                  case OpCodeOperandKind.OperandR4:
+                     operandHashCode = ( (OpCodeInfoWithSingle) x ).Operand.GetHashCode();
+                     break;
+                  case OpCodeOperandKind.OperandR8:
+                     operandHashCode = ( (OpCodeInfoWithDouble) x ).Operand.GetHashCode();
+                     break;
+                  case OpCodeOperandKind.OperandString:
+                     operandHashCode = ( (OpCodeInfoWithString) x ).Operand.GetHashCodeSafe();
+                     break;
+                  case OpCodeOperandKind.OperandToken:
+                     operandHashCode = ( (OpCodeInfoWithToken) x ).Operand.GetHashCode();
+                     break;
+                  default:
+                     operandHashCode = 0;
+                     break;
+               }
+               retVal = retVal * 23 + operandHashCode;
+            }
+         }
+
+         return retVal;
       }
 
       private static Int32 HashCode_AbstractSignature( AbstractSignature x )

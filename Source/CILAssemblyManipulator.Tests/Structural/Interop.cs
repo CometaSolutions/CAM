@@ -53,8 +53,8 @@ namespace CILAssemblyManipulator.Tests.Structural
          {
             md = fs.ReadModule();
          }
-         var structure1 = new AssemblyStructureInfo( md );
-         var structure2 = new AssemblyStructureInfo( md );
+         var structure1 = md.CreateStructuralRepresentation();
+         var structure2 = md.CreateStructuralRepresentation();
 
          Assert.IsTrue( AssemblyEquivalenceComparer.EqualityComparer.Equals( structure1, structure2 ) );
       }
