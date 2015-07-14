@@ -103,15 +103,15 @@ namespace CILAssemblyManipulator.Structural
       private readonly List<ExportedTypeStructure> _exportedTypes;
       private readonly List<ManifestResourceStructure> _resources;
 
-      public ModuleStructure()
+      public ModuleStructure( Int32 typeDefCount = 0, Int32 exportedTypeCound = 0, Int32 resourceCount = 0 )
       {
-         this._topLevelTypeDefs = new List<TypeDefinitionStructure>();
-         this._exportedTypes = new List<ExportedTypeStructure>();
-         this._resources = new List<ManifestResourceStructure>();
+         this._topLevelTypeDefs = new List<TypeDefinitionStructure>( typeDefCount );
+         this._exportedTypes = new List<ExportedTypeStructure>( exportedTypeCound );
+         this._resources = new List<ManifestResourceStructure>( resourceCount );
       }
 
       internal ModuleStructure( CILMetaData md )
-         : this()
+         : this( md.TypeDefinitions.RowCount, md.ExportedTypes.RowCount, md.ManifestResources.RowCount )
       {
          this.Name = md.ModuleDefinitions.TableContents[0].Name;
          this.IsMainModule = md.AssemblyDefinitions.RowCount > 0;

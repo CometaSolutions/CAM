@@ -29,15 +29,16 @@ public static partial class E_CILStructural
       private readonly TypeDefinitionStructure[] _typeDefDescriptions;
       private readonly TypeReferenceStructure[] _typeRefDescriptions;
       private readonly TypeSpecificationStructure[] _typeSpecDescriptions;
-      private readonly ExportedTypeStructure[] _exportedTypes;
 
       private readonly ModuleReferenceStructure[] _moduleRefs;
       private readonly FileReferenceStructure[] _fileRefs;
       private readonly AssemblyReferenceStructure[] _assemblyRefs;
 
-      private readonly ISet<Int32> _topLevelTypes;
-
-      internal StructuralCreationState( CILMetaData md )
+      internal StructuralCreationState(
+         CILMetaData md,
+         List<TypeDefinitionStructure> topLevelTypes,
+         List<ExportedTypeStructure> eTypeList
+         )
       {
          // TypeDefs
          var nestedTypes = new Dictionary<Int32, ISet<Int32>>();
@@ -51,25 +52,29 @@ public static partial class E_CILStructural
          }
 
          var tDefs = md.TypeDefinitions.TableContents;
-         var tlTypes = new HashSet<Int32>( Enumerable.Range( 0, tDefs.Count ) );
-         tlTypes.ExceptWith( nestedTypes.Values.SelectMany( v => v ) );
          this._typeDefDescriptions = tDefs
             .Select( tDef => new TypeDefinitionStructure( tDef ) )
             .ToArray();
-         this._topLevelTypes = tlTypes;
+         for ( var i = 0; i < tDefs.Count; ++i )
+         {
+            if ( !enclosingTypes.ContainsKey( i ) )
+            {
+               topLevelTypes.Add( this._typeDefDescriptions[i] );
+            }
+         }
+
          foreach ( var kvp in nestedTypes )
          {
             this._typeDefDescriptions[kvp.Key].NestedTypes.AddRange( kvp.Value.Select( i => this._typeDefDescriptions[i] ) );
          }
-         var typeDefInfosTopLevel = tlTypes.ToDictionary( t => Miscellaneous.CombineTypeAndNamespace( tDefs[t].Name, tDefs[t].Namespace ), t => this._typeDefDescriptions[t] );
+         var typeDefInfosTopLevel = topLevelTypes.ToDictionary( t => Miscellaneous.CombineTypeAndNamespace( t.Name, t.Namespace ), t => t );
 
          // TypeRef
          this._moduleRefs = md.ModuleReferences.TableContents.Select( mRef => new ModuleReferenceStructure( mRef ) ).ToArray();
          this._assemblyRefs = md.AssemblyReferences.TableContents.Select( aRef => new AssemblyReferenceStructure( aRef ) ).ToArray();
          this._fileRefs = md.FileReferences.TableContents.Select( fRef => new FileReferenceStructure( fRef ) ).ToArray();
          var eTypes = md.ExportedTypes.TableContents;
-         var eTypeList = eTypes.Select( eType => new ExportedTypeStructure( eType ) ).ToArray();
-         this._exportedTypes = eTypeList;
+         eTypeList.AddRange( eTypes.Select( e => new ExportedTypeStructure( e ) ) );
          var exportedTopLevelTypes = new Dictionary<String, ExportedTypeStructure>();
          for ( var i = 0; i < eTypes.Count; ++i )
          {
@@ -237,22 +242,6 @@ public static partial class E_CILStructural
             return this._assemblyRefs;
          }
       }
-
-      public ExportedTypeStructure[] ExportedTypes
-      {
-         get
-         {
-            return this._exportedTypes;
-         }
-      }
-
-      public ISet<Int32> TopLevelTypes
-      {
-         get
-         {
-            return this._topLevelTypes;
-         }
-      }
    }
 
    public static AssemblyStructure CreateStructuralRepresentation( this CILMetaData md )
@@ -264,17 +253,13 @@ public static partial class E_CILStructural
 
    public static ModuleStructure CreateStructuralRepresentation( this AssemblyStructure assembly, CILMetaData metaData )
    {
-      var state = new StructuralCreationState( metaData );
       var module = new ModuleStructure( metaData );
-      var resources = state.PopulateStructure( assembly, module, metaData );
-
-      module.TopLevelTypeDefinitions.AddRange( state.TopLevelTypes.Select( idx => state.TypeDefDescriptions[idx] ) );
-      module.ExportedTypes.AddRange( state.ExportedTypes );
-      module.ManifestResources.AddRange( resources );
+      var state = new StructuralCreationState( metaData, module.TopLevelTypeDefinitions, module.ExportedTypes );
+      state.PopulateStructure( assembly, module, metaData );
       return module;
    }
 
-   private static List<ManifestResourceStructure> PopulateStructure(
+   private static void PopulateStructure(
       this StructuralCreationState state,
       AssemblyStructure assembly,
       ModuleStructure module,
@@ -541,7 +526,7 @@ public static partial class E_CILStructural
 
       // ManifestResource
       var resources = md.ManifestResources.TableContents;
-      var resourceList = new List<ManifestResourceStructure>( resources.Count );
+      var resourceList = module.ManifestResources;
       resourceList.AddRange( resources.Select( res =>
       {
          var resourceInfo = new ManifestResourceStructure( res );
@@ -657,7 +642,7 @@ public static partial class E_CILStructural
                parentInfo = state.TypeDefDescriptions[parent.Index];
                break;
             case Tables.ExportedType:
-               parentInfo = state.ExportedTypes[parent.Index];
+               parentInfo = module.ExportedTypes[parent.Index];
                break;
             case Tables.MethodDef:
                parentInfo = mDefList[parent.Index];
@@ -741,6 +726,7 @@ public static partial class E_CILStructural
                MaxStackSize = il.MaxStackSize,
                Locals = il.LocalsSignatureIndex.HasValue ? standaloneSigList[il.LocalsSignatureIndex.Value.Index] : null
             };
+            mDefList[i].IL = ilStructure;
             ilStructure.ExceptionBlocks.AddRange( il.ExceptionBlocks.Select( e => new MethodExceptionBlockStructure()
             {
                BlockType = e.BlockType,
@@ -772,9 +758,6 @@ public static partial class E_CILStructural
             } ) );
          }
       }
-      // TODO IL
-
-      return resourceList;
    }
 
    private static AbstractStructureSignature CreateStructureSignature( this StructuralCreationState state, AbstractSignature signature )

@@ -546,19 +546,19 @@ namespace CILAssemblyManipulator.Structural
             switch ( x.StructureTokenKind )
             {
                case OpCodeStructureTokenKind.FieldDef:
-                  retVal = Equivalence_Field( (FieldStructure) x, (FieldStructure) y );
+                  retVal = Equivalence_Signature( ( (FieldStructure) x ).Signature, ( (FieldStructure) y ).Signature );
                   break;
                case OpCodeStructureTokenKind.MemberRef:
-                  retVal = Equivalence_MemberRef( (MemberReferenceStructure) x, (MemberReferenceStructure) y );
+                  retVal = Equivalence_Signature( ( (MemberReferenceStructure) x ).Signature, ( (MemberReferenceStructure) y ).Signature );
                   break;
                case OpCodeStructureTokenKind.MethodDef:
-                  retVal = Equivalence_Method( (MethodStructure) x, (MethodStructure) y );
+                  retVal = Equivalence_Signature( ( (MethodStructure) x ).Signature, ( (MethodStructure) y ).Signature );
                   break;
                case OpCodeStructureTokenKind.MethodSpec:
-                  retVal = Equivalence_MethodSpec( (MethodSpecificationStructure) x, (MethodSpecificationStructure) y );
+                  retVal = Equivalence_Signature( ( (MethodSpecificationStructure) x ).Signature, ( (MethodSpecificationStructure) y ).Signature );
                   break;
                case OpCodeStructureTokenKind.StandaloneSignature:
-                  retVal = Equivalence_StandaloneSignature( (StandaloneSignatureStructure) x, (StandaloneSignatureStructure) y );
+                  retVal = Equivalence_Signature( ( (StandaloneSignatureStructure) x ).Signature, ( (StandaloneSignatureStructure) y ).Signature );
                   break;
                case OpCodeStructureTokenKind.TypeDef:
                case OpCodeStructureTokenKind.TypeRef:
@@ -862,7 +862,7 @@ namespace CILAssemblyManipulator.Structural
 
             if ( retVal && thisParams.Count > 0 )
             {
-               retVal = Equivalence_Signature_ParamOrLocalSigs( thisSig.Parameters, otherSig.Parameters );
+               retVal = Equivalence_Signature_ParamOrLocalSigs( thisParams, otherParams );
             }
          }
          return retVal;
@@ -1214,7 +1214,7 @@ namespace CILAssemblyManipulator.Structural
          dictionary.Add( currentType, typeString );
          foreach ( var nestedType in currentType.NestedTypes )
          {
-            AddToTypeDefNameDictionary( dictionary, currentPrefix + typeString + Miscellaneous.NESTED_TYPE_SEPARATOR, nestedType );
+            AddToTypeDefNameDictionary( dictionary, typeString + Miscellaneous.NESTED_TYPE_SEPARATOR, nestedType );
          }
       }
    }
