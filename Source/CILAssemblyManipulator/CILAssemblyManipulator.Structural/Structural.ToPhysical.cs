@@ -25,17 +25,115 @@ using System.Text;
 
 public static partial class E_CILStructural
 {
+   private sealed class TableIndexTracker<T>
+      where T : class
+   {
+      private readonly Tables _table;
+      private readonly IDictionary<T, Int32> _dic;
+      private readonly Action<T, Int32> _afterAddition;
+
+      internal TableIndexTracker( Tables table, Action<T, Int32> afterAddition )
+      {
+         this._table = table;
+         this._dic = new Dictionary<T, Int32>( ReferenceEqualityComparer<T>.ReferenceBasedComparer );
+         this._afterAddition = afterAddition;
+      }
+
+      public TableIndex Add( T obj )
+      {
+         if ( obj == null )
+         {
+            throw new InvalidOperationException( "Trying to add null to table " + this._table + "." );
+         }
+
+         var idx = this._dic.Count;
+         this._dic.Add( obj, idx );
+         this._afterAddition( obj, idx );
+         return new TableIndex( this._table, idx );
+      }
+
+      public TableIndex Get( T obj )
+      {
+         TableIndex retVal;
+         if ( !this.TryGet( obj, out retVal ) )
+         {
+            throw new InvalidOperationException( "The " + this._table + " object " + obj + " was not part of this module." );
+         }
+         return retVal;
+      }
+
+      public TableIndex GetOrAdd( T obj )
+      {
+         Int32 idx;
+         return this._dic.TryGetValue( obj, out idx ) ?
+            new TableIndex( this._table, idx ) :
+            this.Add( obj );
+      }
+
+      public Boolean TryGet( T obj, out TableIndex index )
+      {
+         if ( obj == null )
+         {
+            throw new InvalidOperationException( "Null reference to table " + this._table + "." );
+         }
+         Int32 idx;
+         var retVal = this._dic.TryGetValue( obj, out idx );
+         index = retVal ? new TableIndex( this._table, idx ) : default( TableIndex );
+         return retVal;
+      }
+
+      public Int32 Count
+      {
+         get
+         {
+            return this._dic.Count;
+         }
+      }
+   }
    private sealed class PhysicalCreationState
    {
       private readonly CILMetaData _md;
-      private readonly IDictionary<TypeDefinitionStructure, Int32> _typeDefs;
+      private readonly TableIndexTracker<TypeDefinitionStructure> _typeDefs;
+      private readonly TableIndexTracker<FieldStructure> _fieldDefs;
+      private readonly TableIndexTracker<MethodStructure> _methodDefs;
+      private readonly TableIndexTracker<ParameterStructure> _paramDefs;
       //private readonly IDictionary<TypeReferenceStructure, Int32> _typeRefs;
       //private readonly IDictionary<TypeSpecificationStructure, Int32> _typeSpecs;
 
       internal PhysicalCreationState( CILMetaData md, ModuleStructure module )
       {
          this._md = md;
-         this._typeDefs = new Dictionary<TypeDefinitionStructure, Int32>( ReferenceEqualityComparer<TypeDefinitionStructure>.ReferenceBasedComparer );
+         this._typeDefs = new TableIndexTracker<TypeDefinitionStructure>( Tables.TypeDef, ( tDef, idx ) =>
+            md.TypeDefinitions.TableContents.Add( new TypeDefinition()
+            {
+               Attributes = tDef.Attributes,
+               FieldList = new TableIndex( Tables.Field, this._fieldDefs.Count ),
+               MethodList = new TableIndex( Tables.MethodDef, this._methodDefs.Count ),
+               Name = tDef.Name,
+               Namespace = tDef.Namespace
+            } ) );
+         this._fieldDefs = new TableIndexTracker<FieldStructure>( Tables.Field, ( fDef, idx ) =>
+            md.FieldDefinitions.TableContents.Add( new FieldDefinition()
+            {
+               Attributes = fDef.Attributes,
+               Name = fDef.Name
+            } ) );
+         this._methodDefs = new TableIndexTracker<MethodStructure>( Tables.MethodDef, ( mDef, idx ) =>
+            md.MethodDefinitions.TableContents.Add( new MethodDefinition()
+            {
+               Attributes = mDef.Attributes,
+               ImplementationAttributes = mDef.ImplementationAttributes,
+               Name = mDef.Name,
+               ParameterList = new TableIndex( Tables.Parameter, this._paramDefs.Count )
+            } ) );
+         this._paramDefs = new TableIndexTracker<ParameterStructure>( Tables.Parameter, ( pDef, idx ) =>
+            md.ParameterDefinitions.TableContents.Add( new ParameterDefinition()
+            {
+               Attributes = pDef.Attributes,
+               Name = pDef.Name,
+               Sequence = pDef.Sequence
+            } ) );
+
          //this._typeRefs = new Dictionary<TypeReferenceStructure, Int32>( ReferenceEqualityComparer<TypeReferenceStructure>.ReferenceBasedComparer );
          //this._typeSpecs = new Dictionary<TypeSpecificationStructure, Int32>( ReferenceEqualityComparer<TypeSpecificationStructure>.ReferenceBasedComparer );
 
@@ -50,7 +148,7 @@ public static partial class E_CILStructural
          }
       }
 
-      public IDictionary<TypeDefinitionStructure, Int32> TypeDefs
+      public TableIndexTracker<TypeDefinitionStructure> TypeDefs
       {
          get
          {
@@ -58,23 +156,7 @@ public static partial class E_CILStructural
          }
       }
 
-      //public IDictionary<TypeReferenceStructure, Int32> TypeRefs
-      //{
-      //   get
-      //   {
-      //      return this._typeRefs;
-      //   }
-      //}
-
-      //public IDictionary<TypeSpecificationStructure, Int32> TypeSpecs
-      //{
-      //   get
-      //   {
-      //      return this._typeSpecs;
-      //   }
-      //}
-
-      public IDictionary<FieldStructure, Int32> FieldDefs
+      public TableIndexTracker<TypeReferenceStructure> TypeRefs
       {
          get
          {
@@ -82,7 +164,7 @@ public static partial class E_CILStructural
          }
       }
 
-      public IDictionary<MethodStructure, Int32> MethodDefs
+      public TableIndexTracker<TypeSpecificationStructure> TypeSpecs
       {
          get
          {
@@ -90,7 +172,23 @@ public static partial class E_CILStructural
          }
       }
 
-      public IDictionary<ParameterStructure, Int32> ParamDefs
+      public TableIndexTracker<FieldStructure> FieldDefs
+      {
+         get
+         {
+            throw new NotImplementedException();
+         }
+      }
+
+      public TableIndexTracker<MethodStructure> MethodDefs
+      {
+         get
+         {
+            throw new NotImplementedException();
+         }
+      }
+
+      public TableIndexTracker<ParameterStructure> ParamDefs
       {
          get
          {
@@ -141,70 +239,33 @@ public static partial class E_CILStructural
    {
       var md = state.MetaData;
       var tDefs = md.TypeDefinitions.TableContents;
-      var tDefIdx = tDefs.Count;
-
       // TypeDef
-      tDefs.Add( new TypeDefinition()
-      {
-         Attributes = typeDef.Attributes,
-         FieldList = md.GetNextTableIndexFor( Tables.Field ),
-         MethodList = md.GetNextTableIndexFor( Tables.MethodDef ),
-         Name = typeDef.Name,
-         Namespace = typeDef.Namespace
-      } );
-      state.TypeDefs.Add( typeDef, tDefIdx );
+      var tDefIdx = state.TypeDefs.Add( typeDef );
 
       // NestedClass
       if ( enclosingType != null )
       {
          md.NestedClassDefinitions.TableContents.Add( new NestedClassDefinition()
          {
-            NestedClass = new TableIndex( Tables.TypeDef, tDefIdx ),
-            EnclosingClass = new TableIndex( Tables.TypeDef, state.TypeDefs[enclosingType] )
+            NestedClass = tDefIdx,
+            EnclosingClass = state.TypeDefs.Get( enclosingType )
          } );
       }
 
       // Fields
-      var fDefs = md.FieldDefinitions.TableContents;
-      var fDefIdx = fDefs.Count;
       foreach ( var field in typeDef.Fields )
       {
-         fDefs.Add( new FieldDefinition()
-         {
-            Attributes = field.Attributes,
-            Name = field.Name
-         } );
-         state.FieldDefs.Add( field, fDefIdx );
-         ++fDefIdx;
+         state.FieldDefs.Add( field );
       }
 
       // Methods and Parameters
-      var mDefs = md.MethodDefinitions.TableContents;
-      var mDefIdx = mDefs.Count;
-      var pDefs = md.ParameterDefinitions.TableContents;
-      var pDefIdx = pDefs.Count;
       foreach ( var method in typeDef.Methods )
       {
-         mDefs.Add( new MethodDefinition()
-         {
-            Attributes = method.Attributes,
-            ImplementationAttributes = method.ImplementationAttributes,
-            Name = method.Name,
-            ParameterList = new TableIndex( Tables.Parameter, pDefIdx )
-         } );
-         state.MethodDefs.Add( method, mDefIdx );
-         ++mDefIdx;
+         state.MethodDefs.Add( method );
 
          foreach ( var param in method.Parameters )
          {
-            pDefs.Add( new ParameterDefinition()
-            {
-               Attributes = param.Attributes,
-               Name = param.Name,
-               Sequence = param.Sequence
-            } );
-            state.ParamDefs.Add( param, pDefIdx );
-            ++pDefIdx;
+            state.ParamDefs.Add( param );
          }
       }
 
@@ -230,8 +291,11 @@ public static partial class E_CILStructural
       switch ( type.TypeStructureKind )
       {
          case TypeStructureKind.TypeDef:
+            return state.TypeDefs.Get( (TypeDefinitionStructure) type );
          case TypeStructureKind.TypeRef:
+            return state.TypeRefs.Get( (TypeReferenceStructure) type );
          case TypeStructureKind.TypeSpec:
+            return state.TypeSpecs.Get( (TypeSpecificationStructure) type );
          default:
             throw new InvalidOperationException( "Invalid type structure kind: " + type.TypeStructureKind + "." );
       }
