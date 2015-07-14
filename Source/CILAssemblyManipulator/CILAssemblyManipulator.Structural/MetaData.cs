@@ -158,7 +158,7 @@ namespace CILAssemblyManipulator.Structural
 
       }
 
-      public abstract TypeStructureKind TypeDescriptionKind { get; }
+      public abstract TypeStructureKind TypeStructureKind { get; }
 
       public abstract OpCodeStructureTokenKind StructureTokenKind { get; }
    }
@@ -248,7 +248,7 @@ namespace CILAssemblyManipulator.Structural
          this.Attributes = tDef.Attributes;
       }
 
-      public override TypeStructureKind TypeDescriptionKind
+      public override TypeStructureKind TypeStructureKind
       {
          get
          {
@@ -359,7 +359,7 @@ namespace CILAssemblyManipulator.Structural
       public String Namespace { get; set; }
       public TypeRefeferenceResolutionScope ResolutionScope { get; set; }
 
-      public override TypeStructureKind TypeDescriptionKind
+      public override TypeStructureKind TypeStructureKind
       {
          get
          {
@@ -492,7 +492,7 @@ namespace CILAssemblyManipulator.Structural
       {
       }
 
-      public override TypeStructureKind TypeDescriptionKind
+      public override TypeStructureKind TypeStructureKind
       {
          get
          {

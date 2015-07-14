@@ -123,6 +123,10 @@ namespace CILAssemblyManipulator.Structural
 
       private readonly Lazy<IDictionary<TypeDefinitionStructure, String>> _xTypeDefFullNames;
       private readonly Lazy<IDictionary<TypeDefinitionStructure, String>> _yTypeDefFullNames;
+      private readonly Lazy<IDictionary<FieldStructure, TypeDefinitionStructure>> _xFieldDeclaringTypes;
+      private readonly Lazy<IDictionary<FieldStructure, TypeDefinitionStructure>> _yFieldDeclaringTypes;
+      private readonly Lazy<IDictionary<MethodStructure, TypeDefinitionStructure>> _xMethodDeclaringTypes;
+      private readonly Lazy<IDictionary<MethodStructure, TypeDefinitionStructure>> _yMethodDeclaringTypes;
 
       public ModuleEquivalenceComparer( ModuleStructure x, ModuleStructure y )
       {
@@ -148,6 +152,10 @@ namespace CILAssemblyManipulator.Structural
 
          this._xTypeDefFullNames = new Lazy<IDictionary<TypeDefinitionStructure, String>>( () => CreateTypeDefNameDictionary( x ), LazyThreadSafetyMode.None );
          this._yTypeDefFullNames = new Lazy<IDictionary<TypeDefinitionStructure, String>>( () => CreateTypeDefNameDictionary( y ), LazyThreadSafetyMode.None );
+         this._xFieldDeclaringTypes = new Lazy<IDictionary<FieldStructure, TypeDefinitionStructure>>( () => CreateDeclaringTypeDictionary<FieldStructure>( x, t => t.Fields ), LazyThreadSafetyMode.None );
+         this._yFieldDeclaringTypes = new Lazy<IDictionary<FieldStructure, TypeDefinitionStructure>>( () => CreateDeclaringTypeDictionary<FieldStructure>( y, t => t.Fields ), LazyThreadSafetyMode.None );
+         this._xMethodDeclaringTypes = new Lazy<IDictionary<MethodStructure, TypeDefinitionStructure>>( () => CreateDeclaringTypeDictionary<MethodStructure>( x, t => t.Methods ), LazyThreadSafetyMode.None );
+         this._yMethodDeclaringTypes = new Lazy<IDictionary<MethodStructure, TypeDefinitionStructure>>( () => CreateDeclaringTypeDictionary<MethodStructure>( y, t => t.Methods ), LazyThreadSafetyMode.None );
       }
 
       public Boolean PerformEquivalenceCheckForModules()
@@ -213,7 +221,7 @@ namespace CILAssemblyManipulator.Structural
       {
          return ReferenceEquals( x, y )
             || ( x != null && y != null
-            && x.TypeDescriptionKind == y.TypeDescriptionKind
+            && x.TypeStructureKind == y.TypeStructureKind
             && Equivalence_TypeDefOrRefOrSpec_SameKind( x, y )
             );
       }
@@ -236,12 +244,20 @@ namespace CILAssemblyManipulator.Structural
 
       private Boolean Equivalence_Method( MethodStructure x, MethodStructure y )
       {
+         return Equivalence_Method_NoIL( x, y )
+            && ( ReferenceEquals( x, y )
+            || ( x != null && y != null
+               && Equivalence_MethodIL( x.IL, y.IL )
+               ) );
+      }
+
+      private Boolean Equivalence_Method_NoIL( MethodStructure x, MethodStructure y )
+      {
          return ReferenceEquals( x, y )
             || ( x != null && y != null
             && String.Equals( x.Name, y.Name )
             && Equivalence_Signature_MethodDef( x.Signature, y.Signature )
             && ListEqualityComparer<List<ParameterStructure>, ParameterStructure>.ListEquality( x.Parameters, y.Parameters, this.Equivalence_Parameter )
-            && Equivalence_MethodIL( x.IL, y.IL )
             && x.Attributes == y.Attributes
             && x.ImplementationAttributes == y.ImplementationAttributes
             && x.PInvokeInfo.EqualsTypedEquatable( y.PInvokeInfo )
@@ -274,28 +290,12 @@ namespace CILAssemblyManipulator.Structural
 
       private Boolean Equivalence_TypeDefOrRefOrSpec_SameKind( AbstractTypeStructure x, AbstractTypeStructure y )
       {
-         switch ( x.TypeDescriptionKind )
+         switch ( x.TypeStructureKind )
          {
             case TypeStructureKind.TypeDef:
                var xDef = (TypeDefinitionStructure) x;
                var yDef = (TypeDefinitionStructure) y;
-               String xName; String yName;
-               return ( this._xTypeDefFullNames.Value.TryGetValue( xDef, out xName ) ?
-                  this._yTypeDefFullNames.Value.TryGetValue( yDef, out yName ) :
-                  ( this._yTypeDefFullNames.Value.TryGetValue( xDef, out xName )
-                     && this._xTypeDefFullNames.Value.TryGetValue( yDef, out yName )
-                  ) ) && String.Equals( xName, yName );
-            //if ( !this._typeDefFullNames1.TryGetValue( x, out xName ) )
-            //{
-            //   return this._typeDefFullNames2.TryGetValue( x, out xName )
-            //      && this._typeDefFullNames1.TryGetValue( y, out yName )
-            //      && String.Equals( xName, yName );
-            //}
-            //else
-            //{
-            //   return this._typeDefFullNames2.TryGetValue( y, out yName )
-            //      && String.Equals( xName, yName );
-            //}
+               return Equivalence_FromDictionary( this._xTypeDefFullNames.Value, this._yTypeDefFullNames.Value, xDef, yDef, ( xName, yName ) => String.Equals( xName, yName ) );
             case TypeStructureKind.TypeRef:
                var xx = (TypeReferenceStructure) x;
                var yy = (TypeReferenceStructure) y;
@@ -309,7 +309,7 @@ namespace CILAssemblyManipulator.Structural
                return Equivalence_Signature_Type( xs.Signature, ys.Signature )
                   && ListEqualityComparer<List<CustomAttributeStructure>, CustomAttributeStructure>.IsPermutation( x.CustomAttributes, y.CustomAttributes, this._caComparer );
             default:
-               throw new InvalidOperationException( "Invalid type ref or def or spec: " + x.TypeDescriptionKind + "." );
+               throw new InvalidOperationException( "Invalid type ref or def or spec: " + x.TypeStructureKind + "." );
          }
       }
 
@@ -327,12 +327,28 @@ namespace CILAssemblyManipulator.Structural
          switch ( x.MethodReferenceKind )
          {
             case MethodReferenceKind.MethodDef:
-               return Equivalence_Method( (MethodStructure) x, (MethodStructure) y );
+               var xMDef = (MethodStructure) x;
+               var yMDef = (MethodStructure) y;
+               return Equivalence_Signature_MethodDef( xMDef.Signature, yMDef.Signature )
+                  && Equivalence_FromDictionary( this._xMethodDeclaringTypes.Value, this._yMethodDeclaringTypes.Value, xMDef, yMDef, ( xTDef, yTDef ) => Equivalence_TypeDefOrRefOrSpec( xTDef, yTDef ) );
             case MethodReferenceKind.MemberRef:
                return Equivalence_MemberRef( (MemberReferenceStructure) x, (MemberReferenceStructure) y );
             default:
                throw new InvalidOperationException( "Invalid method def or member ref kind: " + x.MethodReferenceKind + "." );
          }
+      }
+
+      private Boolean Equivalence_FromDictionary<T, U>( IDictionary<T, U> xDic, IDictionary<T, U> yDic, T x, T y, Func<U, U, Boolean> equivalence )
+      {
+         U xU, yU;
+         return
+            ( xDic.TryGetValue( x, out xU ) ?
+               yDic.TryGetValue( y, out yU ) :
+               ( yDic.TryGetValue( x, out xU )
+                  && xDic.TryGetValue( y, out yU )
+               )
+            )
+           && equivalence( xU, yU );
       }
 
       private Boolean Equivalence_OverriddenMethod( OverriddenMethodInfo x, OverriddenMethodInfo y )
@@ -423,7 +439,7 @@ namespace CILAssemblyManipulator.Structural
       private Boolean Equivalence_SemanticMethod( SemanticMethodInfo x, SemanticMethodInfo y )
       {
          return x.Attributes == y.Attributes
-            && Equivalence_Method( x.Method, y.Method );
+            && Equivalence_Method_NoIL( x.Method, y.Method );
       }
 
       private Boolean Equivalence_MemberRef( MemberReferenceStructure x, MemberReferenceStructure y )
@@ -546,19 +562,25 @@ namespace CILAssemblyManipulator.Structural
             switch ( x.StructureTokenKind )
             {
                case OpCodeStructureTokenKind.FieldDef:
-                  retVal = Equivalence_Signature( ( (FieldStructure) x ).Signature, ( (FieldStructure) y ).Signature );
+                  var xFDef = (FieldStructure) x;
+                  var yFDef = (FieldStructure) y;
+                  retVal = Equivalence_Field( xFDef, yFDef )
+                     && Equivalence_FromDictionary( this._xFieldDeclaringTypes.Value, this._yFieldDeclaringTypes.Value, xFDef, yFDef, ( xTDef, yTDef ) => Equivalence_TypeDefOrRefOrSpec( xTDef, yTDef ) );
                   break;
                case OpCodeStructureTokenKind.MemberRef:
-                  retVal = Equivalence_Signature( ( (MemberReferenceStructure) x ).Signature, ( (MemberReferenceStructure) y ).Signature );
+                  retVal = Equivalence_MemberRef( (MemberReferenceStructure) x, (MemberReferenceStructure) y );
                   break;
                case OpCodeStructureTokenKind.MethodDef:
-                  retVal = Equivalence_Signature( ( (MethodStructure) x ).Signature, ( (MethodStructure) y ).Signature );
+                  var xMDef = (MethodStructure) x;
+                  var yMDef = (MethodStructure) y;
+                  retVal = Equivalence_Method_NoIL( xMDef, yMDef )
+                     && Equivalence_FromDictionary( this._xMethodDeclaringTypes.Value, this._yMethodDeclaringTypes.Value, xMDef, yMDef, ( xTDef, yTDef ) => Equivalence_TypeDefOrRefOrSpec( xTDef, yTDef ) );
                   break;
                case OpCodeStructureTokenKind.MethodSpec:
-                  retVal = Equivalence_Signature( ( (MethodSpecificationStructure) x ).Signature, ( (MethodSpecificationStructure) y ).Signature );
+                  retVal = Equivalence_MethodSpec( (MethodSpecificationStructure) x, (MethodSpecificationStructure) y );
                   break;
                case OpCodeStructureTokenKind.StandaloneSignature:
-                  retVal = Equivalence_Signature( ( (StandaloneSignatureStructure) x ).Signature, ( (StandaloneSignatureStructure) y ).Signature );
+                  retVal = Equivalence_StandaloneSignature( (StandaloneSignatureStructure) x, (StandaloneSignatureStructure) y );
                   break;
                case OpCodeStructureTokenKind.TypeDef:
                case OpCodeStructureTokenKind.TypeRef:
@@ -660,7 +682,7 @@ namespace CILAssemblyManipulator.Structural
          switch ( x.MemberReferenceParentKind )
          {
             case MemberReferenceParentKind.MethodDef:
-               return Equivalence_Method( ( (MemberReferenceParentMethodDef) x ).Method, ( (MemberReferenceParentMethodDef) y ).Method );
+               return Equivalence_Method_NoIL( ( (MemberReferenceParentMethodDef) x ).Method, ( (MemberReferenceParentMethodDef) y ).Method );
             case MemberReferenceParentKind.ModuleRef:
                return Equivalence_ModuleRef( ( (MemberReferenceParentModuleRef) x ).ModuleRef, ( (MemberReferenceParentModuleRef) y ).ModuleRef );
             case MemberReferenceParentKind.Type:
@@ -952,7 +974,7 @@ namespace CILAssemblyManipulator.Structural
 
       private Int32 HashCode_TypeDefOrRefOrSpec_NotNull( AbstractTypeStructure x )
       {
-         switch ( x.TypeDescriptionKind )
+         switch ( x.TypeStructureKind )
          {
             case TypeStructureKind.TypeDef:
                return HashCode_TypeDefinition( (TypeDefinitionStructure) x );
@@ -962,7 +984,7 @@ namespace CILAssemblyManipulator.Structural
             case TypeStructureKind.TypeSpec:
                return HashCode_Signature( ( (TypeSpecificationStructure) x ).Signature );
             default:
-               throw new InvalidOperationException( "Invalid type ref or def or spec: " + x.TypeDescriptionKind + "." );
+               throw new InvalidOperationException( "Invalid type ref or def or spec: " + x.TypeStructureKind + "." );
          }
       }
 
@@ -1216,6 +1238,20 @@ namespace CILAssemblyManipulator.Structural
          {
             AddToTypeDefNameDictionary( dictionary, typeString + Miscellaneous.NESTED_TYPE_SEPARATOR, nestedType );
          }
+      }
+
+      private static IDictionary<T, TypeDefinitionStructure> CreateDeclaringTypeDictionary<T>( ModuleStructure module, Func<TypeDefinitionStructure, IEnumerable<T>> extractor )
+      {
+         var retVal = new Dictionary<T, TypeDefinitionStructure>( ReferenceEqualityComparer<T>.ReferenceBasedComparer );
+         foreach ( var tDef in module.TopLevelTypeDefinitions.SelectMany( t => t.AsDepthFirstEnumerable( tt => tt.NestedTypes ) ) )
+         {
+            foreach ( var element in extractor( tDef ) )
+            {
+               retVal.Add( element, tDef );
+            }
+         }
+
+         return retVal;
       }
    }
 }
