@@ -808,41 +808,6 @@ public static partial class E_CILStructural
                Name = m.Name
             } ) );
       }
-
-      //// TypeRef and TypeSpec
-      //Boolean addedTypeRefs, addedTypeSpecs;
-      //var typeRefs = state.TypeRefs.Dictionary.Keys.ToArray();
-      //var typeSpecs = state.TypeSpecs.Dictionary.Keys.ToArray();
-      //do
-      //{
-      //   var oldTypeRefCount = state.TypeRefs.Count;
-      //   var oldTypeSpecCount = state.TypeSpecs.Count;
-
-      //   foreach ( var tRef in typeRefs )
-      //   {
-      //      state.AddCustomAttributes( state.TypeRefs.Get( tRef ), tRef );
-      //   }
-      //   foreach ( var tSpec in typeSpecs )
-      //   {
-      //      state.AddCustomAttributes( state.TypeSpecs.Get( tSpec ), tSpec );
-      //   }
-
-      //   addedTypeRefs = state.TypeRefs.Count > oldTypeRefCount;
-      //   if ( addedTypeRefs )
-      //   {
-      //      var typeRefsSet = new HashSet<TypeReferenceStructure>( state.TypeRefs.Dictionary.Keys, ReferenceEqualityComparer<TypeReferenceStructure>.ReferenceBasedComparer );
-      //      typeRefsSet.ExceptWith( typeRefs );
-      //      typeRefs = typeRefsSet.ToArray();
-      //   }
-
-      //   addedTypeSpecs = state.TypeSpecs.Count > oldTypeSpecCount;
-      //   if ( addedTypeSpecs )
-      //   {
-      //      var typeSpecsSet = new HashSet<TypeSpecificationStructure>( state.TypeSpecs.Dictionary.Keys, ReferenceEqualityComparer<TypeSpecificationStructure>.ReferenceBasedComparer );
-      //      typeSpecsSet.ExceptWith( typeSpecs );
-      //      typeSpecs = typeSpecsSet.ToArray();
-      //   }
-      //} while ( addedTypeRefs || addedTypeSpecs );
    }
 
    private static TableIndex GetTypeDefOrRefOrSpec( this PhysicalCreationState state, AbstractTypeStructure type )
@@ -857,9 +822,9 @@ public static partial class E_CILStructural
          case TypeStructureKind.TypeDef:
             return state.TypeDefs.Get( (TypeDefinitionStructure) type );
          case TypeStructureKind.TypeRef:
-            return state.TypeRefs.Get( (TypeReferenceStructure) type );
+            return state.TypeRefs.GetOrAdd( (TypeReferenceStructure) type );
          case TypeStructureKind.TypeSpec:
-            return state.TypeSpecs.Get( (TypeSpecificationStructure) type );
+            return state.TypeSpecs.GetOrAdd( (TypeSpecificationStructure) type );
          default:
             throw new InvalidOperationException( "Invalid type structure kind: " + type.TypeStructureKind + "." );
       }
