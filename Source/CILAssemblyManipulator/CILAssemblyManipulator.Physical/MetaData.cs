@@ -1116,6 +1116,11 @@ public static partial class E_CILPhysical
       return new TableIndex( index.Table, newIndex );
    }
 
+   public static TableIndex IncrementIndex( this TableIndex index )
+   {
+      return index.ChangeIndex( index.Index + 1 );
+   }
+
    public static Object GetByTableIndex( this CILMetaData md, TableIndex index )
    {
       Object retVal;
