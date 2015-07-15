@@ -115,7 +115,6 @@ public static partial class E_CILStructural
       private readonly TableIndexTracker<StandaloneSignatureStructure> _standaloneSignatures;
       private readonly TableIndexTracker<ExportedTypeStructure> _exportedTypes;
       private readonly TableIndexTracker<FileReferenceStructure> _files;
-      private readonly TableIndexTracker<ManifestResourceStructure> _manifestResources;
 
       internal PhysicalCreationState( CILMetaData md, ModuleStructure module )
       {
@@ -326,44 +325,6 @@ public static partial class E_CILStructural
             } );
          } );
 
-         this._manifestResources = new TableIndexTracker<ManifestResourceStructure>( Tables.ManifestResource, ( resource, idx ) =>
-         {
-            this.AddCustomAttributes( idx, resource );
-            var resourcePhysical = new ManifestResource()
-            {
-               Attributes = resource.Attributes,
-               Name = resource.Name,
-               Offset = resource.Offset
-            };
-            md.ManifestResources.TableContents.Add( resourcePhysical );
-            var data = resource.ManifestData;
-            if ( data == null )
-            {
-               throw new InvalidOperationException( "Missing manifest resource data for " + resource + "." );
-            }
-            else
-            {
-               TableIndex? implementation;
-               switch ( data.ManifestResourceDataKind )
-               {
-                  case ManifestResourceDataKind.Embedded:
-                     implementation = null;
-                     resourcePhysical.DataInCurrentFile = ( (ManifestResourceStructureDataEmbedded) data ).Data;
-                     break;
-                  case ManifestResourceDataKind.File:
-                     implementation = this._files.GetOrAdd( ( (ManifestResourceStrucureDataFile) data ).FileReference );
-                     break;
-                  case ManifestResourceDataKind.AssemblyRef:
-                     implementation = this._assemblyRefs.GetOrAdd( ( (ManifestResourceStructureDataAssemblyReference) data ).AssemblyRef );
-                     break;
-                  default:
-                     throw new InvalidOperationException( "Invalid manifest resource data kind: " + data.ManifestResourceDataKind + "." );
-               }
-
-               resourcePhysical.Implementation = implementation;
-            }
-         } );
-
          this.PopulateStructualTables( module );
       }
 
@@ -468,14 +429,6 @@ public static partial class E_CILStructural
          get
          {
             return this._exportedTypes;
-         }
-      }
-
-      public TableIndexTracker<ManifestResourceStructure> ManifestResources
-      {
-         get
-         {
-            return this._manifestResources;
          }
       }
 
@@ -802,9 +755,44 @@ public static partial class E_CILStructural
       }
 
       // Manifest resources
-      foreach ( var res in module.ManifestResources )
+      var resources = md.ManifestResources.TableContents;
+      foreach ( var resource in module.ManifestResources )
       {
-         state.ManifestResources.GetOrAdd( res );
+         var idx = new TableIndex( Tables.ManifestResource, resources.Count );
+         state.AddCustomAttributes( idx, resource );
+         var resourcePhysical = new ManifestResource()
+         {
+            Attributes = resource.Attributes,
+            Name = resource.Name,
+            Offset = resource.Offset
+         };
+         resources.Add( resourcePhysical );
+         var data = resource.ManifestData;
+         if ( data == null )
+         {
+            throw new InvalidOperationException( "Missing manifest resource data for " + resource + "." );
+         }
+         else
+         {
+            TableIndex? implementation;
+            switch ( data.ManifestResourceDataKind )
+            {
+               case ManifestResourceDataKind.Embedded:
+                  implementation = null;
+                  resourcePhysical.DataInCurrentFile = ( (ManifestResourceStructureDataEmbedded) data ).Data;
+                  break;
+               case ManifestResourceDataKind.File:
+                  implementation = state.FileReferences.GetOrAdd( ( (ManifestResourceStrucureDataFile) data ).FileReference );
+                  break;
+               case ManifestResourceDataKind.AssemblyRef:
+                  implementation = state.AssemblyRefs.GetOrAdd( ( (ManifestResourceStructureDataAssemblyReference) data ).AssemblyRef );
+                  break;
+               default:
+                  throw new InvalidOperationException( "Invalid manifest resource data kind: " + data.ManifestResourceDataKind + "." );
+            }
+
+            resourcePhysical.Implementation = implementation;
+         }
       }
 
       // File references for modules
