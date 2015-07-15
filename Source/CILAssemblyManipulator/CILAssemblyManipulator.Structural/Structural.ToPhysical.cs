@@ -116,7 +116,7 @@ public static partial class E_CILStructural
       private readonly TableIndexTracker<ExportedTypeStructure> _exportedTypes;
       private readonly TableIndexTracker<FileReferenceStructure> _files;
 
-      internal PhysicalCreationState( CILMetaData md, ModuleStructure module )
+      internal PhysicalCreationState( CILMetaData md )
       {
          this._md = md;
          this._typeDefs = new TableIndexTracker<TypeDefinitionStructure>( Tables.TypeDef, ( tDef, idx ) =>
@@ -324,8 +324,6 @@ public static partial class E_CILStructural
                HashValue = file.HashValue.CreateBlockCopy()
             } );
          } );
-
-         this.PopulateStructualTables( module );
       }
 
       public CILMetaData MetaData
@@ -465,8 +463,9 @@ public static partial class E_CILStructural
          assembly.AssemblyInfo.DeepCopyContentsTo( aDef.AssemblyInformation );
       }
 
-      var state = new PhysicalCreationState( md, module );
-
+      var state = new PhysicalCreationState( md );
+      state.PopulateStructualTables( module );
+      state.FillRestOfTheTables( module, assembly );
 
       return md;
    }
