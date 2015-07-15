@@ -430,13 +430,13 @@ public static partial class E_CILStructural
          switch ( parent.Table )
          {
             case Tables.Field:
-               fDefList[parent.Index].ConstantValue = value;
+               fDefList[parent.Index].ConstantValue = new ConstantStructure( value );
                break;
             case Tables.Parameter:
-               paramDefList[parent.Index].ConstantValue = value;
+               paramDefList[parent.Index].ConstantValue = new ConstantStructure( value );
                break;
             case Tables.Property:
-               propDefList[parent.Index].ConstantValue = value;
+               propDefList[parent.Index].ConstantValue = new ConstantStructure( value );
                break;
          }
       }
@@ -475,7 +475,7 @@ public static partial class E_CILStructural
          {
             Attributes = impl.Attributes,
             PlatformInvokeName = impl.ImportName,
-            PlatformInvokeModuleName = md.ModuleReferences.TableContents[impl.ImportScope.Index].ModuleName
+            PlatformInvokeModule = state.ModuleRefs[impl.ImportScope.Index]
          };
 
          switch ( parent.Table )

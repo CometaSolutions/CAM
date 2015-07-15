@@ -673,15 +673,48 @@ namespace CILAssemblyManipulator.Structural
       public String Name { get; set; }
       public FieldAttributes Attributes { get; set; }
       public FieldStructureSignature Signature { get; set; }
-      public Object ConstantValue { get; set; }
+      public ConstantStructure? ConstantValue { get; set; }
       public MarshalingInfo MarshalingInfo { get; set; }
-      public Int32 FieldOffset { get; set; }
+      public Int32? FieldOffset { get; set; }
       public Byte[] FieldData { get; set; }
       public PInvokeInfo PInvokeInfo { get; set; }
 
       public override String ToString()
       {
          return this.Name;
+      }
+   }
+
+   public struct ConstantStructure : IEquatable<ConstantStructure>
+   {
+      private readonly Object _const;
+
+      public ConstantStructure( Object constant )
+      {
+         this._const = constant;
+      }
+
+      public Object Constant
+      {
+         get
+         {
+            return this._const;
+         }
+      }
+
+      public override Boolean Equals( Object obj )
+      {
+         return obj is ConstantStructure && this.Equals( (ConstantStructure) obj );
+      }
+
+      public override Int32 GetHashCode()
+      {
+         return this._const.GetHashCodeSafe();
+      }
+
+      public Boolean Equals( ConstantStructure other )
+      {
+         return Equals( this._const, other._const );
       }
    }
 
@@ -784,7 +817,7 @@ namespace CILAssemblyManipulator.Structural
       public ParameterAttributes Attributes { get; set; }
       public Int32 Sequence { get; set; }
       public String Name { get; set; }
-      public Object ConstantValue { get; set; }
+      public ConstantStructure? ConstantValue { get; set; }
       public MarshalingInfo MarshalingInfo { get; set; }
    }
 
@@ -850,7 +883,7 @@ namespace CILAssemblyManipulator.Structural
       public PropertyAttributes Attributes { get; set; }
       public String Name { get; set; }
       public PropertyStructureSignature Signature { get; set; }
-      public Object ConstantValue { get; set; }
+      public ConstantStructure? ConstantValue { get; set; }
 
       public override String ToString()
       {
@@ -926,31 +959,11 @@ namespace CILAssemblyManipulator.Structural
       public AbstractTypeStructure Constraint { get; set; }
    }
 
-   public sealed class PInvokeInfo : IEquatable<PInvokeInfo>
+   public sealed class PInvokeInfo
    {
       public PInvokeAttributes Attributes { get; set; }
       public String PlatformInvokeName { get; set; }
-      public String PlatformInvokeModuleName { get; set; }
-
-      public override Boolean Equals( Object obj )
-      {
-         return this.Equals( obj as PInvokeInfo );
-      }
-
-      public override Int32 GetHashCode()
-      {
-         return base.GetHashCode();
-      }
-
-      public Boolean Equals( PInvokeInfo other )
-      {
-         return ReferenceEquals( this, other )
-            || ( other != null
-            && String.Equals( this.PlatformInvokeName, other.PlatformInvokeName )
-            && String.Equals( this.PlatformInvokeModuleName, other.PlatformInvokeModuleName )
-            && this.Attributes == other.Attributes
-            );
-      }
+      public ModuleReferenceStructure PlatformInvokeModule { get; set; }
    }
 
    public sealed class SecurityStructure : StructureWithCustomAttributes

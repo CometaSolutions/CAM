@@ -233,11 +233,11 @@ namespace CILAssemblyManipulator.Structural
             && String.Equals( x.Name, y.Name )
             && x.Attributes == y.Attributes
             && Equivalence_Signature_Field( x.Signature, y.Signature )
-            && Equals( x.ConstantValue, y.ConstantValue )
+            && NullableEqualityComparer<ConstantStructure>.Equals( x.ConstantValue, y.ConstantValue )
             && Comparers.MarshalingInfoEqualityComparer.Equals( x.MarshalingInfo, y.MarshalingInfo )
-            && x.FieldOffset == y.FieldOffset
+            && NullableEqualityComparer<Int32>.Equals( x.FieldOffset, y.FieldOffset )
             && ArrayEqualityComparer<Byte>.DefaultArrayEqualityComparer.Equals( x.FieldData, y.FieldData )
-            && x.PInvokeInfo.EqualsTypedEquatable( y.PInvokeInfo )
+            && Equivalence_PInvoke( x.PInvokeInfo, y.PInvokeInfo )
             && ListEqualityComparer<List<CustomAttributeStructure>, CustomAttributeStructure>.IsPermutation( x.CustomAttributes, y.CustomAttributes, this._caComparer )
             );
       }
@@ -260,7 +260,7 @@ namespace CILAssemblyManipulator.Structural
             && ListEqualityComparer<List<ParameterStructure>, ParameterStructure>.ListEquality( x.Parameters, y.Parameters, this.Equivalence_Parameter )
             && x.Attributes == y.Attributes
             && x.ImplementationAttributes == y.ImplementationAttributes
-            && x.PInvokeInfo.EqualsTypedEquatable( y.PInvokeInfo )
+            && Equivalence_PInvoke( x.PInvokeInfo, y.PInvokeInfo )
             && ListEqualityComparer<List<GenericParameterStructure>, GenericParameterStructure>.ListEquality( x.GenericParameters, y.GenericParameters, this.Equivalence_GenericParameter )
             && Equivalence_Security( x.SecurityInfo, y.SecurityInfo )
             && ListEqualityComparer<List<CustomAttributeStructure>, CustomAttributeStructure>.IsPermutation( x.CustomAttributes, y.CustomAttributes, this._caComparer )
@@ -274,6 +274,7 @@ namespace CILAssemblyManipulator.Structural
             && x.Sequence == y.Sequence
             && String.Equals( x.Name, y.Name )
             && x.Attributes == y.Attributes
+            && NullableEqualityComparer<ConstantStructure>.Equals( x.ConstantValue, y.ConstantValue )
             && Comparers.MarshalingInfoEqualityComparer.Equals( x.MarshalingInfo, y.MarshalingInfo )
             && ListEqualityComparer<List<CustomAttributeStructure>, CustomAttributeStructure>.IsPermutation( x.CustomAttributes, y.CustomAttributes, this._caComparer )
             );
@@ -419,7 +420,7 @@ namespace CILAssemblyManipulator.Structural
             && x.Attributes == y.Attributes
             && Equivalence_Signature_Property( x.Signature, y.Signature )
             && ListEqualityComparer<List<SemanticMethodInfo>, SemanticMethodInfo>.IsPermutation( x.SemanticMethods, y.SemanticMethods, this._semanticMethodComparer )
-            && Equals( x.ConstantValue, y.ConstantValue )
+            && NullableEqualityComparer<ConstantStructure>.Equals( x.ConstantValue, y.ConstantValue )
             && ListEqualityComparer<List<CustomAttributeStructure>, CustomAttributeStructure>.IsPermutation( x.CustomAttributes, y.CustomAttributes, this._caComparer )
             );
       }
@@ -502,6 +503,16 @@ namespace CILAssemblyManipulator.Structural
             && Equivalence_MethodDefOrMemberRef( x.Method, y.Method )
             && Equivalence_Signature_GenericMethod( x.Signature, y.Signature )
             && ListEqualityComparer<List<CustomAttributeStructure>, CustomAttributeStructure>.IsPermutation( x.CustomAttributes, y.CustomAttributes, this._caComparer )
+            );
+      }
+
+      private Boolean Equivalence_PInvoke( PInvokeInfo x, PInvokeInfo y )
+      {
+         return ReferenceEquals( x, y )
+            || ( x != null && y != null
+            && String.Equals( x.PlatformInvokeName, y.PlatformInvokeName )
+            && Equivalence_ModuleRef( x.PlatformInvokeModule, y.PlatformInvokeModule )
+            && x.Attributes == y.Attributes
             );
       }
 

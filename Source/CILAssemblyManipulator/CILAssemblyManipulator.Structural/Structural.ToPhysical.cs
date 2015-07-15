@@ -30,9 +30,9 @@ public static partial class E_CILStructural
    {
       private readonly Tables _table;
       private readonly IDictionary<T, Int32> _dic;
-      private readonly Action<T, Int32> _afterAddition;
+      private readonly Action<T, TableIndex> _afterAddition;
 
-      internal TableIndexTracker( Tables table, Action<T, Int32> afterAddition )
+      internal TableIndexTracker( Tables table, Action<T, TableIndex> afterAddition )
       {
          this._table = table;
          this._dic = new Dictionary<T, Int32>( ReferenceEqualityComparer<T>.ReferenceBasedComparer );
@@ -48,8 +48,9 @@ public static partial class E_CILStructural
 
          var idx = this._dic.Count;
          this._dic.Add( obj, idx );
-         this._afterAddition( obj, idx );
-         return new TableIndex( this._table, idx );
+         var retVal = new TableIndex( this._table, idx );
+         this._afterAddition( obj, retVal );
+         return retVal;
       }
 
       public TableIndex Get( T obj )
@@ -112,6 +113,9 @@ public static partial class E_CILStructural
       private readonly TableIndexTracker<MemberReferenceStructure> _memberRefs;
       private readonly TableIndexTracker<MethodSpecificationStructure> _methodSpecs;
       private readonly TableIndexTracker<StandaloneSignatureStructure> _standaloneSignatures;
+      private readonly TableIndexTracker<ExportedTypeStructure> _exportedTypes;
+      private readonly TableIndexTracker<FileReferenceStructure> _files;
+      private readonly TableIndexTracker<ManifestResourceStructure> _manifestResources;
 
       internal PhysicalCreationState( CILMetaData md, ModuleStructure module )
       {
@@ -148,6 +152,7 @@ public static partial class E_CILStructural
             } ) );
          this._typeRefs = new TableIndexTracker<TypeReferenceStructure>( Tables.TypeRef, ( tRef, idx ) =>
          {
+            this.AddCustomAttributes( idx, tRef );
             var tRefPhysical = new TypeReference()
             {
                Name = tRef.Name,
@@ -189,13 +194,17 @@ public static partial class E_CILStructural
          } );
 
          this._typeSpecs = new TableIndexTracker<TypeSpecificationStructure>( Tables.TypeSpec, ( tSpec, idx ) =>
+         {
+            this.AddCustomAttributes( idx, tSpec );
             md.TypeSpecifications.TableContents.Add( new TypeSpecification()
             {
                Signature = this.CreatePhysicalTypeSignature( tSpec.Signature )
-            } ) );
+            } );
+         } );
 
          this._assemblyRefs = new TableIndexTracker<AssemblyReferenceStructure>( Tables.AssemblyRef, ( aRef, idx ) =>
          {
+            this.AddCustomAttributes( idx, aRef );
             var aRefPhysical = new AssemblyReference()
             {
                Attributes = aRef.Attributes,
@@ -206,13 +215,17 @@ public static partial class E_CILStructural
          } );
 
          this._moduleRefs = new TableIndexTracker<ModuleReferenceStructure>( Tables.ModuleRef, ( mRef, idx ) =>
+         {
+            this.AddCustomAttributes( idx, mRef );
             md.ModuleReferences.TableContents.Add( new ModuleReference()
             {
                ModuleName = mRef.ModuleName
-            } ) );
+            } );
+         } );
 
          this._memberRefs = new TableIndexTracker<MemberReferenceStructure>( Tables.MemberRef, ( mRef, idx ) =>
          {
+            this.AddCustomAttributes( idx, mRef );
             var mRefPhysical = new MemberReference()
             {
                Name = mRef.Name,
@@ -246,18 +259,110 @@ public static partial class E_CILStructural
          } );
 
          this._methodSpecs = new TableIndexTracker<MethodSpecificationStructure>( Tables.MethodSpec, ( mSpec, idx ) =>
+         {
+            this.AddCustomAttributes( idx, mSpec );
             md.MethodSpecifications.TableContents.Add( new MethodSpecification()
             {
                Method = this.GetMethodDefOrMemberRef( mSpec.Method ),
                Signature = this.CreatePhysicalGenericMethodSignature( mSpec.Signature )
-            } ) );
+            } );
+         } );
 
          this._standaloneSignatures = new TableIndexTracker<StandaloneSignatureStructure>( Tables.StandaloneSignature, ( sig, idx ) =>
+         {
+            this.AddCustomAttributes( idx, sig );
             md.StandaloneSignatures.TableContents.Add( new StandaloneSignature()
             {
                StoreSignatureAsFieldSignature = false,
                Signature = this.CreatePhysicalSignature( sig.Signature )
-            } ) );
+            } );
+         } );
+
+         this._exportedTypes = new TableIndexTracker<ExportedTypeStructure>( Tables.ExportedType, ( eType, idx ) =>
+         {
+            this.AddCustomAttributes( idx, eType );
+            var eTypePhysical = new ExportedType()
+            {
+               Attributes = eType.Attributes,
+               Name = eType.Name,
+               Namespace = eType.Namespace,
+               TypeDefinitionIndex = eType.TypeDefID
+            };
+            md.ExportedTypes.TableContents.Add( eTypePhysical );
+            var resScope = eType.ResolutionScope;
+            if ( resScope == null )
+            {
+               throw new InvalidOperationException( "Missing resolution scope from exported type " + eType + "." );
+            }
+            else
+            {
+               TableIndex resScopeIdx;
+               switch ( resScope.ResolutionScopeKind )
+               {
+                  case ExportedTypeResolutionScopeKind.Nested:
+                     resScopeIdx = this._exportedTypes.GetOrAdd( ( (ExportedTypeResolutionScopeNested) resScope ).EnclosingType );
+                     break;
+                  case ExportedTypeResolutionScopeKind.AssemblyRef:
+                     resScopeIdx = this._assemblyRefs.GetOrAdd( ( (ExportedTypeResolutionScopeAssemblyRef) resScope ).AssemblyRef );
+                     break;
+                  case ExportedTypeResolutionScopeKind.File:
+                     resScopeIdx = this._files.GetOrAdd( ( (ExportedTypeResolutionScopeFile) resScope ).File );
+                     break;
+                  default:
+                     throw new InvalidOperationException( "Invalid exported type resolution kind: " + resScope.ResolutionScopeKind + "." );
+               }
+               eTypePhysical.Implementation = resScopeIdx;
+            }
+         } );
+
+         this._files = new TableIndexTracker<FileReferenceStructure>( Tables.File, ( file, idx ) =>
+         {
+            this.AddCustomAttributes( idx, file );
+            md.FileReferences.TableContents.Add( new FileReference()
+            {
+               Attributes = file.Attributes,
+               Name = file.Name,
+               HashValue = file.HashValue.CreateBlockCopy()
+            } );
+         } );
+
+         this._manifestResources = new TableIndexTracker<ManifestResourceStructure>( Tables.ManifestResource, ( resource, idx ) =>
+         {
+            this.AddCustomAttributes( idx, resource );
+            var resourcePhysical = new ManifestResource()
+            {
+               Attributes = resource.Attributes,
+               Name = resource.Name,
+               Offset = resource.Offset
+            };
+            md.ManifestResources.TableContents.Add( resourcePhysical );
+            var data = resource.ManifestData;
+            if ( data == null )
+            {
+               throw new InvalidOperationException( "Missing manifest resource data for " + resource + "." );
+            }
+            else
+            {
+               TableIndex? implementation;
+               switch ( data.ManifestResourceDataKind )
+               {
+                  case ManifestResourceDataKind.Embedded:
+                     implementation = null;
+                     resourcePhysical.DataInCurrentFile = ( (ManifestResourceStructureDataEmbedded) data ).Data;
+                     break;
+                  case ManifestResourceDataKind.File:
+                     implementation = this._files.GetOrAdd( ( (ManifestResourceStrucureDataFile) data ).FileReference );
+                     break;
+                  case ManifestResourceDataKind.AssemblyRef:
+                     implementation = this._assemblyRefs.GetOrAdd( ( (ManifestResourceStructureDataAssemblyReference) data ).AssemblyRef );
+                     break;
+                  default:
+                     throw new InvalidOperationException( "Invalid manifest resource data kind: " + data.ManifestResourceDataKind + "." );
+               }
+
+               resourcePhysical.Implementation = implementation;
+            }
+         } );
 
          this.PopulateStructualTables( module );
       }
@@ -357,6 +462,30 @@ public static partial class E_CILStructural
             return this._standaloneSignatures;
          }
       }
+
+      public TableIndexTracker<ExportedTypeStructure> ExportedTypes
+      {
+         get
+         {
+            return this._exportedTypes;
+         }
+      }
+
+      public TableIndexTracker<ManifestResourceStructure> ManifestResources
+      {
+         get
+         {
+            return this._manifestResources;
+         }
+      }
+
+      public TableIndexTracker<FileReferenceStructure> FileReferences
+      {
+         get
+         {
+            return this._files;
+         }
+      }
    }
    public static CILMetaData[] CreatePhysicalRepresentation( this AssemblyStructure assembly )
    {
@@ -443,7 +572,9 @@ public static partial class E_CILStructural
       state.AddCustomAttributes( new TableIndex( Tables.Module, 0 ), module );
       if ( module.IsMainModule && assembly != null )
       {
-         state.AddCustomAttributes( new TableIndex( Tables.Assembly, 0 ), assembly );
+         var aDefIdx = new TableIndex( Tables.Assembly, 0 );
+         state.AddCustomAttributes( aDefIdx, assembly );
+         state.AddSecurity( aDefIdx, assembly.SecurityInfo );
       }
 
       // TypeDefs
@@ -456,6 +587,10 @@ public static partial class E_CILStructural
       var propMap = md.PropertyMaps.TableContents;
       var propDef = md.PropertyDefinitions.TableContents;
       var methodSemantics = md.MethodSemantics.TableContents;
+      var consts = md.ConstantDefinitions.TableContents;
+      var methodImpl = md.MethodImplementations.TableContents;
+      var ifaces = md.InterfaceImplementations.TableContents;
+      var typeLayouts = md.ClassLayouts.TableContents;
       foreach ( var kvp in state.TypeDefs.Dictionary )
       {
          var tDefS = kvp.Key;
@@ -471,7 +606,7 @@ public static partial class E_CILStructural
          }
 
          // Generic arguments
-         state.AddGenericParameters( tDefS.GenericParameters, tDefIdx );
+         state.AddGenericParameters( tDefIdx, tDefS.GenericParameters );
 
          // Events
          var evts = tDefS.Events;
@@ -483,7 +618,7 @@ public static partial class E_CILStructural
                EventList = evtIdx,
                Parent = tDefIdx
             } );
-            evtDef.AddRange( evts.Select( evt =>
+            evtDef.AddRange( evts.NonNull().Select( evt =>
             {
                var evtP = new EventDefinition()
                {
@@ -513,7 +648,7 @@ public static partial class E_CILStructural
                PropertyList = propIdx,
                Parent = tDefIdx
             } );
-            propDef.AddRange( props.Select( prop =>
+            propDef.AddRange( props.NonNull().Select( prop =>
             {
                var propP = new PropertyDefinition()
                {
@@ -528,33 +663,198 @@ public static partial class E_CILStructural
                   Attributes = sm.Attributes,
                   Method = state.MethodDefs.Get( sm.Method )
                } ) );
+               state.AddConstant( propIdx, prop.ConstantValue );
                propIdx = propIdx.IncrementIndex();
                return propP;
             } ) );
          }
+
          // Interface impl
+         ifaces.AddRange( tDefS.ImplementedInterfaces.NonNull().Select( iface =>
+         {
+            var ifaceP = new InterfaceImplementation()
+            {
+               Class = tDefIdx,
+               Interface = state.GetTypeDefOrRefOrSpec( iface.InterfaceType )
+            };
+            state.AddCustomAttributes( new TableIndex( Tables.InterfaceImpl, ifaces.Count ), iface );
+            return ifaceP;
+         } ) );
+
          // Overridden methods
+         methodImpl.AddRange( tDefS.OverriddenMethods.Select( om => new MethodImplementation()
+         {
+            Class = tDefIdx,
+            MethodBody = state.GetMethodDefOrMemberRef( om.MethodBody ),
+            MethodDeclaration = state.GetMethodDefOrMemberRef( om.MethodDeclaration )
+         } ) );
+
          // Layout
+         var layout = tDefS.Layout;
+         if ( layout != null )
+         {
+            typeLayouts.Add( new ClassLayout()
+            {
+               Parent = tDefIdx,
+               ClassSize = layout.ClassSize,
+               PackingSize = layout.PackingSize
+            } );
+         }
+
          // Security
+         state.AddSecurity( tDefIdx, tDefS.SecurityInfo );
       }
 
+      // FieldDef
+      var fDefs = md.FieldDefinitions.TableContents;
+      var fLayout = md.FieldLayouts.TableContents;
+      var fRVA = md.FieldRVAs.TableContents;
+      foreach ( var kvp in state.FieldDefs.Dictionary )
+      {
+         var fDefS = kvp.Key;
+         var fDefIdx = new TableIndex( Tables.Field, kvp.Value );
+         var fDefP = fDefs[fDefIdx.Index];
+         // Signature
+         fDefP.Signature = state.CreatePhysicalFieldSignature( fDefS.Signature );
+
+         // Custom attributes
+         state.AddCustomAttributes( fDefIdx, fDefS );
+
+         // Constant
+         state.AddConstant( fDefIdx, fDefS.ConstantValue );
+
+         // PInvoke
+         state.AddPInvokeInfo( fDefIdx, fDefS.PInvokeInfo );
+
+         // Marshal
+         state.AddMarshalingInfo( fDefIdx, fDefS.MarshalingInfo );
+
+         // Field layout
+         var layout = fDefS.FieldOffset;
+         if ( layout.HasValue )
+         {
+            fLayout.Add( new FieldLayout()
+            {
+               Field = fDefIdx,
+               Offset = layout.Value
+            } );
+         }
+
+         // Field data
+         var rva = fDefS.FieldData;
+         if ( rva != null )
+         {
+            fRVA.Add( new FieldRVA()
+            {
+               Field = fDefIdx,
+               Data = rva.CreateBlockCopy()
+            } );
+         }
+      }
+
+      // MethodDef
       var mDefs = md.MethodDefinitions.TableContents;
       foreach ( var kvp in state.MethodDefs.Dictionary )
       {
          var mDefS = kvp.Key;
          var mDefIdx = new TableIndex( Tables.MethodDef, kvp.Value );
          var mDefP = mDefs[mDefIdx.Index];
+
          // Signature
          mDefP.Signature = state.CreatePhysicalMethodDefSignature( mDefS.Signature );
+
+         // Custom attributes
+         state.AddCustomAttributes( mDefIdx, mDefS );
+
          // Generic arguments
-         state.AddGenericParameters( mDefS.GenericParameters, mDefIdx );
+         state.AddGenericParameters( mDefIdx, mDefS.GenericParameters );
+
          // PInvoke
+         state.AddPInvokeInfo( mDefIdx, mDefS.PInvokeInfo );
+
          // Security
-         // Parameters
+         state.AddSecurity( mDefIdx, mDefS.SecurityInfo );
+
          // TODO IL
-
-
       }
+
+      // ParameterDef
+      var pDefs = md.ParameterDefinitions.TableContents;
+      foreach ( var kvp in state.ParamDefs.Dictionary )
+      {
+         var pDefS = kvp.Key;
+         var pDefIdx = new TableIndex( Tables.Parameter, kvp.Value );
+
+         // Custom attributes
+         state.AddCustomAttributes( pDefIdx, pDefS );
+
+         // Constant
+         state.AddConstant( pDefIdx, pDefS.ConstantValue );
+
+         // Marshal
+         state.AddMarshalingInfo( pDefIdx, pDefS.MarshalingInfo );
+      }
+
+      // ExportedType
+      foreach ( var eType in module.ExportedTypes )
+      {
+         state.ExportedTypes.GetOrAdd( eType );
+      }
+
+      // Manifest resources
+      foreach ( var res in module.ManifestResources )
+      {
+         state.ManifestResources.GetOrAdd( res );
+      }
+
+      // File references for modules
+      if ( assembly != null )
+      {
+         var currentFileNames = new HashSet<String>( state.FileReferences.Dictionary.Keys.Select( f => f.Name ) );
+         var files = md.FileReferences.TableContents;
+         files.AddRange( assembly.Modules
+            .Where( m => !ReferenceEquals( m, module ) && !currentFileNames.Contains( m.Name ) )
+            .Select( m => new FileReference()
+            {
+               Attributes = FileAttributes.ContainsMetadata,
+               Name = m.Name
+            } ) );
+      }
+
+      //// TypeRef and TypeSpec
+      //Boolean addedTypeRefs, addedTypeSpecs;
+      //var typeRefs = state.TypeRefs.Dictionary.Keys.ToArray();
+      //var typeSpecs = state.TypeSpecs.Dictionary.Keys.ToArray();
+      //do
+      //{
+      //   var oldTypeRefCount = state.TypeRefs.Count;
+      //   var oldTypeSpecCount = state.TypeSpecs.Count;
+
+      //   foreach ( var tRef in typeRefs )
+      //   {
+      //      state.AddCustomAttributes( state.TypeRefs.Get( tRef ), tRef );
+      //   }
+      //   foreach ( var tSpec in typeSpecs )
+      //   {
+      //      state.AddCustomAttributes( state.TypeSpecs.Get( tSpec ), tSpec );
+      //   }
+
+      //   addedTypeRefs = state.TypeRefs.Count > oldTypeRefCount;
+      //   if ( addedTypeRefs )
+      //   {
+      //      var typeRefsSet = new HashSet<TypeReferenceStructure>( state.TypeRefs.Dictionary.Keys, ReferenceEqualityComparer<TypeReferenceStructure>.ReferenceBasedComparer );
+      //      typeRefsSet.ExceptWith( typeRefs );
+      //      typeRefs = typeRefsSet.ToArray();
+      //   }
+
+      //   addedTypeSpecs = state.TypeSpecs.Count > oldTypeSpecCount;
+      //   if ( addedTypeSpecs )
+      //   {
+      //      var typeSpecsSet = new HashSet<TypeSpecificationStructure>( state.TypeSpecs.Dictionary.Keys, ReferenceEqualityComparer<TypeSpecificationStructure>.ReferenceBasedComparer );
+      //      typeSpecsSet.ExceptWith( typeSpecs );
+      //      typeSpecs = typeSpecsSet.ToArray();
+      //   }
+      //} while ( addedTypeRefs || addedTypeSpecs );
    }
 
    private static TableIndex GetTypeDefOrRefOrSpec( this PhysicalCreationState state, AbstractTypeStructure type )
@@ -597,7 +897,7 @@ public static partial class E_CILStructural
 
    private static void AddCustomAttributes( this PhysicalCreationState state, TableIndex parent, StructureWithCustomAttributes structure )
    {
-      state.MetaData.CustomAttributeDefinitions.TableContents.AddRange( structure.CustomAttributes.Select( ca => new CustomAttributeDefinition()
+      state.MetaData.CustomAttributeDefinitions.TableContents.AddRange( structure.CustomAttributes.NonNull().Select( ca => new CustomAttributeDefinition()
       {
          Parent = parent,
          Signature = ca.Signature, // TODO clone...
@@ -605,13 +905,13 @@ public static partial class E_CILStructural
       } ) );
    }
 
-   private static void AddGenericParameters( this PhysicalCreationState state, List<GenericParameterStructure> genericParameters, TableIndex owner )
+   private static void AddGenericParameters( this PhysicalCreationState state, TableIndex owner, List<GenericParameterStructure> genericParameters )
    {
       // Generic arguments
       var md = state.MetaData;
       var gParams = md.GenericParameterDefinitions.TableContents;
       var gConstraints = md.GenericParameterConstraintDefinitions.TableContents;
-      gParams.AddRange( genericParameters.Select( g =>
+      gParams.AddRange( genericParameters.NonNull().Select( g =>
       {
          var gIdx = new TableIndex( Tables.GenericParameter, gParams.Count );
          state.AddCustomAttributes( gIdx, g );
@@ -623,7 +923,7 @@ public static partial class E_CILStructural
             Owner = owner
          };
 
-         gConstraints.AddRange( g.Constraints.Select( gConstraint =>
+         gConstraints.AddRange( g.Constraints.NonNull().Select( gConstraint =>
          {
             state.AddCustomAttributes( new TableIndex( Tables.GenericParameterConstraint, gConstraints.Count ), gConstraint );
             return new GenericParameterConstraintDefinition()
@@ -635,6 +935,118 @@ public static partial class E_CILStructural
 
          return gParamP;
       } ) );
+   }
+
+   private static void AddConstant( this PhysicalCreationState state, TableIndex owner, ConstantStructure? constantStruct )
+   {
+      if ( constantStruct.HasValue )
+      {
+         var constant = constantStruct.Value.Constant;
+         SignatureElementTypes sig;
+         if ( constant == null )
+         {
+            sig = SignatureElementTypes.Class;
+         }
+         else
+         {
+            var tc = Type.GetTypeCode( constant.GetType() );
+
+            switch ( tc )
+            {
+               case TypeCode.Boolean:
+                  sig = SignatureElementTypes.Boolean;
+                  break;
+               case TypeCode.Char:
+                  sig = SignatureElementTypes.Char;
+                  break;
+               case TypeCode.SByte:
+                  sig = SignatureElementTypes.I1;
+                  break;
+               case TypeCode.Byte:
+                  sig = SignatureElementTypes.U1;
+                  break;
+               case TypeCode.Int16:
+                  sig = SignatureElementTypes.I2;
+                  break;
+               case TypeCode.UInt16:
+                  sig = SignatureElementTypes.U2;
+                  break;
+               case TypeCode.Int32:
+                  sig = SignatureElementTypes.I4;
+                  break;
+               case TypeCode.UInt32:
+                  sig = SignatureElementTypes.U4;
+                  break;
+               case TypeCode.Int64:
+                  sig = SignatureElementTypes.I8;
+                  break;
+               case TypeCode.UInt64:
+                  sig = SignatureElementTypes.U8;
+                  break;
+               case TypeCode.Single:
+                  sig = SignatureElementTypes.R4;
+                  break;
+               case TypeCode.Double:
+                  sig = SignatureElementTypes.R8;
+                  break;
+               case TypeCode.String:
+                  sig = SignatureElementTypes.String;
+                  break;
+               default:
+                  throw new InvalidOperationException( "Constant of type " + constant.GetType() + " is not supported." );
+            }
+         }
+
+         state.MetaData.ConstantDefinitions.TableContents.Add( new ConstantDefinition()
+         {
+            Parent = owner,
+            Type = sig,
+            Value = constant
+         } );
+      }
+   }
+
+   private static void AddSecurity( this PhysicalCreationState state, TableIndex parent, SecurityStructure security )
+   {
+      if ( security != null )
+      {
+         var secPhysical = new SecurityDefinition( security.PermissionSets.Count )
+         {
+            Action = security.SecurityAction,
+            Parent = parent,
+
+         };
+         secPhysical.PermissionSets.AddRange( security.PermissionSets );
+         var secTable = state.MetaData.SecurityDefinitions.TableContents;
+         var secIdx = new TableIndex( Tables.DeclSecurity, secTable.Count );
+         secTable.Add( secPhysical );
+         state.AddCustomAttributes( secIdx, security );
+      }
+   }
+
+   private static void AddMarshalingInfo( this PhysicalCreationState state, TableIndex parent, MarshalingInfo marshal )
+   {
+      if ( marshal != null )
+      {
+         state.MetaData.FieldMarshals.TableContents.Add( new FieldMarshal()
+         {
+            Parent = parent,
+            NativeType = marshal
+         } );
+      }
+   }
+
+   private static void AddPInvokeInfo( this PhysicalCreationState state, TableIndex parent, PInvokeInfo info )
+   {
+      if ( info != null )
+      {
+         state.MetaData.MethodImplementationMaps.TableContents.Add( new MethodImplementationMap()
+         {
+            Attributes = info.Attributes,
+            ImportName = info.PlatformInvokeName,
+            ImportScope = state.ModuleRefs.GetOrAdd( info.PlatformInvokeModule )
+         } );
+      }
    }
 
    private static AbstractSignature CreatePhysicalSignature( this PhysicalCreationState state, AbstractStructureSignature sig )
@@ -886,5 +1298,19 @@ public static partial class E_CILStructural
          retVal.Parameters.AddRange( sig.Parameters.Select( p => state.CreatePhysicalParameterSignature( p ) ) );
       }
       return retVal;
+   }
+
+   private static void CheckForNull( Object obj, String msg )
+   {
+      if ( obj == null )
+      {
+         throw new InvalidOperationException( msg );
+      }
+   }
+
+   private static IEnumerable<T> NonNull<T>( this IEnumerable<T> enumerable )
+      where T : class
+   {
+      return enumerable.Where( item => item != null );
    }
 }
