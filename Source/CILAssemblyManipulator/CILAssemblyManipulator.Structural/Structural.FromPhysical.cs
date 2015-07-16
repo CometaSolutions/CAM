@@ -322,11 +322,13 @@ public static partial class E_CILStructural
          tDefDesc.Methods.AddRange( md.GetTypeMethodIndices( i ).Select( mIdx => mDefList[mIdx] ) );
       }
 
+      // Fields
       for ( var i = 0; i < fDefs.Count; ++i )
       {
          fDefList[i].Signature = (FieldStructureSignature) state.CreateStructureSignature( fDefs[i].Signature );
       }
 
+      // Methods
       for ( var i = 0; i < mDefs.Count; ++i )
       {
          var method = mDefList[i];
@@ -715,6 +717,7 @@ public static partial class E_CILStructural
          } );
       }
 
+      // IL
       for ( var i = 0; i < mDefs.Count; ++i )
       {
          var il = mDefs[i].IL;
@@ -752,7 +755,7 @@ public static partial class E_CILStructural
                   default:
                      return new OpCodeStructureWrapper()
                      {
-                        PhysicalOpCode = o
+                        PhysicalOpCode = o // TODO Clone
                      };
                }
             } ) );

@@ -1101,6 +1101,11 @@ namespace CILAssemblyManipulator.Structural
       public String Name { get; set; }
       public AbstractStructureSignature Signature { get; set; }
       public MemberReferenceParent Parent { get; set; }
+
+      public override String ToString()
+      {
+         return Miscellaneous.CombineTypeAndNamespace( this.Name, this.Parent.ToStringSafe() );
+      }
    }
 
    public enum MemberReferenceParentKind
@@ -1118,6 +1123,7 @@ namespace CILAssemblyManipulator.Structural
       }
 
       public abstract MemberReferenceParentKind MemberReferenceParentKind { get; }
+      public abstract override String ToString();
    }
 
    public sealed class MemberReferenceParentMethodDef : MemberReferenceParent
@@ -1131,6 +1137,11 @@ namespace CILAssemblyManipulator.Structural
          {
             return MemberReferenceParentKind.MethodDef;
          }
+      }
+
+      public override String ToString()
+      {
+         return this.Method.ToStringSafe();
       }
    }
 
@@ -1146,6 +1157,11 @@ namespace CILAssemblyManipulator.Structural
             return MemberReferenceParentKind.ModuleRef;
          }
       }
+
+      public override String ToString()
+      {
+         return this.ModuleRef.ToStringSafe();
+      }
    }
 
    public sealed class MemberReferenceParentType : MemberReferenceParent
@@ -1159,6 +1175,11 @@ namespace CILAssemblyManipulator.Structural
          {
             return MemberReferenceParentKind.Type;
          }
+      }
+
+      public override String ToString()
+      {
+         return this.Type.ToStringSafe();
       }
    }
 

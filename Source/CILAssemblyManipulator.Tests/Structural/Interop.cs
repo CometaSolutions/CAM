@@ -54,9 +54,70 @@ namespace CILAssemblyManipulator.Tests.Structural
             md = fs.ReadModule();
          }
          var structure1 = md.CreateStructuralRepresentation();
-         var structure2 = md.CreateStructuralRepresentation();
+         Assert.IsTrue( AssemblyEquivalenceComparer.EqualityComparer.Equals( structure1, structure1 ), "Assembly structure must equal itself." );
 
-         Assert.IsTrue( AssemblyEquivalenceComparer.EqualityComparer.Equals( structure1, structure2 ) );
+         var md2 = structure1.CreatePhysicalRepresentation()[0];
+         var structure2 = md2.CreateStructuralRepresentation();
+
+         var md1MemberRefs = CreateMemberRefStrings( md );
+         var md2MemberRefs = CreateMemberRefStrings( md2 );
+         var set = new HashSet<String>( md1MemberRefs );
+         set.ExceptWith( md2MemberRefs );
+
+
+         Assert.IsTrue( AssemblyEquivalenceComparer.EqualityComparer.Equals( structure1, structure2 ), "Another assembly structure made from physical module made from original assembly structure must equal original assembly structure." );
+      }
+
+      private static String[] CreateMemberRefStrings( CILMetaData md )
+      {
+         var tRefStrings = CreateTypeRefStrings( md );
+         return md.MemberReferences.TableContents
+            .Select( mRef =>
+            {
+               String declTypeStr = null;
+               var declType = mRef.DeclaringType;
+               switch ( declType.Table )
+               {
+                  case Tables.TypeRef:
+                     declTypeStr = tRefStrings[declType.Index];
+                     break;
+                  case Tables.TypeDef:
+                     declTypeStr = Miscellaneous.CombineTypeAndNamespace( md.TypeDefinitions.TableContents[declType.Index].Name, md.TypeDefinitions.TableContents[declType.Index].Namespace );
+                     break;
+               }
+               return declTypeStr + ": " + mRef.Name;
+            } )
+            .ToArray();
+      }
+
+      private static String[] CreateTypeRefStrings( CILMetaData md )
+      {
+         return md.TypeReferences.TableContents
+            .Select( tRef => CreateTypeRefString( md, tRef ) )
+            .ToArray();
+      }
+
+      private static String CreateTypeRefString( CILMetaData md, TypeReference tRef )
+      {
+         var resScope = tRef.ResolutionScope.Value;
+         String resScopeStr = null;
+         switch ( resScope.Table )
+         {
+            case Tables.ModuleRef:
+               resScopeStr = "{" + md.ModuleReferences.TableContents[resScope.Index].ModuleName + "}";
+               break;
+            case Tables.Module:
+               resScopeStr = "$This$";
+               break;
+            case Tables.AssemblyRef:
+               resScopeStr = "[" + md.AssemblyReferences.TableContents[resScope.Index] + "]";
+               break;
+            case Tables.NestedClass:
+               resScopeStr = CreateTypeRefString( md, md.TypeReferences.TableContents[resScope.Index] ) + "+";
+               break;
+         }
+
+         return resScopeStr + Miscellaneous.CombineTypeAndNamespace( tRef.Name, tRef.Namespace );
       }
    }
 }

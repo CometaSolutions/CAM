@@ -49,6 +49,7 @@
     <Compile Include="Physical\Reading.cs" />
     <Compile Include="Physical\Roundtrip.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
+    <Compile Include="Structural\Equivalence.cs" />
     <Compile Include="Structural\Interop.cs" />
   </ItemGroup>
   <ItemGroup>

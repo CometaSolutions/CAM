@@ -452,7 +452,13 @@ public static partial class E_CILStructural
 
    private static CILMetaData CreatePhysicalRepresentation( this ModuleStructure module, AssemblyStructure assembly )
    {
-      var md = CILMetaDataFactory.CreateMinimalModule( module.Name );
+      // Don't use "MinimalModule", as it creates module-type
+      var md = CILMetaDataFactory.NewBlankMetaData();
+
+      md.ModuleDefinitions.TableContents.Add( new ModuleDefinition()
+      {
+         Name = module.Name
+      } );
       if ( module.IsMainModule && assembly != null )
       {
          var aDef = new AssemblyDefinition()
@@ -461,6 +467,7 @@ public static partial class E_CILStructural
             HashAlgorithm = assembly.HashAlgorithm
          };
          assembly.AssemblyInfo.DeepCopyContentsTo( aDef.AssemblyInformation );
+         md.AssemblyDefinitions.TableContents.Add( aDef );
       }
 
       var state = new PhysicalCreationState( md );
@@ -727,7 +734,8 @@ public static partial class E_CILStructural
          // Security
          state.AddSecurity( mDefIdx, mDefS.SecurityInfo );
 
-         // TODO IL
+         // IL
+         mDefP.IL = state.CreatePhysicalIL( mDefS.IL );
       }
 
       // ParameterDef
@@ -996,9 +1004,105 @@ public static partial class E_CILStructural
          {
             Attributes = info.Attributes,
             ImportName = info.PlatformInvokeName,
-            ImportScope = state.ModuleRefs.GetOrAdd( info.PlatformInvokeModule )
+            ImportScope = state.ModuleRefs.GetOrAdd( info.PlatformInvokeModule ),
+            MemberForwarded = parent
          } );
       }
+   }
+
+   private static MethodILDefinition CreatePhysicalIL( this PhysicalCreationState state, MethodILStructureInfo il )
+   {
+      MethodILDefinition ilP;
+      if ( il == null )
+      {
+         ilP = null;
+      }
+      else
+      {
+         ilP = new MethodILDefinition( il.ExceptionBlocks.Count, il.OpCodes.Count )
+         {
+            InitLocals = il.InitLocals,
+            MaxStackSize = il.MaxStackSize,
+            LocalsSignatureIndex = il.Locals == null ? (TableIndex?) null : state.StandaloneSignatures.GetOrAdd( il.Locals )
+         };
+
+         // Exception blocks
+         ilP.ExceptionBlocks.AddRange( il.ExceptionBlocks.Select( e => new MethodExceptionBlock()
+         {
+            BlockType = e.BlockType,
+            TryOffset = e.TryOffset,
+            TryLength = e.TryLength,
+            HandlerOffset = e.HandlerOffset,
+            HandlerLength = e.HandlerLength,
+            FilterOffset = e.FilterOffset,
+            ExceptionType = e.ExceptionType == null ? (TableIndex?) null : state.GetTypeDefOrRefOrSpec( e.ExceptionType )
+         } ) );
+
+         // Op codes
+         ilP.OpCodes.AddRange( il.OpCodes.Select( o =>
+         {
+            if ( o == null )
+            {
+               return null;
+            }
+            else
+            {
+               switch ( o.OpCodeStructureKind )
+               {
+                  case OpCodeStructureKind.Simple:
+                     return OpCodeInfoWithNoOperand.GetInstanceFor( ( (OpCodeStructureSimple) o ).SimpleOpCode );
+                  case OpCodeStructureKind.Wrapper:
+                     return ( (OpCodeStructureWrapper) o ).PhysicalOpCode; // TODO clone
+                  case OpCodeStructureKind.WithReference:
+                     var oRef = (OpCodeStructureWithReference) o;
+                     var oRefStructure = oRef.Structure;
+                     TableIndex refIdx;
+                     if ( oRefStructure == null )
+                     {
+                        refIdx = default( TableIndex );
+                     }
+                     else
+                     {
+                        switch ( oRefStructure.StructureTokenKind )
+                        {
+                           case OpCodeStructureTokenKind.FieldDef:
+                              refIdx = state.FieldDefs.Get( (FieldStructure) oRefStructure );
+                              break;
+                           case OpCodeStructureTokenKind.MemberRef:
+                              refIdx = state.MemberRefs.GetOrAdd( (MemberReferenceStructure) oRefStructure );
+                              break;
+                           case OpCodeStructureTokenKind.MethodDef:
+                              refIdx = state.MethodDefs.Get( (MethodStructure) oRefStructure );
+                              break;
+                           case OpCodeStructureTokenKind.MethodSpec:
+                              refIdx = state.MethodSpecs.GetOrAdd( (MethodSpecificationStructure) oRefStructure );
+                              break;
+                           case OpCodeStructureTokenKind.StandaloneSignature:
+                              refIdx = state.StandaloneSignatures.GetOrAdd( (StandaloneSignatureStructure) oRefStructure );
+                              break;
+                           case OpCodeStructureTokenKind.TypeDef:
+                              refIdx = state.TypeDefs.Get( (TypeDefinitionStructure) oRefStructure );
+                              break;
+                           case OpCodeStructureTokenKind.TypeRef:
+                              refIdx = state.TypeRefs.GetOrAdd( (TypeReferenceStructure) oRefStructure );
+                              break;
+                           case OpCodeStructureTokenKind.TypeSpec:
+                              refIdx = state.TypeSpecs.GetOrAdd( (TypeSpecificationStructure) oRefStructure );
+                              break;
+                           default:
+                              throw new InvalidOperationException( "Invalid referenced structure token kind: " + oRefStructure.StructureTokenKind + " in IL." );
+                        }
+                     }
+                     return new OpCodeInfoWithToken( oRef.OpCode, refIdx );
+
+                  default:
+                     throw new InvalidOperationException( "Invalid structural op code kind: " + o.OpCodeStructureKind + "." );
+               }
+            }
+         } ) );
+      }
+
+      return ilP;
    }
 
    private static AbstractSignature CreatePhysicalSignature( this PhysicalCreationState state, AbstractStructureSignature sig )
