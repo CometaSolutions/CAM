@@ -453,12 +453,8 @@ public static partial class E_CILStructural
    private static CILMetaData CreatePhysicalRepresentation( this ModuleStructure module, AssemblyStructure assembly )
    {
       // Don't use "MinimalModule", as it creates module-type
-      var md = CILMetaDataFactory.NewBlankMetaData();
+      var md = CILMetaDataFactory.CreateMinimalModule( module.Name, false );
 
-      md.ModuleDefinitions.TableContents.Add( new ModuleDefinition()
-      {
-         Name = module.Name
-      } );
       if ( module.IsMainModule && assembly != null )
       {
          var aDef = new AssemblyDefinition()

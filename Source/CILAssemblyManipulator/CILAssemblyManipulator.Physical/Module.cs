@@ -116,9 +116,9 @@ namespace CILAssemblyManipulator.Physical
          return new CILAssemblyManipulator.Physical.Implementation.CILMetadataImpl();
       }
 
-      public static CILMetaData CreateMinimalAssembly( String assemblyName, String moduleName )
+      public static CILMetaData CreateMinimalAssembly( String assemblyName, String moduleName, Boolean createModuleType = true )
       {
-         var md = CreateMinimalModule( moduleName );
+         var md = CreateMinimalModule( moduleName, createModuleType );
 
          var aDef = new AssemblyDefinition();
          aDef.AssemblyInformation.Name = assemblyName;
@@ -127,7 +127,7 @@ namespace CILAssemblyManipulator.Physical
          return md;
       }
 
-      public static CILMetaData CreateMinimalModule( String moduleName )
+      public static CILMetaData CreateMinimalModule( String moduleName, Boolean createModuleType = true )
       {
          var md = CILMetaDataFactory.NewBlankMetaData();
 

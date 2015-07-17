@@ -128,7 +128,7 @@
     <Compile Include="Implementation\CILTypes.cs" />
     <Compile Include="Implementation\Commons.cs" />
     <Compile Include="Implementation\MethodIL.cs" />
-    <Compile Include="Logical.cs" />
+    <Compile Include="Logical.ToStructural.cs" />
     <Compile Include="Logical.FromStructural.cs" />
     <Compile Include="MethodIL.cs" />
     <Compile Include="OpCodeInfos.cs" />
