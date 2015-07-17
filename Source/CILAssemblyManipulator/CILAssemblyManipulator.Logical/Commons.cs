@@ -836,6 +836,19 @@ public static partial class E_CILLogical
       return element.AddCustomModifier( type, false );
    }
 
+   /// <summary>
+   /// Returns only bottom-most types in type hierarchy of <paramref name="types"/>.
+   /// </summary>
+   /// <param name="types">The types to check.</param>
+   /// <returns>Only bottom-most types in type hierarchy of <paramref name="types"/>.</returns>
+   /// <remarks>
+   /// This method uses <see cref="E_CommonUtils.IsAssignableFrom_IgnoreGenericArgumentsForGenericTypes"/> to check whether one type is assignable from another.
+   /// </remarks>
+   internal static Type[] GetBottomTypes( this IEnumerable<Type> types )
+   {
+      return types == null ? Empty<Type>.Array : types.Where( type => !types.Any( anotherType => !type.Equals( anotherType ) && type.IsAssignableFrom_IgnoreGenericArgumentsForGenericTypes( anotherType ) ) ).Distinct().ToArray();
+   }
+
 #if WINDOWS_PHONE_APP
 
    // In some places, adding "using System.Reflection;" would cause massive havoc and need to prepend everything with CILAssemblyManipulator.Logical namespace.

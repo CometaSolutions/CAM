@@ -31,11 +31,7 @@ public static partial class E_CommonUtils
    /// <returns>Generic defintion of <paramref name="type" /> if it is not <c>null</c> and <see cref="Type.IsGenericType"/> returns <c>true</c>.</returns>
    public static Type GetGenericDefinitionIfGenericType( this Type type )
    {
-      return type != null && type
-#if WINDOWS_PHONE_APP
-         .GetTypeInfo()
-#endif
-.IsGenericType ? type.GetGenericTypeDefinition() : type;
+      return type != null && type.IsGenericType ? type.GetGenericTypeDefinition() : type;
    }
 
    /// <summary>
@@ -45,11 +41,7 @@ public static partial class E_CommonUtils
    /// <returns>Generic definition of <paramref name="type"/> if it is not <c>null</c>, <see cref="Type.ContainsGenericParameters"/> returns <c>true</c> and <see cref="Type.IsGenericParameter"/> returns <c>false</c>.</returns>
    public static Type GetGenericDefinitionIfContainsGenericParameters( this Type type )
    {
-      return type != null && type
-#if WINDOWS_PHONE_APP
-         .GetTypeInfo()
-#endif
-.ContainsGenericParameters && !type.IsGenericParameter ? type.GetGenericTypeDefinition() : type;
+      return type != null && type.ContainsGenericParameters && !type.IsGenericParameter ? type.GetGenericTypeDefinition() : type;
    }
 
    ///// <summary>
@@ -126,58 +118,30 @@ public static partial class E_CommonUtils
    public static Boolean IsAssignableFrom_IgnoreGenericArgumentsForGenericTypes( this Type parentType, Type subType )
    {
       return parentType != null && subType != null
-         && ( parentType
-#if WINDOWS_PHONE_APP
-.GetTypeInfo()
-#endif
-.IsAssignableFrom(
-         subType
-#if WINDOWS_PHONE_APP
-.GetTypeInfo()
-#endif
- )
-            || ( parentType
-#if WINDOWS_PHONE_APP
-.GetTypeInfo()
-#endif
-.IsGenericTypeDefinition
-                  && subType.GetAllParentTypes().Any( b => b
-#if WINDOWS_PHONE_APP
-.GetTypeInfo()
-#endif
-.IsGenericType && b.GetGenericTypeDefinition().Equals( parentType ) )
+         && ( parentType.IsAssignableFrom( subType )
+            || ( parentType.IsGenericTypeDefinition
+                  && subType.GetAllParentTypes().Any( b => b.IsGenericType && b.GetGenericTypeDefinition().Equals( parentType ) )
                )
             );
    }
 
-   /// <summary>
-   /// Returns only bottom-most types in type hierarchy of <paramref name="types"/>.
-   /// </summary>
-   /// <param name="types">The types to check.</param>
-   /// <returns>Only bottom-most types in type hierarchy of <paramref name="types"/>.</returns>
-   /// <remarks>
-   /// This method uses <see cref="IsAssignableFrom_IgnoreGenericArgumentsForGenericTypes"/> to check whether one type is assignable from another.
-   /// </remarks>
-   public static Type[] GetBottomTypes( this IEnumerable<Type> types )
-   {
-      return types == null ? Empty<Type>.Array : types.Where( type => !types.Any( anotherType => !type.Equals( anotherType ) && type.IsAssignableFrom_IgnoreGenericArgumentsForGenericTypes( anotherType ) ) ).Distinct().ToArray();
-   }
 
-   /// <summary>
-   /// Returns only bottom-most types in type hierarchy of <paramref name="items"/>, where each type is extracted by <paramref name="typeSelector"/>.
-   /// </summary>
-   /// <typeparam name="T">The type of items.</typeparam>
-   /// <param name="items">The items to extract types from.</param>
-   /// <param name="typeSelector">The function to extract type from single item.</param>
-   /// <returns>Only bottom-most types in type hierarchy of <paramref name="items"/>, where each type is extracted by <paramref name="typeSelector"/>.</returns>
-   /// <remarks>
-   /// This method uses <see cref="IsAssignableFrom_IgnoreGenericArgumentsForGenericTypes"/> to check whether one type is assignable from another.
-   /// </remarks>
-   /// <exception cref="NullReferenceException">If <paramref name="items"/> is <c>null</c>.</exception>
-   public static T[] GetBottomTypes<T>( this IEnumerable<T> items, Func<T, Type> typeSelector )
-   {
-      return items == null ? Empty<T>.Array : items.Where( item => !items.Select( typeSelector ).Any( anotherType => !typeSelector( item ).Equals( anotherType ) && typeSelector( item ).IsAssignableFrom_IgnoreGenericArgumentsForGenericTypes( anotherType ) ) ).ToArray();
-   }
+
+   ///// <summary>
+   ///// Returns only bottom-most types in type hierarchy of <paramref name="items"/>, where each type is extracted by <paramref name="typeSelector"/>.
+   ///// </summary>
+   ///// <typeparam name="T">The type of items.</typeparam>
+   ///// <param name="items">The items to extract types from.</param>
+   ///// <param name="typeSelector">The function to extract type from single item.</param>
+   ///// <returns>Only bottom-most types in type hierarchy of <paramref name="items"/>, where each type is extracted by <paramref name="typeSelector"/>.</returns>
+   ///// <remarks>
+   ///// This method uses <see cref="IsAssignableFrom_IgnoreGenericArgumentsForGenericTypes"/> to check whether one type is assignable from another.
+   ///// </remarks>
+   ///// <exception cref="NullReferenceException">If <paramref name="items"/> is <c>null</c>.</exception>
+   //public static T[] GetBottomTypes<T>( this IEnumerable<T> items, Func<T, Type> typeSelector )
+   //{
+   //   return items == null ? Empty<T>.Array : items.Where( item => !items.Select( typeSelector ).Any( anotherType => !typeSelector( item ).Equals( anotherType ) && typeSelector( item ).IsAssignableFrom_IgnoreGenericArgumentsForGenericTypes( anotherType ) ) ).ToArray();
+   //}
 
    /// <summary>
    /// Returns all the implemented interfaces of <paramref name="type"/>. If <paramref name="type"/> is interface, it is also included. If <paramref name="type"/> is <c>null</c>, empty enumerable is returned.
@@ -189,26 +153,11 @@ public static partial class E_CommonUtils
    {
       if ( type != null )
       {
-#if WINDOWS_PHONE_APP
-         var ti = type.GetTypeInfo();
-#endif
-         if ( includeItself &&
-#if WINDOWS_PHONE_APP
-         ti.IsInterface
-#else
- type.IsInterface
-#endif
- )
+         if ( includeItself && type.IsInterface )
          {
             yield return type;
          }
-         foreach ( var iFace in
-#if WINDOWS_PHONE_APP
-            ti.ImplementedInterfaces
-#else
- type.GetInterfaces()
-#endif
- )
+         foreach ( var iFace in type.GetInterfaces() )
          {
             yield return iFace;
          }
@@ -223,22 +172,9 @@ public static partial class E_CommonUtils
    /// <returns>All the classes of the <paramref name="type"/>. If <paramref name="type"/> is <c>null</c> or interface, an empty enumerable is returned. Otherwise, full class hierarchy of <paramref name="type"/> is returned, including <paramref name="type"/> itself.</returns>
    public static IEnumerable<Type> GetClassHierarchy( this Type type, Boolean includeItself = true )
    {
-      return type == null || type
-#if WINDOWS_PHONE_APP
-.GetTypeInfo()
-#endif
-.IsInterface ?
+      return type == null || type.IsInterface ?
          Empty<Type>.Enumerable :
-         type
-#if WINDOWS_PHONE_APP
-.GetTypeInfo()
-#endif
-.AsSingleBranchEnumerable( t => t
-#if WINDOWS_PHONE_APP
-.GetTypeInfo()
-#endif
-.BaseType, includeFirst: includeItself
-         );
+         type.AsSingleBranchEnumerable( t => t.BaseType, includeFirst: includeItself );
    }
 
    /// <summary>
@@ -249,11 +185,7 @@ public static partial class E_CommonUtils
    /// <returns>All the classes and interfaces of the <paramref name="type"/>. If <paramref name="type"/> is <c>null</c>, an empty enumerable is returned.</returns>
    public static IEnumerable<Type> GetAllParentTypes( this Type type, Boolean includeItself = true )
    {
-      return ( includeItself ? type : ( type == null ? null : type
-#if WINDOWS_PHONE_APP
-.GetTypeInfo()
-#endif
-.BaseType ) ).GetClassHierarchy().Concat( type.GetImplementedInterfaces( includeItself ) );
+      return ( includeItself ? type : ( type == null ? null : type.BaseType ) ).GetClassHierarchy().Concat( type.GetImplementedInterfaces( includeItself ) );
    }
 
    /// <summary>
@@ -301,11 +233,7 @@ public static partial class E_CommonUtils
    /// <returns>Generic arguments of <paramref name="type"/> if it is not <c>null</c>, is not generic parameter, and is generic type. Otherwise, returns an empty array.</returns>
    public static Type[] GetGenericArgumentsSafe( this Type type )
    {
-      return type == null || type.IsGenericParameter || !type
-#if WINDOWS_PHONE_APP
-         .GetTypeInfo()
-#endif
-.IsGenericType ? Empty<Type>.Array : type.GetGenericArguments();
+      return type == null || type.IsGenericParameter || !type.IsGenericType ? Empty<Type>.Array : type.GetGenericArguments();
    }
 
    /// <summary>
@@ -420,13 +348,7 @@ public static partial class E_CommonUtils
       Boolean acceptNonPublic = false
       )
    {
-      var result = LoadPropertyOrThrow( type, propertyName, acceptNonPublic )
-#if WINDOWS_PHONE_APP
-         .GetMethod
-#else
-.GetGetMethod( true )
-#endif
-;
+      var result = LoadPropertyOrThrow( type, propertyName, acceptNonPublic ).GetGetMethod( true );
       if ( result == null )
       {
          throw new ArgumentException( "Could not find property getter for property " + propertyName + " in type " + type + "." );
@@ -449,13 +371,7 @@ public static partial class E_CommonUtils
       Boolean acceptNonPublic = false
       )
    {
-      var result = LoadPropertyOrThrow( type, propertyName, acceptNonPublic )
-#if WINDOWS_PHONE_APP
-         .SetMethod
-#else
-.GetSetMethod()
-#endif
-;
+      var result = LoadPropertyOrThrow( type, propertyName, acceptNonPublic ).GetSetMethod();
       if ( result == null )
       {
          throw new ArgumentException( "Could not find property setter for property " + propertyName + " in type " + type + "." );
@@ -794,7 +710,7 @@ public static partial class E_CommonUtils
    //   return result;
    //}
 
-#if !WINDOWS_PHONE_APP
+#if !WINDOWS_PHONE_APP_OLD
 
    private const BindingFlags DEFAULT_SEARCH_BINDING_FLAGS = BindingFlags.Public | BindingFlags.Instance | BindingFlags.Static;
 
@@ -808,7 +724,7 @@ public static partial class E_CommonUtils
       ArgumentValidator.ValidateNotNull( "Method name", methodName );
       IEnumerable<MethodInfo> methods;
 
-#if WINDOWS_PHONE_APP
+#if WINDOWS_PHONE_APP_OLD
       methods = type.GetTypeInfo().DeclaredMethods;
       if (!acceptNonPublic)
       {
@@ -831,7 +747,7 @@ public static partial class E_CommonUtils
       ArgumentValidator.ValidateNotNull( "Field name", fieldName );
       IEnumerable<FieldInfo> fields;
 
-#if WINDOWS_PHONE_APP
+#if WINDOWS_PHONE_APP_OLD
       fields = type.GetTypeInfo().DeclaredFields;
       if (!acceptNonPublic)
       {
@@ -852,7 +768,7 @@ public static partial class E_CommonUtils
    {
       ArgumentValidator.ValidateNotNull( "Type", type );
 
-#if WINDOWS_PHONE_APP
+#if WINDOWS_PHONE_APP_OLD
       var ctors = type.GetTypeInfo().DeclaredConstructors;
       if (!acceptStatic)
       {
@@ -885,7 +801,7 @@ public static partial class E_CommonUtils
       ArgumentValidator.ValidateNotNull( "Property name", propertyName );
 
       IEnumerable<PropertyInfo> props;
-#if WINDOWS_PHONE_APP
+#if WINDOWS_PHONE_APP_OLD
       props = type.GetTypeInfo().DeclaredProperties;
       if (!acceptNonPublic)
       {
@@ -902,7 +818,7 @@ public static partial class E_CommonUtils
       return props.Where( p => String.Equals( p.Name, propertyName ) );
    }
 
-#if WINDOWS_PHONE_APP
+#if WINDOWS_PHONE_APP_OLD
 
    /// <summary>
    /// Helper method to get generic arguments of <see cref="Type"/> on Windows Phone 8.1.

@@ -28,10 +28,13 @@
     <ProjectTypeGuids Condition=" '$(Configuration)' == 'Debug_SL' or '$(Configuration)' == 'Release_SL' ">{786C830F-07A1-408B-BD7F-6EE04809D6DB};$(ProjectTypeGuids)</ProjectTypeGuids>
     
     <!-- WP 8.1 -->
-    <TargetPlatformIdentifier Condition=" '$(Configuration)' == 'Debug_WP' or '$(Configuration)' == 'Release_WP' ">WindowsPhoneApp</TargetPlatformIdentifier>
+    <!-- <TargetPlatformIdentifier Condition=" '$(Configuration)' == 'Debug_WP' or '$(Configuration)' == 'Release_WP' ">WindowsPhoneApp</TargetPlatformIdentifier>
     <TargetPlatformVersion Condition=" '$(Configuration)' == 'Debug_WP' or '$(Configuration)' == 'Release_WP' ">8.1</TargetPlatformVersion>
-    <ProjectTypeGuids Condition=" '$(Configuration)' == 'Debug_WP' or '$(Configuration)' == 'Release_WP' ">{76F1466A-8B6D-4E39-A767-685A06062A39};$(ProjectTypeGuids)</ProjectTypeGuids>
+    <ProjectTypeGuids Condition=" '$(Configuration)' == 'Debug_WP' or '$(Configuration)' == 'Release_WP' ">{76F1466A-8B6D-4E39-A767-685A06062A39};$(ProjectTypeGuids)</ProjectTypeGuids> -->
 
+    <TargetFrameworkProfile Condition=" '$(Configuration)' == 'Debug_WP' or '$(Configuration)' == 'Release_WP' ">Profile158</TargetFrameworkProfile>
+    <TargetFrameworkVersion Condition=" '$(Configuration)' == 'Debug_WP' or '$(Configuration)' == 'Release_WP' ">v4.0</TargetFrameworkVersion>
+    <ProjectTypeGuids Condition=" '$(Configuration)' == 'Debug_WP' or '$(Configuration)' == 'Release_WP' ">{786C830F-07A1-408B-BD7F-6EE04809D6DB};$(ProjectTypeGuids)</ProjectTypeGuids>
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|AnyCPU' ">
     <DebugSymbols>true</DebugSymbols>
@@ -117,8 +120,8 @@
     <Compile Include="Properties\AssemblyInfo.cs" />
   </ItemGroup>
   <ItemGroup />
-  <Import Condition=" '$(Configuration)' != 'Debug_WP' and '$(Configuration)' != 'Release_WP' " Project="$(MSBuildExtensionsPath32)\Microsoft\Portable\$(TargetFrameworkVersion)\Microsoft.Portable.CSharp.targets" />
-  <Import Condition=" '$(Configuration)' == 'Debug_WP' or '$(Configuration)' == 'Release_WP' " Project="$(MSBuildExtensionsPath)\Microsoft\WindowsXaml\v$(VisualStudioVersion)\Microsoft.Windows.UI.Xaml.CSharp.targets" />
+  <Import Condition=" '$(TargetPlatformIdentifier)' != 'WindowsPhoneApp' " Project="$(MSBuildExtensionsPath32)\Microsoft\Portable\$(TargetFrameworkVersion)\Microsoft.Portable.CSharp.targets" />
+  <Import Condition=" '$(TargetPlatformIdentifier)' == 'WindowsPhoneApp' " Project="$(MSBuildExtensionsPath)\Microsoft\WindowsXaml\v$(VisualStudioVersion)\Microsoft.Windows.UI.Xaml.CSharp.targets" />
 
   <Import Project="../../CommonBuildTools/CLR/MSBuild/TargetFramework.targets" />
 </Project>
