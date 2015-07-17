@@ -191,12 +191,6 @@ namespace CILAssemblyManipulator.Logical
       /// <param name="type">The type to remove.</param>
       /// <returns><c>true</c> if <paramref name="type"/> was removed; <c>false</c> otherwise.</returns>
       Boolean RemoveType( CILType type );
-
-      /// <summary>
-      /// Gets synchronization object for read/write access of defined types via <see cref="AddType"/> and <see cref="RemoveType"/> methods.
-      /// </summary>
-      /// <value>Synchronization object for read/write access of defined types via <see cref="AddType"/> and <see cref="RemoveType"/> methods.</value>
-      Object DefinedTypesLock { get; }
    }
 
    /// <summary>

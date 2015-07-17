@@ -124,7 +124,7 @@ namespace CILAssemblyManipulator.Logical.Implementation
       private readonly Lazy<CILMethodBase> method;
       private readonly ResettableLazy<CILTypeBase> parameterType;
       private readonly SettableLazy<Object> defaultValue;
-      private readonly LazyWithLock<ListProxy<CILCustomModifier>> customModifiers;
+      private readonly Lazy<ListProxy<CILCustomModifier>> customModifiers;
       private readonly SettableLazy<LogicalMarshalingInfo> marshalInfo;
 
       internal CILParameterImpl(
@@ -161,14 +161,14 @@ namespace CILAssemblyManipulator.Logical.Implementation
          : this(
          ctx,
          anID,
-         new LazyWithLock<ListProxy<CILCustomAttribute>>( () => ctx.CollectionsFactory.NewListProxy<CILCustomAttribute>() ),
+         new Lazy<ListProxy<CILCustomAttribute>>( () => ctx.CollectionsFactory.NewListProxy<CILCustomAttribute>(), LazyThreadSafetyMode.PublicationOnly ),
          new SettableValueForEnums<ParameterAttributes>( attrs ),
          position,
          new SettableValueForClasses<String>( name ),
          () => ownerMethod,
          () => paramType,
          new SettableLazy<Object>( () => null ),
-         new LazyWithLock<ListProxy<CILCustomModifier>>( () => ctx.CollectionsFactory.NewListProxy<CILCustomModifier>() ),
+         new Lazy<ListProxy<CILCustomModifier>>( () => ctx.CollectionsFactory.NewListProxy<CILCustomModifier>(), LazyThreadSafetyMode.PublicationOnly ),
          new SettableLazy<LogicalMarshalingInfo>( () => null ),
          true
          )
@@ -179,14 +179,14 @@ namespace CILAssemblyManipulator.Logical.Implementation
       internal CILParameterImpl(
          CILReflectionContextImpl ctx,
          Int32 anID,
-         LazyWithLock<ListProxy<CILCustomAttribute>> cAttrDataFunc,
+         Lazy<ListProxy<CILCustomAttribute>> cAttrDataFunc,
          SettableValueForEnums<ParameterAttributes> aParameterAttributes,
          Int32 aPosition,
          SettableValueForClasses<String> aName,
          Func<CILMethodBase> methodFunc,
          Func<CILTypeBase> parameterTypeFunc,
          SettableLazy<Object> aDefaultValue,
-         LazyWithLock<ListProxy<CILCustomModifier>> customMods,
+         Lazy<ListProxy<CILCustomModifier>> customMods,
          SettableLazy<LogicalMarshalingInfo> marshalInfoVal,
          Boolean resettablesAreSettable = false
          )
@@ -220,7 +220,7 @@ namespace CILAssemblyManipulator.Logical.Implementation
          ref Lazy<CILMethodBase> method,
          ref ResettableLazy<CILTypeBase> parameterType,
          ref SettableLazy<Object> defaultValue,
-         ref LazyWithLock<ListProxy<CILCustomModifier>> customMods,
+         ref Lazy<ListProxy<CILCustomModifier>> customMods,
          ref SettableLazy<LogicalMarshalingInfo> marshalInfo,
          SettableValueForEnums<ParameterAttributes> aParameterAttributes,
          Int32 aPosition,
@@ -228,7 +228,7 @@ namespace CILAssemblyManipulator.Logical.Implementation
          Func<CILMethodBase> methodFunc,
          Func<CILTypeBase> parameterTypeFunc,
          SettableLazy<Object> aDefaultValue,
-         LazyWithLock<ListProxy<CILCustomModifier>> theCustomMods,
+         Lazy<ListProxy<CILCustomModifier>> theCustomMods,
          SettableLazy<LogicalMarshalingInfo> marshalInfoVal,
          Boolean resettablesAreSettable
          )
@@ -385,7 +385,7 @@ namespace CILAssemblyManipulator.Logical.Implementation
 
       #region CILElementWithCustomModifiersInternal Members
 
-      LazyWithLock<ListProxy<CILCustomModifier>> CILElementWithCustomModifiersInternal.CustomModifierList
+      Lazy<ListProxy<CILCustomModifier>> CILElementWithCustomModifiersInternal.CustomModifierList
       {
          get
          {
@@ -400,19 +400,13 @@ namespace CILAssemblyManipulator.Logical.Implementation
       public CILCustomModifier AddCustomModifier( CILType type, Boolean isOptional )
       {
          var result = new CILCustomModifierImpl( isOptional, type );
-         lock ( this.customModifiers.Lock )
-         {
-            this.customModifiers.Value.Add( result );
-         }
+         this.customModifiers.Value.Add( result );
          return result;
       }
 
       public Boolean RemoveCustomModifier( CILCustomModifier modifier )
       {
-         lock ( this.customModifiers.Lock )
-         {
-            return this.customModifiers.Value.Remove( modifier );
-         }
+         return this.customModifiers.Value.Remove( modifier );
       }
 
       public ListQuery<CILCustomModifier> CustomModifiers

@@ -89,12 +89,6 @@ namespace CILAssemblyManipulator.Logical
       /// </summary>
       /// <value>All other methods currently associated with this event.</value>
       ListQuery<CILMethod> OtherMethods { get; }
-
-      /// <summary>
-      /// Gets the synchronization object for concurrent read/write access of other methods via <see cref="AddOtherMethods"/> and <see cref="RemoveOtherMethods"/>.
-      /// </summary>
-      /// <value>The synchronization object for concurrent read/write access of other methods via <see cref="AddOtherMethods"/> and <see cref="RemoveOtherMethods"/>.</value>
-      Object OtherMethodsLock { get; }
    }
 }
 

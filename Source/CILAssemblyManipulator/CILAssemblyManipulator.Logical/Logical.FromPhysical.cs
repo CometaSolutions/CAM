@@ -1327,7 +1327,7 @@ public static partial class E_CILLogical
       CILTypeCode tc;
 
       Int32 enumValueFieldIndex;
-      if ( md.IsEnum( new TableIndex( Tables.TypeDef, typeDefIndex ) ) && md.TryGetEnumValueFieldIndex( typeDefIndex, out enumValueFieldIndex ) )
+      if ( md.TryGetEnumValueFieldIndex( typeDefIndex, out enumValueFieldIndex ) )
       {
          tc = ResolveTypeCodeFromEnumType( md.FieldDefinitions.TableContents[enumValueFieldIndex].Signature.Type );
       }

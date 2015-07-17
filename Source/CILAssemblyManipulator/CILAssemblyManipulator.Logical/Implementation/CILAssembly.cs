@@ -27,8 +27,8 @@ namespace CILAssemblyManipulator.Logical.Implementation
    internal class CILAssemblyImpl : CILCustomAttributeContainerImpl, CILAssembly
    {
       private readonly SettableLazy<CILAssemblyName> name;
-      private readonly LazyWithLock<ListProxy<CILModule>> modules;
-      private readonly LazyWithLock<DictionaryProxy<Tuple<String, String>, TypeForwardingInfo>> forwardedTypes;
+      private readonly Lazy<ListProxy<CILModule>> modules;
+      private readonly Lazy<DictionaryProxy<Tuple<String, String>, TypeForwardingInfo>> forwardedTypes;
       private readonly SettableLazy<CILModule> mainModule;
 
       internal CILAssemblyImpl(
@@ -83,7 +83,7 @@ namespace CILAssemblyManipulator.Logical.Implementation
          CILReflectionContextImpl ctx,
          Int32 anID
          )
-         : base( ctx, CILElementKind.Assembly, anID, new LazyWithLock<ListProxy<CILCustomAttribute>>( () => ctx.CollectionsFactory.NewListProxy<CILCustomAttribute>() ) )
+         : base( ctx, CILElementKind.Assembly, anID, new Lazy<ListProxy<CILCustomAttribute>>( () => ctx.CollectionsFactory.NewListProxy<CILCustomAttribute>(), LazyThreadSafetyMode.PublicationOnly ) )
       {
          InitFields(
             ref this.name,
@@ -100,7 +100,7 @@ namespace CILAssemblyManipulator.Logical.Implementation
       internal CILAssemblyImpl(
          CILReflectionContextImpl ctx,
          Int32 anID,
-         LazyWithLock<ListProxy<CILCustomAttribute>> cAttrs,
+         Lazy<ListProxy<CILCustomAttribute>> cAttrs,
          Func<CILAssemblyName> nameFunc,
          Func<ListProxy<CILModule>> modulesFunc,
          Func<DictionaryProxy<Tuple<String, String>, TypeForwardingInfo>> forwardedTypesFunc,
@@ -122,8 +122,8 @@ namespace CILAssemblyManipulator.Logical.Implementation
 
       private static void InitFields(
          ref SettableLazy<CILAssemblyName> name,
-         ref LazyWithLock<ListProxy<CILModule>> modules,
-         ref LazyWithLock<DictionaryProxy<Tuple<String, String>, TypeForwardingInfo>> forwardedTypes,
+         ref Lazy<ListProxy<CILModule>> modules,
+         ref Lazy<DictionaryProxy<Tuple<String, String>, TypeForwardingInfo>> forwardedTypes,
          ref SettableLazy<CILModule> mainModule,
          Func<CILAssemblyName> nameFunc,
          Func<ListProxy<CILModule>> moduleFunc,
@@ -132,8 +132,8 @@ namespace CILAssemblyManipulator.Logical.Implementation
          )
       {
          name = new SettableLazy<CILAssemblyName>( nameFunc );
-         modules = new LazyWithLock<ListProxy<CILModule>>( moduleFunc );
-         forwardedTypes = new LazyWithLock<DictionaryProxy<Tuple<String, String>, TypeForwardingInfo>>( forwardedTypesFunc );
+         modules = new Lazy<ListProxy<CILModule>>( moduleFunc, LazyThreadSafetyMode.PublicationOnly );
+         forwardedTypes = new Lazy<DictionaryProxy<Tuple<String, String>, TypeForwardingInfo>>( forwardedTypesFunc, LazyThreadSafetyMode.PublicationOnly );
          mainModule = new SettableLazy<CILModule>( mainModuleFunc );
       }
 
@@ -147,16 +147,13 @@ namespace CILAssemblyManipulator.Logical.Implementation
 
       public CILModule AddModule( String name )
       {
-         lock ( this.modules.Lock )
+         var result = this.context.Cache.NewBlankModule( this, name );
+         this.modules.Value.Add( result );
+         if ( this.mainModule.Value == null )
          {
-            var result = this.context.Cache.NewBlankModule( this, name );
-            this.modules.Value.Add( result );
-            if ( this.mainModule.Value == null )
-            {
-               this.mainModule.Value = result;
-            }
-            return result;
+            this.mainModule.Value = result;
          }
+         return result;
       }
 
       // TODO if RemoveModule method is added, rememember to clear mainModule if removing same value as main module
@@ -177,14 +174,6 @@ namespace CILAssemblyManipulator.Logical.Implementation
          }
       }
 
-      public Object ModulesLock
-      {
-         get
-         {
-            return this.modules.Lock;
-         }
-      }
-
       public CILModule MainModule
       {
          get
@@ -193,12 +182,9 @@ namespace CILAssemblyManipulator.Logical.Implementation
          }
          set
          {
-            lock ( this.modules.Lock )
+            if ( this.modules.Value.CQ.IndexOf( value ) < 0 )
             {
-               if ( this.modules.Value.CQ.IndexOf( value ) < 0 )
-               {
-                  throw new ArgumentException( "The given module " + value + " is not part of this assembly." );
-               }
+               throw new ArgumentException( "The given module " + value + " is not part of this assembly." );
             }
             this.mainModule.Value = value;
          }
@@ -214,18 +200,12 @@ namespace CILAssemblyManipulator.Logical.Implementation
 
       public Boolean TryAddForwardedType( TypeForwardingInfo info )
       {
-         lock ( this.forwardedTypes.Lock )
-         {
-            return this.forwardedTypes.Value.TryAdd( Tuple.Create( info.Name, info.Namespace ), info );
-         }
+         return this.forwardedTypes.Value.TryAdd( Tuple.Create( info.Name, info.Namespace ), info );
       }
 
       public Boolean RemoveForwardedType( String name, String ns )
       {
-         lock ( this.forwardedTypes.Lock )
-         {
-            return this.forwardedTypes.Value.Remove( Tuple.Create( name, ns ) );
-         }
+         return this.forwardedTypes.Value.Remove( Tuple.Create( name, ns ) );
       }
 
       #endregion
@@ -235,7 +215,7 @@ namespace CILAssemblyManipulator.Logical.Implementation
          return this.name.Value.ToString();
       }
 
-      internal LazyWithLock<ListProxy<CILModule>> InternalModules
+      internal Lazy<ListProxy<CILModule>> InternalModules
       {
          get
          {

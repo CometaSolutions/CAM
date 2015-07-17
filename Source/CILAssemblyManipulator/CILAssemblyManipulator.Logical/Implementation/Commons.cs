@@ -38,7 +38,7 @@ namespace CILAssemblyManipulator.Logical.Implementation
          this.id = anID;
       }
 
-      internal abstract LazyWithLock<ListProxy<CILCustomAttribute>> CustomAttributeList
+      internal abstract Lazy<ListProxy<CILCustomAttribute>> CustomAttributeList
       {
          get;
       }
@@ -57,7 +57,7 @@ namespace CILAssemblyManipulator.Logical.Implementation
    internal abstract class CILCustomAttributeContainerImpl : CommonFunctionality, CILCustomAttributeContainer, CILElementWithContext
    {
       protected internal readonly CILElementKind cilKind;
-      private readonly LazyWithLock<ListProxy<CILCustomAttribute>> attributes;
+      private readonly Lazy<ListProxy<CILCustomAttribute>> attributes;
 
       internal CILCustomAttributeContainerImpl(
          CILReflectionContextImpl ctx,
@@ -73,13 +73,13 @@ namespace CILAssemblyManipulator.Logical.Implementation
             ref this.cilKind,
             ref this.attributes,
             kind,
-            new LazyWithLock<ListProxy<CILCustomAttribute>>( () =>
+            new Lazy<ListProxy<CILCustomAttribute>>( () =>
             {
                var evtArgs = evtArgsFunc();
                ctx.LaunchCustomAttributeDataLoadEvent( evtArgs );
                var thisElement = (CILCustomAttributeContainer) this.context.Cache.ResolveAnyID( this.cilKind, this.id );
                return ctx.CollectionsFactory.NewListProxy<CILCustomAttribute>( new List<CILCustomAttribute>( evtArgs.CustomAttributeData.Select( tuple => CILCustomAttributeFactory.NewAttribute( thisElement, tuple.Item1, tuple.Item2, tuple.Item3 ) ) ) );
-            } )
+            }, LazyThreadSafetyMode.PublicationOnly )
             );
       }
 
@@ -87,7 +87,7 @@ namespace CILAssemblyManipulator.Logical.Implementation
          CILReflectionContextImpl ctx,
          CILElementKind kind,
          Int32 anID,
-         LazyWithLock<ListProxy<CILCustomAttribute>> cAttrDataFunc
+         Lazy<ListProxy<CILCustomAttribute>> cAttrDataFunc
          )
          : base( ctx, anID )
       {
@@ -101,16 +101,16 @@ namespace CILAssemblyManipulator.Logical.Implementation
 
       private static void InitFields(
          ref CILElementKind cilKind,
-         ref LazyWithLock<ListProxy<CILCustomAttribute>> attributesField,
+         ref Lazy<ListProxy<CILCustomAttribute>> attributesField,
          CILElementKind kind,
-         LazyWithLock<ListProxy<CILCustomAttribute>> attributes
+         Lazy<ListProxy<CILCustomAttribute>> attributes
          )
       {
          cilKind = kind;
          attributesField = attributes;
       }
 
-      internal override LazyWithLock<ListProxy<CILCustomAttribute>> CustomAttributeList
+      internal override Lazy<ListProxy<CILCustomAttribute>> CustomAttributeList
       {
          get
          {
@@ -122,20 +122,14 @@ namespace CILAssemblyManipulator.Logical.Implementation
 
       public CILCustomAttribute AddCustomAttribute( CILConstructor ctor, IEnumerable<CILCustomAttributeTypedArgument> ctorArgs, IEnumerable<CILCustomAttributeNamedArgument> namedArgs )
       {
-         lock ( this.attributes.Lock )
-         {
-            var result = CILCustomAttributeFactory.NewAttribute( this, ctor, ctorArgs, namedArgs );
-            this.attributes.Value.Add( result );
-            return result;
-         }
+         var result = CILCustomAttributeFactory.NewAttribute( this, ctor, ctorArgs, namedArgs );
+         this.attributes.Value.Add( result );
+         return result;
       }
 
       public Boolean RemoveCustomAttribute( CILCustomAttribute attribute )
       {
-         lock ( this.attributes.Lock )
-         {
-            return this.attributes.Value.Remove( attribute );
-         }
+         return this.attributes.Value.Remove( attribute );
       }
 
       public ListQuery<CILCustomAttribute> CustomAttributeData
@@ -315,15 +309,20 @@ namespace CILAssemblyManipulator.Logical.Implementation
       }
    }
 
-   internal class LazyWithLock<T>
+   internal class ResettableLazy<T>
    {
-      private readonly Object _lock;
       protected Lazy<T> _lazy;
+      private readonly Func<T> _valueFactory;
 
-      internal LazyWithLock( Func<T> valueFactory )
+      internal ResettableLazy( Func<T> valueFactory )
       {
-         this._lock = new Object();
-         this._lazy = new Lazy<T>( valueFactory, LazyThreadSafetyMode.ExecutionAndPublication );
+         this._valueFactory = valueFactory;
+         this._lazy = new Lazy<T>( this._valueFactory, LazyThreadSafetyMode.ExecutionAndPublication );
+      }
+
+      internal virtual void Reset()
+      {
+         Interlocked.Exchange( ref this._lazy, new Lazy<T>( this._valueFactory, LazyThreadSafetyMode.ExecutionAndPublication ) );
       }
 
       internal virtual T Value
@@ -336,30 +335,6 @@ namespace CILAssemblyManipulator.Logical.Implementation
          {
             throw new NotSupportedException();
          }
-      }
-
-      internal Object Lock
-      {
-         get
-         {
-            return this._lock;
-         }
-      }
-   }
-
-   internal class ResettableLazy<T> : LazyWithLock<T>
-   {
-      private readonly Func<T> _valueFactory;
-
-      internal ResettableLazy( Func<T> valueFactory )
-         : base( valueFactory )
-      {
-         this._valueFactory = valueFactory;
-      }
-
-      internal virtual void Reset()
-      {
-         Interlocked.Exchange( ref this._lazy, new Lazy<T>( this._valueFactory, LazyThreadSafetyMode.ExecutionAndPublication ) );
       }
    }
 
@@ -406,7 +381,7 @@ namespace CILAssemblyManipulator.Logical.Implementation
 
    internal interface CILElementWithCustomModifiersInternal
    {
-      LazyWithLock<ListProxy<CILCustomModifier>> CustomModifierList { get; }
+      Lazy<ListProxy<CILCustomModifier>> CustomModifierList { get; }
    }
 
    internal interface CILFieldInternal : CILElementWithSimpleNameInternal, CILElementWithConstantValueInternal, CILElementWithCustomModifiersInternal, CILElementWithMarshalInfoInternal
@@ -457,7 +432,7 @@ namespace CILAssemblyManipulator.Logical.Implementation
    internal interface CILTypeInternal : CILTypeOrGenericParamInternal
    {
       SettableValueForEnums<TypeAttributes> TypeAttributesInternal { get; }
-      LazyWithLock<ListProxy<CILType>> NestedTypesInternal { get; }
+      Lazy<ListProxy<CILType>> NestedTypesInternal { get; }
       SettableLazy<LogicalClassLayout?> ClassLayoutInternal { get; }
       //SettableLazy<CILType> ForwardedTypeInternal { get; }
       void ResetBaseType();

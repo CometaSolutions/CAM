@@ -608,20 +608,9 @@ namespace CILAssemblyManipulator.Logical
          }
       }
 
-      internal static Boolean RemoveFromResettableLazyList<T>( this ResettableLazy<ListProxy<T>> lazy, T value )
-      {
-         lock ( lazy.Lock )
-         {
-            return lazy.Value.Remove( value );
-         }
-      }
-
       internal static T AddToResettableLazyList<T>( this ResettableLazy<ListProxy<T>> lazy, T value )
       {
-         lock ( lazy.Lock )
-         {
-            lazy.Value.Add( value );
-         }
+         lazy.Value.Add( value );
          return value;
       }
 

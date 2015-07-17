@@ -60,12 +60,6 @@ namespace CILAssemblyManipulator.Logical
       ListQuery<CILModule> Modules { get; }
 
       /// <summary>
-      /// Gets the synchronization object for reading/modifying modules.
-      /// </summary>
-      /// <value>The synchronization object for reading/modifying modules.</value>
-      Object ModulesLock { get; }
-
-      /// <summary>
       /// Gets or sets the module which will have assembly manifest when emitted.
       /// </summary>
       /// <value>The module which will have assembly manifest when emitted.</value>

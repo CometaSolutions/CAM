@@ -98,7 +98,7 @@ namespace CILAssemblyManipulator.Logical.Implementation
       protected CILTypeOrParameterImpl(
          CILReflectionContextImpl ctx,
          Int32 anID,
-         LazyWithLock<ListProxy<CILCustomAttribute>> cAttrDataFunc,
+         Lazy<ListProxy<CILCustomAttribute>> cAttrDataFunc,
          TypeKind aTypeKind,
          Func<CILTypeCode> typeCode,
          SettableValueForClasses<String> aName,
@@ -287,8 +287,7 @@ namespace CILAssemblyManipulator.Logical.Implementation
       private readonly ElementKind? elementKind;
       private readonly GeneralArrayInfo arrayInfo;
       private readonly Lazy<ListProxy<CILTypeBase>> gArgs;
-      private readonly Object gArgsLock;
-      private readonly LazyWithLock<ListProxy<CILType>> nestedTypes;
+      private readonly Lazy<ListProxy<CILType>> nestedTypes;
       private readonly ResettableLazy<ListProxy<CILField>> fields;
       private readonly SettableLazy<CILType> genericDefinition;
       private readonly Lazy<CILTypeBase> elementType;
@@ -344,7 +343,6 @@ namespace CILAssemblyManipulator.Logical.Implementation
             ref this.elementKind,
             ref this.arrayInfo,
             ref this.gArgs,
-            ref this.gArgsLock,
             ref this.genericDefinition,
             ref this.nestedTypes,
             ref this.fields,
@@ -365,14 +363,14 @@ namespace CILAssemblyManipulator.Logical.Implementation
                   .Select( gArg => ctx.Cache.GetOrAdd( gArg ) )
                   .ToList() ),
             () => (CILType) ctx.Cache.GetOrAdd( nGDef ),
-            new LazyWithLock<ListProxy<CILType>>( () => ctx.CollectionsFactory.NewListProxy<CILType>(
+            new Lazy<ListProxy<CILType>>( () => ctx.CollectionsFactory.NewListProxy<CILType>(
                type.GetNestedTypes(
 #if !WINDOWS_PHONE_APP
  System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.NonPublic
 #endif
  )
                   .Select( nested => (CILType) ctx.Cache.GetOrAdd( nested ) )
-                  .ToList() ) ),
+                  .ToList() ), LazyThreadSafetyMode.PublicationOnly ),
             () => ctx.CollectionsFactory.NewListProxy<CILField>(
                type.GetFields(
 #if !WINDOWS_PHONE_APP
@@ -462,7 +460,7 @@ namespace CILAssemblyManipulator.Logical.Implementation
          : this(
          ctx,
          anID,
-         new LazyWithLock<ListProxy<CILCustomAttribute>>( () => ctx.CollectionsFactory.NewListProxy<CILCustomAttribute>() ),
+         new Lazy<ListProxy<CILCustomAttribute>>( () => ctx.CollectionsFactory.NewListProxy<CILCustomAttribute>(), LazyThreadSafetyMode.PublicationOnly ),
          () => typeCode,
          new SettableValueForClasses<String>( name ),
          new SettableValueForClasses<String>( null ),
@@ -478,7 +476,7 @@ namespace CILAssemblyManipulator.Logical.Implementation
          null,
          () => ctx.CollectionsFactory.NewListProxy<CILTypeBase>(),
          () => null,
-         new LazyWithLock<ListProxy<CILType>>( () => ctx.CollectionsFactory.NewListProxy<CILType>() ),
+         new Lazy<ListProxy<CILType>>( () => ctx.CollectionsFactory.NewListProxy<CILType>(), LazyThreadSafetyMode.PublicationOnly ),
          () => ctx.CollectionsFactory.NewListProxy<CILField>(),
          () => null,
          () => ctx.CollectionsFactory.NewListProxy<CILMethod>(),
@@ -495,7 +493,7 @@ namespace CILAssemblyManipulator.Logical.Implementation
       internal CILTypeImpl(
          CILReflectionContextImpl ctx,
          Int32 anID,
-         LazyWithLock<ListProxy<CILCustomAttribute>> cAttrDataFunc,
+         Lazy<ListProxy<CILCustomAttribute>> cAttrDataFunc,
          Func<CILTypeCode> typeCode,
          SettableValueForClasses<String> aName,
          SettableValueForClasses<String> aNamespace,
@@ -508,7 +506,7 @@ namespace CILAssemblyManipulator.Logical.Implementation
          GeneralArrayInfo arrayInfo,
          Func<ListProxy<CILTypeBase>> gArgsFunc,
          Func<CILType> gDefFunc,
-         LazyWithLock<ListProxy<CILType>> nestedTypesFunc,
+         Lazy<ListProxy<CILType>> nestedTypesFunc,
          Func<ListProxy<CILField>> fieldsFunc,
          Func<CILTypeBase> elementTypeFunc,
          Func<ListProxy<CILMethod>> methodsFunc,
@@ -526,7 +524,6 @@ namespace CILAssemblyManipulator.Logical.Implementation
             ref this.elementKind,
             ref this.arrayInfo,
             ref this.gArgs,
-            ref this.gArgsLock,
             ref this.genericDefinition,
             ref this.nestedTypes,
             ref this.fields,
@@ -564,9 +561,8 @@ namespace CILAssemblyManipulator.Logical.Implementation
          ref ElementKind? elementKind,
          ref GeneralArrayInfo arrayInfo,
          ref Lazy<ListProxy<CILTypeBase>> gArgs,
-         ref Object gArgsLock,
          ref SettableLazy<CILType> genericDefinition,
-         ref LazyWithLock<ListProxy<CILType>> nested,
+         ref Lazy<ListProxy<CILType>> nested,
          ref ResettableLazy<ListProxy<CILField>> fields,
          ref Lazy<CILTypeBase> elementType,
          ref ResettableLazy<ListProxy<CILMethod>> methods,
@@ -582,7 +578,7 @@ namespace CILAssemblyManipulator.Logical.Implementation
          GeneralArrayInfo anArrayInfo,
          Func<ListProxy<CILTypeBase>> gArgsFunc,
          Func<CILType> genericDefinitionFunc,
-         LazyWithLock<ListProxy<CILType>> nestedTypesFunc,
+         Lazy<ListProxy<CILType>> nestedTypesFunc,
          Func<ListProxy<CILField>> fieldsFunc,
          Func<CILTypeBase> elementTypeFunc,
          Func<ListProxy<CILMethod>> methodsFunc,
@@ -612,7 +608,6 @@ namespace CILAssemblyManipulator.Logical.Implementation
          declaredInterfaces = new ResettableLazy<ListProxy<CILType>>( declaredInterfacesFunc );
          layout = aLayout;
          securityInfo = aSecurityInfo;
-         gArgsLock = resettablesAreSettable ? new Object() : null;
       }
 
       public override String ToString()
@@ -695,7 +690,7 @@ namespace CILAssemblyManipulator.Logical.Implementation
       public Boolean RemoveField( CILField field )
       {
          this.ThrowIfNotCapableOfChanging();
-         var result = LogicalUtils.RemoveFromResettableLazyList( this.fields, field );
+         var result = this.fields.Value.Remove( field );
          if ( result )
          {
             this.context.Cache.ForAllGenericInstancesOf( this, type => type.ResetDeclaredFields() );
@@ -714,7 +709,7 @@ namespace CILAssemblyManipulator.Logical.Implementation
       public Boolean RemoveConstructor( CILConstructor ctor )
       {
          this.ThrowIfNotCapableOfChanging();
-         var result = LogicalUtils.RemoveFromResettableLazyList( this.ctors, ctor );
+         var result = this.ctors.Value.Remove( ctor );
          if ( result )
          {
             this.context.Cache.ForAllGenericInstancesOf( this, type => type.ResetConstructors() );
@@ -733,7 +728,7 @@ namespace CILAssemblyManipulator.Logical.Implementation
       public Boolean RemoveMethod( CILMethod method )
       {
          this.ThrowIfNotCapableOfChanging();
-         var result = LogicalUtils.RemoveFromResettableLazyList( this.methods, method );
+         var result = this.methods.Value.Remove( method );
          if ( result )
          {
             this.context.Cache.ForAllGenericInstancesOf( this, type => type.ResetDeclaredMethods() );
@@ -752,7 +747,7 @@ namespace CILAssemblyManipulator.Logical.Implementation
       public Boolean RemoveProperty( CILProperty property )
       {
          this.ThrowIfNotCapableOfChanging();
-         var result = LogicalUtils.RemoveFromResettableLazyList( this.properties, property );
+         var result = this.properties.Value.Remove( property );
          if ( result )
          {
             this.context.Cache.ForAllGenericInstancesOf( this, type => type.ResetDeclaredProperties() );
@@ -771,7 +766,7 @@ namespace CILAssemblyManipulator.Logical.Implementation
       public Boolean RemoveEvent( CILEvent evt )
       {
          this.ThrowIfNotCapableOfChanging();
-         var result = LogicalUtils.RemoveFromResettableLazyList( this.events, evt );
+         var result = this.events.Value.Remove( evt );
          if ( result )
          {
             this.context.Cache.ForAllGenericInstancesOf( this, type => type.ResetDeclaredEvents() );
@@ -823,7 +818,7 @@ namespace CILAssemblyManipulator.Logical.Implementation
          }
       }
 
-      LazyWithLock<ListProxy<CILType>> CILTypeInternal.NestedTypesInternal
+      Lazy<ListProxy<CILType>> CILTypeInternal.NestedTypesInternal
       {
          get
          {
@@ -913,10 +908,7 @@ namespace CILAssemblyManipulator.Logical.Implementation
          }
          // Since declared interfaces are mutable, no point checking this...
          //iFaces.SelectMany( iFace => iFace.AsDepthFirstEnumerable( i => i.DeclaredInterfaces ) ).CheckCyclity( this );
-         lock ( this.declaredInterfaces.Lock )
-         {
-            this.declaredInterfaces.Value.AddRange( iFaces.OnlyBottomTypes().Except( this.declaredInterfaces.Value.MQ ) );
-         }
+         this.declaredInterfaces.Value.AddRange( iFaces.OnlyBottomTypes().Except( this.declaredInterfaces.Value.MQ ) );
          this.context.Cache.ForAllGenericInstancesOf( this, type => type.ResetDeclaredInterfaces() );
       }
 
@@ -924,10 +916,7 @@ namespace CILAssemblyManipulator.Logical.Implementation
       {
          this.ThrowIfNotCapableOfChanging();
          Boolean result;
-         lock ( this.declaredInterfaces.Lock )
-         {
-            result = this.declaredInterfaces.Value.Remove( iFace );
-         }
+         result = this.declaredInterfaces.Value.Remove( iFace );
          if ( result )
          {
             this.context.Cache.ForAllGenericInstancesOf( this, type => type.ResetDeclaredInterfaces() );
@@ -962,29 +951,15 @@ namespace CILAssemblyManipulator.Logical.Implementation
       {
          this.ThrowIfNotCapableOfChanging();
          var result = this.context.Cache.NewBlankType( this.module.Value, this, name, attrs, tc );
-         lock ( this.nestedTypes.Lock )
-         {
-            this.nestedTypes.Value.Add( result );
-         }
+         this.nestedTypes.Value.Add( result );
          return result;
       }
 
       public Boolean RemoveType( CILType type )
       {
          this.ThrowIfNotCapableOfChanging();
-         lock ( this.nestedTypes.Lock )
-         {
-            //( (CILTypeInternal) type ).RemoveDeclaringType(); // TODO
-            return this.nestedTypes.Value.Remove( type );
-         }
-      }
-
-      public Object DefinedTypesLock
-      {
-         get
-         {
-            return this.nestedTypes.Lock;
-         }
+         //( (CILTypeInternal) type ).RemoveDeclaringType(); // TODO
+         return this.nestedTypes.Value.Remove( type );
       }
 
       #endregion
@@ -996,19 +971,16 @@ namespace CILAssemblyManipulator.Logical.Implementation
       {
          CILTypeParameter[] result;
 
-         lock ( this.gArgsLock )
+         LogicalUtils.CheckWhenDefiningGArgs( this.gArgs.Value, names );
+         if ( names != null && names.Length > 0 )
          {
-            LogicalUtils.CheckWhenDefiningGArgs( this.gArgs.Value, names );
-            if ( names != null && names.Length > 0 )
-            {
-               result = Enumerable.Range( 0, names.Length ).Select( idx => this.context.Cache.NewBlankTypeParameter( this, null, names[idx], idx ) ).ToArray();
-               this.gArgs.Value.AddRange( result );
-               this.genericDefinition.Value = this;
-            }
-            else
-            {
-               result = EMPTY_TYPE_PARAMS;
-            }
+            result = Enumerable.Range( 0, names.Length ).Select( idx => this.context.Cache.NewBlankTypeParameter( this, null, names[idx], idx ) ).ToArray();
+            this.gArgs.Value.AddRange( result );
+            this.genericDefinition.Value = this;
+         }
+         else
+         {
+            result = EMPTY_TYPE_PARAMS;
          }
 
          return result;
@@ -1178,7 +1150,7 @@ namespace CILAssemblyManipulator.Logical.Implementation
       private GenericParameterAttributes paramAttributes;
       private readonly Int32 position;
       private readonly Lazy<CILMethod> declaringMethod;
-      private readonly LazyWithLock<ListProxy<CILTypeBase>> genericParameterConstraints;
+      private readonly Lazy<ListProxy<CILTypeBase>> genericParameterConstraints;
 
       internal CILTypeParameterImpl( CILReflectionContextImpl ctx, Int32 anID, Type type )
          : base( ctx, anID, type )
@@ -1214,7 +1186,7 @@ namespace CILAssemblyManipulator.Logical.Implementation
       internal CILTypeParameterImpl(
          CILReflectionContextImpl ctx,
          Int32 anID,
-         LazyWithLock<ListProxy<CILCustomAttribute>> cAttrs,
+         Lazy<ListProxy<CILCustomAttribute>> cAttrs,
          GenericParameterAttributes gpAttrs,
          CILType declaringType,
          CILMethod declaringMethod,
@@ -1251,7 +1223,7 @@ namespace CILAssemblyManipulator.Logical.Implementation
          ref GenericParameterAttributes paramAttributes,
          ref Int32 position,
          ref Lazy<CILMethod> declaringMethod,
-         ref LazyWithLock<ListProxy<CILTypeBase>> genericParameterConstraints,
+         ref Lazy<ListProxy<CILTypeBase>> genericParameterConstraints,
          GenericParameterAttributes aParamAttributes,
          Int32 aPosition,
          Func<CILMethod> declaringMethodFunc,
@@ -1261,7 +1233,7 @@ namespace CILAssemblyManipulator.Logical.Implementation
          paramAttributes = aParamAttributes;
          position = aPosition;
          declaringMethod = new Lazy<CILMethod>( declaringMethodFunc, LazyThreadSafetyMode.ExecutionAndPublication );
-         genericParameterConstraints = new LazyWithLock<ListProxy<CILTypeBase>>( genericParameterConstraintsFunc );
+         genericParameterConstraints = new Lazy<ListProxy<CILTypeBase>>( genericParameterConstraintsFunc, LazyThreadSafetyMode.PublicationOnly );
       }
 
       public override String ToString()
@@ -1293,18 +1265,12 @@ namespace CILAssemblyManipulator.Logical.Implementation
 
       public void AddGenericParameterConstraints( params CILTypeBase[] constraints )
       {
-         lock ( this.genericParameterConstraints.Lock )
-         {
-            this.genericParameterConstraints.Value.AddRange( constraints.Except( this.genericParameterConstraints.Value.CQ ) );
-         }
+         this.genericParameterConstraints.Value.AddRange( constraints.Except( this.genericParameterConstraints.Value.CQ ) );
       }
 
       public Boolean RemoveGenericParameterConstraint( CILTypeBase constraint )
       {
-         lock ( this.genericParameterConstraints.Lock )
-         {
-            return this.genericParameterConstraints.Value.Remove( constraint );
-         }
+         return this.genericParameterConstraints.Value.Remove( constraint );
       }
 
       public Int32 GenericParameterPosition

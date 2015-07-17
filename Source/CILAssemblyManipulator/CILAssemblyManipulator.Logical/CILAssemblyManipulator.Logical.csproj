@@ -70,6 +70,10 @@
       <Project>{f8ba1950-209d-477f-83d6-3f969c0cbee6}</Project>
       <Name>CILAssemblyManipulator.Physical</Name>
     </ProjectReference>
+    <ProjectReference Include="..\CILAssemblyManipulator.Structural\CILAssemblyManipulator.Structural.csproj">
+      <Project>{7384961e-6335-4312-af87-1189ae260572}</Project>
+      <Name>CILAssemblyManipulator.Structural</Name>
+    </ProjectReference>
   </ItemGroup>
   <ItemGroup Condition=" '$(CAMLogicalIsPortable)' == '' ">
     <Reference Include="System" />
@@ -124,12 +128,13 @@
     <Compile Include="Implementation\CILTypes.cs" />
     <Compile Include="Implementation\Commons.cs" />
     <Compile Include="Implementation\MethodIL.cs" />
+    <Compile Include="Logical.cs" />
+    <Compile Include="Logical.FromStructural.cs" />
     <Compile Include="MethodIL.cs" />
     <Compile Include="OpCodeInfos.cs" />
     <Compile Include="OpCodes.cs" />
-    <Compile Include="Physical.ToLogical.cs" />
-    <Compile Include="Physical.FromLogical.cs" />
-    <Compile Include="StreamExtensions.cs" />
+    <Compile Include="Logical.FromPhysical.cs" />
+    <Compile Include="Logical.ToPhysical.cs" />
     <Compile Include="Utils.cs" />
   </ItemGroup>
   <PropertyGroup Condition=" '$(UseUtilpackReference)' != '' ">

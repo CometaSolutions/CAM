@@ -107,7 +107,7 @@ namespace CILAssemblyManipulator.Logical.Implementation
          CILReflectionContextImpl ctx,
          Int32 anID,
          Boolean isCtor,
-         LazyWithLock<ListProxy<CILCustomAttribute>> cAttrDataFunc,
+         Lazy<ListProxy<CILCustomAttribute>> cAttrDataFunc,
          SettableValueForEnums<CallingConventions> aCallingConvention,
          SettableValueForEnums<MethodAttributes> aMethodAttributes,
          Func<CILType> declaringTypeFunc,
@@ -247,11 +247,8 @@ namespace CILAssemblyManipulator.Logical.Implementation
       {
          this.ThrowIfNotCapableOfChanging();
          CILParameter result;
-         lock ( this.parameters.Lock )
-         {
-            result = this.context.Cache.NewBlankParameter( this, this.parameters.Value.CQ.Count, name, attrs, paramType );
-            this.parameters.Value.Add( result );
-         }
+         result = this.context.Cache.NewBlankParameter( this, this.parameters.Value.CQ.Count, name, attrs, paramType );
+         this.parameters.Value.Add( result );
          this.context.Cache.ForAllGenericInstancesOf<CILMethodBase, CILMethodBaseInternal>( (CILMethodBase) this, method => method.ResetParameterList() );
          return result;
       }
@@ -259,7 +256,7 @@ namespace CILAssemblyManipulator.Logical.Implementation
       public Boolean RemoveParameter( CILParameter parameter )
       {
          this.ThrowIfNotCapableOfChanging();
-         var result = LogicalUtils.RemoveFromResettableLazyList( this.parameters, parameter );
+         var result = this.parameters.Value.Remove( parameter );
          if ( result )
          {
             this.context.Cache.ForAllGenericInstancesOf<CILMethodBase, CILMethodBaseInternal>( this, method => method.ResetParameterList() );
@@ -442,7 +439,7 @@ namespace CILAssemblyManipulator.Logical.Implementation
          : this(
             ctx,
             anID,
-            new LazyWithLock<ListProxy<CILCustomAttribute>>( () => ctx.CollectionsFactory.NewListProxy<CILCustomAttribute>() ),
+            new Lazy<ListProxy<CILCustomAttribute>>( () => ctx.CollectionsFactory.NewListProxy<CILCustomAttribute>(), LazyThreadSafetyMode.PublicationOnly ),
             new SettableValueForEnums<CallingConventions>( CallingConventions.Standard ),
             new SettableValueForEnums<MethodAttributes>( attrs | MethodAttributes.SpecialName | MethodAttributes.RTSpecialName ),
             () => declaringType,
@@ -459,7 +456,7 @@ namespace CILAssemblyManipulator.Logical.Implementation
       internal CILConstructorImpl(
          CILReflectionContextImpl ctx,
          Int32 anID,
-         LazyWithLock<ListProxy<CILCustomAttribute>> cAttrDataFunc,
+         Lazy<ListProxy<CILCustomAttribute>> cAttrDataFunc,
          SettableValueForEnums<CallingConventions> aCallingConvention,
          SettableValueForEnums<MethodAttributes> aMethodAttributes,
          Func<CILType> declaringTypeFunc,
@@ -509,10 +506,8 @@ namespace CILAssemblyManipulator.Logical.Implementation
       private readonly SettableValueForClasses<String> name;
       private readonly Lazy<CILParameter> returnParameter;
       private readonly Lazy<ListProxy<CILTypeBase>> gArgs;
-      private readonly Object gArgsLock;
       private readonly SettableLazy<CILMethod> gDef;
       private readonly Lazy<ListProxy<CILMethod>> overriddenMethods;
-      private readonly Object overriddenMethodsLock;
       private readonly SettableValueForEnums<PInvokeAttributes> pInvokeAttributes;
       private readonly SettableValueForClasses<String> pInvokeName;
       private readonly SettableValueForClasses<String> pInvokeModule;
@@ -532,10 +527,8 @@ namespace CILAssemblyManipulator.Logical.Implementation
             ref this.name,
             ref this.returnParameter,
             ref this.gArgs,
-            ref this.gArgsLock,
             ref this.gDef,
             ref this.overriddenMethods,
-            ref this.overriddenMethodsLock,
             ref this.pInvokeAttributes,
             ref this.pInvokeName,
             ref this.pInvokeModule,
@@ -574,7 +567,7 @@ namespace CILAssemblyManipulator.Logical.Implementation
          : this(
             ctx,
             anID,
-            new LazyWithLock<ListProxy<CILCustomAttribute>>( () => ctx.CollectionsFactory.NewListProxy<CILCustomAttribute>() ),
+            new Lazy<ListProxy<CILCustomAttribute>>( () => ctx.CollectionsFactory.NewListProxy<CILCustomAttribute>(), LazyThreadSafetyMode.PublicationOnly ),
             new SettableValueForEnums<CallingConventions>( callingConventions ),
             new SettableValueForEnums<MethodAttributes>( attrs ),
             () => declaringType,
@@ -598,7 +591,7 @@ namespace CILAssemblyManipulator.Logical.Implementation
       internal CILMethodImpl(
          CILReflectionContextImpl ctx,
          Int32 anID,
-         LazyWithLock<ListProxy<CILCustomAttribute>> cAttrDataFunc,
+         Lazy<ListProxy<CILCustomAttribute>> cAttrDataFunc,
          SettableValueForEnums<CallingConventions> aCallingConvention,
          SettableValueForEnums<MethodAttributes> aMethodAttributes,
          Func<CILType> declaringTypeFunc,
@@ -619,7 +612,7 @@ namespace CILAssemblyManipulator.Logical.Implementation
       internal CILMethodImpl(
          CILReflectionContextImpl ctx,
          Int32 anID,
-         LazyWithLock<ListProxy<CILCustomAttribute>> cAttrDataFunc,
+         Lazy<ListProxy<CILCustomAttribute>> cAttrDataFunc,
          SettableValueForEnums<CallingConventions> aCallingConvention,
          SettableValueForEnums<MethodAttributes> aMethodAttributes,
          Func<CILType> declaringTypeFunc,
@@ -643,10 +636,8 @@ namespace CILAssemblyManipulator.Logical.Implementation
             ref this.name,
             ref this.returnParameter,
             ref this.gArgs,
-            ref this.gArgsLock,
             ref this.gDef,
             ref this.overriddenMethods,
-            ref this.overriddenMethodsLock,
             ref this.pInvokeAttributes,
             ref this.pInvokeName,
             ref this.pInvokeModule,
@@ -666,10 +657,8 @@ namespace CILAssemblyManipulator.Logical.Implementation
          ref SettableValueForClasses<String> name,
          ref Lazy<CILParameter> returnParameter,
          ref Lazy<ListProxy<CILTypeBase>> gArgs,
-         ref Object gArgsLock,
          ref SettableLazy<CILMethod> gDef,
          ref Lazy<ListProxy<CILMethod>> overriddenMethod, // TODO use LazyWithLock ?
-         ref Object overriddenMethodsLock,
          ref SettableValueForEnums<PInvokeAttributes> pInvokeAttributes,
          ref SettableValueForClasses<String> pInvokeName,
          ref SettableValueForClasses<String> pInvokeModule,
@@ -689,8 +678,6 @@ namespace CILAssemblyManipulator.Logical.Implementation
          gArgs = new Lazy<ListProxy<CILTypeBase>>( gArgsFunc, LazyThreadSafetyMode.ExecutionAndPublication );
          gDef = new SettableLazy<CILMethod>( gDefFunc );
          overriddenMethod = resettablesAreSettable ? new Lazy<ListProxy<CILMethod>>( anOverriddenMethod, LazyThreadSafetyMode.ExecutionAndPublication ) : null;
-         gArgsLock = resettablesAreSettable ? new Object() : null;
-         overriddenMethodsLock = resettablesAreSettable ? new Object() : null;
          pInvokeAttributes = aPInvokeAttributes ?? new SettableValueForEnums<PInvokeAttributes>( (PInvokeAttributes) 0 );
          pInvokeName = aPInvokeName ?? new SettableValueForClasses<String>( null );
          pInvokeModule = aPInvokeModule ?? new SettableValueForClasses<String>( null );
@@ -780,23 +767,17 @@ namespace CILAssemblyManipulator.Logical.Implementation
             //   throw new ArgumentException( "Given methods must be all from inheritance hierarchy of this method's (" + this + ") declaring type (" + this.DeclaringType + ")." );
             //}
          }
-         lock ( this.overriddenMethodsLock )
-         {
-            this.overriddenMethods.Value.AddRange( explicitlyOverriddenMethods );
-            LogicalUtils.CheckMethodAttributesForOverriddenMethods( this.methodAttributes, this.overriddenMethods.Value );
-         }
+         this.overriddenMethods.Value.AddRange( explicitlyOverriddenMethods );
+         LogicalUtils.CheckMethodAttributesForOverriddenMethods( this.methodAttributes, this.overriddenMethods.Value );
       }
 
       public bool RemoveOverriddenMethods( params CILMethod[] explicitlyOverriddenMethods )
       {
          this.ThrowIfNotCapableOfChanging();
          var result = false;
-         lock ( this.overriddenMethodsLock )
+         foreach ( var method in explicitlyOverriddenMethods )
          {
-            foreach ( var method in explicitlyOverriddenMethods )
-            {
-               result = this.overriddenMethods.Value.Remove( method ) || result;
-            }
+            result = this.overriddenMethods.Value.Remove( method ) || result;
          }
          return result;
       }
@@ -886,21 +867,19 @@ namespace CILAssemblyManipulator.Logical.Implementation
          CILTypeParameter[] result;
 
          this.ThrowIfNotCapableOfChanging();
-         lock ( this.gArgsLock )
+         LogicalUtils.CheckWhenDefiningGArgs( this.gArgs.Value, names );
+         if ( names != null && names.Length > 0 )
          {
-            LogicalUtils.CheckWhenDefiningGArgs( this.gArgs.Value, names );
-            if ( names != null && names.Length > 0 )
-            {
-               result = Enumerable.Range( 0, names.Length ).Select( idx => this.context.Cache.NewBlankTypeParameter( this.declaringType.Value, this, names[idx], idx ) ).ToArray();
-               this.gArgs.Value.AddRange( result );
-               this.gDef.Value = this;
-            }
-            else
-            {
-               result = CILTypeImpl.EMPTY_TYPE_PARAMS;
-            }
-
+            result = Enumerable.Range( 0, names.Length ).Select( idx => this.context.Cache.NewBlankTypeParameter( this.declaringType.Value, this, names[idx], idx ) ).ToArray();
+            this.gArgs.Value.AddRange( result );
+            this.gDef.Value = this;
          }
+         else
+         {
+            result = CILTypeImpl.EMPTY_TYPE_PARAMS;
+         }
+
+
          return result;
       }
 
@@ -910,11 +889,8 @@ namespace CILAssemblyManipulator.Logical.Implementation
       {
          set
          {
-            lock ( this.overriddenMethodsLock )
-            {
-               base.Attributes = value;
-               LogicalUtils.CheckMethodAttributesForOverriddenMethods( this.methodAttributes, this.overriddenMethods.Value );
-            }
+            base.Attributes = value;
+            LogicalUtils.CheckMethodAttributesForOverriddenMethods( this.methodAttributes, this.overriddenMethods.Value );
          }
       }
 

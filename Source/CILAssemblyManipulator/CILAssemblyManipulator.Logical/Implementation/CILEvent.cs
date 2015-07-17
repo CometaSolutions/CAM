@@ -80,7 +80,7 @@ namespace CILAssemblyManipulator.Logical.Implementation
          : this(
          ctx,
          anID,
-         new LazyWithLock<ListProxy<CILCustomAttribute>>( () => ctx.CollectionsFactory.NewListProxy<CILCustomAttribute>() ),
+         new Lazy<ListProxy<CILCustomAttribute>>( () => ctx.CollectionsFactory.NewListProxy<CILCustomAttribute>(), LazyThreadSafetyMode.PublicationOnly ),
          new SettableValueForClasses<String>( aName ),
          new SettableValueForEnums<EventAttributes>( anEventAttributes ),
          () => anEventType,
@@ -97,7 +97,7 @@ namespace CILAssemblyManipulator.Logical.Implementation
       internal CILEventImpl(
          CILReflectionContextImpl ctx,
          Int32 anID,
-         LazyWithLock<ListProxy<CILCustomAttribute>> cAttrDataFunc,
+         Lazy<ListProxy<CILCustomAttribute>> cAttrDataFunc,
          SettableValueForClasses<String> aName,
          SettableValueForEnums<EventAttributes> anEventAttributes,
          Func<CILTypeBase> eventTypeFunc,
@@ -230,10 +230,7 @@ namespace CILAssemblyManipulator.Logical.Implementation
          {
             method.ThrowIfNotTrueDefinition();
          }
-         lock ( this.otherMethods.Lock )
-         {
-            this.otherMethods.Value.AddRange( methods );
-         }
+         this.otherMethods.Value.AddRange( methods );
          this.context.Cache.ForAllGenericInstancesOf( this, evt => evt.ResetOtherMethods() );
       }
 
@@ -241,26 +238,15 @@ namespace CILAssemblyManipulator.Logical.Implementation
       {
          this.ThrowIfNotCapableOfChanging();
          var result = false;
-         lock ( this.otherMethods.Lock )
+         foreach ( var method in methods )
          {
-            foreach ( var method in methods )
-            {
-               result = this.otherMethods.Value.Remove( method ) || result;
-            }
+            result = this.otherMethods.Value.Remove( method ) || result;
          }
          if ( result )
          {
             this.context.Cache.ForAllGenericInstancesOf( this, evt => evt.ResetOtherMethods() );
          }
          return result;
-      }
-
-      public Object OtherMethodsLock
-      {
-         get
-         {
-            return this.otherMethods.Lock;
-         }
       }
 
       public ListQuery<CILMethod> OtherMethods

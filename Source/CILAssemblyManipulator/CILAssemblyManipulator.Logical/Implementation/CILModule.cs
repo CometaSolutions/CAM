@@ -33,7 +33,7 @@ namespace CILAssemblyManipulator.Logical.Implementation
 
       private String name;
       private readonly Lazy<CILAssembly> assembly;
-      private readonly LazyWithLock<ListProxy<CILType>> types;
+      private readonly Lazy<ListProxy<CILType>> types;
       private readonly Lazy<CILType> moduleInitializer;
       private readonly SettableLazy<CILModule> associatedMSCorLib;
       private readonly ConcurrentDictionary<String, CILType> typeNameCache;
@@ -68,7 +68,7 @@ namespace CILAssemblyManipulator.Logical.Implementation
       }
 
       internal CILModuleImpl( CILReflectionContextImpl ctx, Int32 anID, CILAssembly ass, String name )
-         : base( ctx, CILElementKind.Module, anID, new LazyWithLock<ListProxy<CILCustomAttribute>>( () => ctx.CollectionsFactory.NewListProxy<CILCustomAttribute>() ) )
+         : base( ctx, CILElementKind.Module, anID, new Lazy<ListProxy<CILCustomAttribute>>( () => ctx.CollectionsFactory.NewListProxy<CILCustomAttribute>(), LazyThreadSafetyMode.PublicationOnly ) )
       {
          InitFields(
             ref this.name,
@@ -88,7 +88,7 @@ namespace CILAssemblyManipulator.Logical.Implementation
             );
       }
 
-      internal CILModuleImpl( CILReflectionContextImpl ctx, Int32 anID, LazyWithLock<ListProxy<CILCustomAttribute>> cAttrs, Func<CILAssembly> ass, String name, Func<CILType> moduleInitializerFunc, Func<ListProxy<CILType>> definedTypes, Func<CILModule> associatedMSCorLibFunc, IDictionary<String, AbstractLogicalManifestResource> mResources )
+      internal CILModuleImpl( CILReflectionContextImpl ctx, Int32 anID, Lazy<ListProxy<CILCustomAttribute>> cAttrs, Func<CILAssembly> ass, String name, Func<CILType> moduleInitializerFunc, Func<ListProxy<CILType>> definedTypes, Func<CILModule> associatedMSCorLibFunc, IDictionary<String, AbstractLogicalManifestResource> mResources )
          : base( ctx, CILElementKind.Module, anID, cAttrs )
       {
          InitFields(
@@ -112,7 +112,7 @@ namespace CILAssemblyManipulator.Logical.Implementation
       private static void InitFields(
          ref String name,
          ref Lazy<CILAssembly> assembly,
-         ref LazyWithLock<ListProxy<CILType>> types,
+         ref Lazy<ListProxy<CILType>> types,
          ref Lazy<CILType> moduleInitializer,
          ref SettableLazy<CILModule> associatedMSCorLib,
          ref ConcurrentDictionary<String, CILType> typeNameCache,
@@ -128,7 +128,7 @@ namespace CILAssemblyManipulator.Logical.Implementation
       {
          name = aName;
          assembly = new Lazy<CILAssembly>( assemblyFunc, LazyThreadSafetyMode.ExecutionAndPublication );
-         types = new LazyWithLock<ListProxy<CILType>>( typesFunc );
+         types = new Lazy<ListProxy<CILType>>( typesFunc, LazyThreadSafetyMode.PublicationOnly );
          moduleInitializer = new Lazy<CILType>( moduleInitializerFunc, LazyThreadSafetyMode.ExecutionAndPublication );
          associatedMSCorLib = new SettableLazy<CILModule>( associatedMSCorLibFunc );
          typeNameCache = new ConcurrentDictionary<String, CILType>();
@@ -194,20 +194,14 @@ namespace CILAssemblyManipulator.Logical.Implementation
       public CILType AddType( String name, TypeAttributes attrs, CILTypeCode tc = CILTypeCode.Object )
       {
          var result = this.context.Cache.NewBlankType( this, null, name, attrs, tc );
-         lock ( this.types.Lock )
-         {
-            this.types.Value.Add( result );
-         }
+         this.types.Value.Add( result );
          return result;
       }
 
       public Boolean RemoveType( CILType type )
       {
-         lock ( this.types.Lock )
-         {
-            // ((CILTypeInternal)type).RemoveModule(); // TODO
-            return this.types.Value.Remove( type );
-         }
+         // ((CILTypeInternal)type).RemoveModule(); // TODO
+         return this.types.Value.Remove( type );
       }
 
       public ListQuery<CILType> DefinedTypes
@@ -215,14 +209,6 @@ namespace CILAssemblyManipulator.Logical.Implementation
          get
          {
             return this.types.Value.CQ;
-         }
-      }
-
-      public Object DefinedTypesLock
-      {
-         get
-         {
-            return this.types.Lock;
          }
       }
 
@@ -291,10 +277,7 @@ namespace CILAssemblyManipulator.Logical.Implementation
          String ns, tn;
          tlType.ParseTypeNameStringForNamespace( out ns, out tn );
          CILType result;
-         lock ( this.types.Lock )
-         {
-            result = this.types.Value.CQ.FirstOrDefault( t => String.Equals( t.Namespace, ns ) && String.Equals( t.Name, tn ) );
-         }
+         result = this.types.Value.CQ.FirstOrDefault( t => String.Equals( t.Namespace, ns ) && String.Equals( t.Name, tn ) );
 
          while ( result != null && nType != null )
          {
