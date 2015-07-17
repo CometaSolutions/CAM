@@ -962,9 +962,9 @@ public static partial class E_CILStructural
       }
    }
 
-   private static void AddSecurity( this PhysicalCreationState state, TableIndex parent, SecurityStructure security )
+   private static void AddSecurity( this PhysicalCreationState state, TableIndex parent, List<SecurityStructure> securityList )
    {
-      if ( security != null )
+      foreach ( var security in securityList )
       {
          var secPhysical = new SecurityDefinition( security.PermissionSets.Count )
          {
@@ -978,6 +978,7 @@ public static partial class E_CILStructural
          secTable.Add( secPhysical );
          state.AddCustomAttributes( secIdx, security );
       }
+
    }
 
    private static void AddMarshalingInfo( this PhysicalCreationState state, TableIndex parent, MarshalingInfo marshal )

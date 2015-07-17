@@ -35,7 +35,7 @@ namespace CILAssemblyManipulator.Tests.Physical
          const String NS = "TestNamespace";
          const String NESTED_CLASS_NAME = "NestedType";
          const String ENCLOSING_CLASS_NAME = "EnclosingType";
-         var md = CILMetaDataFactory.NewBlankMetaData();
+         var md = CILMetaDataFactory.CreateMinimalAssembly( null, null, false );
 
          // Create some types
          md.TypeDefinitions.TableContents.Add( new TypeDefinition() { Namespace = NS, Name = NESTED_CLASS_NAME } );

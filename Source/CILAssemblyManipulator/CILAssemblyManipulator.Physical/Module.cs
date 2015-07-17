@@ -138,11 +138,14 @@ namespace CILAssemblyManipulator.Physical
             ModuleGUID = Guid.NewGuid()
          } );
 
-         // Module type
-         md.TypeDefinitions.TableContents.Add( new TypeDefinition()
+         if ( createModuleType )
          {
-            Name = "<Module>"
-         } );
+            // Module type
+            md.TypeDefinitions.TableContents.Add( new TypeDefinition()
+            {
+               Name = "<Module>"
+            } );
+         }
 
          return md;
       }

@@ -120,6 +120,7 @@ namespace CILAssemblyManipulator.Structural
       private readonly IEqualityComparer<OverriddenMethodInfo> _overriddenMethodComparer;
       private readonly IEqualityComparer<ManifestResourceStructure> _resourceComparer;
       private readonly IEqualityComparer<MethodExceptionBlockStructure> _methodExceptionComparer;
+      private readonly IEqualityComparer<SecurityStructure> _securityComparer;
 
       private readonly Lazy<IDictionary<TypeDefinitionStructure, String>> _xTypeDefFullNames;
       private readonly Lazy<IDictionary<TypeDefinitionStructure, String>> _yTypeDefFullNames;
@@ -147,6 +148,7 @@ namespace CILAssemblyManipulator.Structural
          this._gConstraintComparer = ComparerFromFunctions.NewEqualityComparer<GenericParameterConstraintStructure>( this.Equivalence_GenericParameterConstraint, this.HashCode_GenericParameterConstraint );
          this._resourceComparer = ComparerFromFunctions.NewEqualityComparer<ManifestResourceStructure>( this.Equivalence_ManifestResource, this.HashCode_ManifestResource );
          this._methodExceptionComparer = ComparerFromFunctions.NewEqualityComparer<MethodExceptionBlockStructure>( this.Equivalence_MethodException, this.HashCode_MethodException );
+         this._securityComparer = ComparerFromFunctions.NewEqualityComparer<SecurityStructure>( this.Equivalence_Security, this.HashCode_Security );
 
          this._caComparer = ComparerFromFunctions.NewEqualityComparer<CustomAttributeStructure>( Equivalence_CustomAttribute, HashCode_CustomAttribute );
 
@@ -167,8 +169,8 @@ namespace CILAssemblyManipulator.Structural
       {
          return ReferenceEquals( x, y )
             || ( x != null && y != null
-            && Equivalence_Security( x.SecurityInfo, y.SecurityInfo )
             && ListEqualityComparer<List<ModuleStructure>, ModuleStructure>.IsPermutation( x.Modules, y.Modules, this._moduleComparer )
+            && ListEqualityComparer<List<SecurityStructure>, SecurityStructure>.IsPermutation( x.SecurityInfo, y.SecurityInfo, this._securityComparer )
             && ListEqualityComparer<List<CustomAttributeStructure>, CustomAttributeStructure>.IsPermutation( x.CustomAttributes, y.CustomAttributes, this._caComparer )
          );
       }
@@ -200,7 +202,7 @@ namespace CILAssemblyManipulator.Structural
             && ListEqualityComparer<List<PropertyStructure>, PropertyStructure>.IsPermutation( x.Properties, y.Properties, this._propertyComparer )
             && ListEqualityComparer<List<EventStructure>, EventStructure>.IsPermutation( x.Events, y.Events, this._eventComparer )
             && ListEqualityComparer<List<InterfaceImplStructure>, InterfaceImplStructure>.IsPermutation( x.ImplementedInterfaces, y.ImplementedInterfaces, this._interfaceImplComparer )
-            && Equivalence_Security( x.SecurityInfo, y.SecurityInfo )
+            && ListEqualityComparer<List<SecurityStructure>, SecurityStructure>.IsPermutation( x.SecurityInfo, y.SecurityInfo, this._securityComparer )
             && ListEqualityComparer<List<OverriddenMethodInfo>, OverriddenMethodInfo>.IsPermutation( x.OverriddenMethods, y.OverriddenMethods, this._overriddenMethodComparer )
             && x.Layout.EqualsTypedEquatable( y.Layout )
             && ListEqualityComparer<List<TypeDefinitionStructure>, TypeDefinitionStructure>.IsPermutation( x.NestedTypes, y.NestedTypes, this._typeDefComparer )
@@ -262,7 +264,7 @@ namespace CILAssemblyManipulator.Structural
             && x.ImplementationAttributes == y.ImplementationAttributes
             && Equivalence_PInvoke( x.PInvokeInfo, y.PInvokeInfo )
             && ListEqualityComparer<List<GenericParameterStructure>, GenericParameterStructure>.ListEquality( x.GenericParameters, y.GenericParameters, this.Equivalence_GenericParameter )
-            && Equivalence_Security( x.SecurityInfo, y.SecurityInfo )
+            && ListEqualityComparer<List<SecurityStructure>, SecurityStructure>.IsPermutation( x.SecurityInfo, y.SecurityInfo, this._securityComparer )
             && ListEqualityComparer<List<CustomAttributeStructure>, CustomAttributeStructure>.IsPermutation( x.CustomAttributes, y.CustomAttributes, this._caComparer )
             );
       }

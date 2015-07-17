@@ -52,11 +52,13 @@ namespace CILAssemblyManipulator.Structural
    {
       private readonly AssemblyInformation _assemblyInfo;
       private readonly List<ModuleStructure> _modules;
+      private readonly List<SecurityStructure> _security;
 
       public AssemblyStructure()
       {
          this._modules = new List<ModuleStructure>();
          this._assemblyInfo = new AssemblyInformation();
+         this._security = new List<SecurityStructure>();
       }
 
       internal AssemblyStructure( CILMetaData md )
@@ -87,7 +89,13 @@ namespace CILAssemblyManipulator.Structural
 
       public AssemblyFlags Attributes { get; set; }
       public AssemblyHashAlgorithm HashAlgorithm { get; set; }
-      public SecurityStructure SecurityInfo { get; set; }
+      public List<SecurityStructure> SecurityInfo
+      {
+         get
+         {
+            return this._security;
+         }
+      }
       public List<ModuleStructure> Modules
       {
          get
@@ -227,6 +235,7 @@ namespace CILAssemblyManipulator.Structural
       private readonly List<InterfaceImplStructure> _interfaces;
       private readonly List<GenericParameterStructure> _genericParameters;
       private readonly List<OverriddenMethodInfo> _overriddenMethods;
+      private readonly List<SecurityStructure> _security;
 
       public TypeDefinitionStructure()
       {
@@ -238,6 +247,7 @@ namespace CILAssemblyManipulator.Structural
          this._interfaces = new List<InterfaceImplStructure>();
          this._genericParameters = new List<GenericParameterStructure>();
          this._overriddenMethods = new List<OverriddenMethodInfo>();
+         this._security = new List<SecurityStructure>();
       }
 
       public TypeDefinitionStructure( TypeDefinition tDef )
@@ -269,7 +279,13 @@ namespace CILAssemblyManipulator.Structural
       public TypeAttributes Attributes { get; set; }
       public AbstractTypeStructure BaseType { get; set; }
       public LayoutInfo Layout { get; set; }
-      public SecurityStructure SecurityInfo { get; set; }
+      public List<SecurityStructure> SecurityInfo
+      {
+         get
+         {
+            return this._security;
+         }
+      }
 
       public List<TypeDefinitionStructure> NestedTypes
       {
@@ -740,11 +756,13 @@ namespace CILAssemblyManipulator.Structural
    {
       private readonly List<ParameterStructure> _parameters;
       private readonly List<GenericParameterStructure> _genericParameters;
+      private readonly List<SecurityStructure> _security;
 
       public MethodStructure()
       {
          this._parameters = new List<ParameterStructure>();
          this._genericParameters = new List<GenericParameterStructure>();
+         this._security = new List<SecurityStructure>();
       }
 
       public MethodStructure( MethodDefinition mDef )
@@ -777,7 +795,13 @@ namespace CILAssemblyManipulator.Structural
       public MethodDefinitionStructureSignature Signature { get; set; }
       public PInvokeInfo PInvokeInfo { get; set; }
       public MethodILStructureInfo IL { get; set; }
-      public SecurityStructure SecurityInfo { get; set; }
+      public List<SecurityStructure> SecurityInfo
+      {
+         get
+         {
+            return this._security;
+         }
+      }
       public List<ParameterStructure> Parameters
       {
          get
@@ -975,14 +999,15 @@ namespace CILAssemblyManipulator.Structural
          this._permissionSets = new List<AbstractSecurityInformation>( permissionSetCount );
       }
 
-      public SecurityStructure( SecurityDefinition secDef )
-         : this( secDef.PermissionSets.Count )
+      internal SecurityStructure( SecurityDefinition sec )
+         : this( sec.PermissionSets.Count )
       {
-         this.SecurityAction = secDef.Action;
-         this._permissionSets.AddRange( secDef.PermissionSets );
+         this.SecurityAction = sec.Action;
+         this._permissionSets.AddRange( sec.PermissionSets ); // TODO Clone
       }
 
       public SecurityAction SecurityAction { get; set; }
+
       public List<AbstractSecurityInformation> PermissionSets
       {
          get

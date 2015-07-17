@@ -514,15 +514,16 @@ public static partial class E_CILStructural
          switch ( parent.Table )
          {
             case Tables.TypeDef:
-               tDefList[parent.Index].SecurityInfo = secInfo;
+               tDefList[parent.Index].SecurityInfo.Add( secInfo );
                break;
             case Tables.MethodDef:
-               mDefList[parent.Index].SecurityInfo = secInfo;
+               mDefList[parent.Index].SecurityInfo.Add( secInfo );
                break;
             case Tables.Assembly:
-               assembly.SecurityInfo = secInfo;
+               assembly.SecurityInfo.Add( secInfo );
                break;
          }
+
          return secInfo;
       } ) );
 
