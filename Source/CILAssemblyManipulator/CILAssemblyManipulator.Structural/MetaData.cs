@@ -1028,7 +1028,7 @@ namespace CILAssemblyManipulator.Structural
       {
          this.Name = mRes.Name;
          this.Attributes = mRes.Attributes;
-         this.Offset = mRes.Offset;
+         this.Offset = mRes.Implementation.HasValue ? mRes.Offset : 0;
       }
 
       public ManifestResourceStructureData ManifestData { get; set; }

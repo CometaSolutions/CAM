@@ -34,10 +34,28 @@ namespace CILAssemblyManipulator.Tests.Logical
    public class LogicalInteropTest : AbstractCAMTest
    {
 
-      //[Test]
+      [Test]
       public void TestPhysicalInteropCAMPhysicalAssembly()
       {
          PerformRoundtripTest( CAMPhysicalLocation );
+      }
+
+      [Test]
+      public void TestPhysicalInteropCAMStructuralAssembly()
+      {
+         PerformRoundtripTest( CAMStructuralLocation );
+      }
+
+      [Test]
+      public void TestPhysicalInteropCAMLogicalAssembly()
+      {
+         PerformRoundtripTest( CAMLogicalLocation );
+      }
+
+      [Test]
+      public void TestPhysicalInteropMSCorLibAssembly()
+      {
+         PerformRoundtripTest( MSCorLibLocation );
       }
 
       private static void PerformRoundtripTest( String mdLocation )
@@ -56,10 +74,13 @@ namespace CILAssemblyManipulator.Tests.Logical
             var physicalCreated = logical.MainModule.CreatePhysicalRepresentation();
 
             var structure1 = physicalLoaded.CreateStructuralRepresentation();
-            var structure2 = physicalLoaded.CreateStructuralRepresentation();
-
-            Assert.IsTrue( AssemblyEquivalenceComparer.EqualityComparer.Equals( structure1, structure2 ) );
-            Console.WriteLine( "Hmz" );
+            structure1.SecurityInfo.Clear(); // CAM.Logical doesn't support security attributes on assemblies.
+            var structure2 = physicalCreated.CreateStructuralRepresentation();
+            using ( var comparer = new AssemblyEquivalenceComparerTokenMatch( ctx.DefaultCryptoCallbacks ) )
+            {
+               Assert.IsTrue( comparer.Equals( structure1, structure2 ) );
+               Console.WriteLine( "Hmz" );
+            }
          } );
       }
 

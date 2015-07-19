@@ -156,7 +156,7 @@ namespace CILAssemblyManipulator.Tests.Physical
 
          //////////////////////// Integrity
          var structure2 = md.CreateStructuralRepresentation();
-         Assert.IsTrue( CILAssemblyManipulator.Structural.AssemblyEquivalenceComparer.EqualityComparer.Equals( structure1, structure2 ) );
+         Assert.IsTrue( CILAssemblyManipulator.Structural.AssemblyEquivalenceComparerExact.ExactEqualityComparer.Equals( structure1, structure2 ) );
       }
 
       private static void AssertOrderBySingleSimpleColumn<T>( List<T> table, Func<T, Int32> pkExtractor )

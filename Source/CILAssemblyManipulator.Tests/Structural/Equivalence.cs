@@ -56,7 +56,7 @@ namespace CILAssemblyManipulator.Tests.Structural
          var structure1 = md.CreateStructuralRepresentation();
          var structure2 = md.CreateStructuralRepresentation();
 
-         Assert.IsTrue( AssemblyEquivalenceComparer.EqualityComparer.Equals( structure1, structure2 ) );
+         Assert.IsTrue( AssemblyEquivalenceComparerExact.ExactEqualityComparer.Equals( structure1, structure2 ) );
       }
    }
 }

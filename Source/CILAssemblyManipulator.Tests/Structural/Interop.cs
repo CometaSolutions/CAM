@@ -54,7 +54,7 @@ namespace CILAssemblyManipulator.Tests.Structural
             md = fs.ReadModule();
          }
          var structure1 = md.CreateStructuralRepresentation();
-         Assert.IsTrue( AssemblyEquivalenceComparer.EqualityComparer.Equals( structure1, structure1 ), "Assembly structure must equal itself." );
+         Assert.IsTrue( AssemblyEquivalenceComparerExact.ExactEqualityComparer.Equals( structure1, structure1 ), "Assembly structure must equal itself." );
 
          var md2 = structure1.CreatePhysicalRepresentation()[0];
          var structure2 = md2.CreateStructuralRepresentation();
@@ -65,7 +65,7 @@ namespace CILAssemblyManipulator.Tests.Structural
          set.ExceptWith( md2MemberRefs );
 
 
-         Assert.IsTrue( AssemblyEquivalenceComparer.EqualityComparer.Equals( structure1, structure2 ), "Another assembly structure made from physical module made from original assembly structure must equal original assembly structure." );
+         Assert.IsTrue( AssemblyEquivalenceComparerExact.ExactEqualityComparer.Equals( structure1, structure2 ), "Another assembly structure made from physical module made from original assembly structure must equal original assembly structure." );
       }
 
       private static String[] CreateMemberRefStrings( CILMetaData md )

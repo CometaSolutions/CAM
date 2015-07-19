@@ -273,13 +273,14 @@ public static partial class E_CILLogical
       private readonly CILProperty[] _properties;
       private readonly CILEvent[] _events;
       private readonly CILModule[] _moduleRefs;
-      private readonly LogicalAssemblyCreationResult[] _assemblyRefs;
+      private readonly CILAssemblyName[] _assemblyRefs;
+      private readonly IDictionary<CILAssemblyName, LogicalAssemblyCreationResult> _assemblyRefsByName;
 
       private readonly ISet<Int32> _topLevelTypes;
       private readonly IDictionary<Int32, ISet<Int32>> _nestedTypes;
 
       private readonly IDictionary<SignatureElementTypes, CILType> _simpleTypes;
-      private readonly CILType[] _typeRefs;
+      private readonly Tuple<CILType, LogicalAssemblyCreationResult>[] _typeRefs; // 1: resolved type, 2: AssemblyRef or null
       private readonly IDictionary<TypeSpecInfo, CILTypeBase> _typeSpecs;
       private readonly IDictionary<ContextualInfo, IEnumerable<Tuple<CILTypeBase, Boolean>>> _locals;
       private readonly IDictionary<ContextualInfo, CILMethod> _methodSpecs;
@@ -308,11 +309,13 @@ public static partial class E_CILLogical
          this._methodDefs = PopulateWithNulls<CILMethodBase>( md.MethodDefinitions.RowCount );
          this._parameterDefs = PopulateWithNulls<CILParameter>( md.ParameterDefinitions.RowCount );
          this._typeParameters = PopulateWithNulls<CILTypeParameter>( md.GenericParameterDefinitions.RowCount );
-         this._typeRefs = PopulateWithNulls<CILType>( md.TypeReferences.RowCount );
+         this._typeRefs = PopulateWithNulls<Tuple<CILType, LogicalAssemblyCreationResult>>( md.TypeReferences.RowCount );
          this._moduleRefs = PopulateWithNulls<CILModule>( md.ModuleReferences.RowCount );
          this._properties = PopulateWithNulls<CILProperty>( md.PropertyDefinitions.RowCount );
          this._events = PopulateWithNulls<CILEvent>( md.EventDefinitions.RowCount );
-         this._assemblyRefs = PopulateWithNulls<LogicalAssemblyCreationResult>( md.AssemblyReferences.RowCount );
+         this._assemblyRefs = PopulateWithNulls<CILAssemblyName>( md.AssemblyReferences.RowCount );
+
+         this._assemblyRefsByName = new Dictionary<CILAssemblyName, LogicalAssemblyCreationResult>( module.ReflectionContext.DefaultAssemblyNameComparer );
 
          var nestedTypes = new Dictionary<Int32, ISet<Int32>>();
          foreach ( var nc in md.NestedClassDefinitions.TableContents )
@@ -464,7 +467,13 @@ public static partial class E_CILLogical
             case Tables.TypeDef:
                return this._typeDefs[index.Index];
             case Tables.TypeRef:
-               return this._typeRefs.GetOrAdd_NotThreadSafe( index.Index, i => this.ResolveTypeRef( i, populateAssemblyRefStructure ) );
+               var retVal = this._typeRefs.GetOrAdd_NotThreadSafe( index.Index, i => this.ResolveTypeRef( i, populateAssemblyRefStructure ) );
+               if ( populateAssemblyRefStructure && retVal.Item2 != null )
+               {
+                  // In case on first time we resolved this type ref, the populate parameter was false.
+                  retVal.Item2.PopulateBasicStructure();
+               }
+               return retVal.Item1;
             case Tables.TypeSpec:
                return this.ResolveTypeSpec( index.Index, contextType, contextMethod, populateAssemblyRefStructure );
             default:
@@ -570,7 +579,7 @@ public static partial class E_CILLogical
                CILAssemblyName aName;
                if ( CILAssemblyName.TryParse( assembly, out aName ) )
                {
-                  targetAssembly = this._assemblyRefResolver( aName );
+                  targetAssembly = this.ResolveAssemblyRef( aName );
                   if ( populateTargetStructure )
                   {
                      targetAssembly.PopulateBasicStructure();
@@ -609,13 +618,9 @@ public static partial class E_CILLogical
          switch ( declType.Table )
          {
             case Tables.TypeDef:
-               cilDeclType = this.GetTypeDef( declType.Index );
-               break;
             case Tables.TypeRef:
-               cilDeclType = this.ResolveTypeRef( declType.Index, true );
-               break;
             case Tables.TypeSpec:
-               cilDeclType = this.ResolveTypeSpec( declType.Index, contextType, contextMethod, true ) as CILType;
+               cilDeclType = (CILType) this.ResolveTypeDefOrRefOrSpec( declType, contextType, contextMethod, true );
                break;
             case Tables.MethodDef:
                throw new NotImplementedException( "References to global methods/fields in other modules." );
@@ -625,6 +630,8 @@ public static partial class E_CILLogical
             default:
                throw new InvalidOperationException( "Unsupported member ref declaring type: " + declType + "." );
          }
+
+         // Before resolving, we have to populate
 
          var sig = mRef.Signature;
          var wasMethod = false;
@@ -765,11 +772,9 @@ public static partial class E_CILLogical
          switch ( index.Table )
          {
             case Tables.TypeDef:
-               return this.GetTypeDef( index.Index );
             case Tables.TypeRef:
-               return this.ResolveTypeRef( index.Index, false );
             case Tables.TypeSpec:
-               return this.ResolveTypeSpec( index.Index, contextType, contextMethod );
+               return this.ResolveTypeDefOrRefOrSpec( index, contextType, contextMethod );
             case Tables.MethodDef:
                return this.GetMethodDef( index.Index );
             case Tables.Field:
@@ -815,10 +820,20 @@ public static partial class E_CILLogical
 
       internal LogicalAssemblyCreationResult ResolveAssemblyRef( Int32 index )
       {
-         return this._assemblyRefs.GetOrAdd_NotThreadSafe( index, i =>
+         var aName = this._assemblyRefs.GetOrAdd_NotThreadSafe( index, i =>
          {
             var aRef = this._md.AssemblyReferences.TableContents[i];
-            return this._assemblyRefResolver( new CILAssemblyName( aRef.AssemblyInformation, aRef.Attributes.IsFullPublicKey() ) );
+            return new CILAssemblyName( aRef.AssemblyInformation, aRef.Attributes.IsFullPublicKey() );
+         } );
+
+         return this.ResolveAssemblyRef( aName );
+      }
+
+      private LogicalAssemblyCreationResult ResolveAssemblyRef( CILAssemblyName name )
+      {
+         return this._assemblyRefsByName.GetOrAdd_NotThreadSafe( name, an =>
+         {
+            return this._assemblyRefResolver( an );
          } );
       }
 
@@ -838,10 +853,11 @@ public static partial class E_CILLogical
       }
 
 
-      private CILType ResolveTypeRef( Int32 tRefIdx, Boolean populateAssemblyRefStructure )
+      private Tuple<CILType, LogicalAssemblyCreationResult> ResolveTypeRef( Int32 tRefIdx, Boolean populateAssemblyRefStructure )
       {
          var tRef = this._md.TypeReferences.TableContents[tRefIdx];
          var resScopeNullable = tRef.ResolutionScope;
+         LogicalAssemblyCreationResult aRefCreationResult = null;
          CILType retVal;
          if ( resScopeNullable.HasValue )
          {
@@ -849,18 +865,20 @@ public static partial class E_CILLogical
             switch ( resScope.Table )
             {
                case Tables.TypeRef:
-                  retVal = this.ResolveTypeRef( resScope.Index, populateAssemblyRefStructure )
+                  var tuple = this.ResolveTypeRef( resScope.Index, populateAssemblyRefStructure );
+                  aRefCreationResult = tuple.Item2;
+                  retVal = tuple.Item1
                      .DeclaredNestedTypes
                      .FirstOrDefault( n => String.Equals( n.Namespace, tRef.Namespace ) && String.Equals( n.Name, tRef.Name ) );
                   break;
                case Tables.AssemblyRef:
                   // TODO type forwarding!!
-                  var aRef = this.ResolveAssemblyRef( resScope.Index );
+                  aRefCreationResult = this.ResolveAssemblyRef( resScope.Index );
                   if ( populateAssemblyRefStructure )
                   {
-                     aRef.PopulateBasicStructure();
+                     aRefCreationResult.PopulateBasicStructure();
                   }
-                  retVal = aRef.ResolveTopLevelType( tRef.Namespace, tRef.Name, true );
+                  retVal = aRefCreationResult.ResolveTopLevelType( tRef.Namespace, tRef.Name, true );
                   break;
                case Tables.Module:
                   retVal = this._creationResult.ResolveTopLevelType( tRef.Namespace, tRef.Name, true );
@@ -877,7 +895,7 @@ public static partial class E_CILLogical
             throw new NotImplementedException( "Null resolution scope." );
          }
 
-         return retVal;
+         return Tuple.Create( retVal, aRefCreationResult );
       }
 
       private CILModule ResolveModuleRef( Int32 idx )
@@ -926,36 +944,40 @@ public static partial class E_CILLogical
          {
             case TypeSignatureKind.ClassOrValue:
                cilType = type as CILType;
-               var clazz = (ClassOrValueTypeSignature) sig;
-               var sigArgs = clazz.GenericArguments;
-               var cilArgs = cilType.GenericArguments;
-               var retVal = type != null
-                  && !clazz.IsClass == type.IsValueType()
-                  && sigArgs.Count == cilArgs.Count;
+               var retVal = cilType != null;
                if ( retVal )
                {
-                  var typeTable = clazz.Type;
-                  var cilTypeToUse = cilArgs.Count > 0 ?
-                     cilType.GenericDefinition :
-                     cilType;
-                  switch ( typeTable.Table )
+                  var clazz = (ClassOrValueTypeSignature) sig;
+                  var sigArgs = clazz.GenericArguments;
+                  var cilArgs = cilType.GenericArguments;
+                  retVal = type != null
+                     && !clazz.IsClass == type.IsValueType()
+                     && sigArgs.Count == cilArgs.Count;
+                  if ( retVal )
                   {
-                     case Tables.TypeDef:
-                        retVal = cilTypeToUse.Equals( this.GetTypeDef( typeTable.Index ) );
-                        break;
-                     case Tables.TypeRef:
-                        retVal = this.MatchTypeRefs( cilTypeToUse, typeTable.Index );
-                        break;
-                     case Tables.TypeSpec:
-                        retVal = cilType.GenericDefinition != null && this.MatchCILTypeToSignature( cilType.GenericDefinition, this._md.TypeSpecifications.TableContents[typeTable.Index].Signature );
-                        break;
-                     default:
-                        retVal = false;
-                        break;
-                  }
-                  if ( retVal && sigArgs.Count > 0 )
-                  {
-                     retVal = cilArgs.Where( ( g, i ) => this.MatchCILTypeToSignature( g, sigArgs[i] ) ).Count() == cilArgs.Count;
+                     var typeTable = clazz.Type;
+                     var cilTypeToUse = cilArgs.Count > 0 ?
+                        cilType.GenericDefinition :
+                        cilType;
+                     switch ( typeTable.Table )
+                     {
+                        case Tables.TypeDef:
+                           retVal = cilTypeToUse.Equals( this.GetTypeDef( typeTable.Index ) );
+                           break;
+                        case Tables.TypeRef:
+                           retVal = this.MatchTypeRefs( cilTypeToUse, typeTable.Index );
+                           break;
+                        case Tables.TypeSpec:
+                           retVal = cilType.GenericDefinition != null && this.MatchCILTypeToSignature( cilType.GenericDefinition, this._md.TypeSpecifications.TableContents[typeTable.Index].Signature );
+                           break;
+                        default:
+                           retVal = false;
+                           break;
+                     }
+                     if ( retVal && sigArgs.Count > 0 )
+                     {
+                        retVal = cilArgs.Where( ( g, i ) => this.MatchCILTypeToSignature( g, sigArgs[i] ) ).Count() == cilArgs.Count;
+                     }
                   }
                }
                return retVal;

@@ -347,7 +347,10 @@ namespace CILAssemblyManipulator.Physical
          if ( starter.IsProperty() )
          {
             var paramCount = sig.DecompressUInt32( ref idx );
-            retVal = new PropertySignature( parameterCount: paramCount );
+            retVal = new PropertySignature( parameterCount: paramCount )
+            {
+               HasThis = starter.IsHasThis()
+            };
             CustomModifierSignature.AddFromBytes( sig, ref idx, retVal.CustomModifiers );
             retVal.PropertyType = TypeSignature.ReadFromBytesWithRef( sig, ref idx );
             for ( var i = 0; i < paramCount; ++i )

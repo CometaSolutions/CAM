@@ -373,11 +373,11 @@ namespace CILAssemblyManipulator.Physical
          {
             result = Elements.Culture;
          }
-         else if ( String.Compare( str, idx, PUBLIC_KEY_TOKEN, 0, aux, StringComparison.OrdinalIgnoreCase ) == 0 )
+         else if ( aux > 9 && String.Compare( str, idx, PUBLIC_KEY_TOKEN, 0, aux, StringComparison.OrdinalIgnoreCase ) == 0 )
          {
             result = Elements.PublicKeyToken;
          }
-         else if ( String.Compare( str, idx, PUBLIC_KEY, 0, aux, StringComparison.OrdinalIgnoreCase ) == 0 )
+         else if ( aux == 9 && String.Compare( str, idx, PUBLIC_KEY, 0, aux, StringComparison.OrdinalIgnoreCase ) == 0 )
          {
             result = Elements.PublicKey;
          }

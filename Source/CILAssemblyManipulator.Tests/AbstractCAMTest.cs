@@ -26,6 +26,7 @@ using CILMerge;
 using System.Diagnostics;
 using Microsoft.Win32;
 using CILAssemblyManipulator.Logical;
+using CILAssemblyManipulator.Structural;
 
 namespace CILAssemblyManipulator.Tests
 {
@@ -38,6 +39,9 @@ namespace CILAssemblyManipulator.Tests
 
       private static readonly System.Reflection.Assembly _camPhysical = typeof( CILMetaData ).Assembly;
       private static readonly String _camPhysicalLocation = new Uri( _camPhysical.CodeBase ).LocalPath;
+
+      private static readonly System.Reflection.Assembly _camStructural = typeof( AssemblyStructure ).Assembly;
+      private static readonly String _camStructuralLocation = new Uri( _camStructural.CodeBase ).LocalPath;
 
       private static readonly System.Reflection.Assembly _camLogical = typeof( CILModule ).Assembly;
       private static readonly String _camLogicalLocation = new Uri( _camLogical.CodeBase ).LocalPath;
@@ -74,6 +78,22 @@ namespace CILAssemblyManipulator.Tests
          get
          {
             return _camPhysicalLocation;
+         }
+      }
+
+      protected static System.Reflection.Assembly CAMStructural
+      {
+         get
+         {
+            return _camStructural;
+         }
+      }
+
+      protected static String CAMStructuralLocation
+      {
+         get
+         {
+            return _camStructuralLocation;
          }
       }
 

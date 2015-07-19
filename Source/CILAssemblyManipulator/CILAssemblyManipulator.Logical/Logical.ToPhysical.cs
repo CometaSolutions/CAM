@@ -76,7 +76,9 @@ public static partial class E_CILLogical
       private readonly IDictionary<CILTypeBase, TableIndex> _typeDefOrRefOrSpec;
       private readonly IDictionary<CILTypeBase, TableIndex> _typeDefsAsTypeSpecs;
       private readonly IDictionary<CILField, TableIndex> _fields;
+      private readonly IDictionary<Tuple<CILField, Boolean>, TableIndex> _fieldRefs;
       private readonly IDictionary<CILMethodBase, TableIndex> _methods;
+      private readonly IDictionary<Tuple<CILMethodBase, Boolean, Boolean>, TableIndex> _methodRefs;
       private readonly IDictionary<CILParameter, TableIndex> _parameters;
       private readonly IDictionary<String, TableIndex> _moduleRefs;
       private readonly IDictionary<CILAssembly, TableIndex> _assemblyRefs;
@@ -90,7 +92,9 @@ public static partial class E_CILLogical
          this._typeDefOrRefOrSpec = new Dictionary<CILTypeBase, TableIndex>( TypeDefOrRefOrSpecComparer.Instance );
          this._typeDefsAsTypeSpecs = new Dictionary<CILTypeBase, TableIndex>( TypeDefOrRefOrSpecComparer.Instance );
          this._fields = new Dictionary<CILField, TableIndex>();
+         this._fieldRefs = new Dictionary<Tuple<CILField, Boolean>, TableIndex>();
          this._methods = new Dictionary<CILMethodBase, TableIndex>();
+         this._methodRefs = new Dictionary<Tuple<CILMethodBase, Boolean, Boolean>, TableIndex>();
          this._parameters = new Dictionary<CILParameter, TableIndex>();
          this._moduleRefs = new Dictionary<String, TableIndex>();
          this._assemblyRefs = new Dictionary<CILAssembly, TableIndex>();
@@ -157,7 +161,8 @@ public static partial class E_CILLogical
                   break;
                case TypeKind.Type:
                   // TypeRef/Spec (since all TypeDefs should have been already added at this point)
-                  retVal = this._md.GetNextTableIndexFor( ( (CILType) type ).IsGenericType() ? Tables.TypeSpec : Tables.TypeRef );
+                  var t = (CILType) type;
+                  retVal = this._md.GetNextTableIndexFor( !t.IsGenericType() || t.IsGenericTypeDefinition() ? Tables.TypeRef : Tables.TypeSpec );
                   break;
                default:
                   throw new NotSupportedException( "Unknown type kind: " + type.TypeKind + "." );
@@ -208,39 +213,50 @@ public static partial class E_CILLogical
 
       internal TableIndex GetFieldDefOrMemberRef( CILField field, Boolean convertTypeDefToTypeSpec = false )
       {
-         return this._fields.GetOrAdd_NotThreadSafe( field, f =>
+         TableIndex retVal;
+         if ( convertTypeDefToTypeSpec || !this._fields.TryGetValue( field, out retVal ) )
          {
-            // Only MemberRef possible here as all field defs should've been added at this point.
-            var retVal = this._md.GetNextTableIndexFor( Tables.MemberRef );
-            this._md.MemberReferences.TableContents.Add( new MemberReference()
+            retVal = this._fields.GetOrAdd_NotThreadSafe( field, f =>
             {
-               DeclaringType = this.GetMemberRefDeclaringType( field.DeclaringType, convertTypeDefToTypeSpec ),
-               Name = field.Name,
-               Signature = this.CreateFieldSignature( field )
+               // Only MemberRef possible here as all field defs should've been added at this point.
+               var nextIdx = this._md.GetNextTableIndexFor( Tables.MemberRef );
+               this._md.MemberReferences.TableContents.Add( new MemberReference()
+               {
+                  DeclaringType = this.GetMemberRefDeclaringType( field.DeclaringType, convertTypeDefToTypeSpec ),
+                  Name = field.Name,
+                  Signature = this.CreateFieldSignature( field )
+               } );
+               return nextIdx;
             } );
-            return retVal;
-         } );
+         }
+
+         return retVal;
       }
 
       internal TableIndex GetMethodDefOrMemberRefOrMethodSpec( CILMethodBase method, Boolean useMemberRefForGenericMethodDefs = true, Boolean convertTypeDefToTypeSpec = false )
       {
          var created = false;
-         var retVal = this._methods.GetOrAdd_NotThreadSafe( method, m =>
+         TableIndex retVal;
+         if ( convertTypeDefToTypeSpec || !this._methods.TryGetValue( method, out retVal ) )
          {
-            // Only MemberRef or MethodSpec possible here, since all MethodDefs should've been added at this point.
-            created = true;
-            Tables table = Tables.MemberRef;
-            if ( m.MethodKind == MethodKind.Method )
+            retVal = this._methodRefs.GetOrAdd_NotThreadSafe( Tuple.Create( method, useMemberRefForGenericMethodDefs, convertTypeDefToTypeSpec ), tuple =>
             {
-               var mm = (CILMethod) m;
-               if ( mm.HasGenericArguments()
-                  && ( !mm.IsGenericMethodDefinition() || !useMemberRefForGenericMethodDefs ) )
+               var m = tuple.Item1;
+               var useMemberRef = tuple.Item2;
+               Tables table = Tables.MemberRef;
+               if ( m.MethodKind == MethodKind.Method )
                {
-                  table = Tables.MethodSpec;
+                  var mm = (CILMethod) m;
+                  if ( mm.HasGenericArguments()
+                     && ( !mm.IsGenericMethodDefinition() || !useMemberRef ) )
+                  {
+                     table = Tables.MethodSpec;
+                  }
                }
-            }
-            return this._md.GetNextTableIndexFor( table );
-         } );
+               return this._md.GetNextTableIndexFor( table );
+            }, out created );
+         }
+
          if ( created )
          {
             switch ( retVal.Table )
@@ -758,7 +774,7 @@ public static partial class E_CILLogical
       // Create signatures for fields
       foreach ( var field in type.DeclaredFields )
       {
-         md.FieldDefinitions.TableContents[state.GetFieldDefOrMemberRef( field ).Index].Signature = state.CreateFieldSignature( field );
+         state.PostProcessLogicalForPhysical( field );
       }
 
       // Events first as Association table index in MethodSemantics is sorted with having Event first
@@ -857,7 +873,7 @@ public static partial class E_CILLogical
          {
             Class = typeDefIdx,
             MethodBody = methodIdx,
-            MethodDeclaration = state.GetMethodDefOrMemberRefOrMethodSpec( om.GetTrueGenericDefinition() )
+            MethodDeclaration = state.GetMethodDefOrMemberRefOrMethodSpec( om )
          } ) );
 
          if ( !String.IsNullOrEmpty( m.PlatformInvokeName ) && !String.IsNullOrEmpty( m.PlatformInvokeModuleName ) )
@@ -1160,7 +1176,6 @@ public static partial class E_CILLogical
       CILProperty property
       )
    {
-      var typeDefIndex = state.GetTypeDefOrRefOrSpec( property.DeclaringType );
       var md = state.MetaData;
 
       var propIdx = md.GetNextTableIndexFor( Tables.Property );
@@ -1176,7 +1191,7 @@ public static partial class E_CILLogical
       // Add to method semantics
       md.MethodSemantics.TableContents.AddRange( property.GetSemanticMethods().Select( method => new MethodSemantics()
       {
-         Associaton = typeDefIndex,
+         Associaton = propIdx,
          Attributes = method.Item1,
          Method = state.GetMethodDefOrMemberRefOrMethodSpec( method.Item2 )
       } ) );
@@ -1196,7 +1211,6 @@ public static partial class E_CILLogical
       CILEvent evt
    )
    {
-      var typeDefIndex = state.GetTypeDefOrRefOrSpec( evt.DeclaringType );
       var md = state.MetaData;
 
       var evtIdx = md.GetNextTableIndexFor( Tables.Event );
@@ -1212,7 +1226,7 @@ public static partial class E_CILLogical
       // Add to method semantics
       md.MethodSemantics.TableContents.AddRange( evt.GetSemanticMethods().Select( method => new MethodSemantics()
       {
-         Associaton = typeDefIndex,
+         Associaton = evtIdx,
          Attributes = method.Item1,
          Method = state.GetMethodDefOrMemberRefOrMethodSpec( method.Item2 )
       } ) );
@@ -1296,6 +1310,10 @@ public static partial class E_CILLogical
             else
             {
                var tc = t.TypeCode;
+               if ( t.IsEnum() )
+               {
+                  tc = CILTypeCode.Object;
+               }
                switch ( tc )
                {
                   case CILTypeCode.Boolean:
@@ -1339,7 +1357,7 @@ public static partial class E_CILLogical
                      var classOrValue = new ClassOrValueTypeSignature( gArgs.Count )
                      {
                         IsClass = !t.IsValueType(),
-                        Type = state.GetTypeDefOrRefOrSpec( t )
+                        Type = state.GetTypeDefOrRefOrSpec( t.IsGenericType() ? t.GenericDefinition : t )
                      };
                      foreach ( var gArg in gArgs )
                      {
@@ -1639,10 +1657,11 @@ public static partial class E_CILLogical
    {
       return type == null ?
          null :
-         ( type.Module.Assembly.Equals( state.LogicalModule.Assembly ) ?
-               type.GetFullName() :
-               type.GetAssemblyQualifiedName() // TODO maybe do some kind of "IsSystemLibrary" check?
-         );
+         type.GetAssemblyQualifiedName();
+      //( type.Module.Assembly.Equals( state.LogicalModule.Assembly ) ?
+      //          type.GetFullName() :
+      //          type.GetAssemblyQualifiedName() // TODO maybe do some kind of "IsSystemLibrary" check?
+      //    );
    }
 
    private static MarshalingInfo CreatePhysicalMarshalingInfo( this PhysicalCreationState state, LogicalMarshalingInfo marshalingInfo )
