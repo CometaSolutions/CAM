@@ -261,7 +261,7 @@ namespace CILAssemblyManipulator.Structural
          CreateCtorAndMethodLists( x, out ctorsX, out methodsX );
          List<MethodStructure> ctorsY, methodsY;
          CreateCtorAndMethodLists( x, out ctorsY, out methodsY );
-         var retVal = String.Equals( x.Name, y.Name )
+         return String.Equals( x.Name, y.Name )
             && String.Equals( x.Namespace, y.Namespace )
             && Equivalence_TypeDefOrRefOrSpec( x.BaseType, y.BaseType )
             && x.Attributes == y.Attributes
@@ -277,29 +277,6 @@ namespace CILAssemblyManipulator.Structural
             && x.Layout.EqualsTypedEquatable( y.Layout )
             && ListEqualityComparer<List<TypeDefinitionStructure>, TypeDefinitionStructure>.IsPermutation( x.NestedTypes, y.NestedTypes, this._typeDefComparer )
             && ListEqualityComparer<List<CustomAttributeStructure>, CustomAttributeStructure>.IsPermutation( x.CustomAttributes, y.CustomAttributes, this._caComparer );
-
-         if ( !retVal )
-         {
-            var kek1 = String.Equals( x.Name, y.Name );
-            var kek2 = String.Equals( x.Namespace, y.Namespace );
-            var kek3 = Equivalence_TypeDefOrRefOrSpec( x.BaseType, y.BaseType );
-            var kek4 = x.Attributes == y.Attributes;
-            var lol1 = ListEqualityComparer<List<FieldStructure>, FieldStructure>.ListEquality( x.Fields, y.Fields, this.Equivalence_Field );
-            var lol21 = ListEqualityComparer<List<MethodStructure>, MethodStructure>.IsPermutation( ctorsX, ctorsY, this._methodComparer );
-            var lol22 = ListEqualityComparer<List<MethodStructure>, MethodStructure>.ListEquality( methodsX, methodsY, this.Equivalence_Method );
-            var lol3 = ListEqualityComparer<List<GenericParameterStructure>, GenericParameterStructure>.ListEquality( x.GenericParameters, y.GenericParameters, this.Equivalence_GenericParameter );
-            var lol4 = ListEqualityComparer<List<PropertyStructure>, PropertyStructure>.IsPermutation( x.Properties, y.Properties, this._propertyComparer );
-            var lol5 = ListEqualityComparer<List<EventStructure>, EventStructure>.IsPermutation( x.Events, y.Events, this._eventComparer );
-            var lol6 = ListEqualityComparer<List<InterfaceImplStructure>, InterfaceImplStructure>.IsPermutation( x.ImplementedInterfaces, y.ImplementedInterfaces, this._interfaceImplComparer );
-            var lol7 = ListEqualityComparer<List<SecurityStructure>, SecurityStructure>.IsPermutation( x.SecurityInfo, y.SecurityInfo, this._securityComparer );
-            var lol8 = ListEqualityComparer<List<OverriddenMethodInfo>, OverriddenMethodInfo>.IsPermutation( x.OverriddenMethods, y.OverriddenMethods, this._overriddenMethodComparer );
-            var lol9 = x.Layout.EqualsTypedEquatable( y.Layout );
-            var lol10 = ListEqualityComparer<List<TypeDefinitionStructure>, TypeDefinitionStructure>.IsPermutation( x.NestedTypes, y.NestedTypes, this._typeDefComparer );
-            var lol11 = ListEqualityComparer<List<CustomAttributeStructure>, CustomAttributeStructure>.IsPermutation( x.CustomAttributes, y.CustomAttributes, this._caComparer );
-
-         }
-
-         return retVal;
       }
 
       private void CreateCtorAndMethodLists( TypeDefinitionStructure x, out List<MethodStructure> ctors, out List<MethodStructure> methods )
@@ -334,7 +311,7 @@ namespace CILAssemblyManipulator.Structural
 
       private Boolean Equivalence_Field( FieldStructure x, FieldStructure y )
       {
-         var retVal = ReferenceEquals( x, y )
+         return ReferenceEquals( x, y )
             || ( x != null && y != null
             && String.Equals( x.Name, y.Name )
             && x.Attributes == y.Attributes
@@ -346,20 +323,6 @@ namespace CILAssemblyManipulator.Structural
             && Equivalence_PInvoke( x.PInvokeInfo, y.PInvokeInfo )
             && ListEqualityComparer<List<CustomAttributeStructure>, CustomAttributeStructure>.IsPermutation( x.CustomAttributes, y.CustomAttributes, this._caComparer )
             );
-         if ( !retVal )
-         {
-            var lol1 = String.Equals( x.Name, y.Name );
-            var lol2 = x.Attributes == y.Attributes;
-            var lol3 = Equivalence_Signature_Field( x.Signature, y.Signature );
-            var lol4 = NullableEqualityComparer<ConstantStructure>.Equals( x.ConstantValue, y.ConstantValue );
-            var lol5 = Equivalence_MarshalInfo( x.MarshalingInfo, y.MarshalingInfo );
-            var lol6 = NullableEqualityComparer<Int32>.Equals( x.FieldOffset, y.FieldOffset );
-            var lol7 = ArrayEqualityComparer<Byte>.DefaultArrayEqualityComparer.Equals( x.FieldData, y.FieldData );
-            var lol8 = Equivalence_PInvoke( x.PInvokeInfo, y.PInvokeInfo );
-            var lol9 = ListEqualityComparer<List<CustomAttributeStructure>, CustomAttributeStructure>.IsPermutation( x.CustomAttributes, y.CustomAttributes, this._caComparer );
-         }
-
-         return retVal;
       }
 
       private Boolean Equivalence_Method( MethodStructure x, MethodStructure y )
@@ -373,7 +336,7 @@ namespace CILAssemblyManipulator.Structural
 
       private Boolean Equivalence_Method_NoIL( MethodStructure x, MethodStructure y )
       {
-         var retVal = ReferenceEquals( x, y )
+         return ReferenceEquals( x, y )
             || ( x != null && y != null
             && String.Equals( x.Name, y.Name )
             && Equivalence_Signature_MethodDef( x.Signature, y.Signature )
@@ -385,12 +348,6 @@ namespace CILAssemblyManipulator.Structural
             && ListEqualityComparer<List<SecurityStructure>, SecurityStructure>.IsPermutation( x.SecurityInfo, y.SecurityInfo, this._securityComparer )
             && ListEqualityComparer<List<CustomAttributeStructure>, CustomAttributeStructure>.IsPermutation( x.CustomAttributes, y.CustomAttributes, this._caComparer )
             );
-         if ( !retVal )
-         {
-
-         }
-
-         return retVal;
       }
 
       private Boolean Equivalence_Parameter( ParameterStructure x, ParameterStructure y )
@@ -585,24 +542,17 @@ namespace CILAssemblyManipulator.Structural
 
       private Boolean Equivalence_Security( SecurityStructure x, SecurityStructure y )
       {
-         var retVal = ReferenceEquals( x, y )
+         return ReferenceEquals( x, y )
             || ( x != null && y != null
             && x.SecurityAction == y.SecurityAction
             && ListEqualityComparer<List<AbstractSecurityInformation>, AbstractSecurityInformation>.IsPermutation( x.PermissionSets, y.PermissionSets, this._permissionSetComparer )
             && ListEqualityComparer<List<CustomAttributeStructure>, CustomAttributeStructure>.IsPermutation( x.CustomAttributes, y.CustomAttributes, this._caComparer )
             );
-
-         if ( !retVal )
-         {
-            var lol1 = ListEqualityComparer<List<AbstractSecurityInformation>, AbstractSecurityInformation>.IsPermutation( x.PermissionSets, y.PermissionSets, this._permissionSetComparer );
-         }
-
-         return retVal;
       }
 
       private Boolean Equivalence_Property( PropertyStructure x, PropertyStructure y )
       {
-         var retVal = ReferenceEquals( x, y )
+         return ReferenceEquals( x, y )
             || ( x != null && y != null
             && String.Equals( x.Name, y.Name )
             && x.Attributes == y.Attributes
@@ -611,17 +561,6 @@ namespace CILAssemblyManipulator.Structural
             && NullableEqualityComparer<ConstantStructure>.Equals( x.ConstantValue, y.ConstantValue )
             && ListEqualityComparer<List<CustomAttributeStructure>, CustomAttributeStructure>.IsPermutation( x.CustomAttributes, y.CustomAttributes, this._caComparer )
             );
-         if ( !retVal )
-         {
-            var lol1 = String.Equals( x.Name, y.Name );
-            var lol2 = x.Attributes == y.Attributes;
-            var lol3 = Equivalence_Signature_Property( x.Signature, y.Signature );
-            var lol4 = ListEqualityComparer<List<SemanticMethodInfo>, SemanticMethodInfo>.IsPermutation( x.SemanticMethods, y.SemanticMethods, this._semanticMethodComparer );
-            var lol5 = NullableEqualityComparer<ConstantStructure>.Equals( x.ConstantValue, y.ConstantValue );
-            var lol6 = ListEqualityComparer<List<CustomAttributeStructure>, CustomAttributeStructure>.IsPermutation( x.CustomAttributes, y.CustomAttributes, this._caComparer );
-         }
-
-         return retVal;
       }
 
       private Boolean Equivalence_Event( EventStructure x, EventStructure y )
@@ -644,22 +583,13 @@ namespace CILAssemblyManipulator.Structural
 
       private Boolean Equivalence_MemberRef( MemberReferenceStructure x, MemberReferenceStructure y )
       {
-         var retVal = ReferenceEquals( x, y )
+         return ReferenceEquals( x, y )
             || ( x != null && y != null
             && String.Equals( x.Name, y.Name )
             && Equivalence_MemberReferenceParent( x.Parent, y.Parent )
             && Equivalence_Signature( x.Signature, y.Signature )
             && ListEqualityComparer<List<CustomAttributeStructure>, CustomAttributeStructure>.IsPermutation( x.CustomAttributes, y.CustomAttributes, this._caComparer )
             );
-         if ( !retVal )
-         {
-            var lol1 = String.Equals( x.Name, y.Name );
-            var lol2 = Equivalence_MemberReferenceParent( x.Parent, y.Parent );
-            var lol3 = Equivalence_Signature( x.Signature, y.Signature );
-            var lol4 = ListEqualityComparer<List<CustomAttributeStructure>, CustomAttributeStructure>.IsPermutation( x.CustomAttributes, y.CustomAttributes, this._caComparer );
-
-         }
-         return retVal;
       }
 
       private Boolean Equivalence_GenericParameter( GenericParameterStructure x, GenericParameterStructure y )
@@ -685,7 +615,7 @@ namespace CILAssemblyManipulator.Structural
 
       private Boolean Equivalence_ManifestResource( ManifestResourceStructure x, ManifestResourceStructure y )
       {
-         var retVal = ReferenceEquals( x, y )
+         return ReferenceEquals( x, y )
             || ( x != null && y != null
             && String.Equals( x.Name, y.Name )
             && Equivalence_ManifestResourceData( x.ManifestData, y.ManifestData )
@@ -693,12 +623,6 @@ namespace CILAssemblyManipulator.Structural
             && x.Offset == y.Offset
             && ListEqualityComparer<List<CustomAttributeStructure>, CustomAttributeStructure>.IsPermutation( x.CustomAttributes, y.CustomAttributes, this._caComparer )
             );
-         if ( !retVal )
-         {
-            this.Equivalence_ManifestResource( x, y );
-         }
-
-         return retVal;
       }
 
       private Boolean Equivalence_StandaloneSignature( StandaloneSignatureStructure x, StandaloneSignatureStructure y )
@@ -732,7 +656,7 @@ namespace CILAssemblyManipulator.Structural
 
       private Boolean Equivalence_MethodIL( MethodILStructureInfo x, MethodILStructureInfo y )
       {
-         var retVal = ReferenceEquals( x, y )
+         return ReferenceEquals( x, y )
             || ( x != null && y != null
             && this.Equivalence_StandaloneSignature( x.Locals, y.Locals )
             && ListEqualityComparer<List<OpCodeStructure>, OpCodeStructure>.ListEquality( x.OpCodes, y.OpCodes, Equivalence_OpCode )
@@ -740,12 +664,6 @@ namespace CILAssemblyManipulator.Structural
             && x.InitLocals == y.InitLocals
             && x.MaxStackSize == y.MaxStackSize
             );
-         if ( !retVal )
-         {
-
-         }
-
-         return retVal;
       }
 
       private Boolean Equivalence_MethodException( MethodExceptionBlockStructure x, MethodExceptionBlockStructure y )
