@@ -353,7 +353,7 @@ namespace CILAssemblyManipulator.Structural
 
       public override String ToString()
       {
-         return Miscellaneous.CombineTypeAndNamespace( this.Name, this.Namespace );
+         return Miscellaneous.CombineNamespaceAndType( this.Namespace, this.Name );
       }
    }
 
@@ -393,7 +393,7 @@ namespace CILAssemblyManipulator.Structural
 
       public override String ToString()
       {
-         return Miscellaneous.CombineTypeAndNamespace( this.Name, this.Namespace );
+         return Miscellaneous.CombineNamespaceAndType( this.Namespace, this.Name );
       }
    }
 
@@ -1129,7 +1129,7 @@ namespace CILAssemblyManipulator.Structural
 
       public override String ToString()
       {
-         return Miscellaneous.CombineTypeAndNamespace( this.Name, this.Parent.ToStringSafe() );
+         return Miscellaneous.CombineNamespaceAndType( this.Parent.ToStringSafe(), this.Name );
       }
    }
 

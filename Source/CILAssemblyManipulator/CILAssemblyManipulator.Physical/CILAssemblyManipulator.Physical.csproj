@@ -110,6 +110,7 @@
     <Compile Include="Module.cs" />
     <Compile Include="Module.IO.cs" />
     <Compile Include="OpCodes.cs" />
+    <Compile Include="TargetFrameworkMapper.cs" />
     <Compile Include="Utils.cs" />
     <Compile Include="Utils_New.cs" />
   </ItemGroup>

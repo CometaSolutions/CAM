@@ -67,7 +67,7 @@ public static partial class E_CILStructural
          {
             this._typeDefDescriptions[kvp.Key].NestedTypes.AddRange( kvp.Value.Select( i => this._typeDefDescriptions[i] ) );
          }
-         var typeDefInfosTopLevel = topLevelTypes.ToDictionary( t => Miscellaneous.CombineTypeAndNamespace( t.Name, t.Namespace ), t => t );
+         var typeDefInfosTopLevel = topLevelTypes.ToDictionary( t => Miscellaneous.CombineNamespaceAndType( t.Namespace, t.Name ), t => t );
 
          // TypeRef
          this._moduleRefs = md.ModuleReferences.TableContents.Select( mRef => new ModuleReferenceStructure( mRef ) ).ToArray();
@@ -114,7 +114,7 @@ public static partial class E_CILStructural
 
             if ( isTopLevel )
             {
-               exportedTopLevelTypes.Add( Miscellaneous.CombineTypeAndNamespace( eType.Name, eType.Namespace ), eType );
+               exportedTopLevelTypes.Add( Miscellaneous.CombineNamespaceAndType( eType.Namespace, eType.Name ), eType );
             }
 
          }
@@ -143,7 +143,7 @@ public static partial class E_CILStructural
                   case Tables.Module:
                      resScopeInfo = new TypeReferenceResolutionScopeTypeDef()
                      {
-                        TypeDef = typeDefInfosTopLevel[Miscellaneous.CombineTypeAndNamespace( tRef.Name, tRef.Namespace )]
+                        TypeDef = typeDefInfosTopLevel[Miscellaneous.CombineNamespaceAndType( tRef.Namespace, tRef.Name )]
                      };
                      break;
                   case Tables.ModuleRef:
@@ -164,7 +164,7 @@ public static partial class E_CILStructural
                      break;
                }
             }
-            else if ( exportedTopLevelTypes.TryGetValue( Miscellaneous.CombineTypeAndNamespace( tRef.Name, tRef.Namespace ), out eType ) )
+            else if ( exportedTopLevelTypes.TryGetValue( Miscellaneous.CombineNamespaceAndType( tRef.Namespace, tRef.Name ), out eType ) )
             {
                resScopeInfo = new TypeReferenceResolutionScopeExportedType()
                {

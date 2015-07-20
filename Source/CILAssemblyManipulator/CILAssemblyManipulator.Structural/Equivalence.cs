@@ -1556,7 +1556,7 @@ namespace CILAssemblyManipulator.Structural
 
       private static void AddToTypeDefNameDictionary( IDictionary<TypeDefinitionStructure, String> dictionary, String currentPrefix, TypeDefinitionStructure currentType )
       {
-         var typeString = Miscellaneous.CombineTypeAndNamespace( currentType.Name, currentType.Namespace );
+         var typeString = Miscellaneous.CombineNamespaceAndType( currentType.Namespace, currentType.Name );
          if ( currentPrefix != null )
          {
             typeString = currentPrefix + typeString;

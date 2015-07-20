@@ -295,7 +295,7 @@ namespace CILAssemblyManipulator.Physical
          return str;
       }
 
-      public static String CombineTypeAndNamespace( String typeName, String typeNamespace )
+      public static String CombineNamespaceAndType( String typeNamespace, String typeName )
       {
          return ( typeNamespace != null && typeNamespace.Length > 0 ? ( typeNamespace + NAMESPACE_SEPARATOR ) : "" ) + typeName;
       }

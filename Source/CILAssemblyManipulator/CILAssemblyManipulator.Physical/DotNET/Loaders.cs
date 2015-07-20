@@ -112,15 +112,15 @@ namespace CILAssemblyManipulator.Physical
          return allPossibleResources.Where( r => !String.Equals( thisModulePath, r ) ); // TODO path comparison (case-(in)sensitive)
       }
 
-      public String GetTargetFrameworkPathFor( CILMetaData md )
+      public TargetFrameworkInfo GetTargetFrameworkInfoFor( CILMetaData md )
       {
-         var targetFW = this._targetFrameworks.GetOrAdd_WithLock( md, thisMD =>
+         // TODO consider changing this to extension method
+         // Since if we change target framework info attribute for 'md', the cache will contain invalid information...
+         return this._targetFrameworks.GetOrAdd_WithLock( md, thisMD =>
          {
             TargetFrameworkInfo fwInfo;
             return thisMD.TryGetTargetFrameworkInformation( out fwInfo ) ? fwInfo : null;
          } );
-
-         return this.GetTargetFrameworkPathForFrameworkInfo( targetFW );
       }
 
       public String GetTargetFrameworkPathForFrameworkInfo( TargetFrameworkInfo targetFW )
@@ -140,6 +140,11 @@ namespace CILAssemblyManipulator.Physical
          }
 
          return retVal;
+      }
+
+      public IEnumerable<String> GetAssemblyResourcesForFramework( TargetFrameworkInfo targetFW )
+      {
+         throw new NotImplementedException();
       }
 
       public static String GetDefaultReferenceAssemblyPath()

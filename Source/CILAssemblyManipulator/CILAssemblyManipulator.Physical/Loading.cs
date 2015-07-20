@@ -208,6 +208,9 @@ namespace CILAssemblyManipulator.Physical
       Stream GetStreamFor( String resource );
       IEnumerable<String> GetPossibleResourcesForModuleReference( String thisModulePath, CILMetaData thisMetaData, String moduleReferenceName );
       IEnumerable<String> GetPossibleResourcesForAssemblyReference( String thisModulePath, CILMetaData thisMetaData, AssemblyInformationForResolving? assemblyRefInfo, String unparsedAssemblyName );
+      TargetFrameworkInfo GetTargetFrameworkInfoFor( CILMetaData md );
+      String GetTargetFrameworkPathForFrameworkInfo( TargetFrameworkInfo targetFW );
+      IEnumerable<String> GetAssemblyResourcesForFramework( TargetFrameworkInfo targetFW );
    }
 
    public abstract class CILMetaDataLoaderWithCallbacks<TDictionary> : AbstractCILMetaDataLoader<TDictionary>, CILMetaDataLoaderWithCallbacks
@@ -332,5 +335,10 @@ public static partial class E_CILPhysical
       var retVal = loader.GetOrLoadMetaData( resource );
       loader.ResolveMetaData( retVal );
       return retVal;
+   }
+
+   public static String GetTargetFrameworkPathFor( this CILMetaDataLoaderResourceCallbacks cb, CILMetaData md )
+   {
+      return cb.GetTargetFrameworkPathForFrameworkInfo( cb.GetTargetFrameworkInfoFor( md ) );
    }
 }
