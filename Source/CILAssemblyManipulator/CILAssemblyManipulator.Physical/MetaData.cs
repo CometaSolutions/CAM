@@ -661,7 +661,7 @@ namespace CILAssemblyManipulator.Physical
    }
 
    // System.Runtime.Versioning.FrameworkName is amazingly missing from all PCL framework assemblies.
-   public sealed class TargetFrameworkInfo
+   public sealed class TargetFrameworkInfo : IEquatable<TargetFrameworkInfo>
    {
       private readonly String _fwName;
       private readonly String _fwVersion;
@@ -707,6 +707,27 @@ namespace CILAssemblyManipulator.Physical
          {
             return this._assemblyRefsRetargetable;
          }
+      }
+
+      public override Boolean Equals( Object obj )
+      {
+         return this.Equals( obj as TargetFrameworkInfo );
+      }
+
+      public override Int32 GetHashCode()
+      {
+         return ( ( 17 * 23 + this._fwName.GetHashCodeSafe() ) * 23 + this._fwVersion.GetHashCodeSafe() ) * 23 + this._fwProfile.GetHashCodeSafe();
+      }
+
+      public Boolean Equals( TargetFrameworkInfo other )
+      {
+         return ReferenceEquals( this, other )
+            || ( other != null
+            && String.Equals( this._fwName, other._fwName )
+            && String.Equals( this._fwVersion, other._fwVersion )
+            && String.Equals( this._fwProfile, other._fwProfile )
+            && this._assemblyRefsRetargetable == other._assemblyRefsRetargetable
+            );
       }
 
 
@@ -2864,6 +2885,19 @@ public static partial class E_CILPhysical
    public static Boolean IsEmbeddedResource( this ManifestResource resource )
    {
       return !resource.Implementation.HasValue;
+   }
+
+   public static AssemblyReference AsAssemblyReference( this AssemblyDefinition definition )
+   {
+      var retVal = new AssemblyReference()
+      {
+         Attributes = definition.AssemblyInformation.PublicKeyOrToken.IsNullOrEmpty() ? AssemblyFlags.None : AssemblyFlags.PublicKey
+      };
+
+      definition.AssemblyInformation.DeepCopyContentsTo( retVal.AssemblyInformation );
+
+      return retVal;
+
    }
 
    public static IEnumerable<FileReference> GetModuleFileReferences( this CILMetaData md )
