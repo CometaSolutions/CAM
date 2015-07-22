@@ -45,6 +45,7 @@
     <Compile Include="CILMerge\MergeTests.cs" />
     <Compile Include="Logical\Interop.cs" />
     <Compile Include="Physical\Emitting.cs" />
+    <Compile Include="Physical\Miscellaneous.cs" />
     <Compile Include="Physical\Ordering.cs" />
     <Compile Include="Physical\Reading.cs" />
     <Compile Include="Physical\Roundtrip.cs" />

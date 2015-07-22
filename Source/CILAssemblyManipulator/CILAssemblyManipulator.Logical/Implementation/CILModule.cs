@@ -140,7 +140,7 @@ namespace CILAssemblyManipulator.Logical.Implementation
          var retVal = this.context.Cache.NewBlankType(
             this.context.Cache.ResolveModuleID( this.id ),
             null,
-            "<Module>",
+            Miscellaneous.MODULE_TYPE_NAME,
             TypeAttributes.NotPublic | TypeAttributes.AnsiClass | TypeAttributes.AutoLayout,
             CILTypeCode.Object
             );

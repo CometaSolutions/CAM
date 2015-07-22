@@ -143,7 +143,7 @@ namespace CILAssemblyManipulator.Physical
             // Module type
             md.TypeDefinitions.TableContents.Add( new TypeDefinition()
             {
-               Name = "<Module>"
+               Name = Miscellaneous.MODULE_TYPE_NAME
             } );
          }
 

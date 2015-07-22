@@ -36,6 +36,8 @@ namespace CILAssemblyManipulator.Physical
       public const String INSTANCE_CTOR_NAME = ".ctor";
       public const String CLASS_CTOR_NAME = ".cctor";
 
+      public const String MODULE_TYPE_NAME = "<Module>";
+
       /// <summary>
       /// Detects whether type string is assembly name -qualified or not.
       /// </summary>

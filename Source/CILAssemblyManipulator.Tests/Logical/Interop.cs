@@ -79,7 +79,6 @@ namespace CILAssemblyManipulator.Tests.Logical
             using ( var comparer = new AssemblyEquivalenceComparerTokenMatch( ctx.DefaultCryptoCallbacks ) )
             {
                Assert.IsTrue( comparer.Equals( structure1, structure2 ) );
-               Console.WriteLine( "Hmz" );
             }
          } );
       }

@@ -2998,22 +2998,51 @@ public static partial class E_CILPhysical
       }
 
       var tDefs = md.TypeDefinitions.TableContents;
-      var enclosingTypeNames = new Dictionary<Int32, String>();
+      var enclosingTypeCache = new Dictionary<Int32, String>();
       for ( var i = 0; i < tDefs.Count; ++i )
       {
+         var thisIdx = i;
          Int32 enclosingType;
-         if ( ncInfo.TryGetValue( i, out enclosingType ) )
+         if ( ncInfo.TryGetValue( thisIdx, out enclosingType ) )
          {
-            yield return i.AsSingleBranchEnumerableWithLoopDetection(
-               cur =>
+            String typeStr;
+            if ( !enclosingTypeCache.TryGetValue( thisIdx, out typeStr ) )
+            {
+               var thisTDef = tDefs[thisIdx];
+               // This should by all logic always return at least 2-element array
+               var enclosingTypeChain = thisIdx.AsSingleBranchEnumerableWithLoopDetection(
+                  cur =>
+                  {
+                     Int32 idx;
+                     return ncInfo.TryGetValue( cur, out idx ) ? idx : -1;
+                  },
+                  cur => cur == -1,
+                  true )
+                  .ToArray();
+
+               // Check if we have cached immediately enclosing type
+               if ( enclosingTypeCache.TryGetValue( enclosingTypeChain[1], out typeStr ) )
                {
-                  Int32 idx;
-                  return ncInfo.TryGetValue( cur, out idx ) ? idx : -1;
-               },
-               cur => cur == -1,
-               true )
-               .Reverse()
-               .Aggregate( (String) null, ( cur, idx ) => Miscellaneous.CombineEnclosingAndNestedType( cur, Miscellaneous.CombineNamespaceAndType( tDefs[idx].Namespace, tDefs[idx].Name ) ) );
+                  typeStr = Miscellaneous.CombineEnclosingAndNestedType( typeStr, thisTDef.Name );
+                  enclosingTypeCache.Add( thisIdx, typeStr );
+               }
+               else
+               {
+                  // Build type string
+                  var topLevelIdx = enclosingTypeChain[enclosingTypeChain.Length - 1];
+                  typeStr = Miscellaneous.CombineNamespaceAndType( tDefs[topLevelIdx].Namespace, tDefs[topLevelIdx].Name );
+                  enclosingTypeCache.Add( topLevelIdx, typeStr );
+
+                  for ( var j = enclosingTypeChain.Length - 2; j >= 0; --j )
+                  {
+                     var curIdx = enclosingTypeChain[j];
+                     typeStr += Miscellaneous.NESTED_TYPE_SEPARATOR + tDefs[curIdx].Name;
+                     enclosingTypeCache.Add( curIdx, typeStr );
+                  }
+               }
+            }
+
+            yield return typeStr;
          }
          else
          {
