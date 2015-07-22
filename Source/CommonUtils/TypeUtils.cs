@@ -710,13 +710,10 @@ public static partial class E_CommonUtils
    //   return result;
    //}
 
-#if !WINDOWS_PHONE_APP_OLD
 
-   private const BindingFlags DEFAULT_SEARCH_BINDING_FLAGS = BindingFlags.Public | BindingFlags.Instance | BindingFlags.Static;
-
-   private const BindingFlags DEFAULT_CTOR_SEARCH_BINDING_FLAGS = BindingFlags.Public | BindingFlags.Instance;
-#endif
-
+   // These fields as integers in order not to cause compiler warnings in WP projects
+   private const Int32 DEFAULT_METHOD_SEARCH_FLAGS = (Int32) ( BindingFlags.Public | BindingFlags.Instance | BindingFlags.Static );
+   private const Int32 DEFAULT_CTOR_SEARCH_FLAGS = (Int32) ( BindingFlags.Public | BindingFlags.Instance );
 
    private static IEnumerable<MethodInfo> GetMethodsPortable( this Type type, String methodName, Boolean acceptNonPublic )
    {
@@ -724,20 +721,12 @@ public static partial class E_CommonUtils
       ArgumentValidator.ValidateNotNull( "Method name", methodName );
       IEnumerable<MethodInfo> methods;
 
-#if WINDOWS_PHONE_APP_OLD
-      methods = type.GetTypeInfo().DeclaredMethods;
-      if (!acceptNonPublic)
-      {
-         methods = methods.Where(m => m.IsPublic);
-      }
-#else
-      var flags = DEFAULT_SEARCH_BINDING_FLAGS;
+      var flags = (BindingFlags) DEFAULT_METHOD_SEARCH_FLAGS;
       if ( acceptNonPublic )
       {
          flags |= BindingFlags.NonPublic;
       }
       methods = type.GetMethods( flags );
-#endif
       return methods.Where( m => String.Equals( m.Name, methodName ) );
    }
 
@@ -747,20 +736,12 @@ public static partial class E_CommonUtils
       ArgumentValidator.ValidateNotNull( "Field name", fieldName );
       IEnumerable<FieldInfo> fields;
 
-#if WINDOWS_PHONE_APP_OLD
-      fields = type.GetTypeInfo().DeclaredFields;
-      if (!acceptNonPublic)
-      {
-         fields = fields.Where(f => f.IsPublic);
-      }
-#else
-      var flags = DEFAULT_SEARCH_BINDING_FLAGS;
+      var flags = (BindingFlags) DEFAULT_METHOD_SEARCH_FLAGS;
       if ( acceptNonPublic )
       {
          flags |= BindingFlags.NonPublic;
       }
       fields = type.GetFields( flags );
-#endif
       return fields.Where( f => String.Equals( f.Name, fieldName ) );
    }
 
@@ -768,20 +749,8 @@ public static partial class E_CommonUtils
    {
       ArgumentValidator.ValidateNotNull( "Type", type );
 
-#if WINDOWS_PHONE_APP_OLD
-      var ctors = type.GetTypeInfo().DeclaredConstructors;
-      if (!acceptStatic)
-      {
-         ctors = ctors.Where(ctor => !ctor.IsStatic);
-      }
-      if (!acceptNonPublic)
-      {
-         ctors = ctors.Where(ctor => ctor.IsPublic);
-      }
-      return ctors;
-#else
-      var flags = DEFAULT_CTOR_SEARCH_BINDING_FLAGS;
-      var retVal = type.GetConstructors( DEFAULT_CTOR_SEARCH_BINDING_FLAGS );
+      var flags = (BindingFlags) DEFAULT_CTOR_SEARCH_FLAGS;
+      var retVal = type.GetConstructors( flags );
       if ( acceptStatic || acceptNonPublic )
       {
          flags |= BindingFlags.NonPublic;
@@ -792,7 +761,6 @@ public static partial class E_CommonUtils
       }
 
       return type.GetConstructors( flags );
-#endif
    }
 
    private static IEnumerable<PropertyInfo> GetPropertiesPortable( this Type type, String propertyName, Boolean acceptNonPublic )
@@ -801,35 +769,27 @@ public static partial class E_CommonUtils
       ArgumentValidator.ValidateNotNull( "Property name", propertyName );
 
       IEnumerable<PropertyInfo> props;
-#if WINDOWS_PHONE_APP_OLD
-      props = type.GetTypeInfo().DeclaredProperties;
-      if (!acceptNonPublic)
-      {
-         props = props.Where(p => (p.SetMethod != null && p.SetMethod.IsPublic) || (p.GetMethod != null && p.GetMethod.IsPublic));
-      }
-#else
-      var flags = DEFAULT_SEARCH_BINDING_FLAGS;
+      var flags = (BindingFlags) DEFAULT_METHOD_SEARCH_FLAGS;
       if ( acceptNonPublic )
       {
          flags |= BindingFlags.NonPublic;
       }
       props = type.GetProperties( flags );
-#endif
       return props.Where( p => String.Equals( p.Name, propertyName ) );
    }
 
-#if WINDOWS_PHONE_APP_OLD
+   //#if WINDOWS_PHONE_APP_OLD
 
-   /// <summary>
-   /// Helper method to get generic arguments of <see cref="Type"/> on Windows Phone 8.1.
-   /// </summary>
-   /// <param name="type">The type.</param>
-   /// <returns>The value of <see cref="TypeInfo.GenericTypeParameters"/> for <paramref name="type"/>.</returns>
-   public static Type[] GetGenericArguments(this Type type)
-   {
-      return type.GetTypeInfo().GenericTypeParameters;
-   }
+   //   /// <summary>
+   //   /// Helper method to get generic arguments of <see cref="Type"/> on Windows Phone 8.1.
+   //   /// </summary>
+   //   /// <param name="type">The type.</param>
+   //   /// <returns>The value of <see cref="TypeInfo.GenericTypeParameters"/> for <paramref name="type"/>.</returns>
+   //   public static Type[] GetGenericArguments(this Type type)
+   //   {
+   //      return type.GetTypeInfo().GenericTypeParameters;
+   //   }
 
-#endif
+   //#endif
 
 }

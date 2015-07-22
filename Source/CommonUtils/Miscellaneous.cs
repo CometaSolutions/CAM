@@ -161,7 +161,7 @@ public static partial class E_CommonUtils
       }
       return !token.IsCancellationRequested && ( timeout < 0 || timeWaited < timeout );
    }
-#if !SILVERLIGHT && !WINDOWS_PHONE_APP
+#if !SILVERLIGHT
 
    /// <summary>
    /// This is helper method to wait for specific <see cref="ManualResetEventSlim"/>, while keeping an eye for cancellation signalled through optional <see cref="CancellationToken"/>.

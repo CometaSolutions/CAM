@@ -14,23 +14,17 @@
     <FileAlignment>512</FileAlignment>
     <GenerateSerializationAssemblies>Off</GenerateSerializationAssemblies>
     <DefaultLanguage>en-US</DefaultLanguage>
-    <ProjectTypeGuids>{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}</ProjectTypeGuids>
+
+	<ProjectTypeGuids>{786C830F-07A1-408B-BD7F-6EE04809D6DB};{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}</ProjectTypeGuids>
+    
     <!-- .NET & Windows 8 -->
-    <TargetFrameworkProfile Condition=" '$(Configuration)' == 'Debug' or '$(Configuration)' == 'Release' ">Profile5</TargetFrameworkProfile>
+    <TargetFrameworkProfile Condition=" '$(Configuration)' == 'Debug' or '$(Configuration)' == 'Release' ">Profile92</TargetFrameworkProfile>
     <TargetFrameworkVersion Condition=" '$(Configuration)' == 'Debug' or '$(Configuration)' == 'Release' ">v4.0</TargetFrameworkVersion>
-    <ProjectTypeGuids Condition=" '$(Configuration)' == 'Debug' or '$(Configuration)' == 'Release' ">{786C830F-07A1-408B-BD7F-6EE04809D6DB};$(ProjectTypeGuids)</ProjectTypeGuids>
+
     <!-- SL5 & WPSL 8 -->
     <TargetFrameworkProfile Condition=" '$(Configuration)' == 'Debug_SL' or '$(Configuration)' == 'Release_SL' ">Profile158</TargetFrameworkProfile>
     <TargetFrameworkVersion Condition=" '$(Configuration)' == 'Debug_SL' or '$(Configuration)' == 'Release_SL' ">v4.0</TargetFrameworkVersion>
-    <ProjectTypeGuids Condition=" '$(Configuration)' == 'Debug_SL' or '$(Configuration)' == 'Release_SL' ">{786C830F-07A1-408B-BD7F-6EE04809D6DB};$(ProjectTypeGuids)</ProjectTypeGuids>
-    <!-- WP 8.1 -->
-    <!-- <TargetPlatformIdentifier Condition=" '$(Configuration)' == 'Debug_WP' or '$(Configuration)' == 'Release_WP' ">WindowsPhoneApp</TargetPlatformIdentifier>
-    <TargetPlatformVersion Condition=" '$(Configuration)' == 'Debug_WP' or '$(Configuration)' == 'Release_WP' ">8.1</TargetPlatformVersion>
-    <ProjectTypeGuids Condition=" '$(Configuration)' == 'Debug_WP' or '$(Configuration)' == 'Release_WP' ">{76F1466A-8B6D-4E39-A767-685A06062A39};$(ProjectTypeGuids)</ProjectTypeGuids> -->
-    
-    <TargetFrameworkProfile Condition=" '$(Configuration)' == 'Debug_WP' or '$(Configuration)' == 'Release_WP' ">Profile158</TargetFrameworkProfile>
-    <TargetFrameworkVersion Condition=" '$(Configuration)' == 'Debug_WP' or '$(Configuration)' == 'Release_WP' ">v4.0</TargetFrameworkVersion>
-    <ProjectTypeGuids Condition=" '$(Configuration)' == 'Debug_WP' or '$(Configuration)' == 'Release_WP' ">{786C830F-07A1-408B-BD7F-6EE04809D6DB};$(ProjectTypeGuids)</ProjectTypeGuids>
+
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|AnyCPU' ">
     <DebugSymbols>true</DebugSymbols>
@@ -63,25 +57,6 @@
   <PropertyGroup Condition="'$(Configuration)|$(Platform)' == 'Release_SL|AnyCPU'">
     <OutputPath>..\..\Output\Release\SL\</OutputPath>
     <DefineConstants>TRACE;SILVERLIGHT</DefineConstants>
-    <Optimize>true</Optimize>
-    <DebugType>none</DebugType>
-    <PlatformTarget>AnyCPU</PlatformTarget>
-    <ErrorReport>prompt</ErrorReport>
-    <CodeAnalysisRuleSet>MinimumRecommendedRules.ruleset</CodeAnalysisRuleSet>
-  </PropertyGroup>
-  <PropertyGroup Condition="'$(Configuration)|$(Platform)' == 'Debug_WP|AnyCPU'">
-    <DebugSymbols>true</DebugSymbols>
-    <OutputPath>..\..\Output\Debug\WP\</OutputPath>
-    <DefineConstants>TRACE;DEBUG;NETFX_CORE;WINDOWS_PHONE_APP</DefineConstants>
-    <DebugType>full</DebugType>
-    <PlatformTarget>AnyCPU</PlatformTarget>
-    <GenerateSerializationAssemblies>Off</GenerateSerializationAssemblies>
-    <ErrorReport>prompt</ErrorReport>
-    <CodeAnalysisRuleSet>MinimumRecommendedRules.ruleset</CodeAnalysisRuleSet>
-  </PropertyGroup>
-  <PropertyGroup Condition="'$(Configuration)|$(Platform)' == 'Release_WP|AnyCPU'">
-    <OutputPath>..\..\Output\Release\WP\</OutputPath>
-    <DefineConstants>TRACE;NETFX_CORE;WINDOWS_PHONE_APP</DefineConstants>
     <Optimize>true</Optimize>
     <DebugType>none</DebugType>
     <PlatformTarget>AnyCPU</PlatformTarget>
@@ -121,8 +96,7 @@
   <ItemGroup>
     <!-- A reference to the entire .NET Framework is automatically included -->
   </ItemGroup>
-  <Import Condition=" '$(TargetPlatformIdentifier)' != 'WindowsPhoneApp' " Project="$(MSBuildExtensionsPath32)\Microsoft\Portable\$(TargetFrameworkVersion)\Microsoft.Portable.CSharp.targets" />
-  <Import Condition=" '$(TargetPlatformIdentifier)' == 'WindowsPhoneApp' " Project="$(MSBuildExtensionsPath)\Microsoft\WindowsXaml\v$(VisualStudioVersion)\Microsoft.Windows.UI.Xaml.CSharp.targets" />
+  <Import Project="$(MSBuildExtensionsPath32)\Microsoft\Portable\$(TargetFrameworkVersion)\Microsoft.Portable.CSharp.targets" />
   
   <Import Project="../../CommonBuildTools/CLR/MSBuild/TargetFramework.targets" />
   <Import Project="../../CommonBuildTools/CLR/MSBuild/MergeXMLDocs.targets" />
@@ -316,7 +290,7 @@ Invoking the target:
       <Output TaskParameter="Path" PropertyName="FrameworkPath" />
     </GetFrameworkPath>
     <PropertyGroup>
-      <ILAsm>"$(FrameworkPath)\ilasm.exe" /nologo /quiet /output:@(IntermediateAssembly->'"%(FullPath)"', ' ')</ILAsm>
+      <ILAsm>"$(FrameworkPath)\ilasm.exe" /nologo /quiet /highentropyva+ /output:@(IntermediateAssembly->'"%(FullPath)"', ' ')</ILAsm>
       <ILAsm Condition=" '$(FileAlignment)' != '' ">$(ILAsm) /alignment=$(FileAlignment)</ILAsm>
       <ILAsm Condition=" '$(BaseAddress)' != '' ">$(ILAsm) /base=$(BaseAddress)</ILAsm>
       <ILAsm Condition=" '$(OutputType)' == 'Library' ">$(ILAsm) /dll</ILAsm>
@@ -328,7 +302,7 @@ Invoking the target:
       <ILAsm Condition=" '$(AssemblyOriginatorKeyFile)' != '' ">$(ILAsm) /key:"$(AssemblyOriginatorKeyFile)"</ILAsm>
       <ILAsm Condition=" Exists ( '$(ILResourceFile)' ) ">$(ILAsm) /resource:"$(ILResourceFile)"</ILAsm>
       <ILAsm Condition=" Exists ( '$(ILFile)' ) ">$(ILAsm) "$(ILFile)"</ILAsm>
-      <ILAsm Condition=" '$(TargetPlatformIdentifier)' == 'WindowsPhoneApp' ">$(ILAsm) /highentropyva+ /ssver:6.00</ILAsm>
+      <ILAsm Condition=" '$(TargetPlatformIdentifier)' == 'WindowsPhoneApp' ">$(ILAsm) /ssver:6.00</ILAsm>
     </PropertyGroup>
     <Exec Command="$(ILAsm) @(TransformedIL->'&quot;%(OutputPath)&quot;', ' ')" />
     <ItemGroup>
