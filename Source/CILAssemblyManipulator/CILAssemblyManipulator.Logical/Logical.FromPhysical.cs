@@ -424,7 +424,7 @@ public static partial class E_CILLogical
          }
          else
          {
-            typeString = Miscellaneous.CombineEnclsosingAndNestedType( this._creationResult.ResolveType( type.DeclaringType ), type.Name );
+            typeString = Miscellaneous.CombineEnclosingAndNestedType( this._creationResult.ResolveType( type.DeclaringType ), type.Name );
          }
          var tDef = this._md.TypeDefinitions.TableContents[typeDefIndex];
          this._creationResult.RecordTypeDef( type, typeString, tDef.Attributes, tDef.BaseType );

@@ -26,51 +26,121 @@ namespace CILAssemblyManipulator.Physical
 {
    public class TargetFrameworkMapper
    {
-      private readonly IDictionary<CILMetaData, ISet<String>> _mdTopLevelTypes;
+      private readonly IDictionary<CILMetaData, ISet<String>> _mdTypes;
       private readonly IDictionary<TargetFrameworkInfo, String[]> _targetFWAssemblies;
-      private readonly IDictionary<Tuple<CILMetaData, String>, CILMetaData> _resolvedTargetFWAssemblies;
+      private readonly IDictionary<CILMetaData, IDictionary<String, CILMetaData>> _resolvedTargetFWAssemblies;
+      private readonly IDictionary<CILMetaData, IDictionary<AssemblyInformationForResolving, CILMetaData>> _assemblyReferenceInfo;
 
       public TargetFrameworkMapper()
       {
-         this._mdTopLevelTypes = new Dictionary<CILMetaData, ISet<String>>();
+         this._mdTypes = new Dictionary<CILMetaData, ISet<String>>();
          this._targetFWAssemblies = new Dictionary<TargetFrameworkInfo, String[]>();
+         this._resolvedTargetFWAssemblies = new Dictionary<CILMetaData, IDictionary<String, CILMetaData>>();
+         this._assemblyReferenceInfo = new Dictionary<CILMetaData, IDictionary<AssemblyInformationForResolving, CILMetaData>>();
       }
 
-      internal CILMetaData GetActualMDForTopLevelType( CILMetaData targetFWAssembly, CILMetaDataLoaderWithCallbacks loader, String ns, String tn, TargetFrameworkInfo newTargetFW )
+      internal Boolean TryReMapReference( CILMetaData thisMD, AssemblyInformationForResolving aRef, String fullType, CILMetaDataLoaderWithCallbacks loader, TargetFrameworkInfo targetFW, out AssemblyReference newRef )
       {
-         var fullType = Miscellaneous.CombineNamespaceAndType( ns, tn );
-         return this._resolvedTargetFWAssemblies.GetOrAdd_NotThreadSafe(
-            Tuple.Create( targetFWAssembly, fullType ),
-            tuple => this.GetSuitableMDsForTopLevelType( tuple.Item1, loader, newTargetFW )
-               .FirstOrDefault( md => this.IsTypePresent( md, tuple.Item2 ) )
+         newRef = null;
+
+         var targetFWAssembly = this.ResolveTargetFWReferenceOrNull( thisMD, aRef, loader, targetFW );
+         var retVal = targetFWAssembly != null;
+         if ( retVal )
+         {
+            var actualTargetFWAssembly = this.GetActualMDForType( targetFWAssembly, loader, fullType, targetFW );
+
+            if ( actualTargetFWAssembly == null )
+            {
+               throw new InvalidOperationException( "Failed to map type " + fullType + " in " + loader.GetResourceFor( targetFWAssembly ) + " to target framework " + targetFW + "." );
+            }
+            else
+            {
+               retVal = !ReferenceEquals( targetFWAssembly, actualTargetFWAssembly );
+               if ( retVal )
+               {
+                  // Type was in another assembly
+                  newRef = actualTargetFWAssembly.AssemblyDefinitions.TableContents[0].AsAssemblyReference();
+               }
+            }
+         }
+
+         return retVal;
+      }
+
+      internal Boolean ProcessTypeString( CILMetaData thisMD, CILMetaDataLoaderWithCallbacks loader, TargetFrameworkInfo targetFW, ref String typeString )
+      {
+         String typeName, assemblyName;
+         AssemblyInformation assemblyInfo;
+         Boolean isFullPublicKey;
+         AssemblyReference newRef = null;
+         var retVal = typeString.ParseAssemblyQualifiedTypeString( out typeName, out assemblyName )
+            && AssemblyInformation.TryParse( assemblyName, out assemblyInfo, out isFullPublicKey )
+            && this.TryReMapReference( thisMD, new AssemblyInformationForResolving( assemblyInfo, isFullPublicKey ), typeName, loader, targetFW, out newRef );
+
+         if ( retVal )
+         {
+            assemblyName = newRef.ToString();
+            typeString = Miscellaneous.CombineAssemblyAndType( assemblyName, typeName );
+         }
+
+         return retVal;
+      }
+
+      private CILMetaData GetActualMDForType( CILMetaData targetFWAssembly, CILMetaDataLoaderWithCallbacks loader, String fullType, TargetFrameworkInfo newTargetFW )
+      {
+         return this._resolvedTargetFWAssemblies
+            .GetOrAdd_NotThreadSafe( targetFWAssembly, tfwa => new Dictionary<String, CILMetaData>() )
+            .GetOrAdd_NotThreadSafe( fullType, typeStr =>
+               this.GetSuitableMDsForTargetFW( targetFWAssembly, loader, newTargetFW )
+                  .FirstOrDefault( md => this.IsTypePresent( md, typeStr ) )
             );
       }
 
-      internal Boolean ProcessTypeString( ref String typeString )
+      private CILMetaData ResolveTargetFWReferenceOrNull( CILMetaData thisMD, AssemblyInformationForResolving assemblyRef, CILMetaDataLoaderWithCallbacks loader, TargetFrameworkInfo targetFW )
       {
-         String typeName, assemblyName;
-         if ( typeString.ParseAssemblyQualifiedTypeString( out typeName, out assemblyName ) )
+         return this._assemblyReferenceInfo
+            .GetOrAdd_NotThreadSafe( thisMD, md => new Dictionary<AssemblyInformationForResolving, CILMetaData>() )
+            .GetOrAdd_NotThreadSafe( assemblyRef, aRef =>
          {
-
-         }
+            var cb = loader.LoaderCallbacks;
+            var validResource = cb.GetPossibleResourcesForAssemblyReference( loader.GetResourceFor( thisMD ), thisMD, aRef, null )
+               .Where( res => cb.IsValidResource( res ) )
+               .FirstOrDefault();
+            CILMetaData retVal;
+            if ( validResource == null )
+            {
+               // Most likely this metadata didn't have target framework info attribute
+               // TODO match public key too.
+               retVal = this.GetTargetFWAssemblies( targetFW, loader )
+                  .Select( res => loader.GetOrLoadMetaData( res ) )
+                  .FirstOrDefault( md => md.AssemblyDefinitions.RowCount > 0 && String.Equals( md.AssemblyDefinitions.TableContents[0].AssemblyInformation.Name, aRef.AssemblyInformation.Name ) );
+            }
+            else if ( validResource.StartsWith( cb.GetTargetFrameworkPathForFrameworkInfo( targetFW ) ) ) // Check whether resolved reference is located in target framework path
+            {
+               retVal = loader.GetOrLoadMetaData( validResource );
+            }
+            else
+            {
+               retVal = null;
+            }
+            return retVal;
+         } );
       }
 
       private Boolean IsTypePresent( CILMetaData metaData, String typeName )
       {
-         return this._mdTopLevelTypes.GetOrAdd_NotThreadSafe( metaData, md =>
-         {
-            throw new NotImplementedException();
-         } )
-         .Contains( typeName );
+         return this._mdTypes
+            .GetOrAdd_NotThreadSafe( metaData, md => new HashSet<String>( md.GetTypeDefinitionsFullNames() ) )
+            .Contains( typeName );
       }
 
-      private IEnumerable<CILMetaData> GetSuitableMDsForTopLevelType( CILMetaData md, CILMetaDataLoaderWithCallbacks loader, TargetFrameworkInfo targetFW )
+      private IEnumerable<CILMetaData> GetSuitableMDsForTargetFW( CILMetaData md, CILMetaDataLoaderWithCallbacks loader, TargetFrameworkInfo targetFW )
       {
          // Always try current library at first
          yield return md;
 
          // Then start enumerating all the rest of the assemblies in target framework directory
-         foreach ( var res in this._targetFWAssemblies.GetOrAdd_NotThreadSafe( targetFW, tfw => loader.LoaderCallbacks.GetAssemblyResourcesForFramework( tfw ).ToArray() ) )
+         foreach ( var res in this.GetTargetFWAssemblies( targetFW, loader ) )
          {
             var current = loader.GetOrLoadMetaData( res );
             if ( !ReferenceEquals( md, current ) )
@@ -78,6 +148,11 @@ namespace CILAssemblyManipulator.Physical
                yield return current;
             }
          }
+      }
+
+      private String[] GetTargetFWAssemblies( TargetFrameworkInfo targetFW, CILMetaDataLoaderWithCallbacks loader )
+      {
+         return this._targetFWAssemblies.GetOrAdd_NotThreadSafe( targetFW, tfw => loader.LoaderCallbacks.GetAssemblyResourcesForFramework( tfw ).ToArray() );
       }
    }
 }
@@ -103,38 +178,105 @@ public static partial class E_CILPhysical
       {
          var aRefIdx = tRef.ResolutionScope.Value;
          var aRef = aRefs[aRefIdx.Index];
-         var targetFWAssemblyPath = aRefPaths.GetOrAdd_NotThreadSafe(
-            aRef,
-            aReff => cb.GetPossibleResourcesForAssemblyReference( loader.GetResourceFor( md ), md, new AssemblyInformationForResolving( aReff.AssemblyInformation, aReff.Attributes.IsFullPublicKey() ), null )
-               .Where( res => cb.IsValidResource( res ) )
-               .FirstOrDefault( res => res.StartsWith( newTargetFWPath ) )
-            );
-         if ( !String.IsNullOrEmpty( targetFWAssemblyPath ) )
+
+         AssemblyReference newRef;
+         if ( mapper.TryReMapReference( md, new AssemblyInformationForResolving( aRef.AssemblyInformation, aRef.Attributes.IsFullPublicKey() ), Miscellaneous.CombineNamespaceAndType( tRef.Namespace, tRef.Name ), loader, newTargetFW, out newRef ) )
          {
-            var targetFWAssembly = loader.GetOrLoadMetaData( targetFWAssemblyPath );
-            var actualTargetFWAssembly = mapper.GetActualMDForTopLevelType( targetFWAssembly, loader, tRef.Namespace, tRef.Name, newTargetFW );
-
-            if ( actualTargetFWAssembly == null )
+            Int32 aRefNewIdx;
+            if ( !aRefDic.TryGetValue( newRef, out aRefNewIdx ) )
             {
-               throw new InvalidOperationException( "Failed to map type " + Miscellaneous.CombineNamespaceAndType( tRef.Namespace, tRef.Name ) + " in " + targetFWAssemblyPath + " to target framework " + newTargetFW + "." );
+               aRefNewIdx = aRefs.Count;
+               aRefs.Add( newRef );
             }
-            else if ( !ReferenceEquals( targetFWAssembly, actualTargetFWAssembly ) )
-            {
-               // Type was in another assembly
-               var newARef = actualTargetFWAssembly.AssemblyDefinitions.TableContents[0].AsAssemblyReference();
-               Int32 aRefNewIdx;
-               if ( !aRefDic.TryGetValue( newARef, out aRefNewIdx ) )
-               {
-                  aRefNewIdx = aRefs.Count;
-                  aRefs.Add( newARef );
-               }
 
-               tRef.ResolutionScope = aRefIdx.ChangeIndex( aRefNewIdx );
-            }
+            tRef.ResolutionScope = aRefIdx.ChangeIndex( aRefNewIdx );
          }
       }
 
       // Then, all type strings (sec blobs, custom attrs, marshal infos)
+      foreach ( var marshal in md.FieldMarshals.TableContents )
+      {
+         mapper.ProcessMarshalInfo( md, loader, newTargetFW, marshal.NativeType );
+      }
 
+      foreach ( var sec in md.SecurityDefinitions.TableContents )
+      {
+         foreach ( var permSet in sec.PermissionSets.OfType<SecurityInformation>() )
+         {
+            var typeStr = permSet.SecurityAttributeType;
+            if ( mapper.ProcessTypeString( md, loader, newTargetFW, ref typeStr ) )
+            {
+               permSet.SecurityAttributeType = typeStr;
+            }
+            foreach ( var namedArg in permSet.NamedArguments )
+            {
+               mapper.ProcessCASignatureNamed( md, loader, newTargetFW, namedArg );
+            }
+         }
+      }
+
+      foreach ( var ca in md.CustomAttributeDefinitions.TableContents )
+      {
+         mapper.ProcessCASignature( md, loader, newTargetFW, ca.Signature );
+      }
+   }
+
+   private static void ProcessMarshalInfo( this TargetFrameworkMapper mapper, CILMetaData md, CILMetaDataLoaderWithCallbacks loader, TargetFrameworkInfo newTargetFW, MarshalingInfo marshal )
+   {
+      if ( marshal != null )
+      {
+         var typeStr = marshal.SafeArrayUserDefinedType;
+         if ( mapper.ProcessTypeString( md, loader, newTargetFW, ref typeStr ) )
+         {
+            marshal.SafeArrayUserDefinedType = typeStr;
+         }
+         typeStr = marshal.MarshalType;
+         if ( mapper.ProcessTypeString( md, loader, newTargetFW, ref typeStr ) )
+         {
+            marshal.MarshalType = typeStr;
+         }
+      }
+   }
+
+   private static void ProcessCASignature( this TargetFrameworkMapper mapper, CILMetaData md, CILMetaDataLoaderWithCallbacks loader, TargetFrameworkInfo newTargetFW, AbstractCustomAttributeSignature sig )
+   {
+      if ( sig != null && sig.CustomAttributeSignatureKind == CustomAttributeSignatureKind.Resolved )
+      {
+         var sigg = (CustomAttributeSignature) sig;
+         foreach ( var typed in sigg.TypedArguments )
+         {
+            mapper.ProcessCASignatureTyped( md, loader, newTargetFW, typed );
+         }
+
+         foreach ( var named in sigg.NamedArguments )
+         {
+            mapper.ProcessCASignatureNamed( md, loader, newTargetFW, named );
+         }
+      }
+   }
+
+   private static void ProcessCASignatureTyped( this TargetFrameworkMapper mapper, CILMetaData md, CILMetaDataLoaderWithCallbacks loader, TargetFrameworkInfo newTargetFW, CustomAttributeTypedArgument arg )
+   {
+      if ( arg != null )
+      {
+         var type = arg.Type;
+         if ( type != null && type.ArgumentTypeKind == CustomAttributeArgumentTypeKind.TypeString )
+         {
+            var typeStrArg = (CustomAttributeArgumentTypeEnum) type;
+            var typeString = typeStrArg.TypeString;
+            if ( mapper.ProcessTypeString( md, loader, newTargetFW, ref typeString ) )
+            {
+               typeStrArg.TypeString = typeString;
+            }
+         }
+      }
+   }
+
+   private static void ProcessCASignatureNamed( this TargetFrameworkMapper mapper, CILMetaData md, CILMetaDataLoaderWithCallbacks loader, TargetFrameworkInfo newTargetFW, CustomAttributeNamedArgument arg )
+   {
+      if ( arg != null )
+      {
+         mapper.ProcessCASignatureTyped( md, loader, newTargetFW, arg.Value );
+      }
    }
 }

@@ -2988,4 +2988,37 @@ public static partial class E_CILPhysical
       }
       return result;
    }
+
+   public static IEnumerable<String> GetTypeDefinitionsFullNames( this CILMetaData md )
+   {
+      var ncInfo = new Dictionary<Int32, Int32>();
+      foreach ( var nc in md.NestedClassDefinitions.TableContents )
+      {
+         ncInfo[nc.NestedClass.Index] = nc.EnclosingClass.Index;
+      }
+
+      var tDefs = md.TypeDefinitions.TableContents;
+      var enclosingTypeNames = new Dictionary<Int32, String>();
+      for ( var i = 0; i < tDefs.Count; ++i )
+      {
+         Int32 enclosingType;
+         if ( ncInfo.TryGetValue( i, out enclosingType ) )
+         {
+            yield return i.AsSingleBranchEnumerableWithLoopDetection(
+               cur =>
+               {
+                  Int32 idx;
+                  return ncInfo.TryGetValue( cur, out idx ) ? idx : -1;
+               },
+               cur => cur == -1,
+               true )
+               .Reverse()
+               .Aggregate( (String) null, ( cur, idx ) => Miscellaneous.CombineEnclosingAndNestedType( cur, Miscellaneous.CombineNamespaceAndType( tDefs[idx].Namespace, tDefs[idx].Name ) ) );
+         }
+         else
+         {
+            yield return Miscellaneous.CombineNamespaceAndType( tDefs[i].Namespace, tDefs[i].Name );
+         }
+      }
+   }
 }

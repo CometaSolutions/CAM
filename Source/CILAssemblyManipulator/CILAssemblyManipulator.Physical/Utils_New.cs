@@ -47,16 +47,18 @@ namespace CILAssemblyManipulator.Physical
       {
          Int32 typeLength;
          // If there is an assembly name, there will be ", " but not "\, " in type string. 
-         var retVal = str.GetFirstSeparatorsFromFullTypeString( TYPE_ASSEMBLY_SEPARATOR, out typeLength );
-         if ( retVal )
+         Boolean retVal;
+         if ( !String.IsNullOrEmpty( str ) && str.GetFirstSeparatorsFromFullTypeString( TYPE_ASSEMBLY_SEPARATOR, out typeLength ) )
          {
             // Assembly name present
+            retVal = true;
             typeString = str.Substring( 0, typeLength );
             assemblyString = str.Substring( typeLength + TYPE_ASSEMBLY_SEPARATOR.Length );
          }
          else
          {
             // Assembly name not present
+            retVal = false;
             typeString = str;
             assemblyString = null;
          }
@@ -300,9 +302,14 @@ namespace CILAssemblyManipulator.Physical
          return ( typeNamespace != null && typeNamespace.Length > 0 ? ( typeNamespace + NAMESPACE_SEPARATOR ) : "" ) + typeName;
       }
 
-      public static String CombineEnclsosingAndNestedType( String enclosing, String nested )
+      public static String CombineEnclosingAndNestedType( String enclosing, String nested )
       {
          return enclosing + NESTED_TYPE_SEPARATOR + nested;
+      }
+
+      public static String CombineAssemblyAndType( String assembly, String type )
+      {
+         return String.IsNullOrEmpty( assembly ) ? type : ( type + TYPE_ASSEMBLY_SEPARATOR + assembly );
       }
    }
 }

@@ -1666,16 +1666,18 @@ public static partial class E_CILLogical
 
    private static MarshalingInfo CreatePhysicalMarshalingInfo( this PhysicalCreationState state, LogicalMarshalingInfo marshalingInfo )
    {
-      return new MarshalingInfo(
-         marshalingInfo.Value,
-         marshalingInfo.SafeArrayType,
-         state.CreateCATypeString( marshalingInfo.SafeArrayUserDefinedType ),
-         marshalingInfo.IIDParameterIndex,
-         marshalingInfo.ArrayType,
-         marshalingInfo.SizeParameterIndex,
-         marshalingInfo.ConstSize,
-         marshalingInfo.MarshalType ?? state.CreateCATypeString( marshalingInfo.MarshalTypeRef ),
-         marshalingInfo.MarshalCookie );
+      return new MarshalingInfo()
+      {
+         Value = marshalingInfo.Value,
+         SafeArrayType = marshalingInfo.SafeArrayType,
+         SafeArrayUserDefinedType = state.CreateCATypeString( marshalingInfo.SafeArrayUserDefinedType ),
+         IIDParameterIndex = marshalingInfo.IIDParameterIndex,
+         ArrayType = marshalingInfo.ArrayType,
+         SizeParameterIndex = marshalingInfo.SizeParameterIndex,
+         ConstSize = marshalingInfo.ConstSize,
+         MarshalType = marshalingInfo.MarshalType ?? state.CreateCATypeString( marshalingInfo.MarshalTypeRef ),
+         MarshalCookie = marshalingInfo.MarshalCookie
+      };
 
    }
 

@@ -2597,18 +2597,18 @@ namespace CILMerge
          }
 
 
-         return new MarshalingInfo(
-            inputMarshalingInfo.Value,
-            inputMarshalingInfo.SafeArrayType,
-            processedArrayUDType,
-            inputMarshalingInfo.IIDParameterIndex,
-            inputMarshalingInfo.ArrayType,
-            inputMarshalingInfo.SizeParameterIndex,
-            inputMarshalingInfo.ConstSize,
-            processedMarshalType,
-            inputMarshalingInfo.MarshalCookie
-            );
-
+         return new MarshalingInfo()
+         {
+            Value = inputMarshalingInfo.Value,
+            SafeArrayType = inputMarshalingInfo.SafeArrayType,
+            SafeArrayUserDefinedType = processedArrayUDType,
+            IIDParameterIndex = inputMarshalingInfo.IIDParameterIndex,
+            ArrayType = inputMarshalingInfo.ArrayType,
+            SizeParameterIndex = inputMarshalingInfo.SizeParameterIndex,
+            ConstSize = inputMarshalingInfo.ConstSize,
+            MarshalType = processedMarshalType,
+            MarshalCookie = inputMarshalingInfo.MarshalCookie
+         };
       }
 
       private AbstractSecurityInformation ProcessPermissionSet( CILMetaData md, Int32 declSecurityIdx, Int32 permissionSetIdx, AbstractSecurityInformation inputSecurityInfo )
