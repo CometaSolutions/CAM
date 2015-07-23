@@ -67,9 +67,9 @@ namespace CILAssemblyManipulator.Tests.UtilPack
       {
          if ( encodeTable == null )
          {
-            encodeTable = StringConversions.GenerateBase64EncodeLookupTable( true );
+            encodeTable = StringConversions.CreateBase64EncodeLookupTable( true );
          }
-         var decodeTable = StringConversions.GenerateDecodeLookupTable( encodeTable );
+         var decodeTable = StringConversions.CreateDecodeLookupTable( encodeTable );
 
          var intCount = BinaryUtils.AmountOfPagesTaken( amountOfBytes, 4 );
          var bytez = new Byte[intCount * 4];

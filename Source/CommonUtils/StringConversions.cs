@@ -471,9 +471,9 @@ namespace CommonUtils
       /// The standard base64 encoding array with <c>-</c> and <c>_</c> as last characters, if <paramref name="isURLSafe"/> is true.
       /// Otherwise the last two characters will be <c>+</c> and <c>/</c>.
       /// </returns>
-      public static Char[] GenerateBase64EncodeLookupTable( Boolean isURLSafe )
+      public static Char[] CreateBase64EncodeLookupTable( Boolean isURLSafe )
       {
-         return GenerateBase64EncodeLookupTable( isURLSafe ? CHAR62_URLSAFE : CHAR62_URLUNSAFE, isURLSafe ? CHAR63_URLSAFE : CHAR63_URLUNSAFE );
+         return CreateBase64EncodeLookupTable( isURLSafe ? CHAR62_URLSAFE : CHAR62_URLUNSAFE, isURLSafe ? CHAR63_URLSAFE : CHAR63_URLUNSAFE );
       }
 
       /// <summary>
@@ -484,7 +484,7 @@ namespace CommonUtils
       /// <returns>The standard base64 encoding array with customized characters for indices <c>62</c> and <c>63</c>.</returns>
       /// <seealso cref="EncodeBinary(Byte[], Int32, Int32, Char[])"/>
       /// <seealso cref="EncodeBase64(Byte[], Boolean)"/>
-      public static Char[] GenerateBase64EncodeLookupTable( Char char62, Char char63 )
+      public static Char[] CreateBase64EncodeLookupTable( Char char62, Char char63 )
       {
          return new[]
          {
@@ -507,7 +507,7 @@ namespace CommonUtils
       /// <returns>The array with 256 elements, with character used as index giving the numerical value of it.</returns>
       /// <exception cref="IndexOutOfRangeException">If any character in <paramref name="encodeLookupTable"/> has its integer value 256 or greater.</exception>
       /// <exception cref="ArgumentNullException">If <paramref name="encodeLookupTable"/> is <c>null</c>.</exception>
-      public static Int32[] GenerateDecodeLookupTable( Char[] encodeLookupTable )
+      public static Int32[] CreateDecodeLookupTable( Char[] encodeLookupTable )
       {
          ArgumentValidator.ValidateNotNull( "Encode lookup table", encodeLookupTable );
          var retVal = new Int32[Byte.MaxValue];
