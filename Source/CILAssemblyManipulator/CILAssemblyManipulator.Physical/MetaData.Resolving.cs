@@ -1,5 +1,4 @@
-﻿using CILAssemblyManipulator.Physical;
-/*
+﻿/*
  * Copyright 2015 Stanislav Muhametsin. All rights Reserved.
  *
  * Licensed  under the  Apache License,  Version 2.0  (the "License");
@@ -16,6 +15,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License. 
  */
+using CILAssemblyManipulator.Physical;
 using CILAssemblyManipulator.Physical.Implementation;
 using CommonUtils;
 using System;
@@ -943,6 +943,13 @@ namespace CILAssemblyManipulator.Physical
    {
       private readonly AssemblyInformation _information;
       private readonly Boolean _isFullPublicKey;
+      //private readonly Boolean _isRetargetable;
+
+      public AssemblyInformationForResolving( AssemblyReference aRef )
+         : this( aRef.AssemblyInformation.CreateDeepCopy(), aRef.Attributes.IsFullPublicKey() ) //, aRef.Attributes.IsRetargetable() )
+      {
+
+      }
 
       public AssemblyInformationForResolving( AssemblyInformation information, Boolean isFullPublicKey )
       {
@@ -950,6 +957,7 @@ namespace CILAssemblyManipulator.Physical
 
          this._information = information;
          this._isFullPublicKey = isFullPublicKey;
+         //this._isRetargetable = isRetargetable;
       }
 
       public AssemblyInformation AssemblyInformation
@@ -967,6 +975,14 @@ namespace CILAssemblyManipulator.Physical
             return this._isFullPublicKey;
          }
       }
+
+      //public Boolean IsRetargetable
+      //{
+      //   get
+      //   {
+      //      return this._isRetargetable;
+      //   }
+      //}
 
       public override Boolean Equals( Object obj )
       {
@@ -1036,6 +1052,6 @@ public static partial class E_CILPhysical
 
    public static AssemblyInformationForResolving NewInformationForResolving( this AssemblyReference assemblyRef )
    {
-      return new AssemblyInformationForResolving( assemblyRef.AssemblyInformation, assemblyRef.Attributes.IsFullPublicKey() );
+      return new AssemblyInformationForResolving( assemblyRef );
    }
 }

@@ -180,7 +180,7 @@ public static partial class E_CILPhysical
          var aRef = aRefs[aRefIdx.Index];
 
          AssemblyReference newRef;
-         if ( mapper.TryReMapReference( md, new AssemblyInformationForResolving( aRef.AssemblyInformation, aRef.Attributes.IsFullPublicKey() ), Miscellaneous.CombineNamespaceAndType( tRef.Namespace, tRef.Name ), loader, newTargetFW, out newRef ) )
+         if ( mapper.TryReMapReference( md, aRef.NewInformationForResolving(), Miscellaneous.CombineNamespaceAndType( tRef.Namespace, tRef.Name ), loader, newTargetFW, out newRef ) )
          {
             Int32 aRefNewIdx;
             if ( !aRefDic.TryGetValue( newRef, out aRefNewIdx ) )

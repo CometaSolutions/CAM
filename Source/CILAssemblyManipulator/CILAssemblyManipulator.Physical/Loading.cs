@@ -50,11 +50,11 @@ namespace CILAssemblyManipulator.Physical
       private readonly TDictionary _modules;
       private readonly Dictionary<CILMetaData, TModuleInfo> _moduleInfos;
 
-      public AbstractCILMetaDataLoader( TDictionary modules )
+      public AbstractCILMetaDataLoader( TDictionary metadatas )
       {
-         ArgumentValidator.ValidateNotNull( "Modules", modules );
+         ArgumentValidator.ValidateNotNull( "Modules", metadatas );
 
-         this._modules = modules;
+         this._modules = metadatas;
          this._moduleInfos = new Dictionary<CILMetaData, TModuleInfo>( ReferenceEqualityComparer<CILMetaData>.ReferenceBasedComparer );
       }
 
@@ -63,12 +63,12 @@ namespace CILAssemblyManipulator.Physical
          TModuleInfo thisModuleInfo;
          if ( this._moduleInfos.TryGetValue( e.ThisMetaData, out thisModuleInfo ) )
          {
-            var res = this.GetPossibleResourcesForModuleReference( thisModuleInfo.Item1, e.ThisMetaData, e.ModuleName ).FirstOrDefault( r => this.IsValidResource( r ) );
-            if ( !String.IsNullOrEmpty( res ) )
-            {
-               e.ResolvedMetaData = this.GetOrLoadMetaData( res );
-               // TODO verify name at least
-            }
+            e.ResolvedMetaData = this
+               .GetPossibleResourcesForModuleReference( thisModuleInfo.Item1, e.ThisMetaData, e.ModuleName )
+               .Where( r => this.IsValidResource( r ) )
+               .Select( r => this.GetOrLoadMetaData( r ) )
+               .Where( md => md.AssemblyDefinitions.RowCount == 0 && md.ModuleDefinitions.RowCount > 0 && String.Equals( md.ModuleDefinitions.TableContents[0].Name, e.ModuleName ) )
+               .FirstOrDefault();
          }
       }
 
@@ -77,15 +77,22 @@ namespace CILAssemblyManipulator.Physical
          TModuleInfo thisModuleInfo;
          if ( this._moduleInfos.TryGetValue( e.ThisMetaData, out thisModuleInfo ) )
          {
-            var res = this.GetPossibleResourcesForAssemblyReference( thisModuleInfo.Item1, e.ThisMetaData, e.ExistingAssemblyInformation, e.UnparsedAssemblyName ).FirstOrDefault( r => this.IsValidResource( r ) );
-            if ( !String.IsNullOrEmpty( res ) )
-            {
-               e.ResolvedMetaData = this.GetOrLoadMetaData( res );
-               // TODO verify name, culture, public key, etc (also that it has assemblyDef row)
-            }
+            e.ResolvedMetaData = this
+               .GetPossibleResourcesForAssemblyReference( thisModuleInfo.Item1, e.ThisMetaData, e.ExistingAssemblyInformation, e.UnparsedAssemblyName )
+               .Where( r => this.IsValidResource( r ) )
+               .Select( r => this.GetOrLoadMetaData( r ) )
+               .Where( md => this.IsMatch( md.AssemblyDefinitions.GetOrNull( 0 ), e.ExistingAssemblyInformation ) )
+               .FirstOrDefault();
          }
       }
 
+      private Boolean IsMatch( AssemblyDefinition aDef, AssemblyInformationForResolving? aRef )
+      {
+         // TODO match public key token as well
+         return aDef != null
+            && aRef != null
+            && aDef.AssemblyInformation.Equals( aRef.Value.AssemblyInformation, aRef.Value.IsFullPublicKey );
+      }
 
       public CILMetaData GetOrLoadMetaData( String resource )
       {
