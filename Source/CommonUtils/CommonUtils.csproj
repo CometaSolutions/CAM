@@ -14,17 +14,13 @@
     <FileAlignment>512</FileAlignment>
     <GenerateSerializationAssemblies>Off</GenerateSerializationAssemblies>
     <DefaultLanguage>en-US</DefaultLanguage>
-
-	<ProjectTypeGuids>{786C830F-07A1-408B-BD7F-6EE04809D6DB};{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}</ProjectTypeGuids>
-    
+    <ProjectTypeGuids>{786C830F-07A1-408B-BD7F-6EE04809D6DB};{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}</ProjectTypeGuids>
     <!-- .NET & Windows 8 -->
     <TargetFrameworkProfile Condition=" '$(Configuration)' == 'Debug' or '$(Configuration)' == 'Release' ">Profile92</TargetFrameworkProfile>
     <TargetFrameworkVersion Condition=" '$(Configuration)' == 'Debug' or '$(Configuration)' == 'Release' ">v4.0</TargetFrameworkVersion>
-
     <!-- SL5 & WPSL 8 -->
     <TargetFrameworkProfile Condition=" '$(Configuration)' == 'Debug_SL' or '$(Configuration)' == 'Release_SL' ">Profile158</TargetFrameworkProfile>
     <TargetFrameworkVersion Condition=" '$(Configuration)' == 'Debug_SL' or '$(Configuration)' == 'Release_SL' ">v4.0</TargetFrameworkVersion>
-
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|AnyCPU' ">
     <DebugSymbols>true</DebugSymbols>
@@ -74,6 +70,7 @@
     <None Include="DelegateMultiplexer.xml" />
     <None Include="EventInvoking.xml" />
     <Compile Include="EventInvoking.il" />
+    <Compile Include="Lazies.cs" />
     <Compile Include="NullableComparer.cs" />
     <Compile Include="TimeComparers.cs" />
     <Compile Include="TypeUtils.cs" />
@@ -97,7 +94,6 @@
     <!-- A reference to the entire .NET Framework is automatically included -->
   </ItemGroup>
   <Import Project="$(MSBuildExtensionsPath32)\Microsoft\Portable\$(TargetFrameworkVersion)\Microsoft.Portable.CSharp.targets" />
-  
   <Import Project="../../CommonBuildTools/CLR/MSBuild/TargetFramework.targets" />
   <Import Project="../../CommonBuildTools/CLR/MSBuild/MergeXMLDocs.targets" />
   <!-- From http://blogs.clariusconsulting.net/kzu/how-to-perform-regular-expression-based-replacements-on-files-with-msbuild/ (and that is based on nuget task) -->

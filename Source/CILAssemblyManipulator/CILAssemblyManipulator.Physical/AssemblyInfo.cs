@@ -229,7 +229,7 @@ namespace CILAssemblyManipulator.Physical
          if ( !pKey.IsNullOrEmpty() )
          {
             sb.Append( ASSEMBLY_NAME_ELEMENTS_SEPARATOR + " " + ( isFullPublicKey ? PUBLIC_KEY : PUBLIC_KEY_TOKEN ) + ASSEMBLY_NAME_ELEMENT_VALUE_SEPARATOR )
-               .Append( StringConversions.ByteArray2HexStr( pKey, false ) );
+               .Append( StringConversions.CreateHexString( pKey, false ) );
          }
 
          return sb.ToString();
@@ -467,7 +467,7 @@ namespace CILAssemblyManipulator.Physical
          var success = aux > 0;
          if ( success && !String.Equals( "null", fullAssemblyName.Substring( nameIdx, aux ), StringComparison.OrdinalIgnoreCase ) )
          {
-            assemblyName.PublicKeyOrToken = StringConversions.HexStr2ByteArray( fullAssemblyName, nameIdx, 0, 0 );
+            assemblyName.PublicKeyOrToken = StringConversions.CreateHexBytes( fullAssemblyName, nameIdx, 0, 0 );
          }
          nameIdx += aux;
          return success;
