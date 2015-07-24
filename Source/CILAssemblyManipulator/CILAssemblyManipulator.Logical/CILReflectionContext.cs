@@ -109,21 +109,6 @@ namespace CILAssemblyManipulator.Logical
       /// When a <see cref="CILAssembly"/> or <see cref="CILModule"/> is loaded via <see cref="E_CILLogical.LoadAssembly(CILReflectionContext, System.IO.Stream, EmittingArguments)"/> or <see cref="E_CILLogical.LoadModule(CILReflectionContext,System.IO.Stream, EmittingArguments)"/> methods, respectively, any access causing additional load of assemblies is triggered via this event, if the assembly loader function of the aforementioned methods is <c>null</c> or fails to load the assembly. The event handler should set the <see cref="AssemblyRefResolveFromLoadedAssemblyEventArgs.ResolvedAssembly"/> property.
       /// </summary>
       event EventHandler<AssemblyRefResolveFromLoadedAssemblyEventArgs> AssemblyReferenceResolveFromLoadedAssemblyEvent;
-
-
-      /// <summary>
-      /// Gets the interfaces implemented by a single-dimensional arrays.
-      /// </summary>
-      /// <value>The interfaces implemented by a single-dimensional arrays.</value>
-      /// <seealso cref="CILReflectionContextFactory.NewContext"/>
-      ListQuery<Type> VectorArrayInterfaces { get; }
-
-      /// <summary>
-      /// Gets the interfaces implemented by a multi-dimensional arrays.
-      /// </summary>
-      /// <value>The interfaces implemented by a multi-dimensional arrays.</value>
-      /// <seealso cref="CILReflectionContextFactory.NewContext"/>
-      ListQuery<Type> MultiDimensionalArrayInterfaces { get; }
    }
 
    /// <summary>
@@ -163,13 +148,11 @@ namespace CILAssemblyManipulator.Logical
       /// Creates a new <see cref="CILReflectionContext"/>. This context is needed for most operations of interfaces in this namespace.
       /// </summary>
       /// <param name="concurrencyMode">The concurrency mode for the new <see cref="CILReflectionContext"/>.</param>
-      /// <param name="vectorArrayInterfaces">All interfaces implemented by single-dimensional array types, besides the ones implemented by <see cref="System.Array"/>. Value <c>null</c> is interpreted as an empty array.</param>
-      /// <param name="multiDimArrayIFaces">All interfaces implemented by multi-dimensional array types, besdies the ones implemented by <see cref="System.Array"/>. Value <c>null</c> is interpreted as an empty array.</param>
       /// <param name="defaultCryptoCallbacks">The default callbacks for cryptographic functions. May be <c>null</c> if no default callbacks for cryptographic functions are provided.</param>
       /// <returns>A new instance of <see cref="CILReflectionContext"/>.</returns>
-      public static CILReflectionContext NewContext( CILReflectionContextConcurrencySupport concurrencyMode, Type[] vectorArrayInterfaces, Type[] multiDimArrayIFaces, CryptoCallbacks defaultCryptoCallbacks )
+      public static CILReflectionContext NewContext( CILReflectionContextConcurrencySupport concurrencyMode, CryptoCallbacks defaultCryptoCallbacks )
       {
-         return new CILReflectionContextImpl( concurrencyMode, vectorArrayInterfaces, multiDimArrayIFaces, defaultCryptoCallbacks );
+         return new CILReflectionContextImpl( concurrencyMode, defaultCryptoCallbacks );
       }
    }
 

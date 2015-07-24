@@ -100,13 +100,11 @@ namespace CILAssemblyManipulator.Logical.Implementation
 
       private readonly CollectionsFactory _cf;
       private readonly AbstractCILReflectionContextCache _cache;
-      private readonly ListQuery<Type> _arrayInterfaces;
-      private readonly ListQuery<Type> _multiDimArrayIFaces;
       private readonly CryptoCallbacks _defaultCryptoCallbacks;
       private readonly CILAssemblyNameEqualityComparer _defaultANComparer;
       private readonly CILReflectionContextConcurrencySupport _concurrencyMode;
 
-      internal CILReflectionContextImpl( CILReflectionContextConcurrencySupport concurrencyMode, Type[] vectorArrayInterfaces, Type[] multiDimArrayIFaces, CryptoCallbacks defaultCryptoCallbacks )
+      internal CILReflectionContextImpl( CILReflectionContextConcurrencySupport concurrencyMode, CryptoCallbacks defaultCryptoCallbacks )
       {
          this._concurrencyMode = concurrencyMode;
          this._cf = CollectionsFactorySingleton.DEFAULT_COLLECTIONS_FACTORY;
@@ -127,16 +125,6 @@ namespace CILAssemblyManipulator.Logical.Implementation
          }
          this._cache = cache;
 
-         if ( vectorArrayInterfaces == null )
-         {
-            vectorArrayInterfaces = Empty<Type>.Array;
-         }
-         if ( multiDimArrayIFaces == null )
-         {
-            multiDimArrayIFaces = Empty<Type>.Array;
-         }
-         this._arrayInterfaces = this._cf.NewListProxy( vectorArrayInterfaces.Where( iFace => iFace != null ).GetBottomTypes().ToList() ).CQ;
-         this._multiDimArrayIFaces = this._cf.NewListProxy( multiDimArrayIFaces.Where( iFace => iFace != null ).GetBottomTypes().ToList() ).CQ;
          this._defaultCryptoCallbacks = defaultCryptoCallbacks;
          this._defaultANComparer = new CILAssemblyNameEqualityComparer( defaultCryptoCallbacks );
       }
@@ -187,22 +175,6 @@ namespace CILAssemblyManipulator.Logical.Implementation
          get
          {
             return this._cf;
-         }
-      }
-
-      public ListQuery<Type> VectorArrayInterfaces
-      {
-         get
-         {
-            return this._arrayInterfaces;
-         }
-      }
-
-      public ListQuery<Type> MultiDimensionalArrayInterfaces
-      {
-         get
-         {
-            return this._multiDimArrayIFaces;
          }
       }
 
@@ -456,6 +428,8 @@ namespace CILAssemblyManipulator.Logical.Implementation
          where TEmulated : class
       {
          TEmulated GetOrAdd( TNative nativeElement );
+
+         // TODO TryGet, TryAdd in order to better cache fields/methods/ctors/params/props/evts with element type as declaring type
       }
 
       protected abstract class SimpleCILCache<TDic, TNative, TEmulated> : ISimpleCache<TNative, TEmulated>
@@ -897,11 +871,33 @@ namespace CILAssemblyManipulator.Logical.Implementation
          public IEnumerable<CILType> GetElementTypeInterfaces( ElementTypeCallbacksArgs args )
          {
             var type = args.Type;
+            var cache = args.Cache;
+            var elementTypeID = args.ElementTypeID;
+
             return ( args.ArrayInfo == null ?
-               args.Cache._ctx.VectorArrayInterfaces :
-               args.Cache._ctx.MultiDimensionalArrayInterfaces )
-               .Select( iFace => type.Module.AssociatedMSCorLibModule.GetTypeByName( iFace.FullName, false ) )
-               .Where( iFace => iFace != null );
+               GetVectorArrayInterfaces() :
+               GetMultiDimensionalArrayInterfaces() )
+               .Select( iFace => type.Module.AssociatedMSCorLibModule.GetTypeByName( iFace, false ) )
+               .Where( iFace => iFace != null )
+               .Select( iFace => iFace.GenericArguments.Count == 1 ? iFace.MakeGenericType( type ) : iFace );
+         }
+
+         private static IEnumerable<String> GetVectorArrayInterfaces()
+         {
+            yield return "System.ICloneable";
+            yield return "System.Collections.IList";
+            yield return "System.Collections.IStructuralComparable";
+            yield return "System.Collections.IStructuralEquatable";
+            yield return "System.Collections.Generic.IList`1";
+            yield return "System.Collections.Generic.IReadOnlyList`1";
+         }
+
+         private static IEnumerable<String> GetMultiDimensionalArrayInterfaces()
+         {
+            yield return "System.ICloneable";
+            yield return "System.Collections.IList";
+            yield return "System.Collections.IStructuralComparable";
+            yield return "System.Collections.IStructuralEquatable";
          }
 
          public TypeAttributes GetElementTypeAttributes( ElementTypeCallbacksArgs args )
@@ -1081,7 +1077,7 @@ namespace CILAssemblyManipulator.Logical.Implementation
 
             for ( var i = 0; i < amountOfCtors; ++i )
             {
-               var curIdx = i;
+               var curParamFactor = i + 1;
                yield return (CILConstructor) cache._methodContainer.AcquireNew( ctorID => new CILConstructorImpl(
                      cache._ctx,
                      ctorID,
@@ -1089,7 +1085,7 @@ namespace CILAssemblyManipulator.Logical.Implementation
                      new SettableValueForEnums<CallingConventions>( CallingConventions.HasThis | CallingConventions.Standard ),
                      new SettableValueForEnums<MethodAttributes>( MethodAttributes.FamANDAssem | MethodAttributes.Family | MethodAttributes.RTSpecialName ),
                      () => (CILType) cache.ResolveTypeID( elementTypeID ),
-                     () => cache._ctx.CollectionsFactory.NewListProxy<CILParameter>( Enumerable.Range( 0, amountOfParams * curIdx ).Select( pIdx => intParamFunc( ctorID, pIdx ) ).ToList() ),
+                     () => cache._ctx.CollectionsFactory.NewListProxy<CILParameter>( Enumerable.Range( 0, amountOfParams * curParamFactor ).Select( pIdx => intParamFunc( ctorID, pIdx ) ).ToList() ),
                      null,
                      new SettableLazy<MethodImplAttributes>( () => MethodImplAttributes.IL ),
                      null,
@@ -1542,9 +1538,9 @@ namespace CILAssemblyManipulator.Logical.Implementation
       private CILMethod CreateNewEmulatedMethodForNativeMethod( System.Reflection.MethodInfo method )
       {
          CILMethodBase result;
+         var declType = method.DeclaringType;
          if ( method.IsGenericMethodDefinition || !method.GetGenericArguments().Any() )
          {
-            var declType = method.DeclaringType;
             if ( declType == null || declType
 #if WINDOWS_PHONE_APP
                .GetTypeInfo()
@@ -1976,32 +1972,155 @@ namespace CILAssemblyManipulator.Logical.Implementation
 
       internal CILField GetOrAdd( System.Reflection.FieldInfo field )
       {
-         return this._fields.GetOrAdd( field );
+         CILField result;
+         if ( field != null )
+         {
+            var declType = field.DeclaringType;
+            if ( declType.IsArray || declType.IsByRef || declType.IsPointer )
+            {
+               var declTypeWrapper = (CILType) this.GetOrAdd( declType );
+
+               result = declTypeWrapper.DeclaredFields.FirstOrDefault( f =>
+                  String.Equals( f.Name, field.Name )
+                  && Equals( f.FieldType, field.FieldType.NewWrapper( this._ctx ) )
+                  );
+               if ( result == null )
+               {
+                  throw new InvalidOperationException( "Failed to find suitable field " + field + " from element type " + declType + "." );
+               }
+            }
+            else
+            {
+               result = this._fields.GetOrAdd( field );
+            }
+         }
+         else
+         {
+            result = null;
+         }
+
+         return result;
       }
 
       internal CILMethod GetOrAdd( System.Reflection.MethodInfo method )
       {
-         return this._methods.GetOrAdd( method );
+         CILMethod result;
+         if ( method != null )
+         {
+            var declType = method.DeclaringType;
+            if ( declType.IsArray || declType.IsByRef || declType.IsPointer )
+            {
+               var declTypeWrapper = (CILType) this.GetOrAdd( declType );
+
+               result = declTypeWrapper.DeclaredMethods.FirstOrDefault( m =>
+                  String.Equals( m.Name, method.Name )
+                  && Equals( m.ReturnParameter.ParameterType, method.ReturnType.NewWrapper( this._ctx ) )
+                  && SequenceEqualityComparer<IEnumerable<CILTypeBase>, CILTypeBase>.SequenceEquality( m.Parameters.Select( p => p.ParameterType ), method.GetParameters().Select( p => p.ParameterType.NewWrapper( this._ctx ) ) )
+                  );
+               if ( result == null )
+               {
+                  throw new InvalidOperationException( "Failed to find suitable method " + method + " from element type " + declType + "." );
+               }
+            }
+            else
+            {
+               result = this._methods.GetOrAdd( method );
+            }
+         }
+         else
+         {
+            result = null;
+         }
+         return result;
       }
 
       internal CILConstructor GetOrAdd( System.Reflection.ConstructorInfo ctor )
       {
-         return this._ctors.GetOrAdd( ctor );
+         CILConstructor result;
+         if ( ctor != null )
+         {
+            var declType = ctor.DeclaringType;
+            if ( declType.IsArray || declType.IsByRef || declType.IsPointer )
+            {
+               var declTypeWrapper = (CILType) this.GetOrAdd( declType );
+
+               result = declTypeWrapper.Constructors.FirstOrDefault( c =>
+                  SequenceEqualityComparer<IEnumerable<CILTypeBase>, CILTypeBase>.SequenceEquality( c.Parameters.Select( p => p.ParameterType ), ctor.GetParameters().Select( p => p.ParameterType.NewWrapper( this._ctx ) ) )
+                  );
+               if ( result == null )
+               {
+                  throw new InvalidOperationException( "Failed to find suitable constructor " + ctor + " from element type " + declType + "." );
+               }
+            }
+            else
+            {
+               result = this._ctors.GetOrAdd( ctor );
+            }
+         }
+         else
+         {
+            result = null;
+         }
+         return result;
       }
 
       internal CILParameter GetOrAdd( System.Reflection.ParameterInfo param )
       {
-         return this._params.GetOrAdd( param );
+         CILParameter result;
+         if ( param != null )
+         {
+            var member = param.Member;
+            var declType = member.DeclaringType;
+            if ( declType.IsArray || declType.IsByRef || declType.IsPointer )
+            {
+               var memberIsCtor = member is System.Reflection.ConstructorInfo;
+               var methodWrapper = memberIsCtor ?
+                  (CILMethodBase) this.GetOrAdd( (System.Reflection.ConstructorInfo) member ) :
+                  this.GetOrAdd( (System.Reflection.MethodInfo) member );
+               if ( param.Position == -1 && !memberIsCtor )
+               {
+                  result = ( (CILMethod) methodWrapper ).ReturnParameter;
+               }
+               else if ( param.Position >= 0 && param.Position < methodWrapper.Parameters.Count )
+               {
+                  result = methodWrapper.Parameters[param.Position];
+               }
+               else
+               {
+                  result = null;
+               }
+
+               if ( result == null )
+               {
+                  throw new InvalidOperationException( "Failed to find suitable parameter " + param + " from element type " + declType + " and member " + member + "." );
+               }
+            }
+            else
+            {
+               result = this._params.GetOrAdd( param );
+            }
+         }
+         else
+         {
+            result = null;
+         }
+         return result;
       }
 
       internal CILProperty GetOrAdd( System.Reflection.PropertyInfo property )
       {
-         return this._properties.GetOrAdd( property );
+         // TODO check for declaring type, just in case there will be some in future...
+         return property == null ?
+            null :
+            this._properties.GetOrAdd( property );
       }
 
       internal CILEvent GetOrAdd( System.Reflection.EventInfo evt )
       {
-         return this._events.GetOrAdd( evt );
+         // TODO check for declaring type, just in case there will be some in future...
+         return evt == null ?
+            null :
+            this._events.GetOrAdd( evt );
       }
 
       internal CILType MakeGenericType( CILType thisType, CILType gDef, params CILTypeBase[] gArgs )

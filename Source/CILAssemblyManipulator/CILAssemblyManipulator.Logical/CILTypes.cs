@@ -899,7 +899,7 @@ public static partial class E_CILLogical
    /// <exception cref="ArgumentException">If <see cref="Type.IsGenericParameter"/> returns <c>true</c> for <paramref name="nType"/>.</exception>
    public static CILType NewWrapperAsType( this Type nType, CILReflectionContext ctx )
    {
-      if ( nType.IsGenericParameter )
+      if ( nType != null && nType.IsGenericParameter )
       {
          throw new ArgumentException( "Type " + nType + " can not be generic parameter." );
       }
@@ -1128,7 +1128,7 @@ public static partial class E_CILLogical
    /// <exception cref="ArgumentException">If <see cref="Type.IsGenericParameter"/> returns <c>false</c> for <paramref name="nType"/>.</exception>
    public static CILTypeParameter NewWrapperAsTypeParameter( this Type nType, CILReflectionContext ctx )
    {
-      if ( !nType.IsGenericParameter )
+      if ( nType != null && !nType.IsGenericParameter )
       {
          throw new ArgumentException( "Type " + nType + " must be generic parameter." );
       }

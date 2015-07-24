@@ -844,7 +844,12 @@ public static partial class E_CILLogical
    /// <remarks>
    /// This method uses <see cref="E_CommonUtils.IsAssignableFrom_IgnoreGenericArgumentsForGenericTypes"/> to check whether one type is assignable from another.
    /// </remarks>
-   internal static Type[] GetBottomTypes( this IEnumerable<Type> types )
+#if DEBUG
+   public
+#else
+   internal
+#endif
+ static Type[] GetBottomTypes( this IEnumerable<Type> types )
    {
       return types == null ? Empty<Type>.Array : types.Where( type => !types.Any( anotherType => !type.Equals( anotherType ) && type.IsAssignableFrom_IgnoreGenericArgumentsForGenericTypes( anotherType ) ) ).Distinct().ToArray();
    }

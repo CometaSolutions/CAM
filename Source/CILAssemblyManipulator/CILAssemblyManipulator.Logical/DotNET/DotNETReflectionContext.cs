@@ -270,14 +270,9 @@ namespace CILAssemblyManipulator.Logical
          ///// <remarks>
          ///// <inheritdoc cref="UseDotNETContext(Action{CILReflectionContext}, Boolean)"/>
          ///// </remarks>
-         var ctx = CILReflectionContextFactory.NewContext( concurrencyMode,
-            new Type[]
-         {
-            typeof(IList<>),
-            typeof(Object).Assembly.GetType("System.Collections.Generic.IReadOnlyList`1", false), // .NET 4.5 addition
-         },
-         null,
-         registerCryptoRelatedEvents ? new CryptoCallbacksDotNET() : null
+         var ctx = CILReflectionContextFactory.NewContext(
+            concurrencyMode,
+            registerCryptoRelatedEvents ? new CryptoCallbacksDotNET() : null
          );
 
          ctx.ModuleTypesLoadEvent += ctx_ModuleTypesLoadEvent;
