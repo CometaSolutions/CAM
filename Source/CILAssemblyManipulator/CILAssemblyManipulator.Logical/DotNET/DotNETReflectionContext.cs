@@ -144,10 +144,93 @@ namespace CILAssemblyManipulator.Logical
       private static Boolean _canUseManagedCryptoAlgorithms = true;
       private static Boolean _canUseCNGCryptoAlgorithms = true;
 
+      ///// <summary>
+      ///// Helper function to create a <see cref="CILReflectionContext"/>, register to all required events of the resulting <see cref="CILReflectionContext"/>, invoke a given callback to use the <see cref="CILReflectionContext"/>, and then dispose it.
+      ///// </summary>
+      ///// <param name="action">The callback to use <see cref="CILReflectionContext"/>.</param>
+      ///// <param name="registerCryptoRelatedEvents">
+      ///// Whether to register to crypto-related events as well.
+      ///// If <c>true</c>, the callbacks are added to <see cref="CILReflectionContext.HashStreamLoadEvent"/>, <see cref="CILReflectionContext.RSACreationEvent"/> and <see cref="CILReflectionContext.RSASignatureCreationEvent"/> events.
+      ///// Otherwise the callbacks are not added to those events.
+      ///// </param>
+      ///// <remarks>
+      ///// <para>The following events of <see cref="CILReflectionContext"/> will have a correctly working handler:
+      ///// <list type="bullet">
+      ///// <item><description><see cref="CILReflectionContext.ModuleTypesLoadEvent"/>,</description></item>
+      ///// <item><description><see cref="CILReflectionContext.TypeModuleLoadEvent"/>,</description></item>
+      ///// <item><description><see cref="CILReflectionContext.CustomAttributeDataLoadEvent"/>,</description></item>
+      ///// <item><description><see cref="CILReflectionContext.EventOtherMethodsLoadEvent"/>,</description></item>
+      ///// <item><description><see cref="CILReflectionContext.ConstantValueLoadEvent"/>,</description></item>
+      ///// <item><description><see cref="CILReflectionContext.ExplicitMethodImplementationLoadEvent"/>,</description></item>
+      ///// <item><description><see cref="CILReflectionContext.MethodBodyLoadEvent"/>,</description></item>
+      ///// <item><description><see cref="CILReflectionContext.TokenResolveEvent"/>,</description></item>
+      ///// <item><description><see cref="CILReflectionContext.MethodImplementationAttributesLoadEvent"/>,</description></item>
+      ///// <item><description><see cref="CILReflectionContext.TypeLayoutLoadEvent"/>,</description></item>
+      ///// <item><description><see cref="CILReflectionContext.AssemblyNameLoadEvent"/>,</description></item>
+      ///// <item><description><see cref="CILReflectionContext.CustomModifierLoadEvent"/>,</description></item>
+      ///// <item><description><see cref="CILReflectionContext.HashStreamLoadEvent"/>, if <paramref name="registerCryptoRelatedEvents"/> is <c>true</c>,</description></item>
+      ///// <item><description><see cref="CILReflectionContext.RSACreationEvent"/>, if <paramref name="registerCryptoRelatedEvents"/> is <c>true</c>,</description></item>
+      ///// <item><description>and <see cref="CILReflectionContext.RSASignatureCreationEvent"/>, if <paramref name="registerCryptoRelatedEvents"/> is <c>true</c>.</description></item>
+      ///// </list>
+      ///// </para>
+      ///// </remarks>
+      ///// <seealso cref="CreateDotNETContext(Boolean)"/>
+      //public static void UseDotNETContext( Action<CILReflectionContext> action, Boolean registerCryptoRelatedEvents = true )
+      //{
+      //   ///// <para>
+      //   ///// The purpose of this method is to provide a helper which would make the GC less intrusive for the time during usage of <see cref="CILReflectionContext"/>, as it typically will allocate a lot of memory.
+      //   ///// After the <paramref name="action"/> is completed, this method will restore the GC mode.
+      //   ///// </para>
+
+      //   // From http://stackoverflow.com/questions/6005865/prevent-net-garbage-collection-for-short-period-of-time
+      //   //var oldMode = System.Runtime.GCSettings.LatencyMode;
+      //   //System.Runtime.CompilerServices.RuntimeHelpers.PrepareConstrainedRegions();
+      //   //try
+      //   //{
+      //   //   System.Runtime.GCSettings.LatencyMode = System.Runtime.GCLatencyMode.LowLatency;
+      //   using ( var ctx = CreateDotNETContext( registerCryptoRelatedEvents ) )
+      //   {
+      //      action( ctx );
+      //   }
+      //   //}
+      //   //finally
+      //   //{
+      //   //   System.Runtime.GCSettings.LatencyMode = oldMode;
+      //   //}
+      //}
+
+      ///// <summary>
+      ///// <inheritdoc cref="UseDotNETContext(Action{CILReflectionContext}, Boolean)"/>
+      ///// </summary>
+      ///// <param name="func">The callback to use <see cref="CILReflectionContext"/>.</param>
+      ///// <param name="registerCryptoRelatedEvents"><inheritdoc cref="UseDotNETContext(Action{CILReflectionContext}, Boolean)" select="/param[@name='registerCryptoRelatedEvents']/node()"/></param>
+      ///// <returns>The result of <paramref name="func"/>.</returns>
+      ///// <remarks>
+      ///// <inheritdoc cref="UseDotNETContext(Action{CILReflectionContext}, Boolean)" />
+      ///// </remarks>
+      //public static T UseDotNETContext<T>( Func<CILReflectionContext, T> func, Boolean registerCryptoRelatedEvents = true )
+      //{
+      //   // From http://stackoverflow.com/questions/6005865/prevent-net-garbage-collection-for-short-period-of-time
+      //   //var oldMode = System.Runtime.GCSettings.LatencyMode;
+      //   //System.Runtime.CompilerServices.RuntimeHelpers.PrepareConstrainedRegions();
+      //   //try
+      //   //{
+      //   //   System.Runtime.GCSettings.LatencyMode = System.Runtime.GCLatencyMode.LowLatency;
+      //   using ( var ctx = CreateDotNETContext( registerCryptoRelatedEvents ) )
+      //   {
+      //      return func( ctx );
+      //   }
+      //   //}
+      //   //finally
+      //   //{
+      //   //   System.Runtime.GCSettings.LatencyMode = oldMode;
+      //   //}
+      //}
+
       /// <summary>
-      /// Helper function to create a <see cref="CILReflectionContext"/>, register to all required events of the resulting <see cref="CILReflectionContext"/>, invoke a given callback to use the <see cref="CILReflectionContext"/>, and then dispose it.
+      /// Creates a new <see cref="CILReflectionContext"/> and adds appropriate event handlers to all required events of the resulting <see cref="CILReflectionContext"/>.
       /// </summary>
-      /// <param name="action">The callback to use <see cref="CILReflectionContext"/>.</param>
+      /// <param name="concurrencyMode">The desired concurrency mode.</param>
       /// <param name="registerCryptoRelatedEvents">
       /// Whether to register to crypto-related events as well.
       /// If <c>true</c>, the callbacks are added to <see cref="CILReflectionContext.HashStreamLoadEvent"/>, <see cref="CILReflectionContext.RSACreationEvent"/> and <see cref="CILReflectionContext.RSASignatureCreationEvent"/> events.
@@ -174,76 +257,29 @@ namespace CILAssemblyManipulator.Logical
       /// </list>
       /// </para>
       /// </remarks>
-      /// <seealso cref="CreateDotNETContext(Boolean)"/>
-      public static void UseDotNETContext( Action<CILReflectionContext> action, Boolean registerCryptoRelatedEvents = true )
+      /// <seealso cref="CILReflectionContextConcurrencySupport"/>
+      public static CILReflectionContext CreateDotNETContext( CILReflectionContextConcurrencySupport concurrencyMode = CILReflectionContextConcurrencySupport.NotThreadSafe, Boolean registerCryptoRelatedEvents = true )
       {
-         ///// <para>
-         ///// The purpose of this method is to provide a helper which would make the GC less intrusive for the time during usage of <see cref="CILReflectionContext"/>, as it typically will allocate a lot of memory.
-         ///// After the <paramref name="action"/> is completed, this method will restore the GC mode.
-         ///// </para>
-
-         // From http://stackoverflow.com/questions/6005865/prevent-net-garbage-collection-for-short-period-of-time
-         //var oldMode = System.Runtime.GCSettings.LatencyMode;
-         //System.Runtime.CompilerServices.RuntimeHelpers.PrepareConstrainedRegions();
-         //try
-         //{
-         //   System.Runtime.GCSettings.LatencyMode = System.Runtime.GCLatencyMode.LowLatency;
-         using ( var ctx = CreateDotNETContext( registerCryptoRelatedEvents ) )
-         {
-            action( ctx );
-         }
-         //}
-         //finally
-         //{
-         //   System.Runtime.GCSettings.LatencyMode = oldMode;
-         //}
-      }
-
-      /// <summary>
-      /// <inheritdoc cref="UseDotNETContext(Action{CILReflectionContext}, Boolean)"/>
-      /// </summary>
-      /// <param name="func">The callback to use <see cref="CILReflectionContext"/>.</param>
-      /// <param name="registerCryptoRelatedEvents"><inheritdoc cref="UseDotNETContext(Action{CILReflectionContext}, Boolean)" select="/param[@name='registerCryptoRelatedEvents']/node()"/></param>
-      /// <returns>The result of <paramref name="func"/>.</returns>
-      /// <remarks>
-      /// <inheritdoc cref="UseDotNETContext(Action{CILReflectionContext}, Boolean)" />
-      /// </remarks>
-      public static T UseDotNETContext<T>( Func<CILReflectionContext, T> func, Boolean registerCryptoRelatedEvents = true )
-      {
-         // From http://stackoverflow.com/questions/6005865/prevent-net-garbage-collection-for-short-period-of-time
-         //var oldMode = System.Runtime.GCSettings.LatencyMode;
-         //System.Runtime.CompilerServices.RuntimeHelpers.PrepareConstrainedRegions();
-         //try
-         //{
-         //   System.Runtime.GCSettings.LatencyMode = System.Runtime.GCLatencyMode.LowLatency;
-         using ( var ctx = CreateDotNETContext( registerCryptoRelatedEvents ) )
-         {
-            return func( ctx );
-         }
-         //}
-         //finally
-         //{
-         //   System.Runtime.GCSettings.LatencyMode = oldMode;
-         //}
-      }
-
-      /// <summary>
-      /// If the lifecycle management of <see cref="UseDotNETContext(Action{CILReflectionContext}, Boolean)"/> method is not enough, this method can be used to create instance of <see cref="CILReflectionContext"/> and dispose it whenever needed.
-      /// </summary>
-      /// <param name="registerCryptoRelatedEvents"><inheritdoc cref="UseDotNETContext(Action{CILReflectionContext}, Boolean)"/></param>
-      /// <returns>
-      /// An instance of <see cref="CILReflectionContext"/> with the required events having a correctly functioning handler.
-      /// </returns>
-      /// <remarks>
-      /// <inheritdoc cref="UseDotNETContext(Action{CILReflectionContext}, Boolean)"/>
-      /// </remarks>
-      public static CILReflectionContext CreateDotNETContext( Boolean registerCryptoRelatedEvents = true )
-      {
-         var ctx = CILReflectionContextFactory.NewContext( new Type[]
+         ///// <summary>
+         ///// If the lifecycle management of <see cref="UseDotNETContext(Action{CILReflectionContext}, Boolean)"/> method is not enough, this method can be used to create instance of <see cref="CILReflectionContext"/> and dispose it whenever needed.
+         ///// </summary>
+         ///// <param name="registerCryptoRelatedEvents"><inheritdoc cref="UseDotNETContext(Action{CILReflectionContext}, Boolean)"/></param>
+         ///// <returns>
+         ///// An instance of <see cref="CILReflectionContext"/> with the required events having a correctly functioning handler.
+         ///// </returns>
+         ///// <remarks>
+         ///// <inheritdoc cref="UseDotNETContext(Action{CILReflectionContext}, Boolean)"/>
+         ///// </remarks>
+         var ctx = CILReflectionContextFactory.NewContext( concurrencyMode,
+            new Type[]
          {
             typeof(IList<>),
             typeof(Object).Assembly.GetType("System.Collections.Generic.IReadOnlyList`1", false), // .NET 4.5 addition
-         }, null, registerCryptoRelatedEvents ? new CryptoCallbacksDotNET() : null );
+         },
+         null,
+         registerCryptoRelatedEvents ? new CryptoCallbacksDotNET() : null
+         );
+
          ctx.ModuleTypesLoadEvent += ctx_ModuleTypesLoadEvent;
          ctx.TypeModuleLoadEvent += ctx_TypeModuleLoadEvent;
          ctx.CustomAttributeDataLoadEvent += ctx_CustomAttributeDataLoadEvent;

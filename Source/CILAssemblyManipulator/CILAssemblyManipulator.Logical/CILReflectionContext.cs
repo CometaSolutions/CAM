@@ -36,6 +36,12 @@ namespace CILAssemblyManipulator.Logical
    {
 
       /// <summary>
+      /// Gets the concurrency mode for this <see cref="CILReflectionContext"/>.
+      /// </summary>
+      /// <seealso cref="CILReflectionContextConcurrencySupport"/>
+      CILReflectionContextConcurrencySupport ConcurrencySupport { get; }
+
+      /// <summary>
       /// This event occurs when defined types are loaded in <see cref="CILModule"/> wrapping a native <see cref="System.Reflection.Module"/> by accessing the <see cref="CILModule.DefinedTypes"/> property. The event handler should set <see cref="ModuleTypesEventArgs.DefinedTypes"/> property. This assembly can not directly access the GetTypes() method in <see cref="System.Reflection.Module"/> as the method is not present in this portable profile.
       /// </summary>
       event EventHandler<ModuleTypesEventArgs> ModuleTypesLoadEvent;
@@ -99,47 +105,6 @@ namespace CILAssemblyManipulator.Logical
 
       IEqualityComparer<CILAssemblyName> DefaultAssemblyNameComparer { get; }
 
-      //      /// <summary>
-      //      /// This event occurs when a <see cref="CILModule"/> is emitted with a strong name. The event handler should set the <see cref="HashStreamLoadEventArgs.CryptoStream"/>, <see cref="HashStreamLoadEventArgs.HashGetter"/> and <see cref="HashStreamLoadEventArgs.Transform"/> properties. This assembly can not do this since many security and cryptographic functions are not present in this portable profile.
-      //      /// </summary>
-      //      event EventHandler<HashStreamLoadEventArgs> HashStreamLoadEvent;
-
-      //      /// <summary>
-      //      /// This event occurs when a <see cref="CILModule"/> is emitted with a strong name. The event handler should set the <see cref="RSACreationEventArgs.RSA"/> property. This assembly can not do this since many security and cryptographic functions are not present in this portable profile.
-      //      /// </summary>
-      //      event EventHandler<RSACreationEventArgs> RSACreationEvent;
-
-      //      /// <summary>
-      //      /// This event occurs when a <see cref="CILModule"/> is emitted with a strong name. The event handler should set the <see cref="RSASignatureCreationEventArgs.Signature"/> property. This assembly can not do this since many security and cryptographic functions are not present in this portable profile.
-      //      /// </summary>
-      //      event EventHandler<RSASignatureCreationEventArgs> RSASignatureCreationEvent;
-
-      //#if !MONO
-      //      /// <summary>
-      //      /// This event occurs when a public key is being exported from a named cryptographic service provider.
-      //      /// </summary>
-      //      event EventHandler<CSPPublicKeyEventArgs> CSPPublicKeyEvent;
-
-      //      /// <summary>
-      //      /// This is method which will launch <see cref="CSPPublicKeyEvent"/> in order to extract public key from a named cryptographic service provider.
-      //      /// </summary>
-      //      /// <param name="cspName">The name of the cryptographic service provider.</param>
-      //      /// <returns>A non-<c>null</c> and non-empty byte array representing full public key.</returns>
-      //      /// <exception cref="ArgumentNullException">If <paramref name="cspName"/> is <c>null</c>.</exception>
-      //      /// <exception cref="InvalidOperationException">If <see name="CSPPublicKeyEvent"/> fails to resolve the public key.</exception>
-      //      Byte[] ExtractPublicKeyFromCSP( String cspName );
-      //#endif
-
-      //      /// <summary>
-      //      /// This method will launch <see cref="HashStreamLoadEvent"/> and use the <see cref="HashStreamLoadEventArgs.ComputeHash"/> callback to calculate the public key token to be used in assembly names.
-      //      /// </summary>
-      //      /// <param name="publicKey">The public key. May be <c>null</c>.</param>
-      //      /// <returns>The public key token of <paramref name="publicKey"/> or <c>null</c> if <paramref name="publicKey"/> is <c>null</c>.</returns>
-      //      /// <exception cref="InvalidOperationException">If the <see cref="HashStreamLoadEvent"/> handler does not set <see cref="HashStreamLoadEventArgs.ComputeHash"/> callback.</exception>
-      //      /// <seealso cref="HashStreamLoadEvent"/>
-      //      /// <seealso cref="HashStreamLoadEventArgs"/>
-      //      Byte[] ComputePublicKeyToken( Byte[] publicKey );
-
       /// <summary>
       /// When a <see cref="CILAssembly"/> or <see cref="CILModule"/> is loaded via <see cref="E_CILLogical.LoadAssembly(CILReflectionContext, System.IO.Stream, EmittingArguments)"/> or <see cref="E_CILLogical.LoadModule(CILReflectionContext,System.IO.Stream, EmittingArguments)"/> methods, respectively, any access causing additional load of assemblies is triggered via this event, if the assembly loader function of the aforementioned methods is <c>null</c> or fails to load the assembly. The event handler should set the <see cref="AssemblyRefResolveFromLoadedAssemblyEventArgs.ResolvedAssembly"/> property.
       /// </summary>
@@ -162,6 +127,34 @@ namespace CILAssemblyManipulator.Logical
    }
 
    /// <summary>
+   /// This enumeration describes the concurrency support level of <see cref="CILReflectionContext"/> and all reflection elements that belong to the context.
+   /// </summary>
+   /// <remarks>
+   /// The <see cref="CILReflectionContext"/> is deemed to be <c>thread-safe</c>, when it is possible to create element types or make generic types, or create wrappers of native <see cref="N:System.Reflection"/> types concurrently.
+   /// But even then, concurrently adding/remove types to the module, or adding/removing methods/fields/etc to same type is not supported.
+   /// However, one can safely e.g. add/remove nested types to different enclosing types, or add/remove methods/fields/etc to different type concurrently.
+   /// When the <see cref="CILReflectionContext.ConcurrencySupport"/> is <see cref="NotThreadSafe"/>, the <see cref="CILReflectionContext"/> should not be used concurrently at all (including creating element types, making generic types, or reading/modifying any reflection elements).
+   /// </remarks>
+   public enum CILReflectionContextConcurrencySupport
+   {
+      /// <summary>
+      /// The <see cref="CILReflectionContext"/> is not safe to use concurrently at all.
+      /// </summary>
+      NotThreadSafe,
+
+      /// <summary>
+      /// The <see cref="CILReflectionContext"/> is safe to use concurrently as described in remarks of <see cref="CILReflectionContextConcurrencySupport"/>, and the implementation uses types in <see cref="N:System.Collections.Concurrent"/> and <see cref="N:System.Threading"/> namespaces.
+      /// This provides the most performant yet concurrent solution, but is not supported on all platforms.
+      /// </summary>
+      ThreadSafe_WithConcurrentCollections,
+
+      /// <summary>
+      /// The <see cref="CILReflectionContext"/> is safe to use concurrently as described in remarks of <see cref="CILReflectionContextConcurrencySupport"/>, and the implementation uses types in <see cref="N:System.Collections.Generic"/> namespace, and simple locks.
+      /// As a result, this is significantly slower than <see cref="ThreadSafe_WithConcurrentCollections"/>, but is supported on more platforms.
+      /// </summary>
+      ThreadSafe_Simple
+   }
+   /// <summary>
    /// This is factory class for creating new instances of <see cref="CILReflectionContext"/>.
    /// </summary>
    public static class CILReflectionContextFactory
@@ -169,13 +162,14 @@ namespace CILAssemblyManipulator.Logical
       /// <summary>
       /// Creates a new <see cref="CILReflectionContext"/>. This context is needed for most operations of interfaces in this namespace.
       /// </summary>
+      /// <param name="concurrencyMode">The concurrency mode for the new <see cref="CILReflectionContext"/>.</param>
       /// <param name="vectorArrayInterfaces">All interfaces implemented by single-dimensional array types, besides the ones implemented by <see cref="System.Array"/>. Value <c>null</c> is interpreted as an empty array.</param>
       /// <param name="multiDimArrayIFaces">All interfaces implemented by multi-dimensional array types, besdies the ones implemented by <see cref="System.Array"/>. Value <c>null</c> is interpreted as an empty array.</param>
       /// <param name="defaultCryptoCallbacks">The default callbacks for cryptographic functions. May be <c>null</c> if no default callbacks for cryptographic functions are provided.</param>
       /// <returns>A new instance of <see cref="CILReflectionContext"/>.</returns>
-      public static CILReflectionContext NewContext( Type[] vectorArrayInterfaces, Type[] multiDimArrayIFaces, CryptoCallbacks defaultCryptoCallbacks )
+      public static CILReflectionContext NewContext( CILReflectionContextConcurrencySupport concurrencyMode, Type[] vectorArrayInterfaces, Type[] multiDimArrayIFaces, CryptoCallbacks defaultCryptoCallbacks )
       {
-         return new CILReflectionContextImpl( vectorArrayInterfaces, multiDimArrayIFaces, defaultCryptoCallbacks );
+         return new CILReflectionContextImpl( concurrencyMode, vectorArrayInterfaces, multiDimArrayIFaces, defaultCryptoCallbacks );
       }
    }
 
