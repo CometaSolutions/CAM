@@ -28,7 +28,7 @@ namespace CommonUtils
    // Lazy aspects:
    // Read-only (same as current System.Lazy<T>, except it should set factory to null after value has been successfully loaded)
    // Resettable read-only
-   // Settable (factory to null after setting)
-   // Resettable settable
+   // Writeable (factory to null after setting)
+   // Resettable writeable
    // Also thread-safety for all of those
 }

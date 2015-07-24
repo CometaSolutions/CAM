@@ -330,79 +330,13 @@ namespace CILAssemblyManipulator.Logical.Implementation
       internal const Int32 NO_ID = -1;
 
       protected abstract class ElementCache<TCacheDic, TArrayDic>
-         where TCacheDic : class, IDictionary<CILTypeBase, InnerElementCache>
+         where TCacheDic : class, IDictionary<CILTypeBase, InnerElementCache<TArrayDic>>
          where TArrayDic : class, IDictionary<GeneralArrayInfo, CILType>
       {
-         protected abstract class InnerElementCache
-         {
-            private readonly TArrayDic _arrayTypes;
-            private readonly Func<GeneralArrayInfo, CILType> _arrayMakingFunction;
-            private readonly Func<ElementKind, GeneralArrayInfo, CILType> _genericElementFunction;
-            private CILType _pointerType;
-            private CILType _referenceType;
-            private CILType _szArrayType;
-
-            internal InnerElementCache( TArrayDic arrayTypes, CILTypeBase originalType, Func<ElementKind, GeneralArrayInfo, CILType> genericElementFunction )
-            {
-               this._arrayTypes = arrayTypes;
-               this._genericElementFunction = genericElementFunction;
-               this._arrayMakingFunction = info => (CILType) genericElementFunction( ElementKind.Array, info );
-            }
-
-            internal CILType MakeElementType( CILTypeBase type, ElementKind kind, GeneralArrayInfo arrayInfo )
-            {
-               switch ( kind )
-               {
-                  case ElementKind.Array:
-                     // Just like with generic arguments, we may need to create a copy of array info if it is specified
-                     CILType result;
-                     if (arrayInfo == null)
-                     {
-                        result = this._szArrayType;
-                        if (result == null)
-                        {
-                           Interlocked.CompareExchange(ref this._szArrayType, this._genericElementFunction(ElementKind.Array, null), null);
-                        }
-                     }
-                     else if ( !this._arrayTypes.TryGetValue( arrayInfo, out result ) )
-                     {
-                        arrayInfo = new GeneralArrayInfo( arrayInfo );
-                        result = this.GetOrAdd(this._arrayTypes, arrayInfo, this._arrayMakingFunction );
-                     }
-                     
-                     return result;
-                  case ElementKind.Pointer:
-                     if ( ElementKind.Reference == type.GetElementKind() )
-                     {
-                        throw new InvalidOperationException( "Can not create pointer type from reference type." );
-                     }
-                     if ( this._pointerType == null )
-                     {
-                        Interlocked.Exchange( ref this._pointerType, this._genericElementFunction( ElementKind.Pointer, null ) );
-                     }
-                     return this._pointerType;
-                  case ElementKind.Reference:
-                     if ( ElementKind.Reference == type.GetElementKind() )
-                     {
-                        throw new InvalidOperationException( "Can not create reference type from another reference type." );
-                     }
-                     if ( this._referenceType == null )
-                     {
-                        Interlocked.Exchange( ref this._referenceType, this._genericElementFunction( ElementKind.Reference, null ) );
-                     }
-                     return this._referenceType;
-                  default:
-                     throw new ArgumentException( "Unknown element kind: " + kind );
-               }
-            }
-
-            protected abstract CILType GetOrAdd(TArrayDic dic, GeneralArrayInfo key, Func<GeneralArrayInfo, CILType> factory);
-         }
-
          private readonly TCacheDic _cache;
-         private readonly Func<CILTypeBase, InnerElementCache> _outerGetter;
+         private readonly Func<CILTypeBase, InnerElementCache<TArrayDic>> _outerGetter;
 
-         internal ElementCache( TCacheDic tCacheDic, Func<CILTypeBase, ElementKind, GeneralArrayInfo, CILTypeBase> creatorFunc  )
+         internal ElementCache( TCacheDic tCacheDic, Func<CILTypeBase, ElementKind, GeneralArrayInfo, CILTypeBase> creatorFunc )
          {
             this._cache = tCacheDic;
             this._outerGetter = type => this.InnerCacheFactory( type, ( kind, info ) => (CILType) creatorFunc( type, kind, info ) );
@@ -410,13 +344,81 @@ namespace CILAssemblyManipulator.Logical.Implementation
 
          internal CILType MakeElementType( CILTypeBase type, ElementKind kind, GeneralArrayInfo arrayInfo )
          {
-            return this.GetOrAdd(this._cache, type, this._outerGetter ).MakeElementType( type, kind, arrayInfo );
+            return this.GetOrAdd( this._cache, type, this._outerGetter ).MakeElementType( type, kind, arrayInfo );
          }
 
-         protected abstract InnerElementCache GetOrAdd(TCacheDic dic, CILTypeBase key, Func<CILTypeBase, InnerElementCache> factory);
+         protected abstract InnerElementCache<TArrayDic> GetOrAdd( TCacheDic dic, CILTypeBase key, Func<CILTypeBase, InnerElementCache<TArrayDic>> factory );
 
-         protected abstract InnerElementCache InnerCacheFactory(CILTypeBase originalType, Func<ElementKind, GeneralArrayInfo, CILType> genericElementFunction);
+         protected abstract InnerElementCache<TArrayDic> InnerCacheFactory( CILTypeBase originalType, Func<ElementKind, GeneralArrayInfo, CILType> genericElementFunction );
       }
+
+      protected abstract class InnerElementCache<TArrayDic>
+         where TArrayDic : class, IDictionary<GeneralArrayInfo, CILType>
+      {
+         private readonly TArrayDic _arrayTypes;
+         private readonly Func<GeneralArrayInfo, CILType> _arrayMakingFunction;
+         private readonly Func<ElementKind, GeneralArrayInfo, CILType> _genericElementFunction;
+         private CILType _pointerType;
+         private CILType _referenceType;
+         private CILType _szArrayType;
+
+         internal InnerElementCache( TArrayDic arrayTypes, CILTypeBase originalType, Func<ElementKind, GeneralArrayInfo, CILType> genericElementFunction )
+         {
+            this._arrayTypes = arrayTypes;
+            this._genericElementFunction = genericElementFunction;
+            this._arrayMakingFunction = info => (CILType) genericElementFunction( ElementKind.Array, info );
+         }
+
+         internal CILType MakeElementType( CILTypeBase type, ElementKind kind, GeneralArrayInfo arrayInfo )
+         {
+            switch ( kind )
+            {
+               case ElementKind.Array:
+                  // Just like with generic arguments, we may need to create a copy of array info if it is specified
+                  CILType result;
+                  if ( arrayInfo == null )
+                  {
+                     result = this._szArrayType;
+                     if ( result == null )
+                     {
+                        Interlocked.CompareExchange( ref this._szArrayType, this._genericElementFunction( ElementKind.Array, null ), null );
+                     }
+                  }
+                  else if ( !this._arrayTypes.TryGetValue( arrayInfo, out result ) )
+                  {
+                     arrayInfo = new GeneralArrayInfo( arrayInfo );
+                     result = this.GetOrAdd( this._arrayTypes, arrayInfo, this._arrayMakingFunction );
+                  }
+
+                  return result;
+               case ElementKind.Pointer:
+                  if ( ElementKind.Reference == type.GetElementKind() )
+                  {
+                     throw new InvalidOperationException( "Can not create pointer type from reference type." );
+                  }
+                  if ( this._pointerType == null )
+                  {
+                     Interlocked.Exchange( ref this._pointerType, this._genericElementFunction( ElementKind.Pointer, null ) );
+                  }
+                  return this._pointerType;
+               case ElementKind.Reference:
+                  if ( ElementKind.Reference == type.GetElementKind() )
+                  {
+                     throw new InvalidOperationException( "Can not create reference type from another reference type." );
+                  }
+                  if ( this._referenceType == null )
+                  {
+                     Interlocked.Exchange( ref this._referenceType, this._genericElementFunction( ElementKind.Reference, null ) );
+                  }
+                  return this._referenceType;
+               default:
+                  throw new ArgumentException( "Unknown element kind: " + kind );
+            }
+         }
+
+         protected abstract CILType GetOrAdd( TArrayDic dic, GeneralArrayInfo key, Func<GeneralArrayInfo, CILType> factory );
+      }
+
 
       protected abstract class SimpleCILCache<TDic, TNative, TEmulated>
          where TDic : class, IDictionary<TNative, TEmulated>
@@ -428,8 +430,8 @@ namespace CILAssemblyManipulator.Logical.Implementation
 
          internal SimpleCILCache( TDic cache, Func<TNative, TEmulated> creatorFunc )
          {
-            ArgumentValidator.ValidateNotNull("Cache", cache);
-            ArgumentValidator.ValidateNotNull("Creator callback", creatorFunc);
+            ArgumentValidator.ValidateNotNull( "Cache", cache );
+            ArgumentValidator.ValidateNotNull( "Creator callback", creatorFunc );
 
             this._cache = cache;
             this._creatorFunc = creatorFunc;
@@ -443,87 +445,25 @@ namespace CILAssemblyManipulator.Logical.Implementation
             }
             else
             {
-               return this.GetOrAdd(this._cache,  nativeElement, this._creatorFunc );
+               return this.GetOrAdd( this._cache, nativeElement, this._creatorFunc );
             }
          }
 
-         protected abstract TEmulated GetOrAdd(TDic cache, TNative key, Func<TNative, TEmulated> factory);
+         protected abstract TEmulated GetOrAdd( TDic cache, TNative key, Func<TNative, TEmulated> factory );
       }
 
       protected abstract class GenericInstanceCache<TCacheDic, TGenericDic, TInstance> // : IDisposable
-         where TCacheDic : class, IDictionary<TInstance, InnerGenericInstanceCache>
+         where TCacheDic : class, IDictionary<TInstance, InnerGenericInstanceCache<TGenericDic, TInstance>>
          where TGenericDic : class, IDictionary<CILTypeBase[], TInstance>
          where TInstance : class, CILElementWithGenericArguments<Object>
       {
-         protected abstract class InnerGenericInstanceCache// : IDisposable
-         {
-            //private readonly ReaderWriterLockSlim _lock;
-            private readonly TGenericDic _cache;
-            private readonly Func<CILTypeBase[], TInstance> _creator;
-
-            internal InnerGenericInstanceCache( TGenericDic dic, TInstance gDef, Func<TInstance, CILTypeBase[], TInstance> idCreator )
-            {
-               //this._lock = new ReaderWriterLockSlim( LockRecursionPolicy.NoRecursion );
-               this._cache = dic; // new ConcurrentDictionary<CILTypeBase[], TInstance>( ArrayEqualityComparer<CILTypeBase>.DefaultArrayEqualityComparer );
-               this._creator = key => idCreator( gDef, key );
-            }
-
-            internal virtual TInstance CreateGenericElement( CILTypeBase[] gArgs )
-            {
-               //this._lock.EnterReadLock();
-               //try
-               //{
-                  TInstance result;
-                  if ( !this._cache.TryGetValue( gArgs, out result ) )
-                  {
-                     // Because array comes from outside of CAM, create a copy of it to prevent modifications
-                     var tmp = new CILTypeBase[gArgs.Length];
-                     Array.Copy( gArgs, tmp, gArgs.Length );
-                     result = this.GetOrAdd( this._cache, tmp, this._creator );
-                  }
-                  return result;
-               //}
-               //finally
-               //{
-               //   this._lock.ExitReadLock();
-               //}
-            }
-
-            internal virtual void DoSomethingForAll<TCasted>( TInstance source, Action<TCasted> action )
-               where TCasted : class
-            {
-               //this._lock.EnterWriteLock();
-               //try
-               //{
-                  foreach ( var instance in this._cache.Values )
-                  {
-                     if ( !Object.ReferenceEquals( instance, source ) )
-                     {
-                        action( instance as TCasted );
-                     }
-                  }
-               //}
-               //finally
-               //{
-               //   this._lock.ExitWriteLock();
-               //}
-            }
-
-            //public void Dispose()
-            //{
-            //   this._lock.Dispose();
-            //}
-
-            protected abstract TInstance GetOrAdd(TGenericDic dic, CILTypeBase[] key, Func<CILTypeBase[], TInstance> factory);
-         }
-
          private readonly TCacheDic _cache;
          private readonly Func<TInstance, CILTypeBase[], TInstance> _idCreator;
          private readonly String _elementKindString;
 
          internal GenericInstanceCache( TCacheDic cache, String elementKindString, Func<TInstance, CILTypeBase[], TInstance> idCreator )
          {
-            ArgumentValidator.ValidateNotNull("Cache dictionary", cache);
+            ArgumentValidator.ValidateNotNull( "Cache dictionary", cache );
             this._cache = cache;
             this._elementKindString = elementKindString;
             this._idCreator = idCreator;
@@ -544,14 +484,14 @@ namespace CILAssemblyManipulator.Logical.Implementation
             }
 
             return this
-               .GetOrAdd(this._cache, gDef, gDeff => this.CheckGArgsAndCreate( gDeff, gArgs ) )
+               .GetOrAdd( this._cache, gDef, gDeff => this.CheckGArgsAndCreate( gDeff, gArgs ) )
                .CreateGenericElement( gArgs );
          }
 
-         protected abstract InnerGenericInstanceCache GetOrAdd(TCacheDic dic, TInstance key, Func<TInstance, InnerGenericInstanceCache> factory);
-         protected abstract InnerGenericInstanceCache InnerCacheFactory(TInstance gDef, Func<TInstance, CILTypeBase[], TInstance> creator);
+         protected abstract InnerGenericInstanceCache<TGenericDic, TInstance> GetOrAdd( TCacheDic dic, TInstance key, Func<TInstance, InnerGenericInstanceCache<TGenericDic, TInstance>> factory );
+         protected abstract InnerGenericInstanceCache<TGenericDic, TInstance> InnerCacheFactory( TInstance gDef, Func<TInstance, CILTypeBase[], TInstance> creator );
 
-         private InnerGenericInstanceCache CheckGArgsAndCreate( TInstance gDef, CILTypeBase[] gArgs )
+         private InnerGenericInstanceCache<TGenericDic, TInstance> CheckGArgsAndCreate( TInstance gDef, CILTypeBase[] gArgs )
          {
             if ( !gDef.IsGenericDefinition() )
             {
@@ -587,136 +527,101 @@ namespace CILAssemblyManipulator.Logical.Implementation
          internal void ForAllInstancesOf<TCasted>( TInstance gDef, Action<TCasted> action )
             where TCasted : class
          {
-            InnerGenericInstanceCache inner;
+            InnerGenericInstanceCache<TGenericDic, TInstance> inner;
             if ( this._cache.TryGetValue( gDef, out inner ) )
             {
                inner.DoSomethingForAll( gDef, action );
             }
          }
 
-         public void Dispose()
+         //public void Dispose()
+         //{
+         //   foreach ( var val in this._cache.Values )
+         //   {
+         //      val.Dispose();
+         //   }
+         //}
+      }
+
+      protected abstract class InnerGenericInstanceCache<TGenericDic, TInstance> // : IDisposable
+         where TGenericDic : class, IDictionary<CILTypeBase[], TInstance>
+         where TInstance : class, CILElementWithGenericArguments<Object>
+      {
+         //private readonly ReaderWriterLockSlim _lock;
+         private readonly TGenericDic _cache;
+         private readonly Func<CILTypeBase[], TInstance> _creator;
+
+         internal InnerGenericInstanceCache( TGenericDic dic, TInstance gDef, Func<TInstance, CILTypeBase[], TInstance> idCreator )
          {
-            foreach ( var val in this._cache.Values )
-            {
-               val.Dispose();
-            }
+            //this._lock = new ReaderWriterLockSlim( LockRecursionPolicy.NoRecursion );
+            this._cache = dic; // new ConcurrentDictionary<CILTypeBase[], TInstance>( ArrayEqualityComparer<CILTypeBase>.DefaultArrayEqualityComparer );
+            this._creator = key => idCreator( gDef, key );
          }
+
+         internal virtual TInstance CreateGenericElement( CILTypeBase[] gArgs )
+         {
+            //this._lock.EnterReadLock();
+            //try
+            //{
+            TInstance result;
+            if ( !this._cache.TryGetValue( gArgs, out result ) )
+            {
+               // Because array comes from outside of CAM, create a copy of it to prevent modifications
+               var tmp = new CILTypeBase[gArgs.Length];
+               Array.Copy( gArgs, tmp, gArgs.Length );
+               result = this.GetOrAdd( this._cache, tmp, this._creator );
+            }
+            return result;
+            //}
+            //finally
+            //{
+            //   this._lock.ExitReadLock();
+            //}
+         }
+
+         internal virtual void DoSomethingForAll<TCasted>( TInstance source, Action<TCasted> action )
+            where TCasted : class
+         {
+            //this._lock.EnterWriteLock();
+            //try
+            //{
+            foreach ( var instance in this._cache.Values )
+            {
+               if ( !Object.ReferenceEquals( instance, source ) )
+               {
+                  action( instance as TCasted );
+               }
+            }
+            //}
+            //finally
+            //{
+            //   this._lock.ExitWriteLock();
+            //}
+         }
+
+         //public void Dispose()
+         //{
+         //   this._lock.Dispose();
+         //}
+
+         protected abstract TInstance GetOrAdd( TGenericDic dic, CILTypeBase[] key, Func<CILTypeBase[], TInstance> factory );
       }
 
       protected abstract class GenericDeclaringTypeCache<TCacheDic, TInnerCacheDic, TGenericDic, TInstance>// : IDisposable
-         where TCacheDic : class, IDictionary<CILType, InnerGenericDeclaringTypeCache>
-         where TInnerCacheDic : class, IDictionary<CILTypeBase[], InnermostGenericDeclaringTypeCache>
+         where TCacheDic : class, IDictionary<CILType, InnerGenericDeclaringTypeCache<TInnerCacheDic, TGenericDic, TInstance>>
+         where TInnerCacheDic : class, IDictionary<CILTypeBase[], InnermostGenericDeclaringTypeCache<TGenericDic, TInstance>>
          where TGenericDic : class, IDictionary<TInstance, TInstance>
          where TInstance : class, CILElementOwnedByType
       {
-         protected abstract class InnerGenericDeclaringTypeCache // : IDisposable
-         {
-            protected abstract class InnermostGenericDeclaringTypeCache
-            {
-               private readonly TGenericDic _instances;
-               private readonly Func<TInstance, TInstance> _instanceCreator;
 
-               internal InnermostGenericDeclaringTypeCache( TGenericDic instances, CILType gDef, CILTypeBase[] gArgs, Func<TInstance, CILTypeBase[], TInstance> creationFunc )
-               {
-                  this._instances = instances;
-                  this._instanceCreator = gDefInstance =>
-                  {
-                     if ( gArgs.All( gArg => gArg.TypeKind == TypeKind.TypeParameter && Object.Equals( ( (CILTypeParameter) gArg ).DeclaringType, gDef ) && ( (CILTypeParameter) gArg ).DeclaringMethod == null ) )
-                     {
-                        return gDefInstance;
-                     }
-                     else
-                     {
-                        if ( gArgs.Any( g => g.TypeKind == TypeKind.MethodSignature && !g.Module.Equals( gDef.Module ) ) )
-                        {
-                           var gtmp = new CILTypeBase[gArgs.Length];
-                           Array.Copy( gArgs, gtmp, gArgs.Length );
-                           for ( var i = 0; i < gtmp.Length; ++i )
-                           {
-                              LogicalUtils.CheckTypeForMethodSig( gDef.Module, ref gtmp[i] );
-                           }
-                           gArgs = gtmp;
-                        }
-                        return creationFunc( gDefInstance, gArgs );
-                     }
-                  };
-               }
-
-               internal TInstance GetOrAdd( TInstance gDefInstance )
-               {
-                  return this.GetOrAdd( this._instances, gDefInstance, this._instanceCreator );
-               }
-
-               internal Boolean TryGetValue( TInstance gDefInstance, out TInstance result )
-               {
-                  return this._instances.TryGetValue( gDefInstance, out result );
-               }
-
-               protected abstract TInstance GetOrAdd(TGenericDic dic, TInstance key, Func<TInstance, TInstance> factory);
-            }
-
-            //private readonly ReaderWriterLockSlim _lock;
-            private readonly TInnerCacheDic _cache;
-            private readonly Func<CILTypeBase[], InnermostGenericDeclaringTypeCache> _cacheCreator;
-
-            internal InnerGenericDeclaringTypeCache( TInnerCacheDic cache, CILType gDef, Func<TInstance, CILTypeBase[], TInstance> creationFunc )
-            {
-               //this._lock = new ReaderWriterLockSlim( LockRecursionPolicy.NoRecursion );
-               this._cache = cache; // new ConcurrentDictionary<CILTypeBase[], InnermostGenericDeclaringTypeCache>( ArrayEqualityComparer<CILTypeBase>.DefaultArrayEqualityComparer );
-               this._cacheCreator = gArgs => this.InnermostCacheFactory( gDef, gArgs, creationFunc );
-            }
-
-            internal TInstance GetOrAdd( TInstance instance, CILTypeBase[] gArgs )
-            {
-               //this._lock.EnterReadLock();
-               //try
-               //{
-                  return this.GetOrAdd(this._cache, gArgs, this._cacheCreator )
-                     .GetOrAdd( instance );
-               //}
-               //finally
-               //{
-               //   this._lock.ExitReadLock();
-               //}
-            }
-
-            internal void DoSomethingForAll<TCasted>( TInstance gDefInstance, Action<TCasted> action )
-               where TCasted : class
-            {
-               //this._lock.EnterWriteLock();
-               //try
-               //{
-                  TInstance instance;
-                  foreach ( var cache in this._cache.Values )
-                  {
-                     if ( cache.TryGetValue( gDefInstance, out instance ) && !Object.ReferenceEquals( gDefInstance, instance ) )
-                     {
-                        action( instance as TCasted );
-                     }
-                  }
-               //}
-               //finally
-               //{
-               //   this._lock.ExitWriteLock();
-               //}
-            }
-
-            //public void Dispose()
-            //{
-            //   this._lock.Dispose();
-            //}
-
-            protected abstract InnermostGenericDeclaringTypeCache GetOrAdd(TInnerCacheDic dic, CILTypeBase[] key, Func<CILTypeBase[], InnermostGenericDeclaringTypeCache> factory );
-            protected abstract InnermostGenericDeclaringTypeCache InnermostCacheFactory(CILType gDef, CILTypeBase[] gArgs, Func<TInstance, CILTypeBase[], TInstance> creationFunc);
-         }
 
          private readonly TCacheDic _cache;
-         private readonly Func<CILType, InnerGenericDeclaringTypeCache> _cacheCreator;
+         private readonly Func<CILType, InnerGenericDeclaringTypeCache<TInnerCacheDic, TGenericDic, TInstance>> _cacheCreator;
 
          internal GenericDeclaringTypeCache( TCacheDic cache, Func<CILType, TInstance, CILTypeBase[], TInstance> creationFunc )
          {
             this._cache = cache;
-            this._cacheCreator = gDef => this.InnerCacheFactory(gDef, ( gDefInstance, gArgs ) => creationFunc( gDef, gDefInstance, gArgs ) );
+            this._cacheCreator = gDef => this.InnerCacheFactory( gDef, ( gDefInstance, gArgs ) => creationFunc( gDef, gDefInstance, gArgs ) );
          }
 
          internal TInstance GetOrAdd( TInstance instance, CILTypeBase[] gArgs )
@@ -732,14 +637,14 @@ namespace CILAssemblyManipulator.Logical.Implementation
                   throw new ArgumentException( "The declaring type of " + instance + " is not from generic type defintion" );
                }
             }
-            return this.GetOrAdd(this._cache, instance.DeclaringType, this._cacheCreator )
+            return this.GetOrAdd( this._cache, instance.DeclaringType, this._cacheCreator )
                .GetOrAdd( instance, gArgs );
          }
 
          internal void ForAllInstancesOf<TCasted>( TInstance gDefInstance, Action<TCasted> action )
             where TCasted : class
          {
-            InnerGenericDeclaringTypeCache cache;
+            InnerGenericDeclaringTypeCache<TInnerCacheDic, TGenericDic, TInstance> cache;
             if ( this._cache.TryGetValue( gDefInstance.DeclaringType, out cache ) )
             {
                cache.DoSomethingForAll( gDefInstance, action );
@@ -754,58 +659,164 @@ namespace CILAssemblyManipulator.Logical.Implementation
          //   }
          //}
 
-         protected abstract InnerGenericDeclaringTypeCache GetOrAdd(TCacheDic dic, CILType key, Func<CILType, InnerGenericDeclaringTypeCache> factory );
-         protected abstract InnerGenericDeclaringTypeCache InnerCacheFactory(CILType gDef, Func<TInstance, CILTypeBase[], TInstance> creationFunc);
+         protected abstract InnerGenericDeclaringTypeCache<TInnerCacheDic, TGenericDic, TInstance> GetOrAdd( TCacheDic dic, CILType key, Func<CILType, InnerGenericDeclaringTypeCache<TInnerCacheDic, TGenericDic, TInstance>> factory );
+         protected abstract InnerGenericDeclaringTypeCache<TInnerCacheDic, TGenericDic, TInstance> InnerCacheFactory( CILType gDef, Func<TInstance, CILTypeBase[], TInstance> creationFunc );
       }
 
-      protected class ListHolder<T> : IDisposable
+      protected abstract class InnerGenericDeclaringTypeCache<TInnerCacheDic, TGenericDic, TInstance> // : IDisposable
+         where TInnerCacheDic : class, IDictionary<CILTypeBase[], InnermostGenericDeclaringTypeCache<TGenericDic, TInstance>>
+         where TGenericDic : class, IDictionary<TInstance, TInstance>
+         where TInstance : class, CILElementOwnedByType
+      {
+         //private readonly ReaderWriterLockSlim _lock;
+         private readonly TInnerCacheDic _cache;
+         private readonly Func<CILTypeBase[], InnermostGenericDeclaringTypeCache<TGenericDic, TInstance>> _cacheCreator;
+
+         internal InnerGenericDeclaringTypeCache( TInnerCacheDic cache, CILType gDef, Func<TInstance, CILTypeBase[], TInstance> creationFunc )
+         {
+            //this._lock = new ReaderWriterLockSlim( LockRecursionPolicy.NoRecursion );
+            this._cache = cache; // new ConcurrentDictionary<CILTypeBase[], InnermostGenericDeclaringTypeCache>( ArrayEqualityComparer<CILTypeBase>.DefaultArrayEqualityComparer );
+            this._cacheCreator = gArgs => this.InnermostCacheFactory( gDef, gArgs, creationFunc );
+         }
+
+         internal virtual TInstance GetOrAdd( TInstance instance, CILTypeBase[] gArgs )
+         {
+            //this._lock.EnterReadLock();
+            //try
+            //{
+            return this.GetOrAdd( this._cache, gArgs, this._cacheCreator )
+               .GetOrAdd( instance );
+            //}
+            //finally
+            //{
+            //   this._lock.ExitReadLock();
+            //}
+         }
+
+         internal virtual void DoSomethingForAll<TCasted>( TInstance gDefInstance, Action<TCasted> action )
+            where TCasted : class
+         {
+            //this._lock.EnterWriteLock();
+            //try
+            //{
+            TInstance instance;
+            foreach ( var cache in this._cache.Values )
+            {
+               if ( cache.TryGetValue( gDefInstance, out instance ) && !Object.ReferenceEquals( gDefInstance, instance ) )
+               {
+                  action( instance as TCasted );
+               }
+            }
+            //}
+            //finally
+            //{
+            //   this._lock.ExitWriteLock();
+            //}
+         }
+
+         //public void Dispose()
+         //{
+         //   this._lock.Dispose();
+         //}
+
+         protected abstract InnermostGenericDeclaringTypeCache<TGenericDic, TInstance> GetOrAdd( TInnerCacheDic dic, CILTypeBase[] key, Func<CILTypeBase[], InnermostGenericDeclaringTypeCache<TGenericDic, TInstance>> factory );
+         protected abstract InnermostGenericDeclaringTypeCache<TGenericDic, TInstance> InnermostCacheFactory( CILType gDef, CILTypeBase[] gArgs, Func<TInstance, CILTypeBase[], TInstance> creationFunc );
+      }
+
+      protected abstract class InnermostGenericDeclaringTypeCache<TGenericDic, TInstance>
+         where TGenericDic : class, IDictionary<TInstance, TInstance>
+         where TInstance : class, CILElementOwnedByType
+      {
+         private readonly TGenericDic _instances;
+         private readonly Func<TInstance, TInstance> _instanceCreator;
+
+         internal InnermostGenericDeclaringTypeCache( TGenericDic instances, CILType gDef, CILTypeBase[] gArgs, Func<TInstance, CILTypeBase[], TInstance> creationFunc )
+         {
+            this._instances = instances;
+            this._instanceCreator = gDefInstance =>
+            {
+               if ( gArgs.All( gArg => gArg.TypeKind == TypeKind.TypeParameter && Object.Equals( ( (CILTypeParameter) gArg ).DeclaringType, gDef ) && ( (CILTypeParameter) gArg ).DeclaringMethod == null ) )
+               {
+                  return gDefInstance;
+               }
+               else
+               {
+                  if ( gArgs.Any( g => g.TypeKind == TypeKind.MethodSignature && !g.Module.Equals( gDef.Module ) ) )
+                  {
+                     var gtmp = new CILTypeBase[gArgs.Length];
+                     Array.Copy( gArgs, gtmp, gArgs.Length );
+                     for ( var i = 0; i < gtmp.Length; ++i )
+                     {
+                        LogicalUtils.CheckTypeForMethodSig( gDef.Module, ref gtmp[i] );
+                     }
+                     gArgs = gtmp;
+                  }
+                  return creationFunc( gDefInstance, gArgs );
+               }
+            };
+         }
+
+         internal TInstance GetOrAdd( TInstance gDefInstance )
+         {
+            return this.GetOrAdd( this._instances, gDefInstance, this._instanceCreator );
+         }
+
+         internal Boolean TryGetValue( TInstance gDefInstance, out TInstance result )
+         {
+            return this._instances.TryGetValue( gDefInstance, out result );
+         }
+
+         protected abstract TInstance GetOrAdd( TGenericDic dic, TInstance key, Func<TInstance, TInstance> factory );
+      }
+
+      protected class ListHolder<T> // : IDisposable
          where T : class
       {
-         private readonly ReaderWriterLockSlim _lock;
+         //private readonly ReaderWriterLockSlim _lock;
          private readonly IList<T> _list;
 
          internal ListHolder()
          {
-            this._lock = new ReaderWriterLockSlim( LockRecursionPolicy.NoRecursion );
+            //this._lock = new ReaderWriterLockSlim( LockRecursionPolicy.NoRecursion );
             this._list = new List<T>();
          }
 
-         internal T AcquireNew( Func<Int32, T> func )
+         internal virtual T AcquireNew( Func<Int32, T> func )
          {
-            this._lock.EnterWriteLock();
-            T result;
-            try
-            {
-               result = func( this._list.Count );
-               this._list.Add( result );
-            }
-            finally
-            {
-               this._lock.ExitWriteLock();
-            }
+            //this._lock.EnterWriteLock();
+            //T result;
+            //try
+            //{
+            var result = func( this._list.Count );
+            this._list.Add( result );
+            //}
+            //finally
+            //{
+            //   this._lock.ExitWriteLock();
+            //}
             return result;
          }
 
-         internal T this[Int32 idx]
+         internal virtual T this[Int32 idx]
          {
             get
             {
-               this._lock.EnterReadLock();
-               try
-               {
-                  return this._list[idx];
-               }
-               finally
-               {
-                  this._lock.ExitReadLock();
-               }
+               //this._lock.EnterReadLock();
+               //try
+               //{
+               return this._list[idx];
+               //}
+               //finally
+               //{
+               //   this._lock.ExitReadLock();
+               //}
             }
          }
 
-         public void Dispose()
-         {
-            this._lock.Dispose();
-         }
+         //public void Dispose()
+         //{
+         //   this._lock.Dispose();
+         //}
       }
 
       // TODO need to add additional .IsCapableOfChanging checks for this to work properly.
@@ -1103,7 +1114,7 @@ namespace CILAssemblyManipulator.Logical.Implementation
 
       private readonly CILReflectionContextImpl _ctx;
 
-      internal CILReflectionContextCache( CILReflectionContextImpl ctx )
+      internal AbstractCILReflectionContextCache( CILReflectionContextImpl ctx )
       {
          ArgumentValidator.ValidateNotNull( "Reflection context", ctx );
 
@@ -2058,7 +2069,7 @@ namespace CILAssemblyManipulator.Logical.Implementation
       }
    }
 
-      
+
 
    internal class CILReflectionContextCache_NotThreadSafe : AbstractCILReflectionContextCache
    {
