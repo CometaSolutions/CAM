@@ -827,72 +827,107 @@ namespace CILAssemblyManipulator.Logical.Implementation
          }
       }
 
-      private static readonly CILType[] EMPTY_TYPES = Empty<CILType>.Array;
-      private static readonly CILMethod[] EMPTY_METHODS = Empty<CILMethod>.Array;
-      private static readonly CILConstructor[] EMPTY_CTORS = Empty<CILConstructor>.Array;
-      private static readonly CILProperty[] EMPTY_PROPERTIES = Empty<CILProperty>.Array;
-      private static readonly CILEvent[] EMPTY_EVENTS = Empty<CILEvent>.Array;
-
-      private static readonly IDictionary<ElementKind, Type> ELEMENT_KIND_BASE_TYPES;
-      private static readonly IDictionary<ElementKind, Func<AbstractCILReflectionContextCache, CILTypeBase, GeneralArrayInfo, CILType[]>> ELEMENT_KIND_INTERFACES;
-      private static readonly IDictionary<ElementKind, TypeAttributes> ELEMENT_KIND_ATTRIBUTES;
-      private static readonly IDictionary<ElementKind, Func<AbstractCILReflectionContextCache, CILTypeBase, Int32, GeneralArrayInfo, CILMethod[]>> ELEMENT_KIND_METHODS;
-      private static readonly IDictionary<ElementKind, Func<AbstractCILReflectionContextCache, CILTypeBase, Int32, GeneralArrayInfo, CILConstructor[]>> ELEMENT_KIND_CTORS;
-      private static readonly IDictionary<ElementKind, Func<AbstractCILReflectionContextCache, CILTypeBase, Int32, GeneralArrayInfo, CILProperty[]>> ELEMENT_KIND_PROPERTIES;
-      private static readonly IDictionary<ElementKind, Func<AbstractCILReflectionContextCache, CILTypeBase, Int32, GeneralArrayInfo, CILEvent[]>> ELEMENT_KIND_EVENTS;
-
-      static AbstractCILReflectionContextCache()
+      private struct ElementTypeCallbacksArgs
       {
-         var dic2 = new Dictionary<ElementKind, Type>();
-         dic2.Add( ElementKind.Array, typeof( System.Array ) );
-         dic2.Add( ElementKind.Pointer, null );
-         dic2.Add( ElementKind.Reference, null );
-         ELEMENT_KIND_BASE_TYPES = dic2;
+         private readonly AbstractCILReflectionContextCache _cache;
+         private readonly CILTypeBase _type;
+         private readonly GeneralArrayInfo _arrayInfo;
+         private readonly Int32 _elementTypeID;
 
-         var dic3 = new Dictionary<ElementKind, Func<AbstractCILReflectionContextCache, CILTypeBase, GeneralArrayInfo, CILType[]>>();
-         dic3.Add( ElementKind.Array, ( cache, type, aInfo ) => ( aInfo != null ? cache._ctx.MultiDimensionalArrayInterfaces : cache._ctx.VectorArrayInterfaces ).Select( iFace =>
+         internal ElementTypeCallbacksArgs( AbstractCILReflectionContextCache cache, CILTypeBase type, GeneralArrayInfo arrayInfo, Int32 elementTypeID )
          {
-            var result = type.Module.AssociatedMSCorLibModule.GetTypeByName( iFace.FullName, false );
-            if ( result != null )
+            this._cache = cache;
+            this._type = type;
+            this._arrayInfo = arrayInfo;
+            this._elementTypeID = elementTypeID;
+         }
+
+         public AbstractCILReflectionContextCache Cache
+         {
+            get
             {
-               if ( iFace
-#if WINDOWS_PHONE_APP
-               .GetTypeInfo()
-#endif
-.IsGenericTypeDefinition )
-               {
-                  result = cache.MakeGenericType( result, result, type );
-               }
+               return this._cache;
             }
-            return result;
-         } ).Where( t => t != null ).ToArray() );
-         dic3.Add( ElementKind.Pointer, ( cache, type, aInfo ) => EMPTY_TYPES );
-         dic3.Add( ElementKind.Reference, ( cache, type, aInfo ) => EMPTY_TYPES );
-         ELEMENT_KIND_INTERFACES = dic3;
+         }
 
-         var dic4 = new Dictionary<ElementKind, TypeAttributes>();
-         dic4.Add( ElementKind.Array, TypeAttributes.Public | TypeAttributes.Sealed | TypeAttributes.Serializable );
-         dic4.Add( ElementKind.Pointer, TypeAttributes.AutoLayout );
-         dic4.Add( ElementKind.Reference, TypeAttributes.AutoLayout );
-         ELEMENT_KIND_ATTRIBUTES = dic4;
-
-         var dic5 = new Dictionary<ElementKind, Func<AbstractCILReflectionContextCache, CILTypeBase, Int32, GeneralArrayInfo, CILMethod[]>>();
-         dic5.Add( ElementKind.Array, ( cache, originalType, elementType, arrayInfo ) =>
+         public CILTypeBase Type
          {
+            get
+            {
+               return this._type;
+            }
+         }
+
+         public GeneralArrayInfo ArrayInfo
+         {
+            get
+            {
+               return this._arrayInfo;
+            }
+         }
+
+         public Int32 ElementTypeID
+         {
+            get
+            {
+               return this._elementTypeID;
+            }
+         }
+      }
+
+      private interface ElementTypeCallbacks
+      {
+         CILType GetElementTypeBaseType( ElementTypeCallbacksArgs args );
+         IEnumerable<CILType> GetElementTypeInterfaces( ElementTypeCallbacksArgs args );
+         TypeAttributes GetElementTypeAttributes( ElementTypeCallbacksArgs args );
+         IEnumerable<CILMethod> GetElementTypeMethods( ElementTypeCallbacksArgs args );
+         IEnumerable<CILConstructor> GetElementTypeConstructors( ElementTypeCallbacksArgs args );
+         IEnumerable<CILProperty> GetElementTypeProperties( ElementTypeCallbacksArgs args );
+         IEnumerable<CILEvent> GetElementTypeEvents( ElementTypeCallbacksArgs args );
+      }
+
+      private sealed class ArrayTypeCallbacks : ElementTypeCallbacks
+      {
+
+         public CILType GetElementTypeBaseType( ElementTypeCallbacksArgs args )
+         {
+            return args.Type.Module.AssociatedMSCorLibModule.GetTypeByName( Consts.ARRAY );
+         }
+
+         public IEnumerable<CILType> GetElementTypeInterfaces( ElementTypeCallbacksArgs args )
+         {
+            var type = args.Type;
+            return ( args.ArrayInfo == null ?
+               args.Cache._ctx.VectorArrayInterfaces :
+               args.Cache._ctx.MultiDimensionalArrayInterfaces )
+               .Select( iFace => type.Module.AssociatedMSCorLibModule.GetTypeByName( iFace.FullName, false ) )
+               .Where( iFace => iFace != null );
+         }
+
+         public TypeAttributes GetElementTypeAttributes( ElementTypeCallbacksArgs args )
+         {
+            return TypeAttributes.Public | TypeAttributes.Sealed | TypeAttributes.Serializable;
+         }
+
+         public IEnumerable<CILMethod> GetElementTypeMethods( ElementTypeCallbacksArgs args )
+         {
+            var cache = args.Cache;
+            var type = args.Type;
+            var elementTypeID = args.ElementTypeID;
             Func<Int32, Int32, CILParameter> intParamFunc = ( methodID, pIdx ) => cache._paramContainer.AcquireNew( pID => new CILParameterImpl(
-                  cache._ctx,
-                  pID,
-                  new Lazy<ListProxy<CILCustomAttribute>>( () => cache._ctx.CollectionsFactory.NewListProxy<CILCustomAttribute>(), LazyThreadSafetyMode.PublicationOnly ),
-                  new SettableValueForEnums<ParameterAttributes>( ParameterAttributes.None ),
-                  pIdx,
-                  new SettableValueForClasses<String>( null ),
-                  () => cache.ResolveMethodBaseID( methodID ),
-                  () => originalType.Module.AssociatedMSCorLibModule.GetTypeByName( Consts.INT32 ),
-                  new SettableLazy<Object>( () => null ),
-                  new Lazy<ListProxy<CILCustomModifier>>( () => cache._ctx.CollectionsFactory.NewListProxy<CILCustomModifier>(), LazyThreadSafetyMode.PublicationOnly ),
-                  new SettableLazy<LogicalMarshalingInfo>( () => null )
-                  )
-             );
+               cache._ctx,
+               pID,
+               new Lazy<ListProxy<CILCustomAttribute>>( () => cache._ctx.CollectionsFactory.NewListProxy<CILCustomAttribute>(), LazyThreadSafetyMode.PublicationOnly ),
+               new SettableValueForEnums<ParameterAttributes>( ParameterAttributes.None ),
+               pIdx,
+               new SettableValueForClasses<String>( null ),
+               () => cache.ResolveMethodBaseID( methodID ),
+               () => type.Module.AssociatedMSCorLibModule.GetTypeByName( Consts.INT32 ),
+               new SettableLazy<Object>( () => null ),
+               new Lazy<ListProxy<CILCustomModifier>>( () => cache._ctx.CollectionsFactory.NewListProxy<CILCustomModifier>(), LazyThreadSafetyMode.PublicationOnly ),
+               new SettableLazy<LogicalMarshalingInfo>( () => null )
+               )
+            );
             Func<Int32, Int32, Boolean, CILParameter> valueParamFunc = ( methodID, pIdx, makeRef ) => cache._paramContainer.AcquireNew( pID => new CILParameterImpl(
                   cache._ctx,
                   pID,
@@ -903,7 +938,7 @@ namespace CILAssemblyManipulator.Logical.Implementation
                   () => cache.ResolveMethodBaseID( methodID ),
                   () =>
                   {
-                     var tR = originalType;
+                     var tR = type;
                      if ( makeRef )
                      {
                         tR = cache.MakeElementType( tR, ElementKind.Reference, null );
@@ -916,15 +951,14 @@ namespace CILAssemblyManipulator.Logical.Implementation
                   )
             );
 
-            var result = new CILMethod[3];
-            var dimSize = arrayInfo == null ? 1 : arrayInfo.Rank;
-            result[0] = (CILMethod) cache._methodContainer.AcquireNew( curMID => new CILMethodImpl(
+            var dimSize = args.ArrayInfo == null ? 1 : args.ArrayInfo.Rank;
+            yield return (CILMethod) cache._methodContainer.AcquireNew( curMID => new CILMethodImpl(
                   cache._ctx,
                   curMID,
                   new Lazy<ListProxy<CILCustomAttribute>>( () => cache._ctx.CollectionsFactory.NewListProxy<CILCustomAttribute>(), LazyThreadSafetyMode.PublicationOnly ),
                   new SettableValueForEnums<CallingConventions>( CallingConventions.HasThis | CallingConventions.Standard ),
                   new SettableValueForEnums<MethodAttributes>( MethodAttributes.FamANDAssem | MethodAttributes.Family ),
-                  () => (CILType) cache.ResolveTypeID( elementType ),
+                  () => (CILType) cache.ResolveTypeID( elementTypeID ),
                   () => cache._ctx.CollectionsFactory.NewListProxy<CILParameter>( Enumerable.Range( 0, dimSize + 1 )
                      .Select( pIdx => pIdx < dimSize ? intParamFunc( curMID, pIdx ) : valueParamFunc( curMID, pIdx, false ) )
                      .ToList() ),
@@ -939,7 +973,7 @@ namespace CILAssemblyManipulator.Logical.Implementation
                         E_CILLogical.RETURN_PARAMETER_POSITION,
                         new SettableValueForClasses<String>( null ),
                         () => cache.ResolveMethodBaseID( curMID ),
-                        () => originalType.Module.AssociatedMSCorLibModule.GetTypeByName( Consts.VOID ),
+                        () => type.Module.AssociatedMSCorLibModule.GetTypeByName( Consts.VOID ),
                         new SettableLazy<Object>( () => null ),
                         new Lazy<ListProxy<CILCustomModifier>>( () => cache._ctx.CollectionsFactory.NewListProxy<CILCustomModifier>(), LazyThreadSafetyMode.PublicationOnly ),
                         new SettableLazy<LogicalMarshalingInfo>( () => null )
@@ -949,13 +983,13 @@ namespace CILAssemblyManipulator.Logical.Implementation
                   () => null
                   )
             );
-            result[1] = (CILMethod) cache._methodContainer.AcquireNew( curMID => new CILMethodImpl(
+            yield return (CILMethod) cache._methodContainer.AcquireNew( curMID => new CILMethodImpl(
                   cache._ctx,
                   curMID,
                   new Lazy<ListProxy<CILCustomAttribute>>( () => cache._ctx.CollectionsFactory.NewListProxy<CILCustomAttribute>(), LazyThreadSafetyMode.PublicationOnly ),
                   new SettableValueForEnums<CallingConventions>( CallingConventions.HasThis | CallingConventions.Standard ),
                   new SettableValueForEnums<MethodAttributes>( MethodAttributes.FamANDAssem | MethodAttributes.Family ),
-                  () => (CILType) cache.ResolveTypeID( elementType ),
+                  () => (CILType) cache.ResolveTypeID( elementTypeID ),
                   () => cache._ctx.CollectionsFactory.NewListProxy<CILParameter>( Enumerable.Range( 0, dimSize ).Select( pIdx => intParamFunc( curMID, pIdx ) ).ToList() ),
                   new SettableLazy<MethodImplAttributes>( () => MethodImplAttributes.IL ),
                   null,
@@ -965,13 +999,14 @@ namespace CILAssemblyManipulator.Logical.Implementation
                   () => null
                   )
             );
-            result[2] = (CILMethod) cache._methodContainer.AcquireNew( curMID => new CILMethodImpl(
+
+            yield return (CILMethod) cache._methodContainer.AcquireNew( curMID => new CILMethodImpl(
                   cache._ctx,
                   curMID,
                   new Lazy<ListProxy<CILCustomAttribute>>( () => cache._ctx.CollectionsFactory.NewListProxy<CILCustomAttribute>(), LazyThreadSafetyMode.PublicationOnly ),
                   new SettableValueForEnums<CallingConventions>( CallingConventions.HasThis | CallingConventions.Standard ),
                   new SettableValueForEnums<MethodAttributes>( MethodAttributes.FamANDAssem | MethodAttributes.Family ),
-                  () => (CILType) cache.ResolveTypeID( elementType ),
+                  () => (CILType) cache.ResolveTypeID( elementTypeID ),
                   () => cache._ctx.CollectionsFactory.NewListProxy<CILParameter>( Enumerable.Range( 0, dimSize ).Select( pIdx => intParamFunc( curMID, pIdx ) ).ToList() ),
                   new SettableLazy<MethodImplAttributes>( () => MethodImplAttributes.IL ),
                   null,
@@ -981,31 +1016,30 @@ namespace CILAssemblyManipulator.Logical.Implementation
                   () => null
                   )
             );
-            return result;
-         } );
-         dic5.Add( ElementKind.Pointer, ( cache, originalType, elementType, arrayRank ) => EMPTY_METHODS );
-         dic5.Add( ElementKind.Reference, ( cache, originalType, elementType, arrayRank ) => EMPTY_METHODS );
-         ELEMENT_KIND_METHODS = dic5;
 
-         var dic6 = new Dictionary<ElementKind, Func<AbstractCILReflectionContextCache, CILTypeBase, Int32, GeneralArrayInfo, CILConstructor[]>>();
-         dic6.Add( ElementKind.Array, ( cache, originalType, elementType, arrayInfo ) =>
+         }
+
+         public IEnumerable<CILConstructor> GetElementTypeConstructors( ElementTypeCallbacksArgs args )
          {
+            var cache = args.Cache;
+            var type = args.Type;
+
             Func<Int32, Int32, CILParameter> intParamFunc = ( methodID, pIdx ) => cache._paramContainer.AcquireNew( pID => new CILParameterImpl(
-                  cache._ctx,
-                  pID,
-                  new Lazy<ListProxy<CILCustomAttribute>>( () => cache._ctx.CollectionsFactory.NewListProxy<CILCustomAttribute>(), LazyThreadSafetyMode.PublicationOnly ),
-                  new SettableValueForEnums<ParameterAttributes>( ParameterAttributes.None ),
-                  pIdx,
-                  new SettableValueForClasses<String>( null ),
-                  () => cache.ResolveMethodBaseID( methodID ),
-                  () => originalType.Module.AssociatedMSCorLibModule.GetTypeByName( Consts.INT32 ),
-                  new SettableLazy<Object>( () => null ),
-                  new Lazy<ListProxy<CILCustomModifier>>( () => cache._ctx.CollectionsFactory.NewListProxy<CILCustomModifier>(), LazyThreadSafetyMode.PublicationOnly ),
-                  new SettableLazy<LogicalMarshalingInfo>( () => null )
-                  )
+               cache._ctx,
+               pID,
+               new Lazy<ListProxy<CILCustomAttribute>>( () => cache._ctx.CollectionsFactory.NewListProxy<CILCustomAttribute>(), LazyThreadSafetyMode.PublicationOnly ),
+               new SettableValueForEnums<ParameterAttributes>( ParameterAttributes.None ),
+               pIdx,
+               new SettableValueForClasses<String>( null ),
+               () => cache.ResolveMethodBaseID( methodID ),
+               () => type.Module.AssociatedMSCorLibModule.GetTypeByName( Consts.INT32 ),
+               new SettableLazy<Object>( () => null ),
+               new Lazy<ListProxy<CILCustomModifier>>( () => cache._ctx.CollectionsFactory.NewListProxy<CILCustomModifier>(), LazyThreadSafetyMode.PublicationOnly ),
+               new SettableLazy<LogicalMarshalingInfo>( () => null )
+               )
             );
 
-            var curType = originalType as CILType;
+            var curType = type as CILType;
             Stack<Int32> stk = null;
             if ( curType != null && ElementKind.Array == curType.ElementKind && curType.ArrayInformation != null )
             {
@@ -1021,7 +1055,7 @@ namespace CILAssemblyManipulator.Logical.Implementation
 
             Int32 amountOfParams;
             Int32 amountOfCtors;
-            var dimSize = arrayInfo == null ? 1 : arrayInfo.Rank;
+            var dimSize = args.ArrayInfo == null ? 1 : args.ArrayInfo.Rank;
             if ( stk != null && dimSize == 1 )
             {
                amountOfCtors = dimSize == 1 ? 1 : 0;
@@ -1043,39 +1077,76 @@ namespace CILAssemblyManipulator.Logical.Implementation
                amountOfParams = dimSize == 1 && stk != null ? stk.Last() : dimSize;
             }
 
-            return Enumerable.Range( 1, amountOfCtors ).Select( cIdx => (CILConstructor) cache._methodContainer.AcquireNew( ctorID => new CILConstructorImpl(
-                  cache._ctx,
-                  ctorID,
-                  new Lazy<ListProxy<CILCustomAttribute>>( () => cache._ctx.CollectionsFactory.NewListProxy<CILCustomAttribute>(), LazyThreadSafetyMode.PublicationOnly ),
-                  new SettableValueForEnums<CallingConventions>( CallingConventions.HasThis | CallingConventions.Standard ),
-                  new SettableValueForEnums<MethodAttributes>( MethodAttributes.FamANDAssem | MethodAttributes.Family | MethodAttributes.RTSpecialName ),
-                  () => (CILType) cache.ResolveTypeID( elementType ),
-                  () => cache._ctx.CollectionsFactory.NewListProxy<CILParameter>( Enumerable.Range( 0, amountOfParams * cIdx ).Select( pIdx => intParamFunc( ctorID, pIdx ) ).ToList() ),
-                  null,
-                  new SettableLazy<MethodImplAttributes>( () => MethodImplAttributes.IL ),
-                  null,
-                  false
-               )
-            ) ).ToArray();
-         } );
-         dic6.Add( ElementKind.Pointer, ( cache, originalType, elementType, arrayInfo ) => EMPTY_CTORS );
-         dic6.Add( ElementKind.Reference, ( cache, originalType, elementType, arrayInfo ) => EMPTY_CTORS );
-         ELEMENT_KIND_CTORS = dic6;
+            var elementTypeID = args.ElementTypeID;
 
-         var dic7 = new Dictionary<ElementKind, Func<AbstractCILReflectionContextCache, CILTypeBase, Int32, GeneralArrayInfo, CILProperty[]>>();
-         dic7.Add( ElementKind.Array, ( cache, originalType, elementType, arrayInfo ) =>
+            for ( var i = 0; i < amountOfCtors; ++i )
+            {
+               var curIdx = i;
+               yield return (CILConstructor) cache._methodContainer.AcquireNew( ctorID => new CILConstructorImpl(
+                     cache._ctx,
+                     ctorID,
+                     new Lazy<ListProxy<CILCustomAttribute>>( () => cache._ctx.CollectionsFactory.NewListProxy<CILCustomAttribute>(), LazyThreadSafetyMode.PublicationOnly ),
+                     new SettableValueForEnums<CallingConventions>( CallingConventions.HasThis | CallingConventions.Standard ),
+                     new SettableValueForEnums<MethodAttributes>( MethodAttributes.FamANDAssem | MethodAttributes.Family | MethodAttributes.RTSpecialName ),
+                     () => (CILType) cache.ResolveTypeID( elementTypeID ),
+                     () => cache._ctx.CollectionsFactory.NewListProxy<CILParameter>( Enumerable.Range( 0, amountOfParams * curIdx ).Select( pIdx => intParamFunc( ctorID, pIdx ) ).ToList() ),
+                     null,
+                     new SettableLazy<MethodImplAttributes>( () => MethodImplAttributes.IL ),
+                     null,
+                     false
+                  )
+               );
+            }
+         }
+
+         public IEnumerable<CILProperty> GetElementTypeProperties( ElementTypeCallbacksArgs args )
          {
-            return EMPTY_PROPERTIES;
-         } );
-         dic7.Add( ElementKind.Pointer, ( cache, originalType, elementType, arrayInfo ) => EMPTY_PROPERTIES );
-         dic7.Add( ElementKind.Reference, ( cache, originalType, elementType, arrayInfo ) => EMPTY_PROPERTIES );
-         ELEMENT_KIND_PROPERTIES = dic7;
+            yield break;
+         }
 
-         var dic8 = new Dictionary<ElementKind, Func<AbstractCILReflectionContextCache, CILTypeBase, Int32, GeneralArrayInfo, CILEvent[]>>();
-         dic8.Add( ElementKind.Array, ( cache, originalType, elementType, arrayInfo ) => EMPTY_EVENTS );
-         dic8.Add( ElementKind.Pointer, ( cache, originalType, elementType, arrayInfo ) => EMPTY_EVENTS );
-         dic8.Add( ElementKind.Reference, ( cache, originalType, elementType, arrayInfo ) => EMPTY_EVENTS );
-         ELEMENT_KIND_EVENTS = dic8;
+         public IEnumerable<CILEvent> GetElementTypeEvents( ElementTypeCallbacksArgs args )
+         {
+            yield break;
+         }
+      }
+
+      private sealed class PointerOrByRefTypeCallbacks : ElementTypeCallbacks
+      {
+
+         public CILType GetElementTypeBaseType( ElementTypeCallbacksArgs args )
+         {
+            return null;
+         }
+
+         public IEnumerable<CILType> GetElementTypeInterfaces( ElementTypeCallbacksArgs args )
+         {
+            yield break;
+         }
+
+         public TypeAttributes GetElementTypeAttributes( ElementTypeCallbacksArgs args )
+         {
+            return TypeAttributes.AutoLayout;
+         }
+
+         public IEnumerable<CILMethod> GetElementTypeMethods( ElementTypeCallbacksArgs args )
+         {
+            yield break;
+         }
+
+         public IEnumerable<CILConstructor> GetElementTypeConstructors( ElementTypeCallbacksArgs args )
+         {
+            yield break;
+         }
+
+         public IEnumerable<CILProperty> GetElementTypeProperties( ElementTypeCallbacksArgs args )
+         {
+            yield break;
+         }
+
+         public IEnumerable<CILEvent> GetElementTypeEvents( ElementTypeCallbacksArgs args )
+         {
+            yield break;
+         }
       }
 
       private readonly ISimpleCache<System.Reflection.Assembly, CILAssembly> _assemblies;
@@ -1103,6 +1174,8 @@ namespace CILAssemblyManipulator.Logical.Implementation
       private readonly ListHolder<CILParameter> _paramContainer;
       private readonly ListHolder<CILProperty> _propertyContainer;
       private readonly ListHolder<CILEvent> _eventContainer;
+
+      private readonly IDictionary<ElementKind, ElementTypeCallbacks> _elementTypeCallbacks;
 
       private readonly CILReflectionContextImpl _ctx;
 
@@ -1145,6 +1218,13 @@ namespace CILAssemblyManipulator.Logical.Implementation
          ArgumentValidator.ValidateNotNull( "Event container", eventContainer );
 
          this._ctx = ctx;
+
+         this._elementTypeCallbacks = new Dictionary<ElementKind, ElementTypeCallbacks>()
+         {
+            { ElementKind.Array, new ArrayTypeCallbacks() },
+            { ElementKind.Pointer, new PointerOrByRefTypeCallbacks() },
+            { ElementKind.Reference, new PointerOrByRefTypeCallbacks() }
+         };
 
          this._assemblyContainer = assemblyContainer;
          this._moduleContainer = moduleContainer;
@@ -1707,7 +1787,17 @@ namespace CILAssemblyManipulator.Logical.Implementation
 
       private CILTypeBase CreateNewElementType( CILTypeBase type, ElementKind kind, GeneralArrayInfo arrayInfo )
       {
-         return this._typeContainer.AcquireNew( id => new CILTypeImpl(
+         ElementTypeCallbacks callbacks;
+         if ( !this._elementTypeCallbacks.TryGetValue( kind, out callbacks ) || callbacks == null )
+         {
+            throw new InvalidOperationException( "Element kind " + kind + " is not supported." );
+         }
+
+         return this._typeContainer.AcquireNew( id =>
+         {
+            var args = new ElementTypeCallbacksArgs( this, type, arrayInfo, id );
+
+            return new CILTypeImpl(
                this._ctx,
                id,
                new Lazy<ListProxy<CILCustomAttribute>>( () => this._ctx.CollectionsFactory.NewListProxy<CILCustomAttribute>(), LazyThreadSafetyMode.PublicationOnly ),
@@ -1716,9 +1806,9 @@ namespace CILAssemblyManipulator.Logical.Implementation
                ( (CILTypeBaseInternal) type ).NamespaceInternal,
                () => type.Module,
                () => null,
-               () => ELEMENT_KIND_BASE_TYPES[kind] == null ? null : type.Module.AssociatedMSCorLibModule.GetTypeByName( ELEMENT_KIND_BASE_TYPES[kind].FullName ),
-               () => this._ctx.CollectionsFactory.NewListProxy<CILType>( ELEMENT_KIND_INTERFACES[kind]( this, type, arrayInfo ).ToList() ),
-               new SettableValueForEnums<TypeAttributes>( ELEMENT_KIND_ATTRIBUTES[kind] ),
+               () => callbacks.GetElementTypeBaseType( args ),
+               () => this._ctx.CollectionsFactory.NewListProxy<CILType>( callbacks.GetElementTypeInterfaces( args ).ToList() ),
+               new SettableValueForEnums<TypeAttributes>( callbacks.GetElementTypeAttributes( args ) ),
                kind,
                arrayInfo,
                () => this._ctx.CollectionsFactory.NewListProxy<CILTypeBase>(),
@@ -1726,13 +1816,14 @@ namespace CILAssemblyManipulator.Logical.Implementation
                new Lazy<ListProxy<CILType>>( () => this._ctx.CollectionsFactory.NewListProxy<CILType>(), LazyThreadSafetyMode.PublicationOnly ),
                () => this._ctx.CollectionsFactory.NewListProxy<CILField>(),
                () => type,
-               () => this._ctx.CollectionsFactory.NewListProxy<CILMethod>( ELEMENT_KIND_METHODS[kind]( this, type, id, arrayInfo ).ToList() ),
-               () => this._ctx.CollectionsFactory.NewListProxy<CILConstructor>( ELEMENT_KIND_CTORS[kind]( this, type, id, arrayInfo ).ToList() ),
-               () => this._ctx.CollectionsFactory.NewListProxy<CILProperty>( ELEMENT_KIND_PROPERTIES[kind]( this, type, id, arrayInfo ).ToList() ),
-               () => this._ctx.CollectionsFactory.NewListProxy<CILEvent>( ELEMENT_KIND_EVENTS[kind]( this, type, id, arrayInfo ).ToList() ),
+               () => this._ctx.CollectionsFactory.NewListProxy<CILMethod>( callbacks.GetElementTypeMethods( args ).ToList() ),
+               () => this._ctx.CollectionsFactory.NewListProxy<CILConstructor>( callbacks.GetElementTypeConstructors( args ).ToList() ),
+               () => this._ctx.CollectionsFactory.NewListProxy<CILProperty>( callbacks.GetElementTypeProperties( args ).ToList() ),
+               () => this._ctx.CollectionsFactory.NewListProxy<CILEvent>( callbacks.GetElementTypeEvents( args ).ToList() ),
                new SettableLazy<LogicalClassLayout?>( () => null ),
                null
-            ) );
+            );
+         } );
       }
 
       private CILField CreateNewFieldWithDifferentDeclaringTypeGArgs( CILType gDef, CILField field, CILTypeBase[] gArgs )

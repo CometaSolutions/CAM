@@ -67,7 +67,7 @@ namespace CILAssemblyManipulator.Logical
       /// </summary>
       /// <param name="typeString">The textual name of the type.</param>
       /// <param name="throwOnError">Whether to throw an exception if matching type is not found.</param>
-      /// <returns>The resolved <see cref="CILType"/>.</returns>
+      /// <returns>The resolved <see cref="CILType"/>, or <c>null</c> if <paramref name="throwOnError"/> is <c>false</c> and type could not be resolved.</returns>
       /// <exception cref="ArgumentException">If <paramref name="throwOnError"/> is <c>true</c> and <see cref="CILType"/> could not be resolved for <paramref name="typeString"/>.</exception>
       CILType GetTypeByName( String typeString, Boolean throwOnError = true );
 
