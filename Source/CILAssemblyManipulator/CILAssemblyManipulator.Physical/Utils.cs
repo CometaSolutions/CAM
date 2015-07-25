@@ -456,19 +456,21 @@ namespace CILAssemblyManipulator.Physical
          return new String( charBuf, 0, charBufSize );
       }
 
-      //// For some reason, this method is missing from PCL
-      //internal static Int32 FindIndex<T>( this IList<T> list, Predicate<T> match )
-      //{
-      //   var max = list.Count;
-      //   for ( var i = 0; i < max; ++i )
-      //   {
-      //      if ( match( list[i] ) )
-      //      {
-      //         return i;
-      //      }
-      //   }
-      //   return -1;
-      //}
+#if CAM_PHYSICAL_IS_PORTABLE
+      // For some reason, this method is missing from PCL
+      internal static Int32 FindIndex<T>( this IList<T> list, Predicate<T> match )
+      {
+         var max = list.Count;
+         for ( var i = 0; i < max; ++i )
+         {
+            if ( match( list[i] ) )
+            {
+               return i;
+            }
+         }
+         return -1;
+      }
+#endif
 
       //internal static IEnumerable<Int32> GetReferencingRowsFromOrdered<T>( this IList<T> array, Tables targetTable, Int32 targetIndex, Func<T, TableIndex> fullIndexExtractor )
       //{

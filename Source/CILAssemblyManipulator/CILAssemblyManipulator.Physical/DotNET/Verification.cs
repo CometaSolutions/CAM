@@ -102,7 +102,7 @@ namespace CILAssemblyManipulator.Physical
             throw new Exception( "PEVerify file \"" + peVerifyPath + "\" does not exist." );
          }
 
-         return peVerifyError != null && strongNameError != null;
+         return peVerifyError != null || strongNameError != null;
       }
 
       public static void RunPEVerify(

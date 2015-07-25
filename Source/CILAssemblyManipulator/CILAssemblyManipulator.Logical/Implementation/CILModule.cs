@@ -16,7 +16,6 @@
  * limitations under the License. 
  */
 using System;
-using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text.RegularExpressions;
@@ -24,6 +23,10 @@ using System.Threading;
 using CommonUtils;
 using CILAssemblyManipulator.Physical;
 using CollectionsWithRoles.API;
+
+#if !CAM_LOGICAL_IS_SL
+using System.Collections.Concurrent;
+#endif
 
 namespace CILAssemblyManipulator.Logical.Implementation
 {
@@ -36,7 +39,11 @@ namespace CILAssemblyManipulator.Logical.Implementation
       private readonly Lazy<ListProxy<CILType>> types;
       private readonly Lazy<CILType> moduleInitializer;
       private readonly SettableLazy<CILModule> associatedMSCorLib;
+#if CAM_LOGICAL_IS_SL
+      private readonly Dictionary<String, CILType> typeNameCache;
+#else
       private readonly ConcurrentDictionary<String, CILType> typeNameCache;
+#endif
       private readonly IDictionary<String, AbstractLogicalManifestResource> manifestResources;
 
       internal CILModuleImpl( CILReflectionContextImpl ctx, Int32 anID, System.Reflection.Module mod )
@@ -115,8 +122,12 @@ namespace CILAssemblyManipulator.Logical.Implementation
          ref Lazy<ListProxy<CILType>> types,
          ref Lazy<CILType> moduleInitializer,
          ref SettableLazy<CILModule> associatedMSCorLib,
-         ref ConcurrentDictionary<String, CILType> typeNameCache,
-         ref IDictionary<String, AbstractLogicalManifestResource> manifestResources,
+#if CAM_LOGICAL_IS_SL
+         ref Dictionary<String, CILType> typeNameCache,
+#else
+ ref ConcurrentDictionary<String, CILType> typeNameCache,
+#endif
+ ref IDictionary<String, AbstractLogicalManifestResource> manifestResources,
          String aName,
          Func<CILAssembly> assemblyFunc,
          Func<ListProxy<CILType>> typesFunc,
@@ -131,7 +142,13 @@ namespace CILAssemblyManipulator.Logical.Implementation
          types = new Lazy<ListProxy<CILType>>( typesFunc, LazyThreadSafetyMode.PublicationOnly );
          moduleInitializer = new Lazy<CILType>( moduleInitializerFunc, LazyThreadSafetyMode.ExecutionAndPublication );
          associatedMSCorLib = new SettableLazy<CILModule>( associatedMSCorLibFunc );
-         typeNameCache = new ConcurrentDictionary<String, CILType>();
+         typeNameCache =
+#if CAM_LOGICAL_IS_SL
+            new Dictionary<String, CILType>()
+#else
+ new ConcurrentDictionary<String, CILType>()
+#endif
+;
          manifestResources = mResources ?? new Dictionary<String, AbstractLogicalManifestResource>();
       }
 
@@ -177,8 +194,16 @@ namespace CILAssemblyManipulator.Logical.Implementation
 
       internal void TypeNameChanged( String oldName )
       {
+         // TODO don't lock if not context is not concurrent.
+#if CAM_LOGICAL_IS_SL
+         lock( this.typeNameCache )
+         {
+            this.typeNameCache.Remove( oldName );
+         }
+#else
          CILType dummy;
          this.typeNameCache.TryRemove( oldName, out dummy );
+#endif
       }
 
       #region CILModule Members
@@ -242,6 +267,12 @@ namespace CILAssemblyManipulator.Logical.Implementation
          CILType result;
          if ( !this.typeNameCache.TryGetValue( typeString, out result ) )
          {
+#if CAM_LOGICAL_IS_SL
+            lock( this.typeNameCache )
+            {
+               if ( !this.typeNameCache.TryGetValue( typeString, out result ) )
+               {
+#endif
             result = this.FindTypeByName( typeString );
             if ( throwOnError && result == null )
             {
@@ -249,8 +280,16 @@ namespace CILAssemblyManipulator.Logical.Implementation
             }
             if ( result != null )
             {
+#if CAM_LOGICAL_IS_SL
+               this.typeNameCache.Add( typeString, result );
+#else
                this.typeNameCache.TryAdd( typeString, result );
+#endif
             }
+#if CAM_LOGICAL_IS_SL
+               }
+            }
+#endif
          }
          return result;
       }
@@ -286,14 +325,6 @@ namespace CILAssemblyManipulator.Logical.Implementation
             nType = tn;
          }
          return result;
-      }
-
-      internal ConcurrentDictionary<String, CILType> TypeNameCache
-      {
-         get
-         {
-            return this.typeNameCache;
-         }
       }
    }
 }

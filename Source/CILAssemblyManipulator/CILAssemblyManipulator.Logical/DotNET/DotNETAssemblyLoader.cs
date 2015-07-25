@@ -15,7 +15,7 @@
 // * See the License for the specific language governing permissions and
 // * limitations under the License. 
 // */
-//#if !CAM_LOGICAL_IS_PORTABLE
+//#if CAM_LOGICAL_IS_DOT_NET
 //using System;
 //using System.Collections.Generic;
 //using System.Linq;

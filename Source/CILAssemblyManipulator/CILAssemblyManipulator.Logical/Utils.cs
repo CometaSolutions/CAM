@@ -693,8 +693,12 @@ namespace CILAssemblyManipulator.Logical
       // Mofidied from http://stackoverflow.com/questions/1068541/how-to-convert-a-value-type-to-byte-in-c
       internal static Byte[] ObjectToByteArray( Object value )
       {
+         // TODO SL (get thru context?)
+#if CAM_LOGICAL_IS_SL
+         return null;
+#else
          var rawsize = Marshal.SizeOf( value );
-         var rawdata = new byte[rawsize];
+         var rawdata = new Byte[rawsize];
          var handle =
              GCHandle.Alloc( rawdata,
              GCHandleType.Pinned );
@@ -709,6 +713,7 @@ namespace CILAssemblyManipulator.Logical
             handle.Free();
          }
          return rawdata;
+#endif
       }
 
    }

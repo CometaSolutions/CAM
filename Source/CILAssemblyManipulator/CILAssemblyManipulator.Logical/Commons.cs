@@ -639,6 +639,8 @@ namespace CILAssemblyManipulator.Logical
          return new LogicalMarshalingInfo( UnmanagedType.CustomMarshaler, VarEnum.VT_EMPTY, null, NO_INDEX, NATIVE_TYPE_MAX, NO_INDEX, NO_INDEX, customMarshalerTypeName, customMarshaler, marshalCookie );
       }
 
+#if !CAM_LOGICAL_IS_SL
+
       /// <summary>
       /// Creates <see cref="MarshalingInfo"/> with all information specified in <see cref="System.Runtime.InteropServices.MarshalAsAttribute"/>.
       /// </summary>
@@ -667,6 +669,9 @@ namespace CILAssemblyManipulator.Logical
          }
          return result;
       }
+
+#endif
+
    }
 
    /// <summary>

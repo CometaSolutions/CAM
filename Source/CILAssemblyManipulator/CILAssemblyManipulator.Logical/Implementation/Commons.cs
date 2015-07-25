@@ -77,8 +77,8 @@ namespace CILAssemblyManipulator.Logical.Implementation
             {
                var evtArgs = evtArgsFunc();
                ctx.LaunchCustomAttributeDataLoadEvent( evtArgs );
-               var thisElement = (CILCustomAttributeContainer) this.context.Cache.ResolveAnyID( this.cilKind, this.id );
-               return ctx.CollectionsFactory.NewListProxy<CILCustomAttribute>( new List<CILCustomAttribute>( evtArgs.CustomAttributeData.Select( tuple => CILCustomAttributeFactory.NewAttribute( thisElement, tuple.Item1, tuple.Item2, tuple.Item3 ) ) ) );
+               //var thisElement = (CILCustomAttributeContainer) this.context.Cache.ResolveAnyID( this.cilKind, this.id );
+               return ctx.CollectionsFactory.NewListProxy<CILCustomAttribute>( new List<CILCustomAttribute>( evtArgs.CustomAttributeData.Select( tuple => CILCustomAttributeFactory.NewAttribute( this, tuple.Item1, tuple.Item2, tuple.Item3 ) ) ) );
             }, LazyThreadSafetyMode.PublicationOnly )
             );
       }

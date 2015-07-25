@@ -152,7 +152,14 @@ namespace CILAssemblyManipulator.Logical.Implementation
             () => ctx.Cache.GetOrAdd( parameter.ParameterType ),
             new SettableLazy<Object>( () => ctx.LaunchConstantValueLoadEvent( new ConstantValueLoadArgs( parameter ) ) ),
             ctx.LaunchEventAndCreateCustomModifiers( new CustomModifierEventLoadArgs( parameter ) ),
-            new SettableLazy<LogicalMarshalingInfo>( () => LogicalMarshalingInfo.FromAttribute( parameter.GetCustomAttributes( true ).OfType<System.Runtime.InteropServices.MarshalAsAttribute>().FirstOrDefault(), ctx ) ),
+            new SettableLazy<LogicalMarshalingInfo>( () =>
+            {
+#if CAM_LOGICAL_IS_SL
+               throw new NotImplementedException( "Not yet implemented in this platform." );
+#else
+               return LogicalMarshalingInfo.FromAttribute( parameter.GetCustomAttributes( true ).OfType<System.Runtime.InteropServices.MarshalAsAttribute>().FirstOrDefault(), ctx );
+#endif
+            } ),
             true
             );
       }

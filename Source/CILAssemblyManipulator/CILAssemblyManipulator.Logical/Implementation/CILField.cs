@@ -86,7 +86,14 @@ namespace CILAssemblyManipulator.Logical.Implementation
                var offset = field.GetCustomAttributes( true ).OfType<System.Runtime.InteropServices.FieldOffsetAttribute>().FirstOrDefault();
                return offset == null ? -1 : offset.Value;
             } ),
-            new SettableLazy<LogicalMarshalingInfo>( () => LogicalMarshalingInfo.FromAttribute( field.GetCustomAttributes( true ).OfType<System.Runtime.InteropServices.MarshalAsAttribute>().FirstOrDefault(), ctx ) ),
+            new SettableLazy<LogicalMarshalingInfo>( () =>
+            {
+#if CAM_LOGICAL_IS_SL
+               throw new NotImplementedException( "Not yet implemented in this platform." );
+#else
+               return LogicalMarshalingInfo.FromAttribute( field.GetCustomAttributes( true ).OfType<System.Runtime.InteropServices.MarshalAsAttribute>().FirstOrDefault(), ctx );
+#endif
+            } ),
             true
             );
       }

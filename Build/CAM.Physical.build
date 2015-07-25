@@ -80,10 +80,10 @@
     <NuSpec_Summary>The CAMPhysical MSBuild task utilizes CILAssemblyManipulator project to perform the merge.</NuSpec_Summary>
     <NuSpec_Tags>clr .net cil il assembly code emit generate read freeform</NuSpec_Tags>
     <NuSpec_FilesXML><![CDATA[
-      <file src="$(CAMPhysicalBaseDirNuSpec)\Output\Release\SL\CILAssemblyManipulator.Physical.Portable.dll" target="lib\portable-net40+sl50+win+wp80\CILAssemblyManipulator.Physical.dll" />
-      <file src="$(CAMPhysicalBaseDirNuSpec)\Output\Release\SL\CILAssemblyManipulator.Physical.xml" target="lib\portable-net40+sl50+win+wp80\CILAssemblyManipulator.Physical.xml" />
-      <file src="$(CAMPhysicalBaseDirNuSpec)\Output\Release\dotNET\CILAssemblyManipulator.Physical.DotNET.dll" target="lib\net40\CILAssemblyManipulator.Physical.dll" />
-      <file src="$(CAMPhysicalBaseDirNuSpec)\Output\Release\dotNET\CILAssemblyManipulator.Physical.xml" target="lib\net40\CILAssemblyManipulator.Physical.xml" />
+      <file src="$(CAMPhysicalBaseDirNuSpec)\Output\Release\SL\Merged\CILAssemblyManipulator.Physical.dll" target="lib\portable-net40+sl50+win+wp80\CILAssemblyManipulator.Physical.dll" />
+      <file src="$(CAMPhysicalBaseDirNuSpec)\Output\Release\SL\Merged\CILAssemblyManipulator.Physical.xml" target="lib\portable-net40+sl50+win+wp80\CILAssemblyManipulator.Physical.xml" />
+      <file src="$(CAMPhysicalBaseDirNuSpec)\Output\Release\dotNET\Merged\CILAssemblyManipulator.Physical.dll" target="lib\net40\CILAssemblyManipulator.Physical.dll" />
+      <file src="$(CAMPhysicalBaseDirNuSpec)\Output\Release\dotNET\Merged\CILAssemblyManipulator.Physical.xml" target="lib\net40\CILAssemblyManipulator.Physical.xml" />
     ]]></NuSpec_FilesXML>
     <NuSpec_DependenciesXML><![CDATA[
       <group>

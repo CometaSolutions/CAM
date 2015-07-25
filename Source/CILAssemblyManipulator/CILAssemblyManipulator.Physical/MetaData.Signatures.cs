@@ -1257,6 +1257,41 @@ namespace CILAssemblyManipulator.Physical
          };
       }
 
+#if !CAM_PHYSICAL_IS_PORTABLE
+
+      /// <summary>
+      /// Creates <see cref="MarshalingInfo"/> with all information specified in <see cref="System.Runtime.InteropServices.MarshalAsAttribute"/>.
+      /// </summary>
+      /// <param name="attr">The <see cref="System.Runtime.InteropServices.MarshalAsAttribute"/>. If <c>null</c>, then the result will be <c>null</c> as well.</param>
+      /// <returns>A new <see cref="MarshalingInfo"/> with given information.</returns>
+      /// <exception cref="ArgumentNullException">If <paramref name="attr"/> has non-<c>null</c> <see cref="System.Runtime.InteropServices.MarshalAsAttribute.SafeArrayUserDefinedSubType"/>, <see cref="System.Runtime.InteropServices.MarshalAsAttribute.MarshalType"/> or <see cref="System.Runtime.InteropServices.MarshalAsAttribute.MarshalTypeRef"/> fields, and <paramref name="ctx"/> is <c>null</c>.</exception>
+      public static MarshalingInfo FromAttribute( System.Runtime.InteropServices.MarshalAsAttribute attr )
+      {
+         MarshalingInfo result;
+         if ( attr == null )
+         {
+            result = null;
+         }
+         else
+         {
+            result = new MarshalingInfo()
+            {
+               Value = (UnmanagedType) attr.Value,
+               SafeArrayType = (VarEnum) attr.SafeArraySubType,
+               SafeArrayUserDefinedType = attr.SafeArrayUserDefinedSubType.AssemblyQualifiedName,
+               IIDParameterIndex = attr.IidParameterIndex,
+               ArrayType = (UnmanagedType) attr.ArraySubType,
+               SizeParameterIndex = attr.SizeParamIndex,
+               ConstSize = attr.SizeConst,
+               MarshalType = attr.MarshalType,
+               MarshalCookie = attr.MarshalCookie
+            };
+         }
+         return result;
+      }
+
+#endif
+
       public static MarshalingInfo ReadFromBytes( Byte[] sig, Int32 idx )
       {
          return ReadFromBytesWithRef( sig, ref idx );

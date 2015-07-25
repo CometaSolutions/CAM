@@ -422,7 +422,11 @@ namespace CILAssemblyManipulator.Logical.Implementation
                {
                   var args = new TypeLayoutEventArgs( type );
                   ctx.LaunchTypeLayoutLoadEvent( args );
-                  return args.Layout == null ? (LogicalClassLayout?) null : new LogicalClassLayout( args.Layout.Size, args.Layout.Pack );
+                  return args.Layout == null ? (LogicalClassLayout?) null : new LogicalClassLayout( args.Layout.Size
+#if !CAM_LOGICAL_IS_SL
+, args.Layout.Pack
+#endif
+ );
                }
                else
                {

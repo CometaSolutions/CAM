@@ -16,7 +16,6 @@
  * limitations under the License. 
  */
 using System;
-using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
@@ -25,6 +24,10 @@ using CollectionsWithRoles.API;
 using CollectionsWithRoles.Implementation;
 using CommonUtils;
 using CILAssemblyManipulator.Physical;
+
+#if !CAM_LOGICAL_IS_SL
+using System.Collections.Concurrent;
+#endif
 
 namespace CILAssemblyManipulator.Logical.Implementation
 {
@@ -96,8 +99,6 @@ namespace CILAssemblyManipulator.Logical.Implementation
          }
       }
 
-      private static readonly System.Reflection.MethodInfo[] EMPTY_METHODS = new System.Reflection.MethodInfo[0];
-
       private readonly CollectionsFactory _cf;
       private readonly AbstractCILReflectionContextCache _cache;
       private readonly CryptoCallbacks _defaultCryptoCallbacks;
@@ -115,8 +116,12 @@ namespace CILAssemblyManipulator.Logical.Implementation
                cache = new CILReflectionContextCache_NotThreadSafe( this );
                break;
             case CILReflectionContextConcurrencySupport.ThreadSafe_WithConcurrentCollections:
+#if CAM_LOGICAL_IS_SL
+               throw new ArgumentException( "The concurrency mode " + concurrencyMode + " is not supported on this platform." );
+#else
                cache = new CILReflectionContextCache_ThreadSafe( this );
                break;
+#endif
             case CILReflectionContextConcurrencySupport.ThreadSafe_Simple:
                cache = new CILReflectionContextCache_ThreadSafe_Simple( this );
                break;
@@ -231,11 +236,7 @@ namespace CILAssemblyManipulator.Logical.Implementation
       internal System.Reflection.MethodInfo[] LaunchEventOtherMethodsLoadEvent( EventOtherMethodsEventArgs args )
       {
          this.EventOtherMethodsLoadEvent.InvokeEventIfNotNull( evt => evt( this, args ) );
-         if ( args.OtherMethods == null )
-         {
-            args.OtherMethods = EMPTY_METHODS;
-         }
-         return args.OtherMethods;
+         return args.OtherMethods ?? Empty<System.Reflection.MethodInfo>.Array;
       }
 
       internal Object LaunchConstantValueLoadEvent( ConstantValueLoadArgs args )
@@ -2365,31 +2366,31 @@ namespace CILAssemblyManipulator.Logical.Implementation
          return this._propertyContainer.AcquireNew( creator );
       }
 
-      internal CILCustomAttributeContainer ResolveAnyID( CILElementKind kind, Int32 id )
-      {
-         switch ( kind )
-         {
-            case CILElementKind.Assembly:
-               return this.ResolveAssemblyID( id );
-            case CILElementKind.Module:
-               return this.ResolveModuleID( id );
-            case CILElementKind.Type:
-               return this.ResolveTypeID( id );
-            case CILElementKind.Field:
-               return this.ResolveFieldID( id );
-            case CILElementKind.Method:
-            case CILElementKind.Constructor:
-               return this.ResolveMethodBaseID( id );
-            case CILElementKind.Parameter:
-               return this.ResolveParameterID( id );
-            case CILElementKind.Property:
-               return this.ResolvePropertyID( id );
-            case CILElementKind.Event:
-               return this.ResolveEventID( id );
-            default:
-               throw new ArgumentException( "Unknown element kind: " + kind );
-         }
-      }
+      //internal CILCustomAttributeContainer ResolveAnyID( CILElementKind kind, Int32 id )
+      //{
+      //   switch ( kind )
+      //   {
+      //      case CILElementKind.Assembly:
+      //         return this.ResolveAssemblyID( id );
+      //      case CILElementKind.Module:
+      //         return this.ResolveModuleID( id );
+      //      case CILElementKind.Type:
+      //         return this.ResolveTypeID( id );
+      //      case CILElementKind.Field:
+      //         return this.ResolveFieldID( id );
+      //      case CILElementKind.Method:
+      //      case CILElementKind.Constructor:
+      //         return this.ResolveMethodBaseID( id );
+      //      case CILElementKind.Parameter:
+      //         return this.ResolveParameterID( id );
+      //      case CILElementKind.Property:
+      //         return this.ResolvePropertyID( id );
+      //      case CILElementKind.Event:
+      //         return this.ResolveEventID( id );
+      //      default:
+      //         throw new ArgumentException( "Unknown element kind: " + kind );
+      //   }
+      //}
 
       internal CILAssembly ResolveAssemblyID( Int32 id )
       {
@@ -2655,6 +2656,8 @@ namespace CILAssemblyManipulator.Logical.Implementation
          // Nothing to do.
       }
    }
+
+#if !CAM_LOGICAL_IS_SL
 
    internal class CILReflectionContextCache_ThreadSafe : AbstractCILReflectionContextCache
    {
@@ -2980,6 +2983,8 @@ namespace CILAssemblyManipulator.Logical.Implementation
          }
       }
    }
+
+#endif
 
    internal class CILReflectionContextCache_ThreadSafe_Simple : AbstractCILReflectionContextCache
    {

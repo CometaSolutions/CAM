@@ -142,6 +142,9 @@
   <PropertyGroup Condition=" '$(Configuration)' == 'Release' Or '$(Configuration)' == 'Release_Portable' ">
     <CILMergeNoDebug>True</CILMergeNoDebug>
   </PropertyGroup>
+  <Target Condition=" '$(IsCommandLineBuild)' != '' " Name="BeforeBuild">
+    <Delete Files="$(OutputPath)$(AssemblyName).dll" />
+  </Target>
   <Target Condition=" '$(UseUtilpackReference)' != '' And '$(IsCommandLineBuild)' != '' " Name="AfterBuild">
     <CILMerge.MSBuild.CILMergeTask InputAssemblies="@(IntermediateAssembly);$(MSBuildThisFileDirectory)$(OutputPath)..\SL\CILAssemblyManipulator.MResources.dll;$(MSBuildThisFileDirectory)$(OutputPath)..\SL\CILAssemblyManipulator.PDB.dll" OutDir="$(MSBuildThisFileDirectory)$(OutputPath)" Union="True" XmlDocs="True" UseFullPublicKeyForRefs="True" NoDebug="$(CILMergeNoDebug)" KeyFile="$(KeyFilePath)" VerifyOutput="true" />
     <!-- <PropertyGroup>

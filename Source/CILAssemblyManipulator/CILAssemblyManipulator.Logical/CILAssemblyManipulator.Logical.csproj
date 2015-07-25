@@ -11,11 +11,35 @@
     <AssemblyName>CILAssemblyManipulator.Logical</AssemblyName>
     <FileAlignment>512</FileAlignment>
     <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
-    <CAMLogicalIsPortable Condition=" '$(Configuration)' == 'Debug_Portable' Or '$(Configuration)' == 'Release_Portable' ">True</CAMLogicalIsPortable>
+    <CAMLogicalTargetKind Condition=" '$(Configuration)' == 'Debug_Portable' Or '$(Configuration)' == 'Release_Portable' ">Portable</CAMLogicalTargetKind>
+    <CAMLogicalTargetKind Condition=" '$(Configuration)' == 'Debug_SL' Or '$(Configuration)' == 'Release_SL' ">Silverlight</CAMLogicalTargetKind>
+    <CAMLogicalTargetKind Condition=" '$(CAMLogicalTargetKind)' == '' ">DotNET</CAMLogicalTargetKind>
+
     <TargetFrameworkVersion>v4.0</TargetFrameworkVersion>
-    <TargetFrameworkProfile Condition=" '$(CAMLogicalIsPortable)' != '' ">Profile328</TargetFrameworkProfile>
-    <TargetFrameworkProfile Condition=" '$(CAMLogicalIsPortable)' == '' ">Client</TargetFrameworkProfile>
-    <DefineConstants Condition=" '$(CAMLogicalIsPortable)' != ''">CAM_LOGICAL_IS_PORTABLE</DefineConstants>
+    <TargetFrameworkProfile Condition=" '$(CAMLogicalTargetKind)' == 'Portable' ">Profile5</TargetFrameworkProfile>
+    <TargetFrameworkProfile Condition=" '$(CAMLogicalTargetKind)' == 'Silverlight' ">Profile328</TargetFrameworkProfile>
+    <TargetFrameworkProfile Condition=" '$(CAMLogicalTargetKind)' == 'DotNET' ">Client</TargetFrameworkProfile>
+    <DefineConstants Condition=" '$(CAMLogicalTargetKind)' == 'Portable' ">CAM_LOGICAL_IS_PORTABLE</DefineConstants>
+    <DefineConstants Condition=" '$(CAMLogicalTargetKind)' == 'Silverlight' ">CAM_LOGICAL_IS_SL</DefineConstants>
+    <DefineConstants Condition=" '$(CAMLogicalTargetKind)' == 'DotNET' ">CAM_LOGICAL_IS_DOT_NET</DefineConstants>
+  </PropertyGroup>
+  <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug_Portable|AnyCPU' ">
+    <DebugSymbols>true</DebugSymbols>
+    <DebugType>full</DebugType>
+    <Optimize>false</Optimize>
+    <OutputPath>..\..\..\Output\Debug\Portable\</OutputPath>
+    <DefineConstants>$(DefineConstants);DEBUG;TRACE;</DefineConstants>
+    <ErrorReport>prompt</ErrorReport>
+    <WarningLevel>4</WarningLevel>
+  </PropertyGroup>
+  <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug_SL|AnyCPU' ">
+    <DebugSymbols>true</DebugSymbols>
+    <DebugType>full</DebugType>
+    <Optimize>false</Optimize>
+    <OutputPath>..\..\..\Output\Debug\SL\</OutputPath>
+    <DefineConstants>$(DefineConstants);DEBUG;TRACE;</DefineConstants>
+    <ErrorReport>prompt</ErrorReport>
+    <WarningLevel>4</WarningLevel>
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|AnyCPU' ">
     <DebugSymbols>true</DebugSymbols>
@@ -26,12 +50,19 @@
     <ErrorReport>prompt</ErrorReport>
     <WarningLevel>4</WarningLevel>
   </PropertyGroup>
-  <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug_Portable|AnyCPU' ">
-    <DebugSymbols>true</DebugSymbols>
-    <DebugType>full</DebugType>
-    <Optimize>false</Optimize>
-    <OutputPath>..\..\..\Output\Debug\SL\</OutputPath>
-    <DefineConstants>$(DefineConstants);DEBUG;TRACE;</DefineConstants>
+  <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Release_Portable|AnyCPU' ">
+    <DebugType>none</DebugType>
+    <Optimize>true</Optimize>
+    <OutputPath>..\..\..\Output\Release\Portable\</OutputPath>
+    <DefineConstants>$(DefineConstants);TRACE</DefineConstants>
+    <ErrorReport>prompt</ErrorReport>
+    <WarningLevel>4</WarningLevel>
+  </PropertyGroup>
+  <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Release_SL|AnyCPU' ">
+    <DebugType>none</DebugType>
+    <Optimize>true</Optimize>
+    <OutputPath>..\..\..\Output\Release\SL\</OutputPath>
+    <DefineConstants>$(DefineConstants);TRACE</DefineConstants>
     <ErrorReport>prompt</ErrorReport>
     <WarningLevel>4</WarningLevel>
   </PropertyGroup>
@@ -43,14 +74,7 @@
     <ErrorReport>prompt</ErrorReport>
     <WarningLevel>4</WarningLevel>
   </PropertyGroup>
-  <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Release_Portable|AnyCPU' ">
-    <DebugType>none</DebugType>
-    <Optimize>true</Optimize>
-    <OutputPath>..\..\..\Output\Release\SL\</OutputPath>
-    <DefineConstants>$(DefineConstants);TRACE</DefineConstants>
-    <ErrorReport>prompt</ErrorReport>
-    <WarningLevel>4</WarningLevel>
-  </PropertyGroup>
+
   <PropertyGroup>
     <KeyFilePath>$(MSBuildThisFileDirectory)..\..\..\Keys\CAM.snk</KeyFilePath>
   </PropertyGroup>
@@ -70,12 +94,12 @@
       <Project>{f8ba1950-209d-477f-83d6-3f969c0cbee6}</Project>
       <Name>CILAssemblyManipulator.Physical</Name>
     </ProjectReference>
-    <ProjectReference Include="..\CILAssemblyManipulator.Structural\CILAssemblyManipulator.Structural.csproj">
+    <ProjectReference Condition=" '$(IsCommandLineBuild)' == ''" Include="..\CILAssemblyManipulator.Structural\CILAssemblyManipulator.Structural.csproj">
       <Project>{7384961e-6335-4312-af87-1189ae260572}</Project>
       <Name>CILAssemblyManipulator.Structural</Name>
     </ProjectReference>
   </ItemGroup>
-  <ItemGroup Condition=" '$(CAMLogicalIsPortable)' == '' ">
+  <ItemGroup Condition=" '$(CAMLogicalTargetKind)' == 'DotNET' ">
     <Reference Include="System" />
     <Reference Include="System.Core" />
     <Reference Include="System.Xml.Linq" />
@@ -84,10 +108,12 @@
   </ItemGroup>
   <ItemGroup>
     <Reference Include="UtilPack" Condition=" '$(IsCommandLineBuild)' != '' ">
-      <HintPath>$(OutputPath)UtilPack.dll</HintPath>
+      <HintPath Condition=" '$(CAMLogicalTargetKind)' == 'Portable' ">$(OutputPath)..\dotNET\UtilPack.dll</HintPath>
+      <HintPath Condition=" '$(CAMLogicalTargetKind)' != 'Portable' ">$(OutputPath)UtilPack.dll</HintPath>
     </Reference>
     <Reference Include="CILAssemblyManipulator.Physical_dll" Condition=" '$(IsCommandLineBuild)' != '' ">
-      <HintPath>$(OutputPath)Merged\CILAssemblyManipulator.Physical.dll</HintPath>
+      <HintPath Condition=" '$(CAMLogicalTargetKind)' == 'Portable' ">$(OutputPath)..\SL\Merged\CILAssemblyManipulator.Physical.dll</HintPath>
+      <HintPath Condition=" '$(CAMLogicalTargetKind)' != 'Portable' ">$(OutputPath)Merged\CILAssemblyManipulator.Physical.dll</HintPath>
     </Reference>
   </ItemGroup>
   <ItemGroup>
@@ -142,8 +168,9 @@
     <KeyFilePath>$(MSBuildThisFileDirectory)..\..\..\Keys\CAM.snk</KeyFilePath>
     <AssemblyOriginatorKeyFile>$(KeyFilePath)</AssemblyOriginatorKeyFile>
   </PropertyGroup>
-  <Import Condition=" '$(CAMLogicalIsPortable)' == '' " Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
-  <Import Condition=" '$(CAMLogicalIsPortable)' != '' " Project="$(MSBuildExtensionsPath32)\Microsoft\Portable\$(TargetFrameworkVersion)\Microsoft.Portable.CSharp.targets" />
+  <Import Condition=" '$(CAMLogicalTargetKind)' == 'DotNET' " Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
+  <Import Condition=" '$(CAMLogicalTargetKind)' != 'DotNET' " Project="$(MSBuildExtensionsPath32)\Microsoft\Portable\$(TargetFrameworkVersion)\Microsoft.Portable.CSharp.targets" />
+  
   <!-- Create .snk file if it doesn't exist to ensure smooth build -->
   <Import Project="$(MSBuildThisFileDirectory)../../../CommonBuildTools/CLR/MSBuild/CreateKeyFileIfNeeded.targets" />
   <!-- <Import Project="../../../CommonBuildTools/CLR/MSBuild/TargetFramework.targets" /> -->

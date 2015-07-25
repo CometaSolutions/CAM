@@ -2563,6 +2563,52 @@ public static partial class E_CILLogical
    //   }
 
    /// <summary>
+   /// Checks whether calling conventions represents a method with standard calling conventions.
+   /// </summary>
+   /// <param name="conv">The <see cref="CallingConventions"/>.</param>
+   /// <returns><c>true</c> if <paramref name="conv"/> represents a method with standard calling conventions; <c>false</c> otherwise.</returns>
+   /// <seealso cref="CallingConventions.Standard"/>
+   public static Boolean IsStandard( this CallingConventions conv )
+   {
+      return ( conv & CallingConventions.Standard ) != 0;
+   }
+
+   /// <summary>
+   /// Checks whether calling conventions represents a method with variadic parameters.
+   /// </summary>
+   /// <param name="conv">The <see cref="CallingConventions"/>.</param>
+   /// <returns><c>true</c> if <paramref name="conv"/> represents a method with variadic parameters; <c>false</c> otherwise.</returns>
+   /// <seealso cref="CallingConventions.VarArgs"/>
+   public static Boolean IsVarArgs( this CallingConventions conv )
+   {
+      return ( conv & CallingConventions.VarArgs ) != 0;
+   }
+
+   /// <summary>
+   /// Checks whether calling conventions represents a method with implicit <c>this</c> first parameter.
+   /// </summary>
+   /// <param name="conv">The <see cref="CallingConventions"/>.</param>
+   /// <returns><c>true</c> if <paramref name="conv"/> represents a method with implicit <c>this</c> first parameter; <c>false</c> otherwise.</returns>
+   /// <seealso cref="CallingConventions.HasThis"/>
+   public static Boolean IsThis( this CallingConventions conv )
+   {
+      return ( conv & CallingConventions.HasThis ) != 0;
+   }
+
+   /// <summary>
+   /// Checks whether calling conventions represents a method with explicit <c>this</c> first parameter.
+   /// </summary>
+   /// <param name="conv">The <see cref="CallingConventions"/>.</param>
+   /// <returns><c>true</c> if <paramref name="conv"/> represents a method with explicit <c>this</c> first parameter; <c>false</c> otherwise.</returns>
+   /// <seealso cref="CallingConventions.ExplicitThis"/>
+   public static Boolean IsExplicitThis( this CallingConventions conv )
+   {
+      return ( conv & CallingConventions.ExplicitThis ) != 0;
+   }
+
+#if !CAM_LOGICAL_IS_SL
+
+   /// <summary>
    /// Using values from <see cref="System.Runtime.InteropServices.DllImportAttribute"/>, creates a corresponding <see cref="PInvokeAttributes"/>.
    /// </summary>
    /// <param name="attribute">The <see cref="System.Runtime.InteropServices.DllImportAttribute"/> to create <see cref="PInvokeAttributes"/> from.</param>
@@ -2616,50 +2662,7 @@ public static partial class E_CILLogical
       // TODO preserve sig?
       return result;
    }
-
-   /// <summary>
-   /// Checks whether calling conventions represents a method with standard calling conventions.
-   /// </summary>
-   /// <param name="conv">The <see cref="CallingConventions"/>.</param>
-   /// <returns><c>true</c> if <paramref name="conv"/> represents a method with standard calling conventions; <c>false</c> otherwise.</returns>
-   /// <seealso cref="CallingConventions.Standard"/>
-   public static Boolean IsStandard( this CallingConventions conv )
-   {
-      return ( conv & CallingConventions.Standard ) != 0;
-   }
-
-   /// <summary>
-   /// Checks whether calling conventions represents a method with variadic parameters.
-   /// </summary>
-   /// <param name="conv">The <see cref="CallingConventions"/>.</param>
-   /// <returns><c>true</c> if <paramref name="conv"/> represents a method with variadic parameters; <c>false</c> otherwise.</returns>
-   /// <seealso cref="CallingConventions.VarArgs"/>
-   public static Boolean IsVarArgs( this CallingConventions conv )
-   {
-      return ( conv & CallingConventions.VarArgs ) != 0;
-   }
-
-   /// <summary>
-   /// Checks whether calling conventions represents a method with implicit <c>this</c> first parameter.
-   /// </summary>
-   /// <param name="conv">The <see cref="CallingConventions"/>.</param>
-   /// <returns><c>true</c> if <paramref name="conv"/> represents a method with implicit <c>this</c> first parameter; <c>false</c> otherwise.</returns>
-   /// <seealso cref="CallingConventions.HasThis"/>
-   public static Boolean IsThis( this CallingConventions conv )
-   {
-      return ( conv & CallingConventions.HasThis ) != 0;
-   }
-
-   /// <summary>
-   /// Checks whether calling conventions represents a method with explicit <c>this</c> first parameter.
-   /// </summary>
-   /// <param name="conv">The <see cref="CallingConventions"/>.</param>
-   /// <returns><c>true</c> if <paramref name="conv"/> represents a method with explicit <c>this</c> first parameter; <c>false</c> otherwise.</returns>
-   /// <seealso cref="CallingConventions.ExplicitThis"/>
-   public static Boolean IsExplicitThis( this CallingConventions conv )
-   {
-      return ( conv & CallingConventions.ExplicitThis ) != 0;
-   }
+#endif
 
    //   /// <summary>
    //   /// Checks whether generic parameter attributes represent a covariant (<c>out</c>) type parameter.

@@ -521,7 +521,10 @@ namespace CILAssemblyManipulator.Logical.Implementation
       {
          var nGDef = method.IsGenericMethodDefinition ? method : null;
 
+         // TODO SL support (via ctx events?
+#if !CAM_LOGICAL_IS_SL
          var dllImportAttr = method.GetCustomAttributes( typeof( System.Runtime.InteropServices.DllImportAttribute ), true ).FirstOrDefault() as System.Runtime.InteropServices.DllImportAttribute;
+#endif
 
          InitFields(
             ref this.name,
@@ -556,9 +559,27 @@ namespace CILAssemblyManipulator.Logical.Implementation
                }
                return result;
             },
-            new SettableValueForEnums<PInvokeAttributes>( dllImportAttr == null ? (PInvokeAttributes) 0 : dllImportAttr.GetCorrespondingPInvokeAttributes() ),
-            new SettableValueForClasses<String>( dllImportAttr == null ? null : dllImportAttr.EntryPoint ),
-            new SettableValueForClasses<String>( dllImportAttr == null ? null : dllImportAttr.Value ),
+            new SettableValueForEnums<PInvokeAttributes>(
+#if CAM_LOGICAL_IS_SL
+               (PInvokeAttributes) 0
+#else
+ dllImportAttr == null ? (PInvokeAttributes) 0 : dllImportAttr.GetCorrespondingPInvokeAttributes()
+#endif
+ ),
+            new SettableValueForClasses<String>(
+#if CAM_LOGICAL_IS_SL
+               null
+#else
+ dllImportAttr == null ? null : dllImportAttr.EntryPoint
+#endif
+ ),
+            new SettableValueForClasses<String>(
+#if CAM_LOGICAL_IS_SL
+               null
+#else
+ dllImportAttr == null ? null : dllImportAttr.Value
+#endif
+ ),
             true
             );
       }
