@@ -32,12 +32,12 @@
     <MSBuild
       Projects="$(CAMLogicalBaseDir)/Source/CILAssemblyManipulator/CILAssemblyManipulator.Logical/CILAssemblyManipulator.Logical.csproj"
       Targets="$(CAMLogicalBuildTargets)"
-      Properties="Configuration=$(CAMLogicalConfiguration)_SL;Platform=$(CAMLogicalPlatform);IsCommandLineBuild=true;UseUtilpackReference=true;ProjectTypeGuids:{786C830F-07A1-408B-BD7F-6EE04809D6DB};{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}"
+      Properties="Configuration=$(CAMLogicalConfiguration)_SL;Platform=$(CAMLogicalPlatform);IsCommandLineBuild=true;UseUtilpackReference=true"
       />
     <MSBuild
       Projects="$(CAMLogicalBaseDir)/Source/CILAssemblyManipulator/CILAssemblyManipulator.Logical/CILAssemblyManipulator.Logical.csproj"
       Targets="$(CAMLogicalBuildTargets)"
-      Properties="Configuration=$(CAMLogicalConfiguration)_Portable;Platform=$(CAMLogicalPlatform);IsCommandLineBuild=true;UseUtilpackReference=true;ProjectTypeGuids:{786C830F-07A1-408B-BD7F-6EE04809D6DB};{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}"
+      Properties="Configuration=$(CAMLogicalConfiguration)_Portable;Platform=$(CAMLogicalPlatform);IsCommandLineBuild=true;UseUtilpackReference=true"
       />
     <MSBuild
       Projects="$(CAMLogicalBaseDir)/Source/CILAssemblyManipulator/CILAssemblyManipulator.Logical/CILAssemblyManipulator.Logical.csproj"
