@@ -255,13 +255,13 @@ public static partial class E_CILLogical
    /// <summary>
    /// Gets or creates a new <see cref="CILMethodBase"/> based on native <see cref="System.Reflection.MethodBase"/>. The actual return value will be either <see cref="CILMethod"/> or <see cref="CILConstructor"/>.
    /// </summary>
+   /// <param name="ctx">The <see cref="CILReflectionContext"/>.</param>
    /// <param name="methodBase">The native method base.</param>
-   /// <param name="ctx">The current reflection context.</param>
    /// <returns><see cref="CILMethodBase"/> wrapping existing native <see cref="System.Reflection.MethodBase"/>.</returns>
-   /// <exception cref="ArgumentNullException">If <paramref name="methodBase"/> or <paramref name="ctx"/> is <c>null</c>.</exception>
-   public static CILMethodBase NewWrapperFromBase( this System.Reflection.MethodBase methodBase, CILReflectionContext ctx )
+   /// <exception cref="NullReferenceException">If <paramref name="ctx"/> is <c>null</c>.</exception>
+   public static CILMethodBase NewWrapperFromBase( this CILReflectionContext ctx, System.Reflection.MethodBase methodBase )
    {
-      return methodBase is System.Reflection.ConstructorInfo ? (CILMethodBase) ( (System.Reflection.ConstructorInfo) methodBase ).NewWrapper( ctx ) : ( (System.Reflection.MethodInfo) methodBase ).NewWrapper( ctx );
+      return methodBase is System.Reflection.ConstructorInfo ? (CILMethodBase) ctx.NewWrapper( (System.Reflection.ConstructorInfo) methodBase ) : ctx.NewWrapper( (System.Reflection.MethodInfo) methodBase );
    }
 
    /// <summary>
@@ -321,21 +321,6 @@ public static partial class E_CILLogical
    }
 
    /// <summary>
-   /// Gets or creates a new <see cref="CILMethod"/> based on native <see cref="System.Reflection.MethodInfo"/>.
-   /// </summary>
-   /// <param name="method">The native method.</param>
-   /// <param name="ctx">The current reflection context.</param>
-   /// <returns><see cref="CILMethod"/> wrapping existing native <see cref="System.Reflection.MethodInfo"/>.</returns>
-   /// <exception cref="ArgumentNullException">If <paramref name="method"/> or <paramref name="ctx"/> is <c>null</c>.</exception>
-   public static CILMethod NewWrapper( this System.Reflection.MethodInfo method, CILReflectionContext ctx )
-   {
-      ArgumentValidator.ValidateNotNull( "Method", method );
-      ArgumentValidator.ValidateNotNull( "Reflection context", ctx );
-
-      return ( (CILReflectionContextImpl) ctx ).Cache.GetOrAdd( method );
-   }
-
-   /// <summary>
    /// Retrieves the <see cref="CILMethod"/> which is generic method definition, if applicable, and is contained in a type which is generic type definition, if applicable.
    /// </summary>
    /// <param name="method">The method.</param>
@@ -382,21 +367,6 @@ public static partial class E_CILLogical
    {
       ArgumentValidator.ValidateNotNull( "Method", method );
       return ( (CILReflectionContextImpl) method.ReflectionContext ).Cache.MakeGenericMethod( method, method.GenericDefinition, args );
-   }
-
-   /// <summary>
-   /// Gets or creates a new <see cref="CILConstructor"/> based on native <see cref="System.Reflection.ConstructorInfo"/>.
-   /// </summary>
-   /// <param name="ctor">The native constructor.</param>
-   /// <param name="ctx">The current reflection context.</param>
-   /// <returns><see cref="CILConstructor"/> wrapping existing native <see cref="System.Reflection.ConstructorInfo"/>.</returns>
-   /// <exception cref="ArgumentNullException">If <paramref name="ctor"/> or <paramref name="ctx"/> is <c>null</c>.</exception>
-   public static CILConstructor NewWrapper( this System.Reflection.ConstructorInfo ctor, CILReflectionContext ctx )
-   {
-      ArgumentValidator.ValidateNotNull( "Constructor", ctor );
-      ArgumentValidator.ValidateNotNull( "Reflection context", ctx );
-
-      return ( (CILReflectionContextImpl) ctx ).Cache.GetOrAdd( ctor );
    }
 
    /// <summary>

@@ -1547,7 +1547,7 @@ public static partial class E_CILLogical
                   CILType valueType;
                   if ( value is Type )
                   {
-                     valueType = ( (Type) value ).NewWrapperAsType( state.LogicalModule.ReflectionContext );
+                     valueType = state.LogicalModule.ReflectionContext.NewWrapperAsType( (Type) value );
                   }
                   else
                   {

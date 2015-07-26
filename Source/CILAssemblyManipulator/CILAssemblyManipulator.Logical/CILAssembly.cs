@@ -583,21 +583,6 @@ public static partial class E_CILLogical
       return assembly.Modules.SelectMany( m => m.DefinedTypes ).SelectMany( t => t.AsBreadthFirstEnumerable( tt => tt.DeclaredNestedTypes ) );
    }
 
-   /// <summary>
-   /// Gets or creates a new instance of <see cref="CILAssembly"/> which will wrap the existing native <paramref name="assembly"/>.
-   /// </summary>
-   /// <param name="assembly">The native assembly which will serve as basis for the resulting <see cref="CILAssembly"/>.</param>
-   /// <param name="ctx">The current reflection context.</param>
-   /// <returns><see cref="CILAssembly"/> wrapping existing native <paramref name="assembly"/>.</returns>
-   /// <exception cref="ArgumentNullException">If <paramref name="assembly"/> or <paramref name="ctx"/> is <c>null</c>.</exception>
-   public static CILAssembly NewWrapper( this System.Reflection.Assembly assembly, CILReflectionContext ctx )
-   {
-      ArgumentValidator.ValidateNotNull( "Assembly", assembly );
-      ArgumentValidator.ValidateNotNull( "Reflection context", ctx );
-
-      return ( (CILReflectionContextImpl) ctx ).Cache.GetOrAdd( assembly );
-   }
-
    internal const String VERSION_NUMBER_SEPARATOR = ".";
 
    /// <summary>

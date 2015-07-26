@@ -662,9 +662,9 @@ namespace CILAssemblyManipulator.Logical
                ArgumentValidator.ValidateNotNull( "Reflection context", ctx );
             }
 
-            result = new LogicalMarshalingInfo( (UnmanagedType) attr.Value, (VarEnum) attr.SafeArraySubType, attr.SafeArrayUserDefinedSubType.NewWrapperAsType( ctx ), attr.IidParameterIndex, (UnmanagedType) attr.ArraySubType, attr.SizeParamIndex, attr.SizeConst, attr.MarshalType, tn =>
+            result = new LogicalMarshalingInfo( (UnmanagedType) attr.Value, (VarEnum) attr.SafeArraySubType, ctx.NewWrapperAsType( attr.SafeArrayUserDefinedSubType ), attr.IidParameterIndex, (UnmanagedType) attr.ArraySubType, attr.SizeParamIndex, attr.SizeConst, attr.MarshalType, tn =>
             {
-               return ( tn == null ? attr.MarshalTypeRef : Type.GetType( tn, true ) ).NewWrapperAsType( ctx );
+               return ctx.NewWrapperAsType( tn == null ? attr.MarshalTypeRef : Type.GetType( tn, true ) );
             }, attr.MarshalCookie );
          }
          return result;

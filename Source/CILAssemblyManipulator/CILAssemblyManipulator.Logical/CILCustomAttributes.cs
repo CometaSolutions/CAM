@@ -138,7 +138,7 @@ namespace CILAssemblyManipulator.Logical
          ArgumentValidator.ValidateNotNull( "Value", value );
          ArgumentValidator.ValidateNotNull( "Reflection context", ctx );
 
-         return NewTypedArgument( value.GetType().NewWrapperAsType( ctx ), value );
+         return NewTypedArgument( ctx.NewWrapperAsType( value.GetType() ), value );
       }
 
       /// <summary>

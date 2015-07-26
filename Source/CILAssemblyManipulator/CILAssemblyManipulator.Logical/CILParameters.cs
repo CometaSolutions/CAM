@@ -100,19 +100,4 @@ public static partial class E_CILLogical
    {
       return parameter != null && parameter.Position == RETURN_PARAMETER_POSITION;
    }
-
-   /// <summary>
-   /// Gets or creates a new <see cref="CILParameter"/> based on native <see cref="System.Reflection.ParameterInfo"/>.
-   /// </summary>
-   /// <param name="param">The native parameter.</param>
-   /// <param name="ctx">The current reflection context.</param>
-   /// <returns><see cref="CILParameter"/> wrapping existing native <see cref="System.Reflection.ParameterInfo"/>.</returns>
-   /// <exception cref="ArgumentNullException">If <paramref name="param"/> or <paramref name="ctx"/> is <c>null</c>.</exception>
-   public static CILParameter NewWrapper( this System.Reflection.ParameterInfo param, CILReflectionContext ctx )
-   {
-      ArgumentValidator.ValidateNotNull( "Module", param );
-      ArgumentValidator.ValidateNotNull( "Reflection context", ctx );
-
-      return ( (CILReflectionContextImpl) ctx ).Cache.GetOrAdd( param );
-   }
 }

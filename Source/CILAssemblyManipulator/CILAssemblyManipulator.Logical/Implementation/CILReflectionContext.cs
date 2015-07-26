@@ -183,6 +183,51 @@ namespace CILAssemblyManipulator.Logical.Implementation
          }
       }
 
+      public CILAssembly NewWrapper( System.Reflection.Assembly assembly )
+      {
+         return this.Cache.GetOrAdd( assembly );
+      }
+
+      public CILEvent NewWrapper( System.Reflection.EventInfo eInfo )
+      {
+         return this.Cache.GetOrAdd( eInfo );
+      }
+
+      public CILField NewWrapper( System.Reflection.FieldInfo field )
+      {
+         return this.Cache.GetOrAdd( field );
+      }
+
+      public CILMethod NewWrapper( System.Reflection.MethodInfo method )
+      {
+         return this.Cache.GetOrAdd( method );
+      }
+
+      public CILConstructor NewWrapper( System.Reflection.ConstructorInfo ctor )
+      {
+         return this.Cache.GetOrAdd( ctor );
+      }
+
+      public CILModule NewWrapper( System.Reflection.Module module )
+      {
+         return this.Cache.GetOrAdd( module );
+      }
+
+      public CILParameter NewWrapper( System.Reflection.ParameterInfo param )
+      {
+         return this.Cache.GetOrAdd( param );
+      }
+
+      public CILProperty NewWrapper( System.Reflection.PropertyInfo property )
+      {
+         return this.Cache.GetOrAdd( property );
+      }
+
+      public CILTypeBase NewWrapper( Type type )
+      {
+         return this.Cache.GetOrAdd( type );
+      }
+
       //public Byte[] ComputePublicKeyToken( Byte[] publicKey )
       //{
       //   Byte[] retVal;
@@ -1932,12 +1977,12 @@ namespace CILAssemblyManipulator.Logical.Implementation
 
       internal CILAssembly GetOrAdd( System.Reflection.Assembly ass )
       {
-         return this._assemblies.GetOrAdd( ass );
+         return ass == null ? null : this._assemblies.GetOrAdd( ass );
       }
 
       internal CILModule GetOrAdd( System.Reflection.Module mod )
       {
-         return this._modules.GetOrAdd( mod );
+         return mod == null ? null : this._modules.GetOrAdd( mod );
       }
 
       internal CILTypeBase GetOrAdd( Type type )
@@ -1983,7 +2028,7 @@ namespace CILAssemblyManipulator.Logical.Implementation
 
                result = declTypeWrapper.DeclaredFields.FirstOrDefault( f =>
                   String.Equals( f.Name, field.Name )
-                  && Equals( f.FieldType, field.FieldType.NewWrapper( this._ctx ) )
+                  && Equals( f.FieldType, this._ctx.NewWrapper( field.FieldType ) )
                   );
                if ( result == null )
                {
@@ -2015,8 +2060,8 @@ namespace CILAssemblyManipulator.Logical.Implementation
 
                result = declTypeWrapper.DeclaredMethods.FirstOrDefault( m =>
                   String.Equals( m.Name, method.Name )
-                  && Equals( m.ReturnParameter.ParameterType, method.ReturnType.NewWrapper( this._ctx ) )
-                  && SequenceEqualityComparer<IEnumerable<CILTypeBase>, CILTypeBase>.SequenceEquality( m.Parameters.Select( p => p.ParameterType ), method.GetParameters().Select( p => p.ParameterType.NewWrapper( this._ctx ) ) )
+                  && Equals( m.ReturnParameter.ParameterType, this._ctx.NewWrapper( method.ReturnType ) )
+                  && SequenceEqualityComparer<IEnumerable<CILTypeBase>, CILTypeBase>.SequenceEquality( m.Parameters.Select( p => p.ParameterType ), method.GetParameters().Select( p => this._ctx.NewWrapper( p.ParameterType ) ) )
                   );
                if ( result == null )
                {
@@ -2046,7 +2091,7 @@ namespace CILAssemblyManipulator.Logical.Implementation
                var declTypeWrapper = (CILType) this.GetOrAdd( declType );
 
                result = declTypeWrapper.Constructors.FirstOrDefault( c =>
-                  SequenceEqualityComparer<IEnumerable<CILTypeBase>, CILTypeBase>.SequenceEquality( c.Parameters.Select( p => p.ParameterType ), ctor.GetParameters().Select( p => p.ParameterType.NewWrapper( this._ctx ) ) )
+                  SequenceEqualityComparer<IEnumerable<CILTypeBase>, CILTypeBase>.SequenceEquality( c.Parameters.Select( p => p.ParameterType ), ctor.GetParameters().Select( p => this._ctx.NewWrapper( p.ParameterType ) ) )
                   );
                if ( result == null )
                {

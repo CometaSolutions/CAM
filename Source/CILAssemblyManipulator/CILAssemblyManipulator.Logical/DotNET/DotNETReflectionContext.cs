@@ -296,7 +296,7 @@ namespace CILAssemblyManipulator.Logical
       {
          try
          {
-            e.ResolvedAssembly = System.Reflection.Assembly.Load( e.AssemblyName.ToString() ).NewWrapper( e.ReflectionContext );
+            e.ResolvedAssembly = e.ReflectionContext.NewWrapper( System.Reflection.Assembly.Load( e.AssemblyName.ToString() ) );
          }
          catch
          {
@@ -450,9 +450,11 @@ namespace CILAssemblyManipulator.Logical
          }
 
          e.CustomAttributeData = attrs.Select( attr => Tuple.Create(
-            attr.Constructor.NewWrapper( e.Context ),
-            attr.ConstructorArguments.Select( cArg => CILCustomAttributeFactory.NewTypedArgument( ( cArg.ArgumentType.NewWrapperAsType( e.Context ) ), cArg.Value ) ),
-            attr.NamedArguments.Select( nArg => CILCustomAttributeFactory.NewNamedArgument( ( nArg.MemberInfo is System.Reflection.PropertyInfo ? (CILElementForNamedCustomAttribute) ( (System.Reflection.PropertyInfo) nArg.MemberInfo ).NewWrapper( e.Context ) : ( (System.Reflection.FieldInfo) nArg.MemberInfo ).NewWrapper( e.Context ) ), CILCustomAttributeFactory.NewTypedArgument( nArg.TypedValue.ArgumentType.NewWrapperAsType( e.Context ), nArg.TypedValue.Value ) ) )
+            e.Context.NewWrapper( attr.Constructor ),
+            attr.ConstructorArguments.Select( cArg => CILCustomAttributeFactory.NewTypedArgument( ( e.Context.NewWrapperAsType( cArg.ArgumentType ) ), cArg.Value ) ),
+            attr.NamedArguments.Select( nArg => CILCustomAttributeFactory.NewNamedArgument(
+               ( nArg.MemberInfo is System.Reflection.PropertyInfo ? (CILElementForNamedCustomAttribute) e.Context.NewWrapper( (System.Reflection.PropertyInfo) nArg.MemberInfo ) : e.Context.NewWrapper( (System.Reflection.FieldInfo) nArg.MemberInfo ) ),
+               CILCustomAttributeFactory.NewTypedArgument( e.Context.NewWrapperAsType( nArg.TypedValue.ArgumentType ), nArg.TypedValue.Value ) ) )
             ) );
       }
 

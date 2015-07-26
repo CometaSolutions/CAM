@@ -284,21 +284,6 @@ public static partial class E_CILLogical
    private static readonly Regex MODULE_NAME_WITHOUT_EXTENSION_REGEX = new Regex( @"\.(dll|exe|netmodule)$", RegexOptions.IgnoreCase );
 
    /// <summary>
-   /// Gets or creates a new <see cref="CILModule"/> based on native <see cref="System.Reflection.Module"/>.
-   /// </summary>
-   /// <param name="module">The native module.</param>
-   /// <param name="ctx">The current reflection context.</param>
-   /// <returns><see cref="CILModule"/> wrapping existing native <see cref="System.Reflection.Module"/>.</returns>
-   /// <exception cref="ArgumentNullException">If <paramref name="module"/> or <paramref name="ctx"/> is <c>null</c>.</exception>
-   public static CILModule NewWrapper( this System.Reflection.Module module, CILReflectionContext ctx )
-   {
-      ArgumentValidator.ValidateNotNull( "Module", module );
-      ArgumentValidator.ValidateNotNull( "Reflection context", ctx );
-
-      return ( (CILReflectionContextImpl) ctx ).Cache.GetOrAdd( module );
-   }
-
-   /// <summary>
    /// Gets the plain module name without '.dll', '.exe' or '.netmodule' extension.
    /// </summary>
    /// <param name="module">The module.</param>

@@ -109,6 +109,70 @@ namespace CILAssemblyManipulator.Logical
       /// When a <see cref="CILAssembly"/> or <see cref="CILModule"/> is loaded via <see cref="E_CILLogical.LoadAssembly(CILReflectionContext, System.IO.Stream, EmittingArguments)"/> or <see cref="E_CILLogical.LoadModule(CILReflectionContext,System.IO.Stream, EmittingArguments)"/> methods, respectively, any access causing additional load of assemblies is triggered via this event, if the assembly loader function of the aforementioned methods is <c>null</c> or fails to load the assembly. The event handler should set the <see cref="AssemblyRefResolveFromLoadedAssemblyEventArgs.ResolvedAssembly"/> property.
       /// </summary>
       event EventHandler<AssemblyRefResolveFromLoadedAssemblyEventArgs> AssemblyReferenceResolveFromLoadedAssemblyEvent;
+
+
+      /// <summary>
+      /// Gets or creates a new instance of <see cref="CILAssembly"/> which will wrap the existing native <paramref name="assembly"/>.
+      /// </summary>
+      /// <param name="assembly">The native assembly which will serve as basis for the resulting <see cref="CILAssembly"/>.</param>
+      /// <returns><see cref="CILAssembly"/> wrapping existing native <paramref name="assembly"/>, or <c>null</c> if <paramref name="assembly"/> is <c>null</c>.</returns>
+      CILAssembly NewWrapper( System.Reflection.Assembly assembly );
+
+      /// <summary>
+      /// Gets or creates a new <see cref="CILEvent"/> based on native <see cref="System.Reflection.EventInfo"/>.
+      /// </summary>
+      /// <param name="evt">The native event.</param>
+      /// <returns><see cref="CILEvent"/> wrapping existing native <see cref="System.Reflection.EventInfo"/>, or <c>null</c> if <paramref name="evt"/> is <c>null</c>.</returns>
+      CILEvent NewWrapper( System.Reflection.EventInfo evt );
+
+      /// <summary>
+      /// Gets or creates a new <see cref="CILField"/> based on native <see cref="System.Reflection.FieldInfo"/>.
+      /// </summary>
+      /// <param name="field">The native field.</param>
+      /// <returns><see cref="CILField"/> wrapping existing native <see cref="System.Reflection.FieldInfo"/>, or <c>null</c> if <paramref name="field"/> is <c>null</c>.</returns>
+      CILField NewWrapper( System.Reflection.FieldInfo field );
+
+      /// <summary>
+      /// Gets or creates a new <see cref="CILMethod"/> based on native <see cref="System.Reflection.MethodInfo"/>.
+      /// </summary>
+      /// <param name="method">The native method.</param>
+      /// <returns><see cref="CILMethod"/> wrapping existing native <see cref="System.Reflection.MethodInfo"/>, or <c>null</c> if <paramref name="method"/> is <c>null</c>.</returns>
+      CILMethod NewWrapper( System.Reflection.MethodInfo method );
+
+      /// <summary>
+      /// Gets or creates a new <see cref="CILConstructor"/> based on native <see cref="System.Reflection.ConstructorInfo"/>.
+      /// </summary>
+      /// <param name="ctor">The native constructor.</param>
+      /// <returns><see cref="CILConstructor"/> wrapping existing native <see cref="System.Reflection.ConstructorInfo"/>, or <c>null</c> if <paramref name="ctor"/> is <c>null</c>.</returns>
+      CILConstructor NewWrapper( System.Reflection.ConstructorInfo ctor );
+
+      /// <summary>
+      /// Gets or creates a new <see cref="CILModule"/> based on native <see cref="System.Reflection.Module"/>.
+      /// </summary>
+      /// <param name="module">The native module.</param>
+      /// <returns><see cref="CILModule"/> wrapping existing native <see cref="System.Reflection.Module"/>, or <c>null</c> if <paramref name="module"/> is <c>null</c>.</returns>
+      CILModule NewWrapper( System.Reflection.Module module );
+
+      /// <summary>
+      /// Gets or creates a new <see cref="CILParameter"/> based on native <see cref="System.Reflection.ParameterInfo"/>.
+      /// </summary>
+      /// <param name="param">The native parameter.</param>
+      /// <returns><see cref="CILParameter"/> wrapping existing native <see cref="System.Reflection.ParameterInfo"/>, or <c>null</c> if <paramref name="param"/> is <c>null</c>.</returns>
+      CILParameter NewWrapper( System.Reflection.ParameterInfo param );
+
+      /// <summary>
+      /// Gets or creates a new <see cref="CILProperty"/> based on native <see cref="System.Reflection.PropertyInfo"/>.
+      /// </summary>
+      /// <param name="property">The native property.</param>
+      /// <returns><see cref="CILProperty"/> wrapping existing native <see cref="System.Reflection.PropertyInfo"/>, or <c>null</c> if <paramref name="property"/> is <c>null</c>.</returns>
+      CILProperty NewWrapper( System.Reflection.PropertyInfo property );
+
+      /// <summary>
+      /// Gets or creates a new <see cref="CILTypeBase"/> based on native <see cref="System.Type"/>.
+      /// </summary>
+      /// <param name="type">The native type.</param>
+      /// <returns><see cref="CILTypeBase"/> wrapping existing native <see cref="System.Type"/>. Will be either <see cref="CILType"/> or <see cref="CILTypeParameter"/>, depending on <paramref name="type"/>. Will be <c>null</c> if <paramref name="type"/> is <c>null</c></returns>
+      CILTypeBase NewWrapper( Type type );
    }
 
    /// <summary>

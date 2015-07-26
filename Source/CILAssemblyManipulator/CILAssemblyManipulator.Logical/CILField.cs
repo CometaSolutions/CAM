@@ -62,21 +62,3 @@ namespace CILAssemblyManipulator.Logical
       Int32 FieldOffset { get; set; }
    }
 }
-
-public static partial class E_CILLogical
-{
-   /// <summary>
-   /// Gets or creates a new <see cref="CILField"/> based on native <see cref="System.Reflection.FieldInfo"/>.
-   /// </summary>
-   /// <param name="field">The native field.</param>
-   /// <param name="ctx">The current reflection context.</param>
-   /// <returns><see cref="CILField"/> wrapping existing native <see cref="System.Reflection.FieldInfo"/>.</returns>
-   /// <exception cref="ArgumentNullException">If <paramref name="field"/> or <paramref name="ctx"/> is <c>null</c>.</exception>
-   public static CILField NewWrapper( this System.Reflection.FieldInfo field, CILReflectionContext ctx )
-   {
-      ArgumentValidator.ValidateNotNull( "Field", field );
-      ArgumentValidator.ValidateNotNull( "Reflection context", ctx );
-
-      return ( (CILReflectionContextImpl) ctx ).Cache.GetOrAdd( field );
-   }
-}

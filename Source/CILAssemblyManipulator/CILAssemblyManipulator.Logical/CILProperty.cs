@@ -84,21 +84,6 @@ public static partial class E_CILLogical
    }
 
    /// <summary>
-   /// Gets or creates a new <see cref="CILProperty"/> based on native <see cref="System.Reflection.PropertyInfo"/>.
-   /// </summary>
-   /// <param name="property">The native property.</param>
-   /// <param name="ctx">The current reflection context.</param>
-   /// <returns><see cref="CILProperty"/> wrapping existing native <see cref="System.Reflection.PropertyInfo"/>.</returns>
-   /// <exception cref="ArgumentNullException">If <paramref name="property"/> or <paramref name="ctx"/> is <c>null</c>.</exception>
-   public static CILProperty NewWrapper( this System.Reflection.PropertyInfo property, CILReflectionContext ctx )
-   {
-      ArgumentValidator.ValidateNotNull( "Property", property );
-      ArgumentValidator.ValidateNotNull( "Context", ctx );
-
-      return ( (CILReflectionContextImpl) ctx ).Cache.GetOrAdd( property );
-   }
-
-   /// <summary>
    /// Returns information about all semantically related methods of the property and how they are related.
    /// </summary>
    /// <param name="property">The property.</param>

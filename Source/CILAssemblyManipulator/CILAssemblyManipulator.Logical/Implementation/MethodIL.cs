@@ -49,7 +49,7 @@ namespace CILAssemblyManipulator.Logical.Implementation
       }
 
       internal MethodILImpl( CILModule module, MethodBodyLoadArgs args )
-         : this( module, args.InitLocals, args.IL, GetLocalsFromArgs( (CILReflectionContextImpl) module.ReflectionContext, args ), args.ExceptionInfos.Select( tuple => Tuple.Create( tuple.Item1, tuple.Item2, tuple.Item3, tuple.Item4, tuple.Item5, tuple.Item6 == null ? null : tuple.Item6.NewWrapperAsType( (CILReflectionContextImpl) module.ReflectionContext ), tuple.Item7 ) ).ToArray(), TokenResolverFromArgs( (CILReflectionContextImpl) module.ReflectionContext, args ) )
+         : this( module, args.InitLocals, args.IL, GetLocalsFromArgs( (CILReflectionContextImpl) module.ReflectionContext, args ), args.ExceptionInfos.Select( tuple => Tuple.Create( tuple.Item1, tuple.Item2, tuple.Item3, tuple.Item4, tuple.Item5, tuple.Item6 == null ? null : module.ReflectionContext.NewWrapperAsType( tuple.Item6 ), tuple.Item7 ) ).ToArray(), TokenResolverFromArgs( (CILReflectionContextImpl) module.ReflectionContext, args ) )
       {
       }
 
@@ -58,7 +58,7 @@ namespace CILAssemblyManipulator.Logical.Implementation
          var result = new Tuple<Boolean, CILTypeBase>[args.Locals.Count];
          for ( var i = 0; i < result.Length; ++i )
          {
-            result[i] = Tuple.Create( args.Locals[i].Item1, args.Locals[i].Item2.NewWrapper( ctx ) );
+            result[i] = Tuple.Create( args.Locals[i].Item1, ctx.NewWrapper( args.Locals[i].Item2 ) );
          }
          return result;
       }

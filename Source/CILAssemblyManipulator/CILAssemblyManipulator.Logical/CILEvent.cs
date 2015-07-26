@@ -107,21 +107,6 @@ public static partial class E_CILLogical
    }
 
    /// <summary>
-   /// Gets or creates a new <see cref="CILEvent"/> based on native <see cref="System.Reflection.EventInfo"/>.
-   /// </summary>
-   /// <param name="eInfo">The native event.</param>
-   /// <param name="ctx">The current reflection context.</param>
-   /// <returns><see cref="CILEvent"/> wrapping existing native <see cref="System.Reflection.EventInfo"/>.</returns>
-   /// <exception cref="ArgumentNullException">If <paramref name="eInfo"/> or <paramref name="ctx"/> is <c>null</c>.</exception>
-   public static CILEvent NewWrapper( this System.Reflection.EventInfo eInfo, CILReflectionContext ctx )
-   {
-      ArgumentValidator.ValidateNotNull( "Event info", eInfo );
-      ArgumentValidator.ValidateNotNull( "Context", ctx );
-
-      return ( (CILReflectionContextImpl) ctx ).Cache.GetOrAdd( eInfo );
-   }
-
-   /// <summary>
    /// Gets all the methods that are semantically related to specified <see cref="CILEvent"/>.
    /// </summary>
    /// <param name="evt">The event which methods must be semantically related to.</param>

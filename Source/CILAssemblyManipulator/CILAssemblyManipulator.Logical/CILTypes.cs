@@ -555,21 +555,6 @@ public static partial class E_CILLogical
    }
 
    /// <summary>
-   /// Gets or creates a new <see cref="CILTypeBase"/> based on native <see cref="System.Type"/>.
-   /// </summary>
-   /// <param name="type">The native type.</param>
-   /// <param name="ctx">The current reflection context.</param>
-   /// <returns><see cref="CILTypeBase"/> wrapping existing native <see cref="System.Type"/>. Will be either <see cref="CILType"/> or <see cref="CILTypeParameter"/>, depending on <paramref name="type"/></returns>
-   /// <exception cref="NullReferenceException">If <paramref name="type"/> is <c>null</c>.</exception>
-   /// <exception cref="ArgumentNullException">If <paramref name="ctx"/> is <c>null</c>.</exception>
-   public static CILTypeBase NewWrapper( this Type type, CILReflectionContext ctx )
-   {
-      ArgumentValidator.ValidateNotNull( "Reflection context", ctx );
-
-      return ( (CILReflectionContextImpl) ctx ).Cache.GetOrAdd( type );
-   }
-
-   /// <summary>
    /// Checks whether <paramref name="type"/> is a generic type definition. Behaves in a same way as <see cref="System.Type.IsGenericTypeDefinition"/> property.
    /// </summary>
    /// <param name="type">The <see cref="CILTypeBase"/> to check.</param>
@@ -892,18 +877,18 @@ public static partial class E_CILLogical
    /// <summary>
    /// Gets or creates a new <see cref="CILType"/> based on native <see cref="System.Type"/>.
    /// </summary>
-   /// <param name="nType">The native type.</param>
    /// <param name="ctx">The current reflection context.</param>
+   /// <param name="nType">The native type.</param>
    /// <returns><see cref="CILType"/> wrapping existing native <see cref="System.Type"/>.</returns>
-   /// <exception cref="ArgumentNullException">If <paramref name="nType"/> or <paramref name="ctx"/> is <c>null</c>.</exception>
+   /// <exception cref="NullReferenceException">If <paramref name="ctx"/> is <c>null</c>.</exception>
    /// <exception cref="ArgumentException">If <see cref="Type.IsGenericParameter"/> returns <c>true</c> for <paramref name="nType"/>.</exception>
-   public static CILType NewWrapperAsType( this Type nType, CILReflectionContext ctx )
+   public static CILType NewWrapperAsType( this CILReflectionContext ctx, Type nType )
    {
       if ( nType != null && nType.IsGenericParameter )
       {
          throw new ArgumentException( "Type " + nType + " can not be generic parameter." );
       }
-      return (CILType) nType.NewWrapper( ctx );
+      return (CILType) ctx.NewWrapper( nType );
    }
 
    /// <summary>
@@ -1121,18 +1106,18 @@ public static partial class E_CILLogical
    /// <summary>
    /// Gets or creates a new <see cref="CILTypeParameter"/> based on native <see cref="System.Type"/>.
    /// </summary>
-   /// <param name="nType">The native type.</param>
    /// <param name="ctx">The current reflection context.</param>
+   /// <param name="nType">The native type.</param>
    /// <returns><see cref="CILTypeParameter"/> wrapping existing native <see cref="System.Type"/>.</returns>
-   /// <exception cref="ArgumentNullException">If <paramref name="nType"/> or <paramref name="ctx"/> is <c>null</c>.</exception>
+   /// <exception cref="NullReferenceException">If <paramref name="ctx"/> is <c>null</c>.</exception>
    /// <exception cref="ArgumentException">If <see cref="Type.IsGenericParameter"/> returns <c>false</c> for <paramref name="nType"/>.</exception>
-   public static CILTypeParameter NewWrapperAsTypeParameter( this Type nType, CILReflectionContext ctx )
+   public static CILTypeParameter NewWrapperAsTypeParameter( this CILReflectionContext ctx, Type nType )
    {
       if ( nType != null && !nType.IsGenericParameter )
       {
          throw new ArgumentException( "Type " + nType + " must be generic parameter." );
       }
-      return (CILTypeParameter) nType.NewWrapper( ctx );
+      return (CILTypeParameter) ctx.NewWrapper( nType );
    }
 
    /// <summary>

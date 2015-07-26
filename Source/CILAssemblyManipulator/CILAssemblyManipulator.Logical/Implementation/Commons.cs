@@ -158,7 +158,7 @@ namespace CILAssemblyManipulator.Logical.Implementation
       {
          return this.context.CollectionsFactory.NewDictionary<SecurityAction, ListProxy<LogicalSecurityInformation>, ListProxyQuery<LogicalSecurityInformation>, ListQuery<LogicalSecurityInformation>>( this.CustomAttributeData
             .Where( ca =>
-               ca.Constructor.DeclaringType.GetBaseTypeChain().Any( bt => String.Equals( Consts.SECURITY_ATTR, bt.GetFullName() ) && Object.Equals( LogicalUtils.NATIVE_MSCORLIB.NewWrapper( this.context ), bt.Module.Assembly ) )
+               ca.Constructor.DeclaringType.GetBaseTypeChain().Any( bt => String.Equals( Consts.SECURITY_ATTR, bt.GetFullName() ) && Object.Equals( this.context.NewWrapper( LogicalUtils.NATIVE_MSCORLIB ), bt.Module.Assembly ) )
                && ca.ConstructorArguments.Count > 0
                && String.Equals( ca.ConstructorArguments[0].ArgumentType.GetFullName(), Consts.SECURITY_ACTION ) )
             .GroupBy( ca => ca.ConstructorArguments[0].Value )
