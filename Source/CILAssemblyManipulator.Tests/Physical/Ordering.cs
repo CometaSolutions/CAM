@@ -114,6 +114,77 @@ namespace CILAssemblyManipulator.Tests.Physical
          Assert.AreEqual( new TableIndex( Tables.TypeSpec, 1 ), ( (OpCodeInfoWithToken) md.MethodDefinitions.TableContents[1].IL.OpCodes[0] ).Operand );
       }
 
+      [Test]
+      public void TestDuplicateNestedTypeRefs()
+      {
+         var md = CILMetaDataFactory.CreateMinimalAssembly( null, null, false );
+
+         md.AssemblyReferences.TableContents.Add( new AssemblyReference() );
+
+         var tRefs = md.TypeReferences.TableContents;
+         var firstTRef = new TypeReference()
+         {
+            Name = "FirstType",
+            Namespace = "NS",
+            ResolutionScope = new TableIndex( Tables.AssemblyRef, 0 )
+         };
+
+         var midTRef = new TypeReference()
+         {
+            Name = "MidType",
+            Namespace = "NS",
+            ResolutionScope = new TableIndex( Tables.AssemblyRef, 0 )
+         };
+
+         tRefs.AddRange( new[]
+         {
+            firstTRef,
+            new TypeReference()
+            {
+               Name = "EnclosingType",
+               Namespace ="NS",
+               ResolutionScope = new TableIndex(Tables.AssemblyRef, 0)
+            },
+            new TypeReference()
+            {
+               Name = "NestedType",
+               Namespace = null,
+               ResolutionScope = new TableIndex(Tables.TypeRef, 1)
+            },
+            midTRef,
+            new TypeReference()
+            {
+               Name = "EnclosingType",
+               Namespace ="NS",
+               ResolutionScope = new TableIndex(Tables.AssemblyRef, 0)
+            },
+            new TypeReference()
+            {
+               Name = "NestedType",
+               Namespace = null,
+               ResolutionScope = new TableIndex(Tables.TypeRef, 3)
+            },
+         } );
+
+         ReOrderAndValidate( md );
+
+         Assert.AreEqual( 4, tRefs.Count );
+         Assert.IsTrue( ReferenceEquals( tRefs[0], firstTRef ) );
+         Assert.IsTrue( Comparers.TypeReferenceEqualityComparer.Equals( tRefs[1], new TypeReference()
+         {
+            Name = "EnclosingType",
+            Namespace = "NS",
+            ResolutionScope = new TableIndex( Tables.AssemblyRef, 0 )
+         } ) );
+         Assert.IsTrue( Comparers.TypeReferenceEqualityComparer.Equals( tRefs[1], new TypeReference()
+         {
+            Name = "NestedType",
+            Namespace = null,
+            ResolutionScope = new TableIndex( Tables.TypeRef, 2 )
+         } ) );
+         Assert.IsTrue( ReferenceEquals( tRefs[3], midTRef ) );
+      }
+
       private static void AddDuplicateRowToMD( CILMetaData md, MethodDefinition method, TypeSignature typeSpec )
       {
          var typeSpecIndex = md.TypeSpecifications.RowCount;

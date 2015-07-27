@@ -1412,6 +1412,10 @@ namespace CILMerge
             }
 
             var tDef = targetTypeDefs[tDefIdx];
+            var tFDef = targetModule.FieldDefinitions.TableContents;
+            var tMDef = targetModule.MethodDefinitions.TableContents;
+            tDef.FieldList = new TableIndex( Tables.Field, tFDef.Count );
+            tDef.MethodList = new TableIndex( Tables.MethodDef, tMDef.Count );
 
             foreach ( var typeInfo in thisTypeInfo )
             {
@@ -1433,8 +1437,6 @@ namespace CILMerge
                }
 
                // FieldDef
-               var tFDef = targetModule.FieldDefinitions.TableContents;
-               tDef.FieldList = new TableIndex( Tables.Field, tFDef.Count );
                foreach ( var fDefIdx in inputMD.GetTypeFieldIndices( inputTDefIdx ) )
                {
                   var targetFIdx = new TableIndex( Tables.Field, tFDef.Count );
@@ -1449,9 +1451,7 @@ namespace CILMerge
                }
 
                // MethodDef
-               var tMDef = targetModule.MethodDefinitions.TableContents;
                var tPDef = targetModule.ParameterDefinitions.TableContents;
-               tDef.MethodList = new TableIndex( Tables.MethodDef, tMDef.Count );
                foreach ( var mDefIdx in inputMD.GetTypeMethodIndices( inputTDefIdx ) )
                {
                   var targetMDefIdx = tMDef.Count;
