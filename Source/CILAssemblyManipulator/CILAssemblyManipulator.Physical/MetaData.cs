@@ -839,12 +839,14 @@ public static partial class E_CILPhysical
       private readonly Tables _table;
       private Int32 _currentMinDuplicate;
       private Int32[] _prevDuplicates;
+      private readonly MetaDataTable _mdTable;
 
       internal SignatureReOrderState( MetaDataReOrderState reorderState, Tables table )
       {
          this._reorderState = reorderState;
          this._table = table;
          this._currentMinDuplicate = -1;
+         this._mdTable = reorderState.MetaData.GetByTable( table );
       }
 
       public MetaDataReOrderState ReOrderState
@@ -883,7 +885,7 @@ public static partial class E_CILPhysical
 
       public Boolean ShouldProcess( TableIndex tIdx )
       {
-         return this._currentMinDuplicate == -1 || ( this._table == tIdx.Table && this._currentMinDuplicate <= tIdx.Index );
+         return this._currentMinDuplicate == -1 || ( this._table == tIdx.Table && this._currentMinDuplicate <= tIdx.Index && this._mdTable.GetRowAt( this._reorderState.GetFinalIndex( tIdx ) ) != null );
       }
 
    }
