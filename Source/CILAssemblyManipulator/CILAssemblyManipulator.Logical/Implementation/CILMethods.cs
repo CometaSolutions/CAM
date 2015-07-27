@@ -847,6 +847,11 @@ namespace CILAssemblyManipulator.Logical.Implementation
          }
       }
 
+      public CILMethod MakeGenericMethod( params CILTypeBase[] args )
+      {
+         return this.context.Cache.MakeGenericMethod( this, this.GenericDefinition, args );
+      }
+
       #endregion
 
       #region CILElementOwnedByChangeableType<CILMethod> Members

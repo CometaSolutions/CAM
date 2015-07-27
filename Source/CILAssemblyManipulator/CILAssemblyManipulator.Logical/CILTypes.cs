@@ -49,6 +49,16 @@ namespace CILAssemblyManipulator.Logical
       /// </summary>
       /// <value>The <see cref="CILModule"/> where this type is defined.</value>
       CILModule Module { get; }
+
+      /// <summary>
+      /// Returns a <see cref="CILTypeBase"/> representing array, pointer, or by-ref type.
+      /// </summary>
+      /// <param name="kind">What kind of element type to make.</param>
+      /// <param name="arrayInfo">The array information, if <paramref name="kind"/> is <see cref="ElementKind.Array"/>. Otherwise it is ignored. In array information which is <c>null</c> means a simple vector array, otherwise the resulting type will be general array.</param>
+      /// <returns>A <see cref="CILTypeBase"/> representing array, pointer, or by-ref type.</returns>
+      /// <exception cref="NullReferenceException">If <paramref name="type"/> is <c>null.</c></exception>
+      /// <exception cref="ArgumentOutOfRangeException">If <paramref name="kind"/> is <see cref="ElementKind.Array"/> and <paramref name="arrayInfo"/> is less than <c>0</c>.</exception>
+      CILType MakeElementType( ElementKind kind, GeneralArrayInfo arrayInfo );
    }
 
    /// <summary>
@@ -303,6 +313,17 @@ namespace CILAssemblyManipulator.Logical
       /// <returns><c>true</c> if <paramref name="evt"/> was removed; <c>false</c> otherwise.</returns>
       Boolean RemoveEvent( CILEvent evt );
 
+      /// <summary>
+      /// Substitutes the generic arguments of the given <paramref name="type"/> with <paramref name="args"/> and returns the resulting type.
+      /// </summary>
+      /// <param name="args">The generic arguments.</param>
+      /// <returns>The generic type with <paramref name="args"/> as generic arguments.</returns>
+      /// <exception cref="InvalidOperationException">The <paramref name="args"/> are non-<c>null</c> or contain at least one element, and the <paramref name="type"/> is not generic type definition.</exception>
+      /// <exception cref="ArgumentNullException">If this type is a generic type definition and <paramref name="args"/> is <c>null</c> or any element of <paramref name="args"/> is <c>null</c>.</exception>
+      /// <exception cref="ArgumentException">If number of elements in <paramref name="args"/> is not the same as number of generic arguments in this type.</exception>
+      /// <remarks>TODO the void-type-check for generic arguments might not properly in some special scenarios, such as emitting mscorlib.</remarks>
+      CILType MakeGenericType( params CILTypeBase[] args );
+
    }
 
    /// <summary>
@@ -539,20 +560,6 @@ namespace CILAssemblyManipulator.Logical
 public static partial class E_CILLogical
 {
    internal const Int32 VECTOR_ARRAY_RANK = 0;
-
-   /// <summary>
-   /// Returns a <see cref="CILTypeBase"/> representing array, pointer, or by-ref type.
-   /// </summary>
-   /// <param name="type">The type to make element type from.</param>
-   /// <param name="kind">What kind of element type to make.</param>
-   /// <param name="arrayInfo">The array information, if <paramref name="kind"/> is <see cref="ElementKind.Array"/>. Otherwise it is ignored. In array information which is <c>null</c> means a simple vector array, otherwise the resulting type will be general array.</param>
-   /// <returns>A <see cref="CILTypeBase"/> representing array, pointer, or by-ref type.</returns>
-   /// <exception cref="NullReferenceException">If <paramref name="type"/> is <c>null.</c></exception>
-   /// <exception cref="ArgumentOutOfRangeException">If <paramref name="kind"/> is <see cref="ElementKind.Array"/> and <paramref name="arrayInfo"/> is less than <c>0</c>.</exception>
-   public static CILType MakeElementType( this CILTypeBase type, ElementKind kind, GeneralArrayInfo arrayInfo )
-   {
-      return ( (CILReflectionContextImpl) type.ReflectionContext ).Cache.MakeElementType( type, kind, arrayInfo );
-   }
 
    /// <summary>
    /// Checks whether <paramref name="type"/> is a generic type definition. Behaves in a same way as <see cref="System.Type.IsGenericTypeDefinition"/> property.
@@ -1045,21 +1052,7 @@ public static partial class E_CILLogical
       }
    }
 
-   /// <summary>
-   /// Substitutes the generic arguments of the given <paramref name="type"/> with <paramref name="args"/> and returns the resulting type.
-   /// </summary>
-   /// <param name="type">The type to substitute generic arguments.</param>
-   /// <param name="args">The generic arguments.</param>
-   /// <returns>The generic type with <paramref name="args"/> as generic arguments.</returns>
-   /// <exception cref="InvalidOperationException">The <paramref name="args"/> are non-<c>null</c> or contain at least one element, and the <paramref name="type"/> is not generic type definition.</exception>
-   /// <exception cref="ArgumentNullException">If <paramref name="type"/> is <c>null</c>, or if <paramref name="type"/> is generic type definition and <paramref name="args"/> is <c>null</c> or any element of <paramref name="args"/> is <c>null</c>.</exception>
-   /// <exception cref="ArgumentException">If number of elements in <paramref name="args"/> is not the same as number of generic arguments in <paramref name="type"/></exception>
-   /// <remarks>TODO the void-type-check for generic arguments might not properly in some special scenarios, such as emitting mscorlib.</remarks>
-   public static CILType MakeGenericType( this CILType type, params CILTypeBase[] args )
-   {
-      ArgumentValidator.ValidateNotNull( "Type", type );
-      return ( (CILReflectionContextImpl) type.ReflectionContext ).Cache.MakeGenericType( type, type.GenericDefinition, args );
-   }
+
 
    /// <summary>
    /// Convenience method for checking whether <paramref name="type"/> is non-<c>null</c> and is vector array type. The array type is considered to be vector array type when its <see cref="CILType.ElementKind"/> is <see cref="ElementKind.Array"/> and its <see cref="CILType.ArrayInformation"/> is <c>null</c>.

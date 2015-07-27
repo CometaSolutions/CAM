@@ -1074,6 +1074,8 @@ namespace CILMerge
             }
          }
 
+         this.Log( MessageLevel.Info, "The following input modules are being merged: {0}.", String.Join( ", ", this._inputModules.Select( m => this._moduleLoader.GetResourceFor( m ) ) ) );
+
          foreach ( var inputModule in this._inputModules )
          {
             var dic = new Dictionary<String, CILMetaData>();
@@ -2480,7 +2482,7 @@ namespace CILMerge
             cur =>
             {
                Int32 enclosingTypeIdx;
-               return enclosingTypeInfo.TryGetValue( tDefIndex, out enclosingTypeIdx ) ?
+               return enclosingTypeInfo.TryGetValue( cur, out enclosingTypeIdx ) ?
                   enclosingTypeIdx :
                   -1;
             },

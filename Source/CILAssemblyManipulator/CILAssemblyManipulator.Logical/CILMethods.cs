@@ -202,6 +202,16 @@ namespace CILAssemblyManipulator.Logical
       /// </summary>
       /// <value>The name of the module for platform invoke method.</value>
       String PlatformInvokeModuleName { get; set; }
+
+      /// <summary>
+      /// Returns a method representing the constructed method based on this generic method definition.
+      /// </summary>
+      /// <param name="args">The types to substitute the type parameters of this generic method definition.</param>
+      /// <returns>A method representing the constructed method based on this generic method definition.</returns>
+      /// <exception cref="InvalidOperationException">The <paramref name="args"/> are non-<c>null</c> or contain at least one element, and the <paramref name="method"/> is not generic method definition, that is, <see cref="E_CILLogical.IsGenericMethodDefinition" /> returns <c>false</c> for <paramref name="method"/>.</exception>
+      /// <exception cref="ArgumentNullException">If <paramref name="args" /> is <c>null</c>.-or- Any element of <paramref name="args" /> is <c>null</c>. </exception>
+      /// <exception cref="ArgumentException">The number of elements in <paramref name="args" /> is not the same as the number of type parameters of the current generic method definition.</exception>
+      CILMethod MakeGenericMethod( params CILTypeBase[] args );
    }
 
    /// <summary>
@@ -355,21 +365,6 @@ public static partial class E_CILLogical
    }
 
    /// <summary>
-   /// Returns a method representing the constructed method based on this generic method definition.
-   /// </summary>
-   /// <param name="method">The method </param>
-   /// <param name="args">The types to substitute the type parameters of this generic method definition.</param>
-   /// <returns>A method representing the constructed method based on this generic method definition.</returns>
-   /// <exception cref="InvalidOperationException">The <paramref name="args"/> are non-<c>null</c> or contain at least one element, and the <paramref name="method"/> is not generic method definition, that is, <see cref="E_CILLogical.IsGenericMethodDefinition" /> returns <c>false</c> for <paramref name="method"/>.</exception>
-   /// <exception cref="ArgumentNullException">If <paramref name="method"/> is <c>null</c>.-or-<paramref name="args" /> is <c>null</c>.-or- Any element of <paramref name="args" /> is <c>null</c>. </exception>
-   /// <exception cref="ArgumentException">The number of elements in <paramref name="args" /> is not the same as the number of type parameters of the current generic method definition.</exception>
-   public static CILMethod MakeGenericMethod( this CILMethod method, params CILTypeBase[] args )
-   {
-      ArgumentValidator.ValidateNotNull( "Method", method );
-      return ( (CILReflectionContextImpl) method.ReflectionContext ).Cache.MakeGenericMethod( method, method.GenericDefinition, args );
-   }
-
-   /// <summary>
    /// Creates a new <see cref="CILMethodSignature"/> that captures the signature of the current method.
    /// </summary>
    /// <param name="method">The <see cref="CILMethodBase"/>.</param>
@@ -379,17 +374,18 @@ public static partial class E_CILLogical
    /// <exception cref="ArgumentNullException">If any type of parameters is <c>null</c>.</exception>
    public static CILMethodSignature CreateMethodSignature( this CILMethodBase method, UnmanagedCallingConventions callConventions = UnmanagedCallingConventions.C )
    {
+      var cf = CollectionsWithRoles.Implementation.CollectionsFactorySingleton.DEFAULT_COLLECTIONS_FACTORY;
       return new CILMethodSignatureImpl(
          method.ReflectionContext,
          method.DeclaringType.Module,
          callConventions | (UnmanagedCallingConventions) ( method.CallingConvention & CallingConventions.HasThis & CallingConventions.ExplicitThis ),
          MethodKind.Method == method.MethodKind ?
-            ( (CILReflectionContextImpl) method.ReflectionContext ).CollectionsFactory.NewListProxyFromParams( ( (CILMethod) method ).ReturnParameter.CustomModifiers.ToArray() ) :
+            cf.NewListProxyFromParams( ( (CILMethod) method ).ReturnParameter.CustomModifiers.ToArray() ) :
             null,
          MethodKind.Method == method.MethodKind ?
             ( (CILMethod) method ).ReturnParameter.ParameterType :
             method.DeclaringType.Module.AssociatedMSCorLibModule.GetTypeByName( Consts.VOID ),
-            method.Parameters.Select( param => Tuple.Create( ( (CILReflectionContextImpl) method.ReflectionContext ).CollectionsFactory.NewListProxyFromParams( param.CustomModifiers.ToArray() ), param.ParameterType ) ).ToList(),
+            method.Parameters.Select( param => Tuple.Create( cf.NewListProxyFromParams( param.CustomModifiers.ToArray() ), param.ParameterType ) ).ToList(),
          method
             );
    }

@@ -192,6 +192,11 @@ namespace CILAssemblyManipulator.Logical.Implementation
          //}
       }
 
+      public CILType MakeElementType( ElementKind kind, GeneralArrayInfo arrayInfo )
+      {
+         return this.context.Cache.MakeElementType( this, kind, arrayInfo );
+      }
+
       #endregion
 
       #region CILElementWithSimpleName Members
@@ -1071,6 +1076,11 @@ namespace CILAssemblyManipulator.Logical.Implementation
          }
       }
 
+      public CILType MakeGenericType( params CILTypeBase[] args )
+      {
+         return this.context.Cache.MakeGenericType( this, this.GenericDefinition, args );
+      }
+
       #endregion
 
       #region CILElementWithGenericArguments<CILType> Members
@@ -1389,6 +1399,11 @@ namespace CILAssemblyManipulator.Logical.Implementation
          {
             return this._module;
          }
+      }
+
+      public CILType MakeElementType( ElementKind kind, GeneralArrayInfo arrayInfo )
+      {
+         return this._ctx.Cache.MakeElementType( this, kind, arrayInfo );
       }
 
       #endregion

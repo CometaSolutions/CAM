@@ -47,48 +47,7 @@ public static partial class E_CILLogical
    /// <seealso cref="CILMethodSignature"/>
    public static CILMethodSignature NewMethodSignature( this CILReflectionContext ctx, CILModule currentModule, UnmanagedCallingConventions callingConventions, CILTypeBase returnType, params CILTypeBase[] paramTypes )
    {
-      return NewMethodSignature( ctx, currentModule, callingConventions, returnType, null, paramTypes.Select( pt => Tuple.Create( (CILCustomModifier[]) null, pt ) ).ToArray() );
-   }
-
-   /// <summary>
-   /// Creates a new <see cref="CILMethodSignature"/> which has all its information specified from the parameters of this method.
-   /// </summary>
-   /// <param name="ctx">The current <see cref="CILReflectionContext"/>.</param>
-   /// <param name="currentModule">The current <see cref="CILModule"/>.</param>
-   /// <param name="callingConventions">The <see cref="UnmanagedCallingConventions"/> for the method signature.</param>
-   /// <param name="returnType">The return type for the method signature.</param>
-   /// <param name="returnParamMods">The <see cref="CILCustomModifier"/>s for the method signature. May be <c>null</c> if no modifiers should be used.</param>
-   /// <param name="parameters">The parameter information for the method signature. Each element is a tuple containing <see cref="CILCustomModifier"/>s and type for the parameter. Custom modifiers array may be <c>null</c> if no modifiers should be used.</param>
-   /// <returns>A new <see cref="CILMethodSignature"/>.</returns>
-   /// <exception cref="NullReferenceException">If <paramref name="ctx"/> is <c>null</c>.</exception>
-   /// <exception cref="ArgumentNullException">If <paramref name="currentModule"/>, <paramref name="returnType"/> or any of the types within <paramref name="parameters"/> is <c>null</c>.</exception>
-   /// <seealso cref="CILMethodSignature"/>
-   public static CILMethodSignature NewMethodSignature( this CILReflectionContext ctx, CILModule currentModule, UnmanagedCallingConventions callingConventions, CILTypeBase returnType, CILCustomModifier[] returnParamMods, params Tuple<CILCustomModifier[], CILTypeBase>[] parameters )
-   {
-      if ( ctx == null )
-      {
-         // Throw nullref explicitly for consistency (since it is 'this' parameter)
-         // Because CILMethodSignatureImpl ctor throws ArgumentNullException
-         throw new NullReferenceException();
-      }
-      var cctx = (CILReflectionContextImpl) ctx;
-      return new CILMethodSignatureImpl( ctx, currentModule, callingConventions, returnParamMods == null ? null : cctx.CollectionsFactory.NewListProxyFromParams( returnParamMods ), returnType, parameters.Select( t => Tuple.Create( t.Item1 == null ? null : cctx.CollectionsFactory.NewListProxyFromParams( t.Item1 ), t.Item2 ) ).ToList(), null );
-   }
-
-   /// <summary>
-   /// Creates a new, blank instance of <see cref="CILAssembly"/>.
-   /// </summary>
-   /// <param name="ctx">The current reflection context.</param>
-   /// <param name="name">The name of the assembly.</param>
-   /// <returns>New instance of <see cref="CILAssembly"/> with specified <paramref name="name"/> which will have no modules.</returns>
-   /// <exception cref="ArgumentNullException">If <paramref name="ctx"/> is <c>null</c>.</exception>
-   public static CILAssembly NewBlankAssembly( this CILReflectionContext ctx, String name )
-   {
-      ArgumentValidator.ValidateNotNull( "Reflection context", ctx );
-
-      var ass = ( (CILReflectionContextImpl) ctx ).Cache.NewBlankAssembly();
-      ass.Name.Name = name;
-      return ass;
+      return ctx.NewMethodSignature( currentModule, callingConventions, returnType, null, paramTypes.Select( pt => Tuple.Create( (CILCustomModifier[]) null, pt ) ).ToArray() );
    }
 
    ///// <summary>

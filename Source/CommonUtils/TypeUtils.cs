@@ -127,21 +127,21 @@ public static partial class E_CommonUtils
 
 
 
-   ///// <summary>
-   ///// Returns only bottom-most types in type hierarchy of <paramref name="items"/>, where each type is extracted by <paramref name="typeSelector"/>.
-   ///// </summary>
-   ///// <typeparam name="T">The type of items.</typeparam>
-   ///// <param name="items">The items to extract types from.</param>
-   ///// <param name="typeSelector">The function to extract type from single item.</param>
-   ///// <returns>Only bottom-most types in type hierarchy of <paramref name="items"/>, where each type is extracted by <paramref name="typeSelector"/>.</returns>
-   ///// <remarks>
-   ///// This method uses <see cref="IsAssignableFrom_IgnoreGenericArgumentsForGenericTypes"/> to check whether one type is assignable from another.
-   ///// </remarks>
-   ///// <exception cref="NullReferenceException">If <paramref name="items"/> is <c>null</c>.</exception>
-   //public static T[] GetBottomTypes<T>( this IEnumerable<T> items, Func<T, Type> typeSelector )
-   //{
-   //   return items == null ? Empty<T>.Array : items.Where( item => !items.Select( typeSelector ).Any( anotherType => !typeSelector( item ).Equals( anotherType ) && typeSelector( item ).IsAssignableFrom_IgnoreGenericArgumentsForGenericTypes( anotherType ) ) ).ToArray();
-   //}
+   /// <summary>
+   /// Returns only bottom-most types in type hierarchy of <paramref name="items"/>, where each type is extracted by <paramref name="typeSelector"/>.
+   /// </summary>
+   /// <typeparam name="T">The type of items.</typeparam>
+   /// <param name="items">The items to extract types from.</param>
+   /// <param name="typeSelector">The function to extract type from single item.</param>
+   /// <returns>Only bottom-most types in type hierarchy of <paramref name="items"/>, where each type is extracted by <paramref name="typeSelector"/>.</returns>
+   /// <remarks>
+   /// This method uses <see cref="IsAssignableFrom_IgnoreGenericArgumentsForGenericTypes"/> to check whether one type is assignable from another.
+   /// </remarks>
+   /// <exception cref="NullReferenceException">If <paramref name="items"/> is <c>null</c>.</exception>
+   public static T[] GetBottomTypes<T>( this IEnumerable<T> items, Func<T, Type> typeSelector )
+   {
+      return items == null ? Empty<T>.Array : items.Where( item => !items.Select( typeSelector ).Any( anotherType => !typeSelector( item ).Equals( anotherType ) && typeSelector( item ).IsAssignableFrom_IgnoreGenericArgumentsForGenericTypes( anotherType ) ) ).ToArray();
+   }
 
    /// <summary>
    /// Returns all the implemented interfaces of <paramref name="type"/>. If <paramref name="type"/> is interface, it is also included. If <paramref name="type"/> is <c>null</c>, empty enumerable is returned.
@@ -566,6 +566,19 @@ public static partial class E_CommonUtils
       where T : class, IEquatable<T>
    {
       return ( first == null && second == null ) || ( first != null && second != null && first.Equals( second ) );
+   }
+
+   /// <summary>
+   /// Returns only bottom-most types in type hierarchy of <paramref name="types"/>.
+   /// </summary>
+   /// <param name="types">The types to check.</param>
+   /// <returns>Only bottom-most types in type hierarchy of <paramref name="types"/>.</returns>
+   /// <remarks>
+   /// This method uses <see cref="E_CommonUtils.IsAssignableFrom_IgnoreGenericArgumentsForGenericTypes"/> to check whether one type is assignable from another.
+   /// </remarks>
+   public static Type[] GetBottomTypes( this IEnumerable<Type> types )
+   {
+      return types == null ? Empty<Type>.Array : types.Where( type => !types.Any( anotherType => !type.Equals( anotherType ) && type.IsAssignableFrom_IgnoreGenericArgumentsForGenericTypes( anotherType ) ) ).Distinct().ToArray();
    }
 
    ///// <summary>
