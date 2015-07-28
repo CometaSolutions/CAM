@@ -835,131 +835,6 @@ public static partial class E_CILPhysical
       }
    }
 
-   private sealed class SignatureReOrderState
-   {
-      private readonly MetaDataReOrderState _reorderState;
-      private readonly Tables _table;
-      private Boolean _isOnFirstPass;
-      private readonly Dictionary<Object, Int32> _originalSameTableReferences;
-      private readonly Dictionary<Object, Int32> _sameTableRefOffsets;
-      private readonly IDictionary<Int32, Int32> _previousDuplicates;
-      private readonly Int32 _tableSize;
-      private readonly Action<Object, TableIndex> _refUpdater;
-      //private readonly Int32[] _finalIndicesBeforeDuplicates;
-
-      internal SignatureReOrderState( MetaDataReOrderState reorderState, Tables table, Action<Object, TableIndex> selfRefUpdated )
-      {
-         this._reorderState = reorderState;
-         this._table = table;
-         this._isOnFirstPass = true;
-         this._originalSameTableReferences = new Dictionary<Object, Int32>( ReferenceEqualityComparer<Object>.ReferenceBasedComparer );
-         this._sameTableRefOffsets = new Dictionary<Object, Int32>( ReferenceEqualityComparer<Object>.ReferenceBasedComparer );
-         this._previousDuplicates = new Dictionary<Int32, Int32>();
-         this._tableSize = reorderState.MetaData.GetByTable( table ).RowCount;
-         this._refUpdater = selfRefUpdated;
-         //this._finalIndicesBeforeDuplicates = new Int32[reorderState.MetaData.GetByTable( table ).RowCount];
-      }
-
-      public MetaDataReOrderState ReOrderState
-      {
-         get
-         {
-            return this._reorderState;
-         }
-      }
-
-      public CILMetaData MD
-      {
-         get
-         {
-            return this._reorderState.MetaData;
-         }
-      }
-
-      public IDictionary<Object, Int32> OriginalSameTableReferences
-      {
-         get
-         {
-            return this._originalSameTableReferences;
-         }
-      }
-
-      public void BeforeDuplicateRemoval()
-      {
-         this._previousDuplicates.Clear();
-         //Array.Copy( this._reorderState.FinalIndices[(Int32) this._table], this._finalIndicesBeforeDuplicates, this._finalIndicesBeforeDuplicates.Length );
-      }
-
-      public void MarkDuplicate( Int32 duplicateIdx, Int32 actualIndex )
-      {
-         this._previousDuplicates.Add( duplicateIdx, actualIndex );
-      }
-
-      public void AfterDuplicateRemoval()
-      {
-         this._isOnFirstPass = false;
-         // Update all self-references
-         // Interval tree would be better for this, but no such thing in .NET (Portable), and I rather not make an extra dependency because of that
-         // TODO maybe add interval tree to UtilPack?
-         if ( this._previousDuplicates.Count > 0 )
-         {
-
-            var dupList = this._previousDuplicates.Keys.OrderBy( i => i ).ToList();
-            var array = new Int32[this._tableSize];
-            var prev = 0;
-            //var runningIdx = 0;
-            for ( var i = 0; i < dupList.Count; ++i )
-            {
-               var cur = dupList[i];
-               //for ( var j = prev; j < cur; ++j, ++runningIdx )
-               //{
-               //   array[j] = runningIdx;
-               //}
-               array[cur] = -1;// this._reorderState.GetFinalIndex( this._table, cur );
-               array.FillWithOffsetAndCount( prev, cur - prev, i );
-               prev = cur + 1;
-            }
-            array.FillWithOffsetAndCount( prev, array.Length - prev, dupList.Count );
-            //for ( var j = prev; j < array.Length; ++j, ++runningIdx )
-            //{
-            //   array[j] = runningIdx;
-            //}
-
-            foreach ( var kvp in this._originalSameTableReferences ) // new Dictionary<Object, Int32>( this._originalSameTableReferences, this._originalSameTableReferences.Comparer ) )
-            {
-               var obj = kvp.Key;
-               var idx = kvp.Value;
-               var offset = array[idx];
-               this._sameTableRefOffsets[obj] = offset;
-               //if ( offset > 0 )
-               //{
-               //   var newIdx = idx - offset;
-               //   this._originalSameTableReferences[obj] = newIdx;
-               //}
-            }
-         }
-      }
-
-      public Boolean ShouldProcess( Object key, TableIndex tIdx )
-      {
-         // If this is first pass, always return true.
-         // Otherwise, check for target index table.
-         // If different table than this, return false.
-         // If same table, get the current index of target (not final index)
-         // Then get final index of target.
-         // Return true only if these two differ.
-
-
-         Int32 orig;
-         this._originalSameTableReferences.TryGetValue( key, out orig );
-         var final = this._reorderState.GetFinalIndex( this._table, orig ); // this._finalIndicesBeforeDuplicates[orig];
-         Int32 offset;
-         this._sameTableRefOffsets.TryGetValue( key, out offset );
-         return this._isOnFirstPass || ( this._table == tIdx.Table && this._reorderState.GetFinalIndex( this._table, this._originalSameTableReferences[key] ) != tIdx.Index - this._sameTableRefOffsets[key] );
-      }
-
-   }
-
    private sealed class MetaDataReOrderState
    {
       private readonly CILMetaData _md;
@@ -2090,20 +1965,10 @@ public static partial class E_CILPhysical
    }
 
    private static Boolean CheckMDDuplicatesUnsorted<T>(
-      this SignatureReOrderState state,
-      MetaDataTable<T> mdTable,
-      IEqualityComparer<T> comparer
-      )
-      where T : class
-   {
-      return state.ReOrderState.CheckMDDuplicatesUnsorted( mdTable, comparer, ( duplicateIdx, actualIdx ) => state.MarkDuplicate( duplicateIdx, actualIdx ) );
-   }
-
-   private static Boolean CheckMDDuplicatesUnsorted<T>(
       this MetaDataReOrderState reorderState,
       MetaDataTable<T> mdTable,
-      IEqualityComparer<T> comparer,
-      Action<Int32, Int32> onDuplicate = null
+      IEqualityComparer<T> comparer
+      //Action<Int32, Int32> onDuplicate = null
       )
       where T : class
    {
@@ -2129,10 +1994,6 @@ public static partial class E_CILPhysical
                   }
 
                   // Mark as duplicate - replace value with null
-                  if ( onDuplicate != null )
-                  {
-                     onDuplicate( i, actualIndex );
-                  }
                   reorderState.MarkDuplicate( table, i, actualIndex );
                   list[i] = null;
 
@@ -2228,47 +2089,54 @@ public static partial class E_CILPhysical
 
       // TypeSpec
       // ECMA-335: There shall be no duplicate rows, based upon Signature  [ERROR] 
-      // This is the last of three tables (TypeDef, TypeRef, TypeSpec) which may appear in signatures, so update all signatures also.
-
-      // 1. Walk thru typespecs, update indices and watch for duplicates, just like with typerefs
-      // 1.1. If encountered typespec index in type signature of a typespec, save max index
-      // 2. If no typespec indices encountered (99% of the cases), then we are done
-      // 3. Otherwise, sort typespecs just like typerefs (using max index from 1.1.), and then remove duplicates, like in typerefs
-      // 4. Update the rest of the signatures of metadata.
-
-      // Furthermore, updating signatures may also cause this table to start having duplicates.
-      // So remove duplicates and update signatures in a loop
+      // Just like TypeRef, there may be self-references
       var tSpecs = md.TypeSpecifications;
-      reorderState.GetOrCreateIndexArray( tSpecs );
-      var updateState = new SignatureReOrderState( reorderState, Tables.TypeSpec, ( sig, idx ) =>
-      {
-         if ( sig is CustomModifierSignature )
+      var tSpecList = tSpecs.TableContents;
+      var tSpecIndices = reorderState.GetOrCreateIndexArray( tSpecs );
+      var tSpecsCorrectOrder = tSpecList
+         .Select( ( tSpec, idx ) => Tuple.Create( tSpec, idx ) )
+         .OrderBy( tpl =>
          {
-            ( (CustomModifierSignature) sig ).CustomModifierType = idx;
-         }
-         else
-         {
-            ( (ClassOrValueTypeSignature) sig ).Type = idx;
-         }
-      } );
-      foreach ( var sig in updateState.GetAllSignaturesToUpdateForReOrder() )
-      {
-         var curIdx = sig.Item2;
-         if ( curIdx.Table == Tables.TypeSpec )
-         {
-            updateState.OriginalSameTableReferences.Add( sig.Item1, curIdx.Index );
-         }
-      }
-      Boolean removedDuplicates;
-      do
-      {
-         updateState.UpdateSignatures();
-         removedDuplicates = updateState.CheckMDDuplicatesUnsortedWithSignatureReOrderState(
-            tSpecs,
-            Comparers.TypeSpecificationEqualityComparer
-            );
+            var maxTSpecIdx = -1;
+            foreach ( var info in tpl.Item1.Signature.GetAllSignaturesToUpdateForReOrder_Type() )
+            {
+               var tDefOrRefOrSpec = info.Item2;
+               if ( tDefOrRefOrSpec.Table == Tables.TypeSpec )
+               {
+                  maxTSpecIdx = Math.Max( maxTSpecIdx, tDefOrRefOrSpec.Index );
+               }
+            }
+            return maxTSpecIdx;
+         } )
+         .ToList();
 
-      } while ( removedDuplicates );
+      tSpecList.Clear();
+      var tSpecDic = new Dictionary<TypeSpecification, Int32>( Comparers.TypeSpecificationEqualityComparer );
+      for ( var i = 0; i < tSpecsCorrectOrder.Count; ++i )
+      {
+         var tuple = tSpecsCorrectOrder[i];
+         var tSpec = tuple.Item1;
+         foreach ( var info in tSpec.Signature.GetAllSignaturesToUpdateForReOrder_Type() )
+         {
+            reorderState.UpdateSingleSignatureElement( info );
+         }
+
+         Int32 newTSpecIdx;
+         if ( !tSpecDic.TryGetValue( tSpec, out newTSpecIdx ) )
+         {
+            newTSpecIdx = tSpecList.Count;
+            tSpecDic.Add( tSpec, newTSpecIdx );
+            tSpecList.Add( tSpec );
+         }
+
+         tSpecIndices[tuple.Item2] = newTSpecIdx;
+      }
+
+      // TypeSpec was the last of three tables (TypeDef, TypeRef, TypeSpec) which may appear in signatures, so update the rest of the signatures now
+      foreach ( var info in reorderState.GetAllSignaturesToUpdateForReOrder() )
+      {
+         reorderState.UpdateSingleSignatureElement( info );
+      }
 
       // ECMA-335: IL tokens shall be from TypeDef, TypeRef, TypeSpec, MethodDef, FieldDef, MemberRef, MethodSpec or StandaloneSignature tables.
       // The only unprocessed tables from those are MemberRef, MethodSpec and StandaloneSignature
@@ -2309,106 +2177,57 @@ public static partial class E_CILPhysical
       reorderState.UpdateIL();
    }
 
-   private static Boolean CheckMDDuplicatesUnsortedWithSignatureReOrderState<T>(
-      this SignatureReOrderState state,
-      MetaDataTable<T> mdTable,
-      IEqualityComparer<T> equalityComparer
-      )
-      where T : class
+   private static void UpdateSingleSignatureElement( this MetaDataReOrderState state, TSigInfo info )
    {
-      var reorderState = state.ReOrderState;
-      state.BeforeDuplicateRemoval();
-      var removedDuplicates = state.CheckMDDuplicatesUnsorted(
-         mdTable,
-         equalityComparer
-         );
-      if ( removedDuplicates )
+      var tDefOrRefOrSpec = info.Item2;
+      var newIdx = state.GetFinalIndex( tDefOrRefOrSpec );
+      if ( tDefOrRefOrSpec.Index != newIdx )
       {
-         state.AfterDuplicateRemoval();
+         var newTIdx = tDefOrRefOrSpec.ChangeIndex( newIdx );
+         var owner = info.Item1;
+         if ( owner is CustomModifierSignature )
+         {
+            ( (CustomModifierSignature) owner ).CustomModifierType = newTIdx;
+         }
+         else
+         {
+            ( (ClassOrValueTypeSignature) owner ).Type = newTIdx;
+         }
       }
-
-      return removedDuplicates;
    }
 
-   // This method updates all signature table indices and returns true if any table index was modified
-   private static void UpdateSignatures( this SignatureReOrderState state )
+   private static IEnumerable<TSigInfo> GetAllSignaturesToUpdateForReOrder( this MetaDataReOrderState state )
    {
-      var md = state.MD;
-      // 1. FieldDef
-      foreach ( var field in md.FieldDefinitions.TableContents.Where( f => f != null ) )
-      {
-         state.UpdateFieldSignature( field.Signature );
-      }
-
-      // 2. MethodDef
-      foreach ( var method in md.MethodDefinitions.TableContents.Where( m => m != null ) )
-      {
-         state.UpdateMethodDefSignature( method.Signature );
-      }
-
-      // 3. MemberRef
-      foreach ( var member in md.MemberReferences.TableContents.Where( m => m != null ) )
-      {
-         state.UpdateAbstractSignature( member.Signature );
-      }
-
-      // 4. StandaloneSignature
-      foreach ( var sig in md.StandaloneSignatures.TableContents.Where( s => s != null ) )
-      {
-         state.UpdateAbstractSignature( sig.Signature );
-      }
-
-      // 5. PropertyDef
-      foreach ( var prop in md.PropertyDefinitions.TableContents ) // No need for null check as property definition is not sorted nor checked for duplicates
-      {
-         state.UpdatePropertySignature( prop.Signature );
-      }
-
-      // 6. TypeSpec
-      foreach ( var tSpec in md.TypeSpecifications.TableContents.Where( t => t != null ) )
-      {
-         state.UpdateTypeSignature( tSpec.Signature );
-      }
-
-      // 7. MethodSpecification
-      foreach ( var mSpec in md.MethodSpecifications.TableContents.Where( m => m != null ) )
-      {
-         state.UpdateGenericMethodSignature( mSpec.Signature );
-      }
-
+      // TypeSpec table should've been processed at this point already
       // CustomAttribute and DeclarativeSecurity signatures do not reference table indices, so they can be skipped
+
+      var md = state.MetaData;
+      return md.FieldDefinitions.TableContents.Where( f => f != null ).SelectMany( f => f.Signature.GetAllSignaturesToUpdateForReOrder_Field() )
+         .Concat( md.MethodDefinitions.TableContents.Where( m => m != null ).SelectMany( m => m.Signature.GetAllSignaturesToUpdateForReOrder_MethodDef() ) )
+         .Concat( md.MemberReferences.TableContents.SelectMany( m => m.Signature.GetAllSignaturesToUpdateForReOrder() ) )
+         .Concat( md.StandaloneSignatures.TableContents.SelectMany( s => s.Signature.GetAllSignaturesToUpdateForReOrder() ) )
+         .Concat( md.PropertyDefinitions.TableContents.SelectMany( p => p.Signature.GetAllSignaturesToUpdateForReOrder_Property() ) )
+         .Concat( md.MethodSpecifications.TableContents.SelectMany( m => m.Signature.GetAllSignaturesToUpdateForReOrder_GenericMethod() ) );
    }
 
-   private static IEnumerable<TSigInfo> GetAllSignaturesToUpdateForReOrder( this SignatureReOrderState state )
-   {
-      var md = state.MD;
-      return md.FieldDefinitions.TableContents.SelectMany( f => state.GetAllSignaturesToUpdateForReOrder_Field( f.Signature ) )
-         .Concat( md.MethodDefinitions.TableContents.SelectMany( m => state.GetAllSignaturesToUpdateForReOrder_MethodDef( m.Signature ) ) )
-         .Concat( md.MemberReferences.TableContents.SelectMany( m => state.GetAllSignaturesToUpdateForReOrder( m.Signature ) ) )
-         .Concat( md.StandaloneSignatures.TableContents.SelectMany( s => state.GetAllSignaturesToUpdateForReOrder( s.Signature ) ) )
-         .Concat( md.PropertyDefinitions.TableContents.SelectMany( p => state.GetAllSignaturesToUpdateForReOrder_Property( p.Signature ) ) )
-         .Concat( md.TypeSpecifications.TableContents.SelectMany( t => state.GetAllSignaturesToUpdateForReOrder_Type( t.Signature ) ) )
-         .Concat( md.MethodSpecifications.TableContents.SelectMany( m => state.GetAllSignaturesToUpdateForReOrder_GenericMethod( m.Signature ) ) );
-   }
-
-   private static IEnumerable<TSigInfo> GetAllSignaturesToUpdateForReOrder( this SignatureReOrderState state, AbstractSignature sig )
+   private static IEnumerable<TSigInfo> GetAllSignaturesToUpdateForReOrder( this AbstractSignature sig )
    {
       switch ( sig.SignatureKind )
       {
          case SignatureKind.Field:
-            return state.GetAllSignaturesToUpdateForReOrder_Field( (FieldSignature) sig );
+            return ( (FieldSignature) sig ).GetAllSignaturesToUpdateForReOrder_Field();
          case SignatureKind.GenericMethodInstantiation:
-            return state.GetAllSignaturesToUpdateForReOrder_GenericMethod( (GenericMethodSignature) sig );
+            return ( (GenericMethodSignature) sig ).GetAllSignaturesToUpdateForReOrder_GenericMethod();
          case SignatureKind.LocalVariables:
-            return state.GetAllSignaturesToUpdateForReOrder_Locals( (LocalVariablesSignature) sig );
+            return ( (LocalVariablesSignature) sig ).GetAllSignaturesToUpdateForReOrder_Locals();
          case SignatureKind.MethodDefinition:
-            return state.GetAllSignaturesToUpdateForReOrder_MethodDef( (MethodDefinitionSignature) sig );
+            return ( (MethodDefinitionSignature) sig ).GetAllSignaturesToUpdateForReOrder_MethodDef();
          case SignatureKind.MethodReference:
-            return state.GetAllSignaturesToUpdateForReOrder_MethodRef( (MethodReferenceSignature) sig );
+            return ( (MethodReferenceSignature) sig ).GetAllSignaturesToUpdateForReOrder_MethodRef();
          case SignatureKind.Property:
-            return state.GetAllSignaturesToUpdateForReOrder_Property( (PropertySignature) sig );
+            return ( (PropertySignature) sig ).GetAllSignaturesToUpdateForReOrder_Property();
          case SignatureKind.Type:
-            return state.GetAllSignaturesToUpdateForReOrder_Type( (TypeSignature) sig );
+            return ( (TypeSignature) sig ).GetAllSignaturesToUpdateForReOrder_Type();
          case SignatureKind.RawSignature:
             return Empty<TSigInfo>.Enumerable;
          default:
@@ -2416,72 +2235,72 @@ public static partial class E_CILPhysical
       }
    }
 
-   private static IEnumerable<TSigInfo> GetAllSignaturesToUpdateForReOrder_Field( this SignatureReOrderState state, FieldSignature sig )
+   private static IEnumerable<TSigInfo> GetAllSignaturesToUpdateForReOrder_Field( this FieldSignature sig )
    {
       return sig.CustomModifiers.Select( cm => Tuple.Create( (Object) cm, cm.CustomModifierType ) )
-         .Concat( state.GetAllSignaturesToUpdateForReOrder_Type( sig.Type ) );
+         .Concat( sig.Type.GetAllSignaturesToUpdateForReOrder_Type() );
    }
 
-   private static IEnumerable<TSigInfo> GetAllSignaturesToUpdateForReOrder_GenericMethod( this SignatureReOrderState state, GenericMethodSignature sig )
+   private static IEnumerable<TSigInfo> GetAllSignaturesToUpdateForReOrder_GenericMethod( this  GenericMethodSignature sig )
    {
-      return sig.GenericArguments.SelectMany( arg => state.GetAllSignaturesToUpdateForReOrder( arg ) );
+      return sig.GenericArguments.SelectMany( arg => arg.GetAllSignaturesToUpdateForReOrder() );
    }
 
-   private static IEnumerable<TSigInfo> GetAllSignaturesToUpdateForReOrder_Locals( this SignatureReOrderState state, LocalVariablesSignature sig )
+   private static IEnumerable<TSigInfo> GetAllSignaturesToUpdateForReOrder_Locals( this  LocalVariablesSignature sig )
    {
-      return sig.Locals.SelectMany( l => state.GetAllSignaturesToUpdateForReOrder_LocalOrSig( l ) );
+      return sig.Locals.SelectMany( l => l.GetAllSignaturesToUpdateForReOrder_LocalOrSig() );
    }
 
-   private static IEnumerable<TSigInfo> GetAllSignaturesToUpdateForReOrder_AbstractMethod( this SignatureReOrderState state, AbstractMethodSignature sig )
+   private static IEnumerable<TSigInfo> GetAllSignaturesToUpdateForReOrder_AbstractMethod( this AbstractMethodSignature sig )
    {
-      return state.GetAllSignaturesToUpdateForReOrder_LocalOrSig( sig.ReturnType )
-         .Concat( sig.Parameters.SelectMany( p => state.GetAllSignaturesToUpdateForReOrder_LocalOrSig( p ) ) );
+      return sig.ReturnType.GetAllSignaturesToUpdateForReOrder_LocalOrSig()
+         .Concat( sig.Parameters.SelectMany( p => p.GetAllSignaturesToUpdateForReOrder_LocalOrSig() ) );
    }
 
-   private static IEnumerable<TSigInfo> GetAllSignaturesToUpdateForReOrder_LocalOrSig( this SignatureReOrderState state, ParameterOrLocalVariableSignature sig )
-   {
-      return sig.CustomModifiers.Select( cm => Tuple.Create( (Object) cm, cm.CustomModifierType ) )
-         .Concat( state.GetAllSignaturesToUpdateForReOrder_Type( sig.Type ) );
-   }
-
-   private static IEnumerable<TSigInfo> GetAllSignaturesToUpdateForReOrder_MethodDef( this SignatureReOrderState state, MethodDefinitionSignature sig )
-   {
-      return state.GetAllSignaturesToUpdateForReOrder_AbstractMethod( sig );
-   }
-
-   private static IEnumerable<TSigInfo> GetAllSignaturesToUpdateForReOrder_MethodRef( this SignatureReOrderState state, MethodReferenceSignature sig )
-   {
-      return state.GetAllSignaturesToUpdateForReOrder_AbstractMethod( sig )
-         .Concat( sig.VarArgsParameters.SelectMany( p => state.GetAllSignaturesToUpdateForReOrder_LocalOrSig( p ) ) );
-   }
-
-   private static IEnumerable<TSigInfo> GetAllSignaturesToUpdateForReOrder_Property( this SignatureReOrderState state, PropertySignature sig )
+   private static IEnumerable<TSigInfo> GetAllSignaturesToUpdateForReOrder_LocalOrSig( this ParameterOrLocalVariableSignature sig )
    {
       return sig.CustomModifiers.Select( cm => Tuple.Create( (Object) cm, cm.CustomModifierType ) )
-         .Concat( sig.Parameters.SelectMany( p => state.GetAllSignaturesToUpdateForReOrder_LocalOrSig( p ) ) )
-         .Concat( state.GetAllSignaturesToUpdateForReOrder_Type( sig.PropertyType ) );
+         .Concat( sig.Type.GetAllSignaturesToUpdateForReOrder_Type() );
    }
 
-   private static IEnumerable<TSigInfo> GetAllSignaturesToUpdateForReOrder_Type( this SignatureReOrderState state, TypeSignature sig )
+   private static IEnumerable<TSigInfo> GetAllSignaturesToUpdateForReOrder_MethodDef( this  MethodDefinitionSignature sig )
+   {
+      return sig.GetAllSignaturesToUpdateForReOrder_AbstractMethod();
+   }
+
+   private static IEnumerable<TSigInfo> GetAllSignaturesToUpdateForReOrder_MethodRef( this MethodReferenceSignature sig )
+   {
+      return sig.GetAllSignaturesToUpdateForReOrder_AbstractMethod()
+         .Concat( sig.VarArgsParameters.SelectMany( p => p.GetAllSignaturesToUpdateForReOrder_LocalOrSig() ) );
+   }
+
+   private static IEnumerable<TSigInfo> GetAllSignaturesToUpdateForReOrder_Property( this  PropertySignature sig )
+   {
+      return sig.CustomModifiers.Select( cm => Tuple.Create( (Object) cm, cm.CustomModifierType ) )
+         .Concat( sig.Parameters.SelectMany( p => p.GetAllSignaturesToUpdateForReOrder_LocalOrSig() ) )
+         .Concat( sig.PropertyType.GetAllSignaturesToUpdateForReOrder_Type() );
+   }
+
+   private static IEnumerable<TSigInfo> GetAllSignaturesToUpdateForReOrder_Type( this TypeSignature sig )
    {
       switch ( sig.TypeSignatureKind )
       {
          case TypeSignatureKind.ClassOrValue:
             var clazz = (ClassOrValueTypeSignature) sig;
             return Tuple.Create( (Object) clazz, clazz.Type ).Singleton()
-               .Concat( clazz.GenericArguments.SelectMany( g => state.GetAllSignaturesToUpdateForReOrder_Type( g ) ) );
+               .Concat( clazz.GenericArguments.SelectMany( g => g.GetAllSignaturesToUpdateForReOrder_Type() ) );
          case TypeSignatureKind.ComplexArray:
-            return state.GetAllSignaturesToUpdateForReOrder_Type( ( (ComplexArrayTypeSignature) sig ).ArrayType );
+            return ( (ComplexArrayTypeSignature) sig ).ArrayType.GetAllSignaturesToUpdateForReOrder_Type();
          case TypeSignatureKind.FunctionPointer:
-            return state.GetAllSignaturesToUpdateForReOrder_MethodRef( ( (FunctionPointerTypeSignature) sig ).MethodSignature );
+            return ( (FunctionPointerTypeSignature) sig ).MethodSignature.GetAllSignaturesToUpdateForReOrder_MethodRef();
          case TypeSignatureKind.Pointer:
             var ptr = (PointerTypeSignature) sig;
             return ptr.CustomModifiers.Select( cm => Tuple.Create( (Object) cm, cm.CustomModifierType ) )
-               .Concat( state.GetAllSignaturesToUpdateForReOrder_Type( ptr.PointerType ) );
+               .Concat( ptr.PointerType.GetAllSignaturesToUpdateForReOrder_Type() );
          case TypeSignatureKind.SimpleArray:
             var arr = (SimpleArrayTypeSignature) sig;
             return arr.CustomModifiers.Select( cm => Tuple.Create( (Object) cm, cm.CustomModifierType ) )
-               .Concat( state.GetAllSignaturesToUpdateForReOrder_Type( arr.ArrayType ) );
+               .Concat( arr.ArrayType.GetAllSignaturesToUpdateForReOrder_Type() );
          case TypeSignatureKind.GenericParameter:
          case TypeSignatureKind.Simple:
             return Empty<TSigInfo>.Enumerable;
@@ -2536,234 +2355,6 @@ public static partial class E_CILPhysical
          }
       }
    }
-
-   private static void UpdateAbstractSignature( this SignatureReOrderState state, AbstractSignature sig )
-   {
-      switch ( sig.SignatureKind )
-      {
-         case SignatureKind.Field:
-            state.UpdateFieldSignature( (FieldSignature) sig );
-            break;
-         case SignatureKind.GenericMethodInstantiation:
-            state.UpdateGenericMethodSignature( (GenericMethodSignature) sig );
-            break;
-         case SignatureKind.LocalVariables:
-            state.UpdateLocalVariablesSignature( (LocalVariablesSignature) sig );
-            break;
-         case SignatureKind.MethodDefinition:
-            state.UpdateMethodDefSignature( (MethodDefinitionSignature) sig );
-            break;
-         case SignatureKind.MethodReference:
-            state.UpdateMethodRefSignature( (MethodReferenceSignature) sig );
-            break;
-         case SignatureKind.Property:
-            state.UpdatePropertySignature( (PropertySignature) sig );
-            break;
-         case SignatureKind.Type:
-            state.UpdateTypeSignature( (TypeSignature) sig );
-            break;
-      }
-   }
-
-   private static void UpdateFieldSignature( this SignatureReOrderState state, FieldSignature sig )
-   {
-      state.UpdateSignatureCustomModifiers( sig.CustomModifiers );
-      state.UpdateTypeSignature( sig.Type );
-   }
-
-   private static void UpdateGenericMethodSignature( this SignatureReOrderState state, GenericMethodSignature sig )
-   {
-      foreach ( var gArg in sig.GenericArguments )
-      {
-         state.UpdateTypeSignature( gArg );
-      }
-   }
-
-   private static void UpdateLocalVariablesSignature( this SignatureReOrderState state, LocalVariablesSignature sig )
-   {
-      state.UpdateParameterSignatures( sig.Locals );
-   }
-
-   private static void UpdatePropertySignature( this SignatureReOrderState state, PropertySignature sig )
-   {
-      state.UpdateSignatureCustomModifiers( sig.CustomModifiers );
-      state.UpdateParameterSignatures( sig.Parameters );
-      state.UpdateTypeSignature( sig.PropertyType );
-   }
-
-   private static void UpdateTypeSignature( this SignatureReOrderState state, TypeSignature sig )
-   {
-      switch ( sig.TypeSignatureKind )
-      {
-         case TypeSignatureKind.ClassOrValue:
-            var clazz = (ClassOrValueTypeSignature) sig;
-            var type = clazz.Type;
-            if ( state.ShouldProcess( clazz, type ) )
-            {
-               var newIdx = state.ReOrderState.GetFinalIndex( type );
-               if ( newIdx != type.Index )
-               {
-                  clazz.Type = type.ChangeIndex( newIdx );
-               }
-            }
-            foreach ( var gArg in clazz.GenericArguments )
-            {
-               state.UpdateTypeSignature( gArg );
-            }
-            break;
-         case TypeSignatureKind.ComplexArray:
-            state.UpdateTypeSignature( ( (ComplexArrayTypeSignature) sig ).ArrayType );
-            break;
-         case TypeSignatureKind.FunctionPointer:
-            state.UpdateMethodRefSignature( ( (FunctionPointerTypeSignature) sig ).MethodSignature );
-            break;
-         case TypeSignatureKind.Pointer:
-            var ptr = (PointerTypeSignature) sig;
-            state.UpdateSignatureCustomModifiers( ptr.CustomModifiers );
-            state.UpdateTypeSignature( ptr.PointerType );
-            break;
-         case TypeSignatureKind.SimpleArray:
-            var array = (SimpleArrayTypeSignature) sig;
-            state.UpdateSignatureCustomModifiers( array.CustomModifiers );
-            state.UpdateTypeSignature( array.ArrayType );
-            break;
-      }
-   }
-
-   private static void UpdateSignatureCustomModifiers( this SignatureReOrderState state, IList<CustomModifierSignature> mods )
-   {
-      foreach ( var mod in mods )
-      {
-         var idx = mod.CustomModifierType;
-         if ( state.ShouldProcess( mod, idx ) )
-         {
-            var newIdx = state.ReOrderState.GetFinalIndex( idx );
-            if ( newIdx != idx.Index )
-            {
-               mod.CustomModifierType = idx.ChangeIndex( newIdx );
-            }
-         }
-      }
-   }
-
-   private static void UpdateAbstractMethodSignature( this SignatureReOrderState state, AbstractMethodSignature sig )
-   {
-      state.UpdateParameterSignature( sig.ReturnType );
-      state.UpdateParameterSignatures( sig.Parameters );
-   }
-
-   private static void UpdateMethodDefSignature( this SignatureReOrderState state, MethodDefinitionSignature sig )
-   {
-      state.UpdateAbstractMethodSignature( sig );
-   }
-
-   private static void UpdateMethodRefSignature( this SignatureReOrderState state, MethodReferenceSignature sig )
-   {
-      state.UpdateAbstractMethodSignature( sig );
-      state.UpdateParameterSignatures( sig.VarArgsParameters );
-   }
-
-   private static void UpdateParameterSignatures<T>( this SignatureReOrderState state, List<T> parameters )
-      where T : ParameterOrLocalVariableSignature
-   {
-      foreach ( var param in parameters )
-      {
-         state.UpdateParameterSignature( param );
-      }
-   }
-
-   private static void UpdateParameterSignature( this SignatureReOrderState state, ParameterOrLocalVariableSignature parameter )
-   {
-      state.UpdateSignatureCustomModifiers( parameter.CustomModifiers );
-      state.UpdateTypeSignature( parameter.Type );
-   }
-
-   //private static Boolean SignatureOrILTableIndexDiffersNullable( this SignatureReorderState state, TableIndex? index, Object parent, out Int32 newIndex )
-   //{
-   //   var retVal = index.HasValue;
-   //   if ( retVal )
-   //   {
-   //      retVal = state.SignatureOrILTableIndexDiffers( index.Value, parent, out newIndex );
-   //   }
-   //   else
-   //   {
-   //      newIndex = -1;
-   //   }
-   //   return retVal;
-   //}
-
-   //private static Boolean SignatureOrILTableIndexDiffers( this SignatureReorderState state, TableIndex index, Object parent, out Int32 newIndex )
-   //{
-   //   var targetIndices = state.TableIndices[(Int32) index.Table];
-   //   var retVal = ( state.IsFirstRound || targetIndices[index.Index] == null );
-   //   if ( retVal )
-   //   {
-
-   //   }
-
-   //   var retVal = state.CheckRowTableIndexWhenHandlingSignatures( index, parent );
-   //   if ( retVal )
-   //   {
-   //      var oldIndex = index.Index;
-   //      newIndex = state.TableIndices[(Int32) index.Table][oldIndex]; // TODO NullRef if not TypeDef/TypeRef/TypeSpec, ArrayIndexOutOfBounds if invalid index!
-   //      retVal = oldIndex != newIndex;
-   //      // Mark that we have changed an index
-   //      state.ProcessedTableIndex( retVal );
-   //   }
-   //   else
-   //   {
-   //      newIndex = -1;
-   //   }
-
-   //   return retVal;
-   //}
-
-   //private static Boolean CheckRowTableIndexWhenHandlingSignatures( this SignatureReorderState state, TableIndex index, Object parent )
-   //{
-   //   var visitedInfo = state.VisitedInfo;
-   //   var notVisited = !visitedInfo.ContainsKey( parent );// Check whether we have already visited this index
-   //   // Even if we have already visited this, have to check here whether target is null
-   //   // If target is null, that means that after visiting, the target became duplicate and was removed
-   //   // So we need to update it again
-   //   var retVal = notVisited || state.DuplicatesThisRound.Contains( index );
-   //   if ( notVisited )
-   //   {
-   //      visitedInfo.Add( parent, parent );
-   //   }
-
-   //   return retVal;
-   //}
-
-   //private static IEnumerable<Int32> GetDeclaringTypeChain( this Int32 typeDefIndex, IList<NestedClassDefinition> sortedNestedClass )
-   //{
-
-   //   return typeDefIndex.AsSingleBranchEnumerable( cur =>
-   //      {
-   //         var nIdx = sortedNestedClass.FindRowFromSortedNestedClass( cur );
-   //         if ( nIdx != -1 )
-   //         {
-   //            nIdx = sortedNestedClass[nIdx].EnclosingClass.Index;
-   //         }
-   //         return nIdx;
-   //      }, cur => cur == -1 || cur == typeDefIndex, false ); // Stop also when we hit the same index again (illegal situation but possible), and don't include itself
-   //}
-
-   //private static Int32 FindRowFromSortedNestedClass( this IList<NestedClassDefinition> sortedNestedClass, Int32 currentTypeDefIndex )
-   //{
-   //   using ( var xDeclTypeRows = sortedNestedClass.GetReferencingRowsFromOrderedWithIndex( Tables.TypeDef, currentTypeDefIndex, nIdx =>
-   //   {
-   //      while ( sortedNestedClass[nIdx] == null )
-   //      {
-   //         --nIdx;
-   //      }
-   //      return sortedNestedClass[nIdx].NestedClass;
-   //   } ).GetEnumerator() )
-   //   {
-   //      return xDeclTypeRows.MoveNext() ?
-   //         xDeclTypeRows.Current : // has declaring type. 
-   //         -1; // does not have declaring type. 
-   //   }
-   //}
 
    // Returns token with 1-based indexing, or zero if tableIdx has no value
    internal static Int32 GetOneBasedToken( this TableIndex? tableIdx )
