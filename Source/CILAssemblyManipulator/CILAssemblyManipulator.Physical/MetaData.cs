@@ -2226,48 +2226,16 @@ public static partial class E_CILPhysical
          tRefIndices[tuple.Item2] = newTRefIdx;
       }
 
-
-
-      //Boolean removedDuplicates;
-      //var updateState = new SignatureReOrderState( reorderState, Tables.TypeRef, ( tRef, resScope ) => ( (TypeReference) tRef ).ResolutionScope = resScope );
-      //foreach ( var tRef in tRefList )
-      //{
-      //   var rs = tRef.ResolutionScope;
-      //   if ( rs.HasValue && rs.Value.Table == Tables.TypeRef )
-      //   {
-      //      updateState.OriginalSameTableReferences.Add( tRef, rs.Value.Index );
-      //   }
-      //}
-
-      //do
-      //{
-      //   reorderState.UpdateMDTableWithTableIndices1Nullable(
-      //      tRefs,
-      //      tRef =>
-      //      {
-      //         if ( tRef.Name == "Enumerator"
-      //            && tRef.ResolutionScope.HasValue
-      //            && tRef.ResolutionScope.Value.Table == Tables.TypeRef
-      //            && tRefs.TableContents[tRef.ResolutionScope.Value.Index] != null
-      //            && tRefs.TableContents[tRef.ResolutionScope.Value.Index].Name == "HashSet`1"
-      //            )
-      //         {
-
-      //         }
-      //         return tRef.ResolutionScope;
-      //      },
-      //      ( tRef, resScope ) => tRef.ResolutionScope = resScope,
-      //      ( tRef, tRefIdx, resScope ) => updateState.ShouldProcess( tRef, resScope )
-      //      );
-      //   removedDuplicates = updateState.CheckMDDuplicatesUnsortedWithSignatureReOrderState(
-      //      tRefs,
-      //      Comparers.TypeReferenceEqualityComparer
-      //      );
-      //} while ( removedDuplicates );
-
       // TypeSpec
       // ECMA-335: There shall be no duplicate rows, based upon Signature  [ERROR] 
       // This is the last of three tables (TypeDef, TypeRef, TypeSpec) which may appear in signatures, so update all signatures also.
+
+      // 1. Walk thru typespecs, update indices and watch for duplicates, just like with typerefs
+      // 1.1. If encountered typespec index in type signature of a typespec, save max index
+      // 2. If no typespec indices encountered (99% of the cases), then we are done
+      // 3. Otherwise, sort typespecs just like typerefs (using max index from 1.1.), and then remove duplicates, like in typerefs
+      // 4. Update the rest of the signatures of metadata.
+
       // Furthermore, updating signatures may also cause this table to start having duplicates.
       // So remove duplicates and update signatures in a loop
       var tSpecs = md.TypeSpecifications;
