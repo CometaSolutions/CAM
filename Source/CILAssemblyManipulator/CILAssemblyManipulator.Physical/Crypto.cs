@@ -213,7 +213,7 @@ public static partial class E_CILPhysical
       return retVal;
    }
 
-   public static Byte[] CreatePublicKeyFromStrongName( this CryptoCallbacks eArgs, StrongNameKeyPair strongName )
+   public static Byte[] CreatePublicKeyFromStrongName( this CryptoCallbacks eArgs, StrongNameKeyPair strongName, AssemblyHashAlgorithm? algorithmOverride = null )
    {
       Byte[] retVal;
       if ( strongName == null )
@@ -230,7 +230,7 @@ public static partial class E_CILPhysical
             RSAParameters rParams;
             CILAssemblyManipulator.Physical.Implementation.CryptoUtils.TryCreateSigningInformationFromKeyBLOB(
                strongName.KeyPair.ToArray(),
-               null,
+               algorithmOverride,
                out retVal,
                out signingAlgorithm,
                out rParams,
@@ -240,6 +240,38 @@ public static partial class E_CILPhysical
          else
          {
             retVal = eArgs.ExtractPublicKeyFromCSPContainer( container );
+         }
+      }
+
+      return retVal;
+   }
+
+   public static Boolean IsMatch( this AssemblyDefinition aDef, AssemblyReference aRef, HashStreamInfo? hashStreamInfo )
+   {
+      return aDef.IsMatch( new AssemblyInformationForResolving( aRef ), aRef.Attributes.IsRetargetable(), hashStreamInfo );
+   }
+
+   public static Boolean IsMatch( this AssemblyDefinition aDef, AssemblyInformationForResolving? aRef, Boolean isRetargetable, HashStreamInfo? hashStreamInfo )
+   {
+      // TODO match public key token as well
+      var retVal = aDef != null
+         && aRef != null;
+      if ( retVal )
+      {
+         var aReff = aRef.Value;
+         var defInfo = aDef.AssemblyInformation;
+         var refInfo = aReff.AssemblyInformation;
+         if ( isRetargetable )
+         {
+            retVal = String.Equals( defInfo.Name, refInfo.Name );
+         }
+         else
+         {
+            var defPK = defInfo.PublicKeyOrToken;
+            var refPK = refInfo.PublicKeyOrToken;
+            retVal = defPK.IsNullOrEmpty() == refPK.IsNullOrEmpty()
+               && defInfo.Equals( refInfo, aReff.IsFullPublicKey )
+               && ( aReff.IsFullPublicKey || ( hashStreamInfo.HasValue && ArrayEqualityComparer<Byte>.ArrayEquality( hashStreamInfo.Value.ComputePublicKeyToken( defPK ), refPK ) ) );
          }
       }
 

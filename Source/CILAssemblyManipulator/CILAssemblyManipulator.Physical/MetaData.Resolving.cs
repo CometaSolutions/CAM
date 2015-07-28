@@ -507,9 +507,9 @@ namespace CILAssemblyManipulator.Physical
       }
 
 
-      private MDSpecificCache ResolveAssemblyReferenceWithEvent( CILMetaData thisMD, String assemblyName, AssemblyInformationForResolving? assemblyInfo )
+      private MDSpecificCache ResolveAssemblyReferenceWithEvent( CILMetaData thisMD, String assemblyName, AssemblyInformationForResolving? assemblyInfo ) //, Boolean isRetargetable )
       {
-         var args = new AssemblyReferenceResolveEventArgs( thisMD, assemblyName, assemblyInfo );
+         var args = new AssemblyReferenceResolveEventArgs( thisMD, assemblyName, assemblyInfo ); //, isRetargetable );
          this.AssemblyReferenceResolveEvent.InvokeEventIfNotNull( evt => evt( this, args ) );
          return this.GetCacheFor( args.ResolvedMetaData );
       }
@@ -910,12 +910,14 @@ namespace CILAssemblyManipulator.Physical
    {
       private readonly String _assemblyName;
       private readonly AssemblyInformationForResolving? _assemblyInfo;
+      //private readonly Boolean _isRetargetable;
 
-      internal AssemblyReferenceResolveEventArgs( CILMetaData thisMD, String assemblyName, AssemblyInformationForResolving? assemblyInfo )
+      internal AssemblyReferenceResolveEventArgs( CILMetaData thisMD, String assemblyName, AssemblyInformationForResolving? assemblyInfo ) //, Boolean isRetargetable )
          : base( thisMD )
       {
          this._assemblyName = assemblyName;
          this._assemblyInfo = assemblyInfo;
+         //this._isRetargetable = isRetargetable;
       }
 
       /// <summary>
@@ -937,6 +939,14 @@ namespace CILAssemblyManipulator.Physical
          }
       }
 
+      //public Boolean IsRetargetable
+      //{
+      //   get
+      //   {
+      //      return this._isRetargetable;
+      //   }
+      //}
+
    }
 
    public struct AssemblyInformationForResolving : IEquatable<AssemblyInformationForResolving>
@@ -951,7 +961,7 @@ namespace CILAssemblyManipulator.Physical
 
       }
 
-      public AssemblyInformationForResolving( AssemblyInformation information, Boolean isFullPublicKey )
+      public AssemblyInformationForResolving( AssemblyInformation information, Boolean isFullPublicKey ) //, Boolean isRetargetable )
       {
          ArgumentValidator.ValidateNotNull( "Assembly information", information );
 

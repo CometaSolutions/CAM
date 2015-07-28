@@ -164,8 +164,8 @@ namespace CILAssemblyManipulator.Physical
 
    public class CILMetaDataLoaderNotThreadSafeForFiles : CILMetaDataLoaderNotThreadSafe
    {
-      public CILMetaDataLoaderNotThreadSafeForFiles( CILMetaDataLoaderResourceCallbacksForFiles callbacks = null )
-         : base( callbacks ?? new CILMetaDataLoaderResourceCallbacksForFiles() )
+      public CILMetaDataLoaderNotThreadSafeForFiles( CryptoCallbacks crypto = null, CILMetaDataLoaderResourceCallbacksForFiles callbacks = null )
+         : base( crypto ?? new CryptoCallbacksDotNET(), callbacks ?? new CILMetaDataLoaderResourceCallbacksForFiles() )
       {
 
       }
@@ -173,8 +173,8 @@ namespace CILAssemblyManipulator.Physical
 
    public class CILMetaDataLoaderThreadSafeSimpleForFiles : CILMetaDataLoaderThreadSafeSimple
    {
-      public CILMetaDataLoaderThreadSafeSimpleForFiles( CILMetaDataLoaderResourceCallbacksForFiles callbacks = null )
-         : base( callbacks ?? new CILMetaDataLoaderResourceCallbacksForFiles() )
+      public CILMetaDataLoaderThreadSafeSimpleForFiles( CryptoCallbacks crypto = null, CILMetaDataLoaderResourceCallbacksForFiles callbacks = null )
+         : base( crypto ?? new CryptoCallbacksDotNET(), callbacks ?? new CILMetaDataLoaderResourceCallbacksForFiles() )
       {
 
       }
@@ -190,8 +190,8 @@ namespace CILAssemblyManipulator.Physical
 
    public class CILMetaDataLoaderThreadSafeConcurrent : CILMetaDataLoaderWithCallbacks<ConcurrentDictionary<String, CILMetaData>>
    {
-      public CILMetaDataLoaderThreadSafeConcurrent( CILMetaDataLoaderResourceCallbacks callbacks )
-         : base( new ConcurrentDictionary<String, CILMetaData>(), callbacks )
+      public CILMetaDataLoaderThreadSafeConcurrent( CryptoCallbacks crypto, CILMetaDataLoaderResourceCallbacks callbacks )
+         : base( new ConcurrentDictionary<String, CILMetaData>(), crypto, callbacks )
       {
 
       }
@@ -221,8 +221,8 @@ namespace CILAssemblyManipulator.Physical
 
    public class CILMetaDataLoaderThreadSafeConcurrentForFiles : CILMetaDataLoaderThreadSafeConcurrent
    {
-      public CILMetaDataLoaderThreadSafeConcurrentForFiles( CILMetaDataLoaderResourceCallbacksForFiles callbacks = null )
-         : base( callbacks ?? new CILMetaDataLoaderResourceCallbacksForFiles() )
+      public CILMetaDataLoaderThreadSafeConcurrentForFiles( CryptoCallbacks crypto = null, CILMetaDataLoaderResourceCallbacksForFiles callbacks = null )
+         : base( crypto ?? new CryptoCallbacksDotNET(), callbacks ?? new CILMetaDataLoaderResourceCallbacksForFiles() )
       {
 
       }

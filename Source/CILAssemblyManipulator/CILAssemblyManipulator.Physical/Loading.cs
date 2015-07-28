@@ -27,7 +27,7 @@ namespace CILAssemblyManipulator.Physical
 {
    using TModuleInfo = Tuple<String, ReadingArguments, MetaDataResolver>;
 
-   public interface CILMetaDataLoader
+   public interface CILMetaDataLoader : IDisposable
    {
       // Resource can be e.g. file name
       CILMetaData GetOrLoadMetaData( String resource );
@@ -42,20 +42,24 @@ namespace CILAssemblyManipulator.Physical
       String GetResourceFor( CILMetaData metaData );
 
       MetaDataResolver CreateNewResolver();
+
+      HashStreamInfo? PublicKeyComputer { get; }
    }
 
-   public abstract class AbstractCILMetaDataLoader<TDictionary> : CILMetaDataLoader
+   public abstract class AbstractCILMetaDataLoader<TDictionary> : AbstractDisposable, CILMetaDataLoader
       where TDictionary : class, IDictionary<String, CILMetaData>
    {
       private readonly TDictionary _modules;
       private readonly Dictionary<CILMetaData, TModuleInfo> _moduleInfos;
+      private readonly Lazy<HashStreamInfo> _hashStream;
 
-      public AbstractCILMetaDataLoader( TDictionary metadatas )
+      public AbstractCILMetaDataLoader( TDictionary metadatas, CryptoCallbacks cryptoCallbacks )
       {
          ArgumentValidator.ValidateNotNull( "Modules", metadatas );
 
          this._modules = metadatas;
          this._moduleInfos = new Dictionary<CILMetaData, TModuleInfo>( ReferenceEqualityComparer<CILMetaData>.ReferenceBasedComparer );
+         this._hashStream = cryptoCallbacks == null ? null : new Lazy<HashStreamInfo>( () => cryptoCallbacks.CreateHashStream( AssemblyHashAlgorithm.SHA1 ), System.Threading.LazyThreadSafetyMode.ExecutionAndPublication );
       }
 
       private void _resolver_ModuleReferenceResolveEvent( Object sender, ModuleReferenceResolveEventArgs e )
@@ -81,17 +85,9 @@ namespace CILAssemblyManipulator.Physical
                .GetPossibleResourcesForAssemblyReference( thisModuleInfo.Item1, e.ThisMetaData, e.ExistingAssemblyInformation, e.UnparsedAssemblyName )
                .Where( r => this.IsValidResource( r ) )
                .Select( r => this.GetOrLoadMetaData( r ) )
-               .Where( md => this.IsMatch( md.AssemblyDefinitions.GetOrNull( 0 ), e.ExistingAssemblyInformation ) )
+               .Where( md => md.AssemblyDefinitions.GetOrNull( 0 ).IsMatch( e.ExistingAssemblyInformation, false, this._hashStream == null ? (HashStreamInfo?) null : this._hashStream.Value ) )
                .FirstOrDefault();
          }
-      }
-
-      private Boolean IsMatch( AssemblyDefinition aDef, AssemblyInformationForResolving? aRef )
-      {
-         // TODO match public key token as well
-         return aDef != null
-            && aRef != null
-            && aDef.AssemblyInformation.Equals( aRef.Value.AssemblyInformation, aRef.Value.IsFullPublicKey );
       }
 
       public CILMetaData GetOrLoadMetaData( String resource )
@@ -167,6 +163,14 @@ namespace CILAssemblyManipulator.Physical
          return resolver;
       }
 
+      public HashStreamInfo? PublicKeyComputer
+      {
+         get
+         {
+            return this._hashStream == null ? (HashStreamInfo?) null : this._hashStream.Value;
+         }
+      }
+
       private TModuleInfo ModuleInfoFactory( String resource, CILMetaData md, ReadingArguments rArgs )
       {
          var resolver = this.CreateNewResolver();
@@ -201,6 +205,14 @@ namespace CILAssemblyManipulator.Physical
       protected abstract void PerformResolving( MetaDataResolver resolver, CILMetaData metaData );
 
 
+      protected override void Dispose( Boolean disposing )
+      {
+         if ( disposing && this._hashStream != null && this._hashStream.IsValueCreated )
+         {
+            this._hashStream.Value.Transform.DisposeSafely();
+         }
+      }
+
    }
 
    public interface CILMetaDataLoaderWithCallbacks : CILMetaDataLoader
@@ -227,9 +239,10 @@ namespace CILAssemblyManipulator.Physical
 
       public CILMetaDataLoaderWithCallbacks(
          TDictionary dictionary,
+         CryptoCallbacks cryptoCallbacks,
          CILMetaDataLoaderResourceCallbacks resourceCallbacks
          )
-         : base( dictionary )
+         : base( dictionary, cryptoCallbacks )
       {
          ArgumentValidator.ValidateNotNull( "Resource callbacks", resourceCallbacks );
 
@@ -274,9 +287,10 @@ namespace CILAssemblyManipulator.Physical
    public class CILMetaDataLoaderNotThreadSafe : CILMetaDataLoaderWithCallbacks<Dictionary<String, CILMetaData>>
    {
       public CILMetaDataLoaderNotThreadSafe(
+         CryptoCallbacks cryptoCallbacks,
          CILMetaDataLoaderResourceCallbacks resourceCallbacks
          )
-         : base( new Dictionary<String, CILMetaData>(), resourceCallbacks )
+         : base( new Dictionary<String, CILMetaData>(), cryptoCallbacks, resourceCallbacks )
       {
 
       }
@@ -304,9 +318,10 @@ namespace CILAssemblyManipulator.Physical
    {
 
       public CILMetaDataLoaderThreadSafeSimple(
+         CryptoCallbacks cryptoCallbacks,
          CILMetaDataLoaderResourceCallbacks resourceCallbacks
          )
-         : base( new Dictionary<String, CILMetaData>(), resourceCallbacks )
+         : base( new Dictionary<String, CILMetaData>(), cryptoCallbacks, resourceCallbacks )
       {
 
       }

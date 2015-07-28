@@ -649,8 +649,6 @@ namespace CILMerge
       private readonly Lazy<Regex[]> _excludeRegexes;
       private readonly String _inputBasePath;
 
-      private readonly Lazy<HashStreamInfo> _publicKeyComputer;
-
       private readonly IEqualityComparer<AssemblyReference> _assemblyReferenceEqualityComparer;
 
       //private readonly CILReflectionContext _ctx;
@@ -679,11 +677,10 @@ namespace CILMerge
          this._loaderCallbacks = new CILMetaDataLoaderResourceCallbacksForFiles(
             referenceAssemblyBasePath: options.ReferenceAssembliesDirectory
             );
-         this._moduleLoader = options.Parallel ?
-            (CILMetaDataLoader) new CILMetaDataLoaderThreadSafeConcurrentForFiles( this._loaderCallbacks ) :
-            new CILMetaDataLoaderNotThreadSafeForFiles( this._loaderCallbacks );
          this._cryptoCallbacks = new CryptoCallbacksDotNET();
-         this._publicKeyComputer = new Lazy<HashStreamInfo>( () => this._cryptoCallbacks.CreateHashStream( AssemblyHashAlgorithm.SHA1 ), LazyThreadSafetyMode.None );
+         this._moduleLoader = options.Parallel ?
+            (CILMetaDataLoader) new CILMetaDataLoaderThreadSafeConcurrentForFiles( this._cryptoCallbacks, this._loaderCallbacks ) :
+            new CILMetaDataLoaderNotThreadSafeForFiles( this._cryptoCallbacks, this._loaderCallbacks );
          this._assemblyReferenceEqualityComparer = ComparerFromFunctions.NewEqualityComparer<AssemblyReference>(
             ( x, y ) =>
             {
@@ -703,17 +700,18 @@ namespace CILMerge
                      )
                   {
                      Byte[] xBytes, yBytes;
+                     var computer = this._moduleLoader.PublicKeyComputer.Value;
                      if ( x.Attributes.IsFullPublicKey() )
                      {
                         // Create public key token for x and compare with y
-                        xBytes = this._publicKeyComputer.Value.ComputePublicKeyToken( xa.PublicKeyOrToken );
+                        xBytes = computer.ComputePublicKeyToken( xa.PublicKeyOrToken );
                         yBytes = ya.PublicKeyOrToken;
                      }
                      else
                      {
                         // Create public key token for y and compare with x
                         xBytes = xa.PublicKeyOrToken;
-                        yBytes = this._publicKeyComputer.Value.ComputePublicKeyToken( ya.PublicKeyOrToken );
+                        yBytes = computer.ComputePublicKeyToken( ya.PublicKeyOrToken );
                      }
                      retVal = ArrayEqualityComparer<Byte>.DefaultArrayEqualityComparer.Equals( xBytes, yBytes );
                   }
@@ -920,7 +918,7 @@ namespace CILMerge
                         }
                         else if ( !targetARef.Attributes.IsFullPublicKey() )
                         {
-                           targetARef.AssemblyInformation.PublicKeyOrToken = this._publicKeyComputer.Value.ComputePublicKeyToken( aDefInfo.PublicKeyOrToken );
+                           targetARef.AssemblyInformation.PublicKeyOrToken = this._moduleLoader.PublicKeyComputer.Value.ComputePublicKeyToken( aDefInfo.PublicKeyOrToken );
                         }
                         retargetableInfos.Add( targetAssemblyRefIndex.Index );
                      }
@@ -2952,9 +2950,9 @@ namespace CILMerge
 
       protected override void Dispose( Boolean disposing )
       {
-         if ( disposing && this._publicKeyComputer.IsValueCreated )
+         if ( disposing )
          {
-            this._publicKeyComputer.Value.Transform.DisposeSafely();
+            this._moduleLoader.DisposeSafely();
          }
       }
 

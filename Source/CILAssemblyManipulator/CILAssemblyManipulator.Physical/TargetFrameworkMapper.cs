@@ -39,12 +39,13 @@ namespace CILAssemblyManipulator.Physical
          this._assemblyReferenceInfo = new Dictionary<CILMetaData, IDictionary<AssemblyInformationForResolving, CILMetaData>>();
       }
 
-      internal Boolean TryReMapReference( CILMetaData thisMD, AssemblyInformationForResolving aRef, String fullType, CILMetaDataLoaderWithCallbacks loader, TargetFrameworkInfo targetFW, out AssemblyReference newRef )
+      internal Boolean TryReMapReference( CILMetaData thisMD, AssemblyInformationForResolving aRef, String fullType, CILMetaDataLoaderWithCallbacks loader, TargetFrameworkInfo targetFW, out AssemblyReference newRef, out Boolean wasTargetFW )
       {
          newRef = null;
 
          var targetFWAssembly = this.ResolveTargetFWReferenceOrNull( thisMD, aRef, loader, targetFW );
          var retVal = targetFWAssembly != null;
+         wasTargetFW = retVal;
          if ( retVal )
          {
             var actualTargetFWAssembly = this.GetActualMDForType( targetFWAssembly, loader, fullType, targetFW );
@@ -73,9 +74,10 @@ namespace CILAssemblyManipulator.Physical
          AssemblyInformation assemblyInfo;
          Boolean isFullPublicKey;
          AssemblyReference newRef = null;
+         Boolean wasTargetFW;
          var retVal = typeString.ParseAssemblyQualifiedTypeString( out typeName, out assemblyName )
             && AssemblyInformation.TryParse( assemblyName, out assemblyInfo, out isFullPublicKey )
-            && this.TryReMapReference( thisMD, new AssemblyInformationForResolving( assemblyInfo, isFullPublicKey ), typeName, loader, targetFW, out newRef );
+            && this.TryReMapReference( thisMD, new AssemblyInformationForResolving( assemblyInfo, isFullPublicKey ), typeName, loader, targetFW, out newRef, out wasTargetFW );
 
          if ( retVal )
          {
@@ -113,7 +115,7 @@ namespace CILAssemblyManipulator.Physical
                // TODO match public key too.
                retVal = this.GetTargetFWAssemblies( targetFW, loader )
                   .Select( res => loader.GetOrLoadMetaData( res ) )
-                  .FirstOrDefault( md => md.AssemblyDefinitions.RowCount > 0 && String.Equals( md.AssemblyDefinitions.TableContents[0].AssemblyInformation.Name, aRef.AssemblyInformation.Name ) );
+                  .FirstOrDefault( md => md.AssemblyDefinitions.GetOrNull( 0 ).IsMatch( assemblyRef, targetFW.AreFrameworkAssemblyReferencesRetargetable, loader.PublicKeyComputer ) );
             }
             else if ( validResource.StartsWith( cb.GetTargetFrameworkPathForFrameworkInfo( targetFW ) ) ) // Check whether resolved reference is located in target framework path
             {
@@ -180,7 +182,8 @@ public static partial class E_CILPhysical
          var aRef = aRefs[aRefIdx.Index];
 
          AssemblyReference newRef;
-         if ( mapper.TryReMapReference( md, aRef.NewInformationForResolving(), Miscellaneous.CombineNamespaceAndType( tRef.Namespace, tRef.Name ), loader, newTargetFW, out newRef ) )
+         Boolean wasTargetFW;
+         if ( mapper.TryReMapReference( md, aRef.NewInformationForResolving(), Miscellaneous.CombineNamespaceAndType( tRef.Namespace, tRef.Name ), loader, newTargetFW, out newRef, out wasTargetFW ) )
          {
             Int32 aRefNewIdx;
             if ( !aRefDic.TryGetValue( newRef, out aRefNewIdx ) )
@@ -190,6 +193,11 @@ public static partial class E_CILPhysical
             }
 
             tRef.ResolutionScope = aRefIdx.ChangeIndex( aRefNewIdx );
+         }
+
+         if ( wasTargetFW && newTargetFW.AreFrameworkAssemblyReferencesRetargetable )
+         {
+            ( newRef ?? aRef ).Attributes |= AssemblyFlags.Retargetable;
          }
       }
 

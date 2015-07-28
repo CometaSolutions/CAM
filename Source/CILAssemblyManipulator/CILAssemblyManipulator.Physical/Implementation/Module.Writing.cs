@@ -249,7 +249,7 @@ namespace CILAssemblyManipulator.Physical.Implementation
 
          // Write metadata streams (tables & heaps)
          var mdRVA = codeSectionVirtualOffset + currentOffset;
-         var mdSize = WriteMetaData( md, sink, headers, eArgs, usersStrings, byteArrayHelper );
+         var mdSize = WriteMetaData( md, sink, headers, eArgs, usersStrings, byteArrayHelper, thisAssemblyPublicKey );
          currentOffset += mdSize;
 
          // Pad
@@ -1033,8 +1033,8 @@ namespace CILAssemblyManipulator.Physical.Implementation
          HeadersData headers,
          EmittingArguments eArgs,
          UserStringHeapWriter userStrings,
-         ByteArrayHelper byteArrayHelper
-         //Byte[] thisAssemblyPublicKey
+         ByteArrayHelper byteArrayHelper,
+         Byte[] thisAssemblyPublicKey
          )
       {
          // Actual meta-data
@@ -1051,7 +1051,7 @@ namespace CILAssemblyManipulator.Physical.Implementation
          var streamSizes = new UInt32[HEAP_COUNT];
 
          BLOBHeapWriter blobs; SystemStringHeapWriter sysStrings; GUIDHeapWriter guids; Object[] heapInfos;
-         CreateMDHeaps( md, byteArrayHelper, out blobs, out sysStrings, out guids, out heapInfos );
+         CreateMDHeaps( md, thisAssemblyPublicKey, byteArrayHelper, out blobs, out sysStrings, out guids, out heapInfos );
 
          var hasSysStrings = sysStrings.Accessed;
          var hasUserStrings = userStrings.Accessed;
@@ -1529,7 +1529,7 @@ namespace CILAssemblyManipulator.Physical.Implementation
 
       private static void CreateMDHeaps(
          CILMetaData md,
-         //Byte[] thisAssemblyPublicKey,
+         Byte[] thisAssemblyPublicKey,
          ByteArrayHelper byteArrayHelper,
          out BLOBHeapWriter blobsParam,
          out SystemStringHeapWriter sysStringsParam,
@@ -1578,7 +1578,11 @@ namespace CILAssemblyManipulator.Physical.Implementation
          // 0x1C ImplMap
          ProcessTableForHeaps1( md.MethodImplementationMaps, heapInfos, mim => new HeapInfo1( sysStrings.GetOrAddString( mim.ImportName ) ) );
          // 0x20 Assembly
-         ProcessTableForHeaps3( md.AssemblyDefinitions, heapInfos, ad => new HeapInfo3( blobs.GetOrAddBLOB( ad.AssemblyInformation.PublicKeyOrToken ), sysStrings.GetOrAddString( ad.AssemblyInformation.Name ), sysStrings.GetOrAddString( ad.AssemblyInformation.Culture ) ) );
+         ProcessTableForHeaps3( md.AssemblyDefinitions, heapInfos, ad =>
+         {
+            var pk = ad.AssemblyInformation.PublicKeyOrToken;
+            return new HeapInfo3( blobs.GetOrAddBLOB( pk.IsNullOrEmpty() ? thisAssemblyPublicKey : pk ), sysStrings.GetOrAddString( ad.AssemblyInformation.Name ), sysStrings.GetOrAddString( ad.AssemblyInformation.Culture ) );
+         } );
          // 0x21 AssemblyRef
          ProcessTableForHeaps4( md.AssemblyReferences, heapInfos, ar => new HeapInfo4( blobs.GetOrAddBLOB( ar.AssemblyInformation.PublicKeyOrToken ), sysStrings.GetOrAddString( ar.AssemblyInformation.Name ), sysStrings.GetOrAddString( ar.AssemblyInformation.Culture ), blobs.GetOrAddBLOB( ar.HashValue ) ) );
          // 0x26 File
