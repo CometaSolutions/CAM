@@ -1235,9 +1235,7 @@ namespace CILMerge
          }
          else
          {
-            var an2 = primaryAInfo; // this._primaryModule.AssemblyDefinitions.Count > 0 ?
-            //this._primaryModule.AssemblyDefinitions[0].AssemblyInformation :
-            //new AssemblyInformation();
+            var an2 = primaryAInfo;
 
             aInfo.VersionMajor = an2.VersionMajor;
             aInfo.VersionMinor = an2.VersionMinor;
@@ -2312,7 +2310,7 @@ namespace CILMerge
 
       private void ApplyAssemblyAndModuleCustomAttributes()
       {
-         var attrSource = this._options.AttrSource;
+         var attrSource = this._options.TargetAssemblyAttributeSource;
          this.CopyModuleAndAssemblyAttributesFrom(
             String.IsNullOrEmpty( attrSource ) ?
                ( this._options.CopyAttributes ?
