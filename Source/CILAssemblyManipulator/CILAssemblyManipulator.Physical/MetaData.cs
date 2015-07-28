@@ -22,6 +22,8 @@ using System.Text;
 using CILAssemblyManipulator.Physical;
 using CommonUtils;
 
+using TSigInfo = System.Tuple<System.Object, CILAssemblyManipulator.Physical.TableIndex>;
+
 namespace CILAssemblyManipulator.Physical
 {
    public sealed class ModuleDefinition
@@ -837,16 +839,25 @@ public static partial class E_CILPhysical
    {
       private readonly MetaDataReOrderState _reorderState;
       private readonly Tables _table;
-      private Int32 _currentMinDuplicate;
-      private Int32[] _prevDuplicates;
-      private readonly MetaDataTable _mdTable;
+      private Boolean _isOnFirstPass;
+      private readonly Dictionary<Object, Int32> _originalSameTableReferences;
+      private readonly Dictionary<Object, Int32> _sameTableRefOffsets;
+      private readonly IDictionary<Int32, Int32> _previousDuplicates;
+      private readonly Int32 _tableSize;
+      private readonly Action<Object, TableIndex> _refUpdater;
+      //private readonly Int32[] _finalIndicesBeforeDuplicates;
 
-      internal SignatureReOrderState( MetaDataReOrderState reorderState, Tables table )
+      internal SignatureReOrderState( MetaDataReOrderState reorderState, Tables table, Action<Object, TableIndex> selfRefUpdated )
       {
          this._reorderState = reorderState;
          this._table = table;
-         this._currentMinDuplicate = -1;
-         this._mdTable = reorderState.MetaData.GetByTable( table );
+         this._isOnFirstPass = true;
+         this._originalSameTableReferences = new Dictionary<Object, Int32>( ReferenceEqualityComparer<Object>.ReferenceBasedComparer );
+         this._sameTableRefOffsets = new Dictionary<Object, Int32>( ReferenceEqualityComparer<Object>.ReferenceBasedComparer );
+         this._previousDuplicates = new Dictionary<Int32, Int32>();
+         this._tableSize = reorderState.MetaData.GetByTable( table ).RowCount;
+         this._refUpdater = selfRefUpdated;
+         //this._finalIndicesBeforeDuplicates = new Int32[reorderState.MetaData.GetByTable( table ).RowCount];
       }
 
       public MetaDataReOrderState ReOrderState
@@ -865,27 +876,86 @@ public static partial class E_CILPhysical
          }
       }
 
+      public IDictionary<Object, Int32> OriginalSameTableReferences
+      {
+         get
+         {
+            return this._originalSameTableReferences;
+         }
+      }
+
       public void BeforeDuplicateRemoval()
       {
-         if ( this._currentMinDuplicate >= 0 )
-         {
-            this._prevDuplicates = this._reorderState.Duplicates[this._table].Keys.ToArray();
-         }
+         this._previousDuplicates.Clear();
+         //Array.Copy( this._reorderState.FinalIndices[(Int32) this._table], this._finalIndicesBeforeDuplicates, this._finalIndicesBeforeDuplicates.Length );
+      }
+
+      public void MarkDuplicate( Int32 duplicateIdx, Int32 actualIndex )
+      {
+         this._previousDuplicates.Add( duplicateIdx, actualIndex );
       }
 
       public void AfterDuplicateRemoval()
       {
-         var duplicates = new HashSet<Int32>( this._reorderState.Duplicates[this._table].Keys );
-         if ( this._prevDuplicates != null )
+         this._isOnFirstPass = false;
+         // Update all self-references
+         // Interval tree would be better for this, but no such thing in .NET (Portable), and I rather not make an extra dependency because of that
+         // TODO maybe add interval tree to UtilPack?
+         if ( this._previousDuplicates.Count > 0 )
          {
-            duplicates.ExceptWith( this._prevDuplicates );
+
+            var dupList = this._previousDuplicates.Keys.OrderBy( i => i ).ToList();
+            var array = new Int32[this._tableSize];
+            var prev = 0;
+            //var runningIdx = 0;
+            for ( var i = 0; i < dupList.Count; ++i )
+            {
+               var cur = dupList[i];
+               //for ( var j = prev; j < cur; ++j, ++runningIdx )
+               //{
+               //   array[j] = runningIdx;
+               //}
+               array[cur] = -1;// this._reorderState.GetFinalIndex( this._table, cur );
+               array.FillWithOffsetAndCount( prev, cur - prev, i );
+               prev = cur + 1;
+            }
+            array.FillWithOffsetAndCount( prev, array.Length - prev, dupList.Count );
+            //for ( var j = prev; j < array.Length; ++j, ++runningIdx )
+            //{
+            //   array[j] = runningIdx;
+            //}
+
+            foreach ( var kvp in this._originalSameTableReferences ) // new Dictionary<Object, Int32>( this._originalSameTableReferences, this._originalSameTableReferences.Comparer ) )
+            {
+               var obj = kvp.Key;
+               var idx = kvp.Value;
+               var offset = array[idx];
+               this._sameTableRefOffsets[obj] = offset;
+               //if ( offset > 0 )
+               //{
+               //   var newIdx = idx - offset;
+               //   this._originalSameTableReferences[obj] = newIdx;
+               //}
+            }
          }
-         this._currentMinDuplicate = duplicates.Min();
       }
 
-      public Boolean ShouldProcess( TableIndex tIdx )
+      public Boolean ShouldProcess( Object key, TableIndex tIdx )
       {
-         return this._currentMinDuplicate == -1 || ( this._table == tIdx.Table && this._currentMinDuplicate <= tIdx.Index && this._mdTable.GetRowAt( this._reorderState.GetFinalIndex( tIdx ) ) != null );
+         // If this is first pass, always return true.
+         // Otherwise, check for target index table.
+         // If different table than this, return false.
+         // If same table, get the current index of target (not final index)
+         // Then get final index of target.
+         // Return true only if these two differ.
+
+
+         Int32 orig;
+         this._originalSameTableReferences.TryGetValue( key, out orig );
+         var final = this._reorderState.GetFinalIndex( this._table, orig ); // this._finalIndicesBeforeDuplicates[orig];
+         Int32 offset;
+         this._sameTableRefOffsets.TryGetValue( key, out offset );
+         return this._isOnFirstPass || ( this._table == tIdx.Table && this._reorderState.GetFinalIndex( this._table, this._originalSameTableReferences[key] ) != tIdx.Index - this._sameTableRefOffsets[key] );
       }
 
    }
@@ -927,16 +997,16 @@ public static partial class E_CILPhysical
          }
       }
 
-      public void MarkDuplicate( Tables table, Int32 idx, Int32 actualIndex )
+      public void MarkDuplicate( Tables table, Int32 duplicateIdx, Int32 actualIndex )
       {
          var thisDuplicates = this._duplicates
             .GetOrAdd_NotThreadSafe( table, t => new Dictionary<Int32, Int32>() );
          thisDuplicates
-            .Add( idx, actualIndex );
+            .Add( duplicateIdx, actualIndex );
          // Update all other duplicates as well
          foreach ( var kvp in thisDuplicates.ToArray() )
          {
-            if ( kvp.Value == idx )
+            if ( kvp.Value == duplicateIdx )
             {
                thisDuplicates.Remove( kvp.Key );
                thisDuplicates.Add( kvp.Key, actualIndex );
@@ -1889,6 +1959,10 @@ public static partial class E_CILPhysical
    private static void ProcessSingleTableIndexToUpdateWithTableIndex<T>( this MetaDataReOrderState reorderState, T row, Int32 rowIndex, TableIndex tableIndex, Action<T, TableIndex> tableIndexSetter, Func<T, Int32, TableIndex, Boolean> rowAdditionalCheck )
       where T : class
    {
+      if ( rowIndex == 128 )
+      {
+
+      }
       var newIndex = reorderState.GetFinalIndex( tableIndex );
       if ( newIndex != tableIndex.Index && ( rowAdditionalCheck == null || rowAdditionalCheck( row, rowIndex, tableIndex ) ) )
       {
@@ -1959,32 +2033,6 @@ public static partial class E_CILPhysical
       }
    }
 
-   //private static void SortMDTable<T>( this List<T> table, Int32[] indices, Comparison<T> comparison )
-   //{
-   //   table.SortMDTableWithInt32Comparison( indices, ( x, y ) => comparison( table[x], table[y] ) );
-   //}
-
-   // This was wrong. This gives us lookup: "given new index X, what is old index Y?", which is exactly opposite from what we want it to be.
-   //private static void SortMDTableWithInt32Comparison<T>( this List<T> table, Int32[] indices, Comparison<Int32> comparison )
-   //{
-   //   // If within 'indices' array, we have value '2' at index '0', it means that within the 'table', there should be value at index '0' which is currently at index '2'
-   //   var count = table.Count;
-   //   if ( count > 1 )
-   //   {
-   //      // Sort in such way that we know how indices are shuffled
-   //      Array.Sort( indices, ( x, y ) => comparison( x, y ) );
-
-   //      // Reshuffle according to indices
-   //      // List.ToArray() is close to constant time because of Array.Copy being close to constant time
-   //      // The only loss is somewhat bigger memory allocation
-   //      var copy = table.ToArray();
-   //      for ( var i = 0; i < count; ++i )
-   //      {
-   //         table[indices[i]] = copy[i];
-   //      }
-   //   }
-   //}
-
    private static void ReOrderMDTableWithAscendingReferences<T, U>(
       this MetaDataReOrderState reorderState,
       MetaDataTable<T> mdTable,
@@ -2041,40 +2089,21 @@ public static partial class E_CILPhysical
       }
    }
 
-   //// Assumes list is sorted
-   //private static Boolean CheckMDDuplicatesSorted<T>( List<T> list, Int32[] indices, Func<T, T, Boolean> duplicateComparer )
-   //   where T : class
-   //{
-   //   var foundDuplicates = false;
-   //   var count = list.Count;
-   //   if ( count > 1 )
-   //   {
-   //      var prevNotNullIndex = 0;
-   //      for ( var i = 1; i < count; ++i )
-   //      {
-   //         if ( duplicateComparer( list[i], list[prevNotNullIndex] ) )
-   //         {
-   //            if ( !foundDuplicates )
-   //            {
-   //               foundDuplicates = true;
-   //            }
-
-   //            list.AfterFindingDuplicate( indices, i, prevNotNullIndex );
-   //         }
-   //         else
-   //         {
-   //            prevNotNullIndex = i;
-   //         }
-   //      }
-   //   }
-
-   //   return foundDuplicates;
-   //}
+   private static Boolean CheckMDDuplicatesUnsorted<T>(
+      this SignatureReOrderState state,
+      MetaDataTable<T> mdTable,
+      IEqualityComparer<T> comparer
+      )
+      where T : class
+   {
+      return state.ReOrderState.CheckMDDuplicatesUnsorted( mdTable, comparer, ( duplicateIdx, actualIdx ) => state.MarkDuplicate( duplicateIdx, actualIdx ) );
+   }
 
    private static Boolean CheckMDDuplicatesUnsorted<T>(
       this MetaDataReOrderState reorderState,
       MetaDataTable<T> mdTable,
-      IEqualityComparer<T> comparer
+      IEqualityComparer<T> comparer,
+      Action<Int32, Int32> onDuplicate = null
       )
       where T : class
    {
@@ -2085,28 +2114,47 @@ public static partial class E_CILPhysical
       var indices = reorderState.GetOrCreateIndexArray( mdTable );
       if ( count > 1 )
       {
-         var set = new HashSet<T>( comparer );
+         var dic = new Dictionary<T, Int32>( comparer );
          for ( var i = 0; i < list.Count; ++i )
          {
             var cur = list[i];
-            if ( cur != null && !set.Add( cur ) )
+            if ( cur != null )
             {
-               if ( !foundDuplicates )
+               Int32 actualIndex;
+               if ( dic.TryGetValue( cur, out actualIndex ) )
                {
-                  foundDuplicates = true;
-               }
+                  if ( !foundDuplicates )
+                  {
+                     foundDuplicates = true;
+                  }
 
-               var actualIndex = 0;
-               while ( list[actualIndex] == null || !comparer.Equals( cur, list[actualIndex] ) )
+                  // Mark as duplicate - replace value with null
+                  if ( onDuplicate != null )
+                  {
+                     onDuplicate( i, actualIndex );
+                  }
+                  reorderState.MarkDuplicate( table, i, actualIndex );
+                  list[i] = null;
+
+                  // Update index which point to this to point to previous instead
+                  var current = indices[i];
+                  var prevNotNullIndex = indices[actualIndex];
+                  for ( var j = 0; j < indices.Length; ++j )
+                  {
+                     if ( indices[j] == current )
+                     {
+                        indices[j] = prevNotNullIndex;
+                     }
+                     else if ( indices[j] > current )
+                     {
+                        --indices[j];
+                     }
+                  }
+               }
+               else
                {
-                  ++actualIndex;
+                  dic.Add( cur, i );
                }
-
-               // Mark as duplicate - replace value with null
-               reorderState.MarkDuplicate( table, i, actualIndex );
-               list[i] = null;
-
-               list.AfterFindingDuplicate( indices, indices[i], indices[actualIndex] );
             }
 
          }
@@ -2114,41 +2162,6 @@ public static partial class E_CILPhysical
 
       return foundDuplicates;
    }
-
-   private static void AfterFindingDuplicate<T>( this List<T> list, Int32[] indices, Int32 current, Int32 prevNotNullIndex )
-      where T : class
-   {
-      // Update index which point to this to point to previous instead
-      for ( var j = 0; j < indices.Length; ++j )
-      {
-         if ( indices[j] == current )
-         {
-            indices[j] = prevNotNullIndex;
-         }
-         else if ( indices[j] > current )
-         {
-            --indices[j];
-         }
-      }
-   }
-
-   //private static Int32[] CreateIndexArray( Int32 size )
-   //{
-   //   var retVal = new Int32[size];
-   //   PopulateIndexArray( retVal );
-   //   return retVal;
-   //}
-
-   //private static void PopulateIndexArray( Int32[] array )
-   //{
-   //   var size = array.Length;
-   //   // This might get called for already-used index array
-   //   // Therefore, start from 0
-   //   for ( var i = 0; i < size; ++i )
-   //   {
-   //      array[i] = i;
-   //   }
-   //}
 
    private static void UpdateSignaturesAndILWhileRemovingDuplicates( this MetaDataReOrderState reorderState )
    {
@@ -2174,25 +2187,83 @@ public static partial class E_CILPhysical
       // TypeRef
       // ECMA-335:  There shall be no duplicate rows, where a duplicate has the same ResolutionScope, TypeName and TypeNamespace  [ERROR] 
       // Do in a loop, since TypeRef may reference itself
+
+      // First, sort them so that all indices into same table would come last, and that they would always index previous row.
       var tRefs = md.TypeReferences;
-      reorderState.GetOrCreateIndexArray( tRefs );
+      var tRefList = tRefs.TableContents;
+      var tRefIndices = reorderState.GetOrCreateIndexArray( tRefs );
       // Create index array for Module table, as TypeRef.ResolutionScope may reference that.
       reorderState.GetOrCreateIndexArray( md.ModuleDefinitions );
-      Boolean removedDuplicates;
-      var updateState = new SignatureReOrderState( reorderState, Tables.TypeRef );
-      do
+      var tRefsCorrectOrder = tRefList
+         .Select( ( tRef, idx ) => Tuple.Create( tRef, idx ) )
+         .OrderBy( tpl => tpl.Item1.ResolutionScope.HasValue && tpl.Item1.ResolutionScope.Value.Table == Tables.TypeRef ? tpl.Item1.ResolutionScope.Value.Index : -1 )
+         .ToList();
+      tRefList.Clear();
+      var tRefDic = new Dictionary<TypeReference, Int32>( Comparers.TypeReferenceEqualityComparer );
+      for ( var i = 0; i < tRefsCorrectOrder.Count; ++i )
       {
-         reorderState.UpdateMDTableWithTableIndices1Nullable(
-            tRefs,
-            tRef => tRef.ResolutionScope,
-            ( tRef, resScope ) => tRef.ResolutionScope = resScope,
-            ( tRef, tRefIdx, resScope ) => updateState.ShouldProcess( resScope )
-            );
-         removedDuplicates = updateState.CheckMDDuplicatesUnsortedWithSignatureReOrderState(
-            tRefs,
-            Comparers.TypeReferenceEqualityComparer
-            );
-      } while ( removedDuplicates );
+         var tuple = tRefsCorrectOrder[i];
+         var tRef = tuple.Item1;
+         var rsn = tRef.ResolutionScope;
+         if ( rsn.HasValue )
+         {
+            var rs = rsn.Value;
+            var rsIdx = reorderState.GetFinalIndex( rs );
+            if ( rs.Index != rsIdx )
+            {
+               tRef.ResolutionScope = rs.ChangeIndex( rsIdx );
+            }
+         }
+
+         Int32 newTRefIdx;
+         if ( !tRefDic.TryGetValue( tRef, out newTRefIdx ) )
+         {
+            newTRefIdx = tRefList.Count;
+            tRefDic.Add( tRef, newTRefIdx );
+            tRefList.Add( tRef );
+         }
+
+         tRefIndices[tuple.Item2] = newTRefIdx;
+      }
+
+
+
+      //Boolean removedDuplicates;
+      //var updateState = new SignatureReOrderState( reorderState, Tables.TypeRef, ( tRef, resScope ) => ( (TypeReference) tRef ).ResolutionScope = resScope );
+      //foreach ( var tRef in tRefList )
+      //{
+      //   var rs = tRef.ResolutionScope;
+      //   if ( rs.HasValue && rs.Value.Table == Tables.TypeRef )
+      //   {
+      //      updateState.OriginalSameTableReferences.Add( tRef, rs.Value.Index );
+      //   }
+      //}
+
+      //do
+      //{
+      //   reorderState.UpdateMDTableWithTableIndices1Nullable(
+      //      tRefs,
+      //      tRef =>
+      //      {
+      //         if ( tRef.Name == "Enumerator"
+      //            && tRef.ResolutionScope.HasValue
+      //            && tRef.ResolutionScope.Value.Table == Tables.TypeRef
+      //            && tRefs.TableContents[tRef.ResolutionScope.Value.Index] != null
+      //            && tRefs.TableContents[tRef.ResolutionScope.Value.Index].Name == "HashSet`1"
+      //            )
+      //         {
+
+      //         }
+      //         return tRef.ResolutionScope;
+      //      },
+      //      ( tRef, resScope ) => tRef.ResolutionScope = resScope,
+      //      ( tRef, tRefIdx, resScope ) => updateState.ShouldProcess( tRef, resScope )
+      //      );
+      //   removedDuplicates = updateState.CheckMDDuplicatesUnsortedWithSignatureReOrderState(
+      //      tRefs,
+      //      Comparers.TypeReferenceEqualityComparer
+      //      );
+      //} while ( removedDuplicates );
 
       // TypeSpec
       // ECMA-335: There shall be no duplicate rows, based upon Signature  [ERROR] 
@@ -2201,7 +2272,26 @@ public static partial class E_CILPhysical
       // So remove duplicates and update signatures in a loop
       var tSpecs = md.TypeSpecifications;
       reorderState.GetOrCreateIndexArray( tSpecs );
-      updateState = new SignatureReOrderState( reorderState, Tables.TypeSpec );
+      var updateState = new SignatureReOrderState( reorderState, Tables.TypeSpec, ( sig, idx ) =>
+      {
+         if ( sig is CustomModifierSignature )
+         {
+            ( (CustomModifierSignature) sig ).CustomModifierType = idx;
+         }
+         else
+         {
+            ( (ClassOrValueTypeSignature) sig ).Type = idx;
+         }
+      } );
+      foreach ( var sig in updateState.GetAllSignaturesToUpdateForReOrder() )
+      {
+         var curIdx = sig.Item2;
+         if ( curIdx.Table == Tables.TypeSpec )
+         {
+            updateState.OriginalSameTableReferences.Add( sig.Item1, curIdx.Index );
+         }
+      }
+      Boolean removedDuplicates;
       do
       {
          updateState.UpdateSignatures();
@@ -2260,7 +2350,7 @@ public static partial class E_CILPhysical
    {
       var reorderState = state.ReOrderState;
       state.BeforeDuplicateRemoval();
-      var removedDuplicates = reorderState.CheckMDDuplicatesUnsorted(
+      var removedDuplicates = state.CheckMDDuplicatesUnsorted(
          mdTable,
          equalityComparer
          );
@@ -2319,6 +2409,117 @@ public static partial class E_CILPhysical
       }
 
       // CustomAttribute and DeclarativeSecurity signatures do not reference table indices, so they can be skipped
+   }
+
+   private static IEnumerable<TSigInfo> GetAllSignaturesToUpdateForReOrder( this SignatureReOrderState state )
+   {
+      var md = state.MD;
+      return md.FieldDefinitions.TableContents.SelectMany( f => state.GetAllSignaturesToUpdateForReOrder_Field( f.Signature ) )
+         .Concat( md.MethodDefinitions.TableContents.SelectMany( m => state.GetAllSignaturesToUpdateForReOrder_MethodDef( m.Signature ) ) )
+         .Concat( md.MemberReferences.TableContents.SelectMany( m => state.GetAllSignaturesToUpdateForReOrder( m.Signature ) ) )
+         .Concat( md.StandaloneSignatures.TableContents.SelectMany( s => state.GetAllSignaturesToUpdateForReOrder( s.Signature ) ) )
+         .Concat( md.PropertyDefinitions.TableContents.SelectMany( p => state.GetAllSignaturesToUpdateForReOrder_Property( p.Signature ) ) )
+         .Concat( md.TypeSpecifications.TableContents.SelectMany( t => state.GetAllSignaturesToUpdateForReOrder_Type( t.Signature ) ) )
+         .Concat( md.MethodSpecifications.TableContents.SelectMany( m => state.GetAllSignaturesToUpdateForReOrder_GenericMethod( m.Signature ) ) );
+   }
+
+   private static IEnumerable<TSigInfo> GetAllSignaturesToUpdateForReOrder( this SignatureReOrderState state, AbstractSignature sig )
+   {
+      switch ( sig.SignatureKind )
+      {
+         case SignatureKind.Field:
+            return state.GetAllSignaturesToUpdateForReOrder_Field( (FieldSignature) sig );
+         case SignatureKind.GenericMethodInstantiation:
+            return state.GetAllSignaturesToUpdateForReOrder_GenericMethod( (GenericMethodSignature) sig );
+         case SignatureKind.LocalVariables:
+            return state.GetAllSignaturesToUpdateForReOrder_Locals( (LocalVariablesSignature) sig );
+         case SignatureKind.MethodDefinition:
+            return state.GetAllSignaturesToUpdateForReOrder_MethodDef( (MethodDefinitionSignature) sig );
+         case SignatureKind.MethodReference:
+            return state.GetAllSignaturesToUpdateForReOrder_MethodRef( (MethodReferenceSignature) sig );
+         case SignatureKind.Property:
+            return state.GetAllSignaturesToUpdateForReOrder_Property( (PropertySignature) sig );
+         case SignatureKind.Type:
+            return state.GetAllSignaturesToUpdateForReOrder_Type( (TypeSignature) sig );
+         case SignatureKind.RawSignature:
+            return Empty<TSigInfo>.Enumerable;
+         default:
+            throw new InvalidOperationException( "Unrecognized signature kind: " + sig.SignatureKind + "." );
+      }
+   }
+
+   private static IEnumerable<TSigInfo> GetAllSignaturesToUpdateForReOrder_Field( this SignatureReOrderState state, FieldSignature sig )
+   {
+      return sig.CustomModifiers.Select( cm => Tuple.Create( (Object) cm, cm.CustomModifierType ) )
+         .Concat( state.GetAllSignaturesToUpdateForReOrder_Type( sig.Type ) );
+   }
+
+   private static IEnumerable<TSigInfo> GetAllSignaturesToUpdateForReOrder_GenericMethod( this SignatureReOrderState state, GenericMethodSignature sig )
+   {
+      return sig.GenericArguments.SelectMany( arg => state.GetAllSignaturesToUpdateForReOrder( arg ) );
+   }
+
+   private static IEnumerable<TSigInfo> GetAllSignaturesToUpdateForReOrder_Locals( this SignatureReOrderState state, LocalVariablesSignature sig )
+   {
+      return sig.Locals.SelectMany( l => state.GetAllSignaturesToUpdateForReOrder_LocalOrSig( l ) );
+   }
+
+   private static IEnumerable<TSigInfo> GetAllSignaturesToUpdateForReOrder_AbstractMethod( this SignatureReOrderState state, AbstractMethodSignature sig )
+   {
+      return state.GetAllSignaturesToUpdateForReOrder_LocalOrSig( sig.ReturnType )
+         .Concat( sig.Parameters.SelectMany( p => state.GetAllSignaturesToUpdateForReOrder_LocalOrSig( p ) ) );
+   }
+
+   private static IEnumerable<TSigInfo> GetAllSignaturesToUpdateForReOrder_LocalOrSig( this SignatureReOrderState state, ParameterOrLocalVariableSignature sig )
+   {
+      return sig.CustomModifiers.Select( cm => Tuple.Create( (Object) cm, cm.CustomModifierType ) )
+         .Concat( state.GetAllSignaturesToUpdateForReOrder_Type( sig.Type ) );
+   }
+
+   private static IEnumerable<TSigInfo> GetAllSignaturesToUpdateForReOrder_MethodDef( this SignatureReOrderState state, MethodDefinitionSignature sig )
+   {
+      return state.GetAllSignaturesToUpdateForReOrder_AbstractMethod( sig );
+   }
+
+   private static IEnumerable<TSigInfo> GetAllSignaturesToUpdateForReOrder_MethodRef( this SignatureReOrderState state, MethodReferenceSignature sig )
+   {
+      return state.GetAllSignaturesToUpdateForReOrder_AbstractMethod( sig )
+         .Concat( sig.VarArgsParameters.SelectMany( p => state.GetAllSignaturesToUpdateForReOrder_LocalOrSig( p ) ) );
+   }
+
+   private static IEnumerable<TSigInfo> GetAllSignaturesToUpdateForReOrder_Property( this SignatureReOrderState state, PropertySignature sig )
+   {
+      return sig.CustomModifiers.Select( cm => Tuple.Create( (Object) cm, cm.CustomModifierType ) )
+         .Concat( sig.Parameters.SelectMany( p => state.GetAllSignaturesToUpdateForReOrder_LocalOrSig( p ) ) )
+         .Concat( state.GetAllSignaturesToUpdateForReOrder_Type( sig.PropertyType ) );
+   }
+
+   private static IEnumerable<TSigInfo> GetAllSignaturesToUpdateForReOrder_Type( this SignatureReOrderState state, TypeSignature sig )
+   {
+      switch ( sig.TypeSignatureKind )
+      {
+         case TypeSignatureKind.ClassOrValue:
+            var clazz = (ClassOrValueTypeSignature) sig;
+            return Tuple.Create( (Object) clazz, clazz.Type ).Singleton()
+               .Concat( clazz.GenericArguments.SelectMany( g => state.GetAllSignaturesToUpdateForReOrder_Type( g ) ) );
+         case TypeSignatureKind.ComplexArray:
+            return state.GetAllSignaturesToUpdateForReOrder_Type( ( (ComplexArrayTypeSignature) sig ).ArrayType );
+         case TypeSignatureKind.FunctionPointer:
+            return state.GetAllSignaturesToUpdateForReOrder_MethodRef( ( (FunctionPointerTypeSignature) sig ).MethodSignature );
+         case TypeSignatureKind.Pointer:
+            var ptr = (PointerTypeSignature) sig;
+            return ptr.CustomModifiers.Select( cm => Tuple.Create( (Object) cm, cm.CustomModifierType ) )
+               .Concat( state.GetAllSignaturesToUpdateForReOrder_Type( ptr.PointerType ) );
+         case TypeSignatureKind.SimpleArray:
+            var arr = (SimpleArrayTypeSignature) sig;
+            return arr.CustomModifiers.Select( cm => Tuple.Create( (Object) cm, cm.CustomModifierType ) )
+               .Concat( state.GetAllSignaturesToUpdateForReOrder_Type( arr.ArrayType ) );
+         case TypeSignatureKind.GenericParameter:
+         case TypeSignatureKind.Simple:
+            return Empty<TSigInfo>.Enumerable;
+         default:
+            throw new InvalidOperationException( "Unrecognized type signature kind: " + sig.TypeSignatureKind + "." );
+      }
    }
 
    private static void UpdateIL( this MetaDataReOrderState state )
@@ -2429,7 +2630,7 @@ public static partial class E_CILPhysical
          case TypeSignatureKind.ClassOrValue:
             var clazz = (ClassOrValueTypeSignature) sig;
             var type = clazz.Type;
-            if ( state.ShouldProcess( type ) )
+            if ( state.ShouldProcess( clazz, type ) )
             {
                var newIdx = state.ReOrderState.GetFinalIndex( type );
                if ( newIdx != type.Index )
@@ -2466,7 +2667,7 @@ public static partial class E_CILPhysical
       foreach ( var mod in mods )
       {
          var idx = mod.CustomModifierType;
-         if ( state.ShouldProcess( idx ) )
+         if ( state.ShouldProcess( mod, idx ) )
          {
             var newIdx = state.ReOrderState.GetFinalIndex( idx );
             if ( newIdx != idx.Index )

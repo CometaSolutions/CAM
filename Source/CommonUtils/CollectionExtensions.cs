@@ -369,7 +369,7 @@ public static partial class E_CommonUtils
    /// <returns><see cref="IEnumerable{T}"/> containing only <paramref name="element"/>.</returns>
    public static IEnumerable<T> Singleton<T>( this T element )
    {
-      return Enumerable.Repeat( element, 1 );
+      yield return element;
    }
 
    /// <summary>
@@ -459,30 +459,34 @@ public static partial class E_CommonUtils
    public static T[] FillWithOffsetAndCount<T>( this T[] destinationArray, Int32 offset, Int32 count, params T[] value )
    {
       ArgumentValidator.ValidateNotNull( "Destination array", destinationArray );
-      ArgumentValidator.ValidateNotEmpty( "Value array", value );
       destinationArray.CheckArrayArguments( offset, count );
 
-      if ( destinationArray.Length > 0 )
+      if ( count > 0 )
       {
-         var max = offset + count;
-         if ( value.Length > count )
+         ArgumentValidator.ValidateNotEmpty( "Value array", value );
+
+
+         if ( destinationArray.Length > 0 )
          {
-            throw new ArgumentException( "Length of value array must not be more than count in destination" );
+            var max = offset + count;
+            if ( value.Length > count )
+            {
+               throw new ArgumentException( "Length of value array must not be more than count in destination" );
+            }
+
+            // set the initial array value
+            Array.Copy( value, 0, destinationArray, offset, value.Length );
+
+            Int32 copyLength;
+
+            for ( copyLength = value.Length; copyLength + copyLength < count; copyLength <<= 1 )
+            {
+               Array.Copy( destinationArray, offset, destinationArray, offset + copyLength, copyLength );
+            }
+
+            Array.Copy( destinationArray, offset, destinationArray, offset + copyLength, count - copyLength );
          }
-
-         // set the initial array value
-         Array.Copy( value, 0, destinationArray, offset, value.Length );
-
-         Int32 copyLength;
-
-         for ( copyLength = value.Length; copyLength + copyLength < count; copyLength <<= 1 )
-         {
-            Array.Copy( destinationArray, offset, destinationArray, offset + copyLength, copyLength );
-         }
-
-         Array.Copy( destinationArray, offset, destinationArray, offset + copyLength, count - copyLength );
       }
-
       return destinationArray;
    }
 
