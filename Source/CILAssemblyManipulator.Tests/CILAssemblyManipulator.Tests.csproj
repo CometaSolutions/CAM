@@ -43,6 +43,7 @@
   <ItemGroup>
     <Compile Include="AbstractCAMTest.cs" />
     <Compile Include="CILMerge\MergeTests.cs" />
+    <Compile Include="Logical\BranchLengthCalculation.cs" />
     <Compile Include="Logical\Interop.cs" />
     <Compile Include="Logical\Wrappers.cs" />
     <Compile Include="Physical\Emitting.cs" />
