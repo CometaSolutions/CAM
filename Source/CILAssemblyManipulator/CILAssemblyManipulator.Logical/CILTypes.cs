@@ -1122,4 +1122,21 @@ public static partial class E_CILLogical
    {
       return type == null ? Empty<CILMethodBase>.Enumerable : type.Constructors.Cast<CILMethodBase>().Concat( type.DeclaredMethods );
    }
+
+   /// <summary>
+   /// Helper method to add a new method to type, with a specific return type.
+   /// </summary>
+   /// <param name="type">The type to add method to.</param>
+   /// <param name="name">The name of the method.</param>
+   /// <param name="attrs">The <see cref="MethodAttributes"/> of the method.</param>
+   /// <param name="callingConventions">The <see cref="CallingConventions"/> of the method.</param>
+   /// <param name="returnType">The return type of the method.</param>
+   /// <returns>The newly added method.</returns>
+   /// <seealso cref="CILType.AddMethod"/>
+   public static CILMethod AddMethodWithReturnType( this CILType type, String name, MethodAttributes attrs, CallingConventions callingConventions, CILTypeBase returnType )
+   {
+      var retVal = type.AddMethod( name, attrs, callingConventions );
+      retVal.ReturnParameter.ParameterType = returnType;
+      return retVal;
+   }
 }

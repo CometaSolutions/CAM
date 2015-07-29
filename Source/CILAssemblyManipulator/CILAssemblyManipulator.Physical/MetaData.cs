@@ -721,6 +721,16 @@ namespace CILAssemblyManipulator.Physical
          return ( ( 17 * 23 + this._fwName.GetHashCodeSafe() ) * 23 + this._fwVersion.GetHashCodeSafe() ) * 23 + this._fwProfile.GetHashCodeSafe();
       }
 
+      public override String ToString()
+      {
+         var retVal = this._fwName + SEPARATOR + VERSION_PREFIX + this._fwVersion;
+         if ( !String.IsNullOrEmpty( this._fwProfile ) )
+         {
+            retVal += SEPARATOR + PROFILE_PREFIX + this._fwProfile;
+         }
+         return retVal;
+      }
+
       public Boolean Equals( TargetFrameworkInfo other )
       {
          return ReferenceEquals( this, other )
