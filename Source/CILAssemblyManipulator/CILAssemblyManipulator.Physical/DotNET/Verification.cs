@@ -181,8 +181,16 @@ namespace CILAssemblyManipulator.Physical
 
    }
 
+   [Serializable]
    public class VerificationException : Exception
    {
+
+      public VerificationException( System.Runtime.Serialization.SerializationInfo info, System.Runtime.Serialization.StreamingContext ctx )
+         : base( info, ctx )
+      {
+
+      }
+
       public VerificationException( String msg, Exception inner = null )
          : base( msg, inner )
       {
