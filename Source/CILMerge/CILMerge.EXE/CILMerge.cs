@@ -193,7 +193,7 @@ namespace CILMerge
          options.Union = args.GetSingleOptionOrNull( UNION ).GetOrDefault( false );
          options.NoDebug = args.GetSingleOptionOrNull( NODEBUG ).GetOrDefault( false );
          options.CopyAttributes = args.GetSingleOptionOrNull( COPY_ATTRS ).GetOrDefault( false );
-         options.AttrSource = args.GetSingleOptionOrNull( ATTR ).GetOrDefault<String>();
+         options.TargetAssemblyAttributeSource = args.GetSingleOptionOrNull( ATTR ).GetOrDefault<String>();
          options.AllowMultipleAssemblyAttributes = args.GetSingleOptionOrNull( ALLOW_MULTIPLE ).GetOrDefault( false );
          options.Target = args.GetSingleOptionOrNull( TARGET ).GetOrDefault<ModuleKind?>();
          var tp = args.GetSingleOptionOrNull( TARGET_PLATFORM ).GetOrDefault<String>();
@@ -255,7 +255,7 @@ namespace CILMerge
             }
          }
          options.KeyFile = RootPath( options.KeyFile );
-         options.AttrSource = RootPath( options.AttrSource );
+         options.TargetAssemblyAttributeSource = RootPath( options.TargetAssemblyAttributeSource );
          options.ExcludeFile = RootPath( options.ExcludeFile );
          var subSysStr = args.GetSingleOptionOrNull( SUBSYSTEMVERSION ).GetOrDefault( "4.0" );
          var sep = subSysStr.IndexOf( '.' );

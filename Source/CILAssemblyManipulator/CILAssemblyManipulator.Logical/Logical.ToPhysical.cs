@@ -180,12 +180,15 @@ public static partial class E_CILLogical
                   break;
                case Tables.TypeRef:
                   var t = (CILType) type;
-                  this._md.TypeReferences.TableContents.Add( new TypeReference()
+                  var tRef = new TypeReference()
                   {
                      Name = t.Name,
                      Namespace = t.Namespace,
-                     ResolutionScope = this.GetResolutionScope( t )
-                  } );
+                  };
+                  this._md.TypeReferences.TableContents.Add( tRef );
+
+                  // Get resolution scope after adding to table, otherwise we will get same index for two different types (in case of getting nested type index before enclosing type index)
+                  tRef.ResolutionScope = this.GetResolutionScope( t );
                   break;
                default:
                   throw new InvalidOperationException( "Added unexpected TypeDefOrRefOrSpec: " + retVal + "." );
@@ -1041,7 +1044,7 @@ public static partial class E_CILLogical
          var opCodeOffset = dynamicBranchInfos[i];
          var codeInfo = (OpCodeInfoWithInt32) pOpCodes[opCodeOffset];
          var physicalOffset = ilState.TransformLogicalOffsetToPhysicalOffset( opCodeOffset, codeInfo.OpCode.GetTotalByteCount(), codeInfo.Operand );
-         if ( !codeInfo.Operand.IsShortJump() )
+         if ( !physicalOffset.IsShortJump() )
          {
             // Have to use long form
             var newForm = ( (LogicalOpCodeInfoForBranchingControlFlow) logicalIL.GetOpCodeInfo( opCodeOffset ) ).LongForm;
@@ -1049,7 +1052,7 @@ public static partial class E_CILLogical
 
             // Fix byte offsets and recursively check all previous jumps that jump over this
             ilState.UpdateAllByteOffsetsFollowing( opCodeOffset, newForm.GetTotalByteCount() - codeInfo.OpCode.GetTotalByteCount() );
-            ilState.AfterDynamicChangedToLongForm( opCodeOffset );
+            ilState.AfterDynamicChangedToLongForm( i );
          }
       }
 
@@ -1114,7 +1117,7 @@ public static partial class E_CILLogical
       var pOpCodes = state.PhysicalIL.OpCodes;
       for ( var idx = 0; idx < startingOpCodeIndex; ++idx )
       {
-         var currentDynamicIndex = state.DynamicOpCodeInfos[idx];
+         var currentDynamicIndex = dynIndices[idx];
          var dynamicJump = (LogicalOpCodeInfoForBranchingControlFlow) state.LogicalIL.GetOpCodeInfo( currentDynamicIndex );
          var codeInfo = (OpCodeInfoWithInt32) pOpCodes[currentDynamicIndex];
          if ( codeInfo.Operand > currentOpCodeIndex && dynamicJump.ShortForm == codeInfo.OpCode )

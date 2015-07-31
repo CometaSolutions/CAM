@@ -503,16 +503,16 @@ namespace CILAssemblyManipulator.Logical
          return new LogicalOpCodeInfoForNormalOrVirtual( method, OpCodes.Call, OpCodes.Callvirt );
       }
 
-      /// <summary>
-      /// Creates new instance of <see cref="LogicalOpCodeInfoForNormalOrVirtual"/> which will emit either <see cref="OpCodes.Ldftn"/> or <see cref="OpCodes.Ldvirtftn"/> for the specified method.
-      /// </summary>
-      /// <param name="method">The method to emit loading function pointer to.</param>
-      /// <returns>New instance of <see cref="LogicalOpCodeInfoForNormalOrVirtual"/> which will emit either <see cref="OpCodes.Ldftn"/> or <see cref="OpCodes.Ldvirtftn"/> for the specified method.</returns>
-      /// <exception cref="ArgumentNullException">If <paramref name="method"/> is <c>null</c>.</exception>
-      public static LogicalOpCodeInfoForNormalOrVirtual OpCodeInfoForLdFtn( CILMethod method )
-      {
-         return new LogicalOpCodeInfoForNormalOrVirtual( method, OpCodes.Ldftn, OpCodes.Ldvirtftn );
-      }
+      ///// <summary>
+      ///// Creates new instance of <see cref="LogicalOpCodeInfoForNormalOrVirtual"/> which will emit either <see cref="OpCodes.Ldftn"/> or <see cref="OpCodes.Ldvirtftn"/> for the specified method.
+      ///// </summary>
+      ///// <param name="method">The method to emit loading function pointer to.</param>
+      ///// <returns>New instance of <see cref="LogicalOpCodeInfoForNormalOrVirtual"/> which will emit either <see cref="OpCodes.Ldftn"/> or <see cref="OpCodes.Ldvirtftn"/> for the specified method.</returns>
+      ///// <exception cref="ArgumentNullException">If <paramref name="method"/> is <c>null</c>.</exception>
+      //public static LogicalOpCodeInfoForNormalOrVirtual OpCodeInfoForLdFtn( CILMethod method )
+      //{
+      //   return new LogicalOpCodeInfoForNormalOrVirtual( method, OpCodes.Ldftn, OpCodes.Ldvirtftn );
+      //}
    }
 
    /// <summary>

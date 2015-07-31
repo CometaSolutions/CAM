@@ -1706,7 +1706,7 @@ public static partial class E_CILLogical
    }
 
    /// <summary>
-   /// Adds info to <paramref name="il"/> which will emit required instruction (<see cref="OpCodes.Ldftn"/> or <see cref="OpCodes.Ldvirtftn"/>) to load unmanaged method pointer onto stack.
+   /// Adds info to <paramref name="il"/> which will emit <see cref="OpCodes.Ldftn"/> or <see cref="OpCodes.Ldvirtftn"/>) to load unmanaged method pointer onto stack.
    /// </summary>
    /// <param name="il">The <see cref="MethodIL"/>.</param>
    /// <param name="method">The <see cref="CILMethod"/> to load unmanaged pointer of.</param>
@@ -1715,7 +1715,23 @@ public static partial class E_CILLogical
    /// <exception cref="ArgumentNullException">If <paramref name="method"/> is <c>null</c>.</exception>
    public static MethodIL EmitLoadUnmanagedMethodToken( this MethodIL il, CILMethod method )
    {
-      return il.Add( LogicalOpCodeInfoForNormalOrVirtual.OpCodeInfoForLdFtn( method ) );
+      return il.Add( new LogicalOpCodeInfoWithMethodToken( OpCodes.Ldftn, method ) );
+   }
+
+   /// <summary>
+   /// Adds info to <paramref name="il"/> which will emit <see cref="OpCodes.Ldvirtftn"/> to load unmanaged method pointer onto stack.
+   /// </summary>
+   /// <param name="il">The <see cref="MethodIL"/>.</param>
+   /// <param name="method">The <see cref="CILMethod"/> to load unmanaged pointer of.</param>
+   /// <returns><paramref name="il"/>.</returns>
+   /// <exception cref="NullReferenceException">If <paramref name="il"/> is <c>null</c>.</exception>
+   /// <exception cref="ArgumentNullException">If <paramref name="method"/> is <c>null</c>.</exception>
+   /// <remarks>
+   /// The <see cref="OpCodes.Ldvirtftn"/> differs from <see cref="OpCodes.Ldftn"/> in such way that <see cref="OpCodes.Ldvirtftn"/> requires object reference on stack, while <see cref="OpCodes.Ldftn"/> does not.
+   /// </remarks>
+   public static MethodIL EmitLoadUnmanagedMethodTokenVirtual( this MethodIL il, CILMethod method )
+   {
+      return il.Add( new LogicalOpCodeInfoWithMethodToken( OpCodes.Ldvirtftn, method ) );
    }
 
    /// <summary>
@@ -2981,7 +2997,15 @@ public static partial class E_CILLogical
       return mscorlib.GetTypeByName( nativeCtor.DeclaringType.FullName ).Constructors.First( c => c.Attributes == (MethodAttributes) nativeCtor.Attributes && c.Parameters.Count == pCount );
    }
 
-   private static MethodIL Add( this MethodIL il, OpCodeEncoding noOperandOpCode )
+   /// <summary>
+   /// Adds an op-code with no operand.
+   /// </summary>
+   /// <param name="il">The <see cref="MethodIL"/>.</param>
+   /// <param name="noOperandOpCode">The op code with no operand.</param>
+   /// <returns><paramref name="il"/>.</returns>
+   /// <exception cref="ArgumentException">If <paramref name="noOperandOpCode"/> represents an op code with operand.</exception>
+   /// <exception cref="NullReferenceException">If <paramref name="il"/> is <c>null</c>.</exception>
+   public static MethodIL Add( this MethodIL il, OpCodeEncoding noOperandOpCode )
    {
       return il.Add( LogicalOpCodeInfoWithNoOperand.GetInstanceFor( noOperandOpCode ) );
    }

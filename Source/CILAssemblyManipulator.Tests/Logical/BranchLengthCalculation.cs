@@ -40,7 +40,9 @@ namespace CILAssemblyManipulator.Tests.Logical
 
             mod.AssociatedMSCorLibModule = objType.Module;
 
-            var method = mod.AddType( "Testing", TypeAttributes.AutoClass ).AddMethod( "Testing", MethodAttributes.Public, CallingConventions.HasThis );
+            var type = mod.AddType( "Testing", TypeAttributes.AutoClass );
+            var method = type.AddMethodWithReturnType( "Testing", MethodAttributes.Public, CallingConventions.HasThis, mod.GetTypeForTypeCode( CILTypeCode.Void ) );
+            var field = type.AddField( "Testingg", objType, FieldAttributes.Private );
             var il = method.MethodIL;
             var local0 = il.DeclareLocal( objType );
             var local1 = il.DeclareLocal( objType );
@@ -55,13 +57,16 @@ namespace CILAssemblyManipulator.Tests.Logical
                .EmitLoadLocal( local2 )
                .EmitSwitch( 1, ( il2, cases, defaultLabel, endLabel ) =>
                {
+                  il2.MarkLabel( cases[0] );
+                  var label1 = il2.DefineLabel();
+                  var label2 = il2.DefineLabel();
                   il2.EmitNewObject( objCtor )
                      .EmitStoreLocal( local1 )
                      .EmitLoadLocal( local1 )
                      .EmitLoadLocal( local1 )
                      .EmitNewObject( objCtor )
                      .EmitCall( objMethod )
-                     .EmitReflectionObjectOf( method )
+                     .EmitReflectionObjectOf( field )
                      .EmitLoadLocal( local1 )
                      .EmitCall( objMethod )
                      .EmitLoadLocal( local0 )
@@ -77,10 +82,45 @@ namespace CILAssemblyManipulator.Tests.Logical
                      .EmitCall( objMethod )
                      .EmitReflectionObjectOf( objType )
                      .EmitCall( objMethod )
-                     .EmitDup();
+                     .EmitDup()
+                     .EmitBranch( BranchType.ALWAYS, label1 )
+                     .EmitBranch( BranchType.ALWAYS, label2 )
+                     .MarkLabel( label1 )
+                     .EmitPop()
+                     .EmitLoadString( "" )
+                     .EmitLoadLocal( local0 )
+                     .EmitCall( objMethod )
+                     .EmitCall( objMethod )
+                     .EmitCall( objMethod )
+                     .EmitLoadInt32( 0 )
+                     .EmitCall( objMethod )
+                     .EmitLoadString( "" )
+                     .EmitCall( objMethod )
+                     .EmitReflectionObjectOf( objType )
+                     .EmitNewObject( objCtor )
+                     .EmitThrow()
+                     .MarkLabel( label2 )
+                     .EmitCall( objMethod )
+                     .EmitBranch( BranchType.ALWAYS, endLabel );
                }, ( il2, endLabel ) =>
                {
+                  il2.EmitLoadString( "" )
+                     .EmitLoadLocal( local2 )
+                     .Add( new LogicalOpCodeInfoWithTypeToken( OpCodes.Box, objType ) )
+                     .EmitLoadString( "" )
+                     .EmitCall( objMethod )
+                     .EmitReflectionObjectOf( objType )
+                     .EmitLoadString( "" )
+                     .EmitCall( objMethod )
+                     .EmitNewObject( objCtor )
+                     .EmitThrow();
                } );
+
+            il.EmitLoadLocal( local1 )
+               .EmitReturn();
+
+
+            Assert.DoesNotThrow( () => assembly.MainModule.CreatePhysicalRepresentation( false ) );
          }
       }
    }

@@ -343,4 +343,115 @@ public static partial class E_CILLogical
          }
       }
    }
+
+   /// <summary>
+   /// Gets the corresponding <see cref="CILType"/> for given <see cref="CILTypeCode"/>.
+   /// </summary>
+   /// <param name="module">The current <see cref="CILModule"/>.</param>
+   /// <param name="code">The <see cref="CILTypeCode"/>.</param>
+   /// <returns>The <see cref="CILTypeCode"/> which corresponds to given <see cref="CILTypeCode"/>.</returns>
+   /// <exception cref="ArgumentException">If <paramref name="module"/> is <c>null</c>, or corresponding type was not found.</exception>
+   public static CILType GetTypeForTypeCode( this CILModule module, CILTypeCode code )
+   {
+      CILType retVal;
+      if ( !module.TryGetTypeForTypeCode( code, out retVal ) )
+      {
+         throw new ArgumentException( "Failed to get corresponding type for " + code + " from associated mscorlib of " + module + "." );
+      }
+
+      return retVal;
+   }
+
+   /// <summary>
+   /// Tries to find a type from <see cref="CILModule.AssociatedMSCorLibModule"/> that corresponds given <see cref="CILTypeCode"/>.
+   /// </summary>
+   /// <param name="module">The current <see cref="CILModule"/>.</param>
+   /// <param name="code">The <see cref="CILTypeCode"/>.</param>
+   /// <param name="type">This will hold the result of look-up.</param>
+   /// <returns><c>true</c> if look-up was successful; <c>false</c> otherwise.</returns>
+   public static Boolean TryGetTypeForTypeCode( this CILModule module, CILTypeCode code, out CILType type )
+   {
+      String typeName;
+      switch ( code )
+      {
+         case CILTypeCode.Boolean:
+            typeName = Consts.BOOLEAN;
+            break;
+         case CILTypeCode.Char:
+            typeName = Consts.CHAR;
+            break;
+         case CILTypeCode.SByte:
+            typeName = Consts.SBYTE;
+            break;
+         case CILTypeCode.Byte:
+            typeName = Consts.BYTE;
+            break;
+         case CILTypeCode.Int16:
+            typeName = Consts.INT16;
+            break;
+         case CILTypeCode.UInt16:
+            typeName = Consts.UINT16;
+            break;
+         case CILTypeCode.Int32:
+            typeName = Consts.INT32;
+            break;
+         case CILTypeCode.UInt32:
+            typeName = Consts.UINT32;
+            break;
+         case CILTypeCode.Int64:
+            typeName = Consts.INT64;
+            break;
+         case CILTypeCode.UInt64:
+            typeName = Consts.UINT64;
+            break;
+         case CILTypeCode.Single:
+            typeName = Consts.SINGLE;
+            break;
+         case CILTypeCode.Double:
+            typeName = Consts.DOUBLE;
+            break;
+         case CILTypeCode.String:
+            typeName = Consts.STRING;
+            break;
+         case CILTypeCode.Void:
+            typeName = Consts.VOID;
+            break;
+         case CILTypeCode.IntPtr:
+            typeName = Consts.INT_PTR;
+            break;
+         case CILTypeCode.UIntPtr:
+            typeName = Consts.UINT_PTR;
+            break;
+         case CILTypeCode.DateTime:
+            typeName = Consts.DATETIME;
+            break;
+         case CILTypeCode.Decimal:
+            typeName = Consts.DECIMAL;
+            break;
+         case CILTypeCode.Enum:
+            typeName = Consts.ENUM;
+            break;
+         case CILTypeCode.SystemObject:
+            typeName = Consts.OBJECT;
+            break;
+         case CILTypeCode.Type:
+            typeName = Consts.TYPE;
+            break;
+         case CILTypeCode.TypedByRef:
+            typeName = Consts.TYPED_BY_REF;
+            break;
+         case CILTypeCode.Value:
+            typeName = Consts.VALUE_TYPE;
+            break;
+         default:
+            typeName = null;
+            break;
+      }
+
+      var msCorLib = module == null ? null : module.AssociatedMSCorLibModule;
+      type = typeName == null || msCorLib == null ? null : msCorLib.GetTypeByName( typeName, false );
+
+      return type != null;
+   }
+
 }
