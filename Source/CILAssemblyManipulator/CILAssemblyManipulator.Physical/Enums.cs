@@ -533,16 +533,16 @@ namespace CILAssemblyManipulator.Physical
       RequireSecObject = 0x8000
    }
 
-   /// <summary>
-   /// Class containing useful things about <see cref="MethodAttributes"/>.
-   /// </summary>
-   public static class MethodAttributesUtils
-   {
-      /// <summary>
-      /// Method attributes for explicitly implementating methods.
-      /// </summary>
-      public const MethodAttributes EXPLICIT_IMPLEMENTATION_ATTRIBUTES = MethodAttributes.Private | MethodAttributes.HideBySig | MethodAttributes.NewSlot | MethodAttributes.Virtual | MethodAttributes.Final;
-   }
+   ///// <summary>
+   ///// Class containing useful things about <see cref="MethodAttributes"/>.
+   ///// </summary>
+   //public static class MethodAttributesUtils
+   //{
+   //   /// <summary>
+   //   /// Method attributes for explicitly implementating methods.
+   //   /// </summary>
+   //   public const MethodAttributes EXPLICIT_IMPLEMENTATION_ATTRIBUTES = MethodAttributes.Private | MethodAttributes.HideBySig | MethodAttributes.NewSlot | MethodAttributes.Virtual | MethodAttributes.Final;
+   //}
 
    /// <summary>
    /// This enumeration provides values for calling convention of unmanaged methods. See ECMA specification about StandAloneMethodSig for more info.

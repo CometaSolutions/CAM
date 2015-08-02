@@ -185,6 +185,12 @@ namespace CILAssemblyManipulator.Physical
    public class VerificationException : Exception
    {
 
+      public VerificationException( String peError, String snError )
+         : this( CombinePEAndSN( peError, snError ) )
+      {
+
+      }
+
       public VerificationException( System.Runtime.Serialization.SerializationInfo info, System.Runtime.Serialization.StreamingContext ctx )
          : base( info, ctx )
       {
@@ -195,6 +201,21 @@ namespace CILAssemblyManipulator.Physical
          : base( msg, inner )
       {
 
+      }
+
+      private static String CombinePEAndSN( String pe, String sn )
+      {
+         var msg = pe;
+         if ( String.IsNullOrEmpty( msg ) )
+         {
+            msg = sn;
+         }
+         else if ( !String.IsNullOrEmpty( sn ) )
+         {
+            msg += "\nIn addition, strong name validation failed: " + sn;
+         }
+
+         return msg;
       }
    }
 }

@@ -789,7 +789,7 @@ namespace CILAssemblyManipulator.Logical.Implementation
             //}
          }
          this.overriddenMethods.Value.AddRange( explicitlyOverriddenMethods );
-         LogicalUtils.CheckMethodAttributesForOverriddenMethods( this.methodAttributes, this.overriddenMethods.Value );
+         //LogicalUtils.CheckMethodAttributesForOverriddenMethods( this.methodAttributes, this.overriddenMethods.Value );
       }
 
       public bool RemoveOverriddenMethods( params CILMethod[] explicitlyOverriddenMethods )

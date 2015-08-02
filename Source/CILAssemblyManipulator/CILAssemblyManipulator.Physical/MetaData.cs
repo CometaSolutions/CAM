@@ -2403,9 +2403,10 @@ public static partial class E_CILPhysical
             // Calculate actual max stack
             foreach ( var codeInfo in il.OpCodes )
             {
-               state.NextCodeByteOffset += codeInfo.GetTotalByteCount();
+               var byteCount = codeInfo.GetTotalByteCount();
+               state.NextCodeByteOffset += byteCount;
                UpdateStackSize( state, codeInfo );
-               state.CurrentCodeByteOffset += codeInfo.OpCode.Size;
+               state.CurrentCodeByteOffset += byteCount;
             }
 
             retVal = state.MaxStack;

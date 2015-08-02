@@ -162,7 +162,7 @@ public static partial class E_CILLogical
                case TypeKind.Type:
                   // TypeRef/Spec (since all TypeDefs should have been already added at this point)
                   var t = (CILType) type;
-                  retVal = this._md.GetNextTableIndexFor( !t.IsGenericType() || t.IsGenericTypeDefinition() ? Tables.TypeRef : Tables.TypeSpec );
+                  retVal = this._md.GetNextTableIndexFor( t.ElementKind.HasValue || ( t.IsGenericType() && !t.IsGenericTypeDefinition() ) ? Tables.TypeSpec : Tables.TypeRef );
                   break;
                default:
                   throw new NotSupportedException( "Unknown type kind: " + type.TypeKind + "." );
@@ -966,11 +966,11 @@ public static partial class E_CILLogical
                break;
             case OpCodeInfoKind.OperandMethodToken:
                var lm = (LogicalOpCodeInfoWithMethodToken) lOpCode;
-               pOpCode = new OpCodeInfoWithToken( lm.Code, state.GetMethodDefOrMemberRefOrMethodSpec( lm.ReflectionObject, false, !lm.UseGenericDefinitionIfPossible ) );
+               pOpCode = new OpCodeInfoWithToken( lm.Code, state.GetMethodDefOrMemberRefOrMethodSpec( lm.ReflectionObject, true, !lm.UseGenericDefinitionIfPossible ) );
                break;
             case OpCodeInfoKind.OperandCtorToken:
                var ct = (LogicalOpCodeInfoWithCtorToken) lOpCode;
-               pOpCode = new OpCodeInfoWithToken( ct.Code, state.GetMethodDefOrMemberRefOrMethodSpec( ct.ReflectionObject, false, !ct.UseGenericDefinitionIfPossible ) );
+               pOpCode = new OpCodeInfoWithToken( ct.Code, state.GetMethodDefOrMemberRefOrMethodSpec( ct.ReflectionObject, true, !ct.UseGenericDefinitionIfPossible ) );
                break;
             case OpCodeInfoKind.OperandMethodSigToken:
                var lms = (LogicalOpCodeInfoWithMethodSig) lOpCode;

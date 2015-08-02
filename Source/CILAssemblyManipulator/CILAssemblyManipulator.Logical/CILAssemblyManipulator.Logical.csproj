@@ -14,10 +14,8 @@
     <CAMLogicalTargetKind Condition=" '$(Configuration)' == 'Debug_Portable' Or '$(Configuration)' == 'Release_Portable' ">Portable</CAMLogicalTargetKind>
     <CAMLogicalTargetKind Condition=" '$(Configuration)' == 'Debug_SL' Or '$(Configuration)' == 'Release_SL' ">Silverlight</CAMLogicalTargetKind>
     <CAMLogicalTargetKind Condition=" '$(CAMLogicalTargetKind)' == '' ">DotNET</CAMLogicalTargetKind>
-    
     <ProjectTypeGuids>{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}</ProjectTypeGuids>
     <ProjectTypeGuids Condition=" '$(CAMLogicalTargetKind)' != 'DotNET' ">{786C830F-07A1-408B-BD7F-6EE04809D6DB};$(ProjectTypeGuids)</ProjectTypeGuids>
-
     <TargetFrameworkVersion>v4.0</TargetFrameworkVersion>
     <TargetFrameworkProfile Condition=" '$(CAMLogicalTargetKind)' == 'Portable' ">Profile5</TargetFrameworkProfile>
     <TargetFrameworkProfile Condition=" '$(CAMLogicalTargetKind)' == 'Silverlight' ">Profile328</TargetFrameworkProfile>
@@ -77,7 +75,6 @@
     <ErrorReport>prompt</ErrorReport>
     <WarningLevel>4</WarningLevel>
   </PropertyGroup>
-
   <PropertyGroup>
     <KeyFilePath>$(MSBuildThisFileDirectory)..\..\..\Keys\CAM.snk</KeyFilePath>
   </PropertyGroup>
@@ -161,7 +158,6 @@
     <Compile Include="Logical.FromStructural.cs" />
     <Compile Include="MethodIL.cs" />
     <Compile Include="OpCodeInfos.cs" />
-    <Compile Include="OpCodes.cs" />
     <Compile Include="Logical.FromPhysical.cs" />
     <Compile Include="Logical.ToPhysical.cs" />
     <Compile Include="Utils.cs" />
@@ -173,7 +169,6 @@
   </PropertyGroup>
   <Import Condition=" '$(CAMLogicalTargetKind)' == 'DotNET' " Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
   <Import Condition=" '$(CAMLogicalTargetKind)' != 'DotNET' " Project="$(MSBuildExtensionsPath32)\Microsoft\Portable\$(TargetFrameworkVersion)\Microsoft.Portable.CSharp.targets" />
-  
   <!-- Create .snk file if it doesn't exist to ensure smooth build -->
   <Import Project="$(MSBuildThisFileDirectory)../../../CommonBuildTools/CLR/MSBuild/CreateKeyFileIfNeeded.targets" />
   <!-- <Import Project="../../../CommonBuildTools/CLR/MSBuild/TargetFramework.targets" /> -->
