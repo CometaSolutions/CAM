@@ -1928,7 +1928,7 @@ namespace CILAssemblyManipulator.Physical
          return Object.ReferenceEquals( x, y ) ||
          ( x != null && y != null
             && Equality_CustomAttributeValue( x.Value, y.Value )
-            && Equality_CustomAttributeArgumentType( x.Type, y.Type )
+            //&& Equality_CustomAttributeArgumentType( x.Type, y.Type )
          );
       }
 
@@ -1943,6 +1943,7 @@ namespace CILAssemblyManipulator.Physical
          ( x != null && y != null
             && x.IsField == y.IsField
             && String.Equals( x.Name, y.Name )
+            && Equality_CustomAttributeArgumentType( x.FieldOrPropertyType, y.FieldOrPropertyType )
             && Equality_CustomAttributeTypedArgument( x.Value, y.Value ) // Optimize a bit - don't use CustomAttributeTypedArgumentEqualityComparer property
          );
       }
@@ -1950,7 +1951,11 @@ namespace CILAssemblyManipulator.Physical
       private static Boolean Equality_CustomAttributeArgumentType( CustomAttributeArgumentType x, CustomAttributeArgumentType y )
       {
          var retVal = Object.ReferenceEquals( x, y );
-         if ( !retVal && x != null && y != null && x.ArgumentTypeKind == y.ArgumentTypeKind )
+         if ( !retVal
+            && x != null
+            && y != null
+            && x.ArgumentTypeKind == y.ArgumentTypeKind
+            )
          {
             switch ( x.ArgumentTypeKind )
             {

@@ -2833,8 +2833,30 @@ public static partial class E_CILPhysical
                   info.AddUncompressedDouble( Convert.ToDouble( arg ) );
                   break;
                case SignatureElementTypes.String:
-               case SignatureElementTypes.Type:
                   info.AddCAString( arg == null ? null : Convert.ToString( arg ) );
+                  break;
+               case SignatureElementTypes.Type:
+                  String typeStr;
+                  if ( arg != null )
+                  {
+                     if ( arg is CustomAttributeValue_TypeReference )
+                     {
+                        typeStr = ( (CustomAttributeValue_TypeReference) arg ).TypeString;
+                     }
+                     else if ( arg is Type )
+                     {
+                        typeStr = ( (Type) arg ).AssemblyQualifiedName;
+                     }
+                     else
+                     {
+                        typeStr = Convert.ToString( arg );
+                     }
+                  }
+                  else
+                  {
+                     typeStr = null;
+                  }
+                  info.AddCAString( typeStr );
                   break;
                case SignatureElementTypes.Object:
                   if ( arg == null )
@@ -2845,6 +2867,10 @@ public static partial class E_CILPhysical
                         argType = CustomAttributeArgumentTypeSimple.String;
                      }
                   }
+                  else
+                  {
+                     argType = ResolveBoxedType( arg.GetType(), false );
+                  }
                   info.WriteCustomAttributeFieldOrPropType( ref argType, arg );
                   info.WriteCustomAttributeFixedArg( argType, arg );
                   break;
@@ -2854,6 +2880,77 @@ public static partial class E_CILPhysical
             info.AddCAString( ( (CustomAttributeArgumentTypeEnum) argType ).TypeString );
             info.WriteConstantValue( arg );
             break;
+      }
+   }
+
+   private static CustomAttributeArgumentType ResolveBoxedType( Type argType, Boolean isWithinArray )
+   {
+      if ( argType.IsEnum )
+      {
+         return new CustomAttributeArgumentTypeEnum()
+         {
+            TypeString = argType.AssemblyQualifiedName
+         };
+      }
+      else
+      {
+         switch ( Type.GetTypeCode( argType ) )
+         {
+            case TypeCode.Boolean:
+               return CustomAttributeArgumentTypeSimple.Boolean;
+            case TypeCode.Char:
+               return CustomAttributeArgumentTypeSimple.Char;
+            case TypeCode.SByte:
+               return CustomAttributeArgumentTypeSimple.SByte;
+            case TypeCode.Byte:
+               return CustomAttributeArgumentTypeSimple.Byte;
+            case TypeCode.Int16:
+               return CustomAttributeArgumentTypeSimple.Int16;
+            case TypeCode.UInt16:
+               return CustomAttributeArgumentTypeSimple.UInt16;
+            case TypeCode.Int32:
+               return CustomAttributeArgumentTypeSimple.Int32;
+            case TypeCode.UInt32:
+               return CustomAttributeArgumentTypeSimple.UInt32;
+            case TypeCode.Int64:
+               return CustomAttributeArgumentTypeSimple.Int64;
+            case TypeCode.UInt64:
+               return CustomAttributeArgumentTypeSimple.UInt64;
+            case TypeCode.Single:
+               return CustomAttributeArgumentTypeSimple.Single;
+            case TypeCode.Double:
+               return CustomAttributeArgumentTypeSimple.Double;
+            case TypeCode.String:
+               return CustomAttributeArgumentTypeSimple.String;
+            case TypeCode.Object:
+               if ( argType.IsArray )
+               {
+                  return isWithinArray ?
+                     (CustomAttributeArgumentType) CustomAttributeArgumentTypeSimple.Object :
+                     new CustomAttributeArgumentTypeArray()
+                     {
+                        ArrayType = ResolveBoxedType( argType.GetElementType(), true )
+                     };
+               }
+               else
+               {
+                  // System.Type or System.Object or CustomAttributeTypeReference
+                  if ( Equals( typeof( CustomAttributeValue_TypeReference ), argType ) || Equals( typeof( Type ), argType ) )
+                  {
+                     return CustomAttributeArgumentTypeSimple.Type;
+                  }
+                  else if ( Equals( typeof( Object ), argType ) )
+                  {
+                     return CustomAttributeArgumentTypeSimple.Object;
+                  }
+                  else
+                  {
+                     throw new InvalidOperationException( "Failed to deduce custom attribute type for " + argType + "." );
+                  }
+               }
+            default:
+               throw new InvalidOperationException( "Failed to deduce custom attribute type for " + argType + "." );
+         }
       }
    }
 
@@ -2871,6 +2968,11 @@ public static partial class E_CILPhysical
 
    private static void WriteCustomAttributeFieldOrPropType( this ByteArrayHelper info, ref CustomAttributeArgumentType type, Object value )
    {
+      if ( type == null )
+      {
+         throw new InvalidOperationException( "Custom attribute signature typed argument type was null." );
+      }
+
       switch ( type.ArgumentTypeKind )
       {
          case CustomAttributeArgumentTypeKind.Array:
@@ -2884,7 +2986,7 @@ public static partial class E_CILPhysical
             {
                sigStarter = SignatureElementTypes.CA_Boxed;
             }
-            info.AddSigByte( ( (CustomAttributeArgumentTypeSimple) type ).SimpleType );
+            info.AddSigByte( sigStarter );
             break;
          case CustomAttributeArgumentTypeKind.TypeString:
             info.AddSigByte( SignatureElementTypes.CA_Enum );

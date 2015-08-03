@@ -1458,14 +1458,94 @@ namespace CILAssemblyManipulator.Physical
 
    public sealed class CustomAttributeTypedArgument
    {
-      // Note: enums will be deserialized as their underlying enum types
+      // Note: Enum values should be CustomAttributeValue_EnumReferences
+      // Note: Type values should be CustomAttributeValue_TypeReferences
       public Object Value { get; set; }
-      public CustomAttributeArgumentType Type { get; set; }
+
+      //public CustomAttributeArgumentType Type { get; set; }
+   }
+
+   public struct CustomAttributeValue_TypeReference : IEquatable<CustomAttributeValue_TypeReference>
+   {
+      private readonly String _typeString;
+
+      public CustomAttributeValue_TypeReference( String typeString )
+      {
+         this._typeString = typeString;
+      }
+
+      public String TypeString
+      {
+         get
+         {
+            return this._typeString;
+         }
+      }
+
+      public override Boolean Equals( Object obj )
+      {
+         return obj is CustomAttributeValue_TypeReference && this.Equals( (CustomAttributeValue_TypeReference) obj );
+      }
+
+      public override Int32 GetHashCode()
+      {
+         return this._typeString.GetHashCodeSafe();
+      }
+
+      public Boolean Equals( CustomAttributeValue_TypeReference other )
+      {
+         return String.Equals( this._typeString, other._typeString );
+      }
+   }
+
+   public struct CustomAttributeValue_EnumReference : IEquatable<CustomAttributeValue_EnumReference>
+   {
+      private readonly String _enumType;
+      private readonly Object _enumValue;
+
+      public CustomAttributeValue_EnumReference( String enumType, Object enumValue )
+      {
+         this._enumType = enumType;
+         this._enumValue = enumValue;
+      }
+
+      public String EnumType
+      {
+         get
+         {
+            return this._enumType;
+         }
+      }
+
+      public Object EnumValue
+      {
+         get
+         {
+            return this._enumValue;
+         }
+      }
+
+      public override Boolean Equals( Object obj )
+      {
+         return obj is CustomAttributeValue_EnumReference && this.Equals( (CustomAttributeValue_EnumReference) obj );
+      }
+
+      public override Int32 GetHashCode()
+      {
+         return ( 17 * 23 + this._enumType.GetHashCodeSafe() ) * 23 + this._enumValue.GetHashCodeSafe();
+      }
+
+      public Boolean Equals( CustomAttributeValue_EnumReference other )
+      {
+         return String.Equals( this._enumType, other._enumType )
+            && Equals( this._enumValue, other._enumValue );
+      }
    }
 
    public sealed class CustomAttributeNamedArgument
    {
       public CustomAttributeTypedArgument Value { get; set; }
+      public CustomAttributeArgumentType FieldOrPropertyType { get; set; }
       public String Name { get; set; }
       public Boolean IsField { get; set; }
    }
@@ -1504,7 +1584,7 @@ namespace CILAssemblyManipulator.Physical
       public static readonly CustomAttributeArgumentTypeSimple Double = new CustomAttributeArgumentTypeSimple( SignatureElementTypes.R8 );
       public static readonly CustomAttributeArgumentTypeSimple String = new CustomAttributeArgumentTypeSimple( SignatureElementTypes.String );
       public static readonly CustomAttributeArgumentTypeSimple Type = new CustomAttributeArgumentTypeSimple( SignatureElementTypes.Type );
-      internal static readonly CustomAttributeArgumentTypeSimple Object = new CustomAttributeArgumentTypeSimple( SignatureElementTypes.Object );
+      public static readonly CustomAttributeArgumentTypeSimple Object = new CustomAttributeArgumentTypeSimple( SignatureElementTypes.Object );
 
       private SignatureElementTypes _kind;
 

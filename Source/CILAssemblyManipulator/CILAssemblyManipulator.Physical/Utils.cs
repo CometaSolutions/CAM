@@ -749,5 +749,8 @@ namespace CILAssemblyManipulator.Physical
       internal const String ENUM_TYPENAME = "Enum";
       internal const String TYPE_NAMESPACE = "System";
       internal const String TYPE_TYPENAME = "Type";
+
+      internal const String SYSTEM_OBJECT_NAMESPACE = "System";
+      internal const String SYSTEM_OBJECT_TYPENAME = "Object";
    }
 }

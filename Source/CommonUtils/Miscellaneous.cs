@@ -194,6 +194,30 @@ public static partial class E_CommonUtils
    }
 
    /// <summary>
+   /// Helper method to get the type of object or <c>null</c> if object is <c>null</c>.
+   /// </summary>
+   /// <typeparam name="T">The type of object reference.</typeparam>
+   /// <param name="obj">The object.</param>
+   /// <returns>The type of <paramref name="obj"/>, or <c>null</c> if <paramref name="obj"/> is <c>null</c>.</returns>
+   public static Type GetTypeSafe<T>( this T obj )
+      where T : class
+   {
+      return obj == null ? null : obj.GetType();
+   }
+
+   /// <summary>
+   /// Helper method to get the type of <see cref="Nullable{T}.Value"/> or <c>null</c> if the nullable does not have a value.
+   /// </summary>
+   /// <typeparam name="T">The nullable value type.</typeparam>
+   /// <param name="obj">The nullable struct.</param>
+   /// <returns>The type of nullable value, or <c>null</c> if <paramref name="obj"/> does not have a value.</returns>
+   public static Type GetTypeSafe<T>( this T? obj )
+      where T : struct
+   {
+      return obj.HasValue ? obj.Value.GetType() : null;
+   }
+
+   /// <summary>
    /// Gets the multiplexed value for given key.
    /// </summary>
    /// <param name="multiplexer">The <see cref="Multiplexer{T, U}"/>.</param>

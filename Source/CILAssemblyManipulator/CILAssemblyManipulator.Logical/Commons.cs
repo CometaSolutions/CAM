@@ -841,6 +841,32 @@ public static partial class E_CILLogical
       return element.AddCustomModifier( type, false );
    }
 
+   /// <summary>
+   /// Gets the corresponding field which belongs to the type which is generic type definition, if declaring type is generic type.
+   /// </summary>
+   /// <param name="field">The field.</param>
+   /// <returns>The corresponding field which belongs to the type which is generic type definition, if declaring type is generic type.</returns>
+   public static CILField GetFieldForDeclaringTypeGenericDefinition( this CILField field )
+   {
+      return field.DeclaringType.IsGenericType() && !field.DeclaringType.IsGenericTypeDefinition() ?
+         field.ChangeDeclaringType( field.DeclaringType.GenericDefinition.GenericArguments.ToArray() ) :
+         field;
+   }
+
+   /// <summary>
+   /// Gets the corresponding method which belongs to the type which is generic type definition, if declaring type is generic type.
+   /// </summary>
+   /// <typeparam name="T">The actual method type.</typeparam>
+   /// <param name="method">The method.</param>
+   /// <returns>The corresponding method which belongs to the type which is generic type definition, if declaring type is generic type.</returns>
+   public static T GetMethodForDeclaringTypeGenericDefinition<T>( this T method )
+      where T : CILMethodBase
+   {
+      return method.DeclaringType.IsGenericType() && !method.DeclaringType.IsGenericTypeDefinition() ?
+         (T) method.ChangeDeclaringTypeUT( method.DeclaringType.GenericDefinition.GenericArguments.ToArray() ) :
+         method;
+   }
+
 
 #if WINDOWS_PHONE_APP
 

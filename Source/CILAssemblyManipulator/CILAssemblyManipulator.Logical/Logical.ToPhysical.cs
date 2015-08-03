@@ -76,7 +76,7 @@ public static partial class E_CILLogical
       private readonly IDictionary<CILTypeBase, TableIndex> _typeDefOrRefOrSpec;
       private readonly IDictionary<CILTypeBase, TableIndex> _typeDefsAsTypeSpecs;
       private readonly IDictionary<CILField, TableIndex> _fields;
-      private readonly IDictionary<Tuple<CILField, Boolean>, TableIndex> _fieldRefs;
+      private readonly IDictionary<CILField, TableIndex> _fieldRefs;
       private readonly IDictionary<CILMethodBase, TableIndex> _methods;
       private readonly IDictionary<Tuple<CILMethodBase, Boolean, Boolean>, TableIndex> _methodRefs;
       private readonly IDictionary<CILParameter, TableIndex> _parameters;
@@ -92,7 +92,7 @@ public static partial class E_CILLogical
          this._typeDefOrRefOrSpec = new Dictionary<CILTypeBase, TableIndex>( TypeDefOrRefOrSpecComparer.Instance );
          this._typeDefsAsTypeSpecs = new Dictionary<CILTypeBase, TableIndex>( TypeDefOrRefOrSpecComparer.Instance );
          this._fields = new Dictionary<CILField, TableIndex>();
-         this._fieldRefs = new Dictionary<Tuple<CILField, Boolean>, TableIndex>();
+         this._fieldRefs = new Dictionary<CILField, TableIndex>();
          this._methods = new Dictionary<CILMethodBase, TableIndex>();
          this._methodRefs = new Dictionary<Tuple<CILMethodBase, Boolean, Boolean>, TableIndex>();
          this._parameters = new Dictionary<CILParameter, TableIndex>();
@@ -219,7 +219,7 @@ public static partial class E_CILLogical
          TableIndex retVal;
          if ( convertTypeDefToTypeSpec || !this._fields.TryGetValue( field, out retVal ) )
          {
-            retVal = this._fields.GetOrAdd_NotThreadSafe( field, f =>
+            retVal = this._fieldRefs.GetOrAdd_NotThreadSafe( field, f =>
             {
                // Only MemberRef possible here as all field defs should've been added at this point.
                var nextIdx = this._md.GetNextTableIndexFor( Tables.MemberRef );
@@ -227,7 +227,7 @@ public static partial class E_CILLogical
                {
                   DeclaringType = this.GetMemberRefDeclaringType( field.DeclaringType, convertTypeDefToTypeSpec ),
                   Name = field.Name,
-                  Signature = this.CreateFieldSignature( field )
+                  Signature = this.CreateFieldSignature( field.GetFieldForDeclaringTypeGenericDefinition() )
                } );
                return nextIdx;
             } );
@@ -269,10 +269,7 @@ public static partial class E_CILLogical
                   {
                      DeclaringType = this.GetMemberRefDeclaringType( method.DeclaringType, convertTypeDefToTypeSpec ),
                      Name = method.GetName(),
-                     Signature = this.CreateMethodRefSignature(
-                        method.DeclaringType.IsGenericType() ?
-                        method.ChangeDeclaringTypeUT( method.DeclaringType.GenericDefinition.GenericArguments.ToArray() ) :
-                        method )
+                     Signature = this.CreateMethodRefSignature( method.GetMethodForDeclaringTypeGenericDefinition() )
                   } );
                   break;
                case Tables.MethodSpec:
@@ -1506,94 +1503,167 @@ public static partial class E_CILLogical
    private static CustomAttributeSignature CreateCASignature( this PhysicalCreationState state, CILCustomAttribute attribute )
    {
       var retVal = new CustomAttributeSignature( attribute.ConstructorArguments.Count, attribute.NamedArguments.Count );
-      retVal.TypedArguments.AddRange( attribute.ConstructorArguments.Select( arg => state.CreateCATypedArg( arg ) ) );
+      retVal.TypedArguments.AddRange( attribute.ConstructorArguments.Select( ( arg, idx ) => state.CreateCATypedArg( arg, attribute.Constructor.Parameters[idx].ParameterType ) ) );
       retVal.NamedArguments.AddRange( attribute.NamedArguments.Select( arg => state.CreateCANamedArg( arg ) ) );
       return retVal;
    }
 
-   private static CustomAttributeTypedArgument CreateCATypedArg( this PhysicalCreationState state, CILCustomAttributeTypedArgument arg )
+   private static CustomAttributeTypedArgument CreateCATypedArg( this PhysicalCreationState state, CILCustomAttributeTypedArgument arg, CILTypeBase paramOrFieldOrPropType )
    {
       var retVal = new CustomAttributeTypedArgument()
       {
-         Type = state.CreateCAType( arg.ArgumentType )
+         Type = state.CreateCAType( arg.ArgumentType, paramOrFieldOrPropType, false )
       };
 
       var value = arg.Value;
-      state.ProcessCATypedArgValue( retVal.Type, ref value );
+      state.ProcessCATypedArgValue( arg.ArgumentType, ref value );
       retVal.Value = value;
       return retVal;
    }
 
-   private static Boolean ProcessCATypedArgValue( this PhysicalCreationState state, CustomAttributeArgumentType type, ref Object value )
+   private static void ProcessCATypedArgValue( this PhysicalCreationState state, CILType type, ref Object value )
+   {
+      if ( value != null )
+      {
+         if ( type.IsVectorArray() )
+         {
+            var array = value as Array;
+            if ( array == null )
+            {
+               throw new InvalidOperationException( "Custom attribute array expected, but was: " + value.GetType() + "." );
+            }
+
+            // We have to change CILType[] or Type[] or String[] into CustomAttributeTypeReference[] for CAM.Physical!
+
+            // Find out the final array element type
+            var arrayType = type;
+            var arrayCounter = 0;
+            while ( arrayType.IsVectorArray() )
+            {
+               arrayType = arrayType.ElementType as CILType;
+               if ( arrayType == null )
+               {
+                  throw new InvalidOperationException( "Custom attribute type was invalid: " + type + "." );
+               }
+               ++arrayCounter;
+            }
+
+            var arrayForSetting = arrayType.TypeCode == CILTypeCode.Type ?
+               typeof( CustomAttributeValue_TypeReference ).CreateJaggedArray( arrayCounter, array.Length ) :
+               null;
+            state.ProcessCATypedArgValue_NoArrayCheck( type, ref value, arrayForSetting, arrayCounter );
+            if ( arrayForSetting != null )
+            {
+               value = arrayForSetting;
+            }
+         }
+         else
+         {
+            state.ProcessCATypedArgValue_NoArrayCheck( type, ref value, null, -1 );
+         }
+      }
+   }
+
+   private static Boolean ProcessCATypedArgValue_NoArrayCheck( this PhysicalCreationState state, CILType type, ref Object value, Array arrayForSetting, Int32 currentArrayDepth )
    {
       var retVal = false;
       if ( value != null )
       {
-         switch ( type.ArgumentTypeKind )
+         if ( type.TypeCode == CILTypeCode.Type )
          {
-            case CustomAttributeArgumentTypeKind.Array:
-               type = ( (CustomAttributeArgumentTypeArray) type ).ArrayType;
-               var array = (Array) value;
-               for ( var i = 0; i < array.Length; ++i )
+            // Convert System.Type or CILType or string to CustomAttributeTypeReference
+            var typeString = value as String;
+            // If string was specified directly, just let it pass
+            if ( typeString == null )
+            {
+               CILType valueType;
+               if ( value is Type )
                {
-                  var cur = array.GetValue( i );
-                  if ( state.ProcessCATypedArgValue( type, ref cur ) )
-                  {
-                     array.SetValue( cur, i );
-                  }
+                  valueType = state.LogicalModule.ReflectionContext.NewWrapperAsType( (Type) value );
                }
-               break;
-            case CustomAttributeArgumentTypeKind.Simple:
-               if ( ( (CustomAttributeArgumentTypeSimple) type ).SimpleType == SignatureElementTypes.Type )
+               else
                {
-                  // Convert System.Type or CILType to string
-                  CILType valueType;
-                  if ( value is Type )
-                  {
-                     valueType = state.LogicalModule.ReflectionContext.NewWrapperAsType( (Type) value );
-                  }
-                  else
-                  {
-                     valueType = value as CILType;
-                  }
+                  valueType = value as CILType;
+               }
 
-                  if ( valueType == null )
-                  {
-                     // If string was specified directly, just let it pass
-                     if ( !( value is String ) )
-                     {
-                        throw new InvalidOperationException( "Custom attribute argument type was System.Type but the value was of type " + value.GetType() );
-                     }
-                  }
-                  else
-                  {
-                     value = state.CreateCATypeString( valueType );
-                  }
+               if ( valueType != null )
+               {
+                  typeString = state.CreateCATypeString( valueType );
                }
-               break;
+               else if ( value != null )
+               {
+                  throw new InvalidOperationException( "Custom attribute argument type was System.Type but the value was of type " + value.GetType() + "." );
+               }
+            }
+
+
+            value = new CustomAttributeValue_TypeReference()
+            {
+               TypeString = typeString
+            };
+            retVal = true;
+         }
+         else if ( type.IsVectorArray() )
+         {
+            var array = (Array) value;
+            type = (CILType) type.ElementType;
+            var setArray = arrayForSetting ?? array;
+            for ( var i = 0; i < array.Length; ++i )
+            {
+               var cur = array.GetValue( i );
+               Array curArray = null;
+               if ( arrayForSetting != null && currentArrayDepth > 1 )
+               {
+                  curArray = typeof( CustomAttributeValue_TypeReference ).CreateJaggedArray( currentArrayDepth - 1, ( (Array) cur ).Length );
+                  setArray.SetValue( curArray, i );
+               }
+               if ( state.ProcessCATypedArgValue_NoArrayCheck( type, ref cur, curArray, currentArrayDepth - 1 ) )
+               {
+                  setArray.SetValue( cur, i );
+               }
+            }
          }
       }
 
       return retVal;
    }
 
+   internal static Array CreateJaggedArray( this Type endType, Int32 depth, Int32 outerMostLength )
+   {
+      while ( depth > 1 )
+      {
+         endType = endType.MakeArrayType();
+         --depth;
+      }
+
+      return Array.CreateInstance( endType, outerMostLength );
+   }
+
    private static CustomAttributeNamedArgument CreateCANamedArg( this PhysicalCreationState state, CILCustomAttributeNamedArgument arg )
    {
+      var member = arg.NamedMember;
+      var isField = member is CILField;
       return new CustomAttributeNamedArgument()
       {
-         IsField = arg.NamedMember is CILField,
-         Name = arg.NamedMember.Name,
-         Value = state.CreateCATypedArg( arg.TypedValue )
+         IsField = isField,
+         Name = member.Name,
+         Value = state.CreateCATypedArg( arg.TypedValue, isField ? ( (CILField) member ).FieldType : ( (CILProperty) member ).GetPropertyType() )
       };
    }
 
-   private static CustomAttributeArgumentType CreateCAType( this PhysicalCreationState state, CILType type )
+   private static CustomAttributeArgumentType CreateCAType( this PhysicalCreationState state, CILType type, CILTypeBase paramOrFieldOrPropType, Boolean isWithinArray )
    {
       if ( type == null )
       {
-         return CustomAttributeArgumentTypeSimple.String;
+         type = paramOrFieldOrPropType as CILType;
+         if ( type == null )
+         {
+            throw new InvalidOperationException( paramOrFieldOrPropType == null ? "Parameter or field or property type was null." : ( "Parameter or field or property type was invalid: " + paramOrFieldOrPropType + "." ) );
+         }
       }
-      else if ( type.IsEnum() )
+
+
+      if ( type.IsEnum() )
       {
          return new CustomAttributeArgumentTypeEnum()
          {
@@ -1632,21 +1702,22 @@ public static partial class E_CILLogical
                return CustomAttributeArgumentTypeSimple.String;
             case CILTypeCode.Type:
                return CustomAttributeArgumentTypeSimple.Type;
+            case CILTypeCode.SystemObject:
+               return CustomAttributeArgumentTypeSimple.Object;
             default:
-               var valid = type.IsVectorArray();
-               CILType elType = null;
-               if ( valid )
+               if ( type.IsVectorArray() )
                {
-                  elType = type.ElementType as CILType;
-                  valid = elType != null;
-               }
-
-               if ( valid )
-               {
-                  return new CustomAttributeArgumentTypeArray()
+                  var elType = type.ElementType as CILType;
+                  if ( elType == null )
                   {
-                     ArrayType = state.CreateCAType( elType )
-                  };
+                     throw new InvalidOperationException( "Custom attribute typed argument type was invalid: " + type + "." );
+                  }
+                  return isWithinArray ?
+                     (CustomAttributeArgumentType) CustomAttributeArgumentTypeSimple.Object :
+                     new CustomAttributeArgumentTypeArray()
+                     {
+                        ArrayType = state.CreateCAType( elType, null, true )
+                     };
                }
                else
                {
@@ -1654,6 +1725,7 @@ public static partial class E_CILLogical
                }
          }
       }
+
    }
 
    private static String CreateCATypeString( this PhysicalCreationState state, CILType type )

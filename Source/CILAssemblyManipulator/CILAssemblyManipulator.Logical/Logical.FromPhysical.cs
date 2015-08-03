@@ -2005,6 +2005,18 @@ public static partial class E_CILLogical
       return CILCustomAttributeFactory.NewTypedArgument( state.ResolveCAType( sig.Type ), sig.Value );
    }
 
+   private static Object ReadCATypedArgValue( this LogicalCreationState state, CustomAttributeTypedArgument arg, out CILType argType )
+   {
+      var val = arg.Value;
+      if (val == null)
+      {
+         argType = state.ResolveCAType( arg.Type );
+      } else
+      {
+         argType = state.ResolveSimpleType()
+      }
+   }
+
    private static CILCustomAttributeNamedArgument CreateCANamedArg( this LogicalCreationState state, CILType declType, TableIndex caIdx, CustomAttributeNamedArgument sig )
    {
       var namedElement = sig.IsField ?

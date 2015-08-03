@@ -483,6 +483,7 @@ namespace CILAssemblyManipulator.Physical
          {
             case TypeSignatureKind.SimpleArray:
                var arrayType = new CustomAttributeArgumentTypeArray();
+
                var caType = this.ConvertTypeSignatureToCustomAttributeType( md, ( (SimpleArrayTypeSignature) type ).ArrayType );
                if ( caType == null )
                {
@@ -500,7 +501,10 @@ namespace CILAssemblyManipulator.Physical
                var tIdx = ( (ClassOrValueTypeSignature) type ).Type;
                return IsTypeType( md, tIdx ) ? // Avoid loading mscorlib metadata if this is System.Type
                   CustomAttributeArgumentTypeSimple.Type :
-                  this.ResolveCATypeFromTableIndex( md, tIdx );
+                  ( IsSystemObjectType( md, tIdx ) ? // Avoid loading mscorlib metadata if this is System.Object
+                     CustomAttributeArgumentTypeSimple.Object :
+                     this.ResolveCATypeFromTableIndex( md, tIdx )
+                  );
             default:
                return null;
          }
@@ -654,6 +658,11 @@ namespace CILAssemblyManipulator.Physical
          return md.IsSystemType( tIdx, Consts.TYPE_NAMESPACE, Consts.TYPE_TYPENAME );
       }
 
+      private static Boolean IsSystemObjectType( CILMetaData md, TableIndex tIdx )
+      {
+         return md.IsSystemType( tIdx, Consts.SYSTEM_OBJECT_NAMESPACE, Consts.SYSTEM_OBJECT_TYPENAME );
+      }
+
       private Boolean TryReadCAFixedArgument(
          CILMetaData md,
          Byte[] caBLOB,
@@ -693,7 +702,15 @@ namespace CILAssemblyManipulator.Physical
                   }
                   else
                   {
-                     var array = new Object[amount];
+                     var arrayType = ResolveCAArrayType(( (CustomAttributeArgumentTypeArray) type ).ArrayType);
+                     success = arrayType != null;
+                     if (success)
+                     {
+                        var array = Array.CreateInstance(arrayType, )
+                     }
+
+
+                     var array = Array.CreateInstance( new Object[amount];
                      var elemType = ( (CustomAttributeArgumentTypeArray) type ).ArrayType;
                      for ( var i = 0; i < amount && success; ++i )
                      {
@@ -757,7 +774,10 @@ namespace CILAssemblyManipulator.Physical
                         value = success ? nestedCAType.Value : null;
                         break;
                      case SignatureElementTypes.Type:
-                        value = caBLOB.ReadLenPrefixedUTF8String( ref idx );
+                        value = new CustomAttributeValue_TypeReference()
+                        {
+                           TypeString = caBLOB.ReadLenPrefixedUTF8String( ref idx )
+                        };
                         break;
                      default:
                         value = null;
@@ -782,6 +802,56 @@ namespace CILAssemblyManipulator.Physical
                Value = value
             } :
             null;
+      }
+
+      private static Type ResolveCAArrayType( CustomAttributeArgumentType elemType )
+      {
+         switch ( elemType.ArgumentTypeKind )
+         {
+            case CustomAttributeArgumentTypeKind.Array:
+               // Shouldn't be possible...
+               return null;
+            case CustomAttributeArgumentTypeKind.Simple:
+               switch ( ( (CustomAttributeArgumentTypeSimple) elemType ).SimpleType )
+               {
+                  case SignatureElementTypes.Boolean:
+                     return typeof( Boolean );
+                  case SignatureElementTypes.Char:
+                     return typeof( Char );
+                  case SignatureElementTypes.I1:
+                     return typeof( SByte );
+                  case SignatureElementTypes.U1:
+                     return typeof( Byte );
+                  case SignatureElementTypes.I2:
+                     return typeof( Int16 );
+                  case SignatureElementTypes.U2:
+                     return typeof( UInt16 );
+                  case SignatureElementTypes.I4:
+                     return typeof( Int32 );
+                  case SignatureElementTypes.U4:
+                     return typeof( UInt32 );
+                  case SignatureElementTypes.I8:
+                     return typeof( Int64 );
+                  case SignatureElementTypes.U8:
+                     return typeof( UInt64 );
+                  case SignatureElementTypes.R4:
+                     return typeof( Single );
+                  case SignatureElementTypes.R8:
+                     return typeof( Double );
+                  case SignatureElementTypes.String:
+                     return typeof( String );
+                  case SignatureElementTypes.Type:
+                     return typeof( CustomAttributeValue_TypeReference );
+                  case SignatureElementTypes.Object:
+                     return typeof( Object );
+                  default:
+                     return null;
+               }
+            case CustomAttributeArgumentTypeKind.TypeString:
+               return typeof( CustomAttributeValue_EnumReference );
+            default:
+               return null;
+         }
       }
 
       private static CustomAttributeArgumentType ReadCAFieldOrPropType( Byte[] array, ref Int32 idx )
@@ -857,6 +927,7 @@ namespace CILAssemblyManipulator.Physical
                   Value = typedArg
                };
             }
+
          }
 
          return retVal;

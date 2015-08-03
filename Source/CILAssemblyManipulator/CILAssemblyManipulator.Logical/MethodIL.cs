@@ -1965,7 +1965,7 @@ public static partial class E_CILLogical
    {
       return il.Add( new LogicalOpCodeInfoWithFieldToken(
          OpCodes.Ldtoken,
-         ProcessElementForReflectionObjectOf( field ),
+         field,
          useGDef
          ) )
          .Add( new LogicalOpCodeInfoWithTypeToken(

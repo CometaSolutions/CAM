@@ -116,7 +116,10 @@ namespace CILAssemblyManipulator.Logical.Implementation
 
       internal CILCustomAttributeTypedArgumentImpl( CILType argumentType, Object value )
       {
-         ArgumentValidator.ValidateNotNull( "Argument type", argumentType );
+         if ( value != null )
+         {
+            ArgumentValidator.ValidateNotNull( "Argument type", argumentType );
+         }
 
          this.argumentType = argumentType;
          this.value = value;

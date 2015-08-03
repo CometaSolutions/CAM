@@ -180,4 +180,52 @@ public static partial class E_CILLogical
       }
       return result;
    }
+
+   /// <summary>
+   /// Helper method to emit a property, getter and/or setter methods for it, and a backing field.
+   /// </summary>
+   /// <param name="type">The type to add property, methods, and field to.</param>
+   /// <param name="name">The name of the property.</param>
+   /// <param name="propertyType">The type of the property.</param>
+   /// <param name="emitSetter">Whether to emit setter method.</param>
+   /// <param name="emitGetter">Whether to emit getter method.</param>
+   /// <param name="backingField">This will contain the field that will be acting as a backing field for the property.</param>
+   /// <param name="attrs">The method attributes to use for getter and setter methods.</param>
+   /// <returns>The newly added property.</returns>
+   public static CILProperty AddAutoProperty( this CILType type, String name, CILTypeBase propertyType, Boolean emitSetter, Boolean emitGetter, out CILField backingField, MethodAttributes attrs = MethodAttributes.Public )
+   {
+      var prop = type.AddProperty( name, PropertyAttributes.None );
+
+      var isStatic = attrs.IsStatic();
+      var fAttrs = FieldAttributes.Private;
+      if ( isStatic )
+      {
+         fAttrs |= FieldAttributes.Static;
+      }
+
+      backingField = type.AddField( "<" + name + ">k__BackingField", propertyType, fAttrs );
+      var callConvs = isStatic ? CallingConventions.Standard : CallingConventions.HasThis;
+
+      if ( emitSetter )
+      {
+         var method = type.AddMethod( "set_" + name, attrs, callConvs );
+         method.ReturnParameter.ParameterType = type.Module.AssociatedMSCorLibModule.GetTypeForTypeCode( CILTypeCode.Void );
+         var param = method.AddParameter( "value", ParameterAttributes.None, propertyType );
+         var il = method.MethodIL;
+         il.EmitStoreThisField( backingField, il2 => il2.EmitLoadArg( param ) );
+         prop.SetMethod = method;
+      }
+
+      if ( emitGetter )
+      {
+         var method = type.AddMethod( "get_" + name, attrs, callConvs );
+         method.ReturnParameter.ParameterType = propertyType;
+         var il = method.MethodIL;
+         il.EmitLoadThisField( backingField )
+            .EmitReturn();
+         prop.GetMethod = method;
+      }
+
+      return prop;
+   }
 }
