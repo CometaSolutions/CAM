@@ -1905,7 +1905,7 @@ public static partial class E_CILLogical
       var mscorlib = ( (MethodILImpl) il ).OwningModule.AssociatedMSCorLibModule;
       return il.Add( new LogicalOpCodeInfoWithMethodToken(
          OpCodes.Ldtoken,
-         ProcessElementForReflectionObjectOf( targetMethod.HasGenericArguments() && !targetMethod.IsGenericMethodDefinition() ? targetMethod.GenericDefinition : targetMethod ),
+         targetMethod,
          useGDef
          ) )
          .Add( new LogicalOpCodeInfoWithTypeToken(
@@ -1915,14 +1915,6 @@ public static partial class E_CILLogical
          ) )
          .EmitCall( methodWrapper )
          .EmitCastToType( methodWrapper.GetReturnType(), mscorlib.GetTypeByName( Consts.METHOD_INFO ) );
-   }
-
-   private static T ProcessElementForReflectionObjectOf<T>( T element )
-      where T : CILElementOwnedByChangeableType<T>
-   {
-      return element.DeclaringType.IsGenericType() && !element.DeclaringType.IsGenericTypeDefinition() ?
-         element.ChangeDeclaringType( element.DeclaringType.GenericDefinition.GenericArguments.ToArray() ) :
-         element;
    }
 
    /// <summary>
@@ -1940,7 +1932,7 @@ public static partial class E_CILLogical
       var mscorlib = ( (MethodILImpl) il ).OwningModule.AssociatedMSCorLibModule;
       return il.Add( new LogicalOpCodeInfoWithCtorToken(
          OpCodes.Ldtoken,
-         ProcessElementForReflectionObjectOf( targetCtor ),
+         targetCtor,
          useGDef
          ) )
          .Add( new LogicalOpCodeInfoWithTypeToken(
