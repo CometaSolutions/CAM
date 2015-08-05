@@ -2587,7 +2587,6 @@ public static partial class E_CILPhysical
                      var caSig = ca.Signature as CustomAttributeSignature;
                      if ( caSig != null
                         && caSig.TypedArguments.Count > 0
-                        && caSig.TypedArguments[0].Type.IsSimpleTypeOfKind( SignatureElementTypes.String )
                         )
                      {
                         // Resolving succeeded
@@ -2715,6 +2714,16 @@ public static partial class E_CILPhysical
       return md.IsSystemType( tIdx, Consts.ENUM_NAMESPACE, Consts.ENUM_TYPENAME );
    }
 
+   internal static Boolean IsTypeType( this CILMetaData md, TableIndex? tIdx )
+   {
+      return md.IsSystemType( tIdx, Consts.TYPE_NAMESPACE, Consts.TYPE_TYPENAME );
+   }
+
+   internal static Boolean IsSystemObjectType( this CILMetaData md, TableIndex tIdx )
+   {
+      return md.IsSystemType( tIdx, Consts.SYSTEM_OBJECT_NAMESPACE, Consts.SYSTEM_OBJECT_TYPENAME );
+   }
+
    internal static Boolean IsSystemType(
       this CILMetaData md,
       TableIndex? tIdx,
@@ -2746,7 +2755,7 @@ public static partial class E_CILPhysical
             var tRef = md.TypeReferences.GetOrNull( idx );
             result = tRef != null
                && tRef.ResolutionScope.HasValue
-               && tRef.ResolutionScope.Value.Table == Tables.AssemblyRef; // TODO check for 'mscorlib', except that sometimes it may be System.Runtime ...
+               && ( tRef.ResolutionScope.Value.Table == Tables.Module || tRef.ResolutionScope.Value.Table == Tables.AssemblyRef ); // TODO check for 'mscorlib', except that sometimes it may be System.Runtime ...
             if ( result )
             {
                tn = tRef.Name;

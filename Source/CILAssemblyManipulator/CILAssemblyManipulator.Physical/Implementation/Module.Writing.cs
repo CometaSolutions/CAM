@@ -1554,29 +1554,29 @@ namespace CILAssemblyManipulator.Physical.Implementation
          // 0x06 MethodDef
          ProcessTableForHeaps2( md.MethodDefinitions, heapInfos, m => new HeapInfo2( sysStrings.GetOrAddString( m.Name ), blobs.GetOrAddBLOB( byteArrayHelper.CreateMethodSignature( m.Signature ) ) ) );
          // 0x08 Parameter
-         ProcessTableForHeaps1( md.ParameterDefinitions, heapInfos, p => new HeapInfo1( sysStrings.GetOrAddString( p.Name ) ) );
+         ProcessTableForHeaps1( md.ParameterDefinitions, heapInfos, ( p, idx ) => new HeapInfo1( sysStrings.GetOrAddString( p.Name ) ) );
          // 0x0A MemberRef
          ProcessTableForHeaps2( md.MemberReferences, heapInfos, m => new HeapInfo2( sysStrings.GetOrAddString( m.Name ), blobs.GetOrAddBLOB( byteArrayHelper.CreateMemberRefSignature( m.Signature ) ) ) );
          // 0x0B Constant
-         ProcessTableForHeaps1( md.ConstantDefinitions, heapInfos, c => new HeapInfo1( blobs.GetOrAddBLOB( byteArrayHelper.CreateConstantBytes( c.Value ) ) ) );
+         ProcessTableForHeaps1( md.ConstantDefinitions, heapInfos, ( c, idx ) => new HeapInfo1( blobs.GetOrAddBLOB( byteArrayHelper.CreateConstantBytes( c.Value ) ) ) );
          // 0x0C CustomAttribute
-         ProcessTableForHeaps1( md.CustomAttributeDefinitions, heapInfos, ca => new HeapInfo1( blobs.GetOrAddBLOB( byteArrayHelper.CreateCustomAttributeSignature( ca.Signature ) ) ) );
+         ProcessTableForHeaps1( md.CustomAttributeDefinitions, heapInfos, ( ca, idx ) => new HeapInfo1( blobs.GetOrAddBLOB( byteArrayHelper.CreateCustomAttributeSignature( md, idx ) ) ) );
          // 0x0D FieldMarshal
-         ProcessTableForHeaps1( md.FieldMarshals, heapInfos, fm => new HeapInfo1( blobs.GetOrAddBLOB( byteArrayHelper.CreateMarshalSpec( fm.NativeType ) ) ) );
+         ProcessTableForHeaps1( md.FieldMarshals, heapInfos, ( fm, idx ) => new HeapInfo1( blobs.GetOrAddBLOB( byteArrayHelper.CreateMarshalSpec( fm.NativeType ) ) ) );
          // 0x0E Security definitions
-         ProcessTableForHeaps1( md.SecurityDefinitions, heapInfos, sd => new HeapInfo1( blobs.GetOrAddBLOB( byteArrayHelper.CreateSecuritySignature( sd, auxHelper ) ) ) );
+         ProcessTableForHeaps1( md.SecurityDefinitions, heapInfos, ( sd, idx ) => new HeapInfo1( blobs.GetOrAddBLOB( byteArrayHelper.CreateSecuritySignature( sd, auxHelper ) ) ) );
          // 0x11 Standalone sig
-         ProcessTableForHeaps1( md.StandaloneSignatures, heapInfos, s => new HeapInfo1( blobs.GetOrAddBLOB( byteArrayHelper.CreateStandaloneSignature( s ) ) ) );
+         ProcessTableForHeaps1( md.StandaloneSignatures, heapInfos, ( s, idx ) => new HeapInfo1( blobs.GetOrAddBLOB( byteArrayHelper.CreateStandaloneSignature( s ) ) ) );
          // 0x14 Event
-         ProcessTableForHeaps1( md.EventDefinitions, heapInfos, e => new HeapInfo1( sysStrings.GetOrAddString( e.Name ) ) );
+         ProcessTableForHeaps1( md.EventDefinitions, heapInfos, ( e, idx ) => new HeapInfo1( sysStrings.GetOrAddString( e.Name ) ) );
          // 0x17 Property
          ProcessTableForHeaps2( md.PropertyDefinitions, heapInfos, p => new HeapInfo2( sysStrings.GetOrAddString( p.Name ), blobs.GetOrAddBLOB( byteArrayHelper.CreatePropertySignature( p.Signature ) ) ) );
          // 0x1A ModuleRef
-         ProcessTableForHeaps1( md.ModuleReferences, heapInfos, mr => new HeapInfo1( sysStrings.GetOrAddString( mr.ModuleName ) ) );
+         ProcessTableForHeaps1( md.ModuleReferences, heapInfos, ( mr, idx ) => new HeapInfo1( sysStrings.GetOrAddString( mr.ModuleName ) ) );
          // 0x1B TypeSpec
-         ProcessTableForHeaps1( md.TypeSpecifications, heapInfos, t => new HeapInfo1( blobs.GetOrAddBLOB( byteArrayHelper.CreateTypeSignature( t.Signature ) ) ) );
+         ProcessTableForHeaps1( md.TypeSpecifications, heapInfos, ( t, idx ) => new HeapInfo1( blobs.GetOrAddBLOB( byteArrayHelper.CreateTypeSignature( t.Signature ) ) ) );
          // 0x1C ImplMap
-         ProcessTableForHeaps1( md.MethodImplementationMaps, heapInfos, mim => new HeapInfo1( sysStrings.GetOrAddString( mim.ImportName ) ) );
+         ProcessTableForHeaps1( md.MethodImplementationMaps, heapInfos, ( mim, idx ) => new HeapInfo1( sysStrings.GetOrAddString( mim.ImportName ) ) );
          // 0x20 Assembly
          ProcessTableForHeaps3( md.AssemblyDefinitions, heapInfos, ad =>
          {
@@ -1590,11 +1590,11 @@ namespace CILAssemblyManipulator.Physical.Implementation
          // 0x27 ExportedType
          ProcessTableForHeaps2( md.ExportedTypes, heapInfos, e => new HeapInfo2( sysStrings.GetOrAddString( e.Name ), sysStrings.GetOrAddString( e.Namespace ) ) );
          // 0x28 ManifestResource
-         ProcessTableForHeaps1( md.ManifestResources, heapInfos, m => new HeapInfo1( sysStrings.GetOrAddString( m.Name ) ) );
+         ProcessTableForHeaps1( md.ManifestResources, heapInfos, ( m, idx ) => new HeapInfo1( sysStrings.GetOrAddString( m.Name ) ) );
          // 0x2A GenericParameter
-         ProcessTableForHeaps1( md.GenericParameterDefinitions, heapInfos, g => new HeapInfo1( sysStrings.GetOrAddString( g.Name ) ) );
+         ProcessTableForHeaps1( md.GenericParameterDefinitions, heapInfos, ( g, idx ) => new HeapInfo1( sysStrings.GetOrAddString( g.Name ) ) );
          // 0x2B MethosSpec
-         ProcessTableForHeaps1( md.MethodSpecifications, heapInfos, m => new HeapInfo1( blobs.GetOrAddBLOB( byteArrayHelper.CreateMethodSpecSignature( m.Signature ) ) ) );
+         ProcessTableForHeaps1( md.MethodSpecifications, heapInfos, ( m, idx ) => new HeapInfo1( blobs.GetOrAddBLOB( byteArrayHelper.CreateMethodSpecSignature( m.Signature ) ) ) );
 
          // We're done
          blobs.SetIsWideIndex();
@@ -1606,14 +1606,14 @@ namespace CILAssemblyManipulator.Physical.Implementation
          guidsParam = guids;
       }
 
-      private static void ProcessTableForHeaps1<T>( MetaDataTable<T> table, Object[] heapInfos, Func<T, HeapInfo1> heapInfoExtractor )
+      private static void ProcessTableForHeaps1<T>( MetaDataTable<T> table, Object[] heapInfos, Func<T, Int32, HeapInfo1> heapInfoExtractor )
          where T : class
       {
          var list = table.TableContents;
          var heapInfoList = new List<HeapInfo1>( list.Count );
-         foreach ( var row in list )
+         for ( var i = 0; i < list.Count; ++i )
          {
-            heapInfoList.Add( heapInfoExtractor( row ) );
+            heapInfoList.Add( heapInfoExtractor( list[i], i ) );
          }
          heapInfos[(Int32) table.TableKind] = heapInfoList;
       }
@@ -2467,15 +2467,16 @@ public static partial class E_CILPhysical
       return info.CreateByteArray();
    }
 
-   internal static Byte[] CreateCustomAttributeSignature( this ByteArrayHelper info, AbstractCustomAttributeSignature sig )
+   internal static Byte[] CreateCustomAttributeSignature( this ByteArrayHelper info, CILMetaData md, Int32 caIdx )
    {
+      var sig = md.CustomAttributeDefinitions.TableContents[caIdx].Signature;
       Byte[] retVal;
       if ( sig != null ) // sig.TypedArguments.Count > 0 || sig.NamedArguments.Count > 0 )
       {
          var sigg = sig as CustomAttributeSignature;
          if ( sigg != null )
          {
-            info.WriteCustomAttributeSignature( sigg );
+            info.WriteCustomAttributeSignature( md, caIdx );
             retVal = info.CreateByteArray();
          }
          else
@@ -2752,8 +2753,26 @@ public static partial class E_CILPhysical
       }
    }
 
-   private static void WriteCustomAttributeSignature( this ByteArrayHelper info, CustomAttributeSignature attrData )
+   private static void WriteCustomAttributeSignature( this ByteArrayHelper info, CILMetaData md, Int32 idx )
    {
+      var ca = md.CustomAttributeDefinitions.TableContents[idx];
+      var attrData = ca.Signature as CustomAttributeSignature;
+
+      var ctor = ca.Type;
+      var sig = ctor.Table == Tables.MethodDef ?
+         md.MethodDefinitions.TableContents[ctor.Index].Signature :
+         md.MemberReferences.TableContents[ctor.Index].Signature as AbstractMethodSignature;
+
+      if ( sig == null )
+      {
+         throw new InvalidOperationException( "Custom attribute constructor signature was null (custom attribute at index " + idx + ", ctor: " + ctor + ")." );
+      }
+      else if ( sig.Parameters.Count != attrData.TypedArguments.Count )
+      {
+         throw new InvalidOperationException( "Custom attribute constructor has different amount of parameters than supplied custom attribute data (custom attribute at index " + idx + ", ctor: " + ctor + ")." );
+      }
+
+
       // Prolog
       info.AddByte( 1 );
       info.AddByte( 0 );
@@ -2762,7 +2781,17 @@ public static partial class E_CILPhysical
       for ( var i = 0; i < attrData.TypedArguments.Count; ++i )
       {
          var arg = attrData.TypedArguments[i];
-         info.WriteCustomAttributeFixedArg( arg.Type, arg.Value );
+         var caType = md.ResolveCACtorType( sig.Parameters[i].Type, tIdx => new CustomAttributeArgumentTypeEnum()
+         {
+            TypeString = "" // Type string doesn't matter, as values will be serialized directly...
+         } );
+
+         if ( caType == null )
+         {
+            // TODO some kind of warning system instead of throwing
+            throw new InvalidOperationException( "Failed to resolve custom attribute type for constructor parameter (custom attribute at index " + idx + ", ctor: " + ctor + ", param: " + i + ")." );
+         }
+         info.WriteCustomAttributeFixedArg( caType, arg.Value );
       }
 
       // Named args
@@ -2784,10 +2813,22 @@ public static partial class E_CILPhysical
             }
             else
             {
-               info.AddUncompressedInt32( ( (Array) arg ).Length );
-               argType = ( (CustomAttributeArgumentTypeArray) argType ).ArrayType;
+               var isDirectArray = arg is Array;
+               Array array;
+               if ( isDirectArray )
+               {
+                  array = (Array) arg;
+                  argType = ( (CustomAttributeArgumentTypeArray) argType ).ArrayType;
+               }
+               else
+               {
+                  var indirectArray = (CustomAttributeValue_Array) arg;
+                  array = indirectArray.Array;
+                  argType = indirectArray.ArrayElementType;
+               }
 
-               foreach ( var elem in (Array) arg )
+               info.AddUncompressedInt32( array.Length );
+               foreach ( var elem in array )
                {
                   info.WriteCustomAttributeFixedArg( argType, elem );
                }
@@ -2869,22 +2910,28 @@ public static partial class E_CILPhysical
                   }
                   else
                   {
-                     argType = ResolveBoxedType( arg.GetType(), false );
+                     argType = ResolveBoxedCAType( arg );
                   }
-                  info.WriteCustomAttributeFieldOrPropType( ref argType, arg );
+                  info.WriteCustomAttributeFieldOrPropType( ref argType, ref arg );
                   info.WriteCustomAttributeFixedArg( argType, arg );
                   break;
             }
             break;
          case CustomAttributeArgumentTypeKind.TypeString:
-            info.AddCAString( ( (CustomAttributeArgumentTypeEnum) argType ).TypeString );
-            info.WriteConstantValue( arg );
+            if ( arg == null )
+            {
+               throw new InvalidOperationException( "Tried to serialize null as enum." );
+            }
+            // TODO check for invalid types (bool, char, single, double, string, any other non-primitive)
+            var valueToWrite = arg is CustomAttributeValue_EnumReference ? ( (CustomAttributeValue_EnumReference) arg ).EnumValue : arg;
+            info.WriteConstantValue( valueToWrite );
             break;
       }
    }
 
-   private static CustomAttributeArgumentType ResolveBoxedType( Type argType, Boolean isWithinArray )
+   private static CustomAttributeArgumentType ResolveBoxedCAType( Object arg, Boolean isWithinArray = false )
    {
+      var argType = arg.GetType();
       if ( argType.IsEnum )
       {
          return new CustomAttributeArgumentTypeEnum()
@@ -2929,17 +2976,25 @@ public static partial class E_CILPhysical
                      (CustomAttributeArgumentType) CustomAttributeArgumentTypeSimple.Object :
                      new CustomAttributeArgumentTypeArray()
                      {
-                        ArrayType = ResolveBoxedType( argType.GetElementType(), true )
+                        ArrayType = ResolveBoxedCAType( argType.GetElementType(), true )
                      };
                }
                else
                {
+                  // Check for enum reference
+                  if ( Equals( typeof( CustomAttributeValue_EnumReference ), argType ) )
+                  {
+                     return new CustomAttributeArgumentTypeEnum()
+                     {
+                        TypeString = ( (CustomAttributeValue_EnumReference) arg ).EnumType
+                     };
+                  }
                   // System.Type or System.Object or CustomAttributeTypeReference
-                  if ( Equals( typeof( CustomAttributeValue_TypeReference ), argType ) || Equals( typeof( Type ), argType ) )
+                  else if ( Equals( typeof( CustomAttributeValue_TypeReference ), argType ) || Equals( typeof( Type ), argType ) )
                   {
                      return CustomAttributeArgumentTypeSimple.Type;
                   }
-                  else if ( Equals( typeof( Object ), argType ) )
+                  else if ( isWithinArray && Equals( typeof( Object ), argType ) )
                   {
                      return CustomAttributeArgumentTypeSimple.Object;
                   }
@@ -2958,15 +3013,14 @@ public static partial class E_CILPhysical
    {
       var elem = arg.IsField ? SignatureElementTypes.CA_Field : SignatureElementTypes.CA_Property;
       info.AddSigByte( elem );
-      var typedValue = arg.Value;
-      var typedValueType = typedValue.Type;
-      var typedValueValue = typedValue.Value;
-      info.WriteCustomAttributeFieldOrPropType( ref typedValueType, typedValueValue );
+      var typedValueValue = arg.Value.Value;
+      var caType = arg.FieldOrPropertyType;
+      info.WriteCustomAttributeFieldOrPropType( ref caType, ref typedValueValue );
       info.AddCAString( arg.Name );
-      info.WriteCustomAttributeFixedArg( typedValueType, typedValueValue );
+      info.WriteCustomAttributeFixedArg( caType, typedValueValue );
    }
 
-   private static void WriteCustomAttributeFieldOrPropType( this ByteArrayHelper info, ref CustomAttributeArgumentType type, Object value )
+   private static void WriteCustomAttributeFieldOrPropType( this ByteArrayHelper info, ref CustomAttributeArgumentType type, ref Object value, Boolean processEnumTypeAndValue = true )
    {
       if ( type == null )
       {
@@ -2978,7 +3032,8 @@ public static partial class E_CILPhysical
          case CustomAttributeArgumentTypeKind.Array:
             info.AddSigByte( SignatureElementTypes.SzArray );
             var arrayType = ( (CustomAttributeArgumentTypeArray) type ).ArrayType;
-            info.WriteCustomAttributeFieldOrPropType( ref arrayType, null );
+            Object dummy = null;
+            info.WriteCustomAttributeFieldOrPropType( ref arrayType, ref dummy, false );
             break;
          case CustomAttributeArgumentTypeKind.Simple:
             var sigStarter = ( (CustomAttributeArgumentTypeSimple) type ).SimpleType;
@@ -2991,55 +3046,63 @@ public static partial class E_CILPhysical
          case CustomAttributeArgumentTypeKind.TypeString:
             info.AddSigByte( SignatureElementTypes.CA_Enum );
             info.AddCAString( ( (CustomAttributeArgumentTypeEnum) type ).TypeString );
-            if ( value == null )
+            if ( processEnumTypeAndValue )
             {
-               type = CustomAttributeArgumentTypeSimple.String;
-            }
-            else
-            {
-               switch ( Type.GetTypeCode( value.GetType() ) )
+               if ( value == null )
                {
-                  case TypeCode.Boolean:
-                     type = CustomAttributeArgumentTypeSimple.Boolean;
-                     break;
-                  case TypeCode.Char:
-                     type = CustomAttributeArgumentTypeSimple.Char;
-                     break;
-                  case TypeCode.SByte:
-                     type = CustomAttributeArgumentTypeSimple.SByte;
-                     break;
-                  case TypeCode.Byte:
-                     type = CustomAttributeArgumentTypeSimple.Byte;
-                     break;
-                  case TypeCode.Int16:
-                     type = CustomAttributeArgumentTypeSimple.Int16;
-                     break;
-                  case TypeCode.UInt16:
-                     type = CustomAttributeArgumentTypeSimple.UInt16;
-                     break;
-                  case TypeCode.Int32:
-                     type = CustomAttributeArgumentTypeSimple.Int32;
-                     break;
-                  case TypeCode.UInt32:
-                     type = CustomAttributeArgumentTypeSimple.UInt32;
-                     break;
-                  case TypeCode.Int64:
-                     type = CustomAttributeArgumentTypeSimple.Int64;
-                     break;
-                  case TypeCode.UInt64:
-                     type = CustomAttributeArgumentTypeSimple.UInt64;
-                     break;
-                  case TypeCode.Single:
-                     type = CustomAttributeArgumentTypeSimple.Single;
-                     break;
-                  case TypeCode.Double:
-                     type = CustomAttributeArgumentTypeSimple.Double;
-                     break;
-                  case TypeCode.String:
-                     type = CustomAttributeArgumentTypeSimple.String;
-                     break;
-                  default:
-                     throw new NotSupportedException( "The custom attribute type was marked to be enum, but the actual value's type was: " + value.GetType() + "." );
+                  throw new InvalidOperationException( "Tried to serialize null as enum." );
+               }
+               else
+               {
+                  if ( value is CustomAttributeValue_EnumReference )
+                  {
+                     value = ( (CustomAttributeValue_EnumReference) value ).EnumValue;
+                  }
+
+                  switch ( Type.GetTypeCode( value.GetType() ) )
+                  {
+                     //case TypeCode.Boolean:
+                     //   type = CustomAttributeArgumentTypeSimple.Boolean;
+                     //   break;
+                     //case TypeCode.Char:
+                     //   type = CustomAttributeArgumentTypeSimple.Char;
+                     //   break;
+                     case TypeCode.SByte:
+                        type = CustomAttributeArgumentTypeSimple.SByte;
+                        break;
+                     case TypeCode.Byte:
+                        type = CustomAttributeArgumentTypeSimple.Byte;
+                        break;
+                     case TypeCode.Int16:
+                        type = CustomAttributeArgumentTypeSimple.Int16;
+                        break;
+                     case TypeCode.UInt16:
+                        type = CustomAttributeArgumentTypeSimple.UInt16;
+                        break;
+                     case TypeCode.Int32:
+                        type = CustomAttributeArgumentTypeSimple.Int32;
+                        break;
+                     case TypeCode.UInt32:
+                        type = CustomAttributeArgumentTypeSimple.UInt32;
+                        break;
+                     case TypeCode.Int64:
+                        type = CustomAttributeArgumentTypeSimple.Int64;
+                        break;
+                     case TypeCode.UInt64:
+                        type = CustomAttributeArgumentTypeSimple.UInt64;
+                        break;
+                     //case TypeCode.Single:
+                     //   type = CustomAttributeArgumentTypeSimple.Single;
+                     //   break;
+                     //case TypeCode.Double:
+                     //   type = CustomAttributeArgumentTypeSimple.Double;
+                     //   break;
+                     //case TypeCode.String:
+                     //   type = CustomAttributeArgumentTypeSimple.String;
+                     //break;
+                     default:
+                        throw new NotSupportedException( "The custom attribute type was marked to be enum, but the actual value's type was: " + value.GetType() + "." );
+                  }
                }
             }
             break;

@@ -1,6 +1,9 @@
 - CAM.Structural, CAM.Logical:
  - Introduce loop detection to interop algorithms (nested types)
 
+- CAM.Physical:
+ - Add 'UseMemberRefForGenericDefs' variable to LogicalOpCodeInfoWithMethod
+
 CILAssemblyManipulator:
  - EmitCall -method of E_MethodIL class emits OpCodes.Call for all non-virtual instance methods.
    This is a bug - OpCodes.Call should only be emitted for static methods, value type instance methods and this.X calls.

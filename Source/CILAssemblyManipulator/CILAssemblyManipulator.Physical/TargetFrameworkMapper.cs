@@ -267,7 +267,82 @@ public static partial class E_CILPhysical
    {
       if ( arg != null )
       {
-         var type = arg.Type;
+         var value = arg.Value;
+         if ( mapper.ProcessCASignatureTypedValue( md, loader, newTargetFW, ref value ) )
+         {
+            arg.Value = value;
+         }
+      }
+   }
+
+   private static Boolean ProcessCASignatureTypedValue( this TargetFrameworkMapper mapper, CILMetaData md, CILMetaDataLoaderWithCallbacks loader, TargetFrameworkInfo newTargetFW, ref Object value )
+   {
+      var retVal = false;
+      if ( value != null )
+      {
+         var complex = value as CustomAttributeTypedArgumentValueComplex;
+         if ( complex != null )
+         {
+            String typeString;
+            switch ( complex.CustomAttributeTypedArgumentValueKind )
+            {
+               case CustomAttributeTypedArgumentValueKind.Type:
+                  typeString = ( (CustomAttributeValue_TypeReference) complex ).TypeString;
+                  break;
+               case CustomAttributeTypedArgumentValueKind.Enum:
+                  typeString = ( (CustomAttributeValue_EnumReference) complex ).EnumType;
+                  break;
+               case CustomAttributeTypedArgumentValueKind.Array:
+                  var arrayValue = (CustomAttributeValue_Array) complex;
+                  var elType = arrayValue.ArrayElementType;
+                  typeString = elType != null && elType.ArgumentTypeKind == CustomAttributeArgumentTypeKind.TypeString ?
+                     ( (CustomAttributeArgumentTypeEnum) elType ).TypeString :
+                     null;
+                  var array = arrayValue.Array;
+                  if ( array != null )
+                  {
+                     for ( var i = 0; i < array.Length; ++i )
+                     {
+                        var cur = array.GetValue( i );
+                        if ( mapper.ProcessCASignatureTypedValue( md, loader, newTargetFW, ref cur ) )
+                        {
+                           array.SetValue( cur, i );
+                        }
+                     }
+                  }
+                  break;
+               default:
+                  typeString = null;
+                  break;
+            }
+
+            retVal = typeString != null && mapper.ProcessTypeString( md, loader, newTargetFW, ref typeString );
+            if ( retVal )
+            {
+               switch ( complex.CustomAttributeTypedArgumentValueKind )
+               {
+                  case CustomAttributeTypedArgumentValueKind.Type:
+                     value = new CustomAttributeValue_TypeReference( typeString );
+                     break;
+                  case CustomAttributeTypedArgumentValueKind.Enum:
+                     value = new CustomAttributeValue_EnumReference( typeString, ( (CustomAttributeValue_EnumReference) complex ).EnumValue );
+                     break;
+                  case CustomAttributeTypedArgumentValueKind.Array:
+                     value = new CustomAttributeValue_Array( ( (CustomAttributeValue_Array) complex ).Array, new CustomAttributeArgumentTypeEnum() { TypeString = typeString } );
+                     break;
+               }
+            }
+         }
+      }
+
+      return retVal;
+   }
+
+   private static void ProcessCASignatureNamed( this TargetFrameworkMapper mapper, CILMetaData md, CILMetaDataLoaderWithCallbacks loader, TargetFrameworkInfo newTargetFW, CustomAttributeNamedArgument arg )
+   {
+      if ( arg != null )
+      {
+         var type = arg.FieldOrPropertyType;
          if ( type != null && type.ArgumentTypeKind == CustomAttributeArgumentTypeKind.TypeString )
          {
             var typeStrArg = (CustomAttributeArgumentTypeEnum) type;
@@ -277,13 +352,6 @@ public static partial class E_CILPhysical
                typeStrArg.TypeString = typeString;
             }
          }
-      }
-   }
-
-   private static void ProcessCASignatureNamed( this TargetFrameworkMapper mapper, CILMetaData md, CILMetaDataLoaderWithCallbacks loader, TargetFrameworkInfo newTargetFW, CustomAttributeNamedArgument arg )
-   {
-      if ( arg != null )
-      {
          mapper.ProcessCASignatureTyped( md, loader, newTargetFW, arg.Value );
       }
    }

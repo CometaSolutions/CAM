@@ -449,46 +449,25 @@ namespace CILAssemblyManipulator.Logical
             throw new ArgumentException( "Custom attribute data event with no native member?" );
          }
 
+         var ctx = e.Context;
          e.CustomAttributeData = attrs.Select( attr => Tuple.Create(
             e.Context.NewWrapper( attr.Constructor ),
-            attr.ConstructorArguments.Select( cArg => CILCustomAttributeFactory.NewTypedArgument( ( e.Context.NewWrapperAsType( cArg.ArgumentType ) ), ExtractValue( cArg ) ) ),
+            attr.ConstructorArguments.Select( cArg => CILCustomAttributeFactory.NewTypedArgument( ( ctx.NewWrapperAsType( cArg.ArgumentType ) ), ExtractValue( ctx, cArg ) ) ),
             attr.NamedArguments.Select( nArg => CILCustomAttributeFactory.NewNamedArgument(
-               ( nArg.MemberInfo is System.Reflection.PropertyInfo ? (CILElementForNamedCustomAttribute) e.Context.NewWrapper( (System.Reflection.PropertyInfo) nArg.MemberInfo ) : e.Context.NewWrapper( (System.Reflection.FieldInfo) nArg.MemberInfo ) ),
-               CILCustomAttributeFactory.NewTypedArgument( e.Context.NewWrapperAsType( nArg.TypedValue.ArgumentType ), ExtractValue( nArg.TypedValue ) ) ) )
+               ( nArg.MemberInfo is System.Reflection.PropertyInfo ? (CILElementForNamedCustomAttribute) ctx.NewWrapper( (System.Reflection.PropertyInfo) nArg.MemberInfo ) : ctx.NewWrapper( (System.Reflection.FieldInfo) nArg.MemberInfo ) ),
+               CILCustomAttributeFactory.NewTypedArgument( ctx.NewWrapperAsType( nArg.TypedValue.ArgumentType ), ExtractValue( ctx, nArg.TypedValue ) ) ) )
             ) );
       }
 
-      private static Object ExtractValue( System.Reflection.CustomAttributeTypedArgument typedArg )
+      private static Object ExtractValue( CILReflectionContext ctx, System.Reflection.CustomAttributeTypedArgument typedArg )
       {
          var retVal = typedArg.Value;
          var array = retVal as System.Collections.ObjectModel.ReadOnlyCollection<System.Reflection.CustomAttributeTypedArgument>;
          if ( array != null )
          {
-            var arrayType = typedArg.ArgumentType;
-            var depth = 0;
-            do
-            {
-               arrayType = arrayType.GetElementType();
-               ++depth;
-            } while ( arrayType.IsArray );
-            retVal = ExtractValueFromArray( array, arrayType, depth );
-         }
-         return retVal;
-      }
-
-      private static Object ExtractValueFromArray( System.Collections.ObjectModel.ReadOnlyCollection<System.Reflection.CustomAttributeTypedArgument> array, Type arrayType, Int32 depth )
-      {
-         var retVal = array == null ? null : arrayType.CreateJaggedArray( depth - 1, array.Count );
-         if ( retVal != null )
-         {
-            for ( var i = 0; i < array.Count; ++i )
-            {
-               var cur = array[i].Value;
-               var val = depth > 1 ?
-                  ExtractValueFromArray( (System.Collections.ObjectModel.ReadOnlyCollection<System.Reflection.CustomAttributeTypedArgument>) cur, arrayType, depth - 1 ) :
-                  cur;
-               retVal.SetValue( val, i );
-            }
+            retVal = array
+               .Select( arg => CILCustomAttributeFactory.NewTypedArgument( ctx.NewWrapperAsType( arg.ArgumentType ), ExtractValue( ctx, arg ) ) )
+               .ToList();
          }
          return retVal;
       }

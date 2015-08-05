@@ -39,9 +39,11 @@ namespace CILAssemblyManipulator.Physical
          private readonly IDictionary<Int32, MDSpecificCache> _modulesCache;
 
          private readonly IDictionary<KeyValuePair<String, String>, Int32> _topLevelTypeCache; // Key: ns + type pair, Value: TypeDef index
-         private readonly IDictionary<Int32, CustomAttributeArgumentType> _typeDefCache; // Key: TypeDef index, Value: CA type
+         private readonly IDictionary<Int32, CustomAttributeArgumentTypeSimple> _typeDefCache; // Key: TypeDef index, Value: CA type
          private readonly IDictionary<Int32, Tuple<MDSpecificCache, Int32>> _typeRefCache; // Key: TypeRef index, Value: TypeDef index in another metadata
          private readonly IDictionary<String, Int32> _typeNameCache; // Key - type name (ns + enclosing classes + type name), Value - TypeDef index
+         private readonly IDictionary<Int32, String> _typeNameReverseCache; // Key - typeDefIndex, Value - type name
+         private readonly IDictionary<Int32, String> _typeRefReverseCache;
 
          internal MDSpecificCache( MetaDataResolver owner, CILMetaData md )
          {
@@ -56,9 +58,11 @@ namespace CILAssemblyManipulator.Physical
             this._modulesCache = new Dictionary<Int32, MDSpecificCache>();
 
             this._topLevelTypeCache = new Dictionary<KeyValuePair<String, String>, Int32>();
-            this._typeDefCache = new Dictionary<Int32, CustomAttributeArgumentType>();
+            this._typeDefCache = new Dictionary<Int32, CustomAttributeArgumentTypeSimple>();
             this._typeRefCache = new Dictionary<Int32, Tuple<MDSpecificCache, Int32>>();
             this._typeNameCache = new Dictionary<String, Int32>();
+            this._typeNameReverseCache = new Dictionary<Int32, String>();
+            this._typeRefReverseCache = new Dictionary<Int32, String>();
          }
 
          internal CILMetaData MD
@@ -97,7 +101,7 @@ namespace CILAssemblyManipulator.Physical
                );
          }
 
-         internal CustomAttributeArgumentType ResolveTypeFromTypeName( String typeName )
+         internal CustomAttributeArgumentTypeSimple ResolveTypeFromTypeName( String typeName )
          {
             Int32 tDefIdx;
             this.ResolveTypeFromTypeName( typeName, out tDefIdx );
@@ -128,7 +132,7 @@ namespace CILAssemblyManipulator.Physical
             } );
          }
 
-         internal CustomAttributeArgumentType ResolveTypeFromTypeDef( Int32 index )
+         internal CustomAttributeArgumentTypeSimple ResolveTypeFromTypeDef( Int32 index )
          {
             return index < 0 ?
                null :
@@ -137,7 +141,7 @@ namespace CILAssemblyManipulator.Physical
                   {
                      var md = this._md;
                      Int32 enumFieldIndex;
-                     CustomAttributeArgumentType retVal = null;
+                     CustomAttributeArgumentTypeSimple retVal = null;
                      if ( md.TryGetEnumValueFieldIndex( idx, out enumFieldIndex ) )
                      {
                         var sig = md.FieldDefinitions.TableContents[enumFieldIndex].Signature.Type;
@@ -151,14 +155,58 @@ namespace CILAssemblyManipulator.Physical
                   } );
          }
 
-         internal CustomAttributeArgumentType ResolveTypeFromTypeRef( Int32 index )
+         internal String ResolveTypeNameFromTypeDef( Int32 index )
          {
-            MDSpecificCache otherMD; Int32 tDefIndex;
-            this.ResolveTypeFromTypeRef( index, out otherMD, out tDefIndex );
-            return otherMD == null ? null : otherMD.ResolveTypeFromTypeDef( tDefIndex );
+            return index < 0 ?
+               null :
+               this._typeNameReverseCache
+                  .GetOrAdd_NotThreadSafe( index, idx =>
+                  {
+                     var md = this._md;
+                     var tDef = md.TypeDefinitions.GetOrNull( idx );
+                     String retVal;
+                     if ( tDef != null )
+                     {
+                        var nestedDef = md.NestedClassDefinitions.TableContents.Find( nc => nc != null && nc.NestedClass.Index == idx );
+                        if ( nestedDef == null )
+                        {
+                           // This is top-level class
+                           retVal = Miscellaneous.CombineNamespaceAndType( tDef.Namespace, tDef.Name );
+                        }
+                        else
+                        {
+                           // Nested type - recursion
+                           // TODO get rid of recursion
+
+                           retVal = Miscellaneous.CombineEnclosingAndNestedType( this.ResolveTypeNameFromTypeDef( nestedDef.EnclosingClass.Index ), tDef.Name );
+                        }
+                     }
+                     else
+                     {
+                        retVal = null;
+                     }
+
+                     return retVal;
+                  } );
          }
 
-         private void ResolveTypeFromTypeRef( Int32 index, out MDSpecificCache otherMDParam, out Int32 tDefIndexParam )
+         internal String ResolveTypeNameFromTypeRef( Int32 index )
+         {
+            return this._typeRefReverseCache.GetOrAdd_NotThreadSafe( index, idx =>
+            {
+               MDSpecificCache otherMD; Int32 tDefIndex;
+               this.ResolveTypeNameFromTypeRef( index, out otherMD, out tDefIndex );
+               var typeRefString = otherMD == null ? null : otherMD.ResolveTypeNameFromTypeDef( tDefIndex );
+               if ( typeRefString != null && !ReferenceEquals( this, otherMD ) && otherMD._md.AssemblyDefinitions.RowCount > 0 )
+               {
+                  typeRefString = Miscellaneous.CombineAssemblyAndType( otherMD._md.AssemblyDefinitions.TableContents[0].ToString(), typeRefString );
+               }
+
+               return typeRefString;
+            } );
+         }
+
+         private void ResolveTypeNameFromTypeRef( Int32 index, out MDSpecificCache otherMDParam, out Int32 tDefIndexParam )
          {
             var tuple = this._typeRefCache.GetOrAdd_NotThreadSafe( index, idx =>
             {
@@ -182,7 +230,7 @@ namespace CILAssemblyManipulator.Physical
                      {
                         case Tables.TypeRef:
                            // Nested type
-                           this.ResolveTypeFromTypeRef( resIdx, out otherMD, out tDefIndex );
+                           this.ResolveTypeNameFromTypeRef( resIdx, out otherMD, out tDefIndex );
                            if ( otherMD != null )
                            {
                               tDefIndex = otherMD.FindNestedTypeIndex( tDefIndex, tRef.Name );
@@ -437,7 +485,7 @@ namespace CILAssemblyManipulator.Physical
 
             for ( var i = 0; i < ctorSig.Parameters.Count; ++i )
             {
-               var caType = this.ConvertTypeSignatureToCustomAttributeType( md, ctorSig.Parameters[i].Type );
+               var caType = md.ResolveCACtorType( ctorSig.Parameters[i].Type, tIdx => this.ResolveCATypeFromTableIndex( md, tIdx ) );
                if ( caType == null )
                {
                   // We don't know the size of the type -> stop
@@ -474,43 +522,6 @@ namespace CILAssemblyManipulator.Physical
          return success ? retVal : null;
       }
 
-      private CustomAttributeArgumentType ConvertTypeSignatureToCustomAttributeType(
-         CILMetaData md,
-         TypeSignature type
-         )
-      {
-         switch ( type.TypeSignatureKind )
-         {
-            case TypeSignatureKind.SimpleArray:
-               var arrayType = new CustomAttributeArgumentTypeArray();
-
-               var caType = this.ConvertTypeSignatureToCustomAttributeType( md, ( (SimpleArrayTypeSignature) type ).ArrayType );
-               if ( caType == null )
-               {
-                  return null;
-               }
-               else
-               {
-                  arrayType.ArrayType = caType;
-                  return arrayType;
-               }
-            case TypeSignatureKind.Simple:
-               return ResolveCATypeSimple( ( (SimpleTypeSignature) type ).SimpleType );
-            case TypeSignatureKind.ClassOrValue:
-               // Either enum or System.Type
-               var tIdx = ( (ClassOrValueTypeSignature) type ).Type;
-               return IsTypeType( md, tIdx ) ? // Avoid loading mscorlib metadata if this is System.Type
-                  CustomAttributeArgumentTypeSimple.Type :
-                  ( IsSystemObjectType( md, tIdx ) ? // Avoid loading mscorlib metadata if this is System.Object
-                     CustomAttributeArgumentTypeSimple.Object :
-                     this.ResolveCATypeFromTableIndex( md, tIdx )
-                  );
-            default:
-               return null;
-         }
-      }
-
-
       private MDSpecificCache ResolveAssemblyReferenceWithEvent( CILMetaData thisMD, String assemblyName, AssemblyInformationForResolving? assemblyInfo ) //, Boolean isRetargetable )
       {
          var args = new AssemblyReferenceResolveEventArgs( thisMD, assemblyName, assemblyInfo ); //, isRetargetable );
@@ -530,7 +541,7 @@ namespace CILAssemblyManipulator.Physical
          return this.GetCacheFor( md ).ResolveCacheByAssemblyString( assemblyString );
       }
 
-      private CustomAttributeArgumentType ResolveTypeFromFullName( CILMetaData md, String typeString )
+      private CustomAttributeArgumentTypeSimple ResolveTypeFromFullName( CILMetaData md, String typeString )
       {
          // 1. See if there is assembly name present
          // 2. If present, then resolve assembly by name
@@ -552,14 +563,14 @@ namespace CILAssemblyManipulator.Physical
       }
 
 
-      private CustomAttributeArgumentType ResolveTypeFromTypeDef( CILMetaData md, Int32 index )
+      private String ResolveTypeNameFromTypeDef( CILMetaData md, Int32 index )
       {
-         return this.UseMDCache( md, c => c.ResolveTypeFromTypeDef( index ) );
+         return this.UseMDCache( md, c => c.ResolveTypeNameFromTypeDef( index ) );
       }
 
-      private CustomAttributeArgumentType ResolveTypeFromTypeRef( CILMetaData md, Int32 index )
+      private String ResolveTypeNameFromTypeRef( CILMetaData md, Int32 index )
       {
-         return this.UseMDCache( md, c => c.ResolveTypeFromTypeRef( index ) );
+         return this.UseMDCache( md, c => c.ResolveTypeNameFromTypeRef( index ) );
       }
 
       private MDSpecificCache MDSpecificCacheFactory( CILMetaData md )
@@ -622,45 +633,38 @@ namespace CILAssemblyManipulator.Physical
          }
       }
 
-      private CustomAttributeArgumentType ResolveCATypeFromTableIndex(
+      private CustomAttributeArgumentTypeEnum ResolveCATypeFromTableIndex(
          CILMetaData md,
          TableIndex tIdx
          )
       {
          var idx = tIdx.Index;
-         CustomAttributeArgumentType retVal;
+         String retVal;
          switch ( tIdx.Table )
          {
             case Tables.TypeDef:
-               retVal = this.ResolveTypeFromTypeDef( md, tIdx.Index );
+               retVal = this.ResolveTypeNameFromTypeDef( md, tIdx.Index );
                break;
             case Tables.TypeRef:
-               retVal = this.ResolveTypeFromTypeRef( md, idx );
+               retVal = this.ResolveTypeNameFromTypeRef( md, idx );
                break;
-            case Tables.TypeSpec:
-               // Should never happen but one never knows...
-               // Recursion within same metadata:
-               var tSpec = md.TypeSpecifications.GetOrNull( idx );
-               retVal = tSpec == null ?
-                  null :
-                  ConvertTypeSignatureToCustomAttributeType( md, tSpec.Signature );
-               break;
+            //case Tables.TypeSpec:
+            //   // Should never happen but one never knows...
+            //   // Recursion within same metadata:
+            //   var tSpec = md.TypeSpecifications.GetOrNull( idx );
+            //   retVal = tSpec == null ?
+            //      null :
+            //      ConvertTypeSignatureToCustomAttributeType( md, tSpec.Signature );
+            //   break;
             default:
                retVal = null;
                break;
          }
 
-         return retVal;
-      }
-
-      private static Boolean IsTypeType( CILMetaData md, TableIndex? tIdx )
-      {
-         return md.IsSystemType( tIdx, Consts.TYPE_NAMESPACE, Consts.TYPE_TYPENAME );
-      }
-
-      private static Boolean IsSystemObjectType( CILMetaData md, TableIndex tIdx )
-      {
-         return md.IsSystemType( tIdx, Consts.SYSTEM_OBJECT_NAMESPACE, Consts.SYSTEM_OBJECT_TYPENAME );
+         return retVal == null ? null : new CustomAttributeArgumentTypeEnum()
+         {
+            TypeString = retVal
+         };
       }
 
       private Boolean TryReadCAFixedArgument(
@@ -696,34 +700,30 @@ namespace CILAssemblyManipulator.Physical
             {
                case CustomAttributeArgumentTypeKind.Array:
                   var amount = caBLOB.ReadInt32LEFromBytes( ref idx );
-                  if ( ( (UInt32) amount ) == 0xFFFFFFFF )
+                  value = null;
+                  if ( ( (UInt32) amount ) != 0xFFFFFFFF )
                   {
-                     value = null;
-                  }
-                  else
-                  {
-                     var arrayType = ResolveCAArrayType(( (CustomAttributeArgumentTypeArray) type ).ArrayType);
-                     success = arrayType != null;
-                     if (success)
-                     {
-                        var array = Array.CreateInstance(arrayType, )
-                     }
-
-
-                     var array = Array.CreateInstance( new Object[amount];
                      var elemType = ( (CustomAttributeArgumentTypeArray) type ).ArrayType;
-                     for ( var i = 0; i < amount && success; ++i )
+                     var arrayType = elemType.GetNativeTypeForCAArrayType();
+                     success = arrayType != null;
+                     if ( success )
                      {
-                        if ( TryReadCAFixedArgument( md, caBLOB, ref idx, elemType, out nestedCAType ) )
+
+                        var array = Array.CreateInstance( arrayType, amount );
+
+                        for ( var i = 0; i < amount && success; ++i )
                         {
-                           array[i] = nestedCAType.Value;
+                           if ( TryReadCAFixedArgument( md, caBLOB, ref idx, elemType, out nestedCAType ) )
+                           {
+                              array.SetValue( nestedCAType.Value, i );
+                           }
+                           else
+                           {
+                              success = false;
+                           }
                         }
-                        else
-                        {
-                           success = false;
-                        }
+                        value = new CustomAttributeValue_Array( array, elemType );
                      }
-                     value = array;
                   }
                   break;
                case CustomAttributeArgumentTypeKind.Simple:
@@ -774,10 +774,7 @@ namespace CILAssemblyManipulator.Physical
                         value = success ? nestedCAType.Value : null;
                         break;
                      case SignatureElementTypes.Type:
-                        value = new CustomAttributeValue_TypeReference()
-                        {
-                           TypeString = caBLOB.ReadLenPrefixedUTF8String( ref idx )
-                        };
+                        value = new CustomAttributeValue_TypeReference( caBLOB.ReadLenPrefixedUTF8String( ref idx ) );
                         break;
                      default:
                         value = null;
@@ -785,9 +782,10 @@ namespace CILAssemblyManipulator.Physical
                   }
                   break;
                case CustomAttributeArgumentTypeKind.TypeString:
-                  var actualType = this.ResolveTypeFromFullName( md, ( (CustomAttributeArgumentTypeEnum) type ).TypeString );
+                  var enumTypeString = ( (CustomAttributeArgumentTypeEnum) type ).TypeString;
+                  var actualType = this.ResolveTypeFromFullName( md, enumTypeString );
                   success = TryReadCAFixedArgument( md, caBLOB, ref idx, actualType, out nestedCAType );
-                  value = success ? nestedCAType.Value : null;
+                  value = success ? (Object) new CustomAttributeValue_EnumReference( enumTypeString, nestedCAType.Value ) : null;
                   break;
                default:
                   value = null;
@@ -798,60 +796,9 @@ namespace CILAssemblyManipulator.Physical
          return success ?
             new CustomAttributeTypedArgument()
             {
-               Type = type,
                Value = value
             } :
             null;
-      }
-
-      private static Type ResolveCAArrayType( CustomAttributeArgumentType elemType )
-      {
-         switch ( elemType.ArgumentTypeKind )
-         {
-            case CustomAttributeArgumentTypeKind.Array:
-               // Shouldn't be possible...
-               return null;
-            case CustomAttributeArgumentTypeKind.Simple:
-               switch ( ( (CustomAttributeArgumentTypeSimple) elemType ).SimpleType )
-               {
-                  case SignatureElementTypes.Boolean:
-                     return typeof( Boolean );
-                  case SignatureElementTypes.Char:
-                     return typeof( Char );
-                  case SignatureElementTypes.I1:
-                     return typeof( SByte );
-                  case SignatureElementTypes.U1:
-                     return typeof( Byte );
-                  case SignatureElementTypes.I2:
-                     return typeof( Int16 );
-                  case SignatureElementTypes.U2:
-                     return typeof( UInt16 );
-                  case SignatureElementTypes.I4:
-                     return typeof( Int32 );
-                  case SignatureElementTypes.U4:
-                     return typeof( UInt32 );
-                  case SignatureElementTypes.I8:
-                     return typeof( Int64 );
-                  case SignatureElementTypes.U8:
-                     return typeof( UInt64 );
-                  case SignatureElementTypes.R4:
-                     return typeof( Single );
-                  case SignatureElementTypes.R8:
-                     return typeof( Double );
-                  case SignatureElementTypes.String:
-                     return typeof( String );
-                  case SignatureElementTypes.Type:
-                     return typeof( CustomAttributeValue_TypeReference );
-                  case SignatureElementTypes.Object:
-                     return typeof( Object );
-                  default:
-                     return null;
-               }
-            case CustomAttributeArgumentTypeKind.TypeString:
-               return typeof( CustomAttributeValue_EnumReference );
-            default:
-               return null;
-         }
       }
 
       private static CustomAttributeArgumentType ReadCAFieldOrPropType( Byte[] array, ref Int32 idx )
@@ -922,6 +869,7 @@ namespace CILAssemblyManipulator.Physical
             {
                retVal = new CustomAttributeNamedArgument()
                {
+                  FieldOrPropertyType = type,
                   IsField = isField,
                   Name = name,
                   Value = typedArg

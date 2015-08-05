@@ -917,6 +917,7 @@ namespace CILAssemblyManipulator.Structural
             || ( x != null && y != null
             && String.Equals( x.Name, y.Name )
             && x.IsField == y.IsField
+            && this.Equivalence_CATypedArgType( x.FieldOrPropertyType, y.FieldOrPropertyType )
             && this.Equivalence_CATypedArg( x.Value, y.Value )
             );
       }
@@ -926,7 +927,6 @@ namespace CILAssemblyManipulator.Structural
          return ReferenceEquals( x, y )
             || ( x != null && y != null
             && Equals( x.Value, y.Value )
-            && Equivalence_CATypedArgType( x.Type, y.Type )
             );
       }
 

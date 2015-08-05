@@ -1460,18 +1460,37 @@ namespace CILAssemblyManipulator.Physical
    {
       // Note: Enum values should be CustomAttributeValue_EnumReferences
       // Note: Type values should be CustomAttributeValue_TypeReferences
+      // Note: Arrays should be CustomAttributeValue_Arrays
       public Object Value { get; set; }
-
-      //public CustomAttributeArgumentType Type { get; set; }
    }
 
-   public struct CustomAttributeValue_TypeReference : IEquatable<CustomAttributeValue_TypeReference>
+   public enum CustomAttributeTypedArgumentValueKind
+   {
+      Type,
+      Enum,
+      Array
+   }
+
+   public interface CustomAttributeTypedArgumentValueComplex
+   {
+      CustomAttributeTypedArgumentValueKind CustomAttributeTypedArgumentValueKind { get; }
+   }
+
+   public struct CustomAttributeValue_TypeReference : IEquatable<CustomAttributeValue_TypeReference>, CustomAttributeTypedArgumentValueComplex
    {
       private readonly String _typeString;
 
       public CustomAttributeValue_TypeReference( String typeString )
       {
          this._typeString = typeString;
+      }
+
+      public CustomAttributeTypedArgumentValueKind CustomAttributeTypedArgumentValueKind
+      {
+         get
+         {
+            return CustomAttributeTypedArgumentValueKind.Type;
+         }
       }
 
       public String TypeString
@@ -1496,9 +1515,11 @@ namespace CILAssemblyManipulator.Physical
       {
          return String.Equals( this._typeString, other._typeString );
       }
+
+
    }
 
-   public struct CustomAttributeValue_EnumReference : IEquatable<CustomAttributeValue_EnumReference>
+   public struct CustomAttributeValue_EnumReference : IEquatable<CustomAttributeValue_EnumReference>, CustomAttributeTypedArgumentValueComplex
    {
       private readonly String _enumType;
       private readonly Object _enumValue;
@@ -1507,6 +1528,14 @@ namespace CILAssemblyManipulator.Physical
       {
          this._enumType = enumType;
          this._enumValue = enumValue;
+      }
+
+      public CustomAttributeTypedArgumentValueKind CustomAttributeTypedArgumentValueKind
+      {
+         get
+         {
+            return CustomAttributeTypedArgumentValueKind.Enum;
+         }
       }
 
       public String EnumType
@@ -1539,6 +1568,58 @@ namespace CILAssemblyManipulator.Physical
       {
          return String.Equals( this._enumType, other._enumType )
             && Equals( this._enumValue, other._enumValue );
+      }
+   }
+
+   public struct CustomAttributeValue_Array : IEquatable<CustomAttributeValue_Array>, CustomAttributeTypedArgumentValueComplex
+   {
+      private readonly Array _array;
+      private readonly CustomAttributeArgumentType _arrayElementType;
+
+      public CustomAttributeValue_Array( Array array, CustomAttributeArgumentType arrayElementTypeString )
+      {
+         this._array = array;
+         this._arrayElementType = arrayElementTypeString;
+      }
+
+      public CustomAttributeTypedArgumentValueKind CustomAttributeTypedArgumentValueKind
+      {
+         get
+         {
+            return CustomAttributeTypedArgumentValueKind.Array;
+         }
+      }
+
+      public Array Array
+      {
+         get
+         {
+            return this._array;
+         }
+      }
+
+      public CustomAttributeArgumentType ArrayElementType
+      {
+         get
+         {
+            return this._arrayElementType;
+         }
+      }
+
+      public override Boolean Equals( Object obj )
+      {
+         return obj is CustomAttributeValue_Array && this.Equals( (CustomAttributeValue_Array) obj );
+      }
+
+      public override Int32 GetHashCode()
+      {
+         return ( 17 * 23 + this._arrayElementType.GetHashCodeSafe() ) * 23 + SequenceEqualityComparer<IEnumerable<Object>, Object>.SequenceHashCode( this.Array.Cast<Object>() );
+      }
+
+      public Boolean Equals( CustomAttributeValue_Array other )
+      {
+         return this._arrayElementType.EqualsTyped( other._arrayElementType )
+            && SequenceEqualityComparer<IEnumerable<Object>, Object>.SequenceEquality( this._array.Cast<Object>(), other._array.Cast<Object>() );
       }
    }
 
@@ -1895,6 +1976,140 @@ public static partial class E_CILPhysical
             IsOptional = cm.IsOptional,
             CustomModifierType = tableIndexTranslator == null ? cm.CustomModifierType : tableIndexTranslator( cm.CustomModifierType )
          };
+      }
+   }
+
+   internal static CustomAttributeArgumentType ResolveCACtorType( this CILMetaData md, TypeSignature type, Func<TableIndex, CustomAttributeArgumentType> enumFactory )
+   {
+      return md.ResolveCACtorType( type, enumFactory, true );
+   }
+
+
+   private static CustomAttributeArgumentType ResolveCACtorType( this CILMetaData md, TypeSignature type, Func<TableIndex, CustomAttributeArgumentType> enumFactory, Boolean acceptArray )
+   {
+      switch ( type.TypeSignatureKind )
+      {
+         case TypeSignatureKind.Simple:
+            switch ( ( (SimpleTypeSignature) type ).SimpleType )
+            {
+               case SignatureElementTypes.Boolean:
+                  return CustomAttributeArgumentTypeSimple.Boolean;
+               case SignatureElementTypes.Char:
+                  return CustomAttributeArgumentTypeSimple.Char;
+               case SignatureElementTypes.I1:
+                  return CustomAttributeArgumentTypeSimple.SByte;
+               case SignatureElementTypes.U1:
+                  return CustomAttributeArgumentTypeSimple.Byte;
+               case SignatureElementTypes.I2:
+                  return CustomAttributeArgumentTypeSimple.Int16;
+               case SignatureElementTypes.U2:
+                  return CustomAttributeArgumentTypeSimple.UInt16;
+               case SignatureElementTypes.I4:
+                  return CustomAttributeArgumentTypeSimple.Int32;
+               case SignatureElementTypes.U4:
+                  return CustomAttributeArgumentTypeSimple.UInt32;
+               case SignatureElementTypes.I8:
+                  return CustomAttributeArgumentTypeSimple.Int64;
+               case SignatureElementTypes.U8:
+                  return CustomAttributeArgumentTypeSimple.UInt64;
+               case SignatureElementTypes.R4:
+                  return CustomAttributeArgumentTypeSimple.Single;
+               case SignatureElementTypes.R8:
+                  return CustomAttributeArgumentTypeSimple.Double;
+               case SignatureElementTypes.String:
+                  return CustomAttributeArgumentTypeSimple.String;
+               default:
+                  return null;
+            }
+         case TypeSignatureKind.ClassOrValue:
+            var clazz = (ClassOrValueTypeSignature) type;
+            if ( clazz.GenericArguments.Count <= 0 )
+            {
+               if ( clazz.IsClass )
+               {
+                  // Either type or System.Object or System.Type are allowed here
+                  if ( md.IsTypeType( clazz.Type ) )
+                  {
+                     return CustomAttributeArgumentTypeSimple.Type;
+                  }
+                  else if ( md.IsSystemObjectType( clazz.Type ) )
+                  {
+                     return CustomAttributeArgumentTypeSimple.Object;
+                  }
+                  else
+                  {
+                     return null;
+                  }
+               }
+               else
+               {
+                  return enumFactory( clazz.Type );
+               }
+            }
+            else
+            {
+               return null;
+            }
+         case TypeSignatureKind.SimpleArray:
+            var retVal = acceptArray ?
+               new CustomAttributeArgumentTypeArray()
+               {
+                  ArrayType = md.ResolveCACtorType( ( (SimpleArrayTypeSignature) type ).ArrayType, enumFactory, false )
+               } :
+               null;
+            return retVal == null || retVal.ArrayType == null ? null : retVal;
+         default:
+            return null;
+      }
+   }
+
+   public static Type GetNativeTypeForCAArrayType( this CustomAttributeArgumentType elemType )
+   {
+      switch ( elemType.ArgumentTypeKind )
+      {
+         case CustomAttributeArgumentTypeKind.Array:
+            // Shouldn't be possible...
+            return null;
+         case CustomAttributeArgumentTypeKind.Simple:
+            switch ( ( (CustomAttributeArgumentTypeSimple) elemType ).SimpleType )
+            {
+               case SignatureElementTypes.Boolean:
+                  return typeof( Boolean );
+               case SignatureElementTypes.Char:
+                  return typeof( Char );
+               case SignatureElementTypes.I1:
+                  return typeof( SByte );
+               case SignatureElementTypes.U1:
+                  return typeof( Byte );
+               case SignatureElementTypes.I2:
+                  return typeof( Int16 );
+               case SignatureElementTypes.U2:
+                  return typeof( UInt16 );
+               case SignatureElementTypes.I4:
+                  return typeof( Int32 );
+               case SignatureElementTypes.U4:
+                  return typeof( UInt32 );
+               case SignatureElementTypes.I8:
+                  return typeof( Int64 );
+               case SignatureElementTypes.U8:
+                  return typeof( UInt64 );
+               case SignatureElementTypes.R4:
+                  return typeof( Single );
+               case SignatureElementTypes.R8:
+                  return typeof( Double );
+               case SignatureElementTypes.String:
+                  return typeof( String );
+               case SignatureElementTypes.Type:
+                  return typeof( CustomAttributeValue_TypeReference );
+               case SignatureElementTypes.Object:
+                  return typeof( Object );
+               default:
+                  return null;
+            }
+         case CustomAttributeArgumentTypeKind.TypeString:
+            return typeof( CustomAttributeValue_EnumReference );
+         default:
+            return null;
       }
    }
 }

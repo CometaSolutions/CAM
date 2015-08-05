@@ -2705,6 +2705,7 @@ namespace CILMerge
          {
             IsField = arg.IsField,
             Name = arg.Name,
+            FieldOrPropertyType = this.ProcessCATypedArgType( inputModule, arg.FieldOrPropertyType ),
             Value = this.ProcessCATypedArg( inputModule, arg.Value )
          };
       }
@@ -2713,9 +2714,46 @@ namespace CILMerge
       {
          return new CustomAttributeTypedArgument()
          {
-            Type = this.ProcessCATypedArgType( inputModule, arg.Type ),
-            Value = arg.Type.IsSimpleTypeOfKind( SignatureElementTypes.Type ) ? this.ProcessTypeString( inputModule, (String) arg.Value ) : arg.Value
+            Value = this.ProcessCATypedArgValue( inputModule, arg.Value )
          };
+      }
+
+      private Object ProcessCATypedArgValue( CILMetaData inputModule, Object value )
+      {
+         if ( value != null )
+         {
+            var complex = value as CustomAttributeTypedArgumentValueComplex;
+            if ( complex != null )
+            {
+               switch ( complex.CustomAttributeTypedArgumentValueKind )
+               {
+                  case CustomAttributeTypedArgumentValueKind.Type:
+                     value = new CustomAttributeValue_TypeReference( this.ProcessTypeString( inputModule, ( (CustomAttributeValue_TypeReference) value ).TypeString ) );
+                     break;
+                  case CustomAttributeTypedArgumentValueKind.Enum:
+                     var enumValue = (CustomAttributeValue_EnumReference) value;
+                     value = new CustomAttributeValue_EnumReference( this.ProcessTypeString( inputModule, enumValue.EnumType ), enumValue.EnumValue );
+                     break;
+                  case CustomAttributeTypedArgumentValueKind.Array:
+                     var array = (CustomAttributeValue_Array) value;
+                     var oldArray = array.Array;
+                     var newArray = oldArray == null ? null : Array.CreateInstance( oldArray.GetType().GetElementType(), oldArray.Length );
+                     value = new CustomAttributeValue_Array( newArray, this.ProcessCATypedArgType( inputModule, array.ArrayElementType ) );
+                     if ( newArray != null )
+                     {
+                        for ( var i = 0; i < newArray.Length; ++i )
+                        {
+                           newArray.SetValue( this.ProcessCATypedArgValue( inputModule, oldArray.GetValue( i ) ), i );
+                        }
+                     }
+                     break;
+                  default:
+                     throw new NotSupportedException( "Unsupported custom attribute typed argument complex value kind: " + complex.CustomAttributeTypedArgumentValueKind + "." );
+               }
+            }
+         }
+
+         return value;
       }
 
       private CustomAttributeArgumentType ProcessCATypedArgType( CILMetaData inputModule, CustomAttributeArgumentType type )

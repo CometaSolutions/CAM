@@ -78,7 +78,7 @@ namespace CILAssemblyManipulator.Logical
    /// </summary>
    /// <seealso cref="CILField"/>
    /// <seealso cref="CILProperty"/>
-   public interface CILElementForNamedCustomAttribute : CILElementWithSimpleName
+   public interface CILElementForNamedCustomAttribute : CILElementWithSimpleName, CILElementOwnedByType
    {
 
    }

@@ -1380,7 +1380,6 @@ namespace CILAssemblyManipulator.Physical.Implementation
                   Name = MetaDataConstants.PERMISSION_SET_XML_PROP,
                   Value = new CustomAttributeTypedArgument()
                   {
-                     Type = CustomAttributeArgumentTypeSimple.String,
                      Value = MetaDataConstants.USER_STRING_ENCODING.GetString( blob, bIdx, blobSize )
                   }
                } );

@@ -1643,26 +1643,8 @@ public static partial class E_CILLogical
             state.RecordEvent( cilEvt, evtIdx );
          }
       }
-   }
 
-   private static void CreateComplexStructure( this LogicalCreationState state )
-   {
-      var md = state.MetaData;
-      // Generic parameter constraints
-      foreach ( var gParamConstraint in md.GenericParameterConstraintDefinitions.TableContents )
-      {
-         var typeParam = state
-            .GetTypeParameter( gParamConstraint.Owner.Index );
-         typeParam.AddGenericParameterConstraints( state.ResolveTypeDefOrRefOrSpec( gParamConstraint.Constraint, typeParam.DeclaringType, typeParam.DeclaringMethod ) );
-      }
-
-      // Class layout table
-      foreach ( var layout in md.ClassLayouts.TableContents )
-      {
-         state.GetTypeDef( layout.Parent.Index ).Layout = new LogicalClassLayout( layout.ClassSize, layout.PackingSize );
-      }
-
-      // Method semantics
+      // Method semantics (custom attribute creation will require properties to have their setters/getters ready)
       foreach ( var semantics in md.MethodSemantics.TableContents )
       {
          var method = (CILMethod) state.GetMethodDef( semantics.Method.Index );
@@ -1690,6 +1672,24 @@ public static partial class E_CILLogical
             default:
                throw new InvalidOperationException( "Unrecognized semantics attributes: " + semantics.Attributes + "." );
          }
+      }
+   }
+
+   private static void CreateComplexStructure( this LogicalCreationState state )
+   {
+      var md = state.MetaData;
+      // Generic parameter constraints
+      foreach ( var gParamConstraint in md.GenericParameterConstraintDefinitions.TableContents )
+      {
+         var typeParam = state
+            .GetTypeParameter( gParamConstraint.Owner.Index );
+         typeParam.AddGenericParameterConstraints( state.ResolveTypeDefOrRefOrSpec( gParamConstraint.Constraint, typeParam.DeclaringType, typeParam.DeclaringMethod ) );
+      }
+
+      // Class layout table
+      foreach ( var layout in md.ClassLayouts.TableContents )
+      {
+         state.GetTypeDef( layout.Parent.Index ).Layout = new LogicalClassLayout( layout.ClassSize, layout.PackingSize );
       }
 
       // Constants
@@ -1989,9 +1989,14 @@ public static partial class E_CILLogical
          if ( sig.CustomAttributeSignatureKind == CustomAttributeSignatureKind.Resolved )
          {
             var caSig = (CustomAttributeSignature) sig;
+            if ( ctor.Parameters.Count != caSig.TypedArguments.Count )
+            {
+               throw new InvalidOperationException( "Constructor parameter count mismatch ( custom attribute index " + caIdx + ", constuctor parameter count: " + ctor.Parameters.Count + ", signature parameter count: " + caSig.TypedArguments.Count + "." );
+            }
+
             var declType = ctor.DeclaringType;
             var caTableIdx = new TableIndex( Tables.CustomAttribute, caIdx );
-            owner.AddCustomAttribute( ctor, caSig.TypedArguments.Select( arg => state.CreateCATypedArg( arg ) ), caSig.NamedArguments.Select( arg => state.CreateCANamedArg( declType, caTableIdx, arg ) ) );
+            owner.AddCustomAttribute( ctor, caSig.TypedArguments.Select( ( arg, idx ) => state.CreateCATypedArg( ctor.Parameters[idx].ParameterType as CILType, arg.Value ) ), caSig.NamedArguments.Select( arg => state.CreateCANamedArg( declType, caTableIdx, arg ) ) );
          }
          else
          {
@@ -2000,26 +2005,60 @@ public static partial class E_CILLogical
       }
    }
 
-   private static CILCustomAttributeTypedArgument CreateCATypedArg( this LogicalCreationState state, CustomAttributeTypedArgument sig )
+   private static CILCustomAttributeTypedArgument CreateCATypedArg( this LogicalCreationState state, CILTypeBase currentParamTypeBase, Object currentValue )
    {
-      return CILCustomAttributeFactory.NewTypedArgument( state.ResolveCAType( sig.Type ), sig.Value );
-   }
-
-   private static Object ReadCATypedArgValue( this LogicalCreationState state, CustomAttributeTypedArgument arg, out CILType argType )
-   {
-      var val = arg.Value;
-      if (val == null)
+      var currentParamType = currentParamTypeBase as CILType;
+      if ( currentParamType == null )
       {
-         argType = state.ResolveCAType( arg.Type );
-      } else
-      {
-         argType = state.ResolveSimpleType()
+         throw new InvalidOperationException( "Custom attribute typed argument type was not type or null." );
       }
+
+      if ( currentValue != null )
+      {
+         var complex = currentValue as CustomAttributeTypedArgumentValueComplex;
+         if ( complex != null )
+         {
+            // Enum, type, or array
+            switch ( complex.CustomAttributeTypedArgumentValueKind )
+            {
+               case CustomAttributeTypedArgumentValueKind.Type:
+                  currentParamType = state.Module.GetTypeForTypeCode( CILTypeCode.Type );
+                  currentValue = state.ResolveTypeString( ( (CustomAttributeValue_TypeReference) complex ).TypeString, false );
+                  break;
+               case CustomAttributeTypedArgumentValueKind.Enum:
+                  var enumValue = (CustomAttributeValue_EnumReference) complex;
+                  if ( !currentParamType.IsEnum() ) // E.g. System.Object
+                  {
+                     currentParamType = state.ResolveTypeString( enumValue.EnumType, false );
+                  }
+                  currentValue = enumValue.EnumValue;
+                  break;
+               case CustomAttributeTypedArgumentValueKind.Array:
+                  var array = (CustomAttributeValue_Array) complex;
+                  currentParamType = state.ResolveCAType( array.ArrayElementType );
+                  currentValue = array.Array.Cast<Object>().Select( o => state.CreateCATypedArg( currentParamType, o ) ).ToList();
+                  currentParamType = currentParamType.MakeArrayType();
+                  break;
+               default:
+                  throw new InvalidOperationException( "Unrecognized complex CA typed argument value kind: " + complex.CustomAttributeTypedArgumentValueKind + "." );
+            }
+         }
+         else if ( currentParamType.TypeCode == CILTypeCode.Type )
+         {
+            // Type stored as System.Type/String
+            currentValue = currentValue is Type ?
+               state.Module.ReflectionContext.NewWrapperAsType( (Type) currentValue ) :
+               state.ResolveTypeString( currentValue.ToString(), false );
+         }
+      }
+
+      return CILCustomAttributeFactory.NewTypedArgument( currentParamType, currentValue );
    }
 
    private static CILCustomAttributeNamedArgument CreateCANamedArg( this LogicalCreationState state, CILType declType, TableIndex caIdx, CustomAttributeNamedArgument sig )
    {
-      var namedElement = sig.IsField ?
+      var isField = sig.IsField;
+      var namedElement = isField ?
          (CILElementForNamedCustomAttribute) declType.GetBaseTypeChain().SelectMany( t => t.DeclaredFields ).FirstOrDefault( f => String.Equals( f.Name, sig.Name ) ) :
          declType.GetBaseTypeChain().SelectMany( t => t.DeclaredProperties ).FirstOrDefault( p => String.Equals( p.Name, sig.Name ) );
       if ( namedElement == null )
@@ -2027,7 +2066,7 @@ public static partial class E_CILLogical
          throw new InvalidOperationException( "Failed to resolve " + ( sig.IsField ? "field" : "property" ) + " named \"" + sig.Name + "\" at " + caIdx + "." );
       }
 
-      return CILCustomAttributeFactory.NewNamedArgument( namedElement, state.CreateCATypedArg( sig.Value ) );
+      return CILCustomAttributeFactory.NewNamedArgument( namedElement, state.CreateCATypedArg( isField ? ( (CILField) namedElement ).FieldType : ( (CILProperty) namedElement ).GetPropertyType(), sig.Value.Value ) );
    }
 
    private static CILType ResolveCAType( this LogicalCreationState state, CustomAttributeArgumentType sigType )
