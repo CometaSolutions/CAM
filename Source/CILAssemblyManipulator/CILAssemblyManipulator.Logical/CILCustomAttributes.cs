@@ -17,6 +17,7 @@
  */
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using CILAssemblyManipulator.Logical;
 using CILAssemblyManipulator.Logical.Implementation;
 using CollectionsWithRoles.API;
@@ -90,6 +91,9 @@ namespace CILAssemblyManipulator.Logical
       /// Gets or sets the value of this argument.
       /// </summary>
       /// <value>The value of this argument.</value>
+      /// <remarks>
+      /// If <see cref="ArgumentType"/> is array type, this value should be castable into <see cref="IEnumerable{CILCustomAttributeTypedArgument}"/>.
+      /// </remarks>
       Object Value { get; set; }
    }
 
@@ -150,6 +154,23 @@ namespace CILAssemblyManipulator.Logical
       public static CILCustomAttributeTypedArgument NewTypedArgument( CILType type, Object value )
       {
          return new CILCustomAttributeTypedArgumentImpl( type, value );
+      }
+
+      /// <summary>
+      /// Helper method to create a <see cref="CILCustomAttributeTypedArgument"/> that will hold an array with all elements of the same type.
+      /// </summary>
+      /// <param name="arrayElementType">The type of elements of the array. An array type will be created out of this type and the created type will be the <see cref="CILCustomAttributeTypedArgument.ArgumentType"/> of the result.</param>
+      /// <param name="values">The bare values (not <see cref="CILCustomAttributeTypedArgument"/>s) that will be elements of the array.</param>
+      /// <returns>The <see cref="CILCustomAttributeTypedArgument"/> containing data for array of given type and elements.</returns>
+      public static CILCustomAttributeTypedArgument NewTypedArgumentArray( CILType arrayElementType, System.Collections.IEnumerable values )
+      {
+         return NewTypedArgument(
+            arrayElementType.MakeArrayType(),
+            values
+               .Cast<Object>()
+               .Select( val => NewTypedArgument( arrayElementType, val ) )
+               .ToList()
+            );
       }
 
       /// <summary>
