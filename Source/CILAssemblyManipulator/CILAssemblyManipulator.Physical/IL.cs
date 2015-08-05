@@ -70,19 +70,19 @@ namespace CILAssemblyManipulator.Physical
 
    public abstract class OpCodeInfo
    {
-      private readonly OpCode _code;
+      private readonly OpCodeEncoding _code; // Save some memory - use enum instead of actual code (Int64 -> Int32)
 
       // Disable inheritance to other assemblies
       internal OpCodeInfo( OpCode code )
       {
-         this._code = code;
+         this._code = code.Value;
       }
 
       public OpCode OpCode
       {
          get
          {
-            return this._code;
+            return OpCodes.GetCodeFor( this._code );
          }
       }
 
@@ -92,7 +92,7 @@ namespace CILAssemblyManipulator.Physical
       {
          get
          {
-            return this._code.OperandSize;
+            return this.OpCode.OperandSize;
          }
       }
 

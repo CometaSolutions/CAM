@@ -167,7 +167,7 @@ namespace CILAssemblyManipulator.Physical
                      String retVal;
                      if ( tDef != null )
                      {
-                        var nestedDef = md.NestedClassDefinitions.TableContents.Find( nc => nc != null && nc.NestedClass.Index == idx );
+                        var nestedDef = md.NestedClassDefinitions.TableContents.FirstOrDefault( nc => nc != null && nc.NestedClass.Index == idx );
                         if ( nestedDef == null )
                         {
                            // This is top-level class
