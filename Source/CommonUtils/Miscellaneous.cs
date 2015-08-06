@@ -24,65 +24,75 @@ using System.Threading;
 
 namespace CommonUtils
 {
-   // TODO might not be needed after all.
-   //public sealed class ThreadLocal<T>
-   //{
-   //   // Helper class to hold values, so T typeparam wouldn't have any generic constraints.
-   //   private sealed class ValueHolder
-   //   {
-   //      internal T _value;
-   //      internal ValueHolder( T value )
-   //      {
-   //         this._value = value;
-   //      }
-   //   }
 
-   //   // Table holding all instances of ThreadLocals in this thread. Since they are weak references, they should get GC'd without big issues.
-   //   [ThreadStatic]
-   //   private static ConditionalWeakTable<ThreadLocal<T>, ValueHolder> _table;
+#if SILVERLIGHT
+   /// <summary>
+   /// This is helper class to provide similar functionality to <see cref="T:System.Threading.ThreadLocal`1"/>, which is missing in Silverlight.
+   /// </summary>
+   /// <typeparam name="T">The type of the values to hold.</typeparam>
+   public sealed class ThreadLocal<T>
+   {
+      // Helper class to hold values, so T typeparam wouldn't have any generic constraints.
+      private sealed class ValueHolder
+      {
+         internal T _value;
+         internal ValueHolder( T value )
+         {
+            this._value = value;
+         }
+      }
 
-   //   // Factory callback
-   //   private readonly Func<T> _factory;
+      private static readonly Func<T> _defaultFactory = () => default( T );
 
-   //   public ThreadLocal()
-   //      : this( () => default( T ) )
-   //   {
+      // Table holding all instances of ThreadLocals in this thread. Since they are weak references, they should get GC'd without big issues.
+      [ThreadStatic]
+      private static System.Runtime.CompilerServices.ConditionalWeakTable<ThreadLocal<T>, ValueHolder> _table;
 
-   //   }
+      // Factory callback
+      private readonly Func<T> _factory;
 
-   //   public ThreadLocal( Func<T> factory )
-   //   {
-   //      CommonUtils.ArgumentValidator.ValidateNotNull( "Threadlocal value factory", factory );
-   //      this._factory = factory;
-   //   }
+      /// <summary>
+      /// Creates a new instance of <see cref="ThreadLocal{T}"/> with optional factory callback.
+      /// </summary>
+      /// <param name="factory">The optional factory callback. If not supplied (i.e. is <c>null</c>), then a factory callback will return default value ofr type <typeparamref name="T"/>.</param>
+      public ThreadLocal( Func<T> factory = null )
+      {
+         this._factory = factory ?? _defaultFactory;
+      }
 
-   //   public T Value
-   //   {
-   //      get
-   //      {
-   //         ValueHolder holder;
-   //         T retVal;
-   //         if ( _table != null && _table.TryGetValue( this, out holder ) )
-   //         {
-   //            retVal = holder._value;
-   //         }
-   //         else
-   //         {
-   //            retVal = this._factory();
-   //            this.Value = retVal;
-   //         }
-   //         return retVal;
-   //      }
-   //      set
-   //      {
-   //         if ( _table == null )
-   //         {
-   //            _table = new ConditionalWeakTable<ThreadLocal<T>, ValueHolder>();
-   //         }
-   //         _table.GetOrCreateValue( this )._value = value;
-   //      }
-   //   }
-   //}
+      /// <summary>
+      /// Gets or sets value that this <see cref="ThreadLocal{T}"/> holds in current thread.
+      /// </summary>
+      /// <value>The value that this <see cref="ThreadLocal{T}"/> holds in current thread.</value>
+      public T Value
+      {
+         get
+         {
+            ValueHolder holder;
+            T retVal;
+            if ( _table != null && _table.TryGetValue( this, out holder ) )
+            {
+               retVal = holder._value;
+            }
+            else
+            {
+               retVal = this._factory();
+               this.Value = retVal;
+            }
+            return retVal;
+         }
+         set
+         {
+            if ( _table == null )
+            {
+               _table = new System.Runtime.CompilerServices.ConditionalWeakTable<ThreadLocal<T>, ValueHolder>();
+            }
+            _table.GetOrCreateValue( this )._value = value;
+         }
+      }
+   }
+#endif
+
 }
 
 public static partial class E_CommonUtils
