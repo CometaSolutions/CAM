@@ -12,10 +12,8 @@
     <FileAlignment>512</FileAlignment>
     <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
     <CAMPhysicalIsPortable Condition=" '$(Configuration)' == 'Debug_Portable' Or '$(Configuration)' == 'Release_Portable' ">True</CAMPhysicalIsPortable>
-    
     <ProjectTypeGuids>{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}</ProjectTypeGuids>
     <ProjectTypeGuids Condition=" '$(CAMPhysicalIsPortable)' != '' ">{786C830F-07A1-408B-BD7F-6EE04809D6DB};$(ProjectTypeGuids)</ProjectTypeGuids>
-    
     <TargetFrameworkVersion>v4.0</TargetFrameworkVersion>
     <TargetFrameworkProfile Condition=" '$(CAMPhysicalIsPortable)' != '' ">Profile328</TargetFrameworkProfile>
     <TargetFrameworkProfile Condition=" '$(CAMPhysicalIsPortable)' == '' ">Client</TargetFrameworkProfile>
@@ -98,6 +96,7 @@
     <Compile Include="Crypto.cs" />
     <Compile Include="DotNET\CryptoCallbacks.cs" />
     <Compile Include="DotNET\Loaders.cs" />
+    <Compile Include="DotNET\TargetFrameworkMapper.cs" />
     <Compile Include="DotNET\Verification.cs" />
     <Compile Include="Enums.cs" />
     <Compile Include="Comparers.cs" />

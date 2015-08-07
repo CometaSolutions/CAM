@@ -24,22 +24,60 @@ using System.Text;
 
 namespace CILAssemblyManipulator.Physical
 {
-   public class TargetFrameworkMapper
+   public interface TargetFrameworkMapper
    {
-      private readonly IDictionary<CILMetaData, ISet<String>> _mdTypes;
-      private readonly IDictionary<TargetFrameworkInfo, String[]> _targetFWAssemblies;
-      private readonly IDictionary<CILMetaData, IDictionary<String, CILMetaData>> _resolvedTargetFWAssemblies;
-      private readonly IDictionary<CILMetaData, IDictionary<AssemblyInformationForResolving, CILMetaData>> _assemblyReferenceInfo;
+      Boolean TryReMapReference( CILMetaData thisMD, AssemblyInformationForResolving aRef, String fullType, CILMetaDataLoaderWithCallbacks loader, TargetFrameworkInfo targetFW, out AssemblyReference newRef, out Boolean wasTargetFW );
+      Boolean ProcessTypeString( CILMetaData thisMD, CILMetaDataLoaderWithCallbacks loader, TargetFrameworkInfo targetFW, ref String typeString );
+   }
 
-      public TargetFrameworkMapper()
+   public abstract class AbstractTargetFrameworkMapper<
+      TTypesDic,
+      TTargetFWAssembliesDic,
+      TResolvedTargetFWAssembliesDic,
+      TResolvedTargetFWAssembliesDicInner,
+      TAssemblyReferenceDic,
+      TAssemblyReferenceDicInner
+      > : TargetFrameworkMapper
+      where TTypesDic : class, IDictionary<CILMetaData, ISet<String>>
+      where TTargetFWAssembliesDic : class, IDictionary<TargetFrameworkInfo, String[]>
+      where TResolvedTargetFWAssembliesDic : class, IDictionary<CILMetaData, TResolvedTargetFWAssembliesDicInner>
+      where TResolvedTargetFWAssembliesDicInner : class, IDictionary<String, CILMetaData>
+      where TAssemblyReferenceDic : class, IDictionary<CILMetaData, TAssemblyReferenceDicInner>
+      where TAssemblyReferenceDicInner : class, IDictionary<AssemblyInformationForResolving, CILMetaData>
+   {
+      private readonly TTypesDic _mdTypes;
+      private readonly TTargetFWAssembliesDic _targetFWAssemblies;
+      private readonly TResolvedTargetFWAssembliesDic _resolvedTargetFWAssemblies;
+      private readonly TAssemblyReferenceDic _assemblyReferenceInfo;
+
+      private readonly Func<CILMetaData, TResolvedTargetFWAssembliesDicInner> _resolvedInnerFactory;
+      private readonly Func<CILMetaData, TAssemblyReferenceDicInner> _assemblyReferenceInnerFactory;
+
+      internal AbstractTargetFrameworkMapper(
+         TTypesDic mdTypes,
+         TTargetFWAssembliesDic targetFWAssemblies,
+         TResolvedTargetFWAssembliesDic resolvedTargetFWAssemblies,
+         TAssemblyReferenceDic assemblyReferences,
+         Func<CILMetaData, TResolvedTargetFWAssembliesDicInner> resolvedInnerFactory,
+         Func<CILMetaData, TAssemblyReferenceDicInner> assemblyReferenceInnerFactory
+         )
       {
-         this._mdTypes = new Dictionary<CILMetaData, ISet<String>>();
-         this._targetFWAssemblies = new Dictionary<TargetFrameworkInfo, String[]>();
-         this._resolvedTargetFWAssemblies = new Dictionary<CILMetaData, IDictionary<String, CILMetaData>>();
-         this._assemblyReferenceInfo = new Dictionary<CILMetaData, IDictionary<AssemblyInformationForResolving, CILMetaData>>();
+         ArgumentValidator.ValidateNotNull( "Meta data type dictionary", mdTypes );
+         ArgumentValidator.ValidateNotNull( "Target framework assemblies dictionary", targetFWAssemblies );
+         ArgumentValidator.ValidateNotNull( "Resolved target framework assemblies dictionary", resolvedTargetFWAssemblies );
+         ArgumentValidator.ValidateNotNull( "Assembly reference dictionary", assemblyReferences );
+         ArgumentValidator.ValidateNotNull( "Resolved target framework assemblies inner dictionary factory", resolvedInnerFactory );
+         ArgumentValidator.ValidateNotNull( "Assembly reference inner dictionary factory", assemblyReferenceInnerFactory );
+
+         this._mdTypes = mdTypes;
+         this._targetFWAssemblies = targetFWAssemblies;
+         this._resolvedTargetFWAssemblies = resolvedTargetFWAssemblies;
+         this._assemblyReferenceInfo = assemblyReferences;
+         this._resolvedInnerFactory = resolvedInnerFactory;
+         this._assemblyReferenceInnerFactory = assemblyReferenceInnerFactory;
       }
 
-      internal Boolean TryReMapReference( CILMetaData thisMD, AssemblyInformationForResolving aRef, String fullType, CILMetaDataLoaderWithCallbacks loader, TargetFrameworkInfo targetFW, out AssemblyReference newRef, out Boolean wasTargetFW )
+      public Boolean TryReMapReference( CILMetaData thisMD, AssemblyInformationForResolving aRef, String fullType, CILMetaDataLoaderWithCallbacks loader, TargetFrameworkInfo targetFW, out AssemblyReference newRef, out Boolean wasTargetFW )
       {
          newRef = null;
 
@@ -68,7 +106,7 @@ namespace CILAssemblyManipulator.Physical
          return retVal;
       }
 
-      internal Boolean ProcessTypeString( CILMetaData thisMD, CILMetaDataLoaderWithCallbacks loader, TargetFrameworkInfo targetFW, ref String typeString )
+      public Boolean ProcessTypeString( CILMetaData thisMD, CILMetaDataLoaderWithCallbacks loader, TargetFrameworkInfo targetFW, ref String typeString )
       {
          String typeName, assemblyName;
          AssemblyInformation assemblyInfo;
@@ -90,9 +128,10 @@ namespace CILAssemblyManipulator.Physical
 
       private CILMetaData GetActualMDForType( CILMetaData targetFWAssembly, CILMetaDataLoaderWithCallbacks loader, String fullType, TargetFrameworkInfo newTargetFW )
       {
-         return this._resolvedTargetFWAssemblies
-            .GetOrAdd_NotThreadSafe( targetFWAssembly, tfwa => new Dictionary<String, CILMetaData>() )
-            .GetOrAdd_NotThreadSafe( fullType, typeStr =>
+         return this.GetOrAdd_ResolvedTargetFWAssembliesInner(
+            this.GetOrAdd_ResolvedTargetFWAssemblies( this._resolvedTargetFWAssemblies, targetFWAssembly, this._resolvedInnerFactory ),
+            fullType,
+            typeStr =>
                this.GetSuitableMDsForTargetFW( targetFWAssembly, loader, newTargetFW )
                   .FirstOrDefault( md => this.IsTypePresent( md, typeStr ) )
             );
@@ -100,39 +139,39 @@ namespace CILAssemblyManipulator.Physical
 
       private CILMetaData ResolveTargetFWReferenceOrNull( CILMetaData thisMD, AssemblyInformationForResolving assemblyRef, CILMetaDataLoaderWithCallbacks loader, TargetFrameworkInfo targetFW )
       {
-         return this._assemblyReferenceInfo
-            .GetOrAdd_NotThreadSafe( thisMD, md => new Dictionary<AssemblyInformationForResolving, CILMetaData>() )
-            .GetOrAdd_NotThreadSafe( assemblyRef, aRef =>
-         {
-            var cb = loader.LoaderCallbacks;
-            var validResource = cb.GetPossibleResourcesForAssemblyReference( loader.GetResourceFor( thisMD ), thisMD, aRef, null )
-               .Where( res => cb.IsValidResource( res ) )
-               .FirstOrDefault();
-            CILMetaData retVal;
-            if ( validResource == null )
+         return this.GetOrAdd_AssemblyReferencesInner(
+            this.GetOrAdd_AssemblyReferences( this._assemblyReferenceInfo, thisMD, this._assemblyReferenceInnerFactory ),
+            assemblyRef,
+            aRef =>
             {
-               // Most likely this metadata didn't have target framework info attribute
-               // TODO match public key too.
-               retVal = this.GetTargetFWAssemblies( targetFW, loader )
-                  .Select( res => loader.GetOrLoadMetaData( res ) )
-                  .FirstOrDefault( md => md.AssemblyDefinitions.GetOrNull( 0 ).IsMatch( assemblyRef, targetFW.AreFrameworkAssemblyReferencesRetargetable, loader.PublicKeyComputer ) );
-            }
-            else if ( validResource.StartsWith( cb.GetTargetFrameworkPathForFrameworkInfo( targetFW ) ) ) // Check whether resolved reference is located in target framework path
-            {
-               retVal = loader.GetOrLoadMetaData( validResource );
-            }
-            else
-            {
-               retVal = null;
-            }
-            return retVal;
-         } );
+               var cb = loader.LoaderCallbacks;
+               var validResource = cb.GetPossibleResourcesForAssemblyReference( loader.GetResourceFor( thisMD ), thisMD, aRef, null )
+                  .Where( res => cb.IsValidResource( res ) )
+                  .FirstOrDefault();
+               CILMetaData retVal;
+               if ( validResource == null )
+               {
+                  // Most likely this metadata didn't have target framework info attribute
+                  // TODO match public key too.
+                  retVal = this.GetTargetFWAssemblies( targetFW, loader )
+                     .Select( res => loader.GetOrLoadMetaData( res ) )
+                     .FirstOrDefault( md => md.AssemblyDefinitions.GetOrNull( 0 ).IsMatch( assemblyRef, targetFW.AreFrameworkAssemblyReferencesRetargetable, loader.PublicKeyComputer ) );
+               }
+               else if ( validResource.StartsWith( cb.GetTargetFrameworkPathForFrameworkInfo( targetFW ) ) ) // Check whether resolved reference is located in target framework path
+               {
+                  retVal = loader.GetOrLoadMetaData( validResource );
+               }
+               else
+               {
+                  retVal = null;
+               }
+               return retVal;
+            } );
       }
 
       private Boolean IsTypePresent( CILMetaData metaData, String typeName )
       {
-         return this._mdTypes
-            .GetOrAdd_NotThreadSafe( metaData, md => new HashSet<String>( md.GetTypeDefinitionsFullNames() ) )
+         return this.GetOrAdd_MDTypes( this._mdTypes, metaData, md => new HashSet<String>( md.GetTypeDefinitionsFullNames() ) )
             .Contains( typeName );
       }
 
@@ -154,7 +193,70 @@ namespace CILAssemblyManipulator.Physical
 
       private String[] GetTargetFWAssemblies( TargetFrameworkInfo targetFW, CILMetaDataLoaderWithCallbacks loader )
       {
-         return this._targetFWAssemblies.GetOrAdd_NotThreadSafe( targetFW, tfw => loader.LoaderCallbacks.GetAssemblyResourcesForFramework( tfw ).ToArray() );
+         return this.GetOrAdd_TargetFWAssemblies( this._targetFWAssemblies, targetFW, tfw => loader.LoaderCallbacks.GetAssemblyResourcesForFramework( tfw ).ToArray() );
+      }
+
+      protected abstract String[] GetOrAdd_TargetFWAssemblies( TTargetFWAssembliesDic dic, TargetFrameworkInfo key, Func<TargetFrameworkInfo, String[]> factory );
+      protected abstract ISet<String> GetOrAdd_MDTypes( TTypesDic dic, CILMetaData key, Func<CILMetaData, ISet<String>> factory );
+      protected abstract TResolvedTargetFWAssembliesDicInner GetOrAdd_ResolvedTargetFWAssemblies( TResolvedTargetFWAssembliesDic dic, CILMetaData key, Func<CILMetaData, TResolvedTargetFWAssembliesDicInner> factory );
+      protected abstract CILMetaData GetOrAdd_ResolvedTargetFWAssembliesInner( TResolvedTargetFWAssembliesDicInner dic, String key, Func<String, CILMetaData> factory );
+      protected abstract TAssemblyReferenceDicInner GetOrAdd_AssemblyReferences( TAssemblyReferenceDic dic, CILMetaData key, Func<CILMetaData, TAssemblyReferenceDicInner> factory );
+      protected abstract CILMetaData GetOrAdd_AssemblyReferencesInner( TAssemblyReferenceDicInner dic, AssemblyInformationForResolving key, Func<AssemblyInformationForResolving, CILMetaData> factory );
+
+
+   }
+
+
+   public class TargetFrameworkMapperNotThreadSafe : AbstractTargetFrameworkMapper<
+      Dictionary<CILMetaData, ISet<String>>,
+      Dictionary<TargetFrameworkInfo, String[]>,
+      Dictionary<CILMetaData, Dictionary<String, CILMetaData>>,
+      Dictionary<String, CILMetaData>,
+      Dictionary<CILMetaData, Dictionary<AssemblyInformationForResolving, CILMetaData>>,
+      Dictionary<AssemblyInformationForResolving, CILMetaData>
+      >
+   {
+
+      public TargetFrameworkMapperNotThreadSafe()
+         : base(
+         new Dictionary<CILMetaData, ISet<String>>(),
+         new Dictionary<TargetFrameworkInfo, String[]>(),
+         new Dictionary<CILMetaData, Dictionary<String, CILMetaData>>(),
+         new Dictionary<CILMetaData, Dictionary<AssemblyInformationForResolving, CILMetaData>>(),
+         md => new Dictionary<String, CILMetaData>(),
+         md => new Dictionary<AssemblyInformationForResolving, CILMetaData>()
+         )
+      {
+      }
+
+      protected override String[] GetOrAdd_TargetFWAssemblies( Dictionary<TargetFrameworkInfo, String[]> dic, TargetFrameworkInfo key, Func<TargetFrameworkInfo, String[]> factory )
+      {
+         return dic.GetOrAdd_NotThreadSafe( key, factory );
+      }
+
+      protected override ISet<String> GetOrAdd_MDTypes( Dictionary<CILMetaData, ISet<String>> dic, CILMetaData key, Func<CILMetaData, ISet<String>> factory )
+      {
+         return dic.GetOrAdd_NotThreadSafe( key, factory );
+      }
+
+      protected override Dictionary<String, CILMetaData> GetOrAdd_ResolvedTargetFWAssemblies( Dictionary<CILMetaData, Dictionary<String, CILMetaData>> dic, CILMetaData key, Func<CILMetaData, Dictionary<String, CILMetaData>> factory )
+      {
+         return dic.GetOrAdd_NotThreadSafe( key, factory );
+      }
+
+      protected override CILMetaData GetOrAdd_ResolvedTargetFWAssembliesInner( Dictionary<String, CILMetaData> dic, String key, Func<String, CILMetaData> factory )
+      {
+         return dic.GetOrAdd_NotThreadSafe( key, factory );
+      }
+
+      protected override Dictionary<AssemblyInformationForResolving, CILMetaData> GetOrAdd_AssemblyReferences( Dictionary<CILMetaData, Dictionary<AssemblyInformationForResolving, CILMetaData>> dic, CILMetaData key, Func<CILMetaData, Dictionary<AssemblyInformationForResolving, CILMetaData>> factory )
+      {
+         return dic.GetOrAdd_NotThreadSafe( key, factory );
+      }
+
+      protected override CILMetaData GetOrAdd_AssemblyReferencesInner( Dictionary<AssemblyInformationForResolving, CILMetaData> dic, AssemblyInformationForResolving key, Func<AssemblyInformationForResolving, CILMetaData> factory )
+      {
+         return dic.GetOrAdd_NotThreadSafe( key, factory );
       }
    }
 }
