@@ -371,8 +371,11 @@ namespace CILAssemblyManipulator.Physical.Implementation
                // Read Import table
                stream.SeekFromBegin( ResolveRVA( importDD.rva, sections ) + 12 );
                var importRVA = stream.ReadU32( tmpArray );
-               stream.SeekFromBegin( ResolveRVA( importRVA, sections ) );
-               headers.ImportDirectoryName = stream.ReadZeroTerminatedASCIIString();
+               if ( importRVA > 0 )
+               {
+                  stream.SeekFromBegin( ResolveRVA( importRVA, sections ) );
+                  headers.ImportDirectoryName = stream.ReadZeroTerminatedASCIIString();
+               }
             }
 
             if ( iatDD.rva > 0 )
@@ -380,8 +383,11 @@ namespace CILAssemblyManipulator.Physical.Implementation
                // Read IAT for hint name
                stream.SeekFromBegin( ResolveRVA( iatDD.rva, sections ) );
                var hnRVA = stream.ReadU32( tmpArray );
-               stream.SeekFromBegin( ResolveRVA( hnRVA, sections ) + 2 );
-               headers.ImportHintName = stream.ReadZeroTerminatedASCIIString();
+               if ( hnRVA > 0 )
+               {
+                  stream.SeekFromBegin( ResolveRVA( hnRVA, sections ) + 2 );
+                  headers.ImportHintName = stream.ReadZeroTerminatedASCIIString();
+               }
             }
 
             if ( nativeEPRVA > 0 )
@@ -392,6 +398,11 @@ namespace CILAssemblyManipulator.Physical.Implementation
          }
 
          // CLI header, skip magic
+         if ( cliDD.rva == 0 )
+         {
+            throw new NotAManagedModuleException();
+         }
+
          stream.SeekFromBegin( ResolveRVA( cliDD.rva, sections ) + 4 );
          headers.CLIMajor = stream.ReadU16( tmpArray );
          headers.CLIMinor = stream.ReadU16( tmpArray );
@@ -950,11 +961,15 @@ namespace CILAssemblyManipulator.Physical.Implementation
             var rva = (UInt32) methodDefRVAs[i];
             if ( rva != 0 )
             {
-               var offset = ResolveRVA( rva, sections );
-               if ( offset < stream.Length )
+               var implAttrs = retVal.MethodDefinitions.TableContents[i].ImplementationAttributes;
+               if ( !implAttrs.IsNative() )
                {
-                  stream.SeekFromBegin( offset );
-                  retVal.MethodDefinitions.TableContents[i].IL = ReadMethodILDefinition( stream, userStrings );
+                  var offset = ResolveRVA( rva, sections );
+                  if ( offset < stream.Length )
+                  {
+                     stream.SeekFromBegin( offset );
+                     retVal.MethodDefinitions.TableContents[i].IL = ReadMethodILDefinition( stream, userStrings );
+                  }
                }
             }
          }

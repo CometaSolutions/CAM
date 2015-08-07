@@ -72,12 +72,15 @@ namespace CILAssemblyManipulator.Physical
             moduleReferenceName += ".dll";
          }
 
-         var retVal = Path.Combine(
-            Path.GetDirectoryName( thisModulePath ),
-            moduleReferenceName
-            );
+         if ( !String.IsNullOrEmpty( thisModulePath ) )
+         {
+            var retVal = Path.Combine(
+               Path.GetDirectoryName( thisModulePath ),
+               moduleReferenceName
+               );
 
-         yield return retVal;
+            yield return retVal;
+         }
       }
 
       private IEnumerable<String> GetAllPossibleResourcesForAssemblyReference( String thisModulePath, CILMetaData thisMetaData, AssemblyInformationForResolving? assemblyRefInfo, string unparsedAssemblyName )
@@ -87,18 +90,21 @@ namespace CILAssemblyManipulator.Physical
          // Process only those string references which are successfully parsed as assembly names
          if ( assemblyRefInfo.HasValue )
          {
-            var path = Path.GetDirectoryName( thisModulePath );
             var assRefName = assemblyRefInfo.Value.AssemblyInformation.Name;
+            var path = Path.GetDirectoryName( thisModulePath );
+            if ( !String.IsNullOrEmpty( path ) )
+            {
 
-            // First, try lookup in same folder
-            yield return Path.Combine( path, assRefName + ".dll" );
-            yield return Path.Combine( path, assRefName + ".exe" );
-            yield return Path.Combine( path, assRefName + ".winmd" );
-            // TODO more extensions?
+               // First, try lookup in same folder
+               yield return Path.Combine( path, assRefName + ".dll" );
+               yield return Path.Combine( path, assRefName + ".exe" );
+               yield return Path.Combine( path, assRefName + ".winmd" );
+               // TODO more extensions?
+            }
 
             // Then, try lookup in target framework directory, if we can parse target framework attribute
             path = this.GetTargetFrameworkPathFor( thisMetaData );
-            if ( path != null )
+            if ( !String.IsNullOrEmpty( path ) )
             {
                yield return Path.Combine( path, assRefName + ".dll" );
             }
@@ -144,7 +150,10 @@ namespace CILAssemblyManipulator.Physical
 
       public IEnumerable<String> GetAssemblyResourcesForFramework( TargetFrameworkInfo targetFW )
       {
-         throw new NotImplementedException();
+         var targetFWPath = this.GetTargetFrameworkPathForFrameworkInfo( targetFW );
+         return String.IsNullOrEmpty( targetFWPath ) ?
+            Empty<String>.Enumerable :
+            Directory.EnumerateFiles( targetFWPath, "*.dll", SearchOption.TopDirectoryOnly );
       }
 
       public static String GetDefaultReferenceAssemblyPath()

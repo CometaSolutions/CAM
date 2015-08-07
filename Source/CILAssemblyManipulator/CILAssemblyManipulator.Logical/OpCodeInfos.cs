@@ -29,11 +29,11 @@ namespace CILAssemblyManipulator.Logical
    /// </summary>
    public abstract class LogicalOpCodeInfoWithOneOpCode : LogicalOpCodeInfo
    {
-      private readonly OpCodeEncoding _opCode; // Save some memory and store enum instead of actual struct
+      private readonly UInt16 _opCode; // Save some memory and store enum instead of actual struct
 
       internal LogicalOpCodeInfoWithOneOpCode( OpCode code )
       {
-         this._opCode = code.Value;
+         this._opCode = (UInt16) code.Value;
       }
 
       //internal override Int32 BranchTargetCount
@@ -52,7 +52,7 @@ namespace CILAssemblyManipulator.Logical
       {
          get
          {
-            return OpCodes.GetCodeFor( this._opCode );
+            return OpCodes.GetCodeFor( (OpCodeEncoding) this._opCode );
          }
       }
 
@@ -382,8 +382,8 @@ namespace CILAssemblyManipulator.Logical
    public sealed class LogicalOpCodeInfoForNormalOrVirtual : LogicalOpCodeInfo
    {
       private readonly CILMethod _method;
-      private readonly OpCodeEncoding _normal;
-      private readonly OpCodeEncoding _virtual;
+      private readonly UInt16 _normal;
+      private readonly UInt16 _virtual;
       //private readonly Int32 _minSize;
       //private readonly Int32 _maxSize;
 
@@ -399,8 +399,8 @@ namespace CILAssemblyManipulator.Logical
          ArgumentValidator.ValidateNotNull( "Method", method );
 
          this._method = method;
-         this._normal = normal.Value;
-         this._virtual = aVirtual.Value;
+         this._normal = (UInt16) normal.Value;
+         this._virtual = (UInt16) aVirtual.Value;
          //this._minSize = Math.Min( normal.Size, aVirtual.Size ) + LogicalOpCodeInfoWithFixedSizeOperand.TOKEN_SIZE;
          //this._maxSize = Math.Max( normal.Size, aVirtual.Size ) + LogicalOpCodeInfoWithFixedSizeOperand.TOKEN_SIZE;
       }
@@ -476,7 +476,7 @@ namespace CILAssemblyManipulator.Logical
       {
          get
          {
-            return OpCodes.GetCodeFor( this._normal );
+            return OpCodes.GetCodeFor( (OpCodeEncoding) this._normal );
          }
       }
 
@@ -488,7 +488,7 @@ namespace CILAssemblyManipulator.Logical
       {
          get
          {
-            return OpCodes.GetCodeFor( this._virtual );
+            return OpCodes.GetCodeFor( (OpCodeEncoding) this._virtual );
          }
       }
 
@@ -1167,7 +1167,7 @@ namespace CILAssemblyManipulator.Logical
    /// </summary>
    public sealed class LogicalOpCodeInfoForFixedBranchOrLeave : LogicalDynamicOpCodeInfo
    {
-      private readonly OpCodeEncoding _code;
+      private readonly UInt16 _code;
       private readonly ILLabel _label;
 
       /// <summary>
@@ -1178,7 +1178,7 @@ namespace CILAssemblyManipulator.Logical
       public LogicalOpCodeInfoForFixedBranchOrLeave( OpCode code, ILLabel label )
       //: base( code.Size + ( code.OperandType == OperandType.ShortInlineBrTarget ? SHORT_BRANCH_OPERAND_SIZE : LONG_BRANCH_OPERAND_SIZE ) )
       {
-         this._code = code.Value;
+         this._code = (UInt16) code.Value;
          this._label = label;
       }
 
@@ -1203,7 +1203,7 @@ namespace CILAssemblyManipulator.Logical
       {
          get
          {
-            return OpCodes.GetCodeFor( this._code );
+            return OpCodes.GetCodeFor( (OpCodeEncoding) this._code );
          }
       }
 

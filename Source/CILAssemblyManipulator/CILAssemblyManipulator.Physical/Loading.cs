@@ -46,6 +46,15 @@ namespace CILAssemblyManipulator.Physical
       HashStreamInfo? PublicKeyComputer { get; }
    }
 
+   public class MetaDataLoadException : Exception
+   {
+      public MetaDataLoadException( String msg, Exception inner = null )
+         : base( msg, inner )
+      {
+
+      }
+   }
+
    public abstract class AbstractCILMetaDataLoader<TDictionary> : AbstractDisposable, CILMetaDataLoader
       where TDictionary : class, IDictionary<String, CILMetaData>
    {
@@ -101,8 +110,14 @@ namespace CILAssemblyManipulator.Physical
             using ( var stream = this.GetStreamFor( res ) )
             {
                rArgs = new ReadingArguments( true );
-
-               return stream.ReadModule( rArgs );
+               try
+               {
+                  return stream.ReadModule( rArgs );
+               }
+               catch ( Exception exc )
+               {
+                  throw new MetaDataLoadException( "Error when loading CIL module from " + resource + ".", exc );
+               }
             }
          } );
 

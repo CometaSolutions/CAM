@@ -33,6 +33,7 @@ namespace CILAssemblyManipulator.Physical
       ConcurrentDictionary<AssemblyInformationForResolving, CILMetaData>
       >
    {
+      private readonly ConcurrentDictionary<String, String> _notManagedAssemblies;
 
       public TargetFrameworkMapperConcurrent()
          : base(
@@ -44,6 +45,7 @@ namespace CILAssemblyManipulator.Physical
          md => new ConcurrentDictionary<AssemblyInformationForResolving, CILMetaData>()
          )
       {
+         this._notManagedAssemblies = new ConcurrentDictionary<String, String>();
       }
 
       protected override String[] GetOrAdd_TargetFWAssemblies( ConcurrentDictionary<TargetFrameworkInfo, String[]> dic, TargetFrameworkInfo key, Func<TargetFrameworkInfo, String[]> factory )
@@ -74,6 +76,16 @@ namespace CILAssemblyManipulator.Physical
       protected override CILMetaData GetOrAdd_AssemblyReferencesInner( ConcurrentDictionary<AssemblyInformationForResolving, CILMetaData> dic, AssemblyInformationForResolving key, Func<AssemblyInformationForResolving, CILMetaData> factory )
       {
          return dic.GetOrAdd( key, factory );
+      }
+
+      protected override void RecordNotManagedAssembly( String resource )
+      {
+         this._notManagedAssemblies.TryAdd( resource, resource );
+      }
+
+      protected override bool IsRecordedNotManagedAssembly( String resource )
+      {
+         return this._notManagedAssemblies.ContainsKey( resource );
       }
    }
 }

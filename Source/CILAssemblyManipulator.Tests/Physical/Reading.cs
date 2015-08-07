@@ -56,6 +56,19 @@ namespace CILAssemblyManipulator.Tests.Physical
          TestReading( MSCorLib, ValidateAllIsResolved );
       }
 
+      [Test]
+      public void TestReadingAssemblyWithUnmanagedCode()
+      {
+         Assert.DoesNotThrow( () =>
+         {
+            using ( var stream = System.IO.File.OpenRead( @"C:\Program Files (x86)\Reference Assemblies\Microsoft\Framework\.NETFramework\v4.0\System.EnterpriseServices.Wrapper.dll" ) )
+            {
+               var rArgs = new ReadingArguments();
+               stream.ReadModule( rArgs );
+            }
+         } );
+      }
+
       private void TestReading( System.Reflection.Assembly assembly, Action<CILMetaData> validationAction = null )
       {
          var resolver = new MetaDataResolver();

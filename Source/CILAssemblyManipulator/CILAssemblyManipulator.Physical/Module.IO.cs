@@ -212,6 +212,17 @@ namespace CILAssemblyManipulator.Physical
       }
    }
 
+   /// <summary>
+   /// This will be thrown by <see cref="CILModuleIO.ReadModule"/> method if the target file does not contain a managed assembly.
+   /// </summary>
+   public class NotAManagedModuleException : Exception
+   {
+      internal NotAManagedModuleException()
+      {
+
+      }
+   }
+
    public static class CILModuleIO
    {
 

@@ -132,7 +132,7 @@ namespace CILAssemblyManipulator.Physical
             this.GetOrAdd_ResolvedTargetFWAssemblies( this._resolvedTargetFWAssemblies, targetFWAssembly, this._resolvedInnerFactory ),
             fullType,
             typeStr =>
-               this.GetSuitableMDsForTargetFW( targetFWAssembly, loader, newTargetFW )
+               this.GetSuitableMDsForTargetFW( targetFWAssembly, loader, newTargetFW, true )
                   .FirstOrDefault( md => this.IsTypePresent( md, typeStr ) )
             );
       }
@@ -145,16 +145,15 @@ namespace CILAssemblyManipulator.Physical
             aRef =>
             {
                var cb = loader.LoaderCallbacks;
-               var validResource = cb.GetPossibleResourcesForAssemblyReference( loader.GetResourceFor( thisMD ), thisMD, aRef, null )
+               var validResource = cb
+                  .GetPossibleResourcesForAssemblyReference( loader.GetResourceFor( thisMD ), thisMD, aRef, null )
                   .Where( res => cb.IsValidResource( res ) )
                   .FirstOrDefault();
                CILMetaData retVal;
                if ( validResource == null )
                {
                   // Most likely this metadata didn't have target framework info attribute
-                  // TODO match public key too.
-                  retVal = this.GetTargetFWAssemblies( targetFW, loader )
-                     .Select( res => loader.GetOrLoadMetaData( res ) )
+                  retVal = this.GetSuitableMDsForTargetFW( thisMD, loader, targetFW, false )
                      .FirstOrDefault( md => md.AssemblyDefinitions.GetOrNull( 0 ).IsMatch( assemblyRef, targetFW.AreFrameworkAssemblyReferencesRetargetable, loader.PublicKeyComputer ) );
                }
                else if ( validResource.StartsWith( cb.GetTargetFrameworkPathForFrameworkInfo( targetFW ) ) ) // Check whether resolved reference is located in target framework path
@@ -175,16 +174,36 @@ namespace CILAssemblyManipulator.Physical
             .Contains( typeName );
       }
 
-      private IEnumerable<CILMetaData> GetSuitableMDsForTargetFW( CILMetaData md, CILMetaDataLoaderWithCallbacks loader, TargetFrameworkInfo targetFW )
+      private IEnumerable<CILMetaData> GetSuitableMDsForTargetFW( CILMetaData md, CILMetaDataLoaderWithCallbacks loader, TargetFrameworkInfo targetFW, Boolean returnThis )
       {
-         // Always try current library at first
-         yield return md;
+         if ( returnThis )
+         {
+            // Always try current library at first
+            yield return md;
+         }
 
          // Then start enumerating all the rest of the assemblies in target framework directory
-         foreach ( var res in this.GetTargetFWAssemblies( targetFW, loader ) )
+         foreach ( var res in this.GetTargetFWAssemblies( targetFW, loader ).Where( r => !this.IsRecordedNotManagedAssembly( r ) ) )
          {
-            var current = loader.GetOrLoadMetaData( res );
-            if ( !ReferenceEquals( md, current ) )
+            CILMetaData current;
+            try
+            {
+               current = loader.GetOrLoadMetaData( res );
+            }
+            catch ( MetaDataLoadException e )
+            {
+               if ( e.InnerException is NotAManagedModuleException )
+               {
+                  current = null;
+                  this.RecordNotManagedAssembly( res );
+               }
+               else
+               {
+                  throw;
+               }
+            }
+
+            if ( current != null && !ReferenceEquals( md, current ) )
             {
                yield return current;
             }
@@ -202,7 +221,8 @@ namespace CILAssemblyManipulator.Physical
       protected abstract CILMetaData GetOrAdd_ResolvedTargetFWAssembliesInner( TResolvedTargetFWAssembliesDicInner dic, String key, Func<String, CILMetaData> factory );
       protected abstract TAssemblyReferenceDicInner GetOrAdd_AssemblyReferences( TAssemblyReferenceDic dic, CILMetaData key, Func<CILMetaData, TAssemblyReferenceDicInner> factory );
       protected abstract CILMetaData GetOrAdd_AssemblyReferencesInner( TAssemblyReferenceDicInner dic, AssemblyInformationForResolving key, Func<AssemblyInformationForResolving, CILMetaData> factory );
-
+      protected abstract void RecordNotManagedAssembly( String resource );
+      protected abstract Boolean IsRecordedNotManagedAssembly( String resource );
 
    }
 
@@ -216,6 +236,7 @@ namespace CILAssemblyManipulator.Physical
       Dictionary<AssemblyInformationForResolving, CILMetaData>
       >
    {
+      private readonly HashSet<String> _notManagedAssemblies;
 
       public TargetFrameworkMapperNotThreadSafe()
          : base(
@@ -227,6 +248,7 @@ namespace CILAssemblyManipulator.Physical
          md => new Dictionary<AssemblyInformationForResolving, CILMetaData>()
          )
       {
+         this._notManagedAssemblies = new HashSet<String>();
       }
 
       protected override String[] GetOrAdd_TargetFWAssemblies( Dictionary<TargetFrameworkInfo, String[]> dic, TargetFrameworkInfo key, Func<TargetFrameworkInfo, String[]> factory )
@@ -257,6 +279,16 @@ namespace CILAssemblyManipulator.Physical
       protected override CILMetaData GetOrAdd_AssemblyReferencesInner( Dictionary<AssemblyInformationForResolving, CILMetaData> dic, AssemblyInformationForResolving key, Func<AssemblyInformationForResolving, CILMetaData> factory )
       {
          return dic.GetOrAdd_NotThreadSafe( key, factory );
+      }
+
+      protected override void RecordNotManagedAssembly( String resource )
+      {
+         this._notManagedAssemblies.Add( resource );
+      }
+
+      protected override bool IsRecordedNotManagedAssembly( String resource )
+      {
+         return this._notManagedAssemblies.Contains( resource );
       }
    }
 }
