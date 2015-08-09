@@ -12,8 +12,7 @@
     <RootNamespace>CILAssemblyManipulator.PDB</RootNamespace>
     <AssemblyName>CILAssemblyManipulator.PDB</AssemblyName>
     <TargetFrameworkVersion>v4.0</TargetFrameworkVersion>
-    <TargetFrameworkProfile Condition=" '$(Configuration)' == 'Debug_WP' or '$(Configuration)' == 'Release_WP' ">Profile328</TargetFrameworkProfile>
-    <TargetFrameworkProfile Condition="'$(TargetFrameworkProfile)' == ''">Profile92</TargetFrameworkProfile>
+    <TargetFrameworkProfile>Profile328</TargetFrameworkProfile>
     <FileAlignment>512</FileAlignment>
     <ProjectTypeGuids>{786C830F-07A1-408B-BD7F-6EE04809D6DB};{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}</ProjectTypeGuids>
     <GenerateSerializationAssemblies>Off</GenerateSerializationAssemblies>
@@ -22,7 +21,7 @@
     <DebugSymbols>true</DebugSymbols>
     <DebugType>full</DebugType>
     <Optimize>false</Optimize>
-    <OutputPath>..\..\..\Output\Debug\dotNET\</OutputPath>
+    <OutputPath>..\..\..\Output\Debug\SL\</OutputPath>
     <DefineConstants>DEBUG;TRACE</DefineConstants>
     <ErrorReport>prompt</ErrorReport>
     <WarningLevel>4</WarningLevel>
@@ -30,7 +29,7 @@
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Release|AnyCPU' ">
     <DebugType>none</DebugType>
     <Optimize>true</Optimize>
-    <OutputPath>..\..\..\Output\Release\dotNET\</OutputPath>
+    <OutputPath>..\..\..\Output\Release\SL\</OutputPath>
     <DefineConstants>TRACE</DefineConstants>
     <ErrorReport>prompt</ErrorReport>
     <WarningLevel>4</WarningLevel>
@@ -54,8 +53,7 @@
     <CodeAnalysisRuleSet>MinimumRecommendedRules.ruleset</CodeAnalysisRuleSet>
   </PropertyGroup>
   <ItemGroup>
-    <!-- A reference to the entire .NET Framework is automatically included -->
-    <ProjectReference Condition=" '$(UseUtilpackReference)' == '' " Include="..\..\CommonUtils\CommonUtils.csproj">
+    <ProjectReference Include="..\..\CommonUtils\CommonUtils.csproj" Condition=" '$(UseUtilpackReference)' == '' And '$(IsCommandLineBuild)' == ''" >
       <Project>{dba22cd8-ac89-4902-8e44-f4771875e781}</Project>
       <Name>CommonUtils</Name>
     </ProjectReference>
@@ -69,9 +67,15 @@
     <Compile Include="Properties\AssemblyInfo.cs" />
     <Compile Include="PDBIO.Reading.cs" />
   </ItemGroup>
-  <ItemGroup Condition=" '$(UseUtilpackReference)' != '' ">
-    <Reference Include="UtilPack">
+  <ItemGroup>
+    <Reference Include="UtilPack" Condition=" '$(UseUtilpackReference)' != '' ">
       <HintPath>$(OutputPath)UtilPack.dll</HintPath>
+    </Reference>
+    <Reference Include="CommonUtils" Condition=" '$(UseUtilpackReference)' == '' And '$(IsCommandLineBuild)' != '' ">
+      <HintPath>$(OutputPath)CommonUtils.dll</HintPath>
+    </Reference>
+    <Reference Include="CollectionsWithRoles" Condition=" '$(UseUtilpackReference)' == '' And '$(IsCommandLineBuild)' != '' ">
+      <HintPath>$(OutputPath)CollectionsWithRoles.dll</HintPath>
     </Reference>
   </ItemGroup>
   <Import Project="$(MSBuildExtensionsPath32)\Microsoft\Portable\$(TargetFrameworkVersion)\Microsoft.Portable.CSharp.targets" />

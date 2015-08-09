@@ -10,7 +10,36 @@
   
   <!-- Projects to build, in build order -->
   <ItemGroup>
-    <CILMergeProject Include="$(CILMergeBaseDir)/Source/CILMerge/CILMerge.MSBuild/CILMerge.MSBuild.csproj" />
+    <CILMergeProject Include="$(CILMergeBaseDir)/Source/CollectionsWithRoles/CollectionsWithRoles.csproj">
+      <!-- <MergeProjectPath>$(CILMergeBaseDir)/Source/CollectionsWithRoles/CollectionsWithRoles.csproj</MergeProjectPath> -->
+      <MergeProjectConfiguration>$(CILMergeConfiguration)_SL</MergeProjectConfiguration>
+      <MergeProjectTargets>Build</MergeProjectTargets>
+    </CILMergeProject>
+    <CILMergeProject Include="$(CILMergeBaseDir)/Source/CollectionsWithRoles/CollectionsWithRoles.csproj">
+      <!-- <MergeProjectPath>$(CILMergeBaseDir)/Source/CollectionsWithRoles/CollectionsWithRoles.csproj</MergeProjectPath> -->
+      <MergeProjectConfiguration>$(CILMergeConfiguration)</MergeProjectConfiguration>
+      <MergeProjectTargets>Build</MergeProjectTargets>
+    </CILMergeProject>
+    <CILMergeProject Include="$(CILMergeBaseDir)/Source/CILAssemblyManipulator/CILAssemblyManipulator.Physical/CILAssemblyManipulator.Physical.csproj">
+      <!-- <MergeProjectPath>$(CILMergeBaseDir)/Source/CILAssemblyManipulator/CILAssemblyManipulator.Physical/CILAssemblyManipulator.Physical.csproj</MergeProjectPath> -->
+      <MergeProjectConfiguration>$(CILMergeConfiguration)</MergeProjectConfiguration>
+      <MergeProjectTargets>GenerateAssemblyInfoFile;Build</MergeProjectTargets>
+    </CILMergeProject>
+    <CILMergeProject Include="$(CILMergeBaseDir)/Source/CILAssemblyManipulator/CILAssemblyManipulator.PDB/CILAssemblyManipulator.PDB.csproj">
+      <!-- <MergeProjectPath>$(CILMergeBaseDir)/Source/CILAssemblyManipulator/CILAssemblyManipulator.PDB/CILAssemblyManipulator.PDB.csproj</MergeProjectPath>  -->
+      <MergeProjectConfiguration>$(CILMergeConfiguration)</MergeProjectConfiguration>
+      <MergeProjectTargets>Rebuild</MergeProjectTargets>
+    </CILMergeProject>
+    <CILMergeProject Include="$(CILMergeBaseDir)/Source/CILAssemblyManipulator/CILAssemblyManipulator.MResources/CILAssemblyManipulator.MResources.csproj">
+      <!-- <MergeProjectPath>$(CILMergeBaseDir)/Source/CILAssemblyManipulator/CILAssemblyManipulator.MResources/CILAssemblyManipulator.MResources.csproj</MergeProjectPath>  -->
+      <MergeProjectConfiguration>$(CILMergeConfiguration)</MergeProjectConfiguration>
+      <MergeProjectTargets>Rebuild</MergeProjectTargets>
+    </CILMergeProject>
+    <CILMergeProject Include="$(CILMergeBaseDir)/Source/CILMerge/CILMerge.MSBuild/CILMerge.MSBuild.csproj">
+      <!-- <MergeProjectPath>$(CILMergeBaseDir)/Source/CILMerge/CILMerge.MSBuild/CILMerge.MSBuild.csproj</MergeProjectPath> -->
+      <MergeProjectConfiguration>$(CILMergeConfiguration)</MergeProjectConfiguration>
+      <MergeProjectTargets>$(CILMergeBuildTargets)</MergeProjectTargets>
+    </CILMergeProject>
   </ItemGroup>
   
   <Target Name="Build">
@@ -18,7 +47,7 @@
     <MSBuild Projects="$(CILMergeBaseDir)/CommonBuildTools/CLR/Build/CommonBuildTools.build" />
     
     <!-- Build CILMerge projects -->
-    <MSBuild Projects="@(CILMergeProject)" Targets="$(CILMergeBuildTargets)" Properties="Configuration=$(CILMergeConfiguration);Platform=$(CILMergePlatform)" />    
+    <MSBuild Projects="@(CILMergeProject)" Targets="%(MergeProjectTargets)" Properties="Configuration=%(MergeProjectConfiguration);Platform=$(CILMergePlatform);IsCommandLineBuild=true" />
   </Target>
   
   <!-- NuSpec file information -->

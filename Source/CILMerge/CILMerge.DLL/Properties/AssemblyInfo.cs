@@ -19,6 +19,3 @@ using System;
 using System.Runtime.CompilerServices;
 
 [assembly: CLSCompliant( true )]
-
-[assembly: InternalsVisibleTo( "CILMerge" )]
-[assembly: InternalsVisibleTo( "CILMerge.MSBuild" )]

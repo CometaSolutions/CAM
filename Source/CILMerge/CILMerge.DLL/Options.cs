@@ -20,18 +20,20 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Text;
-using CILAssemblyManipulator.API;
+using CILAssemblyManipulator.Physical;
+using CommonUtils;
+using CILMerge;
 
 namespace CILMerge
 {
    public interface CILMergeOptions
    {
-      int Align { get; set; }
+      int FileAlign { get; set; }
       bool AllowDuplicateResources { get; set; }
       System.Collections.Generic.ISet<string> AllowDuplicateTypes { get; set; }
       bool AllowMultipleAssemblyAttributes { get; set; }
       bool AllowWildCards { get; set; }
-      string AttrSource { get; set; }
+      string TargetAssemblyAttributeSource { get; set; }
       bool Closed { get; set; }
       bool CopyAttributes { get; set; }
       bool DelaySign { get; set; }
@@ -39,17 +41,19 @@ namespace CILMerge
       string[] InputAssemblies { get; set; }
       bool Internalize { get; set; }
       string KeyFile { get; set; }
-      CILAssemblyManipulator.API.AssemblyHashAlgorithm? SigningAlgorithm { get; set; }
+      string CSPName { get; set; }
+      CILAssemblyManipulator.Physical.AssemblyHashAlgorithm? SigningAlgorithm { get; set; }
       string[] LibPaths { get; set; }
       bool DoLogging { get; set; }
-      string LogFile { get; set; }
+      //string LogFile { get; set; }
       bool NoDebug { get; set; }
       string OutPath { get; set; }
       bool Parallel { get; set; }
-      CILAssemblyManipulator.API.ModuleKind? Target { get; set; }
-      CILAssemblyManipulator.API.TargetRuntime? TargetPlatform { get; set; }
+      CILAssemblyManipulator.Physical.ModuleKind? Target { get; set; }
+      String MetadataVersionString { get; set; }
       string ReferenceAssembliesDirectory { get; set; }
       bool Union { get; set; }
+      // TODO this option might be removed. Setting this to true would require loading all referenced assemblies of input modules (to find out their full public key) which don't have full public key in their refs.
       bool UseFullPublicKeyForRefs { get; set; }
       bool Verbose { get; set; }
       int VerBuild { get; set; }
@@ -58,12 +62,18 @@ namespace CILMerge
       int VerRevision { get; set; }
       bool XmlDocs { get; set; }
       bool ZeroPEKind { get; set; }
-      CILMergeLogCallback CILLogCallback { get; set; }
+      //CILMergeLogCallback CILLogCallback { get; set; }
       bool NoResources { get; set; }
 
       Int32 SubsystemMajor { get; set; }
       Int32 SubsystemMinor { get; set; }
       Boolean HighEntropyVA { get; set; }
+
+      // When merging non-portable libraries with portable libraries, if non-portable library implements something that has retargetable ref in its signature -> PEVerify will think that the signatures are not matching
+      Boolean SkipFixingAssemblyReferences { get; set; }
+
+      String TargetAssemblyName { get; set; }
+      String TargetModuleName { get; set; }
    }
 
    public interface CILMergeLogCallback
@@ -71,88 +81,107 @@ namespace CILMerge
       void Log( MessageLevel mLevel, String formatString, params Object[] args );
    }
 
+   public abstract class AbstractCILMergeLogCallback : CILMergeLogCallback
+   {
+
+      public abstract void Log( MessageLevel mLevel, String formatString, Object[] args );
+
+      protected static String CreateMessageString( MessageLevel mLevel, String formatString, Object[] args )
+      {
+         return String.Format( "{0}: {1}", mLevel, (Object) String.Format( formatString, args ) );
+      }
+   }
+
+   public class ConsoleCILMergeLogCallback : StreamWriterCILMergeLogCallback
+   {
+      public static readonly ConsoleCILMergeLogCallback Instance = new ConsoleCILMergeLogCallback();
+
+      private ConsoleCILMergeLogCallback()
+         : base( Console.Out )
+      {
+
+      }
+   }
+
+   public class StreamWriterCILMergeLogCallback : AbstractCILMergeLogCallback
+   {
+      private readonly TextWriter _writer;
+
+      public StreamWriterCILMergeLogCallback( TextWriter writer )
+      {
+         ArgumentValidator.ValidateNotNull( "Stream writer", writer );
+
+         this._writer = writer;
+      }
+
+      public override void Log( MessageLevel mLevel, String formatString, Object[] args )
+      {
+         this._writer.WriteLine( CreateMessageString( mLevel, formatString, args ) );
+      }
+   }
+
    public class CILMergeOptionsImpl : CILMergeOptions
    {
-      private String _out;
-      private String _keyFile;
-      private AssemblyHashAlgorithm? _signingAlgorithm;
-      private Boolean _log;
-      private String _logFile;
-      private Int32 _verMajor;
-      private Int32 _verMinor;
-      private Int32 _verBuild;
-      private Int32 _verRevision;
-      private Boolean _union;
-      private Boolean _noDebug;
-      private Boolean _copyAttributes;
-      private String _attrSource;
-      private Boolean _allowMultipleAssemblyAttributes;
-      private ModuleKind? _target;
-      private TargetRuntime? _targetPlatform;
-      private String _refAssDir;
-      private Boolean _xmlDocs;
-      private String[] _libPaths;
-      private Boolean _internalize;
-      private String _excludeFile;
-      private Boolean _delaySign;
-      private Boolean _useFullPublicKeyForRefs;
-      private Int32 _align;
-      private Boolean _closed;
-      private ISet<String> _allowDuplicateTypes;
-      private Boolean _allowDuplicateResources;
-      private Boolean _zeroPEKind;
-      private Boolean _parallel;
-      private Boolean _verbose;
-      private String[] _inputAssemblies;
-      private Boolean _allowWildCards;
-      private CILMergeLogCallback _logCallback;
-      private Boolean _noResources;
+      public const String MD_NET_1_0 = "v1.0.3705";
+      public const String MD_NET_1_1 = "v1.1.4322";
+      public const String MD_NET_2_0 = "v2.0.50727";
+      public const String MD_NET_4_0 = "v4.0.30319";
 
-      private Int32 _subsystemMajor;
-      private Int32 _subsystemMinor;
-      private Boolean _highEntropyVA;
+      private String _excludeFile;
 
       public CILMergeOptionsImpl()
       {
 
       }
 
-      public String OutPath { get { return this._out; } set { this._out = value; } }
-      public String KeyFile { get { return this._keyFile; } set { this._keyFile = value; } }
-      public AssemblyHashAlgorithm? SigningAlgorithm { get { return this._signingAlgorithm; } set { this._signingAlgorithm = value; } }
-      public Boolean DoLogging { get { return this._log; } set { this._log = value; } }
-      public String LogFile { get { return this._logFile; } set { this._logFile = value; } }
-      public Int32 VerMajor { get { return this._verMajor; } set { this._verMajor = value; } }
-      public Int32 VerMinor { get { return this._verMinor; } set { this._verMinor = value; } }
-      public Int32 VerBuild { get { return this._verBuild; } set { this._verBuild = value; } }
-      public Int32 VerRevision { get { return this._verRevision; } set { this._verRevision = value; } }
-      public Boolean Union { get { return this._union; } set { this._union = value; } }
-      public Boolean NoDebug { get { return this._noDebug; } set { this._noDebug = value; } }
-      public Boolean CopyAttributes { get { return this._copyAttributes; } set { this._copyAttributes = value; } }
-      public String AttrSource { get { return this._attrSource; } set { this._attrSource = value; } }
-      public Boolean AllowMultipleAssemblyAttributes { get { return this._allowMultipleAssemblyAttributes; } set { this._allowMultipleAssemblyAttributes = value; } }
-      public ModuleKind? Target { get { return this._target; } set { this._target = value; } }
-      public TargetRuntime? TargetPlatform { get { return this._targetPlatform; } set { this._targetPlatform = value; } }
-      public String ReferenceAssembliesDirectory { get { return this._refAssDir; } set { this._refAssDir = value; } }
-      public Boolean XmlDocs { get { return this._xmlDocs; } set { this._xmlDocs = value; } }
-      public String[] LibPaths { get { return this._libPaths; } set { this._libPaths = value; } }
-      public Boolean Internalize { get { return this._internalize; } set { this._internalize = value; } }
-      public String ExcludeFile { get { return this._excludeFile; } set { this._excludeFile = value; if ( !String.IsNullOrEmpty( value ) ) { this._internalize = true; } } }
-      public Boolean DelaySign { get { return this._delaySign; } set { this._delaySign = value; } }
-      public Boolean UseFullPublicKeyForRefs { get { return this._useFullPublicKeyForRefs; } set { this._useFullPublicKeyForRefs = value; } }
-      public Int32 Align { get { return this._align; } set { this._align = value; } }
-      public Boolean Closed { get { return this._closed; } set { this._closed = value; } }
-      public ISet<String> AllowDuplicateTypes { get { return this._allowDuplicateTypes; } set { this._allowDuplicateTypes = value; } }
-      public Boolean AllowDuplicateResources { get { return this._allowDuplicateResources; } set { this._allowDuplicateResources = value; } }
-      public Boolean ZeroPEKind { get { return this._zeroPEKind; } set { this._zeroPEKind = value; } }
-      public Boolean Parallel { get { return this._parallel; } set { this._parallel = value; } }
-      public Boolean Verbose { get { return this._verbose; } set { this._verbose = value; } }
-      public String[] InputAssemblies { get { return this._inputAssemblies; } set { this._inputAssemblies = value; } }
-      public Boolean AllowWildCards { get { return this._allowWildCards; } set { this._allowWildCards = value; } }
-      public Boolean NoResources { get { return this._noResources; } set { this._noResources = value; } }
-      public CILMergeLogCallback CILLogCallback { get { return this._logCallback; } set { this._logCallback = value; } }
-      public Int32 SubsystemMajor { get { return this._subsystemMajor; } set { this._subsystemMajor = value; } }
-      public Int32 SubsystemMinor { get { return this._subsystemMinor; } set { this._subsystemMinor = value; } }
-      public Boolean HighEntropyVA { get { return this._highEntropyVA; } set { this._highEntropyVA = value; } }
+      public String OutPath { get; set; }
+      public String KeyFile { get; set; }
+      public String CSPName { get; set; }
+      public AssemblyHashAlgorithm? SigningAlgorithm { get; set; }
+      public Boolean DoLogging { get; set; }
+      //public String LogFile { get; set; }
+      public Int32 VerMajor { get; set; }
+      public Int32 VerMinor { get; set; }
+      public Int32 VerBuild { get; set; }
+      public Int32 VerRevision { get; set; }
+      public Boolean Union { get; set; }
+      public Boolean NoDebug { get; set; }
+      public Boolean CopyAttributes { get; set; }
+      public String TargetAssemblyAttributeSource { get; set; }
+      public Boolean AllowMultipleAssemblyAttributes { get; set; }
+      public ModuleKind? Target { get; set; }
+      public String MetadataVersionString { get; set; }
+      public String ReferenceAssembliesDirectory { get; set; }
+      public Boolean XmlDocs { get; set; }
+      public String[] LibPaths { get; set; }
+      public Boolean Internalize { get; set; }
+      public String ExcludeFile { get { return this._excludeFile; } set { this._excludeFile = value; if ( !String.IsNullOrEmpty( value ) ) { this.Internalize = true; } } }
+      public Boolean DelaySign { get; set; }
+      public Boolean UseFullPublicKeyForRefs { get; set; }
+      public Int32 FileAlign { get; set; }
+      public Boolean Closed { get; set; }
+      public ISet<String> AllowDuplicateTypes { get; set; }
+      public Boolean AllowDuplicateResources { get; set; }
+      public Boolean ZeroPEKind { get; set; }
+      public Boolean Parallel { get; set; }
+      public Boolean Verbose { get; set; }
+      public String[] InputAssemblies { get; set; }
+      public Boolean AllowWildCards { get; set; }
+      public Boolean NoResources { get; set; }
+      //public CILMergeLogCallback CILLogCallback { get; set; }
+      public Int32 SubsystemMajor { get; set; }
+      public Int32 SubsystemMinor { get; set; }
+      public Boolean HighEntropyVA { get; set; }
+      public Boolean SkipFixingAssemblyReferences { get; set; }
+      public String TargetAssemblyName { get; set; }
+      public String TargetModuleName { get; set; }
+   }
+}
+
+public static partial class E_CILMerge
+{
+   public static Boolean OutputHasStrongName( this CILMergeOptions options )
+   {
+      return !String.IsNullOrEmpty( options.KeyFile ) || !String.IsNullOrEmpty( options.CSPName );
    }
 }

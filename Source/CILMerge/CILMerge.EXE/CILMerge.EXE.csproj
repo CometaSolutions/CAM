@@ -56,6 +56,12 @@
     <Reference Include="System.Core" />
     <Reference Include="System.Xml.Linq" />
     <Reference Include="System.Xml" />
+    <Reference Include="CommonUtils" Condition=" '$(UseUtilpackReference)' == '' And '$(IsCommandLineBuild)' != '' ">
+      <HintPath>$(OutputPath)CommonUtils.dll</HintPath>
+    </Reference>
+    <Reference Include="CollectionsWithRoles" Condition=" '$(UseUtilpackReference)' == '' And '$(IsCommandLineBuild)' != '' ">
+      <HintPath>$(OutputPath)CollectionsWithRoles.dll</HintPath>
+    </Reference>
   </ItemGroup>
   <ItemGroup>
     <Compile Include="..\..\AssemblyInfo\$(AssemblyName).cs">
@@ -68,17 +74,13 @@
       <Project>{30ff1a5b-c34f-4569-8955-03cb6dc30ed1}</Project>
       <Name>ApplicationParameters</Name>
     </ProjectReference>
-    <ProjectReference Condition=" '$(UseUtilpackReference)' == '' " Include="..\..\CILAssemblyManipulator\CILAssemblyManipulator.DotNET\CILAssemblyManipulator.DotNET.csproj">
-      <Project>{719d1206-7193-4b77-be9b-5de2655132a6}</Project>
-      <Name>CILAssemblyManipulator.DotNET</Name>
-    </ProjectReference>
     <ProjectReference Condition=" '$(UseUtilpackReference)' == '' " Include="..\..\CILAssemblyManipulator\CILAssemblyManipulator.PDB\CILAssemblyManipulator.PDB.csproj">
       <Project>{5f874824-aea5-45a0-a0a2-408210397b08}</Project>
       <Name>CILAssemblyManipulator.PDB</Name>
     </ProjectReference>
-    <ProjectReference Condition=" '$(UseUtilpackReference)' == '' " Include="..\..\CILAssemblyManipulator\CILAssemblyManipulator.Core\CILAssemblyManipulator.Core.csproj">
-      <Project>{aeabb192-070f-4c75-bdae-7e29496026ae}</Project>
-      <Name>CILAssemblyManipulator</Name>
+    <ProjectReference Condition=" '$(UseUtilpackReference)' == '' " Include="..\..\CILAssemblyManipulator\CILAssemblyManipulator.Physical\CILAssemblyManipulator.Physical.csproj">
+      <Project>{ba297806-a89f-4a3b-945b-08729853df75}</Project>
+      <Name>CILAssemblyManipulator.Physical</Name>
     </ProjectReference>
     <ProjectReference Condition=" '$(UseUtilpackReference)' == '' " Include="..\..\CollectionsWithRoles\CollectionsWithRoles.csproj">
       <Project>{7f7ebfb0-2bf4-44d8-b96f-accc5f99f529}</Project>

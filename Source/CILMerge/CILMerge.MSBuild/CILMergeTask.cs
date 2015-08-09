@@ -19,9 +19,9 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
-using CILAssemblyManipulator.API;
 using Microsoft.Build.Framework;
 using Microsoft.Build.Utilities;
+using CILAssemblyManipulator.Physical;
 
 namespace CILMerge.MSBuild
 {
@@ -54,18 +54,16 @@ namespace CILMerge.MSBuild
          }
          else
          {
-            if ( !String.IsNullOrEmpty( this.OutDir ) )
+            if ( String.IsNullOrEmpty( this.OutPath ) )
             {
-               this.OutPath = System.IO.Path.GetFullPath( System.IO.Path.Combine( this.OutDir, System.IO.Path.GetFileName( inputs[0] ) ) );
-            }
-            else if ( String.IsNullOrEmpty( this.OutPath ) )
-            {
-               this.OutPath = inputs[0];
-            }
-
-            if ( this.DoLogging && this.LogFile == null )
-            {
-               ( (CILMergeOptions) this ).CILLogCallback = this;
+               if ( !String.IsNullOrEmpty( this.OutDir ) )
+               {
+                  this.OutPath = System.IO.Path.GetFullPath( System.IO.Path.Combine( this.OutDir, System.IO.Path.GetFileName( inputs[0] ) ) );
+               }
+               else if ( String.IsNullOrEmpty( this.OutPath ) )
+               {
+                  this.OutPath = inputs[0];
+               }
             }
 
             if ( this.LibPaths == null || this.LibPaths.Length == 0 )
@@ -79,20 +77,61 @@ namespace CILMerge.MSBuild
 
             ExpandPaths( inputs );
 
-            this.Log.LogMessage( MessageImportance.High, "Performing merge for assemblies {0}; with library paths {1}; and outputting to {2} (union: {3}, closed: {4}).", String.Join( ", ", this.InputAssemblies ), String.Join( ", ", this.LibPaths ), this.OutPath, this.Union, this.Closed );
-
-            try
+            var verFile = this.VersionFile;
+            retVal = String.IsNullOrEmpty( verFile );
+            if ( !retVal )
             {
-               using ( var merger = new CILMerger( this ) )
+               try
                {
-                  merger.PerformMerge();
+                  var version = Version.Parse( System.IO.File.ReadAllText( verFile ) );
+                  this.VerMajor = version.Major;
+                  this.VerMinor = version.Minor;
+                  this.VerBuild = version.Build;
+                  this.VerRevision = version.Revision;
+
+                  retVal = true;
                }
-               retVal = true;
+               catch ( Exception e )
+               {
+                  this.Log.LogError( "Error when getting version information from {0}: {1}.", verFile, e.Message );
+                  retVal = false;
+               }
             }
-            catch ( Exception exc )
+
+            if ( retVal )
             {
-               this.Log.LogErrorFromException( exc, true, true, null );
-               retVal = false;
+               this.Log.LogMessage( MessageImportance.High, "Performing merge for assemblies {0}; with library paths {1}; and outputting to {2} (union: {3}, closed: {4}).", String.Join( ", ", this.InputAssemblies ), String.Join( ", ", this.LibPaths ), this.OutPath, this.Union, this.Closed );
+
+               try
+               {
+                  new CILMerger( this, this ).PerformMerge();
+                  var verify = this.VerifyOutput;
+                  var outPath = this.OutPath;
+                  if ( verify )
+                  {
+                     this.Log.LogMessage( MessageImportance.High, "Verifying {0}.", outPath );
+                  }
+
+                  String peVerifyError = null, snError = null;
+                  retVal = !( this.VerifyOutput && Verification.RunPEVerify( null, outPath, this.OutputHasStrongName(), out peVerifyError, out snError ) );
+                  if ( !retVal )
+                  {
+                     this.Log.LogError( "PEVerify and/or strong name validation failed." );
+                     if ( !String.IsNullOrEmpty( peVerifyError ) )
+                     {
+                        this.Log.LogError( "PEVerify error:\n{0}", peVerifyError );
+                     }
+                     if ( !String.IsNullOrEmpty( snError ) )
+                     {
+                        this.Log.LogError( "Strong name error:\n{0}", snError );
+                     }
+                  }
+               }
+               catch ( Exception exc )
+               {
+                  this.Log.LogErrorFromException( exc, true, true, null );
+                  retVal = false;
+               }
             }
          }
          return retVal;
@@ -100,7 +139,7 @@ namespace CILMerge.MSBuild
 
       #region CILMergeOptions Members
 
-      public Int32 Align { get; set; }
+      public Int32 FileAlign { get; set; }
 
       public Boolean AllowDuplicateResources { get; set; }
 
@@ -111,7 +150,7 @@ namespace CILMerge.MSBuild
 
       public Boolean AllowWildCards { get; set; }
 
-      public String AttrSource { get; set; }
+      public String TargetAssemblyAttributeSource { get; set; }
 
       public Boolean Closed { get; set; }
 
@@ -134,8 +173,6 @@ namespace CILMerge.MSBuild
 
       public Boolean DoLogging { get; set; }
 
-      public String LogFile { get; set; }
-
       public Boolean NoDebug { get; set; }
 
       public String OutPath { get; set; }
@@ -143,8 +180,6 @@ namespace CILMerge.MSBuild
       public Boolean Parallel { get; set; }
 
       public ModuleKind? Target { get; set; }
-
-      public TargetRuntime? TargetPlatform { get; set; }
 
       public String ReferenceAssembliesDirectory { get; set; }
 
@@ -168,11 +203,15 @@ namespace CILMerge.MSBuild
 
       public Boolean NoResources { get; set; }
 
-      CILMergeLogCallback CILMergeOptions.CILLogCallback { get; set; }
-
       public Int32 SubsystemMajor { get; set; }
       public Int32 SubsystemMinor { get; set; }
       public Boolean HighEntropyVA { get; set; }
+
+      public String MetadataVersionString { get; set; }
+      public Boolean SkipFixingAssemblyReferences { get; set; }
+      public String CSPName { get; set; }
+      public String TargetAssemblyName { get; set; }
+      public String TargetModuleName { get; set; }
 
       #endregion
 
@@ -189,7 +228,7 @@ namespace CILMerge.MSBuild
                this.Log.LogWarning( formatString, args );
                break;
             case MessageLevel.Info:
-               this.Log.LogMessage( MessageImportance.High, formatString, args );
+               this.Log.LogMessage( MessageImportance.Normal, formatString, args );
                break;
          }
       }
@@ -197,6 +236,10 @@ namespace CILMerge.MSBuild
       #endregion
 
       public String OutDir { get; set; }
+
+      public Boolean VerifyOutput { get; set; }
+
+      public String VersionFile { get; set; }
 
       private static void ExpandPaths( String[] paths )
       {

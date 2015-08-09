@@ -21,7 +21,7 @@ using System.IO;
 using System.Linq;
 using System.Text;
 using ApplicationParameters;
-using CILAssemblyManipulator.API;
+using CILAssemblyManipulator.Physical;
 
 namespace CILMerge
 {
@@ -117,19 +117,41 @@ namespace CILMerge
             }
             else
             {
-               var options = FromApplicationOptions( paramInstance );
+               String logFileName;
+               var options = FromApplicationOptions( paramInstance, out logFileName );
+               CILMergeLogCallback logCallback;
+               Stream logStream = null;
 #if DEBUG
                options.DoLogging = true;
-               options.CILLogCallback = new CILMergeLogCallbackImpl();
+               logCallback = new CILMergeLogCallbackImpl();
+#else
+               if (options.DoLogging)
+               {
+                  if (String.IsNullOrEmpty(logFileName))
+                  {
+                     logCallback = new ConsoleCILMergeLogCallback();
+                  } else
+                  {
+                     logStream = new StreamWriter( logFileName, false, Encoding.UTF8 );
+                     logCallback = new StreamWriterCILMergeLogCallback( logStream );
+                  }
+               }
 #endif
-               var merger = new CILMerger( options );
-               merger.PerformMerge();
+               try
+               {
+                  var merger = new CILMerger( options, logCallback );
+                  merger.PerformMerge();
+               }
+               finally
+               {
+                  logStream.DisposeSafely();
+               }
                retVal = ExitCode.Success;
             }
          }
          catch ( CILMergeException cExc )
          {
-            retVal = cExc._exitCode;
+            retVal = cExc.ExitCode;
             Console.Error.WriteLine( "Error: " + cExc.Message );
          }
          catch ( Exception exc )
@@ -144,7 +166,7 @@ namespace CILMerge
          return (Int32) retVal;
       }
 
-      private static CILMergeOptionsImpl FromApplicationOptions( SimpleApplicationParameters args )
+      private static CILMergeOptionsImpl FromApplicationOptions( SimpleApplicationParameters args, out String logFileName )
       {
          var options = new CILMergeOptionsImpl();
 
@@ -154,10 +176,7 @@ namespace CILMerge
 
          var logOption = args.GetSingleOptionOrNull( LOG );
          options.DoLogging = logOption != null;
-         if ( options.DoLogging && !String.IsNullOrEmpty( logOption.OptionValueAsString ) )
-         {
-            options.LogFile = logOption.OptionValueAsString;
-         }
+         logFileName = logOption == null ? null : logOption.OptionValueAsString;
 
          var ver = args.GetSingleOptionOrNull( VER ).GetOrDefault<List<UInt16>>();
          if ( ver != null )
@@ -174,7 +193,7 @@ namespace CILMerge
          options.Union = args.GetSingleOptionOrNull( UNION ).GetOrDefault( false );
          options.NoDebug = args.GetSingleOptionOrNull( NODEBUG ).GetOrDefault( false );
          options.CopyAttributes = args.GetSingleOptionOrNull( COPY_ATTRS ).GetOrDefault( false );
-         options.AttrSource = args.GetSingleOptionOrNull( ATTR ).GetOrDefault<String>();
+         options.TargetAssemblyAttributeSource = args.GetSingleOptionOrNull( ATTR ).GetOrDefault<String>();
          options.AllowMultipleAssemblyAttributes = args.GetSingleOptionOrNull( ALLOW_MULTIPLE ).GetOrDefault( false );
          options.Target = args.GetSingleOptionOrNull( TARGET ).GetOrDefault<ModuleKind?>();
          var tp = args.GetSingleOptionOrNull( TARGET_PLATFORM ).GetOrDefault<String>();
@@ -185,26 +204,23 @@ namespace CILMerge
             switch ( trString )
             {
                case "v1":
-                  options.TargetPlatform = TargetRuntime.Net_1_0;
+                  options.MetadataVersionString = CILMergeOptionsImpl.MD_NET_1_0;
                   break;
                case "v1.1":
-                  options.TargetPlatform = TargetRuntime.Net_1_1;
+                  options.MetadataVersionString = CILMergeOptionsImpl.MD_NET_1_1;
                   break;
                case "v2":
-                  options.TargetPlatform = TargetRuntime.Net_2_0;
+                  options.MetadataVersionString = CILMergeOptionsImpl.MD_NET_2_0;
                   break;
                case "v4":
-                  options.TargetPlatform = TargetRuntime.Net_4_0;
+                  options.MetadataVersionString = CILMergeOptionsImpl.MD_NET_4_0;
                   break;
                default:
-                  TargetRuntime tr;
-                  if ( Enum.TryParse( trString, true, out tr ) )
-                  {
-                     options.TargetPlatform = tr;
-                  }
+                  options.MetadataVersionString = trString;
                   break;
             }
          }
+
          options.XmlDocs = args.GetSingleOptionOrNull( XML_DOCS ).GetOrDefault( false );
          options.LibPaths = args.GetMultipleOptionsOrEmpty( LIB ).Select( o => o.OptionValueAsString ).ToArray();
          var internalizeOption = args.GetSingleOptionOrNull( INTERNALIZE );
@@ -215,7 +231,7 @@ namespace CILMerge
          }
          options.DelaySign = args.GetSingleOptionOrNull( DELAY_SIGN ).GetOrDefault( false );
          options.UseFullPublicKeyForRefs = args.GetSingleOptionOrNull( USE_FULL_PUBLIC_KEY_FOR_REFERENCES ).GetOrDefault( false );
-         options.Align = args.GetSingleOptionOrNull( ALIGN ).GetOrDefault( MIN_FILE_ALIGN );
+         options.FileAlign = args.GetSingleOptionOrNull( ALIGN ).GetOrDefault( MIN_FILE_ALIGN );
          options.Closed = args.GetSingleOptionOrNull( CLOSED ).GetOrDefault( false );
          var dups = args.GetMultipleOptionsOrEmpty( ALLOW_DUP );
          options.AllowDuplicateTypes = dups.Count > 0 ?
@@ -239,7 +255,7 @@ namespace CILMerge
             }
          }
          options.KeyFile = RootPath( options.KeyFile );
-         options.AttrSource = RootPath( options.AttrSource );
+         options.TargetAssemblyAttributeSource = RootPath( options.TargetAssemblyAttributeSource );
          options.ExcludeFile = RootPath( options.ExcludeFile );
          var subSysStr = args.GetSingleOptionOrNull( SUBSYSTEMVERSION ).GetOrDefault( "4.0" );
          var sep = subSysStr.IndexOf( '.' );
@@ -261,14 +277,14 @@ namespace CILMerge
    }
 
 #if DEBUG
-   internal class CILMergeLogCallbackImpl : CILMergeLogCallback
+   internal class CILMergeLogCallbackImpl : AbstractCILMergeLogCallback
    {
 
       #region CILMergeLogCallback Members
 
-      public void Log( MessageLevel mLevel, string formatString, params object[] args )
+      public override void Log( MessageLevel mLevel, String formatString, Object[] args )
       {
-         System.Diagnostics.Debug.WriteLine( "{0}: {1}", (Object) String.Format( formatString, args ) );
+         System.Diagnostics.Debug.WriteLine( CreateMessageString( mLevel, formatString, args ) );
       }
 
       #endregion

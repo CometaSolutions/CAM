@@ -65,9 +65,9 @@
     <Compile Include="CILMergeTask.cs" />
   </ItemGroup>
   <ItemGroup>
-    <ProjectReference Condition=" '$(UseUtilpackReference)' == '' " Include="..\..\CILAssemblyManipulator\CILAssemblyManipulator.Core\CILAssemblyManipulator.Core.csproj">
-      <Project>{aeabb192-070f-4c75-bdae-7e29496026ae}</Project>
-      <Name>CILAssemblyManipulator</Name>
+    <ProjectReference Condition=" '$(UseUtilpackReference)' == '' " Include="..\..\CILAssemblyManipulator\CILAssemblyManipulator.Physical\CILAssemblyManipulator.Physical.csproj">
+      <Project>{ba297806-a89f-4a3b-945b-08729853df75}</Project>
+      <Name>CILAssemblyManipulator.Physical</Name>
     </ProjectReference>
     <ProjectReference Include="..\CILMerge.DLL\CILMerge.DLL.csproj">
       <Project>{b9bbe0ca-0eba-4fc9-b433-fe358da4080b}</Project>
@@ -81,9 +81,8 @@
   <UsingTask TaskName="CILMerge.MSBuild.CILMergeTask" AssemblyFile="$(IntermediateOutputPath)$(AssemblyName).dll" />
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
   <Import Project="../../../CommonBuildTools/CLR/MSBuild/TargetFramework.targets" />
-  <!-- This is after Import since ProjectDir is set there -->
   <PropertyGroup>
-    <KeyFilePath>$(ProjectDir)..\..\..\Keys\CILMerge.snk</KeyFilePath>
+    <KeyFilePath>$(MSBuildProjectDirectory)..\..\..\Keys\CILMerge.snk</KeyFilePath>
   </PropertyGroup>
   <!-- Copying dependencies: http://blog.alexyakunin.com/2009/09/making-msbuild-visual-studio-to.html -->
   <Target Condition="'$(Configuration)' != 'Debug'" Name="AfterBuild">
@@ -108,7 +107,7 @@
   <!-- Create .snk file if it doesn't exist to ensure smooth build -->
   <Import Project="$(MSBuildThisFileDirectory)../../../CommonBuildTools/CLR/MSBuild/CreateKeyFileIfNeeded.targets" />
   <Target Name="MergeThisTask">
-    <CILMerge.MSBuild.CILMergeTask InputAssemblies="@(IntermediateAssembly)" OutDir="$(ProjectDir)$(OutputPath)" Union="True" Closed="True" Internalize="True" UseFullPublicKeyForRefs="True" XmlDocs="True" KeyFile="$(KeyFilePath)" />
+    <CILMerge.MSBuild.CILMergeTask InputAssemblies="@(IntermediateAssembly)" OutDir="$(ProjectDir)$(OutputPath)" Union="True" Closed="True" Internalize="True" UseFullPublicKeyForRefs="True" XmlDocs="True" KeyFile="$(KeyFilePath)" VerifyOutput="True" />
   </Target>
   <!-- Assembly information -->
   <PropertyGroup>

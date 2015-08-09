@@ -1312,6 +1312,21 @@ public static partial class E_CommonUtils
       return new Guid( array.CreateAndBlockCopyTo( ref idx, 16 ) );
    }
 
+
+   /// <summary>
+   /// Creates a new byte array, which will be a copy of given byte array.
+   /// </summary>
+   /// <param name="sourceArray">The array to copy bytes from.</param>
+   /// <returns>A new array having its contents copied from <paramref name="sourceArray"/>.</returns>
+   /// <remarks>
+   /// The <see cref="Buffer.BlockCopy(Array, Int32, Array, Int32, Int32)"/> method will be used to copy bytes.
+   /// </remarks>
+   public static Byte[] CreateBlockCopy( this Byte[] sourceArray )
+   {
+      var idx = 0;
+      return sourceArray.IsNullOrEmpty() ? sourceArray : sourceArray.CreateAndBlockCopyTo( ref idx, sourceArray.Length );
+   }
+
    /// <summary>
    /// Creates a new byte array, which will have given amount of bytes copied from given source array starting at specified index.
    /// </summary>
@@ -1338,6 +1353,7 @@ public static partial class E_CommonUtils
    /// <returns>The <paramref name="targetArray"/>.</returns>
    public static Byte[] BlockCopyTo( this Byte[] sourceArray, ref Int32 sourceArrayIndex, Byte[] targetArray, Int32 targetArrayIndex, Int32 amount )
    {
+      // TODO Does Buffer.BlockCopy support Int64 for source position?
       Buffer.BlockCopy( sourceArray, sourceArrayIndex, targetArray, targetArrayIndex, amount );
       sourceArrayIndex += amount;
       return targetArray;
@@ -1354,6 +1370,7 @@ public static partial class E_CommonUtils
    /// <returns>The <paramref name="targetArray"/>.</returns>
    public static Byte[] BlockCopyFrom( this Byte[] targetArray, ref Int32 targetArrayIndex, Byte[] sourceArray, Int32 sourceArrayIndex, Int32 amount )
    {
+      // TODO Does Buffer.BlockCopy support Int64 for source position?
       Buffer.BlockCopy( sourceArray, sourceArrayIndex, targetArray, targetArrayIndex, amount );
       targetArrayIndex += amount;
       return targetArray;
@@ -1480,7 +1497,7 @@ public static partial class E_CommonUtils
    /// This kind of variable-length encoding is used by <see cref="System.IO.BinaryReader"/> when it deserializes strings.
    /// </summary>
    /// <param name="array">The byte array.</param>
-   /// <param name="idx">The index in the <paramref name="array"/> where to start to read 7-bit encoded <see cref="Int32"/>. This parameter wil lbe incremented by how many bytes were needed to read the value.</param>
+   /// <param name="idx">The index in the <paramref name="array"/> where to start to read 7-bit encoded <see cref="Int32"/>. This parameter will be incremented by how many bytes were needed to read the value.</param>
    /// <param name="throwOnInvalid">
    /// Whether to throw an <see cref="InvalidOperationException"/> if the integer has invalid encoded value.
    /// The value is considered to be encoded in invalid way if fifth byte has its highest bit set.
@@ -1533,6 +1550,23 @@ public static partial class E_CommonUtils
          cont = uValue >= 0x80u;
          array[idx++] = (Byte) ( cont ? ( uValue | 0x80u ) : uValue );
       } while ( cont );
+      return array;
+   }
+
+   /// <summary>
+   /// Fills array with zeroes, starting at specified offset and writing specified amount of zeroes.
+   /// </summary>
+   /// <param name="array">The byte array.</param>
+   /// <param name="idx">The index to start. Will be incremented by <paramref name="count"/> when this method finishes.</param>
+   /// <param name="count">The amount of zeroes to write.</param>
+   /// <returns>The <paramref name="array"/>.</returns>
+   public static Byte[] ZeroOut( this Byte[] array, ref Int32 idx, Int32 count )
+   {
+      if ( count > 0 )
+      {
+         array.FillWithOffsetAndCount( idx, count, (Byte) 0 );
+         idx += count;
+      }
       return array;
    }
 }

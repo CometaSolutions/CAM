@@ -107,6 +107,14 @@ namespace CollectionsWithRoles.Implementation
          this._mutable = mutable;
       }
 
+      internal CollectionMutable<TValue, TCollectionQuery> Mutable
+      {
+         get
+         {
+            return this._mutable;
+         }
+      }
+
       #region CollectionAdditionOnly<TValue> Members
 
       public void Add( TValue item )
@@ -443,13 +451,7 @@ namespace CollectionsWithRoles.Implementation
 
       internal CollectionAdditionOnlyDebugView( CollectionAdditionOnlyImpl<TValue, TCollectionQuery> collection )
       {
-         this._collection = ( (CollectionMutable<TValue, TCollectionQuery>) collection.GetType()
-#if WINDOWS_PHONE_APP
-            .GetRuntimeField("_mutable")
-#else
-.GetField( "_mutable" )
-#endif
-.GetValue( collection ) ).CQ;
+         this._collection = collection.Mutable.CQ;
       }
 
       [DebuggerBrowsable( DebuggerBrowsableState.RootHidden )]

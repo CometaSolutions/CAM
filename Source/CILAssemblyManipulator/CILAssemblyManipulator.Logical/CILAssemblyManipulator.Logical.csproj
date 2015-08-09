@@ -1,0 +1,179 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="4.0" DefaultTargets="GenerateKeyFile;GenerateAssemblyInfoFile;Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <Import Project="$(MSBuildExtensionsPath)\$(MSBuildToolsVersion)\Microsoft.Common.props" Condition="Exists('$(MSBuildExtensionsPath)\$(MSBuildToolsVersion)\Microsoft.Common.props')" />
+  <PropertyGroup>
+    <Configuration Condition=" '$(Configuration)' == '' ">Debug</Configuration>
+    <Platform Condition=" '$(Platform)' == '' ">AnyCPU</Platform>
+    <ProjectGuid>{A1DAC89C-5076-4455-83AF-261FAC8F4C7C}</ProjectGuid>
+    <OutputType>Library</OutputType>
+    <AppDesignerFolder>Properties</AppDesignerFolder>
+    <RootNamespace>CILAssemblyManipulator.Logical</RootNamespace>
+    <AssemblyName>CILAssemblyManipulator.Logical</AssemblyName>
+    <FileAlignment>512</FileAlignment>
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+    <CAMLogicalTargetKind Condition=" '$(Configuration)' == 'Debug_Portable' Or '$(Configuration)' == 'Release_Portable' ">Portable</CAMLogicalTargetKind>
+    <CAMLogicalTargetKind Condition=" '$(Configuration)' == 'Debug_SL' Or '$(Configuration)' == 'Release_SL' ">Silverlight</CAMLogicalTargetKind>
+    <CAMLogicalTargetKind Condition=" '$(CAMLogicalTargetKind)' == '' ">DotNET</CAMLogicalTargetKind>
+    <ProjectTypeGuids>{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}</ProjectTypeGuids>
+    <ProjectTypeGuids Condition=" '$(CAMLogicalTargetKind)' != 'DotNET' ">{786C830F-07A1-408B-BD7F-6EE04809D6DB};$(ProjectTypeGuids)</ProjectTypeGuids>
+    <TargetFrameworkVersion>v4.0</TargetFrameworkVersion>
+    <TargetFrameworkProfile Condition=" '$(CAMLogicalTargetKind)' == 'Portable' ">Profile5</TargetFrameworkProfile>
+    <TargetFrameworkProfile Condition=" '$(CAMLogicalTargetKind)' == 'Silverlight' ">Profile328</TargetFrameworkProfile>
+    <TargetFrameworkProfile Condition=" '$(CAMLogicalTargetKind)' == 'DotNET' ">Client</TargetFrameworkProfile>
+    <DefineConstants Condition=" '$(CAMLogicalTargetKind)' == 'Portable' ">CAM_LOGICAL_IS_PORTABLE</DefineConstants>
+    <DefineConstants Condition=" '$(CAMLogicalTargetKind)' == 'Silverlight' ">CAM_LOGICAL_IS_SL</DefineConstants>
+    <DefineConstants Condition=" '$(CAMLogicalTargetKind)' == 'DotNET' ">CAM_LOGICAL_IS_DOT_NET</DefineConstants>
+  </PropertyGroup>
+  <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug_Portable|AnyCPU' ">
+    <DebugSymbols>true</DebugSymbols>
+    <DebugType>full</DebugType>
+    <Optimize>false</Optimize>
+    <OutputPath>..\..\..\Output\Debug\Portable\</OutputPath>
+    <DefineConstants>$(DefineConstants);DEBUG;TRACE;</DefineConstants>
+    <ErrorReport>prompt</ErrorReport>
+    <WarningLevel>4</WarningLevel>
+  </PropertyGroup>
+  <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug_SL|AnyCPU' ">
+    <DebugSymbols>true</DebugSymbols>
+    <DebugType>full</DebugType>
+    <Optimize>false</Optimize>
+    <OutputPath>..\..\..\Output\Debug\SL\</OutputPath>
+    <DefineConstants>$(DefineConstants);DEBUG;TRACE;</DefineConstants>
+    <ErrorReport>prompt</ErrorReport>
+    <WarningLevel>4</WarningLevel>
+  </PropertyGroup>
+  <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|AnyCPU' ">
+    <DebugSymbols>true</DebugSymbols>
+    <DebugType>full</DebugType>
+    <Optimize>false</Optimize>
+    <OutputPath>..\..\..\Output\Debug\dotNET\</OutputPath>
+    <DefineConstants>$(DefineConstants);DEBUG;TRACE</DefineConstants>
+    <ErrorReport>prompt</ErrorReport>
+    <WarningLevel>4</WarningLevel>
+  </PropertyGroup>
+  <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Release_Portable|AnyCPU' ">
+    <DebugType>none</DebugType>
+    <Optimize>true</Optimize>
+    <OutputPath>..\..\..\Output\Release\Portable\</OutputPath>
+    <DefineConstants>$(DefineConstants);TRACE</DefineConstants>
+    <ErrorReport>prompt</ErrorReport>
+    <WarningLevel>4</WarningLevel>
+  </PropertyGroup>
+  <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Release_SL|AnyCPU' ">
+    <DebugType>none</DebugType>
+    <Optimize>true</Optimize>
+    <OutputPath>..\..\..\Output\Release\SL\</OutputPath>
+    <DefineConstants>$(DefineConstants);TRACE</DefineConstants>
+    <ErrorReport>prompt</ErrorReport>
+    <WarningLevel>4</WarningLevel>
+  </PropertyGroup>
+  <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Release|AnyCPU' ">
+    <DebugType>none</DebugType>
+    <Optimize>true</Optimize>
+    <OutputPath>..\..\..\Output\Release\dotNET\</OutputPath>
+    <DefineConstants>$(DefineConstants);TRACE</DefineConstants>
+    <ErrorReport>prompt</ErrorReport>
+    <WarningLevel>4</WarningLevel>
+  </PropertyGroup>
+  <PropertyGroup>
+    <KeyFilePath>$(MSBuildThisFileDirectory)..\..\..\Keys\CAM.snk</KeyFilePath>
+  </PropertyGroup>
+  <!-- <PropertyGroup Condition=" '$(MonoBuild)' == '' and '$(Configuration)' != 'Debug_WP' and '$(Configuration)' != 'Release_WP' ">
+    <DocumentationFile>$(OutputPath)$(AssemblyName).xml</DocumentationFile>
+  </PropertyGroup> -->
+  <ItemGroup>
+    <ProjectReference Condition=" '$(IsCommandLineBuild)' == ''" Include="..\..\CollectionsWithRoles\CollectionsWithRoles.csproj">
+      <Project>{7f7ebfb0-2bf4-44d8-b96f-accc5f99f529}</Project>
+      <Name>CollectionsWithRoles</Name>
+    </ProjectReference>
+    <ProjectReference Condition=" '$(IsCommandLineBuild)' == ''" Include="..\..\CommonUtils\CommonUtils.csproj">
+      <Project>{dba22cd8-ac89-4902-8e44-f4771875e781}</Project>
+      <Name>CommonUtils</Name>
+    </ProjectReference>
+    <ProjectReference Condition=" '$(IsCommandLineBuild)' == ''" Include="..\CILAssemblyManipulator.Physical\CILAssemblyManipulator.Physical.csproj">
+      <Project>{f8ba1950-209d-477f-83d6-3f969c0cbee6}</Project>
+      <Name>CILAssemblyManipulator.Physical</Name>
+    </ProjectReference>
+  </ItemGroup>
+  <ItemGroup Condition=" '$(CAMLogicalTargetKind)' == 'DotNET' ">
+    <Reference Include="System" />
+    <Reference Include="System.Core" />
+    <Reference Include="System.Xml.Linq" />
+    <Reference Include="Microsoft.CSharp" />
+    <Reference Include="System.Xml" />
+  </ItemGroup>
+  <ItemGroup>
+    <Reference Include="UtilPack" Condition=" '$(IsCommandLineBuild)' != '' ">
+      <HintPath Condition=" '$(CAMLogicalTargetKind)' == 'Portable' ">$(OutputPath)..\dotNET\UtilPack.dll</HintPath>
+      <HintPath Condition=" '$(CAMLogicalTargetKind)' != 'Portable' ">$(OutputPath)UtilPack.dll</HintPath>
+    </Reference>
+    <Reference Include="CILAssemblyManipulator.Physical_dll" Condition=" '$(IsCommandLineBuild)' != '' ">
+      <HintPath Condition=" '$(CAMLogicalTargetKind)' == 'Portable' ">$(OutputPath)..\SL\Merged\CILAssemblyManipulator.Physical.dll</HintPath>
+      <HintPath Condition=" '$(CAMLogicalTargetKind)' != 'Portable' ">$(OutputPath)Merged\CILAssemblyManipulator.Physical.dll</HintPath>
+    </Reference>
+  </ItemGroup>
+  <ItemGroup>
+    <Compile Include="..\..\AssemblyInfo\$(AssemblyName).cs">
+      <Link>Properties\$(AssemblyName).AssemblyInfo.cs</Link>
+    </Compile>
+    <Compile Include="CILAssembly.cs" />
+    <Compile Include="CILAssemblyLoader.cs" />
+    <Compile Include="CILCustomAttributes.cs" />
+    <Compile Include="CILCustomModifier.cs" />
+    <Compile Include="CILEvent.cs" />
+    <Compile Include="CILField.cs" />
+    <Compile Include="CILMethods.cs" />
+    <Compile Include="CILModule.cs" />
+    <Compile Include="CILParameters.cs" />
+    <Compile Include="CILProperty.cs" />
+    <Compile Include="CILReflectionContext.cs" />
+    <Compile Include="CILReflectionContextExtensions.cs" />
+    <Compile Include="CILTypes.cs" />
+    <Compile Include="Commons.cs" />
+    <Compile Include="Consts.cs" />
+    <Compile Include="DotNET\DotNETReflectionContext.cs" />
+    <Compile Include="Enums.cs" />
+    <Compile Include="Exceptions.cs" />
+    <Compile Include="Implementation\CILAssembly.cs" />
+    <Compile Include="Implementation\CILCustomAttributes.cs" />
+    <Compile Include="Implementation\CILCustomModifier.cs" />
+    <Compile Include="Implementation\CILEvent.cs" />
+    <Compile Include="Implementation\CILField.cs" />
+    <Compile Include="Implementation\CILMethods.cs" />
+    <Compile Include="Implementation\CILModule.cs" />
+    <Compile Include="Implementation\CILParameters.cs" />
+    <Compile Include="Implementation\CILProperty.cs" />
+    <Compile Include="Implementation\CILReflectionContext.cs" />
+    <Compile Include="Implementation\CILTypes.cs" />
+    <Compile Include="Implementation\Commons.cs" />
+    <Compile Include="Implementation\MethodIL.cs" />
+    <Compile Include="MethodIL.cs" />
+    <Compile Include="OpCodeInfos.cs" />
+    <Compile Include="Logical.FromPhysical.cs" />
+    <Compile Include="Logical.ToPhysical.cs" />
+    <Compile Include="Utils.cs" />
+  </ItemGroup>
+  <PropertyGroup Condition=" '$(UseUtilpackReference)' != '' ">
+    <SignAssembly>true</SignAssembly>
+    <KeyFilePath>$(MSBuildThisFileDirectory)..\..\..\Keys\CAM.snk</KeyFilePath>
+    <AssemblyOriginatorKeyFile>$(KeyFilePath)</AssemblyOriginatorKeyFile>
+  </PropertyGroup>
+  <Import Condition=" '$(CAMLogicalTargetKind)' == 'DotNET' " Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
+  <Import Condition=" '$(CAMLogicalTargetKind)' != 'DotNET' " Project="$(MSBuildExtensionsPath32)\Microsoft\Portable\$(TargetFrameworkVersion)\Microsoft.Portable.CSharp.targets" />
+  <!-- Create .snk file if it doesn't exist to ensure smooth build -->
+  <Import Project="$(MSBuildThisFileDirectory)../../../CommonBuildTools/CLR/MSBuild/CreateKeyFileIfNeeded.targets" />
+  <!-- <Import Project="../../../CommonBuildTools/CLR/MSBuild/TargetFramework.targets" /> -->
+  <!-- Assembly information -->
+  <PropertyGroup>
+    <AssemblyInfoCLSCompliant>true</AssemblyInfoCLSCompliant>
+    <AssemblyInfoOutputFile>$(MSBuildThisFileDirectory)/../../AssemblyInfo/$(AssemblyName).cs</AssemblyInfoOutputFile>
+    <AssemblyInfoDescription>CIL Assembly Manipulator (CAM) assembly providing support for emitting CIL code.</AssemblyInfoDescription>
+    <AssemblyInfoCompany>Cometa Solutions Ltd</AssemblyInfoCompany>
+    <AssemblyInfoTrademark>CAM</AssemblyInfoTrademark>
+    <AssemblyInfoAppendAssemblyCopyrightYears>true</AssemblyInfoAppendAssemblyCopyrightYears>
+    <AssemblyInfoAssemblyInceptionYear>2013</AssemblyInfoAssemblyInceptionYear>
+    <AssemblyInfoCopyrightAuthors>Stanislav Muhametsin</AssemblyInfoCopyrightAuthors>
+    <AssemblyInfoVersionFilename>$(MSBuildThisFileDirectory)/../../CILAssemblyManipulatorVersion.txt</AssemblyInfoVersionFilename>
+  </PropertyGroup>
+  <Import Project="$(MSBuildThisFileDirectory)../../../CommonBuildTools/CLR/MSBuild/AssemblyInfo.targets" />
+</Project>
