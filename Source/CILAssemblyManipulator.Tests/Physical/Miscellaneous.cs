@@ -349,5 +349,47 @@ namespace CILAssemblyManipulator.Tests.Physical
                nestedStr
             } ) );
       }
+
+      [Test]
+      public void TestTypeDefNames_MSCorLib()
+      {
+         PerformNameTestFor( MSCorLib, "System.Runtime.Remoting.Proxies.__TransparentProxy" );
+      }
+
+      [Test]
+      public void TestTypeDefNames_CAMPhysical()
+      {
+         PerformNameTestFor( CAMPhysical );
+      }
+
+
+      [Test]
+      public void TestTypeDefNames_CAMLogical()
+      {
+         PerformNameTestFor( CAMLogical );
+      }
+
+      [Test]
+      public void TestTypeDefNames_CAMStructural()
+      {
+         PerformNameTestFor( CAMStructural );
+      }
+
+
+      private static void PerformNameTestFor( System.Reflection.Assembly assembly, params String[] namesToRemoveFromCILTypes )
+      {
+         var md = ReadFromAssembly( assembly, null );
+         // Remove <Module> type since native reflection API does not return it.
+         var cilTypes = new HashSet<String>( md.GetTypeDefinitionsFullNames() );
+         cilTypes.Remove( Miscellaneous.MODULE_TYPE_NAME );
+
+         var srTypes = new HashSet<String>( assembly.GetTypes().Select( t => t.FullName ) );
+
+         // Remove any additional types as well.
+         cilTypes.ExceptWith( namesToRemoveFromCILTypes );
+
+         Assert.IsTrue( cilTypes.SetEquals( srTypes ) );
+
+      }
    }
 }

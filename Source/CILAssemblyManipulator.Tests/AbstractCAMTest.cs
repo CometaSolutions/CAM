@@ -156,17 +156,8 @@ namespace CILAssemblyManipulator.Tests
 
       public static CILMetaData ReadFromAssembly( System.Reflection.Assembly assembly, ReadingArguments rArgs )
       {
-         return ReadFromFile( new Uri( assembly.CodeBase ).LocalPath, rArgs );
+         return CILMetaDataIO.ReadModuleFrom( new Uri( assembly.CodeBase ).LocalPath, rArgs );
       }
-
-      public static CILMetaData ReadFromFile( String fileName, ReadingArguments rArgs )
-      {
-         using ( var fs = File.OpenRead( fileName ) )
-         {
-            return CILModuleIO.ReadModule( fs );
-         }
-      }
-
 
       protected static void RunPEVerify( String fileName, Boolean verifyStrongName )
       {

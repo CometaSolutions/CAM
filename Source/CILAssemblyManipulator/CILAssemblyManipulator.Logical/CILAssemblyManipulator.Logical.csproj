@@ -135,7 +135,6 @@
     <Compile Include="CILTypes.cs" />
     <Compile Include="Commons.cs" />
     <Compile Include="Consts.cs" />
-    <Compile Include="DotNET\DotNETAssemblyLoader.cs" />
     <Compile Include="DotNET\DotNETReflectionContext.cs" />
     <Compile Include="Emitting.cs" />
     <Compile Include="Enums.cs" />

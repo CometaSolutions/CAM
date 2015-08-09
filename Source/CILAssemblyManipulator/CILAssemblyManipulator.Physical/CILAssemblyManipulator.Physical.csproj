@@ -96,6 +96,7 @@
     <Compile Include="Crypto.cs" />
     <Compile Include="DotNET\CryptoCallbacks.cs" />
     <Compile Include="DotNET\Loaders.cs" />
+    <Compile Include="DotNET\Module.IO.cs" />
     <Compile Include="DotNET\TargetFrameworkMapper.cs" />
     <Compile Include="DotNET\Verification.cs" />
     <Compile Include="Enums.cs" />
@@ -107,11 +108,11 @@
     <Compile Include="Implementation\Module.cs" />
     <Compile Include="Implementation\Module.Writing.cs" />
     <Compile Include="Loading.cs" />
-    <Compile Include="MetaData.cs" />
+    <Compile Include="MetaData.Rows.cs" />
     <Compile Include="MetaData.Resolving.cs" />
     <Compile Include="MetaData.Signatures.cs" />
-    <Compile Include="Module.cs" />
-    <Compile Include="Module.IO.cs" />
+    <Compile Include="MetaData.cs" />
+    <Compile Include="MetaData.IO.cs" />
     <Compile Include="OpCodes.cs" />
     <Compile Include="TargetFrameworkMapper.cs" />
     <Compile Include="Utils.cs" />
