@@ -46,13 +46,10 @@
     <NuSpec_Summary>Utility Package is small DLL containing useful components for all kind of applications.</NuSpec_Summary>
     <NuSpec_Tags>clr .net mono portable utility binary data read write collection command query separation reflection</NuSpec_Tags>
     <NuSpec_FilesXML><![CDATA[
-      <file src="$(UtilPackBaseDirNuSpec)\Output\Release\dotNET\UtilPack.dll" target="lib\portable-net40+win\UtilPack.dll" />
-      <file src="$(UtilPackBaseDirNuSpec)\Output\Release\dotNET\UtilPack.xml" target="lib\portable-net40+win\UtilPack.xml" />
+      <file src="$(UtilPackBaseDirNuSpec)\Output\Release\dotNET\UtilPack.dll" target="lib\portable-net40+win+wpa81\UtilPack.dll" />
+      <file src="$(UtilPackBaseDirNuSpec)\Output\Release\dotNET\UtilPack.xml" target="lib\portable-net40+win+wpa81\UtilPack.xml" />
       <file src="$(UtilPackBaseDirNuSpec)\Output\Release\SL\UtilPack.dll" target="lib\portable-net45+sl50+win+wp80\UtilPack.dll" />
       <file src="$(UtilPackBaseDirNuSpec)\Output\Release\SL\UtilPack.xml" target="lib\portable-net45+sl50+win+wp80\UtilPack.xml" />
-      <file src="$(UtilPackBaseDirNuSpec)\Output\Release\WP\UtilPack.dll" target="lib\wpa81\UtilPack.dll" />
-      <file src="$(UtilPackBaseDirNuSpec)\Output\Release\WP\UtilPack.xml" target="lib\wpa81\UtilPack.xml" />
-      <file src="$(UtilPackBaseDirNuSpec)\Output\Release\WP\UtilPack.pri" target="lib\wpa81\UtilPack.pri" />
     ]]></NuSpec_FilesXML>
   </PropertyGroup>
     

@@ -491,134 +491,6 @@ namespace CILMerge
 
    internal class CILAssemblyMerger : AbstractDisposable, IDisposable
    {
-      //private class PortabilityHelper
-      //{
-      //   private readonly String _referenceAssembliesPath;
-      //   private readonly IDictionary<Tuple<String, String, String>, FrameworkMonikerInfo> _dic;
-      //   private readonly CILAssemblyMerger _merger;
-      //   private readonly IDictionary<FrameworkMonikerInfo, String> _explicitDirectories;
-
-      //   internal PortabilityHelper( CILAssemblyMerger merger, String referenceAssembliesPath )
-      //   {
-      //      this._merger = merger;
-      //      this._referenceAssembliesPath = Path.GetFullPath( referenceAssembliesPath ?? DotNETReflectionContext.GetDefaultReferenceAssemblyPath() );
-      //      this._dic = new Dictionary<Tuple<String, String, String>, FrameworkMonikerInfo>();
-      //      this._explicitDirectories = new Dictionary<FrameworkMonikerInfo, String>();
-      //   }
-
-      //   public FrameworkMonikerInfo this[EmittingArguments eArgs]
-      //   {
-      //      get
-      //      {
-      //         return this[eArgs.FrameworkName, eArgs.FrameworkVersion, eArgs.FrameworkProfile];
-      //      }
-      //   }
-
-      //   public FrameworkMonikerInfo this[String fwName, String fwVersion, String fwProfile]
-      //   {
-      //      get
-      //      {
-      //         ArgumentValidator.ValidateNotNull( "Framework name", fwName );
-      //         ArgumentValidator.ValidateNotNull( "Framework version", fwVersion );
-      //         FrameworkMonikerInfo moniker;
-      //         var key = Tuple.Create( fwName, fwVersion, fwProfile );
-      //         if ( !this._dic.TryGetValue( key, out moniker ) )
-      //         {
-      //            var dir = this.GetDirectory( fwName, fwVersion, fwProfile );
-      //            if ( !Directory.Exists( dir ) )
-      //            {
-      //               throw this._merger.NewCILMergeException( ExitCode.NoTargetFrameworkMoniker, "Couldn't find framework moniker info for framework \"" + fwName + "\", version \"" + fwVersion + "\"" + ( String.IsNullOrEmpty( fwProfile ) ? "" : ( ", profile \"" + fwProfile + "\"" ) ) + " (reference assembly path: " + this._referenceAssembliesPath + ")." );
-      //            }
-      //            else
-      //            {
-      //               var redistListDir = Path.Combine( dir, "RedistList" );
-      //               var fn = Path.Combine( redistListDir, "FrameworkList.xml" );
-      //               String msCorLibName; String fwDisplayName; String targetFWDir;
-      //               try
-      //               {
-      //                  moniker = new FrameworkMonikerInfo( fwName, fwVersion, fwProfile, DotNETReflectionContext.ReadAssemblyInformationFromRedistXMLFile(
-      //                           fn,
-      //                           out msCorLibName,
-      //                           out fwDisplayName,
-      //                           out targetFWDir
-      //                           ), msCorLibName, fwDisplayName );
-      //                  if ( !String.IsNullOrEmpty( targetFWDir ) )
-      //                  {
-      //                     this._explicitDirectories.Add( moniker, targetFWDir );
-      //                  }
-      //               }
-      //               catch ( Exception exc )
-      //               {
-      //                  throw this._merger.NewCILMergeException( ExitCode.FailedToReadTargetFrameworkMonikerInformation, "Failed to read FrameworkList.xml from " + fn + " (" + exc.Message + ").", exc );
-      //               }
-      //            }
-      //         }
-      //         return moniker;
-      //      }
-      //   }
-
-      //   public String GetDirectory( EmittingArguments eArgs )
-      //   {
-      //      var fwInfo = this[eArgs];
-      //      String retVal;
-      //      return this._explicitDirectories.TryGetValue( fwInfo, out retVal ) ?
-      //         retVal :
-      //         this.GetDirectory( eArgs.FrameworkName, eArgs.FrameworkVersion, eArgs.FrameworkProfile );
-      //   }
-
-      //   private String GetDirectory( String fwName, String fwVersion, String fwProfile )
-      //   {
-      //      var retVal = Path.Combine( this._referenceAssembliesPath, fwName, fwVersion );
-      //      if ( !String.IsNullOrEmpty( fwProfile ) )
-      //      {
-      //         retVal = Path.Combine( retVal, "Profile", fwProfile );
-      //      }
-      //      return retVal;
-      //   }
-
-      //   public Boolean TryGetFrameworkInfo( String dir, out String fwName, out String fwVersion, out String fwProfile )
-      //   {
-      //      dir = Path.GetFullPath( dir );
-      //      fwName = null;
-      //      fwVersion = null;
-      //      fwProfile = null;
-      //      var retVal = dir.StartsWith( this._referenceAssembliesPath ) && dir.Length > this._referenceAssembliesPath.Length;
-      //      if ( retVal )
-      //      {
-      //         dir = dir.Substring( this._referenceAssembliesPath.Length );
-      //         var dirs = dir.Split( new[] { Path.DirectorySeparatorChar }, StringSplitOptions.RemoveEmptyEntries );
-      //         retVal = dirs.Length >= 2;
-      //         if ( retVal )
-      //         {
-      //            fwName = dirs[0];
-      //            fwVersion = dirs[1];
-      //            fwProfile = dirs.Length >= 4 ? dirs[3] : null;
-      //         }
-      //      }
-      //      else
-      //      {
-      //         // See if this framework is explicitly defined elsewhere
-      //         var fwInfo = this._explicitDirectories.Where( kvp => String.Equals( dir, kvp.Value ) ).Select( kvp => kvp.Key ).FirstOrDefault();
-      //         retVal = fwInfo != null;
-      //         if ( retVal )
-      //         {
-      //            fwName = fwInfo.FrameworkName;
-      //            fwVersion = fwInfo.FrameworkVersion;
-      //            fwProfile = fwInfo.ProfileName;
-      //         }
-      //      }
-      //      return retVal;
-      //   }
-
-      //   public String ReferenceAssembliesPath
-      //   {
-      //      get
-      //      {
-      //         return this._referenceAssembliesPath;
-      //      }
-      //   }
-
-      //}
 
       private static readonly Type ATTRIBUTE_USAGE_TYPE = typeof( AttributeUsageAttribute );
       private static readonly System.Reflection.PropertyInfo ALLOW_MULTIPLE_PROP = typeof( AttributeUsageAttribute ).GetProperty( "AllowMultiple" );
@@ -650,23 +522,6 @@ namespace CILMerge
       private readonly String _inputBasePath;
 
       private readonly IEqualityComparer<AssemblyReference> _assemblyReferenceEqualityComparer;
-
-      //private readonly CILReflectionContext _ctx;
-      //private readonly CILAssemblyLoader _assemblyLoader;
-      //private readonly ISet<String> _allInputTypeNames;
-      //private readonly ISet<String> _typesByName;
-      //private readonly IDictionary<CILTypeBase, CILTypeBase> _typeMapping;
-      //private readonly IDictionary<CILMethodBase, CILMethodBase> _methodMapping;
-      //private readonly IDictionary<CILField, CILField> _fieldMapping;
-      //private readonly IDictionary<CILEvent, CILEvent> _eventMapping;
-      //private readonly IDictionary<CILProperty, CILProperty> _propertyMapping;
-      ////private readonly TextWriter _logStream;
-      ////private readonly Boolean _disposeLogStream;
-      //private readonly IDictionary<String, CILAssemblyName> _assemblyNameCache;
-
-      //private IDictionary<CILAssembly, CILAssembly> _pcl2TargetMapping;
-      //private PDBHelper _pdbHelper;
-      //private readonly Lazy<System.Security.Cryptography.SHA1CryptoServiceProvider> _csp;
 
       internal CILAssemblyMerger( CILMerger merger, CILMergeOptions options, String inputBasePath )
       {
@@ -729,26 +584,6 @@ namespace CILMerge
          this._targetTypeNames = new List<String>();
 
 
-
-         //this._ctx = ctx;
-         ////this._allModules = new ConcurrentDictionary<String, CILModule>();
-         ////this._loadingArgs = new ConcurrentDictionary<CILModule, EmittingArguments>();
-         //this._typesByName = new HashSet<String>();
-         //this._typeMapping = new Dictionary<CILTypeBase, CILTypeBase>();
-         //this._methodMapping = new Dictionary<CILMethodBase, CILMethodBase>();
-         //this._fieldMapping = new Dictionary<CILField, CILField>();
-         //this._eventMapping = new Dictionary<CILEvent, CILEvent>();
-         //this._propertyMapping = new Dictionary<CILProperty, CILProperty>();
-
-         //this._assemblyLoader = ctx.CreateAssemblyLoader( this._options.ReferenceAssembliesDirectory );
-
-         //this._allInputTypeNames = options.Union ?
-         //   null :
-         //   new HashSet<String>();
-         //this._typeRenames = options.Union ?
-         //   null :
-         //   new Dictionary<Tuple<String, String>, String>();
-         //this._assemblyNameCache = new Dictionary<String, CILAssemblyName>();
          this._excludeRegexes = new Lazy<Regex[]>( () =>
          {
             var excl = options.ExcludeFile;
@@ -769,26 +604,6 @@ namespace CILMerge
             }
          }, LazyThreadSafetyMode.None );
          this._inputBasePath = inputBasePath ?? Environment.CurrentDirectory;
-         //if ( this._options.DoLogging )
-         //{
-         //   // TODO
-         //   //var logFile = this._options.LogFile;
-         //   //logFile = logFile == null ?
-         //   //   null :
-         //   //   Path.GetFullPath( logFile );
-         //   //try
-         //   //{
-         //   //   this._disposeLogStream = !String.IsNullOrEmpty( logFile );
-         //   //   this._logStream = this._disposeLogStream ?
-         //   //      new StreamWriter( logFile, false, Encoding.UTF8 ) :
-         //   //      Console.Out;
-         //   //}
-         //   //catch ( Exception exc )
-         //   //{
-         //   //   throw this.NewCILMergeException( ExitCode.ErrorAccessingLogFile, "Error accessing log file " + logFile + ".", exc );
-         //   //}
-         //}
-         //this._csp = new Lazy<System.Security.Cryptography.SHA1CryptoServiceProvider>( () => new System.Security.Cryptography.SHA1CryptoServiceProvider(), LazyThreadSafetyMode.ExecutionAndPublication );
       }
 
       internal CILModuleMergeResult MergeModules()
