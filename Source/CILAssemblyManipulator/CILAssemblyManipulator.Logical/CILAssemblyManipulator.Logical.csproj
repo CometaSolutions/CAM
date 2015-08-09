@@ -94,10 +94,6 @@
       <Project>{f8ba1950-209d-477f-83d6-3f969c0cbee6}</Project>
       <Name>CILAssemblyManipulator.Physical</Name>
     </ProjectReference>
-    <ProjectReference Condition=" '$(IsCommandLineBuild)' == ''" Include="..\CILAssemblyManipulator.Structural\CILAssemblyManipulator.Structural.csproj">
-      <Project>{7384961e-6335-4312-af87-1189ae260572}</Project>
-      <Name>CILAssemblyManipulator.Structural</Name>
-    </ProjectReference>
   </ItemGroup>
   <ItemGroup Condition=" '$(CAMLogicalTargetKind)' == 'DotNET' ">
     <Reference Include="System" />
@@ -136,10 +132,8 @@
     <Compile Include="Commons.cs" />
     <Compile Include="Consts.cs" />
     <Compile Include="DotNET\DotNETReflectionContext.cs" />
-    <Compile Include="Emitting.cs" />
     <Compile Include="Enums.cs" />
     <Compile Include="Exceptions.cs" />
-    <Compile Include="FrameworkMonikerInfo.cs" />
     <Compile Include="Implementation\CILAssembly.cs" />
     <Compile Include="Implementation\CILCustomAttributes.cs" />
     <Compile Include="Implementation\CILCustomModifier.cs" />
@@ -153,8 +147,6 @@
     <Compile Include="Implementation\CILTypes.cs" />
     <Compile Include="Implementation\Commons.cs" />
     <Compile Include="Implementation\MethodIL.cs" />
-    <Compile Include="Logical.ToStructural.cs" />
-    <Compile Include="Logical.FromStructural.cs" />
     <Compile Include="MethodIL.cs" />
     <Compile Include="OpCodeInfos.cs" />
     <Compile Include="Logical.FromPhysical.cs" />

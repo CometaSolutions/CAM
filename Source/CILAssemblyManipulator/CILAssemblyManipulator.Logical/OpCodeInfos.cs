@@ -36,14 +36,6 @@ namespace CILAssemblyManipulator.Logical
          this._opCode = (UInt16) code.Value;
       }
 
-      //internal override Int32 BranchTargetCount
-      //{
-      //   get
-      //   {
-      //      return 0;
-      //   }
-      //}
-
       /// <summary>
       /// Returns the <see cref="OpCode"/> to emit.
       /// </summary>
@@ -86,27 +78,6 @@ namespace CILAssemblyManipulator.Logical
          //}
       }
 
-      //internal override void EmitOpCode( MethodILWriter emittingContext )
-      //{
-      //   emittingContext.Emit( this._opCode );
-      //}
-
-      //internal override Int32 MinSize
-      //{
-      //   get
-      //   {
-      //      return this._opCode.Size;
-      //   }
-      //}
-
-      //internal override Int32 MaxSize
-      //{
-      //   get
-      //   {
-      //      return this._opCode.Size;
-      //   }
-      //}
-
       /// <inheritdoc />
       public override OpCodeInfoKind InfoKind
       {
@@ -140,31 +111,10 @@ namespace CILAssemblyManipulator.Logical
    /// </summary>
    public abstract class LogicalOpCodeInfoWithFixedSizeOperand : LogicalOpCodeInfoWithOneOpCode
    {
-      //internal const Byte TOKEN_SIZE = 4;
-
-      //internal readonly Byte _argSize;
-
-      internal LogicalOpCodeInfoWithFixedSizeOperand( OpCode opCode ) //, Byte argSize )
+      internal LogicalOpCodeInfoWithFixedSizeOperand( OpCode opCode )
          : base( opCode )
       {
-         //this._argSize = argSize;
       }
-
-      //internal override Int32 MinSize
-      //{
-      //   get
-      //   {
-      //      return this._opCode.Size + this._argSize;
-      //   }
-      //}
-
-      //internal override Int32 MaxSize
-      //{
-      //   get
-      //   {
-      //      return this._opCode.Size + this._argSize;
-      //   }
-      //}
    }
 
    public abstract class LogicalOpCodeInfoWithFixedSizeOperand<TOperand> : LogicalOpCodeInfoWithFixedSizeOperand
@@ -244,11 +194,6 @@ namespace CILAssemblyManipulator.Logical
          this._type = type;
       }
 
-      //internal override void EmitOpCode( MethodILWriter emittingContext )
-      //{
-      //   emittingContext.Emit( this._opCode, this._type, this._useGDefIfPossible );
-      //}
-
       /// <summary>
       /// Gets the <see cref="CILTypeBase"/> which is the operand of the <see cref="OpCode"/> being emitted.
       /// </summary>
@@ -294,11 +239,6 @@ namespace CILAssemblyManipulator.Logical
          ArgumentValidator.ValidateNotNull( "Field", field );
          this._field = field;
       }
-
-      //internal override void EmitOpCode( MethodILWriter emittingContext )
-      //{
-      //   emittingContext.Emit( this._opCode, this._field, this._useGDefIfPossible );
-      //}
 
       /// <summary>
       /// Gets the <see cref="CILField"/> which is the operand of the <see cref="OpCode"/> being emitted.
@@ -348,11 +288,6 @@ namespace CILAssemblyManipulator.Logical
          this._method = method;
       }
 
-      //internal override void EmitOpCode( MethodILWriter emittingContext )
-      //{
-      //   emittingContext.Emit( this._opCode, this._method, this._useGDefIfPossible );
-      //}
-
       /// <summary>
       /// Gets the <see cref="CILMethod"/> which is the operand of the <see cref="OpCode"/> being emitted.
       /// </summary>
@@ -384,8 +319,6 @@ namespace CILAssemblyManipulator.Logical
       private readonly CILMethod _method;
       private readonly UInt16 _normal;
       private readonly UInt16 _virtual;
-      //private readonly Int32 _minSize;
-      //private readonly Int32 _maxSize;
 
       /// <summary>
       /// Creates a new <see cref="LogicalOpCodeInfoForNormalOrVirtual"/> with specified values.
@@ -401,38 +334,7 @@ namespace CILAssemblyManipulator.Logical
          this._method = method;
          this._normal = (UInt16) normal.Value;
          this._virtual = (UInt16) aVirtual.Value;
-         //this._minSize = Math.Min( normal.Size, aVirtual.Size ) + LogicalOpCodeInfoWithFixedSizeOperand.TOKEN_SIZE;
-         //this._maxSize = Math.Max( normal.Size, aVirtual.Size ) + LogicalOpCodeInfoWithFixedSizeOperand.TOKEN_SIZE;
       }
-
-      //internal override void EmitOpCode( MethodILWriter emittingContext )
-      //{
-      //   emittingContext.EmitNormalOrVirtual( this._method, this._normal, this._virtual );
-      //}
-
-      //internal override Int32 MinSize
-      //{
-      //   get
-      //   {
-      //      return this._minSize;
-      //   }
-      //}
-
-      //internal override Int32 MaxSize
-      //{
-      //   get
-      //   {
-      //      return this._maxSize;
-      //   }
-      //}
-
-      //internal override Int32 BranchTargetCount
-      //{
-      //   get
-      //   {
-      //      return 0;
-      //   }
-      //}
 
       /// <summary>
       /// Gets the <see cref="CILMethod"/> which is the operand of the <see cref="OpCode"/> being emitted.
@@ -540,11 +442,6 @@ namespace CILAssemblyManipulator.Logical
          this._ctor = ctor;
       }
 
-      //internal override void EmitOpCode( MethodILWriter emittingContext )
-      //{
-      //   emittingContext.Emit( this._opCode, this._ctor, this._useGDefIfPossible );
-      //}
-
       /// <summary>
       /// Gets the <see cref="CILConstructor"/> which is the operand of the <see cref="OpCode"/> being emitted.
       /// </summary>
@@ -589,11 +486,6 @@ namespace CILAssemblyManipulator.Logical
          this._methodSig = methodSig;
          this._varArgs = varArgs;
       }
-
-      //internal override void EmitOpCode( MethodILWriter emittingContext )
-      //{
-      //   emittingContext.Emit( this._methodSig, this._varArgs );
-      //}
 
       /// <summary>
       /// Gets the <see cref="CILMethodSignature"/> which is the operand of the <see cref="OpCode"/> being emitted.
@@ -644,12 +536,6 @@ namespace CILAssemblyManipulator.Logical
          ArgumentValidator.ValidateNotNull( "String", str );
       }
 
-      //internal override void EmitOpCode( MethodILWriter emittingContext )
-      //{
-      //   emittingContext.Emit( this._opCode, this._string );
-      //}
-
-
       /// <inheritdoc/>
       public override OpCodeInfoKind InfoKind
       {
@@ -678,18 +564,6 @@ namespace CILAssemblyManipulator.Logical
          : base( opCode, int16 ) //, opCode.OperandType == OperandType.ShortInlineVar ? (Byte) 1 : (Byte) 2 )
       {
       }
-
-      //internal override void EmitOpCode( MethodILWriter emittingContext )
-      //{
-      //   if ( this._argSize == 1 )
-      //   {
-      //      emittingContext.Emit( this._opCode, (Byte) this._int16 );
-      //   }
-      //   else
-      //   {
-      //      emittingContext.Emit( this._opCode, this._int16 );
-      //   }
-      //}
 
       /// <inheritdoc/>
       public override OpCodeInfoKind InfoKind
@@ -720,18 +594,6 @@ namespace CILAssemblyManipulator.Logical
       {
       }
 
-      //internal override void EmitOpCode( MethodILWriter emittingContext )
-      //{
-      //   if ( this._argSize == 1 )
-      //   {
-      //      emittingContext.EmitAsSByte( this._opCode, this._int32 );
-      //   }
-      //   else
-      //   {
-      //      emittingContext.Emit( this._opCode, this._int32 );
-      //   }
-      //}
-
       /// <inheritdoc/>
       public override OpCodeInfoKind InfoKind
       {
@@ -757,11 +619,6 @@ namespace CILAssemblyManipulator.Logical
          : base( opCode, int64 ) //, (Byte) 8 )
       {
       }
-
-      //internal override void EmitOpCode( MethodILWriter emittingContext )
-      //{
-      //   emittingContext.Emit( this._opCode, this._int64 );
-      //}
 
       /// <inheritdoc/>
       public override OpCodeInfoKind InfoKind
@@ -789,11 +646,6 @@ namespace CILAssemblyManipulator.Logical
       {
       }
 
-      //internal override void EmitOpCode( MethodILWriter emittingContext )
-      //{
-      //   emittingContext.Emit( this._opCode, this._single );
-      //}
-
       /// <inheritdoc/>
       public override OpCodeInfoKind InfoKind
       {
@@ -820,11 +672,6 @@ namespace CILAssemblyManipulator.Logical
       {
       }
 
-      //internal override void EmitOpCode( MethodILWriter emittingContext )
-      //{
-      //   emittingContext.Emit( this._opCode, this._double );
-      //}
-
       /// <inheritdoc/>
       public override OpCodeInfoKind InfoKind
       {
@@ -836,81 +683,16 @@ namespace CILAssemblyManipulator.Logical
    }
 
    /// <summary>
-   /// This is base class for <see cref="LogicalOpCodeInfo"/>s having per-instance size information.
-   /// </summary>
-   public abstract class LogicalDynamicOpCodeInfo : LogicalOpCodeInfo
-   {
-      //private readonly Int32 _minSize;
-      //private readonly Int32 _maxSize;
-
-      //internal const Int32 LONG_BRANCH_OPERAND_SIZE = sizeof( Int32 );
-      //internal const Int32 SHORT_BRANCH_OPERAND_SIZE = sizeof( SByte );
-
-      //internal LogicalDynamicOpCodeInfo( Int32 fixedSize )
-      //   : this( fixedSize, fixedSize )
-      //{
-
-      //}
-
-      //internal LogicalDynamicOpCodeInfo( Int32 minSize, Int32 maxSize )
-      //{
-      //   if ( minSize < 1 )
-      //   {
-      //      throw new ArgumentException( "Minimum size must be at least 1, but given: " + minSize + "." );
-      //   }
-      //   else if ( maxSize < minSize )
-      //   {
-      //      throw new ArgumentException( "Maximum size must be at least same as min size, but with given min size " + minSize + " max size is " + maxSize + "." );
-      //   }
-
-      //   this._minSize = minSize;
-      //   this._maxSize = maxSize;
-      //}
-
-      //internal override Int32 MinSize
-      //{
-      //   get
-      //   {
-      //      return this._minSize;
-      //   }
-      //}
-
-      //internal override Int32 MaxSize
-      //{
-      //   get
-      //   {
-      //      return this._maxSize;
-      //   }
-      //}
-   }
-
-   /// <summary>
    /// This is abstract class for <see cref="LogicalOpCodeInfo"/>s emitting branch or leave instruction.
    /// </summary>
-   public abstract class LogicalOpCodeInfoForBranchingControlFlow : LogicalDynamicOpCodeInfo
+   public abstract class LogicalOpCodeInfoForBranchingControlFlow : LogicalOpCodeInfo
    {
-
-
       private readonly ILLabel _targetLabel;
 
-      internal LogicalOpCodeInfoForBranchingControlFlow( /* Int32 min, Int32 max,*/ ILLabel targetLabel )
-      //: base( min, max )
+      internal LogicalOpCodeInfoForBranchingControlFlow( ILLabel targetLabel )
       {
          this._targetLabel = targetLabel;
       }
-
-      //internal override void EmitOpCode( MethodILWriter emittingContext )
-      //{
-      //   emittingContext.Emit( emittingContext.GetMaxForLabel( this._targetLabel ) <= SByte.MaxValue ? this.ShortForm : this.LongForm, this._targetLabel );
-      //}
-
-      //internal override Int32 BranchTargetCount
-      //{
-      //   get
-      //   {
-      //      return 1;
-      //   }
-      //}
 
       /// <summary>
       /// Gets the version of the <see cref="OpCode"/> that uses short operand.
@@ -1070,7 +852,7 @@ namespace CILAssemblyManipulator.Logical
    /// <summary>
    /// This class will emit a <see cref="OpCodes.Switch"/> instruction.
    /// </summary>
-   public sealed class LogicalOpCodeInfoForSwitch : LogicalDynamicOpCodeInfo
+   public sealed class LogicalOpCodeInfoForSwitch : LogicalOpCodeInfo
    {
       private readonly ILLabel[] _labels;
 
@@ -1165,7 +947,7 @@ namespace CILAssemblyManipulator.Logical
    /// <summary>
    /// This class provides a way to emit a branching or leave instruction which has a fixed <see cref="OpCode"/>.
    /// </summary>
-   public sealed class LogicalOpCodeInfoForFixedBranchOrLeave : LogicalDynamicOpCodeInfo
+   public sealed class LogicalOpCodeInfoForFixedBranchOrLeave : LogicalOpCodeInfo
    {
       private readonly UInt16 _code;
       private readonly ILLabel _label;

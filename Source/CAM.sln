@@ -1,15 +1,13 @@
 ﻿
 Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio 2013
-VisualStudioVersion = 12.0.31101.0
+VisualStudioVersion = 12.0.40629.0
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "CommonUtils", "CommonUtils\CommonUtils.csproj", "{DBA22CD8-AC89-4902-8E44-F4771875E781}"
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "CollectionsWithRoles", "CollectionsWithRoles\CollectionsWithRoles.csproj", "{7F7EBFB0-2BF4-44D8-B96F-ACCC5F99F529}"
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "UtilPack", "UtilPack\UtilPack.csproj", "{656F55B6-085C-42A6-B004-A5C517DEB525}"
-EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "CILAssemblyManipulator.Core", "CILAssemblyManipulator\CILAssemblyManipulator.Coree\CILAssemblyManipulator.Core.csproj", "{AEABB192-070F-4C75-BDAE-7E29496026AE}"
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "CILAssemblyManipulator.MResources", "CILAssemblyManipulator\CILAssemblyManipulator.MResources\CILAssemblyManipulator.MResources.csproj", "{99FCB99E-C7EB-49D0-980F-86E61F874FCB}"
 EndProject
@@ -28,8 +26,6 @@ EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "CILAssemblyManipulator.Physical", "CILAssemblyManipulator\CILAssemblyManipulator.Physical\CILAssemblyManipulator.Physical.csproj", "{F8BA1950-209D-477F-83D6-3F969C0CBEE6}"
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "CILAssemblyManipulator.Logical", "CILAssemblyManipulator\CILAssemblyManipulator.Logical\CILAssemblyManipulator.Logical.csproj", "{A1DAC89C-5076-4455-83AF-261FAC8F4C7C}"
-EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "CILAssemblyManipulator.Tests.Runner", "CILAssemblyManipulator.Tests.Runner\CILAssemblyManipulator.Tests.Runner.csproj", "{E6CE7F1E-1BD2-4761-8086-1B4F3C4AE03E}"
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "CILAssemblyManipulator.Structural", "CILAssemblyManipulator\CILAssemblyManipulator.Structural\CILAssemblyManipulator.Structural.csproj", "{7384961E-6335-4312-AF87-1189AE260572}"
 EndProject
@@ -70,14 +66,6 @@ Global
 		{656F55B6-085C-42A6-B004-A5C517DEB525}.Release_WP|Any CPU.Build.0 = Release_SL|Any CPU
 		{656F55B6-085C-42A6-B004-A5C517DEB525}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{656F55B6-085C-42A6-B004-A5C517DEB525}.Release|Any CPU.Build.0 = Release|Any CPU
-		{AEABB192-070F-4C75-BDAE-7E29496026AE}.Debug_SL|Any CPU.ActiveCfg = Debug|Any CPU
-		{AEABB192-070F-4C75-BDAE-7E29496026AE}.Debug_WP|Any CPU.ActiveCfg = Debug_WP|Any CPU
-		{AEABB192-070F-4C75-BDAE-7E29496026AE}.Debug_WP|Any CPU.Build.0 = Debug_WP|Any CPU
-		{AEABB192-070F-4C75-BDAE-7E29496026AE}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
-		{AEABB192-070F-4C75-BDAE-7E29496026AE}.Release_WP|Any CPU.ActiveCfg = Release_WP|Any CPU
-		{AEABB192-070F-4C75-BDAE-7E29496026AE}.Release_WP|Any CPU.Build.0 = Release_WP|Any CPU
-		{AEABB192-070F-4C75-BDAE-7E29496026AE}.Release|Any CPU.ActiveCfg = Release|Any CPU
-		{AEABB192-070F-4C75-BDAE-7E29496026AE}.Release|Any CPU.Build.0 = Release|Any CPU
 		{99FCB99E-C7EB-49D0-980F-86E61F874FCB}.Debug_SL|Any CPU.ActiveCfg = Debug|Any CPU
 		{99FCB99E-C7EB-49D0-980F-86E61F874FCB}.Debug_SL|Any CPU.Build.0 = Debug|Any CPU
 		{99FCB99E-C7EB-49D0-980F-86E61F874FCB}.Debug_WP|Any CPU.ActiveCfg = Debug_WP|Any CPU
@@ -167,15 +155,6 @@ Global
 		{A1DAC89C-5076-4455-83AF-261FAC8F4C7C}.Release_WP|Any CPU.Build.0 = Release|Any CPU
 		{A1DAC89C-5076-4455-83AF-261FAC8F4C7C}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{A1DAC89C-5076-4455-83AF-261FAC8F4C7C}.Release|Any CPU.Build.0 = Release|Any CPU
-		{E6CE7F1E-1BD2-4761-8086-1B4F3C4AE03E}.Debug_SL|Any CPU.ActiveCfg = Debug|Any CPU
-		{E6CE7F1E-1BD2-4761-8086-1B4F3C4AE03E}.Debug_SL|Any CPU.Build.0 = Debug|Any CPU
-		{E6CE7F1E-1BD2-4761-8086-1B4F3C4AE03E}.Debug_WP|Any CPU.ActiveCfg = Debug|Any CPU
-		{E6CE7F1E-1BD2-4761-8086-1B4F3C4AE03E}.Debug_WP|Any CPU.Build.0 = Debug|Any CPU
-		{E6CE7F1E-1BD2-4761-8086-1B4F3C4AE03E}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
-		{E6CE7F1E-1BD2-4761-8086-1B4F3C4AE03E}.Release_WP|Any CPU.ActiveCfg = Release|Any CPU
-		{E6CE7F1E-1BD2-4761-8086-1B4F3C4AE03E}.Release_WP|Any CPU.Build.0 = Release|Any CPU
-		{E6CE7F1E-1BD2-4761-8086-1B4F3C4AE03E}.Release|Any CPU.ActiveCfg = Release|Any CPU
-		{E6CE7F1E-1BD2-4761-8086-1B4F3C4AE03E}.Release|Any CPU.Build.0 = Release|Any CPU
 		{7384961E-6335-4312-AF87-1189AE260572}.Debug_SL|Any CPU.ActiveCfg = Debug|Any CPU
 		{7384961E-6335-4312-AF87-1189AE260572}.Debug_SL|Any CPU.Build.0 = Debug|Any CPU
 		{7384961E-6335-4312-AF87-1189AE260572}.Debug_WP|Any CPU.ActiveCfg = Debug|Any CPU

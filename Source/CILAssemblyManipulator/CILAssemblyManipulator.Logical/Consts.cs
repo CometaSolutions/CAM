@@ -21,18 +21,8 @@ namespace CILAssemblyManipulator.Logical
 {
    internal static class Consts
    {
-      internal const String TABLE_STREAM_NAME = "#~";
-      internal const String SYS_STRING_STREAM_NAME = "#Strings";
-      internal const String USER_STRING_STREAM_NAME = "#US";
-      internal const String GUID_STREAM_NAME = "#GUID";
-      internal const String BLOB_STREAM_NAME = "#Blob";
-
       internal const String MSCORLIB_NAME = "mscorlib";
       internal const String NEW_MSCORLIB_NAME = "System.Runtime";
-
-      internal const Int32 TWO_BYTE_SIZE = 2;
-      internal const Int32 FOUR_BYTE_SIZE = 4;
-      internal const Int32 GUID_SIZE = 16;
 
       internal const String SYSTEM_NS = "System";
 
@@ -68,7 +58,5 @@ namespace CILAssemblyManipulator.Logical
       internal const String ARRAY = "System.Array";
       internal const String SECURITY_ATTR = "System.Security.Permissions.SecurityAttribute";
       internal const String SECURITY_ACTION = "System.Security.Permissions.SecurityAction";
-      internal const String PERMISSION_SET = "System.Security.Permissions.PermissionSetAttribute";
-      internal const String PERMISSION_SET_XML_PROP = "XML";
    }
 }

@@ -31,22 +31,12 @@ namespace CILAssemblyManipulator.Logical
    /// </summary>
    public static class LogicalUtils
    {
-      //      internal const String MD_NET_1_0 = "v1.0.3705";
-      //      internal const String MD_NET_1_1 = "v1.1.4322";
-      //      internal const String MD_NET_2_0 = "v2.0.50727";
-      //      internal const String MD_NET_4_0 = "v4.0.30319";
-
       internal static readonly System.Reflection.Assembly NATIVE_MSCORLIB = typeof( Object )
 #if WINDOWS_PHONE_APP
       .GetTypeInfo()
 #endif
 .Assembly;
 
-      //      private const Char ESCAPE_CHAR = '\\';
-
-      //      private static readonly Char[] ESCAPABLE_CHARS_WITHIN_TYPESTRING = { ESCAPE_CHAR, ',', '+', '&', '*', '[', ']' };
-      //      private static readonly Char[] CHARS_ENDING_SIMPLE_TYPENAME = { '&', '*', '[' };
-      //      private const String TYPE_ASSEMBLY_SEPARATOR = ", ";
 
 
       /// <summary>
