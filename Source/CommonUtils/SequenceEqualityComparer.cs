@@ -809,7 +809,7 @@ namespace CommonUtils
             && x.Count == y.Count
             && ( x.Count == 0
                || ( x.Count == 1 ?
-                  ( itemComparer ?? EqualityComparer<U>.Default ).Equals( x.First(), y.First() ) :
+                  ( itemComparer ?? EqualityComparer<U>.Default ).Equals( x[0], y[0] ) :
                   new HashSet<U>( x, itemComparer ).SetEquals( y ) )
                )
             );
