@@ -1,0 +1,44 @@
+- General
+This git repository is home for two frameworks: UtilPack and CILAssemblyManipulator.
+
+- NuGet packages
+For people just looking links for NuGet packages:
+ * UtilPack: description & direct link
+ * CAM.Physical: description & direct link
+ * CAM.Logical: description & direct link
+ * CAM.Structural: description & direct link
+
+- UtilPack
+* Much like Jon Skeet's Miscellaneous Utility Library ( http://www.yoda.arachsys.com/csharp/miscutil/ ), this adds some useful miscellaneous methods which I find to be essential in all or most of my projects, both personal and professional.
+* Utilizes extension methods heavily
+* TODO: lazies, tests
+
+- CAM
+* A modifiable views onto CIL metadata
+* If you are looking for extremely quick framework providing *read-only* access ECMA metadata, you should use System.Reflection.Metadata package ( http://www.nuget.org/packages/System.Reflection.Metadata/ )
+* API is freeform: no constraints (like ECMA metadata uniqueness/ordering constraints) are directly applied, can create invalid metadata
+* API also follows the pattern of types only containing simple data access methods/properties, and extension methods providing the rest of the functionality
+* Methods to modify metadata to conform to most of the ECMA metadata uniqueness/ordering constraints
+* Three abstraction layers: Physical (least abstract), Structural, Logical (most abstract)
+* Very portable ( all layers are Profile328 )
+
+-- CAM.Physical
+* Metadata is represented as modifiable tables and signatures
+* Very lightweight and quick
+* Follows very closely the specifications and abstract level of ECMA-335 document
+* Not threadsafe
+* Equality comparison is exact: two metadata instances may be considered different even if they produce exactly equivalently behaving code
+
+-- CAM.Structural
+* Metadata is represented as modifiable objects, the concept of metadata tables is no longer present
+* Quite lightweight and quick
+* Follows very closely the specifications of ECMA-335 document (e.g. TypeRefs can have custom attributes, etc), but abstraction level is somewhat higher than CAM.Physical
+* Not threadsafe
+* Equality comparison is exact, but on this abstraction level this means that two metadata instances producing equivalently behaving code will be considered equal
+
+-- CAM.Logical
+* Metadata is represented as modifiable objects, structure of which resembles those of System.Reflection namespace
+* API is not so lightweight anymore
+* Requires a concept of 'universe', which is represented by 'CILReflectionContext' interface
+* The universe can be threadsafe or not threadsafe
+* Equality comparison is by-reference within the universe (also meaning that two methods representing the same method are always the same instance, just like in System.Reflection)

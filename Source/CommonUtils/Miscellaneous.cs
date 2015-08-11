@@ -154,6 +154,30 @@ public static partial class E_CommonUtils
    }
 
    /// <summary>
+   /// Checks whether given nullable boolean has value and that value is <c>false</c>.
+   /// </summary>
+   /// <param name="nullable">Nullable boolean.</param>
+   /// <returns><c>true</c> if <paramref name="nullable"/> has value and that value is <c>false</c>; <c>false</c> otherwise.</returns>
+   public static Boolean IsFalse( this Boolean? nullable )
+   {
+      return nullable.HasValue && !nullable.Value;
+   }
+
+   /// <summary>
+   /// Checks that string is non-<c>null</c> and equivalent to <see cref="Boolean.TrueString"/>.
+   /// </summary>
+   /// <param name="str">The string to check.</param>
+   /// <returns><c>true</c> if <paramref name="str"/> is equivalent to <see cref="Boolean.TrueString"/>; <c>false</c> otherwise.</returns>
+   /// <remarks>
+   /// This should be a no-throw method.
+   /// </remarks>
+   private static Boolean ParseAsBooleanSafe( this String str )
+   {
+      Boolean parsedBoolean;
+      return Boolean.TryParse( str, out parsedBoolean ) && parsedBoolean;
+   }
+
+   /// <summary>
    /// Helper method to return result of <see cref="Object.ToString"/> or other string if object is <c>null</c>.
    /// </summary>
    /// <param name="obj">The object.</param>
