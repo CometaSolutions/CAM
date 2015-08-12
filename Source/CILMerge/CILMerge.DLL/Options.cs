@@ -53,7 +53,6 @@ namespace CILMerge
       String MetadataVersionString { get; set; }
       string ReferenceAssembliesDirectory { get; set; }
       bool Union { get; set; }
-      // TODO this option might be removed. Setting this to true would require loading all referenced assemblies of input modules (to find out their full public key) which don't have full public key in their refs.
       bool UseFullPublicKeyForRefs { get; set; }
       bool Verbose { get; set; }
       int VerBuild { get; set; }
@@ -62,7 +61,6 @@ namespace CILMerge
       int VerRevision { get; set; }
       bool XmlDocs { get; set; }
       bool ZeroPEKind { get; set; }
-      //CILMergeLogCallback CILLogCallback { get; set; }
       bool NoResources { get; set; }
 
       Int32 SubsystemMajor { get; set; }
