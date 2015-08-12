@@ -14,6 +14,7 @@ There are three abstraction levels in CAM, from least abstract to most abstract:
 * physical,
 * structural,
 * and logical.
+
 Each abstraction level is represented by one library.
 All three libraries have extremely portable API to use; the supported platforms are .NET 4, SL5, WPSL8, WPA8.1, and Win8.
 However, not all the platforms currently have working implementation for e.g. cryptographic functions (needed to emit strong-named metadata).
