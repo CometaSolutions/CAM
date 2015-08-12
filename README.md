@@ -1,5 +1,5 @@
 # Introduction
-This git repository is home for [CILAssemblyManipulator](#CILAssemblyManipulator framework) (CAM) framework, [UtilPack](#UtilPack library) library, and [CILMerge](#CILMerge utility) utility.
+This git repository is home for [CILAssemblyManipulator](#CILAssemblyManipulator-framework) (CAM) framework, [UtilPack](#UtilPack-library) library, and [CILMerge](#CILMerge-utility) utility.
 
 # NuGet packages
 For people just looking links for NuGet packages:
