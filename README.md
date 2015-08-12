@@ -27,7 +27,7 @@ Because of the freeform feature, it is possible to have (and write to disk) inva
 The responsibility of producing valid metadata is left for user of the framework, be that manually ensuring some of the metadata constraints, or by simply calling methods that restructure the metadata so that at least some constraints are being adhered to then.
 One notable example of such method is `OrderTablesAndRemoveDuplicates` extension method for `CILMetaData` type in CAM.Physical library, which will remove duplicates from some tables and re-order some more tables in metadata, so that those tables will conform to ECMA-335 ordering and uniqueness constraints.
 
-Originally CAM started out as a bunch of utilitiers to support code generation in [Qi4CS](https://github.com/CometaSolutions/Qi4CS).
+Originally CAM started out as a bunch of utilities to support code generation in [Qi4CS](https://github.com/CometaSolutions/Qi4CS).
 It soon became a fully fledged framework, with API which is now in CAM.Logical library.
 After a lengthy refactor in 2015, CAM is now in current form with three libraries, one for each abstraction level.
 Currently it is fully capable alternative to [Cecil](https://github.com/jbevain/cecil).
