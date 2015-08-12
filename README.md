@@ -64,14 +64,14 @@ Unlike in CAM.Physical, the equality comparison in CAM.Structural no longer take
 The CAM.Structural library also provides extension methods to create CAM.Structural metadata object out of CAM.Physical metadata objects, and vice versa.
 
 The abstraction level provided by CAM.Structural roughly equals the abstraction level of the [Cecil](https://github.com/jbevain/cecil) framework.
-However, the CAM.Structural does not have any concept of `universe`, so there are no `import` methods (also because all metadata objects are fully modifiable).
+However, the CAM.Structural does not have any concept of *universe*, so there are no `Import` methods (also because all metadata objects are fully modifiable).
 Like the CAM.Physical library, the CAM.Structural library does not have various checks for integrity and correctness of metadata, leaving the responsibility to adher to rules for the user of the library.
 
 ## CAM.Logical library
 The CAM.Logical library represents the highest abstraction level of CAM.
 At this abstraction level, metadata is represented as modifiable objects with API similar to objects of System.Reflection namespace.
 However, these objects are no longer so light-weight compared to CAM.Physical and CAM.Structural objects.
-The concept of `universe` is also introduced in CAM.Logical, and all metadata objects always belong to a certain universe.
+The concept of *universe* is also introduced in CAM.Logical, and all metadata objects always belong to a certain universe.
 
 Not all CIL metadata concepts and features are exposed in CAM.Logical.
 For example, there is no concept of TypeReference (rows), and thus it is not possible to specify custom attributes for a type reference (if for some weird reason, that would be required).
