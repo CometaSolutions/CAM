@@ -301,7 +301,7 @@ namespace CILAssemblyManipulator.Physical
 
       public static String CombineNamespaceAndType( String typeNamespace, String typeName )
       {
-         return ( typeNamespace != null && typeNamespace.Length > 0 ? ( typeNamespace + NAMESPACE_SEPARATOR ) : "" ) + typeName;
+         return String.IsNullOrEmpty( typeNamespace ) ? typeName : ( typeNamespace + NAMESPACE_SEPARATOR + typeName );
       }
 
       public static String CombineEnclosingAndNestedType( String enclosing, String nested )

@@ -127,7 +127,7 @@ public static partial class E_CILStructural
             var tRef = tRefs[i];
             var resScopeNullable = tRef.ResolutionScope;
             var info = this._typeRefDescriptions[i];
-            TypeRefeferenceResolutionScope resScopeInfo;
+            TypeReferenceResolutionScope resScopeInfo;
             ExportedTypeStructure eType;
             if ( resScopeNullable.HasValue )
             {
@@ -711,11 +711,14 @@ public static partial class E_CILStructural
                parentInfo = null;
                break;
          }
-         parentInfo.CustomAttributes.Add( new CustomAttributeStructure()
+         if ( parentInfo != null )
          {
-            Constructor = FromMethodDefOrMemberRef( mDefList, memberRefList, ca.Type ),
-            Signature = ca.Signature // TODO clone
-         } );
+            parentInfo.CustomAttributes.Add( new CustomAttributeStructure()
+            {
+               Constructor = FromMethodDefOrMemberRef( mDefList, memberRefList, ca.Type ),
+               Signature = ca.Signature // TODO clone
+            } );
+         }
       }
 
       // IL

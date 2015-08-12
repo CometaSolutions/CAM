@@ -373,7 +373,7 @@ namespace CILAssemblyManipulator.Structural
 
       public String Name { get; set; }
       public String Namespace { get; set; }
-      public TypeRefeferenceResolutionScope ResolutionScope { get; set; }
+      public TypeReferenceResolutionScope ResolutionScope { get; set; }
 
       public override TypeStructureKind TypeStructureKind
       {
@@ -406,9 +406,9 @@ namespace CILAssemblyManipulator.Structural
       ExportedType
    }
 
-   public abstract class TypeRefeferenceResolutionScope
+   public abstract class TypeReferenceResolutionScope
    {
-      internal TypeRefeferenceResolutionScope()
+      internal TypeReferenceResolutionScope()
       {
 
       }
@@ -416,7 +416,7 @@ namespace CILAssemblyManipulator.Structural
       public abstract TypeRefResolutionScopeKind ResolutionScopeKind { get; }
    }
 
-   public sealed class TypeReferenceResolutionScopeTypeDef : TypeRefeferenceResolutionScope
+   public sealed class TypeReferenceResolutionScopeTypeDef : TypeReferenceResolutionScope
    {
       public TypeReferenceResolutionScopeTypeDef()
       {
@@ -434,7 +434,7 @@ namespace CILAssemblyManipulator.Structural
       }
    }
 
-   public sealed class TypeReferenceResolutionScopeNested : TypeRefeferenceResolutionScope
+   public sealed class TypeReferenceResolutionScopeNested : TypeReferenceResolutionScope
    {
       public TypeReferenceResolutionScopeNested()
       {
@@ -452,7 +452,7 @@ namespace CILAssemblyManipulator.Structural
       public TypeReferenceStructure EnclosingTypeRef { get; set; }
    }
 
-   public sealed class TypeReferenceResolutionScopeModuleRef : TypeRefeferenceResolutionScope
+   public sealed class TypeReferenceResolutionScopeModuleRef : TypeReferenceResolutionScope
    {
       public TypeReferenceResolutionScopeModuleRef()
       {
@@ -470,7 +470,7 @@ namespace CILAssemblyManipulator.Structural
       public ModuleReferenceStructure ModuleRef { get; set; }
    }
 
-   public sealed class TypeReferenceResolutionScopeAssemblyRef : TypeRefeferenceResolutionScope
+   public sealed class TypeReferenceResolutionScopeAssemblyRef : TypeReferenceResolutionScope
    {
       public TypeReferenceResolutionScopeAssemblyRef()
       {
@@ -488,7 +488,7 @@ namespace CILAssemblyManipulator.Structural
       public AssemblyReferenceStructure AssemblyRef { get; set; }
    }
 
-   public sealed class TypeReferenceResolutionScopeExportedType : TypeRefeferenceResolutionScope
+   public sealed class TypeReferenceResolutionScopeExportedType : TypeReferenceResolutionScope
    {
 
       public ExportedTypeStructure ExportedType { get; set; }
@@ -573,7 +573,7 @@ namespace CILAssemblyManipulator.Structural
 
    public abstract class ExportedTypeResolutionScope
    {
-      public ExportedTypeResolutionScope()
+      internal ExportedTypeResolutionScope()
       {
 
       }

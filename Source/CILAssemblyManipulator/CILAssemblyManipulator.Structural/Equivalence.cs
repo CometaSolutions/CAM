@@ -765,7 +765,7 @@ namespace CILAssemblyManipulator.Structural
          }
       }
 
-      private Boolean Equivalence_TypeRefResolutionScope( TypeRefeferenceResolutionScope x, TypeRefeferenceResolutionScope y )
+      private Boolean Equivalence_TypeRefResolutionScope( TypeReferenceResolutionScope x, TypeReferenceResolutionScope y )
       {
          return ReferenceEquals( x, y )
             || ( x != null && y != null
@@ -774,7 +774,7 @@ namespace CILAssemblyManipulator.Structural
             );
       }
 
-      private Boolean Equivalence_TypeRefResolutionScope_SameKind( TypeRefeferenceResolutionScope x, TypeRefeferenceResolutionScope y )
+      private Boolean Equivalence_TypeRefResolutionScope_SameKind( TypeReferenceResolutionScope x, TypeReferenceResolutionScope y )
       {
          switch ( x.ResolutionScopeKind )
          {
