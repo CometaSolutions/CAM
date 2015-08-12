@@ -60,7 +60,7 @@ So e.g. in CAM.Physical, in order to specify packing and/or class size for a typ
 The same effect is achieved in CAM.Structural by directly modifying Layout property of affected TypeDefinitionStructure, resulting in a lot more natural API.
 
 The abstraction level, however, is not much higher than CAM.Physical, so the CAM.Structural remains quite light-weight and quick, not thread-safe, and still following closely [ECMA-335 Standard](http://www.ecma-international.org/publications/standards/Ecma-335.htm) (e.g. TypeRefs can have custom attributes, etc).
-Unlike in CAM.Physical, the equality comparison of CAM.Structural no longer takes physical representation into account, meaning that two metadata instances producing equivalently behaving code will be considered equal.
+Unlike in CAM.Physical, the equality comparison in CAM.Structural no longer takes physical representation into account, meaning that two metadata instances producing equivalently behaving code will be considered equal.
 The CAM.Structural library also provides extension methods to create CAM.Structural metadata object out of CAM.Physical metadata objects, and vice versa.
 
 The abstraction level provided by CAM.Structural roughly equals the abstraction level of the [Cecil](https://github.com/jbevain/cecil) framework.
@@ -86,6 +86,7 @@ However, it is never thread-safe to add types to the same enclosing type, or to 
 
 The equality comparison in CAM.Logical is by-reference, which is similar to how it is done in System.Reflection namespaces (e.g. two references to object representing the same method are always referencing the same object).
 Therefore, the explicit equality comparers are not present in CAM.Logical library.
+Like in CAM.Structural library, CAM.Logical provides provides extension methods to create CAM.Logical `CILAssembly` objects out of CAM.Physical `CILMetaData` objects, and vice versa.
 
 # UtilPack library
 This is small and extremely portable library that contains various miscellaneous utility types and methods that I find to be essential in most of my projects, both personal and professional.
