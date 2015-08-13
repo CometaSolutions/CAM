@@ -31,7 +31,10 @@
 
   <!-- NuSpec file information -->
   <PropertyGroup>
+    <!-- Common -->
     <UtilPackBaseDirNuSpec>$([System.IO.Path]::GetFullPath($(UtilPackBaseDir)))</UtilPackBaseDirNuSpec>
+    
+    <!-- NuGet Spec -->
     <NuSpec_OutputPath>$(MSBuildThisFileDirectory)../NuSpec/UtilPack.nuspec</NuSpec_OutputPath>
     <NuSpec_ID>UtilPack</NuSpec_ID>
     <NuSpec_VersionFilename>$(MSBuildThisFileDirectory)../Source/UtilPackVersion.txt</NuSpec_VersionFilename>
@@ -51,20 +54,28 @@
       <file src="$(UtilPackBaseDirNuSpec)\Output\Release\SL\UtilPack.dll" target="lib\portable-net45+sl50+win+wp80\UtilPack.dll" />
       <file src="$(UtilPackBaseDirNuSpec)\Output\Release\SL\UtilPack.xml" target="lib\portable-net45+sl50+win+wp80\UtilPack.xml" />
     ]]></NuSpec_FilesXML>
+    
+    <!-- NuGet Pack -->
+    <NuGetPack_NuSpec>$(NuSpec_OutputPath)</NuGetPack_NuSpec>
+    <NuGetPack_OutputDirectory>$(MSBuildThisFileDirectory)../NuSpec/</NuGetPack_OutputDirectory>
   </PropertyGroup>
     
   <!-- Files for PEVerify -->
   <ItemGroup>
       <PEVerifyFiles Include="$(UtilPackBaseDir)\Output\Release\dotNET\UtilPack.dll" />
       <PEVerifyFiles Include="$(UtilPackBaseDir)\Output\Release\SL\UtilPack.dll" />
-      <PEVerifyFiles Include="$(UtilPackBaseDir)\Output\Release\SL\UtilPack.dll" />
   </ItemGroup>
   
   <Import Project="$(UtilPackBaseDir)/CommonBuildTools/CLR/MSBuild/NuSpec.targets" />
   
-  <Import Project="$(UtilPackBaseDir)/CommonBuildtools/CLR/MSBuild/PEVerify.targets" />
+  <Import Project="$(UtilPackBaseDir)/CommonBuildTools/CLR/MSBuild/PEVerify.targets" />
+  
+  <Import Project="$(UtilPackBaseDir)/CommonBuildTools/CLR/MSBuild/GenerateNuGetPackage.targets" />
 
-  <Target Name="UtilPackNuSpec">
+  <Target Name="UtilPackNuGet_Spec">
+    <!-- Must specify release notes -->
+    <Error Condition="'$(NuSpec_ReleaseNotes)' == ''" Text="Please specify release notes in NuSpec_ReleaseNotes property." />
+    
     <!-- First, delete all files that won't be included in the NuGet package. -->
     <ItemGroup>
       <UtilPackFilesToPersist Include="$(UtilPackBaseDir)\Output\Release\dotNET\UtilPack.*"/>
@@ -84,12 +95,16 @@
     <PropertyGroup>
       <PEVerifyFilesCount>@(PEVerifyFiles->Count())</PEVerifyFilesCount>
     </PropertyGroup>
-    <Error Condition=" '$(PEVerifyFilesCount)' != '3' " Text="Not all required files for PEVerify are present." />
+    <Error Condition=" '$(PEVerifyFilesCount)' != '2' " Text="Not all required files for PEVerify are present." />
     
     <!-- Call PEVerify -->
     <CallTarget Targets="PEVerifyFiles" />
     
     <!-- Generate .nuspec file -->
     <CallTarget Targets="GenerateNuSpecFile" />
+  </Target>
+  
+  <Target Name="UtilPackNuGet_Pack">
+    <CallTarget Targets="GenerateNuGetPackage" />
   </Target>
 </Project>
