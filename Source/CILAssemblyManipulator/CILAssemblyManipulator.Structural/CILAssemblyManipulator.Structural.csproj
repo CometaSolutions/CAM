@@ -15,7 +15,7 @@
     <TargetFrameworkVersion>v4.0</TargetFrameworkVersion>
     <TargetFrameworkProfile Condition=" '$(CAMStructuralIsPortable)' != '' ">Profile328</TargetFrameworkProfile>
     <TargetFrameworkProfile Condition=" '$(CAMStructuralIsPortable)' == '' ">Client</TargetFrameworkProfile>
-    <DefineConstants Condition=" '$(CAMStructuralIsPortable)' != ''">CAM_PHYSICAL_IS_PORTABLE</DefineConstants>
+    <DefineConstants Condition=" '$(CAMStructuralIsPortable)' != ''">CAM_STRUCTURAL_IS_PORTABLE</DefineConstants>
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|AnyCPU' ">
     <DebugSymbols>true</DebugSymbols>

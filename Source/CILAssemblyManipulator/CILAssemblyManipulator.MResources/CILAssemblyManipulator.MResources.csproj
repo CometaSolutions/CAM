@@ -34,24 +34,6 @@
     <ErrorReport>prompt</ErrorReport>
     <WarningLevel>4</WarningLevel>
   </PropertyGroup>
-  <PropertyGroup Condition="'$(Configuration)|$(Platform)' == 'Debug_WP|AnyCPU'">
-    <DebugSymbols>true</DebugSymbols>
-    <OutputPath>..\..\..\Output\Debug\WP\</OutputPath>
-    <DefineConstants>TRACE;DEBUG;WP8_BUILD</DefineConstants>
-    <DebugType>full</DebugType>
-    <PlatformTarget>AnyCPU</PlatformTarget>
-    <ErrorReport>prompt</ErrorReport>
-    <CodeAnalysisRuleSet>MinimumRecommendedRules.ruleset</CodeAnalysisRuleSet>
-  </PropertyGroup>
-  <PropertyGroup Condition="'$(Configuration)|$(Platform)' == 'Release_WP|AnyCPU'">
-    <OutputPath>..\..\..\Output\Release\WP\</OutputPath>
-    <DefineConstants>TRACE;WP8_BUILD</DefineConstants>
-    <Optimize>true</Optimize>
-    <DebugType>none</DebugType>
-    <PlatformTarget>AnyCPU</PlatformTarget>
-    <ErrorReport>prompt</ErrorReport>
-    <CodeAnalysisRuleSet>MinimumRecommendedRules.ruleset</CodeAnalysisRuleSet>
-  </PropertyGroup>
   <ItemGroup>
     <ProjectReference Include="..\..\CommonUtils\CommonUtils.csproj" Condition=" '$(UseUtilpackReference)' == '' And '$(IsCommandLineBuild)' == ''" >
       <Project>{dba22cd8-ac89-4902-8e44-f4771875e781}</Project>

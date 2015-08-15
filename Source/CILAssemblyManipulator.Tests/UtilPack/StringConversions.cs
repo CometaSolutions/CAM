@@ -25,6 +25,7 @@ using CommonUtils;
 
 namespace CILAssemblyManipulator.Tests.UtilPack
 {
+   [Category( "UtilPack" )]
    public class StringConversionTest
    {
       [Test]

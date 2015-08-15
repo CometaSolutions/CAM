@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<NuGetManagement>
+  <GlobalConfiguration>
+    <PackagesDirectory>Packages</PackagesDirectory>
+  </GlobalConfiguration>
+  <Packages>
+    <Package>
+      <ID>NUnit</ID>
+      <Versions>
+        <Version>2.6.4</Version>
+      </Versions>
+    </Package>
+  </Packages>
+</NuGetManagement>
