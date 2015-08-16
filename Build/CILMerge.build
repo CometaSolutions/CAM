@@ -78,7 +78,7 @@
       <PEVerifyFiles Include="$(CILMergeBaseDir)\Output\Release\dotNET\CILMerge.MSBuild.dll" />
   </ItemGroup>
   
-  <Import Project="$(CILMergeBaseDir)/CommonBuildTools/CLR/MSBuild/NuSpec.targets" />
+  <Import Project="$(CILMergeBaseDir)/CommonBuildTools/CLR/MSBuild/NuGetTasks.targets" />
   
   <Import Project="$(CILMergeBaseDir)/CommonBuildtools/CLR/MSBuild/PEVerify.targets" />
 

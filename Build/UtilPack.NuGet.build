@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <Project
-  DefaultTargets="UtilPack_CheckVariables;UtilPack_Tests;UtilPack_Compile;UtilPack_PreparePEVerify;UtilPack_PEVerify;UtilPack_PrepareNuGet;UtilPack_NuGet"
+  DefaultTargets="UtilPack_CheckVariables;UtilPack_Tests;UtilPack_Compile;UtilPack_PEVerify;UtilPack_NuGet"
   xmlns="http://schemas.microsoft.com/developer/msbuild/2003"
   >
   <!-- TODO run NUnit tests -->
@@ -10,12 +10,12 @@
   
   <Target Name="UtilPack_CheckVariables">
     <!-- Must specify release notes -->
-    <Error Condition="'$(NuSpec_ReleaseNotes)' == ''" Text="Please specify release notes in NuSpec_ReleaseNotes property." />
+    <Error Condition="'$(UtilPackReleaseNotes)' == ''" Text="Please specify release notes in UtilPackReleaseNotes property." />
   </Target>
   
   <Target Name="UtilPack_Tests">
     <!-- NuGet restore (NUnit package) -->
-    <CommonBuildTools.NuGetRestoreTask
+    <CommonBuildTools.NuGetTaskRestore
       NuGetExecutable="$(UtilPackNuGetExecutable)"
       NuGetManagementFile="$(UtilPackBaseDir)\NuGetPackages.xml"
       />
@@ -43,15 +43,7 @@
     <!-- Build UtilPack, normal version -->
     <MSBuild Projects="$(MSBuildThisFileDirectory)UtilPack.build" Properties="UtilPackConfiguration=Release;UtilpackSkipCILMerge=True" />
   </Target>
-  
-  <Target Name="UtilPack_PreparePEVerify">
-    <!-- Files for PEVerify -->
-    <ItemGroup>
-      <PEVerifyFiles Include="$(UtilPackBaseDir)\Output\Release\dotNET\UtilPack.dll" />
-      <PEVerifyFiles Include="$(UtilPackBaseDir)\Output\Release\SL\UtilPack.dll" />
-    </ItemGroup>
-  </Target>
-  
+   
   <Target Name="UtilPack_PEVerify">
     <!-- First, delete all files that won't be included in the NuGet package. -->
     <ItemGroup>
@@ -66,68 +58,94 @@
       Files="@(UtilPackFilesToDelete)"
     />
     
+    <!-- Files for PEVerify -->
+    <ItemGroup>
+      <PEVerifyFiles Include="$(UtilPackBaseDir)\Output\Release\dotNET\UtilPack.dll" />
+      <PEVerifyFiles Include="$(UtilPackBaseDir)\Output\Release\SL\UtilPack.dll" />
+    </ItemGroup>
+    
     <!-- Verify all .dll files exist -->
     <PropertyGroup>
       <PEVerifyFilesCount>@(PEVerifyFiles->Count())</PEVerifyFilesCount>
+      <PEVerifyFilesExpectedCount>2</PEVerifyFilesExpectedCount>
     </PropertyGroup>
-    <Error Condition=" '$(PEVerifyFilesCount)' != '2' " Text="Not all required files for PEVerify are present ($(PEVerifyFilesCount))." />
-    
+    <Error Condition=" '$(PEVerifyFilesCount)' != '$(PEVerifyFilesExpectedCount)' " Text="Not all required files for PEVerify are present ($(PEVerifyFilesCount))." />
+
     <!-- Call PEVerify -->
-    <CallTarget Targets="PEVerifyFiles" />
+    <CommonBuildTools.PEVerifyTask
+      FileToVerify="%(PEVerifyFiles.Identity)"
+      />
   </Target>
-  
-  <Target Name="UtilPack_PrepareNuGet">
+   
+  <Target Name="UtilPack_NuGet">
     <!-- NuSpec file information -->
     <PropertyGroup>
       <!-- Common -->
-      <UtilPackBaseDirNuSpec>$([System.IO.Path]::GetFullPath($(UtilPackBaseDir)))</UtilPackBaseDirNuSpec>
+      <!-- <UtilPackBaseDirNuGet>$([System.IO.Path]::GetFullPath($(UtilPackBaseDir)))\NuGet</UtilPackBaseDirNuGet> -->
+      <UtilPackBaseDirNuGet>$(UtilPackBaseDir)\NuGet</UtilPackBaseDirNuGet>
     
       <!-- NuGet Spec -->
-      <NuSpec_OutputPath>$(MSBuildThisFileDirectory)../NuSpec/UtilPack.nuspec</NuSpec_OutputPath>
-      <NuSpec_ID>UtilPack</NuSpec_ID>
-      <NuSpec_VersionFilename>$(MSBuildThisFileDirectory)../Source/UtilPackVersion.txt</NuSpec_VersionFilename>
-      <NuSpec_Authors>Stanislav Muhametsin</NuSpec_Authors>
-      <NuSpec_Description>Utility Package for CLR is small and extremely portable library aimed to provide useful tools to read and write binary data, expose partial collection API (write-only, read-only, Command-Query Separation), and to work with CLR reflection.</NuSpec_Description>
-      <NuSpec_Title>Utility Package for CLR</NuSpec_Title>
-      <NuSpec_AutoCopyright>true</NuSpec_AutoCopyright>
-      <NuSpec_CopyrightInceptionYear>2014</NuSpec_CopyrightInceptionYear>
-      <NuSpec_LicenseURL>http://www.apache.org/licenses/LICENSE-2.0</NuSpec_LicenseURL>
-      <NuSpec_ProjectURL>https://github.com/CometaSolutions/CAM</NuSpec_ProjectURL>
-      <NuSpec_RequireLicenseAcceptance>false</NuSpec_RequireLicenseAcceptance>
-      <NuSpec_Summary>Utility Package is small DLL containing useful components for all kind of applications.</NuSpec_Summary>
-      <NuSpec_Tags>clr .net mono portable utility binary data read write collection command query separation reflection</NuSpec_Tags>
-      <NuSpec_FilesXML><![CDATA[
-        <file src="$(UtilPackBaseDirNuSpec)\Output\Release\dotNET\UtilPack.dll" target="lib\portable-net40+win+wpa81\UtilPack.dll" />
-        <file src="$(UtilPackBaseDirNuSpec)\Output\Release\dotNET\UtilPack.xml" target="lib\portable-net40+win+wpa81\UtilPack.xml" />
-        <file src="$(UtilPackBaseDirNuSpec)\Output\Release\SL\UtilPack.dll" target="lib\portable-net45+sl50+win+wp80\UtilPack.dll" />
-        <file src="$(UtilPackBaseDirNuSpec)\Output\Release\SL\UtilPack.xml" target="lib\portable-net45+sl50+win+wp80\UtilPack.xml" />
-      ]]></NuSpec_FilesXML>
-    
-      <!-- NuGet Pack -->
-      <NuGetPack_NuSpec>$(NuSpec_OutputPath)</NuGetPack_NuSpec>
-      <NuGetPack_OutputDirectory>$(MSBuildThisFileDirectory)../NuSpec/</NuGetPack_OutputDirectory>
-      <NuGetPack_NuGetExe>$(UtilPackNuGetExecutable)</NuGetPack_NuGetExe>
+      <UtilPackNuSpecVersionFilename Condition=" '$(UtilPackNuSpecVersion)' == '' ">$(MSBuildThisFileDirectory)../Source/UtilPackVersion.txt</UtilPackNuSpecVersionFilename>
+      <UtilPackNuSpecFilePath>$(UtilPackBaseDirNuGet)\UtilPack.nuspec</UtilPackNuSpecFilePath>
     </PropertyGroup>
-  </Target>
-  
-  <Target Name="UtilPack_NuGet">
+    <ItemGroup>
+      <UtilPackFile Include="Output\Release\dotNET\UtilPack.dll">
+        <TargetFilePath>lib\portable-net40+win8+wpa81\UtilPack.dll</TargetFilePath>
+      </UtilPackFile>
+      <UtilPackFile Include="Output\Release\dotNET\UtilPack.xml">
+        <TargetFilePath>lib\portable-net40+win8+wpa81\UtilPack.xml</TargetFilePath>
+      </UtilPackFile>
+      <UtilPackFile Include="Output\Release\SL\UtilPack.dll">
+        <TargetFilePath>lib\portable-net45+sl50+wp80\UtilPack.dll</TargetFilePath>
+      </UtilPackFile>
+      <UtilPackFile Include="Output\Release\SL\UtilPack.xml">
+        <TargetFilePath>lib\portable-net45+sl50+wp80\UtilPack.xml</TargetFilePath>
+      </UtilPackFile>
+    </ItemGroup>
+    
     <!-- Generate .nuspec file -->
-    <CallTarget Targets="GenerateNuSpecFile" />
-    
+    <CommonBuildTools.NuGetTaskNuSpec
+      VersionFile="$(UtilPackNuSpecVersionFilename)"
+      VersionContents="$(UtilPackNuSpecVersion)"
+      Copyright_InceptionYear="2014"
+      PackageID="UtilPack"
+      Authors="Stanislav Muhametsin"
+      Description="Utility Package for CLR is small and extremely portable library aimed to provide useful tools to read and write binary data, expose partial collection API (write-only, read-only, Command-Query Separation), and to work with CLR reflection."
+      Title="Utility Package for CLR"
+      ReleaseNotes="$(UtilPackReleaseNotes)"
+      Tags="clr .net mono portable utility binary data read write collection command query separation reflection"
+      Summary="Utility Package is small DLL containing useful components for all kind of applications."
+      ProjectURL="https://github.com/CometaSolutions/CAM"
+      LicenseURL="http://www.apache.org/licenses/LICENSE-2.0"
+      RequireLicenseAcceptance="False"
+      Files="@(UtilPackFile)"
+      OutputPath="$(UtilPackNuSpecFilePath)"
+      >
+      <Output TaskParameter="GeneratedNuSpecVersion" PropertyName="UtilPackNuSpecVersionGenerated" />
+    </CommonBuildTools.NuGetTaskNuSpec>
+
     <!-- Generate the .nupkg file -->
-    <CallTarget Targets="GenerateNuGetPackage" />
+    <CommonBuildTools.NuGetTaskPackage
+      NuSpecFile="$(UtilPackNuSpecFilePath)"
+      OutputDirectory="$(UtilPackBaseDirNuGet)"
+      BasePath="$(UtilPackBaseDir)"
+      MinClientVersion="2.5"
+    />
     
-    <!-- TODO push if api-key property specified -->
+    <!-- Push if API-key or config file property specified -->
+    <CommonBuildTools.NuGetTaskPush
+      Condition=" '$(UtilPackNuGetPushAPIKey)' != '' or '$(UtilPackNuGetPushConfigFile)' != '' "
+      PackageFilePath="$(UtilPackBaseDirNuGet)\UtilPack.$(UtilPackNuSpecVersionGenerated).nupkg"
+      APIKey="$(UtilPackNuGetPushAPIKey)"
+      Source="$(UtilPackNuGetPushSource)"
+      ConfigFile="$(UtilPackNuGetPushConfigFile)"
+      />
   </Target>
   
-  <Import Project="$(UtilPackBaseDir)/CommonBuildTools/CLR/MSBuild/NuSpec.targets" />
+  <Import Project="$(UtilPackBaseDir)/CommonBuildTools/CLR/MSBuild/NuGetTasks.targets" />
   
   <Import Project="$(UtilPackBaseDir)/CommonBuildTools/CLR/MSBuild/PEVerify.targets" />
-  
-  <Import Project="$(UtilPackBaseDir)/CommonBuildTools/CLR/MSBuild/GenerateNuGetPackage.targets" />
-
-  <Import Project="$(UtilPackBaseDir)/CommonBuildTools/CLR/MSBuild/RestoreNuGetPackages.targets" />
-  
+    
   <Import Project="$(UtilPackBaseDir)/CommonBuildTools/CLR/MSBuild/NUnit.targets" />
   
 </Project>
