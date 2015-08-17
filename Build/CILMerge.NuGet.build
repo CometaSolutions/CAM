@@ -15,6 +15,8 @@
   <Target Name="CILMerge_CheckVariables">
     <!-- Must specify release notes -->
     <Error Condition="'$(CILMergeReleaseNotes)' == ''" Text="Please specify release notes in CILMergeReleaseNotes property." />
+    
+    <Error Condition=" '$(CILMergeKind)' != 'MSBuild' " Text="Generating NuGet files for standalone CILMerge is not yet implemented." />
   </Target>
   
   <Target Name="CILMerge_Tests">
@@ -81,7 +83,7 @@
     
       <!-- NuGet Spec -->
       <CILMergeNuSpecVersionFilename Condition=" '$(CILMergeNuSpecVersion)' == '' ">$(CILMergeBaseDir)/Source/CILMergeVersion.txt</CILMergeNuSpecVersionFilename>
-      <CILMergeNuSpecFilePath>$(CILMergeBaseDirNuGet)/CILMerge.nuspec</CILMergeNuSpecFilePath>
+      <CILMergeNuSpecFilePath>$(CILMergeBaseDirNuGet)/CILMerge$(CILMergeKindSuffix).nuspec</CILMergeNuSpecFilePath>
     </PropertyGroup>
     <ItemGroup>
       <CILMergeNuGetFile Include="Output/Release/dotNET/CILMerge$(CILMergeKindSuffix).$(CILMergeFileExtension)">
@@ -100,7 +102,7 @@
       VersionFile="$(CILMergeNuSpecVersionFilename)"
       VersionContents="$(CILMergeNuSpecVersion)"
       Copyright_InceptionYear="2014"
-      PackageID="CILMerge"
+      PackageID="CILMerge$(CILMergeKindSuffix)"
       Authors="Stanislav Muhametsin"
       Description="Provides a MSBuild task to merge multiple CIL assemblies into one."
       Title="CILMerge MSBuild task"
@@ -110,6 +112,7 @@
       ProjectURL="https://github.com/CometaSolutions/CAM"
       LicenseURL="http://www.apache.org/licenses/LICENSE-2.0"
       RequireLicenseAcceptance="False"
+      DevelopmentDependency="True"
       Files="@(CILMergeNuGetFile)"
       OutputPath="$(CILMergeNuSpecFilePath)"
       >
