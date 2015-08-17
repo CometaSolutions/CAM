@@ -101,6 +101,11 @@
       <CAMPhysicalNuGetFile Include="Output/Release/dotNET/CILAssemblyManipulator.Physical.xml">
         <TargetFilePath>lib/net40-client/CILAssemblyManipulator.Physical.xml</TargetFilePath>
       </CAMPhysicalNuGetFile>
+      
+      <CAMPhysicalNuGetDependency Include="UtilPack">
+        <Version Condition=" '$(UtilPackNuSpecVersion)' == '' ">$([System.IO.File]::ReadAllText('$(CAMPhysicalBaseDir)/Source/UtilPackVersion.txt'))</Version>
+        <Version Condition=" '$(UtilPackNuSpecVersion)' != '' ">$(UtilPackNuSpecVersion)</Version>
+      </CAMPhysicalNuGetDependency>
     </ItemGroup>
     
     <!-- Generate .nuspec file -->
@@ -119,6 +124,7 @@
       LicenseURL="http://www.apache.org/licenses/LICENSE-2.0"
       RequireLicenseAcceptance="False"
       Files="@(CAMPhysicalNuGetFile)"
+      Dependencies="@(CAMPhysicalNuGetDependency)"
       OutputPath="$(CAMPhysicalNuSpecFilePath)"
       >
       <Output TaskParameter="GeneratedNuSpecVersion" PropertyName="CAMPhysicalNuSpecVersionGenerated" />

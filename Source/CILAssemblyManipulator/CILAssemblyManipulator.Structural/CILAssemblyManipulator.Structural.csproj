@@ -51,9 +51,6 @@
     <ErrorReport>prompt</ErrorReport>
     <WarningLevel>4</WarningLevel>
   </PropertyGroup>
-  <PropertyGroup>
-    <KeyFilePath>$(MSBuildThisFileDirectory)..\..\..\Keys\CAM.snk</KeyFilePath>
-  </PropertyGroup>
   <!-- <PropertyGroup Condition=" '$(MonoBuild)' == '' and '$(Configuration)' != 'Debug_WP' and '$(Configuration)' != 'Release_WP' ">
     <DocumentationFile>$(OutputPath)$(AssemblyName).xml</DocumentationFile>
   </PropertyGroup> -->
@@ -97,7 +94,7 @@
     <Compile Include="Structural.ToPhysical.cs" />
     <Compile Include="Structural.FromPhysical.cs" />
   </ItemGroup>
-  <PropertyGroup Condition=" '$(UseUtilpackReference)' != '' ">
+  <PropertyGroup Condition=" '$(IsCommandLineBuild)' != '' ">
     <SignAssembly>true</SignAssembly>
     <KeyFilePath>$(MSBuildThisFileDirectory)..\..\..\Keys\CAM.snk</KeyFilePath>
     <AssemblyOriginatorKeyFile>$(KeyFilePath)</AssemblyOriginatorKeyFile>

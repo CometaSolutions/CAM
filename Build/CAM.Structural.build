@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Project DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <PropertyGroup>
+    <CAMStructuralBaseDir Condition=" '$(CAMStructuralBaseDir)' == '' ">$(MSBuildThisFileDirectory)..</CAMStructuralBaseDir>
+    <CAMStructuralConfiguration Condition=" '$(CAMStructuralConfiguration)' == '' ">Debug</CAMStructuralConfiguration>
+    <CAMStructuralPlatform Condition=" '$(CAMStructuralPlatform)' == '' ">AnyCPU</CAMStructuralPlatform>
+    <CAMStructuralBuildTargets Condition=" '$(CAMStructuralBuildTargets)' == '' ">GenerateKeyFile;GenerateAssemblyInfoFile;Build</CAMStructuralBuildTargets>
+  </PropertyGroup>
+  
+  <Target Name="Build">
+    <!-- Build the CAM.Physical project -->
+    <MSBuild
+      Projects="$(MSBuildThisFileDirectory)CAM.Physical.build"
+      Properties="CAMPhysicalConfiguration=$(CAMStructuralConfiguration);CAMPhysicalPlatform=$(CAMStructuralPlatform)"
+      />
+    
+    <!-- Build the CAM.Structural project -->
+    <MSBuild
+      Projects="$(CAMStructuralBaseDir)/Source/CILAssemblyManipulator/CILAssemblyManipulator.Structural/CILAssemblyManipulator.Structural.csproj"
+      Properties="Configuration=$(CAMStructuralConfiguration)_Portable;Platform=$(CAMStructuralPlatform);IsCommandLineBuild=True;UseUtilpackReference=True"
+      />
+    
+  </Target>
+</Project>

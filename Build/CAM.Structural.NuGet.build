@@ -1,0 +1,152 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Project
+  DefaultTargets="CAMStructural_CheckVariables;CAMStructural_Tests;CAMStructural_Compile;CAMStructural_PEVerify;CAMStructural_NuGet"
+  xmlns="http://schemas.microsoft.com/developer/msbuild/2003"
+  >
+  <PropertyGroup>
+    <CAMStructuralBaseDir Condition=" '$(CAMStructuralBaseDir)' == '' ">$(MSBuildThisFileDirectory)..</CAMStructuralBaseDir>
+  </PropertyGroup>
+  
+  <Target Name="CAMStructural_CheckVariables">
+    <!-- Must specify release notes -->
+    <Error Condition="'$(CAMStructuralReleaseNotes)' == ''" Text="Please specify release notes in CAMStructuralReleaseNotes property." />
+  </Target>
+  
+  <Target Name="CAMStructural_Tests">
+    <!-- NuGet restore (NUnit package) -->
+    <CommonBuildTools.NuGetTaskRestore
+      NuGetExecutable="$(CAMStructuralNuGetExecutable)"
+      NuGetManagementFile="$(CAMStructuralBaseDir)/NuGetPackages.xml"
+      />
+      
+    <!-- Compile CIL Tests assembly -->
+    <MSBuild
+      Projects="$(CAMStructuralBaseDir)/Source/CAM.sln"
+      Properties="Configuration=Release"
+      />
+      
+    <!-- Call NUnit task -->
+    <CommonBuildTools.NUnitTask
+      Assemblies="CILAssemblyManipulator.Tests.dll"
+      NoShadowAssemblies="True"
+      IncludeCategories="CAM.Structural"
+      WorkingDirectory="$(CAMStructuralBaseDir)/Source\CILAssemblyManipulator.Tests\bin\Release"
+      />
+  </Target>
+  
+  <Target Name="CAMStructural_Compile">   
+    <MSBuild Projects="$(MSBuildThisFileDirectory)CAM.Structural.build" Properties="CAMStructuralConfiguration=Release" />
+  </Target>
+   
+  <Target Name="CAMStructural_PEVerify">
+    
+    <!-- First, delete all files that won't be included in the NuGet package. -->
+    <ItemGroup>
+      <CAMStructuralFilesToPersist Include="$(CAMStructuralBaseDir)/Output/Release/SL/CILAssemblyManipulator.Structural.*"/>
+      <CAMStructuralFilesToPersist Include="$(CAMStructuralBaseDir)/Output/Release/SL/UtilPack.dll"/>
+      
+      <CAMStructuralFilesToDelete Include="$(CAMStructuralBaseDir)/Output/Release/SL/*.*"/>
+      <CAMStructuralFilesToDelete Remove="@(CAMStructuralFilesToPersist)"/>
+    </ItemGroup>
+    <Delete
+      Files="@(CAMStructuralFilesToDelete)"
+    />
+
+    <!-- Move CAM.Physical back to SL folder for PEVerify -->
+    <Move SourceFiles="$(CAMStructuralBaseDir)/Output/Release/SL/Merged/CILAssemblyManipulator.Physical.dll" DestinationFolder="$(CAMStructuralBaseDir)/Output/Release/SL" />
+
+    <!-- Files for PEVerify -->
+    <ItemGroup>
+      <PEVerifyFiles Include="$(CAMStructuralBaseDir)/Output/Release/SL/CILAssemblyManipulator.Structural.dll" />
+    </ItemGroup>
+    
+    <!-- Verify all .dll files exist -->
+    <PropertyGroup>
+      <PEVerifyFilesCount>@(PEVerifyFiles->Count())</PEVerifyFilesCount>
+      <PEVerifyFilesExpectedCount>1</PEVerifyFilesExpectedCount>
+    </PropertyGroup>
+    <Error Condition=" '$(PEVerifyFilesCount)' != '$(PEVerifyFilesExpectedCount)' " Text="Not all required files for PEVerify are present ($(PEVerifyFilesCount))." />
+
+    <!-- Call PEVerify -->
+    <CommonBuildTools.PEVerifyTask
+      FileToVerify="%(PEVerifyFiles.Identity)"
+      />
+    <!-- Delete UtilPack and CAM.Physical assemblies -->
+    <Delete Files="$(CAMStructuralBaseDir)/Output/Release/SL/CILAssemblyManipulator.Physical.dll;$(CAMStructuralBaseDir)/Output/Release/SL/UtilPack.dll" />
+  </Target>
+   
+  <Target Name="CAMStructural_NuGet">
+    <!-- NuSpec file information -->
+    <PropertyGroup>
+      <!-- Common -->
+      <CAMStructuralBaseDirNuGet>$(CAMStructuralBaseDir)/NuGet</CAMStructuralBaseDirNuGet>
+    
+      <!-- NuGet Spec -->
+      <CAMStructuralNuSpecVersionFilename Condition=" '$(CAMStructuralNuSpecVersion)' == '' ">$(CAMStructuralBaseDir)/Source/CAMStructuralVersion.txt</CAMStructuralNuSpecVersionFilename>
+      <CAMStructuralNuSpecFilePath>$(CAMStructuralBaseDirNuGet)/CAM.Structural.nuspec</CAMStructuralNuSpecFilePath>
+    </PropertyGroup>
+    <ItemGroup>
+      <CAMStructuralNuGetFile Include="Output/Release/SL/CILAssemblyManipulator.Structural.dll">
+        <TargetFilePath>lib/portable-net40+sl50+win+wp80+wpa81/CILAssemblyManipulator.Structural.dll</TargetFilePath>
+      </CAMStructuralNuGetFile>
+      <!-- TODO <CAMStructuralNuGetFile Include="Output/Release/SL/CILAssemblyManipulator.Structural.xml">
+        <TargetFilePath>lib/portable-net40+sl50+win+wp80+wpa81/CILAssemblyManipulator.Structural.xml</TargetFilePath>
+      </CAMStructuralNuGetFile> -->
+      
+      <CAMStructuralNuGetDependency Include="UtilPack">
+        <Version Condition=" '$(UtilPackNuSpecVersion)' == '' ">$([System.IO.File]::ReadAllText('$(CAMStructuralBaseDir)/Source/UtilPackVersion.txt'))</Version>
+        <Version Condition=" '$(UtilPackNuSpecVersion)' != '' ">$(UtilPackNuSpecVersion)</Version>
+      </CAMStructuralNuGetDependency>
+      <CAMStructuralNuGetDependency Include="CAM.Physical">
+        <Version Condition=" '$(CAMPhysicalNuSpecVersion)' == '' ">$([System.IO.File]::ReadAllText('$(CAMStructuralBaseDir)/Source/CAMPhysicalVersion.txt'))</Version>
+        <Version Condition=" '$(CAMPhysicalNuSpecVersion)' != '' ">$(CAMPhysicalNuSpecVersion)</Version>
+      </CAMStructuralNuGetDependency>
+    </ItemGroup>
+    
+    <!-- Generate .nuspec file -->
+    <CommonBuildTools.NuGetTaskNuSpec
+      VersionFile="$(CAMStructuralNuSpecVersionFilename)"
+      VersionContents="$(CAMStructuralNuSpecVersion)"
+      Copyright_InceptionYear="2015"
+      PackageID="CAM.Structural"
+      Authors="Stanislav Muhametsin"
+      Description="Provides functionality related to Structural layer of CILAssemblyManipulator (CAM) framework. The metadata types, methods, fields, etc may be manipulated directly instead of indirect metadata tables, rows, signatures, and table references."
+      Title="CILAssemblyManipulator Structural layer"
+      ReleaseNotes="$(CAMStructuralReleaseNotes)"
+      Tags="clr .net cil il assembly module dynamic generator metadata ecma-335"
+      Summary="A library for accessing and manipulating metadata objects (types, methods, fields, etc) through low-level, but natural API."
+      ProjectURL="https://github.com/CometaSolutions/CAM"
+      LicenseURL="http://www.apache.org/licenses/LICENSE-2.0"
+      RequireLicenseAcceptance="False"
+      Files="@(CAMStructuralNuGetFile)"
+      Dependencies="@(CAMStructuralNuGetDependency)"
+      OutputPath="$(CAMStructuralNuSpecFilePath)"
+      >
+      <Output TaskParameter="GeneratedNuSpecVersion" PropertyName="CAMStructuralNuSpecVersionGenerated" />
+    </CommonBuildTools.NuGetTaskNuSpec>
+
+    <!-- Generate the .nupkg file -->
+    <CommonBuildTools.NuGetTaskPackage
+      NuSpecFile="$(CAMStructuralNuSpecFilePath)"
+      OutputDirectory="$(CAMStructuralBaseDir)/NuGet"
+      BasePath="$(CAMStructuralBaseDir)"
+      MinClientVersion="2.5"
+    />
+    
+    <!-- Push if API-key or config file property specified -->
+    <CommonBuildTools.NuGetTaskPush
+      Condition=" '$(CAMStructuralNuGetPushAPIKey)' != '' or '$(CAMStructuralNuGetPushConfigFile)' != '' "
+      PackageFilePath="$(CAMStructuralBaseDirNuGet)/CAMStructural.$(CAMStructuralNuSpecVersionGenerated).nupkg"
+      APIKey="$(CAMStructuralNuGetPushAPIKey)"
+      Source="$(CAMStructuralNuGetPushSource)"
+      ConfigFile="$(CAMStructuralNuGetPushConfigFile)"
+      />
+  </Target>
+  
+  <Import Project="$(CAMStructuralBaseDir)/CommonBuildTools/CLR/MSBuild/NuGetTasks.targets" />
+  
+  <Import Project="$(CAMStructuralBaseDir)/CommonBuildTools/CLR/MSBuild/PEVerify.targets" />
+    
+  <Import Project="$(CAMStructuralBaseDir)/CommonBuildTools/CLR/MSBuild/NUnit.targets" />
+  
+</Project>
