@@ -5,7 +5,6 @@
     <CAMPhysicalConfiguration Condition=" '$(CAMPhysicalConfiguration)' == '' ">Debug</CAMPhysicalConfiguration>
     <CAMPhysicalPlatform Condition=" '$(CAMPhysicalPlatform)' == '' ">AnyCPU</CAMPhysicalPlatform>
     <CAMPhysicalBuildTargets Condition=" '$(CAMPhysicalBuildTargets)' == '' ">GenerateKeyFile;GenerateAssemblyInfoFile;Build</CAMPhysicalBuildTargets>
-    <CAMPhysicalBuildTargets Condition=" '$(MonoBuild)' != '' ">DeleteTargetFrameworkFile;$(CAMPhysicalBuildTargets)</CAMPhysicalBuildTargets>
   </PropertyGroup>
   
   <!-- Projects to build, in build order -->
@@ -61,80 +60,5 @@
       Targets="$(CAMPhysicalBuildTargets)"
       Properties="Configuration=$(CAMPhysicalConfiguration);Platform=$(CAMPhysicalPlatform);IsCommandLineBuild=true;UseUtilpackReference=true"
       />
-  </Target>
-  
-  <!-- NuSpec file information -->
-  <PropertyGroup>
-    <CAMPhysicalBaseDirNuSpec>$([System.IO.Path]::GetFullPath($(CAMPhysicalBaseDir)))</CAMPhysicalBaseDirNuSpec>
-    <NuSpec_OutputPath>$(MSBuildThisFileDirectory)../NuSpec/CAMPhysical.nuspec</NuSpec_OutputPath>
-    <NuSpec_ID>CAM.Physical</NuSpec_ID>
-    <NuSpec_VersionFilename>$(MSBuildThisFileDirectory)../Source/CAMPhysicalVersion.txt</NuSpec_VersionFilename>
-    <NuSpec_Authors>Stanislav Muhametsin</NuSpec_Authors>
-    <NuSpec_Description>Provides a MSBuild task to merge multiple CIL assemblies into one.</NuSpec_Description>
-    <NuSpec_Title>CAMPhysical MSBuild task.</NuSpec_Title>
-    <NuSpec_AutoCopyright>true</NuSpec_AutoCopyright>
-    <NuSpec_CopyrightInceptionYear>2014</NuSpec_CopyrightInceptionYear>
-    <NuSpec_LicenseURL>http://www.apache.org/licenses/LICENSE-2.0</NuSpec_LicenseURL>
-    <NuSpec_ProjectURL>https://github.com/CometaSolutions/CAM</NuSpec_ProjectURL>
-    <NuSpec_RequireLicenseAcceptance>false</NuSpec_RequireLicenseAcceptance>
-    <NuSpec_Summary>The CAMPhysical MSBuild task utilizes CILAssemblyManipulator project to perform the merge.</NuSpec_Summary>
-    <NuSpec_Tags>clr .net cil il assembly code emit generate read freeform</NuSpec_Tags>
-    <NuSpec_FilesXML><![CDATA[
-      <file src="$(CAMPhysicalBaseDirNuSpec)\Output\Release\SL\Merged\CILAssemblyManipulator.Physical.dll" target="lib\portable-net40+sl50+win+wp80\CILAssemblyManipulator.Physical.dll" />
-      <file src="$(CAMPhysicalBaseDirNuSpec)\Output\Release\SL\Merged\CILAssemblyManipulator.Physical.xml" target="lib\portable-net40+sl50+win+wp80\CILAssemblyManipulator.Physical.xml" />
-      <file src="$(CAMPhysicalBaseDirNuSpec)\Output\Release\dotNET\Merged\CILAssemblyManipulator.Physical.dll" target="lib\net40\CILAssemblyManipulator.Physical.dll" />
-      <file src="$(CAMPhysicalBaseDirNuSpec)\Output\Release\dotNET\Merged\CILAssemblyManipulator.Physical.xml" target="lib\net40\CILAssemblyManipulator.Physical.xml" />
-    ]]></NuSpec_FilesXML>
-    <NuSpec_DependenciesXML><![CDATA[
-      <group>
-        <dependency id="UtilPack" version="$([System.IO.File]::ReadAllText($(CAMPhysicalBaseDirNuSpec)/Source/UtilPackVersion.txt))"/>
-      </group>
-    ]]></NuSpec_DependenciesXML>
-  </PropertyGroup>
-  
-  <!-- Files for PEVerify -->
-  <ItemGroup>
-      <PEVerifySourceFiles Include="$(CAMPhysicalBaseDir)\Output\Release\SL\CILAssemblyManipulator.Physical.Portable.dll" />
-      <PEVerifySourceFiles Include="$(CAMPhysicalBaseDir)\Output\Release\dotNET\CILAssemblyManipulator.Physical.DotNET.dll" />
-      <PEVerifyFiles Include="$(CAMPhysicalBaseDir)\Output\Release\SL\CILAssemblyManipulator.Physical.dll" />
-  </ItemGroup>
-   
-  <Import Project="$(CAMPhysicalBaseDir)/CommonBuildtools/CLR/MSBuild/PEVerify.targets" />
-
-  <Target Name="CAMPhysicalNuSpec">
-    <!-- First, delete all files that won't be included in the NuGet package. -->
-    <ItemGroup>
-      <CAMPhysicalFilesToPersist Include="$(CAMPhysicalBaseDir)\Output\Release\dotNET\CILAssemblyManipulator.Physical.Portable.*"/>
-      <CAMPhysicalFilesToPersist Include="$(CAMPhysicalBaseDir)\Output\Release\dotNET\CILAssemblyManipulator.Physical.DotNET.*" />
-      
-      <CAMPhysicalFilesToDelete Include="$(CAMPhysicalBaseDir)\Output\Release\dotNET\*.*"/>
-      <CAMPhysicalFilesToDelete Include="$(CAMPhysicalBaseDir)\Output\Release\SL\*.*"/>
-      <CAMPhysicalFilesToDelete Remove="@(CAMPhysicalFilesToPersist)"/>
-    </ItemGroup>
-    <Delete
-      Files="@(CAMPhysicalFilesToDelete)"
-    />
-       
-    <!-- Verify all .dll files exist -->
-    <PropertyGroup>
-      <PEVerifyFilesCount>@(PEVerifySourceFiles->Count())</PEVerifyFilesCount>
-    </PropertyGroup>
-    <Error Condition=" '$(PEVerifyFilesCount)' != '2' " Text="Not all required files for PEVerify are present." />
-   
-    <!-- Call PEVerify -->
-    <Copy
-      SourceFiles="$(CAMPhysicalBaseDir)\Output\Release\SL\CILAssemblyManipulator.Physical.Portable.dll"
-      DestinationFiles="$(CAMPhysicalBaseDir)\Output\Release\SL\CILAssemblyManipulator.Physical.dll"
-      />
-    <CallTarget Targets="PEVerifyFiles" />
-    
-    <Copy
-      SourceFiles="$(CAMPhysicalBaseDir)\Output\Release\dotNET\CILAssemblyManipulator.Physical.DotNET.dll"
-      DestinationFiles="$(CAMPhysicalBaseDir)\Output\Release\dotNET\CILAssemblyManipulator.Physical.dll"
-      />
-    <CallTarget Targets="PEVerifyFiles" />
-    
-    <!-- Generate .nuspec file -->
-    <CallTarget Targets="GenerateNuSpecFile" />
   </Target>
 </Project>

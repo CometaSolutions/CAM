@@ -7,6 +7,9 @@
 - CAM.Logical:
  - Get rid of LogicalOpCodeInfoForNormalOrVirtual
 
+- CAM.Structural:
+ - Add "MergeWithAnother" functionality to assembly, module, type.
+
 CILAssemblyManipulator:
  - EmitCall -method of E_MethodIL class emits OpCodes.Call for all non-virtual instance methods.
    This is a bug - OpCodes.Call should only be emitted for static methods, value type instance methods and this.X calls.

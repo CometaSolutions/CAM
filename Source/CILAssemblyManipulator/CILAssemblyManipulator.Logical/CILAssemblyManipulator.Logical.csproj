@@ -173,7 +173,7 @@
     <AssemblyInfoAppendAssemblyCopyrightYears>true</AssemblyInfoAppendAssemblyCopyrightYears>
     <AssemblyInfoAssemblyInceptionYear>2013</AssemblyInfoAssemblyInceptionYear>
     <AssemblyInfoCopyrightAuthors>Stanislav Muhametsin</AssemblyInfoCopyrightAuthors>
-    <AssemblyInfoVersionFilename>$(MSBuildThisFileDirectory)/../../CILAssemblyManipulatorVersion.txt</AssemblyInfoVersionFilename>
+    <AssemblyInfoVersionFilename>$(MSBuildThisFileDirectory)/../../CAMLogicalVersion.txt</AssemblyInfoVersionFilename>
   </PropertyGroup>
   <Import Project="$(MSBuildThisFileDirectory)../../../CommonBuildTools/CLR/MSBuild/AssemblyInfo.targets" />
 </Project>

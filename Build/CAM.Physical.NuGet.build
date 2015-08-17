@@ -45,8 +45,8 @@
     
     <!-- First, delete all files that won't be included in the NuGet package. -->
     <ItemGroup>
-      <CAMPhysicalFilesToPersist Include="$(CAMPhysicalBaseDir)/Output/Release/dotNET/CILAssemblyManipulator.Physical.*"/>
-      <CAMPhysicalFilesToPersist Include="$(CAMPhysicalBaseDir)/Output/Release/SL/CILAssemblyManipulator.Physical.*"/>
+      <CAMPhysicalFilesToPersist Include="$(CAMPhysicalBaseDir)/Output/Release/dotNET/CILAssemblyManipulator.Physical.xml"/>
+      <CAMPhysicalFilesToPersist Include="$(CAMPhysicalBaseDir)/Output/Release/SL/CILAssemblyManipulator.Physical.xml"/>
       
       <CAMPhysicalFilesToDelete Include="$(CAMPhysicalBaseDir)/Output/Release/dotNET/*.*"/>
       <CAMPhysicalFilesToDelete Include="$(CAMPhysicalBaseDir)/Output/Release/SL/*.*"/>
@@ -110,7 +110,7 @@
       Copyright_InceptionYear="2014"
       PackageID="CAM.Physical"
       Authors="Stanislav Muhametsin"
-      Description="Provides functionality related to Physical layer of CILAssemblyManipulator (CAM) framework. This is the lowe abstraction level of CAM, and the provided functionality allows directly manipulate metadata tables, rows, and signatures."
+      Description="Provides functionality related to Physical layer of CILAssemblyManipulator (CAM) framework. This is the lowest abstraction level of CAM, and the provided functionality allows directly manipulate metadata tables, rows, and signatures."
       Title="CILAssemblyManipulator Physical layer"
       ReleaseNotes="$(CAMPhysicalReleaseNotes)"
       Tags="clr .net cil il emit read assembly module dynamic generator metadata ecma-335"

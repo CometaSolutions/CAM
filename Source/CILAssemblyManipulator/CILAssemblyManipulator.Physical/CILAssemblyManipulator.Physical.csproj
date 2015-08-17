@@ -138,7 +138,7 @@
     <AssemblyInfoAppendAssemblyCopyrightYears>true</AssemblyInfoAppendAssemblyCopyrightYears>
     <AssemblyInfoAssemblyInceptionYear>2015</AssemblyInfoAssemblyInceptionYear>
     <AssemblyInfoCopyrightAuthors>Stanislav Muhametsin</AssemblyInfoCopyrightAuthors>
-    <AssemblyInfoVersionFilename>$(MSBuildThisFileDirectory)/../../CILAssemblyManipulatorVersion.txt</AssemblyInfoVersionFilename>
+    <AssemblyInfoVersionFilename>$(MSBuildThisFileDirectory)/../../CAMPhysicalVersion.txt</AssemblyInfoVersionFilename>
   </PropertyGroup>
   <Import Project="$(MSBuildThisFileDirectory)../../../CommonBuildTools/CLR/MSBuild/AssemblyInfo.targets" />
   <!-- Merge DLLs -->
