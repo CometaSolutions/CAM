@@ -81,7 +81,6 @@
     <!-- NuSpec file information -->
     <PropertyGroup>
       <!-- Common -->
-      <!-- <UtilPackBaseDirNuGet>$([System.IO.Path]::GetFullPath($(UtilPackBaseDir)))\NuGet</UtilPackBaseDirNuGet> -->
       <UtilPackBaseDirNuGet>$(UtilPackBaseDir)\NuGet</UtilPackBaseDirNuGet>
     
       <!-- NuGet Spec -->

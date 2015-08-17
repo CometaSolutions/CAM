@@ -1,0 +1,143 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Project
+  DefaultTargets="CILMerge_CheckVariables;CILMerge_Tests;CILMerge_Compile;CILMerge_PEVerify;CILMerge_NuGet"
+  xmlns="http://schemas.microsoft.com/developer/msbuild/2003"
+  >
+  <PropertyGroup>
+    <CILMergeBaseDir Condition=" '$(CILMergeBaseDir)' == '' ">$(MSBuildThisFileDirectory)..</CILMergeBaseDir>
+    <CILMergeKind Condition=" '$(CILMergeKind)' == '' ">MSBuild</CILMergeKind>
+    <CILMergeKindSuffix Condition=" '$(CILMergeKind)' == 'MSBuild' ">.MSBuild</CILMergeKindSuffix>
+    <CILMergeKindSuffix Condition=" '$(CILMergeKind)' != 'MSBuild' "></CILMergeKindSuffix>
+    <CILMergeFileExtension Condition=" '$(CILMergeKind)' == 'MSBuild' ">dll</CILMergeFileExtension>
+    <CILMergeFileExtension Condition=" '$(CILMergeKind)' != 'MSBuild' ">exe</CILMergeFileExtension>
+  </PropertyGroup>
+  
+  <Target Name="CILMerge_CheckVariables">
+    <!-- Must specify release notes -->
+    <Error Condition="'$(CILMergeReleaseNotes)' == ''" Text="Please specify release notes in CILMergeReleaseNotes property." />
+  </Target>
+  
+  <Target Name="CILMerge_Tests">
+    <!-- NuGet restore (NUnit package) -->
+    <CommonBuildTools.NuGetTaskRestore
+      NuGetExecutable="$(CILMergeNuGetExecutable)"
+      NuGetManagementFile="$(CILMergeBaseDir)/NuGetPackages.xml"
+      />
+      
+    <!-- Compile CIL Tests assembly -->
+    <MSBuild
+      Projects="$(CILMergeBaseDir)/Source/CAM.sln"
+      Properties="Configuration=Release"
+      />
+      
+    <!-- Call NUnit task -->
+    <CommonBuildTools.NUnitTask
+      Assemblies="CILAssemblyManipulator.Tests.dll"
+      IncludeCategories="CILMerge"
+      NoShadowAssemblies="True"
+      WorkingDirectory="$(CILMergeBaseDir)/Source\CILAssemblyManipulator.Tests\bin\Release"
+      />
+  </Target>
+  
+  <Target Name="CILMerge_Compile">   
+    <MSBuild Projects="$(MSBuildThisFileDirectory)CILMerge.build" Properties="CILMergeConfiguration=Release" />
+  </Target>
+   
+  <Target Name="CILMerge_PEVerify">
+    <!-- First, delete all files that won't be included in the NuGet package. -->
+    <ItemGroup>
+      <CILMergeFilesToPersist Include="$(CILMergeBaseDir)/Output/Release/dotNET/CILMerge$(CILMergeKindSuffix).*"/>
+      
+      <CILMergeFilesToDelete Include="$(CILMergeBaseDir)/Output/Release/dotNET/*.*"/>
+      <CILMergeFilesToDelete Remove="@(CILMergeFilesToPersist)"/>
+    </ItemGroup>
+    <Delete
+      Files="@(CILMergeFilesToDelete)"
+    />
+    
+    <!-- Files for PEVerify -->
+    <ItemGroup>
+      <PEVerifyFiles Include="$(CILMergeBaseDir)/Output/Release/dotNET/CILMerge$(CILMergeKindSuffix).$(CILMergeFileExtension)" />
+    </ItemGroup>
+    
+    <!-- Verify all .dll files exist -->
+    <PropertyGroup>
+      <PEVerifyFilesCount>@(PEVerifyFiles->Count())</PEVerifyFilesCount>
+      <PEVerifyFilesExpectedCount>1</PEVerifyFilesExpectedCount>
+    </PropertyGroup>
+    <Error Condition=" '$(PEVerifyFilesCount)' != '$(PEVerifyFilesExpectedCount)' " Text="Not all required files for PEVerify are present ($(PEVerifyFilesCount))." />
+
+    <!-- Call PEVerify -->
+    <CommonBuildTools.PEVerifyTask
+      FileToVerify="%(PEVerifyFiles.Identity)"
+      />
+  </Target>
+   
+  <Target Name="CILMerge_NuGet">
+    <!-- NuSpec file information -->
+    <PropertyGroup>
+      <!-- Common -->
+      <CILMergeBaseDirNuGet>$(CILMergeBaseDir)/NuGet</CILMergeBaseDirNuGet>
+    
+      <!-- NuGet Spec -->
+      <CILMergeNuSpecVersionFilename Condition=" '$(CILMergeNuSpecVersion)' == '' ">$(CILMergeBaseDir)/Source/CILMergeVersion.txt</CILMergeNuSpecVersionFilename>
+      <CILMergeNuSpecFilePath>$(CILMergeBaseDirNuGet)/CILMerge.nuspec</CILMergeNuSpecFilePath>
+    </PropertyGroup>
+    <ItemGroup>
+      <CILMergeNuGetFile Include="Output/Release/dotNET/CILMerge$(CILMergeKindSuffix).$(CILMergeFileExtension)">
+        <TargetFilePath>build/CILMerge$(CILMergeKindSuffix).$(CILMergeFileExtension)</TargetFilePath>
+      </CILMergeNuGetFile>
+      <CILMergeNuGetFile Include="Output/Release/dotNET/CILMerge$(CILMergeKindSuffix).xml">
+        <TargetFilePath>build/CILMerge$(CILMergeKindSuffix).xml</TargetFilePath>
+      </CILMergeNuGetFile>
+      <CILMergeNuGetFile Condition=" '$(CILMergeKind)' == 'MSBuild' " Include="Source/CILMerge/CILMerge.MSBuild/CILMergeTask.targets">
+        <TargetFilePath>build/CILMerge.MSBuild.targets</TargetFilePath>
+      </CILMergeNuGetFile>
+    </ItemGroup>
+    
+    <!-- Generate .nuspec file -->
+    <CommonBuildTools.NuGetTaskNuSpec
+      VersionFile="$(CILMergeNuSpecVersionFilename)"
+      VersionContents="$(CILMergeNuSpecVersion)"
+      Copyright_InceptionYear="2014"
+      PackageID="CILMerge"
+      Authors="Stanislav Muhametsin"
+      Description="Provides a MSBuild task to merge multiple CIL assemblies into one."
+      Title="CILMerge MSBuild task"
+      ReleaseNotes="$(CILMergeReleaseNotes)"
+      Tags="clr .net cil il merge assembly build targets"
+      Summary="The CILMerge MSBuild task utilizes CILAssemblyManipulator project to perform the merge."
+      ProjectURL="https://github.com/CometaSolutions/CAM"
+      LicenseURL="http://www.apache.org/licenses/LICENSE-2.0"
+      RequireLicenseAcceptance="False"
+      Files="@(CILMergeNuGetFile)"
+      OutputPath="$(CILMergeNuSpecFilePath)"
+      >
+      <Output TaskParameter="GeneratedNuSpecVersion" PropertyName="CILMergeNuSpecVersionGenerated" />
+    </CommonBuildTools.NuGetTaskNuSpec>
+
+    <!-- Generate the .nupkg file -->
+    <CommonBuildTools.NuGetTaskPackage
+      NuSpecFile="$(CILMergeNuSpecFilePath)"
+      OutputDirectory="$(CILMergeBaseDir)/NuGet"
+      BasePath="$(CILMergeBaseDir)"
+      MinClientVersion="2.5"
+    />
+    
+    <!-- Push if API-key or config file property specified -->
+    <CommonBuildTools.NuGetTaskPush
+      Condition=" '$(CILMergeNuGetPushAPIKey)' != '' or '$(CILMergeNuGetPushConfigFile)' != '' "
+      PackageFilePath="$(CILMergeBaseDirNuGet)/CILMerge.$(CILMergeNuSpecVersionGenerated).nupkg"
+      APIKey="$(CILMergeNuGetPushAPIKey)"
+      Source="$(CILMergeNuGetPushSource)"
+      ConfigFile="$(CILMergeNuGetPushConfigFile)"
+      />
+  </Target>
+  
+  <Import Project="$(CILMergeBaseDir)/CommonBuildTools/CLR/MSBuild/NuGetTasks.targets" />
+  
+  <Import Project="$(CILMergeBaseDir)/CommonBuildTools/CLR/MSBuild/PEVerify.targets" />
+    
+  <Import Project="$(CILMergeBaseDir)/CommonBuildTools/CLR/MSBuild/NUnit.targets" />
+  
+</Project>
