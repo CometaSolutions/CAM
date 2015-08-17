@@ -1,0 +1,151 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Project
+  DefaultTargets="CAMPhysical_CheckVariables;CAMPhysical_Tests;CAMPhysical_Compile;CAMPhysical_PEVerify;CAMPhysical_NuGet"
+  xmlns="http://schemas.microsoft.com/developer/msbuild/2003"
+  >
+  <PropertyGroup>
+    <CAMPhysicalBaseDir Condition=" '$(CAMPhysicalBaseDir)' == '' ">$(MSBuildThisFileDirectory)..</CAMPhysicalBaseDir>
+  </PropertyGroup>
+  
+  <Target Name="CAMPhysical_CheckVariables">
+    <!-- Must specify release notes -->
+    <Error Condition="'$(CAMPhysicalReleaseNotes)' == ''" Text="Please specify release notes in CAMPhysicalReleaseNotes property." />
+  </Target>
+  
+  <Target Name="CAMPhysical_Tests">
+    <!-- NuGet restore (NUnit package) -->
+    <CommonBuildTools.NuGetTaskRestore
+      NuGetExecutable="$(CAMPhysicalNuGetExecutable)"
+      NuGetManagementFile="$(CAMPhysicalBaseDir)/NuGetPackages.xml"
+      />
+      
+    <!-- Compile CIL Tests assembly -->
+    <MSBuild
+      Projects="$(CAMPhysicalBaseDir)/Source/CAM.sln"
+      Properties="Configuration=Release"
+      />
+      
+    <!-- Call NUnit task -->
+    <CommonBuildTools.NUnitTask
+      Assemblies="CILAssemblyManipulator.Tests.dll"
+      NoShadowAssemblies="True"
+      IncludeCategories="CAM.Physical"
+      WorkingDirectory="$(CAMPhysicalBaseDir)/Source\CILAssemblyManipulator.Tests\bin\Release"
+      />
+  </Target>
+  
+  <Target Name="CAMPhysical_Compile">   
+    <MSBuild Projects="$(MSBuildThisFileDirectory)CAM.Physical.build" Properties="CAMPhysicalConfiguration=Release" />
+  </Target>
+   
+  <Target Name="CAMPhysical_PEVerify">
+    <!-- Copy UtilPack reference for PEVerify -->
+    <Copy SourceFiles="$(CAMPhysicalBaseDir)/Output/Release/dotNET/UtilPack.dll" DestinationFolder="$(CAMPhysicalBaseDir)/Output/Release/dotNET/Merged" />
+    <Copy SourceFiles="$(CAMPhysicalBaseDir)/Output/Release/SL/UtilPack.dll" DestinationFolder="$(CAMPhysicalBaseDir)/Output/Release/SL/Merged" />
+    
+    <!-- First, delete all files that won't be included in the NuGet package. -->
+    <ItemGroup>
+      <CAMPhysicalFilesToPersist Include="$(CAMPhysicalBaseDir)/Output/Release/dotNET/CILAssemblyManipulator.Physical.*"/>
+      <CAMPhysicalFilesToPersist Include="$(CAMPhysicalBaseDir)/Output/Release/SL/CILAssemblyManipulator.Physical.*"/>
+      
+      <CAMPhysicalFilesToDelete Include="$(CAMPhysicalBaseDir)/Output/Release/dotNET/*.*"/>
+      <CAMPhysicalFilesToDelete Include="$(CAMPhysicalBaseDir)/Output/Release/SL/*.*"/>
+      <CAMPhysicalFilesToDelete Remove="@(CAMPhysicalFilesToPersist)"/>
+    </ItemGroup>
+    <Delete
+      Files="@(CAMPhysicalFilesToDelete)"
+    />
+    
+    <!-- Files for PEVerify -->
+    <ItemGroup>
+      <PEVerifyFiles Include="$(CAMPhysicalBaseDir)/Output/Release/dotNET/Merged/CILAssemblyManipulator.Physical.dll" />
+      <PEVerifyFiles Include="$(CAMPhysicalBaseDir)/Output/Release/SL/Merged/CILAssemblyManipulator.Physical.dll" />
+    </ItemGroup>
+    
+    <!-- Verify all .dll files exist -->
+    <PropertyGroup>
+      <PEVerifyFilesCount>@(PEVerifyFiles->Count())</PEVerifyFilesCount>
+      <PEVerifyFilesExpectedCount>2</PEVerifyFilesExpectedCount>
+    </PropertyGroup>
+    <Error Condition=" '$(PEVerifyFilesCount)' != '$(PEVerifyFilesExpectedCount)' " Text="Not all required files for PEVerify are present ($(PEVerifyFilesCount))." />
+
+    <!-- Call PEVerify -->
+    <CommonBuildTools.PEVerifyTask
+      FileToVerify="%(PEVerifyFiles.Identity)"
+      />
+      
+    <!-- Delete copied UtilPack files -->
+    <Delete Files="$(CAMPhysicalBaseDir)/Output/Release/dotNET/Merged/UtilPack.dll;$(CAMPhysicalBaseDir)/Output/Release/SL/Merged/UtilPack.dll" />
+  </Target>
+   
+  <Target Name="CAMPhysical_NuGet">
+    <!-- NuSpec file information -->
+    <PropertyGroup>
+      <!-- Common -->
+      <CAMPhysicalBaseDirNuGet>$(CAMPhysicalBaseDir)/NuGet</CAMPhysicalBaseDirNuGet>
+    
+      <!-- NuGet Spec -->
+      <CAMPhysicalNuSpecVersionFilename Condition=" '$(CAMPhysicalNuSpecVersion)' == '' ">$(CAMPhysicalBaseDir)/Source/CAMPhysicalVersion.txt</CAMPhysicalNuSpecVersionFilename>
+      <CAMPhysicalNuSpecFilePath>$(CAMPhysicalBaseDirNuGet)/CAM.Physical.nuspec</CAMPhysicalNuSpecFilePath>
+    </PropertyGroup>
+    <ItemGroup>
+      <CAMPhysicalNuGetFile Include="Output/Release/SL/Merged/CILAssemblyManipulator.Physical.dll">
+        <TargetFilePath>lib/portable-net40+sl50+win+wp80+wpa81/CILAssemblyManipulator.Physical.dll</TargetFilePath>
+      </CAMPhysicalNuGetFile>
+      <CAMPhysicalNuGetFile Include="Output/Release/SL/CILAssemblyManipulator.Physical.xml">
+        <TargetFilePath>lib/portable-net40+sl50+win+wp80+wpa81/CILAssemblyManipulator.Physical.xml</TargetFilePath>
+      </CAMPhysicalNuGetFile>
+      <CAMPhysicalNuGetFile Include="Output/Release/dotNET/Merged/CILAssemblyManipulator.Physical.dll">
+        <TargetFilePath>lib/net40-client/CILAssemblyManipulator.Physical.dll</TargetFilePath>
+      </CAMPhysicalNuGetFile>
+      <CAMPhysicalNuGetFile Include="Output/Release/dotNET/CILAssemblyManipulator.Physical.xml">
+        <TargetFilePath>lib/net40-client/CILAssemblyManipulator.Physical.xml</TargetFilePath>
+      </CAMPhysicalNuGetFile>
+    </ItemGroup>
+    
+    <!-- Generate .nuspec file -->
+    <CommonBuildTools.NuGetTaskNuSpec
+      VersionFile="$(CAMPhysicalNuSpecVersionFilename)"
+      VersionContents="$(CAMPhysicalNuSpecVersion)"
+      Copyright_InceptionYear="2014"
+      PackageID="CAM.Physical"
+      Authors="Stanislav Muhametsin"
+      Description="Provides functionality related to Physical layer of CILAssemblyManipulator (CAM) framework. This is the lowe abstraction level of CAM, and the provided functionality allows directly manipulate metadata tables, rows, and signatures."
+      Title="CILAssemblyManipulator Physical layer"
+      ReleaseNotes="$(CAMPhysicalReleaseNotes)"
+      Tags="clr .net cil il emit read assembly module dynamic generator metadata ecma-335"
+      Summary="A library for reading and modifying CIL metadata files (.dll, .exe, and so on) on a abstraction level of metadata tables, rows, and signatures."
+      ProjectURL="https://github.com/CometaSolutions/CAM"
+      LicenseURL="http://www.apache.org/licenses/LICENSE-2.0"
+      RequireLicenseAcceptance="False"
+      Files="@(CAMPhysicalNuGetFile)"
+      OutputPath="$(CAMPhysicalNuSpecFilePath)"
+      >
+      <Output TaskParameter="GeneratedNuSpecVersion" PropertyName="CAMPhysicalNuSpecVersionGenerated" />
+    </CommonBuildTools.NuGetTaskNuSpec>
+
+    <!-- Generate the .nupkg file -->
+    <CommonBuildTools.NuGetTaskPackage
+      NuSpecFile="$(CAMPhysicalNuSpecFilePath)"
+      OutputDirectory="$(CAMPhysicalBaseDir)/NuGet"
+      BasePath="$(CAMPhysicalBaseDir)"
+      MinClientVersion="2.5"
+    />
+    
+    <!-- Push if API-key or config file property specified -->
+    <CommonBuildTools.NuGetTaskPush
+      Condition=" '$(CAMPhysicalNuGetPushAPIKey)' != '' or '$(CAMPhysicalNuGetPushConfigFile)' != '' "
+      PackageFilePath="$(CAMPhysicalBaseDirNuGet)/CAMPhysical.$(CAMPhysicalNuSpecVersionGenerated).nupkg"
+      APIKey="$(CAMPhysicalNuGetPushAPIKey)"
+      Source="$(CAMPhysicalNuGetPushSource)"
+      ConfigFile="$(CAMPhysicalNuGetPushConfigFile)"
+      />
+  </Target>
+  
+  <Import Project="$(CAMPhysicalBaseDir)/CommonBuildTools/CLR/MSBuild/NuGetTasks.targets" />
+  
+  <Import Project="$(CAMPhysicalBaseDir)/CommonBuildTools/CLR/MSBuild/PEVerify.targets" />
+    
+  <Import Project="$(CAMPhysicalBaseDir)/CommonBuildTools/CLR/MSBuild/NUnit.targets" />
+  
+</Project>

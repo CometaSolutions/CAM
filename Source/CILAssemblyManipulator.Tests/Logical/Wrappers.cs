@@ -26,6 +26,7 @@ using System.Text;
 
 namespace CILAssemblyManipulator.Tests.Logical
 {
+   [Category( "CAM.Logical" )]
    public class WrappersTest : AbstractCAMTest
    {
       [Test]

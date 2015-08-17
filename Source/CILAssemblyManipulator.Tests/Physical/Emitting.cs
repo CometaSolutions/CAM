@@ -25,6 +25,7 @@ using System.IO;
 
 namespace CILAssemblyManipulator.Tests.Physical
 {
+   [Category( "CAM.Physical" )]
    public class EmittingTest : AbstractCAMTest
    {
 

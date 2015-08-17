@@ -25,6 +25,7 @@ using CILAssemblyManipulator.Physical;
 
 namespace CILAssemblyManipulator.Tests.Physical
 {
+   [Category( "CAM.Physical" )]
    public class RoundtripTest : AbstractCAMTest
    {
       [Test]

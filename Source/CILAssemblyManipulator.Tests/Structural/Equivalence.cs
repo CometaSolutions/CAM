@@ -26,6 +26,7 @@ using System.Text;
 
 namespace CILAssemblyManipulator.Tests.Structural
 {
+   [Category( "CAM.Structural" )]
    public class StructuralEquivalenceTest : AbstractCAMTest
    {
       [Test]

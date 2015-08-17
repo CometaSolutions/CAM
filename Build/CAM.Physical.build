@@ -98,9 +98,7 @@
       <PEVerifySourceFiles Include="$(CAMPhysicalBaseDir)\Output\Release\dotNET\CILAssemblyManipulator.Physical.DotNET.dll" />
       <PEVerifyFiles Include="$(CAMPhysicalBaseDir)\Output\Release\SL\CILAssemblyManipulator.Physical.dll" />
   </ItemGroup>
-  
-  <Import Project="$(CAMPhysicalBaseDir)/CommonBuildTools/CLR/MSBuild/NuSpec.targets" />
-  
+   
   <Import Project="$(CAMPhysicalBaseDir)/CommonBuildtools/CLR/MSBuild/PEVerify.targets" />
 
   <Target Name="CAMPhysicalNuSpec">

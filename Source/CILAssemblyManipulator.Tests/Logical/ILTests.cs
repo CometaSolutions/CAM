@@ -25,6 +25,7 @@ using CILAssemblyManipulator.Physical;
 
 namespace CILAssemblyManipulator.Tests.Logical
 {
+   [Category( "CAM.Logical" )]
    public class ILTests : AbstractCAMTest
    {
       [Test]

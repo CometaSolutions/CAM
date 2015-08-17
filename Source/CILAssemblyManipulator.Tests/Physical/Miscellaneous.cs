@@ -25,6 +25,7 @@ using System.Text;
 
 namespace CILAssemblyManipulator.Tests.Physical
 {
+   [Category( "CAM.Physical" )]
    public class MiscellaneousTest : AbstractCAMTest
    {
       [Test]

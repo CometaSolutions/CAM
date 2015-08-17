@@ -26,6 +26,7 @@ using CILAssemblyManipulator.Tests.Physical;
 
 namespace CILAssemblyManipulator.Tests.Physical
 {
+   [Category( "CAM.Physical" )]
    public class OrderingTest : AbstractCAMTest
    {
 

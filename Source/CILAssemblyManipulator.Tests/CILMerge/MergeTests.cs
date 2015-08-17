@@ -27,6 +27,7 @@ using System.Text;
 
 namespace CILAssemblyManipulator.Tests.CILMerge
 {
+   [Category( "CILMerge" )]
    public class MergeTests : AbstractCAMTest
    {
       private class TestCILMergeLogCallback : CILMergeLogCallback
@@ -71,7 +72,7 @@ namespace CILAssemblyManipulator.Tests.CILMerge
          }
       }
 
-      //[Test]
+      [Test]
       public void TestMergingCILMergeSimple()
       {
          this.PerformTest( new CILMergeOptionsImpl()
@@ -84,7 +85,7 @@ namespace CILAssemblyManipulator.Tests.CILMerge
          } );
       }
 
-      //[Test]
+      [Test]
       public void TestMergingCILMergeMoreFeatures()
       {
          this.PerformTest( new CILMergeOptionsImpl()
@@ -99,7 +100,7 @@ namespace CILAssemblyManipulator.Tests.CILMerge
          } );
       }
 
-      //[Test]
+      [Test]
       public void TestMergingCILMergeMSBuildTask()
       {
          var baseDir = Path.GetFullPath( Path.Combine( CILMergeLocation, "..", "..", "..", "..", ".." ) );
@@ -120,7 +121,7 @@ namespace CILAssemblyManipulator.Tests.CILMerge
          } );
       }
 
-      //[Test]
+      [Test]
       public void TestMergingUtilPack()
       {
          var baseDir = Path.GetFullPath( Path.Combine( CILMergeLocation, "..", "..", "..", "..", ".." ) );
@@ -146,7 +147,7 @@ namespace CILAssemblyManipulator.Tests.CILMerge
          } );
       }
 
-      //[Test]
+      [Test]
       public void TestMergingCAMPhysical()
       {
          var baseDir = Path.GetFullPath( Path.Combine( CILMergeLocation, "..", "..", "..", "..", ".." ) );
