@@ -1,0 +1,132 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Project
+  DefaultTargets="CAMLogical_CheckVariables;CAMLogical_Tests;CAMLogical_Compile;CAMLogical_PEVerify;CAMLogical_NuGet"
+  xmlns="http://schemas.microsoft.com/developer/msbuild/2003"
+  >
+  <PropertyGroup>
+    <CAMLogicalBaseDir Condition=" '$(CAMLogicalBaseDir)' == '' ">$(MSBuildThisFileDirectory)..</CAMLogicalBaseDir>
+  </PropertyGroup>
+  
+  <Target Name="CAMLogical_CheckVariables">
+    <!-- Must specify release notes -->
+    <Error Condition="'$(CAMLogicalReleaseNotes)' == ''" Text="Please specify release notes in CAMLogicalReleaseNotes property." />
+  </Target>
+  
+  <Target Name="CAMLogical_Tests">
+    <!-- NuGet restore (NUnit package) -->
+    <CommonBuildTools.NuGetTaskRestore
+      NuGetExecutable="$(CAMLogicalNuGetExecutable)"
+      NuGetManagementFile="$(CAMLogicalBaseDir)/NuGetPackages.xml"
+      />
+      
+    <!-- Compile CIL Tests assembly -->
+    <MSBuild
+      Projects="$(CAMLogicalBaseDir)/Source/CAM.sln"
+      Properties="Configuration=Release"
+      />
+      
+    <!-- Call NUnit task -->
+    <CommonBuildTools.NUnitTask
+      Assemblies="CILAssemblyManipulator.Tests.dll"
+      NoShadowAssemblies="True"
+      WorkingDirectory="$(CAMLogicalBaseDir)/Source\CILAssemblyManipulator.Tests\bin\Release"
+      />
+  </Target>
+  
+  <Target Name="CAMLogical_Compile">   
+    <MSBuild Projects="$(MSBuildThisFileDirectory)CAMLogical.build" Properties="CAMLogicalConfiguration=Release" />
+  </Target>
+   
+  <Target Name="CAMLogical_PEVerify">
+    <!-- First, delete all files that won't be included in the NuGet package. -->
+    <ItemGroup>
+      <CAMLogicalFilesToPersist Include="$(CAMLogicalBaseDir)/Output/Release/dotNET/CILAssemblyManipulator.Logical.*"/>
+      
+      <CAMLogicalFilesToDelete Include="$(CAMLogicalBaseDir)/Output/Release/dotNET/*.*"/>
+      <CAMLogicalFilesToDelete Remove="@(CAMLogicalFilesToPersist)"/>
+    </ItemGroup>
+    <Delete
+      Files="@(CAMLogicalFilesToDelete)"
+    />
+    
+    <!-- Files for PEVerify -->
+    <ItemGroup>
+      <PEVerifyFiles Include="$(CAMLogicalBaseDir)/Output/Release/dotNET/CILAssemblyManipulator.Logical.dll" />
+    </ItemGroup>
+    
+    <!-- Verify all .dll files exist -->
+    <PropertyGroup>
+      <PEVerifyFilesCount>@(PEVerifyFiles->Count())</PEVerifyFilesCount>
+      <PEVerifyFilesExpectedCount>1</PEVerifyFilesExpectedCount>
+    </PropertyGroup>
+    <Error Condition=" '$(PEVerifyFilesCount)' != '$(PEVerifyFilesExpectedCount)' " Text="Not all required files for PEVerify are present ($(PEVerifyFilesCount))." />
+
+    <!-- Call PEVerify -->
+    <CommonBuildTools.PEVerifyTask
+      FileToVerify="%(PEVerifyFiles.Identity)"
+      />
+  </Target>
+   
+  <Target Name="CAMLogical_NuGet">
+    <!-- NuSpec file information -->
+    <PropertyGroup>
+      <!-- Common -->
+      <CAMLogicalBaseDirNuGet>$(CAMLogicalBaseDir)/NuGet</CAMLogicalBaseDirNuGet>
+    
+      <!-- NuGet Spec -->
+      <CAMLogicalNuSpecVersionFilename Condition=" '$(CAMLogicalNuSpecVersion)' == '' ">$(CAMLogicalBaseDir)/Source/CAMLogicalVersion.txt</CAMLogicalNuSpecVersionFilename>
+      <CAMLogicalNuSpecFilePath>$(CAMLogicalBaseDirNuGet)/CAM.Logical.nuspec</CAMLogicalNuSpecFilePath>
+    </PropertyGroup>
+    <ItemGroup>
+      <CAMLogicalNuGetFile Include="Output/Release/dotNET/CILAssemblyManipulator.Logical.dll">
+        <TargetFilePath>lib/portable-net40+sl50+win+wp80+wpa81/CILAssemblyManipulator.Logical.dll</TargetFilePath>
+      </CAMLogicalNuGetFile>
+    </ItemGroup>
+    
+    <!-- Generate .nuspec file -->
+    <CommonBuildTools.NuGetTaskNuSpec
+      VersionFile="$(CAMLogicalNuSpecVersionFilename)"
+      VersionContents="$(CAMLogicalNuSpecVersion)"
+      Copyright_InceptionYear="2015"
+      PackageID="CAM.Logical"
+      Authors="Stanislav Muhametsin"
+      Description="Provides functionality related to Logical layer of CILAssemblyManipulator (CAM) framework. The metadata types, methods, fields, etc are represented by high-level abstract API similar to the one in System.Reflection namespace of .NET framework. Additionally wrapping of native reflection elements (types, mehtods, fields, etc) is supported."
+      Title="CILAssemblyManipulator Logical layer"
+      ReleaseNotes="$(CAMLogicalReleaseNotes)"
+      Tags="clr .net cil il assembly module dynamic generator metadata ecma-335"
+      Summary="A library for accessing and manipulating metadata objects (types, methods, fields, etc) through high-level API similar to the one in System.Reflection namespace of .NET framework."
+      ProjectURL="https://github.com/CometaSolutions/CAM"
+      LicenseURL="http://www.apache.org/licenses/LICENSE-2.0"
+      IconURL="[NUGET_ICON_URL]"
+      RequireLicenseAcceptance="False"
+      Files="@(CAMLogicalNuGetFile)"
+      OutputPath="$(CAMLogicalNuSpecFilePath)"
+      >
+      <Output TaskParameter="GeneratedNuSpecVersion" PropertyName="CAMLogicalNuSpecVersionGenerated" />
+    </CommonBuildTools.NuGetTaskNuSpec>
+
+    <!-- Generate the .nupkg file -->
+    <CommonBuildTools.NuGetTaskPackage
+      NuSpecFile="$(CAMLogicalNuSpecFilePath)"
+      OutputDirectory="$(CAMLogicalBaseDir)/NuGet"
+      BasePath="$(CAMLogicalBaseDir)"
+      MinClientVersion="2.5"
+    />
+    
+    <!-- Push if API-key or config file property specified -->
+    <CommonBuildTools.NuGetTaskPush
+      Condition=" '$(CAMLogicalNuGetPushAPIKey)' != '' or '$(CAMLogicalNuGetPushConfigFile)' != '' "
+      PackageFilePath="$(CAMLogicalBaseDirNuGet)/CAMLogical.$(CAMLogicalNuSpecVersionGenerated).nupkg"
+      APIKey="$(CAMLogicalNuGetPushAPIKey)"
+      Source="$(CAMLogicalNuGetPushSource)"
+      ConfigFile="$(CAMLogicalNuGetPushConfigFile)"
+      />
+  </Target>
+  
+  <Import Project="$(CAMLogicalBaseDir)/CommonBuildTools/CLR/MSBuild/NuGetTasks.targets" />
+  
+  <Import Project="$(CAMLogicalBaseDir)/CommonBuildTools/CLR/MSBuild/PEVerify.targets" />
+    
+  <Import Project="$(CAMLogicalBaseDir)/CommonBuildTools/CLR/MSBuild/NUnit.targets" />
+  
+</Project>
