@@ -27,6 +27,10 @@ using System.Threading;
 
 namespace CILAssemblyManipulator.Logical
 {
+   /// <summary>
+   /// This class represents the "promise of" Logical layer <see cref="CILAssembly"/> created from Physical layer <see cref="CILMetaData"/>.
+   /// Access the <see cref="LogicalAssemblyCreationResult.Assembly"/> property to acquire actual <see cref="CILAssembly"/>.
+   /// </summary>
    public sealed class LogicalAssemblyCreationResult
    {
       private readonly CILAssembly _assembly;
@@ -51,6 +55,9 @@ namespace CILAssemblyManipulator.Logical
          this._typeDefInfos = new Dictionary<CILType, Tuple<String, TypeAttributes, TableIndex?>>();
       }
 
+      /// <summary>
+      /// Lazily initializes and gets the <see cref="CILAssembly"/> 
+      /// </summary>
       public CILAssembly Assembly
       {
          get
@@ -1221,14 +1228,30 @@ public static partial class E_CILLogical
       }
    }
 
+   /// <summary>
+   /// Creates a <see cref="LogicalAssemblyCreationResult"/> representing Logical layer <see cref="CILAssembly"/> with contents built from given Physical layer <see cref="CILMetaData"/>.
+   /// </summary>
+   /// <param name="ctx">The <see cref="CILReflectionContext"/>.</param>
+   /// <param name="metaData">The Physical layer <see cref="CILMetaData"/>.</param>
+   /// <param name="moduleResolver">The callback to resolve other modules of the assembly.</param>
+   /// <param name="assemblyReferenceResolver">The callback to resolve other assemblies referenced by this assembly.</param>
+   /// <param name="msCorLibOverride">The optional override of system library holding types like <see cref="Object"/>, <see cref="Array"/>, <see cref="Enum"/>, etc.</param>
+   /// <returns>The <see cref="LogicalAssemblyCreationResult"/> for given Physical layer <see cref="CILMetaData"/>.</returns>
+   /// <remarks>
+   /// This method should rarely be used directly.
+   /// Instead, one should utilize <see cref="CILAssemblyLoaderNotThreadSafe"/> or <see cref="CILAssemblyLoaderThreadSafeSimple"/> classes to load <see cref="CILAssembly"/> from files and cache results.
+   /// </remarks>
    public static LogicalAssemblyCreationResult CreateLogicalRepresentation(
       this CILReflectionContext ctx,
       CILMetaData metaData,
       Func<String, CILMetaData> moduleResolver,
-      Func<CILMetaData, CILAssemblyName, LogicalAssemblyCreationResult> customAssemblyResolver = null,
+      Func<CILMetaData, CILAssemblyName, LogicalAssemblyCreationResult> assemblyReferenceResolver,
       LogicalAssemblyCreationResult msCorLibOverride = null
       )
    {
+      ArgumentValidator.ValidateNotNull( "Physical metadata", metaData );
+      ArgumentValidator.ValidateNotNull( "Module resolver", moduleResolver );
+      ArgumentValidator.ValidateNotNull( "Assembly reference resolver", assemblyReferenceResolver );
 
       var aDefList = metaData.AssemblyDefinitions.TableContents;
       if ( aDefList.Count <= 0 )
@@ -1276,7 +1299,7 @@ public static partial class E_CILLogical
          return retModule.Module;
       } );
 
-      var mainModuleState = retVal.CreateLogicalCreationState( assembly.AddModule( modList[0].Name ), metaData, moduleRefResolver, customAssemblyResolver, msCorLibOverride );
+      var mainModuleState = retVal.CreateLogicalCreationState( assembly.AddModule( modList[0].Name ), metaData, moduleRefResolver, assemblyReferenceResolver, msCorLibOverride );
       allModuleStates[mainModuleState.Module.Name] = mainModuleState;
 
       foreach ( var module in metaData.FileReferences.TableContents.Where( f => f.Attributes.ContainsMetadata() ) )
@@ -1289,7 +1312,7 @@ public static partial class E_CILLogical
          }
 
          var cilModule = assembly.AddModule( name );
-         allModuleStates[name] = retVal.CreateLogicalCreationState( cilModule, moduleMD, moduleRefResolver, customAssemblyResolver, msCorLibOverride );
+         allModuleStates[name] = retVal.CreateLogicalCreationState( cilModule, moduleMD, moduleRefResolver, assemblyReferenceResolver, msCorLibOverride );
       }
 
       return retVal;
@@ -1313,8 +1336,27 @@ public static partial class E_CILLogical
          metaData,
          moduleRefResolver,
          aName => assemblyNameCache.GetOrAdd_NotThreadSafe( aName, an =>
+         {
+            LogicalAssemblyCreationResult retVal;
             // Check for self-reference...
-            anEQComparer.Equals( thisAN, an ) ? creationResult : customAssemblyResolver( metaData, an ) ),
+            if ( anEQComparer.Equals( thisAN, an ) )
+            {
+               retVal = creationResult;
+            }
+            else
+            {
+               if ( customAssemblyResolver == null )
+               {
+                  throw new InvalidOperationException( "Custom assembly resolver is null." );
+               }
+               else
+               {
+                  retVal = customAssemblyResolver( metaData, an );
+               }
+            }
+
+            return retVal;
+         } ),
          msCorLibOverride
          );
 
@@ -2243,7 +2285,7 @@ public static partial class E_CILLogical
       return retVal;
    }
 
-   public static T[] PopulateWithNulls<T>( Int32 count )
+   private static T[] PopulateWithNulls<T>( Int32 count )
       where T : class
    {
       var retVal = new T[count];

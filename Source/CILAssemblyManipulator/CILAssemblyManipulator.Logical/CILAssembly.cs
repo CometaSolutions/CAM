@@ -54,9 +54,9 @@ namespace CILAssemblyManipulator.Logical
       CILAssemblyName Name { get; }
 
       /// <summary>
-      /// Returns all the modules this assembly currently contains. If one is modifying (via <see cref="AddModule"/> method) and reading (via this property) modules of this assembly concurrently, the access must be synchronized using <see cref="ModulesLock"/>.
+      /// Returns all the modules this assembly currently contains.
       /// </summary>
-      /// <value>All the modules this assembly currently contains..</value>
+      /// <value>All the modules this assembly currently contains.</value>
       ListQuery<CILModule> Modules { get; }
 
       /// <summary>
@@ -270,6 +270,11 @@ namespace CILAssemblyManipulator.Logical
       private Int32 _flags;
       private readonly AssemblyInformation _assemblyInfo;
 
+      /// <summary>
+      /// Creates a new instance of <see cref="CILAssemblyName"/> with given information in <see cref="AssemblyInformation"/>, and whether the public key is full public key or a public key token.
+      /// </summary>
+      /// <param name="assemblyInfo">The <see cref="AssemblyInformation"/> from which to read name, version, culture and public key information.</param>
+      /// <param name="isFullPublicKey">Whether the public key in <paramref name="assemblyInfo"/> is full public key or a public key token.</param>
       public CILAssemblyName( AssemblyInformation assemblyInfo, Boolean isFullPublicKey )
          : this(
          assemblyInfo.Name,

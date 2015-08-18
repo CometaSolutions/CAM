@@ -29,19 +29,30 @@
     <CommonBuildTools.NUnitTask
       Assemblies="CILAssemblyManipulator.Tests.dll"
       NoShadowAssemblies="True"
+      IncludeCategories="CAM.Logical"
       WorkingDirectory="$(CAMLogicalBaseDir)/Source\CILAssemblyManipulator.Tests\bin\Release"
       />
   </Target>
   
   <Target Name="CAMLogical_Compile">   
-    <MSBuild Projects="$(MSBuildThisFileDirectory)CAMLogical.build" Properties="CAMLogicalConfiguration=Release" />
+    <MSBuild Projects="$(MSBuildThisFileDirectory)CAM.Logical.build" Properties="CAMLogicalConfiguration=Release" />
   </Target>
    
   <Target Name="CAMLogical_PEVerify">
     <!-- First, delete all files that won't be included in the NuGet package. -->
     <ItemGroup>
+      <CAMLogicalFilesToPersist Include="$(CAMLogicalBaseDir)/Output/Release/SL/CILAssemblyManipulator.Logical.*"/>
+      <CAMLogicalFilesToPersist Include="$(CAMLogicalBaseDir)/Output/Release/Portable/CILAssemblyManipulator.Logical.*"/>
       <CAMLogicalFilesToPersist Include="$(CAMLogicalBaseDir)/Output/Release/dotNET/CILAssemblyManipulator.Logical.*"/>
+      <CAMLogicalFilesToPersist Include="$(CAMLogicalBaseDir)/Output/Release/SL/UtilPack.dll"/>
+      <CAMLogicalFilesToPersist Include="$(CAMLogicalBaseDir)/Output/Release/Portable/UtilPack.dll"/>
+      <CAMLogicalFilesToPersist Include="$(CAMLogicalBaseDir)/Output/Release/dotNET/UtilPack.dll"/>
+      <CAMLogicalFilesToPersist Include="$(CAMLogicalBaseDir)/Output/Release/SL/CILAssemblyManipulator.Physical.dll"/>
+      <CAMLogicalFilesToPersist Include="$(CAMLogicalBaseDir)/Output/Release/Portable/CILAssemblyManipulator.Physical.dll"/>
+      <CAMLogicalFilesToPersist Include="$(CAMLogicalBaseDir)/Output/Release/dotNET/CILAssemblyManipulator.Physical.dll"/>
       
+      <CAMLogicalFilesToDelete Include="$(CAMLogicalBaseDir)/Output/Release/SL/*.*"/>
+      <CAMLogicalFilesToDelete Include="$(CAMLogicalBaseDir)/Output/Release/Portable/*.*"/>
       <CAMLogicalFilesToDelete Include="$(CAMLogicalBaseDir)/Output/Release/dotNET/*.*"/>
       <CAMLogicalFilesToDelete Remove="@(CAMLogicalFilesToPersist)"/>
     </ItemGroup>
@@ -51,13 +62,15 @@
     
     <!-- Files for PEVerify -->
     <ItemGroup>
+      <PEVerifyFiles Include="$(CAMLogicalBaseDir)/Output/Release/SL/CILAssemblyManipulator.Logical.dll" />
+      <PEVerifyFiles Include="$(CAMLogicalBaseDir)/Output/Release/Portable/CILAssemblyManipulator.Logical.dll" />
       <PEVerifyFiles Include="$(CAMLogicalBaseDir)/Output/Release/dotNET/CILAssemblyManipulator.Logical.dll" />
     </ItemGroup>
     
     <!-- Verify all .dll files exist -->
     <PropertyGroup>
       <PEVerifyFilesCount>@(PEVerifyFiles->Count())</PEVerifyFilesCount>
-      <PEVerifyFilesExpectedCount>1</PEVerifyFilesExpectedCount>
+      <PEVerifyFilesExpectedCount>3</PEVerifyFilesExpectedCount>
     </PropertyGroup>
     <Error Condition=" '$(PEVerifyFilesCount)' != '$(PEVerifyFilesExpectedCount)' " Text="Not all required files for PEVerify are present ($(PEVerifyFilesCount))." />
 
@@ -65,6 +78,9 @@
     <CommonBuildTools.PEVerifyTask
       FileToVerify="%(PEVerifyFiles.Identity)"
       />
+    
+    <!-- Delete all referenced assemblies that won't be included to NuGetPackage -->
+    <Delete Files="$(CAMLogicalBaseDir)/Output/Release/SL/UtilPack.dll;$(CAMLogicalBaseDir)/Output/Release/Portable/UtilPack.dll;$(CAMLogicalBaseDir)/Output/Release/dotNET/UtilPack.dll;$(CAMLogicalBaseDir)/Output/Release/SL/CILAssemblyManipulator.Physical.dll;$(CAMLogicalBaseDir)/Output/Release/Portable/CILAssemblyManipulator.Physical.dll;$(CAMLogicalBaseDir)/Output/Release/dotNET/CILAssemblyManipulator.Physical.dll" />
   </Target>
    
   <Target Name="CAMLogical_NuGet">
@@ -78,9 +94,33 @@
       <CAMLogicalNuSpecFilePath>$(CAMLogicalBaseDirNuGet)/CAM.Logical.nuspec</CAMLogicalNuSpecFilePath>
     </PropertyGroup>
     <ItemGroup>
-      <CAMLogicalNuGetFile Include="Output/Release/dotNET/CILAssemblyManipulator.Logical.dll">
-        <TargetFilePath>lib/portable-net40+sl50+win+wp80+wpa81/CILAssemblyManipulator.Logical.dll</TargetFilePath>
+      <CAMLogicalNuGetFile Include="Output/Release/SL/CILAssemblyManipulator.Logical.dll">
+        <TargetFilePath>lib/portable-sl50+wp80+wpa81/CILAssemblyManipulator.Logical.dll</TargetFilePath>
       </CAMLogicalNuGetFile>
+      <CAMLogicalNuGetFile Include="Output/Release/SL/CILAssemblyManipulator.Logical.xml">
+        <TargetFilePath>lib/portable-sl50+wp80+wpa81/CILAssemblyManipulator.Logical.xml</TargetFilePath>
+      </CAMLogicalNuGetFile>
+      <CAMLogicalNuGetFile Include="Output/Release/Portable/CILAssemblyManipulator.Logical.dll">
+        <TargetFilePath>lib/portable-net40+win8/CILAssemblyManipulator.Logical.dll</TargetFilePath>
+      </CAMLogicalNuGetFile>
+      <CAMLogicalNuGetFile Include="Output/Release/Portable/CILAssemblyManipulator.Logical.xml">
+        <TargetFilePath>lib/portable-net40+win8/CILAssemblyManipulator.Logical.xml</TargetFilePath>
+      </CAMLogicalNuGetFile>
+      <CAMLogicalNuGetFile Include="Output/Release/dotNET/CILAssemblyManipulator.Logical.dll">
+        <TargetFilePath>lib/net40-client/CILAssemblyManipulator.Logical.dll</TargetFilePath>
+      </CAMLogicalNuGetFile>
+      <CAMLogicalNuGetFile Include="Output/Release/dotNET/CILAssemblyManipulator.Logical.xml">
+        <TargetFilePath>lib/net40-client/CILAssemblyManipulator.Logical.xml</TargetFilePath>
+      </CAMLogicalNuGetFile>
+      
+      <CAMStructuralNuGetDependency Include="UtilPack">
+        <Version Condition=" '$(UtilPackNuSpecVersion)' == '' ">$([System.IO.File]::ReadAllText('$(CAMStructuralBaseDir)/Source/UtilPackVersion.txt'))</Version>
+        <Version Condition=" '$(UtilPackNuSpecVersion)' != '' ">$(UtilPackNuSpecVersion)</Version>
+      </CAMStructuralNuGetDependency>
+      <CAMStructuralNuGetDependency Include="CAM.Physical">
+        <Version Condition=" '$(CAMPhysicalNuSpecVersion)' == '' ">$([System.IO.File]::ReadAllText('$(CAMStructuralBaseDir)/Source/CAMPhysicalVersion.txt'))</Version>
+        <Version Condition=" '$(CAMPhysicalNuSpecVersion)' != '' ">$(CAMPhysicalNuSpecVersion)</Version>
+      </CAMStructuralNuGetDependency>
     </ItemGroup>
     
     <!-- Generate .nuspec file -->
@@ -97,9 +137,9 @@
       Summary="A library for accessing and manipulating metadata objects (types, methods, fields, etc) through high-level API similar to the one in System.Reflection namespace of .NET framework."
       ProjectURL="https://github.com/CometaSolutions/CAM"
       LicenseURL="http://www.apache.org/licenses/LICENSE-2.0"
-      IconURL="[NUGET_ICON_URL]"
       RequireLicenseAcceptance="False"
       Files="@(CAMLogicalNuGetFile)"
+      Dependencies="@(CAMStructuralNuGetDependency)"
       OutputPath="$(CAMLogicalNuSpecFilePath)"
       >
       <Output TaskParameter="GeneratedNuSpecVersion" PropertyName="CAMLogicalNuSpecVersionGenerated" />

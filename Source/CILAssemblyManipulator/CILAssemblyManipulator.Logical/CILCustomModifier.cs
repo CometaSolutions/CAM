@@ -30,7 +30,6 @@ namespace CILAssemblyManipulator.Logical
       /// Gets or sets optionality of this custom modifier.
       /// </summary>
       /// <value>The optionality of this custom modifier.</value>
-      /// <seealso cref="CILCustomModifierOptionality"/>
       Boolean IsOptional { get; set; }
 
       /// <summary>

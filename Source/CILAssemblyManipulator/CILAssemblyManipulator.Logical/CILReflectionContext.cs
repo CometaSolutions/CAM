@@ -101,14 +101,22 @@ namespace CILAssemblyManipulator.Logical
       /// </summary>
       event EventHandler<CustomModifierEventLoadArgs> CustomModifierLoadEvent;
 
+      /// <summary>
+      /// Gets the default cryptological function callbacks defined for this <see cref="CILReflectionContext"/>.
+      /// </summary>
+      /// <value>The default cryptological function callbacks defined for this <see cref="CILReflectionContext"/>.</value>
       CryptoCallbacks DefaultCryptoCallbacks { get; }
 
+      /// <summary>
+      /// Gets the default assembly name comparer, which should take into account the token vs full public key when comparing assembly names.
+      /// </summary>
+      /// <value>The default assembly name comparer, which should take into account the token vs full public key when comparing assembly names.</value>
       IEqualityComparer<CILAssemblyName> DefaultAssemblyNameComparer { get; }
 
-      /// <summary>
-      /// When a <see cref="CILAssembly"/> or <see cref="CILModule"/> is loaded via <see cref="E_CILLogical.LoadAssembly(CILReflectionContext, System.IO.Stream, EmittingArguments)"/> or <see cref="E_CILLogical.LoadModule(CILReflectionContext,System.IO.Stream, EmittingArguments)"/> methods, respectively, any access causing additional load of assemblies is triggered via this event, if the assembly loader function of the aforementioned methods is <c>null</c> or fails to load the assembly. The event handler should set the <see cref="AssemblyRefResolveFromLoadedAssemblyEventArgs.ResolvedAssembly"/> property.
-      /// </summary>
-      event EventHandler<AssemblyRefResolveFromLoadedAssemblyEventArgs> AssemblyReferenceResolveFromLoadedAssemblyEvent;
+      ///// <summary>
+      ///// When a <see cref="CILAssembly"/> or <see cref="CILModule"/> is loaded via <see cref="E_CILLogical.LoadAssembly(CILReflectionContext, System.IO.Stream, EmittingArguments)"/> or <see cref="E_CILLogical.LoadModule(CILReflectionContext,System.IO.Stream, EmittingArguments)"/> methods, respectively, any access causing additional load of assemblies is triggered via this event, if the assembly loader function of the aforementioned methods is <c>null</c> or fails to load the assembly. The event handler should set the <see cref="AssemblyRefResolveFromLoadedAssemblyEventArgs.ResolvedAssembly"/> property.
+      ///// </summary>
+      //event EventHandler<AssemblyRefResolveFromLoadedAssemblyEventArgs> AssemblyReferenceResolveFromLoadedAssemblyEvent;
 
 
       /// <summary>
@@ -1257,57 +1265,56 @@ namespace CILAssemblyManipulator.Logical
       public Type[] RequiredModifiers { get; set; }
    }
 
-   /// <summary>
-   /// The event argument class used by <see cref="CILReflectionContext.AssemblyReferenceResolveFromLoadedAssemblyEvent"/> event.
-   /// </summary>
-   /// <seealso cref="E_CILLogical.LoadAssembly(CILReflectionContext, System.IO.Stream, EmittingArguments)"/>
-   /// <seealso cref="E_CILLogical.LoadModule(CILReflectionContext,System.IO.Stream, EmittingArguments)"/>
-   public sealed class AssemblyRefResolveFromLoadedAssemblyEventArgs : EventArgs
-   {
-      private readonly CILAssemblyName _assName;
-      private readonly CILReflectionContext _context;
+   ///// <summary>
+   ///// The event argument class used by <see cref="CILReflectionContext.AssemblyReferenceResolveFromLoadedAssemblyEvent"/> event.
+   ///// </summary>
+   ///// <seealso cref="E_CILLogical.CreateLogicalRepresentation"/>
+   //public sealed class AssemblyRefResolveFromLoadedAssemblyEventArgs : EventArgs
+   //{
+   //   private readonly CILAssemblyName _assName;
+   //   private readonly CILReflectionContext _context;
 
-      internal AssemblyRefResolveFromLoadedAssemblyEventArgs( CILAssemblyName assName, CILReflectionContext ctx )
-      {
-         this._context = ctx;
-         this._assName = assName;
-      }
+   //   internal AssemblyRefResolveFromLoadedAssemblyEventArgs( CILAssemblyName assName, CILReflectionContext ctx )
+   //   {
+   //      this._context = ctx;
+   //      this._assName = assName;
+   //   }
 
-      /// <summary>
-      /// Gets the name of the referenced assembly.
-      /// </summary>
-      /// <value>The name of the referenced assembly.</value>
-      public CILAssemblyName AssemblyName
-      {
-         get
-         {
-            return this._assName;
-         }
-      }
+   //   /// <summary>
+   //   /// Gets the name of the referenced assembly.
+   //   /// </summary>
+   //   /// <value>The name of the referenced assembly.</value>
+   //   public CILAssemblyName AssemblyName
+   //   {
+   //      get
+   //      {
+   //         return this._assName;
+   //      }
+   //   }
 
-      /// <summary>
-      /// Gets or sets the loaded assembly for <see cref="AssemblyName"/>.
-      /// </summary>
-      /// <value>The loaded assembly for <see cref="AssemblyName"/>.</value>
-      /// <remarks>Event handlers should set this property.</remarks>
-      public CILAssembly ResolvedAssembly
-      {
-         get;
-         set;
-      }
+   //   /// <summary>
+   //   /// Gets or sets the loaded assembly for <see cref="AssemblyName"/>.
+   //   /// </summary>
+   //   /// <value>The loaded assembly for <see cref="AssemblyName"/>.</value>
+   //   /// <remarks>Event handlers should set this property.</remarks>
+   //   public CILAssembly ResolvedAssembly
+   //   {
+   //      get;
+   //      set;
+   //   }
 
-      /// <summary>
-      /// Gets the current <see cref="CILReflectionContext"/>.
-      /// </summary>
-      /// <value>The current <see cref="CILReflectionContext"/>.</value>
-      public CILReflectionContext ReflectionContext
-      {
-         get
-         {
-            return this._context;
-         }
-      }
-   }
+   //   /// <summary>
+   //   /// Gets the current <see cref="CILReflectionContext"/>.
+   //   /// </summary>
+   //   /// <value>The current <see cref="CILReflectionContext"/>.</value>
+   //   public CILReflectionContext ReflectionContext
+   //   {
+   //      get
+   //      {
+   //         return this._context;
+   //      }
+   //   }
+   //}
 
    //#if !MONO
 

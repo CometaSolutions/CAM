@@ -87,6 +87,11 @@ namespace CILAssemblyManipulator.Logical
          }
       }
 
+      /// <summary>
+      /// Gets the <see cref="LogicalOpCodeInfoWithNoOperand"/> instance for given <see cref="OpCodeEncoding"/>.
+      /// </summary>
+      /// <param name="code">The <see cref="OpCodeEncoding"/> representing opcode.</param>
+      /// <returns><see cref="LogicalOpCodeInfoWithNoOperand"/> instance for given <paramref name="code"/>.</returns>
       public static LogicalOpCodeInfoWithNoOperand GetInstanceFor( OpCodeEncoding code )
       {
          LogicalOpCodeInfoWithNoOperand retVal;
@@ -100,6 +105,11 @@ namespace CILAssemblyManipulator.Logical
          }
       }
 
+      /// <summary>
+      /// Gets the <see cref="LogicalOpCodeInfoWithNoOperand"/> instance for given <see cref="OpCode"/>.
+      /// </summary>
+      /// <param name="code">The <see cref="OpCode"/>.</param>
+      /// <returns><see cref="LogicalOpCodeInfoWithNoOperand"/> instance for given <paramref name="code"/>.</returns>
       public static LogicalOpCodeInfoWithNoOperand GetInstanceFor( OpCode code )
       {
          return GetInstanceFor( code.Value );
@@ -117,6 +127,10 @@ namespace CILAssemblyManipulator.Logical
       }
    }
 
+   /// <summary>
+   /// This is abstract class with operand type as generic type parameter for all <see cref="LogicalOpCodeInfo"/>s with fixed-size operand.
+   /// </summary>
+   /// <typeparam name="TOperand">The type of the operand.</typeparam>
    public abstract class LogicalOpCodeInfoWithFixedSizeOperand<TOperand> : LogicalOpCodeInfoWithFixedSizeOperand
    {
       private readonly TOperand _operand;
@@ -127,6 +141,9 @@ namespace CILAssemblyManipulator.Logical
          this._operand = operand;
       }
 
+      /// <summary>
+      /// Gets the operand of this <see cref="LogicalOpCodeInfoWithFixedSizeOperand"/>.
+      /// </summary>
       public TOperand Operand
       {
          get
@@ -529,10 +546,17 @@ namespace CILAssemblyManipulator.Logical
       /// <summary>
       /// Creates a new instance of <see cref="LogicalOpCodeInfoWithFixedSizeOperandString"/>
       /// </summary>
-      /// <param name="str"></param>
+      /// <param name="code">The code to use.</param>
+      /// <param name="str">The string to use.</param>
+      /// <exception cref="ArgumentNullException">If <paramref name="str"/> is <c>null</c>.</exception>
+      /// <exception cref="ArgumentException">If <see cref="OpCode.OperandType"/> for <paramref name="code"/> is not <see cref="OperandType.InlineString"/>.</exception>
       public LogicalOpCodeInfoWithFixedSizeOperandString( OpCode code, String str )
          : base( code, str ) //, TOKEN_SIZE )
       {
+         if ( code.OperandType != OperandType.InlineString )
+         {
+            throw new ArgumentException( "The operand type of opcode is " + code.OperandType + " instead of string." );
+         }
          ArgumentValidator.ValidateNotNull( "String", str );
       }
 

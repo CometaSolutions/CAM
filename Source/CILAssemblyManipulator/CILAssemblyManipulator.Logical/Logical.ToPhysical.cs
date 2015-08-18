@@ -440,6 +440,23 @@ public static partial class E_CILLogical
 
    }
 
+   /// <summary>
+   /// Helper method to call <see cref="CreatePhysicalRepresentation"/> for main module of Logical layer <see cref="CILAssembly"/>.
+   /// </summary>
+   /// <param name="assembly">The <see cref="CILAssembly"/>.</param>
+   /// <param name="orderAndRemoveDuplicates">Whether to call <see cref="E_CILPhysical.OrderTablesAndRemoveDuplicates(CILMetaData)"/> method for the return value. This method should be called before writing Physical layer <see cref="CILMetaData"/> to disk, as this method may leave some duplicates in the return value tables.</param>
+   /// <returns>The <see cref="CILMetaData"/> built from assembly's main module.</returns>
+   public static CILMetaData CreatePhysicalRepresentationForMainModule( this CILAssembly assembly, Boolean orderAndRemoveDuplicates = true )
+   {
+      return assembly.MainModule.CreatePhysicalRepresentation( orderAndRemoveDuplicates );
+   }
+
+   /// <summary>
+   /// Creates a Physical layer <see cref="CILMetaData"/> from given Logical layer <see cref="CILModule"/>.
+   /// </summary>
+   /// <param name="module">The <see cref="CILModule"/>.</param>
+   /// <param name="orderAndRemoveDuplicates">Whether to call <see cref="E_CILPhysical.OrderTablesAndRemoveDuplicates(CILMetaData)"/> method for the return value. This method should be called before writing Physical layer <see cref="CILMetaData"/> to disk, as this method may leave some duplicates in the return value tables.</param>
+   /// <returns>The <see cref="CILMetaData"/> build from given module.</returns>
    public static CILMetaData CreatePhysicalRepresentation( this CILModule module, Boolean orderAndRemoveDuplicates = true )
    {
       var retVal = CILMetaDataFactory.NewBlankMetaData();

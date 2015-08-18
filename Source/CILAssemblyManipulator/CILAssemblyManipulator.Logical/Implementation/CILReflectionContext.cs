@@ -149,7 +149,7 @@ namespace CILAssemblyManipulator.Logical.Implementation
       public event EventHandler<TypeLayoutEventArgs> TypeLayoutLoadEvent;
       public event EventHandler<AssemblyNameEventArgs> AssemblyNameLoadEvent;
       public event EventHandler<CustomModifierEventLoadArgs> CustomModifierLoadEvent;
-      public event EventHandler<AssemblyRefResolveFromLoadedAssemblyEventArgs> AssemblyReferenceResolveFromLoadedAssemblyEvent;
+      //public event EventHandler<AssemblyRefResolveFromLoadedAssemblyEventArgs> AssemblyReferenceResolveFromLoadedAssemblyEvent;
 
       public CILReflectionContextConcurrencySupport ConcurrencySupport
       {
@@ -346,18 +346,18 @@ namespace CILAssemblyManipulator.Logical.Implementation
          }, LazyThreadSafetyMode.PublicationOnly );
       }
 
-      internal CILAssembly LaunchAssemblyRefResolveEvent( AssemblyRefResolveFromLoadedAssemblyEventArgs args )
-      {
-         this.AssemblyReferenceResolveFromLoadedAssemblyEvent.InvokeEventIfNotNull( evt => evt( this, args ) );
-         if ( args.ResolvedAssembly == null )
-         {
-            throw new InvalidOperationException( "Could not resolve assembly " + args.AssemblyName + "." );
-         }
-         else
-         {
-            return args.ResolvedAssembly;
-         }
-      }
+      //internal CILAssembly LaunchAssemblyRefResolveEvent( AssemblyRefResolveFromLoadedAssemblyEventArgs args )
+      //{
+      //   this.AssemblyReferenceResolveFromLoadedAssemblyEvent.InvokeEventIfNotNull( evt => evt( this, args ) );
+      //   if ( args.ResolvedAssembly == null )
+      //   {
+      //      throw new InvalidOperationException( "Could not resolve assembly " + args.AssemblyName + "." );
+      //   }
+      //   else
+      //   {
+      //      return args.ResolvedAssembly;
+      //   }
+      //}
 
 
       internal AbstractCILReflectionContextCache Cache

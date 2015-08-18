@@ -233,7 +233,7 @@ namespace CILAssemblyManipulator.Logical
       /// <param name="concurrencyMode">The desired concurrency mode.</param>
       /// <param name="registerCryptoRelatedEvents">
       /// Whether to register to crypto-related events as well.
-      /// If <c>true</c>, the callbacks are added to <see cref="CILReflectionContext.HashStreamLoadEvent"/>, <see cref="CILReflectionContext.RSACreationEvent"/> and <see cref="CILReflectionContext.RSASignatureCreationEvent"/> events.
+      /// If <c>true</c>, the <see cref="CryptoCallbacksDotNET"/> is given to new instance of <see cref="CILReflectionContext"/>.
       /// Otherwise the callbacks are not added to those events.
       /// </param>
       /// <remarks>
@@ -251,9 +251,6 @@ namespace CILAssemblyManipulator.Logical
       /// <item><description><see cref="CILReflectionContext.TypeLayoutLoadEvent"/>,</description></item>
       /// <item><description><see cref="CILReflectionContext.AssemblyNameLoadEvent"/>,</description></item>
       /// <item><description><see cref="CILReflectionContext.CustomModifierLoadEvent"/>,</description></item>
-      /// <item><description><see cref="CILReflectionContext.HashStreamLoadEvent"/>, if <paramref name="registerCryptoRelatedEvents"/> is <c>true</c>,</description></item>
-      /// <item><description><see cref="CILReflectionContext.RSACreationEvent"/>, if <paramref name="registerCryptoRelatedEvents"/> is <c>true</c>,</description></item>
-      /// <item><description>and <see cref="CILReflectionContext.RSASignatureCreationEvent"/>, if <paramref name="registerCryptoRelatedEvents"/> is <c>true</c>.</description></item>
       /// </list>
       /// </para>
       /// </remarks>
@@ -287,22 +284,22 @@ namespace CILAssemblyManipulator.Logical
          ctx.TypeLayoutLoadEvent += ctx_TypeLayoutLoadEvent;
          ctx.AssemblyNameLoadEvent += ctx_AssemblyNameLoadEvent;
          ctx.CustomModifierLoadEvent += ctx_CustomModifierLoadEvent;
-         ctx.AssemblyReferenceResolveFromLoadedAssemblyEvent += ctx_AssemblyReferenceResolveFromLoadedAssemblyEvent;
+         //ctx.AssemblyReferenceResolveFromLoadedAssemblyEvent += ctx_AssemblyReferenceResolveFromLoadedAssemblyEvent;
 
          return ctx;
       }
 
-      private static void ctx_AssemblyReferenceResolveFromLoadedAssemblyEvent( object sender, AssemblyRefResolveFromLoadedAssemblyEventArgs e )
-      {
-         try
-         {
-            e.ResolvedAssembly = e.ReflectionContext.NewWrapper( System.Reflection.Assembly.Load( e.AssemblyName.ToString() ) );
-         }
-         catch
-         {
-            // Ignore
-         }
-      }
+      //private static void ctx_AssemblyReferenceResolveFromLoadedAssemblyEvent( object sender, AssemblyRefResolveFromLoadedAssemblyEventArgs e )
+      //{
+      //   try
+      //   {
+      //      e.ResolvedAssembly = e.ReflectionContext.NewWrapper( System.Reflection.Assembly.Load( e.AssemblyName.ToString() ) );
+      //   }
+      //   catch
+      //   {
+      //      // Ignore
+      //   }
+      //}
 
       private static void ctx_CustomModifierLoadEvent( object sender, CustomModifierEventLoadArgs e )
       {

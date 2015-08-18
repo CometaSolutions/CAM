@@ -208,7 +208,7 @@ namespace CILAssemblyManipulator.Logical
       /// </summary>
       /// <param name="args">The types to substitute the type parameters of this generic method definition.</param>
       /// <returns>A method representing the constructed method based on this generic method definition.</returns>
-      /// <exception cref="InvalidOperationException">The <paramref name="args"/> are non-<c>null</c> or contain at least one element, and the <paramref name="method"/> is not generic method definition, that is, <see cref="E_CILLogical.IsGenericMethodDefinition" /> returns <c>false</c> for <paramref name="method"/>.</exception>
+      /// <exception cref="InvalidOperationException">The <paramref name="args"/> are non-<c>null</c> or contain at least one element, and the this method is not generic method definition, that is, <see cref="E_CILLogical.IsGenericMethodDefinition" /> returns <c>false</c> for this method.</exception>
       /// <exception cref="ArgumentNullException">If <paramref name="args" /> is <c>null</c>.-or- Any element of <paramref name="args" /> is <c>null</c>. </exception>
       /// <exception cref="ArgumentException">The number of elements in <paramref name="args" /> is not the same as the number of type parameters of the current generic method definition.</exception>
       CILMethod MakeGenericMethod( params CILTypeBase[] args );
@@ -228,12 +228,12 @@ namespace CILAssemblyManipulator.Logical
 public static partial class E_CILLogical
 {
    /// <summary>
-   /// Checks whether the method is eligible to have method body. See ECMA specification (condition 33 for MethodDef table) for exact condition of methods having method bodies. In addition to that, the <see cref="E_CILLogical.IsIL"/> must return <c>true</c>.
+   /// Checks whether the method is eligible to have method body. See ECMA specification (condition 33 for MethodDef table) for exact condition of methods having method bodies. In addition to that, the <see cref="E_CILPhysical.IsIL"/> must return <c>true</c>.
    /// </summary>
    /// <param name="method">The method to check.</param>
    /// <returns><c>true</c> if the <paramref name="method"/> is non-<c>null</c> and can have IL method body; <c>false</c> otherwise.</returns>
-   /// <seealso cref="E_CILLogical.IsIL"/>
-   /// <seealso cref="E_CILLogical.CanEmitIL"/>
+   /// <seealso cref="E_CILPhysical.IsIL"/>
+   /// <seealso cref="E_CILPhysical.CanEmitIL"/>
    public static Boolean HasILMethodBody( this CILMethodBase method )
    {
       return method != null && method.Attributes.CanEmitIL() && method.ImplementationAttributes.IsIL();

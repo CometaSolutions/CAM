@@ -56,8 +56,6 @@ namespace CILAssemblyManipulator.Logical
       /// <param name="kind">What kind of element type to make.</param>
       /// <param name="arrayInfo">The array information, if <paramref name="kind"/> is <see cref="ElementKind.Array"/>. Otherwise it is ignored. In array information which is <c>null</c> means a simple vector array, otherwise the resulting type will be general array.</param>
       /// <returns>A <see cref="CILTypeBase"/> representing array, pointer, or by-ref type.</returns>
-      /// <exception cref="NullReferenceException">If <paramref name="type"/> is <c>null.</c></exception>
-      /// <exception cref="ArgumentOutOfRangeException">If <paramref name="kind"/> is <see cref="ElementKind.Array"/> and <paramref name="arrayInfo"/> is less than <c>0</c>.</exception>
       CILType MakeElementType( ElementKind kind, GeneralArrayInfo arrayInfo );
    }
 
@@ -66,7 +64,7 @@ namespace CILAssemblyManipulator.Logical
    /// </summary>
    /// <remarks>
    /// The <see cref="CILMethodSignature"/> acts as a type, and can be used in types of fields, events, parameters and local variables.
-   /// Additionally, it may be used to perform native calls, see <see cref="E_MethodIL.EmitCall( MethodIL, CILMethodSignature, CILTypeBase[])"/> and <see cref="E_MethodIL.EmitCall(MethodIL, CILMethodSignature, Tuple{CILCustomModifier[], CILTypeBase}[])"/>.
+   /// Additionally, it may be used to perform native calls, see <see cref="E_CILLogical.EmitCall( MethodIL, CILMethodSignature, CILTypeBase[])"/> and <see cref="E_CILLogical.EmitCall(MethodIL, CILMethodSignature, VarArgInstance[])"/>.
    /// </remarks>
    public interface CILMethodSignature :
       CILTypeBase,
@@ -314,11 +312,11 @@ namespace CILAssemblyManipulator.Logical
       Boolean RemoveEvent( CILEvent evt );
 
       /// <summary>
-      /// Substitutes the generic arguments of the given <paramref name="type"/> with <paramref name="args"/> and returns the resulting type.
+      /// Substitutes the generic arguments of the given this type with <paramref name="args"/> and returns the resulting type.
       /// </summary>
       /// <param name="args">The generic arguments.</param>
       /// <returns>The generic type with <paramref name="args"/> as generic arguments.</returns>
-      /// <exception cref="InvalidOperationException">The <paramref name="args"/> are non-<c>null</c> or contain at least one element, and the <paramref name="type"/> is not generic type definition.</exception>
+      /// <exception cref="InvalidOperationException">The <paramref name="args"/> are non-<c>null</c> or contain at least one element, and the this type is not generic type definition.</exception>
       /// <exception cref="ArgumentNullException">If this type is a generic type definition and <paramref name="args"/> is <c>null</c> or any element of <paramref name="args"/> is <c>null</c>.</exception>
       /// <exception cref="ArgumentException">If number of elements in <paramref name="args"/> is not the same as number of generic arguments in this type.</exception>
       /// <remarks>TODO the void-type-check for generic arguments might not properly in some special scenarios, such as emitting mscorlib.</remarks>
@@ -780,7 +778,7 @@ public static partial class E_CILLogical
    /// <param name="type">The type to check.</param>
    /// <returns><c>true</c> if <paramref name="type"/> is non-<c>null</c> and is class; <c>false</c> otherwise.</returns>
    /// <seealso cref="System.Type.IsClass"/>
-   /// <seealso cref="E_CILLogical.IsClass(TypeAttributes)"/>
+   /// <seealso cref="E_CILPhysical.IsClass(TypeAttributes)"/>
    public static Boolean IsClass( this CILTypeBase type )
    {
       return type != null && TypeKind.Type == type.TypeKind && ( (CILType) type ).Attributes.IsClass();
@@ -792,7 +790,7 @@ public static partial class E_CILLogical
    /// <param name="type">The type to check.</param>
    /// <returns><c>true</c> if <paramref name="type"/> is non-<c>null</c> and is interface; <c>false</c> otherwise.</returns>
    /// <seealso cref="System.Type.IsInterface"/>
-   /// <seealso cref="E_CILLogical.IsInterface(TypeAttributes)"/>
+   /// <seealso cref="E_CILPhysical.IsInterface(TypeAttributes)"/>
    public static Boolean IsInterface( this CILTypeBase type )
    {
       return type != null && TypeKind.Type == type.TypeKind && ( (CILType) type ).Attributes.IsInterface();

@@ -41,7 +41,7 @@ namespace CILAssemblyManipulator.Logical
       /// </summary>
       /// <param name="opCodeInfo">The <see cref="LogicalOpCodeInfo"/>.</param>
       /// <returns>This <see cref="MethodIL"/>.</returns>
-      /// <remarks>This method is rarely intended to be used directly, instead, use extension methods in <see cref="E_MethodIL"/>.</remarks>
+      /// <remarks>This method is rarely intended to be used directly, instead, use extension methods in <see cref="E_CILLogical"/>.</remarks>
       /// <exception cref="ArgumentNullException">If <paramref name="opCodeInfo"/> is <c>null</c>.</exception>
       MethodIL Add( LogicalOpCodeInfo opCodeInfo );
 
@@ -148,16 +148,19 @@ namespace CILAssemblyManipulator.Logical
          }
       }
 
+      /// <inheritdoc/>
       public override Boolean Equals( Object obj )
       {
          return obj is ILLabel && this.Equals( (ILLabel) obj );
       }
 
+      /// <inheritdoc/>
       public override Int32 GetHashCode()
       {
          return 23 * this._labelIdx;
       }
 
+      /// <inheritdoc/>
       public Boolean Equals( ILLabel other )
       {
          return this._labelIdx == other._labelIdx;
@@ -192,7 +195,7 @@ namespace CILAssemblyManipulator.Logical
    /// <summary>
    /// This interface represents required information about a single op code for emitting process.
    /// </summary>
-   /// <remarks>Usually it is sufficient to use extension methods in <see cref="E_MethodIL"/> instead of actually creating instances of this class.</remarks>
+   /// <remarks>Usually it is sufficient to use extension methods in <see cref="E_CILLogical"/> instead of actually creating instances of this class.</remarks>
    public abstract class LogicalOpCodeInfo
    {
       internal LogicalOpCodeInfo()
@@ -474,7 +477,7 @@ namespace CILAssemblyManipulator.Logical
    }
 
    /// <summary>
-   /// This enumeration contains various branching conditions to be used in extension methods of <see cref="MethodIL"/> in <see cref="E_MethodIL"/>.
+   /// This enumeration contains various branching conditions to be used in extension methods of <see cref="MethodIL"/> in <see cref="E_CILLogical"/>.
    /// </summary>
    public enum BranchType
    {
@@ -570,23 +573,39 @@ namespace CILAssemblyManipulator.Logical
       IF_TRUE,
    }
 
+   /// <summary>
+   /// The instance of this structure represents one argument to method's variable argument declaration.
+   /// It is used in <see cref="E_CILLogical.EmitCall( MethodIL, CILMethodSignature, VarArgInstance[] )"/> method.
+   /// </summary>
    public struct VarArgInstance
    {
       private readonly CILCustomModifier[] _mods;
       private readonly CILTypeBase _type;
 
+      /// <summary>
+      /// Creates new instance of <see cref="VarArgInstance"/> with given variable argument type, and no custom modifiers.
+      /// </summary>
+      /// <param name="type">The variable argument type.</param>
       public VarArgInstance( CILTypeBase type )
          : this( type, Empty<CILCustomModifier>.Array )
       {
 
       }
 
+      /// <summary>
+      /// Creates new instance of <see cref="VarArgInstance"/> with given variable argument type and custom modifiers.
+      /// </summary>
+      /// <param name="type">The variable argument type.</param>
+      /// <param name="mods">The variable argument custom modifiers.</param>
       public VarArgInstance( CILTypeBase type, params CILCustomModifier[] mods )
       {
          this._type = type;
          this._mods = mods;
       }
 
+      /// <summary>
+      /// Gets the type of this variable argument.
+      /// </summary>
       public CILTypeBase Type
       {
          get
@@ -595,6 +614,9 @@ namespace CILAssemblyManipulator.Logical
          }
       }
 
+      /// <summary>
+      /// Gets the custom modifiers of this variable argument.
+      /// </summary>
       public CILCustomModifier[] CustomModifiers
       {
          get

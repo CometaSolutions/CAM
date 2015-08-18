@@ -171,11 +171,15 @@ namespace CILAssemblyManipulator.Logical
          }
       }
 
+      /// <summary>
+      /// Returns <see cref="Logical.ManifestResourceKind.AnotherAssembly"/>.
+      /// </summary>
+      /// <value>The <see cref="Logical.ManifestResourceKind.AnotherAssembly"/>.</value>
       public override ManifestResourceKind ManifestResourceKind
       {
          get
          {
-            return Logical.ManifestResourceKind.AnotherAssembly;
+            return ManifestResourceKind.AnotherAssembly;
          }
       }
    }
@@ -195,7 +199,6 @@ namespace CILAssemblyManipulator.Logical
       /// <param name="fileName">The name of the file containing the resource data. If <c>null</c>, this resource will be ignored when emitting the module.</param>
       /// <param name="hash">
       /// SHA1 hash of file contents.
-      /// If <c>null</c>, during emitting, the <see cref="EmittingArguments.FileStreamOpener"/> callback will be used to open file, and <see cref="CILReflectionContext.HashStreamLoadEvent"/> event to get things required to compute the hash.
       /// </param>
       /// <remarks>
       /// If <paramref name="hash"/> is non-<c>null</c> (includes scenario when it is empty), then the hash will be written as is to metadata.
@@ -231,6 +234,10 @@ namespace CILAssemblyManipulator.Logical
          }
       }
 
+      /// <summary>
+      /// Returns <see cref="Logical.ManifestResourceKind.AnotherFile"/>.
+      /// </summary>
+      /// <value>The <see cref="Logical.ManifestResourceKind.AnotherFile"/>.</value>
       public override ManifestResourceKind ManifestResourceKind
       {
          get
@@ -269,6 +276,10 @@ namespace CILAssemblyManipulator.Logical
          }
       }
 
+      /// <summary>
+      /// Returns <see cref="Logical.ManifestResourceKind.Embedded"/>.
+      /// </summary>
+      /// <value>The <see cref="Logical.ManifestResourceKind.Embedded"/>.</value>
       public override ManifestResourceKind ManifestResourceKind
       {
          get
