@@ -7,7 +7,7 @@
     <Package>
       <ID>NUnit</ID>
       <Versions>
-        <Version>2.6.4</Version>
+        <VersionFile>Dependencies/NUnitVersion.txt</VersionFile>
       </Versions>
     </Package>
   </Packages>
