@@ -95,10 +95,10 @@
         <TargetFilePath>lib\portable-net40+win8+wpa81\UtilPack.xml</TargetFilePath>
       </UtilPackFile>
       <UtilPackFile Include="Output\Release\SL\UtilPack.dll">
-        <TargetFilePath>lib\portable-net45+sl50+wp80\UtilPack.dll</TargetFilePath>
+        <TargetFilePath>lib\portable-net40+win8+sl50+wp80+wpa81\UtilPack.dll</TargetFilePath>
       </UtilPackFile>
       <UtilPackFile Include="Output\Release\SL\UtilPack.xml">
-        <TargetFilePath>lib\portable-net45+sl50+wp80\UtilPack.xml</TargetFilePath>
+        <TargetFilePath>lib\portable-net40+win8+sl50+wp80+wpa81\UtilPack.xml</TargetFilePath>
       </UtilPackFile>
     </ItemGroup>
     

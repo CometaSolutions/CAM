@@ -36,15 +36,15 @@
   </ItemGroup>
   
   <Target Name="Build">
-  
+    <!-- Build the Common Build Tools project (for AssemblyInfo task) -->
+    <MSBuild Projects="$(CILMergeBaseDir)/CommonBuildTools/CLR/Build/CommonBuildTools.build" />
+    
+    <!-- Restore NuGet packages if needed -->
     <CommonBuildTools.NuGetTaskRestore
       NuGetExecutable="$(CILMergeNuGetExecutable)"
       NuGetManagementFile="$(CILMergeBaseDir)/NuGetPackages.xml"
       />
       
-    <!-- Build the Common Build Tools project (for AssemblyInfo task) -->
-    <MSBuild Projects="$(CILMergeBaseDir)/CommonBuildTools/CLR/Build/CommonBuildTools.build" />
-    
     <!-- Build CILMerge projects -->
     <MSBuild Projects="@(CILMergeProject)" Targets="%(MergeProjectTargets)" Properties="Configuration=%(MergeProjectConfiguration);Platform=$(CILMergePlatform);IsCommandLineBuild=true" />
   </Target>

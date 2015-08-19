@@ -95,10 +95,10 @@
     </PropertyGroup>
     <ItemGroup>
       <CAMLogicalNuGetFile Include="Output/Release/SL/CILAssemblyManipulator.Logical.dll">
-        <TargetFilePath>lib/portable-sl50+wp80+wpa81/CILAssemblyManipulator.Logical.dll</TargetFilePath>
+        <TargetFilePath>lib/portable-net40+win8+sl50+wp80+wpa81/CILAssemblyManipulator.Logical.dll</TargetFilePath>
       </CAMLogicalNuGetFile>
       <CAMLogicalNuGetFile Include="Output/Release/SL/CILAssemblyManipulator.Logical.xml">
-        <TargetFilePath>lib/portable-sl50+wp80+wpa81/CILAssemblyManipulator.Logical.xml</TargetFilePath>
+        <TargetFilePath>lib/portable-net40+win8+sl50+wp80+wpa81/CILAssemblyManipulator.Logical.xml</TargetFilePath>
       </CAMLogicalNuGetFile>
       <CAMLogicalNuGetFile Include="Output/Release/Portable/CILAssemblyManipulator.Logical.dll">
         <TargetFilePath>lib/portable-net40+win8/CILAssemblyManipulator.Logical.dll</TargetFilePath>

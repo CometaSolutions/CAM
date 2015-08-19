@@ -87,10 +87,10 @@
     </PropertyGroup>
     <ItemGroup>
       <CAMStructuralNuGetFile Include="Output/Release/SL/CILAssemblyManipulator.Structural.dll">
-        <TargetFilePath>lib/portable-net40+sl50+win+wp80+wpa81/CILAssemblyManipulator.Structural.dll</TargetFilePath>
+        <TargetFilePath>lib/portable-net40+win8+sl50+wp80+wpa81/CILAssemblyManipulator.Structural.dll</TargetFilePath>
       </CAMStructuralNuGetFile>
       <!-- TODO <CAMStructuralNuGetFile Include="Output/Release/SL/CILAssemblyManipulator.Structural.xml">
-        <TargetFilePath>lib/portable-net40+sl50+win+wp80+wpa81/CILAssemblyManipulator.Structural.xml</TargetFilePath>
+        <TargetFilePath>lib/portable-net40+win8+sl50+wp80+wpa81/CILAssemblyManipulator.Structural.xml</TargetFilePath>
       </CAMStructuralNuGetFile> -->
       
       <CAMStructuralNuGetDependency Include="UtilPack">
