@@ -16,6 +16,7 @@
  * limitations under the License. 
  */
 #if !CAM_PHYSICAL_IS_PORTABLE
+using CILAssemblyManipulator.Physical;
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -33,15 +34,17 @@ namespace CILAssemblyManipulator.Physical
             return stream.ReadModule( rArgs );
          }
       }
-
-      public static void WriteModuleTo( String filePath, CILMetaData module, EmittingArguments eArgs = null )
-      {
-         using ( var fs = System.IO.File.Open( filePath, FileMode.Create, FileAccess.ReadWrite, FileShare.None ) )
-         {
-            module.WriteModule( fs, eArgs );
-         }
-      }
    }
 }
 
+public static partial class E_CILPhysical
+{
+   public static void WriteModuleTo( this CILMetaData module, String filePath, EmittingArguments eArgs = null )
+   {
+      using ( var fs = System.IO.File.Open( filePath, FileMode.Create, FileAccess.ReadWrite, FileShare.None ) )
+      {
+         module.WriteModule( fs, eArgs );
+      }
+   }
+}
 #endif

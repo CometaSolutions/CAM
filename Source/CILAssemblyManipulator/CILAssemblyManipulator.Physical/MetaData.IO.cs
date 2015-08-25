@@ -633,20 +633,23 @@ namespace CILAssemblyManipulator.Physical
       {
          return CILAssemblyManipulator.Physical.Implementation.ModuleReader.ReadFromStream( stream, rArgs );
       }
+   }
+}
 
-      public static void WriteModule( this CILMetaData md, Stream stream, EmittingArguments eArgs = null )
+public static partial class E_CILPhysical
+{
+   public static void WriteModule( this CILMetaData md, Stream stream, EmittingArguments eArgs = null )
+   {
+      if ( eArgs == null )
       {
-         if ( eArgs == null )
-         {
-            eArgs = new EmittingArguments();
-         }
-
-         if ( eArgs.Headers == null )
-         {
-            eArgs.Headers = new HeadersData();
-         }
-
-         CILAssemblyManipulator.Physical.Implementation.ModuleWriter.WriteToStream( md, eArgs, stream );
+         eArgs = new EmittingArguments();
       }
+
+      if ( eArgs.Headers == null )
+      {
+         eArgs.Headers = new HeadersData();
+      }
+
+      CILAssemblyManipulator.Physical.Implementation.ModuleWriter.WriteToStream( md, eArgs, stream );
    }
 }

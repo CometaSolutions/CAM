@@ -33,6 +33,7 @@ After a lengthy refactor in 2015, CAM is now in current form with three librarie
 Currently it is fully capable alternative to [Cecil](https://github.com/jbevain/cecil).
 
 ## CAM.Physical library
+### Description
 The CAM.Physical library represents the lowest abstraction level of CAM.
 Here, metadata is represented as modifiable tables, rows, and signatures.
 The API of those tables, rows, and signatures follows very closely the specifications and abstraction level of [ECMA-335 Standard](http://www.ecma-international.org/publications/standards/Ecma-335.htm).
@@ -53,7 +54,62 @@ The `OrderTablesAndRemoveDuplicates` extension method for `CILMetaData` type sho
 
 Note: if you are not bound too much by portability constraints, and you are looking for extremely quick framework providing **read-only** access ECMA metadata with similar abstraction level as CAM.Physical, you should use [System.Reflection.Metadata](http://www.nuget.org/packages/System.Reflection.Metadata/) package.
 
+### Examples of use
+Below is a code sample demonstrating the most commonly used features of CAM.Physical library.
+It should also show the abstraction level of CAM.Physical library.
+
+```cs
+// This creates otherwise empty metadata, but its AssemblyDefinition, ModuleDefinition, and TypeDefinition tables will have 1 row each
+// The first argument is assembly name, and second is optional module name
+// When assembly name is supplied, and module name is not, the module name will be assembly name appended by ".dll"
+// The TypeDefinition table will have the module type definition (to hold global methods) as its only row.
+var md = CILMetaDataFactory.CreateMinimalAssembly( "MyAssembly", null );
+
+// Let's add a type
+md.TypeDefinitions.TableContents.Add( new TypeDefinition()
+{
+   Namespace = "MyNamespace",
+   Name = "MyType",
+   Attributes = TypeAttributes.Class
+} );
+
+// Let's add an attribute to our newly created type
+// For brevity, our custom attribute will have only one constructor argument, and no named arguments
+// The constructor argument will have its value to be '5'
+var caSig = new CustomAttributeSignature();
+caSig.TypedArguments.Add( new CustomAttributeTypedArgument()
+{
+   Value = 5
+} );
+md.CustomAttributeDefinitions.TableContents.Add( new CustomAttributeDefinition()
+{
+   Parent = new TableIndex( Tables.TypeDef, 1 ), // Zero-based indexing 
+   Type = new TableIndex( Tables.MemberRef, 0 ), // The target does not need to be existing at addition time
+   Signature = caSig
+} );
+
+// In order to write this metadata to disk (replace File.Open with some other way of acquiring some stream relevant to your application):
+using ( var fs = File.Open( "MyAssembly.dll", FileMode.Create, FileAccess.ReadWrite, FileShare.None ) )
+{
+   // When nothing else but stream is supplied, the module will be emitted as AnyCPU dll
+   md.WriteModule( fs );
+}
+// In .NET environment, this method will do exactly the same as above using-statement
+md.WriteModuleTo( "MyAssembly.dll" );
+
+// In order to read the module from disk (replace File.OpenRead with some other way of acquiring some stream relevant to your application):
+CILMetaData mdFromDisk;
+using ( var fs = File.OpenRead( "MyAssembly.dll" ) )
+{
+   // Need to add using CILAssemblyManipulator.Physical in order to use this extension method
+   mdFromDisk = fs.ReadModule();
+}
+// In .NET environment, this method will do exactly the same as above using-statement
+mdFromDisk = CILMetaDataIO.ReadModuleFrom( "MyAssembly.dll" );
+```
+
 ## CAM.Structural library
+### Description
 The CAM.Structural library represents the middle abstraction level of CAM.
 In this library, metadata is represented as modifiable objects, and the concept of metadata tables and rows is no longer present.
 So e.g. in CAM.Physical, in order to specify packing and/or class size for a type, one would add a row to ClassLayout table, containing the class and packing information for a type, and that row would hold information about which TypeDef row this ClassLayout row affects.
@@ -67,7 +123,55 @@ The abstraction level provided by CAM.Structural roughly equals the abstraction 
 However, the CAM.Structural does not have any concept of *universe*, so there are no `Import` methods (also because all metadata objects are fully modifiable).
 Like the CAM.Physical library, the CAM.Structural library does not have various checks for integrity and correctness of metadata, leaving the responsibility to adher to rules for the user of the library.
 
+### Examples of use
+Below is a code sample demonstrating the most commonly used features of CAM.Structural library.
+It should also show the abstraction level of CAM.Structural library.
+
+```cs
+// Create blank assembly with a module
+var assembly = new AssemblyStructure();
+assembly.AssemblyInfo.Name = "MyAssembly";
+var module = new ModuleStructure()
+{
+   Name = "MyAssembly.dll",
+   IsMainModule = true
+};
+assembly.Modules.Add( module );
+
+// Add a type with custom attribute, like in CAM.Physical example
+var myType = new TypeDefinitionStructure()
+{
+   Namespace = "MyNamespace",
+   Name = "MyType",
+   Attributes = TypeAttributes.Class
+};
+module.TopLevelTypeDefinitions.Add( myType );
+
+var caSig = new CustomAttributeSignature();
+caSig.TypedArguments.Add( new CustomAttributeTypedArgument()
+{
+   Value = 5
+} );
+// Instead of having custom attribute table on module, custom attributes may be directly added to their targets
+myType.CustomAttributes.Add( new CustomAttributeStructure()
+{
+   Constructor = null, // We can set this later, no checks are performed on addition time
+   Signature = caSig
+} );
+
+// Convert structural assembly into physical assembly
+CILMetaData physical = assembly.CreatePhysicalRepresentationOfMainModule();
+// The physical metadata can be now written to disk, if needed
+
+// Convert physical back to structural
+var assembly2 = physical.CreateStructuralRepresentation();
+
+// This will return true, since both assemblies are structurally equal
+AssemblyEquivalenceComparerExact.ExactEqualityComparer.Equals( assembly, assembly2 );
+```
+
 ## CAM.Logical library
+### Description
 The CAM.Logical library represents the highest abstraction level of CAM.
 At this abstraction level, metadata is represented as modifiable objects with API similar to objects of System.Reflection namespace.
 However, these objects are no longer so light-weight compared to CAM.Physical and CAM.Structural objects.
@@ -87,6 +191,30 @@ However, it is never thread-safe to add types to the same enclosing type, or to 
 The equality comparison in CAM.Logical is by-reference, which is similar to how it is done in System.Reflection namespaces (e.g. two references to object representing the same method are always referencing the same object).
 Therefore, the explicit equality comparers are not present in CAM.Logical library.
 Like in CAM.Structural library, CAM.Logical provides provides extension methods to create CAM.Logical `CILAssembly` objects out of CAM.Physical `CILMetaData` objects, and vice versa.
+
+### Examples of use
+Below is a code sample demonstrating the most commonly used features of CAM.Logical library.
+It should also show the abstraction level of CAM.Logical library.
+
+```cs
+// CAM.Logical has a concept of reflection context, so everything has to be done within it
+using ( var ctx = DotNETReflectionContext.CreateDotNETContext() )
+{
+   // Create fresh assembly with a module
+   var assembly = ctx.NewBlankAssembly( "MyAssembly" );
+   var module = assembly.AddModule( "MyAssembly.dll" );
+
+   // Add a type with custom attribute, a bit in CAM.Logical and CAM.Physical example
+   // Now we must to supply the constructor to the custom attribute data
+   // To save time, we use the feature of CAM.Logical: ability to wrap native reflection elements into CAM.Logical reflection elements
+   var myType = module.AddType( "MyType", TypeAttributes.Class );
+   myType.AddNewCustomAttributeTypedParams( ctx.NewWrapper( typeof( CLSCompliantAttribute ).GetConstructors()[0] ), CILCustomAttributeFactory.NewTypedArgument( true, ctx ) );
+
+   // Convert logical assembly into physical assembly
+   CILMetaData physical = module.CreatePhysicalRepresentation();
+   // The physical metadata can be now written to disk, if needed
+}
+```
 
 # UtilPack library
 This is small and extremely portable library that contains various miscellaneous utility types and methods that I find to be essential in most of my projects, both personal and professional.

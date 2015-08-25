@@ -661,7 +661,7 @@ namespace CILMerge
                // 8. Emit module
                try
                {
-                  CILMetaDataIO.WriteModuleTo( this._options.OutPath, this._targetModule, eArgs );
+                  this._targetModule.WriteModuleTo( this._options.OutPath, eArgs );
                }
                catch ( Exception exc )
                {

@@ -438,6 +438,18 @@ public static partial class E_CILStructural
          }
       }
    }
+
+   public static CILMetaData CreatePhysicalRepresentationOfMainModule( this AssemblyStructure assembly )
+   {
+      var module = assembly.Modules.FirstOrDefault( m => m.IsMainModule );
+      if ( module == null )
+      {
+         throw new InvalidOperationException( "The given assembly does not have a main module." );
+      }
+
+      return module.CreatePhysicalRepresentation( assembly );
+   }
+
    public static CILMetaData[] CreatePhysicalRepresentation( this AssemblyStructure assembly )
    {
       return assembly.Modules

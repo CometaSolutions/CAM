@@ -122,6 +122,11 @@ namespace CILAssemblyManipulator.Physical
 
       public static CILMetaData CreateMinimalAssembly( String assemblyName, String moduleName, Boolean createModuleType = true )
       {
+         if ( !String.IsNullOrEmpty( assemblyName ) && String.IsNullOrEmpty( moduleName ) )
+         {
+            moduleName = assemblyName + ".dll";
+         }
+
          var md = CreateMinimalModule( moduleName, createModuleType );
 
          var aDef = new AssemblyDefinition();
