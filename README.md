@@ -4,9 +4,11 @@ This git repository is home for [CILAssemblyManipulator](#cilassemblymanipulator
 # NuGet packages
 For people just looking links for NuGet packages:
 * UtilPack: http://www.nuget.org/packages/UtilPack
-* CAM.Physical: Coming soon
-* CAM.Logical: Coming soon
-* CAM.Structural: Coming soon
+* CAM.Physical: https://www.nuget.org/packages/CAM.Physical
+* CAM.Logical: https://www.nuget.org/packages/CAM.Logical
+* CAM.Structural: https://www.nuget.org/packages/CAM.Structural
+* CILMerge MSBuild task: https://www.nuget.org/packages/CILMerge.MSBuild/
+* CILMerge standalone executable: Coming soon
 
 # CILAssemblyManipulator framework
 The purpose of CILAssemblyManipulator (CAM) framework is to provide modifiable views onto CIL metadata (see e.g. [ECMA-335 Standard](http://www.ecma-international.org/publications/standards/Ecma-335.htm) to learn more about CIL metadata) on various abstraction levels.
