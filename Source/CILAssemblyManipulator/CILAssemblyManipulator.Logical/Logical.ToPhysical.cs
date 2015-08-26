@@ -286,9 +286,9 @@ public static partial class E_CILLogical
          return retVal;
       }
 
-      internal TableIndex GetMethodSignatureToken( CILMethodSignature signature, VarArgInstance[] varArgs, Boolean convertTypeDefToTypeSpec )
+      internal TableIndex GetMethodSignatureToken( CILMethodSignature signature, VarArgInstance[] varArgs )
       {
-         throw new NotImplementedException();
+         throw new NotImplementedException( "Method signature tokens" );
       }
 
       internal TableIndex? GetLocalsIndex( MethodIL il )
@@ -980,19 +980,15 @@ public static partial class E_CILLogical
                break;
             case OpCodeInfoKind.OperandMethodToken:
                var lm = (LogicalOpCodeInfoWithMethodToken) lOpCode;
-               pOpCode = new OpCodeInfoWithToken( lm.Code, state.GetMethodDefOrMemberRefOrMethodSpec( lm.ReflectionObject, true, !lm.UseGenericDefinitionIfPossible ) );
+               pOpCode = new OpCodeInfoWithToken( lm.Code, state.GetMethodDefOrMemberRefOrMethodSpec( lm.ReflectionObject, lm.MethodTokenKind != MethodTokenKind.MethodSpec, lm.MethodTokenKind != MethodTokenKind.MethodDef ) );
                break;
             case OpCodeInfoKind.OperandCtorToken:
                var ct = (LogicalOpCodeInfoWithCtorToken) lOpCode;
-               pOpCode = new OpCodeInfoWithToken( ct.Code, state.GetMethodDefOrMemberRefOrMethodSpec( ct.ReflectionObject, true, !ct.UseGenericDefinitionIfPossible ) );
+               pOpCode = new OpCodeInfoWithToken( ct.Code, state.GetMethodDefOrMemberRefOrMethodSpec( ct.ReflectionObject, ct.MethodTokenKind != MethodTokenKind.MethodSpec, ct.MethodTokenKind != MethodTokenKind.MethodDef ) );
                break;
             case OpCodeInfoKind.OperandMethodSigToken:
                var lms = (LogicalOpCodeInfoWithMethodSig) lOpCode;
-               pOpCode = new OpCodeInfoWithToken( lms.Code, state.GetMethodSignatureToken( lms.ReflectionObject, lms.VarArgs, !lms.UseGenericDefinitionIfPossible ) );
-               break;
-            case OpCodeInfoKind.NormalOrVirtual:
-               var lv = (LogicalOpCodeInfoForNormalOrVirtual) lOpCode;
-               pOpCode = new OpCodeInfoWithToken( lv.ReflectionObject.Attributes.IsStatic() ? lv.NormalCode : lv.VirtualCode, state.GetMethodDefOrMemberRefOrMethodSpec( lv.ReflectionObject, false, true ) );
+               pOpCode = new OpCodeInfoWithToken( lms.Code, state.GetMethodSignatureToken( lms.ReflectionObject, lms.VarArgs ) );
                break;
             case OpCodeInfoKind.OperandString:
                var s = (LogicalOpCodeInfoWithFixedSizeOperandString) lOpCode;

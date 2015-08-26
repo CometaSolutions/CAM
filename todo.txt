@@ -2,18 +2,13 @@
  - Introduce loop detection to interop algorithms (nested types)
 
 - CAM.Physical:
- - Add 'UseMemberRefForGenericDefs' variable to LogicalOpCodeInfoWithMethod
-
+ - Documentation
+ 
 - CAM.Logical:
- - Get rid of LogicalOpCodeInfoForNormalOrVirtual
+ - Revisit documentation (code samples etc)
+ - Refactor IsSubclassOf -method.
+ - Add 'CILElementKind' (enum, e.g. "Assembly", "Module", "Type", etc) getter to all relevant interfaces returned by various properties and methods.
 
 - CAM.Structural:
  - Add "MergeWithAnother" functionality to assembly, module, type.
-
-CILAssemblyManipulator:
- - EmitCall -method of E_MethodIL class emits OpCodes.Call for all non-virtual instance methods.
-   This is a bug - OpCodes.Call should only be emitted for static methods, value type instance methods and this.X calls.
-   Workaround is to specify OpCodes.Callvirt when it is required by using OpCodeInfo constructor explicitly.
- - Make the project build in WPA8.1 (will require addressing the issue of methods which can have same signature with certain generic arguments).
- - Refactor IsSubclassOf -method.
- - Add 'CILElementKind' (enum, e.g. "Assembly", "Module", "Type", etc) getter to all relevant interfaces returned by various properties and methods.
+ - Documentation

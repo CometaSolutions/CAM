@@ -185,16 +185,13 @@ namespace CILAssemblyManipulator.Logical.Implementation
                         logical = new LogicalOpCodeInfoWithTypeToken( code, (CILTypeBase) resolved, Tables.TypeDef == table || Tables.TypeRef == table );
                         break;
                      case CILElementKind.Method:
-                        // TODO last parameter properly
-                        logical = new LogicalOpCodeInfoWithMethodToken( code, (CILMethod) resolved, Tables.MemberRef == table || Tables.MethodDef == table );
+                        logical = new LogicalOpCodeInfoWithMethodToken( code, (CILMethod) resolved, table.GetMethodTokenKind() );
                         break;
                      case CILElementKind.Field:
-                        // TODO last parameter properly
-                        logical = new LogicalOpCodeInfoWithFieldToken( code, (CILField) resolved, code.OperandType != OperandType.InlineField );
+                        logical = new LogicalOpCodeInfoWithFieldToken( code, (CILField) resolved, Tables.Field == table );
                         break;
                      case CILElementKind.Constructor:
-                        // TODO last parameter properly
-                        logical = new LogicalOpCodeInfoWithCtorToken( code, (CILConstructor) resolved, code.OperandType != OperandType.InlineMethod );
+                        logical = new LogicalOpCodeInfoWithCtorToken( code, (CILConstructor) resolved, table.GetMethodTokenKind() );
                         break;
                      default:
                         throw new BadImageFormatException( "Token resolver resolved unsupported CIL element kind: " + ( (CILCustomAttributeContainerImpl) resolved ).cilKind + "." );

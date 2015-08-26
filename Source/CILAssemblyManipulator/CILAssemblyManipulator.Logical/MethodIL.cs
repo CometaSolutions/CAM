@@ -265,10 +265,6 @@ namespace CILAssemblyManipulator.Logical
       /// </summary>
       OperandMethodSigToken,
       /// <summary>
-      /// This is <see cref="LogicalOpCodeInfoForNormalOrVirtual"/>.
-      /// </summary>
-      NormalOrVirtual,
-      /// <summary>
       /// This is <see cref="LogicalOpCodeInfoWithFixedSizeOperandString"/>.
       /// </summary>
       OperandString,
@@ -803,9 +799,12 @@ public static partial class E_CILLogical
    /// <returns><paramref name="il"/>.</returns>
    /// <exception cref="NullReferenceException">If <paramref name="il"/> is <c>null</c>.</exception>
    /// <exception cref="ArgumentNullException">If <paramref name="method"/> is <c>null</c>.</exception>
+   /// <remarks>
+   /// The instruction will be <see cref="OpCodes.Call"/> if <paramref name="method"/> is static, otherwise <see cref="OpCodes.Callvirt"/> will be used.
+   /// </remarks>
    public static MethodIL EmitCall( this MethodIL il, CILMethod method )
    {
-      return il.Add( LogicalOpCodeInfoForNormalOrVirtual.OpCodeInfoForCall( method ) );
+      return il.Add( new LogicalOpCodeInfoWithMethodToken( method.Attributes.IsStatic() ? OpCodes.Call : OpCodes.Callvirt, method ) );
    }
 
    /// <summary>
@@ -1917,23 +1916,23 @@ public static partial class E_CILLogical
    /// </summary>
    /// <param name="il">The <see cref="MethodIL"/>.</param>
    /// <param name="targetMethod">The method to load token of.</param>
-   /// <param name="useGDef">If declaring type of <paramref name="targetMethod"/> is generic type definition, specifies whether to use <c>TypeDef</c> or <c>TypeSpec</c> token. If <c>true</c>, <c>TypeDef</c> token will be used; otherwise <c>TypeSpec</c> token will be used. Is ignored for types which are not generic type definitions.</param>
+   /// <param name="tokenKind"> The <see cref="MethodTokenKind"/>.</param>
    /// <returns><paramref name="il"/>.</returns>
    /// <exception cref="NullReferenceException">If <paramref name="il"/> is <c>null</c>.</exception>
    /// <exception cref="ArgumentNullException">If <paramref name="targetMethod"/> is <c>null</c>.</exception>
-   public static MethodIL EmitReflectionObjectOf( this MethodIL il, CILMethod targetMethod, Boolean useGDef = true )
+   public static MethodIL EmitReflectionObjectOf( this MethodIL il, CILMethod targetMethod, MethodTokenKind tokenKind = MethodTokenKind.MethodSpec )
    {
       var methodWrapper = ResolveMSCorLibMethod( il, METHOD_OF_METHOD );
       var mscorlib = ( (MethodILImpl) il ).OwningModule.AssociatedMSCorLibModule;
       return il.Add( new LogicalOpCodeInfoWithMethodToken(
          OpCodes.Ldtoken,
          targetMethod,
-         useGDef
+         tokenKind
          ) )
          .Add( new LogicalOpCodeInfoWithTypeToken(
          OpCodes.Ldtoken,
          targetMethod.DeclaringType,
-         useGDef
+         tokenKind == MethodTokenKind.MethodDef
          ) )
          .EmitCall( methodWrapper )
          .EmitCastToType( methodWrapper.GetReturnType(), mscorlib.GetTypeByName( Consts.METHOD_INFO ) );
@@ -1944,23 +1943,23 @@ public static partial class E_CILLogical
    /// </summary>
    /// <param name="il">The <see cref="MethodIL"/>.</param>
    /// <param name="targetCtor">The constructor to load token of.</param>
-   /// <param name="useGDef">If declaring type of <paramref name="targetCtor"/> is generic type definition, specifies whether to use <c>TypeDef</c> or <c>TypeSpec</c> token. If <c>true</c>, <c>TypeDef</c> token will be used; otherwise <c>TypeSpec</c> token will be used. Is ignored for types which are not generic type definitions.</param>
+   /// <param name="tokenKind"> The <see cref="MethodTokenKind"/>.</param>
    /// <returns><paramref name="il"/>.</returns>
    /// <exception cref="NullReferenceException">If <paramref name="il"/> is <c>null</c>.</exception>
    /// <exception cref="ArgumentNullException">If <paramref name="targetCtor"/> is <c>null</c>.</exception>
-   public static MethodIL EmitReflectionObjectOf( this MethodIL il, CILConstructor targetCtor, Boolean useGDef = true )
+   public static MethodIL EmitReflectionObjectOf( this MethodIL il, CILConstructor targetCtor, MethodTokenKind tokenKind = MethodTokenKind.MethodSpec )
    {
       var methodWrapper = ResolveMSCorLibMethod( il, METHOD_OF_METHOD );
       var mscorlib = ( (MethodILImpl) il ).OwningModule.AssociatedMSCorLibModule;
       return il.Add( new LogicalOpCodeInfoWithCtorToken(
          OpCodes.Ldtoken,
          targetCtor,
-         useGDef
+         tokenKind
          ) )
          .Add( new LogicalOpCodeInfoWithTypeToken(
          OpCodes.Ldtoken,
          targetCtor.DeclaringType,
-         useGDef
+         tokenKind == MethodTokenKind.MethodDef
          ) )
          .EmitCall( methodWrapper )
          .EmitCastToType( methodWrapper.GetReturnType(), mscorlib.GetTypeByName( Consts.CTOR_INFO ) );

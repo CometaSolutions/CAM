@@ -2201,14 +2201,13 @@ public static partial class E_CILLogical
                         logicalCode = new LogicalOpCodeInfoWithFieldToken( code.OpCode, (CILField) resolved, token.Table == Tables.Field );
                         break;
                      case CILElementWithinILCode.Method:
-                        var useGDef = token.Table == Tables.MethodDef || ( token.Table == Tables.MemberRef && state.MetaData.MemberReferences.TableContents[token.Index].DeclaringType.Table == Tables.TypeDef );
                         if ( resolved is CILMethod )
                         {
-                           logicalCode = new LogicalOpCodeInfoWithMethodToken( code.OpCode, (CILMethod) resolved, useGDef );
+                           logicalCode = new LogicalOpCodeInfoWithMethodToken( code.OpCode, (CILMethod) resolved, token.Table.GetMethodTokenKind() );
                         }
                         else
                         {
-                           logicalCode = new LogicalOpCodeInfoWithCtorToken( code.OpCode, (CILConstructor) resolved, useGDef );
+                           logicalCode = new LogicalOpCodeInfoWithCtorToken( code.OpCode, (CILConstructor) resolved, token.Table.GetMethodTokenKind() );
                         }
                         break;
                      case CILElementWithinILCode.Type:
@@ -2291,5 +2290,20 @@ public static partial class E_CILLogical
       var retVal = new T[count];
       retVal.FillWithNulls();
       return retVal;
+   }
+
+   internal static MethodTokenKind GetMethodTokenKind( this Tables table )
+   {
+      switch ( table )
+      {
+         case Tables.MethodDef:
+            return MethodTokenKind.MethodDef;
+         case Tables.MemberRef:
+            return MethodTokenKind.MemberRef;
+         case Tables.MethodSpec:
+            return MethodTokenKind.MethodSpec;
+         default:
+            throw new InvalidOperationException( "Unsupported table for " + typeof( MethodTokenKind ) + ": " + table + "." );
+      }
    }
 }

@@ -158,9 +158,20 @@ namespace CILAssemblyManipulator.Logical
    /// </summary>
    public abstract class LogicalOpCodeInfoWithTokenOperand : LogicalOpCodeInfoWithFixedSizeOperand
    {
+      internal LogicalOpCodeInfoWithTokenOperand( OpCode opCode )
+         : base( opCode )
+      {
+      }
+   }
+
+   /// <summary>
+   /// This is abstract class for all <see cref="LogicalOpCodeInfoWithTokenOperand"/>s which can have two metadata table options for a single CAM.Logical reflection element.
+   /// </summary>
+   public abstract class LogicalOpCodeInfoWithTokenOperandAndGDefOption : LogicalOpCodeInfoWithTokenOperand
+   {
       private readonly Boolean _useGDefIfPossible;
 
-      internal LogicalOpCodeInfoWithTokenOperand( OpCode opCode, Boolean useGDefIfPossible )
+      internal LogicalOpCodeInfoWithTokenOperandAndGDefOption( OpCode opCode, Boolean useGDefIfPossible )
          : base( opCode ) //, TOKEN_SIZE )
       {
          this._useGDefIfPossible = useGDefIfPossible;
@@ -190,7 +201,7 @@ namespace CILAssemblyManipulator.Logical
    /// <summary>
    /// This is class which will emit <see cref="OpCode"/> with type token as operand.
    /// </summary>
-   public sealed class LogicalOpCodeInfoWithTypeToken : LogicalOpCodeInfoWithTokenOperand
+   public sealed class LogicalOpCodeInfoWithTypeToken : LogicalOpCodeInfoWithTokenOperandAndGDefOption
    {
       private readonly CILTypeBase _type;
 
@@ -236,7 +247,7 @@ namespace CILAssemblyManipulator.Logical
    /// <summary>
    /// This is class which will emit <see cref="OpCode"/> with <see cref="CILField"/> token as operand.
    /// </summary>
-   public sealed class LogicalOpCodeInfoWithFieldToken : LogicalOpCodeInfoWithTokenOperand
+   public sealed class LogicalOpCodeInfoWithFieldToken : LogicalOpCodeInfoWithTokenOperandAndGDefOption
    {
       private readonly CILField _field;
 
@@ -280,10 +291,54 @@ namespace CILAssemblyManipulator.Logical
    }
 
    /// <summary>
-   /// This is class which will emit <see cref="OpCode"/> with <see cref="CILMethod"/> token as operand.
-   /// If the <see cref="OpCode"/> to emit is <see cref="OpCodes.Call"/>, <see cref="OpCodes.Callvirt"/>, <see cref="OpCodes.Ldftn"/> or <see cref="OpCodes.Ldvirtftn"/>, it is advicable to use the static factory methods in <see cref="LogicalOpCodeInfoForNormalOrVirtual"/> class.
+   /// This enum controls what table the tokens of <see cref="LogicalOpCodeInfoWithMethodToken"/> will use.
    /// </summary>
-   public sealed class LogicalOpCodeInfoWithMethodToken : LogicalOpCodeInfoWithTokenOperand
+   public enum MethodTokenKind
+   {
+      /// <summary>
+      /// Will use <see cref="Tables.MethodSpec"/> if the method is generic. Otherwise the behaviour fallbacks to <see cref="MemberRef"/> behaviour.
+      /// </summary>
+      MethodSpec,
+      /// <summary>
+      /// Will use <see cref="Tables.MemberRef"/> if the method declaring type is generic or if the declaring type is in another assembly. Otherwise the behaviour fallbacks to <see cref="MethodDef"/> behaviour.
+      /// </summary>
+      MemberRef,
+      /// <summary>
+      /// Will use <see cref="Tables.MethodDef"/> if the method declaring type is in same module.
+      /// </summary>
+      MethodDef
+   }
+
+   /// <summary>
+   /// This is base class for all <see cref="LogicalOpCodeInfoWithTokenOperand"/>s which accept <see cref="CILMethodBase"/> as reflection elements.
+   /// </summary>
+   public abstract class LogicalOpCodeInfoWithMethodBaseToken : LogicalOpCodeInfoWithTokenOperand
+   {
+      private readonly MethodTokenKind _tokenKind;
+
+      internal LogicalOpCodeInfoWithMethodBaseToken( OpCode opCode, MethodTokenKind tokenKind )
+         : base( opCode )
+      {
+         this._tokenKind = tokenKind;
+      }
+
+      /// <summary>
+      /// Gets the <see cref="Logical.MethodTokenKind"/> which controls what kind of <see cref="Tables">table</see> the token will reference.
+      /// </summary>
+      /// <value>The <see cref="Logical.MethodTokenKind"/> which controls what kind of <see cref="Tables">table</see> the token will reference.</value>
+      public MethodTokenKind MethodTokenKind
+      {
+         get
+         {
+            return this._tokenKind;
+         }
+      }
+   }
+
+   /// <summary>
+   /// This is class which will emit <see cref="OpCode"/> with <see cref="CILMethod"/> token as operand.
+   /// </summary>
+   public sealed class LogicalOpCodeInfoWithMethodToken : LogicalOpCodeInfoWithMethodBaseToken
    {
       private readonly CILMethod _method;
 
@@ -292,14 +347,11 @@ namespace CILAssemblyManipulator.Logical
       /// </summary>
       /// <param name="opCode">The <see cref="OpCode"/> to emit.</param>
       /// <param name="method">The <see cref="CILMethod"/> to use as operand.</param>
-      /// <param name="useGDefIfPossible">
-      /// If this is <c>true</c>, and the declaring type of <paramref name="method"/> is generic type definition, and the declaring type of method containing this IL is declaring type of <paramref name="method"/>, then a TypeDef-token will be used instead of TypeSpec when emitting declaring type of the method.
-      /// The default behaviour in such scenario is to emit TypeSpec token.
-      /// </param>
+      /// <param name="tokenKind"> The <see cref="Logical.MethodTokenKind"/>.</param>
       /// <exception cref="ArgumentNullException">If <paramref name="method"/> is <c>null</c>.</exception>
       /// <remarks>TODO varargs parameters</remarks>
-      public LogicalOpCodeInfoWithMethodToken( OpCode opCode, CILMethod method, Boolean useGDefIfPossible = false )
-         : base( opCode, useGDefIfPossible )
+      public LogicalOpCodeInfoWithMethodToken( OpCode opCode, CILMethod method, MethodTokenKind tokenKind = MethodTokenKind.MethodSpec )
+         : base( opCode, tokenKind )
       {
          ArgumentValidator.ValidateNotNull( "Method", method );
          this._method = method;
@@ -328,116 +380,9 @@ namespace CILAssemblyManipulator.Logical
    }
 
    /// <summary>
-   /// This is class which will automatically emit suitable <see cref="OpCode"/> with token for operand <see cref="CILMethod"/>, based on whether the method is virtual or not.
-   /// Instances of this class can be created via static factory methods of this class.
-   /// </summary>
-   public sealed class LogicalOpCodeInfoForNormalOrVirtual : LogicalOpCodeInfo
-   {
-      private readonly CILMethod _method;
-      private readonly UInt16 _normal;
-      private readonly UInt16 _virtual;
-
-      /// <summary>
-      /// Creates a new <see cref="LogicalOpCodeInfoForNormalOrVirtual"/> with specified values.
-      /// </summary>
-      /// <param name="method">The <see cref="CILMethod"/> to use as operand.</param>
-      /// <param name="normal">The <see cref="OpCode"/> to emit when the method will not be virtual.</param>
-      /// <param name="aVirtual">The <see cref="OpCode"/> to emit when the method will be virtual.</param>
-      /// <exception cref="ArgumentNullException">If <paramref name="method"/> is <c>null</c>.</exception>
-      public LogicalOpCodeInfoForNormalOrVirtual( CILMethod method, OpCode normal, OpCode aVirtual )
-      {
-         ArgumentValidator.ValidateNotNull( "Method", method );
-
-         this._method = method;
-         this._normal = (UInt16) normal.Value;
-         this._virtual = (UInt16) aVirtual.Value;
-      }
-
-      /// <summary>
-      /// Gets the <see cref="CILMethod"/> which is the operand of the <see cref="OpCode"/> being emitted.
-      /// </summary>
-      /// <value>The <see cref="CILMethod"/> which is the operand of the <see cref="OpCode"/> being emitted.</value>
-      public CILMethod ReflectionObject
-      {
-         get
-         {
-            return this._method;
-         }
-      }
-
-      /// <inheritdoc />
-      public override OpCodeInfoKind InfoKind
-      {
-         get
-         {
-            return OpCodeInfoKind.NormalOrVirtual;
-         }
-      }
-
-      /// <summary>
-      /// Returns any variable arguments if this is call to vararg method.
-      /// TODO not implemented.
-      /// </summary>
-      /// <value>Variable arguments if this is call to vararg method or <c>null</c>.</value>
-      public Tuple<CILCustomModifier[], CILTypeBase>[] VarArgs
-      {
-         get
-         {
-            return null;
-         }
-      }
-
-      /// <summary>
-      /// Gets the <see cref="OpCode"/> to emit when the operand <see cref="CILMethod"/> is not virtual.
-      /// </summary>
-      /// <value>The <see cref="OpCode"/> to emit when the operand <see cref="CILMethod"/> is not virtual.</value>
-      public OpCode NormalCode
-      {
-         get
-         {
-            return OpCodes.GetCodeFor( (OpCodeEncoding) this._normal );
-         }
-      }
-
-      /// <summary>
-      /// Gets the <see cref="OpCode"/> to emit when the operand <see cref="CILMethod"/> is virtual.
-      /// </summary>
-      /// <value>The <see cref="OpCode"/> to emit when the operand <see cref="CILMethod"/> is virtual.</value>
-      public OpCode VirtualCode
-      {
-         get
-         {
-            return OpCodes.GetCodeFor( (OpCodeEncoding) this._virtual );
-         }
-      }
-
-      /// <summary>
-      /// Creates new instance of <see cref="LogicalOpCodeInfoForNormalOrVirtual"/> which will emit either <see cref="OpCodes.Call"/> or <see cref="OpCodes.Callvirt"/> for the specified method.
-      /// </summary>
-      /// <param name="method">The method to emit call to.</param>
-      /// <returns>New instance of <see cref="LogicalOpCodeInfoForNormalOrVirtual"/> which will emit either <see cref="OpCodes.Call"/> or <see cref="OpCodes.Callvirt"/> for the specified method.</returns>
-      /// <exception cref="ArgumentNullException">If <paramref name="method"/> is <c>null</c>.</exception>
-      public static LogicalOpCodeInfoForNormalOrVirtual OpCodeInfoForCall( CILMethod method )
-      {
-         return new LogicalOpCodeInfoForNormalOrVirtual( method, OpCodes.Call, OpCodes.Callvirt );
-      }
-
-      ///// <summary>
-      ///// Creates new instance of <see cref="LogicalOpCodeInfoForNormalOrVirtual"/> which will emit either <see cref="OpCodes.Ldftn"/> or <see cref="OpCodes.Ldvirtftn"/> for the specified method.
-      ///// </summary>
-      ///// <param name="method">The method to emit loading function pointer to.</param>
-      ///// <returns>New instance of <see cref="LogicalOpCodeInfoForNormalOrVirtual"/> which will emit either <see cref="OpCodes.Ldftn"/> or <see cref="OpCodes.Ldvirtftn"/> for the specified method.</returns>
-      ///// <exception cref="ArgumentNullException">If <paramref name="method"/> is <c>null</c>.</exception>
-      //public static LogicalOpCodeInfoForNormalOrVirtual OpCodeInfoForLdFtn( CILMethod method )
-      //{
-      //   return new LogicalOpCodeInfoForNormalOrVirtual( method, OpCodes.Ldftn, OpCodes.Ldvirtftn );
-      //}
-   }
-
-   /// <summary>
    /// This is class which will emit <see cref="OpCode"/> with <see cref="CILConstructor"/> token as operand.
    /// </summary>
-   public sealed class LogicalOpCodeInfoWithCtorToken : LogicalOpCodeInfoWithTokenOperand
+   public sealed class LogicalOpCodeInfoWithCtorToken : LogicalOpCodeInfoWithMethodBaseToken
    {
       private readonly CILConstructor _ctor;
 
@@ -446,14 +391,11 @@ namespace CILAssemblyManipulator.Logical
       /// </summary>
       /// <param name="opCode">The <see cref="OpCode"/> to emit.</param>
       /// <param name="ctor">The <see cref="CILConstructor"/> to use as operand.</param>
-      /// <param name="useGDefIfPossible">
-      /// If this is <c>true</c>, and the declaring type of <paramref name="ctor"/> is generic type definition, and the declaring type of method containing this IL is declaring type of <paramref name="ctor"/>, then a TypeDef-token will be used instead of TypeSpec when emitting declaring type of the method.
-      /// The default behaviour in such scenario is to emit TypeSpec token.
-      /// </param>
+      /// <param name="tokenKind"> The <see cref="Logical.MethodTokenKind"/>.</param>
       /// <exception cref="ArgumentNullException">If <paramref name="ctor"/> is <c>null</c>.</exception>
       /// <remarks>TODO varargs parameters.</remarks>
-      public LogicalOpCodeInfoWithCtorToken( OpCode opCode, CILConstructor ctor, Boolean useGDefIfPossible = false )
-         : base( opCode, useGDefIfPossible )
+      public LogicalOpCodeInfoWithCtorToken( OpCode opCode, CILConstructor ctor, MethodTokenKind tokenKind = MethodTokenKind.MethodSpec )
+         : base( opCode, tokenKind )
       {
          ArgumentValidator.ValidateNotNull( "Constructor", ctor );
          this._ctor = ctor;
@@ -496,7 +438,7 @@ namespace CILAssemblyManipulator.Logical
       /// <param name="varArgs">The variable arguments for this call site. May be <c>null</c> or empty for non-varargs call.</param>
       /// <exception cref="ArgumentNullException">If <paramref name="methodSig"/> is <c>null</c>.</exception>
       public LogicalOpCodeInfoWithMethodSig( CILMethodSignature methodSig, VarArgInstance[] varArgs )
-         : base( OpCodes.Calli, false )
+         : base( OpCodes.Calli )
       {
          ArgumentValidator.ValidateNotNull( "Method signature", methodSig );
 

@@ -144,15 +144,23 @@ namespace CILAssemblyManipulator.Tests.Logical
             var method = type.AddMethodWithReturnType( "Testing", MethodAttributes.Public, CallingConventions.HasThis, mod.GetTypeForTypeCode( CILTypeCode.Void ) );
             var il = method.MethodIL;
 
-            il.EmitReflectionObjectOf( methodRef );
+            il.EmitReflectionObjectOf( methodRef, MethodTokenKind.MethodDef );
+            il.EmitReflectionObjectOf( methodRef, MethodTokenKind.MemberRef );
+            il.EmitReflectionObjectOf( methodRef, MethodTokenKind.MethodSpec );
 
             var phys = mod.CreatePhysicalRepresentation();
 
             var physIL = phys.MethodDefinitions.TableContents[0].IL;
 
-            var code0 = physIL.OpCodes[0];
-            Assert.IsInstanceOf<OpCodeInfoWithToken>( code0 );
-            Assert.IsTrue( ( (OpCodeInfoWithToken) code0 ).Operand.Table == Tables.MemberRef );
+            var curCode = physIL.OpCodes[0];
+            Assert.IsInstanceOf<OpCodeInfoWithToken>( curCode );
+            Assert.IsTrue( ( (OpCodeInfoWithToken) curCode ).Operand.Table == Tables.MemberRef );
+            curCode = physIL.OpCodes[4];
+            Assert.IsInstanceOf<OpCodeInfoWithToken>( curCode );
+            Assert.IsTrue( ( (OpCodeInfoWithToken) curCode ).Operand.Table == Tables.MemberRef );
+            curCode = physIL.OpCodes[8];
+            Assert.IsInstanceOf<OpCodeInfoWithToken>( curCode );
+            Assert.IsTrue( ( (OpCodeInfoWithToken) curCode ).Operand.Table == Tables.MethodSpec );
          }
       }
    }
