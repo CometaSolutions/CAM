@@ -84,7 +84,7 @@ namespace CILAssemblyManipulator.Logical.Implementation
                {
                   var args = new MethodBodyLoadArgs( method );
                   ctx.LaunchMethodBodyLoadEvent( args );
-                  result = new MethodILImpl( this.DeclaringType.Module, args );
+                  result = new MethodILImpl( this, args );
                }
                else
                {

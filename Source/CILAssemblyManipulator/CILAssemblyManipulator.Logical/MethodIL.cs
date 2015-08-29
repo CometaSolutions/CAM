@@ -1946,19 +1946,17 @@ public static partial class E_CILLogical
    /// <param name="il">The <see cref="MethodIL"/>.</param>
    /// <param name="targetCtor">The constructor to load token of.</param>
    /// <param name="typeTokenKind">The <see cref="TypeTokenKind"/>.</param>
-   /// <param name="methodTokenKind"> The <see cref="MethodTokenKind"/>.</param>
    /// <returns><paramref name="il"/>.</returns>
    /// <exception cref="NullReferenceException">If <paramref name="il"/> is <c>null</c>.</exception>
    /// <exception cref="ArgumentNullException">If <paramref name="targetCtor"/> is <c>null</c>.</exception>
-   public static MethodIL EmitReflectionObjectOf( this MethodIL il, CILConstructor targetCtor, TypeTokenKind typeTokenKind = TypeTokenKind.GenericInstantiation, MethodTokenKind methodTokenKind = MethodTokenKind.GenericInstantiation )
+   public static MethodIL EmitReflectionObjectOf( this MethodIL il, CILConstructor targetCtor, TypeTokenKind typeTokenKind = TypeTokenKind.GenericInstantiation )
    {
       var methodWrapper = ResolveMSCorLibMethod( il, METHOD_OF_METHOD );
       var mscorlib = ( (MethodILImpl) il ).OwningModule.AssociatedMSCorLibModule;
       return il.Add( new LogicalOpCodeInfoWithCtorToken(
          OpCodes.Ldtoken,
          targetCtor,
-         typeTokenKind,
-         methodTokenKind
+         typeTokenKind
          ) )
          .Add( new LogicalOpCodeInfoWithTypeToken(
          OpCodes.Ldtoken,

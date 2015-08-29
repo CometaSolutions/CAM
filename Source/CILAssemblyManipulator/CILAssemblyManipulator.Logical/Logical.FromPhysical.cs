@@ -2138,6 +2138,9 @@ public static partial class E_CILLogical
          var logicalByteOffsets = new Dictionary<Int32, Int32>( physOpCodes.Count );
          var labelByteOffsets = new Dictionary<ILLabel, Int32>();
          var curByteOffset = 0;
+         var md = state.MetaData;
+         var methodSpecs = md.MethodSpecifications.TableContents;
+
          for ( var codeIdx = 0; codeIdx < physOpCodes.Count; ++codeIdx )
          {
             var code = physOpCodes[codeIdx];
@@ -2198,20 +2201,24 @@ public static partial class E_CILLogical
                   switch ( resolved.ElementTypeKind )
                   {
                      case CILElementWithinILCode.Field:
-                        logicalCode = new LogicalOpCodeInfoWithFieldToken( code.OpCode, (CILField) resolved, token.Table == Tables.Field );
+                        var field = (CILField) resolved;
+                        logicalCode = new LogicalOpCodeInfoWithFieldToken( code.OpCode, field, contextType.GetTypeTokenKind( field.DeclaringType, token.Table, Tables.Field ) );
                         break;
                      case CILElementWithinILCode.Method:
                         if ( resolved is CILMethod )
                         {
-                           logicalCode = new LogicalOpCodeInfoWithMethodToken( code.OpCode, (CILMethod) resolved, token.Table.GetMethodTokenKind() );
+                           var cilMethod = (CILMethod) resolved;
+                           var typeTable = state.GetTypeTableFromMethodDefOrMemberRef( token.Table == Tables.MethodSpec ? methodSpecs[token.Index].Method : token );
+                           logicalCode = new LogicalOpCodeInfoWithMethodToken( code.OpCode, cilMethod, contextType.GetTypeTokenKind( cilMethod.DeclaringType, typeTable, Tables.TypeDef ), method.GetMethodTokenKind( cilMethod, token.Table ) );
                         }
                         else
                         {
-                           logicalCode = new LogicalOpCodeInfoWithCtorToken( code.OpCode, (CILConstructor) resolved, token.Table.GetMethodTokenKind() );
+                           var ctor = (CILConstructor) resolved;
+                           logicalCode = new LogicalOpCodeInfoWithCtorToken( code.OpCode, ctor, contextType.GetTypeTokenKind( ctor.DeclaringType, token.Table, Tables.MethodDef ) );
                         }
                         break;
                      case CILElementWithinILCode.Type:
-                        logicalCode = new LogicalOpCodeInfoWithTypeToken( code.OpCode, (CILTypeBase) resolved, token.Table == Tables.TypeDef );
+                        logicalCode = new LogicalOpCodeInfoWithTypeToken( code.OpCode, (CILTypeBase) resolved, contextType.GetTypeTokenKind( resolved as CILType, token.Table, Tables.TypeDef ) );
                         break;
                      default:
                         throw new InvalidOperationException( "Unrecognized tokenizable element kind: " + resolved.ElementTypeKind + "." );
@@ -2260,6 +2267,19 @@ public static partial class E_CILLogical
       }
    }
 
+   private static Tables GetTypeTableFromMethodDefOrMemberRef( this LogicalCreationState state, TableIndex token )
+   {
+      switch ( token.Table )
+      {
+         case Tables.MethodDef:
+            return Tables.TypeDef;
+         case Tables.MemberRef:
+            return state.MetaData.MemberReferences.TableContents[token.Index].DeclaringType.Table;
+         default:
+            throw new InvalidOperationException( "Given table index was not method def or member ref." );
+      }
+   }
+
    private static Int32 MapByteOffsetToCodeOffset( IDictionary<Int32, Int32> logicalByteOffsets, Int32 byteOffset )
    {
       Int32 codeOffset;
@@ -2292,18 +2312,18 @@ public static partial class E_CILLogical
       return retVal;
    }
 
-   internal static MethodTokenKind GetMethodTokenKind( this Tables table )
+   internal static MethodTokenKind GetMethodTokenKind( this CILMethodBase thisMethod, CILMethod method, Tables resolvedTable )
    {
-      switch ( table )
-      {
-         case Tables.MethodDef:
-            return MethodTokenKind.MethodDef;
-         case Tables.MemberRef:
-            return MethodTokenKind.MemberRef;
-         case Tables.MethodSpec:
-            return MethodTokenKind.MethodSpec;
-         default:
-            throw new InvalidOperationException( "Unsupported table for " + typeof( MethodTokenKind ) + ": " + table + "." );
-      }
+      return Equals( thisMethod, method ) && method.IsGenericMethodDefinition() && Tables.MethodDef == resolvedTable ? MethodTokenKind.GenericDefinition : MethodTokenKind.GenericInstantiation;
+   }
+
+   internal static TypeTokenKind GetTypeTokenKind( this CILType thisType, CILType otherType, Tables resolvedTable, Tables gDefTable )
+   {
+      return thisType.CanBeTypeTokenKind_GenericDefinition( otherType ) && resolvedTable == gDefTable ? TypeTokenKind.GenericDefinition : TypeTokenKind.GenericInstantiation;
+   }
+
+   private static Boolean CanBeTypeTokenKind_GenericDefinition( this CILType thisType, CILType otherType )
+   {
+      return Equals( otherType, thisType ) && otherType.IsGenericTypeDefinition();
    }
 }

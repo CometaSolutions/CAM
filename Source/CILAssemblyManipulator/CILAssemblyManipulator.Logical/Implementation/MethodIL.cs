@@ -48,12 +48,12 @@ namespace CILAssemblyManipulator.Logical.Implementation
          this._initLocals = true; // Maybe set to false by default?
       }
 
-      internal MethodILImpl( CILModule module, MethodBodyLoadArgs args )
-         : this( module, args.InitLocals, args.IL, GetLocalsFromArgs( (CILReflectionContextImpl) module.ReflectionContext, args ), args.ExceptionInfos.Select( tuple => Tuple.Create( tuple.Item1, tuple.Item2, tuple.Item3, tuple.Item4, tuple.Item5, tuple.Item6 == null ? null : module.ReflectionContext.NewWrapperAsType( tuple.Item6 ), tuple.Item7 ) ).ToArray(), TokenResolverFromArgs( (CILReflectionContextImpl) module.ReflectionContext, args ) )
+      internal MethodILImpl( CILMethodBase thisMethod, MethodBodyLoadArgs args )
+         : this( thisMethod, args.InitLocals, args.IL, GetLocalsFromArgs( thisMethod.ReflectionContext, args ), args.ExceptionInfos.Select( tuple => Tuple.Create( tuple.Item1, tuple.Item2, tuple.Item3, tuple.Item4, tuple.Item5, tuple.Item6 == null ? null : thisMethod.ReflectionContext.NewWrapperAsType( tuple.Item6 ), tuple.Item7 ) ).ToArray(), TokenResolverFromArgs( (CILReflectionContextImpl) thisMethod.ReflectionContext, args ) )
       {
       }
 
-      private static Tuple<Boolean, CILTypeBase>[] GetLocalsFromArgs( CILReflectionContextImpl ctx, MethodBodyLoadArgs args )
+      private static Tuple<Boolean, CILTypeBase>[] GetLocalsFromArgs( CILReflectionContext ctx, MethodBodyLoadArgs args )
       {
          var result = new Tuple<Boolean, CILTypeBase>[args.Locals.Count];
          for ( var i = 0; i < result.Length; ++i )
@@ -101,9 +101,10 @@ namespace CILAssemblyManipulator.Logical.Implementation
          };
       }
 
-      internal MethodILImpl( CILModule module, Boolean initLocals, Byte[] il, Tuple<Boolean, CILTypeBase>[] locals, Tuple<ExceptionBlockType, Int32, Int32, Int32, Int32, CILType, Int32>[] excBlocks, Func<Int32, ILResolveKind, Object> tokenResolver )
-         : this( module )
+      internal MethodILImpl( CILMethodBase thisMethod, Boolean initLocals, Byte[] il, Tuple<Boolean, CILTypeBase>[] locals, Tuple<ExceptionBlockType, Int32, Int32, Int32, Int32, CILType, Int32>[] excBlocks, Func<Int32, ILResolveKind, Object> tokenResolver )
+         : this( thisMethod.DeclaringType.Module )
       {
+         var thisType = thisMethod.DeclaringType;
          this._initLocals = initLocals;
          foreach ( var lInfo in locals )
          {
@@ -182,16 +183,20 @@ namespace CILAssemblyManipulator.Logical.Implementation
                   switch ( ( (CILCustomAttributeContainerImpl) resolved ).cilKind )
                   {
                      case CILElementKind.Type:
-                        logical = new LogicalOpCodeInfoWithTypeToken( code, (CILTypeBase) resolved, Tables.TypeDef == table || Tables.TypeRef == table );
+                        logical = new LogicalOpCodeInfoWithTypeToken( code, (CILTypeBase) resolved, thisType.GetTypeTokenKind( resolved as CILType, table, Tables.TypeDef ) );
                         break;
                      case CILElementKind.Method:
-                        logical = new LogicalOpCodeInfoWithMethodToken( code, (CILMethod) resolved, table.GetMethodTokenKind() );
+                        var method = (CILMethod) resolved;
+                        // Some loss of information here, but in order to extract TypeTokenKind precisely, we must be able to get method spec signature using System.Reflection API... not possible in PCL at least.
+                        logical = new LogicalOpCodeInfoWithMethodToken( code, method, thisType.GetTypeTokenKind( method.DeclaringType, table, Tables.MethodDef ), thisMethod.GetMethodTokenKind( method, table ) );
                         break;
                      case CILElementKind.Field:
-                        logical = new LogicalOpCodeInfoWithFieldToken( code, (CILField) resolved, Tables.Field == table );
+                        var field = (CILField) resolved;
+                        logical = new LogicalOpCodeInfoWithFieldToken( code, field, thisType.GetTypeTokenKind( field.DeclaringType, table, Tables.Field ) );
                         break;
                      case CILElementKind.Constructor:
-                        logical = new LogicalOpCodeInfoWithCtorToken( code, (CILConstructor) resolved, table.GetMethodTokenKind() );
+                        var ctor = (CILConstructor) resolved;
+                        logical = new LogicalOpCodeInfoWithCtorToken( code, (CILConstructor) resolved, thisType.GetTypeTokenKind( ctor.DeclaringType, table, Tables.MethodDef ) );
                         break;
                      default:
                         throw new BadImageFormatException( "Token resolver resolved unsupported CIL element kind: " + ( (CILCustomAttributeContainerImpl) resolved ).cilKind + "." );

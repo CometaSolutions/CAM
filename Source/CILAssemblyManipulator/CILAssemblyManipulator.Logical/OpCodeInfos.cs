@@ -281,10 +281,7 @@ namespace CILAssemblyManipulator.Logical
       /// </summary>
       /// <param name="opCode">The <see cref="OpCode"/> to emit.</param>
       /// <param name="type">The <see cref="CILTypeBase"/> to have as operand.</param>
-      /// <param name="useGDefIfPossible">
-      /// If this is <c>true</c>, and <paramref name="type"/> is generic type definition, and the declaring type of method containing this IL is <paramref name="type"/>, then a TypeDef-token will be emitted instead of TypeSpec.
-      /// The default behaviour in such scenario is to emit TypeSpec token.
-      /// </param>
+      /// <param name="typeTokenKind"> The <see cref="TypeTokenKind"/></param>
       /// <exception cref="ArgumentNullException">If <paramref name="type"/> is <c>null</c>.</exception>
       public LogicalOpCodeInfoWithTypeToken( OpCode opCode, CILTypeBase type, TypeTokenKind typeTokenKind = TypeTokenKind.GenericInstantiation )
          : base( opCode, typeTokenKind )
@@ -327,10 +324,7 @@ namespace CILAssemblyManipulator.Logical
       /// </summary>
       /// <param name="opCode">The <see cref="OpCode"/> to emit.</param>
       /// <param name="field">The <see cref="CILField"/> to use as operand.</param>
-      /// <param name="useGDefIfPossible">
-      /// If this is <c>true</c>, and the declaring type of <paramref name="field"/> is generic type definition, and the declaring type of method containing this IL is declaring type of <paramref name="field"/>, then a TypeDef-token will be used instead of TypeSpec when emitting declaring type of the field.
-      /// The default behaviour in such scenario is to emit TypeSpec token.
-      /// </param>
+      /// <param name="typeTokenKind">The <see cref="TypeTokenKind"/>.</param>
       /// <exception cref="ArgumentNullException">If <paramref name="field"/> is <c>null</c>.</exception>
       public LogicalOpCodeInfoWithFieldToken( OpCode opCode, CILField field, TypeTokenKind typeTokenKind = TypeTokenKind.GenericInstantiation )
          : base( opCode, typeTokenKind )
@@ -518,7 +512,7 @@ namespace CILAssemblyManipulator.Logical
    /// <summary>
    /// This is class which will emit <see cref="OpCode"/> with <see cref="CILConstructor"/> token as operand.
    /// </summary>
-   public sealed class LogicalOpCodeInfoWithCtorToken : LogicalOpCodeInfoWithMethodBaseToken
+   public sealed class LogicalOpCodeInfoWithCtorToken : LogicalOpCodeInfoWithTokenOperandAndTypeTokenKind
    {
       private readonly CILConstructor _ctor;
 
@@ -528,11 +522,10 @@ namespace CILAssemblyManipulator.Logical
       /// <param name="opCode">The <see cref="OpCode"/> to emit.</param>
       /// <param name="ctor">The <see cref="CILConstructor"/> to use as operand.</param>
       /// <param name="typeTokenKind">The <see cref="Logical.TypeTokenKind"/>.</param>
-      /// <param name="methodTokenKind"> The <see cref="Logical.MethodTokenKind"/>.</param>
       /// <exception cref="ArgumentNullException">If <paramref name="ctor"/> is <c>null</c>.</exception>
       /// <remarks>TODO varargs parameters.</remarks>
-      public LogicalOpCodeInfoWithCtorToken( OpCode opCode, CILConstructor ctor, TypeTokenKind typeTokenKind = TypeTokenKind.GenericInstantiation, MethodTokenKind methodTokenKind = MethodTokenKind.GenericInstantiation )
-         : base( opCode, typeTokenKind, methodTokenKind )
+      public LogicalOpCodeInfoWithCtorToken( OpCode opCode, CILConstructor ctor, TypeTokenKind typeTokenKind = TypeTokenKind.GenericInstantiation )
+         : base( opCode, typeTokenKind )
       {
          ArgumentValidator.ValidateNotNull( "Constructor", ctor );
          this._ctor = ctor;

@@ -972,19 +972,19 @@ public static partial class E_CILLogical
                break;
             case OpCodeInfoKind.OperandTypeToken:
                var lt = (LogicalOpCodeInfoWithTypeToken) lOpCode;
-               pOpCode = new OpCodeInfoWithToken( lt.Code, state.GetTypeDefOrRefOrSpec( lt.ReflectionObject, !lt.UseGenericDefinitionIfPossible ) );
+               pOpCode = new OpCodeInfoWithToken( lt.Code, state.GetTypeDefOrRefOrSpec( lt.ReflectionObject, lt.TypeTokenKind == TypeTokenKind.GenericInstantiation ) );
                break;
             case OpCodeInfoKind.OperandFieldToken:
                var ft = (LogicalOpCodeInfoWithFieldToken) lOpCode;
-               pOpCode = new OpCodeInfoWithToken( ft.Code, state.GetFieldDefOrMemberRef( ft.ReflectionObject, !ft.UseGenericDefinitionIfPossible ) );
+               pOpCode = new OpCodeInfoWithToken( ft.Code, state.GetFieldDefOrMemberRef( ft.ReflectionObject, ft.TypeTokenKind == TypeTokenKind.GenericInstantiation ) );
                break;
             case OpCodeInfoKind.OperandMethodToken:
                var lm = (LogicalOpCodeInfoWithMethodToken) lOpCode;
-               pOpCode = new OpCodeInfoWithToken( lm.Code, state.GetMethodDefOrMemberRefOrMethodSpec( lm.ReflectionObject, lm.MethodTokenKind != MethodTokenKind.MethodSpec, lm.MethodTokenKind != MethodTokenKind.MethodDef ) );
+               pOpCode = new OpCodeInfoWithToken( lm.Code, state.GetMethodDefOrMemberRefOrMethodSpec( lm.ReflectionObject, lm.MethodTokenKind == MethodTokenKind.GenericDefinition, lm.TypeTokenKind == TypeTokenKind.GenericInstantiation ) );
                break;
             case OpCodeInfoKind.OperandCtorToken:
                var ct = (LogicalOpCodeInfoWithCtorToken) lOpCode;
-               pOpCode = new OpCodeInfoWithToken( ct.Code, state.GetMethodDefOrMemberRefOrMethodSpec( ct.ReflectionObject, ct.MethodTokenKind != MethodTokenKind.MethodSpec, ct.MethodTokenKind != MethodTokenKind.MethodDef ) );
+               pOpCode = new OpCodeInfoWithToken( ct.Code, state.GetMethodDefOrMemberRefOrMethodSpec( ct.ReflectionObject, false, ct.TypeTokenKind == TypeTokenKind.GenericInstantiation ) );
                break;
             case OpCodeInfoKind.OperandMethodSigToken:
                var lms = (LogicalOpCodeInfoWithMethodSig) lOpCode;
