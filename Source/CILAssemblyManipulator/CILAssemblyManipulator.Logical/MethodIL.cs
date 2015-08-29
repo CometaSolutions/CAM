@@ -1898,15 +1898,15 @@ public static partial class E_CILLogical
    /// </summary>
    /// <param name="il">The <see cref="MethodIL"/>.</param>
    /// <param name="targetType">The type to load token of.</param>
-   /// <param name="useGDef">If <paramref name="targetType"/> is generic type definition, specifies whether to use <c>TypeDef</c> or <c>TypeSpec</c> token. If <c>true</c>, <c>TypeDef</c> token will be used; otherwise <c>TypeSpec</c> token will be used. Is ignored for types which are not generic type definitions.</param>
+   /// <param name="typeTokenKind">The <see cref="TypeTokenKind"/>.</param>
    /// <returns><paramref name="il"/>.</returns>
    /// <exception cref="NullReferenceException">If <paramref name="il"/> is <c>null</c>.</exception>
-   public static MethodIL EmitReflectionObjectOf( this MethodIL il, CILTypeBase targetType, Boolean useGDef = true )
+   public static MethodIL EmitReflectionObjectOf( this MethodIL il, CILTypeBase targetType, TypeTokenKind typeTokenKind = TypeTokenKind.GenericInstantiation )
    {
       return il.Add( new LogicalOpCodeInfoWithTypeToken(
          OpCodes.Ldtoken,
          targetType,
-         useGDef
+         typeTokenKind
          ) )
          .EmitCall( ResolveMSCorLibMethod( il, TYPE_OF_METHOD ) );
    }
@@ -1916,23 +1916,25 @@ public static partial class E_CILLogical
    /// </summary>
    /// <param name="il">The <see cref="MethodIL"/>.</param>
    /// <param name="targetMethod">The method to load token of.</param>
-   /// <param name="tokenKind"> The <see cref="MethodTokenKind"/>.</param>
+   /// <param name="typeTokenKind">The <see cref="TypeTokenKind"/>.</param>
+   /// <param name="methodTokenKind"> The <see cref="MethodTokenKind"/>.</param>
    /// <returns><paramref name="il"/>.</returns>
    /// <exception cref="NullReferenceException">If <paramref name="il"/> is <c>null</c>.</exception>
    /// <exception cref="ArgumentNullException">If <paramref name="targetMethod"/> is <c>null</c>.</exception>
-   public static MethodIL EmitReflectionObjectOf( this MethodIL il, CILMethod targetMethod, MethodTokenKind tokenKind = MethodTokenKind.MethodSpec )
+   public static MethodIL EmitReflectionObjectOf( this MethodIL il, CILMethod targetMethod, TypeTokenKind typeTokenKind = TypeTokenKind.GenericInstantiation, MethodTokenKind methodTokenKind = MethodTokenKind.GenericInstantiation )
    {
       var methodWrapper = ResolveMSCorLibMethod( il, METHOD_OF_METHOD );
       var mscorlib = ( (MethodILImpl) il ).OwningModule.AssociatedMSCorLibModule;
       return il.Add( new LogicalOpCodeInfoWithMethodToken(
          OpCodes.Ldtoken,
          targetMethod,
-         tokenKind
+         typeTokenKind,
+         methodTokenKind
          ) )
          .Add( new LogicalOpCodeInfoWithTypeToken(
          OpCodes.Ldtoken,
          targetMethod.DeclaringType,
-         tokenKind == MethodTokenKind.MethodDef
+         typeTokenKind
          ) )
          .EmitCall( methodWrapper )
          .EmitCastToType( methodWrapper.GetReturnType(), mscorlib.GetTypeByName( Consts.METHOD_INFO ) );
@@ -1943,23 +1945,25 @@ public static partial class E_CILLogical
    /// </summary>
    /// <param name="il">The <see cref="MethodIL"/>.</param>
    /// <param name="targetCtor">The constructor to load token of.</param>
-   /// <param name="tokenKind"> The <see cref="MethodTokenKind"/>.</param>
+   /// <param name="typeTokenKind">The <see cref="TypeTokenKind"/>.</param>
+   /// <param name="methodTokenKind"> The <see cref="MethodTokenKind"/>.</param>
    /// <returns><paramref name="il"/>.</returns>
    /// <exception cref="NullReferenceException">If <paramref name="il"/> is <c>null</c>.</exception>
    /// <exception cref="ArgumentNullException">If <paramref name="targetCtor"/> is <c>null</c>.</exception>
-   public static MethodIL EmitReflectionObjectOf( this MethodIL il, CILConstructor targetCtor, MethodTokenKind tokenKind = MethodTokenKind.MethodSpec )
+   public static MethodIL EmitReflectionObjectOf( this MethodIL il, CILConstructor targetCtor, TypeTokenKind typeTokenKind = TypeTokenKind.GenericInstantiation, MethodTokenKind methodTokenKind = MethodTokenKind.GenericInstantiation )
    {
       var methodWrapper = ResolveMSCorLibMethod( il, METHOD_OF_METHOD );
       var mscorlib = ( (MethodILImpl) il ).OwningModule.AssociatedMSCorLibModule;
       return il.Add( new LogicalOpCodeInfoWithCtorToken(
          OpCodes.Ldtoken,
          targetCtor,
-         tokenKind
+         typeTokenKind,
+         methodTokenKind
          ) )
          .Add( new LogicalOpCodeInfoWithTypeToken(
          OpCodes.Ldtoken,
          targetCtor.DeclaringType,
-         tokenKind == MethodTokenKind.MethodDef
+         typeTokenKind
          ) )
          .EmitCall( methodWrapper )
          .EmitCastToType( methodWrapper.GetReturnType(), mscorlib.GetTypeByName( Consts.CTOR_INFO ) );
@@ -1970,21 +1974,21 @@ public static partial class E_CILLogical
    /// </summary>
    /// <param name="il">The <see cref="MethodIL"/>.</param>
    /// <param name="field">The constructor to load token of.</param>
-   /// <param name="useGDef">If declaring type of <paramref name="field"/> is generic type definition, specifies whether to use <c>TypeDef</c> or <c>TypeSpec</c> token. If <c>true</c>, <c>TypeDef</c> token will be used; otherwise <c>TypeSpec</c> token will be used. Is ignored for types which are not generic type definitions.</param>
+   /// <param name="typeTokenKind">The <see cref="TypeTokenKind"/>.</param>
    /// <returns><paramref name="il"/>.</returns>
    /// <exception cref="NullReferenceException">If <paramref name="il"/> is <c>null</c>.</exception>
    /// <exception cref="ArgumentNullException">If <paramref name="field"/> is <c>null</c>.</exception>
-   public static MethodIL EmitReflectionObjectOf( this MethodIL il, CILField field, Boolean useGDef = true )
+   public static MethodIL EmitReflectionObjectOf( this MethodIL il, CILField field, TypeTokenKind typeTokenKind = TypeTokenKind.GenericInstantiation )
    {
       return il.Add( new LogicalOpCodeInfoWithFieldToken(
          OpCodes.Ldtoken,
          field,
-         useGDef
+         typeTokenKind
          ) )
          .Add( new LogicalOpCodeInfoWithTypeToken(
          OpCodes.Ldtoken,
          field.DeclaringType,
-         useGDef
+         typeTokenKind
          ) )
          .EmitCall( ResolveMSCorLibMethod( il, FIELD_OF_METHOD ) );
    }

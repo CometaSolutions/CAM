@@ -369,14 +369,20 @@ namespace CommonUtils
    /// </summary>
    /// <typeparam name="T">The type of the elements of the array.</typeparam>
    /// <seealso cref="SequenceEqualityComparer{T,U}"/>
-   public sealed class ArrayEqualityComparer<T> : IEqualityComparer<T[]>
+   /// <remarks>
+   /// This class can return correct equality comparers for jagged arrays, e.g. <c>Int[][][]</c>.
+   /// </remarks>
+   public sealed class ArrayEqualityComparer<T> : IEqualityComparer<T[]>, System.Collections.IEqualityComparer
    {
-      private static readonly IEqualityComparer<T[]> INSTANCE = new ArrayEqualityComparer<T>( null );
+      private static readonly IEqualityComparer<T[]> INSTANCE = new ArrayEqualityComparer<T>( ComparerFromFunctions.GetDefaultItemComparerForSomeSequence<T>() );
 
       /// <summary>
       /// Returns the equality comparer for arrays with element type <typeparamref name="T"/> which will use default equality comparer for the elements of the array.
       /// </summary>
       /// <value>The equality comparer for arrays with element type <typeparamref name="T"/> which will use default equality comparer for the elements of the array.</value>
+      /// <remarks>
+      /// The comparer for items will be acquired by calling <see cref="ComparerFromFunctions.GetDefaultItemComparerForSomeSequence"/>.
+      /// </remarks>
       public static IEqualityComparer<T[]> DefaultArrayEqualityComparer
       {
          get
@@ -400,7 +406,7 @@ namespace CommonUtils
       /// </summary>
       /// <param name="x">The first array. May be <c>null</c>.</param>
       /// <param name="y">The second array. May be <c>null</c>.</param>
-      /// <param name="itemComparer">The optional equality comparer for items of the array. If <c>null</c>, the default will be used.</param>
+      /// <param name="itemComparer">The optional equality comparer for items of the array. If <c>null</c>, the <see cref="EqualityComparer{T}.Default"/> will be used.</param>
       /// <returns>Whether two collections equal.</returns>
       public static Boolean Equals( T[] x, T[] y, IEqualityComparer<T> itemComparer = null )
       {
@@ -411,7 +417,7 @@ namespace CommonUtils
       /// Calculates the hash code of given array without creating a new instance of this class.
       /// </summary>
       /// <param name="obj">The colleciton. May be <c>null</c>.</param>
-      /// <param name="itemComparer">The optional equality comparer for items of the array. If <c>null</c>, the default will be used.</param>
+      /// <param name="itemComparer">The optional equality comparer for items of the array. If <c>null</c>, the <see cref="EqualityComparer{T}.Default"/> will be used.</param>
       /// <returns>The hash code for given array.</returns>
       public static Int32 GetHashCode( T[] obj, IEqualityComparer<T> itemComparer = null )
       {
@@ -423,7 +429,7 @@ namespace CommonUtils
       /// </summary>
       /// <param name="x">The first array. May be <c>null</c>.</param>
       /// <param name="y">The second array. May be <c>null</c>.</param>
-      /// <param name="equality">The optional equality callback for items. If not supplied, a default callback (the <see cref="IEqualityComparer{T}.Equals(T, T)" /> method from <see cref="EqualityComparer{T}.Default"/> ) will be used.</param>
+      /// <param name="equality">The optional equality callback for items. If not supplied, a default callback (the <see cref="IEqualityComparer{T}.Equals(T, T)" /> method from the <see cref="EqualityComparer{T}.Default"/> ) will be used.</param>
       /// <returns><c>true</c> if both arrays are <c>null</c>, or both arrays are non null and have same amount and same items; <c>false</c> otherwise.</returns>
       public static Boolean ArrayEquality( T[] x, T[] y, Equality<T> equality = null )
       {
@@ -434,7 +440,7 @@ namespace CommonUtils
       /// Helper method to calculate hash code for array.
       /// </summary>
       /// <param name="obj">The array. May be <c>null</c>.</param>
-      /// <param name="hashCode">The optional hashcode calculation callback. If not supplied, a default callback (the <see cref="IEqualityComparer{T}.GetHashCode(T)" /> method from <see cref="EqualityComparer{T}.Default"/> ) will be used.</param>
+      /// <param name="hashCode">The optional hashcode calculation callback. If not supplied, a default callback (the <see cref="IEqualityComparer{T}.GetHashCode(T)" /> method from the <see cref="EqualityComparer{T}.Default"/> ) will be used.</param>
       /// <returns>The hash code for <paramref name="obj" />.</returns>
       public static Int32 ArrayHashCode( T[] obj, HashCode<T> hashCode = null )
       {
@@ -447,7 +453,7 @@ namespace CommonUtils
       /// </summary>
       /// <param name="x">The first array.</param>
       /// <param name="y">The second array.</param>
-      /// <param name="itemComparer">The optional equality comparer for items of the array. If <c>null</c>, the default will be used.</param>
+      /// <param name="itemComparer">The optional equality comparer for items of the array. If <c>null</c>, the <see cref="EqualityComparer{T}.Default"/> will be used.</param>
       /// <returns><c>true</c> if <paramref name="x"/> and <paramref name="y"/> are of same length and contain same elements.</returns>
       /// <remarks>
       /// This is slightly better performing than just building a new <see cref="HashSet{T}"/> with given comparer and using <see cref="ISet{T}.SetEquals"/> method.
@@ -534,6 +540,16 @@ namespace CommonUtils
       }
 
       #endregion
+
+      Boolean System.Collections.IEqualityComparer.Equals( Object x, Object y )
+      {
+         return ArrayEquality_NoCheck( x as T[], y as T[], this._equality );
+      }
+
+      Int32 System.Collections.IEqualityComparer.GetHashCode( Object obj )
+      {
+         return ArrayHashCode_NoCheck( obj as T[], this._hashCode );
+      }
    }
 
    /// <summary>
@@ -542,15 +558,18 @@ namespace CommonUtils
    /// <typeparam name="T">The type of collection, e.g. <see cref="IList{X}"/>.</typeparam>
    /// <typeparam name="U">The type of the elements of the collection.</typeparam>
    /// <seealso cref="SequenceEqualityComparer{T,U}"/>
-   public sealed class CollectionEqualityComparer<T, U> : IEqualityComparer<T>
+   public sealed class CollectionEqualityComparer<T, U> : IEqualityComparer<T>, System.Collections.IEqualityComparer
       where T : ICollection<U>
    {
-      private static readonly IEqualityComparer<T> INSTANCE = new CollectionEqualityComparer<T, U>( null );
+      private static readonly IEqualityComparer<T> INSTANCE = new CollectionEqualityComparer<T, U>( ComparerFromFunctions.GetDefaultItemComparerForSomeSequence<U>() );
 
       /// <summary>
       /// Returns the equality comparer for collections with element type <typeparamref name="T"/> which will use default equality comparer for the elements of the array.
       /// </summary>
       /// <value>The equality comparer for collections with element type <typeparamref name="T"/> which will use default equality comparer for the elements of the array.</value>
+      /// <remarks>
+      /// The comparer for items will be acquired by calling <see cref="ComparerFromFunctions.GetDefaultItemComparerForSomeSequence"/>.
+      /// </remarks>
       public static IEqualityComparer<T> DefaultCollectionEqualityComparer
       {
          get
@@ -562,7 +581,7 @@ namespace CommonUtils
       /// <summary>
       /// Creates a new equality comparer for collections with element type <typeparamref name="T"/> which will use the given equality comparer for the elements of the collection.
       /// </summary>
-      /// <param name="itemComparer">The equality comparer to use when comparing elements of the collection.</param>
+      /// <param name="itemComparer">The equality comparer to use when comparing elements of the collection. The <see cref="EqualityComparer{T}.Default"/> will be used if this is <c>null</c>.</param>
       /// <returns>A new equality comparer for collections with element type <typeparamref name="T"/> which will use the given equality comparer for the elements of the collection.</returns>
       public static IEqualityComparer<T> NewCollectionEqualityComparer( IEqualityComparer<U> itemComparer )
       {
@@ -574,7 +593,7 @@ namespace CommonUtils
       /// </summary>
       /// <param name="x">The first collection. May be <c>null</c>.</param>
       /// <param name="y">The second collection. May be <c>null</c>.</param>
-      /// <param name="itemComparer">The optional equality comparer for items of the collection. If <c>null</c>, the default will be used.</param>
+      /// <param name="itemComparer">The optional equality comparer for items of the collection. If <c>null</c>, the <see cref="EqualityComparer{T}.Default"/> will be used.</param>
       /// <returns>Whether two collections equal.</returns>
       public static Boolean Equals( T x, T y, IEqualityComparer<U> itemComparer = null )
       {
@@ -585,7 +604,7 @@ namespace CommonUtils
       /// Calculates the hash code of given collection without creating a new instance of this class.
       /// </summary>
       /// <param name="obj">The colleciton. May be <c>null</c>.</param>
-      /// <param name="itemComparer">The optional equality comparer for items of the collection. If <c>null</c>, the default will be used.</param>
+      /// <param name="itemComparer">The optional equality comparer for items of the collection. If <c>null</c>, the <see cref="EqualityComparer{T}.Default"/> will be used.</param>
       /// <returns>The hash code for given collection.</returns>
       public static Int32 GetHashCode( T obj, IEqualityComparer<U> itemComparer = null )
       {
@@ -608,7 +627,7 @@ namespace CommonUtils
       /// Calculates the hash code of given collection without creating a new instance of this class.
       /// </summary>
       /// <param name="obj">The collection. May be <c>null</c>.</param>
-      /// <param name="hashCode">The optional equality comparer for items of the collection. If <c>null</c>, the default will be used.</param>
+      /// <param name="hashCode">The optional equality comparer for items of the collection. If <c>null</c>, the default callback (the <see cref="IEqualityComparer{U}.Equals(U,U)"/> method from <see cref="EqualityComparer{T}.Default"/> will be used.</param>
       /// <returns>The hash code for given collection.</returns>
       public static Int32 CollectionHashCode( T obj, HashCode<U> hashCode = null )
       {
@@ -621,7 +640,7 @@ namespace CommonUtils
       /// </summary>
       /// <param name="x">The first collection.</param>
       /// <param name="y">The second collection.</param>
-      /// <param name="itemComparer">The optional equality comparer for items of the collection. If <c>null</c>, the default will be used.</param>
+      /// <param name="itemComparer">The optional equality comparer for items of the collection. If <c>null</c>, the <see cref="EqualityComparer{T}.Default"/> will be used.</param>
       /// <returns><c>true</c> if <paramref name="x"/> and <paramref name="y"/> have same element count and contain same elements.</returns>
       /// <remarks>
       /// This is slightly better performing than just building a new <see cref="HashSet{T}"/> with given comparer and using <see cref="ISet{T}.SetEquals"/> method.
@@ -708,6 +727,16 @@ namespace CommonUtils
       {
          return CollectionHashCode_NoCheck( obj, this._hashCode );
       }
+
+      Boolean System.Collections.IEqualityComparer.Equals( Object x, Object y )
+      {
+         return x is T && y is T && CollectionEquality_NoCheck( (T) x, (T) y, this._equality );
+      }
+
+      Int32 System.Collections.IEqualityComparer.GetHashCode( Object obj )
+      {
+         return obj is T ? CollectionHashCode_NoCheck( (T) obj, this._hashCode ) : 0;
+      }
    }
 
    /// <summary>
@@ -717,15 +746,18 @@ namespace CommonUtils
    /// <typeparam name="U">The type of the elements of the list.</typeparam>
    /// <seealso cref="SequenceEqualityComparer{T,U}"/>
    /// <seealso cref="CollectionEqualityComparer{T, U}"/>
-   public sealed class ListEqualityComparer<T, U> : IEqualityComparer<T>
+   public sealed class ListEqualityComparer<T, U> : IEqualityComparer<T>, System.Collections.IEqualityComparer
       where T : IList<U>
    {
-      private static readonly IEqualityComparer<T> INSTANCE = new ListEqualityComparer<T, U>( null );
+      private static readonly IEqualityComparer<T> INSTANCE = new ListEqualityComparer<T, U>( ComparerFromFunctions.GetDefaultItemComparerForSomeSequence<U>() );
 
       /// <summary>
       /// Returns the equality comparer for lists with element type <typeparamref name="T"/> which will use default equality comparer for the elements of the array.
       /// </summary>
       /// <value>The equality comparer for lists with element type <typeparamref name="T"/> which will use default equality comparer for the elements of the array.</value>
+      /// <remarks>
+      /// The comparer for items will be acquired by calling <see cref="ComparerFromFunctions.GetDefaultItemComparerForSomeSequence"/>.
+      /// </remarks>
       public static IEqualityComparer<T> DefaultListEqualityComparer
       {
          get
@@ -737,7 +769,7 @@ namespace CommonUtils
       /// <summary>
       /// Creates a new equality comparer for lists with element type <typeparamref name="T"/> which will use the given equality comparer for the elements of the list.
       /// </summary>
-      /// <param name="itemComparer">The equality comparer to use when comparing elements of the list.</param>
+      /// <param name="itemComparer">The equality comparer to use when comparing elements of the list. The <see cref="EqualityComparer{T}.Default"/> will be used if this is <c>null</c>.</param>
       /// <returns>A new equality comparer for lists with element type <typeparamref name="T"/> which will use the given equality comparer for the elements of the list.</returns>
       public static IEqualityComparer<T> NewListEqualityComparer( IEqualityComparer<U> itemComparer )
       {
@@ -749,7 +781,7 @@ namespace CommonUtils
       /// </summary>
       /// <param name="x">The first list. May be <c>null</c>.</param>
       /// <param name="y">The second list. May be <c>null</c>.</param>
-      /// <param name="itemComparer">The optional equality comparer for items of the list. If <c>null</c>, the default will be used.</param>
+      /// <param name="itemComparer">The optional equality comparer for items of the list. If <c>null</c>, the <see cref="EqualityComparer{T}.Default"/> will be used.</param>
       /// <returns>Whether two lists equal.</returns>
       public static Boolean Equals( T x, T y, IEqualityComparer<U> itemComparer = null )
       {
@@ -760,7 +792,7 @@ namespace CommonUtils
       /// Calculates the hash code of given list without creating a new instance of this class.
       /// </summary>
       /// <param name="obj">The list. May be <c>null</c>.</param>
-      /// <param name="itemComparer">The optional equality comparer for items of the list. If <c>null</c>, the default will be used.</param>
+      /// <param name="itemComparer">The optional equality comparer for items of the list. If <c>null</c>, the <see cref="EqualityComparer{T}.Default"/> will be used.</param>
       /// <returns>The hash code for given list.</returns>
       public static Int32 GetHashCode( T obj, IEqualityComparer<U> itemComparer = null )
       {
@@ -796,7 +828,7 @@ namespace CommonUtils
       /// </summary>
       /// <param name="x">The first list.</param>
       /// <param name="y">The second list.</param>
-      /// <param name="itemComparer">The optional equality comparer for items of the list. If <c>null</c>, the default will be used.</param>
+      /// <param name="itemComparer">The optional equality comparer for items of the list. If <c>null</c>, the <see cref="EqualityComparer{T}.Default"/> will be used.</param>
       /// <returns><c>true</c> if <paramref name="x"/> and <paramref name="y"/> have same element count and contain same elements.</returns>
       /// <remarks>
       /// This is slightly better performing than just building a new <see cref="HashSet{T}"/> with given comparer and using <see cref="ISet{T}.SetEquals"/> method.
@@ -879,6 +911,16 @@ namespace CommonUtils
       Int32 IEqualityComparer<T>.GetHashCode( T obj )
       {
          return ListHashCode_NoCheck( obj, this._hashCode );
+      }
+
+      Boolean System.Collections.IEqualityComparer.Equals( Object x, Object y )
+      {
+         return x is T && y is T && ListEquality_NoCheck( (T) x, (T) y, this._equality );
+      }
+
+      Int32 System.Collections.IEqualityComparer.GetHashCode( Object obj )
+      {
+         return obj is T ? ListHashCode_NoCheck( (T) obj, this._hashCode ) : 0;
       }
    }
 }

@@ -66,7 +66,7 @@
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Condition=" '$(UseUtilpackReference)' == '' " Include="..\..\CILAssemblyManipulator\CILAssemblyManipulator.Physical\CILAssemblyManipulator.Physical.csproj">
-      <Project>{ba297806-a89f-4a3b-945b-08729853df75}</Project>
+      <Project>{F8BA1950-209D-477F-83D6-3F969C0CBEE6}</Project>
       <Name>CILAssemblyManipulator.Physical</Name>
     </ProjectReference>
     <ProjectReference Include="..\CILMerge.DLL\CILMerge.DLL.csproj">

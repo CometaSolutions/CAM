@@ -165,35 +165,106 @@ namespace CILAssemblyManipulator.Logical
    }
 
    /// <summary>
+   /// This enum controls what table the tokens of <see cref="LogicalOpCodeInfoWithTokenOperandAndTypeTokenKind"/> will use.
+   /// </summary>
+   /// <remarks>
+   /// <para>
+   /// This only has effect on fields with generic declaring type, or generic types.
+   /// Additionally, in case of fields, only fields declared in the same type as this method are affected.
+   /// Similarly, in case of types, only types that is the same as the type containing current method is affected.
+   /// </para>
+   /// <para>
+   /// Consider the following code:
+   /// <code source="..\Qi4CS.Samples\Qi4CSDocumentation\CILManipulatorCodeContent.cs" region="EmitTypeDefOrTypeSpec" language="C#" />
+   /// In order to emit code which would produce the sample above, using this enum is required.
+   /// If this property is <see cref="TypeTokenKind.GenericInstantiation"/>, then emitted code will load token suitable to <c>type2</c>, that is, a TypeSpec token for generic instantiation.
+   /// Consequentially, if enum value is <see cref="TypeTokenKind.GenericDefinition"/>, then emitted code will load token suitable to <c>type1</c>, that is, a TypeDef token for generic definition rather than generic instantiation.
+   /// </para>
+   /// </remarks>
+   public enum TypeTokenKind
+   {
+      /// <summary>
+      /// This is the default behaviour and is always effective.
+      /// <list type="table">
+      /// <listheader>
+      /// <term>Reflection element</term>
+      /// <term>Behaviour</term>
+      /// </listheader>
+      /// <item>
+      /// <term>
+      /// <see cref="CILField"/>
+      /// </term>
+      /// <term>
+      /// The <see cref="Tables.Field"/> will be used for fields with non-generic declaring type defined in current module.
+      /// The <see cref="Tables.MemberRef"/> will be used for fields with generic declaring type (regardless where the type is defined) and for fields declared in other modules.
+      /// </term>
+      /// </item>
+      /// <item>
+      /// <term>
+      /// <see cref="CILTypeBase"/>
+      /// </term>
+      /// <term>
+      /// The <see cref="Tables.TypeDef"/> will be used for non-generic types defined in current module.
+      /// The <see cref="Tables.TypeRef"/> will be used for non-generic types defined in other modules.
+      /// The <see cref="Tables.TypeSpec"/> will be used for generic types regardless where they are defined.
+      /// </term>
+      /// </item>
+      /// </list>
+      /// </summary>
+      GenericInstantiation,
+
+      /// <summary>
+      /// This is non-default behaviour, and is only effective when 
+      /// <list type="table">
+      /// <listheader>
+      /// <term>Reflection element</term>
+      /// <term>Behaviour</term>
+      /// </listheader>
+      /// <item>
+      /// <term>
+      /// <see cref="CILField"/>
+      /// </term>
+      /// <term>
+      /// The <see cref="Tables.Field"/> will be used for any field defined in current module.
+      /// The <see cref="Tables.MemberRef"/> will be used for any field defined in other modules.
+      /// </term>
+      /// </item>
+      /// <item>
+      /// <term>
+      /// <see cref="CILTypeBase"/>
+      /// </term>
+      /// <term>
+      /// The <see cref="Tables.TypeDef"/> will be used for any type defined in current module.
+      /// The <see cref="Tables.TypeRef"/> will be used for any type defined in other modules.
+      /// </term>
+      /// </item>
+      /// </list>
+      /// </summary>
+      GenericDefinition,
+   }
+
+   /// <summary>
    /// This is abstract class for all <see cref="LogicalOpCodeInfoWithTokenOperand"/>s which can have two metadata table options for a single CAM.Logical reflection element.
    /// </summary>
-   public abstract class LogicalOpCodeInfoWithTokenOperandAndGDefOption : LogicalOpCodeInfoWithTokenOperand
+   public abstract class LogicalOpCodeInfoWithTokenOperandAndTypeTokenKind : LogicalOpCodeInfoWithTokenOperand
    {
-      private readonly Boolean _useGDefIfPossible;
+      private readonly TypeTokenKind _typeTokenKind;
 
-      internal LogicalOpCodeInfoWithTokenOperandAndGDefOption( OpCode opCode, Boolean useGDefIfPossible )
+      internal LogicalOpCodeInfoWithTokenOperandAndTypeTokenKind( OpCode opCode, TypeTokenKind typeTokenKind )
          : base( opCode ) //, TOKEN_SIZE )
       {
-         this._useGDefIfPossible = useGDefIfPossible;
+         this._typeTokenKind = typeTokenKind;
       }
 
       /// <summary>
       /// This setting provides a way to distinguish the emitting TypeDef or TypeSpec token within signatures or tokens.
-      /// See remarks for more information.
+      /// See <see cref="TypeTokenKind"/> for more information.
       /// </summary>
-      /// <value>Whether to emit TypeDef or TypeSpec token within signatures or tokens.</value>
-      /// <remarks>
-      /// Consider the following code:
-      /// <code source="..\Qi4CS.Samples\Qi4CSDocumentation\CILManipulatorCodeContent.cs" region="EmitTypeDefOrTypeSpec" language="C#" />
-      /// In order to emit code which would produce the sample above, using this property is required.
-      /// If this property is <c>true</c>, then emitted code will load token suitable to <c>type1</c>, that is, a TypeDef token for generic definition rather than generic instantiation.
-      /// Consequentially, if this property is <c>false</c>, then emitted code will load token suitable to <c>type2</c>, that is, a TypeSpec token for generic instantiation.
-      /// </remarks>
-      public Boolean UseGenericDefinitionIfPossible
+      public TypeTokenKind TypeTokenKind
       {
          get
          {
-            return this._useGDefIfPossible;
+            return this._typeTokenKind;
          }
       }
    }
@@ -201,7 +272,7 @@ namespace CILAssemblyManipulator.Logical
    /// <summary>
    /// This is class which will emit <see cref="OpCode"/> with type token as operand.
    /// </summary>
-   public sealed class LogicalOpCodeInfoWithTypeToken : LogicalOpCodeInfoWithTokenOperandAndGDefOption
+   public sealed class LogicalOpCodeInfoWithTypeToken : LogicalOpCodeInfoWithTokenOperandAndTypeTokenKind
    {
       private readonly CILTypeBase _type;
 
@@ -215,8 +286,8 @@ namespace CILAssemblyManipulator.Logical
       /// The default behaviour in such scenario is to emit TypeSpec token.
       /// </param>
       /// <exception cref="ArgumentNullException">If <paramref name="type"/> is <c>null</c>.</exception>
-      public LogicalOpCodeInfoWithTypeToken( OpCode opCode, CILTypeBase type, Boolean useGDefIfPossible = false )
-         : base( opCode, useGDefIfPossible )
+      public LogicalOpCodeInfoWithTypeToken( OpCode opCode, CILTypeBase type, TypeTokenKind typeTokenKind = TypeTokenKind.GenericInstantiation )
+         : base( opCode, typeTokenKind )
       {
          ArgumentValidator.ValidateNotNull( "Type", type );
          this._type = type;
@@ -247,7 +318,7 @@ namespace CILAssemblyManipulator.Logical
    /// <summary>
    /// This is class which will emit <see cref="OpCode"/> with <see cref="CILField"/> token as operand.
    /// </summary>
-   public sealed class LogicalOpCodeInfoWithFieldToken : LogicalOpCodeInfoWithTokenOperandAndGDefOption
+   public sealed class LogicalOpCodeInfoWithFieldToken : LogicalOpCodeInfoWithTokenOperandAndTypeTokenKind
    {
       private readonly CILField _field;
 
@@ -261,8 +332,8 @@ namespace CILAssemblyManipulator.Logical
       /// The default behaviour in such scenario is to emit TypeSpec token.
       /// </param>
       /// <exception cref="ArgumentNullException">If <paramref name="field"/> is <c>null</c>.</exception>
-      public LogicalOpCodeInfoWithFieldToken( OpCode opCode, CILField field, Boolean useGDefIfPossible = false )
-         : base( opCode, useGDefIfPossible )
+      public LogicalOpCodeInfoWithFieldToken( OpCode opCode, CILField field, TypeTokenKind typeTokenKind = TypeTokenKind.GenericInstantiation )
+         : base( opCode, typeTokenKind )
       {
          ArgumentValidator.ValidateNotNull( "Field", field );
          this._field = field;
@@ -291,35 +362,99 @@ namespace CILAssemblyManipulator.Logical
    }
 
    /// <summary>
-   /// This enum controls what table the tokens of <see cref="LogicalOpCodeInfoWithMethodToken"/> will use.
+   /// This enum controls what table the tokens of <see cref="LogicalOpCodeInfoWithMethodBaseToken"/> will use.
    /// </summary>
+   /// <remarks>
+   /// Together with <see cref="TypeTokenKind"/>, this enum controls how one will use the reflection object of the method that is the owner of the IL being created.
+   /// Considering one has type <c>MyType&lt;T&gt;</c> with method <c>MyMethod&lt;U&gt;</c> and one is emitting IL for <c>MyMethod&lt;U&gt;</c>, there are four possibilities.
+   /// <list type="bullet">
+   /// 
+   /// <item>
+   /// <description>
+   /// In order to emit token referring to generic instantiation of <c>MyMethod&lt;U&gt;</c> having U replaced by the current generic argument, with declaring type being generic instantiation of <c>MyType&lt;T&gt;</c> (<c>typeof(MyType&lt;T&gt;)</c>) in e.g. recursion scenario, a combination of <see cref="TypeTokenKind.GenericInstantiation"/> and <see cref="MethodTokenKind.GenericInstantiation"/> should be used.
+   /// </description>
+   /// </item>
+   /// 
+   /// <item>
+   /// <description>
+   /// In order to emit token referring to generic method definition of <c>MyMethod&lt;U&gt;</c>, but with declaring type still being generic instantiation of <c>MyType&lt;T&gt;</c> (<c>typeof(MyType&lt;T&gt;)</c>), a combination of <see cref="TypeTokenKind.GenericInstantiation"/> and <see cref="MethodTokenKind.GenericDefinition"/> should be used.
+   /// </description>
+   /// </item>
+   /// 
+   /// <item>
+   /// <description>
+   /// In order to emit token referring to generic method instantiation of <c>MyMethod&lt;U&gt;</c>, but with declaring type being generic type definition of <c>MyType&lt;T&gt;</c> (<c>typeof(MyType&lt;&gt;)</c>), a combination of <see cref="TypeTokenKind.GenericDefinition"/> and <see cref="MethodTokenKind.GenericInstantiation"/> should be used.
+   /// </description>
+   /// </item>
+   /// 
+   /// <item>
+   /// <description>
+   /// In order to emit token referring to generic method definition of <c>MyMethod&lt;U&gt;</c> and generic type definition of <c>MyType&lt;T&gt;</c> (<c>typeof(MyType&lt;&gt;)</c>), a combination of <see cref="TypeTokenKind.GenericDefinition"/> and <see cref="MethodTokenKind.GenericDefinition"/> should be used.
+   /// </description>
+   /// </item>
+   /// 
+   /// </list>
+   /// </remarks>
    public enum MethodTokenKind
    {
       /// <summary>
-      /// Will use <see cref="Tables.MethodSpec"/> if the method is generic. Otherwise the behaviour fallbacks to <see cref="MemberRef"/> behaviour.
+      /// The <see cref="Tables.MethodSpec"/> table will be used for generic methods, regardless where they are defined.
+      /// The <see cref="Tables.MemberRef"/> table will be used for non-generic methods with generic declaring type (regardless where the type is defined) or with declaring type in another module.
+      /// The <see cref="Tables.MethodDef"/> table will be used for non-generic methods with non-generic declaring type defined in current module.
       /// </summary>
-      MethodSpec,
+      GenericInstantiation,
+
       /// <summary>
-      /// Will use <see cref="Tables.MemberRef"/> if the method declaring type is generic or if the declaring type is in another assembly. Otherwise the behaviour fallbacks to <see cref="MethodDef"/> behaviour.
+      /// <list type="table">
+      /// 
+      /// <listheader>
+      /// <term>
+      /// <see cref="TypeTokenKind"/>
+      /// </term>
+      /// <term>
+      /// Behaviour
+      /// </term>
+      /// </listheader>
+      /// 
+      /// <item>
+      /// <term>
+      /// <see cref="TypeTokenKind.GenericInstantiation"/>
+      /// </term>
+      /// <term>
+      /// The <see cref="Tables.MemberRef"/> table will be used for all methods with generic declaring type (regardless where the type is defined) or with declaring type in another module.
+      /// The <see cref="Tables.MethodDef"/> table will be used for non-generic methods with non-generic declaring type defined in current module.
+      /// </term>
+      /// </item>
+      /// <item>
+      /// 
+      /// <term>
+      /// <see cref="TypeTokenKind.GenericDefinition"/>
+      /// </term>
+      /// <term>
+      /// The <see cref="Tables.MemberRef"/> table will be used for all methods with declaring type defined in other modules.
+      /// The <see cref="Tables.MethodDef"/> table will be used for all methods with declaring type defined in current module.
+      /// </term>
+      /// </item>
+      /// 
+      /// </list>
       /// </summary>
-      MemberRef,
-      /// <summary>
-      /// Will use <see cref="Tables.MethodDef"/> if the method declaring type is in same module.
-      /// </summary>
-      MethodDef
+      /// <remarks>
+      /// Using this option will never cause <see cref="Tables.MethodSpec"/> token to be emitted.
+      /// </remarks>
+      GenericDefinition,
    }
 
    /// <summary>
    /// This is base class for all <see cref="LogicalOpCodeInfoWithTokenOperand"/>s which accept <see cref="CILMethodBase"/> as reflection elements.
    /// </summary>
-   public abstract class LogicalOpCodeInfoWithMethodBaseToken : LogicalOpCodeInfoWithTokenOperand
+   public abstract class LogicalOpCodeInfoWithMethodBaseToken : LogicalOpCodeInfoWithTokenOperandAndTypeTokenKind
    {
       private readonly MethodTokenKind _tokenKind;
 
-      internal LogicalOpCodeInfoWithMethodBaseToken( OpCode opCode, MethodTokenKind tokenKind )
-         : base( opCode )
+      internal LogicalOpCodeInfoWithMethodBaseToken( OpCode opCode, TypeTokenKind typeTokenKind, MethodTokenKind methodTokenKind )
+         : base( opCode, typeTokenKind )
       {
-         this._tokenKind = tokenKind;
+         this._tokenKind = methodTokenKind;
       }
 
       /// <summary>
@@ -347,11 +482,12 @@ namespace CILAssemblyManipulator.Logical
       /// </summary>
       /// <param name="opCode">The <see cref="OpCode"/> to emit.</param>
       /// <param name="method">The <see cref="CILMethod"/> to use as operand.</param>
-      /// <param name="tokenKind"> The <see cref="Logical.MethodTokenKind"/>.</param>
+      /// <param name="typeTokenKind">The <see cref="Logical.TypeTokenKind"/>.</param>
+      /// <param name="methodTokenKind"> The <see cref="Logical.MethodTokenKind"/>.</param>
       /// <exception cref="ArgumentNullException">If <paramref name="method"/> is <c>null</c>.</exception>
       /// <remarks>TODO varargs parameters</remarks>
-      public LogicalOpCodeInfoWithMethodToken( OpCode opCode, CILMethod method, MethodTokenKind tokenKind = MethodTokenKind.MethodSpec )
-         : base( opCode, tokenKind )
+      public LogicalOpCodeInfoWithMethodToken( OpCode opCode, CILMethod method, TypeTokenKind typeTokenKind = TypeTokenKind.GenericInstantiation, MethodTokenKind methodTokenKind = MethodTokenKind.GenericInstantiation )
+         : base( opCode, typeTokenKind, methodTokenKind )
       {
          ArgumentValidator.ValidateNotNull( "Method", method );
          this._method = method;
@@ -391,11 +527,12 @@ namespace CILAssemblyManipulator.Logical
       /// </summary>
       /// <param name="opCode">The <see cref="OpCode"/> to emit.</param>
       /// <param name="ctor">The <see cref="CILConstructor"/> to use as operand.</param>
-      /// <param name="tokenKind"> The <see cref="Logical.MethodTokenKind"/>.</param>
+      /// <param name="typeTokenKind">The <see cref="Logical.TypeTokenKind"/>.</param>
+      /// <param name="methodTokenKind"> The <see cref="Logical.MethodTokenKind"/>.</param>
       /// <exception cref="ArgumentNullException">If <paramref name="ctor"/> is <c>null</c>.</exception>
       /// <remarks>TODO varargs parameters.</remarks>
-      public LogicalOpCodeInfoWithCtorToken( OpCode opCode, CILConstructor ctor, MethodTokenKind tokenKind = MethodTokenKind.MethodSpec )
-         : base( opCode, tokenKind )
+      public LogicalOpCodeInfoWithCtorToken( OpCode opCode, CILConstructor ctor, TypeTokenKind typeTokenKind = TypeTokenKind.GenericInstantiation, MethodTokenKind methodTokenKind = MethodTokenKind.GenericInstantiation )
+         : base( opCode, typeTokenKind, methodTokenKind )
       {
          ArgumentValidator.ValidateNotNull( "Constructor", ctor );
          this._ctor = ctor;

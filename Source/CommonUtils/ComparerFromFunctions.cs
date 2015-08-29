@@ -17,6 +17,7 @@
  */
 using System;
 using System.Collections.Generic;
+using System.Linq;
 
 namespace CommonUtils
 {
@@ -114,6 +115,78 @@ namespace CommonUtils
       public static IComparer<T> NewComparer<T>( Func<T, T, Int32> comparerFunc )
       {
          return new ComparerWithFunction<T>( comparerFunc );
+      }
+
+      /// <summary>
+      /// If <typeparamref name="T"/> is an array, then returns a <see cref="ArrayEqualityComparer{T}.DefaultArrayEqualityComparer"/> for array element type.
+      /// If <typeparamref name="T"/> is or implements <see cref="IList{T}"/> exactly once, then returns a <see cref="ListEqualityComparer{T,U}.DefaultListEqualityComparer"/> for list element type.
+      /// If <typeparamref name="T"/> is or implements <see cref="ICollection{T}"/> exactly once, then returns a <see cref="CollectionEqualityComparer{T,U}.DefaultCollectionEqualityComparer"/> for collection element type.
+      /// Otherwise returns <see cref="EqualityComparer{T}.Default"/>.
+      /// </summary>
+      /// <typeparam name="T">The type of items in sequence.</typeparam>
+      /// <returns>The default equality comparer for array element type, keeping an eye on the fact that <typeparamref name="T"/> may be an array, a list, or a collection.</returns>
+      /// <remarks>
+      /// Since <see cref="ArrayEqualityComparer{T}.DefaultArrayEqualityComparer"/>, <see cref="ListEqualityComparer{T,U}.DefaultListEqualityComparer"/>, and <see cref="CollectionEqualityComparer{T,U}.DefaultCollectionEqualityComparer"/> all use this method, this will recursively travel all types.
+      /// </remarks>
+      public static IEqualityComparer<T> GetDefaultItemComparerForSomeSequence<T>()
+      {
+         var t = typeof( T );
+         IEqualityComparer<T> retVal;
+         if ( t.IsArray )
+         {
+            retVal = (IEqualityComparer<T>) GetEqualityComparerForArrayElementType( t.GetElementType() );
+         }
+         else
+         {
+            Type elementType;
+            var iFaces = t.GetInterfaces();
+            if ( iFaces
+               .Where( iface => Equals( iface.GetGenericDefinitionIfGenericType(), typeof( IList<> ) ) )
+               .TryGetSingle( out elementType )
+               )
+            {
+               retVal = (IEqualityComparer<T>) GetEqualityComparerForListElementType( elementType );
+            }
+            else if ( iFaces
+               .Where( iface => Equals( iface.GetGenericDefinitionIfGenericType(), typeof( ICollection<> ) ) )
+               .TryGetSingle( out elementType )
+            )
+            {
+               retVal = (IEqualityComparer<T>) GetEqualityComparerForCollectionElementType( elementType );
+            }
+            else
+            {
+               retVal = EqualityComparer<T>.Default;
+            }
+         }
+         return retVal;
+      }
+
+      private static Object GetEqualityComparerForArrayElementType( Type arrayElementType )
+      {
+         return typeof( ArrayEqualityComparer<> )
+               .MakeGenericType( arrayElementType )
+               .GetProperty( "DefaultArrayEqualityComparer", System.Reflection.BindingFlags.DeclaredOnly | System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.Static )
+               .GetGetMethod()
+               .Invoke( null, null );
+      }
+
+      private static Object GetEqualityComparerForListElementType( Type listType )
+      {
+         return typeof( ListEqualityComparer<,> )
+            .MakeGenericType( listType, listType.GetGenericArguments()[0] )
+            .GetProperty( "DefaultListEqualityComparer", System.Reflection.BindingFlags.DeclaredOnly | System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.Static )
+            .GetGetMethod()
+            .Invoke( null, null );
+      }
+
+      private static Object GetEqualityComparerForCollectionElementType( Type collectionType )
+      {
+         return typeof( CollectionEqualityComparer<,> )
+            .MakeGenericType( collectionType, collectionType.GetGenericArguments()[0] )
+            .GetProperty( "DefaultCollectionEqualityComparer", System.Reflection.BindingFlags.DeclaredOnly | System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.Static )
+            .GetGetMethod()
+            .Invoke( null, null );
       }
    }
 }

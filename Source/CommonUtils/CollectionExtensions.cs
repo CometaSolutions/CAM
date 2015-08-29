@@ -610,4 +610,30 @@ public static partial class E_CommonUtils
       }
       return retVal;
    }
+
+   /// <summary>
+   /// Tries to get single value of an enumerable, if enumerable only has one element.
+   /// </summary>
+   /// <typeparam name="T">The type of elements of <see cref="IEnumerable{T}"/>.</typeparam>
+   /// <param name="enumerable">The enumerable.</param>
+   /// <param name="value">This will contain the single value of enumerable, if enumerable had only one element.</param>
+   /// <returns><c>true</c> if <paramref name="enumerable"/> was not <c>null</c> and had exactly one element; <c>false</c> otherwise.</returns>
+   public static Boolean TryGetSingle<T>( this IEnumerable<T> enumerable, out T value )
+   {
+      Boolean retVal;
+      if ( enumerable == null )
+      {
+         retVal = false;
+         value = default( T );
+      }
+      else
+      {
+         using ( var enumerator = enumerable.GetEnumerator() )
+         {
+            retVal = enumerator.MoveNext() && !enumerator.MoveNext();
+            value = retVal ? enumerator.Current : default( T );
+         }
+      }
+      return retVal;
+   }
 }
