@@ -51,7 +51,7 @@ namespace CILAssemblyManipulator.Logical
       /// <inheritdoc />
       public override String ToString()
       {
-         return this._opCode.ToString();
+         return this.Code.ToString();
       }
    }
 

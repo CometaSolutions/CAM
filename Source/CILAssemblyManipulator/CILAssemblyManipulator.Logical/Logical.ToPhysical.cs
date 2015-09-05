@@ -236,22 +236,22 @@ public static partial class E_CILLogical
          return retVal;
       }
 
-      internal TableIndex GetMethodDefOrMemberRefOrMethodSpec( CILMethodBase method, Boolean useMemberRefForGenericMethodDefs = true, Boolean convertTypeDefToTypeSpec = false )
+      internal TableIndex GetMethodDefOrMemberRefOrMethodSpec( CILMethodBase method, Boolean convertGenericMethodDefToMemberRefOrMethodSpec = false, Boolean convertTypeDefToTypeSpec = false )
       {
          var created = false;
          TableIndex retVal;
-         if ( convertTypeDefToTypeSpec || !this._methods.TryGetValue( method, out retVal ) )
+         if ( convertTypeDefToTypeSpec || convertGenericMethodDefToMemberRefOrMethodSpec || !this._methods.TryGetValue( method, out retVal ) )
          {
-            retVal = this._methodRefs.GetOrAdd_NotThreadSafe( Tuple.Create( method, useMemberRefForGenericMethodDefs, convertTypeDefToTypeSpec ), tuple =>
+            retVal = this._methodRefs.GetOrAdd_NotThreadSafe( Tuple.Create( method, convertGenericMethodDefToMemberRefOrMethodSpec, convertTypeDefToTypeSpec ), tuple =>
             {
                var m = tuple.Item1;
-               var useMemberRef = tuple.Item2;
+               var convertMDef = tuple.Item2;
                Tables table = Tables.MemberRef;
                if ( m.MethodKind == MethodKind.Method )
                {
                   var mm = (CILMethod) m;
                   if ( mm.HasGenericArguments()
-                     && ( !mm.IsGenericMethodDefinition() || !useMemberRef ) )
+                     && ( !mm.IsGenericMethodDefinition() || convertMDef ) )
                   {
                      table = Tables.MethodSpec;
                   }
@@ -275,7 +275,7 @@ public static partial class E_CILLogical
                case Tables.MethodSpec:
                   this._md.MethodSpecifications.TableContents.Add( new MethodSpecification()
                   {
-                     Method = this.GetMethodDefOrMemberRefOrMethodSpec( ( (CILMethod) method ).GenericDefinition, true, convertTypeDefToTypeSpec ),
+                     Method = this.GetMethodDefOrMemberRefOrMethodSpec( ( (CILMethod) method ).GenericDefinition, false, convertTypeDefToTypeSpec ),
                      Signature = this.CreateGenericMethodSignature( (CILMethod) method )
                   } );
                   break;
@@ -863,7 +863,7 @@ public static partial class E_CILLogical
 
       if ( method.HasILMethodBody() )
       {
-         mDef.IL = state.ProcessLogicalForPhysical( method.MethodIL );
+         mDef.IL = state.ProcessLogicalForPhysical( method, method.MethodIL );
       }
 
       state.AddToCustomAttributeTable( methodIdx, method );
@@ -942,9 +942,11 @@ public static partial class E_CILLogical
 
    private static MethodILDefinition ProcessLogicalForPhysical(
       this PhysicalCreationState state,
+      CILMethodBase thisMethod,
       MethodIL logicalIL
       )
    {
+      var thisType = thisMethod.DeclaringType;
       var physicalIL = new MethodILDefinition( logicalIL.ExceptionBlocks.Count(), logicalIL.OpCodeCount )
       {
          InitLocals = logicalIL.InitLocals,
@@ -972,19 +974,19 @@ public static partial class E_CILLogical
                break;
             case OpCodeInfoKind.OperandTypeToken:
                var lt = (LogicalOpCodeInfoWithTypeToken) lOpCode;
-               pOpCode = new OpCodeInfoWithToken( lt.Code, state.GetTypeDefOrRefOrSpec( lt.ReflectionObject, lt.TypeTokenKind == TypeTokenKind.GenericInstantiation ) );
+               pOpCode = new OpCodeInfoWithToken( lt.Code, state.GetTypeDefOrRefOrSpec( lt.ReflectionObject, thisType.IsConvertTypeDefToTypeSpec( lt.ReflectionObject, lt.TypeTokenKind ) ) );
                break;
             case OpCodeInfoKind.OperandFieldToken:
                var ft = (LogicalOpCodeInfoWithFieldToken) lOpCode;
-               pOpCode = new OpCodeInfoWithToken( ft.Code, state.GetFieldDefOrMemberRef( ft.ReflectionObject, ft.TypeTokenKind == TypeTokenKind.GenericInstantiation ) );
+               pOpCode = new OpCodeInfoWithToken( ft.Code, state.GetFieldDefOrMemberRef( ft.ReflectionObject, thisType.IsConvertTypeDefToTypeSpec( ft.ReflectionObject.DeclaringType, ft.TypeTokenKind ) ) );
                break;
             case OpCodeInfoKind.OperandMethodToken:
                var lm = (LogicalOpCodeInfoWithMethodToken) lOpCode;
-               pOpCode = new OpCodeInfoWithToken( lm.Code, state.GetMethodDefOrMemberRefOrMethodSpec( lm.ReflectionObject, lm.MethodTokenKind == MethodTokenKind.GenericDefinition, lm.TypeTokenKind == TypeTokenKind.GenericInstantiation ) );
+               pOpCode = new OpCodeInfoWithToken( lm.Code, state.GetMethodDefOrMemberRefOrMethodSpec( lm.ReflectionObject, thisMethod.IsConvertGenericMethodDefToMemberRefOrMethodSpec( lm.ReflectionObject, lm.MethodTokenKind ), thisType.IsConvertTypeDefToTypeSpec( lm.ReflectionObject.DeclaringType, lm.TypeTokenKind ) ) );
                break;
             case OpCodeInfoKind.OperandCtorToken:
                var ct = (LogicalOpCodeInfoWithCtorToken) lOpCode;
-               pOpCode = new OpCodeInfoWithToken( ct.Code, state.GetMethodDefOrMemberRefOrMethodSpec( ct.ReflectionObject, false, ct.TypeTokenKind == TypeTokenKind.GenericInstantiation ) );
+               pOpCode = new OpCodeInfoWithToken( ct.Code, state.GetMethodDefOrMemberRefOrMethodSpec( ct.ReflectionObject, false, thisType.IsConvertTypeDefToTypeSpec( ct.ReflectionObject.DeclaringType, ct.TypeTokenKind ) ) );
                break;
             case OpCodeInfoKind.OperandMethodSigToken:
                var lms = (LogicalOpCodeInfoWithMethodSig) lOpCode;
@@ -1105,6 +1107,16 @@ public static partial class E_CILLogical
 
 
       return physicalIL;
+   }
+
+   private static Boolean IsConvertTypeDefToTypeSpec( this CILType thisType, CILTypeBase otherType, TypeTokenKind typeTokenKind )
+   {
+      return thisType.CanBeTypeTokenKind_GenericDefinition( otherType ) && typeTokenKind == TypeTokenKind.GenericInstantiation;
+   }
+
+   private static Boolean IsConvertGenericMethodDefToMemberRefOrMethodSpec( this CILMethodBase thisMethod, CILMethod otherMethod, MethodTokenKind methodTokenKind )
+   {
+      return otherMethod.IsGenericMethodDefinition() && methodTokenKind == MethodTokenKind.GenericInstantiation;
    }
 
    private static Int32 TransformLogicalOffsetToPhysicalOffset(

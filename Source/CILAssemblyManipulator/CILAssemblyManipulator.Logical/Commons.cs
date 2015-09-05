@@ -112,7 +112,7 @@ namespace CILAssemblyManipulator.Logical
       /// <remarks>If <paramref name="names"/> is <c>null</c> or empty, this type or method does not become generic type or method.</remarks>
       /// <exception cref="NotSupportedException">For methods only. The exception is thrown when <see cref="CILElementInstantiable.IsTrueDefinition"/> returns <c>false</c>, meaning <see cref="CILElementOwnedByType.DeclaringType"/> is a generic type but not generic type definition.</exception>
       /// <exception cref="InvalidOperationException">If this type or method already has generic type parameters.</exception>
-      CILTypeParameter[] DefineGenericParameters( String[] names );
+      CILTypeParameter[] DefineGenericParameters( params String[] names );
    }
 
    /// <summary>

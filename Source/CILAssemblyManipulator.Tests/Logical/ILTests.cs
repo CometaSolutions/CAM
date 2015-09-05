@@ -144,9 +144,10 @@ namespace CILAssemblyManipulator.Tests.Logical
             var method = type.AddMethodWithReturnType( "Testing", MethodAttributes.Public, CallingConventions.HasThis, mod.GetTypeForTypeCode( CILTypeCode.Void ) );
             var il = method.MethodIL;
 
-            il.EmitReflectionObjectOf( methodRef, MethodTokenKind.MethodDef );
-            il.EmitReflectionObjectOf( methodRef, MethodTokenKind.MemberRef );
-            il.EmitReflectionObjectOf( methodRef, MethodTokenKind.MethodSpec );
+            il.EmitReflectionObjectOf( methodRef, TypeTokenKind.GenericDefinition, MethodTokenKind.GenericDefinition );
+            il.EmitReflectionObjectOf( methodRef, TypeTokenKind.GenericDefinition, MethodTokenKind.GenericInstantiation );
+            il.EmitReflectionObjectOf( methodRef, TypeTokenKind.GenericInstantiation, MethodTokenKind.GenericDefinition );
+            il.EmitReflectionObjectOf( methodRef, TypeTokenKind.GenericInstantiation, MethodTokenKind.GenericInstantiation );
 
             var phys = mod.CreatePhysicalRepresentation();
 
@@ -157,10 +158,107 @@ namespace CILAssemblyManipulator.Tests.Logical
             Assert.IsTrue( ( (OpCodeInfoWithToken) curCode ).Operand.Table == Tables.MemberRef );
             curCode = physIL.OpCodes[4];
             Assert.IsInstanceOf<OpCodeInfoWithToken>( curCode );
-            Assert.IsTrue( ( (OpCodeInfoWithToken) curCode ).Operand.Table == Tables.MemberRef );
+            Assert.IsTrue( ( (OpCodeInfoWithToken) curCode ).Operand.Table == Tables.MethodSpec );
             curCode = physIL.OpCodes[8];
             Assert.IsInstanceOf<OpCodeInfoWithToken>( curCode );
+            Assert.IsTrue( ( (OpCodeInfoWithToken) curCode ).Operand.Table == Tables.MemberRef );
+            curCode = physIL.OpCodes[12];
+            Assert.IsInstanceOf<OpCodeInfoWithToken>( curCode );
             Assert.IsTrue( ( (OpCodeInfoWithToken) curCode ).Operand.Table == Tables.MethodSpec );
+         }
+      }
+
+      [Test]
+      public void TestReflectionObjectOf2()
+      {
+         using ( var ctx = DotNETReflectionContext.CreateDotNETContext() )
+         {
+            var assembly = ctx.NewBlankAssembly( "Testing" );
+            var mod = assembly.AddModule( "Testing" );
+            mod.AssociatedMSCorLibModule = ctx.NewWrapperAsType( typeof( Object ) ).Module;
+
+            var type = mod.AddType( "Testing", TypeAttributes.AutoClass );
+            var method = type.AddMethodWithReturnType( "Testing", MethodAttributes.Public, CallingConventions.HasThis, mod.GetTypeForTypeCode( CILTypeCode.Void ) );
+            var il = method.MethodIL;
+
+            il.EmitReflectionObjectOf( method, TypeTokenKind.GenericDefinition, MethodTokenKind.GenericDefinition );
+            il.EmitReflectionObjectOf( method, TypeTokenKind.GenericDefinition, MethodTokenKind.GenericInstantiation );
+            il.EmitReflectionObjectOf( method, TypeTokenKind.GenericInstantiation, MethodTokenKind.GenericDefinition );
+            il.EmitReflectionObjectOf( method, TypeTokenKind.GenericInstantiation, MethodTokenKind.GenericInstantiation );
+
+            var phys = mod.CreatePhysicalRepresentation();
+
+            var physIL = phys.MethodDefinitions.TableContents[0].IL;
+
+            var curCode = physIL.OpCodes[0];
+            Assert.IsInstanceOf<OpCodeInfoWithToken>( curCode );
+            var token = ( (OpCodeInfoWithToken) curCode ).Operand;
+            Assert.IsTrue( token.Table == Tables.MethodDef );
+
+            curCode = physIL.OpCodes[4];
+            Assert.IsInstanceOf<OpCodeInfoWithToken>( curCode );
+            token = ( (OpCodeInfoWithToken) curCode ).Operand;
+            Assert.IsTrue( token.Table == Tables.MethodDef );
+
+            curCode = physIL.OpCodes[8];
+            Assert.IsInstanceOf<OpCodeInfoWithToken>( curCode );
+            token = ( (OpCodeInfoWithToken) curCode ).Operand;
+            Assert.IsTrue( ( (OpCodeInfoWithToken) curCode ).Operand.Table == Tables.MethodDef );
+
+            curCode = physIL.OpCodes[12];
+            Assert.IsInstanceOf<OpCodeInfoWithToken>( curCode );
+            token = ( (OpCodeInfoWithToken) curCode ).Operand;
+            Assert.IsTrue( ( (OpCodeInfoWithToken) curCode ).Operand.Table == Tables.MethodDef );
+         }
+      }
+
+      [Test]
+      public void TestReflectionObjectOf3()
+      {
+         using ( var ctx = DotNETReflectionContext.CreateDotNETContext() )
+         {
+            var assembly = ctx.NewBlankAssembly( "Testing" );
+            var mod = assembly.AddModule( "Testing" );
+            mod.AssociatedMSCorLibModule = ctx.NewWrapperAsType( typeof( Object ) ).Module;
+
+            var type = mod.AddType( "Testing", TypeAttributes.AutoClass );
+            type.DefineGenericParameters( "T" );
+            var method = type.AddMethodWithReturnType( "Testing", MethodAttributes.Public, CallingConventions.HasThis, mod.GetTypeForTypeCode( CILTypeCode.Void ) );
+            method.DefineGenericParameters( "U" );
+            var il = method.MethodIL;
+
+            il.EmitReflectionObjectOf( method, TypeTokenKind.GenericDefinition, MethodTokenKind.GenericDefinition );
+            il.EmitReflectionObjectOf( method, TypeTokenKind.GenericDefinition, MethodTokenKind.GenericInstantiation );
+            il.EmitReflectionObjectOf( method, TypeTokenKind.GenericInstantiation, MethodTokenKind.GenericDefinition );
+            il.EmitReflectionObjectOf( method, TypeTokenKind.GenericInstantiation, MethodTokenKind.GenericInstantiation );
+
+            var phys = mod.CreatePhysicalRepresentation();
+
+            var physIL = phys.MethodDefinitions.TableContents[0].IL;
+
+            var curCode = physIL.OpCodes[0];
+            Assert.IsInstanceOf<OpCodeInfoWithToken>( curCode );
+            var token = ( (OpCodeInfoWithToken) curCode ).Operand;
+            Assert.IsTrue( token.Table == Tables.MethodDef );
+
+            curCode = physIL.OpCodes[4];
+            Assert.IsInstanceOf<OpCodeInfoWithToken>( curCode );
+            token = ( (OpCodeInfoWithToken) curCode ).Operand;
+            Assert.IsTrue( token.Table == Tables.MethodSpec );
+            token = phys.MethodSpecifications.TableContents[token.Index].Method;
+            Assert.IsTrue( token.Table == Tables.MethodDef );
+
+            curCode = physIL.OpCodes[8];
+            Assert.IsInstanceOf<OpCodeInfoWithToken>( curCode );
+            token = ( (OpCodeInfoWithToken) curCode ).Operand;
+            Assert.IsTrue( ( (OpCodeInfoWithToken) curCode ).Operand.Table == Tables.MemberRef );
+
+            curCode = physIL.OpCodes[12];
+            Assert.IsInstanceOf<OpCodeInfoWithToken>( curCode );
+            token = ( (OpCodeInfoWithToken) curCode ).Operand;
+            Assert.IsTrue( ( (OpCodeInfoWithToken) curCode ).Operand.Table == Tables.MethodSpec );
+            token = phys.MethodSpecifications.TableContents[token.Index].Method;
+            Assert.IsTrue( token.Table == Tables.MemberRef );
          }
       }
    }

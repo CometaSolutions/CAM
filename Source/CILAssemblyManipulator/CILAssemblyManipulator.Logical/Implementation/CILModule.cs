@@ -95,27 +95,6 @@ namespace CILAssemblyManipulator.Logical.Implementation
             );
       }
 
-      internal CILModuleImpl( CILReflectionContextImpl ctx, Int32 anID, Lazy<ListProxy<CILCustomAttribute>> cAttrs, Func<CILAssembly> ass, String name, Func<CILType> moduleInitializerFunc, Func<ListProxy<CILType>> definedTypes, Func<CILModule> associatedMSCorLibFunc, IDictionary<String, AbstractLogicalManifestResource> mResources )
-         : base( ctx, CILElementKind.Module, anID, cAttrs )
-      {
-         InitFields(
-            ref this.name,
-            ref this.assembly,
-            ref this.types,
-            ref this.moduleInitializer,
-            ref this.associatedMSCorLib,
-            ref this.typeNameCache,
-            ref this.manifestResources,
-            name,
-            ass,
-            definedTypes,
-            moduleInitializerFunc,
-            associatedMSCorLibFunc,
-            mResources,
-            this
-            );
-      }
-
       private static void InitFields(
          ref String name,
          ref Lazy<CILAssembly> assembly,

@@ -2322,8 +2322,8 @@ public static partial class E_CILLogical
       return thisType.CanBeTypeTokenKind_GenericDefinition( otherType ) && resolvedTable == gDefTable ? TypeTokenKind.GenericDefinition : TypeTokenKind.GenericInstantiation;
    }
 
-   private static Boolean CanBeTypeTokenKind_GenericDefinition( this CILType thisType, CILType otherType )
+   private static Boolean CanBeTypeTokenKind_GenericDefinition( this CILType thisType, CILTypeBase otherType )
    {
-      return Equals( otherType, thisType ) && otherType.IsGenericTypeDefinition();
+      return Equals( otherType, thisType ) && ( (CILType) otherType ).IsGenericTypeDefinition();
    }
 }
