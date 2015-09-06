@@ -1848,20 +1848,17 @@ public static partial class E_CILLogical
       foreach ( var impl in md.MethodImplementations.TableContents )
       {
          var methodBody = impl.MethodBody;
-         if ( methodBody.Table == Tables.MethodDef )
+         var type = state.GetTypeDef( impl.Class.Index );
+         var cilMethodBody = state.ResolveMethodDefOrMemberRef( methodBody, type, null ) as CILMethod;
+         if ( cilMethodBody != null )
          {
-            // Overriding base type methods not supported (yet)
-            var type = state.GetTypeDef( impl.Class.Index );
-            var cilMethodBody = state.GetMethodDef( methodBody.Index ) as CILMethod;
-            if ( cilMethodBody != null )
+            var cilMethodDecl = state.ResolveMethodDefOrMemberRef( impl.MethodDeclaration, type, cilMethodBody ) as CILMethod;
+            if ( cilMethodDecl != null )
             {
-               var cilMethodDecl = state.ResolveMethodDefOrMemberRef( impl.MethodDeclaration, type, cilMethodBody ) as CILMethod;
-               if ( cilMethodDecl != null )
-               {
-                  cilMethodBody.AddOverriddenMethods( cilMethodDecl );
-               }
+               type.AddExplicitMethodImplementation( cilMethodBody, cilMethodDecl );
             }
          }
+
       }
 
       // DeclSecurity

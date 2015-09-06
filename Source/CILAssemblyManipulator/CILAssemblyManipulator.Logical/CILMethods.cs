@@ -162,30 +162,6 @@ namespace CILAssemblyManipulator.Logical
       CILMethodWithReturnParameter<CILParameter>
    {
       /// <summary>
-      /// Adds given methods to the list of explicitly implemented methods of this method. Please note that this is different from 'overrides' keyword in C#.
-      /// </summary>
-      /// <param name="explicitlyOverriddenMethods">The explicitly implemented methods to add. Typically only one.</param>
-      /// <remarks>See ECMA specification for more information about explicitly implemented methods (MethodImpl table).</remarks>
-      /// <exception cref="NotSupportedException">If <see cref="CILElementInstantiable.IsTrueDefinition"/> returns <c>false</c>, meaning the <see cref="CILElementOwnedByType.DeclaringType"/> is a generic type but not generic type definition.</exception>
-      void AddOverriddenMethods( params CILMethod[] explicitlyOverriddenMethods );
-
-      /// <summary>
-      /// Removes given methods from the list of explicitly implemented methods of this method. Please note that this is different from 'overrides' keyword in C#.
-      /// </summary>
-      /// <param name="explicitlyOverriddenMethods">The explicitly implemented methods to remove.</param>
-      /// <returns><c>true</c> if at least one method was removed; <c>false</c> otherwise.</returns>
-      /// <remarks>See ECMA specification for more information about explicitly implemented methods (MethodImpl table).</remarks>
-      /// <exception cref="NotSupportedException">If <see cref="CILElementInstantiable.IsTrueDefinition"/> returns <c>false</c>, meaning the <see cref="CILElementOwnedByType.DeclaringType"/> is a generic type but not generic type definition.</exception>
-      Boolean RemoveOverriddenMethods( params CILMethod[] explicitlyOverriddenMethods );
-
-      /// <summary>
-      /// Gets list of all explicitly implemented methods of this method. Please note that this is different from 'overrides' keyword in C#.
-      /// </summary>
-      /// <value>The list of all explicitly implemented methods of this method.</value>
-      /// <remarks>See ECMA specification for more information about explicitly implemented methods (MethodImpl table).</remarks>
-      ListQuery<CILMethod> OverriddenMethods { get; } // TODO since it is possible to specify methods from the base class inheritance chain in MethodImpl table, maybe the declaring type should have a property: IDictionary<CILMethod, IList<CILMethod>> OverriddenMethods?
-
-      /// <summary>
       /// Gets or sets the <see cref="PInvokeAttributes"/> associated with this method.
       /// </summary>
       /// <value>The <see cref="PInvokeAttributes"/> associated with this method.</value>

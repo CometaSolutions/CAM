@@ -132,7 +132,7 @@ namespace CILAssemblyManipulator.Logical.Implementation
          Int32 anID,
          System.Reflection.ParameterInfo parameter
          )
-         : base( ctx, anID, CILElementKind.Parameter, () => new CustomAttributeDataEventArgs( ctx, parameter ) )
+         : base( ctx, anID, CILElementKind.Parameter, cb => cb.GetCustomAttributesDataForOrThrow( parameter ) )
       {
          var member = parameter.Member;
          var isCtor = member is System.Reflection.ConstructorInfo;
@@ -150,8 +150,8 @@ namespace CILAssemblyManipulator.Logical.Implementation
             new SettableValueForClasses<String>( parameter.Name ),
             () => isCtor ? (CILMethodBase) ctx.Cache.GetOrAdd( (System.Reflection.ConstructorInfo) member ) : ctx.Cache.GetOrAdd( (System.Reflection.MethodInfo) member ),
             () => ctx.Cache.GetOrAdd( parameter.ParameterType ),
-            new SettableLazy<Object>( () => ctx.LaunchConstantValueLoadEvent( new ConstantValueLoadArgs( parameter ) ) ),
-            ctx.LaunchEventAndCreateCustomModifiers( new CustomModifierEventLoadArgs( parameter ) ),
+            new SettableLazy<Object>( () => ctx.WrapperCallbacks.GetConstantValueForOrThrow( parameter ) ),
+            ctx.LaunchEventAndCreateCustomModifiers( parameter, E_CILLogical.GetCustomModifiersForOrThrow ),
             new SettableLazy<LogicalMarshalingInfo>( () =>
             {
 #if CAM_LOGICAL_IS_SL

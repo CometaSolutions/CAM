@@ -32,8 +32,6 @@ namespace CILAssemblyManipulator.Logical.Implementation
 {
    internal class CILModuleImpl : CILCustomAttributeContainerImpl, CILModule
    {
-      internal static readonly Regex EXTENSION_REGEX = new Regex( "(" + Regex.Escape( "." ) + "dll|" + Regex.Escape( "." ) + "exe)$", RegexOptions.IgnoreCase );
-
       private String name;
       private readonly Lazy<CILAssembly> assembly;
       private readonly Lazy<ListProxy<CILType>> types;
@@ -47,11 +45,10 @@ namespace CILAssemblyManipulator.Logical.Implementation
       private readonly IDictionary<String, AbstractLogicalManifestResource> manifestResources;
 
       internal CILModuleImpl( CILReflectionContextImpl ctx, Int32 anID, System.Reflection.Module mod )
-         : base( ctx, anID, CILElementKind.Module, () => new CustomAttributeDataEventArgs( ctx, mod ) )
+         : base( ctx, anID, CILElementKind.Module, cb => cb.GetCustomAttributesDataForOrThrow( mod ) )
       {
          ArgumentValidator.ValidateNotNull( "Module", mod );
          var mName = mod.Name;
-         //var match = EXTENSION_REGEX.Match( mName );
          InitFields(
             ref this.name,
             ref this.assembly,
@@ -60,11 +57,10 @@ namespace CILAssemblyManipulator.Logical.Implementation
             ref this.associatedMSCorLib,
             ref this.typeNameCache,
             ref this.manifestResources,
-            mod.Name, // match.Success ? mName.Substring( 0, match.Index ) : mName,
+            mod.Name,
             () => ctx.Cache.GetOrAdd( mod.Assembly ),
-            () => ctx.CollectionsFactory.NewListProxy<CILType>(
-               ctx.LaunchModuleTypesLoadEvent( new ModuleTypesEventArgs( mod ) )
-               .Select( type => (CILType) ctx.Cache.GetOrAdd( type ) )
+            () => ctx.CollectionsFactory.NewListProxy<CILType>( ctx.WrapperCallbacks.GetTopLevelDefinedTypesOrThrow( mod )
+               .Select( type => ctx.NewWrapperAsType( type ) )
                .ToList()
             ),
             this.BuildModuleInitializerType,

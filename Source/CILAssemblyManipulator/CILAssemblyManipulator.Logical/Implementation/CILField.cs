@@ -43,7 +43,7 @@ namespace CILAssemblyManipulator.Logical.Implementation
          Int32 anID,
          System.Reflection.FieldInfo field
          )
-         : base( ctx, anID, CILElementKind.Field, () => new CustomAttributeDataEventArgs( ctx, field ) )
+         : base( ctx, anID, CILElementKind.Field, cb => cb.GetCustomAttributesDataForOrThrow( field ) )
       {
          ArgumentValidator.ValidateNotNull( "Field", field );
          if ( field.DeclaringType
@@ -78,9 +78,9 @@ namespace CILAssemblyManipulator.Logical.Implementation
             new SettableValueForClasses<String>( field.Name ),
             () => (CILType) ctx.Cache.GetOrAdd( field.DeclaringType ),
             () => ctx.Cache.GetOrAdd( field.FieldType ),
-            new SettableLazy<Object>( () => ctx.LaunchConstantValueLoadEvent( new ConstantValueLoadArgs( field ) ) ),
+            new SettableLazy<Object>( () => ctx.WrapperCallbacks.GetConstantValueForOrThrow( field ) ),
             new SettableValueForClasses<Byte[]>( rvaValue ),
-            ctx.LaunchEventAndCreateCustomModifiers( new CustomModifierEventLoadArgs( field ) ),
+            ctx.LaunchEventAndCreateCustomModifiers( field, E_CILLogical.GetCustomModifiersForOrThrow ),
             new SettableLazy<Int32>( () =>
             {
                var offset = field.GetCustomAttributes( true ).OfType<System.Runtime.InteropServices.FieldOffsetAttribute>().FirstOrDefault();

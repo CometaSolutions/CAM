@@ -42,7 +42,7 @@ namespace CILAssemblyManipulator.Logical.Implementation
          Int32 anID,
          System.Reflection.MethodBase method
          )
-         : base( ctx, anID, ( method is System.Reflection.ConstructorInfo ) ? CILElementKind.Constructor : CILElementKind.Method, () => new CustomAttributeDataEventArgs( ctx, method ) )
+         : base( ctx, anID, ( method is System.Reflection.ConstructorInfo ) ? CILElementKind.Constructor : CILElementKind.Method, cb => cb.GetCustomAttributesDataForOrThrow( method ) )
       {
          ArgumentValidator.ValidateNotNull( "Method", method );
 
@@ -58,7 +58,7 @@ namespace CILAssemblyManipulator.Logical.Implementation
          {
             throw new ArgumentException( "This constructor may be used only on methods declared in genericless types or generic type definitions." );
          }
-         if ( method is System.Reflection.MethodInfo && method.GetGenericArguments().Any() && !method.IsGenericMethodDefinition )
+         if ( method is System.Reflection.MethodInfo && method.GetGenericArguments().Length > 0 && !method.IsGenericMethodDefinition )
          {
             throw new ArgumentException( "This constructor may be used only on genericless methods or generic method definitions." );
          }
@@ -80,11 +80,22 @@ namespace CILAssemblyManipulator.Logical.Implementation
             () =>
             {
                MethodIL result;
-               if ( ctx.Cache.ResolveMethodBaseID( this.id ).HasILMethodBody() )
+               if ( this.HasILMethodBody() )
                {
-                  var args = new MethodBodyLoadArgs( method );
-                  ctx.LaunchMethodBodyLoadEvent( args );
-                  result = new MethodILImpl( this, args );
+                  IEnumerable<Tuple<Boolean, Type>> locals;
+                  Boolean initLocals;
+                  IEnumerable<Tuple<ExceptionBlockType, Int32, Int32, Int32, Int32, Type, Int32>> exceptionBlocks;
+                  Byte[] ilBytes;
+                  ctx.WrapperCallbacks.GetMethodBodyDataOrThrow( method, out locals, out initLocals, out exceptionBlocks, out ilBytes );
+
+                  result = new MethodILImpl(
+                     this,
+                     initLocals,
+                     ilBytes,
+                     locals.Select( t => Tuple.Create( t.Item1, ctx.NewWrapper( t.Item2 ) ) ).ToArray(),
+                     exceptionBlocks.Select( t => Tuple.Create( t.Item1, t.Item2, t.Item3, t.Item4, t.Item5, ctx.NewWrapperAsType( t.Item6 ), t.Item7 ) ).ToArray(),
+                     CreateNativeTokenResolverCallback( ctx, method )
+                     );
                }
                else
                {
@@ -92,15 +103,48 @@ namespace CILAssemblyManipulator.Logical.Implementation
                }
                return result;
             },
-            new SettableLazy<MethodImplAttributes>( () =>
-            {
-               var args = new MethodImplAttributesEventArgs( method );
-               ctx.LaunchMethodImplAttributesEvent( args );
-               return args.MethodImplementationAttributes;
-            } ),
+            new SettableLazy<MethodImplAttributes>( () => ctx.WrapperCallbacks.GetMethodImplementationAttributesOrThrow( method ) ),
             new Lazy<DictionaryWithRoles<SecurityAction, ListProxy<LogicalSecurityInformation>, ListProxyQuery<LogicalSecurityInformation>, ListQuery<LogicalSecurityInformation>>>( this.SecurityInfoFromAttributes, LazyThreadSafetyMode.ExecutionAndPublication ),
             true
             );
+      }
+
+      private static Func<Int32, ILResolveKind, Object> CreateNativeTokenResolverCallback( CILReflectionContextImpl ctx, System.Reflection.MethodBase method )
+      {
+         var dType = method.DeclaringType;
+         var module = new Lazy<System.Reflection.Module>( () => ctx.WrapperCallbacks.GetModuleOfTypeOrThrow( dType ), ctx.LazyThreadSafetyMode );
+
+
+         var gArgs = dType
+#if WINDOWS_PHONE_APP
+            .GetTypeInfo()
+#endif
+.IsGenericType ? dType.GetGenericTypeDefinition().GetGenericArguments() : null;
+         var mgArgs = method is System.Reflection.MethodInfo && method.GetGenericArguments().Length > 0 ? ( (System.Reflection.MethodInfo) method ).GetGenericMethodDefinition().GetGenericArguments() : null;
+
+         return ( token, rKind ) =>
+         {
+            switch ( rKind )
+            {
+               case ILResolveKind.String:
+                  return ctx.WrapperCallbacks.ResolveStringOrThrow( module.Value, token );
+               case ILResolveKind.Signature:
+                  // TODO basically same thing as in ModuleReadingContext, except use this method to resolve tokens.
+                  // Maybe could make static methods to ModuleReadingContext (ReadFieldSignature, ReadMethodSignature, ReadType) that would use callbacks to resolve tokens.
+                  throw new NotImplementedException( "Implement creating method signature + var args from byte array (at this point)." );
+               default:
+                  var retVal = ctx.WrapperCallbacks.ResolveTypeOrMemberOrThrow( module.Value, token, gArgs, mgArgs );
+                  return retVal is Type ?
+                     ctx.Cache.GetOrAdd( (Type) retVal ) :
+                        ( retVal is System.Reflection.FieldInfo ?
+                           ctx.Cache.GetOrAdd( (System.Reflection.FieldInfo) retVal ) :
+                              ( retVal is System.Reflection.MethodInfo ?
+                                 (Object) ctx.Cache.GetOrAdd( (System.Reflection.MethodInfo) retVal ) :
+                                 ctx.Cache.GetOrAdd( (System.Reflection.ConstructorInfo) retVal )
+                                 )
+                            );
+            }
+         };
       }
 
       protected CILMethodBaseImpl(
@@ -507,7 +551,6 @@ namespace CILAssemblyManipulator.Logical.Implementation
       private readonly Lazy<CILParameter> returnParameter;
       private readonly Lazy<ListProxy<CILTypeBase>> gArgs;
       private readonly SettableLazy<CILMethod> gDef;
-      private readonly Lazy<ListProxy<CILMethod>> overriddenMethods;
       private readonly SettableValueForEnums<PInvokeAttributes> pInvokeAttributes;
       private readonly SettableValueForClasses<String> pInvokeName;
       private readonly SettableValueForClasses<String> pInvokeModule;
@@ -531,7 +574,6 @@ namespace CILAssemblyManipulator.Logical.Implementation
             ref this.returnParameter,
             ref this.gArgs,
             ref this.gDef,
-            ref this.overriddenMethods,
             ref this.pInvokeAttributes,
             ref this.pInvokeName,
             ref this.pInvokeModule,
@@ -539,26 +581,6 @@ namespace CILAssemblyManipulator.Logical.Implementation
             () => ctx.Cache.GetOrAdd( method.ReturnParameter ),
             () => ctx.CollectionsFactory.NewListProxy<CILTypeBase>( method.GetGenericArguments().Select( gArg => ctx.Cache.GetOrAdd( gArg ) ).ToList() ),
             () => ctx.Cache.GetOrAdd( nGDef ),
-            () =>
-            {
-               var result = this.context.CollectionsFactory.NewListProxy<CILMethod>();
-
-               if ( !method.DeclaringType
-#if WINDOWS_PHONE_APP
-            .GetTypeInfo()
-#endif
-.IsInterface && !method.IsPublic )
-               {
-                  var args = new ExplicitMethodImplementationLoadArgs( method.DeclaringType );
-                  ctx.LaunchInterfaceMappingLoadEvent( args );
-                  System.Reflection.MethodInfo[] resultNMethods;
-                  if ( args.ExplicitlyImplementedMethods.TryGetValue( method, out resultNMethods ) )
-                  {
-                     result.AddRange( resultNMethods.Select( nMethod => ctx.Cache.GetOrAdd( nMethod ) ) );
-                  }
-               }
-               return result;
-            },
             new SettableValueForEnums<PInvokeAttributes>(
 #if CAM_LOGICAL_IS_SL
                (PInvokeAttributes) 0
@@ -600,7 +622,6 @@ namespace CILAssemblyManipulator.Logical.Implementation
             () => ctx.Cache.NewBlankParameter( ctx.Cache.ResolveMethodBaseID( anID ), E_CILLogical.RETURN_PARAMETER_POSITION, null, ParameterAttributes.None, null ),
             () => ctx.CollectionsFactory.NewListProxy<CILTypeBase>(),
             () => null,
-            () => ctx.CollectionsFactory.NewListProxy<CILMethod>(),
             null,
             null,
             null,
@@ -625,7 +646,7 @@ namespace CILAssemblyManipulator.Logical.Implementation
          Func<CILMethod> gDefFunc,
          Boolean resettablesAreSettable = false
          )
-         : this( ctx, anID, cAttrDataFunc, aCallingConvention, aMethodAttributes, declaringTypeFunc, parametersFunc, null, aMethodImplementationAttributes, aLogicalSecurityInformation, aName, returnParameterFunc, gArgsFunc, gDefFunc, null, null, null, null, resettablesAreSettable )
+         : this( ctx, anID, cAttrDataFunc, aCallingConvention, aMethodAttributes, declaringTypeFunc, parametersFunc, null, aMethodImplementationAttributes, aLogicalSecurityInformation, aName, returnParameterFunc, gArgsFunc, gDefFunc, null, null, null, resettablesAreSettable )
       {
 
       }
@@ -645,7 +666,6 @@ namespace CILAssemblyManipulator.Logical.Implementation
          Func<CILParameter> returnParameterFunc,
          Func<ListProxy<CILTypeBase>> gArgsFunc,
          Func<CILMethod> gDefFunc,
-         Func<ListProxy<CILMethod>> overriddenMethodFunc,
          SettableValueForEnums<PInvokeAttributes> aPInvokeAttributes,
          SettableValueForClasses<String> aPInvokeName,
          SettableValueForClasses<String> aPInvokeModuleName,
@@ -658,7 +678,6 @@ namespace CILAssemblyManipulator.Logical.Implementation
             ref this.returnParameter,
             ref this.gArgs,
             ref this.gDef,
-            ref this.overriddenMethods,
             ref this.pInvokeAttributes,
             ref this.pInvokeName,
             ref this.pInvokeModule,
@@ -666,7 +685,6 @@ namespace CILAssemblyManipulator.Logical.Implementation
             returnParameterFunc,
             gArgsFunc,
             gDefFunc,
-            overriddenMethodFunc,
             aPInvokeAttributes,
             aPInvokeName,
             aPInvokeModuleName,
@@ -679,7 +697,6 @@ namespace CILAssemblyManipulator.Logical.Implementation
          ref Lazy<CILParameter> returnParameter,
          ref Lazy<ListProxy<CILTypeBase>> gArgs,
          ref SettableLazy<CILMethod> gDef,
-         ref Lazy<ListProxy<CILMethod>> overriddenMethod, // TODO use LazyWithLock ?
          ref SettableValueForEnums<PInvokeAttributes> pInvokeAttributes,
          ref SettableValueForClasses<String> pInvokeName,
          ref SettableValueForClasses<String> pInvokeModule,
@@ -687,7 +704,6 @@ namespace CILAssemblyManipulator.Logical.Implementation
          Func<CILParameter> returnParameterFunc,
          Func<ListProxy<CILTypeBase>> gArgsFunc,
          Func<CILMethod> gDefFunc,
-         Func<ListProxy<CILMethod>> anOverriddenMethod,
          SettableValueForEnums<PInvokeAttributes> aPInvokeAttributes,
          SettableValueForClasses<String> aPInvokeName,
          SettableValueForClasses<String> aPInvokeModule,
@@ -698,7 +714,6 @@ namespace CILAssemblyManipulator.Logical.Implementation
          returnParameter = new Lazy<CILParameter>( returnParameterFunc, LazyThreadSafetyMode.ExecutionAndPublication );
          gArgs = new Lazy<ListProxy<CILTypeBase>>( gArgsFunc, LazyThreadSafetyMode.ExecutionAndPublication );
          gDef = new SettableLazy<CILMethod>( gDefFunc );
-         overriddenMethod = resettablesAreSettable ? new Lazy<ListProxy<CILMethod>>( anOverriddenMethod, LazyThreadSafetyMode.ExecutionAndPublication ) : null;
          pInvokeAttributes = aPInvokeAttributes ?? new SettableValueForEnums<PInvokeAttributes>( (PInvokeAttributes) 0 );
          pInvokeName = aPInvokeName ?? new SettableValueForClasses<String>( null );
          pInvokeModule = aPInvokeModule ?? new SettableValueForClasses<String>( null );
@@ -773,43 +788,6 @@ namespace CILAssemblyManipulator.Logical.Implementation
       #endregion
 
       #region CILMethod Members
-
-      public void AddOverriddenMethods( params CILMethod[] explicitlyOverriddenMethods )
-      {
-         this.ThrowIfNotCapableOfChanging();
-         foreach ( var method in explicitlyOverriddenMethods )
-         {
-            if ( Object.ReferenceEquals( this, method.GetTrueGenericDefinition() ) )
-            {
-               throw new ArgumentException( "Method must not be itself." );
-            }
-            //else if ( !this.declaringType.Value.FullInheritanceChain().Contains( method.DeclaringType ) )
-            //{
-            //   throw new ArgumentException( "Given methods must be all from inheritance hierarchy of this method's (" + this + ") declaring type (" + this.DeclaringType + ")." );
-            //}
-         }
-         this.overriddenMethods.Value.AddRange( explicitlyOverriddenMethods );
-         //LogicalUtils.CheckMethodAttributesForOverriddenMethods( this.methodAttributes, this.overriddenMethods.Value );
-      }
-
-      public bool RemoveOverriddenMethods( params CILMethod[] explicitlyOverriddenMethods )
-      {
-         this.ThrowIfNotCapableOfChanging();
-         var result = false;
-         foreach ( var method in explicitlyOverriddenMethods )
-         {
-            result = this.overriddenMethods.Value.Remove( method ) || result;
-         }
-         return result;
-      }
-
-      public ListQuery<CILMethod> OverriddenMethods
-      {
-         get
-         {
-            return this.overriddenMethods == null ? null : this.overriddenMethods.Value.CQ;
-         }
-      }
 
       public PInvokeAttributes PlatformInvokeAttributes
       {
@@ -911,14 +889,14 @@ namespace CILAssemblyManipulator.Logical.Implementation
 
       #endregion
 
-      public override MethodAttributes Attributes
-      {
-         set
-         {
-            base.Attributes = value;
-            LogicalUtils.CheckMethodAttributesForOverriddenMethods( this.methodAttributes, this.overriddenMethods.Value );
-         }
-      }
+      //public override MethodAttributes Attributes
+      //{
+      //   set
+      //   {
+      //      base.Attributes = value;
+      //      //LogicalUtils.CheckMethodAttributesForOverriddenMethods( this.methodAttributes, this.overriddenMethods.Value );
+      //   }
+      //}
 
       #region CILElementWithGenericArguments<CILMethod> Members
 

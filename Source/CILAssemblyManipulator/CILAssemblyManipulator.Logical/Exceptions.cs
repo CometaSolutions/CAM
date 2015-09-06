@@ -20,80 +20,14 @@ using System;
 namespace CILAssemblyManipulator.Logical
 {
    /// <summary>
-   /// This exception is thrown when <see cref="CILReflectionContext.CustomAttributeDataLoadEvent"/> fails to provide custom attribute data for native reflection elements.
+   /// This exception is thrown whenever accessing some property of native reflection element wrapper that requires usage of <see cref="CILReflectionContextWrapperCallbacks"/>, and the callback object either is not set for current <see cref="CILReflectionContext"/>, or it returned invalid value.
    /// </summary>
-   public class CustomAttributeDataLoadException : Exception
+   public sealed class NativeWrapperException : Exception
    {
-      private readonly CustomAttributeDataEventArgs _args;
-
-      internal CustomAttributeDataLoadException( CustomAttributeDataEventArgs args )
-         : base( "Reflection context could not load custom attribute data." )
+      internal NativeWrapperException( String msg, Exception inner = null )
+         : base( msg, inner )
       {
-         this._args = args;
-      }
 
-      /// <summary>
-      /// Gets the arguments for <see cref="CILReflectionContext.CustomAttributeDataLoadEvent"/> which failed to provide custom attribute data.
-      /// </summary>
-      /// <value>The arguments for <see cref="CILReflectionContext.CustomAttributeDataLoadEvent"/> which failed to provide custom attribute data.</value>
-      public CustomAttributeDataEventArgs Args
-      {
-         get
-         {
-            return this._args;
-         }
       }
    }
-
-   /// <summary>
-   /// This exception is thrown when <see cref="CILReflectionContext.ModuleTypesLoadEvent"/> fails to provide the defined types of the native <see cref="System.Reflection.Module"/>.
-   /// </summary>
-   public class TypesLoadException : Exception
-   {
-      private readonly ModuleTypesEventArgs _args;
-      internal TypesLoadException( ModuleTypesEventArgs args )
-         : base( "Reflection context could not load types from " + args.Module + "." )
-      {
-         this._args = args;
-      }
-
-      /// <summary>
-      /// Gets the arguments for <see cref="CILReflectionContext.ModuleTypesLoadEvent"/> which failed to provide the defined types of the native <see cref="System.Reflection.Module"/>.
-      /// </summary>
-      /// <value>The arguments for <see cref="CILReflectionContext.ModuleTypesLoadEvent"/> which failed to provide the defined types of the native <see cref="System.Reflection.Module"/>.</value>
-      public ModuleTypesEventArgs Args
-      {
-         get
-         {
-            return this._args;
-         }
-      }
-   }
-
-   /// <summary>
-   /// This exception is thrown when <see cref="CILReflectionContext.TypeModuleLoadEvent"/> fails to provide module for native <see cref="System.Type"/>.
-   /// </summary>
-   public class ModuleLoadException : Exception
-   {
-      private readonly TypeModuleEventArgs _args;
-
-      internal ModuleLoadException( TypeModuleEventArgs args )
-         : base( "Reflection context could not load module from " + args.Type + "." )
-      {
-         this._args = args;
-      }
-
-      /// <summary>
-      /// Gets the arguments given to <see cref="CILReflectionContext.TypeModuleLoadEvent"/> which failed to provide module for native <see cref="System.Type"/>.
-      /// </summary>
-      /// <value>The arguments given to <see cref="CILReflectionContext.TypeModuleLoadEvent"/> which failed to provide module for native <see cref="System.Type"/>.</value>
-      public TypeModuleEventArgs Args
-      {
-         get
-         {
-            return this._args;
-         }
-      }
-   }
-
 }

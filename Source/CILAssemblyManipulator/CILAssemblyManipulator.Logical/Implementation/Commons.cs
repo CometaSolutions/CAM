@@ -63,7 +63,7 @@ namespace CILAssemblyManipulator.Logical.Implementation
          CILReflectionContextImpl ctx,
          Int32 anID,
          CILElementKind kind,
-         Func<CustomAttributeDataEventArgs> evtArgsFunc
+         Func<CILReflectionContextWrapperCallbacks, IEnumerable<System.Reflection.CustomAttributeData>> evtArgsFunc
          )
          : base( ctx, anID )
       {
@@ -73,13 +73,7 @@ namespace CILAssemblyManipulator.Logical.Implementation
             ref this.cilKind,
             ref this.attributes,
             kind,
-            new Lazy<ListProxy<CILCustomAttribute>>( () =>
-            {
-               var evtArgs = evtArgsFunc();
-               ctx.LaunchCustomAttributeDataLoadEvent( evtArgs );
-               //var thisElement = (CILCustomAttributeContainer) this.context.Cache.ResolveAnyID( this.cilKind, this.id );
-               return ctx.CollectionsFactory.NewListProxy<CILCustomAttribute>( new List<CILCustomAttribute>( evtArgs.CustomAttributeData.Select( tuple => CILCustomAttributeFactory.NewAttribute( this, tuple.Item1, tuple.Item2, tuple.Item3 ) ) ) );
-            }, LazyThreadSafetyMode.PublicationOnly )
+            new Lazy<ListProxy<CILCustomAttribute>>( () => ctx.CollectionsFactory.NewListProxy<CILCustomAttribute>( ctx.LaunchCustomAttributeDataLoadEvent( this, evtArgsFunc ).ToList() ), ctx.LazyThreadSafetyMode )
             );
       }
 
@@ -164,6 +158,8 @@ namespace CILAssemblyManipulator.Logical.Implementation
             .GroupBy( ca => ca.ConstructorArguments[0].Value )
             .ToDictionary( cag => (SecurityAction) cag.Key, cag => this.context.CollectionsFactory.NewListProxy( cag.Select( ca => new LogicalSecurityInformation( (SecurityAction) cag.Key, ca.Constructor.DeclaringType, ca.NamedArguments ) ).ToList() ) ) );
       }
+
+
    }
 
    internal abstract class AbstractSignatureElement : CILElementWithContext
@@ -442,6 +438,7 @@ namespace CILAssemblyManipulator.Logical.Implementation
       void ResetConstructors();
       void ResetDeclaredProperties();
       void ResetDeclaredEvents();
+      void ResetExplicitMethods();
    }
 
    internal interface CILPropertyInternal : CILElementWithSimpleNameInternal, CILElementWithConstantValueInternal, CILElementWithCustomModifiersInternal

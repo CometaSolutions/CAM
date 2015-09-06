@@ -36,7 +36,7 @@ namespace CILAssemblyManipulator.Logical.Implementation
          Int32 anID,
          System.Reflection.Assembly ass
          )
-         : base( ctx, anID, CILElementKind.Assembly, () => new CustomAttributeDataEventArgs( ctx, ass ) )
+         : base( ctx, anID, CILElementKind.Assembly, cb => cb.GetCustomAttributesDataForOrThrow( ass ) )
       {
          ArgumentValidator.ValidateNotNull( "Assembly", ass );
          InitFields(
@@ -47,22 +47,16 @@ namespace CILAssemblyManipulator.Logical.Implementation
             () =>
             {
                var result = CILAssemblyName.Parse( ass.FullName );
-               var args = new AssemblyNameEventArgs( ass );
-               ctx.LaunchAssemblyNameLoadEvent( args );
-               var info = args.AssemblyNameInfo;
-               if ( info != null )
+
+               AssemblyHashAlgorithm algo; AssemblyFlags flags; Byte[] publicKey;
+               ctx.WrapperCallbacks.GetAssemblyNameInformationOrThrow( ass, out algo, out flags, out publicKey );
+               result.HashAlgorithm = algo;
+               result.Flags = flags;
+               result.PublicKey = publicKey;
+               if ( result.PublicKey.IsNullOrEmpty() )
                {
-                  result.HashAlgorithm = info.Item1;
-                  result.Flags = info.Item2;
-                  if ( info.Item3 != null )
-                  {
-                     result.PublicKey = info.Item3;
-                     if ( result.PublicKey.IsNullOrEmpty() )
-                     {
-                        // .NET for some reason returns PublicKey-flag set, even with no public key...
-                        result.Flags = result.Flags & ~( AssemblyFlags.PublicKey );
-                     }
-                  }
+                  // .NET for some reason returns PublicKey-flag set, even with no public key...
+                  result.Flags = result.Flags & ~( AssemblyFlags.PublicKey );
                }
                return result;
             },

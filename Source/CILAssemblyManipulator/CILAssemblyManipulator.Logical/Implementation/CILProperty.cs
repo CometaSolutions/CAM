@@ -37,7 +37,7 @@ namespace CILAssemblyManipulator.Logical.Implementation
          CILReflectionContextImpl ctx,
          Int32 anID,
          System.Reflection.PropertyInfo pInfo )
-         : base( ctx, anID, CILElementKind.Property, () => new CustomAttributeDataEventArgs( ctx, pInfo ) )
+         : base( ctx, anID, CILElementKind.Property, cb => cb.GetCustomAttributesDataForOrThrow( pInfo ) )
       {
          ArgumentValidator.ValidateNotNull( "Property", pInfo );
 
@@ -67,8 +67,8 @@ namespace CILAssemblyManipulator.Logical.Implementation
             () => ctx.Cache.GetOrAdd( pInfo.GetSetMethod( true ) ),
             () => ctx.Cache.GetOrAdd( pInfo.GetGetMethod( true ) ),
             () => (CILType) ctx.Cache.GetOrAdd( pInfo.DeclaringType ),
-            new SettableLazy<Object>( () => ctx.LaunchConstantValueLoadEvent( new ConstantValueLoadArgs( pInfo ) ) ),
-            ctx.LaunchEventAndCreateCustomModifiers( new CustomModifierEventLoadArgs( pInfo ) ),
+            new SettableLazy<Object>( () => ctx.WrapperCallbacks.GetConstantValueForOrThrow( pInfo ) ),
+            ctx.LaunchEventAndCreateCustomModifiers( pInfo, E_CILLogical.GetCustomModifiersForOrThrow ),
             true
             );
       }

@@ -31,7 +31,7 @@ namespace CILAssemblyManipulator.Tests.Logical
       [Test]
       public void TestBranchCalculation1()
       {
-         using ( var ctx = DotNETReflectionContext.CreateDotNETContext() )
+         using ( var ctx = CILReflectionContextFactory.NewContext() )
          {
             var assembly = ctx.NewBlankAssembly( "Testing" );
             var mod = assembly.AddModule( "Testing" );
@@ -128,7 +128,7 @@ namespace CILAssemblyManipulator.Tests.Logical
       [Test]
       public void TestReflectionObjectOf()
       {
-         using ( var ctx = DotNETReflectionContext.CreateDotNETContext() )
+         using ( var ctx = CILReflectionContextFactory.NewContext() )
          {
             var assembly = ctx.NewBlankAssembly( "Testing" );
             var mod = assembly.AddModule( "Testing" );
@@ -171,7 +171,7 @@ namespace CILAssemblyManipulator.Tests.Logical
       [Test]
       public void TestReflectionObjectOf2()
       {
-         using ( var ctx = DotNETReflectionContext.CreateDotNETContext() )
+         using ( var ctx = CILReflectionContextFactory.NewContext() )
          {
             var assembly = ctx.NewBlankAssembly( "Testing" );
             var mod = assembly.AddModule( "Testing" );
@@ -215,7 +215,7 @@ namespace CILAssemblyManipulator.Tests.Logical
       [Test]
       public void TestReflectionObjectOf3()
       {
-         using ( var ctx = DotNETReflectionContext.CreateDotNETContext() )
+         using ( var ctx = CILReflectionContextFactory.NewContext() )
          {
             var assembly = ctx.NewBlankAssembly( "Testing" );
             var mod = assembly.AddModule( "Testing" );

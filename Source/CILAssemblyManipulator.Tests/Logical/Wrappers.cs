@@ -55,7 +55,7 @@ namespace CILAssemblyManipulator.Tests.Logical
 
       private static void PerformElementTypeTest( Type typeNative )
       {
-         using ( var ctx = DotNETReflectionContext.CreateDotNETContext() )
+         using ( var ctx = CILReflectionContextFactory.NewContext() )
          {
             var typeWrapper = ctx.NewWrapperAsType( typeNative );
 

@@ -33,6 +33,8 @@ namespace CILAssemblyManipulator.Logical.Implementation
 {
    internal class CILReflectionContextImpl : AbstractDisposable, CILReflectionContext
    {
+      internal delegate void CustomModifierDelegate<T>( CILReflectionContextWrapperCallbacks cb, T nativeReflectionElement, out Type[] optionalMods, out Type[] requiredMods );
+
       private sealed class CILAssemblyNameEqualityComparer : AbstractDisposable, IEqualityComparer<CILAssemblyName>
       {
          private readonly Lazy<HashStreamInfo> _publicKeyComputer;
@@ -104,8 +106,9 @@ namespace CILAssemblyManipulator.Logical.Implementation
       private readonly CryptoCallbacks _defaultCryptoCallbacks;
       private readonly CILAssemblyNameEqualityComparer _defaultANComparer;
       private readonly CILReflectionContextConcurrencySupport _concurrencyMode;
+      private readonly CILReflectionContextWrapperCallbacks _wrapperCallbacks;
 
-      internal CILReflectionContextImpl( CILReflectionContextConcurrencySupport concurrencyMode, CryptoCallbacks defaultCryptoCallbacks )
+      internal CILReflectionContextImpl( CILReflectionContextConcurrencySupport concurrencyMode, CILReflectionContextWrapperCallbacks wrapperCallbacks, CryptoCallbacks defaultCryptoCallbacks )
       {
          this._concurrencyMode = concurrencyMode;
          this._cf = CollectionsFactorySingleton.DEFAULT_COLLECTIONS_FACTORY;
@@ -130,25 +133,13 @@ namespace CILAssemblyManipulator.Logical.Implementation
          }
          this._cache = cache;
 
+         this._wrapperCallbacks = wrapperCallbacks;
          this._defaultCryptoCallbacks = defaultCryptoCallbacks;
          this._defaultANComparer = new CILAssemblyNameEqualityComparer( defaultCryptoCallbacks );
       }
 
       #region CILReflectionContext Members
 
-      public event EventHandler<CustomAttributeDataEventArgs> CustomAttributeDataLoadEvent;
-      //public event EventHandler<ModuleCustomAttributeEventArgs> ModuleCustomAttributeLoadEvent;
-      public event EventHandler<ModuleTypesEventArgs> ModuleTypesLoadEvent;
-      public event EventHandler<TypeModuleEventArgs> TypeModuleLoadEvent;
-      public event EventHandler<EventOtherMethodsEventArgs> EventOtherMethodsLoadEvent;
-      public event EventHandler<ConstantValueLoadArgs> ConstantValueLoadEvent;
-      public event EventHandler<ExplicitMethodImplementationLoadArgs> ExplicitMethodImplementationLoadEvent;
-      public event EventHandler<MethodBodyLoadArgs> MethodBodyLoadEvent;
-      public event EventHandler<TokenResolveArgs> TokenResolveEvent;
-      public event EventHandler<MethodImplAttributesEventArgs> MethodImplementationAttributesLoadEvent;
-      public event EventHandler<TypeLayoutEventArgs> TypeLayoutLoadEvent;
-      public event EventHandler<AssemblyNameEventArgs> AssemblyNameLoadEvent;
-      public event EventHandler<CustomModifierEventLoadArgs> CustomModifierLoadEvent;
       //public event EventHandler<AssemblyRefResolveFromLoadedAssemblyEventArgs> AssemblyReferenceResolveFromLoadedAssemblyEvent;
 
       public CILReflectionContextConcurrencySupport ConcurrencySupport
@@ -156,6 +147,14 @@ namespace CILAssemblyManipulator.Logical.Implementation
          get
          {
             return this._concurrencyMode;
+         }
+      }
+
+      public CILReflectionContextWrapperCallbacks WrapperCallbacks
+      {
+         get
+         {
+            return this._wrapperCallbacks;
          }
       }
 
@@ -261,89 +260,54 @@ namespace CILAssemblyManipulator.Logical.Implementation
 
       #endregion
 
-      internal void LaunchCustomAttributeDataLoadEvent( CustomAttributeDataEventArgs args )
+      internal LazyThreadSafetyMode LazyThreadSafetyMode
       {
-         this.CustomAttributeDataLoadEvent.InvokeEventIfNotNull( evt => evt( this, args ) );
-         if ( args.CustomAttributeData == null )
+         get
          {
-            throw new CustomAttributeDataLoadException( args );
+            return this._concurrencyMode == CILReflectionContextConcurrencySupport.NotThreadSafe ?
+               LazyThreadSafetyMode.None :
+               LazyThreadSafetyMode.ExecutionAndPublication;
          }
       }
 
-      internal IEnumerable<Type> LaunchModuleTypesLoadEvent( ModuleTypesEventArgs args )
+      internal IEnumerable<CILCustomAttribute> LaunchCustomAttributeDataLoadEvent( CILCustomAttributeContainer container, Func<CILReflectionContextWrapperCallbacks, IEnumerable<System.Reflection.CustomAttributeData>> func )
       {
-         this.ModuleTypesLoadEvent.InvokeEventIfNotNull( evt => evt( this, args ) );
-         if ( args.DefinedTypes == null )
+         return this.GetCustomAttributeDataFromNative( container, func( this._wrapperCallbacks ) );
+      }
+
+      protected IEnumerable<CILCustomAttribute> GetCustomAttributeDataFromNative( CILCustomAttributeContainer container, IEnumerable<System.Reflection.CustomAttributeData> attrs )
+      {
+         return attrs.Select( attr => CILCustomAttributeFactory.NewAttribute(
+            container,
+            this.NewWrapper( attr.Constructor ),
+            attr.ConstructorArguments.Select( cArg => CILCustomAttributeFactory.NewTypedArgument( ( this.NewWrapperAsType( cArg.ArgumentType ) ), this.ExtractValue( cArg ) ) ),
+            attr.NamedArguments.Select( nArg => CILCustomAttributeFactory.NewNamedArgument(
+               ( nArg.MemberInfo is System.Reflection.PropertyInfo ? (CILElementForNamedCustomAttribute) this.NewWrapper( (System.Reflection.PropertyInfo) nArg.MemberInfo ) : this.NewWrapper( (System.Reflection.FieldInfo) nArg.MemberInfo ) ),
+               CILCustomAttributeFactory.NewTypedArgument( this.NewWrapperAsType( nArg.TypedValue.ArgumentType ), this.ExtractValue( nArg.TypedValue ) ) ) )
+            ) );
+      }
+
+      private Object ExtractValue( System.Reflection.CustomAttributeTypedArgument typedArg )
+      {
+         var retVal = typedArg.Value;
+         var array = retVal as System.Collections.ObjectModel.ReadOnlyCollection<System.Reflection.CustomAttributeTypedArgument>;
+         if ( array != null )
          {
-            throw new TypesLoadException( args );
+            retVal = array
+               .Select( arg => CILCustomAttributeFactory.NewTypedArgument( this.NewWrapperAsType( arg.ArgumentType ), this.ExtractValue( arg ) ) )
+               .ToList();
          }
-         return args.DefinedTypes;
+         return retVal;
       }
 
-      internal System.Reflection.Module LaunchTypeModuleLoadEvent( TypeModuleEventArgs args )
-      {
-         this.TypeModuleLoadEvent.InvokeEventIfNotNull( evt => evt( this, args ) );
-         if ( args.Module == null )
-         {
-            throw new ModuleLoadException( args );
-         }
-         return args.Module;
-      }
-
-      internal System.Reflection.MethodInfo[] LaunchEventOtherMethodsLoadEvent( EventOtherMethodsEventArgs args )
-      {
-         this.EventOtherMethodsLoadEvent.InvokeEventIfNotNull( evt => evt( this, args ) );
-         return args.OtherMethods ?? Empty<System.Reflection.MethodInfo>.Array;
-      }
-
-      internal Object LaunchConstantValueLoadEvent( ConstantValueLoadArgs args )
-      {
-         this.ConstantValueLoadEvent.InvokeEventIfNotNull( evt => evt( this, args ) );
-         return args.ConstantValue;
-      }
-
-      internal void LaunchInterfaceMappingLoadEvent( ExplicitMethodImplementationLoadArgs args )
-      {
-         this.ExplicitMethodImplementationLoadEvent.InvokeEventIfNotNull( evt => evt( this, args ) );
-      }
-
-      internal void LaunchMethodBodyLoadEvent( MethodBodyLoadArgs args )
-      {
-         this.MethodBodyLoadEvent.InvokeEventIfNotNull( evt => evt( this, args ) );
-      }
-
-      internal void LaunchTokenResolveEvent( TokenResolveArgs args )
-      {
-         this.TokenResolveEvent.InvokeEventIfNotNull( evt => evt( this, args ) );
-      }
-
-      internal void LaunchMethodImplAttributesEvent( MethodImplAttributesEventArgs args )
-      {
-         this.MethodImplementationAttributesLoadEvent.InvokeEventIfNotNull( evt => evt( this, args ) );
-      }
-
-      internal void LaunchTypeLayoutLoadEvent( TypeLayoutEventArgs args )
-      {
-         this.TypeLayoutLoadEvent.InvokeEventIfNotNull( evt => evt( this, args ) );
-      }
-
-      internal void LaunchAssemblyNameLoadEvent( AssemblyNameEventArgs args )
-      {
-         this.AssemblyNameLoadEvent.InvokeEventIfNotNull( evt => evt( this, args ) );
-      }
-
-      internal void LaunchCustomModifiersLoadEvent( CustomModifierEventLoadArgs args )
-      {
-         this.CustomModifierLoadEvent.InvokeEventIfNotNull( evt => evt( this, args ) );
-      }
-
-      internal Lazy<ListProxy<CILCustomModifier>> LaunchEventAndCreateCustomModifiers( CustomModifierEventLoadArgs args )
+      internal Lazy<ListProxy<CILCustomModifier>> LaunchEventAndCreateCustomModifiers<T>( T element, CustomModifierDelegate<T> customModGetter )
       {
          return new Lazy<ListProxy<CILCustomModifier>>( () =>
          {
-            this.LaunchCustomModifiersLoadEvent( args );
-            return this.CollectionsFactory.NewListProxy<CILCustomModifier>( new List<CILCustomModifier>( args.RequiredModifiers.Select( mod => (CILCustomModifier) new CILCustomModifierImpl( false, (CILType) this.Cache.GetOrAdd( mod ) ) ).Concat( args.OptionalModifiers.Select( mod => (CILCustomModifier) new CILCustomModifierImpl( true, (CILType) this.Cache.GetOrAdd( mod ) ) ) ) ) );
-         }, LazyThreadSafetyMode.PublicationOnly );
+            Type[] reqMods, optMods;
+            customModGetter( this.WrapperCallbacks, element, out optMods, out reqMods );
+            return this.CollectionsFactory.NewListProxy( new List<CILCustomModifier>( reqMods.Select( mod => (CILCustomModifier) new CILCustomModifierImpl( false, this.NewWrapperAsType( mod ) ) ).Concat( optMods.Select( mod => (CILCustomModifier) new CILCustomModifierImpl( true, this.NewWrapperAsType( mod ) ) ) ) ) );
+         }, this.LazyThreadSafetyMode );
       }
 
       //internal CILAssembly LaunchAssemblyRefResolveEvent( AssemblyRefResolveFromLoadedAssemblyEventArgs args )
@@ -1782,7 +1746,8 @@ namespace CILAssemblyManipulator.Logical.Implementation
                   () => this._ctx.CollectionsFactory.NewListProxy<CILProperty>( gDef.DeclaredProperties.Select( property => this.MakePropertyWithGenericType( property, gArgs ) ).ToList() ),
                   () => this._ctx.CollectionsFactory.NewListProxy<CILEvent>( gDef.DeclaredEvents.Select( evt => this.MakeEventWithGenericType( evt, gArgs ) ).ToList() ),
                   ( (CILTypeInternal) gDef ).ClassLayoutInternal,
-                  ( (CILTypeImpl) gDef ).DeclarativeSecurityInternal
+                  ( (CILTypeImpl) gDef ).DeclarativeSecurityInternal,
+                  () => this._ctx.CollectionsFactory.NewDictionary<CILMethod, ListProxy<CILMethod>, ListProxyQuery<CILMethod>, ListQuery<CILMethod>>( gDef.ExplicitMethodImplementations.ToDictionary( kvp => (CILMethod) this.MakeMethodWithGenericDeclaringType( kvp.Key, gArgs ), kvp => this._ctx.CollectionsFactory.NewListProxy( kvp.Value.Select( m => (CILMethod) this.MakeMethodWithGenericDeclaringType( m, gArgs ) ).ToList() ) ) )
                   )
             );
          }
@@ -1875,6 +1840,7 @@ namespace CILAssemblyManipulator.Logical.Implementation
                () => this._ctx.CollectionsFactory.NewListProxy<CILProperty>( callbacks.GetElementTypeProperties( args ).ToList() ),
                () => this._ctx.CollectionsFactory.NewListProxy<CILEvent>( callbacks.GetElementTypeEvents( args ).ToList() ),
                new SettableLazy<LogicalClassLayout?>( () => null ),
+               null,
                null
             );
          } );

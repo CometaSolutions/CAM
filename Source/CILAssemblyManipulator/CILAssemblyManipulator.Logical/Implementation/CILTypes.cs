@@ -47,7 +47,7 @@ namespace CILAssemblyManipulator.Logical.Implementation
       protected internal readonly Lazy<CILType> declaringType;
 
       protected CILTypeOrParameterImpl( CILReflectionContextImpl ctx, Int32 anID, Type type )
-         : base( ctx, anID, CILElementKind.Type, () => new CustomAttributeDataEventArgs( ctx, type ) )
+         : base( ctx, anID, CILElementKind.Type, cb => cb.GetCustomAttributesDataForOrThrow( type ) )
       {
          ArgumentValidator.ValidateNotNull( "Reflection context", ctx );
 
@@ -89,8 +89,8 @@ namespace CILAssemblyManipulator.Logical.Implementation
             },
             new SettableValueForClasses<String>( type.Name ),
             new SettableValueForClasses<String>( type.DeclaringType == null ? type.Namespace : null ),
-            () => ctx.Cache.GetOrAdd( ctx.LaunchTypeModuleLoadEvent( new TypeModuleEventArgs( type ) ) ),
-            () => (CILType) ctx.Cache.GetOrAdd( type.DeclaringType ),
+            () => ctx.NewWrapper( ctx.WrapperCallbacks.GetModuleOfType( type ) ),
+            () => ctx.NewWrapperAsType( type.DeclaringType ),
             true
          );
       }
@@ -304,6 +304,7 @@ namespace CILAssemblyManipulator.Logical.Implementation
       private readonly ResettableLazy<CILType> baseType;
       private readonly ResettableLazy<ListProxy<CILType>> declaredInterfaces;
       private readonly Lazy<DictionaryWithRoles<SecurityAction, ListProxy<LogicalSecurityInformation>, ListProxyQuery<LogicalSecurityInformation>, ListQuery<LogicalSecurityInformation>>> securityInfo;
+      private readonly ResettableLazy<DictionaryWithRoles<CILMethod, ListProxy<CILMethod>, ListProxyQuery<CILMethod>, ListQuery<CILMethod>>> explicitMethodImplementationMap;
 
       internal CILTypeImpl( CILReflectionContextImpl ctx, Int32 anID, Type type )
          : base( ctx, anID, type )
@@ -344,6 +345,7 @@ namespace CILAssemblyManipulator.Logical.Implementation
 .BaseType;
 
          InitFields(
+            ctx.LazyThreadSafetyMode,
             ref this.typeAttributes,
             ref this.elementKind,
             ref this.arrayInfo,
@@ -360,6 +362,7 @@ namespace CILAssemblyManipulator.Logical.Implementation
             ref this.baseType,
             ref this.declaredInterfaces,
             ref this.securityInfo,
+            ref this.explicitMethodImplementationMap,
             new SettableValueForEnums<TypeAttributes>( tAttrs ),
             null,
             null,
@@ -425,11 +428,11 @@ namespace CILAssemblyManipulator.Logical.Implementation
             {
                if ( tAttrs.IsExplicitLayout() || tAttrs.IsSequentialLayout() )
                {
-                  var args = new TypeLayoutEventArgs( type );
-                  ctx.LaunchTypeLayoutLoadEvent( args );
-                  return args.Layout == null ? (LogicalClassLayout?) null : new LogicalClassLayout( args.Layout.Size
+                  var layout = ctx.WrapperCallbacks.GetStructLayoutAttributeOrThrow( type );
+                  return new LogicalClassLayout( layout.Size
 #if !CAM_LOGICAL_IS_SL
-, args.Layout.Pack
+                     // For some reason, SL version of this attribute does not have Pack property...
+, layout.Pack
 #endif
  );
                }
@@ -461,6 +464,11 @@ namespace CILAssemblyManipulator.Logical.Implementation
                   .ToList() );
             },
             new Lazy<DictionaryWithRoles<SecurityAction, ListProxy<LogicalSecurityInformation>, ListProxyQuery<LogicalSecurityInformation>, ListQuery<LogicalSecurityInformation>>>( this.SecurityInfoFromAttributes, LazyThreadSafetyMode.ExecutionAndPublication ),
+            () => ctx.CollectionsFactory.NewDictionary<CILMethod, ListProxy<CILMethod>, ListProxyQuery<CILMethod>, ListQuery<CILMethod>>(
+               type.IsInterface ? null : ( ctx.WrapperCallbacks.GetExplicitlyImplementedMethodsOrThrow( type )
+               .ToDictionary(
+                  kvp => ctx.NewWrapper( kvp.Key ),
+                  kvp => ctx.CollectionsFactory.NewListProxy( kvp.Value.Select( m => ctx.NewWrapper( m ) ).ToList() ) ) ) ),
             true
             );
       }
@@ -494,6 +502,7 @@ namespace CILAssemblyManipulator.Logical.Implementation
          () => ctx.CollectionsFactory.NewListProxy<CILEvent>(),
          new SettableLazy<LogicalClassLayout?>( () => null ),
          null,
+         null,
          true
          )
       {
@@ -524,11 +533,13 @@ namespace CILAssemblyManipulator.Logical.Implementation
          Func<ListProxy<CILEvent>> eventsFunc,
          SettableLazy<LogicalClassLayout?> aLayout,
          Lazy<DictionaryWithRoles<SecurityAction, ListProxy<LogicalSecurityInformation>, ListProxyQuery<LogicalSecurityInformation>, ListQuery<LogicalSecurityInformation>>> aSecurityInfo,
+         Func<DictionaryWithRoles<CILMethod, ListProxy<CILMethod>, ListProxyQuery<CILMethod>, ListQuery<CILMethod>>> anExplicitMethodImplementationMap,
          Boolean resettablesAreSettable = false
          )
          : base( ctx, anID, cAttrDataFunc, TypeKind.Type, typeCode, aName, aNamespace, moduleFunc, declaringTypeFunc, resettablesAreSettable )
       {
          InitFields(
+            ctx.LazyThreadSafetyMode,
             ref this.typeAttributes,
             ref this.elementKind,
             ref this.arrayInfo,
@@ -545,6 +556,7 @@ namespace CILAssemblyManipulator.Logical.Implementation
             ref this.baseType,
             ref this.declaredInterfaces,
             ref this.securityInfo,
+            ref this.explicitMethodImplementationMap,
             typeAttrs,
             anElementKind,
             arrayInfo,
@@ -560,12 +572,14 @@ namespace CILAssemblyManipulator.Logical.Implementation
             aLayout,
             baseTypeFunc,
             declaredInterfacesFunc,
-            aSecurityInfo ?? new Lazy<DictionaryWithRoles<SecurityAction, ListProxy<LogicalSecurityInformation>, ListProxyQuery<LogicalSecurityInformation>, ListQuery<LogicalSecurityInformation>>>( () => ctx.CollectionsFactory.NewDictionary<SecurityAction, ListProxy<LogicalSecurityInformation>, ListProxyQuery<LogicalSecurityInformation>, ListQuery<LogicalSecurityInformation>>(), LazyThreadSafetyMode.ExecutionAndPublication ),
+            aSecurityInfo ?? new Lazy<DictionaryWithRoles<SecurityAction, ListProxy<LogicalSecurityInformation>, ListProxyQuery<LogicalSecurityInformation>, ListQuery<LogicalSecurityInformation>>>( () => ctx.CollectionsFactory.NewDictionary<SecurityAction, ListProxy<LogicalSecurityInformation>, ListProxyQuery<LogicalSecurityInformation>, ListQuery<LogicalSecurityInformation>>(), ctx.LazyThreadSafetyMode ),
+            anExplicitMethodImplementationMap ?? ( () => ctx.CollectionsFactory.NewDictionary<CILMethod, ListProxy<CILMethod>, ListProxyQuery<CILMethod>, ListQuery<CILMethod>>() ),
             resettablesAreSettable
             );
       }
 
       private static void InitFields(
+         LazyThreadSafetyMode lazyThreadSafety,
          ref SettableValueForEnums<TypeAttributes> typeAttrs,
          ref ElementKind? elementKind,
          ref GeneralArrayInfo arrayInfo,
@@ -582,6 +596,7 @@ namespace CILAssemblyManipulator.Logical.Implementation
          ref ResettableLazy<CILType> baseType,
          ref ResettableLazy<ListProxy<CILType>> declaredInterfaces,
          ref Lazy<DictionaryWithRoles<SecurityAction, ListProxy<LogicalSecurityInformation>, ListProxyQuery<LogicalSecurityInformation>, ListQuery<LogicalSecurityInformation>>> securityInfo,
+         ref ResettableLazy<DictionaryWithRoles<CILMethod, ListProxy<CILMethod>, ListProxyQuery<CILMethod>, ListQuery<CILMethod>>> explicitMethodImplementationMap,
          SettableValueForEnums<TypeAttributes> typeAttrsVal,
          ElementKind? anElementKind,
          GeneralArrayInfo anArrayInfo,
@@ -598,17 +613,18 @@ namespace CILAssemblyManipulator.Logical.Implementation
          Func<CILType> baseTypeFunc,
          Func<ListProxy<CILType>> declaredInterfacesFunc,
          Lazy<DictionaryWithRoles<SecurityAction, ListProxy<LogicalSecurityInformation>, ListProxyQuery<LogicalSecurityInformation>, ListQuery<LogicalSecurityInformation>>> aSecurityInfo,
+         Func<DictionaryWithRoles<CILMethod, ListProxy<CILMethod>, ListProxyQuery<CILMethod>, ListQuery<CILMethod>>> anExplicitMethodImplementationMap,
          Boolean resettablesAreSettable
          )
       {
          typeAttrs = typeAttrsVal;
          elementKind = anElementKind;
          arrayInfo = anArrayInfo;
-         gArgs = new Lazy<ListProxy<CILTypeBase>>( gArgsFunc, LazyThreadSafetyMode.ExecutionAndPublication );
+         gArgs = new Lazy<ListProxy<CILTypeBase>>( gArgsFunc, lazyThreadSafety );
          genericDefinition = new SettableLazy<CILType>( genericDefinitionFunc );
          nested = nestedTypesFunc;
          fields = new ResettableLazy<ListProxy<CILField>>( fieldsFunc );
-         elementType = new Lazy<CILTypeBase>( elementTypeFunc, LazyThreadSafetyMode.ExecutionAndPublication );
+         elementType = new Lazy<CILTypeBase>( elementTypeFunc, lazyThreadSafety );
          methods = new ResettableLazy<ListProxy<CILMethod>>( methodsFunc );
          ctors = new ResettableLazy<ListProxy<CILConstructor>>( ctorsFunc );
          properties = new ResettableLazy<ListProxy<CILProperty>>( propertiesFunc );
@@ -617,6 +633,7 @@ namespace CILAssemblyManipulator.Logical.Implementation
          declaredInterfaces = new ResettableLazy<ListProxy<CILType>>( declaredInterfacesFunc );
          layout = aLayout;
          securityInfo = aSecurityInfo;
+         explicitMethodImplementationMap = new ResettableLazy<DictionaryWithRoles<CILMethod, ListProxy<CILMethod>, ListProxyQuery<CILMethod>, ListQuery<CILMethod>>>( anExplicitMethodImplementationMap );
       }
 
       public override String ToString()
@@ -886,6 +903,11 @@ namespace CILAssemblyManipulator.Logical.Implementation
          this.baseType.Reset();
       }
 
+      void CILTypeInternal.ResetExplicitMethods()
+      {
+         this.explicitMethodImplementationMap.Reset();
+      }
+
       #endregion
 
       public override String Name
@@ -1079,6 +1101,55 @@ namespace CILAssemblyManipulator.Logical.Implementation
       public CILType MakeGenericType( params CILTypeBase[] args )
       {
          return this.context.Cache.MakeGenericType( this, this.GenericDefinition, args );
+      }
+
+      public void AddExplicitMethodImplementation( CILMethod methodBody, params CILMethod[] methodDeclarations )
+      {
+         this.ThrowIfNotTrueDefinition();
+         var map = this.explicitMethodImplementationMap.Value;
+         ListProxy<CILMethod> list;
+         if ( !map.MQ.TryGetValue( methodBody, out list ) )
+         {
+            list = this.context.CollectionsFactory.NewListProxy<CILMethod>();
+            map.Add( methodBody, list );
+         }
+         list.AddRange( methodDeclarations );
+
+         this.context.Cache.ForAllGenericInstancesOf( this, type => type.ResetExplicitMethods() );
+      }
+
+      public Boolean RemoveExplicitMethodImplementation( CILMethod methodBody, params CILMethod[] methodDeclarations )
+      {
+         this.ThrowIfNotTrueDefinition();
+         var map = this.explicitMethodImplementationMap.Value;
+         ListProxy<CILMethod> list;
+         var retVal = false;
+         if ( map.MQ.TryGetValue( methodBody, out list ) )
+         {
+            foreach ( var method in methodDeclarations )
+            {
+               retVal = list.Remove( method ) || retVal;
+            }
+            if ( list.MQ.Count <= 0 )
+            {
+               map.Remove( methodBody );
+            }
+
+            if ( retVal )
+            {
+               this.context.Cache.ForAllGenericInstancesOf( this, type => type.ResetExplicitMethods() );
+            }
+         }
+
+         return retVal;
+      }
+
+      public DictionaryQuery<CILMethod, ListQuery<CILMethod>> ExplicitMethodImplementations
+      {
+         get
+         {
+            return this.explicitMethodImplementationMap.Value.CQ.IQ;
+         }
       }
 
       #endregion

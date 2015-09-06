@@ -133,7 +133,7 @@ namespace CILAssemblyManipulator.Tests.SampleCode
       public static void SampleCode()
       {
          // CAM.Logical has a concept of reflection context, so everything has to be done within it
-         using ( var ctx = DotNETReflectionContext.CreateDotNETContext() )
+         using ( var ctx = CILReflectionContextFactory.NewContext() )
          {
             // Create fresh assembly with a module
             var assembly = ctx.NewBlankAssembly( "MyAssembly" );

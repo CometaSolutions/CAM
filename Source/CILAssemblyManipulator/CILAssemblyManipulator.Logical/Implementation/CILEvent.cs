@@ -39,7 +39,7 @@ namespace CILAssemblyManipulator.Logical.Implementation
          CILReflectionContextImpl ctx,
          Int32 anID,
          System.Reflection.EventInfo evt )
-         : base( ctx, anID, CILElementKind.Event, () => new CustomAttributeDataEventArgs( ctx, evt ) )
+         : base( ctx, anID, CILElementKind.Event, cb => cb.GetCustomAttributesDataForOrThrow( evt ) )
       {
          ArgumentValidator.ValidateNotNull( "Event", evt );
 
@@ -70,7 +70,7 @@ namespace CILAssemblyManipulator.Logical.Implementation
             () => ctx.Cache.GetOrAdd( evt.GetAddMethod( true ) ),
             () => ctx.Cache.GetOrAdd( evt.GetRemoveMethod( true ) ),
             () => ctx.Cache.GetOrAdd( evt.GetRaiseMethod( true ) ),
-            () => ctx.CollectionsFactory.NewListProxy<CILMethod>( ctx.LaunchEventOtherMethodsLoadEvent( new EventOtherMethodsEventArgs( evt ) ).Select( method => ctx.Cache.GetOrAdd( method ) ).ToList() ),
+            () => ctx.CollectionsFactory.NewListProxy<CILMethod>( ctx.WrapperCallbacks.GetEventOtherMethodsOrThrow( evt ).Select( m => ctx.NewWrapper( m ) ).ToList() ),
             () => (CILType) ctx.Cache.GetOrAdd( evt.DeclaringType ),
             true
             );

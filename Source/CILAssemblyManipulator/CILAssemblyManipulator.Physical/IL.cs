@@ -70,7 +70,7 @@ namespace CILAssemblyManipulator.Physical
 
    public abstract class OpCodeInfo
    {
-      private readonly UInt16 _code; // Save some memory - use enum instead of actual code (Int64 -> Int16)
+      private readonly UInt16 _code; // Save some memory - use integer instead of actual code (Int64 -> Int16)
 
       // Disable inheritance to other assemblies
       internal OpCodeInfo( OpCode code )
@@ -94,6 +94,11 @@ namespace CILAssemblyManipulator.Physical
          {
             return this.OpCode.OperandSize;
          }
+      }
+
+      public override String ToString()
+      {
+         return this.OpCode.ToString();
       }
 
       public static OpCodeInfo ReadFromBytes(

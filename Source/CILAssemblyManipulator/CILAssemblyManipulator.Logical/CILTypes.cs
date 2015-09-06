@@ -322,6 +322,35 @@ namespace CILAssemblyManipulator.Logical
       /// <remarks>TODO the void-type-check for generic arguments might not properly in some special scenarios, such as emitting mscorlib.</remarks>
       CILType MakeGenericType( params CILTypeBase[] args );
 
+      /// <summary>
+      /// Adds given methods to the list of explicitly implemented methods of this method. Please note that this is different from 'overrides' keyword in C#.
+      /// </summary>
+      /// <param name="methodBody">The method acting as method body. Should be from this type, or from any of the base types of this method.</param>
+      /// <param name="methodDeclarations">The methods that the <paramref name="methodBody"/> 'implements'.</param>
+      /// <remarks>See ECMA specification for more information about explicitly implemented methods (MethodImpl table).</remarks>
+      /// <exception cref="NotSupportedException">When <see cref="CILElementInstantiable.IsTrueDefinition"/> returns <c>false</c> for this type, meaning this type is a generic type but not generic type definition.</exception>
+      void AddExplicitMethodImplementation( CILMethod methodBody, params CILMethod[] methodDeclarations );
+
+      /// <summary>
+      /// Removes given methods to the list of explicitly implemented methods of this method. Please note that this is different from 'overrides' keyword in C#.
+      /// </summary>
+      /// <param name="methodBody">The method acting as method body. Should be from this type, or from any of the base types of this method.</param>
+      /// <param name="methodDeclarations">The methods that the <paramref name="methodBody"/> no longer 'implements'.</param>
+      /// <remarks>See ECMA specification for more information about explicitly implemented methods (MethodImpl table).</remarks>
+      /// <returns><c>true</c> if removed at least one method declaration; <c>false</c> otherwise.</returns>
+      /// <exception cref="NotSupportedException">When <see cref="CILElementInstantiable.IsTrueDefinition"/> returns <c>false</c> for this type, meaning this type is a generic type but not generic type definition.</exception>
+      Boolean RemoveExplicitMethodImplementation( CILMethod methodBody, params CILMethod[] methodDeclarations );
+
+      /// <summary>
+      /// Gets map of all explicitly implemented methods of this type.
+      /// </summary>
+      /// <value>The map of all explicitly implemented methods of this method.</value>
+      /// <remarks>
+      /// The keys of the returned dictionary are methods acting as method body, and the value is all the method declarations that the body 'implements'.
+      /// See ECMA specification for more information about explicitly implemented methods (MethodImpl table).
+      /// </remarks>
+      DictionaryQuery<CILMethod, ListQuery<CILMethod>> ExplicitMethodImplementations { get; }
+
    }
 
    /// <summary>

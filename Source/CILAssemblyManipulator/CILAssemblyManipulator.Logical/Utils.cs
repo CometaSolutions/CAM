@@ -604,13 +604,13 @@ namespace CILAssemblyManipulator.Logical
          return value;
       }
 
-      internal static void CheckMethodAttributesForOverriddenMethods( SettableValueForEnums<MethodAttributes> attrs, ListProxy<CILMethod> overriddenMethods )
-      {
-         if ( overriddenMethods.CQ.Any() )
-         {
-            attrs.Value = ( attrs.Value & ( ~MethodAttributes.MemberAccessMask ) ) | MethodAttributes.Private;
-         }
-      }
+      //internal static void CheckMethodAttributesForOverriddenMethods( SettableValueForEnums<MethodAttributes> attrs, ListProxy<CILMethod> overriddenMethods )
+      //{
+      //   if ( overriddenMethods.CQ.Any() )
+      //   {
+      //      attrs.Value = ( attrs.Value & ( ~MethodAttributes.MemberAccessMask ) ) | MethodAttributes.Private;
+      //   }
+      //}
 
       internal static void ThrowIfNotTrueDefinition( this CILCustomAttributeContainer element )
       {

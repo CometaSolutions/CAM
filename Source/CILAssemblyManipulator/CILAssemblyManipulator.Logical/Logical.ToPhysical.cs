@@ -835,12 +835,19 @@ public static partial class E_CILLogical
             Parent = typeIdx
          } );
       }
+
       md.InterfaceImplementations.TableContents.AddRange( type.DeclaredInterfaces.Select( iFace => new InterfaceImplementation()
       {
          Class = typeIdx,
          Interface = state.GetTypeDefOrRefOrSpec( iFace )
       } ) );
 
+      md.MethodImplementations.TableContents.AddRange( type.ExplicitMethodImplementations.SelectMany( kvp => kvp.Value.Select( om => new MethodImplementation()
+      {
+         Class = typeIdx,
+         MethodBody = state.GetMethodDefOrMemberRefOrMethodSpec( kvp.Key ),
+         MethodDeclaration = state.GetMethodDefOrMemberRefOrMethodSpec( om )
+      } ) ) );
    }
 
    private static void PostProcessLogicalForPhysical( this PhysicalCreationState state, CILField field )
@@ -884,14 +891,6 @@ public static partial class E_CILLogical
          // Create generic arguments for the method
          var m = (CILMethod) method;
          state.ProcessLogicalForPhysicalGArgs( m );
-
-         var typeDefIdx = state.GetTypeDefOrRefOrSpec( method.DeclaringType );
-         md.MethodImplementations.TableContents.AddRange( m.OverriddenMethods.Select( om => new MethodImplementation()
-         {
-            Class = typeDefIdx,
-            MethodBody = methodIdx,
-            MethodDeclaration = state.GetMethodDefOrMemberRefOrMethodSpec( om )
-         } ) );
 
          if ( !String.IsNullOrEmpty( m.PlatformInvokeName ) && !String.IsNullOrEmpty( m.PlatformInvokeModuleName ) )
          {

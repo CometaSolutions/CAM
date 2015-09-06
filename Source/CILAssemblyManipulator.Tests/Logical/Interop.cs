@@ -248,7 +248,7 @@ namespace CILAssemblyManipulator.Tests.Logical
 
       private static void PerformTest( Action<CILReflectionContext> test )
       {
-         using ( var ctx = DotNETReflectionContext.CreateDotNETContext() )
+         using ( var ctx = CILReflectionContextFactory.NewContext() )
          {
             test( ctx );
          }

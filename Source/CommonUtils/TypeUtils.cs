@@ -28,7 +28,7 @@ public static partial class E_CommonUtils
    /// Returns generic definition of <paramref name="type"/> if <see cref="Type.IsGenericType"/> returns <c>true</c> for <paramref name="type"/>.
    /// </summary>
    /// <param name="type">Type to check.</param>
-   /// <returns>Generic defintion of <paramref name="type" /> if it is not <c>null</c> and <see cref="Type.IsGenericType"/> returns <c>true</c>.</returns>
+   /// <returns>Generic definition of <paramref name="type" /> if it is not <c>null</c> and <see cref="Type.IsGenericType"/> returns <c>true</c>.</returns>
    public static Type GetGenericDefinitionIfGenericType( this Type type )
    {
       return type != null && type.IsGenericType ? type.GetGenericTypeDefinition() : type;

@@ -48,59 +48,6 @@ namespace CILAssemblyManipulator.Logical.Implementation
          this._initLocals = true; // Maybe set to false by default?
       }
 
-      internal MethodILImpl( CILMethodBase thisMethod, MethodBodyLoadArgs args )
-         : this( thisMethod, args.InitLocals, args.IL, GetLocalsFromArgs( thisMethod.ReflectionContext, args ), args.ExceptionInfos.Select( tuple => Tuple.Create( tuple.Item1, tuple.Item2, tuple.Item3, tuple.Item4, tuple.Item5, tuple.Item6 == null ? null : thisMethod.ReflectionContext.NewWrapperAsType( tuple.Item6 ), tuple.Item7 ) ).ToArray(), TokenResolverFromArgs( (CILReflectionContextImpl) thisMethod.ReflectionContext, args ) )
-      {
-      }
-
-      private static Tuple<Boolean, CILTypeBase>[] GetLocalsFromArgs( CILReflectionContext ctx, MethodBodyLoadArgs args )
-      {
-         var result = new Tuple<Boolean, CILTypeBase>[args.Locals.Count];
-         for ( var i = 0; i < result.Length; ++i )
-         {
-            result[i] = Tuple.Create( args.Locals[i].Item1, ctx.NewWrapper( args.Locals[i].Item2 ) );
-         }
-         return result;
-      }
-
-      private static Func<Int32, ILResolveKind, Object> TokenResolverFromArgs( CILReflectionContextImpl ctx, MethodBodyLoadArgs args )
-      {
-         var module = new Lazy<System.Reflection.Module>( () => ctx.LaunchTypeModuleLoadEvent( new TypeModuleEventArgs( args.Method.DeclaringType ) ), System.Threading.LazyThreadSafetyMode.ExecutionAndPublication );
-
-         var dType = args.Method.DeclaringType;
-         var gArgs = dType
-#if WINDOWS_PHONE_APP
-            .GetTypeInfo()
-#endif
-.IsGenericType ? dType.GetGenericTypeDefinition().GetGenericArguments() : null;
-         var mgArgs = args.Method is System.Reflection.MethodInfo && args.Method.GetGenericArguments().Any() ? ( (System.Reflection.MethodInfo) args.Method ).GetGenericMethodDefinition().GetGenericArguments() : null;
-
-         return ( token, rKind ) =>
-         {
-            var tArgs = new TokenResolveArgs( module.Value, token, rKind == ILResolveKind.String ? TokenResolveArgs.ResolveKinds.String : ( rKind == ILResolveKind.Signature ? TokenResolveArgs.ResolveKinds.Signature : TokenResolveArgs.ResolveKinds.Member ), gArgs, mgArgs );
-            ctx.LaunchTokenResolveEvent( tArgs );
-            switch ( rKind )
-            {
-               case ILResolveKind.String:
-                  return tArgs.ResolvedString;
-               case ILResolveKind.Signature:
-                  // TODO basically same thing as in ModuleReadingContext, except use this method to resolve tokens.
-                  // Maybe could make static methods to ModuleReadingContext (ReadFieldSignature, ReadMethodSignature, ReadType) that would use callbacks to resolve tokens.
-                  throw new NotImplementedException( "Implement creating method signature + var args from byte array (at this point)." );
-               default:
-                  return tArgs.ResolvedMember is Type ?
-                     ctx.Cache.GetOrAdd( (Type) tArgs.ResolvedMember ) :
-                        ( tArgs.ResolvedMember is System.Reflection.FieldInfo ?
-                           ctx.Cache.GetOrAdd( (System.Reflection.FieldInfo) tArgs.ResolvedMember ) :
-                              ( tArgs.ResolvedMember is System.Reflection.MethodInfo ?
-                                 (Object) ctx.Cache.GetOrAdd( (System.Reflection.MethodInfo) tArgs.ResolvedMember ) :
-                                 ctx.Cache.GetOrAdd( (System.Reflection.ConstructorInfo) tArgs.ResolvedMember )
-                                 )
-                            );
-            }
-         };
-      }
-
       internal MethodILImpl( CILMethodBase thisMethod, Boolean initLocals, Byte[] il, Tuple<Boolean, CILTypeBase>[] locals, Tuple<ExceptionBlockType, Int32, Int32, Int32, Int32, CILType, Int32>[] excBlocks, Func<Int32, ILResolveKind, Object> tokenResolver )
          : this( thisMethod.DeclaringType.Module )
       {
