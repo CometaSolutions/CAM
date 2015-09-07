@@ -55,6 +55,7 @@ namespace CILAssemblyManipulator.Logical.Implementation
          }
 
          InitFields(
+            ctx,
             ref this.name,
             ref this.propertyAttributes,
             ref this.setMethod,
@@ -67,7 +68,7 @@ namespace CILAssemblyManipulator.Logical.Implementation
             () => ctx.Cache.GetOrAdd( pInfo.GetSetMethod( true ) ),
             () => ctx.Cache.GetOrAdd( pInfo.GetGetMethod( true ) ),
             () => (CILType) ctx.Cache.GetOrAdd( pInfo.DeclaringType ),
-            new SettableLazy<Object>( () => ctx.WrapperCallbacks.GetConstantValueForOrThrow( pInfo ) ),
+            new SettableLazy<Object>( () => ctx.WrapperCallbacks.GetConstantValueForOrThrow( pInfo ), ctx.LazyThreadSafetyMode ),
             ctx.LaunchEventAndCreateCustomModifiers( pInfo, E_CILLogical.GetCustomModifiersForOrThrow ),
             true
             );
@@ -77,14 +78,14 @@ namespace CILAssemblyManipulator.Logical.Implementation
          : this(
          ctx,
          anID,
-         new Lazy<ListProxy<CILCustomAttribute>>( () => ctx.CollectionsFactory.NewListProxy<CILCustomAttribute>(), LazyThreadSafetyMode.PublicationOnly ),
+         new Lazy<ListProxy<CILCustomAttribute>>( () => ctx.CollectionsFactory.NewListProxy<CILCustomAttribute>(), ctx.LazyThreadSafetyMode ),
          new SettableValueForClasses<String>( aName ),
          new SettableValueForEnums<PropertyAttributes>( aPropertyAttributes ),
          () => null,
          () => null,
          () => declaringType,
-         new SettableLazy<Object>( () => null ),
-         new Lazy<ListProxy<CILCustomModifier>>( () => ctx.CollectionsFactory.NewListProxy<CILCustomModifier>(), LazyThreadSafetyMode.PublicationOnly ),
+         new SettableLazy<Object>( () => null, ctx.LazyThreadSafetyMode ),
+         new Lazy<ListProxy<CILCustomModifier>>( () => ctx.CollectionsFactory.NewListProxy<CILCustomModifier>(), ctx.LazyThreadSafetyMode ),
          true
          )
       {
@@ -108,6 +109,7 @@ namespace CILAssemblyManipulator.Logical.Implementation
          : base( ctx, CILElementKind.Property, anID, cAttrDataFunc )
       {
          InitFields(
+            ctx,
             ref this.name,
             ref this.propertyAttributes,
             ref this.setMethod,
@@ -127,6 +129,7 @@ namespace CILAssemblyManipulator.Logical.Implementation
       }
 
       private static void InitFields(
+         CILReflectionContextImpl ctx,
          ref SettableValueForClasses<String> name,
          ref SettableValueForEnums<PropertyAttributes> propertyAttributes,
          ref ResettableLazy<CILMethod> setMethod,
@@ -144,11 +147,12 @@ namespace CILAssemblyManipulator.Logical.Implementation
          Boolean resettablesAreSettable
          )
       {
+         var lazyThreadSafety = ctx.LazyThreadSafetyMode;
          name = aName;
          propertyAttributes = aPropertyAttributes;
-         setMethod = resettablesAreSettable ? new ResettableAndSettableLazy<CILMethod>( setMethodFunc ) : new ResettableLazy<CILMethod>( setMethodFunc );
-         getMethod = resettablesAreSettable ? new ResettableAndSettableLazy<CILMethod>( getMethodFunc ) : new ResettableLazy<CILMethod>( getMethodFunc );
-         declaringType = new SettableLazy<CILType>( declaringTypeFunc );
+         setMethod = resettablesAreSettable ? new ResettableAndSettableLazy<CILMethod>( setMethodFunc, lazyThreadSafety ) : new ResettableLazy<CILMethod>( setMethodFunc, lazyThreadSafety );
+         getMethod = resettablesAreSettable ? new ResettableAndSettableLazy<CILMethod>( getMethodFunc, lazyThreadSafety ) : new ResettableLazy<CILMethod>( getMethodFunc, lazyThreadSafety );
+         declaringType = new SettableLazy<CILType>( declaringTypeFunc, lazyThreadSafety );
          constValue = aConstValue;
          customModifiers = customMods;
       }

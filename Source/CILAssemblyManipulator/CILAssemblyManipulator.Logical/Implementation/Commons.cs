@@ -193,8 +193,8 @@ namespace CILAssemblyManipulator.Logical.Implementation
       private Lazy<T> _lazy;
       private Object _mutable;
 
-      internal SettableLazy( Func<T> creator )
-         : this( new Lazy<T>( creator, LazyThreadSafetyMode.ExecutionAndPublication ) )
+      internal SettableLazy( Func<T> creator, LazyThreadSafetyMode lazyThreadSafety )
+         : this( new Lazy<T>( creator, lazyThreadSafety ) )
       {
 
       }
@@ -308,17 +308,19 @@ namespace CILAssemblyManipulator.Logical.Implementation
    internal class ResettableLazy<T>
    {
       protected Lazy<T> _lazy;
+      private readonly LazyThreadSafetyMode _threadSafety;
       private readonly Func<T> _valueFactory;
 
-      internal ResettableLazy( Func<T> valueFactory )
+      internal ResettableLazy( Func<T> valueFactory, LazyThreadSafetyMode threadSafety )
       {
          this._valueFactory = valueFactory;
-         this._lazy = new Lazy<T>( this._valueFactory, LazyThreadSafetyMode.ExecutionAndPublication );
+         this._threadSafety = threadSafety;
+         this._lazy = new Lazy<T>( this._valueFactory, threadSafety );
       }
 
       internal virtual void Reset()
       {
-         Interlocked.Exchange( ref this._lazy, new Lazy<T>( this._valueFactory, LazyThreadSafetyMode.ExecutionAndPublication ) );
+         Interlocked.Exchange( ref this._lazy, new Lazy<T>( this._valueFactory, this._threadSafety ) );
       }
 
       internal virtual T Value
@@ -338,8 +340,8 @@ namespace CILAssemblyManipulator.Logical.Implementation
    {
       private Object _mutable;
 
-      internal ResettableAndSettableLazy( Func<T> valueFactory )
-         : base( valueFactory )
+      internal ResettableAndSettableLazy( Func<T> valueFactory, LazyThreadSafetyMode threadSafety )
+         : base( valueFactory, threadSafety )
       {
 
       }

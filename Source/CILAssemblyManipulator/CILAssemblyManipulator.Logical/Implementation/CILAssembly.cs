@@ -40,6 +40,7 @@ namespace CILAssemblyManipulator.Logical.Implementation
       {
          ArgumentValidator.ValidateNotNull( "Assembly", ass );
          InitFields(
+            ctx,
             ref this.name,
             ref this.modules,
             ref this.forwardedTypes,
@@ -77,9 +78,10 @@ namespace CILAssemblyManipulator.Logical.Implementation
          CILReflectionContextImpl ctx,
          Int32 anID
          )
-         : base( ctx, CILElementKind.Assembly, anID, new Lazy<ListProxy<CILCustomAttribute>>( () => ctx.CollectionsFactory.NewListProxy<CILCustomAttribute>(), LazyThreadSafetyMode.PublicationOnly ) )
+         : base( ctx, CILElementKind.Assembly, anID, new Lazy<ListProxy<CILCustomAttribute>>( () => ctx.CollectionsFactory.NewListProxy<CILCustomAttribute>(), ctx.LazyThreadSafetyMode ) )
       {
          InitFields(
+            ctx,
             ref this.name,
             ref this.modules,
             ref this.forwardedTypes,
@@ -91,30 +93,8 @@ namespace CILAssemblyManipulator.Logical.Implementation
             );
       }
 
-      internal CILAssemblyImpl(
-         CILReflectionContextImpl ctx,
-         Int32 anID,
-         Lazy<ListProxy<CILCustomAttribute>> cAttrs,
-         Func<CILAssemblyName> nameFunc,
-         Func<ListProxy<CILModule>> modulesFunc,
-         Func<DictionaryProxy<Tuple<String, String>, TypeForwardingInfo>> forwardedTypesFunc,
-         Func<CILModule> mainModuleFunc
-         )
-         : base( ctx, CILElementKind.Assembly, anID, cAttrs )
-      {
-         InitFields(
-            ref this.name,
-            ref this.modules,
-            ref this.forwardedTypes,
-            ref this.mainModule,
-            nameFunc,
-            modulesFunc,
-            forwardedTypesFunc,
-            mainModuleFunc
-            );
-      }
-
       private static void InitFields(
+         CILReflectionContextImpl ctx,
          ref SettableLazy<CILAssemblyName> name,
          ref Lazy<ListProxy<CILModule>> modules,
          ref Lazy<DictionaryProxy<Tuple<String, String>, TypeForwardingInfo>> forwardedTypes,
@@ -125,10 +105,11 @@ namespace CILAssemblyManipulator.Logical.Implementation
          Func<CILModule> mainModuleFunc
          )
       {
-         name = new SettableLazy<CILAssemblyName>( nameFunc );
-         modules = new Lazy<ListProxy<CILModule>>( moduleFunc, LazyThreadSafetyMode.PublicationOnly );
-         forwardedTypes = new Lazy<DictionaryProxy<Tuple<String, String>, TypeForwardingInfo>>( forwardedTypesFunc, LazyThreadSafetyMode.PublicationOnly );
-         mainModule = new SettableLazy<CILModule>( mainModuleFunc );
+         var lazyThreadSafety = ctx.LazyThreadSafetyMode;
+         name = new SettableLazy<CILAssemblyName>( nameFunc, lazyThreadSafety );
+         modules = new Lazy<ListProxy<CILModule>>( moduleFunc, lazyThreadSafety );
+         forwardedTypes = new Lazy<DictionaryProxy<Tuple<String, String>, TypeForwardingInfo>>( forwardedTypesFunc, lazyThreadSafety );
+         mainModule = new SettableLazy<CILModule>( mainModuleFunc, lazyThreadSafety );
       }
 
       internal override String IsCapableOfChanging()

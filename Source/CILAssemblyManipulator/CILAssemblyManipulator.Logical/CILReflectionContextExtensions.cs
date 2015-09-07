@@ -24,6 +24,7 @@ using CILAssemblyManipulator.Logical.Implementation;
 using CollectionsWithRoles.API;
 using CommonUtils;
 using CILAssemblyManipulator.Physical;
+using System.Threading;
 
 public static partial class E_CILLogical
 {
@@ -48,6 +49,13 @@ public static partial class E_CILLogical
    public static CILMethodSignature NewMethodSignature( this CILReflectionContext ctx, CILModule currentModule, UnmanagedCallingConventions callingConventions, CILTypeBase returnType, params CILTypeBase[] paramTypes )
    {
       return ctx.NewMethodSignature( currentModule, callingConventions, returnType, null, paramTypes.Select( pt => Tuple.Create( (CILCustomModifier[]) null, pt ) ).ToArray() );
+   }
+
+   internal static LazyThreadSafetyMode GetLazyThreadSafetyMode( this CILReflectionContext ctx )
+   {
+      return ctx.ConcurrencySupport == CILReflectionContextConcurrencySupport.NotThreadSafe ?
+               LazyThreadSafetyMode.None :
+               LazyThreadSafetyMode.ExecutionAndPublication;
    }
 
    ///// <summary>

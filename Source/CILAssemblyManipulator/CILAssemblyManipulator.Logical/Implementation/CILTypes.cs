@@ -52,6 +52,7 @@ namespace CILAssemblyManipulator.Logical.Implementation
          ArgumentValidator.ValidateNotNull( "Reflection context", ctx );
 
          InitFields(
+            ctx,
             ref this.typeKind,
             ref this.typeCode,
             ref this.name,
@@ -110,6 +111,7 @@ namespace CILAssemblyManipulator.Logical.Implementation
          : base( ctx, CILElementKind.Type, anID, cAttrDataFunc )
       {
          InitFields(
+            ctx,
             ref this.typeKind,
             ref this.typeCode,
             ref this.name,
@@ -127,6 +129,7 @@ namespace CILAssemblyManipulator.Logical.Implementation
       }
 
       private static void InitFields(
+         CILReflectionContextImpl ctx,
          ref TypeKind typeKind,
          ref SettableLazy<CILTypeCode> typeCode,
          ref SettableValueForClasses<String> name,
@@ -143,11 +146,11 @@ namespace CILAssemblyManipulator.Logical.Implementation
          )
       {
          typeKind = aTypeKind;
-         typeCode = new SettableLazy<CILTypeCode>( aTypeCode );
+         typeCode = new SettableLazy<CILTypeCode>( aTypeCode, ctx.LazyThreadSafetyMode );
          name = aName;
          @namespace = aNamespace;
-         module = new Lazy<CILModule>( moduleFunc, LazyThreadSafetyMode.ExecutionAndPublication );
-         declaringType = new Lazy<CILType>( declaringTypeFunc, LazyThreadSafetyMode.ExecutionAndPublication );
+         module = new Lazy<CILModule>( moduleFunc, ctx.LazyThreadSafetyMode );
+         declaringType = new Lazy<CILType>( declaringTypeFunc, ctx.LazyThreadSafetyMode );
       }
 
       #region CILTypeBase Members
@@ -345,7 +348,7 @@ namespace CILAssemblyManipulator.Logical.Implementation
 .BaseType;
 
          InitFields(
-            ctx.LazyThreadSafetyMode,
+            ctx,
             ref this.typeAttributes,
             ref this.elementKind,
             ref this.arrayInfo,
@@ -378,7 +381,7 @@ namespace CILAssemblyManipulator.Logical.Implementation
 #endif
  )
                   .Select( nested => (CILType) ctx.Cache.GetOrAdd( nested ) )
-                  .ToList() ), LazyThreadSafetyMode.PublicationOnly ),
+                  .ToList() ), ctx.LazyThreadSafetyMode ),
             () => ctx.CollectionsFactory.NewListProxy<CILField>(
                type.GetFields(
 #if !WINDOWS_PHONE_APP
@@ -440,7 +443,7 @@ namespace CILAssemblyManipulator.Logical.Implementation
                {
                   return null;
                }
-            } ),
+            }, ctx.LazyThreadSafetyMode ),
             () => (CILType) ctx.Cache.GetOrAdd( bType ),
             () =>
             {
@@ -463,7 +466,7 @@ namespace CILAssemblyManipulator.Logical.Implementation
                   .Select( iFace => (CILType) ctx.Cache.GetOrAdd( iFace ) )
                   .ToList() );
             },
-            new Lazy<DictionaryWithRoles<SecurityAction, ListProxy<LogicalSecurityInformation>, ListProxyQuery<LogicalSecurityInformation>, ListQuery<LogicalSecurityInformation>>>( this.SecurityInfoFromAttributes, LazyThreadSafetyMode.ExecutionAndPublication ),
+            new Lazy<DictionaryWithRoles<SecurityAction, ListProxy<LogicalSecurityInformation>, ListProxyQuery<LogicalSecurityInformation>, ListQuery<LogicalSecurityInformation>>>( this.SecurityInfoFromAttributes, ctx.LazyThreadSafetyMode ),
             () => ctx.CollectionsFactory.NewDictionary<CILMethod, ListProxy<CILMethod>, ListProxyQuery<CILMethod>, ListQuery<CILMethod>>(
                type.IsInterface ? null : ( ctx.WrapperCallbacks.GetExplicitlyImplementedMethodsOrThrow( type )
                .ToDictionary(
@@ -477,7 +480,7 @@ namespace CILAssemblyManipulator.Logical.Implementation
          : this(
          ctx,
          anID,
-         new Lazy<ListProxy<CILCustomAttribute>>( () => ctx.CollectionsFactory.NewListProxy<CILCustomAttribute>(), LazyThreadSafetyMode.PublicationOnly ),
+         new Lazy<ListProxy<CILCustomAttribute>>( () => ctx.CollectionsFactory.NewListProxy<CILCustomAttribute>(), ctx.LazyThreadSafetyMode ),
          () => typeCode,
          new SettableValueForClasses<String>( name ),
          new SettableValueForClasses<String>( null ),
@@ -493,14 +496,14 @@ namespace CILAssemblyManipulator.Logical.Implementation
          null,
          () => ctx.CollectionsFactory.NewListProxy<CILTypeBase>(),
          () => null,
-         new Lazy<ListProxy<CILType>>( () => ctx.CollectionsFactory.NewListProxy<CILType>(), LazyThreadSafetyMode.PublicationOnly ),
+         new Lazy<ListProxy<CILType>>( () => ctx.CollectionsFactory.NewListProxy<CILType>(), ctx.LazyThreadSafetyMode ),
          () => ctx.CollectionsFactory.NewListProxy<CILField>(),
          () => null,
          () => ctx.CollectionsFactory.NewListProxy<CILMethod>(),
          () => ctx.CollectionsFactory.NewListProxy<CILConstructor>(),
          () => ctx.CollectionsFactory.NewListProxy<CILProperty>(),
          () => ctx.CollectionsFactory.NewListProxy<CILEvent>(),
-         new SettableLazy<LogicalClassLayout?>( () => null ),
+         new SettableLazy<LogicalClassLayout?>( () => null, ctx.LazyThreadSafetyMode ),
          null,
          null,
          true
@@ -539,7 +542,7 @@ namespace CILAssemblyManipulator.Logical.Implementation
          : base( ctx, anID, cAttrDataFunc, TypeKind.Type, typeCode, aName, aNamespace, moduleFunc, declaringTypeFunc, resettablesAreSettable )
       {
          InitFields(
-            ctx.LazyThreadSafetyMode,
+            ctx,
             ref this.typeAttributes,
             ref this.elementKind,
             ref this.arrayInfo,
@@ -579,7 +582,7 @@ namespace CILAssemblyManipulator.Logical.Implementation
       }
 
       private static void InitFields(
-         LazyThreadSafetyMode lazyThreadSafety,
+         CILReflectionContextImpl ctx,
          ref SettableValueForEnums<TypeAttributes> typeAttrs,
          ref ElementKind? elementKind,
          ref GeneralArrayInfo arrayInfo,
@@ -617,23 +620,24 @@ namespace CILAssemblyManipulator.Logical.Implementation
          Boolean resettablesAreSettable
          )
       {
+         var lazyThreadSafety = ctx.LazyThreadSafetyMode;
          typeAttrs = typeAttrsVal;
          elementKind = anElementKind;
          arrayInfo = anArrayInfo;
          gArgs = new Lazy<ListProxy<CILTypeBase>>( gArgsFunc, lazyThreadSafety );
-         genericDefinition = new SettableLazy<CILType>( genericDefinitionFunc );
+         genericDefinition = new SettableLazy<CILType>( genericDefinitionFunc, lazyThreadSafety );
          nested = nestedTypesFunc;
-         fields = new ResettableLazy<ListProxy<CILField>>( fieldsFunc );
+         fields = new ResettableLazy<ListProxy<CILField>>( fieldsFunc, lazyThreadSafety );
          elementType = new Lazy<CILTypeBase>( elementTypeFunc, lazyThreadSafety );
-         methods = new ResettableLazy<ListProxy<CILMethod>>( methodsFunc );
-         ctors = new ResettableLazy<ListProxy<CILConstructor>>( ctorsFunc );
-         properties = new ResettableLazy<ListProxy<CILProperty>>( propertiesFunc );
-         events = new ResettableLazy<ListProxy<CILEvent>>( eventsFunc );
-         baseType = resettablesAreSettable ? new ResettableAndSettableLazy<CILType>( baseTypeFunc ) : new ResettableLazy<CILType>( baseTypeFunc );
-         declaredInterfaces = new ResettableLazy<ListProxy<CILType>>( declaredInterfacesFunc );
+         methods = new ResettableLazy<ListProxy<CILMethod>>( methodsFunc, lazyThreadSafety );
+         ctors = new ResettableLazy<ListProxy<CILConstructor>>( ctorsFunc, lazyThreadSafety );
+         properties = new ResettableLazy<ListProxy<CILProperty>>( propertiesFunc, lazyThreadSafety );
+         events = new ResettableLazy<ListProxy<CILEvent>>( eventsFunc, lazyThreadSafety );
+         baseType = resettablesAreSettable ? new ResettableAndSettableLazy<CILType>( baseTypeFunc, lazyThreadSafety ) : new ResettableLazy<CILType>( baseTypeFunc, lazyThreadSafety );
+         declaredInterfaces = new ResettableLazy<ListProxy<CILType>>( declaredInterfacesFunc, lazyThreadSafety );
          layout = aLayout;
          securityInfo = aSecurityInfo;
-         explicitMethodImplementationMap = new ResettableLazy<DictionaryWithRoles<CILMethod, ListProxy<CILMethod>, ListProxyQuery<CILMethod>, ListQuery<CILMethod>>>( anExplicitMethodImplementationMap );
+         explicitMethodImplementationMap = new ResettableLazy<DictionaryWithRoles<CILMethod, ListProxy<CILMethod>, ListProxyQuery<CILMethod>, ListQuery<CILMethod>>>( anExplicitMethodImplementationMap, lazyThreadSafety );
       }
 
       public override String ToString()
@@ -1245,6 +1249,7 @@ namespace CILAssemblyManipulator.Logical.Implementation
             throw new ArgumentException( "Trying to create type parameter for type " + type );
          }
          InitFields(
+            ctx,
             ref this.paramAttributes,
             ref this.position,
             ref this.declaringMethod,
@@ -1293,6 +1298,7 @@ namespace CILAssemblyManipulator.Logical.Implementation
          )
       {
          InitFields(
+            ctx,
             ref this.paramAttributes,
             ref this.position,
             ref this.declaringMethod,
@@ -1305,6 +1311,7 @@ namespace CILAssemblyManipulator.Logical.Implementation
       }
 
       private static void InitFields(
+         CILReflectionContextImpl ctx,
          ref GenericParameterAttributes paramAttributes,
          ref Int32 position,
          ref Lazy<CILMethod> declaringMethod,
@@ -1315,10 +1322,11 @@ namespace CILAssemblyManipulator.Logical.Implementation
          Func<ListProxy<CILTypeBase>> genericParameterConstraintsFunc
          )
       {
+         var lazyThreadSafety = ctx.LazyThreadSafetyMode;
          paramAttributes = aParamAttributes;
          position = aPosition;
-         declaringMethod = new Lazy<CILMethod>( declaringMethodFunc, LazyThreadSafetyMode.ExecutionAndPublication );
-         genericParameterConstraints = new Lazy<ListProxy<CILTypeBase>>( genericParameterConstraintsFunc, LazyThreadSafetyMode.PublicationOnly );
+         declaringMethod = new Lazy<CILMethod>( declaringMethodFunc, lazyThreadSafety );
+         genericParameterConstraints = new Lazy<ListProxy<CILTypeBase>>( genericParameterConstraintsFunc, lazyThreadSafety );
       }
 
       public override String ToString()
@@ -1397,7 +1405,7 @@ namespace CILAssemblyManipulator.Logical.Implementation
       private readonly Lazy<SettableValueForClasses<String>> _nameDummy;
       private readonly CILMethodBase _originatingMethod;
 
-      internal CILMethodSignatureImpl( CILReflectionContext ctx, CILModule module, UnmanagedCallingConventions callConv, ListProxy<CILCustomModifier> rpCMods, CILTypeBase rpType, IList<Tuple<ListProxy<CILCustomModifier>, CILTypeBase>> paramsInfo, CILMethodBase originatingMethod )
+      internal CILMethodSignatureImpl( CILReflectionContextImpl ctx, CILModule module, UnmanagedCallingConventions callConv, ListProxy<CILCustomModifier> rpCMods, CILTypeBase rpType, IList<Tuple<ListProxy<CILCustomModifier>, CILTypeBase>> paramsInfo, CILMethodBase originatingMethod )
          : base( ctx )
       {
          ArgumentValidator.ValidateNotNull( "Module", module );
@@ -1421,7 +1429,7 @@ namespace CILAssemblyManipulator.Logical.Implementation
          this._params = parameters.CQ;
 
          this._nsDummy = new SettableValueForClasses<string>( null );
-         this._nameDummy = new Lazy<SettableValueForClasses<string>>( () => new SettableValueForClasses<string>( this.ToString() ), LazyThreadSafetyMode.ExecutionAndPublication );
+         this._nameDummy = new Lazy<SettableValueForClasses<string>>( () => new SettableValueForClasses<string>( this.ToString() ), ctx.LazyThreadSafetyMode );
          this._originatingMethod = originatingMethod;
       }
 

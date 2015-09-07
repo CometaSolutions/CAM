@@ -350,20 +350,31 @@ public static partial class E_CILLogical
    /// <exception cref="ArgumentNullException">If any type of parameters is <c>null</c>.</exception>
    public static CILMethodSignature CreateMethodSignature( this CILMethodBase method, UnmanagedCallingConventions callConventions = UnmanagedCallingConventions.C )
    {
-      var cf = CollectionsWithRoles.Implementation.CollectionsFactorySingleton.DEFAULT_COLLECTIONS_FACTORY;
-      return new CILMethodSignatureImpl(
-         method.ReflectionContext,
+      return method.ReflectionContext.NewMethodSignature(
          method.DeclaringType.Module,
          callConventions | (UnmanagedCallingConventions) ( method.CallingConvention & CallingConventions.HasThis & CallingConventions.ExplicitThis ),
          MethodKind.Method == method.MethodKind ?
-            cf.NewListProxyFromParams( ( (CILMethod) method ).ReturnParameter.CustomModifiers.ToArray() ) :
-            null,
-         MethodKind.Method == method.MethodKind ?
             ( (CILMethod) method ).ReturnParameter.ParameterType :
             method.DeclaringType.Module.AssociatedMSCorLibModule.GetTypeByName( Consts.VOID ),
-            method.Parameters.Select( param => Tuple.Create( cf.NewListProxyFromParams( param.CustomModifiers.ToArray() ), param.ParameterType ) ).ToList(),
-         method
-            );
+         MethodKind.Method == method.MethodKind ?
+            ( (CILMethod) method ).ReturnParameter.CustomModifiers.ToArray() :
+            null,
+         method.Parameters.Select( param => Tuple.Create( param.CustomModifiers.ToArray(), param.ParameterType ) ).ToArray()
+         );
+      //var cf = CollectionsWithRoles.Implementation.CollectionsFactorySingleton.DEFAULT_COLLECTIONS_FACTORY;
+      //return new CILMethodSignatureImpl(
+      //   method.ReflectionContext,
+      //   method.DeclaringType.Module,
+      //   callConventions | (UnmanagedCallingConventions) ( method.CallingConvention & CallingConventions.HasThis & CallingConventions.ExplicitThis ),
+      //   MethodKind.Method == method.MethodKind ?
+      //      cf.NewListProxyFromParams( ( (CILMethod) method ).ReturnParameter.CustomModifiers.ToArray() ) :
+      //      null,
+      //   MethodKind.Method == method.MethodKind ?
+      //      ( (CILMethod) method ).ReturnParameter.ParameterType :
+      //      method.DeclaringType.Module.AssociatedMSCorLibModule.GetTypeByName( Consts.VOID ),
+      //      method.Parameters.Select( param => Tuple.Create( cf.NewListProxyFromParams( param.CustomModifiers.ToArray() ), param.ParameterType ) ).ToList(),
+      //   method
+      //      );
    }
 
    /// <summary>

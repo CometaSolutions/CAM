@@ -150,13 +150,7 @@ namespace CILAssemblyManipulator.Logical
          : base( attributes )
       {
          ArgumentValidator.ValidateNotNull( "Module", assembly );
-         this._assembly = new Lazy<CILAssembly>( () => assembly, System.Threading.LazyThreadSafetyMode.ExecutionAndPublication ); ;
-      }
-
-      internal AssemblyManifestResource( ManifestResourceAttributes attributes, Func<CILAssembly> assembly )
-         : base( attributes )
-      {
-         this._assembly = new Lazy<CILAssembly>( assembly, System.Threading.LazyThreadSafetyMode.ExecutionAndPublication );
+         this._assembly = new Lazy<CILAssembly>( () => assembly, assembly.ReflectionContext.GetLazyThreadSafetyMode() );
       }
 
       /// <summary>

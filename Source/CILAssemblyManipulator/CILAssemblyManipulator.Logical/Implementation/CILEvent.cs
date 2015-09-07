@@ -56,6 +56,7 @@ namespace CILAssemblyManipulator.Logical.Implementation
             throw new ArgumentException( "This constructor may be used only on events declared in genericless types or generic type definitions." );
          }
          InitFields(
+            ctx,
             ref this.name,
             ref this.eventAttributes,
             ref this.eventType,
@@ -80,7 +81,7 @@ namespace CILAssemblyManipulator.Logical.Implementation
          : this(
          ctx,
          anID,
-         new Lazy<ListProxy<CILCustomAttribute>>( () => ctx.CollectionsFactory.NewListProxy<CILCustomAttribute>(), LazyThreadSafetyMode.PublicationOnly ),
+         new Lazy<ListProxy<CILCustomAttribute>>( () => ctx.CollectionsFactory.NewListProxy<CILCustomAttribute>(), ctx.LazyThreadSafetyMode ),
          new SettableValueForClasses<String>( aName ),
          new SettableValueForEnums<EventAttributes>( anEventAttributes ),
          () => anEventType,
@@ -111,6 +112,7 @@ namespace CILAssemblyManipulator.Logical.Implementation
          : base( ctx, CILElementKind.Event, anID, cAttrDataFunc )
       {
          InitFields(
+            ctx,
             ref this.name,
             ref this.eventAttributes,
             ref this.eventType,
@@ -132,6 +134,7 @@ namespace CILAssemblyManipulator.Logical.Implementation
       }
 
       private static void InitFields(
+         CILReflectionContextImpl ctx,
          ref SettableValueForClasses<String> name,
          ref SettableValueForEnums<EventAttributes> eventAttributes,
          ref ResettableLazy<CILTypeBase> eventType,
@@ -151,14 +154,15 @@ namespace CILAssemblyManipulator.Logical.Implementation
          Boolean resettablesSettable
       )
       {
+         var lazyThreadSafety = ctx.LazyThreadSafetyMode;
          name = aName;
          eventAttributes = anEventAttributes;
-         eventType = resettablesSettable ? new ResettableAndSettableLazy<CILTypeBase>( eventTypeFunc ) : new ResettableLazy<CILTypeBase>( eventTypeFunc );
-         addMethod = resettablesSettable ? new ResettableAndSettableLazy<CILMethod>( addMethodFunc ) : new ResettableLazy<CILMethod>( addMethodFunc );
-         removeMethod = resettablesSettable ? new ResettableAndSettableLazy<CILMethod>( removeMethodFunc ) : new ResettableLazy<CILMethod>( removeMethodFunc );
-         raiseMethod = resettablesSettable ? new ResettableAndSettableLazy<CILMethod>( raiseMethodFunc ) : new ResettableLazy<CILMethod>( raiseMethodFunc );
-         otherMethods = new ResettableLazy<ListProxy<CILMethod>>( otherMethodsFunc );
-         declaringType = new Lazy<CILType>( declaringTypeFunc, LazyThreadSafetyMode.ExecutionAndPublication );
+         eventType = resettablesSettable ? new ResettableAndSettableLazy<CILTypeBase>( eventTypeFunc, lazyThreadSafety ) : new ResettableLazy<CILTypeBase>( eventTypeFunc, lazyThreadSafety );
+         addMethod = resettablesSettable ? new ResettableAndSettableLazy<CILMethod>( addMethodFunc, lazyThreadSafety ) : new ResettableLazy<CILMethod>( addMethodFunc, lazyThreadSafety );
+         removeMethod = resettablesSettable ? new ResettableAndSettableLazy<CILMethod>( removeMethodFunc, lazyThreadSafety ) : new ResettableLazy<CILMethod>( removeMethodFunc, lazyThreadSafety );
+         raiseMethod = resettablesSettable ? new ResettableAndSettableLazy<CILMethod>( raiseMethodFunc, lazyThreadSafety ) : new ResettableLazy<CILMethod>( raiseMethodFunc, lazyThreadSafety );
+         otherMethods = new ResettableLazy<ListProxy<CILMethod>>( otherMethodsFunc, lazyThreadSafety );
+         declaringType = new Lazy<CILType>( declaringTypeFunc, lazyThreadSafety );
       }
 
       #region CILEvent Members

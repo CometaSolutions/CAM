@@ -50,6 +50,7 @@ namespace CILAssemblyManipulator.Logical.Implementation
          ArgumentValidator.ValidateNotNull( "Module", mod );
          var mName = mod.Name;
          InitFields(
+            ctx,
             ref this.name,
             ref this.assembly,
             ref this.types,
@@ -71,9 +72,10 @@ namespace CILAssemblyManipulator.Logical.Implementation
       }
 
       internal CILModuleImpl( CILReflectionContextImpl ctx, Int32 anID, CILAssembly ass, String name )
-         : base( ctx, CILElementKind.Module, anID, new Lazy<ListProxy<CILCustomAttribute>>( () => ctx.CollectionsFactory.NewListProxy<CILCustomAttribute>(), LazyThreadSafetyMode.PublicationOnly ) )
+         : base( ctx, CILElementKind.Module, anID, new Lazy<ListProxy<CILCustomAttribute>>( () => ctx.CollectionsFactory.NewListProxy<CILCustomAttribute>(), ctx.LazyThreadSafetyMode ) )
       {
          InitFields(
+            ctx,
             ref this.name,
             ref this.assembly,
             ref this.types,
@@ -92,6 +94,7 @@ namespace CILAssemblyManipulator.Logical.Implementation
       }
 
       private static void InitFields(
+         CILReflectionContextImpl ctx,
          ref String name,
          ref Lazy<CILAssembly> assembly,
          ref Lazy<ListProxy<CILType>> types,
@@ -112,11 +115,12 @@ namespace CILAssemblyManipulator.Logical.Implementation
          CILModuleImpl me
          )
       {
+         var lazyThreadSafety = ctx.LazyThreadSafetyMode;
          name = aName;
-         assembly = new Lazy<CILAssembly>( assemblyFunc, LazyThreadSafetyMode.ExecutionAndPublication );
-         types = new Lazy<ListProxy<CILType>>( typesFunc, LazyThreadSafetyMode.PublicationOnly );
-         moduleInitializer = new Lazy<CILType>( moduleInitializerFunc, LazyThreadSafetyMode.ExecutionAndPublication );
-         associatedMSCorLib = new SettableLazy<CILModule>( associatedMSCorLibFunc );
+         assembly = new Lazy<CILAssembly>( assemblyFunc, lazyThreadSafety );
+         types = new Lazy<ListProxy<CILType>>( typesFunc, lazyThreadSafety );
+         moduleInitializer = new Lazy<CILType>( moduleInitializerFunc, lazyThreadSafety );
+         associatedMSCorLib = new SettableLazy<CILModule>( associatedMSCorLibFunc, lazyThreadSafety );
          typeNameCache =
 #if CAM_LOGICAL_IS_SL
             new Dictionary<String, CILType>()

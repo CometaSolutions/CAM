@@ -137,6 +137,7 @@ namespace CILAssemblyManipulator.Logical.Implementation
          var member = parameter.Member;
          var isCtor = member is System.Reflection.ConstructorInfo;
          InitFields(
+            ctx,
             ref this.paramAttributes,
             ref this.position,
             ref this.name,
@@ -150,7 +151,7 @@ namespace CILAssemblyManipulator.Logical.Implementation
             new SettableValueForClasses<String>( parameter.Name ),
             () => isCtor ? (CILMethodBase) ctx.Cache.GetOrAdd( (System.Reflection.ConstructorInfo) member ) : ctx.Cache.GetOrAdd( (System.Reflection.MethodInfo) member ),
             () => ctx.Cache.GetOrAdd( parameter.ParameterType ),
-            new SettableLazy<Object>( () => ctx.WrapperCallbacks.GetConstantValueForOrThrow( parameter ) ),
+            new SettableLazy<Object>( () => ctx.WrapperCallbacks.GetConstantValueForOrThrow( parameter ), ctx.LazyThreadSafetyMode ),
             ctx.LaunchEventAndCreateCustomModifiers( parameter, E_CILLogical.GetCustomModifiersForOrThrow ),
             new SettableLazy<LogicalMarshalingInfo>( () =>
             {
@@ -159,7 +160,7 @@ namespace CILAssemblyManipulator.Logical.Implementation
 #else
                return LogicalMarshalingInfo.FromAttribute( parameter.GetCustomAttributes( true ).OfType<System.Runtime.InteropServices.MarshalAsAttribute>().FirstOrDefault(), ctx );
 #endif
-            } ),
+            }, ctx.LazyThreadSafetyMode ),
             true
             );
       }
@@ -168,15 +169,15 @@ namespace CILAssemblyManipulator.Logical.Implementation
          : this(
          ctx,
          anID,
-         new Lazy<ListProxy<CILCustomAttribute>>( () => ctx.CollectionsFactory.NewListProxy<CILCustomAttribute>(), LazyThreadSafetyMode.PublicationOnly ),
+         new Lazy<ListProxy<CILCustomAttribute>>( () => ctx.CollectionsFactory.NewListProxy<CILCustomAttribute>(), ctx.LazyThreadSafetyMode ),
          new SettableValueForEnums<ParameterAttributes>( attrs ),
          position,
          new SettableValueForClasses<String>( name ),
          () => ownerMethod,
          () => paramType,
-         new SettableLazy<Object>( () => null ),
-         new Lazy<ListProxy<CILCustomModifier>>( () => ctx.CollectionsFactory.NewListProxy<CILCustomModifier>(), LazyThreadSafetyMode.PublicationOnly ),
-         new SettableLazy<LogicalMarshalingInfo>( () => null ),
+         new SettableLazy<Object>( () => null, ctx.LazyThreadSafetyMode ),
+         new Lazy<ListProxy<CILCustomModifier>>( () => ctx.CollectionsFactory.NewListProxy<CILCustomModifier>(), ctx.LazyThreadSafetyMode ),
+         new SettableLazy<LogicalMarshalingInfo>( () => null, ctx.LazyThreadSafetyMode ),
          true
          )
       {
@@ -200,6 +201,7 @@ namespace CILAssemblyManipulator.Logical.Implementation
          : base( ctx, CILElementKind.Parameter, anID, cAttrDataFunc )
       {
          InitFields(
+            ctx,
             ref this.paramAttributes,
             ref this.position,
             ref this.name,
@@ -221,6 +223,7 @@ namespace CILAssemblyManipulator.Logical.Implementation
       }
 
       private static void InitFields(
+         CILReflectionContextImpl ctx,
          ref SettableValueForEnums<ParameterAttributes> paramAttributes,
          ref Int32 position,
          ref SettableValueForClasses<String> name,
@@ -240,11 +243,12 @@ namespace CILAssemblyManipulator.Logical.Implementation
          Boolean resettablesAreSettable
          )
       {
+         var lazyThreadSafety = ctx.LazyThreadSafetyMode;
          paramAttributes = aParameterAttributes;
          position = aPosition;
          name = aName;
-         method = new Lazy<CILMethodBase>( methodFunc, LazyThreadSafetyMode.ExecutionAndPublication );
-         parameterType = resettablesAreSettable ? new ResettableAndSettableLazy<CILTypeBase>( parameterTypeFunc ) : new ResettableLazy<CILTypeBase>( parameterTypeFunc );
+         method = new Lazy<CILMethodBase>( methodFunc, lazyThreadSafety );
+         parameterType = resettablesAreSettable ? new ResettableAndSettableLazy<CILTypeBase>( parameterTypeFunc, lazyThreadSafety ) : new ResettableLazy<CILTypeBase>( parameterTypeFunc, lazyThreadSafety );
          defaultValue = aDefaultValue;
          customMods = theCustomMods;
          marshalInfo = marshalInfoVal;
