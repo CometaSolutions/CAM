@@ -269,36 +269,6 @@ namespace CILAssemblyManipulator.Logical.Implementation
          }
       }
 
-      internal IEnumerable<CILCustomAttribute> LaunchCustomAttributeDataLoadEvent( CILCustomAttributeContainer container, Func<CILReflectionContextWrapperCallbacks, IEnumerable<System.Reflection.CustomAttributeData>> func )
-      {
-         return this.GetCustomAttributeDataFromNative( container, func( this._wrapperCallbacks ) );
-      }
-
-      protected IEnumerable<CILCustomAttribute> GetCustomAttributeDataFromNative( CILCustomAttributeContainer container, IEnumerable<System.Reflection.CustomAttributeData> attrs )
-      {
-         return attrs.Select( attr => CILCustomAttributeFactory.NewAttribute(
-            container,
-            this.NewWrapper( attr.Constructor ),
-            attr.ConstructorArguments.Select( cArg => CILCustomAttributeFactory.NewTypedArgument( ( this.NewWrapperAsType( cArg.ArgumentType ) ), this.ExtractValue( cArg ) ) ),
-            attr.NamedArguments.Select( nArg => CILCustomAttributeFactory.NewNamedArgument(
-               ( nArg.MemberInfo is System.Reflection.PropertyInfo ? (CILElementForNamedCustomAttribute) this.NewWrapper( (System.Reflection.PropertyInfo) nArg.MemberInfo ) : this.NewWrapper( (System.Reflection.FieldInfo) nArg.MemberInfo ) ),
-               CILCustomAttributeFactory.NewTypedArgument( this.NewWrapperAsType( nArg.TypedValue.ArgumentType ), this.ExtractValue( nArg.TypedValue ) ) ) )
-            ) );
-      }
-
-      private Object ExtractValue( System.Reflection.CustomAttributeTypedArgument typedArg )
-      {
-         var retVal = typedArg.Value;
-         var array = retVal as System.Collections.ObjectModel.ReadOnlyCollection<System.Reflection.CustomAttributeTypedArgument>;
-         if ( array != null )
-         {
-            retVal = array
-               .Select( arg => CILCustomAttributeFactory.NewTypedArgument( this.NewWrapperAsType( arg.ArgumentType ), this.ExtractValue( arg ) ) )
-               .ToList();
-         }
-         return retVal;
-      }
-
       internal Lazy<ListProxy<CILCustomModifier>> LaunchEventAndCreateCustomModifiers<T>( T element, CustomModifierDelegate<T> customModGetter )
       {
          return new Lazy<ListProxy<CILCustomModifier>>( () =>

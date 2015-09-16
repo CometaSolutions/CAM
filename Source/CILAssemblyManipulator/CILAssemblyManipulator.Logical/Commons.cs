@@ -47,7 +47,7 @@ namespace CILAssemblyManipulator.Logical
    /// <seealso cref="CILParameter"/>
    /// <seealso cref="CILProperty"/>
    /// <seealso cref="CILTypeBase"/>
-   public interface CILCustomAttributeContainer
+   public interface CILCustomAttributeContainer : CILElementWithContext
    {
       /// <summary>
       /// Adds new custom attribute declaration to this CIL element. If <paramref name="ctorArgs"/> or <paramref name="namedArgs"/> are <c>null</c>, they are interpreted as empty enumerables.

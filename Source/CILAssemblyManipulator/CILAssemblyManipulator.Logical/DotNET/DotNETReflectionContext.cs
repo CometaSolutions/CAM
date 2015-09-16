@@ -45,27 +45,55 @@ namespace CILAssemblyManipulator.Logical
       }
 
       /// <inheritdoc />
-      public virtual IEnumerable<System.Reflection.CustomAttributeData> GetCustomAttributesDataFor( System.Reflection.MemberInfo member )
+      public virtual IEnumerable<Object> GetCustomAttributesDataFor( System.Reflection.MemberInfo member )
       {
          return member.GetCustomAttributesData();
       }
 
       /// <inheritdoc />
-      public virtual IEnumerable<System.Reflection.CustomAttributeData> GetCustomAttributesDataFor( System.Reflection.ParameterInfo parameter )
+      public virtual IEnumerable<Object> GetCustomAttributesDataFor( System.Reflection.ParameterInfo parameter )
       {
          return parameter.GetCustomAttributesData();
       }
 
       /// <inheritdoc />
-      public virtual IEnumerable<System.Reflection.CustomAttributeData> GetCustomAttributesDataFor( System.Reflection.Assembly assembly )
+      public virtual IEnumerable<Object> GetCustomAttributesDataFor( System.Reflection.Assembly assembly )
       {
          return assembly.GetCustomAttributesData();
       }
 
       /// <inheritdoc />
-      public virtual IEnumerable<System.Reflection.CustomAttributeData> GetCustomAttributesDataFor( System.Reflection.Module module )
+      public virtual IEnumerable<Object> GetCustomAttributesDataFor( System.Reflection.Module module )
       {
          return module.GetCustomAttributesData();
+      }
+
+      /// <inheritdoc />
+      public virtual CILCustomAttribute GetCILCustomAttributeFromNative( CILCustomAttributeContainer container, Object caData )
+      {
+         var ctx = container.ReflectionContext;
+         var attr = (System.Reflection.CustomAttributeData) caData;
+         return CILCustomAttributeFactory.NewAttribute(
+            container,
+            ctx.NewWrapper( attr.Constructor ),
+            attr.ConstructorArguments.Select( cArg => CILCustomAttributeFactory.NewTypedArgument( ( ctx.NewWrapperAsType( cArg.ArgumentType ) ), this.ExtractValue( ctx, cArg ) ) ),
+            attr.NamedArguments.Select( nArg => CILCustomAttributeFactory.NewNamedArgument(
+               ( nArg.MemberInfo is System.Reflection.PropertyInfo ? (CILElementForNamedCustomAttribute) ctx.NewWrapper( (System.Reflection.PropertyInfo) nArg.MemberInfo ) : ctx.NewWrapper( (System.Reflection.FieldInfo) nArg.MemberInfo ) ),
+               CILCustomAttributeFactory.NewTypedArgument( ctx.NewWrapperAsType( nArg.TypedValue.ArgumentType ), this.ExtractValue( ctx, nArg.TypedValue ) ) ) )
+            );
+      }
+
+      private Object ExtractValue( CILReflectionContext ctx, System.Reflection.CustomAttributeTypedArgument typedArg )
+      {
+         var retVal = typedArg.Value;
+         var array = retVal as System.Collections.ObjectModel.ReadOnlyCollection<System.Reflection.CustomAttributeTypedArgument>;
+         if ( array != null )
+         {
+            retVal = array
+               .Select( arg => CILCustomAttributeFactory.NewTypedArgument( ctx.NewWrapperAsType( arg.ArgumentType ), this.ExtractValue( ctx, arg ) ) )
+               .ToList();
+         }
+         return retVal;
       }
 
       /// <inheritdoc />

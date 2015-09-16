@@ -63,7 +63,7 @@ namespace CILAssemblyManipulator.Logical.Implementation
          CILReflectionContextImpl ctx,
          Int32 anID,
          CILElementKind kind,
-         Func<CILReflectionContextWrapperCallbacks, IEnumerable<System.Reflection.CustomAttributeData>> evtArgsFunc
+         Func<CILReflectionContextWrapperCallbacks, IEnumerable<Object>> evtArgsFunc
          )
          : base( ctx, anID )
       {
@@ -73,7 +73,7 @@ namespace CILAssemblyManipulator.Logical.Implementation
             ref this.cilKind,
             ref this.attributes,
             kind,
-            new Lazy<ListProxy<CILCustomAttribute>>( () => ctx.CollectionsFactory.NewListProxy<CILCustomAttribute>( ctx.LaunchCustomAttributeDataLoadEvent( this, evtArgsFunc ).ToList() ), ctx.LazyThreadSafetyMode )
+            new Lazy<ListProxy<CILCustomAttribute>>( () => ctx.CollectionsFactory.NewListProxy<CILCustomAttribute>( evtArgsFunc( ctx.WrapperCallbacks ).Select( caData => ctx.WrapperCallbacks.GetCILCustomAttributeFromNativeOrThrow( this, caData ) ).ToList() ), ctx.LazyThreadSafetyMode )
             );
       }
 

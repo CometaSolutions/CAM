@@ -50,28 +50,40 @@ namespace CILAssemblyManipulator.Logical
       /// </summary>
       /// <param name="member">The <see cref="System.Reflection.MemberInfo"/>.</param>
       /// <returns>All <see cref="System.Reflection.CustomAttributeData"/> objects for the <paramref name="member"/>.</returns>
-      IEnumerable<System.Reflection.CustomAttributeData> GetCustomAttributesDataFor( System.Reflection.MemberInfo member );
+      /// <remarks>The return type is enumerable of <see cref="Object"/>s instead of <see cref="System.Reflection.CustomAttributeData"/> so that this would compile for Silverlight. The actual values of must be of type <see cref="System.Reflection.CustomAttributeData"/>.</remarks>
+      IEnumerable<Object> GetCustomAttributesDataFor( System.Reflection.MemberInfo member );
 
       /// <summary>
       /// Gets all custom attribute data for a given parameter.
       /// </summary>
       /// <param name="parameter">The <see cref="System.Reflection.ParameterInfo"/>.</param>
       /// <returns>All <see cref="System.Reflection.CustomAttributeData"/> objects for the <paramref name="parameter"/>.</returns>
-      IEnumerable<System.Reflection.CustomAttributeData> GetCustomAttributesDataFor( System.Reflection.ParameterInfo parameter );
+      /// <remarks>The return type is enumerable of <see cref="Object"/>s instead of <see cref="System.Reflection.CustomAttributeData"/> so that this would compile for PCL. The actual values of must be of type <see cref="System.Reflection.CustomAttributeData"/>.</remarks>
+      IEnumerable<Object> GetCustomAttributesDataFor( System.Reflection.ParameterInfo parameter );
 
       /// <summary>
       /// Gets all custom attribute data for a given assembly.
       /// </summary>
       /// <param name="assembly">The <see cref="System.Reflection.Assembly"/>.</param>
       /// <returns>All <see cref="System.Reflection.CustomAttributeData"/> objects for the <paramref name="assembly"/>.</returns>
-      IEnumerable<System.Reflection.CustomAttributeData> GetCustomAttributesDataFor( System.Reflection.Assembly assembly );
+      /// <remarks>The return type is enumerable of <see cref="Object"/>s instead of <see cref="System.Reflection.CustomAttributeData"/> so that this would compile for PCL. The actual values of must be of type <see cref="System.Reflection.CustomAttributeData"/>.</remarks>
+      IEnumerable<Object> GetCustomAttributesDataFor( System.Reflection.Assembly assembly );
 
       /// <summary>
       /// Gets all custom attribute data for a given module.
       /// </summary>
       /// <param name="module">The <see cref="System.Reflection.Module"/>.</param>
       /// <returns>All <see cref="System.Reflection.CustomAttributeData"/> objects for the <paramref name="module"/>.</returns>
-      IEnumerable<System.Reflection.CustomAttributeData> GetCustomAttributesDataFor( System.Reflection.Module module );
+      /// <remarks>The return type is enumerable of <see cref="Object"/>s instead of <see cref="System.Reflection.CustomAttributeData"/> so that this would compile for PCL. The actual values of must be of type <see cref="System.Reflection.CustomAttributeData"/>.</remarks>
+      IEnumerable<Object> GetCustomAttributesDataFor( System.Reflection.Module module );
+
+      /// <summary>
+      /// Converts native <see cref="System.Reflection.CustomAttributeData"/> into <see cref="CILCustomAttribute"/>.
+      /// </summary>
+      /// <param name="container">The container to hold <see cref="CILCustomAttribute"/>.</param>
+      /// <param name="caData">The <see cref="System.Reflection.CustomAttributeData"/> to transform. It is typed as <see cref="Object"/> so that this would compile for PCL.</param>
+      /// <returns>The properly converted <see cref="CILCustomAttribute"/>.</returns>
+      CILCustomAttribute GetCILCustomAttributeFromNative( CILCustomAttributeContainer container, Object caData );
 
       /// <summary>
       /// Gets all the methods for a given event, which have <see cref="MethodSemanticsAttributes.Other"/> semantics.
@@ -456,24 +468,29 @@ public static partial class E_CILLogical
       return callbacks.PerformForCallbacks( () => callbacks.GetModuleOfType( type ), "module of type" );
    }
 
-   internal static IEnumerable<System.Reflection.CustomAttributeData> GetCustomAttributesDataForOrThrow( this CILReflectionContextWrapperCallbacks callbacks, System.Reflection.MemberInfo member )
+   internal static IEnumerable<Object> GetCustomAttributesDataForOrThrow( this CILReflectionContextWrapperCallbacks callbacks, System.Reflection.MemberInfo member )
    {
       return callbacks.PerformForCallbacks( () => callbacks.GetCustomAttributesDataFor( member ), "custom attributes for member" );
    }
 
-   internal static IEnumerable<System.Reflection.CustomAttributeData> GetCustomAttributesDataForOrThrow( this CILReflectionContextWrapperCallbacks callbacks, System.Reflection.ParameterInfo parameter )
+   internal static IEnumerable<Object> GetCustomAttributesDataForOrThrow( this CILReflectionContextWrapperCallbacks callbacks, System.Reflection.ParameterInfo parameter )
    {
       return callbacks.PerformForCallbacks( () => callbacks.GetCustomAttributesDataFor( parameter ), "custom attributes for parameter" );
    }
 
-   internal static IEnumerable<System.Reflection.CustomAttributeData> GetCustomAttributesDataForOrThrow( this CILReflectionContextWrapperCallbacks callbacks, System.Reflection.Assembly assembly )
+   internal static IEnumerable<Object> GetCustomAttributesDataForOrThrow( this CILReflectionContextWrapperCallbacks callbacks, System.Reflection.Assembly assembly )
    {
       return callbacks.PerformForCallbacks( () => callbacks.GetCustomAttributesDataFor( assembly ), "custom attributes for assembly" );
    }
 
-   internal static IEnumerable<System.Reflection.CustomAttributeData> GetCustomAttributesDataForOrThrow( this CILReflectionContextWrapperCallbacks callbacks, System.Reflection.Module module )
+   internal static IEnumerable<Object> GetCustomAttributesDataForOrThrow( this CILReflectionContextWrapperCallbacks callbacks, System.Reflection.Module module )
    {
       return callbacks.PerformForCallbacks( () => callbacks.GetCustomAttributesDataFor( module ), "custom attributes for module" );
+   }
+
+   internal static CILCustomAttribute GetCILCustomAttributeFromNativeOrThrow( this CILReflectionContextWrapperCallbacks callbacks, CILCustomAttributeContainer container, Object caData )
+   {
+      return callbacks.PerformForCallbacks( () => callbacks.GetCILCustomAttributeFromNative( container, caData ), "custom attribute data" );
    }
 
    internal static IEnumerable<System.Reflection.MethodInfo> GetEventOtherMethodsOrThrow( this CILReflectionContextWrapperCallbacks callbacks, System.Reflection.EventInfo evt )

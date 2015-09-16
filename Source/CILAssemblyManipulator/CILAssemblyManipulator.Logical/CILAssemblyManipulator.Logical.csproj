@@ -23,6 +23,8 @@
     <DefineConstants Condition=" '$(CAMLogicalTargetKind)' == 'Portable' ">CAM_LOGICAL_IS_PORTABLE</DefineConstants>
     <DefineConstants Condition=" '$(CAMLogicalTargetKind)' == 'Silverlight' ">CAM_LOGICAL_IS_SL</DefineConstants>
     <DefineConstants Condition=" '$(CAMLogicalTargetKind)' == 'DotNET' ">CAM_LOGICAL_IS_DOT_NET</DefineConstants>
+    <!-- In SL and Profile5, keep "XML comment has cref attribute that could not be resolved" warning as warning -->
+    <WarningsNotAsErrors Condition=" '$(CAMLogicalTargetKind)' == 'Silverlight' Or '$(CAMLogicalTargetKind)' == 'Portable' ">1574</WarningsNotAsErrors>
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug_Portable|AnyCPU' ">
     <DebugSymbols>true</DebugSymbols>
