@@ -627,6 +627,7 @@ public static partial class E_CILLogical
 {
    private static readonly System.Reflection.MethodInfo TYPE_OF_METHOD;
    private static readonly System.Reflection.MethodInfo METHOD_OF_METHOD;
+   private static readonly System.Reflection.MethodInfo GET_METHOD_GDEF_METHOD;
    private static readonly System.Reflection.MethodInfo FIELD_OF_METHOD;
    private static readonly System.Reflection.MethodInfo INTERLOCKED_COMPARE_EXCHANGE_METHOD_GDEF;
    private static readonly System.Reflection.MethodInfo INTERLOCKED_COMPARE_EXCHANGE_METHOD_DOUBLE;
@@ -638,6 +639,7 @@ public static partial class E_CILLogical
    private static readonly System.Reflection.ConstructorInfo DECIMAL_CTOR_MULTIPLE;
 
 
+
    private static readonly IDictionary<CILTypeCode, LogicalOpCodeInfo> CHECKED_UNSIGNED_CONV_OPCODES;
    private static readonly IDictionary<CILTypeCode, LogicalOpCodeInfo> CHECKED_SIGNED_CONV_OPCODES;
    private static readonly IDictionary<CILTypeCode, LogicalOpCodeInfo> UNCHECKED_UNSIGNED_CONV_OPCODES;
@@ -647,6 +649,7 @@ public static partial class E_CILLogical
    {
       TYPE_OF_METHOD = typeof( Type ).LoadMethodOrThrow( "GetTypeFromHandle", null );
       METHOD_OF_METHOD = typeof( System.Reflection.MethodBase ).LoadMethodOrThrow( "GetMethodFromHandle", 2 );
+      GET_METHOD_GDEF_METHOD = typeof( System.Reflection.MethodInfo ).LoadMethodOrThrow( "GetGenericMethodDefinition", 0 );
       FIELD_OF_METHOD = typeof( System.Reflection.FieldInfo ).LoadMethodOrThrow( "GetFieldFromHandle", 2 );
       INTERLOCKED_COMPARE_EXCHANGE_METHOD_GDEF = typeof( Interlocked ).LoadMethodGDefinitionOrThrow( "CompareExchange" );
       INTERLOCKED_COMPARE_EXCHANGE_METHOD_DOUBLE = typeof( Interlocked ).LoadMethodWithParamTypesOrThrow( "CompareExchange", new Type[] { typeof( Double ).MakeByRefType(), typeof( Double ), typeof( Double ) } );
@@ -897,14 +900,19 @@ public static partial class E_CILLogical
             typeFrom = ( (CILType) typeFrom ).ElementType;
          }
 
-         if ( !typeFrom.IsValueType() && !typeFrom.IsGenericParameter() && ( typeTo.IsValueType() || typeTo.IsGenericParameter() ) )
+         var tfValType = typeFrom.IsValueType();
+         var ttValType = typeTo.IsValueType();
+         var tfGParam = typeFrom.IsGenericParameter();
+         var ttGParam = typeTo.IsGenericParameter();
+
+         if ( !tfValType && !tfGParam && ( ttValType || ttGParam ) )
          {
             il.Add( new LogicalOpCodeInfoWithTypeToken(
                OpCodes.Unbox_Any,
                typeTo
                ) );
          }
-         else if ( !typeTo.IsValueType() && !typeTo.IsGenericParameter() && ( typeFrom.IsValueType() || typeFrom.IsGenericParameter() ) )
+         else if ( !ttValType && !ttGParam && ( tfValType || tfGParam ) )
          {
             il.Add( new LogicalOpCodeInfoWithTypeToken(
                OpCodes.Box,
@@ -918,7 +926,7 @@ public static partial class E_CILLogical
                   ) );
             }
          }
-         else if ( !typeFrom.IsValueType() && !typeTo.IsValueType() && !typeTo.IsGenericParameter() && !typeFrom.IsGenericParameter() )
+         else if ( !tfValType && !ttValType && !ttGParam && !tfGParam )
          {
             if ( TypeKind.MethodSignature == typeFrom.TypeKind && TypeKind.MethodSignature != typeTo.TypeKind )
             {
@@ -1918,14 +1926,21 @@ public static partial class E_CILLogical
    /// <param name="targetMethod">The method to load token of.</param>
    /// <param name="typeTokenKind">The <see cref="TypeTokenKind"/>.</param>
    /// <param name="methodTokenKind"> The <see cref="MethodTokenKind"/>.</param>
+   /// <param name="makeGenericMethodCheck">If the <paramref name="targetMethod"/> is generic method, and <paramref name="methodTokenKind"/> is <see cref=" MethodTokenKind.GenericDefinition"/>, then a call to <see cref="System.Reflection.MethodInfo.GetGenericMethodDefinition"/> will be required. This is because for some reason, runtime will load a method, which <see cref="System.Reflection.MethodBase.IsGenericMethodDefinition"/> is <c>false</c>, even though the token is in <see cref="Tables.MemberRef"/> table. If this parameter is <c>true</c>, then a call to <see cref="System.Reflection.MethodInfo.GetGenericMethodDefinition"/> will be emitted.</param>
    /// <returns><paramref name="il"/>.</returns>
    /// <exception cref="NullReferenceException">If <paramref name="il"/> is <c>null</c>.</exception>
    /// <exception cref="ArgumentNullException">If <paramref name="targetMethod"/> is <c>null</c>.</exception>
-   public static MethodIL EmitReflectionObjectOf( this MethodIL il, CILMethod targetMethod, TypeTokenKind typeTokenKind = TypeTokenKind.GenericInstantiation, MethodTokenKind methodTokenKind = MethodTokenKind.GenericInstantiation )
+   public static MethodIL EmitReflectionObjectOf(
+      this MethodIL il,
+      CILMethod targetMethod,
+      TypeTokenKind typeTokenKind = TypeTokenKind.GenericInstantiation,
+      MethodTokenKind methodTokenKind = MethodTokenKind.GenericInstantiation,
+      Boolean makeGenericMethodCheck = true
+      )
    {
       var methodWrapper = ResolveMSCorLibMethod( il, METHOD_OF_METHOD );
       var mscorlib = ( (MethodILImpl) il ).OwningModule.AssociatedMSCorLibModule;
-      return il.Add( new LogicalOpCodeInfoWithMethodToken(
+      il.Add( new LogicalOpCodeInfoWithMethodToken(
          OpCodes.Ldtoken,
          targetMethod,
          typeTokenKind,
@@ -1938,6 +1953,13 @@ public static partial class E_CILLogical
          ) )
          .EmitCall( methodWrapper )
          .EmitCastToType( methodWrapper.GetReturnType(), mscorlib.GetTypeByName( Consts.METHOD_INFO ) );
+
+      if ( makeGenericMethodCheck && methodTokenKind == MethodTokenKind.GenericDefinition && targetMethod.IsGenericMethodDefinition() )
+      {
+         il.EmitCall( ResolveMSCorLibMethod( il, GET_METHOD_GDEF_METHOD ) );
+      }
+
+      return il;
    }
 
    /// <summary>
@@ -3010,14 +3032,20 @@ public static partial class E_CILLogical
    {
       var mscorlib = ( (MethodILImpl) il ).OwningModule.AssociatedMSCorLibModule;
       var pCount = nativeMethod.GetParameters().Length;
-      return mscorlib.GetTypeByName( nativeMethod.DeclaringType.FullName ).DeclaredMethods.First( m => m.Attributes == (MethodAttributes) nativeMethod.Attributes && m.Name == nativeMethod.Name && m.Parameters.Count == pCount && m.IsGenericMethodDefinition() == nativeMethod.IsGenericMethodDefinition );
+      return mscorlib
+         .GetTypeByName( nativeMethod.DeclaringType.FullName )
+         .DeclaredMethods
+         .First( m => m.Attributes == (MethodAttributes) nativeMethod.Attributes && m.Name == nativeMethod.Name && m.Parameters.Count == pCount && m.IsGenericMethodDefinition() == nativeMethod.IsGenericMethodDefinition );
    }
 
    private static CILConstructor ResolveMSCorLibCtor( MethodIL il, System.Reflection.ConstructorInfo nativeCtor )
    {
       var mscorlib = ( (MethodILImpl) il ).OwningModule.AssociatedMSCorLibModule;
       var pCount = nativeCtor.GetParameters().Length;
-      return mscorlib.GetTypeByName( nativeCtor.DeclaringType.FullName ).Constructors.First( c => c.Attributes == (MethodAttributes) nativeCtor.Attributes && c.Parameters.Count == pCount );
+      return mscorlib
+         .GetTypeByName( nativeCtor.DeclaringType.FullName )
+         .Constructors
+         .First( c => c.Attributes == (MethodAttributes) nativeCtor.Attributes && c.Parameters.Count == pCount );
    }
 
    /// <summary>

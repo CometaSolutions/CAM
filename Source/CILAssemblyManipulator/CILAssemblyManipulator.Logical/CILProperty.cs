@@ -202,6 +202,10 @@ public static partial class E_CILLogical
       {
          fAttrs |= FieldAttributes.Static;
       }
+      if ( !emitSetter )
+      {
+         fAttrs |= FieldAttributes.InitOnly;
+      }
 
       backingField = type.AddField( "<" + name + ">k__BackingField", propertyType, fAttrs );
       var callConvs = isStatic ? CallingConventions.Standard : CallingConventions.HasThis;

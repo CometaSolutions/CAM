@@ -401,6 +401,19 @@ public static partial class E_CILLogical
       }
    }
 
+   /// <summary>
+   /// A shortcut method to add methods to specific method's explicit method implementation list in the specific method's declaring type.
+   /// </summary>
+   /// <param name="method">The method which declaring type to use when adding explicitly implemented methods.</param>
+   /// <param name="overriddenMethods">The explicitly implemented methods.</param>
+   /// <remarks>
+   /// Calling this method is equivalent to calling <see cref="CILType.AddExplicitMethodImplementation"/> of the declaring type of <paramref name="method"/>.
+   /// </remarks>
+   public static void AddOverriddenMethods( this CILMethod method, params CILMethod[] overriddenMethods )
+   {
+      method.DeclaringType.AddExplicitMethodImplementation( method, overriddenMethods );
+   }
+
    private static Boolean IsSystemType( this CILModule thisModule, CILType other, String typeName, String typeNS = Consts.SYSTEM_NS )
    {
       return Object.Equals( thisModule.AssociatedMSCorLibModule, other.Module )

@@ -630,19 +630,34 @@ namespace CILAssemblyManipulator.Logical.Implementation
 
          public TInstance GetOrAdd( TInstance instance, CILTypeBase[] gArgs )
          {
-            if ( !instance.DeclaringType.IsGenericTypeDefinition() )
+            if ( instance.DeclaringType.IsGenericType() )
             {
-               if ( !instance.DeclaringType.IsGenericType() )
+               return this.GetOrAdd( this._cache, instance.DeclaringType, this._cacheCreator )
+               .GetOrAdd( instance, gArgs );
+            }
+            else
+            {
+               if ( gArgs.IsNullOrEmpty() )
                {
                   return instance;
                }
                else
                {
-                  throw new ArgumentException( "The declaring type of " + instance + " is not from generic type defintion" );
+                  throw new ArgumentException( "Tried to change declaring type generic arguments, but declaring type is not generic type." );
                }
             }
-            return this.GetOrAdd( this._cache, instance.DeclaringType, this._cacheCreator )
-               .GetOrAdd( instance, gArgs );
+            //if ( !instance.DeclaringType.IsGenericTypeDefinition() )
+            //{
+            //   if ( !instance.DeclaringType.IsGenericType() )
+            //   {
+            //      return instance;
+            //   }
+            //   else
+            //   {
+            //      throw new ArgumentException( "The declaring type of " + instance + " is not from generic type defintion" );
+            //   }
+            //}
+
          }
 
          public void ForAllInstancesOf<TCasted>( TInstance gDefInstance, Action<TCasted> action )
