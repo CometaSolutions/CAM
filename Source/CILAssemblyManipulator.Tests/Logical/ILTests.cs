@@ -144,9 +144,9 @@ namespace CILAssemblyManipulator.Tests.Logical
             var method = type.AddMethodWithReturnType( "Testing", MethodAttributes.Public, CallingConventions.HasThis, mod.GetTypeForTypeCode( CILTypeCode.Void ) );
             var il = method.MethodIL;
 
-            il.EmitReflectionObjectOf( methodRef, TypeTokenKind.GenericDefinition, MethodTokenKind.GenericDefinition );
+            il.EmitReflectionObjectOf( methodRef, TypeTokenKind.GenericDefinition, MethodTokenKind.GenericDefinition, false );
             il.EmitReflectionObjectOf( methodRef, TypeTokenKind.GenericDefinition, MethodTokenKind.GenericInstantiation );
-            il.EmitReflectionObjectOf( methodRef, TypeTokenKind.GenericInstantiation, MethodTokenKind.GenericDefinition );
+            il.EmitReflectionObjectOf( methodRef, TypeTokenKind.GenericInstantiation, MethodTokenKind.GenericDefinition, false );
             il.EmitReflectionObjectOf( methodRef, TypeTokenKind.GenericInstantiation, MethodTokenKind.GenericInstantiation );
 
             var phys = mod.CreatePhysicalRepresentation();
@@ -181,9 +181,9 @@ namespace CILAssemblyManipulator.Tests.Logical
             var method = type.AddMethodWithReturnType( "Testing", MethodAttributes.Public, CallingConventions.HasThis, mod.GetTypeForTypeCode( CILTypeCode.Void ) );
             var il = method.MethodIL;
 
-            il.EmitReflectionObjectOf( method, TypeTokenKind.GenericDefinition, MethodTokenKind.GenericDefinition );
+            il.EmitReflectionObjectOf( method, TypeTokenKind.GenericDefinition, MethodTokenKind.GenericDefinition, false );
             il.EmitReflectionObjectOf( method, TypeTokenKind.GenericDefinition, MethodTokenKind.GenericInstantiation );
-            il.EmitReflectionObjectOf( method, TypeTokenKind.GenericInstantiation, MethodTokenKind.GenericDefinition );
+            il.EmitReflectionObjectOf( method, TypeTokenKind.GenericInstantiation, MethodTokenKind.GenericDefinition, false );
             il.EmitReflectionObjectOf( method, TypeTokenKind.GenericInstantiation, MethodTokenKind.GenericInstantiation );
 
             var phys = mod.CreatePhysicalRepresentation();
@@ -227,9 +227,9 @@ namespace CILAssemblyManipulator.Tests.Logical
             method.DefineGenericParameters( "U" );
             var il = method.MethodIL;
 
-            il.EmitReflectionObjectOf( method, TypeTokenKind.GenericDefinition, MethodTokenKind.GenericDefinition );
+            il.EmitReflectionObjectOf( method, TypeTokenKind.GenericDefinition, MethodTokenKind.GenericDefinition, false );
             il.EmitReflectionObjectOf( method, TypeTokenKind.GenericDefinition, MethodTokenKind.GenericInstantiation );
-            il.EmitReflectionObjectOf( method, TypeTokenKind.GenericInstantiation, MethodTokenKind.GenericDefinition );
+            il.EmitReflectionObjectOf( method, TypeTokenKind.GenericInstantiation, MethodTokenKind.GenericDefinition, false );
             il.EmitReflectionObjectOf( method, TypeTokenKind.GenericInstantiation, MethodTokenKind.GenericInstantiation );
 
             var phys = mod.CreatePhysicalRepresentation();

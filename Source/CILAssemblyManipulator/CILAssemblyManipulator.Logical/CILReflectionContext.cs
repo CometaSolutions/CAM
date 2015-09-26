@@ -24,6 +24,10 @@ using CommonUtils;
 using CILAssemblyManipulator.Physical;
 using CILAssemblyManipulator.Logical;
 
+#if !CAM_LOGICAL_IS_DOT_NET
+#pragma warning disable 1574
+#endif
+
 namespace CILAssemblyManipulator.Logical
 {
    /// <summary>
@@ -625,3 +629,7 @@ public static partial class E_CILLogical
       }
    }
 }
+
+#if !CAM_LOGICAL_IS_DOT_NET
+#pragma warning restore 1574
+#endif

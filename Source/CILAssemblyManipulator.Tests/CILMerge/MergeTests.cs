@@ -152,14 +152,22 @@ namespace CILAssemblyManipulator.Tests.CILMerge
       {
          var baseDir = Path.GetFullPath( Path.Combine( CILMergeLocation, "..", "..", "..", "..", ".." ) );
 
-         var outDir = Path.Combine( baseDir, "Output", "Debug", "dotNET" );
-         var outDirSL = Path.Combine( baseDir, "Output", "Debug", "SL" );
+         var platdir =
+#if DEBUG
+ "Debug"
+#else
+            "Release"
+#endif
+;
+
+         var outDir = Path.Combine( baseDir, "Output", platdir, "dotNET" );
+         var outDirSL = Path.Combine( baseDir, "Output", platdir, "SL" );
 
          this.PerformTest( new CILMergeOptionsImpl()
          {
             InputAssemblies = new[]
             {
-               Path.Combine( baseDir, "Source", "CILAssemblyManipulator", "CILAssemblyManipulator.Physical", "obj", "Debug_Portable", "CILAssemblyManipulator.Physical.dll" ),
+               Path.Combine( baseDir, "Source", "CILAssemblyManipulator", "CILAssemblyManipulator.Physical", "obj", platdir, "CILAssemblyManipulator.Physical.dll" ),
                Path.Combine( outDirSL, "CILAssemblyManipulator.MResources.dll" ),
                Path.Combine( outDirSL, "CILAssemblyManipulator.PDB.dll" )
             },
