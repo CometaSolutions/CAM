@@ -2107,4 +2107,36 @@ public static partial class E_CILPhysical
          retVal :
          null;
    }
+
+   /// <summary>
+   /// Gets textual representation of the version information contained in <paramref name="info"/>. The format is: "<c>&lt;major&gt;.&lt;minor&gt;.&lt;build&gt;.&lt;revision&gt;</c>".
+   /// </summary>
+   /// <param name="info">The assembly information containing version information.</param>
+   /// <returns>Textual representation of the version information contained in <paramref name="info"/>.</returns>
+   /// <exception cref="ArgumentNullException">If <paramref name="info"/> is <c>null</c>.</exception>
+   public static String GetVersionString( this AssemblyInformation info )
+   {
+      ArgumentValidator.ValidateNotNull( "Assembly name", info );
+      return new StringBuilder( info.VersionMajor )
+         .Append( AssemblyInformation.VERSION_SEPARATOR )
+         .Append( info.VersionMinor )
+         .Append( AssemblyInformation.VERSION_SEPARATOR )
+         .Append( info.VersionBuild )
+         .Append( AssemblyInformation.VERSION_SEPARATOR )
+         .Append( info.VersionRevision )
+         .ToString();
+   }
+
+   /// <summary>
+   /// Returns textual representation of the culture information contained in <paramref name="info"/>. If the <see cref="AssemblyInformation.Culture"/> returns <c>null</c> or empty string, this method returns string "neutral". Otherwise it returns the result of <see cref="AssemblyInformation.Culture"/>.
+   /// </summary>
+   /// <param name="info">The assembly information containing culture information.</param>
+   /// <returns>Textual representation of the culture information contained in <paramref name="info"/>.</returns>
+   /// <exception cref="ArgumentNullException">If <paramref name="info"/> is <c>null</c>.</exception>
+   public static String GetCultureString( this AssemblyInformation info )
+   {
+      ArgumentValidator.ValidateNotNull( "Assembly name", info );
+      var culture = info.Culture;
+      return String.IsNullOrEmpty( culture ) ? AssemblyInformation.NEUTRAL_CULTURE : culture;
+   }
 }

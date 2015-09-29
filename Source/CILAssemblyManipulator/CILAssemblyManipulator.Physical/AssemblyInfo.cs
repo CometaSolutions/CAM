@@ -194,12 +194,12 @@ namespace CILAssemblyManipulator.Physical
 
       private const Char ASSEMBLY_NAME_ELEMENTS_SEPARATOR = ',';
       private const Char ASSEMBLY_NAME_ELEMENT_VALUE_SEPARATOR = '=';
-      private const Char VERSION_SEPARATOR = '.';
+      internal const Char VERSION_SEPARATOR = '.';
       private const String VERSION = "Version";
       private const String CULTURE = "Culture";
       private const String PUBLIC_KEY_TOKEN = "PublicKeyToken";
       private const String PUBLIC_KEY = "PublicKey";
-      private const String NEUTRAL_CULTURE = "neutral";
+      internal const String NEUTRAL_CULTURE = "neutral";
       private const String NEUTRAL_CULTURE_NAME = "";
 
       public String ToString(
