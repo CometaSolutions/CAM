@@ -23,6 +23,7 @@ using System.Collections.Generic;
 using CILAssemblyManipulator.Physical;
 using CollectionsWithRoles.API;
 using System.Runtime.InteropServices;
+using CommonUtils;
 
 namespace CILAssemblyManipulator.Logical
 {
@@ -598,7 +599,7 @@ namespace CILAssemblyManipulator.Logical
          }
       }
 
-      internal static T AddToResettableLazyList<T>( this ResettableLazy<ListProxy<T>> lazy, T value )
+      internal static T AddToResettableLazyList<T>( this IResettableLazy<ListProxy<T>> lazy, T value )
       {
          lazy.Value.Add( value );
          return value;

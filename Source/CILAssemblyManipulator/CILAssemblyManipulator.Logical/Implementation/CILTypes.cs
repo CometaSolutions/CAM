@@ -40,7 +40,7 @@ namespace CILAssemblyManipulator.Logical.Implementation
       };
 
       protected internal readonly TypeKind typeKind;
-      protected internal readonly SettableLazy<CILTypeCode> typeCode;
+      protected internal readonly WriteableLazy<CILTypeCode> typeCode;
       protected internal readonly SettableValueForClasses<String> name;
       protected internal readonly SettableValueForClasses<String> @namespace;
       protected internal readonly Lazy<CILModule> module;
@@ -131,7 +131,7 @@ namespace CILAssemblyManipulator.Logical.Implementation
       private static void InitFields(
          CILReflectionContextImpl ctx,
          ref TypeKind typeKind,
-         ref SettableLazy<CILTypeCode> typeCode,
+         ref WriteableLazy<CILTypeCode> typeCode,
          ref SettableValueForClasses<String> name,
          ref SettableValueForClasses<String> @namespace,
          ref Lazy<CILModule> module,
@@ -146,7 +146,7 @@ namespace CILAssemblyManipulator.Logical.Implementation
          )
       {
          typeKind = aTypeKind;
-         typeCode = new SettableLazy<CILTypeCode>( aTypeCode, ctx.LazyThreadSafetyMode );
+         typeCode = LazyFactory.NewWriteableLazy( aTypeCode, ctx.LazyThreadSafetyMode );
          name = aName;
          @namespace = aNamespace;
          module = new Lazy<CILModule>( moduleFunc, ctx.LazyThreadSafetyMode );
@@ -296,18 +296,18 @@ namespace CILAssemblyManipulator.Logical.Implementation
       private readonly GeneralArrayInfo arrayInfo;
       private readonly Lazy<ListProxy<CILTypeBase>> gArgs;
       private readonly Lazy<ListProxy<CILType>> nestedTypes;
-      private readonly ResettableLazy<ListProxy<CILField>> fields;
-      private readonly SettableLazy<CILType> genericDefinition;
+      private readonly ReadOnlyResettableLazy<ListProxy<CILField>> fields;
+      private readonly WriteableLazy<CILType> genericDefinition;
       private readonly Lazy<CILTypeBase> elementType;
-      private readonly ResettableLazy<ListProxy<CILMethod>> methods;
-      private readonly ResettableLazy<ListProxy<CILConstructor>> ctors;
-      private readonly ResettableLazy<ListProxy<CILProperty>> properties;
-      private readonly ResettableLazy<ListProxy<CILEvent>> events;
-      private readonly SettableLazy<LogicalClassLayout?> layout;
-      private readonly ResettableLazy<CILType> baseType;
-      private readonly ResettableLazy<ListProxy<CILType>> declaredInterfaces;
+      private readonly ReadOnlyResettableLazy<ListProxy<CILMethod>> methods;
+      private readonly ReadOnlyResettableLazy<ListProxy<CILConstructor>> ctors;
+      private readonly ReadOnlyResettableLazy<ListProxy<CILProperty>> properties;
+      private readonly ReadOnlyResettableLazy<ListProxy<CILEvent>> events;
+      private readonly WriteableLazy<LogicalClassLayout?> layout;
+      private readonly IResettableLazy<CILType> baseType;
+      private readonly ReadOnlyResettableLazy<ListProxy<CILType>> declaredInterfaces;
       private readonly Lazy<DictionaryWithRoles<SecurityAction, ListProxy<LogicalSecurityInformation>, ListProxyQuery<LogicalSecurityInformation>, ListQuery<LogicalSecurityInformation>>> securityInfo;
-      private readonly ResettableLazy<DictionaryWithRoles<CILMethod, ListProxy<CILMethod>, ListProxyQuery<CILMethod>, ListQuery<CILMethod>>> explicitMethodImplementationMap;
+      private readonly ReadOnlyResettableLazy<DictionaryWithRoles<CILMethod, ListProxy<CILMethod>, ListProxyQuery<CILMethod>, ListQuery<CILMethod>>> explicitMethodImplementationMap;
 
       internal CILTypeImpl( CILReflectionContextImpl ctx, Int32 anID, Type type )
          : base( ctx, anID, type )
@@ -427,7 +427,7 @@ namespace CILAssemblyManipulator.Logical.Implementation
                   .Select( evt => ctx.Cache.GetOrAdd( evt ) )
                   .ToList()
                ),
-            new SettableLazy<LogicalClassLayout?>( () =>
+            LazyFactory.NewWriteableLazy<LogicalClassLayout?>( () =>
             {
                if ( tAttrs.IsExplicitLayout() || tAttrs.IsSequentialLayout() )
                {
@@ -503,7 +503,7 @@ namespace CILAssemblyManipulator.Logical.Implementation
          () => ctx.CollectionsFactory.NewListProxy<CILConstructor>(),
          () => ctx.CollectionsFactory.NewListProxy<CILProperty>(),
          () => ctx.CollectionsFactory.NewListProxy<CILEvent>(),
-         new SettableLazy<LogicalClassLayout?>( () => null, ctx.LazyThreadSafetyMode ),
+         LazyFactory.NewWriteableLazy<LogicalClassLayout?>( () => null, ctx.LazyThreadSafetyMode ),
          null,
          null,
          true
@@ -534,7 +534,7 @@ namespace CILAssemblyManipulator.Logical.Implementation
          Func<ListProxy<CILConstructor>> ctorsFunc,
          Func<ListProxy<CILProperty>> propertiesFunc,
          Func<ListProxy<CILEvent>> eventsFunc,
-         SettableLazy<LogicalClassLayout?> aLayout,
+         WriteableLazy<LogicalClassLayout?> aLayout,
          Lazy<DictionaryWithRoles<SecurityAction, ListProxy<LogicalSecurityInformation>, ListProxyQuery<LogicalSecurityInformation>, ListQuery<LogicalSecurityInformation>>> aSecurityInfo,
          Func<DictionaryWithRoles<CILMethod, ListProxy<CILMethod>, ListProxyQuery<CILMethod>, ListQuery<CILMethod>>> anExplicitMethodImplementationMap,
          Boolean resettablesAreSettable = false
@@ -587,19 +587,19 @@ namespace CILAssemblyManipulator.Logical.Implementation
          ref ElementKind? elementKind,
          ref GeneralArrayInfo arrayInfo,
          ref Lazy<ListProxy<CILTypeBase>> gArgs,
-         ref SettableLazy<CILType> genericDefinition,
+         ref WriteableLazy<CILType> genericDefinition,
          ref Lazy<ListProxy<CILType>> nested,
-         ref ResettableLazy<ListProxy<CILField>> fields,
+         ref ReadOnlyResettableLazy<ListProxy<CILField>> fields,
          ref Lazy<CILTypeBase> elementType,
-         ref ResettableLazy<ListProxy<CILMethod>> methods,
-         ref ResettableLazy<ListProxy<CILConstructor>> ctors,
-         ref ResettableLazy<ListProxy<CILProperty>> properties,
-         ref ResettableLazy<ListProxy<CILEvent>> events,
-         ref SettableLazy<LogicalClassLayout?> layout,
-         ref ResettableLazy<CILType> baseType,
-         ref ResettableLazy<ListProxy<CILType>> declaredInterfaces,
+         ref ReadOnlyResettableLazy<ListProxy<CILMethod>> methods,
+         ref ReadOnlyResettableLazy<ListProxy<CILConstructor>> ctors,
+         ref ReadOnlyResettableLazy<ListProxy<CILProperty>> properties,
+         ref ReadOnlyResettableLazy<ListProxy<CILEvent>> events,
+         ref WriteableLazy<LogicalClassLayout?> layout,
+         ref IResettableLazy<CILType> baseType,
+         ref ReadOnlyResettableLazy<ListProxy<CILType>> declaredInterfaces,
          ref Lazy<DictionaryWithRoles<SecurityAction, ListProxy<LogicalSecurityInformation>, ListProxyQuery<LogicalSecurityInformation>, ListQuery<LogicalSecurityInformation>>> securityInfo,
-         ref ResettableLazy<DictionaryWithRoles<CILMethod, ListProxy<CILMethod>, ListProxyQuery<CILMethod>, ListQuery<CILMethod>>> explicitMethodImplementationMap,
+         ref ReadOnlyResettableLazy<DictionaryWithRoles<CILMethod, ListProxy<CILMethod>, ListProxyQuery<CILMethod>, ListQuery<CILMethod>>> explicitMethodImplementationMap,
          SettableValueForEnums<TypeAttributes> typeAttrsVal,
          ElementKind? anElementKind,
          GeneralArrayInfo anArrayInfo,
@@ -612,7 +612,7 @@ namespace CILAssemblyManipulator.Logical.Implementation
          Func<ListProxy<CILConstructor>> ctorsFunc,
          Func<ListProxy<CILProperty>> propertiesFunc,
          Func<ListProxy<CILEvent>> eventsFunc,
-         SettableLazy<LogicalClassLayout?> aLayout,
+         WriteableLazy<LogicalClassLayout?> aLayout,
          Func<CILType> baseTypeFunc,
          Func<ListProxy<CILType>> declaredInterfacesFunc,
          Lazy<DictionaryWithRoles<SecurityAction, ListProxy<LogicalSecurityInformation>, ListProxyQuery<LogicalSecurityInformation>, ListQuery<LogicalSecurityInformation>>> aSecurityInfo,
@@ -625,19 +625,19 @@ namespace CILAssemblyManipulator.Logical.Implementation
          elementKind = anElementKind;
          arrayInfo = anArrayInfo;
          gArgs = new Lazy<ListProxy<CILTypeBase>>( gArgsFunc, lazyThreadSafety );
-         genericDefinition = new SettableLazy<CILType>( genericDefinitionFunc, lazyThreadSafety );
+         genericDefinition = LazyFactory.NewWriteableLazy( genericDefinitionFunc, lazyThreadSafety );
          nested = nestedTypesFunc;
-         fields = new ResettableLazy<ListProxy<CILField>>( fieldsFunc, lazyThreadSafety );
+         fields = LazyFactory.NewReadOnlyResettableLazy( fieldsFunc, lazyThreadSafety );
          elementType = new Lazy<CILTypeBase>( elementTypeFunc, lazyThreadSafety );
-         methods = new ResettableLazy<ListProxy<CILMethod>>( methodsFunc, lazyThreadSafety );
-         ctors = new ResettableLazy<ListProxy<CILConstructor>>( ctorsFunc, lazyThreadSafety );
-         properties = new ResettableLazy<ListProxy<CILProperty>>( propertiesFunc, lazyThreadSafety );
-         events = new ResettableLazy<ListProxy<CILEvent>>( eventsFunc, lazyThreadSafety );
-         baseType = resettablesAreSettable ? new ResettableAndSettableLazy<CILType>( baseTypeFunc, lazyThreadSafety ) : new ResettableLazy<CILType>( baseTypeFunc, lazyThreadSafety );
-         declaredInterfaces = new ResettableLazy<ListProxy<CILType>>( declaredInterfacesFunc, lazyThreadSafety );
+         methods = LazyFactory.NewReadOnlyResettableLazy( methodsFunc, lazyThreadSafety );
+         ctors = LazyFactory.NewReadOnlyResettableLazy( ctorsFunc, lazyThreadSafety );
+         properties = LazyFactory.NewReadOnlyResettableLazy( propertiesFunc, lazyThreadSafety );
+         events = LazyFactory.NewReadOnlyResettableLazy( eventsFunc, lazyThreadSafety );
+         baseType = LazyFactory.NewResettableLazy( resettablesAreSettable, baseTypeFunc, lazyThreadSafety );
+         declaredInterfaces = LazyFactory.NewReadOnlyResettableLazy( declaredInterfacesFunc, lazyThreadSafety );
          layout = aLayout;
          securityInfo = aSecurityInfo;
-         explicitMethodImplementationMap = new ResettableLazy<DictionaryWithRoles<CILMethod, ListProxy<CILMethod>, ListProxyQuery<CILMethod>, ListQuery<CILMethod>>>( anExplicitMethodImplementationMap, lazyThreadSafety );
+         explicitMethodImplementationMap = LazyFactory.NewReadOnlyResettableLazy( anExplicitMethodImplementationMap, lazyThreadSafety );
       }
 
       public override String ToString()
@@ -675,8 +675,8 @@ namespace CILAssemblyManipulator.Logical.Implementation
       {
          set
          {
-            this.CheckBaseType( value );
-            this.baseType.Value = value;
+            var lazy = this.ThrowIfNotCapableOfChanging( this.baseType );
+            lazy.Value = value;
             this.context.Cache.ForAllGenericInstancesOf( this, type => type.ResetBaseType() );
          }
          get
@@ -856,7 +856,7 @@ namespace CILAssemblyManipulator.Logical.Implementation
          }
       }
 
-      SettableLazy<LogicalClassLayout?> CILTypeInternal.ClassLayoutInternal
+      WriteableLazy<LogicalClassLayout?> CILTypeInternal.ClassLayoutInternal
       {
          get
          {
@@ -1023,17 +1023,6 @@ namespace CILAssemblyManipulator.Logical.Implementation
 
       #endregion
 
-      protected void CheckBaseType( CILType value )
-      {
-         this.ThrowIfNotCapableOfChanging();
-         //if ( value != null )
-         //{
-         //   value.AsSingleBranchEnumerable( type => type.BaseType ).CheckCyclity( this );
-         //}
-         // TODO check for sealed/valuetype/enum!
-         // TODO If basetype is System.Enum, remember to update TypeCode
-         // TODO check method impl!
-      }
 
       #region CILType Members
 

@@ -52,6 +52,16 @@ namespace CILAssemblyManipulator.Logical.Implementation
             throw new NotSupportedException( "Complex changing (such as adding interfaces, methods, etc) on this instance is not supported: " + this.IsCapableOfChanging() );
          }
       }
+
+      protected WriteableResettableLazy<T> ThrowIfNotCapableOfChanging<T>( IResettableLazy<T> lazy )
+      {
+         var retVal = lazy as WriteableResettableLazy<T>;
+         if ( retVal == null )
+         {
+            throw new NotSupportedException( "Complex changing (such as adding interfaces, methods, etc) on this instance is not supported: " + this.IsCapableOfChanging() );
+         }
+         return retVal;
+      }
    }
 
    internal abstract class CILCustomAttributeContainerImpl : CommonFunctionality, CILCustomAttributeContainer, CILElementWithContext
@@ -187,37 +197,6 @@ namespace CILAssemblyManipulator.Logical.Implementation
       #endregion
    }
 
-   internal class SettableLazy<T>
-   {
-
-      private Lazy<T> _lazy;
-      private Object _mutable;
-
-      internal SettableLazy( Func<T> creator, LazyThreadSafetyMode lazyThreadSafety )
-         : this( new Lazy<T>( creator, lazyThreadSafety ) )
-      {
-
-      }
-
-      private SettableLazy( Lazy<T> lazy )
-      {
-         this._lazy = lazy;
-      }
-
-      internal T Value
-      {
-         get
-         {
-            var lazy = this._lazy; // Read field only once in case it changes after check and 2nd reading
-            return lazy == null ? (T) this._mutable : lazy.Value;
-         }
-         set
-         {
-            Interlocked.Exchange( ref this._mutable, value );
-            Interlocked.Exchange( ref this._lazy, null );
-         }
-      }
-   }
 
    internal abstract class SettableValue<TField, TValue>
    {
@@ -305,67 +284,6 @@ namespace CILAssemblyManipulator.Logical.Implementation
       }
    }
 
-   internal class ResettableLazy<T>
-   {
-      protected Lazy<T> _lazy;
-      private readonly LazyThreadSafetyMode _threadSafety;
-      private readonly Func<T> _valueFactory;
-
-      internal ResettableLazy( Func<T> valueFactory, LazyThreadSafetyMode threadSafety )
-      {
-         this._valueFactory = valueFactory;
-         this._threadSafety = threadSafety;
-         this._lazy = new Lazy<T>( this._valueFactory, threadSafety );
-      }
-
-      internal virtual void Reset()
-      {
-         Interlocked.Exchange( ref this._lazy, new Lazy<T>( this._valueFactory, this._threadSafety ) );
-      }
-
-      internal virtual T Value
-      {
-         get
-         {
-            return this._lazy.Value;
-         }
-         set
-         {
-            throw new NotSupportedException();
-         }
-      }
-   }
-
-   internal class ResettableAndSettableLazy<T> : ResettableLazy<T>
-   {
-      private Object _mutable;
-
-      internal ResettableAndSettableLazy( Func<T> valueFactory, LazyThreadSafetyMode threadSafety )
-         : base( valueFactory, threadSafety )
-      {
-
-      }
-
-      internal override T Value
-      {
-         get
-         {
-            var lazy = this._lazy; // Read field only once in case it changes after check and 2nd reading
-            return lazy == null ? (T) this._mutable : lazy.Value;
-         }
-         set
-         {
-            Interlocked.Exchange( ref this._mutable, value );
-            Interlocked.Exchange( ref this._lazy, null );
-         }
-      }
-
-      internal override void Reset()
-      {
-         base.Reset();
-         Interlocked.Exchange( ref this._mutable, null );
-      }
-   }
 
    internal interface CILElementWithSimpleNameInternal
    {
@@ -374,7 +292,7 @@ namespace CILAssemblyManipulator.Logical.Implementation
 
    internal interface CILElementWithConstantValueInternal
    {
-      SettableLazy<Object> ConstantValueInternal { get; }
+      WriteableLazy<Object> ConstantValueInternal { get; }
    }
 
    internal interface CILElementWithCustomModifiersInternal
@@ -386,14 +304,14 @@ namespace CILAssemblyManipulator.Logical.Implementation
    {
       SettableValueForEnums<FieldAttributes> FieldAttributesInternal { get; }
       SettableValueForClasses<Byte[]> FieldRVAValue { get; }
-      SettableLazy<Int32> FieldOffsetInternal { get; }
+      WriteableLazy<Int32> FieldOffsetInternal { get; }
 
       void ResetFieldType();
    }
 
    internal interface CILElementWithMarshalInfoInternal
    {
-      SettableLazy<LogicalMarshalingInfo> MarshalingInfoInternal { get; }
+      WriteableLazy<LogicalMarshalingInfo> MarshalingInfoInternal { get; }
    }
 
    internal interface CILParameterInternal : CILElementWithSimpleNameInternal, CILElementWithConstantValueInternal, CILElementWithCustomModifiersInternal, CILElementWithMarshalInfoInternal
@@ -408,7 +326,7 @@ namespace CILAssemblyManipulator.Logical.Implementation
    {
       SettableValueForEnums<CallingConventions> CallingConventionInternal { get; }
       SettableValueForEnums<MethodAttributes> MethodAttributesInternal { get; }
-      SettableLazy<MethodImplAttributes> MethodImplementationAttributesInternal { get; }
+      WriteableLazy<MethodImplAttributes> MethodImplementationAttributesInternal { get; }
 
       void ResetParameterList();
    }
@@ -431,7 +349,7 @@ namespace CILAssemblyManipulator.Logical.Implementation
    {
       SettableValueForEnums<TypeAttributes> TypeAttributesInternal { get; }
       Lazy<ListProxy<CILType>> NestedTypesInternal { get; }
-      SettableLazy<LogicalClassLayout?> ClassLayoutInternal { get; }
+      WriteableLazy<LogicalClassLayout?> ClassLayoutInternal { get; }
       //SettableLazy<CILType> ForwardedTypeInternal { get; }
       void ResetBaseType();
       void ResetDeclaredInterfaces();

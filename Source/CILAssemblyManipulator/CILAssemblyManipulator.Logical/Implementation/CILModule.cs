@@ -36,7 +36,7 @@ namespace CILAssemblyManipulator.Logical.Implementation
       private readonly Lazy<CILAssembly> assembly;
       private readonly Lazy<ListProxy<CILType>> types;
       private readonly Lazy<CILType> moduleInitializer;
-      private readonly SettableLazy<CILModule> associatedMSCorLib;
+      private readonly WriteableLazy<CILModule> associatedMSCorLib;
 #if CAM_LOGICAL_IS_SL
       private readonly Dictionary<String, CILType> typeNameCache;
 #else
@@ -99,7 +99,7 @@ namespace CILAssemblyManipulator.Logical.Implementation
          ref Lazy<CILAssembly> assembly,
          ref Lazy<ListProxy<CILType>> types,
          ref Lazy<CILType> moduleInitializer,
-         ref SettableLazy<CILModule> associatedMSCorLib,
+         ref WriteableLazy<CILModule> associatedMSCorLib,
 #if CAM_LOGICAL_IS_SL
          ref Dictionary<String, CILType> typeNameCache,
 #else
@@ -120,7 +120,7 @@ namespace CILAssemblyManipulator.Logical.Implementation
          assembly = new Lazy<CILAssembly>( assemblyFunc, lazyThreadSafety );
          types = new Lazy<ListProxy<CILType>>( typesFunc, lazyThreadSafety );
          moduleInitializer = new Lazy<CILType>( moduleInitializerFunc, lazyThreadSafety );
-         associatedMSCorLib = new SettableLazy<CILModule>( associatedMSCorLibFunc, lazyThreadSafety );
+         associatedMSCorLib = LazyFactory.NewWriteableLazy( associatedMSCorLibFunc, lazyThreadSafety );
          typeNameCache =
 #if CAM_LOGICAL_IS_SL
             new Dictionary<String, CILType>()
