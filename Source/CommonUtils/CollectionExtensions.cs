@@ -20,6 +20,28 @@ using System.Collections.Generic;
 using System.Linq;
 using CommonUtils;
 
+namespace CommonUtils
+{
+   /// <summary>
+   /// This is enumeration to use when deciding how to handle duplicate key values in <see cref="E_CommonUtils.ToDictionary"/> method.
+   /// </summary>
+   public enum DictionaryOverwriteStrategy
+   {
+      /// <summary>
+      /// When a duplicate key is encountered, old value is preserved and new value is discarded.
+      /// </summary>
+      Preserve,
+      /// <summary>
+      /// When a duplicate key is encountered, old value is discarded and new value will replace the old value.
+      /// </summary>
+      Overwrite,
+      /// <summary>
+      /// When a duplicate key is encountered, an <see cref="ArgumentException"/> is thrown.
+      /// </summary>
+      Throw
+   }
+}
+
 public static partial class E_CommonUtils
 {
    /// <summary>
@@ -630,10 +652,160 @@ public static partial class E_CommonUtils
       {
          using ( var enumerator = enumerable.GetEnumerator() )
          {
-            retVal = enumerator.MoveNext() && !enumerator.MoveNext();
-            value = retVal ? enumerator.Current : default( T );
+            retVal = enumerator.MoveNext();
+            if ( retVal )
+            {
+               value = enumerator.Current;
+               retVal = !enumerator.MoveNext();
+               if ( !retVal )
+               {
+                  value = default( T );
+               }
+            }
+            else
+            {
+               value = default( T );
+            }
          }
       }
       return retVal;
+   }
+
+   /// <summary>
+   /// Creates a dictionary from given enumerable, with customizable behaviour on how to handle duplicate keys, and optional callback to create the resulting dictionary.
+   /// </summary>
+   /// <typeparam name="T">The type of enumerable items.</typeparam>
+   /// <typeparam name="TKey">The type of the keys in the resulting dictionary.</typeparam>
+   /// <typeparam name="TValue">The type of the values in the resulting dictionary.</typeparam>
+   /// <param name="source">The source enumerable.</param>
+   /// <param name="keySelector">The callback to create keys from items of the enumerable.</param>
+   /// <param name="valueSelector">The calllback to create values from items of the enumerable.</param>
+   /// <param name="overwriteStrategy">The <see cref="DictionaryOverwriteStrategy"/> on how to handle duplicate keys.</param>
+   /// <param name="equalityComparer">The optional equality comparer for keys.</param>
+   /// <param name="dictionaryFactory">The optional callback to create a new, empty dictionary.</param>
+   /// <returns>A <see cref="IDictionary{TKey, TValue}"/> containing transformed enumerable.</returns>
+   /// <exception cref="ArgumentNullException">If any of <paramref name="source"/>, <paramref name="keySelector"/>, or <paramref name="valueSelector"/> is <c>null</c>.</exception>
+   /// <exception cref="ArgumentException">If <paramref name="overwriteStrategy"/> is <see cref="DictionaryOverwriteStrategy.Throw"/> and there are duplicate keys during transformation.</exception>
+   /// <exception cref="InvalidOperationException">If <paramref name="overwriteStrategy"/> is other than values in <see cref="DictionaryOverwriteStrategy"/> enumeration.</exception>
+   public static IDictionary<TKey, TValue> ToDictionary<T, TKey, TValue>( this IEnumerable<T> source, Func<T, TKey> keySelector, Func<T, TValue> valueSelector, DictionaryOverwriteStrategy overwriteStrategy, IEqualityComparer<TKey> equalityComparer = null, Func<IDictionary<TKey, TValue>> dictionaryFactory = null )
+   {
+      switch ( overwriteStrategy )
+      {
+         case DictionaryOverwriteStrategy.Preserve:
+            return source.ToDictionary_Preserve( keySelector, valueSelector, equalityComparer );
+         case DictionaryOverwriteStrategy.Overwrite:
+            return source.ToDictionary_Overwrite( keySelector, valueSelector, equalityComparer );
+         case DictionaryOverwriteStrategy.Throw:
+            return source.ToDictionary_Throw( keySelector, valueSelector, equalityComparer );
+         default:
+            throw new InvalidOperationException( "Unrecognized dictionary overwrite strategy: " + overwriteStrategy + "." );
+      }
+   }
+
+   /// <summary>
+   /// Creates a dictionary from given enumerable overwriting old values in case of duplicate keys, with optional callback to create the resulting dictionary.
+   /// </summary>
+   /// <typeparam name="T">The type of enumerable items.</typeparam>
+   /// <typeparam name="TKey">The type of the keys in the resulting dictionary.</typeparam>
+   /// <typeparam name="TValue">The type of the values in the resulting dictionary.</typeparam>
+   /// <param name="source">The source enumerable.</param>
+   /// <param name="keySelector">The callback to create keys from items of the enumerable.</param>
+   /// <param name="valueSelector">The callback to create values from items of the enumerable.</param>
+   /// <param name="equalityComparer">The optional equalit ycomparer for keys.</param>
+   /// <param name="dictionaryFactory">The optional callback to create a new, empty dctionary.</param>
+   /// <returns>A <see cref="IDictionary{TKey, TValue}"/> containing transformed enumerable.</returns>
+   /// <exception cref="ArgumentNullException">If any of <paramref name="source"/>, <paramref name="keySelector"/>, or <paramref name="valueSelector"/> is <c>null</c>.</exception>
+   public static IDictionary<TKey, TValue> ToDictionary_Overwrite<T, TKey, TValue>( this IEnumerable<T> source, Func<T, TKey> keySelector, Func<T, TValue> valueSelector, IEqualityComparer<TKey> equalityComparer = null, Func<IEqualityComparer<TKey>, IDictionary<TKey, TValue>> dictionaryFactory = null )
+   {
+      var retVal = ValidateToDictionaryParams( source, keySelector, valueSelector, equalityComparer, dictionaryFactory );
+      foreach ( var item in source )
+      {
+         retVal[keySelector( item )] = valueSelector( item );
+      }
+
+      return retVal;
+   }
+
+   /// <summary>
+   /// Creates a dictionary from given enumerable preserving old values in case of duplicate keys, with optional callback to create the resulting dictionary.
+   /// </summary>
+   /// <typeparam name="T">The type of enumerable items.</typeparam>
+   /// <typeparam name="TKey">The type of the keys in the resulting dictionary.</typeparam>
+   /// <typeparam name="TValue">The type of the values in the resulting dictionary.</typeparam>
+   /// <param name="source">The source enumerable.</param>
+   /// <param name="keySelector">The callback to create keys from items of the enumerable.</param>
+   /// <param name="valueSelector">The callback to create values from items of the enumerable.</param>
+   /// <param name="equalityComparer">The optional equalit ycomparer for keys.</param>
+   /// <param name="dictionaryFactory">The optional callback to create a new, empty dctionary.</param>
+   /// <returns>A <see cref="IDictionary{TKey, TValue}"/> containing transformed enumerable.</returns>
+   /// <exception cref="ArgumentNullException">If any of <paramref name="source"/>, <paramref name="keySelector"/>, or <paramref name="valueSelector"/> is <c>null</c>.</exception>  
+   public static IDictionary<TKey, TValue> ToDictionary_Preserve<T, TKey, TValue>( this IEnumerable<T> source, Func<T, TKey> keySelector, Func<T, TValue> valueSelector, IEqualityComparer<TKey> equalityComparer = null, Func<IEqualityComparer<TKey>, IDictionary<TKey, TValue>> dictionaryFactory = null )
+   {
+      var retVal = ValidateToDictionaryParams( source, keySelector, valueSelector, equalityComparer, dictionaryFactory );
+      foreach ( var item in source )
+      {
+         var key = keySelector( item );
+         if ( !retVal.ContainsKey( key ) )
+         {
+            retVal.Add( key, valueSelector( item ) );
+         }
+      }
+
+      return retVal;
+   }
+
+   /// <summary>
+   /// Creates a dictionary from given enumerable throwing an <see cref="ArgumentException"/> in case of duplicate keys, with optional callback to create the resulting dictionary.
+   /// </summary>
+   /// <typeparam name="T">The type of enumerable items.</typeparam>
+   /// <typeparam name="TKey">The type of the keys in the resulting dictionary.</typeparam>
+   /// <typeparam name="TValue">The type of the values in the resulting dictionary.</typeparam>
+   /// <param name="source">The source enumerable.</param>
+   /// <param name="keySelector">The callback to create keys from items of the enumerable.</param>
+   /// <param name="valueSelector">The callback to create values from items of the enumerable.</param>
+   /// <param name="equalityComparer">The optional equalit ycomparer for keys.</param>
+   /// <param name="dictionaryFactory">The optional callback to create a new, empty dctionary.</param>
+   /// <returns>A <see cref="IDictionary{TKey, TValue}"/> containing transformed enumerable.</returns>
+   /// <exception cref="ArgumentNullException">If any of <paramref name="source"/>, <paramref name="keySelector"/>, or <paramref name="valueSelector"/> is <c>null</c>.</exception>
+   /// <exception cref="ArgumentException">If there are duplicate keys during transformation.</exception>
+   public static IDictionary<TKey, TValue> ToDictionary_Throw<T, TKey, TValue>( this IEnumerable<T> source, Func<T, TKey> keySelector, Func<T, TValue> valueSelector, IEqualityComparer<TKey> equalityComparer = null, Func<IEqualityComparer<TKey>, IDictionary<TKey, TValue>> dictionaryFactory = null )
+   {
+      var retVal = ValidateToDictionaryParams( source, keySelector, valueSelector, equalityComparer, dictionaryFactory );
+      foreach ( var item in source )
+      {
+         retVal.Add( keySelector( item ), valueSelector( item ) );
+      }
+
+      return retVal;
+   }
+
+   private static IDictionary<TKey, TValue> ValidateToDictionaryParams<T, TKey, TValue>( IEnumerable<T> source, Func<T, TKey> keySelector, Func<T, TValue> valueSelector, IEqualityComparer<TKey> equalityComparer, Func<IEqualityComparer<TKey>, IDictionary<TKey, TValue>> dictionaryFactory )
+   {
+      ArgumentValidator.ValidateNotNull( "Source", source );
+      ArgumentValidator.ValidateNotNull( "Key selector", keySelector );
+      ArgumentValidator.ValidateNotNull( "Value selector", valueSelector );
+
+      return dictionaryFactory == null ? new Dictionary<TKey, TValue>( equalityComparer ) : dictionaryFactory( equalityComparer );
+   }
+
+   /// <summary>
+   /// This method will shuffle the given array using <see href="https://en.wikipedia.org/wiki/Fisher%E2%80%93Yates_shuffle">Fisher-Yates algorithm</see>.
+   /// </summary>
+   /// <typeparam name="T">The type of elements in the array.</typeparam>
+   /// <param name="array">The array.</param>
+   /// <param name="random">The optional <see cref="Random"/> to use for shuffle.</param>
+   public static void Shuffle<T>( this T[] array, Random random = null )
+   {
+      if ( random == null )
+      {
+         random = new Random();
+      }
+
+      var n = array.Length;
+      while ( n > 1 )
+      {
+         var randomIndex = random.Next( n-- );
+         array.Swap( n, randomIndex );
+      }
    }
 }

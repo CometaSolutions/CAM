@@ -189,6 +189,31 @@ public static partial class E_CommonUtils
    }
 
    /// <summary>
+   /// Reads a whole stream and returns its contents as single byte array.
+   /// </summary>
+   /// <param name="stream">The stream to read.</param>
+   /// <param name="buffer">The optional buffer to use. If not specified, then a buffer of <c>1024</c> bytes will be used.</param>
+   /// <returns>The stream contents as single byte array.</returns>
+   /// <exception cref="NullReferenceException">If <paramref name="stream"/> is <c>null</c>.</exception>
+   public static Byte[] ReadWholeStream( this Stream stream, Byte[] buffer = null )
+   {
+      if ( buffer == null )
+      {
+         buffer = new Byte[1024];
+      }
+
+      using ( var ms = new MemoryStream() )
+      {
+         Int32 read;
+         while ( ( read = stream.Read( buffer, 0, buffer.Length ) ) > 0 )
+         {
+            ms.Write( buffer, 0, read );
+         }
+         return ms.ToArray();
+      }
+   }
+
+   /// <summary>
    /// Reads a single byte at specified index in byte array.
    /// </summary>
    /// <param name="array">The byte array.</param>
