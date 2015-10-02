@@ -24,7 +24,7 @@ using System.Threading;
 namespace CommonUtils
 {
    /// <summary>
-   /// This enum will tell what type the <see cref="IAbstractLazy{T}"/> actually is.
+   /// This enumeration will tell what type the <see cref="IAbstractLazy{T}"/> actually is.
    /// </summary>
    public enum LazyKind
    {
@@ -47,6 +47,36 @@ namespace CommonUtils
    }
 
    /// <summary>
+   /// This enumeration describes whether the lazy object can be written.
+   /// </summary>
+   public enum LazyWriteabilityKind
+   {
+      /// <summary>
+      /// The lazy value can not be overwritten.
+      /// </summary>
+      ReadOnly,
+      /// <summary>
+      /// The lazy value can be overwritten.
+      /// </summary>
+      Writeable
+   }
+
+   /// <summary>
+   /// This enumeration describes whether the lazy object can be re-set to its original value.
+   /// </summary>
+   public enum LazyResettabilityKind
+   {
+      /// <summary>
+      /// The lazy value can not be re-set.
+      /// </summary>
+      NotResettable,
+      /// <summary>
+      /// The lazy value can be re-set.
+      /// </summary>
+      Resettable
+   }
+
+   /// <summary>
    /// This is common interface for all lazy types in this library.
    /// </summary>
    /// <typeparam name="T">The type of lazily initialized object.</typeparam>
@@ -63,15 +93,29 @@ namespace CommonUtils
       /// Lazily initializes the value, if required, and returns it.
       /// </summary>
       T Value { get; }
+
       /// <summary>
       /// Checks whether the value has been initialized.
       /// </summary>
       /// <value><c>true</c>, if value has been initialized; <c>false</c> otherwise.</value>
       Boolean IsValueCreated { get; }
+
       /// <summary>
       /// Gets the <see cref="CommonUtils.LazyKind"/> enumeration telling which lazy type this object really is.
       /// </summary>
       LazyKind LazyKind { get; }
+
+      /// <summary>
+      /// Gets the <see cref="LazyWriteabilityKind"/> of this lazy.
+      /// </summary>
+      /// <value>The <see cref="LazyWriteabilityKind"/> of this lazy.</value>
+      LazyWriteabilityKind WriteabilityKind { get; }
+
+      /// <summary>
+      /// Gets the <see cref="LazyResettabilityKind"/> of this lazy.
+      /// </summary>
+      /// <value>The <see cref="LazyResettabilityKind"/> of this lazy.</value>
+      LazyResettabilityKind ResettabilityKind { get; }
    }
 
    /// <summary>
@@ -130,12 +174,28 @@ namespace CommonUtils
 
       }
 
-
-      /// <inheritdoc />
+      /// <summary>
+      /// Checks whether the value has been initialized.
+      /// </summary>
+      /// <value><c>true</c>, if value has been initialized; <c>false</c> otherwise.</value>
       public abstract Boolean IsValueCreated { get; }
 
-      /// <inheritdoc />
+      /// <summary>
+      /// Gets the <see cref="CommonUtils.LazyKind"/> enumeration telling which lazy type this object really is.
+      /// </summary>
       public abstract LazyKind LazyKind { get; }
+
+      /// <summary>
+      /// Gets the <see cref="LazyWriteabilityKind"/> of this lazy.
+      /// </summary>
+      /// <value>The <see cref="LazyWriteabilityKind"/> of this lazy.</value>
+      public abstract LazyWriteabilityKind WriteabilityKind { get; }
+
+      /// <summary>
+      /// Gets the <see cref="LazyResettabilityKind"/> of this lazy.
+      /// </summary>
+      /// <value>The <see cref="LazyResettabilityKind"/> of this lazy.</value>
+      public abstract LazyResettabilityKind ResettabilityKind { get; }
    }
 
 
@@ -181,6 +241,25 @@ namespace CommonUtils
             return LazyKind.ReadOnly;
          }
       }
+
+      /// <inheritdoc />
+      public override LazyWriteabilityKind WriteabilityKind
+      {
+         get
+         {
+            return LazyWriteabilityKind.ReadOnly;
+         }
+      }
+
+      /// <inheritdoc />
+      public override LazyResettabilityKind ResettabilityKind
+      {
+         get
+         {
+            return LazyResettabilityKind.NotResettable;
+         }
+      }
+
    }
 
    /// <summary>
@@ -280,6 +359,23 @@ namespace CommonUtils
          }
       }
 
+      /// <inheritdoc />
+      public override LazyWriteabilityKind WriteabilityKind
+      {
+         get
+         {
+            return LazyWriteabilityKind.ReadOnly;
+         }
+      }
+
+      /// <inheritdoc />
+      public override LazyResettabilityKind ResettabilityKind
+      {
+         get
+         {
+            return LazyResettabilityKind.Resettable;
+         }
+      }
 
    }
 
@@ -343,6 +439,24 @@ namespace CommonUtils
             return LazyKind.Writeable;
          }
       }
+
+      /// <inheritdoc />
+      public override LazyWriteabilityKind WriteabilityKind
+      {
+         get
+         {
+            return LazyWriteabilityKind.Writeable;
+         }
+      }
+
+      /// <inheritdoc />
+      public override LazyResettabilityKind ResettabilityKind
+      {
+         get
+         {
+            return LazyResettabilityKind.NotResettable;
+         }
+      }
    }
 
    /// <summary>
@@ -388,6 +502,24 @@ namespace CommonUtils
          get
          {
             return LazyKind.WriteableResettable;
+         }
+      }
+
+      /// <inheritdoc />
+      public override LazyWriteabilityKind WriteabilityKind
+      {
+         get
+         {
+            return LazyWriteabilityKind.Writeable;
+         }
+      }
+
+      /// <inheritdoc />
+      public override LazyResettabilityKind ResettabilityKind
+      {
+         get
+         {
+            return LazyResettabilityKind.Resettable;
          }
       }
    }
@@ -531,6 +663,47 @@ namespace CommonUtils
       public static IReadOnlyLazy<T> NewReadOnlyLazy<T>( Boolean isResettable, Func<T> valueFactory, LazyThreadSafetyMode threadSafety )
       {
          return isResettable ? (IReadOnlyLazy<T>) NewReadOnlyResettableLazy( valueFactory, threadSafety ) : NewReadOnlyLazy( valueFactory, threadSafety );
+      }
+
+      /// <summary>
+      /// Creates a new resettable lazy, which will re-set the lazy value if an exception is thrown from value factory.
+      /// </summary>
+      /// <typeparam name="TLazy">The type of the lazy.</typeparam>
+      /// <typeparam name="TValue">The type of the value.</typeparam>
+      /// <param name="lazy">The reference to lazy variable.</param>
+      /// <param name="valueFactory">The value factory.</param>
+      /// <param name="threadSafety">The <see cref="LazyThreadSafetyMode"/>.</param>
+      /// <param name="writeability">The writeability of the lazy to create, <see cref="LazyWriteabilityKind.ReadOnly"/> for <see cref="ReadOnlyResettableLazy{T}"/>, and <see cref="LazyWriteabilityKind.Writeable"/> for <see cref="WriteableResettableLazy{T}"/>.</param>
+      /// <exception cref="InvalidCastException">If <typeparamref name="TLazy"/> and <paramref name="writeability"/> do not match.</exception>
+      public static void NewResettableOnErrorLazy<TLazy, TValue>( out TLazy lazy, Func<TValue> valueFactory, LazyThreadSafetyMode threadSafety, LazyWriteabilityKind writeability )
+         where TLazy : class, IResettableLazy<TValue>
+      {
+         TLazy theLazy = null;
+         Func<TValue> newValueFactory = () =>
+         {
+            try
+            {
+               return valueFactory();
+            }
+            catch
+            {
+               theLazy.Reset();
+               throw;
+            }
+         };
+         switch ( writeability )
+         {
+            case LazyWriteabilityKind.ReadOnly:
+               theLazy = (TLazy) (Object) NewReadOnlyResettableLazy( newValueFactory, threadSafety );
+               break;
+            case LazyWriteabilityKind.Writeable:
+               theLazy = (TLazy) (Object) NewWriteableResettableLazy( newValueFactory, threadSafety );
+               break;
+            default:
+               throw new ArgumentException( "Invalid writeability kind: " + writeability + "." );
+         }
+
+         lazy = theLazy;
       }
    }
 }
