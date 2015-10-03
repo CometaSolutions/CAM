@@ -1,4 +1,4 @@
 [submodule "CommonBuildTools"]
 	path = CommonBuildTools
-	url = https://github.com/CometaSolutions/CommonBuildTools.git
+	url = git://github.com/CometaSolutions/CommonBuildTools.git
 	branch = develop
