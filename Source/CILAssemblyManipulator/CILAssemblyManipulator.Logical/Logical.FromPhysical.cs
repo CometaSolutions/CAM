@@ -42,9 +42,9 @@ namespace CILAssemblyManipulator.Logical
       private readonly IDictionary<CILField, FieldSignature> _fieldSignatures;
       private readonly IDictionary<CILMethodBase, MethodDefinitionSignature> _methodDefSignatures;
 
-      private readonly IDictionary<Int32, KeyValuePair<String, String>> _topLevelTypes;
+      private readonly IDictionary<Int32, TypeDefinition> _topLevelTypes;
       private readonly TypeSignature[] _typeSpecSignatures;
-
+      private readonly TypeReference[] _typeRefs;
 
       private readonly Object _lock;
       private Action _basicStructurePopulator;
@@ -74,11 +74,12 @@ namespace CILAssemblyManipulator.Logical
          this._typeDefs = new Dictionary<String, CILType>();
          this._typeDefInfos = new Dictionary<CILType, Tuple<String, TypeAttributes, TableIndex?>>();
 
-         this._topLevelTypes = new Dictionary<Int32, KeyValuePair<String, String>>();
-         // TODO .ToArray<T,U>(Func<T,U> selector) to UtilPack
+         this._topLevelTypes = new Dictionary<Int32, TypeDefinition>();
          this._fieldSignatures = new Dictionary<CILField, FieldSignature>();
          this._methodDefSignatures = new Dictionary<CILMethodBase, MethodDefinitionSignature>();
+         // TODO .ToArray<T,U>(Func<T,U> selector) to UtilPack
          this._typeSpecSignatures = md.TypeSpecifications.TableContents.Select( t => t.Signature ).ToArray();
+         this._typeRefs = md.TypeReferences.TableContents.ToArray();
       }
 
       /// <summary>
@@ -133,6 +134,20 @@ namespace CILAssemblyManipulator.Logical
          var tDef = md.TypeDefinitions.TableContents[tDefIndex];
          this._typeDefs.Add( typeString, type );
          this._typeDefInfos.Add( type, Tuple.Create( typeString, tDef.Attributes, tDef.BaseType ) );
+         if (type.DeclaringType == null)
+         {
+            this._topLevelTypes.Add( tDefIndex, tDef );
+         }
+      }
+
+      internal void RecordFieldDef(CILField field, FieldSignature sig)
+      {
+         this._fieldSignatures.Add( field, sig );
+      }
+
+      internal void RecordMethodDef(CILMethodBase method, MethodDefinitionSignature sig)
+      {
+         this._methodDefSignatures.Add( method, sig );
       }
 
       internal CILAssembly AssemblyInstance
@@ -457,7 +472,10 @@ public static partial class E_CILLogical
          return this._events[eventDefIndex];
       }
 
-      internal void RecordTypeDef( CILType type, Int32 typeDefIndex )
+      internal void RecordTypeDef(
+         CILType type,
+         Int32 typeDefIndex
+         )
       {
          this._typeDefs[typeDefIndex] = type;
 
@@ -476,11 +494,13 @@ public static partial class E_CILLogical
       internal void RecordFieldDef( CILField field, Int32 fieldDefIndex )
       {
          this._fieldDefs[fieldDefIndex] = field;
+         this._creationResult.RecordFieldDef( field, this._md.FieldDefinitions.TableContents[fieldDefIndex].Signature );
       }
 
       internal void RecordMethodDef( CILMethodBase method, Int32 methodDefIndex )
       {
          this._methodDefs[methodDefIndex] = method;
+         this._creationResult.RecordMethodDef( method, this._md.MethodDefinitions.TableContents[methodDefIndex].Signature );
       }
 
       internal void RecordParameter( CILParameter parameter, Int32 paramDefIndex )
@@ -717,7 +737,7 @@ public static partial class E_CILLogical
          // Before resolving, we have to populate
 
          var sig = mRef.Signature;
-         var wasMethod = false;
+         Boolean wasMethod;
          CILElementTokenizableInILCode retVal;
          var declIsGeneric = cilDeclType.IsGenericType();
          var declTypeToUse = declIsGeneric ? cilDeclType.GenericDefinition : cilDeclType;
@@ -726,10 +746,10 @@ public static partial class E_CILLogical
          switch ( sig.SignatureKind )
          {
             case SignatureKind.Field:
+               wasMethod = true;
                var fTypeSig = ( (FieldSignature) sig ).Type;
                var field = declTypeToUse.DeclaredFields.FirstOrDefault( f =>
-                  !f.Attributes.IsCompilerControlled()
-                  && String.Equals( f.Name, mRef.Name )
+                  String.Equals( f.Name, mRef.Name )
                   && this.MatchCILTypeToSignature( f.FieldType, fTypeSig )
                   );
                if ( field != null && declIsGeneric )
