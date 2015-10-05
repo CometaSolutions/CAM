@@ -42,6 +42,8 @@ namespace CILAssemblyManipulator.PDB
       private const Byte MD2_FORWARDING_MODULE_METHOD_TOKEN = 2;
       private const Byte MD2_LOCAL_SCOPES = 3;
       private const Byte MD2_ITERATOR_CLASS = 4;
+      private const Byte MD2_YET_UNKNOWN = 6;
+      private const Byte MD2_YET_UNKNOWN_2 = 7;
 
       private const Int32 LINE_MULTIPLIER = 8; // Offset (int32), flags (uint32)
       private const Int32 COLUMN_MULTIPLIER = 4; // Column start (uint16), column end (uint16)

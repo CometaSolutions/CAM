@@ -425,14 +425,26 @@ namespace CILAssemblyManipulator.Structural
       private Boolean Equivalence_FromDictionary<T, U>( IDictionary<T, U> xDic, IDictionary<T, U> yDic, T x, T y, Func<U, U, Boolean> equivalence )
       {
          U xU, yU;
-         return
-            ( xDic.TryGetValue( x, out xU ) ?
-               yDic.TryGetValue( y, out yU ) :
-               ( yDic.TryGetValue( x, out xU )
-                  && xDic.TryGetValue( y, out yU )
-               )
-            )
-           && equivalence( xU, yU );
+         // Temporary until fixed in MSBuild 14.0
+         Boolean retVal;
+         if ( xDic.TryGetValue( x, out xU ) )
+         {
+            retVal = yDic.TryGetValue( y, out yU ) && equivalence( xU, yU );
+         }
+         else
+         {
+            retVal = yDic.TryGetValue( x, out xU ) && xDic.TryGetValue( y, out yU ) && equivalence( xU, yU );
+         }
+         return retVal;
+
+         //return
+         //   ( xDic.TryGetValue( x, out xU ) ?
+         //      yDic.TryGetValue( y, out yU ) :
+         //      ( yDic.TryGetValue( x, out xU )
+         //         && xDic.TryGetValue( y, out yU )
+         //      )
+         //   )
+         //  && equivalence( xU, yU );
       }
 
       private Boolean Equivalence_OverriddenMethod( OverriddenMethodInfo x, OverriddenMethodInfo y )
