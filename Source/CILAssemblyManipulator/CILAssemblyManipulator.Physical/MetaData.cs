@@ -97,6 +97,37 @@ namespace CILAssemblyManipulator.Physical
       MetaDataTable<MethodSpecification> MethodSpecifications { get; }
 
       MetaDataTable<GenericParameterConstraintDefinition> GenericParameterConstraintDefinitions { get; }
+
+      MetaDataTable<EditAndContinueLog> EditAndContinueLog { get; }
+
+      MetaDataTable<EditAndContinueMap> EditAndContinueMap { get; }
+
+      [Obsolete( "This table should not be used anymore.", false )]
+      MetaDataTable<FieldDefinitionPointer> FieldDefinitionPointers { get; }
+
+      [Obsolete( "This table should not be used anymore.", false )]
+      MetaDataTable<MethodDefinitionPointer> MethodDefinitionPointers { get; }
+
+      [Obsolete( "This table should not be used anymore.", false )]
+      MetaDataTable<ParameterPointer> ParameterDefinitionPointers { get; }
+
+      [Obsolete( "This table should not be used anymore.", false )]
+      MetaDataTable<EventPointer> EventPointers { get; }
+
+      [Obsolete( "This table should not be used anymore.", false )]
+      MetaDataTable<PropertyPointer> PropertyPointers { get; }
+
+      [Obsolete( "This table should not be used anymore.", false )]
+      MetaDataTable<AssemblyDefinitionProcessor> AssemblyDefinitionProcessors { get; }
+
+      [Obsolete( "This table should not be used anymore.", false )]
+      MetaDataTable<AssemblyDefinitionOS> AssemblyDefinitionOSs { get; }
+
+      [Obsolete( "This table should not be used anymore.", false )]
+      MetaDataTable<AssemblyReferenceProcessor> AssemblyReferenceProcessors { get; }
+
+      [Obsolete( "This table should not be used anymore.", false )]
+      MetaDataTable<AssemblyReferenceOS> AssemblyReferenceOSs { get; }
    }
 
    public interface MetaDataTable
@@ -583,56 +614,14 @@ public static partial class E_CILPhysical
       Object retVal;
       if ( !md.TryGetByTableIndex( index, out retVal ) )
       {
-         switch ( index.Table )
+         var tbl = (Int32) index.Table;
+         if ( tbl >= 0 && tbl < Consts.AMOUNT_OF_TABLES )
          {
-            case Tables.Module:
-            case Tables.TypeRef:
-            case Tables.TypeDef:
-            case Tables.Field:
-            case Tables.MethodDef:
-            case Tables.Parameter:
-            case Tables.InterfaceImpl:
-            case Tables.MemberRef:
-            case Tables.Constant:
-            case Tables.CustomAttribute:
-            case Tables.FieldMarshal:
-            case Tables.DeclSecurity:
-            case Tables.ClassLayout:
-            case Tables.FieldLayout:
-            case Tables.StandaloneSignature:
-            case Tables.EventMap:
-            case Tables.Event:
-            case Tables.PropertyMap:
-            case Tables.Property:
-            case Tables.MethodSemantics:
-            case Tables.MethodImpl:
-            case Tables.ModuleRef:
-            case Tables.TypeSpec:
-            case Tables.ImplMap:
-            case Tables.FieldRVA:
-            case Tables.Assembly:
-            case Tables.AssemblyRef:
-            case Tables.File:
-            case Tables.ExportedType:
-            case Tables.ManifestResource:
-            case Tables.NestedClass:
-            case Tables.GenericParameter:
-            case Tables.MethodSpec:
-            case Tables.GenericParameterConstraint:
-               throw new ArgumentOutOfRangeException( "Table index " + index + " was out of range." );
-            case Tables.FieldPtr:
-            case Tables.MethodPtr:
-            case Tables.ParameterPtr:
-            case Tables.EventPtr:
-            case Tables.PropertyPtr:
-            case Tables.EncLog:
-            case Tables.EncMap:
-            case Tables.AssemblyProcessor:
-            case Tables.AssemblyOS:
-            case Tables.AssemblyRefProcessor:
-            case Tables.AssemblyRefOS:
-            default:
-               throw new InvalidOperationException( "The table " + index.Table + " does not have representation in this framework." );
+            throw new ArgumentOutOfRangeException( "Table index " + index + " was out of range." );
+         }
+         else
+         {
+            throw new InvalidOperationException( "The table " + index.Table + " does not have representation in this framework." );
          }
       }
 
@@ -651,6 +640,7 @@ public static partial class E_CILPhysical
 
    public static Boolean TryGetByTable( this CILMetaData md, Tables tableKind, out MetaDataTable table )
    {
+#pragma warning disable 618
       switch ( tableKind )
       {
          case Tables.Module:
@@ -662,11 +652,20 @@ public static partial class E_CILPhysical
          case Tables.TypeDef:
             table = md.TypeDefinitions;
             break;
+         case Tables.FieldPtr:
+            table = md.FieldDefinitionPointers;
+            break;
          case Tables.Field:
             table = md.FieldDefinitions;
             break;
+         case Tables.MethodPtr:
+            table = md.MethodDefinitionPointers;
+            break;
          case Tables.MethodDef:
             table = md.MethodDefinitions;
+            break;
+         case Tables.ParameterPtr:
+            table = md.ParameterDefinitionPointers;
             break;
          case Tables.Parameter:
             table = md.ParameterDefinitions;
@@ -701,11 +700,17 @@ public static partial class E_CILPhysical
          case Tables.EventMap:
             table = md.EventMaps;
             break;
+         case Tables.EventPtr:
+            table = md.EventPointers;
+            break;
          case Tables.Event:
             table = md.EventDefinitions;
             break;
          case Tables.PropertyMap:
             table = md.PropertyMaps;
+            break;
+         case Tables.PropertyPtr:
+            table = md.PropertyPointers;
             break;
          case Tables.Property:
             table = md.PropertyDefinitions;
@@ -728,11 +733,29 @@ public static partial class E_CILPhysical
          case Tables.FieldRVA:
             table = md.FieldRVAs;
             break;
+         case Tables.EncLog:
+            table = md.EditAndContinueLog;
+            break;
+         case Tables.EncMap:
+            table = md.EditAndContinueMap;
+            break;
          case Tables.Assembly:
             table = md.AssemblyDefinitions;
             break;
+         case Tables.AssemblyProcessor:
+            table = md.AssemblyDefinitionProcessors;
+            break;
+         case Tables.AssemblyOS:
+            table = md.AssemblyDefinitionOSs;
+            break;
          case Tables.AssemblyRef:
             table = md.AssemblyReferences;
+            break;
+         case Tables.AssemblyRefProcessor:
+            table = md.AssemblyReferenceProcessors;
+            break;
+         case Tables.AssemblyRefOS:
+            table = md.AssemblyReferenceOSs;
             break;
          case Tables.File:
             table = md.FileReferences;
@@ -755,24 +778,12 @@ public static partial class E_CILPhysical
          case Tables.GenericParameterConstraint:
             table = md.GenericParameterConstraintDefinitions;
             break;
-         //case Tables.FieldPtr:
-         //case Tables.MethodPtr:
-         //case Tables.ParameterPtr:
-         //case Tables.EventPtr:
-         //case Tables.PropertyPtr:
-         //case Tables.EncLog:
-         //case Tables.EncMap:
-         //case Tables.AssemblyProcessor:
-         //case Tables.AssemblyOS:
-         //case Tables.AssemblyRefProcessor:
-         //case Tables.AssemblyRefOS:
          default:
             table = null;
             break;
       }
-
-
       return table != null;
+#pragma warning restore 618
    }
 
    public static Boolean TryGetByTableIndex( this CILMetaData md, TableIndex index, out Object row )
@@ -1730,12 +1741,12 @@ public static partial class E_CILPhysical
          .Concat( sig.Type.GetAllSignaturesToUpdateForReOrder_Type() );
    }
 
-   private static IEnumerable<TSigInfo> GetAllSignaturesToUpdateForReOrder_GenericMethod( this  GenericMethodSignature sig )
+   private static IEnumerable<TSigInfo> GetAllSignaturesToUpdateForReOrder_GenericMethod( this GenericMethodSignature sig )
    {
       return sig.GenericArguments.SelectMany( arg => arg.GetAllSignaturesToUpdateForReOrder() );
    }
 
-   private static IEnumerable<TSigInfo> GetAllSignaturesToUpdateForReOrder_Locals( this  LocalVariablesSignature sig )
+   private static IEnumerable<TSigInfo> GetAllSignaturesToUpdateForReOrder_Locals( this LocalVariablesSignature sig )
    {
       return sig.Locals.SelectMany( l => l.GetAllSignaturesToUpdateForReOrder_LocalOrSig() );
    }
@@ -1752,7 +1763,7 @@ public static partial class E_CILPhysical
          .Concat( sig.Type.GetAllSignaturesToUpdateForReOrder_Type() );
    }
 
-   private static IEnumerable<TSigInfo> GetAllSignaturesToUpdateForReOrder_MethodDef( this  MethodDefinitionSignature sig )
+   private static IEnumerable<TSigInfo> GetAllSignaturesToUpdateForReOrder_MethodDef( this MethodDefinitionSignature sig )
    {
       return sig.GetAllSignaturesToUpdateForReOrder_AbstractMethod();
    }
@@ -1763,7 +1774,7 @@ public static partial class E_CILPhysical
          .Concat( sig.VarArgsParameters.SelectMany( p => p.GetAllSignaturesToUpdateForReOrder_LocalOrSig() ) );
    }
 
-   private static IEnumerable<TSigInfo> GetAllSignaturesToUpdateForReOrder_Property( this  PropertySignature sig )
+   private static IEnumerable<TSigInfo> GetAllSignaturesToUpdateForReOrder_Property( this PropertySignature sig )
    {
       return sig.CustomModifiers.Select( cm => Tuple.Create( (Object) cm, cm.CustomModifierType ) )
          .Concat( sig.Parameters.SelectMany( p => p.GetAllSignaturesToUpdateForReOrder_LocalOrSig() ) )

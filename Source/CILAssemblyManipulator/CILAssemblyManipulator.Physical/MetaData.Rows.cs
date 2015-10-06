@@ -403,6 +403,85 @@ namespace CILAssemblyManipulator.Physical
       public TableIndex Constraint { get; set; }
    }
 
+   public sealed class EditAndContinueLog
+   {
+      public Int32 Token { get; set; }
+      public Int32 FuncCode { get; set; }
+   }
+
+   public sealed class EditAndContinueMap
+   {
+      public Int32 Token { get; set; }
+   }
+
+   [Obsolete( "Rows of these type should no longer be present in CIL meta data file.", false )]
+   public sealed class FieldDefinitionPointer
+   {
+      public TableIndex FieldIndex { get; set; }
+   }
+
+   [Obsolete( "Rows of these type should no longer be present in CIL meta data file.", false )]
+   public sealed class MethodDefinitionPointer
+   {
+      public TableIndex MethodIndex { get; set; }
+   }
+
+   [Obsolete( "Rows of these type should no longer be present in CIL meta data file.", false )]
+   public sealed class ParameterPointer
+   {
+      public TableIndex ParameterIndex { get; set; }
+   }
+
+   [Obsolete( "Rows of these type should no longer be present in CIL meta data file.", false )]
+   public sealed class EventPointer
+   {
+      public TableIndex EventIndex { get; set; }
+   }
+
+   [Obsolete( "Rows of these type should no longer be present in CIL meta data file.", false )]
+   public sealed class PropertyPointer
+   {
+      public TableIndex PropertyIndex { get; set; }
+   }
+
+   [Obsolete( "Rows of these type should no longer be present in CIL meta data file.", false )]
+   public sealed class AssemblyDefinitionProcessor
+   {
+      public Int32 Processor { get; set; }
+   }
+
+   [Obsolete( "Rows of these type should no longer be present in CIL meta data file.", false )]
+   public sealed class AssemblyDefinitionOS
+   {
+      public Int32 OSPlatformID { get; set; }
+
+      public Int32 OSMajorVersion { get; set; }
+
+      public Int32 OSMinorVersion { get; set; }
+   }
+
+   [Obsolete( "Rows of these type should no longer be present in CIL meta data file.", false )]
+   public sealed class AssemblyReferenceProcessor
+   {
+      public Int32 Processor { get; set; }
+
+      public TableIndex AssemblyRef { get; set; }
+   }
+
+   [Obsolete( "Rows of these type should no longer be present in CIL meta data file.", false )]
+   public sealed class AssemblyReferenceOS
+   {
+      public Int32 OSPlatformID { get; set; }
+
+      public Int32 OSMajorVersion { get; set; }
+
+      public Int32 OSMinorVersion { get; set; }
+
+      public TableIndex AssemblyRef { get; set; }
+
+   }
+
+
    public struct TableIndex : IEquatable<TableIndex>, IComparable<TableIndex>, IComparable
    {
       private const Int32 INDEX_MASK = 0x00FFFFF;
@@ -593,7 +672,7 @@ namespace CILAssemblyManipulator.Physical
       internal static Int32 EncodeTypeDefOrRefOrSpec( Int32 token )
       {
          Int32 encodedValue;
-         switch ( unchecked( (UInt32) token ) >> 24 )
+         switch ( unchecked((UInt32) token) >> 24 )
          {
             case (UInt32) Tables.TypeDef:
                encodedValue = ( ( INDEX_MASK & token ) << 2 ) | TYPE_DEF;

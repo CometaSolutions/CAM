@@ -106,23 +106,35 @@ namespace CILAssemblyManipulator.Physical
             }
 
             var amountOfParams = sig.DecompressUInt32( ref idx );
-            returnParameter = ReadParameter( sig, ref idx );
-            sentinelMark = -1;
-            if ( amountOfParams > 0 )
+            retVal = amountOfParams >= 0 && amountOfParams <= UInt16.MaxValue;
+            if ( retVal )
             {
-               parameters = new ParameterSignature[amountOfParams];
-               for ( var i = 0; i < amountOfParams; ++i )
+               returnParameter = ReadParameter( sig, ref idx );
+               sentinelMark = -1;
+               if ( amountOfParams > 0 )
                {
-                  if ( sig[idx] == (Byte) SignatureElementTypes.Sentinel )
+                  parameters = new ParameterSignature[amountOfParams];
+                  for ( var i = 0; i < amountOfParams; ++i )
                   {
-                     sentinelMark = i;
+                     if ( sig[idx] == (Byte) SignatureElementTypes.Sentinel )
+                     {
+                        sentinelMark = i;
+                     }
+                     parameters[i] = ReadParameter( sig, ref idx );
                   }
-                  parameters[i] = ReadParameter( sig, ref idx );
+               }
+               else
+               {
+                  parameters = Empty<ParameterSignature>.Array;
                }
             }
             else
             {
-               parameters = Empty<ParameterSignature>.Array;
+               elementType = default( SignatureStarters );
+               genericCount = -1;
+               returnParameter = null;
+               parameters = null;
+               sentinelMark = -1;
             }
          }
          else

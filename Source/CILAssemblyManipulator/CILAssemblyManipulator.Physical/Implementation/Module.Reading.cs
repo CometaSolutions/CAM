@@ -58,7 +58,7 @@ namespace CILAssemblyManipulator.Physical.Implementation
             else
             {
                var length = this._bytes.DecompressUInt32( ref idx );
-               result = length < 0 || idx >= this._bytes.Length - length ?
+               result = length < 0 || idx > this._bytes.Length - length ?
                   null :
                   ( length == 0 ? Empty<Byte>.Array : this._bytes.CreateAndBlockCopyTo( ref idx, length ) );
             }
@@ -579,6 +579,7 @@ namespace CILAssemblyManipulator.Physical.Implementation
          var fieldDefRVAs = rArgs.FieldRVAs;
          fieldDefRVAs.Capacity = tableSizes[(Int32) Tables.FieldRVA];
 
+#pragma warning disable 618
          for ( var curTable = 0; curTable < Consts.AMOUNT_OF_TABLES; ++curTable )
          {
             switch ( (Tables) curTable )
@@ -618,6 +619,12 @@ namespace CILAssemblyManipulator.Physical.Implementation
                         MethodList = MetaDataConstants.ReadSimpleTableIndex( stream, Tables.MethodDef, tableSizes, tmpArray )
                      } );
                   break;
+               case Tables.FieldPtr:
+                  ReadTable( retVal.FieldDefinitionPointers, tableSizes, i => new FieldDefinitionPointer()
+                  {
+                     FieldIndex = MetaDataConstants.ReadSimpleTableIndex( stream, Tables.Field, tableSizes, tmpArray )
+                  } );
+                  break;
                case Tables.Field:
                   ReadTable( retVal.FieldDefinitions, tableSizes, i =>
                      new FieldDefinition()
@@ -626,6 +633,12 @@ namespace CILAssemblyManipulator.Physical.Implementation
                         Name = sysStrings.ReadSysString( stream ),
                         Signature = DoAndIgnoreExceptions( () => FieldSignature.ReadFromBytes( blobs.WholeBLOBArray, blobs.GetBLOBIndex( stream ) ) )
                      } );
+                  break;
+               case Tables.MethodPtr:
+                  ReadTable( retVal.MethodDefinitionPointers, tableSizes, i => new MethodDefinitionPointer()
+                  {
+                     MethodIndex = MetaDataConstants.ReadSimpleTableIndex( stream, Tables.MethodDef, tableSizes, tmpArray )
+                  } );
                   break;
                case Tables.MethodDef:
                   ReadTable( retVal.MethodDefinitions, tableSizes, i =>
@@ -639,6 +652,12 @@ namespace CILAssemblyManipulator.Physical.Implementation
                         Signature = DoAndIgnoreExceptions( () => MethodDefinitionSignature.ReadFromBytes( blobs.WholeBLOBArray, blobs.GetBLOBIndex( stream ) ) ),
                         ParameterList = MetaDataConstants.ReadSimpleTableIndex( stream, Tables.Parameter, tableSizes, tmpArray )
                      };
+                  } );
+                  break;
+               case Tables.ParameterPtr:
+                  ReadTable( retVal.ParameterDefinitionPointers, tableSizes, i => new ParameterPointer()
+                  {
+                     ParameterIndex = MetaDataConstants.ReadSimpleTableIndex( stream, Tables.Parameter, tableSizes, tmpArray )
                   } );
                   break;
                case Tables.Parameter:
@@ -769,6 +788,12 @@ namespace CILAssemblyManipulator.Physical.Implementation
                         EventList = MetaDataConstants.ReadSimpleTableIndex( stream, Tables.Event, tableSizes, tmpArray )
                      } );
                   break;
+               case Tables.EventPtr:
+                  ReadTable( retVal.EventPointers, tableSizes, i => new EventPointer()
+                  {
+                     EventIndex = MetaDataConstants.ReadSimpleTableIndex( stream, Tables.Event, tableSizes, tmpArray )
+                  } );
+                  break;
                case Tables.Event:
                   ReadTable( retVal.EventDefinitions, tableSizes, i =>
                      new EventDefinition()
@@ -785,6 +810,12 @@ namespace CILAssemblyManipulator.Physical.Implementation
                         Parent = MetaDataConstants.ReadSimpleTableIndex( stream, Tables.TypeDef, tableSizes, tmpArray ),
                         PropertyList = MetaDataConstants.ReadSimpleTableIndex( stream, Tables.Property, tableSizes, tmpArray )
                      } );
+                  break;
+               case Tables.PropertyPtr:
+                  ReadTable( retVal.PropertyPointers, tableSizes, i => new PropertyPointer()
+                  {
+                     PropertyIndex = MetaDataConstants.ReadSimpleTableIndex( stream, Tables.Property, tableSizes, tmpArray )
+                  } );
                   break;
                case Tables.Property:
                   ReadTable( retVal.PropertyDefinitions, tableSizes, i =>
@@ -847,6 +878,19 @@ namespace CILAssemblyManipulator.Physical.Implementation
                      };
                   } );
                   break;
+               case Tables.EncLog:
+                  ReadTable( retVal.EditAndContinueLog, tableSizes, i => new EditAndContinueLog()
+                  {
+                     Token = stream.ReadI32( tmpArray ),
+                     FuncCode = stream.ReadI32( tmpArray )
+                  } );
+                  break;
+               case Tables.EncMap:
+                  ReadTable( retVal.EditAndContinueMap, tableSizes, i => new EditAndContinueMap()
+                  {
+                     Token = stream.ReadI32( tmpArray )
+                  } );
+                  break;
                case Tables.Assembly:
                   ReadTable( retVal.AssemblyDefinitions, tableSizes, i =>
                   {
@@ -866,6 +910,20 @@ namespace CILAssemblyManipulator.Physical.Implementation
                      return assDef;
                   } );
                   break;
+               case Tables.AssemblyProcessor:
+                  ReadTable( retVal.AssemblyDefinitionProcessors, tableSizes, i => new AssemblyDefinitionProcessor()
+                  {
+                     Processor = stream.ReadI32( tmpArray )
+                  } );
+                  break;
+               case Tables.AssemblyOS:
+                  ReadTable( retVal.AssemblyDefinitionOSs, tableSizes, i => new AssemblyDefinitionOS()
+                  {
+                     OSPlatformID = stream.ReadI32( tmpArray ),
+                     OSMajorVersion = stream.ReadI32( tmpArray ),
+                     OSMinorVersion = stream.ReadI32( tmpArray )
+                  } );
+                  break;
                case Tables.AssemblyRef:
                   ReadTable( retVal.AssemblyReferences, tableSizes, i =>
                   {
@@ -881,6 +939,22 @@ namespace CILAssemblyManipulator.Physical.Implementation
                      assInfo.Culture = sysStrings.ReadSysString( stream );
                      assRef.HashValue = blobs.ReadBLOB( stream );
                      return assRef;
+                  } );
+                  break;
+               case Tables.AssemblyRefProcessor:
+                  ReadTable( retVal.AssemblyReferenceProcessors, tableSizes, i => new AssemblyReferenceProcessor()
+                  {
+                     Processor = stream.ReadI32( tmpArray ),
+                     AssemblyRef = MetaDataConstants.ReadSimpleTableIndex( stream, Tables.AssemblyRef, tableSizes, tmpArray )
+                  } );
+                  break;
+               case Tables.AssemblyRefOS:
+                  ReadTable( retVal.AssemblyReferenceOSs, tableSizes, i => new AssemblyReferenceOS()
+                  {
+                     OSPlatformID = stream.ReadI32( tmpArray ),
+                     OSMajorVersion = stream.ReadI32( tmpArray ),
+                     OSMinorVersion = stream.ReadI32( tmpArray ),
+                     AssemblyRef = MetaDataConstants.ReadSimpleTableIndex( stream, Tables.AssemblyRef, tableSizes, tmpArray )
                   } );
                   break;
                case Tables.File:
@@ -947,29 +1021,10 @@ namespace CILAssemblyManipulator.Physical.Implementation
                         Constraint = MetaDataConstants.ReadCodedTableIndex( stream, CodedTableIndexKind.TypeDefOrRef, tRefSizes, tmpArray ).GetValueOrDefault()
                      } );
                   break;
-               case Tables.FieldPtr:
-               case Tables.MethodPtr:
-               case Tables.ParameterPtr:
-               case Tables.EventPtr:
-               case Tables.PropertyPtr:
-               case Tables.EncLog:
-               case Tables.EncMap:
-               case Tables.AssemblyProcessor:
-               case Tables.AssemblyOS:
-               case Tables.AssemblyRefProcessor:
-               case Tables.AssemblyRefOS:
-                  var thisTableRowCount = tableSizes[(Int32) curTable];
-                  if ( thisTableRowCount > 0 )
-                  {
-                     stream.SeekFromCurrent(
-                        MetaDataConstants.CalculateTableWidth( (Tables) curTable, tableSizes, sysStrings.IsWideIndex, guids.IsWideIndex, blobs.IsWideIndex ) * thisTableRowCount
-                        );
-                  }
-                  break;
-               default:
-                  throw new BadImageFormatException( "Unknown table: " + curTable );
+
             }
          }
+#pragma warning restore 618
 
          // Read all IL code
          for ( var i = 0; i < methodDefRVAs.Count; ++i )
@@ -1278,59 +1333,71 @@ namespace CILAssemblyManipulator.Physical.Implementation
             }
 
             // Read code
-            CreateOpCodes( retVal, stream, codeSize, tmpArray, userStrings );
-
-            stream.SeekFromCurrent( BitUtils.MultipleOf4( codeSize ) - codeSize );
-
-            var excList = new List<MethodExceptionBlock>();
-            if ( ( flags & MethodHeaderFlags.MoreSections ) != 0 )
+            if ( CreateOpCodes( retVal, stream, codeSize, tmpArray, userStrings ) )
             {
-               // Read sections
-               MethodDataFlags secFlags;
-               do
+
+               stream.SeekFromCurrent( BitUtils.MultipleOf4( codeSize ) - codeSize );
+
+               var excList = new List<MethodExceptionBlock>();
+               if ( ( flags & MethodHeaderFlags.MoreSections ) != 0 )
                {
-                  var secHeader = stream.ReadU32( tmpArray );
-                  secFlags = (MethodDataFlags) ( secHeader & SEC_FLAG_MASK );
-                  var secByteSize = ( secHeader & SEC_SIZE_MASK ) >> 8;
-                  secByteSize -= 4;
-                  var isFat = ( secFlags & MethodDataFlags.FatFormat ) != 0;
-                  while ( secByteSize > 0 )
+                  // Read sections
+                  MethodDataFlags secFlags;
+                  do
                   {
-                     var eType = (ExceptionBlockType) ( isFat ? stream.ReadU32( tmpArray ) : stream.ReadU16( tmpArray ) );
-                     retVal.ExceptionBlocks.Add( new MethodExceptionBlock()
+                     var secHeader = stream.ReadU32( tmpArray );
+                     secFlags = (MethodDataFlags) ( secHeader & SEC_FLAG_MASK );
+                     var secByteSize = ( secHeader & SEC_SIZE_MASK ) >> 8;
+                     secByteSize -= 4;
+                     var isFat = ( secFlags & MethodDataFlags.FatFormat ) != 0;
+                     while ( secByteSize > 0 )
                      {
-                        BlockType = eType,
-                        TryOffset = isFat ? stream.ReadI32( tmpArray ) : stream.ReadU16( tmpArray ),
-                        TryLength = isFat ? stream.ReadI32( tmpArray ) : stream.ReadByteFromStream(),
-                        HandlerOffset = isFat ? stream.ReadI32( tmpArray ) : stream.ReadU16( tmpArray ),
-                        HandlerLength = isFat ? stream.ReadI32( tmpArray ) : stream.ReadByteFromStream(),
-                        ExceptionType = eType == ExceptionBlockType.Filter ? (TableIndex?) null : TableIndex.FromOneBasedTokenNullable( stream.ReadI32( tmpArray ) ),
-                        FilterOffset = eType == ExceptionBlockType.Filter ? stream.ReadI32( tmpArray ) : 0
-                     } );
-                     secByteSize -= ( isFat ? 24u : 12u );
-                  }
-               } while ( ( secFlags & MethodDataFlags.MoreSections ) != 0 );
+                        var eType = (ExceptionBlockType) ( isFat ? stream.ReadU32( tmpArray ) : stream.ReadU16( tmpArray ) );
+                        retVal.ExceptionBlocks.Add( new MethodExceptionBlock()
+                        {
+                           BlockType = eType,
+                           TryOffset = isFat ? stream.ReadI32( tmpArray ) : stream.ReadU16( tmpArray ),
+                           TryLength = isFat ? stream.ReadI32( tmpArray ) : stream.ReadByteFromStream(),
+                           HandlerOffset = isFat ? stream.ReadI32( tmpArray ) : stream.ReadU16( tmpArray ),
+                           HandlerLength = isFat ? stream.ReadI32( tmpArray ) : stream.ReadByteFromStream(),
+                           ExceptionType = eType == ExceptionBlockType.Filter ? (TableIndex?) null : TableIndex.FromOneBasedTokenNullable( stream.ReadI32( tmpArray ) ),
+                           FilterOffset = eType == ExceptionBlockType.Filter ? stream.ReadI32( tmpArray ) : 0
+                        } );
+                        secByteSize -= ( isFat ? 24u : 12u );
+                     }
+                  } while ( ( secFlags & MethodDataFlags.MoreSections ) != 0 );
+               }
             }
          }
 
          return retVal;
       }
 
-      private static void CreateOpCodes( MethodILDefinition methodIL, Stream stream, Int32 codeSize, Byte[] tmpArray, UserStringHeapReader userStrings )
+      private static Boolean CreateOpCodes( MethodILDefinition methodIL, Stream stream, Int32 codeSize, Byte[] tmpArray, UserStringHeapReader userStrings )
       {
          var current = 0;
          var opCodes = methodIL.OpCodes;
-         while ( current < codeSize )
+         var success = true;
+         while ( current < codeSize && success )
          {
             Int32 bytesRead;
-            opCodes.Add( OpCodeInfo.ReadFromStream(
+            var curCodeInfo = OpCodeInfo.ReadFromStream(
                stream,
                tmpArray,
                strToken => userStrings.GetString( TableIndex.FromZeroBasedToken( strToken ).Index ),
-               out bytesRead )
-               );
+               out bytesRead );
+            if ( curCodeInfo == null )
+            {
+               success = false;
+            }
+            else
+            {
+               opCodes.Add( curCodeInfo );
+            }
             current += bytesRead;
          }
+
+         return success;
       }
 
       private static AbstractSignature ReadMemberRefSignature( Byte[] bytes, Int32 idx )

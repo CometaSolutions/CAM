@@ -816,7 +816,7 @@ namespace CILAssemblyManipulator.Physical
       /// <summary>
       /// Targets AMD 64-bit processor.
       /// </summary>
-      AMD64 = unchecked( (Int16) 0x8664 ),
+      AMD64 = unchecked((Int16) 0x8664),
       /// <summary>
       /// Targets Intel 64-bit processor.
       /// </summary>
@@ -844,6 +844,11 @@ namespace CILAssemblyManipulator.Physical
       /// </summary>
       Required32Bit = 0x00000002,
       /// <summary>
+      /// Obsolete flag.
+      /// </summary>
+      [Obsolete( "This flag should no longer be used." )]
+      ILLibrary = 0x00000004,
+      /// <summary>
       /// This module is signed with the strong name.
       /// </summary>
       StrongNameSigned = 0x00000008,
@@ -851,6 +856,10 @@ namespace CILAssemblyManipulator.Physical
       /// This module's entry point is an unmanaged method.
       /// </summary>
       NativeEntrypoint = 0x00000010,
+      /// <summary>
+      /// Some flag related to debugging modules in WinDbg, maybe?
+      /// </summary>
+      TrackDebugData = 0x00010000,
       /// <summary>
       /// If this module is not a class library, the process it starts will run as 32-bit process even in 64-bit OS.
       /// </summary>

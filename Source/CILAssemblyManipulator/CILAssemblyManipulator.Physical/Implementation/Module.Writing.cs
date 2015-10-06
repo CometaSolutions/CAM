@@ -468,7 +468,7 @@ namespace CILAssemblyManipulator.Physical.Implementation
             .WriteZeroDataDirectory( ref idx ) // Delay Import Descriptor
             .WriteDataDirectory( ref idx, codeSectionVirtualOffset + iatSize, HeaderFieldOffsetsAndLengths.CLI_HEADER_SIZE ) // CLI Header
             .WriteZeroDataDirectory( ref idx ) // Reserved
-            // Section headers
+                                               // Section headers
             .WriteSectionInfo( ref idx, textSectionInfo, CODE_SECTION_NAME, HeaderFieldPossibleValues.MEM_READ | HeaderFieldPossibleValues.MEM_EXECUTE | HeaderFieldPossibleValues.CONTAINS_CODE )
             .WriteSectionInfo( ref idx, rsrcSectionInfo, RESOURCE_SECTION_NAME, HeaderFieldPossibleValues.MEM_READ | HeaderFieldPossibleValues.CONTAINS_INITIALIZED_DATA )
             .WriteSectionInfo( ref idx, relocSectionInfo, RELOCATION_SECTION_NAME, HeaderFieldPossibleValues.MEM_READ | HeaderFieldPossibleValues.MEM_DISCARDABLE | HeaderFieldPossibleValues.CONTAINS_INITIALIZED_DATA );
@@ -1223,6 +1223,7 @@ namespace CILAssemblyManipulator.Physical.Implementation
          // Write the MD header + table stream header
          sink.Write( anArray, arrayLen );
 
+#pragma warning disable 618
          // Table stream tables start right here
          // ECMA-335, p. 239
          ForEachElement<ModuleDefinition, HeapInfo4>( md.ModuleDefinitions, tableWidths, sink, heapInfos, byteArrayHelper, ( array, idx, listIdx, module, heapInfo ) => array
@@ -1245,15 +1246,21 @@ namespace CILAssemblyManipulator.Physical.Implementation
             .WriteHeapIndex( ref idx, sysStrings, heapInfo.Heap1 ) // TypeName
             .WriteHeapIndex( ref idx, sysStrings, heapInfo.Heap2 ) // TypeNamespace
             .WriteCodedTableIndex( ref idx, CodedTableIndexKind.TypeDefOrRef, typeDef.BaseType, tRefWidths ) // Extends
-            .WriteSimpleTableIndex( ref idx, typeDef.FieldList, tableSizes ) // FieldList
-            .WriteSimpleTableIndex( ref idx, typeDef.MethodList, tableSizes ) // MethodList
+            .WriteSimpleTableIndex( ref idx, typeDef.FieldList, tableSizes, Tables.Field ) // FieldList
+            .WriteSimpleTableIndex( ref idx, typeDef.MethodList, tableSizes, Tables.MethodDef ) // MethodList
             );
+         ForEachElement( md.FieldDefinitionPointers, tableWidths, sink, byteArrayHelper, ( array, idx, listIdx, item ) => array
+             .WriteSimpleTableIndex( ref idx, item.FieldIndex, tableSizes, Tables.Field ) // Field
+         );
          // ECMA-335, p. 223
          ForEachElement<FieldDefinition, HeapInfo2>( md.FieldDefinitions, tableWidths, sink, heapInfos, byteArrayHelper, ( array, idx, listIdx, fDef, heapInfo ) => array
             .WriteInt16LEToBytes( ref idx, (Int16) fDef.Attributes ) // FieldAttributes
             .WriteHeapIndex( ref idx, sysStrings, heapInfo.Heap1 ) // Name
             .WriteHeapIndex( ref idx, blobs, heapInfo.Heap2 ) // Signature
             );
+         ForEachElement( md.MethodDefinitionPointers, tableWidths, sink, byteArrayHelper, ( array, idx, listIdx, item ) => array
+             .WriteSimpleTableIndex( ref idx, item.MethodIndex, tableSizes, Tables.MethodDef ) // Method
+         );
          // ECMA-335, p. 233
          ForEachElement<MethodDefinition, HeapInfo2>( md.MethodDefinitions, tableWidths, sink, heapInfos, byteArrayHelper, ( array, idx, listIdx, mDef, heapInfo ) => array
             .WriteUInt32LEToBytes( ref idx, (UInt32) eArgs.MethodRVAs[listIdx] ) // RVA
@@ -1261,8 +1268,11 @@ namespace CILAssemblyManipulator.Physical.Implementation
             .WriteInt16LEToBytes( ref idx, (Int16) mDef.Attributes ) // Flags
             .WriteHeapIndex( ref idx, sysStrings, heapInfo.Heap1 ) // Name
             .WriteHeapIndex( ref idx, blobs, heapInfo.Heap2 ) // Signature
-            .WriteSimpleTableIndex( ref idx, mDef.ParameterList, tableSizes ) // ParamList
+            .WriteSimpleTableIndex( ref idx, mDef.ParameterList, tableSizes, Tables.Parameter ) // ParamList
             );
+         ForEachElement( md.ParameterDefinitionPointers, tableWidths, sink, byteArrayHelper, ( array, idx, listIdx, item ) => array
+             .WriteSimpleTableIndex( ref idx, item.ParameterIndex, tableSizes, Tables.Parameter ) // Parameter
+         );
          // ECMA-335, p. 240
          ForEachElement<ParameterDefinition, HeapInfo1>( md.ParameterDefinitions, tableWidths, sink, heapInfos, byteArrayHelper, ( array, idx, listIdx, pDef, heapInfo ) => array
             .WriteInt16LEToBytes( ref idx, (Int16) pDef.Attributes ) // Flags
@@ -1271,7 +1281,7 @@ namespace CILAssemblyManipulator.Physical.Implementation
             );
          // ECMA-335, p. 231
          ForEachElement( md.InterfaceImplementations, tableWidths, sink, byteArrayHelper, ( array, idx, listIdx, item ) => array
-            .WriteSimpleTableIndex( ref idx, item.Class, tableSizes ) // Class
+            .WriteSimpleTableIndex( ref idx, item.Class, tableSizes, Tables.TypeDef ) // Class
             .WriteCodedTableIndex( ref idx, CodedTableIndexKind.TypeDefOrRef, item.Interface, tRefWidths ) // Interface
             );
          // ECMA-335, p. 232
@@ -1307,12 +1317,12 @@ namespace CILAssemblyManipulator.Physical.Implementation
          ForEachElement( md.ClassLayouts, tableWidths, sink, byteArrayHelper, ( array, idx, listIdx, cl ) => array
             .WriteUInt16LEToBytes( ref idx, (UInt16) cl.PackingSize ) // PackingSize
             .WriteInt32LEToBytes( ref idx, cl.ClassSize ) // ClassSize
-            .WriteSimpleTableIndex( ref idx, cl.Parent, tableSizes ) // Parent
+            .WriteSimpleTableIndex( ref idx, cl.Parent, tableSizes, Tables.TypeDef ) // Parent
             );
          // ECMA-335 p. 225
          ForEachElement( md.FieldLayouts, tableWidths, sink, byteArrayHelper, ( array, idx, listIdx, fl ) => array
             .WriteInt32LEToBytes( ref idx, fl.Offset ) // Offset
-            .WriteSimpleTableIndex( ref idx, fl.Field, tableSizes ) // Field
+            .WriteSimpleTableIndex( ref idx, fl.Field, tableSizes, Tables.Field ) // Field
             );
          // ECMA-335 p. 243
          ForEachElement<StandaloneSignature, HeapInfo1>( md.StandaloneSignatures, tableWidths, sink, heapInfos, byteArrayHelper, ( array, idx, listIdx, sig, heapInfo ) => array
@@ -1320,9 +1330,12 @@ namespace CILAssemblyManipulator.Physical.Implementation
             );
          // ECMA-335 p. 220
          ForEachElement( md.EventMaps, tableWidths, sink, byteArrayHelper, ( array, idx, listIdx, em ) => array
-            .WriteSimpleTableIndex( ref idx, em.Parent, tableSizes ) // Parent
-            .WriteSimpleTableIndex( ref idx, em.EventList, tableSizes ) // EventList
+            .WriteSimpleTableIndex( ref idx, em.Parent, tableSizes, Tables.TypeDef ) // Parent
+            .WriteSimpleTableIndex( ref idx, em.EventList, tableSizes, Tables.Event ) // EventList
             );
+         ForEachElement( md.EventPointers, tableWidths, sink, byteArrayHelper, ( array, idx, listIdx, item ) => array
+             .WriteSimpleTableIndex( ref idx, item.EventIndex, tableSizes, Tables.Event ) // Event
+         );
          // ECMA-335 p. 221
          ForEachElement<EventDefinition, HeapInfo1>( md.EventDefinitions, tableWidths, sink, heapInfos, byteArrayHelper, ( array, idx, listIdx, evt, heapInfo ) => array
             .WriteInt16LEToBytes( ref idx, (Int16) evt.Attributes ) // EventFlags
@@ -1331,9 +1344,12 @@ namespace CILAssemblyManipulator.Physical.Implementation
             );
          // ECMA-335 p. 242
          ForEachElement( md.PropertyMaps, tableWidths, sink, byteArrayHelper, ( array, idx, listIdx, pm ) => array
-            .WriteSimpleTableIndex( ref idx, pm.Parent, tableSizes ) // Parent
-            .WriteSimpleTableIndex( ref idx, pm.PropertyList, tableSizes ) // PropertyList
+            .WriteSimpleTableIndex( ref idx, pm.Parent, tableSizes, Tables.TypeDef ) // Parent
+            .WriteSimpleTableIndex( ref idx, pm.PropertyList, tableSizes, Tables.Property ) // PropertyList
             );
+         ForEachElement( md.PropertyPointers, tableWidths, sink, byteArrayHelper, ( array, idx, listIdx, item ) => array
+            .WriteSimpleTableIndex( ref idx, item.PropertyIndex, tableSizes, Tables.Property ) // Property
+         );
          // ECMA-335 p. 242
          ForEachElement<PropertyDefinition, HeapInfo2>( md.PropertyDefinitions, tableWidths, sink, heapInfos, byteArrayHelper, ( array, idx, listIdx, prop, heapInfo ) => array
             .WriteInt16LEToBytes( ref idx, (Int16) prop.Attributes ) // Flags
@@ -1343,12 +1359,12 @@ namespace CILAssemblyManipulator.Physical.Implementation
          // ECMA-335 p. 237
          ForEachElement( md.MethodSemantics, tableWidths, sink, byteArrayHelper, ( array, idx, listIdx, ms ) => array
             .WriteInt16LEToBytes( ref idx, (Int16) ms.Attributes ) // Semantics
-            .WriteSimpleTableIndex( ref idx, ms.Method, tableSizes ) // Method
+            .WriteSimpleTableIndex( ref idx, ms.Method, tableSizes, Tables.MethodDef ) // Method
             .WriteCodedTableIndex( ref idx, CodedTableIndexKind.HasSemantics, ms.Associaton, tRefWidths ) // Association
             );
          // ECMA-335 p. 237
          ForEachElement( md.MethodImplementations, tableWidths, sink, byteArrayHelper, ( array, idx, listIdx, mi ) => array
-            .WriteSimpleTableIndex( ref idx, mi.Class, tableSizes ) // Class
+            .WriteSimpleTableIndex( ref idx, mi.Class, tableSizes, Tables.TypeDef ) // Class
             .WriteCodedTableIndex( ref idx, CodedTableIndexKind.MethodDefOrRef, mi.MethodBody, tRefWidths ) // MethodBody
             .WriteCodedTableIndex( ref idx, CodedTableIndexKind.MethodDefOrRef, mi.MethodDeclaration, tRefWidths ) // MethodDeclaration
             );
@@ -1365,13 +1381,20 @@ namespace CILAssemblyManipulator.Physical.Implementation
             .WriteInt16LEToBytes( ref idx, (Int16) mim.Attributes ) // PInvokeAttributes
             .WriteCodedTableIndex( ref idx, CodedTableIndexKind.MemberForwarded, mim.MemberForwarded, tRefWidths ) // MemberForwarded
             .WriteHeapIndex( ref idx, sysStrings, heapInfo.Heap1 ) // Import name
-            .WriteSimpleTableIndex( ref idx, mim.ImportScope, tableSizes ) // Import scope
+            .WriteSimpleTableIndex( ref idx, mim.ImportScope, tableSizes, Tables.ModuleRef ) // Import scope
             );
          // ECMA-335, p. 227
          ForEachElement( md.FieldRVAs, tableWidths, sink, byteArrayHelper, ( array, idx, listIdx, fRVA ) => array
-            .WriteUInt32LEToBytes( ref idx, (UInt32) eArgs.FieldRVAs[listIdx] )
-            .WriteSimpleTableIndex( ref idx, fRVA.Field, tableSizes )
+            .WriteUInt32LEToBytes( ref idx, (UInt32) eArgs.FieldRVAs[listIdx] ) // RVA
+            .WriteSimpleTableIndex( ref idx, fRVA.Field, tableSizes, Tables.Field ) // Field
             );
+         ForEachElement( md.EditAndContinueLog, tableWidths, sink, byteArrayHelper, ( array, idx, listIdx, item ) => array
+            .WriteInt32LEToBytes( ref idx, item.Token )
+            .WriteInt32LEToBytes( ref idx, item.FuncCode )
+         );
+         ForEachElement( md.EditAndContinueMap, tableWidths, sink, byteArrayHelper, ( array, idx, listIdx, item ) => array
+             .WriteInt32LEToBytes( ref idx, item.Token )
+         );
          // ECMA-335, p. 211
          ForEachElement<AssemblyDefinition, HeapInfo3>( md.AssemblyDefinitions, tableWidths, sink, heapInfos, byteArrayHelper, ( array, idx, listIdx, ass, heapInfo ) => array
             .WriteInt32LEToBytes( ref idx, (Int32) ass.HashAlgorithm ) // HashAlgId
@@ -1384,6 +1407,14 @@ namespace CILAssemblyManipulator.Physical.Implementation
             .WriteHeapIndex( ref idx, sysStrings, heapInfo.Heap2 ) // Name
             .WriteHeapIndex( ref idx, sysStrings, heapInfo.Heap3 ) // Culture
             );
+         ForEachElement( md.AssemblyDefinitionProcessors, tableWidths, sink, byteArrayHelper, ( array, idx, listIdx, item ) => array
+             .WriteInt32LEToBytes( ref idx, item.Processor )
+         );
+         ForEachElement( md.AssemblyDefinitionOSs, tableWidths, sink, byteArrayHelper, ( array, idx, listIdx, item ) => array
+             .WriteInt32LEToBytes( ref idx, item.OSPlatformID )
+             .WriteInt32LEToBytes( ref idx, item.OSMajorVersion )
+             .WriteInt32LEToBytes( ref idx, item.OSMinorVersion )
+         );
          // ECMA-335, p. 212
          ForEachElement<AssemblyReference, HeapInfo4>( md.AssemblyReferences, tableWidths, sink, heapInfos, byteArrayHelper, ( array, idx, listIdx, assRef, heapInfo ) => array
             .WriteUInt16LEToBytes( ref idx, (UInt16) assRef.AssemblyInformation.VersionMajor ) // MajorVersion
@@ -1396,6 +1427,16 @@ namespace CILAssemblyManipulator.Physical.Implementation
             .WriteHeapIndex( ref idx, sysStrings, heapInfo.Heap3 ) // Culture
             .WriteHeapIndex( ref idx, blobs, heapInfo.Heap4 ) // HashValue
             );
+         ForEachElement( md.AssemblyReferenceProcessors, tableWidths, sink, byteArrayHelper, ( array, idx, listIdx, item ) => array
+             .WriteInt32LEToBytes( ref idx, item.Processor )
+             .WriteSimpleTableIndex( ref idx, item.AssemblyRef, tableSizes, Tables.AssemblyRef )
+         );
+         ForEachElement( md.AssemblyReferenceOSs, tableWidths, sink, byteArrayHelper, ( array, idx, listIdx, item ) => array
+             .WriteInt32LEToBytes( ref idx, item.OSPlatformID )
+             .WriteInt32LEToBytes( ref idx, item.OSMajorVersion )
+             .WriteInt32LEToBytes( ref idx, item.OSMinorVersion )
+             .WriteSimpleTableIndex( ref idx, item.AssemblyRef, tableSizes, Tables.AssemblyRef )
+         );
          ForEachElement<FileReference, HeapInfo2>( md.FileReferences, tableWidths, sink, heapInfos, byteArrayHelper, ( array, idx, listIdx, file, heapInfo ) => array
             .WriteInt32LEToBytes( ref idx, (Int32) file.Attributes ) // Flags
             .WriteHeapIndex( ref idx, sysStrings, heapInfo.Heap1 ) // Name
@@ -1416,8 +1457,8 @@ namespace CILAssemblyManipulator.Physical.Implementation
             );
          // ECMA-335, p. 240
          ForEachElement( md.NestedClassDefinitions, tableWidths, sink, byteArrayHelper, ( array, idx, listIdx, nc ) => array
-            .WriteSimpleTableIndex( ref idx, nc.NestedClass, tableSizes ) // NestedClass
-            .WriteSimpleTableIndex( ref idx, nc.EnclosingClass, tableSizes ) // EnclosingClass
+            .WriteSimpleTableIndex( ref idx, nc.NestedClass, tableSizes, Tables.TypeDef ) // NestedClass
+            .WriteSimpleTableIndex( ref idx, nc.EnclosingClass, tableSizes, Tables.TypeDef ) // EnclosingClass
             );
          // ECMA-335, p. 228
          ForEachElement<GenericParameterDefinition, HeapInfo1>( md.GenericParameterDefinitions, tableWidths, sink, heapInfos, byteArrayHelper, ( array, idx, listIdx, gParam, heapInfo ) => array
@@ -1433,7 +1474,7 @@ namespace CILAssemblyManipulator.Physical.Implementation
             );
          // ECMA-335, p. 229
          ForEachElement( md.GenericParameterConstraintDefinitions, tableWidths, sink, byteArrayHelper, ( array, idx, listIdx, gConstraint ) => array
-            .WriteSimpleTableIndex( ref idx, gConstraint.Owner, tableSizes ) // Owner
+            .WriteSimpleTableIndex( ref idx, gConstraint.Owner, tableSizes, Tables.GenericParameter ) // Owner
             .WriteCodedTableIndex( ref idx, CodedTableIndexKind.TypeDefOrRef, gConstraint.Constraint, tRefWidths ) // Constraint
             );
          // Padding
@@ -1449,6 +1490,8 @@ namespace CILAssemblyManipulator.Physical.Implementation
          blobs.WriteHeap( sink, byteArrayHelper );
 
          return curStreamOffset;
+
+#pragma warning restore 618
       }
 
       private static void ForEachElement<T, U>(
@@ -1712,9 +1755,9 @@ namespace CILAssemblyManipulator.Physical.Implementation
          return wideIndices[codedKind] ? array.WriteInt32LEToBytes( ref idx, MetaDataConstants.GetCodedTableIndex( codedKind, tIdx ) ) : array.WriteUInt16LEToBytes( ref idx, (UInt16) MetaDataConstants.GetCodedTableIndex( codedKind, tIdx ) );
       }
 
-      internal static Byte[] WriteSimpleTableIndex( this Byte[] array, ref Int32 idx, TableIndex tIdx, Int32[] tableSizes )
+      internal static Byte[] WriteSimpleTableIndex( this Byte[] array, ref Int32 idx, TableIndex tIdx, Int32[] tableSizes, Tables presumedTable )
       {
-         return tableSizes[(Int32) tIdx.Table] > UInt16.MaxValue ? array.WriteInt32LEToBytes( ref idx, ( tIdx.Index + 1 ) ) : array.WriteUInt16LEToBytes( ref idx, (UInt16) ( tIdx.Index + 1 ) );
+         return tableSizes[(Int32) presumedTable] > UInt16.MaxValue ? array.WriteInt32LEToBytes( ref idx, ( tIdx.Index + 1 ) ) : array.WriteUInt16LEToBytes( ref idx, (UInt16) ( tIdx.Index + 1 ) );
       }
 
    }
@@ -2809,7 +2852,7 @@ public static partial class E_CILPhysical
          case CustomAttributeArgumentTypeKind.Array:
             if ( arg == null )
             {
-               info.AddUncompressedInt32( unchecked( (Int32) 0xFFFFFFFF ) );
+               info.AddUncompressedInt32( unchecked((Int32) 0xFFFFFFFF) );
             }
             else
             {
