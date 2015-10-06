@@ -65,9 +65,11 @@ namespace CILAssemblyManipulator.Physical
       private static IEqualityComparer<MethodExceptionBlock> _MethodExceptionBlockEqualityComparer = null;
       private static IEqualityComparer<OpCodeInfo> _OpCodeInfoEqualityComparer = null;
 
+      private static IEqualityComparer<AssemblyInformation> _AssemblyInformationEqualityComparer = null;
       private static IEqualityComparer<AbstractSignature> _AbstractSignatureEqualityComparer = null;
       private static IEqualityComparer<RawSignature> _RawSignatureEqualityComparer = null;
       private static IEqualityComparer<AbstractMethodSignature> _AbstractMethodSignatureEqualityComparer = null;
+      private static IEqualityComparer<AbstractMethodSignature> _AbstractMethodSignatureEqualityComparer_IgnoreKind = null;
       private static IEqualityComparer<MethodDefinitionSignature> _MethodDefinitionSignatureEqualityComparer = null;
       private static IEqualityComparer<MethodReferenceSignature> _MethodReferenceSignatureEqualityComparer = null;
       private static IEqualityComparer<FieldSignature> _FieldSignatureEqualityComparer = null;
@@ -644,6 +646,19 @@ namespace CILAssemblyManipulator.Physical
          }
       }
 
+      public static IEqualityComparer<AssemblyInformation> AssemblyInformationEqualityComparer
+      {
+         get
+         {
+            var retVal = _AssemblyInformationEqualityComparer;
+            if ( retVal == null )
+            {
+               retVal = ComparerFromFunctions.NewEqualityComparer<AssemblyInformation>( Equality_AssemblyInformation, HashCode_AssemblyInformation );
+               _AssemblyInformationEqualityComparer = retVal;
+            }
+            return retVal;
+         }
+      }
       public static IEqualityComparer<AbstractSignature> AbstractSignatureEqualityComparer
       {
          get
@@ -681,6 +696,20 @@ namespace CILAssemblyManipulator.Physical
             {
                retVal = ComparerFromFunctions.NewEqualityComparer<AbstractMethodSignature>( Equality_AbstractMethodSignature, HashCode_AbstractMethodSignature );
                _AbstractMethodSignatureEqualityComparer = retVal;
+            }
+            return retVal;
+         }
+      }
+
+      public static IEqualityComparer<AbstractMethodSignature> AbstractMethodSignatureEqualityComparer_IgnoreKind
+      {
+         get
+         {
+            var retVal = _AbstractMethodSignatureEqualityComparer_IgnoreKind;
+            if ( retVal == null )
+            {
+               retVal = ComparerFromFunctions.NewEqualityComparer<AbstractMethodSignature>( Equality_AbstractMethodSignature_IgnoreKind, HashCode_AbstractMethodSignature );
+               _AbstractMethodSignatureEqualityComparer_IgnoreKind = retVal;
             }
             return retVal;
          }
@@ -1657,6 +1686,12 @@ namespace CILAssemblyManipulator.Physical
          return retVal;
       }
 
+      private static Boolean Equality_AssemblyInformation( AssemblyInformation x, AssemblyInformation y )
+      {
+         return ReferenceEquals( x, y )
+            || ( x != null && x.Equals( y ) );
+      }
+
       private static Boolean Equality_AbstractSignature( AbstractSignature x, AbstractSignature y )
       {
          var retVal = Object.ReferenceEquals( x, y );
@@ -1711,6 +1746,18 @@ namespace CILAssemblyManipulator.Physical
                MethodDefinitionSignatureEqualityComparer.Equals( x as MethodDefinitionSignature, y as MethodDefinitionSignature )
                )
          );
+      }
+
+      private static Boolean Equality_AbstractMethodSignature_IgnoreKind( AbstractMethodSignature x, AbstractMethodSignature y )
+      {
+         return Object.ReferenceEquals( x, y ) ||
+            ( Equality_AbstractMethodSignature_NoReferenceEquals( x, y )
+            && (
+               x.SignatureKind != y.SignatureKind
+               || x.SignatureKind != SignatureKind.MethodReference
+               || Equality_ParameterSignatures( ( (MethodReferenceSignature) x ).VarArgsParameters, ( (MethodReferenceSignature) y ).VarArgsParameters )
+               )
+            );
       }
 
       private static Boolean Equality_ParameterSignatures( List<ParameterSignature> x, List<ParameterSignature> y )
@@ -1928,7 +1975,7 @@ namespace CILAssemblyManipulator.Physical
          return Object.ReferenceEquals( x, y ) ||
          ( x != null && y != null
             && Equality_CustomAttributeValue( x.Value, y.Value )
-            //&& Equality_CustomAttributeArgumentType( x.Type, y.Type )
+         //&& Equality_CustomAttributeArgumentType( x.Type, y.Type )
          );
       }
 
@@ -2309,6 +2356,11 @@ namespace CILAssemblyManipulator.Physical
          }
 
          return retVal;
+      }
+
+      private static Int32 HashCode_AssemblyInformation( AssemblyInformation x )
+      {
+         return ( (Int32?) x?.GetHashCode() ).GetValueOrDefault();
       }
 
       private static Int32 HashCode_AbstractSignature( AbstractSignature x )

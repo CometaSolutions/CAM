@@ -36,15 +36,18 @@ namespace CILAssemblyManipulator.Logical
       private readonly CILAssembly _assemblyInstance;
       private readonly Lazy<CILAssembly> _assembly;
       private readonly IDictionary<String, CILType> _typeDefs;
-      private readonly IDictionary<CILType, Tuple<String, TypeAttributes, TableIndex?>> _typeDefInfos;
+      private readonly IDictionary<CILType, KeyValuePair<String, Int32>> _typeDefInfos;
 
       // TODO list: method signatures, type spec signatures
       private readonly IDictionary<CILField, FieldSignature> _fieldSignatures;
       private readonly IDictionary<CILMethodBase, MethodDefinitionSignature> _methodDefSignatures;
 
-      private readonly IDictionary<Int32, TypeDefinition> _topLevelTypes;
-      private readonly TypeSignature[] _typeSpecSignatures;
+      private readonly IDictionary<Int32, Int32> _declaringTypes;
+      private readonly TypeDefinition[] _typeDefArray;
       private readonly TypeReference[] _typeRefs;
+      private readonly TypeSignature[] _typeSpecSignatures;
+      private readonly AssemblyReference[] _assemblyRefs;
+      private readonly String[] _moduleRefs;
 
       private readonly Object _lock;
       private Action _basicStructurePopulator;
@@ -72,14 +75,17 @@ namespace CILAssemblyManipulator.Logical
          this._complexStructurePopulator = complexStructurePopulator;
          this._lock = new Object();
          this._typeDefs = new Dictionary<String, CILType>();
-         this._typeDefInfos = new Dictionary<CILType, Tuple<String, TypeAttributes, TableIndex?>>();
+         this._typeDefInfos = new Dictionary<CILType, KeyValuePair<String, Int32>>();
 
-         this._topLevelTypes = new Dictionary<Int32, TypeDefinition>();
+         this._declaringTypes = md.NestedClassDefinitions.TableContents.ToDictionary_Overwrite( nc => nc.NestedClass.Index, nc => nc.EnclosingClass.Index );
          this._fieldSignatures = new Dictionary<CILField, FieldSignature>();
          this._methodDefSignatures = new Dictionary<CILMethodBase, MethodDefinitionSignature>();
          // TODO .ToArray<T,U>(Func<T,U> selector) to UtilPack
-         this._typeSpecSignatures = md.TypeSpecifications.TableContents.Select( t => t.Signature ).ToArray();
+         this._typeDefArray = md.TypeDefinitions.TableContents.ToArray();
          this._typeRefs = md.TypeReferences.TableContents.ToArray();
+         this._typeSpecSignatures = md.TypeSpecifications.TableContents.Select( t => t.Signature ).ToArray();
+         this._assemblyRefs = md.AssemblyReferences.TableContents.ToArray();
+         this._moduleRefs = md.ModuleReferences.TableContents.Select( m => m.ModuleName ).ToArray();
       }
 
       /// <summary>
@@ -111,12 +117,12 @@ namespace CILAssemblyManipulator.Logical
 
       internal String ResolveType( CILType type )
       {
-         return this.ResolveTypeInfo( type ).Item1;
+         return this.ResolveTypeInfo( type ).Key;
       }
 
-      internal Tuple<String, TypeAttributes, TableIndex?> ResolveTypeInfo( CILType type )
+      internal KeyValuePair<String, Int32> ResolveTypeInfo( CILType type )
       {
-         Tuple<String, TypeAttributes, TableIndex?> retVal;
+         KeyValuePair<String, Int32> retVal;
          if ( !this._typeDefInfos.TryGetValue( type, out retVal ) )
          {
             throw new InvalidOperationException( "Failed to get type string for type " );
@@ -133,21 +139,57 @@ namespace CILAssemblyManipulator.Logical
       {
          var tDef = md.TypeDefinitions.TableContents[tDefIndex];
          this._typeDefs.Add( typeString, type );
-         this._typeDefInfos.Add( type, Tuple.Create( typeString, tDef.Attributes, tDef.BaseType ) );
-         if (type.DeclaringType == null)
-         {
-            this._topLevelTypes.Add( tDefIndex, tDef );
-         }
+         this._typeDefInfos.Add( type, new KeyValuePair<String, Int32>( typeString, tDefIndex ) );
       }
 
-      internal void RecordFieldDef(CILField field, FieldSignature sig)
+      internal void RecordFieldDef( CILField field, FieldSignature sig )
       {
          this._fieldSignatures.Add( field, sig );
       }
 
-      internal void RecordMethodDef(CILMethodBase method, MethodDefinitionSignature sig)
+      internal void RecordMethodDef( CILMethodBase method, MethodDefinitionSignature sig )
       {
          this._methodDefSignatures.Add( method, sig );
+      }
+
+      internal FieldSignature GetFieldSignature( CILField field )
+      {
+         return this._fieldSignatures[field];
+      }
+
+      internal MethodDefinitionSignature GetMethodSignature( CILMethodBase method )
+      {
+         return this._methodDefSignatures[method];
+      }
+
+      internal TypeSignature GetTypeSpecSignature( Int32 index )
+      {
+         return this._typeSpecSignatures[index];
+      }
+
+      internal TypeReference GetTypeReference( Int32 index )
+      {
+         return this._typeRefs[index];
+      }
+
+      internal AssemblyReference GetAssemblyReference( Int32 index )
+      {
+         return this._assemblyRefs[index];
+      }
+
+      internal String GetModuleReference( Int32 index )
+      {
+         return this._moduleRefs[index];
+      }
+
+      internal Boolean TryGetDeclaringType( Int32 nestedIndex, out Int32 declaringIndex )
+      {
+         return this._declaringTypes.TryGetValue( nestedIndex, out declaringIndex );
+      }
+
+      internal TypeDefinition GetAnyTypeDef( Int32 index )
+      {
+         return this._typeDefArray[index];
       }
 
       internal CILAssembly AssemblyInstance
@@ -328,7 +370,6 @@ public static partial class E_CILLogical
       private readonly CILAssemblyName[] _assemblyRefs;
       private readonly IDictionary<CILAssemblyName, LogicalAssemblyCreationResult> _assemblyRefsByName;
 
-      private readonly ISet<Int32> _topLevelTypes;
       private readonly IDictionary<Int32, ISet<Int32>> _nestedTypes;
 
       private readonly IDictionary<SignatureElementTypes, CILType> _simpleTypes;
@@ -375,10 +416,6 @@ public static partial class E_CILLogical
                .GetOrAdd_NotThreadSafe( nc.EnclosingClass.Index, i => new HashSet<Int32>() )
                .Add( nc.NestedClass.Index );
          }
-         var tlTypes = new HashSet<Int32>( Enumerable.Range( 0, tDefCount ) );
-         tlTypes.ExceptWith( nestedTypes.Values.SelectMany( v => v ) );
-
-         this._topLevelTypes = tlTypes;
          this._nestedTypes = nestedTypes;
 
          this._simpleTypes = new Dictionary<SignatureElementTypes, CILType>();
@@ -410,14 +447,6 @@ public static partial class E_CILLogical
          get
          {
             return this._nestedTypes;
-         }
-      }
-
-      public ISet<Int32> TopLevelTypes
-      {
-         get
-         {
-            return this._topLevelTypes;
          }
       }
 
@@ -479,15 +508,9 @@ public static partial class E_CILLogical
       {
          this._typeDefs[typeDefIndex] = type;
 
-         String typeString;
-         if ( this._topLevelTypes.Contains( typeDefIndex ) )
-         {
-            typeString = Miscellaneous.CombineNamespaceAndType( type.Namespace, type.Name );
-         }
-         else
-         {
-            typeString = Miscellaneous.CombineEnclosingAndNestedType( this._creationResult.ResolveType( type.DeclaringType ), type.Name );
-         }
+         var typeString = this._creationResult.IsTopLevelType( typeDefIndex ) ?
+            Miscellaneous.CombineNamespaceAndType( type.Namespace, type.Name ) :
+            Miscellaneous.CombineEnclosingAndNestedType( this._creationResult.ResolveType( type.DeclaringType ), type.Name );
          this._creationResult.RecordTypeDef( type, typeString, this._md, typeDefIndex );
       }
 
@@ -734,7 +757,10 @@ public static partial class E_CILLogical
                throw new InvalidOperationException( "Unsupported member ref declaring type: " + declType + "." );
          }
 
-         // Before resolving, we have to populate
+         if ( contextType != null && contextType.Name == "E_CILLogical" && mRef.Name == "get_Attributes" )
+         {
+
+         }
 
          var sig = mRef.Signature;
          Boolean wasMethod;
@@ -747,11 +773,14 @@ public static partial class E_CILLogical
          {
             case SignatureKind.Field:
                wasMethod = true;
-               var fTypeSig = ( (FieldSignature) sig ).Type;
-               var field = declTypeToUse.DeclaredFields.FirstOrDefault( f =>
-                  String.Equals( f.Name, mRef.Name )
-                  && this.MatchCILTypeToSignature( f.FieldType, fTypeSig )
-                  );
+               var fSig = (FieldSignature) sig;
+               var suitableFields = declTypeToUse.DeclaredFields.Where( f =>
+                  String.Equals( f.Name, mRef.Name ) );
+               suitableFields = isSameModule ?
+                  suitableFields.Where( f => Comparers.FieldSignatureEqualityComparer.Equals( fSig, declTypeCreationResult.GetFieldSignature( f ) ) ) :
+                  suitableFields.Where( f => this.MatchFieldSignatures( fSig, declTypeCreationResult, declTypeCreationResult.GetFieldSignature( f ) ) );
+
+               var field = suitableFields.FirstOrDefault();
                if ( field != null && declIsGeneric )
                {
                   field = field.ChangeDeclaringType( cilDeclType.GenericArguments.ToArray() );
@@ -761,10 +790,18 @@ public static partial class E_CILLogical
             case SignatureKind.MethodDefinition:
             case SignatureKind.MethodReference:
                wasMethod = true;
-               var mSig = (AbstractMethodSignature) mRef.Signature;
+               var mSig = (MethodReferenceSignature) mRef.Signature;
                var isCtor = String.Equals( mRef.Name, Miscellaneous.CLASS_CTOR_NAME ) || String.Equals( mRef.Name, Miscellaneous.INSTANCE_CTOR_NAME );
-               var method = ( isCtor ? (IEnumerable<CILMethodBase>) declTypeToUse.Constructors : declTypeToUse.DeclaredMethods.Where( m => String.Equals( mRef.Name, m.Name ) ) )
-                  .FirstOrDefault( m => this.MatchCILMethodParametersToSignature( m, mSig ) );
+               var suitableMethods = ( isCtor ? (IEnumerable<CILMethodBase>) declTypeToUse.Constructors : declTypeToUse.DeclaredMethods.Where( m => String.Equals( mRef.Name, m.Name ) ) );
+
+               suitableMethods = declTypeToUse.ElementKind.HasValue ?
+                  suitableMethods.Where( m => m.Parameters.Count == mSig.Parameters.Count ) : // We would need to create a physical signature here for perfect match - a bit too complicated, especially since each method has unique name, and all constructors have variable amount of parameters
+                  ( isSameModule ?
+                     suitableMethods.Where( m => Comparers.AbstractMethodSignatureEqualityComparer_IgnoreKind.Equals( mSig, declTypeCreationResult.GetMethodSignature( m ) ) ) :
+                     suitableMethods.Where( m => this.MatchMethodSignatures( mSig, declTypeCreationResult, declTypeCreationResult.GetMethodSignature( m ) ) )
+                  );
+
+               var method = suitableMethods.FirstOrDefault();
                if ( method != null && declIsGeneric )
                {
                   method = method.ChangeDeclaringTypeUT( cilDeclType.GenericArguments.ToArray() );
@@ -1014,216 +1051,236 @@ public static partial class E_CILLogical
          return retModule;
       }
 
-      private Boolean MatchCILMethodParametersToSignature( CILMethodBase method, AbstractMethodSignature sig )
+      private Boolean MatchFieldSignatures( FieldSignature thisSignature, LogicalAssemblyCreationResult declaringTypeCreationResult, FieldSignature declaringTypeSignature )
       {
-         // Name matching should've been already done by code calling this method
-         var m = method as CILMethod;
-         return this.MatchCILMethodParametersToSignature( method.Parameters.Count, method.Parameters, m == null ? null : m.ReturnParameter, sig );
+         return this.MatchTypeSignatures( thisSignature.Type, declaringTypeCreationResult, declaringTypeSignature.Type )
+            && this.MatchCustomModifiers( thisSignature.CustomModifiers, declaringTypeCreationResult, declaringTypeSignature.CustomModifiers );
       }
 
-      private Boolean MatchCILMethodParametersToSignature( CILMethodSignature method, AbstractMethodSignature sig )
+      private Boolean MatchMethodSignatures( AbstractMethodSignature thisSignature, LogicalAssemblyCreationResult declaringTypeCreationResult, AbstractMethodSignature declaringTypeSignature )
       {
-         return this.MatchCILMethodParametersToSignature( method.Parameters.Count, method.Parameters, method.ReturnParameter, sig );
+         return thisSignature.SignatureStarter == declaringTypeSignature.SignatureStarter
+            && thisSignature.GenericArgumentCount == declaringTypeSignature.GenericArgumentCount
+            && ListEqualityComparer<List<ParameterSignature>, ParameterSignature>.ListEquality( thisSignature.Parameters, declaringTypeSignature.Parameters, ( t, d ) => this.MatchParameterSignatures( t, declaringTypeCreationResult, d ) )
+            && this.MatchParameterSignatures( thisSignature.ReturnType, declaringTypeCreationResult, declaringTypeSignature.ReturnType );
       }
 
-      private Boolean MatchCILMethodParametersToSignature( Int32 cilParamCount, IEnumerable<CILParameterBase<Object>> cilParams, CILParameterBase<Object> retParam, AbstractMethodSignature sig )
+      private Boolean MatchParameterSignatures( ParameterSignature thisSignature, LogicalAssemblyCreationResult declaringTypeCreationResult, ParameterSignature declaringTypeSignature )
       {
-         // Name matching should've been already done by code calling this method
-         var sigParams = sig.Parameters;
-         var retVal = cilParamCount == sigParams.Count
-            && cilParams.Where( ( p, pIdx ) => this.MatchCILParameterToSignature( p, sigParams[pIdx] ) ).Count() == cilParamCount;
+         return thisSignature.IsByRef == declaringTypeSignature.IsByRef
+            && this.MatchTypeSignatures( thisSignature.Type, declaringTypeCreationResult, declaringTypeSignature.Type )
+            && this.MatchCustomModifiers( thisSignature.CustomModifiers, declaringTypeCreationResult, declaringTypeSignature.CustomModifiers );
+      }
 
-         if ( retVal && retParam != null )
+      private Boolean MatchTypeSignatures( TypeSignature thisSignature, LogicalAssemblyCreationResult declaringTypeCreationResult, TypeSignature declaringTypeSignature )
+      {
+         var retVal = thisSignature.TypeSignatureKind == declaringTypeSignature.TypeSignatureKind;
+         if ( retVal )
          {
-            retVal = this.MatchCILParameterToSignature( retParam, sig.ReturnType );
+            switch ( thisSignature.TypeSignatureKind )
+            {
+               case TypeSignatureKind.ClassOrValue:
+                  var thisClass = (ClassOrValueTypeSignature) thisSignature;
+                  var declaringClass = (ClassOrValueTypeSignature) declaringTypeSignature;
+                  retVal = thisClass.IsClass == declaringClass.IsClass
+                     && this.MatchSignatureTableIndices( thisClass.Type, declaringTypeCreationResult, declaringClass.Type )
+                     && ListEqualityComparer<List<TypeSignature>, TypeSignature>.ListEquality( thisClass.GenericArguments, declaringClass.GenericArguments, ( t, d ) => this.MatchTypeSignatures( t, declaringTypeCreationResult, d ) );
+                  break;
+               case TypeSignatureKind.ComplexArray:
+                  var thisArray = (ComplexArrayTypeSignature) thisSignature;
+                  var declaringArray = (ComplexArrayTypeSignature) declaringTypeSignature;
+                  retVal = thisArray.Rank == declaringArray.Rank
+                     && ListEqualityComparer<List<Int32>, Int32>.ListEquality( thisArray.LowerBounds, declaringArray.LowerBounds )
+                     && ListEqualityComparer<List<Int32>, Int32>.ListEquality( thisArray.Sizes, declaringArray.Sizes )
+                     && this.MatchTypeSignatures( thisArray.ArrayType, declaringTypeCreationResult, declaringArray.ArrayType );
+                  break;
+               case TypeSignatureKind.FunctionPointer:
+                  retVal = this.MatchMethodSignatures( ( (FunctionPointerTypeSignature) thisSignature ).MethodSignature, declaringTypeCreationResult, ( (FunctionPointerTypeSignature) declaringTypeSignature ).MethodSignature );
+                  break;
+               case TypeSignatureKind.GenericParameter:
+                  var thisGParam = (GenericParameterTypeSignature) thisSignature;
+                  var declaringGParam = (GenericParameterTypeSignature) declaringTypeSignature;
+                  retVal = thisGParam.GenericParameterIndex == declaringGParam.GenericParameterIndex
+                     && thisGParam.IsTypeParameter == declaringGParam.IsTypeParameter;
+                  break;
+               case TypeSignatureKind.Pointer:
+                  var thisPtr = (PointerTypeSignature) thisSignature;
+                  var declaringPtr = (PointerTypeSignature) declaringTypeSignature;
+                  retVal = this.MatchTypeSignatures( thisPtr.PointerType, declaringTypeCreationResult, declaringPtr.PointerType )
+                     && this.MatchCustomModifiers( thisPtr.CustomModifiers, declaringTypeCreationResult, declaringPtr.CustomModifiers );
+                  break;
+               case TypeSignatureKind.Simple:
+                  retVal = ( (SimpleTypeSignature) thisSignature ).SimpleType == ( (SimpleTypeSignature) declaringTypeSignature ).SimpleType;
+                  break;
+               case TypeSignatureKind.SimpleArray:
+                  var thisSimple = (SimpleArrayTypeSignature) thisSignature;
+                  var declaringSimple = (SimpleArrayTypeSignature) declaringTypeSignature;
+                  retVal = this.MatchTypeSignatures( thisSimple.ArrayType, declaringTypeCreationResult, declaringSimple.ArrayType )
+                     && this.MatchCustomModifiers( thisSimple.CustomModifiers, declaringTypeCreationResult, declaringSimple.CustomModifiers );
+                  break;
+               default:
+                  retVal = false;
+                  break;
+            }
          }
 
          return retVal;
       }
 
-      private Boolean MatchCILParameterToSignature( CILParameterBase<Object> param, ParameterSignature sig )
+      private Boolean MatchCustomModifiers( List<CustomModifierSignature> thisMods, LogicalAssemblyCreationResult declaringTypeCreationResult, List<CustomModifierSignature> declaringTypeMods )
       {
-         var pType = param.ParameterType;
-         return sig.IsByRef == pType.IsByRef()
-            && this.MatchCILTypeToSignature( sig.IsByRef ? pType.GetElementType() : pType, sig.Type );
+         return ListEqualityComparer<List<CustomModifierSignature>, CustomModifierSignature>.ListEquality( thisMods, declaringTypeMods, ( x, y ) => x.IsOptional == y.IsOptional && this.MatchSignatureTableIndices( x.CustomModifierType, declaringTypeCreationResult, y.CustomModifierType ) );
       }
 
-      private Boolean MatchCILTypeToSignature( CILTypeBase type, TypeSignature sig )
+      private Boolean MatchSignatureTableIndices( TableIndex thisIndex, LogicalAssemblyCreationResult declaringTypeCreationResult, TableIndex declaringTypeIndex )
       {
-         CILType cilType;
-         switch ( sig.TypeSignatureKind )
+         Boolean retVal;
+         var dTable = declaringTypeIndex.Table;
+         switch ( thisIndex.Table )
          {
-            case TypeSignatureKind.ClassOrValue:
-               cilType = type as CILType;
-               var retVal = cilType != null;
-               if ( retVal )
+            case Tables.TypeDef:
+               // It is possible to have this scenario e.g. when there are circular references between assemblies
+               retVal = dTable == Tables.TypeRef && this.MatchTypeDefAndTypeRef( this._creationResult, thisIndex.Index, declaringTypeCreationResult, declaringTypeIndex.Index );
+               break;
+            case Tables.TypeRef:
+               // This assembly has reference to another assembly/module, match that
+               switch ( dTable )
                {
-                  var clazz = (ClassOrValueTypeSignature) sig;
-                  var sigArgs = clazz.GenericArguments;
-                  var cilArgs = cilType.GenericArguments;
-                  retVal = type != null
-                     && !clazz.IsClass == type.IsValueType()
-                     && sigArgs.Count == cilArgs.Count;
-                  if ( retVal )
-                  {
-                     var typeTable = clazz.Type;
-                     var cilTypeToUse = cilArgs.Count > 0 ?
-                        cilType.GenericDefinition :
-                        cilType;
-                     switch ( typeTable.Table )
-                     {
-                        case Tables.TypeDef:
-                           retVal = cilTypeToUse.Equals( this.GetTypeDef( typeTable.Index ) );
-                           break;
-                        case Tables.TypeRef:
-                           retVal = this.MatchTypeRefs( cilTypeToUse, typeTable.Index );
-                           break;
-                        case Tables.TypeSpec:
-                           retVal = cilType.GenericDefinition != null && this.MatchCILTypeToSignature( cilType.GenericDefinition, this._md.TypeSpecifications.TableContents[typeTable.Index].Signature );
-                           break;
-                        default:
-                           retVal = false;
-                           break;
-                     }
-                     if ( retVal && sigArgs.Count > 0 )
-                     {
-                        retVal = cilArgs.Where( ( g, i ) => this.MatchCILTypeToSignature( g, sigArgs[i] ) ).Count() == cilArgs.Count;
-                     }
-                  }
-               }
-               return retVal;
-            case TypeSignatureKind.ComplexArray:
-               cilType = type as CILType;
-               var sigType = (ComplexArrayTypeSignature) sig;
-               return cilType != null
-                  && this.MatchComplexArrayInfo( cilType.ArrayInformation, sigType )
-                  && this.MatchCILTypeToSignature( cilType.ElementType, sigType.ArrayType );
-            case TypeSignatureKind.FunctionPointer:
-               return type.TypeKind == TypeKind.MethodSignature
-                  && this.MatchCILMethodParametersToSignature( (CILMethodSignature) type, ( (FunctionPointerTypeSignature) sig ).MethodSignature );
-            case TypeSignatureKind.GenericParameter:
-               var gParam = type as CILTypeParameter;
-               var gSig = (GenericParameterTypeSignature) sig;
-               return gParam != null
-                  && gParam.GenericParameterPosition == gSig.GenericParameterIndex
-                  && ( gParam.DeclaringMethod == null ) == ( gSig.IsTypeParameter );
-            case TypeSignatureKind.Pointer:
-               return type.IsPointerType()
-                  && this.MatchCILTypeToSignature( type.GetElementType(), ( (PointerTypeSignature) sig ).PointerType );
-            case TypeSignatureKind.Simple:
-               var tc = type.GetTypeCode( CILTypeCode.Empty );
-               switch ( ( (SimpleTypeSignature) sig ).SimpleType )
-               {
-                  case SignatureElementTypes.Boolean:
-                     return tc == CILTypeCode.Boolean;
-                  case SignatureElementTypes.Char:
-                     return tc == CILTypeCode.Char;
-                  case SignatureElementTypes.I1:
-                     return tc == CILTypeCode.SByte;
-                  case SignatureElementTypes.U1:
-                     return tc == CILTypeCode.Byte;
-                  case SignatureElementTypes.I2:
-                     return tc == CILTypeCode.Int16;
-                  case SignatureElementTypes.U2:
-                     return tc == CILTypeCode.UInt16;
-                  case SignatureElementTypes.I4:
-                     return tc == CILTypeCode.Int32;
-                  case SignatureElementTypes.U4:
-                     return tc == CILTypeCode.UInt32;
-                  case SignatureElementTypes.I8:
-                     return tc == CILTypeCode.Int64;
-                  case SignatureElementTypes.U8:
-                     return tc == CILTypeCode.UInt64;
-                  case SignatureElementTypes.R4:
-                     return tc == CILTypeCode.Single;
-                  case SignatureElementTypes.R8:
-                     return tc == CILTypeCode.Double;
-                  case SignatureElementTypes.I:
-                     return tc == CILTypeCode.IntPtr;
-                  case SignatureElementTypes.U:
-                     return tc == CILTypeCode.UIntPtr;
-                  case SignatureElementTypes.Object:
-                     return tc == CILTypeCode.SystemObject;
-                  case SignatureElementTypes.String:
-                     return tc == CILTypeCode.String;
-                  case SignatureElementTypes.Void:
-                     return tc == CILTypeCode.Void;
-                  case SignatureElementTypes.TypedByRef:
-                     return tc == CILTypeCode.TypedByRef;
+                  case Tables.TypeDef:
+                     // Match this type as reference to type defined in declaring type module
+                     retVal = this.MatchTypeDefAndTypeRef( declaringTypeCreationResult, declaringTypeIndex.Index, this._creationResult, thisIndex.Index );
+                     break;
+                  case Tables.TypeRef:
+                     // Match this type as reference to type defined in assembly/module referenced by both this and declaring type module
+                     retVal = this.MatchTypeRefAndTypeRef( this._creationResult, thisIndex.Index, declaringTypeCreationResult, declaringTypeIndex.Index );
+                     break;
                   default:
-                     throw new InvalidOperationException( "Unrecognized simple type signature: " + ( (SimpleTypeSignature) sig ).SimpleType + "." );
+                     retVal = false;
+                     break;
                }
-            case TypeSignatureKind.SimpleArray:
-               return ( type as CILType ).IsVectorArray()
-                  && this.MatchCILTypeToSignature( type.GetElementType(), ( (SimpleArrayTypeSignature) sig ).ArrayType );
+               break;
+            case Tables.TypeSpec:
+               retVal = dTable == Tables.TypeSpec
+                  && this.MatchTypeSignatures( this._md.TypeSpecifications.TableContents[thisIndex.Index].Signature, declaringTypeCreationResult, declaringTypeCreationResult.GetTypeSpecSignature( declaringTypeIndex.Index ) );
+               break;
             default:
-               throw new InvalidOperationException( "Unrecognized type signature kind: " + sig.TypeSignatureKind + "." );
+               retVal = false;
+               break;
          }
+
+         return retVal;
       }
 
-      private Boolean MatchTypeRefs( CILType typeRefFromOtherModule, Int32 thisTypeRefIndex )
+      private static Boolean MatchNSAndName( String xNS, String xName, String yNS, String yName )
       {
-         var tRef = this._md.TypeReferences.TableContents[thisTypeRefIndex];
-         var retVal = typeRefFromOtherModule != null
-            && String.Equals( typeRefFromOtherModule.Name, tRef.Name )
-            && String.Equals( typeRefFromOtherModule.Namespace, tRef.Namespace );
+         return String.Equals( xName, yName ) && String.Equals( xNS, yNS );
+      }
+
+      private Boolean MatchTypeDefAndTypeRef( LogicalAssemblyCreationResult tDefResult, Int32 tDefIndex, LogicalAssemblyCreationResult tRefResult, Int32 tRefIndex )
+      {
+         var tDef = tDefResult.GetAnyTypeDef( tDefIndex );
+         var tRef = tRefResult.GetTypeReference( tRefIndex );
+         var retVal = MatchNSAndName( tRef.Namespace, tRef.Name, tDef.Namespace, tDef.Name );
          if ( retVal )
          {
-            retVal = false;
-            var resScopNullable = tRef.ResolutionScope;
-            if ( resScopNullable.HasValue )
+            var rScopeNullable = tRef.ResolutionScope;
+            Int32 declTypeIndex;
+            if ( tDefResult.TryGetDeclaringType( tDefIndex, out declTypeIndex ) )
             {
-               var resScope = resScopNullable.Value;
-               switch ( resScope.Table )
+               retVal = rScopeNullable.HasValue
+                  && rScopeNullable.Value.Table == Tables.TypeRef
+                  && this.MatchTypeDefAndTypeRef( tDefResult, declTypeIndex, tRefResult, rScopeNullable.Value.Index );
+            }
+            else
+            {
+               if ( rScopeNullable.HasValue )
                {
-                  case Tables.TypeRef:
-                     retVal = this.MatchTypeRefs( typeRefFromOtherModule.DeclaringType, resScope.Index );
-                     break;
-                  case Tables.AssemblyRef:
-                     if ( typeRefFromOtherModule.DeclaringType == null )
-                     {
-                        // TODO need to look into type forwarding infos as well.
-                        var aRef = this._md.AssemblyReferences.TableContents[resScope.Index];
-                        var otherAssembly = typeRefFromOtherModule.Module.Assembly;
+                  var rScope = rScopeNullable.Value;
+                  switch ( rScope.Table )
+                  {
+                     case Tables.AssemblyRef:
+                        var aInstance = tDefResult.AssemblyInstance;
+                        var aRef = tRefResult.GetAssemblyReference( rScope.Index );
                         retVal = aRef.Attributes.IsRetargetable() ?
-                           // Just match name
-                           String.Equals( aRef.AssemblyInformation.Name, otherAssembly.Name.Name ) :
-                           // Match whole assembly name
-                           this._module.ReflectionContext.DefaultAssemblyNameComparer.Equals( new CILAssemblyName( aRef.AssemblyInformation, aRef.Attributes.IsFullPublicKey() ), otherAssembly.Name );
-                     }
+                           String.Equals( aRef.AssemblyInformation.Name, aInstance.Name ) :
+                           aInstance.ReflectionContext.DefaultAssemblyNameComparer.Equals( aInstance.Name, new CILAssemblyName( aRef.AssemblyInformation, aRef.Attributes.IsFullPublicKey() ) );
+                        break;
+                     case Tables.ModuleRef:
+                        LogicalCreationState otherState;
+                        retVal = tRefResult.AssemblyInstance.Equals( tDefResult.AssemblyInstance )
+                           && this._allModuleStates.TryGetValue( tRefResult.GetModuleReference( rScope.Index ), out otherState )
+                           && ReferenceEquals( this, otherState );
+                        break;
+                     default:
+                        retVal = false;
+                        break;
+                  }
+               }
+               else
+               {
+                  throw new NotImplementedException( "Null resolution scope (2)." );
+               }
+            }
+         }
+
+         return retVal;
+      }
+
+      private Boolean MatchTypeRefAndTypeRef( LogicalAssemblyCreationResult xResult, Int32 xIndex, LogicalAssemblyCreationResult yResult, Int32 yIndex )
+      {
+         var x = xResult.GetTypeReference( xIndex );
+         var y = yResult.GetTypeReference( yIndex );
+         var retVal = MatchNSAndName( x.Namespace, x.Name, y.Namespace, y.Name );
+         if ( retVal )
+         {
+            var xResScopeNullable = x.ResolutionScope;
+            var yResScopeNullable = y.ResolutionScope;
+            if ( xResScopeNullable.HasValue && yResScopeNullable.HasValue )
+            {
+               var xResScope = xResScopeNullable.Value;
+               var yResScope = yResScopeNullable.Value;
+               var yTable = yResScope.Table;
+               switch ( xResScope.Table )
+               {
+                  case Tables.AssemblyRef:
+                     retVal = yTable == Tables.AssemblyRef
+                        && this.MatchAssemblyRefs( xResult.GetAssemblyReference( xResScope.Index ), yResult.GetAssemblyReference( yResScope.Index ) );
+                     break;
+                  case Tables.TypeRef:
+                     retVal = yTable == Tables.TypeRef
+                        && this.MatchTypeDefAndTypeRef( xResult, xResScope.Index, yResult, yResScope.Index );
                      break;
                   case Tables.ModuleRef:
-                     retVal = typeRefFromOtherModule.DeclaringType == null
-                        && typeRefFromOtherModule.Module.Equals( this.ResolveModuleRef( resScope.Index ) );
+                     retVal = xResult.AssemblyInstance.Equals( yResult.AssemblyInstance )
+                        && ( ( yTable == Tables.ModuleRef && String.Equals( xResult.GetModuleReference( xResScope.Index ), yResult.GetModuleReference( yResScope.Index ) ) )
+                           || ( yTable == Tables.Module && this.MatchTypeDefAndTypeRef( yResult, yResult.ResolveTypeInfo( yResult.ResolveTopLevelType( y.Namespace, y.Name, true ) ).Value, xResult, xIndex ) )
+                           );
                      break;
                   case Tables.Module:
-                     retVal = typeRefFromOtherModule.Equals( this._creationResult.ResolveTopLevelType( tRef.Namespace, tRef.Name, false ) );
+                     retVal = ( yTable == Tables.ModuleRef || yTable == Tables.AssemblyRef )
+                        && this.MatchTypeDefAndTypeRef( xResult, xResult.ResolveTypeInfo( xResult.ResolveTopLevelType( x.Namespace, x.Name, true ) ).Value, yResult, yIndex );
                      break;
                   default:
-                     throw new InvalidOperationException( "Unsupported type reference reference scope: " + resScope + "." );
+                     retVal = false;
+                     break;
                }
             }
             else
             {
-               throw new NotImplementedException( "Null resolution scope in matching." );
+               throw new NotImplementedException( "Null resolution scope (3)." );
             }
          }
 
          return retVal;
       }
 
-      private Boolean MatchComplexArrayInfo( GeneralArrayInfo cilInfo, ComplexArrayTypeSignature sig )
+      private Boolean MatchAssemblyRefs( AssemblyReference x, AssemblyReference y )
       {
-         return cilInfo != null
-            && cilInfo.Rank == sig.Rank
-            && MatchArrayQueryAndList( cilInfo.LowerBounds, sig.LowerBounds )
-            && MatchArrayQueryAndList( cilInfo.Sizes, sig.Sizes );
-      }
-
-      private static Boolean MatchArrayQueryAndList( CollectionsWithRoles.API.ArrayQuery<Int32> array, List<Int32> list )
-      {
-         return array.Count == list.Count
-            && array.Where( ( i, idx ) => idx == list[i] ).Count() == array.Count;
+         var xInfo = x.AssemblyInformation;
+         var yInfo = y.AssemblyInformation;
+         return x.Attributes.IsRetargetable() || y.Attributes.IsRetargetable() ?
+            String.Equals( xInfo.Name, yInfo.Name ) :
+            this._module.ReflectionContext.DefaultAssemblyNameComparer.Equals( new CILAssemblyName( xInfo, x.Attributes.IsFullPublicKey() ), new CILAssemblyName( yInfo, y.Attributes.IsFullPublicKey() ) );
       }
 
       private LogicalAssemblyCreationResult ResolveMSCorLibModule( LogicalAssemblyCreationResult msCorLibOverride )
@@ -1238,8 +1295,8 @@ public static partial class E_CILLogical
             if ( retVal )
             {
                // Perform additional checks
-               var typeInfo = m.ResolveTypeInfo( testType );
-               retVal = typeInfo.Item2.IsClass() && !typeInfo.Item3.HasValue;
+               var tDef = m.LogicalToPhysical( testType );
+               retVal = tDef.Attributes.IsClass() && !tDef.BaseType.HasValue;
             }
             return retVal;
          } );
@@ -1482,7 +1539,7 @@ public static partial class E_CILLogical
 
          for ( var i = 1; i < tDefs.Count; ++i )
          {
-            if ( state.TopLevelTypes.Contains( i ) )
+            if ( state.CreationResult.IsTopLevelType( i ) )
             {
                state.CreateLogicalType( module, i );
             }
@@ -2434,5 +2491,21 @@ public static partial class E_CILLogical
    private static Boolean CanBeTypeTokenKind_GenericDefinition( this CILType thisType, CILTypeBase otherType )
    {
       return Equals( otherType, thisType ) && ( (CILType) otherType ).IsGenericTypeDefinition();
+   }
+
+   private static Boolean IsTopLevelType( this LogicalAssemblyCreationResult creationResult, Int32 tDefIndex )
+   {
+      Int32 declTypeIdx;
+      return !creationResult.TryGetDeclaringType( tDefIndex, out declTypeIdx );
+   }
+
+   internal static String ResolveType( this LogicalAssemblyCreationResult creationResult, CILType type )
+   {
+      return creationResult.ResolveTypeInfo( type ).Key;
+   }
+
+   internal static TypeDefinition LogicalToPhysical( this LogicalAssemblyCreationResult creationResult, CILType type )
+   {
+      return creationResult.GetAnyTypeDef( creationResult.ResolveTypeInfo( type ).Value );
    }
 }

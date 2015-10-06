@@ -251,6 +251,19 @@ public static partial class E_CommonUtils
       return obj.HasValue ? obj.Value.GetType() : null;
    }
 
+   ///// <summary>
+   ///// Helper method to get the value from nullable, if it has a value, or return default value for type, if the nullable does not have a value.
+   ///// </summary>
+   ///// <typeparam name="T">The nullable type.</typeparam>
+   ///// <param name="nullable">The nullable value.</param>
+   ///// <returns><see cref="Nullable{T}.Value"/> if <see cref="Nullable{T}.HasValue"/> is <c>true</c> for <paramref name="nullable"/>; otherwise default value for <typeparamref name="T"/>.</returns>
+   //public static T GetValueOrDefault<T>( this T? nullable )
+   //   where T : struct
+   //{
+   //   return nullable.HasValue ? nullable.Value : default( T );
+   //}
+
+
    /// <summary>
    /// Gets the multiplexed value for given key.
    /// </summary>
@@ -273,7 +286,7 @@ public static partial class E_CommonUtils
    /// <param name="timeout">The optional maximum time to wait. By default no timeout.</param>
    /// <param name="tick">The optional tick, in milliseconds, between checks for <paramref name="evt"/>. By default is 50 milliseconds.</param>
    /// <returns><c>true</c> if given <paramref name="evt"/> was set during waiting perioud; <c>false</c> otherwise.</returns>
-   public static Boolean WaitWhileKeepingEyeForCancel( this WaitHandle evt, CancellationToken token = default(CancellationToken), Int32 timeout = NO_TIMEOUT, Int32 tick = DEFAULT_TICK )
+   public static Boolean WaitWhileKeepingEyeForCancel( this WaitHandle evt, CancellationToken token = default( CancellationToken ), Int32 timeout = NO_TIMEOUT, Int32 tick = DEFAULT_TICK )
    {
       Int32 timeWaited = 0;
       while ( !token.IsCancellationRequested && !evt.WaitOne( tick ) && ( timeout < 0 || timeWaited < timeout ) )
