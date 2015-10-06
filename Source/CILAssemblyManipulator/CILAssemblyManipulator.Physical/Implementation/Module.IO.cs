@@ -28,8 +28,8 @@ namespace CILAssemblyManipulator.Physical.Implementation
    internal static class MetaDataConstants
    {
 
-      internal static readonly Encoding SYS_STRING_ENCODING = new UTF8Encoding( false, true );
-      internal static readonly Encoding USER_STRING_ENCODING = new UnicodeEncoding( false, false, true );
+      internal static readonly Encoding SYS_STRING_ENCODING = new UTF8Encoding( false, false );
+      internal static readonly Encoding USER_STRING_ENCODING = new UnicodeEncoding( false, false, false );
 
       private const UInt32 TAGMASK_MASK = 0xFFFFFFFF;
 
@@ -84,43 +84,54 @@ namespace CILAssemblyManipulator.Physical.Implementation
       private static readonly IDictionary<Tables, Func<Int32[], Int32, Int32, Int32, Int32>> TABLE_WIDTH_CALCULATOR;
       static MetaDataConstants()
       {
-         var dic2 = new Dictionary<Tables, Func<Int32[], Int32, Int32, Int32, Int32>>( Consts.AMOUNT_OF_TABLES );
-         dic2.Add( Tables.Module, ( tableSizes, strWidth, guidWidth, blobWidth ) => TWO_BYTE_SIZE + strWidth + guidWidth + guidWidth + guidWidth );
-         dic2.Add( Tables.TypeRef, ( tableSizes, strWidth, guidWidth, blobWidth ) => GetTableIndexSizeCoded( tableSizes, RESOLUTION_SCOPE ) + strWidth + strWidth );
-         dic2.Add( Tables.TypeDef, ( tableSizes, strWidth, guidWidth, blobWidth ) => FOUR_BYTE_SIZE + strWidth + strWidth + GetTableIndexSizeCoded( tableSizes, TYPE_DEF_OR_REF ) + GetTableIndexSizeSimple( tableSizes, Tables.Field ) + GetTableIndexSizeSimple( tableSizes, Tables.MethodDef ) );
-         dic2.Add( Tables.Field, ( tableSizes, strWidth, guidWidth, blobWidth ) => TWO_BYTE_SIZE + strWidth + blobWidth );
-         dic2.Add( Tables.MethodDef, ( tableSizes, strWidth, guidWidth, blobWidth ) => sizeof( TRVA ) + TWO_BYTE_SIZE + TWO_BYTE_SIZE + strWidth + blobWidth + GetTableIndexSizeSimple( tableSizes, Tables.Parameter ) );
-         dic2.Add( Tables.Parameter, ( tableSizes, strWidth, guidWidth, blobWidth ) => TWO_BYTE_SIZE + TWO_BYTE_SIZE + strWidth );
-         dic2.Add( Tables.InterfaceImpl, ( tableSizes, strWidth, guidWidth, blobWidth ) => GetTableIndexSizeSimple( tableSizes, Tables.TypeDef ) + GetTableIndexSizeCoded( tableSizes, TYPE_DEF_OR_REF ) );
-         dic2.Add( Tables.MemberRef, ( tableSizes, strWidth, guidWidth, blobWidth ) => GetTableIndexSizeCoded( tableSizes, MEMBER_REF_PARENT ) + strWidth + blobWidth );
-         dic2.Add( Tables.Constant, ( tableSizes, strWidth, guidWidth, blobWidth ) => TWO_BYTE_SIZE + GetTableIndexSizeCoded( tableSizes, HAS_CONSTANT ) + blobWidth );
-         dic2.Add( Tables.CustomAttribute, ( tableSizes, strWidth, guidWidth, blobWidth ) => GetTableIndexSizeCoded( tableSizes, HAS_CUSTOM_ATTRIBUTE ) + GetTableIndexSizeCoded( tableSizes, CUSTOM_ATTRIBUTE_TYPE ) + blobWidth );
-         dic2.Add( Tables.FieldMarshal, ( tableSizes, strWidth, guidWidth, blobWidth ) => GetTableIndexSizeCoded( tableSizes, HAS_FIELD_MARSHAL ) + blobWidth );
-         dic2.Add( Tables.DeclSecurity, ( tableSizes, strWidth, guidWidth, blobWidth ) => TWO_BYTE_SIZE + GetTableIndexSizeCoded( tableSizes, HAS_DECL_SECURITY ) + blobWidth );
-         dic2.Add( Tables.ClassLayout, ( tableSizes, strWidth, guidWidth, blobWidth ) => TWO_BYTE_SIZE + FOUR_BYTE_SIZE + GetTableIndexSizeSimple( tableSizes, Tables.TypeDef ) );
-         dic2.Add( Tables.FieldLayout, ( tableSizes, strWidth, guidWidth, blobWidth ) => FOUR_BYTE_SIZE + GetTableIndexSizeSimple( tableSizes, Tables.Field ) );
-         dic2.Add( Tables.StandaloneSignature, ( tableSizes, strWidth, guidWidth, blobWidth ) => blobWidth );
-         dic2.Add( Tables.EventMap, ( tableSizes, strWidth, guidWidth, blobWidth ) => GetTableIndexSizeSimple( tableSizes, Tables.TypeDef ) + GetTableIndexSizeSimple( tableSizes, Tables.Event ) );
-         dic2.Add( Tables.Event, ( tableSizes, strWidth, guidWidth, blobWidth ) => TWO_BYTE_SIZE + strWidth + GetTableIndexSizeCoded( tableSizes, TYPE_DEF_OR_REF ) );
-         dic2.Add( Tables.PropertyMap, ( tableSizes, strWidth, guidWidth, blobWidth ) => GetTableIndexSizeSimple( tableSizes, Tables.TypeDef ) + GetTableIndexSizeSimple( tableSizes, Tables.Property ) );
-         dic2.Add( Tables.Property, ( tableSizes, strWidth, guidWidth, blobWidth ) => TWO_BYTE_SIZE + strWidth + blobWidth );
-         dic2.Add( Tables.MethodSemantics, ( tableSizes, strWidth, guidWidth, blobWidth ) => TWO_BYTE_SIZE + GetTableIndexSizeSimple( tableSizes, Tables.MethodDef ) + GetTableIndexSizeCoded( tableSizes, HAS_SEMANTICS ) );
-         dic2.Add( Tables.MethodImpl, ( tableSizes, strWidth, guidWidth, blobWidth ) => GetTableIndexSizeSimple( tableSizes, Tables.TypeDef ) + GetTableIndexSizeCoded( tableSizes, METHOD_DEF_OR_REF ) + GetTableIndexSizeCoded( tableSizes, METHOD_DEF_OR_REF ) );
-         dic2.Add( Tables.ModuleRef, ( tableSizes, strWidth, guidWidth, blobWidth ) => strWidth );
-         dic2.Add( Tables.TypeSpec, ( tableSizes, strWidth, guidWidth, blobWidth ) => blobWidth );
-         dic2.Add( Tables.ImplMap, ( tableSizes, strWidth, guidWidth, blobWidth ) => TWO_BYTE_SIZE + GetTableIndexSizeCoded( tableSizes, MEMBER_FORWARDED ) + strWidth + GetTableIndexSizeSimple( tableSizes, Tables.ModuleRef ) );
-         dic2.Add( Tables.FieldRVA, ( tableSizes, strWidth, guidWidth, blobWidth ) => sizeof( TRVA ) + GetTableIndexSizeSimple( tableSizes, Tables.Field ) );
-         dic2.Add( Tables.Assembly, ( tableSizes, strWidth, guidWidth, blobWidth ) => FOUR_BYTE_SIZE + TWO_BYTE_SIZE * 4 + FOUR_BYTE_SIZE + blobWidth + strWidth + strWidth );
-         dic2.Add( Tables.AssemblyRef, ( tableSizes, strWidth, guidWidth, blobWidth ) => TWO_BYTE_SIZE * 4 + FOUR_BYTE_SIZE + blobWidth + strWidth + strWidth + blobWidth );
-         dic2.Add( Tables.File, ( tableSizes, strWidth, guidWidth, blobWidth ) => FOUR_BYTE_SIZE + strWidth + blobWidth );
-         dic2.Add( Tables.ExportedType, ( tableSizes, strWidth, guidWidth, blobWidth ) => FOUR_BYTE_SIZE + FOUR_BYTE_SIZE + strWidth + strWidth + GetTableIndexSizeCoded( tableSizes, IMPLEMENTATION ) );
-         dic2.Add( Tables.ManifestResource, ( tableSizes, strWidth, guidWidth, blobWidth ) => FOUR_BYTE_SIZE + FOUR_BYTE_SIZE + strWidth + GetTableIndexSizeCoded( tableSizes, IMPLEMENTATION ) );
-         dic2.Add( Tables.NestedClass, ( tableSizes, strWidth, guidWidth, blobWidth ) => GetTableIndexSizeSimple( tableSizes, Tables.TypeDef ) + GetTableIndexSizeSimple( tableSizes, Tables.TypeDef ) );
-         dic2.Add( Tables.GenericParameter, ( tableSizes, strWidth, guidWidth, blobWidth ) => TWO_BYTE_SIZE + TWO_BYTE_SIZE + GetTableIndexSizeCoded( tableSizes, TYPE_OR_METHOD_DEF ) + strWidth );
-         dic2.Add( Tables.MethodSpec, ( tableSizes, strWidth, guidWidth, blobWidth ) => GetTableIndexSizeCoded( tableSizes, METHOD_DEF_OR_REF ) + blobWidth );
-         dic2.Add( Tables.GenericParameterConstraint, ( tableSizes, strWidth, guidWidth, blobWidth ) => GetTableIndexSizeSimple( tableSizes, Tables.GenericParameter ) + GetTableIndexSizeCoded( tableSizes, TYPE_DEF_OR_REF ) );
-
-         TABLE_WIDTH_CALCULATOR = dic2;
+         TABLE_WIDTH_CALCULATOR = new Dictionary<Tables, Func<Int32[], Int32, Int32, Int32, Int32>>( Consts.AMOUNT_OF_TABLES )
+         {
+            { Tables.Module, ( tableSizes, strWidth, guidWidth, blobWidth ) => TWO_BYTE_SIZE + strWidth + guidWidth + guidWidth + guidWidth },
+            { Tables.TypeRef, ( tableSizes, strWidth, guidWidth, blobWidth ) => GetTableIndexSizeCoded( tableSizes, RESOLUTION_SCOPE ) + strWidth + strWidth },
+            { Tables.TypeDef, ( tableSizes, strWidth, guidWidth, blobWidth ) => FOUR_BYTE_SIZE + strWidth + strWidth + GetTableIndexSizeCoded( tableSizes, TYPE_DEF_OR_REF ) + GetTableIndexSizeSimple( tableSizes, Tables.Field ) + GetTableIndexSizeSimple( tableSizes, Tables.MethodDef ) },
+            { Tables.FieldPtr, ( tableSizes, strWidth, guidWidth, blobWidth ) => GetTableIndexSizeSimple( tableSizes, Tables.Field ) },
+            { Tables.Field, ( tableSizes, strWidth, guidWidth, blobWidth ) => TWO_BYTE_SIZE + strWidth + blobWidth },
+            { Tables.MethodPtr, ( tableSizes, strWidth, guidWidth, blobWidth ) => GetTableIndexSizeSimple( tableSizes, Tables.MethodDef ) },
+            { Tables.MethodDef, ( tableSizes, strWidth, guidWidth, blobWidth ) => sizeof( TRVA ) + TWO_BYTE_SIZE + TWO_BYTE_SIZE + strWidth + blobWidth + GetTableIndexSizeSimple( tableSizes, Tables.Parameter ) },
+            { Tables.ParameterPtr, ( tableSizes, strWidth, guidWidth, blobWidth ) => GetTableIndexSizeSimple( tableSizes, Tables.Parameter ) },
+            { Tables.Parameter, ( tableSizes, strWidth, guidWidth, blobWidth ) => TWO_BYTE_SIZE + TWO_BYTE_SIZE + strWidth },
+            { Tables.InterfaceImpl, ( tableSizes, strWidth, guidWidth, blobWidth ) => GetTableIndexSizeSimple( tableSizes, Tables.TypeDef ) + GetTableIndexSizeCoded( tableSizes, TYPE_DEF_OR_REF ) },
+            { Tables.MemberRef, ( tableSizes, strWidth, guidWidth, blobWidth ) => GetTableIndexSizeCoded( tableSizes, MEMBER_REF_PARENT ) + strWidth + blobWidth },
+            { Tables.Constant, ( tableSizes, strWidth, guidWidth, blobWidth ) => TWO_BYTE_SIZE + GetTableIndexSizeCoded( tableSizes, HAS_CONSTANT ) + blobWidth },
+            { Tables.CustomAttribute, ( tableSizes, strWidth, guidWidth, blobWidth ) => GetTableIndexSizeCoded( tableSizes, HAS_CUSTOM_ATTRIBUTE ) + GetTableIndexSizeCoded( tableSizes, CUSTOM_ATTRIBUTE_TYPE ) + blobWidth },
+            { Tables.FieldMarshal, ( tableSizes, strWidth, guidWidth, blobWidth ) => GetTableIndexSizeCoded( tableSizes, HAS_FIELD_MARSHAL ) + blobWidth },
+            { Tables.DeclSecurity, ( tableSizes, strWidth, guidWidth, blobWidth ) => TWO_BYTE_SIZE + GetTableIndexSizeCoded( tableSizes, HAS_DECL_SECURITY ) + blobWidth },
+            { Tables.ClassLayout, ( tableSizes, strWidth, guidWidth, blobWidth ) => TWO_BYTE_SIZE + FOUR_BYTE_SIZE + GetTableIndexSizeSimple( tableSizes, Tables.TypeDef ) },
+            { Tables.FieldLayout, ( tableSizes, strWidth, guidWidth, blobWidth ) => FOUR_BYTE_SIZE + GetTableIndexSizeSimple( tableSizes, Tables.Field ) },
+            { Tables.StandaloneSignature, ( tableSizes, strWidth, guidWidth, blobWidth ) => blobWidth },
+            { Tables.EventMap, ( tableSizes, strWidth, guidWidth, blobWidth ) => GetTableIndexSizeSimple( tableSizes, Tables.TypeDef ) + GetTableIndexSizeSimple( tableSizes, Tables.Event ) },
+            { Tables.EventPtr, ( tableSizes, strWidth, guidWidth, blobWidth ) => GetTableIndexSizeSimple( tableSizes, Tables.Event ) },
+            { Tables.Event, ( tableSizes, strWidth, guidWidth, blobWidth ) => TWO_BYTE_SIZE + strWidth + GetTableIndexSizeCoded( tableSizes, TYPE_DEF_OR_REF ) },
+            { Tables.PropertyMap, ( tableSizes, strWidth, guidWidth, blobWidth ) => GetTableIndexSizeSimple( tableSizes, Tables.TypeDef ) + GetTableIndexSizeSimple( tableSizes, Tables.Property ) },
+            { Tables.PropertyPtr, ( tableSizes, strWidth, guidWidth, blobWidth ) => GetTableIndexSizeSimple( tableSizes, Tables.Property ) },
+            { Tables.Property, ( tableSizes, strWidth, guidWidth, blobWidth ) => TWO_BYTE_SIZE + strWidth + blobWidth },
+            { Tables.MethodSemantics, ( tableSizes, strWidth, guidWidth, blobWidth ) => TWO_BYTE_SIZE + GetTableIndexSizeSimple( tableSizes, Tables.MethodDef ) + GetTableIndexSizeCoded( tableSizes, HAS_SEMANTICS ) },
+            { Tables.MethodImpl, ( tableSizes, strWidth, guidWidth, blobWidth ) => GetTableIndexSizeSimple( tableSizes, Tables.TypeDef ) + GetTableIndexSizeCoded( tableSizes, METHOD_DEF_OR_REF ) + GetTableIndexSizeCoded( tableSizes, METHOD_DEF_OR_REF ) },
+            { Tables.ModuleRef, ( tableSizes, strWidth, guidWidth, blobWidth ) => strWidth },
+            { Tables.TypeSpec, ( tableSizes, strWidth, guidWidth, blobWidth ) => blobWidth },
+            { Tables.ImplMap, ( tableSizes, strWidth, guidWidth, blobWidth ) => TWO_BYTE_SIZE + GetTableIndexSizeCoded( tableSizes, MEMBER_FORWARDED ) + strWidth + GetTableIndexSizeSimple( tableSizes, Tables.ModuleRef ) },
+            { Tables.FieldRVA, ( tableSizes, strWidth, guidWidth, blobWidth ) => sizeof( TRVA ) + GetTableIndexSizeSimple( tableSizes, Tables.Field ) },
+            { Tables.EncLog, ( tableSizes, strWidth, guidWidth, blobWidth ) => FOUR_BYTE_SIZE * 2 },
+            { Tables.EncMap, ( tableSizes, strWidth, guidWidth, blobWidth ) => FOUR_BYTE_SIZE },
+            { Tables.Assembly, ( tableSizes, strWidth, guidWidth, blobWidth ) => FOUR_BYTE_SIZE + TWO_BYTE_SIZE * 4 + FOUR_BYTE_SIZE + blobWidth + strWidth + strWidth },
+            { Tables.AssemblyProcessor, ( tableSizes, strWidth, guidWidth, blobWidth ) => FOUR_BYTE_SIZE },
+            { Tables.AssemblyOS, ( tableSizes, strWidth, guidWidth, blobWidth ) => FOUR_BYTE_SIZE * 3 },
+            { Tables.AssemblyRef, ( tableSizes, strWidth, guidWidth, blobWidth ) => TWO_BYTE_SIZE * 4 + FOUR_BYTE_SIZE + blobWidth + strWidth + strWidth + blobWidth },
+            { Tables.AssemblyRefProcessor, ( tableSizes, strWidth, guidWidth, blobWidth ) => FOUR_BYTE_SIZE + GetTableIndexSizeSimple( tableSizes, Tables.AssemblyRef ) },
+            { Tables.AssemblyRefOS, ( tableSizes, strWidth, guidWidth, blobWidth ) => FOUR_BYTE_SIZE * 3 + GetTableIndexSizeSimple( tableSizes, Tables.AssemblyRef ) },
+            { Tables.File, ( tableSizes, strWidth, guidWidth, blobWidth ) => FOUR_BYTE_SIZE + strWidth + blobWidth },
+            { Tables.ExportedType, ( tableSizes, strWidth, guidWidth, blobWidth ) => FOUR_BYTE_SIZE + FOUR_BYTE_SIZE + strWidth + strWidth + GetTableIndexSizeCoded( tableSizes, IMPLEMENTATION ) },
+            { Tables.ManifestResource, ( tableSizes, strWidth, guidWidth, blobWidth ) => FOUR_BYTE_SIZE + FOUR_BYTE_SIZE + strWidth + GetTableIndexSizeCoded( tableSizes, IMPLEMENTATION ) },
+            { Tables.NestedClass, ( tableSizes, strWidth, guidWidth, blobWidth ) => GetTableIndexSizeSimple( tableSizes, Tables.TypeDef ) + GetTableIndexSizeSimple( tableSizes, Tables.TypeDef ) },
+            { Tables.GenericParameter, ( tableSizes, strWidth, guidWidth, blobWidth ) => TWO_BYTE_SIZE + TWO_BYTE_SIZE + GetTableIndexSizeCoded( tableSizes, TYPE_OR_METHOD_DEF ) + strWidth },
+            { Tables.MethodSpec, ( tableSizes, strWidth, guidWidth, blobWidth ) => GetTableIndexSizeCoded( tableSizes, METHOD_DEF_OR_REF ) + blobWidth },
+            { Tables.GenericParameterConstraint, ( tableSizes, strWidth, guidWidth, blobWidth ) => GetTableIndexSizeSimple( tableSizes, Tables.GenericParameter ) + GetTableIndexSizeCoded( tableSizes, TYPE_DEF_OR_REF ) },
+         };
       }
 
       private static Int32 GetTableIndexSizeSimple( Int32[] tableSizes, Tables referencedTable )
@@ -173,9 +184,14 @@ namespace CILAssemblyManipulator.Physical.Implementation
          return tRefWidths;
       }
 
-      internal static Int32 CalculateTableWidth( Tables table, Int32[] tableSizes, Int32 sysStringIndexSize, Int32 guidIndexSize, Int32 blobIndexSize )
+      internal static Int32 CalculateTableWidth( Tables table, Int32[] tableSizes, Boolean sysStringIsWide, Boolean guidIsWide, Boolean blobIsWide )
       {
-         return MetaDataConstants.TABLE_WIDTH_CALCULATOR[table]( tableSizes, sysStringIndexSize, guidIndexSize, blobIndexSize );
+         return MetaDataConstants.TABLE_WIDTH_CALCULATOR[table](
+            tableSizes,
+            sysStringIsWide ? FOUR_BYTE_SIZE : TWO_BYTE_SIZE,
+            guidIsWide ? FOUR_BYTE_SIZE : TWO_BYTE_SIZE,
+            blobIsWide ? FOUR_BYTE_SIZE : TWO_BYTE_SIZE
+            );
       }
 
       internal static Int32 GetCodedTableIndex( CodedTableIndexKind indexKind, TableIndex? tIdx )
@@ -195,18 +211,27 @@ namespace CILAssemblyManipulator.Physical.Implementation
          return retVal;
       }
 
-      internal static TableIndex? ReadCodedTableIndex( System.IO.Stream stream, CodedTableIndexKind indexKind, IDictionary<CodedTableIndexKind, Boolean> tRefSizes, Byte[] tmpArray, Boolean throwOnNull = true )
+      internal static TableIndex? ReadCodedTableIndex( System.IO.Stream stream, CodedTableIndexKind indexKind, IDictionary<CodedTableIndexKind, Boolean> tRefSizes, Byte[] tmpArray )
       {
          var idx = tRefSizes[indexKind] ? stream.ReadU32( tmpArray ) : stream.ReadU16( tmpArray );
 
          TableIndex? retVal;
-         if ( CheckRowIndex( indexKind, throwOnNull, idx ) )
+         if ( idx > 0 )
          {
             var possibleTables = GetTablesForCodedIndex( indexKind );
             var rowIdx = ( idx >> possibleTables.Item3 );
-            if ( CheckRowIndex( indexKind, throwOnNull, rowIdx ) )
+            var tableIndex = possibleTables.Item2 & idx;
+            if ( rowIdx > 0 && tableIndex < possibleTables.Item1.Length )
             {
-               retVal = new TableIndex( possibleTables.Item1[possibleTables.Item2 & idx].Value, (Int32) rowIdx - 1 );
+               var tableNullable = possibleTables.Item1[tableIndex];
+               if ( tableNullable.HasValue )
+               {
+                  retVal = new TableIndex( tableNullable.Value, (Int32) rowIdx - 1 );
+               }
+               else
+               {
+                  retVal = null;
+               }
             }
             else
             {
@@ -221,19 +246,6 @@ namespace CILAssemblyManipulator.Physical.Implementation
          return retVal;
       }
 
-      private static Boolean CheckRowIndex( CodedTableIndexKind indexKind, Boolean throwOnNull, UInt32 index )
-      {
-         var retVal = index > 0;
-         if ( !retVal )
-         {
-            if ( throwOnNull )
-            {
-               throw new BadImageFormatException( "Found null coded table index when shouldn't (table reference kind: " + indexKind + ")." );
-            }
-         }
-
-         return retVal;
-      }
 
       // Zero-based
       internal static TableIndex ReadSimpleTableIndex( System.IO.Stream stream, Tables targetTable, Int32[] tableSizes, Byte[] tmpArray )

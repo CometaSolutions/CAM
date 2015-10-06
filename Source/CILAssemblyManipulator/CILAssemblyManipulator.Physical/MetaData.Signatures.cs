@@ -85,7 +85,7 @@ namespace CILAssemblyManipulator.Physical
          }
       }
 
-      protected static void ReadFromBytes(
+      protected static Boolean ReadFromBytes(
          Byte[] sig,
          ref Int32 idx,
          out SignatureStarters elementType,
@@ -95,33 +95,46 @@ namespace CILAssemblyManipulator.Physical
          out Int32 sentinelMark
          )
       {
-         elementType = (SignatureStarters) sig.ReadByteFromBytes( ref idx );
-         genericCount = 0;
-         if ( elementType.IsGeneric() )
+         var retVal = idx >= 0 && idx < sig.Length;
+         if ( retVal )
          {
-            genericCount = sig.DecompressUInt32( ref idx );
-         }
-
-         var amountOfParams = sig.DecompressUInt32( ref idx );
-         returnParameter = ReadParameter( sig, ref idx );
-         sentinelMark = -1;
-         if ( amountOfParams > 0 )
-         {
-            parameters = new ParameterSignature[amountOfParams];
-            for ( var i = 0; i < amountOfParams; ++i )
+            elementType = (SignatureStarters) sig.ReadByteFromBytes( ref idx );
+            genericCount = 0;
+            if ( elementType.IsGeneric() )
             {
-               if ( sig[idx] == (Byte) SignatureElementTypes.Sentinel )
+               genericCount = sig.DecompressUInt32( ref idx );
+            }
+
+            var amountOfParams = sig.DecompressUInt32( ref idx );
+            returnParameter = ReadParameter( sig, ref idx );
+            sentinelMark = -1;
+            if ( amountOfParams > 0 )
+            {
+               parameters = new ParameterSignature[amountOfParams];
+               for ( var i = 0; i < amountOfParams; ++i )
                {
-                  sentinelMark = i;
+                  if ( sig[idx] == (Byte) SignatureElementTypes.Sentinel )
+                  {
+                     sentinelMark = i;
+                  }
+                  parameters[i] = ReadParameter( sig, ref idx );
                }
-               parameters[i] = ReadParameter( sig, ref idx );
+            }
+            else
+            {
+               parameters = Empty<ParameterSignature>.Array;
             }
          }
          else
          {
-            parameters = Empty<ParameterSignature>.Array;
+            elementType = default( SignatureStarters );
+            genericCount = -1;
+            returnParameter = null;
+            parameters = null;
+            sentinelMark = -1;
          }
 
+         return retVal;
       }
 
       internal static ParameterSignature ReadParameter( Byte[] sig, ref Int32 idx )
@@ -179,16 +192,23 @@ namespace CILAssemblyManipulator.Physical
          ParameterSignature returnParameter;
          ParameterSignature[] parameters;
          Int32 sentinelMark;
-         ReadFromBytes( sig, ref idx, out elementType, out genericCount, out returnParameter, out parameters, out sentinelMark );
-         var retVal = new MethodDefinitionSignature( parameters.Length )
+         MethodDefinitionSignature retVal;
+         if ( ReadFromBytes( sig, ref idx, out elementType, out genericCount, out returnParameter, out parameters, out sentinelMark ) )
          {
-            GenericArgumentCount = genericCount,
-            ReturnType = returnParameter,
-            SignatureStarter = elementType,
-         };
-         foreach ( var p in parameters )
+            retVal = new MethodDefinitionSignature( parameters.Length )
+            {
+               GenericArgumentCount = genericCount,
+               ReturnType = returnParameter,
+               SignatureStarter = elementType,
+            };
+            foreach ( var p in parameters )
+            {
+               retVal.Parameters.Add( p );
+            }
+         }
+         else
          {
-            retVal.Parameters.Add( p );
+            retVal = null;
          }
          return retVal;
       }
@@ -227,22 +247,29 @@ namespace CILAssemblyManipulator.Physical
          ParameterSignature returnParameter;
          ParameterSignature[] parameters;
          Int32 sentinelMark;
-         ReadFromBytes( sig, ref idx, out elementType, out genericCount, out returnParameter, out parameters, out sentinelMark );
-         var pLength = sentinelMark == -1 ? parameters.Length : sentinelMark;
-         var vLength = sentinelMark == -1 ? 0 : ( parameters.Length - sentinelMark );
-         var retVal = new MethodReferenceSignature( pLength, vLength )
+         MethodReferenceSignature retVal;
+         if ( ReadFromBytes( sig, ref idx, out elementType, out genericCount, out returnParameter, out parameters, out sentinelMark ) )
          {
-            GenericArgumentCount = genericCount,
-            ReturnType = returnParameter,
-            SignatureStarter = elementType,
-         };
-         for ( var i = 0; i < pLength; ++i )
-         {
-            retVal.Parameters.Add( parameters[i] );
+            var pLength = sentinelMark == -1 ? parameters.Length : sentinelMark;
+            var vLength = sentinelMark == -1 ? 0 : ( parameters.Length - sentinelMark );
+            retVal = new MethodReferenceSignature( pLength, vLength )
+            {
+               GenericArgumentCount = genericCount,
+               ReturnType = returnParameter,
+               SignatureStarter = elementType,
+            };
+            for ( var i = 0; i < pLength; ++i )
+            {
+               retVal.Parameters.Add( parameters[i] );
+            }
+            for ( var i = 0; i < vLength; ++i )
+            {
+               retVal.VarArgsParameters.Add( parameters[i + pLength] );
+            }
          }
-         for ( var i = 0; i < vLength; ++i )
+         else
          {
-            retVal.VarArgsParameters.Add( parameters[i + pLength] );
+            retVal = null;
          }
          return retVal;
       }
@@ -291,13 +318,20 @@ namespace CILAssemblyManipulator.Physical
 
       public static FieldSignature ReadFromBytesWithRef( Byte[] sig, ref Int32 idx )
       {
-         var starter = (SignatureStarters) sig.ReadByteFromBytes( ref idx );
          FieldSignature retVal;
-         if ( starter == SignatureStarters.Field )
+         if ( idx >= 0 && idx < sig.Length )
          {
-            retVal = new FieldSignature();
-            CustomModifierSignature.AddFromBytes( sig, ref idx, retVal.CustomModifiers );
-            retVal.Type = TypeSignature.ReadFromBytesWithRef( sig, ref idx );
+            var starter = (SignatureStarters) sig.ReadByteFromBytes( ref idx );
+            if ( starter == SignatureStarters.Field )
+            {
+               retVal = new FieldSignature();
+               CustomModifierSignature.AddFromBytes( sig, ref idx, retVal.CustomModifiers );
+               retVal.Type = TypeSignature.ReadFromBytesWithRef( sig, ref idx );
+            }
+            else
+            {
+               retVal = null;
+            }
          }
          else
          {
@@ -342,20 +376,27 @@ namespace CILAssemblyManipulator.Physical
 
       public static PropertySignature ReadFromBytesWithRef( Byte[] sig, ref Int32 idx )
       {
-         var starter = (SignatureStarters) sig.ReadByteFromBytes( ref idx );
          PropertySignature retVal;
-         if ( starter.IsProperty() )
+         if ( idx >= 0 && idx < sig.Length )
          {
-            var paramCount = sig.DecompressUInt32( ref idx );
-            retVal = new PropertySignature( parameterCount: paramCount )
+            var starter = (SignatureStarters) sig.ReadByteFromBytes( ref idx );
+            if ( starter.IsProperty() )
             {
-               HasThis = starter.IsHasThis()
-            };
-            CustomModifierSignature.AddFromBytes( sig, ref idx, retVal.CustomModifiers );
-            retVal.PropertyType = TypeSignature.ReadFromBytesWithRef( sig, ref idx );
-            for ( var i = 0; i < paramCount; ++i )
+               var paramCount = sig.DecompressUInt32( ref idx );
+               retVal = new PropertySignature( parameterCount: paramCount )
+               {
+                  HasThis = starter.IsHasThis()
+               };
+               CustomModifierSignature.AddFromBytes( sig, ref idx, retVal.CustomModifiers );
+               retVal.PropertyType = TypeSignature.ReadFromBytesWithRef( sig, ref idx );
+               for ( var i = 0; i < paramCount; ++i )
+               {
+                  retVal.Parameters.Add( AbstractMethodSignature.ReadParameter( sig, ref idx ) );
+               }
+            }
+            else
             {
-               retVal.Parameters.Add( AbstractMethodSignature.ReadParameter( sig, ref idx ) );
+               retVal = null;
             }
          }
          else

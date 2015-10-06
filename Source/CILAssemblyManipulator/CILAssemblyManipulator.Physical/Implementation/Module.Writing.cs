@@ -1099,9 +1099,9 @@ namespace CILAssemblyManipulator.Physical.Implementation
                tableWidths[i] = MetaDataConstants.CalculateTableWidth(
                   (Tables) i,
                   tableSizes,
-                  sysStrings.IsWide ? sizeof( UInt32 ) : sizeof( UInt16 ),
-                  guids.IsWide ? sizeof( UInt32 ) : sizeof( UInt16 ),
-                  blobs.IsWide ? sizeof( UInt32 ) : sizeof( UInt16 )
+                  sysStrings.IsWide,
+                  guids.IsWide,
+                  blobs.IsWide
                   );
             }
          }

@@ -58,9 +58,9 @@ namespace CILAssemblyManipulator.Physical.Implementation
             else
             {
                var length = this._bytes.DecompressUInt32( ref idx );
-               result = length <= 0 ?
-                  Empty<Byte>.Array :
-                  this._bytes.CreateAndBlockCopyTo( ref idx, length );
+               result = length < 0 || idx >= this._bytes.Length - length ?
+                  null :
+                  ( length == 0 ? Empty<Byte>.Array : this._bytes.CreateAndBlockCopyTo( ref idx, length ) );
             }
             return result;
          }
@@ -156,7 +156,7 @@ namespace CILAssemblyManipulator.Physical.Implementation
             String result;
             if ( !this._strings.TryGetValue( idx, out result ) )
             {
-               if ( idx == 0 )
+               if ( idx <= 0 || idx >= this._bytes.Length )
                {
                   result = null;
                }
@@ -193,17 +193,26 @@ namespace CILAssemblyManipulator.Physical.Implementation
             String result;
             if ( !this._strings.TryGetValue( idx, out result ) )
             {
-
-               // User strings
-               var arrayIdx = idx;
-               var length = this._bytes.DecompressUInt32( ref arrayIdx ) - 1;
-               if ( length == -1 )
+               if ( idx <= 0 || idx >= this._bytes.Length )
                {
-                  result = "";
+                  result = null;
                }
                else
                {
-                  result = this._encoding.GetString( this._bytes, arrayIdx, length );
+                  var arrayIdx = idx;
+                  var length = this._bytes.DecompressUInt32( ref arrayIdx ) - 1;
+                  if ( length == -1 )
+                  {
+                     result = "";
+                  }
+                  else if ( length < -1 || idx >= this._bytes.Length - length )
+                  {
+                     result = null;
+                  }
+                  else
+                  {
+                     result = this._encoding.GetString( this._bytes, arrayIdx, length );
+                  }
                }
                this._strings[idx] = result;
             }
@@ -222,7 +231,7 @@ namespace CILAssemblyManipulator.Physical.Implementation
 
          internal Guid? GetGUID( Int32 idx )
          {
-            if ( idx == 0 )
+            if ( idx <= 0 || idx >= this._bytes.Length - MetaDataConstants.GUID_SIZE )
             {
                return null;
             }
@@ -507,8 +516,12 @@ namespace CILAssemblyManipulator.Physical.Implementation
          {
             var offset = stream.ReadU32( tmpArray );
             var size = stream.ReadU32( tmpArray );
+            var streamName = stream.ReadAlignedASCIIString( 32 );
             //UInt32 streamStringBytesLen;
-            streamDic.Add( stream.ReadAlignedASCIIString( 32 ), Tuple.Create( mdRoot + offset, size ) );
+            if ( !streamDic.ContainsKey( streamName ) )
+            {
+               streamDic.Add( streamName, Tuple.Create( mdRoot + offset, size ) );
+            }
             //totalRead += streamStringBytesLen + 8;
          }
 
@@ -555,10 +568,6 @@ namespace CILAssemblyManipulator.Physical.Implementation
             {
                tableSizes[i] = stream.ReadI32( tmpArray );
             }
-            //else
-            //{
-            //   size = 0;
-            //}
          }
 
          // Read actual tables
@@ -569,9 +578,6 @@ namespace CILAssemblyManipulator.Physical.Implementation
 
          var fieldDefRVAs = rArgs.FieldRVAs;
          fieldDefRVAs.Capacity = tableSizes[(Int32) Tables.FieldRVA];
-
-         // Try resolve purely local custom attributes and security blobs by creating new resolver but not registering to an event
-         //var resolver = new MetaDataResolver();
 
          for ( var curTable = 0; curTable < Consts.AMOUNT_OF_TABLES; ++curTable )
          {
@@ -595,7 +601,7 @@ namespace CILAssemblyManipulator.Physical.Implementation
                   ReadTable( retVal.TypeReferences, tableSizes, i =>
                      new TypeReference()
                      {
-                        ResolutionScope = MetaDataConstants.ReadCodedTableIndex( stream, CodedTableIndexKind.ResolutionScope, tRefSizes, tmpArray, false ),
+                        ResolutionScope = MetaDataConstants.ReadCodedTableIndex( stream, CodedTableIndexKind.ResolutionScope, tRefSizes, tmpArray ),
                         Name = sysStrings.ReadSysString( stream ),
                         Namespace = sysStrings.ReadSysString( stream )
                      } );
@@ -607,7 +613,7 @@ namespace CILAssemblyManipulator.Physical.Implementation
                         Attributes = (TypeAttributes) stream.ReadU32( tmpArray ),
                         Name = sysStrings.ReadSysString( stream ),
                         Namespace = sysStrings.ReadSysString( stream ),
-                        BaseType = MetaDataConstants.ReadCodedTableIndex( stream, CodedTableIndexKind.TypeDefOrRef, tRefSizes, tmpArray, false ),
+                        BaseType = MetaDataConstants.ReadCodedTableIndex( stream, CodedTableIndexKind.TypeDefOrRef, tRefSizes, tmpArray ),
                         FieldList = MetaDataConstants.ReadSimpleTableIndex( stream, Tables.Field, tableSizes, tmpArray ),
                         MethodList = MetaDataConstants.ReadSimpleTableIndex( stream, Tables.MethodDef, tableSizes, tmpArray )
                      } );
@@ -618,7 +624,7 @@ namespace CILAssemblyManipulator.Physical.Implementation
                      {
                         Attributes = (FieldAttributes) stream.ReadU16( tmpArray ),
                         Name = sysStrings.ReadSysString( stream ),
-                        Signature = FieldSignature.ReadFromBytes( blobs.WholeBLOBArray, blobs.GetBLOBIndex( stream ) )
+                        Signature = DoAndIgnoreExceptions( () => FieldSignature.ReadFromBytes( blobs.WholeBLOBArray, blobs.GetBLOBIndex( stream ) ) )
                      } );
                   break;
                case Tables.MethodDef:
@@ -630,7 +636,7 @@ namespace CILAssemblyManipulator.Physical.Implementation
                         ImplementationAttributes = (MethodImplAttributes) stream.ReadU16( tmpArray ),
                         Attributes = (MethodAttributes) stream.ReadU16( tmpArray ),
                         Name = sysStrings.ReadSysString( stream ),
-                        Signature = MethodDefinitionSignature.ReadFromBytes( blobs.WholeBLOBArray, blobs.GetBLOBIndex( stream ) ),
+                        Signature = DoAndIgnoreExceptions( () => MethodDefinitionSignature.ReadFromBytes( blobs.WholeBLOBArray, blobs.GetBLOBIndex( stream ) ) ),
                         ParameterList = MetaDataConstants.ReadSimpleTableIndex( stream, Tables.Parameter, tableSizes, tmpArray )
                      };
                   } );
@@ -649,16 +655,16 @@ namespace CILAssemblyManipulator.Physical.Implementation
                      new InterfaceImplementation()
                      {
                         Class = MetaDataConstants.ReadSimpleTableIndex( stream, Tables.TypeDef, tableSizes, tmpArray ),
-                        Interface = MetaDataConstants.ReadCodedTableIndex( stream, CodedTableIndexKind.TypeDefOrRef, tRefSizes, tmpArray ).Value
+                        Interface = MetaDataConstants.ReadCodedTableIndex( stream, CodedTableIndexKind.TypeDefOrRef, tRefSizes, tmpArray ).GetValueOrDefault()
                      } );
                   break;
                case Tables.MemberRef:
                   ReadTable( retVal.MemberReferences, tableSizes, i =>
                      new MemberReference()
                      {
-                        DeclaringType = MetaDataConstants.ReadCodedTableIndex( stream, CodedTableIndexKind.MemberRefParent, tRefSizes, tmpArray ).Value,
+                        DeclaringType = MetaDataConstants.ReadCodedTableIndex( stream, CodedTableIndexKind.MemberRefParent, tRefSizes, tmpArray ).GetValueOrDefault(),
                         Name = sysStrings.ReadSysString( stream ),
-                        Signature = ReadMemberRefSignature( blobs.WholeBLOBArray, blobs.GetBLOBIndex( stream ) )
+                        Signature = DoAndIgnoreExceptions( () => ReadMemberRefSignature( blobs.WholeBLOBArray, blobs.GetBLOBIndex( stream ) ) )
                      } );
                   break;
                case Tables.Constant:
@@ -668,7 +674,7 @@ namespace CILAssemblyManipulator.Physical.Implementation
                      return new ConstantDefinition()
                      {
                         Type = constType,
-                        Parent = MetaDataConstants.ReadCodedTableIndex( stream, CodedTableIndexKind.HasConstant, tRefSizes, tmpArray ).Value,
+                        Parent = MetaDataConstants.ReadCodedTableIndex( stream, CodedTableIndexKind.HasConstant, tRefSizes, tmpArray ).GetValueOrDefault(),
                         Value = ReadConstantValue( blobs, stream, constType )
                      };
                   } );
@@ -678,13 +684,17 @@ namespace CILAssemblyManipulator.Physical.Implementation
                   {
                      var caDef = new CustomAttributeDefinition()
                      {
-                        Parent = MetaDataConstants.ReadCodedTableIndex( stream, CodedTableIndexKind.HasCustomAttribute, tRefSizes, tmpArray ).Value,
-                        Type = MetaDataConstants.ReadCodedTableIndex( stream, CodedTableIndexKind.CustomAttributeType, tRefSizes, tmpArray ).Value
+                        Parent = MetaDataConstants.ReadCodedTableIndex( stream, CodedTableIndexKind.HasCustomAttribute, tRefSizes, tmpArray ).GetValueOrDefault(),
+                        Type = MetaDataConstants.ReadCodedTableIndex( stream, CodedTableIndexKind.CustomAttributeType, tRefSizes, tmpArray ).GetValueOrDefault()
                      };
                      Int32 caBlobIndex, caBlobSize;
                      var bArrayIdx = blobs.GetBLOBIndex( stream, out caBlobIndex, out caBlobSize );
                      AbstractCustomAttributeSignature caSig;
-                     if ( caBlobSize <= 2 )
+                     if ( bArrayIdx < 0 || bArrayIdx >= blobs.WholeBLOBArray.Length || caBlobSize < 0 )
+                     {
+                        caSig = null;
+                     }
+                     else if ( caBlobSize <= 2 )
                      {
                         // Empty blob
                         caSig = new CustomAttributeSignature();
@@ -706,7 +716,7 @@ namespace CILAssemblyManipulator.Physical.Implementation
                   ReadTable( retVal.FieldMarshals, tableSizes, i =>
                      new FieldMarshal()
                      {
-                        Parent = MetaDataConstants.ReadCodedTableIndex( stream, CodedTableIndexKind.HasFieldMarshal, tRefSizes, tmpArray ).Value,
+                        Parent = MetaDataConstants.ReadCodedTableIndex( stream, CodedTableIndexKind.HasFieldMarshal, tRefSizes, tmpArray ).GetValueOrDefault(),
                         NativeType = MarshalingInfo.ReadFromBytes( blobs.WholeBLOBArray, blobs.GetBLOBIndex( stream ) )
                      } );
                   break;
@@ -716,7 +726,7 @@ namespace CILAssemblyManipulator.Physical.Implementation
                      var sec = new SecurityDefinition()
                      {
                         Action = (SecurityAction) stream.ReadI16( tmpArray ),
-                        Parent = MetaDataConstants.ReadCodedTableIndex( stream, CodedTableIndexKind.HasDeclSecurity, tRefSizes, tmpArray ).Value
+                        Parent = MetaDataConstants.ReadCodedTableIndex( stream, CodedTableIndexKind.HasDeclSecurity, tRefSizes, tmpArray ).GetValueOrDefault()
                      };
                      ReadSecurityBLOB( retVal, blobs, stream, sec );
                      return sec;
@@ -742,8 +752,8 @@ namespace CILAssemblyManipulator.Physical.Implementation
                case Tables.StandaloneSignature:
                   ReadTable( retVal.StandaloneSignatures, tableSizes, i =>
                   {
-                     Boolean wasFieldSig;
-                     var sig = ReadStandaloneSignature( blobs, stream, out wasFieldSig );
+                     var wasFieldSig = false;
+                     var sig = DoAndIgnoreExceptions( () => ReadStandaloneSignature( blobs, stream, out wasFieldSig ) );
                      return new StandaloneSignature()
                      {
                         Signature = sig,
@@ -765,7 +775,7 @@ namespace CILAssemblyManipulator.Physical.Implementation
                      {
                         Attributes = (EventAttributes) stream.ReadU16( tmpArray ),
                         Name = sysStrings.ReadSysString( stream ),
-                        EventType = MetaDataConstants.ReadCodedTableIndex( stream, CodedTableIndexKind.TypeDefOrRef, tRefSizes, tmpArray ).Value
+                        EventType = MetaDataConstants.ReadCodedTableIndex( stream, CodedTableIndexKind.TypeDefOrRef, tRefSizes, tmpArray ).GetValueOrDefault()
                      } );
                   break;
                case Tables.PropertyMap:
@@ -782,7 +792,7 @@ namespace CILAssemblyManipulator.Physical.Implementation
                      {
                         Attributes = (PropertyAttributes) stream.ReadU16( tmpArray ),
                         Name = sysStrings.ReadSysString( stream ),
-                        Signature = PropertySignature.ReadFromBytes( blobs.WholeBLOBArray, blobs.GetBLOBIndex( stream ) )
+                        Signature = DoAndIgnoreExceptions( () => PropertySignature.ReadFromBytes( blobs.WholeBLOBArray, blobs.GetBLOBIndex( stream ) ) )
                      } );
                   break;
                case Tables.MethodSemantics:
@@ -791,7 +801,7 @@ namespace CILAssemblyManipulator.Physical.Implementation
                      {
                         Attributes = (MethodSemanticsAttributes) stream.ReadU16( tmpArray ),
                         Method = MetaDataConstants.ReadSimpleTableIndex( stream, Tables.MethodDef, tableSizes, tmpArray ),
-                        Associaton = MetaDataConstants.ReadCodedTableIndex( stream, CodedTableIndexKind.HasSemantics, tRefSizes, tmpArray ).Value
+                        Associaton = MetaDataConstants.ReadCodedTableIndex( stream, CodedTableIndexKind.HasSemantics, tRefSizes, tmpArray ).GetValueOrDefault()
                      } );
                   break;
                case Tables.MethodImpl:
@@ -799,8 +809,8 @@ namespace CILAssemblyManipulator.Physical.Implementation
                      new MethodImplementation()
                      {
                         Class = MetaDataConstants.ReadSimpleTableIndex( stream, Tables.TypeDef, tableSizes, tmpArray ),
-                        MethodBody = MetaDataConstants.ReadCodedTableIndex( stream, CodedTableIndexKind.MethodDefOrRef, tRefSizes, tmpArray ).Value,
-                        MethodDeclaration = MetaDataConstants.ReadCodedTableIndex( stream, CodedTableIndexKind.MethodDefOrRef, tRefSizes, tmpArray ).Value
+                        MethodBody = MetaDataConstants.ReadCodedTableIndex( stream, CodedTableIndexKind.MethodDefOrRef, tRefSizes, tmpArray ).GetValueOrDefault(),
+                        MethodDeclaration = MetaDataConstants.ReadCodedTableIndex( stream, CodedTableIndexKind.MethodDefOrRef, tRefSizes, tmpArray ).GetValueOrDefault()
                      } );
                   break;
                case Tables.ModuleRef:
@@ -814,7 +824,7 @@ namespace CILAssemblyManipulator.Physical.Implementation
                   ReadTable( retVal.TypeSpecifications, tableSizes, i =>
                      new TypeSpecification()
                      {
-                        Signature = TypeSignature.ReadFromBytes( blobs.WholeBLOBArray, blobs.GetBLOBIndex( stream ) )
+                        Signature = DoAndIgnoreExceptions( () => TypeSignature.ReadFromBytes( blobs.WholeBLOBArray, blobs.GetBLOBIndex( stream ) ) )
                      } );
                   break;
                case Tables.ImplMap:
@@ -822,7 +832,7 @@ namespace CILAssemblyManipulator.Physical.Implementation
                      new MethodImplementationMap()
                      {
                         Attributes = (PInvokeAttributes) stream.ReadU16( tmpArray ),
-                        MemberForwarded = MetaDataConstants.ReadCodedTableIndex( stream, CodedTableIndexKind.MemberForwarded, tRefSizes, tmpArray ).Value,
+                        MemberForwarded = MetaDataConstants.ReadCodedTableIndex( stream, CodedTableIndexKind.MemberForwarded, tRefSizes, tmpArray ).GetValueOrDefault(),
                         ImportName = sysStrings.ReadSysString( stream ),
                         ImportScope = MetaDataConstants.ReadSimpleTableIndex( stream, Tables.ModuleRef, tableSizes, tmpArray )
                      } );
@@ -890,7 +900,7 @@ namespace CILAssemblyManipulator.Physical.Implementation
                         TypeDefinitionIndex = stream.ReadI32( tmpArray ),
                         Name = sysStrings.ReadSysString( stream ),
                         Namespace = sysStrings.ReadSysString( stream ),
-                        Implementation = MetaDataConstants.ReadCodedTableIndex( stream, CodedTableIndexKind.Implementation, tRefSizes, tmpArray ).Value
+                        Implementation = MetaDataConstants.ReadCodedTableIndex( stream, CodedTableIndexKind.Implementation, tRefSizes, tmpArray ).GetValueOrDefault()
                      } );
                   break;
                case Tables.ManifestResource:
@@ -900,7 +910,7 @@ namespace CILAssemblyManipulator.Physical.Implementation
                         Offset = (Int32) stream.ReadU32( tmpArray ),
                         Attributes = (ManifestResourceAttributes) stream.ReadU32( tmpArray ),
                         Name = sysStrings.ReadSysString( stream ),
-                        Implementation = MetaDataConstants.ReadCodedTableIndex( stream, CodedTableIndexKind.Implementation, tRefSizes, tmpArray, false )
+                        Implementation = MetaDataConstants.ReadCodedTableIndex( stream, CodedTableIndexKind.Implementation, tRefSizes, tmpArray )
                      } );
                   break;
                case Tables.NestedClass:
@@ -917,7 +927,7 @@ namespace CILAssemblyManipulator.Physical.Implementation
                      {
                         GenericParameterIndex = stream.ReadU16( tmpArray ),
                         Attributes = (GenericParameterAttributes) stream.ReadU16( tmpArray ),
-                        Owner = MetaDataConstants.ReadCodedTableIndex( stream, CodedTableIndexKind.TypeOrMethodDef, tRefSizes, tmpArray ).Value,
+                        Owner = MetaDataConstants.ReadCodedTableIndex( stream, CodedTableIndexKind.TypeOrMethodDef, tRefSizes, tmpArray ).GetValueOrDefault(),
                         Name = sysStrings.ReadSysString( stream )
                      } );
                   break;
@@ -925,8 +935,8 @@ namespace CILAssemblyManipulator.Physical.Implementation
                   ReadTable( retVal.MethodSpecifications, tableSizes, i =>
                      new MethodSpecification()
                      {
-                        Method = MetaDataConstants.ReadCodedTableIndex( stream, CodedTableIndexKind.MethodDefOrRef, tRefSizes, tmpArray ).Value,
-                        Signature = GenericMethodSignature.ReadFromBytes( blobs.WholeBLOBArray, blobs.GetBLOBIndex( stream ) )
+                        Method = MetaDataConstants.ReadCodedTableIndex( stream, CodedTableIndexKind.MethodDefOrRef, tRefSizes, tmpArray ).GetValueOrDefault(),
+                        Signature = DoAndIgnoreExceptions( () => GenericMethodSignature.ReadFromBytes( blobs.WholeBLOBArray, blobs.GetBLOBIndex( stream ) ) )
                      } );
                   break;
                case Tables.GenericParameterConstraint:
@@ -934,7 +944,7 @@ namespace CILAssemblyManipulator.Physical.Implementation
                      new GenericParameterConstraintDefinition()
                      {
                         Owner = MetaDataConstants.ReadSimpleTableIndex( stream, Tables.GenericParameter, tableSizes, tmpArray ),
-                        Constraint = MetaDataConstants.ReadCodedTableIndex( stream, CodedTableIndexKind.TypeDefOrRef, tRefSizes, tmpArray ).Value
+                        Constraint = MetaDataConstants.ReadCodedTableIndex( stream, CodedTableIndexKind.TypeDefOrRef, tRefSizes, tmpArray ).GetValueOrDefault()
                      } );
                   break;
                case Tables.FieldPtr:
@@ -948,7 +958,13 @@ namespace CILAssemblyManipulator.Physical.Implementation
                case Tables.AssemblyOS:
                case Tables.AssemblyRefProcessor:
                case Tables.AssemblyRefOS:
-                  // Skip (TODO skip stream too... but would need to know table row size for that)
+                  var thisTableRowCount = tableSizes[(Int32) curTable];
+                  if ( thisTableRowCount > 0 )
+                  {
+                     stream.SeekFromCurrent(
+                        MetaDataConstants.CalculateTableWidth( (Tables) curTable, tableSizes, sysStrings.IsWideIndex, guids.IsWideIndex, blobs.IsWideIndex ) * thisTableRowCount
+                        );
+                  }
                   break;
                default:
                   throw new BadImageFormatException( "Unknown table: " + curTable );
@@ -964,11 +980,11 @@ namespace CILAssemblyManipulator.Physical.Implementation
                var implAttrs = retVal.MethodDefinitions.TableContents[i].ImplementationAttributes;
                if ( !implAttrs.IsNative() )
                {
-                  var offset = ResolveRVA( rva, sections );
-                  if ( offset < stream.Length )
+                  var offset = ResolveRVA( rva, sections, false );
+                  if ( offset >= 0 && offset < stream.Length )
                   {
                      stream.SeekFromBegin( offset );
-                     retVal.MethodDefinitions.TableContents[i].IL = ReadMethodILDefinition( stream, userStrings );
+                     retVal.MethodDefinitions.TableContents[i].IL = DoAndIgnoreExceptions( () => ReadMethodILDefinition( stream, userStrings ) );
                   }
                }
             }
@@ -987,10 +1003,11 @@ namespace CILAssemblyManipulator.Physical.Implementation
          for ( var i = 0; i < fieldDefRVAs.Count; ++i )
          {
             var fRVA = retVal.FieldRVAs.TableContents[i];
-            var offset = ResolveRVA( (UInt32) fieldDefRVAs[i], sections );
+            var offset = ResolveRVA( (UInt32) fieldDefRVAs[i], sections, false );
             UInt32 size;
             if (
-               TryCalculateFieldTypeSize( retVal, layoutInfo, fRVA.Field.Index, out size )
+               offset >= 0
+               && TryCalculateFieldTypeSize( retVal, layoutInfo, fRVA.Field.Index, out size )
                && offset + size < stream.Length
                )
             {
@@ -1007,27 +1024,33 @@ namespace CILAssemblyManipulator.Physical.Implementation
          var hasEmbeddedResources = rsrcDD.rva > 0 && rsrcDD.size > 0;
          if ( hasEmbeddedResources )
          {
-            var rsrcOffset = ResolveRVA( rsrcDD.rva, sections );
-            var rsrcSize = rsrcDD.size;
-            var rsrcOffsets = rArgs.EmbeddedManifestResourceOffsets;
-            foreach ( var mRes in retVal.ManifestResources.TableContents )
+            var rsrcOffset = ResolveRVA( rsrcDD.rva, sections, false );
+            if ( rsrcOffset >= 0 && rsrcOffset < stream.Length )
             {
-               Int32? offsetToAdd;
-               if ( mRes.IsEmbeddedResource() && (UInt32) mRes.Offset < rsrcSize )
+               var rsrcSize = rsrcDD.size;
+               var rsrcOffsets = rArgs.EmbeddedManifestResourceOffsets;
+               foreach ( var mRes in retVal.ManifestResources.TableContents )
                {
-                  // Read embedded resource
-                  offsetToAdd = mRes.Offset;
-                  stream.SeekFromBegin( rsrcOffset + (UInt32) offsetToAdd );
-                  var length = stream.ReadU32( tmpArray );
-                  var data = new Byte[length];
-                  stream.ReadWholeArray( data );
-                  mRes.DataInCurrentFile = data;
+                  Int32? offsetToAdd;
+                  if ( mRes.IsEmbeddedResource() && (UInt32) mRes.Offset < rsrcSize )
+                  {
+                     // Read embedded resource
+                     offsetToAdd = mRes.Offset;
+                     mRes.DataInCurrentFile = DoAndIgnoreExceptions( () =>
+                     {
+                        stream.SeekFromBegin( rsrcOffset + (UInt32) offsetToAdd );
+                        var length = stream.ReadU32( tmpArray );
+                        var data = new Byte[length];
+                        stream.ReadWholeArray( data );
+                        return data;
+                     } );
+                  }
+                  else
+                  {
+                     offsetToAdd = null;
+                  }
+                  rsrcOffsets.Add( offsetToAdd );
                }
-               else
-               {
-                  offsetToAdd = null;
-               }
-               rsrcOffsets.Add( offsetToAdd );
             }
          }
 
@@ -1050,7 +1073,7 @@ namespace CILAssemblyManipulator.Physical.Implementation
       }
 
 
-      private static Int64 ResolveRVA( Int64 rva, SectionInfo[] sections )
+      private static Int64 ResolveRVA( Int64 rva, SectionInfo[] sections, Boolean throwOnInvalid = true )
       {
          for ( var i = 0; i < sections.Length; ++i )
          {
@@ -1060,7 +1083,16 @@ namespace CILAssemblyManipulator.Physical.Implementation
                return (Int64) sec.rawPointer + ( rva - sec.virtualAddress );
             }
          }
-         throw new ArgumentException( "Could not resolve RVA " + rva + "." );
+
+         if ( throwOnInvalid )
+         {
+            throw new ArgumentException( "Could not resolve RVA " + rva + "." );
+         }
+         else
+         {
+            return -1;
+         }
+
       }
 
       private static Boolean TryCalculateFieldTypeSize( CILMetaData md, Lazy<IDictionary<Int32, ClassLayout>> classLayoutInfo, Int32 fieldIdx, out UInt32 size, Boolean onlySimpleTypeValid = false )
@@ -1071,71 +1103,75 @@ namespace CILAssemblyManipulator.Physical.Implementation
          if ( retVal )
          {
             var fieldSig = fDef[fieldIdx].Signature;
-            var type = fieldSig.Type;
-            retVal = false;
-            switch ( type.TypeSignatureKind )
+            retVal = fieldSig != null;
+            if ( retVal )
             {
-               case TypeSignatureKind.Simple:
-                  retVal = true;
-                  switch ( ( (SimpleTypeSignature) type ).SimpleType )
-                  {
-                     case SignatureElementTypes.Boolean:
-                        size = sizeof( Boolean ); // TODO is this actually 1 or 4?
-                        break;
-                     case SignatureElementTypes.I1:
-                     case SignatureElementTypes.U1:
-                        size = 1;
-                        break;
-                     case SignatureElementTypes.I2:
-                     case SignatureElementTypes.U2:
-                     case SignatureElementTypes.Char:
-                        size = 2;
-                        break;
-                     case SignatureElementTypes.I4:
-                     case SignatureElementTypes.U4:
-                     case SignatureElementTypes.R4:
-                     case SignatureElementTypes.FnPtr:
-                     case SignatureElementTypes.Ptr: // I am not 100% sure of this.
-                        size = 4;
-                        break;
-                     case SignatureElementTypes.I8:
-                     case SignatureElementTypes.U8:
-                     case SignatureElementTypes.R8:
-                        size = 8;
-                        break;
-                     default:
-                        retVal = false;
-                        break;
-                  }
-                  break;
-               case TypeSignatureKind.ClassOrValue:
-                  retVal = !onlySimpleTypeValid;
-                  if ( retVal )
-                  {
-                     var c = (ClassOrValueTypeSignature) type;
-
-                     var typeIdx = c.Type;
-                     retVal = typeIdx.Table == Tables.TypeDef;
+               var type = fieldSig.Type;
+               retVal = false;
+               switch ( type.TypeSignatureKind )
+               {
+                  case TypeSignatureKind.Simple:
+                     retVal = true;
+                     switch ( ( (SimpleTypeSignature) type ).SimpleType )
+                     {
+                        case SignatureElementTypes.Boolean:
+                           size = sizeof( Boolean ); // TODO is this actually 1 or 4?
+                           break;
+                        case SignatureElementTypes.I1:
+                        case SignatureElementTypes.U1:
+                           size = 1;
+                           break;
+                        case SignatureElementTypes.I2:
+                        case SignatureElementTypes.U2:
+                        case SignatureElementTypes.Char:
+                           size = 2;
+                           break;
+                        case SignatureElementTypes.I4:
+                        case SignatureElementTypes.U4:
+                        case SignatureElementTypes.R4:
+                        case SignatureElementTypes.FnPtr:
+                        case SignatureElementTypes.Ptr: // I am not 100% sure of this.
+                           size = 4;
+                           break;
+                        case SignatureElementTypes.I8:
+                        case SignatureElementTypes.U8:
+                        case SignatureElementTypes.R8:
+                           size = 8;
+                           break;
+                        default:
+                           retVal = false;
+                           break;
+                     }
+                     break;
+                  case TypeSignatureKind.ClassOrValue:
+                     retVal = !onlySimpleTypeValid;
                      if ( retVal )
                      {
-                        // Only possible for types defined in this module
-                        Int32 enumValueFieldIndex;
-                        if ( md.TryGetEnumValueFieldIndex( typeIdx.Index, out enumValueFieldIndex ) )
-                        {
-                           retVal = TryCalculateFieldTypeSize( md, classLayoutInfo, enumValueFieldIndex, out size, true ); // Last parameter true to prevent possible infinite recursion in case of malformed metadata
-                        }
-                        else
-                        {
-                           ClassLayout layout;
-                           if ( classLayoutInfo.Value.TryGetValue( typeIdx.Index, out layout ) )
-                           {
-                              size = (UInt32) layout.ClassSize;
-                           }
-                        }
+                        var c = (ClassOrValueTypeSignature) type;
 
+                        var typeIdx = c.Type;
+                        retVal = typeIdx.Table == Tables.TypeDef;
+                        if ( retVal )
+                        {
+                           // Only possible for types defined in this module
+                           Int32 enumValueFieldIndex;
+                           if ( md.TryGetEnumValueFieldIndex( typeIdx.Index, out enumValueFieldIndex ) )
+                           {
+                              retVal = TryCalculateFieldTypeSize( md, classLayoutInfo, enumValueFieldIndex, out size, true ); // Last parameter true to prevent possible infinite recursion in case of malformed metadata
+                           }
+                           else
+                           {
+                              ClassLayout layout;
+                              if ( classLayoutInfo.Value.TryGetValue( typeIdx.Index, out layout ) )
+                              {
+                                 size = (UInt32) layout.ClassSize;
+                              }
+                           }
+
+                        }
                      }
-                  }
-                  break;
+                     break;
+               }
             }
          }
          return retVal;
@@ -1146,36 +1182,43 @@ namespace CILAssemblyManipulator.Physical.Implementation
          var blob = blobContainer.WholeBLOBArray;
          Int32 blobSize;
          var idx = blobContainer.GetBLOBIndex( stream, out blobSize );
-         switch ( constType )
+         if ( blobSize >= 0 )
          {
-            case SignatureElementTypes.Boolean:
-               return blob.ReadByteFromBytes( ref idx ) == 1;
-            case SignatureElementTypes.Char:
-               return Convert.ToChar( blob.ReadUInt16LEFromBytes( ref idx ) );
-            case SignatureElementTypes.I1:
-               return blob.ReadSByteFromBytes( ref idx );
-            case SignatureElementTypes.U1:
-               return blob.ReadByteFromBytes( ref idx );
-            case SignatureElementTypes.I2:
-               return blob.ReadInt16LEFromBytes( ref idx );
-            case SignatureElementTypes.U2:
-               return blob.ReadUInt16LEFromBytes( ref idx );
-            case SignatureElementTypes.I4:
-               return blob.ReadInt32LEFromBytes( ref idx );
-            case SignatureElementTypes.U4:
-               return blob.ReadUInt32LEFromBytes( ref idx );
-            case SignatureElementTypes.I8:
-               return blob.ReadInt64LEFromBytes( ref idx );
-            case SignatureElementTypes.U8:
-               return blob.ReadUInt64LEFromBytes( ref idx );
-            case SignatureElementTypes.R4:
-               return blob.ReadSingleLEFromBytes( ref idx );
-            case SignatureElementTypes.R8:
-               return blob.ReadDoubleLEFromBytes( ref idx );
-            case SignatureElementTypes.String:
-               return MetaDataConstants.USER_STRING_ENCODING.GetString( blob, idx, blobSize );
-            default:
-               return null;
+            switch ( constType )
+            {
+               case SignatureElementTypes.Boolean:
+                  return idx < blob.Length ? (Object) ( blob.ReadByteFromBytes( ref idx ) == 1 ) : null;
+               case SignatureElementTypes.Char:
+                  return idx < blob.Length - 1 ? (Object) Convert.ToChar( blob.ReadUInt16LEFromBytes( ref idx ) ) : null;
+               case SignatureElementTypes.I1:
+                  return idx < blob.Length ? (Object) blob.ReadSByteFromBytes( ref idx ) : null;
+               case SignatureElementTypes.U1:
+                  return idx < blob.Length ? (Object) blob.ReadByteFromBytes( ref idx ) : null;
+               case SignatureElementTypes.I2:
+                  return idx < blob.Length - 1 ? (Object) blob.ReadInt16LEFromBytes( ref idx ) : null;
+               case SignatureElementTypes.U2:
+                  return idx < blob.Length - 1 ? (Object) blob.ReadUInt16LEFromBytes( ref idx ) : null;
+               case SignatureElementTypes.I4:
+                  return idx < blob.Length - 3 ? (Object) blob.ReadInt32LEFromBytes( ref idx ) : null;
+               case SignatureElementTypes.U4:
+                  return idx < blob.Length - 3 ? (Object) blob.ReadUInt32LEFromBytes( ref idx ) : null;
+               case SignatureElementTypes.I8:
+                  return idx < blob.Length - 7 ? (Object) blob.ReadInt64LEFromBytes( ref idx ) : null;
+               case SignatureElementTypes.U8:
+                  return idx < blob.Length - 3 ? (Object) blob.ReadUInt64LEFromBytes( ref idx ) : null;
+               case SignatureElementTypes.R4:
+                  return idx < blob.Length - 3 ? (Object) blob.ReadSingleLEFromBytes( ref idx ) : null;
+               case SignatureElementTypes.R8:
+                  return idx < blob.Length - 7 ? (Object) blob.ReadDoubleLEFromBytes( ref idx ) : null;
+               case SignatureElementTypes.String:
+                  return idx < blob.Length - blobSize ? MetaDataConstants.USER_STRING_ENCODING.GetString( blob, idx, blobSize ) : null;
+               default:
+                  return null;
+            }
+         }
+         else
+         {
+            return null;
          }
       }
 
@@ -1292,44 +1335,50 @@ namespace CILAssemblyManipulator.Physical.Implementation
 
       private static AbstractSignature ReadMemberRefSignature( Byte[] bytes, Int32 idx )
       {
-         return (SignatureStarters) bytes[idx] == SignatureStarters.Field ?
-            (AbstractSignature) FieldSignature.ReadFromBytesWithRef( bytes, ref idx ) :
-            MethodReferenceSignature.ReadFromBytes( bytes, ref idx );
+         return idx >= 0 && idx < bytes.Length ?
+            ( (SignatureStarters) bytes[idx] == SignatureStarters.Field ?
+               (AbstractSignature) FieldSignature.ReadFromBytesWithRef( bytes, ref idx ) :
+               MethodReferenceSignature.ReadFromBytes( bytes, ref idx )
+            ) :
+            null;
       }
 
       private static AbstractSignature ReadStandaloneSignature( BLOBHeapReader blob, Stream stream, out Boolean wasFieldSig )
       {
          Int32 heapIndex, blobSize;
          var idx = blob.GetBLOBIndex( stream, out heapIndex, out blobSize );
-         var bytes = blob.WholeBLOBArray;
 
-         var sigStarter = (SignatureStarters) bytes[idx];
-         wasFieldSig = sigStarter == SignatureStarters.Field;
          AbstractSignature retVal;
-         if ( sigStarter == SignatureStarters.LocalSignature )
+         if ( blobSize > 0 )
          {
-            retVal = LocalVariablesSignature.ReadFromBytes( bytes, ref idx );
-         }
-         else if ( wasFieldSig )
-         {
-            // Read as local signature instead of field signature, since we might encounter pinned etc stuff
-            ++idx;
-            retVal = new LocalVariablesSignature( 1 );
-            ( (LocalVariablesSignature) retVal ).Locals.Add( LocalVariableSignature.ReadFromBytes( bytes, ref idx ) );
+            var bytes = blob.WholeBLOBArray;
+
+            var sigStarter = (SignatureStarters) bytes[idx];
+            wasFieldSig = sigStarter == SignatureStarters.Field;
+            if ( sigStarter == SignatureStarters.LocalSignature )
+            {
+               retVal = LocalVariablesSignature.ReadFromBytes( bytes, ref idx );
+            }
+            else if ( wasFieldSig )
+            {
+               // Read as local signature instead of field signature, since we might encounter pinned etc stuff
+               ++idx;
+               retVal = new LocalVariablesSignature( 1 );
+               ( (LocalVariablesSignature) retVal ).Locals.Add( LocalVariableSignature.ReadFromBytes( bytes, ref idx ) );
+            }
+            else
+            {
+               // ??
+               retVal = new RawSignature() { Bytes = blob.GetBLOB( heapIndex ) };
+            }
          }
          else
          {
-            // ??
-            retVal = new RawSignature() { Bytes = blob.GetBLOB( heapIndex ) };
+            wasFieldSig = false;
+            retVal = null;
          }
 
          return retVal;
-
-         //return (SignatureStarters) bytes[idx] == SignatureStarters.LocalSignature ?
-         //   (AbstractSignature) LocalVariablesSignature.ReadFromBytes( bytes, ref idx ) :
-         //   ( (SignatureStarters) bytes[idx] == SignatureStarters.Field ?
-         //      (AbstractSignature)   new RawSignature() { Bytes = blob.GetBLOB( heapIndex ) } : // We could parse field signature but it sometimes may contain stuff like Pinned etc, which would just mess it up
-         //      MethodReferenceSignature.ReadFromBytes( bytes, ref idx ) );
       }
 
       private static void ReadSecurityBLOB(
@@ -1341,10 +1390,9 @@ namespace CILAssemblyManipulator.Physical.Implementation
       {
          Int32 blobSize;
          var bIdx = blobs.GetBLOBIndex( stream, out blobSize );
-         if ( blobSize > 0 )
+         var blob = blobs.WholeBLOBArray;
+         if ( blobSize > 0 && bIdx >= 0 && bIdx < blob.Length )
          {
-            var blob = blobs.WholeBLOBArray;
-
             if ( blob[bIdx] == MetaDataConstants.DECL_SECURITY_HEADER )
             {
                // New (.NET 2.0+) security spec
@@ -1400,6 +1448,20 @@ namespace CILAssemblyManipulator.Physical.Implementation
                } );
                declSecurity.PermissionSets.Add( secInfo );
             }
+         }
+      }
+
+      private static T DoAndIgnoreExceptions<T>( Func<T> func )
+         where T : class
+      {
+         try
+         {
+            return func();
+         }
+         catch
+         {
+            // TODO in future - maybe some kind of event to ReadingArguments ?
+            return null;
          }
       }
    }

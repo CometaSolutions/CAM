@@ -33,7 +33,6 @@ namespace CILAssemblyManipulator.Tests.Logical
    [Category( "CAM.Logical" )]
    public class LogicalInteropTest : AbstractCAMTest
    {
-
       [Test]
       public void TestPhysicalInteropCAMPhysicalAssembly()
       {
@@ -223,11 +222,6 @@ namespace CILAssemblyManipulator.Tests.Logical
 
       private static void PerformRoundtripTest( String mdLocation )
       {
-         CILMetaData md;
-         using ( var fs = File.OpenRead( mdLocation ) )
-         {
-            md = fs.ReadModule();
-         }
          PerformTest( ctx =>
          {
             var mdLoader = new CILMetaDataLoaderNotThreadSafeForFiles();

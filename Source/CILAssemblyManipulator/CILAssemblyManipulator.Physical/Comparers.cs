@@ -2360,7 +2360,7 @@ namespace CILAssemblyManipulator.Physical
 
       private static Int32 HashCode_AssemblyInformation( AssemblyInformation x )
       {
-         return ( (Int32?) x?.GetHashCode() ).GetValueOrDefault();
+         return x.GetHashCodeSafe();
       }
 
       private static Int32 HashCode_AbstractSignature( AbstractSignature x )

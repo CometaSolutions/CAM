@@ -120,22 +120,44 @@ namespace CILAssemblyManipulator.Physical
 
       internal static Int32 DecompressUInt32( this Byte[] array, ref Int32 offset )
       {
-         Int32 first = array[offset];
-         ++offset;
+         var len = array.Length;
          Int32 result;
-         if ( ( UINT_FOUR_BYTES_MASK & first ) == UINT_FOUR_BYTES_MASK )
+         if ( offset < len )
          {
-            result = ( ( first & UINT_FOUR_BYTES_DECODE_MASK ) << 24 ) | ( ( (Int32) array[offset] ) << 16 ) | ( ( (Int32) array[offset + 1] ) << 8 ) | array[offset + 2];
-            offset += 3;
-         }
-         else if ( ( UINT_TWO_BYTES_MASK & first ) == UINT_TWO_BYTES_MASK )
-         {
-            result = ( ( first & UINT_TWO_BYTES_DECODE_MASK ) << 8 ) | (Int32) array[offset];
-            ++offset;
+            Int32 first = array[offset];
+            if ( ( UINT_FOUR_BYTES_MASK & first ) == UINT_FOUR_BYTES_MASK )
+            {
+               if ( offset < len - 3 )
+               {
+                  result = ( ( first & UINT_FOUR_BYTES_DECODE_MASK ) << 24 ) | ( ( (Int32) array[offset + 1] ) << 16 ) | ( ( (Int32) array[offset + 2] ) << 8 ) | array[offset + 3];
+                  offset += 4;
+               }
+               else
+               {
+                  result = -1;
+               }
+            }
+            else if ( ( UINT_TWO_BYTES_MASK & first ) == UINT_TWO_BYTES_MASK )
+            {
+               if ( offset < len - 1 )
+               {
+                  result = ( ( first & UINT_TWO_BYTES_DECODE_MASK ) << 8 ) | (Int32) array[offset + 1];
+                  offset += 2;
+               }
+               else
+               {
+                  result = -1;
+               }
+            }
+            else
+            {
+               result = first;
+               ++offset;
+            }
          }
          else
          {
-            result = first;
+            result = -1;
          }
          return result;
       }
@@ -169,7 +191,7 @@ namespace CILAssemblyManipulator.Physical
                decodedUInt = decodedUInt >> 1;
             }
          }
-         else // if ( bytesRead == 4 )
+         else if ( bytesRead == 4 )
          {
             if ( ( decodedUInt & ONE ) == ONE )
             {
@@ -179,6 +201,11 @@ namespace CILAssemblyManipulator.Physical
             {
                decodedUInt = decodedUInt >> 1;
             }
+         }
+         else
+         {
+            // Most likely wrong data
+            throw new ArgumentException( "Malformed compressed signed integer at index " + oldOffset + "." );
          }
 
          return unchecked( (Int32) decodedUInt );
