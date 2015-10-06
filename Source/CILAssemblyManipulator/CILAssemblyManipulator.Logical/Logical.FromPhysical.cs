@@ -757,11 +757,6 @@ public static partial class E_CILLogical
                throw new InvalidOperationException( "Unsupported member ref declaring type: " + declType + "." );
          }
 
-         if ( contextType != null && contextType.Name == "E_CILLogical" && mRef.Name == "get_Attributes" )
-         {
-
-         }
-
          var sig = mRef.Signature;
          Boolean wasMethod;
          CILElementTokenizableInILCode retVal;
