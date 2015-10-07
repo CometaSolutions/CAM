@@ -902,6 +902,23 @@ namespace CILAssemblyManipulator.Physical
       NetModule,
    }
 
+   public enum Subsystem : short
+   {
+      Native = 0x0001,
+      WindowsGUI = 0x0002,
+      WindowsConsole = 0x0003,
+      OS2Console = 0x0005,
+      PosixConsole = 0x0007,
+      NativeWin9XDriver = 0x0008,
+      WinCE = 0x0009,
+      EFIApplication = 0x000A,
+      EFIBootDriver = 0x000B,
+      EFIRuntimeDriver = 0x000C,
+      EFIROM = 0x000D,
+      XBox = 0x000E,
+      WindowsBootApplication = 0x0010
+   }
+
    /// <summary>
    /// Specifies the security actions (ECMA-335 pp. 218-219), minus the ones that were obsoleted by .NET 4 release.
    /// </summary>
@@ -971,14 +988,14 @@ namespace CILAssemblyManipulator.Physical
    //}
 
    [Flags]
-   internal enum DLLFlags
+   public enum DLLFlags : short
    {
       HighEntropyVA = 0x0020,
       DynamicBase = 0x0040,
-      NoSEH = 0x0400,
       NXCompatible = 0x0100,
+      NoSEH = 0x0400,
       AppContainer = 0x1000,
-      TerminalServerAware = 0x8000,
+      TerminalServerAware = unchecked((Int16) 0x8000),
    }
 
    /// <summary>

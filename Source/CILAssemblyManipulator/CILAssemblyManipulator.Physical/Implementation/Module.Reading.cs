@@ -322,11 +322,10 @@ namespace CILAssemblyManipulator.Physical.Implementation
          stream.SeekFromCurrent( 16 );
 
          // Subsystem
-         var subsystem = stream.ReadU16( tmpArray );
+         headers.Subsystem = (Subsystem) stream.ReadU16( tmpArray );
 
          // DLL flags
-         var dllFlags = (DLLFlags) stream.ReadU16( tmpArray );
-         headers.HighEntropyVA = dllFlags.HasFlag( DLLFlags.HighEntropyVA );
+         headers.DLLFlags = (DLLFlags) stream.ReadU16( tmpArray );
 
          // Stack reserve, stack commit, heap reserve, heap commit
          headers.StackReserve = isPE64 ? stream.ReadU64( tmpArray ) : stream.ReadU32( tmpArray );
@@ -1377,7 +1376,7 @@ namespace CILAssemblyManipulator.Physical.Implementation
       {
          var current = 0;
          var opCodes = methodIL.OpCodes;
-         var success = true;
+         var success = codeSize >= 0;
          while ( current < codeSize && success )
          {
             Int32 bytesRead;
@@ -1395,6 +1394,11 @@ namespace CILAssemblyManipulator.Physical.Implementation
                opCodes.Add( curCodeInfo );
             }
             current += bytesRead;
+         }
+
+         if ( success )
+         {
+
          }
 
          return success;

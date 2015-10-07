@@ -2088,6 +2088,7 @@ namespace CILAssemblyManipulator.Physical
             && String.Equals( x.MetaDataVersion, y.MetaDataVersion )
             && String.Equals( x.ImportHintName, y.ImportHintName )
             && x.ModuleFlags == y.ModuleFlags
+            && x.DLLFlags == y.DLLFlags
             && NullableEqualityComparer<TableIndex>.DefaultComparer.Equals( x.CLREntryPointIndex, y.CLREntryPointIndex )
             && Equality_DebugInfo( x.DebugInformation, y.DebugInformation )
             && x.ImageBase == y.ImageBase
@@ -2097,7 +2098,7 @@ namespace CILAssemblyManipulator.Physical
             && x.StackCommit == y.StackCommit
             && x.HeapReserve == y.HeapReserve
             && x.HeapCommit == y.HeapCommit
-            && x.HighEntropyVA == y.HighEntropyVA
+            && x.DLLFlags == y.DLLFlags
             && String.Equals( x.ImportDirectoryName, y.ImportDirectoryName )
             && x.EntryPointInstruction == y.EntryPointInstruction
             && x.LinkerMajor == y.LinkerMajor

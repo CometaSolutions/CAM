@@ -412,11 +412,6 @@ namespace CILAssemblyManipulator.Physical.Implementation
             currentArray.WriteUInt32LEToBytes( ref idx, hasResourceSection ? rsrcSectionInfo.virtualAddress : relocSectionInfo.virtualAddress ); // Base of data
          }
          // WinNT-specific fields
-         var dllFlags = DLLFlags.TerminalServerAware | DLLFlags.NXCompatible | DLLFlags.NoSEH | DLLFlags.DynamicBase;
-         if ( headers.HighEntropyVA )
-         {
-            dllFlags |= DLLFlags.HighEntropyVA;
-         }
          ( isPE64 ? currentArray.WriteUInt64LEToBytes( ref idx, imageBase ) : currentArray.WriteUInt32LEToBytes( ref idx, (UInt32) imageBase ) )
             .WriteUInt32LEToBytes( ref idx, sAlign ) // Section alignment
             .WriteUInt32LEToBytes( ref idx, fAlign ) // File alignment
@@ -430,8 +425,8 @@ namespace CILAssemblyManipulator.Physical.Implementation
             .WriteUInt32LEToBytes( ref idx, prevSectionInfo.virtualAddress + BitUtils.MultipleOf( sAlign, prevSectionInfo.virtualSize ) ) // Image Size
             .WriteUInt32LEToBytes( ref idx, textSectionInfo.rawPointer ) // Header Size
             .WriteUInt32LEToBytes( ref idx, 0 ) // File Checksum
-            .WriteUInt16LEToBytes( ref idx, GetSubSystem( moduleKind ) ) // SubSystem
-            .WriteUInt16LEToBytes( ref idx, (UInt16) dllFlags ); // DLL Characteristics
+            .WriteUInt16LEToBytes( ref idx, (UInt16) ( headers.Subsystem ?? GetSubSystem( moduleKind ) ) ) // SubSystem
+            .WriteUInt16LEToBytes( ref idx, (UInt16) headers.DLLFlags ); // DLL Characteristics
          if ( isPE64 )
          {
             currentArray
@@ -628,9 +623,9 @@ namespace CILAssemblyManipulator.Physical.Implementation
          return Math.Min( UInt32.MaxValue, value );
       }
 
-      private static UInt16 GetSubSystem( ModuleKind kind, Boolean isCEApp = false )
+      private static Subsystem GetSubSystem( ModuleKind kind )
       {
-         return ModuleKind.Windows == kind ? ( isCEApp ? HeaderFieldPossibleValues.IMAGE_SUBSYSTEM_WINDOWS_CE_GUI : HeaderFieldPossibleValues.IMAGE_SUBSYSTEM_WINDOWS_GUI ) : HeaderFieldPossibleValues.IMAGE_SUBSYSTEM_WINDOWS_CUI;
+         return ModuleKind.Windows == kind ? Subsystem.WindowsGUI : Subsystem.WindowsConsole;
       }
 
 
@@ -1775,12 +1770,6 @@ namespace CILAssemblyManipulator.Physical.Implementation
       #region PE Optional Header, Magic
       public const Int16 PE32 = 0x010B;
       public const Int16 PE64 = 0x020B;
-      #endregion
-
-      #region PE Optional Header, Sub system
-      public const UInt16 IMAGE_SUBSYSTEM_WINDOWS_CUI = 0x03;
-      public const UInt16 IMAGE_SUBSYSTEM_WINDOWS_GUI = 0x02;
-      public const UInt16 IMAGE_SUBSYSTEM_WINDOWS_CE_GUI = 0x09;
       #endregion
 
       #region Section Header, Characteristics

@@ -66,6 +66,7 @@ namespace CILAssemblyManipulator.Physical
             this.MetaDataVersion = "v4.0.30319";
             this.TableHeapMajor = 2;
             this.TableHeapMinor = 0;
+            this.DLLFlags = DLLFlags.TerminalServerAware | DLLFlags.NXCompatible | DLLFlags.NoSEH | DLLFlags.DynamicBase;
             this.ModuleFlags = ModuleFlags.ILOnly;
          }
       }
@@ -248,16 +249,18 @@ namespace CILAssemblyManipulator.Physical
       public UInt16 CLIMinor { get; set; }
 
       /// <summary>
-      /// Gets or sets the flag signalling to use high entropy address space layout randomization ( see <see href="http://msdn.microsoft.com/en-us/library/hh156527.aspx"/> ).
+      /// Gets or sets the <see cref="DLLFlags"/>. These flags can e.g. signal whether to use high entropy address space layout randomization ( see <see href="http://msdn.microsoft.com/en-us/library/hh156527.aspx"/> ).
       /// </summary>
       /// <value>Whether to use high entropy address space layout randomization.</value>
-      public Boolean HighEntropyVA { get; set; }
+      public DLLFlags DLLFlags { get; set; }
 
       /// <summary>
       /// Gets or sets the <see cref="ModuleFlags"/> of the module (CLI header, 'Flags' field).
       /// </summary>
       /// <value>The <see cref="ModuleFlags"/> of the module (CLI header, 'Flags' field) being emitted or loaded.</value>
       public ModuleFlags ModuleFlags { get; set; }
+
+      public Subsystem? Subsystem { get; set; }
 
       /// <summary>
       /// During emitting, if this property is not <c>null</c>, then the debug directory with the information specified by <see cref="DebugInformation"/> is written.
@@ -294,8 +297,9 @@ namespace CILAssemblyManipulator.Physical
             SubSysMinor = this.SubSysMinor,
             CLIMajor = this.CLIMajor,
             CLIMinor = this.CLIMinor,
-            HighEntropyVA = this.HighEntropyVA,
+            DLLFlags = this.DLLFlags,
             ModuleFlags = this.ModuleFlags,
+            Subsystem = this.Subsystem,
             DebugInformation = this.DebugInformation,
          };
       }

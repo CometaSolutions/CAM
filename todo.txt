@@ -8,6 +8,7 @@
 
 - CAM.Physical:
  - Documentation
+ - More customizable emitting/reading process: e.g. interface IOProvider { IEnumerable<StreamHandler> GetStreamHandlersFor(CILMetaData md); ... }, interface StreamHandler { String StreamName { get; } // e.g. #~, etc ... }
  
 - CAM.Logical:
  - Revisit documentation (code samples etc)
