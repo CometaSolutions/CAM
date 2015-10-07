@@ -1,5 +1,4 @@
 - UtilPack
- - ArrayHelper (upper-bound resizable array)
  - StreamHelper (stream + 8-byte array to read primitives)
  - AsyncStream interface - to support stream-like API with cancellation tokens and timeouts
 
