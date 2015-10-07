@@ -999,7 +999,10 @@ namespace CILMerge
          eHeaders.FileAlignment = (UInt32) Math.Max( this._options.FileAlign, HeadersData.DEFAULT_FILE_ALIGNMENT );
          eHeaders.SubSysMajor = (UInt16) this._options.SubsystemMajor;
          eHeaders.SubSysMinor = (UInt16) this._options.SubsystemMinor;
-         eHeaders.HighEntropyVA = this._options.HighEntropyVA;
+         if ( this._options.HighEntropyVA )
+         {
+            eHeaders.DLLFlags |= DLLFlags.HighEntropyVA;
+         }
          var md = this._options.MetadataVersionString;
          eHeaders.MetaDataVersion = String.IsNullOrEmpty( md ) ? pHeaders.MetaDataVersion : md;
 
@@ -1598,7 +1601,7 @@ namespace CILMerge
                default:
                   retVal = false;
                   break;
-               //throw this.NewCILMergeException( ExitCode.ErrorMatchingMemberReferenceSignature, "Encountered unrecognized type signature kind: " + typeDef.TypeSignatureKind + "." );
+                  //throw this.NewCILMergeException( ExitCode.ErrorMatchingMemberReferenceSignature, "Encountered unrecognized type signature kind: " + typeDef.TypeSignatureKind + "." );
             }
          }
 

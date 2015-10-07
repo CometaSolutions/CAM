@@ -1396,11 +1396,6 @@ namespace CILAssemblyManipulator.Physical.Implementation
             current += bytesRead;
          }
 
-         if ( success )
-         {
-
-         }
-
          return success;
       }
 
