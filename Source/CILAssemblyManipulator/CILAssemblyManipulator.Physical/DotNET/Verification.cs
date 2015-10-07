@@ -149,7 +149,8 @@ namespace CILAssemblyManipulator.Physical
             {
                using ( var subKey = key.OpenSubKey( subKeyName ) )
                {
-                  var names = subKey.GetSubKeyNames();
+                  var names = subKey.GetSubKeyNames()
+                     .OrderByDescending( s => s );
                   var suitablePath = names.FirstOrDefault( x => x.EndsWith( "-x64" ) );
                   if ( String.IsNullOrEmpty( suitablePath ) )
                   {
