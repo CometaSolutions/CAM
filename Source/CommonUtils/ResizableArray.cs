@@ -58,9 +58,10 @@ namespace CommonUtils
       /// </remarks>
       public void EnsureSize( Int32 size )
       {
-         if ( size > 0 && this._currentCapacity < size )
+         var curCap = this._currentCapacity;
+         if ( size > 0 && curCap < size )
          {
-            this.EnsureArraySize( size, this._currentCapacity );
+            this.EnsureArraySize( size, curCap );
             Interlocked.Exchange( ref this._currentCapacity, size );
          }
       }
@@ -106,7 +107,7 @@ namespace CommonUtils
          }
          else
          {
-            throw new InvalidOperationException( "The wanted size " + size + " exceeds maximum limit of " + max + " for this upper-bound array." );
+            throw new InvalidOperationException( "The wanted size " + size + " exceeds maximum limit of " + max + " for this resizable array." );
          }
       }
 
