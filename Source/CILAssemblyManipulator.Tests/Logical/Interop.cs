@@ -34,12 +34,6 @@ namespace CILAssemblyManipulator.Tests.Logical
    public class LogicalInteropTest : AbstractCAMTest
    {
       [Test]
-      public void AAA()
-      {
-         PerformRoundtripTest( @"C:\PortablePrograms\TurboHUD\TurboHUD.exe" );
-      }
-
-      [Test]
       public void TestPhysicalInteropCAMPhysicalAssembly()
       {
          PerformRoundtripTest( CAMPhysicalLocation );
