@@ -1,0 +1,93 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="4.0" DefaultTargets="GenerateKeyFile;GenerateAssemblyInfoFile;Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <Import Project="$(MSBuildExtensionsPath)\$(MSBuildToolsVersion)\Microsoft.Common.props" Condition="Exists('$(MSBuildExtensionsPath)\$(MSBuildToolsVersion)\Microsoft.Common.props')" />
+  <PropertyGroup>
+    <MinimumVisualStudioVersion>10.0</MinimumVisualStudioVersion>
+    <Configuration Condition=" '$(Configuration)' == '' ">Debug</Configuration>
+    <Platform Condition=" '$(Platform)' == '' ">AnyCPU</Platform>
+    <ProjectGuid>{FBC21E9B-64F1-4E5D-8863-9FFBB7CBCCD5}</ProjectGuid>
+    <OutputType>Library</OutputType>
+    <AppDesignerFolder>Properties</AppDesignerFolder>
+    <RootNamespace>CILAssemblyManipulator.Emulator</RootNamespace>
+    <AssemblyName>CILAssemblyManipulator.Emulator</AssemblyName>
+    <DefaultLanguage>en-US</DefaultLanguage>
+    <FileAlignment>512</FileAlignment>
+    <ProjectTypeGuids>{786C830F-07A1-408B-BD7F-6EE04809D6DB};{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}</ProjectTypeGuids>
+    <TargetFrameworkProfile>Profile328</TargetFrameworkProfile>
+    <TargetFrameworkVersion>v4.0</TargetFrameworkVersion>
+  </PropertyGroup>
+  <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|AnyCPU' ">
+    <DebugSymbols>true</DebugSymbols>
+    <DebugType>full</DebugType>
+    <Optimize>false</Optimize>
+    <OutputPath>..\..\..\Output\Debug\dotNET\</OutputPath>
+    <DefineConstants>$(DefineConstants);DEBUG;TRACE</DefineConstants>
+    <ErrorReport>prompt</ErrorReport>
+    <WarningLevel>4</WarningLevel>
+  </PropertyGroup>
+  <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug_Portable|AnyCPU' ">
+    <DebugSymbols>true</DebugSymbols>
+    <DebugType>full</DebugType>
+    <Optimize>false</Optimize>
+    <OutputPath>..\..\..\Output\Debug\SL\</OutputPath>
+    <DefineConstants>$(DefineConstants);DEBUG;TRACE;</DefineConstants>
+    <ErrorReport>prompt</ErrorReport>
+    <WarningLevel>4</WarningLevel>
+  </PropertyGroup>
+  <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Release|AnyCPU' ">
+    <DebugType>none</DebugType>
+    <Optimize>true</Optimize>
+    <OutputPath>..\..\..\Output\Release\dotNET\</OutputPath>
+    <DefineConstants>$(DefineConstants);TRACE</DefineConstants>
+    <ErrorReport>prompt</ErrorReport>
+    <WarningLevel>4</WarningLevel>
+  </PropertyGroup>
+  <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Release_Portable|AnyCPU' ">
+    <DebugType>none</DebugType>
+    <Optimize>true</Optimize>
+    <OutputPath>..\..\..\Output\Release\SL\</OutputPath>
+    <DefineConstants>$(DefineConstants);TRACE</DefineConstants>
+    <ErrorReport>prompt</ErrorReport>
+    <WarningLevel>4</WarningLevel>
+  </PropertyGroup>
+  <PropertyGroup>
+    <KeyFilePath>$(MSBuildThisFileDirectory)..\..\..\Keys\CAM.snk</KeyFilePath>
+  </PropertyGroup>
+  <ItemGroup>
+    <!-- A reference to the entire .NET Framework is automatically included -->
+  </ItemGroup>
+  <ItemGroup>
+    <Reference Include="UtilPack" Condition=" '$(UseUtilpackReference)' != '' ">
+      <HintPath>$(OutputPath)UtilPack.dll</HintPath>
+    </Reference>
+  </ItemGroup>
+  <ItemGroup>
+    <Compile Include="..\..\AssemblyInfo\$(AssemblyName).cs">
+      <Link>Properties\$(AssemblyName).AssemblyInfo.cs</Link>
+    </Compile>
+  </ItemGroup>
+  
+  <Import Project="$(MSBuildExtensionsPath32)\Microsoft\Portable\$(TargetFrameworkVersion)\Microsoft.Portable.CSharp.targets" />
+  
+  <PropertyGroup Condition=" '$(UseUtilpackReference)' != '' ">
+    <SignAssembly>true</SignAssembly>
+    <KeyFilePath>$(MSBuildThisFileDirectory)..\..\..\Keys\CAM.snk</KeyFilePath>
+    <AssemblyOriginatorKeyFile>$(KeyFilePath)</AssemblyOriginatorKeyFile>
+  </PropertyGroup>
+  <!-- Create .snk file if it doesn't exist to ensure smooth build -->
+  <Import Project="$(MSBuildThisFileDirectory)../../../CommonBuildTools/CLR/MSBuild/CreateKeyFileIfNeeded.targets" />
+  
+  <!-- Assembly information -->
+  <PropertyGroup>
+    <AssemblyInfoCLSCompliant>true</AssemblyInfoCLSCompliant>
+    <AssemblyInfoOutputFile>$(MSBuildThisFileDirectory)/../../AssemblyInfo/$(AssemblyName).cs</AssemblyInfoOutputFile>
+    <AssemblyInfoDescription>CIL Assembly Manipulator (CAM) assembly providing API to emulate execution of IL code.</AssemblyInfoDescription>
+    <AssemblyInfoCompany>Cometa Solutions Ltd</AssemblyInfoCompany>
+    <AssemblyInfoTrademark>CAM</AssemblyInfoTrademark>
+    <AssemblyInfoAppendAssemblyCopyrightYears>true</AssemblyInfoAppendAssemblyCopyrightYears>
+    <AssemblyInfoAssemblyInceptionYear>2015</AssemblyInfoAssemblyInceptionYear>
+    <AssemblyInfoCopyrightAuthors>Stanislav Muhametsin</AssemblyInfoCopyrightAuthors>
+    <AssemblyInfoVersionFilename>$(MSBuildThisFileDirectory)/../../CAMEmulatorVersion.txt</AssemblyInfoVersionFilename>
+  </PropertyGroup>
+  <Import Project="$(MSBuildThisFileDirectory)../../../CommonBuildTools/CLR/MSBuild/AssemblyInfo.targets" />
+</Project>
