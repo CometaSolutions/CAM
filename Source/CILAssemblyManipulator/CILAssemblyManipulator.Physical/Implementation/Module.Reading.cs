@@ -249,10 +249,6 @@ namespace CILAssemblyManipulator.Physical.Implementation
          }
       }
 
-      private const Byte WIDE_SYS_STRING_FLAG = 0x01;
-      private const Byte WIDE_GUID_FLAG = 0x02;
-      private const Byte WIDE_BLOB_FLAG = 0x04;
-
       internal static CILMetaData ReadFromStream(
          Stream stream,
          ReadingArguments rArgs
@@ -398,11 +394,11 @@ namespace CILAssemblyManipulator.Physical.Implementation
                }
             }
 
-            if ( nativeEPRVA > 0 )
-            {
-               stream.SeekFromBegin( ResolveRVA( nativeEPRVA, sections ) );
-               headers.EntryPointInstruction = stream.ReadI16( tmpArray );
-            }
+            //if ( nativeEPRVA > 0 )
+            //{
+            //   stream.SeekFromBegin( ResolveRVA( nativeEPRVA, sections ) );
+            //   headers.EntryPointInstruction = stream.ReadI16( tmpArray );
+            //}
          }
 
          // CLI header, skip magic
@@ -538,16 +534,17 @@ namespace CILAssemblyManipulator.Physical.Implementation
          headers.TableHeapMinor = stream.ReadByteFromStream();
 
          // Stream index sizes
-         var b = stream.ReadByteFromStream();
-         if ( ( b & WIDE_SYS_STRING_FLAG ) != 0 )
+         var tblFlags = (TableStreamFlags) stream.ReadByteFromStream();
+
+         if ( tblFlags.IsWideStrings() )
          {
             sysStrings.IsWideIndex = true;
          }
-         if ( ( b & WIDE_GUID_FLAG ) != 0 )
+         if ( tblFlags.IsWideGUID() )
          {
             guids.IsWideIndex = true;
          }
-         if ( ( b & WIDE_BLOB_FLAG ) != 0 )
+         if ( tblFlags.IsWideBLOB() )
          {
             blobs.IsWideIndex = true;
          }
@@ -558,6 +555,11 @@ namespace CILAssemblyManipulator.Physical.Implementation
          var presentTableMask = stream.ReadU64( tmpArray );
 
          stream.SeekFromCurrent( 8 ); // Skip sorted
+
+         if ( tblFlags.HasExtraData() )
+         {
+            headers.TablesHeaderExtraData = stream.ReadI32( tmpArray );
+         }
 
          // Table row count
          var tableSizes = new Int32[Consts.AMOUNT_OF_TABLES];
@@ -654,7 +656,7 @@ namespace CILAssemblyManipulator.Physical.Implementation
                   } );
                   break;
                case Tables.ParameterPtr:
-                  ReadTable( retVal.ParameterDefinitionPointers, tableSizes, i => new ParameterPointer()
+                  ReadTable( retVal.ParameterDefinitionPointers, tableSizes, i => new ParameterDefinitionPointer()
                   {
                      ParameterIndex = MetaDataConstants.ReadSimpleTableIndex( stream, Tables.Parameter, tableSizes, tmpArray )
                   } );
@@ -788,7 +790,7 @@ namespace CILAssemblyManipulator.Physical.Implementation
                      } );
                   break;
                case Tables.EventPtr:
-                  ReadTable( retVal.EventPointers, tableSizes, i => new EventPointer()
+                  ReadTable( retVal.EventDefinitionPointers, tableSizes, i => new EventDefinitionPointer()
                   {
                      EventIndex = MetaDataConstants.ReadSimpleTableIndex( stream, Tables.Event, tableSizes, tmpArray )
                   } );
@@ -811,7 +813,7 @@ namespace CILAssemblyManipulator.Physical.Implementation
                      } );
                   break;
                case Tables.PropertyPtr:
-                  ReadTable( retVal.PropertyPointers, tableSizes, i => new PropertyPointer()
+                  ReadTable( retVal.PropertyDefinitionPointers, tableSizes, i => new PropertyDefinitionPointer()
                   {
                      PropertyIndex = MetaDataConstants.ReadSimpleTableIndex( stream, Tables.Property, tableSizes, tmpArray )
                   } );

@@ -525,22 +525,14 @@ namespace CILAssemblyManipulator.Physical
       private MDSpecificCache ResolveAssemblyReferenceWithEvent( CILMetaData thisMD, String assemblyName, AssemblyInformationForResolving? assemblyInfo ) //, Boolean isRetargetable )
       {
          var args = new AssemblyReferenceResolveEventArgs( thisMD, assemblyName, assemblyInfo ); //, isRetargetable );
-         var evt = this.AssemblyReferenceResolveEvent;
-         if ( evt != null )
-         {
-            evt( this, args );
-         }
+         this.AssemblyReferenceResolveEvent?.Invoke( this, args );
          return this.GetCacheFor( args.ResolvedMetaData );
       }
 
       private MDSpecificCache ResolveModuleReferenceWithEvent( CILMetaData thisMD, String moduleName )
       {
          var args = new ModuleReferenceResolveEventArgs( thisMD, moduleName );
-         var evt = this.ModuleReferenceResolveEvent;
-         if ( evt != null )
-         {
-            evt( this, args );
-         }
+         this.ModuleReferenceResolveEvent?.Invoke( this, args );
          return this.GetCacheFor( args.ResolvedMetaData );
       }
 

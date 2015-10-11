@@ -102,20 +102,15 @@ namespace CILAssemblyManipulator.Physical
 
       MetaDataTable<EditAndContinueMap> EditAndContinueMap { get; }
 
-      [Obsolete( "This table should not be used anymore.", false )]
       MetaDataTable<FieldDefinitionPointer> FieldDefinitionPointers { get; }
 
-      [Obsolete( "This table should not be used anymore.", false )]
       MetaDataTable<MethodDefinitionPointer> MethodDefinitionPointers { get; }
 
-      [Obsolete( "This table should not be used anymore.", false )]
-      MetaDataTable<ParameterPointer> ParameterDefinitionPointers { get; }
+      MetaDataTable<ParameterDefinitionPointer> ParameterDefinitionPointers { get; }
 
-      [Obsolete( "This table should not be used anymore.", false )]
-      MetaDataTable<EventPointer> EventPointers { get; }
+      MetaDataTable<EventDefinitionPointer> EventDefinitionPointers { get; }
 
-      [Obsolete( "This table should not be used anymore.", false )]
-      MetaDataTable<PropertyPointer> PropertyPointers { get; }
+      MetaDataTable<PropertyDefinitionPointer> PropertyDefinitionPointers { get; }
 
       [Obsolete( "This table should not be used anymore.", false )]
       MetaDataTable<AssemblyDefinitionProcessor> AssemblyDefinitionProcessors { get; }
@@ -701,7 +696,7 @@ public static partial class E_CILPhysical
             table = md.EventMaps;
             break;
          case Tables.EventPtr:
-            table = md.EventPointers;
+            table = md.EventDefinitionPointers;
             break;
          case Tables.Event:
             table = md.EventDefinitions;
@@ -710,7 +705,7 @@ public static partial class E_CILPhysical
             table = md.PropertyMaps;
             break;
          case Tables.PropertyPtr:
-            table = md.PropertyPointers;
+            table = md.PropertyDefinitionPointers;
             break;
          case Tables.Property:
             table = md.PropertyDefinitions;

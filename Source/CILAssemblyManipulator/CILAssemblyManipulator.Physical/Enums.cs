@@ -826,6 +826,19 @@ namespace CILAssemblyManipulator.Physical
       /// </summary>
       ARMv7 = 0x01C4
    }
+
+   [Flags]
+   public enum TableStreamFlags : byte
+   {
+      WideStrings = 0x01,
+      WideGUID = 0x02,
+      WideBLOB = 0x04,
+      Padding = 0x08,
+      DeltaOnly = 0x20,
+      ExtraData = 0x40,
+      HasDelete = 0x80,
+   }
+
    /// <summary>
    /// This enumeration contains values for what kind of code is contained within the module when emitting <see cref="CILMetaData"/>.
    /// </summary>
@@ -2514,6 +2527,41 @@ public static partial class E_CILPhysical
    public static Boolean HasDefaultConstructorConstraint( this GenericParameterAttributes attrs )
    {
       return ( attrs & GenericParameterAttributes.DefaultConstructorConstraint ) != 0;
+   }
+
+   public static Boolean IsWideStrings( this TableStreamFlags flags )
+   {
+      return ( flags & TableStreamFlags.WideStrings ) != 0;
+   }
+
+   public static Boolean IsWideGUID( this TableStreamFlags flags )
+   {
+      return ( flags & TableStreamFlags.WideGUID ) != 0;
+   }
+
+   public static Boolean IsWideBLOB( this TableStreamFlags flags )
+   {
+      return ( flags & TableStreamFlags.WideBLOB ) != 0;
+   }
+
+   public static Boolean HasPadding( this TableStreamFlags flags )
+   {
+      return ( flags & TableStreamFlags.Padding ) != 0;
+   }
+
+   public static Boolean IsDeltaOnly( this TableStreamFlags flags )
+   {
+      return ( flags & TableStreamFlags.DeltaOnly ) != 0;
+   }
+
+   public static Boolean HasExtraData( this TableStreamFlags flags )
+   {
+      return ( flags & TableStreamFlags.ExtraData ) != 0;
+   }
+
+   public static Boolean HasDelete( this TableStreamFlags flags )
+   {
+      return ( flags & TableStreamFlags.HasDelete ) != 0;
    }
 
 }

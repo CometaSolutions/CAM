@@ -173,7 +173,7 @@ public static partial class E_CommonUtils
    /// <param name="defaultValue">The value to return if no value exists for <paramref name="key"/> in <paramref name="dic"/>.</param>
    /// <returns>The value for <paramref name="key"/> in <paramref name="dic"/>, or <paramref name="defaultValue"/> if <paramref name="dic"/> does not have value associated for <paramref name="key"/>.</returns>
    /// <exception cref="NullReferenceException">If <paramref name="dic"/> is <c>null</c>.</exception>
-   public static TValue GetOrDefault<TKey, TValue>( this IDictionary<TKey, TValue> dic, TKey key, TValue defaultValue = default(TValue) )
+   public static TValue GetOrDefault<TKey, TValue>( this IDictionary<TKey, TValue> dic, TKey key, TValue defaultValue = default( TValue ) )
    {
       TValue value;
       return dic.TryGetValue( key, out value ) ? value : defaultValue;
@@ -550,7 +550,7 @@ public static partial class E_CommonUtils
    /// <param name="enumerable">The enumerable.</param>
    /// <param name="defaultValue">The value to return when there are no elements in the enumerable.</param>
    /// <returns>The first element of the enumerable, or <paramref name="defaultValue"/> if there are no elements in the enumerable.</returns>
-   public static T FirstOrDefaultCustom<T>( this IEnumerable<T> enumerable, T defaultValue = default(T) )
+   public static T FirstOrDefaultCustom<T>( this IEnumerable<T> enumerable, T defaultValue = default( T ) )
    {
       using ( var enumerator = enumerable.GetEnumerator() )
       {
@@ -807,5 +807,47 @@ public static partial class E_CommonUtils
          var randomIndex = random.Next( n-- );
          array.Swap( n, randomIndex );
       }
+   }
+
+   /// <summary>
+   /// Creates a copy of array.
+   /// This is ease-of-life method for calling <see cref="Array.Copy(Array, int, Array, int, int)"/>.
+   /// </summary>
+   /// <typeparam name="T">The type of elements in the array.</typeparam>
+   /// <param name="array">The array.</param>
+   /// <returns>The copy of the array.</returns>
+   public static T[] CreateArrayCopy<T>( this T[] array )
+   {
+      ArgumentValidator.ValidateNotNull( "Array", array );
+      return array.CreateArrayCopy( 0, array.Length );
+   }
+
+   /// <summary>
+   /// Creates a copy of section of given array, starting at given offset, and copying the rest of the array.
+   /// </summary>
+   /// <typeparam name="T">The type of elements in the array.</typeparam>
+   /// <param name="array">The array.</param>
+   /// <param name="count">The amount of elements to copy.</param>
+   /// <returns>The newly created array, containing same elements as section of the given array.</returns>
+   public static T[] CreateArrayCopy<T>( this T[] array, Int32 count )
+   {
+      return array.CreateArrayCopy( 0, count );
+   }
+
+   /// <summary>
+   /// Creates a copy of section of given array, starting at given offset and copying given amount of elements.
+   /// </summary>
+   /// <typeparam name="T">The type of elements in the array.</typeparam>
+   /// <param name="array">The array.</param>
+   /// <param name="offset">The offset in <paramref name="array" /> where to start copying elements.</param>
+   /// <param name="count">The amount of elements to copy.</param>
+   /// <returns>The newly created array, containing same elements as section of the given array.</returns>
+   public static T[] CreateArrayCopy<T>( this T[] array, Int32 offset, Int32 count )
+   {
+      array.CheckArrayArguments( offset, count );
+
+      var retVal = new T[count];
+      Array.Copy( array, offset, retVal, 0, count );
+      return retVal;
    }
 }

@@ -192,25 +192,52 @@ public static partial class E_CommonUtils
    /// Reads a whole stream and returns its contents as single byte array.
    /// </summary>
    /// <param name="stream">The stream to read.</param>
-   /// <param name="buffer">The optional buffer to use. If not specified, then a buffer of <c>1024</c> bytes will be used.</param>
+   /// <param name="buffer">The optional buffer to use. If not specified, then a buffer of <c>1024</c> bytes will be used. The buffer will only be used if stream does not support querying length and position.</param>
    /// <returns>The stream contents as single byte array.</returns>
    /// <exception cref="NullReferenceException">If <paramref name="stream"/> is <c>null</c>.</exception>
-   public static Byte[] ReadWholeStream( this Stream stream, Byte[] buffer = null )
+   public static Byte[] ReadUntilTheEnd( this Stream stream, Byte[] buffer = null )
    {
-      if ( buffer == null )
+      Int64 arrayLen;
+      try
       {
-         buffer = new Byte[1024];
+         arrayLen = stream.Length - stream.Position;
+      }
+      catch ( NotSupportedException )
+      {
+         // stream can't be queried for length or position
+         arrayLen = -1;
       }
 
-      using ( var ms = new MemoryStream() )
+      Byte[] retVal;
+      if ( arrayLen < 0 )
       {
-         Int32 read;
-         while ( ( read = stream.Read( buffer, 0, buffer.Length ) ) > 0 )
+         // Have to read using the buffer.
+         if ( buffer == null )
          {
-            ms.Write( buffer, 0, read );
+            buffer = new Byte[1024];
          }
-         return ms.ToArray();
+
+         using ( var ms = new MemoryStream() )
+         {
+            Int32 read;
+            while ( ( read = stream.Read( buffer, 0, buffer.Length ) ) > 0 )
+            {
+               ms.Write( buffer, 0, read );
+            }
+            retVal = ms.ToArray();
+         }
       }
+      else if ( arrayLen == 0 )
+      {
+         retVal = Empty<Byte>.Array;
+      }
+      else
+      {
+         retVal = new Byte[arrayLen];
+         stream.ReadWholeArray( retVal );
+      }
+
+      return retVal;
    }
 
    /// <summary>

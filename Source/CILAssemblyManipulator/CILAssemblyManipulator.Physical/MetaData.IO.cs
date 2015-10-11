@@ -1,21 +1,22 @@
 ﻿using CILAssemblyManipulator.Physical;
+using CILAssemblyManipulator.Physical.IO;
 /*
- * Copyright 2015 Stanislav Muhametsin. All rights Reserved.
- *
- * Licensed  under the  Apache License,  Version 2.0  (the "License");
- * you may not use  this file  except in  compliance with the License.
- * You may obtain a copy of the License at
- *
- *   http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed  under the  License is distributed on an "AS IS" BASIS,
- * WITHOUT  WARRANTIES OR CONDITIONS  OF ANY KIND, either  express  or
- * implied.
- *
- * See the License for the specific language governing permissions and
- * limitations under the License. 
- */
+* Copyright 2015 Stanislav Muhametsin. All rights Reserved.
+*
+* Licensed  under the  Apache License,  Version 2.0  (the "License");
+* you may not use  this file  except in  compliance with the License.
+* You may obtain a copy of the License at
+*
+*   http://www.apache.org/licenses/LICENSE-2.0
+*
+* Unless required by applicable law or agreed to in writing, software
+* distributed  under the  License is distributed on an "AS IS" BASIS,
+* WITHOUT  WARRANTIES OR CONDITIONS  OF ANY KIND, either  express  or
+* implied.
+*
+* See the License for the specific language governing permissions and
+* limitations under the License. 
+*/
 using CommonUtils;
 using System;
 using System.Collections.Generic;
@@ -25,6 +26,14 @@ using System.Text;
 
 namespace CILAssemblyManipulator.Physical
 {
+   public static partial class CILMetaDataIO
+   {
+      public static CILMetaData ReadModule( this Stream stream, ReadingArguments rArgs = null )
+      {
+         return CILAssemblyManipulator.Physical.Implementation.ModuleReader.ReadFromStream( stream, rArgs );
+      }
+   }
+
    public sealed class HeadersData
    {
       public const Int32 DEFAULT_FILE_ALIGNMENT = 0x200;
@@ -52,7 +61,7 @@ namespace CILAssemblyManipulator.Physical
             this.HeapCommit = 0x1000; // ECMA-335, p. 280
             this.ImportDirectoryName = "mscoree.dll"; // ECMA-335, p. 282
             this.ImportHintName = "_CorDllMain"; // ECMA-335, p. 282
-            this.EntryPointInstruction = 0x25FF; // ECMA-335, p. 279
+            //this.EntryPointInstruction = 0x25FF; // ECMA-335, p. 279
             this.LinkerMajor = 0x0B;
             this.LinkerMinor = 0x00;
             this.OSMajor = 0x04;
@@ -172,12 +181,12 @@ namespace CILAssemblyManipulator.Physical
       /// <value>The name of the runtime engine to import <see cref="ImportHintName"/> from (Import tables, 'Name' field) of the module being emitted or loaded.</value>
       public String ImportDirectoryName { get; set; }
 
-      /// <summary>
-      /// Gets or sets the instruction at PE entrypoint to load the code section.
-      /// It should be <c>0x25FF</c>.
-      /// </summary>
-      /// <value>The instruction at PE entrypoint to load the code section of the module being emitted.</value>
-      public Int16 EntryPointInstruction { get; set; }
+      ///// <summary>
+      ///// Gets or sets the instruction at PE entrypoint to load the code section.
+      ///// It should be <c>0x25FF</c>.
+      ///// </summary>
+      ///// <value>The instruction at PE entrypoint to load the code section of the module being emitted.</value>
+      //public Int16 EntryPointInstruction { get; set; }
 
       /// <summary>
       /// Gets or sets the major version of the linker (PE header standard, 'LMajor' field).
@@ -262,6 +271,8 @@ namespace CILAssemblyManipulator.Physical
 
       public Subsystem? Subsystem { get; set; }
 
+      public Int32? TablesHeaderExtraData { get; set; }
+
       /// <summary>
       /// During emitting, if this property is not <c>null</c>, then the debug directory with the information specified by <see cref="DebugInformation"/> is written.
       /// During loading, if the PE file contains debug directory, this property is set to reflect the data of the debug directory.
@@ -286,7 +297,7 @@ namespace CILAssemblyManipulator.Physical
             HeapCommit = this.HeapCommit,
             ImportHintName = this.ImportHintName,
             ImportDirectoryName = this.ImportDirectoryName,
-            EntryPointInstruction = this.EntryPointInstruction,
+            //EntryPointInstruction = this.EntryPointInstruction,
             LinkerMajor = this.LinkerMajor,
             LinkerMinor = this.LinkerMinor,
             OSMajor = this.OSMajor,
@@ -599,6 +610,8 @@ namespace CILAssemblyManipulator.Physical
 
       public CryptoCallbacks CryptoCallbacks { get; set; }
 
+      public MetaDataIOWriterFunctionalityProvider WriterFunctionality { get; set; }
+
    }
 
    /// <summary>
@@ -630,14 +643,6 @@ namespace CILAssemblyManipulator.Physical
       }
    }
 
-   public static partial class CILMetaDataIO
-   {
-
-      public static CILMetaData ReadModule( this Stream stream, ReadingArguments rArgs = null )
-      {
-         return CILAssemblyManipulator.Physical.Implementation.ModuleReader.ReadFromStream( stream, rArgs );
-      }
-   }
 }
 
 public static partial class E_CILPhysical
@@ -654,6 +659,10 @@ public static partial class E_CILPhysical
          eArgs.Headers = new HeadersData();
       }
 
-      CILAssemblyManipulator.Physical.Implementation.ModuleWriter.WriteToStream( md, eArgs, stream );
+      var writerProvider = eArgs.WriterFunctionality ?? new DefaultMetaDataIOWriterFunctionalityProvider();
+      CILMetaData newMD;
+      var writer = writerProvider.GetFunctionality( md, eArgs.Headers, out newMD );
+
+      CILAssemblyManipulator.Physical.Implementation.ModuleWriter.WriteToStream( writer, newMD ?? md, eArgs, stream );
    }
 }

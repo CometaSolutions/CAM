@@ -59,6 +59,8 @@ namespace CILAssemblyManipulator.Tests.Physical
             written = ms.ToArray();
          }
 
+         File.WriteAllBytes( "Tmp.dll", written );
+
          var rArgs2 = new ReadingArguments();
 
          CILMetaData read2;

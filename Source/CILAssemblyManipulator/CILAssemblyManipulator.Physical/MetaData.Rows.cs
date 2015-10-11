@@ -414,32 +414,27 @@ namespace CILAssemblyManipulator.Physical
       public Int32 Token { get; set; }
    }
 
-   [Obsolete( "Rows of these type should no longer be present in CIL meta data file.", false )]
    public sealed class FieldDefinitionPointer
    {
       public TableIndex FieldIndex { get; set; }
    }
 
-   [Obsolete( "Rows of these type should no longer be present in CIL meta data file.", false )]
    public sealed class MethodDefinitionPointer
    {
       public TableIndex MethodIndex { get; set; }
    }
 
-   [Obsolete( "Rows of these type should no longer be present in CIL meta data file.", false )]
-   public sealed class ParameterPointer
+   public sealed class ParameterDefinitionPointer
    {
       public TableIndex ParameterIndex { get; set; }
    }
 
-   [Obsolete( "Rows of these type should no longer be present in CIL meta data file.", false )]
-   public sealed class EventPointer
+   public sealed class EventDefinitionPointer
    {
       public TableIndex EventIndex { get; set; }
    }
 
-   [Obsolete( "Rows of these type should no longer be present in CIL meta data file.", false )]
-   public sealed class PropertyPointer
+   public sealed class PropertyDefinitionPointer
    {
       public TableIndex PropertyIndex { get; set; }
    }

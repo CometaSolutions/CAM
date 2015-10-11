@@ -66,9 +66,9 @@ namespace CILAssemblyManipulator.Physical.Implementation
 #pragma warning disable 618
       private readonly MetaDataTableImpl<FieldDefinitionPointer> _fieldDefinitionPointers;
       private readonly MetaDataTableImpl<MethodDefinitionPointer> _methodDefinitionPointers;
-      private readonly MetaDataTableImpl<ParameterPointer> _parameterDefinitionPointers;
-      private readonly MetaDataTableImpl<EventPointer> _eventPointers;
-      private readonly MetaDataTableImpl<PropertyPointer> _propertyPointers;
+      private readonly MetaDataTableImpl<ParameterDefinitionPointer> _parameterDefinitionPointers;
+      private readonly MetaDataTableImpl<EventDefinitionPointer> _eventPointers;
+      private readonly MetaDataTableImpl<PropertyDefinitionPointer> _propertyPointers;
       private readonly MetaDataTableImpl<AssemblyDefinitionProcessor> _assemblyDefinitionProcessors;
       private readonly MetaDataTableImpl<AssemblyDefinitionOS> _assemblyDefinitionOSs;
       private readonly MetaDataTableImpl<AssemblyReferenceProcessor> _assemblyReferenceProcessors;
@@ -89,7 +89,7 @@ namespace CILAssemblyManipulator.Physical.Implementation
          this._fieldDefinitions = new MetaDataTableImpl<FieldDefinition>( Tables.Field, sizes[(Int32) Tables.Field] );
          this._methodDefinitionPointers = new MetaDataTableImpl<MethodDefinitionPointer>( Tables.MethodPtr, sizes[(Int32) Tables.MethodPtr] );
          this._methodDefinitions = new MetaDataTableImpl<MethodDefinition>( Tables.MethodDef, sizes[(Int32) Tables.MethodDef] );
-         this._parameterDefinitionPointers = new MetaDataTableImpl<ParameterPointer>( Tables.ParameterPtr, sizes[(Int32) Tables.ParameterPtr] );
+         this._parameterDefinitionPointers = new MetaDataTableImpl<ParameterDefinitionPointer>( Tables.ParameterPtr, sizes[(Int32) Tables.ParameterPtr] );
          this._parameterDefinitions = new MetaDataTableImpl<ParameterDefinition>( Tables.Parameter, sizes[(Int32) Tables.Parameter] );
          this._interfaceImplementations = new MetaDataTableImpl<InterfaceImplementation>( Tables.InterfaceImpl, sizes[(Int32) Tables.InterfaceImpl] );
          this._memberReferences = new MetaDataTableImpl<MemberReference>( Tables.MemberRef, sizes[(Int32) Tables.MemberRef] );
@@ -101,10 +101,10 @@ namespace CILAssemblyManipulator.Physical.Implementation
          this._fieldLayouts = new MetaDataTableImpl<FieldLayout>( Tables.FieldLayout, sizes[(Int32) Tables.FieldLayout] );
          this._standaloneSignatures = new MetaDataTableImpl<StandaloneSignature>( Tables.StandaloneSignature, sizes[(Int32) Tables.StandaloneSignature] );
          this._eventMaps = new MetaDataTableImpl<EventMap>( Tables.EventMap, sizes[(Int32) Tables.EventMap] );
-         this._eventPointers = new MetaDataTableImpl<EventPointer>( Tables.EventPtr, sizes[(Int32) Tables.EventPtr] );
+         this._eventPointers = new MetaDataTableImpl<EventDefinitionPointer>( Tables.EventPtr, sizes[(Int32) Tables.EventPtr] );
          this._eventDefinitions = new MetaDataTableImpl<EventDefinition>( Tables.Event, sizes[(Int32) Tables.Event] );
          this._propertyMaps = new MetaDataTableImpl<PropertyMap>( Tables.PropertyMap, sizes[(Int32) Tables.PropertyMap] );
-         this._propertyPointers = new MetaDataTableImpl<PropertyPointer>( Tables.PropertyPtr, sizes[(Int32) Tables.PropertyPtr] );
+         this._propertyPointers = new MetaDataTableImpl<PropertyDefinitionPointer>( Tables.PropertyPtr, sizes[(Int32) Tables.PropertyPtr] );
          this._propertyDefinitions = new MetaDataTableImpl<PropertyDefinition>( Tables.Property, sizes[(Int32) Tables.Property] );
          this._methodSemantics = new MetaDataTableImpl<MethodSemantics>( Tables.MethodSemantics, sizes[(Int32) Tables.MethodSemantics] );
          this._methodImplementations = new MetaDataTableImpl<MethodImplementation>( Tables.MethodImpl, sizes[(Int32) Tables.MethodImpl] );
@@ -435,7 +435,7 @@ namespace CILAssemblyManipulator.Physical.Implementation
          }
       }
 
-      public MetaDataTable<ParameterPointer> ParameterDefinitionPointers
+      public MetaDataTable<ParameterDefinitionPointer> ParameterDefinitionPointers
       {
          get
          {
@@ -443,7 +443,7 @@ namespace CILAssemblyManipulator.Physical.Implementation
          }
       }
 
-      public MetaDataTable<EventPointer> EventPointers
+      public MetaDataTable<EventDefinitionPointer> EventDefinitionPointers
       {
          get
          {
@@ -451,7 +451,7 @@ namespace CILAssemblyManipulator.Physical.Implementation
          }
       }
 
-      public MetaDataTable<PropertyPointer> PropertyPointers
+      public MetaDataTable<PropertyDefinitionPointer> PropertyDefinitionPointers
       {
          get
          {
