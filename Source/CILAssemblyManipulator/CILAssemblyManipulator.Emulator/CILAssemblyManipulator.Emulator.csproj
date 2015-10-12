@@ -65,10 +65,9 @@
     <Compile Include="..\..\AssemblyInfo\$(AssemblyName).cs">
       <Link>Properties\$(AssemblyName).AssemblyInfo.cs</Link>
     </Compile>
+    <Compile Include="Data.cs" />
   </ItemGroup>
-  
   <Import Project="$(MSBuildExtensionsPath32)\Microsoft\Portable\$(TargetFrameworkVersion)\Microsoft.Portable.CSharp.targets" />
-  
   <PropertyGroup Condition=" '$(UseUtilpackReference)' != '' ">
     <SignAssembly>true</SignAssembly>
     <KeyFilePath>$(MSBuildThisFileDirectory)..\..\..\Keys\CAM.snk</KeyFilePath>
@@ -76,7 +75,6 @@
   </PropertyGroup>
   <!-- Create .snk file if it doesn't exist to ensure smooth build -->
   <Import Project="$(MSBuildThisFileDirectory)../../../CommonBuildTools/CLR/MSBuild/CreateKeyFileIfNeeded.targets" />
-  
   <!-- Assembly information -->
   <PropertyGroup>
     <AssemblyInfoCLSCompliant>true</AssemblyInfoCLSCompliant>
