@@ -1031,6 +1031,16 @@ namespace CILAssemblyManipulator.Physical
                && Equals( this._information, other._information );
       }
 
+      public static Boolean operator ==( AssemblyInformationForResolving x, AssemblyInformationForResolving y )
+      {
+         return x.Equals( y );
+      }
+
+      public static Boolean operator !=( AssemblyInformationForResolving x, AssemblyInformationForResolving y )
+      {
+         return !( x == y );
+      }
+
       private static Boolean Equals( AssemblyInformation x, AssemblyInformation y )
       {
          return Object.ReferenceEquals( x, y )

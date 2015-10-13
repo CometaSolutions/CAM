@@ -22,26 +22,18 @@ using System.Text;
 
 namespace CILAssemblyManipulator.Physical.IO
 {
-   public class WritingData
+   public interface MetaDataIOReaderFunctionalityProvider
    {
 
-      public WritingData( CILMetaData md )
-      {
-         this.MethodRVAs = new List<Int32>( md.MethodDefinitions.RowCount );
-         this.FieldRVAs = new List<Int32>( md.FieldRVAs.RowCount );
-         this.EmbeddedManifestResourceOffsets = new List<Int32?>( md.ManifestResources.RowCount );
-      }
-      // PE Header 
-      // Sections
-      // MD Header
-      // W32 Resources
-      // Relocation data
-
-      public List<Int32> MethodRVAs { get; }
-
-      public List<Int32> FieldRVAs { get; }
-
-      public List<Int32?> EmbeddedManifestResourceOffsets { get; }
    }
 
+   public interface MetaDataIOReaderFunctionality
+   {
+
+   }
+
+   public interface MetaDataIOReaderILHandler
+   {
+
+   }
 }

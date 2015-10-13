@@ -17,31 +17,26 @@
  */
 using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
 using System.Text;
 
 namespace CILAssemblyManipulator.Physical.IO
 {
-   public class WritingData
+   public class DosHeader
    {
-
-      public WritingData( CILMetaData md )
+      public DosHeader( Int16 signature, Int32 ntHeadersOffset )
       {
-         this.MethodRVAs = new List<Int32>( md.MethodDefinitions.RowCount );
-         this.FieldRVAs = new List<Int32>( md.FieldRVAs.RowCount );
-         this.EmbeddedManifestResourceOffsets = new List<Int32?>( md.ManifestResources.RowCount );
+         this.Signature = signature;
+         this.NTHeadersOffset = ntHeadersOffset;
       }
-      // PE Header 
-      // Sections
-      // MD Header
-      // W32 Resources
-      // Relocation data
+      public Int16 Signature { get; }
+      public Int32 NTHeadersOffset { get; }
 
-      public List<Int32> MethodRVAs { get; }
+      public static DosHeader FromStream( Stream stream )
+      {
 
-      public List<Int32> FieldRVAs { get; }
+      }
 
-      public List<Int32?> EmbeddedManifestResourceOffsets { get; }
    }
-
 }

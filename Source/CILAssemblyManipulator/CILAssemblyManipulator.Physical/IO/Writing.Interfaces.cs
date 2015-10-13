@@ -36,7 +36,6 @@ namespace CILAssemblyManipulator.Physical.IO
 
    public interface MetaDataIOWriterFunctionality
    {
-      //CILMetaData PreProcessMetaData( CILMetaData md );
       MetaDataIOWriterILHandler CreateILHandler();
 
       MetaDataIOWriterConstantsHandler CreateConstantsHandler();

@@ -121,6 +121,12 @@
     <Compile Include="Utils.cs" />
     <Compile Include="Utils_New.cs" />
   </ItemGroup>
+  <ItemGroup>
+    <Compile Include="IO\Reading.Interfaces.cs" />
+  </ItemGroup>
+  <ItemGroup>
+    <Compile Include="IO\Reading.Data.cs" />
+  </ItemGroup>
   <PropertyGroup Condition=" '$(UseUtilpackReference)' != '' ">
     <SignAssembly>true</SignAssembly>
     <KeyFilePath>$(MSBuildThisFileDirectory)..\..\..\Keys\CAM.snk</KeyFilePath>

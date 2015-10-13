@@ -24,6 +24,11 @@ namespace CILAssemblyManipulator.Emulator
 {
    public class EmulationState
    {
+      public EmulationState()
+      {
+         this.Stack = new Stack<StackVariable>();
+      }
+
       public Stack<StackVariable> Stack { get; }
 
 
@@ -43,7 +48,7 @@ namespace CILAssemblyManipulator.Emulator
       Dynamic
    }
 
-   public struct StackVariableSimpl : StackVariable
+   public struct StackVariableSimple : StackVariable
    {
 
    }

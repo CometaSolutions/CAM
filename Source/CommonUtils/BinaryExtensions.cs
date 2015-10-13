@@ -197,15 +197,17 @@ public static partial class E_CommonUtils
    /// <exception cref="NullReferenceException">If <paramref name="stream"/> is <c>null</c>.</exception>
    public static Byte[] ReadUntilTheEnd( this Stream stream, Byte[] buffer = null )
    {
-      Int64 arrayLen;
-      try
+      Int64 arrayLen = -1;
+      if ( stream.CanSeek )
       {
-         arrayLen = stream.Length - stream.Position;
-      }
-      catch ( NotSupportedException )
-      {
-         // stream can't be queried for length or position
-         arrayLen = -1;
+         try
+         {
+            arrayLen = stream.Length - stream.Position;
+         }
+         catch ( NotSupportedException )
+         {
+            // stream can't be queried for length or position
+         }
       }
 
       Byte[] retVal;
