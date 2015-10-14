@@ -66,6 +66,7 @@
       <Link>Properties\$(AssemblyName).AssemblyInfo.cs</Link>
     </Compile>
     <Compile Include="Data.cs" />
+    <Compile Include="Execution.cs" />
   </ItemGroup>
   <Import Project="$(MSBuildExtensionsPath32)\Microsoft\Portable\$(TargetFrameworkVersion)\Microsoft.Portable.CSharp.targets" />
   <PropertyGroup Condition=" '$(UseUtilpackReference)' != '' ">

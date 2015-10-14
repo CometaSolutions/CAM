@@ -1,6 +1,4 @@
-﻿using CILAssemblyManipulator.Physical;
-using CILAssemblyManipulator.Physical.IO;
-/*
+﻿/*
 * Copyright 2015 Stanislav Muhametsin. All rights Reserved.
 *
 * Licensed  under the  Apache License,  Version 2.0  (the "License");
@@ -17,6 +15,8 @@ using CILAssemblyManipulator.Physical.IO;
 * See the License for the specific language governing permissions and
 * limitations under the License. 
 */
+using CILAssemblyManipulator.Physical;
+using CILAssemblyManipulator.Physical.IO;
 using CommonUtils;
 using System;
 using System.Collections.Generic;
@@ -610,7 +610,7 @@ namespace CILAssemblyManipulator.Physical
 
       public CryptoCallbacks CryptoCallbacks { get; set; }
 
-      public MetaDataIOWriterFunctionalityProvider WriterFunctionality { get; set; }
+      public WriterFunctionalityProvider WriterFunctionality { get; set; }
 
    }
 
@@ -643,6 +643,12 @@ namespace CILAssemblyManipulator.Physical
       }
    }
 
+   //[AttributeUsage( AttributeTargets.Property | AttributeTargets.ReturnValue | AttributeTargets.Parameter, AllowMultiple = false )]
+   //public sealed class InterpretAsUnsignedAttribute : Attribute
+   //{
+
+   //}
+
 }
 
 public static partial class E_CILPhysical
@@ -659,7 +665,7 @@ public static partial class E_CILPhysical
          eArgs.Headers = new HeadersData();
       }
 
-      var writerProvider = eArgs.WriterFunctionality ?? new DefaultMetaDataIOWriterFunctionalityProvider();
+      var writerProvider = eArgs.WriterFunctionality ?? new DefaultWriterFunctionalityProvider();
       CILMetaData newMD;
       var writer = writerProvider.GetFunctionality( md, eArgs.Headers, out newMD );
 

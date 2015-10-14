@@ -107,6 +107,7 @@
     <Compile Include="Implementation\Module.Reading.cs" />
     <Compile Include="Implementation\Module.cs" />
     <Compile Include="Implementation\Module.Writing.cs" />
+    <Compile Include="IO\Headers.cs" />
     <Compile Include="IO\Writing.Defaults.cs" />
     <Compile Include="IO\Writing.Interfaces.cs" />
     <Compile Include="IO\Writing.Data.cs" />

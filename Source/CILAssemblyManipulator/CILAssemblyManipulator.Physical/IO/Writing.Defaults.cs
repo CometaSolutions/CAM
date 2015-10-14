@@ -27,58 +27,59 @@ using CILAssemblyManipulator.Physical;
 
 namespace CILAssemblyManipulator.Physical.IO
 {
-   public class DefaultMetaDataIOWriterFunctionalityProvider : MetaDataIOWriterFunctionalityProvider
+   public class DefaultWriterFunctionalityProvider : WriterFunctionalityProvider
    {
-      public MetaDataIOWriterFunctionality GetFunctionality(
+      public virtual WriterFunctionality GetFunctionality(
          CILMetaData md,
          HeadersData headers,
          out CILMetaData newMD
          )
       {
          newMD = null;
-         return new DefaultMetaDataIOWriterFunctionality( md, headers );
+         return new DefaultWriterFunctionality( md, headers );
       }
    }
 
-   public class DefaultMetaDataIOWriterFunctionality : MetaDataIOWriterFunctionality
+   public class DefaultWriterFunctionality : WriterFunctionality
    {
-      private readonly CILMetaData _md;
       private readonly HeadersData _headers;
 
-      public DefaultMetaDataIOWriterFunctionality(
+      public DefaultWriterFunctionality(
          CILMetaData md,
          HeadersData headers
          )
       {
-         this._md = md;
+         this.MetaData = md;
          this._headers = headers;
       }
 
-      public MetaDataIOWriterConstantsHandler CreateConstantsHandler()
+      public virtual WriterConstantsHandler CreateConstantsHandler()
       {
-         return new DefaultMetaDataIOWriterConstantsHandler();
+         return new DefaultWriterConstantsHandler();
       }
 
-      public MetaDataIOWriterILHandler CreateILHandler()
+      public virtual WriterILHandler CreateILHandler()
       {
-         return new DefaultMetaDataIOWriterILHandler( this._md );
+         return new DefaultWriterILHandler( this.MetaData );
       }
 
-      public MetaDataIOWriterManifestResourceHandler CreateManifestResourceHandler()
+      public virtual WriterManifestResourceHandler CreateManifestResourceHandler()
       {
-         return new DefaultMetaDataIOWriterManifestResourceHandler();
+         return new DefaultWriterManifestResourceHandler();
       }
 
-      public IEnumerable<AbstractMetaDataIOWriterStreamHandler> CreateStreamHandlers( WritingData writingData )
+      public virtual IEnumerable<AbstractWriterStreamHandler> CreateStreamHandlers( WritingData writingData )
       {
-         yield return new DefaultMetaDataIOWriterTableStreamHandler( this._md, writingData, this._headers );
-         yield return new DefaultMetaDataIOWriterSystemStringStreamHandler();
-         yield return new DefaultMetaDataIOWriterBLOBStreamHandler();
-         yield return new DefaultMetaDataIOWriterGuidStreamHandler();
-         yield return new DefaultMetaDataIOWriterUserStringStreamHandler();
+         yield return new DefaultWriterTableStreamHandler( this.MetaData, writingData, this._headers );
+         yield return new DefaultWriterSystemStringStreamHandler();
+         yield return new DefaultWriterBLOBStreamHandler();
+         yield return new DefaultWriterGuidStreamHandler();
+         yield return new DefaultWriterUserStringStreamHandler();
       }
+
+      protected CILMetaData MetaData { get; }
    }
-   public class DefaultMetaDataIOWriterILHandler : MetaDataIOWriterILHandler
+   public class DefaultWriterILHandler : WriterILHandler
    {
       private const Int32 METHOD_DATA_SECTION_HEADER_SIZE = 4;
       private const Int32 SMALL_EXC_BLOCK_SIZE = 12;
@@ -89,7 +90,7 @@ namespace CILAssemblyManipulator.Physical.IO
 
       private readonly CILMetaData _md;
 
-      public DefaultMetaDataIOWriterILHandler( CILMetaData md )
+      public DefaultWriterILHandler( CILMetaData md )
       {
          ArgumentValidator.ValidateNotNull( "Meta data", md );
 
@@ -98,7 +99,7 @@ namespace CILAssemblyManipulator.Physical.IO
       public virtual Int32 WriteMethodIL(
          ResizableArray<Byte> sink,
          MethodILDefinition il,
-         MetaDataIOWriterStringStreamHandler userStrings,
+         WriterStringStreamHandler userStrings,
          out Boolean isTinyHeader
          )
       {
@@ -231,7 +232,7 @@ namespace CILAssemblyManipulator.Physical.IO
          OpCodeInfo codeInfo,
          Byte[] array,
          ref Int32 idx,
-         MetaDataIOWriterStringStreamHandler usersStrings
+         WriterStringStreamHandler usersStrings
          )
       {
          const Int32 USER_STRING_MASK = 0x70 << 24;
@@ -369,9 +370,9 @@ namespace CILAssemblyManipulator.Physical.IO
       }
    }
 
-   public class DefaultMetaDataIOWriterManifestResourceHandler : MetaDataIOWriterManifestResourceHandler
+   public class DefaultWriterManifestResourceHandler : WriterManifestResourceHandler
    {
-      public Int32 WriteEmbeddedManifestResource( ResizableArray<Byte> sink, Byte[] resource )
+      public virtual Int32 WriteEmbeddedManifestResource( ResizableArray<Byte> sink, Byte[] resource )
       {
          var idx = 0;
          sink.CurrentMaxCapacity = resource.Length + sizeof( Int32 );
@@ -382,9 +383,9 @@ namespace CILAssemblyManipulator.Physical.IO
       }
    }
 
-   public class DefaultMetaDataIOWriterConstantsHandler : MetaDataIOWriterConstantsHandler
+   public class DefaultWriterConstantsHandler : WriterConstantsHandler
    {
-      public Int32 WriteConstant( ResizableArray<Byte> sink, Byte[] constant )
+      public virtual Int32 WriteConstant( ResizableArray<Byte> sink, Byte[] constant )
       {
          var idx = 0;
          sink.WriteArray( ref idx, constant );
@@ -392,13 +393,13 @@ namespace CILAssemblyManipulator.Physical.IO
       }
    }
 
-   public abstract class AbstractMetaDataIOWriterStreamHandlerImpl : AbstractMetaDataIOWriterStreamHandler
+   public abstract class AbstractWriterStreamHandlerImpl : AbstractWriterStreamHandler
    {
       private readonly UInt32 _startingIndex;
       [CLSCompliant( false )]
       protected UInt32 curIndex;
 
-      internal AbstractMetaDataIOWriterStreamHandlerImpl( UInt32 startingIndex )
+      internal AbstractWriterStreamHandlerImpl( UInt32 startingIndex )
       {
          this._startingIndex = startingIndex;
          this.curIndex = startingIndex;
@@ -425,19 +426,19 @@ namespace CILAssemblyManipulator.Physical.IO
       }
    }
 
-   internal class DefaultMetaDataIOWriterBLOBStreamHandler : AbstractMetaDataIOWriterStreamHandlerImpl, MetaDataIOWriterBLOBStreamHandler
+   internal class DefaultWriterBLOBStreamHandler : AbstractWriterStreamHandlerImpl, WriterBLOBStreamHandler
    {
       private readonly IDictionary<Byte[], UInt32> _blobIndices;
       private readonly IList<Byte[]> _blobs;
 
-      internal DefaultMetaDataIOWriterBLOBStreamHandler()
+      internal DefaultWriterBLOBStreamHandler()
          : base( 1 )
       {
          this._blobIndices = new Dictionary<Byte[], UInt32>( ArrayEqualityComparer<Byte>.DefaultArrayEqualityComparer );
          this._blobs = new List<Byte[]>();
       }
 
-      public override string StreamName
+      public override String StreamName
       {
          get
          {
@@ -490,11 +491,11 @@ namespace CILAssemblyManipulator.Physical.IO
       }
    }
 
-   public class DefaultMetaDataIOWriterGuidStreamHandler : AbstractMetaDataIOWriterStreamHandlerImpl, MetaDataIOWriterGuidStreamHandler
+   public class DefaultWriterGuidStreamHandler : AbstractWriterStreamHandlerImpl, WriterGuidStreamHandler
    {
       private readonly IDictionary<Guid, UInt32> _guids;
 
-      internal DefaultMetaDataIOWriterGuidStreamHandler()
+      internal DefaultWriterGuidStreamHandler()
          : base( 0 )
       {
          this._guids = new Dictionary<Guid, UInt32>();
@@ -540,12 +541,12 @@ namespace CILAssemblyManipulator.Physical.IO
       }
    }
 
-   public abstract class AbstractMetaDataIOWriterStringStreamHandlerImpl : AbstractMetaDataIOWriterStreamHandlerImpl, MetaDataIOWriterStringStreamHandler
+   public abstract class AbstractWriterStringStreamHandlerImpl : AbstractWriterStreamHandlerImpl, WriterStringStreamHandler
    {
       private readonly IDictionary<String, KeyValuePair<UInt32, Int32>> _strings;
       private readonly Encoding _encoding;
 
-      internal AbstractMetaDataIOWriterStringStreamHandlerImpl( Encoding encoding )
+      internal AbstractWriterStringStreamHandlerImpl( Encoding encoding )
          : base( 1 )
       {
          this._encoding = encoding;
@@ -625,9 +626,9 @@ namespace CILAssemblyManipulator.Physical.IO
       protected abstract void Serialize( String str, ResizableArray<Byte> byteArrayHelper );
    }
 
-   public class DefaultMetaDataIOWriterUserStringStreamHandler : AbstractMetaDataIOWriterStringStreamHandlerImpl
+   public class DefaultWriterUserStringStreamHandler : AbstractWriterStringStreamHandlerImpl
    {
-      internal DefaultMetaDataIOWriterUserStringStreamHandler()
+      internal DefaultWriterUserStringStreamHandler()
          : base( MetaDataConstants.USER_STRING_ENCODING )
       {
 
@@ -682,9 +683,9 @@ namespace CILAssemblyManipulator.Physical.IO
 
    }
 
-   public class DefaultMetaDataIOWriterSystemStringStreamHandler : AbstractMetaDataIOWriterStringStreamHandlerImpl
+   public class DefaultWriterSystemStringStreamHandler : AbstractWriterStringStreamHandlerImpl
    {
-      public DefaultMetaDataIOWriterSystemStringStreamHandler()
+      public DefaultWriterSystemStringStreamHandler()
          : base( MetaDataConstants.SYS_STRING_ENCODING )
       {
 
@@ -714,7 +715,7 @@ namespace CILAssemblyManipulator.Physical.IO
       }
    }
 
-   public class DefaultMetaDataIOWriterTableStreamHandler : MetaDataIOWriterTableStreamHandler
+   public class DefaultWriterTableStreamHandler : WriterTableStreamHandler
    {
       private const Int32 TABLE_STREAM_RESERVED = 0;
       private const Byte TABLE_STREAM_RESERVED_2 = 1;
@@ -864,7 +865,7 @@ namespace CILAssemblyManipulator.Physical.IO
       private readonly HeadersData _headers;
       private WriteDependantInfo _writeDependantInfo;
 
-      public DefaultMetaDataIOWriterTableStreamHandler(
+      public DefaultWriterTableStreamHandler(
          CILMetaData md,
          WritingData writingData,
          HeadersData headers
@@ -906,9 +907,9 @@ namespace CILAssemblyManipulator.Physical.IO
 
       public void FillHeaps(
          Byte[] thisAssemblyPublicKeyIfPresentNull,
-         MetaDataIOWriterBLOBStreamHandler blobs,
-         MetaDataIOWriterStringStreamHandler sysStrings,
-         MetaDataIOWriterGuidStreamHandler guids
+         WriterBLOBStreamHandler blobs,
+         WriterStringStreamHandler sysStrings,
+         WriterGuidStreamHandler guids
          )
       {
          var byteArrayHelper = new ResizableArray<Byte>();

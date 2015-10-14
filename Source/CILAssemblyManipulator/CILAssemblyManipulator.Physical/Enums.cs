@@ -806,25 +806,52 @@ namespace CILAssemblyManipulator.Physical
    /// <summary>
    /// This enumerable contains values for possible target platforms when emitting <see cref="CILMetaData"/>.
    /// </summary>
-   /// <remarks>This enumeration has same values as <c>System.Reflection.ImageFileMachine</c> enumeration. It will end up as 'Machine' field in PE file header.</remarks>
+   /// <remarks>This enumeration has same values as <c>System.Reflection.ImageFileMachine</c> enumeration, and more. It will end up as 'Machine' field in <see cref="IO.FileHeader"/>.</remarks>
    public enum ImageFileMachine : short
    {
+      Unknown = 0,
       /// <summary>
       /// Targets Intel 32-bit processor.
       /// </summary>
       I386 = 0x014C,
+      R3000 = 0x0162,
+      R4000 = 0x0166,
+      R10000 = 0x0168,
+      WCE_MIPS_v2 = 0x0169,
+      AlphaAXP = 0x0184,
+      SH3 = 0x01A2,
+      SH3DSP = 0x01A3,
+      SH3E = 0x01A4,
+      SH4 = 0x01A6,
+      SH5 = 0x01A8,
+      ARM = 0x01C0,
+      ARMThumb = 0x01C2,
       /// <summary>
-      /// Targets AMD 64-bit processor.
+      /// Targets ARM processor.
       /// </summary>
-      AMD64 = unchecked((Int16) 0x8664),
+      ARMv7 = 0x01C4,
+      ARM_AM33 = 0x01D3,
+      PowerPC = 0x01F0,
+      PowerPC_FP = 0x01F1,
       /// <summary>
       /// Targets Intel 64-bit processor.
       /// </summary>
       IA64 = 0x0200,
+      MIPS_16 = 0x0266,
+      ALPHA64 = 0x0284,
+      MIPS_FPU = 0x0366,
+      MIPS_FPU_16 = 0x0466,
+      Infineon_Tricore = 0x0520,
+      Infineon_CEF = 0x0CEF,
+      EBC = 0x0EBC,
       /// <summary>
-      /// Targets ARM processor.
+      /// Targets AMD 64-bit processor.
       /// </summary>
-      ARMv7 = 0x01C4
+      AMD64 = unchecked((Int16) 0x8664),
+      M32R = unchecked((Int16) 0x9041),
+      ARM_64 = unchecked((Int16) 0xAA64),
+      CEE = unchecked((Int16) 0xC0EE),
+
    }
 
    [Flags]
@@ -1003,11 +1030,21 @@ namespace CILAssemblyManipulator.Physical
    [Flags]
    public enum DLLFlags : short
    {
+      Reserved1 = 0x0001,
+      Reserved2 = 0x0002,
+      Reserved3 = 0x0004,
+      Reserved4 = 0x0008,
+      Reserved5 = 0x0010,
       HighEntropyVA = 0x0020,
       DynamicBase = 0x0040,
+      ForceIntegroty = 0x0080,
       NXCompatible = 0x0100,
+      NoIsolation = 0x0200,
       NoSEH = 0x0400,
+      NoBind = 0x0800,
       AppContainer = 0x1000,
+      WdmDriver = 0x2000,
+      GuardControlFlow = 0x4000,
       TerminalServerAware = unchecked((Int16) 0x8000),
    }
 

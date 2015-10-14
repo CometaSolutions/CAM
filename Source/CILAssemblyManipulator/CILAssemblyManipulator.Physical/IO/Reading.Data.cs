@@ -15,6 +15,8 @@
  * See the License for the specific language governing permissions and
  * limitations under the License. 
  */
+using CILAssemblyManipulator.Physical.IO;
+using CommonUtils;
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -23,20 +25,4 @@ using System.Text;
 
 namespace CILAssemblyManipulator.Physical.IO
 {
-   public class DosHeader
-   {
-      public DosHeader( Int16 signature, Int32 ntHeadersOffset )
-      {
-         this.Signature = signature;
-         this.NTHeadersOffset = ntHeadersOffset;
-      }
-      public Int16 Signature { get; }
-      public Int32 NTHeadersOffset { get; }
-
-      public static DosHeader FromStream( Stream stream )
-      {
-
-      }
-
-   }
 }

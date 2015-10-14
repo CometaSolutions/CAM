@@ -57,11 +57,36 @@ namespace CommonUtils
 
 public static partial class E_CommonUtils
 {
+   /// <summary>
+   /// Skips the given amount of bytes from current offset of the <see cref="StreamHelper.Stream"/>, and returns <see cref="StreamHelper"/>.
+   /// </summary>
+   /// <param name="helper">The <see cref="StreamHelper"/>.</param>
+   /// <param name="amount">The amount of bytes to skip.</param>
+   /// <returns>The <paramref name="helper"/>.</returns>
+   /// <exception cref="NullReferenceException">If <paramref name="helper"/> is <c>null</c>.</exception>
+   public static StreamHelper Skip( this StreamHelper helper, Int64 amount )
+   {
+      helper.Stream.SeekFromCurrent( amount );
+      return helper;
+   }
    private static Byte[] ReadAndReturnArray( this StreamHelper helper, Int32 amount )
    {
       var retVal = helper.Buffer;
       helper.Stream.ReadSpecificAmount( retVal, 0, amount );
       return retVal;
+   }
+
+   /// <summary>
+   /// Creates a new byte array with given size, reads it completely from stream, and returns the array.
+   /// </summary>
+   /// <param name="helper">The <see cref="StreamHelper"/>.</param>
+   /// <param name="amount">The amount of bytes to read, and subsequentially, how big the returned array will be.</param>
+   /// <returns>The byte array with contents read from stream.</returns>
+   public static Byte[] ReadAndCreateArray( this StreamHelper helper, Int32 amount )
+   {
+      var bytez = new Byte[amount];
+      helper.Stream.ReadWholeArray( bytez );
+      return bytez;
    }
 
    /// <summary>

@@ -64,7 +64,12 @@ namespace CILAssemblyManipulator.Physical
       }
    }
 
-   public abstract class AbstractMethodSignature : AbstractSignature
+   public abstract class AbstractNotRawSignature : AbstractSignature
+   {
+      public Byte[] ExtraData { get; set; }
+   }
+
+   public abstract class AbstractMethodSignature : AbstractNotRawSignature
    {
       private readonly List<ParameterSignature> _parameters;
 
@@ -287,7 +292,7 @@ namespace CILAssemblyManipulator.Physical
       }
    }
 
-   public abstract class AbstractSignatureWithCustomMods : AbstractSignature
+   public abstract class AbstractSignatureWithCustomMods : AbstractNotRawSignature
    {
       private readonly List<CustomModifierSignature> _customMods;
 
@@ -420,7 +425,7 @@ namespace CILAssemblyManipulator.Physical
       }
    }
 
-   public sealed class LocalVariablesSignature : AbstractSignature
+   public sealed class LocalVariablesSignature : AbstractNotRawSignature
    {
       private readonly List<LocalVariableSignature> _locals;
 
@@ -577,7 +582,7 @@ namespace CILAssemblyManipulator.Physical
       }
    }
 
-   public abstract class TypeSignature : AbstractSignature
+   public abstract class TypeSignature : AbstractNotRawSignature
    {
       // Disable inheritance to other assemblies
       internal TypeSignature()
@@ -967,7 +972,7 @@ namespace CILAssemblyManipulator.Physical
       }
    }
 
-   public sealed class GenericMethodSignature : AbstractSignature
+   public sealed class GenericMethodSignature : AbstractNotRawSignature
    {
       private readonly List<TypeSignature> _genericArguments;
 

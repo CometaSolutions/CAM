@@ -17,36 +17,10 @@
  */
 using System;
 using System.Collections.Generic;
-using System.IO;
 using System.Linq;
 using System.Text;
 
-//using TRVA = System.UInt32;
-
-namespace CILAssemblyManipulator.Physical.IO
+namespace CILAssemblyManipulator.Emulator
 {
-   public interface ReaderFunctionalityProvider
-   {
-      ReaderFunctionality GetFunctionality(
-         Stream stream,
-         out Stream newStream
-         );
-   }
 
-   public interface ReaderFunctionality
-   {
-      RVAConverter CreateRVAConverter( PEInformation peImage );
-   }
-
-   public interface RVAConverter
-   {
-      Int64 ToRVA( Int64 offset );
-
-      Int64 ToOffset( Int64 rva );
-   }
-
-   public interface ReaderILHandler
-   {
-
-   }
 }

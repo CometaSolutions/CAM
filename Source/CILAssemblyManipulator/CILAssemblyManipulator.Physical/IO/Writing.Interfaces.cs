@@ -25,37 +25,37 @@ using System.Text;
 
 namespace CILAssemblyManipulator.Physical.IO
 {
-   public interface MetaDataIOWriterFunctionalityProvider
+   public interface WriterFunctionalityProvider
    {
-      MetaDataIOWriterFunctionality GetFunctionality(
+      WriterFunctionality GetFunctionality(
          CILMetaData md,
          HeadersData headers,
          out CILMetaData newMD
          );
    }
 
-   public interface MetaDataIOWriterFunctionality
+   public interface WriterFunctionality
    {
-      MetaDataIOWriterILHandler CreateILHandler();
+      WriterILHandler CreateILHandler();
 
-      MetaDataIOWriterConstantsHandler CreateConstantsHandler();
+      WriterConstantsHandler CreateConstantsHandler();
 
-      MetaDataIOWriterManifestResourceHandler CreateManifestResourceHandler();
+      WriterManifestResourceHandler CreateManifestResourceHandler();
 
-      IEnumerable<AbstractMetaDataIOWriterStreamHandler> CreateStreamHandlers( WritingData writingData );
+      IEnumerable<AbstractWriterStreamHandler> CreateStreamHandlers( WritingData writingData );
    }
 
-   public interface MetaDataIOWriterILHandler
+   public interface WriterILHandler
    {
       Int32 WriteMethodIL(
          ResizableArray<Byte> sink,
          MethodILDefinition il,
-         MetaDataIOWriterStringStreamHandler userStrings,
+         WriterStringStreamHandler userStrings,
          out Boolean isTinyHeader
          );
    }
 
-   public interface MetaDataIOWriterManifestResourceHandler
+   public interface WriterManifestResourceHandler
    {
       Int32 WriteEmbeddedManifestResource(
          ResizableArray<Byte> sink,
@@ -63,7 +63,7 @@ namespace CILAssemblyManipulator.Physical.IO
          );
    }
 
-   public interface MetaDataIOWriterConstantsHandler
+   public interface WriterConstantsHandler
    {
       Int32 WriteConstant(
          ResizableArray<Byte> sink,
@@ -71,7 +71,7 @@ namespace CILAssemblyManipulator.Physical.IO
          );
    }
 
-   public interface AbstractMetaDataIOWriterStreamHandler
+   public interface AbstractWriterStreamHandler
    {
       String StreamName { get; }
 
@@ -85,32 +85,32 @@ namespace CILAssemblyManipulator.Physical.IO
       Boolean Accessed { get; }
    }
 
-   public interface MetaDataIOWriterTableStreamHandler : AbstractMetaDataIOWriterStreamHandler
+   public interface WriterTableStreamHandler : AbstractWriterStreamHandler
    {
       void FillHeaps(
          Byte[] thisAssemblyPublicKeyIfPresentNull,
-         MetaDataIOWriterBLOBStreamHandler blobs,
-         MetaDataIOWriterStringStreamHandler sysStrings,
-         MetaDataIOWriterGuidStreamHandler guids
+         WriterBLOBStreamHandler blobs,
+         WriterStringStreamHandler sysStrings,
+         WriterGuidStreamHandler guids
          );
    }
 
-   public interface MetaDataIOWriterBLOBStreamHandler : AbstractMetaDataIOWriterStreamHandler
+   public interface WriterBLOBStreamHandler : AbstractWriterStreamHandler
    {
       Int32 RegisterBLOB( Byte[] blob );
    }
 
-   public interface MetaDataIOWriterStringStreamHandler : AbstractMetaDataIOWriterStreamHandler
+   public interface WriterStringStreamHandler : AbstractWriterStreamHandler
    {
       Int32 RegisterString( String systemString );
    }
 
-   public interface MetaDataIOWriterGuidStreamHandler : AbstractMetaDataIOWriterStreamHandler
+   public interface WriterGuidStreamHandler : AbstractWriterStreamHandler
    {
       Int32 RegisterGUID( Guid? guid );
    }
 
-   public interface MetaDataIOWriterCustomStreamHandler : AbstractMetaDataIOWriterStreamHandler
+   public interface WriterCustomStreamHandler : AbstractWriterStreamHandler
    {
    }
 }
@@ -118,7 +118,7 @@ namespace CILAssemblyManipulator.Physical.IO
 
 public static partial class E_CILPhysical
 {
-   public static Boolean IsWide( this AbstractMetaDataIOWriterStreamHandler stream )
+   public static Boolean IsWide( this AbstractWriterStreamHandler stream )
    {
       return stream.CurrentSize > UInt16.MaxValue;
    }

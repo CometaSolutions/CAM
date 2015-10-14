@@ -70,7 +70,7 @@ namespace CILAssemblyManipulator.Physical.Implementation
       private static readonly Encoding MetaDataStringEncoding = new UTF8Encoding( false, true );
 
       internal static void WriteToStream(
-         MetaDataIOWriterFunctionality writer,
+         WriterFunctionality writer,
          CILMetaData md,
          EmittingArguments eArgs,
          Stream sink
@@ -238,10 +238,10 @@ namespace CILAssemblyManipulator.Physical.Implementation
          var writeData = new WritingData( md );
          var currentOffset = iatSize + snSize + snPadding + HeaderFieldOffsetsAndLengths.CLI_HEADER_SIZE;
          var mdStreamHandlers = writer.CreateStreamHandlers( writeData ).ToList();
-         var usersStrings = mdStreamHandlers.FirstOfTypeOrAddDefault<AbstractMetaDataIOWriterStreamHandler, MetaDataIOWriterStringStreamHandler>(
+         var usersStrings = mdStreamHandlers.FirstOfTypeOrAddDefault<AbstractWriterStreamHandler, WriterStringStreamHandler>(
             -1,
             mds => String.Equals( mds.StreamName, MetaDataConstants.USER_STRING_STREAM_NAME ),
-            () => new DefaultMetaDataIOWriterUserStringStreamHandler()
+            () => new DefaultWriterUserStringStreamHandler()
             );
 
          WriteMethodDefsIL(
@@ -624,8 +624,8 @@ namespace CILAssemblyManipulator.Physical.Implementation
          ResizableArray<Byte> byteArrayHelper,
          List<Int32> methodRVAs,
          ref UInt32 currentOffset,
-         MetaDataIOWriterILHandler ilHandler,
-         MetaDataIOWriterStringStreamHandler userStrings
+         WriterILHandler ilHandler,
+         WriterStringStreamHandler userStrings
          )
       {
          // Create users string heap
@@ -665,8 +665,8 @@ namespace CILAssemblyManipulator.Physical.Implementation
 
       private static void WriteDataBeforeMD(
          CILMetaData md,
-         MetaDataIOWriterManifestResourceHandler resourceHandler,
-         MetaDataIOWriterConstantsHandler constsHandler,
+         WriterManifestResourceHandler resourceHandler,
+         WriterConstantsHandler constsHandler,
          Stream sink,
          UInt32 codeSectionVirtualOffset,
          Boolean isPE64,
@@ -741,7 +741,7 @@ namespace CILAssemblyManipulator.Physical.Implementation
 
       //This assumes that sink offset is at multiple of 4.
       private static UInt32 WriteMetaData(
-         IList<AbstractMetaDataIOWriterStreamHandler> streamHandlers,
+         IList<AbstractWriterStreamHandler> streamHandlers,
          WritingData imageData,
          CILMetaData md,
          Stream sink,
@@ -758,25 +758,25 @@ namespace CILAssemblyManipulator.Physical.Implementation
          }
 
          // ECMA-335, pp. 271-272
-         var tableStream = streamHandlers.FirstOfTypeOrAddDefault<AbstractMetaDataIOWriterStreamHandler, MetaDataIOWriterTableStreamHandler>(
+         var tableStream = streamHandlers.FirstOfTypeOrAddDefault<AbstractWriterStreamHandler, WriterTableStreamHandler>(
             0,
             null,
-            () => new DefaultMetaDataIOWriterTableStreamHandler( md, imageData, headers )
+            () => new DefaultWriterTableStreamHandler( md, imageData, headers )
             );
-         var blobs = streamHandlers.FirstOfTypeOrAddDefault<AbstractMetaDataIOWriterStreamHandler, MetaDataIOWriterBLOBStreamHandler>(
+         var blobs = streamHandlers.FirstOfTypeOrAddDefault<AbstractWriterStreamHandler, WriterBLOBStreamHandler>(
             -1,
             mds => String.Equals( MetaDataConstants.BLOB_STREAM_NAME, mds.StreamName ),
-            () => new DefaultMetaDataIOWriterBLOBStreamHandler()
+            () => new DefaultWriterBLOBStreamHandler()
             );
-         var sysStrings = streamHandlers.FirstOfTypeOrAddDefault<AbstractMetaDataIOWriterStreamHandler, MetaDataIOWriterStringStreamHandler>(
+         var sysStrings = streamHandlers.FirstOfTypeOrAddDefault<AbstractWriterStreamHandler, WriterStringStreamHandler>(
             -1,
             mds => String.Equals( MetaDataConstants.SYS_STRING_STREAM_NAME, mds.StreamName ),
-            () => new DefaultMetaDataIOWriterSystemStringStreamHandler()
+            () => new DefaultWriterSystemStringStreamHandler()
             );
-         var guids = streamHandlers.FirstOfTypeOrAddDefault<AbstractMetaDataIOWriterStreamHandler, MetaDataIOWriterGuidStreamHandler>(
+         var guids = streamHandlers.FirstOfTypeOrAddDefault<AbstractWriterStreamHandler, WriterGuidStreamHandler>(
             -1,
             mds => String.Equals( MetaDataConstants.GUID_STREAM_NAME, mds.StreamName ),
-            () => new DefaultMetaDataIOWriterGuidStreamHandler()
+            () => new DefaultWriterGuidStreamHandler()
             );
 
          tableStream.FillHeaps( thisAssemblyPublicKey, blobs, sysStrings, guids );

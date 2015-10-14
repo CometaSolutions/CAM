@@ -267,6 +267,8 @@ namespace CILAssemblyManipulator.Physical.Implementation
             headers = new HeadersData( false );
          }
 
+         //var helper = new StreamHelper( stream );
+
          Byte[] tmpArray = new Byte[8];
 
          // DOS header, skip to lfa new

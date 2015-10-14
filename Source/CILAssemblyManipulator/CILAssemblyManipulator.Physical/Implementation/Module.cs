@@ -63,12 +63,12 @@ namespace CILAssemblyManipulator.Physical.Implementation
       private readonly MetaDataTableImpl<GenericParameterConstraintDefinition> _genericParameterConstraintDefinitions;
       private readonly MetaDataTableImpl<EditAndContinueLog> _editAndContinueLog;
       private readonly MetaDataTableImpl<EditAndContinueMap> _editAndContinueMap;
-#pragma warning disable 618
       private readonly MetaDataTableImpl<FieldDefinitionPointer> _fieldDefinitionPointers;
       private readonly MetaDataTableImpl<MethodDefinitionPointer> _methodDefinitionPointers;
       private readonly MetaDataTableImpl<ParameterDefinitionPointer> _parameterDefinitionPointers;
       private readonly MetaDataTableImpl<EventDefinitionPointer> _eventPointers;
       private readonly MetaDataTableImpl<PropertyDefinitionPointer> _propertyPointers;
+#pragma warning disable 618
       private readonly MetaDataTableImpl<AssemblyDefinitionProcessor> _assemblyDefinitionProcessors;
       private readonly MetaDataTableImpl<AssemblyDefinitionOS> _assemblyDefinitionOSs;
       private readonly MetaDataTableImpl<AssemblyReferenceProcessor> _assemblyReferenceProcessors;
@@ -418,7 +418,6 @@ namespace CILAssemblyManipulator.Physical.Implementation
          }
       }
 
-#pragma warning disable 618
       public MetaDataTable<FieldDefinitionPointer> FieldDefinitionPointers
       {
          get
@@ -459,6 +458,7 @@ namespace CILAssemblyManipulator.Physical.Implementation
          }
       }
 
+#pragma warning disable 618
       public MetaDataTable<AssemblyDefinitionProcessor> AssemblyDefinitionProcessors
       {
          get
@@ -499,7 +499,10 @@ namespace CILAssemblyManipulator.Physical.Implementation
       private readonly Tables _tableKind;
       private readonly List<TRow> _table;
 
-      internal MetaDataTableImpl( Tables tableKind, Int32 tableRowCapacity )
+      internal MetaDataTableImpl(
+         Tables tableKind,
+         Int32 tableRowCapacity
+         )
       {
          this._tableKind = tableKind;
          this._table = new List<TRow>( tableRowCapacity );
