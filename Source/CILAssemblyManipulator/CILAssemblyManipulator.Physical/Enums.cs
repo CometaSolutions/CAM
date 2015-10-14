@@ -873,7 +873,8 @@ namespace CILAssemblyManipulator.Physical
    /// This enumeration partly overlaps <c>System.ReflectionPortableExecutableKinds</c> in its purpose.
    /// The value will end up as 'Flags' field in CLI header.
    /// </remarks>
-   public enum ModuleFlags
+   [Flags]
+   public enum ModuleFlags : int
    {
       /// <summary>
       /// The module contains IL code only.

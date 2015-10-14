@@ -451,7 +451,7 @@ namespace CILAssemblyManipulator.Physical.IO
       }
    }
 
-   public struct DataDirectory
+   public struct DataDirectory : IEquatable<DataDirectory>
    {
       [CLSCompliant( false )]
       public DataDirectory( TRVA rva, UInt32 size )
@@ -464,6 +464,31 @@ namespace CILAssemblyManipulator.Physical.IO
 
       [CLSCompliant( false )]
       public UInt32 Size { get; }
+
+      public override Boolean Equals( Object obj )
+      {
+         return obj is DataDirectory && this.Equals( (DataDirectory) obj );
+      }
+
+      public override Int32 GetHashCode()
+      {
+         return unchecked((Int32) ( ( 17 * 23 + this.RVA ) * 23 + this.Size ));
+      }
+
+      public Boolean Equals( DataDirectory other )
+      {
+         return this.RVA == other.RVA && this.Size == other.Size;
+      }
+
+      public static Boolean operator ==( DataDirectory x, DataDirectory y )
+      {
+         return x.Equals( y );
+      }
+
+      public static Boolean operator !=( DataDirectory x, DataDirectory y )
+      {
+         return !( x == y );
+      }
    }
 
    public enum DataDirectories
@@ -636,6 +661,65 @@ namespace CILAssemblyManipulator.Physical.IO
    #endregion
 
    #region CIL-related
+   public sealed class CLIHeader
+   {
+      [CLSCompliant( false )]
+      public CLIHeader(
+         UInt32 headerSize,
+         UInt16 majorRuntimeVersion,
+         UInt16 minorRuntimeVersion,
+         DataDirectory metaData,
+         ModuleFlags flags,
+         TableIndex? entryPointToken,
+         DataDirectory resources,
+         DataDirectory strongNameSignature,
+         DataDirectory codeManagerTable,
+         DataDirectory vTableFixups,
+         DataDirectory exportAddressTableJumps,
+         DataDirectory managedNativeHeader
+         )
+      {
+         this.HeaderSize = headerSize;
+         this.MajorRuntimeVersion = majorRuntimeVersion;
+         this.MinorRuntimeVersion = minorRuntimeVersion;
+         this.MetaData = metaData;
+         this.Flags = flags;
+         this.EntryPointToken = entryPointToken;
+         this.Resources = resources;
+         this.StrongNameSignature = strongNameSignature;
+         this.CodeManagerTable = codeManagerTable;
+         this.VTableFixups = vTableFixups;
+         this.ExportAddressTableJumps = exportAddressTableJumps;
+         this.ManagedNativeHeader = managedNativeHeader;
+      }
+
+      [CLSCompliant( false )]
+      public UInt32 HeaderSize { get; }
+
+      [CLSCompliant( false )]
+      public UInt16 MajorRuntimeVersion { get; }
+
+      [CLSCompliant( false )]
+      public UInt16 MinorRuntimeVersion { get; }
+
+      public DataDirectory MetaData { get; }
+
+      public ModuleFlags Flags { get; }
+
+      public TableIndex? EntryPointToken { get; }
+
+      public DataDirectory Resources { get; }
+
+      public DataDirectory StrongNameSignature { get; }
+
+      public DataDirectory CodeManagerTable { get; }
+
+      public DataDirectory VTableFixups { get; }
+
+      public DataDirectory ExportAddressTableJumps { get; }
+
+      public DataDirectory ManagedNativeHeader { get; }
+   }
    #endregion
 }
 
