@@ -31,8 +31,21 @@ namespace CILAssemblyManipulator.Physical.IO
 {
    public sealed class ImageInformation
    {
+      public ImageInformation(
+         PEInformation peInfo,
+         CLIInformation cliInfo
+         )
+      {
+         ArgumentValidator.ValidateNotNull( "PE information", peInfo );
+         ArgumentValidator.ValidateNotNull( "CLI information", cliInfo );
+
+         this.PEInformation = peInfo;
+         this.CLIInformation = cliInfo;
+      }
 
       public PEInformation PEInformation { get; }
+
+      public CLIInformation CLIInformation { get; }
    }
 
    #region PE-related
@@ -661,6 +674,43 @@ namespace CILAssemblyManipulator.Physical.IO
    #endregion
 
    #region CIL-related
+
+   public sealed class CLIInformation
+   {
+      [CLSCompliant( false )]
+      public CLIInformation(
+         CLIHeader cliHeader,
+         MetaDataRoot mdRoot,
+         ArrayQuery<Byte> strongNameSignature,
+         ArrayQuery<TRVA> methodRVAs,
+         ArrayQuery<TRVA> fieldRVAs
+         )
+      {
+         ArgumentValidator.ValidateNotNull( "CLI header", cliHeader );
+         ArgumentValidator.ValidateNotNull( "MetaData root", mdRoot );
+         ArgumentValidator.ValidateNotNull( "Method RVAs", methodRVAs );
+         ArgumentValidator.ValidateNotNull( "Field RVAs", fieldRVAs );
+
+         this.CLIHeader = cliHeader;
+         this.MetaDataRoot = mdRoot;
+         this.StrongNameSignature = strongNameSignature;
+         this.MethodRVAs = methodRVAs;
+         this.FieldRVAs = fieldRVAs;
+      }
+
+      public CLIHeader CLIHeader { get; }
+
+      public MetaDataRoot MetaDataRoot { get; }
+
+      public ArrayQuery<Byte> StrongNameSignature { get; }
+
+      [CLSCompliant( false )]
+      public ArrayQuery<TRVA> MethodRVAs { get; }
+
+      [CLSCompliant( false )]
+      public ArrayQuery<TRVA> FieldRVAs { get; }
+   }
+
    public sealed class CLIHeader
    {
       [CLSCompliant( false )]
@@ -720,11 +770,131 @@ namespace CILAssemblyManipulator.Physical.IO
 
       public DataDirectory ManagedNativeHeader { get; }
    }
+
+   public sealed class MetaDataRoot
+   {
+      private static readonly Encoding VERSION_ENCODING = new UTF8Encoding( false, false );
+
+      private readonly Lazy<String> _versionString;
+
+      [CLSCompliant( false )]
+      public MetaDataRoot(
+         Int32 signature,
+         UInt16 majorVersion,
+         UInt16 minorVersion,
+         Int32 reserved,
+         UInt32 versionStringLength,
+         ArrayQuery<Byte> versionStringBytes,
+         StorageFlags storageFlags,
+         Byte reserved2,
+         UInt16 numberOfStreams,
+         ArrayQuery<MetaDataStreamHeader> streamHeaders
+         )
+      {
+         ArgumentValidator.ValidateNotNull( "Version string bytes", versionStringBytes );
+         ArgumentValidator.ValidateNotNull( "Stream headers", streamHeaders );
+
+         this.Signature = signature;
+         this.MajorVersion = majorVersion;
+         this.MinorVersion = minorVersion;
+         this.Reserved = reserved;
+         this.VersionStringLength = versionStringLength;
+         this.VersionStringBytes = versionStringBytes;
+         this.StorageFlags = storageFlags;
+         this.Reserved2 = reserved2;
+         this.NumberOfStreams = numberOfStreams;
+         this.StreamHeaders = streamHeaders;
+
+         this._versionString = new Lazy<String>(
+            () => VERSION_ENCODING.GetString( this.VersionStringBytes.TakeWhile( b => b != 0 ).ToArray() ),
+            LazyThreadSafetyMode.ExecutionAndPublication
+            );
+      }
+
+      public Int32 Signature { get; }
+
+      [CLSCompliant( false )]
+      public UInt16 MajorVersion { get; }
+
+      [CLSCompliant( false )]
+      public UInt16 MinorVersion { get; }
+
+      public Int32 Reserved { get; }
+
+      [CLSCompliant( false )]
+      public UInt32 VersionStringLength { get; }
+
+      public ArrayQuery<Byte> VersionStringBytes { get; }
+
+      public String VersionString
+      {
+         get
+         {
+            return this._versionString.Value;
+         }
+      }
+
+      public StorageFlags StorageFlags { get; }
+
+      public Byte Reserved2 { get; }
+
+      [CLSCompliant( false )]
+      public UInt16 NumberOfStreams { get; }
+
+      public ArrayQuery<MetaDataStreamHeader> StreamHeaders { get; }
+   }
+
+   public enum StorageFlags : byte
+   {
+      Normal = 0,
+      ExtraData = 1
+   }
+
+   public struct MetaDataStreamHeader
+   {
+      private readonly Lazy<String> _nameString;
+
+      [CLSCompliant( false )]
+      public MetaDataStreamHeader(
+         UInt32 offset,
+         UInt32 size,
+         ArrayQuery<Byte> nameBytes
+         )
+      {
+         ArgumentValidator.ValidateNotNull( "Name bytes", nameBytes );
+
+         this.Offset = offset;
+         this.Size = size;
+         this.NameBytes = nameBytes;
+
+         this._nameString = new Lazy<String>(
+            () => new String( nameBytes.TakeWhile( b => b != 0 ).Select( b => (Char) b ).ToArray() ),
+            LazyThreadSafetyMode.ExecutionAndPublication );
+      }
+
+      [CLSCompliant( false )]
+      public UInt32 Offset { get; }
+
+      [CLSCompliant( false )]
+      public UInt32 Size { get; }
+
+      public ArrayQuery<Byte> NameBytes { get; }
+
+      public String Name
+      {
+         get
+         {
+            return this._nameString.Value;
+         }
+      }
+   }
+
    #endregion
 }
 
 public static partial class E_CILPhysical
 {
+   #region PE-related
 
    public static PEInformation NewPEImageInformationFromStream( this StreamHelper stream )
    {
@@ -888,4 +1058,73 @@ public static partial class E_CILPhysical
          (SectionHeaderCharacteristics) stream.ReadInt32LEFromBytes()
          );
    }
+
+   #endregion
+
+   #region CIL-related
+
+   public static CLIHeader NewCLIHeaderFromStream( this StreamHelper stream )
+   {
+      return new CLIHeader(
+         stream.ReadUInt32LEFromBytes(),
+         stream.ReadUInt16LEFromBytes(),
+         stream.ReadUInt16LEFromBytes(),
+         stream.ReadDataDirectory(),
+         (ModuleFlags) stream.ReadInt32LEFromBytes(),
+         TableIndex.FromOneBasedToken( stream.ReadInt32LEFromBytes() ),
+         stream.ReadDataDirectory(),
+         stream.ReadDataDirectory(),
+         stream.ReadDataDirectory(),
+         stream.ReadDataDirectory(),
+         stream.ReadDataDirectory(),
+         stream.ReadDataDirectory()
+         );
+   }
+
+   public static MetaDataRoot NewMetaDataRootFromStream( this StreamHelper stream )
+   {
+      UInt32 strLen;
+      UInt16 streamCount;
+      return new MetaDataRoot(
+         stream.ReadInt32LEFromBytes(),
+         stream.ReadUInt16LEFromBytes(),
+         stream.ReadUInt16LEFromBytes(),
+         stream.ReadInt32LEFromBytes(),
+         ( strLen = stream.ReadUInt32LEFromBytes() ),
+         stream.ReadAndCreateArrayQuery( strLen ),
+         (StorageFlags) stream.ReadByteFromBytes(),
+         stream.ReadByteFromBytes(),
+         ( streamCount = stream.ReadUInt16LEFromBytes() ),
+         stream.ReadSequentialElements( streamCount, s => s.NewMetaDataStreamHeaderFromStream() )
+         );
+   }
+
+   public static MetaDataStreamHeader NewMetaDataStreamHeaderFromStream( this StreamHelper stream )
+   {
+      return new MetaDataStreamHeader(
+         stream.ReadUInt32LEFromBytes(),
+         stream.ReadUInt32LEFromBytes(),
+         stream.ReadMDStreamHeaderName( 32 )
+         );
+   }
+
+   private static ArrayQuery<Byte> ReadAndCreateArrayQuery( this StreamHelper stream, UInt32 len )
+   {
+      return CollectionsWithRoles.Implementation.CollectionsFactorySingleton.DEFAULT_COLLECTIONS_FACTORY.NewArrayProxy( stream.ReadAndCreateArray( (Int32) len ) ).CQ;
+   }
+
+   private static ArrayQuery<Byte> ReadMDStreamHeaderName( this StreamHelper stream, Int32 maxLength )
+   {
+      var bytez = Enumerable
+         .Range( 0, maxLength )
+         .Select( i => stream.ReadByteFromBytes() )
+         .TakeWhile( b => b != 0 )
+         .ToArray();
+
+      // Skip to next 4-byte boundary
+      stream.
+
+   }
+
+   #endregion
 }
