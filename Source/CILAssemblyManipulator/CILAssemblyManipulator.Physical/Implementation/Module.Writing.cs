@@ -779,7 +779,13 @@ namespace CILAssemblyManipulator.Physical.Implementation
             () => new DefaultWriterGuidStreamHandler()
             );
 
-         tableStream.FillHeaps( thisAssemblyPublicKey, blobs, sysStrings, guids );
+         tableStream.FillHeaps(
+            thisAssemblyPublicKey,
+            blobs,
+            sysStrings,
+            guids,
+            streamHandlers.Where( sh => !ReferenceEquals( sh, tableStream ) && !ReferenceEquals( sh, blobs ) && !ReferenceEquals( sh, sysStrings ) && !ReferenceEquals( sh, guids ) )
+            );
 
          var versionStringSize4 = BitUtils.MultipleOf4( versionStringSize );
          var presentStreams = streamHandlers

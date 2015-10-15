@@ -723,16 +723,6 @@ namespace CILAssemblyManipulator.Physical.IO
 
       private sealed class WriteDependantInfo
       {
-         private readonly Object[] _heapInfos;
-         private readonly UInt32 _headerSize;
-         private readonly UInt32 _contentSize;
-         private readonly UInt32 _paddingSize;
-         private readonly Int32[] _tableSizes;
-         private readonly Int32[] _tableWidths;
-         private readonly Boolean _sysStringIsWide;
-         private readonly Boolean _blobIsWide;
-         private readonly Boolean _guidIsWide;
-
          internal WriteDependantInfo(
             CILMetaData md,
             HeadersData headers,
@@ -774,90 +764,35 @@ namespace CILAssemblyManipulator.Physical.IO
                hdrSize += 4;
             }
 
-            this._heapInfos = heapInfos;
-            this._tableSizes = tableSizes;
-            this._tableWidths = tableWidths;
-            this._sysStringIsWide = sysStringWide;
-            this._blobIsWide = blobWide;
-            this._guidIsWide = guidWide;
-            this._headerSize = (UInt32) hdrSize;
-            this._contentSize = tableSizes.Select( ( size, idx ) => (UInt32) size * (UInt32) tableWidths[idx] ).Sum();
-            var totalSize = BitUtils.MultipleOf4( this._headerSize + this._contentSize );
-            this._paddingSize = totalSize - this._headerSize - this._contentSize;
+            this.HeapInfos = heapInfos;
+            this.TableSizes = tableSizes;
+            this.TableWidths = tableWidths;
+            this.SystemStringIsWide = sysStringWide;
+            this.BLOBIsWide = blobWide;
+            this.GUIDIsWide = guidWide;
+            this.HeaderSize = (UInt32) hdrSize;
+            this.ContentSize = tableSizes.Select( ( size, idx ) => (UInt32) size * (UInt32) tableWidths[idx] ).Sum();
+            var totalSize = BitUtils.MultipleOf4( this.HeaderSize + this.ContentSize );
+            this.PaddingSize = totalSize - this.HeaderSize - this.ContentSize;
          }
 
-         public UInt32 HeaderSize
-         {
-            get
-            {
-               return this._headerSize;
-            }
-         }
+         public UInt32 HeaderSize { get; }
 
-         public UInt32 ContentSize
-         {
-            get
-            {
-               return this._contentSize;
-            }
-         }
+         public UInt32 ContentSize { get; }
 
-         public UInt32 PaddingSize
-         {
-            get
-            {
-               return this._paddingSize;
-            }
-         }
+         public UInt32 PaddingSize { get; }
 
-         public Object[] HeapInfos
-         {
-            get
+         public Object[] HeapInfos { get; }
 
-            {
-               return this._heapInfos;
-            }
-         }
+         public Int32[] TableSizes { get; }
 
-         public Int32[] TableSizes
-         {
-            get
-            {
-               return this._tableSizes;
-            }
-         }
+         public Int32[] TableWidths { get; }
 
-         public Int32[] TableWidths
-         {
-            get
-            {
-               return this._tableWidths;
-            }
-         }
+         public Boolean SystemStringIsWide { get; }
 
-         public Boolean SystemStringIsWide
-         {
-            get
-            {
-               return this._sysStringIsWide;
-            }
-         }
+         public Boolean BLOBIsWide { get; }
 
-         public Boolean BLOBIsWide
-         {
-            get
-            {
-               return this._blobIsWide;
-            }
-         }
-
-         public Boolean GUIDIsWide
-         {
-            get
-            {
-               return this._guidIsWide;
-            }
-         }
+         public Boolean GUIDIsWide { get; }
       }
 
       private readonly CILMetaData _md;
@@ -909,7 +844,8 @@ namespace CILAssemblyManipulator.Physical.IO
          Byte[] thisAssemblyPublicKeyIfPresentNull,
          WriterBLOBStreamHandler blobs,
          WriterStringStreamHandler sysStrings,
-         WriterGuidStreamHandler guids
+         WriterGuidStreamHandler guids,
+         IEnumerable<AbstractWriterStreamHandler> otherStreams
          )
       {
          var byteArrayHelper = new ResizableArray<Byte>();

@@ -15,6 +15,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License. 
  */
+using CommonUtils;
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -35,7 +36,19 @@ namespace CILAssemblyManipulator.Physical.IO
 
    public interface ReaderFunctionality
    {
-      RVAConverter CreateRVAConverter( PEInformation peImage );
+      void ReadImageInformation(
+         StreamHelper stream,
+         out PEInformation peInfo,
+         out RVAConverter rvaConverter,
+         out CLIHeader cliHeader,
+         out MetaDataRoot mdRoot
+         );
+
+      AbstractReaderStreamHandler CreateStreamHandler(
+         StreamHelper stream,
+         MetaDataStreamHeader header
+         );
+
    }
 
    public interface RVAConverter
@@ -43,6 +56,18 @@ namespace CILAssemblyManipulator.Physical.IO
       Int64 ToRVA( Int64 offset );
 
       Int64 ToOffset( Int64 rva );
+   }
+
+   public interface AbstractReaderStreamHandler
+   {
+      String StreamName { get; }
+   }
+
+   public interface ReaderTableStreamHandler : AbstractReaderStreamHandler
+   {
+      MetaDataTableStreamHeader ReadHeader();
+
+      Object GetRawRowOrNull( Tables table, Int32 idx );
    }
 
    public interface ReaderILHandler

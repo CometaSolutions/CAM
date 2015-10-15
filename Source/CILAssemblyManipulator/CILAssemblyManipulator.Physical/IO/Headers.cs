@@ -850,7 +850,7 @@ namespace CILAssemblyManipulator.Physical.IO
       ExtraData = 1
    }
 
-   public struct MetaDataStreamHeader
+   public sealed class MetaDataStreamHeader
    {
       private readonly Lazy<String> _nameString;
 
@@ -889,11 +889,68 @@ namespace CILAssemblyManipulator.Physical.IO
       }
    }
 
+   public sealed class MetaDataTableStreamHeader
+   {
+      [CLSCompliant( false )]
+      public MetaDataTableStreamHeader(
+         Int32 reserved,
+         Byte majorVersion,
+         Byte minorVersion,
+         TableStreamFlags tableStreamFlags,
+         Byte reserved2,
+         UInt64 presentTablesBitVector,
+         UInt64 sortedTablesBitVector,
+         ArrayQuery<UInt32> tableSizes,
+         Int32? extraData
+         )
+      {
+         ArgumentValidator.ValidateNotNull( "Table sizes", tableSizes );
+
+         this.Reserved = reserved;
+         this.MajorVersion = majorVersion;
+         this.MinorVersion = minorVersion;
+         this.TableStreamFlags = tableStreamFlags;
+         this.Reserved2 = reserved2;
+         this.PresentTablesBitVector = presentTablesBitVector;
+         this.SortedTablesBitVector = sortedTablesBitVector;
+         this.TableSizes = tableSizes;
+         this.ExtraData = extraData;
+      }
+
+      public Int32 Reserved { get; }
+
+      public Byte MajorVersion { get; }
+
+      public Byte MinorVersion { get; }
+
+      public TableStreamFlags TableStreamFlags { get; }
+
+      public Byte Reserved2 { get; }
+
+      [CLSCompliant( false )]
+      public UInt64 PresentTablesBitVector { get; }
+
+      [CLSCompliant( false )]
+      public UInt64 SortedTablesBitVector { get; }
+
+      [CLSCompliant( false )]
+      public ArrayQuery<UInt32> TableSizes { get; }
+
+      public Int32? ExtraData { get; }
+   }
+
    #endregion
 }
 
 public static partial class E_CILPhysical
 {
+
+   public static StreamHelper GoToRVA( this StreamHelper stream, RVAConverter rvaConverter, Int64 rva )
+   {
+      stream.Stream.SeekFromBegin( rvaConverter.ToOffset( rva ) );
+      return stream;
+   }
+
    #region PE-related
 
    public static PEInformation NewPEImageInformationFromStream( this StreamHelper stream )
@@ -1108,6 +1165,23 @@ public static partial class E_CILPhysical
          );
    }
 
+   public static MetaDataTableStreamHeader NewTableStreamHeaderFromStream( this StreamHelper stream )
+   {
+      UInt64 presentTables;
+      TableStreamFlags thFlags;
+      return new MetaDataTableStreamHeader(
+         stream.ReadInt32LEFromBytes(),
+         stream.ReadByteFromBytes(),
+         stream.ReadByteFromBytes(),
+         ( thFlags = (TableStreamFlags) stream.ReadByteFromBytes() ),
+         stream.ReadByteFromBytes(),
+         ( presentTables = stream.ReadUInt64LEFromBytes() ),
+         stream.ReadUInt64LEFromBytes(),
+         stream.ReadSequentialElements( (UInt32) BinaryUtils.CountBitsSetU64( presentTables ), s => s.ReadUInt32LEFromBytes() ),
+         thFlags.HasExtraData() ? stream.ReadInt32LEFromBytes() : (Int32?) null
+         );
+   }
+
    private static ArrayQuery<Byte> ReadAndCreateArrayQuery( this StreamHelper stream, UInt32 len )
    {
       return CollectionsWithRoles.Implementation.CollectionsFactorySingleton.DEFAULT_COLLECTIONS_FACTORY.NewArrayProxy( stream.ReadAndCreateArray( (Int32) len ) ).CQ;
@@ -1122,7 +1196,9 @@ public static partial class E_CILPhysical
          .ToArray();
 
       // Skip to next 4-byte boundary
-      stream.
+      stream.SkipToNextAlignment( 4 );
+
+      return CollectionsWithRoles.Implementation.CollectionsFactorySingleton.DEFAULT_COLLECTIONS_FACTORY.NewArrayProxy( bytez ).CQ;
 
    }
 

@@ -114,9 +114,9 @@ namespace CILAssemblyManipulator.Physical
       private const Int32 INT_FOUR_BYTES_ENCODE_MASK = 0x10000000;
 
       private const UInt32 ONE = 1;
-      private const Int32 COMPLEMENT_MASK_ONE_BYTE = unchecked( (Int32) 0xFFFFFFC0 );
-      private const Int32 COMPLEMENT_MASK_TWO_BYTES = unchecked( (Int32) 0xFFFFE000 );
-      private const Int32 COMPLEMENT_MASK_FOUR_BYTES = unchecked( (Int32) 0xF0000000 );
+      private const Int32 COMPLEMENT_MASK_ONE_BYTE = unchecked((Int32) 0xFFFFFFC0);
+      private const Int32 COMPLEMENT_MASK_TWO_BYTES = unchecked((Int32) 0xFFFFE000);
+      private const Int32 COMPLEMENT_MASK_FOUR_BYTES = unchecked((Int32) 0xF0000000);
 
       internal static Int32 DecompressUInt32( this Byte[] array, ref Int32 offset )
       {
@@ -124,21 +124,17 @@ namespace CILAssemblyManipulator.Physical
          Int32 result;
          if ( offset < len )
          {
-            Int32 first = array[offset];
-            if ( ( UINT_FOUR_BYTES_MASK & first ) == UINT_FOUR_BYTES_MASK )
+            var first = array[offset];
+
+            if ( ( first & 0x80 ) == 0 )
             {
-               if ( offset < len - 3 )
-               {
-                  result = ( ( first & UINT_FOUR_BYTES_DECODE_MASK ) << 24 ) | ( ( (Int32) array[offset + 1] ) << 16 ) | ( ( (Int32) array[offset + 2] ) << 8 ) | array[offset + 3];
-                  offset += 4;
-               }
-               else
-               {
-                  result = -1;
-               }
+               // MSB bit not set, so it's just one byte 
+               result = first;
+               ++offset;
             }
-            else if ( ( UINT_TWO_BYTES_MASK & first ) == UINT_TWO_BYTES_MASK )
+            else if ( ( first & 0xC0 ) == 0x80 )
             {
+               // MSB set, but prev bit not set, so it's two bytes
                if ( offset < len - 1 )
                {
                   result = ( ( first & UINT_TWO_BYTES_DECODE_MASK ) << 8 ) | (Int32) array[offset + 1];
@@ -151,8 +147,16 @@ namespace CILAssemblyManipulator.Physical
             }
             else
             {
-               result = first;
-               ++offset;
+               // Whatever it is, it is four bytes long
+               if ( offset < len - 3 )
+               {
+                  result = ( ( first & UINT_FOUR_BYTES_DECODE_MASK ) << 24 ) | ( ( (Int32) array[offset + 1] ) << 16 ) | ( ( (Int32) array[offset + 2] ) << 8 ) | array[offset + 3];
+                  offset += 4;
+               }
+               else
+               {
+                  result = -1;
+               }
             }
          }
          else
@@ -208,7 +212,7 @@ namespace CILAssemblyManipulator.Physical
             throw new ArgumentException( "Malformed compressed signed integer at index " + oldOffset + "." );
          }
 
-         return unchecked( (Int32) decodedUInt );
+         return unchecked((Int32) decodedUInt);
       }
 
       internal static void CompressUInt32( this Byte[] array, ref Int32 offset, Int32 value )
@@ -216,7 +220,7 @@ namespace CILAssemblyManipulator.Physical
          EncodeUInt32( array, ref offset, value, EncodingForcePolicy.DontForce );
       }
 
-      internal static void CompressInt32( this  Byte[] array, ref Int32 offset, Int32 value )
+      internal static void CompressInt32( this Byte[] array, ref Int32 offset, Int32 value )
       {
          Int32 uValue = value;
 
@@ -270,24 +274,12 @@ namespace CILAssemblyManipulator.Physical
          }
          else if ( forcePolicy != EncodingForcePolicy.Force4Byte && value <= UINT_TWO_BYTES_MAX )
          {
-#if __MonoCS__
-#pragma warning disable 675
-#endif
             array[offset++] = (Byte) ( ( value >> 8 ) | UINT_TWO_BYTES_MASK );
-#if __MonoCS__
-#pragma warning restore 675
-#endif
             array[offset++] = (Byte) ( value & Byte.MaxValue );
          }
          else if ( value <= UINT_FOUR_BYTES_MAX )
          {
-#if __MonoCS__
-#pragma warning disable 675
-#endif
             array[offset++] = (Byte) ( ( value >> 24 ) | UINT_FOUR_BYTES_MASK );
-#if __MonoCS__
-#pragma warning restore 675
-#endif
             array[offset++] = (Byte) ( value >> 16 );
             array[offset++] = (Byte) ( value >> 8 );
             array[offset++] = (Byte) ( value & Byte.MaxValue );

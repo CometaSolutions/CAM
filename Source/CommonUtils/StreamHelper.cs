@@ -58,6 +58,29 @@ namespace CommonUtils
 public static partial class E_CommonUtils
 {
    /// <summary>
+   /// This method will advance the position of <see cref="StreamHelper.Stream"/> to next alignment.
+   /// </summary>
+   /// <param name="helper">The <see cref="StreamHelper"/>.</param>
+   /// <param name="alignment">The alignment.</param>
+   /// <returns>The <paramref name="helper"/>.</returns>
+   /// <remarks>
+   /// Assumes that <paramref name="alignment"/> is a power of two.
+   /// Will return incorrect results if <paramref name="alignment"/> is zero.
+   /// </remarks>
+   public static StreamHelper SkipToNextAlignment( this StreamHelper helper, Int32 alignment )
+   {
+      var stream = helper.Stream;
+      var oldPos = stream.Position;
+      var newPos = BinaryUtils.RoundUpI64( oldPos, alignment );
+      if ( newPos > oldPos )
+      {
+         stream.SeekFromCurrent( newPos - oldPos );
+      }
+      return helper;
+   }
+
+
+   /// <summary>
    /// Skips the given amount of bytes from current offset of the <see cref="StreamHelper.Stream"/>, and returns <see cref="StreamHelper"/>.
    /// </summary>
    /// <param name="helper">The <see cref="StreamHelper"/>.</param>

@@ -267,8 +267,6 @@ namespace CILAssemblyManipulator.Physical.Implementation
             headers = new HeadersData( false );
          }
 
-         //var helper = new StreamHelper( stream );
-
          Byte[] tmpArray = new Byte[8];
 
          // DOS header, skip to lfa new
@@ -558,11 +556,6 @@ namespace CILAssemblyManipulator.Physical.Implementation
 
          stream.SeekFromCurrent( 8 ); // Skip sorted
 
-         if ( tblFlags.HasExtraData() )
-         {
-            headers.TablesHeaderExtraData = stream.ReadI32( tmpArray );
-         }
-
          // Table row count
          var tableSizes = new Int32[Consts.AMOUNT_OF_TABLES];
          for ( var i = 0; i < Consts.AMOUNT_OF_TABLES; ++i )
@@ -571,6 +564,11 @@ namespace CILAssemblyManipulator.Physical.Implementation
             {
                tableSizes[i] = stream.ReadI32( tmpArray );
             }
+         }
+
+         if ( tblFlags.HasExtraData() )
+         {
+            headers.TablesHeaderExtraData = stream.ReadI32( tmpArray );
          }
 
          // Read actual tables

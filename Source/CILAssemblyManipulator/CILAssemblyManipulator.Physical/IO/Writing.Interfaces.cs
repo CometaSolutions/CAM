@@ -91,7 +91,8 @@ namespace CILAssemblyManipulator.Physical.IO
          Byte[] thisAssemblyPublicKeyIfPresentNull,
          WriterBLOBStreamHandler blobs,
          WriterStringStreamHandler sysStrings,
-         WriterGuidStreamHandler guids
+         WriterGuidStreamHandler guids,
+         IEnumerable<AbstractWriterStreamHandler> otherStreams
          );
    }
 
