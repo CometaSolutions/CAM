@@ -681,6 +681,7 @@ namespace CILAssemblyManipulator.Physical.IO
       public CLIInformation(
          CLIHeader cliHeader,
          MetaDataRoot mdRoot,
+         MetaDataTableStreamHeader tableStreamHeader,
          ArrayQuery<Byte> strongNameSignature,
          ArrayQuery<TRVA> methodRVAs,
          ArrayQuery<TRVA> fieldRVAs
@@ -688,11 +689,13 @@ namespace CILAssemblyManipulator.Physical.IO
       {
          ArgumentValidator.ValidateNotNull( "CLI header", cliHeader );
          ArgumentValidator.ValidateNotNull( "MetaData root", mdRoot );
+         ArgumentValidator.ValidateNotNull( "Table stream header", tableStreamHeader );
          ArgumentValidator.ValidateNotNull( "Method RVAs", methodRVAs );
          ArgumentValidator.ValidateNotNull( "Field RVAs", fieldRVAs );
 
          this.CLIHeader = cliHeader;
          this.MetaDataRoot = mdRoot;
+         this.TableStreamHeader = tableStreamHeader;
          this.StrongNameSignature = strongNameSignature;
          this.MethodRVAs = methodRVAs;
          this.FieldRVAs = fieldRVAs;
@@ -701,6 +704,8 @@ namespace CILAssemblyManipulator.Physical.IO
       public CLIHeader CLIHeader { get; }
 
       public MetaDataRoot MetaDataRoot { get; }
+
+      public MetaDataTableStreamHeader TableStreamHeader { get; }
 
       public ArrayQuery<Byte> StrongNameSignature { get; }
 

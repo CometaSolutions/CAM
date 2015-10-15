@@ -122,4 +122,82 @@ namespace CILAssemblyManipulator.Physical.IO
          return retVal;
       }
    }
+
+   public abstract class AbstractReaderStreamHandlerImpl : AbstractReaderStreamHandler
+   {
+      protected AbstractReaderStreamHandlerImpl( StreamHelper stream )
+      {
+         ArgumentValidator.ValidateNotNull( "Stream", stream );
+
+         this.Stream = stream;
+         this.StartingPosition = stream.Stream.Position;
+      }
+
+      public abstract String StreamName { get; }
+
+      protected StreamHelper Stream { get; }
+
+      protected Int64 StartingPosition { get; }
+   }
+
+   public abstract class AbstractReaderStreamHandlerWithCustomName : AbstractReaderStreamHandlerImpl
+   {
+      protected AbstractReaderStreamHandlerWithCustomName( StreamHelper stream, String streamName )
+         : base( stream )
+      {
+         this.StreamName = streamName;
+      }
+
+      public override String StreamName { get; }
+   }
+
+   public class DefaultReaderTableStreamHandler : AbstractReaderStreamHandlerWithCustomName, ReaderTableStreamHandler
+   {
+      private const Int32 TABLE_ARRAY_SIZE = 64;
+
+      private readonly MetaDataTableStreamHeader _tableHeader;
+      private readonly Int64 _tableStartPosition;
+      private readonly Int32[] _tableSizes;
+      private readonly Int32[] _tableOffsets;
+
+      public DefaultReaderTableStreamHandler( StreamHelper stream, String tableStreamName )
+         : base( stream, tableStreamName )
+      {
+         this._tableHeader = stream.NewTableStreamHeaderFromStream();
+         this._tableStartPosition = stream.Stream.Position;
+
+         this._tableSizes = new Int32[TABLE_ARRAY_SIZE];
+         var present = this._tableHeader.PresentTablesBitVector;
+         var sizeIdx = 0;
+         for ( var i = 0; i < TABLE_ARRAY_SIZE; ++i )
+         {
+            if ( ( ( present >> i ) & 0x1 ) != 0 )
+            {
+               this._tableSizes[i] = (Int32) this._tableHeader.TableSizes[sizeIdx++];
+            }
+         }
+
+         this._tableOffsets = new Int32[TABLE_ARRAY_SIZE];
+      }
+
+      public virtual Object GetRawRowOrNull( Tables table, Int32 idx )
+      {
+         var tableSizes = this._tableSizes;
+         var tableInt = (Int32) table;
+         Int32 tableSize;
+         if ( tableInt >= 0
+            && tableInt < tableSizes.Length
+            && idx >= 0
+            && ( tableSize = tableSizes[tableInt] ) > idx
+            )
+         {
+
+         }
+      }
+
+      public virtual MetaDataTableStreamHeader ReadHeader()
+      {
+         return this._tableHeader;
+      }
+   }
 }
