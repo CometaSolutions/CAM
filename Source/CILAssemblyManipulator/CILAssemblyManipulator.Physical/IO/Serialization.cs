@@ -475,12 +475,12 @@ namespace CILAssemblyManipulator.Physical.IO
 
       Int32 ReadRawValue( StreamHelper stream );
 
-      Object ReadValue(
-         StreamHelper stream,
-         ReaderBLOBStreamHandler blobs,
-         ReaderGUIDStreamHandler guids,
-         ReaderStringStreamHandler sysStrings
-         );
+      //Object ReadValue(
+      //   StreamHelper stream,
+      //   ReaderBLOBStreamHandler blobs,
+      //   ReaderGUIDStreamHandler guids,
+      //   ReaderStringStreamHandler sysStrings
+      //   );
 
       void WriteValue( StreamHelper stream, Object value );
    }

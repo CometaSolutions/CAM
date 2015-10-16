@@ -719,15 +719,15 @@ namespace CILAssemblyManipulator.Physical.IO
          return stream.ReadByteFromBytes();
       }
 
-      public Object ReadValue(
-         StreamHelper stream,
-         ReaderBLOBStreamHandler blobs,
-         ReaderGUIDStreamHandler guids,
-         ReaderStringStreamHandler sysStrings
-         )
-      {
-         return this.ReadRawValue( stream );
-      }
+      //public Object ReadValue(
+      //   StreamHelper stream,
+      //   ReaderBLOBStreamHandler blobs,
+      //   ReaderGUIDStreamHandler guids,
+      //   ReaderStringStreamHandler sysStrings
+      //   )
+      //{
+      //   return this.ReadRawValue( stream );
+      //}
 
       public void WriteValue( StreamHelper stream, Object value )
       {
@@ -749,15 +749,15 @@ namespace CILAssemblyManipulator.Physical.IO
          return stream.ReadInt16LEFromBytes();
       }
 
-      public Object ReadValue(
-         StreamHelper stream,
-         ReaderBLOBStreamHandler blobs,
-         ReaderGUIDStreamHandler guids,
-         ReaderStringStreamHandler sysStrings
-         )
-      {
-         return this.ReadRawValue( stream );
-      }
+      //public Object ReadValue(
+      //   StreamHelper stream,
+      //   ReaderBLOBStreamHandler blobs,
+      //   ReaderGUIDStreamHandler guids,
+      //   ReaderStringStreamHandler sysStrings
+      //   )
+      //{
+      //   return this.ReadRawValue( stream );
+      //}
 
       public void WriteValue( StreamHelper stream, Object value )
       {
@@ -780,15 +780,15 @@ namespace CILAssemblyManipulator.Physical.IO
          return stream.ReadInt32LEFromBytes();
       }
 
-      public Object ReadValue(
-         StreamHelper stream,
-         ReaderBLOBStreamHandler blobs,
-         ReaderGUIDStreamHandler guids,
-         ReaderStringStreamHandler sysStrings
-         )
-      {
-         return this.ReadRawValue( stream );
-      }
+      //public Object ReadValue(
+      //   StreamHelper stream,
+      //   ReaderBLOBStreamHandler blobs,
+      //   ReaderGUIDStreamHandler guids,
+      //   ReaderStringStreamHandler sysStrings
+      //   )
+      //{
+      //   return this.ReadRawValue( stream );
+      //}
 
       public void WriteValue( StreamHelper stream, Object value )
       {
@@ -811,15 +811,15 @@ namespace CILAssemblyManipulator.Physical.IO
          return stream.ReadInt16LEFromBytes();
       }
 
-      public Object ReadValue(
-         StreamHelper stream,
-         ReaderBLOBStreamHandler blobs,
-         ReaderGUIDStreamHandler guids,
-         ReaderStringStreamHandler sysStrings
-         )
-      {
-         return this.ReadRawValue( stream );
-      }
+      //public Object ReadValue(
+      //   StreamHelper stream,
+      //   ReaderBLOBStreamHandler blobs,
+      //   ReaderGUIDStreamHandler guids,
+      //   ReaderStringStreamHandler sysStrings
+      //   )
+      //{
+      //   return this.ReadRawValue( stream );
+      //}
 
       public void WriteValue( StreamHelper stream, Object value )
       {
@@ -843,15 +843,15 @@ namespace CILAssemblyManipulator.Physical.IO
          return stream.ReadInt32LEFromBytes();
       }
 
-      public Object ReadValue(
-         StreamHelper stream,
-         ReaderBLOBStreamHandler blobs,
-         ReaderGUIDStreamHandler guids,
-         ReaderStringStreamHandler sysStrings
-         )
-      {
-         return this.ReadRawValue( stream );
-      }
+      //public Object ReadValue(
+      //   StreamHelper stream,
+      //   ReaderBLOBStreamHandler blobs,
+      //   ReaderGUIDStreamHandler guids,
+      //   ReaderStringStreamHandler sysStrings
+      //   )
+      //{
+      //   return this.ReadRawValue( stream );
+      //}
 
       public void WriteValue( StreamHelper stream, Object value )
       {
@@ -988,12 +988,12 @@ namespace CILAssemblyManipulator.Physical.IO
 
       public abstract Int32 ReadRawValue( StreamHelper stream );
 
-      public abstract Object ReadValue(
-         StreamHelper stream,
-         ReaderBLOBStreamHandler blobs,
-         ReaderGUIDStreamHandler guids,
-         ReaderStringStreamHandler sysStrings
-         );
+      //public abstract Object ReadValue(
+      //   StreamHelper stream,
+      //   ReaderBLOBStreamHandler blobs,
+      //   ReaderGUIDStreamHandler guids,
+      //   ReaderStringStreamHandler sysStrings
+      //   );
 
       public abstract void WriteValue( StreamHelper stream, Object value );
    }
@@ -1020,15 +1020,15 @@ namespace CILAssemblyManipulator.Physical.IO
          return stream.ReadUInt16LEFromBytes();
       }
 
-      public override Object ReadValue(
-         StreamHelper stream,
-         ReaderBLOBStreamHandler blobs,
-         ReaderGUIDStreamHandler guids,
-         ReaderStringStreamHandler sysStrings
-         )
-      {
-         return this.DecodeTableIndex( this.ReadRawValue( stream ) );
-      }
+      //public override Object ReadValue(
+      //   StreamHelper stream,
+      //   ReaderBLOBStreamHandler blobs,
+      //   ReaderGUIDStreamHandler guids,
+      //   ReaderStringStreamHandler sysStrings
+      //   )
+      //{
+      //   return this.DecodeTableIndex( this.ReadRawValue( stream ) );
+      //}
 
       public override void WriteValue( StreamHelper stream, Object value )
       {
@@ -1057,15 +1057,15 @@ namespace CILAssemblyManipulator.Physical.IO
          return stream.ReadInt32LEFromBytes();
       }
 
-      public override Object ReadValue(
-         StreamHelper stream,
-         ReaderBLOBStreamHandler blobs,
-         ReaderGUIDStreamHandler guids,
-         ReaderStringStreamHandler sysStrings
-         )
-      {
-         return this.DecodeTableIndex( this.ReadRawValue( stream ) );
-      }
+      //public override Object ReadValue(
+      //   StreamHelper stream,
+      //   ReaderBLOBStreamHandler blobs,
+      //   ReaderGUIDStreamHandler guids,
+      //   ReaderStringStreamHandler sysStrings
+      //   )
+      //{
+      //   return this.DecodeTableIndex( this.ReadRawValue( stream ) );
+      //}
 
       public override void WriteValue( StreamHelper stream, Object value )
       {
@@ -1095,15 +1095,15 @@ namespace CILAssemblyManipulator.Physical.IO
          return stream.ReadUInt16LEFromBytes();
       }
 
-      public override Object ReadValue(
-         StreamHelper stream,
-         ReaderBLOBStreamHandler blobs,
-         ReaderGUIDStreamHandler guids,
-         ReaderStringStreamHandler sysStrings
-         )
-      {
-         return this.DecodeTableIndex( this.ReadRawValue( stream ) ).GetValueOrDefault();
-      }
+      //public override Object ReadValue(
+      //   StreamHelper stream,
+      //   ReaderBLOBStreamHandler blobs,
+      //   ReaderGUIDStreamHandler guids,
+      //   ReaderStringStreamHandler sysStrings
+      //   )
+      //{
+      //   return this.DecodeTableIndex( this.ReadRawValue( stream ) ).GetValueOrDefault();
+      //}
 
       public override void WriteValue( StreamHelper stream, Object value )
       {
@@ -1132,15 +1132,15 @@ namespace CILAssemblyManipulator.Physical.IO
          return stream.ReadInt32LEFromBytes();
       }
 
-      public override Object ReadValue(
-         StreamHelper stream,
-         ReaderBLOBStreamHandler blobs,
-         ReaderGUIDStreamHandler guids,
-         ReaderStringStreamHandler sysStrings
-         )
-      {
-         return this.DecodeTableIndex( this.ReadRawValue( stream ) ).GetValueOrDefault();
-      }
+      //public override Object ReadValue(
+      //   StreamHelper stream,
+      //   ReaderBLOBStreamHandler blobs,
+      //   ReaderGUIDStreamHandler guids,
+      //   ReaderStringStreamHandler sysStrings
+      //   )
+      //{
+      //   return this.DecodeTableIndex( this.ReadRawValue( stream ) ).GetValueOrDefault();
+      //}
 
       public override void WriteValue( StreamHelper stream, Object value )
       {
