@@ -250,7 +250,8 @@ public static partial class E_CommonUtils
    /// <param name="idx">The offset to set byte. Will be incremented by 1.</param>
    /// <param name="value">The value to set. Even though it is integer, it is interpreted as signed byte.</param>
    /// <returns>The <paramref name="array"/>.</returns>
-   public static ResizableArray<Byte> WriteSByteToBytes( this ResizableArray<Byte> array, ref Int32 idx, Int32 value )
+   [CLSCompliant( false )]
+   public static ResizableArray<Byte> WriteSByteToBytes( this ResizableArray<Byte> array, ref Int32 idx, SByte value )
    {
       array
          .EnsureThatCanAdd( idx, 1 )

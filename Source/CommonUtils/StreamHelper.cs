@@ -133,6 +133,32 @@ public static partial class E_CommonUtils
       return (SByte) array.ReadByteFromBytes();
    }
 
+   /// <summary>
+   /// Sets a single byte in byte array at specified offset to given value, and increments the offset.
+   /// </summary>
+   /// <param name="array">The byte array.</param>
+   /// <param name="aByte">The value to set.</param>
+   /// <returns>The <paramref name="array"/>.</returns>
+   public static StreamHelper WriteByteToBytes( this StreamHelper array, Byte aByte )
+   {
+      var bytez = array.Buffer;
+      bytez[0] = aByte;
+      array.Stream.Write( bytez, sizeof( Byte ) );
+      return array;
+   }
+
+   /// <summary>
+   /// Sets a single byte in byte array at specified offset to given value, and increments the offset.
+   /// </summary>
+   /// <param name="array">The byte array.</param>
+   /// <param name="sByte">The value to set. Even though it is integer, it is interpreted as signed byte.</param>
+   /// <returns>The <paramref name="array"/>.</returns>
+   [CLSCompliant( false )]
+   public static StreamHelper WriteSByteToBytes( this StreamHelper array, SByte sByte )
+   {
+      return array.WriteByteToBytes( (Byte) sByte );
+   }
+
    #region Little-Endian Conversions
 
    /// <summary>

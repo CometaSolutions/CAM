@@ -67,8 +67,34 @@ namespace CILAssemblyManipulator.Physical.IO
    {
       MetaDataTableStreamHeader ReadHeader();
 
-      Object GetRawRowOrNull( Tables table, Int32 idx );
+      void PopulateMetaDataStructure(
+         CILMetaData md,
+         ReaderBLOBStreamHandler blobs,
+         ReaderGUIDStreamHandler guids,
+         ReaderStringStreamHandler sysStrings,
+         ReaderStringStreamHandler userStrings,
+         IEnumerable<AbstractReaderStreamHandler> otherStreams
+         );
+
+      //Object GetRawRowOrNull( Tables table, Int32 idx );
    }
+
+   public interface ReaderBLOBStreamHandler : AbstractReaderStreamHandler
+   {
+
+   }
+
+   public interface ReaderGUIDStreamHandler : AbstractReaderStreamHandler
+   {
+
+   }
+
+   public interface ReaderStringStreamHandler : AbstractReaderStreamHandler
+   {
+
+   }
+
+
 
    public interface ReaderILHandler
    {

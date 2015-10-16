@@ -15,6 +15,9 @@
  * See the License for the specific language governing permissions and
  * limitations under the License. 
  */
+using CILAssemblyManipulator.Physical.IO;
+using CollectionsWithRoles.API;
+using CollectionsWithRoles.Implementation;
 using CommonUtils;
 using System;
 using System.Collections.Generic;
@@ -23,6 +26,7 @@ using System.Text;
 
 namespace CILAssemblyManipulator.Physical.IO
 {
+
    public class DefaultReaderFunctionality : ReaderFunctionality
    {
       protected const Int32 CLI_DATADIR_INDEX = 14;
@@ -155,49 +159,87 @@ namespace CILAssemblyManipulator.Physical.IO
    {
       private const Int32 TABLE_ARRAY_SIZE = 64;
 
-      private readonly MetaDataTableStreamHeader _tableHeader;
       private readonly Int64 _tableStartPosition;
-      private readonly Int32[] _tableSizes;
-      private readonly Int32[] _tableOffsets;
+      //private readonly Int32[] _tableOffsets;
 
-      public DefaultReaderTableStreamHandler( StreamHelper stream, String tableStreamName )
+      public DefaultReaderTableStreamHandler(
+         StreamHelper stream,
+         String tableStreamName,
+         MetaDataSerializationSupportProvider mdSerialization
+         )
          : base( stream, tableStreamName )
       {
-         this._tableHeader = stream.NewTableStreamHeaderFromStream();
+         var tableHeader = stream.NewTableStreamHeaderFromStream();
+         var thFlags = tableHeader.TableStreamFlags;
+
          this._tableStartPosition = stream.Stream.Position;
+         this.TableStreamHeader = tableHeader;
+         this.TableSizes = CollectionsFactorySingleton.DEFAULT_COLLECTIONS_FACTORY.NewArrayProxy( tableHeader.CreateTableSizesArray() ).CQ;
+         this.TableSerializationSupportProvider = ( mdSerialization ?? new DefaultMetaDataSerializationSupportProvider() )
+            .CreateTableSerializationSupportProvider( this.TableSizes, thFlags.IsWideBLOB(), thFlags.IsWideGUID(), thFlags.IsWideStrings() );
+      }
 
-         this._tableSizes = new Int32[TABLE_ARRAY_SIZE];
-         var present = this._tableHeader.PresentTablesBitVector;
-         var sizeIdx = 0;
-         for ( var i = 0; i < TABLE_ARRAY_SIZE; ++i )
-         {
-            if ( ( ( present >> i ) & 0x1 ) != 0 )
-            {
-               this._tableSizes[i] = (Int32) this._tableHeader.TableSizes[sizeIdx++];
-            }
-         }
+      public virtual void PopulateMetaDataStructure(
+         CILMetaData md,
+         ReaderBLOBStreamHandler blobs,
+         ReaderGUIDStreamHandler guids,
+         ReaderStringStreamHandler sysStrings,
+         ReaderStringStreamHandler userStrings,
+         IEnumerable<AbstractReaderStreamHandler> otherStreams
+         )
+      {
 
-         this._tableOffsets = new Int32[TABLE_ARRAY_SIZE];
+         throw new NotImplementedException();
       }
 
       public virtual Object GetRawRowOrNull( Tables table, Int32 idx )
       {
-         var tableSizes = this._tableSizes;
+         var tableSizes = this.TableSizes;
          var tableInt = (Int32) table;
          Int32 tableSize;
          if ( tableInt >= 0
-            && tableInt < tableSizes.Length
+            && tableInt < tableSizes.Count
             && idx >= 0
             && ( tableSize = tableSizes[tableInt] ) > idx
             )
          {
 
          }
+         throw new NotImplementedException();
       }
 
       public virtual MetaDataTableStreamHeader ReadHeader()
       {
-         return this._tableHeader;
+         return this.TableStreamHeader;
       }
+
+      protected MetaDataTableStreamHeader TableStreamHeader { get; }
+
+      protected ArrayQuery<Int32> TableSizes { get; }
+
+      protected TableSerializationSupportProvider TableSerializationSupportProvider { get; }
+
+   }
+
+}
+
+public static partial class E_CILPhysical
+{
+   private const Int32 TABLE_ARRAY_SIZE = 64;
+
+   public static Int32[] CreateTableSizesArray( this MetaDataTableStreamHeader tableStreamHeader )
+   {
+      var tableSizes = new Int32[TABLE_ARRAY_SIZE];
+      var present = tableStreamHeader.PresentTablesBitVector;
+      var sizeIdx = 0;
+      for ( var i = 0; i < TABLE_ARRAY_SIZE; ++i )
+      {
+         if ( ( ( present >> i ) & 0x1 ) != 0 )
+         {
+            tableSizes[i] = (Int32) tableStreamHeader.TableSizes[sizeIdx++];
+         }
+      }
+
+      return tableSizes;
    }
 }

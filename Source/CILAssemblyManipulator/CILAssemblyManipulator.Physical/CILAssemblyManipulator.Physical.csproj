@@ -109,6 +109,8 @@
     <Compile Include="Implementation\Module.Writing.cs" />
     <Compile Include="IO\Headers.cs" />
     <Compile Include="IO\Reading.Defaults.cs" />
+    <Compile Include="IO\Serialization.cs" />
+    <Compile Include="IO\Serialization.Defaults.cs" />
     <Compile Include="IO\Writing.Defaults.cs" />
     <Compile Include="IO\Writing.Interfaces.cs" />
     <Compile Include="IO\Writing.Data.cs" />

@@ -1475,7 +1475,8 @@ public static partial class E_CommonUtils
    /// <param name="idx">The offset to set byte. Will be incremented by 1.</param>
    /// <param name="sByte">The value to set. Even though it is integer, it is interpreted as signed byte.</param>
    /// <returns>The <paramref name="array"/>.</returns>
-   public static Byte[] WriteSByteToBytes( this Byte[] array, ref Int32 idx, Int32 sByte )
+   [CLSCompliant( false )]
+   public static Byte[] WriteSByteToBytes( this Byte[] array, ref Int32 idx, SByte sByte )
    {
       array[idx++] = sByte < 0 ? (Byte) ( 256 + sByte ) : (Byte) sByte;
       return array;
