@@ -449,6 +449,12 @@ namespace CILAssemblyManipulator.Physical.IO
    {
       Tables Table { get; }
 
+      Object ReadRow( StreamHelper stream,
+        ReaderBLOBStreamHandler blobs,
+         ReaderGUIDStreamHandler guids,
+         ReaderStringStreamHandler sysStrings
+         );
+
       Object ReadRawRow( StreamHelper stream );
 
       ArrayQuery<ColumnSerializationInfo> ColumnSerializationSupports { get; }

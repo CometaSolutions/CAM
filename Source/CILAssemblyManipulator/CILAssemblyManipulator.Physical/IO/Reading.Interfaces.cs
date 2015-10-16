@@ -81,17 +81,27 @@ namespace CILAssemblyManipulator.Physical.IO
 
    public interface ReaderBLOBStreamHandler : AbstractReaderStreamHandler
    {
+      Byte[] GetBLOB( Int32 heapIndex );
 
+      Int32 GetStreamOffset( Int32 heapIndex, out Int32 blobSize );
+
+      AbstractSignature ReadSignature( Int32 heapIndex );
+
+      CustomAttributeSignature ReadCASignature( Int32 heapIndex );
+
+      AbstractSecurityInformation ReadSecurityInformation( Int32 heapIndex );
+
+      Object ReadConstantValue( Int32 heapIndex, SignatureElementTypes constType );
    }
 
    public interface ReaderGUIDStreamHandler : AbstractReaderStreamHandler
    {
-
+      Guid? GetGUID( Int32 heapIndex );
    }
 
    public interface ReaderStringStreamHandler : AbstractReaderStreamHandler
    {
-
+      String GetString( Int32 heapIndex );
    }
 
 

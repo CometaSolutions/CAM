@@ -25,32 +25,37 @@ using System.Text;
 
 namespace CILAssemblyManipulator.Physical.IO
 {
-   public struct ColumnSerializationInfo<TRow> : ColumnSerializationInfo
-   where TRow : class
+   public struct ColumnSerializationInfo<TRawRow, TRow> : ColumnSerializationInfo
+      where TRawRow : class
+      where TRow : class
    {
 
       public ColumnSerializationInfo(
          String columnName,
          ColumnSerializationSupport serialization,
-         Action<TRow, Int32> rawSetter
+         Action<TRawRow, Int32> rawSetter,
+         Action<TRow, Int32, ReaderBLOBStreamHandler, ReaderGUIDStreamHandler, ReaderStringStreamHandler> setter
          )
       {
          ArgumentValidator.ValidateNotNull( "Column name", columnName );
          ArgumentValidator.ValidateNotNull( "Serialization", serialization );
-         ArgumentValidator.ValidateNotNull( "Setter", rawSetter );
+         ArgumentValidator.ValidateNotNull( "Raw setter", rawSetter );
+         ArgumentValidator.ValidateNotNull( "Setter", setter );
 
          this.ColumnName = columnName;
          this.Serialization = serialization;
          this.RawSetter = rawSetter;
+         this.Setter = setter;
       }
 
       public String ColumnName { get; }
       public ColumnSerializationSupport Serialization { get; }
-      public Action<TRow, Int32> RawSetter { get; }
+      public Action<TRawRow, Int32> RawSetter { get; }
+      public Action<TRow, Int32, ReaderBLOBStreamHandler, ReaderGUIDStreamHandler, ReaderStringStreamHandler> Setter { get; }
 
       public void SetRawValue( Object row, Int32 value )
       {
-         this.RawSetter( (TRow) row, value );
+         this.RawSetter( (TRawRow) row, value );
       }
    }
 
@@ -227,314 +232,317 @@ namespace CILAssemblyManipulator.Physical.IO
       protected Boolean WideGUIDs { get; }
       protected Boolean WideStrings { get; }
 
-      protected virtual IEnumerable<ColumnSerializationInfo<RawModuleDefinition>> GetModuleDefColumns()
+      protected virtual IEnumerable<ColumnSerializationInfo<RawModuleDefinition, ModuleDefinition>> GetModuleDefColumns()
       {
-         yield return new ColumnSerializationInfo<RawModuleDefinition>( nameof( RawModuleDefinition.Generation ), this.Constant16, ( r, v ) => r.Generation = v );
-         yield return new ColumnSerializationInfo<RawModuleDefinition>( nameof( RawModuleDefinition.Name ), this.StringIndex, ( r, v ) => r.Name = v );
-         yield return new ColumnSerializationInfo<RawModuleDefinition>( nameof( RawModuleDefinition.ModuleGUID ), this.GUIDIndex, ( r, v ) => r.ModuleGUID = v );
-         yield return new ColumnSerializationInfo<RawModuleDefinition>( nameof( RawModuleDefinition.EditAndContinueGUID ), this.GUIDIndex, ( r, v ) => r.EditAndContinueGUID = v );
-         yield return new ColumnSerializationInfo<RawModuleDefinition>( nameof( RawModuleDefinition.EditAndContinueBaseGUID ), this.GUIDIndex, ( r, v ) => r.EditAndContinueBaseGUID = v );
+         yield return new ColumnSerializationInfo<RawModuleDefinition, ModuleDefinition>( nameof( RawModuleDefinition.Generation ), this.Constant16, ( r, v ) => r.Generation = v, ( r, v, b, g, s ) => r.Generation = (Int16) v );
+         yield return new ColumnSerializationInfo<RawModuleDefinition, ModuleDefinition>( nameof( RawModuleDefinition.Name ), this.StringIndex, ( r, v ) => r.Name = v, ( r, v, b, g, s ) => r.Name = this.ReadString( v, s ) );
+         yield return new ColumnSerializationInfo<RawModuleDefinition, ModuleDefinition>( nameof( RawModuleDefinition.ModuleGUID ), this.GUIDIndex, ( r, v ) => r.ModuleGUID = v, ( r, v, b, g, s ) => r.ModuleGUID = this.ReadGUID( v, g ) );
+         yield return new ColumnSerializationInfo<RawModuleDefinition, ModuleDefinition>( nameof( RawModuleDefinition.EditAndContinueGUID ), this.GUIDIndex, ( r, v ) => r.EditAndContinueGUID = v, ( r, v, b, g, s ) => r.EditAndContinueGUID = this.ReadGUID( v, g ) );
+         yield return new ColumnSerializationInfo<RawModuleDefinition, ModuleDefinition>( nameof( RawModuleDefinition.EditAndContinueBaseGUID ), this.GUIDIndex, ( r, v ) => r.EditAndContinueBaseGUID = v, ( r, v, b, g, s ) => r.EditAndContinueBaseGUID = this.ReadGUID( v, g ) );
       }
 
-      protected virtual IEnumerable<ColumnSerializationInfo<RawTypeReference>> GetTypeRefColumns()
+      protected virtual IEnumerable<ColumnSerializationInfo<RawTypeReference, TypeReference>> GetTypeRefColumns()
       {
-         yield return new ColumnSerializationInfo<RawTypeReference>( nameof( RawTypeReference.ResolutionScope ), this.ResolutionScopeNullable, ( r, v ) => r.ResolutionScope = v );
-         yield return new ColumnSerializationInfo<RawTypeReference>( nameof( RawTypeReference.Name ), this.StringIndex, ( r, v ) => r.Name = v );
-         yield return new ColumnSerializationInfo<RawTypeReference>( nameof( RawTypeReference.Namespace ), this.StringIndex, ( r, v ) => r.Namespace = v );
+         yield return new ColumnSerializationInfo<RawTypeReference, TypeReference>( nameof( RawTypeReference.ResolutionScope ), this.ResolutionScopeNullable, ( r, v ) => r.ResolutionScope = v, ( r, v, b, g, s ) => r.ResolutionScope = this.ResolutionScopeNullable.DecodeTableIndex( v ) );
+         yield return new ColumnSerializationInfo<RawTypeReference, TypeReference>( nameof( RawTypeReference.Name ), this.StringIndex, ( r, v ) => r.Name = v, ( r, v, b, g, s ) => r.Name = this.ReadString( v, s ) );
+         yield return new ColumnSerializationInfo<RawTypeReference, TypeReference>( nameof( RawTypeReference.Namespace ), this.StringIndex, ( r, v ) => r.Namespace = v, ( r, v, b, g, s ) => r.Namespace = this.ReadString( v, s ) );
       }
 
-      protected virtual IEnumerable<ColumnSerializationInfo<RawTypeDefinition>> GetTypeDefColumns()
+      protected virtual IEnumerable<ColumnSerializationInfo<RawTypeDefinition, TypeDefinition>> GetTypeDefColumns()
       {
-         yield return new ColumnSerializationInfo<RawTypeDefinition>( nameof( RawTypeDefinition.Attributes ), this.Constant32, ( r, v ) => r.Attributes = (TypeAttributes) v );
-         yield return new ColumnSerializationInfo<RawTypeDefinition>( nameof( RawTypeDefinition.Name ), this.StringIndex, ( r, v ) => r.Name = v );
-         yield return new ColumnSerializationInfo<RawTypeDefinition>( nameof( RawTypeDefinition.Namespace ), this.StringIndex, ( r, v ) => r.Namespace = v );
-         yield return new ColumnSerializationInfo<RawTypeDefinition>( nameof( RawTypeDefinition.BaseType ), this.TypeDefOrRefNullable, ( r, v ) => r.BaseType = v );
-         yield return new ColumnSerializationInfo<RawTypeDefinition>( nameof( RawTypeDefinition.FieldList ), this.GetSimpleIndex( Tables.Field ), ( r, v ) => r.FieldList = v );
-         yield return new ColumnSerializationInfo<RawTypeDefinition>( nameof( RawTypeDefinition.MethodList ), this.GetSimpleIndex( Tables.MethodDef ), ( r, v ) => r.MethodList = v );
+         yield return new ColumnSerializationInfo<RawTypeDefinition, TypeDefinition>( nameof( RawTypeDefinition.Attributes ), this.Constant32, ( r, v ) => r.Attributes = (TypeAttributes) v, ( r, v, b, g, s ) => r.Attributes = (TypeAttributes) v );
+         yield return new ColumnSerializationInfo<RawTypeDefinition, TypeDefinition>( nameof( RawTypeDefinition.Name ), this.StringIndex, ( r, v ) => r.Name = v, ( r, v, b, g, s ) => r.Name = this.ReadString( v, s ) );
+         yield return new ColumnSerializationInfo<RawTypeDefinition, TypeDefinition>( nameof( RawTypeDefinition.Namespace ), this.StringIndex, ( r, v ) => r.Namespace = v, ( r, v, b, g, s ) => r.Namespace = this.ReadString( v, s ) );
+         yield return new ColumnSerializationInfo<RawTypeDefinition, TypeDefinition>( nameof( RawTypeDefinition.BaseType ), this.TypeDefOrRefNullable, ( r, v ) => r.BaseType = v, ( r, v, b, g, s ) => r.BaseType = this.TypeDefOrRefNullable.DecodeTableIndex( v ) );
+         yield return new ColumnSerializationInfo<RawTypeDefinition, TypeDefinition>( nameof( RawTypeDefinition.FieldList ), this.GetSimpleIndex( Tables.Field ), ( r, v ) => r.FieldList = v, ( r, v, b, g, s ) => r.FieldList = this.ReadSimpleIndex( v, Tables.Field ) );
+         yield return new ColumnSerializationInfo<RawTypeDefinition, TypeDefinition>( nameof( RawTypeDefinition.MethodList ), this.GetSimpleIndex( Tables.MethodDef ), ( r, v ) => r.MethodList = v, ( r, v, b, g, s ) => r.MethodList = this.ReadSimpleIndex( v, Tables.MethodDef ) );
       }
 
-      protected virtual IEnumerable<ColumnSerializationInfo<RawFieldDefinitionPointer>> GetFieldPtrColumns()
+      protected virtual IEnumerable<ColumnSerializationInfo<RawFieldDefinitionPointer, FieldDefinitionPointer>> GetFieldPtrColumns()
       {
-         yield return new ColumnSerializationInfo<RawFieldDefinitionPointer>( nameof( RawFieldDefinitionPointer.FieldIndex ), this.GetSimpleIndex( Tables.Field ), ( r, v ) => r.FieldIndex = v );
+         yield return new ColumnSerializationInfo<RawFieldDefinitionPointer, FieldDefinitionPointer>( nameof( RawFieldDefinitionPointer.FieldIndex ), this.GetSimpleIndex( Tables.Field ), ( r, v ) => r.FieldIndex = v, ( r, v, b, g, s ) => r.FieldIndex = this.ReadSimpleIndex( v, Tables.Field ) );
       }
 
-      protected virtual IEnumerable<ColumnSerializationInfo<RawFieldDefinition>> GetFieldDefColumns()
+      protected virtual IEnumerable<ColumnSerializationInfo<RawFieldDefinition, FieldDefinition>> GetFieldDefColumns()
       {
-         yield return new ColumnSerializationInfo<RawFieldDefinition>( nameof( RawFieldDefinition.Attributes ), this.Constant16, ( r, v ) => r.Attributes = (FieldAttributes) v );
-         yield return new ColumnSerializationInfo<RawFieldDefinition>( nameof( RawFieldDefinition.Name ), this.StringIndex, ( r, v ) => r.Name = v );
-         yield return new ColumnSerializationInfo<RawFieldDefinition>( nameof( RawFieldDefinition.Signature ), this.BLOBIndex, ( r, v ) => r.Signature = v );
+         yield return new ColumnSerializationInfo<RawFieldDefinition, FieldDefinition>( nameof( RawFieldDefinition.Attributes ), this.Constant16, ( r, v ) => r.Attributes = (FieldAttributes) v, ( r, v, b, g, s ) => r.Attributes = (FieldAttributes) v );
+         yield return new ColumnSerializationInfo<RawFieldDefinition, FieldDefinition>( nameof( RawFieldDefinition.Name ), this.StringIndex, ( r, v ) => r.Name = v, ( r, v, b, g, s ) => r.Name = this.ReadString( v, s ) );
+         yield return new ColumnSerializationInfo<RawFieldDefinition, FieldDefinition>( nameof( RawFieldDefinition.Signature ), this.BLOBIndex, ( r, v ) => r.Signature = v, ( r, v, b, g, s ) => r.Signature = this.ReadBLOBSignature<FieldSignature>( v, b ) );
       }
 
-      protected virtual IEnumerable<ColumnSerializationInfo<RawMethodDefinitionPointer>> GetMethodPtrColumns()
+      protected virtual IEnumerable<ColumnSerializationInfo<RawMethodDefinitionPointer, MethodDefinitionPointer>> GetMethodPtrColumns()
       {
-         yield return new ColumnSerializationInfo<RawMethodDefinitionPointer>( nameof( RawMethodDefinitionPointer.MethodIndex ), this.GetSimpleIndex( Tables.MethodDef ), ( r, v ) => r.MethodIndex = v );
+         yield return new ColumnSerializationInfo<RawMethodDefinitionPointer, MethodDefinitionPointer>( nameof( RawMethodDefinitionPointer.MethodIndex ), this.GetSimpleIndex( Tables.MethodDef ), ( r, v ) => r.MethodIndex = v, ( r, v, b, g, s ) => r.MethodIndex = this.ReadSimpleIndex( v, Tables.MethodDef ) );
       }
 
-      protected virtual IEnumerable<ColumnSerializationInfo<RawMethodDefinition>> GetMethodDefColumns()
+      protected virtual IEnumerable<ColumnSerializationInfo<RawMethodDefinition, MethodDefinition>> GetMethodDefColumns()
       {
-         yield return new ColumnSerializationInfo<RawMethodDefinition>( nameof( RawMethodDefinition.RVA ), this.Constant32, ( r, v ) => r.RVA = v );
-         yield return new ColumnSerializationInfo<RawMethodDefinition>( nameof( RawMethodDefinition.ImplementationAttributes ), this.Constant16, ( r, v ) => r.ImplementationAttributes = (MethodImplAttributes) v );
-         yield return new ColumnSerializationInfo<RawMethodDefinition>( nameof( RawMethodDefinition.Attributes ), this.Constant16, ( r, v ) => r.Attributes = (MethodAttributes) v );
-         yield return new ColumnSerializationInfo<RawMethodDefinition>( nameof( RawMethodDefinition.Signature ), this.BLOBIndex, ( r, v ) => r.Signature = v );
-         yield return new ColumnSerializationInfo<RawMethodDefinition>( nameof( RawMethodDefinition.ParameterList ), this.GetSimpleIndex( Tables.Parameter ), ( r, v ) => r.ParameterList = v );
+         yield return new ColumnSerializationInfo<RawMethodDefinition, MethodDefinition>( nameof( RawMethodDefinition.RVA ), this.Constant32, ( r, v ) => r.RVA = v, ( r, v, b, g, s ) => { } );
+         yield return new ColumnSerializationInfo<RawMethodDefinition, MethodDefinition>( nameof( RawMethodDefinition.ImplementationAttributes ), this.Constant16, ( r, v ) => r.ImplementationAttributes = (MethodImplAttributes) v, ( r, v, b, g, s ) => r.ImplementationAttributes = (MethodImplAttributes) v );
+         yield return new ColumnSerializationInfo<RawMethodDefinition, MethodDefinition>( nameof( RawMethodDefinition.Attributes ), this.Constant16, ( r, v ) => r.Attributes = (MethodAttributes) v, ( r, v, b, g, s ) => r.Attributes = (MethodAttributes) v );
+         yield return new ColumnSerializationInfo<RawMethodDefinition, MethodDefinition>( nameof( RawMethodDefinition.Signature ), this.BLOBIndex, ( r, v ) => r.Signature = v, ( r, v, b, g, s ) => r.Signature = this.ReadBLOBSignature<MethodDefinitionSignature>( v, b ) );
+         yield return new ColumnSerializationInfo<RawMethodDefinition, MethodDefinition>( nameof( RawMethodDefinition.ParameterList ), this.GetSimpleIndex( Tables.Parameter ), ( r, v ) => r.ParameterList = v, ( r, v, b, g, s ) => r.ParameterList = this.ReadSimpleIndex( v, Tables.Parameter ) );
       }
 
-      protected virtual IEnumerable<ColumnSerializationInfo<RawParameterDefinitionPointer>> GetParamPtrColumns()
+      protected virtual IEnumerable<ColumnSerializationInfo<RawParameterDefinitionPointer, ParameterDefinitionPointer>> GetParamPtrColumns()
       {
-         yield return new ColumnSerializationInfo<RawParameterDefinitionPointer>( nameof( RawParameterDefinitionPointer.ParameterIndex ), this.GetSimpleIndex( Tables.Parameter ), ( r, v ) => r.ParameterIndex = v );
+         yield return new ColumnSerializationInfo<RawParameterDefinitionPointer, ParameterDefinitionPointer>( nameof( RawParameterDefinitionPointer.ParameterIndex ), this.GetSimpleIndex( Tables.Parameter ), ( r, v ) => r.ParameterIndex = v, ( r, v, b, g, s ) => r.ParameterIndex = this.ReadSimpleIndex( v, Tables.Parameter ) );
       }
 
-      protected virtual IEnumerable<ColumnSerializationInfo<RawParameterDefinition>> GetParamColumns()
+      protected virtual IEnumerable<ColumnSerializationInfo<RawParameterDefinition, ParameterDefinition>> GetParamColumns()
       {
-         yield return new ColumnSerializationInfo<RawParameterDefinition>( nameof( RawParameterDefinition.Attributes ), this.Constant16, ( r, v ) => r.Attributes = (ParameterAttributes) v );
-         yield return new ColumnSerializationInfo<RawParameterDefinition>( nameof( RawParameterDefinition.Sequence ), this.Constant16, ( r, v ) => r.Sequence = v );
-         yield return new ColumnSerializationInfo<RawParameterDefinition>( nameof( RawParameterDefinition.Name ), this.StringIndex, ( r, v ) => r.Name = v );
+         yield return new ColumnSerializationInfo<RawParameterDefinition, ParameterDefinition>( nameof( RawParameterDefinition.Attributes ), this.Constant16, ( r, v ) => r.Attributes = (ParameterAttributes) v, ( r, v, b, g, s ) => r.Attributes = (ParameterAttributes) v );
+         yield return new ColumnSerializationInfo<RawParameterDefinition, ParameterDefinition>( nameof( RawParameterDefinition.Sequence ), this.Constant16, ( r, v ) => r.Sequence = v, ( r, v, b, g, s ) => r.Sequence = v );
+         yield return new ColumnSerializationInfo<RawParameterDefinition, ParameterDefinition>( nameof( RawParameterDefinition.Name ), this.StringIndex, ( r, v ) => r.Name = v, ( r, v, b, g, s ) => r.Name = this.ReadString( v, s ) );
       }
 
-      protected virtual IEnumerable<ColumnSerializationInfo<RawInterfaceImplementation>> GetInterfaceImplColumns()
+      protected virtual IEnumerable<ColumnSerializationInfo<RawInterfaceImplementation, InterfaceImplementation>> GetInterfaceImplColumns()
       {
-         yield return new ColumnSerializationInfo<RawInterfaceImplementation>( nameof( RawInterfaceImplementation.Class ), this.GetSimpleIndex( Tables.TypeDef ), ( r, v ) => r.Class = v );
-         yield return new ColumnSerializationInfo<RawInterfaceImplementation>( nameof( RawInterfaceImplementation.Interface ), this.TypeDefOrRef, ( r, v ) => r.Interface = v );
+         yield return new ColumnSerializationInfo<RawInterfaceImplementation, InterfaceImplementation>( nameof( RawInterfaceImplementation.Class ), this.GetSimpleIndex( Tables.TypeDef ), ( r, v ) => r.Class = v, ( r, v, b, g, s ) => r.Class = this.ReadSimpleIndex( v, Tables.TypeDef ) );
+         yield return new ColumnSerializationInfo<RawInterfaceImplementation, InterfaceImplementation>( nameof( RawInterfaceImplementation.Interface ), this.TypeDefOrRef, ( r, v ) => r.Interface = v, ( r, v, b, g, s ) => r.Interface = this.TypeDefOrRef.DecodeTableIndex( v ).GetValueOrDefault() );
       }
 
-      protected virtual IEnumerable<ColumnSerializationInfo<RawMemberReference>> GetMemberRefColumns()
+      protected virtual IEnumerable<ColumnSerializationInfo<RawMemberReference, MemberReference>> GetMemberRefColumns()
       {
-         yield return new ColumnSerializationInfo<RawMemberReference>( nameof( RawMemberReference.DeclaringType ), this.MemberRefParent, ( r, v ) => r.DeclaringType = v );
-         yield return new ColumnSerializationInfo<RawMemberReference>( nameof( RawMemberReference.Name ), this.StringIndex, ( r, v ) => r.Name = v );
-         yield return new ColumnSerializationInfo<RawMemberReference>( nameof( RawMemberReference.Signature ), this.BLOBIndex, ( r, v ) => r.Signature = v );
+         yield return new ColumnSerializationInfo<RawMemberReference, MemberReference>( nameof( RawMemberReference.DeclaringType ), this.MemberRefParent, ( r, v ) => r.DeclaringType = v, ( r, v, b, g, s ) => r.DeclaringType = this.MemberRefParent.DecodeTableIndex( v ).GetValueOrDefault() );
+         yield return new ColumnSerializationInfo<RawMemberReference, MemberReference>( nameof( RawMemberReference.Name ), this.StringIndex, ( r, v ) => r.Name = v, ( r, v, b, g, s ) => r.Name = this.ReadString( v, s ) );
+         yield return new ColumnSerializationInfo<RawMemberReference, MemberReference>( nameof( RawMemberReference.Signature ), this.BLOBIndex, ( r, v ) => r.Signature = v, ( r, v, b, g, s ) => r.Signature = this.ReadBLOBSignature<AbstractSignature>( v, b ) );
       }
 
-      protected virtual IEnumerable<ColumnSerializationInfo<RawConstantDefinition>> GetConstantColumns()
+      protected virtual IEnumerable<ColumnSerializationInfo<RawConstantDefinition, ConstantDefinition>> GetConstantColumns()
       {
-         yield return new ColumnSerializationInfo<RawConstantDefinition>( nameof( RawConstantDefinition.Type ), this.Constant8, ( r, v ) => r.Type = (SignatureElementTypes) v );
-         yield return new ColumnSerializationInfo<RawConstantDefinition>( nameof( RawConstantDefinition.Padding ), this.Constant8, ( r, v ) => r.Padding = (Byte) v );
-         yield return new ColumnSerializationInfo<RawConstantDefinition>( nameof( RawConstantDefinition.Parent ), this.HasConstant, ( r, v ) => r.Parent = v );
-         yield return new ColumnSerializationInfo<RawConstantDefinition>( nameof( RawConstantDefinition.Value ), this.BLOBIndex, ( r, v ) => r.Value = v );
+         yield return new ColumnSerializationInfo<RawConstantDefinition, ConstantDefinition>( nameof( RawConstantDefinition.Type ), this.Constant8, ( r, v ) => r.Type = (SignatureElementTypes) v );
+         yield return new ColumnSerializationInfo<RawConstantDefinition, ConstantDefinition>( nameof( RawConstantDefinition.Padding ), this.Constant8, ( r, v ) => r.Padding = (Byte) v );
+         yield return new ColumnSerializationInfo<RawConstantDefinition, ConstantDefinition>( nameof( RawConstantDefinition.Parent ), this.HasConstant, ( r, v ) => r.Parent = v );
+         yield return new ColumnSerializationInfo<RawConstantDefinition, ConstantDefinition>( nameof( RawConstantDefinition.Value ), this.BLOBIndex, ( r, v ) => r.Value = v );
       }
 
-      protected virtual IEnumerable<ColumnSerializationInfo<RawCustomAttributeDefinition>> GetCustomAttributeColumns()
+      protected virtual IEnumerable<ColumnSerializationInfo<RawCustomAttributeDefinition, CustomAttributeDefinition>> GetCustomAttributeColumns()
       {
-         yield return new ColumnSerializationInfo<RawCustomAttributeDefinition>( nameof( RawCustomAttributeDefinition.Parent ), this.HasCustomAttribute, ( r, v ) => r.Parent = v );
-         yield return new ColumnSerializationInfo<RawCustomAttributeDefinition>( nameof( RawCustomAttributeDefinition.Type ), this.CustomAttributeType, ( r, v ) => r.Type = v );
-         yield return new ColumnSerializationInfo<RawCustomAttributeDefinition>( nameof( RawCustomAttributeDefinition.Signature ), this.BLOBIndex, ( r, v ) => r.Signature = v );
+         yield return new ColumnSerializationInfo<RawCustomAttributeDefinition, CustomAttributeDefinition>( nameof( RawCustomAttributeDefinition.Parent ), this.HasCustomAttribute, ( r, v ) => r.Parent = v );
+         yield return new ColumnSerializationInfo<RawCustomAttributeDefinition, CustomAttributeDefinition>( nameof( RawCustomAttributeDefinition.Type ), this.CustomAttributeType, ( r, v ) => r.Type = v );
+         yield return new ColumnSerializationInfo<RawCustomAttributeDefinition, CustomAttributeDefinition>( nameof( RawCustomAttributeDefinition.Signature ), this.BLOBIndex, ( r, v ) => r.Signature = v );
       }
 
-      protected virtual IEnumerable<ColumnSerializationInfo<RawFieldMarshal>> GetFieldMarshalColumns()
+      protected virtual IEnumerable<ColumnSerializationInfo<RawFieldMarshal, FieldMarshal>> GetFieldMarshalColumns()
       {
-         yield return new ColumnSerializationInfo<RawFieldMarshal>( nameof( RawFieldMarshal.Parent ), this.HasFieldMarshal, ( r, v ) => r.Parent = v );
-         yield return new ColumnSerializationInfo<RawFieldMarshal>( nameof( RawFieldMarshal.NativeType ), this.BLOBIndex, ( r, v ) => r.NativeType = v );
+         yield return new ColumnSerializationInfo<RawFieldMarshal, FieldMarshal>( nameof( RawFieldMarshal.Parent ), this.HasFieldMarshal, ( r, v ) => r.Parent = v );
+         yield return new ColumnSerializationInfo<RawFieldMarshal, FieldMarshal>( nameof( RawFieldMarshal.NativeType ), this.BLOBIndex, ( r, v ) => r.NativeType = v );
       }
 
-      protected virtual IEnumerable<ColumnSerializationInfo<RawSecurityDefinition>> GetDeclSecurityColumns()
+      protected virtual IEnumerable<ColumnSerializationInfo<RawSecurityDefinition, SecurityDefinition>> GetDeclSecurityColumns()
       {
-         yield return new ColumnSerializationInfo<RawSecurityDefinition>( nameof( RawSecurityDefinition.Action ), this.Constant16, ( r, v ) => r.Action = (SecurityAction) v );
-         yield return new ColumnSerializationInfo<RawSecurityDefinition>( nameof( RawSecurityDefinition.Parent ), this.HasSecurity, ( r, v ) => r.Parent = v );
-         yield return new ColumnSerializationInfo<RawSecurityDefinition>( nameof( RawSecurityDefinition.PermissionSets ), this.BLOBIndex, ( r, v ) => r.PermissionSets = v );
+         yield return new ColumnSerializationInfo<RawSecurityDefinition, SecurityDefinition>( nameof( RawSecurityDefinition.Action ), this.Constant16, ( r, v ) => r.Action = (SecurityAction) v );
+         yield return new ColumnSerializationInfo<RawSecurityDefinition, SecurityDefinition>( nameof( RawSecurityDefinition.Parent ), this.HasSecurity, ( r, v ) => r.Parent = v );
+         yield return new ColumnSerializationInfo<RawSecurityDefinition, SecurityDefinition>( nameof( RawSecurityDefinition.PermissionSets ), this.BLOBIndex, ( r, v ) => r.PermissionSets = v );
       }
 
-      protected virtual IEnumerable<ColumnSerializationInfo<RawClassLayout>> GetClassLayoutColumns()
+      protected virtual IEnumerable<ColumnSerializationInfo<RawClassLayout, ClassLayout>> GetClassLayoutColumns()
       {
-         yield return new ColumnSerializationInfo<RawClassLayout>( nameof( RawClassLayout.PackingSize ), this.Constant16, ( r, v ) => r.PackingSize = v );
-         yield return new ColumnSerializationInfo<RawClassLayout>( nameof( RawClassLayout.ClassSize ), this.Constant32, ( r, v ) => r.ClassSize = v );
-         yield return new ColumnSerializationInfo<RawClassLayout>( nameof( RawClassLayout.Parent ), this.GetSimpleIndex( Tables.TypeDef ), ( r, v ) => r.Parent = v );
+         yield return new ColumnSerializationInfo<RawClassLayout, ClassLayout>( nameof( RawClassLayout.PackingSize ), this.Constant16, ( r, v ) => r.PackingSize = v );
+         yield return new ColumnSerializationInfo<RawClassLayout, ClassLayout>( nameof( RawClassLayout.ClassSize ), this.Constant32, ( r, v ) => r.ClassSize = v );
+         yield return new ColumnSerializationInfo<RawClassLayout, ClassLayout>( nameof( RawClassLayout.Parent ), this.GetSimpleIndex( Tables.TypeDef ), ( r, v ) => r.Parent = v );
       }
 
-      protected virtual IEnumerable<ColumnSerializationInfo<RawFieldLayout>> GetFieldLayoutColumns()
+      protected virtual IEnumerable<ColumnSerializationInfo<RawFieldLayout, FieldLayout>> GetFieldLayoutColumns()
       {
-         yield return new ColumnSerializationInfo<RawFieldLayout>( nameof( RawFieldLayout.Offset ), this.Constant32, ( r, v ) => r.Offset = v );
-         yield return new ColumnSerializationInfo<RawFieldLayout>( nameof( RawFieldLayout.Field ), this.GetSimpleIndex( Tables.TypeDef ), ( r, v ) => r.Field = v );
+         yield return new ColumnSerializationInfo<RawFieldLayout, FieldLayout>( nameof( RawFieldLayout.Offset ), this.Constant32, ( r, v ) => r.Offset = v );
+         yield return new ColumnSerializationInfo<RawFieldLayout, FieldLayout>( nameof( RawFieldLayout.Field ), this.GetSimpleIndex( Tables.TypeDef ), ( r, v ) => r.Field = v );
       }
 
-      protected virtual IEnumerable<ColumnSerializationInfo<RawStandaloneSignature>> GetStandaloneSigColumns()
+      protected virtual IEnumerable<ColumnSerializationInfo<RawStandaloneSignature, StandaloneSignature>> GetStandaloneSigColumns()
       {
-         yield return new ColumnSerializationInfo<RawStandaloneSignature>( nameof( RawStandaloneSignature.Signature ), this.BLOBIndex, ( r, v ) => r.Signature = v );
+         yield return new ColumnSerializationInfo<RawStandaloneSignature, StandaloneSignature>( nameof( RawStandaloneSignature.Signature ), this.BLOBIndex, ( r, v ) => r.Signature = v );
       }
 
-      protected virtual IEnumerable<ColumnSerializationInfo<RawEventMap>> GetEventMapColumns()
+      protected virtual IEnumerable<ColumnSerializationInfo<RawEventMap, EventMap>> GetEventMapColumns()
       {
-         yield return new ColumnSerializationInfo<RawEventMap>( nameof( RawEventMap.Parent ), this.GetSimpleIndex( Tables.TypeDef ), ( r, v ) => r.Parent = v );
-         yield return new ColumnSerializationInfo<RawEventMap>( nameof( RawEventMap.EventList ), this.GetSimpleIndex( Tables.Event ), ( r, v ) => r.EventList = v );
+         yield return new ColumnSerializationInfo<RawEventMap, EventMap>( nameof( RawEventMap.Parent ), this.GetSimpleIndex( Tables.TypeDef ), ( r, v ) => r.Parent = v );
+         yield return new ColumnSerializationInfo<RawEventMap, EventMap>( nameof( RawEventMap.EventList ), this.GetSimpleIndex( Tables.Event ), ( r, v ) => r.EventList = v );
       }
 
-      protected virtual IEnumerable<ColumnSerializationInfo<RawEventDefinitionPointer>> GetEventPtrColumns()
+      protected virtual IEnumerable<ColumnSerializationInfo<RawEventDefinitionPointer, EventDefinitionPointer>> GetEventPtrColumns()
       {
-         yield return new ColumnSerializationInfo<RawEventDefinitionPointer>( nameof( RawEventDefinitionPointer.EventIndex ), this.GetSimpleIndex( Tables.Event ), ( r, v ) => r.EventIndex = v );
+         yield return new ColumnSerializationInfo<RawEventDefinitionPointer, EventDefinitionPointer>( nameof( RawEventDefinitionPointer.EventIndex ), this.GetSimpleIndex( Tables.Event ), ( r, v ) => r.EventIndex = v );
       }
 
-      protected virtual IEnumerable<ColumnSerializationInfo<RawEventDefinition>> GetEventDefColumns()
+      protected virtual IEnumerable<ColumnSerializationInfo<RawEventDefinition, EventDefinition>> GetEventDefColumns()
       {
-         yield return new ColumnSerializationInfo<RawEventDefinition>( nameof( RawEventDefinition.Attributes ), this.Constant16, ( r, v ) => r.Attributes = (EventAttributes) v );
-         yield return new ColumnSerializationInfo<RawEventDefinition>( nameof( RawEventDefinition.Name ), this.StringIndex, ( r, v ) => r.Name = v );
-         yield return new ColumnSerializationInfo<RawEventDefinition>( nameof( RawEventDefinition.EventType ), this.TypeDefOrRef, ( r, v ) => r.EventType = v );
+         yield return new ColumnSerializationInfo<RawEventDefinition, EventDefinition>( nameof( RawEventDefinition.Attributes ), this.Constant16, ( r, v ) => r.Attributes = (EventAttributes) v );
+         yield return new ColumnSerializationInfo<RawEventDefinition, EventDefinition>( nameof( RawEventDefinition.Name ), this.StringIndex, ( r, v ) => r.Name = v );
+         yield return new ColumnSerializationInfo<RawEventDefinition, EventDefinition>( nameof( RawEventDefinition.EventType ), this.TypeDefOrRef, ( r, v ) => r.EventType = v );
       }
 
-      protected virtual IEnumerable<ColumnSerializationInfo<RawPropertyMap>> GetPropertyMapColumns()
+      protected virtual IEnumerable<ColumnSerializationInfo<RawPropertyMap, PropertyMap>> GetPropertyMapColumns()
       {
-         yield return new ColumnSerializationInfo<RawPropertyMap>( nameof( RawPropertyMap.Parent ), this.GetSimpleIndex( Tables.TypeDef ), ( r, v ) => r.Parent = v );
-         yield return new ColumnSerializationInfo<RawPropertyMap>( nameof( RawPropertyMap.PropertyList ), this.GetSimpleIndex( Tables.Property ), ( r, v ) => r.PropertyList = v );
+         yield return new ColumnSerializationInfo<RawPropertyMap, PropertyMap>( nameof( RawPropertyMap.Parent ), this.GetSimpleIndex( Tables.TypeDef ), ( r, v ) => r.Parent = v );
+         yield return new ColumnSerializationInfo<RawPropertyMap, PropertyMap>( nameof( RawPropertyMap.PropertyList ), this.GetSimpleIndex( Tables.Property ), ( r, v ) => r.PropertyList = v );
       }
 
-      protected virtual IEnumerable<ColumnSerializationInfo<RawPropertyDefinitionPointer>> GetPropertyPtrColumns()
+      protected virtual IEnumerable<ColumnSerializationInfo<RawPropertyDefinitionPointer, PropertyDefinitionPointer>> GetPropertyPtrColumns()
       {
-         yield return new ColumnSerializationInfo<RawPropertyDefinitionPointer>( nameof( RawPropertyDefinitionPointer.PropertyIndex ), this.GetSimpleIndex( Tables.Property ), ( r, v ) => r.PropertyIndex = v );
+         yield return new ColumnSerializationInfo<RawPropertyDefinitionPointer, PropertyDefinitionPointer>( nameof( RawPropertyDefinitionPointer.PropertyIndex ), this.GetSimpleIndex( Tables.Property ), ( r, v ) => r.PropertyIndex = v );
       }
 
-      protected virtual IEnumerable<ColumnSerializationInfo<RawPropertyDefinition>> GetPropertyDefColumns()
+      protected virtual IEnumerable<ColumnSerializationInfo<RawPropertyDefinition, PropertyDefinition>> GetPropertyDefColumns()
       {
-         yield return new ColumnSerializationInfo<RawPropertyDefinition>( nameof( RawPropertyDefinition.Attributes ), this.Constant16, ( r, v ) => r.Attributes = (PropertyAttributes) v );
-         yield return new ColumnSerializationInfo<RawPropertyDefinition>( nameof( RawPropertyDefinition.Name ), this.StringIndex, ( r, v ) => r.Name = v );
-         yield return new ColumnSerializationInfo<RawPropertyDefinition>( nameof( RawPropertyDefinition.Signature ), this.BLOBIndex, ( r, v ) => r.Signature = v );
+         yield return new ColumnSerializationInfo<RawPropertyDefinition, PropertyDefinition>( nameof( RawPropertyDefinition.Attributes ), this.Constant16, ( r, v ) => r.Attributes = (PropertyAttributes) v );
+         yield return new ColumnSerializationInfo<RawPropertyDefinition, PropertyDefinition>( nameof( RawPropertyDefinition.Name ), this.StringIndex, ( r, v ) => r.Name = v );
+         yield return new ColumnSerializationInfo<RawPropertyDefinition, PropertyDefinition>( nameof( RawPropertyDefinition.Signature ), this.BLOBIndex, ( r, v ) => r.Signature = v );
       }
 
-      protected virtual IEnumerable<ColumnSerializationInfo<RawMethodSemantics>> GetMethodSemanticsColumns()
+      protected virtual IEnumerable<ColumnSerializationInfo<RawMethodSemantics, MethodSemantics>> GetMethodSemanticsColumns()
       {
-         yield return new ColumnSerializationInfo<RawMethodSemantics>( nameof( RawMethodSemantics.Attributes ), this.Constant16, ( r, v ) => r.Attributes = (MethodSemanticsAttributes) v );
-         yield return new ColumnSerializationInfo<RawMethodSemantics>( nameof( RawMethodSemantics.Method ), this.GetSimpleIndex( Tables.MethodDef ), ( r, v ) => r.Method = v );
-         yield return new ColumnSerializationInfo<RawMethodSemantics>( nameof( RawMethodSemantics.Associaton ), this.HasSemantics, ( r, v ) => r.Associaton = v );
+         yield return new ColumnSerializationInfo<RawMethodSemantics, MethodSemantics>( nameof( RawMethodSemantics.Attributes ), this.Constant16, ( r, v ) => r.Attributes = (MethodSemanticsAttributes) v );
+         yield return new ColumnSerializationInfo<RawMethodSemantics, MethodSemantics>( nameof( RawMethodSemantics.Method ), this.GetSimpleIndex( Tables.MethodDef ), ( r, v ) => r.Method = v );
+         yield return new ColumnSerializationInfo<RawMethodSemantics, MethodSemantics>( nameof( RawMethodSemantics.Associaton ), this.HasSemantics, ( r, v ) => r.Associaton = v );
       }
 
-      protected virtual IEnumerable<ColumnSerializationInfo<RawMethodImplementation>> GetMethodImplColumns()
+      protected virtual IEnumerable<ColumnSerializationInfo<RawMethodImplementation, MethodImplementation>> GetMethodImplColumns()
       {
-         yield return new ColumnSerializationInfo<RawMethodImplementation>( nameof( RawMethodImplementation.Class ), this.GetSimpleIndex( Tables.TypeDef ), ( r, v ) => r.Class = v );
-         yield return new ColumnSerializationInfo<RawMethodImplementation>( nameof( RawMethodImplementation.MethodBody ), this.MethodDefOrRef, ( r, v ) => r.MethodBody = v );
-         yield return new ColumnSerializationInfo<RawMethodImplementation>( nameof( RawMethodImplementation.MethodDeclaration ), this.MethodDefOrRef, ( r, v ) => r.MethodDeclaration = v );
+         yield return new ColumnSerializationInfo<RawMethodImplementation, MethodImplementation>( nameof( RawMethodImplementation.Class ), this.GetSimpleIndex( Tables.TypeDef ), ( r, v ) => r.Class = v );
+         yield return new ColumnSerializationInfo<RawMethodImplementation, MethodImplementation>( nameof( RawMethodImplementation.MethodBody ), this.MethodDefOrRef, ( r, v ) => r.MethodBody = v );
+         yield return new ColumnSerializationInfo<RawMethodImplementation, MethodImplementation>( nameof( RawMethodImplementation.MethodDeclaration ), this.MethodDefOrRef, ( r, v ) => r.MethodDeclaration = v );
       }
 
-      protected virtual IEnumerable<ColumnSerializationInfo<RawModuleReference>> GetModuleRefColumns()
+      protected virtual IEnumerable<ColumnSerializationInfo<RawModuleReference, ModuleReference>> GetModuleRefColumns()
       {
-         yield return new ColumnSerializationInfo<RawModuleReference>( nameof( RawModuleReference.ModuleName ), this.StringIndex, ( r, v ) => r.ModuleName = v );
+         yield return new ColumnSerializationInfo<RawModuleReference, ModuleReference>( nameof( RawModuleReference.ModuleName ), this.StringIndex, ( r, v ) => r.ModuleName = v );
       }
 
-      protected virtual IEnumerable<ColumnSerializationInfo<RawTypeSpecification>> GetTypeSpecColumns()
+      protected virtual IEnumerable<ColumnSerializationInfo<RawTypeSpecification, TypeSpecification>> GetTypeSpecColumns()
       {
-         yield return new ColumnSerializationInfo<RawTypeSpecification>( nameof( RawTypeSpecification.Signature ), this.BLOBIndex, ( r, v ) => r.Signature = v );
+         yield return new ColumnSerializationInfo<RawTypeSpecification, TypeSpecification>( nameof( RawTypeSpecification.Signature ), this.BLOBIndex, ( r, v ) => r.Signature = v );
       }
 
-      protected virtual IEnumerable<ColumnSerializationInfo<RawMethodImplementationMap>> GetImplMapColumns()
+      protected virtual IEnumerable<ColumnSerializationInfo<RawMethodImplementationMap, MethodImplementationMap>> GetImplMapColumns()
       {
-         yield return new ColumnSerializationInfo<RawMethodImplementationMap>( nameof( RawMethodImplementationMap.Attributes ), this.Constant16, ( r, v ) => r.Attributes = (PInvokeAttributes) v );
-         yield return new ColumnSerializationInfo<RawMethodImplementationMap>( nameof( RawMethodImplementationMap.MemberForwarded ), this.MemberForwarded, ( r, v ) => r.MemberForwarded = v );
-         yield return new ColumnSerializationInfo<RawMethodImplementationMap>( nameof( RawMethodImplementationMap.ImportName ), this.StringIndex, ( r, v ) => r.ImportName = v );
-         yield return new ColumnSerializationInfo<RawMethodImplementationMap>( nameof( RawMethodImplementationMap.ImportScope ), this.GetSimpleIndex( Tables.ModuleRef ), ( r, v ) => r.ImportScope = v );
+         yield return new ColumnSerializationInfo<RawMethodImplementationMap, MethodImplementationMap>( nameof( RawMethodImplementationMap.Attributes ), this.Constant16, ( r, v ) => r.Attributes = (PInvokeAttributes) v );
+         yield return new ColumnSerializationInfo<RawMethodImplementationMap, MethodImplementationMap>( nameof( RawMethodImplementationMap.MemberForwarded ), this.MemberForwarded, ( r, v ) => r.MemberForwarded = v );
+         yield return new ColumnSerializationInfo<RawMethodImplementationMap, MethodImplementationMap>( nameof( RawMethodImplementationMap.ImportName ), this.StringIndex, ( r, v ) => r.ImportName = v );
+         yield return new ColumnSerializationInfo<RawMethodImplementationMap, MethodImplementationMap>( nameof( RawMethodImplementationMap.ImportScope ), this.GetSimpleIndex( Tables.ModuleRef ), ( r, v ) => r.ImportScope = v );
       }
 
-      protected virtual IEnumerable<ColumnSerializationInfo<RawFieldRVA>> GetFieldRVAColumns()
+      protected virtual IEnumerable<ColumnSerializationInfo<RawFieldRVA, FieldRVA>> GetFieldRVAColumns()
       {
-         yield return new ColumnSerializationInfo<RawFieldRVA>( nameof( RawFieldRVA.RVA ), this.Constant32, ( r, v ) => r.RVA = v );
-         yield return new ColumnSerializationInfo<RawFieldRVA>( nameof( RawFieldRVA.Field ), this.GetSimpleIndex( Tables.Field ), ( r, v ) => r.Field = v );
+         yield return new ColumnSerializationInfo<RawFieldRVA, FieldRVA>( nameof( RawFieldRVA.RVA ), this.Constant32, ( r, v ) => r.RVA = v );
+         yield return new ColumnSerializationInfo<RawFieldRVA, FieldRVA>( nameof( RawFieldRVA.Field ), this.GetSimpleIndex( Tables.Field ), ( r, v ) => r.Field = v );
       }
 
-      protected virtual IEnumerable<ColumnSerializationInfo<EditAndContinueLog>> GetENCLogColumns()
+      protected virtual IEnumerable<ColumnSerializationInfo<RawEditAndContinueLog, EditAndContinueLog>> GetENCLogColumns()
       {
-         yield return new ColumnSerializationInfo<EditAndContinueLog>( nameof( EditAndContinueLog.Token ), this.Constant32, ( r, v ) => r.Token = v );
-         yield return new ColumnSerializationInfo<EditAndContinueLog>( nameof( EditAndContinueLog.FuncCode ), this.Constant32, ( r, v ) => r.FuncCode = v );
+         yield return new ColumnSerializationInfo<RawEditAndContinueLog, EditAndContinueLog>( nameof( RawEditAndContinueLog.Token ), this.Constant32, ( r, v ) => r.Token = v );
+         yield return new ColumnSerializationInfo<RawEditAndContinueLog, EditAndContinueLog>( nameof( RawEditAndContinueLog.FuncCode ), this.Constant32, ( r, v ) => r.FuncCode = v );
       }
 
-      protected virtual IEnumerable<ColumnSerializationInfo<EditAndContinueMap>> GetENCMapColumns()
+      protected virtual IEnumerable<ColumnSerializationInfo<RawEditAndContinueMap, EditAndContinueMap>> GetENCMapColumns()
       {
-         yield return new ColumnSerializationInfo<EditAndContinueMap>( nameof( EditAndContinueMap.Token ), this.Constant32, ( r, v ) => r.Token = v );
+         yield return new ColumnSerializationInfo<RawEditAndContinueMap, EditAndContinueMap>( nameof( RawEditAndContinueMap.Token ), this.Constant32, ( r, v ) => r.Token = v );
       }
 
-      protected virtual IEnumerable<ColumnSerializationInfo<RawAssemblyDefinition>> GetAssemblyDefColumns()
+      protected virtual IEnumerable<ColumnSerializationInfo<RawAssemblyDefinition, AssemblyDefinition>> GetAssemblyDefColumns()
       {
-         yield return new ColumnSerializationInfo<RawAssemblyDefinition>( nameof( RawAssemblyDefinition.HashAlgorithm ), this.Constant32, ( r, v ) => r.HashAlgorithm = (AssemblyHashAlgorithm) v );
-         yield return new ColumnSerializationInfo<RawAssemblyDefinition>( nameof( RawAssemblyDefinition.MajorVersion ), this.Constant16, ( r, v ) => r.MajorVersion = v );
-         yield return new ColumnSerializationInfo<RawAssemblyDefinition>( nameof( RawAssemblyDefinition.MinorVersion ), this.Constant16, ( r, v ) => r.MinorVersion = v );
-         yield return new ColumnSerializationInfo<RawAssemblyDefinition>( nameof( RawAssemblyDefinition.BuildNumber ), this.Constant16, ( r, v ) => r.BuildNumber = v );
-         yield return new ColumnSerializationInfo<RawAssemblyDefinition>( nameof( RawAssemblyDefinition.RevisionNumber ), this.Constant16, ( r, v ) => r.RevisionNumber = v );
-         yield return new ColumnSerializationInfo<RawAssemblyDefinition>( nameof( RawAssemblyDefinition.Attributes ), this.Constant32, ( r, v ) => r.Attributes = (AssemblyFlags) v );
-         yield return new ColumnSerializationInfo<RawAssemblyDefinition>( nameof( RawAssemblyDefinition.PublicKey ), this.BLOBIndex, ( r, v ) => r.PublicKey = v );
-         yield return new ColumnSerializationInfo<RawAssemblyDefinition>( nameof( RawAssemblyDefinition.Name ), this.StringIndex, ( r, v ) => r.Name = v );
-         yield return new ColumnSerializationInfo<RawAssemblyDefinition>( nameof( RawAssemblyDefinition.Culture ), this.StringIndex, ( r, v ) => r.Culture = v );
+         yield return new ColumnSerializationInfo<RawAssemblyDefinition, AssemblyDefinition>( nameof( RawAssemblyDefinition.HashAlgorithm ), this.Constant32, ( r, v ) => r.HashAlgorithm = (AssemblyHashAlgorithm) v );
+         yield return new ColumnSerializationInfo<RawAssemblyDefinition, AssemblyDefinition>( nameof( RawAssemblyDefinition.MajorVersion ), this.Constant16, ( r, v ) => r.MajorVersion = v );
+         yield return new ColumnSerializationInfo<RawAssemblyDefinition, AssemblyDefinition>( nameof( RawAssemblyDefinition.MinorVersion ), this.Constant16, ( r, v ) => r.MinorVersion = v );
+         yield return new ColumnSerializationInfo<RawAssemblyDefinition, AssemblyDefinition>( nameof( RawAssemblyDefinition.BuildNumber ), this.Constant16, ( r, v ) => r.BuildNumber = v );
+         yield return new ColumnSerializationInfo<RawAssemblyDefinition, AssemblyDefinition>( nameof( RawAssemblyDefinition.RevisionNumber ), this.Constant16, ( r, v ) => r.RevisionNumber = v );
+         yield return new ColumnSerializationInfo<RawAssemblyDefinition, AssemblyDefinition>( nameof( RawAssemblyDefinition.Attributes ), this.Constant32, ( r, v ) => r.Attributes = (AssemblyFlags) v );
+         yield return new ColumnSerializationInfo<RawAssemblyDefinition, AssemblyDefinition>( nameof( RawAssemblyDefinition.PublicKey ), this.BLOBIndex, ( r, v ) => r.PublicKey = v );
+         yield return new ColumnSerializationInfo<RawAssemblyDefinition, AssemblyDefinition>( nameof( RawAssemblyDefinition.Name ), this.StringIndex, ( r, v ) => r.Name = v );
+         yield return new ColumnSerializationInfo<RawAssemblyDefinition, AssemblyDefinition>( nameof( RawAssemblyDefinition.Culture ), this.StringIndex, ( r, v ) => r.Culture = v );
+      }
+#pragma warning disable 618
+      protected virtual IEnumerable<ColumnSerializationInfo<RawAssemblyDefinitionProcessor, AssemblyDefinitionProcessor>> GetAssemblyDefProcessorColumns()
+      {
+         yield return new ColumnSerializationInfo<RawAssemblyDefinitionProcessor, AssemblyDefinitionProcessor>( nameof( RawAssemblyDefinitionProcessor.Processor ), this.Constant32, ( r, v ) => r.Processor = v );
       }
 
-      protected virtual IEnumerable<ColumnSerializationInfo<RawAssemblyDefinitionProcessor>> GetAssemblyDefProcessorColumns()
+      protected virtual IEnumerable<ColumnSerializationInfo<RawAssemblyDefinitionOS, AssemblyDefinitionOS>> GetAssemblyDefOSColumns()
       {
-         yield return new ColumnSerializationInfo<RawAssemblyDefinitionProcessor>( nameof( RawAssemblyDefinitionProcessor.Processor ), this.Constant32, ( r, v ) => r.Processor = v );
+         yield return new ColumnSerializationInfo<RawAssemblyDefinitionOS, AssemblyDefinitionOS>( nameof( RawAssemblyDefinitionOS.OSPlatformID ), this.Constant32, ( r, v ) => r.OSPlatformID = v );
+         yield return new ColumnSerializationInfo<RawAssemblyDefinitionOS, AssemblyDefinitionOS>( nameof( RawAssemblyDefinitionOS.OSMajorVersion ), this.Constant32, ( r, v ) => r.OSMajorVersion = v );
+         yield return new ColumnSerializationInfo<RawAssemblyDefinitionOS, AssemblyDefinitionOS>( nameof( RawAssemblyDefinitionOS.OSMinorVersion ), this.Constant32, ( r, v ) => r.OSMinorVersion = v );
+      }
+#pragma warning restore 618
+
+      protected virtual IEnumerable<ColumnSerializationInfo<RawAssemblyReference, AssemblyReference>> GetAssemblyRefColumns()
+      {
+         yield return new ColumnSerializationInfo<RawAssemblyReference, AssemblyReference>( nameof( RawAssemblyReference.MajorVersion ), this.Constant16, ( r, v ) => r.MajorVersion = v );
+         yield return new ColumnSerializationInfo<RawAssemblyReference, AssemblyReference>( nameof( RawAssemblyReference.MinorVersion ), this.Constant16, ( r, v ) => r.MinorVersion = v );
+         yield return new ColumnSerializationInfo<RawAssemblyReference, AssemblyReference>( nameof( RawAssemblyReference.BuildNumber ), this.Constant16, ( r, v ) => r.BuildNumber = v );
+         yield return new ColumnSerializationInfo<RawAssemblyReference, AssemblyReference>( nameof( RawAssemblyReference.RevisionNumber ), this.Constant16, ( r, v ) => r.RevisionNumber = v );
+         yield return new ColumnSerializationInfo<RawAssemblyReference, AssemblyReference>( nameof( RawAssemblyReference.Attributes ), this.Constant32, ( r, v ) => r.Attributes = (AssemblyFlags) v );
+         yield return new ColumnSerializationInfo<RawAssemblyReference, AssemblyReference>( nameof( RawAssemblyReference.PublicKeyOrToken ), this.BLOBIndex, ( r, v ) => r.PublicKeyOrToken = v );
+         yield return new ColumnSerializationInfo<RawAssemblyReference, AssemblyReference>( nameof( RawAssemblyReference.Name ), this.StringIndex, ( r, v ) => r.Name = v );
+         yield return new ColumnSerializationInfo<RawAssemblyReference, AssemblyReference>( nameof( RawAssemblyReference.Culture ), this.StringIndex, ( r, v ) => r.Culture = v );
+         yield return new ColumnSerializationInfo<RawAssemblyReference, AssemblyReference>( nameof( RawAssemblyReference.HashValue ), this.BLOBIndex, ( r, v ) => r.HashValue = v );
       }
 
-      protected virtual IEnumerable<ColumnSerializationInfo<RawAssemblyDefinitionOS>> GetAssemblyDefOSColumns()
+#pragma warning disable 618
+      protected virtual IEnumerable<ColumnSerializationInfo<RawAssemblyReferenceProcessor, AssemblyReferenceProcessor>> GetAssemblyRefProcessorColumns()
       {
-         yield return new ColumnSerializationInfo<RawAssemblyDefinitionOS>( nameof( RawAssemblyDefinitionOS.OSPlatformID ), this.Constant32, ( r, v ) => r.OSPlatformID = v );
-         yield return new ColumnSerializationInfo<RawAssemblyDefinitionOS>( nameof( RawAssemblyDefinitionOS.OSMajorVersion ), this.Constant32, ( r, v ) => r.OSMajorVersion = v );
-         yield return new ColumnSerializationInfo<RawAssemblyDefinitionOS>( nameof( RawAssemblyDefinitionOS.OSMinorVersion ), this.Constant32, ( r, v ) => r.OSMinorVersion = v );
+         yield return new ColumnSerializationInfo<RawAssemblyReferenceProcessor, AssemblyReferenceProcessor>( nameof( RawAssemblyReferenceProcessor.Processor ), this.Constant32, ( r, v ) => r.Processor = v );
+         yield return new ColumnSerializationInfo<RawAssemblyReferenceProcessor, AssemblyReferenceProcessor>( nameof( RawAssemblyReferenceProcessor.AssemblyRef ), this.GetSimpleIndex( Tables.AssemblyRef ), ( r, v ) => r.AssemblyRef = v );
       }
 
-      protected virtual IEnumerable<ColumnSerializationInfo<RawAssemblyReference>> GetAssemblyRefColumns()
+      protected virtual IEnumerable<ColumnSerializationInfo<RawAssemblyReferenceOS, AssemblyReferenceOS>> GetAssemblyRefOSColumns()
       {
-         yield return new ColumnSerializationInfo<RawAssemblyReference>( nameof( RawAssemblyReference.MajorVersion ), this.Constant16, ( r, v ) => r.MajorVersion = v );
-         yield return new ColumnSerializationInfo<RawAssemblyReference>( nameof( RawAssemblyReference.MinorVersion ), this.Constant16, ( r, v ) => r.MinorVersion = v );
-         yield return new ColumnSerializationInfo<RawAssemblyReference>( nameof( RawAssemblyReference.BuildNumber ), this.Constant16, ( r, v ) => r.BuildNumber = v );
-         yield return new ColumnSerializationInfo<RawAssemblyReference>( nameof( RawAssemblyReference.RevisionNumber ), this.Constant16, ( r, v ) => r.RevisionNumber = v );
-         yield return new ColumnSerializationInfo<RawAssemblyReference>( nameof( RawAssemblyReference.Attributes ), this.Constant32, ( r, v ) => r.Attributes = (AssemblyFlags) v );
-         yield return new ColumnSerializationInfo<RawAssemblyReference>( nameof( RawAssemblyReference.PublicKeyOrToken ), this.BLOBIndex, ( r, v ) => r.PublicKeyOrToken = v );
-         yield return new ColumnSerializationInfo<RawAssemblyReference>( nameof( RawAssemblyReference.Name ), this.StringIndex, ( r, v ) => r.Name = v );
-         yield return new ColumnSerializationInfo<RawAssemblyReference>( nameof( RawAssemblyReference.Culture ), this.StringIndex, ( r, v ) => r.Culture = v );
-         yield return new ColumnSerializationInfo<RawAssemblyReference>( nameof( RawAssemblyReference.HashValue ), this.BLOBIndex, ( r, v ) => r.HashValue = v );
+         yield return new ColumnSerializationInfo<RawAssemblyReferenceOS, AssemblyReferenceOS>( nameof( RawAssemblyReferenceOS.OSPlatformID ), this.Constant32, ( r, v ) => r.OSPlatformID = v );
+         yield return new ColumnSerializationInfo<RawAssemblyReferenceOS, AssemblyReferenceOS>( nameof( RawAssemblyReferenceOS.OSMajorVersion ), this.Constant32, ( r, v ) => r.OSMajorVersion = v );
+         yield return new ColumnSerializationInfo<RawAssemblyReferenceOS, AssemblyReferenceOS>( nameof( RawAssemblyReferenceOS.OSMinorVersion ), this.Constant32, ( r, v ) => r.OSMinorVersion = v );
+         yield return new ColumnSerializationInfo<RawAssemblyReferenceOS, AssemblyReferenceOS>( nameof( RawAssemblyReferenceOS.AssemblyRef ), this.GetSimpleIndex( Tables.AssemblyRef ), ( r, v ) => r.AssemblyRef = v );
+      }
+#pragma warning restore 618
+
+      protected virtual IEnumerable<ColumnSerializationInfo<RawFileReference, FileReference>> GetFileColumns()
+      {
+         yield return new ColumnSerializationInfo<RawFileReference, FileReference>( nameof( RawFileReference.Attributes ), this.Constant32, ( r, v ) => r.Attributes = (FileAttributes) v );
+         yield return new ColumnSerializationInfo<RawFileReference, FileReference>( nameof( RawFileReference.Name ), this.StringIndex, ( r, v ) => r.Name = v );
+         yield return new ColumnSerializationInfo<RawFileReference, FileReference>( nameof( RawFileReference.HashValue ), this.BLOBIndex, ( r, v ) => r.HashValue = v );
       }
 
-      protected virtual IEnumerable<ColumnSerializationInfo<RawAssemblyReferenceProcessor>> GetAssemblyRefProcessorColumns()
+      protected virtual IEnumerable<ColumnSerializationInfo<RawExportedType, ExportedType>> GetExportedTypeColumns()
       {
-         yield return new ColumnSerializationInfo<RawAssemblyReferenceProcessor>( nameof( RawAssemblyReferenceProcessor.Processor ), this.Constant32, ( r, v ) => r.Processor = v );
-         yield return new ColumnSerializationInfo<RawAssemblyReferenceProcessor>( nameof( RawAssemblyReferenceProcessor.AssemblyRef ), this.GetSimpleIndex( Tables.AssemblyRef ), ( r, v ) => r.AssemblyRef = v );
+         yield return new ColumnSerializationInfo<RawExportedType, ExportedType>( nameof( RawExportedType.Attributes ), this.Constant32, ( r, v ) => r.Attributes = (TypeAttributes) v );
+         yield return new ColumnSerializationInfo<RawExportedType, ExportedType>( nameof( RawExportedType.TypeDefinitionIndex ), this.Constant32, ( r, v ) => r.TypeDefinitionIndex = v );
+         yield return new ColumnSerializationInfo<RawExportedType, ExportedType>( nameof( RawExportedType.Name ), this.StringIndex, ( r, v ) => r.Name = v );
+         yield return new ColumnSerializationInfo<RawExportedType, ExportedType>( nameof( RawExportedType.Namespace ), this.StringIndex, ( r, v ) => r.Namespace = v );
+         yield return new ColumnSerializationInfo<RawExportedType, ExportedType>( nameof( RawExportedType.Implementation ), this.Implementation, ( r, v ) => r.Implementation = v );
       }
 
-      protected virtual IEnumerable<ColumnSerializationInfo<RawAssemblyReferenceOS>> GetAssemblyRefOSColumns()
+      protected virtual IEnumerable<ColumnSerializationInfo<RawManifestResource, ManifestResource>> GetManifestResourceColumns()
       {
-         yield return new ColumnSerializationInfo<RawAssemblyReferenceOS>( nameof( RawAssemblyReferenceOS.OSPlatformID ), this.Constant32, ( r, v ) => r.OSPlatformID = v );
-         yield return new ColumnSerializationInfo<RawAssemblyReferenceOS>( nameof( RawAssemblyReferenceOS.OSMajorVersion ), this.Constant32, ( r, v ) => r.OSMajorVersion = v );
-         yield return new ColumnSerializationInfo<RawAssemblyReferenceOS>( nameof( RawAssemblyReferenceOS.OSMinorVersion ), this.Constant32, ( r, v ) => r.OSMinorVersion = v );
-         yield return new ColumnSerializationInfo<RawAssemblyReferenceOS>( nameof( RawAssemblyReferenceOS.AssemblyRef ), this.GetSimpleIndex( Tables.AssemblyRef ), ( r, v ) => r.AssemblyRef = v );
+         yield return new ColumnSerializationInfo<RawManifestResource, ManifestResource>( nameof( RawManifestResource.Offset ), this.Constant32, ( r, v ) => r.Offset = v );
+         yield return new ColumnSerializationInfo<RawManifestResource, ManifestResource>( nameof( RawManifestResource.Attributes ), this.Constant32, ( r, v ) => r.Attributes = (ManifestResourceAttributes) v );
+         yield return new ColumnSerializationInfo<RawManifestResource, ManifestResource>( nameof( RawManifestResource.Name ), this.StringIndex, ( r, v ) => r.Name = v );
+         yield return new ColumnSerializationInfo<RawManifestResource, ManifestResource>( nameof( RawManifestResource.Implementation ), this.ImplementationNullable, ( r, v ) => r.Implementation = v );
       }
 
-      protected virtual IEnumerable<ColumnSerializationInfo<RawFileReference>> GetFileColumns()
+      protected virtual IEnumerable<ColumnSerializationInfo<RawNestedClassDefinition, NestedClassDefinition>> GetNestedClassColumns()
       {
-         yield return new ColumnSerializationInfo<RawFileReference>( nameof( RawFileReference.Attributes ), this.Constant32, ( r, v ) => r.Attributes = (FileAttributes) v );
-         yield return new ColumnSerializationInfo<RawFileReference>( nameof( RawFileReference.Name ), this.StringIndex, ( r, v ) => r.Name = v );
-         yield return new ColumnSerializationInfo<RawFileReference>( nameof( RawFileReference.HashValue ), this.BLOBIndex, ( r, v ) => r.HashValue = v );
+         yield return new ColumnSerializationInfo<RawNestedClassDefinition, NestedClassDefinition>( nameof( RawNestedClassDefinition.NestedClass ), this.GetSimpleIndex( Tables.TypeDef ), ( r, v ) => r.NestedClass = v );
+         yield return new ColumnSerializationInfo<RawNestedClassDefinition, NestedClassDefinition>( nameof( RawNestedClassDefinition.EnclosingClass ), this.GetSimpleIndex( Tables.TypeDef ), ( r, v ) => r.EnclosingClass = v );
       }
 
-      protected virtual IEnumerable<ColumnSerializationInfo<RawExportedType>> GetExportedTypeColumns()
+      protected virtual IEnumerable<ColumnSerializationInfo<RawGenericParameterDefinition, GenericParameterDefinition>> GetGenericParamColumns()
       {
-         yield return new ColumnSerializationInfo<RawExportedType>( nameof( RawExportedType.Attributes ), this.Constant32, ( r, v ) => r.Attributes = (TypeAttributes) v );
-         yield return new ColumnSerializationInfo<RawExportedType>( nameof( RawExportedType.TypeDefinitionIndex ), this.Constant32, ( r, v ) => r.TypeDefinitionIndex = v );
-         yield return new ColumnSerializationInfo<RawExportedType>( nameof( RawExportedType.Name ), this.StringIndex, ( r, v ) => r.Name = v );
-         yield return new ColumnSerializationInfo<RawExportedType>( nameof( RawExportedType.Namespace ), this.StringIndex, ( r, v ) => r.Namespace = v );
-         yield return new ColumnSerializationInfo<RawExportedType>( nameof( RawExportedType.Implementation ), this.Implementation, ( r, v ) => r.Implementation = v );
+         yield return new ColumnSerializationInfo<RawGenericParameterDefinition, GenericParameterDefinition>( nameof( RawGenericParameterDefinition.GenericParameterIndex ), this.Constant16, ( r, v ) => r.GenericParameterIndex = v );
+         yield return new ColumnSerializationInfo<RawGenericParameterDefinition, GenericParameterDefinition>( nameof( RawGenericParameterDefinition.Attributes ), this.Constant16, ( r, v ) => r.Attributes = (GenericParameterAttributes) v );
+         yield return new ColumnSerializationInfo<RawGenericParameterDefinition, GenericParameterDefinition>( nameof( RawGenericParameterDefinition.Owner ), this.TypeOrMethodDef, ( r, v ) => r.Owner = v );
+         yield return new ColumnSerializationInfo<RawGenericParameterDefinition, GenericParameterDefinition>( nameof( RawGenericParameterDefinition.Name ), this.StringIndex, ( r, v ) => r.Name = v );
       }
 
-      protected virtual IEnumerable<ColumnSerializationInfo<RawManifestResource>> GetManifestResourceColumns()
+      protected virtual IEnumerable<ColumnSerializationInfo<RawMethodSpecification, MethodSpecification>> GetMethodSpecColumns()
       {
-         yield return new ColumnSerializationInfo<RawManifestResource>( nameof( RawManifestResource.Offset ), this.Constant32, ( r, v ) => r.Offset = v );
-         yield return new ColumnSerializationInfo<RawManifestResource>( nameof( RawManifestResource.Attributes ), this.Constant32, ( r, v ) => r.Attributes = (ManifestResourceAttributes) v );
-         yield return new ColumnSerializationInfo<RawManifestResource>( nameof( RawManifestResource.Name ), this.StringIndex, ( r, v ) => r.Name = v );
-         yield return new ColumnSerializationInfo<RawManifestResource>( nameof( RawManifestResource.Implementation ), this.ImplementationNullable, ( r, v ) => r.Implementation = v );
+         yield return new ColumnSerializationInfo<RawMethodSpecification, MethodSpecification>( nameof( RawMethodSpecification.Method ), this.MethodDefOrRef, ( r, v ) => r.Method = v );
+         yield return new ColumnSerializationInfo<RawMethodSpecification, MethodSpecification>( nameof( RawMethodSpecification.Signature ), this.BLOBIndex, ( r, v ) => r.Signature = v );
       }
 
-      protected virtual IEnumerable<ColumnSerializationInfo<RawNestedClassDefinition>> GetNestedClassColumns()
+      protected virtual IEnumerable<ColumnSerializationInfo<RawGenericParameterConstraintDefinition, GenericParameterConstraintDefinition>> GetGenericParamConstraintColumns()
       {
-         yield return new ColumnSerializationInfo<RawNestedClassDefinition>( nameof( RawNestedClassDefinition.NestedClass ), this.GetSimpleIndex( Tables.TypeDef ), ( r, v ) => r.NestedClass = v );
-         yield return new ColumnSerializationInfo<RawNestedClassDefinition>( nameof( RawNestedClassDefinition.EnclosingClass ), this.GetSimpleIndex( Tables.TypeDef ), ( r, v ) => r.EnclosingClass = v );
-      }
-
-      protected virtual IEnumerable<ColumnSerializationInfo<RawGenericParameterDefinition>> GetGenericParamColumns()
-      {
-         yield return new ColumnSerializationInfo<RawGenericParameterDefinition>( nameof( RawGenericParameterDefinition.GenericParameterIndex ), this.Constant16, ( r, v ) => r.GenericParameterIndex = v );
-         yield return new ColumnSerializationInfo<RawGenericParameterDefinition>( nameof( RawGenericParameterDefinition.Attributes ), this.Constant16, ( r, v ) => r.Attributes = (GenericParameterAttributes) v );
-         yield return new ColumnSerializationInfo<RawGenericParameterDefinition>( nameof( RawGenericParameterDefinition.Owner ), this.TypeOrMethodDef, ( r, v ) => r.Owner = v );
-         yield return new ColumnSerializationInfo<RawGenericParameterDefinition>( nameof( RawGenericParameterDefinition.Name ), this.StringIndex, ( r, v ) => r.Name = v );
-      }
-
-      protected virtual IEnumerable<ColumnSerializationInfo<RawMethodSpecification>> GetMethodSpecColumns()
-      {
-         yield return new ColumnSerializationInfo<RawMethodSpecification>( nameof( RawMethodSpecification.Method ), this.MethodDefOrRef, ( r, v ) => r.Method = v );
-         yield return new ColumnSerializationInfo<RawMethodSpecification>( nameof( RawMethodSpecification.Signature ), this.BLOBIndex, ( r, v ) => r.Signature = v );
-      }
-
-      protected virtual IEnumerable<ColumnSerializationInfo<RawGenericParameterConstraintDefinition>> GetGenericParamConstraintColumns()
-      {
-         yield return new ColumnSerializationInfo<RawGenericParameterConstraintDefinition>( nameof( RawGenericParameterConstraintDefinition.Owner ), this.GetSimpleIndex( Tables.GenericParameter ), ( r, v ) => r.Owner = v );
-         yield return new ColumnSerializationInfo<RawGenericParameterConstraintDefinition>( nameof( RawGenericParameterConstraintDefinition.Constraint ), this.TypeDefOrRef, ( r, v ) => r.Constraint = v );
+         yield return new ColumnSerializationInfo<RawGenericParameterConstraintDefinition, GenericParameterConstraintDefinition>( nameof( RawGenericParameterConstraintDefinition.Owner ), this.GetSimpleIndex( Tables.GenericParameter ), ( r, v ) => r.Owner = v );
+         yield return new ColumnSerializationInfo<RawGenericParameterConstraintDefinition, GenericParameterConstraintDefinition>( nameof( RawGenericParameterConstraintDefinition.Constraint ), this.TypeDefOrRef, ( r, v ) => r.Constraint = v );
       }
 
       protected ColumnSerializationSupport Constant8 { get; }
@@ -551,35 +559,62 @@ namespace CILAssemblyManipulator.Physical.IO
       protected ColumnSerializationSupport StringIndex { get; }
 
 
-      protected ColumnSerializationSupport TypeDefOrRef { get; }
+      protected ColumnSerializationSupport_CodedTableIndex TypeDefOrRef { get; }
 
-      protected ColumnSerializationSupport TypeDefOrRefNullable { get; }
+      protected ColumnSerializationSupport_CodedTableIndex TypeDefOrRefNullable { get; }
 
-      protected ColumnSerializationSupport HasConstant { get; }
+      protected ColumnSerializationSupport_CodedTableIndex HasConstant { get; }
 
-      protected ColumnSerializationSupport HasCustomAttribute { get; }
+      protected ColumnSerializationSupport_CodedTableIndex HasCustomAttribute { get; }
 
-      protected ColumnSerializationSupport HasFieldMarshal { get; }
+      protected ColumnSerializationSupport_CodedTableIndex HasFieldMarshal { get; }
 
-      protected ColumnSerializationSupport HasSecurity { get; }
+      protected ColumnSerializationSupport_CodedTableIndex HasSecurity { get; }
 
-      protected ColumnSerializationSupport MemberRefParent { get; }
+      protected ColumnSerializationSupport_CodedTableIndex MemberRefParent { get; }
 
-      protected ColumnSerializationSupport HasSemantics { get; }
+      protected ColumnSerializationSupport_CodedTableIndex HasSemantics { get; }
 
-      protected ColumnSerializationSupport MethodDefOrRef { get; }
+      protected ColumnSerializationSupport_CodedTableIndex MethodDefOrRef { get; }
 
-      protected ColumnSerializationSupport MemberForwarded { get; }
+      protected ColumnSerializationSupport_CodedTableIndex MemberForwarded { get; }
 
-      protected ColumnSerializationSupport Implementation { get; }
+      protected ColumnSerializationSupport_CodedTableIndex Implementation { get; }
 
-      protected ColumnSerializationSupport ImplementationNullable { get; }
+      protected ColumnSerializationSupport_CodedTableIndex ImplementationNullable { get; }
 
-      protected ColumnSerializationSupport CustomAttributeType { get; }
+      protected ColumnSerializationSupport_CodedTableIndex CustomAttributeType { get; }
 
-      protected ColumnSerializationSupport ResolutionScopeNullable { get; }
+      protected ColumnSerializationSupport_CodedTableIndex ResolutionScopeNullable { get; }
 
-      protected ColumnSerializationSupport TypeOrMethodDef { get; }
+      protected ColumnSerializationSupport_CodedTableIndex TypeOrMethodDef { get; }
+
+      protected Byte[] ReadBLOBArray( Int32 value, ReaderBLOBStreamHandler blobs )
+      {
+         return blobs.GetBLOB( value );
+      }
+
+      protected TSignature ReadBLOBSignature<TSignature>( Int32 value, ReaderBLOBStreamHandler blobs )
+         where TSignature : AbstractSignature
+      {
+         return blobs.ReadSignature( value ) as TSignature;
+      }
+
+      protected Guid? ReadGUID( Int32 value, ReaderGUIDStreamHandler guids )
+      {
+         return guids.GetGUID( value );
+      }
+
+      protected String ReadString( Int32 value, ReaderStringStreamHandler strings )
+      {
+         return strings.GetString( value );
+      }
+
+      protected TableIndex ReadSimpleIndex( Int32 value, Tables table )
+      {
+         return new TableIndex( table, Math.Min( 0, value - 1 ) );
+      }
+
 
       protected ColumnSerializationSupport GetSimpleIndex( Tables targetTable )
       {
@@ -593,38 +628,40 @@ namespace CILAssemblyManipulator.Physical.IO
             new ColumnSerializationSupport_SimpleTableIndex16();
       }
 
-      protected ColumnSerializationSupport CodedIndexNullable( ArrayQuery<Tables?> tables )
+      protected ColumnSerializationSupport_CodedTableIndex CodedIndexNullable( ArrayQuery<Tables?> tables )
       {
          return ColumnSerializationSupport_CodedTableIndex.GetCodedTableSize( this.TableSizes, tables ) < 4 ?
-            (ColumnSerializationSupport) new ColumnSerializationSupport_CodedTableIndexNullable16( tables ) :
+            (ColumnSerializationSupport_CodedTableIndex) new ColumnSerializationSupport_CodedTableIndexNullable16( tables ) :
             new ColumnSerializationSupport_CodedTableIndexNullable32( tables );
       }
 
-      protected ColumnSerializationSupport CodedIndex( ArrayQuery<Tables?> tables )
+      protected ColumnSerializationSupport_CodedTableIndex CodedIndex( ArrayQuery<Tables?> tables )
       {
          return ColumnSerializationSupport_CodedTableIndex.GetCodedTableSize( this.TableSizes, tables ) < 4 ?
-            (ColumnSerializationSupport) new ColumnSerializationSupport_CodedTableIndex16( tables ) :
+            (ColumnSerializationSupport_CodedTableIndex) new ColumnSerializationSupport_CodedTableIndex16( tables ) :
             new ColumnSerializationSupport_CodedTableIndex32( tables );
       }
 
-      protected virtual TableSerializationSupport CreateTableSupport<TRow>( Tables table, IEnumerable<ColumnSerializationInfo<TRow>> columns )
+      protected virtual TableSerializationSupport CreateTableSupport<TRawRow, TRow>( Tables table, IEnumerable<ColumnSerializationInfo<TRawRow, TRow>> columns )
+         where TRawRow : class, new()
          where TRow : class, new()
       {
-         return new DefaultTableSerializationSupport<TRow>(
+         return new DefaultTableSerializationSupport<TRawRow, TRow>(
             table,
             columns
             );
       }
    }
 
-   public class DefaultTableSerializationSupport<TRow> : TableSerializationSupport
+   public class DefaultTableSerializationSupport<TRawRow, TRow> : TableSerializationSupport
+      where TRawRow : class, new()
       where TRow : class, new()
    {
 
-      private readonly ColumnSerializationInfo<TRow>[] _columnArray;
+      private readonly ColumnSerializationInfo<TRawRow, TRow>[] _columnArray;
       public DefaultTableSerializationSupport(
          Tables table,
-         IEnumerable<ColumnSerializationInfo<TRow>> columns
+         IEnumerable<ColumnSerializationInfo<TRawRow, TRow>> columns
          )
       {
          ArgumentValidator.ValidateNotNull( "Columns", columns );
@@ -640,15 +677,31 @@ namespace CILAssemblyManipulator.Physical.IO
 
       public ArrayQuery<ColumnSerializationInfo> ColumnSerializationSupports { get; }
 
-      public Object ReadRawRow( StreamHelper stream )
+      public Object ReadRow(
+         StreamHelper stream,
+         ReaderBLOBStreamHandler blobs,
+         ReaderGUIDStreamHandler guids,
+         ReaderStringStreamHandler sysStrings
+         )
       {
          var row = new TRow();
+         foreach ( var serialization in this._columnArray )
+         {
+            serialization.Setter( row, serialization.Serialization.ReadRawValue( stream ), blobs, guids, sysStrings );
+         }
+         return row;
+      }
+
+      public Object ReadRawRow( StreamHelper stream )
+      {
+         var row = new TRawRow();
          foreach ( var serialization in this._columnArray )
          {
             serialization.RawSetter( row, serialization.Serialization.ReadRawValue( stream ) );
          }
          return row;
       }
+
    }
 
    public sealed class ColumnSerializationSupport_Constant8 : ColumnSerializationSupport

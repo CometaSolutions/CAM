@@ -127,7 +127,12 @@ namespace CILAssemblyManipulator.Physical
    {
       private readonly List<AbstractSecurityInformation> _permissionSets;
 
-      public SecurityDefinition( Int32 permissionSetsCount = 0 )
+      public SecurityDefinition()
+         : this( 0 )
+      {
+      }
+
+      public SecurityDefinition( Int32 permissionSetsCount )
       {
          this._permissionSets = new List<AbstractSecurityInformation>( permissionSetsCount );
       }
