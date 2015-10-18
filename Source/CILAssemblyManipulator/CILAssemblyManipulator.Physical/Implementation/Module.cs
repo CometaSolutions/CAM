@@ -546,6 +546,17 @@ namespace CILAssemblyManipulator.Physical.Implementation
          return this._table[idx];
       }
 
+      public Boolean TryAddRow( Object row )
+      {
+         var rowTyped = row as TRow;
+         var retVal = rowTyped != null;
+         if ( retVal )
+         {
+            this._table.Add( rowTyped );
+         }
+         return retVal;
+      }
+
       public override String ToString()
       {
          return this._tableKind + ", row count: " + this._table.Count + ".";

@@ -73,7 +73,9 @@ namespace CILAssemblyManipulator.Physical.IO
          ReaderGUIDStreamHandler guids,
          ReaderStringStreamHandler sysStrings,
          ReaderStringStreamHandler userStrings,
-         IEnumerable<AbstractReaderStreamHandler> otherStreams
+         IEnumerable<AbstractReaderStreamHandler> otherStreams,
+         List<Int32> methodRVAs,
+         List<Int32> fieldRVAs
          );
 
       //Object GetRawRowOrNull( Tables table, Int32 idx );
@@ -85,13 +87,16 @@ namespace CILAssemblyManipulator.Physical.IO
 
       Int32 GetStreamOffset( Int32 heapIndex, out Int32 blobSize );
 
-      AbstractSignature ReadSignature( Int32 heapIndex );
+      AbstractSignature ReadSignature( Int32 heapIndex, out Boolean wasFieldSig );
 
       CustomAttributeSignature ReadCASignature( Int32 heapIndex );
 
-      AbstractSecurityInformation ReadSecurityInformation( Int32 heapIndex );
+      IEnumerable<AbstractSecurityInformation> ReadSecurityInformation( Int32 heapIndex );
+
+      MarshalingInfo ReadMarshalingInfo( Int32 heapIndex );
 
       Object ReadConstantValue( Int32 heapIndex, SignatureElementTypes constType );
+
    }
 
    public interface ReaderGUIDStreamHandler : AbstractReaderStreamHandler

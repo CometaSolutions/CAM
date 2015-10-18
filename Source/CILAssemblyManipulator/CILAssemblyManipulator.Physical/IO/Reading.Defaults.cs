@@ -159,8 +159,6 @@ namespace CILAssemblyManipulator.Physical.IO
    {
       private const Int32 TABLE_ARRAY_SIZE = 64;
 
-      private readonly Int64 _tableStartPosition;
-      //private readonly Int32[] _tableOffsets;
 
       public DefaultReaderTableStreamHandler(
          StreamHelper stream,
@@ -172,11 +170,40 @@ namespace CILAssemblyManipulator.Physical.IO
          var tableHeader = stream.NewTableStreamHeaderFromStream();
          var thFlags = tableHeader.TableStreamFlags;
 
-         this._tableStartPosition = stream.Stream.Position;
+         var tableStartPosition = stream.Stream.Position;
          this.TableStreamHeader = tableHeader;
          this.TableSizes = CollectionsFactorySingleton.DEFAULT_COLLECTIONS_FACTORY.NewArrayProxy( tableHeader.CreateTableSizesArray() ).CQ;
-         this.TableSerializationSupportProvider = ( mdSerialization ?? new DefaultMetaDataSerializationSupportProvider() )
-            .CreateTableSerializationSupportProvider( this.TableSizes, thFlags.IsWideBLOB(), thFlags.IsWideGUID(), thFlags.IsWideStrings() );
+
+         if ( mdSerialization == null )
+         {
+            mdSerialization = new DefaultMetaDataSerializationSupportProvider();
+         }
+
+         this.TableSerializationInfo = CollectionsFactorySingleton.DEFAULT_COLLECTIONS_FACTORY.NewArrayProxy(
+            Enumerable.Range( 0, this.TableSizes.Count )
+               .Select( table => mdSerialization.CreateTableSerializationInfo( (Tables) table ) )
+               .ToArray()
+            ).CQ;
+
+         this.TableSerializationSupport = CollectionsFactorySingleton.DEFAULT_COLLECTIONS_FACTORY.NewArrayProxy(
+            this.TableSerializationInfo
+               .Select( table => table.CreateSupport( this.TableSizes, thFlags.IsWideBLOB(), thFlags.IsWideGUID(), thFlags.IsWideStrings() ) )
+               .ToArray()
+            ).CQ;
+
+         this.TableWidths = CollectionsFactorySingleton.DEFAULT_COLLECTIONS_FACTORY.NewArrayProxy(
+            this.TableSerializationSupport
+               .Select( table => table.ColumnSerializationSupports.Aggregate( 0, ( curRowBytecount, colInfo ) => curRowBytecount + colInfo.ColumnByteCount ) )
+               .ToArray()
+            ).CQ;
+
+         this.TableStartOffsets = CollectionsFactorySingleton.DEFAULT_COLLECTIONS_FACTORY.NewArrayProxy(
+            this.TableSizes
+               .Select( ( size, idx ) => Tuple.Create( size, idx ) )
+               .AggregateIntermediate( tableStartPosition, ( curOffset, tuple ) => curOffset + tuple.Item1 * this.TableWidths[tuple.Item2] )
+               .ToArray()
+            ).CQ;
+
       }
 
       public virtual void PopulateMetaDataStructure(
@@ -185,27 +212,45 @@ namespace CILAssemblyManipulator.Physical.IO
          ReaderGUIDStreamHandler guids,
          ReaderStringStreamHandler sysStrings,
          ReaderStringStreamHandler userStrings,
-         IEnumerable<AbstractReaderStreamHandler> otherStreams
+         IEnumerable<AbstractReaderStreamHandler> otherStreams,
+         List<Int32> methodRVAs,
+         List<Int32> fieldRVAs
          )
       {
+         var args = new RowReadingArguments( this.Stream, blobs, guids, sysStrings, methodRVAs, fieldRVAs );
+         for ( var i = 0; i < this.TableSizes.Count; ++i )
+         {
+            var table = md.GetByTable( (Tables) i );
+            var tableSize = this.TableSizes[i];
+            for ( var j = 0; j < tableSize; ++j )
+            {
+               table.TryAddRow( this.TableSerializationSupport[i].ReadRow( args ) );
+            }
+         }
 
-         throw new NotImplementedException();
       }
 
       public virtual Object GetRawRowOrNull( Tables table, Int32 idx )
       {
          var tableSizes = this.TableSizes;
          var tableInt = (Int32) table;
-         Int32 tableSize;
+         Object retVal;
          if ( tableInt >= 0
             && tableInt < tableSizes.Count
             && idx >= 0
-            && ( tableSize = tableSizes[tableInt] ) > idx
+            && tableSizes[tableInt] > idx
             )
          {
-
+            var offset = this.TableStartOffsets[tableInt] + idx * (Int64) this.TableWidths[tableInt];
+            var stream = this.Stream;
+            stream.Stream.Position = offset;
+            retVal = this.TableSerializationSupport[tableInt].ReadRawRow( stream );
          }
-         throw new NotImplementedException();
+         else
+         {
+            retVal = null;
+         }
+         return retVal;
       }
 
       public virtual MetaDataTableStreamHeader ReadHeader()
@@ -217,7 +262,13 @@ namespace CILAssemblyManipulator.Physical.IO
 
       protected ArrayQuery<Int32> TableSizes { get; }
 
-      protected TableSerializationSupportProvider TableSerializationSupportProvider { get; }
+      protected ArrayQuery<Int32> TableWidths { get; }
+
+      protected ArrayQuery<Int64> TableStartOffsets { get; }
+
+      protected ArrayQuery<TableSerializationInfo> TableSerializationInfo { get; }
+
+      protected ArrayQuery<TableSerializationSupport> TableSerializationSupport { get; }
 
    }
 

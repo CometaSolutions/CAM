@@ -128,9 +128,14 @@ namespace CILAssemblyManipulator.Physical
    public interface MetaDataTable
    {
       Tables TableKind { get; }
+
       Int32 RowCount { get; }
+
       Object GetRowAt( Int32 idx );
+
       IEnumerable<Object> TableContentsAsEnumerable { get; }
+
+      Boolean TryAddRow( Object row );
    }
 
    public interface MetaDataTable<TRow> : MetaDataTable

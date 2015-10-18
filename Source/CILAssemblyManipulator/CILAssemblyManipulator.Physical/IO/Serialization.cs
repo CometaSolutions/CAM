@@ -430,58 +430,85 @@ namespace CILAssemblyManipulator.Physical.IO
 
    public interface MetaDataSerializationSupportProvider
    {
-      TableSerializationSupportProvider CreateTableSerializationSupportProvider(
-         ArrayQuery<Int32> tableSizes,
-         Boolean wideBLOBs,
-         Boolean wideGUIDs,
-         Boolean wideStrings
-         );
+      TableSerializationInfo CreateTableSerializationInfo( Tables table );
    }
 
-   public interface TableSerializationSupportProvider
+   public interface TableSerializationInfo
    {
-      TableSerializationSupport CreateSerializationSupport(
-         Tables table
-         );
+      Tables Table { get; }
+
+      ArrayQuery<ColumnSerializationInfo> ColumnSerializationInfos { get; }
+
+      TableSerializationSupport CreateSupport( ArrayQuery<Int32> tableSizes, Boolean wideBLOBs, Boolean wideGUIDs, Boolean wideStrings );
    }
 
    public interface TableSerializationSupport
    {
-      Tables Table { get; }
-
-      Object ReadRow( StreamHelper stream,
-        ReaderBLOBStreamHandler blobs,
-         ReaderGUIDStreamHandler guids,
-         ReaderStringStreamHandler sysStrings
-         );
+      TableSerializationInfo TableSerializationInfo { get; }
 
       Object ReadRawRow( StreamHelper stream );
 
-      ArrayQuery<ColumnSerializationInfo> ColumnSerializationSupports { get; }
+      Object ReadRow( RowReadingArguments args );
+
+      ArrayQuery<ColumnSerializationSupport> ColumnSerializationSupports { get; }
+   }
+
+   public struct RowReadingArguments
+   {
+      public RowReadingArguments(
+         StreamHelper stream,
+         ReaderBLOBStreamHandler blobs,
+         ReaderGUIDStreamHandler guids,
+         ReaderStringStreamHandler systemStrings,
+         List<Int32> methodRVAs,
+         List<Int32> fieldRVAs
+         )
+      {
+         this.Stream = stream;
+         this.BLOBs = blobs;
+         this.GUIDs = guids;
+         this.SystemStrings = systemStrings;
+         this.MethodRVAs = methodRVAs;
+         this.FieldRVAs = fieldRVAs;
+      }
+
+      public StreamHelper Stream { get; }
+
+      public ReaderBLOBStreamHandler BLOBs { get; }
+
+      public ReaderGUIDStreamHandler GUIDs { get; }
+
+      public ReaderStringStreamHandler SystemStrings { get; }
+
+      public List<Int32> MethodRVAs { get; }
+
+      public List<Int32> FieldRVAs { get; }
    }
 
    public interface ColumnSerializationInfo
    {
       String ColumnName { get; }
 
-      ColumnSerializationSupport Serialization { get; }
-
       void SetRawValue( Object row, Int32 value );
+
+      HeapIndexKind? HeapIndexKind { get; }
    }
+
+   public enum HeapIndexKind
+   {
+      BLOB,
+      GUID,
+      String
+   }
+
 
    public interface ColumnSerializationSupport
    {
+
       Int32 ColumnByteCount { get; }
 
       Int32 ReadRawValue( StreamHelper stream );
 
-      //Object ReadValue(
-      //   StreamHelper stream,
-      //   ReaderBLOBStreamHandler blobs,
-      //   ReaderGUIDStreamHandler guids,
-      //   ReaderStringStreamHandler sysStrings
-      //   );
-
-      void WriteValue( StreamHelper stream, Object value );
+      //void WriteValue( StreamHelper stream, Object value );
    }
 }

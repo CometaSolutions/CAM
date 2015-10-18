@@ -850,4 +850,22 @@ public static partial class E_CommonUtils
       Array.Copy( array, offset, retVal, 0, count );
       return retVal;
    }
+
+   /// <summary>
+   /// Applices aggregation function over a sequence, but instead of returning the result of whole iteration, returns enumerable of intermediate results.
+   /// </summary>
+   /// <typeparam name="T">The type of enumerable items.</typeparam>
+   /// <typeparam name="TAccumulate">The type of accumulation value.</typeparam>
+   /// <param name="enumerable">The <see cref="IEnumerable{T}"/>.</param>
+   /// <param name="seed">The initial value to start accumulation.</param>
+   /// <param name="aggregator">The aggregator function.</param>
+   /// <returns>Enumerable of intermediate results of aggregation over the sequence.</returns>
+   public static IEnumerable<TAccumulate> AggregateIntermediate<T, TAccumulate>( this IEnumerable<T> enumerable, TAccumulate seed, Func<TAccumulate, T, TAccumulate> aggregator )
+   {
+      foreach ( var item in enumerable )
+      {
+         seed = aggregator( seed, item );
+         yield return seed;
+      }
+   }
 }
