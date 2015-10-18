@@ -151,6 +151,11 @@ namespace CILAssemblyManipulator.Physical
          return new CILAssemblyManipulator.Physical.Implementation.CILMetadataImpl();
       }
 
+      public static CILMetaData NewBlankMetaData( Int32[] sizes )
+      {
+         return new CILAssemblyManipulator.Physical.Implementation.CILMetadataImpl( sizes );
+      }
+
       public static CILMetaData CreateMinimalAssembly( String assemblyName, String moduleName, Boolean createModuleType = true )
       {
          if ( !String.IsNullOrEmpty( assemblyName ) && String.IsNullOrEmpty( moduleName ) )

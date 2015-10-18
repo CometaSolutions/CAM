@@ -20,6 +20,7 @@ using CollectionsWithRoles.Implementation;
 using CommonUtils;
 using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
 using System.Text;
 
@@ -1045,9 +1046,9 @@ namespace CILAssemblyManipulator.Physical.IO
          return stream.ReadByteFromBytes();
       }
 
-      public void WriteValue( StreamHelper stream, Object value )
+      public void WriteValue( StreamHelper stream, Int32 value )
       {
-         stream.WriteByteToBytes( Convert.ToByte( value ) );
+         stream.WriteByteToBytes( (Byte) value );
       }
    }
    public sealed class ColumnSerializationSupport_Constant16 : ColumnSerializationSupport
@@ -1065,9 +1066,9 @@ namespace CILAssemblyManipulator.Physical.IO
          return stream.ReadInt16LEFromBytes();
       }
 
-      public void WriteValue( StreamHelper stream, Object value )
+      public void WriteValue( StreamHelper stream, Int32 value )
       {
-         stream.WriteInt16LEToBytes( Convert.ToInt16( value ) );
+         stream.WriteUInt16LEToBytes( (UInt16) value );
       }
    }
 
@@ -1086,10 +1087,116 @@ namespace CILAssemblyManipulator.Physical.IO
          return stream.ReadInt32LEFromBytes();
       }
 
-      public void WriteValue( StreamHelper stream, Object value )
+      public void WriteValue( StreamHelper stream, Int32 value )
       {
-         stream.WriteInt32LEToBytes( Convert.ToInt32( value ) );
+         stream.WriteInt32LEToBytes( value );
       }
    }
 
+}
+
+public static partial class E_CILPhysical
+{
+   private const Int32 UINT_ONE_BYTE_MAX = 0x7F;
+   private const Int32 UINT_TWO_BYTES_MAX = 0x3FFF;
+   private const Int32 UINT_FOUR_BYTES_MAX = 0x1FFFFFFF;
+
+   internal static Boolean DecompressUInt32( this StreamHelper stream, out Int32 value )
+   {
+      const Int32 UINT_TWO_BYTES_DECODE_MASK = 0x3F;
+      const Int32 UINT_FOUR_BYTES_DECODE_MASK = 0x1F;
+
+      Byte first;
+      if ( stream.TryReadByteFromBytes( out first ) )
+      {
+         if ( ( first & 0x80 ) == 0 )
+         {
+            // MSB bit not set, so it's just one byte 
+            value = first;
+         }
+         else if ( ( first & 0xC0 ) == 0x80 )
+         {
+            Byte second;
+            // MSB set, but prev bit not set, so it's two bytes
+            if ( stream.TryReadByteFromBytes( out second ) )
+            {
+               value = ( ( first & UINT_TWO_BYTES_DECODE_MASK ) << 8 ) | (Int32) second;
+            }
+            else
+            {
+               value = -1;
+            }
+         }
+         else
+         {
+            // Whatever it is, it is four bytes long
+            if ( stream.Stream.CanReadNextBytes( 3 ).IsTrue() )
+            {
+               var buf = stream.Buffer;
+               stream.Stream.ReadSpecificAmount( buf, 0, 3 );
+               value = ( ( first & UINT_FOUR_BYTES_DECODE_MASK ) << 24 ) | ( ( (Int32) buf[0] ) << 16 ) | ( ( (Int32) buf[1] ) << 8 ) | buf[2];
+            }
+            else
+            {
+               value = -1;
+            }
+         }
+      }
+      else
+      {
+         value = -1;
+      }
+
+      return value >= 0;
+   }
+
+   internal static Boolean DecompressInt32( this StreamHelper stream, out Int32 value )
+   {
+      const Int32 COMPLEMENT_MASK_ONE_BYTE = unchecked((Int32) 0xFFFFFFC0);
+      const Int32 COMPLEMENT_MASK_TWO_BYTES = unchecked((Int32) 0xFFFFE000);
+      const Int32 COMPLEMENT_MASK_FOUR_BYTES = unchecked((Int32) 0xF0000000);
+      const Int32 ONE = 1;
+
+      var retVal = stream.DecompressUInt32( out value );
+      if ( retVal )
+      {
+         if ( value <= UINT_ONE_BYTE_MAX )
+         {
+            // Value is one-bit left rotated, 7-bit 2-complement number
+            // If LSB is 1 -> then the value is negative
+            if ( ( value & ONE ) == ONE )
+            {
+               value = ( value >> 1 ) | COMPLEMENT_MASK_ONE_BYTE;
+            }
+            else
+            {
+               value = value >> 1;
+            }
+         }
+         else if ( value <= UINT_TWO_BYTES_MAX )
+         {
+            if ( ( value & ONE ) == ONE )
+            {
+               value = ( value >> 1 ) | COMPLEMENT_MASK_TWO_BYTES;
+            }
+            else
+            {
+               value = value >> 1;
+            }
+         }
+         else
+         {
+            if ( ( value & ONE ) == ONE )
+            {
+               value = ( value >> 1 ) | COMPLEMENT_MASK_FOUR_BYTES;
+            }
+            else
+            {
+               value = value >> 1;
+            }
+         }
+      }
+
+      return retVal;
+   }
 }

@@ -15,6 +15,8 @@
  * See the License for the specific language governing permissions and
  * limitations under the License. 
  */
+using CollectionsWithRoles.API;
+using CollectionsWithRoles.Implementation;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -112,5 +114,21 @@ namespace CollectionsWithRoles.API
    public interface ArrayQueryOfQueries<TValueQuery, TValueImmutable> : MutableQuery<ArrayQuery<TValueImmutable>>, ArrayQuery<TValueQuery>
       where TValueQuery : MutableQuery<TValueImmutable>
    {
+   }
+}
+
+public static partial class E_CWR
+{
+   /// <summary>
+   /// Creates a new <see cref="ArrayProxy{TValue}"/> from given enumerable using default <see cref="CollectionsFactory"/>.
+   /// </summary>
+   /// <typeparam name="T">The type of enumerable items.</typeparam>
+   /// <param name="enumerable">The <see cref="IEnumerable{T}"/>.</param>
+   /// <returns>A new <see cref="ArrayProxy{TValue}"/> with elements from <paramref name="enumerable"/>.</returns>
+   /// <seealso cref="ArrayProxy{TValue}"/>
+   /// <seealso cref="CollectionsFactorySingleton.DEFAULT_COLLECTIONS_FACTORY"/>
+   public static ArrayProxy<T> ToArrayProxy<T>( this IEnumerable<T> enumerable )
+   {
+      return CollectionsFactorySingleton.DEFAULT_COLLECTIONS_FACTORY.NewArrayProxy( enumerable.ToArray() );
    }
 }

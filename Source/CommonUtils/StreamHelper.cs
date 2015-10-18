@@ -53,10 +53,297 @@ namespace CommonUtils
       /// </summary>
       public Byte[] Buffer { get; }
    }
+
+   /// <summary>
+   /// Represents a read-only portion of stream, where read and seek operations are only allowed to be within given boundaries.
+   /// </summary>
+   public class StreamPortion : Stream
+   {
+
+      private readonly Stream _stream;
+
+      /// <summary>
+      /// Creates a new <see cref="StreamPortion"/> for given stream, and with given minimum and maximum boundaries (inclusive).
+      /// </summary>
+      /// <param name="stream">The <see cref="Stream"/>.</param>
+      /// <param name="min">The minimum boundary, inclusive.</param>
+      /// <param name="max">The maximum boundary, exclusive.</param>
+      public StreamPortion(
+         Stream stream,
+         Int64 min,
+         Int64 max
+         )
+      {
+         ArgumentValidator.ValidateNotNull( "Stream", stream );
+
+         if ( min < 0 || max < 0 )
+         {
+            throw new ArgumentException( "Min and max boundaries must be at least zero." );
+         }
+         else if ( min > max )
+         {
+            throw new ArgumentException( "Max boundary must be at least min boundary." );
+         }
+
+         var otherPortion = stream as StreamPortion;
+         this._stream = otherPortion == null ? stream : otherPortion._stream;
+         this.MinPosition = min;
+         this.MaxPosition = max;
+      }
+
+      /// <summary>
+      /// Gets the minimum positon for this <see cref="StreamPortion"/>, inclusive.
+      /// </summary>
+      public Int64 MinPosition { get; }
+
+      /// <summary>
+      /// Gets the maximum position for this <see cref="StreamPortion"/>, inclusive.
+      /// </summary>
+      public Int64 MaxPosition { get; }
+
+
+      /// <inheritdoc />
+      public override Boolean CanRead
+      {
+         get
+         {
+            return this._stream.CanRead;
+         }
+      }
+
+      /// <inheritdoc />
+      public override Boolean CanSeek
+      {
+         get
+         {
+            return this._stream.CanSeek;
+         }
+      }
+
+      /// <inheritdoc />
+      public override Boolean CanWrite
+      {
+         get
+         {
+            return false;
+         }
+      }
+
+      /// <inheritdoc />
+      public override Int64 Length
+      {
+         get
+         {
+            return this._stream.Length;
+         }
+      }
+
+      /// <inheritdoc />
+      public override Int64 Position
+      {
+         get
+         {
+            return this._stream.Position;
+         }
+         set
+         {
+            this.CheckPosition( value, 0 );
+            this._stream.Position = value;
+         }
+      }
+
+      /// <inheritdoc />
+      public override void Flush()
+      {
+         throw new NotSupportedException();
+      }
+
+      /// <inheritdoc />
+      public override Int32 Read( Byte[] buffer, Int32 offset, Int32 count )
+      {
+         this.CheckPosition( this.GetCurrentPosition(), count );
+         return this._stream.Read( buffer, offset, count );
+      }
+
+      /// <inheritdoc />
+      public override Int64 Seek( Int64 offset, SeekOrigin origin )
+      {
+         Int64 newOffset;
+         switch ( origin )
+         {
+            case SeekOrigin.Begin:
+               newOffset = offset;
+               break;
+            case SeekOrigin.Current:
+               newOffset = this.Position + offset;
+               break;
+            case SeekOrigin.End:
+               newOffset = this.Length + offset;
+               break;
+            default:
+               ;
+               throw new ArgumentException( "Invalid seek origin: " + origin + "." );
+         }
+
+         this.CheckPosition( newOffset, 0 );
+
+         return this._stream.Seek( offset, origin );
+      }
+
+      /// <inheritdoc />
+      public override void SetLength( Int64 value )
+      {
+         this._stream.SetLength( value );
+      }
+
+      /// <inheritdoc />
+      public override void Write( Byte[] buffer, Int32 offset, Int32 count )
+      {
+         throw new NotSupportedException();
+      }
+
+      /// <summary>
+      /// Gets the current position for this stream. Default implementation uses <see cref="Stream.Position"/> property.
+      /// </summary>
+      /// <returns>Current position for this stream.</returns>
+      public virtual Int64 GetCurrentPosition()
+      {
+         return this._stream.Position;
+      }
+
+      /// <summary>
+      /// Throws <see cref="NotSupportedException"/> if given position is invalid for this <see cref="StreamPortion"/>.
+      /// </summary>
+      /// <param name="position">The position to check.</param>
+      /// <param name="count">The amount of elements to read/write.</param>
+      protected void CheckPosition( Int64 position, Int32 count )
+      {
+         if ( position < this.MinPosition || position + count > this.MaxPosition )
+         {
+            throw new NotSupportedException( "New offset " + position + " is out of bounds for this stream portion." );
+         }
+      }
+   }
 }
 
 public static partial class E_CommonUtils
 {
+   /// <summary>
+   /// Tries to find out whether it is possible to read next given amount of bytes from stream.
+   /// Will take into account that <paramref name="stream"/> may be <see cref="StreamPortion"/>.
+   /// </summary>
+   /// <param name="stream">The <see cref="Stream"/>.</param>
+   /// <param name="byteCount">The bytes to read.</param>
+   /// <returns><c>true</c>, if next <paramref name="byteCount"/> bytes can certainly be read from stream; <c>false</c> if they certainly can not; and <c>null</c> if it is undeterminate whether the bytes can be read.</returns>
+   public static Boolean? CanReadNextBytes( this Stream stream, Int32 byteCount )
+   {
+      StreamPortion s;
+      if ( stream.CanSeek )
+      {
+         return stream.Position + byteCount <= stream.Length;
+      }
+      else if ( ( s = stream as StreamPortion ) != null )
+      {
+         return s.GetCurrentPosition() + byteCount <= s.MaxPosition;
+      }
+      else
+      {
+         return null;
+      }
+   }
+
+   /// <summary>
+   /// Creates a new <see cref="StreamHelper"/> over a portion of stream, starting at current offset, and able to read next <paramref name="byteCount"/> bytes.
+   /// </summary>
+   /// <param name="helper">This stream helper.</param>
+   /// <param name="byteCount">The amount of bytes that the resulting stream helper will be able to read, starting from inclusive current offset.</param>
+   /// <returns>A new <see cref="StreamHelper"/> that is able to read only given portion of bytes.</returns>
+   /// <seealso cref="StreamPortion"/>
+   public static StreamHelper NewStreamPortionFromCurrent( this StreamHelper helper, Int64 byteCount )
+   {
+      return helper.NewStreamPortion( helper.Stream.Position, byteCount );
+   }
+
+   /// <summary>
+   /// Creates a new <see cref="StreamHelper"/> over a portion of stream, starting at given offset, and able to read next <paramref name="byteCount"/> bytes.
+   /// </summary>
+   /// <param name="helper">This stream helper.</param>
+   /// <param name="offset">The inclusive offset at which reading bytes is eligible.</param>
+   /// <param name="byteCount">The amount of bytes that the resulting stream helper will be able to read, starting from inclusive given offset.</param>
+   /// <returns>A new <see cref="StreamHelper"/> that is able to read only given portion of bytes.</returns>
+   /// <seealso cref="StreamPortion"/>
+   public static StreamHelper NewStreamPortion( this StreamHelper helper, Int64 offset, Int64 byteCount )
+   {
+      var stream = helper.Stream;
+      return new StreamHelper( new StreamPortion( stream, offset, offset + Math.Max( 1, byteCount ) - 1 ) );
+   }
+
+   /// <summary>
+   /// Reads one byte a time from a given <see cref="StreamHelper"/> until a zero byte is encountered, and creates an array containing bytes read.
+   /// </summary>
+   /// <param name="helper">The <see cref="StreamHelper"/>.</param>
+   /// <param name="includeZeroByte">Whether the value byte, if encountered, should be included in the resulting array.</param>
+   /// <returns>The array containing bytes read.</returns>
+   public static Byte[] ReadUntilZeroAndCreateArray( this StreamHelper helper, Boolean includeZeroByte = false )
+   {
+      return helper.ReadUntilAndCreateArray( 0, includeZeroByte );
+   }
+
+   /// <summary>
+   /// Reads one byte a time from a given <see cref="StreamHelper"/> until a given byte is encountered, and creates an array containing bytes read.
+   /// </summary>
+   /// <param name="helper">The <see cref="StreamHelper"/>.</param>
+   /// <param name="value">The value to encounter.</param>
+   /// <param name="includeValueByte">Whether the value byte, if encountered, should be included in the resulting array.</param>
+   /// <returns>The array containing bytes read.</returns>
+   public static Byte[] ReadUntilAndCreateArray( this StreamHelper helper, Byte value, Boolean includeValueByte = false )
+   {
+      var startPosition = helper.Stream.Position;
+      var endPosition = helper.ReadUntil( value ).Stream.Position;
+      var len = endPosition - startPosition;
+      if ( len > 0 && !includeValueByte )
+      {
+         --len;
+      }
+
+      return len == 0 ? Empty<Byte>.Array : helper.At( startPosition ).ReadAndCreateArray( checked((Int32) len) );
+   }
+
+   /// <summary>
+   /// Reads one byte at a time from a given <see cref="StreamHelper"/> until a zero byte value is encountered.
+   /// </summary>
+   /// <param name="helper">The <see cref="StreamHelper"/>.</param>
+   /// <returns></returns>
+   public static StreamHelper ReadUntilZero( this StreamHelper helper )
+   {
+      return helper.ReadUntil( 0 );
+   }
+
+   /// <summary>
+   /// Reads one byte at a time from a given <see cref="StreamHelper"/> until a given byte value is encountered.
+   /// </summary>
+   /// <param name="helper">The <see cref="StreamHelper"/>.</param>
+   /// <param name="value">The value to encounter.</param>
+   /// <returns></returns>
+   public static StreamHelper ReadUntil( this StreamHelper helper, Byte value )
+   {
+      while ( helper.Stream.ReadByteFromStream() != value ) ;
+      return helper;
+   }
+
+   /// <summary>
+   /// Sets the position of a <see cref="StreamHelper.Stream"/> at given position, and returns the <see cref="StreamHelper"/>.
+   /// </summary>
+   /// <param name="helper">The <see cref="StreamHelper"/>.</param>
+   /// <param name="position">The new position for <see cref="StreamHelper.Stream"/>.</param>
+   /// <returns>The <paramref name="helper"/>.</returns>
+   public static StreamHelper At( this StreamHelper helper, Int64 position )
+   {
+      helper.Stream.Position = position;
+      return helper;
+   }
+
+
    /// <summary>
    /// This method will advance the position of <see cref="StreamHelper.Stream"/> to next alignment.
    /// </summary>
@@ -107,8 +394,16 @@ public static partial class E_CommonUtils
    /// <returns>The byte array with contents read from stream.</returns>
    public static Byte[] ReadAndCreateArray( this StreamHelper helper, Int32 amount )
    {
-      var bytez = new Byte[amount];
-      helper.Stream.ReadWholeArray( bytez );
+      Byte[] bytez;
+      if ( amount == 0 )
+      {
+         bytez = Empty<Byte>.Array;
+      }
+      else
+      {
+         bytez = new Byte[amount];
+         helper.Stream.ReadWholeArray( bytez );
+      }
       return bytez;
    }
 
@@ -120,6 +415,29 @@ public static partial class E_CommonUtils
    public static Byte ReadByteFromBytes( this StreamHelper array )
    {
       return array.ReadAndReturnArray( sizeof( Byte ) )[0];
+   }
+
+   /// <summary>
+   /// Tries to read a single byte from the stream.
+   /// </summary>
+   /// <param name="stream">The <see cref="StreamHelper"/>.</param>
+   /// <param name="value">This wil hold the byte value that was read from the stream, if read operation was successful.</param>
+   /// <returns><c>true</c> if read operation was successful; <c>false</c> otherwise.</returns>
+   public static Boolean TryReadByteFromBytes( this StreamHelper stream, out Byte value )
+   {
+      var s = stream.Stream;
+      var sp = s as StreamPortion;
+      Int32 b;
+      if ( ( sp == null || sp.GetCurrentPosition() < sp.MaxPosition ) && s.Read( stream.Buffer, 0, 1 ) > 0 )
+      {
+         b = stream.Buffer[0];
+      }
+      else
+      {
+         b = -1;
+      }
+      value = (Byte) b;
+      return b >= 0;
    }
 
    /// <summary>

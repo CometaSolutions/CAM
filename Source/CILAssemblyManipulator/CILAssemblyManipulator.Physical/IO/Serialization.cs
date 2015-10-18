@@ -509,6 +509,6 @@ namespace CILAssemblyManipulator.Physical.IO
 
       Int32 ReadRawValue( StreamHelper stream );
 
-      //void WriteValue( StreamHelper stream, Object value );
+      void WriteValue( StreamHelper stream, Int32 value );
    }
 }
