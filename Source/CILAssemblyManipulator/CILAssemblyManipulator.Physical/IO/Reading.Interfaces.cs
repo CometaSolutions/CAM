@@ -93,7 +93,7 @@ namespace CILAssemblyManipulator.Physical.IO
    {
       Byte[] GetBLOB( Int32 heapIndex );
 
-      Int32 GetStreamOffset( Int32 heapIndex, out Int32 blobSize );
+      Int64 GetStreamOffset( Int32 heapIndex, out Int32 blobSize );
 
       AbstractSignature ReadSignature( Int32 heapIndex, out Boolean wasFieldSig );
 

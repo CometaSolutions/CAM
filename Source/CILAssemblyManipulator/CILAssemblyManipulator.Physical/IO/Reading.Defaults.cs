@@ -32,7 +32,17 @@ namespace CILAssemblyManipulator.Physical.IO
    {
       public virtual ReaderFunctionality GetFunctionality( Stream stream, out Stream newStream )
       {
-         throw new NotImplementedException();
+         // We are going to do a lot of seeking, so just read whole stream into byte array and use memory stream
+         newStream = new MemoryStream( stream.ReadUntilTheEnd(), this.IsMemoryStreamWriteable );
+         return new DefaultReaderFunctionality();
+      }
+
+      protected virtual Boolean IsMemoryStreamWriteable
+      {
+         get
+         {
+            return false;
+         }
       }
    }
 
@@ -40,7 +50,7 @@ namespace CILAssemblyManipulator.Physical.IO
    {
       protected const Int32 CLI_DATADIR_INDEX = 14;
 
-      public void ReadImageInformation(
+      public virtual void ReadImageInformation(
          StreamHelper stream,
          out PEInformation peInfo,
          out RVAConverter rvaConverter,
@@ -51,25 +61,28 @@ namespace CILAssemblyManipulator.Physical.IO
          // Read PE info
          peInfo = stream.NewPEImageInformationFromStream();
 
-         var dataDirs = peInfo.NTHeader.OptionalHeader.DataDirectories;
-
-         if ( dataDirs.Count <= CLI_DATADIR_INDEX )
-         {
-            throw new BadImageFormatException( "No data directory for CLI header." );
-         }
-
          // Create RVA converter
          rvaConverter = this.CreateRVAConverter( peInfo ) ?? new DefaultRVAConverter( peInfo );
 
-         // Read CLI header
-         cliHeader = stream
-            .GoToRVA( rvaConverter, dataDirs[CLI_DATADIR_INDEX].RVA )
-            .NewCLIHeaderFromStream();
+         var dataDirs = peInfo.NTHeader.OptionalHeader.DataDirectories;
 
-         // Read MD root
-         mdRoot = stream
-            .GoToRVA( rvaConverter, cliHeader.MetaData.RVA )
-            .NewMetaDataRootFromStream();
+         if ( CLI_DATADIR_INDEX < dataDirs.Count )
+         {
+            // Read CLI header
+            cliHeader = stream
+               .GoToRVA( rvaConverter, dataDirs[CLI_DATADIR_INDEX].RVA )
+               .NewCLIHeaderFromStream();
+
+            // Read MD root
+            mdRoot = stream
+               .GoToRVA( rvaConverter, cliHeader.MetaData.RVA )
+               .NewMetaDataRootFromStream();
+         }
+         else
+         {
+            cliHeader = null;
+            mdRoot = null;
+         }
       }
 
       public virtual AbstractReaderStreamHandler CreateStreamHandler(
@@ -77,7 +90,20 @@ namespace CILAssemblyManipulator.Physical.IO
          MetaDataStreamHeader header
          )
       {
-         throw new NotImplementedException();
+         var size = (Int32) header.Size;
+         switch ( header.Name )
+         {
+            case MetaDataConstants.BLOB_STREAM_NAME:
+               return new DefaultReaderTableStreamHandler( stream, size, header.Name, this.CreateMDSerialization() );
+            case MetaDataConstants.GUID_STREAM_NAME:
+               return new DefaultReaderGUIDStringStreamHandler( stream, size );
+            case MetaDataConstants.SYS_STRING_STREAM_NAME:
+               return new DefaultReaderSystemStringStreamHandler( stream, size );
+            case MetaDataConstants.USER_STRING_STREAM_NAME:
+               return new DefaultReaderUserStringsStreamHandler( stream, size );
+            default:
+               return null;
+         }
       }
       public virtual ReaderRVAHandler CreateRVAHandler(
          StreamHelper stream,
@@ -94,6 +120,11 @@ namespace CILAssemblyManipulator.Physical.IO
          )
       {
          return new DefaultRVAConverter( peInformation );
+      }
+
+      protected virtual MetaDataSerializationSupportProvider CreateMDSerialization()
+      {
+         return new DefaultMetaDataSerializationSupportProvider();
       }
 
    }
@@ -278,9 +309,7 @@ namespace CILAssemblyManipulator.Physical.IO
             )
          {
             var offset = this.TableStartOffsets[tableInt] + idx * (Int64) this.TableWidths[tableInt];
-            var stream = this.Stream;
-            stream.Stream.Position = offset;
-            retVal = this.TableSerializationSupport[tableInt].ReadRawRow( stream );
+            retVal = this.TableSerializationSupport[tableInt].ReadRawRow( this.Stream.At( offset ) );
          }
          else
          {
@@ -350,6 +379,159 @@ namespace CILAssemblyManipulator.Physical.IO
       }
 
       protected abstract TValue ValueFactory( Int32 heapOffset );
+   }
+
+   public class DefaultReaderBLOBStreamHandler : AbstractReaderStreamHandlerImplWithCache<Byte[]>, ReaderBLOBStreamHandler
+   {
+      private readonly IDictionary<Int32, Object> _constants;
+
+      public DefaultReaderBLOBStreamHandler(
+         StreamHelper stream,
+         Int32 streamSize
+         )
+         : base( stream, streamSize )
+      {
+         this._constants = new Dictionary<Int32, Object>();
+      }
+
+      public override String StreamName
+      {
+         get
+         {
+            return MetaDataConstants.BLOB_STREAM_NAME;
+         }
+      }
+
+      public Byte[] GetBLOB( Int32 heapIndex )
+      {
+         return this.GetOrAddValue( heapIndex );
+      }
+
+      public Int64 GetStreamOffset( Int32 heapIndex, out Int32 blobSize )
+      {
+         Int64 retVal;
+         if ( this.CheckHeapOffset( heapIndex ) )
+         {
+            var stream = this.SetStreamToHeapOffset( heapIndex );
+            retVal = stream.DecompressUInt32( out blobSize ) ?
+               -1L :
+               stream.Stream.Position;
+         }
+         else
+         {
+            blobSize = -1;
+            retVal = -1L;
+         }
+         return retVal;
+      }
+
+      public CustomAttributeSignature ReadCASignature( Int32 heapIndex )
+      {
+         throw new NotImplementedException();
+      }
+
+      public Object ReadConstantValue( Int32 heapIndex, SignatureElementTypes constType )
+      {
+         return this.GetOrAddCustom(
+            this._constants,
+            heapIndex,
+            h => this.DoReadConstantValue( h, constType )
+            );
+      }
+
+      public MarshalingInfo ReadMarshalingInfo( Int32 heapIndex )
+      {
+         throw new NotImplementedException();
+      }
+
+      public IEnumerable<AbstractSecurityInformation> ReadSecurityInformation( Int32 heapIndex )
+      {
+         throw new NotImplementedException();
+      }
+
+      public AbstractSignature ReadSignature( Int32 heapIndex, out Boolean wasFieldSig )
+      {
+         throw new NotImplementedException();
+      }
+
+      protected override Byte[] ValueFactory( Int32 heapOffset )
+      {
+         Int32 blobLen;
+         var stream = this.SetStreamToHeapOffset( heapOffset );
+         return stream.DecompressUInt32( out blobLen )
+            && this.Stream.Stream.CanReadNextBytes( blobLen ).IsTrue() ?
+            stream.ReadAndCreateArray( blobLen ) :
+            null;
+      }
+
+      private TValue GetOrAddCustom<TValue>( IDictionary<Int32, TValue> cache, Int32 heapOffset, Func<Int32, TValue> factory )
+         where TValue : class
+      {
+         return this.CheckHeapOffset( heapOffset ) ?
+            cache.GetOrAdd_NotThreadSafe( heapOffset, i => this.CustomValueFactory( i, factory ) ) :
+            null;
+      }
+
+      private TValue CustomValueFactory<TValue>( Int32 heapOffset, Func<Int32, TValue> actualFactory )
+         where TValue : class
+      {
+         try
+         {
+            return actualFactory( heapOffset );
+         }
+         catch
+         {
+            return null;
+         }
+      }
+
+      private Object DoReadConstantValue( Int32 heapIndex, SignatureElementTypes constType )
+      {
+         var stream = this.SetStreamToHeapOffset( heapIndex );
+         Object retVal;
+         Int32 blobSize;
+         if ( stream.DecompressUInt32( out blobSize ) )
+         {
+            var s = stream.Stream;
+            switch ( constType )
+            {
+               case SignatureElementTypes.Boolean:
+                  return s.CanReadNextBytes( 1 ).IsTrue() ? (Object) ( stream.ReadByteFromBytes() == 1 ) : null;
+               case SignatureElementTypes.Char:
+                  return s.CanReadNextBytes( 2 ).IsTrue() ? (Object) Convert.ToChar( stream.ReadUInt16LEFromBytes() ) : null;
+               case SignatureElementTypes.I1:
+                  return s.CanReadNextBytes( 1 ).IsTrue() ? (Object) stream.ReadSByteFromBytes() : null;
+               case SignatureElementTypes.U1:
+                  return s.CanReadNextBytes( 1 ).IsTrue() ? (Object) stream.ReadByteFromBytes() : null;
+               case SignatureElementTypes.I2:
+                  return s.CanReadNextBytes( 2 ).IsTrue() ? (Object) stream.ReadInt16LEFromBytes() : null;
+               case SignatureElementTypes.U2:
+                  return s.CanReadNextBytes( 2 ).IsTrue() ? (Object) stream.ReadUInt16LEFromBytes() : null;
+               case SignatureElementTypes.I4:
+                  return s.CanReadNextBytes( 4 ).IsTrue() ? (Object) stream.ReadInt32LEFromBytes() : null;
+               case SignatureElementTypes.U4:
+                  return s.CanReadNextBytes( 4 ).IsTrue() ? (Object) stream.ReadUInt32LEFromBytes() : null;
+               case SignatureElementTypes.I8:
+                  return s.CanReadNextBytes( 8 ).IsTrue() ? (Object) stream.ReadInt64LEFromBytes() : null;
+               case SignatureElementTypes.U8:
+                  return s.CanReadNextBytes( 8 ).IsTrue() ? (Object) stream.ReadUInt64LEFromBytes() : null;
+               case SignatureElementTypes.R4:
+                  return s.CanReadNextBytes( 4 ).IsTrue() ? (Object) stream.ReadSingleLEFromBytes() : null;
+               case SignatureElementTypes.R8:
+                  return s.CanReadNextBytes( 8 ).IsTrue() ? (Object) stream.ReadDoubleLEFromBytes() : null;
+               case SignatureElementTypes.String:
+                  return s.CanReadNextBytes( blobSize ).IsTrue() ? MetaDataConstants.USER_STRING_ENCODING.GetString( stream.ReadAndCreateArray( blobSize ) ) : null;
+               default:
+                  return null;
+            }
+         }
+         else
+         {
+            retVal = null;
+         }
+
+         return retVal;
+      }
    }
 
    public class DefaultReaderGUIDStringStreamHandler : AbstractReaderStreamHandlerImplWithCache<Guid?>, ReaderGUIDStreamHandler
@@ -500,21 +682,22 @@ namespace CILAssemblyManipulator.Physical.IO
          this.RVAConverter = rvaConverter;
          this.MetaData = md;
       }
-
-      public byte[] ReadConstantValue( int fieldIndex )
+      public MethodILDefinition ReadIL( Int32 methodIndex )
       {
          throw new NotImplementedException();
       }
 
-      public byte[] ReadEmbeddedManifestResource( int manifestIndex )
+      public Byte[] ReadConstantValue( Int32 fieldIndex )
       {
          throw new NotImplementedException();
       }
 
-      public MethodILDefinition ReadIL( int methodIndex )
+      public Byte[] ReadEmbeddedManifestResource( Int32 manifestIndex )
       {
          throw new NotImplementedException();
       }
+
+
 
       protected StreamHelper Stream { get; }
 

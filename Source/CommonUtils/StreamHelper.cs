@@ -134,7 +134,7 @@ namespace CommonUtils
       {
          get
          {
-            return this._stream.Length;
+            return this.MinPosition + this.MaxPosition + 1;
          }
       }
 
