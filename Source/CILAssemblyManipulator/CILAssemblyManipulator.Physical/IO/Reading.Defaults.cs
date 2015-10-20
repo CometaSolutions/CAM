@@ -145,16 +145,18 @@ namespace CILAssemblyManipulator.Physical.IO
          // TODO some kind of interval-map for sections...
          var sections = this._sections;
          var retVal = -1L;
-         for ( var i = 0; i < sections.Length; ++i )
+         if ( rva > 0 )
          {
-            var sec = sections[i];
-            if ( sec.VirtualAddress <= rva && rva < (Int64) sec.VirtualAddress + (Int64) Math.Max( sec.VirtualSize, sec.RawDataSize ) )
+            for ( var i = 0; i < sections.Length; ++i )
             {
-               retVal = sec.RawDataPointer + ( rva - sec.VirtualAddress );
-               break;
+               var sec = sections[i];
+               if ( sec.VirtualAddress <= rva && rva < (Int64) sec.VirtualAddress + (Int64) Math.Max( sec.VirtualSize, sec.RawDataSize ) )
+               {
+                  retVal = sec.RawDataPointer + ( rva - sec.VirtualAddress );
+                  break;
+               }
             }
          }
-
          return retVal;
       }
 

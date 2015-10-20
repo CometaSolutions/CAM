@@ -33,6 +33,7 @@ namespace CILAssemblyManipulator.Physical.IO
    {
       public ImageInformation(
          PEInformation peInfo,
+         DebugInformation debugInfo,
          CLIInformation cliInfo
          )
       {
@@ -40,10 +41,13 @@ namespace CILAssemblyManipulator.Physical.IO
          ArgumentValidator.ValidateNotNull( "CLI information", cliInfo );
 
          this.PEInformation = peInfo;
+         this.DebugInformation = debugInfo;
          this.CLIInformation = cliInfo;
       }
 
       public PEInformation PEInformation { get; }
+
+      public DebugInformation DebugInformation { get; }
 
       public CLIInformation CLIInformation { get; }
    }
@@ -153,6 +157,8 @@ namespace CILAssemblyManipulator.Physical.IO
 
    public abstract class OptionalHeader
    {
+      public const Int32 DEBUG_DATA_DIRECTORY_INDEX = 6;
+
       internal OptionalHeader(
          Byte majorLinkerVersion,
          Byte minorLinkerVersion,
@@ -1185,6 +1191,37 @@ public static partial class E_CILPhysical
          stream.ReadSequentialElements( (UInt32) BinaryUtils.CountBitsSetU64( presentTables ), s => s.ReadUInt32LEFromBytes() ),
          thFlags.HasExtraData() ? stream.ReadInt32LEFromBytes() : (Int32?) null
          );
+   }
+
+   public static DebugInformation NewDebugInformationFromStream( this StreamHelper stream, PEInformation peInfo, RVAConverter rvaConverter )
+   {
+      var dataDirs = peInfo.NTHeader.OptionalHeader.DataDirectories;
+      DataDirectory debugDD;
+      return dataDirs.Count > OptionalHeader.DEBUG_DATA_DIRECTORY_INDEX
+         && ( debugDD = dataDirs[OptionalHeader.DEBUG_DATA_DIRECTORY_INDEX] ).RVA > 0 ?
+         stream
+            .At( rvaConverter.ToOffset( debugDD.RVA ) )
+            .NewDebugInformationFromStream() :
+         null;
+   }
+
+   public static DebugInformation NewDebugInformationFromStream( this StreamHelper stream )
+   {
+      var dbg = new DebugInformation( false )
+      {
+         Characteristics = stream.ReadInt32LEFromBytes(),
+         Timestamp = stream.ReadInt32LEFromBytes(),
+         VersionMajor = stream.ReadInt16LEFromBytes(),
+         VersionMinor = stream.ReadInt16LEFromBytes(),
+         DebugType = stream.ReadInt32LEFromBytes()
+      };
+      var dataSize = stream.ReadInt32LEFromBytes();
+      var dataRVA = stream.ReadUInt32LEFromBytes();
+      var dataPtr = stream.ReadUInt32LEFromBytes();
+      stream.Stream.SeekFromBegin( dataPtr );
+      dbg.DebugData = stream.ReadAndCreateArray( dataSize );
+
+      return dbg;
    }
 
    private static ArrayQuery<Byte> ReadAndCreateArrayQuery( this StreamHelper stream, UInt32 len )
