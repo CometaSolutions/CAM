@@ -453,23 +453,21 @@ namespace CILAssemblyManipulator.Physical.IO
       ArrayQuery<ColumnSerializationSupport> ColumnSerializationSupports { get; }
    }
 
-   public struct RowReadingArguments
+   public class RowReadingArguments
    {
       public RowReadingArguments(
          StreamHelper stream,
          ReaderBLOBStreamHandler blobs,
          ReaderGUIDStreamHandler guids,
          ReaderStringStreamHandler systemStrings,
-         List<Int32> methodRVAs,
-         List<Int32> fieldRVAs
+         RawValueStorage rawValueStorage
          )
       {
          this.Stream = stream;
          this.BLOBs = blobs;
          this.GUIDs = guids;
          this.SystemStrings = systemStrings;
-         this.MethodRVAs = methodRVAs;
-         this.FieldRVAs = fieldRVAs;
+         this.RawValueStorage = rawValueStorage;
       }
 
       public StreamHelper Stream { get; }
@@ -480,9 +478,9 @@ namespace CILAssemblyManipulator.Physical.IO
 
       public ReaderStringStreamHandler SystemStrings { get; }
 
-      public List<Int32> MethodRVAs { get; }
+      public RawValueStorage RawValueStorage { get; }
 
-      public List<Int32> FieldRVAs { get; }
+
    }
 
    public interface ColumnSerializationInfo

@@ -352,16 +352,18 @@ namespace CILAssemblyManipulator.Physical.IO
 
       public static DefaultColumnSerializationInfo<TRawRow, TRow> RawValueStorageColumn<TRawRow, TRow>(
          String columnName,
-         Action<TRawRow, Int32> rawSetter
+         Action<TRawRow, Int32> rawSetter,
+         ref Int32 curColIdx
          )
          where TRawRow : class
          where TRow : class
       {
+         var colIdx = curColIdx;
          return new DefaultColumnSerializationInfo<TRawRow, TRow>(
             columnName,
             args => new ColumnSerializationSupport_Constant32(),
             rawSetter,
-            ( args, value ) => { }
+            ( args, value ) => args.RowArgs.RawValueStorage.GetRawValues( args.Table, colIdx ).Add( value )
          );
       }
 
@@ -505,13 +507,16 @@ namespace CILAssemblyManipulator.Physical.IO
       where TRow : class
    {
 
-      public ColumnSettingArguments( TRow row, RowReadingArguments args )
+      public ColumnSettingArguments( Tables table, TRow row, RowReadingArguments args )
       {
          ArgumentValidator.ValidateNotNull( "Row", row );
 
+         this.Table = table;
          this.Row = row;
          this.RowArgs = args;
       }
+
+      public Tables Table { get; }
 
       public TRow Row { get; }
 
@@ -724,7 +729,8 @@ namespace CILAssemblyManipulator.Physical.IO
 
       protected static IEnumerable<DefaultColumnSerializationInfo<RawMethodDefinition, MethodDefinition>> GetMethodDefColumns()
       {
-         yield return DefaultColumnSerializationInfoFactory.Constant32<RawMethodDefinition, MethodDefinition>( nameof( RawMethodDefinition.RVA ), ( r, v ) => r.RVA = v, ( args, v ) => args.RowArgs.MethodRVAs.Add( v ) );
+         var colIdx = 0;
+         yield return DefaultColumnSerializationInfoFactory.RawValueStorageColumn<RawMethodDefinition, MethodDefinition>( nameof( RawMethodDefinition.RVA ), ( r, v ) => r.RVA = v, ref colIdx );
          yield return DefaultColumnSerializationInfoFactory.Constant16<RawMethodDefinition, MethodDefinition>( nameof( RawMethodDefinition.ImplementationAttributes ), ( r, v ) => r.ImplementationAttributes = (MethodImplAttributes) v, ( args, v ) => args.Row.ImplementationAttributes = (MethodImplAttributes) v );
          yield return DefaultColumnSerializationInfoFactory.Constant16<RawMethodDefinition, MethodDefinition>( nameof( RawMethodDefinition.Attributes ), ( r, v ) => r.Attributes = (MethodAttributes) v, ( args, v ) => args.Row.Attributes = (MethodAttributes) v );
          yield return DefaultColumnSerializationInfoFactory.BLOBSignature<RawMethodDefinition, MethodDefinition, MethodDefinitionSignature>( nameof( RawMethodDefinition.Signature ), ( r, v ) => r.Signature = v, ( args, v ) => args.Row.Signature = v );
@@ -876,7 +882,8 @@ namespace CILAssemblyManipulator.Physical.IO
 
       protected static IEnumerable<DefaultColumnSerializationInfo<RawFieldRVA, FieldRVA>> GetFieldRVAColumns()
       {
-         yield return DefaultColumnSerializationInfoFactory.Constant32<RawFieldRVA, FieldRVA>( nameof( RawFieldRVA.RVA ), ( r, v ) => r.RVA = v, ( args, v ) => args.RowArgs.FieldRVAs.Add( v ) );
+         var colIdx = 0;
+         yield return DefaultColumnSerializationInfoFactory.RawValueStorageColumn<RawFieldRVA, FieldRVA>( nameof( RawFieldRVA.RVA ), ( r, v ) => r.RVA = v, ref colIdx );
          yield return DefaultColumnSerializationInfoFactory.SimpleReference<RawFieldRVA, FieldRVA>( nameof( RawFieldRVA.Field ), Tables.Field, ( r, v ) => r.Field = v, ( args, v ) => args.Row.Field = v );
       }
 
@@ -964,7 +971,8 @@ namespace CILAssemblyManipulator.Physical.IO
 
       protected static IEnumerable<DefaultColumnSerializationInfo<RawManifestResource, ManifestResource>> GetManifestResourceColumns()
       {
-         yield return DefaultColumnSerializationInfoFactory.Constant32<RawManifestResource, ManifestResource>( nameof( RawManifestResource.Offset ), ( r, v ) => r.Offset = v, ( args, v ) => args.Row.Offset = v );
+         var colIdx = 0;
+         yield return DefaultColumnSerializationInfoFactory.RawValueStorageColumn<RawManifestResource, ManifestResource>( nameof( RawManifestResource.Offset ), ( r, v ) => r.Offset = v, ref colIdx );
          yield return DefaultColumnSerializationInfoFactory.Constant32<RawManifestResource, ManifestResource>( nameof( RawManifestResource.Attributes ), ( r, v ) => r.Attributes = (ManifestResourceAttributes) v, ( args, v ) => args.Row.Attributes = (ManifestResourceAttributes) v );
          yield return DefaultColumnSerializationInfoFactory.SystemString<RawManifestResource, ManifestResource>( nameof( RawManifestResource.Name ), ( r, v ) => r.Name = v, ( args, v ) => args.Row.Name = v );
          yield return DefaultColumnSerializationInfoFactory.CodedReference<RawManifestResource, ManifestResource>( nameof( RawManifestResource.Implementation ), CodedTableIndexDecoder.Implementation, ( r, v ) => r.Implementation = v, ( args, v ) => args.Row.Implementation = v );
@@ -1078,7 +1086,7 @@ namespace CILAssemblyManipulator.Physical.IO
       public Object ReadRow( RowReadingArguments args )
       {
          var row = new TRow();
-         var columnArgs = new ColumnSettingArguments<TRow>( row, args );
+         var columnArgs = new ColumnSettingArguments<TRow>( this.TableSerializationInfo.Table, row, args );
          var stream = args.Stream;
          for ( var i = 0; i < this._columnArray.Length; ++i )
          {

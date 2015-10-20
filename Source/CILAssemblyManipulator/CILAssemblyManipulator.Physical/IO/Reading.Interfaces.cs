@@ -18,6 +18,7 @@
 using CILAssemblyManipulator.Physical;
 using CILAssemblyManipulator.Physical.Implementation;
 using CILAssemblyManipulator.Physical.IO;
+using CollectionsWithRoles.API;
 using CommonUtils;
 using System;
 using System.Collections.Generic;
@@ -51,13 +52,41 @@ namespace CILAssemblyManipulator.Physical.IO
          MetaDataStreamHeader header
          );
 
-
-      ReaderRVAHandler CreateRVAHandler(
+      void HandleStoredRawValues(
          StreamHelper stream,
          ImageInformation imageInfo,
          RVAConverter rvaConverter,
-         CILMetaData md
+         CILMetaData md,
+         RawValueStorage rawValues
          );
+   }
+
+   public sealed class RawValueStorage
+   {
+      private readonly ArrayQuery<Int32> _tableSizes;
+
+      private readonly List<Int32>[][] _rawValues;
+
+      public RawValueStorage( ArrayQuery<Int32> tableSizes, IEnumerable<Int32> rawColumnInfo )
+      {
+         this._rawValues = rawColumnInfo
+            .Select( ( rawColCount, idx ) =>
+               rawColCount > 0 ?
+                  Enumerable
+                     .Range( 0, rawColCount )
+                     .Select( i => new List<Int32>( tableSizes[idx] ) )
+                     .ToArray() :
+                  null
+                  )
+            .ToArray();
+      }
+
+      public List<Int32> GetRawValues( Tables table, Int32 columnIndex )
+      {
+         return this._rawValues[(Int32) table][columnIndex];
+
+      }
+
    }
 
    public interface RVAConverter
@@ -76,15 +105,13 @@ namespace CILAssemblyManipulator.Physical.IO
    {
       MetaDataTableStreamHeader ReadHeader();
 
-      void PopulateMetaDataStructure(
+      RawValueStorage PopulateMetaDataStructure(
          CILMetaData md,
          ReaderBLOBStreamHandler blobs,
          ReaderGUIDStreamHandler guids,
          ReaderStringStreamHandler sysStrings,
          ReaderStringStreamHandler userStrings,
-         IEnumerable<AbstractReaderStreamHandler> otherStreams,
-         List<Int32> methodRVAs,
-         List<Int32> fieldRVAs
+         IEnumerable<AbstractReaderStreamHandler> otherStreams
          );
 
    }
@@ -119,17 +146,6 @@ namespace CILAssemblyManipulator.Physical.IO
       String GetString( Int32 heapIndex );
 
       String GetStringNoCache( Int32 heapIndex );
-   }
-
-
-
-   public interface ReaderRVAHandler
-   {
-      MethodILDefinition ReadIL( Int32 methodIndex );
-
-      Byte[] ReadConstantValue( Int32 fieldIndex );
-
-      Byte[] ReadEmbeddedManifestResource( Int32 manifestIndex );
    }
 }
 
@@ -226,17 +242,13 @@ public static partial class E_CILPhysical
       var guidStream = mdStreams.OfType<ReaderGUIDStreamHandler>().FirstOrDefault();
       var sysStringStream = mdStreams.OfType<ReaderStringStreamHandler>().FirstOrDefault( s => String.Equals( s.StreamName, MetaDataConstants.SYS_STRING_STREAM_NAME ) );
       var userStringStream = mdStreams.OfType<ReaderStringStreamHandler>().FirstOrDefault( s => String.Equals( s.StreamName, MetaDataConstants.USER_STRING_STREAM_NAME ) );
-      var methodRVAs = new List<Int32>( md.MethodDefinitions.RowCount );
-      var fieldRVAs = new List<Int32>( md.FieldRVAs.RowCount );
-      tblMDStream.PopulateMetaDataStructure(
+      var rawValueStorage = tblMDStream.PopulateMetaDataStructure(
          md,
          blobStream,
          guidStream,
          sysStringStream,
          userStringStream,
-         mdStreams.Where( s => !ReferenceEquals( tblMDStream, s ) && !ReferenceEquals( blobStream, s ) && !ReferenceEquals( guidStream, s ) && !ReferenceEquals( sysStringStream, s ) && !ReferenceEquals( userStringStream, s ) ),
-         methodRVAs,
-         fieldRVAs
+         mdStreams.Where( s => !ReferenceEquals( tblMDStream, s ) && !ReferenceEquals( blobStream, s ) && !ReferenceEquals( guidStream, s ) && !ReferenceEquals( sysStringStream, s ) && !ReferenceEquals( userStringStream, s ) )
          );
 
       // 4. Create image information
@@ -252,30 +264,13 @@ public static partial class E_CILPhysical
             snOffset > 0 && snDD.Size > 0 ?
                helper.At( snOffset ).ReadAndCreateArray( checked((Int32) snDD.Size) ).ToArrayProxy().CQ :
                null,
-            methodRVAs.Select( rva => (UInt32) rva ).ToArrayProxy().CQ,
-            fieldRVAs.Select( rva => (UInt32) rva ).ToArrayProxy().CQ
+            rawValueStorage.GetRawValues( Tables.MethodDef, 0 ).Select( rva => (UInt32) rva ).ToArrayProxy().CQ,
+            rawValueStorage.GetRawValues( Tables.FieldRVA, 0 ).Select( rva => (UInt32) rva ).ToArrayProxy().CQ
             )
          );
 
       // 5. Populate IL, FieldRVA, and ManifestResource data
-      var rvaHandler = reader.CreateRVAHandler( helper, imageInfo, rvaConverter, md );
-      for ( var i = 0; i < methodRVAs.Count; ++i )
-      {
-         md.MethodDefinitions.TableContents[i].IL = rvaHandler.ReadIL( i );
-      }
-      for ( var i = 0; i < fieldRVAs.Count; ++i )
-      {
-         md.FieldRVAs.TableContents[i].Data = rvaHandler.ReadConstantValue( i );
-      }
-      var mResources = md.ManifestResources.TableContents;
-      for ( var i = 0; i < mResources.Count; ++i )
-      {
-         var mRes = mResources[i];
-         if ( !mRes.Implementation.HasValue )
-         {
-            rvaHandler.ReadEmbeddedManifestResource( i );
-         }
-      }
+      reader.HandleStoredRawValues( helper, imageInfo, rvaConverter, md, rawValueStorage );
 
       // We're done
       return md;

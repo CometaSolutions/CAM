@@ -105,14 +105,16 @@ namespace CILAssemblyManipulator.Physical.IO
                return null;
          }
       }
-      public virtual ReaderRVAHandler CreateRVAHandler(
+
+      public virtual void HandleStoredRawValues(
          StreamHelper stream,
          ImageInformation imageInfo,
          RVAConverter rvaConverter,
-         CILMetaData md
+         CILMetaData md,
+         RawValueStorage rawValues
          )
       {
-         return new DefaultReaderRVAHandler( stream, imageInfo, rvaConverter, md );
+         throw new NotImplementedException();
       }
 
       protected virtual RVAConverter CreateRVAConverter(
@@ -126,6 +128,7 @@ namespace CILAssemblyManipulator.Physical.IO
       {
          return new DefaultMetaDataSerializationSupportProvider();
       }
+
 
    }
 
@@ -275,18 +278,17 @@ namespace CILAssemblyManipulator.Physical.IO
 
       }
 
-      public virtual void PopulateMetaDataStructure(
+      public virtual RawValueStorage PopulateMetaDataStructure(
          CILMetaData md,
          ReaderBLOBStreamHandler blobs,
          ReaderGUIDStreamHandler guids,
          ReaderStringStreamHandler sysStrings,
          ReaderStringStreamHandler userStrings,
-         IEnumerable<AbstractReaderStreamHandler> otherStreams,
-         List<Int32> methodRVAs,
-         List<Int32> fieldRVAs
+         IEnumerable<AbstractReaderStreamHandler> otherStreams
          )
       {
-         var args = new RowReadingArguments( this.Stream, blobs, guids, sysStrings, methodRVAs, fieldRVAs );
+         var rawValueStorage = new RawValueStorage( this.TableSizes, )
+         var args = new RowReadingArguments( this.Stream, blobs, guids, sysStrings, rawValueStorage );
          for ( var i = 0; i < this.TableSizes.Count; ++i )
          {
             var table = md.GetByTable( (Tables) i );
@@ -663,51 +665,6 @@ namespace CILAssemblyManipulator.Physical.IO
 
          return retVal;
       }
-   }
-
-   public class DefaultReaderRVAHandler : ReaderRVAHandler
-   {
-      public DefaultReaderRVAHandler(
-         StreamHelper stream,
-         ImageInformation imageInfo,
-         RVAConverter rvaConverter,
-         CILMetaData md
-         )
-      {
-         ArgumentValidator.ValidateNotNull( "Stream", stream );
-         ArgumentValidator.ValidateNotNull( "Image information", imageInfo );
-         ArgumentValidator.ValidateNotNull( "RVA converter", rvaConverter );
-         ArgumentValidator.ValidateNotNull( "Meta data", md );
-
-         this.Stream = stream;
-         this.ImageInfo = imageInfo;
-         this.RVAConverter = rvaConverter;
-         this.MetaData = md;
-      }
-      public MethodILDefinition ReadIL( Int32 methodIndex )
-      {
-         throw new NotImplementedException();
-      }
-
-      public Byte[] ReadConstantValue( Int32 fieldIndex )
-      {
-         throw new NotImplementedException();
-      }
-
-      public Byte[] ReadEmbeddedManifestResource( Int32 manifestIndex )
-      {
-         throw new NotImplementedException();
-      }
-
-
-
-      protected StreamHelper Stream { get; }
-
-      protected ImageInformation ImageInfo { get; }
-
-      protected RVAConverter RVAConverter { get; }
-
-      protected CILMetaData MetaData { get; }
    }
 }
 
