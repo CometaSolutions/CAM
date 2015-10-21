@@ -430,7 +430,7 @@ namespace CILAssemblyManipulator.Physical.IO
 
    public interface MetaDataSerializationSupportProvider
    {
-      TableSerializationInfo CreateTableSerializationInfo( Tables table );
+      IEnumerable<TableSerializationInfo> CreateTableSerializationInfos();
    }
 
    public interface TableSerializationInfo
@@ -439,10 +439,14 @@ namespace CILAssemblyManipulator.Physical.IO
 
       ArrayQuery<ColumnSerializationInfo> ColumnSerializationInfos { get; }
 
-      TableSerializationSupport CreateSupport( ArrayQuery<Int32> tableSizes, Boolean wideBLOBs, Boolean wideGUIDs, Boolean wideStrings );
+      TableSerializationFunctionality CreateSupport( ArrayQuery<Int32> tableSizes, Boolean wideBLOBs, Boolean wideGUIDs, Boolean wideStrings );
+
+      Int32 RawValueStorageColumnCount { get; }
+
+      void ProcessRowForRawValues( RawValueProcessingArgs args, Int32 rowIndex, Object row, IEnumerable<Int32> rawValues );
    }
 
-   public interface TableSerializationSupport
+   public interface TableSerializationFunctionality
    {
       TableSerializationInfo TableSerializationInfo { get; }
 
@@ -450,44 +454,70 @@ namespace CILAssemblyManipulator.Physical.IO
 
       Object ReadRow( RowReadingArguments args );
 
-      ArrayQuery<ColumnSerializationSupport> ColumnSerializationSupports { get; }
+      ArrayQuery<ColumnSerializationFunctionality> ColumnSerializationSupports { get; }
    }
 
    public class RowReadingArguments
    {
       public RowReadingArguments(
          StreamHelper stream,
-         ReaderBLOBStreamHandler blobs,
-         ReaderGUIDStreamHandler guids,
-         ReaderStringStreamHandler systemStrings,
+         ReaderMetaDataStreamContainer mdStreamContainer,
          RawValueStorage rawValueStorage
          )
       {
+         ArgumentValidator.ValidateNotNull( "Stream", stream );
+         ArgumentValidator.ValidateNotNull( "Meta data stream container", mdStreamContainer );
+         ArgumentValidator.ValidateNotNull( "Raw value storage", rawValueStorage );
+
          this.Stream = stream;
-         this.BLOBs = blobs;
-         this.GUIDs = guids;
-         this.SystemStrings = systemStrings;
+         this.MDStreamContainer = mdStreamContainer;
          this.RawValueStorage = rawValueStorage;
       }
 
       public StreamHelper Stream { get; }
 
-      public ReaderBLOBStreamHandler BLOBs { get; }
-
-      public ReaderGUIDStreamHandler GUIDs { get; }
-
-      public ReaderStringStreamHandler SystemStrings { get; }
+      public ReaderMetaDataStreamContainer MDStreamContainer { get; }
 
       public RawValueStorage RawValueStorage { get; }
+   }
 
+
+
+   public class RawValueProcessingArgs
+   {
+      public RawValueProcessingArgs(
+         StreamHelper stream,
+         ImageInformation imageInformation,
+         RVAConverter rvaConverter,
+         ReaderMetaDataStreamContainer mdStreamContainer,
+         CILMetaData md
+         )
+      {
+         ArgumentValidator.ValidateNotNull( "Stream", stream );
+         ArgumentValidator.ValidateNotNull( "Image information", imageInformation );
+         ArgumentValidator.ValidateNotNull( "RVA converter", rvaConverter );
+         ArgumentValidator.ValidateNotNull( "Meta data stream container", mdStreamContainer );
+         ArgumentValidator.ValidateNotNull( "Meta data", md );
+
+         this.Stream = stream;
+         this.ImageInformation = imageInformation;
+         this.RVAConverter = rvaConverter;
+         this.MDStreamContainer = mdStreamContainer;
+         this.MetaData = md;
+      }
+
+      public StreamHelper Stream { get; }
+      public ImageInformation ImageInformation { get; }
+      public RVAConverter RVAConverter { get; }
+
+      public ReaderMetaDataStreamContainer MDStreamContainer { get; }
+      public CILMetaData MetaData { get; }
 
    }
 
    public interface ColumnSerializationInfo
    {
       String ColumnName { get; }
-
-      void SetRawValue( Object row, Int32 value );
 
       HeapIndexKind? HeapIndexKind { get; }
    }
@@ -500,7 +530,7 @@ namespace CILAssemblyManipulator.Physical.IO
    }
 
 
-   public interface ColumnSerializationSupport
+   public interface ColumnSerializationFunctionality
    {
 
       Int32 ColumnByteCount { get; }

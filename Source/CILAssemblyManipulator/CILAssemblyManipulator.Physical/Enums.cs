@@ -2499,8 +2499,8 @@ public static partial class E_CILPhysical
          case UnmanagedType.AsAny:
          case UnmanagedType.LPStruct:
          case UnmanagedType.Error:
-         case (UnmanagedType) 46: // IInspectable
-         case (UnmanagedType) 47: // HString
+         case UnmanagedType.IInspectable: // IInspectable
+         case UnmanagedType.HString: // HString
             return true;
          default:
             return false;

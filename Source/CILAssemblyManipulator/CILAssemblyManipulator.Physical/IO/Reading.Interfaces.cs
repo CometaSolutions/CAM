@@ -56,6 +56,7 @@ namespace CILAssemblyManipulator.Physical.IO
          StreamHelper stream,
          ImageInformation imageInfo,
          RVAConverter rvaConverter,
+         ReaderMetaDataStreamContainer mdStreamContainer,
          CILMetaData md,
          RawValueStorage rawValues
          );
@@ -64,27 +65,53 @@ namespace CILAssemblyManipulator.Physical.IO
    public sealed class RawValueStorage
    {
       private readonly ArrayQuery<Int32> _tableSizes;
-
-      private readonly List<Int32>[][] _rawValues;
+      private readonly Int32[] _tableColCount;
+      private readonly Int32[] _tableStartOffsets;
+      private readonly Int32[] _rawValues;
+      private Int32 _currentIndex;
 
       public RawValueStorage( ArrayQuery<Int32> tableSizes, IEnumerable<Int32> rawColumnInfo )
       {
-         this._rawValues = rawColumnInfo
-            .Select( ( rawColCount, idx ) =>
-               rawColCount > 0 ?
-                  Enumerable
-                     .Range( 0, rawColCount )
-                     .Select( i => new List<Int32>( tableSizes[idx] ) )
-                     .ToArray() :
-                  null
-                  )
+         this._tableSizes = tableSizes;
+         this._tableColCount = rawColumnInfo.ToArray();
+         this._tableStartOffsets = tableSizes
+            .AggregateIntermediate_BeforeAggregation(
+               0,
+               ( cur, size, idx ) => cur += size * this._tableColCount[idx]
+               )
             .ToArray();
+         this._rawValues = new Int32[tableSizes.Select( ( size, idx ) => size * this._tableColCount[idx] ).Sum()];
+         this._currentIndex = 0;
       }
 
-      public List<Int32> GetRawValues( Tables table, Int32 columnIndex )
+      public void AddRawValue( Int32 rawValue )
       {
-         return this._rawValues[(Int32) table][columnIndex];
+         this._rawValues[this._currentIndex++] = rawValue;
+      }
 
+      public IEnumerable<Int32> GetAllRawValuesForColumn( Tables table, Int32 columnIndex )
+      {
+         var size = this._tableSizes[(Int32) table];
+         for ( var i = this._tableStartOffsets[(Int32) table]; i < size; ++i )
+         {
+            yield return this._rawValues[i + columnIndex];
+         }
+      }
+
+      public IEnumerable<Int32> GetAllRawValuesForRow( Tables table, Int32 rowIndex )
+      {
+         var size = this._tableColCount[(Int32) table];
+         var startOffset = this._tableStartOffsets[(Int32) table] + rowIndex * size;
+         for ( var i = 0; i < size; ++i )
+         {
+            yield return this._rawValues[startOffset];
+            ++startOffset;
+         }
+      }
+
+      public Int32 GetRawValue( Tables table, Int32 rowIndex, Int32 columnIndex )
+      {
+         return this._rawValues[this._tableStartOffsets[(Int32) table] + rowIndex * this._tableColCount[(Int32) table] + columnIndex];
       }
 
    }
@@ -94,6 +121,34 @@ namespace CILAssemblyManipulator.Physical.IO
       Int64 ToRVA( Int64 offset );
 
       Int64 ToOffset( Int64 rva );
+   }
+
+   public class ReaderMetaDataStreamContainer
+   {
+      public ReaderMetaDataStreamContainer(
+         ReaderBLOBStreamHandler blobs,
+         ReaderGUIDStreamHandler guids,
+         ReaderStringStreamHandler sysStrings,
+         ReaderStringStreamHandler userStrings,
+         IEnumerable<AbstractReaderStreamHandler> otherStreams
+         )
+      {
+         this.BLOBs = blobs;
+         this.GUIDs = guids;
+         this.SystemStrings = sysStrings;
+         this.UserStrings = userStrings;
+         this.OtherStreams = otherStreams.ToArrayProxy().CQ;
+      }
+
+      public ReaderBLOBStreamHandler BLOBs { get; }
+
+      public ReaderGUIDStreamHandler GUIDs { get; }
+
+      public ReaderStringStreamHandler SystemStrings { get; }
+
+      public ReaderStringStreamHandler UserStrings { get; }
+
+      public ArrayQuery<AbstractReaderStreamHandler> OtherStreams { get; }
    }
 
    public interface AbstractReaderStreamHandler
@@ -107,11 +162,7 @@ namespace CILAssemblyManipulator.Physical.IO
 
       RawValueStorage PopulateMetaDataStructure(
          CILMetaData md,
-         ReaderBLOBStreamHandler blobs,
-         ReaderGUIDStreamHandler guids,
-         ReaderStringStreamHandler sysStrings,
-         ReaderStringStreamHandler userStrings,
-         IEnumerable<AbstractReaderStreamHandler> otherStreams
+         ReaderMetaDataStreamContainer mdStreamContainer
          );
 
    }
@@ -120,11 +171,13 @@ namespace CILAssemblyManipulator.Physical.IO
    {
       Byte[] GetBLOB( Int32 heapIndex );
 
+      StreamHelper GetBLOBAsStreamPortion( Int32 heapIndex );
+
       Int64 GetStreamOffset( Int32 heapIndex, out Int32 blobSize );
 
       AbstractSignature ReadSignature( Int32 heapIndex, out Boolean wasFieldSig );
 
-      CustomAttributeSignature ReadCASignature( Int32 heapIndex );
+      AbstractCustomAttributeSignature ReadCASignature( Int32 heapIndex );
 
       IEnumerable<AbstractSecurityInformation> ReadSecurityInformation( Int32 heapIndex );
 
@@ -242,13 +295,17 @@ public static partial class E_CILPhysical
       var guidStream = mdStreams.OfType<ReaderGUIDStreamHandler>().FirstOrDefault();
       var sysStringStream = mdStreams.OfType<ReaderStringStreamHandler>().FirstOrDefault( s => String.Equals( s.StreamName, MetaDataConstants.SYS_STRING_STREAM_NAME ) );
       var userStringStream = mdStreams.OfType<ReaderStringStreamHandler>().FirstOrDefault( s => String.Equals( s.StreamName, MetaDataConstants.USER_STRING_STREAM_NAME ) );
+      var mdStreamContainer = new ReaderMetaDataStreamContainer(
+            blobStream,
+            guidStream,
+            sysStringStream,
+            userStringStream,
+            mdStreams.Where( s => !ReferenceEquals( tblMDStream, s ) && !ReferenceEquals( blobStream, s ) && !ReferenceEquals( guidStream, s ) && !ReferenceEquals( sysStringStream, s ) && !ReferenceEquals( userStringStream, s ) )
+            );
+
       var rawValueStorage = tblMDStream.PopulateMetaDataStructure(
          md,
-         blobStream,
-         guidStream,
-         sysStringStream,
-         userStringStream,
-         mdStreams.Where( s => !ReferenceEquals( tblMDStream, s ) && !ReferenceEquals( blobStream, s ) && !ReferenceEquals( guidStream, s ) && !ReferenceEquals( sysStringStream, s ) && !ReferenceEquals( userStringStream, s ) )
+         mdStreamContainer
          );
 
       // 4. Create image information
@@ -264,13 +321,13 @@ public static partial class E_CILPhysical
             snOffset > 0 && snDD.Size > 0 ?
                helper.At( snOffset ).ReadAndCreateArray( checked((Int32) snDD.Size) ).ToArrayProxy().CQ :
                null,
-            rawValueStorage.GetRawValues( Tables.MethodDef, 0 ).Select( rva => (UInt32) rva ).ToArrayProxy().CQ,
-            rawValueStorage.GetRawValues( Tables.FieldRVA, 0 ).Select( rva => (UInt32) rva ).ToArrayProxy().CQ
+            rawValueStorage.GetAllRawValuesForColumn( Tables.MethodDef, 0 ).Select( rva => (UInt32) rva ).ToArrayProxy().CQ,
+            rawValueStorage.GetAllRawValuesForColumn( Tables.FieldRVA, 0 ).Select( rva => (UInt32) rva ).ToArrayProxy().CQ
             )
          );
 
       // 5. Populate IL, FieldRVA, and ManifestResource data
-      reader.HandleStoredRawValues( helper, imageInfo, rvaConverter, md, rawValueStorage );
+      reader.HandleStoredRawValues( helper, imageInfo, rvaConverter, mdStreamContainer, md, rawValueStorage );
 
       // We're done
       return md;

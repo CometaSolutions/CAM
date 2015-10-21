@@ -86,6 +86,14 @@ namespace CommonUtils
          }
 
          var otherPortion = stream as StreamPortion;
+         if ( otherPortion != null )
+         {
+            if ( min < otherPortion.MinPosition || max > otherPortion.MaxPosition )
+            {
+               throw new InvalidOperationException( "Tried to create sub-portion of stream with invalid min/max values." );
+            }
+         }
+
          this._stream = otherPortion == null ? stream : otherPortion._stream;
          this.MinPosition = min;
          this.MaxPosition = max;

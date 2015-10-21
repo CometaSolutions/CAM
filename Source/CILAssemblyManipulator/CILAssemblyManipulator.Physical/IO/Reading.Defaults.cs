@@ -34,7 +34,7 @@ namespace CILAssemblyManipulator.Physical.IO
       {
          // We are going to do a lot of seeking, so just read whole stream into byte array and use memory stream
          newStream = new MemoryStream( stream.ReadUntilTheEnd(), this.IsMemoryStreamWriteable );
-         return new DefaultReaderFunctionality();
+         return new DefaultReaderFunctionality( this.CreateMDSerialization() );
       }
 
       protected virtual Boolean IsMemoryStreamWriteable
@@ -44,11 +44,24 @@ namespace CILAssemblyManipulator.Physical.IO
             return false;
          }
       }
+
+      protected virtual MetaDataSerializationSupportProvider CreateMDSerialization()
+      {
+         return new DefaultMetaDataSerializationSupportProvider();
+      }
    }
 
    public class DefaultReaderFunctionality : ReaderFunctionality
    {
       protected const Int32 CLI_DATADIR_INDEX = 14;
+
+      public DefaultReaderFunctionality(
+         MetaDataSerializationSupportProvider mdSerialization = null
+         )
+      {
+         this.MDSerialization = mdSerialization ?? new DefaultMetaDataSerializationSupportProvider();
+         this.TableSerializations = this.MDSerialization.CreateTableSerializationInfos().ToArrayProxy().CQ;
+      }
 
       public virtual void ReadImageInformation(
          StreamHelper stream,
@@ -93,8 +106,11 @@ namespace CILAssemblyManipulator.Physical.IO
          var size = (Int32) header.Size;
          switch ( header.Name )
          {
+            case MetaDataConstants.TABLE_STREAM_NAME:
+            case "#-":
+               return new DefaultReaderTableStreamHandler( stream, size, header.Name, this.TableSerializations );
             case MetaDataConstants.BLOB_STREAM_NAME:
-               return new DefaultReaderTableStreamHandler( stream, size, header.Name, this.CreateMDSerialization() );
+               return new DefaultReaderBLOBStreamHandler( stream, size );
             case MetaDataConstants.GUID_STREAM_NAME:
                return new DefaultReaderGUIDStringStreamHandler( stream, size );
             case MetaDataConstants.SYS_STRING_STREAM_NAME:
@@ -110,11 +126,24 @@ namespace CILAssemblyManipulator.Physical.IO
          StreamHelper stream,
          ImageInformation imageInfo,
          RVAConverter rvaConverter,
+         ReaderMetaDataStreamContainer mdStreamContainer,
          CILMetaData md,
          RawValueStorage rawValues
          )
       {
-         throw new NotImplementedException();
+         var args = this.CreateRawValueProcessingArgs( stream, imageInfo, rvaConverter, mdStreamContainer, md ) ?? CreateDefaultRawValueProcessingArgs( stream, imageInfo, rvaConverter, mdStreamContainer, md );
+         var tableSerializations = this.TableSerializations;
+         for ( var i = 0; i < tableSerializations.Count; ++i )
+         {
+            var table = md.GetByTable( (Tables) i );
+            var tableSerialization = tableSerializations[i];
+            var curIdx = 0;
+            foreach ( var row in table.TableContentsAsEnumerable )
+            {
+               tableSerialization.ProcessRowForRawValues( args, curIdx, row, rawValues.GetAllRawValuesForRow( (Tables) i, curIdx ) );
+               ++curIdx;
+            }
+         }
       }
 
       protected virtual RVAConverter CreateRVAConverter(
@@ -124,11 +153,33 @@ namespace CILAssemblyManipulator.Physical.IO
          return new DefaultRVAConverter( peInformation );
       }
 
-      protected virtual MetaDataSerializationSupportProvider CreateMDSerialization()
+
+
+      protected virtual RawValueProcessingArgs CreateRawValueProcessingArgs(
+         StreamHelper stream,
+         ImageInformation imageInfo,
+         RVAConverter rvaConverter,
+         ReaderMetaDataStreamContainer mdStreamContainer,
+         CILMetaData md
+         )
       {
-         return new DefaultMetaDataSerializationSupportProvider();
+         return CreateDefaultRawValueProcessingArgs( stream, imageInfo, rvaConverter, mdStreamContainer, md );
       }
 
+      protected static RawValueProcessingArgs CreateDefaultRawValueProcessingArgs(
+         StreamHelper stream,
+         ImageInformation imageInfo,
+         RVAConverter rvaConverter,
+         ReaderMetaDataStreamContainer mdStreamContainer,
+         CILMetaData md
+         )
+      {
+         return new RawValueProcessingArgs( stream, imageInfo, rvaConverter, mdStreamContainer, md );
+      }
+
+      protected MetaDataSerializationSupportProvider MDSerialization { get; }
+
+      protected ArrayQuery<TableSerializationInfo> TableSerializations { get; }
 
    }
 
@@ -235,10 +286,15 @@ namespace CILAssemblyManipulator.Physical.IO
          StreamHelper stream,
          Int32 streamSize,
          String tableStreamName,
-         MetaDataSerializationSupportProvider mdSerialization
+         ArrayQuery<TableSerializationInfo> tableSerializations
          )
          : base( stream, streamSize, tableStreamName )
       {
+         if ( tableSerializations == null )
+         {
+            tableSerializations = new DefaultMetaDataSerializationSupportProvider().CreateTableSerializationInfos().ToArrayProxy().CQ;
+         }
+
          var tableHeader = stream.NewTableStreamHeaderFromStream();
          var thFlags = tableHeader.TableStreamFlags;
 
@@ -246,16 +302,7 @@ namespace CILAssemblyManipulator.Physical.IO
          this.TableStreamHeader = tableHeader;
          this.TableSizes = tableHeader.CreateTableSizesArray().ToArrayProxy().CQ;
 
-         if ( mdSerialization == null )
-         {
-            mdSerialization = new DefaultMetaDataSerializationSupportProvider();
-         }
-
-         this.TableSerializationInfo =
-            Enumerable.Range( 0, this.TableSizes.Count )
-            .Select( table => mdSerialization.CreateTableSerializationInfo( (Tables) table ) )
-            .ToArrayProxy()
-            .CQ;
+         this.TableSerializationInfo = tableSerializations;
 
          this.TableSerializationSupport =
             this.TableSerializationInfo
@@ -271,8 +318,7 @@ namespace CILAssemblyManipulator.Physical.IO
 
          this.TableStartOffsets =
             this.TableSizes
-            .Select( ( size, idx ) => Tuple.Create( size, idx ) )
-            .AggregateIntermediate( tableStartPosition, ( curOffset, tuple ) => curOffset + tuple.Item1 * this.TableWidths[tuple.Item2] )
+            .AggregateIntermediate_BeforeAggregation( tableStartPosition, ( curOffset, size, idx ) => curOffset + size * this.TableWidths[idx] )
             .ToArrayProxy()
             .CQ;
 
@@ -280,15 +326,11 @@ namespace CILAssemblyManipulator.Physical.IO
 
       public virtual RawValueStorage PopulateMetaDataStructure(
          CILMetaData md,
-         ReaderBLOBStreamHandler blobs,
-         ReaderGUIDStreamHandler guids,
-         ReaderStringStreamHandler sysStrings,
-         ReaderStringStreamHandler userStrings,
-         IEnumerable<AbstractReaderStreamHandler> otherStreams
+         ReaderMetaDataStreamContainer mdStreamContainer
          )
       {
-         var rawValueStorage = new RawValueStorage( this.TableSizes, )
-         var args = new RowReadingArguments( this.Stream, blobs, guids, sysStrings, rawValueStorage );
+         var rawValueStorage = this.CreateRawValueStorage() ?? this.CreateDefaultRawValueStorage();
+         var args = new RowReadingArguments( this.Stream, mdStreamContainer, rawValueStorage );
          for ( var i = 0; i < this.TableSizes.Count; ++i )
          {
             var table = md.GetByTable( (Tables) i );
@@ -299,6 +341,7 @@ namespace CILAssemblyManipulator.Physical.IO
             }
          }
 
+         return rawValueStorage;
       }
 
       public virtual Object GetRawRowOrNull( Tables table, Int32 idx )
@@ -327,6 +370,19 @@ namespace CILAssemblyManipulator.Physical.IO
          return this.TableStreamHeader;
       }
 
+      protected virtual RawValueStorage CreateRawValueStorage()
+      {
+         return this.CreateDefaultRawValueStorage();
+      }
+
+      protected RawValueStorage CreateDefaultRawValueStorage()
+      {
+         return new RawValueStorage(
+            this.TableSizes,
+            this.TableSerializationInfo.Select( t => t.RawValueStorageColumnCount )
+            );
+      }
+
       protected MetaDataTableStreamHeader TableStreamHeader { get; }
 
       protected ArrayQuery<Int32> TableSizes { get; }
@@ -337,7 +393,7 @@ namespace CILAssemblyManipulator.Physical.IO
 
       protected ArrayQuery<TableSerializationInfo> TableSerializationInfo { get; }
 
-      protected ArrayQuery<TableSerializationSupport> TableSerializationSupport { get; }
+      protected ArrayQuery<TableSerializationFunctionality> TableSerializationSupport { get; }
 
    }
 
@@ -411,6 +467,13 @@ namespace CILAssemblyManipulator.Physical.IO
          return this.GetOrAddValue( heapIndex );
       }
 
+      public StreamHelper GetBLOBAsStreamPortion( Int32 heapIndex )
+      {
+         Int32 size;
+         var min = this.GetStreamOffset( heapIndex, out size );
+         return size >= 0 ? this.Stream.NewStreamPortionFromCurrent( size ) : null;
+      }
+
       public Int64 GetStreamOffset( Int32 heapIndex, out Int32 blobSize )
       {
          Int64 retVal;
@@ -429,10 +492,32 @@ namespace CILAssemblyManipulator.Physical.IO
          return retVal;
       }
 
-      public CustomAttributeSignature ReadCASignature( Int32 heapIndex )
+      public AbstractCustomAttributeSignature ReadCASignature( Int32 heapIndex )
       {
-         throw new NotImplementedException();
+         AbstractCustomAttributeSignature caSig;
+         Int32 blobSize;
+         if ( this.GetStreamOffset( heapIndex, out blobSize ) >= 0 )
+         {
+            if ( blobSize <= 2 )
+            {
+               // Empty blob
+               caSig = new CustomAttributeSignature();
+            }
+            else
+            {
+               caSig = new RawCustomAttributeSignature()
+               {
+                  Bytes = this.GetBLOB( heapIndex )
+               };
+            }
+         }
+         else
+         {
+            caSig = null;
+         }
+         return caSig;
       }
+
 
       public Object ReadConstantValue( Int32 heapIndex, SignatureElementTypes constType )
       {
@@ -445,12 +530,78 @@ namespace CILAssemblyManipulator.Physical.IO
 
       public MarshalingInfo ReadMarshalingInfo( Int32 heapIndex )
       {
-         throw new NotImplementedException();
+         return MarshalingInfo.ReadFromBytes( this.GetBLOBAsStreamPortion( heapIndex ) );
       }
 
       public IEnumerable<AbstractSecurityInformation> ReadSecurityInformation( Int32 heapIndex )
       {
-         throw new NotImplementedException();
+         var stream = this.GetBLOBAsStreamPortion( heapIndex );
+         Byte b;
+         if ( stream != null && stream.TryReadByteFromBytes( out b ) )
+         {
+            if ( b == MetaDataConstants.DECL_SECURITY_HEADER )
+            {
+               // New (.NET 2.0+) security spec
+               // Amount of security attributes
+               Int32 attrCount;
+               if ( stream.DecompressUInt32( out attrCount ) )
+               {
+
+                  for ( var j = 0; j < attrCount; ++j )
+                  {
+                     var secType = stream.ReadLenPrefixedUTF8String();
+                     // There is an amount of remaining bytes here
+                     Int32 attributeByteCount;
+                     if ( stream.DecompressUInt32( out attributeByteCount ) )
+                     {
+                        var copyStart = stream.Stream.Position;
+                        // Now, amount of named args
+                        Int32 argCount;
+                        AbstractSecurityInformation secInfo;
+                        if ( stream.DecompressUInt32( out argCount ) )
+                        {
+                           var bytesToCopy = attributeByteCount - (Int32) ( ( stream.Stream.Position - copyStart ) );
+                           secInfo = new RawSecurityInformation()
+                           {
+                              SecurityAttributeType = secType,
+                              ArgumentCount = argCount,
+                              Bytes = stream.ReadAndCreateArray( bytesToCopy )
+                           };
+                        }
+                        else
+                        {
+                           secInfo = new SecurityInformation()
+                           {
+                              SecurityAttributeType = secType
+                           };
+                           stream.Skip( attributeByteCount - 1 );
+                        }
+
+                        yield return secInfo;
+                     }
+                  }
+               }
+            }
+            else
+            {
+               // Old (.NET 1.x) security spec
+               // Create a single SecurityInformation with PermissionSetAttribute type and XML property argument containing the XML of the blob
+               var secInfo = new SecurityInformation( 1 )
+               {
+                  SecurityAttributeType = MetaDataConstants.PERMISSION_SET
+               };
+               secInfo.NamedArguments.Add( new CustomAttributeNamedArgument()
+               {
+                  IsField = false,
+                  Name = MetaDataConstants.PERMISSION_SET_XML_PROP,
+                  Value = new CustomAttributeTypedArgument()
+                  {
+                     Value = MetaDataConstants.USER_STRING_ENCODING.GetString( this.GetBLOB( heapIndex ) )
+                  }
+               } );
+               yield return secInfo;
+            }
+         }
       }
 
       public AbstractSignature ReadSignature( Int32 heapIndex, out Boolean wasFieldSig )
@@ -664,6 +815,37 @@ namespace CILAssemblyManipulator.Physical.IO
          }
 
          return retVal;
+      }
+   }
+
+   public partial class DefaultMetaDataSerializationSupportProvider
+   {
+      protected virtual MethodILDefinition DeserializeIL(
+         RawValueProcessingArgs args,
+         Int32 rva
+         )
+      {
+         if ( rva > 0 )
+         {
+            var stream = args.Stream.At( args.RVAConverter.ToOffset( rva ) );
+         }
+         throw new NotImplementedException();
+      }
+
+      protected virtual Byte[] DeserializeConstantValue(
+         RawValueProcessingArgs args,
+         Int32 rva
+         )
+      {
+         throw new NotImplementedException();
+      }
+
+      protected virtual Byte[] DeserializeEmbeddedManifest(
+         RawValueProcessingArgs args,
+         Int32 offset
+         )
+      {
+         throw new NotImplementedException();
       }
    }
 }

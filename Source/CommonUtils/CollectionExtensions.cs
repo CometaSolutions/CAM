@@ -853,19 +853,79 @@ public static partial class E_CommonUtils
 
    /// <summary>
    /// Applices aggregation function over a sequence, but instead of returning the result of whole iteration, returns enumerable of intermediate results.
+   /// Each result is returned after aggregator function is applied.
    /// </summary>
    /// <typeparam name="T">The type of enumerable items.</typeparam>
    /// <typeparam name="TAccumulate">The type of accumulation value.</typeparam>
    /// <param name="enumerable">The <see cref="IEnumerable{T}"/>.</param>
    /// <param name="seed">The initial value to start accumulation.</param>
-   /// <param name="aggregator">The aggregator function.</param>
+   /// <param name="aggregator">The aggregator function. First parameter is current accumulated value, second is current item.</param>
    /// <returns>Enumerable of intermediate results of aggregation over the sequence.</returns>
-   public static IEnumerable<TAccumulate> AggregateIntermediate<T, TAccumulate>( this IEnumerable<T> enumerable, TAccumulate seed, Func<TAccumulate, T, TAccumulate> aggregator )
+   /// <exception cref="ArgumentNullException">If <paramref name="aggregator"/> is <c>null</c>.</exception>
+   public static IEnumerable<TAccumulate> AggregateIntermediate_AfterAggregation<T, TAccumulate>( this IEnumerable<T> enumerable, TAccumulate seed, Func<TAccumulate, T, TAccumulate> aggregator )
    {
+      return enumerable.AggregateIntermediate_AfterAggregation( seed, ( cur, item, idx ) => aggregator( cur, item ) );
+   }
+
+   /// <summary>
+   /// Applices aggregation function over a sequence, but instead of returning the result of whole iteration, returns enumerable of intermediate results.
+   /// Each result is returned before aggregator function is applied.
+   /// </summary>
+   /// <typeparam name="T">The type of enumerable items.</typeparam>
+   /// <typeparam name="TAccumulate">The type of accumulation value.</typeparam>
+   /// <param name="enumerable">The <see cref="IEnumerable{T}"/>.</param>
+   /// <param name="seed">The initial value to start accumulation.</param>
+   /// <param name="aggregator">The aggregator function. First parameter is current accumulated value, second is current item.</param>
+   /// <returns>Enumerable of intermediate results of aggregation over the sequence.</returns>
+   /// <exception cref="ArgumentNullException">If <paramref name="aggregator"/> is <c>null</c>.</exception>
+   public static IEnumerable<TAccumulate> AggregateIntermediate_BeforeAggregation<T, TAccumulate>( this IEnumerable<T> enumerable, TAccumulate seed, Func<TAccumulate, T, TAccumulate> aggregator )
+   {
+      return enumerable.AggregateIntermediate_BeforeAggregation( seed, ( cur, item, idx ) => aggregator( cur, item ) );
+   }
+
+   /// <summary>
+   /// Applices aggregation function over a sequence, but instead of returning the result of whole iteration, returns enumerable of intermediate results.
+   /// Each result is returned after aggregator function is applied.
+   /// </summary>
+   /// <typeparam name="T">The type of enumerable items.</typeparam>
+   /// <typeparam name="TAccumulate">The type of accumulation value.</typeparam>
+   /// <param name="enumerable">The <see cref="IEnumerable{T}"/>.</param>
+   /// <param name="seed">The initial value to start accumulation.</param>
+   /// <param name="aggregator">The aggregator function. First parameter is current accumulated value, second is current item, and third is current enumerable index.</param>
+   /// <returns>Enumerable of intermediate results of aggregation over the sequence.</returns>
+   /// <exception cref="ArgumentNullException">If <paramref name="aggregator"/> is <c>null</c>.</exception>
+   public static IEnumerable<TAccumulate> AggregateIntermediate_AfterAggregation<T, TAccumulate>( this IEnumerable<T> enumerable, TAccumulate seed, Func<TAccumulate, T, Int32, TAccumulate> aggregator )
+   {
+      var cur = 0;
       foreach ( var item in enumerable )
       {
-         seed = aggregator( seed, item );
+         seed = aggregator( seed, item, cur );
          yield return seed;
+         ++cur;
+      }
+   }
+
+   /// <summary>
+   /// Applices aggregation function over a sequence, but instead of returning the result of whole iteration, returns enumerable of intermediate results.
+   /// Each result is returned before aggregator function is applied.
+   /// </summary>
+   /// <typeparam name="T">The type of enumerable items.</typeparam>
+   /// <typeparam name="TAccumulate">The type of accumulation value.</typeparam>
+   /// <param name="enumerable">The <see cref="IEnumerable{T}"/>.</param>
+   /// <param name="seed">The initial value to start accumulation.</param>
+   /// <param name="aggregator">The aggregator function. First parameter is current accumulated value, second is current item, and third is current enumerable index.</param>
+   /// <returns>Enumerable of intermediate results of aggregation over the sequence.</returns>
+   /// <exception cref="ArgumentNullException">If <paramref name="aggregator"/> is <c>null</c>.</exception>
+   public static IEnumerable<TAccumulate> AggregateIntermediate_BeforeAggregation<T, TAccumulate>( this IEnumerable<T> enumerable, TAccumulate seed, Func<TAccumulate, T, Int32, TAccumulate> aggregator )
+   {
+      ArgumentValidator.ValidateNotNull( "Aggregator function", aggregator );
+
+      var cur = 0;
+      foreach ( var item in enumerable )
+      {
+         yield return seed;
+         seed = aggregator( seed, item, cur );
+         ++cur;
       }
    }
 }

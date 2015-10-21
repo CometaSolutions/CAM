@@ -34,22 +34,24 @@ namespace CILAssemblyManipulator.Physical
 
       private static readonly Byte[] ZeroArray = new Byte[0x10];
 
-      internal static String ReadLenPrefixedUTF8String( this Byte[] caBLOB, ref Int32 idx )
+      internal static String ReadLenPrefixedUTF8String( this StreamHelper caBLOB )
       {
-         var tmp = caBLOB[idx];
-         String result;
-         if ( tmp != 0xFF )
-         {
-            var len = caBLOB.DecompressUInt32( ref idx );
-            result = CILAssemblyManipulator.Physical.Implementation.MetaDataConstants.SYS_STRING_ENCODING.GetString( caBLOB, idx, len );
-            idx += len;
-         }
-         else
-         {
-            ++idx;
-            result = null;
-         }
-         return result;
+         Int32 len;
+         // DecompressUInt32 will return false for value '0xFF' when 'acceptErraneous' parameter is set to 'false'.
+         return caBLOB.DecompressUInt32( out len, false ) ?
+            CILAssemblyManipulator.Physical.Implementation.MetaDataConstants.SYS_STRING_ENCODING.GetString( caBLOB.ReadAndCreateArray( len ) ) :
+            null;
+      }
+
+      internal static Boolean ReadLenPrefixedUTF8String( this Byte[] caBLOB, ref Int32 idx, out String str )
+      {
+         Int32 len;
+         // DecompressUInt32 will return false for value '0xFF' when 'acceptErraneous' parameter is set to 'false'.
+         var retVal = !caBLOB.DecompressUInt32( ref idx, out len, false ) || idx + len <= caBLOB.Length;
+         str = retVal ?
+            ( len < 0 ? null : CILAssemblyManipulator.Physical.Implementation.MetaDataConstants.SYS_STRING_ENCODING.GetString( caBLOB, idx, len ) ) :
+            null;
+         return retVal;
       }
 
       internal static String ReadZeroTerminatedStringFromBytes( this Byte[] array, Encoding encoding )

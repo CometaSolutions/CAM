@@ -695,6 +695,7 @@ namespace CILAssemblyManipulator.Physical
          }
          else
          {
+            String str;
             CustomAttributeTypedArgument nestedCAType;
             switch ( type.ArgumentTypeKind )
             {
@@ -766,7 +767,8 @@ namespace CILAssemblyManipulator.Physical
                         value = caBLOB.ReadDoubleLEFromBytes( ref idx );
                         break;
                      case SignatureElementTypes.String:
-                        value = caBLOB.ReadLenPrefixedUTF8String( ref idx );
+                        success = caBLOB.ReadLenPrefixedUTF8String( ref idx, out str );
+                        value = str;
                         break;
                      case SignatureElementTypes.Object:
                         type = ReadCAFieldOrPropType( caBLOB, ref idx );
@@ -774,7 +776,8 @@ namespace CILAssemblyManipulator.Physical
                         value = success ? nestedCAType.Value : null;
                         break;
                      case SignatureElementTypes.Type:
-                        value = new CustomAttributeValue_TypeReference( caBLOB.ReadLenPrefixedUTF8String( ref idx ) );
+                        success = caBLOB.ReadLenPrefixedUTF8String( ref idx, out str );
+                        value = success ? (Object) new CustomAttributeValue_TypeReference( str ) : null;
                         break;
                      default:
                         value = null;
@@ -807,10 +810,13 @@ namespace CILAssemblyManipulator.Physical
          switch ( sigType )
          {
             case SignatureElementTypes.CA_Enum:
-               return new CustomAttributeArgumentTypeEnum()
-               {
-                  TypeString = array.ReadLenPrefixedUTF8String( ref idx ).UnescapeCILTypeString()
-               };
+               String str;
+               return array.ReadLenPrefixedUTF8String( ref idx, out str ) ?
+                  new CustomAttributeArgumentTypeEnum()
+                  {
+                     TypeString = str.UnescapeCILTypeString()
+                  } :
+                  null;
             case SignatureElementTypes.SzArray:
                return new CustomAttributeArgumentTypeArray()
                {
@@ -861,9 +867,9 @@ namespace CILAssemblyManipulator.Physical
 
          var type = ReadCAFieldOrPropType( blob, ref idx );
          CustomAttributeNamedArgument retVal = null;
-         if ( type != null )
+         String name;
+         if ( type != null && blob.ReadLenPrefixedUTF8String( ref idx, out name ) )
          {
-            var name = blob.ReadLenPrefixedUTF8String( ref idx );
             var typedArg = this.ReadCAFixedArgument( md, blob, ref idx, type );
             if ( typedArg != null )
             {
