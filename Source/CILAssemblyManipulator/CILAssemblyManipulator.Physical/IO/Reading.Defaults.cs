@@ -471,7 +471,7 @@ namespace CILAssemblyManipulator.Physical.IO
       {
          Int32 size;
          var min = this.GetStreamOffset( heapIndex, out size );
-         return size >= 0 ? this.Stream.NewStreamPortionFromCurrent( size ) : null;
+         return min >= 0 && size >= 0 ? this.Stream.NewStreamPortionFromCurrent( size ) : null;
       }
 
       public Int64 GetStreamOffset( Int32 heapIndex, out Int32 blobSize )
@@ -535,78 +535,17 @@ namespace CILAssemblyManipulator.Physical.IO
 
       public IEnumerable<AbstractSecurityInformation> ReadSecurityInformation( Int32 heapIndex )
       {
-         var stream = this.GetBLOBAsStreamPortion( heapIndex );
-         Byte b;
-         if ( stream != null && stream.TryReadByteFromBytes( out b ) )
-         {
-            if ( b == MetaDataConstants.DECL_SECURITY_HEADER )
-            {
-               // New (.NET 2.0+) security spec
-               // Amount of security attributes
-               Int32 attrCount;
-               if ( stream.DecompressUInt32( out attrCount ) )
-               {
-
-                  for ( var j = 0; j < attrCount; ++j )
-                  {
-                     var secType = stream.ReadLenPrefixedUTF8String();
-                     // There is an amount of remaining bytes here
-                     Int32 attributeByteCount;
-                     if ( stream.DecompressUInt32( out attributeByteCount ) )
-                     {
-                        var copyStart = stream.Stream.Position;
-                        // Now, amount of named args
-                        Int32 argCount;
-                        AbstractSecurityInformation secInfo;
-                        if ( stream.DecompressUInt32( out argCount ) )
-                        {
-                           var bytesToCopy = attributeByteCount - (Int32) ( ( stream.Stream.Position - copyStart ) );
-                           secInfo = new RawSecurityInformation()
-                           {
-                              SecurityAttributeType = secType,
-                              ArgumentCount = argCount,
-                              Bytes = stream.ReadAndCreateArray( bytesToCopy )
-                           };
-                        }
-                        else
-                        {
-                           secInfo = new SecurityInformation()
-                           {
-                              SecurityAttributeType = secType
-                           };
-                           stream.Skip( attributeByteCount - 1 );
-                        }
-
-                        yield return secInfo;
-                     }
-                  }
-               }
-            }
-            else
-            {
-               // Old (.NET 1.x) security spec
-               // Create a single SecurityInformation with PermissionSetAttribute type and XML property argument containing the XML of the blob
-               var secInfo = new SecurityInformation( 1 )
-               {
-                  SecurityAttributeType = MetaDataConstants.PERMISSION_SET
-               };
-               secInfo.NamedArguments.Add( new CustomAttributeNamedArgument()
-               {
-                  IsField = false,
-                  Name = MetaDataConstants.PERMISSION_SET_XML_PROP,
-                  Value = new CustomAttributeTypedArgument()
-                  {
-                     Value = MetaDataConstants.USER_STRING_ENCODING.GetString( this.GetBLOB( heapIndex ) )
-                  }
-               } );
-               yield return secInfo;
-            }
-         }
+         return AbstractSecurityInformation.ReadSecurityInformation( this.GetBLOBAsStreamPortion( heapIndex ) );
       }
 
-      public AbstractSignature ReadSignature( Int32 heapIndex, out Boolean wasFieldSig )
+      public AbstractSignature ReadNonTypeSignature( Int32 heapIndex, Boolean handleFieldSigAsLocalsSig, out Boolean fieldSigTransformedToLocalsSig )
       {
-         throw new NotImplementedException();
+
+      }
+
+      public TypeSignature ReadTypeSignature( Int32 heapIndex )
+      {
+         return TypeSignature.ReadTypeSignature( this.GetBLOBAsStreamPortion( heapIndex ) );
       }
 
       protected override Byte[] ValueFactory( Int32 heapOffset )

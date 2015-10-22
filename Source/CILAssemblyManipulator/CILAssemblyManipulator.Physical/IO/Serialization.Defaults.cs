@@ -250,26 +250,25 @@ namespace CILAssemblyManipulator.Physical.IO
             );
       }
 
-      public static DefaultColumnSerializationInfo<TRawRow, TRow> BLOBSignature<TRawRow, TRow, TSignature>(
+      public static DefaultColumnSerializationInfo<TRawRow, TRow> BLOBTypeSignature<TRawRow, TRow>(
          String columnName,
          Action<TRawRow, Int32> rawSetter,
-         Action<ColumnSettingArguments<TRow>, TSignature> setter
+         Action<ColumnSettingArguments<TRow>, TypeSignature> setter
          )
          where TRawRow : class
          where TRow : class
-         where TSignature : AbstractSignature
       {
-         return BLOBSignatureFull<TRawRow, TRow, TSignature>(
+         return BLOBCustom<TRawRow, TRow>(
             columnName,
             rawSetter,
-            ( args, sig, wasFieldSig ) => setter( args, sig )
+            ( args, value, blobs ) => setter( args, blobs.ReadTypeSignature( value ) )
             );
       }
 
-      public static DefaultColumnSerializationInfo<TRawRow, TRow> BLOBSignatureFull<TRawRow, TRow, TSignature>(
+      public static DefaultColumnSerializationInfo<TRawRow, TRow> BLOBNonTypeSignature<TRawRow, TRow, TSignature>(
          String columnName,
          Action<TRawRow, Int32> rawSetter,
-         Action<ColumnSettingArguments<TRow>, TSignature, Boolean> setter
+         Action<ColumnSettingArguments<TRow>, TSignature> setter
          )
          where TRawRow : class
          where TRow : class
@@ -281,8 +280,7 @@ namespace CILAssemblyManipulator.Physical.IO
             ( args, value, blobs ) =>
             {
                Boolean wasFieldSig;
-               var sig = blobs.ReadSignature( value, out wasFieldSig );
-               setter( args, sig as TSignature, wasFieldSig );
+               setter( args, blobs.ReadNonTypeSignature( value, false, out wasFieldSig ) as TSignature );
             }
             );
       }
@@ -344,7 +342,8 @@ namespace CILAssemblyManipulator.Physical.IO
             columnName,
             HeapIndexKind.BLOB,
             rawSetter,
-            ( args, value ) => setter( args, value, args.RowArgs.MDStreamContainer.BLOBs )
+            ( args, value ) => setter( args, value, args.RowArgs.MDStreamContainer.BLOBs ),
+            true
             );
       }
 
@@ -360,7 +359,8 @@ namespace CILAssemblyManipulator.Physical.IO
             columnName,
             HeapIndexKind.GUID,
             rawSetter,
-            ( args, value ) => setter( args, args.RowArgs.MDStreamContainer.GUIDs.GetGUID( value ) )
+            ( args, value ) => setter( args, args.RowArgs.MDStreamContainer.GUIDs.GetGUID( value ) ),
+            false
             );
       }
 
@@ -376,7 +376,8 @@ namespace CILAssemblyManipulator.Physical.IO
             columnName,
             HeapIndexKind.String,
             rawSetter,
-            ( args, value ) => setter( args, args.RowArgs.MDStreamContainer.SystemStrings.GetString( value ) )
+            ( args, value ) => setter( args, args.RowArgs.MDStreamContainer.SystemStrings.GetString( value ) ),
+            true
             );
       }
 
@@ -384,11 +385,23 @@ namespace CILAssemblyManipulator.Physical.IO
          String columnName,
          HeapIndexKind heapKind,
          Action<TRawRow, Int32> rawSetter,
-         Action<ColumnSettingArguments<TRow>, Int32> setter
+         Action<ColumnSettingArguments<TRow>, Int32> setter,
+         Boolean checkForZero
          )
          where TRawRow : class
          where TRow : class
       {
+         if ( checkForZero )
+         {
+            setter = ( args, value ) =>
+            {
+               if ( value != 0 )
+               {
+                  setter( args, value );
+               }
+            };
+         }
+
          return new DefaultColumnSerializationInfo<TRawRow, TRow>(
             columnName,
             heapKind,
@@ -720,7 +733,7 @@ namespace CILAssemblyManipulator.Physical.IO
       {
          yield return DefaultColumnSerializationInfoFactory.Constant16<RawFieldDefinition, FieldDefinition>( nameof( RawFieldDefinition.Attributes ), ( r, v ) => r.Attributes = (FieldAttributes) v, ( args, v ) => args.Row.Attributes = (FieldAttributes) v );
          yield return DefaultColumnSerializationInfoFactory.SystemString<RawFieldDefinition, FieldDefinition>( nameof( RawFieldDefinition.Name ), ( r, v ) => r.Name = v, ( args, v ) => args.Row.Name = v );
-         yield return DefaultColumnSerializationInfoFactory.BLOBSignature<RawFieldDefinition, FieldDefinition, FieldSignature>( nameof( RawFieldDefinition.Signature ), ( r, v ) => r.Signature = v, ( args, v ) => args.Row.Signature = v );
+         yield return DefaultColumnSerializationInfoFactory.BLOBNonTypeSignature<RawFieldDefinition, FieldDefinition, FieldSignature>( nameof( RawFieldDefinition.Signature ), ( r, v ) => r.Signature = v, ( args, v ) => args.Row.Signature = v );
       }
 
       protected IEnumerable<DefaultColumnSerializationInfo<RawMethodDefinitionPointer, MethodDefinitionPointer>> GetMethodPtrColumns()
@@ -734,7 +747,7 @@ namespace CILAssemblyManipulator.Physical.IO
          yield return DefaultColumnSerializationInfoFactory.RawValueStorageColumn<RawMethodDefinition, MethodDefinition>( nameof( RawMethodDefinition.RVA ), ( r, v ) => r.RVA = v, ( args, row, rva ) => row.IL = this.DeserializeIL( args, rva ), ref colIdx );
          yield return DefaultColumnSerializationInfoFactory.Constant16<RawMethodDefinition, MethodDefinition>( nameof( RawMethodDefinition.ImplementationAttributes ), ( r, v ) => r.ImplementationAttributes = (MethodImplAttributes) v, ( args, v ) => args.Row.ImplementationAttributes = (MethodImplAttributes) v );
          yield return DefaultColumnSerializationInfoFactory.Constant16<RawMethodDefinition, MethodDefinition>( nameof( RawMethodDefinition.Attributes ), ( r, v ) => r.Attributes = (MethodAttributes) v, ( args, v ) => args.Row.Attributes = (MethodAttributes) v );
-         yield return DefaultColumnSerializationInfoFactory.BLOBSignature<RawMethodDefinition, MethodDefinition, MethodDefinitionSignature>( nameof( RawMethodDefinition.Signature ), ( r, v ) => r.Signature = v, ( args, v ) => args.Row.Signature = v );
+         yield return DefaultColumnSerializationInfoFactory.BLOBNonTypeSignature<RawMethodDefinition, MethodDefinition, MethodDefinitionSignature>( nameof( RawMethodDefinition.Signature ), ( r, v ) => r.Signature = v, ( args, v ) => args.Row.Signature = v );
          yield return DefaultColumnSerializationInfoFactory.SimpleReference<RawMethodDefinition, MethodDefinition>( nameof( RawMethodDefinition.ParameterList ), Tables.Parameter, ( r, v ) => r.ParameterList = v, ( args, v ) => args.Row.ParameterList = v );
       }
 
@@ -760,7 +773,7 @@ namespace CILAssemblyManipulator.Physical.IO
       {
          yield return DefaultColumnSerializationInfoFactory.CodedReference<RawMemberReference, MemberReference>( nameof( RawMemberReference.DeclaringType ), CodedTableIndexDecoder.MemberRefParent, ( r, v ) => r.DeclaringType = v, ( args, v ) => args.Row.DeclaringType = v.GetValueOrDefault() );
          yield return DefaultColumnSerializationInfoFactory.SystemString<RawMemberReference, MemberReference>( nameof( RawMemberReference.Name ), ( r, v ) => r.Name = v, ( args, v ) => args.Row.Name = v );
-         yield return DefaultColumnSerializationInfoFactory.BLOBSignature<RawMemberReference, MemberReference, AbstractSignature>( nameof( RawMemberReference.Signature ), ( r, v ) => r.Signature = v, ( args, v ) => args.Row.Signature = v );
+         yield return DefaultColumnSerializationInfoFactory.BLOBNonTypeSignature<RawMemberReference, MemberReference, AbstractSignature>( nameof( RawMemberReference.Signature ), ( r, v ) => r.Signature = v, ( args, v ) => args.Row.Signature = v );
       }
 
       protected IEnumerable<DefaultColumnSerializationInfo<RawConstantDefinition, ConstantDefinition>> GetConstantColumns()
@@ -806,9 +819,10 @@ namespace CILAssemblyManipulator.Physical.IO
 
       protected IEnumerable<DefaultColumnSerializationInfo<RawStandaloneSignature, StandaloneSignature>> GetStandaloneSigColumns()
       {
-         yield return DefaultColumnSerializationInfoFactory.BLOBSignatureFull<RawStandaloneSignature, StandaloneSignature, AbstractSignature>( nameof( RawStandaloneSignature.Signature ), ( r, v ) => r.Signature = v, ( args, v, wasFieldSig ) =>
+         yield return DefaultColumnSerializationInfoFactory.BLOBCustom<RawStandaloneSignature, StandaloneSignature>( nameof( RawStandaloneSignature.Signature ), ( r, v ) => r.Signature = v, ( args, v, blobs ) =>
          {
-            args.Row.Signature = v;
+            Boolean wasFieldSig;
+            args.Row.Signature = blobs.ReadNonTypeSignature( v, true, out wasFieldSig );
             args.Row.StoreSignatureAsFieldSignature = wasFieldSig;
          } );
       }
@@ -846,7 +860,7 @@ namespace CILAssemblyManipulator.Physical.IO
       {
          yield return DefaultColumnSerializationInfoFactory.Constant16<RawPropertyDefinition, PropertyDefinition>( nameof( RawPropertyDefinition.Attributes ), ( r, v ) => r.Attributes = (PropertyAttributes) v, ( args, v ) => args.Row.Attributes = (PropertyAttributes) v );
          yield return DefaultColumnSerializationInfoFactory.SystemString<RawPropertyDefinition, PropertyDefinition>( nameof( RawPropertyDefinition.Name ), ( r, v ) => r.Name = v, ( args, v ) => args.Row.Name = v );
-         yield return DefaultColumnSerializationInfoFactory.BLOBSignature<RawPropertyDefinition, PropertyDefinition, PropertySignature>( nameof( RawPropertyDefinition.Signature ), ( r, v ) => r.Signature = v, ( args, v ) => args.Row.Signature = v );
+         yield return DefaultColumnSerializationInfoFactory.BLOBNonTypeSignature<RawPropertyDefinition, PropertyDefinition, PropertySignature>( nameof( RawPropertyDefinition.Signature ), ( r, v ) => r.Signature = v, ( args, v ) => args.Row.Signature = v );
       }
 
       protected IEnumerable<DefaultColumnSerializationInfo<RawMethodSemantics, MethodSemantics>> GetMethodSemanticsColumns()
@@ -870,7 +884,7 @@ namespace CILAssemblyManipulator.Physical.IO
 
       protected IEnumerable<DefaultColumnSerializationInfo<RawTypeSpecification, TypeSpecification>> GetTypeSpecColumns()
       {
-         yield return DefaultColumnSerializationInfoFactory.BLOBSignature<RawTypeSpecification, TypeSpecification, TypeSignature>( nameof( RawTypeSpecification.Signature ), ( r, v ) => r.Signature = v, ( args, v ) => args.Row.Signature = v );
+         yield return DefaultColumnSerializationInfoFactory.BLOBTypeSignature<RawTypeSpecification, TypeSpecification>( nameof( RawTypeSpecification.Signature ), ( r, v ) => r.Signature = v, ( args, v ) => args.Row.Signature = v );
       }
 
       protected IEnumerable<DefaultColumnSerializationInfo<RawMethodImplementationMap, MethodImplementationMap>> GetImplMapColumns()
@@ -1003,7 +1017,7 @@ namespace CILAssemblyManipulator.Physical.IO
       protected IEnumerable<DefaultColumnSerializationInfo<RawMethodSpecification, MethodSpecification>> GetMethodSpecColumns()
       {
          yield return DefaultColumnSerializationInfoFactory.CodedReference<RawMethodSpecification, MethodSpecification>( nameof( RawMethodSpecification.Method ), CodedTableIndexDecoder.MethodDefOrRef, ( r, v ) => r.Method = v, ( args, v ) => args.Row.Method = v.GetValueOrDefault() );
-         yield return DefaultColumnSerializationInfoFactory.BLOBSignature<RawMethodSpecification, MethodSpecification, GenericMethodSignature>( nameof( RawMethodSpecification.Signature ), ( r, v ) => r.Signature = v, ( args, v ) => args.Row.Signature = v );
+         yield return DefaultColumnSerializationInfoFactory.BLOBNonTypeSignature<RawMethodSpecification, MethodSpecification, GenericMethodSignature>( nameof( RawMethodSpecification.Signature ), ( r, v ) => r.Signature = v, ( args, v ) => args.Row.Signature = v );
       }
 
       protected IEnumerable<DefaultColumnSerializationInfo<RawGenericParameterConstraintDefinition, GenericParameterConstraintDefinition>> GetGenericParamConstraintColumns()

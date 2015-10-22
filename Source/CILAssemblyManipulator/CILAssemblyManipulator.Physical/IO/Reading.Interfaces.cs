@@ -175,7 +175,9 @@ namespace CILAssemblyManipulator.Physical.IO
 
       Int64 GetStreamOffset( Int32 heapIndex, out Int32 blobSize );
 
-      AbstractSignature ReadSignature( Int32 heapIndex, out Boolean wasFieldSig );
+      AbstractSignature ReadNonTypeSignature( Int32 heapIndex, Boolean handleFieldSigAsLocalsSig, out Boolean fieldSigTransformedToLocalsSig );
+
+      TypeSignature ReadTypeSignature( Int32 heapIndex );
 
       AbstractCustomAttributeSignature ReadCASignature( Int32 heapIndex );
 

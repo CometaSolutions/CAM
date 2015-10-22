@@ -649,24 +649,28 @@ namespace CILAssemblyManipulator.Physical
 
 
 
-      internal static Int32 DecodeTypeDefOrRefOrSpec( Byte[] array, ref Int32 offset )
+      internal static Boolean DecodeTypeDefOrRefOrSpec( StreamHelper stream, out Int32 token )
       {
-         var decodedValue = array.DecompressUInt32( ref offset );
-         switch ( decodedValue & TDRS_TABLE_EXTRACT_MASK )
+         var retVal = stream.DecompressUInt32( out token );
+         if ( retVal )
          {
-            case TYPE_DEF:
-               decodedValue = TYPE_DEF_MASK | ( decodedValue >> 2 );
-               break;
-            case TYPE_REF:
-               decodedValue = TYPE_REF_MASK | ( decodedValue >> 2 );
-               break;
-            case TYPE_SPEC:
-               decodedValue = TYPE_SPEC_MASK | ( decodedValue >> 2 );
-               break;
-            default:
-               throw new ArgumentException( "Token table resolved to not supported: " + (Tables) ( decodedValue & TDRS_TABLE_EXTRACT_MASK ) + "." );
+            switch ( token & TDRS_TABLE_EXTRACT_MASK )
+            {
+               case TYPE_DEF:
+                  token = TYPE_DEF_MASK | ( token >> 2 );
+                  break;
+               case TYPE_REF:
+                  token = TYPE_REF_MASK | ( token >> 2 );
+                  break;
+               case TYPE_SPEC:
+                  token = TYPE_SPEC_MASK | ( token >> 2 );
+                  break;
+               default:
+                  retVal = false;
+                  break;
+            }
          }
-         return decodedValue;
+         return retVal;
       }
 
       internal static Int32 EncodeTypeDefOrRefOrSpec( Int32 token )

@@ -169,8 +169,14 @@ namespace CommonUtils
       /// <inheritdoc />
       public override Int32 Read( Byte[] buffer, Int32 offset, Int32 count )
       {
-         this.CheckPosition( this.GetCurrentPosition(), count );
-         return this._stream.Read( buffer, offset, count );
+         var cur = this.GetCurrentPosition();
+         var max = Math.Min( cur + count, this.MaxPosition );
+         count = (Int32) ( max - cur );
+         if ( count > 0 )
+         {
+            count = this._stream.Read( buffer, offset, count );
+         }
+         return count;
       }
 
       /// <inheritdoc />
@@ -433,19 +439,9 @@ public static partial class E_CommonUtils
    /// <returns><c>true</c> if read operation was successful; <c>false</c> otherwise.</returns>
    public static Boolean TryReadByteFromBytes( this StreamHelper stream, out Byte value )
    {
-      var s = stream.Stream;
-      var sp = s as StreamPortion;
-      Int32 b;
-      if ( ( sp == null || sp.GetCurrentPosition() < sp.MaxPosition ) && s.Read( stream.Buffer, 0, 1 ) > 0 )
-      {
-         b = stream.Buffer[0];
-      }
-      else
-      {
-         b = -1;
-      }
-      value = (Byte) b;
-      return b >= 0;
+      var retVal = stream.Stream.Read( stream.Buffer, 0, 1 ) > 0;
+      value = retVal ? stream.Buffer[0] : default( Byte );
+      return retVal;
    }
 
    /// <summary>

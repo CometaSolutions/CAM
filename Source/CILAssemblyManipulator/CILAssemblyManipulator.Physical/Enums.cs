@@ -1400,13 +1400,16 @@ namespace CILAssemblyManipulator.Physical
       ThisCall = 0x03,
       FastCall = 0x04,
       VarArgs = 0x05,
+      Field = 0x06,
+      LocalSignature = 0x07,
+      Property = 0x08,
+      Unmanaged = 0x09,
+      MethodSpecGenericInst = 0x0A,
+      NativeVarArgs = 0x0B,
       Generic = 0x10,
       HasThis = 0x20,
       ExplicitThis = 0x40,
-      Field = 0x06,
-      Property = 0x08,
-      LocalSignature = 0x07,
-      MethodSpecGenericInst = 0x0A
+      Reserved = 0x80,
    }
 
    public enum SignatureElementTypes : byte
