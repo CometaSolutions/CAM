@@ -99,33 +99,46 @@ namespace CILAssemblyManipulator.Physical
          out Int32 sentinelMark
          )
       {
-         var retVal = idx >= 0 && idx < sig.Length;
-         if ( retVal )
+         var retVal = false;
+         if ( stream.TryReadSigStarter( out elementType ) )
          {
-            elementType = (SignatureStarters) sig.ReadByteFromBytes( ref idx );
             genericCount = 0;
-            if ( elementType.IsGeneric() )
+            Int32 amountOfParams;
+            if ( ( !elementType.IsGeneric() || stream.DecompressUInt32( out genericCount ) )
+                 && stream.DecompressUInt32( out amountOfParams )
+                 && amountOfParams <= UInt16.MaxValue
+               )
             {
-               genericCount = sig.DecompressUInt32( ref idx );
-            }
-
-            var amountOfParams = sig.DecompressUInt32( ref idx );
-            retVal = amountOfParams >= 0 && amountOfParams <= UInt16.MaxValue;
-            if ( retVal )
-            {
-               returnParameter = ReadParameter( sig, ref idx );
+               returnParameter = ReadParameter( stream );
                sentinelMark = -1;
                if ( amountOfParams > 0 )
                {
                   parameters = new ParameterSignature[amountOfParams];
-                  for ( var i = 0; i < amountOfParams; ++i )
+                  Int32 i;
+                  for ( i = 0; i < amountOfParams; ++i )
                   {
-                     if ( sig[idx] == (Byte) SignatureElementTypes.Sentinel )
+                     SignatureElementTypes sentinel;
+                     if ( stream.TryReadSigElementType( out sentinel ) )
                      {
-                        sentinelMark = i;
+                        if ( sentinel == SignatureElementTypes.Sentinel )
+                        {
+                           sentinelMark = i;
+                        }
+                        else
+                        {
+                           --stream.Stream.Position;
+                        }
+                        if ( ( parameters[i] = ReadParameter( stream ) ) == null )
+                        {
+                           break;
+                        }
                      }
-                     parameters[i] = ReadParameter( sig, ref idx );
+                     else
+                     {
+                        break;
+                     }
                   }
+                  retVal = i == amountOfParams;
                }
                else
                {
@@ -153,30 +166,44 @@ namespace CILAssemblyManipulator.Physical
          return retVal;
       }
 
-      internal static ParameterSignature ReadParameter( Byte[] sig, ref Int32 idx )
+      internal static ParameterSignature ReadParameter( StreamHelper stream )
       {
          var retVal = new ParameterSignature();
-         CustomModifierSignature.AddFromBytes( sig, ref idx, retVal.CustomModifiers );
-         var elementType = (SignatureElementTypes) sig.ReadByteFromBytes( ref idx );
-         TypeSignature type;
-         if ( elementType == SignatureElementTypes.TypedByRef )
+         CustomModifierSignature.AddFromBytes( stream, retVal.CustomModifiers );
+         SignatureElementTypes elementType;
+         if ( stream.TryReadSigElementType( out elementType ) )
          {
-            type = SimpleTypeSignature.TypedByRef;
-         }
-         else
-         {
-            if ( elementType == SignatureElementTypes.ByRef )
+            TypeSignature type;
+            if ( elementType == SignatureElementTypes.TypedByRef )
             {
-               retVal.IsByRef = true;
+               type = SimpleTypeSignature.TypedByRef;
             }
             else
             {
-               // Go backwards
-               --idx;
+               if ( elementType == SignatureElementTypes.ByRef )
+               {
+                  retVal.IsByRef = true;
+               }
+               else
+               {
+                  // Go backwards
+                  --stream.Stream.Position;
+               }
+               type = TypeSignature.ReadTypeSignature( stream );
+               if ( type == null )
+               {
+                  retVal = null;
+               }
+               else
+               {
+                  retVal.Type = type;
+               }
             }
-            type = TypeSignature.ReadFromBytesWithRef( sig, ref idx );
          }
-         retVal.Type = type;
+         else
+         {
+            retVal = null;
+         }
          return retVal;
       }
    }
@@ -196,12 +223,8 @@ namespace CILAssemblyManipulator.Physical
          }
       }
 
-      public static MethodDefinitionSignature ReadFromBytes( Byte[] sig, Int32 idx )
-      {
-         return ReadFromBytesWithRef( sig, ref idx );
-      }
 
-      public static MethodDefinitionSignature ReadFromBytesWithRef( Byte[] sig, ref Int32 idx )
+      public static MethodDefinitionSignature ReadMethodSignature( StreamHelper stream )
       {
          SignatureStarters elementType;
          Int32 genericCount;
@@ -209,7 +232,7 @@ namespace CILAssemblyManipulator.Physical
          ParameterSignature[] parameters;
          Int32 sentinelMark;
          MethodDefinitionSignature retVal;
-         if ( ReadFromBytes( sig, ref idx, out elementType, out genericCount, out returnParameter, out parameters, out sentinelMark ) )
+         if ( ReadFromBytes( stream, out elementType, out genericCount, out returnParameter, out parameters, out sentinelMark ) )
          {
             retVal = new MethodDefinitionSignature( parameters.Length )
             {
@@ -217,10 +240,7 @@ namespace CILAssemblyManipulator.Physical
                ReturnType = returnParameter,
                SignatureStarter = elementType,
             };
-            foreach ( var p in parameters )
-            {
-               retVal.Parameters.Add( p );
-            }
+            retVal.Parameters.AddRange( parameters );
          }
          else
          {
@@ -256,7 +276,7 @@ namespace CILAssemblyManipulator.Physical
          }
       }
 
-      public static MethodReferenceSignature ReadFromBytes( StreamHelper stream )
+      public static MethodReferenceSignature ReadMethodSignature( StreamHelper stream )
       {
          SignatureStarters elementType;
          Int32 genericCount;
@@ -264,7 +284,7 @@ namespace CILAssemblyManipulator.Physical
          ParameterSignature[] parameters;
          Int32 sentinelMark;
          MethodReferenceSignature retVal;
-         if ( ReadFromBytes( sig, ref idx, out elementType, out genericCount, out returnParameter, out parameters, out sentinelMark ) )
+         if ( ReadFromBytes( stream, out elementType, out genericCount, out returnParameter, out parameters, out sentinelMark ) )
          {
             var pLength = sentinelMark == -1 ? parameters.Length : sentinelMark;
             var vLength = sentinelMark == -1 ? 0 : ( parameters.Length - sentinelMark );
@@ -274,13 +294,10 @@ namespace CILAssemblyManipulator.Physical
                ReturnType = returnParameter,
                SignatureStarter = elementType,
             };
-            for ( var i = 0; i < pLength; ++i )
+            retVal.Parameters.AddRange( vLength > 0 ? parameters.Take( pLength ) : parameters );
+            if ( vLength > 0 )
             {
-               retVal.Parameters.Add( parameters[i] );
-            }
-            for ( var i = 0; i < vLength; ++i )
-            {
-               retVal.VarArgsParameters.Add( parameters[i + pLength] );
+               retVal.VarArgsParameters.AddRange( parameters.Skip( pLength ) );
             }
          }
          else
@@ -327,12 +344,7 @@ namespace CILAssemblyManipulator.Physical
          }
       }
 
-      public static FieldSignature ReadFromBytes( Byte[] sig, Int32 idx )
-      {
-         return ReadFromBytesWithRef( sig, ref idx );
-      }
-
-      public static FieldSignature ReadFromBytesWithRef( Byte[] sig, ref Int32 idx )
+      public static FieldSignature ReadFieldSignature( StreamHelper stream )
       {
          FieldSignature retVal;
          if ( idx >= 0 && idx < sig.Length )
@@ -616,7 +628,7 @@ namespace CILAssemblyManipulator.Physical
          Int32 auxiliary;
          SignatureElementTypes elementType;
          TypeSignature retVal = null;
-         if ( TryReadSigElementType( stream, out elementType ) )
+         if ( stream.TryReadSigElementType( out elementType ) )
          {
             switch ( elementType )
             {
@@ -654,7 +666,7 @@ namespace CILAssemblyManipulator.Physical
                case SignatureElementTypes.GenericInst:
                   var isGeneric = elementType == SignatureElementTypes.GenericInst;
                   if ( !isGeneric
-                     || ( TryReadSigElementType( stream, out elementType )
+                     || ( stream.TryReadSigElementType( out elementType )
                         && ( elementType == SignatureElementTypes.Class || elementType == SignatureElementTypes.ValueType )
                         )
                      )
@@ -715,14 +727,6 @@ namespace CILAssemblyManipulator.Physical
                   break;
             }
          }
-         return retVal;
-      }
-
-      private static Boolean TryReadSigElementType( StreamHelper stream, out SignatureElementTypes sig )
-      {
-         Byte b;
-         var retVal = stream.TryReadByteFromBytes( out b );
-         sig = retVal ? (SignatureElementTypes) b : SignatureElementTypes.End;
          return retVal;
       }
 
@@ -2300,5 +2304,21 @@ public static partial class E_CILPhysical
          default:
             return null;
       }
+   }
+
+   internal static Boolean TryReadSigElementType( this StreamHelper stream, out SignatureElementTypes sig )
+   {
+      Byte b;
+      var retVal = stream.TryReadByteFromBytes( out b );
+      sig = retVal ? (SignatureElementTypes) b : SignatureElementTypes.End;
+      return retVal;
+   }
+
+   internal static Boolean TryReadSigStarter( this StreamHelper stream, out SignatureStarters sig )
+   {
+      Byte b;
+      var retVal = stream.TryReadByteFromBytes( out b );
+      sig = retVal ? (SignatureStarters) b : (SignatureStarters) 0;
+      return retVal;
    }
 }
