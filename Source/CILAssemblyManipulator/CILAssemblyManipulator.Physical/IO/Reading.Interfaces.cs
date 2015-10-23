@@ -175,7 +175,7 @@ namespace CILAssemblyManipulator.Physical.IO
 
       Int64 GetStreamOffset( Int32 heapIndex, out Int32 blobSize );
 
-      AbstractSignature ReadNonTypeSignature( Int32 heapIndex, Boolean handleFieldSigAsLocalsSig, out Boolean fieldSigTransformedToLocalsSig );
+      AbstractSignature ReadNonTypeSignature( Int32 heapIndex, Boolean methodSigIsDefinition, Boolean handleFieldSigAsLocalsSig, out Boolean fieldSigTransformedToLocalsSig );
 
       TypeSignature ReadTypeSignature( Int32 heapIndex );
 
@@ -206,7 +206,7 @@ namespace CILAssemblyManipulator.Physical.IO
 
 public static partial class E_CILPhysical
 {
-   public static CILMetaData ReadingProcess(
+   public static CILMetaData ReadMetaDataFromStream(
       this Stream stream,
       ReaderFunctionalityProvider readerProvider,
       out ImageInformation imageInfo
@@ -222,18 +222,18 @@ public static partial class E_CILPhysical
       {
          using ( newStream )
          {
-            md = newStream.ReadingProcess( reader, out imageInfo );
+            md = newStream.ReadMetaDataFromStream( reader, out imageInfo );
          }
       }
       else
       {
-         md = stream.ReadingProcess( reader, out imageInfo );
+         md = stream.ReadMetaDataFromStream( reader, out imageInfo );
       }
 
       return md;
    }
 
-   public static CILMetaData ReadingProcess(
+   public static CILMetaData ReadMetaDataFromStream(
       this Stream stream,
       ReaderFunctionality reader,
       out ImageInformation imageInfo

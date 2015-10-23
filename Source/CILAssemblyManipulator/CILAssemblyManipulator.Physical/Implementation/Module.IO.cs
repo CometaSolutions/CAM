@@ -251,47 +251,47 @@ namespace CILAssemblyManipulator.Physical.Implementation
          return retVal;
       }
 
-      internal static TableIndex? ReadCodedTableIndex( System.IO.Stream stream, CodedTableIndexKind indexKind, IDictionary<CodedTableIndexKind, Boolean> tRefSizes, Byte[] tmpArray )
-      {
-         var idx = tRefSizes[indexKind] ? stream.ReadU32( tmpArray ) : stream.ReadU16( tmpArray );
+      //internal static TableIndex? ReadCodedTableIndex( System.IO.Stream stream, CodedTableIndexKind indexKind, IDictionary<CodedTableIndexKind, Boolean> tRefSizes, Byte[] tmpArray )
+      //{
+      //   var idx = tRefSizes[indexKind] ? stream.ReadU32( tmpArray ) : stream.ReadU16( tmpArray );
 
-         TableIndex? retVal;
-         if ( idx > 0 )
-         {
-            var possibleTables = GetTablesForCodedIndex( indexKind );
-            var rowIdx = ( idx >> possibleTables.Item3 );
-            var tableIndex = possibleTables.Item2 & idx;
-            if ( rowIdx > 0 && tableIndex < possibleTables.Item1.Length )
-            {
-               var tableNullable = possibleTables.Item1[tableIndex];
-               if ( tableNullable.HasValue )
-               {
-                  retVal = new TableIndex( tableNullable.Value, (Int32) rowIdx - 1 );
-               }
-               else
-               {
-                  retVal = null;
-               }
-            }
-            else
-            {
-               retVal = null;
-            }
-         }
-         else
-         {
-            retVal = null;
-         }
+      //   TableIndex? retVal;
+      //   if ( idx > 0 )
+      //   {
+      //      var possibleTables = GetTablesForCodedIndex( indexKind );
+      //      var rowIdx = ( idx >> possibleTables.Item3 );
+      //      var tableIndex = possibleTables.Item2 & idx;
+      //      if ( rowIdx > 0 && tableIndex < possibleTables.Item1.Length )
+      //      {
+      //         var tableNullable = possibleTables.Item1[tableIndex];
+      //         if ( tableNullable.HasValue )
+      //         {
+      //            retVal = new TableIndex( tableNullable.Value, (Int32) rowIdx - 1 );
+      //         }
+      //         else
+      //         {
+      //            retVal = null;
+      //         }
+      //      }
+      //      else
+      //      {
+      //         retVal = null;
+      //      }
+      //   }
+      //   else
+      //   {
+      //      retVal = null;
+      //   }
 
-         return retVal;
-      }
+      //   return retVal;
+      //}
 
 
-      // Zero-based
-      internal static TableIndex ReadSimpleTableIndex( System.IO.Stream stream, Tables targetTable, Int32[] tableSizes, Byte[] tmpArray )
-      {
-         return new TableIndex( targetTable, ( (Int32) ( tableSizes[(Int32) targetTable] > UInt16.MaxValue ? stream.ReadU32( tmpArray ) : stream.ReadU16( tmpArray ) ) ) - 1 );
-      }
+      //// Zero-based
+      //internal static TableIndex ReadSimpleTableIndex( System.IO.Stream stream, Tables targetTable, Int32[] tableSizes, Byte[] tmpArray )
+      //{
+      //   return new TableIndex( targetTable, ( (Int32) ( tableSizes[(Int32) targetTable] > UInt16.MaxValue ? stream.ReadU32( tmpArray ) : stream.ReadU16( tmpArray ) ) ) - 1 );
+      //}
 
       private static Tuple<Tables?[], UInt32, Int32> GetTablesForCodedIndex( CodedTableIndexKind indexKind )
       {

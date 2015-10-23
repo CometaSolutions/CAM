@@ -376,62 +376,62 @@ namespace CILAssemblyManipulator.Physical
          return total;
       }
 
-      /// <summary>
-      /// Using specified auxiliary array, reads a <see cref="UInt64"/> from <see cref="Stream"/>.
-      /// </summary>
-      /// <param name="stream">The <see cref="Stream"/>.</param>
-      /// <param name="i64Array">The auxiliary array, must be at least 8 bytes long.</param>
-      /// <returns>The <see cref="UInt64"/> read from current position of the <paramref name="stream"/>.</returns>
-      /// <remarks>
-      /// See <see cref="E_CommonUtils.ReadSpecificAmount(Stream, Byte[], Int32, Int32)"/> for more exceptions.
-      /// </remarks>
-      internal static UInt64 ReadU64( this Stream stream, Byte[] i64Array )
-      {
-         stream.ReadSpecificAmount( i64Array, 0, 8 );
-         var dummy = 0;
-         return i64Array.ReadUInt64LEFromBytes( ref dummy );
-      }
+      ///// <summary>
+      ///// Using specified auxiliary array, reads a <see cref="UInt64"/> from <see cref="Stream"/>.
+      ///// </summary>
+      ///// <param name="stream">The <see cref="Stream"/>.</param>
+      ///// <param name="i64Array">The auxiliary array, must be at least 8 bytes long.</param>
+      ///// <returns>The <see cref="UInt64"/> read from current position of the <paramref name="stream"/>.</returns>
+      ///// <remarks>
+      ///// See <see cref="E_CommonUtils.ReadSpecificAmount(Stream, Byte[], Int32, Int32)"/> for more exceptions.
+      ///// </remarks>
+      //internal static UInt64 ReadU64( this Stream stream, Byte[] i64Array )
+      //{
+      //   stream.ReadSpecificAmount( i64Array, 0, 8 );
+      //   var dummy = 0;
+      //   return i64Array.ReadUInt64LEFromBytes( ref dummy );
+      //}
 
-      /// <summary>
-      /// Using specified auxiliary array, reads a <see cref="UInt32"/> from <see cref="Stream"/>.
-      /// </summary>
-      /// <param name="stream">The <see cref="Stream"/>.</param>
-      /// <param name="i32Array">The auxiliary array, must be at least 4 bytes long.</param>
-      /// <returns>The <see cref="UInt32"/> read from current position of the <paramref name="stream"/>.</returns>
-      /// <remarks>
-      /// See <see cref="E_CommonUtils.ReadSpecificAmount(Stream, Byte[], Int32, Int32)"/> for more exceptions.
-      /// </remarks>
-      internal static UInt32 ReadU32( this Stream stream, Byte[] i32Array )
-      {
-         return (UInt32) stream.ReadI32( i32Array );
-      }
+      ///// <summary>
+      ///// Using specified auxiliary array, reads a <see cref="UInt32"/> from <see cref="Stream"/>.
+      ///// </summary>
+      ///// <param name="stream">The <see cref="Stream"/>.</param>
+      ///// <param name="i32Array">The auxiliary array, must be at least 4 bytes long.</param>
+      ///// <returns>The <see cref="UInt32"/> read from current position of the <paramref name="stream"/>.</returns>
+      ///// <remarks>
+      ///// See <see cref="E_CommonUtils.ReadSpecificAmount(Stream, Byte[], Int32, Int32)"/> for more exceptions.
+      ///// </remarks>
+      //internal static UInt32 ReadU32( this Stream stream, Byte[] i32Array )
+      //{
+      //   return (UInt32) stream.ReadI32( i32Array );
+      //}
 
-      internal static Int32 ReadI32( this Stream stream, Byte[] i32Array )
-      {
-         stream.ReadSpecificAmount( i32Array, 0, 4 );
-         return i32Array.ReadInt32LEFromBytesNoRef( 0 );
-      }
+      //internal static Int32 ReadI32( this Stream stream, Byte[] i32Array )
+      //{
+      //   stream.ReadSpecificAmount( i32Array, 0, 4 );
+      //   return i32Array.ReadInt32LEFromBytesNoRef( 0 );
+      //}
 
-      /// <summary>
-      /// Using specified auxiliary array, reads a <see cref="UInt16"/> from <see cref="Stream"/>.
-      /// </summary>
-      /// <param name="stream">The <see cref="Stream"/>.</param>
-      /// <param name="i16Array">The auxiliary array, must be at least 2 bytes long.</param>
-      /// <returns>The <see cref="UInt16"/> read from current position of the <paramref name="stream"/>.</returns>
-      /// <remarks>
-      /// See <see cref="E_CommonUtils.ReadSpecificAmount(Stream, Byte[], Int32, Int32)"/> for more exceptions.
-      /// </remarks>
-      internal static UInt16 ReadU16( this Stream stream, Byte[] i16Array )
-      {
-         return (UInt16) stream.ReadI16( i16Array );
-      }
+      ///// <summary>
+      ///// Using specified auxiliary array, reads a <see cref="UInt16"/> from <see cref="Stream"/>.
+      ///// </summary>
+      ///// <param name="stream">The <see cref="Stream"/>.</param>
+      ///// <param name="i16Array">The auxiliary array, must be at least 2 bytes long.</param>
+      ///// <returns>The <see cref="UInt16"/> read from current position of the <paramref name="stream"/>.</returns>
+      ///// <remarks>
+      ///// See <see cref="E_CommonUtils.ReadSpecificAmount(Stream, Byte[], Int32, Int32)"/> for more exceptions.
+      ///// </remarks>
+      //internal static UInt16 ReadU16( this Stream stream, Byte[] i16Array )
+      //{
+      //   return (UInt16) stream.ReadI16( i16Array );
+      //}
 
-      internal static Int16 ReadI16( this Stream stream, Byte[] i16Array )
-      {
-         stream.ReadSpecificAmount( i16Array, 0, 2 );
-         var dummy = 0;
-         return i16Array.ReadInt16LEFromBytes( ref dummy );
-      }
+      //internal static Int16 ReadI16( this Stream stream, Byte[] i16Array )
+      //{
+      //   stream.ReadSpecificAmount( i16Array, 0, 2 );
+      //   var dummy = 0;
+      //   return i16Array.ReadInt16LEFromBytes( ref dummy );
+      //}
 
       internal static String ReadZeroTerminatedString( this Stream stream, UInt32 length, Encoding encoding )
       {

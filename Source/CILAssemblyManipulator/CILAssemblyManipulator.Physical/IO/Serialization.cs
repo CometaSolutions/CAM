@@ -485,6 +485,8 @@ namespace CILAssemblyManipulator.Physical.IO
 
    public class RawValueProcessingArgs
    {
+
+      private readonly Lazy<DictionaryQuery<Int32, ClassLayout>> _layoutInfo;
       public RawValueProcessingArgs(
          StreamHelper stream,
          ImageInformation imageInformation,
@@ -504,6 +506,11 @@ namespace CILAssemblyManipulator.Physical.IO
          this.RVAConverter = rvaConverter;
          this.MDStreamContainer = mdStreamContainer;
          this.MetaData = md;
+         this._layoutInfo = new Lazy<DictionaryQuery<Int32, ClassLayout>>(
+            () => md.ClassLayouts.TableContents
+            .ToDictionary_Overwrite( l => l.Parent.Index, l => l )
+            .ToDictionaryProxy().CQ,
+            System.Threading.LazyThreadSafetyMode.None );
       }
 
       public StreamHelper Stream { get; }
@@ -512,6 +519,14 @@ namespace CILAssemblyManipulator.Physical.IO
 
       public ReaderMetaDataStreamContainer MDStreamContainer { get; }
       public CILMetaData MetaData { get; }
+
+      public DictionaryQuery<Int32, ClassLayout> LayoutInfo
+      {
+         get
+         {
+            return this._layoutInfo.Value;
+         }
+      }
 
    }
 

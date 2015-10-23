@@ -243,6 +243,26 @@ namespace CommonUtils
 public static partial class E_CommonUtils
 {
    /// <summary>
+   /// Tries to peek whether the next byte is expected byte. If next byte read is successful, but the byte read differs from expected, stream position is decreased by one.
+   /// </summary>
+   /// <param name="stream">The <see cref="StreamHelper"/>.</param>
+   /// <param name="expectedByte">The expected byte value.</param>
+   /// <param name="actualByte">This will contain actual byte value, if read is successful.</param>
+   /// <param name="wasExpected">This will be <c>true</c>, if read is succesful, and the read byte matches the expected byte.</param>
+   /// <returns><c>true</c> if read operation on stream was successful; <c>false</c> otherwise.</returns>
+   /// <exception cref="NotSupportedException">If read is successful, read byte differed from expected, and stream does not support seeking.</exception>
+   public static Boolean TryPeekNextByte( this StreamHelper stream, Byte expectedByte, out Byte actualByte, out Boolean wasExpected )
+   {
+      var retVal = stream.TryReadByteFromBytes( out actualByte );
+      wasExpected = retVal && actualByte == expectedByte;
+      if ( retVal && actualByte != expectedByte )
+      {
+         --stream.Stream.Position;
+      }
+      return retVal;
+   }
+
+   /// <summary>
    /// Tries to find out whether it is possible to read next given amount of bytes from stream.
    /// Will take into account that <paramref name="stream"/> may be <see cref="StreamPortion"/>.
    /// </summary>
@@ -251,14 +271,9 @@ public static partial class E_CommonUtils
    /// <returns><c>true</c>, if next <paramref name="byteCount"/> bytes can certainly be read from stream; <c>false</c> if they certainly can not; and <c>null</c> if it is undeterminate whether the bytes can be read.</returns>
    public static Boolean? CanReadNextBytes( this Stream stream, Int32 byteCount )
    {
-      StreamPortion s;
       if ( stream.CanSeek )
       {
          return stream.Position + byteCount <= stream.Length;
-      }
-      else if ( ( s = stream as StreamPortion ) != null )
-      {
-         return s.GetCurrentPosition() + byteCount <= s.MaxPosition;
       }
       else
       {
@@ -357,6 +372,16 @@ public static partial class E_CommonUtils
       return helper;
    }
 
+   /// <summary>
+   /// This method will advance the position of <see cref="StreamHelper.Stream"/> to next 4-byte alignment.
+   /// </summary>
+   /// <param name="helper">The <see cref="StreamHelper"/>.</param>
+   /// <returns>The <paramref name="helper"/>.</returns>
+   /// <seealso cref="SkipToNextAlignment(StreamHelper, Int32)"/>
+   public static StreamHelper SkipToNextAlignmentInt32( this StreamHelper helper )
+   {
+      return helper.SkipToNextAlignment( 4 );
+   }
 
    /// <summary>
    /// This method will advance the position of <see cref="StreamHelper.Stream"/> to next alignment.

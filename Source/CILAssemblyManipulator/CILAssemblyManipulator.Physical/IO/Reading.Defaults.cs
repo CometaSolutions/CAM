@@ -538,14 +538,14 @@ namespace CILAssemblyManipulator.Physical.IO
          return AbstractSecurityInformation.ReadSecurityInformation( this.GetBLOBAsStreamPortion( heapIndex ) );
       }
 
-      public AbstractSignature ReadNonTypeSignature( Int32 heapIndex, Boolean handleFieldSigAsLocalsSig, out Boolean fieldSigTransformedToLocalsSig )
+      public AbstractSignature ReadNonTypeSignature( Int32 heapIndex, Boolean methodSigIsDefinition, Boolean handleFieldSigAsLocalsSig, out Boolean fieldSigTransformedToLocalsSig )
       {
-
+         return AbstractNotRawSignature.ReadNonTypeSignature( this.GetBLOBAsStreamPortion( heapIndex ), methodSigIsDefinition, handleFieldSigAsLocalsSig, out fieldSigTransformedToLocalsSig );
       }
 
       public TypeSignature ReadTypeSignature( Int32 heapIndex )
       {
-         return TypeSignature.ReadTypeSignature( this.GetBLOBAsStreamPortion( heapIndex ) );
+         return TypeSignature.ReadTypeSignature( this.GetBLOBAsStreamPortion( heapIndex ), true );
       }
 
       protected override Byte[] ValueFactory( Int32 heapOffset )
@@ -759,24 +759,256 @@ namespace CILAssemblyManipulator.Physical.IO
 
    public partial class DefaultMetaDataSerializationSupportProvider
    {
+      [Flags]
+      private enum MethodHeaderFlags
+      {
+         TinyFormat = 0x2,
+         FatFormat = 0x3,
+         MoreSections = 0x8,
+         InitLocals = 0x10
+      }
+
+      [Flags]
+      private enum MethodDataFlags
+      {
+         ExceptionHandling = 0x1,
+         OptimizeILTable = 0x2,
+         FatFormat = 0x40,
+         MoreSections = 0x80
+      }
+
       protected virtual MethodILDefinition DeserializeIL(
          RawValueProcessingArgs args,
          Int32 rva
          )
       {
-         if ( rva > 0 )
+         Int64 offset;
+         MethodILDefinition retVal = null;
+         if ( rva > 0 && ( offset = args.RVAConverter.ToOffset( rva ) ) > 0 )
          {
-            var stream = args.Stream.At( args.RVAConverter.ToOffset( rva ) );
+            var stream = args.Stream.At( offset );
+            var userStrings = args.MDStreamContainer.UserStrings;
+
+
+            var FORMAT_MASK = 0x00000001;
+            var FLAG_MASK = 0x00000FFF;
+            var SEC_SIZE_MASK = 0xFFFFFF00u;
+            var SEC_FLAG_MASK = 0x000000FFu;
+            Byte b;
+            if ( stream.TryReadByteFromBytes( out b ) )
+            {
+               Byte b2;
+               if ( ( FORMAT_MASK & b ) == 0 )
+               {
+                  // Tiny header - no locals, no exceptions, no extra data
+                  CreateOpCodes( retVal, stream, b >> 2, userStrings );
+                  // Max stack is 8
+                  retVal.MaxStackSize = 8;
+                  retVal.InitLocals = false;
+               }
+               else if ( stream.TryReadByteFromBytes( out b2 ) )
+               {
+                  var starter = ( b << 8 ) | b2;
+                  var flags = (MethodHeaderFlags) ( starter & FLAG_MASK );
+                  retVal.InitLocals = ( flags & MethodHeaderFlags.InitLocals ) != 0;
+                  var headerSize = ( starter >> 12 ) * 4; // Header size is written as amount of integers
+                                                          // Read max stack
+                  retVal.MaxStackSize = stream.ReadUInt16LEFromBytes();
+                  var codeSize = stream.ReadInt32LEFromBytes();
+                  retVal.LocalsSignatureIndex = TableIndex.FromOneBasedTokenNullable( stream.ReadInt32LEFromBytes() );
+
+                  if ( headerSize > 12 )
+                  {
+                     stream.SkipToNextAlignmentInt32();
+                  }
+
+                  // Read code
+                  if ( CreateOpCodes( retVal, stream, codeSize, userStrings ) )
+                  {
+                     stream.SkipToNextAlignmentInt32();
+
+                     var excList = new List<MethodExceptionBlock>();
+                     if ( ( flags & MethodHeaderFlags.MoreSections ) != 0 )
+                     {
+                        // Read sections
+                        MethodDataFlags secFlags;
+                        do
+                        {
+                           var secHeader = stream.ReadInt32LEFromBytes();
+                           secFlags = (MethodDataFlags) ( secHeader & SEC_FLAG_MASK );
+                           var secByteSize = ( secHeader & SEC_SIZE_MASK ) >> 8;
+                           secByteSize -= 4;
+                           var isFat = ( secFlags & MethodDataFlags.FatFormat ) != 0;
+                           while ( secByteSize > 0 )
+                           {
+                              var eType = (ExceptionBlockType) ( isFat ? stream.ReadInt32LEFromBytes() : stream.ReadUInt16LEFromBytes() );
+                              retVal.ExceptionBlocks.Add( new MethodExceptionBlock()
+                              {
+                                 BlockType = eType,
+                                 TryOffset = isFat ? stream.ReadInt32LEFromBytes() : stream.ReadUInt16LEFromBytes(),
+                                 TryLength = isFat ? stream.ReadInt32LEFromBytes() : stream.ReadByteFromBytes(),
+                                 HandlerOffset = isFat ? stream.ReadInt32LEFromBytes() : stream.ReadUInt16LEFromBytes(),
+                                 HandlerLength = isFat ? stream.ReadInt32LEFromBytes() : stream.ReadByteFromBytes(),
+                                 ExceptionType = eType == ExceptionBlockType.Filter ? (TableIndex?) null : TableIndex.FromOneBasedTokenNullable( stream.ReadInt32LEFromBytes() ),
+                                 FilterOffset = eType == ExceptionBlockType.Filter ? stream.ReadInt32LEFromBytes() : 0
+                              } );
+                              secByteSize -= ( isFat ? 24u : 12u );
+                           }
+                        } while ( ( secFlags & MethodDataFlags.MoreSections ) != 0 );
+                     }
+                  }
+               }
+               else
+               {
+                  retVal = null;
+               }
+            }
          }
-         throw new NotImplementedException();
+         return retVal;
+      }
+
+      private static Boolean CreateOpCodes(
+         MethodILDefinition methodIL,
+         StreamHelper stream,
+         Int32 codeSize,
+         ReaderStringStreamHandler userStrings
+         )
+      {
+
+         var success = codeSize >= 0;
+         if ( codeSize > 0 )
+         {
+            var opCodes = methodIL.OpCodes;
+            var s = stream.Stream;
+            var max = s.Position + codeSize;
+            while ( s.Position < max && success )
+            {
+               var curCodeInfo = OpCodeInfo.ReadFromStream(
+                  stream,
+                  strToken =>
+                  {
+                     var oldPos = s.Position;
+                     var str = userStrings.GetString( TableIndex.FromZeroBasedToken( strToken ).Index );
+                     s.Position = oldPos;
+                     return str;
+                  } );
+
+               if ( curCodeInfo == null )
+               {
+                  success = false;
+               }
+               else
+               {
+                  opCodes.Add( curCodeInfo );
+               }
+            }
+         }
+
+         return success;
       }
 
       protected virtual Byte[] DeserializeConstantValue(
          RawValueProcessingArgs args,
+         FieldRVA row,
          Int32 rva
          )
       {
-         throw new NotImplementedException();
+         Byte[] retVal = null;
+         Int64 offset;
+         if ( rva > 0 && ( offset = args.RVAConverter.ToOffset( rva ) ) > 0 )
+         {
+            // Read all field RVA content
+            var layoutInfo = args.LayoutInfo;
+
+            var stream = args.Stream.At( offset );
+            Int32 size;
+            if ( TryCalculateFieldTypeSize( args, row.Field.Index, out size )
+               && stream.Stream.CanReadNextBytes( size ).IsTrue()
+               )
+            {
+               // Sometimes there are field RVAs that are unresolvable...
+               retVal = stream.ReadAndCreateArray( size );
+            }
+         }
+         return retVal;
+      }
+
+      private static Boolean TryCalculateFieldTypeSize(
+         RawValueProcessingArgs args,
+         Int32 fieldIdx,
+         out Int32 size,
+         Boolean onlySimpleTypeValid = false
+         )
+      {
+         var md = args.MetaData;
+         var fDef = md.FieldDefinitions.TableContents;
+         size = 0;
+         if ( fieldIdx < fDef.Count )
+         {
+            var type = fDef[fieldIdx]?.Signature?.Type;
+            if ( type != null )
+            {
+               switch ( type.TypeSignatureKind )
+               {
+                  case TypeSignatureKind.Simple:
+                     switch ( ( (SimpleTypeSignature) type ).SimpleType )
+                     {
+                        case SignatureElementTypes.Boolean:
+                           size = sizeof( Boolean ); // TODO is this actually 1 or 4?
+                           break;
+                        case SignatureElementTypes.I1:
+                        case SignatureElementTypes.U1:
+                           size = 1;
+                           break;
+                        case SignatureElementTypes.I2:
+                        case SignatureElementTypes.U2:
+                        case SignatureElementTypes.Char:
+                           size = 2;
+                           break;
+                        case SignatureElementTypes.I4:
+                        case SignatureElementTypes.U4:
+                        case SignatureElementTypes.R4:
+                        case SignatureElementTypes.FnPtr:
+                        case SignatureElementTypes.Ptr: // I am not 100% sure of this.
+                           size = 4;
+                           break;
+                        case SignatureElementTypes.I8:
+                        case SignatureElementTypes.U8:
+                        case SignatureElementTypes.R8:
+                           size = 8;
+                           break;
+                     }
+                     break;
+                  case TypeSignatureKind.ClassOrValue:
+                     if ( !onlySimpleTypeValid )
+                     {
+                        var c = (ClassOrValueTypeSignature) type;
+
+                        var typeIdx = c.Type;
+                        if ( typeIdx.Table == Tables.TypeDef )
+                        {
+                           // Only possible for types defined in this module
+                           Int32 enumValueFieldIndex;
+                           if ( md.TryGetEnumValueFieldIndex( typeIdx.Index, out enumValueFieldIndex ) )
+                           {
+                              TryCalculateFieldTypeSize( args, enumValueFieldIndex, out size, true ); // Last parameter true to prevent possible infinite recursion in case of malformed metadata
+                           }
+                           else
+                           {
+                              ClassLayout layout;
+                              if ( args.LayoutInfo.TryGetValue( typeIdx.Index, out layout ) )
+                              {
+                                 size = layout.ClassSize;
+                              }
+                           }
+
+                        }
+                     }
+                     break;
+               }
+            }
+         }
+         return size != 0;
       }
 
       protected virtual Byte[] DeserializeEmbeddedManifest(
@@ -784,7 +1016,23 @@ namespace CILAssemblyManipulator.Physical.IO
          Int32 offset
          )
       {
-         throw new NotImplementedException();
+         Byte[] retVal = null;
+         var stream = args.Stream;
+         var rsrcDD = args.ImageInformation.CLIInformation.CLIHeader.Resources;
+         Int64 ddOffset;
+         if ( rsrcDD.RVA > 0
+            && ( ddOffset = args.RVAConverter.ToOffset( rsrcDD.RVA ) ) > 0
+            && ( stream = stream.At( ddOffset ) ).Stream.CanReadNextBytes( offset + sizeof( Int32 ) ).IsTrue()
+            )
+         {
+            stream = stream.At( ddOffset + offset );
+            var size = stream.ReadInt32LEFromBytes();
+            if ( stream.Stream.CanReadNextBytes( size ).IsTrue() )
+            {
+               retVal = stream.ReadAndCreateArray( size );
+            }
+         }
+         return retVal;
       }
    }
 }

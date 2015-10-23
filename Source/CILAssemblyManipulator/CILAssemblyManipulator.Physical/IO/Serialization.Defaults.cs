@@ -54,7 +54,7 @@ namespace CILAssemblyManipulator.Physical.IO
          Func<ColumnSerializationSupportCreationArgs, ColumnSerializationFunctionality> serializationCreator,
          Action<TRawRow, Int32> rawSetter,
          Action<ColumnSettingArguments<TRow>, Int32> setter,
-         Action<RawValueProcessingArgs, TRow, Int32> rawValueProcessor
+         Action<RawValueProcessingArgs, Int32, TRow, Int32> rawValueProcessor
          )
          : this(
               columnName,
@@ -91,7 +91,7 @@ namespace CILAssemblyManipulator.Physical.IO
          Func<ColumnSerializationSupportCreationArgs, ColumnSerializationFunctionality> creator,
          Action<TRawRow, Int32> rawSetter,
          Action<ColumnSettingArguments<TRow>, Int32> setter,
-         Action<RawValueProcessingArgs, TRow, Int32> rawValueProcessor
+         Action<RawValueProcessingArgs, Int32, TRow, Int32> rawValueProcessor
          )
       {
          ArgumentValidator.ValidateNotNull( "Column name", columnName );
@@ -123,7 +123,7 @@ namespace CILAssemblyManipulator.Physical.IO
 
       public Func<ColumnSerializationSupportCreationArgs, ColumnSerializationFunctionality> SerializationSupportCreator { get; }
 
-      public Action<RawValueProcessingArgs, TRow, Int32> RawValueProcessor { get; }
+      public Action<RawValueProcessingArgs, Int32, TRow, Int32> RawValueProcessor { get; }
 
       public void SetRawValue( Object row, Int32 value )
       {
@@ -274,13 +274,14 @@ namespace CILAssemblyManipulator.Physical.IO
          where TRow : class
          where TSignature : AbstractSignature
       {
+         var isMethodDef = Equals( typeof( MethodDefinitionSignature ), typeof( TSignature ) );
          return BLOBCustom<TRawRow, TRow>(
             columnName,
             rawSetter,
             ( args, value, blobs ) =>
             {
                Boolean wasFieldSig;
-               setter( args, blobs.ReadNonTypeSignature( value, false, out wasFieldSig ) as TSignature );
+               setter( args, blobs.ReadNonTypeSignature( value, isMethodDef, false, out wasFieldSig ) as TSignature );
             }
             );
       }
@@ -413,7 +414,7 @@ namespace CILAssemblyManipulator.Physical.IO
       public static DefaultColumnSerializationInfo<TRawRow, TRow> RawValueStorageColumn<TRawRow, TRow>(
          String columnName,
          Action<TRawRow, Int32> rawSetter,
-         Action<RawValueProcessingArgs, TRow, Int32> rawValueProcessor,
+         Action<RawValueProcessingArgs, Int32, TRow, Int32> rawValueProcessor,
          ref Int32 curColIdx
          )
          where TRawRow : class
@@ -744,7 +745,7 @@ namespace CILAssemblyManipulator.Physical.IO
       protected IEnumerable<DefaultColumnSerializationInfo<RawMethodDefinition, MethodDefinition>> GetMethodDefColumns()
       {
          var colIdx = 0;
-         yield return DefaultColumnSerializationInfoFactory.RawValueStorageColumn<RawMethodDefinition, MethodDefinition>( nameof( RawMethodDefinition.RVA ), ( r, v ) => r.RVA = v, ( args, row, rva ) => row.IL = this.DeserializeIL( args, rva ), ref colIdx );
+         yield return DefaultColumnSerializationInfoFactory.RawValueStorageColumn<RawMethodDefinition, MethodDefinition>( nameof( RawMethodDefinition.RVA ), ( r, v ) => r.RVA = v, ( args, rowIdx, row, rva ) => row.IL = this.DeserializeIL( args, rva ), ref colIdx );
          yield return DefaultColumnSerializationInfoFactory.Constant16<RawMethodDefinition, MethodDefinition>( nameof( RawMethodDefinition.ImplementationAttributes ), ( r, v ) => r.ImplementationAttributes = (MethodImplAttributes) v, ( args, v ) => args.Row.ImplementationAttributes = (MethodImplAttributes) v );
          yield return DefaultColumnSerializationInfoFactory.Constant16<RawMethodDefinition, MethodDefinition>( nameof( RawMethodDefinition.Attributes ), ( r, v ) => r.Attributes = (MethodAttributes) v, ( args, v ) => args.Row.Attributes = (MethodAttributes) v );
          yield return DefaultColumnSerializationInfoFactory.BLOBNonTypeSignature<RawMethodDefinition, MethodDefinition, MethodDefinitionSignature>( nameof( RawMethodDefinition.Signature ), ( r, v ) => r.Signature = v, ( args, v ) => args.Row.Signature = v );
@@ -822,7 +823,7 @@ namespace CILAssemblyManipulator.Physical.IO
          yield return DefaultColumnSerializationInfoFactory.BLOBCustom<RawStandaloneSignature, StandaloneSignature>( nameof( RawStandaloneSignature.Signature ), ( r, v ) => r.Signature = v, ( args, v, blobs ) =>
          {
             Boolean wasFieldSig;
-            args.Row.Signature = blobs.ReadNonTypeSignature( v, true, out wasFieldSig );
+            args.Row.Signature = blobs.ReadNonTypeSignature( v, false, true, out wasFieldSig );
             args.Row.StoreSignatureAsFieldSignature = wasFieldSig;
          } );
       }
@@ -898,7 +899,7 @@ namespace CILAssemblyManipulator.Physical.IO
       protected IEnumerable<DefaultColumnSerializationInfo<RawFieldRVA, FieldRVA>> GetFieldRVAColumns()
       {
          var colIdx = 0;
-         yield return DefaultColumnSerializationInfoFactory.RawValueStorageColumn<RawFieldRVA, FieldRVA>( nameof( RawFieldRVA.RVA ), ( r, v ) => r.RVA = v, ( args, row, rva ) => row.Data = this.DeserializeConstantValue( args, rva ), ref colIdx );
+         yield return DefaultColumnSerializationInfoFactory.RawValueStorageColumn<RawFieldRVA, FieldRVA>( nameof( RawFieldRVA.RVA ), ( r, v ) => r.RVA = v, ( args, rowIdx, row, rva ) => row.Data = this.DeserializeConstantValue( args, row, rva ), ref colIdx );
          yield return DefaultColumnSerializationInfoFactory.SimpleReference<RawFieldRVA, FieldRVA>( nameof( RawFieldRVA.Field ), Tables.Field, ( r, v ) => r.Field = v, ( args, v ) => args.Row.Field = v );
       }
 
@@ -987,7 +988,7 @@ namespace CILAssemblyManipulator.Physical.IO
       protected IEnumerable<DefaultColumnSerializationInfo<RawManifestResource, ManifestResource>> GetManifestResourceColumns()
       {
          var colIdx = 0;
-         yield return DefaultColumnSerializationInfoFactory.RawValueStorageColumn<RawManifestResource, ManifestResource>( nameof( RawManifestResource.Offset ), ( r, v ) => r.Offset = v, ( args, row, offset ) =>
+         yield return DefaultColumnSerializationInfoFactory.RawValueStorageColumn<RawManifestResource, ManifestResource>( nameof( RawManifestResource.Offset ), ( r, v ) => r.Offset = v, ( args, rowIdx, row, offset ) =>
          {
             row.Offset = offset;
             if ( !row.Implementation.HasValue )
@@ -1087,7 +1088,14 @@ namespace CILAssemblyManipulator.Physical.IO
             }
             else
             {
-               colInfo.RawValueProcessor( args, (TRow) row, value );
+               try
+               {
+                  colInfo.RawValueProcessor( args, rowIndex, (TRow) row, value );
+               }
+               catch
+               {
+                  // Ignore...
+               }
             }
          }
       }
@@ -1154,7 +1162,14 @@ namespace CILAssemblyManipulator.Physical.IO
             {
                var s = stream.Stream;
                var position = s.Position;
-               setter( columnArgs, value );
+               try
+               {
+                  setter( columnArgs, value );
+               }
+               catch
+               {
+                  // Ignore
+               }
                s.Position = position;
             }
          }
@@ -1234,6 +1249,7 @@ namespace CILAssemblyManipulator.Physical.IO
          stream.WriteInt32LEToBytes( value );
       }
    }
+
 
 }
 

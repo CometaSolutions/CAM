@@ -67,6 +67,57 @@ namespace CILAssemblyManipulator.Physical
    public abstract class AbstractNotRawSignature : AbstractSignature
    {
       public Byte[] ExtraData { get; set; }
+
+      public static AbstractNotRawSignature ReadNonTypeSignature( StreamHelper stream, Boolean methodSigIsDefinition, Boolean fieldSigIsLocalsSig, out Boolean fieldSigTransformedToLocalsSig )
+      {
+         SignatureStarters starter;
+         AbstractNotRawSignature retVal;
+         fieldSigTransformedToLocalsSig = false;
+         if ( stream.TryReadSigStarter( out starter ) )
+         {
+            switch ( starter )
+            {
+               case SignatureStarters.Field:
+                  if ( fieldSigIsLocalsSig )
+                  {
+                     var locals = new LocalVariablesSignature( 1 );
+                     locals.Locals.Add( LocalVariableSignature.ReadLocalVariableSignature( stream ) );
+                     retVal = locals;
+                     fieldSigTransformedToLocalsSig = true;
+                  }
+                  else
+                  {
+                     retVal = FieldSignature.ReadFieldSignatureAfterStarter( stream );
+                  }
+                  break;
+               case SignatureStarters.LocalSignature:
+                  retVal = LocalVariablesSignature.ReadLocalVariablesSignatureAfterStarter( stream );
+                  break;
+               case SignatureStarters.Property:
+               case SignatureStarters.Property | SignatureStarters.HasThis:
+                  retVal = PropertySignature.ReadPropertySignatureAfterStarter( stream, starter );
+                  break;
+               case SignatureStarters.MethodSpecGenericInst:
+                  retVal = GenericMethodSignature.ReadGenericMethodSignatureAfterStarter( stream );
+                  break;
+               default:
+                  --stream.Stream.Position;
+                  retVal = methodSigIsDefinition ? (AbstractNotRawSignature) MethodDefinitionSignature.ReadMethodSignature( stream ) : MethodReferenceSignature.ReadMethodSignature( stream );
+                  break;
+            }
+
+            if ( retVal != null )
+            {
+               retVal.ExtraData = stream.Stream.ReadUntilTheEnd();
+            }
+         }
+         else
+         {
+            retVal = null;
+         }
+
+         return retVal;
+      }
    }
 
    public abstract class AbstractMethodSignature : AbstractNotRawSignature
@@ -346,27 +397,23 @@ namespace CILAssemblyManipulator.Physical
 
       public static FieldSignature ReadFieldSignature( StreamHelper stream )
       {
-         FieldSignature retVal;
-         if ( idx >= 0 && idx < sig.Length )
-         {
-            var starter = (SignatureStarters) sig.ReadByteFromBytes( ref idx );
-            if ( starter == SignatureStarters.Field )
-            {
-               retVal = new FieldSignature();
-               CustomModifierSignature.AddFromBytes( sig, ref idx, retVal.CustomModifiers );
-               retVal.Type = TypeSignature.ReadFromBytesWithRef( sig, ref idx );
-            }
-            else
-            {
-               retVal = null;
-            }
-         }
-         else
+         SignatureStarters starter;
+         return stream.TryReadSigStarter( out starter ) && starter == SignatureStarters.Field ?
+            ReadFieldSignatureAfterStarter( stream ) :
+            null;
+      }
+
+      internal static FieldSignature ReadFieldSignatureAfterStarter( StreamHelper stream )
+      {
+         var retVal = new FieldSignature();
+         CustomModifierSignature.AddFromBytes( stream, retVal.CustomModifiers );
+         if ( ( retVal.Type = TypeSignature.ReadTypeSignature( stream ) ) == null )
          {
             retVal = null;
          }
          return retVal;
       }
+
    }
 
    public sealed class PropertySignature : AbstractSignatureWithCustomMods
@@ -397,29 +444,30 @@ namespace CILAssemblyManipulator.Physical
          }
       }
 
-      public static PropertySignature ReadFromBytes( Byte[] sig, Int32 idx )
+      public static PropertySignature ReadPropertySignature( StreamHelper stream )
       {
-         return ReadFromBytesWithRef( sig, ref idx );
+         SignatureStarters starter;
+         return stream.TryReadSigStarter( out starter ) && starter.IsProperty() ?
+            ReadPropertySignatureAfterStarter( stream, starter ) :
+            null;
       }
 
-      public static PropertySignature ReadFromBytesWithRef( Byte[] sig, ref Int32 idx )
+      internal static PropertySignature ReadPropertySignatureAfterStarter( StreamHelper stream, SignatureStarters starter )
       {
          PropertySignature retVal;
-         if ( idx >= 0 && idx < sig.Length )
+         Int32 paramCount;
+         if ( stream.DecompressUInt32( out paramCount ) && paramCount <= UInt16.MaxValue )
          {
-            var starter = (SignatureStarters) sig.ReadByteFromBytes( ref idx );
-            if ( starter.IsProperty() )
+            retVal = new PropertySignature( parameterCount: paramCount )
             {
-               var paramCount = sig.DecompressUInt32( ref idx );
-               retVal = new PropertySignature( parameterCount: paramCount )
-               {
-                  HasThis = starter.IsHasThis()
-               };
-               CustomModifierSignature.AddFromBytes( sig, ref idx, retVal.CustomModifiers );
-               retVal.PropertyType = TypeSignature.ReadFromBytesWithRef( sig, ref idx );
+               HasThis = starter.IsHasThis()
+            };
+            CustomModifierSignature.AddFromBytes( stream, retVal.CustomModifiers );
+            if ( ( retVal.PropertyType = TypeSignature.ReadTypeSignature( stream ) ) != null )
+            {
                for ( var i = 0; i < paramCount; ++i )
                {
-                  retVal.Parameters.Add( AbstractMethodSignature.ReadParameter( sig, ref idx ) );
+                  retVal.Parameters.Add( AbstractMethodSignature.ReadParameter( stream ) );
                }
             }
             else
@@ -431,7 +479,6 @@ namespace CILAssemblyManipulator.Physical
          {
             retVal = null;
          }
-
          return retVal;
       }
    }
@@ -461,17 +508,24 @@ namespace CILAssemblyManipulator.Physical
          }
       }
 
-      public static LocalVariablesSignature ReadFromBytes( Byte[] sig, ref Int32 idx )
+      public static LocalVariablesSignature ReadLocalVariablesSignature( StreamHelper stream )
       {
-         var starter = (SignatureStarters) sig.ReadByteFromBytes( ref idx );
+         SignatureStarters starter;
+         return stream.TryReadSigStarter( out starter ) && starter == SignatureStarters.LocalSignature ?
+            ReadLocalVariablesSignatureAfterStarter( stream ) :
+            null;
+      }
+
+      internal static LocalVariablesSignature ReadLocalVariablesSignatureAfterStarter( StreamHelper stream )
+      {
          LocalVariablesSignature retVal;
-         if ( starter == SignatureStarters.LocalSignature )
+         Int32 localsCount;
+         if ( stream.DecompressUInt32( out localsCount ) )
          {
-            var lCount = sig.DecompressUInt32( ref idx );
-            retVal = new LocalVariablesSignature( lCount );
-            for ( var i = 0; i < lCount; ++i )
+            retVal = new LocalVariablesSignature( localsCount );
+            for ( var i = 0; i < localsCount; ++i )
             {
-               retVal.Locals.Add( LocalVariableSignature.ReadFromBytes( sig, ref idx ) );
+               retVal.Locals.Add( LocalVariableSignature.ReadLocalVariableSignature( stream ) );
             }
          }
          else
@@ -514,34 +568,45 @@ namespace CILAssemblyManipulator.Physical
 
       public Boolean IsPinned { get; set; }
 
-      public static LocalVariableSignature ReadFromBytes( Byte[] sig, ref Int32 idx )
+      public static LocalVariableSignature ReadLocalVariableSignature( StreamHelper stream )
       {
-         var local = new LocalVariableSignature();
-         var elementType = (SignatureElementTypes) sig[idx];
-         if ( elementType == SignatureElementTypes.TypedByRef )
+         LocalVariableSignature retVal;
+         Byte elementType; Boolean wasExpected;
+         if ( stream.TryPeekNextByte( (Byte) SignatureElementTypes.TypedByRef, out elementType, out wasExpected ) )
          {
-            local.Type = SimpleTypeSignature.TypedByRef;
-            ++idx; // Mark this byte read
+            retVal = new LocalVariableSignature();
+            if ( wasExpected )
+            {
+               retVal.Type = SimpleTypeSignature.TypedByRef;
+            }
+            else
+            {
+               // No need to decrease stream position, TryPeekNextByte does that for us.
+               CustomModifierSignature.AddFromBytes( stream, retVal.CustomModifiers );
+               if ( stream.TryPeekNextByte( (Byte) SignatureElementTypes.Pinned, out elementType, out wasExpected )
+                  && wasExpected )
+               {
+                  retVal.IsPinned = true;
+               }
+
+               if ( stream.TryPeekNextByte( (Byte) SignatureElementTypes.ByRef, out elementType, out wasExpected )
+                  && wasExpected )
+               {
+                  retVal.IsByRef = true;
+               }
+
+               if ( ( retVal.Type = TypeSignature.ReadTypeSignature( stream ) ) == null )
+               {
+                  retVal = null;
+               }
+            }
          }
          else
          {
-            CustomModifierSignature.AddFromBytes( sig, ref idx, local.CustomModifiers );
-            elementType = (SignatureElementTypes) sig[idx];
-            if ( elementType == SignatureElementTypes.Pinned )
-            {
-               local.IsPinned = true;
-               ++idx;
-               elementType = (SignatureElementTypes) sig[idx];
-            }
-            if ( elementType == SignatureElementTypes.ByRef )
-            {
-               local.IsByRef = true;
-               ++idx;
-            }
-            local.Type = TypeSignature.ReadFromBytesWithRef( sig, ref idx );
+            retVal = null;
          }
 
-         return local;
+         return retVal;
       }
    }
 
@@ -623,7 +688,7 @@ namespace CILAssemblyManipulator.Physical
       public abstract TypeSignatureKind TypeSignatureKind { get; }
 
 
-      public static TypeSignature ReadTypeSignature( StreamHelper stream )
+      public static TypeSignature ReadTypeSignature( StreamHelper stream, Boolean canHaveExtraData = false )
       {
          Int32 auxiliary;
          SignatureElementTypes elementType;
@@ -694,10 +759,11 @@ namespace CILAssemblyManipulator.Physical
                   }
                   break;
                case SignatureElementTypes.FnPtr:
-                  return new FunctionPointerTypeSignature()
+                  retVal = new FunctionPointerTypeSignature()
                   {
-                     MethodSignature = MethodReferenceSignature.ReadFromBytes( stream )
+                     MethodSignature = MethodReferenceSignature.ReadMethodSignature( stream )
                   };
+                  break;
                case SignatureElementTypes.MVar:
                case SignatureElementTypes.Var:
                   if ( stream.DecompressUInt32( out auxiliary ) )
@@ -725,6 +791,11 @@ namespace CILAssemblyManipulator.Physical
                      retVal = szArr;
                   }
                   break;
+            }
+
+            if ( canHaveExtraData && retVal != null )
+            {
+               retVal.ExtraData = stream.Stream.ReadUntilTheEnd();
             }
          }
          return retVal;
@@ -1054,23 +1125,24 @@ namespace CILAssemblyManipulator.Physical
          }
       }
 
-      public static GenericMethodSignature ReadFromBytes( Byte[] sig, Int32 idx )
+      public static GenericMethodSignature ReadGenericMethodSignature( StreamHelper stream )
       {
-         return ReadFromBytesWithRef( sig, ref idx );
+         SignatureStarters starter;
+         return stream.TryReadSigStarter( out starter ) && starter == SignatureStarters.MethodSpecGenericInst ?
+            ReadGenericMethodSignatureAfterStarter( stream ) :
+            null;
       }
 
-      public static GenericMethodSignature ReadFromBytesWithRef( Byte[] sig, ref Int32 idx )
+      public static GenericMethodSignature ReadGenericMethodSignatureAfterStarter( StreamHelper stream )
       {
-         var elementType = (SignatureStarters) sig.ReadByteFromBytes( ref idx );
          GenericMethodSignature retVal;
-         if ( elementType == SignatureStarters.MethodSpecGenericInst )
+         Int32 gArgsCount;
+         if ( stream.DecompressUInt32( out gArgsCount ) )
          {
-
-            var genericArgumentsCount = sig.DecompressUInt32( ref idx );
-            retVal = new GenericMethodSignature( genericArgumentsCount );
-            for ( var i = 0; i < genericArgumentsCount; ++i )
+            retVal = new GenericMethodSignature( gArgsCount );
+            for ( var i = 0; i < gArgsCount; ++i )
             {
-               retVal.GenericArguments.Add( TypeSignature.ReadFromBytesWithRef( sig, ref idx ) );
+               retVal.GenericArguments.Add( TypeSignature.ReadTypeSignature( stream ) );
             }
          }
          else

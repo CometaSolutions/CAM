@@ -30,7 +30,13 @@ namespace CILAssemblyManipulator.Physical
    {
       public static CILMetaData ReadModule( this Stream stream, ReadingArguments rArgs = null )
       {
-         return CILAssemblyManipulator.Physical.Implementation.ModuleReader.ReadFromStream( stream, rArgs );
+         ImageInformation imageInfo;
+         var md = stream.ReadMetaDataFromStream( rArgs?.ReaderFunctionalityProvider, out imageInfo );
+         if ( rArgs != null )
+         {
+            rArgs.ImageInformation = imageInfo;
+         }
+         return md;
       }
    }
 
@@ -555,6 +561,8 @@ namespace CILAssemblyManipulator.Physical
 
       public HeadersData Headers { get; set; }
 
+      public ImageInformation ImageInformation { get; set; }
+
       public Byte[] StrongNameHashValue { get; set; }
    }
 
@@ -570,6 +578,8 @@ namespace CILAssemblyManipulator.Physical
             this.Headers = new HeadersData( false );
          }
       }
+
+      public ReaderFunctionalityProvider ReaderFunctionalityProvider { get; set; }
    }
 
    /// <summary>
