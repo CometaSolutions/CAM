@@ -334,11 +334,7 @@ namespace CILAssemblyManipulator.Physical.IO
          for ( var i = 0; i < this.TableSizes.Count; ++i )
          {
             var table = md.GetByTable( (Tables) i );
-            var tableSize = this.TableSizes[i];
-            for ( var j = 0; j < tableSize; ++j )
-            {
-               table.TryAddRow( this.TableSerializationSupport[i].ReadRow( args ) );
-            }
+            this.TableSerializationSupport[i].ReadRows( table, this.TableSizes[i], args );
          }
 
          return rawValueStorage;

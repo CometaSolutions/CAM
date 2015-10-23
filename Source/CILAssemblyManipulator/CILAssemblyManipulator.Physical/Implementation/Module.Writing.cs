@@ -986,6 +986,37 @@ namespace CILAssemblyManipulator.Physical.Implementation
 
 public static partial class E_CILPhysical
 {
+   internal static Byte[] CreateAnySignature( this ResizableArray<Byte> info, AbstractSignature sig )
+   {
+      if ( sig == null )
+      {
+         return null;
+      }
+      else
+      {
+         switch ( sig.SignatureKind )
+         {
+            case SignatureKind.Field:
+               return info.CreateFieldSignature( sig as FieldSignature );
+            case SignatureKind.GenericMethodInstantiation:
+               return info.CreateMethodSpecSignature( sig as GenericMethodSignature );
+            case SignatureKind.LocalVariables:
+               return info.CreateLocalsSignature( sig as LocalVariablesSignature );
+            case SignatureKind.MethodDefinition:
+            case SignatureKind.MethodReference:
+               return info.CreateMethodSignature( sig as AbstractMethodSignature );
+            case SignatureKind.Property:
+               return info.CreatePropertySignature( sig as PropertySignature );
+            case SignatureKind.RawSignature:
+               return ( (RawSignature) sig ).Bytes.CreateArrayCopy();
+            case SignatureKind.Type:
+               return info.CreateTypeSignature( sig as TypeSignature );
+            default:
+               return null;
+         }
+      }
+   }
+
    internal static Byte[] CreateFieldSignature( this ResizableArray<Byte> info, FieldSignature sig )
    {
       var idx = 0;
@@ -1011,6 +1042,13 @@ public static partial class E_CILPhysical
    {
       var idx = 0;
       info.WriteConstantValue( ref idx, constant );
+      return info.Array.CreateArrayCopy( idx );
+   }
+
+   internal static Byte[] CreateLocalsSignature( this ResizableArray<Byte> info, LocalVariablesSignature sig )
+   {
+      var idx = 0;
+      info.WriteLocalsSignature( ref idx, sig );
       return info.Array.CreateArrayCopy( idx );
    }
 
@@ -1047,10 +1085,10 @@ public static partial class E_CILPhysical
       return info.Array.CreateArrayCopy( idx );
    }
 
-   internal static Byte[] CreateSecuritySignature( this ResizableArray<Byte> info, SecurityDefinition security, ResizableArray<Byte> aux )
+   internal static Byte[] CreateSecuritySignature( this ResizableArray<Byte> info, List<AbstractSecurityInformation> permissions, ResizableArray<Byte> aux )
    {
       var idx = 0;
-      info.WriteSecuritySignature( ref idx, security, aux );
+      info.WriteSecuritySignature( ref idx, permissions, aux );
       return info.Array.CreateArrayCopy( idx );
    }
 
@@ -1766,12 +1804,11 @@ public static partial class E_CILPhysical
    private static ResizableArray<Byte> WriteSecuritySignature(
       this ResizableArray<Byte> info,
       ref Int32 idx,
-      SecurityDefinition security,
+      List<AbstractSecurityInformation> permissions,
       ResizableArray<Byte> aux
       )
    {
       // TODO currently only newer format, .NET 1 format not supported for writing
-      var permissions = security.PermissionSets;
       info
          .WriteByteToBytes( ref idx, MetaDataConstants.DECL_SECURITY_HEADER )
          .AddCompressedUInt32( ref idx, permissions.Count );

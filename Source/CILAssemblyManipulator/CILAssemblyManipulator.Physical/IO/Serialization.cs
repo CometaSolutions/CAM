@@ -439,16 +439,31 @@ namespace CILAssemblyManipulator.Physical.IO
 
       ArrayQuery<ColumnSerializationInfo> ColumnSerializationInfos { get; }
 
-      TableSerializationFunctionality CreateSupport( ArrayQuery<Int32> tableSizes, Boolean wideBLOBs, Boolean wideGUIDs, Boolean wideStrings );
+      TableSerializationFunctionality CreateSupport(
+         ArrayQuery<Int32> tableSizes,
+         Boolean wideBLOBs,
+         Boolean wideGUIDs,
+         Boolean wideStrings
+         );
 
       Int32 RawValueStorageColumnCount { get; }
 
       void ProcessRowForRawValues( RawValueProcessingArgs args, Int32 rowIndex, Object row, IEnumerable<Int32> rawValues );
 
 
-      void ExtractTableRawValues();
+      void ExtractTableRawValues(
+         CILMetaData md,
+         RawValueStorage storage,
+         StreamHelper stream,
+         ResizableArray<Byte> array
+         );
 
-      void ExtractTableHeapValues();
+      void ExtractTableHeapValues(
+         CILMetaData md,
+         RawValueStorage storage,
+         WriterMetaDataStreamContainer mdStreamContainer,
+         ResizableArray<Byte> array
+         );
 
    }
 
@@ -458,7 +473,7 @@ namespace CILAssemblyManipulator.Physical.IO
 
       Object ReadRawRow( StreamHelper stream );
 
-      Object ReadRow( RowReadingArguments args );
+      void ReadRows( MetaDataTable table, Int32 tableRowCount, RowReadingArguments args );
 
       ArrayQuery<ColumnSerializationFunctionality> ColumnSerializationSupports { get; }
    }
@@ -534,24 +549,47 @@ namespace CILAssemblyManipulator.Physical.IO
 
    }
 
-   public class RowHeapFillingArguments
+   public class RowRawValueExtractionArguments
    {
-      public RowHeapFillingArguments(
-         RawValueStorage rawValueStorage,
-         WriterMetaDataStreamContainer mdStreamContainer,
+      public RowRawValueExtractionArguments(
+         StreamHelper stream,
          ResizableArray<Byte> array
          )
       {
-         this.RawValueStorage = rawValueStorage;
+         ArgumentValidator.ValidateNotNull( "Stream", stream );
+         ArgumentValidator.ValidateNotNull( "Array", array );
+
+         this.Stream = stream;
+         this.Array = array;
+      }
+
+      public StreamHelper Stream { get; }
+
+      public ResizableArray<Byte> Array { get; }
+   }
+
+   public class RowHeapFillingArguments
+   {
+      public RowHeapFillingArguments(
+         WriterMetaDataStreamContainer mdStreamContainer,
+         ResizableArray<Byte> array,
+         CILMetaData md
+         )
+      {
+         ArgumentValidator.ValidateNotNull( "Meta data stream container", mdStreamContainer );
+         ArgumentValidator.ValidateNotNull( "Byte array", array );
+         ArgumentValidator.ValidateNotNull( "Meta data", md );
+
          this.MDStreamContainer = mdStreamContainer;
          this.Array = array;
+         this.MetaData = md;
       }
 
       public ResizableArray<Byte> Array { get; }
 
       public WriterMetaDataStreamContainer MDStreamContainer { get; }
 
-      public RawValueStorage RawValueStorage { get; }
+      public CILMetaData MetaData { get; }
    }
 
    public interface ColumnSerializationInfo
