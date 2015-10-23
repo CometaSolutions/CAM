@@ -70,7 +70,10 @@ namespace CILAssemblyManipulator.Physical.IO
       private readonly Int32[] _rawValues;
       private Int32 _currentIndex;
 
-      public RawValueStorage( ArrayQuery<Int32> tableSizes, IEnumerable<Int32> rawColumnInfo )
+      public RawValueStorage(
+         ArrayQuery<Int32> tableSizes,
+         IEnumerable<Int32> rawColumnInfo
+         )
       {
          this._tableSizes = tableSizes;
          this._tableColCount = rawColumnInfo.ToArray();

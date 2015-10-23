@@ -22,6 +22,20 @@ using System.Text;
 
 namespace CILAssemblyManipulator.Physical.IO
 {
+   public class WritingOptions
+   {
+
+   }
+
+   public class WritingOptions_TableStream
+   {
+      Byte HeaderMajorVersion { get; set; }
+
+      Byte HeaderMinorVersion { get; set; }
+
+      Int32 HeaderExtraData { get; set; }
+   }
+
    public class WritingData
    {
 

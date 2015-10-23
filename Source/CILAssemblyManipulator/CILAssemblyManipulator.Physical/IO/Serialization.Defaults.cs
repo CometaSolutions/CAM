@@ -118,6 +118,7 @@ namespace CILAssemblyManipulator.Physical.IO
       public String ColumnName { get; }
       public HeapIndexKind? HeapIndexKind { get; }
 
+      // Reading
       public Action<TRawRow, Int32> RawSetter { get; }
       public Action<ColumnSettingArguments<TRow>, Int32> Setter { get; }
 
@@ -125,10 +126,8 @@ namespace CILAssemblyManipulator.Physical.IO
 
       public Action<RawValueProcessingArgs, Int32, TRow, Int32> RawValueProcessor { get; }
 
-      public void SetRawValue( Object row, Int32 value )
-      {
-         this.RawSetter( (TRawRow) row, value );
-      }
+      // Writing
+
    }
 
    public static class DefaultColumnSerializationInfoFactory

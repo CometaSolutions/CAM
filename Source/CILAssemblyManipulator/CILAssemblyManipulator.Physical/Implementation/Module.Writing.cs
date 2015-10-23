@@ -773,7 +773,7 @@ namespace CILAssemblyManipulator.Physical.Implementation
             mds => String.Equals( MetaDataConstants.SYS_STRING_STREAM_NAME, mds.StreamName ),
             () => new DefaultWriterSystemStringStreamHandler()
             );
-         var guids = streamHandlers.FirstOfTypeOrAddDefault<AbstractWriterStreamHandler, WriterGuidStreamHandler>(
+         var guids = streamHandlers.FirstOfTypeOrAddDefault<AbstractWriterStreamHandler, WriterGUIDStreamHandler>(
             -1,
             mds => String.Equals( MetaDataConstants.GUID_STREAM_NAME, mds.StreamName ),
             () => new DefaultWriterGuidStreamHandler()

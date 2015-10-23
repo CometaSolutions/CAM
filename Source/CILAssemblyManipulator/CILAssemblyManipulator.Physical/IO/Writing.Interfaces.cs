@@ -16,6 +16,7 @@
  * limitations under the License. 
  */
 using CILAssemblyManipulator.Physical.IO;
+using CollectionsWithRoles.API;
 using CommonUtils;
 using System;
 using System.Collections.Generic;
@@ -29,20 +30,25 @@ namespace CILAssemblyManipulator.Physical.IO
    {
       WriterFunctionality GetFunctionality(
          CILMetaData md,
-         HeadersData headers,
+         WritingOptions options,
          out CILMetaData newMD
          );
    }
 
    public interface WriterFunctionality
    {
-      WriterILHandler CreateILHandler();
+      RawValueStorage CreateRawValuesBeforeMDStreams(
+         Stream stream,
+         ResizableArray<Byte> array
+         );
 
-      WriterConstantsHandler CreateConstantsHandler();
+      IEnumerable<AbstractWriterStreamHandler> CreateStreamHandlers(
+         WritingOptions options,
+         RawValueStorage rawValuesBeforeMDStreams
+         );
 
-      WriterManifestResourceHandler CreateManifestResourceHandler();
+      // TODO FinishUp( ... )
 
-      IEnumerable<AbstractWriterStreamHandler> CreateStreamHandlers( WritingData writingData );
    }
 
    public interface WriterILHandler
@@ -71,11 +77,43 @@ namespace CILAssemblyManipulator.Physical.IO
          );
    }
 
+   public class WriterMetaDataStreamContainer
+   {
+      public WriterMetaDataStreamContainer(
+         WriterBLOBStreamHandler blobs,
+         WriterGUIDStreamHandler guids,
+         WriterStringStreamHandler sysStrings,
+         WriterStringStreamHandler userStrings,
+         IEnumerable<AbstractWriterStreamHandler> otherStreams
+         )
+      {
+         this.BLOBs = blobs;
+         this.GUIDs = guids;
+         this.SystemStrings = sysStrings;
+         this.UserStrings = userStrings;
+         this.OtherStreams = otherStreams.ToArrayProxy().CQ;
+      }
+
+      public WriterBLOBStreamHandler BLOBs { get; }
+
+      public WriterGUIDStreamHandler GUIDs { get; }
+
+      public WriterStringStreamHandler SystemStrings { get; }
+
+      public WriterStringStreamHandler UserStrings { get; }
+
+      public ArrayQuery<AbstractWriterStreamHandler> OtherStreams { get; }
+   }
+
+
    public interface AbstractWriterStreamHandler
    {
       String StreamName { get; }
 
-      void WriteStream( Stream sink );
+      void WriteStream(
+         Stream sink,
+         ResizableArray<Byte> array
+         );
 
       /// <summary>
       /// This should be max UInt32.Value
@@ -87,12 +125,9 @@ namespace CILAssemblyManipulator.Physical.IO
 
    public interface WriterTableStreamHandler : AbstractWriterStreamHandler
    {
-      void FillHeaps(
+      RawValueStorage FillHeaps(
          Byte[] thisAssemblyPublicKeyIfPresentNull,
-         WriterBLOBStreamHandler blobs,
-         WriterStringStreamHandler sysStrings,
-         WriterGuidStreamHandler guids,
-         IEnumerable<AbstractWriterStreamHandler> otherStreams
+         WriterMetaDataStreamContainer mdStreams
          );
    }
 
@@ -106,7 +141,7 @@ namespace CILAssemblyManipulator.Physical.IO
       Int32 RegisterString( String systemString );
    }
 
-   public interface WriterGuidStreamHandler : AbstractWriterStreamHandler
+   public interface WriterGUIDStreamHandler : AbstractWriterStreamHandler
    {
       Int32 RegisterGUID( Guid? guid );
    }

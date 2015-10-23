@@ -444,6 +444,12 @@ namespace CILAssemblyManipulator.Physical.IO
       Int32 RawValueStorageColumnCount { get; }
 
       void ProcessRowForRawValues( RawValueProcessingArgs args, Int32 rowIndex, Object row, IEnumerable<Int32> rawValues );
+
+
+      void ExtractTableRawValues();
+
+      void ExtractTableHeapValues();
+
    }
 
    public interface TableSerializationFunctionality
@@ -480,8 +486,6 @@ namespace CILAssemblyManipulator.Physical.IO
 
       public RawValueStorage RawValueStorage { get; }
    }
-
-
 
    public class RawValueProcessingArgs
    {
@@ -528,6 +532,26 @@ namespace CILAssemblyManipulator.Physical.IO
          }
       }
 
+   }
+
+   public class RowHeapFillingArguments
+   {
+      public RowHeapFillingArguments(
+         RawValueStorage rawValueStorage,
+         WriterMetaDataStreamContainer mdStreamContainer,
+         ResizableArray<Byte> array
+         )
+      {
+         this.RawValueStorage = rawValueStorage;
+         this.MDStreamContainer = mdStreamContainer;
+         this.Array = array;
+      }
+
+      public ResizableArray<Byte> Array { get; }
+
+      public WriterMetaDataStreamContainer MDStreamContainer { get; }
+
+      public RawValueStorage RawValueStorage { get; }
    }
 
    public interface ColumnSerializationInfo

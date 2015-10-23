@@ -491,7 +491,7 @@ namespace CILAssemblyManipulator.Physical.IO
       }
    }
 
-   public class DefaultWriterGuidStreamHandler : AbstractWriterStreamHandlerImpl, WriterGuidStreamHandler
+   public class DefaultWriterGuidStreamHandler : AbstractWriterStreamHandlerImpl, WriterGUIDStreamHandler
    {
       private readonly IDictionary<Guid, UInt32> _guids;
 
@@ -840,12 +840,9 @@ namespace CILAssemblyManipulator.Physical.IO
       }
 
 
-      public void FillHeaps(
+      public RawValueStorage FillHeaps(
          Byte[] thisAssemblyPublicKeyIfPresentNull,
-         WriterBLOBStreamHandler blobs,
-         WriterStringStreamHandler sysStrings,
-         WriterGuidStreamHandler guids,
-         IEnumerable<AbstractWriterStreamHandler> otherStreams
+         WriterMetaDataStreamContainer mdStreams
          )
       {
          var byteArrayHelper = new ResizableArray<Byte>();
