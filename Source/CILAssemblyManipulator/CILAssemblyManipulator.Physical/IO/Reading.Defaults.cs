@@ -47,7 +47,7 @@ namespace CILAssemblyManipulator.Physical.IO
 
       protected virtual MetaDataSerializationSupportProvider CreateMDSerialization()
       {
-         return new DefaultMetaDataSerializationSupportProvider();
+         return DefaultMetaDataSerializationSupportProvider.Instance;
       }
    }
 
@@ -303,10 +303,10 @@ namespace CILAssemblyManipulator.Physical.IO
          this.TableSizes = tableHeader.CreateTableSizesArray().ToArrayProxy().CQ;
 
          this.TableSerializationInfo = tableSerializations;
-
+         var supportArgs = new ColumnSerializationSupportCreationArgs( this.TableSizes, thFlags.IsWideBLOB(), thFlags.IsWideGUID(), thFlags.IsWideStrings() );
          this.TableSerializationSupport =
             this.TableSerializationInfo
-            .Select( table => table.CreateSupport( this.TableSizes, thFlags.IsWideBLOB(), thFlags.IsWideGUID(), thFlags.IsWideStrings() ) )
+            .Select( table => table.CreateSupport( supportArgs ) )
             .ToArrayProxy()
             .CQ;
 

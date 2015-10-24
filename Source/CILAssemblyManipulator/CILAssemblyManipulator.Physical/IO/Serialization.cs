@@ -439,31 +439,81 @@ namespace CILAssemblyManipulator.Physical.IO
 
       ArrayQuery<ColumnSerializationInfo> ColumnSerializationInfos { get; }
 
-      TableSerializationFunctionality CreateSupport(
-         ArrayQuery<Int32> tableSizes,
-         Boolean wideBLOBs,
-         Boolean wideGUIDs,
-         Boolean wideStrings
-         );
+      TableSerializationFunctionality CreateSupport( ColumnSerializationSupportCreationArgs args );
 
       Int32 RawValueStorageColumnCount { get; }
 
-      void ProcessRowForRawValues( RawValueProcessingArgs args, Int32 rowIndex, Object row, IEnumerable<Int32> rawValues );
+      Int32 HeapValueColumnCount { get; }
+
+      void ProcessRowForRawValues(
+         RawValueProcessingArgs args,
+         Int32 rowIndex,
+         Object row,
+         IEnumerable<Int32> rawValues
+         );
 
 
       void ExtractTableRawValues(
          CILMetaData md,
          RawValueStorage storage,
          StreamHelper stream,
-         ResizableArray<Byte> array
+         ResizableArray<Byte> array,
+         WriterMetaDataStreamContainer mdStreamContainer,
+         RVAConverter rvaConverter
          );
 
       void ExtractTableHeapValues(
          CILMetaData md,
          RawValueStorage storage,
          WriterMetaDataStreamContainer mdStreamContainer,
-         ResizableArray<Byte> array
+         ResizableArray<Byte> array,
+         ArrayQuery<Byte> thisAssemblyPublicKeyIfPresentNull
          );
+
+      IEnumerable<Int32> GetAllRawValues(
+         MetaDataTable table,
+         RawValueStorage previousRawValues,
+         RawValueStorage heapIndices
+         );
+   }
+
+   public class ColumnSerializationSupportCreationArgs
+   {
+      private readonly Boolean _wideBLOBs;
+      private readonly Boolean _wideGUIDs;
+      private readonly Boolean _wideStrings;
+
+      public ColumnSerializationSupportCreationArgs(
+         ArrayQuery<Int32> tableSizes,
+         Boolean wideBLOBs,
+         Boolean wideGUIDs,
+         Boolean wideStrings
+         )
+      {
+         ArgumentValidator.ValidateNotNull( "Table sizes", tableSizes );
+
+         this.TableSizes = tableSizes;
+         this._wideBLOBs = wideBLOBs;
+         this._wideGUIDs = wideGUIDs;
+         this._wideStrings = wideStrings;
+      }
+
+      public ArrayQuery<Int32> TableSizes { get; }
+
+      public Boolean IsWide( HeapIndexKind kind )
+      {
+         switch ( kind )
+         {
+            case HeapIndexKind.BLOB:
+               return this._wideBLOBs;
+            case HeapIndexKind.GUID:
+               return this._wideGUIDs;
+            case HeapIndexKind.String:
+               return this._wideStrings;
+            default:
+               throw new NotImplementedException( "TODO" );
+         }
+      }
 
    }
 
@@ -553,19 +603,34 @@ namespace CILAssemblyManipulator.Physical.IO
    {
       public RowRawValueExtractionArguments(
          StreamHelper stream,
-         ResizableArray<Byte> array
+         ResizableArray<Byte> array,
+         WriterMetaDataStreamContainer mdStreams,
+         RVAConverter rvaConverter,
+         CILMetaData metaData
          )
       {
          ArgumentValidator.ValidateNotNull( "Stream", stream );
          ArgumentValidator.ValidateNotNull( "Array", array );
+         ArgumentValidator.ValidateNotNull( "Meta data streams", mdStreams );
+         ArgumentValidator.ValidateNotNull( "RVA converter", rvaConverter );
+         ArgumentValidator.ValidateNotNull( "Meta data", metaData );
 
          this.Stream = stream;
          this.Array = array;
+         this.MDStreamContainer = mdStreams;
+         this.RVAConverter = rvaConverter;
+         this.MetaData = metaData;
       }
 
       public StreamHelper Stream { get; }
 
       public ResizableArray<Byte> Array { get; }
+
+      public WriterMetaDataStreamContainer MDStreamContainer { get; }
+
+      public RVAConverter RVAConverter { get; }
+
+      public CILMetaData MetaData { get; }
    }
 
    public class RowHeapFillingArguments
@@ -573,21 +638,25 @@ namespace CILAssemblyManipulator.Physical.IO
       public RowHeapFillingArguments(
          WriterMetaDataStreamContainer mdStreamContainer,
          ResizableArray<Byte> array,
-         CILMetaData md
+         ArrayQuery<Byte> thisAssemblyPublicKeyIfPresentNull,
+         CILMetaData metaData
          )
       {
          ArgumentValidator.ValidateNotNull( "Meta data stream container", mdStreamContainer );
          ArgumentValidator.ValidateNotNull( "Byte array", array );
-         ArgumentValidator.ValidateNotNull( "Meta data", md );
+         ArgumentValidator.ValidateNotNull( "Meta data", metaData );
 
          this.MDStreamContainer = mdStreamContainer;
          this.Array = array;
-         this.MetaData = md;
+         this.ThisAssemblyPublicKeyIfPresentNull = thisAssemblyPublicKeyIfPresentNull;
+         this.MetaData = metaData;
       }
 
       public ResizableArray<Byte> Array { get; }
 
       public WriterMetaDataStreamContainer MDStreamContainer { get; }
+
+      public ArrayQuery<Byte> ThisAssemblyPublicKeyIfPresentNull { get; }
 
       public CILMetaData MetaData { get; }
    }
@@ -595,8 +664,6 @@ namespace CILAssemblyManipulator.Physical.IO
    public interface ColumnSerializationInfo
    {
       String ColumnName { get; }
-
-      HeapIndexKind? HeapIndexKind { get; }
    }
 
    public enum HeapIndexKind
@@ -614,6 +681,6 @@ namespace CILAssemblyManipulator.Physical.IO
 
       Int32 ReadRawValue( StreamHelper stream );
 
-      void WriteValue( StreamHelper stream, Int32 value );
+      void WriteValue( Byte[] bytes, Int32 idx, Int32 value );
    }
 }

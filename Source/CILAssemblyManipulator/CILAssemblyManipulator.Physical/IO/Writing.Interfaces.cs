@@ -37,44 +37,20 @@ namespace CILAssemblyManipulator.Physical.IO
 
    public interface WriterFunctionality
    {
-      RawValueStorage CreateRawValuesBeforeMDStreams(
-         Stream stream,
-         ResizableArray<Byte> array
-         );
-
       IEnumerable<AbstractWriterStreamHandler> CreateStreamHandlers(
-         WritingOptions options,
          RawValueStorage rawValuesBeforeMDStreams
          );
 
-      // TODO FinishUp( ... )
-
-   }
-
-   public interface WriterILHandler
-   {
-      Int32 WriteMethodIL(
-         ResizableArray<Byte> sink,
-         MethodILDefinition il,
-         WriterStringStreamHandler userStrings,
-         out Boolean isTinyHeader
+      RawValueStorage CreateRawValuesBeforeMDStreams(
+         Stream stream,
+         ResizableArray<Byte> array,
+         WriterMetaDataStreamContainer mdStreams
          );
-   }
 
-   public interface WriterManifestResourceHandler
-   {
-      Int32 WriteEmbeddedManifestResource(
-         ResizableArray<Byte> sink,
-         Byte[] resource
-         );
-   }
+      IEnumerable<SectionHeader> CreateSections(
 
-   public interface WriterConstantsHandler
-   {
-      Int32 WriteConstant(
-         ResizableArray<Byte> sink,
-         Byte[] constant
          );
+
    }
 
    public class WriterMetaDataStreamContainer
@@ -126,8 +102,9 @@ namespace CILAssemblyManipulator.Physical.IO
    public interface WriterTableStreamHandler : AbstractWriterStreamHandler
    {
       RawValueStorage FillHeaps(
-         Byte[] thisAssemblyPublicKeyIfPresentNull,
-         WriterMetaDataStreamContainer mdStreams
+         ArrayQuery<Byte> thisAssemblyPublicKeyIfPresentNull,
+         WriterMetaDataStreamContainer mdStreams,
+         ResizableArray<Byte> array
          );
    }
 

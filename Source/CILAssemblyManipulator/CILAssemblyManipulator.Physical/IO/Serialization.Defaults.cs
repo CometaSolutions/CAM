@@ -35,17 +35,18 @@ namespace CILAssemblyManipulator.Physical.IO
          String columnName,
          Func<ColumnSerializationSupportCreationArgs, ColumnSerializationFunctionality> serializationCreator,
          Action<TRawRow, Int32> rawSetter,
-         Action<ColumnSettingArguments<TRow, RowReadingArguments>, Int32> setter
+         Action<ColumnSettingArguments<TRow, RowReadingArguments>, Int32> setter,
+         Func<TRow, Int32> constExtractor
          )
          : this(
         columnName,
-        null,
         serializationCreator,
         rawSetter,
         setter,
         null,
         null,
-        null
+        null,
+        constExtractor
         )
       {
 
@@ -61,12 +62,12 @@ namespace CILAssemblyManipulator.Physical.IO
          )
          : this(
               columnName,
-              null,
               serializationCreator,
               rawSetter,
               setter,
               rawValueProcessor,
               rawValueExtractor,
+              null,
               null
               )
       {
@@ -82,26 +83,27 @@ namespace CILAssemblyManipulator.Physical.IO
          )
          : this(
               columnName,
-              heapIndexKind,
               args => args.IsWide( heapIndexKind ) ? (ColumnSerializationFunctionality) new ColumnSerializationSupport_Constant32() : new ColumnSerializationSupport_Constant16(),
               rawSetter,
               setter,
               null,
               null,
-              heapValueExtractor
+              heapValueExtractor,
+              null
               )
       {
+         ArgumentValidator.ValidateNotNull( "Heap value extractor", heapValueExtractor );
       }
 
       protected DefaultColumnSerializationInfo(
          String columnName,
-         HeapIndexKind? heapIndexKind,
          Func<ColumnSerializationSupportCreationArgs, ColumnSerializationFunctionality> creator,
          Action<TRawRow, Int32> rawSetter,
          Action<ColumnSettingArguments<TRow, RowReadingArguments>, Int32> setter,
          Action<ColumnSettingArguments<TRow, RawValueProcessingArgs>, Int32> rawValueProcessor,
          Func<ColumnSettingArguments<TRow, RowRawValueExtractionArguments>, Int32> rawValueExtractor,
-         Func<ColumnSettingArguments<TRow, RowHeapFillingArguments>, Int32> heapValueExtractor
+         Func<ColumnSettingArguments<TRow, RowHeapFillingArguments>, Int32> heapValueExtractor,
+         Func<TRow, Int32> constExtractor
          )
       {
          ArgumentValidator.ValidateNotNull( "Column name", columnName );
@@ -117,22 +119,16 @@ namespace CILAssemblyManipulator.Physical.IO
             ArgumentValidator.ValidateNotNull( "Setter", setter );
          }
 
-         if ( heapIndexKind.HasValue )
-         {
-            ArgumentValidator.ValidateNotNull( "Heap value extractor", heapValueExtractor );
-         }
-
 
          this.ColumnName = columnName;
-         this.HeapIndexKind = heapIndexKind;
          this.RawSetter = rawSetter;
          this.Setter = setter;
          this.SerializationSupportCreator = creator;
          this.RawValueProcessor = rawValueProcessor;
+         this.ConstantExtractor = constExtractor;
       }
 
       public String ColumnName { get; }
-      public HeapIndexKind? HeapIndexKind { get; }
       public Func<ColumnSerializationSupportCreationArgs, ColumnSerializationFunctionality> SerializationSupportCreator { get; }
 
       // Reading
@@ -143,6 +139,8 @@ namespace CILAssemblyManipulator.Physical.IO
       // Writing
       public Func<ColumnSettingArguments<TRow, RowRawValueExtractionArguments>, Int32> RawValueExtractor { get; }
       public Func<ColumnSettingArguments<TRow, RowHeapFillingArguments>, Int32> HeapValueExtractor { get; }
+
+      public Func<TRow, Int32> ConstantExtractor { get; }
    }
 
    public static class DefaultColumnSerializationInfoFactory
@@ -168,7 +166,8 @@ namespace CILAssemblyManipulator.Physical.IO
       public static DefaultColumnSerializationInfo<TRawRow, TRow> Constant8<TRawRow, TRow>(
          String columnName,
          Action<TRawRow, Int32> rawSetter,
-         Action<ColumnSettingArguments<TRow, RowReadingArguments>, Int32> setter
+         Action<ColumnSettingArguments<TRow, RowReadingArguments>, Int32> setter,
+         Func<TRow, Int32> getter
          )
          where TRawRow : class
          where TRow : class
@@ -177,14 +176,16 @@ namespace CILAssemblyManipulator.Physical.IO
             columnName,
             args => new ColumnSerializationSupport_Constant8(),
             rawSetter,
-            setter
+            setter,
+            getter
             );
       }
 
       public static DefaultColumnSerializationInfo<TRawRow, TRow> Constant16<TRawRow, TRow>(
          String columnName,
          Action<TRawRow, Int32> rawSetter,
-         Action<ColumnSettingArguments<TRow, RowReadingArguments>, Int32> setter
+         Action<ColumnSettingArguments<TRow, RowReadingArguments>, Int32> setter,
+         Func<TRow, Int32> getter
          )
          where TRawRow : class
          where TRow : class
@@ -193,14 +194,16 @@ namespace CILAssemblyManipulator.Physical.IO
             columnName,
             args => new ColumnSerializationSupport_Constant16(),
             rawSetter,
-            setter
+            setter,
+            getter
             );
       }
 
       public static DefaultColumnSerializationInfo<TRawRow, TRow> Constant32<TRawRow, TRow>(
          String columnName,
          Action<TRawRow, Int32> rawSetter,
-         Action<ColumnSettingArguments<TRow, RowReadingArguments>, Int32> setter
+         Action<ColumnSettingArguments<TRow, RowReadingArguments>, Int32> setter,
+         Func<TRow, Int32> getter
          )
          where TRawRow : class
          where TRow : class
@@ -209,7 +212,8 @@ namespace CILAssemblyManipulator.Physical.IO
             columnName,
             args => new ColumnSerializationSupport_Constant32(),
             rawSetter,
-            setter
+            setter,
+            getter
             );
       }
 
@@ -217,7 +221,8 @@ namespace CILAssemblyManipulator.Physical.IO
          String columnName,
          Tables targetTable,
          Action<TRawRow, Int32> rawSetter,
-         Action<ColumnSettingArguments<TRow, RowReadingArguments>, TableIndex> setter
+         Action<ColumnSettingArguments<TRow, RowReadingArguments>, TableIndex> setter,
+         Func<TRow, TableIndex> getter
          )
          where TRawRow : class
          where TRow : class
@@ -226,7 +231,8 @@ namespace CILAssemblyManipulator.Physical.IO
             columnName,
             args => args.TableSizes[(Int32) targetTable] >= UInt16.MaxValue ? (ColumnSerializationFunctionality) new ColumnSerializationSupport_Constant32() : new ColumnSerializationSupport_Constant16(),
             rawSetter,
-            ( args, value ) => setter( args, new TableIndex( targetTable, (Int32) Math.Min( 0, (UInt32) value - 1 ) ) )
+            ( args, value ) => setter( args, new TableIndex( targetTable, (Int32) Math.Min( 0, (UInt32) value - 1 ) ) ),
+            row => getter( row ).Index
             );
       }
 
@@ -234,7 +240,8 @@ namespace CILAssemblyManipulator.Physical.IO
          String columnName,
          ArrayQuery<Tables?> targetTables,
          Action<TRawRow, Int32> rawSetter,
-         Action<ColumnSettingArguments<TRow, RowReadingArguments>, TableIndex?> setter
+         Action<ColumnSettingArguments<TRow, RowReadingArguments>, TableIndex?> setter,
+         Func<TRow, TableIndex?> getter
          )
          where TRawRow : class
          where TRow : class
@@ -245,7 +252,8 @@ namespace CILAssemblyManipulator.Physical.IO
             columnName,
             args => GetCodedTableSize( args.TableSizes, targetTables ) < sizeof( Int32 ) ? (ColumnSerializationFunctionality) new ColumnSerializationSupport_Constant16() : new ColumnSerializationSupport_Constant32(),
             rawSetter,
-            ( args, value ) => setter( args, decoder.DecodeTableIndex( value ) )
+            ( args, value ) => setter( args, decoder.DecodeTableIndex( value ) ),
+            row => decoder.EncodeTableIndex( getter( row ) )
             );
       }
 
@@ -553,46 +561,6 @@ namespace CILAssemblyManipulator.Physical.IO
 
    }
 
-   public class ColumnSerializationSupportCreationArgs
-   {
-      private readonly Boolean _wideBLOBs;
-      private readonly Boolean _wideGUIDs;
-      private readonly Boolean _wideStrings;
-
-      public ColumnSerializationSupportCreationArgs(
-         ArrayQuery<Int32> tableSizes,
-         Boolean wideBLOBs,
-         Boolean wideGUIDs,
-         Boolean wideStrings
-         )
-      {
-         ArgumentValidator.ValidateNotNull( "Table sizes", tableSizes );
-
-         this.TableSizes = tableSizes;
-         this._wideBLOBs = wideBLOBs;
-         this._wideGUIDs = wideGUIDs;
-         this._wideStrings = wideStrings;
-      }
-
-      public ArrayQuery<Int32> TableSizes { get; }
-
-      public Boolean IsWide( HeapIndexKind kind )
-      {
-         switch ( kind )
-         {
-            case HeapIndexKind.BLOB:
-               return this._wideBLOBs;
-            case HeapIndexKind.GUID:
-               return this._wideGUIDs;
-            case HeapIndexKind.String:
-               return this._wideStrings;
-            default:
-               throw new NotImplementedException( "TODO" );
-         }
-      }
-
-   }
-
    public struct ColumnSettingArguments<TRow, TRowArgs>
       where TRow : class
       where TRowArgs : class
@@ -625,6 +593,16 @@ namespace CILAssemblyManipulator.Physical.IO
 
    public partial class DefaultMetaDataSerializationSupportProvider : MetaDataSerializationSupportProvider
    {
+      private static readonly DefaultMetaDataSerializationSupportProvider _instance = new DefaultMetaDataSerializationSupportProvider();
+
+      public static MetaDataSerializationSupportProvider Instance
+      {
+         get
+         {
+            return _instance;
+         }
+      }
+
       private readonly IEnumerable<ColumnSerializationInfo>[] _columnInfos;
 
       public DefaultMetaDataSerializationSupportProvider(
@@ -738,7 +716,7 @@ namespace CILAssemblyManipulator.Physical.IO
 
       protected IEnumerable<DefaultColumnSerializationInfo<RawModuleDefinition, ModuleDefinition>> GetModuleDefColumns()
       {
-         yield return DefaultColumnSerializationInfoFactory.Constant16<RawModuleDefinition, ModuleDefinition>( nameof( RawModuleDefinition.Generation ), ( r, v ) => r.Generation = v, ( args, v ) => args.Row.Generation = (Int16) v );
+         yield return DefaultColumnSerializationInfoFactory.Constant16<RawModuleDefinition, ModuleDefinition>( nameof( RawModuleDefinition.Generation ), ( r, v ) => r.Generation = v, ( args, v ) => args.Row.Generation = (Int16) v, row => row.Generation );
          yield return DefaultColumnSerializationInfoFactory.SystemString<RawModuleDefinition, ModuleDefinition>( nameof( RawModuleDefinition.Name ), ( r, v ) => r.Name = v, ( args, v ) => args.Row.Name = v, row => row.Name );
          yield return DefaultColumnSerializationInfoFactory.GUID<RawModuleDefinition, ModuleDefinition>( nameof( RawModuleDefinition.ModuleGUID ), ( r, v ) => r.ModuleGUID = v, ( args, v ) => args.Row.ModuleGUID = v, row => row.ModuleGUID );
          yield return DefaultColumnSerializationInfoFactory.GUID<RawModuleDefinition, ModuleDefinition>( nameof( RawModuleDefinition.EditAndContinueGUID ), ( r, v ) => r.EditAndContinueGUID = v, ( args, v ) => args.Row.EditAndContinueGUID = v, row => row.EditAndContinueGUID );
@@ -747,114 +725,111 @@ namespace CILAssemblyManipulator.Physical.IO
 
       protected IEnumerable<DefaultColumnSerializationInfo<RawTypeReference, TypeReference>> GetTypeRefColumns()
       {
-         yield return DefaultColumnSerializationInfoFactory.CodedReference<RawTypeReference, TypeReference>( nameof( RawTypeReference.ResolutionScope ), CodedTableIndexDecoder.ResolutionScope, ( r, v ) => r.ResolutionScope = v, ( args, v ) => args.Row.ResolutionScope = v );
+         yield return DefaultColumnSerializationInfoFactory.CodedReference<RawTypeReference, TypeReference>( nameof( RawTypeReference.ResolutionScope ), CodedTableIndexDecoder.ResolutionScope, ( r, v ) => r.ResolutionScope = v, ( args, v ) => args.Row.ResolutionScope = v, row => row.ResolutionScope );
          yield return DefaultColumnSerializationInfoFactory.SystemString<RawTypeReference, TypeReference>( nameof( RawTypeReference.Name ), ( r, v ) => r.Name = v, ( args, v ) => args.Row.Name = v, row => row.Name );
          yield return DefaultColumnSerializationInfoFactory.SystemString<RawTypeReference, TypeReference>( nameof( RawTypeReference.Namespace ), ( r, v ) => r.Namespace = v, ( args, v ) => args.Row.Namespace = v, row => row.Namespace );
       }
 
       protected IEnumerable<DefaultColumnSerializationInfo<RawTypeDefinition, TypeDefinition>> GetTypeDefColumns()
       {
-         yield return DefaultColumnSerializationInfoFactory.Constant32<RawTypeDefinition, TypeDefinition>( nameof( RawTypeDefinition.Attributes ), ( r, v ) => r.Attributes = (TypeAttributes) v, ( args, v ) => args.Row.Attributes = (TypeAttributes) v );
+         yield return DefaultColumnSerializationInfoFactory.Constant32<RawTypeDefinition, TypeDefinition>( nameof( RawTypeDefinition.Attributes ), ( r, v ) => r.Attributes = (TypeAttributes) v, ( args, v ) => args.Row.Attributes = (TypeAttributes) v, row => (Int32) row.Attributes );
          yield return DefaultColumnSerializationInfoFactory.SystemString<RawTypeDefinition, TypeDefinition>( nameof( RawTypeDefinition.Name ), ( r, v ) => r.Name = v, ( args, v ) => args.Row.Name = v, row => row.Name );
          yield return DefaultColumnSerializationInfoFactory.SystemString<RawTypeDefinition, TypeDefinition>( nameof( RawTypeDefinition.Namespace ), ( r, v ) => r.Namespace = v, ( args, v ) => args.Row.Namespace = v, row => row.Namespace );
-         yield return DefaultColumnSerializationInfoFactory.CodedReference<RawTypeDefinition, TypeDefinition>( nameof( RawTypeDefinition.BaseType ), CodedTableIndexDecoder.TypeDefOrRef, ( r, v ) => r.BaseType = v, ( args, v ) => args.Row.BaseType = v );
-         yield return DefaultColumnSerializationInfoFactory.SimpleReference<RawTypeDefinition, TypeDefinition>( nameof( RawTypeDefinition.FieldList ), Tables.Field, ( r, v ) => r.FieldList = v, ( args, v ) => args.Row.FieldList = v );
-         yield return DefaultColumnSerializationInfoFactory.SimpleReference<RawTypeDefinition, TypeDefinition>( nameof( RawTypeDefinition.MethodList ), Tables.MethodDef, ( r, v ) => r.MethodList = v, ( args, v ) => args.Row.MethodList = v );
+         yield return DefaultColumnSerializationInfoFactory.CodedReference<RawTypeDefinition, TypeDefinition>( nameof( RawTypeDefinition.BaseType ), CodedTableIndexDecoder.TypeDefOrRef, ( r, v ) => r.BaseType = v, ( args, v ) => args.Row.BaseType = v, row => row.BaseType );
+         yield return DefaultColumnSerializationInfoFactory.SimpleReference<RawTypeDefinition, TypeDefinition>( nameof( RawTypeDefinition.FieldList ), Tables.Field, ( r, v ) => r.FieldList = v, ( args, v ) => args.Row.FieldList = v, row => row.FieldList );
+         yield return DefaultColumnSerializationInfoFactory.SimpleReference<RawTypeDefinition, TypeDefinition>( nameof( RawTypeDefinition.MethodList ), Tables.MethodDef, ( r, v ) => r.MethodList = v, ( args, v ) => args.Row.MethodList = v, row => row.MethodList );
       }
 
       protected IEnumerable<DefaultColumnSerializationInfo<RawFieldDefinitionPointer, FieldDefinitionPointer>> GetFieldPtrColumns()
       {
-         yield return DefaultColumnSerializationInfoFactory.SimpleReference<RawFieldDefinitionPointer, FieldDefinitionPointer>( nameof( RawFieldDefinitionPointer.FieldIndex ), Tables.Field, ( r, v ) => r.FieldIndex = v, ( args, v ) => args.Row.FieldIndex = v );
+         yield return DefaultColumnSerializationInfoFactory.SimpleReference<RawFieldDefinitionPointer, FieldDefinitionPointer>( nameof( RawFieldDefinitionPointer.FieldIndex ), Tables.Field, ( r, v ) => r.FieldIndex = v, ( args, v ) => args.Row.FieldIndex = v, row => row.FieldIndex );
       }
 
       protected IEnumerable<DefaultColumnSerializationInfo<RawFieldDefinition, FieldDefinition>> GetFieldDefColumns()
       {
-         yield return DefaultColumnSerializationInfoFactory.Constant16<RawFieldDefinition, FieldDefinition>( nameof( RawFieldDefinition.Attributes ), ( r, v ) => r.Attributes = (FieldAttributes) v, ( args, v ) => args.Row.Attributes = (FieldAttributes) v );
+         yield return DefaultColumnSerializationInfoFactory.Constant16<RawFieldDefinition, FieldDefinition>( nameof( RawFieldDefinition.Attributes ), ( r, v ) => r.Attributes = (FieldAttributes) v, ( args, v ) => args.Row.Attributes = (FieldAttributes) v, row => (Int32) row.Attributes );
          yield return DefaultColumnSerializationInfoFactory.SystemString<RawFieldDefinition, FieldDefinition>( nameof( RawFieldDefinition.Name ), ( r, v ) => r.Name = v, ( args, v ) => args.Row.Name = v, row => row.Name );
          yield return DefaultColumnSerializationInfoFactory.BLOBNonTypeSignature<RawFieldDefinition, FieldDefinition, FieldSignature>( nameof( RawFieldDefinition.Signature ), ( r, v ) => r.Signature = v, ( args, v ) => args.Row.Signature = v, row => row.Signature );
       }
 
       protected IEnumerable<DefaultColumnSerializationInfo<RawMethodDefinitionPointer, MethodDefinitionPointer>> GetMethodPtrColumns()
       {
-         yield return DefaultColumnSerializationInfoFactory.SimpleReference<RawMethodDefinitionPointer, MethodDefinitionPointer>( nameof( RawMethodDefinitionPointer.MethodIndex ), Tables.MethodDef, ( r, v ) => r.MethodIndex = v, ( args, v ) => args.Row.MethodIndex = v );
+         yield return DefaultColumnSerializationInfoFactory.SimpleReference<RawMethodDefinitionPointer, MethodDefinitionPointer>( nameof( RawMethodDefinitionPointer.MethodIndex ), Tables.MethodDef, ( r, v ) => r.MethodIndex = v, ( args, v ) => args.Row.MethodIndex = v, row => row.MethodIndex );
       }
 
       protected IEnumerable<DefaultColumnSerializationInfo<RawMethodDefinition, MethodDefinition>> GetMethodDefColumns()
       {
-         yield return DefaultColumnSerializationInfoFactory.RawValueStorageColumn<RawMethodDefinition, MethodDefinition>( nameof( RawMethodDefinition.RVA ), ( r, v ) => r.RVA = v, ( args, rva ) => args.Row.IL = this.DeserializeIL( args.RowArgs, rva ), args =>
-         {
-            throw new NotImplementedException();
-         } );
-         yield return DefaultColumnSerializationInfoFactory.Constant16<RawMethodDefinition, MethodDefinition>( nameof( RawMethodDefinition.ImplementationAttributes ), ( r, v ) => r.ImplementationAttributes = (MethodImplAttributes) v, ( args, v ) => args.Row.ImplementationAttributes = (MethodImplAttributes) v );
-         yield return DefaultColumnSerializationInfoFactory.Constant16<RawMethodDefinition, MethodDefinition>( nameof( RawMethodDefinition.Attributes ), ( r, v ) => r.Attributes = (MethodAttributes) v, ( args, v ) => args.Row.Attributes = (MethodAttributes) v );
+         yield return DefaultColumnSerializationInfoFactory.RawValueStorageColumn<RawMethodDefinition, MethodDefinition>( nameof( RawMethodDefinition.RVA ), ( r, v ) => r.RVA = v, ( args, rva ) => args.Row.IL = this.DeserializeIL( args.RowArgs, rva ), args => this.WriteMethodIL( args.RowArgs, args.Row.IL ) );
+         yield return DefaultColumnSerializationInfoFactory.Constant16<RawMethodDefinition, MethodDefinition>( nameof( RawMethodDefinition.ImplementationAttributes ), ( r, v ) => r.ImplementationAttributes = (MethodImplAttributes) v, ( args, v ) => args.Row.ImplementationAttributes = (MethodImplAttributes) v, row => (Int32) row.ImplementationAttributes );
+         yield return DefaultColumnSerializationInfoFactory.Constant16<RawMethodDefinition, MethodDefinition>( nameof( RawMethodDefinition.Attributes ), ( r, v ) => r.Attributes = (MethodAttributes) v, ( args, v ) => args.Row.Attributes = (MethodAttributes) v, row => (Int32) row.Attributes );
          yield return DefaultColumnSerializationInfoFactory.BLOBNonTypeSignature<RawMethodDefinition, MethodDefinition, MethodDefinitionSignature>( nameof( RawMethodDefinition.Signature ), ( r, v ) => r.Signature = v, ( args, v ) => args.Row.Signature = v, row => row.Signature );
-         yield return DefaultColumnSerializationInfoFactory.SimpleReference<RawMethodDefinition, MethodDefinition>( nameof( RawMethodDefinition.ParameterList ), Tables.Parameter, ( r, v ) => r.ParameterList = v, ( args, v ) => args.Row.ParameterList = v );
+         yield return DefaultColumnSerializationInfoFactory.SimpleReference<RawMethodDefinition, MethodDefinition>( nameof( RawMethodDefinition.ParameterList ), Tables.Parameter, ( r, v ) => r.ParameterList = v, ( args, v ) => args.Row.ParameterList = v, row => row.ParameterList );
       }
 
       protected IEnumerable<DefaultColumnSerializationInfo<RawParameterDefinitionPointer, ParameterDefinitionPointer>> GetParamPtrColumns()
       {
-         yield return DefaultColumnSerializationInfoFactory.SimpleReference<RawParameterDefinitionPointer, ParameterDefinitionPointer>( nameof( RawParameterDefinitionPointer.ParameterIndex ), Tables.Parameter, ( r, v ) => r.ParameterIndex = v, ( args, v ) => args.Row.ParameterIndex = v );
+         yield return DefaultColumnSerializationInfoFactory.SimpleReference<RawParameterDefinitionPointer, ParameterDefinitionPointer>( nameof( RawParameterDefinitionPointer.ParameterIndex ), Tables.Parameter, ( r, v ) => r.ParameterIndex = v, ( args, v ) => args.Row.ParameterIndex = v, row => row.ParameterIndex );
       }
 
       protected IEnumerable<DefaultColumnSerializationInfo<RawParameterDefinition, ParameterDefinition>> GetParamColumns()
       {
-         yield return DefaultColumnSerializationInfoFactory.Constant16<RawParameterDefinition, ParameterDefinition>( nameof( RawParameterDefinition.Attributes ), ( r, v ) => r.Attributes = (ParameterAttributes) v, ( args, v ) => args.Row.Attributes = (ParameterAttributes) v );
-         yield return DefaultColumnSerializationInfoFactory.Constant16<RawParameterDefinition, ParameterDefinition>( nameof( RawParameterDefinition.Sequence ), ( r, v ) => r.Sequence = v, ( args, v ) => args.Row.Sequence = v );
+         yield return DefaultColumnSerializationInfoFactory.Constant16<RawParameterDefinition, ParameterDefinition>( nameof( RawParameterDefinition.Attributes ), ( r, v ) => r.Attributes = (ParameterAttributes) v, ( args, v ) => args.Row.Attributes = (ParameterAttributes) v, row => (Int32) row.Attributes );
+         yield return DefaultColumnSerializationInfoFactory.Constant16<RawParameterDefinition, ParameterDefinition>( nameof( RawParameterDefinition.Sequence ), ( r, v ) => r.Sequence = v, ( args, v ) => args.Row.Sequence = v, row => row.Sequence );
          yield return DefaultColumnSerializationInfoFactory.SystemString<RawParameterDefinition, ParameterDefinition>( nameof( RawParameterDefinition.Name ), ( r, v ) => r.Name = v, ( args, v ) => args.Row.Name = v, row => row.Name );
       }
 
       protected IEnumerable<DefaultColumnSerializationInfo<RawInterfaceImplementation, InterfaceImplementation>> GetInterfaceImplColumns()
       {
-         yield return DefaultColumnSerializationInfoFactory.SimpleReference<RawInterfaceImplementation, InterfaceImplementation>( nameof( RawInterfaceImplementation.Class ), Tables.TypeDef, ( r, v ) => r.Class = v, ( args, v ) => args.Row.Class = v );
-         yield return DefaultColumnSerializationInfoFactory.CodedReference<RawInterfaceImplementation, InterfaceImplementation>( nameof( RawInterfaceImplementation.Interface ), CodedTableIndexDecoder.TypeDefOrRef, ( r, v ) => r.Interface = v, ( args, v ) => args.Row.Interface = v.GetValueOrDefault() );
+         yield return DefaultColumnSerializationInfoFactory.SimpleReference<RawInterfaceImplementation, InterfaceImplementation>( nameof( RawInterfaceImplementation.Class ), Tables.TypeDef, ( r, v ) => r.Class = v, ( args, v ) => args.Row.Class = v, row => row.Class );
+         yield return DefaultColumnSerializationInfoFactory.CodedReference<RawInterfaceImplementation, InterfaceImplementation>( nameof( RawInterfaceImplementation.Interface ), CodedTableIndexDecoder.TypeDefOrRef, ( r, v ) => r.Interface = v, ( args, v ) => args.Row.Interface = v.GetValueOrDefault(), row => row.Interface );
       }
 
       protected IEnumerable<DefaultColumnSerializationInfo<RawMemberReference, MemberReference>> GetMemberRefColumns()
       {
-         yield return DefaultColumnSerializationInfoFactory.CodedReference<RawMemberReference, MemberReference>( nameof( RawMemberReference.DeclaringType ), CodedTableIndexDecoder.MemberRefParent, ( r, v ) => r.DeclaringType = v, ( args, v ) => args.Row.DeclaringType = v.GetValueOrDefault() );
+         yield return DefaultColumnSerializationInfoFactory.CodedReference<RawMemberReference, MemberReference>( nameof( RawMemberReference.DeclaringType ), CodedTableIndexDecoder.MemberRefParent, ( r, v ) => r.DeclaringType = v, ( args, v ) => args.Row.DeclaringType = v.GetValueOrDefault(), row => row.DeclaringType );
          yield return DefaultColumnSerializationInfoFactory.SystemString<RawMemberReference, MemberReference>( nameof( RawMemberReference.Name ), ( r, v ) => r.Name = v, ( args, v ) => args.Row.Name = v, row => row.Name );
          yield return DefaultColumnSerializationInfoFactory.BLOBNonTypeSignature<RawMemberReference, MemberReference, AbstractSignature>( nameof( RawMemberReference.Signature ), ( r, v ) => r.Signature = v, ( args, v ) => args.Row.Signature = v, row => row.Signature );
       }
 
       protected IEnumerable<DefaultColumnSerializationInfo<RawConstantDefinition, ConstantDefinition>> GetConstantColumns()
       {
-         yield return DefaultColumnSerializationInfoFactory.Constant8<RawConstantDefinition, ConstantDefinition>( nameof( RawConstantDefinition.Type ), ( r, v ) => r.Type = (SignatureElementTypes) v, ( args, v ) => args.Row.Type = (SignatureElementTypes) v );
-         yield return DefaultColumnSerializationInfoFactory.Constant8<RawConstantDefinition, ConstantDefinition>( nameof( RawConstantDefinition.Padding ), ( r, v ) => r.Padding = (Byte) v, ( args, v ) => { } );
-         yield return DefaultColumnSerializationInfoFactory.CodedReference<RawConstantDefinition, ConstantDefinition>( nameof( RawConstantDefinition.Parent ), CodedTableIndexDecoder.HasConstant, ( r, v ) => r.Parent = v, ( args, v ) => args.Row.Parent = v.GetValueOrDefault() );
+         yield return DefaultColumnSerializationInfoFactory.Constant8<RawConstantDefinition, ConstantDefinition>( nameof( RawConstantDefinition.Type ), ( r, v ) => r.Type = (SignatureElementTypes) v, ( args, v ) => args.Row.Type = (SignatureElementTypes) v, row => (Int32) row.Type );
+         yield return DefaultColumnSerializationInfoFactory.Constant8<RawConstantDefinition, ConstantDefinition>( nameof( RawConstantDefinition.Padding ), ( r, v ) => r.Padding = (Byte) v, ( args, v ) => { }, row => 0 );
+         yield return DefaultColumnSerializationInfoFactory.CodedReference<RawConstantDefinition, ConstantDefinition>( nameof( RawConstantDefinition.Parent ), CodedTableIndexDecoder.HasConstant, ( r, v ) => r.Parent = v, ( args, v ) => args.Row.Parent = v.GetValueOrDefault(), row => row.Parent );
          yield return DefaultColumnSerializationInfoFactory.BLOBCustom<RawConstantDefinition, ConstantDefinition>( nameof( RawConstantDefinition.Value ), ( r, v ) => r.Value = v, ( args, v, blobs ) => args.Row.Value = blobs.ReadConstantValue( v, args.Row.Type ), args => args.RowArgs.Array.CreateConstantBytes( args.Row.Value ) );
       }
 
       protected IEnumerable<DefaultColumnSerializationInfo<RawCustomAttributeDefinition, CustomAttributeDefinition>> GetCustomAttributeColumns()
       {
-         yield return DefaultColumnSerializationInfoFactory.CodedReference<RawCustomAttributeDefinition, CustomAttributeDefinition>( nameof( RawCustomAttributeDefinition.Parent ), CodedTableIndexDecoder.HasCustomAttribute, ( r, v ) => r.Parent = v, ( args, v ) => args.Row.Parent = v.GetValueOrDefault() );
-         yield return DefaultColumnSerializationInfoFactory.CodedReference<RawCustomAttributeDefinition, CustomAttributeDefinition>( nameof( RawCustomAttributeDefinition.Type ), CodedTableIndexDecoder.CustomAttributeType, ( r, v ) => r.Type = v, ( args, v ) => args.Row.Type = v.GetValueOrDefault() );
+         yield return DefaultColumnSerializationInfoFactory.CodedReference<RawCustomAttributeDefinition, CustomAttributeDefinition>( nameof( RawCustomAttributeDefinition.Parent ), CodedTableIndexDecoder.HasCustomAttribute, ( r, v ) => r.Parent = v, ( args, v ) => args.Row.Parent = v.GetValueOrDefault(), row => row.Parent );
+         yield return DefaultColumnSerializationInfoFactory.CodedReference<RawCustomAttributeDefinition, CustomAttributeDefinition>( nameof( RawCustomAttributeDefinition.Type ), CodedTableIndexDecoder.CustomAttributeType, ( r, v ) => r.Type = v, ( args, v ) => args.Row.Type = v.GetValueOrDefault(), row => row.Type );
          yield return DefaultColumnSerializationInfoFactory.BLOBCASignature<RawCustomAttributeDefinition, CustomAttributeDefinition>( nameof( RawCustomAttributeDefinition.Signature ), ( r, v ) => r.Signature = v, ( args, v ) => args.Row.Signature = v );
       }
 
       protected IEnumerable<DefaultColumnSerializationInfo<RawFieldMarshal, FieldMarshal>> GetFieldMarshalColumns()
       {
-         yield return DefaultColumnSerializationInfoFactory.CodedReference<RawFieldMarshal, FieldMarshal>( nameof( RawFieldMarshal.Parent ), CodedTableIndexDecoder.HasFieldMarshal, ( r, v ) => r.Parent = v, ( args, v ) => args.Row.Parent = v.GetValueOrDefault() );
+         yield return DefaultColumnSerializationInfoFactory.CodedReference<RawFieldMarshal, FieldMarshal>( nameof( RawFieldMarshal.Parent ), CodedTableIndexDecoder.HasFieldMarshal, ( r, v ) => r.Parent = v, ( args, v ) => args.Row.Parent = v.GetValueOrDefault(), row => row.Parent );
          yield return DefaultColumnSerializationInfoFactory.BLOBMarshalingInfo<RawFieldMarshal, FieldMarshal>( nameof( RawFieldMarshal.NativeType ), ( r, v ) => r.NativeType = v, ( args, v ) => args.Row.NativeType = v, row => row.NativeType );
       }
 
       protected IEnumerable<DefaultColumnSerializationInfo<RawSecurityDefinition, SecurityDefinition>> GetDeclSecurityColumns()
       {
-         yield return DefaultColumnSerializationInfoFactory.Constant16<RawSecurityDefinition, SecurityDefinition>( nameof( RawSecurityDefinition.Action ), ( r, v ) => r.Action = (SecurityAction) v, ( args, v ) => args.Row.Action = (SecurityAction) v );
-         yield return DefaultColumnSerializationInfoFactory.CodedReference<RawSecurityDefinition, SecurityDefinition>( nameof( RawSecurityDefinition.Parent ), CodedTableIndexDecoder.HasSecurity, ( r, v ) => r.Parent = v, ( args, v ) => args.Row.Parent = v.GetValueOrDefault() );
+         yield return DefaultColumnSerializationInfoFactory.Constant16<RawSecurityDefinition, SecurityDefinition>( nameof( RawSecurityDefinition.Action ), ( r, v ) => r.Action = (SecurityAction) v, ( args, v ) => args.Row.Action = (SecurityAction) v, row => (Int32) row.Action );
+         yield return DefaultColumnSerializationInfoFactory.CodedReference<RawSecurityDefinition, SecurityDefinition>( nameof( RawSecurityDefinition.Parent ), CodedTableIndexDecoder.HasSecurity, ( r, v ) => r.Parent = v, ( args, v ) => args.Row.Parent = v.GetValueOrDefault(), row => row.Parent );
          yield return DefaultColumnSerializationInfoFactory.BLOBSecurityInformation<RawSecurityDefinition, SecurityDefinition>( nameof( RawSecurityDefinition.PermissionSets ), ( r, v ) => r.PermissionSets = v, ( args, v ) => args.Row.PermissionSets.AddRange( v ), row => row.PermissionSets );
       }
 
       protected IEnumerable<DefaultColumnSerializationInfo<RawClassLayout, ClassLayout>> GetClassLayoutColumns()
       {
-         yield return DefaultColumnSerializationInfoFactory.Constant16<RawClassLayout, ClassLayout>( nameof( RawClassLayout.PackingSize ), ( r, v ) => r.PackingSize = v, ( args, v ) => args.Row.PackingSize = v );
-         yield return DefaultColumnSerializationInfoFactory.Constant32<RawClassLayout, ClassLayout>( nameof( RawClassLayout.ClassSize ), ( r, v ) => r.ClassSize = v, ( args, v ) => args.Row.ClassSize = v );
-         yield return DefaultColumnSerializationInfoFactory.SimpleReference<RawClassLayout, ClassLayout>( nameof( RawClassLayout.Parent ), Tables.TypeDef, ( r, v ) => r.Parent = v, ( args, v ) => args.Row.Parent = v );
+         yield return DefaultColumnSerializationInfoFactory.Constant16<RawClassLayout, ClassLayout>( nameof( RawClassLayout.PackingSize ), ( r, v ) => r.PackingSize = v, ( args, v ) => args.Row.PackingSize = v, row => row.PackingSize );
+         yield return DefaultColumnSerializationInfoFactory.Constant32<RawClassLayout, ClassLayout>( nameof( RawClassLayout.ClassSize ), ( r, v ) => r.ClassSize = v, ( args, v ) => args.Row.ClassSize = v, row => row.ClassSize );
+         yield return DefaultColumnSerializationInfoFactory.SimpleReference<RawClassLayout, ClassLayout>( nameof( RawClassLayout.Parent ), Tables.TypeDef, ( r, v ) => r.Parent = v, ( args, v ) => args.Row.Parent = v, row => row.Parent );
       }
 
       protected IEnumerable<DefaultColumnSerializationInfo<RawFieldLayout, FieldLayout>> GetFieldLayoutColumns()
       {
-         yield return DefaultColumnSerializationInfoFactory.Constant32<RawFieldLayout, FieldLayout>( nameof( RawFieldLayout.Offset ), ( r, v ) => r.Offset = v, ( args, v ) => args.Row.Offset = v );
-         yield return DefaultColumnSerializationInfoFactory.SimpleReference<RawFieldLayout, FieldLayout>( nameof( RawFieldLayout.Field ), Tables.Field, ( r, v ) => r.Field = v, ( args, v ) => args.Row.Field = v );
+         yield return DefaultColumnSerializationInfoFactory.Constant32<RawFieldLayout, FieldLayout>( nameof( RawFieldLayout.Offset ), ( r, v ) => r.Offset = v, ( args, v ) => args.Row.Offset = v, row => row.Offset );
+         yield return DefaultColumnSerializationInfoFactory.SimpleReference<RawFieldLayout, FieldLayout>( nameof( RawFieldLayout.Field ), Tables.Field, ( r, v ) => r.Field = v, ( args, v ) => args.Row.Field = v, row => row.Field );
       }
 
       protected IEnumerable<DefaultColumnSerializationInfo<RawStandaloneSignature, StandaloneSignature>> GetStandaloneSigColumns()
@@ -869,52 +844,52 @@ namespace CILAssemblyManipulator.Physical.IO
 
       protected IEnumerable<DefaultColumnSerializationInfo<RawEventMap, EventMap>> GetEventMapColumns()
       {
-         yield return DefaultColumnSerializationInfoFactory.SimpleReference<RawEventMap, EventMap>( nameof( RawEventMap.Parent ), Tables.TypeDef, ( r, v ) => r.Parent = v, ( args, v ) => args.Row.Parent = v );
-         yield return DefaultColumnSerializationInfoFactory.SimpleReference<RawEventMap, EventMap>( nameof( RawEventMap.EventList ), Tables.Event, ( r, v ) => r.EventList = v, ( args, v ) => args.Row.EventList = v );
+         yield return DefaultColumnSerializationInfoFactory.SimpleReference<RawEventMap, EventMap>( nameof( RawEventMap.Parent ), Tables.TypeDef, ( r, v ) => r.Parent = v, ( args, v ) => args.Row.Parent = v, row => row.Parent );
+         yield return DefaultColumnSerializationInfoFactory.SimpleReference<RawEventMap, EventMap>( nameof( RawEventMap.EventList ), Tables.Event, ( r, v ) => r.EventList = v, ( args, v ) => args.Row.EventList = v, row => row.EventList );
       }
 
       protected IEnumerable<DefaultColumnSerializationInfo<RawEventDefinitionPointer, EventDefinitionPointer>> GetEventPtrColumns()
       {
-         yield return DefaultColumnSerializationInfoFactory.SimpleReference<RawEventDefinitionPointer, EventDefinitionPointer>( nameof( RawEventDefinitionPointer.EventIndex ), Tables.Event, ( r, v ) => r.EventIndex = v, ( args, v ) => args.Row.EventIndex = v );
+         yield return DefaultColumnSerializationInfoFactory.SimpleReference<RawEventDefinitionPointer, EventDefinitionPointer>( nameof( RawEventDefinitionPointer.EventIndex ), Tables.Event, ( r, v ) => r.EventIndex = v, ( args, v ) => args.Row.EventIndex = v, row => row.EventIndex );
       }
 
       protected IEnumerable<DefaultColumnSerializationInfo<RawEventDefinition, EventDefinition>> GetEventDefColumns()
       {
-         yield return DefaultColumnSerializationInfoFactory.Constant16<RawEventDefinition, EventDefinition>( nameof( RawEventDefinition.Attributes ), ( r, v ) => r.Attributes = (EventAttributes) v, ( args, v ) => args.Row.Attributes = (EventAttributes) v );
+         yield return DefaultColumnSerializationInfoFactory.Constant16<RawEventDefinition, EventDefinition>( nameof( RawEventDefinition.Attributes ), ( r, v ) => r.Attributes = (EventAttributes) v, ( args, v ) => args.Row.Attributes = (EventAttributes) v, row => (Int32) row.Attributes );
          yield return DefaultColumnSerializationInfoFactory.SystemString<RawEventDefinition, EventDefinition>( nameof( RawEventDefinition.Name ), ( r, v ) => r.Name = v, ( args, v ) => args.Row.Name = v, row => row.Name );
-         yield return DefaultColumnSerializationInfoFactory.CodedReference<RawEventDefinition, EventDefinition>( nameof( RawEventDefinition.EventType ), CodedTableIndexDecoder.TypeDefOrRef, ( r, v ) => r.EventType = v, ( args, v ) => args.Row.EventType = v.GetValueOrDefault() );
+         yield return DefaultColumnSerializationInfoFactory.CodedReference<RawEventDefinition, EventDefinition>( nameof( RawEventDefinition.EventType ), CodedTableIndexDecoder.TypeDefOrRef, ( r, v ) => r.EventType = v, ( args, v ) => args.Row.EventType = v.GetValueOrDefault(), row => row.EventType );
       }
 
       protected IEnumerable<DefaultColumnSerializationInfo<RawPropertyMap, PropertyMap>> GetPropertyMapColumns()
       {
-         yield return DefaultColumnSerializationInfoFactory.SimpleReference<RawPropertyMap, PropertyMap>( nameof( RawPropertyMap.Parent ), Tables.TypeDef, ( r, v ) => r.Parent = v, ( args, v ) => args.Row.Parent = v );
-         yield return DefaultColumnSerializationInfoFactory.SimpleReference<RawPropertyMap, PropertyMap>( nameof( RawPropertyMap.PropertyList ), Tables.Property, ( r, v ) => r.PropertyList = v, ( args, v ) => args.Row.PropertyList = v );
+         yield return DefaultColumnSerializationInfoFactory.SimpleReference<RawPropertyMap, PropertyMap>( nameof( RawPropertyMap.Parent ), Tables.TypeDef, ( r, v ) => r.Parent = v, ( args, v ) => args.Row.Parent = v, row => row.Parent );
+         yield return DefaultColumnSerializationInfoFactory.SimpleReference<RawPropertyMap, PropertyMap>( nameof( RawPropertyMap.PropertyList ), Tables.Property, ( r, v ) => r.PropertyList = v, ( args, v ) => args.Row.PropertyList = v, row => row.PropertyList );
       }
 
       protected IEnumerable<DefaultColumnSerializationInfo<RawPropertyDefinitionPointer, PropertyDefinitionPointer>> GetPropertyPtrColumns()
       {
-         yield return DefaultColumnSerializationInfoFactory.SimpleReference<RawPropertyDefinitionPointer, PropertyDefinitionPointer>( nameof( RawPropertyDefinitionPointer.PropertyIndex ), Tables.Property, ( r, v ) => r.PropertyIndex = v, ( args, v ) => args.Row.PropertyIndex = v );
+         yield return DefaultColumnSerializationInfoFactory.SimpleReference<RawPropertyDefinitionPointer, PropertyDefinitionPointer>( nameof( RawPropertyDefinitionPointer.PropertyIndex ), Tables.Property, ( r, v ) => r.PropertyIndex = v, ( args, v ) => args.Row.PropertyIndex = v, row => row.PropertyIndex );
       }
 
       protected IEnumerable<DefaultColumnSerializationInfo<RawPropertyDefinition, PropertyDefinition>> GetPropertyDefColumns()
       {
-         yield return DefaultColumnSerializationInfoFactory.Constant16<RawPropertyDefinition, PropertyDefinition>( nameof( RawPropertyDefinition.Attributes ), ( r, v ) => r.Attributes = (PropertyAttributes) v, ( args, v ) => args.Row.Attributes = (PropertyAttributes) v );
+         yield return DefaultColumnSerializationInfoFactory.Constant16<RawPropertyDefinition, PropertyDefinition>( nameof( RawPropertyDefinition.Attributes ), ( r, v ) => r.Attributes = (PropertyAttributes) v, ( args, v ) => args.Row.Attributes = (PropertyAttributes) v, row => (Int32) row.Attributes );
          yield return DefaultColumnSerializationInfoFactory.SystemString<RawPropertyDefinition, PropertyDefinition>( nameof( RawPropertyDefinition.Name ), ( r, v ) => r.Name = v, ( args, v ) => args.Row.Name = v, row => row.Name );
          yield return DefaultColumnSerializationInfoFactory.BLOBNonTypeSignature<RawPropertyDefinition, PropertyDefinition, PropertySignature>( nameof( RawPropertyDefinition.Signature ), ( r, v ) => r.Signature = v, ( args, v ) => args.Row.Signature = v, row => row.Signature );
       }
 
       protected IEnumerable<DefaultColumnSerializationInfo<RawMethodSemantics, MethodSemantics>> GetMethodSemanticsColumns()
       {
-         yield return DefaultColumnSerializationInfoFactory.Constant16<RawMethodSemantics, MethodSemantics>( nameof( RawMethodSemantics.Attributes ), ( r, v ) => r.Attributes = (MethodSemanticsAttributes) v, ( args, v ) => args.Row.Attributes = (MethodSemanticsAttributes) v );
-         yield return DefaultColumnSerializationInfoFactory.SimpleReference<RawMethodSemantics, MethodSemantics>( nameof( RawMethodSemantics.Method ), Tables.MethodDef, ( r, v ) => r.Method = v, ( args, v ) => args.Row.Method = v );
-         yield return DefaultColumnSerializationInfoFactory.CodedReference<RawMethodSemantics, MethodSemantics>( nameof( RawMethodSemantics.Associaton ), CodedTableIndexDecoder.HasSemantics, ( r, v ) => r.Associaton = v, ( args, v ) => args.Row.Associaton = v.GetValueOrDefault() );
+         yield return DefaultColumnSerializationInfoFactory.Constant16<RawMethodSemantics, MethodSemantics>( nameof( RawMethodSemantics.Attributes ), ( r, v ) => r.Attributes = (MethodSemanticsAttributes) v, ( args, v ) => args.Row.Attributes = (MethodSemanticsAttributes) v, row => (Int32) row.Attributes );
+         yield return DefaultColumnSerializationInfoFactory.SimpleReference<RawMethodSemantics, MethodSemantics>( nameof( RawMethodSemantics.Method ), Tables.MethodDef, ( r, v ) => r.Method = v, ( args, v ) => args.Row.Method = v, row => row.Method );
+         yield return DefaultColumnSerializationInfoFactory.CodedReference<RawMethodSemantics, MethodSemantics>( nameof( RawMethodSemantics.Associaton ), CodedTableIndexDecoder.HasSemantics, ( r, v ) => r.Associaton = v, ( args, v ) => args.Row.Associaton = v.GetValueOrDefault(), row => row.Associaton );
       }
 
       protected IEnumerable<DefaultColumnSerializationInfo<RawMethodImplementation, MethodImplementation>> GetMethodImplColumns()
       {
-         yield return DefaultColumnSerializationInfoFactory.SimpleReference<RawMethodImplementation, MethodImplementation>( nameof( RawMethodImplementation.Class ), Tables.TypeDef, ( r, v ) => r.Class = v, ( args, v ) => args.Row.Class = v );
-         yield return DefaultColumnSerializationInfoFactory.CodedReference<RawMethodImplementation, MethodImplementation>( nameof( RawMethodImplementation.MethodBody ), CodedTableIndexDecoder.MethodDefOrRef, ( r, v ) => r.MethodBody = v, ( args, v ) => args.Row.MethodBody = v.GetValueOrDefault() );
-         yield return DefaultColumnSerializationInfoFactory.CodedReference<RawMethodImplementation, MethodImplementation>( nameof( RawMethodImplementation.MethodDeclaration ), CodedTableIndexDecoder.MethodDefOrRef, ( r, v ) => r.MethodDeclaration = v, ( args, v ) => args.Row.MethodDeclaration = v.GetValueOrDefault() );
+         yield return DefaultColumnSerializationInfoFactory.SimpleReference<RawMethodImplementation, MethodImplementation>( nameof( RawMethodImplementation.Class ), Tables.TypeDef, ( r, v ) => r.Class = v, ( args, v ) => args.Row.Class = v, row => row.Class );
+         yield return DefaultColumnSerializationInfoFactory.CodedReference<RawMethodImplementation, MethodImplementation>( nameof( RawMethodImplementation.MethodBody ), CodedTableIndexDecoder.MethodDefOrRef, ( r, v ) => r.MethodBody = v, ( args, v ) => args.Row.MethodBody = v.GetValueOrDefault(), row => row.MethodBody );
+         yield return DefaultColumnSerializationInfoFactory.CodedReference<RawMethodImplementation, MethodImplementation>( nameof( RawMethodImplementation.MethodDeclaration ), CodedTableIndexDecoder.MethodDefOrRef, ( r, v ) => r.MethodDeclaration = v, ( args, v ) => args.Row.MethodDeclaration = v.GetValueOrDefault(), row => row.MethodDeclaration );
       }
 
       protected IEnumerable<DefaultColumnSerializationInfo<RawModuleReference, ModuleReference>> GetModuleRefColumns()
@@ -929,65 +904,66 @@ namespace CILAssemblyManipulator.Physical.IO
 
       protected IEnumerable<DefaultColumnSerializationInfo<RawMethodImplementationMap, MethodImplementationMap>> GetImplMapColumns()
       {
-         yield return DefaultColumnSerializationInfoFactory.Constant16<RawMethodImplementationMap, MethodImplementationMap>( nameof( RawMethodImplementationMap.Attributes ), ( r, v ) => r.Attributes = (PInvokeAttributes) v, ( args, v ) => args.Row.Attributes = (PInvokeAttributes) v );
-         yield return DefaultColumnSerializationInfoFactory.CodedReference<RawMethodImplementationMap, MethodImplementationMap>( nameof( RawMethodImplementationMap.MemberForwarded ), CodedTableIndexDecoder.MemberForwarded, ( r, v ) => r.MemberForwarded = v, ( args, v ) => args.Row.MemberForwarded = v.GetValueOrDefault() );
+         yield return DefaultColumnSerializationInfoFactory.Constant16<RawMethodImplementationMap, MethodImplementationMap>( nameof( RawMethodImplementationMap.Attributes ), ( r, v ) => r.Attributes = (PInvokeAttributes) v, ( args, v ) => args.Row.Attributes = (PInvokeAttributes) v, row => (Int32) row.Attributes );
+         yield return DefaultColumnSerializationInfoFactory.CodedReference<RawMethodImplementationMap, MethodImplementationMap>( nameof( RawMethodImplementationMap.MemberForwarded ), CodedTableIndexDecoder.MemberForwarded, ( r, v ) => r.MemberForwarded = v, ( args, v ) => args.Row.MemberForwarded = v.GetValueOrDefault(), row => row.MemberForwarded );
          yield return DefaultColumnSerializationInfoFactory.SystemString<RawMethodImplementationMap, MethodImplementationMap>( nameof( RawMethodImplementationMap.ImportName ), ( r, v ) => r.ImportName = v, ( args, v ) => args.Row.ImportName = v, row => row.ImportName );
-         yield return DefaultColumnSerializationInfoFactory.SimpleReference<RawMethodImplementationMap, MethodImplementationMap>( nameof( RawMethodImplementationMap.ImportScope ), Tables.ModuleRef, ( r, v ) => r.ImportScope = v, ( args, v ) => args.Row.ImportScope = v );
+         yield return DefaultColumnSerializationInfoFactory.SimpleReference<RawMethodImplementationMap, MethodImplementationMap>( nameof( RawMethodImplementationMap.ImportScope ), Tables.ModuleRef, ( r, v ) => r.ImportScope = v, ( args, v ) => args.Row.ImportScope = v, row => row.ImportScope );
       }
 
       protected IEnumerable<DefaultColumnSerializationInfo<RawFieldRVA, FieldRVA>> GetFieldRVAColumns()
       {
-         yield return DefaultColumnSerializationInfoFactory.RawValueStorageColumn<RawFieldRVA, FieldRVA>( nameof( RawFieldRVA.RVA ), ( r, v ) => r.RVA = v, ( args, rva ) => args.Row.Data = this.DeserializeConstantValue( args.RowArgs, args.Row, rva ), args =>
-         {
-            throw new NotImplementedException();
-         } );
-         yield return DefaultColumnSerializationInfoFactory.SimpleReference<RawFieldRVA, FieldRVA>( nameof( RawFieldRVA.Field ), Tables.Field, ( r, v ) => r.Field = v, ( args, v ) => args.Row.Field = v );
+         yield return DefaultColumnSerializationInfoFactory.RawValueStorageColumn<RawFieldRVA, FieldRVA>( nameof( RawFieldRVA.RVA ), ( r, v ) => r.RVA = v, ( args, rva ) => args.Row.Data = this.DeserializeConstantValue( args.RowArgs, args.Row, rva ), args => this.WriteConstant( args.RowArgs, args.Row.Data ) );
+         yield return DefaultColumnSerializationInfoFactory.SimpleReference<RawFieldRVA, FieldRVA>( nameof( RawFieldRVA.Field ), Tables.Field, ( r, v ) => r.Field = v, ( args, v ) => args.Row.Field = v, row => row.Field );
       }
 
       protected IEnumerable<DefaultColumnSerializationInfo<RawEditAndContinueLog, EditAndContinueLog>> GetENCLogColumns()
       {
-         yield return DefaultColumnSerializationInfoFactory.Constant32<RawEditAndContinueLog, EditAndContinueLog>( nameof( RawEditAndContinueLog.Token ), ( r, v ) => r.Token = v, ( args, v ) => args.Row.Token = v );
-         yield return DefaultColumnSerializationInfoFactory.Constant32<RawEditAndContinueLog, EditAndContinueLog>( nameof( RawEditAndContinueLog.FuncCode ), ( r, v ) => r.FuncCode = v, ( args, v ) => args.Row.FuncCode = v );
+         yield return DefaultColumnSerializationInfoFactory.Constant32<RawEditAndContinueLog, EditAndContinueLog>( nameof( RawEditAndContinueLog.Token ), ( r, v ) => r.Token = v, ( args, v ) => args.Row.Token = v, row => row.Token );
+         yield return DefaultColumnSerializationInfoFactory.Constant32<RawEditAndContinueLog, EditAndContinueLog>( nameof( RawEditAndContinueLog.FuncCode ), ( r, v ) => r.FuncCode = v, ( args, v ) => args.Row.FuncCode = v, row => row.FuncCode );
       }
 
       protected IEnumerable<DefaultColumnSerializationInfo<RawEditAndContinueMap, EditAndContinueMap>> GetENCMapColumns()
       {
-         yield return DefaultColumnSerializationInfoFactory.Constant32<RawEditAndContinueMap, EditAndContinueMap>( nameof( RawEditAndContinueMap.Token ), ( r, v ) => r.Token = v, ( args, v ) => args.Row.Token = v );
+         yield return DefaultColumnSerializationInfoFactory.Constant32<RawEditAndContinueMap, EditAndContinueMap>( nameof( RawEditAndContinueMap.Token ), ( r, v ) => r.Token = v, ( args, v ) => args.Row.Token = v, row => row.Token );
       }
 
       protected IEnumerable<DefaultColumnSerializationInfo<RawAssemblyDefinition, AssemblyDefinition>> GetAssemblyDefColumns()
       {
-         yield return DefaultColumnSerializationInfoFactory.Constant32<RawAssemblyDefinition, AssemblyDefinition>( nameof( RawAssemblyDefinition.HashAlgorithm ), ( r, v ) => r.HashAlgorithm = (AssemblyHashAlgorithm) v, ( args, v ) => args.Row.HashAlgorithm = (AssemblyHashAlgorithm) v );
-         yield return DefaultColumnSerializationInfoFactory.Constant16<RawAssemblyDefinition, AssemblyDefinition>( nameof( RawAssemblyDefinition.MajorVersion ), ( r, v ) => r.MajorVersion = v, ( args, v ) => args.Row.AssemblyInformation.VersionMajor = v );
-         yield return DefaultColumnSerializationInfoFactory.Constant16<RawAssemblyDefinition, AssemblyDefinition>( nameof( RawAssemblyDefinition.MinorVersion ), ( r, v ) => r.MinorVersion = v, ( args, v ) => args.Row.AssemblyInformation.VersionMinor = v );
-         yield return DefaultColumnSerializationInfoFactory.Constant16<RawAssemblyDefinition, AssemblyDefinition>( nameof( RawAssemblyDefinition.BuildNumber ), ( r, v ) => r.BuildNumber = v, ( args, v ) => args.Row.AssemblyInformation.VersionBuild = v );
-         yield return DefaultColumnSerializationInfoFactory.Constant16<RawAssemblyDefinition, AssemblyDefinition>( nameof( RawAssemblyDefinition.RevisionNumber ), ( r, v ) => r.RevisionNumber = v, ( args, v ) => args.Row.AssemblyInformation.VersionRevision = v );
-         yield return DefaultColumnSerializationInfoFactory.Constant32<RawAssemblyDefinition, AssemblyDefinition>( nameof( RawAssemblyDefinition.Attributes ), ( r, v ) => r.Attributes = (AssemblyFlags) v, ( args, v ) => args.Row.Attributes = (AssemblyFlags) v );
-         yield return DefaultColumnSerializationInfoFactory.BLOBArray<RawAssemblyDefinition, AssemblyDefinition>( nameof( RawAssemblyDefinition.PublicKey ), ( r, v ) => r.PublicKey = v, ( args, v ) => args.Row.AssemblyInformation.PublicKeyOrToken = v, row => row.AssemblyInformation.PublicKeyOrToken );
+         yield return DefaultColumnSerializationInfoFactory.Constant32<RawAssemblyDefinition, AssemblyDefinition>( nameof( RawAssemblyDefinition.HashAlgorithm ), ( r, v ) => r.HashAlgorithm = (AssemblyHashAlgorithm) v, ( args, v ) => args.Row.HashAlgorithm = (AssemblyHashAlgorithm) v, row => (Int32) row.HashAlgorithm );
+         yield return DefaultColumnSerializationInfoFactory.Constant16<RawAssemblyDefinition, AssemblyDefinition>( nameof( RawAssemblyDefinition.MajorVersion ), ( r, v ) => r.MajorVersion = v, ( args, v ) => args.Row.AssemblyInformation.VersionMajor = v, row => row.AssemblyInformation.VersionMajor );
+         yield return DefaultColumnSerializationInfoFactory.Constant16<RawAssemblyDefinition, AssemblyDefinition>( nameof( RawAssemblyDefinition.MinorVersion ), ( r, v ) => r.MinorVersion = v, ( args, v ) => args.Row.AssemblyInformation.VersionMinor = v, row => row.AssemblyInformation.VersionMinor );
+         yield return DefaultColumnSerializationInfoFactory.Constant16<RawAssemblyDefinition, AssemblyDefinition>( nameof( RawAssemblyDefinition.BuildNumber ), ( r, v ) => r.BuildNumber = v, ( args, v ) => args.Row.AssemblyInformation.VersionBuild = v, row => row.AssemblyInformation.VersionBuild );
+         yield return DefaultColumnSerializationInfoFactory.Constant16<RawAssemblyDefinition, AssemblyDefinition>( nameof( RawAssemblyDefinition.RevisionNumber ), ( r, v ) => r.RevisionNumber = v, ( args, v ) => args.Row.AssemblyInformation.VersionRevision = v, row => row.AssemblyInformation.VersionRevision );
+         yield return DefaultColumnSerializationInfoFactory.Constant32<RawAssemblyDefinition, AssemblyDefinition>( nameof( RawAssemblyDefinition.Attributes ), ( r, v ) => r.Attributes = (AssemblyFlags) v, ( args, v ) => args.Row.Attributes = (AssemblyFlags) v, row => (Int32) row.Attributes );
+         yield return DefaultColumnSerializationInfoFactory.BLOBCustom<RawAssemblyDefinition, AssemblyDefinition>( nameof( RawAssemblyDefinition.PublicKey ), ( r, v ) => r.PublicKey = v, ( args, v, blobs ) => args.Row.AssemblyInformation.PublicKeyOrToken = blobs.GetBLOB( v ), args =>
+         {
+            var pk = args.Row.AssemblyInformation.PublicKeyOrToken;
+            return pk.IsNullOrEmpty() ? args.RowArgs.ThisAssemblyPublicKeyIfPresentNull.ToArray() : pk;
+         } );
          yield return DefaultColumnSerializationInfoFactory.SystemString<RawAssemblyDefinition, AssemblyDefinition>( nameof( RawAssemblyDefinition.Name ), ( r, v ) => r.Name = v, ( args, v ) => args.Row.AssemblyInformation.Name = v, row => row.AssemblyInformation.Name );
          yield return DefaultColumnSerializationInfoFactory.SystemString<RawAssemblyDefinition, AssemblyDefinition>( nameof( RawAssemblyDefinition.Culture ), ( r, v ) => r.Culture = v, ( args, v ) => args.Row.AssemblyInformation.Culture = v, row => row.AssemblyInformation.Culture );
       }
 #pragma warning disable 618
       protected IEnumerable<DefaultColumnSerializationInfo<RawAssemblyDefinitionProcessor, AssemblyDefinitionProcessor>> GetAssemblyDefProcessorColumns()
       {
-         yield return DefaultColumnSerializationInfoFactory.Constant32<RawAssemblyDefinitionProcessor, AssemblyDefinitionProcessor>( nameof( RawAssemblyDefinitionProcessor.Processor ), ( r, v ) => r.Processor = v, ( args, v ) => args.Row.Processor = v );
+         yield return DefaultColumnSerializationInfoFactory.Constant32<RawAssemblyDefinitionProcessor, AssemblyDefinitionProcessor>( nameof( RawAssemblyDefinitionProcessor.Processor ), ( r, v ) => r.Processor = v, ( args, v ) => args.Row.Processor = v, row => row.Processor );
       }
 
       protected IEnumerable<DefaultColumnSerializationInfo<RawAssemblyDefinitionOS, AssemblyDefinitionOS>> GetAssemblyDefOSColumns()
       {
-         yield return DefaultColumnSerializationInfoFactory.Constant32<RawAssemblyDefinitionOS, AssemblyDefinitionOS>( nameof( RawAssemblyDefinitionOS.OSPlatformID ), ( r, v ) => r.OSPlatformID = v, ( args, v ) => args.Row.OSPlatformID = v );
-         yield return DefaultColumnSerializationInfoFactory.Constant32<RawAssemblyDefinitionOS, AssemblyDefinitionOS>( nameof( RawAssemblyDefinitionOS.OSMajorVersion ), ( r, v ) => r.OSMajorVersion = v, ( args, v ) => args.Row.OSMajorVersion = v );
-         yield return DefaultColumnSerializationInfoFactory.Constant32<RawAssemblyDefinitionOS, AssemblyDefinitionOS>( nameof( RawAssemblyDefinitionOS.OSMinorVersion ), ( r, v ) => r.OSMinorVersion = v, ( args, v ) => args.Row.OSMinorVersion = v );
+         yield return DefaultColumnSerializationInfoFactory.Constant32<RawAssemblyDefinitionOS, AssemblyDefinitionOS>( nameof( RawAssemblyDefinitionOS.OSPlatformID ), ( r, v ) => r.OSPlatformID = v, ( args, v ) => args.Row.OSPlatformID = v, row => row.OSPlatformID );
+         yield return DefaultColumnSerializationInfoFactory.Constant32<RawAssemblyDefinitionOS, AssemblyDefinitionOS>( nameof( RawAssemblyDefinitionOS.OSMajorVersion ), ( r, v ) => r.OSMajorVersion = v, ( args, v ) => args.Row.OSMajorVersion = v, row => row.OSMajorVersion );
+         yield return DefaultColumnSerializationInfoFactory.Constant32<RawAssemblyDefinitionOS, AssemblyDefinitionOS>( nameof( RawAssemblyDefinitionOS.OSMinorVersion ), ( r, v ) => r.OSMinorVersion = v, ( args, v ) => args.Row.OSMinorVersion = v, row => row.OSMinorVersion );
       }
 #pragma warning restore 618
 
       protected IEnumerable<DefaultColumnSerializationInfo<RawAssemblyReference, AssemblyReference>> GetAssemblyRefColumns()
       {
-         yield return DefaultColumnSerializationInfoFactory.Constant16<RawAssemblyReference, AssemblyReference>( nameof( RawAssemblyReference.MajorVersion ), ( r, v ) => r.MajorVersion = v, ( args, v ) => args.Row.AssemblyInformation.VersionMajor = v );
-         yield return DefaultColumnSerializationInfoFactory.Constant16<RawAssemblyReference, AssemblyReference>( nameof( RawAssemblyReference.MinorVersion ), ( r, v ) => r.MinorVersion = v, ( args, v ) => args.Row.AssemblyInformation.VersionMinor = v );
-         yield return DefaultColumnSerializationInfoFactory.Constant16<RawAssemblyReference, AssemblyReference>( nameof( RawAssemblyReference.BuildNumber ), ( r, v ) => r.BuildNumber = v, ( args, v ) => args.Row.AssemblyInformation.VersionBuild = v );
-         yield return DefaultColumnSerializationInfoFactory.Constant16<RawAssemblyReference, AssemblyReference>( nameof( RawAssemblyReference.RevisionNumber ), ( r, v ) => r.RevisionNumber = v, ( args, v ) => args.Row.AssemblyInformation.VersionRevision = v );
-         yield return DefaultColumnSerializationInfoFactory.Constant32<RawAssemblyReference, AssemblyReference>( nameof( RawAssemblyReference.Attributes ), ( r, v ) => r.Attributes = (AssemblyFlags) v, ( args, v ) => args.Row.Attributes = (AssemblyFlags) v );
+         yield return DefaultColumnSerializationInfoFactory.Constant16<RawAssemblyReference, AssemblyReference>( nameof( RawAssemblyReference.MajorVersion ), ( r, v ) => r.MajorVersion = v, ( args, v ) => args.Row.AssemblyInformation.VersionMajor = v, row => row.AssemblyInformation.VersionMajor );
+         yield return DefaultColumnSerializationInfoFactory.Constant16<RawAssemblyReference, AssemblyReference>( nameof( RawAssemblyReference.MinorVersion ), ( r, v ) => r.MinorVersion = v, ( args, v ) => args.Row.AssemblyInformation.VersionMinor = v, row => row.AssemblyInformation.VersionMinor );
+         yield return DefaultColumnSerializationInfoFactory.Constant16<RawAssemblyReference, AssemblyReference>( nameof( RawAssemblyReference.BuildNumber ), ( r, v ) => r.BuildNumber = v, ( args, v ) => args.Row.AssemblyInformation.VersionBuild = v, row => row.AssemblyInformation.VersionBuild );
+         yield return DefaultColumnSerializationInfoFactory.Constant16<RawAssemblyReference, AssemblyReference>( nameof( RawAssemblyReference.RevisionNumber ), ( r, v ) => r.RevisionNumber = v, ( args, v ) => args.Row.AssemblyInformation.VersionRevision = v, row => row.AssemblyInformation.VersionRevision );
+         yield return DefaultColumnSerializationInfoFactory.Constant32<RawAssemblyReference, AssemblyReference>( nameof( RawAssemblyReference.Attributes ), ( r, v ) => r.Attributes = (AssemblyFlags) v, ( args, v ) => args.Row.Attributes = (AssemblyFlags) v, row => (Int32) row.Attributes );
          yield return DefaultColumnSerializationInfoFactory.BLOBArray<RawAssemblyReference, AssemblyReference>( nameof( RawAssemblyReference.PublicKeyOrToken ), ( r, v ) => r.PublicKeyOrToken = v, ( args, v ) => args.Row.AssemblyInformation.PublicKeyOrToken = v, row => row.AssemblyInformation.PublicKeyOrToken );
          yield return DefaultColumnSerializationInfoFactory.SystemString<RawAssemblyReference, AssemblyReference>( nameof( RawAssemblyReference.Name ), ( r, v ) => r.Name = v, ( args, v ) => args.Row.AssemblyInformation.Name = v, row => row.AssemblyInformation.Name );
          yield return DefaultColumnSerializationInfoFactory.SystemString<RawAssemblyReference, AssemblyReference>( nameof( RawAssemblyReference.Culture ), ( r, v ) => r.Culture = v, ( args, v ) => args.Row.AssemblyInformation.Culture = v, row => row.AssemblyInformation.Culture );
@@ -997,33 +973,33 @@ namespace CILAssemblyManipulator.Physical.IO
 #pragma warning disable 618
       protected IEnumerable<DefaultColumnSerializationInfo<RawAssemblyReferenceProcessor, AssemblyReferenceProcessor>> GetAssemblyRefProcessorColumns()
       {
-         yield return DefaultColumnSerializationInfoFactory.Constant32<RawAssemblyReferenceProcessor, AssemblyReferenceProcessor>( nameof( RawAssemblyReferenceProcessor.Processor ), ( r, v ) => r.Processor = v, ( args, v ) => args.Row.Processor = v );
-         yield return DefaultColumnSerializationInfoFactory.SimpleReference<RawAssemblyReferenceProcessor, AssemblyReferenceProcessor>( nameof( RawAssemblyReferenceProcessor.AssemblyRef ), Tables.AssemblyRef, ( r, v ) => r.AssemblyRef = v, ( args, v ) => args.Row.AssemblyRef = v );
+         yield return DefaultColumnSerializationInfoFactory.Constant32<RawAssemblyReferenceProcessor, AssemblyReferenceProcessor>( nameof( RawAssemblyReferenceProcessor.Processor ), ( r, v ) => r.Processor = v, ( args, v ) => args.Row.Processor = v, row => row.Processor );
+         yield return DefaultColumnSerializationInfoFactory.SimpleReference<RawAssemblyReferenceProcessor, AssemblyReferenceProcessor>( nameof( RawAssemblyReferenceProcessor.AssemblyRef ), Tables.AssemblyRef, ( r, v ) => r.AssemblyRef = v, ( args, v ) => args.Row.AssemblyRef = v, row => row.AssemblyRef );
       }
 
       protected IEnumerable<DefaultColumnSerializationInfo<RawAssemblyReferenceOS, AssemblyReferenceOS>> GetAssemblyRefOSColumns()
       {
-         yield return DefaultColumnSerializationInfoFactory.Constant32<RawAssemblyReferenceOS, AssemblyReferenceOS>( nameof( RawAssemblyReferenceOS.OSPlatformID ), ( r, v ) => r.OSPlatformID = v, ( args, v ) => args.Row.OSPlatformID = v );
-         yield return DefaultColumnSerializationInfoFactory.Constant32<RawAssemblyReferenceOS, AssemblyReferenceOS>( nameof( RawAssemblyReferenceOS.OSMajorVersion ), ( r, v ) => r.OSMajorVersion = v, ( args, v ) => args.Row.OSMajorVersion = v );
-         yield return DefaultColumnSerializationInfoFactory.Constant32<RawAssemblyReferenceOS, AssemblyReferenceOS>( nameof( RawAssemblyReferenceOS.OSMinorVersion ), ( r, v ) => r.OSMinorVersion = v, ( args, v ) => args.Row.OSMinorVersion = v );
-         yield return DefaultColumnSerializationInfoFactory.SimpleReference<RawAssemblyReferenceOS, AssemblyReferenceOS>( nameof( RawAssemblyReferenceOS.AssemblyRef ), Tables.AssemblyRef, ( r, v ) => r.AssemblyRef = v, ( args, v ) => args.Row.AssemblyRef = v );
+         yield return DefaultColumnSerializationInfoFactory.Constant32<RawAssemblyReferenceOS, AssemblyReferenceOS>( nameof( RawAssemblyReferenceOS.OSPlatformID ), ( r, v ) => r.OSPlatformID = v, ( args, v ) => args.Row.OSPlatformID = v, row => row.OSPlatformID );
+         yield return DefaultColumnSerializationInfoFactory.Constant32<RawAssemblyReferenceOS, AssemblyReferenceOS>( nameof( RawAssemblyReferenceOS.OSMajorVersion ), ( r, v ) => r.OSMajorVersion = v, ( args, v ) => args.Row.OSMajorVersion = v, row => row.OSMajorVersion );
+         yield return DefaultColumnSerializationInfoFactory.Constant32<RawAssemblyReferenceOS, AssemblyReferenceOS>( nameof( RawAssemblyReferenceOS.OSMinorVersion ), ( r, v ) => r.OSMinorVersion = v, ( args, v ) => args.Row.OSMinorVersion = v, row => row.OSMinorVersion );
+         yield return DefaultColumnSerializationInfoFactory.SimpleReference<RawAssemblyReferenceOS, AssemblyReferenceOS>( nameof( RawAssemblyReferenceOS.AssemblyRef ), Tables.AssemblyRef, ( r, v ) => r.AssemblyRef = v, ( args, v ) => args.Row.AssemblyRef = v, row => row.AssemblyRef );
       }
 #pragma warning restore 618
 
       protected IEnumerable<DefaultColumnSerializationInfo<RawFileReference, FileReference>> GetFileColumns()
       {
-         yield return DefaultColumnSerializationInfoFactory.Constant32<RawFileReference, FileReference>( nameof( RawFileReference.Attributes ), ( r, v ) => r.Attributes = (FileAttributes) v, ( args, v ) => args.Row.Attributes = (FileAttributes) v );
+         yield return DefaultColumnSerializationInfoFactory.Constant32<RawFileReference, FileReference>( nameof( RawFileReference.Attributes ), ( r, v ) => r.Attributes = (FileAttributes) v, ( args, v ) => args.Row.Attributes = (FileAttributes) v, row => (Int32) row.Attributes );
          yield return DefaultColumnSerializationInfoFactory.SystemString<RawFileReference, FileReference>( nameof( RawFileReference.Name ), ( r, v ) => r.Name = v, ( args, v ) => args.Row.Name = v, row => row.Name );
          yield return DefaultColumnSerializationInfoFactory.BLOBArray<RawFileReference, FileReference>( nameof( RawFileReference.HashValue ), ( r, v ) => r.HashValue = v, ( args, v ) => args.Row.HashValue = v, row => row.HashValue );
       }
 
       protected IEnumerable<DefaultColumnSerializationInfo<RawExportedType, ExportedType>> GetExportedTypeColumns()
       {
-         yield return DefaultColumnSerializationInfoFactory.Constant32<RawExportedType, ExportedType>( nameof( RawExportedType.Attributes ), ( r, v ) => r.Attributes = (TypeAttributes) v, ( args, v ) => args.Row.Attributes = (TypeAttributes) v );
-         yield return DefaultColumnSerializationInfoFactory.Constant32<RawExportedType, ExportedType>( nameof( RawExportedType.TypeDefinitionIndex ), ( r, v ) => r.TypeDefinitionIndex = v, ( args, v ) => args.Row.TypeDefinitionIndex = v );
+         yield return DefaultColumnSerializationInfoFactory.Constant32<RawExportedType, ExportedType>( nameof( RawExportedType.Attributes ), ( r, v ) => r.Attributes = (TypeAttributes) v, ( args, v ) => args.Row.Attributes = (TypeAttributes) v, row => (Int32) row.Attributes );
+         yield return DefaultColumnSerializationInfoFactory.Constant32<RawExportedType, ExportedType>( nameof( RawExportedType.TypeDefinitionIndex ), ( r, v ) => r.TypeDefinitionIndex = v, ( args, v ) => args.Row.TypeDefinitionIndex = v, row => row.TypeDefinitionIndex );
          yield return DefaultColumnSerializationInfoFactory.SystemString<RawExportedType, ExportedType>( nameof( RawExportedType.Name ), ( r, v ) => r.Name = v, ( args, v ) => args.Row.Name = v, row => row.Name );
          yield return DefaultColumnSerializationInfoFactory.SystemString<RawExportedType, ExportedType>( nameof( RawExportedType.Namespace ), ( r, v ) => r.Namespace = v, ( args, v ) => args.Row.Namespace = v, row => row.Namespace );
-         yield return DefaultColumnSerializationInfoFactory.CodedReference<RawExportedType, ExportedType>( nameof( RawExportedType.Implementation ), CodedTableIndexDecoder.Implementation, ( r, v ) => r.Implementation = v, ( args, v ) => args.Row.Implementation = v.GetValueOrDefault() );
+         yield return DefaultColumnSerializationInfoFactory.CodedReference<RawExportedType, ExportedType>( nameof( RawExportedType.Implementation ), CodedTableIndexDecoder.Implementation, ( r, v ) => r.Implementation = v, ( args, v ) => args.Row.Implementation = v.GetValueOrDefault(), row => row.Implementation );
       }
 
       protected IEnumerable<DefaultColumnSerializationInfo<RawManifestResource, ManifestResource>> GetManifestResourceColumns()
@@ -1038,37 +1014,40 @@ namespace CILAssemblyManipulator.Physical.IO
             }
          }, args =>
          {
-            throw new NotImplementedException();
+            var row = args.Row;
+            return row.Implementation.HasValue ?
+               row.Offset :
+               this.WriteEmbeddedManifestResoruce( args.RowArgs, row.DataInCurrentFile );
          } );
-         yield return DefaultColumnSerializationInfoFactory.Constant32<RawManifestResource, ManifestResource>( nameof( RawManifestResource.Attributes ), ( r, v ) => r.Attributes = (ManifestResourceAttributes) v, ( args, v ) => args.Row.Attributes = (ManifestResourceAttributes) v );
+         yield return DefaultColumnSerializationInfoFactory.Constant32<RawManifestResource, ManifestResource>( nameof( RawManifestResource.Attributes ), ( r, v ) => r.Attributes = (ManifestResourceAttributes) v, ( args, v ) => args.Row.Attributes = (ManifestResourceAttributes) v, row => (Int32) row.Attributes );
          yield return DefaultColumnSerializationInfoFactory.SystemString<RawManifestResource, ManifestResource>( nameof( RawManifestResource.Name ), ( r, v ) => r.Name = v, ( args, v ) => args.Row.Name = v, row => row.Name );
-         yield return DefaultColumnSerializationInfoFactory.CodedReference<RawManifestResource, ManifestResource>( nameof( RawManifestResource.Implementation ), CodedTableIndexDecoder.Implementation, ( r, v ) => r.Implementation = v, ( args, v ) => args.Row.Implementation = v );
+         yield return DefaultColumnSerializationInfoFactory.CodedReference<RawManifestResource, ManifestResource>( nameof( RawManifestResource.Implementation ), CodedTableIndexDecoder.Implementation, ( r, v ) => r.Implementation = v, ( args, v ) => args.Row.Implementation = v, row => row.Implementation );
       }
 
       protected IEnumerable<DefaultColumnSerializationInfo<RawNestedClassDefinition, NestedClassDefinition>> GetNestedClassColumns()
       {
-         yield return DefaultColumnSerializationInfoFactory.SimpleReference<RawNestedClassDefinition, NestedClassDefinition>( nameof( RawNestedClassDefinition.NestedClass ), Tables.TypeDef, ( r, v ) => r.NestedClass = v, ( args, v ) => args.Row.NestedClass = v );
-         yield return DefaultColumnSerializationInfoFactory.SimpleReference<RawNestedClassDefinition, NestedClassDefinition>( nameof( RawNestedClassDefinition.EnclosingClass ), Tables.TypeDef, ( r, v ) => r.EnclosingClass = v, ( args, v ) => args.Row.EnclosingClass = v );
+         yield return DefaultColumnSerializationInfoFactory.SimpleReference<RawNestedClassDefinition, NestedClassDefinition>( nameof( RawNestedClassDefinition.NestedClass ), Tables.TypeDef, ( r, v ) => r.NestedClass = v, ( args, v ) => args.Row.NestedClass = v, row => row.NestedClass );
+         yield return DefaultColumnSerializationInfoFactory.SimpleReference<RawNestedClassDefinition, NestedClassDefinition>( nameof( RawNestedClassDefinition.EnclosingClass ), Tables.TypeDef, ( r, v ) => r.EnclosingClass = v, ( args, v ) => args.Row.EnclosingClass = v, row => row.EnclosingClass );
       }
 
       protected IEnumerable<DefaultColumnSerializationInfo<RawGenericParameterDefinition, GenericParameterDefinition>> GetGenericParamColumns()
       {
-         yield return DefaultColumnSerializationInfoFactory.Constant16<RawGenericParameterDefinition, GenericParameterDefinition>( nameof( RawGenericParameterDefinition.GenericParameterIndex ), ( r, v ) => r.GenericParameterIndex = v, ( args, v ) => args.Row.GenericParameterIndex = v );
-         yield return DefaultColumnSerializationInfoFactory.Constant16<RawGenericParameterDefinition, GenericParameterDefinition>( nameof( RawGenericParameterDefinition.Attributes ), ( r, v ) => r.Attributes = (GenericParameterAttributes) v, ( args, v ) => args.Row.Attributes = (GenericParameterAttributes) v );
-         yield return DefaultColumnSerializationInfoFactory.CodedReference<RawGenericParameterDefinition, GenericParameterDefinition>( nameof( RawGenericParameterDefinition.Owner ), CodedTableIndexDecoder.TypeOrMethodDef, ( r, v ) => r.Owner = v, ( args, v ) => args.Row.Owner = v.GetValueOrDefault() );
+         yield return DefaultColumnSerializationInfoFactory.Constant16<RawGenericParameterDefinition, GenericParameterDefinition>( nameof( RawGenericParameterDefinition.GenericParameterIndex ), ( r, v ) => r.GenericParameterIndex = v, ( args, v ) => args.Row.GenericParameterIndex = v, row => row.GenericParameterIndex );
+         yield return DefaultColumnSerializationInfoFactory.Constant16<RawGenericParameterDefinition, GenericParameterDefinition>( nameof( RawGenericParameterDefinition.Attributes ), ( r, v ) => r.Attributes = (GenericParameterAttributes) v, ( args, v ) => args.Row.Attributes = (GenericParameterAttributes) v, row => (Int32) row.Attributes );
+         yield return DefaultColumnSerializationInfoFactory.CodedReference<RawGenericParameterDefinition, GenericParameterDefinition>( nameof( RawGenericParameterDefinition.Owner ), CodedTableIndexDecoder.TypeOrMethodDef, ( r, v ) => r.Owner = v, ( args, v ) => args.Row.Owner = v.GetValueOrDefault(), row => row.Owner );
          yield return DefaultColumnSerializationInfoFactory.SystemString<RawGenericParameterDefinition, GenericParameterDefinition>( nameof( RawGenericParameterDefinition.Name ), ( r, v ) => r.Name = v, ( args, v ) => args.Row.Name = v, row => row.Name );
       }
 
       protected IEnumerable<DefaultColumnSerializationInfo<RawMethodSpecification, MethodSpecification>> GetMethodSpecColumns()
       {
-         yield return DefaultColumnSerializationInfoFactory.CodedReference<RawMethodSpecification, MethodSpecification>( nameof( RawMethodSpecification.Method ), CodedTableIndexDecoder.MethodDefOrRef, ( r, v ) => r.Method = v, ( args, v ) => args.Row.Method = v.GetValueOrDefault() );
+         yield return DefaultColumnSerializationInfoFactory.CodedReference<RawMethodSpecification, MethodSpecification>( nameof( RawMethodSpecification.Method ), CodedTableIndexDecoder.MethodDefOrRef, ( r, v ) => r.Method = v, ( args, v ) => args.Row.Method = v.GetValueOrDefault(), row => row.Method );
          yield return DefaultColumnSerializationInfoFactory.BLOBNonTypeSignature<RawMethodSpecification, MethodSpecification, GenericMethodSignature>( nameof( RawMethodSpecification.Signature ), ( r, v ) => r.Signature = v, ( args, v ) => args.Row.Signature = v, row => row.Signature );
       }
 
       protected IEnumerable<DefaultColumnSerializationInfo<RawGenericParameterConstraintDefinition, GenericParameterConstraintDefinition>> GetGenericParamConstraintColumns()
       {
-         yield return DefaultColumnSerializationInfoFactory.SimpleReference<RawGenericParameterConstraintDefinition, GenericParameterConstraintDefinition>( nameof( RawGenericParameterConstraintDefinition.Owner ), Tables.GenericParameter, ( r, v ) => r.Owner = v, ( args, v ) => args.Row.Owner = v );
-         yield return DefaultColumnSerializationInfoFactory.CodedReference<RawGenericParameterConstraintDefinition, GenericParameterConstraintDefinition>( nameof( RawGenericParameterConstraintDefinition.Constraint ), CodedTableIndexDecoder.TypeDefOrRef, ( r, v ) => r.Constraint = v, ( args, v ) => args.Row.Constraint = v.GetValueOrDefault() );
+         yield return DefaultColumnSerializationInfoFactory.SimpleReference<RawGenericParameterConstraintDefinition, GenericParameterConstraintDefinition>( nameof( RawGenericParameterConstraintDefinition.Owner ), Tables.GenericParameter, ( r, v ) => r.Owner = v, ( args, v ) => args.Row.Owner = v, row => row.Owner );
+         yield return DefaultColumnSerializationInfoFactory.CodedReference<RawGenericParameterConstraintDefinition, GenericParameterConstraintDefinition>( nameof( RawGenericParameterConstraintDefinition.Constraint ), CodedTableIndexDecoder.TypeDefOrRef, ( r, v ) => r.Constraint = v, ( args, v ) => args.Row.Constraint = v.GetValueOrDefault(), row => row.Constraint );
       }
 
       protected virtual TableSerializationInfo CreateTableInfo<TRawRow, TRow>( Tables table )
@@ -1117,6 +1096,15 @@ namespace CILAssemblyManipulator.Physical.IO
          }
       }
 
+
+      public Int32 HeapValueColumnCount
+      {
+         get
+         {
+            return this._columns.Count( c => c.HeapValueExtractor != null );
+         }
+      }
+
       public void ProcessRowForRawValues( RawValueProcessingArgs args, Int32 rowIndex, Object row, IEnumerable<Int32> rawValues )
       {
          var cArgs = new ColumnSettingArguments<TRow, RawValueProcessingArgs>( this.Table, rowIndex, (TRow) row, args );
@@ -1152,24 +1140,40 @@ namespace CILAssemblyManipulator.Physical.IO
          CILMetaData md,
          RawValueStorage storage,
          StreamHelper stream,
-         ResizableArray<Byte> array
+         ResizableArray<Byte> array,
+         WriterMetaDataStreamContainer mdStreamContainer,
+         RVAConverter rvaConverter
          )
       {
-         var table = (MetaDataTable<TRow>) md.GetByTable( this.Table );
-         var cols = this._columns
-            .Select( c => c.RawValueExtractor )
-            .Where( e => e != null )
-            .ToArray();
-         if ( cols.Length > 0 )
+         MetaDataTable tbl;
+         if ( md.TryGetByTable( this.Table, out tbl ) )
          {
-            var list = table.TableContents;
-            var rArgs = new RowRawValueExtractionArguments( stream, array );
-            for ( var i = 0; i < list.Count; ++i )
+            var table = (MetaDataTable<TRow>) tbl;
+            var cols = this._columns
+               .Select( c => c.RawValueExtractor )
+               .Where( e => e != null )
+               .ToArray();
+            if ( cols.Length > 0 )
             {
-               var cArgs = new ColumnSettingArguments<TRow, RowRawValueExtractionArguments>( this.Table, i, list[i], rArgs );
-               foreach ( var col in cols )
+               var list = table.TableContents;
+               var rArgs = new RowRawValueExtractionArguments( stream, array, mdStreamContainer, rvaConverter, md );
+               for ( var i = 0; i < list.Count; ++i )
                {
-                  storage.AddRawValue( col( cArgs ) );
+                  var cArgs = new ColumnSettingArguments<TRow, RowRawValueExtractionArguments>( this.Table, i, list[i], rArgs );
+                  foreach ( var col in cols )
+                  {
+                     Int32 rawValue;
+                     try
+                     {
+                        rawValue = col( cArgs );
+                     }
+                     catch
+                     {
+                        // TODO error reporting
+                        rawValue = 0;
+                     }
+                     storage.AddRawValue( rawValue );
+                  }
                }
             }
          }
@@ -1179,40 +1183,87 @@ namespace CILAssemblyManipulator.Physical.IO
          CILMetaData md,
          RawValueStorage storage,
          WriterMetaDataStreamContainer mdStreamContainer,
-         ResizableArray<Byte> array
+         ResizableArray<Byte> array,
+         ArrayQuery<Byte> thisAssemblyPublicKeyIfPresentNull
          )
       {
-         var table = (MetaDataTable<TRow>) md.GetByTable( this.Table );
-         var cols = this._columns
-            .Select( c => c.HeapValueExtractor )
-            .Where( e => e != null )
-            .ToArray();
-         if ( cols.Length > 0 )
+         MetaDataTable tbl;
+         if ( md.TryGetByTable( this.Table, out tbl ) )
          {
-            var list = table.TableContents;
-            var rArgs = new RowHeapFillingArguments( mdStreamContainer, array, md );
-            for ( var i = 0; i < list.Count; ++i )
+            var table = (MetaDataTable<TRow>) tbl;
+            var cols = this._columns
+               .Select( c => c.HeapValueExtractor )
+               .Where( e => e != null )
+               .ToArray();
+            if ( cols.Length > 0 )
             {
-               var cArgs = new ColumnSettingArguments<TRow, RowHeapFillingArguments>( this.Table, i, list[i], rArgs );
-               foreach ( var col in cols )
+               var list = table.TableContents;
+               var rArgs = new RowHeapFillingArguments( mdStreamContainer, array, thisAssemblyPublicKeyIfPresentNull, md );
+               for ( var i = 0; i < list.Count; ++i )
                {
-                  storage.AddRawValue( col( cArgs ) );
+                  var cArgs = new ColumnSettingArguments<TRow, RowHeapFillingArguments>( this.Table, i, list[i], rArgs );
+                  foreach ( var col in cols )
+                  {
+                     Int32 rawValue;
+                     try
+                     {
+                        rawValue = col( cArgs );
+                     }
+                     catch
+                     {
+                        // TODO error reporting
+                        rawValue = 0;
+                     }
+                     storage.AddRawValue( rawValue );
+                  }
                }
             }
          }
       }
 
-      public TableSerializationFunctionality CreateSupport(
-         ArrayQuery<Int32> tableSizes,
-         Boolean wideBLOBs,
-         Boolean wideGUIDs,
-         Boolean wideStrings
+      public IEnumerable<Int32> GetAllRawValues(
+         MetaDataTable table,
+         RawValueStorage previousRawValues,
+         RawValueStorage heapIndices
          )
+      {
+         var list = ( (MetaDataTable<TRow>) table ).TableContents;
+         if ( list.Count > 0 )
+         {
+            var cols = this._columns;
+            for ( var rowIdx = 0; rowIdx < list.Count; ++rowIdx )
+            {
+               var row = list[rowIdx];
+               for ( var colIdx = 0; colIdx < cols.Length; ++colIdx )
+               {
+                  var col = cols[colIdx];
+                  if ( col.ConstantExtractor != null )
+                  {
+                     yield return col.ConstantExtractor( row );
+                  }
+                  else if ( col.HeapValueExtractor != null )
+                  {
+                     yield return heapIndices.GetRawValue( this.Table, rowIdx, colIdx );
+                  }
+                  else if ( col.RawValueProcessor != null )
+                  {
+                     yield return previousRawValues.GetRawValue( this.Table, rowIdx, colIdx );
+                  }
+                  else
+                  {
+                     yield return 0;
+                  }
+               }
+            }
+         }
+      }
+
+      public TableSerializationFunctionality CreateSupport( ColumnSerializationSupportCreationArgs supportArgs )
       {
          return new DefaultTableSerializationFunctionality<TRawRow, TRow>(
             this,
             this._columns,
-            new ColumnSerializationSupportCreationArgs( tableSizes, wideBLOBs, wideGUIDs, wideStrings )
+            supportArgs
             );
       }
    }
@@ -1312,9 +1363,9 @@ namespace CILAssemblyManipulator.Physical.IO
          return stream.ReadByteFromBytes();
       }
 
-      public void WriteValue( StreamHelper stream, Int32 value )
+      public void WriteValue( Byte[] bytes, Int32 idx, Int32 value )
       {
-         stream.WriteByteToBytes( (Byte) value );
+         bytes.WriteByteToBytes( ref idx, (Byte) value );
       }
    }
    public sealed class ColumnSerializationSupport_Constant16 : ColumnSerializationFunctionality
@@ -1332,9 +1383,9 @@ namespace CILAssemblyManipulator.Physical.IO
          return stream.ReadInt16LEFromBytes();
       }
 
-      public void WriteValue( StreamHelper stream, Int32 value )
+      public void WriteValue( Byte[] bytes, Int32 idx, Int32 value )
       {
-         stream.WriteUInt16LEToBytes( (UInt16) value );
+         bytes.WriteUInt16LEToBytes( ref idx, (UInt16) value );
       }
    }
 
@@ -1353,9 +1404,9 @@ namespace CILAssemblyManipulator.Physical.IO
          return stream.ReadInt32LEFromBytes();
       }
 
-      public void WriteValue( StreamHelper stream, Int32 value )
+      public void WriteValue( Byte[] bytes, Int32 idx, Int32 value )
       {
-         stream.WriteInt32LEToBytes( value );
+         bytes.WriteInt32LEToBytes( ref idx, value );
       }
    }
 

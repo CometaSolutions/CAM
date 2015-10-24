@@ -24,16 +24,22 @@ namespace CILAssemblyManipulator.Physical.IO
 {
    public class WritingOptions
    {
-
+      public WritingOptions_TableStream TableStreamOptions { get; }
    }
 
    public class WritingOptions_TableStream
    {
-      Byte HeaderMajorVersion { get; set; }
+      public WritingOptions_TableStream()
+      {
+         this.HeaderMajorVersion = 2;
+         this.HeaderMinorVersion = 0;
+      }
 
-      Byte HeaderMinorVersion { get; set; }
+      public Byte HeaderMajorVersion { get; set; }
 
-      Int32 HeaderExtraData { get; set; }
+      public Byte HeaderMinorVersion { get; set; }
+
+      public Int32? HeaderExtraData { get; set; }
    }
 
    public class WritingData
