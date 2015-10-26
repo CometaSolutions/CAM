@@ -53,7 +53,6 @@ namespace CILAssemblyManipulator.Physical.IO
 
    public class DefaultReaderFunctionality : ReaderFunctionality
    {
-      protected const Int32 CLI_DATADIR_INDEX = 14;
 
       public DefaultReaderFunctionality(
          MetaDataSerializationSupportProvider mdSerialization = null
@@ -79,11 +78,13 @@ namespace CILAssemblyManipulator.Physical.IO
 
          var dataDirs = peInfo.NTHeader.OptionalHeader.DataDirectories;
 
-         if ( CLI_DATADIR_INDEX < dataDirs.Count )
+         var cliDataDirIndex = (Int32) DataDirectories.CLIHeader;
+
+         if ( cliDataDirIndex < dataDirs.Count )
          {
             // Read CLI header
             cliHeader = stream
-               .GoToRVA( rvaConverter, dataDirs[CLI_DATADIR_INDEX].RVA )
+               .GoToRVA( rvaConverter, dataDirs[cliDataDirIndex].RVA )
                .NewCLIHeaderFromStream();
 
             // Read MD root
@@ -133,16 +134,9 @@ namespace CILAssemblyManipulator.Physical.IO
       {
          var args = this.CreateRawValueProcessingArgs( stream, imageInfo, rvaConverter, mdStreamContainer, md ) ?? CreateDefaultRawValueProcessingArgs( stream, imageInfo, rvaConverter, mdStreamContainer, md );
          var tableSerializations = this.TableSerializations;
-         for ( var i = 0; i < tableSerializations.Count; ++i )
+         foreach ( var tableSerialization in this.TableSerializations )
          {
-            var table = md.GetByTable( (Tables) i );
-            var tableSerialization = tableSerializations[i];
-            var curIdx = 0;
-            foreach ( var row in table.TableContentsAsEnumerable )
-            {
-               tableSerialization.ProcessRowForRawValues( args, curIdx, row, rawValues.GetAllRawValuesForRow( (Tables) i, curIdx ) );
-               ++curIdx;
-            }
+            tableSerialization.ProcessRowForRawValues( args, rawValues );
          }
       }
 

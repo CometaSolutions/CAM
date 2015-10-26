@@ -677,6 +677,95 @@ namespace CILAssemblyManipulator.Physical.IO
       Memory_Write = unchecked((Int32) 0x80000000),
    }
 
+   /// <summary>
+   /// This enumerable contains values for possible target platforms when emitting <see cref="CILMetaData"/>.
+   /// </summary>
+   /// <remarks>This enumeration has same values as <c>System.Reflection.ImageFileMachine</c> enumeration, and more. It will end up as 'Machine' field in <see cref="IO.FileHeader"/>.</remarks>
+   public enum ImageFileMachine : short
+   {
+      Unknown = 0,
+      /// <summary>
+      /// Targets Intel 32-bit processor.
+      /// </summary>
+      I386 = 0x014C,
+      R3000 = 0x0162,
+      R4000 = 0x0166,
+      R10000 = 0x0168,
+      WCE_MIPS_v2 = 0x0169,
+      AlphaAXP = 0x0184,
+      SH3 = 0x01A2,
+      SH3DSP = 0x01A3,
+      SH3E = 0x01A4,
+      SH4 = 0x01A6,
+      SH5 = 0x01A8,
+      ARM = 0x01C0,
+      ARMThumb = 0x01C2,
+      /// <summary>
+      /// Targets ARM processor.
+      /// </summary>
+      ARMv7 = 0x01C4,
+      ARM_AM33 = 0x01D3,
+      PowerPC = 0x01F0,
+      PowerPC_FP = 0x01F1,
+      /// <summary>
+      /// Targets Intel 64-bit processor.
+      /// </summary>
+      IA64 = 0x0200,
+      MIPS_16 = 0x0266,
+      ALPHA64 = 0x0284,
+      MIPS_FPU = 0x0366,
+      MIPS_FPU_16 = 0x0466,
+      Infineon_Tricore = 0x0520,
+      Infineon_CEF = 0x0CEF,
+      EBC = 0x0EBC,
+      /// <summary>
+      /// Targets AMD 64-bit processor.
+      /// </summary>
+      AMD64 = unchecked((Int16) 0x8664),
+      M32R = unchecked((Int16) 0x9041),
+      ARM_64 = unchecked((Int16) 0xAA64),
+      CEE = unchecked((Int16) 0xC0EE),
+
+   }
+
+   public enum Subsystem : short
+   {
+      Native = 0x0001,
+      WindowsGUI = 0x0002,
+      WindowsConsole = 0x0003,
+      OS2Console = 0x0005,
+      PosixConsole = 0x0007,
+      NativeWin9XDriver = 0x0008,
+      WinCE = 0x0009,
+      EFIApplication = 0x000A,
+      EFIBootDriver = 0x000B,
+      EFIRuntimeDriver = 0x000C,
+      EFIROM = 0x000D,
+      XBox = 0x000E,
+      WindowsBootApplication = 0x0010
+   }
+
+   [Flags]
+   public enum DLLFlags : short
+   {
+      Reserved1 = 0x0001,
+      Reserved2 = 0x0002,
+      Reserved3 = 0x0004,
+      Reserved4 = 0x0008,
+      Reserved5 = 0x0010,
+      HighEntropyVA = 0x0020,
+      DynamicBase = 0x0040,
+      ForceIntegroty = 0x0080,
+      NXCompatible = 0x0100,
+      NoIsolation = 0x0200,
+      NoSEH = 0x0400,
+      NoBind = 0x0800,
+      AppContainer = 0x1000,
+      WdmDriver = 0x2000,
+      GuardControlFlow = 0x4000,
+      TerminalServerAware = unchecked((Int16) 0x8000),
+   }
+
    #endregion
 
    #region CIL-related
@@ -950,6 +1039,72 @@ namespace CILAssemblyManipulator.Physical.IO
       public Int32? ExtraData { get; }
    }
 
+   [Flags]
+   public enum TableStreamFlags : byte
+   {
+      WideStrings = 0x01,
+      WideGUID = 0x02,
+      WideBLOB = 0x04,
+      Padding = 0x08,
+      DeltaOnly = 0x20,
+      ExtraData = 0x40,
+      HasDelete = 0x80,
+   }
+
+   /// <summary>
+   /// This enumeration contains values for what kind of code is contained within the module when emitting <see cref="CILMetaData"/>.
+   /// </summary>
+   /// <remarks>
+   /// This enumeration partly overlaps <c>System.ReflectionPortableExecutableKinds</c> in its purpose.
+   /// The value will end up as 'Flags' field in CLI header.
+   /// </remarks>
+   [Flags]
+   public enum ModuleFlags : int
+   {
+      /// <summary>
+      /// The module contains IL code only.
+      /// </summary>
+      ILOnly = 0x00000001,
+      /// <summary>
+      /// The module will load into 32-bit process only (the 64-bit processes won't be able to load it).
+      /// </summary>
+      Required32Bit = 0x00000002,
+      /// <summary>
+      /// Obsolete flag.
+      /// </summary>
+      [Obsolete( "This flag should no longer be used." )]
+      ILLibrary = 0x00000004,
+      /// <summary>
+      /// This module is signed with the strong name.
+      /// </summary>
+      StrongNameSigned = 0x00000008,
+      /// <summary>
+      /// This module's entry point is an unmanaged method.
+      /// </summary>
+      NativeEntrypoint = 0x00000010,
+      /// <summary>
+      /// Some flag related to debugging modules in WinDbg, maybe?
+      /// </summary>
+      TrackDebugData = 0x00010000,
+      /// <summary>
+      /// If this module is not a class library, the process it starts will run as 32-bit process even in 64-bit OS.
+      /// </summary>
+      /// <remarks>
+      /// <para>
+      /// Taken from <see href="http://stackoverflow.com/questions/12066638/what-is-the-purpose-of-the-prefer-32-bit-setting-in-visual-studio-2012-and-how"/>, Lex Li's answer:
+      /// <list type="bullet">
+      /// <item><description>If the process runs on a 32-bit Windows system, it runs as a 32-bit process. IL is compiled to x86 machine code.</description></item>
+      /// <item><description>If the process runs on a 64-bit Windows system, it runs as a 32-bit process. IL is compiled to x86 machine code.</description></item>
+      /// <item><description>If the process runs on an ARM Windows system, it runs as a 32-bit process. IL is compiled to ARM machine code.</description></item>
+      /// </list>
+      /// </para>
+      /// <para>
+      /// Please note that if this flag is specified when emitting a <see cref="CILMetaData"/>, the flag <see cref="Required32Bit"/> should be set as well.
+      /// </para>
+      /// </remarks>
+      Preferred32Bit = 0x00020000
+   }
+
    #endregion
 }
 
@@ -1127,6 +1282,39 @@ public static partial class E_CILPhysical
          );
    }
 
+   /// <summary>
+   /// Checks whether this target platform requires PE64 header.
+   /// </summary>
+   /// <param name="machine">The <see cref="ImageFileMachine"/>.</param>
+   /// <returns><c>true</c> if <paramref name="machine"/> represents a target platform requiring PE64 header; <c>false</c> otherwise.</returns>
+   public static Boolean RequiresPE64( this ImageFileMachine machine )
+   {
+      switch ( machine )
+      {
+         case ImageFileMachine.AMD64:
+         case ImageFileMachine.IA64:
+         case ImageFileMachine.ARM_64:
+            return true;
+         default:
+            return false;
+      }
+   }
+
+   public static FileHeaderCharacteristics GetDefaultCharacteristics( this ImageFileMachine machine )
+   {
+      return FileHeaderCharacteristics.ExecutableImage | ( machine.RequiresPE64() ? FileHeaderCharacteristics.ExecutableImage : FileHeaderCharacteristics.Machine32Bit );
+   }
+
+   /// <summary>
+   /// Checks whether emitted module requires relocation section.
+   /// </summary>
+   /// <param name="machine">The <see cref="ImageFileMachine"/>.</param>
+   /// <returns><c>true</c> if <paramref name="machine"/> represents a target platform which requires relocation section in emitted file; <c>false</c> otherwise.</returns>
+   public static Boolean RequiresRelocations( this ImageFileMachine machine )
+   {
+      return ImageFileMachine.I386 == machine;
+   }
+
    #endregion
 
    #region CIL-related
@@ -1242,6 +1430,52 @@ public static partial class E_CILPhysical
 
       return CollectionsWithRoles.Implementation.CollectionsFactorySingleton.DEFAULT_COLLECTIONS_FACTORY.NewArrayProxy( bytez ).CQ;
 
+   }
+
+
+   /// <summary>
+   /// Checks whether given <see cref="ModuleFlags"/> has its <see cref="ModuleFlags.ILOnly"/> flag set.
+   /// </summary>
+   /// <param name="mFlags">The <see cref="ModuleFlags"/>.</param>
+   /// <returns><c>true</c> if <paramref name="mFlags"/> has <see cref="ModuleFlags.ILOnly"/> flag set; <c>false</c> otherwise.</returns>
+   public static Boolean IsILOnly( this ModuleFlags mFlags )
+   {
+      return ( mFlags & ModuleFlags.ILOnly ) != 0;
+   }
+
+   public static Boolean IsWideStrings( this TableStreamFlags flags )
+   {
+      return ( flags & TableStreamFlags.WideStrings ) != 0;
+   }
+
+   public static Boolean IsWideGUID( this TableStreamFlags flags )
+   {
+      return ( flags & TableStreamFlags.WideGUID ) != 0;
+   }
+
+   public static Boolean IsWideBLOB( this TableStreamFlags flags )
+   {
+      return ( flags & TableStreamFlags.WideBLOB ) != 0;
+   }
+
+   public static Boolean HasPadding( this TableStreamFlags flags )
+   {
+      return ( flags & TableStreamFlags.Padding ) != 0;
+   }
+
+   public static Boolean IsDeltaOnly( this TableStreamFlags flags )
+   {
+      return ( flags & TableStreamFlags.DeltaOnly ) != 0;
+   }
+
+   public static Boolean HasExtraData( this TableStreamFlags flags )
+   {
+      return ( flags & TableStreamFlags.ExtraData ) != 0;
+   }
+
+   public static Boolean HasDelete( this TableStreamFlags flags )
+   {
+      return ( flags & TableStreamFlags.HasDelete ) != 0;
    }
 
    #endregion

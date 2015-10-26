@@ -29,17 +29,58 @@ namespace CILAssemblyManipulator.Physical.IO
 
    public class WritingOptions_TableStream
    {
-      public WritingOptions_TableStream()
-      {
-         this.HeaderMajorVersion = 2;
-         this.HeaderMinorVersion = 0;
-      }
+      public Byte? HeaderMajorVersion { get; set; }
 
-      public Byte HeaderMajorVersion { get; set; }
-
-      public Byte HeaderMinorVersion { get; set; }
+      public Byte? HeaderMinorVersion { get; set; }
 
       public Int32? HeaderExtraData { get; set; }
+   }
+
+   public class WritingOptions_PE
+   {
+      public ImageFileMachine? Machine { get; set; }
+
+      public FileHeaderCharacteristics? Characteristics { get; set; }
+
+      public Byte? MajorLinkerVersion { get; set; }
+
+      public Byte? MinorLinkerVersion { get; set; }
+
+      public Int64? ImageBase { get; set; }
+
+      public Int32? SectionAlignment { get; set; }
+
+      public Int32? FileAlignment { get; set; }
+
+      public Int16? MajorOSVersion { get; set; }
+
+      public Int16? MinorOSVersion { get; set; }
+
+      public Int16? MajorUserVersion { get; set; }
+
+      public Int16? MinorUserVersion { get; set; }
+
+      public Int16? MajorSubsystemVersion { get; set; }
+
+      public Int16? MinorSubsystemVersion { get; set; }
+
+      public Int32? Win32VersionValue { get; set; }
+
+      public Subsystem? Subsystem { get; set; }
+
+      public DLLFlags? DLLCharacteristics { get; set; }
+
+      public Int64? StackReserveSize { get; set; }
+
+      public Int64? StackCommitSize { get; set; }
+
+      public Int64? HeapReserverSize { get; set; }
+
+      public Int64? HeapCommitSize { get; set; }
+
+      public Int32? LoaderFlags { get; set; }
+
+      public Int32? NumberOfDataDirectories { get; set; }
    }
 
    public class WritingData

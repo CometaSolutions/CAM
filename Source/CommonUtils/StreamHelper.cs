@@ -397,7 +397,7 @@ public static partial class E_CommonUtils
    {
       var stream = helper.Stream;
       var oldPos = stream.Position;
-      var newPos = BinaryUtils.RoundUpI64( oldPos, alignment );
+      var newPos = oldPos.RoundUpI64( alignment );
       if ( newPos > oldPos )
       {
          stream.SeekFromCurrent( newPos - oldPos );

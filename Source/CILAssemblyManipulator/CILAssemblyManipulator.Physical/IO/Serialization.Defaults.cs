@@ -26,6 +26,11 @@ using System.Text;
 
 namespace CILAssemblyManipulator.Physical.IO
 {
+   public interface ColumnSerializationInfo
+   {
+      String ColumnName { get; }
+   }
+
    public class DefaultColumnSerializationInfo<TRawRow, TRow> : ColumnSerializationInfo
       where TRawRow : class
       where TRow : class
@@ -1079,14 +1084,9 @@ namespace CILAssemblyManipulator.Physical.IO
 
          this.Table = table;
          this._columns = columns.ToArray();
-         this.ColumnSerializationInfos = CollectionsFactorySingleton.DEFAULT_COLLECTIONS_FACTORY.NewArrayProxy(
-            this._columns.Cast<ColumnSerializationInfo>().ToArray()
-            ).CQ;
       }
 
       public Tables Table { get; }
-
-      public ArrayQuery<ColumnSerializationInfo> ColumnSerializationInfos { get; }
 
       public Int32 RawValueStorageColumnCount
       {
@@ -1105,32 +1105,41 @@ namespace CILAssemblyManipulator.Physical.IO
          }
       }
 
-      public void ProcessRowForRawValues( RawValueProcessingArgs args, Int32 rowIndex, Object row, IEnumerable<Int32> rawValues )
+      public void ProcessRowForRawValues(
+         RawValueProcessingArgs args,
+         RawValueStorage storage
+         )
       {
-         var cArgs = new ColumnSettingArguments<TRow, RawValueProcessingArgs>( this.Table, rowIndex, (TRow) row, args );
-         var colIdx = 0;
-         foreach ( var value in rawValues )
+         var md = args.MetaData;
+         var tblEnum = this.Table;
+         MetaDataTable tbl;
+         if ( md.TryGetByTable( tblEnum, out tbl ) )
          {
-            var colInfo = this._columns[colIdx];
-            while ( colInfo.RawValueProcessor == null && colIdx < this._columns.Length - 1 )
+            var table = (MetaDataTable<TRow>) tbl;
+            var cols = this._columns
+               .Select( c => c.RawValueProcessor )
+               .Where( p => p != null )
+               .ToArray();
+            if ( cols.Length > 0 )
             {
-               colInfo = this._columns[++colIdx];
-            }
-
-            if ( colInfo.RawValueProcessor == null )
-            {
-               break;
-            }
-            else
-            {
-               try
+               var list = table.TableContents;
+               for ( var i = 0; i < list.Count; ++i )
                {
-                  colInfo.RawValueProcessor( cArgs, value );
-               }
-               catch
-               {
-                  // Ignore...
-                  // TODO error reporting mechanism
+                  var cArgs = new ColumnSettingArguments<TRow, RawValueProcessingArgs>( tblEnum, i, list[i], args );
+                  var cur = 0;
+                  foreach ( var rawValue in storage.GetAllRawValuesForRow( tblEnum, i ) )
+                  {
+                     try
+                     {
+                        cols[cur]( cArgs, rawValue );
+                     }
+                     catch
+                     {
+                        // Ignore...
+                        // TODO error reporting mechanism
+                     }
+                     ++cur;
+                  }
                }
             }
          }
@@ -1141,8 +1150,7 @@ namespace CILAssemblyManipulator.Physical.IO
          RawValueStorage storage,
          StreamHelper stream,
          ResizableArray<Byte> array,
-         WriterMetaDataStreamContainer mdStreamContainer,
-         RVAConverter rvaConverter
+         WriterMetaDataStreamContainer mdStreamContainer
          )
       {
          MetaDataTable tbl;
@@ -1156,23 +1164,26 @@ namespace CILAssemblyManipulator.Physical.IO
             if ( cols.Length > 0 )
             {
                var list = table.TableContents;
-               var rArgs = new RowRawValueExtractionArguments( stream, array, mdStreamContainer, rvaConverter, md );
+               var s = stream.Stream;
+               var rArgs = new RowRawValueExtractionArguments( array, mdStreamContainer, md, () => s.Position );
                for ( var i = 0; i < list.Count; ++i )
                {
                   var cArgs = new ColumnSettingArguments<TRow, RowRawValueExtractionArguments>( this.Table, i, list[i], rArgs );
                   foreach ( var col in cols )
                   {
-                     Int32 rawValue;
+                     var offset = s.Position;
+                     Int32 len;
                      try
                      {
-                        rawValue = col( cArgs );
+                        len = col( cArgs );
                      }
                      catch
                      {
                         // TODO error reporting
-                        rawValue = 0;
+                        len = 0;
                      }
-                     storage.AddRawValue( rawValue );
+                     s.Write( array.Array, len );
+                     storage.AddRawValue( offset );
                   }
                }
             }

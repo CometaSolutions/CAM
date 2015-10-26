@@ -31,15 +31,14 @@ namespace CILAssemblyManipulator.Physical.IO
       WriterFunctionality GetFunctionality(
          CILMetaData md,
          WritingOptions options,
-         out CILMetaData newMD
+         out CILMetaData newMD,
+         out Stream newStream
          );
    }
 
    public interface WriterFunctionality
    {
-      IEnumerable<AbstractWriterStreamHandler> CreateStreamHandlers(
-         RawValueStorage rawValuesBeforeMDStreams
-         );
+      IEnumerable<AbstractWriterStreamHandler> CreateStreamHandlers();
 
       RawValueStorage CreateRawValuesBeforeMDStreams(
          Stream stream,
@@ -88,7 +87,8 @@ namespace CILAssemblyManipulator.Physical.IO
 
       void WriteStream(
          Stream sink,
-         ResizableArray<Byte> array
+         ResizableArray<Byte> array,
+         RawValueStorage rawValuesBeforeStreams
          );
 
       /// <summary>
@@ -102,6 +102,7 @@ namespace CILAssemblyManipulator.Physical.IO
    public interface WriterTableStreamHandler : AbstractWriterStreamHandler
    {
       RawValueStorage FillHeaps(
+         RawValueStorage rawValuesBeforeStreams,
          ArrayQuery<Byte> thisAssemblyPublicKeyIfPresentNull,
          WriterMetaDataStreamContainer mdStreams,
          ResizableArray<Byte> array
@@ -125,6 +126,11 @@ namespace CILAssemblyManipulator.Physical.IO
 
    public interface WriterCustomStreamHandler : AbstractWriterStreamHandler
    {
+   }
+
+   public class WritingStatus
+   {
+
    }
 }
 

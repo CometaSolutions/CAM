@@ -43,27 +43,44 @@ namespace CILAssemblyManipulator.Physical.IO
 
    public class DefaultWriterFunctionality : WriterFunctionality
    {
+
+
       private readonly WritingOptions _headers;
 
       public DefaultWriterFunctionality(
          CILMetaData md,
-         WritingOptions headers
+         WritingOptions headers,
+         MetaDataSerializationSupportProvider mdSerialization
          )
       {
          this.MetaData = md;
-         this._headers = headers;
+         this._headers = headers ?? new WritingOptions();
+         this.MDSerialization = mdSerialization ?? DefaultMetaDataSerializationSupportProvider.Instance;
+         this.TableSerializations = this.MDSerialization.CreateTableSerializationInfos().ToArrayProxy().CQ;
       }
 
       public virtual IEnumerable<AbstractWriterStreamHandler> CreateStreamHandlers()
       {
-         yield return new DefaultWriterTableStreamHandler( this.MetaData, this._headers );
+         yield return new DefaultWriterTableStreamHandler( this.MetaData, this._headers.TableStreamOptions, this.TableSerializations );
          yield return new DefaultWriterSystemStringStreamHandler();
          yield return new DefaultWriterBLOBStreamHandler();
          yield return new DefaultWriterGuidStreamHandler();
          yield return new DefaultWriterUserStringStreamHandler();
       }
 
+      public virtual RawValueStorage CreateRawValuesBeforeMDStreams(
+         Stream stream,
+         ResizableArray<Byte> array,
+         WriterMetaDataStreamContainer mdStreams
+         )
+      {
+      }
+
       protected CILMetaData MetaData { get; }
+
+      protected MetaDataSerializationSupportProvider MDSerialization { get; }
+
+      protected ArrayQuery<TableSerializationInfo> TableSerializations { get; }
    }
    public partial class DefaultMetaDataSerializationSupportProvider
    {
@@ -79,19 +96,7 @@ namespace CILAssemblyManipulator.Physical.IO
          MethodILDefinition il
          )
       {
-         Boolean isTinyHeader;
-         var array = args.Array;
-         var len = this.WriteMethodILToArray( array, args.MDStreamContainer.UserStrings, args.MetaData, il, out isTinyHeader );
-
-         var stream = args.Stream;
-         if ( !isTinyHeader )
-         {
-            stream.SkipToNextAlignmentInt32();
-         }
-         var s = stream.Stream;
-         var offset = s.Position;
-         s.Write( array.Array, len );
-         return (Int32) args.RVAConverter.ToRVA( offset );
+         return this.WriteMethodILToArray( args.Array, args.MDStreamContainer.UserStrings, args.MetaData, il, args.CurrentStreamPosition );
       }
 
       protected virtual Int32 WriteMethodILToArray(
@@ -99,21 +104,28 @@ namespace CILAssemblyManipulator.Physical.IO
          WriterStringStreamHandler userStrings,
          CILMetaData md,
          MethodILDefinition il,
-         out Boolean isTinyHeader
+         Int64 currentStreamPosition
          )
       {
          var lIdx = il.LocalsSignatureIndex;
          var locals = lIdx.HasValue && lIdx.Value.Table == Tables.StandaloneSignature ?
             md.StandaloneSignatures.TableContents[lIdx.Value.Index].Signature as LocalVariablesSignature :
             null;
-         Boolean exceptionSectionsAreLarge; Int32 wholeMethodByteCount;
-         var ilCodeByteCount = CalculateByteSizeForMethod( il, locals, out isTinyHeader, out exceptionSectionsAreLarge, out wholeMethodByteCount );
+         Boolean isTinyHeader; Boolean exceptionSectionsAreLarge; Int32 wholeMethodByteCount; Int32 idx;
+         var ilCodeByteCount = CalculateByteSizeForMethod(
+            il,
+            locals,
+            currentStreamPosition,
+            out isTinyHeader,
+            out exceptionSectionsAreLarge,
+            out wholeMethodByteCount,
+            out idx
+            );
          var exceptionBlocks = il.ExceptionBlocks;
          var hasAnyExceptions = exceptionBlocks.Count > 0;
 
          sink.CurrentMaxCapacity = wholeMethodByteCount;
          var array = sink.Array;
-         var idx = 0;
 
          // Header
          if ( isTinyHeader )
@@ -305,9 +317,11 @@ namespace CILAssemblyManipulator.Physical.IO
       protected static Int32 CalculateByteSizeForMethod(
          MethodILDefinition methodIL,
          LocalVariablesSignature localSig,
+         Int64 currentStreamPosition,
          out Boolean isTinyHeader,
          out Boolean exceptionSectionsAreLarge,
-         out Int32 wholeMethodByteCount
+         out Int32 wholeMethodByteCount,
+         out Int32 startIndex
          )
       {
          // Start by calculating the size of just IL code
@@ -361,6 +375,17 @@ namespace CILAssemblyManipulator.Physical.IO
 
          wholeMethodByteCount = arraySize;
 
+         if ( !isTinyHeader )
+         {
+            // Non-tiny headers must start at 4-byte boundary
+            startIndex = (Int32) ( currentStreamPosition.RoundUpI64( 4 ) - currentStreamPosition );
+            wholeMethodByteCount += startIndex;
+         }
+         else
+         {
+            startIndex = 0;
+         }
+
          return ilCodeByteCount;
       }
 
@@ -369,14 +394,7 @@ namespace CILAssemblyManipulator.Physical.IO
          Byte[] data
          )
       {
-         var array = args.Array;
-         var len = this.WriteConstantToArray( array, data );
-
-         var stream = args.Stream;
-         var s = stream.Stream;
-         var offset = s.Position;
-         s.Write( array.Array, len );
-         return (Int32) args.RVAConverter.ToRVA( offset );
+         return this.WriteConstantToArray( args.Array, data );
       }
 
       protected virtual Int32 WriteConstantToArray(
@@ -394,14 +412,7 @@ namespace CILAssemblyManipulator.Physical.IO
          Byte[] data
          )
       {
-         var array = args.Array;
-         var len = this.WriteEmbeddedManifestResourceToArray( array, data );
-
-         var stream = args.Stream;
-         var s = stream.Stream;
-         var offset = s.Position;
-         s.Write( array.Array, len );
-         return (Int32) args.RVAConverter.ToRVA( offset );
+         return this.WriteEmbeddedManifestResourceToArray( args.Array, data );
       }
 
       public virtual Int32 WriteEmbeddedManifestResourceToArray(
@@ -436,7 +447,8 @@ namespace CILAssemblyManipulator.Physical.IO
 
       public abstract void WriteStream(
          Stream sink,
-         ResizableArray<Byte> array
+         ResizableArray<Byte> array,
+         RawValueStorage rawValuesBeforeStreams
          );
 
       public Int64 CurrentSize
@@ -499,7 +511,8 @@ namespace CILAssemblyManipulator.Physical.IO
 
       public override void WriteStream(
          Stream sink,
-         ResizableArray<Byte> array
+         ResizableArray<Byte> array,
+         RawValueStorage rawValuesBeforeStreams
          )
       {
          if ( this.Accessed )
@@ -563,7 +576,8 @@ namespace CILAssemblyManipulator.Physical.IO
 
       public override void WriteStream(
          Stream sink,
-         ResizableArray<Byte> array
+         ResizableArray<Byte> array,
+         RawValueStorage rawValuesBeforeStreams
          )
       {
          if ( this.Accessed )
@@ -621,7 +635,8 @@ namespace CILAssemblyManipulator.Physical.IO
 
       public override void WriteStream(
          Stream sink,
-         ResizableArray<Byte> array
+         ResizableArray<Byte> array,
+         RawValueStorage rawValuesBeforeStreams
          )
       {
          if ( this.Accessed )
@@ -761,7 +776,6 @@ namespace CILAssemblyManipulator.Physical.IO
       private sealed class WriteDependantInfo
       {
          internal WriteDependantInfo(
-            CILMetaData md,
             WritingOptions_TableStream writingOptions,
             ArrayQuery<Int32> tableSizes,
             ArrayQuery<TableSerializationInfo> infos,
@@ -789,7 +803,7 @@ namespace CILAssemblyManipulator.Physical.IO
             this.Serialization = infos.Select( info => info.CreateSupport( this.ColumnSerializationSupportCreationArgs ) ).ToArrayProxy().CQ;
             this.HeaderSize = (UInt32) hdrSize;
             this.ContentSize = tableSizes.Select( ( size, idx ) => (UInt32) size * (UInt32) this.Serialization[idx].ColumnSerializationSupports.Sum( c => c.ColumnByteCount ) ).Sum();
-            var totalSize = BitUtils.MultipleOf4( this.HeaderSize + this.ContentSize );
+            var totalSize = ( this.HeaderSize + this.ContentSize ).RoundUpU32( 4 );
             this.PaddingSize = totalSize - this.HeaderSize - this.ContentSize;
          }
 
@@ -811,7 +825,6 @@ namespace CILAssemblyManipulator.Physical.IO
 
       private readonly CILMetaData _md;
       private readonly WritingOptions_TableStream _writingData;
-      private readonly RawValueStorage _rawValuesBeforeStreams;
       private WriteDependantInfo _writeDependantInfo;
 
       public DefaultWriterTableStreamHandler(
@@ -863,6 +876,7 @@ namespace CILAssemblyManipulator.Physical.IO
 
 
       public RawValueStorage FillHeaps(
+         RawValueStorage rawValuesBeforeStreams,
          ArrayQuery<Byte> thisAssemblyPublicKeyIfPresentNull,
          WriterMetaDataStreamContainer mdStreams,
          ResizableArray<Byte> array
@@ -874,14 +888,15 @@ namespace CILAssemblyManipulator.Physical.IO
             info.ExtractTableHeapValues( this._md, retVal, mdStreams, array, thisAssemblyPublicKeyIfPresentNull );
          }
 
-         Interlocked.Exchange( ref this._writeDependantInfo, new WriteDependantInfo( this._md, this._writingData, this.TableSizes, this.TableSerializations, mdStreams, retVal ) );
+         Interlocked.Exchange( ref this._writeDependantInfo, new WriteDependantInfo( this._writingData, this.TableSizes, this.TableSerializations, mdStreams, retVal ) );
 
          return retVal;
       }
 
       public void WriteStream(
          Stream sink,
-         ResizableArray<Byte> array
+         ResizableArray<Byte> array,
+         RawValueStorage rawValuesBeforeStreams
          )
       {
          var writeInfo = this._writeDependantInfo;
@@ -905,7 +920,7 @@ namespace CILAssemblyManipulator.Physical.IO
                var byteArray = array.Array;
                var valIdx = 0;
                var arrayIdx = 0;
-               foreach ( var rawValue in info.GetAllRawValues( table, this._rawValuesBeforeStreams, heapIndices ) )
+               foreach ( var rawValue in info.GetAllRawValues( table, rawValuesBeforeStreams, heapIndices ) )
                {
                   var col = cols[valIdx % cols.Count];
                   col.WriteValue( byteArray, arrayIdx, rawValue );
@@ -963,8 +978,8 @@ namespace CILAssemblyManipulator.Physical.IO
          var array = byteArray.Array;
          array
              .WriteInt32LEToBytes( ref idx, TABLE_STREAM_RESERVED )
-            .WriteByteToBytes( ref idx, headers.HeaderMajorVersion )
-            .WriteByteToBytes( ref idx, headers.HeaderMinorVersion )
+            .WriteByteToBytes( ref idx, headers.HeaderMajorVersion ?? 2 )
+            .WriteByteToBytes( ref idx, headers.HeaderMinorVersion ?? 0 )
             .WriteByteToBytes( ref idx, (Byte) thFlags )
             .WriteByteToBytes( ref idx, TABLE_STREAM_RESERVED_2 )
             .WriteInt64LEToBytes( ref idx, validBitvector )

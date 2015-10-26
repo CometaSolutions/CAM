@@ -437,9 +437,9 @@ namespace CILAssemblyManipulator.Physical.IO
    {
       Tables Table { get; }
 
-      ArrayQuery<ColumnSerializationInfo> ColumnSerializationInfos { get; }
-
-      TableSerializationFunctionality CreateSupport( ColumnSerializationSupportCreationArgs args );
+      TableSerializationFunctionality CreateSupport(
+         ColumnSerializationSupportCreationArgs args
+         );
 
       Int32 RawValueStorageColumnCount { get; }
 
@@ -447,9 +447,7 @@ namespace CILAssemblyManipulator.Physical.IO
 
       void ProcessRowForRawValues(
          RawValueProcessingArgs args,
-         Int32 rowIndex,
-         Object row,
-         IEnumerable<Int32> rawValues
+         RawValueStorage storage
          );
 
 
@@ -458,8 +456,7 @@ namespace CILAssemblyManipulator.Physical.IO
          RawValueStorage storage,
          StreamHelper stream,
          ResizableArray<Byte> array,
-         WriterMetaDataStreamContainer mdStreamContainer,
-         RVAConverter rvaConverter
+         WriterMetaDataStreamContainer mdStreamContainer
          );
 
       void ExtractTableHeapValues(
@@ -601,36 +598,40 @@ namespace CILAssemblyManipulator.Physical.IO
 
    public class RowRawValueExtractionArguments
    {
+
+      private readonly Func<Int64> _streamPositionGetter;
+
       public RowRawValueExtractionArguments(
-         StreamHelper stream,
          ResizableArray<Byte> array,
          WriterMetaDataStreamContainer mdStreams,
-         RVAConverter rvaConverter,
-         CILMetaData metaData
+         CILMetaData metaData,
+         Func<Int64> streamPositionGetter
          )
       {
-         ArgumentValidator.ValidateNotNull( "Stream", stream );
          ArgumentValidator.ValidateNotNull( "Array", array );
          ArgumentValidator.ValidateNotNull( "Meta data streams", mdStreams );
-         ArgumentValidator.ValidateNotNull( "RVA converter", rvaConverter );
          ArgumentValidator.ValidateNotNull( "Meta data", metaData );
+         ArgumentValidator.ValidateNotNull( "Stream position getter", streamPositionGetter );
 
-         this.Stream = stream;
          this.Array = array;
          this.MDStreamContainer = mdStreams;
-         this.RVAConverter = rvaConverter;
          this.MetaData = metaData;
+         this._streamPositionGetter = streamPositionGetter;
       }
-
-      public StreamHelper Stream { get; }
 
       public ResizableArray<Byte> Array { get; }
 
       public WriterMetaDataStreamContainer MDStreamContainer { get; }
 
-      public RVAConverter RVAConverter { get; }
-
       public CILMetaData MetaData { get; }
+
+      public Int64 CurrentStreamPosition
+      {
+         get
+         {
+            return this._streamPositionGetter();
+         }
+      }
    }
 
    public class RowHeapFillingArguments
@@ -659,11 +660,6 @@ namespace CILAssemblyManipulator.Physical.IO
       public ArrayQuery<Byte> ThisAssemblyPublicKeyIfPresentNull { get; }
 
       public CILMetaData MetaData { get; }
-   }
-
-   public interface ColumnSerializationInfo
-   {
-      String ColumnName { get; }
    }
 
    public enum HeapIndexKind
