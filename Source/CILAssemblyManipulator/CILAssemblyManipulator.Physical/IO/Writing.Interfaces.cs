@@ -43,11 +43,12 @@ namespace CILAssemblyManipulator.Physical.IO
       RawValueStorage CreateRawValuesBeforeMDStreams(
          Stream stream,
          ResizableArray<Byte> array,
-         WriterMetaDataStreamContainer mdStreams
+         WriterMetaDataStreamContainer mdStreams,
+         WritingStatus writingStatus
          );
 
       IEnumerable<SectionHeader> CreateSections(
-
+         WritingStatus writingStatus
          );
 
    }

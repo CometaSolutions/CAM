@@ -894,27 +894,6 @@ namespace CILAssemblyManipulator.Physical
    //   Optional
    //}
 
-   [Flags]
-   public enum DLLFlags : short
-   {
-      Reserved1 = 0x0001,
-      Reserved2 = 0x0002,
-      Reserved3 = 0x0004,
-      Reserved4 = 0x0008,
-      Reserved5 = 0x0010,
-      HighEntropyVA = 0x0020,
-      DynamicBase = 0x0040,
-      ForceIntegroty = 0x0080,
-      NXCompatible = 0x0100,
-      NoIsolation = 0x0200,
-      NoSEH = 0x0400,
-      NoBind = 0x0800,
-      AppContainer = 0x1000,
-      WdmDriver = 0x2000,
-      GuardControlFlow = 0x4000,
-      TerminalServerAware = unchecked((Int16) 0x8000),
-   }
-
    /// <summary>
    /// This enumeration is a copy of <see cref="T:System.Runtime.InteropServices.VarEnum"/>.
    /// It is present in order to avoid warnings when compiling for Windows Phone 8.1.
