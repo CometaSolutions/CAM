@@ -58,16 +58,16 @@ namespace CILAssemblyManipulator.Physical.IO
          RVAConverter rvaConverter,
          ReaderMetaDataStreamContainer mdStreamContainer,
          CILMetaData md,
-         RawValueStorage rawValues
+         RawValueStorage<Int32> rawValues
          );
    }
 
-   public sealed class RawValueStorage
+   public sealed class RawValueStorage<TValue>
    {
       private readonly ArrayQuery<Int32> _tableSizes;
       private readonly Int32[] _tableColCount;
       private readonly Int32[] _tableStartOffsets;
-      private readonly Int32[] _rawValues;
+      private readonly TValue[] _rawValues;
       private Int32 _currentIndex;
 
       public RawValueStorage(
@@ -83,16 +83,16 @@ namespace CILAssemblyManipulator.Physical.IO
                ( cur, size, idx ) => cur += size * this._tableColCount[idx]
                )
             .ToArray();
-         this._rawValues = new Int32[tableSizes.Select( ( size, idx ) => size * this._tableColCount[idx] ).Sum()];
+         this._rawValues = new TValue[tableSizes.Select( ( size, idx ) => size * this._tableColCount[idx] ).Sum()];
          this._currentIndex = 0;
       }
 
-      public void AddRawValue( Int32 rawValue )
+      public void AddRawValue( TValue rawValue )
       {
          this._rawValues[this._currentIndex++] = rawValue;
       }
 
-      public IEnumerable<Int32> GetAllRawValuesForColumn( Tables table, Int32 columnIndex )
+      public IEnumerable<TValue> GetAllRawValuesForColumn( Tables table, Int32 columnIndex )
       {
          var size = this._tableSizes[(Int32) table];
          for ( var i = this._tableStartOffsets[(Int32) table]; i < size; ++i )
@@ -101,7 +101,7 @@ namespace CILAssemblyManipulator.Physical.IO
          }
       }
 
-      public IEnumerable<Int32> GetAllRawValuesForRow( Tables table, Int32 rowIndex )
+      public IEnumerable<TValue> GetAllRawValuesForRow( Tables table, Int32 rowIndex )
       {
          var size = this._tableColCount[(Int32) table];
          var startOffset = this._tableStartOffsets[(Int32) table] + rowIndex * size;
@@ -112,7 +112,7 @@ namespace CILAssemblyManipulator.Physical.IO
          }
       }
 
-      public Int32 GetRawValue( Tables table, Int32 rowIndex, Int32 columnIndex )
+      public TValue GetRawValue( Tables table, Int32 rowIndex, Int32 columnIndex )
       {
          return this._rawValues[this._tableStartOffsets[(Int32) table] + rowIndex * this._tableColCount[(Int32) table] + columnIndex];
       }
@@ -163,7 +163,7 @@ namespace CILAssemblyManipulator.Physical.IO
    {
       MetaDataTableStreamHeader ReadHeader();
 
-      RawValueStorage PopulateMetaDataStructure(
+      RawValueStorage<Int32> PopulateMetaDataStructure(
          CILMetaData md,
          ReaderMetaDataStreamContainer mdStreamContainer
          );

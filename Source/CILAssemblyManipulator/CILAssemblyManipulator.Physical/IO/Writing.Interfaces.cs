@@ -15,6 +15,8 @@
  * See the License for the specific language governing permissions and
  * limitations under the License. 
  */
+using CILAssemblyManipulator.Physical;
+using CILAssemblyManipulator.Physical.Implementation;
 using CILAssemblyManipulator.Physical.IO;
 using CollectionsWithRoles.API;
 using CommonUtils;
@@ -40,7 +42,7 @@ namespace CILAssemblyManipulator.Physical.IO
    {
       IEnumerable<AbstractWriterStreamHandler> CreateStreamHandlers();
 
-      RawValueStorage CreateRawValuesBeforeMDStreams(
+      RawValueStorage<Int64> CreateRawValuesBeforeMDStreams(
          Stream stream,
          ResizableArray<Byte> array,
          WriterMetaDataStreamContainer mdStreams,
@@ -48,6 +50,11 @@ namespace CILAssemblyManipulator.Physical.IO
          );
 
       IEnumerable<SectionHeader> CreateSections(
+         WritingStatus writingStatus,
+         out RVAConverter rvaConverter
+         );
+
+      void FinalizeWritingStatus(
          WritingStatus writingStatus
          );
 
@@ -89,7 +96,8 @@ namespace CILAssemblyManipulator.Physical.IO
       void WriteStream(
          Stream sink,
          ResizableArray<Byte> array,
-         RawValueStorage rawValuesBeforeStreams
+         RawValueStorage<Int64> rawValuesBeforeStreams,
+         RVAConverter rvaConverter
          );
 
       /// <summary>
@@ -102,8 +110,8 @@ namespace CILAssemblyManipulator.Physical.IO
 
    public interface WriterTableStreamHandler : AbstractWriterStreamHandler
    {
-      RawValueStorage FillHeaps(
-         RawValueStorage rawValuesBeforeStreams,
+      RawValueStorage<Int32> FillHeaps(
+         RawValueStorage<Int64> rawValuesBeforeStreams,
          ArrayQuery<Byte> thisAssemblyPublicKeyIfPresentNull,
          WriterMetaDataStreamContainer mdStreams,
          ResizableArray<Byte> array
@@ -138,6 +146,80 @@ namespace CILAssemblyManipulator.Physical.IO
 
 public static partial class E_CILPhysical
 {
+   public static ImageInformation WriteMetaDataFromStream(
+      this Stream stream,
+      CILMetaData md,
+      WriterFunctionalityProvider writerProvider,
+      WritingOptions options
+      )
+   {
+   }
+
+   public static ImageInformation WriteMetaDataFromStream(
+      this Stream stream,
+      CILMetaData md,
+      WriterFunctionality writer,
+      WritingOptions options
+      )
+   {
+      // Check arguments
+      ArgumentValidator.ValidateNotNull( "Stream", stream );
+      ArgumentValidator.ValidateNotNull( "Meta data", md );
+
+      if ( options == null )
+      {
+         options = new WritingOptions();
+      }
+
+      if ( writer == null )
+      {
+         writer = new DefaultWriterFunctionality( md, options );
+      }
+
+      var status = new WritingStatus();
+
+      // 1. Create streams
+      var mdStreams = writer.CreateStreamHandlers().ToArrayProxy().CQ;
+      var tblMDStream = mdStreams
+         .OfType<WriterTableStreamHandler>()
+         .FirstOrDefault() ?? new DefaultWriterTableStreamHandler( md, options.TableStreamOptions, DefaultMetaDataSerializationSupportProvider.Instance.CreateTableSerializationInfos().ToArrayProxy().CQ );
+
+      var blobStream = mdStreams.OfType<WriterBLOBStreamHandler>().FirstOrDefault();
+      var guidStream = mdStreams.OfType<WriterGUIDStreamHandler>().FirstOrDefault();
+      var sysStringStream = mdStreams.OfType<WriterStringStreamHandler>().FirstOrDefault( s => String.Equals( s.StreamName, MetaDataConstants.SYS_STRING_STREAM_NAME ) );
+      var userStringStream = mdStreams.OfType<WriterStringStreamHandler>().FirstOrDefault( s => String.Equals( s.StreamName, MetaDataConstants.USER_STRING_STREAM_NAME ) );
+      var mdStreamContainer = new WriterMetaDataStreamContainer(
+            blobStream,
+            guidStream,
+            sysStringStream,
+            userStringStream,
+            mdStreams.Where( s => !ReferenceEquals( tblMDStream, s ) && !ReferenceEquals( blobStream, s ) && !ReferenceEquals( guidStream, s ) && !ReferenceEquals( sysStringStream, s ) && !ReferenceEquals( userStringStream, s ) )
+            );
+
+      // 2. Position stream at file alignment, and write raw values (IL, constants, resources)
+      stream.Position = options.PEOptions.FileAlignment ?? 0x200;
+      var array = new ResizableArray<Byte>();
+      var rawValues = writer.CreateRawValuesBeforeMDStreams( stream, array, mdStreamContainer, status );
+
+      // 3. Populate heaps
+      tblMDStream.FillHeaps( rawValues, null, mdStreamContainer, array );
+
+      // 4. Create sections
+      RVAConverter rvaConverter;
+      writer.CreateSections( status, out rvaConverter );
+
+      // 5. Write meta data
+      foreach ( var mdStream in mdStreams )
+      {
+         mdStream.WriteStream( stream, array, rawValues, rvaConverter );
+      }
+
+      // 6. Finalize writing status
+      writer.FinalizeWritingStatus( status );
+
+      // Create image information
+   }
+
    public static Boolean IsWide( this AbstractWriterStreamHandler stream )
    {
       return stream.CurrentSize > UInt16.MaxValue;

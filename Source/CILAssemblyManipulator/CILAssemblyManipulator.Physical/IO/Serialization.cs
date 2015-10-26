@@ -15,10 +15,13 @@
  * See the License for the specific language governing permissions and
  * limitations under the License. 
  */
+using CILAssemblyManipulator.Physical;
+using CILAssemblyManipulator.Physical.IO;
 using CollectionsWithRoles.API;
 using CommonUtils;
 using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
 using System.Text;
 
@@ -447,21 +450,21 @@ namespace CILAssemblyManipulator.Physical.IO
 
       void ProcessRowForRawValues(
          RawValueProcessingArgs args,
-         RawValueStorage storage
+         RawValueStorage<Int32> storage
          );
 
 
       void ExtractTableRawValues(
          CILMetaData md,
-         RawValueStorage storage,
-         StreamHelper stream,
+         RawValueStorage<Int64> storage,
+         Stream stream,
          ResizableArray<Byte> array,
          WriterMetaDataStreamContainer mdStreamContainer
          );
 
       void ExtractTableHeapValues(
          CILMetaData md,
-         RawValueStorage storage,
+         RawValueStorage<Int32> storage,
          WriterMetaDataStreamContainer mdStreamContainer,
          ResizableArray<Byte> array,
          ArrayQuery<Byte> thisAssemblyPublicKeyIfPresentNull
@@ -469,8 +472,9 @@ namespace CILAssemblyManipulator.Physical.IO
 
       IEnumerable<Int32> GetAllRawValues(
          MetaDataTable table,
-         RawValueStorage previousRawValues,
-         RawValueStorage heapIndices
+         RawValueStorage<Int64> previousRawValues,
+         RawValueStorage<Int32> heapIndices,
+         RVAConverter rvaConverter
          );
    }
 
@@ -530,7 +534,7 @@ namespace CILAssemblyManipulator.Physical.IO
       public RowReadingArguments(
          StreamHelper stream,
          ReaderMetaDataStreamContainer mdStreamContainer,
-         RawValueStorage rawValueStorage
+         RawValueStorage<Int32> rawValueStorage
          )
       {
          ArgumentValidator.ValidateNotNull( "Stream", stream );
@@ -546,7 +550,7 @@ namespace CILAssemblyManipulator.Physical.IO
 
       public ReaderMetaDataStreamContainer MDStreamContainer { get; }
 
-      public RawValueStorage RawValueStorage { get; }
+      public RawValueStorage<Int32> RawValueStorage { get; }
    }
 
    public class RawValueProcessingArgs
@@ -662,6 +666,20 @@ namespace CILAssemblyManipulator.Physical.IO
       public CILMetaData MetaData { get; }
    }
 
+   public class RawValueTransformationArguments
+   {
+      public RawValueTransformationArguments(
+         RVAConverter rvaConverter
+         )
+      {
+         ArgumentValidator.ValidateNotNull( "RVA converter", rvaConverter );
+
+         this.RVAConverter = rvaConverter;
+      }
+
+      public RVAConverter RVAConverter { get; }
+   }
+
    public enum HeapIndexKind
    {
       BLOB,
@@ -678,5 +696,19 @@ namespace CILAssemblyManipulator.Physical.IO
       Int32 ReadRawValue( StreamHelper stream );
 
       void WriteValue( Byte[] bytes, Int32 idx, Int32 value );
+   }
+}
+
+public static partial class E_CILPhysical
+{
+   public static ArrayQuery<Int32> CreateTableSizeArray( this IEnumerable<TableSerializationInfo> infos, CILMetaData md )
+   {
+      return infos.Select( info =>
+      {
+         MetaDataTable tbl;
+         return md.TryGetByTable( info.Table, out tbl ) ?
+            tbl.RowCount :
+            0;
+      } ).ToArrayProxy().CQ;
    }
 }

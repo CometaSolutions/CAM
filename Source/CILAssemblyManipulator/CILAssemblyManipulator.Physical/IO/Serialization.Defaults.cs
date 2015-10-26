@@ -51,6 +51,7 @@ namespace CILAssemblyManipulator.Physical.IO
         null,
         null,
         null,
+        null,
         constExtractor
         )
       {
@@ -63,7 +64,8 @@ namespace CILAssemblyManipulator.Physical.IO
          Action<TRawRow, Int32> rawSetter,
          Action<ColumnSettingArguments<TRow, RowReadingArguments>, Int32> setter,
          Action<ColumnSettingArguments<TRow, RawValueProcessingArgs>, Int32> rawValueProcessor,
-         Func<ColumnSettingArguments<TRow, RowRawValueExtractionArguments>, Int32> rawValueExtractor
+         Func<ColumnSettingArguments<TRow, RowRawValueExtractionArguments>, Int32> rawValueExtractor,
+         Func<ColumnSettingArguments<TRow, RawValueTransformationArguments>, Int64, Int32> rawValueConverter
          )
          : this(
               columnName,
@@ -72,6 +74,7 @@ namespace CILAssemblyManipulator.Physical.IO
               setter,
               rawValueProcessor,
               rawValueExtractor,
+              rawValueConverter,
               null,
               null
               )
@@ -93,6 +96,7 @@ namespace CILAssemblyManipulator.Physical.IO
               setter,
               null,
               null,
+              null,
               heapValueExtractor,
               null
               )
@@ -107,6 +111,7 @@ namespace CILAssemblyManipulator.Physical.IO
          Action<ColumnSettingArguments<TRow, RowReadingArguments>, Int32> setter,
          Action<ColumnSettingArguments<TRow, RawValueProcessingArgs>, Int32> rawValueProcessor,
          Func<ColumnSettingArguments<TRow, RowRawValueExtractionArguments>, Int32> rawValueExtractor,
+         Func<ColumnSettingArguments<TRow, RawValueTransformationArguments>, Int64, Int32> rawValueConverter,
          Func<ColumnSettingArguments<TRow, RowHeapFillingArguments>, Int32> heapValueExtractor,
          Func<TRow, Int32> constExtractor
          )
@@ -130,6 +135,7 @@ namespace CILAssemblyManipulator.Physical.IO
          this.Setter = setter;
          this.SerializationSupportCreator = creator;
          this.RawValueProcessor = rawValueProcessor;
+         this.RawValueConverter = rawValueConverter;
          this.ConstantExtractor = constExtractor;
       }
 
@@ -143,8 +149,8 @@ namespace CILAssemblyManipulator.Physical.IO
 
       // Writing
       public Func<ColumnSettingArguments<TRow, RowRawValueExtractionArguments>, Int32> RawValueExtractor { get; }
+      public Func<ColumnSettingArguments<TRow, RawValueTransformationArguments>, Int64, Int32> RawValueConverter { get; }
       public Func<ColumnSettingArguments<TRow, RowHeapFillingArguments>, Int32> HeapValueExtractor { get; }
-
       public Func<TRow, Int32> ConstantExtractor { get; }
    }
 
@@ -454,6 +460,27 @@ namespace CILAssemblyManipulator.Physical.IO
          String columnName,
          Action<TRawRow, Int32> rawSetter,
          Action<ColumnSettingArguments<TRow, RawValueProcessingArgs>, Int32> rawValueProcessor,
+         Func<ColumnSettingArguments<TRow, RowRawValueExtractionArguments>, Int32> rawValueExtractor,
+         Func<ColumnSettingArguments<TRow, RawValueTransformationArguments>, Int64, Int32> rawValueConverter
+         )
+         where TRawRow : class
+         where TRow : class
+      {
+         return new DefaultColumnSerializationInfo<TRawRow, TRow>(
+            columnName,
+            args => new ColumnSerializationSupport_Constant32(),
+            rawSetter,
+            null,
+            rawValueProcessor,
+            rawValueExtractor,
+            rawValueConverter
+         );
+      }
+
+      public static DefaultColumnSerializationInfo<TRawRow, TRow> RawValueStorageColumnRVA<TRawRow, TRow>(
+         String columnName,
+         Action<TRawRow, Int32> rawSetter,
+         Action<ColumnSettingArguments<TRow, RawValueProcessingArgs>, Int32> rawValueProcessor,
          Func<ColumnSettingArguments<TRow, RowRawValueExtractionArguments>, Int32> rawValueExtractor
          )
          where TRawRow : class
@@ -465,7 +492,8 @@ namespace CILAssemblyManipulator.Physical.IO
             rawSetter,
             null,
             rawValueProcessor,
-            rawValueExtractor
+            rawValueExtractor,
+            ( args, offset ) => (Int32) args.RowArgs.RVAConverter.ToRVA( offset )
          );
       }
 
@@ -764,7 +792,7 @@ namespace CILAssemblyManipulator.Physical.IO
 
       protected IEnumerable<DefaultColumnSerializationInfo<RawMethodDefinition, MethodDefinition>> GetMethodDefColumns()
       {
-         yield return DefaultColumnSerializationInfoFactory.RawValueStorageColumn<RawMethodDefinition, MethodDefinition>( nameof( RawMethodDefinition.RVA ), ( r, v ) => r.RVA = v, ( args, rva ) => args.Row.IL = this.DeserializeIL( args.RowArgs, rva ), args => this.WriteMethodIL( args.RowArgs, args.Row.IL ) );
+         yield return DefaultColumnSerializationInfoFactory.RawValueStorageColumnRVA<RawMethodDefinition, MethodDefinition>( nameof( RawMethodDefinition.RVA ), ( r, v ) => r.RVA = v, ( args, rva ) => args.Row.IL = this.DeserializeIL( args.RowArgs, rva ), args => this.WriteMethodIL( args.RowArgs, args.Row.IL ) );
          yield return DefaultColumnSerializationInfoFactory.Constant16<RawMethodDefinition, MethodDefinition>( nameof( RawMethodDefinition.ImplementationAttributes ), ( r, v ) => r.ImplementationAttributes = (MethodImplAttributes) v, ( args, v ) => args.Row.ImplementationAttributes = (MethodImplAttributes) v, row => (Int32) row.ImplementationAttributes );
          yield return DefaultColumnSerializationInfoFactory.Constant16<RawMethodDefinition, MethodDefinition>( nameof( RawMethodDefinition.Attributes ), ( r, v ) => r.Attributes = (MethodAttributes) v, ( args, v ) => args.Row.Attributes = (MethodAttributes) v, row => (Int32) row.Attributes );
          yield return DefaultColumnSerializationInfoFactory.BLOBNonTypeSignature<RawMethodDefinition, MethodDefinition, MethodDefinitionSignature>( nameof( RawMethodDefinition.Signature ), ( r, v ) => r.Signature = v, ( args, v ) => args.Row.Signature = v, row => row.Signature );
@@ -917,7 +945,7 @@ namespace CILAssemblyManipulator.Physical.IO
 
       protected IEnumerable<DefaultColumnSerializationInfo<RawFieldRVA, FieldRVA>> GetFieldRVAColumns()
       {
-         yield return DefaultColumnSerializationInfoFactory.RawValueStorageColumn<RawFieldRVA, FieldRVA>( nameof( RawFieldRVA.RVA ), ( r, v ) => r.RVA = v, ( args, rva ) => args.Row.Data = this.DeserializeConstantValue( args.RowArgs, args.Row, rva ), args => this.WriteConstant( args.RowArgs, args.Row.Data ) );
+         yield return DefaultColumnSerializationInfoFactory.RawValueStorageColumnRVA<RawFieldRVA, FieldRVA>( nameof( RawFieldRVA.RVA ), ( r, v ) => r.RVA = v, ( args, rva ) => args.Row.Data = this.DeserializeConstantValue( args.RowArgs, args.Row, rva ), args => this.WriteConstant( args.RowArgs, args.Row.Data ) );
          yield return DefaultColumnSerializationInfoFactory.SimpleReference<RawFieldRVA, FieldRVA>( nameof( RawFieldRVA.Field ), Tables.Field, ( r, v ) => r.Field = v, ( args, v ) => args.Row.Field = v, row => row.Field );
       }
 
@@ -1023,6 +1051,10 @@ namespace CILAssemblyManipulator.Physical.IO
             return row.Implementation.HasValue ?
                row.Offset :
                this.WriteEmbeddedManifestResoruce( args.RowArgs, row.DataInCurrentFile );
+         }, ( args, offset ) =>
+         {
+            // offset - rvaConverter.GetOffset(resDD.rva)
+            throw new NotImplementedException( "TODO" );
          } );
          yield return DefaultColumnSerializationInfoFactory.Constant32<RawManifestResource, ManifestResource>( nameof( RawManifestResource.Attributes ), ( r, v ) => r.Attributes = (ManifestResourceAttributes) v, ( args, v ) => args.Row.Attributes = (ManifestResourceAttributes) v, row => (Int32) row.Attributes );
          yield return DefaultColumnSerializationInfoFactory.SystemString<RawManifestResource, ManifestResource>( nameof( RawManifestResource.Name ), ( r, v ) => r.Name = v, ( args, v ) => args.Row.Name = v, row => row.Name );
@@ -1107,7 +1139,7 @@ namespace CILAssemblyManipulator.Physical.IO
 
       public void ProcessRowForRawValues(
          RawValueProcessingArgs args,
-         RawValueStorage storage
+         RawValueStorage<Int32> storage
          )
       {
          var md = args.MetaData;
@@ -1147,8 +1179,8 @@ namespace CILAssemblyManipulator.Physical.IO
 
       public void ExtractTableRawValues(
          CILMetaData md,
-         RawValueStorage storage,
-         StreamHelper stream,
+         RawValueStorage<Int64> storage,
+         Stream stream,
          ResizableArray<Byte> array,
          WriterMetaDataStreamContainer mdStreamContainer
          )
@@ -1164,14 +1196,13 @@ namespace CILAssemblyManipulator.Physical.IO
             if ( cols.Length > 0 )
             {
                var list = table.TableContents;
-               var s = stream.Stream;
-               var rArgs = new RowRawValueExtractionArguments( array, mdStreamContainer, md, () => s.Position );
+               var rArgs = new RowRawValueExtractionArguments( array, mdStreamContainer, md, () => stream.Position );
                for ( var i = 0; i < list.Count; ++i )
                {
                   var cArgs = new ColumnSettingArguments<TRow, RowRawValueExtractionArguments>( this.Table, i, list[i], rArgs );
                   foreach ( var col in cols )
                   {
-                     var offset = s.Position;
+                     var offset = stream.Position;
                      Int32 len;
                      try
                      {
@@ -1182,7 +1213,7 @@ namespace CILAssemblyManipulator.Physical.IO
                         // TODO error reporting
                         len = 0;
                      }
-                     s.Write( array.Array, len );
+                     stream.Write( array.Array, len );
                      storage.AddRawValue( offset );
                   }
                }
@@ -1192,7 +1223,7 @@ namespace CILAssemblyManipulator.Physical.IO
 
       public void ExtractTableHeapValues(
          CILMetaData md,
-         RawValueStorage storage,
+         RawValueStorage<Int32> storage,
          WriterMetaDataStreamContainer mdStreamContainer,
          ResizableArray<Byte> array,
          ArrayQuery<Byte> thisAssemblyPublicKeyIfPresentNull
@@ -1234,13 +1265,15 @@ namespace CILAssemblyManipulator.Physical.IO
 
       public IEnumerable<Int32> GetAllRawValues(
          MetaDataTable table,
-         RawValueStorage previousRawValues,
-         RawValueStorage heapIndices
+         RawValueStorage<Int64> previousRawValues,
+         RawValueStorage<Int32> heapIndices,
+         RVAConverter rvaConverter
          )
       {
          var list = ( (MetaDataTable<TRow>) table ).TableContents;
          if ( list.Count > 0 )
          {
+            var rawTransofrmArgs = new RawValueTransformationArguments( rvaConverter );
             var cols = this._columns;
             for ( var rowIdx = 0; rowIdx < list.Count; ++rowIdx )
             {
@@ -1256,9 +1289,13 @@ namespace CILAssemblyManipulator.Physical.IO
                   {
                      yield return heapIndices.GetRawValue( this.Table, rowIdx, colIdx );
                   }
-                  else if ( col.RawValueProcessor != null )
+                  else if ( col.RawValueExtractor != null )
                   {
-                     yield return previousRawValues.GetRawValue( this.Table, rowIdx, colIdx );
+                     var converter = col.RawValueConverter;
+                     var rawValue = previousRawValues.GetRawValue( this.Table, rowIdx, colIdx );
+                     yield return converter == null ?
+                        (Int32) rawValue :
+                        converter( new ColumnSettingArguments<TRow, RawValueTransformationArguments>( this.Table, rowIdx, row, rawTransofrmArgs ), rawValue );
                   }
                   else
                   {

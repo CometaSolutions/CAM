@@ -33,11 +33,18 @@ namespace CILAssemblyManipulator.Physical.IO
       public virtual WriterFunctionality GetFunctionality(
          CILMetaData md,
          WritingOptions headers,
-         out CILMetaData newMD
+         out CILMetaData newMD,
+         out Stream newStream
          )
       {
          newMD = null;
-         return new DefaultWriterFunctionality( md, headers );
+         newStream = null;
+         return new DefaultWriterFunctionality( md, headers, this.CreateMDSerialization() );
+      }
+
+      protected virtual MetaDataSerializationSupportProvider CreateMDSerialization()
+      {
+         return DefaultMetaDataSerializationSupportProvider.Instance;
       }
    }
 
@@ -50,13 +57,14 @@ namespace CILAssemblyManipulator.Physical.IO
       public DefaultWriterFunctionality(
          CILMetaData md,
          WritingOptions headers,
-         MetaDataSerializationSupportProvider mdSerialization
+         MetaDataSerializationSupportProvider mdSerialization = null
          )
       {
          this.MetaData = md;
          this._headers = headers ?? new WritingOptions();
          this.MDSerialization = mdSerialization ?? DefaultMetaDataSerializationSupportProvider.Instance;
          this.TableSerializations = this.MDSerialization.CreateTableSerializationInfos().ToArrayProxy().CQ;
+         this.TableSizes = this.TableSerializations.CreateTableSizeArray( md );
       }
 
       public virtual IEnumerable<AbstractWriterStreamHandler> CreateStreamHandlers()
@@ -68,13 +76,35 @@ namespace CILAssemblyManipulator.Physical.IO
          yield return new DefaultWriterUserStringStreamHandler();
       }
 
-      public virtual RawValueStorage CreateRawValuesBeforeMDStreams(
+      public virtual RawValueStorage<Int64> CreateRawValuesBeforeMDStreams(
          Stream stream,
          ResizableArray<Byte> array,
          WriterMetaDataStreamContainer mdStreams,
          WritingStatus writingStatus
          )
       {
+         var retVal = this.CreateRawValueStorage() ?? CreateDefaultRawValueStorage();
+         foreach ( var info in this.TableSerializations )
+         {
+            info.ExtractTableRawValues( this.MetaData, retVal, stream, array, mdStreams );
+         }
+
+         return retVal;
+      }
+
+      public virtual IEnumerable<SectionHeader> CreateSections(
+         WritingStatus writingStatus,
+         out RVAConverter rvaConverter
+         )
+      {
+
+      }
+
+      public virtual void FinalizeWritingStatus(
+         WritingStatus writingStatus
+         )
+      {
+
       }
 
       protected CILMetaData MetaData { get; }
@@ -82,7 +112,23 @@ namespace CILAssemblyManipulator.Physical.IO
       protected MetaDataSerializationSupportProvider MDSerialization { get; }
 
       protected ArrayQuery<TableSerializationInfo> TableSerializations { get; }
+
+      protected ArrayQuery<Int32> TableSizes { get; }
+
+      protected virtual RawValueStorage<Int64> CreateRawValueStorage()
+      {
+         return this.CreateDefaultRawValueStorage();
+      }
+
+      protected RawValueStorage<Int64> CreateDefaultRawValueStorage()
+      {
+         return new RawValueStorage<Int64>(
+            this.TableSizes,
+            this.TableSerializations.Select( t => t.RawValueStorageColumnCount )
+            );
+      }
    }
+
    public partial class DefaultMetaDataSerializationSupportProvider
    {
       private const Int32 METHOD_DATA_SECTION_HEADER_SIZE = 4;
@@ -446,11 +492,15 @@ namespace CILAssemblyManipulator.Physical.IO
 
       public abstract String StreamName { get; }
 
-      public abstract void WriteStream(
+      public virtual void WriteStream(
          Stream sink,
          ResizableArray<Byte> array,
-         RawValueStorage rawValuesBeforeStreams
-         );
+         RawValueStorage<Int64> rawValuesBeforeStreams,
+         RVAConverter rvaConverter
+         )
+      {
+         this.DoWriteStream( sink, array );
+      }
 
       public Int64 CurrentSize
       {
@@ -467,6 +517,8 @@ namespace CILAssemblyManipulator.Physical.IO
             return this.curIndex > this._startingIndex;
          }
       }
+
+      protected abstract void DoWriteStream( Stream sink, ResizableArray<Byte> array );
    }
 
    internal class DefaultWriterBLOBStreamHandler : AbstractWriterStreamHandlerImpl, WriterBLOBStreamHandler
@@ -510,10 +562,9 @@ namespace CILAssemblyManipulator.Physical.IO
          return (Int32) result;
       }
 
-      public override void WriteStream(
+      protected override void DoWriteStream(
          Stream sink,
-         ResizableArray<Byte> array,
-         RawValueStorage rawValuesBeforeStreams
+         ResizableArray<Byte> array
          )
       {
          if ( this.Accessed )
@@ -575,10 +626,9 @@ namespace CILAssemblyManipulator.Physical.IO
          return (Int32) result;
       }
 
-      public override void WriteStream(
+      protected override void DoWriteStream(
          Stream sink,
-         ResizableArray<Byte> array,
-         RawValueStorage rawValuesBeforeStreams
+         ResizableArray<Byte> array
          )
       {
          if ( this.Accessed )
@@ -634,10 +684,9 @@ namespace CILAssemblyManipulator.Physical.IO
          }
       }
 
-      public override void WriteStream(
+      protected override void DoWriteStream(
          Stream sink,
-         ResizableArray<Byte> array,
-         RawValueStorage rawValuesBeforeStreams
+         ResizableArray<Byte> array
          )
       {
          if ( this.Accessed )
@@ -781,7 +830,7 @@ namespace CILAssemblyManipulator.Physical.IO
             ArrayQuery<Int32> tableSizes,
             ArrayQuery<TableSerializationInfo> infos,
             WriterMetaDataStreamContainer mdStreams,
-            RawValueStorage heapIndices
+            RawValueStorage<Int32> heapIndices
             )
          {
 
@@ -808,7 +857,7 @@ namespace CILAssemblyManipulator.Physical.IO
             this.PaddingSize = totalSize - this.HeaderSize - this.ContentSize;
          }
 
-         public RawValueStorage HeapIndices { get; }
+         public RawValueStorage<Int32> HeapIndices { get; }
 
          public ColumnSerializationSupportCreationArgs ColumnSerializationSupportCreationArgs { get; }
 
@@ -839,13 +888,7 @@ namespace CILAssemblyManipulator.Physical.IO
 
          this._md = md;
          this.TableSerializations = tableSerializations;
-         this.TableSizes = tableSerializations.Select( info =>
-         {
-            MetaDataTable tbl;
-            return md.TryGetByTable( info.Table, out tbl ) ?
-               tbl.RowCount :
-               0;
-         } ).ToArrayProxy().CQ;
+         this.TableSizes = tableSerializations.CreateTableSizeArray( md );
          this._writingData = writingData ?? new WritingOptions_TableStream();
       }
 
@@ -876,14 +919,14 @@ namespace CILAssemblyManipulator.Physical.IO
       }
 
 
-      public RawValueStorage FillHeaps(
-         RawValueStorage rawValuesBeforeStreams,
+      public RawValueStorage<Int32> FillHeaps(
+         RawValueStorage<Int64> rawValuesBeforeStreams,
          ArrayQuery<Byte> thisAssemblyPublicKeyIfPresentNull,
          WriterMetaDataStreamContainer mdStreams,
          ResizableArray<Byte> array
          )
       {
-         var retVal = new RawValueStorage( this.TableSizes, this.TableSerializations.Select( info => info.HeapValueColumnCount ) );
+         var retVal = new RawValueStorage<Int32>( this.TableSizes, this.TableSerializations.Select( info => info.HeapValueColumnCount ) );
          foreach ( var info in this.TableSerializations )
          {
             info.ExtractTableHeapValues( this._md, retVal, mdStreams, array, thisAssemblyPublicKeyIfPresentNull );
@@ -897,7 +940,8 @@ namespace CILAssemblyManipulator.Physical.IO
       public void WriteStream(
          Stream sink,
          ResizableArray<Byte> array,
-         RawValueStorage rawValuesBeforeStreams
+         RawValueStorage<Int64> rawValuesBeforeStreams,
+         RVAConverter rvaConverter
          )
       {
          var writeInfo = this._writeDependantInfo;
@@ -921,7 +965,7 @@ namespace CILAssemblyManipulator.Physical.IO
                var byteArray = array.Array;
                var valIdx = 0;
                var arrayIdx = 0;
-               foreach ( var rawValue in info.GetAllRawValues( table, rawValuesBeforeStreams, heapIndices ) )
+               foreach ( var rawValue in info.GetAllRawValues( table, rawValuesBeforeStreams, heapIndices, rvaConverter ) )
                {
                   var col = cols[valIdx % cols.Count];
                   col.WriteValue( byteArray, arrayIdx, rawValue );

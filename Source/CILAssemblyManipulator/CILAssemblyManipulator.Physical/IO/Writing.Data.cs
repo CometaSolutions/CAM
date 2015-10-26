@@ -25,6 +25,8 @@ namespace CILAssemblyManipulator.Physical.IO
    public class WritingOptions
    {
       public WritingOptions_TableStream TableStreamOptions { get; }
+
+      public WritingOptions_PE PEOptions { get; }
    }
 
    public class WritingOptions_TableStream
