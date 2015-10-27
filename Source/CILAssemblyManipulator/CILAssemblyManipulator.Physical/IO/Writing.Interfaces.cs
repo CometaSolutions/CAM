@@ -139,13 +139,48 @@ namespace CILAssemblyManipulator.Physical.IO
 
    public class WritingStatus
    {
+      public WritingStatus( StrongNameVariables strongNameVariables )
+      {
+         this.StrongNameVariables = strongNameVariables;
+         this.PEDataDirectories = new List<DataDirectory>( Enumerable.Repeat<DataDirectory>( default( DataDirectory ), (Int32) DataDirectories.MaxValue ) );
+      }
 
+      public StrongNameVariables StrongNameVariables { get; }
+
+      public List<DataDirectory> PEDataDirectories { get; }
+
+      public DataDirectory? MetaData { get; set; }
+
+      public DataDirectory? ManifestResources { get; set; }
+
+      public DataDirectory? StrongNameSignature { get; set; }
+
+      public DataDirectory? CodeManagerTable { get; set; }
+
+      public DataDirectory? VTableFixups { get; set; }
+
+      public DataDirectory? ExportAddressTableJumps { get; set; }
+
+      public DataDirectory? ManagedNativeHeader { get; set; }
+
+   }
+
+   public class StrongNameVariables
+   {
+      public Int32 SignatureSize { get; set; }
+
+      public Int32 SignaturePaddingSize { get; set; }
+
+      public AssemblyHashAlgorithm HashAlgorithm { get; set; }
+
+      public Byte[] PublicKey { get; set; }
    }
 }
 
 
 public static partial class E_CILPhysical
 {
+
    public static ImageInformation WriteMetaDataFromStream(
       this Stream stream,
       CILMetaData md,
@@ -159,7 +194,11 @@ public static partial class E_CILPhysical
       this Stream stream,
       CILMetaData md,
       WriterFunctionality writer,
-      WritingOptions options
+      WritingOptions options,
+      StrongNameKeyPair sn,
+      Boolean delaySign,
+      CryptoCallbacks cryptoCallbacks,
+      AssemblyHashAlgorithm? snAlgorithmOverride
       )
    {
       // Check arguments
@@ -176,13 +215,15 @@ public static partial class E_CILPhysical
          writer = new DefaultWriterFunctionality( md, options );
       }
 
-      var status = new WritingStatus();
+      // Prepare strong name
+      RSAParameters rParams;
+      var snVars = md.PrepareStrongNameVariables( sn, delaySign, cryptoCallbacks, snAlgorithmOverride, out rParams );
 
       // 1. Create streams
       var mdStreams = writer.CreateStreamHandlers().ToArrayProxy().CQ;
       var tblMDStream = mdStreams
          .OfType<WriterTableStreamHandler>()
-         .FirstOrDefault() ?? new DefaultWriterTableStreamHandler( md, options.TableStreamOptions, DefaultMetaDataSerializationSupportProvider.Instance.CreateTableSerializationInfos().ToArrayProxy().CQ );
+         .FirstOrDefault() ?? new DefaultWriterTableStreamHandler( md, options.CLIOptions.TablesStreamOptions, DefaultMetaDataSerializationSupportProvider.Instance.CreateTableSerializationInfos().ToArrayProxy().CQ );
 
       var blobStream = mdStreams.OfType<WriterBLOBStreamHandler>().FirstOrDefault();
       var guidStream = mdStreams.OfType<WriterGUIDStreamHandler>().FirstOrDefault();
@@ -196,8 +237,12 @@ public static partial class E_CILPhysical
             mdStreams.Where( s => !ReferenceEquals( tblMDStream, s ) && !ReferenceEquals( blobStream, s ) && !ReferenceEquals( guidStream, s ) && !ReferenceEquals( sysStringStream, s ) && !ReferenceEquals( userStringStream, s ) )
             );
 
-      // 2. Position stream at file alignment, and write raw values (IL, constants, resources)
-      stream.Position = options.PEOptions.FileAlignment ?? 0x200;
+      // 2. Position stream at file alignment, and write raw values (IL, constants, resources, relocs, etc)
+      var peOptions = options.PEOptions;
+      stream.Position = peOptions?.FileAlignment ?? 0x200;
+      var machine = peOptions?.Machine ?? ImageFileMachine.I386;
+
+      var status = new WritingStatus( snVars );
       var array = new ResizableArray<Byte>();
       var rawValues = writer.CreateRawValuesBeforeMDStreams( stream, array, mdStreamContainer, status );
 
@@ -206,7 +251,7 @@ public static partial class E_CILPhysical
 
       // 4. Create sections
       RVAConverter rvaConverter;
-      writer.CreateSections( status, out rvaConverter );
+      var sections = writer.CreateSections( status, out rvaConverter ).ToArray();
 
       // 5. Write meta data
       foreach ( var mdStream in mdStreams )
@@ -218,6 +263,97 @@ public static partial class E_CILPhysical
       writer.FinalizeWritingStatus( status );
 
       // Create image information
+   }
+
+   private static StrongNameVariables PrepareStrongNameVariables(
+      this CILMetaData md,
+      StrongNameKeyPair strongName,
+      Boolean delaySign,
+      CryptoCallbacks cryptoCallbacks,
+      AssemblyHashAlgorithm? algoOverride,
+      out RSAParameters rParams
+      )
+   {
+      var useStrongName = strongName != null;
+      var snSize = 0;
+      var aDefs = md.AssemblyDefinitions.TableContents;
+      var thisAssemblyPublicKey = aDefs.Count > 0 ?
+         aDefs[0].AssemblyInformation.PublicKeyOrToken.CreateArrayCopy() :
+         null;
+
+      if ( !delaySign )
+      {
+         delaySign = !useStrongName && !thisAssemblyPublicKey.IsNullOrEmpty();
+      }
+      var signingAlgorithm = AssemblyHashAlgorithm.SHA1;
+      var computingHash = useStrongName || delaySign;
+
+      if ( useStrongName && cryptoCallbacks == null )
+      {
+         throw new InvalidOperationException( "Assembly should be strong-named, but the crypto callbacks are not provided." );
+      }
+
+      StrongNameVariables retVal;
+
+      if ( computingHash )
+      {
+         //// Set appropriate module flags
+         //headers.ModuleFlags |= ModuleFlags.StrongNameSigned;
+
+         // Check algorithm override
+         var algoOverrideWasInvalid = algoOverride.HasValue && ( algoOverride.Value == AssemblyHashAlgorithm.MD5 || algoOverride.Value == AssemblyHashAlgorithm.None );
+         if ( algoOverrideWasInvalid )
+         {
+            algoOverride = AssemblyHashAlgorithm.SHA1;
+         }
+
+         Byte[] pkToProcess;
+         if ( ( useStrongName && strongName.ContainerName != null ) || ( !useStrongName && delaySign ) )
+         {
+            if ( thisAssemblyPublicKey.IsNullOrEmpty() )
+            {
+               thisAssemblyPublicKey = cryptoCallbacks.ExtractPublicKeyFromCSPContainerAndCheck( strongName.ContainerName );
+            }
+            pkToProcess = thisAssemblyPublicKey;
+         }
+         else
+         {
+            // Get public key from BLOB
+            pkToProcess = strongName.KeyPair.ToArray();
+         }
+
+         // Create RSA parameters and process public key so that it will have proper, full format.
+         Byte[] pk; String errorString;
+         if ( CryptoUtils.TryCreateSigningInformationFromKeyBLOB( pkToProcess, algoOverride, out pk, out signingAlgorithm, out rParams, out errorString ) )
+         {
+            thisAssemblyPublicKey = pk;
+            snSize = rParams.Modulus.Length;
+         }
+         else if ( thisAssemblyPublicKey != null && thisAssemblyPublicKey.Length == 16 ) // The "Standard Public Key", ECMA-335 p. 116
+         {
+            // TODO investigate this.
+            snSize = 0x100;
+         }
+         else
+         {
+            throw new CryptographicException( errorString );
+         }
+
+         retVal = new StrongNameVariables()
+         {
+            HashAlgorithm = signingAlgorithm,
+            PublicKey = thisAssemblyPublicKey,
+            SignatureSize = snSize,
+            SignaturePaddingSize = BitUtils.MultipleOf4( snSize ) - snSize
+         };
+      }
+      else
+      {
+         retVal = null;
+         rParams = default( RSAParameters );
+      }
+
+      return retVal;
    }
 
    public static Boolean IsWide( this AbstractWriterStreamHandler stream )

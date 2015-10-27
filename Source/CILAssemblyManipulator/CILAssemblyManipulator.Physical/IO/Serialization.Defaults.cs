@@ -1054,6 +1054,8 @@ namespace CILAssemblyManipulator.Physical.IO
          }, ( args, offset ) =>
          {
             // offset - rvaConverter.GetOffset(resDD.rva)
+            return offset - args.RowArgs.
+
             throw new NotImplementedException( "TODO" );
          } );
          yield return DefaultColumnSerializationInfoFactory.Constant32<RawManifestResource, ManifestResource>( nameof( RawManifestResource.Attributes ), ( r, v ) => r.Attributes = (ManifestResourceAttributes) v, ( args, v ) => args.Row.Attributes = (ManifestResourceAttributes) v, row => (Int32) row.Attributes );

@@ -24,18 +24,18 @@ namespace CILAssemblyManipulator.Physical.IO
 {
    public class WritingOptions
    {
-      public WritingOptions_TableStream TableStreamOptions { get; }
+      public WritingOptions(
+         WritingOptions_PE peOptions = null,
+         WritingOptions_CLI cliOptions = null
+         )
+      {
+         this.PEOptions = peOptions ?? new WritingOptions_PE();
+         this.CLIOptions = cliOptions ?? new WritingOptions_CLI();
+      }
 
       public WritingOptions_PE PEOptions { get; }
-   }
 
-   public class WritingOptions_TableStream
-   {
-      public Byte? HeaderMajorVersion { get; set; }
-
-      public Byte? HeaderMinorVersion { get; set; }
-
-      public Int32? HeaderExtraData { get; set; }
+      public WritingOptions_CLI CLIOptions { get; }
    }
 
    public class WritingOptions_PE
@@ -83,6 +83,69 @@ namespace CILAssemblyManipulator.Physical.IO
       public Int32? LoaderFlags { get; set; }
 
       public Int32? NumberOfDataDirectories { get; set; }
+   }
+
+   public class WritingOptions_CLI
+   {
+      public WritingOptions_CLI(
+         WritingOptions_CLIHeader headerOptions = null,
+         WritingOptions_MetaDataRoot mdRootOptions = null,
+         WritingOptions_TableStream tablesStreamOptions = null
+         )
+      {
+         this.HeaderOptions = headerOptions ?? new WritingOptions_CLIHeader();
+         this.MDRootOptions = mdRootOptions ?? new WritingOptions_MetaDataRoot();
+         this.TablesStreamOptions = tablesStreamOptions ?? new WritingOptions_TableStream();
+      }
+
+      public WritingOptions_CLIHeader HeaderOptions { get; set; }
+
+      public WritingOptions_MetaDataRoot MDRootOptions { get; set; }
+
+      public WritingOptions_TableStream TablesStreamOptions { get; set; }
+
+   }
+
+   public class WritingOptions_CLIHeader
+   {
+      public Int16? MajorRuntimeVersion { get; set; }
+
+      public Int16? MinorRuntimeVersion { get; set; }
+
+      public ModuleFlags? ModuleFlags { get; set; }
+
+      public TableIndex? EntryPointToken { get; set; }
+   }
+
+   public class WritingOptions_MetaDataRoot
+   {
+      public Int32? Signature { get; set; }
+      public Int16? MajorVersion { get; set; }
+
+      public Int16? MinorVersion { get; set; }
+
+      public Int32? Reserved { get; set; }
+
+      public String VersionString { get; set; }
+
+      public StorageFlags? StorageFlags { get; set; }
+
+      public Byte? Reserved2 { get; set; }
+   }
+
+   public class WritingOptions_TableStream
+   {
+      public Int32? Reserved { get; set; }
+
+      public Byte? HeaderMajorVersion { get; set; }
+
+      public Byte? HeaderMinorVersion { get; set; }
+
+      public Byte? Reserved2 { get; set; }
+
+      public Int32? HeaderExtraData { get; set; }
+
+      // TODO ENC, HasDeleted
    }
 
    public class WritingData

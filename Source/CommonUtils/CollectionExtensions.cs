@@ -815,11 +815,10 @@ public static partial class E_CommonUtils
    /// </summary>
    /// <typeparam name="T">The type of elements in the array.</typeparam>
    /// <param name="array">The array.</param>
-   /// <returns>The copy of the array.</returns>
+   /// <returns>The copy of the array, or <c>null</c>, if <paramref name="array"/> is <c>null</c>.</returns>
    public static T[] CreateArrayCopy<T>( this T[] array )
    {
-      ArgumentValidator.ValidateNotNull( "Array", array );
-      return array.CreateArrayCopy( 0, array.Length );
+      return array == null ? null : array.CreateArrayCopy( 0, array.Length );
    }
 
    /// <summary>

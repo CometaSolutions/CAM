@@ -157,7 +157,6 @@ namespace CILAssemblyManipulator.Physical.IO
 
    public abstract class OptionalHeader
    {
-      public const Int32 DEBUG_DATA_DIRECTORY_INDEX = 6;
 
       internal OptionalHeader(
          Byte majorLinkerVersion,
@@ -527,7 +526,8 @@ namespace CILAssemblyManipulator.Physical.IO
       ImportAddressTable,
       DelayImportDescriptor,
       CLIHeader,
-      Reserved
+      Reserved,
+      MaxValue
    }
 
    public enum OptionalHeaderKind : short
@@ -1046,6 +1046,7 @@ namespace CILAssemblyManipulator.Physical.IO
       WideGUID = 0x02,
       WideBLOB = 0x04,
       Padding = 0x08,
+      Reserved = 0x10,
       DeltaOnly = 0x20,
       ExtraData = 0x40,
       HasDelete = 0x80,
@@ -1385,8 +1386,9 @@ public static partial class E_CILPhysical
    {
       var dataDirs = peInfo.NTHeader.OptionalHeader.DataDirectories;
       DataDirectory debugDD;
-      return dataDirs.Count > OptionalHeader.DEBUG_DATA_DIRECTORY_INDEX
-         && ( debugDD = dataDirs[OptionalHeader.DEBUG_DATA_DIRECTORY_INDEX] ).RVA > 0 ?
+      var debugDDIdx = (Int32) DataDirectories.Debug;
+      return dataDirs.Count > debugDDIdx
+         && ( debugDD = dataDirs[debugDDIdx] ).RVA > 0 ?
          stream
             .At( rvaConverter.ToOffset( debugDD.RVA ) )
             .NewDebugInformationFromStream() :

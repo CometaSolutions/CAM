@@ -69,7 +69,7 @@ namespace CILAssemblyManipulator.Physical.IO
 
       public virtual IEnumerable<AbstractWriterStreamHandler> CreateStreamHandlers()
       {
-         yield return new DefaultWriterTableStreamHandler( this.MetaData, this._headers.TableStreamOptions, this.TableSerializations );
+         yield return new DefaultWriterTableStreamHandler( this.MetaData, this._headers.CLIOptions.TablesStreamOptions, this.TableSerializations );
          yield return new DefaultWriterSystemStringStreamHandler();
          yield return new DefaultWriterBLOBStreamHandler();
          yield return new DefaultWriterGuidStreamHandler();
