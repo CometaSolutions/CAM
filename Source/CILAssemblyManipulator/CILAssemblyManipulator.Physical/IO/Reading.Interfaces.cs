@@ -273,7 +273,7 @@ public static partial class E_CILPhysical
 
       if ( rvaConverter == null )
       {
-         rvaConverter = new DefaultRVAConverter( peInfo );
+         rvaConverter = new DefaultRVAConverter( peInfo.SectionHeaders );
       }
 
       // 2. Create MD streams

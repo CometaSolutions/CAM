@@ -83,6 +83,10 @@ namespace CILAssemblyManipulator.Physical.IO
       public Int32? LoaderFlags { get; set; }
 
       public Int32? NumberOfDataDirectories { get; set; }
+
+      public String ImportDirectoryName { get; set; }
+
+      public String ImportHintName { get; set; }
    }
 
    public class WritingOptions_CLI

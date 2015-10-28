@@ -40,6 +40,36 @@ namespace CommonUtils
       /// </summary>
       Throw
    }
+
+   /// <summary>
+   /// This type represents information about current item in <see cref="IEnumerable{T}"/> and the previous items.
+   /// </summary>
+   /// <typeparam name="T">The type of items in <see cref="IEnumerable{T}"/>.</typeparam>
+   public struct PreviousItemsInfo<T>
+   {
+      /// <summary>
+      /// Creates a new instance of <see cref="PreviousItemsInfo{T}"/> with given current and previous items.
+      /// </summary>
+      /// <param name="currentItem">The current item.</param>
+      /// <param name="previousItems">The previous items. If <c>null</c>, then empty enumerable will be used.</param>
+      public PreviousItemsInfo( T currentItem, IEnumerable<T> previousItems )
+      {
+         this.CurrentItem = currentItem;
+         this.PreviousItems = previousItems ?? Empty<T>.Enumerable;
+      }
+
+      /// <summary>
+      /// Gets the current item.
+      /// </summary>
+      /// <value>The current item.</value>
+      public T CurrentItem { get; }
+
+      /// <summary>
+      /// Gets the previous items.
+      /// </summary>
+      /// <value>The previous items.</value>
+      public IEnumerable<T> PreviousItems { get; }
+   }
 }
 
 public static partial class E_CommonUtils
@@ -914,9 +944,10 @@ public static partial class E_CommonUtils
    /// <param name="seed">The initial value to start accumulation.</param>
    /// <param name="aggregator">The aggregator function. First parameter is current accumulated value, second is current item, and third is current enumerable index.</param>
    /// <returns>Enumerable of intermediate results of aggregation over the sequence.</returns>
-   /// <exception cref="ArgumentNullException">If <paramref name="aggregator"/> is <c>null</c>.</exception>
+   /// <exception cref="ArgumentNullException">If <paramref name="aggregator"/> or <paramref name="enumerable"/> is <c>null</c>.</exception>
    public static IEnumerable<TAccumulate> AggregateIntermediate_BeforeAggregation<T, TAccumulate>( this IEnumerable<T> enumerable, TAccumulate seed, Func<TAccumulate, T, Int32, TAccumulate> aggregator )
    {
+      ArgumentValidator.ValidateNotNull( "Enumerable", enumerable );
       ArgumentValidator.ValidateNotNull( "Aggregator function", aggregator );
 
       var cur = 0;
@@ -925,6 +956,64 @@ public static partial class E_CommonUtils
          yield return seed;
          seed = aggregator( seed, item, cur );
          ++cur;
+      }
+   }
+
+   /// <summary>
+   /// Returns an enumerable, which remembers given amount of previous items, in reversed order as they are encountered in enumerable.
+   /// </summary>
+   /// <typeparam name="T">The type of items of enumerable.</typeparam>
+   /// <param name="enumerable">The <see cref="IEnumerable{T}"/>.</param>
+   /// <param name="maxAmountOfItemsToRemember">Maximum amount of previous items to remember.</param>
+   /// <param name="firstResultShouldAlwaysHaveMaxAmount">Whether the first <see cref="PreviousItemsInfo{T}"/> in the resulting enumerable should have <paramref name="maxAmountOfItemsToRemember"/> items. By default, this is <c>true</c>.</param>
+   /// <returns>The enumerable of <see cref="PreviousItemsInfo{T}"/>s.</returns>
+   /// <exception cref="ArgumentNullException">If <paramref name="enumerable"/> is <c>null</c>.</exception>
+   /// <remarks>
+   /// Please note that <see cref="PreviousItemsInfo{T}.PreviousItems"/> enumerable has meaningful values only during enumeration the resulting enumerable of <see cref="PreviousItemsInfo{T}"/>s.
+   /// So for example, if one does <see cref="Enumerable.ToArray{TSource}(IEnumerable{TSource})"/> to a enumerable of <see cref="PreviousItemsInfo{T}"/> and then tries to access the <see cref="PreviousItemsInfo{T}.PreviousItems"/>, the result will always be the same for every <see cref="PreviousItemsInfo{T}"/>.
+   /// During enumeration of <see cref="PreviousItemsInfo{T}"/>s, the <see cref="PreviousItemsInfo{T}.PreviousItems"/> will return correct values.
+   /// </remarks>
+   /// <seealso cref="PreviousItemsInfo{T}"/>
+   public static IEnumerable<PreviousItemsInfo<T>> RememberPreviousItems<T>( this IEnumerable<T> enumerable, Int32 maxAmountOfItemsToRemember, Boolean firstResultShouldAlwaysHaveMaxAmount = true )
+   {
+      ArgumentValidator.ValidateNotNull( "Enumerable", enumerable );
+
+      var buffer = new T[maxAmountOfItemsToRemember];
+      Int32 start = 0, count = 0;
+      foreach ( var item in enumerable )
+      {
+         if ( count == maxAmountOfItemsToRemember || !firstResultShouldAlwaysHaveMaxAmount )
+         {
+            yield return new PreviousItemsInfo<T>( item, GetPreviousItems( buffer, start, count ) );
+         }
+
+         if ( count < maxAmountOfItemsToRemember )
+         {
+            buffer[count] = item;
+            ++count;
+         }
+         else
+         {
+            if ( start < maxAmountOfItemsToRemember )
+            {
+               buffer[start] = item;
+               ++start;
+            }
+            else
+            {
+               start = 1;
+               buffer[0] = item;
+            }
+         }
+      }
+   }
+
+   private static IEnumerable<T> GetPreviousItems<T>( T[] buffer, Int32 start, Int32 count )
+   {
+      while ( count > 0 )
+      {
+         yield return buffer[( start + count - 1 ) % buffer.Length];
+         --count;
       }
    }
 }

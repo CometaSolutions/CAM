@@ -875,6 +875,14 @@ namespace CILAssemblyManipulator.Physical.IO
    {
       private static readonly Encoding VERSION_ENCODING = new UTF8Encoding( false, false );
 
+      public static Encoding VersionStringEncoding
+      {
+         get
+         {
+            return VERSION_ENCODING;
+         }
+      }
+
       private readonly Lazy<String> _versionString;
 
       [CLSCompliant( false )]

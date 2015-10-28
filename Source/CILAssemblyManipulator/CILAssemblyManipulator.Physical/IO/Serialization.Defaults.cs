@@ -93,7 +93,7 @@ namespace CILAssemblyManipulator.Physical.IO
          RowColumnSetterDelegate<TRow, Int32> setter,
          RowRawColumnSetterDelegate<TRow> rawValueProcessor,
          RowRawColumnGetterDelegate<TRow> rawValueExtractor,
-         RowRawColumnConverterDelegate<TRow> rawValueConverter
+         ColumnFunctionalityInfo<RowRawColumnConverterDelegate<TRow>, RawValueStorage<Int64>> rawValueConverter
          )
          : this(
               columnName,
@@ -139,7 +139,7 @@ namespace CILAssemblyManipulator.Physical.IO
          RowColumnSetterDelegate<TRow, Int32> setter,
          RowRawColumnSetterDelegate<TRow> rawValueProcessor,
          RowRawColumnGetterDelegate<TRow> rawValueExtractor,
-         RowRawColumnConverterDelegate<TRow> rawValueConverter,
+         ColumnFunctionalityInfo<RowRawColumnConverterDelegate<TRow>, RawValueStorage<Int64>> rawValueConverter,
          RowHeapColumnGetterDelegate<TRow> heapValueExtractor,
          RowColumnGetterDelegate<TRow, Int32> constExtractor
          )
@@ -179,25 +179,47 @@ namespace CILAssemblyManipulator.Physical.IO
 
       // Writing
       public RowRawColumnGetterDelegate<TRow> RawValueExtractor { get; }
-      public RowRawColumnConverterDelegate<TRow> RawValueConverter { get; }
+
+      public ColumnFunctionalityInfo<RowRawColumnConverterDelegate<TRow>, RawValueStorage<Int64>> RawValueConverter { get; }
       public RowHeapColumnGetterDelegate<TRow> HeapValueExtractor { get; }
       public RowColumnGetterDelegate<TRow, Int32> ConstantExtractor { get; }
    }
 
-   public class ColumnFunctionalityInfo<TDelegate, TArgs>
+   public interface ColumnFunctionalityInfo<TDelegate, TArgs>
    {
-      private readonly Func<TArgs, TDelegate> _creator;
+      TDelegate CreateDelegate( TArgs args, Tables table, Int32 columnIndex );
+   }
 
-      public ColumnFunctionalityInfo( Func<TArgs, TDelegate> creator )
+   public sealed class StaticColumnFunctionalityInfo<TDelegate, TArgs> : ColumnFunctionalityInfo<TDelegate, TArgs>
+   {
+      private readonly TDelegate _delegate;
+
+      public StaticColumnFunctionalityInfo( TDelegate del )
+      {
+         this._delegate = del;
+      }
+
+      public TDelegate CreateDelegate( TArgs args, Tables table, Int32 columnIndex )
+      {
+         return this._delegate;
+      }
+   }
+
+   public sealed class DynamicColumnFunctionalityInfo<TDelegate, TArgs> : ColumnFunctionalityInfo<TDelegate, TArgs>
+   {
+      private readonly Func<TArgs, Tables, Int32, TDelegate> _creator;
+
+      public DynamicColumnFunctionalityInfo( Func<TArgs, Tables, Int32, TDelegate> creator )
       {
          this._creator = creator;
       }
 
-      public TDelegate CreateDelegate( TArgs args )
+      public TDelegate CreateDelegate( TArgs args, Tables table, Int32 columnIndex )
       {
-         return this._creator( args );
+         return this._creator( args, table, columnIndex );
       }
    }
+
 
    public static class DefaultColumnSerializationInfoFactory
    {
@@ -506,7 +528,7 @@ namespace CILAssemblyManipulator.Physical.IO
          RawRowColumnSetterDelegate<TRawRow> rawSetter,
          RowRawColumnSetterDelegate<TRow> rawValueProcessor,
          RowRawColumnGetterDelegate<TRow> rawValueExtractor,
-         RowRawColumnConverterDelegate<TRow> rawValueConverter
+         ColumnFunctionalityInfo<RowRawColumnConverterDelegate<TRow>, RawValueStorage<Int64>> rawValueConverter
          )
          where TRawRow : class
          where TRow : class
@@ -531,15 +553,13 @@ namespace CILAssemblyManipulator.Physical.IO
          where TRawRow : class
          where TRow : class
       {
-         return new DefaultColumnSerializationInfo<TRawRow, TRow>(
+         return RawValueStorageColumn(
             columnName,
-            args => new ColumnSerializationSupport_Constant32(),
             rawSetter,
-            null,
             rawValueProcessor,
             rawValueExtractor,
-            ( args, offset ) => (Int32) args.RowArgs.RVAConverter.ToRVA( offset )
-         );
+            new StaticColumnFunctionalityInfo<RowRawColumnConverterDelegate<TRow>, RawValueStorage<Int64>>( ( args, offset ) => (Int32) args.RowArgs.RVAConverter.ToRVA( offset ) )
+            );
       }
 
    }
@@ -1096,15 +1116,24 @@ namespace CILAssemblyManipulator.Physical.IO
             return row.Implementation.HasValue ?
                0 :
                this.WriteEmbeddedManifestResoruce( args.RowArgs, row.DataInCurrentFile );
-         }, ( args, offset ) =>
+         }, new DynamicColumnFunctionalityInfo<RowRawColumnConverterDelegate<ManifestResource>, RawValueStorage<Int64>>( ( storage, tbl, colIdx ) =>
          {
-            // offset - rvaConverter.GetOffset(resDD.rva)
-            var row = args.Row;
-            return row.Implementation.HasValue ?
-               row.Offset :
-               ;
-            throw new NotImplementedException( "TODO" );
-         } );
+            var startOffset = storage
+               .GetAllRawValuesForColumn( tbl, colIdx )
+               //.RememberPreviousItems( 1 )
+               //.Where( p => p.PreviousItems.First() < p.CurrentItem )
+               //.Select( p => p.PreviousItems.First() )
+               .FirstOrDefaultCustom( -1L );
+
+            return ( args, offset ) =>
+            {
+               // offset - rvaConverter.GetOffset(resDD.rva)
+               var row = args.Row;
+               return row.Implementation.HasValue ?
+                  row.Offset :
+                  (Int32) ( offset - startOffset );
+            };
+         } ) );
          yield return DefaultColumnSerializationInfoFactory.Constant32<RawManifestResource, ManifestResource>( nameof( RawManifestResource.Attributes ), ( r, v ) => r.Attributes = (ManifestResourceAttributes) v, ( args, v ) => args.Row.Attributes = (ManifestResourceAttributes) v, row => (Int32) row.Attributes );
          yield return DefaultColumnSerializationInfoFactory.SystemString<RawManifestResource, ManifestResource>( nameof( RawManifestResource.Name ), ( r, v ) => r.Name = v, ( args, v ) => args.Row.Name = v, row => row.Name );
          yield return DefaultColumnSerializationInfoFactory.CodedReference<RawManifestResource, ManifestResource>( nameof( RawManifestResource.Implementation ), CodedTableIndexDecoder.Implementation, ( r, v ) => r.Implementation = v, ( args, v ) => args.Row.Implementation = v, row => row.Implementation );
@@ -1324,6 +1353,11 @@ namespace CILAssemblyManipulator.Physical.IO
          {
             var rawTransofrmArgs = new RawValueTransformationArguments( rvaConverter );
             var cols = this._columns;
+            var converters = cols.Select( ( info, cIdx ) =>
+            {
+               var c = info.RawValueConverter;
+               return c == null ? null : c.CreateDelegate( previousRawValues, this.Table, cIdx );
+            } ).ToArray();
             for ( var rowIdx = 0; rowIdx < list.Count; ++rowIdx )
             {
                var row = list[rowIdx];
@@ -1340,7 +1374,7 @@ namespace CILAssemblyManipulator.Physical.IO
                   }
                   else if ( col.RawValueExtractor != null )
                   {
-                     var converter = col.RawValueConverter;
+                     var converter = converters[colIdx];
                      var rawValue = previousRawValues.GetRawValue( this.Table, rowIdx, colIdx );
                      yield return converter == null ?
                         (Int32) rawValue :

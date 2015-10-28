@@ -51,10 +51,13 @@ namespace CILAssemblyManipulator.Physical.IO
 
       IEnumerable<SectionHeader> CreateSections(
          WritingStatus writingStatus,
+         IEnumerable<AbstractWriterStreamHandler> allStreams,
          out RVAConverter rvaConverter
          );
 
-      void FinalizeWritingStatus(
+      void FinalizeStream(
+         Stream stream,
+         ArrayQuery<SectionHeader> sections,
          WritingStatus writingStatus
          );
 
@@ -100,10 +103,7 @@ namespace CILAssemblyManipulator.Physical.IO
          RVAConverter rvaConverter
          );
 
-      /// <summary>
-      /// This should be max UInt32.Value
-      /// </summary>
-      Int64 CurrentSize { get; }
+      Int32 CurrentSize { get; }
 
       Boolean Accessed { get; }
    }
@@ -139,21 +139,39 @@ namespace CILAssemblyManipulator.Physical.IO
 
    public class WritingStatus
    {
-      public WritingStatus( StrongNameVariables strongNameVariables )
+      public WritingStatus(
+         Int32 initialOffset,
+         ImageFileMachine machine,
+         Int32 fileAlignment,
+         StrongNameVariables strongNameVariables
+         )
       {
+         this.InitialOffset = initialOffset;
+         this.Machine = machine;
+         this.FileAlignment = fileAlignment;
          this.StrongNameVariables = strongNameVariables;
          this.PEDataDirectories = new List<DataDirectory>( Enumerable.Repeat<DataDirectory>( default( DataDirectory ), (Int32) DataDirectories.MaxValue ) );
       }
+
+      public Int32 InitialOffset { get; }
+
+      public ImageFileMachine Machine { get; }
+
+      public Int32 FileAlignment { get; }
 
       public StrongNameVariables StrongNameVariables { get; }
 
       public List<DataDirectory> PEDataDirectories { get; }
 
+      public Int64? OffsetAfterInitialRawValues { get; set; }
+
+      public Int64? StrongNameSignatureOffset { get; set; }
+
       public DataDirectory? MetaData { get; set; }
 
       public DataDirectory? ManifestResources { get; set; }
 
-      public DataDirectory? StrongNameSignature { get; set; }
+      //public DataDirectory? StrongNameSignature { get; set; }
 
       public DataDirectory? CodeManagerTable { get; set; }
 
@@ -174,6 +192,8 @@ namespace CILAssemblyManipulator.Physical.IO
       public AssemblyHashAlgorithm HashAlgorithm { get; set; }
 
       public Byte[] PublicKey { get; set; }
+
+      public String ContainerName { get; set; }
    }
 }
 
@@ -239,19 +259,21 @@ public static partial class E_CILPhysical
 
       // 2. Position stream at file alignment, and write raw values (IL, constants, resources, relocs, etc)
       var peOptions = options.PEOptions;
-      stream.Position = peOptions.FileAlignment ?? 0x200;
+      var initialOffset = peOptions.FileAlignment ?? 0x200;
+      stream.Position = initialOffset;
       var machine = peOptions.Machine ?? ImageFileMachine.I386;
 
-      var status = new WritingStatus( snVars );
+      var status = new WritingStatus( initialOffset, machine, initialOffset, snVars );
       var array = new ResizableArray<Byte>();
       var rawValues = writer.CreateRawValuesBeforeMDStreams( stream, array, mdStreamContainer, status );
+      status.OffsetAfterInitialRawValues = stream.Position;
 
       // 3. Populate heaps
       tblMDStream.FillHeaps( rawValues, null, mdStreamContainer, array );
 
       // 4. Create sections
       RVAConverter rvaConverter;
-      var sections = writer.CreateSections( status, out rvaConverter ).ToArray();
+      var sections = writer.CreateSections( status, mdStreams, out rvaConverter ).ToArrayProxy().CQ;
 
       // 5. Write meta data
       foreach ( var mdStream in mdStreams )
@@ -260,9 +282,17 @@ public static partial class E_CILPhysical
       }
 
       // 6. Finalize writing status
-      writer.FinalizeWritingStatus( status );
+      writer.FinalizeStream( stream, sections, status );
 
-      // Create image information
+      // 7. Create and write image information
+
+      // 8. Compute strong name signature, if needed
+      Byte[] snSignature;
+      if ( CreateStrongNameSignature( stream, snVars, delaySign, cryptoCallbacks, rParams, status, out snSignature ) )
+      {
+         stream.Seek( status.StrongNameSignatureOffset.Value, SeekOrigin.Begin );
+         stream.Write( snSignature );
+      }
    }
 
    private static StrongNameVariables PrepareStrongNameVariables(
@@ -308,11 +338,12 @@ public static partial class E_CILPhysical
          }
 
          Byte[] pkToProcess;
-         if ( ( useStrongName && strongName.ContainerName != null ) || ( !useStrongName && delaySign ) )
+         var containerName = strongName?.ContainerName;
+         if ( ( useStrongName && containerName != null ) || ( !useStrongName && delaySign ) )
          {
             if ( thisAssemblyPublicKey.IsNullOrEmpty() )
             {
-               thisAssemblyPublicKey = cryptoCallbacks.ExtractPublicKeyFromCSPContainerAndCheck( strongName.ContainerName );
+               thisAssemblyPublicKey = cryptoCallbacks.ExtractPublicKeyFromCSPContainerAndCheck( containerName );
             }
             pkToProcess = thisAssemblyPublicKey;
          }
@@ -344,7 +375,8 @@ public static partial class E_CILPhysical
             HashAlgorithm = signingAlgorithm,
             PublicKey = thisAssemblyPublicKey,
             SignatureSize = snSize,
-            SignaturePaddingSize = BitUtils.MultipleOf4( snSize ) - snSize
+            SignaturePaddingSize = BitUtils.MultipleOf4( snSize ) - snSize,
+            ContainerName = containerName
          };
       }
       else
@@ -355,6 +387,76 @@ public static partial class E_CILPhysical
 
       return retVal;
    }
+
+   private static Boolean CreateStrongNameSignature(
+      Stream stream,
+      StrongNameVariables snVars,
+      Boolean delaySign,
+      CryptoCallbacks cryptoCallbacks,
+      RSAParameters rParams,
+      WritingStatus writingStatus,
+      out Byte[] snSignature
+      )
+   {
+      if ( snVars != null )
+      {
+         if ( delaySign )
+         {
+            snSignature = new Byte[snVars.SignatureSize + snVars.SignaturePaddingSize];
+         }
+         else
+         {
+            var containerName = snVars.ContainerName;
+            using ( var rsa = ( containerName == null ? cryptoCallbacks.CreateRSAFromParameters( rParams ) : cryptoCallbacks.CreateRSAFromCSPContainer( containerName ) ) )
+            {
+               var algo = snVars.HashAlgorithm;
+               var snSize = snVars.SignatureSize;
+               var buffer = new Byte[0x2000]; // 2x typical windows page size
+               var hashEvtArgs = cryptoCallbacks.CreateHashStreamAndCheck( algo, true, true, false, true );
+               var hashStream = hashEvtArgs.CryptoStream;
+               var hashGetter = hashEvtArgs.HashGetter;
+               var transform = hashEvtArgs.Transform;
+               var sigOffset = writingStatus.StrongNameSignatureOffset.Value;
+
+               Byte[] strongNameArray;
+               using ( var tf = transform )
+               {
+                  using ( var cryptoStream = hashStream() )
+                  {
+                     // Calculate hash of required parts of file (ECMA-335, p.117)
+                     // TODO: Skip Certificate Table and PE Header File Checksum fields
+                     stream.Seek( 0, SeekOrigin.Begin );
+                     stream.CopyStreamPart( cryptoStream, buffer, sigOffset );
+
+                     stream.Seek( snSize + snVars.SignaturePaddingSize, SeekOrigin.Current );
+                     stream.CopyStream( cryptoStream, buffer );
+                  }
+
+                  strongNameArray = cryptoCallbacks.CreateRSASignatureAndCheck( rsa, algo.GetAlgorithmName(), hashGetter() );
+               }
+
+
+               if ( snSize != strongNameArray.Length )
+               {
+                  throw new CryptographicException( "Calculated and actual strong name size differ (calculated: " + snSize + ", actual: " + strongNameArray.Length + ")." );
+               }
+               Array.Reverse( strongNameArray );
+
+               // Write strong name
+               stream.Seek( writingStatus.StrongNameSignatureOffset.Value, SeekOrigin.Begin );
+               stream.Write( strongNameArray );
+               snSignature = strongNameArray;
+            }
+         }
+      }
+      else
+      {
+         snSignature = null;
+      }
+
+      return snSignature != null;
+   }
+
 
    public static Boolean IsWide( this AbstractWriterStreamHandler stream )
    {

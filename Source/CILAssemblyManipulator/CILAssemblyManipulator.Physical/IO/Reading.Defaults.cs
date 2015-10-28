@@ -74,7 +74,7 @@ namespace CILAssemblyManipulator.Physical.IO
          peInfo = stream.NewPEImageInformationFromStream();
 
          // Create RVA converter
-         rvaConverter = this.CreateRVAConverter( peInfo ) ?? new DefaultRVAConverter( peInfo );
+         rvaConverter = this.CreateRVAConverter( peInfo ) ?? this.CreateDefaultRVAConverter( peInfo );
 
          var dataDirs = peInfo.NTHeader.OptionalHeader.DataDirectories;
 
@@ -144,7 +144,14 @@ namespace CILAssemblyManipulator.Physical.IO
          PEInformation peInformation
          )
       {
-         return new DefaultRVAConverter( peInformation );
+         return this.CreateDefaultRVAConverter( peInformation );
+      }
+
+      protected RVAConverter CreateDefaultRVAConverter(
+         PEInformation peInformation
+         )
+      {
+         return new DefaultRVAConverter( peInformation.SectionHeaders );
       }
 
 
@@ -181,11 +188,9 @@ namespace CILAssemblyManipulator.Physical.IO
    {
       private readonly SectionHeader[] _sections;
 
-      public DefaultRVAConverter( PEInformation peInfo )
+      public DefaultRVAConverter( IEnumerable<SectionHeader> headers )
       {
-         ArgumentValidator.ValidateNotNull( "PE information", peInfo );
-
-         this._sections = peInfo.SectionHeaders.ToArray();
+         this._sections = ( headers ?? Empty<SectionHeader>.Enumerable ).ToArray();
       }
 
       public Int64 ToOffset( Int64 rva )

@@ -115,12 +115,11 @@ public static partial class E_CommonUtils
    /// <exception cref="System.NotSupportedException">The stream does not support reading. </exception>
    /// <exception cref="System.ObjectDisposedException">Methods were called after the stream was closed. </exception>
    /// <exception cref="System.IO.EndOfStreamException">If end of stream is reached before <paramref name="amount"/> of bytes could be read from <paramref name="source"/> stream.</exception>
-   [CLSCompliant( false )]
-   public static void CopyStreamPart( this Stream source, Stream destination, Byte[] buffer, UInt32 amount )
+   public static void CopyStreamPart( this Stream source, Stream destination, Byte[] buffer, Int64 amount )
    {
       while ( amount > 0 )
       {
-         var amountOfRead = source.Read( buffer, 0, (Int32) Math.Min( (UInt32) buffer.Length, amount ) );
+         var amountOfRead = source.Read( buffer, 0, (Int32) Math.Min( buffer.Length, amount ) );
          if ( amountOfRead <= 0 )
          {
             throw new EndOfStreamException( "Source stream ended before copying of " + amount + " byte" + ( amount > 1 ? "s" : "" ) + " could be completed." );
