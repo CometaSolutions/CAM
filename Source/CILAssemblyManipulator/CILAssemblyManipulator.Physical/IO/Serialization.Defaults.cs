@@ -31,6 +31,34 @@ namespace CILAssemblyManipulator.Physical.IO
       String ColumnName { get; }
    }
 
+   public delegate ColumnSerializationFunctionality CreateSerializationSupportDelegate( ColumnSerializationSupportCreationArgs args );
+
+   // Sets a property on a raw row
+   public delegate void RawRowColumnSetterDelegate<TRawRow>( TRawRow rawRow, Int32 value );
+
+   // Sets a property on a normal row
+   public delegate void RowColumnSetterDelegate<TRow, TValue>( ColumnFunctionalityArgs<TRow, RowReadingArguments> args, TValue value )
+      where TRow : class;
+
+   // Sets a raw value property (Method IL, FieldRVA Data column, Manifest Resource Data) on a normal row
+   public delegate void RowRawColumnSetterDelegate<TRow>( ColumnFunctionalityArgs<TRow, RawValueProcessingArgs> args, Int32 rawValue )
+      where TRow : class;
+
+   // Writes a raw value property, returns amount of bytes written.
+   public delegate Int32 RowRawColumnGetterDelegate<TRow>( ColumnFunctionalityArgs<TRow, RowRawValueExtractionArguments> args )
+      where TRow : class;
+
+   // Converts stream offset to the value that will be written to table stream
+   public delegate Int32 RowRawColumnConverterDelegate<TRow>( ColumnFunctionalityArgs<TRow, RawValueTransformationArguments> args, Int64 offset )
+      where TRow : class;
+
+   // Gets the heap index that will be written to table stream
+   public delegate Int32 RowHeapColumnGetterDelegate<TRow>( ColumnFunctionalityArgs<TRow, RowHeapFillingArguments> args )
+      where TRow : class;
+
+   // Gets the const value that will be written to table stream
+   public delegate TValue RowColumnGetterDelegate<TRow, TValue>( TRow row );
+
    public class DefaultColumnSerializationInfo<TRawRow, TRow> : ColumnSerializationInfo
       where TRawRow : class
       where TRow : class
@@ -38,10 +66,10 @@ namespace CILAssemblyManipulator.Physical.IO
 
       public DefaultColumnSerializationInfo(
          String columnName,
-         Func<ColumnSerializationSupportCreationArgs, ColumnSerializationFunctionality> serializationCreator,
-         Action<TRawRow, Int32> rawSetter,
-         Action<ColumnSettingArguments<TRow, RowReadingArguments>, Int32> setter,
-         Func<TRow, Int32> constExtractor
+         CreateSerializationSupportDelegate serializationCreator,
+         RawRowColumnSetterDelegate<TRawRow> rawSetter,
+         RowColumnSetterDelegate<TRow, Int32> setter,
+         RowColumnGetterDelegate<TRow, Int32> constExtractor
          )
          : this(
         columnName,
@@ -60,12 +88,12 @@ namespace CILAssemblyManipulator.Physical.IO
 
       public DefaultColumnSerializationInfo(
          String columnName,
-         Func<ColumnSerializationSupportCreationArgs, ColumnSerializationFunctionality> serializationCreator,
-         Action<TRawRow, Int32> rawSetter,
-         Action<ColumnSettingArguments<TRow, RowReadingArguments>, Int32> setter,
-         Action<ColumnSettingArguments<TRow, RawValueProcessingArgs>, Int32> rawValueProcessor,
-         Func<ColumnSettingArguments<TRow, RowRawValueExtractionArguments>, Int32> rawValueExtractor,
-         Func<ColumnSettingArguments<TRow, RawValueTransformationArguments>, Int64, Int32> rawValueConverter
+         CreateSerializationSupportDelegate serializationCreator,
+         RawRowColumnSetterDelegate<TRawRow> rawSetter,
+         RowColumnSetterDelegate<TRow, Int32> setter,
+         RowRawColumnSetterDelegate<TRow> rawValueProcessor,
+         RowRawColumnGetterDelegate<TRow> rawValueExtractor,
+         RowRawColumnConverterDelegate<TRow> rawValueConverter
          )
          : this(
               columnName,
@@ -85,9 +113,9 @@ namespace CILAssemblyManipulator.Physical.IO
       public DefaultColumnSerializationInfo(
          String columnName,
          HeapIndexKind heapIndexKind,
-         Action<TRawRow, Int32> rawSetter,
-         Action<ColumnSettingArguments<TRow, RowReadingArguments>, Int32> setter,
-         Func<ColumnSettingArguments<TRow, RowHeapFillingArguments>, Int32> heapValueExtractor
+         RawRowColumnSetterDelegate<TRawRow> rawSetter,
+         RowColumnSetterDelegate<TRow, Int32> setter,
+         RowHeapColumnGetterDelegate<TRow> heapValueExtractor
          )
          : this(
               columnName,
@@ -106,14 +134,14 @@ namespace CILAssemblyManipulator.Physical.IO
 
       protected DefaultColumnSerializationInfo(
          String columnName,
-         Func<ColumnSerializationSupportCreationArgs, ColumnSerializationFunctionality> creator,
-         Action<TRawRow, Int32> rawSetter,
-         Action<ColumnSettingArguments<TRow, RowReadingArguments>, Int32> setter,
-         Action<ColumnSettingArguments<TRow, RawValueProcessingArgs>, Int32> rawValueProcessor,
-         Func<ColumnSettingArguments<TRow, RowRawValueExtractionArguments>, Int32> rawValueExtractor,
-         Func<ColumnSettingArguments<TRow, RawValueTransformationArguments>, Int64, Int32> rawValueConverter,
-         Func<ColumnSettingArguments<TRow, RowHeapFillingArguments>, Int32> heapValueExtractor,
-         Func<TRow, Int32> constExtractor
+         CreateSerializationSupportDelegate creator,
+         RawRowColumnSetterDelegate<TRawRow> rawSetter,
+         RowColumnSetterDelegate<TRow, Int32> setter,
+         RowRawColumnSetterDelegate<TRow> rawValueProcessor,
+         RowRawColumnGetterDelegate<TRow> rawValueExtractor,
+         RowRawColumnConverterDelegate<TRow> rawValueConverter,
+         RowHeapColumnGetterDelegate<TRow> heapValueExtractor,
+         RowColumnGetterDelegate<TRow, Int32> constExtractor
          )
       {
          ArgumentValidator.ValidateNotNull( "Column name", columnName );
@@ -134,24 +162,41 @@ namespace CILAssemblyManipulator.Physical.IO
          this.RawSetter = rawSetter;
          this.Setter = setter;
          this.SerializationSupportCreator = creator;
+         this.RawValueExtractor = rawValueExtractor;
          this.RawValueProcessor = rawValueProcessor;
          this.RawValueConverter = rawValueConverter;
+         this.HeapValueExtractor = heapValueExtractor;
          this.ConstantExtractor = constExtractor;
       }
 
       public String ColumnName { get; }
-      public Func<ColumnSerializationSupportCreationArgs, ColumnSerializationFunctionality> SerializationSupportCreator { get; }
+      public CreateSerializationSupportDelegate SerializationSupportCreator { get; }
 
       // Reading
-      public Action<TRawRow, Int32> RawSetter { get; }
-      public Action<ColumnSettingArguments<TRow, RowReadingArguments>, Int32> Setter { get; }
-      public Action<ColumnSettingArguments<TRow, RawValueProcessingArgs>, Int32> RawValueProcessor { get; }
+      public RawRowColumnSetterDelegate<TRawRow> RawSetter { get; }
+      public RowColumnSetterDelegate<TRow, Int32> Setter { get; }
+      public RowRawColumnSetterDelegate<TRow> RawValueProcessor { get; }
 
       // Writing
-      public Func<ColumnSettingArguments<TRow, RowRawValueExtractionArguments>, Int32> RawValueExtractor { get; }
-      public Func<ColumnSettingArguments<TRow, RawValueTransformationArguments>, Int64, Int32> RawValueConverter { get; }
-      public Func<ColumnSettingArguments<TRow, RowHeapFillingArguments>, Int32> HeapValueExtractor { get; }
-      public Func<TRow, Int32> ConstantExtractor { get; }
+      public RowRawColumnGetterDelegate<TRow> RawValueExtractor { get; }
+      public RowRawColumnConverterDelegate<TRow> RawValueConverter { get; }
+      public RowHeapColumnGetterDelegate<TRow> HeapValueExtractor { get; }
+      public RowColumnGetterDelegate<TRow, Int32> ConstantExtractor { get; }
+   }
+
+   public class ColumnFunctionalityInfo<TDelegate, TArgs>
+   {
+      private readonly Func<TArgs, TDelegate> _creator;
+
+      public ColumnFunctionalityInfo( Func<TArgs, TDelegate> creator )
+      {
+         this._creator = creator;
+      }
+
+      public TDelegate CreateDelegate( TArgs args )
+      {
+         return this._creator( args );
+      }
    }
 
    public static class DefaultColumnSerializationInfoFactory
@@ -176,9 +221,9 @@ namespace CILAssemblyManipulator.Physical.IO
 
       public static DefaultColumnSerializationInfo<TRawRow, TRow> Constant8<TRawRow, TRow>(
          String columnName,
-         Action<TRawRow, Int32> rawSetter,
-         Action<ColumnSettingArguments<TRow, RowReadingArguments>, Int32> setter,
-         Func<TRow, Int32> getter
+         RawRowColumnSetterDelegate<TRawRow> rawSetter,
+         RowColumnSetterDelegate<TRow, Int32> setter,
+         RowColumnGetterDelegate<TRow, Int32> getter
          )
          where TRawRow : class
          where TRow : class
@@ -194,9 +239,9 @@ namespace CILAssemblyManipulator.Physical.IO
 
       public static DefaultColumnSerializationInfo<TRawRow, TRow> Constant16<TRawRow, TRow>(
          String columnName,
-         Action<TRawRow, Int32> rawSetter,
-         Action<ColumnSettingArguments<TRow, RowReadingArguments>, Int32> setter,
-         Func<TRow, Int32> getter
+         RawRowColumnSetterDelegate<TRawRow> rawSetter,
+         RowColumnSetterDelegate<TRow, Int32> setter,
+         RowColumnGetterDelegate<TRow, Int32> getter
          )
          where TRawRow : class
          where TRow : class
@@ -212,9 +257,9 @@ namespace CILAssemblyManipulator.Physical.IO
 
       public static DefaultColumnSerializationInfo<TRawRow, TRow> Constant32<TRawRow, TRow>(
          String columnName,
-         Action<TRawRow, Int32> rawSetter,
-         Action<ColumnSettingArguments<TRow, RowReadingArguments>, Int32> setter,
-         Func<TRow, Int32> getter
+         RawRowColumnSetterDelegate<TRawRow> rawSetter,
+         RowColumnSetterDelegate<TRow, Int32> setter,
+        RowColumnGetterDelegate<TRow, Int32> getter
          )
          where TRawRow : class
          where TRow : class
@@ -231,9 +276,9 @@ namespace CILAssemblyManipulator.Physical.IO
       public static DefaultColumnSerializationInfo<TRawRow, TRow> SimpleReference<TRawRow, TRow>(
          String columnName,
          Tables targetTable,
-         Action<TRawRow, Int32> rawSetter,
-         Action<ColumnSettingArguments<TRow, RowReadingArguments>, TableIndex> setter,
-         Func<TRow, TableIndex> getter
+         RawRowColumnSetterDelegate<TRawRow> rawSetter,
+         RowColumnSetterDelegate<TRow, TableIndex> setter,
+         RowColumnGetterDelegate<TRow, TableIndex> getter
          )
          where TRawRow : class
          where TRow : class
@@ -250,9 +295,9 @@ namespace CILAssemblyManipulator.Physical.IO
       public static DefaultColumnSerializationInfo<TRawRow, TRow> CodedReference<TRawRow, TRow>(
          String columnName,
          ArrayQuery<Tables?> targetTables,
-         Action<TRawRow, Int32> rawSetter,
-         Action<ColumnSettingArguments<TRow, RowReadingArguments>, TableIndex?> setter,
-         Func<TRow, TableIndex?> getter
+         RawRowColumnSetterDelegate<TRawRow> rawSetter,
+         RowColumnSetterDelegate<TRow, TableIndex?> setter,
+         RowColumnGetterDelegate<TRow, TableIndex?> getter
          )
          where TRawRow : class
          where TRow : class
@@ -270,9 +315,9 @@ namespace CILAssemblyManipulator.Physical.IO
 
       public static DefaultColumnSerializationInfo<TRawRow, TRow> BLOBArray<TRawRow, TRow>(
          String columnName,
-         Action<TRawRow, Int32> rawSetter,
-         Action<ColumnSettingArguments<TRow, RowReadingArguments>, Byte[]> setter,
-         Func<TRow, Byte[]> getter
+         RawRowColumnSetterDelegate<TRawRow> rawSetter,
+         RowColumnSetterDelegate<TRow, Byte[]> setter,
+         RowColumnGetterDelegate<TRow, Byte[]> getter
          )
          where TRawRow : class
          where TRow : class
@@ -287,9 +332,9 @@ namespace CILAssemblyManipulator.Physical.IO
 
       public static DefaultColumnSerializationInfo<TRawRow, TRow> BLOBTypeSignature<TRawRow, TRow>(
          String columnName,
-         Action<TRawRow, Int32> rawSetter,
-         Action<ColumnSettingArguments<TRow, RowReadingArguments>, TypeSignature> setter,
-         Func<TRow, TypeSignature> sigGetter
+         RawRowColumnSetterDelegate<TRawRow> rawSetter,
+         RowColumnSetterDelegate<TRow, TypeSignature> setter,
+         RowColumnGetterDelegate<TRow, TypeSignature> sigGetter
          )
          where TRawRow : class
          where TRow : class
@@ -304,9 +349,9 @@ namespace CILAssemblyManipulator.Physical.IO
 
       public static DefaultColumnSerializationInfo<TRawRow, TRow> BLOBNonTypeSignature<TRawRow, TRow, TSignature>(
          String columnName,
-         Action<TRawRow, Int32> rawSetter,
-         Action<ColumnSettingArguments<TRow, RowReadingArguments>, TSignature> setter,
-         Func<TRow, TSignature> getter
+         RawRowColumnSetterDelegate<TRawRow> rawSetter,
+         RowColumnSetterDelegate<TRow, TSignature> setter,
+         RowColumnGetterDelegate<TRow, TSignature> getter
          )
          where TRawRow : class
          where TRow : class
@@ -327,8 +372,8 @@ namespace CILAssemblyManipulator.Physical.IO
 
       public static DefaultColumnSerializationInfo<TRawRow, TRow> BLOBCASignature<TRawRow, TRow>(
          String columnName,
-         Action<TRawRow, Int32> rawSetter,
-         Action<ColumnSettingArguments<TRow, RowReadingArguments>, AbstractCustomAttributeSignature> setter
+         RawRowColumnSetterDelegate<TRawRow> rawSetter,
+         RowColumnSetterDelegate<TRow, AbstractCustomAttributeSignature> setter
          )
          where TRawRow : class
          where TRow : class
@@ -343,9 +388,9 @@ namespace CILAssemblyManipulator.Physical.IO
 
       public static DefaultColumnSerializationInfo<TRawRow, TRow> BLOBMarshalingInfo<TRawRow, TRow>(
          String columnName,
-         Action<TRawRow, Int32> rawSetter,
-         Action<ColumnSettingArguments<TRow, RowReadingArguments>, MarshalingInfo> setter,
-         Func<TRow, MarshalingInfo> getter
+         RawRowColumnSetterDelegate<TRawRow> rawSetter,
+         RowColumnSetterDelegate<TRow, MarshalingInfo> setter,
+         RowColumnGetterDelegate<TRow, MarshalingInfo> getter
          )
          where TRawRow : class
          where TRow : class
@@ -360,9 +405,9 @@ namespace CILAssemblyManipulator.Physical.IO
 
       public static DefaultColumnSerializationInfo<TRawRow, TRow> BLOBSecurityInformation<TRawRow, TRow>(
          String columnName,
-         Action<TRawRow, Int32> rawSetter,
-         Action<ColumnSettingArguments<TRow, RowReadingArguments>, IEnumerable<AbstractSecurityInformation>> setter,
-         Func<TRow, List<AbstractSecurityInformation>> getter
+         RawRowColumnSetterDelegate<TRawRow> rawSetter,
+         RowColumnSetterDelegate<TRow, IEnumerable<AbstractSecurityInformation>> setter,
+         RowColumnGetterDelegate<TRow, List<AbstractSecurityInformation>> getter
          )
          where TRawRow : class
          where TRow : class
@@ -378,9 +423,9 @@ namespace CILAssemblyManipulator.Physical.IO
 
       public static DefaultColumnSerializationInfo<TRawRow, TRow> BLOBCustom<TRawRow, TRow>(
          String columnName,
-         Action<TRawRow, Int32> rawSetter,
-         Action<ColumnSettingArguments<TRow, RowReadingArguments>, Int32, ReaderBLOBStreamHandler> setter,
-         Func<ColumnSettingArguments<TRow, RowHeapFillingArguments>, Byte[]> blobCreator
+         RawRowColumnSetterDelegate<TRawRow> rawSetter,
+         Action<ColumnFunctionalityArgs<TRow, RowReadingArguments>, Int32, ReaderBLOBStreamHandler> setter, // TODO delegat-ize these
+         Func<ColumnFunctionalityArgs<TRow, RowHeapFillingArguments>, Byte[]> blobCreator
          )
          where TRawRow : class
          where TRow : class
@@ -396,9 +441,9 @@ namespace CILAssemblyManipulator.Physical.IO
 
       public static DefaultColumnSerializationInfo<TRawRow, TRow> GUID<TRawRow, TRow>(
          String columnName,
-         Action<TRawRow, Int32> rawSetter,
-         Action<ColumnSettingArguments<TRow, RowReadingArguments>, Guid?> setter,
-         Func<TRow, Guid?> getter
+         RawRowColumnSetterDelegate<TRawRow> rawSetter,
+         RowColumnSetterDelegate<TRow, Guid?> setter,
+         RowColumnGetterDelegate<TRow, Guid?> getter
          )
          where TRawRow : class
          where TRow : class
@@ -414,9 +459,9 @@ namespace CILAssemblyManipulator.Physical.IO
 
       public static DefaultColumnSerializationInfo<TRawRow, TRow> SystemString<TRawRow, TRow>(
          String columnName,
-         Action<TRawRow, Int32> rawSetter,
-         Action<ColumnSettingArguments<TRow, RowReadingArguments>, String> setter,
-         Func<TRow, String> getter
+         RawRowColumnSetterDelegate<TRawRow> rawSetter,
+         RowColumnSetterDelegate<TRow, String> setter,
+         RowColumnGetterDelegate<TRow, String> getter
          )
          where TRawRow : class
          where TRow : class
@@ -433,9 +478,9 @@ namespace CILAssemblyManipulator.Physical.IO
       public static DefaultColumnSerializationInfo<TRawRow, TRow> HeapIndex<TRawRow, TRow>(
          String columnName,
          HeapIndexKind heapKind,
-         Action<TRawRow, Int32> rawSetter,
-         Action<ColumnSettingArguments<TRow, RowReadingArguments>, Int32> setter,
-         Func<ColumnSettingArguments<TRow, RowHeapFillingArguments>, Int32> heapValueExtractor
+         RawRowColumnSetterDelegate<TRawRow> rawSetter,
+         RowColumnSetterDelegate<TRow, Int32> setter,
+         RowHeapColumnGetterDelegate<TRow> heapValueExtractor
          )
          where TRawRow : class
          where TRow : class
@@ -458,10 +503,10 @@ namespace CILAssemblyManipulator.Physical.IO
 
       public static DefaultColumnSerializationInfo<TRawRow, TRow> RawValueStorageColumn<TRawRow, TRow>(
          String columnName,
-         Action<TRawRow, Int32> rawSetter,
-         Action<ColumnSettingArguments<TRow, RawValueProcessingArgs>, Int32> rawValueProcessor,
-         Func<ColumnSettingArguments<TRow, RowRawValueExtractionArguments>, Int32> rawValueExtractor,
-         Func<ColumnSettingArguments<TRow, RawValueTransformationArguments>, Int64, Int32> rawValueConverter
+         RawRowColumnSetterDelegate<TRawRow> rawSetter,
+         RowRawColumnSetterDelegate<TRow> rawValueProcessor,
+         RowRawColumnGetterDelegate<TRow> rawValueExtractor,
+         RowRawColumnConverterDelegate<TRow> rawValueConverter
          )
          where TRawRow : class
          where TRow : class
@@ -479,9 +524,9 @@ namespace CILAssemblyManipulator.Physical.IO
 
       public static DefaultColumnSerializationInfo<TRawRow, TRow> RawValueStorageColumnRVA<TRawRow, TRow>(
          String columnName,
-         Action<TRawRow, Int32> rawSetter,
-         Action<ColumnSettingArguments<TRow, RawValueProcessingArgs>, Int32> rawValueProcessor,
-         Func<ColumnSettingArguments<TRow, RowRawValueExtractionArguments>, Int32> rawValueExtractor
+         RawRowColumnSetterDelegate<TRawRow> rawSetter,
+         RowRawColumnSetterDelegate<TRow> rawValueProcessor,
+         RowRawColumnGetterDelegate<TRow> rawValueExtractor
          )
          where TRawRow : class
          where TRow : class
@@ -594,12 +639,12 @@ namespace CILAssemblyManipulator.Physical.IO
 
    }
 
-   public struct ColumnSettingArguments<TRow, TRowArgs>
+   public struct ColumnFunctionalityArgs<TRow, TRowArgs>
       where TRow : class
       where TRowArgs : class
    {
 
-      public ColumnSettingArguments(
+      public ColumnFunctionalityArgs(
          Tables table,
          Int32 rowIndex,
          TRow row,
@@ -1049,13 +1094,15 @@ namespace CILAssemblyManipulator.Physical.IO
          {
             var row = args.Row;
             return row.Implementation.HasValue ?
-               row.Offset :
+               0 :
                this.WriteEmbeddedManifestResoruce( args.RowArgs, row.DataInCurrentFile );
          }, ( args, offset ) =>
          {
             // offset - rvaConverter.GetOffset(resDD.rva)
-            return offset - args.RowArgs.
-
+            var row = args.Row;
+            return row.Implementation.HasValue ?
+               row.Offset :
+               ;
             throw new NotImplementedException( "TODO" );
          } );
          yield return DefaultColumnSerializationInfoFactory.Constant32<RawManifestResource, ManifestResource>( nameof( RawManifestResource.Attributes ), ( r, v ) => r.Attributes = (ManifestResourceAttributes) v, ( args, v ) => args.Row.Attributes = (ManifestResourceAttributes) v, row => (Int32) row.Attributes );
@@ -1159,7 +1206,7 @@ namespace CILAssemblyManipulator.Physical.IO
                var list = table.TableContents;
                for ( var i = 0; i < list.Count; ++i )
                {
-                  var cArgs = new ColumnSettingArguments<TRow, RawValueProcessingArgs>( tblEnum, i, list[i], args );
+                  var cArgs = new ColumnFunctionalityArgs<TRow, RawValueProcessingArgs>( tblEnum, i, list[i], args );
                   var cur = 0;
                   foreach ( var rawValue in storage.GetAllRawValuesForRow( tblEnum, i ) )
                   {
@@ -1201,7 +1248,7 @@ namespace CILAssemblyManipulator.Physical.IO
                var rArgs = new RowRawValueExtractionArguments( array, mdStreamContainer, md, () => stream.Position );
                for ( var i = 0; i < list.Count; ++i )
                {
-                  var cArgs = new ColumnSettingArguments<TRow, RowRawValueExtractionArguments>( this.Table, i, list[i], rArgs );
+                  var cArgs = new ColumnFunctionalityArgs<TRow, RowRawValueExtractionArguments>( this.Table, i, list[i], rArgs );
                   foreach ( var col in cols )
                   {
                      var offset = stream.Position;
@@ -1245,7 +1292,7 @@ namespace CILAssemblyManipulator.Physical.IO
                var rArgs = new RowHeapFillingArguments( mdStreamContainer, array, thisAssemblyPublicKeyIfPresentNull, md );
                for ( var i = 0; i < list.Count; ++i )
                {
-                  var cArgs = new ColumnSettingArguments<TRow, RowHeapFillingArguments>( this.Table, i, list[i], rArgs );
+                  var cArgs = new ColumnFunctionalityArgs<TRow, RowHeapFillingArguments>( this.Table, i, list[i], rArgs );
                   foreach ( var col in cols )
                   {
                      Int32 rawValue;
@@ -1297,7 +1344,7 @@ namespace CILAssemblyManipulator.Physical.IO
                      var rawValue = previousRawValues.GetRawValue( this.Table, rowIdx, colIdx );
                      yield return converter == null ?
                         (Int32) rawValue :
-                        converter( new ColumnSettingArguments<TRow, RawValueTransformationArguments>( this.Table, rowIdx, row, rawTransofrmArgs ), rawValue );
+                        converter( new ColumnFunctionalityArgs<TRow, RawValueTransformationArguments>( this.Table, rowIdx, row, rawTransofrmArgs ), rawValue );
                   }
                   else
                   {
@@ -1355,7 +1402,7 @@ namespace CILAssemblyManipulator.Physical.IO
             for ( var i = 0; i < tableRowCount; ++i )
             {
                var row = new TRow();
-               var columnArgs = new ColumnSettingArguments<TRow, RowReadingArguments>( this.TableSerializationInfo.Table, i, row, args );
+               var columnArgs = new ColumnFunctionalityArgs<TRow, RowReadingArguments>( this.TableSerializationInfo.Table, i, row, args );
                var stream = args.Stream;
                for ( var j = 0; j < this._columnArray.Length; ++j )
                {

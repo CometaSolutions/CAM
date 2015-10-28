@@ -239,8 +239,8 @@ public static partial class E_CILPhysical
 
       // 2. Position stream at file alignment, and write raw values (IL, constants, resources, relocs, etc)
       var peOptions = options.PEOptions;
-      stream.Position = peOptions?.FileAlignment ?? 0x200;
-      var machine = peOptions?.Machine ?? ImageFileMachine.I386;
+      stream.Position = peOptions.FileAlignment ?? 0x200;
+      var machine = peOptions.Machine ?? ImageFileMachine.I386;
 
       var status = new WritingStatus( snVars );
       var array = new ResizableArray<Byte>();
