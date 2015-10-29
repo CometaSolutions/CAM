@@ -1390,6 +1390,28 @@ public static partial class E_CILPhysical
          );
    }
 
+   public static Int32 WriteMetaDataRoot( this MetaDataRoot header, StreamHelper stream, ResizableArray<Byte> array )
+   {
+
+      var bytez = array.Array;
+      var idx = 0;
+      bytez
+         .WriteInt32LEToBytes( ref idx, header.Signature )
+         .WriteUInt16LEToBytes( ref idx, header.MajorVersion )
+         .WriteUInt16LEToBytes( ref idx, header.MinorVersion )
+         .WriteInt32LEToBytes( ref idx, header.Reserved )
+         .WriteUInt32LEToBytes( ref idx, header.VersionStringLength )
+         .BlockCopyFrom( ref idx, header.VersionStringBytes.ToArray() )
+         .WriteByteToBytes( ref idx, (Byte) header.StorageFlags )
+         .WriteByteToBytes( ref idx, header.Reserved2 )
+         .WriteUInt16LEToBytes( ref idx, header.NumberOfStreams );
+      foreach ( var hdr in header.StreamHeaders )
+      {
+
+      }
+
+   }
+
    public static MetaDataTableStreamHeader NewTableStreamHeaderFromStream( this StreamHelper stream )
    {
       UInt64 presentTables;

@@ -364,7 +364,7 @@ public static partial class E_CILPhysical
                   status,
                   rvaConverter,
                   sections,
-                  dosHeaderSize
+                  (UInt32) headersSize
                   )
                ),
             sections
@@ -597,7 +597,7 @@ public static partial class E_CILPhysical
       WritingStatus writingStatus,
       RVAConverter rvaConverter,
       ArrayQuery<SectionHeader> sections,
-      Int32 dosHeaderSize
+      UInt32 headersSize
       )
    {
       const Byte linkerMajor = 0x0B;
@@ -614,13 +614,6 @@ public static partial class E_CILPhysical
       // Calculate various sizes in one iteration of sections
       var sAlign = (UInt32) writingStatus.SectionAlignment;
       var fAlign = (UInt32) writingStatus.FileAlignment;
-      var headersSize = ( (UInt32) (
-         dosHeaderSize
-         + 0x04 // PE Signature
-         + 0x18 // File header size
-         + machine.GetOptionalHeaderSize() // Optional header size
-         + sections.Count * 0x28 // Sections
-         ) ).RoundUpU32( fAlign );
       var imageSize = headersSize.RoundUpU32( sAlign );
       var dataBase = 0u;
       var codeBase = 0u;
