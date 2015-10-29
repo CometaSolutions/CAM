@@ -51,7 +51,6 @@ namespace CILAssemblyManipulator.Physical.IO
    public class DefaultWriterFunctionality : WriterFunctionality
    {
 
-
       private readonly WritingOptions _headers;
 
       public DefaultWriterFunctionality(
@@ -76,6 +75,11 @@ namespace CILAssemblyManipulator.Physical.IO
          yield return new DefaultWriterUserStringStreamHandler();
       }
 
+      public virtual Int32 GetSectionCount( ImageFileMachine machine )
+      {
+         return machine.RequiresPE64() ? 1 : 2;
+      }
+
       public virtual RawValueStorage<Int64> CreateRawValuesBeforeMDStreams(
          Stream stream,
          ResizableArray<Byte> array,
@@ -92,21 +96,33 @@ namespace CILAssemblyManipulator.Physical.IO
          return retVal;
       }
 
-      public virtual IEnumerable<SectionHeader> CreateSections(
+      public virtual void PopulateSections(
          WritingStatus writingStatus,
          IEnumerable<AbstractWriterStreamHandler> allStreams,
+         MetaDataRoot mdRoot,
+         SectionHeader[] sections,
          out RVAConverter rvaConverter
          )
       {
-         var sections = this.CreateSections( writingStatus, allStreams ).ToArray();
+         this.PopulateSections( writingStatus, allStreams, mdRoot, sections );
          rvaConverter = this.CreateRVAConverter( sections );
-         return sections;
       }
 
-      public virtual void FinalizeStream(
+      public virtual void BeforeMetaData(
          Stream stream,
          ArrayQuery<SectionHeader> sections,
-         WritingStatus writingStatus
+         WritingStatus writingStatus,
+         RVAConverter rvaConverter
+         )
+      {
+         // TODO: CLI header, import directory
+      }
+
+      public virtual void AfterMetaData(
+         Stream stream,
+         ArrayQuery<SectionHeader> sections,
+         WritingStatus writingStatus,
+         RVAConverter rvaConverter
          )
       {
 
@@ -138,9 +154,11 @@ namespace CILAssemblyManipulator.Physical.IO
          return new DefaultRVAConverter( headers );
       }
 
-      protected virtual IEnumerable<SectionHeader> CreateSections(
+      protected virtual void PopulateSections(
          WritingStatus writingStatus,
-         IEnumerable<AbstractWriterStreamHandler> allStreams
+         IEnumerable<AbstractWriterStreamHandler> allStreams,
+         MetaDataRoot mdRoot,
+         SectionHeader[] sections
          )
       {
          var encoding = Encoding.UTF8;
@@ -148,18 +166,18 @@ namespace CILAssemblyManipulator.Physical.IO
          // 1st section - .text
          var virtualSize = (UInt32) ( writingStatus.OffsetAfterInitialRawValues.Value
             + this.GetCLIHeaderSize()
-            + this.GetMDSize( allStreams )
+            + this.GetMDSize( allStreams, mdRoot )
             + ( snVars == null ? 0 : ( snVars.SignatureSize + snVars.SignaturePaddingSize ) )
             + this.GetImportDirectorySize( writingStatus )
             + this.GetDebugDirectorySize()
             - writingStatus.InitialOffset
             );
          var fAlign = (UInt32) writingStatus.FileAlignment;
-         var sAlign = (UInt32) ( this._headers.PEOptions.SectionAlignment ?? 0x2000 );
+         var sAlign = (UInt32) writingStatus.SectionAlignment;
          var curVA = sAlign;
          var curPointer = (UInt32) writingStatus.InitialOffset;
          var curRawSize = virtualSize.RoundUpU32( fAlign );
-         yield return new SectionHeader(
+         sections[0] = new SectionHeader(
             encoding.GetBytes( ".text" ).ToArrayProxy().CQ,
             virtualSize,
             curVA,
@@ -182,7 +200,7 @@ namespace CILAssemblyManipulator.Physical.IO
          {
             virtualSize = (UInt32) this.GetRelocSectionSize();
             curRawSize = virtualSize.RoundUpU32( fAlign );
-            yield return new SectionHeader(
+            sections[1] = new SectionHeader(
                encoding.GetBytes( ".reloc" ).ToArrayProxy().CQ,
                virtualSize,
                curVA,
@@ -205,11 +223,12 @@ namespace CILAssemblyManipulator.Physical.IO
       }
 
       protected virtual Int32 GetMDSize(
-         IEnumerable<AbstractWriterStreamHandler> allStreams
+         IEnumerable<AbstractWriterStreamHandler> allStreams,
+         MetaDataRoot mdRoot
          )
       {
          return 0x14
-            + MetaDataRoot.VersionStringEncoding.GetByteCount( this._headers.CLIOptions.MDRootOptions.VersionString ?? "v4.0.30319" ).RoundUpI32( 4 )
+            + mdRoot.VersionStringBytes.Count
             + allStreams.Select( s => this.GetStreamHeaderSize( s ) + s.CurrentSize ).Sum();
       }
 
@@ -935,8 +954,6 @@ namespace CILAssemblyManipulator.Physical.IO
 
    public class DefaultWriterTableStreamHandler : WriterTableStreamHandler
    {
-      private const Int32 TABLE_STREAM_RESERVED = 0;
-      private const Byte TABLE_STREAM_RESERVED_2 = 1;
       private const Int64 SORTED_TABLES = 0x16003325FA00;
 
       private sealed class WriteDependantInfo
@@ -946,18 +963,12 @@ namespace CILAssemblyManipulator.Physical.IO
             ArrayQuery<Int32> tableSizes,
             ArrayQuery<TableSerializationInfo> infos,
             WriterMetaDataStreamContainer mdStreams,
-            RawValueStorage<Int32> heapIndices
+            RawValueStorage<Int32> heapIndices,
+            MetaDataTableStreamHeader header
             )
          {
 
-            var presentTables = 0;
-            for ( var i = 0; i < tableSizes.Count; ++i )
-            {
-               if ( tableSizes[i] > 0 )
-               {
-                  ++presentTables;
-               }
-            }
+            var presentTables = header.TableSizes.Count( s => s > 0 );
             var hdrSize = 24 + 4 * presentTables;
             if ( writingOptions.HeaderExtraData.HasValue )
             {
@@ -965,17 +976,17 @@ namespace CILAssemblyManipulator.Physical.IO
             }
 
             this.HeapIndices = heapIndices;
-            this.ColumnSerializationSupportCreationArgs = new ColumnSerializationSupportCreationArgs( tableSizes, mdStreams.BLOBs.IsWide(), mdStreams.GUIDs.IsWide(), mdStreams.SystemStrings.IsWide() );
-            this.Serialization = infos.Select( info => info.CreateSupport( this.ColumnSerializationSupportCreationArgs ) ).ToArrayProxy().CQ;
+            var args = new ColumnSerializationSupportCreationArgs( tableSizes, mdStreams.BLOBs.IsWide(), mdStreams.GUIDs.IsWide(), mdStreams.SystemStrings.IsWide() );
+            this.Serialization = infos.Select( info => info.CreateSupport( args ) ).ToArrayProxy().CQ;
             this.HeaderSize = (UInt32) hdrSize;
             this.ContentSize = tableSizes.Select( ( size, idx ) => (UInt32) size * (UInt32) this.Serialization[idx].ColumnSerializationSupports.Sum( c => c.ColumnByteCount ) ).Sum();
             var totalSize = ( this.HeaderSize + this.ContentSize ).RoundUpU32( 4 );
             this.PaddingSize = totalSize - this.HeaderSize - this.ContentSize;
+            this.Header = header;
          }
 
          public RawValueStorage<Int32> HeapIndices { get; }
 
-         public ColumnSerializationSupportCreationArgs ColumnSerializationSupportCreationArgs { get; }
 
          public ArrayQuery<TableSerializationFunctionality> Serialization { get; }
 
@@ -985,7 +996,7 @@ namespace CILAssemblyManipulator.Physical.IO
 
          public UInt32 PaddingSize { get; }
 
-
+         public MetaDataTableStreamHeader Header { get; }
 
       }
 
@@ -1039,7 +1050,8 @@ namespace CILAssemblyManipulator.Physical.IO
          RawValueStorage<Int64> rawValuesBeforeStreams,
          ArrayQuery<Byte> thisAssemblyPublicKeyIfPresentNull,
          WriterMetaDataStreamContainer mdStreams,
-         ResizableArray<Byte> array
+         ResizableArray<Byte> array,
+         out MetaDataTableStreamHeader header
          )
       {
          var retVal = new RawValueStorage<Int32>( this.TableSizes, this.TableSerializations.Select( info => info.HeapValueColumnCount ) );
@@ -1048,7 +1060,21 @@ namespace CILAssemblyManipulator.Physical.IO
             info.ExtractTableHeapValues( this._md, retVal, mdStreams, array, thisAssemblyPublicKeyIfPresentNull );
          }
 
-         Interlocked.Exchange( ref this._writeDependantInfo, new WriteDependantInfo( this._writingData, this.TableSizes, this.TableSerializations, mdStreams, retVal ) );
+         // Create table stream header
+         var options = this._writingData;
+         header = new MetaDataTableStreamHeader(
+            options.Reserved ?? 0,
+            options.HeaderMajorVersion ?? 2,
+            options.HeaderMinorVersion ?? 0,
+            CreateTableStreamFlags( mdStreams ),
+            options.Reserved2 ?? 1,
+            this.GetPresentTablesBitVector(),
+            SORTED_TABLES, // TODO customize this
+            this.TableSizes.Select( s => (UInt32) s ).ToArrayProxy().CQ,
+            options.HeaderExtraData
+            );
+
+         Interlocked.Exchange( ref this._writeDependantInfo, new WriteDependantInfo( this._writingData, this.TableSizes, this.TableSerializations, mdStreams, retVal, header ) );
 
          return retVal;
       }
@@ -1064,7 +1090,7 @@ namespace CILAssemblyManipulator.Physical.IO
 
          // Header
          array.CurrentMaxCapacity = (Int32) writeInfo.HeaderSize;
-         var headerSize = this.WriteTableHeader( array );
+         var headerSize = WriteTableHeader( array, writeInfo.Header );
          sink.Write( array.Array, headerSize );
 
          // Rows
@@ -1099,12 +1125,66 @@ namespace CILAssemblyManipulator.Physical.IO
 
       protected ArrayQuery<Int32> TableSizes { get; }
 
-      private Int32 WriteTableHeader(
-         ResizableArray<Byte> byteArray
+      private static Int32 WriteTableHeader(
+         ResizableArray<Byte> byteArray,
+         MetaDataTableStreamHeader header
          )
       {
-         var mdStreamInfo = this._writeDependantInfo.ColumnSerializationSupportCreationArgs;
-         var validBitvector = 0L;
+         var idx = 0;
+         var array = byteArray.Array;
+         array
+            .WriteInt32LEToBytes( ref idx, header.Reserved )
+            .WriteByteToBytes( ref idx, header.MajorVersion )
+            .WriteByteToBytes( ref idx, header.MinorVersion )
+            .WriteByteToBytes( ref idx, (Byte) header.TableStreamFlags )
+            .WriteByteToBytes( ref idx, header.Reserved2 )
+            .WriteUInt64LEToBytes( ref idx, header.PresentTablesBitVector )
+            .WriteUInt64LEToBytes( ref idx, header.SortedTablesBitVector );
+
+         var tableSizes = header.TableSizes;
+         for ( var i = 0; i < tableSizes.Count; ++i )
+         {
+            if ( tableSizes[i] > 0 )
+            {
+               array.WriteUInt32LEToBytes( ref idx, tableSizes[i] );
+            }
+         }
+         var extraData = header.ExtraData;
+         if ( extraData.HasValue )
+         {
+            array.WriteInt32LEToBytes( ref idx, extraData.Value );
+         }
+
+         return idx;
+      }
+
+      private TableStreamFlags CreateTableStreamFlags( WriterMetaDataStreamContainer streams )
+      {
+         var retVal = (TableStreamFlags) 0;
+         if ( streams.SystemStrings.IsWide() )
+         {
+            retVal |= TableStreamFlags.WideStrings;
+         }
+         if ( streams.GUIDs.IsWide() )
+         {
+            retVal |= TableStreamFlags.WideGUID;
+         }
+         if ( streams.BLOBs.IsWide() )
+         {
+            retVal |= TableStreamFlags.WideBLOB;
+         }
+
+         if ( this._writingData.HeaderExtraData.HasValue )
+         {
+            retVal |= TableStreamFlags.ExtraData;
+         }
+
+         return retVal;
+      }
+
+      private UInt64 GetPresentTablesBitVector()
+      {
+         var validBitvector = 0UL;
          var tableSizes = this.TableSizes;
          for ( var i = this.TableSizes.Count - 1; i >= 0; --i )
          {
@@ -1115,51 +1195,7 @@ namespace CILAssemblyManipulator.Physical.IO
             }
          }
 
-         var thFlags = (TableStreamFlags) 0;
-         if ( mdStreamInfo.IsWide( HeapIndexKind.String ) )
-         {
-            thFlags |= TableStreamFlags.WideStrings;
-         }
-         if ( mdStreamInfo.IsWide( HeapIndexKind.GUID ) )
-         {
-            thFlags |= TableStreamFlags.WideGUID;
-         }
-         if ( mdStreamInfo.IsWide( HeapIndexKind.BLOB ) )
-         {
-            thFlags |= TableStreamFlags.WideBLOB;
-         }
-         var headers = this._writingData;
-         var extraData = headers.HeaderExtraData;
-         if ( extraData.HasValue )
-         {
-            thFlags |= TableStreamFlags.ExtraData;
-         }
-
-         var idx = 0;
-         var array = byteArray.Array;
-         array
-             .WriteInt32LEToBytes( ref idx, headers.Reserved ?? TABLE_STREAM_RESERVED )
-            .WriteByteToBytes( ref idx, headers.HeaderMajorVersion ?? 2 )
-            .WriteByteToBytes( ref idx, headers.HeaderMinorVersion ?? 0 )
-            .WriteByteToBytes( ref idx, (Byte) thFlags )
-            .WriteByteToBytes( ref idx, headers.Reserved2 ?? TABLE_STREAM_RESERVED_2 )
-            .WriteInt64LEToBytes( ref idx, validBitvector )
-            .WriteInt64LEToBytes( ref idx, SORTED_TABLES );
-
-         for ( var i = 0; i < tableSizes.Count; ++i )
-         {
-            if ( tableSizes[i] > 0 )
-            {
-               array.WriteInt32LEToBytes( ref idx, tableSizes[i] );
-            }
-         }
-
-         if ( extraData.HasValue )
-         {
-            array.WriteInt32LEToBytes( ref idx, extraData.Value );
-         }
-
-         return idx;
+         return validBitvector;
       }
    }
 }

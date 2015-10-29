@@ -875,12 +875,29 @@ namespace CILAssemblyManipulator.Physical.IO
    {
       private static readonly Encoding VERSION_ENCODING = new UTF8Encoding( false, false );
 
-      public static Encoding VersionStringEncoding
+      //public static Encoding VersionStringEncoding
+      //{
+      //   get
+      //   {
+      //      return VERSION_ENCODING;
+      //   }
+      //}
+
+      public static Int32 GetVersionStringByteCount( String versionString )
       {
-         get
+         ArgumentValidator.ValidateNotNull( "Version string", versionString );
+         return ( VERSION_ENCODING.GetByteCount( versionString ) + 1 ).RoundUpI32( 4 );
+      }
+
+      public static ArrayQuery<Byte> GetVersionStringBytes( String versionString )
+      {
+         if ( String.IsNullOrEmpty( versionString ) )
          {
-            return VERSION_ENCODING;
+            versionString = "v4.0.30319";
          }
+         var bytez = new Byte[GetVersionStringByteCount( versionString )];
+         VERSION_ENCODING.GetBytes( versionString, 0, versionString.Length, bytez, 0 );
+         return bytez.ToArrayProxy().CQ;
       }
 
       private readonly Lazy<String> _versionString;
@@ -1314,15 +1331,15 @@ public static partial class E_CILPhysical
       return FileHeaderCharacteristics.ExecutableImage | ( machine.RequiresPE64() ? FileHeaderCharacteristics.ExecutableImage : FileHeaderCharacteristics.Machine32Bit );
    }
 
-   /// <summary>
-   /// Checks whether emitted module requires relocation section.
-   /// </summary>
-   /// <param name="machine">The <see cref="ImageFileMachine"/>.</param>
-   /// <returns><c>true</c> if <paramref name="machine"/> represents a target platform which requires relocation section in emitted file; <c>false</c> otherwise.</returns>
-   public static Boolean RequiresRelocations( this ImageFileMachine machine )
-   {
-      return ImageFileMachine.I386 == machine;
-   }
+   ///// <summary>
+   ///// Checks whether emitted module requires relocation section.
+   ///// </summary>
+   ///// <param name="machine">The <see cref="ImageFileMachine"/>.</param>
+   ///// <returns><c>true</c> if <paramref name="machine"/> represents a target platform which requires relocation section in emitted file; <c>false</c> otherwise.</returns>
+   //public static Boolean RequiresRelocations( this ImageFileMachine machine )
+   //{
+   //   return ImageFileMachine.I386 == machine;
+   //}
 
    #endregion
 

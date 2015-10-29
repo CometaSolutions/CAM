@@ -33,6 +33,8 @@ namespace CILAssemblyManipulator.Physical.IO
          this.CLIOptions = cliOptions ?? new WritingOptions_CLI();
       }
 
+      public Boolean IsExecutable { get; set; }
+
       public WritingOptions_PE PEOptions { get; }
 
       public WritingOptions_CLI CLIOptions { get; }
@@ -41,6 +43,8 @@ namespace CILAssemblyManipulator.Physical.IO
    public class WritingOptions_PE
    {
       public ImageFileMachine? Machine { get; set; }
+
+      public Int32? Timestamp { get; set; }
 
       public FileHeaderCharacteristics? Characteristics { get; set; }
 

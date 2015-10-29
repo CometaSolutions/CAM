@@ -218,13 +218,16 @@ namespace CILAssemblyManipulator.Physical.IO
          // TODO some kind of interval-map for sections...
          var sections = this._sections;
          var retVal = -1L;
-         for ( var i = 0; i < sections.Length; ++i )
+         if ( offset > 0 )
          {
-            var sec = sections[i];
-            if ( sec.RawDataPointer <= offset && offset < (Int64) sec.RawDataPointer + (Int64) sec.RawDataSize )
+            for ( var i = 0; i < sections.Length; ++i )
             {
-               retVal = sec.VirtualAddress + ( offset - sec.RawDataPointer );
-               break;
+               var sec = sections[i];
+               if ( sec.RawDataPointer <= offset && offset < (Int64) sec.RawDataPointer + (Int64) sec.RawDataSize )
+               {
+                  retVal = sec.VirtualAddress + ( offset - sec.RawDataPointer );
+                  break;
+               }
             }
          }
 
@@ -1050,5 +1053,11 @@ public static partial class E_CILPhysical
       }
 
       return tableSizes;
+   }
+
+   [CLSCompliant( false )]
+   public static UInt32 ToRVANullable( this RVAConverter rvaConverter, Int64? offset )
+   {
+      return offset.HasValue ? (UInt32) rvaConverter.ToRVA( offset.Value ) : 0;
    }
 }
