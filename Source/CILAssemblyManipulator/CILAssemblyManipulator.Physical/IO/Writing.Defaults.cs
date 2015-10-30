@@ -96,14 +96,18 @@ namespace CILAssemblyManipulator.Physical.IO
          return retVal;
       }
 
+
+
       public virtual void PopulateSections(
          WritingStatus writingStatus,
          IEnumerable<AbstractWriterStreamHandler> allStreams,
-         MetaDataRoot mdRoot,
          SectionHeader[] sections,
-         out RVAConverter rvaConverter
+         ArrayQuery<MetaDataStreamHeader> mdStreamHeaders,
+         out RVAConverter rvaConverter,
+         out MetaDataRoot mdRoot
          )
       {
+         mdRoot = this.CreateMDRoot( mdStreamHeaders );
          this.PopulateSections( writingStatus, allStreams, mdRoot, sections );
          rvaConverter = this.CreateRVAConverter( sections );
       }
@@ -116,6 +120,14 @@ namespace CILAssemblyManipulator.Physical.IO
          )
       {
          // TODO: CLI header, import directory
+      }
+
+      public virtual Int32 WriteMDRoot(
+         MetaDataRoot mdRoot,
+         ResizableArray<Byte> array
+         )
+      {
+         return mdRoot.WriteMetaDataRoot( array );
       }
 
       public virtual void AfterMetaData(
@@ -261,6 +273,26 @@ namespace CILAssemblyManipulator.Physical.IO
       protected Int32 GetZeroTerminatedASCIIByteSize( String str )
       {
          return String.IsNullOrEmpty( str ) ? 1 : ( str.Length + 1 );
+      }
+
+      protected virtual MetaDataRoot CreateMDRoot(
+         ArrayQuery<MetaDataStreamHeader> mdStreamHeaders
+         )
+      {
+         var mdOptions = this._headers.CLIOptions.MDRootOptions;
+         var mdVersionBytes = MetaDataRoot.GetVersionStringBytes( mdOptions.VersionString );
+         return new MetaDataRoot(
+            mdOptions.Signature ?? 0x424A5342,
+            (UInt16) ( mdOptions.MajorVersion ?? 0x0001 ),
+            (UInt16) ( mdOptions.MinorVersion ?? 0x0001 ),
+            mdOptions.Reserved ?? 0x00000000,
+            (UInt32) mdVersionBytes.Count,
+            mdVersionBytes,
+            mdOptions.StorageFlags ?? (StorageFlags) 0,
+            mdOptions.Reserved2 ?? 0,
+            (UInt16) mdStreamHeaders.Count,
+            mdStreamHeaders
+            );
       }
    }
 
@@ -634,7 +666,10 @@ namespace CILAssemblyManipulator.Physical.IO
          RVAConverter rvaConverter
          )
       {
-         this.DoWriteStream( sink, array );
+         if ( this.Accessed )
+         {
+            this.DoWriteStream( sink, array );
+         }
       }
 
       public Int32 CurrentSize
@@ -702,25 +737,23 @@ namespace CILAssemblyManipulator.Physical.IO
          ResizableArray<Byte> array
          )
       {
-         if ( this.Accessed )
+         sink.WriteByte( 0 );
+         var idx = 0;
+         if ( this._blobs.Count > 0 )
          {
-            sink.WriteByte( 0 );
-            var idx = 0;
-            if ( this._blobs.Count > 0 )
+            foreach ( var blob in this._blobs )
             {
-               foreach ( var blob in this._blobs )
-               {
-                  idx = 0;
-                  array.AddCompressedUInt32( ref idx, blob.Length );
-                  sink.Write( array.Array, idx );
-                  sink.Write( blob );
-               }
+               idx = 0;
+               array.AddCompressedUInt32( ref idx, blob.Length );
+               sink.Write( array.Array, idx );
+               sink.Write( blob );
             }
-
-            var tmp = this.curIndex;
-            sink.SkipToNextAlignment( ref tmp, 4 );
          }
+
+         var tmp = this.curIndex;
+         sink.SkipToNextAlignment( ref tmp, 4 );
       }
+
    }
 
    public class DefaultWriterGuidStreamHandler : AbstractWriterStreamHandlerImpl, WriterGUIDStreamHandler
@@ -766,13 +799,11 @@ namespace CILAssemblyManipulator.Physical.IO
          ResizableArray<Byte> array
          )
       {
-         if ( this.Accessed )
+         foreach ( var kvp in this._guids )
          {
-            foreach ( var kvp in this._guids )
-            {
-               sink.Write( kvp.Key.ToByteArray() );
-            }
+            sink.Write( kvp.Key.ToByteArray() );
          }
+
       }
    }
 
@@ -805,7 +836,9 @@ namespace CILAssemblyManipulator.Physical.IO
             else
             {
                result = this.curIndex;
-               this.AddString( str );
+               var byteCount = this.GetByteCountForString( str );
+               this._strings.Add( str, new KeyValuePair<UInt32, Int32>( this.curIndex, byteCount ) );
+               this.curIndex += (UInt32) byteCount;
             }
          }
          return (Int32) result;
@@ -824,30 +857,21 @@ namespace CILAssemblyManipulator.Physical.IO
          ResizableArray<Byte> array
          )
       {
-         if ( this.Accessed )
+         sink.WriteByte( 0 );
+         if ( this._strings.Count > 0 )
          {
-            sink.WriteByte( 0 );
-            if ( this._strings.Count > 0 )
+            foreach ( var kvp in this._strings )
             {
-               foreach ( var kvp in this._strings )
-               {
-                  var arrayLen = kvp.Value.Value;
-                  array.CurrentMaxCapacity = arrayLen;
-                  this.Serialize( kvp.Key, array );
-                  sink.Write( array.Array, arrayLen );
-               }
+               var arrayLen = kvp.Value.Value;
+               array.CurrentMaxCapacity = arrayLen;
+               this.Serialize( kvp.Key, array );
+               sink.Write( array.Array, arrayLen );
             }
-
-            var tmp = this.curIndex;
-            sink.SkipToNextAlignment( ref tmp, 4 );
          }
-      }
 
-      private void AddString( String str )
-      {
-         var byteCount = this.GetByteCountForString( str );
-         this._strings.Add( str, new KeyValuePair<UInt32, Int32>( this.curIndex, byteCount ) );
-         this.curIndex += (UInt32) byteCount;
+         var tmp = this.curIndex;
+         sink.SkipToNextAlignment( ref tmp, 4 );
+
       }
 
       protected Encoding Encoding

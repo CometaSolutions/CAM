@@ -1390,9 +1390,8 @@ public static partial class E_CILPhysical
          );
    }
 
-   public static Int32 WriteMetaDataRoot( this MetaDataRoot header, StreamHelper stream, ResizableArray<Byte> array )
+   public static Int32 WriteMetaDataRoot( this MetaDataRoot header, ResizableArray<Byte> array )
    {
-
       var bytez = array.Array;
       var idx = 0;
       bytez
@@ -1407,9 +1406,13 @@ public static partial class E_CILPhysical
          .WriteUInt16LEToBytes( ref idx, header.NumberOfStreams );
       foreach ( var hdr in header.StreamHeaders )
       {
-
+         bytez
+            .WriteUInt32LEToBytes( ref idx, hdr.Offset )
+            .WriteUInt32LEToBytes( ref idx, hdr.Size )
+            .WriteBytesEnumerable( ref idx, hdr.NameBytes );
       }
 
+      return idx;
    }
 
    public static MetaDataTableStreamHeader NewTableStreamHeaderFromStream( this StreamHelper stream )
@@ -1528,4 +1531,13 @@ public static partial class E_CILPhysical
    }
 
    #endregion
+
+   private static Byte[] WriteBytesEnumerable( this Byte[] bytez, ref Int32 idx, IEnumerable<Byte> enumerable )
+   {
+      foreach ( var b in enumerable )
+      {
+         bytez[idx++] = b;
+      }
+      return bytez;
+   }
 }

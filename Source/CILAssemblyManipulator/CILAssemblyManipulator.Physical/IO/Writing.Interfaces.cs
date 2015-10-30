@@ -54,9 +54,10 @@ namespace CILAssemblyManipulator.Physical.IO
       void PopulateSections(
          WritingStatus writingStatus,
          IEnumerable<AbstractWriterStreamHandler> allStreams,
-         MetaDataRoot mdRoot,
          SectionHeader[] sections,
-         out RVAConverter rvaConverter
+         ArrayQuery<MetaDataStreamHeader> mdStreamHeaders,
+         out RVAConverter rvaConverter,
+         out MetaDataRoot mdRoot
          );
 
       void BeforeMetaData(
@@ -64,6 +65,11 @@ namespace CILAssemblyManipulator.Physical.IO
          ArrayQuery<SectionHeader> sections,
          WritingStatus writingStatus,
          RVAConverter rvaConverter
+         );
+
+      Int32 WriteMDRoot(
+         MetaDataRoot mdRoot,
+         ResizableArray<Byte> array
          );
 
       void AfterMetaData(
@@ -300,26 +306,13 @@ public static partial class E_CILPhysical
       tblMDStream.FillHeaps( rawValues, snVars?.PublicKey?.ToArrayProxy()?.CQ, mdStreamContainer, array, out thHeader );
 
       // 4. Create sections
-      var cliOptions = options.CLIOptions;
-      var mdOptions = cliOptions.MDRootOptions;
-      var mdVersionBytes = MetaDataRoot.GetVersionStringBytes( mdOptions.VersionString );
-      var mdStreamHeaders = mdStreams.Select( mds => new MetaDataStreamHeader( 0, 0, mds.StreamName.CreateASCIIBytes() ) ).ToArray();
+      var mdStreamHeaders = mdStreams
+         .Where( mds => mds.Accessed )
+         .Select( mds => new MetaDataStreamHeader( 0, 0, mds.StreamName.CreateASCIIBytes( 4 ) ) ).ToArray();
       var mdStreamHeadersQ = cf.NewArrayProxy( mdStreamHeaders ).CQ;
-      var mdRoot = new MetaDataRoot(
-         mdOptions.Signature ?? 0x424A5342,
-         (UInt16) ( mdOptions.MajorVersion ?? 0x0001 ),
-         (UInt16) ( mdOptions.MinorVersion ?? 0x0001 ),
-         mdOptions.Reserved ?? 0x00000000,
-         (UInt32) mdVersionBytes.Count,
-         mdVersionBytes,
-         mdOptions.StorageFlags ?? (StorageFlags) 0,
-         mdOptions.Reserved2 ?? 0,
-         (UInt16) mdStreams.Count,
-         mdStreamHeadersQ
-         );
-      RVAConverter rvaConverter;
+      RVAConverter rvaConverter; MetaDataRoot mdRoot;
       status.SectionAlignment = peOptions.SectionAlignment ?? 0x2000;
-      writer.PopulateSections( status, mdStreams, mdRoot, sectionsArray, out rvaConverter );
+      writer.PopulateSections( status, mdStreams, sectionsArray, mdStreamHeadersQ, out rvaConverter, out mdRoot );
       var sections = cf.NewArrayProxy( sectionsArray ).CQ;
 
       // 5. Write whatever is needed before meta data
@@ -328,7 +321,8 @@ public static partial class E_CILPhysical
       // 6. Write meta data
       var mdOffset = stream.Position;
       status.MetaDataOffset = mdOffset;
-      mdRoot.WriteToStream( stream );
+      var mdRootSize = writer.WriteMDRoot( mdRoot, array );
+      stream.Write( array.Array, mdRootSize );
       for ( var i = 0; i < mdStreams.Count; ++i )
       {
          var mdStream = mdStreams[i];
@@ -343,6 +337,7 @@ public static partial class E_CILPhysical
       writer.AfterMetaData( stream, sections, status, rvaConverter );
 
       // 8. Create and write image information
+      var cliOptions = options.CLIOptions;
       var snSignature = new Byte[snVars?.SignatureSize ?? 0];
       var cliHeaderOptions = cliOptions.HeaderOptions;
       var thOptions = cliOptions.TablesStreamOptions;
@@ -553,16 +548,16 @@ public static partial class E_CILPhysical
       return stream.CurrentSize > UInt16.MaxValue;
    }
 
-   private static ArrayQuery<Byte> CreateASCIIBytes( this String str )
+   private static ArrayQuery<Byte> CreateASCIIBytes( this String str, Int32 align )
    {
       Byte[] bytez;
       if ( String.IsNullOrEmpty( str ) )
       {
-         bytez = new Byte[0];
+         bytez = new Byte[align];
       }
       else
       {
-         bytez = new Byte[str.Length + 1];
+         bytez = new Byte[( str.Length + 1 ).RoundUpI32( align )];
          var idx = 0;
          bytez.WriteASCIIString( ref idx, str, true );
       }
