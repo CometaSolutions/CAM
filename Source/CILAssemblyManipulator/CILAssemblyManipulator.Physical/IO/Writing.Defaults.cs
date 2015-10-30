@@ -77,7 +77,12 @@ namespace CILAssemblyManipulator.Physical.IO
 
       public virtual Int32 GetSectionCount( ImageFileMachine machine )
       {
-         return machine.RequiresPE64() ? 1 : 2;
+         var retVal = this.GetMinimumSectionCount();
+         if ( !machine.RequiresPE64() )
+         {
+            ++retVal; // Relocs
+         }
+         return retVal;
       }
 
       public virtual RawValueStorage<Int64> CreateRawValuesBeforeMDStreams(
@@ -96,38 +101,66 @@ namespace CILAssemblyManipulator.Physical.IO
          return retVal;
       }
 
-
-
       public virtual void PopulateSections(
          WritingStatus writingStatus,
-         IEnumerable<AbstractWriterStreamHandler> allStreams,
+         IEnumerable<AbstractWriterStreamHandler> presentStreams,
          SectionHeader[] sections,
-         ArrayQuery<MetaDataStreamHeader> mdStreamHeaders,
          out RVAConverter rvaConverter,
-         out MetaDataRoot mdRoot
+         out CLIHeader cliHeader,
+         out MetaDataRoot mdRoot,
+         out Int32 mdRootSize,
+         out Int32 mdSize
          )
       {
-         mdRoot = this.CreateMDRoot( mdStreamHeaders );
-         this.PopulateSections( writingStatus, allStreams, mdRoot, sections );
+         // MetaData
+         mdRoot = this.CreateMDRoot( presentStreams, out mdRootSize, out mdSize );
+
+         // Sections
+         this.PopulateSections( writingStatus, presentStreams, mdRoot, mdSize, sections );
+
+         // RVA converter
          rvaConverter = this.CreateRVAConverter( sections );
+
+         // CLI Header
+         var cliHeaderOptions = this._headers.CLIOptions.HeaderOptions;
+         var mResInfo = writingStatus.EmbeddedManifestResourcesInfo;
+         var snVars = writingStatus.StrongNameVariables;
+         var cliHeaderSize = this.GetCLIHeaderSize();
+         cliHeader = new CLIHeader(
+               (UInt32) cliHeaderSize,
+               (UInt16) ( cliHeaderOptions.MajorRuntimeVersion ?? 2 ),
+               (UInt16) ( cliHeaderOptions.MinorRuntimeVersion ?? 5 ),
+               new DataDirectory( (UInt32) rvaConverter.ToRVA( this.GetMetaDataOffset( writingStatus, cliHeaderSize ) ), (UInt32) mdSize ),
+               cliHeaderOptions.ModuleFlags ?? ModuleFlags.ILOnly,
+               cliHeaderOptions.EntryPointToken,
+               mResInfo == null ? default( DataDirectory ) : new DataDirectory( (UInt32) rvaConverter.ToRVA( mResInfo.Item1 ), (UInt32) mResInfo.Item2 ),
+               snVars == null ? default( DataDirectory ) : new DataDirectory( rvaConverter.ToRVANullable( this.GetStrongNameOffset( writingStatus, cliHeaderSize ) ), (UInt32) ( writingStatus.StrongNameVariables?.SignatureSize + writingStatus.StrongNameVariables?.SignaturePaddingSize ).GetValueOrDefault() ),
+               default( DataDirectory ), // TODO: customize code manager
+               default( DataDirectory ), // TODO: customize vtable fixups
+               default( DataDirectory ), // TODO: customize exported address table jumps
+               default( DataDirectory ) // TODO: customize managed native header
+               );
       }
 
       public virtual void BeforeMetaData(
          Stream stream,
          ArrayQuery<SectionHeader> sections,
          WritingStatus writingStatus,
-         RVAConverter rvaConverter
+         RVAConverter rvaConverter,
+         MetaDataRoot mdRoot,
+         CLIHeader cliHeader
          )
       {
-         // TODO: CLI header, import directory
+         // TODO: Write CLI header, and skip amount of bytes required for strong name signature
       }
 
-      public virtual Int32 WriteMDRoot(
+      public virtual void WriteMDRoot(
          MetaDataRoot mdRoot,
          ResizableArray<Byte> array
          )
       {
-         return mdRoot.WriteMetaDataRoot( array );
+         // Array capacity set by writing process
+         mdRoot.WriteMetaDataRoot( array );
       }
 
       public virtual void AfterMetaData(
@@ -137,7 +170,7 @@ namespace CILAssemblyManipulator.Physical.IO
          RVAConverter rvaConverter
          )
       {
-
+         // TODO: debug directory, startup stub, reloc section
       }
 
       protected CILMetaData MetaData { get; }
@@ -147,6 +180,11 @@ namespace CILAssemblyManipulator.Physical.IO
       protected ArrayQuery<TableSerializationInfo> TableSerializations { get; }
 
       protected ArrayQuery<Int32> TableSizes { get; }
+
+      protected virtual Int32 GetMinimumSectionCount()
+      {
+         return 1;
+      }
 
       protected virtual RawValueStorage<Int64> CreateRawValueStorage()
       {
@@ -168,17 +206,19 @@ namespace CILAssemblyManipulator.Physical.IO
 
       protected virtual void PopulateSections(
          WritingStatus writingStatus,
-         IEnumerable<AbstractWriterStreamHandler> allStreams,
+         IEnumerable<AbstractWriterStreamHandler> presentStreams,
          MetaDataRoot mdRoot,
+         Int32 mdSize,
          SectionHeader[] sections
          )
       {
          var encoding = Encoding.UTF8;
          var snVars = writingStatus.StrongNameVariables;
          // 1st section - .text
-         var virtualSize = (UInt32) ( writingStatus.OffsetAfterInitialRawValues.Value
+         var virtualSize = (UInt32) (
+            writingStatus.OffsetAfterInitialRawValues.Value
             + this.GetCLIHeaderSize()
-            + this.GetMDSize( allStreams, mdRoot )
+            + mdSize
             + ( snVars == null ? 0 : ( snVars.SignatureSize + snVars.SignaturePaddingSize ) )
             + this.GetImportDirectorySize( writingStatus )
             + this.GetDebugDirectorySize()
@@ -234,16 +274,6 @@ namespace CILAssemblyManipulator.Physical.IO
          return 0x48;
       }
 
-      protected virtual Int32 GetMDSize(
-         IEnumerable<AbstractWriterStreamHandler> allStreams,
-         MetaDataRoot mdRoot
-         )
-      {
-         return 0x14
-            + mdRoot.VersionStringBytes.Count
-            + allStreams.Select( s => this.GetStreamHeaderSize( s ) + s.CurrentSize ).Sum();
-      }
-
       protected virtual Int32 GetStreamHeaderSize( AbstractWriterStreamHandler stream )
       {
          return 0x08 + stream.StreamName.Length.RoundUpI32( 4 );
@@ -276,12 +306,20 @@ namespace CILAssemblyManipulator.Physical.IO
       }
 
       protected virtual MetaDataRoot CreateMDRoot(
-         ArrayQuery<MetaDataStreamHeader> mdStreamHeaders
+         IEnumerable<AbstractWriterStreamHandler> presentStreams,
+         out Int32 mdRootSize,
+         out Int32 mdSize
          )
       {
          var mdOptions = this._headers.CLIOptions.MDRootOptions;
          var mdVersionBytes = MetaDataRoot.GetVersionStringBytes( mdOptions.VersionString );
-         return new MetaDataRoot(
+         var streamNamesBytes = presentStreams
+            .Select( mds => Tuple.Create( mds.StreamName.CreateASCIIBytes( 4 ), (UInt32) mds.CurrentSize ) )
+            .ToArray();
+         var streamOffset = (UInt32) ( 0x14 + mdVersionBytes.Count + streamNamesBytes.Sum( sh => 0x08 + sh.Item1.Count ) );
+         mdRootSize = (Int32) streamOffset;
+
+         var retVal = new MetaDataRoot(
             mdOptions.Signature ?? 0x424A5342,
             (UInt16) ( mdOptions.MajorVersion ?? 0x0001 ),
             (UInt16) ( mdOptions.MinorVersion ?? 0x0001 ),
@@ -290,9 +328,32 @@ namespace CILAssemblyManipulator.Physical.IO
             mdVersionBytes,
             mdOptions.StorageFlags ?? (StorageFlags) 0,
             mdOptions.Reserved2 ?? 0,
-            (UInt16) mdStreamHeaders.Count,
-            mdStreamHeaders
-            );
+            (UInt16) streamNamesBytes.Length,
+            streamNamesBytes
+               .Select( b =>
+               {
+                  var streamSize = b.Item2;
+                  var hdr = new MetaDataStreamHeader( streamOffset, streamSize, b.Item1 );
+                  streamOffset += streamSize;
+                  return hdr;
+               } )
+               .ToArrayProxy().CQ
+             );
+         mdSize = (Int32) streamOffset;
+         return retVal;
+      }
+
+      protected virtual Int64 GetStrongNameOffset( WritingStatus status, Int32 cliHeaderSize )
+      {
+         // Write strong name signature right after CLI header
+         return status.OffsetAfterInitialRawValues.Value + cliHeaderSize;
+      }
+
+      protected virtual Int64 GetMetaDataOffset( WritingStatus status, Int32 cliHeaderSize )
+      {
+         // Write meta data right after strong name signature
+         var snVars = status.StrongNameVariables;
+         return this.GetStrongNameOffset( status, cliHeaderSize ) + ( snVars?.SignatureSize + snVars?.SignaturePaddingSize ).GetValueOrDefault();
       }
    }
 

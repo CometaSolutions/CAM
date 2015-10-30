@@ -26,11 +26,13 @@ namespace CILAssemblyManipulator.Physical.IO
    {
       public WritingOptions(
          WritingOptions_PE peOptions = null,
-         WritingOptions_CLI cliOptions = null
+         WritingOptions_CLI cliOptions = null,
+         WritingOptions_Debug debugOptions = null
          )
       {
          this.PEOptions = peOptions ?? new WritingOptions_PE();
          this.CLIOptions = cliOptions ?? new WritingOptions_CLI();
+         this.DebugOptions = debugOptions ?? new WritingOptions_Debug();
       }
 
       public Boolean IsExecutable { get; set; }
@@ -38,6 +40,8 @@ namespace CILAssemblyManipulator.Physical.IO
       public WritingOptions_PE PEOptions { get; }
 
       public WritingOptions_CLI CLIOptions { get; }
+
+      public WritingOptions_Debug DebugOptions { get; }
    }
 
    public class WritingOptions_PE
@@ -154,6 +158,51 @@ namespace CILAssemblyManipulator.Physical.IO
       public Int32? HeaderExtraData { get; set; }
 
       // TODO ENC, HasDeleted
+   }
+
+   /// <summary>
+   /// This class contains information about the debug directory of PE files.
+   /// </summary>
+   /// <seealso href="http://msdn.microsoft.com/en-us/library/windows/desktop/ms680307%28v=vs.85%29.aspx"/>
+   public class WritingOptions_Debug
+   {
+      /// <summary>
+      /// Gets or sets the characteristics field of the debug directory.
+      /// </summary>
+      /// <value>The characteristics field of the debug directory.</value>
+      public Int32 Characteristics { get; set; }
+
+      /// <summary>
+      /// Gets or sets the timestamp field of the debug directory.
+      /// </summary>
+      /// <value>The timestamp field of the debug directory.</value>
+      public Int32 Timestamp { get; set; }
+
+      /// <summary>
+      /// Gets or sets the major version of the debug directory.
+      /// </summary>
+      /// <value>The major version of the debug directory.</value>
+      public Int16 MajorVersion { get; set; }
+
+      /// <summary>
+      /// Gets or sets the minor version of the debug directory.
+      /// </summary>
+      /// <value>The minor version of the debug directory.</value>
+      public Int16 MinorVersion { get; set; }
+
+      /// <summary>
+      /// Gets or sets the type field of the debug directory.
+      /// </summary>
+      /// <value>The field of the debug directory.</value>
+      /// <remarks>In most cases, this should be <c>CodeView</c> debug type (<c>2</c>).</remarks>
+      public Int32 DebugType { get; set; }
+
+      /// <summary>
+      /// Gets or sets the binary data of the debug directory.
+      /// </summary>
+      /// <value>The binary data of the debug directory.</value>
+      /// <remarks>The debug header will not be written, if this is <c>null</c>.</remarks>
+      public Byte[] DebugData { get; set; }
    }
 
    public class WritingData

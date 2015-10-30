@@ -766,6 +766,57 @@ namespace CILAssemblyManipulator.Physical.IO
       TerminalServerAware = unchecked((Int16) 0x8000),
    }
 
+   public sealed class DebugInformation
+   {
+      [CLSCompliant( false )]
+      public DebugInformation(
+         Int32 characteristics,
+         UInt32 timestamp,
+         UInt16 versionMajor,
+         UInt16 versionMinor,
+         Int32 debugType,
+         UInt32 dataSize,
+         UInt32 dataRVA,
+         UInt32 dataPointer,
+         ArrayQuery<Byte> data
+         )
+      {
+         this.Characteristics = characteristics;
+         this.Timestamp = timestamp;
+         this.VersionMajor = versionMajor;
+         this.VersionMinor = versionMinor;
+         this.DebugType = debugType;
+         this.DataSize = dataSize;
+         this.DataRVA = dataRVA;
+         this.DataPointer = dataPointer;
+         this.DebugData = data ?? EmptyArrayProxy<Byte>.Query;
+      }
+
+      public Int32 Characteristics { get; }
+
+      [CLSCompliant( false )]
+      public UInt32 Timestamp { get; }
+
+      [CLSCompliant( false )]
+      public UInt16 VersionMajor { get; }
+
+      [CLSCompliant( false )]
+      public UInt16 VersionMinor { get; }
+
+      public Int32 DebugType { get; }
+
+      [CLSCompliant( false )]
+      public UInt32 DataSize { get; }
+
+      [CLSCompliant( false )]
+      public UInt32 DataRVA { get; }
+
+      [CLSCompliant( false )]
+      public UInt32 DataPointer { get; }
+
+      public ArrayQuery<Byte> DebugData { get; }
+   }
+
    #endregion
 
    #region CIL-related
@@ -1447,21 +1498,18 @@ public static partial class E_CILPhysical
 
    public static DebugInformation NewDebugInformationFromStream( this StreamHelper stream )
    {
-      var dbg = new DebugInformation( false )
-      {
-         Characteristics = stream.ReadInt32LEFromBytes(),
-         Timestamp = stream.ReadInt32LEFromBytes(),
-         VersionMajor = stream.ReadInt16LEFromBytes(),
-         VersionMinor = stream.ReadInt16LEFromBytes(),
-         DebugType = stream.ReadInt32LEFromBytes()
-      };
-      var dataSize = stream.ReadInt32LEFromBytes();
-      var dataRVA = stream.ReadUInt32LEFromBytes();
-      var dataPtr = stream.ReadUInt32LEFromBytes();
-      stream.Stream.SeekFromBegin( dataPtr );
-      dbg.DebugData = stream.ReadAndCreateArray( dataSize );
-
-      return dbg;
+      UInt32 dataSize, dataPtr;
+      return new DebugInformation(
+         stream.ReadInt32LEFromBytes(), // Characteristics
+         stream.ReadUInt32LEFromBytes(), // Timestamp
+         stream.ReadUInt16LEFromBytes(), // Major version
+         stream.ReadUInt16LEFromBytes(), // Minor version
+         stream.ReadInt32LEFromBytes(), // Debug type
+         ( dataSize = stream.ReadUInt32LEFromBytes() ),
+         stream.ReadUInt32LEFromBytes(),
+         ( dataPtr = stream.ReadUInt32LEFromBytes() ),
+         stream.At( dataPtr ).ReadAndCreateArray( (Int32) dataSize ).ToArrayProxy().CQ
+         );
    }
 
    private static ArrayQuery<Byte> ReadAndCreateArrayQuery( this StreamHelper stream, UInt32 len )
