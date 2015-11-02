@@ -144,6 +144,7 @@ namespace CILAssemblyManipulator.Physical.IO
 
       public virtual void BeforeMetaData(
          Stream stream,
+         ResizableArray<Byte> array,
          ArrayQuery<SectionHeader> sections,
          WritingStatus writingStatus,
          RVAConverter rvaConverter,
@@ -165,12 +166,27 @@ namespace CILAssemblyManipulator.Physical.IO
 
       public virtual void AfterMetaData(
          Stream stream,
+         ResizableArray<Byte> array,
          ArrayQuery<SectionHeader> sections,
          WritingStatus writingStatus,
          RVAConverter rvaConverter
          )
       {
          // TODO: debug directory, startup stub, reloc section
+      }
+
+      public virtual void WriteHeaderInformation(
+         Stream stream,
+         ResizableArray<Byte> array,
+         WritingStatus writingStatus,
+         PEInformation peInfo,
+         CLIHeader cliHEader
+         )
+      {
+         // PE information
+         stream.Position = 0;
+         array.CurrentMaxCapacity = writingStatus.HeadersSizeUnaligned;
+         peInfo.WritePEinformation( array );
       }
 
       protected CILMetaData MetaData { get; }
@@ -222,12 +238,12 @@ namespace CILAssemblyManipulator.Physical.IO
             + ( snVars == null ? 0 : ( snVars.SignatureSize + snVars.SignaturePaddingSize ) )
             + this.GetImportDirectorySize( writingStatus )
             + this.GetDebugDirectorySize()
-            - writingStatus.InitialOffset
+            - writingStatus.HeadersSize
             );
          var fAlign = (UInt32) writingStatus.FileAlignment;
          var sAlign = (UInt32) writingStatus.SectionAlignment;
          var curVA = sAlign;
-         var curPointer = (UInt32) writingStatus.InitialOffset;
+         var curPointer = (UInt32) writingStatus.HeadersSize;
          var curRawSize = virtualSize.RoundUpU32( fAlign );
          sections[0] = new SectionHeader(
             encoding.GetBytes( ".text" ).ToArrayProxy().CQ,

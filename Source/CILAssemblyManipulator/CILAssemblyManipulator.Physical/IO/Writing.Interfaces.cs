@@ -64,6 +64,7 @@ namespace CILAssemblyManipulator.Physical.IO
 
       void BeforeMetaData(
          Stream stream,
+         ResizableArray<Byte> array,
          ArrayQuery<SectionHeader> sections,
          WritingStatus writingStatus,
          RVAConverter rvaConverter,
@@ -78,11 +79,19 @@ namespace CILAssemblyManipulator.Physical.IO
 
       void AfterMetaData(
          Stream stream,
+         ResizableArray<Byte> array,
          ArrayQuery<SectionHeader> sections,
          WritingStatus writingStatus,
          RVAConverter rvaConverter
          );
 
+      void WriteHeaderInformation(
+         Stream stream,
+         ResizableArray<Byte> array,
+         WritingStatus writingStatus,
+         PEInformation peInfo,
+         CLIHeader cliHEader
+         );
    }
 
    public class WriterMetaDataStreamContainer
@@ -163,21 +172,24 @@ namespace CILAssemblyManipulator.Physical.IO
    public class WritingStatus
    {
       public WritingStatus(
-         Int32 initialOffset,
+         Int32 headersSize,
          ImageFileMachine machine,
          Int32 fileAlignment,
          StrongNameVariables strongNameVariables,
          Int32? dataDirCount
          )
       {
-         this.InitialOffset = initialOffset;
+         this.HeadersSizeUnaligned = headersSize;
+         this.HeadersSize = headersSize.RoundUpI32( fileAlignment );
          this.Machine = machine;
          this.FileAlignment = fileAlignment;
          this.StrongNameVariables = strongNameVariables;
          this.PEDataDirectories = new List<DataDirectory>( Enumerable.Repeat<DataDirectory>( default( DataDirectory ), dataDirCount ?? (Int32) DataDirectories.MaxValue ) );
       }
 
-      public Int32 InitialOffset { get; }
+      public Int32 HeadersSize { get; }
+
+      public Int32 HeadersSizeUnaligned { get; }
 
       public ImageFileMachine Machine { get; }
 
@@ -221,9 +233,44 @@ public static partial class E_CILPhysical
       this Stream stream,
       CILMetaData md,
       WriterFunctionalityProvider writerProvider,
-      WritingOptions options
+      WritingOptions options,
+      StrongNameKeyPair sn,
+      Boolean delaySign,
+      CryptoCallbacks cryptoCallbacks,
+      AssemblyHashAlgorithm? snAlgorithmOverride
       )
    {
+      ArgumentValidator.ValidateNotNull( "Stream", stream );
+      ArgumentValidator.ValidateNotNull( "Meta data", md );
+
+      if ( options == null )
+      {
+         options = new WritingOptions();
+      }
+
+      CILMetaData newMD; Stream newStream;
+      var writer = ( writerProvider ?? new DefaultWriterFunctionalityProvider() ).GetFunctionality( md, options, out newMD, out newStream );
+      if ( newMD != null )
+      {
+         md = newMD;
+      }
+
+      ImageInformation retVal;
+      if ( newStream == null )
+      {
+         retVal = stream.WriteMetaDataToStream( md, writer, options, sn, delaySign, cryptoCallbacks, snAlgorithmOverride );
+      }
+      else
+      {
+         using ( newStream )
+         {
+            retVal = newStream.WriteMetaDataToStream( md, writer, options, sn, delaySign, cryptoCallbacks, snAlgorithmOverride );
+            newStream.Position = 0;
+            newStream.CopyTo( stream );
+         }
+      }
+
+      return retVal;
    }
 
    public static ImageInformation WriteMetaDataToStream(
@@ -281,16 +328,19 @@ public static partial class E_CILPhysical
       var fAlign = peOptions.FileAlignment ?? 0x200;
       var machine = peOptions.Machine ?? ImageFileMachine.I386;
       var sectionsArray = new SectionHeader[writer.GetSectionCount( machine )];
-      var headersSize = (
-         dosHeaderSize
+      var status = new WritingStatus( dosHeaderSize
          + 0x04 // PE Signature
          + 0x18 // File header size
          + machine.GetOptionalHeaderSize() // Optional header size
          + sectionsArray.Length * 0x28 // Sections
-         ).RoundUpI32( fAlign );
-
+         ,
+         machine,
+         fAlign,
+         snVars,
+         peOptions.NumberOfDataDirectories
+         );
+      var headersSize = status.HeadersSize;
       stream.Position = headersSize;
-      var status = new WritingStatus( headersSize, machine, fAlign, snVars, peOptions.NumberOfDataDirectories );
       var array = new ResizableArray<Byte>();
       var rawValues = writer.CreateRawValuesBeforeMDStreams( stream, array, mdStreamContainer, status );
       status.OffsetAfterInitialRawValues = stream.Position;
@@ -316,7 +366,7 @@ public static partial class E_CILPhysical
 
       // 5. Write whatever is needed before meta data
       var sections = cf.NewArrayProxy( sectionsArray ).CQ;
-      writer.BeforeMetaData( stream, sections, status, rvaConverter, mdRoot, cliHeader );
+      writer.BeforeMetaData( stream, array, sections, status, rvaConverter, mdRoot, cliHeader );
 
       // 6. Write meta data
       stream.SeekFromBegin( rvaConverter.ToOffset( (UInt32) cliHeader.MetaData.RVA ) );
@@ -329,16 +379,17 @@ public static partial class E_CILPhysical
       }
 
       // 7. Finalize writing status
-      writer.AfterMetaData( stream, sections, status, rvaConverter );
+      writer.AfterMetaData( stream, array, sections, status, rvaConverter );
 
       // 8. Create and write image information
       var cliOptions = options.CLIOptions;
       var snSignature = new Byte[snVars?.SignatureSize ?? 0];
       var cliHeaderOptions = cliOptions.HeaderOptions;
       var thOptions = cliOptions.TablesStreamOptions;
+      var peStartOffset = 0x00000080u;
       var imageInfo = new ImageInformation(
          new PEInformation(
-            new DOSHeader( 0x5A4D, 0x00000080 ),
+            new DOSHeader( 0x5A4D, peStartOffset ),
             new NTHeader( 0x00004550,
                new FileHeader(
                   machine, // Machine
@@ -369,9 +420,12 @@ public static partial class E_CILPhysical
             null
             )
          );
+      writer.WriteHeaderInformation( stream, array, status, imageInfo.PEInformation, cliHeader );
 
       // 9. Compute strong name signature, if needed
-      CreateStrongNameSignature( stream, snVars, delaySign, cryptoCallbacks, rParams, status, snSignature );
+      CreateStrongNameSignature( stream, snVars, delaySign, cryptoCallbacks, rParams, cliHeader, rvaConverter, snSignature );
+
+      return imageInfo;
    }
 
    private static StrongNameVariables PrepareStrongNameVariables(
@@ -473,7 +527,8 @@ public static partial class E_CILPhysical
       Boolean delaySign,
       CryptoCallbacks cryptoCallbacks,
       RSAParameters rParams,
-      WritingStatus writingStatus,
+      CLIHeader cliHeader,
+      RVAConverter rvaConverter,
       Byte[] snSignatureArray
       )
    {
@@ -489,7 +544,7 @@ public static partial class E_CILPhysical
             var hashStream = hashEvtArgs.CryptoStream;
             var hashGetter = hashEvtArgs.HashGetter;
             var transform = hashEvtArgs.Transform;
-            var sigOffset = writingStatus.StrongNameSignatureOffset.Value;
+            var sigOffset = rvaConverter.ToOffset( cliHeader.StrongNameSignature.RVA );
 
             Byte[] strongNameArray;
             using ( var tf = transform )
@@ -516,7 +571,7 @@ public static partial class E_CILPhysical
             Array.Reverse( strongNameArray );
 
             // Write strong name
-            stream.Seek( writingStatus.StrongNameSignatureOffset.Value, SeekOrigin.Begin );
+            stream.Seek( sigOffset, SeekOrigin.Begin );
             stream.Write( strongNameArray );
             var idx = 0;
             snSignatureArray.BlockCopyFrom( ref idx, strongNameArray );

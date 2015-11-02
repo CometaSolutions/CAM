@@ -433,7 +433,7 @@ namespace CILAssemblyManipulator.Physical.IO
          sizeOfUninitializedData,
          entryPointRVA,
          baseOfCodeRVA,
-         0u,
+         0u, // base of data
          imageBase,
          sectionAlignment,
          fileAlignment,
@@ -1215,12 +1215,51 @@ public static partial class E_CILPhysical
          );
    }
 
+   public static void WritePEinformation( this PEInformation peInfo, ResizableArray<Byte> array )
+   {
+      var bytez = array.Array;
+      var idx = 0;
+
+      // DOS header
+      peInfo.DOSHeader.WriteDOSHeader( bytez, ref idx );
+
+      // NT Header
+      peInfo.NTHeader.WriteNTHeader( bytez, ref idx );
+
+      // Sections
+      foreach ( var section in peInfo.SectionHeaders )
+      {
+         section.WriteSectionHeader( bytez, ref idx );
+      }
+   }
+
    public static DOSHeader NewDOSHeaderFromStream( this StreamHelper stream )
    {
       return new DOSHeader(
          stream.ReadInt16LEFromBytes(),
          stream.Skip( 0x3A ).ReadUInt32LEFromBytes()
          );
+   }
+
+   public static void WriteDOSHeader( this DOSHeader header, Byte[] array, ref Int32 idx )
+   {
+      array
+         .WriteInt16LEToBytes( ref idx, header.Signature )
+         .BlockCopyFrom( ref idx, new Byte[]
+         {
+            0x90, 0x00, 0x03, 0x00, 0x00, 0x00, 0x04, 0x00, 0x00, 0x00, 0xFF, 0xFF, 0x00, 0x00,
+            0xB8, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x40, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+            0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+            0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00
+         } )
+         .WriteUInt32LEToBytes( ref idx, header.NTHeaderOffset )
+         .BlockCopyFrom( ref idx, new Byte[]
+         {
+            0x0E, 0x1F, 0xBA, 0x0E, 0x00, 0xB4, 0x09, 0xCD, 0x21, 0xB8, 0x01, 0x4C, 0xCD, 0x21, 0x54, 0x68,
+            0x69, 0x73, 0x20, 0x70, 0x72, 0x6F, 0x67, 0x72, 0x61, 0x6D, 0x20, 0x63, 0x61, 0x6E, 0x6E, 0x6F, // is program canno
+            0x74, 0x20, 0x62, 0x65, 0x20, 0x72, 0x75, 0x6E, 0x20, 0x69, 0x6E, 0x20, 0x44, 0x4F, 0x53, 0x20, // t be run in DOS 
+            0x6D, 0x6F, 0x64, 0x65, 0x2E, 0x0D, 0x0D, 0x0A, 0x24, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, // mode....$.......
+         } );
    }
 
    public static NTHeader NewNTHeaderFromStream( this StreamHelper stream )
@@ -1232,17 +1271,36 @@ public static partial class E_CILPhysical
          );
    }
 
+   public static void WriteNTHeader( this NTHeader header, Byte[] array, ref Int32 idx )
+   {
+      array.WriteInt32LEToBytes( ref idx, header.Signature );
+      header.FileHeader.WriteFileHeader( array, ref idx );
+      header.OptionalHeader.WriteOptionalHeader( array, ref idx );
+   }
+
    public static FileHeader NewFileHeaderFromStream( this StreamHelper stream )
    {
       return new FileHeader(
-         (ImageFileMachine) stream.ReadInt16LEFromBytes(),
-         stream.ReadUInt16LEFromBytes(),
-         stream.ReadUInt32LEFromBytes(),
-         stream.ReadUInt32LEFromBytes(),
-         stream.ReadUInt32LEFromBytes(),
-         stream.ReadUInt16LEFromBytes(),
-         (FileHeaderCharacteristics) stream.ReadInt16LEFromBytes()
+         (ImageFileMachine) stream.ReadInt16LEFromBytes(), // Machine
+         stream.ReadUInt16LEFromBytes(), // Number of sections
+         stream.ReadUInt32LEFromBytes(), // Timestamp
+         stream.ReadUInt32LEFromBytes(), // Pointer to symbol table
+         stream.ReadUInt32LEFromBytes(), // Number of symbols
+         stream.ReadUInt16LEFromBytes(), // Optional header size
+         (FileHeaderCharacteristics) stream.ReadInt16LEFromBytes() // Characteristics
          );
+   }
+
+   public static void WriteFileHeader( this FileHeader header, Byte[] array, ref Int32 idx )
+   {
+      array
+         .WriteInt16LEToBytes( ref idx, (Int16) header.Machine )
+         .WriteUInt16LEToBytes( ref idx, header.NumberOfSections )
+         .WriteUInt32LEToBytes( ref idx, header.TimeDateStamp )
+         .WriteUInt32LEToBytes( ref idx, header.PointerToSymbolTable )
+         .WriteUInt32LEToBytes( ref idx, header.NumberOfSymbols )
+         .WriteUInt16LEToBytes( ref idx, header.OptionalHeaderSize )
+         .WriteInt16LEToBytes( ref idx, (Int16) header.Characteristics );
    }
 
    public static OptionalHeader NewOptionalHeaderFromStream( this StreamHelper stream )
@@ -1321,6 +1379,82 @@ public static partial class E_CILPhysical
       }
    }
 
+   public static void WriteOptionalHeader( this OptionalHeader header, Byte[] array, ref Int32 idx )
+   {
+      var peKind = header.OptionalHeaderKind;
+      Boolean isPE32;
+      switch ( peKind )
+      {
+         case OptionalHeaderKind.Optional32:
+            isPE32 = true;
+            break;
+         case OptionalHeaderKind.Optional64:
+            isPE32 = false;
+            break;
+         default:
+            throw new NotSupportedException( "Optional header kind not supported: " + peKind + "." );
+      }
+
+      array
+         .WriteInt16LEToBytes( ref idx, (Int16) peKind )
+         .WriteByteToBytes( ref idx, header.MajorLinkerVersion )
+         .WriteByteToBytes( ref idx, header.MinorLinkerVersion )
+         .WriteUInt32LEToBytes( ref idx, header.SizeOfCode )
+         .WriteUInt32LEToBytes( ref idx, header.SizeOfInitializedData )
+         .WriteUInt32LEToBytes( ref idx, header.SizeOfUninitializedData )
+         .WriteUInt32LEToBytes( ref idx, header.EntryPointRVA )
+         .WriteUInt32LEToBytes( ref idx, header.BaseOfCodeRVA );
+      if ( isPE32 )
+      {
+         array.WriteUInt32LEToBytes( ref idx, header.BaseOfDataRVA );
+      }
+      ( isPE32 ? array.WriteUInt32LEToBytes( ref idx, (UInt32) header.ImageBase ) : array.WriteUInt64LEToBytes( ref idx, header.ImageBase ) )
+         .WriteUInt32LEToBytes( ref idx, header.SectionAlignment )
+         .WriteUInt32LEToBytes( ref idx, header.FileAlignment )
+         .WriteUInt16LEToBytes( ref idx, header.MajorOSVersion )
+         .WriteUInt16LEToBytes( ref idx, header.MinorOSVersion )
+         .WriteUInt16LEToBytes( ref idx, header.MajorUserVersion )
+         .WriteUInt16LEToBytes( ref idx, header.MinorUserVersion )
+         .WriteUInt16LEToBytes( ref idx, header.MajorSubsystemVersion )
+         .WriteUInt16LEToBytes( ref idx, header.MinorSubsystemVersion )
+         .WriteUInt32LEToBytes( ref idx, header.Win32VersionValue )
+         .WriteUInt32LEToBytes( ref idx, header.ImageSize )
+         .WriteUInt32LEToBytes( ref idx, header.HeaderSize )
+         .WriteUInt32LEToBytes( ref idx, header.FileChecksum )
+         .WriteInt16LEToBytes( ref idx, (Int16) header.Subsystem )
+         .WriteInt16LEToBytes( ref idx, (Int16) header.DLLCharacteristics );
+      if ( isPE32 )
+      {
+         array
+            .WriteUInt32LEToBytes( ref idx, (UInt32) header.StackReserveSize )
+            .WriteUInt32LEToBytes( ref idx, (UInt32) header.StackCommitSize )
+            .WriteUInt32LEToBytes( ref idx, (UInt32) header.HeapReserveSize )
+            .WriteUInt32LEToBytes( ref idx, (UInt32) header.HeapCommitSize );
+      }
+      else
+      {
+         array
+            .WriteUInt64LEToBytes( ref idx, header.StackReserveSize )
+            .WriteUInt64LEToBytes( ref idx, header.StackCommitSize )
+            .WriteUInt64LEToBytes( ref idx, header.HeapReserveSize )
+            .WriteUInt64LEToBytes( ref idx, header.HeapCommitSize );
+      }
+      array
+         .WriteInt32LEToBytes( ref idx, header.LoaderFlags )
+         .WriteUInt32LEToBytes( ref idx, header.NumberOfDataDirectories );
+      foreach ( var datadir in header.DataDirectories )
+      {
+         datadir.WriteDataDirectory( array, ref idx );
+      }
+   }
+
+   public static void WriteDataDirectory( this DataDirectory dataDir, Byte[] array, ref Int32 idx )
+   {
+      array
+         .WriteUInt32LEToBytes( ref idx, dataDir.RVA )
+         .WriteUInt32LEToBytes( ref idx, dataDir.Size );
+   }
+
    [CLSCompliant( false )]
    public static TRVA ReadRVAFromBytes( this StreamHelper stream )
    {
@@ -1357,6 +1491,21 @@ public static partial class E_CILPhysical
          stream.ReadUInt16LEFromBytes(),
          (SectionHeaderCharacteristics) stream.ReadInt32LEFromBytes()
          );
+   }
+
+   public static void WriteSectionHeader( this SectionHeader section, Byte[] array, ref Int32 idx )
+   {
+      array
+         .WriteBytesEnumerable( ref idx, section.NameBytes )
+         .WriteUInt32LEToBytes( ref idx, section.VirtualSize )
+         .WriteUInt32LEToBytes( ref idx, section.VirtualAddress )
+         .WriteUInt32LEToBytes( ref idx, section.RawDataSize )
+         .WriteUInt32LEToBytes( ref idx, section.RawDataPointer )
+         .WriteUInt32LEToBytes( ref idx, section.RelocationsPointer )
+         .WriteUInt32LEToBytes( ref idx, section.LineNumbersPointer )
+         .WriteUInt16LEToBytes( ref idx, section.NumberOfRelocations )
+         .WriteUInt16LEToBytes( ref idx, section.NumberOfLineNumbers )
+         .WriteInt32LEToBytes( ref idx, (Int32) section.Characteristics );
    }
 
    /// <summary>

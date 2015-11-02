@@ -340,6 +340,6 @@ public static partial class E_CILPhysical
 
    private static AbstractReaderStreamHandler CreateDefaultHandlerFor( MetaDataStreamHeader header, StreamHelper helper )
    {
-      throw new NotImplementedException();
+      throw new NotImplementedException( "Creating default handler for stream." );
    }
 }
