@@ -85,12 +85,11 @@ namespace CILAssemblyManipulator.Physical.IO
          RVAConverter rvaConverter
          );
 
-      void WriteHeaderInformation(
+      void WritePEInformation(
          Stream stream,
          ResizableArray<Byte> array,
          WritingStatus writingStatus,
-         PEInformation peInfo,
-         CLIHeader cliHEader
+         PEInformation peInfo
          );
    }
 
@@ -420,7 +419,7 @@ public static partial class E_CILPhysical
             null
             )
          );
-      writer.WriteHeaderInformation( stream, array, status, imageInfo.PEInformation, cliHeader );
+      writer.WritePEInformation( stream, array, status, imageInfo.PEInformation );
 
       // 9. Compute strong name signature, if needed
       CreateStrongNameSignature( stream, snVars, delaySign, cryptoCallbacks, rParams, cliHeader, rvaConverter, snSignature );
@@ -759,5 +758,17 @@ public static partial class E_CILPhysical
             writingStatus.PEDataDirectories.ToArrayProxy().CQ
             );
       }
+   }
+
+   internal static Int32 SetCapacityAndAlign( this ResizableArray<Byte> array, Int64 streamPosition, Int32 dataSize, Int32 dataAlignmnet )
+   {
+      var paddingBefore = (Int32) ( streamPosition.RoundUpI64( dataAlignmnet ) - streamPosition );
+      array.CurrentMaxCapacity = paddingBefore + dataSize;
+      return paddingBefore;
+   }
+
+   internal static void SkipAlignedData( this Stream stream, Int32 dataSize, Int32 dataAlignment )
+   {
+      stream.Position = stream.Position.RoundUpI64( dataAlignment ) + dataSize;
    }
 }

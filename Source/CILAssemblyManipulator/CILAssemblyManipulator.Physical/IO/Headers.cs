@@ -1455,6 +1455,13 @@ public static partial class E_CILPhysical
          .WriteUInt32LEToBytes( ref idx, dataDir.Size );
    }
 
+   private static Byte[] WriteDataDirectory( this Byte[] array, ref Int32 idx, DataDirectory dataDir )
+   {
+      return array
+         .WriteUInt32LEToBytes( ref idx, dataDir.RVA )
+         .WriteUInt32LEToBytes( ref idx, dataDir.Size );
+   }
+
    [CLSCompliant( false )]
    public static TRVA ReadRVAFromBytes( this StreamHelper stream )
    {
@@ -1561,6 +1568,23 @@ public static partial class E_CILPhysical
          stream.ReadDataDirectory(),
          stream.ReadDataDirectory()
          );
+   }
+
+   public static void WriteCLIHeader( this CLIHeader header, Byte[] array, ref Int32 idx )
+   {
+      array
+         .WriteUInt32LEToBytes( ref idx, header.HeaderSize )
+         .WriteUInt16LEToBytes( ref idx, header.MajorRuntimeVersion )
+         .WriteUInt16LEToBytes( ref idx, header.MinorRuntimeVersion )
+         .WriteDataDirectory( ref idx, header.MetaData )
+         .WriteInt32LEToBytes( ref idx, (Int32) header.Flags )
+         .WriteInt32LEToBytes( ref idx, header.EntryPointToken.GetOneBasedToken() )
+         .WriteDataDirectory( ref idx, header.Resources )
+         .WriteDataDirectory( ref idx, header.StrongNameSignature )
+         .WriteDataDirectory( ref idx, header.CodeManagerTable )
+         .WriteDataDirectory( ref idx, header.VTableFixups )
+         .WriteDataDirectory( ref idx, header.ExportAddressTableJumps )
+         .WriteDataDirectory( ref idx, header.ManagedNativeHeader );
    }
 
    public static MetaDataRoot NewMetaDataRootFromStream( this StreamHelper stream )

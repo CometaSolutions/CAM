@@ -152,7 +152,17 @@ namespace CILAssemblyManipulator.Physical.IO
          CLIHeader cliHeader
          )
       {
-         // TODO: Write CLI header, and skip amount of bytes required for strong name signature
+         // Write CLI header
+         var idx = array.SetCapacityAndAlign( stream.Position, (Int32) cliHeader.HeaderSize, 0x04 );
+         cliHeader.WriteCLIHeader( array.Array, ref idx );
+         stream.Write( array.Array, idx );
+
+         // Skip amount of bytes required for strong name signature
+         var snVars = writingStatus.StrongNameVariables;
+         if ( snVars != null )
+         {
+            stream.SkipAlignedData( snVars.SignatureSize + snVars.SignaturePaddingSize, writingStatus.Machine.RequiresPE64() ? 0x10 : 0x04 );
+         }
       }
 
       public virtual void WriteMDRoot(
@@ -172,15 +182,25 @@ namespace CILAssemblyManipulator.Physical.IO
          RVAConverter rvaConverter
          )
       {
-         // TODO: debug directory, startup stub, reloc section
+         // TODO: import address table, import directory, startup stub
+         Int32 idx;
+         if ( !writingStatus.Machine.RequiresPE64() )
+         {
+            // Import address table
+            idx = array.SetCapacityAndAlign( stream.Position, 0x08, 0x04 );
+
+         }
+
+         // TODO: debug directory
+
+         // TODO: reloc section
       }
 
-      public virtual void WriteHeaderInformation(
+      public virtual void WritePEInformation(
          Stream stream,
          ResizableArray<Byte> array,
          WritingStatus writingStatus,
-         PEInformation peInfo,
-         CLIHeader cliHEader
+         PEInformation peInfo
          )
       {
          // PE information
@@ -231,11 +251,14 @@ namespace CILAssemblyManipulator.Physical.IO
          var encoding = Encoding.UTF8;
          var snVars = writingStatus.StrongNameVariables;
          // 1st section - .text
+         // TODO remember alignments...
+         // TODO: maybe actually instead of SectionHeader-objects, use SectionHeaderInfo objects, which would remember alignments etc??
          var virtualSize = (UInt32) (
             writingStatus.OffsetAfterInitialRawValues.Value
             + this.GetCLIHeaderSize()
-            + mdSize
             + ( snVars == null ? 0 : ( snVars.SignatureSize + snVars.SignaturePaddingSize ) )
+            + mdSize
+            + this.GetImportAddressTableDirectorySize()
             + this.GetImportDirectorySize( writingStatus )
             + this.GetDebugDirectorySize()
             - writingStatus.HeadersSize
@@ -293,6 +316,11 @@ namespace CILAssemblyManipulator.Physical.IO
       protected virtual Int32 GetStreamHeaderSize( AbstractWriterStreamHandler stream )
       {
          return 0x08 + stream.StreamName.Length.RoundUpI32( 4 );
+      }
+
+      protected virtual Int32 GetImportAddressTableDirectorySize()
+      {
+         return 0x08;
       }
 
       protected virtual Int32 GetImportDirectorySize(
@@ -370,6 +398,46 @@ namespace CILAssemblyManipulator.Physical.IO
          // Write meta data right after strong name signature
          var snVars = status.StrongNameVariables;
          return this.GetStrongNameOffset( status, cliHeaderSize ) + ( snVars?.SignatureSize + snVars?.SignaturePaddingSize ).GetValueOrDefault();
+      }
+   }
+
+   public abstract class SectionPart
+   {
+      public SectionPart( Int32 size, Int32 alignment )
+      {
+         if ( size < 0 )
+         {
+            throw new ArgumentOutOfRangeException( "Size" );
+         }
+         if ( alignment < 0 )
+         {
+            throw new ArgumentOutOfRangeException( "Alignment" );
+         }
+
+         this.DataSize = size;
+         this.DataAlignment = alignment;
+      }
+
+      public Int32 DataAlignment { get; }
+
+      public Int32 DataSize { get; }
+
+      public abstract void WriteData( Byte[] array, ref Int32 idx );
+   }
+
+   public class SectionPart_CLIHeader : SectionPart
+   {
+      public SectionPart_CLIHeader( CLIHeader header )
+         : base( (Int32) header.HeaderSize, 4 )
+      {
+         this.Header = header;
+      }
+
+      public CLIHeader Header { get; }
+
+      public override void WriteData( Byte[] array, ref Int32 idx )
+      {
+         this.Header.WriteCLIHeader( array, ref idx );
       }
    }
 
