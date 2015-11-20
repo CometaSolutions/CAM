@@ -101,6 +101,7 @@ namespace CILAssemblyManipulator.Physical.IO
 
       public virtual AbstractReaderStreamHandler CreateStreamHandler(
          StreamHelper stream,
+         Int64 startPosition,
          MetaDataStreamHeader header
          )
       {
@@ -109,15 +110,15 @@ namespace CILAssemblyManipulator.Physical.IO
          {
             case MetaDataConstants.TABLE_STREAM_NAME:
             case "#-":
-               return new DefaultReaderTableStreamHandler( stream, size, header.Name, this.TableSerializations );
+               return new DefaultReaderTableStreamHandler( stream, startPosition, size, header.Name, this.TableSerializations );
             case MetaDataConstants.BLOB_STREAM_NAME:
-               return new DefaultReaderBLOBStreamHandler( stream, size );
+               return new DefaultReaderBLOBStreamHandler( stream, startPosition, size );
             case MetaDataConstants.GUID_STREAM_NAME:
-               return new DefaultReaderGUIDStringStreamHandler( stream, size );
+               return new DefaultReaderGUIDStringStreamHandler( stream, startPosition, size );
             case MetaDataConstants.SYS_STRING_STREAM_NAME:
-               return new DefaultReaderSystemStringStreamHandler( stream, size );
+               return new DefaultReaderSystemStringStreamHandler( stream, startPosition, size );
             case MetaDataConstants.USER_STRING_STREAM_NAME:
-               return new DefaultReaderUserStringsStreamHandler( stream, size );
+               return new DefaultReaderUserStringsStreamHandler( stream, startPosition, size );
             default:
                return null;
          }
@@ -238,13 +239,13 @@ namespace CILAssemblyManipulator.Physical.IO
    public abstract class AbstractReaderStreamHandlerImpl : AbstractReaderStreamHandler
    {
 
-      protected AbstractReaderStreamHandlerImpl( StreamHelper stream, Int32 streamSize )
+      protected AbstractReaderStreamHandlerImpl( StreamHelper stream, Int64 startPosition, Int32 streamSize )
       {
          ArgumentValidator.ValidateNotNull( "Stream", stream );
 
          this.Stream = stream;
          this.StreamSize = (UInt32) streamSize;
-         this.StartingPosition = stream.Stream.Position;
+         this.StartingPosition = startPosition;
       }
 
       public abstract String StreamName { get; }
@@ -270,8 +271,8 @@ namespace CILAssemblyManipulator.Physical.IO
 
    public abstract class AbstractReaderStreamHandlerWithCustomName : AbstractReaderStreamHandlerImpl
    {
-      protected AbstractReaderStreamHandlerWithCustomName( StreamHelper stream, Int32 streamSize, String streamName )
-         : base( stream, streamSize )
+      protected AbstractReaderStreamHandlerWithCustomName( StreamHelper stream, Int64 startPosition, Int32 streamSize, String streamName )
+         : base( stream, startPosition, streamSize )
       {
          this.StreamName = streamName;
       }
@@ -281,16 +282,14 @@ namespace CILAssemblyManipulator.Physical.IO
 
    public class DefaultReaderTableStreamHandler : AbstractReaderStreamHandlerWithCustomName, ReaderTableStreamHandler
    {
-      private const Int32 TABLE_ARRAY_SIZE = 64;
-
-
       public DefaultReaderTableStreamHandler(
          StreamHelper stream,
+         Int64 startPosition,
          Int32 streamSize,
          String tableStreamName,
          ArrayQuery<TableSerializationInfo> tableSerializations
          )
-         : base( stream, streamSize, tableStreamName )
+         : base( stream, startPosition, streamSize, tableStreamName )
       {
          if ( tableSerializations == null )
          {
@@ -304,17 +303,23 @@ namespace CILAssemblyManipulator.Physical.IO
          this.TableStreamHeader = tableHeader;
          this.TableSizes = tableHeader.CreateTableSizesArray().ToArrayProxy().CQ;
 
+         tableSerializations = tableSerializations
+            .Concat( Enumerable.Repeat<TableSerializationInfo>( null, Math.Max( 0, this.TableSizes.Count - tableSerializations.Count ) ) )
+            .ToArrayProxy()
+            .CQ;
+
+
          this.TableSerializationInfo = tableSerializations;
          var supportArgs = new ColumnSerializationSupportCreationArgs( this.TableSizes, thFlags.IsWideBLOB(), thFlags.IsWideGUID(), thFlags.IsWideStrings() );
          this.TableSerializationSupport =
             this.TableSerializationInfo
-            .Select( table => table.CreateSupport( supportArgs ) )
+            .Select( table => table?.CreateSupport( supportArgs ) )
             .ToArrayProxy()
             .CQ;
 
          this.TableWidths =
             this.TableSerializationSupport
-            .Select( table => table.ColumnSerializationSupports.Aggregate( 0, ( curRowBytecount, colInfo ) => curRowBytecount + colInfo.ColumnByteCount ) )
+            .Select( table => table?.ColumnSerializationSupports.Aggregate( 0, ( curRowBytecount, colInfo ) => curRowBytecount + colInfo.ColumnByteCount ) ?? 0 )
             .ToArrayProxy()
             .CQ;
 
@@ -377,7 +382,7 @@ namespace CILAssemblyManipulator.Physical.IO
       {
          return new RawValueStorage<Int32>(
             this.TableSizes,
-            this.TableSerializationInfo.Select( t => t.RawValueStorageColumnCount )
+            this.TableSerializationInfo.Select( t => t?.RawValueStorageColumnCount ?? 0 )
             );
       }
 
@@ -401,9 +406,10 @@ namespace CILAssemblyManipulator.Physical.IO
 
       public AbstractReaderStreamHandlerImplWithCache(
          StreamHelper stream,
+         Int64 startPosition,
          Int32 streamSize
          )
-         : base( stream, streamSize )
+         : base( stream, startPosition, streamSize )
       {
          this._cache = new Dictionary<Int32, TValue>();
       }
@@ -445,9 +451,10 @@ namespace CILAssemblyManipulator.Physical.IO
 
       public DefaultReaderBLOBStreamHandler(
          StreamHelper stream,
+         Int64 startPosition,
          Int32 streamSize
          )
-         : base( stream, streamSize )
+         : base( stream, startPosition, streamSize )
       {
          this._constants = new Dictionary<Int32, Object>();
       }
@@ -479,8 +486,8 @@ namespace CILAssemblyManipulator.Physical.IO
          {
             var stream = this.SetStreamToHeapOffset( heapIndex );
             retVal = stream.DecompressUInt32( out blobSize ) ?
-               -1L :
-               stream.Stream.Position;
+               stream.Stream.Position :
+               -1L;
          }
          else
          {
@@ -538,6 +545,10 @@ namespace CILAssemblyManipulator.Physical.IO
 
       public AbstractSignature ReadNonTypeSignature( Int32 heapIndex, Boolean methodSigIsDefinition, Boolean handleFieldSigAsLocalsSig, out Boolean fieldSigTransformedToLocalsSig )
       {
+         if ( heapIndex == 10091 )
+         {
+
+         }
          return AbstractNotRawSignature.ReadNonTypeSignature( this.GetBLOBAsStreamPortion( heapIndex ), methodSigIsDefinition, handleFieldSigAsLocalsSig, out fieldSigTransformedToLocalsSig );
       }
 
@@ -630,9 +641,10 @@ namespace CILAssemblyManipulator.Physical.IO
    {
       public DefaultReaderGUIDStringStreamHandler(
          StreamHelper stream,
+         Int64 startPosition,
          Int32 streamSize
          )
-         : base( stream, streamSize )
+         : base( stream, startPosition, streamSize )
       {
       }
 
@@ -671,10 +683,11 @@ namespace CILAssemblyManipulator.Physical.IO
    {
       public AbstractReaderStringStreamHandler(
          StreamHelper stream,
+         Int64 startPosition,
          Int32 streamSize,
          Encoding encoding
          )
-         : base( stream, streamSize )
+         : base( stream, startPosition, streamSize )
       {
          ArgumentValidator.ValidateNotNull( "Encoding", encoding );
 
@@ -698,9 +711,10 @@ namespace CILAssemblyManipulator.Physical.IO
    {
       public DefaultReaderSystemStringStreamHandler(
          StreamHelper stream,
+         Int64 startPosition,
          Int32 streamSize
          )
-         : base( stream, streamSize, MetaDataConstants.SYS_STRING_ENCODING )
+         : base( stream, startPosition, streamSize, MetaDataConstants.SYS_STRING_ENCODING )
       {
 
       }
@@ -723,9 +737,10 @@ namespace CILAssemblyManipulator.Physical.IO
    {
       public DefaultReaderUserStringsStreamHandler(
          StreamHelper stream,
+         Int64 startPosition,
          Int32 streamSize
          )
-         : base( stream, streamSize, MetaDataConstants.USER_STRING_ENCODING )
+         : base( stream, startPosition, streamSize, MetaDataConstants.USER_STRING_ENCODING )
       {
 
       }

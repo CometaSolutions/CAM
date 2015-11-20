@@ -1206,7 +1206,6 @@ public static partial class E_CILPhysical
       var ntHeader = stream.NewNTHeaderFromStream();
 
       // Read section headers
-      stream.Stream.SeekFromBegin( dosHeader.NTHeaderOffset + ntHeader.FileHeader.OptionalHeaderSize );
       var sections = stream.ReadSequentialElements( ntHeader.FileHeader.NumberOfSections, s => s.NewSectionHeaderFromStream() );
       return new PEInformation(
          dosHeader,

@@ -49,6 +49,7 @@ namespace CILAssemblyManipulator.Physical.IO
 
       AbstractReaderStreamHandler CreateStreamHandler(
          StreamHelper stream,
+         Int64 startPosition,
          MetaDataStreamHeader header
          );
 
@@ -282,8 +283,9 @@ public static partial class E_CILPhysical
       for ( var i = 0; i < mdStreams.Length; ++i )
       {
          var hdr = mdStreamHeaders[i];
-         var mdHelper = helper.NewStreamPortion( rvaConverter.ToOffset( cliHeader.MetaData.RVA ), (UInt32) hdr.Size );
-         mdStreams[i] = reader.CreateStreamHandler( mdHelper, hdr ) ?? CreateDefaultHandlerFor( hdr, helper );
+         var startPos = rvaConverter.ToOffset( cliHeader.MetaData.RVA ) + hdr.Offset;
+         var mdHelper = helper.NewStreamPortion( startPos, (UInt32) hdr.Size );
+         mdStreams[i] = reader.CreateStreamHandler( mdHelper, startPos, hdr ) ?? CreateDefaultHandlerFor( hdr, helper );
       }
 
       // 3. Create and populate meta-data structure

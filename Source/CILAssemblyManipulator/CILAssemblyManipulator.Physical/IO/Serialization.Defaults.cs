@@ -1422,6 +1422,7 @@ namespace CILAssemblyManipulator.Physical.IO
                .ToArray()
             ).CQ;
          this._columnArray = columns.ToArray();
+         this.TableSerializationInfo = tableSerializationInfo;
       }
 
       public TableSerializationInfo TableSerializationInfo { get; }
@@ -1440,8 +1441,8 @@ namespace CILAssemblyManipulator.Physical.IO
                var stream = args.Stream;
                for ( var j = 0; j < this._columnArray.Length; ++j )
                {
-                  var value = this.ColumnSerializationSupports[i].ReadRawValue( stream );
-                  var setter = this._columnArray[i].Setter;
+                  var value = this.ColumnSerializationSupports[j].ReadRawValue( stream );
+                  var setter = this._columnArray[j].Setter;
                   if ( setter == null )
                   {
                      args.RawValueStorage.AddRawValue( value );

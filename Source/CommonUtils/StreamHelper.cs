@@ -170,7 +170,7 @@ namespace CommonUtils
       public override Int32 Read( Byte[] buffer, Int32 offset, Int32 count )
       {
          var cur = this.GetCurrentPosition();
-         var max = Math.Min( cur + count, this.MaxPosition );
+         var max = Math.Min( cur + count, this.MaxPosition + 1 );
          count = (Int32) ( max - cur );
          if ( count > 0 )
          {
