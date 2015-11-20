@@ -348,7 +348,7 @@ namespace CommonUtils
       /// <remarks>
       /// Will return incorrect results if <paramref name="multiple"/> is zero.
       /// </remarks>
-      public static Int64 RoundUpI64( this Int64 value, Int32 multiple )
+      public static Int64 RoundUpI64( this Int64 value, Int64 multiple )
       {
          return ( multiple - 1 + value ) & ~( multiple - 1 );
       }
@@ -363,7 +363,7 @@ namespace CommonUtils
       /// Will return incorrect results if <paramref name="multiple"/> is zero.
       /// </remarks>
       [CLSCompliant( false )]
-      public static UInt64 RoundUpU64( this UInt64 value, UInt32 multiple )
+      public static UInt64 RoundUpU64( this UInt64 value, UInt64 multiple )
       {
          return ( multiple - 1 + value ) & ~( multiple - 1 );
       }

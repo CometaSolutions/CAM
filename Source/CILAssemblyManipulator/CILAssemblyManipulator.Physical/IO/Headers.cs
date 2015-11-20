@@ -1538,6 +1538,11 @@ public static partial class E_CILPhysical
       return FileHeaderCharacteristics.ExecutableImage | ( machine.RequiresPE64() ? FileHeaderCharacteristics.ExecutableImage : FileHeaderCharacteristics.Machine32Bit );
    }
 
+   public static Boolean IsDLL( this FileHeaderCharacteristics characteristics )
+   {
+      return ( characteristics & FileHeaderCharacteristics.Dll ) != 0;
+   }
+
    ///// <summary>
    ///// Checks whether emitted module requires relocation section.
    ///// </summary>
@@ -1683,6 +1688,20 @@ public static partial class E_CILPhysical
          ( dataPtr = stream.ReadUInt32LEFromBytes() ),
          stream.At( dataPtr ).ReadAndCreateArray( (Int32) dataSize ).ToArrayProxy().CQ
          );
+   }
+
+   public static void WriteDebugInformation( this DebugInformation debugInfo, Byte[] array, ref Int32 idx )
+   {
+      array
+         .WriteInt32LEToBytes( ref idx, debugInfo.Characteristics )
+         .WriteUInt32LEToBytes( ref idx, debugInfo.Timestamp )
+         .WriteUInt16LEToBytes( ref idx, debugInfo.VersionMajor )
+         .WriteUInt16LEToBytes( ref idx, debugInfo.VersionMinor )
+         .WriteInt32LEToBytes( ref idx, debugInfo.DebugType )
+         .WriteUInt32LEToBytes( ref idx, debugInfo.DataSize )
+         .WriteUInt32LEToBytes( ref idx, debugInfo.DataRVA )
+         .WriteUInt32LEToBytes( ref idx, debugInfo.DataPointer )
+         .WriteBytesEnumerable( ref idx, debugInfo.DebugData );
    }
 
    private static ArrayQuery<Byte> ReadAndCreateArrayQuery( this StreamHelper stream, UInt32 len )

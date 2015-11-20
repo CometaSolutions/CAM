@@ -348,6 +348,18 @@ public static partial class E_CommonUtils
    }
 
    /// <summary>
+   /// Gets the length of the array, or returns default length, if array is <c>null</c>.
+   /// </summary>
+   /// <typeparam name="T">The array element type.</typeparam>
+   /// <param name="array">The array.</param>
+   /// <param name="nullLength">The length to return if <paramref name="array"/> is <c>null</c>.</param>
+   /// <returns>The length of the <paramref name="array"/> or <paramref name="nullLength"/> if <paramref name="array"/> is <c>null</c>.</returns>
+   public static Int32 GetLengthOrDefault<T>( this T[] array, Int32 nullLength = 0 )
+   {
+      return array == null ? nullLength : array.Length;
+   }
+
+   /// <summary>
    /// Checks that the enumerable is either empty, or all of its values are considered to be same.
    /// </summary>
    /// <typeparam name="T">The enumerable element type.</typeparam>

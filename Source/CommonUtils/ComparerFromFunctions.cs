@@ -166,7 +166,7 @@ namespace CommonUtils
       {
          return typeof( ArrayEqualityComparer<> )
                .MakeGenericType( arrayElementType )
-               .GetProperty( "DefaultArrayEqualityComparer", System.Reflection.BindingFlags.DeclaredOnly | System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.Static )
+               .GetProperty( nameof( ArrayEqualityComparer<Int32>.DefaultArrayEqualityComparer ), System.Reflection.BindingFlags.DeclaredOnly | System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.Static )
                .GetGetMethod()
                .Invoke( null, null );
       }
@@ -175,7 +175,7 @@ namespace CommonUtils
       {
          return typeof( ListEqualityComparer<,> )
             .MakeGenericType( listType, listType.GetGenericArguments()[0] )
-            .GetProperty( "DefaultListEqualityComparer", System.Reflection.BindingFlags.DeclaredOnly | System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.Static )
+            .GetProperty( nameof( ListEqualityComparer<List<Int32>, Int32>.DefaultListEqualityComparer ), System.Reflection.BindingFlags.DeclaredOnly | System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.Static )
             .GetGetMethod()
             .Invoke( null, null );
       }
@@ -184,7 +184,7 @@ namespace CommonUtils
       {
          return typeof( CollectionEqualityComparer<,> )
             .MakeGenericType( collectionType, collectionType.GetGenericArguments()[0] )
-            .GetProperty( "DefaultCollectionEqualityComparer", System.Reflection.BindingFlags.DeclaredOnly | System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.Static )
+            .GetProperty( nameof( CollectionEqualityComparer<List<Int32>, Int32>.DefaultCollectionEqualityComparer ), System.Reflection.BindingFlags.DeclaredOnly | System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.Static )
             .GetGetMethod()
             .Invoke( null, null );
       }

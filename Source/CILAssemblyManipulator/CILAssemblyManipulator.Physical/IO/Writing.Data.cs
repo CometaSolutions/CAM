@@ -15,6 +15,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License. 
  */
+using CILAssemblyManipulator.Physical.IO;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -84,7 +85,7 @@ namespace CILAssemblyManipulator.Physical.IO
 
       public Int64? StackCommitSize { get; set; }
 
-      public Int64? HeapReserverSize { get; set; }
+      public Int64? HeapReserveSize { get; set; }
 
       public Int64? HeapCommitSize { get; set; }
 
@@ -132,6 +133,7 @@ namespace CILAssemblyManipulator.Physical.IO
    public class WritingOptions_MetaDataRoot
    {
       public Int32? Signature { get; set; }
+
       public Int16? MajorVersion { get; set; }
 
       public Int16? MinorVersion { get; set; }
@@ -227,4 +229,90 @@ namespace CILAssemblyManipulator.Physical.IO
       public List<Int32?> EmbeddedManifestResourceOffsets { get; }
    }
 
+}
+
+public static partial class E_CILPhysical
+{
+   public static WritingOptions CreateWritingOptions( this ImageInformation imageInformation )
+   {
+      var peInfo = imageInformation.PEInformation;
+      var dosHeader = peInfo.DOSHeader;
+      var ntHeader = peInfo.NTHeader;
+      var fileHeader = ntHeader.FileHeader;
+      var optionalHeader = ntHeader.OptionalHeader;
+      var debugInfo = imageInformation.DebugInformation;
+      var cliInfo = imageInformation.CLIInformation;
+      var cliHeader = cliInfo.CLIHeader;
+      var mdRoot = cliInfo.MetaDataRoot;
+      var tableStream = cliInfo.TableStreamHeader;
+
+      return new WritingOptions(
+         new WritingOptions_PE()
+         {
+            Characteristics = fileHeader.Characteristics,
+            DLLCharacteristics = optionalHeader.DLLCharacteristics,
+            FileAlignment = (Int32) optionalHeader.FileAlignment,
+            HeapCommitSize = (Int64) optionalHeader.HeapCommitSize,
+            HeapReserveSize = (Int64) optionalHeader.HeapReserveSize,
+            ImageBase = (Int64) optionalHeader.ImageBase,
+            //ImportDirectoryName = ...,
+            //ImportHintName = ...,
+            LoaderFlags = optionalHeader.LoaderFlags,
+            Machine = fileHeader.Machine,
+            MajorLinkerVersion = optionalHeader.MajorLinkerVersion,
+            MinorLinkerVersion = optionalHeader.MinorLinkerVersion,
+            MajorOSVersion = (Int16) optionalHeader.MajorOSVersion,
+            MinorOSVersion = (Int16) optionalHeader.MinorOSVersion,
+            MajorSubsystemVersion = (Int16) optionalHeader.MajorSubsystemVersion,
+            MinorSubsystemVersion = (Int16) optionalHeader.MinorSubsystemVersion,
+            MajorUserVersion = (Int16) optionalHeader.MajorUserVersion,
+            MinorUserVersion = (Int16) optionalHeader.MinorUserVersion,
+            NumberOfDataDirectories = (Int32) optionalHeader.NumberOfDataDirectories,
+            SectionAlignment = (Int32) optionalHeader.SectionAlignment,
+            StackCommitSize = (Int64) optionalHeader.StackCommitSize,
+            StackReserveSize = (Int64) optionalHeader.StackReserveSize,
+            Subsystem = optionalHeader.Subsystem,
+            Timestamp = (Int32) fileHeader.TimeDateStamp,
+            Win32VersionValue = (Int32) optionalHeader.Win32VersionValue
+         },
+         new WritingOptions_CLI(
+            new WritingOptions_CLIHeader()
+            {
+               EntryPointToken = cliHeader.EntryPointToken,
+               MajorRuntimeVersion = (Int16) cliHeader.MajorRuntimeVersion,
+               MinorRuntimeVersion = (Int16) cliHeader.MinorRuntimeVersion,
+               ModuleFlags = cliHeader.Flags
+            },
+            new WritingOptions_MetaDataRoot()
+            {
+               MajorVersion = (Int16) mdRoot.MajorVersion,
+               MinorVersion = (Int16) mdRoot.MinorVersion,
+               Reserved = mdRoot.Reserved,
+               Reserved2 = mdRoot.Reserved2,
+               Signature = mdRoot.Signature,
+               StorageFlags = mdRoot.StorageFlags,
+               VersionString = mdRoot.VersionString
+            },
+            new WritingOptions_TableStream()
+            {
+               HeaderExtraData = tableStream.ExtraData,
+               HeaderMajorVersion = tableStream.MajorVersion,
+               HeaderMinorVersion = tableStream.MinorVersion,
+               Reserved = tableStream.Reserved,
+               Reserved2 = tableStream.Reserved2
+            }
+         ),
+         debugInfo == null ? null : new WritingOptions_Debug()
+         {
+            Characteristics = debugInfo.Characteristics,
+            DebugData = debugInfo.DebugData.ToArray(),
+            DebugType = debugInfo.DebugType,
+            MajorVersion = (Int16) debugInfo.VersionMajor,
+            MinorVersion = (Int16) debugInfo.VersionMinor,
+            Timestamp = (Int32) debugInfo.Timestamp
+         } )
+      {
+         IsExecutable = fileHeader.Characteristics.IsDLL()
+      };
+   }
 }

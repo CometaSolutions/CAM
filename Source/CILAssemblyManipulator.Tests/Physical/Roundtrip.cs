@@ -55,7 +55,7 @@ namespace CILAssemblyManipulator.Tests.Physical
          Byte[] written;
          using ( var ms = new MemoryStream() )
          {
-            read1.WriteModule( ms, new EmittingArguments() { Headers = rArgs1.Headers } );
+            read1.WriteModule( ms, new EmittingArguments() { WritingOptions = rArgs1.ImageInformation.CreateWritingOptions() } );
             written = ms.ToArray();
          }
 
@@ -76,7 +76,7 @@ namespace CILAssemblyManipulator.Tests.Physical
          Assert.IsTrue( Comparers.MetaDataComparer.Equals( read1, read2 ) );
          // We don't use public key when emitting module
          //rArgs1.Headers.ModuleFlags = ModuleFlags.ILOnly;
-         Assert.IsTrue( Comparers.HeadersEqualityComparer.Equals( rArgs1.Headers, rArgs2.Headers ) );
+         Assert.IsTrue( Comparers.ImageInformationLogicalEqualityComparer.Equals( rArgs1.ImageInformation, rArgs2.ImageInformation ) );
       }
 
    }

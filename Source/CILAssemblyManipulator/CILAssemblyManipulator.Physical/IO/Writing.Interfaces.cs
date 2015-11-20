@@ -56,7 +56,6 @@ namespace CILAssemblyManipulator.Physical.IO
          IEnumerable<AbstractWriterStreamHandler> presentStreams,
          SectionHeader[] sections,
          out RVAConverter rvaConverter,
-         out CLIHeader cliHeader,
          out MetaDataRoot mdRoot,
          out Int32 mdRootSize,
          out Int32 mdSize
@@ -69,7 +68,7 @@ namespace CILAssemblyManipulator.Physical.IO
          WritingStatus writingStatus,
          RVAConverter rvaConverter,
          MetaDataRoot mdRoot,
-         CLIHeader cliHeader
+         out CLIHeader cliHeader
          );
 
       void WriteMDRoot(
@@ -174,6 +173,7 @@ namespace CILAssemblyManipulator.Physical.IO
          Int32 headersSize,
          ImageFileMachine machine,
          Int32 fileAlignment,
+         Int64? imageBase,
          StrongNameVariables strongNameVariables,
          Int32? dataDirCount
          )
@@ -182,6 +182,7 @@ namespace CILAssemblyManipulator.Physical.IO
          this.HeadersSize = headersSize.RoundUpI32( fileAlignment );
          this.Machine = machine;
          this.FileAlignment = fileAlignment;
+         this.ImageBase = imageBase ?? ( machine.RequiresPE64() ? 0x0000000140000000 : 0x0000000000400000 );
          this.StrongNameVariables = strongNameVariables;
          this.PEDataDirectories = new List<DataDirectory>( Enumerable.Repeat<DataDirectory>( default( DataDirectory ), dataDirCount ?? (Int32) DataDirectories.MaxValue ) );
       }
@@ -193,6 +194,8 @@ namespace CILAssemblyManipulator.Physical.IO
       public ImageFileMachine Machine { get; }
 
       public Int32 FileAlignment { get; }
+
+      public Int64 ImageBase { get; }
 
       public Int32 SectionAlignment { get; set; }
 
@@ -214,7 +217,7 @@ namespace CILAssemblyManipulator.Physical.IO
    {
       public Int32 SignatureSize { get; set; }
 
-      public Int32 SignaturePaddingSize { get; set; }
+      //public Int32 SignaturePaddingSize { get; set; }
 
       public AssemblyHashAlgorithm HashAlgorithm { get; set; }
 
@@ -241,11 +244,6 @@ public static partial class E_CILPhysical
    {
       ArgumentValidator.ValidateNotNull( "Stream", stream );
       ArgumentValidator.ValidateNotNull( "Meta data", md );
-
-      if ( options == null )
-      {
-         options = new WritingOptions();
-      }
 
       CILMetaData newMD; Stream newStream;
       var writer = ( writerProvider ?? new DefaultWriterFunctionalityProvider() ).GetFunctionality( md, options, out newMD, out newStream );
@@ -335,6 +333,7 @@ public static partial class E_CILPhysical
          ,
          machine,
          fAlign,
+         peOptions.ImageBase,
          snVars,
          peOptions.NumberOfDataDirectories
          );
@@ -351,13 +350,12 @@ public static partial class E_CILPhysical
       // 4. Create sections and headers
       status.SectionAlignment = peOptions.SectionAlignment ?? 0x2000;
       var presentStreams = mdStreams.Where( mds => mds.Accessed );
-      RVAConverter rvaConverter; CLIHeader cliHeader; MetaDataRoot mdRoot; Int32 mdRootSize; Int32 mdSize;
+      RVAConverter rvaConverter; MetaDataRoot mdRoot; Int32 mdRootSize; Int32 mdSize;
       writer.PopulateSections(
          status,
          presentStreams,
          sectionsArray,
          out rvaConverter,
-         out cliHeader,
          out mdRoot,
          out mdRootSize,
          out mdSize
@@ -365,7 +363,8 @@ public static partial class E_CILPhysical
 
       // 5. Write whatever is needed before meta data
       var sections = cf.NewArrayProxy( sectionsArray ).CQ;
-      writer.BeforeMetaData( stream, array, sections, status, rvaConverter, mdRoot, cliHeader );
+      CLIHeader cliHeader;
+      writer.BeforeMetaData( stream, array, sections, status, rvaConverter, mdRoot, out cliHeader );
 
       // 6. Write meta data
       stream.SeekFromBegin( rvaConverter.ToOffset( (UInt32) cliHeader.MetaData.RVA ) );
@@ -507,7 +506,6 @@ public static partial class E_CILPhysical
             HashAlgorithm = signingAlgorithm,
             PublicKey = thisAssemblyPublicKey,
             SignatureSize = snSize,
-            SignaturePaddingSize = BitUtils.MultipleOf4( snSize ) - snSize,
             ContainerName = containerName
          };
       }
@@ -555,7 +553,7 @@ public static partial class E_CILPhysical
                   stream.Seek( 0, SeekOrigin.Begin );
                   stream.CopyStreamPart( cryptoStream, buffer, sigOffset );
 
-                  stream.Seek( snSize + snVars.SignaturePaddingSize, SeekOrigin.Current );
+                  stream.Seek( snSize, SeekOrigin.Current );
                   stream.CopyStream( cryptoStream, buffer );
                }
 
@@ -584,18 +582,23 @@ public static partial class E_CILPhysical
       return stream.CurrentSize > UInt16.MaxValue;
    }
 
-   internal static ArrayQuery<Byte> CreateASCIIBytes( this String str, Int32 align )
+   internal static ArrayQuery<Byte> CreateASCIIBytes( this String str, Int32 align, Int32 minLen = 0, Int32 maxLen = -1 )
    {
       Byte[] bytez;
       if ( String.IsNullOrEmpty( str ) )
       {
-         bytez = new Byte[align];
+         bytez = new Byte[Math.Max( align, minLen )];
       }
       else
       {
-         bytez = new Byte[( str.Length + 1 ).RoundUpI32( align )];
+         var byteArrayLen = ( str.Length + 1 ).RoundUpI32( align );
+         bytez = new Byte[maxLen >= 0 ? Math.Max( maxLen, byteArrayLen ) : byteArrayLen];
          var idx = 0;
-         bytez.WriteASCIIString( ref idx, str, true );
+         while ( idx < bytez.Length && idx < str.Length )
+         {
+            bytez[idx] = (Byte) str[idx];
+            ++idx;
+         }
       }
       return CollectionsWithRoles.Implementation.CollectionsFactorySingleton.DEFAULT_COLLECTIONS_FACTORY.NewArrayProxy( bytez ).CQ;
    }
@@ -688,6 +691,7 @@ public static partial class E_CILPhysical
       }
 
       var ep = rvaConverter.ToRVANullable( writingStatus.EntryPointOffset );
+      var imageBase = writingStatus.ImageBase;
 
       if ( machine.RequiresPE64() )
       {
@@ -699,7 +703,7 @@ public static partial class E_CILPhysical
             uninitDataSize,
             ep,
             codeBase,
-            (UInt64) ( options.ImageBase ?? 0x0000000140000000 ),
+            (UInt64) imageBase,
             sAlign,
             fAlign,
             (UInt16) ( options.MajorOSVersion ?? osMajor ),
@@ -716,7 +720,7 @@ public static partial class E_CILPhysical
             options.DLLCharacteristics ?? dllFlags,
             (UInt64) ( options.StackReserveSize ?? 0x0000000000400000 ),
             (UInt64) ( options.StackCommitSize ?? 0x0000000000004000 ),
-            (UInt64) ( options.HeapReserverSize ?? 0x0000000000100000 ),
+            (UInt64) ( options.HeapReserveSize ?? 0x0000000000100000 ),
             (UInt64) ( options.HeapCommitSize ?? 0x0000000000002000 ),
             options.LoaderFlags ?? 0x00000000,
             (UInt32) ( options.NumberOfDataDirectories ?? (Int32) DataDirectories.MaxValue ),
@@ -734,7 +738,7 @@ public static partial class E_CILPhysical
             ep,
             codeBase,
             dataBase,
-            (UInt32) ( options.ImageBase ?? 0x0000000000400000 ),
+            (UInt32) imageBase,
             sAlign,
             fAlign,
             (UInt16) ( options.MajorOSVersion ?? osMajor ),
@@ -751,7 +755,7 @@ public static partial class E_CILPhysical
             options.DLLCharacteristics ?? dllFlags,
             (UInt32) ( options.StackReserveSize ?? 0x00100000 ),
             (UInt32) ( options.StackCommitSize ?? 0x00001000 ),
-            (UInt32) ( options.HeapReserverSize ?? 0x00100000 ),
+            (UInt32) ( options.HeapReserveSize ?? 0x00100000 ),
             (UInt32) ( options.HeapCommitSize ?? 0x00001000 ),
             options.LoaderFlags ?? 0x00000000,
             (UInt32) ( options.NumberOfDataDirectories ?? (Int32) DataDirectories.MaxValue ),

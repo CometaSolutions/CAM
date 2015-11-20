@@ -109,7 +109,7 @@ namespace CILAssemblyManipulator.Physical
          {
             using ( var stream = this.GetStreamFor( res ) )
             {
-               rArgs = new ReadingArguments( true );
+               rArgs = new ReadingArguments();
                try
                {
                   return stream.ReadModule( rArgs );

@@ -31,6 +31,7 @@ using CommonUtils;
 using CILAssemblyManipulator.Physical;
 using System.Runtime.InteropServices;
 using System.Diagnostics;
+using CILAssemblyManipulator.Physical.IO;
 
 namespace CILMerge
 {
@@ -98,13 +99,12 @@ namespace CILMerge
          {
 
             var eArg = iResult.ReadingArguments;
-            var headers = eArg.Headers;
-            var debugInfo = headers.DebugInformation;
+            var debugInfo = eArg.ImageInformation.DebugInformation;
             if ( debugInfo != null && debugInfo.DebugType == 2 ) // CodeView
             {
                var pdbFNStartIdx = 24;
-               var pdbFN = debugInfo.DebugData.ReadZeroTerminatedStringFromBytes( ref pdbFNStartIdx, Encoding.UTF8 );
-               if ( pdbFN != null )
+               var pdbFN = debugInfo.DebugData.ToArray().ReadZeroTerminatedStringFromBytes( ref pdbFNStartIdx, Encoding.UTF8 );
+               if ( !String.IsNullOrEmpty( pdbFN ) )
                {
                   PDBInstance iPDB = null;
                   try
@@ -652,7 +652,7 @@ namespace CILMerge
             // Prepare PDB
 
             // Create PDB helper here, so it would modify EmittingArguments *before* actual emitting
-            pdbHelper = !this._options.NoDebug && this._inputModules.Any( m => this._moduleLoader.GetReadingArgumentsForMetaData( m ).Headers.DebugInformation != null ) ?
+            pdbHelper = !this._options.NoDebug && this._inputModules.Any( m => this._moduleLoader.GetReadingArgumentsForMetaData( m ).ImageInformation.DebugInformation != null ) ?
                new PDBHelper( this._targetModule, eArgs, this._options.OutPath ) :
                null;
 
@@ -839,7 +839,7 @@ namespace CILMerge
          {
             var mod = this._moduleLoader.LoadAndResolve( path );
             var rArgs = this._moduleLoader.GetReadingArgumentsForMetaData( mod );
-            if ( !rArgs.Headers.ModuleFlags.IsILOnly() && !this._options.ZeroPEKind )
+            if ( !rArgs.ImageInformation.CLIInformation.CLIHeader.Flags.IsILOnly() && !this._options.ZeroPEKind )
             {
                throw this.NewCILMergeException( ExitCode.NonILOnlyModule, "The module in " + path + " is not IL-only." );
             }
@@ -990,21 +990,24 @@ namespace CILMerge
 
          // Prepare emitting arguments
          var pEArgs = this._moduleLoader.GetReadingArgumentsForMetaData( this._primaryModule );
-         var pHeaders = pEArgs.Headers;
+         var pHeaders = pEArgs.ImageInformation;
 
          var eArgs = new CILAssemblyManipulator.Physical.EmittingArguments();
-         var eHeaders = pEArgs.Headers.CreateCopy();
-         eArgs.Headers = eHeaders;
-         eHeaders.DebugInformation = null;
-         eHeaders.FileAlignment = (UInt32) Math.Max( this._options.FileAlign, HeadersData.DEFAULT_FILE_ALIGNMENT );
-         eHeaders.SubSysMajor = (UInt16) this._options.SubsystemMajor;
-         eHeaders.SubSysMinor = (UInt16) this._options.SubsystemMinor;
+         var eHeaders = pHeaders.CreateWritingOptions();
+         eArgs.WritingOptions = eHeaders;
+         eHeaders.DebugOptions.DebugData = null;
+         eHeaders.PEOptions.FileAlignment = this._options.FileAlign;
+         eHeaders.PEOptions.MajorSubsystemVersion = (Int16) this._options.SubsystemMajor;
+         eHeaders.PEOptions.MinorSubsystemVersion = (Int16) this._options.SubsystemMinor;
          if ( this._options.HighEntropyVA )
          {
-            eHeaders.DLLFlags |= DLLFlags.HighEntropyVA;
+            eHeaders.PEOptions.DLLCharacteristics |= DLLFlags.HighEntropyVA;
          }
          var md = this._options.MetadataVersionString;
-         eHeaders.MetaDataVersion = String.IsNullOrEmpty( md ) ? pHeaders.MetaDataVersion : md;
+         if ( !String.IsNullOrEmpty( md ) )
+         {
+            eHeaders.CLIOptions.MDRootOptions.VersionString = md;
+         }
 
          eArgs.DelaySign = this._options.DelaySign;
          eArgs.SigningAlgorithm = this._options.SigningAlgorithm;

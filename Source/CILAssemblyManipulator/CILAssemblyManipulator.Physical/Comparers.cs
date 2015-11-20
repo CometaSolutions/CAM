@@ -15,6 +15,8 @@
  * See the License for the specific language governing permissions and
  * limitations under the License. 
  */
+using CILAssemblyManipulator.Physical.IO;
+using CollectionsWithRoles.API;
 using CommonUtils;
 using System;
 using System.Collections.Generic;
@@ -124,7 +126,7 @@ namespace CILAssemblyManipulator.Physical
 
       private static IEqualityComparer<Object> _CAValueEqualityComparer = ComparerFromFunctions.NewEqualityComparer<Object>( Equality_CustomAttributeValue, x => { throw new NotSupportedException(); } );
 
-      private static IEqualityComparer<HeadersData> _HeadersEqualityComparer = null;
+      private static IEqualityComparer<ImageInformation> _ImageInformationLogicalEqualityComparer = null;
 
       public static IEqualityComparer<CILMetaData> MetaDataComparer
       {
@@ -1102,15 +1104,15 @@ namespace CILAssemblyManipulator.Physical
          }
       }
 
-      public static IEqualityComparer<HeadersData> HeadersEqualityComparer
+      public static IEqualityComparer<ImageInformation> ImageInformationLogicalEqualityComparer
       {
          get
          {
-            var retVal = _HeadersEqualityComparer;
+            var retVal = _ImageInformationLogicalEqualityComparer;
             if ( retVal == null )
             {
-               retVal = ComparerFromFunctions.NewEqualityComparer<HeadersData>( Equality_HeadersData, HashCode_HeadersData );
-               _HeadersEqualityComparer = retVal;
+               retVal = ComparerFromFunctions.NewEqualityComparer<ImageInformation>( Equality_ImageInformation_Logical, HashCode_HeadersData );
+               _ImageInformationLogicalEqualityComparer = retVal;
             }
             return retVal;
          }
@@ -2359,41 +2361,167 @@ namespace CILAssemblyManipulator.Physical
          );
       }
 
-      private static Boolean Equality_HeadersData( HeadersData x, HeadersData y )
+      private static Boolean Equality_ImageInformation_Logical( ImageInformation x, ImageInformation y )
       {
          return Object.ReferenceEquals( x, y ) ||
-            ( x != null & y != null
-            && x.Machine == y.Machine
-            && String.Equals( x.MetaDataVersion, y.MetaDataVersion )
-            && String.Equals( x.ImportHintName, y.ImportHintName )
-            && x.ModuleFlags == y.ModuleFlags
-            && x.DLLFlags == y.DLLFlags
-            && NullableEqualityComparer<TableIndex>.DefaultComparer.Equals( x.CLREntryPointIndex, y.CLREntryPointIndex )
-            && Equality_DebugInfo( x.DebugInformation, y.DebugInformation )
-            && x.ImageBase == y.ImageBase
-            && x.FileAlignment == y.FileAlignment
-            && x.SectionAlignment == y.SectionAlignment
-            && x.StackReserve == y.StackReserve
-            && x.StackCommit == y.StackCommit
-            && x.HeapReserve == y.HeapReserve
-            && x.HeapCommit == y.HeapCommit
-            && x.DLLFlags == y.DLLFlags
-            && String.Equals( x.ImportDirectoryName, y.ImportDirectoryName )
-            //&& x.EntryPointInstruction == y.EntryPointInstruction
-            && x.LinkerMajor == y.LinkerMajor
-            && x.LinkerMinor == y.LinkerMinor
-            && x.OSMajor == y.OSMajor
-            && x.OSMinor == y.OSMinor
-            && x.SubSysMajor == y.SubSysMajor
-            && x.SubSysMinor == y.SubSysMinor
-            && x.CLIMajor == y.CLIMajor
-            && x.CLIMinor == y.CLIMinor
-            && x.TableHeapMajor == y.TableHeapMajor
-            && x.TableHeapMinor == y.TableHeapMinor
+            ( x != null && y != null
+            && Equality_PEInformation_Logical( x.PEInformation, y.PEInformation )
+            && Equality_CLIInformation_Logical( x.CLIInformation, y.CLIInformation )
+            && Equality_DebugInfo_Logical( x.DebugInformation, y.DebugInformation )
+            );
+
+
+
+         //&& x.Machine == y.Machine
+         //&& String.Equals( x.MetaDataVersion, y.MetaDataVersion )
+         //&& String.Equals( x.ImportHintName, y.ImportHintName )
+         //&& x.ModuleFlags == y.ModuleFlags
+         //&& x.DLLFlags == y.DLLFlags
+         //&& NullableEqualityComparer<TableIndex>.DefaultComparer.Equals( x.CLREntryPointIndex, y.CLREntryPointIndex )
+         //&& Equality_DebugInfo( x.DebugInformation, y.DebugInformation )
+         //&& x.ImageBase == y.ImageBase
+         //&& x.FileAlignment == y.FileAlignment
+         //&& x.SectionAlignment == y.SectionAlignment
+         //&& x.StackReserve == y.StackReserve
+         //&& x.StackCommit == y.StackCommit
+         //&& x.HeapReserve == y.HeapReserve
+         //&& x.HeapCommit == y.HeapCommit
+         //&& x.DLLFlags == y.DLLFlags
+         //&& String.Equals( x.ImportDirectoryName, y.ImportDirectoryName )
+         ////&& x.EntryPointInstruction == y.EntryPointInstruction
+         //&& x.LinkerMajor == y.LinkerMajor
+         //&& x.LinkerMinor == y.LinkerMinor
+         //&& x.OSMajor == y.OSMajor
+         //&& x.OSMinor == y.OSMinor
+         //&& x.SubSysMajor == y.SubSysMajor
+         //&& x.SubSysMinor == y.SubSysMinor
+         //&& x.CLIMajor == y.CLIMajor
+         //&& x.CLIMinor == y.CLIMinor
+         //&& x.TableHeapMajor == y.TableHeapMajor
+         //&& x.TableHeapMinor == y.TableHeapMinor
+         //);
+      }
+
+      private static Boolean Equality_PEInformation_Logical( PEInformation x, PEInformation y )
+      {
+         return Object.ReferenceEquals( x, y ) ||
+            ( x != null && y != null
+            && Equality_DOSHeader_Logical( x.DOSHeader, y.DOSHeader )
+            && Equality_NTHeader_Logical( x.NTHeader, y.NTHeader )
+            //&& x.SectionHeaders.ArrayQueryEquality( y.SectionHeaders, Equality_SectionHeader_Logical )
             );
       }
 
-      private static Boolean Equality_DebugInfo( DebugInformation x, DebugInformation y )
+      private static Boolean Equality_DOSHeader_Logical( DOSHeader x, DOSHeader y )
+      {
+         return Object.ReferenceEquals( x, y ) ||
+            ( x != null && y != null
+            && x.Signature == y.Signature
+            );
+      }
+
+      private static Boolean Equality_NTHeader_Logical( NTHeader x, NTHeader y )
+      {
+         return Object.ReferenceEquals( x, y ) ||
+            ( x != null && y != null
+            && x.Signature == y.Signature
+            && Equality_FileHeader_Logical( x.FileHeader, y.FileHeader )
+            && Equality_OptionalHeader_Logical( x.OptionalHeader, y.OptionalHeader )
+            );
+      }
+
+      private static Boolean Equality_FileHeader_Logical( FileHeader x, FileHeader y )
+      {
+         return Object.ReferenceEquals( x, y ) ||
+            ( x != null && y != null
+            && x.Machine == y.Machine
+            && x.TimeDateStamp == y.TimeDateStamp
+            && x.Characteristics == y.Characteristics
+            );
+      }
+
+      private static Boolean Equality_OptionalHeader_Logical( OptionalHeader x, OptionalHeader y )
+      {
+         return Object.ReferenceEquals( x, y ) ||
+            ( x != null && y != null
+            && x.MajorLinkerVersion == y.MajorLinkerVersion
+            && x.MinorLinkerVersion == y.MinorLinkerVersion
+            && x.ImageBase == y.ImageBase
+            && x.SectionAlignment == y.SectionAlignment
+            && x.FileAlignment == y.FileAlignment
+            && x.MajorOSVersion == y.MajorOSVersion
+            && x.MinorOSVersion == y.MinorOSVersion
+            && x.MajorUserVersion == y.MajorUserVersion
+            && x.MinorUserVersion == y.MinorUserVersion
+            && x.MajorSubsystemVersion == y.MajorSubsystemVersion
+            && x.MinorSubsystemVersion == y.MinorSubsystemVersion
+            && x.Win32VersionValue == y.Win32VersionValue
+            && x.Subsystem == y.Subsystem
+            && x.DLLCharacteristics == y.DLLCharacteristics
+            && x.StackReserveSize == y.StackReserveSize
+            && x.StackCommitSize == y.StackCommitSize
+            && x.HeapReserveSize == y.HeapReserveSize
+            && x.HeapCommitSize == y.HeapCommitSize
+            && x.LoaderFlags == y.LoaderFlags
+            && x.NumberOfDataDirectories == y.NumberOfDataDirectories
+            );
+      }
+
+      //private static Boolean Equality_SectionHeader_Logical( SectionHeader x, SectionHeader y )
+      //{
+
+      //}
+
+      private static Boolean Equality_CLIInformation_Logical( CLIInformation x, CLIInformation y )
+      {
+         return Object.ReferenceEquals( x, y ) ||
+            ( x != null && y != null
+            && Equality_CLIHeader_Logical( x.CLIHeader, y.CLIHeader )
+            && Equality_MDRoot_Logical( x.MetaDataRoot, y.MetaDataRoot )
+            && Equality_MDTableStreamHeader( x.TableStreamHeader, y.TableStreamHeader )
+            && x.FieldRVAs.Count == y.FieldRVAs.Count
+            && x.MethodRVAs.Count == y.MethodRVAs.Count
+            );
+      }
+
+      private static Boolean Equality_CLIHeader_Logical( CLIHeader x, CLIHeader y )
+      {
+         return Object.ReferenceEquals( x, y ) ||
+            ( x != null && y != null
+            && x.MajorRuntimeVersion == y.MajorRuntimeVersion
+            && x.MinorRuntimeVersion == y.MinorRuntimeVersion
+            && x.Flags == y.Flags
+            && x.EntryPointToken == y.EntryPointToken
+            );
+      }
+
+      private static Boolean Equality_MDRoot_Logical( MetaDataRoot x, MetaDataRoot y )
+      {
+         return Object.ReferenceEquals( x, y ) ||
+            ( x != null && y != null
+            && x.Signature == y.Signature
+            && x.MajorVersion == y.MajorVersion
+            && x.MinorVersion == y.MinorVersion
+            && x.Reserved == y.Reserved
+            && x.VersionStringBytes.ArrayQueryEquality( y.VersionStringBytes )
+            && x.StorageFlags == y.StorageFlags
+            && x.Reserved2 == y.Reserved2
+            );
+      }
+
+      private static Boolean Equality_MDTableStreamHeader( MetaDataTableStreamHeader x, MetaDataTableStreamHeader y )
+      {
+         return Object.ReferenceEquals( x, y ) ||
+            ( x != null && y != null
+            && x.Reserved == y.Reserved
+            && x.MajorVersion == y.MajorVersion
+            && x.MinorVersion == y.MinorVersion
+            && x.Reserved2 == y.Reserved2
+            && NullableEqualityComparer<Int32>.Equals( x.ExtraData, y.ExtraData )
+            );
+      }
+
+      private static Boolean Equality_DebugInfo_Logical( DebugInformation x, DebugInformation y )
       {
          return Object.ReferenceEquals( x, y ) ||
             ( x != null && y != null
@@ -2402,7 +2530,7 @@ namespace CILAssemblyManipulator.Physical
             && x.DebugType == y.DebugType
             && x.VersionMajor == y.VersionMajor
             && x.VersionMinor == y.VersionMinor
-            && ArrayEqualityComparer<Byte>.DefaultArrayEqualityComparer.Equals( x.DebugData, y.DebugData )
+            && x.DebugData.ArrayQueryEquality( y.DebugData )
             );
       }
 
@@ -2934,9 +3062,9 @@ namespace CILAssemblyManipulator.Physical
          return x == null ? 0 : ( ( 17 * 23 + x.MarshalType.GetHashCodeSafe( 1 ) ) * 23 + (Int32) x.Value );
       }
 
-      private static Int32 HashCode_HeadersData( HeadersData x )
+      private static Int32 HashCode_HeadersData( ImageInformation x )
       {
-         return x == null ? 0 : ( ( 17 * 23 + (Int32) x.Machine ) * 23 + x.MetaDataVersion.GetHashCodeSafe( 1 ) );
+         return x == null ? 0 : ( ( 17 * 23 + (Int32) x.PEInformation.NTHeader.FileHeader.Machine ) * 23 + SequenceEqualityComparer<ArrayQuery<Byte>, Byte>.GetHashCode( x.CLIInformation.MetaDataRoot.VersionStringBytes ) );
       }
 
       private static Int32 Comparison_ClassLayout( ClassLayout x, ClassLayout y )
@@ -3041,6 +3169,12 @@ namespace CILAssemblyManipulator.Physical
             retVal[(Int32) tablesInOrder[i]] = i;
          }
          return retVal;
+      }
+
+      private static Boolean ArrayQueryEquality<T>( this ArrayQuery<T> x, ArrayQuery<T> y, Equality<T> equality = null )
+      {
+         // TODO make equality classes to CWR
+         return SequenceEqualityComparer<ArrayQuery<T>, T>.SequenceEquality( x, y, equality );
       }
    }
 }
