@@ -61,6 +61,9 @@ namespace CommonUtils
    {
 
       private readonly Stream _stream;
+      private readonly Int64 _start;
+      private readonly Int64 _length;
+      private Int64 _position;
 
       /// <summary>
       /// Creates a new <see cref="StreamPortion"/> for given stream, and with given minimum and maximum boundaries (inclusive).
@@ -85,29 +88,33 @@ namespace CommonUtils
             throw new ArgumentException( "Max boundary must be at least min boundary." );
          }
 
-         var otherPortion = stream as StreamPortion;
-         if ( otherPortion != null )
-         {
-            if ( min < otherPortion.MinPosition || max > otherPortion.MaxPosition )
-            {
-               throw new InvalidOperationException( "Tried to create sub-portion of stream with invalid min/max values." );
-            }
-         }
+         //var otherPortion = stream as StreamPortion;
+         //if ( otherPortion != null )
+         //{
+         //   if ( min < otherPortion.MinPosition || max > otherPortion.MaxPosition )
+         //   {
+         //      throw new InvalidOperationException( "Tried to create sub-portion of stream with invalid min/max values." );
+         //   }
+         //}
 
-         this._stream = otherPortion == null ? stream : otherPortion._stream;
-         this.MinPosition = min;
-         this.MaxPosition = max;
+         this._stream = stream; // otherPortion == null ? stream : otherPortion._stream;
+         this._start = min;
+         this._length = max - min + 1;
+         this._position = 0L;
+
+         //this.MinPosition = min;
+         //this.MaxPosition = max;
       }
 
-      /// <summary>
-      /// Gets the minimum positon for this <see cref="StreamPortion"/>, inclusive.
-      /// </summary>
-      public Int64 MinPosition { get; }
+      ///// <summary>
+      ///// Gets the minimum positon for this <see cref="StreamPortion"/>, inclusive.
+      ///// </summary>
+      //public Int64 MinPosition { get; }
 
-      /// <summary>
-      /// Gets the maximum position for this <see cref="StreamPortion"/>, inclusive.
-      /// </summary>
-      public Int64 MaxPosition { get; }
+      ///// <summary>
+      ///// Gets the maximum position for this <see cref="StreamPortion"/>, inclusive.
+      ///// </summary>
+      //public Int64 MaxPosition { get; }
 
 
       /// <inheritdoc />
@@ -124,7 +131,7 @@ namespace CommonUtils
       {
          get
          {
-            return this._stream.CanSeek;
+            return true;
          }
       }
 
@@ -142,7 +149,7 @@ namespace CommonUtils
       {
          get
          {
-            return this.MinPosition + this.MaxPosition + 1;
+            return this._length;
          }
       }
 
@@ -151,12 +158,15 @@ namespace CommonUtils
       {
          get
          {
-            return this._stream.Position;
+            return this._position;
          }
          set
          {
-            this.CheckPosition( value, 0 );
-            this._stream.Position = value;
+            if ( value < 0 || value >= this.Length )
+            {
+               throw new ArgumentException( "New position is invalid" );
+            }
+            this._position = value;
          }
       }
 
@@ -169,13 +179,15 @@ namespace CommonUtils
       /// <inheritdoc />
       public override Int32 Read( Byte[] buffer, Int32 offset, Int32 count )
       {
-         var cur = this.GetCurrentPosition();
-         var max = Math.Min( cur + count, this.MaxPosition + 1 );
+         var cur = this.Position;
+         var max = Math.Min( cur + count, this.Length );
          count = (Int32) ( max - cur );
          if ( count > 0 )
          {
+            this._stream.Position = this._start + cur;
             count = this._stream.Read( buffer, offset, count );
          }
+         this._position += count;
          return count;
       }
 
@@ -199,9 +211,8 @@ namespace CommonUtils
                throw new ArgumentException( "Invalid seek origin: " + origin + "." );
          }
 
-         this.CheckPosition( newOffset, 0 );
-
-         return this._stream.Seek( offset, origin );
+         this.Position = newOffset;
+         return newOffset;
       }
 
       /// <inheritdoc />
@@ -216,27 +227,27 @@ namespace CommonUtils
          throw new NotSupportedException();
       }
 
-      /// <summary>
-      /// Gets the current position for this stream. Default implementation uses <see cref="Stream.Position"/> property.
-      /// </summary>
-      /// <returns>Current position for this stream.</returns>
-      public virtual Int64 GetCurrentPosition()
-      {
-         return this._stream.Position;
-      }
+      ///// <summary>
+      ///// Gets the current position for this stream. Default implementation uses <see cref="Stream.Position"/> property.
+      ///// </summary>
+      ///// <returns>Current position for this stream.</returns>
+      //public virtual Int64 GetCurrentPosition()
+      //{
+      //   return this._stream.Position;
+      //}
 
-      /// <summary>
-      /// Throws <see cref="NotSupportedException"/> if given position is invalid for this <see cref="StreamPortion"/>.
-      /// </summary>
-      /// <param name="position">The position to check.</param>
-      /// <param name="count">The amount of elements to read/write.</param>
-      protected void CheckPosition( Int64 position, Int32 count )
-      {
-         if ( position < this.MinPosition || position + count > this.MaxPosition )
-         {
-            throw new NotSupportedException( "New offset " + position + " is out of bounds for this stream portion." );
-         }
-      }
+      ///// <summary>
+      ///// Throws <see cref="NotSupportedException"/> if given position is invalid for this <see cref="StreamPortion"/>.
+      ///// </summary>
+      ///// <param name="position">The position to check.</param>
+      ///// <param name="count">The amount of elements to read/write.</param>
+      //protected void CheckPosition( Int64 position, Int32 count )
+      //{
+      //   if ( position < this.MinPosition || position + count > this.MaxPosition )
+      //   {
+      //      throw new NotSupportedException( "New offset " + position + " is out of bounds for this stream portion." );
+      //   }
+      //}
    }
 }
 

@@ -161,39 +161,49 @@ namespace CILAssemblyManipulator.Physical
                )
             {
                returnParameter = ReadParameter( stream );
-               sentinelMark = -1;
-               if ( amountOfParams > 0 )
+               if ( returnParameter != null )
                {
-                  parameters = new ParameterSignature[amountOfParams];
-                  Int32 i;
-                  for ( i = 0; i < amountOfParams; ++i )
+                  retVal = true;
+                  sentinelMark = -1;
+                  if ( amountOfParams > 0 )
                   {
-                     SignatureElementTypes sentinel;
-                     if ( stream.TryReadSigElementType( out sentinel ) )
+                     parameters = new ParameterSignature[amountOfParams];
+                     Int32 i;
+                     for ( i = 0; i < amountOfParams; ++i )
                      {
-                        if ( sentinel == SignatureElementTypes.Sentinel )
+                        SignatureElementTypes sentinel;
+                        if ( stream.TryReadSigElementType( out sentinel ) )
                         {
-                           sentinelMark = i;
+                           if ( sentinel == SignatureElementTypes.Sentinel )
+                           {
+                              sentinelMark = i;
+                           }
+                           else
+                           {
+                              --stream.Stream.Position;
+                           }
+                           if ( ( parameters[i] = ReadParameter( stream ) ) == null )
+                           {
+                              retVal = false;
+                              break;
+                           }
                         }
                         else
-                        {
-                           --stream.Stream.Position;
-                        }
-                        if ( ( parameters[i] = ReadParameter( stream ) ) == null )
                         {
                            break;
                         }
                      }
-                     else
-                     {
-                        break;
-                     }
+                     retVal = i == amountOfParams;
                   }
-                  retVal = i == amountOfParams;
+                  else
+                  {
+                     parameters = Empty<ParameterSignature>.Array;
+                  }
                }
                else
                {
-                  parameters = Empty<ParameterSignature>.Array;
+                  parameters = null;
+                  sentinelMark = -1;
                }
             }
             else
@@ -746,11 +756,12 @@ namespace CILAssemblyManipulator.Physical
                               IsClass = elementType == SignatureElementTypes.Class,
                               Type = actualType
                            };
-                           if ( auxiliary > 0 )
+                           if ( isGeneric )
                            {
                               for ( var i = 0; i < auxiliary; ++i )
                               {
-                                 classOrValue.GenericArguments.Add( ReadTypeSignature( stream ) );
+                                 var curGArg = ReadTypeSignature( stream );
+                                 classOrValue.GenericArguments.Add( curGArg );
                               }
                            }
                            retVal = classOrValue;

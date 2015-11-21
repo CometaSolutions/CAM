@@ -2060,7 +2060,7 @@ public static partial class E_CILPhysical
             {
                var memberRef = md.MemberReferences.GetOrNull( ca.Type.Index );
                if ( memberRef != null
-                  && memberRef.Signature.SignatureKind == SignatureKind.MethodReference
+                  && memberRef?.Signature?.SignatureKind == SignatureKind.MethodReference
                   && memberRef.DeclaringType.Table == Tables.TypeRef
                   && String.Equals( memberRef.Name, Miscellaneous.INSTANCE_CTOR_NAME )
                   )

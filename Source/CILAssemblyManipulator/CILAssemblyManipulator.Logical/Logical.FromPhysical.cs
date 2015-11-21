@@ -1280,21 +1280,21 @@ public static partial class E_CILLogical
 
       private LogicalAssemblyCreationResult ResolveMSCorLibModule( LogicalAssemblyCreationResult msCorLibOverride )
       {
-         // Try find "System.Object"
-         var testTypeString = Consts.OBJECT;
-
-         var suitableModule = this.GetSuitableMSCorLibModules( msCorLibOverride ).FirstOrDefault( m =>
-         {
-            var testType = m.ResolveTypeString( testTypeString, false );
-            var retVal = testType != null;
-            if ( retVal )
+         var suitableModule = this.GetSuitableMSCorLibModules( msCorLibOverride )
+            .Where( m => m != null )
+            .FirstOrDefault( m =>
             {
-               // Perform additional checks
-               var tDef = m.LogicalToPhysical( testType );
-               retVal = tDef.Attributes.IsClass() && !tDef.BaseType.HasValue;
-            }
-            return retVal;
-         } );
+               // Try find "System.Object"
+               var testType = m.ResolveTypeString( Consts.OBJECT, false );
+               var retVal = testType != null;
+               if ( retVal )
+               {
+                  // Perform additional checks
+                  var tDef = m.LogicalToPhysical( testType );
+                  retVal = tDef.Attributes.IsClass() && !tDef.BaseType.HasValue;
+               }
+               return retVal;
+            } );
 
          if ( suitableModule == null )
          {

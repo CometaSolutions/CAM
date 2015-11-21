@@ -309,7 +309,13 @@ namespace CILAssemblyManipulator.Physical.IO
             columnName,
             args => args.TableSizes[(Int32) targetTable] >= UInt16.MaxValue ? (ColumnSerializationFunctionality) new ColumnSerializationSupport_Constant32() : new ColumnSerializationSupport_Constant16(),
             rawSetter,
-            ( args, value ) => setter( args, new TableIndex( targetTable, (Int32) Math.Min( 0, (UInt32) value - 1 ) ) ),
+            ( args, value ) =>
+            {
+               if ( value != 0 )
+               {
+                  setter( args, new TableIndex( targetTable, value - 1 ) );
+               }
+            },
             row => getter( row ).Index
             );
       }
@@ -588,7 +594,7 @@ namespace CILAssemblyManipulator.Physical.IO
 
       public static Int32 GetTagBitSize( Int32 referencedTablesLength )
       {
-         return BinaryUtils.Log2( (UInt32) referencedTablesLength );
+         return BinaryUtils.Log2( (UInt32) referencedTablesLength - 1 ) + 1;
       }
 
       private readonly ArrayQuery<Tables?> _tablesArray;
@@ -860,6 +866,7 @@ namespace CILAssemblyManipulator.Physical.IO
          yield return DefaultColumnSerializationInfoFactory.RawValueStorageColumnRVA<RawMethodDefinition, MethodDefinition>( nameof( RawMethodDefinition.RVA ), ( r, v ) => r.RVA = v, ( args, rva ) => args.Row.IL = this.DeserializeIL( args.RowArgs, rva ), args => this.WriteMethodIL( args.RowArgs, args.Row.IL ) );
          yield return DefaultColumnSerializationInfoFactory.Constant16<RawMethodDefinition, MethodDefinition>( nameof( RawMethodDefinition.ImplementationAttributes ), ( r, v ) => r.ImplementationAttributes = (MethodImplAttributes) v, ( args, v ) => args.Row.ImplementationAttributes = (MethodImplAttributes) v, row => (Int32) row.ImplementationAttributes );
          yield return DefaultColumnSerializationInfoFactory.Constant16<RawMethodDefinition, MethodDefinition>( nameof( RawMethodDefinition.Attributes ), ( r, v ) => r.Attributes = (MethodAttributes) v, ( args, v ) => args.Row.Attributes = (MethodAttributes) v, row => (Int32) row.Attributes );
+         yield return DefaultColumnSerializationInfoFactory.SystemString<RawMethodDefinition, MethodDefinition>( nameof( RawMethodDefinition.Name ), ( r, v ) => r.Name = v, ( args, v ) => args.Row.Name = v, row => row.Name );
          yield return DefaultColumnSerializationInfoFactory.BLOBNonTypeSignature<RawMethodDefinition, MethodDefinition, MethodDefinitionSignature>( nameof( RawMethodDefinition.Signature ), ( r, v ) => r.Signature = v, ( args, v ) => args.Row.Signature = v, row => row.Signature );
          yield return DefaultColumnSerializationInfoFactory.SimpleReference<RawMethodDefinition, MethodDefinition>( nameof( RawMethodDefinition.ParameterList ), Tables.Parameter, ( r, v ) => r.ParameterList = v, ( args, v ) => args.Row.ParameterList = v, row => row.ParameterList );
       }
@@ -1512,7 +1519,7 @@ namespace CILAssemblyManipulator.Physical.IO
 
       public Int32 ReadRawValue( StreamHelper stream )
       {
-         return stream.ReadInt16LEFromBytes();
+         return stream.ReadUInt16LEFromBytes();
       }
 
       public void WriteValue( Byte[] bytes, Int32 idx, Int32 value )

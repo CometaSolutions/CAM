@@ -340,8 +340,12 @@ namespace CILAssemblyManipulator.Physical.IO
          var args = new RowReadingArguments( this.Stream, mdStreamContainer, rawValueStorage );
          for ( var i = 0; i < this.TableSizes.Count; ++i )
          {
-            var table = md.GetByTable( (Tables) i );
-            this.TableSerializationSupport[i].ReadRows( table, this.TableSizes[i], args );
+            var rowCount = this.TableSizes[i];
+            if ( rowCount > 0 )
+            {
+               var table = md.GetByTable( (Tables) i );
+               this.TableSerializationSupport[i].ReadRows( table, this.TableSizes[i], args );
+            }
          }
 
          return rawValueStorage;
@@ -545,10 +549,6 @@ namespace CILAssemblyManipulator.Physical.IO
 
       public AbstractSignature ReadNonTypeSignature( Int32 heapIndex, Boolean methodSigIsDefinition, Boolean handleFieldSigAsLocalsSig, out Boolean fieldSigTransformedToLocalsSig )
       {
-         if ( heapIndex == 10091 )
-         {
-
-         }
          return AbstractNotRawSignature.ReadNonTypeSignature( this.GetBLOBAsStreamPortion( heapIndex ), methodSigIsDefinition, handleFieldSigAsLocalsSig, out fieldSigTransformedToLocalsSig );
       }
 
@@ -807,6 +807,8 @@ namespace CILAssemblyManipulator.Physical.IO
             var FLAG_MASK = 0x00000FFF;
             var SEC_SIZE_MASK = 0xFFFFFF00u;
             var SEC_FLAG_MASK = 0x000000FFu;
+            retVal = new MethodILDefinition();
+
             Byte b;
             if ( stream.TryReadByteFromBytes( out b ) )
             {
@@ -839,8 +841,6 @@ namespace CILAssemblyManipulator.Physical.IO
                   if ( CreateOpCodes( retVal, stream, codeSize, userStrings ) )
                   {
                      stream.SkipToNextAlignmentInt32();
-
-                     var excList = new List<MethodExceptionBlock>();
                      if ( ( flags & MethodHeaderFlags.MoreSections ) != 0 )
                      {
                         // Read sections

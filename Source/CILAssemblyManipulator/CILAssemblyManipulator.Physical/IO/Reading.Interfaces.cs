@@ -285,7 +285,7 @@ public static partial class E_CILPhysical
          var hdr = mdStreamHeaders[i];
          var startPos = rvaConverter.ToOffset( cliHeader.MetaData.RVA ) + hdr.Offset;
          var mdHelper = helper.NewStreamPortion( startPos, (UInt32) hdr.Size );
-         mdStreams[i] = reader.CreateStreamHandler( mdHelper, startPos, hdr ) ?? CreateDefaultHandlerFor( hdr, helper );
+         mdStreams[i] = reader.CreateStreamHandler( mdHelper, 0, hdr ) ?? CreateDefaultHandlerFor( hdr, helper );
       }
 
       // 3. Create and populate meta-data structure
