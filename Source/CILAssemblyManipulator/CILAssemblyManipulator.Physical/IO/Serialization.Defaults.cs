@@ -81,7 +81,6 @@ namespace CILAssemblyManipulator.Physical.IO
         null,
         null,
         null,
-        null,
         constExtractor,
         null
         )
@@ -95,7 +94,6 @@ namespace CILAssemblyManipulator.Physical.IO
          RawRowColumnSetterDelegate<TRawRow> rawSetter,
          RowColumnSetterDelegate<TRow, Int32> setter,
          RowRawColumnSetterDelegate<TRow> rawValueProcessor,
-         RowRawColumnGetterDelegate<TRow> rawValueExtractor,
          ColumnFunctionalityInfo<RowRawColumnConverterDelegate<TRow>, RawValueProvider> rawValueConverter,
          RawColumnSectionPartCreationDelegte<TRow> rawColummnSectionPartCreator
          )
@@ -105,7 +103,6 @@ namespace CILAssemblyManipulator.Physical.IO
               rawSetter,
               setter,
               rawValueProcessor,
-              rawValueExtractor,
               rawValueConverter,
               null,
               null,
@@ -129,7 +126,6 @@ namespace CILAssemblyManipulator.Physical.IO
               setter,
               null,
               null,
-              null,
               heapValueExtractor,
               null,
               null
@@ -144,7 +140,6 @@ namespace CILAssemblyManipulator.Physical.IO
          RawRowColumnSetterDelegate<TRawRow> rawSetter,
          RowColumnSetterDelegate<TRow, Int32> setter,
          RowRawColumnSetterDelegate<TRow> rawValueProcessor,
-         RowRawColumnGetterDelegate<TRow> rawValueExtractor,
          ColumnFunctionalityInfo<RowRawColumnConverterDelegate<TRow>, RawValueProvider> rawValueConverter,
          RowHeapColumnGetterDelegate<TRow> heapValueExtractor,
          RowColumnGetterDelegate<TRow, Int32> constExtractor,
@@ -157,7 +152,6 @@ namespace CILAssemblyManipulator.Physical.IO
          if ( setter == null )
          {
             ArgumentValidator.ValidateNotNull( "Raw value processor", rawValueProcessor );
-            ArgumentValidator.ValidateNotNull( "Raw value extractor", rawValueExtractor );
             ArgumentValidator.ValidateNotNull( "Raw value section part creator", rawColummnSectionPartCreator );
          }
          else
@@ -171,7 +165,6 @@ namespace CILAssemblyManipulator.Physical.IO
          this.Setter = setter;
          this.SerializationSupportCreator = creator;
          this.RawColummnSectionPartCreator = rawColummnSectionPartCreator;
-         this.RawValueExtractor = rawValueExtractor;
          this.RawValueProcessor = rawValueProcessor;
          this.RawValueConverter = rawValueConverter;
          this.HeapValueExtractor = heapValueExtractor;
@@ -187,8 +180,6 @@ namespace CILAssemblyManipulator.Physical.IO
       public RowRawColumnSetterDelegate<TRow> RawValueProcessor { get; }
 
       // Writing
-      public RowRawColumnGetterDelegate<TRow> RawValueExtractor { get; }
-
       public RawColumnSectionPartCreationDelegte<TRow> RawColummnSectionPartCreator { get; }
       public ColumnFunctionalityInfo<RowRawColumnConverterDelegate<TRow>, RawValueProvider> RawValueConverter { get; }
       public RowHeapColumnGetterDelegate<TRow> HeapValueExtractor { get; }
@@ -543,7 +534,6 @@ namespace CILAssemblyManipulator.Physical.IO
          String columnName,
          RawRowColumnSetterDelegate<TRawRow> rawSetter,
          RowRawColumnSetterDelegate<TRow> rawValueProcessor,
-         RowRawColumnGetterDelegate<TRow> rawValueExtractor,
          ColumnFunctionalityInfo<RowRawColumnConverterDelegate<TRow>, RawValueProvider> rawValueConverter,
          RawColumnSectionPartCreationDelegte<TRow> rawColummnSectionPartCreator
          )
@@ -556,7 +546,6 @@ namespace CILAssemblyManipulator.Physical.IO
             rawSetter,
             null,
             rawValueProcessor,
-            rawValueExtractor,
             rawValueConverter,
             rawColummnSectionPartCreator
          );
@@ -566,7 +555,6 @@ namespace CILAssemblyManipulator.Physical.IO
          String columnName,
          RawRowColumnSetterDelegate<TRawRow> rawSetter,
          RowRawColumnSetterDelegate<TRow> rawValueProcessor,
-         RowRawColumnGetterDelegate<TRow> rawValueExtractor,
          RawColumnSectionPartCreationDelegte<TRow> rawColummnSectionPartCreator
          )
          where TRawRow : class
@@ -576,7 +564,6 @@ namespace CILAssemblyManipulator.Physical.IO
             columnName,
             rawSetter,
             rawValueProcessor,
-            rawValueExtractor,
             new StaticColumnFunctionalityInfo<RowRawColumnConverterDelegate<TRow>, RawValueProvider>( ( args, rva ) => rva ),
             rawColummnSectionPartCreator
             );
@@ -877,7 +864,7 @@ namespace CILAssemblyManipulator.Physical.IO
 
       protected IEnumerable<DefaultColumnSerializationInfo<RawMethodDefinition, MethodDefinition>> GetMethodDefColumns()
       {
-         yield return DefaultColumnSerializationInfoFactory.RawValueStorageColumnRVA<RawMethodDefinition, MethodDefinition>( nameof( RawMethodDefinition.RVA ), ( r, v ) => r.RVA = v, ( args, rva ) => args.Row.IL = this.DeserializeIL( args.RowArgs, rva ), args => this.WriteMethodIL( args.RowArgs, args.Row.IL ), ( md, mdStreamContainer ) => new SectionPart_MethodIL( md, mdStreamContainer.UserStrings ) );
+         yield return DefaultColumnSerializationInfoFactory.RawValueStorageColumnRVA<RawMethodDefinition, MethodDefinition>( nameof( RawMethodDefinition.RVA ), ( r, v ) => r.RVA = v, ( args, rva ) => args.Row.IL = this.DeserializeIL( args.RowArgs, rva ), ( md, mdStreamContainer ) => this.ProcessSectionPart( new SectionPart_MethodIL( md, mdStreamContainer.UserStrings ) ) );
          yield return DefaultColumnSerializationInfoFactory.Constant16<RawMethodDefinition, MethodDefinition>( nameof( RawMethodDefinition.ImplementationAttributes ), ( r, v ) => r.ImplementationAttributes = (MethodImplAttributes) v, ( args, v ) => args.Row.ImplementationAttributes = (MethodImplAttributes) v, row => (Int32) row.ImplementationAttributes );
          yield return DefaultColumnSerializationInfoFactory.Constant16<RawMethodDefinition, MethodDefinition>( nameof( RawMethodDefinition.Attributes ), ( r, v ) => r.Attributes = (MethodAttributes) v, ( args, v ) => args.Row.Attributes = (MethodAttributes) v, row => (Int32) row.Attributes );
          yield return DefaultColumnSerializationInfoFactory.SystemString<RawMethodDefinition, MethodDefinition>( nameof( RawMethodDefinition.Name ), ( r, v ) => r.Name = v, ( args, v ) => args.Row.Name = v, row => row.Name );
@@ -1291,49 +1278,49 @@ namespace CILAssemblyManipulator.Physical.IO
          }
       }
 
-      public void ExtractTableRawValues(
-         CILMetaData md,
-         RawValueStorage<Int64> storage,
-         Stream stream,
-         ResizableArray<Byte> array,
-         WriterMetaDataStreamContainer mdStreamContainer
-         )
-      {
-         MetaDataTable tbl;
-         if ( md.TryGetByTable( this.Table, out tbl ) )
-         {
-            var table = (MetaDataTable<TRow>) tbl;
-            var cols = this._columns
-               .Select( c => c.RawValueExtractor )
-               .Where( e => e != null )
-               .ToArray();
-            if ( cols.Length > 0 )
-            {
-               var list = table.TableContents;
-               var rArgs = new RowRawValueExtractionArguments( array, mdStreamContainer, md, () => stream.Position );
-               for ( var i = 0; i < list.Count; ++i )
-               {
-                  var cArgs = new ColumnFunctionalityArgs<TRow, RowRawValueExtractionArguments>( this.Table, i, list[i], rArgs );
-                  foreach ( var col in cols )
-                  {
-                     var offset = stream.Position;
-                     Int32 len;
-                     try
-                     {
-                        len = col( cArgs );
-                     }
-                     catch
-                     {
-                        // TODO error reporting
-                        len = 0;
-                     }
-                     stream.Write( array.Array, len );
-                     storage.AddRawValue( offset );
-                  }
-               }
-            }
-         }
-      }
+      //public void ExtractTableRawValues(
+      //   CILMetaData md,
+      //   RawValueStorage<Int64> storage,
+      //   Stream stream,
+      //   ResizableArray<Byte> array,
+      //   WriterMetaDataStreamContainer mdStreamContainer
+      //   )
+      //{
+      //   MetaDataTable tbl;
+      //   if ( md.TryGetByTable( this.Table, out tbl ) )
+      //   {
+      //      var table = (MetaDataTable<TRow>) tbl;
+      //      var cols = this._columns
+      //         .Select( c => c.RawValueExtractor )
+      //         .Where( e => e != null )
+      //         .ToArray();
+      //      if ( cols.Length > 0 )
+      //      {
+      //         var list = table.TableContents;
+      //         var rArgs = new RowRawValueExtractionArguments( array, mdStreamContainer, md, () => stream.Position );
+      //         for ( var i = 0; i < list.Count; ++i )
+      //         {
+      //            var cArgs = new ColumnFunctionalityArgs<TRow, RowRawValueExtractionArguments>( this.Table, i, list[i], rArgs );
+      //            foreach ( var col in cols )
+      //            {
+      //               var offset = stream.Position;
+      //               Int32 len;
+      //               try
+      //               {
+      //                  len = col( cArgs );
+      //               }
+      //               catch
+      //               {
+      //                  // TODO error reporting
+      //                  len = 0;
+      //               }
+      //               stream.Write( array.Array, len );
+      //               storage.AddRawValue( offset );
+      //            }
+      //         }
+      //      }
+      //   }
+      //}
 
       public void ExtractTableHeapValues(
          CILMetaData md,
@@ -1410,7 +1397,7 @@ namespace CILAssemblyManipulator.Physical.IO
                      yield return heapIndices.GetRawValue( this.Table, rowIdx, heapIdx );
                      ++heapIdx;
                   }
-                  else if ( col.RawValueExtractor != null )
+                  else if ( col.RawValueConverter != null )
                   {
                      var converter = converters[colIdx];
                      var rawValue = rawValueProvder.GetRawValueFor( this.Table, rowIdx, rawIdx );

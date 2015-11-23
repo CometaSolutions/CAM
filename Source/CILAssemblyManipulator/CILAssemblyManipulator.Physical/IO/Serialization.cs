@@ -459,13 +459,13 @@ namespace CILAssemblyManipulator.Physical.IO
          );
 
 
-      void ExtractTableRawValues(
-         CILMetaData md,
-         RawValueStorage<Int64> storage,
-         Stream stream,
-         ResizableArray<Byte> array,
-         WriterMetaDataStreamContainer mdStreamContainer
-         );
+      //void ExtractTableRawValues(
+      //   CILMetaData md,
+      //   RawValueStorage<Int64> storage,
+      //   Stream stream,
+      //   ResizableArray<Byte> array,
+      //   WriterMetaDataStreamContainer mdStreamContainer
+      //   );
 
       void ExtractTableHeapValues(
          CILMetaData md,
