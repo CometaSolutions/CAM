@@ -89,6 +89,8 @@ namespace CILAssemblyManipulator.Physical.IO
    public interface RawValueProvider
    {
       Int32 GetRawValueFor( Tables table, Int32 rowIndex, Int32 columnIndex );
+
+      IEnumerable<Int32> GetRawValuesFor( Tables table, Int32 columnIndex );
    }
 
    public class WriterMetaDataStreamContainer
@@ -322,7 +324,7 @@ public static partial class E_CILPhysical
       MetaDataTableStreamHeader thHeader;
       tblMDStream.FillHeaps( snVars?.PublicKey?.ToArrayProxy()?.CQ, mdStreamContainer, array, out thHeader );
 
-      // 2. Position stream after headers, and write raw values (IL, constants, resources, relocs, etc)
+      // 3. Create WritingStatus (TODO maybe let writer create it?)
       var peOptions = options.PEOptions;
       var fAlign = peOptions.FileAlignment ?? 0x200;
       var machine = peOptions.Machine ?? ImageFileMachine.I386;
@@ -340,14 +342,9 @@ public static partial class E_CILPhysical
          snVars,
          peOptions.NumberOfDataDirectories
          );
-      //var headersSize = status.HeadersSize;
-      //stream.Position = headersSize;
-      //var rawValues = writer.CreateRawValuesBeforeMDStreams( stream, array, mdStreamContainer, status );
-      //status.OffsetAfterInitialRawValues = stream.Position;
 
-      // 4. Create sections and headers
+      // 4. Create sections and some headers
       status.SectionAlignment = peOptions.SectionAlignment ?? 0x2000;
-      var presentStreams = mdStreams.Where( mds => mds.Accessed );
       RVAConverter rvaConverter; MetaDataRoot mdRoot; Int32 mdRootSize; Int32 mdSize;
       var rawValueProvider = writer.PopulateSections(
          status,
@@ -360,10 +357,17 @@ public static partial class E_CILPhysical
          out mdSize
          );
 
-      // 5. Write whatever is needed before meta data
+      // 5. Position stream after headers, and write whatever is needed before meta data
       var sections = cf.NewArrayProxy( sectionsArray ).CQ;
       CLIHeader cliHeader;
+      var headersSize = status.HeadersSize;
+      stream.Position = headersSize;
       writer.BeforeMetaData( stream, array, sections, status, rvaConverter, mdRoot, out cliHeader );
+
+      if ( cliHeader == null )
+      {
+         throw new InvalidOperationException( "Writer failed to create CLI header." );
+      }
 
       // 6. Write meta data
       stream.SeekFromBegin( rvaConverter.ToOffset( (UInt32) cliHeader.MetaData.RVA ) );
@@ -375,7 +379,7 @@ public static partial class E_CILPhysical
          mds.WriteStream( stream, array, rawValueProvider, rvaConverter );
       }
 
-      // 7. Finalize writing status
+      // 7. Write whatever is needed after meta data
       writer.AfterMetaData( stream, array, sections, status, rvaConverter );
 
       // 8. Create and write image information
@@ -402,7 +406,7 @@ public static partial class E_CILPhysical
                   status,
                   rvaConverter,
                   sections,
-                  (UInt32) status.HeadersSize
+                  (UInt32) headersSize
                   )
                ),
             sections

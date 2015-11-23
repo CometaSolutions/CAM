@@ -154,22 +154,6 @@ namespace CILAssemblyManipulator.Physical.IO
          return retVal;
       }
 
-      public virtual RawValueStorage<Int64> CreateRawValuesBeforeMDStreams(
-         Stream stream,
-         ResizableArray<Byte> array,
-         WriterMetaDataStreamContainer mdStreams,
-         WritingStatus writingStatus
-         )
-      {
-         var retVal = this.CreateRawValueStorage() ?? CreateDefaultRawValueStorage();
-         foreach ( var info in this.TableSerializations )
-         {
-            info.ExtractTableRawValues( this.MetaData, retVal, stream, array, mdStreams );
-         }
-
-         return retVal;
-      }
-
       public virtual RawValueProvider PopulateSections(
          WritingStatus writingStatus,
          WriterMetaDataStreamContainer mdStreamContainer,
@@ -459,7 +443,7 @@ namespace CILAssemblyManipulator.Physical.IO
          yield return new SectionPart_ImportAddressTable();
 
          // 2. CLI Header
-         yield return new SectionPart_CLIHeader( writingStatus, options.CLIOptions.HeaderOptions );
+         yield return new SectionPart_CLIHeader( options.CLIOptions.HeaderOptions );
 
          // 3. Strong name signature
          yield return new SectionPart_StrongNameSignature( writingStatus.StrongNameVariables, writingStatus.Machine );
@@ -548,10 +532,15 @@ namespace CILAssemblyManipulator.Physical.IO
 
       public Int32 GetRawValueFor( Tables table, Int32 rowIndex, Int32 columnIndex )
       {
-         var rvas = this._parts[(Int32) table][columnIndex].RVAs;
+         var rvas = this.GetRawValuesContainer( table, columnIndex );
          return rowIndex >= 0 && rowIndex < rvas.Count ?
             (Int32) rvas[rowIndex] :
             0;
+      }
+
+      public IEnumerable<Int32> GetRawValuesFor( Tables table, Int32 columnIndex )
+      {
+         return this.GetRawValuesContainer( table, columnIndex ).Select( r => (Int32) r );
       }
 
       public IEnumerable<SectionPartWithRVAs> Parts
@@ -560,6 +549,11 @@ namespace CILAssemblyManipulator.Physical.IO
          {
             return this._parts.SelectMany( p => p );
          }
+      }
+
+      private ArrayQuery<Int64> GetRawValuesContainer( Tables table, Int32 columnIndex )
+      {
+         return this._parts[(Int32) table][columnIndex].RVAs;
       }
    }
 
@@ -598,6 +592,10 @@ namespace CILAssemblyManipulator.Physical.IO
    public interface SectionPartWithRVAs : SectionPart
    {
       ArrayQuery<TRVA> RVAs { get; }
+
+      Tables RelatedTable { get; }
+
+      Int32 RelatedTableColumnIndex { get; }
    }
 
    public abstract class SectionPartWithFixedAlignment : SectionPart
@@ -674,6 +672,7 @@ namespace CILAssemblyManipulator.Physical.IO
    }
 
    public abstract class SectionPartWithMultipleItems<TRow, TSizeInfo> : SectionPartWithFixedAlignment, SectionPartWithRVAs
+      where TRow : class
    {
       private readonly Int32 _min;
       private readonly Int32 _max;
@@ -681,10 +680,18 @@ namespace CILAssemblyManipulator.Physical.IO
       private readonly ArrayProxy<TSizeInfo> _sizes;
       private readonly ArrayProxy<TRVA> _rvas;
 
-      public SectionPartWithMultipleItems( Int32 alignment, List<TRow> rows, Int32 min, Int32 max )
+      public SectionPartWithMultipleItems(
+         Int32 alignment,
+         MetaDataTable<TRow> table,
+         Int32 columnIndex,
+         Int32 min,
+         Int32 max
+         )
          : base( alignment )
       {
-         ArgumentValidator.ValidateNotNull( "Rows", rows );
+         ArgumentValidator.ValidateNotNull( "Table", table );
+
+         var rows = table.TableContents;
 
          if ( min <= 0 )
          {
@@ -712,6 +719,8 @@ namespace CILAssemblyManipulator.Physical.IO
 
          var range = max - min;
          this._rows = rows;
+         this.RelatedTable = table.TableKind;
+         this.RelatedTableColumnIndex = columnIndex;
          this._min = min;
          this._max = max;
          this._sizes = cf.NewArrayProxy( new TSizeInfo[range] );
@@ -779,6 +788,10 @@ namespace CILAssemblyManipulator.Physical.IO
          }
       }
 
+      public Tables RelatedTable { get; }
+
+      public Int32 RelatedTableColumnIndex { get; }
+
       protected abstract TSizeInfo GetSizeInfo( TRow row, Int64 currentOffset, TRVA currentRVA );
 
       protected abstract Int32 GetSize( TSizeInfo sizeInfo );
@@ -822,8 +835,8 @@ namespace CILAssemblyManipulator.Physical.IO
       private readonly CILMetaData _md;
       private readonly WriterStringStreamHandler _userStrings;
 
-      public SectionPart_MethodIL( CILMetaData md, WriterStringStreamHandler userStrings, Int32 min = 0, Int32 max = -1 )
-         : base( 0x04, md.MethodDefinitions.TableContents, min, max )
+      public SectionPart_MethodIL( CILMetaData md, WriterStringStreamHandler userStrings, Int32 columnIndex = 0, Int32 min = 0, Int32 max = -1 )
+         : base( 0x04, md.MethodDefinitions, columnIndex, min, max )
       {
          ArgumentValidator.ValidateNotNull( "Meta data", md );
          ArgumentValidator.ValidateNotNull( "User strings", userStrings );
@@ -1117,11 +1130,14 @@ namespace CILAssemblyManipulator.Physical.IO
 
    public class SectionPart_FieldRVA : SectionPartWithMultipleItems<FieldRVA, Int32>
    {
-      private readonly CILMetaData _md;
-
-      public SectionPart_FieldRVA( CILMetaData md, Int32 min = 0, Int32 max = -1 )
-         : base( 0x04, md.FieldRVAs.TableContents, min, max )
+      public SectionPart_FieldRVA( CILMetaData md, Int32 columnIndex = 0, Int32 min = 0, Int32 max = -1 )
+         : base( 0x08, md.FieldRVAs, columnIndex, min, max )
       {
+      }
+
+      protected override Int32 GetSizeInfo( FieldRVA row, Int64 currentOffset, TRVA currentRVA )
+      {
+         return row.Data.GetLengthOrDefault();
       }
 
       protected override Int32 GetSize( Int32 sizeInfo )
@@ -1132,11 +1148,6 @@ namespace CILAssemblyManipulator.Physical.IO
       protected override TRVA GetRVA( TRVA currentRVA, Int32 sizeInfo )
       {
          return currentRVA;
-      }
-
-      protected override Int32 GetSizeInfo( FieldRVA row, Int64 currentOffset, TRVA currentRVA )
-      {
-         return row.Data.GetLengthOrDefault();
       }
 
       protected override void WriteData( FieldRVA row, Int32 sizeInfo, Byte[] array )
@@ -1152,7 +1163,52 @@ namespace CILAssemblyManipulator.Physical.IO
 
    public class SectionPart_EmbeddedManifests : SectionPartWithMultipleItems<ManifestResource, Int32>
    {
+      public SectionPart_EmbeddedManifests( CILMetaData md, Int32 columnIndex = 0, Int32 min = 0, Int32 max = -1 )
+         : base( 0x08, md.ManifestResources, columnIndex, min, max )
+      {
+      }
 
+      protected override Int32 GetSizeInfo( ManifestResource row, Int64 currentOffset, TRVA currentRVA )
+      {
+         Int32 retVal;
+         if ( row.IsEmbeddedResource() )
+         {
+            var data = row.DataInCurrentFile;
+            retVal = sizeof( Int32 ) + data.GetLengthOrDefault();
+         }
+         else
+         {
+            retVal = 0;
+         }
+
+         return retVal;
+      }
+
+      protected override Int32 GetSize( Int32 sizeInfo )
+      {
+         return sizeInfo;
+      }
+
+      protected override TRVA GetRVA( TRVA currentRVA, Int32 sizeInfo )
+      {
+         return currentRVA;
+      }
+
+
+      protected override void WriteData( ManifestResource row, Int32 sizeInfo, Byte[] array )
+      {
+         if ( row.IsEmbeddedResource() )
+         {
+            var data = row.DataInCurrentFile;
+            var idx = 0;
+            array
+               .WriteInt32LEToBytes( ref idx, data.GetLengthOrDefault() );
+            if ( !data.IsNullOrEmpty() )
+            {
+               array.BlockCopyFrom( ref idx, data );
+            }
+         }
+      }
    }
 
    public class SectionPartWritingArgs
@@ -1235,13 +1291,11 @@ namespace CILAssemblyManipulator.Physical.IO
    {
       private const Int32 HEADER_SIZE = 0x48;
 
-      private readonly WritingStatus _writingStatus;
       private readonly WritingOptions_CLIHeader _cliHeaderOptions;
 
-      public SectionPart_CLIHeader( WritingStatus writingStatus, WritingOptions_CLIHeader cliHeaderOptions )
+      public SectionPart_CLIHeader( WritingOptions_CLIHeader cliHeaderOptions )
          : base( 4, HEADER_SIZE )
       {
-         this._writingStatus = writingStatus;
          this._cliHeaderOptions = cliHeaderOptions;
       }
 
@@ -1257,12 +1311,18 @@ namespace CILAssemblyManipulator.Physical.IO
 
       protected CLIHeader CreateCLIHeader( SectionPartWritingArgs args )
       {
-         var writingStatus = this._writingStatus;
          var cliHeaderOptions = this._cliHeaderOptions;
-         var mResInfo = writingStatus.EmbeddedManifestResourcesInfo;
+         var parts = args.Parts;
+         var embeddedResources = parts
+            .OfType<SectionPartWithRVAs>()
+            .FirstOrDefault( p => p.RelatedTable == Tables.ManifestResource );
          var rvaConverter = args.RVAConverter;
-         var snData = args.Parts.OfType<SectionPart_StrongNameSignature>().FirstOrDefault();
-         var md = args.Parts.OfType<SectionPart_MetaData>().First();
+         var snData = parts
+            .OfType<SectionPart_StrongNameSignature>()
+            .FirstOrDefault();
+         var md = parts
+            .OfType<SectionPart_MetaData>()
+            .FirstOrDefault();
          return new CLIHeader(
                HEADER_SIZE,
                (UInt16) ( cliHeaderOptions.MajorRuntimeVersion ?? 2 ),
@@ -1270,7 +1330,7 @@ namespace CILAssemblyManipulator.Physical.IO
                args.GetDataDirectoryForSection( md ),
                cliHeaderOptions.ModuleFlags ?? ModuleFlags.ILOnly,
                cliHeaderOptions.EntryPointToken,
-               mResInfo == null ? default( DataDirectory ) : new DataDirectory( (UInt32) rvaConverter.ToRVA( mResInfo.Item1 ), (UInt32) mResInfo.Item2 ),
+               args.GetDataDirectoryForSection( embeddedResources ),
                args.GetDataDirectoryForSection( snData ),
                default( DataDirectory ), // TODO: customize code manager
                default( DataDirectory ), // TODO: customize vtable fixups
@@ -1556,24 +1616,6 @@ namespace CILAssemblyManipulator.Physical.IO
       {
          // Just return the section itself.
          return section;
-      }
-
-      protected virtual Int32 WriteConstant(
-         RowRawValueExtractionArguments args,
-         Byte[] data
-         )
-      {
-         return this.WriteConstantToArray( args.Array, data );
-      }
-
-      protected virtual Int32 WriteConstantToArray(
-         ResizableArray<Byte> array,
-         Byte[] data
-         )
-      {
-         var idx = 0;
-         array.WriteArray( ref idx, data );
-         return idx;
       }
 
       protected virtual Int32 WriteEmbeddedManifestResoruce(

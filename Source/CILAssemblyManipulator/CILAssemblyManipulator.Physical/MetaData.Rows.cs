@@ -957,7 +957,7 @@ public static partial class E_CILPhysical
 
    public static Boolean IsEmbeddedResource( this ManifestResource resource )
    {
-      return !resource.Implementation.HasValue;
+      return resource != null && !resource.Implementation.HasValue;
    }
 
    public static AssemblyReference AsAssemblyReference( this AssemblyDefinition definition )

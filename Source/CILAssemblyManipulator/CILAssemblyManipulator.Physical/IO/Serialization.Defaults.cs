@@ -534,8 +534,8 @@ namespace CILAssemblyManipulator.Physical.IO
          String columnName,
          RawRowColumnSetterDelegate<TRawRow> rawSetter,
          RowRawColumnSetterDelegate<TRow> rawValueProcessor,
-         ColumnFunctionalityInfo<RowRawColumnConverterDelegate<TRow>, RawValueProvider> rawValueConverter,
-         RawColumnSectionPartCreationDelegte<TRow> rawColummnSectionPartCreator
+         RawColumnSectionPartCreationDelegte<TRow> rawColummnSectionPartCreator,
+         ColumnFunctionalityInfo<RowRawColumnConverterDelegate<TRow>, RawValueProvider> rawValueConverter
          )
          where TRawRow : class
          where TRow : class
@@ -564,8 +564,8 @@ namespace CILAssemblyManipulator.Physical.IO
             columnName,
             rawSetter,
             rawValueProcessor,
-            new StaticColumnFunctionalityInfo<RowRawColumnConverterDelegate<TRow>, RawValueProvider>( ( args, rva ) => rva ),
-            rawColummnSectionPartCreator
+            rawColummnSectionPartCreator,
+            new StaticColumnFunctionalityInfo<RowRawColumnConverterDelegate<TRow>, RawValueProvider>( ( args, rva ) => rva )
             );
       }
 
@@ -1018,7 +1018,7 @@ namespace CILAssemblyManipulator.Physical.IO
 
       protected IEnumerable<DefaultColumnSerializationInfo<RawFieldRVA, FieldRVA>> GetFieldRVAColumns()
       {
-         yield return DefaultColumnSerializationInfoFactory.RawValueStorageColumnRVA<RawFieldRVA, FieldRVA>( nameof( RawFieldRVA.RVA ), ( r, v ) => r.RVA = v, ( args, rva ) => args.Row.Data = this.DeserializeConstantValue( args.RowArgs, args.Row, rva ), args => this.WriteConstant( args.RowArgs, args.Row.Data ) );
+         yield return DefaultColumnSerializationInfoFactory.RawValueStorageColumnRVA<RawFieldRVA, FieldRVA>( nameof( RawFieldRVA.RVA ), ( r, v ) => r.RVA = v, ( args, rva ) => args.Row.Data = this.DeserializeConstantValue( args.RowArgs, args.Row, rva ), ( md, mdStreamContainer ) => this.ProcessSectionPart( new SectionPart_FieldRVA( md ) ) );
          yield return DefaultColumnSerializationInfoFactory.SimpleReference<RawFieldRVA, FieldRVA>( nameof( RawFieldRVA.Field ), Tables.Field, ( r, v ) => r.Field = v, ( args, v ) => args.Row.Field = v, row => row.Field );
       }
 
@@ -1118,20 +1118,17 @@ namespace CILAssemblyManipulator.Physical.IO
             {
                row.DataInCurrentFile = this.DeserializeEmbeddedManifest( args.RowArgs, offset );
             }
-         }, args =>
-         {
-            var row = args.Row;
-            return row.Implementation.HasValue ?
-               0 :
-               this.WriteEmbeddedManifestResoruce( args.RowArgs, row.DataInCurrentFile );
-         }, new DynamicColumnFunctionalityInfo<RowRawColumnConverterDelegate<ManifestResource>, RawValueStorage<Int64>>( ( storage, tbl, colIdx ) =>
+         },
+         ( md, mdStreamContainer ) => this.ProcessSectionPart( new SectionPart_EmbeddedManifests( md ) ),
+         new DynamicColumnFunctionalityInfo<RowRawColumnConverterDelegate<ManifestResource>, RawValueProvider>( ( storage, tbl, colIdx ) =>
          {
             var startOffset = storage
-               .GetAllRawValuesForColumn( tbl, colIdx )
+               .GetRawValuesFor( tbl, colIdx )
+               .Where( v => v != 0 )
                //.RememberPreviousItems( 1 )
                //.Where( p => p.PreviousItems.First() < p.CurrentItem )
                //.Select( p => p.PreviousItems.First() )
-               .FirstOrDefaultCustom( -1L );
+               .FirstOrDefault();
 
             return ( args, offset ) =>
             {
@@ -1397,7 +1394,7 @@ namespace CILAssemblyManipulator.Physical.IO
                      yield return heapIndices.GetRawValue( this.Table, rowIdx, heapIdx );
                      ++heapIdx;
                   }
-                  else if ( col.RawValueConverter != null )
+                  else if ( col.RawColummnSectionPartCreator != null )
                   {
                      var converter = converters[colIdx];
                      var rawValue = rawValueProvder.GetRawValueFor( this.Table, rowIdx, rawIdx );
