@@ -44,16 +44,10 @@ namespace CILAssemblyManipulator.Physical.IO
 
       Int32 GetSectionCount( ImageFileMachine machine );
 
-      RawValueStorage<Int64> CreateRawValuesBeforeMDStreams(
-         Stream stream,
-         ResizableArray<Byte> array,
-         WriterMetaDataStreamContainer mdStreams,
-         WritingStatus writingStatus
-         );
-
-      void PopulateSections(
+      RawValueProvider PopulateSections(
          WritingStatus writingStatus,
-         IEnumerable<AbstractWriterStreamHandler> presentStreams,
+         WriterMetaDataStreamContainer mdStreamContainer,
+         ArrayQuery<AbstractWriterStreamHandler> allMDStreams,
          SectionHeader[] sections,
          out RVAConverter rvaConverter,
          out MetaDataRoot mdRoot,
@@ -92,6 +86,11 @@ namespace CILAssemblyManipulator.Physical.IO
          );
    }
 
+   public interface RawValueProvider
+   {
+      Int32 GetRawValueFor( Tables table, Int32 rowIndex, Int32 columnIndex );
+   }
+
    public class WriterMetaDataStreamContainer
    {
       public WriterMetaDataStreamContainer(
@@ -128,7 +127,7 @@ namespace CILAssemblyManipulator.Physical.IO
       void WriteStream(
          Stream sink,
          ResizableArray<Byte> array,
-         RawValueStorage<Int64> rawValuesBeforeStreams,
+         RawValueProvider rawValueProvder,
          RVAConverter rvaConverter
          );
 
@@ -140,7 +139,6 @@ namespace CILAssemblyManipulator.Physical.IO
    public interface WriterTableStreamHandler : AbstractWriterStreamHandler
    {
       RawValueStorage<Int32> FillHeaps(
-         RawValueStorage<Int64> rawValuesBeforeStreams,
          ArrayQuery<Byte> thisAssemblyPublicKeyIfPresentNull,
          WriterMetaDataStreamContainer mdStreams,
          ResizableArray<Byte> array,
@@ -203,11 +201,11 @@ namespace CILAssemblyManipulator.Physical.IO
 
       public List<DataDirectory> PEDataDirectories { get; }
 
-      public Int64? OffsetAfterInitialRawValues { get; set; }
+      //public Int64? OffsetAfterInitialRawValues { get; set; }
 
       public Int64? EntryPointOffset { get; set; }
 
-      public Tuple<Int64, Int32> EmbeddedManifestResourcesInfo { get; set; }
+      //public Tuple<Int64, Int32> EmbeddedManifestResourcesInfo { get; set; }
 
       public DebugInformation DebugInformation { get; set; }
 
@@ -281,7 +279,6 @@ public static partial class E_CILPhysical
       AssemblyHashAlgorithm? snAlgorithmOverride
       )
    {
-      const Int32 dosHeaderSize = 0x80;
       // Check arguments
       ArgumentValidator.ValidateNotNull( "Stream", stream );
       ArgumentValidator.ValidateNotNull( "Meta data", md );
@@ -320,12 +317,18 @@ public static partial class E_CILPhysical
             mdStreams.Where( s => !ReferenceEquals( tblMDStream, s ) && !ReferenceEquals( blobStream, s ) && !ReferenceEquals( guidStream, s ) && !ReferenceEquals( sysStringStream, s ) && !ReferenceEquals( userStringStream, s ) )
             );
 
+      // 2. Populate streams
+      var array = new ResizableArray<Byte>();
+      MetaDataTableStreamHeader thHeader;
+      tblMDStream.FillHeaps( snVars?.PublicKey?.ToArrayProxy()?.CQ, mdStreamContainer, array, out thHeader );
+
       // 2. Position stream after headers, and write raw values (IL, constants, resources, relocs, etc)
       var peOptions = options.PEOptions;
       var fAlign = peOptions.FileAlignment ?? 0x200;
       var machine = peOptions.Machine ?? ImageFileMachine.I386;
       var sectionsArray = new SectionHeader[writer.GetSectionCount( machine )];
-      var status = new WritingStatus( dosHeaderSize
+      var status = new WritingStatus(
+         0x80 // DOS header size
          + 0x04 // PE Signature
          + 0x18 // File header size
          + machine.GetOptionalHeaderSize() // Optional header size
@@ -337,23 +340,19 @@ public static partial class E_CILPhysical
          snVars,
          peOptions.NumberOfDataDirectories
          );
-      var headersSize = status.HeadersSize;
-      stream.Position = headersSize;
-      var array = new ResizableArray<Byte>();
-      var rawValues = writer.CreateRawValuesBeforeMDStreams( stream, array, mdStreamContainer, status );
-      status.OffsetAfterInitialRawValues = stream.Position;
-
-      // 3. Populate heaps
-      MetaDataTableStreamHeader thHeader;
-      tblMDStream.FillHeaps( rawValues, snVars?.PublicKey?.ToArrayProxy()?.CQ, mdStreamContainer, array, out thHeader );
+      //var headersSize = status.HeadersSize;
+      //stream.Position = headersSize;
+      //var rawValues = writer.CreateRawValuesBeforeMDStreams( stream, array, mdStreamContainer, status );
+      //status.OffsetAfterInitialRawValues = stream.Position;
 
       // 4. Create sections and headers
       status.SectionAlignment = peOptions.SectionAlignment ?? 0x2000;
       var presentStreams = mdStreams.Where( mds => mds.Accessed );
       RVAConverter rvaConverter; MetaDataRoot mdRoot; Int32 mdRootSize; Int32 mdSize;
-      writer.PopulateSections(
+      var rawValueProvider = writer.PopulateSections(
          status,
-         presentStreams,
+         mdStreamContainer,
+         mdStreams,
          sectionsArray,
          out rvaConverter,
          out mdRoot,
@@ -371,9 +370,9 @@ public static partial class E_CILPhysical
       array.CurrentMaxCapacity = mdRootSize;
       writer.WriteMDRoot( mdRoot, array );
       stream.Write( array.Array, mdRootSize );
-      foreach ( var mds in presentStreams )
+      foreach ( var mds in mdStreams.Where( mds => mds.Accessed ) )
       {
-         mds.WriteStream( stream, array, rawValues, rvaConverter );
+         mds.WriteStream( stream, array, rawValueProvider, rvaConverter );
       }
 
       // 7. Finalize writing status
@@ -403,7 +402,7 @@ public static partial class E_CILPhysical
                   status,
                   rvaConverter,
                   sections,
-                  (UInt32) headersSize
+                  (UInt32) status.HeadersSize
                   )
                ),
             sections

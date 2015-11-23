@@ -48,10 +48,18 @@ namespace CILAssemblyManipulator.Physical
          Int32 len;
          // DecompressUInt32 will return false for value '0xFF' when 'acceptErraneous' parameter is set to 'false'.
          var retVal = !caBLOB.DecompressUInt32( ref idx, out len, false ) || idx + len <= caBLOB.Length;
-         if ( retVal && len >= 0 )
+         if ( retVal )
          {
-            str = CILAssemblyManipulator.Physical.Implementation.MetaDataConstants.SYS_STRING_ENCODING.GetString( caBLOB, idx, len );
-            idx += len;
+            if ( len >= 0 )
+            {
+               str = CILAssemblyManipulator.Physical.Implementation.MetaDataConstants.SYS_STRING_ENCODING.GetString( caBLOB, idx, len );
+               idx += len;
+            }
+            else
+            {
+               str = null;
+               ++idx;
+            }
          }
          else
          {

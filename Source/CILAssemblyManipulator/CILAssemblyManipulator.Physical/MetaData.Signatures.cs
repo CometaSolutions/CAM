@@ -237,7 +237,7 @@ namespace CILAssemblyManipulator.Physical
             TypeSignature type;
             if ( elementType == SignatureElementTypes.TypedByRef )
             {
-               type = SimpleTypeSignature.TypedByRef;
+               retVal.Type = SimpleTypeSignature.TypedByRef;
             }
             else
             {

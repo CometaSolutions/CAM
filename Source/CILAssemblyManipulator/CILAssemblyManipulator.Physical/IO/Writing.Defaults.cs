@@ -59,19 +59,19 @@ namespace CILAssemblyManipulator.Physical.IO
             SectionLayout layout,
             Int64 sectionStartOffset,
             TRVA sectionStartRVA,
-            Int32 fileAlignment,
-            Int32 bytesWrittenInThisSection // TODO remove this (i.e. make IL code, consts, and embedded resources as section parts)
+            Int32 fileAlignment
+            //Int32 bytesWrittenInThisSection // TODO remove this (i.e. make IL code, consts, and embedded resources as section parts)
             )
          {
             ArgumentValidator.ValidateNotNull( "Layout", layout );
 
             var curRVA = sectionStartRVA;
             var curOffset = sectionStartOffset;
-            if ( bytesWrittenInThisSection != 0 )
-            {
-               curRVA += (UInt32) bytesWrittenInThisSection;
-               curOffset += (UInt32) bytesWrittenInThisSection;
-            }
+            //if ( bytesWrittenInThisSection != 0 )
+            //{
+            //   curRVA += (UInt32) bytesWrittenInThisSection;
+            //   curOffset += (UInt32) bytesWrittenInThisSection;
+            //}
 
             var list = new List<SectionPartInfo>();
             foreach ( var part in layout.Parts )
@@ -118,7 +118,7 @@ namespace CILAssemblyManipulator.Physical.IO
          public SectionHeader SectionHeader { get; }
       }
 
-      private readonly WritingOptions _headers;
+      private readonly WritingOptions _options;
 
       private SectionLayoutInfo[] _sections;
 
@@ -129,7 +129,7 @@ namespace CILAssemblyManipulator.Physical.IO
          )
       {
          this.MetaData = md;
-         this._headers = headers ?? new WritingOptions();
+         this._options = headers ?? new WritingOptions();
          this.MDSerialization = mdSerialization ?? DefaultMetaDataSerializationSupportProvider.Instance;
          this.TableSerializations = this.MDSerialization.CreateTableSerializationInfos().ToArrayProxy().CQ;
          this.TableSizes = this.TableSerializations.CreateTableSizeArray( md );
@@ -137,7 +137,7 @@ namespace CILAssemblyManipulator.Physical.IO
 
       public virtual IEnumerable<AbstractWriterStreamHandler> CreateStreamHandlers()
       {
-         yield return new DefaultWriterTableStreamHandler( this.MetaData, this._headers.CLIOptions.TablesStreamOptions, this.TableSerializations );
+         yield return new DefaultWriterTableStreamHandler( this.MetaData, this._options.CLIOptions.TablesStreamOptions, this.TableSerializations );
          yield return new DefaultWriterSystemStringStreamHandler();
          yield return new DefaultWriterBLOBStreamHandler();
          yield return new DefaultWriterGuidStreamHandler();
@@ -170,9 +170,10 @@ namespace CILAssemblyManipulator.Physical.IO
          return retVal;
       }
 
-      public virtual void PopulateSections(
+      public virtual RawValueProvider PopulateSections(
          WritingStatus writingStatus,
-         IEnumerable<AbstractWriterStreamHandler> presentStreams,
+         WriterMetaDataStreamContainer mdStreamContainer,
+         ArrayQuery<AbstractWriterStreamHandler> allMDStreams,
          SectionHeader[] sections,
          out RVAConverter rvaConverter,
          out MetaDataRoot mdRoot,
@@ -180,11 +181,15 @@ namespace CILAssemblyManipulator.Physical.IO
          out Int32 mdSize
          )
       {
+         // Get raw value sections (IL, Field RVA, Embedded manifest resources)
+         IEnumerable<SectionPart> rawSections;
+         var rawValueProvider = this.CreateRawValueProvider( mdStreamContainer, out rawSections );
+
          // MetaData
-         mdRoot = this.CreateMDRoot( presentStreams, out mdRootSize, out mdSize );
+         mdRoot = this.CreateMDRoot( allMDStreams.Where( s => s.Accessed ), out mdRootSize, out mdSize );
 
          // Sections
-         this._sections = this.PopulateSections( writingStatus, presentStreams, mdRoot, mdSize ).ToArray();
+         this._sections = this.PopulateSections( writingStatus, rawSections, mdRoot, mdSize ).ToArray();
          for ( var i = 0; i < this._sections.Length; ++i )
          {
             sections[i] = this._sections[i].SectionHeader;
@@ -192,6 +197,8 @@ namespace CILAssemblyManipulator.Physical.IO
 
          // RVA converter
          rvaConverter = this.CreateRVAConverter( sections );
+
+         return rawValueProvider;
       }
 
       public virtual void BeforeMetaData(
@@ -347,7 +354,7 @@ namespace CILAssemblyManipulator.Physical.IO
 
       protected virtual IEnumerable<SectionLayoutInfo> PopulateSections(
          WritingStatus writingStatus,
-         IEnumerable<AbstractWriterStreamHandler> presentStreams,
+         IEnumerable<SectionPart> rawValueSectionParts,
          MetaDataRoot mdRoot,
          Int32 mdSize
          )
@@ -359,18 +366,14 @@ namespace CILAssemblyManipulator.Physical.IO
          var curPointer = (UInt32) writingStatus.HeadersSize;
          var curRVA = sAlign;
 
-         var isFirst = true;
-         foreach ( var layout in this.GetSectionLayouts( writingStatus, mdSize ) )
+         foreach ( var layout in this.GetSectionLayouts( writingStatus, mdSize, rawValueSectionParts ) )
          {
             var layoutInfo = new SectionLayoutInfo(
                layout,
                curPointer,
                curRVA,
-               fAlign,
-               isFirst ? (Int32) ( writingStatus.OffsetAfterInitialRawValues.Value - writingStatus.HeadersSize ) : 0
+               fAlign
                );
-
-            isFirst = false;
 
             var hdr = layoutInfo.SectionHeader;
             curRVA = ( curRVA + hdr.VirtualSize ).RoundUpU32( sAlign );
@@ -386,7 +389,7 @@ namespace CILAssemblyManipulator.Physical.IO
          out Int32 mdSize
          )
       {
-         var mdOptions = this._headers.CLIOptions.MDRootOptions;
+         var mdOptions = this._options.CLIOptions.MDRootOptions;
          var mdVersionBytes = MetaDataRoot.GetVersionStringBytes( mdOptions.VersionString );
          var streamNamesBytes = presentStreams
             .Select( mds => Tuple.Create( mds.StreamName.CreateASCIIBytes( 4 ), (UInt32) mds.CurrentSize ) )
@@ -421,11 +424,12 @@ namespace CILAssemblyManipulator.Physical.IO
 
       protected virtual IEnumerable<SectionLayout> GetSectionLayouts(
          WritingStatus writingStatus,
-         Int32 mdSize
+         Int32 mdSize,
+         IEnumerable<SectionPart> rawValueSectionParts
          )
       {
          // 1. Text section
-         yield return new SectionLayout( this.GetTextSectionParts( writingStatus, mdSize ) )
+         yield return new SectionLayout( this.GetTextSectionParts( writingStatus, mdSize, rawValueSectionParts ) )
          {
             Name = ".text",
             Characteristics = SectionHeaderCharacteristics.Memory_Execute | SectionHeaderCharacteristics.Memory_Read | SectionHeaderCharacteristics.Contains_Code
@@ -446,23 +450,30 @@ namespace CILAssemblyManipulator.Physical.IO
 
       protected virtual IEnumerable<SectionPart> GetTextSectionParts(
          WritingStatus writingStatus,
-         Int32 mdSize
+         Int32 mdSize,
+         IEnumerable<SectionPart> rawValueSectionParts
          )
       {
-         var options = this._headers;
-         // 1. CLI Header
-         yield return new SectionPart_CLIHeader( writingStatus, options.CLIOptions.HeaderOptions );
-
-         // 2. Strong name signature
-         yield return new SectionPart_StrongNameSignature( writingStatus.StrongNameVariables, writingStatus.Machine );
-
-         // 3. Meta data
-         yield return new SectionPart_MetaData( mdSize );
-
-         // 4. IAT
+         var options = this._options;
+         // 1. IAT
          yield return new SectionPart_ImportAddressTable();
 
-         // 5. Import directory
+         // 2. CLI Header
+         yield return new SectionPart_CLIHeader( writingStatus, options.CLIOptions.HeaderOptions );
+
+         // 3. Strong name signature
+         yield return new SectionPart_StrongNameSignature( writingStatus.StrongNameVariables, writingStatus.Machine );
+
+         // 4. Method IL, Field RVAs, Embedded Manifests
+         foreach ( var rawValueSectionPart in rawValueSectionParts )
+         {
+            yield return rawValueSectionPart;
+         }
+
+         // 5. Meta data
+         yield return new SectionPart_MetaData( mdSize );
+
+         // 6. Import directory
          var peOptions = options.PEOptions;
          yield return new SectionPart_ImportDirectory(
             peOptions.ImportHintName,
@@ -470,11 +481,21 @@ namespace CILAssemblyManipulator.Physical.IO
             options.IsExecutable
             );
 
-         // 6. Startup code
+         // 7. Startup code
          yield return new SectionPart_StartupCode( writingStatus.ImageBase );
 
-         // 7. Debug directory (will get filtered away if no debug data)
+         // 8. Debug directory (will get filtered away if no debug data)
          yield return new SectionPart_DebugDirectory( options.DebugOptions );
+      }
+
+      protected virtual IEnumerable<SectionPartWithRVAs> GetRawValueSections(
+         WriterMetaDataStreamContainer mdStreamContainer
+         )
+      {
+         foreach ( var rawValueSection in this.TableSerializations.SelectMany( ser => ser.CreateRawValueSectionParts( this.MetaData, mdStreamContainer ) ) )
+         {
+            yield return rawValueSection;
+         }
       }
 
       protected void WritePart(
@@ -487,23 +508,55 @@ namespace CILAssemblyManipulator.Physical.IO
          )
       {
          // Write to ResizableArray
-         var prePadding = partLayout.PrePadding;
-         var capacity = prePadding + partLayout.Size;
-         array.CurrentMaxCapacity = capacity;
-         var part = partLayout.Part;
-         part.WriteData( new SectionPartWritingArgs(
-            array.Array,
-            prePadding,
+         partLayout.Part.WriteData( new SectionPartWritingArgs(
+            stream,
+            array,
+            partLayout.PrePadding,
+            partLayout.Size,
             partLayout.Offset,
             allParts,
             partInfos,
             rvaConverter
             ) );
+      }
 
-         // Write ResizableArray contents to stream
-         var dummyIdx = 0;
-         array.ZeroOut( ref dummyIdx, prePadding );
-         stream.Write( array.Array, capacity );
+      protected virtual RawValueProvider CreateRawValueProvider(
+         WriterMetaDataStreamContainer mdStreamContainer,
+         out IEnumerable<SectionPart> rawSectionParts
+         )
+      {
+         var retVal = new DefaultRawValueProvider( this.TableSerializations, this.MetaData, mdStreamContainer );
+         rawSectionParts = retVal.Parts;
+         return retVal;
+      }
+   }
+
+   public class DefaultRawValueProvider : RawValueProvider
+   {
+      private readonly ArrayQuery<SectionPartWithRVAs>[] _parts;
+
+      public DefaultRawValueProvider( ArrayQuery<TableSerializationInfo> tableSerializations, CILMetaData md, WriterMetaDataStreamContainer mdStreamContainer )
+      {
+         var i = 0;
+         this._parts = new ArrayQuery<SectionPartWithRVAs>[tableSerializations.Count];
+         foreach ( var func in tableSerializations )
+         {
+            this._parts[i] = func.CreateRawValueSectionParts( md, mdStreamContainer ).ToArrayProxy().CQ;
+            ++i;
+         }
+      }
+
+      public Int32 GetRawValueFor( Tables table, Int32 rowIndex, Int32 columnIndex )
+      {
+         return (Int32) this._parts[(Int32) table][columnIndex].RVAs[rowIndex];
+      }
+
+      public IEnumerable<SectionPartWithRVAs> Parts
+      {
+         get
+         {
+            return this._parts.SelectMany( p => p );
+         }
       }
    }
 
@@ -539,421 +592,241 @@ namespace CILAssemblyManipulator.Physical.IO
       void WriteData( SectionPartWritingArgs args );
    }
 
-   public abstract class AbstractSectionPart : SectionPart
+   public interface SectionPartWithRVAs : SectionPart
    {
-      public AbstractSectionPart( Int32 size, Int32 alignment )
+      ArrayQuery<TRVA> RVAs { get; }
+   }
+
+   public abstract class SectionPartWithFixedAlignment : SectionPart
+   {
+      public SectionPartWithFixedAlignment( Int32 alignment )
       {
-         if ( size < 0 )
-         {
-            throw new ArgumentOutOfRangeException( "Size" );
-         }
          if ( alignment < 0 )
          {
             throw new ArgumentOutOfRangeException( "Alignment" );
          }
 
-         this.DataSize = size;
          this.DataAlignment = alignment;
       }
 
       public Int32 DataAlignment { get; }
 
-      public Int32 GetDataSize( Int64 currentOffset, TRVA currentRVA )
-      {
-         return this.DataSize;
-      }
-
-      protected Int32 DataSize { get; }
+      public abstract Int32 GetDataSize( Int64 currentOffset, TRVA currentRVA );
 
       public abstract void WriteData( SectionPartWritingArgs args );
    }
 
-   public class SectionPartWritingArgs
+   public abstract class SectionPartWriteableToArray : SectionPartWithFixedAlignment
    {
-      public SectionPartWritingArgs(
-         Byte[] array,
-         Int32 startingIndex,
-         Int64 currentOffset,
-         ArrayQuery<SectionPart> allParts,
-         DictionaryQuery<SectionPart, SectionPartInfo> partInfos,
-         RVAConverter rvaConverter
-         )
-      {
-         ArgumentValidator.ValidateNotNull( "Array", array );
-         ArgumentValidator.ValidateNotNull( "All parts", allParts );
-         ArgumentValidator.ValidateNotNull( "Part infos", partInfos );
-         ArgumentValidator.ValidateNotNull( "RVA converter", rvaConverter );
-
-         this.Array = array;
-         this.StartingIndex = startingIndex;
-         this.CurrentOffset = currentOffset;
-         this.Parts = allParts;
-         this.PartInfos = partInfos;
-         this.RVAConverter = rvaConverter;
-      }
-
-      public Byte[] Array { get; }
-
-      public Int32 StartingIndex { get; }
-
-      public Int64 CurrentOffset { get; }
-
-      public ArrayQuery<SectionPart> Parts { get; }
-
-      public DictionaryQuery<SectionPart, SectionPartInfo> PartInfos { get; }
-
-      public RVAConverter RVAConverter { get; }
-   }
-
-   public class SectionPartInfo
-   {
-      public SectionPartInfo(
-         SectionPart part,
-         Int32 prePadding,
-         Int32 size,
-         Int64 offset,
-         TRVA rva
-         )
-      {
-         ArgumentValidator.ValidateNotNull( "Part", part );
-
-         this.Part = part;
-         this.PrePadding = prePadding;
-         this.Size = size;
-         this.Offset = offset;
-         this.RVA = rva;
-      }
-
-      public SectionPart Part { get; }
-
-      public Int32 PrePadding { get; }
-
-      public Int32 Size { get; }
-
-      public Int64 Offset { get; }
-
-      public TRVA RVA { get; }
-   }
-
-   public class SectionPart_CLIHeader : AbstractSectionPart
-   {
-      private const Int32 HEADER_SIZE = 0x48;
-
-      private readonly WritingStatus _writingStatus;
-      private readonly WritingOptions_CLIHeader _cliHeaderOptions;
-
-      public SectionPart_CLIHeader( WritingStatus writingStatus, WritingOptions_CLIHeader cliHeaderOptions )
-         : base( HEADER_SIZE, 4 )
-      {
-         this._writingStatus = writingStatus;
-         this._cliHeaderOptions = cliHeaderOptions;
-      }
-
-      public override void WriteData( SectionPartWritingArgs args )
-      {
-         var idx = args.StartingIndex;
-         var cliHeader = this.CreateCLIHeader( args );
-         cliHeader.WriteCLIHeader( args.Array, ref idx );
-         this.CLIHeader = cliHeader;
-      }
-
-      public CLIHeader CLIHeader { get; private set; }
-
-      protected CLIHeader CreateCLIHeader( SectionPartWritingArgs args )
-      {
-         var writingStatus = this._writingStatus;
-         var cliHeaderOptions = this._cliHeaderOptions;
-         var mResInfo = writingStatus.EmbeddedManifestResourcesInfo;
-         var rvaConverter = args.RVAConverter;
-         var snData = args.Parts.OfType<SectionPart_StrongNameSignature>().FirstOrDefault();
-         var md = args.Parts.OfType<SectionPart_MetaData>().First();
-         return new CLIHeader(
-               HEADER_SIZE,
-               (UInt16) ( cliHeaderOptions.MajorRuntimeVersion ?? 2 ),
-               (UInt16) ( cliHeaderOptions.MinorRuntimeVersion ?? 5 ),
-               args.GetDataDirectoryForSection( md ),
-               cliHeaderOptions.ModuleFlags ?? ModuleFlags.ILOnly,
-               cliHeaderOptions.EntryPointToken,
-               mResInfo == null ? default( DataDirectory ) : new DataDirectory( (UInt32) rvaConverter.ToRVA( mResInfo.Item1 ), (UInt32) mResInfo.Item2 ),
-               args.GetDataDirectoryForSection( snData ),
-               default( DataDirectory ), // TODO: customize code manager
-               default( DataDirectory ), // TODO: customize vtable fixups
-               default( DataDirectory ), // TODO: customize exported address table jumps
-               default( DataDirectory ) // TODO: customize managed native header
-               );
-      }
-   }
-
-   public class SectionPart_StrongNameSignature : AbstractSectionPart
-   {
-      public SectionPart_StrongNameSignature( StrongNameVariables snVars, ImageFileMachine machine )
-         : base( snVars?.SignatureSize ?? 0, machine.RequiresPE64() ? 0x10 : 0x04 )
-      {
-
-      }
-
-      public override void WriteData( SectionPartWritingArgs args )
-      {
-         // Don't write actual signature, since we don't have required information. The strong name signature will be written by default implementation.
-         var idx = args.StartingIndex;
-         args.Array.ZeroOut( ref idx, this.DataSize );
-      }
-   }
-
-   public class SectionPart_MetaData : AbstractSectionPart
-   {
-      public SectionPart_MetaData( Int32 size )
-         : base( size, 0x04 )
-      {
-
-      }
-
-      public override void WriteData( SectionPartWritingArgs args )
-      {
-         // This method will never get really called
-         throw new NotSupportedException( "This method should not be called." );
-      }
-   }
-
-   public class SectionPart_ImportAddressTable : AbstractSectionPart
-   {
-      public SectionPart_ImportAddressTable()
-         : base( 0x08, 0x04 )
+      public SectionPartWriteableToArray( Int32 alignment )
+         : base( alignment )
       {
       }
 
 
       public override void WriteData( SectionPartWritingArgs args )
       {
-         var importDir = args.Parts.OfType<SectionPart_ImportDirectory>().FirstOrDefault();
-         if ( importDir != null )
+         var array = args.ArrayHelper;
+         var prePadding = args.PrePadding;
+         var idx = prePadding;
+         var capacity = idx + args.DataLength;
+         array.CurrentMaxCapacity = capacity;
+         var bytez = array.Array;
+         var dummyIdx = 0;
+
+         if ( !this.DoWriteData( args, bytez, ref idx ) )
          {
-            var idx = args.StartingIndex;
-            args.Array
-               .WriteInt32LEToBytes( ref idx, importDir.CorMainRVA ) // RVA of _CorDll/ExeMain
-               .WriteInt32LEToBytes( ref idx, 0 ); // Terminating entry
+            bytez.ZeroOut( ref dummyIdx, capacity );
          }
-      }
-   }
-
-   public class SectionPart_ImportDirectory : SectionPart
-   {
-
-      internal const String HINTNAME_FOR_DLL = "_CorDllMain";
-      internal const String HINTNAME_FOR_EXE = "_CorExeMain";
-
-      private readonly String _functionName;
-      private readonly String _moduleName;
-
-      private UInt32 _lookupTableRVA;
-      private UInt32 _paddingBeforeString;
-      private UInt32 _corMainRVA;
-      private UInt32 _mscoreeRVA;
-
-      public SectionPart_ImportDirectory( String functionName, String moduleName, Boolean isExecutable )
-      {
-         if ( String.IsNullOrEmpty( moduleName ) )
+         else
          {
-            moduleName = "mscoree.dll";
+            bytez.ZeroOut( ref dummyIdx, prePadding );
          }
 
-         if ( String.IsNullOrEmpty( functionName ) )
+         args.Stream.Write( bytez, capacity );
+      }
+
+      protected abstract Boolean DoWriteData( SectionPartWritingArgs args, Byte[] array, ref Int32 idx );
+   }
+
+   public abstract class SectionPartWithFixedLength : SectionPartWriteableToArray
+   {
+      private readonly Int32 _dataSize;
+
+      public SectionPartWithFixedLength( Int32 alignment, Int32 size )
+         : base( alignment )
+      {
+         if ( size < 0 )
          {
-            functionName = isExecutable ? HINTNAME_FOR_EXE : HINTNAME_FOR_DLL;
+            throw new ArgumentOutOfRangeException( "Size" );
+         }
+         this._dataSize = size;
+      }
+
+
+      public override Int32 GetDataSize( Int64 currentOffset, TRVA currentRVA )
+      {
+         return this._dataSize;
+      }
+   }
+
+   public abstract class SectionPartWithMultipleItems<TRow, TSizeInfo> : SectionPartWithFixedAlignment, SectionPartWithRVAs
+   {
+      private readonly Int32 _min;
+      private readonly Int32 _max;
+      private readonly List<TRow> _rows;
+      private readonly ArrayProxy<TSizeInfo> _sizes;
+      private readonly ArrayProxy<TRVA> _rvas;
+
+      public SectionPartWithMultipleItems( Int32 alignment, List<TRow> rows, Int32 min, Int32 max )
+         : base( alignment )
+      {
+         ArgumentValidator.ValidateNotNull( "Rows", rows );
+
+         if ( min <= 0 )
+         {
+            min = 0;
+         }
+         var count = rows.Count;
+         if ( max >= count )
+         {
+            max = count;
          }
 
-         this._moduleName = moduleName;
-         this._functionName = functionName;
+         if ( max < min )
+         {
+            if ( max < 0 )
+            {
+               max = count;
+            }
+            else
+            {
+               max = min;
+            }
+         }
 
-         this.DataAlignment = 0x04;
+         var cf = CollectionsWithRoles.Implementation.CollectionsFactorySingleton.DEFAULT_COLLECTIONS_FACTORY;
 
+         var range = max - min;
+         this._rows = rows;
+         this._min = min;
+         this._max = max;
+         this._sizes = cf.NewArrayProxy( new TSizeInfo[range] );
+         this._rvas = cf.NewArrayProxy( new TRVA[range] );
       }
 
-      public Int32 DataAlignment { get; }
-
-      public Int32 GetDataSize( Int64 currentOffset, TRVA currentRVA )
+      public override Int32 GetDataSize( Int64 currentOffset, TRVA currentRVA )
       {
-         var startRVA = (UInt32) currentRVA.RoundUpI64( this.DataAlignment );
-         var len = 0x28u; // Import directory actual size
+         var startOffset = currentOffset;
+         var rows = this._rows;
+         var sizesArray = this._sizes.Array;
+         var rvaArray = this._rvas.Array;
+         for ( var i = this._min; i < this._max; ++i )
+         {
+            // Calculate size
+            var row = this._rows[i];
+            var sizeInfo = this.GetSizeInfo( row, currentOffset, currentRVA );
+            var arrayIdx = i - this._min;
 
-         this._lookupTableRVA = startRVA + len;
+            // Save size and RVA information
+            sizesArray[arrayIdx] = sizeInfo;
+            rvaArray[arrayIdx] = this.GetRVA( currentRVA, sizeInfo );
 
-         len += 0x08; // Chunk size
-         var endRVA = startRVA + len;
+            // Update offset + rva
+            var size = (UInt32) this.GetSize( sizeInfo );
+            startOffset += size;
+            currentRVA += size;
+         }
 
-         // Padding before strings
-         this._paddingBeforeString = endRVA.RoundUpU32( 0x10 ) - endRVA;
-         len += this._paddingBeforeString;
-
-         // _CorDll/ExeMain string
-         this._corMainRVA = startRVA + len;
-         len += (UInt32) this._functionName.Length + 1; // 0xE
-
-         // mscoree string
-         this._mscoreeRVA = startRVA + len;
-         len += (UInt32) this._moduleName.Length + 1; // 0xC
-
-         // Last byte
-         len++;
-
-         return (Int32) len;
+         return (Int32) ( currentOffset - startOffset );
       }
 
-      public Int32 CorMainRVA
+      public override void WriteData( SectionPartWritingArgs args )
+      {
+         // Write pre-padding first
+         var stream = args.Stream;
+
+         var array = args.ArrayHelper;
+         var prePadding = args.PrePadding;
+         if ( prePadding > 0 )
+         {
+            var idx = 0;
+            array.ZeroOut( ref idx, prePadding );
+            stream.Write( array.Array, prePadding );
+         }
+
+         // Write contents
+         var sizesArray = this._sizes.Array;
+         for ( var i = this._min; i < this._max; ++i )
+         {
+            var sizeInfo = sizesArray[i - this._min];
+            var capacity = this.GetSize( sizeInfo );
+            array.CurrentMaxCapacity = capacity;
+            var bytez = array.Array;
+            this.WriteData( this._rows[i], sizeInfo, bytez );
+            stream.Write( bytez, capacity );
+         }
+      }
+
+      public ArrayQuery<TRVA> RVAs
       {
          get
          {
-            return (Int32) this._corMainRVA;
+            return this._rvas.CQ;
          }
       }
 
-      public void WriteData( SectionPartWritingArgs args )
-      {
-         var addressTable = args.Parts.OfType<SectionPart_ImportAddressTable>().FirstOrDefault();
-         if ( addressTable != null )
-         {
-            var idx = args.StartingIndex;
-            args.Array
-               // Import directory
-               .WriteUInt32LEToBytes( ref idx, this._lookupTableRVA )
-               .WriteInt32LEToBytes( ref idx, 0 ) // TimeDateStamp
-               .WriteInt32LEToBytes( ref idx, 0 ) // ForwarderChain
-               .WriteUInt32LEToBytes( ref idx, this._mscoreeRVA ) // Name of module
-               .WriteUInt32LEToBytes( ref idx, (UInt32) args.PartInfos[addressTable].RVA ) // Address table RVA
-               .WriteInt64LEToBytes( ref idx, 0 ) // ?
-               .WriteInt64LEToBytes( ref idx, 0 ) // ?
-               .WriteInt32LEToBytes( ref idx, 0 ) // ?
+      protected abstract TSizeInfo GetSizeInfo( TRow row, Int64 currentOffset, TRVA currentRVA );
 
-               // Import lookup table
-               .WriteUInt32LEToBytes( ref idx, this._corMainRVA ) // 1st and only entry - _CorDll/ExeMain
-               .WriteInt32LEToBytes( ref idx, 0 ) // 2nd entry - zeroes
+      protected abstract Int32 GetSize( TSizeInfo sizeInfo );
 
-               // Padding before entries
-               .ZeroOut( ref idx, (Int32) this._paddingBeforeString )
+      protected abstract TRVA GetRVA( TRVA currentRVA, TSizeInfo sizeInfo );
 
-               // Function data: _CorDll/ExeMain
-               .WriteInt16LEToBytes( ref idx, 0 ) // Hint
-               .WriteASCIIString( ref idx, this._functionName, true )
-
-               // Module data: mscoree.dll
-               .WriteASCIIString( ref idx, this._moduleName, true )
-               .WriteByteToBytes( ref idx, 0 );
-
-         }
-      }
+      protected abstract void WriteData( TRow row, TSizeInfo sizeInfo, Byte[] array );
    }
 
-   public class SectionPart_StartupCode : AbstractSectionPart
+   public class SectionPart_MethodIL : SectionPartWithMultipleItems<MethodDefinition, SectionPart_MethodIL.MethodSizeInfo>
    {
-      private readonly UInt32 _imageBase;
-
-      private const Int32 ALIGNMENT = 0x04;
-      private const Int32 PADDING = 2;
-      public SectionPart_StartupCode( Int64 imageBase )
-         : base( 0x08, ALIGNMENT )
+      public struct MethodSizeInfo
       {
-         this._imageBase = (UInt32) imageBase;
-      }
-
-      public Int32 EntryPointOffset
-      {
-         get
+         public MethodSizeInfo( Int32 prePadding, Int32 byteSize, Int32 ilCodeByteCount, Boolean isTinyHeader, Boolean exceptionSectionsAreLarge )
          {
-            return PADDING;
-         }
-      }
-
-      public Int32 EntryPointInstructionAddressOffset
-      {
-         get
-         {
-            return this.EntryPointOffset + 2;
-         }
-      }
-
-      public override void WriteData( SectionPartWritingArgs args )
-      {
-         var addressTable = args.Parts.OfType<SectionPart_ImportAddressTable>().FirstOrDefault();
-         if ( addressTable != null )
-         {
-            var idx = args.StartingIndex;
-            args.Array
-               .ZeroOut( ref idx, PADDING ) // Padding - 2 zero bytes
-               .WriteUInt16LEToBytes( ref idx, 0x25FF ) // JMP
-               .WriteUInt32LEToBytes( ref idx, this._imageBase + (UInt32) ( args.PartInfos[addressTable].RVA ) ); // First entry of address table = RVA of _CorDll/ExeMain
+            this.PrePadding = prePadding;
+            this.ByteSize = byteSize;
+            this.ILCodeByteCount = ilCodeByteCount;
+            this.IsTinyHeader = isTinyHeader;
+            this.ExceptionSectionsAreLarge = exceptionSectionsAreLarge;
          }
 
+         public Int32 PrePadding { get; }
+
+         public Int32 ByteSize { get; }
+
+         public Int32 ILCodeByteCount { get; }
+
+         public Boolean IsTinyHeader { get; }
+
+         public Boolean ExceptionSectionsAreLarge { get; }
       }
-   }
 
-   public class SectionPart_RelocDirectory : AbstractSectionPart
-   {
-      private const Int32 SIZE = 0x0C;
-      private const UInt32 RELOCATION_PAGE_MASK = 0x0FFF; // ECMA-335, p. 282
-      private const UInt16 RELOCATION_FIXUP_TYPE = 0x3; // ECMA-335, p. 282
-
-      public SectionPart_RelocDirectory()
-         : base( SIZE, 0x04 )
+      [Flags]
+      private enum MethodHeaderFlags
       {
-
+         TinyFormat = 0x2,
+         FatFormat = 0x3,
+         MoreSections = 0x8,
+         InitLocals = 0x10
       }
 
-      public override void WriteData( SectionPartWritingArgs args )
+      [Flags]
+      private enum MethodDataFlags
       {
-         var startupCode = args.Parts.OfType<SectionPart_StartupCode>().FirstOrDefault();
-         if ( startupCode != null )
-         {
-            var rva = (UInt32) ( args.PartInfos[startupCode].RVA + startupCode.EntryPointInstructionAddressOffset );
-            var idx = args.StartingIndex;
-            args.Array
-               .WriteUInt32LEToBytes( ref idx, rva & ( ~RELOCATION_PAGE_MASK ) ) // Page RVA
-               .WriteInt32LEToBytes( ref idx, SIZE ) // Block size
-               .WriteUInt16LEToBytes( ref idx, (UInt16) ( ( RELOCATION_FIXUP_TYPE << 12 ) | ( rva & RELOCATION_PAGE_MASK ) ) ) // Type (high 4 bits) + Offset (lower 12 bits) + dummy entry (16 bits)
-               .WriteUInt16LEToBytes( ref idx, 0 ); // Terminating entry
-         }
-      }
-   }
-
-   public class SectionPart_DebugDirectory : AbstractSectionPart
-   {
-      private const Int32 ALIGNMENT = 0x04;
-      private const Int32 HEADER_SIZE = 0x1C;
-
-      private readonly WritingOptions_Debug _options;
-
-      public SectionPart_DebugDirectory( WritingOptions_Debug options )
-         : base( ( options?.DebugData ?? null ).IsNullOrEmpty() ? 0 : ( HEADER_SIZE + (Int32) options.DebugData.Length ), ALIGNMENT )
-      {
-         this._options = options;
+         ExceptionHandling = 0x1,
+         OptimizeILTable = 0x2,
+         FatFormat = 0x40,
+         MoreSections = 0x80
       }
 
-      public override void WriteData( SectionPartWritingArgs args )
-      {
-         var dbgData = this._options?.DebugData;
-         if ( !dbgData.IsNullOrEmpty() )
-         {
-            var idx = args.StartingIndex;
-            var dbgOptions = this._options;
-            var dataOffset = (UInt32) ( args.CurrentOffset + HEADER_SIZE );
-            var dataRVA = (UInt32) ( args.RVAConverter.ToRVA( dataOffset ) );
-            new DebugInformation(
-               dbgOptions.Characteristics,
-               (UInt32) dbgOptions.Timestamp,
-               (UInt16) dbgOptions.MajorVersion,
-               (UInt16) dbgOptions.MinorVersion,
-               dbgOptions.DebugType,
-               (UInt32) dbgData.Length,
-               dataRVA,
-               dataOffset,
-               dbgData.ToArrayProxy().CQ
-               )
-               .WriteDebugInformation( args.Array, ref idx );
-         }
-      }
-   }
-
-   public partial class DefaultMetaDataSerializationSupportProvider
-   {
       private const Int32 METHOD_DATA_SECTION_HEADER_SIZE = 4;
       private const Int32 SMALL_EXC_BLOCK_SIZE = 12;
       private const Int32 LARGE_EXC_BLOCK_SIZE = 24;
@@ -961,47 +834,48 @@ namespace CILAssemblyManipulator.Physical.IO
       private const Int32 MAX_LARGE_EXC_HANDLERS_IN_ONE_SECTION = ( 0x00FFFFFF - METHOD_DATA_SECTION_HEADER_SIZE ) / LARGE_EXC_BLOCK_SIZE; // 699050
       private const Int32 FAT_HEADER_SIZE = 12;
 
-      protected virtual Int32 WriteMethodIL(
-         RowRawValueExtractionArguments args,
-         MethodILDefinition il
-         )
+      private readonly CILMetaData _md;
+      private readonly WriterStringStreamHandler _userStrings;
+
+      public SectionPart_MethodIL( CILMetaData md, WriterStringStreamHandler userStrings, Int32 min = 0, Int32 max = -1 )
+         : base( 0x04, md.MethodDefinitions.TableContents, min, max )
       {
-         return this.WriteMethodILToArray( args.Array, args.MDStreamContainer.UserStrings, args.MetaData, il, args.CurrentStreamPosition );
+         ArgumentValidator.ValidateNotNull( "Meta data", md );
+         ArgumentValidator.ValidateNotNull( "User strings", userStrings );
+
+         this._md = md;
+         this._userStrings = userStrings;
       }
 
-      protected virtual Int32 WriteMethodILToArray(
-         ResizableArray<Byte> sink,
-         WriterStringStreamHandler userStrings,
-         CILMetaData md,
-         MethodILDefinition il,
-         Int64 currentStreamPosition
-         )
+      protected override Int32 GetSize( MethodSizeInfo sizeInfo )
       {
-         var lIdx = il.LocalsSignatureIndex;
-         var locals = lIdx.HasValue && lIdx.Value.Table == Tables.StandaloneSignature ?
-            md.StandaloneSignatures.TableContents[lIdx.Value.Index].Signature as LocalVariablesSignature :
-            null;
-         Boolean isTinyHeader; Boolean exceptionSectionsAreLarge; Int32 wholeMethodByteCount; Int32 idx;
-         var ilCodeByteCount = CalculateByteSizeForMethod(
-            il,
-            locals,
-            currentStreamPosition,
-            out isTinyHeader,
-            out exceptionSectionsAreLarge,
-            out wholeMethodByteCount,
-            out idx
-            );
+         return sizeInfo.PrePadding + sizeInfo.ByteSize;
+      }
+
+      protected override MethodSizeInfo GetSizeInfo( MethodDefinition row, Int64 currentOffset, TRVA currentRVA )
+      {
+         var il = row?.IL;
+         return il == null ?
+            default( MethodSizeInfo ) :
+            CalculateByteSizeForMethod( il, GetLocalsFor( il ), currentRVA );
+      }
+
+      protected override TRVA GetRVA( TRVA currentRVA, MethodSizeInfo sizeInfo )
+      {
+         return currentRVA + sizeInfo.PrePadding;
+      }
+
+      protected override void WriteData( MethodDefinition row, MethodSizeInfo sizeInfo, Byte[] array )
+      {
+         var idx = 0;
+         var il = row.IL;
          var exceptionBlocks = il.ExceptionBlocks;
          var hasAnyExceptions = exceptionBlocks.Count > 0;
-
-         sink.CurrentMaxCapacity = wholeMethodByteCount;
-         var array = sink.Array;
-
          // Header
-         if ( isTinyHeader )
+         if ( sizeInfo.IsTinyHeader )
          {
             // Tiny header - one byte
-            array.WriteByteToBytes( ref idx, (Byte) ( (Int32) MethodHeaderFlags.TinyFormat | ( ilCodeByteCount << 2 ) ) );
+            array.WriteByteToBytes( ref idx, (Byte) ( (Int32) MethodHeaderFlags.TinyFormat | ( sizeInfo.ILCodeByteCount << 2 ) ) );
          }
          else
          {
@@ -1018,7 +892,7 @@ namespace CILAssemblyManipulator.Physical.IO
 
             array.WriteInt16LEToBytes( ref idx, (Int16) ( ( (Int32) flags ) | ( 3 << 12 ) ) )
                .WriteUInt16LEToBytes( ref idx, (UInt16) il.MaxStackSize )
-               .WriteInt32LEToBytes( ref idx, ilCodeByteCount )
+               .WriteInt32LEToBytes( ref idx, sizeInfo.ILCodeByteCount )
                .WriteInt32LEToBytes( ref idx, il.LocalsSignatureIndex.GetOneBasedToken() );
          }
 
@@ -1026,12 +900,13 @@ namespace CILAssemblyManipulator.Physical.IO
          // Emit IL code
          foreach ( var info in il.OpCodes )
          {
-            EmitOpCodeInfo( info, array, ref idx, userStrings );
+            EmitOpCodeInfo( info, array, ref idx, this._userStrings );
          }
 
          // Emit exception block infos
          if ( hasAnyExceptions )
          {
+            var exceptionSectionsAreLarge = sizeInfo.ExceptionSectionsAreLarge;
             var processedIndices = new HashSet<Int32>();
             array.ZeroOut( ref idx, BitUtils.MultipleOf4( idx ) - idx );
             var flags = MethodDataFlags.ExceptionHandling;
@@ -1098,15 +973,6 @@ namespace CILAssemblyManipulator.Physical.IO
             }
 
          }
-
-#if DEBUG
-         if ( idx != wholeMethodByteCount )
-         {
-            throw new Exception( "Something went wrong when emitting method headers and body. Emitted " + idx + " bytes, but was supposed to emit " + wholeMethodByteCount + " bytes." );
-         }
-#endif
-
-         return idx;
       }
 
       protected static void EmitOpCodeInfo(
@@ -1114,7 +980,7 @@ namespace CILAssemblyManipulator.Physical.IO
          Byte[] array,
          ref Int32 idx,
          WriterStringStreamHandler usersStrings
-         )
+      )
       {
          const Int32 USER_STRING_MASK = 0x70 << 24;
 
@@ -1184,14 +1050,10 @@ namespace CILAssemblyManipulator.Physical.IO
          }
       }
 
-      protected static Int32 CalculateByteSizeForMethod(
+      protected static MethodSizeInfo CalculateByteSizeForMethod(
          MethodILDefinition methodIL,
          LocalVariablesSignature localSig,
-         Int64 currentStreamPosition,
-         out Boolean isTinyHeader,
-         out Boolean exceptionSectionsAreLarge,
-         out Int32 wholeMethodByteCount,
-         out Int32 startIndex
+         TRVA currentRVA
          )
       {
          // Start by calculating the size of just IL code
@@ -1216,7 +1078,7 @@ namespace CILAssemblyManipulator.Physical.IO
 
          var excCount = exceptionBlocks.Count;
          var hasAnyExc = excCount > 0;
-         isTinyHeader = arraySize < 64
+         var isTinyHeader = arraySize < 64
             && !hasAnyExc
             && maxStack <= 8
             && ( localSig == null || localSig.Locals.Count == 0 );
@@ -1241,23 +1103,732 @@ namespace CILAssemblyManipulator.Physical.IO
             }
          }
 
-         exceptionSectionsAreLarge = hasAnyExc && !allAreSmall;
+         var exceptionSectionsAreLarge = hasAnyExc && !allAreSmall;
 
-         wholeMethodByteCount = arraySize;
-
-         if ( !isTinyHeader )
+         Int32 prePadding;
+         if ( isTinyHeader )
          {
-            // Non-tiny headers must start at 4-byte boundary
-            startIndex = (Int32) ( currentStreamPosition.RoundUpI64( 4 ) - currentStreamPosition );
-            wholeMethodByteCount += startIndex;
+            prePadding = 0;
          }
          else
          {
-            startIndex = 0;
+            // Non-tiny headers must start at 4-byte boundary
+            prePadding = (Int32) ( currentRVA.RoundUpI64( 4 ) - currentRVA );
          }
 
-         return ilCodeByteCount;
+         return new MethodSizeInfo( prePadding, arraySize, ilCodeByteCount, isTinyHeader, exceptionSectionsAreLarge );
       }
+
+      protected LocalVariablesSignature GetLocalsFor( MethodILDefinition il )
+      {
+         var lIdx = il.LocalsSignatureIndex;
+         return lIdx.HasValue && lIdx.Value.Table == Tables.StandaloneSignature ?
+            this._md.StandaloneSignatures.TableContents[lIdx.Value.Index]?.Signature as LocalVariablesSignature :
+            null;
+      }
+   }
+
+   public class SectionPartWritingArgs
+   {
+      public SectionPartWritingArgs(
+         Stream stream,
+         ResizableArray<Byte> array,
+         Int32 prePadding,
+         Int32 dataLength,
+         Int64 currentOffset,
+         ArrayQuery<SectionPart> allParts,
+         DictionaryQuery<SectionPart, SectionPartInfo> partInfos,
+         RVAConverter rvaConverter
+         )
+      {
+         ArgumentValidator.ValidateNotNull( "Stream", stream );
+         ArgumentValidator.ValidateNotNull( "Array", array );
+         ArgumentValidator.ValidateNotNull( "All parts", allParts );
+         ArgumentValidator.ValidateNotNull( "Part infos", partInfos );
+         ArgumentValidator.ValidateNotNull( "RVA converter", rvaConverter );
+
+         this.Stream = stream;
+         this.ArrayHelper = array;
+         this.PrePadding = prePadding;
+         this.DataLength = dataLength;
+         this.CurrentOffset = currentOffset;
+         this.Parts = allParts;
+         this.PartInfos = partInfos;
+         this.RVAConverter = rvaConverter;
+      }
+
+      public Stream Stream { get; }
+
+      public ResizableArray<Byte> ArrayHelper { get; }
+
+      public Int32 PrePadding { get; }
+
+      public Int32 DataLength { get; }
+
+      public Int64 CurrentOffset { get; }
+
+      public ArrayQuery<SectionPart> Parts { get; }
+
+      public DictionaryQuery<SectionPart, SectionPartInfo> PartInfos { get; }
+
+      public RVAConverter RVAConverter { get; }
+   }
+
+   public class SectionPartInfo
+   {
+      public SectionPartInfo(
+         SectionPart part,
+         Int32 prePadding,
+         Int32 size,
+         Int64 offset,
+         TRVA rva
+         )
+      {
+         ArgumentValidator.ValidateNotNull( "Part", part );
+
+         this.Part = part;
+         this.PrePadding = prePadding;
+         this.Size = size;
+         this.Offset = offset;
+         this.RVA = rva;
+      }
+
+      public SectionPart Part { get; }
+
+      public Int32 PrePadding { get; }
+
+      public Int32 Size { get; }
+
+      public Int64 Offset { get; }
+
+      public TRVA RVA { get; }
+   }
+
+   public class SectionPart_CLIHeader : SectionPartWithFixedLength
+   {
+      private const Int32 HEADER_SIZE = 0x48;
+
+      private readonly WritingStatus _writingStatus;
+      private readonly WritingOptions_CLIHeader _cliHeaderOptions;
+
+      public SectionPart_CLIHeader( WritingStatus writingStatus, WritingOptions_CLIHeader cliHeaderOptions )
+         : base( 4, HEADER_SIZE )
+      {
+         this._writingStatus = writingStatus;
+         this._cliHeaderOptions = cliHeaderOptions;
+      }
+
+      protected override Boolean DoWriteData( SectionPartWritingArgs args, Byte[] array, ref Int32 idx )
+      {
+         var cliHeader = this.CreateCLIHeader( args );
+         cliHeader.WriteCLIHeader( array, ref idx );
+         this.CLIHeader = cliHeader;
+         return true;
+      }
+
+      public CLIHeader CLIHeader { get; private set; }
+
+      protected CLIHeader CreateCLIHeader( SectionPartWritingArgs args )
+      {
+         var writingStatus = this._writingStatus;
+         var cliHeaderOptions = this._cliHeaderOptions;
+         var mResInfo = writingStatus.EmbeddedManifestResourcesInfo;
+         var rvaConverter = args.RVAConverter;
+         var snData = args.Parts.OfType<SectionPart_StrongNameSignature>().FirstOrDefault();
+         var md = args.Parts.OfType<SectionPart_MetaData>().First();
+         return new CLIHeader(
+               HEADER_SIZE,
+               (UInt16) ( cliHeaderOptions.MajorRuntimeVersion ?? 2 ),
+               (UInt16) ( cliHeaderOptions.MinorRuntimeVersion ?? 5 ),
+               args.GetDataDirectoryForSection( md ),
+               cliHeaderOptions.ModuleFlags ?? ModuleFlags.ILOnly,
+               cliHeaderOptions.EntryPointToken,
+               mResInfo == null ? default( DataDirectory ) : new DataDirectory( (UInt32) rvaConverter.ToRVA( mResInfo.Item1 ), (UInt32) mResInfo.Item2 ),
+               args.GetDataDirectoryForSection( snData ),
+               default( DataDirectory ), // TODO: customize code manager
+               default( DataDirectory ), // TODO: customize vtable fixups
+               default( DataDirectory ), // TODO: customize exported address table jumps
+               default( DataDirectory ) // TODO: customize managed native header
+               );
+      }
+   }
+
+   public class SectionPart_StrongNameSignature : SectionPartWithFixedLength
+   {
+      public SectionPart_StrongNameSignature( StrongNameVariables snVars, ImageFileMachine machine )
+         : base( machine.RequiresPE64() ? 0x10 : 0x04, snVars?.SignatureSize ?? 0 )
+      {
+
+      }
+
+      protected override Boolean DoWriteData( SectionPartWritingArgs args, Byte[] array, ref Int32 idx )
+      {
+         // Don't write actual signature, since we don't have required information. The strong name signature will be written by default implementation.
+         array.ZeroOut( ref idx, args.PrePadding + args.DataLength );
+         return true;
+      }
+   }
+
+   public class SectionPart_MetaData : SectionPartWithFixedLength
+   {
+      public SectionPart_MetaData( Int32 size )
+         : base( 0x04, size )
+      {
+
+      }
+
+      protected override Boolean DoWriteData( SectionPartWritingArgs args, Byte[] array, ref Int32 idx )
+      {
+         // This method will never get really called
+         throw new NotSupportedException( "This method should not be called." );
+      }
+   }
+
+   public class SectionPart_ImportAddressTable : SectionPartWithFixedLength
+   {
+      public SectionPart_ImportAddressTable()
+         : base( 0x04, 0x08 )
+      {
+      }
+
+
+      protected override Boolean DoWriteData( SectionPartWritingArgs args, Byte[] array, ref Int32 idx )
+      {
+         var importDir = args.Parts.OfType<SectionPart_ImportDirectory>().FirstOrDefault();
+         var retVal = importDir != null;
+         if ( retVal )
+         {
+            array
+               .WriteInt32LEToBytes( ref idx, importDir.CorMainRVA ) // RVA of _CorDll/ExeMain
+               .WriteInt32LEToBytes( ref idx, 0 ); // Terminating entry
+         }
+         return retVal;
+      }
+   }
+
+   public class SectionPart_ImportDirectory : SectionPartWriteableToArray
+   {
+
+      internal const String HINTNAME_FOR_DLL = "_CorDllMain";
+      internal const String HINTNAME_FOR_EXE = "_CorExeMain";
+
+      private readonly String _functionName;
+      private readonly String _moduleName;
+
+      private UInt32 _lookupTableRVA;
+      private UInt32 _paddingBeforeString;
+      private UInt32 _corMainRVA;
+      private UInt32 _mscoreeRVA;
+
+      public SectionPart_ImportDirectory( String functionName, String moduleName, Boolean isExecutable )
+         : base( 0x04 )
+      {
+         if ( String.IsNullOrEmpty( moduleName ) )
+         {
+            moduleName = "mscoree.dll";
+         }
+
+         if ( String.IsNullOrEmpty( functionName ) )
+         {
+            functionName = isExecutable ? HINTNAME_FOR_EXE : HINTNAME_FOR_DLL;
+         }
+
+         this._moduleName = moduleName;
+         this._functionName = functionName;
+
+      }
+
+      public override Int32 GetDataSize( Int64 currentOffset, TRVA currentRVA )
+      {
+         var startRVA = (UInt32) currentRVA.RoundUpI64( this.DataAlignment );
+         var len = 0x28u; // Import directory actual size
+
+         this._lookupTableRVA = startRVA + len;
+
+         len += 0x08; // Chunk size
+         var endRVA = startRVA + len;
+
+         // Padding before strings
+         this._paddingBeforeString = endRVA.RoundUpU32( 0x10 ) - endRVA;
+         len += this._paddingBeforeString;
+
+         // _CorDll/ExeMain string
+         this._corMainRVA = startRVA + len;
+         len += (UInt32) this._functionName.Length + 1; // 0xE
+
+         // mscoree string
+         this._mscoreeRVA = startRVA + len;
+         len += (UInt32) this._moduleName.Length + 1; // 0xC
+
+         // Last byte
+         len++;
+
+         return (Int32) len;
+      }
+
+      public Int32 CorMainRVA
+      {
+         get
+         {
+            return (Int32) this._corMainRVA;
+         }
+      }
+
+      protected override Boolean DoWriteData( SectionPartWritingArgs args, Byte[] array, ref Int32 idx )
+      {
+         var addressTable = args.Parts.OfType<SectionPart_ImportAddressTable>().FirstOrDefault();
+
+         var retVal = addressTable != null;
+         if ( retVal )
+         {
+            array
+               // Import directory
+               .WriteUInt32LEToBytes( ref idx, this._lookupTableRVA )
+               .WriteInt32LEToBytes( ref idx, 0 ) // TimeDateStamp
+               .WriteInt32LEToBytes( ref idx, 0 ) // ForwarderChain
+               .WriteUInt32LEToBytes( ref idx, this._mscoreeRVA ) // Name of module
+               .WriteUInt32LEToBytes( ref idx, (UInt32) args.PartInfos[addressTable].RVA ) // Address table RVA
+               .WriteInt64LEToBytes( ref idx, 0 ) // ?
+               .WriteInt64LEToBytes( ref idx, 0 ) // ?
+               .WriteInt32LEToBytes( ref idx, 0 ) // ?
+
+               // Import lookup table
+               .WriteUInt32LEToBytes( ref idx, this._corMainRVA ) // 1st and only entry - _CorDll/ExeMain
+               .WriteInt32LEToBytes( ref idx, 0 ) // 2nd entry - zeroes
+
+               // Padding before entries
+               .ZeroOut( ref idx, (Int32) this._paddingBeforeString )
+
+               // Function data: _CorDll/ExeMain
+               .WriteInt16LEToBytes( ref idx, 0 ) // Hint
+               .WriteASCIIString( ref idx, this._functionName, true )
+
+               // Module data: mscoree.dll
+               .WriteASCIIString( ref idx, this._moduleName, true )
+               .WriteByteToBytes( ref idx, 0 );
+         }
+
+         return retVal;
+      }
+   }
+
+   public class SectionPart_StartupCode : SectionPartWithFixedLength
+   {
+      private readonly UInt32 _imageBase;
+
+      private const Int32 ALIGNMENT = 0x04;
+      private const Int32 PADDING = 2;
+      public SectionPart_StartupCode( Int64 imageBase )
+         : base( ALIGNMENT, 0x08 )
+      {
+         this._imageBase = (UInt32) imageBase;
+      }
+
+      public Int32 EntryPointOffset
+      {
+         get
+         {
+            return PADDING;
+         }
+      }
+
+      public Int32 EntryPointInstructionAddressOffset
+      {
+         get
+         {
+            return this.EntryPointOffset + 2;
+         }
+      }
+
+      protected override Boolean DoWriteData( SectionPartWritingArgs args, Byte[] array, ref Int32 idx )
+      {
+         var addressTable = args.Parts.OfType<SectionPart_ImportAddressTable>().FirstOrDefault();
+         var retVal = addressTable != null;
+         if ( retVal )
+         {
+            array
+               .ZeroOut( ref idx, PADDING ) // Padding - 2 zero bytes
+               .WriteUInt16LEToBytes( ref idx, 0x25FF ) // JMP
+               .WriteUInt32LEToBytes( ref idx, this._imageBase + (UInt32) ( args.PartInfos[addressTable].RVA ) ); // First entry of address table = RVA of _CorDll/ExeMain
+         }
+         return retVal;
+      }
+   }
+
+   public class SectionPart_RelocDirectory : SectionPartWithFixedLength
+   {
+      private const Int32 SIZE = 0x0C;
+      private const UInt32 RELOCATION_PAGE_MASK = 0x0FFF; // ECMA-335, p. 282
+      private const UInt16 RELOCATION_FIXUP_TYPE = 0x3; // ECMA-335, p. 282
+
+      public SectionPart_RelocDirectory()
+         : base( 0x04, SIZE )
+      {
+
+      }
+
+      protected override Boolean DoWriteData( SectionPartWritingArgs args, Byte[] array, ref Int32 idx )
+      {
+         var startupCode = args.Parts.OfType<SectionPart_StartupCode>().FirstOrDefault();
+         var retVal = startupCode != null;
+         if ( retVal )
+         {
+            var rva = (UInt32) ( args.PartInfos[startupCode].RVA + startupCode.EntryPointInstructionAddressOffset );
+            array
+               .WriteUInt32LEToBytes( ref idx, rva & ( ~RELOCATION_PAGE_MASK ) ) // Page RVA
+               .WriteInt32LEToBytes( ref idx, SIZE ) // Block size
+               .WriteUInt16LEToBytes( ref idx, (UInt16) ( ( RELOCATION_FIXUP_TYPE << 12 ) | ( rva & RELOCATION_PAGE_MASK ) ) ) // Type (high 4 bits) + Offset (lower 12 bits) + dummy entry (16 bits)
+               .WriteUInt16LEToBytes( ref idx, 0 ); // Terminating entry
+         }
+         return retVal;
+      }
+   }
+
+   public class SectionPart_DebugDirectory : SectionPartWithFixedLength
+   {
+      private const Int32 ALIGNMENT = 0x04;
+      private const Int32 HEADER_SIZE = 0x1C;
+
+      private readonly WritingOptions_Debug _options;
+
+      public SectionPart_DebugDirectory( WritingOptions_Debug options )
+         : base( ALIGNMENT, ( options?.DebugData ?? null ).IsNullOrEmpty() ? 0 : ( HEADER_SIZE + (Int32) options.DebugData.Length ) )
+      {
+         this._options = options;
+      }
+
+      protected override Boolean DoWriteData( SectionPartWritingArgs args, Byte[] array, ref Int32 idx )
+      {
+         var dbgData = this._options?.DebugData;
+         var retVal = !dbgData.IsNullOrEmpty();
+         if ( retVal )
+         {
+            var dbgOptions = this._options;
+            var dataOffset = (UInt32) ( args.CurrentOffset + HEADER_SIZE );
+            var dataRVA = (UInt32) ( args.RVAConverter.ToRVA( dataOffset ) );
+            new DebugInformation(
+               dbgOptions.Characteristics,
+               (UInt32) dbgOptions.Timestamp,
+               (UInt16) dbgOptions.MajorVersion,
+               (UInt16) dbgOptions.MinorVersion,
+               dbgOptions.DebugType,
+               (UInt32) dbgData.Length,
+               dataRVA,
+               dataOffset,
+               dbgData.ToArrayProxy().CQ
+               )
+               .WriteDebugInformation( array, ref idx );
+         }
+         return retVal;
+      }
+   }
+
+   public partial class DefaultMetaDataSerializationSupportProvider
+   {
+      //      private const Int32 METHOD_DATA_SECTION_HEADER_SIZE = 4;
+      //      private const Int32 SMALL_EXC_BLOCK_SIZE = 12;
+      //      private const Int32 LARGE_EXC_BLOCK_SIZE = 24;
+      //      private const Int32 MAX_SMALL_EXC_HANDLERS_IN_ONE_SECTION = ( Byte.MaxValue - METHOD_DATA_SECTION_HEADER_SIZE ) / SMALL_EXC_BLOCK_SIZE; // 20
+      //      private const Int32 MAX_LARGE_EXC_HANDLERS_IN_ONE_SECTION = ( 0x00FFFFFF - METHOD_DATA_SECTION_HEADER_SIZE ) / LARGE_EXC_BLOCK_SIZE; // 699050
+      //      private const Int32 FAT_HEADER_SIZE = 12;
+
+      //      protected virtual Int32 WriteMethodIL(
+      //         RowRawValueExtractionArguments args,
+      //         MethodILDefinition il
+      //         )
+      //      {
+      //         return this.WriteMethodILToArray( args.Array, args.MDStreamContainer.UserStrings, args.MetaData, il, args.CurrentStreamPosition );
+      //      }
+
+      //      protected virtual Int32 WriteMethodILToArray(
+      //         ResizableArray<Byte> sink,
+      //         WriterStringStreamHandler userStrings,
+      //         CILMetaData md,
+      //         MethodILDefinition il,
+      //         Int64 currentStreamPosition
+      //         )
+      //      {
+      //         var lIdx = il.LocalsSignatureIndex;
+      //         var locals = lIdx.HasValue && lIdx.Value.Table == Tables.StandaloneSignature ?
+      //            md.StandaloneSignatures.TableContents[lIdx.Value.Index].Signature as LocalVariablesSignature :
+      //            null;
+      //         Boolean isTinyHeader; Boolean exceptionSectionsAreLarge; Int32 wholeMethodByteCount; Int32 idx;
+      //         var ilCodeByteCount = CalculateByteSizeForMethod(
+      //            il,
+      //            locals,
+      //            currentStreamPosition,
+      //            out isTinyHeader,
+      //            out exceptionSectionsAreLarge,
+      //            out wholeMethodByteCount,
+      //            out idx
+      //            );
+      //         var exceptionBlocks = il.ExceptionBlocks;
+      //         var hasAnyExceptions = exceptionBlocks.Count > 0;
+
+      //         sink.CurrentMaxCapacity = wholeMethodByteCount;
+      //         var array = sink.Array;
+
+      //         // Header
+      //         if ( isTinyHeader )
+      //         {
+      //            // Tiny header - one byte
+      //            array.WriteByteToBytes( ref idx, (Byte) ( (Int32) MethodHeaderFlags.TinyFormat | ( ilCodeByteCount << 2 ) ) );
+      //         }
+      //         else
+      //         {
+      //            // Fat header - 12 bytes
+      //            var flags = MethodHeaderFlags.FatFormat;
+      //            if ( hasAnyExceptions )
+      //            {
+      //               flags |= MethodHeaderFlags.MoreSections;
+      //            }
+      //            if ( il.InitLocals )
+      //            {
+      //               flags |= MethodHeaderFlags.InitLocals;
+      //            }
+
+      //            array.WriteInt16LEToBytes( ref idx, (Int16) ( ( (Int32) flags ) | ( 3 << 12 ) ) )
+      //               .WriteUInt16LEToBytes( ref idx, (UInt16) il.MaxStackSize )
+      //               .WriteInt32LEToBytes( ref idx, ilCodeByteCount )
+      //               .WriteInt32LEToBytes( ref idx, il.LocalsSignatureIndex.GetOneBasedToken() );
+      //         }
+
+
+      //         // Emit IL code
+      //         foreach ( var info in il.OpCodes )
+      //         {
+      //            EmitOpCodeInfo( info, array, ref idx, userStrings );
+      //         }
+
+      //         // Emit exception block infos
+      //         if ( hasAnyExceptions )
+      //         {
+      //            var processedIndices = new HashSet<Int32>();
+      //            array.ZeroOut( ref idx, BitUtils.MultipleOf4( idx ) - idx );
+      //            var flags = MethodDataFlags.ExceptionHandling;
+      //            if ( exceptionSectionsAreLarge )
+      //            {
+      //               flags |= MethodDataFlags.FatFormat;
+      //            }
+      //            var excCount = exceptionBlocks.Count;
+      //            var maxExceptionHandlersInOneSections = exceptionSectionsAreLarge ? MAX_LARGE_EXC_HANDLERS_IN_ONE_SECTION : MAX_SMALL_EXC_HANDLERS_IN_ONE_SECTION;
+      //            var excBlockSize = exceptionSectionsAreLarge ? LARGE_EXC_BLOCK_SIZE : SMALL_EXC_BLOCK_SIZE;
+      //            var curExcIndex = 0;
+      //            while ( excCount > 0 )
+      //            {
+      //               var amountToBeWritten = Math.Min( excCount, maxExceptionHandlersInOneSections );
+      //               if ( amountToBeWritten < excCount )
+      //               {
+      //                  flags |= MethodDataFlags.MoreSections;
+      //               }
+      //               else
+      //               {
+      //                  flags = flags & ~( MethodDataFlags.MoreSections );
+      //               }
+
+      //               array.WriteByteToBytes( ref idx, (Byte) flags )
+      //                  .WriteInt32LEToBytes( ref idx, amountToBeWritten * excBlockSize + METHOD_DATA_SECTION_HEADER_SIZE );
+      //               --idx;
+
+      //               // Subtract this here since amountToBeWritten will change
+      //               excCount -= amountToBeWritten;
+
+      //               if ( exceptionSectionsAreLarge )
+      //               {
+      //                  while ( amountToBeWritten > 0 )
+      //                  {
+      //                     // Write large exc
+      //                     var block = exceptionBlocks[curExcIndex];
+      //                     array.WriteInt32LEToBytes( ref idx, (Int32) block.BlockType )
+      //                     .WriteInt32LEToBytes( ref idx, block.TryOffset )
+      //                     .WriteInt32LEToBytes( ref idx, block.TryLength )
+      //                     .WriteInt32LEToBytes( ref idx, block.HandlerOffset )
+      //                     .WriteInt32LEToBytes( ref idx, block.HandlerLength )
+      //                     .WriteInt32LEToBytes( ref idx, block.BlockType != ExceptionBlockType.Filter ? block.ExceptionType.GetOneBasedToken() : block.FilterOffset );
+      //                     ++curExcIndex;
+      //                     --amountToBeWritten;
+      //                  }
+      //               }
+      //               else
+      //               {
+      //                  while ( amountToBeWritten > 0 )
+      //                  {
+      //                     var block = exceptionBlocks[curExcIndex];
+      //                     // Write small exception
+      //                     array.WriteInt16LEToBytes( ref idx, (Int16) block.BlockType )
+      //                        .WriteUInt16LEToBytes( ref idx, (UInt16) block.TryOffset )
+      //                        .WriteByteToBytes( ref idx, (Byte) block.TryLength )
+      //                        .WriteUInt16LEToBytes( ref idx, (UInt16) block.HandlerOffset )
+      //                        .WriteByteToBytes( ref idx, (Byte) block.HandlerLength )
+      //                        .WriteInt32LEToBytes( ref idx, block.BlockType != ExceptionBlockType.Filter ? block.ExceptionType.GetOneBasedToken() : block.FilterOffset );
+      //                     ++curExcIndex;
+      //                     --amountToBeWritten;
+      //                  }
+      //               }
+
+      //            }
+
+      //         }
+
+      //#if DEBUG
+      //         if ( idx != wholeMethodByteCount )
+      //         {
+      //            throw new Exception( "Something went wrong when emitting method headers and body. Emitted " + idx + " bytes, but was supposed to emit " + wholeMethodByteCount + " bytes." );
+      //         }
+      //#endif
+
+      //         return idx;
+      //      }
+
+      //      protected static void EmitOpCodeInfo(
+      //         OpCodeInfo codeInfo,
+      //         Byte[] array,
+      //         ref Int32 idx,
+      //         WriterStringStreamHandler usersStrings
+      //         )
+      //      {
+      //         const Int32 USER_STRING_MASK = 0x70 << 24;
+
+      //         var code = codeInfo.OpCode;
+
+      //         if ( code.Size > 1 )
+      //         {
+      //            array.WriteByteToBytes( ref idx, code.Byte1 );
+      //         }
+      //         array.WriteByteToBytes( ref idx, code.Byte2 );
+
+      //         var operandType = code.OperandType;
+      //         if ( operandType != OperandType.InlineNone )
+      //         {
+      //            Int32 i32;
+      //            switch ( operandType )
+      //            {
+      //               case OperandType.ShortInlineI:
+      //               case OperandType.ShortInlineVar:
+      //                  array.WriteByteToBytes( ref idx, (Byte) ( (OpCodeInfoWithInt32) codeInfo ).Operand );
+      //                  break;
+      //               case OperandType.ShortInlineBrTarget:
+      //                  i32 = ( (OpCodeInfoWithInt32) codeInfo ).Operand;
+      //                  array.WriteByteToBytes( ref idx, (Byte) i32 );
+      //                  break;
+      //               case OperandType.ShortInlineR:
+      //                  array.WriteSingleLEToBytes( ref idx, (Single) ( (OpCodeInfoWithSingle) codeInfo ).Operand );
+      //                  break;
+      //               case OperandType.InlineBrTarget:
+      //                  i32 = ( (OpCodeInfoWithInt32) codeInfo ).Operand;
+      //                  array.WriteInt32LEToBytes( ref idx, i32 );
+      //                  break;
+      //               case OperandType.InlineI:
+      //                  array.WriteInt32LEToBytes( ref idx, ( (OpCodeInfoWithInt32) codeInfo ).Operand );
+      //                  break;
+      //               case OperandType.InlineVar:
+      //                  array.WriteInt16LEToBytes( ref idx, (Int16) ( (OpCodeInfoWithInt32) codeInfo ).Operand );
+      //                  break;
+      //               case OperandType.InlineR:
+      //                  array.WriteDoubleLEToBytes( ref idx, (Double) ( (OpCodeInfoWithDouble) codeInfo ).Operand );
+      //                  break;
+      //               case OperandType.InlineI8:
+      //                  array.WriteInt64LEToBytes( ref idx, (Int64) ( (OpCodeInfoWithInt64) codeInfo ).Operand );
+      //                  break;
+      //               case OperandType.InlineString:
+      //                  array.WriteInt32LEToBytes( ref idx, usersStrings.RegisterString( ( (OpCodeInfoWithString) codeInfo ).Operand ) | USER_STRING_MASK );
+      //                  break;
+      //               case OperandType.InlineField:
+      //               case OperandType.InlineMethod:
+      //               case OperandType.InlineType:
+      //               case OperandType.InlineTok:
+      //               case OperandType.InlineSig:
+      //                  var tIdx = ( (OpCodeInfoWithToken) codeInfo ).Operand;
+      //                  array.WriteInt32LEToBytes( ref idx, tIdx.OneBasedToken );
+      //                  break;
+      //               case OperandType.InlineSwitch:
+      //                  var offsets = ( (OpCodeInfoWithSwitch) codeInfo ).Offsets;
+      //                  array.WriteInt32LEToBytes( ref idx, offsets.Count );
+      //                  foreach ( var offset in offsets )
+      //                  {
+      //                     array.WriteInt32LEToBytes( ref idx, offset );
+      //                  }
+      //                  break;
+      //               default:
+      //                  throw new ArgumentException( "Unknown operand type: " + code.OperandType + " for " + code + "." );
+      //            }
+      //         }
+      //      }
+
+      //      protected static Int32 CalculateByteSizeForMethod(
+      //         MethodILDefinition methodIL,
+      //         LocalVariablesSignature localSig,
+      //         Int64 currentStreamPosition,
+      //         out Boolean isTinyHeader,
+      //         out Boolean exceptionSectionsAreLarge,
+      //         out Int32 wholeMethodByteCount,
+      //         out Int32 startIndex
+      //         )
+      //      {
+      //         // Start by calculating the size of just IL code
+      //         var arraySize = methodIL.OpCodes.Sum( oci => oci.GetTotalByteCount() );
+      //         var ilCodeByteCount = arraySize;
+
+      //         // Then calculate the size of headers and other stuff
+      //         var exceptionBlocks = methodIL.ExceptionBlocks;
+      //         // PEVerify doesn't like mixed small and fat blocks at all (however, at least Cecil understands that kind of situation)
+      //         // Apparently, PEVerify doesn't like multiple small blocks either (Cecil still loads code fine)
+      //         // So to use small exception blocks at all, all the blocks must be small, and there must be a limited amount of them
+      //         var allAreSmall = exceptionBlocks.Count <= MAX_SMALL_EXC_HANDLERS_IN_ONE_SECTION
+      //            && exceptionBlocks.All( excBlock =>
+      //            {
+      //               return excBlock.TryLength <= Byte.MaxValue
+      //                  && excBlock.HandlerLength <= Byte.MaxValue
+      //                  && excBlock.TryOffset <= UInt16.MaxValue
+      //                  && excBlock.HandlerOffset <= UInt16.MaxValue;
+      //            } );
+
+      //         var maxStack = methodIL.MaxStackSize;
+
+      //         var excCount = exceptionBlocks.Count;
+      //         var hasAnyExc = excCount > 0;
+      //         isTinyHeader = arraySize < 64
+      //            && !hasAnyExc
+      //            && maxStack <= 8
+      //            && ( localSig == null || localSig.Locals.Count == 0 );
+
+      //         if ( isTinyHeader )
+      //         {
+      //            // Can use tiny header
+      //            ++arraySize;
+      //         }
+      //         else
+      //         {
+      //            // Use fat header
+      //            arraySize += FAT_HEADER_SIZE;
+      //            if ( hasAnyExc )
+      //            {
+      //               // Skip to next boundary of 4
+      //               arraySize = BitUtils.MultipleOf4( arraySize );
+      //               var excBlockSize = allAreSmall ? SMALL_EXC_BLOCK_SIZE : LARGE_EXC_BLOCK_SIZE;
+      //               var maxExcHandlersInOnSection = allAreSmall ? MAX_SMALL_EXC_HANDLERS_IN_ONE_SECTION : MAX_LARGE_EXC_HANDLERS_IN_ONE_SECTION;
+      //               arraySize += BinaryUtils.AmountOfPagesTaken( excCount, maxExcHandlersInOnSection ) * METHOD_DATA_SECTION_HEADER_SIZE +
+      //                  excCount * excBlockSize;
+      //            }
+      //         }
+
+      //         exceptionSectionsAreLarge = hasAnyExc && !allAreSmall;
+
+      //         wholeMethodByteCount = arraySize;
+
+      //         if ( !isTinyHeader )
+      //         {
+      //            // Non-tiny headers must start at 4-byte boundary
+      //            startIndex = (Int32) ( currentStreamPosition.RoundUpI64( 4 ) - currentStreamPosition );
+      //            wholeMethodByteCount += startIndex;
+      //         }
+      //         else
+      //         {
+      //            startIndex = 0;
+      //         }
+
+      //         return ilCodeByteCount;
+      //      }
 
       protected virtual Int32 WriteConstant(
          RowRawValueExtractionArguments args,
@@ -1318,7 +1889,7 @@ namespace CILAssemblyManipulator.Physical.IO
       public virtual void WriteStream(
          Stream sink,
          ResizableArray<Byte> array,
-         RawValueStorage<Int64> rawValuesBeforeStreams,
+         RawValueProvider rawValueProvder,
          RVAConverter rvaConverter
          )
       {
@@ -1727,7 +2298,6 @@ namespace CILAssemblyManipulator.Physical.IO
 
 
       public RawValueStorage<Int32> FillHeaps(
-         RawValueStorage<Int64> rawValuesBeforeStreams,
          ArrayQuery<Byte> thisAssemblyPublicKeyIfPresentNull,
          WriterMetaDataStreamContainer mdStreams,
          ResizableArray<Byte> array,
@@ -1762,7 +2332,7 @@ namespace CILAssemblyManipulator.Physical.IO
       public void WriteStream(
          Stream sink,
          ResizableArray<Byte> array,
-         RawValueStorage<Int64> rawValuesBeforeStreams,
+         RawValueProvider rawValueProvder,
          RVAConverter rvaConverter
          )
       {
@@ -1787,7 +2357,7 @@ namespace CILAssemblyManipulator.Physical.IO
                var byteArray = array.Array;
                var valIdx = 0;
                var arrayIdx = 0;
-               foreach ( var rawValue in info.GetAllRawValues( table, rawValuesBeforeStreams, heapIndices, rvaConverter ) )
+               foreach ( var rawValue in info.GetAllRawValues( table, rawValueProvder, heapIndices, rvaConverter ) )
                {
                   var col = cols[valIdx % cols.Count];
                   col.WriteValue( byteArray, arrayIdx, rawValue );

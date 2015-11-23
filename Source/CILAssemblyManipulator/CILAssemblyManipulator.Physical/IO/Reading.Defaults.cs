@@ -772,23 +772,7 @@ namespace CILAssemblyManipulator.Physical.IO
 
    public partial class DefaultMetaDataSerializationSupportProvider
    {
-      [Flags]
-      private enum MethodHeaderFlags
-      {
-         TinyFormat = 0x2,
-         FatFormat = 0x3,
-         MoreSections = 0x8,
-         InitLocals = 0x10
-      }
 
-      [Flags]
-      private enum MethodDataFlags
-      {
-         ExceptionHandling = 0x1,
-         OptimizeILTable = 0x2,
-         FatFormat = 0x40,
-         MoreSections = 0x80
-      }
 
       protected virtual MethodILDefinition DeserializeIL(
          RawValueProcessingArgs args,

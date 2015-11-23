@@ -453,6 +453,11 @@ namespace CILAssemblyManipulator.Physical.IO
          RawValueStorage<Int32> storage
          );
 
+      IEnumerable<SectionPartWithRVAs> CreateRawValueSectionParts(
+         CILMetaData md,
+         WriterMetaDataStreamContainer mdStreamContainer
+         );
+
 
       void ExtractTableRawValues(
          CILMetaData md,
@@ -472,7 +477,7 @@ namespace CILAssemblyManipulator.Physical.IO
 
       IEnumerable<Int32> GetAllRawValues(
          MetaDataTable table,
-         RawValueStorage<Int64> previousRawValues,
+         RawValueProvider rawValueProvder,
          RawValueStorage<Int32> heapIndices,
          RVAConverter rvaConverter
          );
