@@ -162,7 +162,7 @@ namespace CommonUtils
          }
          set
          {
-            if ( value < 0 || value >= this.Length )
+            if ( value < 0 || value > this.Length )
             {
                throw new ArgumentException( "New position is invalid" );
             }
@@ -186,8 +186,8 @@ namespace CommonUtils
          {
             this._stream.Position = this._start + cur;
             count = this._stream.Read( buffer, offset, count );
+            this._position += count;
          }
-         this._position += count;
          return count;
       }
 

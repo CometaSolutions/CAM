@@ -493,6 +493,11 @@ namespace CILAssemblyManipulator.Physical.IO
          return unchecked((Int32) ( ( 17 * 23 + this.RVA ) * 23 + this.Size ));
       }
 
+      public override String ToString()
+      {
+         return "[" + this.RVA + ";" + this.Size + "]";
+      }
+
       public Boolean Equals( DataDirectory other )
       {
          return this.RVA == other.RVA && this.Size == other.Size;
@@ -1552,7 +1557,7 @@ public static partial class E_CILPhysical
 
    public static FileHeaderCharacteristics GetDefaultCharacteristics( this ImageFileMachine machine )
    {
-      return FileHeaderCharacteristics.ExecutableImage | ( machine.RequiresPE64() ? FileHeaderCharacteristics.ExecutableImage : FileHeaderCharacteristics.Machine32Bit );
+      return FileHeaderCharacteristics.ExecutableImage | FileHeaderCharacteristics.LargeAddressAware; //  ( machine.RequiresPE64() ? FileHeaderCharacteristics.ExecutableImage : FileHeaderCharacteristics.Machine32Bit );
    }
 
    public static Boolean IsDLL( this FileHeaderCharacteristics characteristics )

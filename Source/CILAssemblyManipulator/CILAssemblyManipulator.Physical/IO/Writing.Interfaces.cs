@@ -205,7 +205,7 @@ namespace CILAssemblyManipulator.Physical.IO
 
       //public Int64? OffsetAfterInitialRawValues { get; set; }
 
-      public Int64? EntryPointOffset { get; set; }
+      public Int32? EntryPointRVA { get; set; }
 
       //public Tuple<Int64, Int32> EmbeddedManifestResourcesInfo { get; set; }
 
@@ -404,7 +404,6 @@ public static partial class E_CILPhysical
                machine.CreateOptionalHeader(
                   peOptions,
                   status,
-                  rvaConverter,
                   sections,
                   (UInt32) headersSize
                   )
@@ -417,8 +416,8 @@ public static partial class E_CILPhysical
             mdRoot,
             thHeader,
             cf.NewArrayProxy( snSignature ).CQ,
-            null,
-            null
+            rawValueProvider.GetRawValuesFor( Tables.MethodDef, 0 ).Select( r => (UInt32) r ).ToArrayProxy().CQ,
+            rawValueProvider.GetRawValuesFor( Tables.FieldRVA, 0 ).Select( r => (UInt32) r ).ToArrayProxy().CQ
             )
          );
       writer.WritePEInformation( stream, array, status, imageInfo.PEInformation );
@@ -608,7 +607,7 @@ public static partial class E_CILPhysical
 
    private static Int32 CreateNewPETimestamp()
    {
-      return (Int32) ( DateTime.UtcNow - new DateTime( 1870, 1, 1, 0, 0, 0, DateTimeKind.Utc ) ).TotalSeconds;
+      return (Int32) ( DateTime.UtcNow - new DateTime( 1970, 1, 1, 0, 0, 0, DateTimeKind.Utc ) ).TotalSeconds;
    }
 
    private static UInt16 GetOptionalHeaderSize( this ImageFileMachine machine )
@@ -632,7 +631,6 @@ public static partial class E_CILPhysical
       this ImageFileMachine machine,
       WritingOptions_PE options,
       WritingStatus writingStatus,
-      RVAConverter rvaConverter,
       ArrayQuery<SectionHeader> sections,
       UInt32 headersSize
       )
@@ -645,7 +643,7 @@ public static partial class E_CILPhysical
       const Int16 userMinor = 0x0000;
       const Int16 subsystemMajor = 0x0004;
       const Int16 subsystemMinor = 0x0000;
-      const Subsystem subsystem = Subsystem.WindowsGUI;
+      const Subsystem subsystem = Subsystem.WindowsConsole;
       const DLLFlags dllFlags = DLLFlags.DynamicBase | DLLFlags.NXCompatible | DLLFlags.NoSEH | DLLFlags.TerminalServerAware;
 
       // Calculate various sizes in one iteration of sections
@@ -693,7 +691,7 @@ public static partial class E_CILPhysical
          imageSize += curSize.RoundUpU32( sAlign );
       }
 
-      var ep = rvaConverter.ToRVANullable( writingStatus.EntryPointOffset );
+      var ep = (UInt32) writingStatus.EntryPointRVA.GetValueOrDefault();
       var imageBase = writingStatus.ImageBase;
 
       if ( machine.RequiresPE64() )

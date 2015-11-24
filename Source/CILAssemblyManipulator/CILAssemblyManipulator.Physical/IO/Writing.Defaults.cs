@@ -197,7 +197,7 @@ namespace CILAssemblyManipulator.Physical.IO
       {
          cliHeader = null;
          var allParts = this._sections.SelectMany( s => s.PartInfos.Select( p => p.Part ) ).ToArrayProxy().CQ;
-         var partInfos = this._sections.SelectMany( s => s.PartInfos ).ToDictionary( i => i.Part, i => i ).ToDictionaryProxy().CQ;
+         var partInfos = this._sections.SelectMany( s => s.PartInfos ).ToDictionary( i => i.Part, i => i, ReferenceEqualityComparer<SectionPart>.ReferenceBasedComparer ).ToDictionaryProxy().CQ;
 
          foreach ( var section in this._sections )
          {
@@ -209,7 +209,7 @@ namespace CILAssemblyManipulator.Physical.IO
                foreach ( var partLayout in parts.TakeWhile( p => !( p.Part is SectionPart_MetaData ) ) )
                {
                   // Write to ResizableArray
-                  this.WritePart( partLayout, array, rvaConverter, stream, allParts, partInfos );
+                  this.WritePart( partLayout, array, rvaConverter, stream, allParts, partInfos, writingStatus );
                   ++idx;
 
                   // Check for CLI Header
@@ -256,7 +256,7 @@ namespace CILAssemblyManipulator.Physical.IO
          )
       {
          var allParts = this._sections.SelectMany( s => s.PartInfos.Select( p => p.Part ) ).ToArrayProxy().CQ;
-         var partInfos = this._sections.SelectMany( s => s.PartInfos ).ToDictionary( i => i.Part, i => i ).ToDictionaryProxy().CQ;
+         var partInfos = this._sections.SelectMany( s => s.PartInfos ).ToDictionary( i => i.Part, i => i, ReferenceEqualityComparer<SectionPart>.ReferenceBasedComparer ).ToDictionaryProxy().CQ;
 
 
          var mdEncountered = false;
@@ -271,7 +271,7 @@ namespace CILAssemblyManipulator.Physical.IO
                {
                   if ( mdEncountered )
                   {
-                     this.WritePart( partLayout, array, rvaConverter, stream, allParts, partInfos );
+                     this.WritePart( partLayout, array, rvaConverter, stream, allParts, partInfos, writingStatus );
                   }
                   else
                   {
@@ -300,9 +300,12 @@ namespace CILAssemblyManipulator.Physical.IO
          )
       {
          // PE information
-         stream.Position = 0;
-         array.CurrentMaxCapacity = writingStatus.HeadersSizeUnaligned;
+         var headersSize = writingStatus.HeadersSizeUnaligned;
+         array.CurrentMaxCapacity = headersSize;
          peInfo.WritePEinformation( array );
+
+         stream.Position = 0;
+         stream.Write( array.Array, headersSize );
       }
 
       protected CILMetaData MetaData { get; }
@@ -488,7 +491,8 @@ namespace CILAssemblyManipulator.Physical.IO
          RVAConverter rvaConverter,
          Stream stream,
          ArrayQuery<SectionPart> allParts,
-         DictionaryQuery<SectionPart, SectionPartInfo> partInfos
+         DictionaryQuery<SectionPart, SectionPartInfo> partInfos,
+         WritingStatus writingStatus
          )
       {
          // Write to ResizableArray
@@ -500,7 +504,8 @@ namespace CILAssemblyManipulator.Physical.IO
             partLayout.Offset,
             allParts,
             partInfos,
-            rvaConverter
+            rvaConverter,
+            writingStatus
             ) );
       }
 
@@ -1221,7 +1226,8 @@ namespace CILAssemblyManipulator.Physical.IO
          Int64 currentOffset,
          ArrayQuery<SectionPart> allParts,
          DictionaryQuery<SectionPart, SectionPartInfo> partInfos,
-         RVAConverter rvaConverter
+         RVAConverter rvaConverter,
+         WritingStatus writingStatus
          )
       {
          ArgumentValidator.ValidateNotNull( "Stream", stream );
@@ -1229,6 +1235,7 @@ namespace CILAssemblyManipulator.Physical.IO
          ArgumentValidator.ValidateNotNull( "All parts", allParts );
          ArgumentValidator.ValidateNotNull( "Part infos", partInfos );
          ArgumentValidator.ValidateNotNull( "RVA converter", rvaConverter );
+         ArgumentValidator.ValidateNotNull( "Writing status", writingStatus );
 
          this.Stream = stream;
          this.ArrayHelper = array;
@@ -1238,6 +1245,7 @@ namespace CILAssemblyManipulator.Physical.IO
          this.Parts = allParts;
          this.PartInfos = partInfos;
          this.RVAConverter = rvaConverter;
+         this.WritingStatus = writingStatus;
       }
 
       public Stream Stream { get; }
@@ -1255,6 +1263,8 @@ namespace CILAssemblyManipulator.Physical.IO
       public DictionaryQuery<SectionPart, SectionPartInfo> PartInfos { get; }
 
       public RVAConverter RVAConverter { get; }
+
+      public WritingStatus WritingStatus { get; }
    }
 
    public class SectionPartInfo
@@ -1304,6 +1314,9 @@ namespace CILAssemblyManipulator.Physical.IO
          var cliHeader = this.CreateCLIHeader( args );
          cliHeader.WriteCLIHeader( array, ref idx );
          this.CLIHeader = cliHeader;
+
+         args.WritingStatus.PEDataDirectories[(Int32) DataDirectories.CLIHeader] = args.GetDataDirectoryForSectionPart( this );
+
          return true;
       }
 
@@ -1327,11 +1340,11 @@ namespace CILAssemblyManipulator.Physical.IO
                HEADER_SIZE,
                (UInt16) ( cliHeaderOptions.MajorRuntimeVersion ?? 2 ),
                (UInt16) ( cliHeaderOptions.MinorRuntimeVersion ?? 5 ),
-               args.GetDataDirectoryForSection( md ),
+               args.GetDataDirectoryForSectionPart( md ),
                cliHeaderOptions.ModuleFlags ?? ModuleFlags.ILOnly,
                cliHeaderOptions.EntryPointToken,
-               args.GetDataDirectoryForSection( embeddedResources ),
-               args.GetDataDirectoryForSection( snData ),
+               args.GetDataDirectoryForSectionPart( embeddedResources ),
+               args.GetDataDirectoryForSectionPart( snData ),
                default( DataDirectory ), // TODO: customize code manager
                default( DataDirectory ), // TODO: customize vtable fixups
                default( DataDirectory ), // TODO: customize exported address table jumps
@@ -1388,6 +1401,8 @@ namespace CILAssemblyManipulator.Physical.IO
             array
                .WriteInt32LEToBytes( ref idx, importDir.CorMainRVA ) // RVA of _CorDll/ExeMain
                .WriteInt32LEToBytes( ref idx, 0 ); // Terminating entry
+
+            args.WritingStatus.PEDataDirectories[(Int32) DataDirectories.ImportAddressTable] = args.GetDataDirectoryForSectionPart( this );
          }
          return retVal;
       }
@@ -1439,9 +1454,9 @@ namespace CILAssemblyManipulator.Physical.IO
          this._paddingBeforeString = endRVA.RoundUpU32( 0x10 ) - endRVA;
          len += this._paddingBeforeString;
 
-         // _CorDll/ExeMain string
+         // Hint + _CorDll/ExeMain string
          this._corMainRVA = startRVA + len;
-         len += (UInt32) this._functionName.Length + 1; // 0xE
+         len += 2 + (UInt32) this._functionName.Length + 1;
 
          // mscoree string
          this._mscoreeRVA = startRVA + len;
@@ -1493,6 +1508,8 @@ namespace CILAssemblyManipulator.Physical.IO
                // Module data: mscoree.dll
                .WriteASCIIString( ref idx, this._moduleName, true )
                .WriteByteToBytes( ref idx, 0 );
+
+            args.WritingStatus.PEDataDirectories[(Int32) DataDirectories.ImportTable] = args.GetDataDirectoryForSectionPart( this );
          }
 
          return retVal;
@@ -1537,6 +1554,8 @@ namespace CILAssemblyManipulator.Physical.IO
                .ZeroOut( ref idx, PADDING ) // Padding - 2 zero bytes
                .WriteUInt16LEToBytes( ref idx, 0x25FF ) // JMP
                .WriteUInt32LEToBytes( ref idx, this._imageBase + (UInt32) ( args.PartInfos[addressTable].RVA ) ); // First entry of address table = RVA of _CorDll/ExeMain
+
+            args.WritingStatus.EntryPointRVA = (Int32) ( args.PartInfos[this].RVA + this.EntryPointOffset );
          }
          return retVal;
       }
@@ -1566,6 +1585,8 @@ namespace CILAssemblyManipulator.Physical.IO
                .WriteInt32LEToBytes( ref idx, SIZE ) // Block size
                .WriteUInt16LEToBytes( ref idx, (UInt16) ( ( RELOCATION_FIXUP_TYPE << 12 ) | ( rva & RELOCATION_PAGE_MASK ) ) ) // Type (high 4 bits) + Offset (lower 12 bits) + dummy entry (16 bits)
                .WriteUInt16LEToBytes( ref idx, 0 ); // Terminating entry
+
+            args.WritingStatus.PEDataDirectories[(Int32) DataDirectories.BaseRelocationTable] = args.GetDataDirectoryForSectionPart( this );
          }
          return retVal;
       }
@@ -1605,6 +1626,8 @@ namespace CILAssemblyManipulator.Physical.IO
                dbgData.ToArrayProxy().CQ
                )
                .WriteDebugInformation( array, ref idx );
+
+            args.WritingStatus.PEDataDirectories[(Int32) DataDirectories.Debug] = args.GetDataDirectoryForSectionPart( this );
          }
          return retVal;
       }
@@ -2222,7 +2245,7 @@ namespace CILAssemblyManipulator.Physical.IO
 
 public static partial class E_CILPhysical
 {
-   public static DataDirectory GetDataDirectoryForSection( this SectionPartWritingArgs args, SectionPart part )
+   public static DataDirectory GetDataDirectoryForSectionPart( this SectionPartWritingArgs args, SectionPart part )
    {
       return part == null ? default( DataDirectory ) : new DataDirectory( (UInt32) args.PartInfos[part].RVA, (UInt32) args.PartInfos[part].Size );
    }

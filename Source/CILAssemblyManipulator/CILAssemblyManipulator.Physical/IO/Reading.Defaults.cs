@@ -114,7 +114,7 @@ namespace CILAssemblyManipulator.Physical.IO
             case MetaDataConstants.BLOB_STREAM_NAME:
                return new DefaultReaderBLOBStreamHandler( stream, startPosition, size );
             case MetaDataConstants.GUID_STREAM_NAME:
-               return new DefaultReaderGUIDStringStreamHandler( stream, startPosition, size );
+               return new DefaultReaderGUIDStreamHandler( stream, startPosition, size );
             case MetaDataConstants.SYS_STRING_STREAM_NAME:
                return new DefaultReaderSystemStringStreamHandler( stream, startPosition, size );
             case MetaDataConstants.USER_STRING_STREAM_NAME:
@@ -263,7 +263,7 @@ namespace CILAssemblyManipulator.Physical.IO
          return stream;
       }
 
-      protected Boolean CheckHeapOffset( Int32 heapOffset )
+      protected virtual Boolean CheckHeapOffset( Int32 heapOffset )
       {
          return ( (UInt32) heapOffset ) < this.StreamSize;
       }
@@ -637,9 +637,9 @@ namespace CILAssemblyManipulator.Physical.IO
       }
    }
 
-   public class DefaultReaderGUIDStringStreamHandler : AbstractReaderStreamHandlerImplWithCache<Guid?>, ReaderGUIDStreamHandler
+   public class DefaultReaderGUIDStreamHandler : AbstractReaderStreamHandlerImplWithCache<Guid?>, ReaderGUIDStreamHandler
    {
-      public DefaultReaderGUIDStringStreamHandler(
+      public DefaultReaderGUIDStreamHandler(
          StreamHelper stream,
          Int64 startPosition,
          Int32 streamSize
@@ -666,15 +666,20 @@ namespace CILAssemblyManipulator.Physical.IO
          return this.GetValueNoCache( heapIndex );
       }
 
+      //protected override bool CheckHeapOffset( Int32 heapOffset )
+      //{
+      //   return base.CheckHeapOffset( heapOffset * MetaDataConstants.GUID_SIZE );
+      //}
+
       protected override Guid? ValueFactory( Int32 heapOffset )
       {
-         if ( heapOffset == 0 || (UInt32) heapOffset >= this.StreamSize - MetaDataConstants.GUID_SIZE )
+         if ( heapOffset == 0 || (UInt32) heapOffset > this.StreamSize - MetaDataConstants.GUID_SIZE + 1 )
          {
             return null;
          }
          else
          {
-            return new Guid( this.SetStreamToHeapOffset( heapOffset ).ReadAndCreateArray( MetaDataConstants.GUID_SIZE ) );
+            return new Guid( this.SetStreamToHeapOffset( heapOffset - 1 ).ReadAndCreateArray( MetaDataConstants.GUID_SIZE ) );
          }
       }
    }

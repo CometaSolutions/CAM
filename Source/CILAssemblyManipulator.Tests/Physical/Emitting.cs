@@ -93,10 +93,11 @@ namespace CILAssemblyManipulator.Tests.Physical
             md.WriteModule( ms, eArgs );
             bytez = ms.ToArray();
          }
-         //File.WriteAllBytes( "SimpleTestAssembly1.dll", bytez );
+         File.WriteAllBytes( "SimpleTestAssembly1.dll", bytez );
          using ( var ms = new MemoryStream( bytez ) )
          {
             var md2 = ms.ReadModule( null );
+            Assert.IsTrue( Comparers.MetaDataComparer.Equals( md, md2 ) );
          }
          //arrayAction( bytez );
          action( System.Reflection.Assembly.Load( bytez ) );
