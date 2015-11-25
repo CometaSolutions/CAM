@@ -2369,37 +2369,6 @@ namespace CILAssemblyManipulator.Physical
             && Equality_CLIInformation_Logical( x.CLIInformation, y.CLIInformation )
             && Equality_DebugInfo_Logical( x.DebugInformation, y.DebugInformation )
             );
-
-
-
-         //&& x.Machine == y.Machine
-         //&& String.Equals( x.MetaDataVersion, y.MetaDataVersion )
-         //&& String.Equals( x.ImportHintName, y.ImportHintName )
-         //&& x.ModuleFlags == y.ModuleFlags
-         //&& x.DLLFlags == y.DLLFlags
-         //&& NullableEqualityComparer<TableIndex>.DefaultComparer.Equals( x.CLREntryPointIndex, y.CLREntryPointIndex )
-         //&& Equality_DebugInfo( x.DebugInformation, y.DebugInformation )
-         //&& x.ImageBase == y.ImageBase
-         //&& x.FileAlignment == y.FileAlignment
-         //&& x.SectionAlignment == y.SectionAlignment
-         //&& x.StackReserve == y.StackReserve
-         //&& x.StackCommit == y.StackCommit
-         //&& x.HeapReserve == y.HeapReserve
-         //&& x.HeapCommit == y.HeapCommit
-         //&& x.DLLFlags == y.DLLFlags
-         //&& String.Equals( x.ImportDirectoryName, y.ImportDirectoryName )
-         ////&& x.EntryPointInstruction == y.EntryPointInstruction
-         //&& x.LinkerMajor == y.LinkerMajor
-         //&& x.LinkerMinor == y.LinkerMinor
-         //&& x.OSMajor == y.OSMajor
-         //&& x.OSMinor == y.OSMinor
-         //&& x.SubSysMajor == y.SubSysMajor
-         //&& x.SubSysMinor == y.SubSysMinor
-         //&& x.CLIMajor == y.CLIMajor
-         //&& x.CLIMinor == y.CLIMinor
-         //&& x.TableHeapMajor == y.TableHeapMajor
-         //&& x.TableHeapMinor == y.TableHeapMinor
-         //);
       }
 
       private static Boolean Equality_PEInformation_Logical( PEInformation x, PEInformation y )
@@ -2408,7 +2377,6 @@ namespace CILAssemblyManipulator.Physical
             ( x != null && y != null
             && Equality_DOSHeader_Logical( x.DOSHeader, y.DOSHeader )
             && Equality_NTHeader_Logical( x.NTHeader, y.NTHeader )
-            //&& x.SectionHeaders.ArrayQueryEquality( y.SectionHeaders, Equality_SectionHeader_Logical )
             );
       }
 
@@ -2466,11 +2434,6 @@ namespace CILAssemblyManipulator.Physical
             && x.NumberOfDataDirectories == y.NumberOfDataDirectories
             );
       }
-
-      //private static Boolean Equality_SectionHeader_Logical( SectionHeader x, SectionHeader y )
-      //{
-
-      //}
 
       private static Boolean Equality_CLIInformation_Logical( CLIInformation x, CLIInformation y )
       {

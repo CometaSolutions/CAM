@@ -1083,7 +1083,7 @@ namespace CILAssemblyManipulator.Physical
    /// This enumeration is a copy of <see cref="T:System.Runtime.InteropServices.UnmanagedType"/>.
    /// It is present in order to avoid warnings when compiling for Windows Phone 8.1.
    /// </summary>
-   public enum UnmanagedType
+   public enum UnmanagedType : int
    {
       /// <summary>
       /// A 4-byte Boolean value (true != 0, false = 0). This is the Win32 BOOL type.
@@ -1235,6 +1235,8 @@ namespace CILAssemblyManipulator.Physical
       /// A Windows Runtime string. You can use this member on the <see cref="T:System.String" /> data type.
       /// </summary>
       HString,
+      Max = 80,
+      NotPresent = -1,
    }
 
    public enum SignatureStarters : byte
@@ -2247,7 +2249,6 @@ public static partial class E_CILPhysical
          case UnmanagedType.Currency:
          case UnmanagedType.BStr:
          case UnmanagedType.Struct:
-         case UnmanagedType.Interface:
          case UnmanagedType.VBByRefStr:
          case UnmanagedType.AnsiBStr:
          case UnmanagedType.TBStr:

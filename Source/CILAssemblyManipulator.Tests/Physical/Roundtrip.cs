@@ -60,7 +60,7 @@ namespace CILAssemblyManipulator.Tests.Physical
             written = ms.ToArray();
          }
 
-         //File.WriteAllBytes( "mscorlib_gen.dll", written );
+         File.WriteAllBytes( "mscorlib_gen.dll", written );
 
          var rArgs2 = new ReadingArguments();
 

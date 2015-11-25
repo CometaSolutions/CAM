@@ -902,7 +902,7 @@ namespace CILAssemblyManipulator.Physical.IO
          yield return DefaultColumnSerializationInfoFactory.Constant8<RawConstantDefinition, ConstantDefinition>( nameof( RawConstantDefinition.Type ), ( r, v ) => r.Type = (SignatureElementTypes) v, ( args, v ) => args.Row.Type = (SignatureElementTypes) v, row => (Int32) row.Type );
          yield return DefaultColumnSerializationInfoFactory.Constant8<RawConstantDefinition, ConstantDefinition>( nameof( RawConstantDefinition.Padding ), ( r, v ) => r.Padding = (Byte) v, ( args, v ) => { }, row => 0 );
          yield return DefaultColumnSerializationInfoFactory.CodedReference<RawConstantDefinition, ConstantDefinition>( nameof( RawConstantDefinition.Parent ), CodedTableIndexDecoder.HasConstant, ( r, v ) => r.Parent = v, ( args, v ) => args.Row.Parent = v.GetValueOrDefault(), row => row.Parent );
-         yield return DefaultColumnSerializationInfoFactory.BLOBCustom<RawConstantDefinition, ConstantDefinition>( nameof( RawConstantDefinition.Value ), ( r, v ) => r.Value = v, ( args, v, blobs ) => args.Row.Value = blobs.ReadConstantValue( v, args.Row.Type ), args => args.RowArgs.Array.CreateConstantBytes( args.Row.Value ) );
+         yield return DefaultColumnSerializationInfoFactory.BLOBCustom<RawConstantDefinition, ConstantDefinition>( nameof( RawConstantDefinition.Value ), ( r, v ) => r.Value = v, ( args, v, blobs ) => args.Row.Value = blobs.ReadConstantValue( v, args.Row.Type ), args => args.RowArgs.Array.CreateConstantBytes( args.Row.Value, args.Row.Type ) );
       }
 
       protected IEnumerable<DefaultColumnSerializationInfo<RawCustomAttributeDefinition, CustomAttributeDefinition>> GetCustomAttributeColumns()
@@ -1573,6 +1573,12 @@ public static partial class E_CILPhysical
    private const Int32 UINT_ONE_BYTE_MAX = 0x7F;
    private const Int32 UINT_TWO_BYTES_MAX = 0x3FFF;
    private const Int32 UINT_FOUR_BYTES_MAX = 0x1FFFFFFF;
+
+   internal static Int32 DecompressUInt32OrDefault( this StreamHelper stream, Int32 defaultValue )
+   {
+      Int32 value;
+      return stream.DecompressUInt32( out value ) ? value : defaultValue;
+   }
 
    internal static Boolean DecompressUInt32( this StreamHelper stream, out Int32 value, Boolean acceptErraneous = true )
    {

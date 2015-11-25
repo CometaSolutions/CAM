@@ -1038,11 +1038,12 @@ public static partial class E_CILPhysical
          info.CreateMethodSignature( (MethodReferenceSignature) sig );
    }
 
-   internal static Byte[] CreateConstantBytes( this ResizableArray<Byte> info, Object constant )
+   internal static Byte[] CreateConstantBytes( this ResizableArray<Byte> info, Object constant, SignatureElementTypes elementType )
    {
       var idx = 0;
-      info.WriteConstantValue( ref idx, constant );
-      return info.Array.CreateArrayCopy( idx );
+      return info.WriteConstantValue( ref idx, constant, elementType ) ?
+         info.Array.CreateArrayCopy( idx ) :
+         null;
    }
 
    internal static Byte[] CreateLocalsSignature( this ResizableArray<Byte> info, LocalVariablesSignature sig )
@@ -1081,8 +1082,9 @@ public static partial class E_CILPhysical
    internal static Byte[] CreateMarshalSpec( this ResizableArray<Byte> info, MarshalingInfo marshal )
    {
       var idx = 0;
-      info.WriteMarshalInfo( ref idx, marshal );
-      return info.Array.CreateArrayCopy( idx );
+      return info.WriteMarshalInfo( ref idx, marshal ) ?
+         info.Array.CreateArrayCopy( idx ) :
+         null;
    }
 
    internal static Byte[] CreateSecuritySignature( this ResizableArray<Byte> info, List<AbstractSecurityInformation> permissions, ResizableArray<Byte> aux )
@@ -1303,69 +1305,75 @@ public static partial class E_CILPhysical
       return info;
    }
 
-   private static void WriteConstantValue( this ResizableArray<Byte> info, ref Int32 idx, Object constant )
+   private static Boolean WriteConstantValue( this ResizableArray<Byte> info, ref Int32 idx, Object constant, SignatureElementTypes elementType )
    {
+      var retVal = true;
       if ( constant == null )
       {
-         info.WriteInt32LEToBytes( ref idx, 0 );
+         retVal = elementType != SignatureElementTypes.String;
+         if ( retVal )
+         {
+            info.WriteInt32LEToBytes( ref idx, 0 );
+         }
       }
       else
       {
-         switch ( Type.GetTypeCode( constant.GetType() ) )
-         {
-            case TypeCode.Boolean:
-               info.WriteByteToBytes( ref idx, Convert.ToBoolean( constant ) ? (Byte) 1 : (Byte) 0 );
-               break;
-            case TypeCode.SByte:
-               info.WriteSByteToBytes( ref idx, Convert.ToSByte( constant ) );
-               break;
-            case TypeCode.Byte:
-               info.WriteByteToBytes( ref idx, Convert.ToByte( constant ) );
-               break;
-            case TypeCode.Char:
-               info.WriteUInt16LEToBytes( ref idx, Convert.ToUInt16( Convert.ToChar( constant ) ) );
-               break;
-            case TypeCode.Int16:
-               info.WriteInt16LEToBytes( ref idx, Convert.ToInt16( constant ) );
-               break;
-            case TypeCode.UInt16:
-               info.WriteUInt16LEToBytes( ref idx, Convert.ToUInt16( constant ) );
-               break;
-            case TypeCode.Int32:
-               info.WriteInt32LEToBytes( ref idx, Convert.ToInt32( constant ) );
-               break;
-            case TypeCode.UInt32:
-               info.WriteUInt32LEToBytes( ref idx, Convert.ToUInt32( constant ) );
-               break;
-            case TypeCode.Int64:
-               info.WriteInt64LEToBytes( ref idx, Convert.ToInt64( constant ) );
-               break;
-            case TypeCode.UInt64:
-               info.WriteUInt64LEToBytes( ref idx, Convert.ToUInt64( constant ) );
-               break;
-            case TypeCode.Single:
-               info.WriteSingleLEToBytes( ref idx, Convert.ToSingle( constant ) );
-               break;
-            case TypeCode.Double:
-               info.WriteDoubleLEToBytes( ref idx, Convert.ToDouble( constant ) );
-               break;
-            case TypeCode.String:
-               var str = Convert.ToString( constant );
-               if ( str == null )
-               {
-                  info.WriteByteToBytes( ref idx, 0x00 );
-               }
-               else
-               {
-                  var size = MetaDataConstants.USER_STRING_ENCODING.GetByteCount( str );
-                  info.EnsureThatCanAdd( idx, size );
-                  idx += MetaDataConstants.USER_STRING_ENCODING.GetBytes( str, 0, str.Length, info.Array, idx );
-               }
-               break;
-            default:
-               info.WriteInt32LEToBytes( ref idx, 0 );
-               break;
-         }
+         info.WriteConstantValueNotNull( ref idx, constant );
+      }
+
+      return retVal;
+   }
+
+   private static void WriteConstantValueNotNull( this ResizableArray<Byte> info, ref Int32 idx, Object constant )
+   {
+
+      switch ( Type.GetTypeCode( constant.GetType() ) )
+      {
+         case TypeCode.Boolean:
+            info.WriteByteToBytes( ref idx, Convert.ToBoolean( constant ) ? (Byte) 1 : (Byte) 0 );
+            break;
+         case TypeCode.SByte:
+            info.WriteSByteToBytes( ref idx, Convert.ToSByte( constant ) );
+            break;
+         case TypeCode.Byte:
+            info.WriteByteToBytes( ref idx, Convert.ToByte( constant ) );
+            break;
+         case TypeCode.Char:
+            info.WriteUInt16LEToBytes( ref idx, Convert.ToUInt16( Convert.ToChar( constant ) ) );
+            break;
+         case TypeCode.Int16:
+            info.WriteInt16LEToBytes( ref idx, Convert.ToInt16( constant ) );
+            break;
+         case TypeCode.UInt16:
+            info.WriteUInt16LEToBytes( ref idx, Convert.ToUInt16( constant ) );
+            break;
+         case TypeCode.Int32:
+            info.WriteInt32LEToBytes( ref idx, Convert.ToInt32( constant ) );
+            break;
+         case TypeCode.UInt32:
+            info.WriteUInt32LEToBytes( ref idx, Convert.ToUInt32( constant ) );
+            break;
+         case TypeCode.Int64:
+            info.WriteInt64LEToBytes( ref idx, Convert.ToInt64( constant ) );
+            break;
+         case TypeCode.UInt64:
+            info.WriteUInt64LEToBytes( ref idx, Convert.ToUInt64( constant ) );
+            break;
+         case TypeCode.Single:
+            info.WriteSingleLEToBytes( ref idx, Convert.ToSingle( constant ) );
+            break;
+         case TypeCode.Double:
+            info.WriteDoubleLEToBytes( ref idx, Convert.ToDouble( constant ) );
+            break;
+         case TypeCode.String:
+            var str = Convert.ToString( constant );
+            var size = MetaDataConstants.USER_STRING_ENCODING.GetByteCount( str );
+            info.EnsureThatCanAdd( idx, size );
+            idx += MetaDataConstants.USER_STRING_ENCODING.GetBytes( str, 0, str.Length, info.Array, idx );
+            break;
+         default:
+            info.WriteInt32LEToBytes( ref idx, 0 );
+            break;
       }
    }
 
@@ -1536,13 +1544,13 @@ public static partial class E_CILPhysical
             }
             break;
          case CustomAttributeArgumentTypeKind.TypeString:
-            if ( arg == null )
+            // TODO check for invalid types (bool, char, single, double, string, any other non-primitive)
+            var valueToWrite = arg is CustomAttributeValue_EnumReference ? ( (CustomAttributeValue_EnumReference) arg ).EnumValue : arg;
+            if ( valueToWrite == null )
             {
                throw new InvalidOperationException( "Tried to serialize null as enum." );
             }
-            // TODO check for invalid types (bool, char, single, double, string, any other non-primitive)
-            var valueToWrite = arg is CustomAttributeValue_EnumReference ? ( (CustomAttributeValue_EnumReference) arg ).EnumValue : arg;
-            info.WriteConstantValue( ref idx, valueToWrite );
+            info.WriteConstantValueNotNull( ref idx, valueToWrite );
             break;
       }
 
@@ -1734,61 +1742,82 @@ public static partial class E_CILPhysical
       return info;
    }
 
-   private static ResizableArray<Byte> WriteMarshalInfo( this ResizableArray<Byte> info, ref Int32 idx, MarshalingInfo marshal )
+   private static Boolean WriteMarshalInfo( this ResizableArray<Byte> info, ref Int32 idx, MarshalingInfo marshal )
    {
-      if ( marshal != null )
+      var retVal = marshal != null;
+      if ( retVal )
       {
          info.AddCompressedUInt32( ref idx, (Int32) marshal.Value );
          if ( !marshal.Value.IsNativeInstric() )
          {
             // Apparently Microsoft's implementation differs from ECMA-335 standard:
             // there the index of first parameter is 1, here all indices are zero-based.
+            var canWrite = true;
+            Int32 tmp; String tmpString;
             switch ( (UnmanagedType) marshal.Value )
             {
                case UnmanagedType.ByValTStr:
-                  info.AddCompressedUInt32( ref idx, marshal.ConstSize );
+                  if ( IsMarshalSizeValid( ( tmp = marshal.ConstSize ) ) )
+                  {
+                     info.AddCompressedUInt32( ref idx, tmp );
+                  }
                   break;
+               case UnmanagedType.Interface:
                case UnmanagedType.IUnknown:
                case UnmanagedType.IDispatch:
-                  if ( marshal.IIDParameterIndex >= 0 )
+                  if ( IsMarshalIndexValid( ( tmp = marshal.IIDParameterIndex ) ) )
                   {
-                     info.AddCompressedUInt32( ref idx, marshal.IIDParameterIndex );
+                     info.AddCompressedUInt32( ref idx, tmp );
                   }
                   break;
                case UnmanagedType.SafeArray:
-                  if ( marshal.SafeArrayType != VarEnum.VT_EMPTY )
+                  if ( CanWriteNextMarshalElement( ( tmp = (Int32) marshal.SafeArrayType ) != 0, ref canWrite ) )
                   {
-                     info.AddCompressedUInt32( ref idx, (Int32) marshal.SafeArrayType );
-                     if ( VarEnum.VT_USERDEFINED == marshal.SafeArrayType )
-                     {
-                        info.AddCAString( ref idx, marshal.SafeArrayUserDefinedType );
-                     }
+                     info.AddCompressedUInt32( ref idx, tmp );
+                  }
+                  if ( CanWriteNextMarshalElement( ( tmpString = marshal.SafeArrayUserDefinedType ) != null, ref canWrite )
+                     )
+                  {
+                     info.AddCAString( ref idx, tmpString );
                   }
                   break;
                case UnmanagedType.ByValArray:
-                  info.AddCompressedUInt32( ref idx, marshal.ConstSize );
-                  if ( marshal.ArrayType != MarshalingInfo.NATIVE_TYPE_MAX )
+                  if ( CanWriteNextMarshalElement( IsMarshalSizeValid( ( tmp = marshal.ConstSize ) ), ref canWrite ) )
+                  {
+                     info.AddCompressedUInt32( ref idx, tmp );
+                  }
+                  if ( CanWriteNextMarshalElement( IsUnmanagedTypeValid( ( tmp = (Int32) marshal.ArrayType ) ), ref canWrite ) )
                   {
                      info.AddCompressedUInt32( ref idx, (Int32) marshal.ArrayType );
                   }
                   break;
                case UnmanagedType.LPArray:
-                  var hasSize = marshal.SizeParameterIndex != MarshalingInfo.NO_INDEX;
-                  info
-                     .AddCompressedUInt32( ref idx, (Int32) marshal.ArrayType )
-                     .AddCompressedUInt32( ref idx, hasSize ? marshal.SizeParameterIndex : 0 );
-                  if ( marshal.ConstSize != MarshalingInfo.NO_INDEX )
+                  var flags = 0;
+                  var writeFlags = false;
+                  if ( CanWriteNextMarshalElement( IsUnmanagedTypeValid( ( tmp = (Int32) marshal.ArrayType ) ), ref canWrite ) )
                   {
-                     info
-                        .AddCompressedUInt32( ref idx, marshal.ConstSize )
-                        .AddCompressedUInt32( ref idx, hasSize ? 1 : 0 ); // Indicate whether size-parameter was specified
+                     info.AddCompressedUInt32( ref idx, tmp );
+                  }
+                  if ( CanWriteNextMarshalElement( IsMarshalIndexValid( ( tmp = marshal.SizeParameterIndex ) ), ref canWrite ) )
+                  {
+                     flags = 1;
+                     info.AddCompressedUInt32( ref idx, tmp );
+                  }
+                  if ( CanWriteNextMarshalElement( IsMarshalSizeValid( ( tmp = marshal.ConstSize ) ), ref canWrite ) )
+                  {
+                     info.AddCompressedUInt32( ref idx, tmp );
+                     writeFlags = true;
+                  }
+                  if ( CanWriteNextMarshalElement( writeFlags, ref canWrite ) )
+                  {
+                     info.AddCompressedUInt32( ref idx, flags );
                   }
                   break;
                case UnmanagedType.CustomMarshaler:
-                  // For some reason, there are two compressed ints at this point
+                  // TODO get GUID and native type name strings
                   info
-                     .AddCompressedUInt32( ref idx, 0 )
-                     .AddCompressedUInt32( ref idx, 0 )
+                     .AddCAString( ref idx, "" )
+                     .AddCAString( ref idx, "" )
                      .AddCAString( ref idx, marshal.MarshalType )
                      .AddCAString( ref idx, marshal.MarshalCookie ?? "" );
                   break;
@@ -1798,7 +1827,39 @@ public static partial class E_CILPhysical
          }
       }
 
-      return info;
+      return retVal;
+   }
+
+   private static Boolean CanWriteNextMarshalElement( Boolean condition, ref Boolean previousResult )
+   {
+      if ( previousResult )
+      {
+         if ( !condition )
+         {
+            previousResult = false;
+         }
+      }
+      else
+      {
+         // TODO some sort of error reporting
+      }
+
+      return previousResult;
+   }
+
+   private static Boolean IsMarshalSizeValid( Int32 size )
+   {
+      return size >= 0;
+   }
+
+   private static Boolean IsMarshalIndexValid( Int32 idx )
+   {
+      return idx >= 0;
+   }
+
+   private static Boolean IsUnmanagedTypeValid( Int32 ut )
+   {
+      return ut != (Int32) UnmanagedType.NotPresent;
    }
 
    private static ResizableArray<Byte> WriteSecuritySignature(

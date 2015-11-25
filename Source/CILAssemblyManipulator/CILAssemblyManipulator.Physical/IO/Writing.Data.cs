@@ -312,7 +312,7 @@ public static partial class E_CILPhysical
             Timestamp = (Int32) debugInfo.Timestamp
          } )
       {
-         IsExecutable = fileHeader.Characteristics.IsDLL()
+         IsExecutable = !fileHeader.Characteristics.IsDLL()
       };
    }
 }

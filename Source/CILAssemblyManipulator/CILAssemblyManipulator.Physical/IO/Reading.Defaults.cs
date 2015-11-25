@@ -451,7 +451,7 @@ namespace CILAssemblyManipulator.Physical.IO
 
    public class DefaultReaderBLOBStreamHandler : AbstractReaderStreamHandlerImplWithCache<Byte[]>, ReaderBLOBStreamHandler
    {
-      private readonly IDictionary<Int32, Object> _constants;
+      private readonly IDictionary<KeyValuePair<Int32, SignatureElementTypes>, Object> _constants;
 
       public DefaultReaderBLOBStreamHandler(
          StreamHelper stream,
@@ -460,7 +460,7 @@ namespace CILAssemblyManipulator.Physical.IO
          )
          : base( stream, startPosition, streamSize )
       {
-         this._constants = new Dictionary<Int32, Object>();
+         this._constants = new Dictionary<KeyValuePair<Int32, SignatureElementTypes>, Object>();
       }
 
       public override String StreamName
@@ -530,11 +530,14 @@ namespace CILAssemblyManipulator.Physical.IO
 
       public Object ReadConstantValue( Int32 heapIndex, SignatureElementTypes constType )
       {
-         return this.GetOrAddCustom(
-            this._constants,
-            heapIndex,
-            h => this.DoReadConstantValue( h, constType )
-            );
+         return heapIndex == 0 ?
+            null :
+            this.GetOrAddCustom(
+               this._constants,
+               new KeyValuePair<Int32, SignatureElementTypes>( heapIndex, constType ),
+               kvp => this.DoReadConstantValue( kvp.Key, kvp.Value ),
+               heapIndex
+               );
       }
 
       public MarshalingInfo ReadMarshalingInfo( Int32 heapIndex )
@@ -575,12 +578,20 @@ namespace CILAssemblyManipulator.Physical.IO
             null;
       }
 
-      private TValue CustomValueFactory<TValue>( Int32 heapOffset, Func<Int32, TValue> actualFactory )
+      private TValue GetOrAddCustom<TKey, TValue>( IDictionary<TKey, TValue> cache, TKey key, Func<TKey, TValue> factory, Int32 heapOffset )
+         where TValue : class
+      {
+         return this.CheckHeapOffset( heapOffset ) ?
+            cache.GetOrAdd_NotThreadSafe( key, i => this.CustomValueFactory( i, factory ) ) :
+            null;
+      }
+
+      private TValue CustomValueFactory<TKey, TValue>( TKey key, Func<TKey, TValue> actualFactory )
          where TValue : class
       {
          try
          {
-            return actualFactory( heapOffset );
+            return actualFactory( key );
          }
          catch
          {

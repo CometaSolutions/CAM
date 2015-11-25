@@ -1173,7 +1173,7 @@ namespace CILAssemblyManipulator.Physical
    /// <seealso cref="CILParameter"/>
    public sealed class MarshalingInfo
    {
-      internal const UnmanagedType NATIVE_TYPE_MAX = (UnmanagedType) 0x50;
+      //internal const UnmanagedType NATIVE_TYPE_MAX = (UnmanagedType) 0x50;
       internal const Int32 NO_INDEX = -1;
 
       /// <summary>
@@ -1271,7 +1271,7 @@ namespace CILAssemblyManipulator.Physical
                Value = ut,
                SafeArrayType = VarEnum.VT_EMPTY,
                IIDParameterIndex = NO_INDEX,
-               ArrayType = NATIVE_TYPE_MAX,
+               ArrayType = UnmanagedType.NotPresent,
                SizeParameterIndex = NO_INDEX,
                ConstSize = NO_INDEX
             };
@@ -1299,7 +1299,7 @@ namespace CILAssemblyManipulator.Physical
             Value = UnmanagedType.ByValTStr,
             SafeArrayType = VarEnum.VT_EMPTY,
             IIDParameterIndex = NO_INDEX,
-            ArrayType = NATIVE_TYPE_MAX,
+            ArrayType = UnmanagedType.NotPresent,
             SizeParameterIndex = NO_INDEX,
             ConstSize = size,
          };
@@ -1312,7 +1312,7 @@ namespace CILAssemblyManipulator.Physical
       /// <returns>A new <see cref="MarshalingInfo"/> with given information.</returns>
       public static MarshalingInfo MarshalAsIUnknown( Int32 iidParamIndex = NO_INDEX )
       {
-         return MarshalAsIUnknownOrIDispatch( true, iidParamIndex );
+         return MarshalWithIIDParam( UnmanagedType.IUnknown, iidParamIndex );
       }
 
       /// <summary>
@@ -1322,17 +1322,22 @@ namespace CILAssemblyManipulator.Physical
       /// <returns>A new <see cref="MarshalingInfo"/> with given information.</returns>
       public static MarshalingInfo MarshalAsIDispatch( Int32 iidParamIndex = NO_INDEX )
       {
-         return MarshalAsIUnknownOrIDispatch( false, iidParamIndex );
+         return MarshalWithIIDParam( UnmanagedType.IDispatch, iidParamIndex );
       }
 
-      private static MarshalingInfo MarshalAsIUnknownOrIDispatch( Boolean unknown, Int32 iidParamIndex )
+      public static MarshalingInfo MarshalAsInterface( Int32 iidParamIndex = NO_INDEX )
+      {
+         return MarshalWithIIDParam( UnmanagedType.Interface, iidParamIndex );
+      }
+
+      private static MarshalingInfo MarshalWithIIDParam( UnmanagedType type, Int32 iidParamIndex )
       {
          return new MarshalingInfo()
          {
-            Value = unknown ? UnmanagedType.IUnknown : UnmanagedType.IDispatch,
+            Value = type,
             SafeArrayType = VarEnum.VT_EMPTY,
             IIDParameterIndex = iidParamIndex,
-            ArrayType = NATIVE_TYPE_MAX,
+            ArrayType = UnmanagedType.NotPresent,
             SizeParameterIndex = NO_INDEX,
             ConstSize = NO_INDEX
          };
@@ -1381,7 +1386,7 @@ namespace CILAssemblyManipulator.Physical
             SafeArrayType = elementType,
             SafeArrayUserDefinedType = udType,
             IIDParameterIndex = NO_INDEX,
-            ArrayType = NATIVE_TYPE_MAX,
+            ArrayType = UnmanagedType.NotPresent,
             SizeParameterIndex = NO_INDEX,
             ConstSize = NO_INDEX,
          };
@@ -1394,7 +1399,7 @@ namespace CILAssemblyManipulator.Physical
       /// <param name="elementType">The optional type information about array elements.</param>
       /// <returns>A new <see cref="MarshalingInfo"/> with given information.</returns>
       /// <exception cref="ArgumentOutOfRangeException">If <paramref name="size"/> is less than zero.</exception>
-      public static MarshalingInfo MarshalAsByValArray( Int32 size, UnmanagedType elementType = NATIVE_TYPE_MAX )
+      public static MarshalingInfo MarshalAsByValArray( Int32 size, UnmanagedType elementType = UnmanagedType.NotPresent )
       {
          if ( size < 0 )
          {
@@ -1418,7 +1423,7 @@ namespace CILAssemblyManipulator.Physical
       /// <param name="constSize">The size of additional elements.</param>
       /// <param name="elementType">The optional type information about array elements.</param>
       /// <returns>A new <see cref="MarshalingInfo"/> with given information.</returns>
-      public static MarshalingInfo MarshalAsLPArray( Int32 sizeParamIdx = NO_INDEX, Int32 constSize = 0, UnmanagedType elementType = NATIVE_TYPE_MAX )
+      public static MarshalingInfo MarshalAsLPArray( Int32 sizeParamIdx = NO_INDEX, Int32 constSize = 0, UnmanagedType elementType = UnmanagedType.NotPresent )
       {
          return new MarshalingInfo()
          {
@@ -1447,7 +1452,7 @@ namespace CILAssemblyManipulator.Physical
             Value = UnmanagedType.CustomMarshaler,
             SafeArrayType = VarEnum.VT_EMPTY,
             IIDParameterIndex = NO_INDEX,
-            ArrayType = NATIVE_TYPE_MAX,
+            ArrayType = UnmanagedType.NotPresent,
             SizeParameterIndex = NO_INDEX,
             ConstSize = NO_INDEX,
             MarshalType = customMarshalerTypeName,
@@ -1497,100 +1502,56 @@ namespace CILAssemblyManipulator.Physical
          if ( stream != null && stream.TryReadByteFromBytes( out b ) )
          {
             var ut = (UnmanagedType) b;
-            if ( ut.IsNativeInstric() )
-            {
-               result = MarshalingInfo.MarshalAs( ut );
-            }
-            else
-            {
-               Int32 constSize, paramIdx, tmp;
-               UnmanagedType arrElementType;
-               switch ( ut )
-               {
-                  case UnmanagedType.ByValTStr:
 
-                     if ( stream.DecompressUInt32( out tmp ) )
-                     {
-                        result = MarshalingInfo.MarshalAsByValTStr( tmp );
-                     }
-                     break;
-                  case UnmanagedType.IUnknown:
-                     result = MarshalingInfo.MarshalAsIUnknown( stream.DecompressUInt32( out tmp ) ? tmp : MarshalingInfo.NO_INDEX );
-                     break;
-                  case UnmanagedType.IDispatch:
-                     result = MarshalingInfo.MarshalAsIDispatch( stream.DecompressUInt32( out tmp ) ? tmp : MarshalingInfo.NO_INDEX );
-                     break;
-                  case UnmanagedType.SafeArray:
-                     if ( stream.DecompressUInt32( out tmp ) )
-                     {
-                        var ve = (VarEnum) tmp;
-                        if ( VarEnum.VT_USERDEFINED == ve )
-                        {
-                           result = MarshalingInfo.MarshalAsSafeArray( stream.ReadLenPrefixedUTF8String().UnescapeCILTypeString() );
-                        }
-                        else
-                        {
-                           result = MarshalingInfo.MarshalAsSafeArray( ve );
-                        }
-                     }
-                     else
-                     {
-                        result = MarshalingInfo.MarshalAsSafeArray();
-                     }
-                     break;
-                  case UnmanagedType.ByValArray:
-                     if ( stream.DecompressUInt32( out constSize ) )
-                     {
-                        result = MarshalingInfo.MarshalAsByValArray(
-                           constSize,
-                           stream.DecompressUInt32( out tmp ) ?
-                              (UnmanagedType) tmp :
-                              MarshalingInfo.NATIVE_TYPE_MAX
-                           );
-                     }
-                     break;
-                  case UnmanagedType.LPArray:
-                     if ( stream.TryReadByteFromBytes( out b ) )
-                     {
-                        arrElementType = (UnmanagedType) b;
-                        if ( stream.DecompressUInt32( out paramIdx ) )
-                        {
-                           if ( stream.DecompressUInt32( out constSize ) )
-                           {
-                              if ( stream.DecompressUInt32( out tmp ) )
-                              {
-                                 paramIdx = MarshalingInfo.NO_INDEX; // No size parameter index was specified
-                              }
-                           }
-                           else
-                           {
-                              constSize = MarshalingInfo.NO_INDEX;
-                           }
-                        }
-                        else
-                        {
-                           paramIdx = MarshalingInfo.NO_INDEX;
-                           constSize = MarshalingInfo.NO_INDEX;
-                        }
-                        result = MarshalingInfo.MarshalAsLPArray( paramIdx, constSize, arrElementType );
-                     }
-                     break;
-                  case UnmanagedType.CustomMarshaler:
-                     // For some reason, there are two compressed ints at this point
-                     if ( stream.DecompressUInt32( out tmp ) && stream.DecompressUInt32( out tmp ) )
-                     {
-
-                        var mTypeStr = stream.ReadLenPrefixedUTF8String().UnescapeCILTypeString();
-                        var mCookie = stream.ReadLenPrefixedUTF8String();
-                        result = MarshalingInfo.MarshalAsCustom( mTypeStr, mCookie );
-                     }
-                     break;
-                  default:
-                     result = null;
-                     break;
-               }
+            Int32 constSize, paramIdx, tmp;
+            UnmanagedType arrElementType;
+            switch ( ut )
+            {
+               case UnmanagedType.ByValTStr:
+                  result = MarshalingInfo.MarshalAsByValTStr( stream.DecompressUInt32OrDefault( -1 ) );
+                  break;
+               case UnmanagedType.IUnknown:
+               case UnmanagedType.IDispatch:
+               case UnmanagedType.Interface:
+                  result = MarshalingInfo.MarshalWithIIDParam( ut, stream.DecompressUInt32OrDefault( MarshalingInfo.NO_INDEX ) );
+                  break;
+               case UnmanagedType.SafeArray:
+                  result = MarshalingInfo.MarshalAsSafeArray(
+                     (VarEnum) stream.DecompressUInt32OrDefault( 0 ),
+                     stream.ReadLenPrefixedUTF8String().UnescapeCILTypeString()
+                     );
+                  break;
+               case UnmanagedType.ByValArray:
+                  constSize = stream.DecompressUInt32OrDefault( -1 );
+                  tmp = stream.DecompressUInt32OrDefault( -1 );
+                  result = MarshalingInfo.MarshalAsByValArray( constSize, (UnmanagedType) tmp );
+                  break;
+               case UnmanagedType.LPArray:
+                  arrElementType = stream.TryReadByteFromBytes( out b ) ? (UnmanagedType) b : (UnmanagedType) ( -1 );
+                  paramIdx = stream.DecompressUInt32OrDefault( MarshalingInfo.NO_INDEX );
+                  constSize = stream.DecompressUInt32OrDefault( -1 );
+                  tmp = stream.DecompressUInt32OrDefault( -1 );
+                  // TODO interpret tmp as flags of some sort, or pass them to MarshalingInfo
+                  result = MarshalingInfo.MarshalAsLPArray( paramIdx, constSize, arrElementType );
+                  break;
+               case UnmanagedType.CustomMarshaler:
+                  var guidString = stream.ReadLenPrefixedUTF8String();
+                  var nativeTypeName = stream.ReadLenPrefixedUTF8String();
+                  var mTypeStr = stream.ReadLenPrefixedUTF8String().UnescapeCILTypeString();
+                  var mCookie = stream.ReadLenPrefixedUTF8String();
+                  // TODO pass guidString and nativeTypeName
+                  result = MarshalingInfo.MarshalAsCustom( mTypeStr, mCookie );
+                  break;
+               default:
+                  result = MarshalingInfo.MarshalAs( ut ); ;
+                  break;
             }
          }
+         else
+         {
+            // TODO: RawMarshalingInfo -type (takes BLOB directly)
+         }
+
          return result;
       }
 
