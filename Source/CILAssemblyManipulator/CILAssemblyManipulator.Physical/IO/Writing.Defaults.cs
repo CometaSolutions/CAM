@@ -67,7 +67,7 @@ namespace CILAssemblyManipulator.Physical.IO
             var curRVA = sectionStartRVA;
             var curOffset = sectionStartOffset;
 
-            var list = new List<SectionPartInfo>();
+            var list = new List<SectionPartInfo>( layout.Parts.Count );
             foreach ( var part in layout.Parts )
             {
                var includePart = part != null;
@@ -114,7 +114,7 @@ namespace CILAssemblyManipulator.Physical.IO
 
       private readonly WritingOptions _options;
 
-      private SectionLayoutInfo[] _sections;
+      private SectionLayoutInfo[] _sectionLayoutInfos;
 
       public DefaultWriterFunctionality(
          CILMetaData md,
@@ -167,10 +167,10 @@ namespace CILAssemblyManipulator.Physical.IO
          mdRoot = this.CreateMDRoot( allMDStreams.Where( s => s.Accessed ), out mdRootSize, out mdSize );
 
          // Sections
-         this._sections = this.PopulateSections( writingStatus, rawSections, mdRoot, mdSize ).ToArray();
-         for ( var i = 0; i < this._sections.Length; ++i )
+         this._sectionLayoutInfos = this.PopulateSections( writingStatus, rawSections, mdRoot, mdSize ).ToArray();
+         for ( var i = 0; i < this._sectionLayoutInfos.Length; ++i )
          {
-            sections[i] = this._sections[i].SectionHeader;
+            sections[i] = this._sectionLayoutInfos[i].SectionHeader;
          }
 
          // RVA converter
@@ -190,10 +190,10 @@ namespace CILAssemblyManipulator.Physical.IO
          )
       {
          cliHeader = null;
-         var allParts = this._sections.SelectMany( s => s.PartInfos.Select( p => p.Part ) ).ToArrayProxy().CQ;
-         var partInfos = this._sections.SelectMany( s => s.PartInfos ).ToDictionary( i => i.Part, i => i, ReferenceEqualityComparer<SectionPart>.ReferenceBasedComparer ).ToDictionaryProxy().CQ;
+         var allParts = this._sectionLayoutInfos.SelectMany( s => s.PartInfos.Select( p => p.Part ) ).ToArrayProxy().CQ;
+         var partInfos = this._sectionLayoutInfos.SelectMany( s => s.PartInfos ).ToDictionary( i => i.Part, i => i, ReferenceEqualityComparer<SectionPart>.ReferenceBasedComparer ).ToDictionaryProxy().CQ;
 
-         foreach ( var section in this._sections )
+         foreach ( var section in this._sectionLayoutInfos )
          {
             var parts = section.PartInfos;
             if ( parts.Count > 0 )
@@ -249,12 +249,12 @@ namespace CILAssemblyManipulator.Physical.IO
          RVAConverter rvaConverter
          )
       {
-         var allParts = this._sections.SelectMany( s => s.PartInfos.Select( p => p.Part ) ).ToArrayProxy().CQ;
-         var partInfos = this._sections.SelectMany( s => s.PartInfos ).ToDictionary( i => i.Part, i => i, ReferenceEqualityComparer<SectionPart>.ReferenceBasedComparer ).ToDictionaryProxy().CQ;
+         var allParts = this._sectionLayoutInfos.SelectMany( s => s.PartInfos.Select( p => p.Part ) ).ToArrayProxy().CQ;
+         var partInfos = this._sectionLayoutInfos.SelectMany( s => s.PartInfos ).ToDictionary( i => i.Part, i => i, ReferenceEqualityComparer<SectionPart>.ReferenceBasedComparer ).ToDictionaryProxy().CQ;
 
 
          var mdEncountered = false;
-         foreach ( var section in this._sections.SkipWhile( s => !s.PartInfos.Any( p => p.Part is SectionPart_MetaData ) ) )
+         foreach ( var section in this._sectionLayoutInfos.SkipWhile( s => !s.PartInfos.Any( p => p.Part is SectionPart_MetaData ) ) )
          {
             var parts = section.PartInfos;
             if ( parts.Count > 0 )
@@ -750,6 +750,7 @@ namespace CILAssemblyManipulator.Physical.IO
       protected override Int32 DoGetDataSize( Int64 currentOffset, TRVA currentRVA )
       {
          var startOffset = currentOffset;
+         var startRVA = currentRVA;
          var rows = this._rows;
          var sizesArray = this._sizes.Array;
          var rvaArray = this._rvas.Array;
@@ -757,7 +758,7 @@ namespace CILAssemblyManipulator.Physical.IO
          {
             // Calculate size
             var row = this._rows[i];
-            var sizeInfoNullable = this.GetSizeInfo( i, row, currentOffset, currentRVA );
+            var sizeInfoNullable = this.GetSizeInfo( i, row, currentOffset, currentRVA, startOffset, startRVA );
             var arrayIdx = i - this._min;
 
             // Save size and RVA information
@@ -823,7 +824,7 @@ namespace CILAssemblyManipulator.Physical.IO
 
       public Int32 RelatedTableColumnIndex { get; }
 
-      protected abstract TSizeInfo? GetSizeInfo( Int32 rowIndex, TRow row, Int64 currentOffset, TRVA currentRVA );
+      protected abstract TSizeInfo? GetSizeInfo( Int32 rowIndex, TRow row, Int64 currentOffset, TRVA currentRVA, Int64 startOffset, TRVA startRVA );
 
       protected abstract Int32 GetSize( TSizeInfo sizeInfo );
 
@@ -886,7 +887,7 @@ namespace CILAssemblyManipulator.Physical.IO
          return sizeInfo.PrePadding + sizeInfo.ByteSize;
       }
 
-      protected override MethodSizeInfo? GetSizeInfo( Int32 rowIndex, MethodDefinition row, Int64 currentOffset, TRVA currentRVA )
+      protected override MethodSizeInfo? GetSizeInfo( Int32 rowIndex, MethodDefinition row, Int64 currentOffset, TRVA currentRVA, Int64 startOffset, TRVA startRVA )
       {
          var il = row?.IL;
          return il == null ?
@@ -1147,7 +1148,7 @@ namespace CILAssemblyManipulator.Physical.IO
       {
       }
 
-      protected override Int32? GetSizeInfo( Int32 rowIndex, FieldRVA row, Int64 currentOffset, TRVA currentRVA )
+      protected override Int32? GetSizeInfo( Int32 rowIndex, FieldRVA row, Int64 currentOffset, TRVA currentRVA, Int64 startOffset, TRVA startRVA )
       {
          return row?.Data?.Length;
       }
@@ -1182,15 +1183,18 @@ namespace CILAssemblyManipulator.Physical.IO
    {
       public struct ManifestSizeInfo
       {
-         public ManifestSizeInfo( Int32 byteCount, Int32 prePadding )
+         public ManifestSizeInfo( Int32 byteCount, TRVA startRVA, TRVA currentRVA )
          {
             this.ByteCount = byteCount;
-            this.PrePadding = prePadding;
+            this.PrePadding = (Int32) ( currentRVA.RoundUpI64( ALIGNMENT ) - currentRVA );
+            this.Offset = (Int32) ( currentRVA - startRVA + this.PrePadding );
          }
 
          public Int32 ByteCount { get; }
 
          public Int32 PrePadding { get; }
+
+         public Int32 Offset { get; }
       }
 
       private const Int32 ALIGNMENT = 0x08;
@@ -1200,12 +1204,16 @@ namespace CILAssemblyManipulator.Physical.IO
       {
       }
 
-      protected override ManifestSizeInfo? GetSizeInfo( Int32 rowIndex, ManifestResource row, Int64 currentOffset, TRVA currentRVA )
+      protected override ManifestSizeInfo? GetSizeInfo( Int32 rowIndex, ManifestResource row, Int64 currentOffset, TRVA currentRVA, Int64 startOffset, TRVA startRVA )
       {
          ManifestSizeInfo? retVal;
          if ( row.IsEmbeddedResource() )
          {
-            retVal = new ManifestSizeInfo( sizeof( Int32 ) + row.DataInCurrentFile.GetLengthOrDefault(), (Int32) ( currentRVA.RoundUpI64( ALIGNMENT ) - currentRVA ) );
+            retVal = new ManifestSizeInfo(
+               sizeof( Int32 ) + row.DataInCurrentFile.GetLengthOrDefault(),
+               startRVA,
+               currentRVA
+               );
          }
          else
          {
@@ -1222,7 +1230,7 @@ namespace CILAssemblyManipulator.Physical.IO
 
       protected override TRVA GetValueForTableStream( TRVA currentRVA, ManifestSizeInfo sizeInfo )
       {
-         return currentRVA + sizeInfo.PrePadding;
+         return sizeInfo.Offset;
       }
 
       protected override TRVA GetValueForTableStream( Int32 rowIndex, ManifestResource row )
