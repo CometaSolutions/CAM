@@ -60,18 +60,12 @@ namespace CILAssemblyManipulator.Physical.IO
             Int64 sectionStartOffset,
             TRVA sectionStartRVA,
             Int32 fileAlignment
-            //Int32 bytesWrittenInThisSection // TODO remove this (i.e. make IL code, consts, and embedded resources as section parts)
             )
          {
             ArgumentValidator.ValidateNotNull( "Layout", layout );
 
             var curRVA = sectionStartRVA;
             var curOffset = sectionStartOffset;
-            //if ( bytesWrittenInThisSection != 0 )
-            //{
-            //   curRVA += (UInt32) bytesWrittenInThisSection;
-            //   curOffset += (UInt32) bytesWrittenInThisSection;
-            //}
 
             var list = new List<SectionPartInfo>();
             foreach ( var part in layout.Parts )
@@ -442,8 +436,13 @@ namespace CILAssemblyManipulator.Physical.IO
          )
       {
          var options = this._options;
+         var isPE64 = writingStatus.Machine.RequiresPE64();
+
          // 1. IAT
-         yield return new SectionPart_ImportAddressTable();
+         if ( !isPE64 )
+         {
+            yield return new SectionPart_ImportAddressTable();
+         }
 
          // 2. CLI Header
          yield return new SectionPart_CLIHeader( options.CLIOptions.HeaderOptions );
@@ -461,15 +460,18 @@ namespace CILAssemblyManipulator.Physical.IO
          yield return new SectionPart_MetaData( mdSize );
 
          // 6. Import directory
-         var peOptions = options.PEOptions;
-         yield return new SectionPart_ImportDirectory(
-            peOptions.ImportHintName,
-            peOptions.ImportDirectoryName,
-            options.IsExecutable
-            );
+         if ( !isPE64 )
+         {
+            var peOptions = options.PEOptions;
+            yield return new SectionPart_ImportDirectory(
+               peOptions.ImportHintName,
+               peOptions.ImportDirectoryName,
+               options.IsExecutable
+               );
 
-         // 7. Startup code
-         yield return new SectionPart_StartupCode( writingStatus.ImageBase );
+            // 7. Startup code
+            yield return new SectionPart_StartupCode( writingStatus.ImageBase );
+         }
 
          // 8. Debug directory (will get filtered away if no debug data)
          yield return new SectionPart_DebugDirectory( options.DebugOptions );
@@ -495,6 +497,12 @@ namespace CILAssemblyManipulator.Physical.IO
          WritingStatus writingStatus
          )
       {
+         if ( stream.Position != partLayout.Offset - partLayout.PrePadding )
+         {
+            // TODO better exception type
+            throw new BadImageFormatException( "Internal error: stream position for " + partLayout.Part + " was calculated to be " + ( partLayout.Offset - partLayout.PrePadding ) + ", but was " + stream.Position + "." );
+         }
+
          // Write to ResizableArray
          partLayout.Part.WriteData( new SectionPartWritingArgs(
             stream,
@@ -678,11 +686,12 @@ namespace CILAssemblyManipulator.Physical.IO
 
    public abstract class SectionPartWithMultipleItems<TRow, TSizeInfo> : SectionPartWithFixedAlignment, SectionPartWithRVAs
       where TRow : class
+      where TSizeInfo : struct
    {
       private readonly Int32 _min;
       private readonly Int32 _max;
       private readonly List<TRow> _rows;
-      private readonly ArrayProxy<TSizeInfo> _sizes;
+      private readonly ArrayProxy<TSizeInfo?> _sizes;
       private readonly ArrayProxy<TRVA> _rvas;
 
       public SectionPartWithMultipleItems(
@@ -728,7 +737,7 @@ namespace CILAssemblyManipulator.Physical.IO
          this.RelatedTableColumnIndex = columnIndex;
          this._min = min;
          this._max = max;
-         this._sizes = cf.NewArrayProxy( new TSizeInfo[range] );
+         this._sizes = cf.NewArrayProxy( new TSizeInfo?[range] );
          this._rvas = cf.NewArrayProxy( new TRVA[range] );
       }
 
@@ -742,17 +751,21 @@ namespace CILAssemblyManipulator.Physical.IO
          {
             // Calculate size
             var row = this._rows[i];
-            var sizeInfo = this.GetSizeInfo( row, currentOffset, currentRVA );
+            var sizeInfoNullable = this.GetSizeInfo( i, row, currentOffset, currentRVA );
             var arrayIdx = i - this._min;
 
             // Save size and RVA information
-            sizesArray[arrayIdx] = sizeInfo;
-            rvaArray[arrayIdx] = this.GetRVA( currentRVA, sizeInfo );
+            sizesArray[arrayIdx] = sizeInfoNullable;
+            var hasValue = sizeInfoNullable.HasValue;
+            rvaArray[arrayIdx] = hasValue ? this.GetRVA( currentRVA, sizeInfoNullable.Value ) : 0L;
 
             // Update offset + rva
-            var size = (UInt32) this.GetSize( sizeInfo );
-            startOffset += size;
-            currentRVA += size;
+            if ( hasValue )
+            {
+               var size = (UInt32) this.GetSize( sizeInfoNullable.Value );
+               currentOffset += size;
+               currentRVA += size;
+            }
          }
 
          return (Int32) ( currentOffset - startOffset );
@@ -776,12 +789,19 @@ namespace CILAssemblyManipulator.Physical.IO
          var sizesArray = this._sizes.Array;
          for ( var i = this._min; i < this._max; ++i )
          {
-            var sizeInfo = sizesArray[i - this._min];
-            var capacity = this.GetSize( sizeInfo );
-            array.CurrentMaxCapacity = capacity;
-            var bytez = array.Array;
-            this.WriteData( this._rows[i], sizeInfo, bytez );
-            stream.Write( bytez, capacity );
+            var sizeInfoNullable = sizesArray[i - this._min];
+            if ( sizeInfoNullable.HasValue )
+            {
+               var sizeInfo = sizeInfoNullable.Value;
+               var capacity = this.GetSize( sizeInfo );
+               if ( capacity > 0 )
+               {
+                  array.CurrentMaxCapacity = capacity;
+                  var bytez = array.Array;
+                  this.WriteData( this._rows[i], sizeInfo, bytez );
+                  stream.Write( bytez, capacity );
+               }
+            }
          }
       }
 
@@ -797,7 +817,7 @@ namespace CILAssemblyManipulator.Physical.IO
 
       public Int32 RelatedTableColumnIndex { get; }
 
-      protected abstract TSizeInfo GetSizeInfo( TRow row, Int64 currentOffset, TRVA currentRVA );
+      protected abstract TSizeInfo? GetSizeInfo( Int32 rowIndex, TRow row, Int64 currentOffset, TRVA currentRVA );
 
       protected abstract Int32 GetSize( TSizeInfo sizeInfo );
 
@@ -833,13 +853,12 @@ namespace CILAssemblyManipulator.Physical.IO
       private const Int32 METHOD_DATA_SECTION_HEADER_SIZE = 4;
       private const Int32 SMALL_EXC_BLOCK_SIZE = 12;
       private const Int32 LARGE_EXC_BLOCK_SIZE = 24;
-      private const Int32 MAX_SMALL_EXC_HANDLERS_IN_ONE_SECTION = ( Byte.MaxValue - METHOD_DATA_SECTION_HEADER_SIZE ) / SMALL_EXC_BLOCK_SIZE; // 20
+      internal const Int32 MAX_SMALL_EXC_HANDLERS_IN_ONE_SECTION = ( Byte.MaxValue - METHOD_DATA_SECTION_HEADER_SIZE ) / SMALL_EXC_BLOCK_SIZE; // 20
       private const Int32 MAX_LARGE_EXC_HANDLERS_IN_ONE_SECTION = ( 0x00FFFFFF - METHOD_DATA_SECTION_HEADER_SIZE ) / LARGE_EXC_BLOCK_SIZE; // 699050
       private const Int32 FAT_HEADER_SIZE = 12;
 
       private readonly CILMetaData _md;
-      private readonly WriterStringStreamHandler _userStrings;
-
+      private readonly IDictionary<OpCodeInfoWithString, Int32> _stringTokens;
       public SectionPart_MethodIL( CILMetaData md, WriterStringStreamHandler userStrings, Int32 columnIndex = 0, Int32 min = 0, Int32 max = -1 )
          : base( 0x04, md.MethodDefinitions, columnIndex, min, max )
       {
@@ -847,7 +866,11 @@ namespace CILAssemblyManipulator.Physical.IO
          ArgumentValidator.ValidateNotNull( "User strings", userStrings );
 
          this._md = md;
-         this._userStrings = userStrings;
+         this._stringTokens = md.MethodDefinitions.TableContents
+            .Select( m => m?.IL )
+            .Where( il => il != null )
+            .SelectMany( il => il.OpCodes.OfType<OpCodeInfoWithString>() )
+            .ToDictionary_Overwrite( o => o, o => userStrings.RegisterString( o.Operand ), ReferenceEqualityComparer<OpCodeInfoWithString>.ReferenceBasedComparer );
       }
 
       protected override Int32 GetSize( MethodSizeInfo sizeInfo )
@@ -855,12 +878,12 @@ namespace CILAssemblyManipulator.Physical.IO
          return sizeInfo.PrePadding + sizeInfo.ByteSize;
       }
 
-      protected override MethodSizeInfo GetSizeInfo( MethodDefinition row, Int64 currentOffset, TRVA currentRVA )
+      protected override MethodSizeInfo? GetSizeInfo( Int32 rowIndex, MethodDefinition row, Int64 currentOffset, TRVA currentRVA )
       {
          var il = row?.IL;
          return il == null ?
-            default( MethodSizeInfo ) :
-            CalculateByteSizeForMethod( il, GetLocalsFor( il ), currentRVA );
+            (MethodSizeInfo?) null :
+            this.CalculateByteSizeForMethod( rowIndex, il, currentRVA );
       }
 
       protected override TRVA GetRVA( TRVA currentRVA, MethodSizeInfo sizeInfo )
@@ -905,7 +928,7 @@ namespace CILAssemblyManipulator.Physical.IO
          // Emit IL code
          foreach ( var info in il.OpCodes )
          {
-            EmitOpCodeInfo( info, array, ref idx, this._userStrings );
+            EmitOpCodeInfo( info, array, ref idx );
          }
 
          // Emit exception block infos
@@ -980,11 +1003,10 @@ namespace CILAssemblyManipulator.Physical.IO
          }
       }
 
-      protected static void EmitOpCodeInfo(
+      protected void EmitOpCodeInfo(
          OpCodeInfo codeInfo,
          Byte[] array,
-         ref Int32 idx,
-         WriterStringStreamHandler usersStrings
+         ref Int32 idx
       )
       {
          const Int32 USER_STRING_MASK = 0x70 << 24;
@@ -1031,7 +1053,9 @@ namespace CILAssemblyManipulator.Physical.IO
                   array.WriteInt64LEToBytes( ref idx, (Int64) ( (OpCodeInfoWithInt64) codeInfo ).Operand );
                   break;
                case OperandType.InlineString:
-                  array.WriteInt32LEToBytes( ref idx, usersStrings.RegisterString( ( (OpCodeInfoWithString) codeInfo ).Operand ) | USER_STRING_MASK );
+                  Int32 token;
+                  this._stringTokens.TryGetValue( (OpCodeInfoWithString) codeInfo, out token );
+                  array.WriteInt32LEToBytes( ref idx, token | USER_STRING_MASK );
                   break;
                case OperandType.InlineField:
                case OperandType.InlineMethod:
@@ -1055,39 +1079,16 @@ namespace CILAssemblyManipulator.Physical.IO
          }
       }
 
-      protected static MethodSizeInfo CalculateByteSizeForMethod(
-         MethodILDefinition methodIL,
-         LocalVariablesSignature localSig,
+      protected MethodSizeInfo CalculateByteSizeForMethod(
+         Int32 rowIndex,
+         MethodILDefinition il,
          TRVA currentRVA
          )
       {
-         // Start by calculating the size of just IL code
-         var arraySize = methodIL.OpCodes.Sum( oci => oci.GetTotalByteCount() );
-         var ilCodeByteCount = arraySize;
+         Int32 ilCodeByteCount; Boolean hasAnyExc, allAreSmall;
+         var isTinyHeader = this._md.IsTinyILHeader( rowIndex, out ilCodeByteCount, out hasAnyExc, out allAreSmall );
 
-         // Then calculate the size of headers and other stuff
-         var exceptionBlocks = methodIL.ExceptionBlocks;
-         // PEVerify doesn't like mixed small and fat blocks at all (however, at least Cecil understands that kind of situation)
-         // Apparently, PEVerify doesn't like multiple small blocks either (Cecil still loads code fine)
-         // So to use small exception blocks at all, all the blocks must be small, and there must be a limited amount of them
-         var allAreSmall = exceptionBlocks.Count <= MAX_SMALL_EXC_HANDLERS_IN_ONE_SECTION
-            && exceptionBlocks.All( excBlock =>
-            {
-               return excBlock.TryLength <= Byte.MaxValue
-                  && excBlock.HandlerLength <= Byte.MaxValue
-                  && excBlock.TryOffset <= UInt16.MaxValue
-                  && excBlock.HandlerOffset <= UInt16.MaxValue;
-            } );
-
-         var maxStack = methodIL.MaxStackSize;
-
-         var excCount = exceptionBlocks.Count;
-         var hasAnyExc = excCount > 0;
-         var isTinyHeader = arraySize < 64
-            && !hasAnyExc
-            && maxStack <= 8
-            && ( localSig == null || localSig.Locals.Count == 0 );
-
+         var arraySize = ilCodeByteCount;
          if ( isTinyHeader )
          {
             // Can use tiny header
@@ -1099,6 +1100,7 @@ namespace CILAssemblyManipulator.Physical.IO
             arraySize += FAT_HEADER_SIZE;
             if ( hasAnyExc )
             {
+               var excCount = il.ExceptionBlocks.Count;
                // Skip to next boundary of 4
                arraySize = BitUtils.MultipleOf4( arraySize );
                var excBlockSize = allAreSmall ? SMALL_EXC_BLOCK_SIZE : LARGE_EXC_BLOCK_SIZE;
@@ -1123,14 +1125,6 @@ namespace CILAssemblyManipulator.Physical.IO
 
          return new MethodSizeInfo( prePadding, arraySize, ilCodeByteCount, isTinyHeader, exceptionSectionsAreLarge );
       }
-
-      protected LocalVariablesSignature GetLocalsFor( MethodILDefinition il )
-      {
-         var lIdx = il.LocalsSignatureIndex;
-         return lIdx.HasValue && lIdx.Value.Table == Tables.StandaloneSignature ?
-            this._md.StandaloneSignatures.TableContents[lIdx.Value.Index]?.Signature as LocalVariablesSignature :
-            null;
-      }
    }
 
    public class SectionPart_FieldRVA : SectionPartWithMultipleItems<FieldRVA, Int32>
@@ -1140,9 +1134,9 @@ namespace CILAssemblyManipulator.Physical.IO
       {
       }
 
-      protected override Int32 GetSizeInfo( FieldRVA row, Int64 currentOffset, TRVA currentRVA )
+      protected override Int32? GetSizeInfo( Int32 rowIndex, FieldRVA row, Int64 currentOffset, TRVA currentRVA )
       {
-         return row.Data.GetLengthOrDefault();
+         return row?.Data?.Length;
       }
 
       protected override Int32 GetSize( Int32 sizeInfo )
@@ -1173,9 +1167,9 @@ namespace CILAssemblyManipulator.Physical.IO
       {
       }
 
-      protected override Int32 GetSizeInfo( ManifestResource row, Int64 currentOffset, TRVA currentRVA )
+      protected override Int32? GetSizeInfo( Int32 rowIndex, ManifestResource row, Int64 currentOffset, TRVA currentRVA )
       {
-         Int32 retVal;
+         Int32? retVal;
          if ( row.IsEmbeddedResource() )
          {
             var data = row.DataInCurrentFile;
@@ -1183,7 +1177,7 @@ namespace CILAssemblyManipulator.Physical.IO
          }
          else
          {
-            retVal = 0;
+            retVal = null;
          }
 
          return retVal;
@@ -2162,6 +2156,13 @@ namespace CILAssemblyManipulator.Physical.IO
             }
 
          }
+
+         // Post-padding
+         var postPadding = (Int32) writeInfo.PaddingSize;
+         array.CurrentMaxCapacity = postPadding;
+         var idx = 0;
+         array.Array.ZeroOut( ref idx, postPadding );
+         sink.Write( array.Array, postPadding );
       }
 
       protected ArrayQuery<TableSerializationInfo> TableSerializations { get; }

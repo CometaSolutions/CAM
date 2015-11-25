@@ -760,17 +760,31 @@ namespace CILAssemblyManipulator.Physical.IO
 
       protected override String ValueFactory( Int32 heapIndex )
       {
-         Int32 length;
          String retVal;
-         if ( this.SetStreamToHeapOffset( heapIndex ).DecompressUInt32( out length ) && this.Stream.Stream.CanReadNextBytes( length ).IsTrue() )
+         if ( heapIndex == 0 )
          {
-            retVal = this.Encoding.GetString( this.Stream.ReadAndCreateArray( length ) );
+            retVal = "";
          }
          else
          {
-            retVal = null;
+            var stream = this.SetStreamToHeapOffset( heapIndex );
+            Int32 length;
+            if ( stream.DecompressUInt32( out length ) && stream.Stream.CanReadNextBytes( length ).IsTrue() )
+            {
+               if ( length > 1 )
+               {
+                  retVal = this.Encoding.GetString( stream.ReadAndCreateArray( length - 1 ) );
+               }
+               else
+               {
+                  retVal = "";
+               }
+            }
+            else
+            {
+               retVal = null;
+            }
          }
-
          return retVal;
       }
    }

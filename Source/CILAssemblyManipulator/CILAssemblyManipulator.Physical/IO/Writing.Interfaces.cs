@@ -299,7 +299,7 @@ public static partial class E_CILPhysical
 
       // Prepare strong name
       RSAParameters rParams;
-      var snVars = md.PrepareStrongNameVariables( sn, delaySign, cryptoCallbacks, snAlgorithmOverride, out rParams );
+      var snVars = md.PrepareStrongNameVariables( sn, ref delaySign, cryptoCallbacks, snAlgorithmOverride, out rParams );
 
       // 1. Create streams
       var mdStreams = writer.CreateStreamHandlers().ToArrayProxy().CQ;
@@ -431,7 +431,7 @@ public static partial class E_CILPhysical
    private static StrongNameVariables PrepareStrongNameVariables(
       this CILMetaData md,
       StrongNameKeyPair strongName,
-      Boolean delaySign,
+      ref Boolean delaySign,
       CryptoCallbacks cryptoCallbacks,
       AssemblyHashAlgorithm? algoOverride,
       out RSAParameters rParams

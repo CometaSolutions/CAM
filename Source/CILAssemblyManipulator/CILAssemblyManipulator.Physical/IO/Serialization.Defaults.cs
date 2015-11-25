@@ -317,7 +317,7 @@ namespace CILAssemblyManipulator.Physical.IO
                   setter( args, new TableIndex( targetTable, value - 1 ) );
                }
             },
-            row => getter( row ).Index
+            row => getter( row ).Index + 1
             );
       }
 

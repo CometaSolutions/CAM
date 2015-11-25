@@ -53,11 +53,14 @@ namespace CILAssemblyManipulator.Tests.Physical
          }
 
          Byte[] written;
+         EmittingArguments eArgs = new EmittingArguments() { WritingOptions = rArgs1.ImageInformation.CreateWritingOptions() };
          using ( var ms = new MemoryStream() )
          {
-            read1.WriteModule( ms, new EmittingArguments() { WritingOptions = rArgs1.ImageInformation.CreateWritingOptions() } );
+            read1.WriteModule( ms, eArgs );
             written = ms.ToArray();
          }
+
+         //File.WriteAllBytes( "mscorlib_gen.dll", written );
 
          var rArgs2 = new ReadingArguments();
 
@@ -71,6 +74,21 @@ namespace CILAssemblyManipulator.Tests.Physical
          if ( afterSecondRead != null )
          {
             afterSecondRead( read2 );
+         }
+
+         // Re-calculate max stack sizes.
+         // Sometimes methods have large format, even though they could've had tiny format (but tiny format loses stack size info)
+         var read1MDefs = read1.MethodDefinitions.TableContents;
+         var read2MDefs = read2.MethodDefinitions.TableContents;
+         for ( var i = 0; i < read1MDefs.Count; ++i )
+         {
+            if ( read1.IsTinyILHeader( i ) && read2.IsTinyILHeader( i ) )
+            {
+               var il = read1MDefs[i].IL;
+               var il2 = read2MDefs[i].IL;
+               il2.MaxStackSize = il.MaxStackSize;
+               il2.InitLocals = il.InitLocals;
+            }
          }
 
          Assert.IsTrue( Comparers.MetaDataComparer.Equals( read1, read2 ) );
