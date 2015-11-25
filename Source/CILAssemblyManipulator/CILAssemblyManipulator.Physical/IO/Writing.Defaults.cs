@@ -355,12 +355,14 @@ namespace CILAssemblyManipulator.Physical.IO
                curRVA,
                fAlign
                );
-
             var hdr = layoutInfo.SectionHeader;
-            curRVA = ( curRVA + hdr.VirtualSize ).RoundUpU32( sAlign );
-            curPointer += hdr.RawDataSize;
+            if ( hdr.VirtualSize > 0 )
+            {
+               curRVA = ( curRVA + hdr.VirtualSize ).RoundUpU32( sAlign );
+               curPointer += hdr.RawDataSize;
 
-            yield return layoutInfo;
+               yield return layoutInfo;
+            }
          }
       }
 
@@ -421,7 +423,7 @@ namespace CILAssemblyManipulator.Physical.IO
          // 3. Relocation section
          if ( !writingStatus.Machine.RequiresPE64() )
          {
-            yield return new SectionLayout( new SectionPart[] { new SectionPart_RelocDirectory() } )
+            yield return new SectionLayout( new SectionPart[] { new SectionPart_RelocDirectory( writingStatus.Machine ) } )
             {
                Name = ".reloc",
                Characteristics = SectionHeaderCharacteristics.Memory_Read | SectionHeaderCharacteristics.Memory_Discardable | SectionHeaderCharacteristics.Contains_InitializedData
@@ -436,13 +438,10 @@ namespace CILAssemblyManipulator.Physical.IO
          )
       {
          var options = this._options;
-         var isPE64 = writingStatus.Machine.RequiresPE64();
+         var machine = writingStatus.Machine;
 
          // 1. IAT
-         if ( !isPE64 )
-         {
-            yield return new SectionPart_ImportAddressTable();
-         }
+         yield return new SectionPart_ImportAddressTable( machine );
 
          // 2. CLI Header
          yield return new SectionPart_CLIHeader( options.CLIOptions.HeaderOptions );
@@ -460,18 +459,16 @@ namespace CILAssemblyManipulator.Physical.IO
          yield return new SectionPart_MetaData( mdSize );
 
          // 6. Import directory
-         if ( !isPE64 )
-         {
-            var peOptions = options.PEOptions;
-            yield return new SectionPart_ImportDirectory(
-               peOptions.ImportHintName,
-               peOptions.ImportDirectoryName,
-               options.IsExecutable
-               );
+         var peOptions = options.PEOptions;
+         yield return new SectionPart_ImportDirectory(
+            machine,
+            peOptions.ImportHintName,
+            peOptions.ImportDirectoryName,
+            options.IsExecutable
+            );
 
-            // 7. Startup code
-            yield return new SectionPart_StartupCode( writingStatus.ImageBase );
-         }
+         // 7. Startup code
+         yield return new SectionPart_StartupCode( machine, writingStatus.ImageBase );
 
          // 8. Debug directory (will get filtered away if no debug data)
          yield return new SectionPart_DebugDirectory( options.DebugOptions );
@@ -613,7 +610,7 @@ namespace CILAssemblyManipulator.Physical.IO
 
    public abstract class SectionPartWithFixedAlignment : SectionPart
    {
-      public SectionPartWithFixedAlignment( Int32 alignment )
+      public SectionPartWithFixedAlignment( Int32 alignment, Boolean isPresent )
       {
          if ( alignment < 0 )
          {
@@ -621,19 +618,29 @@ namespace CILAssemblyManipulator.Physical.IO
          }
 
          this.DataAlignment = alignment;
+         this.Write = isPresent;
       }
 
       public Int32 DataAlignment { get; }
 
-      public abstract Int32 GetDataSize( Int64 currentOffset, TRVA currentRVA );
+      public Int32 GetDataSize( Int64 currentOffset, TRVA currentRVA )
+      {
+         return this.Write ?
+            this.DoGetDataSize( currentOffset, currentRVA ) :
+            0;
+      }
 
       public abstract void WriteData( SectionPartWritingArgs args );
+
+      protected Boolean Write { get; }
+
+      protected abstract Int32 DoGetDataSize( Int64 currentOffset, TRVA currentRVA );
    }
 
    public abstract class SectionPartWriteableToArray : SectionPartWithFixedAlignment
    {
-      public SectionPartWriteableToArray( Int32 alignment )
-         : base( alignment )
+      public SectionPartWriteableToArray( Int32 alignment, Boolean write )
+         : base( alignment, write )
       {
       }
 
@@ -667,8 +674,8 @@ namespace CILAssemblyManipulator.Physical.IO
    {
       private readonly Int32 _dataSize;
 
-      public SectionPartWithFixedLength( Int32 alignment, Int32 size )
-         : base( alignment )
+      public SectionPartWithFixedLength( Int32 alignment, Boolean write, Int32 size )
+         : base( alignment, write )
       {
          if ( size < 0 )
          {
@@ -677,8 +684,7 @@ namespace CILAssemblyManipulator.Physical.IO
          this._dataSize = size;
       }
 
-
-      public override Int32 GetDataSize( Int64 currentOffset, TRVA currentRVA )
+      protected override Int32 DoGetDataSize( Int64 currentOffset, TRVA currentRVA )
       {
          return this._dataSize;
       }
@@ -701,7 +707,7 @@ namespace CILAssemblyManipulator.Physical.IO
          Int32 min,
          Int32 max
          )
-         : base( alignment )
+         : base( alignment, table.RowCount > 0 )
       {
          ArgumentValidator.ValidateNotNull( "Table", table );
 
@@ -741,7 +747,7 @@ namespace CILAssemblyManipulator.Physical.IO
          this._rvas = cf.NewArrayProxy( new TRVA[range] );
       }
 
-      public override Int32 GetDataSize( Int64 currentOffset, TRVA currentRVA )
+      protected override Int32 DoGetDataSize( Int64 currentOffset, TRVA currentRVA )
       {
          var startOffset = currentOffset;
          var rows = this._rows;
@@ -1326,7 +1332,7 @@ namespace CILAssemblyManipulator.Physical.IO
       private readonly WritingOptions_CLIHeader _cliHeaderOptions;
 
       public SectionPart_CLIHeader( WritingOptions_CLIHeader cliHeaderOptions )
-         : base( 4, HEADER_SIZE )
+         : base( 4, true, HEADER_SIZE )
       {
          this._cliHeaderOptions = cliHeaderOptions;
       }
@@ -1378,7 +1384,7 @@ namespace CILAssemblyManipulator.Physical.IO
    public class SectionPart_StrongNameSignature : SectionPartWithFixedLength
    {
       public SectionPart_StrongNameSignature( StrongNameVariables snVars, ImageFileMachine machine )
-         : base( machine.RequiresPE64() ? 0x10 : 0x04, snVars?.SignatureSize ?? 0 )
+         : base( machine.RequiresPE64() ? 0x10 : 0x04, true, snVars?.SignatureSize ?? 0 )
       {
 
       }
@@ -1394,7 +1400,7 @@ namespace CILAssemblyManipulator.Physical.IO
    public class SectionPart_MetaData : SectionPartWithFixedLength
    {
       public SectionPart_MetaData( Int32 size )
-         : base( 0x04, size )
+         : base( 0x04, true, size )
       {
 
       }
@@ -1408,8 +1414,8 @@ namespace CILAssemblyManipulator.Physical.IO
 
    public class SectionPart_ImportAddressTable : SectionPartWithFixedLength
    {
-      public SectionPart_ImportAddressTable()
-         : base( 0x04, 0x08 )
+      public SectionPart_ImportAddressTable( ImageFileMachine machine )
+         : base( 0x04, !machine.RequiresPE64(), 0x08 )
       {
       }
 
@@ -1444,8 +1450,8 @@ namespace CILAssemblyManipulator.Physical.IO
       private UInt32 _corMainRVA;
       private UInt32 _mscoreeRVA;
 
-      public SectionPart_ImportDirectory( String functionName, String moduleName, Boolean isExecutable )
-         : base( 0x04 )
+      public SectionPart_ImportDirectory( ImageFileMachine machine, String functionName, String moduleName, Boolean isExecutable )
+         : base( 0x04, !machine.RequiresPE64() )
       {
          if ( String.IsNullOrEmpty( moduleName ) )
          {
@@ -1460,9 +1466,10 @@ namespace CILAssemblyManipulator.Physical.IO
          this._moduleName = moduleName;
          this._functionName = functionName;
 
+
       }
 
-      public override Int32 GetDataSize( Int64 currentOffset, TRVA currentRVA )
+      protected override Int32 DoGetDataSize( Int64 currentOffset, TRVA currentRVA )
       {
          var startRVA = (UInt32) currentRVA.RoundUpI64( this.DataAlignment );
          var len = 0x28u; // Import directory actual size
@@ -1544,8 +1551,8 @@ namespace CILAssemblyManipulator.Physical.IO
 
       private const Int32 ALIGNMENT = 0x04;
       private const Int32 PADDING = 2;
-      public SectionPart_StartupCode( Int64 imageBase )
-         : base( ALIGNMENT, 0x08 )
+      public SectionPart_StartupCode( ImageFileMachine machine, Int64 imageBase )
+         : base( ALIGNMENT, !machine.RequiresPE64(), 0x08 )
       {
          this._imageBase = (UInt32) imageBase;
       }
@@ -1589,8 +1596,8 @@ namespace CILAssemblyManipulator.Physical.IO
       private const UInt32 RELOCATION_PAGE_MASK = 0x0FFF; // ECMA-335, p. 282
       private const UInt16 RELOCATION_FIXUP_TYPE = 0x3; // ECMA-335, p. 282
 
-      public SectionPart_RelocDirectory()
-         : base( 0x04, SIZE )
+      public SectionPart_RelocDirectory( ImageFileMachine machine )
+         : base( 0x04, !machine.RequiresPE64(), SIZE )
       {
 
       }
@@ -1622,7 +1629,7 @@ namespace CILAssemblyManipulator.Physical.IO
       private readonly WritingOptions_Debug _options;
 
       public SectionPart_DebugDirectory( WritingOptions_Debug options )
-         : base( ALIGNMENT, ( options?.DebugData ?? null ).IsNullOrEmpty() ? 0 : ( HEADER_SIZE + (Int32) options.DebugData.Length ) )
+         : base( ALIGNMENT, !( options?.DebugData ).IsNullOrEmpty(), ( HEADER_SIZE + ( options?.DebugData?.Length ?? 0 ) ) )
       {
          this._options = options;
       }
