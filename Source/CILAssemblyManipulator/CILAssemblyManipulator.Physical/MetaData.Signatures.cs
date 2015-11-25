@@ -1886,6 +1886,10 @@ namespace CILAssemblyManipulator.Physical
 
    public abstract class AbstractSecurityInformation
    {
+      private const String PERMISSION_SET = "System.Security.Permissions.PermissionSetAttribute";
+      private const String PERMISSION_SET_XML_PROP = "XML";
+      internal const Byte DECL_SECURITY_HEADER = 0x2E; // '.'
+
       // Disable inheritance to other assemblies
       internal AbstractSecurityInformation()
       {
@@ -1905,7 +1909,7 @@ namespace CILAssemblyManipulator.Physical
          Byte b;
          if ( stream != null && stream.TryReadByteFromBytes( out b ) )
          {
-            if ( b == Implementation.MetaDataConstants.DECL_SECURITY_HEADER )
+            if ( b == DECL_SECURITY_HEADER )
             {
                // New (.NET 2.0+) security spec
                // Amount of security attributes
@@ -1954,15 +1958,15 @@ namespace CILAssemblyManipulator.Physical
                // Create a single SecurityInformation with PermissionSetAttribute type and XML property argument containing the XML of the blob
                var secInfo = new SecurityInformation( 1 )
                {
-                  SecurityAttributeType = Implementation.MetaDataConstants.PERMISSION_SET
+                  SecurityAttributeType = PERMISSION_SET
                };
                secInfo.NamedArguments.Add( new CustomAttributeNamedArgument()
                {
                   IsField = false,
-                  Name = Implementation.MetaDataConstants.PERMISSION_SET_XML_PROP,
+                  Name = PERMISSION_SET_XML_PROP,
                   Value = new CustomAttributeTypedArgument()
                   {
-                     Value = Implementation.MetaDataConstants.USER_STRING_ENCODING.GetString( stream.Stream.ReadUntilTheEnd() )
+                     Value = IO.Defaults.MetaDataConstants.USER_STRING_ENCODING.GetString( stream.Stream.ReadUntilTheEnd() )
                   }
                } );
                yield return secInfo;

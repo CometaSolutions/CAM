@@ -103,17 +103,14 @@
     <Compile Include="Comparers.cs" />
     <Compile Include="IL.cs" />
     <Compile Include="Implementation\CryptoUtils.cs" />
-    <Compile Include="Implementation\Module.IO.cs" />
-    <Compile Include="Implementation\Module.Reading.cs" />
     <Compile Include="Implementation\Module.cs" />
-    <Compile Include="Implementation\Module.Writing.cs" />
     <Compile Include="IO\Headers.cs" />
-    <Compile Include="IO\Reading.Defaults.cs" />
-    <Compile Include="IO\Serialization.cs" />
-    <Compile Include="IO\Serialization.Defaults.cs" />
-    <Compile Include="IO\Writing.Defaults.cs" />
+    <Compile Include="IO\Defaults\Reading.cs" />
+    <Compile Include="IO\Defaults\Serialization.API.cs" />
+    <Compile Include="IO\Defaults\Serialization.Implementation.cs" />
+    <Compile Include="IO\Defaults\Writing.cs" />
     <Compile Include="IO\Writing.Interfaces.cs" />
-    <Compile Include="IO\Writing.Data.cs" />
+    <Compile Include="IO\Writing.Options.cs" />
     <Compile Include="Loading.cs" />
     <Compile Include="MetaData.Rows.cs" />
     <Compile Include="MetaData.Resolving.cs" />
@@ -127,9 +124,6 @@
   </ItemGroup>
   <ItemGroup>
     <Compile Include="IO\Reading.Interfaces.cs" />
-  </ItemGroup>
-  <ItemGroup>
-    <Compile Include="IO\Reading.Data.cs" />
   </ItemGroup>
   <PropertyGroup Condition=" '$(UseUtilpackReference)' != '' ">
     <SignAssembly>true</SignAssembly>

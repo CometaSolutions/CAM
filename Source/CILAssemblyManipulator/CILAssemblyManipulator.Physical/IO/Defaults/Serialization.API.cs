@@ -16,7 +16,7 @@
  * limitations under the License. 
  */
 using CILAssemblyManipulator.Physical;
-using CILAssemblyManipulator.Physical.IO;
+using CILAssemblyManipulator.Physical.IO.Defaults;
 using CollectionsWithRoles.API;
 using CommonUtils;
 using System;
@@ -25,7 +25,7 @@ using System.IO;
 using System.Linq;
 using System.Text;
 
-namespace CILAssemblyManipulator.Physical.IO
+namespace CILAssemblyManipulator.Physical.IO.Defaults
 {
    public sealed class RawModuleDefinition
    {
@@ -701,6 +701,21 @@ namespace CILAssemblyManipulator.Physical.IO
       Int32 ReadRawValue( StreamHelper stream );
 
       void WriteValue( Byte[] bytes, Int32 idx, Int32 value );
+   }
+
+   internal static class MetaDataConstants
+   {
+
+      internal static readonly Encoding SYS_STRING_ENCODING = new UTF8Encoding( false, false );
+      internal static readonly Encoding USER_STRING_ENCODING = new UnicodeEncoding( false, false, false );
+
+      internal const String TABLE_STREAM_NAME = "#~";
+      internal const String SYS_STRING_STREAM_NAME = "#Strings";
+      internal const String USER_STRING_STREAM_NAME = "#US";
+      internal const String GUID_STREAM_NAME = "#GUID";
+      internal const String BLOB_STREAM_NAME = "#Blob";
+
+      internal const Int32 GUID_SIZE = 16;
    }
 }
 

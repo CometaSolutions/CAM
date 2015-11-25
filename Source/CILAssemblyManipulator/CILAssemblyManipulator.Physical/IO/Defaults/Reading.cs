@@ -26,7 +26,7 @@ using System.Linq;
 using System.Text;
 using System.IO;
 
-namespace CILAssemblyManipulator.Physical.IO
+namespace CILAssemblyManipulator.Physical.IO.Defaults
 {
    public class DefaultReaderFunctionalityProvider : ReaderFunctionalityProvider
    {

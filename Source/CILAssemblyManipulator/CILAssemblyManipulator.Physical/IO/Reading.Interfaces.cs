@@ -18,6 +18,7 @@
 using CILAssemblyManipulator.Physical;
 using CILAssemblyManipulator.Physical.Implementation;
 using CILAssemblyManipulator.Physical.IO;
+using CILAssemblyManipulator.Physical.IO.Defaults;
 using CollectionsWithRoles.API;
 using CommonUtils;
 using System;

@@ -32,14 +32,14 @@ namespace CILAssemblyManipulator.Physical
    {
       private enum EncodingForcePolicy : byte { DontForce, Force2Byte, Force4Byte }
 
-      private static readonly Byte[] ZeroArray = new Byte[0x10];
+      //private static readonly Byte[] ZeroArray = new Byte[0x10];
 
       internal static String ReadLenPrefixedUTF8String( this StreamHelper caBLOB )
       {
          Int32 len;
          // DecompressUInt32 will return false for value '0xFF' when 'acceptErraneous' parameter is set to 'false'.
          return caBLOB.DecompressUInt32( out len, false ) ?
-            CILAssemblyManipulator.Physical.Implementation.MetaDataConstants.SYS_STRING_ENCODING.GetString( caBLOB.ReadAndCreateArray( len ) ) :
+            IO.Defaults.MetaDataConstants.SYS_STRING_ENCODING.GetString( caBLOB.ReadAndCreateArray( len ) ) :
             null;
       }
 
@@ -52,7 +52,7 @@ namespace CILAssemblyManipulator.Physical
          {
             if ( len >= 0 )
             {
-               str = CILAssemblyManipulator.Physical.Implementation.MetaDataConstants.SYS_STRING_ENCODING.GetString( caBLOB, idx, len );
+               str = IO.Defaults.MetaDataConstants.SYS_STRING_ENCODING.GetString( caBLOB, idx, len );
                idx += len;
             }
             else
@@ -67,47 +67,6 @@ namespace CILAssemblyManipulator.Physical
          }
          return retVal;
       }
-
-      internal static String ReadZeroTerminatedStringFromBytes( this Byte[] array, Encoding encoding )
-      {
-         Int32 idx = 0;
-         return array.ReadZeroTerminatedStringFromBytes( ref idx, encoding );
-      }
-
-      internal static String ReadZeroTerminatedASCIIStringFromBytes( this Byte[] array )
-      {
-         var length = array.Length;
-         var charBuf = new Char[length];
-         var amountRead = 0;
-         while ( amountRead < length )
-         {
-            var b = array[amountRead];
-            if ( b == 0 )
-            {
-               break;
-            }
-            charBuf[amountRead++] = (Char) b;
-         }
-         return new String( charBuf, 0, amountRead );
-      }
-
-      //public static Byte[] SkipToNextAlignment( this Byte[] array, ref Int32 idx, Int32 alignment )
-      //{
-      //   idx += MultipleOf( alignment, idx ) - idx;
-      //   return array;
-      //}
-
-      // Max alignment is 0x10 !!!
-      internal static UInt32 SkipToNextAlignment( this Stream sink, ref UInt32 idx, UInt32 alignment )
-      {
-         var amountToSkip = MultipleOf( alignment, idx ) - idx;
-         // Instead of skipping, actually fill with zeroes
-         sink.Write( ZeroArray, (Int32) amountToSkip );
-         idx += amountToSkip;
-         return amountToSkip;
-      }
-
-
 
       private const UInt32 UINT_FOUR_BYTES_MASK = 0xC0;
       private const UInt32 UINT_TWO_BYTES_MASK = 0x80;
@@ -133,103 +92,6 @@ namespace CILAssemblyManipulator.Physical
       private const Int32 COMPLEMENT_MASK_ONE_BYTE = unchecked((Int32) 0xFFFFFFC0);
       private const Int32 COMPLEMENT_MASK_TWO_BYTES = unchecked((Int32) 0xFFFFE000);
       private const Int32 COMPLEMENT_MASK_FOUR_BYTES = unchecked((Int32) 0xF0000000);
-
-      internal static Int32 DecompressUInt32( this Byte[] array, ref Int32 offset )
-      {
-         var len = array.Length;
-         Int32 result;
-         if ( offset < len )
-         {
-            var first = array[offset];
-
-            if ( ( first & 0x80 ) == 0 )
-            {
-               // MSB bit not set, so it's just one byte 
-               result = first;
-               ++offset;
-            }
-            else if ( ( first & 0xC0 ) == 0x80 )
-            {
-               // MSB set, but prev bit not set, so it's two bytes
-               if ( offset < len - 1 )
-               {
-                  result = ( ( first & UINT_TWO_BYTES_DECODE_MASK ) << 8 ) | (Int32) array[offset + 1];
-                  offset += 2;
-               }
-               else
-               {
-                  result = -1;
-               }
-            }
-            else
-            {
-               // Whatever it is, it is four bytes long
-               if ( offset < len - 3 )
-               {
-                  result = ( ( first & UINT_FOUR_BYTES_DECODE_MASK ) << 24 ) | ( ( (Int32) array[offset + 1] ) << 16 ) | ( ( (Int32) array[offset + 2] ) << 8 ) | array[offset + 3];
-                  offset += 4;
-               }
-               else
-               {
-                  result = -1;
-               }
-            }
-         }
-         else
-         {
-            result = -1;
-         }
-         return result;
-      }
-
-      internal static Int32 DecompressInt32( this Byte[] array, ref Int32 offset )
-      {
-         var oldOffset = offset;
-         var decodedUInt = array.DecompressUInt32( ref offset );
-         var bytesRead = offset - oldOffset;
-         if ( bytesRead == 1 )
-         {
-            // Value is one-bit left rotated, 7-bit 2-complement number
-            // If LSB is 1 -> then the value is negative
-            if ( ( decodedUInt & ONE ) == ONE )
-            {
-               decodedUInt = ( decodedUInt >> 1 ) | COMPLEMENT_MASK_ONE_BYTE;
-            }
-            else
-            {
-               decodedUInt = decodedUInt >> 1;
-            }
-         }
-         else if ( bytesRead == 2 )
-         {
-            if ( ( decodedUInt & ONE ) == ONE )
-            {
-               decodedUInt = ( decodedUInt >> 1 ) | COMPLEMENT_MASK_TWO_BYTES;
-            }
-            else
-            {
-               decodedUInt = decodedUInt >> 1;
-            }
-         }
-         else if ( bytesRead == 4 )
-         {
-            if ( ( decodedUInt & ONE ) == ONE )
-            {
-               decodedUInt = ( decodedUInt >> 1 ) | COMPLEMENT_MASK_FOUR_BYTES;
-            }
-            else
-            {
-               decodedUInt = decodedUInt >> 1;
-            }
-         }
-         else
-         {
-            // Most likely wrong data
-            throw new ArgumentException( "Malformed compressed signed integer at index " + oldOffset + "." );
-         }
-
-         return unchecked((Int32) decodedUInt);
-      }
 
       internal static void CompressUInt32( this Byte[] array, ref Int32 offset, Int32 value )
       {
@@ -351,32 +213,6 @@ namespace CILAssemblyManipulator.Physical
          }
       }
 
-      internal static Int32 MultipleOf4( Int32 value )
-      {
-         return MultipleOf( 4, value );
-      }
-
-      internal static UInt32 MultipleOf4( UInt32 value )
-      {
-         return MultipleOf( 4, value );
-      }
-
-      // Assumes "multiple" is power of 2
-      internal static Int32 MultipleOf( Int32 multiple, Int32 value )
-      {
-         --multiple;
-         return ( value + multiple ) & ~multiple;
-         //return value % multiple == 0 ? value : ( multiple * ( ( value / multiple ) + 1 ) );
-      }
-
-      // Assumes "multiple" is power of 2
-      internal static UInt32 MultipleOf( UInt32 multiple, UInt32 value )
-      {
-         --multiple;
-         return ( value + multiple ) & ~multiple;
-         //return value % multiple == 0 ? value : ( multiple * ( ( value / multiple ) + 1 ) );
-      }
-
       internal static UInt32 Sum( this IEnumerable<UInt32> enumerable )
       {
          var total = 0u;
@@ -388,107 +224,6 @@ namespace CILAssemblyManipulator.Physical
             }
          }
          return total;
-      }
-
-      ///// <summary>
-      ///// Using specified auxiliary array, reads a <see cref="UInt64"/> from <see cref="Stream"/>.
-      ///// </summary>
-      ///// <param name="stream">The <see cref="Stream"/>.</param>
-      ///// <param name="i64Array">The auxiliary array, must be at least 8 bytes long.</param>
-      ///// <returns>The <see cref="UInt64"/> read from current position of the <paramref name="stream"/>.</returns>
-      ///// <remarks>
-      ///// See <see cref="E_CommonUtils.ReadSpecificAmount(Stream, Byte[], Int32, Int32)"/> for more exceptions.
-      ///// </remarks>
-      //internal static UInt64 ReadU64( this Stream stream, Byte[] i64Array )
-      //{
-      //   stream.ReadSpecificAmount( i64Array, 0, 8 );
-      //   var dummy = 0;
-      //   return i64Array.ReadUInt64LEFromBytes( ref dummy );
-      //}
-
-      ///// <summary>
-      ///// Using specified auxiliary array, reads a <see cref="UInt32"/> from <see cref="Stream"/>.
-      ///// </summary>
-      ///// <param name="stream">The <see cref="Stream"/>.</param>
-      ///// <param name="i32Array">The auxiliary array, must be at least 4 bytes long.</param>
-      ///// <returns>The <see cref="UInt32"/> read from current position of the <paramref name="stream"/>.</returns>
-      ///// <remarks>
-      ///// See <see cref="E_CommonUtils.ReadSpecificAmount(Stream, Byte[], Int32, Int32)"/> for more exceptions.
-      ///// </remarks>
-      //internal static UInt32 ReadU32( this Stream stream, Byte[] i32Array )
-      //{
-      //   return (UInt32) stream.ReadI32( i32Array );
-      //}
-
-      //internal static Int32 ReadI32( this Stream stream, Byte[] i32Array )
-      //{
-      //   stream.ReadSpecificAmount( i32Array, 0, 4 );
-      //   return i32Array.ReadInt32LEFromBytesNoRef( 0 );
-      //}
-
-      ///// <summary>
-      ///// Using specified auxiliary array, reads a <see cref="UInt16"/> from <see cref="Stream"/>.
-      ///// </summary>
-      ///// <param name="stream">The <see cref="Stream"/>.</param>
-      ///// <param name="i16Array">The auxiliary array, must be at least 2 bytes long.</param>
-      ///// <returns>The <see cref="UInt16"/> read from current position of the <paramref name="stream"/>.</returns>
-      ///// <remarks>
-      ///// See <see cref="E_CommonUtils.ReadSpecificAmount(Stream, Byte[], Int32, Int32)"/> for more exceptions.
-      ///// </remarks>
-      //internal static UInt16 ReadU16( this Stream stream, Byte[] i16Array )
-      //{
-      //   return (UInt16) stream.ReadI16( i16Array );
-      //}
-
-      //internal static Int16 ReadI16( this Stream stream, Byte[] i16Array )
-      //{
-      //   stream.ReadSpecificAmount( i16Array, 0, 2 );
-      //   var dummy = 0;
-      //   return i16Array.ReadInt16LEFromBytes( ref dummy );
-      //}
-
-      internal static String ReadZeroTerminatedString( this Stream stream, UInt32 length, Encoding encoding )
-      {
-         var buf = new Byte[length];
-         stream.ReadWholeArray( buf );
-         return buf.ReadZeroTerminatedStringFromBytes( encoding );
-      }
-
-
-      internal static String ReadZeroTerminatedASCIIString( this Stream stream )
-      {
-         Byte b;
-         var bytez = new List<Byte>();
-         while ( ( b = stream.ReadByteFromStream() ) != 0 )
-         {
-            bytez.Add( b );
-         }
-         return bytez.ToArray().ReadZeroTerminatedASCIIStringFromBytes();
-      }
-
-      internal static String ReadAlignedASCIIString( this Stream stream, Int32 maxLength )
-      {
-         var bytesRead = 0;
-         var charBufSize = 0;
-         var charBuf = new Char[maxLength];
-         while ( bytesRead < maxLength )
-         {
-            var b = stream.ReadByteFromStream();
-            if ( b == 0 )
-            {
-               ++bytesRead;
-               if ( bytesRead % 4 == 0 )
-               {
-                  break;
-               }
-            }
-            else
-            {
-               charBuf[bytesRead++] = (char) b;
-               ++charBufSize;
-            }
-         }
-         return new String( charBuf, 0, charBufSize );
       }
 
 #if CAM_PHYSICAL_IS_PORTABLE

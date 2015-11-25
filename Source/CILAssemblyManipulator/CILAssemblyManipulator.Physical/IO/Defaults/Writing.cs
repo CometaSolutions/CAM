@@ -24,10 +24,11 @@ using CILAssemblyManipulator.Physical.Implementation;
 using System.Threading;
 using System.IO;
 using CILAssemblyManipulator.Physical;
-using CollectionsWithRoles.API;
 using CILAssemblyManipulator.Physical.IO;
+using CILAssemblyManipulator.Physical.IO.Defaults;
+using CollectionsWithRoles.API;
 
-namespace CILAssemblyManipulator.Physical.IO
+namespace CILAssemblyManipulator.Physical.IO.Defaults
 {
    using TRVA = Int64;
 
@@ -950,7 +951,7 @@ namespace CILAssemblyManipulator.Physical.IO
          {
             var exceptionSectionsAreLarge = sizeInfo.ExceptionSectionsAreLarge;
             var processedIndices = new HashSet<Int32>();
-            array.ZeroOut( ref idx, BitUtils.MultipleOf4( idx ) - idx );
+            array.ZeroOut( ref idx, idx.RoundUpI32( 4 ) - idx );
             var flags = MethodDataFlags.ExceptionHandling;
             if ( exceptionSectionsAreLarge )
             {
@@ -1116,7 +1117,7 @@ namespace CILAssemblyManipulator.Physical.IO
             {
                var excCount = il.ExceptionBlocks.Count;
                // Skip to next boundary of 4
-               arraySize = BitUtils.MultipleOf4( arraySize );
+               arraySize = arraySize.RoundUpI32( 4 );
                var excBlockSize = allAreSmall ? SMALL_EXC_BLOCK_SIZE : LARGE_EXC_BLOCK_SIZE;
                var maxExcHandlersInOnSection = allAreSmall ? MAX_SMALL_EXC_HANDLERS_IN_ONE_SECTION : MAX_LARGE_EXC_HANDLERS_IN_ONE_SECTION;
                arraySize += BinaryUtils.AmountOfPagesTaken( excCount, maxExcHandlersInOnSection ) * METHOD_DATA_SECTION_HEADER_SIZE +
@@ -1726,6 +1727,15 @@ namespace CILAssemblyManipulator.Physical.IO
          if ( this.Accessed )
          {
             this.DoWriteStream( sink, array );
+            var size = this.curIndex;
+            var padding = (Int32) ( size.RoundUpU32( 4 ) - size );
+            if ( padding > 0 )
+            {
+               array.CurrentMaxCapacity = padding;
+               var idx = 0;
+               array.Array.ZeroOut( ref idx, padding );
+               sink.Write( array.Array, padding );
+            }
          }
       }
 
@@ -1806,9 +1816,6 @@ namespace CILAssemblyManipulator.Physical.IO
                sink.Write( blob );
             }
          }
-
-         var tmp = this.curIndex;
-         sink.SkipToNextAlignment( ref tmp, 4 );
       }
 
    }
@@ -1925,10 +1932,6 @@ namespace CILAssemblyManipulator.Physical.IO
                sink.Write( array.Array, arrayLen );
             }
          }
-
-         var tmp = this.curIndex;
-         sink.SkipToNextAlignment( ref tmp, 4 );
-
       }
 
       protected Encoding Encoding
