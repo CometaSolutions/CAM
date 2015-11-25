@@ -566,7 +566,7 @@ namespace CILAssemblyManipulator.Physical.IO
 
       private ArrayQuery<Int64> GetRawValuesContainer( Tables table, Int32 columnIndex )
       {
-         return this._parts[(Int32) table][columnIndex].RVAs;
+         return this._parts[(Int32) table][columnIndex].ValuesForTableStream;
       }
    }
 
@@ -604,7 +604,7 @@ namespace CILAssemblyManipulator.Physical.IO
 
    public interface SectionPartWithRVAs : SectionPart
    {
-      ArrayQuery<TRVA> RVAs { get; }
+      ArrayQuery<TRVA> ValuesForTableStream { get; }
 
       Tables RelatedTable { get; }
 
@@ -757,7 +757,7 @@ namespace CILAssemblyManipulator.Physical.IO
             // Save size and RVA information
             sizesArray[arrayIdx] = sizeInfoNullable;
             var hasValue = sizeInfoNullable.HasValue;
-            rvaArray[arrayIdx] = hasValue ? this.GetRVA( currentRVA, sizeInfoNullable.Value ) : 0L;
+            rvaArray[arrayIdx] = hasValue ? this.GetValueForTableStream( currentRVA, sizeInfoNullable.Value ) : this.GetValueForTableStream( i, row );
 
             // Update offset + rva
             if ( hasValue )
@@ -805,7 +805,7 @@ namespace CILAssemblyManipulator.Physical.IO
          }
       }
 
-      public ArrayQuery<TRVA> RVAs
+      public ArrayQuery<TRVA> ValuesForTableStream
       {
          get
          {
@@ -821,7 +821,9 @@ namespace CILAssemblyManipulator.Physical.IO
 
       protected abstract Int32 GetSize( TSizeInfo sizeInfo );
 
-      protected abstract TRVA GetRVA( TRVA currentRVA, TSizeInfo sizeInfo );
+      protected abstract TRVA GetValueForTableStream( TRVA currentRVA, TSizeInfo sizeInfo );
+
+      protected abstract TRVA GetValueForTableStream( Int32 rowIndex, TRow row );
 
       protected abstract void WriteData( TRow row, TSizeInfo sizeInfo, Byte[] array );
    }
@@ -886,9 +888,14 @@ namespace CILAssemblyManipulator.Physical.IO
             this.CalculateByteSizeForMethod( rowIndex, il, currentRVA );
       }
 
-      protected override TRVA GetRVA( TRVA currentRVA, MethodSizeInfo sizeInfo )
+      protected override TRVA GetValueForTableStream( TRVA currentRVA, MethodSizeInfo sizeInfo )
       {
          return currentRVA + sizeInfo.PrePadding;
+      }
+
+      protected override TRVA GetValueForTableStream( Int32 rowIndex, MethodDefinition row )
+      {
+         return 0;
       }
 
       protected override void WriteData( MethodDefinition row, MethodSizeInfo sizeInfo, Byte[] array )
@@ -1144,9 +1151,14 @@ namespace CILAssemblyManipulator.Physical.IO
          return sizeInfo;
       }
 
-      protected override TRVA GetRVA( TRVA currentRVA, Int32 sizeInfo )
+      protected override TRVA GetValueForTableStream( TRVA currentRVA, Int32 sizeInfo )
       {
          return currentRVA;
+      }
+
+      protected override TRVA GetValueForTableStream( Int32 rowIndex, FieldRVA row )
+      {
+         return 0;
       }
 
       protected override void WriteData( FieldRVA row, Int32 sizeInfo, Byte[] array )
@@ -1160,20 +1172,34 @@ namespace CILAssemblyManipulator.Physical.IO
       }
    }
 
-   public class SectionPart_EmbeddedManifests : SectionPartWithMultipleItems<ManifestResource, Int32>
+   public class SectionPart_EmbeddedManifests : SectionPartWithMultipleItems<ManifestResource, SectionPart_EmbeddedManifests.ManifestSizeInfo>
    {
+      public struct ManifestSizeInfo
+      {
+         public ManifestSizeInfo( Int32 byteCount, Int32 prePadding )
+         {
+            this.ByteCount = byteCount;
+            this.PrePadding = prePadding;
+         }
+
+         public Int32 ByteCount { get; }
+
+         public Int32 PrePadding { get; }
+      }
+
+      private const Int32 ALIGNMENT = 0x08;
+
       public SectionPart_EmbeddedManifests( CILMetaData md, Int32 columnIndex = 0, Int32 min = 0, Int32 max = -1 )
-         : base( 0x08, md.ManifestResources, columnIndex, min, max )
+         : base( ALIGNMENT, md.ManifestResources, columnIndex, min, max )
       {
       }
 
-      protected override Int32? GetSizeInfo( Int32 rowIndex, ManifestResource row, Int64 currentOffset, TRVA currentRVA )
+      protected override ManifestSizeInfo? GetSizeInfo( Int32 rowIndex, ManifestResource row, Int64 currentOffset, TRVA currentRVA )
       {
-         Int32? retVal;
+         ManifestSizeInfo? retVal;
          if ( row.IsEmbeddedResource() )
          {
-            var data = row.DataInCurrentFile;
-            retVal = sizeof( Int32 ) + data.GetLengthOrDefault();
+            retVal = new ManifestSizeInfo( sizeof( Int32 ) + row.DataInCurrentFile.GetLengthOrDefault(), (Int32) ( currentRVA.RoundUpI64( ALIGNMENT ) - currentRVA ) );
          }
          else
          {
@@ -1183,29 +1209,31 @@ namespace CILAssemblyManipulator.Physical.IO
          return retVal;
       }
 
-      protected override Int32 GetSize( Int32 sizeInfo )
+      protected override Int32 GetSize( ManifestSizeInfo sizeInfo )
       {
-         return sizeInfo;
+         return sizeInfo.PrePadding + sizeInfo.ByteCount;
       }
 
-      protected override TRVA GetRVA( TRVA currentRVA, Int32 sizeInfo )
+      protected override TRVA GetValueForTableStream( TRVA currentRVA, ManifestSizeInfo sizeInfo )
       {
-         return currentRVA;
+         return currentRVA + sizeInfo.PrePadding;
       }
 
-
-      protected override void WriteData( ManifestResource row, Int32 sizeInfo, Byte[] array )
+      protected override TRVA GetValueForTableStream( Int32 rowIndex, ManifestResource row )
       {
-         if ( row.IsEmbeddedResource() )
+         return row.Offset;
+      }
+
+      protected override void WriteData( ManifestResource row, ManifestSizeInfo sizeInfo, Byte[] array )
+      {
+         var data = row.DataInCurrentFile;
+         var idx = 0;
+         array
+            .ZeroOut( ref idx, sizeInfo.PrePadding )
+            .WriteInt32LEToBytes( ref idx, data.GetLengthOrDefault() );
+         if ( !data.IsNullOrEmpty() )
          {
-            var data = row.DataInCurrentFile;
-            var idx = 0;
-            array
-               .WriteInt32LEToBytes( ref idx, data.GetLengthOrDefault() );
-            if ( !data.IsNullOrEmpty() )
-            {
-               array.BlockCopyFrom( ref idx, data );
-            }
+            array.BlockCopyFrom( ref idx, data );
          }
       }
    }
