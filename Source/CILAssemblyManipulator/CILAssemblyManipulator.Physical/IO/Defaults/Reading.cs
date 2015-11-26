@@ -185,57 +185,6 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
 
    }
 
-   public class DefaultRVAConverter : RVAConverter
-   {
-      private readonly SectionHeader[] _sections;
-
-      public DefaultRVAConverter( IEnumerable<SectionHeader> headers )
-      {
-         this._sections = ( headers ?? Empty<SectionHeader>.Enumerable ).ToArray();
-      }
-
-      public Int64 ToOffset( Int64 rva )
-      {
-         // TODO some kind of interval-map for sections...
-         var sections = this._sections;
-         var retVal = -1L;
-         if ( rva > 0 )
-         {
-            for ( var i = 0; i < sections.Length; ++i )
-            {
-               var sec = sections[i];
-               if ( sec.VirtualAddress <= rva && rva < (Int64) sec.VirtualAddress + (Int64) Math.Max( sec.VirtualSize, sec.RawDataSize ) )
-               {
-                  retVal = sec.RawDataPointer + ( rva - sec.VirtualAddress );
-                  break;
-               }
-            }
-         }
-         return retVal;
-      }
-
-      public Int64 ToRVA( Int64 offset )
-      {
-         // TODO some kind of interval-map for sections...
-         var sections = this._sections;
-         var retVal = -1L;
-         if ( offset > 0 )
-         {
-            for ( var i = 0; i < sections.Length; ++i )
-            {
-               var sec = sections[i];
-               if ( sec.RawDataPointer <= offset && offset < (Int64) sec.RawDataPointer + (Int64) sec.RawDataSize )
-               {
-                  retVal = sec.VirtualAddress + ( offset - sec.RawDataPointer );
-                  break;
-               }
-            }
-         }
-
-         return retVal;
-      }
-   }
-
    public abstract class AbstractReaderStreamHandlerImpl : AbstractReaderStreamHandler
    {
 
@@ -837,7 +786,7 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
                }
                else if ( stream.TryReadByteFromBytes( out b2 ) )
                {
-                  var starter = ( b << 8 ) | b2;
+                  var starter = ( b2 << 8 ) | b;
                   var flags = (MethodHeaderFlags) ( starter & FLAG_MASK );
                   retVal.InitLocals = ( flags & MethodHeaderFlags.InitLocals ) != 0;
                   var headerSize = ( starter >> 12 ) * 4; // Header size is written as amount of integers
@@ -854,9 +803,10 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
                   // Read code
                   if ( CreateOpCodes( retVal, stream, codeSize, userStrings ) )
                   {
-                     stream.SkipToNextAlignmentInt32();
                      if ( ( flags & MethodHeaderFlags.MoreSections ) != 0 )
                      {
+
+                        stream.SkipToNextAlignmentInt32();
                         // Read sections
                         MethodDataFlags secFlags;
                         do

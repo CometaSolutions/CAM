@@ -109,7 +109,7 @@
     <Compile Include="IO\Defaults\Serialization.API.cs" />
     <Compile Include="IO\Defaults\Serialization.Implementation.cs" />
     <Compile Include="IO\Defaults\Writing.cs" />
-    <Compile Include="IO\Writing.Interfaces.cs" />
+    <Compile Include="IO\Writing.cs" />
     <Compile Include="IO\Writing.Options.cs" />
     <Compile Include="Loading.cs" />
     <Compile Include="MetaData.Rows.cs" />
@@ -123,7 +123,7 @@
     <Compile Include="Utils_New.cs" />
   </ItemGroup>
   <ItemGroup>
-    <Compile Include="IO\Reading.Interfaces.cs" />
+    <Compile Include="IO\Reading.cs" />
   </ItemGroup>
   <PropertyGroup Condition=" '$(UseUtilpackReference)' != '' ">
     <SignAssembly>true</SignAssembly>

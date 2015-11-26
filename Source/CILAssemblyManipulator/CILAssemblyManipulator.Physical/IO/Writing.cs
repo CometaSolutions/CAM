@@ -170,22 +170,29 @@ namespace CILAssemblyManipulator.Physical.IO
 
    public class WritingStatus
    {
+      public const Int32 DEFAULT_FILE_ALIGNMENT = 0x200;
+      public const Int32 DEFAULT_SECTION_ALIGNMENT = 0x2000;
+
       public WritingStatus(
          Int32 headersSize,
          ImageFileMachine machine,
          Int32 fileAlignment,
+         Int32 sectionAlignment,
          Int64? imageBase,
          StrongNameVariables strongNameVariables,
-         Int32? dataDirCount
+         Int32 dataDirCount
          )
       {
+         fileAlignment = CheckAlignment( fileAlignment, DEFAULT_FILE_ALIGNMENT );
+         sectionAlignment = CheckAlignment( sectionAlignment, DEFAULT_SECTION_ALIGNMENT );
          this.HeadersSizeUnaligned = headersSize;
          this.HeadersSize = headersSize.RoundUpI32( fileAlignment );
          this.Machine = machine;
          this.FileAlignment = fileAlignment;
+         this.SectionAlignment = sectionAlignment;
          this.ImageBase = imageBase ?? ( machine.RequiresPE64() ? 0x0000000140000000 : 0x0000000000400000 );
          this.StrongNameVariables = strongNameVariables;
-         this.PEDataDirectories = new List<DataDirectory>( Enumerable.Repeat<DataDirectory>( default( DataDirectory ), dataDirCount ?? (Int32) DataDirectories.MaxValue ) );
+         this.PEDataDirectories = Enumerable.Repeat<DataDirectory>( default( DataDirectory ), dataDirCount ).ToArrayProxy();
       }
 
       public Int32 HeadersSize { get; }
@@ -198,20 +205,21 @@ namespace CILAssemblyManipulator.Physical.IO
 
       public Int64 ImageBase { get; }
 
-      public Int32 SectionAlignment { get; set; }
+      public Int32 SectionAlignment { get; }
 
       public StrongNameVariables StrongNameVariables { get; }
 
-      public List<DataDirectory> PEDataDirectories { get; }
-
-      //public Int64? OffsetAfterInitialRawValues { get; set; }
+      public ArrayProxy<DataDirectory> PEDataDirectories { get; }
 
       public Int32? EntryPointRVA { get; set; }
 
-      //public Tuple<Int64, Int32> EmbeddedManifestResourcesInfo { get; set; }
-
       public DebugInformation DebugInformation { get; set; }
 
+      public static Int32 CheckAlignment( Int32 alignment, Int32 defaultAlignment )
+      {
+         // TODO reset all bits following MSB set bit in alignment
+         return alignment == 0 ? defaultAlignment : alignment;
+      }
    }
 
    public class StrongNameVariables
@@ -231,6 +239,8 @@ namespace CILAssemblyManipulator.Physical.IO
 
 public static partial class E_CILPhysical
 {
+   private const Int32 PE_SIG_AND_FILE_HEADER_SIZE = 0x18; // PE signature + file header
+   private const Int32 DATA_DIR_SIZE = 0x08;
 
    public static ImageInformation WriteMetaDataToStream(
       this Stream stream,
@@ -327,25 +337,26 @@ public static partial class E_CILPhysical
 
       // 3. Create WritingStatus (TODO maybe let writer create it?)
       var peOptions = options.PEOptions;
-      var fAlign = peOptions.FileAlignment ?? 0x200;
       var machine = peOptions.Machine ?? ImageFileMachine.I386;
       var sectionsArray = new SectionHeader[writer.GetSectionCount( machine )];
+
+      var peDataDirCount = peOptions.NumberOfDataDirectories ?? (Int32) DataDirectories.MaxValue;
+      var optionalHeaderSize = machine.GetOptionalHeaderSize( peDataDirCount );
       var status = new WritingStatus(
          0x80 // DOS header size
-         + 0x04 // PE Signature
-         + 0x18 // File header size
-         + machine.GetOptionalHeaderSize() // Optional header size
+         + PE_SIG_AND_FILE_HEADER_SIZE // PE Signature + File header size
+         + optionalHeaderSize // Optional header size
          + sectionsArray.Length * 0x28 // Sections
          ,
          machine,
-         fAlign,
+         peOptions.FileAlignment ?? WritingStatus.DEFAULT_FILE_ALIGNMENT,
+         peOptions.SectionAlignment ?? WritingStatus.DEFAULT_SECTION_ALIGNMENT,
          peOptions.ImageBase,
          snVars,
-         peOptions.NumberOfDataDirectories
+         peDataDirCount
          );
 
       // 4. Create sections and some headers
-      status.SectionAlignment = peOptions.SectionAlignment ?? 0x2000;
       RVAConverter rvaConverter; MetaDataRoot mdRoot; Int32 mdRootSize; Int32 mdSize;
       var rawValueProvider = writer.PopulateSections(
          status,
@@ -388,10 +399,9 @@ public static partial class E_CILPhysical
       var snSignature = new Byte[snVars?.SignatureSize ?? 0];
       var cliHeaderOptions = cliOptions.HeaderOptions;
       var thOptions = cliOptions.TablesStreamOptions;
-      var peStartOffset = 0x00000080u;
       var imageInfo = new ImageInformation(
          new PEInformation(
-            new DOSHeader( 0x5A4D, peStartOffset ),
+            new DOSHeader( 0x5A4D, 0x00000080u ),
             new NTHeader( 0x00004550,
                new FileHeader(
                   machine, // Machine
@@ -399,7 +409,7 @@ public static partial class E_CILPhysical
                   (UInt32) ( peOptions.Timestamp ?? CreateNewPETimestamp() ), // Timestamp
                   0, // Pointer to symbol table
                   0, // Number of symbols
-                  (UInt16) machine.GetOptionalHeaderSize(),
+                  optionalHeaderSize,
                   ( peOptions.Characteristics ?? machine.GetDefaultCharacteristics() ).ProcessCharacteristics( options.IsExecutable )
                   ),
                machine.CreateOptionalHeader(
@@ -421,10 +431,23 @@ public static partial class E_CILPhysical
             rawValueProvider.GetRawValuesFor( Tables.FieldRVA, 0 ).Select( r => (UInt32) r ).ToArrayProxy().CQ
             )
          );
+
+
       writer.WritePEInformation( stream, array, status, imageInfo.PEInformation );
 
       // 9. Compute strong name signature, if needed
-      CreateStrongNameSignature( stream, snVars, delaySign, cryptoCallbacks, rParams, cliHeader, rvaConverter, snSignature );
+      CreateStrongNameSignature(
+         stream,
+         snVars,
+         delaySign,
+         cryptoCallbacks,
+         rParams,
+         cliHeader,
+         rvaConverter,
+         snSignature,
+         imageInfo.PEInformation,
+         status.HeadersSizeUnaligned
+         );
 
       return imageInfo;
    }
@@ -529,7 +552,9 @@ public static partial class E_CILPhysical
       RSAParameters rParams,
       CLIHeader cliHeader,
       RVAConverter rvaConverter,
-      Byte[] snSignatureArray
+      Byte[] snSignatureArray,
+      PEInformation imageInfo,
+      Int32 headersSizeUnaligned
       )
    {
       if ( snVars != null && !delaySign )
@@ -539,12 +564,13 @@ public static partial class E_CILPhysical
          {
             var algo = snVars.HashAlgorithm;
             var snSize = snVars.SignatureSize;
-            var buffer = new Byte[0x2000]; // 2x typical windows page size
+            var buffer = new Byte[0x8000];
             var hashEvtArgs = cryptoCallbacks.CreateHashStreamAndCheck( algo, true, true, false, true );
             var hashStream = hashEvtArgs.CryptoStream;
             var hashGetter = hashEvtArgs.HashGetter;
             var transform = hashEvtArgs.Transform;
             var sigOffset = rvaConverter.ToOffset( cliHeader.StrongNameSignature.RVA );
+            Int32 idx;
 
             Byte[] strongNameArray;
             using ( var tf = transform )
@@ -552,12 +578,47 @@ public static partial class E_CILPhysical
                using ( var cryptoStream = hashStream() )
                {
                   // Calculate hash of required parts of file (ECMA-335, p.117)
-                  // TODO: Skip Certificate Table and PE Header File Checksum fields
-                  stream.Seek( 0, SeekOrigin.Begin );
-                  stream.CopyStreamPart( cryptoStream, buffer, sigOffset );
+                  // Read all headers first DOS header (start of file to the NT headers)
+                  stream.SeekFromBegin( 0 );
+                  var hdrArray = new Byte[headersSizeUnaligned];
+                  stream.ReadSpecificAmount( hdrArray, 0, hdrArray.Length );
 
-                  stream.Seek( snSize, SeekOrigin.Current );
-                  stream.CopyStream( cryptoStream, buffer );
+                  // Hash the checksum entry + authenticode as zeroes
+                  const Int32 peCheckSumOffsetWithinOptionalHeader = 0x40;
+                  var ntHeaderStart = (Int32) imageInfo.DOSHeader.NTHeaderOffset;
+                  idx = ntHeaderStart
+                     + PE_SIG_AND_FILE_HEADER_SIZE // NT header signature + file header size
+                     + peCheckSumOffsetWithinOptionalHeader; // Offset of PE checksum entry.
+                  hdrArray.WriteInt32LEToBytes( ref idx, 0 );
+
+                  var optionalHeaderSizeWithoutDataDirs = imageInfo.NTHeader.FileHeader.OptionalHeaderSize - DATA_DIR_SIZE * imageInfo.NTHeader.OptionalHeader.DataDirectories.Count;
+
+                  idx = ntHeaderStart
+                     + PE_SIG_AND_FILE_HEADER_SIZE // NT header signature + file header size
+                     + optionalHeaderSizeWithoutDataDirs
+                     + 4 * DATA_DIR_SIZE; // Authenticode is 5th data directory, and optionalHeaderSize includes all data directories
+                  hdrArray.WriteDataDirectory( ref idx, default( DataDirectory ) );
+                  // Hash the correctly zeroed-out header data
+                  cryptoStream.Write( hdrArray );
+
+                  // Now, calculate hash for all sections, except we have to skip our own strong name signature hash part
+                  foreach ( var section in imageInfo.SectionHeaders )
+                  {
+                     var min = section.RawDataPointer;
+                     var max = min + section.RawDataSize;
+                     stream.SeekFromBegin( min );
+                     if ( min < sigOffset && max > sigOffset )
+                     {
+                        // Strong name signature is in this section
+                        stream.CopyStreamPart( cryptoStream, buffer, sigOffset - min );
+                        stream.SeekFromCurrent( snSize );
+                        stream.CopyStreamPart( cryptoStream, buffer, max - sigOffset - snSize );
+                     }
+                     else
+                     {
+                        stream.CopyStreamPart( cryptoStream, buffer, max - min );
+                     }
+                  }
                }
 
                strongNameArray = cryptoCallbacks.CreateRSASignatureAndCheck( rsa, algo.GetAlgorithmName(), hashGetter() );
@@ -573,7 +634,7 @@ public static partial class E_CILPhysical
             // Write strong name
             stream.Seek( sigOffset, SeekOrigin.Begin );
             stream.Write( strongNameArray );
-            var idx = 0;
+            idx = 0;
             snSignatureArray.BlockCopyFrom( ref idx, strongNameArray );
          }
       }
@@ -611,11 +672,9 @@ public static partial class E_CILPhysical
       return (Int32) ( DateTime.UtcNow - new DateTime( 1970, 1, 1, 0, 0, 0, DateTimeKind.Utc ) ).TotalSeconds;
    }
 
-   private static UInt16 GetOptionalHeaderSize( this ImageFileMachine machine )
+   private static UInt16 GetOptionalHeaderSize( this ImageFileMachine machine, Int32 peDataDirectoriesCount )
    {
-      return (UInt16) ( machine.RequiresPE64() ?
-         0xF0 :
-         0xE0 );
+      return (UInt16) ( ( machine.RequiresPE64() ? 0x70 : 0x60 ) + DATA_DIR_SIZE * peDataDirectoriesCount );
    }
 
    private static FileHeaderCharacteristics ProcessCharacteristics(
@@ -726,7 +785,7 @@ public static partial class E_CILPhysical
             (UInt64) ( options.HeapCommitSize ?? 0x0000000000002000 ),
             options.LoaderFlags ?? 0x00000000,
             (UInt32) ( options.NumberOfDataDirectories ?? (Int32) DataDirectories.MaxValue ),
-            writingStatus.PEDataDirectories.ToArrayProxy().CQ
+            writingStatus.PEDataDirectories.CQ.ToArrayProxy().CQ
             );
       }
       else
@@ -761,7 +820,7 @@ public static partial class E_CILPhysical
             (UInt32) ( options.HeapCommitSize ?? 0x00001000 ),
             options.LoaderFlags ?? 0x00000000,
             (UInt32) ( options.NumberOfDataDirectories ?? (Int32) DataDirectories.MaxValue ),
-            writingStatus.PEDataDirectories.ToArrayProxy().CQ
+            writingStatus.PEDataDirectories.CQ.ToArrayProxy().CQ
             );
       }
    }

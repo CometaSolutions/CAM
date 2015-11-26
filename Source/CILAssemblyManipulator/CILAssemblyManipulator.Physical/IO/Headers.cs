@@ -1587,7 +1587,7 @@ public static partial class E_CILPhysical
          stream.ReadUInt16LEFromBytes(),
          stream.ReadDataDirectory(),
          (ModuleFlags) stream.ReadInt32LEFromBytes(),
-         TableIndex.FromOneBasedToken( stream.ReadInt32LEFromBytes() ),
+         TableIndex.FromOneBasedTokenNullable( stream.ReadInt32LEFromBytes() ),
          stream.ReadDataDirectory(),
          stream.ReadDataDirectory(),
          stream.ReadDataDirectory(),
@@ -1740,7 +1740,7 @@ public static partial class E_CILPhysical
          .ToArray();
 
       // Skip to next 4-byte boundary
-      stream.SkipToNextAlignment( 4 );
+      stream.SkipToNextAlignmentInt32();
 
       return CollectionsWithRoles.Implementation.CollectionsFactorySingleton.DEFAULT_COLLECTIONS_FACTORY.NewArrayProxy( bytez ).CQ;
 

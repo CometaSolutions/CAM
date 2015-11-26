@@ -342,7 +342,6 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
          )
       {
          var encoding = Encoding.UTF8;
-         var snVars = writingStatus.StrongNameVariables;
          var fAlign = writingStatus.FileAlignment;
          var sAlign = (UInt32) writingStatus.SectionAlignment;
          var curPointer = (UInt32) writingStatus.HeadersSize;
@@ -445,7 +444,7 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
          yield return new SectionPart_ImportAddressTable( machine );
 
          // 2. CLI Header
-         yield return new SectionPart_CLIHeader( options.CLIOptions.HeaderOptions );
+         yield return new SectionPart_CLIHeader( options.CLIOptions.HeaderOptions, writingStatus.StrongNameVariables != null );
 
          // 3. Strong name signature
          yield return new SectionPart_StrongNameSignature( writingStatus.StrongNameVariables, writingStatus.Machine );
@@ -613,7 +612,7 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
    {
       public SectionPartWithFixedAlignment( Int32 alignment, Boolean isPresent )
       {
-         if ( alignment < 0 )
+         if ( alignment <= 0 )
          {
             throw new ArgumentOutOfRangeException( "Alignment" );
          }
@@ -912,6 +911,7 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
          var il = row.IL;
          var exceptionBlocks = il.ExceptionBlocks;
          var hasAnyExceptions = exceptionBlocks.Count > 0;
+         var prePadding = sizeInfo.PrePadding;
          // Header
          if ( sizeInfo.IsTinyHeader )
          {
@@ -932,7 +932,7 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
             }
 
             array
-               .ZeroOut( ref idx, sizeInfo.PrePadding )
+               .ZeroOut( ref idx, prePadding )
                .WriteInt16LEToBytes( ref idx, (Int16) ( ( (Int32) flags ) | ( 3 << 12 ) ) )
                .WriteUInt16LEToBytes( ref idx, (UInt16) il.MaxStackSize )
                .WriteInt32LEToBytes( ref idx, sizeInfo.ILCodeByteCount )
@@ -951,7 +951,7 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
          {
             var exceptionSectionsAreLarge = sizeInfo.ExceptionSectionsAreLarge;
             var processedIndices = new HashSet<Int32>();
-            array.ZeroOut( ref idx, idx.RoundUpI32( 4 ) - idx );
+            array.ZeroOut( ref idx, ( idx - prePadding ).RoundUpI32( 4 ) - ( idx - prePadding ) );
             var flags = MethodDataFlags.ExceptionHandling;
             if ( exceptionSectionsAreLarge )
             {
@@ -973,9 +973,7 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
                   flags = flags & ~( MethodDataFlags.MoreSections );
                }
 
-               array.WriteByteToBytes( ref idx, (Byte) flags )
-                  .WriteInt32LEToBytes( ref idx, amountToBeWritten * excBlockSize + METHOD_DATA_SECTION_HEADER_SIZE );
-               --idx;
+               array.WriteInt32LEToBytes( ref idx, ( ( amountToBeWritten * excBlockSize + METHOD_DATA_SECTION_HEADER_SIZE ) << 8 ) | (Byte) flags );
 
                // Subtract this here since amountToBeWritten will change
                excCount -= amountToBeWritten;
@@ -1339,11 +1337,13 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
       private const Int32 HEADER_SIZE = 0x48;
 
       private readonly WritingOptions_CLIHeader _cliHeaderOptions;
+      private readonly Boolean _isStrongName;
 
-      public SectionPart_CLIHeader( WritingOptions_CLIHeader cliHeaderOptions )
+      public SectionPart_CLIHeader( WritingOptions_CLIHeader cliHeaderOptions, Boolean isStrongName )
          : base( 4, true, HEADER_SIZE )
       {
          this._cliHeaderOptions = cliHeaderOptions;
+         this._isStrongName = isStrongName;
       }
 
       protected override Boolean DoWriteData( SectionPartWritingArgs args, Byte[] array, ref Int32 idx )
@@ -1373,12 +1373,17 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
          var md = parts
             .OfType<SectionPart_MetaData>()
             .FirstOrDefault();
+         var flags = cliHeaderOptions.ModuleFlags ?? ModuleFlags.ILOnly;
+         if ( this._isStrongName )
+         {
+            flags |= ModuleFlags.StrongNameSigned;
+         }
          return new CLIHeader(
                HEADER_SIZE,
                (UInt16) ( cliHeaderOptions.MajorRuntimeVersion ?? 2 ),
                (UInt16) ( cliHeaderOptions.MinorRuntimeVersion ?? 5 ),
                args.GetDataDirectoryForSectionPart( md ),
-               cliHeaderOptions.ModuleFlags ?? ModuleFlags.ILOnly,
+               flags,
                cliHeaderOptions.EntryPointToken,
                args.GetDataDirectoryForSectionPart( embeddedResources ),
                args.GetDataDirectoryForSectionPart( snData ),

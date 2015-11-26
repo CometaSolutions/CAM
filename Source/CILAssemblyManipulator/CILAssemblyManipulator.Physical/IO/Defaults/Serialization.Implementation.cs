@@ -28,6 +28,57 @@ using System.Text;
 
 namespace CILAssemblyManipulator.Physical.IO.Defaults
 {
+   public class DefaultRVAConverter : RVAConverter
+   {
+      private readonly SectionHeader[] _sections;
+
+      public DefaultRVAConverter( IEnumerable<SectionHeader> headers )
+      {
+         this._sections = ( headers ?? Empty<SectionHeader>.Enumerable ).ToArray();
+      }
+
+      public Int64 ToOffset( Int64 rva )
+      {
+         // TODO some kind of interval-map for sections...
+         var sections = this._sections;
+         var retVal = -1L;
+         if ( rva > 0 )
+         {
+            for ( var i = 0; i < sections.Length; ++i )
+            {
+               var sec = sections[i];
+               if ( sec.VirtualAddress <= rva && rva < (Int64) sec.VirtualAddress + (Int64) Math.Max( sec.VirtualSize, sec.RawDataSize ) )
+               {
+                  retVal = sec.RawDataPointer + ( rva - sec.VirtualAddress );
+                  break;
+               }
+            }
+         }
+         return retVal;
+      }
+
+      public Int64 ToRVA( Int64 offset )
+      {
+         // TODO some kind of interval-map for sections...
+         var sections = this._sections;
+         var retVal = -1L;
+         if ( offset > 0 )
+         {
+            for ( var i = 0; i < sections.Length; ++i )
+            {
+               var sec = sections[i];
+               if ( sec.RawDataPointer <= offset && offset < (Int64) sec.RawDataPointer + (Int64) sec.RawDataSize )
+               {
+                  retVal = sec.VirtualAddress + ( offset - sec.RawDataPointer );
+                  break;
+               }
+            }
+         }
+
+         return retVal;
+      }
+   }
+
    public interface ColumnSerializationInfo
    {
       String ColumnName { get; }
