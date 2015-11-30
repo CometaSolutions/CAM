@@ -614,44 +614,6 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
 
    }
 
-   public class RowRawValueExtractionArguments
-   {
-
-      private readonly Func<Int64> _streamPositionGetter;
-
-      public RowRawValueExtractionArguments(
-         ResizableArray<Byte> array,
-         WriterMetaDataStreamContainer mdStreams,
-         CILMetaData metaData,
-         Func<Int64> streamPositionGetter
-         )
-      {
-         ArgumentValidator.ValidateNotNull( "Array", array );
-         ArgumentValidator.ValidateNotNull( "Meta data streams", mdStreams );
-         ArgumentValidator.ValidateNotNull( "Meta data", metaData );
-         ArgumentValidator.ValidateNotNull( "Stream position getter", streamPositionGetter );
-
-         this.Array = array;
-         this.MDStreamContainer = mdStreams;
-         this.MetaData = metaData;
-         this._streamPositionGetter = streamPositionGetter;
-      }
-
-      public ResizableArray<Byte> Array { get; }
-
-      public WriterMetaDataStreamContainer MDStreamContainer { get; }
-
-      public CILMetaData MetaData { get; }
-
-      public Int64 CurrentStreamPosition
-      {
-         get
-         {
-            return this._streamPositionGetter();
-         }
-      }
-   }
-
    public class RowHeapFillingArguments
    {
       public RowHeapFillingArguments(

@@ -1683,27 +1683,6 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
          // Just return the section itself.
          return section;
       }
-
-      protected virtual Int32 WriteEmbeddedManifestResoruce(
-         RowRawValueExtractionArguments args,
-         Byte[] data
-         )
-      {
-         return this.WriteEmbeddedManifestResourceToArray( args.Array, data );
-      }
-
-      public virtual Int32 WriteEmbeddedManifestResourceToArray(
-         ResizableArray<Byte> sink,
-         Byte[] resource
-         )
-      {
-         var idx = 0;
-         sink.CurrentMaxCapacity = resource.Length + sizeof( Int32 );
-         sink
-            .WriteInt32LEToBytes( ref idx, resource.Length )
-            .WriteArray( ref idx, resource );
-         return idx;
-      }
    }
 
 

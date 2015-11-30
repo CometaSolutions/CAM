@@ -97,10 +97,6 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
    public delegate void RowRawColumnSetterDelegate<TRow>( ColumnFunctionalityArgs<TRow, RawValueProcessingArgs> args, Int32 rawValue )
       where TRow : class;
 
-   // Writes a raw value property, returns amount of bytes written.
-   public delegate Int32 RowRawColumnGetterDelegate<TRow>( ColumnFunctionalityArgs<TRow, RowRawValueExtractionArguments> args )
-      where TRow : class;
-
    // Gets the heap index that will be written to table stream
    public delegate Int32 RowHeapColumnGetterDelegate<TRow>( ColumnFunctionalityArgs<TRow, RowHeapFillingArguments> args )
       where TRow : class;
@@ -324,7 +320,7 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
          String columnName,
          RawRowColumnSetterDelegate<TRawRow> rawSetter,
          RowColumnSetterDelegate<TRow, Int32> setter,
-        RowColumnGetterDelegate<TRow, Int32> getter
+         RowColumnGetterDelegate<TRow, Int32> getter
          )
          where TRawRow : class
          where TRow : class
