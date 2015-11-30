@@ -176,7 +176,7 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
          CILMetaData md
          )
       {
-         return new RawValueProcessingArgs( stream, imageInfo, rvaConverter, mdStreamContainer, md );
+         return new RawValueProcessingArgs( stream, imageInfo, rvaConverter, mdStreamContainer, md, new ResizableArray<Byte>( initialSize: 0x1000 ) );
       }
 
       protected MetaDataSerializationSupportProvider MDSerialization { get; }
@@ -1180,26 +1180,28 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
       {
          Int64 offset;
          MethodILDefinition retVal = null;
-         if ( rva > 0 && ( offset = args.RVAConverter.ToOffset( rva ) ) > 0 )
+         if ( rva != 0 && ( offset = args.RVAConverter.ToOffset( rva ) ) > 0 )
          {
             var stream = args.Stream.At( offset );
+            var array = args.Array;
             var userStrings = args.MDStreamContainer.UserStrings;
 
 
-            var FORMAT_MASK = 0x00000001;
-            var FLAG_MASK = 0x00000FFF;
-            var SEC_SIZE_MASK = 0xFFFFFF00u;
-            var SEC_FLAG_MASK = 0x000000FFu;
+            const Int32 FORMAT_MASK = 0x00000001;
+            const Int32 FLAG_MASK = 0x00000FFF;
+            const Int32 SEC_SIZE_MASK = unchecked((Int32) 0xFFFFFF00);
+            const Int32 SEC_FLAG_MASK = 0x000000FF;
             retVal = new MethodILDefinition();
 
             Byte b;
+            Int32 codeSize;
             if ( stream.TryReadByteFromBytes( out b ) )
             {
                Byte b2;
                if ( ( FORMAT_MASK & b ) == 0 )
                {
                   // Tiny header - no locals, no exceptions, no extra data
-                  CreateOpCodes( retVal, stream, b >> 2, userStrings );
+                  CreateOpCodes( retVal, stream.Stream, array, b >> 2, userStrings );
                   // Max stack is 8
                   retVal.MaxStackSize = 8;
                   retVal.InitLocals = false;
@@ -1211,48 +1213,46 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
                   retVal.InitLocals = ( flags & MethodHeaderFlags.InitLocals ) != 0;
                   var headerSize = ( starter >> 12 ) * 4; // Header size is written as amount of integers
                                                           // Read max stack
-                  retVal.MaxStackSize = stream.ReadUInt16LEFromBytes();
-                  var codeSize = stream.ReadInt32LEFromBytes();
-                  retVal.LocalsSignatureIndex = TableIndex.FromOneBasedTokenNullable( stream.ReadInt32LEFromBytes() );
-
-                  if ( headerSize > 12 )
-                  {
-                     stream.SkipToNextAlignmentInt32();
-                  }
+                  var bytes = array.ReadIntoResizableArray( stream.Stream, headerSize - 2 );
+                  var idx = 0;
+                  retVal.MaxStackSize = bytes.ReadUInt16LEFromBytes( ref idx );
+                  codeSize = bytes.ReadInt32LEFromBytes( ref idx );
+                  retVal.LocalsSignatureIndex = TableIndex.FromOneBasedTokenNullable( bytes.ReadInt32LEFromBytes( ref idx ) );
 
                   // Read code
-                  if ( CreateOpCodes( retVal, stream, codeSize, userStrings ) )
+                  if ( CreateOpCodes( retVal, stream.Stream, array, codeSize, userStrings )
+                     && ( flags & MethodHeaderFlags.MoreSections ) != 0 )
                   {
-                     if ( ( flags & MethodHeaderFlags.MoreSections ) != 0 )
-                     {
 
-                        stream.SkipToNextAlignmentInt32();
-                        // Read sections
-                        MethodDataFlags secFlags;
-                        do
+                     stream.SkipToNextAlignmentInt32();
+                     // Read sections
+                     MethodDataFlags secFlags;
+                     do
+                     {
+                        var secHeader = stream.ReadInt32LEFromBytes();
+                        secFlags = (MethodDataFlags) ( secHeader & SEC_FLAG_MASK );
+                        var secByteSize = ( secHeader & SEC_SIZE_MASK ) >> 8;
+                        secByteSize -= 4;
+                        var isFat = ( secFlags & MethodDataFlags.FatFormat ) != 0;
+                        bytes = array.ReadIntoResizableArray( stream.Stream, secByteSize );
+                        idx = 0;
+                        while ( secByteSize > 0 )
                         {
-                           var secHeader = stream.ReadInt32LEFromBytes();
-                           secFlags = (MethodDataFlags) ( secHeader & SEC_FLAG_MASK );
-                           var secByteSize = ( secHeader & SEC_SIZE_MASK ) >> 8;
-                           secByteSize -= 4;
-                           var isFat = ( secFlags & MethodDataFlags.FatFormat ) != 0;
-                           while ( secByteSize > 0 )
+                           var eType = (ExceptionBlockType) ( isFat ? bytes.ReadInt32LEFromBytes( ref idx ) : bytes.ReadUInt16LEFromBytes( ref idx ) );
+                           retVal.ExceptionBlocks.Add( new MethodExceptionBlock()
                            {
-                              var eType = (ExceptionBlockType) ( isFat ? stream.ReadInt32LEFromBytes() : stream.ReadUInt16LEFromBytes() );
-                              retVal.ExceptionBlocks.Add( new MethodExceptionBlock()
-                              {
-                                 BlockType = eType,
-                                 TryOffset = isFat ? stream.ReadInt32LEFromBytes() : stream.ReadUInt16LEFromBytes(),
-                                 TryLength = isFat ? stream.ReadInt32LEFromBytes() : stream.ReadByteFromBytes(),
-                                 HandlerOffset = isFat ? stream.ReadInt32LEFromBytes() : stream.ReadUInt16LEFromBytes(),
-                                 HandlerLength = isFat ? stream.ReadInt32LEFromBytes() : stream.ReadByteFromBytes(),
-                                 ExceptionType = eType == ExceptionBlockType.Filter ? (TableIndex?) null : TableIndex.FromOneBasedTokenNullable( stream.ReadInt32LEFromBytes() ),
-                                 FilterOffset = eType == ExceptionBlockType.Filter ? stream.ReadInt32LEFromBytes() : 0
-                              } );
-                              secByteSize -= ( isFat ? 24u : 12u );
-                           }
-                        } while ( ( secFlags & MethodDataFlags.MoreSections ) != 0 );
-                     }
+                              BlockType = eType,
+                              TryOffset = isFat ? bytes.ReadInt32LEFromBytes( ref idx ) : bytes.ReadUInt16LEFromBytes( ref idx ),
+                              TryLength = isFat ? bytes.ReadInt32LEFromBytes( ref idx ) : bytes.ReadByteFromBytes( ref idx ),
+                              HandlerOffset = isFat ? bytes.ReadInt32LEFromBytes( ref idx ) : bytes.ReadUInt16LEFromBytes( ref idx ),
+                              HandlerLength = isFat ? bytes.ReadInt32LEFromBytes( ref idx ) : bytes.ReadByteFromBytes( ref idx ),
+                              ExceptionType = eType == ExceptionBlockType.Filter ? (TableIndex?) null : TableIndex.FromOneBasedTokenNullable( bytes.ReadInt32LEFromBytes( ref idx ) ),
+                              FilterOffset = eType == ExceptionBlockType.Filter ? bytes.ReadInt32LEFromBytes( ref idx ) : 0
+                           } );
+                           secByteSize -= ( isFat ? 24 : 12 );
+                        }
+                     } while ( ( secFlags & MethodDataFlags.MoreSections ) != 0 );
+
                   }
                }
                else
@@ -1266,7 +1266,8 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
 
       private static Boolean CreateOpCodes(
          MethodILDefinition methodIL,
-         StreamHelper stream,
+         Stream stream,
+         ResizableArray<Byte> array,
          Int32 codeSize,
          ReaderStringStreamHandler userStrings
          )
@@ -1276,19 +1277,15 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
          if ( codeSize > 0 )
          {
             var opCodes = methodIL.OpCodes;
-            var s = stream.Stream;
-            var max = s.Position + codeSize;
-            while ( s.Position < max && success )
+            var idx = 0;
+            var bytes = array.ReadIntoResizableArray( stream, codeSize );
+            while ( idx < codeSize && success )
             {
-               var curCodeInfo = OpCodeInfo.ReadFromStream(
-                  stream,
-                  strToken =>
-                  {
-                     var oldPos = s.Position;
-                     var str = userStrings.GetString( TableIndex.FromZeroBasedToken( strToken ).Index );
-                     s.Position = oldPos;
-                     return str;
-                  } );
+               var curCodeInfo = OpCodeInfo.ReadFromBytes(
+                  bytes,
+                  ref idx,
+                  strToken => userStrings.GetString( TableIndex.FromZeroBasedToken( strToken ).Index )
+                  );
 
                if ( curCodeInfo == null )
                {

@@ -109,100 +109,65 @@ namespace CILAssemblyManipulator.Physical
          Func<Int32, String> stringGetter
          )
       {
-         using ( var stream = new MemoryStream( bytes ) )
-         {
-            stream.Position = idx;
-            var retVal = ReadFromStream( new StreamHelper( stream ), stringGetter );
-            idx += (Int32) stream.Position;
-            return retVal;
-         }
-      }
-
-      internal static OpCodeInfo ReadFromStream(
-         StreamHelper stream,
-         Func<Int32, String> stringGetter
-         )
-      {
          OpCodeInfo info;
-         Byte b;
-         if ( stream.TryReadByteFromBytes( out b ) )
-         {
-            OpCodeEncoding encoding;
-            if ( b == OpCode.MAX_ONE_BYTE_INSTRUCTION )
-            {
-               encoding = (OpCodeEncoding) ( b << 8 );
-               if ( stream.TryReadByteFromBytes( out b ) )
-               {
-                  encoding |= (OpCodeEncoding) b;
-               }
-               else
-               {
-                  encoding = (OpCodeEncoding) ( -1 );
-               }
-            }
-            else
-            {
-               encoding = (OpCodeEncoding) b;
-            }
+         var b = bytes[idx++];
+         var encoding = (OpCodeEncoding) ( b == OpCode.MAX_ONE_BYTE_INSTRUCTION ?
+            ( ( b << 8 ) | bytes[idx++] ) :
+            b );
 
-            OpCode code;
-            if ( OpCodes.Codes.TryGetValue( encoding, out code ) )
+         OpCode code;
+         if ( OpCodes.Codes.TryGetValue( encoding, out code ) )
+         {
+            switch ( code.OperandType )
             {
-               switch ( code.OperandType )
-               {
-                  case OperandType.InlineNone:
-                     info = OpCodeInfoWithNoOperand.GetInstanceFor( encoding );
-                     break;
-                  case OperandType.ShortInlineBrTarget:
-                  case OperandType.ShortInlineI:
-                     info = new OpCodeInfoWithInt32( code, (Int32) ( stream.ReadSByteFromBytes() ) );
-                     break;
-                  case OperandType.ShortInlineVar:
-                     info = new OpCodeInfoWithInt32( code, stream.ReadByteFromBytes() );
-                     break;
-                  case OperandType.ShortInlineR:
-                     info = new OpCodeInfoWithSingle( code, stream.ReadSingleLEFromBytes() );
-                     break;
-                  case OperandType.InlineBrTarget:
-                  case OperandType.InlineI:
-                     info = new OpCodeInfoWithInt32( code, stream.ReadInt32LEFromBytes() );
-                     break;
-                  case OperandType.InlineVar:
-                     info = new OpCodeInfoWithInt32( code, stream.ReadUInt16LEFromBytes() );
-                     break;
-                  case OperandType.InlineR:
-                     info = new OpCodeInfoWithDouble( code, stream.ReadDoubleLEFromBytes() );
-                     break;
-                  case OperandType.InlineI8:
-                     info = new OpCodeInfoWithInt64( code, stream.ReadInt64LEFromBytes() );
-                     break;
-                  case OperandType.InlineString:
-                     info = new OpCodeInfoWithString( code, stringGetter( stream.ReadInt32LEFromBytes() ) );
-                     break;
-                  case OperandType.InlineField:
-                  case OperandType.InlineMethod:
-                  case OperandType.InlineType:
-                  case OperandType.InlineTok:
-                  case OperandType.InlineSig:
-                     info = new OpCodeInfoWithToken( code, TableIndex.FromOneBasedToken( stream.ReadInt32LEFromBytes() ) );
-                     break;
-                  case OperandType.InlineSwitch:
-                     var count = stream.ReadInt32LEFromBytes();
-                     var sInfo = new OpCodeInfoWithSwitch( code, count );
-                     for ( var i = 0; i < count; ++i )
-                     {
-                        sInfo.Offsets.Add( stream.ReadInt32LEFromBytes() );
-                     }
-                     info = sInfo;
-                     break;
-                  default:
-                     info = null;
-                     break;
-               }
-            }
-            else
-            {
-               info = null;
+               case OperandType.InlineNone:
+                  info = OpCodeInfoWithNoOperand.GetInstanceFor( encoding );
+                  break;
+               case OperandType.ShortInlineBrTarget:
+               case OperandType.ShortInlineI:
+                  info = new OpCodeInfoWithInt32( code, (Int32) ( bytes.ReadSByteFromBytes( ref idx ) ) );
+                  break;
+               case OperandType.ShortInlineVar:
+                  info = new OpCodeInfoWithInt32( code, bytes.ReadByteFromBytes( ref idx ) );
+                  break;
+               case OperandType.ShortInlineR:
+                  info = new OpCodeInfoWithSingle( code, bytes.ReadSingleLEFromBytes( ref idx ) );
+                  break;
+               case OperandType.InlineBrTarget:
+               case OperandType.InlineI:
+                  info = new OpCodeInfoWithInt32( code, bytes.ReadInt32LEFromBytes( ref idx ) );
+                  break;
+               case OperandType.InlineVar:
+                  info = new OpCodeInfoWithInt32( code, bytes.ReadUInt16LEFromBytes( ref idx ) );
+                  break;
+               case OperandType.InlineR:
+                  info = new OpCodeInfoWithDouble( code, bytes.ReadDoubleLEFromBytes( ref idx ) );
+                  break;
+               case OperandType.InlineI8:
+                  info = new OpCodeInfoWithInt64( code, bytes.ReadInt64LEFromBytes( ref idx ) );
+                  break;
+               case OperandType.InlineString:
+                  info = new OpCodeInfoWithString( code, stringGetter( bytes.ReadInt32LEFromBytes( ref idx ) ) );
+                  break;
+               case OperandType.InlineField:
+               case OperandType.InlineMethod:
+               case OperandType.InlineType:
+               case OperandType.InlineTok:
+               case OperandType.InlineSig:
+                  info = new OpCodeInfoWithToken( code, TableIndex.FromOneBasedToken( bytes.ReadInt32LEFromBytes( ref idx ) ) );
+                  break;
+               case OperandType.InlineSwitch:
+                  var count = bytes.ReadInt32LEFromBytes( ref idx );
+                  var sInfo = new OpCodeInfoWithSwitch( code, count );
+                  for ( var i = 0; i < count; ++i )
+                  {
+                     sInfo.Offsets.Add( bytes.ReadInt32LEFromBytes( ref idx ) );
+                  }
+                  info = sInfo;
+                  break;
+               default:
+                  info = null;
+                  break;
             }
          }
          else

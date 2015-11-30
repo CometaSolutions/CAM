@@ -815,4 +815,19 @@ public static partial class E_CommonUtils
       return destinationArray;
    }
 
+   /// <summary>
+   /// Reads specific amount of bytes from <see cref="System.IO.Stream"/> into this resizable array, and returns the actual byte array.
+   /// </summary>
+   /// <param name="array">The <see cref="ResizableArray{T}"/>.</param>
+   /// <param name="stream">The <see cref="System.IO.Stream"/>.</param>
+   /// <param name="count">The amount of bytes to read.</param>
+   /// <returns>The actual byte array containing the bytes read (and possibly any other data following after this, if the <see cref="ResizableArray{T}"/>'s array had that before calling this method).</returns>
+   public static Byte[] ReadIntoResizableArray( this ResizableArray<Byte> array, System.IO.Stream stream, Int32 count )
+   {
+      array.CurrentMaxCapacity = count;
+      var retVal = array.Array;
+      stream.ReadSpecificAmount( retVal, 0, count );
+      return retVal;
+   }
+
 }

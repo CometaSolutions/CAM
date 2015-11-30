@@ -331,7 +331,7 @@ public static partial class E_CILPhysical
             );
 
       // 2. Populate streams
-      var array = new ResizableArray<Byte>();
+      var array = new ResizableArray<Byte>( initialSize: 0x1000 );
       MetaDataTableStreamHeader thHeader;
       tblMDStream.FillHeaps( snVars?.PublicKey?.ToArrayProxy()?.CQ, mdStreamContainer, array, out thHeader );
 

@@ -571,7 +571,8 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
          ImageInformation imageInformation,
          RVAConverter rvaConverter,
          ReaderMetaDataStreamContainer mdStreamContainer,
-         CILMetaData md
+         CILMetaData md,
+         ResizableArray<Byte> array
          )
       {
          ArgumentValidator.ValidateNotNull( "Stream", stream );
@@ -579,12 +580,14 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
          ArgumentValidator.ValidateNotNull( "RVA converter", rvaConverter );
          ArgumentValidator.ValidateNotNull( "Meta data stream container", mdStreamContainer );
          ArgumentValidator.ValidateNotNull( "Meta data", md );
+         ArgumentValidator.ValidateNotNull( "Array", array );
 
          this.Stream = stream;
          this.ImageInformation = imageInformation;
          this.RVAConverter = rvaConverter;
          this.MDStreamContainer = mdStreamContainer;
          this.MetaData = md;
+         this.Array = array;
          this._layoutInfo = new Lazy<DictionaryQuery<Int32, ClassLayout>>(
             () => md.ClassLayouts.TableContents
             .ToDictionary_Overwrite( l => l.Parent.Index, l => l )
@@ -598,6 +601,8 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
 
       public ReaderMetaDataStreamContainer MDStreamContainer { get; }
       public CILMetaData MetaData { get; }
+
+      public ResizableArray<Byte> Array { get; }
 
       public DictionaryQuery<Int32, ClassLayout> LayoutInfo
       {
