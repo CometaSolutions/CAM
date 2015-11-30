@@ -1175,12 +1175,16 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
 
       protected virtual MethodILDefinition DeserializeIL(
          RawValueProcessingArgs args,
-         Int32 rva
+         Int32 rva,
+         MethodDefinition mDef
          )
       {
          Int64 offset;
          MethodILDefinition retVal = null;
-         if ( rva != 0 && ( offset = args.RVAConverter.ToOffset( rva ) ) > 0 )
+         if ( rva != 0
+            && ( offset = args.RVAConverter.ToOffset( rva ) ) > 0
+            && mDef.ShouldHaveMethodBody()
+            )
          {
             var stream = args.Stream.At( offset );
             var array = args.Array;

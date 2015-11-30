@@ -148,6 +148,7 @@ namespace CILAssemblyManipulator.Physical
       protected static Boolean ReadFromBytes(
          Byte[] array,
          ref Int32 idx,
+         Boolean canHaveSentinel,
          out SignatureStarters elementType,
          out Int32 genericCount,
          out ParameterSignature returnParameter,
@@ -155,46 +156,44 @@ namespace CILAssemblyManipulator.Physical
          out Int32 sentinelMark
          )
       {
-         var retVal = false;
          elementType = array.ReadSigStarter( ref idx );
 
          genericCount = elementType.IsGeneric() ? array.DecompressUInt32( ref idx ) : 0;
 
          var amountOfParams = array.DecompressUInt32( ref idx );
-         if ( amountOfParams <= UInt16.MaxValue )
+
+         var retVal = amountOfParams <= UInt16.MaxValue;
+         if ( retVal )
          {
             returnParameter = ReadParameter( array, ref idx );
-            if ( returnParameter != null )
+            sentinelMark = -1;
+            if ( amountOfParams > 0 )
             {
-               retVal = true;
-               sentinelMark = -1;
-               if ( amountOfParams > 0 )
+               parameters = new ParameterSignature[amountOfParams];
+               Int32 i;
+
+               if ( canHaveSentinel )
                {
-                  parameters = new ParameterSignature[amountOfParams];
-                  Int32 i;
                   for ( i = 0; i < amountOfParams; ++i )
                   {
                      if ( array[idx] == (Byte) SignatureElementTypes.Sentinel )
                      {
                         sentinelMark = i;
                      }
-                     if ( ( parameters[i] = ReadParameter( array, ref idx ) ) == null )
-                     {
-                        retVal = false;
-                        break;
-                     }
+                     parameters[i] = ReadParameter( array, ref idx );
                   }
-                  retVal = i == amountOfParams;
                }
                else
                {
-                  parameters = Empty<ParameterSignature>.Array;
+                  for ( i = 0; i < amountOfParams; ++i )
+                  {
+                     parameters[i] = ReadParameter( array, ref idx );
+                  }
                }
             }
             else
             {
-               parameters = null;
-               sentinelMark = -1;
+               parameters = Empty<ParameterSignature>.Array;
             }
          }
          else
@@ -262,7 +261,7 @@ namespace CILAssemblyManipulator.Physical
          ParameterSignature[] parameters;
          Int32 sentinelMark;
          MethodDefinitionSignature retVal;
-         if ( ReadFromBytes( array, ref idx, out elementType, out genericCount, out returnParameter, out parameters, out sentinelMark ) )
+         if ( ReadFromBytes( array, ref idx, false, out elementType, out genericCount, out returnParameter, out parameters, out sentinelMark ) )
          {
             retVal = new MethodDefinitionSignature( parameters.Length )
             {
@@ -314,7 +313,7 @@ namespace CILAssemblyManipulator.Physical
          ParameterSignature[] parameters;
          Int32 sentinelMark;
          MethodReferenceSignature retVal;
-         if ( ReadFromBytes( array, ref idx, out elementType, out genericCount, out returnParameter, out parameters, out sentinelMark ) )
+         if ( ReadFromBytes( array, ref idx, true, out elementType, out genericCount, out returnParameter, out parameters, out sentinelMark ) )
          {
             var pLength = sentinelMark == -1 ? parameters.Length : sentinelMark;
             var vLength = sentinelMark == -1 ? 0 : ( parameters.Length - sentinelMark );
