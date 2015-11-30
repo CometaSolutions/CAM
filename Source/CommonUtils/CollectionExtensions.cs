@@ -885,10 +885,24 @@ public static partial class E_CommonUtils
    /// <returns>The newly created array, containing same elements as section of the given array.</returns>
    public static T[] CreateArrayCopy<T>( this T[] array, Int32 offset, Int32 count )
    {
+      return array.CreateArrayCopy( ref offset, count );
+   }
+
+   /// <summary>
+   /// Creates a copy of section of given array, starting at given offset and copying given amount of elements.
+   /// </summary>
+   /// <typeparam name="T">The type of elements in the array.</typeparam>
+   /// <param name="array">The array.</param>
+   /// <param name="offset">The offset in <paramref name="array" /> where to start copying elements. This will be incremented by <paramref name="count"/>.</param>
+   /// <param name="count">The amount of elements to copy.</param>
+   /// <returns>The newly created array, containing same elements as section of the given array.</returns>
+   public static T[] CreateArrayCopy<T>( this T[] array, ref Int32 offset, Int32 count )
+   {
       array.CheckArrayArguments( offset, count );
 
       var retVal = new T[count];
       Array.Copy( array, offset, retVal, 0, count );
+      offset += count;
       return retVal;
    }
 

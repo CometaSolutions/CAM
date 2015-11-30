@@ -1206,6 +1206,8 @@ namespace CILAssemblyManipulator.Physical.IO
    }
 
    #endregion
+
+   public delegate T ReadElementFromArrayDelegate<T>( Byte[] array, ref Int32 idx );
 }
 
 public static partial class E_CILPhysical
@@ -1501,6 +1503,17 @@ public static partial class E_CILPhysical
       return CollectionsWithRoles.Implementation.CollectionsFactorySingleton.DEFAULT_COLLECTIONS_FACTORY.NewArrayProxy( array ).CQ;
    }
 
+   [CLSCompliant( false )]
+   public static ArrayQuery<T> ReadSequentialElements<T>( this Byte[] array, ref Int32 idx, UInt32 elementCount, ReadElementFromArrayDelegate<T> singleElementReader )
+   {
+      var retVal = new T[elementCount];
+      for ( var i = 0u; i < elementCount; ++i )
+      {
+         retVal[i] = singleElementReader( array, ref idx );
+      }
+      return CollectionsWithRoles.Implementation.CollectionsFactorySingleton.DEFAULT_COLLECTIONS_FACTORY.NewArrayProxy( retVal ).CQ;
+   }
+
    public static DataDirectory ReadDataDirectory( this StreamHelper stream )
    {
       return new DataDirectory( stream.ReadRVAFromBytes(), stream.ReadUInt32LEFromBytes() );
@@ -1666,20 +1679,20 @@ public static partial class E_CILPhysical
       return idx;
    }
 
-   public static MetaDataTableStreamHeader NewTableStreamHeaderFromStream( this StreamHelper stream )
+   public static MetaDataTableStreamHeader NewTableStreamHeaderFromStream( this Byte[] array, ref Int32 idx )
    {
       UInt64 presentTables;
       TableStreamFlags thFlags;
       return new MetaDataTableStreamHeader(
-         stream.ReadInt32LEFromBytes(),
-         stream.ReadByteFromBytes(),
-         stream.ReadByteFromBytes(),
-         ( thFlags = (TableStreamFlags) stream.ReadByteFromBytes() ),
-         stream.ReadByteFromBytes(),
-         ( presentTables = stream.ReadUInt64LEFromBytes() ),
-         stream.ReadUInt64LEFromBytes(),
-         stream.ReadSequentialElements( (UInt32) BinaryUtils.CountBitsSetU64( presentTables ), s => s.ReadUInt32LEFromBytes() ),
-         thFlags.HasExtraData() ? stream.ReadInt32LEFromBytes() : (Int32?) null
+         array.ReadInt32LEFromBytes( ref idx ),
+         array.ReadByteFromBytes( ref idx ),
+         array.ReadByteFromBytes( ref idx ),
+         ( thFlags = (TableStreamFlags) array.ReadByteFromBytes( ref idx ) ),
+         array.ReadByteFromBytes( ref idx ),
+         ( presentTables = array.ReadUInt64LEFromBytes( ref idx ) ),
+         array.ReadUInt64LEFromBytes( ref idx ),
+         array.ReadSequentialElements( ref idx, (UInt32) BinaryUtils.CountBitsSetU64( presentTables ), ( Byte[] a, ref Int32 i ) => a.ReadUInt32LEFromBytes( ref i ) ),
+         thFlags.HasExtraData() ? array.ReadInt32LEFromBytes( ref idx ) : (Int32?) null
          );
    }
 

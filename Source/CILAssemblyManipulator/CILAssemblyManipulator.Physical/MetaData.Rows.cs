@@ -649,28 +649,25 @@ namespace CILAssemblyManipulator.Physical
 
 
 
-      internal static Boolean DecodeTypeDefOrRefOrSpec( StreamHelper stream, out Int32 token )
+      internal static Int32 DecodeTypeDefOrRefOrSpec( Byte[] array, ref Int32 idx )
       {
-         var retVal = stream.DecompressUInt32( out token );
-         if ( retVal )
+         var token = array.DecompressUInt32( ref idx );
+         switch ( token & TDRS_TABLE_EXTRACT_MASK )
          {
-            switch ( token & TDRS_TABLE_EXTRACT_MASK )
-            {
-               case TYPE_DEF:
-                  token = TYPE_DEF_MASK | ( token >> 2 );
-                  break;
-               case TYPE_REF:
-                  token = TYPE_REF_MASK | ( token >> 2 );
-                  break;
-               case TYPE_SPEC:
-                  token = TYPE_SPEC_MASK | ( token >> 2 );
-                  break;
-               default:
-                  retVal = false;
-                  break;
-            }
+            case TYPE_DEF:
+               token = TYPE_DEF_MASK | ( token >> 2 );
+               break;
+            case TYPE_REF:
+               token = TYPE_REF_MASK | ( token >> 2 );
+               break;
+            case TYPE_SPEC:
+               token = TYPE_SPEC_MASK | ( token >> 2 );
+               break;
+            default:
+               throw new InvalidOperationException( "Invalid TDRS token: " + token );
          }
-         return retVal;
+
+         return token;
       }
 
       internal static Int32 EncodeTypeDefOrRefOrSpec( Int32 token )

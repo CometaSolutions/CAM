@@ -527,7 +527,7 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
    {
       TableSerializationInfo TableSerializationInfo { get; }
 
-      Object ReadRawRow( StreamHelper stream );
+      Object ReadRawRow( Byte[] array, Int32 idx );
 
       void ReadRows( MetaDataTable table, Int32 tableRowCount, RowReadingArguments args );
 
@@ -537,21 +537,25 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
    public class RowReadingArguments
    {
       public RowReadingArguments(
-         StreamHelper stream,
+         Byte[] array,
+         Int32 index,
          ReaderMetaDataStreamContainer mdStreamContainer,
          RawValueStorage<Int32> rawValueStorage
          )
       {
-         ArgumentValidator.ValidateNotNull( "Stream", stream );
+         ArgumentValidator.ValidateNotNull( "Array", array );
          ArgumentValidator.ValidateNotNull( "Meta data stream container", mdStreamContainer );
          ArgumentValidator.ValidateNotNull( "Raw value storage", rawValueStorage );
 
-         this.Stream = stream;
+         this.Array = array;
+         this.Index = index;
          this.MDStreamContainer = mdStreamContainer;
          this.RawValueStorage = rawValueStorage;
       }
 
-      public StreamHelper Stream { get; }
+      public Byte[] Array { get; }
+
+      public Int32 Index { get; }
 
       public ReaderMetaDataStreamContainer MDStreamContainer { get; }
 
@@ -698,7 +702,7 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
 
       Int32 ColumnByteCount { get; }
 
-      Int32 ReadRawValue( StreamHelper stream );
+      Int32 ReadRawValue( Byte[] array, ref Int32 idx );
 
       void WriteValue( Byte[] bytes, Int32 idx, Int32 value );
    }

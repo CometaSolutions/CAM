@@ -477,7 +477,7 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
       public static DefaultColumnSerializationInfo<TRawRow, TRow> BLOBSecurityInformation<TRawRow, TRow>(
          String columnName,
          RawRowColumnSetterDelegate<TRawRow> rawSetter,
-         RowColumnSetterDelegate<TRow, IEnumerable<AbstractSecurityInformation>> setter,
+         Func<TRow, List<AbstractSecurityInformation>> secInfoGetter,
          RowColumnGetterDelegate<TRow, List<AbstractSecurityInformation>> getter
          )
          where TRawRow : class
@@ -487,7 +487,7 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
          return BLOBCustom<TRawRow, TRow>(
             columnName,
             rawSetter,
-            ( args, value, blobs ) => setter( args, blobs.ReadSecurityInformation( value ) ),
+            ( args, value, blobs ) => blobs.ReadSecurityInformation( value, secInfoGetter( args.Row ) ),
             args => args.RowArgs.Array.CreateSecuritySignature( getter( args.Row ), aux )
             );
       }
@@ -945,7 +945,7 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
       {
          yield return DefaultColumnSerializationInfoFactory.Constant16<RawSecurityDefinition, SecurityDefinition>( nameof( RawSecurityDefinition.Action ), ( r, v ) => r.Action = (SecurityAction) v, ( args, v ) => args.Row.Action = (SecurityAction) v, row => (Int32) row.Action );
          yield return DefaultColumnSerializationInfoFactory.CodedReference<RawSecurityDefinition, SecurityDefinition>( nameof( RawSecurityDefinition.Parent ), CodedTableIndexDecoder.HasSecurity, ( r, v ) => r.Parent = v, ( args, v ) => args.Row.Parent = v.GetValueOrDefault(), row => row.Parent );
-         yield return DefaultColumnSerializationInfoFactory.BLOBSecurityInformation<RawSecurityDefinition, SecurityDefinition>( nameof( RawSecurityDefinition.PermissionSets ), ( r, v ) => r.PermissionSets = v, ( args, v ) => args.Row.PermissionSets.AddRange( v ), row => row.PermissionSets );
+         yield return DefaultColumnSerializationInfoFactory.BLOBSecurityInformation<RawSecurityDefinition, SecurityDefinition>( nameof( RawSecurityDefinition.PermissionSets ), ( r, v ) => r.PermissionSets = v, r => r.PermissionSets, row => row.PermissionSets );
       }
 
       protected IEnumerable<DefaultColumnSerializationInfo<RawClassLayout, ClassLayout>> GetClassLayoutColumns()
@@ -1280,50 +1280,6 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
          }
       }
 
-      //public void ExtractTableRawValues(
-      //   CILMetaData md,
-      //   RawValueStorage<Int64> storage,
-      //   Stream stream,
-      //   ResizableArray<Byte> array,
-      //   WriterMetaDataStreamContainer mdStreamContainer
-      //   )
-      //{
-      //   MetaDataTable tbl;
-      //   if ( md.TryGetByTable( this.Table, out tbl ) )
-      //   {
-      //      var table = (MetaDataTable<TRow>) tbl;
-      //      var cols = this._columns
-      //         .Select( c => c.RawValueExtractor )
-      //         .Where( e => e != null )
-      //         .ToArray();
-      //      if ( cols.Length > 0 )
-      //      {
-      //         var list = table.TableContents;
-      //         var rArgs = new RowRawValueExtractionArguments( array, mdStreamContainer, md, () => stream.Position );
-      //         for ( var i = 0; i < list.Count; ++i )
-      //         {
-      //            var cArgs = new ColumnFunctionalityArgs<TRow, RowRawValueExtractionArguments>( this.Table, i, list[i], rArgs );
-      //            foreach ( var col in cols )
-      //            {
-      //               var offset = stream.Position;
-      //               Int32 len;
-      //               try
-      //               {
-      //                  len = col( cArgs );
-      //               }
-      //               catch
-      //               {
-      //                  // TODO error reporting
-      //                  len = 0;
-      //               }
-      //               stream.Write( array.Array, len );
-      //               storage.AddRawValue( offset );
-      //            }
-      //         }
-      //      }
-      //   }
-      //}
-
       public void ExtractTableHeapValues(
          CILMetaData md,
          RawValueStorage<Int32> storage,
@@ -1453,14 +1409,16 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
          if ( tableRowCount > 0 )
          {
             var list = ( (MetaDataTable<TRow>) table ).TableContents;
+            var idx = args.Index;
+
             for ( var i = 0; i < tableRowCount; ++i )
             {
                var row = new TRow();
                var columnArgs = new ColumnFunctionalityArgs<TRow, RowReadingArguments>( this.TableSerializationInfo.Table, i, row, args );
-               var stream = args.Stream;
+               var array = args.Array;
                for ( var j = 0; j < this._columnArray.Length; ++j )
                {
-                  var value = this.ColumnSerializationSupports[j].ReadRawValue( stream );
+                  var value = this.ColumnSerializationSupports[j].ReadRawValue( array, ref idx );
                   var setter = this._columnArray[j].Setter;
                   if ( setter == null )
                   {
@@ -1468,8 +1426,6 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
                   }
                   else
                   {
-                     var s = stream.Stream;
-                     var position = s.Position;
                      try
                      {
                         setter( columnArgs, value );
@@ -1478,7 +1434,6 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
                      {
                         // Ignore
                      }
-                     s.Position = position;
                   }
                }
 
@@ -1487,12 +1442,12 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
          }
       }
 
-      public Object ReadRawRow( StreamHelper stream )
+      public Object ReadRawRow( Byte[] array, Int32 idx )
       {
          var row = new TRawRow();
          for ( var i = 0; i < this._columnArray.Length; ++i )
          {
-            this._columnArray[i].RawSetter( row, this.ColumnSerializationSupports[i].ReadRawValue( stream ) );
+            this._columnArray[i].RawSetter( row, this.ColumnSerializationSupports[i].ReadRawValue( array, ref idx ) );
          }
          return row;
       }
@@ -1509,9 +1464,9 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
          }
       }
 
-      public Int32 ReadRawValue( StreamHelper stream )
+      public Int32 ReadRawValue( Byte[] array, ref Int32 idx )
       {
-         return stream.ReadByteFromBytes();
+         return array.ReadByteFromBytes( ref idx );
       }
 
       public void WriteValue( Byte[] bytes, Int32 idx, Int32 value )
@@ -1529,9 +1484,9 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
          }
       }
 
-      public Int32 ReadRawValue( StreamHelper stream )
+      public Int32 ReadRawValue( Byte[] array, ref Int32 idx )
       {
-         return stream.ReadUInt16LEFromBytes();
+         return array.ReadUInt16LEFromBytes( ref idx );
       }
 
       public void WriteValue( Byte[] bytes, Int32 idx, Int32 value )
@@ -1550,9 +1505,9 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
          }
       }
 
-      public Int32 ReadRawValue( StreamHelper stream )
+      public Int32 ReadRawValue( Byte[] array, ref Int32 idx )
       {
-         return stream.ReadInt32LEFromBytes();
+         return array.ReadInt32LEFromBytes( ref idx );
       }
 
       public void WriteValue( Byte[] bytes, Int32 idx, Int32 value )
@@ -1570,124 +1525,147 @@ public static partial class E_CILPhysical
    private const Int32 UINT_TWO_BYTES_MAX = 0x3FFF;
    private const Int32 UINT_FOUR_BYTES_MAX = 0x1FFFFFFF;
 
-   internal static Int32 DecompressUInt32OrDefault( this StreamHelper stream, Int32 defaultValue )
+   internal static Int32 DecompressUInt32OrDefault( this Byte[] array, ref Int32 idx, Int32 max, Int32 defaultValue )
    {
-      Int32 value;
-      return stream.DecompressUInt32( out value ) ? value : defaultValue;
+      return idx < max ? array.DecompressUInt32( ref idx ) : defaultValue;
    }
 
-   internal static Boolean DecompressUInt32( this StreamHelper stream, out Int32 value, Boolean acceptErraneous = true )
-   {
-      const Int32 UINT_TWO_BYTES_DECODE_MASK = 0x3F;
-      const Int32 UINT_FOUR_BYTES_DECODE_MASK = 0x1F;
+   //internal static Boolean DecompressUInt32( this StreamHelper stream, out Int32 value, Boolean acceptErraneous = true )
+   //{
+   //   const Int32 UINT_TWO_BYTES_DECODE_MASK = 0x3F;
+   //   const Int32 UINT_FOUR_BYTES_DECODE_MASK = 0x1F;
 
-      Byte first;
-      if ( stream.TryReadByteFromBytes( out first ) )
-      {
-         if ( ( first & 0x80 ) == 0 )
-         {
-            // MSB bit not set, so it's just one byte 
-            value = first;
-         }
-         else if ( ( first & 0xC0 ) == 0x80 )
-         {
-            Byte second;
-            // MSB set, but prev bit not set, so it's two bytes
-            if ( stream.TryReadByteFromBytes( out second ) )
-            {
-               value = ( ( first & UINT_TWO_BYTES_DECODE_MASK ) << 8 ) | (Int32) second;
-            }
-            else
-            {
-               value = -1;
-            }
-         }
-         else if ( acceptErraneous || ( first & 0xE0 ) == 0xC0 )
-         {
-            // Whatever it is, it is four bytes long
-            if ( stream.Stream.CanReadNextBytes( 3 ).IsTrue() )
-            {
-               var buf = stream.Buffer;
-               stream.Stream.ReadSpecificAmount( buf, 0, 3 );
-               value = ( ( first & UINT_FOUR_BYTES_DECODE_MASK ) << 24 ) | ( ( (Int32) buf[0] ) << 16 ) | ( ( (Int32) buf[1] ) << 8 ) | buf[2];
-            }
-            else
-            {
-               value = -1;
-            }
-         }
-         else
-         {
-            value = -1;
-         }
-      }
-      else
-      {
-         value = -1;
-      }
+   //   Byte first;
+   //   if ( stream.TryReadByteFromBytes( out first ) )
+   //   {
+   //      if ( ( first & 0x80 ) == 0 )
+   //      {
+   //         // MSB bit not set, so it's just one byte 
+   //         value = first;
+   //      }
+   //      else if ( ( first & 0xC0 ) == 0x80 )
+   //      {
+   //         Byte second;
+   //         // MSB set, but prev bit not set, so it's two bytes
+   //         if ( stream.TryReadByteFromBytes( out second ) )
+   //         {
+   //            value = ( ( first & UINT_TWO_BYTES_DECODE_MASK ) << 8 ) | (Int32) second;
+   //         }
+   //         else
+   //         {
+   //            value = -1;
+   //         }
+   //      }
+   //      else if ( acceptErraneous || ( first & 0xE0 ) == 0xC0 )
+   //      {
+   //         // Whatever it is, it is four bytes long
+   //         if ( stream.Stream.CanReadNextBytes( 3 ).IsTrue() )
+   //         {
+   //            var buf = stream.Buffer;
+   //            stream.Stream.ReadSpecificAmount( buf, 0, 3 );
+   //            value = ( ( first & UINT_FOUR_BYTES_DECODE_MASK ) << 24 ) | ( ( (Int32) buf[0] ) << 16 ) | ( ( (Int32) buf[1] ) << 8 ) | buf[2];
+   //         }
+   //         else
+   //         {
+   //            value = -1;
+   //         }
+   //      }
+   //      else
+   //      {
+   //         value = -1;
+   //      }
+   //   }
+   //   else
+   //   {
+   //      value = -1;
+   //   }
 
-      return value >= 0;
-   }
+   //   return value >= 0;
+   //}
 
-   internal static Boolean DecompressInt32( this StreamHelper stream, out Int32 value )
+   internal static Int32 DecompressInt32( this Byte[] array, ref Int32 idx )
    {
       const Int32 COMPLEMENT_MASK_ONE_BYTE = unchecked((Int32) 0xFFFFFFC0);
       const Int32 COMPLEMENT_MASK_TWO_BYTES = unchecked((Int32) 0xFFFFE000);
       const Int32 COMPLEMENT_MASK_FOUR_BYTES = unchecked((Int32) 0xF0000000);
       const Int32 ONE = 1;
 
-      var retVal = stream.DecompressUInt32( out value );
-      if ( retVal )
+      var value = array.DecompressUInt32( ref idx );
+      if ( value <= UINT_ONE_BYTE_MAX )
       {
-         if ( value <= UINT_ONE_BYTE_MAX )
+         // Value is one-bit left rotated, 7-bit 2-complement number
+         // If LSB is 1 -> then the value is negative
+         if ( ( value & ONE ) == ONE )
          {
-            // Value is one-bit left rotated, 7-bit 2-complement number
-            // If LSB is 1 -> then the value is negative
-            if ( ( value & ONE ) == ONE )
-            {
-               value = ( value >> 1 ) | COMPLEMENT_MASK_ONE_BYTE;
-            }
-            else
-            {
-               value = value >> 1;
-            }
-         }
-         else if ( value <= UINT_TWO_BYTES_MAX )
-         {
-            if ( ( value & ONE ) == ONE )
-            {
-               value = ( value >> 1 ) | COMPLEMENT_MASK_TWO_BYTES;
-            }
-            else
-            {
-               value = value >> 1;
-            }
+            value = ( value >> 1 ) | COMPLEMENT_MASK_ONE_BYTE;
          }
          else
          {
-            if ( ( value & ONE ) == ONE )
-            {
-               value = ( value >> 1 ) | COMPLEMENT_MASK_FOUR_BYTES;
-            }
-            else
-            {
-               value = value >> 1;
-            }
+            value = value >> 1;
+         }
+      }
+      else if ( value <= UINT_TWO_BYTES_MAX )
+      {
+         if ( ( value & ONE ) == ONE )
+         {
+            value = ( value >> 1 ) | COMPLEMENT_MASK_TWO_BYTES;
+         }
+         else
+         {
+            value = value >> 1;
+         }
+      }
+      else
+      {
+         if ( ( value & ONE ) == ONE )
+         {
+            value = ( value >> 1 ) | COMPLEMENT_MASK_FOUR_BYTES;
+         }
+         else
+         {
+            value = value >> 1;
          }
       }
 
-      return retVal;
+
+      return value;
    }
 
-   internal static Boolean DecompressUInt32( this Byte[] stream, ref Int32 idx, out Int32 value, Boolean acceptErraneous = true )
+   internal static Int32 DecompressUInt32( this Byte[] stream, ref Int32 idx )
    {
       const Int32 UINT_TWO_BYTES_DECODE_MASK = 0x3F;
       const Int32 UINT_FOUR_BYTES_DECODE_MASK = 0x1F;
-      var len = stream.Length;
 
-      if ( idx < len )
+      Int32 value = stream[idx];
+      if ( ( value & 0x80 ) == 0 )
       {
-         var first = stream[idx];
+         // MSB bit not set, so it's just one byte 
+         ++idx;
+      }
+      else if ( ( value & 0xC0 ) == 0x80 )
+      {
+         // MSB set, but prev bit not set, so it's two bytes
+         value = ( ( value & UINT_TWO_BYTES_DECODE_MASK ) << 8 ) | (Int32) stream[idx + 1];
+         idx += 2;
+      }
+      else
+      {
+         // Whatever it is, it is four bytes long
+         value = ( ( value & UINT_FOUR_BYTES_DECODE_MASK ) << 24 ) | ( ( (Int32) stream[idx + 1] ) << 16 ) | ( ( (Int32) stream[idx + 2] ) << 8 ) | stream[idx + 3];
+         idx += 4;
+      }
+
+      return value;
+   }
+
+   internal static Boolean TryDecompressUInt32( this Byte[] stream, ref Int32 idx, Int32 max, out Int32 value, Boolean acceptErraneous = true )
+   {
+      const Int32 UINT_TWO_BYTES_DECODE_MASK = 0x3F;
+      const Int32 UINT_FOUR_BYTES_DECODE_MASK = 0x1F;
+
+      if ( idx < max )
+      {
+         Int32 first = stream[idx];
          if ( ( first & 0x80 ) == 0 )
          {
             // MSB bit not set, so it's just one byte 
@@ -1697,7 +1675,7 @@ public static partial class E_CILPhysical
          else if ( ( first & 0xC0 ) == 0x80 )
          {
             // MSB set, but prev bit not set, so it's two bytes
-            if ( idx < len - 1 )
+            if ( idx < max - 1 )
             {
                value = ( ( first & UINT_TWO_BYTES_DECODE_MASK ) << 8 ) | (Int32) stream[idx + 1];
                idx += 2;
@@ -1709,8 +1687,7 @@ public static partial class E_CILPhysical
          }
          else if ( acceptErraneous || ( first & 0xE0 ) == 0xC0 )
          {
-            // Whatever it is, it is four bytes long
-            if ( idx < len - 3 )
+            if ( idx < max - 3 )
             {
                value = ( ( first & UINT_FOUR_BYTES_DECODE_MASK ) << 24 ) | ( ( (Int32) stream[idx + 1] ) << 16 ) | ( ( (Int32) stream[idx + 2] ) << 8 ) | stream[idx + 3];
                idx += 4;
@@ -1729,7 +1706,6 @@ public static partial class E_CILPhysical
       {
          value = -1;
       }
-
       return value >= 0;
    }
 

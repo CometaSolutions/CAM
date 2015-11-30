@@ -34,20 +34,31 @@ namespace CILAssemblyManipulator.Physical
 
       //private static readonly Byte[] ZeroArray = new Byte[0x10];
 
-      internal static String ReadLenPrefixedUTF8String( this StreamHelper caBLOB )
+      //internal static String ReadLenPrefixedUTF8String( this StreamHelper caBLOB )
+      //{
+      //   Int32 len;
+      //   // DecompressUInt32 will return false for value '0xFF' when 'acceptErraneous' parameter is set to 'false'.
+      //   return caBLOB.DecompressUInt32( out len, false ) ?
+      //      IO.Defaults.MetaDataConstants.SYS_STRING_ENCODING.GetString( caBLOB.ReadAndCreateArray( len ) ) :
+      //      null;
+      //}
+
+      internal static String ReadLenPrefixedUTF8StringOrDefault( this Byte[] caBLOB, ref Int32 idx, Int32 max, String defaultString = null )
       {
-         Int32 len;
-         // DecompressUInt32 will return false for value '0xFF' when 'acceptErraneous' parameter is set to 'false'.
-         return caBLOB.DecompressUInt32( out len, false ) ?
-            IO.Defaults.MetaDataConstants.SYS_STRING_ENCODING.GetString( caBLOB.ReadAndCreateArray( len ) ) :
-            null;
+         String str;
+         return caBLOB.ReadLenPrefixedUTF8String( ref idx, max, out str ) ? str : defaultString;
       }
 
       internal static Boolean ReadLenPrefixedUTF8String( this Byte[] caBLOB, ref Int32 idx, out String str )
       {
+         return caBLOB.ReadLenPrefixedUTF8String( ref idx, caBLOB.Length, out str );
+      }
+
+      internal static Boolean ReadLenPrefixedUTF8String( this Byte[] caBLOB, ref Int32 idx, Int32 max, out String str )
+      {
          Int32 len;
          // DecompressUInt32 will return false for value '0xFF' when 'acceptErraneous' parameter is set to 'false'.
-         var retVal = !caBLOB.DecompressUInt32( ref idx, out len, false ) || idx + len <= caBLOB.Length;
+         var retVal = !caBLOB.TryDecompressUInt32( ref idx, max, out len, false ) || idx + len <= caBLOB.Length;
          if ( retVal )
          {
             if ( len >= 0 )

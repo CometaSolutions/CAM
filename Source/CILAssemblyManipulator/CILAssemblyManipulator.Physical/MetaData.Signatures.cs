@@ -68,52 +68,56 @@ namespace CILAssemblyManipulator.Physical
    {
       public Byte[] ExtraData { get; set; }
 
-      public static AbstractNotRawSignature ReadNonTypeSignature( StreamHelper stream, Boolean methodSigIsDefinition, Boolean fieldSigIsLocalsSig, out Boolean fieldSigTransformedToLocalsSig )
+      public static AbstractNotRawSignature ReadNonTypeSignature(
+         Byte[] array,
+         ref Int32 idx,
+         Int32 max,
+         Boolean methodSigIsDefinition,
+         Boolean fieldSigIsLocalsSig,
+         out Boolean fieldSigTransformedToLocalsSig
+         )
       {
-         SignatureStarters starter;
          AbstractNotRawSignature retVal;
          fieldSigTransformedToLocalsSig = false;
-         if ( stream.TryReadSigStarter( out starter ) )
-         {
-            switch ( starter )
-            {
-               case SignatureStarters.Field:
-                  if ( fieldSigIsLocalsSig )
-                  {
-                     var locals = new LocalVariablesSignature( 1 );
-                     locals.Locals.Add( LocalVariableSignature.ReadLocalVariableSignature( stream ) );
-                     retVal = locals;
-                     fieldSigTransformedToLocalsSig = true;
-                  }
-                  else
-                  {
-                     retVal = FieldSignature.ReadFieldSignatureAfterStarter( stream );
-                  }
-                  break;
-               case SignatureStarters.LocalSignature:
-                  retVal = LocalVariablesSignature.ReadLocalVariablesSignatureAfterStarter( stream );
-                  break;
-               case SignatureStarters.Property:
-               case SignatureStarters.Property | SignatureStarters.HasThis:
-                  retVal = PropertySignature.ReadPropertySignatureAfterStarter( stream, starter );
-                  break;
-               case SignatureStarters.MethodSpecGenericInst:
-                  retVal = GenericMethodSignature.ReadGenericMethodSignatureAfterStarter( stream );
-                  break;
-               default:
-                  --stream.Stream.Position;
-                  retVal = methodSigIsDefinition ? (AbstractNotRawSignature) MethodDefinitionSignature.ReadMethodSignature( stream ) : MethodReferenceSignature.ReadMethodSignature( stream );
-                  break;
-            }
+         var starter = array.ReadSigStarter( ref idx );
 
-            if ( retVal != null )
-            {
-               retVal.ExtraData = stream.Stream.ReadUntilTheEnd();
-            }
-         }
-         else
+         switch ( starter )
          {
-            retVal = null;
+            case SignatureStarters.Field:
+               if ( fieldSigIsLocalsSig )
+               {
+                  var locals = new LocalVariablesSignature( 1 );
+                  locals.Locals.Add( LocalVariableSignature.ReadLocalVariableSignature( array, ref idx ) );
+                  retVal = locals;
+                  fieldSigTransformedToLocalsSig = true;
+               }
+               else
+               {
+                  retVal = FieldSignature.ReadFieldSignatureAfterStarter( array, ref idx );
+               }
+               break;
+            case SignatureStarters.LocalSignature:
+               retVal = LocalVariablesSignature.ReadLocalVariablesSignatureAfterStarter( array, ref idx );
+               break;
+            case SignatureStarters.Property:
+            case SignatureStarters.Property | SignatureStarters.HasThis:
+               retVal = PropertySignature.ReadPropertySignatureAfterStarter( array, ref idx, starter );
+               break;
+            case SignatureStarters.MethodSpecGenericInst:
+               retVal = GenericMethodSignature.ReadGenericMethodSignatureAfterStarter( array, ref idx );
+               break;
+            default:
+               --idx;
+               retVal = methodSigIsDefinition ?
+                  (AbstractNotRawSignature) MethodDefinitionSignature.ReadMethodSignature( array, ref idx ) :
+                  MethodReferenceSignature.ReadMethodSignature( array, ref idx );
+               break;
+         }
+
+         Byte[] extraData;
+         if ( retVal != null && array.TryReadExtraData( idx, max, out extraData ) )
+         {
+            retVal.ExtraData = extraData;
          }
 
          return retVal;
@@ -142,7 +146,8 @@ namespace CILAssemblyManipulator.Physical
       }
 
       protected static Boolean ReadFromBytes(
-         StreamHelper stream,
+         Byte[] array,
+         ref Int32 idx,
          out SignatureStarters elementType,
          out Int32 genericCount,
          out ParameterSignature returnParameter,
@@ -151,66 +156,43 @@ namespace CILAssemblyManipulator.Physical
          )
       {
          var retVal = false;
-         if ( stream.TryReadSigStarter( out elementType ) )
+         elementType = array.ReadSigStarter( ref idx );
+
+         genericCount = elementType.IsGeneric() ? array.DecompressUInt32( ref idx ) : 0;
+
+         var amountOfParams = array.DecompressUInt32( ref idx );
+         if ( amountOfParams <= UInt16.MaxValue )
          {
-            genericCount = 0;
-            Int32 amountOfParams;
-            if ( ( !elementType.IsGeneric() || stream.DecompressUInt32( out genericCount ) )
-                 && stream.DecompressUInt32( out amountOfParams )
-                 && amountOfParams <= UInt16.MaxValue
-               )
+            returnParameter = ReadParameter( array, ref idx );
+            if ( returnParameter != null )
             {
-               returnParameter = ReadParameter( stream );
-               if ( returnParameter != null )
+               retVal = true;
+               sentinelMark = -1;
+               if ( amountOfParams > 0 )
                {
-                  retVal = true;
-                  sentinelMark = -1;
-                  if ( amountOfParams > 0 )
+                  parameters = new ParameterSignature[amountOfParams];
+                  Int32 i;
+                  for ( i = 0; i < amountOfParams; ++i )
                   {
-                     parameters = new ParameterSignature[amountOfParams];
-                     Int32 i;
-                     for ( i = 0; i < amountOfParams; ++i )
+                     if ( array[idx] == (Byte) SignatureElementTypes.Sentinel )
                      {
-                        SignatureElementTypes sentinel;
-                        if ( stream.TryReadSigElementType( out sentinel ) )
-                        {
-                           if ( sentinel == SignatureElementTypes.Sentinel )
-                           {
-                              sentinelMark = i;
-                           }
-                           else
-                           {
-                              --stream.Stream.Position;
-                           }
-                           if ( ( parameters[i] = ReadParameter( stream ) ) == null )
-                           {
-                              retVal = false;
-                              break;
-                           }
-                        }
-                        else
-                        {
-                           break;
-                        }
+                        sentinelMark = i;
                      }
-                     retVal = i == amountOfParams;
+                     if ( ( parameters[i] = ReadParameter( array, ref idx ) ) == null )
+                     {
+                        retVal = false;
+                        break;
+                     }
                   }
-                  else
-                  {
-                     parameters = Empty<ParameterSignature>.Array;
-                  }
+                  retVal = i == amountOfParams;
                }
                else
                {
-                  parameters = null;
-                  sentinelMark = -1;
+                  parameters = Empty<ParameterSignature>.Array;
                }
             }
             else
             {
-               elementType = default( SignatureStarters );
-               genericCount = -1;
-               returnParameter = null;
                parameters = null;
                sentinelMark = -1;
             }
@@ -227,43 +209,30 @@ namespace CILAssemblyManipulator.Physical
          return retVal;
       }
 
-      internal static ParameterSignature ReadParameter( StreamHelper stream )
+      internal static ParameterSignature ReadParameter(
+         Byte[] array,
+         ref Int32 idx
+         )
       {
          var retVal = new ParameterSignature();
-         CustomModifierSignature.AddFromBytes( stream, retVal.CustomModifiers );
-         SignatureElementTypes elementType;
-         if ( stream.TryReadSigElementType( out elementType ) )
+         CustomModifierSignature.AddFromBytes( array, ref idx, retVal.CustomModifiers );
+         var elementType = array.ReadSigElementType( ref idx );
+         if ( elementType == SignatureElementTypes.TypedByRef )
          {
-            TypeSignature type;
-            if ( elementType == SignatureElementTypes.TypedByRef )
-            {
-               retVal.Type = SimpleTypeSignature.TypedByRef;
-            }
-            else
-            {
-               if ( elementType == SignatureElementTypes.ByRef )
-               {
-                  retVal.IsByRef = true;
-               }
-               else
-               {
-                  // Go backwards
-                  --stream.Stream.Position;
-               }
-               type = TypeSignature.ReadTypeSignature( stream );
-               if ( type == null )
-               {
-                  retVal = null;
-               }
-               else
-               {
-                  retVal.Type = type;
-               }
-            }
+            retVal.Type = SimpleTypeSignature.TypedByRef;
          }
          else
          {
-            retVal = null;
+            if ( elementType == SignatureElementTypes.ByRef )
+            {
+               retVal.IsByRef = true;
+            }
+            else
+            {
+               // Go backwards
+               --idx;
+            }
+            retVal.Type = TypeSignature.ReadTypeSignature( array, ref idx );
          }
          return retVal;
       }
@@ -285,7 +254,7 @@ namespace CILAssemblyManipulator.Physical
       }
 
 
-      public static MethodDefinitionSignature ReadMethodSignature( StreamHelper stream )
+      public static MethodDefinitionSignature ReadMethodSignature( Byte[] array, ref Int32 idx )
       {
          SignatureStarters elementType;
          Int32 genericCount;
@@ -293,7 +262,7 @@ namespace CILAssemblyManipulator.Physical
          ParameterSignature[] parameters;
          Int32 sentinelMark;
          MethodDefinitionSignature retVal;
-         if ( ReadFromBytes( stream, out elementType, out genericCount, out returnParameter, out parameters, out sentinelMark ) )
+         if ( ReadFromBytes( array, ref idx, out elementType, out genericCount, out returnParameter, out parameters, out sentinelMark ) )
          {
             retVal = new MethodDefinitionSignature( parameters.Length )
             {
@@ -337,7 +306,7 @@ namespace CILAssemblyManipulator.Physical
          }
       }
 
-      public static MethodReferenceSignature ReadMethodSignature( StreamHelper stream )
+      public static MethodReferenceSignature ReadMethodSignature( Byte[] array, ref Int32 idx )
       {
          SignatureStarters elementType;
          Int32 genericCount;
@@ -345,7 +314,7 @@ namespace CILAssemblyManipulator.Physical
          ParameterSignature[] parameters;
          Int32 sentinelMark;
          MethodReferenceSignature retVal;
-         if ( ReadFromBytes( stream, out elementType, out genericCount, out returnParameter, out parameters, out sentinelMark ) )
+         if ( ReadFromBytes( array, ref idx, out elementType, out genericCount, out returnParameter, out parameters, out sentinelMark ) )
          {
             var pLength = sentinelMark == -1 ? parameters.Length : sentinelMark;
             var vLength = sentinelMark == -1 ? 0 : ( parameters.Length - sentinelMark );
@@ -405,22 +374,19 @@ namespace CILAssemblyManipulator.Physical
          }
       }
 
-      public static FieldSignature ReadFieldSignature( StreamHelper stream )
+      public static FieldSignature ReadFieldSignature( Byte[] array, ref Int32 idx )
       {
          SignatureStarters starter;
-         return stream.TryReadSigStarter( out starter ) && starter == SignatureStarters.Field ?
-            ReadFieldSignatureAfterStarter( stream ) :
+         return ( starter = array.ReadSigStarter( ref idx ) ) == SignatureStarters.Field ?
+            ReadFieldSignatureAfterStarter( array, ref idx ) :
             null;
       }
 
-      internal static FieldSignature ReadFieldSignatureAfterStarter( StreamHelper stream )
+      internal static FieldSignature ReadFieldSignatureAfterStarter( Byte[] array, ref Int32 idx )
       {
          var retVal = new FieldSignature();
-         CustomModifierSignature.AddFromBytes( stream, retVal.CustomModifiers );
-         if ( ( retVal.Type = TypeSignature.ReadTypeSignature( stream ) ) == null )
-         {
-            retVal = null;
-         }
+         CustomModifierSignature.AddFromBytes( array, ref idx, retVal.CustomModifiers );
+         retVal.Type = TypeSignature.ReadTypeSignature( array, ref idx );
          return retVal;
       }
 
@@ -454,35 +420,37 @@ namespace CILAssemblyManipulator.Physical
          }
       }
 
-      public static PropertySignature ReadPropertySignature( StreamHelper stream )
+      public static PropertySignature ReadPropertySignature(
+         Byte[] array,
+         ref Int32 idx
+         )
       {
          SignatureStarters starter;
-         return stream.TryReadSigStarter( out starter ) && starter.IsProperty() ?
-            ReadPropertySignatureAfterStarter( stream, starter ) :
+         return ( starter = array.ReadSigStarter( ref idx ) ).IsProperty() ?
+            ReadPropertySignatureAfterStarter( array, ref idx, starter ) :
             null;
       }
 
-      internal static PropertySignature ReadPropertySignatureAfterStarter( StreamHelper stream, SignatureStarters starter )
+      internal static PropertySignature ReadPropertySignatureAfterStarter(
+         Byte[] array,
+         ref Int32 idx,
+         SignatureStarters starter
+         )
       {
          PropertySignature retVal;
-         Int32 paramCount;
-         if ( stream.DecompressUInt32( out paramCount ) && paramCount <= UInt16.MaxValue )
+         var paramCount = array.DecompressUInt32( ref idx );
+         if ( paramCount <= UInt16.MaxValue )
          {
             retVal = new PropertySignature( parameterCount: paramCount )
             {
                HasThis = starter.IsHasThis()
             };
-            CustomModifierSignature.AddFromBytes( stream, retVal.CustomModifiers );
-            if ( ( retVal.PropertyType = TypeSignature.ReadTypeSignature( stream ) ) != null )
+            CustomModifierSignature.AddFromBytes( array, ref idx, retVal.CustomModifiers );
+            retVal.PropertyType = TypeSignature.ReadTypeSignature( array, ref idx );
+
+            for ( var i = 0; i < paramCount; ++i )
             {
-               for ( var i = 0; i < paramCount; ++i )
-               {
-                  retVal.Parameters.Add( AbstractMethodSignature.ReadParameter( stream ) );
-               }
-            }
-            else
-            {
-               retVal = null;
+               retVal.Parameters.Add( AbstractMethodSignature.ReadParameter( array, ref idx ) );
             }
          }
          else
@@ -518,29 +486,27 @@ namespace CILAssemblyManipulator.Physical
          }
       }
 
-      public static LocalVariablesSignature ReadLocalVariablesSignature( StreamHelper stream )
+      public static LocalVariablesSignature ReadLocalVariablesSignature(
+         Byte[] array,
+         ref Int32 idx
+         )
       {
          SignatureStarters starter;
-         return stream.TryReadSigStarter( out starter ) && starter == SignatureStarters.LocalSignature ?
-            ReadLocalVariablesSignatureAfterStarter( stream ) :
+         return ( starter = array.ReadSigStarter( ref idx ) ) == SignatureStarters.LocalSignature ?
+            ReadLocalVariablesSignatureAfterStarter( array, ref idx ) :
             null;
       }
 
-      internal static LocalVariablesSignature ReadLocalVariablesSignatureAfterStarter( StreamHelper stream )
+      internal static LocalVariablesSignature ReadLocalVariablesSignatureAfterStarter(
+         Byte[] array,
+         ref Int32 idx
+         )
       {
-         LocalVariablesSignature retVal;
-         Int32 localsCount;
-         if ( stream.DecompressUInt32( out localsCount ) )
+         var localsCount = array.DecompressUInt32( ref idx );
+         var retVal = new LocalVariablesSignature( localsCount );
+         for ( var i = 0; i < localsCount; ++i )
          {
-            retVal = new LocalVariablesSignature( localsCount );
-            for ( var i = 0; i < localsCount; ++i )
-            {
-               retVal.Locals.Add( LocalVariableSignature.ReadLocalVariableSignature( stream ) );
-            }
-         }
-         else
-         {
-            retVal = null;
+            retVal.Locals.Add( LocalVariableSignature.ReadLocalVariableSignature( array, ref idx ) );
          }
          return retVal;
       }
@@ -578,42 +544,32 @@ namespace CILAssemblyManipulator.Physical
 
       public Boolean IsPinned { get; set; }
 
-      public static LocalVariableSignature ReadLocalVariableSignature( StreamHelper stream )
+      public static LocalVariableSignature ReadLocalVariableSignature(
+         Byte[] array,
+         ref Int32 idx
+         )
       {
-         LocalVariableSignature retVal;
-         Byte elementType; Boolean wasExpected;
-         if ( stream.TryPeekNextByte( (Byte) SignatureElementTypes.TypedByRef, out elementType, out wasExpected ) )
+         var retVal = new LocalVariableSignature();
+         if ( array[idx] == (Byte) SignatureElementTypes.TypedByRef )
          {
-            retVal = new LocalVariableSignature();
-            if ( wasExpected )
-            {
-               retVal.Type = SimpleTypeSignature.TypedByRef;
-            }
-            else
-            {
-               // No need to decrease stream position, TryPeekNextByte does that for us.
-               CustomModifierSignature.AddFromBytes( stream, retVal.CustomModifiers );
-               if ( stream.TryPeekNextByte( (Byte) SignatureElementTypes.Pinned, out elementType, out wasExpected )
-                  && wasExpected )
-               {
-                  retVal.IsPinned = true;
-               }
-
-               if ( stream.TryPeekNextByte( (Byte) SignatureElementTypes.ByRef, out elementType, out wasExpected )
-                  && wasExpected )
-               {
-                  retVal.IsByRef = true;
-               }
-
-               if ( ( retVal.Type = TypeSignature.ReadTypeSignature( stream ) ) == null )
-               {
-                  retVal = null;
-               }
-            }
+            retVal.Type = SimpleTypeSignature.TypedByRef;
          }
          else
          {
-            retVal = null;
+            CustomModifierSignature.AddFromBytes( array, ref idx, retVal.CustomModifiers );
+            if ( array[idx] == (Byte) SignatureElementTypes.Pinned )
+            {
+               retVal.IsPinned = true;
+               ++idx;
+            }
+
+            if ( array[idx] == (Byte) SignatureElementTypes.ByRef )
+            {
+               retVal.IsByRef = true;
+               ++idx;
+            }
+
+            retVal.Type = TypeSignature.ReadTypeSignature( array, ref idx );
          }
 
          return retVal;
@@ -634,28 +590,22 @@ namespace CILAssemblyManipulator.Physical
       public Boolean IsOptional { get; set; }
       public TableIndex CustomModifierType { get; set; }
 
-      public static CustomModifierSignature ReadFromBytes( StreamHelper stream )
+      public static CustomModifierSignature ReadFromBytes(
+         Byte[] array,
+         ref Int32 idx
+         )
       {
-         Byte curByte;
+         var sigType = (SignatureElementTypes) array[idx];
          CustomModifierSignature retVal;
-         if ( stream.TryReadByteFromBytes( out curByte ) )
+         if ( sigType == SignatureElementTypes.CModOpt || sigType == SignatureElementTypes.CModReqd )
          {
-            if ( curByte == (Byte) SignatureElementTypes.CModOpt || curByte == (Byte) SignatureElementTypes.CModReqd )
-            {
-               Int32 tdrs;
-               retVal = TableIndex.DecodeTypeDefOrRefOrSpec( stream, out tdrs ) ?
-                  new CustomModifierSignature()
-                  {
-                     CustomModifierType = TableIndex.FromOneBasedToken( tdrs ),
-                     IsOptional = curByte == (Byte) SignatureElementTypes.CModOpt
-                  } :
-                  null;
-            }
-            else
-            {
-               --stream.Stream.Position;
-               retVal = null;
-            }
+            ++idx;
+            retVal =
+               new CustomModifierSignature()
+               {
+                  CustomModifierType = TableIndex.FromOneBasedToken( TableIndex.DecodeTypeDefOrRefOrSpec( array, ref idx ) ),
+                  IsOptional = sigType == SignatureElementTypes.CModOpt
+               };
          }
          else
          {
@@ -665,17 +615,17 @@ namespace CILAssemblyManipulator.Physical
          return retVal;
       }
 
-      public static void AddFromBytes( StreamHelper stream, IList<CustomModifierSignature> customMods )
+      public static void AddFromBytes(
+         Byte[] array,
+         ref Int32 idx,
+         IList<CustomModifierSignature> customMods
+         )
       {
          CustomModifierSignature curMod;
-         do
+         while ( ( curMod = ReadFromBytes( array, ref idx ) ) != null )
          {
-            curMod = ReadFromBytes( stream );
-            if ( curMod != null )
-            {
-               customMods.Add( curMod );
-            }
-         } while ( curMod != null );
+            customMods.Add( curMod );
+         }
       }
    }
 
@@ -698,154 +648,131 @@ namespace CILAssemblyManipulator.Physical
       public abstract TypeSignatureKind TypeSignatureKind { get; }
 
 
-      public static TypeSignature ReadTypeSignature( StreamHelper stream, Boolean canHaveExtraData = false )
+      public static TypeSignature ReadTypeSignature( Byte[] array, ref Int32 idx, Int32 max = -1 )
       {
          Int32 auxiliary;
-         SignatureElementTypes elementType;
-         TypeSignature retVal = null;
-         if ( stream.TryReadSigElementType( out elementType ) )
+         var elementType = array.ReadSigElementType( ref idx );
+         TypeSignature retVal;
+         switch ( elementType )
          {
-            switch ( elementType )
-            {
-               case SignatureElementTypes.Boolean:
-               case SignatureElementTypes.Char:
-               case SignatureElementTypes.I1:
-               case SignatureElementTypes.U1:
-               case SignatureElementTypes.I2:
-               case SignatureElementTypes.U2:
-               case SignatureElementTypes.I4:
-               case SignatureElementTypes.U4:
-               case SignatureElementTypes.I8:
-               case SignatureElementTypes.U8:
-               case SignatureElementTypes.R4:
-               case SignatureElementTypes.R8:
-               case SignatureElementTypes.I:
-               case SignatureElementTypes.U:
-               case SignatureElementTypes.String:
-               case SignatureElementTypes.Object:
-               case SignatureElementTypes.Void:
-                  retVal = SimpleTypeSignature.GetByElement( elementType );
-                  break;
-               case SignatureElementTypes.Array:
-                  TypeSignature arrayType;
-                  ComplexArrayTypeSignature arraySig;
-                  if ( ( arrayType = ReadTypeSignature( stream ) ) != null
-                     && ( arraySig = ReadArrayInfo( stream ) ) != null )
+            case SignatureElementTypes.Boolean:
+            case SignatureElementTypes.Char:
+            case SignatureElementTypes.I1:
+            case SignatureElementTypes.U1:
+            case SignatureElementTypes.I2:
+            case SignatureElementTypes.U2:
+            case SignatureElementTypes.I4:
+            case SignatureElementTypes.U4:
+            case SignatureElementTypes.I8:
+            case SignatureElementTypes.U8:
+            case SignatureElementTypes.R4:
+            case SignatureElementTypes.R8:
+            case SignatureElementTypes.I:
+            case SignatureElementTypes.U:
+            case SignatureElementTypes.String:
+            case SignatureElementTypes.Object:
+            case SignatureElementTypes.Void:
+               retVal = SimpleTypeSignature.GetByElement( elementType );
+               break;
+            case SignatureElementTypes.Array:
+               var arrayType = ReadTypeSignature( array, ref idx );
+               var arraySig = ReadArrayInfo( array, ref idx );
+               arraySig.ArrayType = arrayType;
+               retVal = arraySig;
+               break;
+            case SignatureElementTypes.Class:
+            case SignatureElementTypes.ValueType:
+            case SignatureElementTypes.GenericInst:
+               var isGeneric = elementType == SignatureElementTypes.GenericInst;
+               if ( isGeneric )
+               {
+                  elementType = array.ReadSigElementType( ref idx );
+               }
+
+               var actualType = TableIndex.FromOneBasedToken( TableIndex.DecodeTypeDefOrRefOrSpec( array, ref idx ) );
+               auxiliary = isGeneric ? array.DecompressUInt32( ref idx ) : 0;
+               if ( auxiliary <= UInt16.MaxValue )
+               {
+                  var classOrValue = new ClassOrValueTypeSignature()
                   {
-                     arraySig.ArrayType = arrayType;
-                     retVal = arraySig;
-                  }
-                  break;
-               case SignatureElementTypes.Class:
-               case SignatureElementTypes.ValueType:
-               case SignatureElementTypes.GenericInst:
-                  var isGeneric = elementType == SignatureElementTypes.GenericInst;
-                  if ( !isGeneric
-                     || ( stream.TryReadSigElementType( out elementType )
-                        && ( elementType == SignatureElementTypes.Class || elementType == SignatureElementTypes.ValueType )
-                        )
-                     )
+                     IsClass = elementType == SignatureElementTypes.Class,
+                     Type = actualType
+                  };
+                  if ( isGeneric )
                   {
-                     if ( TableIndex.DecodeTypeDefOrRefOrSpec( stream, out auxiliary ) )
+                     for ( var i = 0; i < auxiliary; ++i )
                      {
-                        var actualType = TableIndex.FromOneBasedToken( auxiliary );
-                        if ( !isGeneric || stream.DecompressUInt32( out auxiliary ) )
-                        {
-                           var classOrValue = new ClassOrValueTypeSignature( isGeneric ? auxiliary : 0 )
-                           {
-                              IsClass = elementType == SignatureElementTypes.Class,
-                              Type = actualType
-                           };
-                           if ( isGeneric )
-                           {
-                              for ( var i = 0; i < auxiliary; ++i )
-                              {
-                                 var curGArg = ReadTypeSignature( stream );
-                                 classOrValue.GenericArguments.Add( curGArg );
-                              }
-                           }
-                           retVal = classOrValue;
-                        }
+                        var curGArg = ReadTypeSignature( array, ref idx );
+                        classOrValue.GenericArguments.Add( curGArg );
                      }
                   }
-                  break;
-               case SignatureElementTypes.FnPtr:
-                  retVal = new FunctionPointerTypeSignature()
-                  {
-                     MethodSignature = MethodReferenceSignature.ReadMethodSignature( stream )
-                  };
-                  break;
-               case SignatureElementTypes.MVar:
-               case SignatureElementTypes.Var:
-                  if ( stream.DecompressUInt32( out auxiliary ) )
-                  {
-                     retVal = new GenericParameterTypeSignature()
-                     {
-                        GenericParameterIndex = auxiliary,
-                        IsTypeParameter = elementType == SignatureElementTypes.Var
-                     };
-                  }
-                  break;
-               case SignatureElementTypes.Ptr:
-                  var ptr = new PointerTypeSignature();
-                  CustomModifierSignature.AddFromBytes( stream, ptr.CustomModifiers );
-                  if ( ( ptr.PointerType = ReadTypeSignature( stream ) ) != null )
-                  {
-                     retVal = ptr;
-                  }
-                  break;
-               case SignatureElementTypes.SzArray:
-                  var szArr = new SimpleArrayTypeSignature();
-                  CustomModifierSignature.AddFromBytes( stream, szArr.CustomModifiers );
-                  if ( ( szArr.ArrayType = ReadTypeSignature( stream ) ) != null )
-                  {
-                     retVal = szArr;
-                  }
-                  break;
-            }
-
-            if ( canHaveExtraData && retVal != null )
-            {
-               retVal.ExtraData = stream.Stream.ReadUntilTheEnd();
-            }
-         }
-         return retVal;
-      }
-
-      private static ComplexArrayTypeSignature ReadArrayInfo( StreamHelper stream )
-      {
-         Int32 rank, curSize;
-         ComplexArrayTypeSignature retVal;
-         if ( stream.DecompressUInt32( out rank ) && stream.DecompressUInt32( out curSize ) )
-         {
-            retVal = new ComplexArrayTypeSignature( sizesCount: curSize ); // TODO skip thru sizes and detect lower bound count
-            retVal.Rank = rank;
-            while ( curSize > 0 && stream.DecompressUInt32( out rank ) )
-            {
-               retVal.Sizes.Add( rank );
-               --curSize;
-            }
-            if ( stream.DecompressUInt32( out curSize ) )
-            {
-
-               while ( curSize > 0 && stream.DecompressInt32( out rank ) )
-               {
-                  retVal.LowerBounds.Add( rank );
-                  --curSize;
+                  retVal = classOrValue;
                }
-               if ( curSize > 0 )
+               else
                {
                   retVal = null;
                }
-            }
-            else
-            {
+
+               break;
+            case SignatureElementTypes.FnPtr:
+               retVal = new FunctionPointerTypeSignature()
+               {
+                  MethodSignature = MethodReferenceSignature.ReadMethodSignature( array, ref idx )
+               };
+               break;
+            case SignatureElementTypes.MVar:
+            case SignatureElementTypes.Var:
+               retVal = new GenericParameterTypeSignature()
+               {
+                  GenericParameterIndex = array.DecompressUInt32( ref idx ),
+                  IsTypeParameter = elementType == SignatureElementTypes.Var
+               };
+               break;
+            case SignatureElementTypes.Ptr:
+               var ptr = new PointerTypeSignature();
+               CustomModifierSignature.AddFromBytes( array, ref idx, ptr.CustomModifiers );
+               ptr.PointerType = ReadTypeSignature( array, ref idx );
+               retVal = ptr;
+               break;
+            case SignatureElementTypes.SzArray:
+               var szArr = new SimpleArrayTypeSignature();
+               CustomModifierSignature.AddFromBytes( array, ref idx, szArr.CustomModifiers );
+               szArr.ArrayType = ReadTypeSignature( array, ref idx );
+               retVal = szArr;
+               break;
+            default:
                retVal = null;
-            }
+               break;
          }
-         else
+
+         Byte[] extraData;
+         if ( max >= 0 && retVal != null && array.TryReadExtraData( idx, max, out extraData ) )
          {
-            retVal = null;
+            retVal.ExtraData = extraData;
+         }
+
+         return retVal;
+      }
+
+      private static ComplexArrayTypeSignature ReadArrayInfo( Byte[] array, ref Int32 idx )
+      {
+         var rank = array.DecompressUInt32( ref idx );
+         var curSize = array.DecompressUInt32( ref idx );
+         var retVal = new ComplexArrayTypeSignature( sizesCount: curSize ) // TODO skip thru sizes and detect lower bound count
+         {
+            Rank = rank
+         };
+         while ( curSize > 0 )
+         {
+            retVal.Sizes.Add( array.DecompressUInt32( ref idx ) );
+            --curSize;
+         }
+         curSize = array.DecompressUInt32( ref idx );
+
+         while ( curSize > 0 )
+         {
+            retVal.LowerBounds.Add( array.DecompressInt32( ref idx ) );
+            --curSize;
          }
          return retVal;
       }
@@ -1136,29 +1063,27 @@ namespace CILAssemblyManipulator.Physical
          }
       }
 
-      public static GenericMethodSignature ReadGenericMethodSignature( StreamHelper stream )
+      public static GenericMethodSignature ReadGenericMethodSignature(
+         Byte[] array,
+         ref Int32 idx
+         )
       {
          SignatureStarters starter;
-         return stream.TryReadSigStarter( out starter ) && starter == SignatureStarters.MethodSpecGenericInst ?
-            ReadGenericMethodSignatureAfterStarter( stream ) :
+         return ( starter = array.ReadSigStarter( ref idx ) ) == SignatureStarters.MethodSpecGenericInst ?
+            ReadGenericMethodSignatureAfterStarter( array, ref idx ) :
             null;
       }
 
-      public static GenericMethodSignature ReadGenericMethodSignatureAfterStarter( StreamHelper stream )
+      public static GenericMethodSignature ReadGenericMethodSignatureAfterStarter(
+         Byte[] array,
+         ref Int32 idx
+         )
       {
-         GenericMethodSignature retVal;
-         Int32 gArgsCount;
-         if ( stream.DecompressUInt32( out gArgsCount ) )
+         var gArgsCount = array.DecompressUInt32( ref idx );
+         var retVal = new GenericMethodSignature( gArgsCount );
+         for ( var i = 0; i < gArgsCount; ++i )
          {
-            retVal = new GenericMethodSignature( gArgsCount );
-            for ( var i = 0; i < gArgsCount; ++i )
-            {
-               retVal.GenericArguments.Add( TypeSignature.ReadTypeSignature( stream ) );
-            }
-         }
-         else
-         {
-            retVal = null;
+            retVal.GenericArguments.Add( TypeSignature.ReadTypeSignature( array, ref idx ) );
          }
          return retVal;
       }
@@ -1495,61 +1420,58 @@ namespace CILAssemblyManipulator.Physical
 
 #endif
 
-      public static MarshalingInfo ReadFromBytes( StreamHelper stream )
+      public static MarshalingInfo ReadFromBytes(
+         Byte[] array,
+         ref Int32 idx,
+         Int32 max
+         )
       {
-         Byte b;
          MarshalingInfo result = null;
-         if ( stream != null && stream.TryReadByteFromBytes( out b ) )
-         {
-            var ut = (UnmanagedType) b;
+         var ut = array.ReadUnmanagedType( ref idx );
 
-            Int32 constSize, paramIdx, tmp;
-            UnmanagedType arrElementType;
-            switch ( ut )
-            {
-               case UnmanagedType.ByValTStr:
-                  result = MarshalingInfo.MarshalAsByValTStr( stream.DecompressUInt32OrDefault( -1 ) );
-                  break;
-               case UnmanagedType.IUnknown:
-               case UnmanagedType.IDispatch:
-               case UnmanagedType.Interface:
-                  result = MarshalingInfo.MarshalWithIIDParam( ut, stream.DecompressUInt32OrDefault( MarshalingInfo.NO_INDEX ) );
-                  break;
-               case UnmanagedType.SafeArray:
-                  result = MarshalingInfo.MarshalAsSafeArray(
-                     (VarEnum) stream.DecompressUInt32OrDefault( 0 ),
-                     stream.ReadLenPrefixedUTF8String().UnescapeCILTypeString()
-                     );
-                  break;
-               case UnmanagedType.ByValArray:
-                  constSize = stream.DecompressUInt32OrDefault( -1 );
-                  tmp = stream.DecompressUInt32OrDefault( -1 );
-                  result = MarshalingInfo.MarshalAsByValArray( constSize, (UnmanagedType) tmp );
-                  break;
-               case UnmanagedType.LPArray:
-                  arrElementType = stream.TryReadByteFromBytes( out b ) ? (UnmanagedType) b : (UnmanagedType) ( -1 );
-                  paramIdx = stream.DecompressUInt32OrDefault( MarshalingInfo.NO_INDEX );
-                  constSize = stream.DecompressUInt32OrDefault( -1 );
-                  tmp = stream.DecompressUInt32OrDefault( -1 );
-                  // TODO interpret tmp as flags of some sort, or pass them to MarshalingInfo
-                  result = MarshalingInfo.MarshalAsLPArray( paramIdx, constSize, arrElementType );
-                  break;
-               case UnmanagedType.CustomMarshaler:
-                  var guidString = stream.ReadLenPrefixedUTF8String();
-                  var nativeTypeName = stream.ReadLenPrefixedUTF8String();
-                  var mTypeStr = stream.ReadLenPrefixedUTF8String().UnescapeCILTypeString();
-                  var mCookie = stream.ReadLenPrefixedUTF8String();
-                  // TODO pass guidString and nativeTypeName
-                  result = MarshalingInfo.MarshalAsCustom( mTypeStr, mCookie );
-                  break;
-               default:
-                  result = MarshalingInfo.MarshalAs( ut ); ;
-                  break;
-            }
-         }
-         else
+         Int32 constSize, paramIdx, tmp;
+         UnmanagedType arrElementType;
+         switch ( ut )
          {
-            // TODO: RawMarshalingInfo -type (takes BLOB directly)
+            case UnmanagedType.ByValTStr:
+               result = MarshalingInfo.MarshalAsByValTStr( array.DecompressUInt32OrDefault( ref idx, max, -1 ) );
+               break;
+            case UnmanagedType.IUnknown:
+            case UnmanagedType.IDispatch:
+            case UnmanagedType.Interface:
+               result = MarshalingInfo.MarshalWithIIDParam( ut, array.DecompressUInt32OrDefault( ref idx, max, MarshalingInfo.NO_INDEX ) );
+               break;
+            case UnmanagedType.SafeArray:
+               result = MarshalingInfo.MarshalAsSafeArray(
+                  (VarEnum) array.DecompressUInt32OrDefault( ref idx, max, 0 ),
+                  array.ReadLenPrefixedUTF8StringOrDefault( ref idx, max ).UnescapeCILTypeString()
+                  );
+               break;
+            case UnmanagedType.ByValArray:
+               constSize = array.DecompressUInt32OrDefault( ref idx, max, -1 );
+               tmp = array.DecompressUInt32OrDefault( ref idx, max, -1 );
+               result = MarshalingInfo.MarshalAsByValArray( constSize, (UnmanagedType) tmp );
+               break;
+            case UnmanagedType.LPArray:
+               arrElementType = idx < max ? array.ReadUnmanagedType( ref idx ) : (UnmanagedType) ( -1 );
+               paramIdx = array.DecompressUInt32OrDefault( ref idx, max, MarshalingInfo.NO_INDEX );
+               constSize = array.DecompressUInt32OrDefault( ref idx, max, -1 );
+               tmp = array.DecompressUInt32OrDefault( ref idx, max, -1 );
+               // TODO interpret tmp as flags of some sort, or pass them to MarshalingInfo
+               result = MarshalingInfo.MarshalAsLPArray( paramIdx, constSize, arrElementType );
+               break;
+            case UnmanagedType.CustomMarshaler:
+               var guidString = array.ReadLenPrefixedUTF8StringOrDefault( ref idx, max );
+               var nativeTypeName = array.ReadLenPrefixedUTF8StringOrDefault( ref idx, max );
+               var mTypeStr = array.ReadLenPrefixedUTF8StringOrDefault( ref idx, max ).UnescapeCILTypeString();
+               var mCookie = array.ReadLenPrefixedUTF8StringOrDefault( ref idx, max );
+               // TODO pass guidString and nativeTypeName
+               result = MarshalingInfo.MarshalAsCustom( mTypeStr, mCookie );
+               break;
+            default:
+               // TODO in case of non-instric ut, make RawMarshali
+               result = MarshalingInfo.MarshalAs( ut ); ;
+               break;
          }
 
          return result;
@@ -1904,74 +1826,71 @@ namespace CILAssemblyManipulator.Physical
 
       public abstract SecurityInformationKind SecurityInformationKind { get; }
 
-      public static IEnumerable<AbstractSecurityInformation> ReadSecurityInformation( StreamHelper stream )
+      public static void ReadSecurityInformation(
+         Byte[] array,
+         ref Int32 idx,
+         Int32 max,
+         List<AbstractSecurityInformation> secInfos
+         )
       {
-         Byte b;
-         if ( stream != null && stream.TryReadByteFromBytes( out b ) )
+         var b = array[idx++];
+         if ( b == DECL_SECURITY_HEADER )
          {
-            if ( b == DECL_SECURITY_HEADER )
-            {
-               // New (.NET 2.0+) security spec
-               // Amount of security attributes
-               Int32 attrCount;
-               if ( stream.DecompressUInt32( out attrCount ) )
-               {
+            // New (.NET 2.0+) security spec
+            // Amount of security attributes
+            var attrCount = array.DecompressUInt32( ref idx );
 
-                  for ( var j = 0; j < attrCount; ++j )
-                  {
-                     var secType = stream.ReadLenPrefixedUTF8String();
-                     // There is an amount of remaining bytes here
-                     Int32 attributeByteCount;
-                     if ( stream.DecompressUInt32( out attributeByteCount ) )
-                     {
-                        var copyStart = stream.Stream.Position;
-                        // Now, amount of named args
-                        Int32 argCount;
-                        AbstractSecurityInformation secInfo;
-                        if ( stream.DecompressUInt32( out argCount ) )
-                        {
-                           var bytesToCopy = attributeByteCount - (Int32) ( ( stream.Stream.Position - copyStart ) );
-                           secInfo = new RawSecurityInformation()
-                           {
-                              SecurityAttributeType = secType,
-                              ArgumentCount = argCount,
-                              Bytes = stream.ReadAndCreateArray( bytesToCopy )
-                           };
-                        }
-                        else
-                        {
-                           secInfo = new SecurityInformation()
-                           {
-                              SecurityAttributeType = secType
-                           };
-                           stream.Skip( attributeByteCount - 1 );
-                        }
-
-                        yield return secInfo;
-                     }
-                  }
-               }
-            }
-            else
+            for ( var j = 0; j < attrCount; ++j )
             {
-               // Old (.NET 1.x) security spec
-               // Create a single SecurityInformation with PermissionSetAttribute type and XML property argument containing the XML of the blob
-               var secInfo = new SecurityInformation( 1 )
+               var secType = array.ReadLenPrefixedUTF8StringOrDefault( ref idx, max );
+               // There is an amount of remaining bytes here
+               var attributeByteCount = array.DecompressUInt32( ref idx );
+               var copyStart = idx;
+               // Now, amount of named args
+               var argCount = array.DecompressUInt32( ref idx );
+               AbstractSecurityInformation secInfo;
+               var bytesToCopy = attributeByteCount - ( idx - copyStart );
+               secInfo = new RawSecurityInformation()
                {
-                  SecurityAttributeType = PERMISSION_SET
+                  SecurityAttributeType = secType,
+                  ArgumentCount = argCount,
+                  Bytes = array.CreateArrayCopy( ref idx, bytesToCopy )
                };
-               secInfo.NamedArguments.Add( new CustomAttributeNamedArgument()
-               {
-                  IsField = false,
-                  Name = PERMISSION_SET_XML_PROP,
-                  Value = new CustomAttributeTypedArgument()
-                  {
-                     Value = IO.Defaults.MetaDataConstants.USER_STRING_ENCODING.GetString( stream.Stream.ReadUntilTheEnd() )
-                  }
-               } );
-               yield return secInfo;
+               //}
+               //else
+               //{
+               //   secInfo = new SecurityInformation()
+               //   {
+               //      SecurityAttributeType = secType
+               //   };
+               //   idx += attributeByteCount - 1;
+               //}
+
+               secInfos.Add( secInfo );
+
             }
+
          }
+         else
+         {
+            // Old (.NET 1.x) security spec
+            // Create a single SecurityInformation with PermissionSetAttribute type and XML property argument containing the XML of the blob
+            var secInfo = new SecurityInformation( 1 )
+            {
+               SecurityAttributeType = PERMISSION_SET
+            };
+            secInfo.NamedArguments.Add( new CustomAttributeNamedArgument()
+            {
+               IsField = false,
+               Name = PERMISSION_SET_XML_PROP,
+               Value = new CustomAttributeTypedArgument()
+               {
+                  Value = IO.Defaults.MetaDataConstants.USER_STRING_ENCODING.GetString( array, idx, max - idx )
+               }
+            } );
+            secInfos.Add( secInfo );
+         }
+
 
       }
    }
@@ -2354,19 +2273,60 @@ public static partial class E_CILPhysical
       }
    }
 
-   internal static Boolean TryReadSigElementType( this StreamHelper stream, out SignatureElementTypes sig )
+   //internal static Boolean TryReadSigElementType( this Byte[] array, ref Int32 idx, out SignatureElementTypes sig )
+   //{
+   //   var retVal = idx < array.Length;
+   //   sig = retVal ? (SignatureElementTypes) array[idx++] : SignatureElementTypes.End;
+   //   return retVal;
+   //}
+
+   //internal static Boolean TryReadSigStarter( this Byte[] array, ref Int32 idx, out SignatureStarters sig )
+   //{
+   //   var retVal = idx < array.Length;
+   //   sig = retVal ? (SignatureStarters) array[idx++] : (SignatureStarters) 0;
+   //   return retVal;
+   //}
+
+   //internal static Boolean TryReadUnmanagedType( this Byte[] array, ref Int32 idx, out UnmanagedType ut )
+   //{
+   //   var retVal = idx < array.Length;
+   //   ut = retVal ? (UnmanagedType) array[idx++] : (UnmanagedType) 0;
+   //   return retVal;
+   //}
+
+   //internal static Boolean TryReadByte( this Byte[] array, ref Int32 idx, out Byte b )
+   //{
+   //   var retVal = idx < array.Length;
+   //   b = retVal ? array[idx++] : (Byte) 0;
+   //   return retVal;
+   //}
+
+   internal static SignatureElementTypes ReadSigElementType( this Byte[] array, ref Int32 idx )
    {
-      Byte b;
-      var retVal = stream.TryReadByteFromBytes( out b );
-      sig = retVal ? (SignatureElementTypes) b : SignatureElementTypes.End;
-      return retVal;
+      return (SignatureElementTypes) array[idx++];
    }
 
-   internal static Boolean TryReadSigStarter( this StreamHelper stream, out SignatureStarters sig )
+   internal static SignatureStarters ReadSigStarter( this Byte[] array, ref Int32 idx )
    {
-      Byte b;
-      var retVal = stream.TryReadByteFromBytes( out b );
-      sig = retVal ? (SignatureStarters) b : (SignatureStarters) 0;
+      return (SignatureStarters) array[idx++];
+   }
+
+   internal static UnmanagedType ReadUnmanagedType( this Byte[] array, ref Int32 idx )
+   {
+      return (UnmanagedType) array[idx++];
+   }
+
+   internal static Boolean TryReadExtraData( this Byte[] array, Int32 idx, Int32 max, out Byte[] extraData )
+   {
+      var retVal = max >= idx;
+      if ( retVal )
+      {
+         extraData = idx < max ? array.CreateArrayCopy( idx, max - idx ) : Empty<Byte>.Array;
+      }
+      else
+      {
+         extraData = null;
+      }
       return retVal;
    }
 }

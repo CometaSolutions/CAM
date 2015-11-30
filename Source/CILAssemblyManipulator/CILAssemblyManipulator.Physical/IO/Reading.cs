@@ -176,9 +176,9 @@ namespace CILAssemblyManipulator.Physical.IO
    {
       Byte[] GetBLOB( Int32 heapIndex );
 
-      StreamHelper GetBLOBAsStreamPortion( Int32 heapIndex );
+      //StreamHelper GetBLOBAsStreamPortion( Int32 heapIndex );
 
-      Int64 GetStreamOffset( Int32 heapIndex, out Int32 blobSize );
+      //Int32 GetStreamOffset( Int32 heapIndex, out Int32 blobSize );
 
       AbstractSignature ReadNonTypeSignature( Int32 heapIndex, Boolean methodSigIsDefinition, Boolean handleFieldSigAsLocalsSig, out Boolean fieldSigTransformedToLocalsSig );
 
@@ -186,7 +186,7 @@ namespace CILAssemblyManipulator.Physical.IO
 
       AbstractCustomAttributeSignature ReadCASignature( Int32 heapIndex );
 
-      IEnumerable<AbstractSecurityInformation> ReadSecurityInformation( Int32 heapIndex );
+      void ReadSecurityInformation( Int32 heapIndex, List<AbstractSecurityInformation> securityInfo );
 
       MarshalingInfo ReadMarshalingInfo( Int32 heapIndex );
 
@@ -198,14 +198,14 @@ namespace CILAssemblyManipulator.Physical.IO
    {
       Guid? GetGUID( Int32 heapIndex );
 
-      Guid? GetGUIDNoCache( Int32 heapIndex );
+      //Guid? GetGUIDNoCache( Int32 heapIndex );
    }
 
    public interface ReaderStringStreamHandler : AbstractReaderStreamHandler
    {
       String GetString( Int32 heapIndex );
 
-      String GetStringNoCache( Int32 heapIndex );
+      //String GetStringNoCache( Int32 heapIndex );
    }
 }
 

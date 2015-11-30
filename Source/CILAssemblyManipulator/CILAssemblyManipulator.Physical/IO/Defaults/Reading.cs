@@ -185,32 +185,25 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
 
    }
 
-   public abstract class AbstractReaderStreamHandlerImpl : AbstractReaderStreamHandler
+   public abstract class AbstractReaderStreamHandlerWithArray : AbstractReaderStreamHandler
    {
-
-      protected AbstractReaderStreamHandlerImpl( StreamHelper stream, Int64 startPosition, Int32 streamSize )
+      protected AbstractReaderStreamHandlerWithArray(
+         StreamHelper stream,
+         Int64 startPosition,
+         Int32 streamSize
+         )
       {
          ArgumentValidator.ValidateNotNull( "Stream", stream );
 
-         this.Stream = stream;
+         this.Bytes = stream.At( startPosition ).ReadAndCreateArray( streamSize );
          this.StreamSize = (UInt32) streamSize;
-         this.StartingPosition = startPosition;
       }
 
       public abstract String StreamName { get; }
 
-      protected StreamHelper Stream { get; }
+      protected Byte[] Bytes { get; }
 
       protected Int64 StreamSize { get; }
-
-      protected Int64 StartingPosition { get; }
-
-      protected StreamHelper SetStreamToHeapOffset( Int32 heapOffset )
-      {
-         var stream = this.Stream;
-         stream.Stream.Position = this.StartingPosition + (UInt32) heapOffset;
-         return stream;
-      }
 
       protected virtual Boolean CheckHeapOffset( Int32 heapOffset )
       {
@@ -218,18 +211,27 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
       }
    }
 
-   public abstract class AbstractReaderStreamHandlerWithCustomName : AbstractReaderStreamHandlerImpl
+   public abstract class AbstractReaderStreamHandlerWithArrayAndName : AbstractReaderStreamHandlerWithArray
    {
-      protected AbstractReaderStreamHandlerWithCustomName( StreamHelper stream, Int64 startPosition, Int32 streamSize, String streamName )
+      protected AbstractReaderStreamHandlerWithArrayAndName(
+         StreamHelper stream,
+         Int64 startPosition,
+         Int32 streamSize,
+         String streamName
+         )
          : base( stream, startPosition, streamSize )
       {
+
          this.StreamName = streamName;
       }
 
       public override String StreamName { get; }
+
    }
 
-   public class DefaultReaderTableStreamHandler : AbstractReaderStreamHandlerWithCustomName, ReaderTableStreamHandler
+
+
+   public class DefaultReaderTableStreamHandler : AbstractReaderStreamHandlerWithArrayAndName, ReaderTableStreamHandler
    {
       public DefaultReaderTableStreamHandler(
          StreamHelper stream,
@@ -245,10 +247,12 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
             tableSerializations = new DefaultMetaDataSerializationSupportProvider().CreateTableSerializationInfos().ToArrayProxy().CQ;
          }
 
-         var tableHeader = stream.NewTableStreamHeaderFromStream();
+         var array = this.Bytes;
+         var idx = 0;
+         var tableHeader = array.NewTableStreamHeaderFromStream( ref idx );
          var thFlags = tableHeader.TableStreamFlags;
 
-         var tableStartPosition = stream.Stream.Position;
+         var tableStartPosition = idx;
          this.TableStreamHeader = tableHeader;
          this.TableSizes = tableHeader.CreateTableSizesArray().ToArrayProxy().CQ;
 
@@ -274,7 +278,7 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
 
          this.TableStartOffsets =
             this.TableSizes
-            .AggregateIntermediate_BeforeAggregation( tableStartPosition, ( curOffset, size, idx ) => curOffset + size * this.TableWidths[idx] )
+            .AggregateIntermediate_BeforeAggregation( tableStartPosition, ( curOffset, size, i ) => curOffset + size * this.TableWidths[i] )
             .ToArrayProxy()
             .CQ;
 
@@ -286,12 +290,14 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
          )
       {
          var rawValueStorage = this.CreateRawValueStorage() ?? this.CreateDefaultRawValueStorage();
-         var args = new RowReadingArguments( this.Stream, mdStreamContainer, rawValueStorage );
+         var array = this.Bytes;
          for ( var i = 0; i < this.TableSizes.Count; ++i )
          {
             var rowCount = this.TableSizes[i];
             if ( rowCount > 0 )
             {
+               var args = new RowReadingArguments( array, this.TableStartOffsets[i], mdStreamContainer, rawValueStorage );
+
                var table = md.GetByTable( (Tables) i );
                this.TableSerializationSupport[i].ReadRows( table, this.TableSizes[i], args );
             }
@@ -311,8 +317,8 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
             && tableSizes[tableInt] > idx
             )
          {
-            var offset = this.TableStartOffsets[tableInt] + idx * (Int64) this.TableWidths[tableInt];
-            retVal = this.TableSerializationSupport[tableInt].ReadRawRow( this.Stream.At( offset ) );
+            var offset = this.TableStartOffsets[tableInt] + idx * this.TableWidths[tableInt];
+            retVal = this.TableSerializationSupport[tableInt].ReadRawRow( this.Bytes, offset );
          }
          else
          {
@@ -345,7 +351,7 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
 
       protected ArrayQuery<Int32> TableWidths { get; }
 
-      protected ArrayQuery<Int64> TableStartOffsets { get; }
+      protected ArrayQuery<Int32> TableStartOffsets { get; }
 
       protected ArrayQuery<TableSerializationInfo> TableSerializationInfo { get; }
 
@@ -353,16 +359,15 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
 
    }
 
-   public abstract class AbstractReaderStreamHandlerImplWithCache<TValue> : AbstractReaderStreamHandlerImpl
+   public abstract class AbstractReaderStreamHandlerWithArrayAndCache<TValue> : AbstractReaderStreamHandlerWithArray
    {
       private readonly IDictionary<Int32, TValue> _cache;
 
-      public AbstractReaderStreamHandlerImplWithCache(
+      protected AbstractReaderStreamHandlerWithArrayAndCache(
          StreamHelper stream,
          Int64 startPosition,
          Int32 streamSize
-         )
-         : base( stream, startPosition, streamSize )
+         ) : base( stream, startPosition, streamSize )
       {
          this._cache = new Dictionary<Int32, TValue>();
       }
@@ -371,13 +376,6 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
       {
          return this.CheckHeapOffset( heapOffset ) ?
             this._cache.GetOrAdd_NotThreadSafe( heapOffset, this.ValueFactoryWrapper ) :
-            (TValue) (Object) null;
-      }
-
-      protected TValue GetValueNoCache( Int32 heapOffset )
-      {
-         return this.CheckHeapOffset( heapOffset ) ?
-            this.ValueFactoryWrapper( heapOffset ) :
             (TValue) (Object) null;
       }
 
@@ -398,196 +396,29 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
       protected abstract TValue ValueFactory( Int32 heapOffset );
    }
 
-   public class DefaultReaderBLOBStreamHandler : AbstractReaderStreamHandlerImpl, ReaderBLOBStreamHandler
+   public abstract class AbstractReaderStringStreamHandler : AbstractReaderStreamHandlerWithArrayAndCache<String>, ReaderStringStreamHandler
    {
-      private readonly IDictionary<KeyValuePair<Int32, SignatureElementTypes>, Object> _constants;
-
-      public DefaultReaderBLOBStreamHandler(
+      public AbstractReaderStringStreamHandler(
          StreamHelper stream,
          Int64 startPosition,
-         Int32 streamSize
+         Int32 streamSize,
+         Encoding encoding
          )
          : base( stream, startPosition, streamSize )
       {
-         this._constants = new Dictionary<KeyValuePair<Int32, SignatureElementTypes>, Object>();
+         ArgumentValidator.ValidateNotNull( "Encoding", encoding );
+
+         this.Encoding = encoding;
       }
 
-      public override String StreamName
+      public String GetString( Int32 heapIndex )
       {
-         get
-         {
-            return MetaDataConstants.BLOB_STREAM_NAME;
-         }
+         return this.GetOrAddValue( heapIndex );
       }
-
-      public Byte[] GetBLOB( Int32 heapIndex )
-      {
-         return this.GetBLOBAsStreamPortion( heapIndex )?.Stream?.ReadUntilTheEnd();
-      }
-
-      public StreamHelper GetBLOBAsStreamPortion( Int32 heapIndex )
-      {
-         Int32 size;
-         var min = this.GetStreamOffset( heapIndex, out size );
-         return min >= 0 && size >= 0 ? this.Stream.NewStreamPortionFromCurrent( size ) : null;
-      }
-
-      public Int64 GetStreamOffset( Int32 heapIndex, out Int32 blobSize )
-      {
-         Int64 retVal;
-         if ( heapIndex != 0 && this.CheckHeapOffset( heapIndex ) )
-         {
-            var stream = this.SetStreamToHeapOffset( heapIndex );
-            retVal = stream.DecompressUInt32( out blobSize ) ?
-               stream.Stream.Position :
-               -1L;
-         }
-         else
-         {
-            blobSize = -1;
-            retVal = -1L;
-         }
-         return retVal;
-      }
-
-      public AbstractCustomAttributeSignature ReadCASignature( Int32 heapIndex )
-      {
-         AbstractCustomAttributeSignature caSig;
-         Int32 blobSize;
-         if ( this.GetStreamOffset( heapIndex, out blobSize ) >= 0 )
-         {
-            if ( blobSize <= 2 )
-            {
-               // Empty blob
-               caSig = new CustomAttributeSignature();
-            }
-            else
-            {
-               caSig = new RawCustomAttributeSignature()
-               {
-                  Bytes = this.GetBLOB( heapIndex )
-               };
-            }
-         }
-         else
-         {
-            caSig = null;
-         }
-         return caSig;
-      }
-
-
-      public Object ReadConstantValue( Int32 heapIndex, SignatureElementTypes constType )
-      {
-         return heapIndex == 0 ?
-            null :
-            this.GetOrAddCustom(
-               this._constants,
-               new KeyValuePair<Int32, SignatureElementTypes>( heapIndex, constType ),
-               kvp => this.DoReadConstantValue( kvp.Key, kvp.Value ),
-               heapIndex
-               );
-      }
-
-      public MarshalingInfo ReadMarshalingInfo( Int32 heapIndex )
-      {
-         return MarshalingInfo.ReadFromBytes( this.GetBLOBAsStreamPortion( heapIndex ) );
-      }
-
-      public IEnumerable<AbstractSecurityInformation> ReadSecurityInformation( Int32 heapIndex )
-      {
-         return AbstractSecurityInformation.ReadSecurityInformation( this.GetBLOBAsStreamPortion( heapIndex ) );
-      }
-
-      public AbstractSignature ReadNonTypeSignature( Int32 heapIndex, Boolean methodSigIsDefinition, Boolean handleFieldSigAsLocalsSig, out Boolean fieldSigTransformedToLocalsSig )
-      {
-         return AbstractNotRawSignature.ReadNonTypeSignature( this.GetBLOBAsStreamPortion( heapIndex ), methodSigIsDefinition, handleFieldSigAsLocalsSig, out fieldSigTransformedToLocalsSig );
-      }
-
-      public TypeSignature ReadTypeSignature( Int32 heapIndex )
-      {
-         return TypeSignature.ReadTypeSignature( this.GetBLOBAsStreamPortion( heapIndex ), true );
-      }
-
-      private TValue GetOrAddCustom<TValue>( IDictionary<Int32, TValue> cache, Int32 heapOffset, Func<Int32, TValue> factory )
-         where TValue : class
-      {
-         return this.CheckHeapOffset( heapOffset ) ?
-            cache.GetOrAdd_NotThreadSafe( heapOffset, i => this.CustomValueFactory( i, factory ) ) :
-            null;
-      }
-
-      private TValue GetOrAddCustom<TKey, TValue>( IDictionary<TKey, TValue> cache, TKey key, Func<TKey, TValue> factory, Int32 heapOffset )
-         where TValue : class
-      {
-         return this.CheckHeapOffset( heapOffset ) ?
-            cache.GetOrAdd_NotThreadSafe( key, i => this.CustomValueFactory( i, factory ) ) :
-            null;
-      }
-
-      private TValue CustomValueFactory<TKey, TValue>( TKey key, Func<TKey, TValue> actualFactory )
-         where TValue : class
-      {
-         try
-         {
-            return actualFactory( key );
-         }
-         catch
-         {
-            return null;
-         }
-      }
-
-      private Object DoReadConstantValue( Int32 heapIndex, SignatureElementTypes constType )
-      {
-         var stream = this.SetStreamToHeapOffset( heapIndex );
-         Object retVal;
-         Int32 blobSize;
-         if ( stream.DecompressUInt32( out blobSize ) )
-         {
-            var s = stream.Stream;
-            switch ( constType )
-            {
-               case SignatureElementTypes.Boolean:
-                  return s.CanReadNextBytes( 1 ).IsTrue() ? (Object) ( stream.ReadByteFromBytes() == 1 ) : null;
-               case SignatureElementTypes.Char:
-                  return s.CanReadNextBytes( 2 ).IsTrue() ? (Object) Convert.ToChar( stream.ReadUInt16LEFromBytes() ) : null;
-               case SignatureElementTypes.I1:
-                  return s.CanReadNextBytes( 1 ).IsTrue() ? (Object) stream.ReadSByteFromBytes() : null;
-               case SignatureElementTypes.U1:
-                  return s.CanReadNextBytes( 1 ).IsTrue() ? (Object) stream.ReadByteFromBytes() : null;
-               case SignatureElementTypes.I2:
-                  return s.CanReadNextBytes( 2 ).IsTrue() ? (Object) stream.ReadInt16LEFromBytes() : null;
-               case SignatureElementTypes.U2:
-                  return s.CanReadNextBytes( 2 ).IsTrue() ? (Object) stream.ReadUInt16LEFromBytes() : null;
-               case SignatureElementTypes.I4:
-                  return s.CanReadNextBytes( 4 ).IsTrue() ? (Object) stream.ReadInt32LEFromBytes() : null;
-               case SignatureElementTypes.U4:
-                  return s.CanReadNextBytes( 4 ).IsTrue() ? (Object) stream.ReadUInt32LEFromBytes() : null;
-               case SignatureElementTypes.I8:
-                  return s.CanReadNextBytes( 8 ).IsTrue() ? (Object) stream.ReadInt64LEFromBytes() : null;
-               case SignatureElementTypes.U8:
-                  return s.CanReadNextBytes( 8 ).IsTrue() ? (Object) stream.ReadUInt64LEFromBytes() : null;
-               case SignatureElementTypes.R4:
-                  return s.CanReadNextBytes( 4 ).IsTrue() ? (Object) stream.ReadSingleLEFromBytes() : null;
-               case SignatureElementTypes.R8:
-                  return s.CanReadNextBytes( 8 ).IsTrue() ? (Object) stream.ReadDoubleLEFromBytes() : null;
-               case SignatureElementTypes.String:
-                  return s.CanReadNextBytes( blobSize ).IsTrue() ? MetaDataConstants.USER_STRING_ENCODING.GetString( stream.ReadAndCreateArray( blobSize ) ) : null;
-               default:
-                  return null;
-            }
-         }
-         else
-         {
-            retVal = null;
-         }
-
-         return retVal;
-      }
+      protected Encoding Encoding { get; }
    }
 
-   public class DefaultReaderGUIDStreamHandler : AbstractReaderStreamHandlerImplWithCache<Guid?>, ReaderGUIDStreamHandler
+   public class DefaultReaderGUIDStreamHandler : AbstractReaderStreamHandlerWithArrayAndCache<Guid?>, ReaderGUIDStreamHandler
    {
       public DefaultReaderGUIDStreamHandler(
          StreamHelper stream,
@@ -611,16 +442,6 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
          return this.GetOrAddValue( heapIndex );
       }
 
-      public Guid? GetGUIDNoCache( Int32 heapIndex )
-      {
-         return this.GetValueNoCache( heapIndex );
-      }
-
-      //protected override bool CheckHeapOffset( Int32 heapOffset )
-      //{
-      //   return base.CheckHeapOffset( heapOffset * MetaDataConstants.GUID_SIZE );
-      //}
-
       protected override Guid? ValueFactory( Int32 heapOffset )
       {
          if ( heapOffset == 0 || (UInt32) heapOffset > this.StreamSize - MetaDataConstants.GUID_SIZE + 1 )
@@ -629,37 +450,9 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
          }
          else
          {
-            return new Guid( this.SetStreamToHeapOffset( heapOffset - 1 ).ReadAndCreateArray( MetaDataConstants.GUID_SIZE ) );
+            return new Guid( this.Bytes.CreateArrayCopy( heapOffset - 1, MetaDataConstants.GUID_SIZE ) );
          }
       }
-   }
-
-   public abstract class AbstractReaderStringStreamHandler : AbstractReaderStreamHandlerImplWithCache<String>, ReaderStringStreamHandler
-   {
-      public AbstractReaderStringStreamHandler(
-         StreamHelper stream,
-         Int64 startPosition,
-         Int32 streamSize,
-         Encoding encoding
-         )
-         : base( stream, startPosition, streamSize )
-      {
-         ArgumentValidator.ValidateNotNull( "Encoding", encoding );
-
-         this.Encoding = encoding;
-      }
-
-      public String GetString( Int32 heapIndex )
-      {
-         return this.GetOrAddValue( heapIndex );
-      }
-
-      public String GetStringNoCache( Int32 heapIndex )
-      {
-         return this.GetValueNoCache( heapIndex );
-      }
-
-      protected Encoding Encoding { get; }
    }
 
    public class DefaultReaderSystemStringStreamHandler : AbstractReaderStringStreamHandler
@@ -684,7 +477,15 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
 
       protected override String ValueFactory( Int32 heapIndex )
       {
-         return this.Encoding.GetString( this.SetStreamToHeapOffset( heapIndex ).ReadUntilZeroAndCreateArray() );
+         var start = heapIndex;
+         var array = this.Bytes;
+         while ( array[heapIndex] != 0 )
+         {
+            ++heapIndex;
+         }
+         return heapIndex == start ?
+            String.Empty :
+            this.Encoding.GetString( this.Bytes, start, heapIndex - start );
       }
    }
 
@@ -717,13 +518,14 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
          }
          else
          {
-            var stream = this.SetStreamToHeapOffset( heapIndex );
+            var array = this.Bytes;
+
             Int32 length;
-            if ( stream.DecompressUInt32( out length ) && stream.Stream.CanReadNextBytes( length ).IsTrue() )
+            if ( array.TryDecompressUInt32( ref heapIndex, array.Length, out length ) && heapIndex <= array.Length - length )
             {
                if ( length > 1 )
                {
-                  retVal = this.Encoding.GetString( stream.ReadAndCreateArray( length - 1 ) );
+                  retVal = this.Encoding.GetString( array, heapIndex, length - 1 );
                }
                else
                {
@@ -738,6 +540,621 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
          return retVal;
       }
    }
+
+   public class DefaultReaderBLOBStreamHandler : AbstractReaderStreamHandlerWithArray, ReaderBLOBStreamHandler
+   {
+      private readonly IDictionary<KeyValuePair<Int32, SignatureElementTypes>, Object> _constants;
+
+      public DefaultReaderBLOBStreamHandler(
+         StreamHelper stream,
+         Int64 startPosition,
+         Int32 streamSize
+         )
+         : base( stream, startPosition, streamSize )
+      {
+         this._constants = new Dictionary<KeyValuePair<Int32, SignatureElementTypes>, Object>();
+      }
+
+      public override String StreamName
+      {
+         get
+         {
+            return MetaDataConstants.BLOB_STREAM_NAME;
+         }
+      }
+
+      public Byte[] GetBLOB( Int32 heapIndex )
+      {
+         Int32 len;
+         return this.SetUpBLOBWithLength( ref heapIndex, out len ) ? this.Bytes.CreateArrayCopy( heapIndex, len ) : null;
+      }
+
+      public AbstractCustomAttributeSignature ReadCASignature( Int32 heapIndex )
+      {
+         AbstractCustomAttributeSignature caSig;
+         Int32 blobSize;
+         if ( this.SetUpBLOBWithLength( ref heapIndex, out blobSize ) )
+         {
+            if ( blobSize <= 2 )
+            {
+               // Empty blob
+               caSig = new CustomAttributeSignature();
+            }
+            else
+            {
+               caSig = new RawCustomAttributeSignature()
+               {
+                  Bytes = this.Bytes.CreateArrayCopy( heapIndex, blobSize )
+               };
+            }
+         }
+         else
+         {
+            caSig = null;
+         }
+         return caSig;
+      }
+
+      public Object ReadConstantValue( Int32 heapIndex, SignatureElementTypes constType )
+      {
+         return heapIndex == 0 || heapIndex >= this.StreamSize ?
+            null :
+            this._constants.GetOrAdd_NotThreadSafe(
+               new KeyValuePair<Int32, SignatureElementTypes>( heapIndex, constType ),
+               kvp => this.DoReadConstantValue( kvp.Key, kvp.Value )
+               );
+      }
+
+      public MarshalingInfo ReadMarshalingInfo( Int32 heapIndex )
+      {
+         Int32 max;
+         return this.SetUpBLOBWithMax( ref heapIndex, out max ) ? MarshalingInfo.ReadFromBytes( this.Bytes, ref heapIndex, max ) : null;
+      }
+
+      public AbstractSignature ReadNonTypeSignature( Int32 heapIndex, bool methodSigIsDefinition, bool handleFieldSigAsLocalsSig, out bool fieldSigTransformedToLocalsSig )
+      {
+         Int32 max;
+         AbstractSignature retVal;
+         if ( this.SetUpBLOBWithMax( ref heapIndex, out max ) )
+         {
+            retVal = AbstractNotRawSignature.ReadNonTypeSignature( this.Bytes, ref heapIndex, max, methodSigIsDefinition, handleFieldSigAsLocalsSig, out fieldSigTransformedToLocalsSig );
+         }
+         else
+         {
+            fieldSigTransformedToLocalsSig = false;
+            retVal = null;
+         }
+
+         return retVal;
+      }
+
+      public void ReadSecurityInformation( Int32 heapIndex, List<AbstractSecurityInformation> securityInfo )
+      {
+         Int32 max;
+         if ( this.SetUpBLOBWithMax( ref heapIndex, out max ) )
+         {
+            AbstractSecurityInformation.ReadSecurityInformation( this.Bytes, ref heapIndex, max, securityInfo );
+         }
+      }
+
+      public TypeSignature ReadTypeSignature( Int32 heapIndex )
+      {
+         Int32 max;
+         return this.SetUpBLOBWithMax( ref heapIndex, out max ) ? TypeSignature.ReadTypeSignature( this.Bytes, ref heapIndex, max ) : null;
+      }
+
+      protected Boolean SetUpBLOBWithMax( ref Int32 heapIndex, out Int32 max )
+      {
+         var retVal = this.SetUpBLOBWithLength( ref heapIndex, out max );
+         if ( retVal )
+         {
+            max += heapIndex;
+         }
+         return retVal;
+      }
+
+      protected Boolean SetUpBLOBWithLength( ref Int32 heapIndex, out Int32 length )
+      {
+         if ( heapIndex > 0 )
+         {
+            var array = this.Bytes;
+            return array.TryDecompressUInt32( ref heapIndex, array.Length, out length ) && heapIndex + length <= this.StreamSize;
+         }
+         else
+         {
+            length = 0;
+            return false;
+         }
+      }
+
+      private Object DoReadConstantValue( Int32 heapIndex, SignatureElementTypes constType )
+      {
+
+         Object retVal;
+         Int32 blobSize;
+         if ( this.SetUpBLOBWithLength( ref heapIndex, out blobSize ) )
+         {
+            var array = this.Bytes;
+            switch ( constType )
+            {
+               case SignatureElementTypes.Boolean:
+                  return blobSize >= 1 ? (Object) ( array[heapIndex] == 1 ) : null;
+               case SignatureElementTypes.Char:
+                  return blobSize >= 2 ? (Object) Convert.ToChar( array.ReadUInt16LEFromBytes( ref heapIndex ) ) : null;
+               case SignatureElementTypes.I1:
+                  return blobSize >= 1 ? (Object) array.ReadSByteFromBytes( ref heapIndex ) : null;
+               case SignatureElementTypes.U1:
+                  return blobSize >= 1 ? (Object) array.ReadByteFromBytes( ref heapIndex ) : null;
+               case SignatureElementTypes.I2:
+                  return blobSize >= 2 ? (Object) array.ReadInt16LEFromBytes( ref heapIndex ) : null;
+               case SignatureElementTypes.U2:
+                  return blobSize >= 2 ? (Object) array.ReadUInt16LEFromBytes( ref heapIndex ) : null;
+               case SignatureElementTypes.I4:
+                  return blobSize >= 4 ? (Object) array.ReadInt32LEFromBytes( ref heapIndex ) : null;
+               case SignatureElementTypes.U4:
+                  return blobSize >= 4 ? (Object) array.ReadUInt32LEFromBytes( ref heapIndex ) : null;
+               case SignatureElementTypes.I8:
+                  return blobSize >= 8 ? (Object) array.ReadInt64LEFromBytes( ref heapIndex ) : null;
+               case SignatureElementTypes.U8:
+                  return blobSize >= 8 ? (Object) array.ReadUInt64LEFromBytes( ref heapIndex ) : null;
+               case SignatureElementTypes.R4:
+                  return blobSize >= 4 ? (Object) array.ReadSingleLEFromBytes( ref heapIndex ) : null;
+               case SignatureElementTypes.R8:
+                  return blobSize >= 8 ? (Object) array.ReadDoubleLEFromBytes( ref heapIndex ) : null;
+               case SignatureElementTypes.String:
+                  return MetaDataConstants.USER_STRING_ENCODING.GetString( array, heapIndex, blobSize );
+               default:
+                  return null;
+            }
+         }
+         else
+         {
+            retVal = null;
+         }
+
+         return retVal;
+      }
+   }
+
+   //public abstract class AbstractReaderStreamHandlerImpl : AbstractReaderStreamHandler
+   //{
+
+   //   protected AbstractReaderStreamHandlerImpl( StreamHelper stream, Int64 startPosition, Int32 streamSize )
+   //   {
+   //      ArgumentValidator.ValidateNotNull( "Stream", stream );
+
+   //      this.Stream = stream;
+   //      this.StreamSize = (UInt32) streamSize;
+   //      this.StartingPosition = startPosition;
+   //   }
+
+   //   public abstract String StreamName { get; }
+
+   //   protected StreamHelper Stream { get; }
+
+   //   protected Int64 StreamSize { get; }
+
+   //   protected Int64 StartingPosition { get; }
+
+   //   protected StreamHelper SetStreamToHeapOffset( Int32 heapOffset )
+   //   {
+   //      var stream = this.Stream;
+   //      stream.Stream.Position = this.StartingPosition + (UInt32) heapOffset;
+   //      return stream;
+   //   }
+
+   //   protected virtual Boolean CheckHeapOffset( Int32 heapOffset )
+   //   {
+   //      return ( (UInt32) heapOffset ) < this.StreamSize;
+   //   }
+   //}
+
+   //public abstract class AbstractReaderStreamHandlerWithCustomName : AbstractReaderStreamHandlerImpl
+   //{
+   //   protected AbstractReaderStreamHandlerWithCustomName( StreamHelper stream, Int64 startPosition, Int32 streamSize, String streamName )
+   //      : base( stream, startPosition, streamSize )
+   //   {
+   //      this.StreamName = streamName;
+   //   }
+
+   //   public override String StreamName { get; }
+   //}
+
+   //public abstract class AbstractReaderStreamHandlerImplWithCache<TValue> : AbstractReaderStreamHandlerImpl
+   //{
+   //   private readonly IDictionary<Int32, TValue> _cache;
+
+   //   public AbstractReaderStreamHandlerImplWithCache(
+   //      StreamHelper stream,
+   //      Int64 startPosition,
+   //      Int32 streamSize
+   //      )
+   //      : base( stream, startPosition, streamSize )
+   //   {
+   //      this._cache = new Dictionary<Int32, TValue>();
+   //   }
+
+   //   protected TValue GetOrAddValue( Int32 heapOffset )
+   //   {
+   //      return this.CheckHeapOffset( heapOffset ) ?
+   //         this._cache.GetOrAdd_NotThreadSafe( heapOffset, this.ValueFactoryWrapper ) :
+   //         (TValue) (Object) null;
+   //   }
+
+   //   //protected TValue GetValueNoCache( Int32 heapOffset )
+   //   //{
+   //   //   return this.CheckHeapOffset( heapOffset ) ?
+   //   //      this.ValueFactoryWrapper( heapOffset ) :
+   //   //      (TValue) (Object) null;
+   //   //}
+
+   //   private TValue ValueFactoryWrapper( Int32 heapOffset )
+   //   {
+
+   //      try
+   //      {
+   //         return this.ValueFactory( heapOffset );
+   //      }
+   //      catch
+   //      {
+   //         return (TValue) (Object) null;
+   //      }
+
+   //   }
+
+   //   protected abstract TValue ValueFactory( Int32 heapOffset );
+   //}
+
+   //public class DefaultReaderBLOBStreamHandler : AbstractReaderStreamHandlerImplWithCache<Byte[]>, ReaderBLOBStreamHandler
+   //{
+   //   private readonly IDictionary<KeyValuePair<Int32, SignatureElementTypes>, Object> _constants;
+
+   //   public DefaultReaderBLOBStreamHandler(
+   //      StreamHelper stream,
+   //      Int64 startPosition,
+   //      Int32 streamSize
+   //      )
+   //      : base( stream, startPosition, streamSize )
+   //   {
+   //      this._constants = new Dictionary<KeyValuePair<Int32, SignatureElementTypes>, Object>();
+   //   }
+
+   //   public override String StreamName
+   //   {
+   //      get
+   //      {
+   //         return MetaDataConstants.BLOB_STREAM_NAME;
+   //      }
+   //   }
+
+   //   public Byte[] GetBLOB( Int32 heapIndex )
+   //   {
+   //      return this.GetOrAddValue( heapIndex );
+   //   }
+
+   //   public StreamHelper GetBLOBAsStreamPortion( Int32 heapIndex )
+   //   {
+   //      Int32 size;
+   //      var min = this.GetStreamOffset( heapIndex, out size );
+   //      return min >= 0 && size >= 0 ? this.Stream.NewStreamPortionFromCurrent( size ) : null;
+   //   }
+
+   //   public Int64 GetStreamOffset( Int32 heapIndex, out Int32 blobSize )
+   //   {
+   //      Int64 retVal;
+   //      if ( this.CheckHeapOffset( heapIndex ) )
+   //      {
+   //         var stream = this.SetStreamToHeapOffset( heapIndex );
+   //         retVal = stream.DecompressUInt32( out blobSize ) ?
+   //            stream.Stream.Position :
+   //            -1L;
+   //      }
+   //      else
+   //      {
+   //         blobSize = -1;
+   //         retVal = -1L;
+   //      }
+   //      return retVal;
+   //   }
+
+   //   public AbstractCustomAttributeSignature ReadCASignature( Int32 heapIndex )
+   //   {
+   //      AbstractCustomAttributeSignature caSig;
+   //      Int32 blobSize;
+   //      if ( this.GetStreamOffset( heapIndex, out blobSize ) >= 0 )
+   //      {
+   //         if ( blobSize <= 2 )
+   //         {
+   //            // Empty blob
+   //            caSig = new CustomAttributeSignature();
+   //         }
+   //         else
+   //         {
+   //            caSig = new RawCustomAttributeSignature()
+   //            {
+   //               Bytes = this.GetBLOB( heapIndex )
+   //            };
+   //         }
+   //      }
+   //      else
+   //      {
+   //         caSig = null;
+   //      }
+   //      return caSig;
+   //   }
+
+
+   //   public Object ReadConstantValue( Int32 heapIndex, SignatureElementTypes constType )
+   //   {
+   //      return heapIndex == 0 ?
+   //         null :
+   //         this.GetOrAddCustom(
+   //            this._constants,
+   //            new KeyValuePair<Int32, SignatureElementTypes>( heapIndex, constType ),
+   //            kvp => this.DoReadConstantValue( kvp.Key, kvp.Value ),
+   //            heapIndex
+   //            );
+   //   }
+
+   //   public MarshalingInfo ReadMarshalingInfo( Int32 heapIndex )
+   //   {
+   //      return MarshalingInfo.ReadFromBytes( this.GetBLOBAsStreamPortion( heapIndex ) );
+   //   }
+
+   //   public IEnumerable<AbstractSecurityInformation> ReadSecurityInformation( Int32 heapIndex )
+   //   {
+   //      return AbstractSecurityInformation.ReadSecurityInformation( this.GetBLOBAsStreamPortion( heapIndex ) );
+   //   }
+
+   //   public AbstractSignature ReadNonTypeSignature( Int32 heapIndex, Boolean methodSigIsDefinition, Boolean handleFieldSigAsLocalsSig, out Boolean fieldSigTransformedToLocalsSig )
+   //   {
+   //      return AbstractNotRawSignature.ReadNonTypeSignature( this.GetBLOBAsStreamPortion( heapIndex ), methodSigIsDefinition, handleFieldSigAsLocalsSig, out fieldSigTransformedToLocalsSig );
+   //   }
+
+   //   public TypeSignature ReadTypeSignature( Int32 heapIndex )
+   //   {
+   //      return TypeSignature.ReadTypeSignature( this.GetBLOBAsStreamPortion( heapIndex ), true );
+   //   }
+
+   //   protected override Byte[] ValueFactory( Int32 heapOffset )
+   //   {
+   //      Int32 blobLen;
+   //      var stream = this.SetStreamToHeapOffset( heapOffset );
+   //      return stream.DecompressUInt32( out blobLen )
+   //         && this.Stream.Stream.CanReadNextBytes( blobLen ).IsTrue() ?
+   //         stream.ReadAndCreateArray( blobLen ) :
+   //         null;
+   //   }
+
+   //   private TValue GetOrAddCustom<TValue>( IDictionary<Int32, TValue> cache, Int32 heapOffset, Func<Int32, TValue> factory )
+   //      where TValue : class
+   //   {
+   //      return this.CheckHeapOffset( heapOffset ) ?
+   //         cache.GetOrAdd_NotThreadSafe( heapOffset, i => this.CustomValueFactory( i, factory ) ) :
+   //         null;
+   //   }
+
+   //   private TValue GetOrAddCustom<TKey, TValue>( IDictionary<TKey, TValue> cache, TKey key, Func<TKey, TValue> factory, Int32 heapOffset )
+   //      where TValue : class
+   //   {
+   //      return this.CheckHeapOffset( heapOffset ) ?
+   //         cache.GetOrAdd_NotThreadSafe( key, i => this.CustomValueFactory( i, factory ) ) :
+   //         null;
+   //   }
+
+   //   private TValue CustomValueFactory<TKey, TValue>( TKey key, Func<TKey, TValue> actualFactory )
+   //      where TValue : class
+   //   {
+   //      try
+   //      {
+   //         return actualFactory( key );
+   //      }
+   //      catch
+   //      {
+   //         return null;
+   //      }
+   //   }
+
+   //   private Object DoReadConstantValue( Int32 heapIndex, SignatureElementTypes constType )
+   //   {
+   //      var stream = this.SetStreamToHeapOffset( heapIndex );
+   //      Object retVal;
+   //      Int32 blobSize;
+   //      if ( stream.DecompressUInt32( out blobSize ) )
+   //      {
+   //         var s = stream.Stream;
+   //         switch ( constType )
+   //         {
+   //            case SignatureElementTypes.Boolean:
+   //               return s.CanReadNextBytes( 1 ).IsTrue() ? (Object) ( stream.ReadByteFromBytes() == 1 ) : null;
+   //            case SignatureElementTypes.Char:
+   //               return s.CanReadNextBytes( 2 ).IsTrue() ? (Object) Convert.ToChar( stream.ReadUInt16LEFromBytes() ) : null;
+   //            case SignatureElementTypes.I1:
+   //               return s.CanReadNextBytes( 1 ).IsTrue() ? (Object) stream.ReadSByteFromBytes() : null;
+   //            case SignatureElementTypes.U1:
+   //               return s.CanReadNextBytes( 1 ).IsTrue() ? (Object) stream.ReadByteFromBytes() : null;
+   //            case SignatureElementTypes.I2:
+   //               return s.CanReadNextBytes( 2 ).IsTrue() ? (Object) stream.ReadInt16LEFromBytes() : null;
+   //            case SignatureElementTypes.U2:
+   //               return s.CanReadNextBytes( 2 ).IsTrue() ? (Object) stream.ReadUInt16LEFromBytes() : null;
+   //            case SignatureElementTypes.I4:
+   //               return s.CanReadNextBytes( 4 ).IsTrue() ? (Object) stream.ReadInt32LEFromBytes() : null;
+   //            case SignatureElementTypes.U4:
+   //               return s.CanReadNextBytes( 4 ).IsTrue() ? (Object) stream.ReadUInt32LEFromBytes() : null;
+   //            case SignatureElementTypes.I8:
+   //               return s.CanReadNextBytes( 8 ).IsTrue() ? (Object) stream.ReadInt64LEFromBytes() : null;
+   //            case SignatureElementTypes.U8:
+   //               return s.CanReadNextBytes( 8 ).IsTrue() ? (Object) stream.ReadUInt64LEFromBytes() : null;
+   //            case SignatureElementTypes.R4:
+   //               return s.CanReadNextBytes( 4 ).IsTrue() ? (Object) stream.ReadSingleLEFromBytes() : null;
+   //            case SignatureElementTypes.R8:
+   //               return s.CanReadNextBytes( 8 ).IsTrue() ? (Object) stream.ReadDoubleLEFromBytes() : null;
+   //            case SignatureElementTypes.String:
+   //               return s.CanReadNextBytes( blobSize ).IsTrue() ? MetaDataConstants.USER_STRING_ENCODING.GetString( stream.ReadAndCreateArray( blobSize ) ) : null;
+   //            default:
+   //               return null;
+   //         }
+   //      }
+   //      else
+   //      {
+   //         retVal = null;
+   //      }
+
+   //      return retVal;
+   //   }
+   //}
+
+   //public class DefaultReaderGUIDStreamHandler : AbstractReaderStreamHandlerImplWithCache<Guid?>, ReaderGUIDStreamHandler
+   //{
+   //   public DefaultReaderGUIDStreamHandler(
+   //      StreamHelper stream,
+   //      Int64 startPosition,
+   //      Int32 streamSize
+   //      )
+   //      : base( stream, startPosition, streamSize )
+   //   {
+   //   }
+
+   //   public override String StreamName
+   //   {
+   //      get
+   //      {
+   //         return MetaDataConstants.GUID_STREAM_NAME;
+   //      }
+   //   }
+
+   //   public Guid? GetGUID( Int32 heapIndex )
+   //   {
+   //      return this.GetOrAddValue( heapIndex );
+   //   }
+
+   //   //public Guid? GetGUIDNoCache( Int32 heapIndex )
+   //   //{
+   //   //   return this.GetValueNoCache( heapIndex );
+   //   //}
+
+   //   //protected override bool CheckHeapOffset( Int32 heapOffset )
+   //   //{
+   //   //   return base.CheckHeapOffset( heapOffset * MetaDataConstants.GUID_SIZE );
+   //   //}
+
+   //   protected override Guid? ValueFactory( Int32 heapOffset )
+   //   {
+   //      if ( heapOffset == 0 || (UInt32) heapOffset > this.StreamSize - MetaDataConstants.GUID_SIZE + 1 )
+   //      {
+   //         return null;
+   //      }
+   //      else
+   //      {
+   //         return new Guid( this.SetStreamToHeapOffset( heapOffset - 1 ).ReadAndCreateArray( MetaDataConstants.GUID_SIZE ) );
+   //      }
+   //   }
+   //}
+
+   //public abstract class AbstractReaderStringStreamHandler : AbstractReaderStreamHandlerImplWithCache<String>, ReaderStringStreamHandler
+   //{
+   //   public AbstractReaderStringStreamHandler(
+   //      StreamHelper stream,
+   //      Int64 startPosition,
+   //      Int32 streamSize,
+   //      Encoding encoding
+   //      )
+   //      : base( stream, startPosition, streamSize )
+   //   {
+   //      ArgumentValidator.ValidateNotNull( "Encoding", encoding );
+
+   //      this.Encoding = encoding;
+   //   }
+
+   //   public String GetString( Int32 heapIndex )
+   //   {
+   //      return this.GetOrAddValue( heapIndex );
+   //   }
+
+   //   //public String GetStringNoCache( Int32 heapIndex )
+   //   //{
+   //   //   return this.GetValueNoCache( heapIndex );
+   //   //}
+
+   //   protected Encoding Encoding { get; }
+   //}
+
+   //public class DefaultReaderSystemStringStreamHandler : AbstractReaderStringStreamHandler
+   //{
+   //   public DefaultReaderSystemStringStreamHandler(
+   //      StreamHelper stream,
+   //      Int64 startPosition,
+   //      Int32 streamSize
+   //      )
+   //      : base( stream, startPosition, streamSize, MetaDataConstants.SYS_STRING_ENCODING )
+   //   {
+
+   //   }
+
+   //   public override String StreamName
+   //   {
+   //      get
+   //      {
+   //         return MetaDataConstants.SYS_STRING_STREAM_NAME;
+   //      }
+   //   }
+
+   //   protected override String ValueFactory( Int32 heapIndex )
+   //   {
+   //      return this.Encoding.GetString( this.SetStreamToHeapOffset( heapIndex ).ReadUntilZeroAndCreateArray() );
+   //   }
+   //}
+
+   //public class DefaultReaderUserStringsStreamHandler : AbstractReaderStringStreamHandler
+   //{
+   //   public DefaultReaderUserStringsStreamHandler(
+   //      StreamHelper stream,
+   //      Int64 startPosition,
+   //      Int32 streamSize
+   //      )
+   //      : base( stream, startPosition, streamSize, MetaDataConstants.USER_STRING_ENCODING )
+   //   {
+
+   //   }
+
+   //   public override String StreamName
+   //   {
+   //      get
+   //      {
+   //         return MetaDataConstants.USER_STRING_STREAM_NAME;
+   //      }
+   //   }
+
+   //   protected override String ValueFactory( Int32 heapIndex )
+   //   {
+   //      String retVal;
+   //      if ( heapIndex == 0 )
+   //      {
+   //         retVal = "";
+   //      }
+   //      else
+   //      {
+   //         var stream = this.SetStreamToHeapOffset( heapIndex );
+   //         Int32 length;
+   //         if ( stream.DecompressUInt32( out length ) && stream.Stream.CanReadNextBytes( length ).IsTrue() )
+   //         {
+   //            if ( length > 1 )
+   //            {
+   //               retVal = this.Encoding.GetString( stream.ReadAndCreateArray( length - 1 ) );
+   //            }
+   //            else
+   //            {
+   //               retVal = "";
+   //            }
+   //         }
+   //         else
+   //         {
+   //            retVal = null;
+   //         }
+   //      }
+   //      return retVal;
+   //   }
+   //}
 
    public partial class DefaultMetaDataSerializationSupportProvider
    {
