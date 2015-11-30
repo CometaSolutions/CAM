@@ -26,6 +26,7 @@ using System.IO;
 namespace CILAssemblyManipulator.Tests.Physical
 {
    [Category( "CAM.Physical" )]
+   [Category( "CAM.Physical.Reading" )]
    public class ReadingTest : AbstractCAMTest
    {
 

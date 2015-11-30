@@ -398,7 +398,7 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
       protected abstract TValue ValueFactory( Int32 heapOffset );
    }
 
-   public class DefaultReaderBLOBStreamHandler : AbstractReaderStreamHandlerImplWithCache<Byte[]>, ReaderBLOBStreamHandler
+   public class DefaultReaderBLOBStreamHandler : AbstractReaderStreamHandlerImpl, ReaderBLOBStreamHandler
    {
       private readonly IDictionary<KeyValuePair<Int32, SignatureElementTypes>, Object> _constants;
 
@@ -422,7 +422,7 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
 
       public Byte[] GetBLOB( Int32 heapIndex )
       {
-         return this.GetOrAddValue( heapIndex );
+         return this.GetBLOBAsStreamPortion( heapIndex )?.Stream?.ReadUntilTheEnd();
       }
 
       public StreamHelper GetBLOBAsStreamPortion( Int32 heapIndex )
@@ -435,7 +435,7 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
       public Int64 GetStreamOffset( Int32 heapIndex, out Int32 blobSize )
       {
          Int64 retVal;
-         if ( this.CheckHeapOffset( heapIndex ) )
+         if ( heapIndex != 0 && this.CheckHeapOffset( heapIndex ) )
          {
             var stream = this.SetStreamToHeapOffset( heapIndex );
             retVal = stream.DecompressUInt32( out blobSize ) ?
@@ -507,16 +507,6 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
       public TypeSignature ReadTypeSignature( Int32 heapIndex )
       {
          return TypeSignature.ReadTypeSignature( this.GetBLOBAsStreamPortion( heapIndex ), true );
-      }
-
-      protected override Byte[] ValueFactory( Int32 heapOffset )
-      {
-         Int32 blobLen;
-         var stream = this.SetStreamToHeapOffset( heapOffset );
-         return stream.DecompressUInt32( out blobLen )
-            && this.Stream.Stream.CanReadNextBytes( blobLen ).IsTrue() ?
-            stream.ReadAndCreateArray( blobLen ) :
-            null;
       }
 
       private TValue GetOrAddCustom<TValue>( IDictionary<Int32, TValue> cache, Int32 heapOffset, Func<Int32, TValue> factory )
