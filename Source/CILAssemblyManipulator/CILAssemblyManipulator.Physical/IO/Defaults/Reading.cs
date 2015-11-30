@@ -541,7 +541,7 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
       }
    }
 
-   public class DefaultReaderBLOBStreamHandler : AbstractReaderStreamHandlerWithArray, ReaderBLOBStreamHandler
+   public class DefaultReaderBLOBStreamHandler : AbstractReaderStreamHandlerWithArrayAndCache<Tuple<Int32, Int32>>, ReaderBLOBStreamHandler
    {
       private readonly IDictionary<KeyValuePair<Int32, SignatureElementTypes>, Object> _constants;
 
@@ -657,14 +657,27 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
       {
          if ( heapIndex > 0 )
          {
-            var array = this.Bytes;
-            return array.TryDecompressUInt32( ref heapIndex, array.Length, out length ) && heapIndex + length <= this.StreamSize;
+            var tuple = this.GetOrAddValue( heapIndex );
+
+            heapIndex = tuple?.Item1 ?? heapIndex;
+            length = tuple?.Item2 ?? 0;
+            return tuple != null;
+            //return array.TryDecompressUInt32( ref heapIndex, array.Length, out length ) && heapIndex + length <= this.StreamSize;
          }
          else
          {
             length = 0;
             return false;
          }
+      }
+
+      protected override Tuple<Int32, Int32> ValueFactory( int heapOffset )
+      {
+         var array = this.Bytes;
+         Int32 length;
+         return array.TryDecompressUInt32( ref heapOffset, array.Length, out length ) && heapOffset + length <= this.StreamSize ?
+            Tuple.Create( heapOffset, length ) :
+            null;
       }
 
       private Object DoReadConstantValue( Int32 heapIndex, SignatureElementTypes constType )

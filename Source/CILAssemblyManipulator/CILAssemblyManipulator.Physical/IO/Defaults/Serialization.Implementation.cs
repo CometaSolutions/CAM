@@ -1530,59 +1530,6 @@ public static partial class E_CILPhysical
       return idx < max ? array.DecompressUInt32( ref idx ) : defaultValue;
    }
 
-   //internal static Boolean DecompressUInt32( this StreamHelper stream, out Int32 value, Boolean acceptErraneous = true )
-   //{
-   //   const Int32 UINT_TWO_BYTES_DECODE_MASK = 0x3F;
-   //   const Int32 UINT_FOUR_BYTES_DECODE_MASK = 0x1F;
-
-   //   Byte first;
-   //   if ( stream.TryReadByteFromBytes( out first ) )
-   //   {
-   //      if ( ( first & 0x80 ) == 0 )
-   //      {
-   //         // MSB bit not set, so it's just one byte 
-   //         value = first;
-   //      }
-   //      else if ( ( first & 0xC0 ) == 0x80 )
-   //      {
-   //         Byte second;
-   //         // MSB set, but prev bit not set, so it's two bytes
-   //         if ( stream.TryReadByteFromBytes( out second ) )
-   //         {
-   //            value = ( ( first & UINT_TWO_BYTES_DECODE_MASK ) << 8 ) | (Int32) second;
-   //         }
-   //         else
-   //         {
-   //            value = -1;
-   //         }
-   //      }
-   //      else if ( acceptErraneous || ( first & 0xE0 ) == 0xC0 )
-   //      {
-   //         // Whatever it is, it is four bytes long
-   //         if ( stream.Stream.CanReadNextBytes( 3 ).IsTrue() )
-   //         {
-   //            var buf = stream.Buffer;
-   //            stream.Stream.ReadSpecificAmount( buf, 0, 3 );
-   //            value = ( ( first & UINT_FOUR_BYTES_DECODE_MASK ) << 24 ) | ( ( (Int32) buf[0] ) << 16 ) | ( ( (Int32) buf[1] ) << 8 ) | buf[2];
-   //         }
-   //         else
-   //         {
-   //            value = -1;
-   //         }
-   //      }
-   //      else
-   //      {
-   //         value = -1;
-   //      }
-   //   }
-   //   else
-   //   {
-   //      value = -1;
-   //   }
-
-   //   return value >= 0;
-   //}
-
    internal static Int32 DecompressInt32( this Byte[] array, ref Int32 idx )
    {
       const Int32 COMPLEMENT_MASK_ONE_BYTE = unchecked((Int32) 0xFFFFFFC0);
