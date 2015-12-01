@@ -396,7 +396,7 @@ public static partial class E_CILPhysical
 
       // 8. Create and write image information
       var cliOptions = options.CLIOptions;
-      var snSignature = new Byte[snVars?.SignatureSize ?? 0];
+      var snSignature = snVars == null ? null : new Byte[snVars.SignatureSize];
       var cliHeaderOptions = cliOptions.HeaderOptions;
       var thOptions = cliOptions.TablesStreamOptions;
       var imageInfo = new ImageInformation(
@@ -426,7 +426,7 @@ public static partial class E_CILPhysical
             cliHeader,
             mdRoot,
             thHeader,
-            cf.NewArrayProxy( snSignature ).CQ,
+            snSignature == null ? null : cf.NewArrayProxy( snSignature ).CQ,
             rawValueProvider.GetRawValuesFor( Tables.MethodDef, 0 ).Select( r => (UInt32) r ).ToArrayProxy().CQ,
             rawValueProvider.GetRawValuesFor( Tables.FieldRVA, 0 ).Select( r => (UInt32) r ).ToArrayProxy().CQ
             )
