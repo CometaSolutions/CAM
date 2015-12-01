@@ -1077,6 +1077,8 @@ namespace CILAssemblyManipulator.Physical
       /// Indicates that a value is a reference.
       /// </summary>
       VT_BYREF = 16384,
+
+      VT_NOT_SPECIFIED = -1
    }
 
    /// <summary>

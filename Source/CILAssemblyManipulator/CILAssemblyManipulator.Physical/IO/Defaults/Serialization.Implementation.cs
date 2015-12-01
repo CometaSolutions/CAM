@@ -456,8 +456,8 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
       public static DefaultColumnSerializationInfo<TRawRow, TRow> BLOBMarshalingInfo<TRawRow, TRow>(
          String columnName,
          RawRowColumnSetterDelegate<TRawRow> rawSetter,
-         RowColumnSetterDelegate<TRow, MarshalingInfo> setter,
-         RowColumnGetterDelegate<TRow, MarshalingInfo> getter
+         RowColumnSetterDelegate<TRow, AbstractMarshalingInfo> setter,
+         RowColumnGetterDelegate<TRow, AbstractMarshalingInfo> getter
          )
          where TRawRow : class
          where TRow : class
@@ -1738,7 +1738,7 @@ public static partial class E_CILPhysical
       return retVal;
    }
 
-   internal static Byte[] CreateMarshalSpec( this ResizableArray<Byte> info, MarshalingInfo marshal )
+   internal static Byte[] CreateMarshalSpec( this ResizableArray<Byte> info, AbstractMarshalingInfo marshal )
    {
       var idx = 0;
       return info.WriteMarshalInfo( ref idx, marshal ) ?
@@ -2402,88 +2402,83 @@ public static partial class E_CILPhysical
       return info;
    }
 
-   private static Boolean WriteMarshalInfo( this ResizableArray<Byte> info, ref Int32 idx, MarshalingInfo marshal )
+   private static Boolean WriteMarshalInfo( this ResizableArray<Byte> info, ref Int32 idx, AbstractMarshalingInfo marshal )
    {
       var retVal = marshal != null;
       if ( retVal )
       {
-         info.AddCompressedUInt32( ref idx, (Int32) marshal.Value );
-         if ( !marshal.Value.IsNativeInstric() )
+         info.WriteByteToBytes( ref idx, (Byte) marshal.Value );
+         var canWrite = true;
+         Int32 tmp; String tmpString;
+         switch ( marshal.MarshalingInfoKind )
          {
-            // Apparently Microsoft's implementation differs from ECMA-335 standard:
-            // there the index of first parameter is 1, here all indices are zero-based.
-            var canWrite = true;
-            Int32 tmp; String tmpString;
-            switch ( (UnmanagedType) marshal.Value )
-            {
-               case UnmanagedType.ByValTStr:
-                  if ( IsMarshalSizeValid( ( tmp = marshal.ConstSize ) ) )
-                  {
-                     info.AddCompressedUInt32( ref idx, tmp );
-                  }
-                  break;
-               case UnmanagedType.Interface:
-               case UnmanagedType.IUnknown:
-               case UnmanagedType.IDispatch:
-                  if ( IsMarshalIndexValid( ( tmp = marshal.IIDParameterIndex ) ) )
-                  {
-                     info.AddCompressedUInt32( ref idx, tmp );
-                  }
-                  break;
-               case UnmanagedType.SafeArray:
-                  if ( CanWriteNextMarshalElement( ( tmp = (Int32) marshal.SafeArrayType ) != 0, ref canWrite ) )
-                  {
-                     info.AddCompressedUInt32( ref idx, tmp );
-                  }
-                  if ( CanWriteNextMarshalElement( ( tmpString = marshal.SafeArrayUserDefinedType ) != null, ref canWrite )
-                     )
-                  {
-                     info.AddCAString( ref idx, tmpString );
-                  }
-                  break;
-               case UnmanagedType.ByValArray:
-                  if ( CanWriteNextMarshalElement( IsMarshalSizeValid( ( tmp = marshal.ConstSize ) ), ref canWrite ) )
-                  {
-                     info.AddCompressedUInt32( ref idx, tmp );
-                  }
-                  if ( CanWriteNextMarshalElement( IsUnmanagedTypeValid( ( tmp = (Int32) marshal.ArrayType ) ), ref canWrite ) )
-                  {
-                     info.AddCompressedUInt32( ref idx, (Int32) marshal.ArrayType );
-                  }
-                  break;
-               case UnmanagedType.LPArray:
-                  var flags = 0;
-                  var writeFlags = false;
-                  if ( CanWriteNextMarshalElement( IsUnmanagedTypeValid( ( tmp = (Int32) marshal.ArrayType ) ), ref canWrite ) )
-                  {
-                     info.AddCompressedUInt32( ref idx, tmp );
-                  }
-                  if ( CanWriteNextMarshalElement( IsMarshalIndexValid( ( tmp = marshal.SizeParameterIndex ) ), ref canWrite ) )
-                  {
-                     flags = 1;
-                     info.AddCompressedUInt32( ref idx, tmp );
-                  }
-                  if ( CanWriteNextMarshalElement( IsMarshalSizeValid( ( tmp = marshal.ConstSize ) ), ref canWrite ) )
-                  {
-                     info.AddCompressedUInt32( ref idx, tmp );
-                     writeFlags = true;
-                  }
-                  if ( CanWriteNextMarshalElement( writeFlags, ref canWrite ) )
-                  {
-                     info.AddCompressedUInt32( ref idx, flags );
-                  }
-                  break;
-               case UnmanagedType.CustomMarshaler:
-                  // TODO get GUID and native type name strings
-                  info
-                     .AddCAString( ref idx, "" )
-                     .AddCAString( ref idx, "" )
-                     .AddCAString( ref idx, marshal.MarshalType )
-                     .AddCAString( ref idx, marshal.MarshalCookie ?? "" );
-                  break;
-               default:
-                  break;
-            }
+            case MarshalingInfoKind.Simple:
+               // Nothing else to write
+               break;
+            case MarshalingInfoKind.FixedLengthString:
+               if ( IsMarshalSizeValid( ( tmp = ( (FixedLengthStringMarshalingInfo) marshal ).Size ) ) )
+               {
+                  info.AddCompressedUInt32( ref idx, tmp );
+               }
+               break;
+            case MarshalingInfoKind.FixedLengthArray:
+               var flArray = (FixedLengthArrayMarshalingInfo) marshal;
+               if ( CanWriteNextMarshalElement( IsMarshalSizeValid( ( tmp = flArray.Size ) ), ref canWrite ) )
+               {
+                  info.AddCompressedUInt32( ref idx, tmp );
+               }
+               if ( CanWriteNextMarshalElement( IsUnmanagedTypeValid( ( tmp = (Int32) flArray.ElementType ) ), ref canWrite ) )
+               {
+                  info.AddCompressedUInt32( ref idx, tmp );
+               }
+               break;
+            case MarshalingInfoKind.SafeArray:
+               var sArray = (SafeArrayMarshalingInfo) marshal;
+               if ( CanWriteNextMarshalElement( ( tmp = (Int32) sArray.ElementType ) != 0, ref canWrite ) )
+               {
+                  info.AddCompressedUInt32( ref idx, tmp );
+               }
+               if ( CanWriteNextMarshalElement( ( tmpString = sArray.UserDefinedType ) != null, ref canWrite ) )
+               {
+                  info.AddCAString( ref idx, tmpString );
+               }
+               break;
+            case MarshalingInfoKind.Array:
+               var array = (ArrayMarshalingInfo) marshal;
+               if ( CanWriteNextMarshalElement( IsUnmanagedTypeValid( ( tmp = (Int32) array.ElementType ) ), ref canWrite ) )
+               {
+                  info.AddCompressedUInt32( ref idx, tmp );
+               }
+               if ( CanWriteNextMarshalElement( IsMarshalIndexValid( ( tmp = array.SizeParameterIndex ) ), ref canWrite ) )
+               {
+                  info.AddCompressedUInt32( ref idx, tmp );
+               }
+               if ( CanWriteNextMarshalElement( IsMarshalSizeValid( ( tmp = array.Size ) ), ref canWrite ) )
+               {
+                  info.AddCompressedUInt32( ref idx, tmp );
+               }
+               if ( CanWriteNextMarshalElement( ( tmp = array.Flags ) >= 0, ref canWrite ) )
+               {
+                  info.AddCompressedUInt32( ref idx, tmp );
+               }
+               break;
+            case MarshalingInfoKind.Interface:
+               if ( IsMarshalIndexValid( ( tmp = ( (InterfaceMarshalingInfo) marshal ).IIDParameterIndex ) ) )
+               {
+                  info.AddCompressedUInt32( ref idx, tmp );
+               }
+               break;
+            case MarshalingInfoKind.Custom:
+               var custom = (CustomMarshalingInfo) marshal;
+               info
+                     .AddCAString( ref idx, custom.GUIDString ?? "" )
+                     .AddCAString( ref idx, custom.NativeTypeName ?? "" )
+                     .AddCAString( ref idx, custom.CustomMarshalerTypeName ?? "" )
+                     .AddCAString( ref idx, custom.MarshalCookie ?? "" );
+               break;
+            case MarshalingInfoKind.Raw:
+               info.WriteArray( ref idx, ( (RawMarshalingInfo) marshal ).Bytes );
+               break;
          }
       }
 

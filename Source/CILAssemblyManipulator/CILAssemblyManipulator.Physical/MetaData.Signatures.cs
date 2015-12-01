@@ -1090,40 +1090,18 @@ namespace CILAssemblyManipulator.Physical
 
    /// <summary>
    /// This class represents marshalling information used for CIL parameters and fields.
-   /// The instances of this class are created via static methods in this class.
+   /// Subclasses of this class further define what kind of marshaling info is in question.
    /// </summary>
    /// <seealso cref="CILElementWithMarshalingInfo"/>
    /// <seealso cref="CILField"/>
    /// <seealso cref="CILParameter"/>
-   public sealed class MarshalingInfo
+   public abstract class AbstractMarshalingInfo
    {
-      //internal const UnmanagedType NATIVE_TYPE_MAX = (UnmanagedType) 0x50;
       internal const Int32 NO_INDEX = -1;
 
-      /// <summary>
-      /// Creates a new instance of <see cref="MarshalingInfo"/>.
-      /// </summary>
-      public MarshalingInfo()
+      // Disable inheritance to other assemblies
+      internal AbstractMarshalingInfo()
       {
-         // with all values as specified
-         ///// <param name="ut">The <see cref="UnmanagedType"/>.</param>
-         ///// <param name="safeArrayType">The <see cref="VarEnum"/> of safe array elements.</param>
-         ///// <param name="safeArrayUDType">The user-defined type of safe array elements.</param>
-         ///// <param name="iidParamIdx">The zero-based index of <c>iid_is</c> parameter in COM interop.</param>
-         ///// <param name="arrayType">The <see cref="UnmanagedType"/> of array elements.</param>
-         ///// <param name="sizeParamIdx">The zero-based index of array size parameter.</param>
-         ///// <param name="constSize">The size of additional array elements.</param>
-         ///// <param name="marshalType">The type name of custom marshaler.</param>
-         ///// <param name="marshalCookie">The cookie for custom marshaler.</param>
-         //this._ut = ut;
-         //this._safeArrayType = safeArrayType;
-         //this._safeArrayUserDefinedType = safeArrayUDType;
-         //this._iidParameterIndex = Math.Max( NO_INDEX, iidParamIdx );
-         //this._arrayType = arrayType == (UnmanagedType) 0 ? NATIVE_TYPE_MAX : arrayType;
-         //this._sizeParamIndex = Math.Max( NO_INDEX, sizeParamIdx );
-         //this._constSize = Math.Max( NO_INDEX, constSize );
-         //this._marshalType = marshalType;
-         //this._marshalCookie = marshalCookie;
       }
 
       /// <summary>
@@ -1132,29 +1110,293 @@ namespace CILAssemblyManipulator.Physical
       /// <value>The <see cref="UnmanagedType" /> value the data is to be marshaled as.</value>
       public UnmanagedType Value { get; set; }
 
-      /// <summary>
-      /// Gets the element type for <see cref="UnmanagedType.SafeArray"/>.
-      /// </summary>
-      /// <value>The element type for <see cref="UnmanagedType.SafeArray"/>.</value>
-      public VarEnum SafeArrayType { get; set; }
+      public abstract MarshalingInfoKind MarshalingInfoKind { get; }
+
+#if !CAM_PHYSICAL_IS_PORTABLE
 
       /// <summary>
-      /// Gets the element type for <see cref="UnmanagedType.SafeArray"/> when <see cref="SafeArrayType"/> is <see cref="VarEnum.VT_USERDEFINED"/>.
+      /// Creates <see cref="AbstractMarshalingInfo"/> with all information specified in <see cref="System.Runtime.InteropServices.MarshalAsAttribute"/>.
       /// </summary>
-      /// <value>The element type for <see cref="UnmanagedType.SafeArray"/> when <see cref="SafeArrayType"/> is <see cref="VarEnum.VT_USERDEFINED"/>.</value>
-      public String SafeArrayUserDefinedType { get; set; }
+      /// <param name="attr">The <see cref="System.Runtime.InteropServices.MarshalAsAttribute"/>. If <c>null</c>, then the result will be <c>null</c> as well.</param>
+      /// <returns>A new <see cref="AbstractMarshalingInfo"/> with given information.</returns>
+      /// <exception cref="ArgumentNullException">If <paramref name="attr"/> has non-<c>null</c> <see cref="System.Runtime.InteropServices.MarshalAsAttribute.SafeArrayUserDefinedSubType"/>, <see cref="System.Runtime.InteropServices.MarshalAsAttribute.MarshalType"/> or <see cref="System.Runtime.InteropServices.MarshalAsAttribute.MarshalTypeRef"/> fields, and <paramref name="ctx"/> is <c>null</c>.</exception>
+      public static AbstractMarshalingInfo FromAttribute( System.Runtime.InteropServices.MarshalAsAttribute attr )
+      {
+         AbstractMarshalingInfo result;
+         if ( attr == null )
+         {
+            result = null;
+         }
+         else
+         {
+            var ut = (UnmanagedType) attr.Value;
+            switch ( ut )
+            {
+               case UnmanagedType.ByValTStr:
+                  result = new FixedLengthStringMarshalingInfo()
+                  {
+                     Value = ut,
+                     Size = attr.SizeConst
+                  };
+                  break;
+               case UnmanagedType.IUnknown:
+               case UnmanagedType.IDispatch:
+               case UnmanagedType.Interface:
+                  result = new InterfaceMarshalingInfo()
+                  {
+                     Value = ut,
+                     IIDParameterIndex = attr.IidParameterIndex
+                  };
+                  break;
+               case UnmanagedType.SafeArray:
+                  result = new SafeArrayMarshalingInfo()
+                  {
+                     Value = ut,
+                     ElementType = (VarEnum) attr.SafeArraySubType,
+                     UserDefinedType = attr.SafeArrayUserDefinedSubType?.AssemblyQualifiedName
+                  };
+                  break;
+               case UnmanagedType.ByValArray:
+                  result = new FixedLengthArrayMarshalingInfo()
+                  {
+                     Value = ut,
+                     Size = attr.SizeConst,
+                     ElementType = (UnmanagedType) attr.ArraySubType
+                  };
+                  break;
+               case UnmanagedType.LPArray:
+                  result = new ArrayMarshalingInfo()
+                  {
+                     Value = ut,
+                     ElementType = (UnmanagedType) attr.ArraySubType,
+                     SizeParameterIndex = attr.SizeParamIndex,
+                     Size = attr.SizeConst,
+                     Flags = -1
+                  };
+                  break;
+               case UnmanagedType.CustomMarshaler:
+                  result = new CustomMarshalingInfo()
+                  {
+                     Value = ut,
+                     GUIDString = null,
+                     NativeTypeName = null,
+                     CustomMarshalerTypeName = attr.MarshalType,
+                     MarshalCookie = attr.MarshalCookie
+                  };
+                  break;
+               default:
+                  result = new SimpleMarshalingInfo()
+                  {
+                     Value = ut
+                  };
+                  break;
+            }
+         }
+         return result;
+      }
+
+#endif
+
+      public static AbstractMarshalingInfo ReadFromBytes(
+         Byte[] array,
+         ref Int32 idx,
+         Int32 max
+         )
+      {
+         AbstractMarshalingInfo result = null;
+         var ut = array.ReadUnmanagedType( ref idx );
+
+         switch ( ut )
+         {
+            case UnmanagedType.ByValTStr:
+               result = new FixedLengthStringMarshalingInfo()
+               {
+                  Value = ut,
+                  Size = array.DecompressUInt32OrDefault( ref idx, max, NO_INDEX )
+               };
+               break;
+            case UnmanagedType.IUnknown:
+            case UnmanagedType.IDispatch:
+            case UnmanagedType.Interface:
+               result = new InterfaceMarshalingInfo()
+               {
+                  Value = ut,
+                  IIDParameterIndex = array.DecompressUInt32OrDefault( ref idx, max, NO_INDEX )
+               };
+               break;
+            case UnmanagedType.SafeArray:
+               result = new SafeArrayMarshalingInfo()
+               {
+                  Value = ut,
+                  ElementType = (VarEnum) array.DecompressUInt32OrDefault( ref idx, max, NO_INDEX ),
+                  UserDefinedType = array.ReadLenPrefixedUTF8StringOrDefault( ref idx, max ).UnescapeCILTypeString()
+               };
+               break;
+            case UnmanagedType.ByValArray:
+               result = new FixedLengthArrayMarshalingInfo()
+               {
+                  Value = ut,
+                  Size = array.DecompressUInt32OrDefault( ref idx, max, NO_INDEX ),
+                  ElementType = (UnmanagedType) array.DecompressUInt32OrDefault( ref idx, max, NO_INDEX )
+               };
+               break;
+            case UnmanagedType.LPArray:
+               result = new ArrayMarshalingInfo()
+               {
+                  Value = ut,
+                  ElementType = (UnmanagedType) array.DecompressUInt32OrDefault( ref idx, max, NO_INDEX ),
+                  SizeParameterIndex = array.DecompressUInt32OrDefault( ref idx, max, NO_INDEX ),
+                  Size = array.DecompressUInt32OrDefault( ref idx, max, NO_INDEX ),
+                  Flags = array.DecompressUInt32OrDefault( ref idx, max, NO_INDEX )
+               };
+               break;
+            case UnmanagedType.CustomMarshaler:
+               result = new CustomMarshalingInfo()
+               {
+                  Value = ut,
+                  GUIDString = array.ReadLenPrefixedUTF8StringOrDefault( ref idx, max ),
+                  NativeTypeName = array.ReadLenPrefixedUTF8StringOrDefault( ref idx, max ),
+                  CustomMarshalerTypeName = array.ReadLenPrefixedUTF8StringOrDefault( ref idx, max ).UnescapeCILTypeString(),
+                  MarshalCookie = array.ReadLenPrefixedUTF8StringOrDefault( ref idx, max )
+               };
+               break;
+            default:
+               result = idx < max ?
+                  (AbstractMarshalingInfo) new RawMarshalingInfo()
+                  {
+                     Value = ut,
+                     Bytes = array.CreateArrayCopy( idx, max - idx )
+                  } :
+                  new SimpleMarshalingInfo()
+                  {
+                     Value = ut
+                  };
+               break;
+         }
+
+         return result;
+      }
+
+   }
+
+   public enum MarshalingInfoKind
+   {
+      Simple,
+      FixedLengthString,
+      FixedLengthArray,
+      SafeArray,
+      Array,
+      Interface,
+      Custom,
+      Raw
+   }
+
+   public sealed class SimpleMarshalingInfo : AbstractMarshalingInfo
+   {
+      public override MarshalingInfoKind MarshalingInfoKind
+      {
+         get
+         {
+            return MarshalingInfoKind.Simple;
+         }
+      }
+   }
+
+   public sealed class FixedLengthStringMarshalingInfo : AbstractMarshalingInfo
+   {
+      public override MarshalingInfoKind MarshalingInfoKind
+      {
+         get
+         {
+            return MarshalingInfoKind.FixedLengthString;
+         }
+      }
 
       /// <summary>
-      /// Gets the zero-based parameter index of the unmanaged iid_is attribute used by COM.
+      /// Gets or sets the number of characters (not bytes) in a string.
+      /// </summary>
+      /// <value>The number of characters (not bytes) in a string.</value>
+      public Int32 Size { get; set; }
+   }
+
+   public sealed class InterfaceMarshalingInfo : AbstractMarshalingInfo
+   {
+      public override MarshalingInfoKind MarshalingInfoKind
+      {
+         get
+         {
+            return MarshalingInfoKind.Interface;
+         }
+      }
+
+      /// <summary>
+      /// Gets or sets the zero-based parameter index of the unmanaged iid_is attribute used by COM.
       /// </summary>
       /// <value>The parameter index of the unmanaged iid_is attribute used by COM.</value>
       public Int32 IIDParameterIndex { get; set; }
+   }
+
+   public sealed class SafeArrayMarshalingInfo : AbstractMarshalingInfo
+   {
+      public override MarshalingInfoKind MarshalingInfoKind
+      {
+         get
+         {
+            return MarshalingInfoKind.SafeArray;
+         }
+      }
 
       /// <summary>
-      /// Gets the type of the array for <see cref="UnmanagedType.ByValArray"/> or <see cref="UnmanagedType.LPArray"/>.
+      /// Gets or sets the type for array elements.
       /// </summary>
-      /// <value>The type of the array for <see cref="UnmanagedType.ByValArray"/> or <see cref="UnmanagedType.LPArray"/>.</value>
-      public UnmanagedType ArrayType { get; set; }
+      /// <value>The type for array elements.</value>
+      public VarEnum ElementType { get; set; }
+
+      /// <summary>
+      /// Gets or sets the element type string.
+      /// </summary>
+      /// <value>The element type string.</value>
+      public String UserDefinedType { get; set; }
+   }
+
+   public sealed class FixedLengthArrayMarshalingInfo : AbstractMarshalingInfo
+   {
+      public override MarshalingInfoKind MarshalingInfoKind
+      {
+         get
+         {
+            return MarshalingInfoKind.FixedLengthArray;
+         }
+      }
+
+      /// <summary>
+      /// Gets or sets the number of elements in an array.
+      /// </summary>
+      /// <value>The number of elements in an array.</value>
+      public Int32 Size { get; set; }
+
+      /// <summary>
+      /// Gets or sets the type for array elements.
+      /// </summary>
+      /// <value>The type for array elements.</value>
+      public UnmanagedType ElementType { get; set; }
+   }
+
+   public sealed class ArrayMarshalingInfo : AbstractMarshalingInfo
+   {
+      public override MarshalingInfoKind MarshalingInfoKind
+      {
+         get
+         {
+            return MarshalingInfoKind.Array;
+         }
+      }
+
+      /// <summary>
+      /// Gets or sets the type for array elements.
+      /// </summary>
+      /// <value>The type for array elements.</value>
+      public UnmanagedType ElementType { get; set; }
 
       /// <summary>
       /// Gets the zero-based index of the parameter containing the count of the array elements.
@@ -1163,319 +1405,68 @@ namespace CILAssemblyManipulator.Physical
       public Int32 SizeParameterIndex { get; set; }
 
       /// <summary>
-      /// Gets the number of elements of fixed-length array or the number of character (not bytes) in a string.
+      /// Gets or sets the number of elements in an array.
       /// </summary>
-      /// <value>The number of elements of fixed-length array or the number of character (not bytes) in a string.</value>
-      public Int32 ConstSize { get; set; }
+      /// <value>The number of elements in an array.</value>
+      public Int32 Size { get; set; }
 
       /// <summary>
-      /// Gets the fully-qualified name of a custom marshaler.
+      /// Gets or sets flags for this marshaling info.
       /// </summary>
-      /// <value>The fully-qualified name of a custom marshaler.</value>
-      public String MarshalType { get; set; }
+      /// <value>The flags for this marshaling info.</value>
+      public Int32 Flags { get; set; }
+   }
+
+   public sealed class CustomMarshalingInfo : AbstractMarshalingInfo
+   {
+      public override MarshalingInfoKind MarshalingInfoKind
+      {
+         get
+         {
+            return MarshalingInfoKind.Custom;
+         }
+      }
 
       /// <summary>
-      /// Gets the additional information for custom marshaler.
+      /// Gets or sets the COM GUID string for this marshaling info.
+      /// </summary>
+      /// <value>The COM GUID string for this marshaling info.</value>
+      public String GUIDString { get; set; }
+
+      /// <summary>
+      /// Gets or sets the native type name for this marshaling info.
+      /// </summary>
+      /// <value>The native type name for this marshaling info.</value>
+      public String NativeTypeName { get; set; }
+
+      /// <summary>
+      /// Gets or sets the custom marshaler type name for this marshaling info.
+      /// </summary>
+      /// <value>The custom marshaler type name for this marshaling info.</value>
+      public String CustomMarshalerTypeName { get; set; }
+
+      /// <summary>
+      /// Gets or sets the additional information for custom marshaler.
       /// </summary>
       /// <value>The additional information for custom marshaler.</value>
       public String MarshalCookie { get; set; }
+   }
 
-      /// <summary>
-      /// Marshals field or parameter as native instric type.
-      /// </summary>
-      /// <param name="ut">The native instric type.</param>
-      /// <returns>A new <see cref="MarshalingInfo"/> with given information.</returns>
-      /// <exception cref="ArgumentException">If <see cref="E_CIL.IsNativeInstric(UnmanagedType)"/> returns <c>false</c> for <paramref name="ut"/>.</exception>
-      public static MarshalingInfo MarshalAs( UnmanagedType ut )
+   public sealed class RawMarshalingInfo : AbstractMarshalingInfo
+   {
+      public override MarshalingInfoKind MarshalingInfoKind
       {
-         if ( ut.IsNativeInstric() )
+         get
          {
-            return new MarshalingInfo()
-            {
-               Value = ut,
-               SafeArrayType = VarEnum.VT_EMPTY,
-               IIDParameterIndex = NO_INDEX,
-               ArrayType = UnmanagedType.NotPresent,
-               SizeParameterIndex = NO_INDEX,
-               ConstSize = NO_INDEX
-            };
-         }
-         else
-         {
-            throw new ArgumentException( "This method may be used only on native instrict unmanaged types." );
+            return MarshalingInfoKind.Raw;
          }
       }
 
       /// <summary>
-      /// Marshals field or parameter as <see cref="UnmanagedType.ByValTStr"/>.
+      /// Gets or sets the raw binary marshaling info, except for the starting byte (the value of <see cref="AbstractMarshalingInfo.Value"/> property).
       /// </summary>
-      /// <param name="size">The size of the string.</param>
-      /// <returns>A new <see cref="MarshalingInfo"/> with given information.</returns>
-      /// <exception cref="ArgumentOutOfRangeException">If <paramref name="size"/> is less than zero.</exception>
-      public static MarshalingInfo MarshalAsByValTStr( Int32 size )
-      {
-         if ( size < 0 )
-         {
-            throw new ArgumentOutOfRangeException( "The size for in-line character array must be at least zero." );
-         }
-         return new MarshalingInfo()
-         {
-            Value = UnmanagedType.ByValTStr,
-            SafeArrayType = VarEnum.VT_EMPTY,
-            IIDParameterIndex = NO_INDEX,
-            ArrayType = UnmanagedType.NotPresent,
-            SizeParameterIndex = NO_INDEX,
-            ConstSize = size,
-         };
-      }
-
-      /// <summary>
-      /// Marshals field or parameter as <see cref="UnmanagedType.IUnknown"/>.
-      /// </summary>
-      /// <param name="iidParamIndex">The zero-based index for <c>iid_is</c> parameter.</param>
-      /// <returns>A new <see cref="MarshalingInfo"/> with given information.</returns>
-      public static MarshalingInfo MarshalAsIUnknown( Int32 iidParamIndex = NO_INDEX )
-      {
-         return MarshalWithIIDParam( UnmanagedType.IUnknown, iidParamIndex );
-      }
-
-      /// <summary>
-      /// Marshals field or parameter as <see cref="UnmanagedType.IDispatch"/>.
-      /// </summary>
-      /// <param name="iidParamIndex">The zero-based index for <c>iid_is</c> parameter.</param>
-      /// <returns>A new <see cref="MarshalingInfo"/> with given information.</returns>
-      public static MarshalingInfo MarshalAsIDispatch( Int32 iidParamIndex = NO_INDEX )
-      {
-         return MarshalWithIIDParam( UnmanagedType.IDispatch, iidParamIndex );
-      }
-
-      public static MarshalingInfo MarshalAsInterface( Int32 iidParamIndex = NO_INDEX )
-      {
-         return MarshalWithIIDParam( UnmanagedType.Interface, iidParamIndex );
-      }
-
-      private static MarshalingInfo MarshalWithIIDParam( UnmanagedType type, Int32 iidParamIndex )
-      {
-         return new MarshalingInfo()
-         {
-            Value = type,
-            SafeArrayType = VarEnum.VT_EMPTY,
-            IIDParameterIndex = iidParamIndex,
-            ArrayType = UnmanagedType.NotPresent,
-            SizeParameterIndex = NO_INDEX,
-            ConstSize = NO_INDEX
-         };
-      }
-
-      /// <summary>
-      /// Marshals field or parameter as <see cref="UnmanagedType.SafeArray"/> without any further information.
-      /// </summary>
-      /// <returns>A new <see cref="MarshalingInfo"/> with given information.</returns>
-      public static MarshalingInfo MarshalAsSafeArray()
-      {
-         return MarshalAsSafeArray( VarEnum.VT_EMPTY, null );
-      }
-
-      /// <summary>
-      /// Marshals field or parameter as <see cref="UnmanagedType.SafeArray"/> with specified array element type.
-      /// </summary>
-      /// <param name="elementType">The type of array elements.</param>
-      /// <returns>A new <see cref="MarshalingInfo"/> with given information.</returns>
-      /// <exception cref="ArgumentException">If <paramref name="elementType"/> is <see cref="VarEnum.VT_USERDEFINED"/>. Use <see cref="MarshalAsSafeArray(CILType)"/> method to specify safe arrays with user-defined types.</exception>
-      /// <seealso cref="VarEnum"/>
-      public static MarshalingInfo MarshalAsSafeArray( VarEnum elementType )
-      {
-         if ( VarEnum.VT_USERDEFINED == elementType )
-         {
-            throw new ArgumentException( "Use other method for userdefined safe array types." );
-         }
-         return MarshalAsSafeArray( elementType, null );
-      }
-
-      /// <summary>
-      /// Marshals field or parameter as <see cref="UnmanagedType.SafeArray"/> with user-defined array element type.
-      /// </summary>
-      /// <param name="elementType">The type of array elements. May be <c>null</c>, then no type information is included.</param>
-      /// <returns>A new <see cref="MarshalingInfo"/> with given information.</returns>
-      public static MarshalingInfo MarshalAsSafeArray( String elementType )
-      {
-         return MarshalAsSafeArray( elementType == null ? VarEnum.VT_EMPTY : VarEnum.VT_USERDEFINED, elementType );
-      }
-
-      private static MarshalingInfo MarshalAsSafeArray( VarEnum elementType, String udType )
-      {
-         return new MarshalingInfo()
-         {
-            Value = UnmanagedType.SafeArray,
-            SafeArrayType = elementType,
-            SafeArrayUserDefinedType = udType,
-            IIDParameterIndex = NO_INDEX,
-            ArrayType = UnmanagedType.NotPresent,
-            SizeParameterIndex = NO_INDEX,
-            ConstSize = NO_INDEX,
-         };
-      }
-
-      /// <summary>
-      /// Marshals field or parameter as <see cref="UnmanagedType.ByValArray"/>.
-      /// </summary>
-      /// <param name="size">The size of the array.</param>
-      /// <param name="elementType">The optional type information about array elements.</param>
-      /// <returns>A new <see cref="MarshalingInfo"/> with given information.</returns>
-      /// <exception cref="ArgumentOutOfRangeException">If <paramref name="size"/> is less than zero.</exception>
-      public static MarshalingInfo MarshalAsByValArray( Int32 size, UnmanagedType elementType = UnmanagedType.NotPresent )
-      {
-         if ( size < 0 )
-         {
-            throw new ArgumentOutOfRangeException( "The size for by-val array must be at least zero." );
-         }
-         return new MarshalingInfo()
-         {
-            Value = UnmanagedType.ByValArray,
-            SafeArrayType = VarEnum.VT_EMPTY,
-            IIDParameterIndex = NO_INDEX,
-            ArrayType = elementType,
-            SizeParameterIndex = NO_INDEX,
-            ConstSize = size,
-         };
-      }
-
-      /// <summary>
-      /// Marshals field or parameter as <see cref="UnmanagedType.LPArray"/>.
-      /// </summary>
-      /// <param name="sizeParamIdx">The zero-based index for parameter containing array size.</param>
-      /// <param name="constSize">The size of additional elements.</param>
-      /// <param name="elementType">The optional type information about array elements.</param>
-      /// <returns>A new <see cref="MarshalingInfo"/> with given information.</returns>
-      public static MarshalingInfo MarshalAsLPArray( Int32 sizeParamIdx = NO_INDEX, Int32 constSize = 0, UnmanagedType elementType = UnmanagedType.NotPresent )
-      {
-         return new MarshalingInfo()
-         {
-            Value = UnmanagedType.LPArray,
-            SafeArrayType = VarEnum.VT_EMPTY,
-            IIDParameterIndex = NO_INDEX,
-            ArrayType = elementType,
-            SizeParameterIndex = sizeParamIdx,
-            ConstSize = constSize,
-         };
-      }
-
-      /// <summary>
-      /// Marshals field or parameter using custom marshalling.
-      /// </summary>
-      /// <param name="customMarshalerTypeName">The fully qualified type name of the custom marshaler.Must implement <see cref="T:System.Runtime.InteropServices.ICustomMarshaler"/>.</param>
-      /// <param name="marshalCookie">The string information to pass for marshaler creation function.</param>
-      /// <returns>A new <see cref="MarshalingInfo"/> with given information.</returns>
-      /// <exception cref="ArgumentNullException">If <paramref name="customMarshalerTypeName"/> is <c>null</c>.</exception>
-      /// <seealso href="http://msdn.microsoft.com/en-us/library/system.runtime.interopservices.icustommarshaler.aspx"/>
-      public static MarshalingInfo MarshalAsCustom( String customMarshalerTypeName, String marshalCookie = null )
-      {
-         ArgumentValidator.ValidateNotNull( "Custom marshaler typename", customMarshalerTypeName );
-         return new MarshalingInfo()
-         {
-            Value = UnmanagedType.CustomMarshaler,
-            SafeArrayType = VarEnum.VT_EMPTY,
-            IIDParameterIndex = NO_INDEX,
-            ArrayType = UnmanagedType.NotPresent,
-            SizeParameterIndex = NO_INDEX,
-            ConstSize = NO_INDEX,
-            MarshalType = customMarshalerTypeName,
-            MarshalCookie = marshalCookie
-         };
-      }
-
-#if !CAM_PHYSICAL_IS_PORTABLE
-
-      /// <summary>
-      /// Creates <see cref="MarshalingInfo"/> with all information specified in <see cref="System.Runtime.InteropServices.MarshalAsAttribute"/>.
-      /// </summary>
-      /// <param name="attr">The <see cref="System.Runtime.InteropServices.MarshalAsAttribute"/>. If <c>null</c>, then the result will be <c>null</c> as well.</param>
-      /// <returns>A new <see cref="MarshalingInfo"/> with given information.</returns>
-      /// <exception cref="ArgumentNullException">If <paramref name="attr"/> has non-<c>null</c> <see cref="System.Runtime.InteropServices.MarshalAsAttribute.SafeArrayUserDefinedSubType"/>, <see cref="System.Runtime.InteropServices.MarshalAsAttribute.MarshalType"/> or <see cref="System.Runtime.InteropServices.MarshalAsAttribute.MarshalTypeRef"/> fields, and <paramref name="ctx"/> is <c>null</c>.</exception>
-      public static MarshalingInfo FromAttribute( System.Runtime.InteropServices.MarshalAsAttribute attr )
-      {
-         MarshalingInfo result;
-         if ( attr == null )
-         {
-            result = null;
-         }
-         else
-         {
-            result = new MarshalingInfo()
-            {
-               Value = (UnmanagedType) attr.Value,
-               SafeArrayType = (VarEnum) attr.SafeArraySubType,
-               SafeArrayUserDefinedType = attr.SafeArrayUserDefinedSubType.AssemblyQualifiedName,
-               IIDParameterIndex = attr.IidParameterIndex,
-               ArrayType = (UnmanagedType) attr.ArraySubType,
-               SizeParameterIndex = attr.SizeParamIndex,
-               ConstSize = attr.SizeConst,
-               MarshalType = attr.MarshalType,
-               MarshalCookie = attr.MarshalCookie
-            };
-         }
-         return result;
-      }
-
-#endif
-
-      public static MarshalingInfo ReadFromBytes(
-         Byte[] array,
-         ref Int32 idx,
-         Int32 max
-         )
-      {
-         MarshalingInfo result = null;
-         var ut = array.ReadUnmanagedType( ref idx );
-
-         Int32 constSize, paramIdx, tmp;
-         UnmanagedType arrElementType;
-         switch ( ut )
-         {
-            case UnmanagedType.ByValTStr:
-               result = MarshalingInfo.MarshalAsByValTStr( array.DecompressUInt32OrDefault( ref idx, max, -1 ) );
-               break;
-            case UnmanagedType.IUnknown:
-            case UnmanagedType.IDispatch:
-            case UnmanagedType.Interface:
-               result = MarshalingInfo.MarshalWithIIDParam( ut, array.DecompressUInt32OrDefault( ref idx, max, MarshalingInfo.NO_INDEX ) );
-               break;
-            case UnmanagedType.SafeArray:
-               result = MarshalingInfo.MarshalAsSafeArray(
-                  (VarEnum) array.DecompressUInt32OrDefault( ref idx, max, 0 ),
-                  array.ReadLenPrefixedUTF8StringOrDefault( ref idx, max ).UnescapeCILTypeString()
-                  );
-               break;
-            case UnmanagedType.ByValArray:
-               constSize = array.DecompressUInt32OrDefault( ref idx, max, -1 );
-               tmp = array.DecompressUInt32OrDefault( ref idx, max, -1 );
-               result = MarshalingInfo.MarshalAsByValArray( constSize, (UnmanagedType) tmp );
-               break;
-            case UnmanagedType.LPArray:
-               arrElementType = idx < max ? array.ReadUnmanagedType( ref idx ) : (UnmanagedType) ( -1 );
-               paramIdx = array.DecompressUInt32OrDefault( ref idx, max, MarshalingInfo.NO_INDEX );
-               constSize = array.DecompressUInt32OrDefault( ref idx, max, -1 );
-               tmp = array.DecompressUInt32OrDefault( ref idx, max, -1 );
-               // TODO interpret tmp as flags of some sort, or pass them to MarshalingInfo
-               result = MarshalingInfo.MarshalAsLPArray( paramIdx, constSize, arrElementType );
-               break;
-            case UnmanagedType.CustomMarshaler:
-               var guidString = array.ReadLenPrefixedUTF8StringOrDefault( ref idx, max );
-               var nativeTypeName = array.ReadLenPrefixedUTF8StringOrDefault( ref idx, max );
-               var mTypeStr = array.ReadLenPrefixedUTF8StringOrDefault( ref idx, max ).UnescapeCILTypeString();
-               var mCookie = array.ReadLenPrefixedUTF8StringOrDefault( ref idx, max );
-               // TODO pass guidString and nativeTypeName
-               result = MarshalingInfo.MarshalAsCustom( mTypeStr, mCookie );
-               break;
-            default:
-               // TODO in case of non-instric ut, make RawMarshali
-               result = MarshalingInfo.MarshalAs( ut ); ;
-               break;
-         }
-
-         return result;
-      }
-
+      /// <value>The raw binary marshaling info.</value>
+      public Byte[] Bytes { get; set; }
    }
 
    public abstract class AbstractCustomAttributeSignature
@@ -2326,6 +2317,93 @@ public static partial class E_CILPhysical
       {
          extraData = null;
       }
+      return retVal;
+   }
+
+   public static AbstractMarshalingInfo CreateDeepCopy( this AbstractMarshalingInfo marshal )
+   {
+      AbstractMarshalingInfo retVal;
+      if ( marshal == null )
+      {
+         retVal = null;
+      }
+      else
+      {
+         var mKind = marshal.MarshalingInfoKind;
+         switch ( mKind )
+         {
+            case MarshalingInfoKind.Simple:
+               retVal = new SimpleMarshalingInfo()
+               {
+                  Value = marshal.Value
+               };
+               break;
+            case MarshalingInfoKind.FixedLengthString:
+               retVal = new FixedLengthStringMarshalingInfo()
+               {
+                  Value = marshal.Value,
+                  Size = ( (FixedLengthStringMarshalingInfo) marshal ).Size
+               };
+               break;
+            case MarshalingInfoKind.FixedLengthArray:
+               var flArray = (FixedLengthArrayMarshalingInfo) marshal;
+               retVal = new FixedLengthArrayMarshalingInfo()
+               {
+                  Value = marshal.Value,
+                  Size = flArray.Size,
+                  ElementType = flArray.ElementType
+               };
+               break;
+            case MarshalingInfoKind.SafeArray:
+               var safeArray = (SafeArrayMarshalingInfo) marshal;
+               retVal = new SafeArrayMarshalingInfo()
+               {
+                  Value = marshal.Value,
+                  ElementType = safeArray.ElementType,
+                  UserDefinedType = safeArray.UserDefinedType
+               };
+               break;
+            case MarshalingInfoKind.Array:
+               var array = (ArrayMarshalingInfo) marshal;
+               retVal = new ArrayMarshalingInfo()
+               {
+                  Value = marshal.Value,
+                  ElementType = array.ElementType,
+                  SizeParameterIndex = array.SizeParameterIndex,
+                  Size = array.Size,
+                  Flags = array.Flags
+               };
+               break;
+            case MarshalingInfoKind.Interface:
+               retVal = new InterfaceMarshalingInfo()
+               {
+                  Value = marshal.Value,
+                  IIDParameterIndex = ( (InterfaceMarshalingInfo) marshal ).IIDParameterIndex
+               };
+               break;
+            case MarshalingInfoKind.Custom:
+               var custom = (CustomMarshalingInfo) marshal;
+               retVal = new CustomMarshalingInfo()
+               {
+                  Value = marshal.Value,
+                  GUIDString = custom.GUIDString,
+                  NativeTypeName = custom.NativeTypeName,
+                  CustomMarshalerTypeName = custom.CustomMarshalerTypeName,
+                  MarshalCookie = custom.MarshalCookie
+               };
+               break;
+            case MarshalingInfoKind.Raw:
+               retVal = new RawMarshalingInfo()
+               {
+                  Value = marshal.Value,
+                  Bytes = ( (RawMarshalingInfo) marshal ).Bytes.CreateArrayCopy()
+               };
+               break;
+            default:
+               throw new InvalidOperationException( "Unrecognized marshal kind: " + mKind + "." );
+         }
+      }
+
       return retVal;
    }
 }

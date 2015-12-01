@@ -99,7 +99,7 @@ namespace CILAssemblyManipulator.Physical
       private static IEqualityComparer<CustomAttributeTypedArgument> _CustomAttributeTypedArgumentEqualityComparer = null;
       private static IEqualityComparer<CustomAttributeNamedArgument> _CustomAttributeNamedArgumentEqualityComparer = null;
       private static IEqualityComparer<AbstractSecurityInformation> _AbstractSecurityInformationEqualityComparer = null;
-      private static IEqualityComparer<MarshalingInfo> _MarshalingInfoEqualityComparer = null;
+      private static IEqualityComparer<AbstractMarshalingInfo> _MarshalingInfoEqualityComparer = null;
 
       private static IComparer<ClassLayout> _ClassLayoutComparer = null;
       private static IComparer<ConstantDefinition> _ConstantDefinitionComparer = null;
@@ -1090,14 +1090,14 @@ namespace CILAssemblyManipulator.Physical
       }
 
 
-      public static IEqualityComparer<MarshalingInfo> MarshalingInfoEqualityComparer
+      public static IEqualityComparer<AbstractMarshalingInfo> MarshalingInfoEqualityComparer
       {
          get
          {
             var retVal = _MarshalingInfoEqualityComparer;
             if ( retVal == null )
             {
-               retVal = ComparerFromFunctions.NewEqualityComparer<MarshalingInfo>( Equality_MarshalingInfo, HashCode_MarshalingInfo );
+               retVal = ComparerFromFunctions.NewEqualityComparer<AbstractMarshalingInfo>( Equality_MarshalingInfo, HashCode_MarshalingInfo );
                _MarshalingInfoEqualityComparer = retVal;
             }
             return retVal;
@@ -2345,20 +2345,89 @@ namespace CILAssemblyManipulator.Physical
             && ListEqualityComparer<List<CustomAttributeNamedArgument>, CustomAttributeNamedArgument>.Equals( x.NamedArguments, y.NamedArguments, CustomAttributeNamedArgumentEqualityComparer );
       }
 
-      private static Boolean Equality_MarshalingInfo( MarshalingInfo x, MarshalingInfo y )
+      private static Boolean Equality_MarshalingInfo( AbstractMarshalingInfo x, AbstractMarshalingInfo y )
       {
-         return Object.ReferenceEquals( x, y ) ||
-         ( x != null && y != null
-            && x.ArrayType == y.ArrayType
-            && x.ConstSize == y.ConstSize
-            && x.IIDParameterIndex == y.IIDParameterIndex
-            && String.Equals( x.MarshalCookie, y.MarshalCookie )
-            && String.Equals( x.MarshalType, y.MarshalType )
-            && x.SafeArrayType == y.SafeArrayType
-            && x.SafeArrayUserDefinedType == y.SafeArrayUserDefinedType
-            && x.SizeParameterIndex == y.SizeParameterIndex
+         var retVal = Object.ReferenceEquals( x, y );
+         if ( !retVal
+            && x != null
+            && y != null
+            && x.MarshalingInfoKind == y.MarshalingInfoKind
             && x.Value == y.Value
-         );
+            )
+         {
+            switch ( x.MarshalingInfoKind )
+            {
+               case MarshalingInfoKind.Simple:
+                  retVal = true;
+                  break;
+               case MarshalingInfoKind.FixedLengthString:
+                  retVal = Equality_MarshalingInfo_FixedLengthString_NoReferenceEquals( (FixedLengthStringMarshalingInfo) x, (FixedLengthStringMarshalingInfo) y );
+                  break;
+               case MarshalingInfoKind.FixedLengthArray:
+                  retVal = Equality_MarshalingInfo_FixedLengthArray_NoReferenceEquals( (FixedLengthArrayMarshalingInfo) x, (FixedLengthArrayMarshalingInfo) y );
+                  break;
+               case MarshalingInfoKind.SafeArray:
+                  retVal = Equality_MarshalingInfo_SafeArray_NoReferenceEquals( (SafeArrayMarshalingInfo) x, (SafeArrayMarshalingInfo) y );
+                  break;
+               case MarshalingInfoKind.Array:
+                  retVal = Equality_MarshalingInfo_Array_NoReferenceEquals( (ArrayMarshalingInfo) x, (ArrayMarshalingInfo) y );
+                  break;
+               case MarshalingInfoKind.Interface:
+                  retVal = Equality_MarshalingInfo_Interface_NoReferenceEquals( (InterfaceMarshalingInfo) x, (InterfaceMarshalingInfo) y );
+                  break;
+               case MarshalingInfoKind.Custom:
+                  retVal = Equality_MarshalingInfo_Custom_NoReferenceEquals( (CustomMarshalingInfo) x, (CustomMarshalingInfo) y );
+                  break;
+               case MarshalingInfoKind.Raw:
+                  retVal = Equality_MarshalingInfo_Raw_NoReferenceEquals( (RawMarshalingInfo) x, (RawMarshalingInfo) y );
+                  break;
+            }
+         }
+
+         return retVal;
+      }
+
+      private static Boolean Equality_MarshalingInfo_FixedLengthString_NoReferenceEquals( FixedLengthStringMarshalingInfo x, FixedLengthStringMarshalingInfo y )
+      {
+         return x.Size == y.Size;
+      }
+
+      private static Boolean Equality_MarshalingInfo_FixedLengthArray_NoReferenceEquals( FixedLengthArrayMarshalingInfo x, FixedLengthArrayMarshalingInfo y )
+      {
+         return x.Size == y.Size
+            && x.ElementType == y.ElementType;
+      }
+
+      private static Boolean Equality_MarshalingInfo_SafeArray_NoReferenceEquals( SafeArrayMarshalingInfo x, SafeArrayMarshalingInfo y )
+      {
+         return x.ElementType == y.ElementType
+            && String.Equals( x.UserDefinedType, y.UserDefinedType );
+      }
+
+      private static Boolean Equality_MarshalingInfo_Array_NoReferenceEquals( ArrayMarshalingInfo x, ArrayMarshalingInfo y )
+      {
+         return x.ElementType == y.ElementType
+            && x.SizeParameterIndex == y.SizeParameterIndex
+            && x.Size == y.Size
+            && x.Flags == y.Flags;
+      }
+
+      private static Boolean Equality_MarshalingInfo_Interface_NoReferenceEquals( InterfaceMarshalingInfo x, InterfaceMarshalingInfo y )
+      {
+         return x.IIDParameterIndex == y.IIDParameterIndex;
+      }
+
+      private static Boolean Equality_MarshalingInfo_Custom_NoReferenceEquals( CustomMarshalingInfo x, CustomMarshalingInfo y )
+      {
+         return String.Equals( x.CustomMarshalerTypeName, y.CustomMarshalerTypeName )
+            && String.Equals( x.MarshalCookie, y.MarshalCookie )
+            && String.Equals( x.GUIDString, y.GUIDString )
+            && String.Equals( x.NativeTypeName, y.NativeTypeName );
+      }
+
+      private static Boolean Equality_MarshalingInfo_Raw_NoReferenceEquals( RawMarshalingInfo x, RawMarshalingInfo y )
+      {
+         return ArrayEqualityComparer<Byte>.ArrayEquality( x.Bytes, y.Bytes );
       }
 
       private static Boolean Equality_ImageInformation_Logical( ImageInformation x, ImageInformation y )
@@ -3020,9 +3089,9 @@ namespace CILAssemblyManipulator.Physical
          return x == null ? 0 : ( ( 17 * 23 + x.SecurityAttributeType.GetHashCodeSafe( 1 ) ) * 23 + ListEqualityComparer<List<CustomAttributeNamedArgument>, CustomAttributeNamedArgument>.GetHashCode( x.NamedArguments, CustomAttributeNamedArgumentEqualityComparer ) );
       }
 
-      private static Int32 HashCode_MarshalingInfo( MarshalingInfo x )
+      private static Int32 HashCode_MarshalingInfo( AbstractMarshalingInfo x )
       {
-         return x == null ? 0 : ( ( 17 * 23 + x.MarshalType.GetHashCodeSafe( 1 ) ) * 23 + (Int32) x.Value );
+         return x == null ? 0 : ( ( 17 * 23 + (Int32) x.MarshalingInfoKind ) * 23 + (Int32) x.Value );
       }
 
       private static Int32 HashCode_HeadersData( ImageInformation x )

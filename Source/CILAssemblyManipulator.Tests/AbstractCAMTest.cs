@@ -152,6 +152,14 @@ namespace CILAssemblyManipulator.Tests
                }
             }
          }
+
+         for ( var i = 0; i < md.FieldMarshals.TableContents.Count; ++i )
+         {
+            var marshal = md.FieldMarshals.TableContents[i];
+            var info = marshal.NativeType;
+            Assert.IsNotNull( info );
+            Assert.IsNotInstanceOf<RawMarshalingInfo>( info );
+         }
       }
 
       public static CILMetaData ReadFromAssembly( System.Reflection.Assembly assembly, ReadingArguments rArgs )

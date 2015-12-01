@@ -2399,32 +2399,34 @@ namespace CILMerge
          return retVal;
       }
 
-      private MarshalingInfo ProcessMarshalingInfo( CILMetaData inputModule, MarshalingInfo inputMarshalingInfo )
+      private AbstractMarshalingInfo ProcessMarshalingInfo( CILMetaData inputModule, AbstractMarshalingInfo inputMarshalingInfo )
       {
-         String processedMarshalType = null, processedArrayUDType = null;
-         if ( !String.IsNullOrEmpty( inputMarshalingInfo.MarshalType ) )
+         var retVal = inputMarshalingInfo.CreateDeepCopy();
+         if ( retVal != null )
          {
-            processedMarshalType = this.ProcessTypeString( inputModule, inputMarshalingInfo.MarshalType );
+            String typeStr;
+            switch ( inputMarshalingInfo.MarshalingInfoKind )
+            {
+               case MarshalingInfoKind.SafeArray:
+                  typeStr = ( (SafeArrayMarshalingInfo) inputMarshalingInfo ).UserDefinedType;
+                  if ( !String.IsNullOrEmpty( typeStr ) )
+                  {
+                     typeStr = this.ProcessTypeString( inputModule, typeStr );
+                     ( (SafeArrayMarshalingInfo) retVal ).UserDefinedType = typeStr;
+                  }
+                  break;
+               case MarshalingInfoKind.Custom:
+                  typeStr = ( (CustomMarshalingInfo) inputMarshalingInfo ).CustomMarshalerTypeName;
+                  if ( !String.IsNullOrEmpty( typeStr ) )
+                  {
+                     typeStr = this.ProcessTypeString( inputModule, typeStr );
+                     ( (CustomMarshalingInfo) retVal ).CustomMarshalerTypeName = typeStr;
+                  }
+                  break;
+            }
          }
 
-         if ( !String.IsNullOrEmpty( inputMarshalingInfo.SafeArrayUserDefinedType ) )
-         {
-            processedArrayUDType = this.ProcessTypeString( inputModule, inputMarshalingInfo.SafeArrayUserDefinedType );
-         }
-
-
-         return new MarshalingInfo()
-         {
-            Value = inputMarshalingInfo.Value,
-            SafeArrayType = inputMarshalingInfo.SafeArrayType,
-            SafeArrayUserDefinedType = processedArrayUDType,
-            IIDParameterIndex = inputMarshalingInfo.IIDParameterIndex,
-            ArrayType = inputMarshalingInfo.ArrayType,
-            SizeParameterIndex = inputMarshalingInfo.SizeParameterIndex,
-            ConstSize = inputMarshalingInfo.ConstSize,
-            MarshalType = processedMarshalType,
-            MarshalCookie = inputMarshalingInfo.MarshalCookie
-         };
+         return retVal;
       }
 
       private AbstractSecurityInformation ProcessPermissionSet( CILMetaData md, Int32 declSecurityIdx, Int32 permissionSetIdx, AbstractSecurityInformation inputSecurityInfo )

@@ -188,7 +188,7 @@ namespace CILAssemblyManipulator.Physical.IO
 
       void ReadSecurityInformation( Int32 heapIndex, List<AbstractSecurityInformation> securityInfo );
 
-      MarshalingInfo ReadMarshalingInfo( Int32 heapIndex );
+      AbstractMarshalingInfo ReadMarshalingInfo( Int32 heapIndex );
 
       Object ReadConstantValue( Int32 heapIndex, SignatureElementTypes constType );
 

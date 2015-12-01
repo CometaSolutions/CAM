@@ -993,7 +993,7 @@ public static partial class E_CILStructural
 
    }
 
-   private static void AddMarshalingInfo( this PhysicalCreationState state, TableIndex parent, MarshalingInfo marshal )
+   private static void AddMarshalingInfo( this PhysicalCreationState state, TableIndex parent, AbstractMarshalingInfo marshal )
    {
       if ( marshal != null )
       {

@@ -120,7 +120,7 @@ namespace CILAssemblyManipulator.Physical
    public sealed class FieldMarshal
    {
       public TableIndex Parent { get; set; }
-      public MarshalingInfo NativeType { get; set; }
+      public AbstractMarshalingInfo NativeType { get; set; }
    }
 
    public sealed class SecurityDefinition

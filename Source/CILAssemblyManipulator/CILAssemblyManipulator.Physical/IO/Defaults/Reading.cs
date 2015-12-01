@@ -605,10 +605,10 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
                );
       }
 
-      public MarshalingInfo ReadMarshalingInfo( Int32 heapIndex )
+      public AbstractMarshalingInfo ReadMarshalingInfo( Int32 heapIndex )
       {
          Int32 max;
-         return this.SetUpBLOBWithMax( ref heapIndex, out max ) ? MarshalingInfo.ReadFromBytes( this.Bytes, ref heapIndex, max ) : null;
+         return this.SetUpBLOBWithMax( ref heapIndex, out max ) ? AbstractMarshalingInfo.ReadFromBytes( this.Bytes, ref heapIndex, max ) : null;
       }
 
       public AbstractSignature ReadNonTypeSignature( Int32 heapIndex, bool methodSigIsDefinition, bool handleFieldSigAsLocalsSig, out bool fieldSigTransformedToLocalsSig )

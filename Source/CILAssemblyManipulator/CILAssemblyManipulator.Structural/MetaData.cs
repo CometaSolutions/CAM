@@ -690,7 +690,7 @@ namespace CILAssemblyManipulator.Structural
       public FieldAttributes Attributes { get; set; }
       public FieldStructureSignature Signature { get; set; }
       public ConstantStructure? ConstantValue { get; set; }
-      public MarshalingInfo MarshalingInfo { get; set; }
+      public AbstractMarshalingInfo MarshalingInfo { get; set; }
       public Int32? FieldOffset { get; set; }
       public Byte[] FieldData { get; set; }
       public PInvokeInfo PInvokeInfo { get; set; }
@@ -842,7 +842,7 @@ namespace CILAssemblyManipulator.Structural
       public Int32 Sequence { get; set; }
       public String Name { get; set; }
       public ConstantStructure? ConstantValue { get; set; }
-      public MarshalingInfo MarshalingInfo { get; set; }
+      public AbstractMarshalingInfo MarshalingInfo { get; set; }
    }
 
    public abstract class StructureWithSemanticsMethods : StructureWithCustomAttributes

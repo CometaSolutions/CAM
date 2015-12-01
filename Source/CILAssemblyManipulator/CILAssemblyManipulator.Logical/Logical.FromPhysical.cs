@@ -1950,18 +1950,26 @@ public static partial class E_CILLogical
          if ( element != null )
          {
             var marshalInfo = marshal.NativeType;
-            element.MarshalingInformation = new LogicalMarshalingInfo(
-               marshalInfo.Value,
-               marshalInfo.SafeArrayType,
-               state.ResolveTypeString( marshalInfo.SafeArrayUserDefinedType, false ),
-               marshalInfo.IIDParameterIndex,
-               marshalInfo.ArrayType,
-               marshalInfo.SizeParameterIndex,
-               marshalInfo.ConstSize,
-               marshalInfo.MarshalType,
-               s => state.ResolveTypeString( s, false ),
-               marshalInfo.MarshalCookie
-               );
+            var logicalMarshalInfo = new LogicalMarshalingInfo()
+            {
+               PhysicalMarshalingInfo = marshalInfo,
+            };
+            String typeStr;
+            switch ( marshalInfo.MarshalingInfoKind )
+            {
+               case MarshalingInfoKind.SafeArray:
+                  typeStr = ( (SafeArrayMarshalingInfo) marshalInfo ).UserDefinedType;
+                  break;
+               case MarshalingInfoKind.Custom:
+                  typeStr = ( (CustomMarshalingInfo) marshalInfo ).CustomMarshalerTypeName;
+                  break;
+               default:
+                  typeStr = null;
+                  break;
+            }
+            logicalMarshalInfo.SafeArrayCustomTypeOrCustomMarshalType = state.ResolveTypeString( typeStr, false );
+
+            element.MarshalingInformation = logicalMarshalInfo;
          }
       }
 

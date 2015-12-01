@@ -1713,21 +1713,9 @@ public static partial class E_CILLogical
          );
    }
 
-   private static MarshalingInfo CreatePhysicalMarshalingInfo( this PhysicalCreationState state, LogicalMarshalingInfo marshalingInfo )
+   private static AbstractMarshalingInfo CreatePhysicalMarshalingInfo( this PhysicalCreationState state, LogicalMarshalingInfo marshalingInfo )
    {
-      return new MarshalingInfo()
-      {
-         Value = marshalingInfo.Value,
-         SafeArrayType = marshalingInfo.SafeArrayType,
-         SafeArrayUserDefinedType = state.CreateCATypeString( marshalingInfo.SafeArrayUserDefinedType ),
-         IIDParameterIndex = marshalingInfo.IIDParameterIndex,
-         ArrayType = marshalingInfo.ArrayType,
-         SizeParameterIndex = marshalingInfo.SizeParameterIndex,
-         ConstSize = marshalingInfo.ConstSize,
-         MarshalType = marshalingInfo.MarshalType ?? state.CreateCATypeString( marshalingInfo.MarshalTypeRef ),
-         MarshalCookie = marshalingInfo.MarshalCookie
-      };
-
+      return marshalingInfo.PhysicalMarshalingInfo;
    }
 
    private static SecurityInformation CreatePhysicalSecurityInfo( this PhysicalCreationState state, LogicalSecurityInformation securityInfo )

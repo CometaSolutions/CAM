@@ -359,21 +359,29 @@ public static partial class E_CILPhysical
       }
    }
 
-   private static void ProcessMarshalInfo( this TargetFrameworkMapper mapper, CILMetaData md, CILMetaDataLoaderWithCallbacks loader, TargetFrameworkInfo newTargetFW, MarshalingInfo marshal )
+   private static void ProcessMarshalInfo( this TargetFrameworkMapper mapper, CILMetaData md, CILMetaDataLoaderWithCallbacks loader, TargetFrameworkInfo newTargetFW, AbstractMarshalingInfo marshal )
    {
-      if ( marshal != null )
+      String typeStr;
+      switch ( marshal?.MarshalingInfoKind )
       {
-         var typeStr = marshal.SafeArrayUserDefinedType;
-         if ( mapper.ProcessTypeString( md, loader, newTargetFW, ref typeStr ) )
-         {
-            marshal.SafeArrayUserDefinedType = typeStr;
-         }
-         typeStr = marshal.MarshalType;
-         if ( mapper.ProcessTypeString( md, loader, newTargetFW, ref typeStr ) )
-         {
-            marshal.MarshalType = typeStr;
-         }
+         case MarshalingInfoKind.SafeArray:
+            var safeArray = (SafeArrayMarshalingInfo) marshal;
+            typeStr = safeArray.UserDefinedType;
+            if ( mapper.ProcessTypeString( md, loader, newTargetFW, ref typeStr ) )
+            {
+               safeArray.UserDefinedType = typeStr;
+            }
+            break;
+         case MarshalingInfoKind.Custom:
+            var custom = (CustomMarshalingInfo) marshal;
+            typeStr = custom.CustomMarshalerTypeName;
+            if ( mapper.ProcessTypeString( md, loader, newTargetFW, ref typeStr ) )
+            {
+               custom.CustomMarshalerTypeName = typeStr;
+            }
+            break;
       }
+
    }
 
    private static void ProcessCASignature( this TargetFrameworkMapper mapper, CILMetaData md, CILMetaDataLoaderWithCallbacks loader, TargetFrameworkInfo newTargetFW, AbstractCustomAttributeSignature sig )
