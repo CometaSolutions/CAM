@@ -607,7 +607,7 @@ public static partial class E_CILPhysical
                      var min = section.RawDataPointer;
                      var max = min + section.RawDataSize;
                      stream.SeekFromBegin( min );
-                     if ( min < sigOffset && max > sigOffset )
+                     if ( min <= sigOffset && max >= sigOffset )
                      {
                         // Strong name signature is in this section
                         stream.CopyStreamPart( cryptoStream, buffer, sigOffset - min );
