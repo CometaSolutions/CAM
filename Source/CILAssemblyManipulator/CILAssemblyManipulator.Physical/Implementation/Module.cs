@@ -19,6 +19,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
+using CILAssemblyManipulator.Physical.Meta;
 using CommonUtils;
 
 namespace CILAssemblyManipulator.Physical.Implementation
@@ -27,106 +28,135 @@ namespace CILAssemblyManipulator.Physical.Implementation
    {
       private static readonly Int32[] EMPTY_SIZES = Enumerable.Repeat( 0, Consts.AMOUNT_OF_TABLES ).ToArray();
 
-      private readonly MetaDataTableImpl<ModuleDefinition> _moduleDefinitions;
-      private readonly MetaDataTableImpl<TypeReference> _typeReferences;
-      private readonly MetaDataTableImpl<TypeDefinition> _typeDefinitions;
-      private readonly MetaDataTableImpl<FieldDefinition> _fieldDefinitions;
-      private readonly MetaDataTableImpl<MethodDefinition> _methodDefinitions;
-      private readonly MetaDataTableImpl<ParameterDefinition> _parameterDefinitions;
-      private readonly MetaDataTableImpl<InterfaceImplementation> _interfaceImplementations;
-      private readonly MetaDataTableImpl<MemberReference> _memberReferences;
-      private readonly MetaDataTableImpl<ConstantDefinition> _constantDefinitions;
-      private readonly MetaDataTableImpl<CustomAttributeDefinition> _customAttributeDefinitions;
-      private readonly MetaDataTableImpl<FieldMarshal> _fieldMarshals;
-      private readonly MetaDataTableImpl<SecurityDefinition> _securityDefinitions;
-      private readonly MetaDataTableImpl<ClassLayout> _classLayouts;
-      private readonly MetaDataTableImpl<FieldLayout> _fieldLayouts;
-      private readonly MetaDataTableImpl<StandaloneSignature> _standaloneSignatures;
-      private readonly MetaDataTableImpl<EventMap> _eventMaps;
-      private readonly MetaDataTableImpl<EventDefinition> _eventDefinitions;
-      private readonly MetaDataTableImpl<PropertyMap> _propertyMaps;
-      private readonly MetaDataTableImpl<PropertyDefinition> _propertyDefinitions;
-      private readonly MetaDataTableImpl<MethodSemantics> _methodSemantics;
-      private readonly MetaDataTableImpl<MethodImplementation> _methodImplementations;
-      private readonly MetaDataTableImpl<ModuleReference> _moduleReferences;
-      private readonly MetaDataTableImpl<TypeSpecification> _typeSpecifications;
-      private readonly MetaDataTableImpl<MethodImplementationMap> _methodImplementationMaps;
-      private readonly MetaDataTableImpl<FieldRVA> _fieldRVAs;
-      private readonly MetaDataTableImpl<AssemblyDefinition> _assemblyDefinitions;
-      private readonly MetaDataTableImpl<AssemblyReference> _assemblyReferences;
-      private readonly MetaDataTableImpl<FileReference> _fileReferences;
-      private readonly MetaDataTableImpl<ExportedType> _exportedTypess;
-      private readonly MetaDataTableImpl<ManifestResource> _manifestResources;
-      private readonly MetaDataTableImpl<NestedClassDefinition> _nestedClassDefinitions;
-      private readonly MetaDataTableImpl<GenericParameterDefinition> _genericParameterDefinitions;
-      private readonly MetaDataTableImpl<MethodSpecification> _methodSpecifications;
-      private readonly MetaDataTableImpl<GenericParameterConstraintDefinition> _genericParameterConstraintDefinitions;
-      private readonly MetaDataTableImpl<EditAndContinueLog> _editAndContinueLog;
-      private readonly MetaDataTableImpl<EditAndContinueMap> _editAndContinueMap;
-      private readonly MetaDataTableImpl<FieldDefinitionPointer> _fieldDefinitionPointers;
-      private readonly MetaDataTableImpl<MethodDefinitionPointer> _methodDefinitionPointers;
-      private readonly MetaDataTableImpl<ParameterDefinitionPointer> _parameterDefinitionPointers;
-      private readonly MetaDataTableImpl<EventDefinitionPointer> _eventPointers;
-      private readonly MetaDataTableImpl<PropertyDefinitionPointer> _propertyPointers;
+      private readonly MetaDataTable<ModuleDefinition> _moduleDefinitions;
+      private readonly MetaDataTable<TypeReference> _typeReferences;
+      private readonly MetaDataTable<TypeDefinition> _typeDefinitions;
+      private readonly MetaDataTable<FieldDefinition> _fieldDefinitions;
+      private readonly MetaDataTable<MethodDefinition> _methodDefinitions;
+      private readonly MetaDataTable<ParameterDefinition> _parameterDefinitions;
+      private readonly MetaDataTable<InterfaceImplementation> _interfaceImplementations;
+      private readonly MetaDataTable<MemberReference> _memberReferences;
+      private readonly MetaDataTable<ConstantDefinition> _constantDefinitions;
+      private readonly MetaDataTable<CustomAttributeDefinition> _customAttributeDefinitions;
+      private readonly MetaDataTable<FieldMarshal> _fieldMarshals;
+      private readonly MetaDataTable<SecurityDefinition> _securityDefinitions;
+      private readonly MetaDataTable<ClassLayout> _classLayouts;
+      private readonly MetaDataTable<FieldLayout> _fieldLayouts;
+      private readonly MetaDataTable<StandaloneSignature> _standaloneSignatures;
+      private readonly MetaDataTable<EventMap> _eventMaps;
+      private readonly MetaDataTable<EventDefinition> _eventDefinitions;
+      private readonly MetaDataTable<PropertyMap> _propertyMaps;
+      private readonly MetaDataTable<PropertyDefinition> _propertyDefinitions;
+      private readonly MetaDataTable<MethodSemantics> _methodSemantics;
+      private readonly MetaDataTable<MethodImplementation> _methodImplementations;
+      private readonly MetaDataTable<ModuleReference> _moduleReferences;
+      private readonly MetaDataTable<TypeSpecification> _typeSpecifications;
+      private readonly MetaDataTable<MethodImplementationMap> _methodImplementationMaps;
+      private readonly MetaDataTable<FieldRVA> _fieldRVAs;
+      private readonly MetaDataTable<AssemblyDefinition> _assemblyDefinitions;
+      private readonly MetaDataTable<AssemblyReference> _assemblyReferences;
+      private readonly MetaDataTable<FileReference> _fileReferences;
+      private readonly MetaDataTable<ExportedType> _exportedTypess;
+      private readonly MetaDataTable<ManifestResource> _manifestResources;
+      private readonly MetaDataTable<NestedClassDefinition> _nestedClassDefinitions;
+      private readonly MetaDataTable<GenericParameterDefinition> _genericParameterDefinitions;
+      private readonly MetaDataTable<MethodSpecification> _methodSpecifications;
+      private readonly MetaDataTable<GenericParameterConstraintDefinition> _genericParameterConstraintDefinitions;
+      private readonly MetaDataTable<EditAndContinueLog> _editAndContinueLog;
+      private readonly MetaDataTable<EditAndContinueMap> _editAndContinueMap;
+      private readonly MetaDataTable<FieldDefinitionPointer> _fieldDefinitionPointers;
+      private readonly MetaDataTable<MethodDefinitionPointer> _methodDefinitionPointers;
+      private readonly MetaDataTable<ParameterDefinitionPointer> _parameterDefinitionPointers;
+      private readonly MetaDataTable<EventDefinitionPointer> _eventPointers;
+      private readonly MetaDataTable<PropertyDefinitionPointer> _propertyPointers;
 #pragma warning disable 618
-      private readonly MetaDataTableImpl<AssemblyDefinitionProcessor> _assemblyDefinitionProcessors;
-      private readonly MetaDataTableImpl<AssemblyDefinitionOS> _assemblyDefinitionOSs;
-      private readonly MetaDataTableImpl<AssemblyReferenceProcessor> _assemblyReferenceProcessors;
-      private readonly MetaDataTableImpl<AssemblyReferenceOS> _assemblyReferenceOSs;
+      private readonly MetaDataTable<AssemblyDefinitionProcessor> _assemblyDefinitionProcessors;
+      private readonly MetaDataTable<AssemblyDefinitionOS> _assemblyDefinitionOSs;
+      private readonly MetaDataTable<AssemblyReferenceProcessor> _assemblyReferenceProcessors;
+      private readonly MetaDataTable<AssemblyReferenceOS> _assemblyReferenceOSs;
 
-      internal CILMetadataImpl()
-         : this( EMPTY_SIZES )
+      private readonly MetaDataTable[] _additionalTables;
+
+      internal CILMetadataImpl(
+         MetaDataTableInformationProvider tableInfoProvider,
+         Int32[] sizes = null
+         )
       {
+         if ( tableInfoProvider == null )
+         {
+            tableInfoProvider = new DefaultMetaDataTableInformationProvider();
+         }
 
-      }
+         if ( sizes == null )
+         {
+            sizes = EMPTY_SIZES;
+         }
+         else if ( sizes.Length < Consts.AMOUNT_OF_TABLES )
+         {
+            var newSizes = new Int32[Consts.AMOUNT_OF_TABLES];
+            Array.Copy( sizes, newSizes, sizes.Length );
+            sizes = newSizes;
+         }
 
-      internal CILMetadataImpl( Int32[] sizes )
-      {
-         this._moduleDefinitions = new MetaDataTableImpl<ModuleDefinition>( Tables.Module, sizes[(Int32) Tables.Module] );
-         this._typeReferences = new MetaDataTableImpl<TypeReference>( Tables.TypeRef, sizes[(Int32) Tables.TypeRef] );
-         this._typeDefinitions = new MetaDataTableImpl<TypeDefinition>( Tables.TypeDef, sizes[(Int32) Tables.TypeDef] );
-         this._fieldDefinitionPointers = new MetaDataTableImpl<FieldDefinitionPointer>( Tables.FieldPtr, sizes[(Int32) Tables.FieldPtr] );
-         this._fieldDefinitions = new MetaDataTableImpl<FieldDefinition>( Tables.Field, sizes[(Int32) Tables.Field] );
-         this._methodDefinitionPointers = new MetaDataTableImpl<MethodDefinitionPointer>( Tables.MethodPtr, sizes[(Int32) Tables.MethodPtr] );
-         this._methodDefinitions = new MetaDataTableImpl<MethodDefinition>( Tables.MethodDef, sizes[(Int32) Tables.MethodDef] );
-         this._parameterDefinitionPointers = new MetaDataTableImpl<ParameterDefinitionPointer>( Tables.ParameterPtr, sizes[(Int32) Tables.ParameterPtr] );
-         this._parameterDefinitions = new MetaDataTableImpl<ParameterDefinition>( Tables.Parameter, sizes[(Int32) Tables.Parameter] );
-         this._interfaceImplementations = new MetaDataTableImpl<InterfaceImplementation>( Tables.InterfaceImpl, sizes[(Int32) Tables.InterfaceImpl] );
-         this._memberReferences = new MetaDataTableImpl<MemberReference>( Tables.MemberRef, sizes[(Int32) Tables.MemberRef] );
-         this._constantDefinitions = new MetaDataTableImpl<ConstantDefinition>( Tables.Constant, sizes[(Int32) Tables.Constant] );
-         this._customAttributeDefinitions = new MetaDataTableImpl<CustomAttributeDefinition>( Tables.CustomAttribute, sizes[(Int32) Tables.CustomAttribute] );
-         this._fieldMarshals = new MetaDataTableImpl<FieldMarshal>( Tables.FieldMarshal, sizes[(Int32) Tables.FieldMarshal] );
-         this._securityDefinitions = new MetaDataTableImpl<SecurityDefinition>( Tables.DeclSecurity, sizes[(Int32) Tables.DeclSecurity] );
-         this._classLayouts = new MetaDataTableImpl<ClassLayout>( Tables.ClassLayout, sizes[(Int32) Tables.ClassLayout] );
-         this._fieldLayouts = new MetaDataTableImpl<FieldLayout>( Tables.FieldLayout, sizes[(Int32) Tables.FieldLayout] );
-         this._standaloneSignatures = new MetaDataTableImpl<StandaloneSignature>( Tables.StandaloneSignature, sizes[(Int32) Tables.StandaloneSignature] );
-         this._eventMaps = new MetaDataTableImpl<EventMap>( Tables.EventMap, sizes[(Int32) Tables.EventMap] );
-         this._eventPointers = new MetaDataTableImpl<EventDefinitionPointer>( Tables.EventPtr, sizes[(Int32) Tables.EventPtr] );
-         this._eventDefinitions = new MetaDataTableImpl<EventDefinition>( Tables.Event, sizes[(Int32) Tables.Event] );
-         this._propertyMaps = new MetaDataTableImpl<PropertyMap>( Tables.PropertyMap, sizes[(Int32) Tables.PropertyMap] );
-         this._propertyPointers = new MetaDataTableImpl<PropertyDefinitionPointer>( Tables.PropertyPtr, sizes[(Int32) Tables.PropertyPtr] );
-         this._propertyDefinitions = new MetaDataTableImpl<PropertyDefinition>( Tables.Property, sizes[(Int32) Tables.Property] );
-         this._methodSemantics = new MetaDataTableImpl<MethodSemantics>( Tables.MethodSemantics, sizes[(Int32) Tables.MethodSemantics] );
-         this._methodImplementations = new MetaDataTableImpl<MethodImplementation>( Tables.MethodImpl, sizes[(Int32) Tables.MethodImpl] );
-         this._moduleReferences = new MetaDataTableImpl<ModuleReference>( Tables.ModuleRef, sizes[(Int32) Tables.ModuleRef] );
-         this._typeSpecifications = new MetaDataTableImpl<TypeSpecification>( Tables.TypeSpec, sizes[(Int32) Tables.TypeSpec] );
-         this._methodImplementationMaps = new MetaDataTableImpl<MethodImplementationMap>( Tables.ImplMap, sizes[(Int32) Tables.ImplMap] );
-         this._fieldRVAs = new MetaDataTableImpl<FieldRVA>( Tables.FieldRVA, sizes[(Int32) Tables.FieldRVA] );
-         this._editAndContinueLog = new MetaDataTableImpl<EditAndContinueLog>( Tables.EncLog, sizes[(Int32) Tables.EncLog] );
-         this._editAndContinueMap = new MetaDataTableImpl<EditAndContinueMap>( Tables.EncMap, sizes[(Int32) Tables.EncMap] );
-         this._assemblyDefinitions = new MetaDataTableImpl<AssemblyDefinition>( Tables.Assembly, sizes[(Int32) Tables.Assembly] );
-         this._assemblyDefinitionProcessors = new MetaDataTableImpl<AssemblyDefinitionProcessor>( Tables.AssemblyProcessor, sizes[(Int32) Tables.AssemblyProcessor] );
-         this._assemblyDefinitionOSs = new MetaDataTableImpl<AssemblyDefinitionOS>( Tables.AssemblyOS, sizes[(Int32) Tables.AssemblyOS] );
-         this._assemblyReferences = new MetaDataTableImpl<AssemblyReference>( Tables.AssemblyRef, sizes[(Int32) Tables.AssemblyRef] );
-         this._assemblyReferenceProcessors = new MetaDataTableImpl<AssemblyReferenceProcessor>( Tables.AssemblyRefProcessor, sizes[(Int32) Tables.AssemblyRefProcessor] );
-         this._assemblyReferenceOSs = new MetaDataTableImpl<AssemblyReferenceOS>( Tables.AssemblyRefOS, sizes[(Int32) Tables.AssemblyRefOS] );
-         this._fileReferences = new MetaDataTableImpl<FileReference>( Tables.File, sizes[(Int32) Tables.File] );
-         this._exportedTypess = new MetaDataTableImpl<ExportedType>( Tables.ExportedType, sizes[(Int32) Tables.ExportedType] );
-         this._manifestResources = new MetaDataTableImpl<ManifestResource>( Tables.ManifestResource, sizes[(Int32) Tables.ManifestResource] );
-         this._nestedClassDefinitions = new MetaDataTableImpl<NestedClassDefinition>( Tables.NestedClass, sizes[(Int32) Tables.NestedClass] );
-         this._genericParameterDefinitions = new MetaDataTableImpl<GenericParameterDefinition>( Tables.GenericParameter, sizes[(Int32) Tables.GenericParameter] );
-         this._methodSpecifications = new MetaDataTableImpl<MethodSpecification>( Tables.MethodSpec, sizes[(Int32) Tables.MethodSpec] );
-         this._genericParameterConstraintDefinitions = new MetaDataTableImpl<GenericParameterConstraintDefinition>( Tables.GenericParameterConstraint, sizes[(Int32) Tables.GenericParameterConstraint] );
+         DefaultMetaDataTableInformationProvider defaultProvider = null;
+
+         this._moduleDefinitions = CreateFixedMDTable<ModuleDefinition>( Tables.Module, sizes, tableInfoProvider, ref defaultProvider );
+         this._typeReferences = CreateFixedMDTable<TypeReference>( Tables.TypeRef, sizes, tableInfoProvider, ref defaultProvider );
+         this._typeDefinitions = CreateFixedMDTable<TypeDefinition>( Tables.TypeDef, sizes, tableInfoProvider, ref defaultProvider );
+         this._fieldDefinitionPointers = CreateFixedMDTable<FieldDefinitionPointer>( Tables.FieldPtr, sizes, tableInfoProvider, ref defaultProvider );
+         this._fieldDefinitions = CreateFixedMDTable<FieldDefinition>( Tables.Field, sizes, tableInfoProvider, ref defaultProvider );
+         this._methodDefinitionPointers = CreateFixedMDTable<MethodDefinitionPointer>( Tables.MethodPtr, sizes, tableInfoProvider, ref defaultProvider );
+         this._methodDefinitions = CreateFixedMDTable<MethodDefinition>( Tables.MethodDef, sizes, tableInfoProvider, ref defaultProvider );
+         this._parameterDefinitionPointers = CreateFixedMDTable<ParameterDefinitionPointer>( Tables.ParameterPtr, sizes, tableInfoProvider, ref defaultProvider );
+         this._parameterDefinitions = CreateFixedMDTable<ParameterDefinition>( Tables.Parameter, sizes, tableInfoProvider, ref defaultProvider );
+         this._interfaceImplementations = CreateFixedMDTable<InterfaceImplementation>( Tables.InterfaceImpl, sizes, tableInfoProvider, ref defaultProvider );
+         this._memberReferences = CreateFixedMDTable<MemberReference>( Tables.MemberRef, sizes, tableInfoProvider, ref defaultProvider );
+         this._constantDefinitions = CreateFixedMDTable<ConstantDefinition>( Tables.Constant, sizes, tableInfoProvider, ref defaultProvider );
+         this._customAttributeDefinitions = CreateFixedMDTable<CustomAttributeDefinition>( Tables.CustomAttribute, sizes, tableInfoProvider, ref defaultProvider );
+         this._fieldMarshals = CreateFixedMDTable<FieldMarshal>( Tables.FieldMarshal, sizes, tableInfoProvider, ref defaultProvider );
+         this._securityDefinitions = CreateFixedMDTable<SecurityDefinition>( Tables.DeclSecurity, sizes, tableInfoProvider, ref defaultProvider );
+         this._classLayouts = CreateFixedMDTable<ClassLayout>( Tables.ClassLayout, sizes, tableInfoProvider, ref defaultProvider );
+         this._fieldLayouts = CreateFixedMDTable<FieldLayout>( Tables.FieldLayout, sizes, tableInfoProvider, ref defaultProvider );
+         this._standaloneSignatures = CreateFixedMDTable<StandaloneSignature>( Tables.StandaloneSignature, sizes, tableInfoProvider, ref defaultProvider );
+         this._eventMaps = CreateFixedMDTable<EventMap>( Tables.EventMap, sizes, tableInfoProvider, ref defaultProvider );
+         this._eventPointers = CreateFixedMDTable<EventDefinitionPointer>( Tables.EventPtr, sizes, tableInfoProvider, ref defaultProvider );
+         this._eventDefinitions = CreateFixedMDTable<EventDefinition>( Tables.Event, sizes, tableInfoProvider, ref defaultProvider );
+         this._propertyMaps = CreateFixedMDTable<PropertyMap>( Tables.PropertyMap, sizes, tableInfoProvider, ref defaultProvider );
+         this._propertyPointers = CreateFixedMDTable<PropertyDefinitionPointer>( Tables.PropertyPtr, sizes, tableInfoProvider, ref defaultProvider );
+         this._propertyDefinitions = CreateFixedMDTable<PropertyDefinition>( Tables.Property, sizes, tableInfoProvider, ref defaultProvider );
+         this._methodSemantics = CreateFixedMDTable<MethodSemantics>( Tables.MethodSemantics, sizes, tableInfoProvider, ref defaultProvider );
+         this._methodImplementations = CreateFixedMDTable<MethodImplementation>( Tables.MethodImpl, sizes, tableInfoProvider, ref defaultProvider );
+         this._moduleReferences = CreateFixedMDTable<ModuleReference>( Tables.ModuleRef, sizes, tableInfoProvider, ref defaultProvider );
+         this._typeSpecifications = CreateFixedMDTable<TypeSpecification>( Tables.TypeSpec, sizes, tableInfoProvider, ref defaultProvider );
+         this._methodImplementationMaps = CreateFixedMDTable<MethodImplementationMap>( Tables.ImplMap, sizes, tableInfoProvider, ref defaultProvider );
+         this._fieldRVAs = CreateFixedMDTable<FieldRVA>( Tables.FieldRVA, sizes, tableInfoProvider, ref defaultProvider );
+         this._editAndContinueLog = CreateFixedMDTable<EditAndContinueLog>( Tables.EncLog, sizes, tableInfoProvider, ref defaultProvider );
+         this._editAndContinueMap = CreateFixedMDTable<EditAndContinueMap>( Tables.EncMap, sizes, tableInfoProvider, ref defaultProvider );
+         this._assemblyDefinitions = CreateFixedMDTable<AssemblyDefinition>( Tables.Assembly, sizes, tableInfoProvider, ref defaultProvider );
+         this._assemblyDefinitionProcessors = CreateFixedMDTable<AssemblyDefinitionProcessor>( Tables.AssemblyProcessor, sizes, tableInfoProvider, ref defaultProvider );
+         this._assemblyDefinitionOSs = CreateFixedMDTable<AssemblyDefinitionOS>( Tables.AssemblyOS, sizes, tableInfoProvider, ref defaultProvider );
+         this._assemblyReferences = CreateFixedMDTable<AssemblyReference>( Tables.AssemblyRef, sizes, tableInfoProvider, ref defaultProvider );
+         this._assemblyReferenceProcessors = CreateFixedMDTable<AssemblyReferenceProcessor>( Tables.AssemblyRefProcessor, sizes, tableInfoProvider, ref defaultProvider );
+         this._assemblyReferenceOSs = CreateFixedMDTable<AssemblyReferenceOS>( Tables.AssemblyRefOS, sizes, tableInfoProvider, ref defaultProvider );
+         this._fileReferences = CreateFixedMDTable<FileReference>( Tables.File, sizes, tableInfoProvider, ref defaultProvider );
+         this._exportedTypess = CreateFixedMDTable<ExportedType>( Tables.ExportedType, sizes, tableInfoProvider, ref defaultProvider );
+         this._manifestResources = CreateFixedMDTable<ManifestResource>( Tables.ManifestResource, sizes, tableInfoProvider, ref defaultProvider );
+         this._nestedClassDefinitions = CreateFixedMDTable<NestedClassDefinition>( Tables.NestedClass, sizes, tableInfoProvider, ref defaultProvider );
+         this._genericParameterDefinitions = CreateFixedMDTable<GenericParameterDefinition>( Tables.GenericParameter, sizes, tableInfoProvider, ref defaultProvider );
+         this._methodSpecifications = CreateFixedMDTable<MethodSpecification>( Tables.MethodSpec, sizes, tableInfoProvider, ref defaultProvider );
+         this._genericParameterConstraintDefinitions = CreateFixedMDTable<GenericParameterConstraintDefinition>( Tables.GenericParameterConstraint, sizes, tableInfoProvider, ref defaultProvider );
+
+         // Populate additional tables
+         this._additionalTables = new MetaDataTable[Byte.MaxValue + 1 - Consts.AMOUNT_OF_TABLES];
+         if ( !( tableInfoProvider is DefaultMetaDataTableInformationProvider ) )
+         {
+            for ( var i = 0; i <= this._additionalTables.Length; ++i )
+            {
+               var tableValue = i + Consts.AMOUNT_OF_TABLES;
+               var capacity = tableValue < sizes.Length ? sizes[tableValue] : 0;
+               this._additionalTables[i] = tableInfoProvider.GetTableInformation( (Tables) tableValue )?.CreateMetaDataTableNotGeneric( capacity );
+            }
+         }
       }
 #pragma warning restore 618
 
@@ -491,21 +521,50 @@ namespace CILAssemblyManipulator.Physical.Implementation
          }
       }
 #pragma warning restore 618
+
+      public MetaDataTable GetAdditionalTable( Int32 table )
+      {
+         var additionalIndex = ( (Byte) table ) - Consts.AMOUNT_OF_TABLES;
+         return additionalIndex < 0 ? null : this._additionalTables[additionalIndex];
+      }
+
+      private static MetaDataTable<TRow> CreateFixedMDTable<TRow>(
+         Tables table,
+         Int32[] sizes,
+         MetaDataTableInformationProvider provider,
+         ref DefaultMetaDataTableInformationProvider defaultProvider
+         )
+         where TRow : class
+      {
+         var info = provider.GetTableInformation( table );
+         if ( info == null )
+         {
+            if ( defaultProvider == null )
+            {
+               defaultProvider = new DefaultMetaDataTableInformationProvider();
+            }
+            info = defaultProvider.GetTableInformation( table );
+         }
+
+         return (MetaDataTable<TRow>) info.CreateMetaDataTableNotGeneric( sizes[(Int32) table] );
+      }
    }
 
    internal sealed class MetaDataTableImpl<TRow> : MetaDataTable<TRow>
       where TRow : class
    {
-      private readonly Tables _tableKind;
       private readonly List<TRow> _table;
 
       internal MetaDataTableImpl(
-         Tables tableKind,
+         MetaDataTableInformation<TRow> tableInfo,
          Int32 tableRowCapacity
          )
       {
-         this._tableKind = tableKind;
-         this._table = new List<TRow>( tableRowCapacity );
+         ArgumentValidator.ValidateNotNull( "Table information", tableInfo );
+
+         this.TableInformation = tableInfo;
+         this.TableKind = tableInfo.TableKind;
+         this._table = new List<TRow>( Math.Max( 0, tableRowCapacity ) );
       }
 
       public List<TRow> TableContents
@@ -516,13 +575,7 @@ namespace CILAssemblyManipulator.Physical.Implementation
          }
       }
 
-      public Tables TableKind
-      {
-         get
-         {
-            return this._tableKind;
-         }
-      }
+      public Tables TableKind { get; }
 
       public Int32 RowCount
       {
@@ -540,6 +593,14 @@ namespace CILAssemblyManipulator.Physical.Implementation
          }
       }
 
+      public MetaDataTableInformation<TRow> TableInformation { get; }
+      public MetaDataTableInformation TableInformationNotGeneric
+      {
+         get
+         {
+            return this.TableInformation;
+         }
+      }
 
       public Object GetRowAt( Int32 idx )
       {
@@ -559,7 +620,7 @@ namespace CILAssemblyManipulator.Physical.Implementation
 
       public override String ToString()
       {
-         return this._tableKind + ", row count: " + this._table.Count + ".";
+         return this.TableKind + ", row count: " + this._table.Count + ".";
       }
    }
 }

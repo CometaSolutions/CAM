@@ -214,6 +214,7 @@ public static partial class E_CILPhysical
    public static CILMetaData ReadMetaDataFromStream(
       this Stream stream,
       ReaderFunctionalityProvider readerProvider,
+      CILAssemblyManipulator.Physical.Meta.MetaDataTableInformationProvider tableInfoProvider,
       out ImageInformation imageInfo
       )
    {
@@ -227,12 +228,12 @@ public static partial class E_CILPhysical
       {
          using ( newStream )
          {
-            md = newStream.ReadMetaDataFromStream( reader, out imageInfo );
+            md = newStream.ReadMetaDataFromStream( reader, tableInfoProvider, out imageInfo );
          }
       }
       else
       {
-         md = stream.ReadMetaDataFromStream( reader, out imageInfo );
+         md = stream.ReadMetaDataFromStream( reader, tableInfoProvider, out imageInfo );
       }
 
       return md;
@@ -241,6 +242,7 @@ public static partial class E_CILPhysical
    public static CILMetaData ReadMetaDataFromStream(
       this Stream stream,
       ReaderFunctionality reader,
+      CILAssemblyManipulator.Physical.Meta.MetaDataTableInformationProvider tableInfoProvider,
       out ImageInformation imageInfo
       )
    {
@@ -298,7 +300,7 @@ public static partial class E_CILPhysical
          throw new BadImageFormatException( "No table stream exists." );
       }
       var tblHeader = tblMDStream.ReadHeader();
-      var md = CILMetaDataFactory.NewBlankMetaData( tblHeader.CreateTableSizesArray() );
+      var md = CILMetaDataFactory.NewBlankMetaData( tblHeader.CreateTableSizesArray(), tableInfoProvider );
       var blobStream = mdStreams.OfType<ReaderBLOBStreamHandler>().FirstOrDefault();
       var guidStream = mdStreams.OfType<ReaderGUIDStreamHandler>().FirstOrDefault();
       var sysStringStream = mdStreams.OfType<ReaderStringStreamHandler>().FirstOrDefault( s => String.Equals( s.StreamName, MetaDataConstants.SYS_STRING_STREAM_NAME ) );

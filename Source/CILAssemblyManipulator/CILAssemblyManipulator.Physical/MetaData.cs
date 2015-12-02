@@ -123,6 +123,8 @@ namespace CILAssemblyManipulator.Physical
 
       [Obsolete( "This table should not be used anymore.", false )]
       MetaDataTable<AssemblyReferenceOS> AssemblyReferenceOSs { get; }
+
+      MetaDataTable GetAdditionalTable( Int32 table );
    }
 
    public interface MetaDataTable
@@ -136,34 +138,38 @@ namespace CILAssemblyManipulator.Physical
       IEnumerable<Object> TableContentsAsEnumerable { get; }
 
       Boolean TryAddRow( Object row );
+
+      Meta.MetaDataTableInformation TableInformationNotGeneric { get; }
    }
 
    public interface MetaDataTable<TRow> : MetaDataTable
       where TRow : class
    {
       List<TRow> TableContents { get; }
+
+      Meta.MetaDataTableInformation<TRow> TableInformation { get; }
    }
 
    public static class CILMetaDataFactory
    {
-      public static CILMetaData NewBlankMetaData()
+      public static CILMetaData NewBlankMetaData( Meta.MetaDataTableInformationProvider tableInfoProvider = null )
       {
-         return new CILAssemblyManipulator.Physical.Implementation.CILMetadataImpl();
+         return NewBlankMetaData( null, null );
       }
 
-      public static CILMetaData NewBlankMetaData( Int32[] sizes )
+      public static CILMetaData NewBlankMetaData( Int32[] sizes, Meta.MetaDataTableInformationProvider tableInfoProvider = null )
       {
-         return new CILAssemblyManipulator.Physical.Implementation.CILMetadataImpl( sizes );
+         return new CILAssemblyManipulator.Physical.Implementation.CILMetadataImpl( tableInfoProvider, sizes );
       }
 
-      public static CILMetaData CreateMinimalAssembly( String assemblyName, String moduleName, Boolean createModuleType = true )
+      public static CILMetaData CreateMinimalAssembly( String assemblyName, String moduleName, Boolean createModuleType = true, Meta.MetaDataTableInformationProvider tableInfoProvider = null )
       {
          if ( !String.IsNullOrEmpty( assemblyName ) && String.IsNullOrEmpty( moduleName ) )
          {
             moduleName = assemblyName + ".dll";
          }
 
-         var md = CreateMinimalModule( moduleName, createModuleType );
+         var md = CreateMinimalModule( moduleName, createModuleType, tableInfoProvider );
 
          var aDef = new AssemblyDefinition();
          aDef.AssemblyInformation.Name = assemblyName;
@@ -172,9 +178,9 @@ namespace CILAssemblyManipulator.Physical
          return md;
       }
 
-      public static CILMetaData CreateMinimalModule( String moduleName, Boolean createModuleType = true )
+      public static CILMetaData CreateMinimalModule( String moduleName, Boolean createModuleType = true, Meta.MetaDataTableInformationProvider tableInfoProvider = null )
       {
-         var md = CILMetaDataFactory.NewBlankMetaData();
+         var md = CILMetaDataFactory.NewBlankMetaData( tableInfoProvider );
 
          // Module definition
          md.ModuleDefinitions.TableContents.Add( new ModuleDefinition()
