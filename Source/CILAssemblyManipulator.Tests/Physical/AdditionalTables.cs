@@ -18,5 +18,15 @@ namespace CILAssemblyManipulator.Tests.Physical
          Assert.IsNull( md.GetAdditionalTable( (Int32) Tables.GenericParameterConstraint + 1 ) );
          Assert.IsNull( md.GetAdditionalTable( (Int32) Byte.MaxValue ) );
       }
+
+      [Test]
+      public void TestGettingTables()
+      {
+         var md = CILMetaDataFactory.NewBlankMetaData();
+         var tablesReturned = md.GetAllTables().ToArray();
+         var tablesOrdered = tablesReturned.OrderBy( t => (Int32) t.TableKind ).ToArray();
+         Assert.IsTrue( tablesReturned.SequenceEqual( tablesOrdered ) );
+         Assert.AreEqual( (Int32) Tables.GenericParameterConstraint + 1, tablesReturned.Length );
+      }
    }
 }

@@ -34,6 +34,7 @@ namespace CILAssemblyManipulator.Physical.IO
    {
       ReaderFunctionality GetFunctionality(
          Stream stream,
+         Meta.MetaDataTableInformationProvider mdTableInfoProvider,
          out Stream newStream
          );
    }
@@ -220,8 +221,13 @@ public static partial class E_CILPhysical
    {
       ArgumentValidator.ValidateNotNull( "Stream", stream );
 
+      if ( tableInfoProvider == null )
+      {
+         tableInfoProvider = new CILAssemblyManipulator.Physical.Meta.DefaultMetaDataTableInformationProvider();
+      }
+
       Stream newStream;
-      var reader = ( readerProvider ?? new DefaultReaderFunctionalityProvider() ).GetFunctionality( stream, out newStream );
+      var reader = ( readerProvider ?? new DefaultReaderFunctionalityProvider() ).GetFunctionality( stream, tableInfoProvider, out newStream );
 
       CILMetaData md;
       if ( newStream != null && !ReferenceEquals( stream, newStream ) )

@@ -17,6 +17,7 @@
  */
 using CILAssemblyManipulator.Physical;
 using CILAssemblyManipulator.Physical.IO.Defaults;
+using CILAssemblyManipulator.Physical.Meta;
 using CollectionsWithRoles.API;
 using CommonUtils;
 using System;
@@ -433,7 +434,9 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
 
    public interface MetaDataSerializationSupportProvider
    {
-      IEnumerable<TableSerializationInfo> CreateTableSerializationInfos();
+      IEnumerable<TableSerializationInfo> CreateTableSerializationInfos(
+         IEnumerable<Meta.MetaDataTableInformation> tableInfos
+         );
    }
 
    public interface TableSerializationInfo
@@ -458,14 +461,6 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
          WriterMetaDataStreamContainer mdStreamContainer
          );
 
-
-      //void ExtractTableRawValues(
-      //   CILMetaData md,
-      //   RawValueStorage<Int64> storage,
-      //   Stream stream,
-      //   ResizableArray<Byte> array,
-      //   WriterMetaDataStreamContainer mdStreamContainer
-      //   );
 
       void ExtractTableHeapValues(
          CILMetaData md,
@@ -631,6 +626,7 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
          this.Array = array;
          this.ThisAssemblyPublicKeyIfPresentNull = thisAssemblyPublicKeyIfPresentNull;
          this.MetaData = metaData;
+         this.AuxArray = new ResizableArray<Byte>();
       }
 
       public ResizableArray<Byte> Array { get; }
@@ -640,6 +636,8 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
       public ArrayQuery<Byte> ThisAssemblyPublicKeyIfPresentNull { get; }
 
       public CILMetaData MetaData { get; }
+
+      public ResizableArray<Byte> AuxArray { get; }
    }
 
    public class RawValueTransformationArguments
@@ -701,5 +699,15 @@ public static partial class E_CILPhysical
             tbl.RowCount :
             0;
       } ).ToArrayProxy().CQ;
+   }
+
+   public static IEnumerable<TableSerializationInfo> CreateTableSerializationInfos( this MetaDataSerializationSupportProvider serializationSupportProvider, CILMetaData md )
+   {
+      return serializationSupportProvider.CreateTableSerializationInfos( md.GetAllTables().Select( t => t.TableInformationNotGeneric ) );
+   }
+
+   public static IEnumerable<TableSerializationInfo> CreateTableSerializationInfos( this MetaDataSerializationSupportProvider serializationSupportProvider, MetaDataTableInformationProvider tableInfoProvider )
+   {
+      return serializationSupportProvider.CreateTableSerializationInfos( tableInfoProvider.GetAllSupportedTableInformations() );
    }
 }

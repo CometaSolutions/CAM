@@ -316,7 +316,7 @@ public static partial class E_CILPhysical
       var mdStreams = writer.CreateStreamHandlers().ToArrayProxy().CQ;
       var tblMDStream = mdStreams
          .OfType<WriterTableStreamHandler>()
-         .FirstOrDefault() ?? new DefaultWriterTableStreamHandler( md, options.CLIOptions.TablesStreamOptions, DefaultMetaDataSerializationSupportProvider.Instance.CreateTableSerializationInfos().ToArrayProxy().CQ );
+         .FirstOrDefault() ?? new DefaultWriterTableStreamHandler( md, options.CLIOptions.TablesStreamOptions, DefaultMetaDataSerializationSupportProvider.Instance.CreateTableSerializationInfos( md ).ToArrayProxy().CQ );
 
       var blobStream = mdStreams.OfType<WriterBLOBStreamHandler>().FirstOrDefault();
       var guidStream = mdStreams.OfType<WriterGUIDStreamHandler>().FirstOrDefault();

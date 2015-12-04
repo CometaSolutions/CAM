@@ -126,7 +126,7 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
          this.MetaData = md;
          this._options = headers ?? new WritingOptions();
          this.MDSerialization = mdSerialization ?? DefaultMetaDataSerializationSupportProvider.Instance;
-         this.TableSerializations = this.MDSerialization.CreateTableSerializationInfos().ToArrayProxy().CQ;
+         this.TableSerializations = this.MDSerialization.CreateTableSerializationInfos( md ).ToArrayProxy().CQ;
          this.TableSizes = this.TableSerializations.CreateTableSizeArray( md );
       }
 

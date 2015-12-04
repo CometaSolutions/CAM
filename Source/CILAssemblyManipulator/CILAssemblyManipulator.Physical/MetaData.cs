@@ -790,7 +790,7 @@ public static partial class E_CILPhysical
             table = md.GenericParameterConstraintDefinitions;
             break;
          default:
-            table = null;
+            table = md.GetAdditionalTable( (Int32) tableKind );
             break;
       }
       return table != null;
@@ -2160,5 +2160,81 @@ public static partial class E_CILPhysical
       ArgumentValidator.ValidateNotNull( "Assembly name", info );
       var culture = info.Culture;
       return String.IsNullOrEmpty( culture ) ? AssemblyInformation.NEUTRAL_CULTURE : culture;
+   }
+
+   public static IEnumerable<MetaDataTable> GetFixedTables( this CILMetaData md )
+   {
+      if ( md != null )
+      {
+         yield return md.ModuleDefinitions;
+         yield return md.TypeReferences;
+         yield return md.TypeDefinitions;
+         yield return md.FieldDefinitionPointers;
+         yield return md.FieldDefinitions;
+         yield return md.MethodDefinitionPointers;
+         yield return md.MethodDefinitions;
+         yield return md.ParameterDefinitionPointers;
+         yield return md.ParameterDefinitions;
+         yield return md.InterfaceImplementations;
+         yield return md.MemberReferences;
+         yield return md.ConstantDefinitions;
+         yield return md.CustomAttributeDefinitions;
+         yield return md.FieldMarshals;
+         yield return md.SecurityDefinitions;
+         yield return md.ClassLayouts;
+         yield return md.FieldLayouts;
+         yield return md.StandaloneSignatures;
+         yield return md.EventMaps;
+         yield return md.EventDefinitionPointers;
+         yield return md.EventDefinitions;
+         yield return md.PropertyMaps;
+         yield return md.PropertyDefinitionPointers;
+         yield return md.PropertyDefinitions;
+         yield return md.MethodSemantics;
+         yield return md.MethodImplementations;
+         yield return md.ModuleReferences;
+         yield return md.TypeSpecifications;
+         yield return md.MethodImplementationMaps;
+         yield return md.FieldRVAs;
+         yield return md.EditAndContinueLog;
+         yield return md.EditAndContinueMap;
+         yield return md.AssemblyDefinitions;
+#pragma warning disable 618
+         yield return md.AssemblyDefinitionProcessors;
+         yield return md.AssemblyDefinitionOSs;
+#pragma warning restore 618
+         yield return md.AssemblyReferences;
+#pragma warning disable 618
+         yield return md.AssemblyReferenceProcessors;
+         yield return md.AssemblyReferenceOSs;
+#pragma warning restore 618
+         yield return md.FileReferences;
+         yield return md.ExportedTypes;
+         yield return md.ManifestResources;
+         yield return md.NestedClassDefinitions;
+         yield return md.GenericParameterDefinitions;
+         yield return md.MethodSpecifications;
+         yield return md.GenericParameterConstraintDefinitions;
+      }
+   }
+
+   public static IEnumerable<MetaDataTable> GetAdditionalTables( this CILMetaData md )
+   {
+      if ( md != null )
+      {
+         for ( var i = Consts.AMOUNT_OF_TABLES; i <= Byte.MaxValue; ++i )
+         {
+            var table = md.GetAdditionalTable( i );
+            if ( table != null )
+            {
+               yield return table;
+            }
+         }
+      }
+   }
+
+   public static IEnumerable<MetaDataTable> GetAllTables( this CILMetaData md )
+   {
+      return md.GetFixedTables().Concat( md.GetAdditionalTables() );
    }
 }

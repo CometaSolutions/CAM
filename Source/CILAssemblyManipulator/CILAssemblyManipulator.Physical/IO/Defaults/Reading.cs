@@ -30,11 +30,15 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
 {
    public class DefaultReaderFunctionalityProvider : ReaderFunctionalityProvider
    {
-      public virtual ReaderFunctionality GetFunctionality( Stream stream, out Stream newStream )
+      public virtual ReaderFunctionality GetFunctionality(
+         Stream stream,
+         Meta.MetaDataTableInformationProvider mdTableInfoProvider,
+         out Stream newStream
+         )
       {
          // We are going to do a lot of seeking, so just read whole stream into byte array and use memory stream
          newStream = new MemoryStream( stream.ReadUntilTheEnd(), this.IsMemoryStreamWriteable );
-         return new DefaultReaderFunctionality( this.CreateMDSerialization() );
+         return new DefaultReaderFunctionality( mdTableInfoProvider, this.CreateMDSerialization() );
       }
 
       protected virtual Boolean IsMemoryStreamWriteable
@@ -55,11 +59,12 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
    {
 
       public DefaultReaderFunctionality(
+         Meta.MetaDataTableInformationProvider tableInfoProvider = null,
          MetaDataSerializationSupportProvider mdSerialization = null
          )
       {
          this.MDSerialization = mdSerialization ?? new DefaultMetaDataSerializationSupportProvider();
-         this.TableSerializations = this.MDSerialization.CreateTableSerializationInfos().ToArrayProxy().CQ;
+         this.TableSerializations = this.MDSerialization.CreateTableSerializationInfos( tableInfoProvider ).ToArrayProxy().CQ;
       }
 
       public virtual void ReadImageInformation(
@@ -244,7 +249,7 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
       {
          if ( tableSerializations == null )
          {
-            tableSerializations = new DefaultMetaDataSerializationSupportProvider().CreateTableSerializationInfos().ToArrayProxy().CQ;
+            tableSerializations = new DefaultMetaDataSerializationSupportProvider().CreateTableSerializationInfos( new Meta.DefaultMetaDataTableInformationProvider() ).ToArrayProxy().CQ;
          }
 
          var array = this.Bytes;
@@ -733,7 +738,7 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
    {
 
 
-      protected virtual MethodILDefinition DeserializeIL(
+      public static MethodILDefinition DeserializeIL(
          RawValueProcessingArgs args,
          Int32 rva,
          MethodDefinition mDef
@@ -865,7 +870,7 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
          return success;
       }
 
-      protected virtual Byte[] DeserializeConstantValue(
+      public static Byte[] DeserializeConstantValue(
          RawValueProcessingArgs args,
          FieldRVA row,
          Int32 rva
@@ -873,7 +878,9 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
       {
          Byte[] retVal = null;
          Int64 offset;
-         if ( rva > 0 && ( offset = args.RVAConverter.ToOffset( rva ) ) > 0 )
+         if ( rva > 0
+            && ( offset = args.RVAConverter.ToOffset( rva ) ) > 0
+            )
          {
             // Read all field RVA content
             var layoutInfo = args.LayoutInfo;
@@ -969,7 +976,7 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
          return size != 0;
       }
 
-      protected virtual Byte[] DeserializeEmbeddedManifest(
+      public static Byte[] DeserializeEmbeddedManifest(
          RawValueProcessingArgs args,
          Int32 offset
          )
@@ -997,6 +1004,7 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
 
 public static partial class E_CILPhysical
 {
+   // Technically, max size is 255, but the bitmask in CLI header can only describe presence of 64 tables
    private const Int32 TABLE_ARRAY_SIZE = 64;
 
    public static Int32[] CreateTableSizesArray( this MetaDataTableStreamHeader tableStreamHeader )
