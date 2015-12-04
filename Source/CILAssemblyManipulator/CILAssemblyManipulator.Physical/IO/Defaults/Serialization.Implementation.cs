@@ -575,7 +575,6 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
    {
 
       public ColumnFunctionalityArgs(
-         Tables table,
          Int32 rowIndex,
          TRow row,
          TRowArgs args
@@ -584,13 +583,10 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
          ArgumentValidator.ValidateNotNull( "Row", row );
          ArgumentValidator.ValidateNotNull( "Row arguments", args );
 
-         this.Table = table;
          this.RowIndex = rowIndex;
          this.Row = row;
          this.RowArgs = args;
       }
-
-      public Tables Table { get; }
 
       public Int32 RowIndex { get; }
 
@@ -684,7 +680,7 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
                var list = table.TableContents;
                for ( var i = 0; i < list.Count; ++i )
                {
-                  var cArgs = new ColumnFunctionalityArgs<TRow, RawValueProcessingArgs>( tblEnum, i, list[i], args );
+                  var cArgs = new ColumnFunctionalityArgs<TRow, RawValueProcessingArgs>( i, list[i], args );
                   var cur = 0;
                   foreach ( var rawValue in storage.GetAllRawValuesForRow( tblEnum, i ) )
                   {
@@ -741,7 +737,7 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
                var rArgs = new RowHeapFillingArguments( mdStreamContainer, array, thisAssemblyPublicKeyIfPresentNull, md );
                for ( var i = 0; i < list.Count; ++i )
                {
-                  var cArgs = new ColumnFunctionalityArgs<TRow, RowHeapFillingArguments>( this.Table, i, list[i], rArgs );
+                  var cArgs = new ColumnFunctionalityArgs<TRow, RowHeapFillingArguments>( i, list[i], rArgs );
                   foreach ( var col in cols )
                   {
                      Int32 rawValue;
@@ -820,9 +816,81 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
       where TRow : class
    {
 
-      private readonly DefaultColumnSerializationInfo<TRawRow, TRow>[] _columnArray;
+      private readonly ColumnSerializationInstance[] _columnArray;
       private readonly Func<TRow> _rowFactory;
       private readonly Func<TRawRow> _rawRowFactory;
+
+      private abstract class ColumnSerializationInstance
+      {
+         private readonly RawRowColumnSetterDelegate<TRawRow> _rawSetter;
+
+         internal ColumnSerializationInstance(
+            DefaultColumnSerializationInfo<TRawRow, TRow> serializationInfo,
+            ColumnSerializationSupportCreationArgs args
+            )
+         {
+
+            ArgumentValidator.ValidateNotNull( "Serialization info", serializationInfo );
+            ArgumentValidator.ValidateNotNull( "Functionality creation args", args );
+
+            this.Functionality = serializationInfo.SerializationSupportCreator( args );
+            this._rawSetter = serializationInfo.RawSetter;
+         }
+
+         public ColumnSerializationFunctionality Functionality { get; }
+
+         public abstract void SetNormalRowValue( RowReadingArguments rowArgs, ref Int32 idx, TRow row, Int32 rowIndex );
+
+         public void SetRawRowValue( TRawRow row, Byte[] array, ref Int32 idx )
+         {
+            this._rawSetter( row, this.Functionality.ReadRawValue( array, ref idx ) );
+         }
+      }
+
+      private sealed class ColumnSerializationInstance_RawValue : ColumnSerializationInstance
+      {
+         internal ColumnSerializationInstance_RawValue(
+            DefaultColumnSerializationInfo<TRawRow, TRow> serializationInfo,
+            ColumnSerializationSupportCreationArgs args
+            )
+            : base( serializationInfo, args )
+         {
+
+         }
+
+         public override void SetNormalRowValue( RowReadingArguments rowArgs, ref Int32 idx, TRow row, Int32 rowIndex )
+         {
+            rowArgs.RawValueStorage.AddRawValue( this.Functionality.ReadRawValue( rowArgs.Array, ref idx ) );
+         }
+      }
+
+      private sealed class ColumnSerializationInstance_NormalValue : ColumnSerializationInstance
+      {
+         private readonly RowColumnSetterDelegate<TRow, Int32> _setter;
+
+         internal ColumnSerializationInstance_NormalValue(
+            DefaultColumnSerializationInfo<TRawRow, TRow> serializationInfo,
+            ColumnSerializationSupportCreationArgs args
+            )
+            : base( serializationInfo, args )
+         {
+            var setter = serializationInfo.Setter;
+            ArgumentValidator.ValidateNotNull( "Setter", setter );
+            this._setter = setter;
+         }
+
+         public override void SetNormalRowValue( RowReadingArguments rowArgs, ref Int32 idx, TRow row, Int32 rowIndex )
+         {
+            try
+            {
+               this._setter( new ColumnFunctionalityArgs<TRow, RowReadingArguments>( rowIndex, row, rowArgs ), this.Functionality.ReadRawValue( rowArgs.Array, ref idx ) );
+            }
+            catch
+            {
+               // TODO error reporting
+            }
+         }
+      }
 
       public DefaultTableSerializationFunctionality(
          TableSerializationInfo tableSerializationInfo,
@@ -840,11 +908,13 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
 
          this._rowFactory = rowFactory;
          this._rawRowFactory = rawRowFactory;
-         this.ColumnSerializationSupports = columns
-            .Select( c => c.SerializationSupportCreator( args ) )
+         this._columnArray = columns
+            .Select( c => c.Setter == null ? (ColumnSerializationInstance) new ColumnSerializationInstance_RawValue( c, args ) : new ColumnSerializationInstance_NormalValue( c, args ) )
+            .ToArray();
+         this.ColumnSerializationSupports = this._columnArray
+            .Select( c => c.Functionality )
             .ToArrayProxy()
             .CQ;
-         this._columnArray = columns.ToArray();
          this.TableSerializationInfo = tableSerializationInfo;
       }
 
@@ -862,31 +932,15 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
          {
             var list = ( (MetaDataTable<TRow>) table ).TableContents;
             var idx = args.Index;
+            var cArray = this._columnArray;
+            var cArrayMax = this._columnArray.Length;
 
             for ( var i = 0; i < tableRowCount; ++i )
             {
                var row = this._rowFactory();
-               var columnArgs = new ColumnFunctionalityArgs<TRow, RowReadingArguments>( this.TableSerializationInfo.Table, i, row, args );
-               var array = args.Array;
-               for ( var j = 0; j < this._columnArray.Length; ++j )
+               for ( var j = 0; j < cArrayMax; ++j )
                {
-                  var value = this.ColumnSerializationSupports[j].ReadRawValue( array, ref idx );
-                  var setter = this._columnArray[j].Setter;
-                  if ( setter == null )
-                  {
-                     args.RawValueStorage.AddRawValue( value );
-                  }
-                  else
-                  {
-                     try
-                     {
-                        setter( columnArgs, value );
-                     }
-                     catch
-                     {
-                        // Ignore
-                     }
-                  }
+                  cArray[j].SetNormalRowValue( args, ref idx, row, i );
                }
 
                list.Add( row );
@@ -899,7 +953,7 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
          var row = this._rawRowFactory();
          for ( var i = 0; i < this._columnArray.Length; ++i )
          {
-            this._columnArray[i].RawSetter( row, this.ColumnSerializationSupports[i].ReadRawValue( array, ref idx ) );
+            this._columnArray[i].SetRawRowValue( row, array, ref idx );
          }
          return row;
       }
