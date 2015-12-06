@@ -84,10 +84,10 @@ namespace CILAssemblyManipulator.Physical.Implementation
       {
          if ( tableInfoProvider == null )
          {
-            tableInfoProvider = new DefaultMetaDataTableInformationProvider();
+            tableInfoProvider = DefaultMetaDataTableInformationProvider.CreateDefault();
          }
 
-         if ( sizes == null )
+         if ( sizes.IsNullOrEmpty() )
          {
             sizes = EMPTY_SIZES;
          }
@@ -147,10 +147,11 @@ namespace CILAssemblyManipulator.Physical.Implementation
          this._genericParameterConstraintDefinitions = CreateFixedMDTable<GenericParameterConstraintDefinition>( Tables.GenericParameterConstraint, sizes, tableInfoProvider, ref defaultProvider );
 
          // Populate additional tables
-         this._additionalTables = new MetaDataTable[Byte.MaxValue + 1 - Consts.AMOUNT_OF_TABLES];
-         if ( !( tableInfoProvider is DefaultMetaDataTableInformationProvider ) )
+
+         if ( tableInfoProvider.HasAdditionalTables )
          {
-            for ( var i = 0; i <= this._additionalTables.Length; ++i )
+            this._additionalTables = new MetaDataTable[Byte.MaxValue + 1 - Consts.AMOUNT_OF_TABLES];
+            for ( var i = 0; i < this._additionalTables.Length; ++i )
             {
                var tableValue = i + Consts.AMOUNT_OF_TABLES;
                var capacity = tableValue < sizes.Length ? sizes[tableValue] : 0;
@@ -524,8 +525,18 @@ namespace CILAssemblyManipulator.Physical.Implementation
 
       public MetaDataTable GetAdditionalTable( Int32 table )
       {
-         var additionalIndex = ( (Byte) table ) - Consts.AMOUNT_OF_TABLES;
-         return additionalIndex < 0 ? null : this._additionalTables[additionalIndex];
+         var additionalTables = this._additionalTables;
+         MetaDataTable retVal;
+         if ( additionalTables != null )
+         {
+            var additionalIndex = ( (Byte) table ) - Consts.AMOUNT_OF_TABLES;
+            retVal = additionalIndex < 0 ? null : additionalTables[additionalIndex];
+         }
+         else
+         {
+            retVal = null;
+         }
+         return retVal;
       }
 
       private static MetaDataTable<TRow> CreateFixedMDTable<TRow>(
@@ -541,7 +552,7 @@ namespace CILAssemblyManipulator.Physical.Implementation
          {
             if ( defaultProvider == null )
             {
-               defaultProvider = new DefaultMetaDataTableInformationProvider();
+               defaultProvider = DefaultMetaDataTableInformationProvider.CreateDefault();
             }
             info = defaultProvider.GetTableInformation( table );
          }

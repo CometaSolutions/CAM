@@ -249,7 +249,7 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
       {
          if ( tableSerializations == null )
          {
-            tableSerializations = new DefaultMetaDataSerializationSupportProvider().CreateTableSerializationInfos( new Meta.DefaultMetaDataTableInformationProvider() ).ToArrayProxy().CQ;
+            tableSerializations = new DefaultMetaDataSerializationSupportProvider().CreateTableSerializationInfos( Meta.DefaultMetaDataTableInformationProvider.CreateDefault() ).ToArrayProxy().CQ;
          }
 
          var array = this.Bytes;
@@ -288,6 +288,8 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
             .CQ;
 
       }
+
+      public ArrayQuery<Int32> TableSizes { get; }
 
       public virtual RawValueStorage<Int32> PopulateMetaDataStructure(
          CILMetaData md,
@@ -351,8 +353,6 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
       }
 
       protected MetaDataTableStreamHeader TableStreamHeader { get; }
-
-      protected ArrayQuery<Int32> TableSizes { get; }
 
       protected ArrayQuery<Int32> TableWidths { get; }
 

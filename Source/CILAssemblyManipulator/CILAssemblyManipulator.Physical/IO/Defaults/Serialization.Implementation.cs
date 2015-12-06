@@ -91,7 +91,11 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
    public abstract class DefaultColumnSerializationInfo<TRow> : DefaultColumnSerializationInfo
       where TRow : class
    {
+      internal DefaultColumnSerializationInfo()
+         : base()
+      {
 
+      }
    }
 
    public delegate ColumnSerializationFunctionality CreateSerializationSupportDelegate( ColumnSerializationSupportCreationArgs args );
@@ -611,7 +615,7 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
          IEnumerable<Meta.MetaDataTableInformation> tableInfos
          )
       {
-         return tableInfos.Select( info => info.CreateTableSerializationInfoNotGeneric() );
+         return tableInfos.Select( info => info.TableSerializationInfoNotGeneric );
       }
    }
 
@@ -626,6 +630,7 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
 
       public DefaultTableSerializationInfo(
          Tables table,
+         Boolean isSorted,
          IEnumerable<DefaultColumnSerializationInfo<TRawRow, TRow>> columns,
          Func<TRow> rowFactory,
          Func<TRawRow> rawRowFactory
@@ -636,12 +641,15 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
          ArgumentValidator.ValidateNotNull( "Raw row factory", rawRowFactory );
 
          this.Table = table;
+         this.IsSorted = isSorted;
          this._rowFactory = rowFactory;
          this._rawRowFactory = rawRowFactory;
          this._columns = columns.ToArray();
       }
 
       public Tables Table { get; }
+
+      public Boolean IsSorted { get; }
 
       public Int32 RawValueStorageColumnCount
       {

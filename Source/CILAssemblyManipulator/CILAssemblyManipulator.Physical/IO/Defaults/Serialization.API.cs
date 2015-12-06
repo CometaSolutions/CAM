@@ -443,6 +443,8 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
    {
       Tables Table { get; }
 
+      Boolean IsSorted { get; }
+
       TableSerializationFunctionality CreateSupport(
          ColumnSerializationSupportCreationArgs args
          );

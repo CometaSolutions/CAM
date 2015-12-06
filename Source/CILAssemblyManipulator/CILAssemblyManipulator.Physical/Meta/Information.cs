@@ -32,6 +32,8 @@ namespace CILAssemblyManipulator.Physical.Meta
       MetaDataTableInformation GetTableInformation( Tables table );
 
       IEnumerable<MetaDataTableInformation> GetAllSupportedTableInformations();
+
+      Boolean HasAdditionalTables { get; }
    }
 
    public class DefaultMetaDataTableInformationProvider : MetaDataTableInformationProvider
@@ -74,11 +76,18 @@ namespace CILAssemblyManipulator.Physical.Meta
          )
       {
          this._infos = new MetaDataTableInformation[Byte.MaxValue + 1];
+         var hasAdditionalTables = false;
          foreach ( var tableInfo in tableInfos ?? CreateDefaultTableInformation() )
          {
-            this._infos[(Int32) tableInfo.TableKind] = tableInfo;
+            var tKind = (Int32) tableInfo.TableKind;
+            if ( tKind >= Consts.AMOUNT_OF_TABLES && !hasAdditionalTables )
+            {
+               hasAdditionalTables = true;
+            }
+            this._infos[tKind] = tableInfo;
          }
 
+         this.HasAdditionalTables = hasAdditionalTables;
       }
 
       public MetaDataTableInformation GetTableInformation( Tables table )
@@ -90,6 +99,24 @@ namespace CILAssemblyManipulator.Physical.Meta
       {
          return this._infos
             .Where( i => i != null );
+      }
+
+      public Boolean HasAdditionalTables { get; }
+
+      public static DefaultMetaDataTableInformationProvider CreateDefault()
+      {
+         return new DefaultMetaDataTableInformationProvider();
+      }
+
+      public static DefaultMetaDataTableInformationProvider CreateWithAdditionalTables( IEnumerable<MetaDataTableInformation> tableInfos )
+      {
+         ArgumentValidator.ValidateNotNull( "Additional table infos", tableInfos );
+         return new DefaultMetaDataTableInformationProvider( CreateDefaultTableInformation().Concat( tableInfos.Where( t => (Int32) t.TableKind > Consts.AMOUNT_OF_TABLES ) ) );
+      }
+
+      public static DefaultMetaDataTableInformationProvider CreateWithExactTables( IEnumerable<MetaDataTableInformation> tableInfos )
+      {
+         return new DefaultMetaDataTableInformationProvider( tableInfos );
       }
 
       //public void SetTableInformation( MetaDataTableInformation tableInfo )
@@ -106,297 +133,330 @@ namespace CILAssemblyManipulator.Physical.Meta
             Tables.Module,
             Comparers.ModuleDefinitionEqualityComparer,
             null,
-            GetModuleDefColumns(),
             () => new ModuleDefinition(),
-            () => new RawModuleDefinition()
+            GetModuleDefColumns(),
+            () => new RawModuleDefinition(),
+            false
             );
 
          yield return new MetaDataTableInformation<TypeReference, RawTypeReference>(
             Tables.TypeRef,
             Comparers.TypeReferenceEqualityComparer,
             null,
-            GetTypeRefColumns(),
             () => new TypeReference(),
-            () => new RawTypeReference()
+            GetTypeRefColumns(),
+            () => new RawTypeReference(),
+            false
             );
 
          yield return new MetaDataTableInformation<TypeDefinition, RawTypeDefinition>(
             Tables.TypeDef,
             Comparers.TypeDefinitionEqualityComparer,
             null,
-            GetTypeDefColumns(),
             () => new TypeDefinition(),
-            () => new RawTypeDefinition()
+            GetTypeDefColumns(),
+            () => new RawTypeDefinition(),
+            false
             );
 
          yield return new MetaDataTableInformation<FieldDefinitionPointer, RawFieldDefinitionPointer>(
             Tables.FieldPtr,
             Comparers.FieldDefinitionPointerEqualityComparer,
             null,
-            GetFieldPtrColumns(),
             () => new FieldDefinitionPointer(),
-            () => new RawFieldDefinitionPointer()
+            GetFieldPtrColumns(),
+            () => new RawFieldDefinitionPointer(),
+            false
             );
 
          yield return new MetaDataTableInformation<FieldDefinition, RawFieldDefinition>(
             Tables.Field,
             Comparers.FieldDefinitionEqualityComparer,
             null,
-            GetFieldDefColumns(),
             () => new FieldDefinition(),
-            () => new RawFieldDefinition()
+            GetFieldDefColumns(),
+            () => new RawFieldDefinition(),
+            false
             );
 
          yield return new MetaDataTableInformation<MethodDefinitionPointer, RawMethodDefinitionPointer>(
             Tables.MethodPtr,
             Comparers.MethodDefinitionPointerEqualityComparer,
             null,
-            GetMethodPtrColumns(),
             () => new MethodDefinitionPointer(),
-            () => new RawMethodDefinitionPointer()
+            GetMethodPtrColumns(),
+            () => new RawMethodDefinitionPointer(),
+            false
             );
 
          yield return new MetaDataTableInformation<MethodDefinition, RawMethodDefinition>(
             Tables.MethodDef,
             Comparers.MethodDefinitionEqualityComparer,
             null,
-            GetMethodDefColumns(),
             () => new MethodDefinition(),
-            () => new RawMethodDefinition()
+            GetMethodDefColumns(),
+            () => new RawMethodDefinition(),
+            false
             );
 
          yield return new MetaDataTableInformation<ParameterDefinitionPointer, RawParameterDefinitionPointer>(
             Tables.ParameterPtr,
             Comparers.ParameterDefinitionPointerEqualityComparer,
             null,
-            GetParamPtrColumns(),
             () => new ParameterDefinitionPointer(),
-            () => new RawParameterDefinitionPointer()
+            GetParamPtrColumns(),
+            () => new RawParameterDefinitionPointer(),
+            false
             );
 
          yield return new MetaDataTableInformation<ParameterDefinition, RawParameterDefinition>(
             Tables.Parameter,
             Comparers.ParameterDefinitionEqualityComparer,
             null,
-            GetParamColumns(),
             () => new ParameterDefinition(),
-            () => new RawParameterDefinition()
+            GetParamColumns(),
+            () => new RawParameterDefinition(),
+            false
             );
 
          yield return new MetaDataTableInformation<InterfaceImplementation, RawInterfaceImplementation>(
             Tables.InterfaceImpl,
             Comparers.InterfaceImplementationEqualityComparer,
             Comparers.InterfaceImplementationComparer,
-            GetInterfaceImplColumns(),
             () => new InterfaceImplementation(),
-            () => new RawInterfaceImplementation()
+            GetInterfaceImplColumns(),
+            () => new RawInterfaceImplementation(),
+            true
             );
 
          yield return new MetaDataTableInformation<MemberReference, RawMemberReference>(
             Tables.MemberRef,
             Comparers.MemberReferenceEqualityComparer,
             null,
-            GetMemberRefColumns(),
             () => new MemberReference(),
-            () => new RawMemberReference()
+            GetMemberRefColumns(),
+            () => new RawMemberReference(),
+            false
             );
 
          yield return new MetaDataTableInformation<ConstantDefinition, RawConstantDefinition>(
             Tables.Constant,
             Comparers.ConstantDefinitionEqualityComparer,
             Comparers.ConstantDefinitionComparer,
-            GetConstantColumns(),
             () => new ConstantDefinition(),
-            () => new RawConstantDefinition()
+            GetConstantColumns(),
+            () => new RawConstantDefinition(),
+            true
             );
 
          yield return new MetaDataTableInformation<CustomAttributeDefinition, RawCustomAttributeDefinition>(
             Tables.CustomAttribute,
             Comparers.CustomAttributeDefinitionEqualityComparer,
             Comparers.CustomAttributeDefinitionComparer,
-            GetCustomAttributeColumns(),
             () => new CustomAttributeDefinition(),
-            () => new RawCustomAttributeDefinition()
+            GetCustomAttributeColumns(),
+            () => new RawCustomAttributeDefinition(),
+            true
             );
 
          yield return new MetaDataTableInformation<FieldMarshal, RawFieldMarshal>(
             Tables.FieldMarshal,
             Comparers.FieldMarshalEqualityComparer,
             Comparers.FieldMarshalComparer,
-            GetFieldMarshalColumns(),
             () => new FieldMarshal(),
-            () => new RawFieldMarshal()
+            GetFieldMarshalColumns(),
+            () => new RawFieldMarshal(),
+            true
             );
 
          yield return new MetaDataTableInformation<SecurityDefinition, RawSecurityDefinition>(
             Tables.DeclSecurity,
             Comparers.SecurityDefinitionEqualityComparer,
             Comparers.SecurityDefinitionComparer,
-            GetDeclSecurityColumns(),
             () => new SecurityDefinition(),
-            () => new RawSecurityDefinition()
+            GetDeclSecurityColumns(),
+            () => new RawSecurityDefinition(),
+            true
             );
 
          yield return new MetaDataTableInformation<ClassLayout, RawClassLayout>(
             Tables.ClassLayout,
             Comparers.ClassLayoutEqualityComparer,
             Comparers.ClassLayoutComparer,
-            GetClassLayoutColumns(),
             () => new ClassLayout(),
-            () => new RawClassLayout()
+            GetClassLayoutColumns(),
+            () => new RawClassLayout(),
+            true
             );
 
          yield return new MetaDataTableInformation<FieldLayout, RawFieldLayout>(
             Tables.FieldLayout,
             Comparers.FieldLayoutEqualityComparer,
             Comparers.FieldLayoutComparer,
-            GetFieldLayoutColumns(),
             () => new FieldLayout(),
-            () => new RawFieldLayout()
+            GetFieldLayoutColumns(),
+            () => new RawFieldLayout(),
+            true
             );
 
          yield return new MetaDataTableInformation<StandaloneSignature, RawStandaloneSignature>(
             Tables.StandaloneSignature,
             Comparers.StandaloneSignatureEqualityComparer,
             null,
-            GetStandaloneSigColumns(),
             () => new StandaloneSignature(),
-            () => new RawStandaloneSignature()
+            GetStandaloneSigColumns(),
+            () => new RawStandaloneSignature(),
+            false
             );
 
          yield return new MetaDataTableInformation<EventMap, RawEventMap>(
             Tables.EventMap,
             Comparers.EventMapEqualityComparer,
             null,
-            GetEventMapColumns(),
             () => new EventMap(),
-            () => new RawEventMap()
+            GetEventMapColumns(),
+            () => new RawEventMap(),
+            true
             );
 
          yield return new MetaDataTableInformation<EventDefinitionPointer, RawEventDefinitionPointer>(
             Tables.EventPtr,
             Comparers.EventDefinitionPointerEqualityComparer,
             null,
-            GetEventPtrColumns(),
             () => new EventDefinitionPointer(),
-            () => new RawEventDefinitionPointer()
+            GetEventPtrColumns(),
+            () => new RawEventDefinitionPointer(),
+            false
             );
 
          yield return new MetaDataTableInformation<EventDefinition, RawEventDefinition>(
             Tables.Event,
             Comparers.EventDefinitionEqualityComparer,
             null,
-            GetEventDefColumns(),
             () => new EventDefinition(),
-            () => new RawEventDefinition()
+            GetEventDefColumns(),
+            () => new RawEventDefinition(),
+            false
             );
 
          yield return new MetaDataTableInformation<PropertyMap, RawPropertyMap>(
             Tables.PropertyMap,
             Comparers.PropertyMapEqualityComparer,
             null,
-            GetPropertyMapColumns(),
             () => new PropertyMap(),
-            () => new RawPropertyMap()
+            GetPropertyMapColumns(),
+            () => new RawPropertyMap(),
+            true
             );
 
          yield return new MetaDataTableInformation<PropertyDefinitionPointer, RawPropertyDefinitionPointer>(
             Tables.PropertyPtr,
             Comparers.PropertyDefinitionPointerEqualityComparer,
             null,
-            GetPropertyPtrColumns(),
             () => new PropertyDefinitionPointer(),
-            () => new RawPropertyDefinitionPointer()
+            GetPropertyPtrColumns(),
+            () => new RawPropertyDefinitionPointer(),
+            false
             );
 
          yield return new MetaDataTableInformation<PropertyDefinition, RawPropertyDefinition>(
             Tables.Property,
             Comparers.PropertyDefinitionEqualityComparer,
             null,
-            GetPropertyDefColumns(),
             () => new PropertyDefinition(),
-            () => new RawPropertyDefinition()
+            GetPropertyDefColumns(),
+            () => new RawPropertyDefinition(),
+            false
             );
 
          yield return new MetaDataTableInformation<MethodSemantics, RawMethodSemantics>(
             Tables.MethodSemantics,
             Comparers.MethodSemanticsEqualityComparer,
             Comparers.MethodSemanticsComparer,
-            GetMethodSemanticsColumns(),
             () => new MethodSemantics(),
-            () => new RawMethodSemantics()
+            GetMethodSemanticsColumns(),
+            () => new RawMethodSemantics(),
+            true
             );
 
          yield return new MetaDataTableInformation<MethodImplementation, RawMethodImplementation>(
             Tables.MethodImpl,
             Comparers.MethodImplementationEqualityComparer,
             Comparers.MethodImplementationComparer,
-            GetMethodImplColumns(),
             () => new MethodImplementation(),
-            () => new RawMethodImplementation()
+            GetMethodImplColumns(),
+            () => new RawMethodImplementation(),
+            true
             );
 
          yield return new MetaDataTableInformation<ModuleReference, RawModuleReference>(
             Tables.ModuleRef,
             Comparers.ModuleReferenceEqualityComparer,
             null,
-            GetModuleRefColumns(),
             () => new ModuleReference(),
-            () => new RawModuleReference()
+            GetModuleRefColumns(),
+            () => new RawModuleReference(),
+            false
             );
 
          yield return new MetaDataTableInformation<TypeSpecification, RawTypeSpecification>(
             Tables.TypeSpec,
             Comparers.TypeSpecificationEqualityComparer,
             null,
-            GetTypeSpecColumns(),
             () => new TypeSpecification(),
-            () => new RawTypeSpecification()
+            GetTypeSpecColumns(),
+            () => new RawTypeSpecification(),
+            false
             );
 
          yield return new MetaDataTableInformation<MethodImplementationMap, RawMethodImplementationMap>(
             Tables.ImplMap,
             Comparers.MethodImplementationMapEqualityComparer,
             Comparers.MethodImplementationMapComparer,
-            GetImplMapColumns(),
             () => new MethodImplementationMap(),
-            () => new RawMethodImplementationMap()
+            GetImplMapColumns(),
+            () => new RawMethodImplementationMap(),
+            true
             );
 
          yield return new MetaDataTableInformation<FieldRVA, RawFieldRVA>(
             Tables.FieldRVA,
             Comparers.FieldRVAEqualityComparer,
             Comparers.FieldRVAComparer,
-            GetFieldRVAColumns(),
             () => new FieldRVA(),
-            () => new RawFieldRVA()
+            GetFieldRVAColumns(),
+            () => new RawFieldRVA(),
+            true
             );
 
          yield return new MetaDataTableInformation<EditAndContinueLog, RawEditAndContinueLog>(
             Tables.EncLog,
             Comparers.EditAndContinueLogEqualityComparer,
             null,
-            GetENCLogColumns(),
             () => new EditAndContinueLog(),
-            () => new RawEditAndContinueLog()
+            GetENCLogColumns(),
+            () => new RawEditAndContinueLog(),
+            false
             );
 
          yield return new MetaDataTableInformation<EditAndContinueMap, RawEditAndContinueMap>(
             Tables.EncMap,
             Comparers.EditAndContinueMapEqualityComparer,
             null,
-            GetENCMapColumns(),
             () => new EditAndContinueMap(),
-            () => new RawEditAndContinueMap()
+            GetENCMapColumns(),
+            () => new RawEditAndContinueMap(),
+            false
             );
 
          yield return new MetaDataTableInformation<AssemblyDefinition, RawAssemblyDefinition>(
             Tables.Assembly,
             Comparers.AssemblyDefinitionEqualityComparer,
             null,
-            GetAssemblyDefColumns(),
             () => new AssemblyDefinition(),
-            () => new RawAssemblyDefinition()
+            GetAssemblyDefColumns(),
+            () => new RawAssemblyDefinition(),
+            false
             );
 
 #pragma warning disable 618
@@ -405,18 +465,20 @@ namespace CILAssemblyManipulator.Physical.Meta
             Tables.AssemblyProcessor,
             Comparers.AssemblyDefinitionProcessorEqualityComparer,
             null,
-            GetAssemblyDefProcessorColumns(),
             () => new AssemblyDefinitionProcessor(),
-            () => new RawAssemblyDefinitionProcessor()
+            GetAssemblyDefProcessorColumns(),
+            () => new RawAssemblyDefinitionProcessor(),
+            false
             );
 
          yield return new MetaDataTableInformation<AssemblyDefinitionOS, RawAssemblyDefinitionOS>(
             Tables.AssemblyOS,
             Comparers.AssemblyDefinitionOSEqualityComparer,
             null,
-            GetAssemblyDefOSColumns(),
             () => new AssemblyDefinitionOS(),
-            () => new RawAssemblyDefinitionOS()
+            GetAssemblyDefOSColumns(),
+            () => new RawAssemblyDefinitionOS(),
+            false
             );
 
 #pragma warning restore 618
@@ -425,9 +487,10 @@ namespace CILAssemblyManipulator.Physical.Meta
             Tables.AssemblyRef,
             Comparers.AssemblyReferenceEqualityComparer,
             null,
-            GetAssemblyRefColumns(),
             () => new AssemblyReference(),
-            () => new RawAssemblyReference()
+            GetAssemblyRefColumns(),
+            () => new RawAssemblyReference(),
+            false
             );
 
 #pragma warning disable 618
@@ -436,18 +499,20 @@ namespace CILAssemblyManipulator.Physical.Meta
             Tables.AssemblyRefProcessor,
             Comparers.AssemblyReferenceProcessorEqualityComparer,
             null,
-            GetAssemblyRefProcessorColumns(),
             () => new AssemblyReferenceProcessor(),
-            () => new RawAssemblyReferenceProcessor()
+            GetAssemblyRefProcessorColumns(),
+            () => new RawAssemblyReferenceProcessor(),
+            false
             );
 
          yield return new MetaDataTableInformation<AssemblyReferenceOS, RawAssemblyReferenceOS>(
             Tables.AssemblyRefOS,
             Comparers.AssemblyReferenceOSEqualityComparer,
             null,
-            GetAssemblyRefOSColumns(),
             () => new AssemblyReferenceOS(),
-            () => new RawAssemblyReferenceOS()
+            GetAssemblyRefOSColumns(),
+            () => new RawAssemblyReferenceOS(),
+            false
             );
 
 #pragma warning restore 618
@@ -456,63 +521,70 @@ namespace CILAssemblyManipulator.Physical.Meta
             Tables.File,
             Comparers.FileReferenceEqualityComparer,
             null,
-            GetFileColumns(),
             () => new FileReference(),
-            () => new RawFileReference()
+            GetFileColumns(),
+            () => new RawFileReference(),
+            false
             );
 
          yield return new MetaDataTableInformation<ExportedType, RawExportedType>(
             Tables.ExportedType,
             Comparers.ExportedTypeEqualityComparer,
             null,
-            GetExportedTypeColumns(),
             () => new ExportedType(),
-            () => new RawExportedType()
+            GetExportedTypeColumns(),
+            () => new RawExportedType(),
+            false
             );
 
          yield return new MetaDataTableInformation<ManifestResource, RawManifestResource>(
             Tables.ManifestResource,
             Comparers.ManifestResourceEqualityComparer,
             null,
-            GetManifestResourceColumns(),
             () => new ManifestResource(),
-            () => new RawManifestResource()
+            GetManifestResourceColumns(),
+            () => new RawManifestResource(),
+            false
             );
 
          yield return new MetaDataTableInformation<NestedClassDefinition, RawNestedClassDefinition>(
             Tables.NestedClass,
             Comparers.NestedClassDefinitionEqualityComparer,
             Comparers.NestedClassDefinitionComparer,
-            GetNestedClassColumns(),
             () => new NestedClassDefinition(),
-            () => new RawNestedClassDefinition()
+            GetNestedClassColumns(),
+            () => new RawNestedClassDefinition(),
+            true
             );
 
          yield return new MetaDataTableInformation<GenericParameterDefinition, RawGenericParameterDefinition>(
             Tables.GenericParameter,
             Comparers.GenericParameterDefinitionEqualityComparer,
             Comparers.GenericParameterDefinitionComparer,
-            GetGenericParamColumns(),
             () => new GenericParameterDefinition(),
-            () => new RawGenericParameterDefinition()
+            GetGenericParamColumns(),
+            () => new RawGenericParameterDefinition(),
+            true
             );
 
          yield return new MetaDataTableInformation<MethodSpecification, RawMethodSpecification>(
             Tables.MethodSpec,
             Comparers.MethodSpecificationEqualityComparer,
             null,
-            GetMethodSpecColumns(),
             () => new MethodSpecification(),
-            () => new RawMethodSpecification()
+            GetMethodSpecColumns(),
+            () => new RawMethodSpecification(),
+            false
             );
 
          yield return new MetaDataTableInformation<GenericParameterConstraintDefinition, RawGenericParameterConstraintDefinition>(
             Tables.GenericParameterConstraint,
             Comparers.GenericParameterConstraintDefinitionEqualityComparer,
             Comparers.GenericParameterConstraintDefinitionComparer,
-            GetGenericParamConstraintColumns(),
             () => new GenericParameterConstraintDefinition(),
-            () => new RawGenericParameterConstraintDefinition()
+            GetGenericParamConstraintColumns(),
+            () => new RawGenericParameterConstraintDefinition(),
+            true
             );
       }
 
@@ -878,7 +950,7 @@ namespace CILAssemblyManipulator.Physical.Meta
 
       public abstract Object CreateRowNotGeneric();
 
-      public abstract TableSerializationInfo CreateTableSerializationInfoNotGeneric();
+      public abstract TableSerializationInfo TableSerializationInfoNotGeneric { get; }
    }
 
    public abstract class MetaDataTableInformation<TRow> : MetaDataTableInformation
@@ -942,13 +1014,16 @@ namespace CILAssemblyManipulator.Physical.Meta
    {
       private readonly Func<TRawRow> _rawRowFactory;
 
+      private readonly Lazy<DefaultTableSerializationInfo<TRawRow, TRow>> _tableSerializationInfo;
+
       public MetaDataTableInformation(
          Tables tableKind,
          IEqualityComparer<TRow> equalityComparer,
          IComparer<TRow> comparer,
-         IEnumerable<MetaDataColumnInformation<TRow, TRawRow>> columns,
          Func<TRow> rowFactory,
-         Func<TRawRow> rawRowFactory
+         IEnumerable<MetaDataColumnInformation<TRow, TRawRow>> columns,
+         Func<TRawRow> rawRowFactory,
+         Boolean isSorted
          )
          : base( tableKind, equalityComparer, comparer, rowFactory )
       {
@@ -963,6 +1038,17 @@ namespace CILAssemblyManipulator.Physical.Meta
          {
             throw new ArgumentException( "Table must have at least one column." );
          }
+
+         this._tableSerializationInfo = new Lazy<DefaultTableSerializationInfo<TRawRow, TRow>>( () =>
+            new DefaultTableSerializationInfo<TRawRow, TRow>(
+               this.TableKind,
+               isSorted,
+               this.ColumnsInformationWithRawType.Select( c => c.DefaultColumnSerializationInfoWithRawType ),
+               this.RowFactory,
+               this._rawRowFactory
+               ),
+            System.Threading.LazyThreadSafetyMode.ExecutionAndPublication
+            );
       }
 
       public ArrayQuery<MetaDataColumnInformation<TRow, TRawRow>> ColumnsInformationWithRawType { get; }
@@ -980,19 +1066,20 @@ namespace CILAssemblyManipulator.Physical.Meta
          }
       }
 
-      public DefaultTableSerializationInfo<TRawRow, TRow> CreateTableSerializationInfo()
+      public DefaultTableSerializationInfo<TRawRow, TRow> TableSerializationInfo
       {
-         return new DefaultTableSerializationInfo<TRawRow, TRow>(
-            this.TableKind,
-            this.ColumnsInformationWithRawType.Select( c => c.DefaultColumnSerializationInfoWithRawType ),
-            this.RowFactory,
-            this._rawRowFactory
-            );
+         get
+         {
+            return this._tableSerializationInfo.Value;
+         }
       }
 
-      public override TableSerializationInfo CreateTableSerializationInfoNotGeneric()
+      public override TableSerializationInfo TableSerializationInfoNotGeneric
       {
-         return this.CreateTableSerializationInfo();
+         get
+         {
+            return this.TableSerializationInfo;
+         }
       }
    }
 

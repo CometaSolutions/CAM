@@ -166,6 +166,8 @@ namespace CILAssemblyManipulator.Physical.IO
    {
       MetaDataTableStreamHeader ReadHeader();
 
+      ArrayQuery<Int32> TableSizes { get; }
+
       RawValueStorage<Int32> PopulateMetaDataStructure(
          CILMetaData md,
          ReaderMetaDataStreamContainer mdStreamContainer
@@ -176,10 +178,6 @@ namespace CILAssemblyManipulator.Physical.IO
    public interface ReaderBLOBStreamHandler : AbstractReaderStreamHandler
    {
       Byte[] GetBLOB( Int32 heapIndex );
-
-      //StreamHelper GetBLOBAsStreamPortion( Int32 heapIndex );
-
-      //Int32 GetStreamOffset( Int32 heapIndex, out Int32 blobSize );
 
       AbstractSignature ReadNonTypeSignature( Int32 heapIndex, Boolean methodSigIsDefinition, Boolean handleFieldSigAsLocalsSig, out Boolean fieldSigTransformedToLocalsSig );
 
@@ -198,15 +196,11 @@ namespace CILAssemblyManipulator.Physical.IO
    public interface ReaderGUIDStreamHandler : AbstractReaderStreamHandler
    {
       Guid? GetGUID( Int32 heapIndex );
-
-      //Guid? GetGUIDNoCache( Int32 heapIndex );
    }
 
    public interface ReaderStringStreamHandler : AbstractReaderStreamHandler
    {
       String GetString( Int32 heapIndex );
-
-      //String GetStringNoCache( Int32 heapIndex );
    }
 }
 
@@ -223,7 +217,7 @@ public static partial class E_CILPhysical
 
       if ( tableInfoProvider == null )
       {
-         tableInfoProvider = new CILAssemblyManipulator.Physical.Meta.DefaultMetaDataTableInformationProvider();
+         tableInfoProvider = CILAssemblyManipulator.Physical.Meta.DefaultMetaDataTableInformationProvider.CreateDefault();
       }
 
       Stream newStream;
@@ -301,12 +295,14 @@ public static partial class E_CILPhysical
       var tblMDStream = mdStreams
          .OfType<ReaderTableStreamHandler>()
          .FirstOrDefault();
+
       if ( tblMDStream == null )
       {
          throw new BadImageFormatException( "No table stream exists." );
       }
+
       var tblHeader = tblMDStream.ReadHeader();
-      var md = CILMetaDataFactory.NewBlankMetaData( tblHeader.CreateTableSizesArray(), tableInfoProvider );
+      var md = CILMetaDataFactory.NewBlankMetaData( sizes: tblMDStream.TableSizes.ToArray(), tableInfoProvider: tableInfoProvider );
       var blobStream = mdStreams.OfType<ReaderBLOBStreamHandler>().FirstOrDefault();
       var guidStream = mdStreams.OfType<ReaderGUIDStreamHandler>().FirstOrDefault();
       var sysStringStream = mdStreams.OfType<ReaderStringStreamHandler>().FirstOrDefault( s => String.Equals( s.StreamName, MetaDataConstants.SYS_STRING_STREAM_NAME ) );

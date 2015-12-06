@@ -2022,7 +2022,6 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
 
    public class DefaultWriterTableStreamHandler : WriterTableStreamHandler
    {
-      private const Int64 SORTED_TABLES = 0x16003325FA00;
 
       private sealed class WriteDependantInfo
       {
@@ -2136,7 +2135,7 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
             CreateTableStreamFlags( mdStreams ),
             options.Reserved2 ?? 1,
             this.GetPresentTablesBitVector(),
-            SORTED_TABLES, // TODO customize this
+            this.GetSortedTablesBitVector(),
             this.TableSizes.Select( s => (UInt32) s ).ToArrayProxy().CQ,
             options.HeaderExtraData
             );
@@ -2270,6 +2269,21 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
          }
 
          return validBitvector;
+      }
+
+      private UInt64 GetSortedTablesBitVector()
+      {
+         var sortedBitvector = 0UL;
+         for ( var i = this.TableSerializations.Count - 1; i >= 0; --i )
+         {
+            sortedBitvector = sortedBitvector << 1;
+            if ( this.TableSerializations[i].IsSorted )
+            {
+               sortedBitvector |= 1;
+            }
+         }
+
+         return sortedBitvector;
       }
    }
 }

@@ -152,12 +152,8 @@ namespace CILAssemblyManipulator.Physical
 
    public static class CILMetaDataFactory
    {
-      public static CILMetaData NewBlankMetaData( Meta.MetaDataTableInformationProvider tableInfoProvider = null )
-      {
-         return NewBlankMetaData( null, null );
-      }
 
-      public static CILMetaData NewBlankMetaData( Int32[] sizes, Meta.MetaDataTableInformationProvider tableInfoProvider = null )
+      public static CILMetaData NewBlankMetaData( Int32[] sizes = null, Meta.MetaDataTableInformationProvider tableInfoProvider = null )
       {
          return new CILAssemblyManipulator.Physical.Implementation.CILMetadataImpl( tableInfoProvider, sizes );
       }
@@ -180,7 +176,7 @@ namespace CILAssemblyManipulator.Physical
 
       public static CILMetaData CreateMinimalModule( String moduleName, Boolean createModuleType = true, Meta.MetaDataTableInformationProvider tableInfoProvider = null )
       {
-         var md = CILMetaDataFactory.NewBlankMetaData( tableInfoProvider );
+         var md = CILMetaDataFactory.NewBlankMetaData( tableInfoProvider: tableInfoProvider );
 
          // Module definition
          md.ModuleDefinitions.TableContents.Add( new ModuleDefinition()
