@@ -140,10 +140,9 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
          )
       {
          var args = this.CreateRawValueProcessingArgs( stream, imageInfo, rvaConverter, mdStreamContainer, md ) ?? CreateDefaultRawValueProcessingArgs( stream, imageInfo, rvaConverter, mdStreamContainer, md );
-         var tableSerializations = this.TableSerializations;
          foreach ( var tableSerialization in this.TableSerializations )
          {
-            tableSerialization.ProcessRowForRawValues( args, rawValues );
+            tableSerialization?.ProcessRowForRawValues( args, rawValues );
          }
       }
 

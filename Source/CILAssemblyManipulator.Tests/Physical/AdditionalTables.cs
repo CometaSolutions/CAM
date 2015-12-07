@@ -1,8 +1,10 @@
 ﻿using CILAssemblyManipulator.Physical;
 using CILAssemblyManipulator.Physical.Meta;
+using CommonUtils;
 using NUnit.Framework;
 using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
 using System.Text;
 
@@ -39,14 +41,14 @@ namespace CILAssemblyManipulator.Tests.Physical
          var additionalTable = md.GetByTable( ADDITIONAL_TABLE );
          Assert.IsNotNull( additionalTable );
 
-         var additonalTableTyped = (MetaDataTable<MyAdditionalTableRow>) additionalTable;
-         additonalTableTyped.TableContents.Add( new MyAdditionalTableRow()
+         var additionalTableTyped = (MetaDataTable<MyAdditionalTableRow>) additionalTable;
+         additionalTableTyped.TableContents.Add( new MyAdditionalTableRow()
          {
             IntValue = 50,
             StringValue = "Testing"
          } );
 
-         var info = additonalTableTyped.TableInformation;
+         var info = additionalTableTyped.TableInformation;
          Assert.AreEqual( 2, info.ColumnsInformation.Count );
          Assert.AreEqual( MetaDataColumnInformationKind.FixedSizeConstant, info.ColumnsInformation[0].DataInformation.ColumnKind );
          Assert.AreEqual( MetaDataColumnInformationKind.HeapIndex, info.ColumnsInformation[1].DataInformation.ColumnKind );
@@ -55,6 +57,42 @@ namespace CILAssemblyManipulator.Tests.Physical
       [Test]
       public void TestAdditionalTablesSerialization()
       {
+         var md = CreateMDWithAdditionalTables();
+         var additionalTable = (MetaDataTable<MyAdditionalTableRow>) md.GetByTable( ADDITIONAL_TABLE );
+         additionalTable.TableContents.Add( new MyAdditionalTableRow()
+         {
+            IntValue = 50,
+            StringValue = "Testing"
+         } );
+
+         Byte[] serializedMD;
+         using ( var stream = new MemoryStream() )
+         {
+            md.WriteModule( stream );
+
+            serializedMD = stream.ToArray();
+         }
+
+         CILMetaData md2;
+         using ( var stream = new MemoryStream( serializedMD ) )
+         {
+            md2 = stream.ReadModule( new ReadingArguments()
+            {
+               TableInformationProvider = CreateTableProvider()
+            } );
+         }
+
+         var additionalTable2 = (MetaDataTable<MyAdditionalTableRow>) md2.GetByTable( ADDITIONAL_TABLE );
+
+         Assert.IsTrue( Comparers.MetaDataComparer.Equals( md, md2 ) );
+         Assert.IsTrue( ListEqualityComparer<List<MyAdditionalTableRow>, MyAdditionalTableRow>.ListEquality(
+            additionalTable.TableContents,
+            additionalTable2.TableContents,
+            MyAdditionalTableRowEquals
+            ) );
+
+         additionalTable2.TableContents.Clear();
+         Assert.IsFalse( Comparers.MetaDataComparer.Equals( md, md2 ) );
 
       }
 
@@ -64,8 +102,13 @@ namespace CILAssemblyManipulator.Tests.Physical
             "Test_Assembly",
             null,
             createModuleType: true,
-            tableInfoProvider: DefaultMetaDataTableInformationProvider.CreateWithAdditionalTables( CreateAdditionalTableInfo() )
+            tableInfoProvider: CreateTableProvider()
             );
+      }
+
+      private static DefaultMetaDataTableInformationProvider CreateTableProvider()
+      {
+         return DefaultMetaDataTableInformationProvider.CreateWithAdditionalTables( CreateAdditionalTableInfo() );
       }
 
 
@@ -117,17 +160,22 @@ namespace CILAssemblyManipulator.Tests.Physical
       {
          public Boolean Equals( MyAdditionalTableRow x, MyAdditionalTableRow y )
          {
-            return ReferenceEquals( x, y ) ||
-               ( x != null && y != null
-               && x.IntValue == y.IntValue
-               && x.StringValue == y.StringValue
-               );
+            return MyAdditionalTableRowEquals( x, y );
          }
 
          public Int32 GetHashCode( MyAdditionalTableRow obj )
          {
             return obj == null ? 0 : ( ( 17 * 23 + obj.IntValue ) * 23 + obj.StringValue.GetHashCode() );
          }
+      }
+
+      private static Boolean MyAdditionalTableRowEquals( MyAdditionalTableRow x, MyAdditionalTableRow y )
+      {
+         return ReferenceEquals( x, y ) ||
+            ( x != null && y != null
+            && x.IntValue == y.IntValue
+            && x.StringValue == y.StringValue
+            );
       }
    }
 }

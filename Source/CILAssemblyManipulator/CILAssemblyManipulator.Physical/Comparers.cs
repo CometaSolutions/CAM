@@ -1415,6 +1415,10 @@ namespace CILAssemblyManipulator.Physical
 
       private static Boolean Equality_MetaData( CILMetaData x, CILMetaData y )
       {
+         // TODO: Table infos actually use these comparers to perform equality & hash code operations
+         // Instead, this method should actually use the comparers of table infos
+         // Comparers of table infos should be the ones that are currently here.
+         // Alternatively, consider merging this class and DefaultMetaDataTableInformationProvider .
 #pragma warning disable 618
          return Object.ReferenceEquals( x, y ) ||
             ( x != null && y != null
@@ -1463,6 +1467,14 @@ namespace CILAssemblyManipulator.Physical
             && ListEqualityComparer<List<GenericParameterDefinition>, GenericParameterDefinition>.Equals( x.GenericParameterDefinitions.TableContents, y.GenericParameterDefinitions.TableContents, GenericParameterDefinitionEqualityComparer )
             && ListEqualityComparer<List<MethodSpecification>, MethodSpecification>.Equals( x.MethodSpecifications.TableContents, y.MethodSpecifications.TableContents, MethodSpecificationEqualityComparer )
             && ListEqualityComparer<List<GenericParameterConstraintDefinition>, GenericParameterConstraintDefinition>.Equals( x.GenericParameterConstraintDefinitions.TableContents, y.GenericParameterConstraintDefinitions.TableContents, GenericParameterConstraintDefinitionEqualityComparer )
+            && SequenceEqualityComparer<IEnumerable<MetaDataTable>, MetaDataTable>.SequenceEquality(
+               x.GetAdditionalTables(),
+               y.GetAdditionalTables(),
+               ( xa, ya ) => SequenceEqualityComparer<IEnumerable<Object>, Object>.SequenceEquality(
+                  xa.TableContentsAsEnumerable,
+                  ya.TableContentsAsEnumerable,
+                  xa.TableInformationNotGeneric.EqualityComparerNotGeneric.Equals
+               ) )
             );
 #pragma warning restore 618
       }

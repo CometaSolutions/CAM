@@ -478,10 +478,9 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
          WriterMetaDataStreamContainer mdStreamContainer
          )
       {
-         foreach ( var rawValueSection in this.TableSerializations.SelectMany( ser => ser.CreateRawValueSectionParts( this.MetaData, mdStreamContainer ) ) )
-         {
-            yield return rawValueSection;
-         }
+         return this.TableSerializations
+            .Where( ser => ser != null )
+            .SelectMany( ser => ser.CreateRawValueSectionParts( this.MetaData, mdStreamContainer ) );
       }
 
       protected void WritePart(
@@ -535,7 +534,9 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
          this._parts = new ArrayQuery<SectionPartWithRVAs>[tableSerializations.Count];
          foreach ( var func in tableSerializations )
          {
-            this._parts[i] = func.CreateRawValueSectionParts( md, mdStreamContainer ).ToArrayProxy().CQ;
+            this._parts[i] = func == null ?
+               EmptyArrayProxy<SectionPartWithRVAs>.Query :
+               func.CreateRawValueSectionParts( md, mdStreamContainer ).ToArrayProxy().CQ;
             ++i;
          }
       }
@@ -2044,9 +2045,9 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
             }
 
             this.HeapIndices = heapIndices;
-            this.Serialization = infos.Select( info => info.CreateSupport( creationArgs ) ).ToArrayProxy().CQ;
+            this.Serialization = infos.Select( info => info?.CreateSupport( creationArgs ) ).ToArrayProxy().CQ;
             this.HeaderSize = (UInt32) hdrSize;
-            this.ContentSize = tableSizes.Select( ( size, idx ) => (UInt32) size * (UInt32) this.Serialization[idx].ColumnSerializationSupports.Sum( c => c.ColumnByteCount ) ).Sum();
+            this.ContentSize = tableSizes.Select( ( size, idx ) => (UInt32) size * (UInt32) ( this.Serialization[idx]?.ColumnSerializationSupports?.Sum( c => c.ColumnByteCount ) ?? 0 ) ).Sum();
             var totalSize = ( this.HeaderSize + this.ContentSize ).RoundUpU32( 4 );
             this.PaddingSize = totalSize - this.HeaderSize - this.ContentSize;
             this.Header = header;
@@ -2120,10 +2121,10 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
          out MetaDataTableStreamHeader header
          )
       {
-         var retVal = new RawValueStorage<Int32>( this.TableSizes, this.TableSerializations.Select( info => info.HeapValueColumnCount ) );
+         var retVal = new RawValueStorage<Int32>( this.TableSizes, this.TableSerializations.Select( info => info?.HeapValueColumnCount ?? 0 ) );
          foreach ( var info in this.TableSerializations )
          {
-            info.ExtractTableHeapValues( this._md, retVal, mdStreams, array, thisAssemblyPublicKeyIfPresentNull );
+            info?.ExtractTableHeapValues( this._md, retVal, mdStreams, array, thisAssemblyPublicKeyIfPresentNull );
          }
 
          // Create table stream header
@@ -2184,7 +2185,10 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
          foreach ( var info in this.TableSerializations )
          {
             MetaDataTable table;
-            if ( this._md.TryGetByTable( info.Table, out table ) && table.RowCount > 0 )
+            if ( info != null
+               && this._md.TryGetByTable( info.Table, out table )
+               && table.RowCount > 0
+               )
             {
                var support = writeInfo.Serialization[(Int32) info.Table];
                var cols = support.ColumnSerializationSupports;
@@ -2278,7 +2282,7 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
       {
          var validBitvector = 0UL;
          var tableSizes = this.TableSizes;
-         for ( var i = this.TableSizes.Count - 1; i >= 0; --i )
+         for ( var i = tableSizes.Count - 1; i >= 0; --i )
          {
             validBitvector = validBitvector << 1;
             if ( tableSizes[i] > 0 )
@@ -2293,10 +2297,11 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
       private UInt64 GetSortedTablesBitVector()
       {
          var sortedBitvector = 0UL;
-         for ( var i = this.TableSerializations.Count - 1; i >= 0; --i )
+         var tableSerializations = this.TableSerializations;
+         for ( var i = tableSerializations.Count - 1; i >= 0; --i )
          {
             sortedBitvector = sortedBitvector << 1;
-            if ( this.TableSerializations[i].IsSorted )
+            if ( tableSerializations[i]?.IsSorted ?? false )
             {
                sortedBitvector |= 1;
             }

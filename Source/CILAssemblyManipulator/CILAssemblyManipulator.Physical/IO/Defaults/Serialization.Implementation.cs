@@ -615,7 +615,22 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
          IEnumerable<Meta.MetaDataTableInformation> tableInfos
          )
       {
-         return tableInfos.Select( info => info.TableSerializationInfoNotGeneric );
+         var tableInfoDic = tableInfos.ToDictionary_Overwrite(
+            info => (Int32) info.TableKind,
+            info => info.TableSerializationInfoNotGeneric
+            );
+         var curMax = 0;
+         foreach ( var kvp in tableInfoDic.OrderBy( kvp => kvp.Key ) )
+         {
+            var cur = kvp.Key;
+            while ( curMax < cur )
+            {
+               yield return null;
+               ++curMax;
+            }
+            yield return kvp.Value;
+            ++curMax;
+         }
       }
    }
 
