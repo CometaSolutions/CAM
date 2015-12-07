@@ -480,42 +480,37 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
          );
    }
 
-   public class ColumnSerializationSupportCreationArgs
+   public interface ColumnSerializationSupportCreationArgs
    {
-      private readonly Boolean _wideBLOBs;
-      private readonly Boolean _wideGUIDs;
-      private readonly Boolean _wideStrings;
+      ArrayQuery<Int32> TableSizes { get; }
 
-      public ColumnSerializationSupportCreationArgs(
+      Boolean IsWide( String heapName );
+   }
+
+   public class DefaultColumnSerializationSupportCreationArgs : ColumnSerializationSupportCreationArgs
+   {
+
+      public DefaultColumnSerializationSupportCreationArgs(
          ArrayQuery<Int32> tableSizes,
-         Boolean wideBLOBs,
-         Boolean wideGUIDs,
-         Boolean wideStrings
+         DictionaryQuery<String, Int32> streamSizes
          )
       {
          ArgumentValidator.ValidateNotNull( "Table sizes", tableSizes );
 
          this.TableSizes = tableSizes;
-         this._wideBLOBs = wideBLOBs;
-         this._wideGUIDs = wideGUIDs;
-         this._wideStrings = wideStrings;
+         this.StreamSizes = streamSizes;
       }
 
       public ArrayQuery<Int32> TableSizes { get; }
 
-      public Boolean IsWide( HeapIndexKind kind )
+      public DictionaryQuery<String, Int32> StreamSizes { get; }
+
+      public Boolean IsWide( String heapName )
       {
-         switch ( kind )
-         {
-            case HeapIndexKind.BLOB:
-               return this._wideBLOBs;
-            case HeapIndexKind.GUID:
-               return this._wideGUIDs;
-            case HeapIndexKind.String:
-               return this._wideStrings;
-            default:
-               throw new NotImplementedException( "TODO" );
-         }
+         Int32 streamSize;
+         return heapName != null
+            && this.StreamSizes.TryGetValue( heapName, out streamSize )
+            && ( (UInt32) streamSize ) > UInt16.MaxValue;
       }
 
    }
@@ -655,14 +650,6 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
 
       public RVAConverter RVAConverter { get; }
    }
-
-   public enum HeapIndexKind
-   {
-      BLOB,
-      GUID,
-      String
-   }
-
 
    public interface ColumnSerializationFunctionality
    {

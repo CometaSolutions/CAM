@@ -2031,7 +2031,8 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
             ArrayQuery<TableSerializationInfo> infos,
             WriterMetaDataStreamContainer mdStreams,
             RawValueStorage<Int32> heapIndices,
-            MetaDataTableStreamHeader header
+            MetaDataTableStreamHeader header,
+            ColumnSerializationSupportCreationArgs creationArgs
             )
          {
 
@@ -2043,8 +2044,7 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
             }
 
             this.HeapIndices = heapIndices;
-            var args = new ColumnSerializationSupportCreationArgs( tableSizes, mdStreams.BLOBs.IsWide(), mdStreams.GUIDs.IsWide(), mdStreams.SystemStrings.IsWide() );
-            this.Serialization = infos.Select( info => info.CreateSupport( args ) ).ToArrayProxy().CQ;
+            this.Serialization = infos.Select( info => info.CreateSupport( creationArgs ) ).ToArrayProxy().CQ;
             this.HeaderSize = (UInt32) hdrSize;
             this.ContentSize = tableSizes.Select( ( size, idx ) => (UInt32) size * (UInt32) this.Serialization[idx].ColumnSerializationSupports.Sum( c => c.ColumnByteCount ) ).Sum();
             var totalSize = ( this.HeaderSize + this.ContentSize ).RoundUpU32( 4 );
@@ -2140,9 +2140,28 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
             options.HeaderExtraData
             );
 
-         Interlocked.Exchange( ref this._writeDependantInfo, new WriteDependantInfo( this._writingData, this.TableSizes, this.TableSerializations, mdStreams, retVal, header ) );
+         Interlocked.Exchange( ref this._writeDependantInfo, new WriteDependantInfo( this._writingData, this.TableSizes, this.TableSerializations, mdStreams, retVal, header, this.CreateSerializationCreationArgs( mdStreams ) ) );
 
          return retVal;
+      }
+
+      protected virtual ColumnSerializationSupportCreationArgs CreateSerializationCreationArgs(
+         WriterMetaDataStreamContainer mdStreams
+         )
+      {
+         return new DefaultColumnSerializationSupportCreationArgs(
+            this.TableSizes,
+            this.CreateSerializationCreationArgsStreamDictionary( mdStreams ).ToDictionaryProxy().CQ
+            );
+      }
+
+      protected virtual IDictionary<String, Int32> CreateSerializationCreationArgsStreamDictionary(
+         WriterMetaDataStreamContainer mdStreams
+         )
+      {
+         return mdStreams
+            .GetAllStreams()
+            .ToDictionary_Preserve( s => s.StreamName, s => s.CurrentSize );
       }
 
       public void WriteStream(

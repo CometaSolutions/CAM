@@ -171,14 +171,14 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
 
       public DefaultColumnSerializationInfo(
          String columnName,
-         HeapIndexKind heapIndexKind,
+         String heapIndexName,
          RawRowColumnSetterDelegate<TRawRow> rawSetter,
          RowColumnSetterDelegate<TRow, Int32> setter,
          RowHeapColumnGetterDelegate<TRow> heapValueExtractor
          )
          : this(
               columnName,
-              args => args.IsWide( heapIndexKind ) ? ColumnSerializationSupport_Constant32.Instance : ColumnSerializationSupport_Constant16.Instance,
+              args => args.IsWide( heapIndexName ) ? ColumnSerializationSupport_Constant32.Instance : ColumnSerializationSupport_Constant16.Instance,
               rawSetter,
               setter,
               null,
@@ -406,7 +406,7 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
       {
          return HeapIndex<TRawRow, TRow>(
             columnName,
-            HeapIndexKind.BLOB,
+            MetaDataConstants.BLOB_STREAM_NAME,
             rawSetter,
             ( args, value ) => setter( args, value, args.RowArgs.MDStreamContainer.BLOBs ),
             ( args ) => args.RowArgs.MDStreamContainer.BLOBs.RegisterBLOB( blobCreator( args ) )
@@ -424,7 +424,7 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
       {
          return HeapIndex<TRawRow, TRow>(
             columnName,
-            HeapIndexKind.GUID,
+            MetaDataConstants.GUID_STREAM_NAME,
             rawSetter,
             ( args, value ) => setter( args, args.RowArgs.MDStreamContainer.GUIDs.GetGUID( value ) ),
             args => args.RowArgs.MDStreamContainer.GUIDs.RegisterGUID( getter( args.Row ) )
@@ -442,7 +442,7 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
       {
          return HeapIndex<TRawRow, TRow>(
             columnName,
-            HeapIndexKind.String,
+            MetaDataConstants.SYS_STRING_STREAM_NAME,
             rawSetter,
             ( args, value ) => setter( args, args.RowArgs.MDStreamContainer.SystemStrings.GetString( value ) ),
             args => args.RowArgs.MDStreamContainer.SystemStrings.RegisterString( getter( args.Row ) )
@@ -451,7 +451,7 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
 
       public static DefaultColumnSerializationInfo<TRawRow, TRow> HeapIndex<TRawRow, TRow>(
          String columnName,
-         HeapIndexKind heapKind,
+         String heapName,
          RawRowColumnSetterDelegate<TRawRow> rawSetter,
          RowColumnSetterDelegate<TRow, Int32> setter,
          RowHeapColumnGetterDelegate<TRow> heapValueExtractor
@@ -462,7 +462,7 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
 
          return new DefaultColumnSerializationInfo<TRawRow, TRow>(
             columnName,
-            heapKind,
+            heapName,
             rawSetter,
             ( args, value ) =>
             {

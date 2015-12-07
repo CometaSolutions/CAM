@@ -106,6 +106,7 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
 
       public virtual AbstractReaderStreamHandler CreateStreamHandler(
          StreamHelper stream,
+         MetaDataRoot mdRoot,
          Int64 startPosition,
          MetaDataStreamHeader header
          )
@@ -115,7 +116,7 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
          {
             case MetaDataConstants.TABLE_STREAM_NAME:
             case "#-":
-               return new DefaultReaderTableStreamHandler( stream, startPosition, size, header.Name, this.TableSerializations );
+               return new DefaultReaderTableStreamHandler( stream, startPosition, size, header.Name, this.TableSerializations, mdRoot );
             case MetaDataConstants.BLOB_STREAM_NAME:
                return new DefaultReaderBLOBStreamHandler( stream, startPosition, size );
             case MetaDataConstants.GUID_STREAM_NAME:
@@ -243,7 +244,21 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
          Int64 startPosition,
          Int32 streamSize,
          String tableStreamName,
-         ArrayQuery<TableSerializationInfo> tableSerializations
+         ArrayQuery<TableSerializationInfo> tableSerializations,
+         MetaDataRoot mdRoot
+         )
+         : this( stream, startPosition, streamSize, tableStreamName, tableSerializations, ( me, tableSizes ) => new DefaultColumnSerializationSupportCreationArgs( tableSizes, mdRoot.StreamHeaders.ToDictionary_Preserve( sh => sh.Name, sh => (Int32) sh.Size ).ToDictionaryProxy().CQ ) )
+      {
+
+      }
+
+      protected DefaultReaderTableStreamHandler(
+         StreamHelper stream,
+         Int64 startPosition,
+         Int32 streamSize,
+         String tableStreamName,
+         ArrayQuery<TableSerializationInfo> tableSerializations,
+         Func<DefaultReaderTableStreamHandler, ArrayQuery<Int32>, ColumnSerializationSupportCreationArgs> creationArgsFunc
          )
          : base( stream, startPosition, streamSize, tableStreamName )
       {
@@ -268,10 +283,10 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
 
 
          this.TableSerializationInfo = tableSerializations;
-         var supportArgs = new ColumnSerializationSupportCreationArgs( this.TableSizes, thFlags.IsWideBLOB(), thFlags.IsWideGUID(), thFlags.IsWideStrings() );
+         var creationArgs = creationArgsFunc( this, this.TableSizes );
          this.TableSerializationSupport =
             this.TableSerializationInfo
-            .Select( table => table?.CreateSupport( supportArgs ) )
+            .Select( table => table?.CreateSupport( creationArgs ) )
             .ToArrayProxy()
             .CQ;
 

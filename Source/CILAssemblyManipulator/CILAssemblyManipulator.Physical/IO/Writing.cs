@@ -836,4 +836,16 @@ public static partial class E_CILPhysical
    {
       stream.Position = stream.Position.RoundUpI64( dataAlignment ) + dataSize;
    }
+
+   public static IEnumerable<AbstractWriterStreamHandler> GetAllStreams( this WriterMetaDataStreamContainer mdStreams )
+   {
+      yield return mdStreams.SystemStrings;
+      yield return mdStreams.BLOBs;
+      yield return mdStreams.GUIDs;
+      yield return mdStreams.UserStrings;
+      foreach ( var os in mdStreams.OtherStreams )
+      {
+         yield return os;
+      }
+   }
 }
