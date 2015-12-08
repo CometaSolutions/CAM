@@ -51,10 +51,10 @@ namespace CILMerge
       private readonly String _fn;
       private readonly ISymUnmanagedWriter2 _unmanagedWriter;
       private readonly IDictionary<String, ISymUnmanagedDocumentWriter> _unmanagedDocs;
-      private readonly CILAssemblyManipulator.Physical.EmittingArguments _eArgs;
+      private readonly CILAssemblyManipulator.Physical.WritingArguments _eArgs;
       internal PDBHelper(
          CILAssemblyManipulator.Physical.CILMetaData module,
-         CILAssemblyManipulator.Physical.EmittingArguments eArgs,
+         CILAssemblyManipulator.Physical.WritingArguments eArgs,
          String outPath
          )
       {
@@ -547,11 +547,11 @@ namespace CILMerge
    internal class MDHelper : IMetaDataEmit, IMetaDataImport
    {
       private readonly CILAssemblyManipulator.Physical.CILMetaData _module;
-      private readonly CILAssemblyManipulator.Physical.EmittingArguments _eArgs;
+      private readonly CILAssemblyManipulator.Physical.WritingArguments _eArgs;
       private readonly IList<Int32> _methodDeclaringTypes;
       private readonly IDictionary<Int32, Int32> _typeEnclosingTypes;
 
-      internal MDHelper( CILAssemblyManipulator.Physical.CILMetaData module, CILAssemblyManipulator.Physical.EmittingArguments eArgs )
+      internal MDHelper( CILAssemblyManipulator.Physical.CILMetaData module, CILAssemblyManipulator.Physical.WritingArguments eArgs )
       {
          ArgumentValidator.ValidateNotNull( "Module", module );
          ArgumentValidator.ValidateNotNull( "Emitting arguments", eArgs );

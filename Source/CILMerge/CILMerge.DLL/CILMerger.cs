@@ -371,12 +371,12 @@ namespace CILMerge
    {
       private readonly InputModuleMergeResult[] _inputMergeResults;
       private readonly CILMetaData _targetModule;
-      private readonly EmittingArguments _emittingArguments;
+      private readonly WritingArguments _emittingArguments;
       private readonly PDBHelper _pdbHelper;
 
       internal CILModuleMergeResult(
          CILMetaData targetModule,
-         EmittingArguments emittingArguments,
+         WritingArguments emittingArguments,
          PDBHelper pdbHelper,
          IEnumerable<InputModuleMergeResult> inputMergeResults
          )
@@ -400,7 +400,7 @@ namespace CILMerge
          }
       }
 
-      public EmittingArguments EmittingArguments
+      public WritingArguments EmittingArguments
       {
          get
          {
@@ -608,7 +608,7 @@ namespace CILMerge
 
       internal CILModuleMergeResult MergeModules()
       {
-         EmittingArguments eArgs = null;
+         WritingArguments eArgs = null;
          Int32[][] reorderResult = null;
          PDBHelper pdbHelper = null;
          this._merger.DoWithStopWatch( "Merging modules and assemblies as a whole", () =>
@@ -966,7 +966,7 @@ namespace CILMerge
          return retVal;
       }
 
-      private CILAssemblyManipulator.Physical.EmittingArguments CreateEmittingArgumentsForTargetModule()
+      private CILAssemblyManipulator.Physical.WritingArguments CreateEmittingArgumentsForTargetModule()
       {
 
          // Prepare strong _name
@@ -992,7 +992,7 @@ namespace CILMerge
          var pEArgs = this._moduleLoader.GetReadingArgumentsForMetaData( this._primaryModule );
          var pHeaders = pEArgs.ImageInformation;
 
-         var eArgs = new CILAssemblyManipulator.Physical.EmittingArguments();
+         var eArgs = new CILAssemblyManipulator.Physical.WritingArguments();
          var eHeaders = pHeaders.CreateWritingOptions();
          eArgs.WritingOptions = eHeaders;
          eHeaders.DebugOptions.DebugData = null;
@@ -1017,7 +1017,7 @@ namespace CILMerge
          return eArgs;
       }
 
-      private void CreateTargetAssembly( CILAssemblyManipulator.Physical.EmittingArguments eArgs )
+      private void CreateTargetAssembly( CILAssemblyManipulator.Physical.WritingArguments eArgs )
       {
          var outPath = this._options.OutPath;
          var targetAssemblyName = this._options.TargetAssemblyName;
@@ -1324,7 +1324,7 @@ namespace CILMerge
 
       private void ConstructTablesUsedInSignaturesAndILTokens(
          IList<IList<Tuple<CILMetaData, Int32>>> targetTypeInfo,
-         EmittingArguments eArgs
+         WritingArguments eArgs
          )
       {
          // AssemblyRef (used by MemberRef table)

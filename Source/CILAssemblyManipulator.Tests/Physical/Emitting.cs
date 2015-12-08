@@ -84,7 +84,7 @@ namespace CILAssemblyManipulator.Tests.Physical
          CILMetaData md,
          //Action<Byte[]> arrayAction,
          Action<System.Reflection.Assembly> action,
-         EmittingArguments eArgs = null
+         WritingArguments eArgs = null
          )
       {
          Byte[] bytez;

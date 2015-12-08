@@ -125,7 +125,7 @@ namespace CILAssemblyManipulator.Physical
    /// <summary>
    /// Class containing information specific to writing the module.
    /// </summary>
-   public sealed class EmittingArguments : IOArguments
+   public sealed class WritingArguments : IOArguments
    {
 
       /// <summary>
@@ -205,11 +205,11 @@ namespace CILAssemblyManipulator.Physical
 
 public static partial class E_CILPhysical
 {
-   public static void WriteModule( this CILMetaData md, Stream stream, EmittingArguments eArgs = null )
+   public static void WriteModule( this CILMetaData md, Stream stream, WritingArguments eArgs = null )
    {
       if ( eArgs == null )
       {
-         eArgs = new EmittingArguments();
+         eArgs = new WritingArguments();
       }
 
       eArgs.ImageInformation = stream.WriteMetaDataToStream(
@@ -219,7 +219,7 @@ public static partial class E_CILPhysical
          eArgs.StrongName,
          eArgs.DelaySign,
          eArgs.CryptoCallbacks,
-         null
+         eArgs.SigningAlgorithm
          );
 
    }

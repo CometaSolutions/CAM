@@ -53,7 +53,7 @@ namespace CILAssemblyManipulator.Tests.Physical
          }
 
          Byte[] written;
-         EmittingArguments eArgs = new EmittingArguments() { WritingOptions = rArgs1.ImageInformation.CreateWritingOptions() };
+         WritingArguments eArgs = new WritingArguments() { WritingOptions = rArgs1.ImageInformation.CreateWritingOptions() };
          using ( var ms = new MemoryStream() )
          {
             read1.WriteModule( ms, eArgs );
