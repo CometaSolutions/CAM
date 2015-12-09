@@ -120,14 +120,19 @@ namespace CILAssemblyManipulator.Physical
    public sealed class FieldMarshal
    {
       public TableIndex Parent { get; set; }
-      public MarshalingInfo NativeType { get; set; }
+      public AbstractMarshalingInfo NativeType { get; set; }
    }
 
    public sealed class SecurityDefinition
    {
       private readonly List<AbstractSecurityInformation> _permissionSets;
 
-      public SecurityDefinition( Int32 permissionSetsCount = 0 )
+      public SecurityDefinition()
+         : this( 0 )
+      {
+      }
+
+      public SecurityDefinition( Int32 permissionSetsCount )
       {
          this._permissionSets = new List<AbstractSecurityInformation>( permissionSetsCount );
       }
@@ -403,6 +408,80 @@ namespace CILAssemblyManipulator.Physical
       public TableIndex Constraint { get; set; }
    }
 
+   public sealed class EditAndContinueLog
+   {
+      public Int32 Token { get; set; }
+      public Int32 FuncCode { get; set; }
+   }
+
+   public sealed class EditAndContinueMap
+   {
+      public Int32 Token { get; set; }
+   }
+
+   public sealed class FieldDefinitionPointer
+   {
+      public TableIndex FieldIndex { get; set; }
+   }
+
+   public sealed class MethodDefinitionPointer
+   {
+      public TableIndex MethodIndex { get; set; }
+   }
+
+   public sealed class ParameterDefinitionPointer
+   {
+      public TableIndex ParameterIndex { get; set; }
+   }
+
+   public sealed class EventDefinitionPointer
+   {
+      public TableIndex EventIndex { get; set; }
+   }
+
+   public sealed class PropertyDefinitionPointer
+   {
+      public TableIndex PropertyIndex { get; set; }
+   }
+
+   [Obsolete( "Rows of these type should no longer be present in CIL meta data file.", false )]
+   public sealed class AssemblyDefinitionProcessor
+   {
+      public Int32 Processor { get; set; }
+   }
+
+   [Obsolete( "Rows of these type should no longer be present in CIL meta data file.", false )]
+   public sealed class AssemblyDefinitionOS
+   {
+      public Int32 OSPlatformID { get; set; }
+
+      public Int32 OSMajorVersion { get; set; }
+
+      public Int32 OSMinorVersion { get; set; }
+   }
+
+   [Obsolete( "Rows of these type should no longer be present in CIL meta data file.", false )]
+   public sealed class AssemblyReferenceProcessor
+   {
+      public Int32 Processor { get; set; }
+
+      public TableIndex AssemblyRef { get; set; }
+   }
+
+   [Obsolete( "Rows of these type should no longer be present in CIL meta data file.", false )]
+   public sealed class AssemblyReferenceOS
+   {
+      public Int32 OSPlatformID { get; set; }
+
+      public Int32 OSMajorVersion { get; set; }
+
+      public Int32 OSMinorVersion { get; set; }
+
+      public TableIndex AssemblyRef { get; set; }
+
+   }
+
+
    public struct TableIndex : IEquatable<TableIndex>, IComparable<TableIndex>, IComparable
    {
       private const Int32 INDEX_MASK = 0x00FFFFF;
@@ -570,30 +649,31 @@ namespace CILAssemblyManipulator.Physical
 
 
 
-      internal static Int32 DecodeTypeDefOrRefOrSpec( Byte[] array, ref Int32 offset )
+      internal static Int32 DecodeTypeDefOrRefOrSpec( Byte[] array, ref Int32 idx )
       {
-         var decodedValue = array.DecompressUInt32( ref offset );
-         switch ( decodedValue & TDRS_TABLE_EXTRACT_MASK )
+         var token = array.DecompressUInt32( ref idx );
+         switch ( token & TDRS_TABLE_EXTRACT_MASK )
          {
             case TYPE_DEF:
-               decodedValue = TYPE_DEF_MASK | ( decodedValue >> 2 );
+               token = TYPE_DEF_MASK | ( token >> 2 );
                break;
             case TYPE_REF:
-               decodedValue = TYPE_REF_MASK | ( decodedValue >> 2 );
+               token = TYPE_REF_MASK | ( token >> 2 );
                break;
             case TYPE_SPEC:
-               decodedValue = TYPE_SPEC_MASK | ( decodedValue >> 2 );
+               token = TYPE_SPEC_MASK | ( token >> 2 );
                break;
             default:
-               throw new ArgumentException( "Token table resolved to not supported: " + (Tables) ( decodedValue & TDRS_TABLE_EXTRACT_MASK ) + "." );
+               throw new InvalidOperationException( "Invalid TDRS token: " + token );
          }
-         return decodedValue;
+
+         return token;
       }
 
       internal static Int32 EncodeTypeDefOrRefOrSpec( Int32 token )
       {
          Int32 encodedValue;
-         switch ( unchecked( (UInt32) token ) >> 24 )
+         switch ( unchecked((UInt32) token) >> 24 )
          {
             case (UInt32) Tables.TypeDef:
                encodedValue = ( ( INDEX_MASK & token ) << 2 ) | TYPE_DEF;
@@ -874,7 +954,7 @@ public static partial class E_CILPhysical
 
    public static Boolean IsEmbeddedResource( this ManifestResource resource )
    {
-      return !resource.Implementation.HasValue;
+      return resource != null && !resource.Implementation.HasValue;
    }
 
    public static AssemblyReference AsAssemblyReference( this AssemblyDefinition definition )
@@ -889,4 +969,67 @@ public static partial class E_CILPhysical
       return retVal;
 
    }
+
+   public static Boolean IsTinyILHeader( this CILMetaData md, Int32 methodDefIndex )
+   {
+      Int32 ilCodeByteCount; Boolean hasAnyExceptions, allAreSmall;
+      return md.IsTinyILHeader( methodDefIndex, out ilCodeByteCount, out hasAnyExceptions, out allAreSmall );
+   }
+
+   public static Boolean IsTinyILHeader( this CILMetaData md, Int32 methodDefIndex, out Int32 ilCodeByteCount )
+   {
+      Boolean hasAnyExceptions, allAreSmall;
+      return md.IsTinyILHeader( methodDefIndex, out ilCodeByteCount, out hasAnyExceptions, out allAreSmall );
+   }
+
+   internal static Boolean IsTinyILHeader( this CILMetaData md, Int32 methodDefIndex, out Int32 ilCodeByteCount, out Boolean hasAnyExceptions, out Boolean allAreSmall )
+   {
+      var il = md?.MethodDefinitions?.GetOrNull( methodDefIndex )?.IL;
+      Boolean retVal;
+      if ( il != null )
+      {
+         ilCodeByteCount = il.OpCodes.Sum( oci => oci.GetTotalByteCount() );
+
+         var lIdx = il.LocalsSignatureIndex;
+         var localSig = lIdx.HasValue && lIdx.Value.Table == Tables.StandaloneSignature ?
+            md.StandaloneSignatures.GetOrNull( lIdx.Value.Index )?.Signature as LocalVariablesSignature :
+            null;
+
+
+         // Then calculate the size of headers and other stuff
+         var exceptionBlocks = il.ExceptionBlocks;
+         // PEVerify doesn't like mixed small and fat blocks at all (however, at least Cecil understands that kind of situation)
+         // Apparently, PEVerify doesn't like multiple small blocks either (Cecil still loads code fine)
+         // So to use small exception blocks at all, all the blocks must be small, and there must be a limited amount of them
+         allAreSmall = exceptionBlocks.Count <= CILAssemblyManipulator.Physical.IO.Defaults.SectionPart_MethodIL.MAX_SMALL_EXC_HANDLERS_IN_ONE_SECTION
+            && exceptionBlocks.All( excBlock =>
+            {
+               return excBlock.TryLength <= Byte.MaxValue
+                  && excBlock.HandlerLength <= Byte.MaxValue
+                  && excBlock.TryOffset <= UInt16.MaxValue
+                  && excBlock.HandlerOffset <= UInt16.MaxValue;
+            } );
+
+         var maxStack = il.MaxStackSize;
+
+         var excCount = exceptionBlocks.Count;
+         hasAnyExceptions = excCount > 0;
+         retVal = ilCodeByteCount < 64
+            && !hasAnyExceptions
+            && maxStack <= 8
+            && ( localSig == null || localSig.Locals.Count == 0 );
+
+      }
+      else
+      {
+         ilCodeByteCount = 0;
+         hasAnyExceptions = false;
+         allAreSmall = false;
+         retVal = false;
+      }
+
+      return retVal;
+   }
+
+
 }

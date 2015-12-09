@@ -926,9 +926,9 @@ namespace CILAssemblyManipulator.Logical.Implementation
                new SettableValueForClasses<String>( null ),
                () => cache.ResolveMethodBaseID( methodID ),
                () => type.Module.AssociatedMSCorLibModule.GetTypeByName( Consts.INT32 ),
-               new SettableLazy<Object>( () => null, lazyThreadSafety ),
+               LazyFactory.NewWriteableLazy<Object>( () => null, lazyThreadSafety ),
                new Lazy<ListProxy<CILCustomModifier>>( () => cache._ctx.CollectionsFactory.NewListProxy<CILCustomModifier>(), lazyThreadSafety ),
-               new SettableLazy<LogicalMarshalingInfo>( () => null, lazyThreadSafety )
+               LazyFactory.NewWriteableLazy<LogicalMarshalingInfo>( () => null, lazyThreadSafety )
                )
             );
             Func<Int32, Int32, Boolean, CILParameter> valueParamFunc = ( methodID, pIdx, makeRef ) => cache._paramContainer.AcquireNew( pID => new CILParameterImpl(
@@ -948,9 +948,9 @@ namespace CILAssemblyManipulator.Logical.Implementation
                      }
                      return tR;
                   },
-                  new SettableLazy<Object>( () => null, lazyThreadSafety ),
+                  LazyFactory.NewWriteableLazy<Object>( () => null, lazyThreadSafety ),
                   new Lazy<ListProxy<CILCustomModifier>>( () => cache._ctx.CollectionsFactory.NewListProxy<CILCustomModifier>(), lazyThreadSafety ),
-                  new SettableLazy<LogicalMarshalingInfo>( () => null, lazyThreadSafety )
+                  LazyFactory.NewWriteableLazy<LogicalMarshalingInfo>( () => null, lazyThreadSafety )
                   )
             );
 
@@ -965,7 +965,7 @@ namespace CILAssemblyManipulator.Logical.Implementation
                   () => cache._ctx.CollectionsFactory.NewListProxy<CILParameter>( Enumerable.Range( 0, dimSize + 1 )
                      .Select( pIdx => pIdx < dimSize ? intParamFunc( curMID, pIdx ) : valueParamFunc( curMID, pIdx, false ) )
                      .ToList() ),
-                  new SettableLazy<MethodImplAttributes>( () => MethodImplAttributes.IL, lazyThreadSafety ),
+                  LazyFactory.NewWriteableLazy( () => MethodImplAttributes.IL, lazyThreadSafety ),
                   null,
                   new SettableValueForClasses<String>( "Set" ),
                   () => cache._paramContainer.AcquireNew( pID => new CILParameterImpl(
@@ -977,9 +977,9 @@ namespace CILAssemblyManipulator.Logical.Implementation
                         new SettableValueForClasses<String>( null ),
                         () => cache.ResolveMethodBaseID( curMID ),
                         () => type.Module.AssociatedMSCorLibModule.GetTypeByName( Consts.VOID ),
-                        new SettableLazy<Object>( () => null, lazyThreadSafety ),
+                        LazyFactory.NewWriteableLazy<Object>( () => null, lazyThreadSafety ),
                         new Lazy<ListProxy<CILCustomModifier>>( () => cache._ctx.CollectionsFactory.NewListProxy<CILCustomModifier>(), lazyThreadSafety ),
-                        new SettableLazy<LogicalMarshalingInfo>( () => null, lazyThreadSafety )
+                        LazyFactory.NewWriteableLazy<LogicalMarshalingInfo>( () => null, lazyThreadSafety )
                         )
                   ),
                   () => cache._ctx.CollectionsFactory.NewListProxy<CILTypeBase>(),
@@ -994,7 +994,7 @@ namespace CILAssemblyManipulator.Logical.Implementation
                   new SettableValueForEnums<MethodAttributes>( MethodAttributes.FamANDAssem | MethodAttributes.Family ),
                   () => (CILType) cache.ResolveTypeID( elementTypeID ),
                   () => cache._ctx.CollectionsFactory.NewListProxy<CILParameter>( Enumerable.Range( 0, dimSize ).Select( pIdx => intParamFunc( curMID, pIdx ) ).ToList() ),
-                  new SettableLazy<MethodImplAttributes>( () => MethodImplAttributes.IL, lazyThreadSafety ),
+                  LazyFactory.NewWriteableLazy( () => MethodImplAttributes.IL, lazyThreadSafety ),
                   null,
                   new SettableValueForClasses<String>( "Address" ),
                   () => valueParamFunc( curMID, E_CILLogical.RETURN_PARAMETER_POSITION, true ),
@@ -1011,7 +1011,7 @@ namespace CILAssemblyManipulator.Logical.Implementation
                   new SettableValueForEnums<MethodAttributes>( MethodAttributes.FamANDAssem | MethodAttributes.Family ),
                   () => (CILType) cache.ResolveTypeID( elementTypeID ),
                   () => cache._ctx.CollectionsFactory.NewListProxy<CILParameter>( Enumerable.Range( 0, dimSize ).Select( pIdx => intParamFunc( curMID, pIdx ) ).ToList() ),
-                  new SettableLazy<MethodImplAttributes>( () => MethodImplAttributes.IL, lazyThreadSafety ),
+                  LazyFactory.NewWriteableLazy( () => MethodImplAttributes.IL, lazyThreadSafety ),
                   null,
                   new SettableValueForClasses<String>( "Get" ),
                   () => valueParamFunc( curMID, E_CILLogical.RETURN_PARAMETER_POSITION, false ),
@@ -1036,9 +1036,9 @@ namespace CILAssemblyManipulator.Logical.Implementation
                new SettableValueForClasses<String>( null ),
                () => cache.ResolveMethodBaseID( methodID ),
                () => type.Module.AssociatedMSCorLibModule.GetTypeByName( Consts.INT32 ),
-               new SettableLazy<Object>( () => null, lazyThreadSafety ),
+               LazyFactory.NewWriteableLazy<Object>( () => null, lazyThreadSafety ),
                new Lazy<ListProxy<CILCustomModifier>>( () => cache._ctx.CollectionsFactory.NewListProxy<CILCustomModifier>(), lazyThreadSafety ),
-               new SettableLazy<LogicalMarshalingInfo>( () => null, lazyThreadSafety )
+               LazyFactory.NewWriteableLazy<LogicalMarshalingInfo>( () => null, lazyThreadSafety )
                )
             );
 
@@ -1094,7 +1094,7 @@ namespace CILAssemblyManipulator.Logical.Implementation
                      () => (CILType) cache.ResolveTypeID( elementTypeID ),
                      () => cache._ctx.CollectionsFactory.NewListProxy<CILParameter>( Enumerable.Range( 0, amountOfParams * curParamFactor ).Select( pIdx => intParamFunc( ctorID, pIdx ) ).ToList() ),
                      null,
-                     new SettableLazy<MethodImplAttributes>( () => MethodImplAttributes.IL, lazyThreadSafety ),
+                     LazyFactory.NewWriteableLazy( () => MethodImplAttributes.IL, lazyThreadSafety ),
                      null,
                      false
                   )
@@ -1824,7 +1824,7 @@ namespace CILAssemblyManipulator.Logical.Implementation
                () => this._ctx.CollectionsFactory.NewListProxy<CILConstructor>( callbacks.GetElementTypeConstructors( args ).ToList() ),
                () => this._ctx.CollectionsFactory.NewListProxy<CILProperty>( callbacks.GetElementTypeProperties( args ).ToList() ),
                () => this._ctx.CollectionsFactory.NewListProxy<CILEvent>( callbacks.GetElementTypeEvents( args ).ToList() ),
-               new SettableLazy<LogicalClassLayout?>( () => null, lazyThreadSafety ),
+               LazyFactory.NewWriteableLazy<LogicalClassLayout?>( () => null, lazyThreadSafety ),
                null,
                null
             );

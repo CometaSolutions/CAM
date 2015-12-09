@@ -30,13 +30,13 @@ namespace CILAssemblyManipulator.Logical.Implementation
 
       private readonly SettableValueForEnums<FieldAttributes> fieldAttributes;
       private readonly SettableValueForClasses<String> name;
-      private readonly SettableLazy<Object> constValue;
+      private readonly WriteableLazy<Object> constValue;
       private readonly Lazy<CILType> declaringType;
-      private readonly ResettableLazy<CILTypeBase> fieldType;
+      private readonly IResettableLazy<CILTypeBase> fieldType;
       private readonly SettableValueForClasses<Byte[]> initialValue;
       private readonly Lazy<ListProxy<CILCustomModifier>> customModifiers;
-      private readonly SettableLazy<Int32> fieldOffset;
-      private readonly SettableLazy<LogicalMarshalingInfo> marshalInfo;
+      private readonly WriteableLazy<Int32> fieldOffset;
+      private readonly WriteableLazy<LogicalMarshalingInfo> marshalInfo;
 
       internal CILFieldImpl(
          CILReflectionContextImpl ctx,
@@ -79,15 +79,15 @@ namespace CILAssemblyManipulator.Logical.Implementation
             new SettableValueForClasses<String>( field.Name ),
             () => (CILType) ctx.Cache.GetOrAdd( field.DeclaringType ),
             () => ctx.Cache.GetOrAdd( field.FieldType ),
-            new SettableLazy<Object>( () => ctx.WrapperCallbacks.GetConstantValueForOrThrow( field ), ctx.LazyThreadSafetyMode ),
+            LazyFactory.NewWriteableLazy( () => ctx.WrapperCallbacks.GetConstantValueForOrThrow( field ), ctx.LazyThreadSafetyMode ),
             new SettableValueForClasses<Byte[]>( rvaValue ),
             ctx.LaunchEventAndCreateCustomModifiers( field, E_CILLogical.GetCustomModifiersForOrThrow ),
-            new SettableLazy<Int32>( () =>
+            LazyFactory.NewWriteableLazy<Int32>( () =>
             {
                var offset = field.GetCustomAttributes( true ).OfType<System.Runtime.InteropServices.FieldOffsetAttribute>().FirstOrDefault();
                return offset == null ? -1 : offset.Value;
             }, ctx.LazyThreadSafetyMode ),
-            new SettableLazy<LogicalMarshalingInfo>( () =>
+            LazyFactory.NewWriteableLazy<LogicalMarshalingInfo>( () =>
             {
 #if CAM_LOGICAL_IS_SL
                throw new NotImplementedException( "Not yet implemented in this platform." );
@@ -115,11 +115,11 @@ namespace CILAssemblyManipulator.Logical.Implementation
          new SettableValueForClasses<String>( name ),
          () => declaringType,
          () => fieldType,
-         new SettableLazy<Object>( () => null, ctx.LazyThreadSafetyMode ),
+         LazyFactory.NewWriteableLazy<Object>( () => null, ctx.LazyThreadSafetyMode ),
          new SettableValueForClasses<Byte[]>( null ),
          new Lazy<ListProxy<CILCustomModifier>>( () => ctx.CollectionsFactory.NewListProxy<CILCustomModifier>(), ctx.LazyThreadSafetyMode ),
-         new SettableLazy<Int32>( () => NO_OFFSET, ctx.LazyThreadSafetyMode ),
-         new SettableLazy<LogicalMarshalingInfo>( () => null, ctx.LazyThreadSafetyMode ),
+         LazyFactory.NewWriteableLazy( () => NO_OFFSET, ctx.LazyThreadSafetyMode ),
+         LazyFactory.NewWriteableLazy<LogicalMarshalingInfo>( () => null, ctx.LazyThreadSafetyMode ),
          true
          )
       {
@@ -134,11 +134,11 @@ namespace CILAssemblyManipulator.Logical.Implementation
          SettableValueForClasses<String> aName,
          Func<CILType> declaringTypeFunc,
          Func<CILTypeBase> fieldTypeFunc,
-         SettableLazy<Object> aConstValue,
+         WriteableLazy<Object> aConstValue,
          SettableValueForClasses<Byte[]> anInitialValue,
          Lazy<ListProxy<CILCustomModifier>> customModsFunc,
-         SettableLazy<Int32> aFieldOffset,
-         SettableLazy<LogicalMarshalingInfo> marshalInfoVal,
+         WriteableLazy<Int32> aFieldOffset,
+         WriteableLazy<LogicalMarshalingInfo> marshalInfoVal,
          Boolean resettablesAreSettable = false
          )
          : base( ctx, CILElementKind.Field, anID, cAttrDataFunc )
@@ -172,21 +172,21 @@ namespace CILAssemblyManipulator.Logical.Implementation
          ref SettableValueForEnums<FieldAttributes> attributes,
          ref SettableValueForClasses<String> name,
          ref Lazy<CILType> declaringType,
-         ref ResettableLazy<CILTypeBase> fieldType,
-         ref SettableLazy<Object> constValue,
+         ref IResettableLazy<CILTypeBase> fieldType,
+         ref WriteableLazy<Object> constValue,
          ref SettableValueForClasses<Byte[]> initialValue,
          ref Lazy<ListProxy<CILCustomModifier>> customModifiers,
-         ref SettableLazy<Int32> fieldOffset,
-         ref SettableLazy<LogicalMarshalingInfo> marshalInfo,
+         ref WriteableLazy<Int32> fieldOffset,
+         ref WriteableLazy<LogicalMarshalingInfo> marshalInfo,
          SettableValueForEnums<FieldAttributes> fAttributes,
          SettableValueForClasses<String> aName,
          Func<CILType> declaringTypeFunc,
          Func<CILTypeBase> fieldTypeFunc,
-         SettableLazy<Object> aConstValue,
+         WriteableLazy<Object> aConstValue,
          SettableValueForClasses<Byte[]> anInitialValue,
          Lazy<ListProxy<CILCustomModifier>> customModifiersFunc,
-         SettableLazy<Int32> aFieldOffset,
-         SettableLazy<LogicalMarshalingInfo> marshalInfoVal,
+         WriteableLazy<Int32> aFieldOffset,
+         WriteableLazy<LogicalMarshalingInfo> marshalInfoVal,
          Boolean resettablesAreSettable
          )
       {
@@ -194,7 +194,7 @@ namespace CILAssemblyManipulator.Logical.Implementation
          attributes = fAttributes;
          name = aName;
          declaringType = new Lazy<CILType>( declaringTypeFunc, lazyThreadSafety );
-         fieldType = resettablesAreSettable ? new ResettableAndSettableLazy<CILTypeBase>( fieldTypeFunc, lazyThreadSafety ) : new ResettableLazy<CILTypeBase>( fieldTypeFunc, lazyThreadSafety );
+         fieldType = LazyFactory.NewResettableLazy( resettablesAreSettable, fieldTypeFunc, lazyThreadSafety );
          constValue = aConstValue;
          initialValue = anInitialValue;
          customModifiers = customModifiersFunc;
@@ -225,9 +225,9 @@ namespace CILAssemblyManipulator.Logical.Implementation
       {
          set
          {
-            this.ThrowIfNotCapableOfChanging();
+            var lazy = this.ThrowIfNotCapableOfChanging( this.fieldType );
             LogicalUtils.CheckTypeForMethodSig( this.declaringType.Value.Module, ref value );
-            this.fieldType.Value = value;
+            lazy.Value = value;
             this.context.Cache.ForAllGenericInstancesOf( this, field => field.ResetFieldType() );
          }
          get
@@ -345,7 +345,7 @@ namespace CILAssemblyManipulator.Logical.Implementation
          }
       }
 
-      SettableLazy<Int32> CILFieldInternal.FieldOffsetInternal
+      WriteableLazy<Int32> CILFieldInternal.FieldOffsetInternal
       {
          get
          {
@@ -358,7 +358,7 @@ namespace CILAssemblyManipulator.Logical.Implementation
          this.fieldType.Reset();
       }
 
-      SettableLazy<LogicalMarshalingInfo> CILElementWithMarshalInfoInternal.MarshalingInfoInternal
+      WriteableLazy<LogicalMarshalingInfo> CILElementWithMarshalInfoInternal.MarshalingInfoInternal
       {
          get
          {
@@ -402,7 +402,7 @@ namespace CILAssemblyManipulator.Logical.Implementation
 
       #region CILElementWithConstantValueInternal Members
 
-      SettableLazy<Object> CILElementWithConstantValueInternal.ConstantValueInternal
+      WriteableLazy<Object> CILElementWithConstantValueInternal.ConstantValueInternal
       {
          get
          {

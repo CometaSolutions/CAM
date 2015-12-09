@@ -80,9 +80,9 @@
   <!-- Merge target assembly using the task itself -->
   <UsingTask TaskName="CILMerge.MSBuild.CILMergeTask" AssemblyFile="$(IntermediateOutputPath)$(AssemblyName).dll" />
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
-  <Import Project="../../../CommonBuildTools/CLR/MSBuild/TargetFramework.targets" />
+
   <PropertyGroup>
-    <KeyFilePath>$(MSBuildProjectDirectory)..\..\..\Keys\CILMerge.snk</KeyFilePath>
+    <KeyFilePath>$(MSBuildProjectDirectory)\..\..\..\Keys\CILMerge.snk</KeyFilePath>
   </PropertyGroup>
   <!-- Copying dependencies: http://blog.alexyakunin.com/2009/09/making-msbuild-visual-studio-to.html -->
   <Target Condition="'$(Configuration)' != 'Debug'" Name="AfterBuild">

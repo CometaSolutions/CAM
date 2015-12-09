@@ -173,8 +173,12 @@ namespace CILAssemblyManipulator.Physical
 
    public class CILMetaDataLoaderNotThreadSafeForFiles : CILMetaDataLoaderNotThreadSafe
    {
-      public CILMetaDataLoaderNotThreadSafeForFiles( CryptoCallbacks crypto = null, CILMetaDataLoaderResourceCallbacksForFiles callbacks = null )
-         : base( crypto ?? new CryptoCallbacksDotNET(), callbacks ?? new CILMetaDataLoaderResourceCallbacksForFiles() )
+      public CILMetaDataLoaderNotThreadSafeForFiles(
+         CryptoCallbacks crypto = null,
+         Func<ReadingArguments> readingArgsFactory = null,
+         CILMetaDataLoaderResourceCallbacksForFiles callbacks = null
+         )
+         : base( crypto ?? new CryptoCallbacksDotNET(), readingArgsFactory, callbacks ?? new CILMetaDataLoaderResourceCallbacksForFiles() )
       {
 
       }
@@ -182,13 +186,17 @@ namespace CILAssemblyManipulator.Physical
 
    public class CILMetaDataLoaderThreadSafeSimpleForFiles : CILMetaDataLoaderThreadSafeSimple
    {
-      public CILMetaDataLoaderThreadSafeSimpleForFiles( CryptoCallbacks crypto = null, CILMetaDataLoaderResourceCallbacksForFiles callbacks = null )
-         : base( crypto ?? new CryptoCallbacksDotNET(), callbacks ?? new CILMetaDataLoaderResourceCallbacksForFiles() )
+      public CILMetaDataLoaderThreadSafeSimpleForFiles(
+         CryptoCallbacks crypto = null,
+         Func<ReadingArguments> readingArgsFactory = null,
+         CILMetaDataLoaderResourceCallbacksForFiles callbacks = null
+         )
+         : base( crypto ?? new CryptoCallbacksDotNET(), readingArgsFactory, callbacks ?? new CILMetaDataLoaderResourceCallbacksForFiles() )
       {
 
       }
 
-      protected override Boolean IsThreadSafe
+      protected override Boolean IsSupportingConcurrency
       {
          get
          {
@@ -199,8 +207,12 @@ namespace CILAssemblyManipulator.Physical
 
    public class CILMetaDataLoaderThreadSafeConcurrent : CILMetaDataLoaderWithCallbacks<ConcurrentDictionary<String, CILMetaData>>
    {
-      public CILMetaDataLoaderThreadSafeConcurrent( CryptoCallbacks crypto, CILMetaDataLoaderResourceCallbacks callbacks )
-         : base( new ConcurrentDictionary<String, CILMetaData>(), crypto, callbacks )
+      public CILMetaDataLoaderThreadSafeConcurrent(
+         CryptoCallbacks crypto,
+         Func<ReadingArguments> readingArgsFactory,
+         CILMetaDataLoaderResourceCallbacks callbacks
+         )
+         : base( new ConcurrentDictionary<String, CILMetaData>(), crypto, readingArgsFactory, callbacks )
       {
 
       }
@@ -210,7 +222,7 @@ namespace CILAssemblyManipulator.Physical
          return this.Dictionary.GetOrAdd( resource, factory );
       }
 
-      protected override Boolean IsThreadSafe
+      protected override Boolean IsSupportingConcurrency
       {
          get
          {
@@ -230,8 +242,12 @@ namespace CILAssemblyManipulator.Physical
 
    public class CILMetaDataLoaderThreadSafeConcurrentForFiles : CILMetaDataLoaderThreadSafeConcurrent
    {
-      public CILMetaDataLoaderThreadSafeConcurrentForFiles( CryptoCallbacks crypto = null, CILMetaDataLoaderResourceCallbacksForFiles callbacks = null )
-         : base( crypto ?? new CryptoCallbacksDotNET(), callbacks ?? new CILMetaDataLoaderResourceCallbacksForFiles() )
+      public CILMetaDataLoaderThreadSafeConcurrentForFiles(
+         CryptoCallbacks crypto = null,
+         Func<ReadingArguments> readingArgsFactory = null,
+         CILMetaDataLoaderResourceCallbacksForFiles callbacks = null
+         )
+         : base( crypto ?? new CryptoCallbacksDotNET(), readingArgsFactory, callbacks ?? new CILMetaDataLoaderResourceCallbacksForFiles() )
       {
 
       }

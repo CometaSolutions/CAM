@@ -37,7 +37,7 @@ namespace CommonUtils
       /// <exception cref="ArgumentNullException">If <paramref name="comparer"/> is <c>null</c>.</exception>
       public EqualityComparerWrapper( IEqualityComparer<TValue> comparer )
       {
-         ArgumentValidator.ValidateNotNull( "Comparer", comparer );
+         ArgumentValidator.ValidateNotNull( "Equality comparer", comparer );
 
          this._comparer = comparer;
       }

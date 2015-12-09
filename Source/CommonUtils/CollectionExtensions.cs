@@ -20,6 +20,58 @@ using System.Collections.Generic;
 using System.Linq;
 using CommonUtils;
 
+namespace CommonUtils
+{
+   /// <summary>
+   /// This is enumeration to use when deciding how to handle duplicate key values in <see cref="E_CommonUtils.ToDictionary"/> method.
+   /// </summary>
+   public enum DictionaryOverwriteStrategy
+   {
+      /// <summary>
+      /// When a duplicate key is encountered, old value is preserved and new value is discarded.
+      /// </summary>
+      Preserve,
+      /// <summary>
+      /// When a duplicate key is encountered, old value is discarded and new value will replace the old value.
+      /// </summary>
+      Overwrite,
+      /// <summary>
+      /// When a duplicate key is encountered, an <see cref="ArgumentException"/> is thrown.
+      /// </summary>
+      Throw
+   }
+
+   /// <summary>
+   /// This type represents information about current item in <see cref="IEnumerable{T}"/> and the previous items.
+   /// </summary>
+   /// <typeparam name="T">The type of items in <see cref="IEnumerable{T}"/>.</typeparam>
+   public struct PreviousItemsInfo<T>
+   {
+      /// <summary>
+      /// Creates a new instance of <see cref="PreviousItemsInfo{T}"/> with given current and previous items.
+      /// </summary>
+      /// <param name="currentItem">The current item.</param>
+      /// <param name="previousItems">The previous items. If <c>null</c>, then empty enumerable will be used.</param>
+      public PreviousItemsInfo( T currentItem, IEnumerable<T> previousItems )
+      {
+         this.CurrentItem = currentItem;
+         this.PreviousItems = previousItems ?? Empty<T>.Enumerable;
+      }
+
+      /// <summary>
+      /// Gets the current item.
+      /// </summary>
+      /// <value>The current item.</value>
+      public T CurrentItem { get; }
+
+      /// <summary>
+      /// Gets the previous items.
+      /// </summary>
+      /// <value>The previous items.</value>
+      public IEnumerable<T> PreviousItems { get; }
+   }
+}
+
 public static partial class E_CommonUtils
 {
    /// <summary>
@@ -151,7 +203,7 @@ public static partial class E_CommonUtils
    /// <param name="defaultValue">The value to return if no value exists for <paramref name="key"/> in <paramref name="dic"/>.</param>
    /// <returns>The value for <paramref name="key"/> in <paramref name="dic"/>, or <paramref name="defaultValue"/> if <paramref name="dic"/> does not have value associated for <paramref name="key"/>.</returns>
    /// <exception cref="NullReferenceException">If <paramref name="dic"/> is <c>null</c>.</exception>
-   public static TValue GetOrDefault<TKey, TValue>( this IDictionary<TKey, TValue> dic, TKey key, TValue defaultValue = default(TValue) )
+   public static TValue GetOrDefault<TKey, TValue>( this IDictionary<TKey, TValue> dic, TKey key, TValue defaultValue = default( TValue ) )
    {
       TValue value;
       return dic.TryGetValue( key, out value ) ? value : defaultValue;
@@ -293,6 +345,18 @@ public static partial class E_CommonUtils
    public static Boolean IsNullOrEmpty<T>( this IEnumerable<T> enumerable )
    {
       return enumerable == null || !enumerable.Any();
+   }
+
+   /// <summary>
+   /// Gets the length of the array, or returns default length, if array is <c>null</c>.
+   /// </summary>
+   /// <typeparam name="T">The array element type.</typeparam>
+   /// <param name="array">The array.</param>
+   /// <param name="nullLength">The length to return if <paramref name="array"/> is <c>null</c>.</param>
+   /// <returns>The length of the <paramref name="array"/> or <paramref name="nullLength"/> if <paramref name="array"/> is <c>null</c>.</returns>
+   public static Int32 GetLengthOrDefault<T>( this T[] array, Int32 nullLength = 0 )
+   {
+      return array == null ? nullLength : array.Length;
    }
 
    /// <summary>
@@ -528,7 +592,7 @@ public static partial class E_CommonUtils
    /// <param name="enumerable">The enumerable.</param>
    /// <param name="defaultValue">The value to return when there are no elements in the enumerable.</param>
    /// <returns>The first element of the enumerable, or <paramref name="defaultValue"/> if there are no elements in the enumerable.</returns>
-   public static T FirstOrDefaultCustom<T>( this IEnumerable<T> enumerable, T defaultValue = default(T) )
+   public static T FirstOrDefaultCustom<T>( this IEnumerable<T> enumerable, T defaultValue = default( T ) )
    {
       using ( var enumerator = enumerable.GetEnumerator() )
       {
@@ -630,10 +694,352 @@ public static partial class E_CommonUtils
       {
          using ( var enumerator = enumerable.GetEnumerator() )
          {
-            retVal = enumerator.MoveNext() && !enumerator.MoveNext();
-            value = retVal ? enumerator.Current : default( T );
+            retVal = enumerator.MoveNext();
+            if ( retVal )
+            {
+               value = enumerator.Current;
+               retVal = !enumerator.MoveNext();
+               if ( !retVal )
+               {
+                  value = default( T );
+               }
+            }
+            else
+            {
+               value = default( T );
+            }
          }
       }
       return retVal;
+   }
+
+   /// <summary>
+   /// Creates a dictionary from given enumerable, with customizable behaviour on how to handle duplicate keys, and optional callback to create the resulting dictionary.
+   /// </summary>
+   /// <typeparam name="T">The type of enumerable items.</typeparam>
+   /// <typeparam name="TKey">The type of the keys in the resulting dictionary.</typeparam>
+   /// <typeparam name="TValue">The type of the values in the resulting dictionary.</typeparam>
+   /// <param name="source">The source enumerable.</param>
+   /// <param name="keySelector">The callback to create keys from items of the enumerable.</param>
+   /// <param name="valueSelector">The calllback to create values from items of the enumerable.</param>
+   /// <param name="overwriteStrategy">The <see cref="DictionaryOverwriteStrategy"/> on how to handle duplicate keys.</param>
+   /// <param name="equalityComparer">The optional equality comparer for keys.</param>
+   /// <param name="dictionaryFactory">The optional callback to create a new, empty dictionary.</param>
+   /// <returns>A <see cref="IDictionary{TKey, TValue}"/> containing transformed enumerable.</returns>
+   /// <exception cref="ArgumentNullException">If any of <paramref name="source"/>, <paramref name="keySelector"/>, or <paramref name="valueSelector"/> is <c>null</c>.</exception>
+   /// <exception cref="ArgumentException">If <paramref name="overwriteStrategy"/> is <see cref="DictionaryOverwriteStrategy.Throw"/> and there are duplicate keys during transformation.</exception>
+   /// <exception cref="InvalidOperationException">If <paramref name="overwriteStrategy"/> is other than values in <see cref="DictionaryOverwriteStrategy"/> enumeration.</exception>
+   public static IDictionary<TKey, TValue> ToDictionary<T, TKey, TValue>( this IEnumerable<T> source, Func<T, TKey> keySelector, Func<T, TValue> valueSelector, DictionaryOverwriteStrategy overwriteStrategy, IEqualityComparer<TKey> equalityComparer = null, Func<IDictionary<TKey, TValue>> dictionaryFactory = null )
+   {
+      switch ( overwriteStrategy )
+      {
+         case DictionaryOverwriteStrategy.Preserve:
+            return source.ToDictionary_Preserve( keySelector, valueSelector, equalityComparer );
+         case DictionaryOverwriteStrategy.Overwrite:
+            return source.ToDictionary_Overwrite( keySelector, valueSelector, equalityComparer );
+         case DictionaryOverwriteStrategy.Throw:
+            return source.ToDictionary_Throw( keySelector, valueSelector, equalityComparer );
+         default:
+            throw new InvalidOperationException( "Unrecognized dictionary overwrite strategy: " + overwriteStrategy + "." );
+      }
+   }
+
+   /// <summary>
+   /// Creates a dictionary from given enumerable overwriting old values in case of duplicate keys, with optional callback to create the resulting dictionary.
+   /// </summary>
+   /// <typeparam name="T">The type of enumerable items.</typeparam>
+   /// <typeparam name="TKey">The type of the keys in the resulting dictionary.</typeparam>
+   /// <typeparam name="TValue">The type of the values in the resulting dictionary.</typeparam>
+   /// <param name="source">The source enumerable.</param>
+   /// <param name="keySelector">The callback to create keys from items of the enumerable.</param>
+   /// <param name="valueSelector">The callback to create values from items of the enumerable.</param>
+   /// <param name="equalityComparer">The optional equalit ycomparer for keys.</param>
+   /// <param name="dictionaryFactory">The optional callback to create a new, empty dctionary.</param>
+   /// <returns>A <see cref="IDictionary{TKey, TValue}"/> containing transformed enumerable.</returns>
+   /// <exception cref="ArgumentNullException">If any of <paramref name="source"/>, <paramref name="keySelector"/>, or <paramref name="valueSelector"/> is <c>null</c>.</exception>
+   public static IDictionary<TKey, TValue> ToDictionary_Overwrite<T, TKey, TValue>( this IEnumerable<T> source, Func<T, TKey> keySelector, Func<T, TValue> valueSelector, IEqualityComparer<TKey> equalityComparer = null, Func<IEqualityComparer<TKey>, IDictionary<TKey, TValue>> dictionaryFactory = null )
+   {
+      var retVal = ValidateToDictionaryParams( source, keySelector, valueSelector, equalityComparer, dictionaryFactory );
+      foreach ( var item in source )
+      {
+         retVal[keySelector( item )] = valueSelector( item );
+      }
+
+      return retVal;
+   }
+
+   /// <summary>
+   /// Creates a dictionary from given enumerable preserving old values in case of duplicate keys, with optional callback to create the resulting dictionary.
+   /// </summary>
+   /// <typeparam name="T">The type of enumerable items.</typeparam>
+   /// <typeparam name="TKey">The type of the keys in the resulting dictionary.</typeparam>
+   /// <typeparam name="TValue">The type of the values in the resulting dictionary.</typeparam>
+   /// <param name="source">The source enumerable.</param>
+   /// <param name="keySelector">The callback to create keys from items of the enumerable.</param>
+   /// <param name="valueSelector">The callback to create values from items of the enumerable.</param>
+   /// <param name="equalityComparer">The optional equalit ycomparer for keys.</param>
+   /// <param name="dictionaryFactory">The optional callback to create a new, empty dctionary.</param>
+   /// <returns>A <see cref="IDictionary{TKey, TValue}"/> containing transformed enumerable.</returns>
+   /// <exception cref="ArgumentNullException">If any of <paramref name="source"/>, <paramref name="keySelector"/>, or <paramref name="valueSelector"/> is <c>null</c>.</exception>  
+   public static IDictionary<TKey, TValue> ToDictionary_Preserve<T, TKey, TValue>( this IEnumerable<T> source, Func<T, TKey> keySelector, Func<T, TValue> valueSelector, IEqualityComparer<TKey> equalityComparer = null, Func<IEqualityComparer<TKey>, IDictionary<TKey, TValue>> dictionaryFactory = null )
+   {
+      var retVal = ValidateToDictionaryParams( source, keySelector, valueSelector, equalityComparer, dictionaryFactory );
+      foreach ( var item in source )
+      {
+         var key = keySelector( item );
+         if ( !retVal.ContainsKey( key ) )
+         {
+            retVal.Add( key, valueSelector( item ) );
+         }
+      }
+
+      return retVal;
+   }
+
+   /// <summary>
+   /// Creates a dictionary from given enumerable throwing an <see cref="ArgumentException"/> in case of duplicate keys, with optional callback to create the resulting dictionary.
+   /// </summary>
+   /// <typeparam name="T">The type of enumerable items.</typeparam>
+   /// <typeparam name="TKey">The type of the keys in the resulting dictionary.</typeparam>
+   /// <typeparam name="TValue">The type of the values in the resulting dictionary.</typeparam>
+   /// <param name="source">The source enumerable.</param>
+   /// <param name="keySelector">The callback to create keys from items of the enumerable.</param>
+   /// <param name="valueSelector">The callback to create values from items of the enumerable.</param>
+   /// <param name="equalityComparer">The optional equalit ycomparer for keys.</param>
+   /// <param name="dictionaryFactory">The optional callback to create a new, empty dctionary.</param>
+   /// <returns>A <see cref="IDictionary{TKey, TValue}"/> containing transformed enumerable.</returns>
+   /// <exception cref="ArgumentNullException">If any of <paramref name="source"/>, <paramref name="keySelector"/>, or <paramref name="valueSelector"/> is <c>null</c>.</exception>
+   /// <exception cref="ArgumentException">If there are duplicate keys during transformation.</exception>
+   public static IDictionary<TKey, TValue> ToDictionary_Throw<T, TKey, TValue>( this IEnumerable<T> source, Func<T, TKey> keySelector, Func<T, TValue> valueSelector, IEqualityComparer<TKey> equalityComparer = null, Func<IEqualityComparer<TKey>, IDictionary<TKey, TValue>> dictionaryFactory = null )
+   {
+      var retVal = ValidateToDictionaryParams( source, keySelector, valueSelector, equalityComparer, dictionaryFactory );
+      foreach ( var item in source )
+      {
+         retVal.Add( keySelector( item ), valueSelector( item ) );
+      }
+
+      return retVal;
+   }
+
+   private static IDictionary<TKey, TValue> ValidateToDictionaryParams<T, TKey, TValue>( IEnumerable<T> source, Func<T, TKey> keySelector, Func<T, TValue> valueSelector, IEqualityComparer<TKey> equalityComparer, Func<IEqualityComparer<TKey>, IDictionary<TKey, TValue>> dictionaryFactory )
+   {
+      ArgumentValidator.ValidateNotNull( "Source", source );
+      ArgumentValidator.ValidateNotNull( "Key selector", keySelector );
+      ArgumentValidator.ValidateNotNull( "Value selector", valueSelector );
+
+      return dictionaryFactory == null ? new Dictionary<TKey, TValue>( equalityComparer ) : dictionaryFactory( equalityComparer );
+   }
+
+   /// <summary>
+   /// This method will shuffle the given array using <see href="https://en.wikipedia.org/wiki/Fisher%E2%80%93Yates_shuffle">Fisher-Yates algorithm</see>.
+   /// </summary>
+   /// <typeparam name="T">The type of elements in the array.</typeparam>
+   /// <param name="array">The array.</param>
+   /// <param name="random">The optional <see cref="Random"/> to use for shuffle.</param>
+   public static void Shuffle<T>( this T[] array, Random random = null )
+   {
+      if ( random == null )
+      {
+         random = new Random();
+      }
+
+      var n = array.Length;
+      while ( n > 1 )
+      {
+         var randomIndex = random.Next( n-- );
+         array.Swap( n, randomIndex );
+      }
+   }
+
+   /// <summary>
+   /// Creates a copy of array.
+   /// This is ease-of-life method for calling <see cref="Array.Copy(Array, int, Array, int, int)"/>.
+   /// </summary>
+   /// <typeparam name="T">The type of elements in the array.</typeparam>
+   /// <param name="array">The array.</param>
+   /// <returns>The copy of the array, or <c>null</c>, if <paramref name="array"/> is <c>null</c>.</returns>
+   public static T[] CreateArrayCopy<T>( this T[] array )
+   {
+      return array == null ? null : array.CreateArrayCopy( 0, array.Length );
+   }
+
+   /// <summary>
+   /// Creates a copy of section of given array, starting at given offset, and copying the rest of the array.
+   /// </summary>
+   /// <typeparam name="T">The type of elements in the array.</typeparam>
+   /// <param name="array">The array.</param>
+   /// <param name="count">The amount of elements to copy.</param>
+   /// <returns>The newly created array, containing same elements as section of the given array.</returns>
+   public static T[] CreateArrayCopy<T>( this T[] array, Int32 count )
+   {
+      return array.CreateArrayCopy( 0, count );
+   }
+
+   /// <summary>
+   /// Creates a copy of section of given array, starting at given offset and copying given amount of elements.
+   /// </summary>
+   /// <typeparam name="T">The type of elements in the array.</typeparam>
+   /// <param name="array">The array.</param>
+   /// <param name="offset">The offset in <paramref name="array" /> where to start copying elements.</param>
+   /// <param name="count">The amount of elements to copy.</param>
+   /// <returns>The newly created array, containing same elements as section of the given array.</returns>
+   public static T[] CreateArrayCopy<T>( this T[] array, Int32 offset, Int32 count )
+   {
+      return array.CreateArrayCopy( ref offset, count );
+   }
+
+   /// <summary>
+   /// Creates a copy of section of given array, starting at given offset and copying given amount of elements.
+   /// </summary>
+   /// <typeparam name="T">The type of elements in the array.</typeparam>
+   /// <param name="array">The array.</param>
+   /// <param name="offset">The offset in <paramref name="array" /> where to start copying elements. This will be incremented by <paramref name="count"/>.</param>
+   /// <param name="count">The amount of elements to copy.</param>
+   /// <returns>The newly created array, containing same elements as section of the given array.</returns>
+   public static T[] CreateArrayCopy<T>( this T[] array, ref Int32 offset, Int32 count )
+   {
+      array.CheckArrayArguments( offset, count );
+
+      var retVal = new T[count];
+      Array.Copy( array, offset, retVal, 0, count );
+      offset += count;
+      return retVal;
+   }
+
+   /// <summary>
+   /// Applices aggregation function over a sequence, but instead of returning the result of whole iteration, returns enumerable of intermediate results.
+   /// Each result is returned after aggregator function is applied.
+   /// </summary>
+   /// <typeparam name="T">The type of enumerable items.</typeparam>
+   /// <typeparam name="TAccumulate">The type of accumulation value.</typeparam>
+   /// <param name="enumerable">The <see cref="IEnumerable{T}"/>.</param>
+   /// <param name="seed">The initial value to start accumulation.</param>
+   /// <param name="aggregator">The aggregator function. First parameter is current accumulated value, second is current item.</param>
+   /// <returns>Enumerable of intermediate results of aggregation over the sequence.</returns>
+   /// <exception cref="ArgumentNullException">If <paramref name="aggregator"/> is <c>null</c>.</exception>
+   public static IEnumerable<TAccumulate> AggregateIntermediate_AfterAggregation<T, TAccumulate>( this IEnumerable<T> enumerable, TAccumulate seed, Func<TAccumulate, T, TAccumulate> aggregator )
+   {
+      return enumerable.AggregateIntermediate_AfterAggregation( seed, ( cur, item, idx ) => aggregator( cur, item ) );
+   }
+
+   /// <summary>
+   /// Applices aggregation function over a sequence, but instead of returning the result of whole iteration, returns enumerable of intermediate results.
+   /// Each result is returned before aggregator function is applied.
+   /// </summary>
+   /// <typeparam name="T">The type of enumerable items.</typeparam>
+   /// <typeparam name="TAccumulate">The type of accumulation value.</typeparam>
+   /// <param name="enumerable">The <see cref="IEnumerable{T}"/>.</param>
+   /// <param name="seed">The initial value to start accumulation.</param>
+   /// <param name="aggregator">The aggregator function. First parameter is current accumulated value, second is current item.</param>
+   /// <returns>Enumerable of intermediate results of aggregation over the sequence.</returns>
+   /// <exception cref="ArgumentNullException">If <paramref name="aggregator"/> is <c>null</c>.</exception>
+   public static IEnumerable<TAccumulate> AggregateIntermediate_BeforeAggregation<T, TAccumulate>( this IEnumerable<T> enumerable, TAccumulate seed, Func<TAccumulate, T, TAccumulate> aggregator )
+   {
+      return enumerable.AggregateIntermediate_BeforeAggregation( seed, ( cur, item, idx ) => aggregator( cur, item ) );
+   }
+
+   /// <summary>
+   /// Applices aggregation function over a sequence, but instead of returning the result of whole iteration, returns enumerable of intermediate results.
+   /// Each result is returned after aggregator function is applied.
+   /// </summary>
+   /// <typeparam name="T">The type of enumerable items.</typeparam>
+   /// <typeparam name="TAccumulate">The type of accumulation value.</typeparam>
+   /// <param name="enumerable">The <see cref="IEnumerable{T}"/>.</param>
+   /// <param name="seed">The initial value to start accumulation.</param>
+   /// <param name="aggregator">The aggregator function. First parameter is current accumulated value, second is current item, and third is current enumerable index.</param>
+   /// <returns>Enumerable of intermediate results of aggregation over the sequence.</returns>
+   /// <exception cref="ArgumentNullException">If <paramref name="aggregator"/> is <c>null</c>.</exception>
+   public static IEnumerable<TAccumulate> AggregateIntermediate_AfterAggregation<T, TAccumulate>( this IEnumerable<T> enumerable, TAccumulate seed, Func<TAccumulate, T, Int32, TAccumulate> aggregator )
+   {
+      var cur = 0;
+      foreach ( var item in enumerable )
+      {
+         seed = aggregator( seed, item, cur );
+         yield return seed;
+         ++cur;
+      }
+   }
+
+   /// <summary>
+   /// Applices aggregation function over a sequence, but instead of returning the result of whole iteration, returns enumerable of intermediate results.
+   /// Each result is returned before aggregator function is applied.
+   /// </summary>
+   /// <typeparam name="T">The type of enumerable items.</typeparam>
+   /// <typeparam name="TAccumulate">The type of accumulation value.</typeparam>
+   /// <param name="enumerable">The <see cref="IEnumerable{T}"/>.</param>
+   /// <param name="seed">The initial value to start accumulation.</param>
+   /// <param name="aggregator">The aggregator function. First parameter is current accumulated value, second is current item, and third is current enumerable index.</param>
+   /// <returns>Enumerable of intermediate results of aggregation over the sequence.</returns>
+   /// <exception cref="ArgumentNullException">If <paramref name="aggregator"/> or <paramref name="enumerable"/> is <c>null</c>.</exception>
+   public static IEnumerable<TAccumulate> AggregateIntermediate_BeforeAggregation<T, TAccumulate>( this IEnumerable<T> enumerable, TAccumulate seed, Func<TAccumulate, T, Int32, TAccumulate> aggregator )
+   {
+      ArgumentValidator.ValidateNotNull( "Enumerable", enumerable );
+      ArgumentValidator.ValidateNotNull( "Aggregator function", aggregator );
+
+      var cur = 0;
+      foreach ( var item in enumerable )
+      {
+         yield return seed;
+         seed = aggregator( seed, item, cur );
+         ++cur;
+      }
+   }
+
+   /// <summary>
+   /// Returns an enumerable, which remembers given amount of previous items, in reversed order as they are encountered in enumerable.
+   /// </summary>
+   /// <typeparam name="T">The type of items of enumerable.</typeparam>
+   /// <param name="enumerable">The <see cref="IEnumerable{T}"/>.</param>
+   /// <param name="maxAmountOfItemsToRemember">Maximum amount of previous items to remember.</param>
+   /// <param name="firstResultShouldAlwaysHaveMaxAmount">Whether the first <see cref="PreviousItemsInfo{T}"/> in the resulting enumerable should have <paramref name="maxAmountOfItemsToRemember"/> items. By default, this is <c>true</c>.</param>
+   /// <returns>The enumerable of <see cref="PreviousItemsInfo{T}"/>s.</returns>
+   /// <exception cref="ArgumentNullException">If <paramref name="enumerable"/> is <c>null</c>.</exception>
+   /// <remarks>
+   /// Please note that <see cref="PreviousItemsInfo{T}.PreviousItems"/> enumerable has meaningful values only during enumeration the resulting enumerable of <see cref="PreviousItemsInfo{T}"/>s.
+   /// So for example, if one does <see cref="Enumerable.ToArray{TSource}(IEnumerable{TSource})"/> to a enumerable of <see cref="PreviousItemsInfo{T}"/> and then tries to access the <see cref="PreviousItemsInfo{T}.PreviousItems"/>, the result will always be the same for every <see cref="PreviousItemsInfo{T}"/>.
+   /// During enumeration of <see cref="PreviousItemsInfo{T}"/>s, the <see cref="PreviousItemsInfo{T}.PreviousItems"/> will return correct values.
+   /// </remarks>
+   /// <seealso cref="PreviousItemsInfo{T}"/>
+   public static IEnumerable<PreviousItemsInfo<T>> RememberPreviousItems<T>( this IEnumerable<T> enumerable, Int32 maxAmountOfItemsToRemember, Boolean firstResultShouldAlwaysHaveMaxAmount = true )
+   {
+      ArgumentValidator.ValidateNotNull( "Enumerable", enumerable );
+
+      var buffer = new T[maxAmountOfItemsToRemember];
+      Int32 start = 0, count = 0;
+      foreach ( var item in enumerable )
+      {
+         if ( count == maxAmountOfItemsToRemember || !firstResultShouldAlwaysHaveMaxAmount )
+         {
+            yield return new PreviousItemsInfo<T>( item, GetPreviousItems( buffer, start, count ) );
+         }
+
+         if ( count < maxAmountOfItemsToRemember )
+         {
+            buffer[count] = item;
+            ++count;
+         }
+         else
+         {
+            if ( start < maxAmountOfItemsToRemember )
+            {
+               buffer[start] = item;
+               ++start;
+            }
+            else
+            {
+               start = 1;
+               buffer[0] = item;
+            }
+         }
+      }
+   }
+
+   private static IEnumerable<T> GetPreviousItems<T>( T[] buffer, Int32 start, Int32 count )
+   {
+      while ( count > 0 )
+      {
+         yield return buffer[( start + count - 1 ) % buffer.Length];
+         --count;
+      }
    }
 }

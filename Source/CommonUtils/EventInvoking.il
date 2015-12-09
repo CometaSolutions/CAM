@@ -119,6 +119,13 @@
    .custom instance void [$EXTENSION_ASSEMBLY$]System.Runtime.CompilerServices.ExtensionAttribute::.ctor() = (
       01 00 00 00
    )
+   .custom instance void [$DELEGATE_ASSEMBLY$]System.ObsoleteAttribute::.ctor(string, bool) = (
+      01 00 3e 54 68 69 73 20 6d 65 74 68 6f 64 20 68
+      61 73 20 62 65 65 6e 20 6d 61 64 65 20 6f 62 73
+      6f 6c 65 74 65 20 62 79 20 22 3f 2e 22 2d 6f 70
+      65 72 61 74 6f 72 20 69 6e 20 43 23 20 36 2e 30
+      2e 00 00 00
+   )
    // Method begins at RVA 0x2c48
    // Code size 25 (0x19)
    .maxstack 2

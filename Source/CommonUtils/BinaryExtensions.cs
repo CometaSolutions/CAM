@@ -115,12 +115,11 @@ public static partial class E_CommonUtils
    /// <exception cref="System.NotSupportedException">The stream does not support reading. </exception>
    /// <exception cref="System.ObjectDisposedException">Methods were called after the stream was closed. </exception>
    /// <exception cref="System.IO.EndOfStreamException">If end of stream is reached before <paramref name="amount"/> of bytes could be read from <paramref name="source"/> stream.</exception>
-   [CLSCompliant( false )]
-   public static void CopyStreamPart( this Stream source, Stream destination, Byte[] buffer, UInt32 amount )
+   public static void CopyStreamPart( this Stream source, Stream destination, Byte[] buffer, Int64 amount )
    {
       while ( amount > 0 )
       {
-         var amountOfRead = source.Read( buffer, 0, (Int32) Math.Min( (UInt32) buffer.Length, amount ) );
+         var amountOfRead = source.Read( buffer, 0, (Int32) Math.Min( buffer.Length, amount ) );
          if ( amountOfRead <= 0 )
          {
             throw new EndOfStreamException( "Source stream ended before copying of " + amount + " byte" + ( amount > 1 ? "s" : "" ) + " could be completed." );
@@ -186,6 +185,60 @@ public static partial class E_CommonUtils
          throw new EndOfStreamException();
       }
       return (Byte) b;
+   }
+
+   /// <summary>
+   /// Reads a whole stream and returns its contents as single byte array.
+   /// </summary>
+   /// <param name="stream">The stream to read.</param>
+   /// <param name="buffer">The optional buffer to use. If not specified, then a buffer of <c>1024</c> bytes will be used. The buffer will only be used if stream does not support querying length and position.</param>
+   /// <returns>The stream contents as single byte array.</returns>
+   /// <exception cref="NullReferenceException">If <paramref name="stream"/> is <c>null</c>.</exception>
+   public static Byte[] ReadUntilTheEnd( this Stream stream, Byte[] buffer = null )
+   {
+      Int64 arrayLen = -1;
+      if ( stream.CanSeek )
+      {
+         try
+         {
+            arrayLen = stream.Length - stream.Position;
+         }
+         catch ( NotSupportedException )
+         {
+            // stream can't be queried for length or position
+         }
+      }
+
+      Byte[] retVal;
+      if ( arrayLen < 0 )
+      {
+         // Have to read using the buffer.
+         if ( buffer == null )
+         {
+            buffer = new Byte[1024];
+         }
+
+         using ( var ms = new MemoryStream() )
+         {
+            Int32 read;
+            while ( ( read = stream.Read( buffer, 0, buffer.Length ) ) > 0 )
+            {
+               ms.Write( buffer, 0, read );
+            }
+            retVal = ms.ToArray();
+         }
+      }
+      else if ( arrayLen == 0 )
+      {
+         retVal = Empty<Byte>.Array;
+      }
+      else
+      {
+         retVal = new Byte[arrayLen];
+         stream.ReadWholeArray( retVal );
+      }
+
+      return retVal;
    }
 
    /// <summary>
@@ -1421,7 +1474,8 @@ public static partial class E_CommonUtils
    /// <param name="idx">The offset to set byte. Will be incremented by 1.</param>
    /// <param name="sByte">The value to set. Even though it is integer, it is interpreted as signed byte.</param>
    /// <returns>The <paramref name="array"/>.</returns>
-   public static Byte[] WriteSByteToBytes( this Byte[] array, ref Int32 idx, Int32 sByte )
+   [CLSCompliant( false )]
+   public static Byte[] WriteSByteToBytes( this Byte[] array, ref Int32 idx, SByte sByte )
    {
       array[idx++] = sByte < 0 ? (Byte) ( 256 + sByte ) : (Byte) sByte;
       return array;

@@ -25,20 +25,20 @@ using CommonUtils;
 public static partial class E_CommonUtils
 {
    /// <summary>
-   /// Returns generic definition of <paramref name="type"/> if <see cref="Type.IsGenericType"/> returns <c>true</c> for <paramref name="type"/>.
+   /// Returns generic definition of <paramref name="type"/> if <see cref="System.Type.IsGenericType"/> returns <c>true</c> for <paramref name="type"/>.
    /// </summary>
    /// <param name="type">Type to check.</param>
-   /// <returns>Generic definition of <paramref name="type" /> if it is not <c>null</c> and <see cref="Type.IsGenericType"/> returns <c>true</c>.</returns>
+   /// <returns>Generic definition of <paramref name="type" /> if it is not <c>null</c> and <see cref="System.Type.IsGenericType"/> returns <c>true</c>.</returns>
    public static Type GetGenericDefinitionIfGenericType( this Type type )
    {
       return type != null && type.IsGenericType ? type.GetGenericTypeDefinition() : type;
    }
 
    /// <summary>
-   /// Returns generic definition of <paramref name="type"/> if <see cref="Type.ContainsGenericParameters"/> returns <c>true</c> and <see cref="Type.IsGenericParameter"/> returns <c>false</c> for <paramref name="type"/>.
+   /// Returns generic definition of <paramref name="type"/> if <see cref="System.Type.ContainsGenericParameters"/> returns <c>true</c> and <see cref="System.Type.IsGenericParameter"/> returns <c>false</c> for <paramref name="type"/>.
    /// </summary>
    /// <param name="type">Type to check.</param>
-   /// <returns>Generic definition of <paramref name="type"/> if it is not <c>null</c>, <see cref="Type.ContainsGenericParameters"/> returns <c>true</c> and <see cref="Type.IsGenericParameter"/> returns <c>false</c>.</returns>
+   /// <returns>Generic definition of <paramref name="type"/> if it is not <c>null</c>, <see cref="System.Type.ContainsGenericParameters"/> returns <c>true</c> and <see cref="System.Type.IsGenericParameter"/> returns <c>false</c>.</returns>
    public static Type GetGenericDefinitionIfContainsGenericParameters( this Type type )
    {
       return type != null && type.ContainsGenericParameters && !type.IsGenericParameter ? type.GetGenericTypeDefinition() : type;
@@ -110,11 +110,11 @@ public static partial class E_CommonUtils
    //}
 
    /// <summary>
-   /// Returns <c>true</c> if <see cref="Type.IsAssignableFrom"/> called on <paramref name="parentType"/> with <paramref name="subType"/> as parameter returns <c>true</c>, or if <paramref name="parentType"/> is generic type definition and any of the <paramref name="subType"/>'s parent types are generic type instantations of <paramref name="parentType"/>.
+   /// Returns <c>true</c> if <see cref="System.Type.IsAssignableFrom"/> called on <paramref name="parentType"/> with <paramref name="subType"/> as parameter returns <c>true</c>, or if <paramref name="parentType"/> is generic type definition and any of the <paramref name="subType"/>'s parent types are generic type instantations of <paramref name="parentType"/>.
    /// </summary>
    /// <param name="parentType">The assumed parent type.</param>
    /// <param name="subType">The assumed sub type.</param>
-   /// <returns><c>true</c> if both <paramref name="parentType"/> and <paramref name="subType"/> are not <c>null</c>, and if <see cref="Type.IsAssignableFrom"/> called on <paramref name="parentType"/> with <paramref name="subType"/> as parameter returns <c>true</c>, or if <paramref name="parentType"/> is generic type definition and any of the <paramref name="subType"/>'s parent types are generic type instantations of <paramref name="parentType"/>.</returns>
+   /// <returns><c>true</c> if both <paramref name="parentType"/> and <paramref name="subType"/> are not <c>null</c>, and if <see cref="System.Type.IsAssignableFrom"/> called on <paramref name="parentType"/> with <paramref name="subType"/> as parameter returns <c>true</c>, or if <paramref name="parentType"/> is generic type definition and any of the <paramref name="subType"/>'s parent types are generic type instantations of <paramref name="parentType"/>.</returns>
    public static Boolean IsAssignableFrom_IgnoreGenericArgumentsForGenericTypes( this Type parentType, Type subType )
    {
       return parentType != null && subType != null

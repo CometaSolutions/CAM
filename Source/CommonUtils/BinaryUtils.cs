@@ -309,5 +309,121 @@ namespace CommonUtils
       {
          return x == 0 ? 0 : ( 1ul << ( 1 + Log2( x - 1 ) ) );
       }
+
+      /// <summary>
+      /// Rounds given value up to next alignment, which should be a power of two.
+      /// </summary>
+      /// <param name="value">The value.</param>
+      /// <param name="multiple">The alignment.</param>
+      /// <returns>Value rounded up to next alignment.</returns>
+      /// <remarks>
+      /// Will return incorrect results if <paramref name="multiple"/> is zero.
+      /// </remarks>
+      public static Int32 RoundUpI32( this Int32 value, Int32 multiple )
+      {
+         return ( multiple - 1 + value ) & ~( multiple - 1 );
+      }
+
+      /// <summary>
+      /// Rounds given value up to next alignment, which should be a power of two.
+      /// </summary>
+      /// <param name="value">The value.</param>
+      /// <param name="multiple">The alignment.</param>
+      /// <returns>Value rounded up to next alignment.</returns>
+      /// <remarks>
+      /// Will return incorrect results if <paramref name="multiple"/> is zero.
+      /// </remarks>
+      [CLSCompliant( false )]
+      public static UInt32 RoundUpU32( this UInt32 value, UInt32 multiple )
+      {
+         return ( multiple - 1 + value ) & ~( multiple - 1 );
+      }
+
+      /// <summary>
+      /// Rounds given value up to next alignment, which should be a power of two.
+      /// </summary>
+      /// <param name="value">The value.</param>
+      /// <param name="multiple">The alignment.</param>
+      /// <returns>Value rounded up to next alignment.</returns>
+      /// <remarks>
+      /// Will return incorrect results if <paramref name="multiple"/> is zero.
+      /// </remarks>
+      public static Int64 RoundUpI64( this Int64 value, Int64 multiple )
+      {
+         return ( multiple - 1 + value ) & ~( multiple - 1 );
+      }
+
+      /// <summary>
+      /// Rounds given value up to next alignment, which should be a power of two.
+      /// </summary>
+      /// <param name="value">The value.</param>
+      /// <param name="multiple">The alignment.</param>
+      /// <returns>Value rounded up to next alignment.</returns>
+      /// <remarks>
+      /// Will return incorrect results if <paramref name="multiple"/> is zero.
+      /// </remarks>
+      [CLSCompliant( false )]
+      public static UInt64 RoundUpU64( this UInt64 value, UInt64 multiple )
+      {
+         return ( multiple - 1 + value ) & ~( multiple - 1 );
+      }
+
+      /// <summary>
+      /// This method counts how many bits are set in a given value.
+      /// </summary>
+      /// <param name="value">The value to count bits set.</param>
+      /// <returns>How many bits are set in a given value.</returns>
+      /// <remarks>
+      /// This algorithm is from <see href="https://graphics.stanford.edu/~seander/bithacks.html#CountBitsSetParallel"/>.
+      /// </remarks>
+      public static Int32 CountBitsSetI32( Int32 value )
+      {
+         return (Int32) CountBitsSetU32( (UInt32) value );
+      }
+
+      /// <summary>
+      /// This method counts how many bits are set in a given value.
+      /// </summary>
+      /// <param name="value">The value to count bits set.</param>
+      /// <returns>How many bits are set in a given value.</returns>
+      /// <remarks>
+      /// This algorithm is from <see href="https://graphics.stanford.edu/~seander/bithacks.html#CountBitsSetParallel"/>.
+      /// </remarks>
+      [CLSCompliant( false )]
+      public static UInt32 CountBitsSetU32( UInt32 value )
+      {
+         value = value - ( ( value >> 1 ) & 0x55555555u );
+         value = ( value & 0x33333333u ) + ( ( value >> 2 ) & 0x33333333u );
+         return ( ( value + ( value >> 4 ) & 0x0F0F0F0Fu ) * 0x01010101u ) >> 24;
+      }
+
+      /// <summary>
+      /// This method counts how many bits are set in a given value.
+      /// </summary>
+      /// <param name="value">The value to count bits set.</param>
+      /// <returns>How many bits are set in a given value.</returns>
+      /// <remarks>
+      /// This algorithm is from <see href="https://graphics.stanford.edu/~seander/bithacks.html#CountBitsSetParallel"/>.
+      /// </remarks>
+      public static Int32 CountBitsSetI64( Int64 value )
+      {
+         return (Int32) CountBitsSetU64( (UInt64) value );
+      }
+
+      /// <summary>
+      /// This method counts how many bits are set in a given value.
+      /// </summary>
+      /// <param name="value">The value to count bits set.</param>
+      /// <returns>How many bits are set in a given value.</returns>
+      /// <remarks>
+      /// This algorithm is from <see href="https://graphics.stanford.edu/~seander/bithacks.html#CountBitsSetParallel"/>.
+      /// </remarks>
+      [CLSCompliant( false )]
+      public static UInt32 CountBitsSetU64( UInt64 value )
+      {
+         value = value - ( ( value >> 1 ) & 0x5555555555555555UL );
+         value = ( value & 0x3333333333333333UL ) + ( ( value >> 2 ) & 0x3333333333333333UL );
+         return (UInt32) ( ( ( value + ( value >> 4 ) & 0x0F0F0F0F0F0F0F0FUL ) * 0x0101010101010101UL ) >> 56 );
+      }
    }
 }

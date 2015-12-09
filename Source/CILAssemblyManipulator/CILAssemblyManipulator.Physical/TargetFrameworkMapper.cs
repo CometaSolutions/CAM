@@ -302,12 +302,8 @@ public static partial class E_CILPhysical
       var aRefs = md.AssemblyReferences.TableContents;
 
       var aRefPaths = new Dictionary<AssemblyReference, String>( ReferenceEqualityComparer<AssemblyReference>.ReferenceBasedComparer );
-      var aRefDic = new Dictionary<AssemblyReference, Int32>( Comparers.AssemblyReferenceEqualityComparer );
-      // TODO .ToDictionary_Overwrite and .ToDictionary_Preserve extension methods to UtilPack
-      for ( var i = 0; i < aRefs.Count; ++i )
-      {
-         aRefDic[aRefs[i]] = i;
-      }
+      var aRefDic = Enumerable.Range( 0, aRefs.Count )
+         .ToDictionary_Overwrite( aRefIdx => aRefs[aRefIdx], aRefIdx => aRefIdx, Comparers.AssemblyReferenceEqualityComparer );
 
       // First, type refs
       foreach ( var tRef in md.TypeReferences.TableContents.Where( tr => tr.ResolutionScope.HasValue && tr.ResolutionScope.Value.Table == Tables.AssemblyRef ) )
@@ -363,21 +359,29 @@ public static partial class E_CILPhysical
       }
    }
 
-   private static void ProcessMarshalInfo( this TargetFrameworkMapper mapper, CILMetaData md, CILMetaDataLoaderWithCallbacks loader, TargetFrameworkInfo newTargetFW, MarshalingInfo marshal )
+   private static void ProcessMarshalInfo( this TargetFrameworkMapper mapper, CILMetaData md, CILMetaDataLoaderWithCallbacks loader, TargetFrameworkInfo newTargetFW, AbstractMarshalingInfo marshal )
    {
-      if ( marshal != null )
+      String typeStr;
+      switch ( marshal?.MarshalingInfoKind )
       {
-         var typeStr = marshal.SafeArrayUserDefinedType;
-         if ( mapper.ProcessTypeString( md, loader, newTargetFW, ref typeStr ) )
-         {
-            marshal.SafeArrayUserDefinedType = typeStr;
-         }
-         typeStr = marshal.MarshalType;
-         if ( mapper.ProcessTypeString( md, loader, newTargetFW, ref typeStr ) )
-         {
-            marshal.MarshalType = typeStr;
-         }
+         case MarshalingInfoKind.SafeArray:
+            var safeArray = (SafeArrayMarshalingInfo) marshal;
+            typeStr = safeArray.UserDefinedType;
+            if ( mapper.ProcessTypeString( md, loader, newTargetFW, ref typeStr ) )
+            {
+               safeArray.UserDefinedType = typeStr;
+            }
+            break;
+         case MarshalingInfoKind.Custom:
+            var custom = (CustomMarshalingInfo) marshal;
+            typeStr = custom.CustomMarshalerTypeName;
+            if ( mapper.ProcessTypeString( md, loader, newTargetFW, ref typeStr ) )
+            {
+               custom.CustomMarshalerTypeName = typeStr;
+            }
+            break;
       }
+
    }
 
    private static void ProcessCASignature( this TargetFrameworkMapper mapper, CILMetaData md, CILMetaDataLoaderWithCallbacks loader, TargetFrameworkInfo newTargetFW, AbstractCustomAttributeSignature sig )

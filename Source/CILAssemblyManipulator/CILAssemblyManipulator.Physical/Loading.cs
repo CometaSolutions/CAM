@@ -61,14 +61,20 @@ namespace CILAssemblyManipulator.Physical
       private readonly TDictionary _modules;
       private readonly Dictionary<CILMetaData, TModuleInfo> _moduleInfos;
       private readonly Lazy<HashStreamInfo> _hashStream;
+      private readonly Func<ReadingArguments> _readingArgumentsFactory;
 
-      public AbstractCILMetaDataLoader( TDictionary metadatas, CryptoCallbacks cryptoCallbacks )
+      public AbstractCILMetaDataLoader(
+         TDictionary metadatas,
+         CryptoCallbacks cryptoCallbacks,
+         Func<ReadingArguments> readingArgsFactory
+         )
       {
          ArgumentValidator.ValidateNotNull( "Modules", metadatas );
 
          this._modules = metadatas;
          this._moduleInfos = new Dictionary<CILMetaData, TModuleInfo>( ReferenceEqualityComparer<CILMetaData>.ReferenceBasedComparer );
          this._hashStream = cryptoCallbacks == null ? null : new Lazy<HashStreamInfo>( () => cryptoCallbacks.CreateHashStream( AssemblyHashAlgorithm.SHA1 ), System.Threading.LazyThreadSafetyMode.ExecutionAndPublication );
+         this._readingArgumentsFactory = readingArgsFactory ?? new Func<ReadingArguments>( () => new ReadingArguments() );
       }
 
       private void _resolver_ModuleReferenceResolveEvent( Object sender, ModuleReferenceResolveEventArgs e )
@@ -109,7 +115,7 @@ namespace CILAssemblyManipulator.Physical
          {
             using ( var stream = this.GetStreamFor( res ) )
             {
-               rArgs = new ReadingArguments( true );
+               rArgs = new ReadingArguments();
                try
                {
                   return stream.ReadModule( rArgs );
@@ -122,7 +128,7 @@ namespace CILAssemblyManipulator.Physical
          } );
 
          Boolean added;
-         if ( this.IsThreadSafe )
+         if ( this.IsSupportingConcurrency )
          {
             this._moduleInfos.GetOrAdd_WithLock( retVal, md => this.ModuleInfoFactory( resource, md, rArgs ), out added );
          }
@@ -202,7 +208,7 @@ namespace CILAssemblyManipulator.Physical
 
       }
 
-      protected abstract Boolean IsThreadSafe { get; }
+      protected abstract Boolean IsSupportingConcurrency { get; }
 
       // Something like Path.GetFullPath(..)
       protected abstract String SanitizeResource( String resource );
@@ -255,9 +261,10 @@ namespace CILAssemblyManipulator.Physical
       public CILMetaDataLoaderWithCallbacks(
          TDictionary dictionary,
          CryptoCallbacks cryptoCallbacks,
+         Func<ReadingArguments> readingArgsFactory,
          CILMetaDataLoaderResourceCallbacks resourceCallbacks
          )
-         : base( dictionary, cryptoCallbacks )
+         : base( dictionary, cryptoCallbacks, readingArgsFactory )
       {
          ArgumentValidator.ValidateNotNull( "Resource callbacks", resourceCallbacks );
 
@@ -303,9 +310,10 @@ namespace CILAssemblyManipulator.Physical
    {
       public CILMetaDataLoaderNotThreadSafe(
          CryptoCallbacks cryptoCallbacks,
+         Func<ReadingArguments> readingArgsFactory,
          CILMetaDataLoaderResourceCallbacks resourceCallbacks
          )
-         : base( new Dictionary<String, CILMetaData>(), cryptoCallbacks, resourceCallbacks )
+         : base( new Dictionary<String, CILMetaData>(), cryptoCallbacks, readingArgsFactory, resourceCallbacks )
       {
 
       }
@@ -320,7 +328,7 @@ namespace CILAssemblyManipulator.Physical
          resolver.ResolveEverything( metaData );
       }
 
-      protected override Boolean IsThreadSafe
+      protected override Boolean IsSupportingConcurrency
       {
          get
          {
@@ -334,9 +342,10 @@ namespace CILAssemblyManipulator.Physical
 
       public CILMetaDataLoaderThreadSafeSimple(
          CryptoCallbacks cryptoCallbacks,
+         Func<ReadingArguments> readingArgsFactory,
          CILMetaDataLoaderResourceCallbacks resourceCallbacks
          )
-         : base( new Dictionary<String, CILMetaData>(), cryptoCallbacks, resourceCallbacks )
+         : base( new Dictionary<String, CILMetaData>(), cryptoCallbacks, readingArgsFactory, resourceCallbacks )
       {
 
       }
@@ -355,7 +364,7 @@ namespace CILAssemblyManipulator.Physical
          }
       }
 
-      protected override Boolean IsThreadSafe
+      protected override Boolean IsSupportingConcurrency
       {
          get
          {

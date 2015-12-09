@@ -114,11 +114,11 @@
       </CAMLogicalNuGetFile>
       
       <CAMStructuralNuGetDependency Include="UtilPack">
-        <Version Condition=" '$(UtilPackNuSpecVersion)' == '' ">$([System.IO.File]::ReadAllText('$(CAMStructuralBaseDir)/Source/UtilPackVersion.txt'))</Version>
+        <Version Condition=" '$(UtilPackNuSpecVersion)' == '' ">$([System.IO.File]::ReadAllText('$(CAMLogicalBaseDir)/Source/UtilPackVersion.txt'))</Version>
         <Version Condition=" '$(UtilPackNuSpecVersion)' != '' ">$(UtilPackNuSpecVersion)</Version>
       </CAMStructuralNuGetDependency>
       <CAMStructuralNuGetDependency Include="CAM.Physical">
-        <Version Condition=" '$(CAMPhysicalNuSpecVersion)' == '' ">$([System.IO.File]::ReadAllText('$(CAMStructuralBaseDir)/Source/CAMPhysicalVersion.txt'))</Version>
+        <Version Condition=" '$(CAMPhysicalNuSpecVersion)' == '' ">$([System.IO.File]::ReadAllText('$(CAMLogicalBaseDir)/Source/CAMPhysicalVersion.txt'))</Version>
         <Version Condition=" '$(CAMPhysicalNuSpecVersion)' != '' ">$(CAMPhysicalNuSpecVersion)</Version>
       </CAMStructuralNuGetDependency>
     </ItemGroup>

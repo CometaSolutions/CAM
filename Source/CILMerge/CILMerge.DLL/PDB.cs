@@ -24,6 +24,7 @@ using System.Runtime.InteropServices.ComTypes;
 using System.Text;
 using CILAssemblyManipulator.PDB;
 using CommonUtils;
+using CILAssemblyManipulator.Physical.IO;
 
 namespace CILMerge
 {
@@ -50,10 +51,10 @@ namespace CILMerge
       private readonly String _fn;
       private readonly ISymUnmanagedWriter2 _unmanagedWriter;
       private readonly IDictionary<String, ISymUnmanagedDocumentWriter> _unmanagedDocs;
-      private readonly CILAssemblyManipulator.Physical.EmittingArguments _eArgs;
+      private readonly CILAssemblyManipulator.Physical.WritingArguments _eArgs;
       internal PDBHelper(
          CILAssemblyManipulator.Physical.CILMetaData module,
-         CILAssemblyManipulator.Physical.EmittingArguments eArgs,
+         CILAssemblyManipulator.Physical.WritingArguments eArgs,
          String outPath
          )
       {
@@ -77,14 +78,14 @@ namespace CILMerge
          var debugDirContents = new Byte[dbgHdrSize];
          this._unmanagedWriter.GetDebugInfo( out debugDir, dbgHdrSize, out dbgHdrSize, debugDirContents );
          // Set information for CILAssemblyManipulator emitter
-         var dbgInfo = new CILAssemblyManipulator.Physical.DebugInformation();
+
+         var dbgInfo = eArgs.WritingOptions.DebugOptions;
          dbgInfo.Characteristics = debugDir.Characteristics;
          dbgInfo.Timestamp = debugDir.TimeDateStamp;
-         dbgInfo.VersionMajor = debugDir.MajorVersion;
-         dbgInfo.VersionMinor = debugDir.MinorVersion;
+         dbgInfo.MajorVersion = debugDir.MajorVersion;
+         dbgInfo.MinorVersion = debugDir.MinorVersion;
          dbgInfo.DebugType = debugDir.Type;
          dbgInfo.DebugData = debugDirContents;
-         eArgs.Headers.DebugInformation = dbgInfo;
       }
 
       internal String PDBFileLocation
@@ -164,24 +165,28 @@ namespace CILMerge
       public void Dispose()
       {
          // Remember set entry point before writing out.
-         var ep = this._eArgs.Headers.CLREntryPointIndex;
-         if ( ep.HasValue )
+         var imageInfo = this._eArgs.ImageInformation;
+         if ( imageInfo != null )
          {
-            this._unmanagedWriter.SetUserEntryPoint( new SymbolToken( ep.Value.OneBasedToken ) );
-         }
-         this._unmanagedWriter.Close();
-         try
-         {
-            Marshal.ReleaseComObject( this._unmanagedWriter );
-            foreach ( var doc in this._unmanagedDocs )
+            var ep = imageInfo.CLIInformation.CLIHeader.EntryPointToken;
+            if ( ep.HasValue )
             {
-               Marshal.ReleaseComObject( doc.Value );
+               this._unmanagedWriter.SetUserEntryPoint( new SymbolToken( ep.Value.OneBasedToken ) );
             }
-         }
-         finally
-         {
-            // Copy tmp-PDB to new location
-            System.IO.File.Copy( this._tmpFN, this._fn, true );
+            this._unmanagedWriter.Close();
+            try
+            {
+               Marshal.ReleaseComObject( this._unmanagedWriter );
+               foreach ( var doc in this._unmanagedDocs )
+               {
+                  Marshal.ReleaseComObject( doc.Value );
+               }
+            }
+            finally
+            {
+               // Copy tmp-PDB to new location
+               System.IO.File.Copy( this._tmpFN, this._fn, true );
+            }
          }
       }
 
@@ -542,11 +547,11 @@ namespace CILMerge
    internal class MDHelper : IMetaDataEmit, IMetaDataImport
    {
       private readonly CILAssemblyManipulator.Physical.CILMetaData _module;
-      private readonly CILAssemblyManipulator.Physical.EmittingArguments _eArgs;
+      private readonly CILAssemblyManipulator.Physical.WritingArguments _eArgs;
       private readonly IList<Int32> _methodDeclaringTypes;
       private readonly IDictionary<Int32, Int32> _typeEnclosingTypes;
 
-      internal MDHelper( CILAssemblyManipulator.Physical.CILMetaData module, CILAssemblyManipulator.Physical.EmittingArguments eArgs )
+      internal MDHelper( CILAssemblyManipulator.Physical.CILMetaData module, CILAssemblyManipulator.Physical.WritingArguments eArgs )
       {
          ArgumentValidator.ValidateNotNull( "Module", module );
          ArgumentValidator.ValidateNotNull( "Emitting arguments", eArgs );
@@ -987,7 +992,7 @@ namespace CILMerge
             var mDef = mDefs[mIdx.Index];
             pchMethod = PDBHelper.WriteStringUnmanaged( szMethod, cchMethod, mDef.Name );
             PDBHelper.WriteInt32Unmanaged( pdwAttr, (Int32) mDef.Attributes );
-            PDBHelper.WriteInt32Unmanaged( pulCodeRVA, this._eArgs.MethodRVAs[mIdx.Index] );
+            PDBHelper.WriteInt32Unmanaged( pulCodeRVA, (Int32) this._eArgs.ImageInformation.CLIInformation.MethodRVAs[mIdx.Index] );
             implAttrs = (Int32) mDef.ImplementationAttributes;
             pClass = (UInt32) new CILAssemblyManipulator.Physical.TableIndex(
                CILAssemblyManipulator.Physical.Tables.TypeDef,

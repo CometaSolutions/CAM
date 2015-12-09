@@ -804,73 +804,6 @@ namespace CILAssemblyManipulator.Physical
    }
 
    /// <summary>
-   /// This enumerable contains values for possible target platforms when emitting <see cref="CILMetaData"/>.
-   /// </summary>
-   /// <remarks>This enumeration has same values as <c>System.Reflection.ImageFileMachine</c> enumeration. It will end up as 'Machine' field in PE file header.</remarks>
-   public enum ImageFileMachine : short
-   {
-      /// <summary>
-      /// Targets Intel 32-bit processor.
-      /// </summary>
-      I386 = 0x014C,
-      /// <summary>
-      /// Targets AMD 64-bit processor.
-      /// </summary>
-      AMD64 = unchecked( (Int16) 0x8664 ),
-      /// <summary>
-      /// Targets Intel 64-bit processor.
-      /// </summary>
-      IA64 = 0x0200,
-      /// <summary>
-      /// Targets ARM processor.
-      /// </summary>
-      ARMv7 = 0x01C4
-   }
-   /// <summary>
-   /// This enumeration contains values for what kind of code is contained within the module when emitting <see cref="CILMetaData"/>.
-   /// </summary>
-   /// <remarks>
-   /// This enumeration partly overlaps <c>System.ReflectionPortableExecutableKinds</c> in its purpose.
-   /// The value will end up as 'Flags' field in CLI header.
-   /// </remarks>
-   public enum ModuleFlags
-   {
-      /// <summary>
-      /// The module contains IL code only.
-      /// </summary>
-      ILOnly = 0x00000001,
-      /// <summary>
-      /// The module will load into 32-bit process only (the 64-bit processes won't be able to load it).
-      /// </summary>
-      Required32Bit = 0x00000002,
-      /// <summary>
-      /// This module is signed with the strong name.
-      /// </summary>
-      StrongNameSigned = 0x00000008,
-      /// <summary>
-      /// This module's entry point is an unmanaged method.
-      /// </summary>
-      NativeEntrypoint = 0x00000010,
-      /// <summary>
-      /// If this module is not a class library, the process it starts will run as 32-bit process even in 64-bit OS.
-      /// </summary>
-      /// <remarks>
-      /// <para>
-      /// Taken from <see href="http://stackoverflow.com/questions/12066638/what-is-the-purpose-of-the-prefer-32-bit-setting-in-visual-studio-2012-and-how"/>, Lex Li's answer:
-      /// <list type="bullet">
-      /// <item><description>If the process runs on a 32-bit Windows system, it runs as a 32-bit process. IL is compiled to x86 machine code.</description></item>
-      /// <item><description>If the process runs on a 64-bit Windows system, it runs as a 32-bit process. IL is compiled to x86 machine code.</description></item>
-      /// <item><description>If the process runs on an ARM Windows system, it runs as a 32-bit process. IL is compiled to ARM machine code.</description></item>
-      /// </list>
-      /// </para>
-      /// <para>
-      /// Please note that if this flag is specified when emitting a <see cref="CILMetaData"/>, the flag <see cref="Required32Bit"/> should be set as well.
-      /// </para>
-      /// </remarks>
-      Preferred32Bit = 0x00020000
-   }
-
-   /// <summary>
    /// The kind of the module being loaded or emitted.
    /// </summary>
    public enum ModuleKind
@@ -960,17 +893,6 @@ namespace CILAssemblyManipulator.Physical
    //   /// </summary>
    //   Optional
    //}
-
-   [Flags]
-   internal enum DLLFlags
-   {
-      HighEntropyVA = 0x0020,
-      DynamicBase = 0x0040,
-      NoSEH = 0x0400,
-      NXCompatible = 0x0100,
-      AppContainer = 0x1000,
-      TerminalServerAware = 0x8000,
-   }
 
    /// <summary>
    /// This enumeration is a copy of <see cref="T:System.Runtime.InteropServices.VarEnum"/>.
@@ -1155,13 +1077,15 @@ namespace CILAssemblyManipulator.Physical
       /// Indicates that a value is a reference.
       /// </summary>
       VT_BYREF = 16384,
+
+      VT_NOT_SPECIFIED = -1
    }
 
    /// <summary>
    /// This enumeration is a copy of <see cref="T:System.Runtime.InteropServices.UnmanagedType"/>.
    /// It is present in order to avoid warnings when compiling for Windows Phone 8.1.
    /// </summary>
-   public enum UnmanagedType
+   public enum UnmanagedType : int
    {
       /// <summary>
       /// A 4-byte Boolean value (true != 0, false = 0). This is the Win32 BOOL type.
@@ -1313,6 +1237,8 @@ namespace CILAssemblyManipulator.Physical
       /// A Windows Runtime string. You can use this member on the <see cref="T:System.String" /> data type.
       /// </summary>
       HString,
+      Max = 80,
+      NotPresent = -1,
    }
 
    public enum SignatureStarters : byte
@@ -1323,13 +1249,16 @@ namespace CILAssemblyManipulator.Physical
       ThisCall = 0x03,
       FastCall = 0x04,
       VarArgs = 0x05,
+      Field = 0x06,
+      LocalSignature = 0x07,
+      Property = 0x08,
+      Unmanaged = 0x09,
+      MethodSpecGenericInst = 0x0A,
+      NativeVarArgs = 0x0B,
       Generic = 0x10,
       HasThis = 0x20,
       ExplicitThis = 0x40,
-      Field = 0x06,
-      Property = 0x08,
-      LocalSignature = 0x07,
-      MethodSpecGenericInst = 0x0A
+      Reserved = 0x80,
    }
 
    public enum SignatureElementTypes : byte
@@ -2218,26 +2147,6 @@ public static partial class E_CILPhysical
    }
 
    /// <summary>
-   /// Checks whether this target platform requires PE64 header.
-   /// </summary>
-   /// <param name="machine">The <see cref="ImageFileMachine"/>.</param>
-   /// <returns><c>true</c> if <paramref name="machine"/> represents a target platform requiring PE64 header; <c>false</c> otherwise.</returns>
-   public static Boolean RequiresPE64( this ImageFileMachine machine )
-   {
-      return ImageFileMachine.AMD64 == machine || ImageFileMachine.IA64 == machine;
-   }
-
-   /// <summary>
-   /// Checks whether emitted module requires relocation section.
-   /// </summary>
-   /// <param name="machine">The <see cref="ImageFileMachine"/>.</param>
-   /// <returns><c>true</c> if <paramref name="machine"/> represents a target platform which requires relocation section in emitted file; <c>false</c> otherwise.</returns>
-   public static Boolean RequiresRelocations( this ImageFileMachine machine )
-   {
-      return ImageFileMachine.I386 == machine;
-   }
-
-   /// <summary>
    /// Checks whether given module kind requires emitted module to have DLL characteristics.
    /// </summary>
    /// <param name="kind">The <see cref="ModuleKind"/>.</param>
@@ -2247,78 +2156,6 @@ public static partial class E_CILPhysical
       return ModuleKind.Dll == kind || ModuleKind.NetModule == kind;
    }
 
-   /// <summary>
-   /// Checks whether given <see cref="ModuleFlags"/> has its <see cref="ModuleFlags.ILOnly"/> flag set.
-   /// </summary>
-   /// <param name="mFlags">The <see cref="ModuleFlags"/>.</param>
-   /// <returns><c>true</c> if <paramref name="mFlags"/> has <see cref="ModuleFlags.ILOnly"/> flag set; <c>false</c> otherwise.</returns>
-   public static Boolean IsILOnly( this ModuleFlags mFlags )
-   {
-      return ( mFlags & ModuleFlags.ILOnly ) != 0;
-   }
-
-   ///// <summary>
-   ///// Gets emitting related attributes for given <see cref="TargetRuntime"/>.
-   ///// </summary>
-   ///// <param name="runtime">The <see cref="TargetRuntime"/>.</param>
-   ///// <param name="mdVersion">This parameter will contain the metadata version string for <paramref name="runtime"/>.</param>
-   ///// <param name="corLibMajor">This parameter will contain the major version of <c>mscorlib</c> for <paramref name="runtime"/>.</param>
-   ///// <param name="corLibMinor">This parameter will contain the minor version of <c>mscorlib</c> for <paramref name="runtime"/>.</param>
-   ///// <param name="corLibBuild">This parameter will contain the build number of <c>mscorlib</c> for <paramref name="runtime"/>.</param>
-   ///// <param name="corLibRevision">This parameter will contain the revision of <c>mscorlib</c> for <paramref name="runtime"/>.</param>
-   ///// <param name="cliMajorVersion">This parameter will contain the major version of CLI header for <paramref name="runtime"/>.</param>
-   ///// <param name="cliMinorVersion">This parameter will contain the minor version of CLI header for <paramref name="runtime"/>.</param>
-   ///// <param name="tableHeapMajor">This parameter will contain the major table heap version for <paramref name="runtime"/>.</param>
-   ///// <param name="tableHeapMinor">This parameter will contain the minor table heap version for <paramref name="runtime"/>.</param>
-   //[CLSCompliant( false )]
-   //public static void GetTargetRelatedAttributes(
-   //   this TargetRuntime runtime,
-   //   out String mdVersion,
-   //   out UInt16 corLibMajor,
-   //   out UInt16 corLibMinor,
-   //   out UInt16 corLibBuild,
-   //   out UInt16 corLibRevision,
-   //   out UInt16 cliMajorVersion,
-   //   out UInt16 cliMinorVersion,
-   //   out Byte tableHeapMajor,
-   //   out Byte tableHeapMinor
-   //   )
-   //{
-   //   corLibMinor = 0;
-   //   corLibBuild = 0;
-   //   corLibRevision = 0;
-   //   cliMajorVersion = 2;
-   //   tableHeapMinor = 0;
-   //   switch ( runtime )
-   //   {
-   //      case TargetRuntime.Net_1_0:
-   //         mdVersion = Utils.MD_NET_1_0;
-   //         corLibMajor = 1;
-   //         cliMinorVersion = 0;
-   //         tableHeapMajor = 1;
-   //         break;
-   //      case TargetRuntime.Net_1_1:
-   //         mdVersion = Utils.MD_NET_1_1;
-   //         corLibMajor = 1;
-   //         cliMinorVersion = 0;
-   //         tableHeapMajor = 1;
-   //         break;
-   //      case TargetRuntime.Net_2_0:
-   //         mdVersion = Utils.MD_NET_2_0;
-   //         corLibMajor = 2;
-   //         cliMinorVersion = 5;
-   //         tableHeapMajor = 2;
-   //         break;
-   //      case TargetRuntime.Net_4_0:
-   //         mdVersion = Utils.MD_NET_4_0;
-   //         corLibMajor = 4;
-   //         cliMinorVersion = 5;
-   //         tableHeapMajor = 2;
-   //         break;
-   //      default:
-   //         throw new ArgumentException( "Unknown runtime: " + runtime );
-   //   }
-   //}
 
    ///// <summary>
    ///// Checks whether custom modifier optionality represents optional custom modifier.
@@ -2414,7 +2251,6 @@ public static partial class E_CILPhysical
          case UnmanagedType.Currency:
          case UnmanagedType.BStr:
          case UnmanagedType.Struct:
-         case UnmanagedType.Interface:
          case UnmanagedType.VBByRefStr:
          case UnmanagedType.AnsiBStr:
          case UnmanagedType.TBStr:
@@ -2422,8 +2258,8 @@ public static partial class E_CILPhysical
          case UnmanagedType.AsAny:
          case UnmanagedType.LPStruct:
          case UnmanagedType.Error:
-         case (UnmanagedType) 46: // IInspectable
-         case (UnmanagedType) 47: // HString
+         case UnmanagedType.IInspectable: // IInspectable
+         case UnmanagedType.HString: // HString
             return true;
          default:
             return false;

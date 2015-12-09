@@ -15,6 +15,8 @@
  * See the License for the specific language governing permissions and
  * limitations under the License. 
  */
+using CILAssemblyManipulator.Physical.IO;
+using CollectionsWithRoles.API;
 using CommonUtils;
 using System;
 using System.Collections.Generic;
@@ -26,12 +28,16 @@ namespace CILAssemblyManipulator.Physical
    public static class Comparers
    {
       // Metadata and metadata row comparers
+#pragma warning disable 618
       private static IEqualityComparer<CILMetaData> _MetaDataEqualityComparer = null;
       private static IEqualityComparer<ModuleDefinition> _ModuleDefinitionEqualityComparer = null;
       private static IEqualityComparer<TypeReference> _TypeReferenceEqualityComparer = null;
       private static IEqualityComparer<TypeDefinition> _TypeDefinitionEqualityComparer = null;
+      private static IEqualityComparer<FieldDefinitionPointer> _FieldDefinitionPointerEqualityComparer = null;
       private static IEqualityComparer<FieldDefinition> _FieldDefinitionEqualityComparer = null;
+      private static IEqualityComparer<MethodDefinitionPointer> _MethodDefinitionPointerEqualityComparer = null;
       private static IEqualityComparer<MethodDefinition> _MethodDefinitionEqualityComparer = null;
+      private static IEqualityComparer<ParameterDefinitionPointer> _ParameterDefinitionPointerEqualityComparer = null;
       private static IEqualityComparer<ParameterDefinition> _ParameterDefinitionEqualityComparer = null;
       private static IEqualityComparer<InterfaceImplementation> _InterfaceImplementationEqualityComparer = null;
       private static IEqualityComparer<MemberReference> _MemberReferenceEqualityComparer = null;
@@ -43,8 +49,10 @@ namespace CILAssemblyManipulator.Physical
       private static IEqualityComparer<FieldLayout> _FieldLayoutEqualityComparer = null;
       private static IEqualityComparer<StandaloneSignature> _StandaloneSignatureEqualityComparer = null;
       private static IEqualityComparer<EventMap> _EventMapEqualityComparer = null;
+      private static IEqualityComparer<EventDefinitionPointer> _EventDefinitionPointerEqualityComparer = null;
       private static IEqualityComparer<EventDefinition> _EventDefinitionEqualityComparer = null;
       private static IEqualityComparer<PropertyMap> _PropertyMapEqualityComparer = null;
+      private static IEqualityComparer<PropertyDefinitionPointer> _PropertyDefinitionPointerEqualityComparer = null;
       private static IEqualityComparer<PropertyDefinition> _PropertyDefinitionEqualityComparer = null;
       private static IEqualityComparer<MethodSemantics> _MethodSemanticsEqualityComparer = null;
       private static IEqualityComparer<MethodImplementation> _MethodImplementationEqualityComparer = null;
@@ -52,8 +60,14 @@ namespace CILAssemblyManipulator.Physical
       private static IEqualityComparer<TypeSpecification> _TypeSpecificationEqualityComparer = null;
       private static IEqualityComparer<MethodImplementationMap> _MethodImplementationMapEqualityComparer = null;
       private static IEqualityComparer<FieldRVA> _FieldRVAEqualityComparer = null;
+      private static IEqualityComparer<EditAndContinueLog> _EditAndContinueLogEqualityComparer = null;
+      private static IEqualityComparer<EditAndContinueMap> _EditAndContinueMapEqualityComparer = null;
       private static IEqualityComparer<AssemblyDefinition> _AssemblyDefinitionEqualityComparer = null;
+      private static IEqualityComparer<AssemblyDefinitionProcessor> _AssemblyDefinitionProcessorEqualityComparer = null;
+      private static IEqualityComparer<AssemblyDefinitionOS> _AssemblyDefinitionOSEqualityComparer = null;
       private static IEqualityComparer<AssemblyReference> _AssemblyReferenceEqualityComparer = null;
+      private static IEqualityComparer<AssemblyReferenceProcessor> _AssemblyReferenceProcessorEqualityComparer = null;
+      private static IEqualityComparer<AssemblyReferenceOS> _AssemblyReferenceOSEqualityComparer = null;
       private static IEqualityComparer<FileReference> _FileReferenceEqualityComparer = null;
       private static IEqualityComparer<ExportedType> _ExportedTypeEqualityComparer = null;
       private static IEqualityComparer<ManifestResource> _ManifestResourceEqualityComparer = null;
@@ -64,10 +78,13 @@ namespace CILAssemblyManipulator.Physical
       private static IEqualityComparer<MethodILDefinition> _MethodILDefinitionEqualityComparer = null;
       private static IEqualityComparer<MethodExceptionBlock> _MethodExceptionBlockEqualityComparer = null;
       private static IEqualityComparer<OpCodeInfo> _OpCodeInfoEqualityComparer = null;
+#pragma warning restore 618
 
+      private static IEqualityComparer<AssemblyInformation> _AssemblyInformationEqualityComparer = null;
       private static IEqualityComparer<AbstractSignature> _AbstractSignatureEqualityComparer = null;
       private static IEqualityComparer<RawSignature> _RawSignatureEqualityComparer = null;
       private static IEqualityComparer<AbstractMethodSignature> _AbstractMethodSignatureEqualityComparer = null;
+      private static IEqualityComparer<AbstractMethodSignature> _AbstractMethodSignatureEqualityComparer_IgnoreKind = null;
       private static IEqualityComparer<MethodDefinitionSignature> _MethodDefinitionSignatureEqualityComparer = null;
       private static IEqualityComparer<MethodReferenceSignature> _MethodReferenceSignatureEqualityComparer = null;
       private static IEqualityComparer<FieldSignature> _FieldSignatureEqualityComparer = null;
@@ -82,7 +99,7 @@ namespace CILAssemblyManipulator.Physical
       private static IEqualityComparer<CustomAttributeTypedArgument> _CustomAttributeTypedArgumentEqualityComparer = null;
       private static IEqualityComparer<CustomAttributeNamedArgument> _CustomAttributeNamedArgumentEqualityComparer = null;
       private static IEqualityComparer<AbstractSecurityInformation> _AbstractSecurityInformationEqualityComparer = null;
-      private static IEqualityComparer<MarshalingInfo> _MarshalingInfoEqualityComparer = null;
+      private static IEqualityComparer<AbstractMarshalingInfo> _MarshalingInfoEqualityComparer = null;
 
       private static IComparer<ClassLayout> _ClassLayoutComparer = null;
       private static IComparer<ConstantDefinition> _ConstantDefinitionComparer = null;
@@ -109,7 +126,7 @@ namespace CILAssemblyManipulator.Physical
 
       private static IEqualityComparer<Object> _CAValueEqualityComparer = ComparerFromFunctions.NewEqualityComparer<Object>( Equality_CustomAttributeValue, x => { throw new NotSupportedException(); } );
 
-      private static IEqualityComparer<HeadersData> _HeadersEqualityComparer = null;
+      private static IEqualityComparer<ImageInformation> _ImageInformationLogicalEqualityComparer = null;
 
       public static IEqualityComparer<CILMetaData> MetaDataComparer
       {
@@ -168,6 +185,20 @@ namespace CILAssemblyManipulator.Physical
          }
       }
 
+      public static IEqualityComparer<FieldDefinitionPointer> FieldDefinitionPointerEqualityComparer
+      {
+         get
+         {
+            var retVal = _FieldDefinitionPointerEqualityComparer;
+            if ( retVal == null )
+            {
+               retVal = ComparerFromFunctions.NewEqualityComparer<FieldDefinitionPointer>( Equality_FieldDefinitionPointer, HashCode_FieldDefinitionPointer );
+               _FieldDefinitionPointerEqualityComparer = retVal;
+            }
+            return retVal;
+         }
+      }
+
       public static IEqualityComparer<FieldDefinition> FieldDefinitionEqualityComparer
       {
          get
@@ -182,6 +213,20 @@ namespace CILAssemblyManipulator.Physical
          }
       }
 
+      public static IEqualityComparer<MethodDefinitionPointer> MethodDefinitionPointerEqualityComparer
+      {
+         get
+         {
+            var retVal = _MethodDefinitionPointerEqualityComparer;
+            if ( retVal == null )
+            {
+               retVal = ComparerFromFunctions.NewEqualityComparer<MethodDefinitionPointer>( Equality_MethodDefinitionPointer, HashCode_MethodDefinitionPointer );
+               _MethodDefinitionPointerEqualityComparer = retVal;
+            }
+            return retVal;
+         }
+      }
+
       public static IEqualityComparer<MethodDefinition> MethodDefinitionEqualityComparer
       {
          get
@@ -191,6 +236,20 @@ namespace CILAssemblyManipulator.Physical
             {
                retVal = ComparerFromFunctions.NewEqualityComparer<MethodDefinition>( Equality_MethodDefinition, HashCode_MethodDefinition );
                _MethodDefinitionEqualityComparer = retVal;
+            }
+            return retVal;
+         }
+      }
+
+      public static IEqualityComparer<ParameterDefinitionPointer> ParameterDefinitionPointerEqualityComparer
+      {
+         get
+         {
+            var retVal = _ParameterDefinitionPointerEqualityComparer;
+            if ( retVal == null )
+            {
+               retVal = ComparerFromFunctions.NewEqualityComparer<ParameterDefinitionPointer>( Equality_ParameterDefinitionPointer, HashCode_ParameterDefinitionPointer );
+               _ParameterDefinitionPointerEqualityComparer = retVal;
             }
             return retVal;
          }
@@ -350,6 +409,20 @@ namespace CILAssemblyManipulator.Physical
          }
       }
 
+      public static IEqualityComparer<EventDefinitionPointer> EventDefinitionPointerEqualityComparer
+      {
+         get
+         {
+            var retVal = _EventDefinitionPointerEqualityComparer;
+            if ( retVal == null )
+            {
+               retVal = ComparerFromFunctions.NewEqualityComparer<EventDefinitionPointer>( Equality_EventDefinitionPointer, HashCode_EventDefinitionPointer );
+               _EventDefinitionPointerEqualityComparer = retVal;
+            }
+            return retVal;
+         }
+      }
+
       public static IEqualityComparer<EventDefinition> EventDefinitionEqualityComparer
       {
          get
@@ -373,6 +446,20 @@ namespace CILAssemblyManipulator.Physical
             {
                retVal = ComparerFromFunctions.NewEqualityComparer<PropertyMap>( Equality_PropertyMap, HashCode_PropertyMap );
                _PropertyMapEqualityComparer = retVal;
+            }
+            return retVal;
+         }
+      }
+
+      public static IEqualityComparer<PropertyDefinitionPointer> PropertyDefinitionPointerEqualityComparer
+      {
+         get
+         {
+            var retVal = _PropertyDefinitionPointerEqualityComparer;
+            if ( retVal == null )
+            {
+               retVal = ComparerFromFunctions.NewEqualityComparer<PropertyDefinitionPointer>( Equality_PropertyDefinitionPointer, HashCode_PropertyDefinitionPointer );
+               _PropertyDefinitionPointerEqualityComparer = retVal;
             }
             return retVal;
          }
@@ -476,6 +563,34 @@ namespace CILAssemblyManipulator.Physical
          }
       }
 
+      public static IEqualityComparer<EditAndContinueLog> EditAndContinueLogEqualityComparer
+      {
+         get
+         {
+            var retVal = _EditAndContinueLogEqualityComparer;
+            if ( retVal == null )
+            {
+               retVal = ComparerFromFunctions.NewEqualityComparer<EditAndContinueLog>( Equality_EditAndContinueLog, HashCode_EditAndContinueLog );
+               _EditAndContinueLogEqualityComparer = retVal;
+            }
+            return retVal;
+         }
+      }
+
+      public static IEqualityComparer<EditAndContinueMap> EditAndContinueMapEqualityComparer
+      {
+         get
+         {
+            var retVal = _EditAndContinueMapEqualityComparer;
+            if ( retVal == null )
+            {
+               retVal = ComparerFromFunctions.NewEqualityComparer<EditAndContinueMap>( Equality_EditAndContinueMap, HashCode_EditAndContinueMap );
+               _EditAndContinueMapEqualityComparer = retVal;
+            }
+            return retVal;
+         }
+      }
+
       public static IEqualityComparer<AssemblyDefinition> AssemblyDefinitionEqualityComparer
       {
          get
@@ -490,6 +605,37 @@ namespace CILAssemblyManipulator.Physical
          }
       }
 
+#pragma warning disable 618
+      public static IEqualityComparer<AssemblyDefinitionProcessor> AssemblyDefinitionProcessorEqualityComparer
+      {
+         get
+         {
+            var retVal = _AssemblyDefinitionProcessorEqualityComparer;
+            if ( retVal == null )
+            {
+               retVal = ComparerFromFunctions.NewEqualityComparer<AssemblyDefinitionProcessor>( Equality_AssemblyDefinitionProcessor, HashCode_AssemblyDefinitionProcessor );
+               _AssemblyDefinitionProcessorEqualityComparer = retVal;
+            }
+            return retVal;
+         }
+      }
+
+      public static IEqualityComparer<AssemblyDefinitionOS> AssemblyDefinitionOSEqualityComparer
+      {
+         get
+         {
+            var retVal = _AssemblyDefinitionOSEqualityComparer;
+            if ( retVal == null )
+            {
+               retVal = ComparerFromFunctions.NewEqualityComparer<AssemblyDefinitionOS>( Equality_AssemblyDefinitionOS, HashCode_AssemblyDefinitionOS );
+               _AssemblyDefinitionOSEqualityComparer = retVal;
+            }
+            return retVal;
+         }
+      }
+
+#pragma warning restore 618
+
       public static IEqualityComparer<AssemblyReference> AssemblyReferenceEqualityComparer
       {
          get
@@ -503,6 +649,37 @@ namespace CILAssemblyManipulator.Physical
             return retVal;
          }
       }
+
+#pragma warning disable 618
+      public static IEqualityComparer<AssemblyReferenceProcessor> AssemblyReferenceProcessorEqualityComparer
+      {
+         get
+         {
+            var retVal = _AssemblyReferenceProcessorEqualityComparer;
+            if ( retVal == null )
+            {
+               retVal = ComparerFromFunctions.NewEqualityComparer<AssemblyReferenceProcessor>( Equality_AssemblyReferenceProcessor, HashCode_AssemblyReferenceProcessor );
+               _AssemblyReferenceProcessorEqualityComparer = retVal;
+            }
+            return retVal;
+         }
+      }
+
+      public static IEqualityComparer<AssemblyReferenceOS> AssemblyReferenceOSEqualityComparer
+      {
+         get
+         {
+            var retVal = _AssemblyReferenceOSEqualityComparer;
+            if ( retVal == null )
+            {
+               retVal = ComparerFromFunctions.NewEqualityComparer<AssemblyReferenceOS>( Equality_AssemblyReferenceOS, HashCode_AssemblyReferenceOS );
+               _AssemblyReferenceOSEqualityComparer = retVal;
+            }
+            return retVal;
+         }
+      }
+
+#pragma warning restore 618
 
       public static IEqualityComparer<FileReference> FileReferenceEqualityComparer
       {
@@ -644,6 +821,19 @@ namespace CILAssemblyManipulator.Physical
          }
       }
 
+      public static IEqualityComparer<AssemblyInformation> AssemblyInformationEqualityComparer
+      {
+         get
+         {
+            var retVal = _AssemblyInformationEqualityComparer;
+            if ( retVal == null )
+            {
+               retVal = ComparerFromFunctions.NewEqualityComparer<AssemblyInformation>( Equality_AssemblyInformation, HashCode_AssemblyInformation );
+               _AssemblyInformationEqualityComparer = retVal;
+            }
+            return retVal;
+         }
+      }
       public static IEqualityComparer<AbstractSignature> AbstractSignatureEqualityComparer
       {
          get
@@ -681,6 +871,20 @@ namespace CILAssemblyManipulator.Physical
             {
                retVal = ComparerFromFunctions.NewEqualityComparer<AbstractMethodSignature>( Equality_AbstractMethodSignature, HashCode_AbstractMethodSignature );
                _AbstractMethodSignatureEqualityComparer = retVal;
+            }
+            return retVal;
+         }
+      }
+
+      public static IEqualityComparer<AbstractMethodSignature> AbstractMethodSignatureEqualityComparer_IgnoreKind
+      {
+         get
+         {
+            var retVal = _AbstractMethodSignatureEqualityComparer_IgnoreKind;
+            if ( retVal == null )
+            {
+               retVal = ComparerFromFunctions.NewEqualityComparer<AbstractMethodSignature>( Equality_AbstractMethodSignature_IgnoreKind, HashCode_AbstractMethodSignature );
+               _AbstractMethodSignatureEqualityComparer_IgnoreKind = retVal;
             }
             return retVal;
          }
@@ -886,29 +1090,29 @@ namespace CILAssemblyManipulator.Physical
       }
 
 
-      public static IEqualityComparer<MarshalingInfo> MarshalingInfoEqualityComparer
+      public static IEqualityComparer<AbstractMarshalingInfo> MarshalingInfoEqualityComparer
       {
          get
          {
             var retVal = _MarshalingInfoEqualityComparer;
             if ( retVal == null )
             {
-               retVal = ComparerFromFunctions.NewEqualityComparer<MarshalingInfo>( Equality_MarshalingInfo, HashCode_MarshalingInfo );
+               retVal = ComparerFromFunctions.NewEqualityComparer<AbstractMarshalingInfo>( Equality_MarshalingInfo, HashCode_MarshalingInfo );
                _MarshalingInfoEqualityComparer = retVal;
             }
             return retVal;
          }
       }
 
-      public static IEqualityComparer<HeadersData> HeadersEqualityComparer
+      public static IEqualityComparer<ImageInformation> ImageInformationLogicalEqualityComparer
       {
          get
          {
-            var retVal = _HeadersEqualityComparer;
+            var retVal = _ImageInformationLogicalEqualityComparer;
             if ( retVal == null )
             {
-               retVal = ComparerFromFunctions.NewEqualityComparer<HeadersData>( Equality_HeadersData, HashCode_HeadersData );
-               _HeadersEqualityComparer = retVal;
+               retVal = ComparerFromFunctions.NewEqualityComparer<ImageInformation>( Equality_ImageInformation_Logical, HashCode_HeadersData );
+               _ImageInformationLogicalEqualityComparer = retVal;
             }
             return retVal;
          }
@@ -1211,13 +1415,21 @@ namespace CILAssemblyManipulator.Physical
 
       private static Boolean Equality_MetaData( CILMetaData x, CILMetaData y )
       {
+         // TODO: Table infos actually use these comparers to perform equality & hash code operations
+         // Instead, this method should actually use the comparers of table infos
+         // Comparers of table infos should be the ones that are currently here.
+         // Alternatively, consider merging this class and DefaultMetaDataTableInformationProvider .
+#pragma warning disable 618
          return Object.ReferenceEquals( x, y ) ||
             ( x != null && y != null
             && ListEqualityComparer<List<ModuleDefinition>, ModuleDefinition>.Equals( x.ModuleDefinitions.TableContents, y.ModuleDefinitions.TableContents, ModuleDefinitionEqualityComparer )
             && ListEqualityComparer<List<TypeReference>, TypeReference>.Equals( x.TypeReferences.TableContents, y.TypeReferences.TableContents, TypeReferenceEqualityComparer )
             && ListEqualityComparer<List<TypeDefinition>, TypeDefinition>.Equals( x.TypeDefinitions.TableContents, y.TypeDefinitions.TableContents, TypeDefinitionEqualityComparer )
+            && ListEqualityComparer<List<FieldDefinitionPointer>, FieldDefinitionPointer>.Equals( x.FieldDefinitionPointers.TableContents, y.FieldDefinitionPointers.TableContents, FieldDefinitionPointerEqualityComparer )
             && ListEqualityComparer<List<FieldDefinition>, FieldDefinition>.Equals( x.FieldDefinitions.TableContents, y.FieldDefinitions.TableContents, FieldDefinitionEqualityComparer )
+            && ListEqualityComparer<List<MethodDefinitionPointer>, MethodDefinitionPointer>.Equals( x.MethodDefinitionPointers.TableContents, y.MethodDefinitionPointers.TableContents, MethodDefinitionPointerEqualityComparer )
             && ListEqualityComparer<List<MethodDefinition>, MethodDefinition>.Equals( x.MethodDefinitions.TableContents, y.MethodDefinitions.TableContents, MethodDefinitionEqualityComparer )
+            && ListEqualityComparer<List<ParameterDefinitionPointer>, ParameterDefinitionPointer>.Equals( x.ParameterDefinitionPointers.TableContents, y.ParameterDefinitionPointers.TableContents, ParameterDefinitionPointerEqualityComparer )
             && ListEqualityComparer<List<ParameterDefinition>, ParameterDefinition>.Equals( x.ParameterDefinitions.TableContents, y.ParameterDefinitions.TableContents, ParameterDefinitionEqualityComparer )
             && ListEqualityComparer<List<InterfaceImplementation>, InterfaceImplementation>.Equals( x.InterfaceImplementations.TableContents, y.InterfaceImplementations.TableContents, InterfaceImplementationEqualityComparer )
             && ListEqualityComparer<List<MemberReference>, MemberReference>.Equals( x.MemberReferences.TableContents, y.MemberReferences.TableContents, MemberReferenceEqualityComparer )
@@ -1229,8 +1441,10 @@ namespace CILAssemblyManipulator.Physical
             && ListEqualityComparer<List<FieldLayout>, FieldLayout>.Equals( x.FieldLayouts.TableContents, y.FieldLayouts.TableContents, FieldLayoutEqualityComparer )
             && ListEqualityComparer<List<StandaloneSignature>, StandaloneSignature>.Equals( x.StandaloneSignatures.TableContents, y.StandaloneSignatures.TableContents, StandaloneSignatureEqualityComparer )
             && ListEqualityComparer<List<EventMap>, EventMap>.Equals( x.EventMaps.TableContents, y.EventMaps.TableContents, EventMapEqualityComparer )
+            && ListEqualityComparer<List<EventDefinitionPointer>, EventDefinitionPointer>.Equals( x.EventDefinitionPointers.TableContents, y.EventDefinitionPointers.TableContents, EventDefinitionPointerEqualityComparer )
             && ListEqualityComparer<List<EventDefinition>, EventDefinition>.Equals( x.EventDefinitions.TableContents, y.EventDefinitions.TableContents, EventDefinitionEqualityComparer )
             && ListEqualityComparer<List<PropertyMap>, PropertyMap>.Equals( x.PropertyMaps.TableContents, y.PropertyMaps.TableContents, PropertyMapEqualityComparer )
+            && ListEqualityComparer<List<PropertyDefinitionPointer>, PropertyDefinitionPointer>.Equals( x.PropertyDefinitionPointers.TableContents, y.PropertyDefinitionPointers.TableContents, PropertyDefinitionPointerEqualityComparer )
             && ListEqualityComparer<List<PropertyDefinition>, PropertyDefinition>.Equals( x.PropertyDefinitions.TableContents, y.PropertyDefinitions.TableContents, PropertyDefinitionEqualityComparer )
             && ListEqualityComparer<List<MethodSemantics>, MethodSemantics>.Equals( x.MethodSemantics.TableContents, y.MethodSemantics.TableContents, MethodSemanticsEqualityComparer )
             && ListEqualityComparer<List<MethodImplementation>, MethodImplementation>.Equals( x.MethodImplementations.TableContents, y.MethodImplementations.TableContents, MethodImplementationEqualityComparer )
@@ -1238,8 +1452,14 @@ namespace CILAssemblyManipulator.Physical
             && ListEqualityComparer<List<TypeSpecification>, TypeSpecification>.Equals( x.TypeSpecifications.TableContents, y.TypeSpecifications.TableContents, TypeSpecificationEqualityComparer )
             && ListEqualityComparer<List<MethodImplementationMap>, MethodImplementationMap>.Equals( x.MethodImplementationMaps.TableContents, y.MethodImplementationMaps.TableContents, MethodImplementationMapEqualityComparer )
             && ListEqualityComparer<List<FieldRVA>, FieldRVA>.Equals( x.FieldRVAs.TableContents, y.FieldRVAs.TableContents, FieldRVAEqualityComparer )
+            && ListEqualityComparer<List<EditAndContinueLog>, EditAndContinueLog>.Equals( x.EditAndContinueLog.TableContents, y.EditAndContinueLog.TableContents, EditAndContinueLogEqualityComparer )
+            && ListEqualityComparer<List<EditAndContinueMap>, EditAndContinueMap>.Equals( x.EditAndContinueMap.TableContents, y.EditAndContinueMap.TableContents, EditAndContinueMapEqualityComparer )
             && ListEqualityComparer<List<AssemblyDefinition>, AssemblyDefinition>.Equals( x.AssemblyDefinitions.TableContents, y.AssemblyDefinitions.TableContents, AssemblyDefinitionEqualityComparer )
+            && ListEqualityComparer<List<AssemblyDefinitionProcessor>, AssemblyDefinitionProcessor>.Equals( x.AssemblyDefinitionProcessors.TableContents, y.AssemblyDefinitionProcessors.TableContents, AssemblyDefinitionProcessorEqualityComparer )
+            && ListEqualityComparer<List<AssemblyDefinitionOS>, AssemblyDefinitionOS>.Equals( x.AssemblyDefinitionOSs.TableContents, y.AssemblyDefinitionOSs.TableContents, AssemblyDefinitionOSEqualityComparer )
             && ListEqualityComparer<List<AssemblyReference>, AssemblyReference>.Equals( x.AssemblyReferences.TableContents, y.AssemblyReferences.TableContents, AssemblyReferenceEqualityComparer )
+            && ListEqualityComparer<List<AssemblyReferenceProcessor>, AssemblyReferenceProcessor>.Equals( x.AssemblyReferenceProcessors.TableContents, y.AssemblyReferenceProcessors.TableContents, AssemblyReferenceProcessorEqualityComparer )
+            && ListEqualityComparer<List<AssemblyReferenceOS>, AssemblyReferenceOS>.Equals( x.AssemblyReferenceOSs.TableContents, y.AssemblyReferenceOSs.TableContents, AssemblyReferenceOSEqualityComparer )
             && ListEqualityComparer<List<FileReference>, FileReference>.Equals( x.FileReferences.TableContents, y.FileReferences.TableContents, FileReferenceEqualityComparer )
             && ListEqualityComparer<List<ExportedType>, ExportedType>.Equals( x.ExportedTypes.TableContents, y.ExportedTypes.TableContents, ExportedTypeEqualityComparer )
             && ListEqualityComparer<List<ManifestResource>, ManifestResource>.Equals( x.ManifestResources.TableContents, y.ManifestResources.TableContents, ManifestResourceEqualityComparer )
@@ -1247,7 +1467,16 @@ namespace CILAssemblyManipulator.Physical
             && ListEqualityComparer<List<GenericParameterDefinition>, GenericParameterDefinition>.Equals( x.GenericParameterDefinitions.TableContents, y.GenericParameterDefinitions.TableContents, GenericParameterDefinitionEqualityComparer )
             && ListEqualityComparer<List<MethodSpecification>, MethodSpecification>.Equals( x.MethodSpecifications.TableContents, y.MethodSpecifications.TableContents, MethodSpecificationEqualityComparer )
             && ListEqualityComparer<List<GenericParameterConstraintDefinition>, GenericParameterConstraintDefinition>.Equals( x.GenericParameterConstraintDefinitions.TableContents, y.GenericParameterConstraintDefinitions.TableContents, GenericParameterConstraintDefinitionEqualityComparer )
+            && SequenceEqualityComparer<IEnumerable<MetaDataTable>, MetaDataTable>.SequenceEquality(
+               x.GetAdditionalTables(),
+               y.GetAdditionalTables(),
+               ( xa, ya ) => SequenceEqualityComparer<IEnumerable<Object>, Object>.SequenceEquality(
+                  xa.TableContentsAsEnumerable,
+                  ya.TableContentsAsEnumerable,
+                  xa.TableInformationNotGeneric.EqualityComparerNotGeneric.Equals
+               ) )
             );
+#pragma warning restore 618
       }
 
       private static Boolean Equality_ModuleDefinition( ModuleDefinition x, ModuleDefinition y )
@@ -1285,6 +1514,13 @@ namespace CILAssemblyManipulator.Physical
             );
       }
 
+      private static Boolean Equality_FieldDefinitionPointer( FieldDefinitionPointer x, FieldDefinitionPointer y )
+      {
+         return Object.ReferenceEquals( x, y ) ||
+            ( x != null && y != null && x.FieldIndex.Equals( y.FieldIndex ) );
+      }
+
+
       private static Boolean Equality_FieldDefinition( FieldDefinition x, FieldDefinition y )
       {
          return Object.ReferenceEquals( x, y ) ||
@@ -1293,6 +1529,12 @@ namespace CILAssemblyManipulator.Physical
             && x.Attributes == y.Attributes
             && FieldSignatureEqualityComparer.Equals( x.Signature, y.Signature )
             );
+      }
+
+      private static Boolean Equality_MethodDefinitionPointer( MethodDefinitionPointer x, MethodDefinitionPointer y )
+      {
+         return Object.ReferenceEquals( x, y ) ||
+            ( x != null && y != null && x.MethodIndex.Equals( y.MethodIndex ) );
       }
 
       private static Boolean Equality_MethodDefinition( MethodDefinition x, MethodDefinition y )
@@ -1306,6 +1548,12 @@ namespace CILAssemblyManipulator.Physical
             && MethodDefinitionSignatureEqualityComparer.Equals( x.Signature, y.Signature )
             && Equality_MethodILDefinition( x.IL, y.IL )
             );
+      }
+
+      private static Boolean Equality_ParameterDefinitionPointer( ParameterDefinitionPointer x, ParameterDefinitionPointer y )
+      {
+         return Object.ReferenceEquals( x, y ) ||
+            ( x != null && y != null && x.ParameterIndex.Equals( y.ParameterIndex ) );
       }
 
       private static Boolean Equality_ParameterDefinition( ParameterDefinition x, ParameterDefinition y )
@@ -1413,6 +1661,12 @@ namespace CILAssemblyManipulator.Physical
              );
       }
 
+      private static Boolean Equality_EventDefinitionPointer( EventDefinitionPointer x, EventDefinitionPointer y )
+      {
+         return Object.ReferenceEquals( x, y ) ||
+            ( x != null && y != null && x.EventIndex.Equals( y.EventIndex ) );
+      }
+
       private static Boolean Equality_EventDefinition( EventDefinition x, EventDefinition y )
       {
          return Object.ReferenceEquals( x, y ) ||
@@ -1430,6 +1684,12 @@ namespace CILAssemblyManipulator.Physical
              && x.Parent == y.Parent
              && x.PropertyList == y.PropertyList
              );
+      }
+
+      private static Boolean Equality_PropertyDefinitionPointer( PropertyDefinitionPointer x, PropertyDefinitionPointer y )
+      {
+         return Object.ReferenceEquals( x, y ) ||
+            ( x != null && y != null && x.PropertyIndex.Equals( y.PropertyIndex ) );
       }
 
       private static Boolean Equality_PropertyDefinition( PropertyDefinition x, PropertyDefinition y )
@@ -1491,12 +1751,28 @@ namespace CILAssemblyManipulator.Physical
 
       private static Boolean Equality_FieldRVA( FieldRVA x, FieldRVA y )
       {
-         var retVal = Object.ReferenceEquals( x, y ) ||
+         return Object.ReferenceEquals( x, y ) ||
              ( x != null && y != null
              && x.Field == y.Field
              && ArrayEqualityComparer<Byte>.DefaultArrayEqualityComparer.Equals( x.Data, y.Data )
              );
-         return retVal;
+      }
+
+      private static Boolean Equality_EditAndContinueLog( EditAndContinueLog x, EditAndContinueLog y )
+      {
+         return Object.ReferenceEquals( x, y ) ||
+            ( x != null && y != null
+            && x.Token == y.Token
+            && x.FuncCode == y.FuncCode
+            );
+      }
+
+      private static Boolean Equality_EditAndContinueMap( EditAndContinueMap x, EditAndContinueMap y )
+      {
+         return Object.ReferenceEquals( x, y ) ||
+            ( x != null && y != null
+            && x.Token == y.Token
+            );
       }
 
       private static Boolean Equality_AssemblyDefinition( AssemblyDefinition x, AssemblyDefinition y )
@@ -1509,6 +1785,28 @@ namespace CILAssemblyManipulator.Physical
              );
       }
 
+#pragma warning disable 618
+
+      private static Boolean Equality_AssemblyDefinitionProcessor( AssemblyDefinitionProcessor x, AssemblyDefinitionProcessor y )
+      {
+         return Object.ReferenceEquals( x, y ) ||
+            ( x != null && y != null
+            && x.Processor == y.Processor
+            );
+      }
+
+      private static Boolean Equality_AssemblyDefinitionOS( AssemblyDefinitionOS x, AssemblyDefinitionOS y )
+      {
+         return Object.ReferenceEquals( x, y ) ||
+            ( x != null && y != null
+            && x.OSPlatformID == y.OSPlatformID
+            && x.OSMajorVersion == y.OSMajorVersion
+            && x.OSMinorVersion == y.OSMinorVersion
+            );
+      }
+
+#pragma warning restore 618
+
       private static Boolean Equality_AssemblyReference( AssemblyReference x, AssemblyReference y )
       {
          return Object.ReferenceEquals( x, y ) ||
@@ -1518,6 +1816,30 @@ namespace CILAssemblyManipulator.Physical
              && ArrayEqualityComparer<Byte>.DefaultArrayEqualityComparer.Equals( x.HashValue, y.HashValue )
              );
       }
+
+#pragma warning disable 618
+
+      private static Boolean Equality_AssemblyReferenceProcessor( AssemblyReferenceProcessor x, AssemblyReferenceProcessor y )
+      {
+         return Object.ReferenceEquals( x, y )
+            || ( x != null && y != null
+            && x.Processor == y.Processor
+            && x.AssemblyRef.Equals( y.AssemblyRef )
+            );
+      }
+
+      private static Boolean Equality_AssemblyReferenceOS( AssemblyReferenceOS x, AssemblyReferenceOS y )
+      {
+         return Object.ReferenceEquals( x, y )
+            || ( x != null && y != null
+            && x.OSPlatformID == y.OSPlatformID
+            && x.OSMajorVersion == y.OSMajorVersion
+            && x.OSMinorVersion == y.OSMinorVersion
+            && x.AssemblyRef == y.AssemblyRef
+            );
+      }
+
+#pragma warning restore 618
 
       private static Boolean Equality_FileReference( FileReference x, FileReference y )
       {
@@ -1657,6 +1979,12 @@ namespace CILAssemblyManipulator.Physical
          return retVal;
       }
 
+      private static Boolean Equality_AssemblyInformation( AssemblyInformation x, AssemblyInformation y )
+      {
+         return ReferenceEquals( x, y )
+            || ( x != null && x.Equals( y ) );
+      }
+
       private static Boolean Equality_AbstractSignature( AbstractSignature x, AbstractSignature y )
       {
          var retVal = Object.ReferenceEquals( x, y );
@@ -1711,6 +2039,18 @@ namespace CILAssemblyManipulator.Physical
                MethodDefinitionSignatureEqualityComparer.Equals( x as MethodDefinitionSignature, y as MethodDefinitionSignature )
                )
          );
+      }
+
+      private static Boolean Equality_AbstractMethodSignature_IgnoreKind( AbstractMethodSignature x, AbstractMethodSignature y )
+      {
+         return Object.ReferenceEquals( x, y ) ||
+            ( Equality_AbstractMethodSignature_NoReferenceEquals( x, y )
+            && (
+               x.SignatureKind != y.SignatureKind
+               || x.SignatureKind != SignatureKind.MethodReference
+               || Equality_ParameterSignatures( ( (MethodReferenceSignature) x ).VarArgsParameters, ( (MethodReferenceSignature) y ).VarArgsParameters )
+               )
+            );
       }
 
       private static Boolean Equality_ParameterSignatures( List<ParameterSignature> x, List<ParameterSignature> y )
@@ -1928,7 +2268,7 @@ namespace CILAssemblyManipulator.Physical
          return Object.ReferenceEquals( x, y ) ||
          ( x != null && y != null
             && Equality_CustomAttributeValue( x.Value, y.Value )
-            //&& Equality_CustomAttributeArgumentType( x.Type, y.Type )
+         //&& Equality_CustomAttributeArgumentType( x.Type, y.Type )
          );
       }
 
@@ -2017,56 +2357,215 @@ namespace CILAssemblyManipulator.Physical
             && ListEqualityComparer<List<CustomAttributeNamedArgument>, CustomAttributeNamedArgument>.Equals( x.NamedArguments, y.NamedArguments, CustomAttributeNamedArgumentEqualityComparer );
       }
 
-      private static Boolean Equality_MarshalingInfo( MarshalingInfo x, MarshalingInfo y )
+      private static Boolean Equality_MarshalingInfo( AbstractMarshalingInfo x, AbstractMarshalingInfo y )
       {
-         return Object.ReferenceEquals( x, y ) ||
-         ( x != null && y != null
-            && x.ArrayType == y.ArrayType
-            && x.ConstSize == y.ConstSize
-            && x.IIDParameterIndex == y.IIDParameterIndex
-            && String.Equals( x.MarshalCookie, y.MarshalCookie )
-            && String.Equals( x.MarshalType, y.MarshalType )
-            && x.SafeArrayType == y.SafeArrayType
-            && x.SafeArrayUserDefinedType == y.SafeArrayUserDefinedType
-            && x.SizeParameterIndex == y.SizeParameterIndex
+         var retVal = Object.ReferenceEquals( x, y );
+         if ( !retVal
+            && x != null
+            && y != null
+            && x.MarshalingInfoKind == y.MarshalingInfoKind
             && x.Value == y.Value
-         );
+            )
+         {
+            switch ( x.MarshalingInfoKind )
+            {
+               case MarshalingInfoKind.Simple:
+                  retVal = true;
+                  break;
+               case MarshalingInfoKind.FixedLengthString:
+                  retVal = Equality_MarshalingInfo_FixedLengthString_NoReferenceEquals( (FixedLengthStringMarshalingInfo) x, (FixedLengthStringMarshalingInfo) y );
+                  break;
+               case MarshalingInfoKind.FixedLengthArray:
+                  retVal = Equality_MarshalingInfo_FixedLengthArray_NoReferenceEquals( (FixedLengthArrayMarshalingInfo) x, (FixedLengthArrayMarshalingInfo) y );
+                  break;
+               case MarshalingInfoKind.SafeArray:
+                  retVal = Equality_MarshalingInfo_SafeArray_NoReferenceEquals( (SafeArrayMarshalingInfo) x, (SafeArrayMarshalingInfo) y );
+                  break;
+               case MarshalingInfoKind.Array:
+                  retVal = Equality_MarshalingInfo_Array_NoReferenceEquals( (ArrayMarshalingInfo) x, (ArrayMarshalingInfo) y );
+                  break;
+               case MarshalingInfoKind.Interface:
+                  retVal = Equality_MarshalingInfo_Interface_NoReferenceEquals( (InterfaceMarshalingInfo) x, (InterfaceMarshalingInfo) y );
+                  break;
+               case MarshalingInfoKind.Custom:
+                  retVal = Equality_MarshalingInfo_Custom_NoReferenceEquals( (CustomMarshalingInfo) x, (CustomMarshalingInfo) y );
+                  break;
+               case MarshalingInfoKind.Raw:
+                  retVal = Equality_MarshalingInfo_Raw_NoReferenceEquals( (RawMarshalingInfo) x, (RawMarshalingInfo) y );
+                  break;
+            }
+         }
+
+         return retVal;
       }
 
-      private static Boolean Equality_HeadersData( HeadersData x, HeadersData y )
+      private static Boolean Equality_MarshalingInfo_FixedLengthString_NoReferenceEquals( FixedLengthStringMarshalingInfo x, FixedLengthStringMarshalingInfo y )
+      {
+         return x.Size == y.Size;
+      }
+
+      private static Boolean Equality_MarshalingInfo_FixedLengthArray_NoReferenceEquals( FixedLengthArrayMarshalingInfo x, FixedLengthArrayMarshalingInfo y )
+      {
+         return x.Size == y.Size
+            && x.ElementType == y.ElementType;
+      }
+
+      private static Boolean Equality_MarshalingInfo_SafeArray_NoReferenceEquals( SafeArrayMarshalingInfo x, SafeArrayMarshalingInfo y )
+      {
+         return x.ElementType == y.ElementType
+            && String.Equals( x.UserDefinedType, y.UserDefinedType );
+      }
+
+      private static Boolean Equality_MarshalingInfo_Array_NoReferenceEquals( ArrayMarshalingInfo x, ArrayMarshalingInfo y )
+      {
+         return x.ElementType == y.ElementType
+            && x.SizeParameterIndex == y.SizeParameterIndex
+            && x.Size == y.Size
+            && x.Flags == y.Flags;
+      }
+
+      private static Boolean Equality_MarshalingInfo_Interface_NoReferenceEquals( InterfaceMarshalingInfo x, InterfaceMarshalingInfo y )
+      {
+         return x.IIDParameterIndex == y.IIDParameterIndex;
+      }
+
+      private static Boolean Equality_MarshalingInfo_Custom_NoReferenceEquals( CustomMarshalingInfo x, CustomMarshalingInfo y )
+      {
+         return String.Equals( x.CustomMarshalerTypeName, y.CustomMarshalerTypeName )
+            && String.Equals( x.MarshalCookie, y.MarshalCookie )
+            && String.Equals( x.GUIDString, y.GUIDString )
+            && String.Equals( x.NativeTypeName, y.NativeTypeName );
+      }
+
+      private static Boolean Equality_MarshalingInfo_Raw_NoReferenceEquals( RawMarshalingInfo x, RawMarshalingInfo y )
+      {
+         return ArrayEqualityComparer<Byte>.ArrayEquality( x.Bytes, y.Bytes );
+      }
+
+      private static Boolean Equality_ImageInformation_Logical( ImageInformation x, ImageInformation y )
       {
          return Object.ReferenceEquals( x, y ) ||
-            ( x != null & y != null
-            && x.Machine == y.Machine
-            && String.Equals( x.MetaDataVersion, y.MetaDataVersion )
-            && String.Equals( x.ImportHintName, y.ImportHintName )
-            && x.ModuleFlags == y.ModuleFlags
-            && NullableEqualityComparer<TableIndex>.DefaultComparer.Equals( x.CLREntryPointIndex, y.CLREntryPointIndex )
-            && Equality_DebugInfo( x.DebugInformation, y.DebugInformation )
-            && x.ImageBase == y.ImageBase
-            && x.FileAlignment == y.FileAlignment
-            && x.SectionAlignment == y.SectionAlignment
-            && x.StackReserve == y.StackReserve
-            && x.StackCommit == y.StackCommit
-            && x.HeapReserve == y.HeapReserve
-            && x.HeapCommit == y.HeapCommit
-            && x.HighEntropyVA == y.HighEntropyVA
-            && String.Equals( x.ImportDirectoryName, y.ImportDirectoryName )
-            && x.EntryPointInstruction == y.EntryPointInstruction
-            && x.LinkerMajor == y.LinkerMajor
-            && x.LinkerMinor == y.LinkerMinor
-            && x.OSMajor == y.OSMajor
-            && x.OSMinor == y.OSMinor
-            && x.SubSysMajor == y.SubSysMajor
-            && x.SubSysMinor == y.SubSysMinor
-            && x.CLIMajor == y.CLIMajor
-            && x.CLIMinor == y.CLIMinor
-            && x.TableHeapMajor == y.TableHeapMajor
-            && x.TableHeapMinor == y.TableHeapMinor
+            ( x != null && y != null
+            && Equality_PEInformation_Logical( x.PEInformation, y.PEInformation )
+            && Equality_CLIInformation_Logical( x.CLIInformation, y.CLIInformation )
+            && Equality_DebugInfo_Logical( x.DebugInformation, y.DebugInformation )
             );
       }
 
-      private static Boolean Equality_DebugInfo( DebugInformation x, DebugInformation y )
+      private static Boolean Equality_PEInformation_Logical( PEInformation x, PEInformation y )
+      {
+         return Object.ReferenceEquals( x, y ) ||
+            ( x != null && y != null
+            && Equality_DOSHeader_Logical( x.DOSHeader, y.DOSHeader )
+            && Equality_NTHeader_Logical( x.NTHeader, y.NTHeader )
+            );
+      }
+
+      private static Boolean Equality_DOSHeader_Logical( DOSHeader x, DOSHeader y )
+      {
+         return Object.ReferenceEquals( x, y ) ||
+            ( x != null && y != null
+            && x.Signature == y.Signature
+            );
+      }
+
+      private static Boolean Equality_NTHeader_Logical( NTHeader x, NTHeader y )
+      {
+         return Object.ReferenceEquals( x, y ) ||
+            ( x != null && y != null
+            && x.Signature == y.Signature
+            && Equality_FileHeader_Logical( x.FileHeader, y.FileHeader )
+            && Equality_OptionalHeader_Logical( x.OptionalHeader, y.OptionalHeader )
+            );
+      }
+
+      private static Boolean Equality_FileHeader_Logical( FileHeader x, FileHeader y )
+      {
+         return Object.ReferenceEquals( x, y ) ||
+            ( x != null && y != null
+            && x.Machine == y.Machine
+            && x.TimeDateStamp == y.TimeDateStamp
+            && x.Characteristics == y.Characteristics
+            );
+      }
+
+      private static Boolean Equality_OptionalHeader_Logical( OptionalHeader x, OptionalHeader y )
+      {
+         return Object.ReferenceEquals( x, y ) ||
+            ( x != null && y != null
+            && x.MajorLinkerVersion == y.MajorLinkerVersion
+            && x.MinorLinkerVersion == y.MinorLinkerVersion
+            && x.ImageBase == y.ImageBase
+            && x.SectionAlignment == y.SectionAlignment
+            && x.FileAlignment == y.FileAlignment
+            && x.MajorOSVersion == y.MajorOSVersion
+            && x.MinorOSVersion == y.MinorOSVersion
+            && x.MajorUserVersion == y.MajorUserVersion
+            && x.MinorUserVersion == y.MinorUserVersion
+            && x.MajorSubsystemVersion == y.MajorSubsystemVersion
+            && x.MinorSubsystemVersion == y.MinorSubsystemVersion
+            && x.Win32VersionValue == y.Win32VersionValue
+            && x.Subsystem == y.Subsystem
+            && x.DLLCharacteristics == y.DLLCharacteristics
+            && x.StackReserveSize == y.StackReserveSize
+            && x.StackCommitSize == y.StackCommitSize
+            && x.HeapReserveSize == y.HeapReserveSize
+            && x.HeapCommitSize == y.HeapCommitSize
+            && x.LoaderFlags == y.LoaderFlags
+            && x.NumberOfDataDirectories == y.NumberOfDataDirectories
+            );
+      }
+
+      private static Boolean Equality_CLIInformation_Logical( CLIInformation x, CLIInformation y )
+      {
+         return Object.ReferenceEquals( x, y ) ||
+            ( x != null && y != null
+            && Equality_CLIHeader_Logical( x.CLIHeader, y.CLIHeader )
+            && Equality_MDRoot_Logical( x.MetaDataRoot, y.MetaDataRoot )
+            && Equality_MDTableStreamHeader( x.TableStreamHeader, y.TableStreamHeader )
+            && x.FieldRVAs.Count == y.FieldRVAs.Count
+            && x.MethodRVAs.Count == y.MethodRVAs.Count
+            );
+      }
+
+      private static Boolean Equality_CLIHeader_Logical( CLIHeader x, CLIHeader y )
+      {
+         return Object.ReferenceEquals( x, y ) ||
+            ( x != null && y != null
+            && x.MajorRuntimeVersion == y.MajorRuntimeVersion
+            && x.MinorRuntimeVersion == y.MinorRuntimeVersion
+            && x.Flags == y.Flags
+            && x.EntryPointToken == y.EntryPointToken
+            );
+      }
+
+      private static Boolean Equality_MDRoot_Logical( MetaDataRoot x, MetaDataRoot y )
+      {
+         return Object.ReferenceEquals( x, y ) ||
+            ( x != null && y != null
+            && x.Signature == y.Signature
+            && x.MajorVersion == y.MajorVersion
+            && x.MinorVersion == y.MinorVersion
+            && x.Reserved == y.Reserved
+            && x.VersionStringBytes.ArrayQueryEquality( y.VersionStringBytes )
+            && x.StorageFlags == y.StorageFlags
+            && x.Reserved2 == y.Reserved2
+            );
+      }
+
+      private static Boolean Equality_MDTableStreamHeader( MetaDataTableStreamHeader x, MetaDataTableStreamHeader y )
+      {
+         return Object.ReferenceEquals( x, y ) ||
+            ( x != null && y != null
+            && x.Reserved == y.Reserved
+            && x.MajorVersion == y.MajorVersion
+            && x.MinorVersion == y.MinorVersion
+            && x.Reserved2 == y.Reserved2
+            && NullableEqualityComparer<Int32>.Equals( x.ExtraData, y.ExtraData )
+            );
+      }
+
+      private static Boolean Equality_DebugInfo_Logical( DebugInformation x, DebugInformation y )
       {
          return Object.ReferenceEquals( x, y ) ||
             ( x != null && y != null
@@ -2075,7 +2574,7 @@ namespace CILAssemblyManipulator.Physical
             && x.DebugType == y.DebugType
             && x.VersionMajor == y.VersionMajor
             && x.VersionMinor == y.VersionMinor
-            && ArrayEqualityComparer<Byte>.DefaultArrayEqualityComparer.Equals( x.DebugData, y.DebugData )
+            && x.DebugData.ArrayQueryEquality( y.DebugData )
             );
       }
 
@@ -2101,14 +2600,29 @@ namespace CILAssemblyManipulator.Physical
          return x == null ? 0 : ( ( 17 * 23 + x.Name.GetHashCodeSafe( 1 ) ) * 23 + x.Namespace.GetHashCodeSafe( 1 ) );
       }
 
+      private static Int32 HashCode_FieldDefinitionPointer( FieldDefinitionPointer x )
+      {
+         return x == null ? 0 : x.FieldIndex.GetHashCode();
+      }
+
       private static Int32 HashCode_FieldDefinition( FieldDefinition x )
       {
          return x == null ? 0 : x.Name.GetHashCodeSafe( 1 ); // TODO might need to include something else to hashcode?
       }
 
+      private static Int32 HashCode_MethodDefinitionPointer( MethodDefinitionPointer x )
+      {
+         return x == null ? 0 : x.MethodIndex.GetHashCode();
+      }
+
       private static Int32 HashCode_MethodDefinition( MethodDefinition x )
       {
          return x == null ? 0 : ( ( 17 * 23 + x.Name.GetHashCodeSafe( 1 ) ) * 23 + x.Signature.Parameters.Count );
+      }
+
+      private static Int32 HashCode_ParameterDefinitionPointer( ParameterDefinitionPointer x )
+      {
+         return x == null ? 0 : x.ParameterIndex.GetHashCode();
       }
 
       private static Int32 HashCode_ParameterDefinition( ParameterDefinition x )
@@ -2166,6 +2680,11 @@ namespace CILAssemblyManipulator.Physical
          return x == null ? 0 : ( ( 17 * 23 + x.Parent.GetHashCode() ) * 23 + x.EventList.GetHashCode() );
       }
 
+      private static Int32 HashCode_EventDefinitionPointer( EventDefinitionPointer x )
+      {
+         return x == null ? 0 : x.EventIndex.GetHashCode();
+      }
+
       private static Int32 HashCode_EventDefinition( EventDefinition x )
       {
          return x == null ? 0 : ( ( 17 * 23 + x.Name.GetHashCodeSafe( 1 ) ) * 23 + x.EventType.GetHashCode() );
@@ -2174,6 +2693,11 @@ namespace CILAssemblyManipulator.Physical
       private static Int32 HashCode_PropertyMap( PropertyMap x )
       {
          return x == null ? 0 : ( ( 17 * 23 + x.Parent.GetHashCode() ) * 23 + x.PropertyList.GetHashCode() );
+      }
+
+      private static Int32 HashCode_PropertyDefinitionPointer( PropertyDefinitionPointer x )
+      {
+         return x == null ? 0 : x.PropertyIndex.GetHashCode();
       }
 
       private static Int32 HashCode_PropertyDefinition( PropertyDefinition x )
@@ -2211,15 +2735,51 @@ namespace CILAssemblyManipulator.Physical
          return x == null ? 0 : x.Field.GetHashCode();
       }
 
+      private static Int32 HashCode_EditAndContinueLog( EditAndContinueLog x )
+      {
+         return x == null ? 0 : ( ( 17 * 23 + x.Token ) * 23 + x.FuncCode );
+      }
+
+      private static Int32 HashCode_EditAndContinueMap( EditAndContinueMap x )
+      {
+         return x == null ? 0 : ( 17 * 23 + x.Token );
+      }
+
       private static Int32 HashCode_AssemblyDefinition( AssemblyDefinition x )
       {
          return x == null ? 0 : x.AssemblyInformation.GetHashCodeSafe( 1 );
       }
 
+#pragma warning disable 618
+
+      private static Int32 HashCode_AssemblyDefinitionProcessor( AssemblyDefinitionProcessor x )
+      {
+         return x == null ? 0 : ( 17 * 23 + x.Processor );
+      }
+
+      private static Int32 HashCode_AssemblyDefinitionOS( AssemblyDefinitionOS x )
+      {
+         return x == null ? 0 : ( ( ( 17 * 23 + x.OSPlatformID ) * 23 + x.OSMajorVersion ) * 23 + x.OSMinorVersion );
+      }
+
+#pragma warning restore 618
+
       private static Int32 HashCode_AssemblyReference( AssemblyReference x )
       {
          return x == null ? 0 : x.AssemblyInformation.GetHashCodeSafe( 1 );
       }
+
+#pragma warning disable 618
+      private static Int32 HashCode_AssemblyReferenceProcessor( AssemblyReferenceProcessor x )
+      {
+         return x == null ? 0 : ( ( 17 * 23 + x.Processor ) * 23 + x.AssemblyRef.GetHashCode() );
+      }
+
+      private static Int32 HashCode_AssemblyReferenceOS( AssemblyReferenceOS x )
+      {
+         return x == null ? 0 : ( ( ( ( 17 * 23 + x.OSPlatformID ) * 23 + x.OSMajorVersion ) * 23 + x.OSMinorVersion ) * 23 + x.AssemblyRef.GetHashCode() );
+      }
+#pragma warning restore 618
 
       private static Int32 HashCode_FileReference( FileReference x )
       {
@@ -2309,6 +2869,11 @@ namespace CILAssemblyManipulator.Physical
          }
 
          return retVal;
+      }
+
+      private static Int32 HashCode_AssemblyInformation( AssemblyInformation x )
+      {
+         return x.GetHashCodeSafe();
       }
 
       private static Int32 HashCode_AbstractSignature( AbstractSignature x )
@@ -2536,14 +3101,14 @@ namespace CILAssemblyManipulator.Physical
          return x == null ? 0 : ( ( 17 * 23 + x.SecurityAttributeType.GetHashCodeSafe( 1 ) ) * 23 + ListEqualityComparer<List<CustomAttributeNamedArgument>, CustomAttributeNamedArgument>.GetHashCode( x.NamedArguments, CustomAttributeNamedArgumentEqualityComparer ) );
       }
 
-      private static Int32 HashCode_MarshalingInfo( MarshalingInfo x )
+      private static Int32 HashCode_MarshalingInfo( AbstractMarshalingInfo x )
       {
-         return x == null ? 0 : ( ( 17 * 23 + x.MarshalType.GetHashCodeSafe( 1 ) ) * 23 + (Int32) x.Value );
+         return x == null ? 0 : ( ( 17 * 23 + (Int32) x.MarshalingInfoKind ) * 23 + (Int32) x.Value );
       }
 
-      private static Int32 HashCode_HeadersData( HeadersData x )
+      private static Int32 HashCode_HeadersData( ImageInformation x )
       {
-         return x == null ? 0 : ( ( 17 * 23 + (Int32) x.Machine ) * 23 + x.MetaDataVersion.GetHashCodeSafe( 1 ) );
+         return x == null ? 0 : ( ( 17 * 23 + (Int32) x.PEInformation.NTHeader.FileHeader.Machine ) * 23 + SequenceEqualityComparer<ArrayQuery<Byte>, Byte>.GetHashCode( x.CLIInformation.MetaDataRoot.VersionStringBytes ) );
       }
 
       private static Int32 Comparison_ClassLayout( ClassLayout x, ClassLayout y )
@@ -2648,6 +3213,12 @@ namespace CILAssemblyManipulator.Physical
             retVal[(Int32) tablesInOrder[i]] = i;
          }
          return retVal;
+      }
+
+      private static Boolean ArrayQueryEquality<T>( this ArrayQuery<T> x, ArrayQuery<T> y, Equality<T> equality = null )
+      {
+         // TODO make equality classes to CWR
+         return SequenceEqualityComparer<ArrayQuery<T>, T>.SequenceEquality( x, y, equality );
       }
    }
 }

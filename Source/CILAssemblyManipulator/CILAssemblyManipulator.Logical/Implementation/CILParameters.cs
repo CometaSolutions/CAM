@@ -122,10 +122,10 @@ namespace CILAssemblyManipulator.Logical.Implementation
       private readonly Int32 position;
       private readonly SettableValueForClasses<String> name;
       private readonly Lazy<CILMethodBase> method;
-      private readonly ResettableLazy<CILTypeBase> parameterType;
-      private readonly SettableLazy<Object> defaultValue;
+      private readonly IResettableLazy<CILTypeBase> parameterType;
+      private readonly WriteableLazy<Object> defaultValue;
       private readonly Lazy<ListProxy<CILCustomModifier>> customModifiers;
-      private readonly SettableLazy<LogicalMarshalingInfo> marshalInfo;
+      private readonly WriteableLazy<LogicalMarshalingInfo> marshalInfo;
 
       internal CILParameterImpl(
          CILReflectionContextImpl ctx,
@@ -151,9 +151,9 @@ namespace CILAssemblyManipulator.Logical.Implementation
             new SettableValueForClasses<String>( parameter.Name ),
             () => isCtor ? (CILMethodBase) ctx.Cache.GetOrAdd( (System.Reflection.ConstructorInfo) member ) : ctx.Cache.GetOrAdd( (System.Reflection.MethodInfo) member ),
             () => ctx.Cache.GetOrAdd( parameter.ParameterType ),
-            new SettableLazy<Object>( () => ctx.WrapperCallbacks.GetConstantValueForOrThrow( parameter ), ctx.LazyThreadSafetyMode ),
+            LazyFactory.NewWriteableLazy( () => ctx.WrapperCallbacks.GetConstantValueForOrThrow( parameter ), ctx.LazyThreadSafetyMode ),
             ctx.LaunchEventAndCreateCustomModifiers( parameter, E_CILLogical.GetCustomModifiersForOrThrow ),
-            new SettableLazy<LogicalMarshalingInfo>( () =>
+            LazyFactory.NewWriteableLazy<LogicalMarshalingInfo>( () =>
             {
 #if CAM_LOGICAL_IS_SL
                throw new NotImplementedException( "Not yet implemented in this platform." );
@@ -175,9 +175,9 @@ namespace CILAssemblyManipulator.Logical.Implementation
          new SettableValueForClasses<String>( name ),
          () => ownerMethod,
          () => paramType,
-         new SettableLazy<Object>( () => null, ctx.LazyThreadSafetyMode ),
+         LazyFactory.NewWriteableLazy<Object>( () => null, ctx.LazyThreadSafetyMode ),
          new Lazy<ListProxy<CILCustomModifier>>( () => ctx.CollectionsFactory.NewListProxy<CILCustomModifier>(), ctx.LazyThreadSafetyMode ),
-         new SettableLazy<LogicalMarshalingInfo>( () => null, ctx.LazyThreadSafetyMode ),
+         LazyFactory.NewWriteableLazy<LogicalMarshalingInfo>( () => null, ctx.LazyThreadSafetyMode ),
          true
          )
       {
@@ -193,9 +193,9 @@ namespace CILAssemblyManipulator.Logical.Implementation
          SettableValueForClasses<String> aName,
          Func<CILMethodBase> methodFunc,
          Func<CILTypeBase> parameterTypeFunc,
-         SettableLazy<Object> aDefaultValue,
+         WriteableLazy<Object> aDefaultValue,
          Lazy<ListProxy<CILCustomModifier>> customMods,
-         SettableLazy<LogicalMarshalingInfo> marshalInfoVal,
+         WriteableLazy<LogicalMarshalingInfo> marshalInfoVal,
          Boolean resettablesAreSettable = false
          )
          : base( ctx, CILElementKind.Parameter, anID, cAttrDataFunc )
@@ -228,18 +228,18 @@ namespace CILAssemblyManipulator.Logical.Implementation
          ref Int32 position,
          ref SettableValueForClasses<String> name,
          ref Lazy<CILMethodBase> method,
-         ref ResettableLazy<CILTypeBase> parameterType,
-         ref SettableLazy<Object> defaultValue,
+         ref IResettableLazy<CILTypeBase> parameterType,
+         ref WriteableLazy<Object> defaultValue,
          ref Lazy<ListProxy<CILCustomModifier>> customMods,
-         ref SettableLazy<LogicalMarshalingInfo> marshalInfo,
+         ref WriteableLazy<LogicalMarshalingInfo> marshalInfo,
          SettableValueForEnums<ParameterAttributes> aParameterAttributes,
          Int32 aPosition,
          SettableValueForClasses<String> aName,
          Func<CILMethodBase> methodFunc,
          Func<CILTypeBase> parameterTypeFunc,
-         SettableLazy<Object> aDefaultValue,
+         WriteableLazy<Object> aDefaultValue,
          Lazy<ListProxy<CILCustomModifier>> theCustomMods,
-         SettableLazy<LogicalMarshalingInfo> marshalInfoVal,
+         WriteableLazy<LogicalMarshalingInfo> marshalInfoVal,
          Boolean resettablesAreSettable
          )
       {
@@ -248,7 +248,7 @@ namespace CILAssemblyManipulator.Logical.Implementation
          position = aPosition;
          name = aName;
          method = new Lazy<CILMethodBase>( methodFunc, lazyThreadSafety );
-         parameterType = resettablesAreSettable ? new ResettableAndSettableLazy<CILTypeBase>( parameterTypeFunc, lazyThreadSafety ) : new ResettableLazy<CILTypeBase>( parameterTypeFunc, lazyThreadSafety );
+         parameterType = LazyFactory.NewResettableLazy( resettablesAreSettable, parameterTypeFunc, lazyThreadSafety );
          defaultValue = aDefaultValue;
          customMods = theCustomMods;
          marshalInfo = marshalInfoVal;
@@ -285,9 +285,9 @@ namespace CILAssemblyManipulator.Logical.Implementation
       {
          set
          {
-            this.ThrowIfNotCapableOfChanging();
+            var lazy = this.ThrowIfNotCapableOfChanging( this.parameterType );
             LogicalUtils.CheckTypeForMethodSig( this.method.Value.DeclaringType.Module, ref value );
-            this.parameterType.Value = value;
+            lazy.Value = value;
             this.context.Cache.ForAllGenericInstancesOf<CILMethodBase, CILMethodBaseInternal>( this.method.Value, method => ( (CILParameterInternal) ( this.position == E_CILLogical.RETURN_PARAMETER_POSITION ? ( (CILMethod) method ).ReturnParameter : ( (CILMethodBase) method ).Parameters[this.position] ) ).ResetParameterType() );
          }
          get
@@ -379,7 +379,7 @@ namespace CILAssemblyManipulator.Logical.Implementation
 
       #region CILElementWithConstantValueInternal Members
 
-      SettableLazy<Object> CILElementWithConstantValueInternal.ConstantValueInternal
+      WriteableLazy<Object> CILElementWithConstantValueInternal.ConstantValueInternal
       {
          get
          {
@@ -457,7 +457,7 @@ namespace CILAssemblyManipulator.Logical.Implementation
 
       #region CILElementWithMarshalInfoInternal Members
 
-      SettableLazy<LogicalMarshalingInfo> CILElementWithMarshalInfoInternal.MarshalingInfoInternal
+      WriteableLazy<LogicalMarshalingInfo> CILElementWithMarshalInfoInternal.MarshalingInfoInternal
       {
          get
          {

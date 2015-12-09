@@ -15,6 +15,8 @@
  * See the License for the specific language governing permissions and
  * limitations under the License. 
  */
+using CollectionsWithRoles.API;
+using CollectionsWithRoles.Implementation;
 using System;
 using System.Collections.Generic;
 
@@ -160,5 +162,22 @@ namespace CollectionsWithRoles.API
    public interface DictionaryQueryOfQueries<TKey, TValueQuery, TValueImmutable> : MutableQuery<DictionaryQuery<TKey, TValueImmutable>>, DictionaryQuery<TKey, TValueQuery>
       where TValueQuery : MutableQuery<TValueImmutable>
    {
+   }
+}
+
+public static partial class E_CWR
+{
+   /// <summary>
+   /// Creates a new <see cref="DictionaryProxy{TKey, TValue}"/> from given dictionary using default <see cref="CollectionsFactory"/>.
+   /// </summary>
+   /// <typeparam name="TKey">The type of keys in the dictionary.</typeparam>
+   /// <typeparam name="TValue">The type of values in the dictionary.</typeparam>
+   /// <param name="dictionary">The <see cref="IDictionary{TKey, TValue}"/>.</param>
+   /// <returns>A new <see cref="DictionaryProxy{TKey, TValue}"/> with elements from <paramref name="dictionary"/>.</returns>
+   /// <seealso cref="ArrayProxy{TValue}"/>
+   /// <seealso cref="CollectionsFactorySingleton.DEFAULT_COLLECTIONS_FACTORY"/>
+   public static DictionaryProxy<TKey, TValue> ToDictionaryProxy<TKey, TValue>( this IDictionary<TKey, TValue> dictionary )
+   {
+      return CollectionsFactorySingleton.DEFAULT_COLLECTIONS_FACTORY.NewDictionaryProxy( dictionary );
    }
 }

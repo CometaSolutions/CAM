@@ -39,7 +39,7 @@ namespace CILAssemblyManipulator.Physical
 
 public static partial class E_CILPhysical
 {
-   public static void WriteModuleTo( this CILMetaData module, String filePath, EmittingArguments eArgs = null )
+   public static void WriteModuleTo( this CILMetaData module, String filePath, WritingArguments eArgs = null )
    {
       using ( var fs = System.IO.File.Open( filePath, FileMode.Create, FileAccess.ReadWrite, FileShare.None ) )
       {

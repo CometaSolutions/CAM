@@ -31,6 +31,7 @@ using CommonUtils;
 using CILAssemblyManipulator.Physical;
 using System.Runtime.InteropServices;
 using System.Diagnostics;
+using CILAssemblyManipulator.Physical.IO;
 
 namespace CILMerge
 {
@@ -98,13 +99,12 @@ namespace CILMerge
          {
 
             var eArg = iResult.ReadingArguments;
-            var headers = eArg.Headers;
-            var debugInfo = headers.DebugInformation;
+            var debugInfo = eArg.ImageInformation.DebugInformation;
             if ( debugInfo != null && debugInfo.DebugType == 2 ) // CodeView
             {
                var pdbFNStartIdx = 24;
-               var pdbFN = debugInfo.DebugData.ReadZeroTerminatedStringFromBytes( ref pdbFNStartIdx, Encoding.UTF8 );
-               if ( pdbFN != null )
+               var pdbFN = debugInfo.DebugData.ToArray().ReadZeroTerminatedStringFromBytes( ref pdbFNStartIdx, Encoding.UTF8 );
+               if ( !String.IsNullOrEmpty( pdbFN ) )
                {
                   PDBInstance iPDB = null;
                   try
@@ -371,12 +371,12 @@ namespace CILMerge
    {
       private readonly InputModuleMergeResult[] _inputMergeResults;
       private readonly CILMetaData _targetModule;
-      private readonly EmittingArguments _emittingArguments;
+      private readonly WritingArguments _emittingArguments;
       private readonly PDBHelper _pdbHelper;
 
       internal CILModuleMergeResult(
          CILMetaData targetModule,
-         EmittingArguments emittingArguments,
+         WritingArguments emittingArguments,
          PDBHelper pdbHelper,
          IEnumerable<InputModuleMergeResult> inputMergeResults
          )
@@ -400,7 +400,7 @@ namespace CILMerge
          }
       }
 
-      public EmittingArguments EmittingArguments
+      public WritingArguments EmittingArguments
       {
          get
          {
@@ -608,7 +608,7 @@ namespace CILMerge
 
       internal CILModuleMergeResult MergeModules()
       {
-         EmittingArguments eArgs = null;
+         WritingArguments eArgs = null;
          Int32[][] reorderResult = null;
          PDBHelper pdbHelper = null;
          this._merger.DoWithStopWatch( "Merging modules and assemblies as a whole", () =>
@@ -652,7 +652,7 @@ namespace CILMerge
             // Prepare PDB
 
             // Create PDB helper here, so it would modify EmittingArguments *before* actual emitting
-            pdbHelper = !this._options.NoDebug && this._inputModules.Any( m => this._moduleLoader.GetReadingArgumentsForMetaData( m ).Headers.DebugInformation != null ) ?
+            pdbHelper = !this._options.NoDebug && this._inputModules.Any( m => this._moduleLoader.GetReadingArgumentsForMetaData( m ).ImageInformation.DebugInformation != null ) ?
                new PDBHelper( this._targetModule, eArgs, this._options.OutPath ) :
                null;
 
@@ -839,7 +839,7 @@ namespace CILMerge
          {
             var mod = this._moduleLoader.LoadAndResolve( path );
             var rArgs = this._moduleLoader.GetReadingArgumentsForMetaData( mod );
-            if ( !rArgs.Headers.ModuleFlags.IsILOnly() && !this._options.ZeroPEKind )
+            if ( !rArgs.ImageInformation.CLIInformation.CLIHeader.Flags.IsILOnly() && !this._options.ZeroPEKind )
             {
                throw this.NewCILMergeException( ExitCode.NonILOnlyModule, "The module in " + path + " is not IL-only." );
             }
@@ -966,7 +966,7 @@ namespace CILMerge
          return retVal;
       }
 
-      private CILAssemblyManipulator.Physical.EmittingArguments CreateEmittingArgumentsForTargetModule()
+      private CILAssemblyManipulator.Physical.WritingArguments CreateEmittingArgumentsForTargetModule()
       {
 
          // Prepare strong _name
@@ -990,18 +990,24 @@ namespace CILMerge
 
          // Prepare emitting arguments
          var pEArgs = this._moduleLoader.GetReadingArgumentsForMetaData( this._primaryModule );
-         var pHeaders = pEArgs.Headers;
+         var pHeaders = pEArgs.ImageInformation;
 
-         var eArgs = new CILAssemblyManipulator.Physical.EmittingArguments();
-         var eHeaders = pEArgs.Headers.CreateCopy();
-         eArgs.Headers = eHeaders;
-         eHeaders.DebugInformation = null;
-         eHeaders.FileAlignment = (UInt32) Math.Max( this._options.FileAlign, HeadersData.DEFAULT_FILE_ALIGNMENT );
-         eHeaders.SubSysMajor = (UInt16) this._options.SubsystemMajor;
-         eHeaders.SubSysMinor = (UInt16) this._options.SubsystemMinor;
-         eHeaders.HighEntropyVA = this._options.HighEntropyVA;
+         var eArgs = new CILAssemblyManipulator.Physical.WritingArguments();
+         var eHeaders = pHeaders.CreateWritingOptions();
+         eArgs.WritingOptions = eHeaders;
+         eHeaders.DebugOptions.DebugData = null;
+         eHeaders.PEOptions.FileAlignment = this._options.FileAlign;
+         eHeaders.PEOptions.MajorSubsystemVersion = (Int16) this._options.SubsystemMajor;
+         eHeaders.PEOptions.MinorSubsystemVersion = (Int16) this._options.SubsystemMinor;
+         if ( this._options.HighEntropyVA )
+         {
+            eHeaders.PEOptions.DLLCharacteristics |= DLLFlags.HighEntropyVA;
+         }
          var md = this._options.MetadataVersionString;
-         eHeaders.MetaDataVersion = String.IsNullOrEmpty( md ) ? pHeaders.MetaDataVersion : md;
+         if ( !String.IsNullOrEmpty( md ) )
+         {
+            eHeaders.CLIOptions.MDRootOptions.VersionString = md;
+         }
 
          eArgs.DelaySign = this._options.DelaySign;
          eArgs.SigningAlgorithm = this._options.SigningAlgorithm;
@@ -1011,7 +1017,7 @@ namespace CILMerge
          return eArgs;
       }
 
-      private void CreateTargetAssembly( CILAssemblyManipulator.Physical.EmittingArguments eArgs )
+      private void CreateTargetAssembly( CILAssemblyManipulator.Physical.WritingArguments eArgs )
       {
          var outPath = this._options.OutPath;
          var targetAssemblyName = this._options.TargetAssemblyName;
@@ -1318,7 +1324,7 @@ namespace CILMerge
 
       private void ConstructTablesUsedInSignaturesAndILTokens(
          IList<IList<Tuple<CILMetaData, Int32>>> targetTypeInfo,
-         EmittingArguments eArgs
+         WritingArguments eArgs
          )
       {
          // AssemblyRef (used by MemberRef table)
@@ -1598,7 +1604,7 @@ namespace CILMerge
                default:
                   retVal = false;
                   break;
-               //throw this.NewCILMergeException( ExitCode.ErrorMatchingMemberReferenceSignature, "Encountered unrecognized type signature kind: " + typeDef.TypeSignatureKind + "." );
+                  //throw this.NewCILMergeException( ExitCode.ErrorMatchingMemberReferenceSignature, "Encountered unrecognized type signature kind: " + typeDef.TypeSignatureKind + "." );
             }
          }
 
@@ -2393,32 +2399,34 @@ namespace CILMerge
          return retVal;
       }
 
-      private MarshalingInfo ProcessMarshalingInfo( CILMetaData inputModule, MarshalingInfo inputMarshalingInfo )
+      private AbstractMarshalingInfo ProcessMarshalingInfo( CILMetaData inputModule, AbstractMarshalingInfo inputMarshalingInfo )
       {
-         String processedMarshalType = null, processedArrayUDType = null;
-         if ( !String.IsNullOrEmpty( inputMarshalingInfo.MarshalType ) )
+         var retVal = inputMarshalingInfo.CreateDeepCopy();
+         if ( retVal != null )
          {
-            processedMarshalType = this.ProcessTypeString( inputModule, inputMarshalingInfo.MarshalType );
+            String typeStr;
+            switch ( inputMarshalingInfo.MarshalingInfoKind )
+            {
+               case MarshalingInfoKind.SafeArray:
+                  typeStr = ( (SafeArrayMarshalingInfo) inputMarshalingInfo ).UserDefinedType;
+                  if ( !String.IsNullOrEmpty( typeStr ) )
+                  {
+                     typeStr = this.ProcessTypeString( inputModule, typeStr );
+                     ( (SafeArrayMarshalingInfo) retVal ).UserDefinedType = typeStr;
+                  }
+                  break;
+               case MarshalingInfoKind.Custom:
+                  typeStr = ( (CustomMarshalingInfo) inputMarshalingInfo ).CustomMarshalerTypeName;
+                  if ( !String.IsNullOrEmpty( typeStr ) )
+                  {
+                     typeStr = this.ProcessTypeString( inputModule, typeStr );
+                     ( (CustomMarshalingInfo) retVal ).CustomMarshalerTypeName = typeStr;
+                  }
+                  break;
+            }
          }
 
-         if ( !String.IsNullOrEmpty( inputMarshalingInfo.SafeArrayUserDefinedType ) )
-         {
-            processedArrayUDType = this.ProcessTypeString( inputModule, inputMarshalingInfo.SafeArrayUserDefinedType );
-         }
-
-
-         return new MarshalingInfo()
-         {
-            Value = inputMarshalingInfo.Value,
-            SafeArrayType = inputMarshalingInfo.SafeArrayType,
-            SafeArrayUserDefinedType = processedArrayUDType,
-            IIDParameterIndex = inputMarshalingInfo.IIDParameterIndex,
-            ArrayType = inputMarshalingInfo.ArrayType,
-            SizeParameterIndex = inputMarshalingInfo.SizeParameterIndex,
-            ConstSize = inputMarshalingInfo.ConstSize,
-            MarshalType = processedMarshalType,
-            MarshalCookie = inputMarshalingInfo.MarshalCookie
-         };
+         return retVal;
       }
 
       private AbstractSecurityInformation ProcessPermissionSet( CILMetaData md, Int32 declSecurityIdx, Int32 permissionSetIdx, AbstractSecurityInformation inputSecurityInfo )

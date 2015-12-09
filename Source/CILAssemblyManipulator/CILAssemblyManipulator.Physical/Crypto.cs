@@ -253,7 +253,6 @@ public static partial class E_CILPhysical
 
    public static Boolean IsMatch( this AssemblyDefinition aDef, AssemblyInformationForResolving? aRef, Boolean isRetargetable, HashStreamInfo? hashStreamInfo )
    {
-      // TODO match public key token as well
       var retVal = aDef != null
          && aRef != null;
       if ( retVal )

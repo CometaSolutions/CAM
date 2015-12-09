@@ -591,30 +591,6 @@ public static partial class E_CILLogical
    internal const String VERSION_NUMBER_SEPARATOR = ".";
 
    /// <summary>
-   /// Gets textual representation of the version information contained in <paramref name="name"/>. The format is: "<c>&lt;major&gt;.&lt;minor&gt;.&lt;build&gt;.&lt;revision&gt;</c>".
-   /// </summary>
-   /// <param name="name">The assembly name containing version information.</param>
-   /// <returns>Textual representation of the version information contained in <paramref name="name"/>.</returns>
-   /// <exception cref="ArgumentNullException">If <paramref name="name"/> is <c>null</c>.</exception>
-   public static String GetVersionString( this CILAssemblyName name )
-   {
-      ArgumentValidator.ValidateNotNull( "Assembly name", name );
-      return name.MajorVersion + VERSION_NUMBER_SEPARATOR + name.MinorVersion + VERSION_NUMBER_SEPARATOR + name.BuildNumber + VERSION_NUMBER_SEPARATOR + name.Revision;
-   }
-
-   /// <summary>
-   /// Returns textual representation of the culture information contained in <paramref name="name"/>. If the <see cref="CILAssemblyName.Culture"/> returns <c>null</c> or empty string, this method returns string "neutral". Otherwise it returns the result of <see cref="CILAssemblyName.Culture"/>.
-   /// </summary>
-   /// <param name="name">The assembly name containing culture information.</param>
-   /// <returns>Textual representation of the culture information contained in <paramref name="name"/>.</returns>
-   /// <exception cref="ArgumentNullException">If <paramref name="name"/> is <c>null</c>.</exception>
-   public static String GetCultureString( this CILAssemblyName name )
-   {
-      ArgumentValidator.ValidateNotNull( "Assembly name", name );
-      return String.IsNullOrEmpty( name.Culture ) ? "neutral" : name.Culture;
-   }
-
-   /// <summary>
    /// Returns <c>true</c> if <see cref="CILElementWithSimpleName.Name"/>, <see cref="CILAssemblyName.Culture"/>, <see cref="CILAssemblyName.MajorVersion"/>, <see cref="CILAssemblyName.MinorVersion"/>, <see cref="CILAssemblyName.BuildNumber"/> and <see cref="CILAssemblyName.Revision"/> all match for both <paramref name="thisName"/> and <paramref name="other"/>.
    /// </summary>
    /// <param name="thisName">First assembly name.</param>

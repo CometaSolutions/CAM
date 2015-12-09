@@ -242,6 +242,7 @@ namespace CommonUtils
 
       Int32 IEqualityComparer<T>.GetHashCode( T obj )
       {
+         // TODO actually, this should probably return sum of hash codes? Since order shouldn't matter...
          return SequenceEqualityComparer<T, U>.DefaultSequenceEqualityComparer.GetHashCode( obj );
       }
 
@@ -332,7 +333,7 @@ namespace CommonUtils
    }
 
    /// <summary>
-   /// This class provides a way to compare sets by-value, i.e. checking that two sets are of same size and that one set contains all elements as other set.
+   /// This class provides a way to compare sets by-value, i.e. checking that two sets are of same size and that one set contains all elements as other set, and nothing more.
    /// </summary>
    /// <typeparam name="TValue">The type of elements in the set.</typeparam>
    public sealed class SetEqualityComparer<TValue> : AbstractSetEqualityComparer<ISet<TValue>, TValue>
@@ -352,7 +353,7 @@ namespace CommonUtils
       }
 
       /// <inheritdoc />
-      protected override bool CheckSize( ISet<TValue> set1, ISet<TValue> set2 )
+      protected override Boolean CheckSize( ISet<TValue> set1, ISet<TValue> set2 )
       {
          return set1.Count == set2.Count;
       }

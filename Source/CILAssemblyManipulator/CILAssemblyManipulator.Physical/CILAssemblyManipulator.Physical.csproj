@@ -103,20 +103,29 @@
     <Compile Include="Comparers.cs" />
     <Compile Include="IL.cs" />
     <Compile Include="Implementation\CryptoUtils.cs" />
-    <Compile Include="Implementation\Module.IO.cs" />
-    <Compile Include="Implementation\Module.Reading.cs" />
     <Compile Include="Implementation\Module.cs" />
-    <Compile Include="Implementation\Module.Writing.cs" />
+    <Compile Include="IO\Headers.cs" />
+    <Compile Include="IO\Defaults\Reading.cs" />
+    <Compile Include="IO\Defaults\Serialization.API.cs" />
+    <Compile Include="IO\Defaults\Serialization.Implementation.cs" />
+    <Compile Include="IO\Defaults\Writing.cs" />
+    <Compile Include="IO\Writing.cs" />
+    <Compile Include="IO\Writing.Options.cs" />
     <Compile Include="Loading.cs" />
     <Compile Include="MetaData.Rows.cs" />
     <Compile Include="MetaData.Resolving.cs" />
     <Compile Include="MetaData.Signatures.cs" />
     <Compile Include="MetaData.cs" />
     <Compile Include="MetaData.IO.cs" />
+    <Compile Include="Meta\Information.cs" />
+    <Compile Include="Meta\ReOrdering.cs" />
     <Compile Include="OpCodes.cs" />
     <Compile Include="TargetFrameworkMapper.cs" />
     <Compile Include="Utils.cs" />
     <Compile Include="Utils_New.cs" />
+  </ItemGroup>
+  <ItemGroup>
+    <Compile Include="IO\Reading.cs" />
   </ItemGroup>
   <PropertyGroup Condition=" '$(UseUtilpackReference)' != '' ">
     <SignAssembly>true</SignAssembly>

@@ -26,10 +26,10 @@ namespace CILAssemblyManipulator.Logical.Implementation
 {
    internal class CILAssemblyImpl : CILCustomAttributeContainerImpl, CILAssembly
    {
-      private readonly SettableLazy<CILAssemblyName> name;
+      private readonly WriteableLazy<CILAssemblyName> name;
       private readonly Lazy<ListProxy<CILModule>> modules;
       private readonly Lazy<DictionaryProxy<Tuple<String, String>, TypeForwardingInfo>> forwardedTypes;
-      private readonly SettableLazy<CILModule> mainModule;
+      private readonly WriteableLazy<CILModule> mainModule;
 
       internal CILAssemblyImpl(
          CILReflectionContextImpl ctx,
@@ -95,10 +95,10 @@ namespace CILAssemblyManipulator.Logical.Implementation
 
       private static void InitFields(
          CILReflectionContextImpl ctx,
-         ref SettableLazy<CILAssemblyName> name,
+         ref WriteableLazy<CILAssemblyName> name,
          ref Lazy<ListProxy<CILModule>> modules,
          ref Lazy<DictionaryProxy<Tuple<String, String>, TypeForwardingInfo>> forwardedTypes,
-         ref SettableLazy<CILModule> mainModule,
+         ref WriteableLazy<CILModule> mainModule,
          Func<CILAssemblyName> nameFunc,
          Func<ListProxy<CILModule>> moduleFunc,
          Func<DictionaryProxy<Tuple<String, String>, TypeForwardingInfo>> forwardedTypesFunc,
@@ -106,10 +106,10 @@ namespace CILAssemblyManipulator.Logical.Implementation
          )
       {
          var lazyThreadSafety = ctx.LazyThreadSafetyMode;
-         name = new SettableLazy<CILAssemblyName>( nameFunc, lazyThreadSafety );
+         name = LazyFactory.NewWriteableLazy( nameFunc, lazyThreadSafety );
          modules = new Lazy<ListProxy<CILModule>>( moduleFunc, lazyThreadSafety );
          forwardedTypes = new Lazy<DictionaryProxy<Tuple<String, String>, TypeForwardingInfo>>( forwardedTypesFunc, lazyThreadSafety );
-         mainModule = new SettableLazy<CILModule>( mainModuleFunc, lazyThreadSafety );
+         mainModule = LazyFactory.NewWriteableLazy( mainModuleFunc, lazyThreadSafety );
       }
 
       internal override String IsCapableOfChanging()

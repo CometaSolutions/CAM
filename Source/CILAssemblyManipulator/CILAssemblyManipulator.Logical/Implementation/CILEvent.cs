@@ -28,11 +28,11 @@ namespace CILAssemblyManipulator.Logical.Implementation
    {
       private readonly SettableValueForClasses<String> name;
       private readonly SettableValueForEnums<EventAttributes> eventAttributes;
-      private readonly ResettableLazy<CILTypeBase> eventType;
-      private readonly ResettableLazy<CILMethod> addMethod;
-      private readonly ResettableLazy<CILMethod> removeMethod;
-      private readonly ResettableLazy<CILMethod> raiseMethod;
-      private readonly ResettableLazy<ListProxy<CILMethod>> otherMethods;
+      private readonly IResettableLazy<CILTypeBase> eventType;
+      private readonly IResettableLazy<CILMethod> addMethod;
+      private readonly IResettableLazy<CILMethod> removeMethod;
+      private readonly IResettableLazy<CILMethod> raiseMethod;
+      private readonly ReadOnlyResettableLazy<ListProxy<CILMethod>> otherMethods;
       private readonly Lazy<CILType> declaringType;
 
       internal CILEventImpl(
@@ -137,11 +137,11 @@ namespace CILAssemblyManipulator.Logical.Implementation
          CILReflectionContextImpl ctx,
          ref SettableValueForClasses<String> name,
          ref SettableValueForEnums<EventAttributes> eventAttributes,
-         ref ResettableLazy<CILTypeBase> eventType,
-         ref ResettableLazy<CILMethod> addMethod,
-         ref ResettableLazy<CILMethod> removeMethod,
-         ref ResettableLazy<CILMethod> raiseMethod,
-         ref ResettableLazy<ListProxy<CILMethod>> otherMethods,
+         ref IResettableLazy<CILTypeBase> eventType,
+         ref IResettableLazy<CILMethod> addMethod,
+         ref IResettableLazy<CILMethod> removeMethod,
+         ref IResettableLazy<CILMethod> raiseMethod,
+         ref ReadOnlyResettableLazy<ListProxy<CILMethod>> otherMethods,
          ref Lazy<CILType> declaringType,
          SettableValueForClasses<String> aName,
          SettableValueForEnums<EventAttributes> anEventAttributes,
@@ -157,11 +157,11 @@ namespace CILAssemblyManipulator.Logical.Implementation
          var lazyThreadSafety = ctx.LazyThreadSafetyMode;
          name = aName;
          eventAttributes = anEventAttributes;
-         eventType = resettablesSettable ? new ResettableAndSettableLazy<CILTypeBase>( eventTypeFunc, lazyThreadSafety ) : new ResettableLazy<CILTypeBase>( eventTypeFunc, lazyThreadSafety );
-         addMethod = resettablesSettable ? new ResettableAndSettableLazy<CILMethod>( addMethodFunc, lazyThreadSafety ) : new ResettableLazy<CILMethod>( addMethodFunc, lazyThreadSafety );
-         removeMethod = resettablesSettable ? new ResettableAndSettableLazy<CILMethod>( removeMethodFunc, lazyThreadSafety ) : new ResettableLazy<CILMethod>( removeMethodFunc, lazyThreadSafety );
-         raiseMethod = resettablesSettable ? new ResettableAndSettableLazy<CILMethod>( raiseMethodFunc, lazyThreadSafety ) : new ResettableLazy<CILMethod>( raiseMethodFunc, lazyThreadSafety );
-         otherMethods = new ResettableLazy<ListProxy<CILMethod>>( otherMethodsFunc, lazyThreadSafety );
+         eventType = LazyFactory.NewResettableLazy( resettablesSettable, eventTypeFunc, lazyThreadSafety );
+         addMethod = LazyFactory.NewResettableLazy( resettablesSettable, addMethodFunc, lazyThreadSafety );
+         removeMethod = LazyFactory.NewResettableLazy( resettablesSettable, removeMethodFunc, lazyThreadSafety );
+         raiseMethod = LazyFactory.NewResettableLazy( resettablesSettable, raiseMethodFunc, lazyThreadSafety );
+         otherMethods = LazyFactory.NewReadOnlyResettableLazy( otherMethodsFunc, lazyThreadSafety );
          declaringType = new Lazy<CILType>( declaringTypeFunc, lazyThreadSafety );
       }
 
@@ -171,9 +171,9 @@ namespace CILAssemblyManipulator.Logical.Implementation
       {
          set
          {
-            this.ThrowIfNotCapableOfChanging();
+            var lazy = this.ThrowIfNotCapableOfChanging( this.eventType );
             LogicalUtils.CheckTypeForMethodSig( this.declaringType.Value.Module, ref value );
-            this.eventType.Value = value;
+            lazy.Value = value;
             this.context.Cache.ForAllGenericInstancesOf( this, evt => evt.ResetEventHandlerType() );
          }
          get
@@ -186,9 +186,9 @@ namespace CILAssemblyManipulator.Logical.Implementation
       {
          set
          {
-            this.ThrowIfNotCapableOfChanging();
+            var lazy = this.ThrowIfNotCapableOfChanging( this.addMethod );
             value.ThrowIfNotTrueDefinition();
-            this.addMethod.Value = value;
+            lazy.Value = value;
             this.context.Cache.ForAllGenericInstancesOf( this, evt => evt.ResetAddMethod() );
          }
          get
@@ -201,9 +201,9 @@ namespace CILAssemblyManipulator.Logical.Implementation
       {
          set
          {
-            this.ThrowIfNotCapableOfChanging();
+            var lazy = this.ThrowIfNotCapableOfChanging( this.removeMethod );
             value.ThrowIfNotTrueDefinition();
-            this.removeMethod.Value = value;
+            lazy.Value = value;
             this.context.Cache.ForAllGenericInstancesOf( this, evt => evt.ResetRemoveMethod() );
          }
          get
@@ -216,9 +216,9 @@ namespace CILAssemblyManipulator.Logical.Implementation
       {
          set
          {
-            this.ThrowIfNotCapableOfChanging();
+            var lazy = this.ThrowIfNotCapableOfChanging( this.raiseMethod );
             value.ThrowIfNotTrueDefinition();
-            this.raiseMethod.Value = value;
+            lazy.Value = value;
             this.context.Cache.ForAllGenericInstancesOf( this, evt => evt.ResetRaiseMethod() );
          }
          get

@@ -820,6 +820,10 @@ namespace CILAssemblyManipulator.PDB
                   // Forward iterator class
                   func.IteratorClass = array.ReadZeroTerminatedStringFromBytes( ref idx, NAME_ENCODING );
                   break;
+               case MD2_YET_UNKNOWN:
+                  break;
+               case MD2_YET_UNKNOWN_2:
+                  break;
                default:
 #if DEBUG
                   throw new PDBException( "Debyyg" );

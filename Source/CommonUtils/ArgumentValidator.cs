@@ -42,7 +42,7 @@ namespace CommonUtils
       {
          if ( value == null )
          {
-            throw new ArgumentNullException( parameterName + " was null." );
+            throw new ArgumentNullException( parameterName );
          }
       }
 

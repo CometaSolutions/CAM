@@ -1,8 +1,13 @@
+- UtilPack
+ - StreamHelper (stream + 8-byte array to read primitives)
+ - AsyncStream interface - to support stream-like API with cancellation tokens and timeouts
+
 - CAM.Structural, CAM.Logical:
  - Introduce loop detection to interop algorithms (nested types)
 
 - CAM.Physical:
  - Documentation
+ - More customizable emitting/reading process: e.g. interface IOProvider { IEnumerable<StreamHandler> GetStreamHandlersFor(CILMetaData md); ... }, interface StreamHandler { String StreamName { get; } // e.g. #~, etc ... }
  
 - CAM.Logical:
  - Revisit documentation (code samples etc)

@@ -31,10 +31,10 @@ namespace CILAssemblyManipulator.Logical.Implementation
       protected internal readonly SettableValueForEnums<MethodAttributes> methodAttributes;
       private readonly MethodKind methodKind;
       protected internal readonly Lazy<CILType> declaringType;
-      private readonly ResettableLazy<ListProxy<CILParameter>> parameters;
-      private readonly SettableLazy<MethodIL> il;
+      private readonly ReadOnlyResettableLazy<ListProxy<CILParameter>> parameters;
+      private readonly WriteableLazy<MethodIL> il;
       // Use SettableLazy instead of SettableValue here - we don't want to force this non-portable event to trigger every time.
-      private readonly SettableLazy<MethodImplAttributes> methodImplementationAttributes;
+      private readonly WriteableLazy<MethodImplAttributes> methodImplementationAttributes;
       private readonly Lazy<DictionaryWithRoles<SecurityAction, ListProxy<LogicalSecurityInformation>, ListProxyQuery<LogicalSecurityInformation>, ListQuery<LogicalSecurityInformation>>> securityInfo;
 
       protected CILMethodBaseImpl(
@@ -104,7 +104,7 @@ namespace CILAssemblyManipulator.Logical.Implementation
                }
                return result;
             },
-            new SettableLazy<MethodImplAttributes>( () => ctx.WrapperCallbacks.GetMethodImplementationAttributesOrThrow( method ), ctx.LazyThreadSafetyMode ),
+            LazyFactory.NewWriteableLazy( () => ctx.WrapperCallbacks.GetMethodImplementationAttributesOrThrow( method ), ctx.LazyThreadSafetyMode ),
             new Lazy<DictionaryWithRoles<SecurityAction, ListProxy<LogicalSecurityInformation>, ListProxyQuery<LogicalSecurityInformation>, ListQuery<LogicalSecurityInformation>>>( this.SecurityInfoFromAttributes, ctx.LazyThreadSafetyMode ),
             true
             );
@@ -158,7 +158,7 @@ namespace CILAssemblyManipulator.Logical.Implementation
          Func<CILType> declaringTypeFunc,
          Func<ListProxy<CILParameter>> parametersFunc,
          Func<MethodIL> methodIL,
-         SettableLazy<MethodImplAttributes> aMethodImplementationAttributes,
+         WriteableLazy<MethodImplAttributes> aMethodImplementationAttributes,
          Lazy<DictionaryWithRoles<SecurityAction, ListProxy<LogicalSecurityInformation>, ListProxyQuery<LogicalSecurityInformation>, ListQuery<LogicalSecurityInformation>>> aSecurityInfo,
          Boolean resettablesAreSettable
          )
@@ -192,9 +192,9 @@ namespace CILAssemblyManipulator.Logical.Implementation
          ref SettableValueForEnums<MethodAttributes> methodAttributes,
          ref MethodKind methodKind,
          ref Lazy<CILType> declaringType,
-         ref ResettableLazy<ListProxy<CILParameter>> parameters,
-         ref SettableLazy<MethodIL> il,
-         ref SettableLazy<MethodImplAttributes> methodImplementationAttributes,
+         ref ReadOnlyResettableLazy<ListProxy<CILParameter>> parameters,
+         ref WriteableLazy<MethodIL> il,
+         ref WriteableLazy<MethodImplAttributes> methodImplementationAttributes,
          ref Lazy<DictionaryWithRoles<SecurityAction, ListProxy<LogicalSecurityInformation>, ListProxyQuery<LogicalSecurityInformation>, ListQuery<LogicalSecurityInformation>>> securityInfo,
          SettableValueForEnums<CallingConventions> aCallingConvention,
          SettableValueForEnums<MethodAttributes> aMethodAttributes,
@@ -202,7 +202,7 @@ namespace CILAssemblyManipulator.Logical.Implementation
          Func<CILType> declaringTypeFunc,
          Func<ListProxy<CILParameter>> parametersFunc,
          Func<MethodIL> methodIL,
-         SettableLazy<MethodImplAttributes> aMethodImplementationAttributes,
+         WriteableLazy<MethodImplAttributes> aMethodImplementationAttributes,
          Lazy<DictionaryWithRoles<SecurityAction, ListProxy<LogicalSecurityInformation>, ListProxyQuery<LogicalSecurityInformation>, ListQuery<LogicalSecurityInformation>>> securityInfoLazy,
          Boolean resettablesAreSettable
          )
@@ -213,8 +213,8 @@ namespace CILAssemblyManipulator.Logical.Implementation
          methodKind = aMethodKind;
          declaringType = new Lazy<CILType>( declaringTypeFunc, lazyThreadSafety );
          // TODO is ResettableAndSettableLazy really needed?
-         parameters = resettablesAreSettable ? new ResettableAndSettableLazy<ListProxy<CILParameter>>( parametersFunc, lazyThreadSafety ) : new ResettableLazy<ListProxy<CILParameter>>( parametersFunc, lazyThreadSafety );
-         il = new SettableLazy<MethodIL>( resettablesAreSettable ? methodIL : () =>
+         parameters = LazyFactory.NewReadOnlyResettableLazy( parametersFunc, lazyThreadSafety );
+         il = LazyFactory.NewWriteableLazy( resettablesAreSettable ? methodIL : () =>
          {
             throw new NotSupportedException( "Emitting IL is not supported for methods with generic non-definition declaring types or generic non-definition methods." );
          }, lazyThreadSafety );
@@ -359,7 +359,7 @@ namespace CILAssemblyManipulator.Logical.Implementation
          }
       }
 
-      SettableLazy<MethodImplAttributes> CILMethodBaseInternal.MethodImplementationAttributesInternal
+      WriteableLazy<MethodImplAttributes> CILMethodBaseInternal.MethodImplementationAttributesInternal
       {
          get
          {
@@ -493,7 +493,7 @@ namespace CILAssemblyManipulator.Logical.Implementation
             () => declaringType,
             () => ctx.CollectionsFactory.NewListProxy<CILParameter>(),
             () => new MethodILImpl( declaringType.Module ),
-            new SettableLazy<MethodImplAttributes>( () => MethodImplAttributes.IL, ctx.LazyThreadSafetyMode ),
+            LazyFactory.NewWriteableLazy( () => MethodImplAttributes.IL, ctx.LazyThreadSafetyMode ),
             null,
             true
          )
@@ -510,7 +510,7 @@ namespace CILAssemblyManipulator.Logical.Implementation
          Func<CILType> declaringTypeFunc,
          Func<ListProxy<CILParameter>> parametersFunc,
          Func<MethodIL> methodIL,
-         SettableLazy<MethodImplAttributes> aMethodImplementationAttributes,
+         WriteableLazy<MethodImplAttributes> aMethodImplementationAttributes,
          Lazy<DictionaryWithRoles<SecurityAction, ListProxy<LogicalSecurityInformation>, ListProxyQuery<LogicalSecurityInformation>, ListQuery<LogicalSecurityInformation>>> aSecurityInfo,
          Boolean resettablesAreSettable
          )
@@ -554,7 +554,7 @@ namespace CILAssemblyManipulator.Logical.Implementation
       private readonly SettableValueForClasses<String> name;
       private readonly Lazy<CILParameter> returnParameter;
       private readonly Lazy<ListProxy<CILTypeBase>> gArgs;
-      private readonly SettableLazy<CILMethod> gDef;
+      private readonly WriteableLazy<CILMethod> gDef;
       private readonly SettableValueForEnums<PInvokeAttributes> pInvokeAttributes;
       private readonly SettableValueForClasses<String> pInvokeName;
       private readonly SettableValueForClasses<String> pInvokeModule;
@@ -621,7 +621,7 @@ namespace CILAssemblyManipulator.Logical.Implementation
             () => declaringType,
             () => ctx.CollectionsFactory.NewListProxy<CILParameter>(),
             () => new MethodILImpl( declaringType.Module ),
-            new SettableLazy<MethodImplAttributes>( () => MethodImplAttributes.IL, ctx.LazyThreadSafetyMode ),
+            LazyFactory.NewWriteableLazy( () => MethodImplAttributes.IL, ctx.LazyThreadSafetyMode ),
             null,
             new SettableValueForClasses<String>( name ),
             () => ctx.Cache.NewBlankParameter( ctx.Cache.ResolveMethodBaseID( anID ), E_CILLogical.RETURN_PARAMETER_POSITION, null, ParameterAttributes.None, null ),
@@ -643,7 +643,7 @@ namespace CILAssemblyManipulator.Logical.Implementation
          SettableValueForEnums<MethodAttributes> aMethodAttributes,
          Func<CILType> declaringTypeFunc,
          Func<ListProxy<CILParameter>> parametersFunc,
-         SettableLazy<MethodImplAttributes> aMethodImplementationAttributes,
+         WriteableLazy<MethodImplAttributes> aMethodImplementationAttributes,
          Lazy<DictionaryWithRoles<SecurityAction, ListProxy<LogicalSecurityInformation>, ListProxyQuery<LogicalSecurityInformation>, ListQuery<LogicalSecurityInformation>>> aLogicalSecurityInformation,
          SettableValueForClasses<String> aName,
          Func<CILParameter> returnParameterFunc,
@@ -665,7 +665,7 @@ namespace CILAssemblyManipulator.Logical.Implementation
          Func<CILType> declaringTypeFunc,
          Func<ListProxy<CILParameter>> parametersFunc,
          Func<MethodIL> methodIL,
-         SettableLazy<MethodImplAttributes> aMethodImplementationAttributes,
+         WriteableLazy<MethodImplAttributes> aMethodImplementationAttributes,
          Lazy<DictionaryWithRoles<SecurityAction, ListProxy<LogicalSecurityInformation>, ListProxyQuery<LogicalSecurityInformation>, ListQuery<LogicalSecurityInformation>>> aLogicalSecurityInformation,
          SettableValueForClasses<String> aName,
          Func<CILParameter> returnParameterFunc,
@@ -703,7 +703,7 @@ namespace CILAssemblyManipulator.Logical.Implementation
          ref SettableValueForClasses<String> name,
          ref Lazy<CILParameter> returnParameter,
          ref Lazy<ListProxy<CILTypeBase>> gArgs,
-         ref SettableLazy<CILMethod> gDef,
+         ref WriteableLazy<CILMethod> gDef,
          ref SettableValueForEnums<PInvokeAttributes> pInvokeAttributes,
          ref SettableValueForClasses<String> pInvokeName,
          ref SettableValueForClasses<String> pInvokeModule,
@@ -721,7 +721,7 @@ namespace CILAssemblyManipulator.Logical.Implementation
          name = aName;
          returnParameter = new Lazy<CILParameter>( returnParameterFunc, lazyThreadSafety );
          gArgs = new Lazy<ListProxy<CILTypeBase>>( gArgsFunc, lazyThreadSafety );
-         gDef = new SettableLazy<CILMethod>( gDefFunc, lazyThreadSafety );
+         gDef = LazyFactory.NewWriteableLazy<CILMethod>( gDefFunc, lazyThreadSafety );
          pInvokeAttributes = aPInvokeAttributes ?? new SettableValueForEnums<PInvokeAttributes>( (PInvokeAttributes) 0 );
          pInvokeName = aPInvokeName ?? new SettableValueForClasses<String>( null );
          pInvokeModule = aPInvokeModule ?? new SettableValueForClasses<String>( null );
