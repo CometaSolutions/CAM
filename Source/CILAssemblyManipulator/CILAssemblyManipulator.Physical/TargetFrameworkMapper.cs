@@ -299,11 +299,12 @@ public static partial class E_CILPhysical
    {
       var cb = loader.LoaderCallbacks;
       var newTargetFWPath = cb.GetTargetFrameworkPathForFrameworkInfo( newTargetFW );
-      var aRefs = md.AssemblyReferences.TableContents;
+      var aRefsTable = md.AssemblyReferences;
+      var aRefs = aRefsTable.TableContents;
 
       var aRefPaths = new Dictionary<AssemblyReference, String>( ReferenceEqualityComparer<AssemblyReference>.ReferenceBasedComparer );
       var aRefDic = Enumerable.Range( 0, aRefs.Count )
-         .ToDictionary_Overwrite( aRefIdx => aRefs[aRefIdx], aRefIdx => aRefIdx, Comparers.AssemblyReferenceEqualityComparer );
+         .ToDictionary_Overwrite( aRefIdx => aRefs[aRefIdx], aRefIdx => aRefIdx, aRefsTable.TableInformation.EqualityComparer );
 
       // First, type refs
       foreach ( var tRef in md.TypeReferences.TableContents.Where( tr => tr.ResolutionScope.HasValue && tr.ResolutionScope.Value.Table == Tables.AssemblyRef ) )

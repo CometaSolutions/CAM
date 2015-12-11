@@ -852,13 +852,14 @@ public static partial class E_CILPhysical
       var md = reorderState.MetaData;
       // No matter what, we have to remove nested class duplicates
       // Don't need to keep track of changes - nested class table is not referenced by anything
-      md.NestedClassDefinitions.RemoveDuplicatesUnsortedInPlace( Comparers.NestedClassDefinitionEqualityComparer );
+
+      var nestedClass = md.NestedClassDefinitions;
+      nestedClass.RemoveDuplicatesUnsortedInPlace();
 
       var typeDef = md.TypeDefinitions;
       var methodDef = md.MethodDefinitions;
       var fieldDef = md.FieldDefinitions;
       var paramDef = md.ParameterDefinitions;
-      var nestedClass = md.NestedClassDefinitions;
       var tDefCount = typeDef.RowCount;
       var mDefCount = methodDef.RowCount;
       var fDefCount = fieldDef.RowCount;
@@ -981,7 +982,7 @@ public static partial class E_CILPhysical
             nc => nc.EnclosingClass,
             ( nc, ecIdx ) => nc.EnclosingClass = ecIdx
             );
-         nestedClass.SortMDTable( ncIndices, Comparers.NestedClassDefinitionComparer );
+         nestedClass.SortMDTable( ncIndices );
 
          // Sort MethodDef table and update references in TypeDef table
          reorderState.ReOrderMDTableWithAscendingReferences(
@@ -1029,21 +1030,18 @@ public static partial class E_CILPhysical
       // Update TypeDef
       reorderState.UpdateMDTableIndices(
          md.TypeDefinitions,
-         null,
          ( td, indices ) => reorderState.UpdateMDTableWithTableIndices1Nullable( td, t => t.BaseType, ( t, b ) => t.BaseType = b )
          );
 
       // Update EventDefinition
       reorderState.UpdateMDTableIndices(
          md.EventDefinitions,
-         null,
          ( ed, indices ) => reorderState.UpdateMDTableWithTableIndices1( ed, e => e.EventType, ( e, t ) => e.EventType = t )
          );
 
       // Update EventMap
       reorderState.UpdateMDTableIndices(
          md.EventMaps,
-         null,
          ( em, indices ) => reorderState.UpdateMDTableWithTableIndices2( em, e => e.Parent, ( e, p ) => e.Parent = p, e => e.EventList, ( e, l ) => e.EventList = l )
          );
 
@@ -1052,124 +1050,108 @@ public static partial class E_CILPhysical
       // Update PropertyMap
       reorderState.UpdateMDTableIndices(
          md.PropertyMaps,
-         null,
          ( pm, indices ) => reorderState.UpdateMDTableWithTableIndices2( pm, p => p.Parent, ( p, pp ) => p.Parent = pp, p => p.PropertyList, ( p, pl ) => p.PropertyList = pl )
          );
 
       // Sort InterfaceImpl table ( Class, Interface)
       reorderState.UpdateMDTableIndices(
          md.InterfaceImplementations,
-         Comparers.InterfaceImplementationComparer,
          ( iFaceImpl, indices ) => reorderState.UpdateMDTableWithTableIndices2( iFaceImpl, i => i.Class, ( i, c ) => i.Class = c, i => i.Interface, ( i, iface ) => i.Interface = iface )
          );
 
       // Sort ConstantDef table (Parent)
       reorderState.UpdateMDTableIndices(
          md.ConstantDefinitions,
-         Comparers.ConstantDefinitionComparer,
          ( constant, indices ) => reorderState.UpdateMDTableWithTableIndices1( constant, c => c.Parent, ( c, p ) => c.Parent = p )
          );
 
       // Sort FieldMarshal table (Parent)
       reorderState.UpdateMDTableIndices(
          md.FieldMarshals,
-         Comparers.FieldMarshalComparer,
          ( marshal, indices ) => reorderState.UpdateMDTableWithTableIndices1( marshal, f => f.Parent, ( f, p ) => f.Parent = p )
          );
 
       // Sort DeclSecurity table (Parent)
       reorderState.UpdateMDTableIndices(
          md.SecurityDefinitions,
-         Comparers.SecurityDefinitionComparer,
          ( sec, indices ) => reorderState.UpdateMDTableWithTableIndices1( sec, s => s.Parent, ( s, p ) => s.Parent = p )
          );
 
       // Sort ClassLayout table (Parent)
       reorderState.UpdateMDTableIndices(
          md.ClassLayouts,
-         Comparers.ClassLayoutComparer,
          ( clazz, indices ) => reorderState.UpdateMDTableWithTableIndices1( clazz, c => c.Parent, ( c, p ) => c.Parent = p )
          );
 
       // Sort FieldLayout table (Field)
       reorderState.UpdateMDTableIndices(
          md.FieldLayouts,
-         Comparers.FieldLayoutComparer,
          ( fieldLayout, indices ) => reorderState.UpdateMDTableWithTableIndices1( fieldLayout, f => f.Field, ( f, p ) => f.Field = p )
          );
 
       // Sort MethodSemantics table (Association)
       reorderState.UpdateMDTableIndices(
          md.MethodSemantics,
-         Comparers.MethodSemanticsComparer,
          ( semantics, indices ) => reorderState.UpdateMDTableWithTableIndices2( semantics, s => s.Method, ( s, m ) => s.Method = m, s => s.Associaton, ( s, a ) => s.Associaton = a )
          );
 
       // Sort MethodImpl table (Class)
       reorderState.UpdateMDTableIndices(
          md.MethodImplementations,
-         Comparers.MethodImplementationComparer,
          ( impl, indices ) => reorderState.UpdateMDTableWithTableIndices3( impl, i => i.Class, ( i, c ) => i.Class = c, i => i.MethodBody, ( i, b ) => i.MethodBody = b, i => i.MethodDeclaration, ( i, d ) => i.MethodDeclaration = d )
          );
 
       // Sort ImplMap table (MemberForwarded)
       reorderState.UpdateMDTableIndices(
          md.MethodImplementationMaps,
-         Comparers.MethodImplementationMapComparer,
          ( map, indices ) => reorderState.UpdateMDTableWithTableIndices2( map, m => m.MemberForwarded, ( m, mem ) => m.MemberForwarded = mem, m => m.ImportScope, ( m, i ) => m.ImportScope = i )
          );
 
       // Sort FieldRVA table (Field)
       reorderState.UpdateMDTableIndices(
          md.FieldRVAs,
-         Comparers.FieldRVAComparer,
          ( fieldRVAs, indices ) => reorderState.UpdateMDTableWithTableIndices1( fieldRVAs, f => f.Field, ( f, field ) => f.Field = field )
          );
 
       // Sort GenericParamDef table (Owner, Sequence)
       reorderState.UpdateMDTableIndices(
          md.GenericParameterDefinitions,
-         Comparers.GenericParameterDefinitionComparer,
          ( gDef, indices ) => reorderState.UpdateMDTableWithTableIndices1( gDef, g => g.Owner, ( g, o ) => g.Owner = o )
          );
 
       // Sort GenericParameterConstraint table (Owner)
       reorderState.UpdateMDTableIndices(
          md.GenericParameterConstraintDefinitions,
-         Comparers.GenericParameterConstraintDefinitionComparer,
          ( gDef, indices ) => reorderState.UpdateMDTableWithTableIndices2( gDef, g => g.Owner, ( g, o ) => g.Owner = o, g => g.Constraint, ( g, c ) => g.Constraint = c )
          );
 
       // Update ExportedType
       reorderState.UpdateMDTableIndices(
          md.ExportedTypes,
-         null,
          ( et, indices ) => reorderState.UpdateMDTableWithTableIndices1( et, e => e.Implementation, ( e, i ) => e.Implementation = i )
          );
 
       // Update ManifestResource
       reorderState.UpdateMDTableIndices(
          md.ManifestResources,
-         null,
          ( mr, indices ) => reorderState.UpdateMDTableWithTableIndices1Nullable( mr, m => m.Implementation, ( m, i ) => m.Implementation = i )
          );
 
       // Sort CustomAttributeDef table (Parent) 
       reorderState.UpdateMDTableIndices(
          md.CustomAttributeDefinitions,
-         Comparers.CustomAttributeDefinitionComparer,
          ( ca, indices ) => reorderState.UpdateMDTableWithTableIndices2( ca, c => c.Parent, ( c, p ) => c.Parent = p, c => c.Type, ( c, t ) => c.Type = t )
          );
    }
 
-   private static void RemoveDuplicatesUnsortedInPlace<T>( this MetaDataTable<T> mdTable, IEqualityComparer<T> equalityComparer )
+   private static void RemoveDuplicatesUnsortedInPlace<T>( this MetaDataTable<T> mdTable )
       where T : class
    {
       var count = mdTable.RowCount;
       if ( count > 1 )
       {
          var table = mdTable.TableContents;
-         var set = new HashSet<T>( equalityComparer );
+         var set = new HashSet<T>( mdTable.TableInformation.EqualityComparer );
          for ( var i = 0; i < table.Count; )
          {
             var item = table[i];
@@ -1243,17 +1225,13 @@ public static partial class E_CILPhysical
    private static void UpdateMDTableIndices<T>(
       this MetaDataReOrderState reorderState,
       MetaDataTable<T> mdTable,
-      IComparer<T> comparer,
       Action<MetaDataTable<T>, Int32[]> tableUpdateCallback
       )
       where T : class
    {
       var thisTableIndices = reorderState.GetOrCreateIndexArray( mdTable );
       tableUpdateCallback( mdTable, thisTableIndices );
-      if ( comparer != null )
-      {
-         mdTable.SortMDTable( thisTableIndices, comparer );
-      }
+      mdTable.SortMDTable( thisTableIndices );
    }
 
    private static void UpdateMDTableWithTableIndices1<T>(
@@ -1365,33 +1343,36 @@ public static partial class E_CILPhysical
       }
    }
 
-   private static void SortMDTable<T>( this MetaDataTable<T> mdTable, Int32[] indices, IComparer<T> comparer )
+   private static void SortMDTable<T>( this MetaDataTable<T> mdTable, Int32[] indices )
       where T : class
    {
-      // If within 'indices' array, we have value '2' at index '0', it means that within the 'table', there should be value at index '0' which is currently at index '2'
-      var count = mdTable.RowCount;
-      if ( count > 1 )
+      var comparer = mdTable.TableInformation.Comparer;
+      if ( comparer != null )
       {
-         // 1. Make a copy of array
-         var table = mdTable.TableContents;
-         var copy = table.ToArray();
-
-         // 2. Sort original array
-         table.Sort( comparer );
-
-         // 3. For each element, do a binary search to find where it is now after sorting
-         for ( var i = 0; i < count; ++i )
+         // If within 'indices' array, we have value '2' at index '0', it means that within the 'table', there should be value at index '0' which is currently at index '2'
+         var count = mdTable.RowCount;
+         if ( count > 1 )
          {
-            var idx = table.BinarySearchDeferredEqualityDetection( copy[i], comparer );
-            while ( !ReferenceEquals( copy[i], table[idx] ) )
+            // 1. Make a copy of array
+            var table = mdTable.TableContents;
+            var copy = table.ToArray();
+
+            // 2. Sort original array
+            table.Sort( comparer );
+
+            // 3. For each element, do a binary search to find where it is now after sorting
+            for ( var i = 0; i < count; ++i )
             {
-               ++idx;
+               var idx = table.BinarySearchDeferredEqualityDetection( copy[i], comparer );
+               while ( !ReferenceEquals( copy[i], table[idx] ) )
+               {
+                  ++idx;
+               }
+               indices[i] = idx;
             }
-            indices[i] = idx;
          }
+
       }
-
-
 
       //table.SortMDTableWithInt32Comparison( indices, ( x, y ) => comparer.Compare( table[x], table[y] ) );
    }
@@ -1474,8 +1455,7 @@ public static partial class E_CILPhysical
    private static Boolean CheckMDDuplicatesUnsorted<T>(
       this MetaDataReOrderState reorderState,
       MetaDataTable<T> mdTable,
-      IEqualityComparer<T> comparer
-      //Action<Int32, Int32> onDuplicate = null
+      IEqualityComparer<T> comparer = null
       )
       where T : class
    {
@@ -1486,7 +1466,7 @@ public static partial class E_CILPhysical
       var indices = reorderState.GetOrCreateIndexArray( mdTable );
       if ( count > 1 )
       {
-         var dic = new Dictionary<T, Int32>( comparer );
+         var dic = new Dictionary<T, Int32>( comparer ?? mdTable.TableInformation.EqualityComparer );
          for ( var i = 0; i < list.Count; ++i )
          {
             var cur = list[i];
@@ -1547,8 +1527,7 @@ public static partial class E_CILPhysical
       // Remove duplicates from ModuleRef table (since reordering of the TypeRef table will require the indices in this table to be present)
       // ECMA-335: There should be no duplicate rows  [WARNING] 
       reorderState.CheckMDDuplicatesUnsorted(
-         md.ModuleReferences,
-         Comparers.ModuleReferenceEqualityComparer
+         md.ModuleReferences
          );
 
 
@@ -1567,7 +1546,7 @@ public static partial class E_CILPhysical
          .OrderBy( tpl => tpl.Item1.ResolutionScope.HasValue && tpl.Item1.ResolutionScope.Value.Table == Tables.TypeRef ? tpl.Item1.ResolutionScope.Value.Index : -1 )
          .ToList();
       tRefList.Clear();
-      var tRefDic = new Dictionary<TypeReference, Int32>( Comparers.TypeReferenceEqualityComparer );
+      var tRefDic = new Dictionary<TypeReference, Int32>( tRefs.TableInformation.EqualityComparer );
       for ( var i = 0; i < tRefsCorrectOrder.Count; ++i )
       {
          var tuple = tRefsCorrectOrder[i];
@@ -1618,7 +1597,7 @@ public static partial class E_CILPhysical
          .ToList();
 
       tSpecList.Clear();
-      var tSpecDic = new Dictionary<TypeSpecification, Int32>( Comparers.TypeSpecificationEqualityComparer );
+      var tSpecDic = new Dictionary<TypeSpecification, Int32>( tSpecs.TableInformation.EqualityComparer );
       for ( var i = 0; i < tSpecsCorrectOrder.Count; ++i )
       {
          var tuple = tSpecsCorrectOrder[i];
@@ -1655,8 +1634,7 @@ public static partial class E_CILPhysical
          ( mRef, dType ) => mRef.DeclaringType = dType
          );
       reorderState.CheckMDDuplicatesUnsorted(
-         memberRefs,
-         Comparers.MemberReferenceEqualityComparer
+         memberRefs
          );
 
       // MethodSpec
@@ -1668,16 +1646,14 @@ public static partial class E_CILPhysical
          ( mSpec, method ) => mSpec.Method = method
          );
       reorderState.CheckMDDuplicatesUnsorted(
-         mSpecs,
-         Comparers.MethodSpecificationEqualityComparer
+         mSpecs
          );
 
       // StandaloneSignature
       // ECMA-335: Duplicates allowed (but we will make them all unique anyway)
       var standaloneSigs = md.StandaloneSignatures;
       reorderState.CheckMDDuplicatesUnsorted(
-         md.StandaloneSignatures,
-         Comparers.StandaloneSignatureEqualityComparer
+         md.StandaloneSignatures
          );
 
       // Now update IL

@@ -534,8 +534,8 @@ namespace CILMerge
             );
          this._cryptoCallbacks = new CryptoCallbacksDotNET();
          this._moduleLoader = options.Parallel ?
-            (CILMetaDataLoader) new CILMetaDataLoaderThreadSafeConcurrentForFiles( this._cryptoCallbacks, this._loaderCallbacks ) :
-            new CILMetaDataLoaderNotThreadSafeForFiles( this._cryptoCallbacks, this._loaderCallbacks );
+            (CILMetaDataLoader) new CILMetaDataLoaderThreadSafeConcurrentForFiles( crypto: this._cryptoCallbacks, callbacks: this._loaderCallbacks ) :
+            new CILMetaDataLoaderNotThreadSafeForFiles( crypto: this._cryptoCallbacks, callbacks: this._loaderCallbacks );
          this._assemblyReferenceEqualityComparer = ComparerFromFunctions.NewEqualityComparer<AssemblyReference>(
             ( x, y ) =>
             {
