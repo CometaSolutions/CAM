@@ -29,11 +29,8 @@ namespace CILAssemblyManipulator.Physical.Meta
 {
    public interface MetaDataTableInformationProvider
    {
-      MetaDataTableInformation GetTableInformation( Tables table );
 
       IEnumerable<MetaDataTableInformation> GetAllSupportedTableInformations();
-
-      Boolean HasAdditionalTables { get; }
    }
 
    public class DefaultMetaDataTableInformationProvider : MetaDataTableInformationProvider
@@ -76,23 +73,11 @@ namespace CILAssemblyManipulator.Physical.Meta
          )
       {
          this._infos = new MetaDataTableInformation[Byte.MaxValue + 1];
-         var hasAdditionalTables = false;
          foreach ( var tableInfo in tableInfos ?? CreateDefaultTableInformation() )
          {
             var tKind = (Int32) tableInfo.TableKind;
-            if ( tKind >= Consts.AMOUNT_OF_TABLES && !hasAdditionalTables )
-            {
-               hasAdditionalTables = true;
-            }
             this._infos[tKind] = tableInfo;
          }
-
-         this.HasAdditionalTables = hasAdditionalTables;
-      }
-
-      public MetaDataTableInformation GetTableInformation( Tables table )
-      {
-         return this._infos[(Int32) table];
       }
 
       public IEnumerable<MetaDataTableInformation> GetAllSupportedTableInformations()
@@ -100,8 +85,6 @@ namespace CILAssemblyManipulator.Physical.Meta
          return this._infos
             .Where( i => i != null );
       }
-
-      public Boolean HasAdditionalTables { get; }
 
       public static DefaultMetaDataTableInformationProvider CreateDefault()
       {
@@ -118,14 +101,6 @@ namespace CILAssemblyManipulator.Physical.Meta
       {
          return new DefaultMetaDataTableInformationProvider( tableInfos );
       }
-
-      //public void SetTableInformation( MetaDataTableInformation tableInfo )
-      //{
-      //   if ( tableInfo != null )
-      //   {
-      //      this._infos[(Int32) tableInfo.TableKind] = tableInfo;
-      //   }
-      //}
 
       protected static IEnumerable<MetaDataTableInformation> CreateDefaultTableInformation()
       {

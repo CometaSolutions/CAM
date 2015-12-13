@@ -25,7 +25,7 @@ namespace CommonUtils
    /// <summary>
    /// This is enumeration to use when deciding how to handle duplicate key values in <see cref="E_CommonUtils.ToDictionary"/> method.
    /// </summary>
-   public enum DictionaryOverwriteStrategy
+   public enum CollectionOverwriteStrategy
    {
       /// <summary>
       /// When a duplicate key is encountered, old value is preserved and new value is discarded.
@@ -722,22 +722,22 @@ public static partial class E_CommonUtils
    /// <param name="source">The source enumerable.</param>
    /// <param name="keySelector">The callback to create keys from items of the enumerable.</param>
    /// <param name="valueSelector">The calllback to create values from items of the enumerable.</param>
-   /// <param name="overwriteStrategy">The <see cref="DictionaryOverwriteStrategy"/> on how to handle duplicate keys.</param>
+   /// <param name="overwriteStrategy">The <see cref="CollectionOverwriteStrategy"/> on how to handle duplicate keys.</param>
    /// <param name="equalityComparer">The optional equality comparer for keys.</param>
    /// <param name="dictionaryFactory">The optional callback to create a new, empty dictionary.</param>
    /// <returns>A <see cref="IDictionary{TKey, TValue}"/> containing transformed enumerable.</returns>
    /// <exception cref="ArgumentNullException">If any of <paramref name="source"/>, <paramref name="keySelector"/>, or <paramref name="valueSelector"/> is <c>null</c>.</exception>
-   /// <exception cref="ArgumentException">If <paramref name="overwriteStrategy"/> is <see cref="DictionaryOverwriteStrategy.Throw"/> and there are duplicate keys during transformation.</exception>
-   /// <exception cref="InvalidOperationException">If <paramref name="overwriteStrategy"/> is other than values in <see cref="DictionaryOverwriteStrategy"/> enumeration.</exception>
-   public static IDictionary<TKey, TValue> ToDictionary<T, TKey, TValue>( this IEnumerable<T> source, Func<T, TKey> keySelector, Func<T, TValue> valueSelector, DictionaryOverwriteStrategy overwriteStrategy, IEqualityComparer<TKey> equalityComparer = null, Func<IDictionary<TKey, TValue>> dictionaryFactory = null )
+   /// <exception cref="ArgumentException">If <paramref name="overwriteStrategy"/> is <see cref="CollectionOverwriteStrategy.Throw"/> and there are duplicate keys during transformation.</exception>
+   /// <exception cref="InvalidOperationException">If <paramref name="overwriteStrategy"/> is other than values in <see cref="CollectionOverwriteStrategy"/> enumeration.</exception>
+   public static IDictionary<TKey, TValue> ToDictionary<T, TKey, TValue>( this IEnumerable<T> source, Func<T, TKey> keySelector, Func<T, TValue> valueSelector, CollectionOverwriteStrategy overwriteStrategy, IEqualityComparer<TKey> equalityComparer = null, Func<IDictionary<TKey, TValue>> dictionaryFactory = null )
    {
       switch ( overwriteStrategy )
       {
-         case DictionaryOverwriteStrategy.Preserve:
+         case CollectionOverwriteStrategy.Preserve:
             return source.ToDictionary_Preserve( keySelector, valueSelector, equalityComparer );
-         case DictionaryOverwriteStrategy.Overwrite:
+         case CollectionOverwriteStrategy.Overwrite:
             return source.ToDictionary_Overwrite( keySelector, valueSelector, equalityComparer );
-         case DictionaryOverwriteStrategy.Throw:
+         case CollectionOverwriteStrategy.Throw:
             return source.ToDictionary_Throw( keySelector, valueSelector, equalityComparer );
          default:
             throw new InvalidOperationException( "Unrecognized dictionary overwrite strategy: " + overwriteStrategy + "." );
@@ -828,6 +828,141 @@ public static partial class E_CommonUtils
       ArgumentValidator.ValidateNotNull( "Value selector", valueSelector );
 
       return dictionaryFactory == null ? new Dictionary<TKey, TValue>( equalityComparer ) : dictionaryFactory( equalityComparer );
+   }
+
+   /// <summary>
+   /// Creates an array out of the enumerable, where each item knows its own index in the array to be created.
+   /// </summary>
+   /// <typeparam name="T">The type of elements.</typeparam>
+   /// <param name="source">The source enumerable.</param>
+   /// <param name="indexExtractor">The callback to extract index from element.</param>
+   /// <param name="overwriteStrategy">The <see cref="CollectionOverwriteStrategy"/> which will tell how to behave when two or more elements will be assigned the same array index.</param>
+   /// <param name="arrayFactory">The optional array creation and resize callback.</param>
+   /// <returns>The created array.</returns>
+   /// <exception cref="ArgumentNullException">If <paramref name="source"/> or <paramref name="indexExtractor"/> are <c>null</c>.</exception>
+   /// <exception cref="InvalidOperationException">If <paramref name="overwriteStrategy"/> is <see cref="CollectionOverwriteStrategy.Throw" />, and two elements will get assigned the same array index.</exception>
+   /// <exception cref="ArgumentException">If <paramref name="overwriteStrategy"/> is other than values in <see cref="CollectionOverwriteStrategy"/> enumeration.</exception>
+   public static T[] ToArray_SelfIndexing<T>( this IEnumerable<T> source, Func<T, Int32> indexExtractor, CollectionOverwriteStrategy overwriteStrategy, Func<Int32, T[]> arrayFactory = null )
+   {
+      switch ( overwriteStrategy )
+      {
+         case CollectionOverwriteStrategy.Preserve:
+            return source.ToArray_SelfIndexing_Preserve( indexExtractor, arrayFactory );
+         case CollectionOverwriteStrategy.Overwrite:
+            return source.ToArray_SelfIndexing_Overwrite( indexExtractor, arrayFactory );
+         case CollectionOverwriteStrategy.Throw:
+            return source.ToArray_SelfIndexing_Throw( indexExtractor, arrayFactory );
+         default:
+            throw new InvalidOperationException( "Unrecognized dictionary overwrite strategy: " + overwriteStrategy + "." );
+      }
+   }
+
+   /// <summary>
+   /// Creates an array out of the enumerable, where each item knows its own index in the array to be created.
+   /// When two or more elements will get assigned the same array index, the newest element will always overwrite the previous element.
+   /// </summary>
+   /// <typeparam name="T">The type of elements.</typeparam>
+   /// <param name="source">The source enumerable.</param>
+   /// <param name="indexExtractor">The callback to extract index from element.</param>
+   /// <param name="arrayFactory">The optional array creation and resize callback.</param>
+   /// <returns>The created array.</returns>
+   /// <exception cref="ArgumentNullException">If <paramref name="source"/> or <paramref name="indexExtractor"/> are <c>null</c>.</exception>
+   public static T[] ToArray_SelfIndexing_Overwrite<T>( this IEnumerable<T> source, Func<T, Int32> indexExtractor, Func<Int32, T[]> arrayFactory = null )
+   {
+      ValidateToArrayParams( source, indexExtractor, ref arrayFactory );
+
+      T[] array = null;
+      foreach ( var item in source )
+      {
+         var index = indexExtractor( item );
+         CheckArrayAndSet( ref array, index, arrayFactory, item );
+      }
+
+      return array ?? Empty<T>.Array;
+   }
+
+   /// <summary>
+   /// Creates an array out of the enumerable, where each item knows its own index in the array to be created.
+   /// When two or more elements will get assigned the same array index, the newest element will always be discarded.
+   /// </summary>
+   /// <typeparam name="T">The type of elements.</typeparam>
+   /// <param name="source">The source enumerable.</param>
+   /// <param name="indexExtractor">The callback to extract index from element.</param>
+   /// <param name="arrayFactory">The optional array creation and resize callback.</param>
+   /// <returns>The created array.</returns>
+   /// <exception cref="ArgumentNullException">If <paramref name="source"/> or <paramref name="indexExtractor"/> are <c>null</c>.</exception>
+   public static T[] ToArray_SelfIndexing_Preserve<T>( this IEnumerable<T> source, Func<T, Int32> indexExtractor, Func<Int32, T[]> arrayFactory = null )
+   {
+      ValidateToArrayParams( source, indexExtractor, ref arrayFactory );
+
+      var indices = new HashSet<Int32>();
+      T[] array = null;
+      foreach ( var item in source )
+      {
+         var index = indexExtractor( item );
+         if ( indices.Add( index ) )
+         {
+            CheckArrayAndSet( ref array, index, arrayFactory, item );
+         }
+      }
+      return array ?? Empty<T>.Array;
+   }
+
+   /// <summary>
+   /// Creates an array out of the enumerable, where each item knows its own index in the array to be created.
+   /// When two or more elements will get assigned the same array index, an exception will be thrown.
+   /// </summary>
+   /// <typeparam name="T">The type of elements.</typeparam>
+   /// <param name="source">The source enumerable.</param>
+   /// <param name="indexExtractor">The callback to extract index from element.</param>
+   /// <param name="arrayFactory">The optional array creation and resize callback.</param>
+   /// <returns>The created array.</returns>
+   /// <exception cref="ArgumentNullException">If <paramref name="source"/> or <paramref name="indexExtractor"/> are <c>null</c>.</exception>
+   /// <exception cref="InvalidOperationException">If two elements will get assigned the same array index.</exception>
+   public static T[] ToArray_SelfIndexing_Throw<T>( this IEnumerable<T> source, Func<T, Int32> indexExtractor, Func<Int32, T[]> arrayFactory = null )
+   {
+      ValidateToArrayParams( source, indexExtractor, ref arrayFactory );
+
+      var indices = new HashSet<Int32>();
+      T[] array = null;
+      foreach ( var item in source )
+      {
+         var index = indexExtractor( item );
+         if ( indices.Add( index ) )
+         {
+            CheckArrayAndSet( ref array, index, arrayFactory, item );
+         }
+         else
+         {
+            throw new InvalidOperationException( "The index " + index + " was already used." );
+         }
+      }
+      return array ?? Empty<T>.Array;
+   }
+
+   private static void CheckArrayAndSet<T>( ref T[] array, Int32 index, Func<Int32, T[]> arrayFactory, T item )
+   {
+      if ( array == null || index >= array.Length )
+      {
+         var newArray = arrayFactory( index + 1 );
+         if ( array != null )
+         {
+            Array.Copy( array, newArray, array.Length );
+         }
+         array = newArray;
+      }
+      array[index] = item;
+   }
+
+   private static void ValidateToArrayParams<T>( IEnumerable<T> source, Func<T, Int32> indexExtractor, ref Func<Int32, T[]> arrayFactory )
+   {
+      ArgumentValidator.ValidateNotNull( "Source", source );
+      ArgumentValidator.ValidateNotNull( "Index extractor", indexExtractor );
+
+      if ( arrayFactory == null )
+      {
+         arrayFactory = len => new T[len];
+      }
    }
 
    /// <summary>
