@@ -28,99 +28,379 @@ using TSigInfo = System.Tuple<System.Object, CILAssemblyManipulator.Physical.Tab
 
 namespace CILAssemblyManipulator.Physical
 {
+   /// <summary>
+   /// This interface represents a single metadata instance.
+   /// It is composed of metadata tables.
+   /// The instances of this interface may be created via static methods of <see cref="CILMetaDataFactory" />.
+   /// </summary>
+   /// <remarks>
+   /// This interface does not enforce any of the integrity and consistency rules of serialized and loadable metadata files.
+   /// </remarks>
+   /// <seealso cref="CILMetaDataFactory"/>
+   /// <seealso cref="MetaDataTable"/>
    public interface CILMetaData
    {
+      /// <summary>
+      /// This property represents a metadata table for <see cref="Tables.Module"/>.
+      /// </summary>
+      /// <value>The metadata table for <see cref="Tables.Module"/>.</value>
+      /// <seealso cref="MetaDataTable"/>
+      /// <seealso cref="ModuleDefinition"/>
       MetaDataTable<ModuleDefinition> ModuleDefinitions { get; }
 
+      /// <summary>
+      /// This property represents a metadata table for <see cref="Tables.TypeRef"/>.
+      /// </summary>
+      /// <value>The metadata table for <see cref="Tables.TypeRef"/>.</value>
+      /// <seealso cref="MetaDataTable"/>
+      /// <seealso cref="TypeReference"/>
       MetaDataTable<TypeReference> TypeReferences { get; }
 
+      /// <summary>
+      /// This property represents a metadata table for <see cref="Tables.TypeDef"/>.
+      /// </summary>
+      /// <value>The metadata table for <see cref="Tables.TypeDef"/>.</value>
+      /// <seealso cref="MetaDataTable"/>
+      /// <seealso cref="TypeDefinition"/>
       MetaDataTable<TypeDefinition> TypeDefinitions { get; }
 
+      /// <summary>
+      /// This property represents a metadata table for <see cref="Tables.Field"/>.
+      /// </summary>
+      /// <value>The metadata table for <see cref="Tables.Field"/>.</value>
+      /// <seealso cref="MetaDataTable"/>
+      /// <seealso cref="FieldDefinition"/>
       MetaDataTable<FieldDefinition> FieldDefinitions { get; }
 
+      /// <summary>
+      /// This property represents a metadata table for <see cref="Tables.MethodDef"/>.
+      /// </summary>
+      /// <value>The metadata table for <see cref="Tables.MethodDef"/>.</value>
+      /// <seealso cref="MetaDataTable"/>
+      /// <seealso cref="MethodDefinition"/>
       MetaDataTable<MethodDefinition> MethodDefinitions { get; }
 
+      /// <summary>
+      /// This property represents a metadata table for <see cref="Tables.Parameter"/>.
+      /// </summary>
+      /// <value>The metadata table for <see cref="Tables.Parameter"/>.</value>
+      /// <seealso cref="MetaDataTable"/>
+      /// <seealso cref="ParameterDefinition"/>
       MetaDataTable<ParameterDefinition> ParameterDefinitions { get; }
 
+      /// <summary>
+      /// This property represents a metadata table for <see cref="Tables.InterfaceImpl"/>.
+      /// </summary>
+      /// <value>The metadata table for <see cref="Tables.InterfaceImpl"/>.</value>
+      /// <seealso cref="MetaDataTable"/>
+      /// <seealso cref="InterfaceImplementation"/>
       MetaDataTable<InterfaceImplementation> InterfaceImplementations { get; }
 
+      /// <summary>
+      /// This property represents a metadata table for <see cref="Tables.MemberRef"/>.
+      /// </summary>
+      /// <value>The metadata table for <see cref="Tables.MemberRef"/>.</value>
+      /// <seealso cref="MetaDataTable"/>
+      /// <seealso cref="MemberReference"/>
       MetaDataTable<MemberReference> MemberReferences { get; }
 
+      /// <summary>
+      /// This property represents a metadata table for <see cref="Tables.Constant"/>.
+      /// </summary>
+      /// <value>The metadata table for <see cref="Tables.Constant"/>.</value>
+      /// <seealso cref="MetaDataTable"/>
+      /// <seealso cref="ConstantDefinition"/>
       MetaDataTable<ConstantDefinition> ConstantDefinitions { get; }
 
+      /// <summary>
+      /// This property represents a metadata table for <see cref="Tables.CustomAttribute"/>.
+      /// </summary>
+      /// <value>The metadata table for <see cref="Tables.CustomAttribute"/>.</value>
+      /// <seealso cref="MetaDataTable"/>
+      /// <seealso cref="CustomAttributeDefinition"/>
       MetaDataTable<CustomAttributeDefinition> CustomAttributeDefinitions { get; }
 
+      /// <summary>
+      /// This property represents a metadata table for <see cref="Tables.FieldMarshal"/>.
+      /// </summary>
+      /// <value>The metadata table for <see cref="Tables.FieldMarshal"/>.</value>
+      /// <seealso cref="MetaDataTable"/>
+      /// <seealso cref="FieldMarshal"/>
       MetaDataTable<FieldMarshal> FieldMarshals { get; }
 
+      /// <summary>
+      /// This property represents a metadata table for <see cref="Tables.DeclSecurity"/>.
+      /// </summary>
+      /// <value>The metadata table for <see cref="Tables.DeclSecurity"/>.</value>
+      /// <seealso cref="MetaDataTable"/>
+      /// <seealso cref="SecurityDefinition"/>
       MetaDataTable<SecurityDefinition> SecurityDefinitions { get; }
 
+      /// <summary>
+      /// This property represents a metadata table for <see cref="Tables.ClassLayout"/>.
+      /// </summary>
+      /// <value>The metadata table for <see cref="Tables.ClassLayout"/>.</value>
+      /// <seealso cref="MetaDataTable"/>
+      /// <seealso cref="ClassLayout"/>
       MetaDataTable<ClassLayout> ClassLayouts { get; }
 
+      /// <summary>
+      /// This property represents a metadata table for <see cref="Tables.FieldLayout"/>.
+      /// </summary>
+      /// <value>The metadata table for <see cref="Tables.FieldLayout"/>.</value>
+      /// <seealso cref="MetaDataTable"/>
+      /// <seealso cref="ModuleDefinition"/>
       MetaDataTable<FieldLayout> FieldLayouts { get; }
 
+      /// <summary>
+      /// This property represents a metadata table for <see cref="Tables.StandaloneSignature"/>.
+      /// </summary>
+      /// <value>The metadata table for <see cref="Tables.StandaloneSignature"/>.</value>
+      /// <seealso cref="MetaDataTable"/>
+      /// <seealso cref="StandaloneSignature"/>
       MetaDataTable<StandaloneSignature> StandaloneSignatures { get; }
 
+      /// <summary>
+      /// This property represents a metadata table for <see cref="Tables.EventMap"/>.
+      /// </summary>
+      /// <value>The metadata table for <see cref="Tables.EventMap"/>.</value>
+      /// <seealso cref="MetaDataTable"/>
+      /// <seealso cref="ModuleDefinition"/>
       MetaDataTable<EventMap> EventMaps { get; }
 
+      /// <summary>
+      /// This property represents a metadata table for <see cref="Tables.Event"/>.
+      /// </summary>
+      /// <value>The metadata table for <see cref="Tables.Event"/>.</value>
+      /// <seealso cref="MetaDataTable"/>
+      /// <seealso cref="EventDefinition"/>
       MetaDataTable<EventDefinition> EventDefinitions { get; }
 
+      /// <summary>
+      /// This property represents a metadata table for <see cref="Tables.PropertyMap"/>.
+      /// </summary>
+      /// <value>The metadata table for <see cref="Tables.PropertyMap"/>.</value>
+      /// <seealso cref="MetaDataTable"/>
+      /// <seealso cref="ModuleDefinition"/>
       MetaDataTable<PropertyMap> PropertyMaps { get; }
 
+      /// <summary>
+      /// This property represents a metadata table for <see cref="Tables.Property"/>.
+      /// </summary>
+      /// <value>The metadata table for <see cref="Tables.Property"/>.</value>
+      /// <seealso cref="MetaDataTable"/>
+      /// <seealso cref="PropertyDefinition"/>
       MetaDataTable<PropertyDefinition> PropertyDefinitions { get; }
 
+      /// <summary>
+      /// This property represents a metadata table for <see cref="Tables.MethodSemantics"/>.
+      /// </summary>
+      /// <value>The metadata table for <see cref="Tables.MethodSemantics"/>.</value>
+      /// <seealso cref="MetaDataTable"/>
+      /// <seealso cref="MethodSemantics"/>
       MetaDataTable<MethodSemantics> MethodSemantics { get; }
 
+      /// <summary>
+      /// This property represents a metadata table for <see cref="Tables.MethodImpl"/>.
+      /// </summary>
+      /// <value>The metadata table for <see cref="Tables.MethodImpl"/>.</value>
+      /// <seealso cref="MetaDataTable"/>
+      /// <seealso cref="MethodImplementation"/>
       MetaDataTable<MethodImplementation> MethodImplementations { get; }
 
+      /// <summary>
+      /// This property represents a metadata table for <see cref="Tables.ModuleRef"/>.
+      /// </summary>
+      /// <value>The metadata table for <see cref="Tables.ModuleRef"/>.</value>
+      /// <seealso cref="MetaDataTable"/>
+      /// <seealso cref="ModuleReference"/>
       MetaDataTable<ModuleReference> ModuleReferences { get; }
 
+      /// <summary>
+      /// This property represents a metadata table for <see cref="Tables.TypeSpec"/>.
+      /// </summary>
+      /// <value>The metadata table for <see cref="Tables.TypeSpec"/>.</value>
+      /// <seealso cref="MetaDataTable"/>
+      /// <seealso cref="TypeSpecification"/>
       MetaDataTable<TypeSpecification> TypeSpecifications { get; }
 
+      /// <summary>
+      /// This property represents a metadata table for <see cref="Tables.ImplMap"/>.
+      /// </summary>
+      /// <value>The metadata table for <see cref="Tables.ImplMap"/>.</value>
+      /// <seealso cref="MetaDataTable"/>
+      /// <seealso cref="MethodImplementationMap"/>
       MetaDataTable<MethodImplementationMap> MethodImplementationMaps { get; }
 
+      /// <summary>
+      /// This property represents a metadata table for <see cref="Tables.FieldRVA"/>.
+      /// </summary>
+      /// <value>The metadata table for <see cref="Tables.FieldRVA"/>.</value>
+      /// <seealso cref="MetaDataTable"/>
+      /// <seealso cref="FieldRVA"/>
       MetaDataTable<FieldRVA> FieldRVAs { get; }
 
+      /// <summary>
+      /// This property represents a metadata table for <see cref="Tables.Assembly"/>.
+      /// </summary>
+      /// <value>The metadata table for <see cref="Tables.Assembly"/>.</value>
+      /// <seealso cref="MetaDataTable"/>
+      /// <seealso cref="AssemblyDefinition"/>
       MetaDataTable<AssemblyDefinition> AssemblyDefinitions { get; }
 
+      /// <summary>
+      /// This property represents a metadata table for <see cref="Tables.AssemblyRef"/>.
+      /// </summary>
+      /// <value>The metadata table for <see cref="Tables.AssemblyRef"/>.</value>
+      /// <seealso cref="MetaDataTable"/>
+      /// <seealso cref="AssemblyReference"/>
       MetaDataTable<AssemblyReference> AssemblyReferences { get; }
 
+      /// <summary>
+      /// This property represents a metadata table for <see cref="Tables.File"/>.
+      /// </summary>
+      /// <value>The metadata table for <see cref="Tables.File"/>.</value>
+      /// <seealso cref="MetaDataTable"/>
+      /// <seealso cref="FileReference"/>
       MetaDataTable<FileReference> FileReferences { get; }
 
+      /// <summary>
+      /// This property represents a metadata table for <see cref="Tables.ExportedType"/>.
+      /// </summary>
+      /// <value>The metadata table for <see cref="Tables.ExportedType"/>.</value>
+      /// <seealso cref="MetaDataTable"/>
+      /// <seealso cref="ExportedType"/>
       MetaDataTable<ExportedType> ExportedTypes { get; }
 
+      /// <summary>
+      /// This property represents a metadata table for <see cref="Tables.ManifestResource"/>.
+      /// </summary>
+      /// <value>The metadata table for <see cref="Tables.ManifestResource"/>.</value>
+      /// <seealso cref="MetaDataTable"/>
+      /// <seealso cref="ManifestResource"/>
       MetaDataTable<ManifestResource> ManifestResources { get; }
 
+      /// <summary>
+      /// This property represents a metadata table for <see cref="Tables.NestedClass"/>.
+      /// </summary>
+      /// <value>The metadata table for <see cref="Tables.NestedClass"/>.</value>
+      /// <seealso cref="MetaDataTable"/>
+      /// <seealso cref="NestedClassDefinition"/>
       MetaDataTable<NestedClassDefinition> NestedClassDefinitions { get; }
 
+      /// <summary>
+      /// This property represents a metadata table for <see cref="Tables.GenericParameter"/>.
+      /// </summary>
+      /// <value>The metadata table for <see cref="Tables.GenericParameter"/>.</value>
+      /// <seealso cref="MetaDataTable"/>
+      /// <seealso cref="GenericParameterDefinition"/>
       MetaDataTable<GenericParameterDefinition> GenericParameterDefinitions { get; }
 
+      /// <summary>
+      /// This property represents a metadata table for <see cref="Tables.MethodSpec"/>.
+      /// </summary>
+      /// <value>The metadata table for <see cref="Tables.MethodSpec"/>.</value>
+      /// <seealso cref="MetaDataTable"/>
+      /// <seealso cref="MethodSpecification"/>
       MetaDataTable<MethodSpecification> MethodSpecifications { get; }
 
+      /// <summary>
+      /// This property represents a metadata table for <see cref="Tables.GenericParameterConstraint"/>.
+      /// </summary>
+      /// <value>The metadata table for <see cref="Tables.GenericParameterConstraint"/>.</value>
+      /// <seealso cref="MetaDataTable"/>
+      /// <seealso cref="GenericParameterConstraintDefinition"/>
       MetaDataTable<GenericParameterConstraintDefinition> GenericParameterConstraintDefinitions { get; }
 
+      /// <summary>
+      /// This property represents a metadata table for <see cref="Tables.EncLog"/>.
+      /// </summary>
+      /// <value>The metadata table for <see cref="Tables.EncLog"/>.</value>
+      /// <seealso cref="MetaDataTable"/>
+      /// <seealso cref="EditAndContinueLog"/>
       MetaDataTable<EditAndContinueLog> EditAndContinueLog { get; }
 
+      /// <summary>
+      /// This property represents a metadata table for <see cref="Tables.EncMap"/>.
+      /// </summary>
+      /// <value>The metadata table for <see cref="Tables.EncMap"/>.</value>
+      /// <seealso cref="MetaDataTable"/>
+      /// <seealso cref="EditAndContinueMap"/>
       MetaDataTable<EditAndContinueMap> EditAndContinueMap { get; }
 
+      /// <summary>
+      /// This property represents a metadata table for <see cref="Tables.FieldPtr"/>.
+      /// </summary>
+      /// <value>The metadata table for <see cref="Tables.FieldPtr"/>.</value>
+      /// <seealso cref="MetaDataTable"/>
+      /// <seealso cref="FieldDefinitionPointer"/>
       MetaDataTable<FieldDefinitionPointer> FieldDefinitionPointers { get; }
 
+      /// <summary>
+      /// This property represents a metadata table for <see cref="Tables.MethodPtr"/>.
+      /// </summary>
+      /// <value>The metadata table for <see cref="Tables.MethodPtr"/>.</value>
+      /// <seealso cref="MetaDataTable"/>
+      /// <seealso cref="MethodDefinitionPointer"/>
       MetaDataTable<MethodDefinitionPointer> MethodDefinitionPointers { get; }
 
+      /// <summary>
+      /// This property represents a metadata table for <see cref="Tables.ParameterPtr"/>.
+      /// </summary>
+      /// <value>The metadata table for <see cref="Tables.ParameterPtr"/>.</value>
+      /// <seealso cref="MetaDataTable"/>
+      /// <seealso cref="ParameterDefinitionPointer"/>
       MetaDataTable<ParameterDefinitionPointer> ParameterDefinitionPointers { get; }
 
+      /// <summary>
+      /// This property represents a metadata table for <see cref="Tables.EventPtr"/>.
+      /// </summary>
+      /// <value>The metadata table for <see cref="Tables.EventPtr"/>.</value>
+      /// <seealso cref="MetaDataTable"/>
+      /// <seealso cref="EventDefinitionPointer"/>
       MetaDataTable<EventDefinitionPointer> EventDefinitionPointers { get; }
 
+      /// <summary>
+      /// This property represents a metadata table for <see cref="Tables.PropertyPtr"/>.
+      /// </summary>
+      /// <value>The metadata table for <see cref="Tables.PropertyPtr"/>.</value>
+      /// <seealso cref="MetaDataTable"/>
+      /// <seealso cref="PropertyDefinitionPointer"/>
       MetaDataTable<PropertyDefinitionPointer> PropertyDefinitionPointers { get; }
 
+      /// <summary>
+      /// This property represents a metadata table for <see cref="Tables.AssemblyProcessor"/>.
+      /// </summary>
+      /// <value>The metadata table for <see cref="Tables.AssemblyProcessor"/>.</value>
+      /// <seealso cref="MetaDataTable"/>
+      /// <seealso cref="AssemblyDefinitionProcessor"/>
       [Obsolete( "This table should not be used anymore.", false )]
       MetaDataTable<AssemblyDefinitionProcessor> AssemblyDefinitionProcessors { get; }
 
+      /// <summary>
+      /// This property represents a metadata table for <see cref="Tables.AssemblyOS"/>.
+      /// </summary>
+      /// <value>The metadata table for <see cref="Tables.AssemblyOS"/>.</value>
+      /// <seealso cref="MetaDataTable"/>
+      /// <seealso cref="AssemblyDefinitionOS"/>
       [Obsolete( "This table should not be used anymore.", false )]
       MetaDataTable<AssemblyDefinitionOS> AssemblyDefinitionOSs { get; }
 
+      /// <summary>
+      /// This property represents a metadata table for <see cref="Tables.AssemblyRefProcessor"/>.
+      /// </summary>
+      /// <value>The metadata table for <see cref="Tables.AssemblyRefProcessor"/>.</value>
+      /// <seealso cref="MetaDataTable"/>
+      /// <seealso cref="AssemblyReferenceProcessor"/>
       [Obsolete( "This table should not be used anymore.", false )]
       MetaDataTable<AssemblyReferenceProcessor> AssemblyReferenceProcessors { get; }
 
+      /// <summary>
+      /// This property represents a metadata table for <see cref="Tables.AssemblyRefOS"/>.
+      /// </summary>
+      /// <value>The metadata table for <see cref="Tables.AssemblyRefOS"/>.</value>
+      /// <seealso cref="MetaDataTable"/>
+      /// <seealso cref="AssemblyReferenceOS"/>
       [Obsolete( "This table should not be used anymore.", false )]
       MetaDataTable<AssemblyReferenceOS> AssemblyReferenceOSs { get; }
 

@@ -73,7 +73,7 @@ namespace CILAssemblyManipulator.Physical.Meta
          )
       {
          this._infos = new MetaDataTableInformation[Byte.MaxValue + 1];
-         foreach ( var tableInfo in tableInfos ?? CreateDefaultTableInformation() )
+         foreach ( var tableInfo in ( tableInfos ?? CreateDefaultTableInformation() ).Where( ti => ti != null ) )
          {
             var tKind = (Int32) tableInfo.TableKind;
             this._infos[tKind] = tableInfo;
@@ -82,8 +82,10 @@ namespace CILAssemblyManipulator.Physical.Meta
 
       public IEnumerable<MetaDataTableInformation> GetAllSupportedTableInformations()
       {
-         return this._infos
-            .Where( i => i != null );
+         foreach ( var tableInfo in this._infos )
+         {
+            yield return tableInfo;
+         }
       }
 
       public static DefaultMetaDataTableInformationProvider CreateDefault()
