@@ -95,5 +95,30 @@ namespace CommonUtils
             throw new ArgumentException( parameterName + " was empty string." );
          }
       }
+
+      /// <summary>
+      /// Checks that <paramref name="values"/> is not <c>null</c>, and that all items in <paramref name="values"/> are not nulls either.
+      /// Will enumerate the <paramref name="values"/> once.
+      /// </summary>
+      /// <typeparam name="T">The type of items.</typeparam>
+      /// <param name="parameterName">The name of the parameter.</param>
+      /// <param name="values">The given paramter.</param>
+      /// <exception cref="ArgumentNullException">If <paramref name="values"/> is <c>null</c>, or if it contains at least one <c>null</c> item.</exception>
+      public static void ValidateAllNotNull<T>( String parameterName, IEnumerable<T> values )
+         where T : class
+      {
+         ValidateNotNull( parameterName, values );
+         var idx = 0UL;
+         var firstNull = values.FirstOrDefault( item =>
+         {
+            ++idx;
+            return item == null;
+         } );
+
+         if ( firstNull != null )
+         {
+            throw new ArgumentNullException( $"The item at index ${idx - 1} was null." );
+         }
+      }
    }
 }

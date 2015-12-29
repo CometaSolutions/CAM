@@ -1,7 +1,7 @@
 ﻿
 Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio 14
-VisualStudioVersion = 14.0.23107.0
+VisualStudioVersion = 14.0.24720.0
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "CommonUtils", "CommonUtils\CommonUtils.csproj", "{DBA22CD8-AC89-4902-8E44-F4771875E781}"
 EndProject
@@ -30,6 +30,8 @@ EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "CILAssemblyManipulator.Structural", "CILAssemblyManipulator\CILAssemblyManipulator.Structural\CILAssemblyManipulator.Structural.csproj", "{7384961E-6335-4312-AF87-1189AE260572}"
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "CILAssemblyManipulator.Emulator", "CILAssemblyManipulator\CILAssemblyManipulator.Emulator\CILAssemblyManipulator.Emulator.csproj", "{FBC21E9B-64F1-4E5D-8863-9FFBB7CBCCD5}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "CILAssemblyManipulator.Physical.Base", "CILAssemblyManipulator\CILAssemblyManipulator.Physical.Base\CILAssemblyManipulator.Physical.Base.csproj", "{BCACFC5F-2656-4428-9450-890DF6855591}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -172,6 +174,16 @@ Global
 		{FBC21E9B-64F1-4E5D-8863-9FFBB7CBCCD5}.Release_WP|Any CPU.Build.0 = Release|Any CPU
 		{FBC21E9B-64F1-4E5D-8863-9FFBB7CBCCD5}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{FBC21E9B-64F1-4E5D-8863-9FFBB7CBCCD5}.Release|Any CPU.Build.0 = Release|Any CPU
+		{BCACFC5F-2656-4428-9450-890DF6855591}.Debug_SL|Any CPU.ActiveCfg = Debug|Any CPU
+		{BCACFC5F-2656-4428-9450-890DF6855591}.Debug_SL|Any CPU.Build.0 = Debug|Any CPU
+		{BCACFC5F-2656-4428-9450-890DF6855591}.Debug_WP|Any CPU.ActiveCfg = Debug|Any CPU
+		{BCACFC5F-2656-4428-9450-890DF6855591}.Debug_WP|Any CPU.Build.0 = Debug|Any CPU
+		{BCACFC5F-2656-4428-9450-890DF6855591}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{BCACFC5F-2656-4428-9450-890DF6855591}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{BCACFC5F-2656-4428-9450-890DF6855591}.Release_WP|Any CPU.ActiveCfg = Release|Any CPU
+		{BCACFC5F-2656-4428-9450-890DF6855591}.Release_WP|Any CPU.Build.0 = Release|Any CPU
+		{BCACFC5F-2656-4428-9450-890DF6855591}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{BCACFC5F-2656-4428-9450-890DF6855591}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

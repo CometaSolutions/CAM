@@ -38,7 +38,7 @@ namespace CILAssemblyManipulator.Physical
    /// </remarks>
    /// <seealso cref="CILMetaDataFactory"/>
    /// <seealso cref="MetaDataTable"/>
-   public interface CILMetaData
+   public interface CILMetaData : CILMetaDataBase
    {
       /// <summary>
       /// This property represents a metadata table for <see cref="Tables.Module"/>.
@@ -403,39 +403,16 @@ namespace CILAssemblyManipulator.Physical
       /// <seealso cref="AssemblyReferenceOS"/>
       [Obsolete( "This table should not be used anymore.", false )]
       MetaDataTable<AssemblyReferenceOS> AssemblyReferenceOSs { get; }
-
-      MetaDataTable GetAdditionalTable( Int32 table );
    }
 
-   public interface MetaDataTable
-   {
-      Tables TableKind { get; }
-
-      Int32 RowCount { get; }
-
-      Object GetRowAt( Int32 idx );
-
-      IEnumerable<Object> TableContentsAsEnumerable { get; }
-
-      Boolean TryAddRow( Object row );
-
-      Meta.MetaDataTableInformation TableInformationNotGeneric { get; }
-   }
-
-   public interface MetaDataTable<TRow> : MetaDataTable
-      where TRow : class
-   {
-      List<TRow> TableContents { get; }
-
-      Meta.MetaDataTableInformation<TRow> TableInformation { get; }
-   }
 
    public static class CILMetaDataFactory
    {
 
       public static CILMetaData NewBlankMetaData( Int32[] sizes = null, Meta.MetaDataTableInformationProvider tableInfoProvider = null )
       {
-         return new CILAssemblyManipulator.Physical.Implementation.CILMetadataImpl( tableInfoProvider, sizes );
+         Meta.MetaDataTableInformation[] infos;
+         return new CILAssemblyManipulator.Physical.Implementation.CILMetadataImpl( tableInfoProvider, sizes, out infos );
       }
 
       public static CILMetaData CreateMinimalAssembly( String assemblyName, String moduleName, Boolean createModuleType = true, Meta.MetaDataTableInformationProvider tableInfoProvider = null )
@@ -566,8 +543,9 @@ public static partial class E_CILPhysical
          }
       }
 
-      public void MarkDuplicate( Tables table, Int32 duplicateIdx, Int32 actualIndex )
+      public void MarkDuplicate( Int32 tableIndex, Int32 duplicateIdx, Int32 actualIndex )
       {
+         var table = (Tables) tableIndex;
          var thisDuplicates = this._duplicates
             .GetOrAdd_NotThreadSafe( table, t => new Dictionary<Int32, Int32>() );
          thisDuplicates
@@ -915,175 +893,18 @@ public static partial class E_CILPhysical
       return retVal;
    }
 
-   public static MetaDataTable GetByTable( this CILMetaData md, Tables tableKind )
-   {
-      MetaDataTable retVal;
-      if ( !md.TryGetByTable( tableKind, out retVal ) )
-      {
-         throw new ArgumentException( "Table " + tableKind + " is invalid or unsupported." );
-      }
-      return retVal;
-   }
-
-   public static Boolean TryGetByTable( this CILMetaData md, Tables tableKind, out MetaDataTable table )
-   {
-#pragma warning disable 618
-      switch ( tableKind )
-      {
-         case Tables.Module:
-            table = md.ModuleDefinitions;
-            break;
-         case Tables.TypeRef:
-            table = md.TypeReferences;
-            break;
-         case Tables.TypeDef:
-            table = md.TypeDefinitions;
-            break;
-         case Tables.FieldPtr:
-            table = md.FieldDefinitionPointers;
-            break;
-         case Tables.Field:
-            table = md.FieldDefinitions;
-            break;
-         case Tables.MethodPtr:
-            table = md.MethodDefinitionPointers;
-            break;
-         case Tables.MethodDef:
-            table = md.MethodDefinitions;
-            break;
-         case Tables.ParameterPtr:
-            table = md.ParameterDefinitionPointers;
-            break;
-         case Tables.Parameter:
-            table = md.ParameterDefinitions;
-            break;
-         case Tables.InterfaceImpl:
-            table = md.InterfaceImplementations;
-            break;
-         case Tables.MemberRef:
-            table = md.MemberReferences;
-            break;
-         case Tables.Constant:
-            table = md.ConstantDefinitions;
-            break;
-         case Tables.CustomAttribute:
-            table = md.CustomAttributeDefinitions;
-            break;
-         case Tables.FieldMarshal:
-            table = md.FieldMarshals;
-            break;
-         case Tables.DeclSecurity:
-            table = md.SecurityDefinitions;
-            break;
-         case Tables.ClassLayout:
-            table = md.ClassLayouts;
-            break;
-         case Tables.FieldLayout:
-            table = md.FieldLayouts;
-            break;
-         case Tables.StandaloneSignature:
-            table = md.StandaloneSignatures;
-            break;
-         case Tables.EventMap:
-            table = md.EventMaps;
-            break;
-         case Tables.EventPtr:
-            table = md.EventDefinitionPointers;
-            break;
-         case Tables.Event:
-            table = md.EventDefinitions;
-            break;
-         case Tables.PropertyMap:
-            table = md.PropertyMaps;
-            break;
-         case Tables.PropertyPtr:
-            table = md.PropertyDefinitionPointers;
-            break;
-         case Tables.Property:
-            table = md.PropertyDefinitions;
-            break;
-         case Tables.MethodSemantics:
-            table = md.MethodSemantics;
-            break;
-         case Tables.MethodImpl:
-            table = md.MethodImplementations;
-            break;
-         case Tables.ModuleRef:
-            table = md.ModuleReferences;
-            break;
-         case Tables.TypeSpec:
-            table = md.TypeSpecifications;
-            break;
-         case Tables.ImplMap:
-            table = md.MethodImplementationMaps;
-            break;
-         case Tables.FieldRVA:
-            table = md.FieldRVAs;
-            break;
-         case Tables.EncLog:
-            table = md.EditAndContinueLog;
-            break;
-         case Tables.EncMap:
-            table = md.EditAndContinueMap;
-            break;
-         case Tables.Assembly:
-            table = md.AssemblyDefinitions;
-            break;
-         case Tables.AssemblyProcessor:
-            table = md.AssemblyDefinitionProcessors;
-            break;
-         case Tables.AssemblyOS:
-            table = md.AssemblyDefinitionOSs;
-            break;
-         case Tables.AssemblyRef:
-            table = md.AssemblyReferences;
-            break;
-         case Tables.AssemblyRefProcessor:
-            table = md.AssemblyReferenceProcessors;
-            break;
-         case Tables.AssemblyRefOS:
-            table = md.AssemblyReferenceOSs;
-            break;
-         case Tables.File:
-            table = md.FileReferences;
-            break;
-         case Tables.ExportedType:
-            table = md.ExportedTypes;
-            break;
-         case Tables.ManifestResource:
-            table = md.ManifestResources;
-            break;
-         case Tables.NestedClass:
-            table = md.NestedClassDefinitions;
-            break;
-         case Tables.GenericParameter:
-            table = md.GenericParameterDefinitions;
-            break;
-         case Tables.MethodSpec:
-            table = md.MethodSpecifications;
-            break;
-         case Tables.GenericParameterConstraint:
-            table = md.GenericParameterConstraintDefinitions;
-            break;
-         default:
-            table = md.GetAdditionalTable( (Int32) tableKind );
-            break;
-      }
-      return table != null;
-#pragma warning restore 618
-   }
 
    public static Boolean TryGetByTableIndex( this CILMetaData md, TableIndex index, out Object row )
    {
       MetaDataTable table;
-      var retVal = md.TryGetByTable( index.Table, out table ) && index.Index <= table.RowCount;
+      var retVal = md.TryGetByTable( (Int32) index.Table, out table ) && index.Index <= table.RowCount;
       row = retVal ? table.GetRowAt( index.Index ) : null;
       return retVal;
    }
 
    public static TableIndex GetNextTableIndexFor( this CILMetaData md, Tables table )
    {
-      return new TableIndex( table, md.GetByTable( table ).RowCount );
+      return new TableIndex( table, md.GetByTable( (Int32) table ).RowCount );
    }
 
    // Assumes that all lists of CILMetaData have only non-null elements.
@@ -2414,79 +2235,4 @@ public static partial class E_CILPhysical
       return String.IsNullOrEmpty( culture ) ? AssemblyInformation.NEUTRAL_CULTURE : culture;
    }
 
-   public static IEnumerable<MetaDataTable> GetFixedTables( this CILMetaData md )
-   {
-      if ( md != null )
-      {
-         yield return md.ModuleDefinitions;
-         yield return md.TypeReferences;
-         yield return md.TypeDefinitions;
-         yield return md.FieldDefinitionPointers;
-         yield return md.FieldDefinitions;
-         yield return md.MethodDefinitionPointers;
-         yield return md.MethodDefinitions;
-         yield return md.ParameterDefinitionPointers;
-         yield return md.ParameterDefinitions;
-         yield return md.InterfaceImplementations;
-         yield return md.MemberReferences;
-         yield return md.ConstantDefinitions;
-         yield return md.CustomAttributeDefinitions;
-         yield return md.FieldMarshals;
-         yield return md.SecurityDefinitions;
-         yield return md.ClassLayouts;
-         yield return md.FieldLayouts;
-         yield return md.StandaloneSignatures;
-         yield return md.EventMaps;
-         yield return md.EventDefinitionPointers;
-         yield return md.EventDefinitions;
-         yield return md.PropertyMaps;
-         yield return md.PropertyDefinitionPointers;
-         yield return md.PropertyDefinitions;
-         yield return md.MethodSemantics;
-         yield return md.MethodImplementations;
-         yield return md.ModuleReferences;
-         yield return md.TypeSpecifications;
-         yield return md.MethodImplementationMaps;
-         yield return md.FieldRVAs;
-         yield return md.EditAndContinueLog;
-         yield return md.EditAndContinueMap;
-         yield return md.AssemblyDefinitions;
-#pragma warning disable 618
-         yield return md.AssemblyDefinitionProcessors;
-         yield return md.AssemblyDefinitionOSs;
-#pragma warning restore 618
-         yield return md.AssemblyReferences;
-#pragma warning disable 618
-         yield return md.AssemblyReferenceProcessors;
-         yield return md.AssemblyReferenceOSs;
-#pragma warning restore 618
-         yield return md.FileReferences;
-         yield return md.ExportedTypes;
-         yield return md.ManifestResources;
-         yield return md.NestedClassDefinitions;
-         yield return md.GenericParameterDefinitions;
-         yield return md.MethodSpecifications;
-         yield return md.GenericParameterConstraintDefinitions;
-      }
-   }
-
-   public static IEnumerable<MetaDataTable> GetAdditionalTables( this CILMetaData md )
-   {
-      if ( md != null )
-      {
-         for ( var i = Consts.AMOUNT_OF_TABLES; i <= Byte.MaxValue; ++i )
-         {
-            var table = md.GetAdditionalTable( i );
-            if ( table != null )
-            {
-               yield return table;
-            }
-         }
-      }
-   }
-
-   public static IEnumerable<MetaDataTable> GetAllTables( this CILMetaData md )
-   {
-      return md.GetFixedTables().Concat( md.GetAdditionalTables() );
-   }
 }

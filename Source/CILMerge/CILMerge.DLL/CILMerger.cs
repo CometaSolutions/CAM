@@ -2176,7 +2176,7 @@ namespace CILMerge
          where T : class
       {
          var targetMDTable = tableExtractor( this._targetModule );
-         var tableKind = targetMDTable.TableKind;
+         var tableKind = (Tables) targetMDTable.TableKind;
          var targetTable = targetMDTable.TableContents;
          System.Diagnostics.Debug.Assert( targetTable.Count == 0, "Merging non-empty table in target module!" );
          foreach ( var md in this._inputModules )
@@ -2205,7 +2205,7 @@ namespace CILMerge
          )
          where T : class
       {
-         var tableKind = tableExtractor( this._targetModule ).TableKind;
+         var tableKind = (Tables) tableExtractor( this._targetModule ).TableKind;
          this.SetTableIndicesNullable(
             tableExtractor,
             i => this._targetTableIndexMappings[new TableIndex( tableKind, i )],
@@ -2245,7 +2245,7 @@ namespace CILMerge
          where T : class
       {
          var targetMDTable = tableExtractor( this._targetModule );
-         var tableKind = targetMDTable.TableKind;
+         var tableKind = (Tables) targetMDTable.TableKind;
          var targetTable = targetMDTable.TableContents;
          for ( var i = 0; i < targetTable.Count; ++i )
          {

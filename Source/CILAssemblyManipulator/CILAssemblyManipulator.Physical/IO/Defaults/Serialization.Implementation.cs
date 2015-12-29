@@ -17,6 +17,7 @@
  */
 using CILAssemblyManipulator.Physical;
 using CILAssemblyManipulator.Physical.IO.Defaults;
+using CILAssemblyManipulator.Physical.Meta;
 using CollectionsWithRoles.API;
 using CollectionsWithRoles.Implementation;
 using CommonUtils;
@@ -115,8 +116,6 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
    public delegate Int32 RowHeapColumnGetterDelegate<TRow>( ColumnFunctionalityArgs<TRow, RowHeapFillingArguments> args )
       where TRow : class;
 
-   // Gets the const value that will be written to table stream
-   public delegate TValue RowColumnGetterDelegate<TRow, TValue>( TRow row );
 
    public delegate SectionPartWithRVAs RawColumnSectionPartCreationDelegte<TRow>( CILMetaData md, WriterMetaDataStreamContainer mdStreamContainer );
 
@@ -277,7 +276,7 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
 
    public static class DefaultColumnSerializationInfoFactory
    {
-      public static Int32 GetCodedTableSize( ArrayQuery<Int32> tableSizes, ArrayQuery<Tables?> referencedTables )
+      public static Int32 GetCodedTableSize( ArrayQuery<Int32> tableSizes, ArrayQuery<Int32?> referencedTables )
       {
          Int32 max = 0;
          var len = referencedTables.Count;
@@ -286,7 +285,7 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
             var current = referencedTables[i];
             if ( current.HasValue )
             {
-               max = Math.Max( max, tableSizes[(Int32) current.Value] );
+               max = Math.Max( max, tableSizes[current.Value] );
             }
          }
          return max < ( UInt16.MaxValue >> CodedTableIndexDecoder.GetTagBitSize( referencedTables.Count ) ) ?
@@ -376,7 +375,7 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
 
       public static DefaultColumnSerializationInfo<TRawRow, TRow> CodedReference<TRawRow, TRow>(
          String columnName,
-         ArrayQuery<Tables?> targetTables,
+         ArrayQuery<Int32?> targetTables,
          RawRowColumnSetterDelegate<TRawRow> rawSetter,
          RowColumnSetterDelegate<TRow, TableIndex?> setter,
          RowColumnGetterDelegate<TRow, TableIndex?> getter
@@ -505,13 +504,13 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
          return BinaryUtils.Log2( (UInt32) referencedTablesLength - 1 ) + 1;
       }
 
-      private readonly ArrayQuery<Tables?> _tablesArray;
-      private readonly IDictionary<Tables, Int32> _tablesDictionary;
+      private readonly ArrayQuery<Int32?> _tablesArray;
+      private readonly IDictionary<Int32, Int32> _tablesDictionary;
       private readonly Int32 _tagBitMask;
       private readonly Int32 _tagBitSize;
 
       public CodedTableIndexDecoder(
-         ArrayQuery<Tables?> possibleTables
+         ArrayQuery<Int32?> possibleTables
          )
       {
          ArgumentValidator.ValidateNotNull( "Possible tables", possibleTables );
@@ -536,7 +535,7 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
             {
                var rowIdx = ( ( (UInt32) codedIndex ) >> this._tagBitSize );
                retVal = rowIdx > 0 ?
-                  new TableIndex( tableNullable.Value, (Int32) ( rowIdx - 1 ) ) :
+                  new TableIndex( (Tables) tableNullable.Value, (Int32) ( rowIdx - 1 ) ) :
                   (TableIndex?) null;
             }
             else
@@ -559,7 +558,7 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
          {
             var tIdxValue = tableIndex.Value;
             Int32 tableArrayIndex;
-            retVal = this._tablesDictionary.TryGetValue( tIdxValue.Table, out tableArrayIndex ) ?
+            retVal = this._tablesDictionary.TryGetValue( (Int32) tIdxValue.Table, out tableArrayIndex ) ?
                ( ( ( tIdxValue.Index + 1 ) << this._tagBitSize ) | tableArrayIndex ) :
                0;
          }
@@ -615,9 +614,11 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
          IEnumerable<Meta.MetaDataTableInformation> tableInfos
          )
       {
-         var tableInfoDic = tableInfos.ToDictionary_Overwrite(
-            info => (Int32) info.TableKind,
-            info => info.TableSerializationInfoNotGeneric
+         var tableInfoDic = tableInfos
+            .Where( ti => ti != null )
+            .ToDictionary_Overwrite(
+               info => (Int32) info.TableKind,
+               info => ( info as Meta.MetaDataTableInformationWithSerializationCapability )?.TableSerializationInfoNotGeneric
             );
          var curMax = 0;
          foreach ( var kvp in tableInfoDic.OrderBy( kvp => kvp.Key ) )
@@ -660,6 +661,7 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
          this._rowFactory = rowFactory;
          this._rawRowFactory = rawRowFactory;
          this._columns = columns.ToArray();
+         ArgumentValidator.ValidateAllNotNull( "Columns", this._columns );
       }
 
       public Tables Table { get; }
@@ -691,7 +693,7 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
          var md = args.MetaData;
          var tblEnum = this.Table;
          MetaDataTable tbl;
-         if ( md.TryGetByTable( tblEnum, out tbl ) )
+         if ( md.TryGetByTable( (Int32) tblEnum, out tbl ) )
          {
             var table = (MetaDataTable<TRow>) tbl;
             var cols = this._columns
@@ -747,7 +749,7 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
          )
       {
          MetaDataTable tbl;
-         if ( md.TryGetByTable( this.Table, out tbl ) )
+         if ( md.TryGetByTable( (Int32) this.Table, out tbl ) )
          {
             var table = (MetaDataTable<TRow>) tbl;
             var cols = this._columns

@@ -319,7 +319,7 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
             {
                var args = new RowReadingArguments( array, this.TableStartOffsets[i], mdStreamContainer, rawValueStorage );
 
-               var table = md.GetByTable( (Tables) i );
+               var table = md.GetByTable( i );
                this.TableSerializationSupport[i].ReadRows( table, this.TableSizes[i], args );
             }
          }
@@ -897,7 +897,6 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
             )
          {
             // Read all field RVA content
-            var layoutInfo = args.LayoutInfo;
 
             var stream = args.Stream.At( offset );
             Int32 size;

@@ -1,0 +1,105 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="4.0" DefaultTargets="GenerateKeyFile;GenerateAssemblyInfoFile;Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <Import Project="$(MSBuildExtensionsPath)\$(MSBuildToolsVersion)\Microsoft.Common.props" Condition="Exists('$(MSBuildExtensionsPath)\$(MSBuildToolsVersion)\Microsoft.Common.props')" />
+  <PropertyGroup>
+    <MinimumVisualStudioVersion>10.0</MinimumVisualStudioVersion>
+    <Configuration Condition=" '$(Configuration)' == '' ">Debug</Configuration>
+    <Platform Condition=" '$(Platform)' == '' ">AnyCPU</Platform>
+    <ProjectGuid>{BCACFC5F-2656-4428-9450-890DF6855591}</ProjectGuid>
+    <OutputType>Library</OutputType>
+    <AppDesignerFolder>Properties</AppDesignerFolder>
+    <RootNamespace>CILAssemblyManipulator.Physical.Base</RootNamespace>
+    <AssemblyName>CILAssemblyManipulator.Physical.Base</AssemblyName>
+    <DefaultLanguage>en-US</DefaultLanguage>
+    <FileAlignment>512</FileAlignment>
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+    <ProjectTypeGuids>{786C830F-07A1-408B-BD7F-6EE04809D6DB};{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}</ProjectTypeGuids>
+    <TargetFrameworkProfile>Profile328</TargetFrameworkProfile>
+    <TargetFrameworkVersion>v4.0</TargetFrameworkVersion>
+  </PropertyGroup>
+  <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|AnyCPU' ">
+    <DebugSymbols>true</DebugSymbols>
+    <DebugType>full</DebugType>
+    <Optimize>false</Optimize>
+    <OutputPath>..\..\..\Output\Debug\SL\</OutputPath>
+    <DefineConstants>$(DefineConstants);DEBUG;TRACE</DefineConstants>
+    <ErrorReport>prompt</ErrorReport>
+    <WarningLevel>4</WarningLevel>
+  </PropertyGroup>
+  <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug_Portable|AnyCPU' ">
+    <DebugSymbols>true</DebugSymbols>
+    <DebugType>full</DebugType>
+    <Optimize>false</Optimize>
+    <OutputPath>..\..\..\Output\Debug\SL\</OutputPath>
+    <DefineConstants>$(DefineConstants);DEBUG;TRACE;</DefineConstants>
+    <ErrorReport>prompt</ErrorReport>
+    <WarningLevel>4</WarningLevel>
+  </PropertyGroup>
+  <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Release|AnyCPU' ">
+    <DebugType>none</DebugType>
+    <Optimize>true</Optimize>
+    <OutputPath>..\..\..\Output\Release\SL\</OutputPath>
+    <DefineConstants>$(DefineConstants);TRACE</DefineConstants>
+    <ErrorReport>prompt</ErrorReport>
+    <WarningLevel>4</WarningLevel>
+  </PropertyGroup>
+  <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Release_Portable|AnyCPU' ">
+    <DebugType>none</DebugType>
+    <Optimize>true</Optimize>
+    <OutputPath>..\..\..\Output\Release\SL\</OutputPath>
+    <DefineConstants>$(DefineConstants);TRACE</DefineConstants>
+    <ErrorReport>prompt</ErrorReport>
+    <WarningLevel>4</WarningLevel>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\..\CollectionsWithRoles\CollectionsWithRoles.csproj" Condition=" '$(UseUtilpackReference)' == '' And '$(IsCommandLineBuild)' == ''">
+      <Project>{7f7ebfb0-2bf4-44d8-b96f-accc5f99f529}</Project>
+      <Name>CollectionsWithRoles</Name>
+    </ProjectReference>
+    <ProjectReference Include="..\..\CommonUtils\CommonUtils.csproj" Condition=" '$(UseUtilpackReference)' == '' And '$(IsCommandLineBuild)' == ''">
+      <Project>{dba22cd8-ac89-4902-8e44-f4771875e781}</Project>
+      <Name>CommonUtils</Name>
+    </ProjectReference>
+  </ItemGroup>
+  <ItemGroup>
+    <Reference Include="UtilPack" Condition=" '$(UseUtilpackReference)' != '' ">
+      <HintPath>$(OutputPath)UtilPack.dll</HintPath>
+    </Reference>
+    <!-- Make these different names from ProjectReferences in Include attribute, so that 'go to definition' would work properly in IDE. -->
+    <Reference Include="CommonUtils_dll" Condition=" '$(UseUtilpackReference)' == '' And '$(IsCommandLineBuild)' != '' ">
+      <HintPath>$(OutputPath)CommonUtils.dll</HintPath>
+    </Reference>
+    <Reference Include="CollectionsWithRoles_dll" Condition=" '$(UseUtilpackReference)' == '' And '$(IsCommandLineBuild)' != '' ">
+      <HintPath>$(OutputPath)CollectionsWithRoles.dll</HintPath>
+    </Reference>
+  </ItemGroup>
+  <ItemGroup>
+    <Compile Include="..\..\AssemblyInfo\$(AssemblyName).cs">
+      <Link>Properties\$(AssemblyName).AssemblyInfo.cs</Link>
+    </Compile>
+    <Compile Include="Implementation\MetaData.cs" />
+    <Compile Include="MetaData.cs" />
+    <Compile Include="Meta\Information.cs" />
+    <Compile Include="Meta\ReOrdering.cs" />
+  </ItemGroup>
+  <PropertyGroup Condition=" '$(UseUtilpackReference)' != '' ">
+    <SignAssembly>true</SignAssembly>
+    <KeyFilePath>$(MSBuildThisFileDirectory)..\..\..\Keys\CAM.snk</KeyFilePath>
+    <AssemblyOriginatorKeyFile>$(KeyFilePath)</AssemblyOriginatorKeyFile>
+  </PropertyGroup>
+  <Import Project="$(MSBuildExtensionsPath32)\Microsoft\Portable\$(TargetFrameworkVersion)\Microsoft.Portable.CSharp.targets" />
+  <Import Project="$(MSBuildThisFileDirectory)../../../CommonBuildTools/CLR/MSBuild/CreateKeyFileIfNeeded.targets" />
+  <!-- Assembly information -->
+  <PropertyGroup>
+    <AssemblyInfoCLSCompliant>true</AssemblyInfoCLSCompliant>
+    <AssemblyInfoOutputFile>$(MSBuildThisFileDirectory)/../../AssemblyInfo/$(AssemblyName).cs</AssemblyInfoOutputFile>
+    <AssemblyInfoDescription>CIL Assembly Manipulator (CAM) assembly providing base API oriented on physical representation on CIL-like files.</AssemblyInfoDescription>
+    <AssemblyInfoCompany>Cometa Solutions Ltd</AssemblyInfoCompany>
+    <AssemblyInfoTrademark>CAM</AssemblyInfoTrademark>
+    <AssemblyInfoAppendAssemblyCopyrightYears>true</AssemblyInfoAppendAssemblyCopyrightYears>
+    <AssemblyInfoAssemblyInceptionYear>2015</AssemblyInfoAssemblyInceptionYear>
+    <AssemblyInfoCopyrightAuthors>Stanislav Muhametsin</AssemblyInfoCopyrightAuthors>
+    <AssemblyInfoVersionFilename>$(MSBuildThisFileDirectory)/../../CAMPhysicalBaseVersion.txt</AssemblyInfoVersionFilename>
+  </PropertyGroup>
+  <Import Project="$(MSBuildThisFileDirectory)../../../CommonBuildTools/CLR/MSBuild/AssemblyInfo.targets" />
+</Project>

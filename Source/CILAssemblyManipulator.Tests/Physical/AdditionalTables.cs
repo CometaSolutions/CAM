@@ -13,15 +13,15 @@ namespace CILAssemblyManipulator.Tests.Physical
    [Category( "CAM.Physical" )]
    public class AdditionalTablesTest : AbstractCAMTest
    {
-      private const Tables ADDITIONAL_TABLE = Tables.GenericParameterConstraint + 2;
+      private const Int32 ADDITIONAL_TABLE = (Int32) ( Tables.GenericParameterConstraint + 2 );
 
       [Test]
       public void TestBorderLineCases()
       {
          var md = CILMetaDataFactory.NewBlankMetaData();
-
-         Assert.IsNull( md.GetAdditionalTable( (Int32) Tables.GenericParameterConstraint + 1 ) );
-         Assert.IsNull( md.GetAdditionalTable( (Int32) Byte.MaxValue ) );
+         MetaDataTable tbl;
+         Assert.IsFalse( md.TryGetByTable( (Int32) Tables.GenericParameterConstraint + 1, out tbl ) );
+         Assert.IsFalse( md.TryGetByTable( (Int32) Byte.MaxValue, out tbl ) );
       }
 
       [Test]
@@ -50,8 +50,8 @@ namespace CILAssemblyManipulator.Tests.Physical
 
          var info = additionalTableTyped.TableInformation;
          Assert.AreEqual( 2, info.ColumnsInformation.Count );
-         Assert.AreEqual( MetaDataColumnInformationKind.FixedSizeConstant, info.ColumnsInformation[0].DataInformation.ColumnKind );
-         Assert.AreEqual( MetaDataColumnInformationKind.HeapIndex, info.ColumnsInformation[1].DataInformation.ColumnKind );
+         Assert.AreEqual( MetaDataColumnInformationKind.FixedSizeConstant, ( (MetaDataColumnInformationWithDataMeaning) info.ColumnsInformation[0] ).DataInformation.ColumnKind );
+         Assert.AreEqual( MetaDataColumnInformationKind.HeapIndex, ( (MetaDataColumnInformationWithDataMeaning) info.ColumnsInformation[1] ).DataInformation.ColumnKind );
       }
 
       [Test]
@@ -115,7 +115,7 @@ namespace CILAssemblyManipulator.Tests.Physical
       private static IEnumerable<MetaDataTableInformation> CreateAdditionalTableInfo()
       {
          yield return new MetaDataTableInformation<MyAdditionalTableRow, RawMyAdditionalTableRow>(
-            ADDITIONAL_TABLE,
+            (Tables) ADDITIONAL_TABLE,
             new MyAdditionalTableRowEqualityComparer(),
             null,
             () => new MyAdditionalTableRow(),
@@ -125,18 +125,18 @@ namespace CILAssemblyManipulator.Tests.Physical
             );
       }
 
-      private static IEnumerable<MetaDataColumnInformation<MyAdditionalTableRow, RawMyAdditionalTableRow>> CreateAdditionalTableColumnInfo()
+      private static IEnumerable<MetaDataColumnInformation<MyAdditionalTableRow>> CreateAdditionalTableColumnInfo()
       {
-         yield return MetaDataColumnInformation.Number32<MyAdditionalTableRow, RawMyAdditionalTableRow>(
+         yield return MetaDataColumnInformationFactory.Number32<MyAdditionalTableRow, RawMyAdditionalTableRow>(
             nameof( MyAdditionalTableRow.IntValue ),
-            ( row, value ) => row.IntValue = value,
+            ( row, value ) => { row.IntValue = value; return true; },
             row => row.IntValue,
             ( rawRow, value ) => rawRow.IntValue = value
             );
 
-         yield return MetaDataColumnInformation.SystemString<MyAdditionalTableRow, RawMyAdditionalTableRow>(
+         yield return MetaDataColumnInformationFactory.SystemString<MyAdditionalTableRow, RawMyAdditionalTableRow>(
             nameof( MyAdditionalTableRow.StringValue ),
-            ( row, value ) => row.StringValue = value,
+            ( row, value ) => { row.StringValue = value; return true; },
             row => row.StringValue,
             ( rawRow, value ) => rawRow.StringValue = value
             );

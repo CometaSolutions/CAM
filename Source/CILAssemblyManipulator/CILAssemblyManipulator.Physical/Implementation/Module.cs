@@ -24,7 +24,7 @@ using CommonUtils;
 
 namespace CILAssemblyManipulator.Physical.Implementation
 {
-   internal sealed class CILMetadataImpl : CILMetaData
+   internal sealed class CILMetadataImpl : CILMetaDataBaseImpl, CILMetaData
    {
       private static readonly Int32[] EMPTY_SIZES = Enumerable.Repeat( 0, Consts.AMOUNT_OF_TABLES ).ToArray();
 
@@ -56,7 +56,7 @@ namespace CILAssemblyManipulator.Physical.Implementation
       private readonly MetaDataTable<AssemblyDefinition> _assemblyDefinitions;
       private readonly MetaDataTable<AssemblyReference> _assemblyReferences;
       private readonly MetaDataTable<FileReference> _fileReferences;
-      private readonly MetaDataTable<ExportedType> _exportedTypess;
+      private readonly MetaDataTable<ExportedType> _exportedTypes;
       private readonly MetaDataTable<ManifestResource> _manifestResources;
       private readonly MetaDataTable<NestedClassDefinition> _nestedClassDefinitions;
       private readonly MetaDataTable<GenericParameterDefinition> _genericParameterDefinitions;
@@ -67,44 +67,22 @@ namespace CILAssemblyManipulator.Physical.Implementation
       private readonly MetaDataTable<FieldDefinitionPointer> _fieldDefinitionPointers;
       private readonly MetaDataTable<MethodDefinitionPointer> _methodDefinitionPointers;
       private readonly MetaDataTable<ParameterDefinitionPointer> _parameterDefinitionPointers;
-      private readonly MetaDataTable<EventDefinitionPointer> _eventPointers;
-      private readonly MetaDataTable<PropertyDefinitionPointer> _propertyPointers;
+      private readonly MetaDataTable<EventDefinitionPointer> _eventDefinitionPointers;
+      private readonly MetaDataTable<PropertyDefinitionPointer> _propertyDefinitionPointers;
 #pragma warning disable 618
       private readonly MetaDataTable<AssemblyDefinitionProcessor> _assemblyDefinitionProcessors;
       private readonly MetaDataTable<AssemblyDefinitionOS> _assemblyDefinitionOSs;
       private readonly MetaDataTable<AssemblyReferenceProcessor> _assemblyReferenceProcessors;
       private readonly MetaDataTable<AssemblyReferenceOS> _assemblyReferenceOSs;
 
-      private readonly MetaDataTable[] _additionalTables;
-
       internal CILMetadataImpl(
          MetaDataTableInformationProvider tableInfoProvider,
-         Int32[] sizes = null
+         Int32[] sizes,
+         out MetaDataTableInformation[] infos
          )
+         : base( tableInfoProvider ?? DefaultMetaDataTableInformationProvider.CreateDefault(), Consts.AMOUNT_OF_TABLES, sizes, out infos )
       {
-         if ( tableInfoProvider == null )
-         {
-            tableInfoProvider = DefaultMetaDataTableInformationProvider.CreateDefault();
-         }
-
-         if ( sizes.IsNullOrEmpty() )
-         {
-            sizes = EMPTY_SIZES;
-         }
-         else if ( sizes.Length < Consts.AMOUNT_OF_TABLES )
-         {
-            var newSizes = new Int32[Consts.AMOUNT_OF_TABLES];
-            Array.Copy( sizes, newSizes, sizes.Length );
-            sizes = newSizes;
-         }
-
-
          MetaDataTableInformation[] defaultTableInfos = null;
-         var infos = tableInfoProvider
-            .GetAllSupportedTableInformations()
-            .Where( i => i != null )
-            .ToArray_SelfIndexing_Overwrite( i => (Int32) i.TableKind, len => new MetaDataTableInformation[Math.Max( len, Consts.AMOUNT_OF_TABLES )] );
-
          this._moduleDefinitions = CreateFixedMDTable<ModuleDefinition>( Tables.Module, sizes, infos, ref defaultTableInfos );
          this._typeReferences = CreateFixedMDTable<TypeReference>( Tables.TypeRef, sizes, infos, ref defaultTableInfos );
          this._typeDefinitions = CreateFixedMDTable<TypeDefinition>( Tables.TypeDef, sizes, infos, ref defaultTableInfos );
@@ -124,10 +102,10 @@ namespace CILAssemblyManipulator.Physical.Implementation
          this._fieldLayouts = CreateFixedMDTable<FieldLayout>( Tables.FieldLayout, sizes, infos, ref defaultTableInfos );
          this._standaloneSignatures = CreateFixedMDTable<StandaloneSignature>( Tables.StandaloneSignature, sizes, infos, ref defaultTableInfos );
          this._eventMaps = CreateFixedMDTable<EventMap>( Tables.EventMap, sizes, infos, ref defaultTableInfos );
-         this._eventPointers = CreateFixedMDTable<EventDefinitionPointer>( Tables.EventPtr, sizes, infos, ref defaultTableInfos );
+         this._eventDefinitionPointers = CreateFixedMDTable<EventDefinitionPointer>( Tables.EventPtr, sizes, infos, ref defaultTableInfos );
          this._eventDefinitions = CreateFixedMDTable<EventDefinition>( Tables.Event, sizes, infos, ref defaultTableInfos );
          this._propertyMaps = CreateFixedMDTable<PropertyMap>( Tables.PropertyMap, sizes, infos, ref defaultTableInfos );
-         this._propertyPointers = CreateFixedMDTable<PropertyDefinitionPointer>( Tables.PropertyPtr, sizes, infos, ref defaultTableInfos );
+         this._propertyDefinitionPointers = CreateFixedMDTable<PropertyDefinitionPointer>( Tables.PropertyPtr, sizes, infos, ref defaultTableInfos );
          this._propertyDefinitions = CreateFixedMDTable<PropertyDefinition>( Tables.Property, sizes, infos, ref defaultTableInfos );
          this._methodSemantics = CreateFixedMDTable<MethodSemantics>( Tables.MethodSemantics, sizes, infos, ref defaultTableInfos );
          this._methodImplementations = CreateFixedMDTable<MethodImplementation>( Tables.MethodImpl, sizes, infos, ref defaultTableInfos );
@@ -144,28 +122,12 @@ namespace CILAssemblyManipulator.Physical.Implementation
          this._assemblyReferenceProcessors = CreateFixedMDTable<AssemblyReferenceProcessor>( Tables.AssemblyRefProcessor, sizes, infos, ref defaultTableInfos );
          this._assemblyReferenceOSs = CreateFixedMDTable<AssemblyReferenceOS>( Tables.AssemblyRefOS, sizes, infos, ref defaultTableInfos );
          this._fileReferences = CreateFixedMDTable<FileReference>( Tables.File, sizes, infos, ref defaultTableInfos );
-         this._exportedTypess = CreateFixedMDTable<ExportedType>( Tables.ExportedType, sizes, infos, ref defaultTableInfos );
+         this._exportedTypes = CreateFixedMDTable<ExportedType>( Tables.ExportedType, sizes, infos, ref defaultTableInfos );
          this._manifestResources = CreateFixedMDTable<ManifestResource>( Tables.ManifestResource, sizes, infos, ref defaultTableInfos );
          this._nestedClassDefinitions = CreateFixedMDTable<NestedClassDefinition>( Tables.NestedClass, sizes, infos, ref defaultTableInfos );
          this._genericParameterDefinitions = CreateFixedMDTable<GenericParameterDefinition>( Tables.GenericParameter, sizes, infos, ref defaultTableInfos );
          this._methodSpecifications = CreateFixedMDTable<MethodSpecification>( Tables.MethodSpec, sizes, infos, ref defaultTableInfos );
          this._genericParameterConstraintDefinitions = CreateFixedMDTable<GenericParameterConstraintDefinition>( Tables.GenericParameterConstraint, sizes, infos, ref defaultTableInfos );
-
-         // Populate additional tables
-
-         if ( infos.Length > Consts.AMOUNT_OF_TABLES )
-         {
-            this._additionalTables = new MetaDataTable[Byte.MaxValue + 1 - Consts.AMOUNT_OF_TABLES];
-            for ( var i = 0; i < this._additionalTables.Length; ++i )
-            {
-               var tableValue = i + Consts.AMOUNT_OF_TABLES;
-               if ( tableValue < infos.Length )
-               {
-                  var capacity = tableValue < sizes.Length ? sizes[tableValue] : 0;
-                  this._additionalTables[i] = infos[tableValue]?.CreateMetaDataTableNotGeneric( capacity );
-               }
-            }
-         }
       }
 #pragma warning restore 618
 
@@ -397,7 +359,7 @@ namespace CILAssemblyManipulator.Physical.Implementation
       {
          get
          {
-            return this._exportedTypess;
+            return this._exportedTypes;
          }
       }
 
@@ -485,7 +447,7 @@ namespace CILAssemblyManipulator.Physical.Implementation
       {
          get
          {
-            return this._eventPointers;
+            return this._eventDefinitionPointers;
          }
       }
 
@@ -493,7 +455,7 @@ namespace CILAssemblyManipulator.Physical.Implementation
       {
          get
          {
-            return this._propertyPointers;
+            return this._propertyDefinitionPointers;
          }
       }
 
@@ -531,20 +493,205 @@ namespace CILAssemblyManipulator.Physical.Implementation
       }
 #pragma warning restore 618
 
-      public MetaDataTable GetAdditionalTable( Int32 table )
+      protected override bool TryGetFixedTable( Int32 index, out MetaDataTable table )
       {
-         var additionalTables = this._additionalTables;
-         MetaDataTable retVal;
-         if ( additionalTables != null )
+#pragma warning disable 618
+         switch ( (Tables) index )
          {
-            var additionalIndex = ( (Byte) table ) - Consts.AMOUNT_OF_TABLES;
-            retVal = additionalIndex < 0 ? null : additionalTables[additionalIndex];
+            case Tables.Module:
+               table = this._moduleDefinitions;
+               break;
+            case Tables.TypeRef:
+               table = this._typeReferences;
+               break;
+            case Tables.TypeDef:
+               table = this._typeDefinitions;
+               break;
+            case Tables.FieldPtr:
+               table = this._fieldDefinitionPointers;
+               break;
+            case Tables.Field:
+               table = this._fieldDefinitions;
+               break;
+            case Tables.MethodPtr:
+               table = this._methodDefinitionPointers;
+               break;
+            case Tables.MethodDef:
+               table = this._methodDefinitions;
+               break;
+            case Tables.ParameterPtr:
+               table = this._parameterDefinitionPointers;
+               break;
+            case Tables.Parameter:
+               table = this._parameterDefinitions;
+               break;
+            case Tables.InterfaceImpl:
+               table = this._interfaceImplementations;
+               break;
+            case Tables.MemberRef:
+               table = this._memberReferences;
+               break;
+            case Tables.Constant:
+               table = this._constantDefinitions;
+               break;
+            case Tables.CustomAttribute:
+               table = this._customAttributeDefinitions;
+               break;
+            case Tables.FieldMarshal:
+               table = this._fieldMarshals;
+               break;
+            case Tables.DeclSecurity:
+               table = this._securityDefinitions;
+               break;
+            case Tables.ClassLayout:
+               table = this._classLayouts;
+               break;
+            case Tables.FieldLayout:
+               table = this._fieldLayouts;
+               break;
+            case Tables.StandaloneSignature:
+               table = this._standaloneSignatures;
+               break;
+            case Tables.EventMap:
+               table = this._eventMaps;
+               break;
+            case Tables.EventPtr:
+               table = this._eventDefinitionPointers;
+               break;
+            case Tables.Event:
+               table = this._eventDefinitions;
+               break;
+            case Tables.PropertyMap:
+               table = this._propertyMaps;
+               break;
+            case Tables.PropertyPtr:
+               table = this._propertyDefinitionPointers;
+               break;
+            case Tables.Property:
+               table = this._propertyDefinitions;
+               break;
+            case Tables.MethodSemantics:
+               table = this._methodSemantics;
+               break;
+            case Tables.MethodImpl:
+               table = this._methodImplementations;
+               break;
+            case Tables.ModuleRef:
+               table = this._moduleReferences;
+               break;
+            case Tables.TypeSpec:
+               table = this._typeSpecifications;
+               break;
+            case Tables.ImplMap:
+               table = this._methodImplementationMaps;
+               break;
+            case Tables.FieldRVA:
+               table = this._fieldRVAs;
+               break;
+            case Tables.EncLog:
+               table = this._editAndContinueLog;
+               break;
+            case Tables.EncMap:
+               table = this._editAndContinueMap;
+               break;
+            case Tables.Assembly:
+               table = this._assemblyDefinitions;
+               break;
+            case Tables.AssemblyProcessor:
+               table = this._assemblyDefinitionProcessors;
+               break;
+            case Tables.AssemblyOS:
+               table = this._assemblyDefinitionOSs;
+               break;
+            case Tables.AssemblyRef:
+               table = this._assemblyReferences;
+               break;
+            case Tables.AssemblyRefProcessor:
+               table = this._assemblyReferenceProcessors;
+               break;
+            case Tables.AssemblyRefOS:
+               table = this._assemblyReferenceOSs;
+               break;
+            case Tables.File:
+               table = this._fileReferences;
+               break;
+            case Tables.ExportedType:
+               table = this._exportedTypes;
+               break;
+            case Tables.ManifestResource:
+               table = this._manifestResources;
+               break;
+            case Tables.NestedClass:
+               table = this._nestedClassDefinitions;
+               break;
+            case Tables.GenericParameter:
+               table = this._genericParameterDefinitions;
+               break;
+            case Tables.MethodSpec:
+               table = this._methodSpecifications;
+               break;
+            case Tables.GenericParameterConstraint:
+               table = this._genericParameterConstraintDefinitions;
+               break;
+            default:
+               this.TryGetAdditionalTable( index, out table );
+               break;
          }
-         else
-         {
-            retVal = null;
-         }
-         return retVal;
+         return table != null;
+#pragma warning restore 618
+      }
+
+      public override IEnumerable<MetaDataTable> GetFixedTables()
+      {
+         yield return this._moduleDefinitions;
+         yield return this._typeReferences;
+         yield return this._typeDefinitions;
+         yield return this._fieldDefinitionPointers;
+         yield return this._fieldDefinitions;
+         yield return this._methodDefinitionPointers;
+         yield return this._methodDefinitions;
+         yield return this._parameterDefinitionPointers;
+         yield return this._parameterDefinitions;
+         yield return this._interfaceImplementations;
+         yield return this._memberReferences;
+         yield return this._constantDefinitions;
+         yield return this._customAttributeDefinitions;
+         yield return this._fieldMarshals;
+         yield return this._securityDefinitions;
+         yield return this._classLayouts;
+         yield return this._fieldLayouts;
+         yield return this._standaloneSignatures;
+         yield return this._eventMaps;
+         yield return this._eventDefinitionPointers;
+         yield return this._eventDefinitions;
+         yield return this._propertyMaps;
+         yield return this._propertyDefinitionPointers;
+         yield return this._propertyDefinitions;
+         yield return this._methodSemantics;
+         yield return this._methodImplementations;
+         yield return this._moduleReferences;
+         yield return this._typeSpecifications;
+         yield return this._methodImplementationMaps;
+         yield return this._fieldRVAs;
+         yield return this._editAndContinueLog;
+         yield return this._editAndContinueMap;
+         yield return this._assemblyDefinitions;
+#pragma warning disable 618
+         yield return this._assemblyDefinitionProcessors;
+         yield return this._assemblyDefinitionOSs;
+#pragma warning restore 618
+         yield return this._assemblyReferences;
+#pragma warning disable 618
+         yield return this._assemblyReferenceProcessors;
+         yield return this._assemblyReferenceOSs;
+#pragma warning restore 618
+         yield return this._fileReferences;
+         yield return this._exportedTypes;
+         yield return this._manifestResources;
+         yield return this._nestedClassDefinitions;
+         yield return this._genericParameterDefinitions;
+         yield return this._methodSpecifications;
+         yield return this._genericParameterConstraintDefinitions;
       }
 
       private static MetaDataTable<TRow> CreateFixedMDTable<TRow>(
@@ -555,93 +702,14 @@ namespace CILAssemblyManipulator.Physical.Implementation
          )
          where TRow : class
       {
-         var info = infos[(Int32) table];
-         if ( info == null )
-         {
-            if ( defaultInfos == null )
-            {
-               defaultInfos = DefaultMetaDataTableInformationProvider.CreateDefault()
-                  .GetAllSupportedTableInformations()
-                  .ToArray();
-            }
-            info = defaultInfos[(Int32) table];
-         }
-
-         return (MetaDataTable<TRow>) info.CreateMetaDataTableNotGeneric( sizes[(Int32) table] );
+         return CreateFixedMDTable<TRow>(
+            (Int32) table,
+            sizes,
+            infos,
+            ref defaultInfos,
+            () => DefaultMetaDataTableInformationProvider.CreateDefault()
+            );
       }
    }
 
-   internal sealed class MetaDataTableImpl<TRow> : MetaDataTable<TRow>
-      where TRow : class
-   {
-      private readonly List<TRow> _table;
-
-      internal MetaDataTableImpl(
-         MetaDataTableInformation<TRow> tableInfo,
-         Int32 tableRowCapacity
-         )
-      {
-         ArgumentValidator.ValidateNotNull( "Table information", tableInfo );
-
-         this.TableInformation = tableInfo;
-         this.TableKind = tableInfo.TableKind;
-         this._table = new List<TRow>( Math.Max( 0, tableRowCapacity ) );
-      }
-
-      public List<TRow> TableContents
-      {
-         get
-         {
-            return this._table;
-         }
-      }
-
-      public Tables TableKind { get; }
-
-      public Int32 RowCount
-      {
-         get
-         {
-            return this._table.Count;
-         }
-      }
-
-      public IEnumerable<Object> TableContentsAsEnumerable
-      {
-         get
-         {
-            return this._table;
-         }
-      }
-
-      public MetaDataTableInformation<TRow> TableInformation { get; }
-      public MetaDataTableInformation TableInformationNotGeneric
-      {
-         get
-         {
-            return this.TableInformation;
-         }
-      }
-
-      public Object GetRowAt( Int32 idx )
-      {
-         return this._table[idx];
-      }
-
-      public Boolean TryAddRow( Object row )
-      {
-         var rowTyped = row as TRow;
-         var retVal = rowTyped != null;
-         if ( retVal )
-         {
-            this._table.Add( rowTyped );
-         }
-         return retVal;
-      }
-
-      public override String ToString()
-      {
-         return this.TableKind + ", row count: " + this._table.Count + ".";
-      }
-   }
 }

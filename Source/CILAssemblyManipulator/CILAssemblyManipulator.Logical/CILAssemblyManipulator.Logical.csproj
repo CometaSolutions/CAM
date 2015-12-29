@@ -89,6 +89,10 @@
       <Project>{dba22cd8-ac89-4902-8e44-f4771875e781}</Project>
       <Name>CommonUtils</Name>
     </ProjectReference>
+    <ProjectReference Include="..\CILAssemblyManipulator.Physical.Base\CILAssemblyManipulator.Physical.Base.csproj">
+      <Project>{bcacfc5f-2656-4428-9450-890df6855591}</Project>
+      <Name>CILAssemblyManipulator.Physical.Base</Name>
+    </ProjectReference>
     <ProjectReference Condition=" '$(IsCommandLineBuild)' == ''" Include="..\CILAssemblyManipulator.Physical\CILAssemblyManipulator.Physical.csproj">
       <Project>{f8ba1950-209d-477f-83d6-3f969c0cbee6}</Project>
       <Name>CILAssemblyManipulator.Physical</Name>

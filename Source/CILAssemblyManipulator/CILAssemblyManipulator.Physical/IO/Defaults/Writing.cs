@@ -604,7 +604,7 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
    {
       ArrayQuery<TRVA> ValuesForTableStream { get; }
 
-      Tables RelatedTable { get; }
+      Int32 RelatedTable { get; }
 
       Int32 RelatedTableColumnIndex { get; }
    }
@@ -821,7 +821,7 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
          }
       }
 
-      public Tables RelatedTable { get; }
+      public Int32 RelatedTable { get; }
 
       public Int32 RelatedTableColumnIndex { get; }
 
@@ -1366,7 +1366,7 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
          var parts = args.Parts;
          var embeddedResources = parts
             .OfType<SectionPartWithRVAs>()
-            .FirstOrDefault( p => p.RelatedTable == Tables.ManifestResource );
+            .FirstOrDefault( p => p.RelatedTable == (Int32) Tables.ManifestResource );
          var rvaConverter = args.RVAConverter;
          var snData = parts
             .OfType<SectionPart_StrongNameSignature>()
@@ -2186,7 +2186,7 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
          {
             MetaDataTable table;
             if ( info != null
-               && this._md.TryGetByTable( info.Table, out table )
+               && this._md.TryGetByTable( (Int32) info.Table, out table )
                && table.RowCount > 0
                )
             {
