@@ -119,10 +119,10 @@ namespace CILAssemblyManipulator.Structural
       }
 
       internal ModuleStructure( CILMetaData md )
-         : this( md.TypeDefinitions.RowCount, md.ExportedTypes.RowCount, md.ManifestResources.RowCount )
+         : this( md.TypeDefinitions.GetRowCount(), md.ExportedTypes.GetRowCount(), md.ManifestResources.GetRowCount() )
       {
          this.Name = md.ModuleDefinitions.TableContents[0].Name;
-         this.IsMainModule = md.AssemblyDefinitions.RowCount > 0;
+         this.IsMainModule = md.AssemblyDefinitions.GetRowCount() > 0;
       }
 
       public String Name { get; set; }

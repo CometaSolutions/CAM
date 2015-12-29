@@ -189,7 +189,7 @@ namespace CILAssemblyManipulator.Tests.Physical
 
       private static void AddDuplicateRowToMD( CILMetaData md, MethodDefinition method, TypeSignature typeSpec )
       {
-         var typeSpecIndex = md.TypeSpecifications.RowCount;
+         var typeSpecIndex = md.TypeSpecifications.GetRowCount();
          var type = new ClassOrValueTypeSignature() { Type = new TableIndex( Tables.TypeSpec, typeSpecIndex ) };
          method.Signature.Parameters.Add( new ParameterSignature() { Type = type } );
          method.Signature.ReturnType = new ParameterSignature() { Type = SimpleTypeSignature.Void };

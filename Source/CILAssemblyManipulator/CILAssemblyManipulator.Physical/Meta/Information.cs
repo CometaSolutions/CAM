@@ -66,10 +66,10 @@ namespace CILAssemblyManipulator.Physical.Meta
          IEnumerable<MetaDataTableInformation> tableInfos = null
          )
       {
-         this._infos = new MetaDataTableInformation[Byte.MaxValue + 1];
+         this._infos = new MetaDataTableInformation[Consts.AMOUNT_OF_TABLES];
          foreach ( var tableInfo in ( tableInfos ?? CreateDefaultTableInformation() ).Where( ti => ti != null ) )
          {
-            var tKind = (Int32) tableInfo.TableKind;
+            var tKind = (Int32) tableInfo.TableIndex;
             this._infos[tKind] = tableInfo;
          }
       }
@@ -90,7 +90,7 @@ namespace CILAssemblyManipulator.Physical.Meta
       public static DefaultMetaDataTableInformationProvider CreateWithAdditionalTables( IEnumerable<MetaDataTableInformation> tableInfos )
       {
          ArgumentValidator.ValidateNotNull( "Additional table infos", tableInfos );
-         return new DefaultMetaDataTableInformationProvider( CreateDefaultTableInformation().Concat( tableInfos.Where( t => (Int32) t.TableKind > Consts.AMOUNT_OF_TABLES ) ) );
+         return new DefaultMetaDataTableInformationProvider( CreateDefaultTableInformation().Concat( tableInfos.Where( t => (Int32) t.TableIndex > Consts.AMOUNT_OF_FIXED_TABLES ) ) );
       }
 
       public static DefaultMetaDataTableInformationProvider CreateWithExactTables( IEnumerable<MetaDataTableInformation> tableInfos )
@@ -930,7 +930,7 @@ namespace CILAssemblyManipulator.Physical.Meta
 
          this._tableSerializationInfo = new Lazy<DefaultTableSerializationInfo<TRawRow, TRow>>( () =>
             new DefaultTableSerializationInfo<TRawRow, TRow>(
-               (Tables) this.TableKind,
+               (Tables) this.TableIndex,
                isSorted,
                this.ColumnsInformation.Select( c => ( c as MetaDataColumnInformationWithSerializationCapability<TRow, TRawRow> )?.DefaultColumnSerializationInfoWithRawType ),
                this.RowFactory,

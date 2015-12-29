@@ -708,7 +708,7 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
          Int32 min,
          Int32 max
          )
-         : base( alignment, table.RowCount > 0 )
+         : base( alignment, table.GetRowCount() > 0 )
       {
          ArgumentValidator.ValidateNotNull( "Table", table );
 
@@ -740,7 +740,7 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
 
          var range = max - min;
          this._rows = rows;
-         this.RelatedTable = table.TableKind;
+         this.RelatedTable = table.GetTableIndex();
          this.RelatedTableColumnIndex = columnIndex;
          this._min = min;
          this._max = max;
@@ -2187,7 +2187,7 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
             MetaDataTable table;
             if ( info != null
                && this._md.TryGetByTable( (Int32) info.Table, out table )
-               && table.RowCount > 0
+               && table.GetRowCount() > 0
                )
             {
                var support = writeInfo.Serialization[(Int32) info.Table];

@@ -86,7 +86,7 @@ namespace CILAssemblyManipulator.Physical
                .GetPossibleResourcesForModuleReference( thisModuleInfo.Item1, e.ThisMetaData, e.ModuleName )
                .Where( r => this.IsValidResource( r ) )
                .Select( r => this.GetOrLoadMetaData( r ) )
-               .Where( md => md.AssemblyDefinitions.RowCount == 0 && md.ModuleDefinitions.RowCount > 0 && String.Equals( md.ModuleDefinitions.TableContents[0].Name, e.ModuleName ) )
+               .Where( md => md.AssemblyDefinitions.GetRowCount() == 0 && md.ModuleDefinitions.GetRowCount() > 0 && String.Equals( md.ModuleDefinitions.TableContents[0].Name, e.ModuleName ) )
                .FirstOrDefault();
          }
       }

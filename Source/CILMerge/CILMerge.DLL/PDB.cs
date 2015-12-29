@@ -558,8 +558,8 @@ namespace CILMerge
          this._module = module;
          this._eArgs = eArgs;
 
-         var methodDeclaringTypes = new List<Int32>( module.MethodDefinitions.RowCount );
-         for ( var i = 0; i < module.TypeDefinitions.RowCount; ++i )
+         var methodDeclaringTypes = new List<Int32>( module.MethodDefinitions.GetRowCount() );
+         for ( var i = 0; i < module.TypeDefinitions.GetRowCount(); ++i )
          {
             // Don't use loop variable in lambda
             var cur = i;
@@ -567,7 +567,7 @@ namespace CILMerge
          }
          this._methodDeclaringTypes = methodDeclaringTypes;
 
-         var typeEnclosingTypes = new Dictionary<Int32, Int32>( module.NestedClassDefinitions.RowCount );
+         var typeEnclosingTypes = new Dictionary<Int32, Int32>( module.NestedClassDefinitions.GetRowCount() );
          foreach ( var nc in module.NestedClassDefinitions.TableContents )
          {
             typeEnclosingTypes[nc.NestedClass.Index] = nc.EnclosingClass.Index;

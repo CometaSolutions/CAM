@@ -29,7 +29,7 @@ namespace CILAssemblyManipulator.Tests.Physical
       {
          var md = CILMetaDataFactory.NewBlankMetaData();
          var tablesReturned = md.GetAllTables().ToArray();
-         var tablesOrdered = tablesReturned.OrderBy( t => (Int32) t.TableKind ).ToArray();
+         var tablesOrdered = tablesReturned.OrderBy( t => t.GetTableIndex() ).ToArray();
          Assert.IsTrue( tablesReturned.SequenceEqual( tablesOrdered ) );
          Assert.AreEqual( (Int32) Tables.GenericParameterConstraint + 1, tablesReturned.Length );
       }

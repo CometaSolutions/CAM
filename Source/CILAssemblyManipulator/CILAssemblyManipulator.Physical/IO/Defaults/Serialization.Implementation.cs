@@ -617,7 +617,7 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
          var tableInfoDic = tableInfos
             .Where( ti => ti != null )
             .ToDictionary_Overwrite(
-               info => (Int32) info.TableKind,
+               info => (Int32) info.TableIndex,
                info => ( info as Meta.MetaDataTableInformationWithSerializationCapability )?.TableSerializationInfoNotGeneric
             );
          var curMax = 0;

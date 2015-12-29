@@ -38,7 +38,7 @@ namespace CILAssemblyManipulator.Physical
    /// </remarks>
    /// <seealso cref="CILMetaDataFactory"/>
    /// <seealso cref="MetaDataTable"/>
-   public interface CILMetaData : CILMetaDataBase
+   public interface CILMetaData : TabularMetaDataWithSchema
    {
       /// <summary>
       /// This property represents a metadata table for <see cref="Tables.Module"/>.
@@ -584,7 +584,7 @@ public static partial class E_CILPhysical
       public Int32[] GetOrCreateIndexArray<T>( MetaDataTable<T> table )
          where T : class
       {
-         var tIdx = (Int32) table.TableKind;
+         var tIdx = table.GetTableIndex();
          var retVal = this._finalIndices[tIdx];
          if ( retVal == null )
          {
@@ -666,27 +666,27 @@ public static partial class E_CILPhysical
 
    public static IEnumerable<Int32> GetTypeMethodIndices( this CILMetaData md, Int32 typeDefIndex )
    {
-      return md.TypeDefinitions.GetTargetIndicesForAscendingReferenceListTable( md.MethodDefinitions.RowCount, typeDefIndex, td => td.MethodList.Index );
+      return md.TypeDefinitions.GetTargetIndicesForAscendingReferenceListTable( md.MethodDefinitions.GetRowCount(), typeDefIndex, td => td.MethodList.Index );
    }
 
    public static IEnumerable<Int32> GetTypeFieldIndices( this CILMetaData md, Int32 typeDefIndex )
    {
-      return md.TypeDefinitions.GetTargetIndicesForAscendingReferenceListTable( md.FieldDefinitions.RowCount, typeDefIndex, td => td.FieldList.Index );
+      return md.TypeDefinitions.GetTargetIndicesForAscendingReferenceListTable( md.FieldDefinitions.GetRowCount(), typeDefIndex, td => td.FieldList.Index );
    }
 
    public static IEnumerable<Int32> GetMethodParameterIndices( this CILMetaData md, Int32 methodDefIndex )
    {
-      return md.MethodDefinitions.GetTargetIndicesForAscendingReferenceListTable( md.ParameterDefinitions.RowCount, methodDefIndex, mdef => mdef.ParameterList.Index );
+      return md.MethodDefinitions.GetTargetIndicesForAscendingReferenceListTable( md.ParameterDefinitions.GetRowCount(), methodDefIndex, mdef => mdef.ParameterList.Index );
    }
 
    public static IEnumerable<Int32> GetTypePropertyIndices( this CILMetaData md, Int32 propertyMapIndex )
    {
-      return md.PropertyMaps.GetTargetIndicesForAscendingReferenceListTable( md.PropertyDefinitions.RowCount, propertyMapIndex, pMap => pMap.PropertyList.Index );
+      return md.PropertyMaps.GetTargetIndicesForAscendingReferenceListTable( md.PropertyDefinitions.GetRowCount(), propertyMapIndex, pMap => pMap.PropertyList.Index );
    }
 
    public static IEnumerable<Int32> GetTypeEventIndices( this CILMetaData md, Int32 eventMapIndex )
    {
-      return md.EventMaps.GetTargetIndicesForAscendingReferenceListTable( md.EventDefinitions.RowCount, eventMapIndex, eMap => eMap.EventList.Index );
+      return md.EventMaps.GetTargetIndicesForAscendingReferenceListTable( md.EventDefinitions.GetRowCount(), eventMapIndex, eMap => eMap.EventList.Index );
    }
 
    internal static IEnumerable<Int32> GetTargetIndicesForAscendingReferenceListTable<T>( this MetaDataTable<T> mdTableWithReferences, Int32 targetTableCount, Int32 tableWithReferencesIndex, Func<T, Int32> referenceExtractor )
@@ -879,14 +879,14 @@ public static partial class E_CILPhysical
       Object retVal;
       if ( !md.TryGetByTableIndex( index, out retVal ) )
       {
-         var tbl = (Int32) index.Table;
-         if ( tbl >= 0 && tbl < Consts.AMOUNT_OF_TABLES )
+         MetaDataTable tbl;
+         if ( md.TryGetByTable( (Int32) index.Table, out tbl ) )
          {
             throw new ArgumentOutOfRangeException( "Table index " + index + " was out of range." );
          }
          else
          {
-            throw new InvalidOperationException( "The table " + index.Table + " does not have representation in this framework." );
+            throw new InvalidOperationException( "The table " + index.Table + " does not have representation in this meta data." );
          }
       }
 
@@ -897,14 +897,32 @@ public static partial class E_CILPhysical
    public static Boolean TryGetByTableIndex( this CILMetaData md, TableIndex index, out Object row )
    {
       MetaDataTable table;
-      var retVal = md.TryGetByTable( (Int32) index.Table, out table ) && index.Index <= table.RowCount;
-      row = retVal ? table.GetRowAt( index.Index ) : null;
+      var retVal = md.TryGetByTable( (Int32) index.Table, out table );
+
+      if ( retVal )
+      {
+         var list = table.TableContentsNotGeneric;
+         if ( index.Index <= list.Count )
+         {
+            row = list[index.Index];
+         }
+         else
+         {
+            retVal = false;
+            row = null;
+         }
+      }
+      else
+      {
+         row = null;
+      }
+
       return retVal;
    }
 
    public static TableIndex GetNextTableIndexFor( this CILMetaData md, Tables table )
    {
-      return new TableIndex( table, md.GetByTable( (Int32) table ).RowCount );
+      return new TableIndex( table, md.GetByTable( (Int32) table ).GetRowCount() );
    }
 
    // Assumes that all lists of CILMetaData have only non-null elements.
@@ -961,11 +979,11 @@ public static partial class E_CILPhysical
       var methodDef = md.MethodDefinitions;
       var fieldDef = md.FieldDefinitions;
       var paramDef = md.ParameterDefinitions;
-      var tDefCount = typeDef.RowCount;
-      var mDefCount = methodDef.RowCount;
-      var fDefCount = fieldDef.RowCount;
-      var pDefCount = paramDef.RowCount;
-      var ncCount = nestedClass.RowCount;
+      var tDefCount = typeDef.GetRowCount();
+      var mDefCount = methodDef.GetRowCount();
+      var fDefCount = fieldDef.GetRowCount();
+      var pDefCount = paramDef.GetRowCount();
+      var ncCount = nestedClass.GetRowCount();
 
       var typeDefIndices = reorderState.GetOrCreateIndexArray( typeDef );
       var methodDefIndices = reorderState.GetOrCreateIndexArray( methodDef );
@@ -1248,7 +1266,7 @@ public static partial class E_CILPhysical
    private static void RemoveDuplicatesUnsortedInPlace<T>( this MetaDataTable<T> mdTable )
       where T : class
    {
-      var count = mdTable.RowCount;
+      var count = mdTable.GetRowCount();
       if ( count > 1 )
       {
          var table = mdTable.TableContents;
@@ -1451,7 +1469,7 @@ public static partial class E_CILPhysical
       if ( comparer != null )
       {
          // If within 'indices' array, we have value '2' at index '0', it means that within the 'table', there should be value at index '0' which is currently at index '2'
-         var count = mdTable.RowCount;
+         var count = mdTable.GetRowCount();
          if ( count > 1 )
          {
             // 1. Make a copy of array
@@ -1510,8 +1528,8 @@ public static partial class E_CILPhysical
       where T : class
       where U : class
    {
-      var refTableCount = referencingMDTable.RowCount;
-      var thisTableCount = mdTable.RowCount;
+      var refTableCount = referencingMDTable.GetRowCount();
+      var thisTableCount = mdTable.GetRowCount();
 
       if ( thisTableCount > 0 )
       {
@@ -1561,7 +1579,7 @@ public static partial class E_CILPhysical
       where T : class
    {
       var list = mdTable.TableContents;
-      var table = mdTable.TableKind;
+      var table = mdTable.GetTableIndex();
       var foundDuplicates = false;
       var count = list.Count;
       var indices = reorderState.GetOrCreateIndexArray( mdTable );

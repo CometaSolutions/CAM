@@ -24,10 +24,8 @@ using CommonUtils;
 
 namespace CILAssemblyManipulator.Physical.Implementation
 {
-   internal sealed class CILMetadataImpl : CILMetaDataBaseImpl, CILMetaData
+   internal sealed class CILMetadataImpl : TabularMetaDataWithSchemaImpl, CILMetaData
    {
-      private static readonly Int32[] EMPTY_SIZES = Enumerable.Repeat( 0, Consts.AMOUNT_OF_TABLES ).ToArray();
-
       private readonly MetaDataTable<ModuleDefinition> _moduleDefinitions;
       private readonly MetaDataTable<TypeReference> _typeReferences;
       private readonly MetaDataTable<TypeDefinition> _typeDefinitions;
@@ -80,7 +78,7 @@ namespace CILAssemblyManipulator.Physical.Implementation
          Int32[] sizes,
          out MetaDataTableInformation[] infos
          )
-         : base( tableInfoProvider ?? DefaultMetaDataTableInformationProvider.CreateDefault(), Consts.AMOUNT_OF_TABLES, sizes, out infos )
+         : base( tableInfoProvider ?? DefaultMetaDataTableInformationProvider.CreateDefault(), Consts.AMOUNT_OF_FIXED_TABLES, sizes, out infos )
       {
          MetaDataTableInformation[] defaultTableInfos = null;
          this._moduleDefinitions = CreateFixedMDTable<ModuleDefinition>( Tables.Module, sizes, infos, ref defaultTableInfos );

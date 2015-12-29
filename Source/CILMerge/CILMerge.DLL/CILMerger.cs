@@ -757,7 +757,7 @@ namespace CILMerge
                         var aRefModule = this.GetPossibleResourcesForAssemblyReference( inputModule, aRef )
                         .Where( p => File.Exists( p ) )
                         .Select( p => this._moduleLoader.GetOrLoadMetaData( p ) )
-                        .Where( m => m.AssemblyDefinitions.RowCount > 0 )
+                        .Where( m => m.AssemblyDefinitions.GetRowCount() > 0 )
                         .FirstOrDefault();
 
                         if ( aRefModule != null )
@@ -868,7 +868,7 @@ namespace CILMerge
          }
 
          // Build helper data structures for input modules
-         foreach ( var inputModule in this._inputModules.Where( m => m.AssemblyDefinitions.RowCount > 0 ) )
+         foreach ( var inputModule in this._inputModules.Where( m => m.AssemblyDefinitions.GetRowCount() > 0 ) )
          {
             var aRef = new AssemblyReference();
             inputModule.AssemblyDefinitions.TableContents[0].AssemblyInformation.DeepCopyContentsTo( aRef.AssemblyInformation );
@@ -893,7 +893,7 @@ namespace CILMerge
             {
                var modRefPath = Path.Combine( Path.GetDirectoryName( this._moduleLoader.GetResourceFor( inputModule ) ), f.Name );
                var targetInputModule = this._inputModules
-                  .Where( md => md.AssemblyDefinitions.RowCount == 0 )
+                  .Where( md => md.AssemblyDefinitions.GetRowCount() == 0 )
                   .FirstOrDefault( md => String.Equals( this._moduleLoader.GetResourceFor( md ), modRefPath ) ); // TODO maybe case-insensitive match??
                if ( targetInputModule != null )
                {
@@ -1105,7 +1105,7 @@ namespace CILMerge
             var thisTypeStringInInput = new Dictionary<String, Int32>();
             var thisEnclosingTypeInfo = enclosingTypeInfo[md];
 
-            for ( var tDefIdx = 1; tDefIdx < md.TypeDefinitions.RowCount; ++tDefIdx ) // Skip <Module> type
+            for ( var tDefIdx = 1; tDefIdx < md.TypeDefinitions.GetRowCount(); ++tDefIdx ) // Skip <Module> type
             {
                var typeString = CreateTypeString( md.TypeDefinitions, tDefIdx, thisEnclosingTypeInfo );
                thisTypeStrings.Add( tDefIdx, typeString );
@@ -1125,7 +1125,7 @@ namespace CILMerge
          var targetTypeFullNames = this._targetTypeNames;
          // Add type info for <Module> type
          targetTypeInfo.Add( this._inputModules
-            .Where( m => m.TypeDefinitions.RowCount > 0 )
+            .Where( m => m.TypeDefinitions.GetRowCount() > 0 )
             .Select( m => Tuple.Create( m, 0 ) )
             .ToList()
             );
@@ -1142,7 +1142,7 @@ namespace CILMerge
             thisModuleMapping.Add( new TableIndex( Tables.TypeDef, 0 ), new TableIndex( Tables.TypeDef, 0 ) );
 
             // Process other types
-            for ( var tDefIdx = 1; tDefIdx < md.TypeDefinitions.RowCount; ++tDefIdx ) // Skip <Module> type
+            for ( var tDefIdx = 1; tDefIdx < md.TypeDefinitions.GetRowCount(); ++tDefIdx ) // Skip <Module> type
             {
                var targetTDefIdx = targetTypeDefs.Count;
                var tDef = md.TypeDefinitions.TableContents[tDefIdx];
@@ -1211,7 +1211,7 @@ namespace CILMerge
                var gParamModule = thisTypeInfo[0].Item1;
                foreach ( var gParamIdx in gParameters[0] )
                {
-                  var targetGParamIdx = new TableIndex( Tables.GenericParameter, targetModule.GenericParameterDefinitions.RowCount );
+                  var targetGParamIdx = new TableIndex( Tables.GenericParameter, targetModule.GenericParameterDefinitions.GetRowCount() );
                   targetTableIndexMappings.Add( targetGParamIdx, Tuple.Create( gParamModule, gParamIdx ) );
                   this._tableIndexMappings[gParamModule].Add( new TableIndex( Tables.GenericParameter, gParamIdx ), targetGParamIdx );
                   var gParam = gParamModule.GenericParameterDefinitions.TableContents[gParamIdx];
@@ -2176,7 +2176,7 @@ namespace CILMerge
          where T : class
       {
          var targetMDTable = tableExtractor( this._targetModule );
-         var tableKind = (Tables) targetMDTable.TableKind;
+         var tableKind = (Tables) targetMDTable.GetTableIndex();
          var targetTable = targetMDTable.TableContents;
          System.Diagnostics.Debug.Assert( targetTable.Count == 0, "Merging non-empty table in target module!" );
          foreach ( var md in this._inputModules )
@@ -2205,7 +2205,7 @@ namespace CILMerge
          )
          where T : class
       {
-         var tableKind = (Tables) tableExtractor( this._targetModule ).TableKind;
+         var tableKind = (Tables) tableExtractor( this._targetModule ).GetTableIndex();
          this.SetTableIndicesNullable(
             tableExtractor,
             i => this._targetTableIndexMappings[new TableIndex( tableKind, i )],
@@ -2245,7 +2245,7 @@ namespace CILMerge
          where T : class
       {
          var targetMDTable = tableExtractor( this._targetModule );
-         var tableKind = (Tables) targetMDTable.TableKind;
+         var tableKind = (Tables) targetMDTable.GetTableIndex();
          var targetTable = targetMDTable.TableContents;
          for ( var i = 0; i < targetTable.Count; ++i )
          {
@@ -2340,7 +2340,7 @@ namespace CILMerge
             && !this._primaryModule.Equals( md )
             && !this._excludeRegexes.Value.Any(
                reg => reg.IsMatch( typeString )
-               || ( md.AssemblyDefinitions.RowCount > 0 && reg.IsMatch( "[" + md.AssemblyDefinitions.TableContents[0] + "]" + typeString ) )
+               || ( md.AssemblyDefinitions.GetRowCount() > 0 && reg.IsMatch( "[" + md.AssemblyDefinitions.TableContents[0] + "]" + typeString ) )
                )
             )
          {

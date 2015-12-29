@@ -395,17 +395,17 @@ public static partial class E_CILLogical
          this._md = md;
          this._assemblyRefResolver = assemblyRefResolver;
 
-         var tDefCount = md.TypeDefinitions.RowCount;
+         var tDefCount = md.TypeDefinitions.GetRowCount();
 
          this._typeDefs = PopulateWithNulls<CILType>( tDefCount );
-         this._fieldDefs = PopulateWithNulls<CILField>( md.FieldDefinitions.RowCount );
-         this._methodDefs = PopulateWithNulls<CILMethodBase>( md.MethodDefinitions.RowCount );
-         this._parameterDefs = PopulateWithNulls<CILParameter>( md.ParameterDefinitions.RowCount );
-         this._typeParameters = PopulateWithNulls<CILTypeParameter>( md.GenericParameterDefinitions.RowCount );
-         this._typeRefs = PopulateWithNulls<Tuple<CILType, LogicalAssemblyCreationResult>>( md.TypeReferences.RowCount );
-         this._properties = PopulateWithNulls<CILProperty>( md.PropertyDefinitions.RowCount );
-         this._events = PopulateWithNulls<CILEvent>( md.EventDefinitions.RowCount );
-         this._assemblyRefs = PopulateWithNulls<CILAssemblyName>( md.AssemblyReferences.RowCount );
+         this._fieldDefs = PopulateWithNulls<CILField>( md.FieldDefinitions.GetRowCount() );
+         this._methodDefs = PopulateWithNulls<CILMethodBase>( md.MethodDefinitions.GetRowCount() );
+         this._parameterDefs = PopulateWithNulls<CILParameter>( md.ParameterDefinitions.GetRowCount() );
+         this._typeParameters = PopulateWithNulls<CILTypeParameter>( md.GenericParameterDefinitions.GetRowCount() );
+         this._typeRefs = PopulateWithNulls<Tuple<CILType, LogicalAssemblyCreationResult>>( md.TypeReferences.GetRowCount() );
+         this._properties = PopulateWithNulls<CILProperty>( md.PropertyDefinitions.GetRowCount() );
+         this._events = PopulateWithNulls<CILEvent>( md.EventDefinitions.GetRowCount() );
+         this._assemblyRefs = PopulateWithNulls<CILAssemblyName>( md.AssemblyReferences.GetRowCount() );
 
          this._assemblyRefsByName = new Dictionary<CILAssemblyName, LogicalAssemblyCreationResult>( module.ReflectionContext.DefaultAssemblyNameComparer );
 

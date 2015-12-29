@@ -16,6 +16,7 @@
  * limitations under the License. 
  */
 using CILAssemblyManipulator.Physical.IO;
+using CILAssemblyManipulator.Physical.Meta;
 using CollectionsWithRoles.API;
 using CommonUtils;
 using System;
@@ -1321,7 +1322,7 @@ namespace CILAssemblyManipulator.Physical
             var retVal = _HasConstantComparer;
             if ( retVal == null )
             {
-               var tableOrderArray = CreateTableOrderArray( Tables.Field, Tables.Parameter, Tables.Property );
+               var tableOrderArray = CreateTableOrderArray( DefaultMetaDataTableInformationProvider.HasConstant );
                retVal = ComparerFromFunctions.NewComparer<TableIndex>( ( x, y ) => x.CompareTo( y, tableOrderArray ) );
                _HasConstantComparer = retVal;
             }
@@ -1336,21 +1337,21 @@ namespace CILAssemblyManipulator.Physical
             var retVal = _HasCustomAttributeComparer;
             if ( retVal == null )
             {
-               var tableOrderArray = CreateTableOrderArray( Tables.MethodDef, Tables.Field, Tables.TypeRef, Tables.TypeDef, Tables.Parameter, Tables.InterfaceImpl, Tables.MemberRef, Tables.Module, Tables.DeclSecurity, Tables.Property, Tables.Event, Tables.StandaloneSignature, Tables.ModuleRef, Tables.TypeSpec, Tables.Assembly, Tables.AssemblyRef, Tables.File, Tables.ExportedType, Tables.ManifestResource, Tables.GenericParameter, Tables.GenericParameterConstraint, Tables.MethodSpec );
+               var tableOrderArray = CreateTableOrderArray( DefaultMetaDataTableInformationProvider.HasCustomAttribute );
                retVal = ComparerFromFunctions.NewComparer<TableIndex>( ( x, y ) => x.CompareTo( y, tableOrderArray ) );
             }
             return retVal;
          }
       }
 
-      public static IComparer<TableIndex> HasFieldMarshallComparer
+      public static IComparer<TableIndex> HasFieldMarshalComparer
       {
          get
          {
             var retVal = _HasFieldMarshallComparer;
             if ( retVal == null )
             {
-               var tableOrderArray = CreateTableOrderArray( Tables.Field, Tables.Parameter );
+               var tableOrderArray = CreateTableOrderArray( DefaultMetaDataTableInformationProvider.HasFieldMarshal );
                retVal = ComparerFromFunctions.NewComparer<TableIndex>( ( x, y ) => x.CompareTo( y, tableOrderArray ) );
             }
             return retVal;
@@ -1364,7 +1365,7 @@ namespace CILAssemblyManipulator.Physical
             var retVal = _HasDeclSecurityComparer;
             if ( retVal == null )
             {
-               var tableOrderArray = CreateTableOrderArray( Tables.TypeDef, Tables.MethodDef, Tables.Assembly );
+               var tableOrderArray = CreateTableOrderArray( DefaultMetaDataTableInformationProvider.HasSecurity );
                retVal = ComparerFromFunctions.NewComparer<TableIndex>( ( x, y ) => x.CompareTo( y, tableOrderArray ) );
             }
             return retVal;
@@ -1378,7 +1379,7 @@ namespace CILAssemblyManipulator.Physical
             var retVal = _HasSemanticsComparer;
             if ( retVal == null )
             {
-               var tableOrderArray = CreateTableOrderArray( Tables.Event, Tables.Property );
+               var tableOrderArray = CreateTableOrderArray( DefaultMetaDataTableInformationProvider.HasSemantics );
                retVal = ComparerFromFunctions.NewComparer<TableIndex>( ( x, y ) => x.CompareTo( y, tableOrderArray ) );
             }
             return retVal;
@@ -1392,7 +1393,7 @@ namespace CILAssemblyManipulator.Physical
             var retVal = _MemberForwardedComparer;
             if ( retVal == null )
             {
-               var tableOrderArray = CreateTableOrderArray( Tables.Field, Tables.MethodDef );
+               var tableOrderArray = CreateTableOrderArray( DefaultMetaDataTableInformationProvider.MemberForwarded );
                retVal = ComparerFromFunctions.NewComparer<TableIndex>( ( x, y ) => x.CompareTo( y, tableOrderArray ) );
             }
             return retVal;
@@ -1406,7 +1407,7 @@ namespace CILAssemblyManipulator.Physical
             var retVal = _TypeOrMethodDefComparer;
             if ( retVal == null )
             {
-               var tableOrderArray = CreateTableOrderArray( Tables.TypeDef, Tables.MethodDef );
+               var tableOrderArray = CreateTableOrderArray( DefaultMetaDataTableInformationProvider.TypeOrMethodDef );
                retVal = ComparerFromFunctions.NewComparer<TableIndex>( ( x, y ) => x.CompareTo( y, tableOrderArray ) );
             }
             return retVal;
@@ -1471,8 +1472,8 @@ namespace CILAssemblyManipulator.Physical
                x.GetAdditionalTables(),
                y.GetAdditionalTables(),
                ( xa, ya ) => SequenceEqualityComparer<IEnumerable<Object>, Object>.SequenceEquality(
-                  xa.TableContentsAsEnumerable,
-                  ya.TableContentsAsEnumerable,
+                  xa.TableContentsNotGeneric.Cast<Object>(),
+                  ya.TableContentsNotGeneric.Cast<Object>(),
                   xa.TableInformationNotGeneric.EqualityComparerNotGeneric.Equals
                ) )
             );
@@ -2582,7 +2583,7 @@ namespace CILAssemblyManipulator.Physical
       {
          return x == null ?
             0 :
-            ArrayEqualityComparer<Int32>.DefaultArrayEqualityComparer.GetHashCode( new[] { x.TypeDefinitions.RowCount, x.MethodDefinitions.RowCount, x.ParameterDefinitions.RowCount, x.FieldDefinitions.RowCount } );
+            ArrayEqualityComparer<Int32>.DefaultArrayEqualityComparer.GetHashCode( new[] { x.TypeDefinitions.GetRowCount(), x.MethodDefinitions.GetRowCount(), x.ParameterDefinitions.GetRowCount(), x.FieldDefinitions.GetRowCount() } );
       }
 
       private static Int32 HashCode_ModuleDefinition( ModuleDefinition x )
@@ -3144,7 +3145,7 @@ namespace CILAssemblyManipulator.Physical
       private static Int32 Comparison_FieldMarshal( FieldMarshal x, FieldMarshal y )
       {
          // Parent (coded index) is primary key
-         return HasFieldMarshallComparer.Compare( x.Parent, y.Parent );
+         return HasFieldMarshalComparer.Compare( x.Parent, y.Parent );
       }
 
       private static Int32 Comparison_FieldRVA( FieldRVA x, FieldRVA y )
@@ -3205,12 +3206,16 @@ namespace CILAssemblyManipulator.Physical
          return x.NestedClass.Index.CompareTo( y.NestedClass.Index );
       }
 
-      private static Int32[] CreateTableOrderArray( params Tables[] tablesInOrder )
+      private static Int32[] CreateTableOrderArray( ArrayQuery<Int32?> tablesInOrder )
       {
          var retVal = new Int32[Consts.AMOUNT_OF_TABLES];
-         for ( var i = 0; i < tablesInOrder.Length; ++i )
+         for ( var i = 0; i < tablesInOrder.Count; ++i )
          {
-            retVal[(Int32) tablesInOrder[i]] = i;
+            var cur = tablesInOrder[i];
+            if ( cur.HasValue )
+            {
+               retVal[cur.Value] = i;
+            }
          }
          return retVal;
       }

@@ -518,13 +518,14 @@ namespace CILAssemblyManipulator.Physical
       internal static T GetOrNull<T>( this MetaDataTable<T> list, Int32 idx )
          where T : class
       {
-         return idx < list.RowCount ? list.TableContents[idx] : null;
+         return idx < list.GetRowCount() ? list.TableContents[idx] : null;
       }
    }
 
    internal static class Consts
    {
-      internal const Int32 AMOUNT_OF_TABLES = 0x2D; // Enum.GetValues( typeof( Tables ) ).Length;
+      internal const Int32 AMOUNT_OF_FIXED_TABLES = 0x2D; // Enum.GetValues( typeof( Tables ) ).Length;
+      internal const Int32 AMOUNT_OF_TABLES = Byte.MaxValue + 1;
 
       internal const String ENUM_NAMESPACE = "System";
       internal const String ENUM_TYPENAME = "Enum";

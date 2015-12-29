@@ -197,7 +197,7 @@ namespace CILAssemblyManipulator.Physical
                MDSpecificCache otherMD; Int32 tDefIndex;
                this.ResolveTypeNameFromTypeRef( index, out otherMD, out tDefIndex );
                var typeRefString = otherMD == null ? null : otherMD.ResolveTypeNameFromTypeDef( tDefIndex );
-               if ( typeRefString != null && !ReferenceEquals( this, otherMD ) && otherMD._md.AssemblyDefinitions.RowCount > 0 )
+               if ( typeRefString != null && !ReferenceEquals( this, otherMD ) && otherMD._md.AssemblyDefinitions.GetRowCount() > 0 )
                {
                   typeRefString = Miscellaneous.CombineAssemblyAndType( otherMD._md.AssemblyDefinitions.TableContents[0].ToString(), typeRefString );
                }
@@ -460,12 +460,12 @@ namespace CILAssemblyManipulator.Physical
          switch ( caTypeTableIndex.Table )
          {
             case Tables.MethodDef:
-               ctorSig = caTypeTableIndex.Index < md.MethodDefinitions.RowCount ?
+               ctorSig = caTypeTableIndex.Index < md.MethodDefinitions.GetRowCount() ?
                   md.MethodDefinitions.TableContents[caTypeTableIndex.Index].Signature :
                   null;
                break;
             case Tables.MemberRef:
-               ctorSig = caTypeTableIndex.Index < md.MemberReferences.RowCount ?
+               ctorSig = caTypeTableIndex.Index < md.MemberReferences.GetRowCount() ?
                   md.MemberReferences.TableContents[caTypeTableIndex.Index].Signature as AbstractMethodSignature :
                   null;
                break;
@@ -1088,7 +1088,7 @@ public static partial class E_CILPhysical
    {
       ArgumentValidator.ValidateNotNull( "Metadata", md );
 
-      var max = list.RowCount;
+      var max = list.GetRowCount();
       for ( var i = 0; i < max; ++i )
       {
          action( resolver, md, i );

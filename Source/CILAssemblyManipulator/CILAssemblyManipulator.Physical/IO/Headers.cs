@@ -986,8 +986,11 @@ namespace CILAssemblyManipulator.Physical.IO
          this.NumberOfStreams = numberOfStreams;
          this.StreamHeaders = streamHeaders;
 
-         this._versionString = new Lazy<String>(
-            () => VERSION_ENCODING.GetString( this.VersionStringBytes.TakeWhile( b => b != 0 ).ToArray() ),
+         this._versionString = new Lazy<String>( () =>
+            {
+               var bArray = this.VersionStringBytes.TakeWhile( b => b != 0 ).ToArray();
+               return VERSION_ENCODING.GetString( bArray, 0, bArray.Length );
+            },
             LazyThreadSafetyMode.ExecutionAndPublication
             );
       }

@@ -212,10 +212,11 @@ namespace CILAssemblyManipulator.Physical.IO
 
       public WritingData( CILMetaData md )
       {
-         this.MethodRVAs = new List<Int32>( md.MethodDefinitions.RowCount );
-         this.FieldRVAs = new List<Int32>( md.FieldRVAs.RowCount );
-         this.EmbeddedManifestResourceOffsets = new List<Int32?>( md.ManifestResources.RowCount );
+         this.MethodRVAs = new List<Int32>( md.MethodDefinitions.GetRowCount() );
+         this.FieldRVAs = new List<Int32>( md.FieldRVAs.GetRowCount() );
+         this.EmbeddedManifestResourceOffsets = new List<Int32?>( md.ManifestResources.GetRowCount() );
       }
+
       // PE Header 
       // Sections
       // MD Header

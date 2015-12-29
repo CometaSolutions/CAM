@@ -25,14 +25,30 @@ using System.Text;
 
 namespace CILAssemblyManipulator.Physical.Meta
 {
+   /// <summary>
+   /// This interface is used to create <see cref="MetaDataTableInformation"/>s when creating new <see cref="TabularMetaDataWithSchema"/>s.
+   /// </summary>
    public interface MetaDataTableInformationProvider
    {
-
+      /// <summary>
+      /// This method is used to obtain all <see cref="MetaDataTableInformation"/> instances that will indicate the present tables in <see cref="TabularMetaDataWithSchema"/>.
+      /// Any <c>null</c> values will be filtered out.
+      /// </summary>
+      /// <returns>The <see cref="MetaDataTableInformation"/> instances. The order does not matter.</returns>
       IEnumerable<MetaDataTableInformation> GetAllSupportedTableInformations();
    }
 
+   /// <summary>
+   /// This class encapsulates some general information about metadata table, and about the columns it has.
+   /// </summary>
+   /// <remarks>
+   /// Instances of this class may not be created directly, instead use <see cref="MetaDataTableInformation{TRow}"/> class.
+   /// </remarks>
+   /// <seealso cref="MetaDataTableInformation{TRow}"/>
+   /// <seealso cref="MetaDataColumnInformation"/>
    public abstract class MetaDataTableInformation
    {
+      // Disable instatiation of this class from other assemblies.
       internal MetaDataTableInformation(
          Int32 tableKind,
          System.Collections.IEqualityComparer equalityComparer,
@@ -41,36 +57,79 @@ namespace CILAssemblyManipulator.Physical.Meta
       {
          ArgumentValidator.ValidateNotNull( "Equality comparer", equalityComparer );
 
-         this.TableKind = tableKind;
+         this.TableIndex = tableKind;
          this.EqualityComparerNotGeneric = equalityComparer;
          this.ComparerNotGeneric = comparer;
 
       }
 
-      public Int32 TableKind { get; }
+      /// <summary>
+      /// Get the unique table index, that the instances of metadata tables will be found at, with <see cref="TabularMetaDataWithSchema.TryGetByTable(int, out MetaDataTable)"/> method.
+      /// </summary>
+      /// <value>The unique table index for instances of metadata tables.</value>
+      public Int32 TableIndex { get; }
 
+      /// <summary>
+      /// Gets the non-generic version of equality comparer for rows of instances of metadata tables.
+      /// </summary>
+      /// <value>The non-generic version of equality comparer for rows of instances of metadata tables.</value>
+      /// <remarks>The returned value is always non-<c>null</c>.</remarks>
       public System.Collections.IEqualityComparer EqualityComparerNotGeneric { get; }
 
+      /// <summary>
+      /// Gets the non-generic of comparer for rows of instances of metadata tables.
+      /// </summary>
+      /// <value>The non-generic of comparer for rows of instances of metadta tables.</value>
+      /// <remarks>The returned value may be <c>null</c>.</remarks>
       public System.Collections.IComparer ComparerNotGeneric { get; }
 
+      /// <summary>
+      /// Gets the immutable array of <see cref="MetaDataColumnInformation"/>, containing information about the columns of instances of metadata tables.
+      /// </summary>
+      /// <value>the immutable array of <see cref="MetaDataColumnInformation"/>, containing information about the columns of instances of metadata tables.</value>
+      /// <remarks>The returned value is always non-<c>null</c>, and each element is always non-<c>null</c>.</remarks>
       public abstract ArrayQuery<MetaDataColumnInformation> ColumnsInformationNotGeneric { get; }
 
+      /// <summary>
+      /// Creates a new instance of <see cref="MetaDataTable"/> that will support the schema that this <see cref="MetaDataTableInformation"/> exposes.
+      /// </summary>
+      /// <param name="capacity">The initial capacity of returned <see cref="MetaDataTable"/>.</param>
+      /// <returns>A new instance of <see cref="MetaDataTable"/> that will support the schema that this <see cref="MetaDataTableInformation"/> exposes.</returns>
       public abstract MetaDataTable CreateMetaDataTableNotGeneric( Int32 capacity );
 
+      /// <summary>
+      /// Creates a new instance of row, that can be added to the <see cref="MetaDataTable"/> created by this <see cref="MetaDataTableInformation"/>.
+      /// </summary>
+      /// <returns>A new instance of row, that can be added to the <see cref="MetaDataTable"/> created by this <see cref="MetaDataTableInformation"/>.</returns>
       public abstract Object CreateRowNotGeneric();
    }
 
+   /// <summary>
+   /// This class further specializes the <see cref="MetaDataTableInformation"/> by constraining the type of the rows that may be present in the <see cref="MetaDataTable"/> created with this <see cref="MetaDataTableInformation{TRow}"/>.
+   /// </summary>
+   /// <typeparam name="TRow">The type of the rows that may be present in the <see cref="MetaDataTable"/> created with this <see cref="MetaDataTableInformation{TRow}"/>.</typeparam>
+   /// <seealso cref="MetaDataColumnInformation{TRow}"/>
    public class MetaDataTableInformation<TRow> : MetaDataTableInformation
       where TRow : class
    {
+      /// <summary>
+      /// Creates a new instance of <see cref="MetaDataTableInformation{TRow}"/>,
+      /// </summary>
+      /// <param name="tableIndex">The unique (within the context of similar <see cref="TabularMetaDataWithSchema"/>s) table index for the to store the tables.</param>
+      /// <param name="equalityComparer">The equality comparer for rows.</param>
+      /// <param name="comparer">The comparer for rows.</param>
+      /// <param name="rowFactory">The callback to create a new row.</param>
+      /// <param name="columns">The information about columns that this table information exposes.</param>
+      /// <exception cref="ArgumentNullException">If <paramref name="equalityComparer"/>, <paramref name="rowFactory"/>, or <paramref name="columns"/> is <c>null</c>. Also thrown if any item in <paramref name="columns"/> is <c>null</c>.</exception>
+      /// <exception cref="ArgumentException">If <paramref name="columns"/> is empty.</exception>
       public MetaDataTableInformation(
-         Int32 tableKind,
+         Int32 tableIndex,
          IEqualityComparer<TRow> equalityComparer,
          IComparer<TRow> comparer,
          Func<TRow> rowFactory,
          IEnumerable<MetaDataColumnInformation<TRow>> columns
          )
-         : base( tableKind, new EqualityComparerWrapper<TRow>( equalityComparer ), comparer == null ? null : new ComparerWrapper<TRow>( comparer ) )
+         : base( tableIndex, new EqualityComparerWrapper<TRow>( equalityComparer ), comparer == null ? null : new ComparerWrapper<TRow>( comparer ) )
       {
          ArgumentValidator.ValidateNotNull( "Row factory", rowFactory );
          ArgumentValidator.ValidateNotNull( "Columns", columns );
@@ -87,32 +146,60 @@ namespace CILAssemblyManipulator.Physical.Meta
          }
       }
 
+      /// <summary>
+      /// Gets the equality comparer for rows of instances of metadata tables.
+      /// </summary>
+      /// <value>The equality comparer for rows of instances of metadata tables.</value>
       public IEqualityComparer<TRow> EqualityComparer { get; }
 
+      /// <summary>
+      /// Gets the comparer for rows of instances of metadata tables.
+      /// </summary>
+      /// <value>The comparer for rows of instances of metadata tables.</value>
       public IComparer<TRow> Comparer { get; }
 
-      public MetaDataTable<TRow> CreateMetaDataTable( Int32 capacity )
+      /// <summary>
+      /// Creates a new <see cref="MetaDataTable{TRow}"/> with given initial capacity.
+      /// </summary>
+      /// <param name="capacity">The inital capacity for <see cref="MetaDataTable{TRow}"/>.</param>
+      /// <returns>A new <see cref="MetaDataTable{TRow}"/> with given inital capacity.</returns>
+      /// <remarks>
+      /// Subclasses may override this method to return customized instances of <see cref="MetaDataTable{TRow}"/>.
+      /// </remarks>
+      public virtual MetaDataTable<TRow> CreateMetaDataTable( Int32 capacity )
       {
-         return new Implementation.MetaDataTableImpl<TRow>( this, capacity );
+         return new MetaDataTable<TRow>( this, capacity );
       }
 
+      /// <summary>
+      /// Creates a new instance of row, that can be added to the <see cref="MetaDataTable"/> created by this <see cref="MetaDataTableInformation"/>.
+      /// </summary>
+      /// <returns>A new instance of row, that can be added to the <see cref="MetaDataTable"/> created by this <see cref="MetaDataTableInformation"/>.</returns>
       public TRow CreateRow()
       {
          return this.RowFactory();
       }
 
+      /// <inheritdoc />
       public sealed override Object CreateRowNotGeneric()
       {
          return this.CreateRow();
       }
 
+      /// <summary>
+      /// Gets the immutable array of <see cref="MetaDataColumnInformation{TRow}"/>, containing information about the columns of instances of metadata tables.
+      /// </summary>
+      /// <value>the immutable array of <see cref="MetaDataColumnInformation{TRow}"/>, containing information about the columns of instances of metadata tables.</value>
+      /// <remarks>The returned value is always non-<c>null</c>, and each element is always non-<c>null</c>.</remarks>
       public ArrayQuery<MetaDataColumnInformation<TRow>> ColumnsInformation { get; }
 
+      /// <inheritdoc />
       public sealed override MetaDataTable CreateMetaDataTableNotGeneric( Int32 capacity )
       {
          return this.CreateMetaDataTable( capacity );
       }
 
+      /// <inheritdoc />
       public sealed override ArrayQuery<MetaDataColumnInformation> ColumnsInformationNotGeneric
       {
          get
@@ -121,50 +208,113 @@ namespace CILAssemblyManipulator.Physical.Meta
          }
       }
 
+      /// <summary>
+      /// Gets the callback used in <see cref="CreateRow"/> method.
+      /// </summary>
+      /// <value>The callback used in <see cref="CreateRow"/> method.</value>
       protected Func<TRow> RowFactory { get; }
    }
 
-
+   /// <summary>
+   /// This class encapsulates information about a single column of a single metadata table.
+   /// </summary>
+   /// <remarks>
+   /// The instances of this class may not be instantiated directly, instead use <see cref="MetaDataColumnInformationForClassesOrStructs{TRow, TValue}"/> or <see cref="MetaDataColumnInformationForNullables{TRow, TValue}"/> classes.
+   /// </remarks>
+   /// <seealso cref="MetaDataTableInformation"/>
+   /// <seealso cref="MetaDataColumnInformation{TRow}"/>
+   /// <seealso cref="MetaDataColumnInformation{TRow, TValue}"/>
+   /// <seealso cref="MetaDataColumnInformationForClassesOrStructs{TRow, TValue}"/>
+   /// <seealso cref="MetaDataColumnInformationForNullables{TRow, TValue}"/>
    public abstract class MetaDataColumnInformation
    {
+      // Disable instatiation of this class from other assemblies.
       internal MetaDataColumnInformation()
       {
       }
 
+      /// <summary>
+      /// This method will get the value corresponding to this column from given row.
+      /// </summary>
+      /// <param name="row">The row to get value from.</param>
+      /// <param name="success">This will be <c>true</c>, if <paramref name="row"/> was not <c>null</c> and was of correct row type.</param>
+      /// <returns>The value corresponding to this column from given <paramref name="row"/>. It may be <c>null</c>, use <paramref name="success"/> to differentiate between <c>null</c> column value and error situations.</returns>
       public abstract Object GetterNotGeneric( Object row, out Boolean success );
 
+      /// <summary>
+      /// This method will set the value corresponding to this column from given row.
+      /// </summary>
+      /// <param name="row">The row to set value.</param>
+      /// <param name="value">The new value.</param>
+      /// <returns><c>true</c>, if setting value is successful, i.e. <paramref name="row"/> and <paramref name="value"/> are both of correct types, <paramref name="row"/> is not <c>null</c>, and domain-specific additional checks pass; <c>false</c> otherwise.</returns>
       public abstract Boolean SetterNotGeneric( Object row, Object value );
 
+      /// <summary>
+      /// Gets the type of the row that this column is associated with.
+      /// </summary>
+      /// <value>the type of the row that this column is associated with.</value>
       public abstract Type RowType { get; }
 
+      /// <summary>
+      /// Gets the type of the accepted column values.
+      /// </summary>
+      /// <value>The type of the accepted column values.</value>
       public abstract Type ValueType { get; }
 
 
    }
 
+   /// <summary>
+   /// This class further specializes the <see cref="MetaDataColumnInformation"/> by constraining the type of the row that the column may be attached to.
+   /// </summary>
+   /// <typeparam name="TRow">The type of the row this column can be attached to.</typeparam>
+   /// <remarks>
+   /// The instances of this class may not be instantiated directly, instead use <see cref="MetaDataColumnInformationForClassesOrStructs{TRow, TValue}"/> or <see cref="MetaDataColumnInformationForNullables{TRow, TValue}"/> classes.
+   /// </remarks>
+   /// <seealso cref="MetaDataTableInformation"/>
+   /// <seealso cref="MetaDataColumnInformation{TRow}"/>
+   /// <seealso cref="MetaDataColumnInformation{TRow, TValue}"/>
+   /// <seealso cref="MetaDataColumnInformationForClassesOrStructs{TRow, TValue}"/>
+   /// <seealso cref="MetaDataColumnInformationForNullables{TRow, TValue}"/>
    public abstract class MetaDataColumnInformation<TRow> : MetaDataColumnInformation
       where TRow : class
    {
 
-
+      // Disable instatiation of this class from other assemblies.
       internal MetaDataColumnInformation()
       {
       }
 
+      /// <summary>
+      /// This method will get the value corresponding to this column from given row.
+      /// </summary>
+      /// <param name="row">The row to get value from.</param>
+      /// <param name="success">This will be <c>true</c>, if <paramref name="row"/> was not <c>null</c>.</param>
+      /// <returns>The value corresponding to this column from given <paramref name="row"/>. It may be <c>null</c>, use <paramref name="success"/> to differentiate between <c>null</c> column value and error situations.</returns>
+
       public abstract Object Getter( TRow row, out Boolean success );
 
+      /// <summary>
+      /// This method will set the value corresponding to this column from given row.
+      /// </summary>
+      /// <param name="row">The row to set value.</param>
+      /// <param name="value">The new value.</param>
+      /// <returns><c>true</c>, if setting value is successful, i.e. <paramref name="value"/> is of correct type, <paramref name="row"/> is not <c>null</c>, and domain-specific additional checks pass; <c>false</c> otherwise.</returns>
       public abstract Boolean Setter( TRow row, Object value );
 
+      /// <inheritdoc />
       public sealed override Object GetterNotGeneric( Object row, out Boolean success )
       {
          return this.Getter( row as TRow, out success );
       }
 
+      /// <inheritdoc />
       public sealed override Boolean SetterNotGeneric( Object row, Object value )
       {
          return this.Setter( row as TRow, value );
       }
 
+      /// <inheritdoc />
       public sealed override Type RowType
       {
          get
@@ -174,14 +324,28 @@ namespace CILAssemblyManipulator.Physical.Meta
       }
    }
 
+   /// <summary>
+   /// This class further specializes the <see cref="MetaDataColumnInformation{TRow}"/> by constraining the type of the values that the column can hold.
+   /// </summary>
+   /// <typeparam name="TRow">The type of the row this column can be attached to.</typeparam>
+   /// <typeparam name="TValue">The type of the values that the column can hold.</typeparam>
+   /// <remarks>
+   /// The instances of this class may not be instantiated directly, instead use <see cref="MetaDataColumnInformationForClassesOrStructs{TRow, TValue}"/> or <see cref="MetaDataColumnInformationForNullables{TRow, TValue}"/> classes.
+   /// </remarks>
+   /// <seealso cref="MetaDataTableInformation"/>
+   /// <seealso cref="MetaDataColumnInformation{TRow}"/>
+   /// <seealso cref="MetaDataColumnInformation{TRow, TValue}"/>
+   /// <seealso cref="MetaDataColumnInformationForClassesOrStructs{TRow, TValue}"/>
+   /// <seealso cref="MetaDataColumnInformationForNullables{TRow, TValue}"/>
    public abstract class MetaDataColumnInformation<TRow, TValue> : MetaDataColumnInformation<TRow>
       where TRow : class
    {
-
+      // Disable instatiation of this class from other assemblies.
       internal MetaDataColumnInformation()
       {
       }
 
+      /// <inheritdoc />
       public sealed override Type ValueType
       {
          get
@@ -191,18 +355,50 @@ namespace CILAssemblyManipulator.Physical.Meta
       }
    }
 
+   /// <summary>
+   /// This delegate is used by <see cref="MetaDataColumnInformationForClassesOrStructs{TRow, TValue}"/> and by <see cref="MetaDataColumnInformationForNullables{TRow, TValue}"/> to retrieve the column value from a row.
+   /// </summary>
+   /// <typeparam name="TRow">The type of the row.</typeparam>
+   /// <typeparam name="TValue">The type of the column value.</typeparam>
+   /// <param name="row">The row. Guaranteed to be non-<c>null</c>.</param>
+   /// <returns>The row's value corresponding to the column in question.</returns>
    public delegate TValue RowColumnGetterDelegate<TRow, TValue>( TRow row )
       where TRow : class;
 
+   /// <summary>
+   /// This delegate is used by <see cref="MetaDataColumnInformationForClassesOrStructs{TRow, TValue}"/> and by <see cref="MetaDataColumnInformationForNullables{TRow, TValue}"/> to set the column value of a row.
+   /// </summary>
+   /// <typeparam name="TRow">The type of the row.</typeparam>
+   /// <typeparam name="TValue">The type of the column value.</typeparam>
+   /// <param name="row">The row. Guaranteed to be non-<c>null</c>.</param>
+   /// <param name="value">The value to set.</param>
+   /// <returns><c>true</c> if value passed domain-specific checks, and was set to <paramref name="row"/>; <c>false</c> otherwise.</returns>
    public delegate Boolean RowColumnSetterDelegate<TRow, TValue>( TRow row, TValue value )
       where TRow : class;
 
+   /// <summary>
+   /// This class implements the <see cref="MetaDataColumnInformation{TRow, TValue}"/> for columns accepting structs or classes.
+   /// If the column value is a nullable type, the <see cref="MetaDataColumnInformationForNullables{TRow, TValue}"/> should be used.
+   /// </summary>
+   /// <typeparam name="TRow">The type of the row this column can be attached to.</typeparam>
+   /// <typeparam name="TValue">The type of the values that the column can hold.</typeparam>
+   /// <seealso cref="MetaDataTableInformation"/>
+   /// <seealso cref="MetaDataColumnInformation{TRow}"/>
+   /// <seealso cref="MetaDataColumnInformation{TRow, TValue}"/>
+   /// <seealso cref="MetaDataColumnInformationForNullables{TRow, TValue}"/>
    public class MetaDataColumnInformationForClassesOrStructs<TRow, TValue> : MetaDataColumnInformation<TRow, TValue>
       where TRow : class
    {
       private readonly RowColumnGetterDelegate<TRow, TValue> _getter;
       private readonly RowColumnSetterDelegate<TRow, TValue> _setter;
 
+      /// <summary>
+      /// Creates a new instance of <see cref="MetaDataColumnInformationForClassesOrStructs{TRow, TValue}"/> with given callbacks to get and set column value.
+      /// </summary>
+      /// <param name="getter">The callback to get row value.</param>
+      /// <param name="setter">The callback to set row value.</param>
+      /// <seealso cref="RowColumnGetterDelegate{TRow, TValue}"/>
+      /// <seealso cref="RowColumnSetterDelegate{TRow, TValue}"/>
       public MetaDataColumnInformationForClassesOrStructs(
          RowColumnGetterDelegate<TRow, TValue> getter,
          RowColumnSetterDelegate<TRow, TValue> setter
@@ -216,12 +412,14 @@ namespace CILAssemblyManipulator.Physical.Meta
 
       }
 
+      /// <inheritdoc />
       public sealed override Object Getter( TRow row, out Boolean success )
       {
          success = row != null;
          return success ? (Object) this._getter( row ) : null;
       }
 
+      /// <inheritdoc />
       public sealed override Boolean Setter( TRow row, Object value )
       {
          // TODO maybe do specific class for structs? Is 'is' operator a lot faster when it is known at compile-time that it is struct?
@@ -229,6 +427,16 @@ namespace CILAssemblyManipulator.Physical.Meta
       }
    }
 
+   /// <summary>
+   /// This class implements the <see cref="MetaDataColumnInformation{TRow, TValue}"/> for columns accepting nullable types.
+   /// If the column value is not a nullable type, the <see cref="MetaDataColumnInformationForClassesOrStructs{TRow, TValue}"/> should be used.
+   /// </summary>
+   /// <typeparam name="TRow">The type of the row this column can be attached to.</typeparam>
+   /// <typeparam name="TValue">The nullable type of the values that the column can hold. E.g. if column holds value <c>Int32?</c>, this should be <c>Int32</c>.</typeparam>
+   /// <seealso cref="MetaDataTableInformation"/>
+   /// <seealso cref="MetaDataColumnInformation{TRow}"/>
+   /// <seealso cref="MetaDataColumnInformation{TRow, TValue}"/>
+   /// <seealso cref="MetaDataColumnInformationForClassesOrStructs{TRow, TValue}"/>
    public class MetaDataColumnInformationForNullables<TRow, TValue> : MetaDataColumnInformation<TRow, TValue?>
       where TRow : class
       where TValue : struct
@@ -237,6 +445,13 @@ namespace CILAssemblyManipulator.Physical.Meta
       private readonly RowColumnGetterDelegate<TRow, TValue?> _getter;
       private readonly RowColumnSetterDelegate<TRow, TValue?> _setter;
 
+      /// <summary>
+      /// Creates a new instance of <see cref="MetaDataColumnInformationForNullables{TRow, TValue}"/> with given callbacks to get and set column value.
+      /// </summary>
+      /// <param name="getter">The callback to get row value.</param>
+      /// <param name="setter">The callback to set row value.</param>
+      /// <seealso cref="RowColumnGetterDelegate{TRow, TValue}"/>
+      /// <seealso cref="RowColumnSetterDelegate{TRow, TValue}"/>
       public MetaDataColumnInformationForNullables(
          RowColumnGetterDelegate<TRow, TValue?> getter,
          RowColumnSetterDelegate<TRow, TValue?> setter
@@ -249,12 +464,14 @@ namespace CILAssemblyManipulator.Physical.Meta
          this._setter = setter;
       }
 
+      /// <inheritdoc />
       public sealed override Object Getter( TRow row, out Boolean success )
       {
          success = row != null;
          return success ? (Object) this._getter( row ) : null;
       }
 
+      /// <inheritdoc />
       public sealed override Boolean Setter( TRow row, Object value )
       {
          var success = row != null;

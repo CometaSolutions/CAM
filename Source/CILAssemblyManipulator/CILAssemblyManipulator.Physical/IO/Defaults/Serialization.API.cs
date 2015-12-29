@@ -685,7 +685,7 @@ public static partial class E_CILPhysical
       {
          MetaDataTable tbl;
          return info != null && md.TryGetByTable( (Int32) info.Table, out tbl ) ?
-            tbl.RowCount :
+            tbl.GetRowCount() :
             0;
       } ).ToArrayProxy().CQ;
    }
