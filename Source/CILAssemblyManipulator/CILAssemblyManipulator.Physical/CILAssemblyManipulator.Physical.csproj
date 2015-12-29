@@ -122,7 +122,6 @@
     <Compile Include="MetaData.cs" />
     <Compile Include="MetaData.IO.cs" />
     <Compile Include="Meta\Information.cs" />
-    <Compile Include="Meta\ReOrdering.cs" />
     <Compile Include="OpCodes.cs" />
     <Compile Include="TargetFrameworkMapper.cs" />
     <Compile Include="Utils.cs" />
