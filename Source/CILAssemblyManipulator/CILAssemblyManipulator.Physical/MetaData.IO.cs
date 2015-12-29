@@ -23,6 +23,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Text;
+using TabularMetaData.Meta;
 
 namespace CILAssemblyManipulator.Physical
 {
@@ -119,7 +120,7 @@ namespace CILAssemblyManipulator.Physical
 
       public ReaderFunctionalityProvider ReaderFunctionalityProvider { get; set; }
 
-      public Meta.MetaDataTableInformationProvider TableInformationProvider { get; set; }
+      public MetaDataTableInformationProvider TableInformationProvider { get; set; }
    }
 
    /// <summary>

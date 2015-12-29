@@ -21,17 +21,20 @@ using System.IO;
 using System.Linq;
 using System.Text;
 using CommonUtils;
-using CILAssemblyManipulator.Physical;
-using CILAssemblyManipulator.Physical.Meta;
+using TabularMetaData;
+using TabularMetaData.Meta;
 
 // TODO change library name to SchemaBasedTabularMetaData or something like that
 
-namespace CILAssemblyManipulator.Physical
+namespace TabularMetaData
 {
    /// <summary>
    /// This interface is common interface for any metadata that is represented in tabular format.
    /// In most cases, this means CIL metadata.
    /// </summary>
+   /// <remarks>
+   /// Instead of directly implementing this interface, it is recommended to subclass the <see cref="TabularMetaDataWithSchemaImpl"/> class.
+   /// </remarks>
    /// <seealso cref="MetaDataTable"/>
    /// <seealso cref="MetaDataTable{TRow}"/>
    public interface TabularMetaDataWithSchema

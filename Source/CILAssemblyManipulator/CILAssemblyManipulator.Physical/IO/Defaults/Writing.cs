@@ -30,6 +30,7 @@ using CollectionsWithRoles.API;
 
 namespace CILAssemblyManipulator.Physical.IO.Defaults
 {
+   using TabularMetaData;
    using TRVA = Int64;
 
    public class DefaultWriterFunctionalityProvider : WriterFunctionalityProvider

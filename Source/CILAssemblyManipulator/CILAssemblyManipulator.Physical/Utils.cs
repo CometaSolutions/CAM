@@ -24,6 +24,7 @@ using System.Text;
 
 namespace CILAssemblyManipulator.Physical
 {
+   using TabularMetaData;
    using TRVA = UInt32;
 
 

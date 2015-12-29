@@ -21,6 +21,8 @@ using System.Linq;
 using System.Text;
 using CILAssemblyManipulator.Physical.Meta;
 using CommonUtils;
+using TabularMetaData.Meta;
+using TabularMetaData;
 
 namespace CILAssemblyManipulator.Physical.Implementation
 {

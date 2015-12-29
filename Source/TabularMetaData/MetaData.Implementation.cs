@@ -19,10 +19,10 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
-using CILAssemblyManipulator.Physical.Meta;
+using TabularMetaData.Meta;
 using CommonUtils;
 
-namespace CILAssemblyManipulator.Physical.Implementation
+namespace TabularMetaData
 {
    /// <summary>
    /// This is class providing default skeleton implementation for <see cref="TabularMetaDataWithSchema"/>.

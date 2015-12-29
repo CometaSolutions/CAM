@@ -25,6 +25,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.IO;
+using TabularMetaData.Meta;
 
 namespace CILAssemblyManipulator.Physical.IO.Defaults
 {
@@ -32,7 +33,7 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
    {
       public virtual ReaderFunctionality GetFunctionality(
          Stream stream,
-         Meta.MetaDataTableInformationProvider mdTableInfoProvider,
+         MetaDataTableInformationProvider mdTableInfoProvider,
          out Stream newStream
          )
       {
@@ -59,7 +60,7 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
    {
 
       public DefaultReaderFunctionality(
-         Meta.MetaDataTableInformationProvider tableInfoProvider = null,
+         MetaDataTableInformationProvider tableInfoProvider = null,
          MetaDataSerializationSupportProvider mdSerialization = null
          )
       {

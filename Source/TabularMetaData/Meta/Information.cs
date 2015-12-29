@@ -23,7 +23,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 
-namespace CILAssemblyManipulator.Physical.Meta
+namespace TabularMetaData.Meta
 {
    /// <summary>
    /// This interface is used to create <see cref="MetaDataTableInformation"/>s when creating new <see cref="TabularMetaDataWithSchema"/>s.

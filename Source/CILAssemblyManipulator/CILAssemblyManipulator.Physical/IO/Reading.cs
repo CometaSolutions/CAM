@@ -26,7 +26,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Text;
-
+using TabularMetaData.Meta;
 
 namespace CILAssemblyManipulator.Physical.IO
 {
@@ -34,7 +34,7 @@ namespace CILAssemblyManipulator.Physical.IO
    {
       ReaderFunctionality GetFunctionality(
          Stream stream,
-         Meta.MetaDataTableInformationProvider mdTableInfoProvider,
+         MetaDataTableInformationProvider mdTableInfoProvider,
          out Stream newStream
          );
    }
@@ -210,7 +210,7 @@ public static partial class E_CILPhysical
    public static CILMetaData ReadMetaDataFromStream(
       this Stream stream,
       ReaderFunctionalityProvider readerProvider,
-      CILAssemblyManipulator.Physical.Meta.MetaDataTableInformationProvider tableInfoProvider,
+      MetaDataTableInformationProvider tableInfoProvider,
       out ImageInformation imageInfo
       )
    {
@@ -243,7 +243,7 @@ public static partial class E_CILPhysical
    public static CILMetaData ReadMetaDataFromStream(
       this Stream stream,
       ReaderFunctionality reader,
-      CILAssemblyManipulator.Physical.Meta.MetaDataTableInformationProvider tableInfoProvider,
+      MetaDataTableInformationProvider tableInfoProvider,
       out ImageInformation imageInfo
       )
    {

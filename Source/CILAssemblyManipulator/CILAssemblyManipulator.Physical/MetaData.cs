@@ -22,9 +22,10 @@ using System.Linq;
 using System.Text;
 using CommonUtils;
 using CILAssemblyManipulator.Physical;
+using TabularMetaData;
 
 using TSigInfo = System.Tuple<System.Object, CILAssemblyManipulator.Physical.TableIndex>;
-
+using TabularMetaData.Meta;
 
 namespace CILAssemblyManipulator.Physical
 {
@@ -409,13 +410,13 @@ namespace CILAssemblyManipulator.Physical
    public static class CILMetaDataFactory
    {
 
-      public static CILMetaData NewBlankMetaData( Int32[] sizes = null, Meta.MetaDataTableInformationProvider tableInfoProvider = null )
+      public static CILMetaData NewBlankMetaData( Int32[] sizes = null, MetaDataTableInformationProvider tableInfoProvider = null )
       {
-         Meta.MetaDataTableInformation[] infos;
+         MetaDataTableInformation[] infos;
          return new CILAssemblyManipulator.Physical.Implementation.CILMetadataImpl( tableInfoProvider, sizes, out infos );
       }
 
-      public static CILMetaData CreateMinimalAssembly( String assemblyName, String moduleName, Boolean createModuleType = true, Meta.MetaDataTableInformationProvider tableInfoProvider = null )
+      public static CILMetaData CreateMinimalAssembly( String assemblyName, String moduleName, Boolean createModuleType = true, MetaDataTableInformationProvider tableInfoProvider = null )
       {
          if ( !String.IsNullOrEmpty( assemblyName ) && String.IsNullOrEmpty( moduleName ) )
          {
@@ -431,7 +432,7 @@ namespace CILAssemblyManipulator.Physical
          return md;
       }
 
-      public static CILMetaData CreateMinimalModule( String moduleName, Boolean createModuleType = true, Meta.MetaDataTableInformationProvider tableInfoProvider = null )
+      public static CILMetaData CreateMinimalModule( String moduleName, Boolean createModuleType = true, MetaDataTableInformationProvider tableInfoProvider = null )
       {
          var md = CILMetaDataFactory.NewBlankMetaData( tableInfoProvider: tableInfoProvider );
 

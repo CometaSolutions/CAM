@@ -8,8 +8,8 @@
     <ProjectGuid>{BCACFC5F-2656-4428-9450-890DF6855591}</ProjectGuid>
     <OutputType>Library</OutputType>
     <AppDesignerFolder>Properties</AppDesignerFolder>
-    <RootNamespace>CILAssemblyManipulator.Physical.Base</RootNamespace>
-    <AssemblyName>CILAssemblyManipulator.Physical.Base</AssemblyName>
+    <RootNamespace>TabularMetaData</RootNamespace>
+    <AssemblyName>TabularMetaData</AssemblyName>
     <DefaultLanguage>en-US</DefaultLanguage>
     <FileAlignment>512</FileAlignment>
     <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
@@ -21,45 +21,49 @@
     <DebugSymbols>true</DebugSymbols>
     <DebugType>full</DebugType>
     <Optimize>false</Optimize>
-    <OutputPath>..\..\..\Output\Debug\SL\</OutputPath>
+    <OutputPath>..\..\Output\Debug\SL\</OutputPath>
     <DefineConstants>$(DefineConstants);DEBUG;TRACE</DefineConstants>
     <ErrorReport>prompt</ErrorReport>
     <WarningLevel>4</WarningLevel>
+    <DocumentationFile>..\..\Output\Debug\SL\TabularMetaData.xml</DocumentationFile>
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug_Portable|AnyCPU' ">
     <DebugSymbols>true</DebugSymbols>
     <DebugType>full</DebugType>
     <Optimize>false</Optimize>
-    <OutputPath>..\..\..\Output\Debug\SL\</OutputPath>
+    <OutputPath>..\..\Output\Debug\SL\</OutputPath>
     <DefineConstants>$(DefineConstants);DEBUG;TRACE;</DefineConstants>
     <ErrorReport>prompt</ErrorReport>
     <WarningLevel>4</WarningLevel>
+    <DocumentationFile>..\..\Output\Debug\SL\TabularMetaData.xml</DocumentationFile>
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Release|AnyCPU' ">
     <DebugType>none</DebugType>
     <Optimize>true</Optimize>
-    <OutputPath>..\..\..\Output\Release\SL\</OutputPath>
+    <OutputPath>..\..\Output\Release\SL\</OutputPath>
     <DefineConstants>$(DefineConstants);TRACE</DefineConstants>
     <ErrorReport>prompt</ErrorReport>
     <WarningLevel>4</WarningLevel>
+    <DocumentationFile>..\..\Output\Release\SL\TabularMetaData.xml</DocumentationFile>
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Release_Portable|AnyCPU' ">
     <DebugType>none</DebugType>
     <Optimize>true</Optimize>
-    <OutputPath>..\..\..\Output\Release\SL\</OutputPath>
+    <OutputPath>..\..\Output\Release\SL\</OutputPath>
     <DefineConstants>$(DefineConstants);TRACE</DefineConstants>
     <ErrorReport>prompt</ErrorReport>
     <WarningLevel>4</WarningLevel>
+    <DocumentationFile>..\..\Output\Release\SL\TabularMetaData.xml</DocumentationFile>
   </PropertyGroup>
   <PropertyGroup>
     <DocumentationFile>$(OutputPath)$(AssemblyName).xml</DocumentationFile>
   </PropertyGroup>
   <ItemGroup>
-    <ProjectReference Include="..\..\CollectionsWithRoles\CollectionsWithRoles.csproj" Condition=" '$(UseUtilpackReference)' == '' And '$(IsCommandLineBuild)' == ''">
+    <ProjectReference Include="..\CollectionsWithRoles\CollectionsWithRoles.csproj" Condition=" '$(UseUtilpackReference)' == '' And '$(IsCommandLineBuild)' == ''">
       <Project>{7f7ebfb0-2bf4-44d8-b96f-accc5f99f529}</Project>
       <Name>CollectionsWithRoles</Name>
     </ProjectReference>
-    <ProjectReference Include="..\..\CommonUtils\CommonUtils.csproj" Condition=" '$(UseUtilpackReference)' == '' And '$(IsCommandLineBuild)' == ''">
+    <ProjectReference Include="..\CommonUtils\CommonUtils.csproj" Condition=" '$(UseUtilpackReference)' == '' And '$(IsCommandLineBuild)' == ''">
       <Project>{dba22cd8-ac89-4902-8e44-f4771875e781}</Project>
       <Name>CommonUtils</Name>
     </ProjectReference>
@@ -77,32 +81,34 @@
     </Reference>
   </ItemGroup>
   <ItemGroup>
-    <Compile Include="..\..\AssemblyInfo\$(AssemblyName).cs">
+    <Compile Include="..\AssemblyInfo\$(AssemblyName).cs">
       <Link>Properties\$(AssemblyName).AssemblyInfo.cs</Link>
     </Compile>
-    <Compile Include="Implementation\MetaData.cs" />
     <Compile Include="MetaData.cs" />
     <Compile Include="Meta\Information.cs" />
     <Compile Include="Meta\ReOrdering.cs" />
   </ItemGroup>
+  <ItemGroup>
+    <Compile Include="MetaData.Implementation.cs" />
+  </ItemGroup>
   <PropertyGroup Condition=" '$(UseUtilpackReference)' != '' ">
     <SignAssembly>true</SignAssembly>
-    <KeyFilePath>$(MSBuildThisFileDirectory)..\..\..\Keys\CAM.snk</KeyFilePath>
+    <KeyFilePath>$(MSBuildThisFileDirectory)..\..\Keys\CAM.snk</KeyFilePath>
     <AssemblyOriginatorKeyFile>$(KeyFilePath)</AssemblyOriginatorKeyFile>
   </PropertyGroup>
   <Import Project="$(MSBuildExtensionsPath32)\Microsoft\Portable\$(TargetFrameworkVersion)\Microsoft.Portable.CSharp.targets" />
-  <Import Project="$(MSBuildThisFileDirectory)../../../CommonBuildTools/CLR/MSBuild/CreateKeyFileIfNeeded.targets" />
+  <Import Project="$(MSBuildThisFileDirectory)../../CommonBuildTools/CLR/MSBuild/CreateKeyFileIfNeeded.targets" />
   <!-- Assembly information -->
   <PropertyGroup>
     <AssemblyInfoCLSCompliant>true</AssemblyInfoCLSCompliant>
-    <AssemblyInfoOutputFile>$(MSBuildThisFileDirectory)/../../AssemblyInfo/$(AssemblyName).cs</AssemblyInfoOutputFile>
+    <AssemblyInfoOutputFile>$(MSBuildThisFileDirectory)/../AssemblyInfo/$(AssemblyName).cs</AssemblyInfoOutputFile>
     <AssemblyInfoDescription>CIL Assembly Manipulator (CAM) assembly providing base API oriented on physical representation on CIL-like files.</AssemblyInfoDescription>
     <AssemblyInfoCompany>Cometa Solutions Ltd</AssemblyInfoCompany>
     <AssemblyInfoTrademark>CAM</AssemblyInfoTrademark>
     <AssemblyInfoAppendAssemblyCopyrightYears>true</AssemblyInfoAppendAssemblyCopyrightYears>
     <AssemblyInfoAssemblyInceptionYear>2015</AssemblyInfoAssemblyInceptionYear>
     <AssemblyInfoCopyrightAuthors>Stanislav Muhametsin</AssemblyInfoCopyrightAuthors>
-    <AssemblyInfoVersionFilename>$(MSBuildThisFileDirectory)/../../CAMPhysicalBaseVersion.txt</AssemblyInfoVersionFilename>
+    <AssemblyInfoVersionFilename>$(MSBuildThisFileDirectory)/../TabularMetaDataVersion.txt</AssemblyInfoVersionFilename>
   </PropertyGroup>
-  <Import Project="$(MSBuildThisFileDirectory)../../../CommonBuildTools/CLR/MSBuild/AssemblyInfo.targets" />
+  <Import Project="$(MSBuildThisFileDirectory)../../CommonBuildTools/CLR/MSBuild/AssemblyInfo.targets" />
 </Project>

@@ -32,6 +32,7 @@ using CILAssemblyManipulator.Physical;
 using System.Runtime.InteropServices;
 using System.Diagnostics;
 using CILAssemblyManipulator.Physical.IO;
+using TabularMetaData;
 
 namespace CILMerge
 {

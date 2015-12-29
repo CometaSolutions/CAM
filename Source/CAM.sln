@@ -31,7 +31,7 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "CILAssemblyManipulator.Stru
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "CILAssemblyManipulator.Emulator", "CILAssemblyManipulator\CILAssemblyManipulator.Emulator\CILAssemblyManipulator.Emulator.csproj", "{FBC21E9B-64F1-4E5D-8863-9FFBB7CBCCD5}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "CILAssemblyManipulator.Physical.Base", "CILAssemblyManipulator\CILAssemblyManipulator.Physical.Base\CILAssemblyManipulator.Physical.Base.csproj", "{BCACFC5F-2656-4428-9450-890DF6855591}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "TabularMetaData", "TabularMetaData\TabularMetaData.csproj", "{BCACFC5F-2656-4428-9450-890DF6855591}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
