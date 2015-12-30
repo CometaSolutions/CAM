@@ -97,16 +97,15 @@
       <Link>Properties\$(AssemblyName).AssemblyInfo.cs</Link>
     </Compile>
     <Compile Include="AssemblyInfo.cs" />
-    <Compile Include="Crypto.cs" />
-    <Compile Include="DotNET\CryptoCallbacks.cs" />
-    <Compile Include="DotNET\Loaders.cs" />
-    <Compile Include="DotNET\Module.IO.cs" />
-    <Compile Include="DotNET\TargetFrameworkMapper.cs" />
+    <Compile Include="Crypto\Crypto.cs" />
+    <Compile Include="Crypto\DotNET\CryptoCallbacks.cs" />
+    <Compile Include="IO\DotNET\Loaders.cs" />
+    <Compile Include="IO\DotNET\API.cs" />
+    <Compile Include="IO\DotNET\TargetFrameworkMapper.cs" />
     <Compile Include="DotNET\Verification.cs" />
     <Compile Include="Enums.cs" />
     <Compile Include="Comparers.cs" />
     <Compile Include="IL.cs" />
-    <Compile Include="Implementation\CryptoUtils.cs" />
     <Compile Include="Implementation\MetaData.cs" />
     <Compile Include="IO\Headers.cs" />
     <Compile Include="IO\Defaults\Reading.cs" />
@@ -115,15 +114,15 @@
     <Compile Include="IO\Defaults\Writing.cs" />
     <Compile Include="IO\Writing.cs" />
     <Compile Include="IO\Writing.Options.cs" />
-    <Compile Include="Loading.cs" />
+    <Compile Include="IO\Loading.cs" />
     <Compile Include="MetaData.Rows.cs" />
     <Compile Include="MetaData.Resolving.cs" />
     <Compile Include="MetaData.Signatures.cs" />
     <Compile Include="MetaData.cs" />
-    <Compile Include="MetaData.IO.cs" />
+    <Compile Include="IO\API.cs" />
     <Compile Include="Meta\Information.cs" />
     <Compile Include="OpCodes.cs" />
-    <Compile Include="TargetFrameworkMapper.cs" />
+    <Compile Include="IO\TargetFrameworkMapper.cs" />
     <Compile Include="Utils.cs" />
     <Compile Include="Utils_New.cs" />
     <Compile Include="IO\Reading.cs" />

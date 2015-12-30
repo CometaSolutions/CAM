@@ -16,6 +16,7 @@
  * limitations under the License. 
  */
 using CILAssemblyManipulator.Physical;
+using CILAssemblyManipulator.Physical.IO;
 using CILAssemblyManipulator.Structural;
 using NUnit.Framework;
 using System;

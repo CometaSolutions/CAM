@@ -16,6 +16,7 @@
  * limitations under the License. 
  */
 using CILAssemblyManipulator.Physical;
+using CILAssemblyManipulator.Physical.Crypto;
 using CommonUtils;
 using System;
 using System.Collections.Generic;

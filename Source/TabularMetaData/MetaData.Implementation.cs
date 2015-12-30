@@ -26,6 +26,7 @@ namespace TabularMetaData
 {
    /// <summary>
    /// This is class providing default skeleton implementation for <see cref="TabularMetaDataWithSchema"/>.
+   /// Subclassing this class is recommended over directly implementing <see cref="TabularMetaDataWithSchema"/>.
    /// </summary>
    public abstract class TabularMetaDataWithSchemaImpl : TabularMetaDataWithSchema
    {

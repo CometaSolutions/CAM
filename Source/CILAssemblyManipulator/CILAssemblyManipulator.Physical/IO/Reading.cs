@@ -269,7 +269,7 @@ public static partial class E_CILPhysical
       }
       else if ( cliHeader == null )
       {
-         throw new BadImageFormatException( "Not a managed assembly." );
+         throw new NotAManagedModuleException();
       }
       else if ( mdRoot == null )
       {

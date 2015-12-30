@@ -1,4 +1,5 @@
 ﻿using CILAssemblyManipulator.Physical;
+using CILAssemblyManipulator.Physical.IO;
 using CILAssemblyManipulator.Physical.Meta;
 using CommonUtils;
 using NUnit.Framework;

@@ -178,7 +178,7 @@ namespace CILAssemblyManipulator.Physical.Implementation
       public MetaDataTable<AssemblyReferenceOS> AssemblyReferenceOSs { get; }
 #pragma warning restore 618
 
-      protected override bool TryGetFixedTable( Int32 index, out MetaDataTable table )
+      protected override Boolean TryGetFixedTable( Int32 index, out MetaDataTable table )
       {
 #pragma warning disable 618
          switch ( (Tables) index )
@@ -392,7 +392,7 @@ namespace CILAssemblyManipulator.Physical.Implementation
             sizes,
             infos,
             ref defaultInfos,
-            () => DefaultMetaDataTableInformationProvider.CreateDefault()
+            DefaultMetaDataTableInformationProvider.CreateDefault
             );
       }
    }

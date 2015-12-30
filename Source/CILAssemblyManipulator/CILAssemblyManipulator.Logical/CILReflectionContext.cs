@@ -23,6 +23,7 @@ using CollectionsWithRoles.API;
 using CommonUtils;
 using CILAssemblyManipulator.Physical;
 using CILAssemblyManipulator.Logical;
+using CILAssemblyManipulator.Physical.Crypto;
 
 #if !CAM_LOGICAL_IS_DOT_NET
 #pragma warning disable 1574

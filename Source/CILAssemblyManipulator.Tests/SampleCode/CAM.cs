@@ -17,6 +17,7 @@
  * limitations under the License. 
  */
 using CILAssemblyManipulator.Physical;
+using CILAssemblyManipulator.Physical.IO;
 using CILAssemblyManipulator.Structural;
 using System;
 using System.Collections.Generic;

@@ -33,6 +33,7 @@ using System.Runtime.InteropServices;
 using System.Diagnostics;
 using CILAssemblyManipulator.Physical.IO;
 using TabularMetaData;
+using CILAssemblyManipulator.Physical.Crypto;
 
 namespace CILMerge
 {
@@ -967,17 +968,17 @@ namespace CILMerge
          return retVal;
       }
 
-      private CILAssemblyManipulator.Physical.WritingArguments CreateEmittingArgumentsForTargetModule()
+      private WritingArguments CreateEmittingArgumentsForTargetModule()
       {
 
          // Prepare strong _name
          var keyFile = this._options.KeyFile;
-         CILAssemblyManipulator.Physical.StrongNameKeyPair sn = null;
+         StrongNameKeyPair sn = null;
          if ( !String.IsNullOrEmpty( keyFile ) )
          {
             try
             {
-               sn = new CILAssemblyManipulator.Physical.StrongNameKeyPair( File.ReadAllBytes( keyFile ) );
+               sn = new StrongNameKeyPair( File.ReadAllBytes( keyFile ) );
             }
             catch ( Exception exc )
             {
@@ -986,14 +987,14 @@ namespace CILMerge
          }
          else if ( !String.IsNullOrEmpty( this._options.CSPName ) )
          {
-            sn = new CILAssemblyManipulator.Physical.StrongNameKeyPair( this._options.CSPName );
+            sn = new StrongNameKeyPair( this._options.CSPName );
          }
 
          // Prepare emitting arguments
          var pEArgs = this._moduleLoader.GetReadingArgumentsForMetaData( this._primaryModule );
          var pHeaders = pEArgs.ImageInformation;
 
-         var eArgs = new CILAssemblyManipulator.Physical.WritingArguments();
+         var eArgs = new WritingArguments();
          var eHeaders = pHeaders.CreateWritingOptions();
          eArgs.WritingOptions = eHeaders;
          eHeaders.DebugOptions.DebugData = null;
@@ -1018,7 +1019,7 @@ namespace CILMerge
          return eArgs;
       }
 
-      private void CreateTargetAssembly( CILAssemblyManipulator.Physical.WritingArguments eArgs )
+      private void CreateTargetAssembly( WritingArguments eArgs )
       {
          var outPath = this._options.OutPath;
          var targetAssemblyName = this._options.TargetAssemblyName;

@@ -24,6 +24,7 @@ using CollectionsWithRoles.API;
 using CollectionsWithRoles.Implementation;
 using CommonUtils;
 using CILAssemblyManipulator.Physical;
+using CILAssemblyManipulator.Physical.Crypto;
 
 #if !CAM_LOGICAL_IS_SL
 using System.Collections.Concurrent;
@@ -1581,14 +1582,14 @@ namespace CILAssemblyManipulator.Logical.Implementation
          where TMethod : System.Reflection.MethodBase
       {
          return
-            // TODO hmmm... there is no .MethodHandle property in windows phone apps... how to get matching methods?
-            // Consider this:
-            // public class A<T>
-            // {
-            //    void Method(T t);
-            //    void Method(String t);
-            // }
-            // If we get instance of Method2 with declaring type A<String>, how to pick the correct method without usage of GetMethodFromHandle ?
+ // TODO hmmm... there is no .MethodHandle property in windows phone apps... how to get matching methods?
+ // Consider this:
+ // public class A<T>
+ // {
+ //    void Method(T t);
+ //    void Method(String t);
+ // }
+ // If we get instance of Method2 with declaring type A<String>, how to pick the correct method without usage of GetMethodFromHandle ?
 #if WINDOWS_PHONE_APP
          null
 #else

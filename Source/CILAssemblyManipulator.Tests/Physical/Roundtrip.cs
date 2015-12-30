@@ -22,6 +22,7 @@ using System.Text;
 using NUnit.Framework;
 using System.IO;
 using CILAssemblyManipulator.Physical;
+using CILAssemblyManipulator.Physical.IO;
 
 namespace CILAssemblyManipulator.Tests.Physical
 {

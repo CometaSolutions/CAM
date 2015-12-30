@@ -103,7 +103,7 @@ md.WriteModuleTo( "MyAssembly.dll" );
 CILMetaData mdFromDisk;
 using ( var fs = File.OpenRead( "MyAssembly.dll" ) )
 {
-   // Need to add using CILAssemblyManipulator.Physical in order to use this extension method
+   // Need to add "using CILAssemblyManipulator.Physical.IO" in order to use this extension method
    mdFromDisk = fs.ReadModule();
 }
 // In .NET environment, this method will do exactly the same as above using-statement
