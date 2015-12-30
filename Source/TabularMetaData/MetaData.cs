@@ -183,6 +183,23 @@ namespace TabularMetaData
          return rows;
       }
    }
+
+   /// <summary>
+   /// This exception will be thrown by <see cref="TabularMetaDataWithSchemaImpl.CreateFixedMDTable"/> method in non-trivial error situations.
+   /// </summary>
+   public class FixedTableCreationException : Exception
+   {
+      /// <summary>
+      /// Creates a new instance of <see cref="FixedTableCreationException"/> with given message and optional inner exception.
+      /// </summary>
+      /// <param name="msg">The message.</param>
+      /// <param name="inner">The optional inner exception</param>
+      public FixedTableCreationException( String msg, Exception inner = null )
+         : base( msg, inner )
+      {
+
+      }
+   }
 }
 
 

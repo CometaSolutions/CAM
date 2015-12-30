@@ -149,7 +149,7 @@ namespace TabularMetaData
       /// <param name="defaultInfos">The array of default <see cref="MetaDataTableInformation"/>.</param>
       /// <param name="defaultProviderCreator">The callback to create default <see cref="MetaDataTableInformationProvider"/>, which will be used to create <paramref name="defaultInfos"/>.</param>
       /// <returns>A non-<c>null</c> instance of <see cref="MetaDataTable{TRow}"/>.</returns>
-      /// <exception cref="InvalidOperationException">If the resolved <see cref="MetaDataTableInformation"/> or the <see cref="MetaDataTable{TRow}"/> that it returns is <c>null</c>.</exception>
+      /// <exception cref="FixedTableCreationException">If the resolved <see cref="MetaDataTableInformation"/> or the <see cref="MetaDataTable{TRow}"/> that it returns is <c>null</c>, or if returned <see cref="MetaDataTable"/> is not of type <see cref="MetaDataTable{TRow}"/>.</exception>
       protected static MetaDataTable<TRow> CreateFixedMDTable<TRow>(
          Int32 table,
          Int32[] sizes,
@@ -179,17 +179,23 @@ namespace TabularMetaData
 
             if ( info == null )
             {
-               throw new InvalidOperationException( "The metadata table info provided for table " + table + " by default provider was null." );
+               throw new FixedTableCreationException( "The metadata table info provided for table " + table + " by default provider was null." );
             }
          }
 
-         var retVal = (MetaDataTable<TRow>) info.CreateMetaDataTableNotGeneric( sizes != null && table < sizes.Length ? sizes[table] : 0 );
+         var retVal = info.CreateMetaDataTableNotGeneric( sizes != null && table < sizes.Length ? sizes[table] : 0 );
          if ( retVal == null )
          {
-            throw new InvalidOperationException( "The metadata table created by metadata table info was null." );
+            throw new FixedTableCreationException( "The metadata table created by metadata table info was null." );
          }
 
-         return retVal;
+         var retValTyped = retVal as MetaDataTable<TRow>;
+         if ( retValTyped == null )
+         {
+            throw new FixedTableCreationException( "The metadata table created by metadata table info was of wrong row type (expected " + typeof( TRow ) + ")." );
+         }
+
+         return retValTyped;
       }
    }
 }

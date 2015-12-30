@@ -376,6 +376,13 @@ namespace CILAssemblyManipulator.Tests.Physical
          PerformNameTestFor( CAMStructural );
       }
 
+      [Test]
+      public void TestCapacities()
+      {
+         var md = CILMetaDataFactory.NewBlankMetaData( sizes: new[] { 1, 2 } );
+         Assert.AreEqual( md.ModuleDefinitions.TableContents.Capacity, 1 );
+         Assert.AreEqual( md.TypeReferences.TableContents.Capacity, 2 );
+      }
 
       private static void PerformNameTestFor( System.Reflection.Assembly assembly, params String[] namesToRemoveFromCILTypes )
       {

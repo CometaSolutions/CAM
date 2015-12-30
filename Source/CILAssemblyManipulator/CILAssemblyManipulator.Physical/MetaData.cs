@@ -150,7 +150,7 @@ namespace CILAssemblyManipulator.Physical
       /// </summary>
       /// <value>The metadata table for <see cref="Tables.FieldLayout"/>.</value>
       /// <seealso cref="MetaDataTable"/>
-      /// <seealso cref="ModuleDefinition"/>
+      /// <seealso cref="FieldLayout"/>
       MetaDataTable<FieldLayout> FieldLayouts { get; }
 
       /// <summary>
@@ -166,7 +166,7 @@ namespace CILAssemblyManipulator.Physical
       /// </summary>
       /// <value>The metadata table for <see cref="Tables.EventMap"/>.</value>
       /// <seealso cref="MetaDataTable"/>
-      /// <seealso cref="ModuleDefinition"/>
+      /// <seealso cref="EventMap"/>
       MetaDataTable<EventMap> EventMaps { get; }
 
       /// <summary>
@@ -182,7 +182,7 @@ namespace CILAssemblyManipulator.Physical
       /// </summary>
       /// <value>The metadata table for <see cref="Tables.PropertyMap"/>.</value>
       /// <seealso cref="MetaDataTable"/>
-      /// <seealso cref="ModuleDefinition"/>
+      /// <seealso cref="PropertyMap"/>
       MetaDataTable<PropertyMap> PropertyMaps { get; }
 
       /// <summary>
@@ -318,7 +318,7 @@ namespace CILAssemblyManipulator.Physical
       /// </summary>
       /// <value>The metadata table for <see cref="Tables.EncLog"/>.</value>
       /// <seealso cref="MetaDataTable"/>
-      /// <seealso cref="EditAndContinueLog"/>
+      /// <seealso cref="Physical.EditAndContinueLog"/>
       MetaDataTable<EditAndContinueLog> EditAndContinueLog { get; }
 
       /// <summary>
@@ -326,7 +326,7 @@ namespace CILAssemblyManipulator.Physical
       /// </summary>
       /// <value>The metadata table for <see cref="Tables.EncMap"/>.</value>
       /// <seealso cref="MetaDataTable"/>
-      /// <seealso cref="EditAndContinueMap"/>
+      /// <seealso cref="Physical.EditAndContinueMap"/>
       MetaDataTable<EditAndContinueMap> EditAndContinueMap { get; }
 
       /// <summary>
@@ -407,15 +407,37 @@ namespace CILAssemblyManipulator.Physical
    }
 
 
+   /// <summary>
+   /// This class provides static methods to create new instances of <see cref="CILMetaData"/>.
+   /// </summary>
    public static class CILMetaDataFactory
    {
 
+      /// <summary>
+      /// Creates a new, blank, <see cref="CILMetaData"/>.
+      /// All of its tables will be empty.
+      /// </summary>
+      /// <param name="sizes">The optional initial size array for tables. The element at <c>0</c> (which is value of <see cref="Tables.Module"/>) will be the initial capacity for <see cref="CILMetaData.ModuleDefinitions"/> table, and so on.</param>
+      /// <param name="tableInfoProvider">The optional <see cref="MetaDataTableInformationProvider"/> to customize the tables that resulting <see cref="CILMetaData"/> will have.</param>
+      /// <returns>The <see cref="CILMetaData"/> with empty tables.</returns>
+      /// <exception cref="FixedTableCreationException">If <paramref name="tableInfoProvider"/> is not <c>null</c>, and returns fixed table with wrong row type.</exception>
       public static CILMetaData NewBlankMetaData( Int32[] sizes = null, MetaDataTableInformationProvider tableInfoProvider = null )
       {
          MetaDataTableInformation[] infos;
-         return new CILAssemblyManipulator.Physical.Implementation.CILMetadataImpl( tableInfoProvider, sizes, out infos );
+         return new Implementation.CILMetadataImpl( tableInfoProvider, sizes, out infos );
       }
 
+      /// <summary>
+      /// Creates a new <see cref="CILMetaData"/> with minimal required rows so that it would count as an assembly.
+      /// These rows are one row in <see cref="CILMetaData.ModuleDefinitions"/> and one row in <see cref="CILMetaData.AssemblyDefinitions"/> tables.
+      /// Additionally, a specific module type will be created to <see cref="CILMetaData.TypeDefinitions"/> table, unless <paramref name="createModuleType"/> will be <c>false</c>.
+      /// </summary>
+      /// <param name="assemblyName">The name of the assembly.</param>
+      /// <param name="moduleName">The name of the module, may be <c>null</c>. In that case, the name of <see cref="ModuleDefinition"/> will be <paramref name="assemblyName"/> concatenated with <c>.dll</c>.</param>
+      /// <param name="createModuleType">Whether to create a module type, used to hold the "global" elements.</param>
+      /// <param name="tableInfoProvider">The optional <see cref="MetaDataTableInformationProvider"/> to customize the tables that resulting <see cref="CILMetaData"/> will have.</param>
+      /// <returns>The <see cref="CILMetaData"/> with required information to be count as an assembly.</returns>
+      /// <exception cref="FixedTableCreationException">If <paramref name="tableInfoProvider"/> is not <c>null</c>, and returns fixed table with wrong row type.</exception>
       public static CILMetaData CreateMinimalAssembly( String assemblyName, String moduleName, Boolean createModuleType = true, MetaDataTableInformationProvider tableInfoProvider = null )
       {
          if ( !String.IsNullOrEmpty( assemblyName ) && String.IsNullOrEmpty( moduleName ) )
@@ -432,6 +454,15 @@ namespace CILAssemblyManipulator.Physical
          return md;
       }
 
+      /// <summary>
+      /// Creates a new <see cref="CILMetaData"/> with minimal required rows so that it would count as a module.
+      /// This includes one row in the <see cref="CILMetaData.ModuleDefinitions"/>, and also one row in <see cref="CILMetaData.TypeDefinitions"/> table, unless <paramref name="createModuleType"/> is <c>false</c>.
+      /// </summary>
+      /// <param name="moduleName">The name of the module.</param>
+      /// <param name="createModuleType">Whether to create a module type, used to hold the "global" elements.</param>
+      /// <param name="tableInfoProvider">The optional <see cref="MetaDataTableInformationProvider"/> to customize the tables that resulting <see cref="CILMetaData"/> will have.</param>
+      /// <returns>The <see cref="CILMetaData"/> with required information to be count as a module.</returns>
+      /// <exception cref="FixedTableCreationException">If <paramref name="tableInfoProvider"/> is not <c>null</c>, and returns fixed table with wrong row type.</exception>
       public static CILMetaData CreateMinimalModule( String moduleName, Boolean createModuleType = true, MetaDataTableInformationProvider tableInfoProvider = null )
       {
          var md = CILMetaDataFactory.NewBlankMetaData( tableInfoProvider: tableInfoProvider );
