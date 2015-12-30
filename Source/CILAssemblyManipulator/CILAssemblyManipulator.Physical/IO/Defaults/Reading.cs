@@ -26,6 +26,7 @@ using System.Linq;
 using System.Text;
 using System.IO;
 using TabularMetaData.Meta;
+using CILAssemblyManipulator.Physical.Meta;
 
 namespace CILAssemblyManipulator.Physical.IO.Defaults
 {
@@ -34,12 +35,13 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
       public virtual ReaderFunctionality GetFunctionality(
          Stream stream,
          MetaDataTableInformationProvider mdTableInfoProvider,
+         EventHandler<SerializationErrorEventArgs> errorHandler,
          out Stream newStream
          )
       {
          // We are going to do a lot of seeking, so just read whole stream into byte array and use memory stream
          newStream = new MemoryStream( stream.ReadUntilTheEnd(), this.IsMemoryStreamWriteable );
-         return new DefaultReaderFunctionality( mdTableInfoProvider, this.CreateMDSerialization() );
+         return new DefaultReaderFunctionality( new TableSerializationInfoCreationArgs( errorHandler ), tableInfoProvider: mdTableInfoProvider, mdSerialization: this.CreateMDSerialization() );
       }
 
       protected virtual Boolean IsMemoryStreamWriteable
@@ -60,12 +62,13 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
    {
 
       public DefaultReaderFunctionality(
+         TableSerializationInfoCreationArgs serializationCreationArgs,
          MetaDataTableInformationProvider tableInfoProvider = null,
          MetaDataSerializationSupportProvider mdSerialization = null
          )
       {
          this.MDSerialization = mdSerialization ?? new DefaultMetaDataSerializationSupportProvider();
-         this.TableSerializations = this.MDSerialization.CreateTableSerializationInfos( tableInfoProvider ).ToArrayProxy().CQ;
+         this.TableSerializations = this.MDSerialization.CreateTableSerializationInfos( tableInfoProvider, serializationCreationArgs ).ToArrayProxy().CQ;
       }
 
       public virtual void ReadImageInformation(
@@ -262,10 +265,7 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
          )
          : base( stream, startPosition, streamSize, tableStreamName )
       {
-         if ( tableSerializations == null )
-         {
-            tableSerializations = new DefaultMetaDataSerializationSupportProvider().CreateTableSerializationInfos( Meta.DefaultMetaDataTableInformationProvider.CreateDefault() ).ToArrayProxy().CQ;
-         }
+         ArgumentValidator.ValidateAllNotNull( "Table serializations", tableSerializations );
 
          var array = this.Bytes;
          var idx = 0;

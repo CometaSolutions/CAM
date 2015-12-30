@@ -33,7 +33,12 @@ namespace CILAssemblyManipulator.Physical.IO
       public static CILMetaData ReadModule( this Stream stream, ReadingArguments rArgs = null )
       {
          ImageInformation imageInfo;
-         var md = stream.ReadMetaDataFromStream( rArgs?.ReaderFunctionalityProvider, rArgs?.TableInformationProvider, out imageInfo );
+         var md = stream.ReadMetaDataFromStream(
+            rArgs?.ReaderFunctionalityProvider,
+            rArgs?.TableInformationProvider,
+            rArgs?.ErrorHandler,
+            out imageInfo );
+
          if ( rArgs != null )
          {
             rArgs.ImageInformation = imageInfo;
@@ -132,6 +137,7 @@ namespace CILAssemblyManipulator.Physical.IO
       /// <seealso cref="IO.ImageInformation"/>
       public ImageInformation ImageInformation { get; set; }
 
+      public EventHandler<SerializationErrorEventArgs> ErrorHandler { get; set; }
    }
 
    /// <summary>
@@ -140,9 +146,11 @@ namespace CILAssemblyManipulator.Physical.IO
    /// <seealso cref="IOArguments"/>
    /// <seealso cref="CILMetaDataIO.ReadModule(Stream, ReadingArguments)"/>
    /// <seealso cref="CILMetaDataIO.ReadModuleFrom(String, ReadingArguments)"/>
-   public sealed class ReadingArguments : IOArguments
+   public class ReadingArguments : IOArguments
    {
-
+      public ReadingArguments()
+      {
+      }
       public ReaderFunctionalityProvider ReaderFunctionalityProvider { get; set; }
 
       public MetaDataTableInformationProvider TableInformationProvider { get; set; }
@@ -154,7 +162,7 @@ namespace CILAssemblyManipulator.Physical.IO
    /// <seealso cref="IOArguments"/>
    /// <seealso cref="E_CILPhysical.WriteModule(CILMetaData, Stream, WritingArguments)"/>
    /// <seealso cref="E_CILPhysical.WriteModuleTo(CILMetaData, String, WritingArguments)"/>
-   public sealed class WritingArguments : IOArguments
+   public class WritingArguments : IOArguments
    {
 
       /// <summary>
@@ -217,6 +225,42 @@ namespace CILAssemblyManipulator.Physical.IO
 
       }
    }
+
+   public class SerializationErrorEventArgs : EventArgs
+   {
+      public SerializationErrorEventArgs(
+         Exception occurredException,
+         Boolean rethrowException
+         )
+      {
+         this.OccurredException = occurredException;
+         this.RethrowException = rethrowException;
+      }
+
+      public Exception OccurredException { get; }
+
+      public Boolean RethrowException { get; set; }
+   }
+
+   public class TableStreamSerializationErrorEventArgs : SerializationErrorEventArgs
+   {
+      public TableStreamSerializationErrorEventArgs(
+         Exception occuredException,
+         Tables table,
+         Int32 rowIndex,
+         Int32 columnIndex
+         )
+         : base( occuredException, false )
+      {
+         this.Table = table;
+         this.RowIndex = rowIndex;
+         this.ColumnIndex = columnIndex;
+      }
+
+      public Tables Table { get; }
+      public Int32 RowIndex { get; }
+      public Int32 ColumnIndex { get; }
+   }
 }
 
 public static partial class E_CILPhysical
@@ -235,7 +279,8 @@ public static partial class E_CILPhysical
          eArgs.StrongName,
          eArgs.DelaySign,
          eArgs.CryptoCallbacks,
-         eArgs.SigningAlgorithm
+         eArgs.SigningAlgorithm,
+         eArgs.ErrorHandler
          );
 
    }

@@ -19,6 +19,7 @@ using CILAssemblyManipulator.Physical;
 using CILAssemblyManipulator.Physical.Implementation;
 using CILAssemblyManipulator.Physical.IO;
 using CILAssemblyManipulator.Physical.IO.Defaults;
+using CILAssemblyManipulator.Physical.Meta;
 using CollectionsWithRoles.API;
 using CommonUtils;
 using System;
@@ -35,6 +36,7 @@ namespace CILAssemblyManipulator.Physical.IO
       ReaderFunctionality GetFunctionality(
          Stream stream,
          MetaDataTableInformationProvider mdTableInfoProvider,
+         EventHandler<SerializationErrorEventArgs> errorHandler,
          out Stream newStream
          );
    }
@@ -211,6 +213,7 @@ public static partial class E_CILPhysical
       this Stream stream,
       ReaderFunctionalityProvider readerProvider,
       MetaDataTableInformationProvider tableInfoProvider,
+      EventHandler<SerializationErrorEventArgs> errorHandler,
       out ImageInformation imageInfo
       )
    {
@@ -222,19 +225,19 @@ public static partial class E_CILPhysical
       }
 
       Stream newStream;
-      var reader = ( readerProvider ?? new DefaultReaderFunctionalityProvider() ).GetFunctionality( stream, tableInfoProvider, out newStream );
+      var reader = ( readerProvider ?? new DefaultReaderFunctionalityProvider() ).GetFunctionality( stream, tableInfoProvider, errorHandler, out newStream );
 
       CILMetaData md;
       if ( newStream != null && !ReferenceEquals( stream, newStream ) )
       {
          using ( newStream )
          {
-            md = newStream.ReadMetaDataFromStream( reader, tableInfoProvider, out imageInfo );
+            md = newStream.ReadMetaDataFromStream( reader, tableInfoProvider, errorHandler, out imageInfo );
          }
       }
       else
       {
-         md = stream.ReadMetaDataFromStream( reader, tableInfoProvider, out imageInfo );
+         md = stream.ReadMetaDataFromStream( reader, tableInfoProvider, errorHandler, out imageInfo );
       }
 
       return md;
@@ -244,6 +247,7 @@ public static partial class E_CILPhysical
       this Stream stream,
       ReaderFunctionality reader,
       MetaDataTableInformationProvider tableInfoProvider,
+      EventHandler<SerializationErrorEventArgs> errorHandler,
       out ImageInformation imageInfo
       )
    {
@@ -251,7 +255,7 @@ public static partial class E_CILPhysical
 
       if ( reader == null )
       {
-         reader = new DefaultReaderFunctionality();
+         reader = new DefaultReaderFunctionality( new TableSerializationInfoCreationArgs( errorHandler ) );
       }
 
       var helper = new StreamHelper( stream );

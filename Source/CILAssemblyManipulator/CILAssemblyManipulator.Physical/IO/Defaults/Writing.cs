@@ -30,6 +30,7 @@ using CollectionsWithRoles.API;
 
 namespace CILAssemblyManipulator.Physical.IO.Defaults
 {
+   using Meta;
    using TabularMetaData;
    using TRVA = Int64;
 
@@ -38,13 +39,14 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
       public virtual WriterFunctionality GetFunctionality(
          CILMetaData md,
          WritingOptions headers,
+         EventHandler<SerializationErrorEventArgs> errorHandler,
          out CILMetaData newMD,
          out Stream newStream
          )
       {
          newMD = null;
          newStream = null;
-         return new DefaultWriterFunctionality( md, headers, this.CreateMDSerialization() );
+         return new DefaultWriterFunctionality( md, headers, new TableSerializationInfoCreationArgs( errorHandler ), mdSerialization: this.CreateMDSerialization() );
       }
 
       protected virtual MetaDataSerializationSupportProvider CreateMDSerialization()
@@ -121,13 +123,14 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
       public DefaultWriterFunctionality(
          CILMetaData md,
          WritingOptions headers,
+         TableSerializationInfoCreationArgs serializationCreationArgs,
          MetaDataSerializationSupportProvider mdSerialization = null
          )
       {
          this.MetaData = md;
          this._options = headers ?? new WritingOptions();
          this.MDSerialization = mdSerialization ?? DefaultMetaDataSerializationSupportProvider.Instance;
-         this.TableSerializations = this.MDSerialization.CreateTableSerializationInfos( md ).ToArrayProxy().CQ;
+         this.TableSerializations = this.MDSerialization.CreateTableSerializationInfos( md, serializationCreationArgs ).ToArrayProxy().CQ;
          this.TableSizes = this.TableSerializations.CreateTableSizeArray( md );
       }
 
@@ -2080,7 +2083,7 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
          )
       {
          ArgumentValidator.ValidateNotNull( "Meta data", md );
-         ArgumentValidator.ValidateNotNull( "Table serialization info", tableSerializations );
+         ArgumentValidator.ValidateAllNotNull( "Table serialization info", tableSerializations );
 
          this._md = md;
          this.TableSerializations = tableSerializations;

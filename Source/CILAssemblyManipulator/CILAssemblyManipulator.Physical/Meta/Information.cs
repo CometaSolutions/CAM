@@ -903,7 +903,17 @@ namespace CILAssemblyManipulator.Physical.Meta
 
    public interface MetaDataTableInformationWithSerializationCapability
    {
-      TableSerializationInfo TableSerializationInfoNotGeneric { get; }
+      TableSerializationInfo CreateTableSerializationInfoNotGeneric( TableSerializationInfoCreationArgs args );
+   }
+
+   public struct TableSerializationInfoCreationArgs
+   {
+      public TableSerializationInfoCreationArgs( EventHandler<SerializationErrorEventArgs> errorHandler )
+      {
+         this.ErrorHandler = errorHandler;
+      }
+
+      public EventHandler<SerializationErrorEventArgs> ErrorHandler { get; }
    }
 
    public sealed class MetaDataTableInformation<TRow, TRawRow> : MetaDataTableInformation<TRow>, MetaDataTableInformationWithSerializationCapability
@@ -911,8 +921,6 @@ namespace CILAssemblyManipulator.Physical.Meta
       where TRawRow : class
    {
       private readonly Func<TRawRow> _rawRowFactory;
-
-      private readonly Lazy<DefaultTableSerializationInfo<TRawRow, TRow>> _tableSerializationInfo;
 
       public MetaDataTableInformation(
          Tables tableKind,
@@ -928,17 +936,7 @@ namespace CILAssemblyManipulator.Physical.Meta
          ArgumentValidator.ValidateNotNull( "Raw row factory", rawRowFactory );
 
          this._rawRowFactory = rawRowFactory;
-
-         this._tableSerializationInfo = new Lazy<DefaultTableSerializationInfo<TRawRow, TRow>>( () =>
-            new DefaultTableSerializationInfo<TRawRow, TRow>(
-               (Tables) this.TableIndex,
-               isSorted,
-               this.ColumnsInformation.Select( c => ( c as MetaDataColumnInformationWithSerializationCapability<TRow, TRawRow> )?.DefaultColumnSerializationInfoWithRawType ),
-               this.RowFactory,
-               this._rawRowFactory
-               ),
-            System.Threading.LazyThreadSafetyMode.ExecutionAndPublication
-            );
+         this.IsSortedForSerialization = isSorted;
       }
 
 
@@ -947,20 +945,23 @@ namespace CILAssemblyManipulator.Physical.Meta
          return this._rawRowFactory();
       }
 
-      public DefaultTableSerializationInfo<TRawRow, TRow> TableSerializationInfo
+      public DefaultTableSerializationInfo<TRawRow, TRow> CreateTableSerializationInfo( TableSerializationInfoCreationArgs args )
       {
-         get
-         {
-            return this._tableSerializationInfo.Value;
-         }
+         return new DefaultTableSerializationInfo<TRawRow, TRow>(
+            (Tables) this.TableIndex,
+            this.IsSortedForSerialization,
+            this.ColumnsInformation.Select( c => ( c as MetaDataColumnInformationWithSerializationCapability<TRow, TRawRow> )?.DefaultColumnSerializationInfoWithRawType ),
+            this.RowFactory,
+            this._rawRowFactory,
+            args
+            );
       }
 
-      public TableSerializationInfo TableSerializationInfoNotGeneric
+      public Boolean IsSortedForSerialization { get; }
+
+      public TableSerializationInfo CreateTableSerializationInfoNotGeneric( TableSerializationInfoCreationArgs args )
       {
-         get
-         {
-            return this.TableSerializationInfo;
-         }
+         return this.CreateTableSerializationInfo( args );
       }
    }
 

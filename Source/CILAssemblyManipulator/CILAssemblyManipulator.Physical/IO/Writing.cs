@@ -26,6 +26,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Text;
+using CILAssemblyManipulator.Physical.Meta;
 
 namespace CILAssemblyManipulator.Physical.IO
 {
@@ -34,6 +35,7 @@ namespace CILAssemblyManipulator.Physical.IO
       WriterFunctionality GetFunctionality(
          CILMetaData md,
          WritingOptions options,
+         EventHandler<SerializationErrorEventArgs> errorHandler,
          out CILMetaData newMD,
          out Stream newStream
          );
@@ -250,14 +252,15 @@ public static partial class E_CILPhysical
       StrongNameKeyPair sn,
       Boolean delaySign,
       CryptoCallbacks cryptoCallbacks,
-      AssemblyHashAlgorithm? snAlgorithmOverride
+      AssemblyHashAlgorithm? snAlgorithmOverride,
+      EventHandler<SerializationErrorEventArgs> errorHandler
       )
    {
       ArgumentValidator.ValidateNotNull( "Stream", stream );
       ArgumentValidator.ValidateNotNull( "Meta data", md );
 
       CILMetaData newMD; Stream newStream;
-      var writer = ( writerProvider ?? new DefaultWriterFunctionalityProvider() ).GetFunctionality( md, options, out newMD, out newStream );
+      var writer = ( writerProvider ?? new DefaultWriterFunctionalityProvider() ).GetFunctionality( md, options, errorHandler, out newMD, out newStream );
       if ( newMD != null )
       {
          md = newMD;
@@ -266,13 +269,13 @@ public static partial class E_CILPhysical
       ImageInformation retVal;
       if ( newStream == null )
       {
-         retVal = stream.WriteMetaDataToStream( md, writer, options, sn, delaySign, cryptoCallbacks, snAlgorithmOverride );
+         retVal = stream.WriteMetaDataToStream( md, writer, options, sn, delaySign, cryptoCallbacks, snAlgorithmOverride, errorHandler );
       }
       else
       {
          using ( newStream )
          {
-            retVal = newStream.WriteMetaDataToStream( md, writer, options, sn, delaySign, cryptoCallbacks, snAlgorithmOverride );
+            retVal = newStream.WriteMetaDataToStream( md, writer, options, sn, delaySign, cryptoCallbacks, snAlgorithmOverride, errorHandler );
             newStream.Position = 0;
             newStream.CopyTo( stream );
          }
@@ -289,7 +292,8 @@ public static partial class E_CILPhysical
       StrongNameKeyPair sn,
       Boolean delaySign,
       CryptoCallbacks cryptoCallbacks,
-      AssemblyHashAlgorithm? snAlgorithmOverride
+      AssemblyHashAlgorithm? snAlgorithmOverride,
+      EventHandler<SerializationErrorEventArgs> errorHandler
       )
    {
       // Check arguments
@@ -305,7 +309,7 @@ public static partial class E_CILPhysical
 
       if ( writer == null )
       {
-         writer = new DefaultWriterFunctionality( md, options );
+         writer = new DefaultWriterFunctionality( md, options, new TableSerializationInfoCreationArgs( errorHandler ) );
       }
 
       // Prepare strong name
@@ -316,7 +320,7 @@ public static partial class E_CILPhysical
       var mdStreams = writer.CreateStreamHandlers().ToArrayProxy().CQ;
       var tblMDStream = mdStreams
          .OfType<WriterTableStreamHandler>()
-         .FirstOrDefault() ?? new DefaultWriterTableStreamHandler( md, options.CLIOptions.TablesStreamOptions, DefaultMetaDataSerializationSupportProvider.Instance.CreateTableSerializationInfos( md ).ToArrayProxy().CQ );
+         .FirstOrDefault() ?? new DefaultWriterTableStreamHandler( md, options.CLIOptions.TablesStreamOptions, DefaultMetaDataSerializationSupportProvider.Instance.CreateTableSerializationInfos( md, new TableSerializationInfoCreationArgs( errorHandler ) ).ToArrayProxy().CQ );
 
       var blobStream = mdStreams.OfType<WriterBLOBStreamHandler>().FirstOrDefault();
       var guidStream = mdStreams.OfType<WriterGUIDStreamHandler>().FirstOrDefault();

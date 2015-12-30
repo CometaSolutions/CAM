@@ -437,7 +437,8 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
    public interface MetaDataSerializationSupportProvider
    {
       IEnumerable<TableSerializationInfo> CreateTableSerializationInfos(
-         IEnumerable<MetaDataTableInformation> tableInfos
+         IEnumerable<MetaDataTableInformation> tableInfos,
+         TableSerializationInfoCreationArgs serializationCreationArgs
          );
    }
 
@@ -692,13 +693,13 @@ public static partial class E_CILPhysical
       } ).ToArrayProxy().CQ;
    }
 
-   public static IEnumerable<TableSerializationInfo> CreateTableSerializationInfos( this MetaDataSerializationSupportProvider serializationSupportProvider, CILMetaData md )
+   public static IEnumerable<TableSerializationInfo> CreateTableSerializationInfos( this MetaDataSerializationSupportProvider serializationSupportProvider, CILMetaData md, TableSerializationInfoCreationArgs serializationCreationArgs )
    {
-      return serializationSupportProvider.CreateTableSerializationInfos( md.GetAllTables().Select( t => t.TableInformationNotGeneric ) );
+      return serializationSupportProvider.CreateTableSerializationInfos( md.GetAllTables().Select( t => t.TableInformationNotGeneric ), serializationCreationArgs );
    }
 
-   public static IEnumerable<TableSerializationInfo> CreateTableSerializationInfos( this MetaDataSerializationSupportProvider serializationSupportProvider, MetaDataTableInformationProvider tableInfoProvider )
+   public static IEnumerable<TableSerializationInfo> CreateTableSerializationInfos( this MetaDataSerializationSupportProvider serializationSupportProvider, MetaDataTableInformationProvider tableInfoProvider, TableSerializationInfoCreationArgs serializationCreationArgs )
    {
-      return serializationSupportProvider.CreateTableSerializationInfos( tableInfoProvider.GetAllSupportedTableInformations() );
+      return serializationSupportProvider.CreateTableSerializationInfos( tableInfoProvider.GetAllSupportedTableInformations(), serializationCreationArgs );
    }
 }

@@ -16,6 +16,7 @@
  * limitations under the License. 
  */
 using CILAssemblyManipulator.Physical;
+using CILAssemblyManipulator.Physical.IO;
 using CILAssemblyManipulator.Physical.IO.Defaults;
 using CILAssemblyManipulator.Physical.Meta;
 using CollectionsWithRoles.API;
@@ -613,14 +614,15 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
       }
 
       public virtual IEnumerable<TableSerializationInfo> CreateTableSerializationInfos(
-         IEnumerable<MetaDataTableInformation> tableInfos
+         IEnumerable<MetaDataTableInformation> tableInfos,
+         TableSerializationInfoCreationArgs serializationCreationArgs
          )
       {
          var tableInfoDic = tableInfos
             .Where( ti => ti != null )
             .ToDictionary_Overwrite(
                info => (Int32) info.TableIndex,
-               info => ( info as Meta.MetaDataTableInformationWithSerializationCapability )?.TableSerializationInfoNotGeneric
+               info => ( info as Meta.MetaDataTableInformationWithSerializationCapability )?.CreateTableSerializationInfoNotGeneric( serializationCreationArgs )
             );
          var curMax = 0;
          foreach ( var kvp in tableInfoDic.OrderBy( kvp => kvp.Key ) )
@@ -645,13 +647,15 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
       private readonly DefaultColumnSerializationInfo<TRawRow, TRow>[] _columns;
       private readonly Func<TRow> _rowFactory;
       private readonly Func<TRawRow> _rawRowFactory;
+      private readonly TableSerializationInfoCreationArgs _creationArgs;
 
       public DefaultTableSerializationInfo(
          Tables table,
          Boolean isSorted,
          IEnumerable<DefaultColumnSerializationInfo<TRawRow, TRow>> columns,
          Func<TRow> rowFactory,
-         Func<TRawRow> rawRowFactory
+         Func<TRawRow> rawRowFactory,
+         TableSerializationInfoCreationArgs args
          )
       {
          ArgumentValidator.ValidateNotNull( "Columns", columns );
@@ -662,6 +666,7 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
          this.IsSorted = isSorted;
          this._rowFactory = rowFactory;
          this._rawRowFactory = rawRowFactory;
+         this._creationArgs = args;
          this._columns = columns.ToArray();
          ArgumentValidator.ValidateAllNotNull( "Columns", this._columns );
       }
@@ -699,8 +704,8 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
          {
             var table = (MetaDataTable<TRow>) tbl;
             var cols = this._columns
-               .Select( c => c.RawValueProcessor )
-               .Where( p => p != null )
+               .Select( ( c, cIdx ) => Tuple.Create( c.RawValueProcessor, cIdx ) )
+               .Where( p => p.Item1 != null )
                .ToArray();
             if ( cols.Length > 0 )
             {
@@ -711,14 +716,17 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
                   var cur = 0;
                   foreach ( var rawValue in storage.GetAllRawValuesForRow( tblEnum, i ) )
                   {
+                     var tuple = cols[cur];
                      try
                      {
-                        cols[cur]( cArgs, rawValue );
+                        tuple.Item1( cArgs, rawValue );
                      }
-                     catch
+                     catch ( Exception exc )
                      {
-                        // Ignore...
-                        // TODO error reporting mechanism
+                        if ( this._creationArgs.ErrorHandler.ProcessSerializationError( null, exc, this.Table, i, tuple.Item2 ) )
+                        {
+                           throw;
+                        }
                      }
                      ++cur;
                   }
@@ -774,7 +782,7 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
                      }
                      catch
                      {
-                        // TODO error reporting
+                        // TODO error reporting in writing phase!
                         rawValue = 0;
                      }
                      storage.AddRawValue( rawValue );
@@ -833,7 +841,8 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
             this._columns,
             supportArgs,
             this._rowFactory,
-            this._rawRowFactory
+            this._rawRowFactory,
+            this._creationArgs.ErrorHandler
             );
       }
    }
@@ -894,16 +903,25 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
       private sealed class ColumnSerializationInstance_NormalValue : ColumnSerializationInstance
       {
          private readonly RowColumnSerializationSetterDelegate<TRow, Int32> _setter;
+         private readonly Tables _table;
+         private readonly Int32 _columnIndex;
+         private readonly EventHandler<SerializationErrorEventArgs> _errorHandler;
 
          internal ColumnSerializationInstance_NormalValue(
             DefaultColumnSerializationInfo<TRawRow, TRow> serializationInfo,
-            ColumnSerializationSupportCreationArgs args
+            ColumnSerializationSupportCreationArgs args,
+            Tables table,
+            Int32 columnIndex,
+            EventHandler<SerializationErrorEventArgs> errorHandler
             )
             : base( serializationInfo, args )
          {
             var setter = serializationInfo.Setter;
             ArgumentValidator.ValidateNotNull( "Setter", setter );
             this._setter = setter;
+            this._table = table;
+            this._columnIndex = columnIndex;
+            this._errorHandler = errorHandler;
          }
 
          public override void SetNormalRowValue( RowReadingArguments rowArgs, ref Int32 idx, TRow row, Int32 rowIndex )
@@ -912,9 +930,12 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
             {
                this._setter( new ColumnFunctionalityArgs<TRow, RowReadingArguments>( rowIndex, row, rowArgs ), this.Functionality.ReadRawValue( rowArgs.Array, ref idx ) );
             }
-            catch
+            catch ( Exception exc )
             {
-               // TODO error reporting
+               if ( this._errorHandler.ProcessSerializationError( null, exc, this._table, rowIndex, this._columnIndex ) )
+               {
+                  throw;
+               }
             }
          }
       }
@@ -924,7 +945,8 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
          IEnumerable<DefaultColumnSerializationInfo<TRawRow, TRow>> columns,
          ColumnSerializationSupportCreationArgs args,
          Func<TRow> rowFactory,
-         Func<TRawRow> rawRowFactory
+         Func<TRawRow> rawRowFactory,
+         EventHandler<SerializationErrorEventArgs> errorHandler
          )
       {
          ArgumentValidator.ValidateNotNull( "Table serialization info", tableSerializationInfo );
@@ -936,7 +958,7 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
          this._rowFactory = rowFactory;
          this._rawRowFactory = rawRowFactory;
          this._columnArray = columns
-            .Select( c => c.Setter == null ? (ColumnSerializationInstance) new ColumnSerializationInstance_RawValue( c, args ) : new ColumnSerializationInstance_NormalValue( c, args ) )
+            .Select( ( c, cIdx ) => c.Setter == null ? (ColumnSerializationInstance) new ColumnSerializationInstance_RawValue( c, args ) : new ColumnSerializationInstance_NormalValue( c, args, tableSerializationInfo.Table, cIdx, errorHandler ) )
             .ToArray();
          this.ColumnSerializationSupports = this._columnArray
             .Select( c => c.Functionality )
@@ -2321,6 +2343,19 @@ public static partial class E_CILPhysical
          {
             list.Add( retVal );
          }
+      }
+
+      return retVal;
+   }
+
+   internal static Boolean ProcessSerializationError( this EventHandler<SerializationErrorEventArgs> handler, Object sender, Exception error, Tables table, Int32 rowIndex, Int32 columnIndex )
+   {
+      var retVal = false;
+      if ( handler != null )
+      {
+         var args = new TableStreamSerializationErrorEventArgs( error, table, rowIndex, columnIndex );
+         handler.Invoke( sender, args );
+         retVal = args.RethrowException;
       }
 
       return retVal;
