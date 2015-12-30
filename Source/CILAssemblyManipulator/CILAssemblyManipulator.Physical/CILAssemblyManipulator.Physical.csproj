@@ -107,7 +107,7 @@
     <Compile Include="Comparers.cs" />
     <Compile Include="IL.cs" />
     <Compile Include="Implementation\CryptoUtils.cs" />
-    <Compile Include="Implementation\Module.cs" />
+    <Compile Include="Implementation\MetaData.cs" />
     <Compile Include="IO\Headers.cs" />
     <Compile Include="IO\Defaults\Reading.cs" />
     <Compile Include="IO\Defaults\Serialization.API.cs" />
