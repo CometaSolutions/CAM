@@ -66,6 +66,9 @@ namespace TabularMetaData
    /// This abstract class represents a single instance of metadata table, but so that the type of rows is not visible in this interface specification (through generics).
    /// The table may be queried and modified through this class.
    /// </summary>
+   /// <remarks>
+   /// The instances of this class may be created via <see cref="MetaDataTable{TRow}"/> class.
+   /// </remarks>
    /// <seealso cref="MetaDataTable{TRow}"/>
    public abstract class MetaDataTable
    {

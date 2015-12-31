@@ -642,35 +642,34 @@ public static partial class E_CILPhysical
       }
    }
 
+   /// <summary>
+   /// Gets the local signature corresponding to method at given index in given <see cref="CILMetaData"/>.
+   /// </summary>
+   /// <param name="md">The <see cref="CILMetaData"/>.</param>
+   /// <param name="methodDefIndex">The index of method in <see cref="CILMetaData.MethodDefinitions"/> table.</param>
+   /// <returns>The local signature corresponding to method at given index in given <see cref="CILMetaData"/>. Will be <c>null</c> if <paramref name="md"/> is <c>null</c>, or any table index out of range.</returns>
    public static LocalVariablesSignature GetLocalsSignatureForMethodOrNull( this CILMetaData md, Int32 methodDefIndex )
    {
-      var method = md.MethodDefinitions.GetOrNull( methodDefIndex );
+      var tIdx = md?.MethodDefinitions?.GetOrNull( methodDefIndex )?.IL?.LocalsSignatureIndex;
       LocalVariablesSignature retVal;
-      if ( method == null || method.IL == null )
+      if ( tIdx.HasValue )
       {
-         retVal = null;
+         retVal = md?.StandaloneSignatures?.GetOrNull( tIdx.Value.Index )?.Signature as LocalVariablesSignature;
       }
       else
       {
-         var il = method.IL;
-         var tIdx = il.LocalsSignatureIndex;
-         if ( tIdx.HasValue )
-         {
-            var idx = tIdx.Value.Index;
-            var list = md.StandaloneSignatures.TableContents;
-            retVal = idx >= 0 && idx < list.Count ?
-               list[idx].Signature as LocalVariablesSignature :
-               null;
-         }
-         else
-         {
-            retVal = null;
-         }
+         retVal = null;
       }
 
       return retVal;
    }
 
+   /// <summary>
+   /// Gets all the <see cref="MethodDefinition"/>s that are considered to be part of a type at given index.
+   /// </summary>
+   /// <param name="md">The <see cref="CILMetaData"/>.</param>
+   /// <param name="typeDefIndex">The index of type in <see cref="CILMetaData.TypeDefinitions"/> table.</param>
+   /// <returns>The enumerable that will iterate over methods of the type. Will be empty if type has no methods, the <paramref name="typeDefIndex"/> is out of range, or the possible next item in <see cref="CILMetaData.TypeDefinitions"/> will have bad <see cref="TypeDefinition.MethodList"/> index.</returns>
    public static IEnumerable<MethodDefinition> GetTypeMethods( this CILMetaData md, Int32 typeDefIndex )
    {
       return md.GetTypeMethodIndices( typeDefIndex ).Select( idx => md.MethodDefinitions.TableContents[idx] );
@@ -725,19 +724,17 @@ public static partial class E_CILPhysical
       where T : class
    {
       var tableWithReferences = mdTableWithReferences.TableContents;
-      if ( tableWithReferencesIndex < 0 || tableWithReferencesIndex >= tableWithReferences.Count )
+      if ( tableWithReferencesIndex >= 0 && tableWithReferencesIndex < tableWithReferences.Count )
       {
-         throw new ArgumentOutOfRangeException( "Table index." );
-      }
-
-      var min = referenceExtractor( tableWithReferences[tableWithReferencesIndex] );
-      var max = tableWithReferencesIndex < tableWithReferences.Count - 1 ?
-         referenceExtractor( tableWithReferences[tableWithReferencesIndex + 1] ) :
-         targetTableCount;
-      while ( min < max )
-      {
-         yield return min;
-         ++min;
+         var min = referenceExtractor( tableWithReferences[tableWithReferencesIndex] );
+         var max = tableWithReferencesIndex < tableWithReferences.Count - 1 ?
+            referenceExtractor( tableWithReferences[tableWithReferencesIndex + 1] ) :
+            targetTableCount;
+         while ( min < max )
+         {
+            yield return min;
+            ++min;
+         }
       }
    }
 
