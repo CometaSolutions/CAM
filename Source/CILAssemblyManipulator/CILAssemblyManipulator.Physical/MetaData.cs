@@ -35,7 +35,12 @@ namespace CILAssemblyManipulator.Physical
    /// The instances of this interface may be created via static methods of <see cref="CILMetaDataFactory" />.
    /// </summary>
    /// <remarks>
+   /// <para>
+   /// All indices used with the tables of <see cref="CILMetaData"/> are zero-based, i.e. first element is at index <c>0</c>, second at <c>1</c>, etc.
+   /// </para>
+   /// <para>
    /// This interface does not enforce any of the integrity and consistency rules of serialized and loadable metadata files.
+   /// </para>
    /// </remarks>
    /// <seealso cref="CILMetaDataFactory"/>
    /// <seealso cref="MetaDataTable"/>
@@ -669,63 +674,196 @@ public static partial class E_CILPhysical
    /// </summary>
    /// <param name="md">The <see cref="CILMetaData"/>.</param>
    /// <param name="typeDefIndex">The index of type in <see cref="CILMetaData.TypeDefinitions"/> table.</param>
-   /// <returns>The enumerable that will iterate over methods of the type. Will be empty if type has no methods, the <paramref name="typeDefIndex"/> is out of range, or the possible next item in <see cref="CILMetaData.TypeDefinitions"/> will have bad <see cref="TypeDefinition.MethodList"/> index.</returns>
+   /// <returns>The enumerable that will iterate over methods of the type. Will be empty if <paramref name="md"/> is <c>null</c>, the type has no methods, the <paramref name="typeDefIndex"/> is out of range, or the possible next item in <see cref="CILMetaData.TypeDefinitions"/> will have bad <see cref="TypeDefinition.MethodList"/> index.</returns>
+   /// <seealso cref="GetTypeMethodIndices"/>
+   /// <remarks>
+   /// The returned enumerable is reactive in a sense that modifications done to tables e.g. after first iteration but before second iteration will affect the results of second iteration.
+   /// </remarks>
    public static IEnumerable<MethodDefinition> GetTypeMethods( this CILMetaData md, Int32 typeDefIndex )
    {
       return md.GetTypeMethodIndices( typeDefIndex ).Select( idx => md.MethodDefinitions.TableContents[idx] );
    }
 
+   /// <summary>
+   /// Gets all the <see cref="FieldDefinition"/>s that are considered to be part of a type at given index.
+   /// </summary>
+   /// <param name="md">The <see cref="CILMetaData"/>.</param>
+   /// <param name="typeDefIndex">The index of type in <see cref="CILMetaData.TypeDefinitions"/> table.</param>
+   /// <returns>The enumerable that will iterate over fields of the type. Will be empty if <paramref name="md"/> is <c>null</c>, the type has no fields, the <paramref name="typeDefIndex"/> is out of range, or the possible next item in <see cref="CILMetaData.TypeDefinitions"/> will have bad <see cref="TypeDefinition.FieldList"/> index.</returns>
+   /// <seealso cref="GetTypeFieldIndices"/>
+   /// <remarks>
+   /// The returned enumerable is reactive in a sense that modifications done to tables e.g. after first iteration but before second iteration will affect the results of second iteration.
+   /// </remarks>
    public static IEnumerable<FieldDefinition> GetTypeFields( this CILMetaData md, Int32 typeDefIndex )
    {
       return md.GetTypeFieldIndices( typeDefIndex ).Select( idx => md.FieldDefinitions.TableContents[idx] );
    }
 
+   /// <summary>
+   /// Gets all the <see cref="ParameterDefinition"/>s that are considered to be part of a method at given index.
+   /// </summary>
+   /// <param name="md">The <see cref="CILMetaData"/>.</param>
+   /// <param name="methodDefIndex">The index of method in <see cref="CILMetaData.MethodDefinitions"/> table.</param>
+   /// <returns>The enumerable that will iterate over parameters of the methods. Will be empty if <paramref name="md"/> is <c>null</c>, the method has no parameters, the <paramref name="methodDefIndex"/> is out of range, or the possible next item in <see cref="CILMetaData.MethodDefinitions"/> will have bad <see cref="MethodDefinition.ParameterList"/> index.</returns>
+   /// <seealso cref="GetMethodParameterIndices"/>
+   /// <remarks>
+   /// The returned enumerable is reactive in a sense that modifications done to tables e.g. after first iteration but before second iteration will affect the results of second iteration.
+   /// </remarks>
    public static IEnumerable<ParameterDefinition> GetMethodParameters( this CILMetaData md, Int32 methodDefIndex )
    {
       return md.GetMethodParameterIndices( methodDefIndex ).Select( idx => md.ParameterDefinitions.TableContents[idx] );
    }
 
-   public static IEnumerable<PropertyDefinition> GetTypeProperties( this CILMetaData md, Int32 propertyMapIndex )
+   /// <summary>
+   /// Gets all the <see cref="PropertyDefinition"/>s that are considered to be part of a property mapping at given index.
+   /// </summary>
+   /// <param name="md">The <see cref="CILMetaData"/>.</param>
+   /// <param name="propertyMapIndex">The index of method in <see cref="CILMetaData.PropertyMaps"/> table.</param>
+   /// <returns>The enumerable that will iterate over properties of the property mapping. Will be empty if <paramref name="md"/> is <c>null</c>, the property mapping has no properties, the <paramref name="propertyMapIndex"/> is out of range, or the possible next item in <see cref="CILMetaData.PropertyMaps"/> will have bad <see cref="PropertyMap.PropertyList"/> index.</returns>
+   /// <seealso cref="GetPropertyMapPropertyIndices"/>
+   /// <remarks>
+   /// The returned enumerable is reactive in a sense that modifications done to tables e.g. after first iteration but before second iteration will affect the results of second iteration.
+   /// </remarks>
+   public static IEnumerable<PropertyDefinition> GetPropertyMapProperties( this CILMetaData md, Int32 propertyMapIndex )
    {
-      return md.GetTypePropertyIndices( propertyMapIndex ).Select( idx => md.PropertyDefinitions.TableContents[idx] );
+      return md.GetPropertyMapPropertyIndices( propertyMapIndex ).Select( idx => md.PropertyDefinitions.TableContents[idx] );
    }
 
-   public static IEnumerable<EventDefinition> GetTypeEvents( this CILMetaData md, Int32 eventMapIndex )
+   /// <summary>
+   /// Gets all the <see cref="EventDefinition"/>s that are considered to be part of a event mapping at given index.
+   /// </summary>
+   /// <param name="md">The <see cref="CILMetaData"/>.</param>
+   /// <param name="eventMapIndex">The index of method in <see cref="CILMetaData.EventMaps"/> table.</param>
+   /// <returns>The enumerable that will iterate over events of the event mapping. Will be empty if <paramref name="md"/> is <c>null</c>, the event mapping has no events, the <paramref name="eventMapIndex"/> is out of range, or the possible next item in <see cref="CILMetaData.EventMaps"/> will have bad <see cref="EventMap.EventList"/> index.</returns>
+   /// <seealso cref="GetEventMapEventIndices"/>
+   /// <remarks>
+   /// The returned enumerable is reactive in a sense that modifications done to tables e.g. after first iteration but before second iteration will affect the results of second iteration.
+   /// </remarks>
+   public static IEnumerable<EventDefinition> GetEventMapEvents( this CILMetaData md, Int32 eventMapIndex )
    {
-      return md.GetTypeEventIndices( eventMapIndex ).Select( idx => md.EventDefinitions.TableContents[idx] );
+      return md.GetEventMapEventIndices( eventMapIndex ).Select( idx => md.EventDefinitions.TableContents[idx] );
    }
 
+   /// <summary>
+   /// Gets the indices of all the <see cref="MethodDefinition"/>s that are considered to be part of a type at given index.
+   /// </summary>
+   /// <param name="md">The <see cref="CILMetaData"/>.</param>
+   /// <param name="typeDefIndex">The index of type in <see cref="CILMetaData.TypeDefinitions"/> table.</param>
+   /// <returns>The enumerable that will iterate over method indices of the type. Will be empty if <paramref name="md"/> is <c>null</c>, the type has no methods, the <paramref name="typeDefIndex"/> is out of range, or the possible next item in <see cref="CILMetaData.TypeDefinitions"/> will have bad <see cref="TypeDefinition.MethodList"/> index.</returns>
+   /// <seealso cref="GetTypeMethods"/>
+   /// <remarks>
+   /// The returned enumerable is reactive in a sense that modifications done to tables e.g. after first iteration but before second iteration will affect the results of second iteration.
+   /// </remarks>
    public static IEnumerable<Int32> GetTypeMethodIndices( this CILMetaData md, Int32 typeDefIndex )
    {
-      return md.TypeDefinitions.GetTargetIndicesForAscendingReferenceListTable( md.MethodDefinitions.GetRowCount(), typeDefIndex, td => td.MethodList.Index );
+      return md == null ? Empty<Int32>.Enumerable : md.TypeDefinitions.GetTargetIndicesForAscendingReferenceListTable( typeDefIndex, md.MethodDefinitions.GetRowCount(), td => td.MethodList.Index );
    }
 
+   /// <summary>
+   /// Gets the indices of all the <see cref="FieldDefinition"/>s that are considered to be part of a type at given index.
+   /// </summary>
+   /// <param name="md">The <see cref="CILMetaData"/>.</param>
+   /// <param name="typeDefIndex">The index of type in <see cref="CILMetaData.TypeDefinitions"/> table.</param>
+   /// <returns>The enumerable that will iterate over indices of fields of the type. Will be empty if <paramref name="md"/> is <c>null</c>, the type has no fields, the <paramref name="typeDefIndex"/> is out of range, or the possible next item in <see cref="CILMetaData.TypeDefinitions"/> will have bad <see cref="TypeDefinition.FieldList"/> index.</returns>
+   /// <seealso cref="GetTypeFields"/>
+   /// <remarks>
+   /// The returned enumerable is reactive in a sense that modifications done to tables e.g. after first iteration but before second iteration will affect the results of second iteration.
+   /// </remarks>
    public static IEnumerable<Int32> GetTypeFieldIndices( this CILMetaData md, Int32 typeDefIndex )
    {
-      return md.TypeDefinitions.GetTargetIndicesForAscendingReferenceListTable( md.FieldDefinitions.GetRowCount(), typeDefIndex, td => td.FieldList.Index );
+      return md == null ? Empty<Int32>.Enumerable : md.TypeDefinitions.GetTargetIndicesForAscendingReferenceListTable( typeDefIndex, md.FieldDefinitions.GetRowCount(), td => td.FieldList.Index );
    }
 
+   /// <summary>
+   /// Gets the indices of all the <see cref="ParameterDefinition"/>s that are considered to be part of a method at given index.
+   /// </summary>
+   /// <param name="md">The <see cref="CILMetaData"/>.</param>
+   /// <param name="methodDefIndex">The index of method in <see cref="CILMetaData.MethodDefinitions"/> table.</param>
+   /// <returns>The enumerable that will iterate over indices of parameters of the methods. Will be empty if <paramref name="md"/> is <c>null</c>, the method has no parameters, the <paramref name="methodDefIndex"/> is out of range, or the possible next item in <see cref="CILMetaData.MethodDefinitions"/> will have bad <see cref="MethodDefinition.ParameterList"/> index.</returns>
+   /// <seealso cref="GetMethodParameters"/>
+   /// <remarks>
+   /// The returned enumerable is reactive in a sense that modifications done to tables e.g. after first iteration but before second iteration will affect the results of second iteration.
+   /// </remarks>
    public static IEnumerable<Int32> GetMethodParameterIndices( this CILMetaData md, Int32 methodDefIndex )
    {
-      return md.MethodDefinitions.GetTargetIndicesForAscendingReferenceListTable( md.ParameterDefinitions.GetRowCount(), methodDefIndex, mdef => mdef.ParameterList.Index );
+      return md == null ? Empty<Int32>.Enumerable : md.MethodDefinitions.GetTargetIndicesForAscendingReferenceListTable( methodDefIndex, md.ParameterDefinitions.GetRowCount(), mdef => mdef.ParameterList.Index );
    }
 
-   public static IEnumerable<Int32> GetTypePropertyIndices( this CILMetaData md, Int32 propertyMapIndex )
+   /// <summary>
+   /// Gets the indices of all the <see cref="PropertyDefinition"/>s that are considered to be part of a property mapping at given index.
+   /// </summary>
+   /// <param name="md">The <see cref="CILMetaData"/>.</param>
+   /// <param name="propertyMapIndex">The index of method in <see cref="CILMetaData.PropertyMaps"/> table.</param>
+   /// <returns>The enumerable that will iterate over indices of properties of the property mapping. Will be empty if <paramref name="md"/> is <c>null</c>, the property mapping has no properties, the <paramref name="propertyMapIndex"/> is out of range, or the possible next item in <see cref="CILMetaData.PropertyMaps"/> will have bad <see cref="PropertyMap.PropertyList"/> index.</returns>
+   /// <seealso cref="GetPropertyMapProperties"/>
+   /// <remarks>
+   /// The returned enumerable is reactive in a sense that modifications done to tables e.g. after first iteration but before second iteration will affect the results of second iteration.
+   /// </remarks>
+   public static IEnumerable<Int32> GetPropertyMapPropertyIndices( this CILMetaData md, Int32 propertyMapIndex )
    {
-      return md.PropertyMaps.GetTargetIndicesForAscendingReferenceListTable( md.PropertyDefinitions.GetRowCount(), propertyMapIndex, pMap => pMap.PropertyList.Index );
+      return md == null ? Empty<Int32>.Enumerable : md.PropertyMaps.GetTargetIndicesForAscendingReferenceListTable( propertyMapIndex, md.PropertyDefinitions.GetRowCount(), pMap => pMap.PropertyList.Index );
    }
 
-   public static IEnumerable<Int32> GetTypeEventIndices( this CILMetaData md, Int32 eventMapIndex )
+   /// <summary>
+   /// Gets the indices of all the <see cref="EventDefinition"/>s that are considered to be part of a event mapping at given index.
+   /// </summary>
+   /// <param name="md">The <see cref="CILMetaData"/>.</param>
+   /// <param name="eventMapIndex">The index of method in <see cref="CILMetaData.EventMaps"/> table.</param>
+   /// <returns>The enumerable that will iterate over indices of events of the event mapping. Will be empty if <paramref name="md"/> is <c>null</c>, the event mapping has no events, the <paramref name="eventMapIndex"/> is out of range, or the possible next item in <see cref="CILMetaData.EventMaps"/> will have bad <see cref="EventMap.EventList"/> index.</returns>
+   /// <seealso cref="GetEventMapEvents"/>
+   /// <remarks>
+   /// The returned enumerable is reactive in a sense that modifications done to tables e.g. after first iteration but before second iteration will affect the results of second iteration.
+   /// </remarks>
+   public static IEnumerable<Int32> GetEventMapEventIndices( this CILMetaData md, Int32 eventMapIndex )
    {
-      return md.EventMaps.GetTargetIndicesForAscendingReferenceListTable( md.EventDefinitions.GetRowCount(), eventMapIndex, eMap => eMap.EventList.Index );
+      return md == null ? Empty<Int32>.Enumerable : md.EventMaps.GetTargetIndicesForAscendingReferenceListTable( eventMapIndex, md.EventDefinitions.GetRowCount(), eMap => eMap.EventList.Index );
    }
 
-   internal static IEnumerable<Int32> GetTargetIndicesForAscendingReferenceListTable<T>( this MetaDataTable<T> mdTableWithReferences, Int32 targetTableCount, Int32 tableWithReferencesIndex, Func<T, Int32> referenceExtractor )
+   /// <summary>
+   /// Generic method to fetch indices of rows from target table, when source table references a continuous list of target rows with single item.
+   /// These kind of references are <see cref="TypeDefinition.FieldList"/>, <see cref="TypeDefinition.MethodList"/>, <see cref="MethodDefinition.ParameterList"/>, <see cref="EventMap.EventList"/> and <see cref="PropertyMap.PropertyList"/>.
+   /// </summary>
+   /// <typeparam name="T">The type of source table rows.</typeparam>
+   /// <param name="mdTableWithReferences">The source table.</param>
+   /// <param name="tableWithReferencesIndex">The index of row in source table.</param>
+   /// <param name="targetTableCount">The target table count</param>
+   /// <param name="referenceExtractor">The callback to extract target table index from row in source table.</param>
+   /// <returns>The enumerable that will return indices in target table. Will be empty if <paramref name="mdTableWithReferences"/> is <c>null</c>.</returns>
+   /// <seealso cref="GetTypeFields"/>
+   /// <seealso cref="GetTypeFieldIndices"/>
+   /// <seealso cref="GetTypeMethods"/>
+   /// <seealso cref="GetTypeMethodIndices"/>
+   /// <seealso cref="GetMethodParameters"/>
+   /// <seealso cref="GetMethodParameterIndices"/>
+   /// <seealso cref="GetEventMapEvents"/>
+   /// <seealso cref="GetEventMapEventIndices"/>
+   /// <seealso cref="GetPropertyMapProperties"/>
+   /// <seealso cref="GetPropertyMapPropertyIndices"/>
+   /// <remarks>
+   /// <para>
+   /// The returned enumerable is reactive in a sense that modifications done to tables e.g. after first iteration but before second iteration will affect the results of second iteration.
+   /// </para>
+   /// <para>
+   /// This method is intended to be used by libraries providing additional metadata tables.
+   /// </para>
+   /// </remarks>
+   /// <exception cref="ArgumentNullException">If <paramref name="referenceExtractor"/> is <c>null</c> when it is needed.</exception>
+   public static IEnumerable<Int32> GetTargetIndicesForAscendingReferenceListTable<T>(
+      this MetaDataTable<T> mdTableWithReferences,
+      Int32 tableWithReferencesIndex,
+      Int32 targetTableCount,
+      Func<T, Int32> referenceExtractor
+      )
       where T : class
    {
-      var tableWithReferences = mdTableWithReferences.TableContents;
-      if ( tableWithReferencesIndex >= 0 && tableWithReferencesIndex < tableWithReferences.Count )
+      var tableWithReferences = mdTableWithReferences?.TableContents;
+      if (
+         tableWithReferences != null
+         && tableWithReferencesIndex >= 0
+         && tableWithReferencesIndex < tableWithReferences.Count )
       {
+         ArgumentValidator.ValidateNotNull( "Reference extractor", referenceExtractor );
+
          var min = referenceExtractor( tableWithReferences[tableWithReferencesIndex] );
          var max = tableWithReferencesIndex < tableWithReferences.Count - 1 ?
             referenceExtractor( tableWithReferences[tableWithReferencesIndex + 1] ) :
@@ -736,173 +874,225 @@ public static partial class E_CILPhysical
             ++min;
          }
       }
+
    }
 
+   /// <summary>
+   /// Gets all the <see cref="FileReference"/>s that are marked to be containing meta data.
+   /// </summary>
+   /// <param name="md">The <see cref="CILMetaData"/>.</param>
+   /// <returns>All the <see cref="FileReference"/>s that are marked to be containing meta data. Will be empty if <paramref name="md"/> is <c>null</c>.</returns>
    public static IEnumerable<FileReference> GetModuleFileReferences( this CILMetaData md )
    {
-      return md.FileReferences.TableContents.Where( f => f.Attributes.ContainsMetadata() );
+      return md?.FileReferences?.TableContents?.Where( f => f.Attributes.ContainsMetadata() ) ?? Empty<FileReference>.Enumerable;
    }
 
+   /// <summary>
+   /// Given the index of possibly enum type, tries to get the index of the field that is the enum value field.
+   /// </summary>
+   /// <param name="md">The <see cref="CILMetaData"/>.</param>
+   /// <param name="tDefIndex">The index of type in <see cref="CILMetaData.TypeDefinitions"/> table.</param>
+   /// <param name="enumValueFieldIndex">If succeeded, this parameter will contain the index of the field in <see cref="CILMetaData.FieldDefinitions"/> table. Otherwise it will be <c>-1</c>.</param>
+   /// <returns><c>true</c> if succeeded; <c>false</c> otherwise.</returns>
+   /// <remarks>
+   /// Current logic is to check that the base type of <see cref="TypeDefinition"/> at given index is <c>System.Enum</c>, and then to try fetch the first non-static field of the given type.
+   /// </remarks>
    public static Boolean TryGetEnumValueFieldIndex(
-   this CILMetaData md,
-   Int32 tDefIndex,
-   out Int32 enumValueFieldIndex
-   )
+      this CILMetaData md,
+      Int32 tDefIndex,
+      out Int32 enumValueFieldIndex
+      )
    {
-      var typeRow = md.TypeDefinitions.GetOrNull( tDefIndex );
+      var typeRow = md?.TypeDefinitions?.GetOrNull( tDefIndex );
       enumValueFieldIndex = -1;
-      if ( typeRow != null )
+      if ( typeRow != null && md.IsEnum( typeRow.BaseType ) )
       {
-         var extendInfo = typeRow.BaseType;
-         if ( extendInfo.HasValue )
-         {
-            var isEnum = md.IsEnum( extendInfo );
-            if ( isEnum )
-            {
-               // First non-static field of enum type is the field containing enum value
-               var fDefs = md.FieldDefinitions.TableContents;
-               enumValueFieldIndex = md.GetTypeFieldIndices( tDefIndex )
-                  .Where( i => i < fDefs.Count && !fDefs[i].Attributes.IsStatic() )
-                  .FirstOrDefaultCustom( -1 );
-            }
-         }
+         // First non-static field of enum type is the field containing enum value
+         var fDefs = md.FieldDefinitions.TableContents;
+         enumValueFieldIndex = md.GetTypeFieldIndices( tDefIndex )
+            .Where( i => i < fDefs.Count && !fDefs[i].Attributes.IsStatic() )
+            .FirstOrDefaultCustom( -1 );
       }
-
 
       return enumValueFieldIndex >= 0;
    }
 
-   public static Boolean IsEnum(
-      this CILMetaData md,
-      TableIndex? tIdx
-      )
+   /// <summary>
+   /// Checks whether type at given index is considered to be a <c>System.Enum</c> type.
+   /// </summary>
+   /// <param name="md">The <see cref="CILMetaData"/>.</param>
+   /// <param name="tIdx">The <see cref="TableIndex"/> nullable.</param>
+   /// <returns><c>true</c> if <paramref name="md"/> and <paramref name="tIdx"/> are both non-<c>null</c>, and the <see cref="TableIndex.Table"/> of <paramref name="tIdx"/> is <see cref="Tables.TypeDef"/> or <see cref="Tables.TypeRef"/>, and that the type is considered to be <c>System.Enum</c> by <see cref="IsSystemType"/> method; <c>false</c> otherwise.</returns>
+   public static Boolean IsEnum( this CILMetaData md, TableIndex? tIdx )
    {
       return md.IsSystemType( tIdx, Consts.ENUM_NAMESPACE, Consts.ENUM_TYPENAME );
    }
 
-   internal static Boolean IsTypeType( this CILMetaData md, TableIndex? tIdx )
+   /// <summary>
+   /// Checks whether type at given index is considered to be a <c>System.Type</c> type.
+   /// </summary>
+   /// <param name="md">The <see cref="CILMetaData"/>.</param>
+   /// <param name="tIdx">The <see cref="TableIndex"/> nullable.</param>
+   /// <returns><c>true</c> if <paramref name="md"/> and <paramref name="tIdx"/> are both non-<c>null</c>, and the <see cref="TableIndex.Table"/> of <paramref name="tIdx"/> is <see cref="Tables.TypeDef"/> or <see cref="Tables.TypeRef"/>, and that the type is considered to be <c>System.Type</c> by <see cref="IsSystemType"/> method; <c>false</c> otherwise.</returns>
+   public static Boolean IsTypeType( this CILMetaData md, TableIndex? tIdx )
    {
       return md.IsSystemType( tIdx, Consts.TYPE_NAMESPACE, Consts.TYPE_TYPENAME );
    }
 
-   internal static Boolean IsSystemObjectType( this CILMetaData md, TableIndex tIdx )
+   /// <summary>
+   /// Checks whether type at given index is considered to be a <c>System.Object</c> type.
+   /// </summary>
+   /// <param name="md">The <see cref="CILMetaData"/>.</param>
+   /// <param name="tIdx">The <see cref="TableIndex"/> nullable.</param>
+   /// <returns><c>true</c> if <paramref name="md"/> and <paramref name="tIdx"/> are both non-<c>null</c>, and the <see cref="TableIndex.Table"/> of <paramref name="tIdx"/> is <see cref="Tables.TypeDef"/> or <see cref="Tables.TypeRef"/>, and that the type is considered to be <c>System.Object</c> by <see cref="IsSystemType"/> method; <c>false</c> otherwise.</returns>
+   public static Boolean IsSystemObjectType( this CILMetaData md, TableIndex tIdx )
    {
       return md.IsSystemType( tIdx, Consts.SYSTEM_OBJECT_NAMESPACE, Consts.SYSTEM_OBJECT_TYPENAME );
    }
 
-   internal static Boolean IsSystemType(
+   /// <summary>
+   /// Checks whether type at given table index is a system type with given namespace and name.
+   /// </summary>
+   /// <param name="md">The <see cref="CILMetaData"/>.</param>
+   /// <param name="tIdx">The <see cref="TableIndex"/> nullable.</param>
+   /// <param name="systemNS">The namespace that the type should have.</param>
+   /// <param name="systemTN">The name that the type should have.</param>
+   /// <returns>
+   /// <c>true</c> if <paramref name="md"/> and <paramref name="tIdx"/> are both non-<c>null</c>, and the <see cref="TableIndex.Table"/> of <paramref name="tIdx"/> is <see cref="Tables.TypeDef"/> or <see cref="Tables.TypeRef"/>, and that the <see cref="TypeReference.ResolutionScope"/> in case of <see cref="Tables.TypeRef"/> is <see cref="Tables.ModuleRef"/> or <see cref="Tables.AssemblyRef"/>, and if the namespace and name match; <c>false</c> otherwise.
+   /// </returns>
+   public static Boolean IsSystemType(
       this CILMetaData md,
       TableIndex? tIdx,
       String systemNS,
       String systemTN
       )
    {
-      var result = tIdx.HasValue && tIdx.Value.Table != Tables.TypeSpec;
-
+      var result = md != null;
       if ( result )
       {
-         var tIdxValue = tIdx.Value;
-         var table = tIdxValue.Table;
-         var idx = tIdxValue.Index;
-
-         String tn = null, ns = null;
-         if ( table == Tables.TypeDef )
-         {
-            var tDefs = md.TypeDefinitions.TableContents;
-            result = idx < tDefs.Count;
-            if ( result )
-            {
-               tn = tDefs[idx].Name;
-               ns = tDefs[idx].Namespace;
-            }
-         }
-         else if ( table == Tables.TypeRef )
-         {
-            var tRef = md.TypeReferences.GetOrNull( idx );
-            result = tRef != null
-               && tRef.ResolutionScope.HasValue
-               && ( tRef.ResolutionScope.Value.Table == Tables.Module || tRef.ResolutionScope.Value.Table == Tables.AssemblyRef ); // TODO check for 'mscorlib', except that sometimes it may be System.Runtime ...
-            if ( result )
-            {
-               tn = tRef.Name;
-               ns = tRef.Namespace;
-            }
-         }
+         result = tIdx.HasValue && tIdx.Value.Table != Tables.TypeSpec;
 
          if ( result )
          {
-            result = String.Equals( tn, systemTN ) && String.Equals( ns, systemNS );
+            var tIdxValue = tIdx.Value;
+            var table = tIdxValue.Table;
+            var idx = tIdxValue.Index;
+
+            String tn = null, ns = null;
+            if ( table == Tables.TypeDef )
+            {
+               var tDefs = md.TypeDefinitions.TableContents;
+               result = idx < tDefs.Count;
+               if ( result )
+               {
+                  tn = tDefs[idx].Name;
+                  ns = tDefs[idx].Namespace;
+               }
+            }
+            else if ( table == Tables.TypeRef )
+            {
+               var tRef = md.TypeReferences.GetOrNull( idx );
+               result = tRef != null
+                  && tRef.ResolutionScope.HasValue
+                  && ( tRef.ResolutionScope.Value.Table == Tables.Module || tRef.ResolutionScope.Value.Table == Tables.AssemblyRef ); // TODO check for 'mscorlib', except that sometimes it may be System.Runtime ...
+               if ( result )
+               {
+                  tn = tRef.Name;
+                  ns = tRef.Namespace;
+               }
+            }
+
+            if ( result )
+            {
+               result = String.Equals( tn, systemTN ) && String.Equals( ns, systemNS );
+            }
          }
       }
       return result;
    }
 
+   /// <summary>
+   /// This method will return enumerable returning the full type names of types in <see cref="CILMetaData.TypeDefinitions"/> table, taking the nested types into account.
+   /// </summary>
+   /// <param name="md">The <see cref="CILMetaData"/>.</param>
+   /// <returns>Enumerable with full type names of types in <see cref="CILMetaData.TypeDefinitions"/> table. Will be empty if the table is empty or if <paramref name="md"/> is <c>null</c>.</returns>
+   /// <remarks>
+   /// The returned enumerable is reactive in a sense that modifications done to tables e.g. after first iteration but before second iteration will affect the results of second iteration.
+   /// </remarks>
    public static IEnumerable<String> GetTypeDefinitionsFullNames( this CILMetaData md )
    {
-      var ncInfo = new Dictionary<Int32, Int32>();
-      foreach ( var nc in md.NestedClassDefinitions.TableContents )
+      if ( md != null )
       {
-         ncInfo[nc.NestedClass.Index] = nc.EnclosingClass.Index;
-      }
-
-      var tDefs = md.TypeDefinitions.TableContents;
-      var enclosingTypeCache = new Dictionary<Int32, String>();
-      for ( var i = 0; i < tDefs.Count; ++i )
-      {
-         var thisIdx = i;
-         Int32 enclosingType;
-         if ( tDefs[thisIdx].Name == "LogicalCreationState" )
+         var ncInfo = new Dictionary<Int32, Int32>();
+         foreach ( var nc in md.NestedClassDefinitions.TableContents )
          {
-
+            ncInfo[nc.NestedClass.Index] = nc.EnclosingClass.Index;
          }
-         if ( ncInfo.TryGetValue( thisIdx, out enclosingType ) )
+
+         var tDefs = md.TypeDefinitions.TableContents;
+         var enclosingTypeCache = new Dictionary<Int32, String>();
+         for ( var i = 0; i < tDefs.Count; ++i )
          {
-            String typeStr;
-            if ( !enclosingTypeCache.TryGetValue( thisIdx, out typeStr ) )
+            var thisIdx = i;
+            Int32 enclosingType;
+            if ( ncInfo.TryGetValue( thisIdx, out enclosingType ) )
             {
-               var thisTDef = tDefs[thisIdx];
-               // This should by all logic always return at least 2-element array
-               var enclosingTypeChain = thisIdx.AsSingleBranchEnumerableWithLoopDetection(
-                  cur =>
-                  {
-                     Int32 idx;
-                     return ncInfo.TryGetValue( cur, out idx ) ? idx : -1;
-                  },
-                  cur => cur == -1,
-                  true )
-                  .ToArray();
-
-               // Check if we have cached immediately enclosing type
-               if ( enclosingTypeCache.TryGetValue( enclosingTypeChain[1], out typeStr ) )
+               String typeStr;
+               if ( !enclosingTypeCache.TryGetValue( thisIdx, out typeStr ) )
                {
-                  typeStr = Miscellaneous.CombineEnclosingAndNestedType( typeStr, thisTDef.Name );
-                  enclosingTypeCache.Add( thisIdx, typeStr );
-               }
-               else
-               {
-                  // Build type string
-                  var topLevelIdx = enclosingTypeChain[enclosingTypeChain.Length - 1];
-                  typeStr = Miscellaneous.CombineNamespaceAndType( tDefs[topLevelIdx].Namespace, tDefs[topLevelIdx].Name );
-                  enclosingTypeCache.Add( topLevelIdx, typeStr );
+                  var thisTDef = tDefs[thisIdx];
+                  // This should by all logic always return at least 2-element array
+                  var enclosingTypeChain = thisIdx.AsSingleBranchEnumerableWithLoopDetection(
+                     cur =>
+                     {
+                        Int32 idx;
+                        return ncInfo.TryGetValue( cur, out idx ) ? idx : -1;
+                     },
+                     cur => cur == -1,
+                     true )
+                     .ToArray();
 
-                  for ( var j = enclosingTypeChain.Length - 2; j >= 0; --j )
+                  // Check if we have cached immediately enclosing type
+                  if ( enclosingTypeCache.TryGetValue( enclosingTypeChain[1], out typeStr ) )
                   {
-                     var curIdx = enclosingTypeChain[j];
-                     typeStr += Miscellaneous.NESTED_TYPE_SEPARATOR + tDefs[curIdx].Name;
-                     enclosingTypeCache.Add( curIdx, typeStr );
+                     typeStr = Miscellaneous.CombineEnclosingAndNestedType( typeStr, thisTDef.Name );
+                     enclosingTypeCache.Add( thisIdx, typeStr );
+                  }
+                  else
+                  {
+                     // Build type string
+                     var topLevelIdx = enclosingTypeChain[enclosingTypeChain.Length - 1];
+                     typeStr = Miscellaneous.CombineNamespaceAndType( tDefs[topLevelIdx].Namespace, tDefs[topLevelIdx].Name );
+                     enclosingTypeCache.Add( topLevelIdx, typeStr );
+
+                     for ( var j = enclosingTypeChain.Length - 2; j >= 0; --j )
+                     {
+                        var curIdx = enclosingTypeChain[j];
+                        typeStr += Miscellaneous.NESTED_TYPE_SEPARATOR + tDefs[curIdx].Name;
+                        enclosingTypeCache.Add( curIdx, typeStr );
+                     }
                   }
                }
-            }
 
-            yield return typeStr;
-         }
-         else
-         {
-            yield return Miscellaneous.CombineNamespaceAndType( tDefs[i].Namespace, tDefs[i].Name );
+               yield return typeStr;
+            }
+            else
+            {
+               yield return Miscellaneous.CombineNamespaceAndType( tDefs[i].Namespace, tDefs[i].Name );
+            }
          }
       }
    }
 
+   /// <summary>
+   /// Gets a row located at given <see cref="TableIndex"/>.
+   /// </summary>
+   /// <param name="md">The <see cref="CILMetaData"/>.</param>
+   /// <param name="index">The <see cref="TableIndex"/>.</param>
+   /// <returns>The row at given table index.</returns>
+   /// <exception cref="NullReferenceException">If <paramref name="md"/> is <c>null</c>.</exception>
+   /// <exception cref="ArgumentOutOfRangeException">If <paramref name="md"/> had the table present, but the index was out of range.</exception>
+   /// <exception cref="InvalidOperationException">If <paramref name="md"/> did not have the table present.</exception>
    public static Object GetByTableIndex( this CILMetaData md, TableIndex index )
    {
       Object retVal;
@@ -923,21 +1113,36 @@ public static partial class E_CILPhysical
    }
 
 
+   /// <summary>
+   /// Tries to retrieve a row at given <see cref="TableIndex"/>.
+   /// </summary>
+   /// <param name="md">The <see cref="CILMetaData"/>.</param>
+   /// <param name="index">The <see cref="TableIndex"/>.</param>
+   /// <param name="row">This parameter will have the row, if the operation is succesful; otherwise it will be <c>null</c>. Use the return value to differentiate row which was fetched but still was <c>null</c>.</param>
+   /// <returns><c>true</c> if <paramref name="md"/> was not <c>null</c>, had a representation of <see cref="TableIndex.Table"/> of <paramref name="index"/>, and <see cref="TableIndex.Index"/> pointed into existing item in the <see cref="MetaDataTable.TableContentsNotGeneric"/>; <c>false</c> otherwise.</returns>
    public static Boolean TryGetByTableIndex( this CILMetaData md, TableIndex index, out Object row )
    {
-      MetaDataTable table;
-      var retVal = md.TryGetByTable( (Int32) index.Table, out table );
-
+      var retVal = md != null;
       if ( retVal )
       {
-         var list = table.TableContentsNotGeneric;
-         if ( index.Index <= list.Count )
+         MetaDataTable table;
+         retVal = md.TryGetByTable( (Int32) index.Table, out table );
+
+         if ( retVal )
          {
-            row = list[index.Index];
+            var list = table.TableContentsNotGeneric;
+            if ( index.Index <= list.Count )
+            {
+               row = list[index.Index];
+            }
+            else
+            {
+               retVal = false;
+               row = null;
+            }
          }
          else
          {
-            retVal = false;
             row = null;
          }
       }
@@ -949,6 +1154,13 @@ public static partial class E_CILPhysical
       return retVal;
    }
 
+   /// <summary>
+   /// Gets the index of the row which the row would have it would be appended to a given table.
+   /// </summary>
+   /// <param name="md">The <see cref="CILMetaData"/>.</param>
+   /// <param name="table">The <see cref="Tables"/>.</param>
+   /// <returns>A new <see cref="TableIndex"/> with <see cref="TableIndex.Table"/> being given <paramref name="table"/>, and <see cref="TableIndex.Index"/> being the row count of the given table in <paramref name="md"/>.</returns>
+   /// <exception cref="NullReferenceException">If <paramref name="md"/> is <c>null</c>.</exception>
    public static TableIndex GetNextTableIndexFor( this CILMetaData md, Tables table )
    {
       return new TableIndex( table, md.GetByTable( (Int32) table ).GetRowCount() );

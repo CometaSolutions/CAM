@@ -1828,7 +1828,7 @@ public static partial class E_CILLogical
       for ( var i = 0; i < pMaps.Count; ++i )
       {
          var type = state.GetTypeDef( pMaps[i].Parent.Index );
-         foreach ( var propIdx in md.GetTypePropertyIndices( i ) )
+         foreach ( var propIdx in md.GetPropertyMapPropertyIndices( i ) )
          {
             var prop = md.PropertyDefinitions.TableContents[propIdx];
             var cilProp = type.AddProperty( prop.Name, prop.Attributes );
@@ -1842,7 +1842,7 @@ public static partial class E_CILLogical
       for ( var i = 0; i < eMaps.Count; ++i )
       {
          var type = state.GetTypeDef( eMaps[i].Parent.Index );
-         foreach ( var evtIdx in md.GetTypeEventIndices( i ) )
+         foreach ( var evtIdx in md.GetEventMapEventIndices( i ) )
          {
             var evt = md.EventDefinitions.TableContents[evtIdx];
             var cilEvt = type.AddEvent( evt.Name, evt.Attributes, state.ResolveTypeDefOrRefOrSpec( evt.EventType, type, null ) );

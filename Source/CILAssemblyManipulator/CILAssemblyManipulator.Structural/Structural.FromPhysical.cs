@@ -340,14 +340,14 @@ public static partial class E_CILStructural
       var pMaps = md.PropertyMaps.TableContents;
       for ( var i = 0; i < pMaps.Count; ++i )
       {
-         tDefList[pMaps[i].Parent.Index].Properties.AddRange( md.GetTypePropertyIndices( i ).Select( propIdx => propDefList[propIdx] ) );
+         tDefList[pMaps[i].Parent.Index].Properties.AddRange( md.GetPropertyMapPropertyIndices( i ).Select( propIdx => propDefList[propIdx] ) );
       }
 
       // Events
       var eMaps = md.EventMaps.TableContents;
       for ( var i = 0; i < eMaps.Count; ++i )
       {
-         tDefList[eMaps[i].Parent.Index].Events.AddRange( md.GetTypeEventIndices( i ).Select( evtIdx => evtDefList[evtIdx] ) );
+         tDefList[eMaps[i].Parent.Index].Events.AddRange( md.GetEventMapEventIndices( i ).Select( evtIdx => evtDefList[evtIdx] ) );
       }
 
       // Method Semantics
