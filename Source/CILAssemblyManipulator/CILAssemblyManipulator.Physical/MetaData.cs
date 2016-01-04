@@ -1166,19 +1166,29 @@ public static partial class E_CILPhysical
       return new TableIndex( table, md.GetByTable( (Int32) table ).GetRowCount() );
    }
 
-   // Assumes that all lists of CILMetaData have only non-null elements.
-   // TypeDef and MethodDef can not have duplicate instances of same object!!
-   // Assumes that MethodList, FieldList indices in TypeDef and ParameterList in MethodDef are all ordered correctly.
-   // TODO check that everything works even though <Module> class is not a first row in TypeDef table
-   // Duplicates *not* checked from the following tables:
-   // TypeDef
-   // MethodDef
-   // FieldDef
-   // PropertyDef
-   // EventDef
-   // ExportedType
-
-
+   /// <summary>
+   /// This method will re-order some tables and modify the rows and signatures of the rows appropriately.
+   /// The rules for re-ordering are the ones found in ECMA-335 standard, and after this method completes, the given <see cref="CILMetaData"/> will be adhering to these rules.
+   /// </summary>
+   /// <param name="md">The <see cref="CILMetaData"/>.</param>
+   /// <returns>An array containinting re-ordering information for each table. The first index of array is table index, and then the integer at index <c>x</c> will tell the new index of the row that previously was at index <c>x</c>.</returns>
+   /// <remarks>
+   /// <para>
+   /// This method assumes that each row in each metadata table is not <c>null</c>, and will produce incorrect results, if that is the case.
+   /// </para>
+   /// <para>
+   /// The following talbes are not checked for duplicates:
+   /// <list type="bullet">
+   /// <item><description><see cref="Tables.TypeDef"/>,</description></item>
+   /// <item><description><see cref="Tables.MethodDef"/>,</description></item>
+   /// <item><description><see cref="Tables.Field"/>,</description></item>
+   /// <item><description><see cref="Tables.Property"/>,</description></item>
+   /// <item><description><see cref="Tables.Event"/>, and</description></item>
+   /// <item><description><see cref="Tables.ExportedType"/>.</description></item>
+   /// </list>
+   /// </para>
+   /// </remarks>
+   /// <exception cref="NullReferenceException">If <paramref name="md"/> is <c>null</c>.</exception>
    public static Int32[][] OrderTablesAndRemoveDuplicates( this CILMetaData md )
    {
       // TODO maybe just create a new CILMetaData which would be a sorted version of this??
@@ -1189,18 +1199,23 @@ public static partial class E_CILPhysical
       var reorderState = new MetaDataReOrderState( md );
 
       // Start by re-ordering structural (TypeDef, MethodDef, ParamDef, Field, NestedClass) tables
+      // Phase 1: ReOrderTablesThatCantHaveDuplicates
       reorderState.ReOrderStructuralTables();
 
       // Keep updating and removing duplicates from TypeRef, TypeSpec, MemberRef, MethodSpec, StandaloneSignature and Property tables, while updating all signatures and IL code
+      // Phase 2. RemoveDuplicatesAndUpdateAttachedDataStructures
       reorderState.UpdateSignaturesAndILWhileRemovingDuplicates();
 
       // Update and sort the remaining tables which don't have signatures
+      // Phase 3. SortTablesAndUpdateReferences
       reorderState.UpdateAndSortTablesWithNoSignatures();
 
       // Remove duplicates
+      // This is not callbackable phase - do it right here
       reorderState.RemoveDuplicatesAfterSorting();
 
       // Sort exception blocks of all ILs
+      // This should be in phase 3
       md.SortMethodILExceptionBlocks();
 
       return reorderState.FinalIndices;
@@ -1534,40 +1549,13 @@ public static partial class E_CILPhysical
       {
          var table = kvp.Key;
          var indices = kvp.Value;
-         switch ( table )
-         {
-            case Tables.AssemblyRef:
-               md.AssemblyReferences.RemoveDuplicatesFromTable( indices );
-               break;
-            case Tables.ModuleRef:
-               md.ModuleReferences.RemoveDuplicatesFromTable( indices );
-               break;
-            case Tables.TypeSpec:
-               md.TypeSpecifications.RemoveDuplicatesFromTable( indices );
-               break;
-            case Tables.TypeRef:
-               md.TypeReferences.RemoveDuplicatesFromTable( indices );
-               break;
-            case Tables.MemberRef:
-               md.MemberReferences.RemoveDuplicatesFromTable( indices );
-               break;
-            case Tables.MethodSpec:
-               md.MethodSpecifications.RemoveDuplicatesFromTable( indices );
-               break;
-            case Tables.StandaloneSignature:
-               md.StandaloneSignatures.RemoveDuplicatesFromTable( indices );
-               break;
-            case Tables.NestedClass:
-               md.NestedClassDefinitions.RemoveDuplicatesFromTable( indices );
-               break;
-         }
+         md.GetByTable( (Int32) table ).RemoveDuplicatesFromTable( indices );
       }
    }
 
-   private static void RemoveDuplicatesFromTable<T>( this MetaDataTable<T> mdTable, IDictionary<Int32, Int32> indices )
-      where T : class
+   private static void RemoveDuplicatesFromTable( this MetaDataTable mdTable, IDictionary<Int32, Int32> indices )
    {
-      var table = mdTable.TableContents;
+      var table = mdTable.TableContentsNotGeneric;
       var max = table.Count;
       for ( Int32 curIdx = 0, originalIdx = 0; originalIdx < max; ++originalIdx )
       {
@@ -1679,10 +1667,6 @@ public static partial class E_CILPhysical
    private static void ProcessSingleTableIndexToUpdateWithTableIndex<T>( this MetaDataReOrderState reorderState, T row, Int32 rowIndex, TableIndex tableIndex, Action<T, TableIndex> tableIndexSetter, Func<T, Int32, TableIndex, Boolean> rowAdditionalCheck )
       where T : class
    {
-      if ( rowIndex == 128 )
-      {
-
-      }
       var newIndex = reorderState.GetFinalIndex( tableIndex );
       if ( newIndex != tableIndex.Index && ( rowAdditionalCheck == null || rowAdditionalCheck( row, rowIndex, tableIndex ) ) )
       {
@@ -1812,7 +1796,7 @@ public static partial class E_CILPhysical
       }
    }
 
-   private static Boolean CheckMDDuplicatesUnsorted<T>(
+   private static void CheckMDDuplicatesUnsorted<T>(
       this MetaDataReOrderState reorderState,
       MetaDataTable<T> mdTable,
       IEqualityComparer<T> comparer = null
@@ -1821,7 +1805,6 @@ public static partial class E_CILPhysical
    {
       var list = mdTable.TableContents;
       var table = mdTable.GetTableIndex();
-      var foundDuplicates = false;
       var count = list.Count;
       var indices = reorderState.GetOrCreateIndexArray( mdTable );
       if ( count > 1 )
@@ -1835,11 +1818,6 @@ public static partial class E_CILPhysical
                Int32 actualIndex;
                if ( dic.TryGetValue( cur, out actualIndex ) )
                {
-                  if ( !foundDuplicates )
-                  {
-                     foundDuplicates = true;
-                  }
-
                   // Mark as duplicate - replace value with null
                   reorderState.MarkDuplicate( table, i, actualIndex );
                   list[i] = null;
@@ -1867,8 +1845,6 @@ public static partial class E_CILPhysical
 
          }
       }
-
-      return foundDuplicates;
    }
 
    private static void UpdateSignaturesAndILWhileRemovingDuplicates( this MetaDataReOrderState reorderState )
@@ -1893,8 +1869,6 @@ public static partial class E_CILPhysical
 
       // TypeRef
       // ECMA-335:  There shall be no duplicate rows, where a duplicate has the same ResolutionScope, TypeName and TypeNamespace  [ERROR] 
-      // Do in a loop, since TypeRef may reference itself
-
       // First, sort them so that all indices into same table would come last, and that they would always index previous row.
       var tRefs = md.TypeReferences;
       var tRefList = tRefs.TableContents;
@@ -2386,6 +2360,22 @@ public static partial class E_CILPhysical
       }
    }
 
+   /// <summary>
+   /// This is helper method to search for custom attribute of type <see cref="System.Runtime.Versioning.TargetFrameworkAttribute"/> attribute applied to the assembly, and creates a <see cref="TargetFrameworkInfo"/> based on the information in the custom attribute signature.
+   /// </summary>
+   /// <param name="md">The <see cref="CILMetaData"/>.</param>
+   /// <param name="fwInfo">This parameter will contain the <see cref="TargetFrameworkInfo"/> created based on the information in the assembly.</param>
+   /// <param name="resolverToUse">The <see cref="MetaDataResolver"/> to use, if the <see cref="AbstractCustomAttributeSignature"/> of the custom attribute is <see cref="RawCustomAttributeSignature"/>.</param>
+   /// <returns><c>true</c> if suitable attribute is found, and the information in the signature is enough to create <see cref="TargetFrameworkInfo"/>; <c>false</c> otherwise.</returns>
+   /// <remarks>
+   /// <para>
+   /// In case of multiple matching custom attributes, the first one in <see cref="CILMetaData.CustomAttributeDefinitions"/> table is used.
+   /// </para>
+   /// <para>
+   /// The assemblies in target framework directory usually don't have the <see cref="System.Runtime.Versioning.TargetFrameworkAttribute"/> on them.
+   /// </para>
+   /// </remarks>
+   /// <exception cref="NullReferenceException">If <paramref name="md"/> is <c>null</c>.</exception>
    public static Boolean TryGetTargetFrameworkInformation( this CILMetaData md, out TargetFrameworkInfo fwInfo, MetaDataResolver resolverToUse = null )
    {
       fwInfo = md.CustomAttributeDefinitions.TableContents
@@ -2454,6 +2444,13 @@ public static partial class E_CILPhysical
       return fwInfo != null;
    }
 
+   /// <summary>
+   /// Wrapper around <see cref="TryGetTargetFrameworkInformation"/>, that will always return <see cref="TargetFrameworkInfo"/>, but it will be <c>null</c> if <see cref="TryGetTargetFrameworkInformation"/> will return <c>false</c>.
+   /// </summary>
+   /// <param name="md">The <see cref="CILMetaData"/>.</param>
+   /// <param name="resolverToUse">The <see cref="MetaDataResolver"/> to use, if the <see cref="AbstractCustomAttributeSignature"/> of the custom attribute is <see cref="RawCustomAttributeSignature"/>.</param>
+   /// <returns>The parsed <see cref="TargetFrameworkInfo"/> object, or <c>null</c> if such information could not be found from <paramref name="md"/>.</returns>
+   /// <exception cref="NullReferenceException">If <paramref name="md"/> is <c>null</c>.</exception>
    public static TargetFrameworkInfo GetTargetFrameworkInformationOrNull( this CILMetaData md, MetaDataResolver resolverToUse = null )
    {
       TargetFrameworkInfo retVal;
@@ -2467,10 +2464,9 @@ public static partial class E_CILPhysical
    /// </summary>
    /// <param name="info">The assembly information containing version information.</param>
    /// <returns>Textual representation of the version information contained in <paramref name="info"/>.</returns>
-   /// <exception cref="ArgumentNullException">If <paramref name="info"/> is <c>null</c>.</exception>
+   /// <exception cref="NullReferenceException">If <paramref name="info"/> is <c>null</c>.</exception>
    public static String GetVersionString( this AssemblyInformation info )
    {
-      ArgumentValidator.ValidateNotNull( "Assembly name", info );
       return new StringBuilder( info.VersionMajor )
          .Append( AssemblyInformation.VERSION_SEPARATOR )
          .Append( info.VersionMinor )
@@ -2486,10 +2482,9 @@ public static partial class E_CILPhysical
    /// </summary>
    /// <param name="info">The assembly information containing culture information.</param>
    /// <returns>Textual representation of the culture information contained in <paramref name="info"/>.</returns>
-   /// <exception cref="ArgumentNullException">If <paramref name="info"/> is <c>null</c>.</exception>
+   /// <exception cref="NullReferenceException">If <paramref name="info"/> is <c>null</c>.</exception>
    public static String GetCultureString( this AssemblyInformation info )
    {
-      ArgumentValidator.ValidateNotNull( "Assembly name", info );
       var culture = info.Culture;
       return String.IsNullOrEmpty( culture ) ? AssemblyInformation.NEUTRAL_CULTURE : culture;
    }
