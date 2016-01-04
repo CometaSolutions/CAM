@@ -1534,6 +1534,9 @@ namespace CILAssemblyManipulator.Physical
       }
    }
 
+   /// <summary>
+   /// TODO: modification is easier if there is only one class for typed arguments, i.e. just use Value setter instead of creating new TypedArgument object and set value.
+   /// </summary>
    public sealed class CustomAttributeTypedArgument
    {
       // Note: Enum values should be CustomAttributeValue_EnumReferences
