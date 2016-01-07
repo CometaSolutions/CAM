@@ -24,114 +24,514 @@ using CommonUtils;
 
 namespace CILAssemblyManipulator.Physical
 {
+   /// <summary>
+   /// This is type for rows of <see cref="CILMetaData.ModuleDefinitions"/> table at table index <see cref="Tables.Module"/>.
+   /// </summary>
    public sealed class ModuleDefinition
    {
+      /// <summary>
+      /// Gets or sets the generation of this module.
+      /// Used in Edit-And-Continue context mostly.
+      /// </summary>
+      /// <value>The generation of this module.</value>
       public Int16 Generation { get; set; }
+
+      /// <summary>
+      /// Gets or sets the name of this module.
+      /// Usually ends with <c>.dll</c> or <c>.exe</c>.
+      /// </summary>
+      /// <value>The name of this module.</value>
       public String Name { get; set; }
+
+      /// <summary>
+      /// Gets or sets the <see cref="Guid"/> of this module.
+      /// </summary>
+      /// <value>The <see cref="Guid"/> of this module.</value>
       public Guid? ModuleGUID { get; set; }
+
+      /// <summary>
+      /// Gets or sets the Edit-And-Continue <see cref="Guid"/> of this module.
+      /// </summary>
+      /// <value>The Edit-And-Continue <see cref="Guid"/> of this module.</value>
       public Guid? EditAndContinueGUID { get; set; }
+
+      /// <summary>
+      /// Gets or sets the Edit-And-Continue <see cref="Guid"/> of base module.
+      /// </summary>
+      /// <value>The Edit-And-Continue <see cref="Guid"/> of base module.</value>
       public Guid? EditAndContinueBaseGUID { get; set; }
    }
 
+   /// <summary>
+   /// This is type for rows of <see cref="CILMetaData.TypeReferences"/> table at table index <see cref="Tables.TypeRef"/>.
+   /// </summary>
    public sealed class TypeReference
    {
+      /// <summary>
+      /// Gets or sets the resolution scope for this <see cref="TypeReference"/>.
+      /// </summary>
+      /// <value>The resolution scope for this <see cref="TypeReference"/>.</value>
+      /// <remarks>
+      /// <para>
+      /// According to ECMA-335 spec, the resolution scope should be exactly one of:
+      /// <list type="bullet">
+      /// <item>
+      /// <description><c>null</c>, and there should be row in <see cref="CILMetaData.ExportedTypes"/> table for this row, if this represents a exported type,</description>
+      /// </item>
+      /// <item>
+      /// <description>a <see cref="TableIndex"/> with <see cref="Tables.TypeRef"/> as its <see cref="TableIndex.Table"/> property, if this represents a nested type,</description>
+      /// </item>
+      /// <item>
+      /// <description>a <see cref="TableIndex"/> with <see cref="Tables.ModuleRef"/> as its <see cref="TableIndex.Table"/> property, if this represents type defined in another module but within the same assembly,</description>
+      /// </item>
+      /// <item>
+      /// <description>a <see cref="TableIndex"/> with <see cref="Tables.Module"/> as its <see cref="TableIndex.Table"/> property, if this represents type defined in this module,</description>
+      /// </item>
+      /// <item>
+      /// <description>or a <see cref="TableIndex"/> with <see cref="Tables.AssemblyRef"/> as its <see cref="TableIndex.Table"/> property, if this represents type defined in another assembly.</description>
+      /// </item>
+      /// </list>
+      /// </para>
+      /// <para>
+      /// The schema for this table index corresponds to the <see cref="Meta.DefaultMetaDataTableInformationProvider.ResolutionScope"/> schema.
+      /// </para>
+      /// </remarks>
+      /// <seealso cref="TableIndex"/>
       public TableIndex? ResolutionScope { get; set; }
+
+      /// <summary>
+      /// Gets or sets the name for this <see cref="TypeReference"/>.
+      /// </summary>
+      /// <value>The name for this <see cref="TypeReference"/>.</value>
       public String Name { get; set; }
+
+      /// <summary>
+      /// Gets or sets the namespace for this <see cref="TypeReference"/>.
+      /// </summary>
+      /// <value>The namespace for this <see cref="TypeReference"/>.</value>
       public String Namespace { get; set; }
    }
 
+   /// <summary>
+   /// This is type for rows of <see cref="CILMetaData.TypeDefinitions"/> table at table index <see cref="Tables.TypeDef"/>.
+   /// </summary>
    public sealed class TypeDefinition
    {
+      /// <summary>
+      /// Creates a new instance of <see cref="TypeDefinition"/> with <see cref="FieldList"/> and <see cref="MethodList"/> pointing to zeroth element of <see cref="Tables.Field"/> and <see cref="Tables.MethodDef"/>, respectively.
+      /// </summary>
       public TypeDefinition()
+         : this( 0, 0 )
       {
-         this.FieldList = new TableIndex( Tables.Field, 0 );
-         this.MethodList = new TableIndex( Tables.MethodDef, 0 );
+         // This exists instead of default parameters so that new() -constraint would be possible for rows (if ever needed)
       }
 
+      /// <summary>
+      /// Creates a new instance of <see cref="TypeDefinition"/> with <see cref="FieldList"/> and <see cref="MethodList"/> pointing to given elements of <see cref="Tables.Field"/> and <see cref="Tables.MethodDef"/>, respectively.
+      /// </summary>
+      /// <param name="fieldIndex">The zero-based index for <see cref="FieldList"/>.</param>
+      /// <param name="methodIndex">The zero-based index for <see cref="MethodList"/>.</param>
+      public TypeDefinition( Int32 fieldIndex, Int32 methodIndex )
+      {
+         this.FieldList = new TableIndex( Tables.Field, fieldIndex );
+         this.MethodList = new TableIndex( Tables.MethodDef, methodIndex );
+      }
+
+      /// <summary>
+      /// Gets or sets the <see cref="TypeAttributes"/> for this <see cref="TypeDefinition"/>.
+      /// </summary>
+      /// <value>The <see cref="TypeAttributes"/> for this <see cref="TypeDefinition"/>.</value>
+      /// <seealso cref="TypeAttributes"/>
       public TypeAttributes Attributes { get; set; }
+
+      /// <summary>
+      /// Gets or sets the name of this <see cref="TypeDefinition"/>.
+      /// </summary>
+      /// <value>The name of this <see cref="TypeDefinition"/>.</value>
       public String Name { get; set; }
+
+      /// <summary>
+      /// Gets or sets the namespace of this <see cref="TypeDefinition"/>.
+      /// </summary>
+      /// <value>The namespace of this <see cref="TypeDefinition"/>.</value>
       public String Namespace { get; set; }
+
+      /// <summary>
+      /// Gets or sets the optional reference to base type of this <see cref="TypeDefinition"/>.
+      /// </summary>
+      /// <value>The optional reference to base type of this <see cref="TypeDefinition"/>.</value>
+      /// <remarks>
+      /// The schema for this table index corresponds to the <see cref="Meta.DefaultMetaDataTableInformationProvider.TypeDefOrRef"/> schema.
+      /// </remarks>
+      /// <seealso cref="TableIndex"/>
       public TableIndex? BaseType { get; set; }
+
+      /// <summary>
+      /// Gets or sets the index to the first element of the contiguous run of <see cref="FieldDefinition"/>s owned by this <see cref="TypeDefinition"/>.
+      /// </summary>
+      /// <value>The index to the contiguous run of <see cref="FieldDefinition"/>s owned by this <see cref="TypeDefinition"/>.</value>
+      /// <remarks>
+      /// <para>
+      /// The contiguous run of <see cref="FieldDefinition"/>s ends at the smaller of the last row in <see cref="CILMetaData.FieldDefinitions"/>, or the run of <see cref="FieldDefinition"/>s started by the next <see cref="TypeDefinition"/>.
+      /// </para>
+      /// <para>
+      /// The <see cref="TableIndex.Table"/> property of this table index should always be <see cref="Tables.Field"/>.
+      /// </para>
+      /// </remarks>
+      /// <seealso cref="TableIndex"/>
       public TableIndex FieldList { get; set; }
+
+      /// <summary>
+      /// Gets or sets the index to the first element of the contiguous run of <see cref="MethodDefinition"/>s owned by this <see cref="TypeDefinition"/>.
+      /// </summary>
+      /// <value>The index to the contiguous run of <see cref="MethodDefinition"/>s owned by this <see cref="TypeDefinition"/>.</value>
+      /// <remarks>
+      /// <para>
+      /// The contiguous run of <see cref="MethodDefinition"/>s ends at the smaller of the last row in <see cref="CILMetaData.MethodDefinitions"/>, or the run of <see cref="MethodDefinition"/>s started by the next <see cref="TypeDefinition"/>.
+      /// </para>
+      /// <para>
+      /// The <see cref="TableIndex.Table"/> property of this table index should always be <see cref="Tables.MethodDef"/>.
+      /// </para>
+      /// </remarks>
+      /// <seealso cref="TableIndex"/>
       public TableIndex MethodList { get; set; }
    }
 
+   /// <summary>
+   /// This is type for rows of <see cref="CILMetaData.FieldDefinitions"/> table at table index <see cref="Tables.Field"/>.
+   /// </summary>
    public sealed class FieldDefinition
    {
+      /// <summary>
+      /// Gets or sets the <see cref="FieldAttributes"/> of this <see cref="FieldDefinition"/>.
+      /// </summary>
+      /// <value>The <see cref="FieldAttributes"/> of this <see cref="FieldDefinition"/>.</value>
+      /// <seealso cref="FieldAttributes"/>
       public FieldAttributes Attributes { get; set; }
+
+      /// <summary>
+      /// Gets or sets the name of this <see cref="FieldDefinition"/>.
+      /// </summary>
+      /// <value>The name of this <see cref="FieldDefinition"/>.</value>
       public String Name { get; set; }
+
+      /// <summary>
+      /// Gets or sets the <see cref="FieldSignature"/> of this <see cref="FieldDefinition"/>.
+      /// </summary>
+      /// <value>The <see cref="FieldSignature"/> of this <see cref="FieldDefinition"/>.</value>
+      /// <seealso cref="FieldSignature"/>
       public FieldSignature Signature { get; set; }
    }
 
+   /// <summary>
+   /// This is type for rows of <see cref="CILMetaData.MethodDefinitions"/> table at table index <see cref="Tables.MethodDef"/>.
+   /// </summary>
    public sealed class MethodDefinition
    {
+      /// <summary>
+      /// Creates a new instance of <see cref="MethodDefinition"/> with <see cref="ParameterList"/> pointing to zeroth element of <see cref="Tables.Parameter"/>.
+      /// </summary>
       public MethodDefinition()
+         : this( 0 )
       {
-         this.ParameterList = new TableIndex( Tables.Parameter, 0 );
+         // This exists instead of default parameters so that new() -constraint would be possible for rows (if ever needed)
       }
 
+      /// <summary>
+      /// Creates a new instance of <see cref="MethodDefinition"/> with <see cref="ParameterList"/> pointing to given element of <see cref="Tables.Parameter"/>.
+      /// </summary>
+      /// <param name="parameterIndex">The zero-based index for <see cref="ParameterList"/>.</param>
+      public MethodDefinition( Int32 parameterIndex )
+      {
+         this.ParameterList = new TableIndex( Tables.Parameter, parameterIndex );
+      }
+
+      /// <summary>
+      /// Gets or sets the <see cref="MethodILDefinition"/> for this <see cref="MethodDefinition"/>.
+      /// </summary>
+      /// <value>The <see cref="MethodILDefinition"/> for this <see cref="MethodDefinition"/>.</value>
+      /// <seealso cref="MethodILDefinition"/>
       public MethodILDefinition IL { get; set; }
+
+      /// <summary>
+      /// Gets or sets the <see cref="MethodImplAttributes"/> for this <see cref="MethodDefinition"/>.
+      /// </summary>
+      /// <value>The <see cref="MethodImplAttributes"/> for this <see cref="MethodDefinition"/>.</value>
+      /// <seealso cref="MethodImplAttributes"/>
       public MethodImplAttributes ImplementationAttributes { get; set; }
+
+      /// <summary>
+      /// Gets or sets the <see cref="MethodAttributes"/> for this <see cref="MethodDefinition"/>.
+      /// </summary>
+      /// <value>The <see cref="MethodAttributes"/> for this <see cref="MethodDefinition"/>.</value>
+      /// <seealso cref="MethodAttributes"/>
       public MethodAttributes Attributes { get; set; }
+
+      /// <summary>
+      /// Gets or sets the name of this <see cref="MethodDefinition"/>.
+      /// </summary>
+      /// <value>The name of this <see cref="MethodDefinition"/>.</value>
       public String Name { get; set; }
+
+      /// <summary>
+      /// Gets or sets the <see cref="MethodDefinitionSignature"/> of this <see cref="MethodDefinition"/>.
+      /// </summary>
+      /// <value>The <see cref="MethodDefinitionSignature"/> of this <see cref="MethodDefinition"/>.</value>
+      /// <seealso cref="MethodDefinitionSignature"/>
       public MethodDefinitionSignature Signature { get; set; }
+
+      /// <summary>
+      /// Gets or sets the index to the first element of the contiguous run of <see cref="ParameterDefinition"/>s owned by this <see cref="MethodDefinition"/>.
+      /// </summary>
+      /// <value>The index to the contiguous run of <see cref="ParameterDefinition"/>s owned by this <see cref="MethodDefinition"/>.</value>
+      /// <remarks>
+      /// <para>
+      /// The contiguous run of <see cref="ParameterDefinition"/>s ends at the smaller of the last row in <see cref="CILMetaData.ParameterDefinitions"/>, or the run of <see cref="ParameterDefinition"/>s started by the next <see cref="MethodDefinition"/>.
+      /// </para>
+      /// <para>
+      /// The <see cref="TableIndex.Table"/> property of this table index should always be <see cref="Tables.Parameter"/>.
+      /// </para>
+      /// </remarks>
+      /// <seealso cref="TableIndex"/>
       public TableIndex ParameterList { get; set; }
    }
 
+   /// <summary>
+   /// This is type for rows of <see cref="CILMetaData.ParameterDefinitions"/> table at table index <see cref="Tables.Parameter"/>.
+   /// </summary>
    public sealed class ParameterDefinition
    {
+      /// <summary>
+      /// Gets or sets the <see cref="ParameterAttributes"/> for this <see cref="ParameterDefinition"/>.
+      /// </summary>
+      /// <value>The <see cref="ParameterAttributes"/> for this <see cref="ParameterDefinition"/>.</value>
       public ParameterAttributes Attributes { get; set; }
+
+      /// <summary>
+      /// Gets or sets the index of this <see cref="ParameterDefinition"/> within the parameters of the owning <see cref="MethodDefinition"/>.
+      /// </summary>
+      /// <value>The index of this <see cref="ParameterDefinition"/> within the parameters of the owning <see cref="MethodDefinition"/>.</value>
+      /// <remarks>
+      /// According to ECMA-335 spec, this property should have value of <c>0</c> for method's return type, and values of <c>&gt;= 1</c> for method's actual parameters.
+      /// </remarks>
       public Int32 Sequence { get; set; }
+
+      /// <summary>
+      /// Gets or sets the name for this <see cref="ParameterDefinition"/>.
+      /// </summary>
+      /// <value>The name for this <see cref="ParameterDefinition"/>.</value>
       public String Name { get; set; }
    }
 
+   /// <summary>
+   /// This is type for rows of <see cref="CILMetaData.InterfaceImplementations"/> table at table index <see cref="Tables.InterfaceImpl"/>.
+   /// </summary>
    public sealed class InterfaceImplementation
    {
+      /// <summary>
+      /// Creates a new instance of <see cref="InterfaceImplementation"/> with <see cref="Class"/> pointing to zeroth element of <see cref="Tables.TypeDef"/>.
+      /// </summary>
       public InterfaceImplementation()
+         : this( 0 )
       {
-         this.Class = new TableIndex( Tables.TypeDef, 0 );
+         // This exists instead of default parameters so that new() -constraint would be possible for rows (if ever needed) 
       }
 
+      /// <summary>
+      /// Creates a new instance of <see cref="InterfaceImplementation"/> with <see cref="Class"/> pointing to given element of <see cref="Tables.TypeDef"/>.
+      /// </summary>
+      /// <param name="typeDefIndex">The zero-based index for <see cref="Class"/>.</param>
+      public InterfaceImplementation( Int32 typeDefIndex )
+      {
+         this.Class = new TableIndex( Tables.TypeDef, typeDefIndex );
+      }
+
+      /// <summary>
+      /// Gets or sets the type that implements or extends an interface.
+      /// </summary>
+      /// <value>The type that implements or extends an interface.</value>
+      /// <remarks>
+      /// The <see cref="TableIndex.Table"/> property of this table index should always be <see cref="Tables.TypeDef"/>. 
+      /// </remarks>
+      /// <seealso cref="TableIndex"/>
       public TableIndex Class { get; set; }
+
+      /// <summary>
+      /// Gets or sets the interface that <see cref="Class"/> implements or extends.
+      /// </summary>
+      /// <value>The interface that <see cref="Class"/> implements or extends.</value>
+      /// <remarks>
+      /// The schema for this table index corresponds to the <see cref="Meta.DefaultMetaDataTableInformationProvider.TypeDefOrRef"/> schema.
+      /// </remarks>
+      /// <seealso cref="TableIndex"/>
       public TableIndex Interface { get; set; }
    }
 
+   /// <summary>
+   /// This is type for rows of <see cref="CILMetaData.MemberReferences"/> table at table index <see cref="Tables.MemberRef"/>.
+   /// </summary>
    public sealed class MemberReference
    {
+      /// <summary>
+      /// Gets or sets the declaring type for this <see cref="MemberReference"/>.
+      /// </summary>
+      /// <value>The declaring type for this <see cref="MemberReference"/>.</value>
+      /// <remarks>
+      /// <para>
+      /// According to ECMA-335 spec, the resolution scope should be exactly one of:
+      /// <list type="bullet">
+      /// <item>
+      /// <description>a <see cref="TableIndex"/> with <see cref="Tables.TypeDef"/> as its <see cref="TableIndex.Table"/> property, if this is a member of a type defined in this module,</description>
+      /// </item>
+      /// <item>
+      /// <description>a <see cref="TableIndex"/> with <see cref="Tables.TypeRef"/> as its <see cref="TableIndex.Table"/> property, if this is a member of a type defined in another module,</description>
+      /// </item>
+      /// <item>
+      /// <description>a <see cref="TableIndex"/> with <see cref="Tables.ModuleRef"/> as its <see cref="TableIndex.Table"/> property, if this is a member of a type defined in another module within same assembly, as a global function or variable,</description>
+      /// </item>
+      /// <item>
+      /// <description>a <see cref="TableIndex"/> with <see cref="Tables.MethodDef"/> as its <see cref="TableIndex.Table"/> property, if this is a call-site signature for a vararg method,</description>
+      /// </item>
+      /// <item>
+      /// <description>or a <see cref="TableIndex"/> with <see cref="Tables.TypeSpec"/> as its <see cref="TableIndex.Table"/> property, if this is a member of a generic type.</description>
+      /// </item>
+      /// </list>
+      /// </para>
+      /// <para>
+      /// The schema for this table index corresponds to the <see cref="Meta.DefaultMetaDataTableInformationProvider.MemberRefParent"/> schema.
+      /// </para>
+      /// </remarks>
+      /// <seealso cref="TableIndex"/>
       public TableIndex DeclaringType { get; set; }
+
+      /// <summary>
+      /// Gets or sets the name for this <see cref="MemberReference"/>.
+      /// </summary>
+      /// <value>The name for this <see cref="MemberReference"/>.</value>
       public String Name { get; set; }
+
+      /// <summary>
+      /// Gets or sets the <see cref="AbstractSignature"/> for this <see cref="MemberReference"/>.
+      /// </summary>
+      /// <value>The <see cref="AbstractSignature"/> for this <see cref="MemberReference"/>.</value>
+      /// <remarks>
+      /// This should be either <see cref="MethodReferenceSignature"/> or <see cref="FieldSignature"/>.
+      /// </remarks>
+      /// <seealso cref="AbstractSignature"/>
+      /// <seealso cref="MethodReferenceSignature"/>
+      /// <seealso cref="FieldSignature"/>
       public AbstractSignature Signature { get; set; }
    }
 
+   /// <summary>
+   /// This is type for rows of <see cref="CILMetaData.ConstantDefinitions"/> table at table index <see cref="Tables.Constant"/>.
+   /// </summary>
    public sealed class ConstantDefinition
    {
+      /// <summary>
+      /// Gets or sets the <see cref="SignatureElementTypes"/> for this <see cref="ConstantDefinition"/>.
+      /// </summary>
+      /// <value>The <see cref="SignatureElementTypes"/> for this <see cref="ConstantDefinition"/>.</value>
+      /// <seealso cref="SignatureElementTypes"/>
       public SignatureElementTypes Type { get; set; }
+
+      /// <summary>
+      /// Gets or sets the owner for this <see cref="ConstantDefinition"/>.
+      /// </summary>
+      /// <value>The owner for this <see cref="ConstantDefinition"/>.</value>
+      /// <remarks>
+      /// The schema for this table index corresponds to the <see cref="Meta.DefaultMetaDataTableInformationProvider.HasConstant"/> schema.
+      /// </remarks>
+      /// <seealso cref="TableIndex"/>
       public TableIndex Parent { get; set; }
+
+      /// <summary>
+      /// Gets or sets the value for this <see cref="ConstantDefinition"/>.
+      /// May be <c>null</c>.
+      /// </summary>
+      /// <value>The value for this <see cref="ConstantDefinition"/>.</value>
+      /// <remarks>
+      /// If this property is <c>null</c>, then <see cref="Type"/> property should be <see cref="SignatureElementTypes.Class"/>.
+      /// </remarks>
       public Object Value { get; set; }
    }
 
+   /// <summary>
+   /// This is type for rows of <see cref="CILMetaData.CustomAttributeDefinitions"/> table at table index <see cref="Tables.CustomAttribute"/>.
+   /// </summary>
    public sealed class CustomAttributeDefinition
    {
+      /// <summary>
+      /// Gets or sets the owner for this <see cref="CustomAttributeDefinition"/>.
+      /// </summary>
+      /// <value>The owner for this <see cref="CustomAttributeDefinition"/>.</value>
+      /// <remarks>
+      /// The schema for this table index corresponds to the <see cref="Meta.DefaultMetaDataTableInformationProvider.HasCustomAttribute"/> schema.
+      /// </remarks>
+      /// <seealso cref="TableIndex"/>
       public TableIndex Parent { get; set; }
+
+      /// <summary>
+      /// Gets or sets the constructor used to create instance of custom attribute.
+      /// </summary>
+      /// <value>The constructor used to create instance of custom attribute.</value>
+      /// <remarks>
+      /// The schema for this table index corresponds to the <see cref="Meta.DefaultMetaDataTableInformationProvider.CustomAttributeType"/> schema.
+      /// </remarks>
+      /// <seealso cref="TableIndex"/>
       public TableIndex Type { get; set; }
+
+      /// <summary>
+      /// Gets or sets the <see cref="AbstractCustomAttributeSignature"/> for this <see cref="CustomAttributeDefinition"/>.
+      /// </summary>
+      /// <value>The <see cref="AbstractCustomAttributeSignature"/> for this <see cref="CustomAttributeDefinition"/>.</value>
+      /// <seealso cref="AbstractCustomAttributeSignature"/>
       public AbstractCustomAttributeSignature Signature { get; set; }
    }
 
+   /// <summary>
+   /// This is type for rows of <see cref="CILMetaData.FieldMarshals"/> table at table index <see cref="Tables.FieldMarshal"/>.
+   /// </summary>
    public sealed class FieldMarshal
    {
+      /// <summary>
+      /// Gets or sets the owner of this <see cref="FieldMarshal"/>.
+      /// </summary>
+      /// <value>The owner of this <see cref="FieldMarshal"/>.</value>
+      /// <remarks>
+      /// The schema for this table index corresponds to the <see cref="Meta.DefaultMetaDataTableInformationProvider.HasFieldMarshal"/> schema.
+      /// </remarks>
+      /// <seealso cref="TableIndex"/>
       public TableIndex Parent { get; set; }
+
+      /// <summary>
+      /// Gets or sets the marshaling information of this <see cref="FieldMarshal"/>.
+      /// </summary>
+      /// <value>the marshaling information of this <see cref="FieldMarshal"/>.</value>
+      /// <seealso cref="AbstractMarshalingInfo"/>
       public AbstractMarshalingInfo NativeType { get; set; }
    }
 
+   /// <summary>
+   /// This is type for rows of <see cref="CILMetaData.SecurityDefinitions"/> table at table index <see cref="Tables.DeclSecurity"/>.
+   /// </summary>
    public sealed class SecurityDefinition
    {
       private readonly List<AbstractSecurityInformation> _permissionSets;
 
+      /// <summary>
+      /// Creates a new instance of <see cref="SecurityDefinition"/> with initial capacity of <see cref="PermissionSets"/> set to <c>0</c>.
+      /// </summary>
       public SecurityDefinition()
          : this( 0 )
       {
+         // This exists instead of default parameters so that new() -constraint would be possible for rows (if ever needed) 
       }
 
+      /// <summary>
+      /// Creates a new instance of <see cref="SecurityDefinition"/> with given initial capacity of <see cref="PermissionSets"/>.
+      /// </summary>
+      /// <param name="permissionSetsCount">The initial capacity for <see cref="PermissionSets"/>.</param>
       public SecurityDefinition( Int32 permissionSetsCount )
       {
          this._permissionSets = new List<AbstractSecurityInformation>( permissionSetsCount );
@@ -141,10 +541,24 @@ namespace CILAssemblyManipulator.Physical
       /// Gets or sets the <see cref="SecurityAction"/> associated with this security attribute declaration.
       /// </summary>
       /// <value>The <see cref="SecurityAction"/> associated with this security attribute declaration.</value>
+      /// <seealso cref="SecurityAction"/>
       public SecurityAction Action { get; set; }
 
+      /// <summary>
+      /// Gets or sets the owner for this <see cref="SecurityDefinition"/>.
+      /// </summary>
+      /// <value>The owner for this <see cref="SecurityDefinition"/>.</value>
+      /// <remarks>
+      /// The schema for this table index corresponds to the <see cref="Meta.DefaultMetaDataTableInformationProvider.HasSecurity"/> schema.
+      /// </remarks>
+      /// <seealso cref="TableIndex"/>
       public TableIndex Parent { get; set; }
 
+      /// <summary>
+      /// Gets the list of <see cref="AbstractSecurityInformation"/>s that this <see cref="SecurityDefinition"/> has.
+      /// </summary>
+      /// <value>The list of <see cref="AbstractSecurityInformation"/>s that this <see cref="SecurityDefinition"/> has.</value>
+      /// <seealso cref="AbstractSecurityInformation"/>
       public List<AbstractSecurityInformation> PermissionSets
       {
          get
@@ -154,11 +568,27 @@ namespace CILAssemblyManipulator.Physical
       }
    }
 
+   /// <summary>
+   /// This is type for rows of <see cref="CILMetaData.ClassLayouts"/> table at table index <see cref="Tables.ClassLayout"/>.
+   /// </summary>
    public sealed class ClassLayout
    {
+      /// <summary>
+      /// Creates a new instance of <see cref="ClassLayout"/> with <see cref="Parent"/> pointing to zeroth element of <see cref="Tables.TypeDef"/>.
+      /// </summary>
       public ClassLayout()
+         : this( 0 )
       {
-         this.Parent = new TableIndex( Tables.TypeDef, 0 );
+         // This exists instead of default parameters so that new() -constraint would be possible for rows (if ever needed) 
+      }
+
+      /// <summary>
+      /// Creates a new instance of <see cref="ClassLayout"/> with <see cref="Parent"/> pointing to given element of <see cref="Tables.TypeDef"/>.
+      /// </summary>
+      /// <param name="typeDefIndex">The zero-based index for <see cref="Parent"/>.</param>
+      public ClassLayout( Int32 typeDefIndex )
+      {
+         this.Parent = new TableIndex( Tables.TypeDef, typeDefIndex );
       }
 
       public Int32 PackingSize { get; set; }
@@ -166,6 +596,9 @@ namespace CILAssemblyManipulator.Physical
       public TableIndex Parent { get; set; }
    }
 
+   /// <summary>
+   /// This is type for rows of <see cref="CILMetaData.FieldLayouts"/> table at table index <see cref="Tables.FieldLayout"/>.
+   /// </summary>
    public sealed class FieldLayout
    {
       public FieldLayout()
@@ -177,6 +610,9 @@ namespace CILAssemblyManipulator.Physical
       public TableIndex Field { get; set; }
    }
 
+   /// <summary>
+   /// This is type for rows of <see cref="CILMetaData.StandaloneSignatures"/> table at table index <see cref="Tables.StandaloneSignature"/>.
+   /// </summary>
    public sealed class StandaloneSignature
    {
       public AbstractSignature Signature { get; set; }
@@ -191,6 +627,9 @@ namespace CILAssemblyManipulator.Physical
 
    }
 
+   /// <summary>
+   /// This is type for rows of <see cref="CILMetaData.EventMaps"/> table at table index <see cref="Tables.EventMap"/>.
+   /// </summary>
    public sealed class EventMap
    {
       public EventMap()
@@ -203,6 +642,9 @@ namespace CILAssemblyManipulator.Physical
       public TableIndex EventList { get; set; }
    }
 
+   /// <summary>
+   /// This is type for rows of <see cref="CILMetaData.EventDefinitions"/> table at table index <see cref="Tables.Event"/>.
+   /// </summary>
    public sealed class EventDefinition
    {
       public EventAttributes Attributes { get; set; }
@@ -210,6 +652,9 @@ namespace CILAssemblyManipulator.Physical
       public TableIndex EventType { get; set; }
    }
 
+   /// <summary>
+   /// This is type for rows of <see cref="CILMetaData.PropertyMaps"/> table at table index <see cref="Tables.PropertyMap"/>.
+   /// </summary>
    public sealed class PropertyMap
    {
       public PropertyMap()
@@ -222,6 +667,9 @@ namespace CILAssemblyManipulator.Physical
       public TableIndex PropertyList { get; set; }
    }
 
+   /// <summary>
+   /// This is type for rows of <see cref="CILMetaData.PropertyDefinitions"/> table at table index <see cref="Tables.Property"/>.
+   /// </summary>
    public sealed class PropertyDefinition
    {
       public PropertyAttributes Attributes { get; set; }
@@ -229,6 +677,9 @@ namespace CILAssemblyManipulator.Physical
       public PropertySignature Signature { get; set; }
    }
 
+   /// <summary>
+   /// This is type for rows of <see cref="CILMetaData.MethodSemantics"/> table at table index <see cref="Tables.MethodSemantics"/>.
+   /// </summary>
    public sealed class MethodSemantics
    {
       public MethodSemantics()
@@ -241,6 +692,9 @@ namespace CILAssemblyManipulator.Physical
       public TableIndex Associaton { get; set; }
    }
 
+   /// <summary>
+   /// This is type for rows of <see cref="CILMetaData.MethodImplementations"/> table at table index <see cref="Tables.MethodImpl"/>.
+   /// </summary>
    public sealed class MethodImplementation
    {
       public MethodImplementation()
@@ -253,16 +707,25 @@ namespace CILAssemblyManipulator.Physical
       public TableIndex MethodDeclaration { get; set; }
    }
 
+   /// <summary>
+   /// This is type for rows of <see cref="CILMetaData.ModuleReferences"/> table at table index <see cref="Tables.ModuleRef"/>.
+   /// </summary>
    public sealed class ModuleReference
    {
       public String ModuleName { get; set; }
    }
 
+   /// <summary>
+   /// This is type for rows of <see cref="CILMetaData.TypeSpecifications"/> table at table index <see cref="Tables.TypeSpec"/>.
+   /// </summary>
    public sealed class TypeSpecification
    {
       public TypeSignature Signature { get; set; }
    }
 
+   /// <summary>
+   /// This is type for rows of <see cref="CILMetaData.MethodImplementationMaps"/> table at table index <see cref="Tables.ImplMap"/>.
+   /// </summary>
    public sealed class MethodImplementationMap
    {
       public MethodImplementationMap()
@@ -276,6 +739,9 @@ namespace CILAssemblyManipulator.Physical
       public TableIndex ImportScope { get; set; }
    }
 
+   /// <summary>
+   /// This is type for rows of <see cref="CILMetaData.FieldRVAs"/> table at table index <see cref="Tables.FieldRVA"/>.
+   /// </summary>
    public sealed class FieldRVA
    {
       public FieldRVA()
@@ -287,6 +753,9 @@ namespace CILAssemblyManipulator.Physical
       public TableIndex Field { get; set; }
    }
 
+   /// <summary>
+   /// This is type for rows of <see cref="CILMetaData.AssemblyDefinitions"/> table at table index <see cref="Tables.Assembly"/>.
+   /// </summary>
    public sealed class AssemblyDefinition
    {
       private readonly AssemblyInformation _assemblyInfo;
@@ -314,6 +783,9 @@ namespace CILAssemblyManipulator.Physical
       }
    }
 
+   /// <summary>
+   /// This is type for rows of <see cref="CILMetaData.AssemblyReferences"/> table at table index <see cref="Tables.AssemblyRef"/>.
+   /// </summary>
    public sealed class AssemblyReference
    {
       private readonly AssemblyInformation _assemblyInfo;
@@ -341,6 +813,9 @@ namespace CILAssemblyManipulator.Physical
       }
    }
 
+   /// <summary>
+   /// This is type for rows of <see cref="CILMetaData.FileReferences"/> table at table index <see cref="Tables.File"/>.
+   /// </summary>
    public sealed class FileReference
    {
       public FileAttributes Attributes { get; set; }
@@ -348,6 +823,9 @@ namespace CILAssemblyManipulator.Physical
       public Byte[] HashValue { get; set; }
    }
 
+   /// <summary>
+   /// This is type for rows of <see cref="CILMetaData.ExportedTypes"/> table at table index <see cref="Tables.ExportedType"/>.
+   /// </summary>
    public sealed class ExportedType
    {
       public TypeAttributes Attributes { get; set; }
@@ -357,6 +835,9 @@ namespace CILAssemblyManipulator.Physical
       public TableIndex Implementation { get; set; }
    }
 
+   /// <summary>
+   /// This is type for rows of <see cref="CILMetaData.ManifestResources"/> table at table index <see cref="Tables.ManifestResource"/>.
+   /// </summary>
    public sealed class ManifestResource
    {
       /// <summary>
@@ -371,6 +852,9 @@ namespace CILAssemblyManipulator.Physical
       public Byte[] DataInCurrentFile { get; set; }
    }
 
+   /// <summary>
+   /// This is type for rows of <see cref="CILMetaData.NestedClassDefinitions"/> table at table index <see cref="Tables.NestedClass"/>.
+   /// </summary>
    public sealed class NestedClassDefinition
    {
       public NestedClassDefinition()
@@ -383,6 +867,9 @@ namespace CILAssemblyManipulator.Physical
       public TableIndex EnclosingClass { get; set; }
    }
 
+   /// <summary>
+   /// This is type for rows of <see cref="CILMetaData.GenericParameterDefinitions"/> table at table index <see cref="Tables.GenericParameter"/>.
+   /// </summary>
    public sealed class GenericParameterDefinition
    {
       public Int32 GenericParameterIndex { get; set; }
@@ -391,12 +878,18 @@ namespace CILAssemblyManipulator.Physical
       public String Name { get; set; }
    }
 
+   /// <summary>
+   /// This is type for rows of <see cref="CILMetaData.MethodSpecifications"/> table at table index <see cref="Tables.MethodSpec"/>.
+   /// </summary>
    public sealed class MethodSpecification
    {
       public TableIndex Method { get; set; }
       public GenericMethodSignature Signature { get; set; }
    }
 
+   /// <summary>
+   /// This is type for rows of <see cref="CILMetaData.GenericParameterConstraintDefinitions"/> table at table index <see cref="Tables.GenericParameterConstraint"/>.
+   /// </summary>
    public sealed class GenericParameterConstraintDefinition
    {
       public GenericParameterConstraintDefinition()
@@ -408,48 +901,75 @@ namespace CILAssemblyManipulator.Physical
       public TableIndex Constraint { get; set; }
    }
 
+   /// <summary>
+   /// This is type for rows of <see cref="CILMetaData.EditAndContinueLog"/> table at table index <see cref="Tables.EncLog"/>.
+   /// </summary>
    public sealed class EditAndContinueLog
    {
       public Int32 Token { get; set; }
       public Int32 FuncCode { get; set; }
    }
 
+   /// <summary>
+   /// This is type for rows of <see cref="CILMetaData.EditAndContinueMap"/> table at table index <see cref="Tables.EncMap"/>.
+   /// </summary>
    public sealed class EditAndContinueMap
    {
       public Int32 Token { get; set; }
    }
 
+   /// <summary>
+   /// This is type for rows of <see cref="CILMetaData.FieldDefinitionPointers"/> table at table index <see cref="Tables.FieldPtr"/>.
+   /// </summary>
    public sealed class FieldDefinitionPointer
    {
       public TableIndex FieldIndex { get; set; }
    }
 
+   /// <summary>
+   /// This is type for rows of <see cref="CILMetaData.MethodDefinitionPointers"/> table at table index <see cref="Tables.MethodPtr"/>.
+   /// </summary>
    public sealed class MethodDefinitionPointer
    {
       public TableIndex MethodIndex { get; set; }
    }
 
+   /// <summary>
+   /// This is type for rows of <see cref="CILMetaData.ParameterDefinitionPointers"/> table at table index <see cref="Tables.ParameterPtr"/>.
+   /// </summary>
    public sealed class ParameterDefinitionPointer
    {
       public TableIndex ParameterIndex { get; set; }
    }
 
+   /// <summary>
+   /// This is type for rows of <see cref="CILMetaData.EventDefinitionPointers"/> table at table index <see cref="Tables.EventPtr"/>.
+   /// </summary>
    public sealed class EventDefinitionPointer
    {
       public TableIndex EventIndex { get; set; }
    }
 
+   /// <summary>
+   /// This is type for rows of <see cref="CILMetaData.PropertyDefinitionPointers"/> table at table index <see cref="Tables.PropertyPtr"/>.
+   /// </summary>
    public sealed class PropertyDefinitionPointer
    {
       public TableIndex PropertyIndex { get; set; }
    }
 
+   /// <summary>
+   /// This is type for rows of <see cref="CILMetaData.AssemblyDefinitionProcessors"/> table at table index <see cref="Tables.AssemblyProcessor"/>.
+   /// </summary>
    [Obsolete( "Rows of these type should no longer be present in CIL meta data file.", false )]
    public sealed class AssemblyDefinitionProcessor
    {
       public Int32 Processor { get; set; }
    }
 
+   /// <summary>
+   /// This is type for rows of <see cref="CILMetaData.AssemblyDefinitionOSs"/> table at table index <see cref="Tables.AssemblyOS"/>.
+   /// </summary>
    [Obsolete( "Rows of these type should no longer be present in CIL meta data file.", false )]
    public sealed class AssemblyDefinitionOS
    {
@@ -460,6 +980,9 @@ namespace CILAssemblyManipulator.Physical
       public Int32 OSMinorVersion { get; set; }
    }
 
+   /// <summary>
+   /// This is type for rows of <see cref="CILMetaData.AssemblyReferenceProcessors"/> table at table index <see cref="Tables.AssemblyRefProcessor"/>.
+   /// </summary>
    [Obsolete( "Rows of these type should no longer be present in CIL meta data file.", false )]
    public sealed class AssemblyReferenceProcessor
    {
@@ -468,6 +991,9 @@ namespace CILAssemblyManipulator.Physical
       public TableIndex AssemblyRef { get; set; }
    }
 
+   /// <summary>
+   /// This is type for rows of <see cref="CILMetaData.AssemblyReferenceOSs"/> table at table index <see cref="Tables.AssemblyRefOS"/>.
+   /// </summary>
    [Obsolete( "Rows of these type should no longer be present in CIL meta data file.", false )]
    public sealed class AssemblyReferenceOS
    {

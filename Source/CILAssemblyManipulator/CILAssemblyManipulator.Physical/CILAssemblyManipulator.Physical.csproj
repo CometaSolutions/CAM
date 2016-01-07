@@ -116,7 +116,7 @@
     <Compile Include="IO\Writing.Options.cs" />
     <Compile Include="IO\Loading.cs" />
     <Compile Include="MetaData.Rows.cs" />
-    <Compile Include="MetaData.Resolving.cs" />
+    <Compile Include="IO\Loading.Resolving.cs" />
     <Compile Include="MetaData.Signatures.cs" />
     <Compile Include="MetaData.cs" />
     <Compile Include="IO\API.cs" />
