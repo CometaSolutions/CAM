@@ -15,7 +15,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License. 
  */
-using CILAssemblyManipulator.Physical.Implementation;
 using CILAssemblyManipulator.Physical.IO;
 using CollectionsWithRoles.API;
 using CollectionsWithRoles.Implementation;
@@ -628,7 +627,7 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
       public AbstractMarshalingInfo ReadMarshalingInfo( Int32 heapIndex )
       {
          Int32 max;
-         return this.SetUpBLOBWithMax( ref heapIndex, out max ) ? AbstractMarshalingInfo.ReadFromBytes( this.Bytes, ref heapIndex, max ) : null;
+         return this.SetUpBLOBWithMax( ref heapIndex, out max ) ? SignatureSerialization.ReadMarshalingInfo( this.Bytes, ref heapIndex, max ) : null;
       }
 
       public AbstractSignature ReadNonTypeSignature( Int32 heapIndex, bool methodSigIsDefinition, bool handleFieldSigAsLocalsSig, out bool fieldSigTransformedToLocalsSig )
@@ -637,7 +636,7 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
          AbstractSignature retVal;
          if ( this.SetUpBLOBWithMax( ref heapIndex, out max ) )
          {
-            retVal = AbstractNotRawSignature.ReadNonTypeSignature( this.Bytes, ref heapIndex, max, methodSigIsDefinition, handleFieldSigAsLocalsSig, out fieldSigTransformedToLocalsSig );
+            retVal = SignatureSerialization.ReadNonTypeSignature( this.Bytes, ref heapIndex, max, methodSigIsDefinition, handleFieldSigAsLocalsSig, out fieldSigTransformedToLocalsSig );
          }
          else
          {
@@ -653,14 +652,14 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
          Int32 max;
          if ( this.SetUpBLOBWithMax( ref heapIndex, out max ) )
          {
-            AbstractSecurityInformation.ReadSecurityInformation( this.Bytes, ref heapIndex, max, securityInfo );
+            SignatureSerialization.ReadSecurityInformation( this.Bytes, ref heapIndex, max, securityInfo );
          }
       }
 
       public TypeSignature ReadTypeSignature( Int32 heapIndex )
       {
          Int32 max;
-         return this.SetUpBLOBWithMax( ref heapIndex, out max ) ? TypeSignature.ReadTypeSignature( this.Bytes, ref heapIndex, max ) : null;
+         return this.SetUpBLOBWithMax( ref heapIndex, out max ) ? SignatureSerialization.ReadTypeSignature( this.Bytes, ref heapIndex, max ) : null;
       }
 
       protected Boolean SetUpBLOBWithMax( ref Int32 heapIndex, out Int32 max )

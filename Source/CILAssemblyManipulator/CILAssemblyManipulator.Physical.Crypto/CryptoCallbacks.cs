@@ -16,7 +16,6 @@
  * limitations under the License. 
  */
 using CILAssemblyManipulator.Physical;
-using CILAssemblyManipulator.Physical.IO;
 using CILAssemblyManipulator.Physical.Crypto;
 using CommonUtils;
 using System;
@@ -145,7 +144,8 @@ namespace CILAssemblyManipulator.Physical.Crypto
    }
 
    // Most info from http://msdn.microsoft.com/en-us/library/cc250013.aspx 
-   internal static class CryptoUtils
+   // TODO internalize this in merge.
+   public static class CryptoUtils
    {
       private const UInt32 RSA1 = 0x31415352;
       private const UInt32 RSA2 = 0x32415352;
@@ -263,7 +263,7 @@ namespace CILAssemblyManipulator.Physical.Crypto
          return retVal;
       }
 
-      internal static Boolean TryCreateSigningInformationFromKeyBLOB( Byte[] blob, AssemblyHashAlgorithm? signingAlgorithm, out Byte[] publicKey, out AssemblyHashAlgorithm actualSigningAlgorithm, out RSAParameters rsaParameters, out String errorString )
+      public static Boolean TryCreateSigningInformationFromKeyBLOB( Byte[] blob, AssemblyHashAlgorithm? signingAlgorithm, out Byte[] publicKey, out AssemblyHashAlgorithm actualSigningAlgorithm, out RSAParameters rsaParameters, out String errorString )
       {
          // There might be actual key after a header, if first byte is zero.
          var hasHeader = blob[0] == 0x00;
@@ -390,67 +390,5 @@ public static partial class E_CILPhysical
       return retVal;
    }
 
-   public static Byte[] CreatePublicKeyFromStrongName( this CryptoCallbacks eArgs, StrongNameKeyPair strongName, AssemblyHashAlgorithm? algorithmOverride = null )
-   {
-      Byte[] retVal;
-      if ( strongName == null )
-      {
-         retVal = null;
-      }
-      else
-      {
-         var container = strongName.ContainerName;
-         if ( container == null )
-         {
-            String errorString;
-            AssemblyHashAlgorithm signingAlgorithm;
-            RSAParameters rParams;
-            CryptoUtils.TryCreateSigningInformationFromKeyBLOB(
-               strongName.KeyPair.ToArray(),
-               algorithmOverride,
-               out retVal,
-               out signingAlgorithm,
-               out rParams,
-               out errorString
-               );
-         }
-         else
-         {
-            retVal = eArgs.ExtractPublicKeyFromCSPContainer( container );
-         }
-      }
 
-      return retVal;
-   }
-
-   public static Boolean IsMatch( this AssemblyDefinition aDef, AssemblyReference aRef, HashStreamInfo? hashStreamInfo )
-   {
-      return aDef.IsMatch( new AssemblyInformationForResolving( aRef ), aRef.Attributes.IsRetargetable(), hashStreamInfo );
-   }
-
-   public static Boolean IsMatch( this AssemblyDefinition aDef, AssemblyInformationForResolving? aRef, Boolean isRetargetable, HashStreamInfo? hashStreamInfo )
-   {
-      var retVal = aDef != null
-         && aRef != null;
-      if ( retVal )
-      {
-         var aReff = aRef.Value;
-         var defInfo = aDef.AssemblyInformation;
-         var refInfo = aReff.AssemblyInformation;
-         if ( isRetargetable )
-         {
-            retVal = String.Equals( defInfo.Name, refInfo.Name );
-         }
-         else
-         {
-            var defPK = defInfo.PublicKeyOrToken;
-            var refPK = refInfo.PublicKeyOrToken;
-            retVal = defPK.IsNullOrEmpty() == refPK.IsNullOrEmpty()
-               && defInfo.Equals( refInfo, aReff.IsFullPublicKey )
-               && ( aReff.IsFullPublicKey || ( hashStreamInfo.HasValue && ArrayEqualityComparer<Byte>.ArrayEquality( hashStreamInfo.Value.ComputePublicKeyToken( defPK ), refPK ) ) );
-         }
-      }
-
-      return retVal;
-   }
 }
