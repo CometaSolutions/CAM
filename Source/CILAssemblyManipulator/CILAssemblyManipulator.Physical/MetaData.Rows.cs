@@ -591,8 +591,26 @@ namespace CILAssemblyManipulator.Physical
          this.Parent = new TableIndex( Tables.TypeDef, typeDefIndex );
       }
 
+      /// <summary>
+      /// Gets or sets the packing size for type referenced by <see cref="Parent"/>.
+      /// </summary>
+      /// <value>The packing size for type referenced by <see cref="Parent"/>.</value>
       public Int32 PackingSize { get; set; }
+
+      /// <summary>
+      /// Gets or sets the class size for type referenced by <see cref="Parent"/>.
+      /// </summary>
+      /// <value>The class size for type referenced by <see cref="Parent"/>.</value>
       public Int32 ClassSize { get; set; }
+
+      /// <summary>
+      /// Gets or sets the owner for this <see cref="ClassLayout"/>.
+      /// </summary>
+      /// <value>The owner for this <see cref="ClassLayout"/>.</value>
+      /// <remarks>
+      /// The <see cref="TableIndex.Table"/> property of this table index should always be <see cref="Tables.TypeDef"/>. 
+      /// </remarks>
+      /// <seealso cref="TableIndex"/>
       public TableIndex Parent { get; set; }
    }
 
@@ -601,12 +619,38 @@ namespace CILAssemblyManipulator.Physical
    /// </summary>
    public sealed class FieldLayout
    {
+      /// <summary>
+      /// Creates a new instance of <see cref="FieldLayout"/> with <see cref="Field"/> pointing to zeroth element of <see cref="Tables.Field"/>.
+      /// </summary>
       public FieldLayout()
+         : this( 0 )
       {
-         this.Field = new TableIndex( Tables.Field, 0 );
+         // This exists instead of default parameters so that new() -constraint would be possible for rows (if ever needed)
       }
 
+      /// <summary>
+      /// Creates a new instance of <see cref="FieldLayout"/> with <see cref="Field"/> pointing to given element of <see cref="Tables.Field"/>.
+      /// </summary>
+      /// <param name="fieldDefIndex">The zero-based index for <see cref="Field"/>.</param>
+      public FieldLayout( Int32 fieldDefIndex )
+      {
+         this.Field = new TableIndex( Tables.Field, fieldDefIndex );
+      }
+
+      /// <summary>
+      /// Gets or sets the offset of the field referenced by <see cref="Field"/>.
+      /// </summary>
+      /// <value>The offset of the field referenced by <see cref="Field"/>.</value>
       public Int32 Offset { get; set; }
+
+      /// <summary>
+      /// Gets or sets the owner of this <see cref="FieldLayout"/>.
+      /// </summary>
+      /// <value>The owner of this <see cref="FieldLayout"/>.</value>
+      /// <remarks>
+      /// The <see cref="TableIndex.Table"/> property of this table index should always be <see cref="Tables.Field"/>. 
+      /// </remarks>
+      /// <seealso cref="TableIndex"/>
       public TableIndex Field { get; set; }
    }
 
@@ -615,14 +659,36 @@ namespace CILAssemblyManipulator.Physical
    /// </summary>
    public sealed class StandaloneSignature
    {
+      /// <summary>
+      /// Gets or sets the <see cref="AbstractSignature"/> of this <see cref="StandaloneSignature"/>.
+      /// </summary>
+      /// <value>The <see cref="AbstractSignature"/> of this <see cref="StandaloneSignature"/>.</value>
+      /// <remarks>
+      /// This signature should be either <see cref="LocalVariablesSignature"/> or <see cref="MethodReferenceSignature"/>.
+      /// </remarks>
+      /// <seealso cref="AbstractSignature"/>
+      /// <seealso cref="LocalVariablesSignature"/>
+      /// <seealso cref="MethodReferenceSignature"/>
       public AbstractSignature Signature { get; set; }
 
-      // From https://social.msdn.microsoft.com/Forums/en-US/b4252eab-7aae-4456-9829-2707c8459e13/pinned-fields-in-the-common-language-runtime?forum=netfxtoolsdev
-      // After messing around further, and noticing that even the C# compiler emits Field signatures in the StandAloneSig table, the signatures seem to relate to PDB debugging symbols.
-      // When you emit symbols with the Debug or Release versions of your code, I'm guessing a StandAloneSig entry is injected and referred to by the PDB file.
-      // If you are in release mode and you generate no PDB info, the StandAloneSig table contains no Field signatures.
-      // One such condition for the emission of such information is constants within the scope of a method body.
-      // Original thread:  http://www.netframeworkdev.com/building-development-diagnostic-tools-for-net/field-signatures-in-standalonesig-table-30658.shtml
+      /// <summary>
+      /// Gets or sets the indicator, whether the <see cref="Signature"/> should be serialized with <see cref="SignatureStarters.Field"/> prefix.
+      /// </summary>
+      /// <remarks>
+      /// <para>
+      /// This value is not stored in serialized meta data directly.
+      /// Indeed, if the meta data files would strictly adher for ECMA-335 spec (more specifically, the signatures referenced by some of these <see cref="Tables.StandaloneSignature"/> rows), this property would not be required.
+      /// Here follows some background data.
+      /// </para>
+      /// <para>
+      /// From <see href="https://social.msdn.microsoft.com/Forums/en-US/b4252eab-7aae-4456-9829-2707c8459e13/pinned-fields-in-the-common-language-runtime?forum=netfxtoolsdev"/>:
+      /// After messing around further, and noticing that even the C# compiler emits Field signatures in the StandAloneSig table, the signatures seem to relate to PDB debugging symbols.
+      /// When you emit symbols with the Debug or Release versions of your code, I'm guessing a StandAloneSig entry is injected and referred to by the PDB file.
+      /// If you are in release mode and you generate no PDB info, the StandAloneSig table contains no Field signatures.
+      /// One such condition for the emission of such information is constants within the scope of a method body.
+      /// Original thread: <see href="http://www.netframeworkdev.com/building-development-diagnostic-tools-for-net/field-signatures-in-standalonesig-table-30658.shtml"/>.
+      /// </para>
+      /// </remarks>
       public Boolean StoreSignatureAsFieldSignature { get; set; }
 
    }
@@ -632,13 +698,49 @@ namespace CILAssemblyManipulator.Physical
    /// </summary>
    public sealed class EventMap
    {
+      /// <summary>
+      /// Creates a new instance of <see cref="EventMap"/> with <see cref="Parent"/> and <see cref="EventList"/> pointing to zeroth row of <see cref="Tables.TypeDef"/> and <see cref="Tables.Event"/> tables, respectively.
+      /// </summary>
       public EventMap()
+         : this( 0, 0 )
       {
-         this.Parent = new TableIndex( Tables.TypeDef, 0 );
-         this.EventList = new TableIndex( Tables.Event, 0 );
+         // This exists instead of default parameters so that new() -constraint would be possible for rows (if ever needed)
       }
 
+      /// <summary>
+      /// Creates a new instance of <see cref="EventMap"/> with <see cref="Parent"/> and <see cref="EventList"/> pointing to given rows of <see cref="Tables.TypeDef"/> and <see cref="Tables.Event"/> tables, respectively.
+      /// </summary>
+      /// <param name="typeDefIndex">The zero-based index for <see cref="Parent"/>.</param>
+      /// <param name="eventDefIndex">The zero-based index for <see cref="EventList"/>.</param>
+      public EventMap( Int32 typeDefIndex, Int32 eventDefIndex )
+      {
+         this.Parent = new TableIndex( Tables.TypeDef, typeDefIndex );
+         this.EventList = new TableIndex( Tables.Event, eventDefIndex );
+      }
+
+      /// <summary>
+      /// Gets or sets the owner of this <see cref="EventMap"/>.
+      /// </summary>
+      /// <value>The owner of this <see cref="EventMap"/>.</value>
+      /// <remarks>
+      /// The <see cref="TableIndex.Table"/> property of this table index should always be <see cref="Tables.TypeDef"/>. 
+      /// </remarks>
+      /// <seealso cref="TableIndex"/>
       public TableIndex Parent { get; set; }
+
+      /// <summary>
+      /// Gets or sets the index to the first element of the contiguous run of <see cref="EventDefinition"/>s owned by this <see cref="EventMap"/> (i.e. belonging to type referenced by <see cref="Parent"/>).
+      /// </summary>
+      /// <value>The index to the contiguous run of <see cref="EventDefinition"/>s owned by this <see cref="EventMap"/>.</value>
+      /// <remarks>
+      /// <para>
+      /// The contiguous run of <see cref="EventDefinition"/>s ends at the smaller of the last row in <see cref="CILMetaData.EventDefinitions"/>, or the run of <see cref="EventDefinition"/>s started by the next <see cref="EventMap"/>.
+      /// </para>
+      /// <para>
+      /// The <see cref="TableIndex.Table"/> property of this table index should always be <see cref="Tables.Event"/>.
+      /// </para>
+      /// </remarks>
+      /// <seealso cref="TableIndex"/>
       public TableIndex EventList { get; set; }
    }
 
@@ -647,8 +749,27 @@ namespace CILAssemblyManipulator.Physical
    /// </summary>
    public sealed class EventDefinition
    {
+      /// <summary>
+      /// Gets or sets the <see cref="EventAttributes"/> of this <see cref="EventDefinition"/>.
+      /// </summary>
+      /// <value>The <see cref="EventAttributes"/> of this <see cref="EventDefinition"/>.</value>
+      /// <seealso cref="EventAttributes"/>
       public EventAttributes Attributes { get; set; }
+
+      /// <summary>
+      /// Gets or sets the name of this <see cref="EventDefinition"/>.
+      /// </summary>
+      /// <value>The name of this <see cref="EventDefinition"/>.</value>
       public String Name { get; set; }
+
+      /// <summary>
+      /// Gets or sets the type for this <see cref="EventDefinition"/>.
+      /// </summary>
+      /// <value>The type for this <see cref="EventDefinition"/>.</value>
+      /// <remarks>
+      /// The schema for this table index corresponds to the <see cref="Meta.DefaultMetaDataTableInformationProvider.TypeDefOrRef"/> schema.
+      /// </remarks>
+      /// <seealso cref="TableIndex"/>
       public TableIndex EventType { get; set; }
    }
 
@@ -657,13 +778,49 @@ namespace CILAssemblyManipulator.Physical
    /// </summary>
    public sealed class PropertyMap
    {
+      /// <summary>
+      /// Creates a new instance of <see cref="PropertyMap"/> with <see cref="Parent"/> and <see cref="PropertyList"/> pointing to zeroth row of <see cref="Tables.TypeDef"/> and <see cref="Tables.Property"/> tables, respectively.
+      /// </summary>
       public PropertyMap()
+         : this( 0, 0 )
       {
-         this.Parent = new TableIndex( Tables.TypeDef, 0 );
-         this.PropertyList = new TableIndex( Tables.Property, 0 );
+         // This exists instead of default parameters so that new() -constraint would be possible for rows (if ever needed)
       }
 
+      /// <summary>
+      /// Creates a new instance of <see cref="PropertyMap"/> with <see cref="Parent"/> and <see cref="PropertyList"/> pointing to given rows of <see cref="Tables.TypeDef"/> and <see cref="Tables.Property"/> tables, respectively.
+      /// </summary>
+      /// <param name="typeDefIndex">The zero-based index for <see cref="Parent"/>.</param>
+      /// <param name="propertyDefIndex">The zero-based index for <see cref="PropertyList"/>.</param>
+      public PropertyMap( Int32 typeDefIndex, Int32 propertyDefIndex )
+      {
+         this.Parent = new TableIndex( Tables.TypeDef, typeDefIndex );
+         this.PropertyList = new TableIndex( Tables.Property, propertyDefIndex );
+      }
+
+      /// <summary>
+      /// Gets or sets the owner of this <see cref="PropertyMap"/>.
+      /// </summary>
+      /// <value>The owner of this <see cref="PropertyMap"/>.</value>
+      /// <remarks>
+      /// The <see cref="TableIndex.Table"/> property of this table index should always be <see cref="Tables.TypeDef"/>. 
+      /// </remarks>
+      /// <seealso cref="TableIndex"/>
       public TableIndex Parent { get; set; }
+
+      /// <summary>
+      /// Gets or sets the index to the first element of the contiguous run of <see cref="PropertyDefinition"/>s owned by this <see cref="PropertyMap"/> (i.e. belonging to type referenced by <see cref="Parent"/>).
+      /// </summary>
+      /// <value>The index to the contiguous run of <see cref="PropertyDefinition"/>s owned by this <see cref="PropertyMap"/>.</value>
+      /// <remarks>
+      /// <para>
+      /// The contiguous run of <see cref="PropertyDefinition"/>s ends at the smaller of the last row in <see cref="CILMetaData.EventDefinitions"/>, or the run of <see cref="PropertyDefinition"/>s started by the next <see cref="PropertyMap"/>.
+      /// </para>
+      /// <para>
+      /// The <see cref="TableIndex.Table"/> property of this table index should always be <see cref="Tables.Property"/>.
+      /// </para>
+      /// </remarks>
+      /// <seealso cref="TableIndex"/>
       public TableIndex PropertyList { get; set; }
    }
 
@@ -672,8 +829,24 @@ namespace CILAssemblyManipulator.Physical
    /// </summary>
    public sealed class PropertyDefinition
    {
+      /// <summary>
+      /// Gets or sets the <see cref="PropertyAttributes"/> of this <see cref="PropertyDefinition"/>.
+      /// </summary>
+      /// <value>The <see cref="PropertyAttributes"/> of this <see cref="PropertyDefinition"/>.</value>
+      /// <seealso cref="PropertyAttributes"/>
       public PropertyAttributes Attributes { get; set; }
+
+      /// <summary>
+      /// Gets or sets the name of this <see cref="PropertyDefinition"/>.
+      /// </summary>
+      /// <value>The name of this <see cref="PropertyDefinition"/>.</value>
       public String Name { get; set; }
+
+      /// <summary>
+      /// Gets or sets the <see cref="PropertySignature"/> of this <see cref="PropertyDefinition"/>.
+      /// </summary>
+      /// <value>The <see cref="PropertySignature"/> of this <see cref="PropertyDefinition"/>.</value>
+      /// <seealso cref="PropertySignature"/>
       public PropertySignature Signature { get; set; }
    }
 
@@ -682,13 +855,49 @@ namespace CILAssemblyManipulator.Physical
    /// </summary>
    public sealed class MethodSemantics
    {
+      /// <summary>
+      /// Creates a new instance of <see cref="MethodSemantics"/> with <see cref="Method"/> pointing to zeroth row of <see cref="Tables.MethodDef"/> table.
+      /// </summary>
       public MethodSemantics()
+         : this( 0 )
       {
-         this.Method = new TableIndex( Tables.MethodDef, 0 );
+         // This exists instead of default parameters so that new() -constraint would be possible for rows (if ever needed)
       }
 
+      /// <summary>
+      /// Creates a new instance of <see cref="MethodSemantics"/> with <see cref="Method"/> pointing to given row of <see cref="Tables.MethodDef"/> table.
+      /// </summary>
+      /// <param name="methodDefIndex">The zero-based index for <see cref="Method"/>.</param>
+      public MethodSemantics( Int32 methodDefIndex )
+      {
+         this.Method = new TableIndex( Tables.MethodDef, methodDefIndex );
+      }
+
+      /// <summary>
+      /// Gets or sets the <see cref="MethodSemanticsAttributes"/> of this <see cref="MethodSemantics"/>.
+      /// </summary>
+      /// <value>The <see cref="MethodSemanticsAttributes"/> of this <see cref="MethodSemantics"/>.</value>
+      /// <seealso cref="MethodSemanticsAttributes"/>
       public MethodSemanticsAttributes Attributes { get; set; }
+
+      /// <summary>
+      /// Gets or sets the associated method for this <see cref="MethodSemantics"/>.
+      /// </summary>
+      /// <value>The associated method for this <see cref="MethodSemantics"/>.</value>
+      /// <remarks>
+      /// The <see cref="TableIndex.Table"/> property of this table index should always be <see cref="Tables.MethodDef"/>. 
+      /// </remarks>
+      /// <seealso cref="TableIndex"/>
       public TableIndex Method { get; set; }
+
+      /// <summary>
+      /// Gets or sets the reference to associated element (event or property).
+      /// </summary>
+      /// <value>The reference to associated element (event or property).</value>
+      /// <remarks>
+      /// The schema for this table index corresponds to the <see cref="Meta.DefaultMetaDataTableInformationProvider.HasSemantics"/> schema.
+      /// </remarks>
+      /// <seealso cref="TableIndex"/>
       public TableIndex Associaton { get; set; }
    }
 
@@ -697,9 +906,22 @@ namespace CILAssemblyManipulator.Physical
    /// </summary>
    public sealed class MethodImplementation
    {
+      /// <summary>
+      /// Creates a new instance of <see cref="MethodImplementation"/> with <see cref="Class"/> pointing to zeroth row of <see cref="Tables.TypeDef"/> table.
+      /// </summary>
       public MethodImplementation()
+         : this( 0 )
       {
-         this.Class = new TableIndex( Tables.TypeDef, 0 );
+         // This exists instead of default parameters so that new() -constraint would be possible for rows (if ever needed)
+      }
+
+      /// <summary>
+      /// Creates a new instance of <see cref="MethodImplementation"/> with <see cref="Class"/> pointing to given row of <see cref="Tables.TypeDef"/> table.
+      /// </summary>
+      /// <param name="methodDefIndex">The zero-based index for <see cref="Class"/>.</param>
+      public MethodImplementation( Int32 typeDefIndex )
+      {
+         this.Class = new TableIndex( Tables.TypeDef, typeDefIndex );
       }
 
       public TableIndex Class { get; set; }
