@@ -16,6 +16,10 @@
  * limitations under the License. 
  */
 #if !CAM_PHYSICAL_IS_PORTABLE
+extern alias CAMPhysical;
+using CAMPhysical;
+using CAMPhysical::CILAssemblyManipulator.Physical;
+
 using CILAssemblyManipulator.Physical;
 using CILAssemblyManipulator.Physical.IO;
 using System;

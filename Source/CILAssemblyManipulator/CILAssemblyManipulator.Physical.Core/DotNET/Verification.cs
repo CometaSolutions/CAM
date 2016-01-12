@@ -133,7 +133,7 @@ namespace CILAssemblyManipulator.Physical
          String str;
          if ( !TryGetWinSDKBinFolder( out str ) )
          {
-            throw new InvalidOperationException( "Failed to localte WinSDK bin path." );
+            throw new InvalidOperationException( "Failed to locate WinSDK bin path." );
          }
 
          return str;

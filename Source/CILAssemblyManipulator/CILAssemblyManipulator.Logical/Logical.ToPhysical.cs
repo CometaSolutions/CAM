@@ -15,6 +15,10 @@
  * See the License for the specific language governing permissions and
  * limitations under the License. 
  */
+extern alias CAMPhysical;
+using CAMPhysical;
+using CAMPhysical::CILAssemblyManipulator.Physical.IO;
+
 using CILAssemblyManipulator.Logical;
 using CILAssemblyManipulator.Physical;
 using System;
@@ -459,7 +463,7 @@ public static partial class E_CILLogical
    /// <returns>The <see cref="CILMetaData"/> build from given module.</returns>
    public static CILMetaData CreatePhysicalRepresentation( this CILModule module, Boolean orderAndRemoveDuplicates = true )
    {
-      var retVal = CILMetaDataFactory.NewBlankMetaData();
+      var retVal = CAMPhysical::CILAssemblyManipulator.Physical.CILMetaDataFactory.NewBlankMetaData();
 
       var state = new PhysicalCreationState( module, retVal );
       state.ProcessLogicalForPhysical( module );

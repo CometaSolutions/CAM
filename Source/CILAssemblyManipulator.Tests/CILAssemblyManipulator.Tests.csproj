@@ -70,6 +70,7 @@
     <ProjectReference Include="..\CILAssemblyManipulator\CILAssemblyManipulator.Physical.IO\CILAssemblyManipulator.Physical.IO.csproj">
       <Project>{4e0e1695-a15e-4b3d-adb2-c3ed8a0962a1}</Project>
       <Name>CILAssemblyManipulator.Physical.IO</Name>
+      <Aliases>CAMPhysical</Aliases>
     </ProjectReference>
     <ProjectReference Include="..\TabularMetaData\TabularMetaData.csproj">
       <Project>{bcacfc5f-2656-4428-9450-890df6855591}</Project>

@@ -15,6 +15,10 @@
  * See the License for the specific language governing permissions and
  * limitations under the License. 
  */
+extern alias CAMPhysical;
+using CAMPhysical;
+using CAMPhysical::CILAssemblyManipulator.Physical;
+
 using CILAssemblyManipulator.Physical;
 using CILAssemblyManipulator.Physical.IO.Defaults;
 using CILAssemblyManipulator.Physical.Meta;
@@ -300,7 +304,7 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
 
    public sealed class RawFileReference
    {
-      public FileAttributes Attributes { get; set; }
+      public CAMPhysical::CILAssemblyManipulator.Physical.FileAttributes Attributes { get; set; }
 
       public Int32 Name { get; set; }
 

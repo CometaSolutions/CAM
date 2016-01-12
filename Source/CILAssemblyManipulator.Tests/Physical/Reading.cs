@@ -15,12 +15,16 @@
  * See the License for the specific language governing permissions and
  * limitations under the License. 
  */
+extern alias CAMPhysical;
+using CAMPhysical;
+using CAMPhysical::CILAssemblyManipulator.Physical.Meta;
+using CAMPhysical::CILAssemblyManipulator.Physical.IO;
+
 using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using CILAssemblyManipulator.Physical;
-using CILAssemblyManipulator.Physical.IO;
 using NUnit.Framework;
 using System.IO;
 

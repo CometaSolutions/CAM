@@ -15,12 +15,16 @@
  * See the License for the specific language governing permissions and
  * limitations under the License. 
  */
+extern alias CAMPhysical;
+using CAMPhysical;
+using CAMPhysical::CILAssemblyManipulator.Physical.Meta;
+using CAMPhysical::CILAssemblyManipulator.Physical.IO;
+
 using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using CILAssemblyManipulator.Physical;
-using CILAssemblyManipulator.Physical.IO;
 using NUnit.Framework;
 using CommonUtils;
 using CILAssemblyManipulator.Tests.Physical;
@@ -37,7 +41,7 @@ namespace CILAssemblyManipulator.Tests.Physical
          const String NS = "TestNamespace";
          const String NESTED_CLASS_NAME = "NestedType";
          const String ENCLOSING_CLASS_NAME = "EnclosingType";
-         var md = CILMetaDataFactory.CreateMinimalAssembly( null, null, false );
+         var md = CAMPhysical::CILAssemblyManipulator.Physical.CILMetaDataFactory.CreateMinimalAssembly( null, null, false );
 
          // Create some types
          md.TypeDefinitions.TableContents.Add( new TypeDefinition() { Namespace = NS, Name = NESTED_CLASS_NAME } );
@@ -75,7 +79,7 @@ namespace CILAssemblyManipulator.Tests.Physical
       [Test]
       public void TestDuplicateRemovingWithOneDuplicate()
       {
-         var md = CILMetaDataFactory.CreateMinimalAssembly( null, null, false );
+         var md = CAMPhysical::CILAssemblyManipulator.Physical.CILMetaDataFactory.CreateMinimalAssembly( null, null, false );
          md.TypeDefinitions.TableContents.Add( new TypeDefinition() { Namespace = "TestNS", Name = "TestType" } );
          var method = new MethodDefinition() { Name = "TestMethod", IL = new MethodILDefinition(), Signature = new MethodDefinitionSignature( 1 ) };
          md.MethodDefinitions.TableContents.Add( method );
@@ -93,7 +97,7 @@ namespace CILAssemblyManipulator.Tests.Physical
       [Test]
       public void TestDuplicateRemovingWithTwoDuplicates()
       {
-         var md = CILMetaDataFactory.CreateMinimalAssembly( null, null, false );
+         var md = CAMPhysical::CILAssemblyManipulator.Physical.CILMetaDataFactory.CreateMinimalAssembly( null, null, false );
          md.TypeDefinitions.TableContents.Add( new TypeDefinition() { Namespace = "TestNS", Name = "TestType" } );
          var method = new MethodDefinition() { Name = "TestMethod", IL = new MethodILDefinition(), Signature = new MethodDefinitionSignature( 1 ) };
          md.MethodDefinitions.TableContents.Add( method );

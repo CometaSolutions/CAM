@@ -1642,9 +1642,9 @@ public static partial class E_CILPhysical
       return new TableIndex( index.Table, newIndex );
    }
 
-   public static TableIndex IncrementIndex( this TableIndex index )
+   public static TableIndex IncrementIndex( this TableIndex index, Int32 amount = 1 )
    {
-      return index.ChangeIndex( index.Index + 1 );
+      return index.ChangeIndex( index.Index + amount );
    }
 
    public static Boolean IsSimpleTypeOfKind( this CustomAttributeArgumentType caType, SignatureElementTypes typeKind )

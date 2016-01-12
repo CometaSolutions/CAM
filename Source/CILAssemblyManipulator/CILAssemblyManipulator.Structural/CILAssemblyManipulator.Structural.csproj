@@ -78,6 +78,7 @@
     <ProjectReference Include="..\CILAssemblyManipulator.Physical.IO\CILAssemblyManipulator.Physical.IO.csproj">
       <Project>{4e0e1695-a15e-4b3d-adb2-c3ed8a0962a1}</Project>
       <Name>CILAssemblyManipulator.Physical.IO</Name>
+      <Aliases>CAMPhysical</Aliases>
     </ProjectReference>
   </ItemGroup>
   <ItemGroup Condition=" '$(CAMStructuralIsPortable)' == '' ">
@@ -93,6 +94,7 @@
     </Reference>
     <Reference Include="CILAssemblyManipulator.Physical_dll" Condition=" '$(IsCommandLineBuild)' != '' ">
       <HintPath>$(OutputPath)Merged\CILAssemblyManipulator.Physical.dll</HintPath>
+      <Aliases>CAMPhysical</Aliases>
     </Reference>
   </ItemGroup>
   <ItemGroup>

@@ -15,6 +15,8 @@
  * See the License for the specific language governing permissions and
  * limitations under the License. 
  */
+extern alias CAMPhysical;
+
 using CILAssemblyManipulator.Physical;
 using CILAssemblyManipulator.Structural;
 using CommonUtils;
@@ -465,7 +467,7 @@ public static partial class E_CILStructural
    private static CILMetaData CreatePhysicalRepresentation( this ModuleStructure module, AssemblyStructure assembly )
    {
       // Don't use "MinimalModule", as it creates module-type
-      var md = CILMetaDataFactory.CreateMinimalModule( module.Name, false );
+      var md = CAMPhysical::CILAssemblyManipulator.Physical.CILMetaDataFactory.CreateMinimalModule( module.Name, false );
 
       if ( module.IsMainModule && assembly != null )
       {

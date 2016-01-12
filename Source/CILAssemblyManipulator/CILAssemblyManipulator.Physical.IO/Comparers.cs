@@ -15,6 +15,10 @@
 * See the License for the specific language governing permissions and
 * limitations under the License. 
 */
+extern alias CAMPhysical;
+using CAMPhysical;
+using CAMPhysical::CILAssemblyManipulator.Physical;
+
 using CILAssemblyManipulator.Physical.IO;
 using CommonUtils;
 using System;
@@ -22,9 +26,10 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 
+
 namespace CILAssemblyManipulator.Physical
 {
-   public static class Comparerz
+   public static class Comparers
    {
       private static IEqualityComparer<ImageInformation> _ImageInformationLogicalEqualityComparer = null;
 

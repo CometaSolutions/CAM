@@ -1,5 +1,5 @@
 ﻿<?xml version="1.0" encoding="utf-8"?>
-<Project ToolsVersion="14.0" DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+<Project ToolsVersion="4.0" DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <Import Project="$(MSBuildExtensionsPath)\$(MSBuildToolsVersion)\Microsoft.Common.props" Condition="Exists('$(MSBuildExtensionsPath)\$(MSBuildToolsVersion)\Microsoft.Common.props')" />
   <PropertyGroup>
     <MinimumVisualStudioVersion>10.0</MinimumVisualStudioVersion>
@@ -55,11 +55,9 @@
     <ErrorReport>prompt</ErrorReport>
     <WarningLevel>4</WarningLevel>
   </PropertyGroup>
-  
   <ItemGroup Condition=" '$(CAMPhysicalIsPortable)' == '' ">
     <Reference Include="System" />
   </ItemGroup>
-  
   <ItemGroup>
     <Reference Include="UtilPack" Condition=" '$(UseUtilpackReference)' != '' ">
       <HintPath>$(OutputPath)UtilPack.dll</HintPath>
@@ -72,7 +70,6 @@
       <HintPath>$(OutputPath)CollectionsWithRoles.dll</HintPath>
     </Reference>
   </ItemGroup>
-  
   <ItemGroup>
     <ProjectReference Include="..\..\CollectionsWithRoles\CollectionsWithRoles.csproj" Condition=" '$(UseUtilpackReference)' == '' And '$(IsCommandLineBuild)' == ''">
       <Project>{7f7ebfb0-2bf4-44d8-b96f-accc5f99f529}</Project>
@@ -89,13 +86,13 @@
     <ProjectReference Include="..\CILAssemblyManipulator.Physical.Core\CILAssemblyManipulator.Physical.Core.csproj">
       <Project>{f8ba1950-209d-477f-83d6-3f969c0cbee6}</Project>
       <Name>CILAssemblyManipulator.Physical.Core</Name>
+      <Aliases>CAMPhysical</Aliases>
     </ProjectReference>
     <ProjectReference Include="..\CILAssemblyManipulator.Physical.Crypto\CILAssemblyManipulator.Physical.Crypto.csproj">
       <Project>{3c3ee913-1034-4c7d-ab79-67d19e3256fa}</Project>
       <Name>CILAssemblyManipulator.Physical.Crypto</Name>
     </ProjectReference>
   </ItemGroup>
-
   <ItemGroup>
     <Compile Include="API.cs" />
     <Compile Include="Comparers.cs" />

@@ -15,6 +15,10 @@
  * See the License for the specific language governing permissions and
  * limitations under the License. 
  */
+extern alias CAMPhysical;
+using CAMPhysical;
+using CAMPhysical::CILAssemblyManipulator.Physical;
+
 using CollectionsWithRoles.API;
 using CollectionsWithRoles.Implementation;
 using CommonUtils;
@@ -87,7 +91,7 @@ namespace CILAssemblyManipulator.Physical.Meta
       {
          yield return new MetaDataTableInformation<ModuleDefinition, RawModuleDefinition>(
             Tables.Module,
-            Comparers.ModuleDefinitionEqualityComparer,
+            CAMPhysical::CILAssemblyManipulator.Physical.Comparers.ModuleDefinitionEqualityComparer,
             null,
             () => new ModuleDefinition(),
             GetModuleDefColumns(),
@@ -97,7 +101,7 @@ namespace CILAssemblyManipulator.Physical.Meta
 
          yield return new MetaDataTableInformation<TypeReference, RawTypeReference>(
             Tables.TypeRef,
-            Comparers.TypeReferenceEqualityComparer,
+            CAMPhysical::CILAssemblyManipulator.Physical.Comparers.TypeReferenceEqualityComparer,
             null,
             () => new TypeReference(),
             GetTypeRefColumns(),
@@ -107,7 +111,7 @@ namespace CILAssemblyManipulator.Physical.Meta
 
          yield return new MetaDataTableInformation<TypeDefinition, RawTypeDefinition>(
             Tables.TypeDef,
-            Comparers.TypeDefinitionEqualityComparer,
+            CAMPhysical::CILAssemblyManipulator.Physical.Comparers.TypeDefinitionEqualityComparer,
             null,
             () => new TypeDefinition(),
             GetTypeDefColumns(),
@@ -117,7 +121,7 @@ namespace CILAssemblyManipulator.Physical.Meta
 
          yield return new MetaDataTableInformation<FieldDefinitionPointer, RawFieldDefinitionPointer>(
             Tables.FieldPtr,
-            Comparers.FieldDefinitionPointerEqualityComparer,
+            CAMPhysical::CILAssemblyManipulator.Physical.Comparers.FieldDefinitionPointerEqualityComparer,
             null,
             () => new FieldDefinitionPointer(),
             GetFieldPtrColumns(),
@@ -127,7 +131,7 @@ namespace CILAssemblyManipulator.Physical.Meta
 
          yield return new MetaDataTableInformation<FieldDefinition, RawFieldDefinition>(
             Tables.Field,
-            Comparers.FieldDefinitionEqualityComparer,
+            CAMPhysical::CILAssemblyManipulator.Physical.Comparers.FieldDefinitionEqualityComparer,
             null,
             () => new FieldDefinition(),
             GetFieldDefColumns(),
@@ -137,7 +141,7 @@ namespace CILAssemblyManipulator.Physical.Meta
 
          yield return new MetaDataTableInformation<MethodDefinitionPointer, RawMethodDefinitionPointer>(
             Tables.MethodPtr,
-            Comparers.MethodDefinitionPointerEqualityComparer,
+            CAMPhysical::CILAssemblyManipulator.Physical.Comparers.MethodDefinitionPointerEqualityComparer,
             null,
             () => new MethodDefinitionPointer(),
             GetMethodPtrColumns(),
@@ -147,7 +151,7 @@ namespace CILAssemblyManipulator.Physical.Meta
 
          yield return new MetaDataTableInformation<MethodDefinition, RawMethodDefinition>(
             Tables.MethodDef,
-            Comparers.MethodDefinitionEqualityComparer,
+            CAMPhysical::CILAssemblyManipulator.Physical.Comparers.MethodDefinitionEqualityComparer,
             null,
             () => new MethodDefinition(),
             GetMethodDefColumns(),
@@ -157,7 +161,7 @@ namespace CILAssemblyManipulator.Physical.Meta
 
          yield return new MetaDataTableInformation<ParameterDefinitionPointer, RawParameterDefinitionPointer>(
             Tables.ParameterPtr,
-            Comparers.ParameterDefinitionPointerEqualityComparer,
+            CAMPhysical::CILAssemblyManipulator.Physical.Comparers.ParameterDefinitionPointerEqualityComparer,
             null,
             () => new ParameterDefinitionPointer(),
             GetParamPtrColumns(),
@@ -167,7 +171,7 @@ namespace CILAssemblyManipulator.Physical.Meta
 
          yield return new MetaDataTableInformation<ParameterDefinition, RawParameterDefinition>(
             Tables.Parameter,
-            Comparers.ParameterDefinitionEqualityComparer,
+            CAMPhysical::CILAssemblyManipulator.Physical.Comparers.ParameterDefinitionEqualityComparer,
             null,
             () => new ParameterDefinition(),
             GetParamColumns(),
@@ -177,8 +181,8 @@ namespace CILAssemblyManipulator.Physical.Meta
 
          yield return new MetaDataTableInformation<InterfaceImplementation, RawInterfaceImplementation>(
             Tables.InterfaceImpl,
-            Comparers.InterfaceImplementationEqualityComparer,
-            Comparers.InterfaceImplementationComparer,
+            CAMPhysical::CILAssemblyManipulator.Physical.Comparers.InterfaceImplementationEqualityComparer,
+            CAMPhysical::CILAssemblyManipulator.Physical.Comparers.InterfaceImplementationComparer,
             () => new InterfaceImplementation(),
             GetInterfaceImplColumns(),
             () => new RawInterfaceImplementation(),
@@ -187,7 +191,7 @@ namespace CILAssemblyManipulator.Physical.Meta
 
          yield return new MetaDataTableInformation<MemberReference, RawMemberReference>(
             Tables.MemberRef,
-            Comparers.MemberReferenceEqualityComparer,
+            CAMPhysical::CILAssemblyManipulator.Physical.Comparers.MemberReferenceEqualityComparer,
             null,
             () => new MemberReference(),
             GetMemberRefColumns(),
@@ -197,8 +201,8 @@ namespace CILAssemblyManipulator.Physical.Meta
 
          yield return new MetaDataTableInformation<ConstantDefinition, RawConstantDefinition>(
             Tables.Constant,
-            Comparers.ConstantDefinitionEqualityComparer,
-            Comparers.ConstantDefinitionComparer,
+            CAMPhysical::CILAssemblyManipulator.Physical.Comparers.ConstantDefinitionEqualityComparer,
+            CAMPhysical::CILAssemblyManipulator.Physical.Comparers.ConstantDefinitionComparer,
             () => new ConstantDefinition(),
             GetConstantColumns(),
             () => new RawConstantDefinition(),
@@ -207,8 +211,8 @@ namespace CILAssemblyManipulator.Physical.Meta
 
          yield return new MetaDataTableInformation<CustomAttributeDefinition, RawCustomAttributeDefinition>(
             Tables.CustomAttribute,
-            Comparers.CustomAttributeDefinitionEqualityComparer,
-            Comparers.CustomAttributeDefinitionComparer,
+            CAMPhysical::CILAssemblyManipulator.Physical.Comparers.CustomAttributeDefinitionEqualityComparer,
+            CAMPhysical::CILAssemblyManipulator.Physical.Comparers.CustomAttributeDefinitionComparer,
             () => new CustomAttributeDefinition(),
             GetCustomAttributeColumns(),
             () => new RawCustomAttributeDefinition(),
@@ -217,8 +221,8 @@ namespace CILAssemblyManipulator.Physical.Meta
 
          yield return new MetaDataTableInformation<FieldMarshal, RawFieldMarshal>(
             Tables.FieldMarshal,
-            Comparers.FieldMarshalEqualityComparer,
-            Comparers.FieldMarshalComparer,
+            CAMPhysical::CILAssemblyManipulator.Physical.Comparers.FieldMarshalEqualityComparer,
+            CAMPhysical::CILAssemblyManipulator.Physical.Comparers.FieldMarshalComparer,
             () => new FieldMarshal(),
             GetFieldMarshalColumns(),
             () => new RawFieldMarshal(),
@@ -227,8 +231,8 @@ namespace CILAssemblyManipulator.Physical.Meta
 
          yield return new MetaDataTableInformation<SecurityDefinition, RawSecurityDefinition>(
             Tables.DeclSecurity,
-            Comparers.SecurityDefinitionEqualityComparer,
-            Comparers.SecurityDefinitionComparer,
+            CAMPhysical::CILAssemblyManipulator.Physical.Comparers.SecurityDefinitionEqualityComparer,
+            CAMPhysical::CILAssemblyManipulator.Physical.Comparers.SecurityDefinitionComparer,
             () => new SecurityDefinition(),
             GetDeclSecurityColumns(),
             () => new RawSecurityDefinition(),
@@ -237,8 +241,8 @@ namespace CILAssemblyManipulator.Physical.Meta
 
          yield return new MetaDataTableInformation<ClassLayout, RawClassLayout>(
             Tables.ClassLayout,
-            Comparers.ClassLayoutEqualityComparer,
-            Comparers.ClassLayoutComparer,
+            CAMPhysical::CILAssemblyManipulator.Physical.Comparers.ClassLayoutEqualityComparer,
+            CAMPhysical::CILAssemblyManipulator.Physical.Comparers.ClassLayoutComparer,
             () => new ClassLayout(),
             GetClassLayoutColumns(),
             () => new RawClassLayout(),
@@ -247,8 +251,8 @@ namespace CILAssemblyManipulator.Physical.Meta
 
          yield return new MetaDataTableInformation<FieldLayout, RawFieldLayout>(
             Tables.FieldLayout,
-            Comparers.FieldLayoutEqualityComparer,
-            Comparers.FieldLayoutComparer,
+            CAMPhysical::CILAssemblyManipulator.Physical.Comparers.FieldLayoutEqualityComparer,
+            CAMPhysical::CILAssemblyManipulator.Physical.Comparers.FieldLayoutComparer,
             () => new FieldLayout(),
             GetFieldLayoutColumns(),
             () => new RawFieldLayout(),
@@ -257,7 +261,7 @@ namespace CILAssemblyManipulator.Physical.Meta
 
          yield return new MetaDataTableInformation<StandaloneSignature, RawStandaloneSignature>(
             Tables.StandaloneSignature,
-            Comparers.StandaloneSignatureEqualityComparer,
+            CAMPhysical::CILAssemblyManipulator.Physical.Comparers.StandaloneSignatureEqualityComparer,
             null,
             () => new StandaloneSignature(),
             GetStandaloneSigColumns(),
@@ -267,7 +271,7 @@ namespace CILAssemblyManipulator.Physical.Meta
 
          yield return new MetaDataTableInformation<EventMap, RawEventMap>(
             Tables.EventMap,
-            Comparers.EventMapEqualityComparer,
+            CAMPhysical::CILAssemblyManipulator.Physical.Comparers.EventMapEqualityComparer,
             null,
             () => new EventMap(),
             GetEventMapColumns(),
@@ -277,7 +281,7 @@ namespace CILAssemblyManipulator.Physical.Meta
 
          yield return new MetaDataTableInformation<EventDefinitionPointer, RawEventDefinitionPointer>(
             Tables.EventPtr,
-            Comparers.EventDefinitionPointerEqualityComparer,
+            CAMPhysical::CILAssemblyManipulator.Physical.Comparers.EventDefinitionPointerEqualityComparer,
             null,
             () => new EventDefinitionPointer(),
             GetEventPtrColumns(),
@@ -287,7 +291,7 @@ namespace CILAssemblyManipulator.Physical.Meta
 
          yield return new MetaDataTableInformation<EventDefinition, RawEventDefinition>(
             Tables.Event,
-            Comparers.EventDefinitionEqualityComparer,
+            CAMPhysical::CILAssemblyManipulator.Physical.Comparers.EventDefinitionEqualityComparer,
             null,
             () => new EventDefinition(),
             GetEventDefColumns(),
@@ -297,7 +301,7 @@ namespace CILAssemblyManipulator.Physical.Meta
 
          yield return new MetaDataTableInformation<PropertyMap, RawPropertyMap>(
             Tables.PropertyMap,
-            Comparers.PropertyMapEqualityComparer,
+            CAMPhysical::CILAssemblyManipulator.Physical.Comparers.PropertyMapEqualityComparer,
             null,
             () => new PropertyMap(),
             GetPropertyMapColumns(),
@@ -307,7 +311,7 @@ namespace CILAssemblyManipulator.Physical.Meta
 
          yield return new MetaDataTableInformation<PropertyDefinitionPointer, RawPropertyDefinitionPointer>(
             Tables.PropertyPtr,
-            Comparers.PropertyDefinitionPointerEqualityComparer,
+            CAMPhysical::CILAssemblyManipulator.Physical.Comparers.PropertyDefinitionPointerEqualityComparer,
             null,
             () => new PropertyDefinitionPointer(),
             GetPropertyPtrColumns(),
@@ -317,7 +321,7 @@ namespace CILAssemblyManipulator.Physical.Meta
 
          yield return new MetaDataTableInformation<PropertyDefinition, RawPropertyDefinition>(
             Tables.Property,
-            Comparers.PropertyDefinitionEqualityComparer,
+            CAMPhysical::CILAssemblyManipulator.Physical.Comparers.PropertyDefinitionEqualityComparer,
             null,
             () => new PropertyDefinition(),
             GetPropertyDefColumns(),
@@ -327,8 +331,8 @@ namespace CILAssemblyManipulator.Physical.Meta
 
          yield return new MetaDataTableInformation<MethodSemantics, RawMethodSemantics>(
             Tables.MethodSemantics,
-            Comparers.MethodSemanticsEqualityComparer,
-            Comparers.MethodSemanticsComparer,
+            CAMPhysical::CILAssemblyManipulator.Physical.Comparers.MethodSemanticsEqualityComparer,
+            CAMPhysical::CILAssemblyManipulator.Physical.Comparers.MethodSemanticsComparer,
             () => new MethodSemantics(),
             GetMethodSemanticsColumns(),
             () => new RawMethodSemantics(),
@@ -337,8 +341,8 @@ namespace CILAssemblyManipulator.Physical.Meta
 
          yield return new MetaDataTableInformation<MethodImplementation, RawMethodImplementation>(
             Tables.MethodImpl,
-            Comparers.MethodImplementationEqualityComparer,
-            Comparers.MethodImplementationComparer,
+            CAMPhysical::CILAssemblyManipulator.Physical.Comparers.MethodImplementationEqualityComparer,
+            CAMPhysical::CILAssemblyManipulator.Physical.Comparers.MethodImplementationComparer,
             () => new MethodImplementation(),
             GetMethodImplColumns(),
             () => new RawMethodImplementation(),
@@ -347,7 +351,7 @@ namespace CILAssemblyManipulator.Physical.Meta
 
          yield return new MetaDataTableInformation<ModuleReference, RawModuleReference>(
             Tables.ModuleRef,
-            Comparers.ModuleReferenceEqualityComparer,
+            CAMPhysical::CILAssemblyManipulator.Physical.Comparers.ModuleReferenceEqualityComparer,
             null,
             () => new ModuleReference(),
             GetModuleRefColumns(),
@@ -357,7 +361,7 @@ namespace CILAssemblyManipulator.Physical.Meta
 
          yield return new MetaDataTableInformation<TypeSpecification, RawTypeSpecification>(
             Tables.TypeSpec,
-            Comparers.TypeSpecificationEqualityComparer,
+            CAMPhysical::CILAssemblyManipulator.Physical.Comparers.TypeSpecificationEqualityComparer,
             null,
             () => new TypeSpecification(),
             GetTypeSpecColumns(),
@@ -367,8 +371,8 @@ namespace CILAssemblyManipulator.Physical.Meta
 
          yield return new MetaDataTableInformation<MethodImplementationMap, RawMethodImplementationMap>(
             Tables.ImplMap,
-            Comparers.MethodImplementationMapEqualityComparer,
-            Comparers.MethodImplementationMapComparer,
+            CAMPhysical::CILAssemblyManipulator.Physical.Comparers.MethodImplementationMapEqualityComparer,
+            CAMPhysical::CILAssemblyManipulator.Physical.Comparers.MethodImplementationMapComparer,
             () => new MethodImplementationMap(),
             GetImplMapColumns(),
             () => new RawMethodImplementationMap(),
@@ -377,8 +381,8 @@ namespace CILAssemblyManipulator.Physical.Meta
 
          yield return new MetaDataTableInformation<FieldRVA, RawFieldRVA>(
             Tables.FieldRVA,
-            Comparers.FieldRVAEqualityComparer,
-            Comparers.FieldRVAComparer,
+            CAMPhysical::CILAssemblyManipulator.Physical.Comparers.FieldRVAEqualityComparer,
+            CAMPhysical::CILAssemblyManipulator.Physical.Comparers.FieldRVAComparer,
             () => new FieldRVA(),
             GetFieldRVAColumns(),
             () => new RawFieldRVA(),
@@ -387,7 +391,7 @@ namespace CILAssemblyManipulator.Physical.Meta
 
          yield return new MetaDataTableInformation<EditAndContinueLog, RawEditAndContinueLog>(
             Tables.EncLog,
-            Comparers.EditAndContinueLogEqualityComparer,
+            CAMPhysical::CILAssemblyManipulator.Physical.Comparers.EditAndContinueLogEqualityComparer,
             null,
             () => new EditAndContinueLog(),
             GetENCLogColumns(),
@@ -397,7 +401,7 @@ namespace CILAssemblyManipulator.Physical.Meta
 
          yield return new MetaDataTableInformation<EditAndContinueMap, RawEditAndContinueMap>(
             Tables.EncMap,
-            Comparers.EditAndContinueMapEqualityComparer,
+            CAMPhysical::CILAssemblyManipulator.Physical.Comparers.EditAndContinueMapEqualityComparer,
             null,
             () => new EditAndContinueMap(),
             GetENCMapColumns(),
@@ -407,7 +411,7 @@ namespace CILAssemblyManipulator.Physical.Meta
 
          yield return new MetaDataTableInformation<AssemblyDefinition, RawAssemblyDefinition>(
             Tables.Assembly,
-            Comparers.AssemblyDefinitionEqualityComparer,
+            CAMPhysical::CILAssemblyManipulator.Physical.Comparers.AssemblyDefinitionEqualityComparer,
             null,
             () => new AssemblyDefinition(),
             GetAssemblyDefColumns(),
@@ -419,7 +423,7 @@ namespace CILAssemblyManipulator.Physical.Meta
 
          yield return new MetaDataTableInformation<AssemblyDefinitionProcessor, RawAssemblyDefinitionProcessor>(
             Tables.AssemblyProcessor,
-            Comparers.AssemblyDefinitionProcessorEqualityComparer,
+            CAMPhysical::CILAssemblyManipulator.Physical.Comparers.AssemblyDefinitionProcessorEqualityComparer,
             null,
             () => new AssemblyDefinitionProcessor(),
             GetAssemblyDefProcessorColumns(),
@@ -429,7 +433,7 @@ namespace CILAssemblyManipulator.Physical.Meta
 
          yield return new MetaDataTableInformation<AssemblyDefinitionOS, RawAssemblyDefinitionOS>(
             Tables.AssemblyOS,
-            Comparers.AssemblyDefinitionOSEqualityComparer,
+            CAMPhysical::CILAssemblyManipulator.Physical.Comparers.AssemblyDefinitionOSEqualityComparer,
             null,
             () => new AssemblyDefinitionOS(),
             GetAssemblyDefOSColumns(),
@@ -441,7 +445,7 @@ namespace CILAssemblyManipulator.Physical.Meta
 
          yield return new MetaDataTableInformation<AssemblyReference, RawAssemblyReference>(
             Tables.AssemblyRef,
-            Comparers.AssemblyReferenceEqualityComparer,
+            CAMPhysical::CILAssemblyManipulator.Physical.Comparers.AssemblyReferenceEqualityComparer,
             null,
             () => new AssemblyReference(),
             GetAssemblyRefColumns(),
@@ -453,7 +457,7 @@ namespace CILAssemblyManipulator.Physical.Meta
 
          yield return new MetaDataTableInformation<AssemblyReferenceProcessor, RawAssemblyReferenceProcessor>(
             Tables.AssemblyRefProcessor,
-            Comparers.AssemblyReferenceProcessorEqualityComparer,
+            CAMPhysical::CILAssemblyManipulator.Physical.Comparers.AssemblyReferenceProcessorEqualityComparer,
             null,
             () => new AssemblyReferenceProcessor(),
             GetAssemblyRefProcessorColumns(),
@@ -463,7 +467,7 @@ namespace CILAssemblyManipulator.Physical.Meta
 
          yield return new MetaDataTableInformation<AssemblyReferenceOS, RawAssemblyReferenceOS>(
             Tables.AssemblyRefOS,
-            Comparers.AssemblyReferenceOSEqualityComparer,
+            CAMPhysical::CILAssemblyManipulator.Physical.Comparers.AssemblyReferenceOSEqualityComparer,
             null,
             () => new AssemblyReferenceOS(),
             GetAssemblyRefOSColumns(),
@@ -475,7 +479,7 @@ namespace CILAssemblyManipulator.Physical.Meta
 
          yield return new MetaDataTableInformation<FileReference, RawFileReference>(
             Tables.File,
-            Comparers.FileReferenceEqualityComparer,
+            CAMPhysical::CILAssemblyManipulator.Physical.Comparers.FileReferenceEqualityComparer,
             null,
             () => new FileReference(),
             GetFileColumns(),
@@ -485,7 +489,7 @@ namespace CILAssemblyManipulator.Physical.Meta
 
          yield return new MetaDataTableInformation<ExportedType, RawExportedType>(
             Tables.ExportedType,
-            Comparers.ExportedTypeEqualityComparer,
+            CAMPhysical::CILAssemblyManipulator.Physical.Comparers.ExportedTypeEqualityComparer,
             null,
             () => new ExportedType(),
             GetExportedTypeColumns(),
@@ -495,7 +499,7 @@ namespace CILAssemblyManipulator.Physical.Meta
 
          yield return new MetaDataTableInformation<ManifestResource, RawManifestResource>(
             Tables.ManifestResource,
-            Comparers.ManifestResourceEqualityComparer,
+            CAMPhysical::CILAssemblyManipulator.Physical.Comparers.ManifestResourceEqualityComparer,
             null,
             () => new ManifestResource(),
             GetManifestResourceColumns(),
@@ -505,8 +509,8 @@ namespace CILAssemblyManipulator.Physical.Meta
 
          yield return new MetaDataTableInformation<NestedClassDefinition, RawNestedClassDefinition>(
             Tables.NestedClass,
-            Comparers.NestedClassDefinitionEqualityComparer,
-            Comparers.NestedClassDefinitionComparer,
+            CAMPhysical::CILAssemblyManipulator.Physical.Comparers.NestedClassDefinitionEqualityComparer,
+            CAMPhysical::CILAssemblyManipulator.Physical.Comparers.NestedClassDefinitionComparer,
             () => new NestedClassDefinition(),
             GetNestedClassColumns(),
             () => new RawNestedClassDefinition(),
@@ -515,8 +519,8 @@ namespace CILAssemblyManipulator.Physical.Meta
 
          yield return new MetaDataTableInformation<GenericParameterDefinition, RawGenericParameterDefinition>(
             Tables.GenericParameter,
-            Comparers.GenericParameterDefinitionEqualityComparer,
-            Comparers.GenericParameterDefinitionComparer,
+            CAMPhysical::CILAssemblyManipulator.Physical.Comparers.GenericParameterDefinitionEqualityComparer,
+            CAMPhysical::CILAssemblyManipulator.Physical.Comparers.GenericParameterDefinitionComparer,
             () => new GenericParameterDefinition(),
             GetGenericParamColumns(),
             () => new RawGenericParameterDefinition(),
@@ -525,7 +529,7 @@ namespace CILAssemblyManipulator.Physical.Meta
 
          yield return new MetaDataTableInformation<MethodSpecification, RawMethodSpecification>(
             Tables.MethodSpec,
-            Comparers.MethodSpecificationEqualityComparer,
+            CAMPhysical::CILAssemblyManipulator.Physical.Comparers.MethodSpecificationEqualityComparer,
             null,
             () => new MethodSpecification(),
             GetMethodSpecColumns(),
@@ -535,8 +539,8 @@ namespace CILAssemblyManipulator.Physical.Meta
 
          yield return new MetaDataTableInformation<GenericParameterConstraintDefinition, RawGenericParameterConstraintDefinition>(
             Tables.GenericParameterConstraint,
-            Comparers.GenericParameterConstraintDefinitionEqualityComparer,
-            Comparers.GenericParameterConstraintDefinitionComparer,
+            CAMPhysical::CILAssemblyManipulator.Physical.Comparers.GenericParameterConstraintDefinitionEqualityComparer,
+            CAMPhysical::CILAssemblyManipulator.Physical.Comparers.GenericParameterConstraintDefinitionComparer,
             () => new GenericParameterConstraintDefinition(),
             GetGenericParamConstraintColumns(),
             () => new RawGenericParameterConstraintDefinition(),

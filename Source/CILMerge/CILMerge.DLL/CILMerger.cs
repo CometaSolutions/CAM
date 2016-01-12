@@ -1232,6 +1232,8 @@ namespace CILMerge
             var tMDef = targetModule.MethodDefinitions.TableContents;
             tDef.FieldList = new TableIndex( Tables.Field, tFDef.Count );
             tDef.MethodList = new TableIndex( Tables.MethodDef, tMDef.Count );
+            var multipleStaticCtors = new List<Int32>();
+            var tPDef = targetModule.ParameterDefinitions.TableContents;
 
             foreach ( var typeInfo in thisTypeInfo )
             {
@@ -1267,13 +1269,18 @@ namespace CILMerge
                }
 
                // MethodDef
-               var tPDef = targetModule.ParameterDefinitions.TableContents;
                foreach ( var mDefIdx in inputMD.GetTypeMethodIndices( inputTDefIdx ) )
                {
                   var targetMDefIdx = tMDef.Count;
                   targetTableIndexMappings.Add( new TableIndex( Tables.MethodDef, targetMDefIdx ), Tuple.Create( inputMD, mDefIdx ) );
                   thisTableMappings.Add( new TableIndex( Tables.MethodDef, mDefIdx ), new TableIndex( Tables.MethodDef, targetMDefIdx ) );
                   var mDef = inputMD.MethodDefinitions.TableContents[mDefIdx];
+
+                  if ( String.Equals( Miscellaneous.CLASS_CTOR_NAME, mDef.Name ) )
+                  {
+                     multipleStaticCtors.Add( targetMDefIdx );
+                  }
+
                   tMDef.Add( new MethodDefinition()
                   {
                      Attributes = mDef.Attributes,
@@ -1318,6 +1325,52 @@ namespace CILMerge
                      } );
                   }
                }
+            }
+
+            if ( multipleStaticCtors.Count > 1 )
+            {
+               TODO Extract more info from static ctor:
+               -which readonly fields are assigned
+
+              Then pass those fields as out-parameters to method
+
+               TODO same thing for fields: we have to rename fields instead of merging them.
+               CHECK MemberRef table in that case!!!!
+
+               // We have to create a new static constructor, which will call the others in sequence
+               var staticCtorIL = new MethodILDefinition( opCodeCount: multipleStaticCtors.Count + 1 )
+               {
+                  InitLocals = true,
+                  MaxStackSize = 0
+               };
+               foreach ( var staticCtorIndex in multipleStaticCtors )
+                  {
+                     staticCtorIL.OpCodes.Add( new OpCodeInfoWithToken( OpCodes.Call, new TableIndex( Tables.MethodDef, staticCtorIndex ) ) );
+                     var calledMethod = tMDef[staticCtorIndex];
+                     // Fix the old static constructor
+                     calledMethod.Name = "StaticCtor_" + staticCtorIndex;
+                     calledMethod.Attributes = MethodAttributes.CompilerControlled | MethodAttributes.HideBySig | MethodAttributes.Static;
+                  }
+               staticCtorIL.OpCodes.Add( OpCodeInfoWithNoOperand.GetInstanceFor( OpCodeEncoding.Ret ) );
+
+               tMDef.Add( new MethodDefinition()
+               {
+                  Attributes = MethodAttributes.Private | MethodAttributes.HideBySig | MethodAttributes.SpecialName | MethodAttributes.RTSpecialName | MethodAttributes.Static,
+                  ImplementationAttributes = MethodImplAttributes.IL | MethodImplAttributes.Managed,
+                  Name = Miscellaneous.CLASS_CTOR_NAME,
+                  ParameterList = new TableIndex( Tables.Parameter, tPDef.Count ),
+                  Signature = new MethodDefinitionSignature()
+                  {
+                     ReturnType = new ParameterSignature()
+                     {
+                        Type = SimpleTypeSignature.Void
+                     },
+                     SignatureStarter = SignatureStarters.Default
+                  },
+                  IL = staticCtorIL
+               } );
+
+
             }
          }
 
@@ -1777,62 +1830,65 @@ namespace CILMerge
          var mDefs = targetModule.MethodDefinitions.TableContents;
          for ( var i = 0; i < mDefs.Count; ++i )
          {
-            var inputInfo = this._targetTableIndexMappings[new TableIndex( Tables.MethodDef, i )];
-            var inputModule = inputInfo.Item1;
-            var thisMappings = this._tableIndexMappings[inputModule];
-            var inputMethodDef = inputModule.MethodDefinitions.TableContents[inputInfo.Item2];
-            var targetMethodDef = mDefs[i];
-            targetMethodDef.Signature = inputMethodDef.Signature.CreateDeepCopy( tIdx => thisMappings[tIdx] );
-
-            // Create IL
-            // IL tokens reference only TypeDef, TypeRef, TypeSpec, MethodDef, FieldDef, MemberRef, MethodSpec or StandaloneSignature tables, all of which should've been processed in ConstructNonStructuralTablesUsedInSignaturesAndILTokens method
-            var inputIL = inputMethodDef.IL;
-            if ( inputIL != null )
+            // Because of possible new static ctors, target table index mappings might not have this row
+            Tuple<CILMetaData, Int32> inputInfo;
+            if ( this._targetTableIndexMappings.TryGetValue( new TableIndex( Tables.MethodDef, i ), out inputInfo ) )
             {
-               var targetIL = new MethodILDefinition( inputIL.ExceptionBlocks.Count, inputIL.OpCodes.Count );
-               targetMethodDef.IL = targetIL;
-               targetIL.ExceptionBlocks.AddRange( inputIL.ExceptionBlocks.Select( eb => new MethodExceptionBlock()
-               {
-                  BlockType = eb.BlockType,
-                  ExceptionType = eb.ExceptionType.HasValue ? thisMappings[eb.ExceptionType.Value] : (TableIndex?) null,
-                  FilterOffset = eb.FilterOffset,
-                  HandlerLength = eb.HandlerLength,
-                  HandlerOffset = eb.HandlerOffset,
-                  TryLength = eb.TryLength,
-                  TryOffset = eb.TryOffset
-               } ) );
-               targetIL.InitLocals = inputIL.InitLocals;
-               targetIL.LocalsSignatureIndex = inputIL.LocalsSignatureIndex.HasValue ? thisMappings[inputIL.LocalsSignatureIndex.Value] : (TableIndex?) null;
-               targetIL.MaxStackSize = inputIL.MaxStackSize;
-               targetIL.OpCodes.AddRange( inputIL.OpCodes.Select<OpCodeInfo, OpCodeInfo>( oc =>
-               {
-                  switch ( oc.InfoKind )
-                  {
-                     case OpCodeOperandKind.OperandInteger:
-                        return new OpCodeInfoWithInt32( oc.OpCode, ( (OpCodeInfoWithInt32) oc ).Operand );
-                     case OpCodeOperandKind.OperandInteger64:
-                        return new OpCodeInfoWithInt64( oc.OpCode, ( (OpCodeInfoWithInt64) oc ).Operand );
-                     case OpCodeOperandKind.OperandNone:
-                        return oc;
-                     case OpCodeOperandKind.OperandR4:
-                        return new OpCodeInfoWithSingle( oc.OpCode, ( (OpCodeInfoWithSingle) oc ).Operand );
-                     case OpCodeOperandKind.OperandR8:
-                        return new OpCodeInfoWithDouble( oc.OpCode, ( (OpCodeInfoWithDouble) oc ).Operand );
-                     case OpCodeOperandKind.OperandString:
-                        return new OpCodeInfoWithString( oc.OpCode, ( (OpCodeInfoWithString) oc ).Operand );
-                     case OpCodeOperandKind.OperandSwitch:
-                        var ocSwitch = (OpCodeInfoWithSwitch) oc;
-                        var ocSwitchTarget = new OpCodeInfoWithSwitch( oc.OpCode, ocSwitch.Offsets.Count );
-                        ocSwitchTarget.Offsets.AddRange( ocSwitch.Offsets );
-                        return ocSwitchTarget;
-                     case OpCodeOperandKind.OperandToken:
-                        return new OpCodeInfoWithToken( oc.OpCode, thisMappings[( (OpCodeInfoWithToken) oc ).Operand] );
-                     default:
-                        throw new NotSupportedException( "Unknown op code kind: " + oc.InfoKind + "." );
-                  }
-               } ) );
-            }
+               var inputModule = inputInfo.Item1;
+               var thisMappings = this._tableIndexMappings[inputModule];
+               var inputMethodDef = inputModule.MethodDefinitions.TableContents[inputInfo.Item2];
+               var targetMethodDef = mDefs[i];
+               targetMethodDef.Signature = inputMethodDef.Signature.CreateDeepCopy( tIdx => thisMappings[tIdx] );
 
+               // Create IL
+               // IL tokens reference only TypeDef, TypeRef, TypeSpec, MethodDef, FieldDef, MemberRef, MethodSpec or StandaloneSignature tables, all of which should've been processed in ConstructNonStructuralTablesUsedInSignaturesAndILTokens method
+               var inputIL = inputMethodDef.IL;
+               if ( inputIL != null )
+               {
+                  var targetIL = new MethodILDefinition( inputIL.ExceptionBlocks.Count, inputIL.OpCodes.Count );
+                  targetMethodDef.IL = targetIL;
+                  targetIL.ExceptionBlocks.AddRange( inputIL.ExceptionBlocks.Select( eb => new MethodExceptionBlock()
+                  {
+                     BlockType = eb.BlockType,
+                     ExceptionType = eb.ExceptionType.HasValue ? thisMappings[eb.ExceptionType.Value] : (TableIndex?) null,
+                     FilterOffset = eb.FilterOffset,
+                     HandlerLength = eb.HandlerLength,
+                     HandlerOffset = eb.HandlerOffset,
+                     TryLength = eb.TryLength,
+                     TryOffset = eb.TryOffset
+                  } ) );
+                  targetIL.InitLocals = inputIL.InitLocals;
+                  targetIL.LocalsSignatureIndex = inputIL.LocalsSignatureIndex.HasValue ? thisMappings[inputIL.LocalsSignatureIndex.Value] : (TableIndex?) null;
+                  targetIL.MaxStackSize = inputIL.MaxStackSize;
+                  targetIL.OpCodes.AddRange( inputIL.OpCodes.Select<OpCodeInfo, OpCodeInfo>( oc =>
+                  {
+                     switch ( oc.InfoKind )
+                     {
+                        case OpCodeOperandKind.OperandInteger:
+                           return new OpCodeInfoWithInt32( oc.OpCode, ( (OpCodeInfoWithInt32) oc ).Operand );
+                        case OpCodeOperandKind.OperandInteger64:
+                           return new OpCodeInfoWithInt64( oc.OpCode, ( (OpCodeInfoWithInt64) oc ).Operand );
+                        case OpCodeOperandKind.OperandNone:
+                           return oc;
+                        case OpCodeOperandKind.OperandR4:
+                           return new OpCodeInfoWithSingle( oc.OpCode, ( (OpCodeInfoWithSingle) oc ).Operand );
+                        case OpCodeOperandKind.OperandR8:
+                           return new OpCodeInfoWithDouble( oc.OpCode, ( (OpCodeInfoWithDouble) oc ).Operand );
+                        case OpCodeOperandKind.OperandString:
+                           return new OpCodeInfoWithString( oc.OpCode, ( (OpCodeInfoWithString) oc ).Operand );
+                        case OpCodeOperandKind.OperandSwitch:
+                           var ocSwitch = (OpCodeInfoWithSwitch) oc;
+                           var ocSwitchTarget = new OpCodeInfoWithSwitch( oc.OpCode, ocSwitch.Offsets.Count );
+                           ocSwitchTarget.Offsets.AddRange( ocSwitch.Offsets );
+                           return ocSwitchTarget;
+                        case OpCodeOperandKind.OperandToken:
+                           return new OpCodeInfoWithToken( oc.OpCode, thisMappings[( (OpCodeInfoWithToken) oc ).Operand] );
+                        default:
+                           throw new NotSupportedException( "Unknown op code kind: " + oc.InfoKind + "." );
+                     }
+                  } ) );
+               }
+            }
          }
 
          // MemberRef

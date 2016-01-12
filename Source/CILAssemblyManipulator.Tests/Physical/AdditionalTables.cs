@@ -1,6 +1,26 @@
-﻿using CILAssemblyManipulator.Physical;
-using CILAssemblyManipulator.Physical.IO;
-using CILAssemblyManipulator.Physical.Meta;
+﻿/*
+ * Copyright 2015 Stanislav Muhametsin. All rights Reserved.
+ *
+ * Licensed  under the  Apache License,  Version 2.0  (the "License");
+ * you may not use  this file  except in  compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *   http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed  under the  License is distributed on an "AS IS" BASIS,
+ * WITHOUT  WARRANTIES OR CONDITIONS  OF ANY KIND, either  express  or
+ * implied.
+ *
+ * See the License for the specific language governing permissions and
+ * limitations under the License. 
+ */
+extern alias CAMPhysical;
+using CAMPhysical;
+using CAMPhysical::CILAssemblyManipulator.Physical.Meta;
+using CAMPhysical::CILAssemblyManipulator.Physical.IO;
+
+using CILAssemblyManipulator.Physical;
 using CommonUtils;
 using NUnit.Framework;
 using System;
@@ -21,7 +41,7 @@ namespace CILAssemblyManipulator.Tests.Physical
       [Test]
       public void TestBorderLineCases()
       {
-         var md = CILMetaDataFactory.NewBlankMetaData();
+         var md = CAMPhysical::CILAssemblyManipulator.Physical.CILMetaDataFactory.NewBlankMetaData();
          MetaDataTable tbl;
          Assert.IsFalse( md.TryGetByTable( (Int32) Tables.GenericParameterConstraint + 1, out tbl ) );
          Assert.IsFalse( md.TryGetByTable( (Int32) Byte.MaxValue, out tbl ) );
@@ -30,7 +50,7 @@ namespace CILAssemblyManipulator.Tests.Physical
       [Test]
       public void TestGettingTables()
       {
-         var md = CILMetaDataFactory.NewBlankMetaData();
+         var md = CAMPhysical::CILAssemblyManipulator.Physical.CILMetaDataFactory.NewBlankMetaData();
          var tablesReturned = md.GetAllTables().ToArray();
          var tablesOrdered = tablesReturned.OrderBy( t => t.GetTableIndex() ).ToArray();
          Assert.IsTrue( tablesReturned.SequenceEqual( tablesOrdered ) );
@@ -101,7 +121,7 @@ namespace CILAssemblyManipulator.Tests.Physical
 
       private static CILMetaData CreateMDWithAdditionalTables()
       {
-         return CILMetaDataFactory.CreateMinimalAssembly(
+         return CAMPhysical::CILAssemblyManipulator.Physical.CILMetaDataFactory.CreateMinimalAssembly(
             "Test_Assembly",
             null,
             createModuleType: true,

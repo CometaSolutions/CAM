@@ -209,7 +209,7 @@ namespace TabularMetaData
 /// <summary>
 /// This class contains extensions methods for this library.
 /// </summary>
-public static partial class E_CILPhysicalBase
+public static partial class E_TabularMetaData
 {
    /// <summary>
    /// Gets all the tables of given <see cref="TabularMetaDataWithSchema"/>.

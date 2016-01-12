@@ -17,9 +17,9 @@
       <MergeProjectConfiguration>$(CILMergeConfiguration)</MergeProjectConfiguration>
       <MergeProjectTargets>Build</MergeProjectTargets>
     </CILMergeProject>
-    <CILMergeProject Include="$(CILMergeBaseDir)/Source/CILAssemblyManipulator/CILAssemblyManipulator.Physical/CILAssemblyManipulator.Physical.csproj">
+    <CILMergeProject Include="$(CILMergeBaseDir)/Source/CILAssemblyManipulator/CILAssemblyManipulator.Physical.IO/CILAssemblyManipulator.Physical.IO.csproj">
       <MergeProjectConfiguration>$(CILMergeConfiguration)</MergeProjectConfiguration>
-      <MergeProjectTargets>GenerateAssemblyInfoFile;Build</MergeProjectTargets>
+      <MergeProjectTargets>Build</MergeProjectTargets>
     </CILMergeProject>
     <CILMergeProject Include="$(CILMergeBaseDir)/Source/CILAssemblyManipulator/CILAssemblyManipulator.PDB/CILAssemblyManipulator.PDB.csproj">
       <MergeProjectConfiguration>$(CILMergeConfiguration)</MergeProjectConfiguration>

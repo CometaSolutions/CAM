@@ -77,7 +77,7 @@
     <ErrorReport>prompt</ErrorReport>
     <WarningLevel>4</WarningLevel>
   </PropertyGroup>
-  <PropertyGroup Condition=" '$(CAMLogicalTargetKind)' == 'DotNET' and '$(IsCommandLineBuild)' != '' " >
+  <PropertyGroup Condition=" '$(CAMLogicalTargetKind)' == 'DotNET' and '$(IsCommandLineBuild)' != '' ">
     <DocumentationFile>$(OutputPath)$(AssemblyName).xml</DocumentationFile>
   </PropertyGroup>
   <ItemGroup>
@@ -104,6 +104,7 @@
     <ProjectReference Include="..\CILAssemblyManipulator.Physical.IO\CILAssemblyManipulator.Physical.IO.csproj">
       <Project>{4e0e1695-a15e-4b3d-adb2-c3ed8a0962a1}</Project>
       <Name>CILAssemblyManipulator.Physical.IO</Name>
+      <Aliases>CAMPhysical</Aliases>
     </ProjectReference>
   </ItemGroup>
   <ItemGroup Condition=" '$(CAMLogicalTargetKind)' == 'DotNET' ">
@@ -121,6 +122,7 @@
     <Reference Include="CILAssemblyManipulator.Physical_dll" Condition=" '$(IsCommandLineBuild)' != '' ">
       <HintPath Condition=" '$(CAMLogicalTargetKind)' == 'Portable' ">$(OutputPath)..\SL\Merged\CILAssemblyManipulator.Physical.dll</HintPath>
       <HintPath Condition=" '$(CAMLogicalTargetKind)' != 'Portable' ">$(OutputPath)Merged\CILAssemblyManipulator.Physical.dll</HintPath>
+      <Aliases>CAMPhysical</Aliases>
     </Reference>
   </ItemGroup>
   <ItemGroup>

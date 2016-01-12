@@ -15,6 +15,11 @@
  * See the License for the specific language governing permissions and
  * limitations under the License. 
  */
+extern alias CAMPhysical;
+using CAMPhysical;
+using CAMPhysical::CILAssemblyManipulator.Physical.Meta;
+using CAMPhysical::CILAssemblyManipulator.Physical.IO;
+
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -22,7 +27,6 @@ using System.Text;
 using NUnit.Framework;
 using System.IO;
 using CILAssemblyManipulator.Physical;
-using CILAssemblyManipulator.Physical.IO;
 
 namespace CILAssemblyManipulator.Tests.Physical
 {
@@ -95,7 +99,7 @@ namespace CILAssemblyManipulator.Tests.Physical
          Assert.IsTrue( Comparers.MetaDataComparer.Equals( read1, read2 ) );
          // We don't use public key when emitting module
          //rArgs1.Headers.ModuleFlags = ModuleFlags.ILOnly;
-         Assert.IsTrue( Comparerz.ImageInformationLogicalEqualityComparer.Equals( rArgs1.ImageInformation, rArgs2.ImageInformation ) );
+         Assert.IsTrue( CAMPhysical::CILAssemblyManipulator.Physical.Comparers.ImageInformationLogicalEqualityComparer.Equals( rArgs1.ImageInformation, rArgs2.ImageInformation ) );
       }
 
    }

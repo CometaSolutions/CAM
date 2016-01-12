@@ -1,5 +1,4 @@
-﻿using CILAssemblyManipulator.Logical;
-/*
+﻿/*
  * Copyright 2015 Stanislav Muhametsin. All rights Reserved.
  *
  * Licensed  under the  Apache License,  Version 2.0  (the "License");
@@ -16,8 +15,13 @@
  * See the License for the specific language governing permissions and
  * limitations under the License. 
  */
+extern alias CAMPhysical;
+using CAMPhysical;
+using CAMPhysical::CILAssemblyManipulator.Physical.Meta;
+using CAMPhysical::CILAssemblyManipulator.Physical.IO;
+
 using CILAssemblyManipulator.Physical;
-using CILAssemblyManipulator.Physical.IO;
+using CILAssemblyManipulator.Logical;
 using CILAssemblyManipulator.Structural;
 using System;
 using System.Collections.Generic;
@@ -35,7 +39,7 @@ namespace CILAssemblyManipulator.Tests.SampleCode
          // The first argument is assembly name, and second is optional module name
          // When assembly name is supplied, and module name is not, the module name will be assembly name appended by ".dll"
          // The TypeDefinition table will have the module type definition (to hold global methods) as its only row.
-         var md = CILMetaDataFactory.CreateMinimalAssembly( "MyAssembly", null );
+         var md = CAMPhysical::CILAssemblyManipulator.Physical.CILMetaDataFactory.CreateMinimalAssembly( "MyAssembly", null );
 
          // Let's add a type
          md.TypeDefinitions.TableContents.Add( new TypeDefinition()

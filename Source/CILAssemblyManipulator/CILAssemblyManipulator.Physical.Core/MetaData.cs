@@ -747,7 +747,7 @@ public static partial class E_CILPhysical
    /// <typeparam name="T">The type of source table rows.</typeparam>
    /// <param name="mdTableWithReferences">The source table.</param>
    /// <param name="tableWithReferencesIndex">The index of row in source table.</param>
-   /// <param name="targetTableCount">The target table count</param>
+   /// <param name="targetTableCount">The target table count.</param>
    /// <param name="referenceExtractor">The callback to extract target table index from row in source table.</param>
    /// <returns>The enumerable that will return indices in target table. Will be empty if <paramref name="mdTableWithReferences"/> is <c>null</c>.</returns>
    /// <seealso cref="GetTypeFields"/>
@@ -777,25 +777,58 @@ public static partial class E_CILPhysical
       )
       where T : class
    {
-      var tableWithReferences = mdTableWithReferences?.TableContents;
-      if (
-         tableWithReferences != null
-         && tableWithReferencesIndex >= 0
-         && tableWithReferencesIndex < tableWithReferences.Count )
+      Int32 min, max;
+      if ( mdTableWithReferences.TryGetTargetIndicesBoundsForAscendingReferenceListTable( tableWithReferencesIndex, targetTableCount, referenceExtractor, out min, out max ) )
       {
-         ArgumentValidator.ValidateNotNull( "Reference extractor", referenceExtractor );
-
-         var min = referenceExtractor( tableWithReferences[tableWithReferencesIndex] );
-         var max = tableWithReferencesIndex < tableWithReferences.Count - 1 ?
-            referenceExtractor( tableWithReferences[tableWithReferencesIndex + 1] ) :
-            targetTableCount;
          while ( min < max )
          {
             yield return min;
             ++min;
          }
       }
+   }
 
+   /// <summary>
+   /// This is helper method to extract inclusive minimum and exclusive maximum boundaries for continuous list references, such as e.g. <see cref="TypeDefinition.FieldList"/>.
+   /// </summary>
+   /// <typeparam name="T">The type of rows in <see cref="MetaDataTable{TRow}"/>.</typeparam>
+   /// <param name="mdTableWithReferences">The source table.</param>
+   /// <param name="tableWithReferencesIndex">The index of row in source table.</param>
+   /// <param name="targetTableCount">The target table count.</param>
+   /// <param name="referenceExtractor">The callback to extract target table index from row in source table.</param>
+   /// <param name="min">This parameter will hold the inclusive minimum index for target table.</param>
+   /// <param name="max">This parameter will hold the exclusive maximum index for target table.</param>
+   /// <returns><c>true</c> if <paramref name="mdTableWithReferences"/> is not null and has row at <paramref name="tableWithReferencesIndex"/>; <c>false</c> otherwise.</returns>
+   /// <exception cref="ArgumentNullException">If <paramref name="referenceExtractor"/> is <c>null</c> when it is needed.</exception>
+   public static Boolean TryGetTargetIndicesBoundsForAscendingReferenceListTable<T>(
+      this MetaDataTable<T> mdTableWithReferences,
+      Int32 tableWithReferencesIndex,
+      Int32 targetTableCount,
+      Func<T, Int32> referenceExtractor,
+      out Int32 min,
+      out Int32 max
+      )
+      where T : class
+   {
+      var tableWithReferences = mdTableWithReferences?.TableContents;
+      var retVal = tableWithReferences != null
+         && tableWithReferencesIndex >= 0
+         && tableWithReferencesIndex < tableWithReferences.Count;
+      if ( retVal )
+      {
+         ArgumentValidator.ValidateNotNull( "Reference extractor", referenceExtractor );
+
+         min = referenceExtractor( tableWithReferences[tableWithReferencesIndex] );
+         max = tableWithReferencesIndex < tableWithReferences.Count - 1 ?
+            referenceExtractor( tableWithReferences[tableWithReferencesIndex + 1] ) :
+            targetTableCount;
+      }
+      else
+      {
+         min = -1;
+         max = -1;
+      }
+      return retVal;
    }
 
    /// <summary>
@@ -1098,11 +1131,10 @@ public static partial class E_CILPhysical
    /// This method assumes that each row in each metadata table is not <c>null</c>, and will produce incorrect results, if that is the case.
    /// </para>
    /// <para>
-   /// The following talbes are not checked for duplicates:
+   /// The following tables are not checked for duplicates:
    /// <list type="bullet">
    /// <item><description><see cref="Tables.TypeDef"/>,</description></item>
    /// <item><description><see cref="Tables.MethodDef"/>,</description></item>
-   /// <item><description><see cref="Tables.Field"/>,</description></item>
    /// <item><description><see cref="Tables.Property"/>,</description></item>
    /// <item><description><see cref="Tables.Event"/>, and</description></item>
    /// <item><description><see cref="Tables.ExportedType"/>.</description></item>
@@ -1438,6 +1470,7 @@ public static partial class E_CILPhysical
          md.CustomAttributeDefinitions,
          ( ca, indices ) => reorderState.UpdateMDTableWithTableIndices2( ca, c => c.Parent, ( c, p ) => c.Parent = p, c => c.Type, ( c, t ) => c.Type = t )
          );
+
    }
 
    private static void RemoveDuplicatesUnsortedInPlace<T>( this MetaDataTable<T> mdTable )
@@ -1717,10 +1750,12 @@ public static partial class E_CILPhysical
       }
    }
 
-   private static void CheckMDDuplicatesUnsorted<T>(
+   private static Int32 CheckMDDuplicatesUnsorted<T>(
       this MetaDataReOrderState reorderState,
       MetaDataTable<T> mdTable,
-      IEqualityComparer<T> comparer = null
+      IEqualityComparer<T> comparer = null,
+      Int32? start = null,
+      Int32? end = null
       )
       where T : class
    {
@@ -1728,10 +1763,13 @@ public static partial class E_CILPhysical
       var table = mdTable.GetTableIndex();
       var count = list.Count;
       var indices = reorderState.GetOrCreateIndexArray( mdTable );
+      var removedDuplicates = 0;
       if ( count > 1 )
       {
          var dic = new Dictionary<T, Int32>( comparer ?? mdTable.TableInformation.EqualityComparer );
-         for ( var i = 0; i < list.Count; ++i )
+         var actualStart = start ?? 0;
+         var actualEnd = end ?? list.Count;
+         for ( var i = actualStart; i < actualEnd; ++i )
          {
             var cur = list[i];
             if ( cur != null )
@@ -1757,6 +1795,8 @@ public static partial class E_CILPhysical
                         --indices[j];
                      }
                   }
+
+                  ++removedDuplicates;
                }
                else
                {
@@ -1766,6 +1806,8 @@ public static partial class E_CILPhysical
 
          }
       }
+
+      return removedDuplicates;
    }
 
    private static void UpdateSignaturesAndILWhileRemovingDuplicates( this MetaDataReOrderState reorderState )
@@ -1910,6 +1952,52 @@ public static partial class E_CILPhysical
       reorderState.CheckMDDuplicatesUnsorted(
          md.StandaloneSignatures
          );
+
+
+      //// Now, remove duplicates from FieldDef table
+      //// This has to be done *after* modifying signatures - otherwise duplicate matching based on signatures won't work properly
+      //// But this has to be done *before* modifying IL - as IL may have references to the fields
+      //// Remove duplicate fields (name + signature + owner)
+      //var tDefsTable = md.TypeDefinitions;
+      //var tDefs = tDefsTable.TableContents;
+      //var fDefsTable = md.FieldDefinitions;
+      //var fDefsCount = fDefsTable.GetRowCount();
+      //var fListOffset = 0;
+      //for ( var i = 0; i < tDefs.Count; ++i )
+      //{
+      //   Int32 min, max;
+      //   var hasFields = tDefsTable.TryGetTargetIndicesBoundsForAscendingReferenceListTable( i, fDefsCount, tDef => tDef.FieldList.Index, out min, out max );
+
+      //   if ( fListOffset > 0 )
+      //   {
+      //      // Update this tDef
+      //      var tDef = tDefs[i];
+      //      tDef.FieldList = tDef.FieldList.IncrementIndex( -fListOffset );
+      //   }
+
+      //   if ( hasFields && max > min )
+      //   {
+      //      var duplicateCount = reorderState.CheckMDDuplicatesUnsorted(
+      //         fDefsTable,
+      //         ComparerFromFunctions.NewEqualityComparer<FieldDefinition>(
+      //            ( x, y ) =>
+      //            ReferenceEquals( x, y ) ||
+      //            ( x != null && y != null // In order to be duplicate, both fields must not be compiler-controlled, and
+      //               && !x.Attributes.IsCompilerControlled()
+      //               && !y.Attributes.IsCompilerControlled()
+      //               && String.Equals( x.Name, y.Name ) // Both names must match, and
+      //               && Comparers.FieldSignatureEqualityComparer.Equals( x.Signature, y.Signature ) // Both signatures must match
+      //            ),
+      //            x => x.Name.GetHashCodeSafe()
+      //            ),
+      //         min,
+      //         max
+      //      );
+
+      //      fListOffset += duplicateCount;
+
+      //   }
+      //}
 
       // Now update IL
       reorderState.UpdateIL();
@@ -2092,14 +2180,6 @@ public static partial class E_CILPhysical
             }
          }
       }
-   }
-
-   // Returns token with 1-based indexing, or zero if tableIdx has no value
-   internal static Int32 GetOneBasedToken( this TableIndex? tableIdx )
-   {
-      return tableIdx.HasValue ?
-         tableIdx.Value.OneBasedToken :
-         0;
    }
 
    public static Int32 CalculateStackSize( this CILMetaData md, Int32 methodIndex )
