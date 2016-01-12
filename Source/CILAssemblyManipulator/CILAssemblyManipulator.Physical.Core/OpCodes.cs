@@ -950,32 +950,32 @@ namespace CILAssemblyManipulator.Physical
          Call = new OpCode( OpCodeEncoding.Call, StackBehaviourPop.Varpop, StackBehaviourPush.Varpush, OperandType.InlineMethod, OpCodeType.Primitive, FlowControl.Call, false );
          Calli = new OpCode( OpCodeEncoding.Calli, StackBehaviourPop.Varpop, StackBehaviourPush.Varpush, OperandType.InlineSig, OpCodeType.Primitive, FlowControl.Call, false );
          Ret = new OpCode( OpCodeEncoding.Ret, StackBehaviourPop.Varpop, StackBehaviourPush.Push0, OperandType.InlineNone, OpCodeType.Primitive, FlowControl.Return, true );
-         Br_S = new OpCode( OpCodeEncoding.Br_S, StackBehaviourPop.Pop0, StackBehaviourPush.Push0, OperandType.ShortInlineBrTarget, OpCodeType.Macro, FlowControl.Branch, true );
-         Brfalse_S = new OpCode( OpCodeEncoding.Brfalse_S, StackBehaviourPop.Popi, StackBehaviourPush.Push0, OperandType.ShortInlineBrTarget, OpCodeType.Macro, FlowControl.Cond_Branch, false );
-         Brtrue_S = new OpCode( OpCodeEncoding.Brtrue_S, StackBehaviourPop.Popi, StackBehaviourPush.Push0, OperandType.ShortInlineBrTarget, OpCodeType.Macro, FlowControl.Cond_Branch, false );
-         Beq_S = new OpCode( OpCodeEncoding.Beq_S, StackBehaviourPop.Pop1_pop1, StackBehaviourPush.Push0, OperandType.ShortInlineBrTarget, OpCodeType.Macro, FlowControl.Cond_Branch, false );
-         Bge_S = new OpCode( OpCodeEncoding.Bge_S, StackBehaviourPop.Pop1_pop1, StackBehaviourPush.Push0, OperandType.ShortInlineBrTarget, OpCodeType.Macro, FlowControl.Cond_Branch, false );
-         Bgt_S = new OpCode( OpCodeEncoding.Bgt_S, StackBehaviourPop.Pop1_pop1, StackBehaviourPush.Push0, OperandType.ShortInlineBrTarget, OpCodeType.Macro, FlowControl.Cond_Branch, false );
-         Ble_S = new OpCode( OpCodeEncoding.Ble_S, StackBehaviourPop.Pop1_pop1, StackBehaviourPush.Push0, OperandType.ShortInlineBrTarget, OpCodeType.Macro, FlowControl.Cond_Branch, false );
-         Blt_S = new OpCode( OpCodeEncoding.Blt_S, StackBehaviourPop.Pop1_pop1, StackBehaviourPush.Push0, OperandType.ShortInlineBrTarget, OpCodeType.Macro, FlowControl.Cond_Branch, false );
-         Bne_Un_S = new OpCode( OpCodeEncoding.Bne_Un_S, StackBehaviourPop.Pop1_pop1, StackBehaviourPush.Push0, OperandType.ShortInlineBrTarget, OpCodeType.Macro, FlowControl.Cond_Branch, false );
-         Bge_Un_S = new OpCode( OpCodeEncoding.Bge_Un_S, StackBehaviourPop.Pop1_pop1, StackBehaviourPush.Push0, OperandType.ShortInlineBrTarget, OpCodeType.Macro, FlowControl.Cond_Branch, false );
-         Bgt_Un_S = new OpCode( OpCodeEncoding.Bgt_Un_S, StackBehaviourPop.Pop1_pop1, StackBehaviourPush.Push0, OperandType.ShortInlineBrTarget, OpCodeType.Macro, FlowControl.Cond_Branch, false );
-         Ble_Un_S = new OpCode( OpCodeEncoding.Ble_Un_S, StackBehaviourPop.Pop1_pop1, StackBehaviourPush.Push0, OperandType.ShortInlineBrTarget, OpCodeType.Macro, FlowControl.Cond_Branch, false );
-         Blt_Un_S = new OpCode( OpCodeEncoding.Blt_Un_S, StackBehaviourPop.Pop1_pop1, StackBehaviourPush.Push0, OperandType.ShortInlineBrTarget, OpCodeType.Macro, FlowControl.Cond_Branch, false );
-         Br = new OpCode( OpCodeEncoding.Br, StackBehaviourPop.Pop0, StackBehaviourPush.Push0, OperandType.InlineBrTarget, OpCodeType.Primitive, FlowControl.Branch, true );
-         Brfalse = new OpCode( OpCodeEncoding.Brfalse, StackBehaviourPop.Popi, StackBehaviourPush.Push0, OperandType.InlineBrTarget, OpCodeType.Primitive, FlowControl.Cond_Branch, false );
-         Brtrue = new OpCode( OpCodeEncoding.Brtrue, StackBehaviourPop.Popi, StackBehaviourPush.Push0, OperandType.InlineBrTarget, OpCodeType.Primitive, FlowControl.Cond_Branch, false );
-         Beq = new OpCode( OpCodeEncoding.Beq, StackBehaviourPop.Pop1_pop1, StackBehaviourPush.Push0, OperandType.InlineBrTarget, OpCodeType.Macro, FlowControl.Cond_Branch, false );
-         Bge = new OpCode( OpCodeEncoding.Bge, StackBehaviourPop.Pop1_pop1, StackBehaviourPush.Push0, OperandType.InlineBrTarget, OpCodeType.Macro, FlowControl.Cond_Branch, false );
-         Bgt = new OpCode( OpCodeEncoding.Bgt, StackBehaviourPop.Pop1_pop1, StackBehaviourPush.Push0, OperandType.InlineBrTarget, OpCodeType.Macro, FlowControl.Cond_Branch, false );
-         Ble = new OpCode( OpCodeEncoding.Ble, StackBehaviourPop.Pop1_pop1, StackBehaviourPush.Push0, OperandType.InlineBrTarget, OpCodeType.Macro, FlowControl.Cond_Branch, false );
-         Blt = new OpCode( OpCodeEncoding.Blt, StackBehaviourPop.Pop1_pop1, StackBehaviourPush.Push0, OperandType.InlineBrTarget, OpCodeType.Macro, FlowControl.Cond_Branch, false );
-         Bne_Un = new OpCode( OpCodeEncoding.Bne_Un, StackBehaviourPop.Pop1_pop1, StackBehaviourPush.Push0, OperandType.InlineBrTarget, OpCodeType.Macro, FlowControl.Cond_Branch, false );
-         Bge_Un = new OpCode( OpCodeEncoding.Bge_Un, StackBehaviourPop.Pop1_pop1, StackBehaviourPush.Push0, OperandType.InlineBrTarget, OpCodeType.Macro, FlowControl.Cond_Branch, false );
-         Bgt_Un = new OpCode( OpCodeEncoding.Bgt_Un, StackBehaviourPop.Pop1_pop1, StackBehaviourPush.Push0, OperandType.InlineBrTarget, OpCodeType.Macro, FlowControl.Cond_Branch, false );
-         Ble_Un = new OpCode( OpCodeEncoding.Ble_Un, StackBehaviourPop.Pop1_pop1, StackBehaviourPush.Push0, OperandType.InlineBrTarget, OpCodeType.Macro, FlowControl.Cond_Branch, false );
-         Blt_Un = new OpCode( OpCodeEncoding.Blt_Un, StackBehaviourPop.Pop1_pop1, StackBehaviourPush.Push0, OperandType.InlineBrTarget, OpCodeType.Macro, FlowControl.Cond_Branch, false );
+         Br_S = new OpCode( OpCodeEncoding.Br_S, StackBehaviourPop.Pop0, StackBehaviourPush.Push0, OperandType.ShortInlineBrTarget, OpCodeType.Macro, FlowControl.Branch, true, OpCodeEncoding.Br );
+         Brfalse_S = new OpCode( OpCodeEncoding.Brfalse_S, StackBehaviourPop.Popi, StackBehaviourPush.Push0, OperandType.ShortInlineBrTarget, OpCodeType.Macro, FlowControl.Cond_Branch, false, OpCodeEncoding.Brfalse );
+         Brtrue_S = new OpCode( OpCodeEncoding.Brtrue_S, StackBehaviourPop.Popi, StackBehaviourPush.Push0, OperandType.ShortInlineBrTarget, OpCodeType.Macro, FlowControl.Cond_Branch, false, OpCodeEncoding.Brtrue );
+         Beq_S = new OpCode( OpCodeEncoding.Beq_S, StackBehaviourPop.Pop1_pop1, StackBehaviourPush.Push0, OperandType.ShortInlineBrTarget, OpCodeType.Macro, FlowControl.Cond_Branch, false, OpCodeEncoding.Beq );
+         Bge_S = new OpCode( OpCodeEncoding.Bge_S, StackBehaviourPop.Pop1_pop1, StackBehaviourPush.Push0, OperandType.ShortInlineBrTarget, OpCodeType.Macro, FlowControl.Cond_Branch, false, OpCodeEncoding.Bge );
+         Bgt_S = new OpCode( OpCodeEncoding.Bgt_S, StackBehaviourPop.Pop1_pop1, StackBehaviourPush.Push0, OperandType.ShortInlineBrTarget, OpCodeType.Macro, FlowControl.Cond_Branch, false, OpCodeEncoding.Bgt );
+         Ble_S = new OpCode( OpCodeEncoding.Ble_S, StackBehaviourPop.Pop1_pop1, StackBehaviourPush.Push0, OperandType.ShortInlineBrTarget, OpCodeType.Macro, FlowControl.Cond_Branch, false, OpCodeEncoding.Ble );
+         Blt_S = new OpCode( OpCodeEncoding.Blt_S, StackBehaviourPop.Pop1_pop1, StackBehaviourPush.Push0, OperandType.ShortInlineBrTarget, OpCodeType.Macro, FlowControl.Cond_Branch, false, OpCodeEncoding.Blt );
+         Bne_Un_S = new OpCode( OpCodeEncoding.Bne_Un_S, StackBehaviourPop.Pop1_pop1, StackBehaviourPush.Push0, OperandType.ShortInlineBrTarget, OpCodeType.Macro, FlowControl.Cond_Branch, false, OpCodeEncoding.Bne_Un );
+         Bge_Un_S = new OpCode( OpCodeEncoding.Bge_Un_S, StackBehaviourPop.Pop1_pop1, StackBehaviourPush.Push0, OperandType.ShortInlineBrTarget, OpCodeType.Macro, FlowControl.Cond_Branch, false, OpCodeEncoding.Bge_Un );
+         Bgt_Un_S = new OpCode( OpCodeEncoding.Bgt_Un_S, StackBehaviourPop.Pop1_pop1, StackBehaviourPush.Push0, OperandType.ShortInlineBrTarget, OpCodeType.Macro, FlowControl.Cond_Branch, false, OpCodeEncoding.Bgt_Un );
+         Ble_Un_S = new OpCode( OpCodeEncoding.Ble_Un_S, StackBehaviourPop.Pop1_pop1, StackBehaviourPush.Push0, OperandType.ShortInlineBrTarget, OpCodeType.Macro, FlowControl.Cond_Branch, false, OpCodeEncoding.Ble_Un );
+         Blt_Un_S = new OpCode( OpCodeEncoding.Blt_Un_S, StackBehaviourPop.Pop1_pop1, StackBehaviourPush.Push0, OperandType.ShortInlineBrTarget, OpCodeType.Macro, FlowControl.Cond_Branch, false, OpCodeEncoding.Blt_Un );
+         Br = new OpCode( OpCodeEncoding.Br, StackBehaviourPop.Pop0, StackBehaviourPush.Push0, OperandType.InlineBrTarget, OpCodeType.Primitive, FlowControl.Branch, true, OpCodeEncoding.Br_S );
+         Brfalse = new OpCode( OpCodeEncoding.Brfalse, StackBehaviourPop.Popi, StackBehaviourPush.Push0, OperandType.InlineBrTarget, OpCodeType.Primitive, FlowControl.Cond_Branch, false, OpCodeEncoding.Brfalse_S );
+         Brtrue = new OpCode( OpCodeEncoding.Brtrue, StackBehaviourPop.Popi, StackBehaviourPush.Push0, OperandType.InlineBrTarget, OpCodeType.Primitive, FlowControl.Cond_Branch, false, OpCodeEncoding.Brtrue_S );
+         Beq = new OpCode( OpCodeEncoding.Beq, StackBehaviourPop.Pop1_pop1, StackBehaviourPush.Push0, OperandType.InlineBrTarget, OpCodeType.Macro, FlowControl.Cond_Branch, false, OpCodeEncoding.Beq_S );
+         Bge = new OpCode( OpCodeEncoding.Bge, StackBehaviourPop.Pop1_pop1, StackBehaviourPush.Push0, OperandType.InlineBrTarget, OpCodeType.Macro, FlowControl.Cond_Branch, false, OpCodeEncoding.Bge_S );
+         Bgt = new OpCode( OpCodeEncoding.Bgt, StackBehaviourPop.Pop1_pop1, StackBehaviourPush.Push0, OperandType.InlineBrTarget, OpCodeType.Macro, FlowControl.Cond_Branch, false, OpCodeEncoding.Bgt_S );
+         Ble = new OpCode( OpCodeEncoding.Ble, StackBehaviourPop.Pop1_pop1, StackBehaviourPush.Push0, OperandType.InlineBrTarget, OpCodeType.Macro, FlowControl.Cond_Branch, false, OpCodeEncoding.Ble_S );
+         Blt = new OpCode( OpCodeEncoding.Blt, StackBehaviourPop.Pop1_pop1, StackBehaviourPush.Push0, OperandType.InlineBrTarget, OpCodeType.Macro, FlowControl.Cond_Branch, false, OpCodeEncoding.Blt_S );
+         Bne_Un = new OpCode( OpCodeEncoding.Bne_Un, StackBehaviourPop.Pop1_pop1, StackBehaviourPush.Push0, OperandType.InlineBrTarget, OpCodeType.Macro, FlowControl.Cond_Branch, false, OpCodeEncoding.Bne_Un_S );
+         Bge_Un = new OpCode( OpCodeEncoding.Bge_Un, StackBehaviourPop.Pop1_pop1, StackBehaviourPush.Push0, OperandType.InlineBrTarget, OpCodeType.Macro, FlowControl.Cond_Branch, false, OpCodeEncoding.Bge_Un_S );
+         Bgt_Un = new OpCode( OpCodeEncoding.Bgt_Un, StackBehaviourPop.Pop1_pop1, StackBehaviourPush.Push0, OperandType.InlineBrTarget, OpCodeType.Macro, FlowControl.Cond_Branch, false, OpCodeEncoding.Bgt_Un_S );
+         Ble_Un = new OpCode( OpCodeEncoding.Ble_Un, StackBehaviourPop.Pop1_pop1, StackBehaviourPush.Push0, OperandType.InlineBrTarget, OpCodeType.Macro, FlowControl.Cond_Branch, false, OpCodeEncoding.Ble_Un_S );
+         Blt_Un = new OpCode( OpCodeEncoding.Blt_Un, StackBehaviourPop.Pop1_pop1, StackBehaviourPush.Push0, OperandType.InlineBrTarget, OpCodeType.Macro, FlowControl.Cond_Branch, false, OpCodeEncoding.Blt_Un_S );
          Switch = new OpCode( OpCodeEncoding.Switch, StackBehaviourPop.Popi, StackBehaviourPush.Push0, OperandType.InlineSwitch, OpCodeType.Primitive, FlowControl.Cond_Branch, false );
          Ldind_I1 = new OpCode( OpCodeEncoding.Ldind_I1, StackBehaviourPop.Popi, StackBehaviourPush.Pushi, OperandType.InlineNone, OpCodeType.Primitive, FlowControl.Next, false );
          Ldind_U1 = new OpCode( OpCodeEncoding.Ldind_U1, StackBehaviourPop.Popi, StackBehaviourPush.Pushi, OperandType.InlineNone, OpCodeType.Primitive, FlowControl.Next, false );
@@ -1095,8 +1095,8 @@ namespace CILAssemblyManipulator.Physical
          Sub_Ovf = new OpCode( OpCodeEncoding.Sub_Ovf, StackBehaviourPop.Pop1_pop1, StackBehaviourPush.Push1, OperandType.InlineNone, OpCodeType.Primitive, FlowControl.Next, false );
          Sub_Ovf_Un = new OpCode( OpCodeEncoding.Sub_Ovf_Un, StackBehaviourPop.Pop1_pop1, StackBehaviourPush.Push1, OperandType.InlineNone, OpCodeType.Primitive, FlowControl.Next, false );
          Endfinally = new OpCode( OpCodeEncoding.Endfinally, StackBehaviourPop.Pop0, StackBehaviourPush.Push0, OperandType.InlineNone, OpCodeType.Primitive, FlowControl.Return, true );
-         Leave = new OpCode( OpCodeEncoding.Leave, StackBehaviourPop.Pop0, StackBehaviourPush.Push0, OperandType.InlineBrTarget, OpCodeType.Primitive, FlowControl.Branch, true );
-         Leave_S = new OpCode( OpCodeEncoding.Leave_S, StackBehaviourPop.Pop0, StackBehaviourPush.Push0, OperandType.ShortInlineBrTarget, OpCodeType.Primitive, FlowControl.Branch, true );
+         Leave = new OpCode( OpCodeEncoding.Leave, StackBehaviourPop.Pop0, StackBehaviourPush.Push0, OperandType.InlineBrTarget, OpCodeType.Primitive, FlowControl.Branch, true, OpCodeEncoding.Leave_S );
+         Leave_S = new OpCode( OpCodeEncoding.Leave_S, StackBehaviourPop.Pop0, StackBehaviourPush.Push0, OperandType.ShortInlineBrTarget, OpCodeType.Primitive, FlowControl.Branch, true, OpCodeEncoding.Leave );
          Stind_I = new OpCode( OpCodeEncoding.Stind_I, StackBehaviourPop.Popi_popi, StackBehaviourPush.Push0, OperandType.InlineNone, OpCodeType.Primitive, FlowControl.Next, false );
          Conv_U = new OpCode( OpCodeEncoding.Conv_U, StackBehaviourPop.Pop1, StackBehaviourPush.Pushi, OperandType.InlineNone, OpCodeType.Primitive, FlowControl.Next, false );
          Arglist = new OpCode( OpCodeEncoding.Arglist, StackBehaviourPop.Pop0, StackBehaviourPush.Pushi, OperandType.InlineNone, OpCodeType.Primitive, FlowControl.Next, false );
@@ -1129,10 +1129,15 @@ namespace CILAssemblyManipulator.Physical
 
       }
 
+      public static Boolean TryGetCodeFor( OpCodeEncoding codeEnum, out OpCode opCode )
+      {
+         return Codes.TryGetValue( codeEnum, out opCode );
+      }
+
       public static OpCode GetCodeFor( OpCodeEncoding codeEnum )
       {
          OpCode retVal;
-         if ( Codes.TryGetValue( codeEnum, out retVal ) )
+         if ( TryGetCodeFor( codeEnum, out retVal ) )
          {
             return retVal;
          }
@@ -1167,7 +1172,7 @@ namespace CILAssemblyManipulator.Physical
 
 
 
-      internal const Int32 MAX_ONE_BYTE_INSTRUCTION = 0xFE;
+      public const Int32 MAX_ONE_BYTE_INSTRUCTION = 0xFE;
 
 
       private const UInt64 STACK_POP_MASK = 0x1FU;
@@ -1202,6 +1207,9 @@ namespace CILAssemblyManipulator.Physical
       private const UInt64 OPERAND_SIZE_MASK = 0x3C0000000000U;
       private const Int32 OPERAND_SIZE_SHIFT = ENDS_BLK_CODE_SHIFT + 1;
 
+      private const UInt64 OTHER_FORM_MASK = 0x3FC00000000000U;
+      private const Int32 OTHER_FORM_SHIFT = OPERAND_SIZE_SHIFT + 1;
+
       // Bits 0-4 (5 bits): StackBehaviourPop
       // Bits 5-8 (4 bits): StackBehaviourPush
       // Bits 9-13 (5 bits): OperandType
@@ -1212,6 +1220,7 @@ namespace CILAssemblyManipulator.Physical
       // Bits 38-40 (3 bits): Stack change (0 = -3, 1 = -2, etc)
       // Bit 41: Unconditionally ends bulk of code (1 = true, 0 = false)
       // Bits 42-45 (4bits): Operand size in bytes
+      // Bits 46-53 (8bits): Other form (short or long) for branch-instruction
       private readonly UInt64 _state;
 
       internal OpCode(
@@ -1222,6 +1231,20 @@ namespace CILAssemblyManipulator.Physical
          OpCodeType type,
          FlowControl flowControl,
          Boolean unconditionallyEndsBulkOfCode
+         ) : this( encoded, stackPop, stackPush, operand, type, flowControl, unconditionallyEndsBulkOfCode, 0 )
+      {
+
+      }
+
+      internal OpCode(
+         OpCodeEncoding encoded,
+         StackBehaviourPop stackPop,
+         StackBehaviourPush stackPush,
+         OperandType operand,
+         OpCodeType type,
+         FlowControl flowControl,
+         Boolean unconditionallyEndsBulkOfCode,
+         OpCodeEncoding otherForm
          )
       {
          var stackChange = 0;
@@ -1320,6 +1343,7 @@ namespace CILAssemblyManipulator.Physical
              | ( ( (UInt64) stackChange + 3 ) << STACK_CHANGE_SHIFT )
              | ( ( unconditionallyEndsBulkOfCode ? 1UL : 0UL ) << ENDS_BLK_CODE_SHIFT )
              | ( ( (UInt64) operandSize ) << OPERAND_SIZE_SHIFT )
+             | ( ( (UInt64) otherForm ) << OTHER_FORM_SHIFT )
              ;
 #if DEBUG
          System.Diagnostics.Debug.Assert( this.Value == encoded );
@@ -1331,6 +1355,7 @@ namespace CILAssemblyManipulator.Physical
          System.Diagnostics.Debug.Assert( this.UnconditionallyEndsBulkOfCode == unconditionallyEndsBulkOfCode );
          System.Diagnostics.Debug.Assert( this.StackChange == stackChange );
          System.Diagnostics.Debug.Assert( (UInt64) this.OperandSize == operandSize );
+         System.Diagnostics.Debug.Assert( this.OtherForm == otherForm );
 #endif
          OpCodes.Codes.Add( encoded, this );
       }
@@ -1485,6 +1510,14 @@ namespace CILAssemblyManipulator.Physical
          get
          {
             return (Byte) ( ( this._state & BYTE_2_MASK ) >> BYTE_2_SHIFT );
+         }
+      }
+
+      public OpCodeEncoding OtherForm
+      {
+         get
+         {
+            return (OpCodeEncoding) ( ( this._state & OTHER_FORM_MASK ) >> OTHER_FORM_SHIFT );
          }
       }
 

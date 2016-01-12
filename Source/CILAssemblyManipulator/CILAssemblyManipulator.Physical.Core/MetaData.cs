@@ -1134,6 +1134,7 @@ public static partial class E_CILPhysical
    /// The following tables are not checked for duplicates:
    /// <list type="bullet">
    /// <item><description><see cref="Tables.TypeDef"/>,</description></item>
+   /// <item><description><see cref="Tables.Field"/>,</description></item>
    /// <item><description><see cref="Tables.MethodDef"/>,</description></item>
    /// <item><description><see cref="Tables.Property"/>,</description></item>
    /// <item><description><see cref="Tables.Event"/>, and</description></item>

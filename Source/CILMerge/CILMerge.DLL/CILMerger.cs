@@ -517,10 +517,13 @@ namespace CILMerge
       private readonly IDictionary<CILMetaData, IDictionary<String, Int32>> _inputModuleTypeNamesInTargetModule;
       // Key: on of input modules. Value: dictionary; Key: full type name, value: type def index in INPUT module
       private readonly IDictionary<CILMetaData, IDictionary<String, Int32>> _inputModuleTypeNamesInInputModule;
+      // Key: target module MethodDef index. Value: List of input static ctors.
+      private readonly IDictionary<Int32, List<Tuple<CILMetaData, Int32>>> _multipleStaticCtorInfo;
 
 
       private readonly IList<String> _targetTypeNames;
       private readonly Lazy<Regex[]> _excludeRegexes;
+      private readonly Lazy<Regex[]> _unionExcludeRegexes;
       private readonly String _inputBasePath;
 
       private readonly IEqualityComparer<AssemblyReference> _assemblyReferenceEqualityComparer;
@@ -583,21 +586,28 @@ namespace CILMerge
          this._targetTableIndexMappings = new Dictionary<TableIndex, Tuple<CILMetaData, Int32>>();
          this._inputModuleTypeNamesInTargetModule = new Dictionary<CILMetaData, IDictionary<String, Int32>>( ReferenceEqualityComparer<CILMetaData>.ReferenceBasedComparer );
          this._inputModuleTypeNamesInInputModule = new Dictionary<CILMetaData, IDictionary<String, Int32>>( ReferenceEqualityComparer<CILMetaData>.ReferenceBasedComparer );
+         this._multipleStaticCtorInfo = new Dictionary<Int32, List<Tuple<CILMetaData, Int32>>>();
          this._targetTypeNames = new List<String>();
 
 
-         this._excludeRegexes = new Lazy<Regex[]>( () =>
+         this._excludeRegexes = this.CreateRegexesFromFile( options.Internalize, options.ExcludeFile, "exclude" );
+         this._unionExcludeRegexes = this.CreateRegexesFromFile( options.Union, options.UnionExcludeFile, "union exclude" );
+         this._inputBasePath = inputBasePath ?? Environment.CurrentDirectory;
+      }
+
+      private Lazy<Regex[]> CreateRegexesFromFile( Boolean isRelevant, String file, String meaning )
+      {
+         return new Lazy<Regex[]>( () =>
          {
-            var excl = options.ExcludeFile;
-            if ( options.Internalize && !String.IsNullOrEmpty( excl ) )
+            if ( isRelevant && !String.IsNullOrEmpty( file ) )
             {
                try
                {
-                  return File.ReadAllLines( excl ).Select( line => new Regex( line ) ).ToArray();
+                  return File.ReadAllLines( file ).Select( line => new Regex( line ) ).ToArray();
                }
                catch ( Exception exc )
                {
-                  throw this.NewCILMergeException( ExitCode.ErrorAccessingExcludeFile, "Error accessing exclude file " + excl + ".", exc );
+                  throw this.NewCILMergeException( ExitCode.ErrorAccessingExcludeFile, "Error accessing " + meaning + " file " + file + ".", exc );
                }
             }
             else
@@ -605,7 +615,6 @@ namespace CILMerge
                return Empty<Regex>.Array;
             }
          }, LazyThreadSafetyMode.None );
-         this._inputBasePath = inputBasePath ?? Environment.CurrentDirectory;
       }
 
       internal CILModuleMergeResult MergeModules()
@@ -1232,7 +1241,7 @@ namespace CILMerge
             var tMDef = targetModule.MethodDefinitions.TableContents;
             tDef.FieldList = new TableIndex( Tables.Field, tFDef.Count );
             tDef.MethodList = new TableIndex( Tables.MethodDef, tMDef.Count );
-            var multipleStaticCtors = new List<Int32>();
+            var multipleStaticCtors = new List<Tuple<CILMetaData, Int32>>( 1 );
             var tPDef = targetModule.ParameterDefinitions.TableContents;
 
             foreach ( var typeInfo in thisTypeInfo )
@@ -1271,110 +1280,316 @@ namespace CILMerge
                // MethodDef
                foreach ( var mDefIdx in inputMD.GetTypeMethodIndices( inputTDefIdx ) )
                {
-                  var targetMDefIdx = tMDef.Count;
-                  targetTableIndexMappings.Add( new TableIndex( Tables.MethodDef, targetMDefIdx ), Tuple.Create( inputMD, mDefIdx ) );
-                  thisTableMappings.Add( new TableIndex( Tables.MethodDef, mDefIdx ), new TableIndex( Tables.MethodDef, targetMDefIdx ) );
                   var mDef = inputMD.MethodDefinitions.TableContents[mDefIdx];
-
+                  var targetMDefIdx = tMDef.Count;
+                  var actuallyAdd = true;
                   if ( String.Equals( Miscellaneous.CLASS_CTOR_NAME, mDef.Name ) )
                   {
-                     multipleStaticCtors.Add( targetMDefIdx );
+                     actuallyAdd = multipleStaticCtors.Count == 0;
+                     multipleStaticCtors.Add( Tuple.Create( inputMD, mDefIdx ) );
                   }
 
-                  tMDef.Add( new MethodDefinition()
+                  if ( actuallyAdd )
                   {
-                     Attributes = mDef.Attributes,
-                     ImplementationAttributes = mDef.ImplementationAttributes,
-                     Name = mDef.Name,
-                     ParameterList = new TableIndex( Tables.Parameter, tPDef.Count ),
-                  } );
+                     targetTableIndexMappings.Add( new TableIndex( Tables.MethodDef, targetMDefIdx ), Tuple.Create( inputMD, mDefIdx ) );
+                     thisTableMappings.Add( new TableIndex( Tables.MethodDef, mDefIdx ), new TableIndex( Tables.MethodDef, targetMDefIdx ) );
 
-                  // GenericParameter, for method
-                  IList<Int32> methodGParams;
-                  if ( thisGenericParamInfo.TryGetValue( new TableIndex( Tables.MethodDef, mDefIdx ), out methodGParams ) )
-                  {
-                     var tGDef = targetModule.GenericParameterDefinitions.TableContents;
-                     foreach ( var methodGParamIdx in methodGParams )
+                     tMDef.Add( new MethodDefinition()
                      {
-                        var targetGParamIdx = new TableIndex( Tables.GenericParameter, tGDef.Count );
-                        targetTableIndexMappings.Add( targetGParamIdx, Tuple.Create( inputMD, methodGParamIdx ) );
-                        thisTableMappings.Add( new TableIndex( Tables.GenericParameter, methodGParamIdx ), targetGParamIdx );
-                        var methodGParam = inputMD.GenericParameterDefinitions.TableContents[methodGParamIdx];
-                        tGDef.Add( new GenericParameterDefinition()
+                        Attributes = mDef.Attributes,
+                        ImplementationAttributes = mDef.ImplementationAttributes,
+                        Name = mDef.Name,
+                        ParameterList = new TableIndex( Tables.Parameter, tPDef.Count ),
+                     } );
+
+                     // GenericParameter, for method
+                     IList<Int32> methodGParams;
+                     if ( thisGenericParamInfo.TryGetValue( new TableIndex( Tables.MethodDef, mDefIdx ), out methodGParams ) )
+                     {
+                        var tGDef = targetModule.GenericParameterDefinitions.TableContents;
+                        foreach ( var methodGParamIdx in methodGParams )
                         {
-                           Attributes = methodGParam.Attributes,
-                           GenericParameterIndex = methodGParam.GenericParameterIndex,
-                           Name = methodGParam.Name,
-                           Owner = new TableIndex( Tables.MethodDef, targetMDefIdx )
+                           var targetGParamIdx = new TableIndex( Tables.GenericParameter, tGDef.Count );
+                           targetTableIndexMappings.Add( targetGParamIdx, Tuple.Create( inputMD, methodGParamIdx ) );
+                           thisTableMappings.Add( new TableIndex( Tables.GenericParameter, methodGParamIdx ), targetGParamIdx );
+                           var methodGParam = inputMD.GenericParameterDefinitions.TableContents[methodGParamIdx];
+                           tGDef.Add( new GenericParameterDefinition()
+                           {
+                              Attributes = methodGParam.Attributes,
+                              GenericParameterIndex = methodGParam.GenericParameterIndex,
+                              Name = methodGParam.Name,
+                              Owner = new TableIndex( Tables.MethodDef, targetMDefIdx )
+                           } );
+                        }
+                     }
+
+                     // ParamDef
+                     foreach ( var pDefIdx in inputMD.GetMethodParameterIndices( mDefIdx ) )
+                     {
+                        var targetPIdx = new TableIndex( Tables.Parameter, tPDef.Count );
+                        targetTableIndexMappings.Add( targetPIdx, Tuple.Create( inputMD, pDefIdx ) );
+                        thisTableMappings.Add( new TableIndex( Tables.Parameter, pDefIdx ), targetPIdx );
+                        var pDef = inputMD.ParameterDefinitions.TableContents[pDefIdx];
+                        tPDef.Add( new ParameterDefinition()
+                        {
+                           Attributes = pDef.Attributes,
+                           Name = pDef.Name,
+                           Sequence = pDef.Sequence
                         } );
                      }
-                  }
-
-                  // ParamDef
-                  foreach ( var pDefIdx in inputMD.GetMethodParameterIndices( mDefIdx ) )
-                  {
-                     var targetPIdx = new TableIndex( Tables.Parameter, tPDef.Count );
-                     targetTableIndexMappings.Add( targetPIdx, Tuple.Create( inputMD, pDefIdx ) );
-                     thisTableMappings.Add( new TableIndex( Tables.Parameter, pDefIdx ), targetPIdx );
-                     var pDef = inputMD.ParameterDefinitions.TableContents[pDefIdx];
-                     tPDef.Add( new ParameterDefinition()
-                     {
-                        Attributes = pDef.Attributes,
-                        Name = pDef.Name,
-                        Sequence = pDef.Sequence
-                     } );
                   }
                }
             }
 
             if ( multipleStaticCtors.Count > 1 )
             {
-               TODO Extract more info from static ctor:
-               -which readonly fields are assigned
-
-              Then pass those fields as out-parameters to method
-
-               TODO same thing for fields: we have to rename fields instead of merging them.
-               CHECK MemberRef table in that case!!!!
-
-               // We have to create a new static constructor, which will call the others in sequence
-               var staticCtorIL = new MethodILDefinition( opCodeCount: multipleStaticCtors.Count + 1 )
-               {
-                  InitLocals = true,
-                  MaxStackSize = 0
-               };
-               foreach ( var staticCtorIndex in multipleStaticCtors )
-                  {
-                     staticCtorIL.OpCodes.Add( new OpCodeInfoWithToken( OpCodes.Call, new TableIndex( Tables.MethodDef, staticCtorIndex ) ) );
-                     var calledMethod = tMDef[staticCtorIndex];
-                     // Fix the old static constructor
-                     calledMethod.Name = "StaticCtor_" + staticCtorIndex;
-                     calledMethod.Attributes = MethodAttributes.CompilerControlled | MethodAttributes.HideBySig | MethodAttributes.Static;
-                  }
-               staticCtorIL.OpCodes.Add( OpCodeInfoWithNoOperand.GetInstanceFor( OpCodeEncoding.Ret ) );
-
-               tMDef.Add( new MethodDefinition()
-               {
-                  Attributes = MethodAttributes.Private | MethodAttributes.HideBySig | MethodAttributes.SpecialName | MethodAttributes.RTSpecialName | MethodAttributes.Static,
-                  ImplementationAttributes = MethodImplAttributes.IL | MethodImplAttributes.Managed,
-                  Name = Miscellaneous.CLASS_CTOR_NAME,
-                  ParameterList = new TableIndex( Tables.Parameter, tPDef.Count ),
-                  Signature = new MethodDefinitionSignature()
-                  {
-                     ReturnType = new ParameterSignature()
-                     {
-                        Type = SimpleTypeSignature.Void
-                     },
-                     SignatureStarter = SignatureStarters.Default
-                  },
-                  IL = staticCtorIL
-               } );
-
-
+               // Add this information to when we merge the IL code for multiple ctors
+               // Alternative would have been creating a new static constructor, calling the old static ctors one by one
+               // This, however, fails for static ctors which assign to read-only static fields
+               // One could transform those fields into out-parameters, but then it is equally complex with merging the IL code into one method
+               // Merging IL code, however, means that there is no need for methods with potentially a *lot* of out-parameters, so it is better solution.
+               var targetInfo = multipleStaticCtors[0];
+               var targetMDefIdx = this._tableIndexMappings[targetInfo.Item1][new TableIndex( Tables.MethodDef, targetInfo.Item2 )].Index;
+               this._multipleStaticCtorInfo.Add( targetMDefIdx, multipleStaticCtors );
             }
          }
 
          return targetTypeInfo;
+      }
+
+      private void MergeStaticCtors(
+         )
+      {
+         foreach ( var kvp in this._multipleStaticCtorInfo )
+         {
+            // Get target static ctor IL
+            var targetMDefIdx = kvp.Key;
+            var targetIL = this._targetModule.MethodDefinitions.TableContents[targetMDefIdx].IL;
+
+            // Locals signature might change -> so create a copy
+            var locals = this._targetModule.GetLocalsSignatureForMethodOrNull( targetMDefIdx ).CreateDeepCopy();
+
+            // Because of all this op-code branch-fixing, this is the place where abstraction level of CAM.Logical would become handy
+            // Unfortunately, we have to do with CAM.Physical abstraction level
+            // So we do this:
+            // 1. Change all existing short branch instructions to long branch instructions
+            // 2. Replace all 'Ret' instructions with long branch instructions
+            // 3. Fix operands of all branch instructions.
+            // 4. (TODO) Optimize branch instruction operands (long -> short form).
+
+            foreach ( var inputInfo in kvp.Value.Skip( 1 ) )
+            {
+               this.AppendStaticCtorIL( targetIL, locals, inputInfo.Item1, inputInfo.Item2 );
+            }
+
+
+
+         }
+
+      }
+
+      private void AppendStaticCtorIL(
+         MethodILDefinition targetIL,
+         LocalVariablesSignature targetLocals,
+         CILMetaData inputModule,
+         Int32 mDefIndex
+         )
+      {
+         var sourceIL = inputModule.MethodDefinitions.TableContents[mDefIndex].IL;
+         if ( sourceIL != null )
+         {
+            var localCount = targetLocals.Locals.Count;
+            var targetCodes = targetIL.OpCodes;
+            var thisMappings = this._tableIndexMappings[inputModule];
+
+            // Op Codes
+            var byteOffset = 0;
+            var ilByteSize = sourceIL.OpCodes.Sum( oc => oc.GetTotalByteCount() );
+            foreach ( var opCode in sourceIL.OpCodes )
+            {
+               var newCode = this.CreateTargetModuleOpCode( opCode, thisMappings );
+
+               byteOffset += opCode.GetTotalByteCount();
+               FixOpCodeWhenMergingIL( ref newCode, byteOffset, ilByteSize, localCount );
+
+               if ( newCode != null )
+               {
+                  targetCodes.Add( newCode );
+               }
+            }
+
+            // Max Stack Size
+            targetIL.MaxStackSize = Math.Max( targetIL.MaxStackSize, sourceIL.MaxStackSize );
+
+            // Init locals
+            targetIL.InitLocals = targetIL.InitLocals || sourceIL.InitLocals;
+
+            // Locals
+            var sourceSig = inputModule.GetLocalsSignatureForMethodOrNull( mDefIndex );
+            if ( sourceSig != null )
+            {
+               targetLocals.Locals.AddRange( sourceSig.CreateDeepCopy( tIdx => thisMappings[tIdx] ).Locals );
+            }
+         }
+      }
+
+      private static void FixOpCodeWhenMergingIL(
+         ref OpCodeInfo newCode,
+         Int32 byteOffsetWithinSourceIL,
+         Int32 sourceILByteSize,
+         Int32 localsOffset
+         )
+      {
+         // Anything that uses locals as operand -> change that
+         // But only if already have any locals
+         var newLocalIndex = -1;
+         if ( localsOffset > 0 )
+         {
+            var codeValue = newCode.OpCode.Value;
+            switch ( codeValue )
+            {
+               case OpCodeEncoding.Ldloc_0:
+               case OpCodeEncoding.Stloc_0:
+                  newLocalIndex = localsOffset;
+                  break;
+               case OpCodeEncoding.Ldloc_1:
+               case OpCodeEncoding.Stloc_1:
+                  newLocalIndex = localsOffset + 1;
+                  break;
+               case OpCodeEncoding.Ldloc_2:
+               case OpCodeEncoding.Stloc_2:
+                  newLocalIndex = localsOffset + 2;
+                  break;
+               case OpCodeEncoding.Ldloc_3:
+               case OpCodeEncoding.Stloc_3:
+                  newLocalIndex = localsOffset + 3;
+                  break;
+               case OpCodeEncoding.Ldloc_S:
+               case OpCodeEncoding.Ldloca_S:
+               case OpCodeEncoding.Stloc_S:
+               case OpCodeEncoding.Ldloc:
+               case OpCodeEncoding.Ldloca:
+               case OpCodeEncoding.Stloc:
+                  newLocalIndex = localsOffset + ( (OpCodeInfoWithInt32) newCode ).Operand;
+                  break;
+            }
+
+            if ( newLocalIndex >= 0 )
+            {
+               var newOpCode = OpCodes.GetCodeFor( GetOptimalLocalsCode( codeValue, newLocalIndex ) );
+               switch ( newOpCode.OperandType )
+               {
+                  case OperandType.InlineNone:
+                     newCode = OpCodeInfoWithNoOperand.GetInstanceFor( newOpCode );
+                     break;
+                  default:
+                     newCode = new OpCodeInfoWithInt32( newOpCode, newLocalIndex );
+                     break;
+               }
+            }
+         }
+
+         // Then, check op codes that branch, or return
+         if ( newLocalIndex == -1 )
+         {
+            switch ( newCode.OpCode.OperandType )
+            {
+               case OperandType.ShortInlineBrTarget:
+                  // Change all existing short branch instructions to long branch instructions
+                  // TODO this probably is not necessary once the branch code size optimization code is ready.
+                  newCode = new OpCodeInfoWithInt32( OpCodes.GetCodeFor( newCode.OpCode.OtherForm ), ( (OpCodeInfoWithInt32) newCode ).Operand );
+                  break;
+               case OperandType.InlineNone:
+                  if ( newCode.OpCode.Value == OpCodeEncoding.Ret )
+                  {
+                     // Replace all 'Ret' instructions with long branch instructions to next 'block'
+                     var jump = sourceILByteSize - byteOffsetWithinSourceIL;
+                     newCode = jump == 0 ? null : new OpCodeInfoWithInt32( OpCodes.Br, jump );
+                  }
+                  break;
+            }
+         }
+      }
+
+      private static OpCodeEncoding GetOptimalLocalsCode(
+         OpCodeEncoding oldValue,
+         Int32 newOperand
+         )
+      {
+         // Assumes that newOperand always > oldOperand
+         switch ( oldValue )
+         {
+            case OpCodeEncoding.Ldloca_S:
+               // Either Ldloca_S or Ldloca
+               return newOperand > Byte.MaxValue ? OpCodeEncoding.Ldloca : OpCodeEncoding.Ldloca_S;
+            case OpCodeEncoding.Ldloca:
+               // No other option
+               return OpCodeEncoding.Ldloca;
+            case OpCodeEncoding.Ldloc_S:
+               // Either LdLoc_S or Ldloc
+               return newOperand > Byte.MaxValue ? OpCodeEncoding.Ldloc : OpCodeEncoding.Ldloc_S;
+            case OpCodeEncoding.Ldloc:
+               // No other option
+               return OpCodeEncoding.Ldloc;
+            case OpCodeEncoding.Ldloc_0:
+            case OpCodeEncoding.Ldloc_1:
+            case OpCodeEncoding.Ldloc_2:
+            case OpCodeEncoding.Ldloc_3:
+               switch ( newOperand )
+               {
+                  case 0:
+                     return OpCodeEncoding.Ldloc_0;
+                  case 1:
+                     return OpCodeEncoding.Ldloc_1;
+                  case 2:
+                     return OpCodeEncoding.Ldloc_2;
+                  case 3:
+                     return OpCodeEncoding.Ldloc_3;
+                  default:
+                     return newOperand > Byte.MaxValue ? OpCodeEncoding.Ldloc : OpCodeEncoding.Ldloc_S;
+               }
+            case OpCodeEncoding.Stloc_S:
+               // Either Stloc_S or Stloc
+               return newOperand > Byte.MaxValue ? OpCodeEncoding.Stloc : OpCodeEncoding.Stloc_S;
+            case OpCodeEncoding.Stloc:
+               // No other option
+               return OpCodeEncoding.Stloc;
+            case OpCodeEncoding.Stloc_0:
+            case OpCodeEncoding.Stloc_1:
+            case OpCodeEncoding.Stloc_2:
+            case OpCodeEncoding.Stloc_3:
+               switch ( newOperand )
+               {
+                  case 0:
+                     return OpCodeEncoding.Stloc_0;
+                  case 1:
+                     return OpCodeEncoding.Stloc_1;
+                  case 2:
+                     return OpCodeEncoding.Stloc_2;
+                  case 3:
+                     return OpCodeEncoding.Stloc_3;
+                  default:
+                     return newOperand > Byte.MaxValue ? OpCodeEncoding.Stloc : OpCodeEncoding.Stloc_S;
+               }
+            default:
+               throw new InvalidOperationException( "Unrecognized locals-related opcode: " + oldValue + "." );
+         }
+      }
+
+      private static void FixMergedILBranches(
+         IEnumerable<OpCodeInfo> opCodes
+         )
+      {
+         foreach ( var code in opCodes )
+         {
+            switch ( code.OpCode.OperandType )
+            {
+               case OperandType.ShortInlineBrTarget:
+               case OperandType.InlineBrTarget:
+                  var branchCode = (OpCodeInfoWithInt32) code;
+                  var jump = branchCode.Operand;
+            }
+         }
       }
 
       private void ConstructTablesUsedInSignaturesAndILTokens(
@@ -1860,33 +2075,7 @@ namespace CILMerge
                   targetIL.InitLocals = inputIL.InitLocals;
                   targetIL.LocalsSignatureIndex = inputIL.LocalsSignatureIndex.HasValue ? thisMappings[inputIL.LocalsSignatureIndex.Value] : (TableIndex?) null;
                   targetIL.MaxStackSize = inputIL.MaxStackSize;
-                  targetIL.OpCodes.AddRange( inputIL.OpCodes.Select<OpCodeInfo, OpCodeInfo>( oc =>
-                  {
-                     switch ( oc.InfoKind )
-                     {
-                        case OpCodeOperandKind.OperandInteger:
-                           return new OpCodeInfoWithInt32( oc.OpCode, ( (OpCodeInfoWithInt32) oc ).Operand );
-                        case OpCodeOperandKind.OperandInteger64:
-                           return new OpCodeInfoWithInt64( oc.OpCode, ( (OpCodeInfoWithInt64) oc ).Operand );
-                        case OpCodeOperandKind.OperandNone:
-                           return oc;
-                        case OpCodeOperandKind.OperandR4:
-                           return new OpCodeInfoWithSingle( oc.OpCode, ( (OpCodeInfoWithSingle) oc ).Operand );
-                        case OpCodeOperandKind.OperandR8:
-                           return new OpCodeInfoWithDouble( oc.OpCode, ( (OpCodeInfoWithDouble) oc ).Operand );
-                        case OpCodeOperandKind.OperandString:
-                           return new OpCodeInfoWithString( oc.OpCode, ( (OpCodeInfoWithString) oc ).Operand );
-                        case OpCodeOperandKind.OperandSwitch:
-                           var ocSwitch = (OpCodeInfoWithSwitch) oc;
-                           var ocSwitchTarget = new OpCodeInfoWithSwitch( oc.OpCode, ocSwitch.Offsets.Count );
-                           ocSwitchTarget.Offsets.AddRange( ocSwitch.Offsets );
-                           return ocSwitchTarget;
-                        case OpCodeOperandKind.OperandToken:
-                           return new OpCodeInfoWithToken( oc.OpCode, thisMappings[( (OpCodeInfoWithToken) oc ).Operand] );
-                        default:
-                           throw new NotSupportedException( "Unknown op code kind: " + oc.InfoKind + "." );
-                     }
-                  } ) );
+                  targetIL.OpCodes.AddRange( inputIL.OpCodes.Select( oc => this.CreateTargetModuleOpCode( oc, thisMappings ) ) );
                }
             }
          }
@@ -1943,6 +2132,34 @@ namespace CILMerge
 
          // CustomAttribute and DeclarativeSecurity signatures do not reference table indices, so they are processed in ConstructTheRestOfTheTables method
 
+      }
+
+      private OpCodeInfo CreateTargetModuleOpCode( OpCodeInfo sourceOpCode, IDictionary<TableIndex, TableIndex> thisMappings )
+      {
+         switch ( sourceOpCode.InfoKind )
+         {
+            case OpCodeOperandKind.OperandInteger:
+               return new OpCodeInfoWithInt32( sourceOpCode.OpCode, ( (OpCodeInfoWithInt32) sourceOpCode ).Operand );
+            case OpCodeOperandKind.OperandInteger64:
+               return new OpCodeInfoWithInt64( sourceOpCode.OpCode, ( (OpCodeInfoWithInt64) sourceOpCode ).Operand );
+            case OpCodeOperandKind.OperandNone:
+               return sourceOpCode;
+            case OpCodeOperandKind.OperandR4:
+               return new OpCodeInfoWithSingle( sourceOpCode.OpCode, ( (OpCodeInfoWithSingle) sourceOpCode ).Operand );
+            case OpCodeOperandKind.OperandR8:
+               return new OpCodeInfoWithDouble( sourceOpCode.OpCode, ( (OpCodeInfoWithDouble) sourceOpCode ).Operand );
+            case OpCodeOperandKind.OperandString:
+               return new OpCodeInfoWithString( sourceOpCode.OpCode, ( (OpCodeInfoWithString) sourceOpCode ).Operand );
+            case OpCodeOperandKind.OperandSwitch:
+               var ocSwitch = (OpCodeInfoWithSwitch) sourceOpCode;
+               var ocSwitchTarget = new OpCodeInfoWithSwitch( sourceOpCode.OpCode, ocSwitch.Offsets.Count );
+               ocSwitchTarget.Offsets.AddRange( ocSwitch.Offsets );
+               return ocSwitchTarget;
+            case OpCodeOperandKind.OperandToken:
+               return new OpCodeInfoWithToken( sourceOpCode.OpCode, thisMappings[( (OpCodeInfoWithToken) sourceOpCode ).Operand] );
+            default:
+               throw new NotSupportedException( "Unknown op code kind: " + sourceOpCode.InfoKind + "." );
+         }
       }
 
       private void ConstructTheRestOfTheTables()
@@ -2430,11 +2647,15 @@ namespace CILMerge
          ref ISet<String> allTypeStringsSet
          )
       {
-         var retVal = !this._options.Union
-            && ( !newTypeAttrs.IsVisibleToOutsideOfDefinedAssembly()
-               || this._options.AllowDuplicateTypes == null
-               || this._options.AllowDuplicateTypes.Contains( fullTypeString )
+
+         var retVal = ( this._options.Union && this._unionExcludeRegexes.Value.Any( r => r.IsMatch( fullTypeString ) ) )
+            || ( !this._options.Union
+               && ( !newTypeAttrs.IsVisibleToOutsideOfDefinedAssembly()
+                  || this._options.AllowDuplicateTypes == null
+                  || this._options.AllowDuplicateTypes.Contains( fullTypeString )
+                  )
                );
+
          if ( retVal )
          {
             // Have to rename
@@ -2443,12 +2664,12 @@ namespace CILMerge
                allTypeStringsSet = new HashSet<String>( allTypeStrings.Values.SelectMany( dic => dic.Values ) );
             }
 
-            var i = 2;
+            var i = 1;
             var namePrefix = fullTypeString;
             do
             {
-               fullTypeString = namePrefix + "_" + i;
                ++i;
+               fullTypeString = namePrefix + "_" + i;
             } while ( !allTypeStringsSet.Add( fullTypeString ) );
 
             newFullTypeString = fullTypeString;

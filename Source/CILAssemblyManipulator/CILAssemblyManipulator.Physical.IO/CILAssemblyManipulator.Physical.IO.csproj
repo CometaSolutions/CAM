@@ -119,6 +119,9 @@
   <ItemGroup>
     <Compile Include="Defaults\Serialization.Implementation.Signatures.cs" />
   </ItemGroup>
+  <ItemGroup>
+    <Compile Include="Defaults\Serialization.Implementation.IL.cs" />
+  </ItemGroup>
   <Import Condition=" '$(CAMPhysicalIsPortable)' == '' " Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
   <Import Condition=" '$(CAMPhysicalIsPortable)' != '' " Project="$(MSBuildExtensionsPath32)\Microsoft\Portable\$(TargetFrameworkVersion)\Microsoft.Portable.CSharp.targets" />
 </Project>

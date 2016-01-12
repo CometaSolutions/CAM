@@ -53,6 +53,8 @@ namespace CILMerge
       String MetadataVersionString { get; set; }
       string ReferenceAssembliesDirectory { get; set; }
       bool Union { get; set; }
+
+      string UnionExcludeFile { get; set; }
       bool UseFullPublicKeyForRefs { get; set; }
       bool Verbose { get; set; }
       int VerBuild { get; set; }
@@ -143,6 +145,8 @@ namespace CILMerge
       public Int32 VerBuild { get; set; }
       public Int32 VerRevision { get; set; }
       public Boolean Union { get; set; }
+
+      public String UnionExcludeFile { get; set; }
       public Boolean NoDebug { get; set; }
       public Boolean CopyAttributes { get; set; }
       public String TargetAssemblyAttributeSource { get; set; }

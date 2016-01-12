@@ -868,7 +868,7 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
             var bytes = array.ReadIntoResizableArray( stream, codeSize );
             while ( idx < codeSize && success )
             {
-               var curCodeInfo = OpCodeInfo.ReadFromBytes(
+               var curCodeInfo = ILSerialization.TryReadOpCode(
                   bytes,
                   ref idx,
                   strToken => userStrings.GetString( TableIndex.FromZeroBasedToken( strToken ).Index )

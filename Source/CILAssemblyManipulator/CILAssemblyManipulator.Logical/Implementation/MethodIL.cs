@@ -15,6 +15,9 @@
  * See the License for the specific language governing permissions and
  * limitations under the License. 
  */
+extern alias CAMPhysical;
+using CAMPhysical::CILAssemblyManipulator.Physical.IO.Defaults;
+
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -65,7 +68,7 @@ namespace CILAssemblyManipulator.Logical.Implementation
          {
             codeInfoILOffsets.Add( ilOffset, this._opCodes.Count );
 
-            var physical = OpCodeInfo.ReadFromBytes( il, ref ilOffset, t => (String) tokenResolver( t, ILResolveKind.String ) );
+            var physical = ILSerialization.TryReadOpCode( il, ref ilOffset, t => (String) tokenResolver( t, ILResolveKind.String ) );
             LogicalOpCodeInfo logical;
             Int32 int32;
             var code = physical.OpCode;

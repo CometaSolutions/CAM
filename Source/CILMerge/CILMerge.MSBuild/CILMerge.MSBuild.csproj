@@ -106,7 +106,7 @@
   <!-- Create .snk file if it doesn't exist to ensure smooth build -->
   <Import Project="$(MSBuildThisFileDirectory)../../../CommonBuildTools/CLR/MSBuild/CreateKeyFileIfNeeded.targets" />
   <Target Name="MergeThisTask">
-    <CILMerge.MSBuild.CILMergeTask InputAssemblies="@(IntermediateAssembly)" OutDir="$(MSBuildProjectDirectory)\$(OutputPath)" Union="True" Closed="True" Internalize="True" UseFullPublicKeyForRefs="True" XmlDocs="True" KeyFile="$(KeyFilePath)" VerifyOutput="True" />
+    <CILMerge.MSBuild.CILMergeTask InputAssemblies="@(IntermediateAssembly)" OutDir="$(MSBuildProjectDirectory)\$(OutputPath)" Union="True" Closed="True" Internalize="True" UseFullPublicKeyForRefs="True" XmlDocs="True" KeyFile="$(KeyFilePath)" VerifyOutput="True" UnionExcludeFile="$(MSBuildProjectDirectory)\..\..\CAMPhysicalUnionExcludes.txt" />
     <!-- Copy the DLL to infra folder so that deleting DLL's from output folders would work (when making NuGet packages). -->
     <Copy SourceFiles="$(MSBuildProjectDirectory)\$(OutputPath)$(AssemblyName).dll" DestinationFolder="$(MSBuildProjectDirectory)\..\..\..\Output\Infrastructure\MSBuild\" />
   </Target>

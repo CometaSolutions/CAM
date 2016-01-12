@@ -185,6 +185,8 @@ namespace CILMerge.MSBuild
 
       public Boolean Union { get; set; }
 
+      public String UnionExcludeFile { get; set; }
+
       public Boolean UseFullPublicKeyForRefs { get; set; }
 
       public Boolean Verbose { get; set; }
