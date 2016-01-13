@@ -810,7 +810,35 @@ public static partial class E_CILPhysical
       )
       where T : class
    {
-      var tableWithReferences = mdTableWithReferences?.TableContents;
+      Boolean retVal;
+      if ( mdTableWithReferences == null )
+      {
+         min = max = -1;
+         retVal = false;
+      }
+      else
+      {
+         retVal = mdTableWithReferences.TableContents.TryGetTargetIndicesBoundsForAscendingReferenceListTable(
+            tableWithReferencesIndex,
+            targetTableCount,
+            referenceExtractor,
+            out min,
+            out max
+            );
+      }
+      return retVal;
+   }
+
+   internal static Boolean TryGetTargetIndicesBoundsForAscendingReferenceListTable<T>(
+      this List<T> tableWithReferences,
+      Int32 tableWithReferencesIndex,
+      Int32 targetTableCount,
+      Func<T, Int32> referenceExtractor,
+      out Int32 min,
+      out Int32 max
+      )
+      where T : class
+   {
       var retVal = tableWithReferences != null
          && tableWithReferencesIndex >= 0
          && tableWithReferencesIndex < tableWithReferences.Count;
@@ -1189,6 +1217,8 @@ public static partial class E_CILPhysical
       var methodDef = md.MethodDefinitions;
       var fieldDef = md.FieldDefinitions;
       var paramDef = md.ParameterDefinitions;
+      var propMap = md.PropertyMaps;
+      var evtMap = md.EventMaps;
       var tDefCount = typeDef.GetRowCount();
       var mDefCount = methodDef.GetRowCount();
       var fDefCount = fieldDef.GetRowCount();
@@ -1345,9 +1375,37 @@ public static partial class E_CILPhysical
             ( td, fIdx ) => td.FieldList = new TableIndex( Tables.Field, fIdx ),
             tdIdx => methodAndFieldCounts[tdIdx].Value
             );
+
+         // Update PropertyMap and EventMap table indices
+         reorderState.UpdateMDTableWithTableIndices1(
+            propMap,
+            p => p.Parent,
+            ( p, t ) => p.Parent = t
+            );
+
+         reorderState.UpdateMDTableWithTableIndices1(
+            evtMap,
+            e => e.Parent,
+            ( e, t ) => e.Parent = t
+            );
       }
 
-      Remove duplicate TypeDefs from PropertyMap and EventMap here -> these tables are not referenced by any table index, so should be doable easily.
+      reorderState.ReOrderMDTableWithAscendingReferencesAndUniqueColumn(
+         propMap,
+         md.PropertyDefinitions,
+         ComparerFromFunctions.NewEqualityComparer<PropertyMap>( ( x, y ) => x.Parent.Equals( y.Parent ), x => x.Parent.GetHashCode() ),
+         p => p.PropertyList.Index,
+         ( p, i ) => p.PropertyList = new TableIndex( Tables.Property, i )
+         );
+
+      reorderState.ReOrderMDTableWithAscendingReferencesAndUniqueColumn(
+         evtMap,
+         md.EventDefinitions,
+         ComparerFromFunctions.NewEqualityComparer<EventMap>( ( x, y ) => x.Parent.Equals( y.Parent ), x => x.Parent.GetHashCode() ),
+         e => e.EventList.Index,
+         ( e, i ) => e.EventList = new TableIndex( Tables.Event, i )
+         );
+
    }
 
    private static void UpdateAndSortTablesWithNoSignatures( this MetaDataReOrderState reorderState )
@@ -1368,20 +1426,6 @@ public static partial class E_CILPhysical
       reorderState.UpdateMDTableIndices(
          md.EventDefinitions,
          ( ed, indices ) => reorderState.UpdateMDTableWithTableIndices1( ed, e => e.EventType, ( e, t ) => e.EventType = t )
-         );
-
-      // Update EventMap
-      reorderState.UpdateMDTableIndices(
-         md.EventMaps,
-         ( em, indices ) => reorderState.UpdateMDTableWithTableIndices2( em, e => e.Parent, ( e, p ) => e.Parent = p, e => e.EventList, ( e, l ) => e.EventList = l )
-         );
-
-      // No table indices in PropertyDefinition
-
-      // Update PropertyMap
-      reorderState.UpdateMDTableIndices(
-         md.PropertyMaps,
-         ( pm, indices ) => reorderState.UpdateMDTableWithTableIndices2( pm, p => p.Parent, ( p, pp ) => p.Parent = pp, p => p.PropertyList, ( p, pl ) => p.PropertyList = pl )
          );
 
       // Sort InterfaceImpl table ( Class, Interface)
@@ -1674,8 +1718,6 @@ public static partial class E_CILPhysical
          }
 
       }
-
-      //table.SortMDTableWithInt32Comparison( indices, ( x, y ) => comparer.Compare( table[x], table[y] ) );
    }
 
    private static void SortMethodILExceptionBlocks( this CILMetaData md )
@@ -1749,6 +1791,96 @@ public static partial class E_CILPhysical
 
             // Set methoddef index for this typedef
             referenceIndexSetter( curTD, mIdx - blockCount );
+         }
+      }
+   }
+
+   private static void ReOrderMDTableWithAscendingReferencesAndUniqueColumn<T, U>(
+      this MetaDataReOrderState reorderState,
+      MetaDataTable<T> sourceTable,
+      MetaDataTable<U> targetTable,
+      IEqualityComparer<T> sourceTableEqualityComparer,
+      Func<T, Int32> sourceGetter,
+      Action<T, Int32> sourceSetter
+      )
+      where T : class
+      where U : class
+   {
+      // This is for situations when e.g. PropertyMap has several rows for same type
+
+      // First, remove duplicates from source table
+      // Create a copy of list, since duplicates are removed right away and old values are not preserved
+      var sourceContents = sourceTable.TableContents;
+      var sourceCopy = new List<T>( sourceContents );
+      if ( reorderState.CheckMDDuplicatesUnsorted(
+         sourceTable,
+         sourceTableEqualityComparer
+         ) > 0 )
+      {
+         // There were duplicates - have to reorder the target table
+         var duplicates = reorderState.Duplicates[(Tables) sourceTable.GetTableIndex()];
+         var originals = new Dictionary<Int32, List<Int32>>();
+         foreach ( var kvp in duplicates )
+         {
+            originals.GetOrAdd_NotThreadSafe( kvp.Value, i => new List<Int32>() ).Add( kvp.Key );
+         }
+
+         var targetIndex = 0;
+         var targetContents = targetTable.TableContents;
+         var targetCopy = targetContents.ToArray();
+         var targetIndices = reorderState.GetOrCreateIndexArray( targetTable );
+
+         // We can't modify the ref indices as we go, since that would mess up things
+         var sourceRefs = new Int32[sourceCopy.Count];
+         for ( var i = 0; i < sourceCopy.Count; ++i )
+         {
+            List<Int32> duplicateIndices;
+
+            var row = sourceContents[i];
+            if ( row != null )
+            {
+               sourceRefs[i] = targetIndex;
+
+               Int32 min, max;
+               if ( sourceCopy.TryGetTargetIndicesBoundsForAscendingReferenceListTable( i, targetCopy.Length, sourceGetter, out min, out max ) )
+               {
+                  while ( min < max )
+                  {
+                     targetContents[targetIndex] = targetCopy[min];
+                     targetIndices[min] = targetIndex;
+                     ++min;
+                     ++targetIndex;
+                  }
+               }
+
+
+               if ( originals.TryGetValue( i, out duplicateIndices ) )
+               {
+                  // This row has duplicates later, so need to 
+                  foreach ( var dupIdx in duplicateIndices )
+                  {
+                     if ( sourceCopy.TryGetTargetIndicesBoundsForAscendingReferenceListTable( dupIdx, targetCopy.Length, sourceGetter, out min, out max ) )
+                     {
+                        while ( min < max )
+                        {
+                           targetContents[targetIndex] = targetCopy[min];
+                           targetIndices[min] = targetIndex;
+                           ++min;
+                           ++targetIndex;
+                        }
+                     }
+                  }
+               }
+            }
+         }
+
+         for ( var i = 0; i < sourceCopy.Count; ++i )
+         {
+            var row = sourceContents[i];
+            if ( row != null )
+            {
+               sourceSetter( row, sourceRefs[i] );
+            }
          }
       }
    }
