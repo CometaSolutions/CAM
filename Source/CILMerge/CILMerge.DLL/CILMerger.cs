@@ -1363,8 +1363,9 @@ namespace CILMerge
          {
             // Get target static ctor IL
             var targetMDefIdx = kvp.Key;
-            var cctor = this._targetModule.MethodDefinitions.TableContents[targetMDefIdx];
-            var firstIL = cctor.IL;
+            var inputs = kvp.Value;
+            var firstInput = inputs[0];
+            var firstIL = firstInput.Item1.MethodDefinitions.TableContents[firstInput.Item2].IL;
 
             // IL will be modified -> create a copy
             var targetIL = new MethodILDefinition( exceptionBlockCount: firstIL.ExceptionBlocks.Count, opCodeCount: firstIL.OpCodes.Count )
@@ -1373,11 +1374,15 @@ namespace CILMerge
                LocalsSignatureIndex = firstIL.LocalsSignatureIndex,
                MaxStackSize = firstIL.MaxStackSize
             };
-            cctor.IL = targetIL;
 
             // Locals signature might change -> so create a copy
             var locals = this._targetModule.GetLocalsSignatureForMethodOrNull( targetMDefIdx )?.CreateDeepCopy() ?? new LocalVariablesSignature();
             var originalLocalCount = locals.Locals.Count;
+
+            // TODO this could be generalized as appending IL from one method at the end of the another method.
+            // So this should be in CAM.Physical.Core:
+            // public static Boolean AppendIL(this MethodILDefinition existingIL, List<OpCode> ilToAppend, ..., LocalVariablesSignature locals)
+            // Return true of locals were changed
 
             // Because of all this op-code branch-fixing, this is the place where abstraction level of CAM.Logical would become handy
             // Unfortunately, we have to do with CAM.Physical abstraction level
@@ -1386,16 +1391,18 @@ namespace CILMerge
             // 2. Replace all 'Ret' instructions with long branch instructions
             // 3. Fix operands of all branch instructions.
             // 4. (TODO) Optimize branch instruction operands (long -> short form).
-            var inputs = kvp.Value;
+
             var originalByteOffsets = new Int32[inputs.Sum( i => i.Item1.MethodDefinitions.TableContents[i.Item2].IL.OpCodes.Count )];
             var originalCodeOffsets = new Int32[inputs.Sum( i => i.Item1.MethodDefinitions.TableContents[i.Item2].IL.OpCodes.Sum( c => c.GetTotalByteCount() ) )];
             var blocks = new Int32[inputs.Count + 1];
+            var blockByteOffsets = new Int32[inputs.Count + 1];
 
             var byteOffsetsIndex = 0; var codeOffsetsIndex = 0;
             for ( var i = 0; i < inputs.Count; ++i )
             {
                var inputInfo = inputs[i];
                blocks[i] = byteOffsetsIndex;
+               blockByteOffsets[i] = codeOffsetsIndex;
 
                this.AppendStaticCtorIL(
                   targetIL,
@@ -1411,16 +1418,41 @@ namespace CILMerge
 
             targetIL.OpCodes.Add( OpCodeInfoWithNoOperand.GetInstanceFor( OpCodeEncoding.Ret ) );
             blocks[blocks.Length - 1] = byteOffsetsIndex;
+            blockByteOffsets[blockByteOffsets.Length - 1] = codeOffsetsIndex;
 
-            FixMergedILBranches( targetIL.OpCodes, originalByteOffsets, originalCodeOffsets, blocks );
-            FixMergedILExceptionBlocks( blocks );
+            var newOpCodes = targetIL.OpCodes;
+            var newByteOffsets = new Int32[newOpCodes.Count];
+            {
+               var curByteOffset = 0;
+               for ( var i = 0; i < newOpCodes.Count; ++i )
+               {
+                  newByteOffsets[i] = curByteOffset;
+                  curByteOffset += newOpCodes[i].GetTotalByteCount();
+               }
+            }
+
+            FixMergedILBranches( targetIL.OpCodes, originalByteOffsets, originalCodeOffsets, blocks, blockByteOffsets, newByteOffsets );
+            for ( var i = 0; i < inputs.Count; ++i )
+            {
+               var input = inputs[i];
+               var inputModule = input.Item1;
+               FixMergedILExceptionBlocks( targetIL, inputModule.MethodDefinitions.TableContents[input.Item2].IL?.ExceptionBlocks, this._tableIndexMappings[inputModule], originalCodeOffsets, blocks, blockByteOffsets, newByteOffsets, i );
+            }
 
             var newLocalCount = locals.Locals.Count;
             if ( newLocalCount > 0 && newLocalCount > originalLocalCount )
             {
                // Have to update locals-signature
+               var sigs = this._targetModule.StandaloneSignatures.TableContents;
+               targetIL.LocalsSignatureIndex = new TableIndex( Tables.StandaloneSignature, sigs.Count );
+               sigs.Add( new StandaloneSignature()
+               {
+                  Signature = locals,
+                  StoreSignatureAsFieldSignature = false
+               } );
             }
 
+            this._targetModule.MethodDefinitions.TableContents[targetMDefIdx].IL = targetIL;
          }
 
       }
@@ -1632,20 +1664,11 @@ namespace CILMerge
          List<OpCodeInfo> opCodes,
          Int32[] originalByteOffsets, // Index: op-code offset, Value: op-code start byte offset
          Int32[] originalCodeOffsets, // Index: op-code start byte offset: value: op-code offset
-         Int32[] blocks // Ascending sequence of offset, where each 'block' starts: 0, x, y, ...,
+         Int32[] blocks, // Ascending sequence of offset, where each 'block' starts: 0, x, y, ...,
+         Int32[] blockByteOffsets, // Ascending sequence of byte offsets for blocks
+         Int32[] newByteOffsets // Index: op-code offset in new IL code, Value: op-code start byte offset in new IL code
          )
       {
-         var newByteOffsets = new Int32[opCodes.Count];
-
-         {
-            var curByteOffset = 0;
-            for ( var i = 0; i < opCodes.Count; ++i )
-            {
-               newByteOffsets[i] = curByteOffset;
-               curByteOffset += opCodes[i].GetTotalByteCount();
-            }
-         }
-
          var curBlockOffset = 0;
          for ( var i = 0; i < opCodes.Count; ++i )
          {
@@ -1667,24 +1690,62 @@ namespace CILMerge
                   var branchCode = (OpCodeInfoWithInt32) code;
                   var jump = branchCode.Operand;
                   var curCodeByteCount = code.GetTotalByteCount();
-                  // Find out the index of target instruction
-                  var originalByteOffset = originalByteOffsets[i] + curCodeByteCount + jump;
-                  var originalCodeOffset = originalCodeOffsets[originalByteOffset];
-                  // Find out the new index of target instruction
                   var curBlockStart = blocks[curBlockOffset];
-                  var newCodeOffset = curBlockStart + originalCodeOffset;
-                  var newByteOffset = newByteOffsets[newCodeOffset];
+                  // Find out the index of target instruction
+                  var originalByteOffset = originalByteOffsets[curBlockStart + i] + curCodeByteCount + jump;
+                  // Find out the new index of target instruction
+                  var newByteOffset = TranslateOriginalByteOffsetToNewByteOffset( originalCodeOffsets, blocks, blockByteOffsets, newByteOffsets, curBlockOffset, originalByteOffset );
                   branchCode.Operand = newByteOffsets[i] + curCodeByteCount - newByteOffset;
                   break;
             }
          }
       }
 
-      private static void FixMergedILExceptionBlocks(
-         Int32[] blocks
+      private static Int32 TranslateOriginalByteOffsetToNewByteOffset(
+         Int32[] originalCodeOffsets, // Index: op-code start byte offset: value: op-code offset
+         Int32[] blocks, // Ascending sequence of offset, where each 'block' starts: 0, x, y, ...,
+         Int32[] blockByteOffsets, // Ascending sequence of byte offsets for blocks
+         Int32[] newByteOffsets, // Index: op-code offset in new IL code, Value: op-code start byte offset in new IL code
+         Int32 blockIndex,
+         Int32 originalByteOffset
          )
       {
+         var originalCodeOffset = originalCodeOffsets[blockByteOffsets[blockIndex] + originalByteOffset];
+         return newByteOffsets[blocks[blockIndex] + originalCodeOffset];
+      }
 
+      private void FixMergedILExceptionBlocks(
+         MethodILDefinition targetIL,
+         IEnumerable<MethodExceptionBlock> exceptions,
+         IDictionary<TableIndex, TableIndex> thisMappings,
+         Int32[] originalCodeOffsets, // Index: op-code start byte offset: value: op-code offset
+         Int32[] blocks, // Ascending sequence of offset, where each 'block' starts: 0, x, y, ...,
+         Int32[] blockByteOffsets, // Ascending sequence of byte offsets for blocks
+         Int32[] newByteOffsets, // Index: op-code offset in new IL code, Value: op-code start byte offset in new IL code
+         Int32 blockIndex
+         )
+      {
+         if ( exceptions != null )
+         {
+            foreach ( var exception in exceptions )
+            {
+               var exceptionBlock = new MethodExceptionBlock()
+               {
+                  BlockType = exception.BlockType,
+                  TryOffset = TranslateOriginalByteOffsetToNewByteOffset( originalCodeOffsets, blocks, blockByteOffsets, newByteOffsets, blockIndex, exception.TryOffset ),
+                  FilterOffset = exception.FilterOffset == 0 ? 0 : TranslateOriginalByteOffsetToNewByteOffset( originalCodeOffsets, blocks, blockByteOffsets, newByteOffsets, blockIndex, exception.FilterOffset ),
+                  HandlerOffset = exception.HandlerOffset == 0 ? 0 : TranslateOriginalByteOffsetToNewByteOffset( originalCodeOffsets, blocks, blockByteOffsets, newByteOffsets, blockIndex, exception.HandlerOffset ),
+                  ExceptionType = exception.ExceptionType.HasValue ? thisMappings[exception.ExceptionType.Value] : (TableIndex?) null
+               };
+
+               exceptionBlock.TryLength = TranslateOriginalByteOffsetToNewByteOffset( originalCodeOffsets, blocks, blockByteOffsets, newByteOffsets, blockIndex, exception.TryOffset + exception.TryLength ) - exceptionBlock.TryOffset;
+
+               if ( exceptionBlock.HandlerOffset > 0 )
+               {
+                  exceptionBlock.HandlerLength = TranslateOriginalByteOffsetToNewByteOffset( originalCodeOffsets, blocks, blockByteOffsets, newByteOffsets, blockIndex, exception.HandlerOffset + exception.HandlerLength ) - exceptionBlock.HandlerOffset;
+               }
+            }
+         }
       }
 
       private void ConstructTablesUsedInSignaturesAndILTokens(
