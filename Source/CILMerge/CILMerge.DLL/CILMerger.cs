@@ -1357,8 +1357,7 @@ namespace CILMerge
          return targetTypeInfo;
       }
 
-      private void MergeStaticCtors(
-         )
+      private void MergeStaticCtors()
       {
          foreach ( var kvp in this._multipleStaticCtorInfo )
          {
@@ -1367,7 +1366,8 @@ namespace CILMerge
             var targetIL = this._targetModule.MethodDefinitions.TableContents[targetMDefIdx].IL;
 
             // Locals signature might change -> so create a copy
-            var locals = this._targetModule.GetLocalsSignatureForMethodOrNull( targetMDefIdx ).CreateDeepCopy();
+            var locals = this._targetModule.GetLocalsSignatureForMethodOrNull( targetMDefIdx )?.CreateDeepCopy() ?? new LocalVariablesSignature();
+            var originalLocalCount = locals.Locals.Count;
 
             // Because of all this op-code branch-fixing, this is the place where abstraction level of CAM.Logical would become handy
             // Unfortunately, we have to do with CAM.Physical abstraction level
@@ -1376,13 +1376,41 @@ namespace CILMerge
             // 2. Replace all 'Ret' instructions with long branch instructions
             // 3. Fix operands of all branch instructions.
             // 4. (TODO) Optimize branch instruction operands (long -> short form).
+            var inputs = kvp.Value;
+            var originalByteOffsets = new Int32[inputs.Sum( i => i.Item1.MethodDefinitions.TableContents[i.Item2].IL.OpCodes.Count )];
+            var originalCodeOffsets = new Int32[inputs.Sum( i => i.Item1.MethodDefinitions.TableContents[i.Item2].IL.OpCodes.Sum( c => c.GetTotalByteCount() ) )];
+            var blocks = new Int32[inputs.Count + 1];
 
-            foreach ( var inputInfo in kvp.Value.Skip( 1 ) )
+            var byteOffsetsIndex = 0; var codeOffsetsIndex = 0;
+            for ( var i = 0; i < inputs.Count; ++i )
             {
-               this.AppendStaticCtorIL( targetIL, locals, inputInfo.Item1, inputInfo.Item2 );
+               var inputInfo = inputs[i];
+               blocks[i] = byteOffsetsIndex;
+
+               this.AppendStaticCtorIL(
+                  targetIL,
+                  locals,
+                  inputInfo.Item1,
+                  inputInfo.Item2,
+                  originalByteOffsets,
+                  originalCodeOffsets,
+                  ref byteOffsetsIndex,
+                  ref codeOffsetsIndex,
+                  i > 0
+                  );
             }
 
+            targetIL.OpCodes.Add( OpCodeInfoWithNoOperand.GetInstanceFor( OpCodeEncoding.Ret ) );
+            blocks[blocks.Length - 1] = byteOffsetsIndex;
 
+            FixMergedILBranches( targetIL.OpCodes, originalByteOffsets, originalCodeOffsets, blocks );
+            FixMergedILExceptionBlocks( blocks );
+
+            var newLocalCount = locals.Locals.Count;
+            if ( newLocalCount > 0 && newLocalCount > originalLocalCount )
+            {
+               // Have to update locals-signature
+            }
 
          }
 
@@ -1392,7 +1420,12 @@ namespace CILMerge
          MethodILDefinition targetIL,
          LocalVariablesSignature targetLocals,
          CILMetaData inputModule,
-         Int32 mDefIndex
+         Int32 mDefIndex,
+         Int32[] byteOffsets, // Index: op-code offset, Value: op-code start byte offset
+         Int32[] codeOffsets, // Index: op-code start byte offset: value: op-code offset
+         ref Int32 byteOffsetsIndex,
+         ref Int32 codeOffsetsIndex,
+         Boolean actuallyModify
          )
       {
          var sourceIL = inputModule.MethodDefinitions.TableContents[mDefIndex].IL;
@@ -1403,39 +1436,54 @@ namespace CILMerge
             var thisMappings = this._tableIndexMappings[inputModule];
 
             // Op Codes
-            var byteOffset = 0;
-            var ilByteSize = sourceIL.OpCodes.Sum( oc => oc.GetTotalByteCount() );
-            foreach ( var opCode in sourceIL.OpCodes )
+            var sourceByteOffset = 0;
+            var codez = sourceIL.OpCodes;
+            var ilByteSize = codez.Sum( oc => oc.GetTotalByteCount() );
+            for ( var i = 0; i < codez.Count; ++i, ++byteOffsetsIndex )
             {
-               var newCode = this.CreateTargetModuleOpCode( opCode, thisMappings );
+               var opCode = codez[i];
+               byteOffsets[byteOffsetsIndex] = sourceByteOffset;
+               var oldCodeByteCount = opCode.GetTotalByteCount();
+               sourceByteOffset += oldCodeByteCount;
+               codeOffsets.FillWithOffsetAndCount( byteOffsets[i], oldCodeByteCount, i );
 
-               byteOffset += opCode.GetTotalByteCount();
-               FixOpCodeWhenMergingIL( ref newCode, byteOffset, ilByteSize, localCount );
-
-               if ( newCode != null )
+               if ( actuallyModify )
                {
-                  targetCodes.Add( newCode );
+
+                  var newCode = this.CreateTargetModuleOpCode( opCode, thisMappings );
+
+                  FixOpCodeWhenMergingIL( ref newCode, sourceByteOffset, ilByteSize, localCount );
+
+                  if ( newCode != null )
+                  {
+                     targetCodes.Add( newCode );
+                  }
                }
             }
 
-            // Max Stack Size
-            targetIL.MaxStackSize = Math.Max( targetIL.MaxStackSize, sourceIL.MaxStackSize );
+            codeOffsetsIndex += ilByteSize;
 
-            // Init locals
-            targetIL.InitLocals = targetIL.InitLocals || sourceIL.InitLocals;
-
-            // Locals
-            var sourceSig = inputModule.GetLocalsSignatureForMethodOrNull( mDefIndex );
-            if ( sourceSig != null )
+            if ( actuallyModify )
             {
-               targetLocals.Locals.AddRange( sourceSig.CreateDeepCopy( tIdx => thisMappings[tIdx] ).Locals );
+               // Max Stack Size
+               targetIL.MaxStackSize = Math.Max( targetIL.MaxStackSize, sourceIL.MaxStackSize );
+
+               // Init locals
+               targetIL.InitLocals = targetIL.InitLocals || sourceIL.InitLocals;
+
+               // Locals
+               var sourceSig = inputModule.GetLocalsSignatureForMethodOrNull( mDefIndex );
+               if ( sourceSig != null && sourceSig.Locals.Count > 0 )
+               {
+                  targetLocals.Locals.AddRange( sourceSig.CreateDeepCopy( tIdx => thisMappings[tIdx] ).Locals );
+               }
             }
          }
       }
 
       private static void FixOpCodeWhenMergingIL(
          ref OpCodeInfo newCode,
-         Int32 byteOffsetWithinSourceIL,
+         Int32 sourceILByteOffsetAfterCode,
          Int32 sourceILByteSize,
          Int32 localsOffset
          )
@@ -1503,7 +1551,7 @@ namespace CILMerge
                   if ( newCode.OpCode.Value == OpCodeEncoding.Ret )
                   {
                      // Replace all 'Ret' instructions with long branch instructions to next 'block'
-                     var jump = sourceILByteSize - byteOffsetWithinSourceIL;
+                     var jump = sourceILByteSize - sourceILByteOffsetAfterCode;
                      newCode = jump == 0 ? null : new OpCodeInfoWithInt32( OpCodes.Br, jump );
                   }
                   break;
@@ -1577,19 +1625,62 @@ namespace CILMerge
       }
 
       private static void FixMergedILBranches(
-         IEnumerable<OpCodeInfo> opCodes
+         List<OpCodeInfo> opCodes,
+         Int32[] originalByteOffsets, // Index: op-code offset, Value: op-code start byte offset
+         Int32[] originalCodeOffsets, // Index: op-code start byte offset: value: op-code offset
+         Int32[] blocks // Ascending sequence of offset, where each 'block' starts: 0, x, y, ...,
          )
       {
-         foreach ( var code in opCodes )
+         var newByteOffsets = new Int32[opCodes.Count];
+
          {
+            var curByteOffset = 0;
+            for ( var i = 0; i < opCodes.Count; ++i )
+            {
+               newByteOffsets[i] = curByteOffset;
+               curByteOffset += opCodes[i].GetTotalByteCount();
+            }
+         }
+
+         var curBlockOffset = 0;
+         for ( var i = 0; i < opCodes.Count; ++i )
+         {
+            // Not needed - there is always a block for the last 'Ret' code.
+            //if ( curBlockOffset < blocks.Length - 1 )
+            //{
+            var nextBlockCodeOffset = blocks[curBlockOffset + 1];
+            if ( i >= nextBlockCodeOffset )
+            {
+               ++curBlockOffset;
+            }
+            //}
+
+            var code = opCodes[i];
             switch ( code.OpCode.OperandType )
             {
                case OperandType.ShortInlineBrTarget:
                case OperandType.InlineBrTarget:
                   var branchCode = (OpCodeInfoWithInt32) code;
                   var jump = branchCode.Operand;
+                  var curCodeByteCount = code.GetTotalByteCount();
+                  // Find out the index of target instruction
+                  var originalByteOffset = originalByteOffsets[i] + curCodeByteCount + jump;
+                  var originalCodeOffset = originalCodeOffsets[originalByteOffset];
+                  // Find out the new index of target instruction
+                  var curBlockStart = blocks[curBlockOffset];
+                  var newCodeOffset = curBlockStart + originalCodeOffset;
+                  var newByteOffset = newByteOffsets[newCodeOffset];
+                  branchCode.Operand = newByteOffsets[i] + curCodeByteCount - newByteOffset;
+                  break;
             }
          }
+      }
+
+      private static void FixMergedILExceptionBlocks(
+         Int32[] blocks
+         )
+      {
+
       }
 
       private void ConstructTablesUsedInSignaturesAndILTokens(
@@ -2079,6 +2170,9 @@ namespace CILMerge
                }
             }
          }
+
+         // After creating IL, merge all static ctors
+         this.MergeStaticCtors();
 
          // MemberRef
          var mRefs = targetModule.MemberReferences.TableContents;

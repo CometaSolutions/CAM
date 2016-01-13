@@ -118,7 +118,7 @@ namespace CILAssemblyManipulator.Physical
 
       private static IComparer<TableIndex> _HasConstantComparer = null;
       private static IComparer<TableIndex> _HasCustomAttributeComparer = null;
-      private static IComparer<TableIndex> _HasFieldMarshallComparer = null;
+      private static IComparer<TableIndex> _HasFieldMarshalComparer = null;
       private static IComparer<TableIndex> _HasDeclSecurityComparer = null;
       private static IComparer<TableIndex> _HasSemanticsComparer = null;
       private static IComparer<TableIndex> _MemberForwardedComparer = null;
@@ -1324,6 +1324,7 @@ namespace CILAssemblyManipulator.Physical
             {
                var tableOrderArray = CreateTableOrderArray( TableIndexSchemas.HasCustomAttribute );
                retVal = ComparerFromFunctions.NewComparer<TableIndex>( ( x, y ) => x.CompareTo( y, tableOrderArray ) );
+               _HasCustomAttributeComparer = retVal;
             }
             return retVal;
          }
@@ -1333,11 +1334,12 @@ namespace CILAssemblyManipulator.Physical
       {
          get
          {
-            var retVal = _HasFieldMarshallComparer;
+            var retVal = _HasFieldMarshalComparer;
             if ( retVal == null )
             {
                var tableOrderArray = CreateTableOrderArray( TableIndexSchemas.HasFieldMarshal );
                retVal = ComparerFromFunctions.NewComparer<TableIndex>( ( x, y ) => x.CompareTo( y, tableOrderArray ) );
+               _HasFieldMarshalComparer = retVal;
             }
             return retVal;
          }
@@ -1352,6 +1354,7 @@ namespace CILAssemblyManipulator.Physical
             {
                var tableOrderArray = CreateTableOrderArray( TableIndexSchemas.HasSecurity );
                retVal = ComparerFromFunctions.NewComparer<TableIndex>( ( x, y ) => x.CompareTo( y, tableOrderArray ) );
+               _HasDeclSecurityComparer = retVal;
             }
             return retVal;
          }
@@ -1366,6 +1369,7 @@ namespace CILAssemblyManipulator.Physical
             {
                var tableOrderArray = CreateTableOrderArray( TableIndexSchemas.HasSemantics );
                retVal = ComparerFromFunctions.NewComparer<TableIndex>( ( x, y ) => x.CompareTo( y, tableOrderArray ) );
+               _HasSemanticsComparer = retVal;
             }
             return retVal;
          }
@@ -1380,6 +1384,7 @@ namespace CILAssemblyManipulator.Physical
             {
                var tableOrderArray = CreateTableOrderArray( TableIndexSchemas.MemberForwarded );
                retVal = ComparerFromFunctions.NewComparer<TableIndex>( ( x, y ) => x.CompareTo( y, tableOrderArray ) );
+               _MemberForwardedComparer = retVal;
             }
             return retVal;
          }
@@ -1394,6 +1399,7 @@ namespace CILAssemblyManipulator.Physical
             {
                var tableOrderArray = CreateTableOrderArray( TableIndexSchemas.TypeOrMethodDef );
                retVal = ComparerFromFunctions.NewComparer<TableIndex>( ( x, y ) => x.CompareTo( y, tableOrderArray ) );
+               _TypeOrMethodDefComparer = retVal;
             }
             return retVal;
          }

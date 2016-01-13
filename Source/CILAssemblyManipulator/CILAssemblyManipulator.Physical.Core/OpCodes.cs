@@ -1208,7 +1208,7 @@ namespace CILAssemblyManipulator.Physical
       private const Int32 OPERAND_SIZE_SHIFT = ENDS_BLK_CODE_SHIFT + 1;
 
       private const UInt64 OTHER_FORM_MASK = 0x3FC00000000000U;
-      private const Int32 OTHER_FORM_SHIFT = OPERAND_SIZE_SHIFT + 1;
+      private const Int32 OTHER_FORM_SHIFT = OPERAND_SIZE_SHIFT + 4;
 
       // Bits 0-4 (5 bits): StackBehaviourPop
       // Bits 5-8 (4 bits): StackBehaviourPush
