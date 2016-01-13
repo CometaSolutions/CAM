@@ -1363,7 +1363,17 @@ namespace CILMerge
          {
             // Get target static ctor IL
             var targetMDefIdx = kvp.Key;
-            var targetIL = this._targetModule.MethodDefinitions.TableContents[targetMDefIdx].IL;
+            var cctor = this._targetModule.MethodDefinitions.TableContents[targetMDefIdx];
+            var firstIL = cctor.IL;
+
+            // IL will be modified -> create a copy
+            var targetIL = new MethodILDefinition( exceptionBlockCount: firstIL.ExceptionBlocks.Count, opCodeCount: firstIL.OpCodes.Count )
+            {
+               InitLocals = firstIL.InitLocals,
+               LocalsSignatureIndex = firstIL.LocalsSignatureIndex,
+               MaxStackSize = firstIL.MaxStackSize
+            };
+            cctor.IL = targetIL;
 
             // Locals signature might change -> so create a copy
             var locals = this._targetModule.GetLocalsSignatureForMethodOrNull( targetMDefIdx )?.CreateDeepCopy() ?? new LocalVariablesSignature();
@@ -1395,8 +1405,7 @@ namespace CILMerge
                   originalByteOffsets,
                   originalCodeOffsets,
                   ref byteOffsetsIndex,
-                  ref codeOffsetsIndex,
-                  i > 0
+                  ref codeOffsetsIndex
                   );
             }
 
@@ -1424,8 +1433,7 @@ namespace CILMerge
          Int32[] byteOffsets, // Index: op-code offset, Value: op-code start byte offset
          Int32[] codeOffsets, // Index: op-code start byte offset: value: op-code offset
          ref Int32 byteOffsetsIndex,
-         ref Int32 codeOffsetsIndex,
-         Boolean actuallyModify
+         ref Int32 codeOffsetsIndex
          )
       {
          var sourceIL = inputModule.MethodDefinitions.TableContents[mDefIndex].IL;
@@ -1447,37 +1455,33 @@ namespace CILMerge
                sourceByteOffset += oldCodeByteCount;
                codeOffsets.FillWithOffsetAndCount( byteOffsets[i], oldCodeByteCount, i );
 
-               if ( actuallyModify )
+               var newCode = this.CreateTargetModuleOpCode( opCode, thisMappings );
+
+               FixOpCodeWhenMergingIL( ref newCode, sourceByteOffset, ilByteSize, localCount );
+
+               if ( newCode != null )
                {
-
-                  var newCode = this.CreateTargetModuleOpCode( opCode, thisMappings );
-
-                  FixOpCodeWhenMergingIL( ref newCode, sourceByteOffset, ilByteSize, localCount );
-
-                  if ( newCode != null )
-                  {
-                     targetCodes.Add( newCode );
-                  }
+                  targetCodes.Add( newCode );
                }
+
             }
 
             codeOffsetsIndex += ilByteSize;
 
-            if ( actuallyModify )
+
+            // Max Stack Size
+            targetIL.MaxStackSize = Math.Max( targetIL.MaxStackSize, sourceIL.MaxStackSize );
+
+            // Init locals
+            targetIL.InitLocals = targetIL.InitLocals || sourceIL.InitLocals;
+
+            // Locals
+            var sourceSig = inputModule.GetLocalsSignatureForMethodOrNull( mDefIndex );
+            if ( sourceSig != null && sourceSig.Locals.Count > 0 )
             {
-               // Max Stack Size
-               targetIL.MaxStackSize = Math.Max( targetIL.MaxStackSize, sourceIL.MaxStackSize );
-
-               // Init locals
-               targetIL.InitLocals = targetIL.InitLocals || sourceIL.InitLocals;
-
-               // Locals
-               var sourceSig = inputModule.GetLocalsSignatureForMethodOrNull( mDefIndex );
-               if ( sourceSig != null && sourceSig.Locals.Count > 0 )
-               {
-                  targetLocals.Locals.AddRange( sourceSig.CreateDeepCopy( tIdx => thisMappings[tIdx] ).Locals );
-               }
+               targetLocals.Locals.AddRange( sourceSig.CreateDeepCopy( tIdx => thisMappings[tIdx] ).Locals );
             }
+
          }
       }
 

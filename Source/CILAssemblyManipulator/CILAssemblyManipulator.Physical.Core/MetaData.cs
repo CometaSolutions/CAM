@@ -1346,6 +1346,8 @@ public static partial class E_CILPhysical
             tdIdx => methodAndFieldCounts[tdIdx].Value
             );
       }
+
+      Remove duplicate TypeDefs from PropertyMap and EventMap here -> these tables are not referenced by any table index, so should be doable easily.
    }
 
    private static void UpdateAndSortTablesWithNoSignatures( this MetaDataReOrderState reorderState )
