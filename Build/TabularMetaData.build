@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Project DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <PropertyGroup>
+    <TMDBaseDir Condition=" '$(TMDBaseDir)' == '' ">$(MSBuildThisFileDirectory)..</TMDBaseDir>
+    <TMDConfiguration Condition=" '$(TMDConfiguration)' == '' ">Debug</TMDConfiguration>
+    <TMDPlatform Condition=" '$(TMDPlatform)' == '' ">AnyCPU</TMDPlatform>
+    <TMDBuildTargets Condition=" '$(TMDBuildTargets)' == '' ">GenerateKeyFile;GenerateAssemblyInfoFile;Build</TMDBuildTargets>
+  </PropertyGroup>
+  
+  <Target Name="Build">
+    
+    <!-- Build UtilPack SL project -->
+    <MSBuild Projects="$(TMDBaseDir)/Build/UtilPack.build" Properties="UtilpackConfiguration=$(TMDConfiguration)_SL;CILMergePlatform=$(TMDPlatform)" />
+    
+    <!-- Build TMD projects -->
+    <MSBuild
+      Projects="$(TMDBaseDir)/Source/TabularMetaData/TabularMetaData.csproj"
+      Targets="Build"
+      Properties="Configuration=$(TMDConfiguration)_Portable;Platform=$(TMDPlatform);IsCommandLineBuild=true;UseUtilpackReference=true"
+      />
+  </Target>
+</Project>

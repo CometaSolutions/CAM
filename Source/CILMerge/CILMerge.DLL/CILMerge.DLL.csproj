@@ -66,6 +66,9 @@
     <Reference Include="CollectionsWithRoles" Condition=" '$(UseUtilpackReference)' == '' And '$(IsCommandLineBuild)' != '' ">
       <HintPath>$(OutputPath)CollectionsWithRoles.dll</HintPath>
     </Reference>
+    <Reference Include="TabularMetaData_dll" Condition=" '$(UseUtilpackReference)' == '' And '$(IsCommandLineBuild)' != '' ">
+      <HintPath>$(OutputPath)..\SL\TabularMetaData.dll</HintPath>
+    </Reference>
   </ItemGroup>
   <ItemGroup>
     <Compile Include="CILMerger.cs" />
@@ -90,7 +93,7 @@
       <Project>{4e0e1695-a15e-4b3d-adb2-c3ed8a0962a1}</Project>
       <Name>CILAssemblyManipulator.Physical.IO</Name>
     </ProjectReference>
-    <ProjectReference Include="..\..\TabularMetaData\TabularMetaData.csproj">
+    <ProjectReference Include="..\..\TabularMetaData\TabularMetaData.csproj" Condition=" '$(UseUtilpackReference)' == '' And '$(IsCommandLineBuild)' == ''">
       <Project>{bcacfc5f-2656-4428-9450-890df6855591}</Project>
       <Name>TabularMetaData</Name>
     </ProjectReference>

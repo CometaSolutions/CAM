@@ -6,37 +6,13 @@
     <CAMPhysicalPlatform Condition=" '$(CAMPhysicalPlatform)' == '' ">AnyCPU</CAMPhysicalPlatform>
     <CAMPhysicalBuildTargets Condition=" '$(CAMPhysicalBuildTargets)' == '' ">GenerateKeyFile;GenerateAssemblyInfoFile;Build</CAMPhysicalBuildTargets>
   </PropertyGroup>
-  
-  <!-- Projects to build, in build order -->
-  <ItemGroup>
-    <CAMPhysicalProject Include="$(CAMPhysicalBaseDir)/Source/CollectionsWithRoles/CollectionsWithRoles.csproj">
-      <CAMProjectConfiguration>$(CAMPhysicalConfiguration)_SL</CAMProjectConfiguration>
-      <CAMProjectTargets>Build</CAMProjectTargets>
-    </CAMPhysicalProject>
-    <CAMPhysicalProject Include="$(CAMPhysicalBaseDir)/Source/CILAssemblyManipulator/CILAssemblyManipulator.PDB/CILAssemblyManipulator.PDB.csproj">
-      <CAMProjectConfiguration>$(CAMPhysicalConfiguration)</CAMProjectConfiguration>
-      <CAMProjectTargets>Build</CAMProjectTargets>
-    </CAMPhysicalProject>
-    <CAMPhysicalProject Include="$(CAMPhysicalBaseDir)/Source/CILAssemblyManipulator/CILAssemblyManipulator.MResources/CILAssemblyManipulator.MResources.csproj">
-      <CAMProjectConfiguration>$(CAMPhysicalConfiguration)</CAMProjectConfiguration>
-      <CAMProjectTargets>Build</CAMProjectTargets>
-    </CAMPhysicalProject>
-    <CAMPhysicalProject Include="$(CAMPhysicalBaseDir)/Source/CILAssemblyManipulator/CILAssemblyManipulator.Physical.Portable/CILAssemblyManipulator.Physical.Portable.csproj">
-      <CAMProjectConfiguration>$(CAMPhysicalConfiguration)</CAMProjectConfiguration>
-      <CAMProjectTargets>GenerateAssemblyInfoFile;Build</CAMProjectTargets>
-    </CAMPhysicalProject>
-    <CAMPhysicalProject Include="$(CAMPhysicalBaseDir)/Source/CILAssemblyManipulator/CILAssemblyManipulator.Physical.DotNET/CILAssemblyManipulator.Physical.DotNET.csproj">
-      <CAMProjectConfiguration>$(CAMPhysicalConfiguration)</CAMProjectConfiguration>
-      <CAMProjectTargets>GenerateAssemblyInfoFile;Build</CAMProjectTargets>
-    </CAMPhysicalProject>
-  </ItemGroup>
-  
+   
   <Target Name="Build">
-    <!-- Build the Common Build Tools project (for AssemblyInfo task) -->
-    <MSBuild Projects="$(CAMPhysicalBaseDir)/CommonBuildTools/CLR/Build/CommonBuildTools.build" />
+
+    <!-- Build TabularMetaData project, which will build UtilPack SL version -->
+    <MSBuild Projects="$(CAMPhysicalBaseDir)/Build/TabularMetaData.build" Properties="TMDConfiguration=$(CAMPhysicalConfiguration);CILMergePlatform=$(CAMPhysicalPlatform)" />
     
-    <!-- Build UtilPack SL and .NET projects -->
-    <MSBuild Projects="$(CAMPhysicalBaseDir)/Build/UtilPack.build" Properties="UtilpackConfiguration=$(CAMPhysicalConfiguration)_SL;CILMergePlatform=$(CAMPhysicalPlatform)" />
+    <!-- Build UtilPack less-portable-version -->
     <MSBuild Projects="$(CAMPhysicalBaseDir)/Build/UtilPack.build" Properties="UtilpackConfiguration=$(CAMPhysicalConfiguration);CILMergePlatform=$(CAMPhysicalPlatform);UtilpackSkipCILMerge=true" />
     
     <!-- Build CAMPhysical projects -->
