@@ -21,6 +21,10 @@
     <TargetFrameworkProfile Condition=" '$(CAMPhysicalIsPortable)' == '' ">Client</TargetFrameworkProfile>
     <DefineConstants Condition=" '$(CAMPhysicalIsPortable)' != ''">CAM_PHYSICAL_IS_PORTABLE</DefineConstants>
   </PropertyGroup>
+  <PropertyGroup Condition=" '$(UseUtilpackReference)' != ''">
+    <BaseIntermediateOutputPath>obj\</BaseIntermediateOutputPath>
+    <IntermediateOutputPath>$(BaseIntermediateOutputPath)$(Configuration)\WithUtilPack\</IntermediateOutputPath>
+  </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|AnyCPU' ">
     <DebugSymbols>true</DebugSymbols>
     <DebugType>full</DebugType>
@@ -124,4 +128,10 @@
   </ItemGroup>
   <Import Condition=" '$(CAMPhysicalIsPortable)' == '' " Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
   <Import Condition=" '$(CAMPhysicalIsPortable)' != '' " Project="$(MSBuildExtensionsPath32)\Microsoft\Portable\$(TargetFrameworkVersion)\Microsoft.Portable.CSharp.targets" />
+  
+  <!-- When building from .build file, delete output file, since it might be of wrong configuration/have unexpected references -->
+  <Target Condition=" '$(IsCommandLineBuild)' != '' " Name="BeforeBuild">
+    <Delete Files="$(OutputPath)$(AssemblyName).dll" />
+  </Target>
+
 </Project>

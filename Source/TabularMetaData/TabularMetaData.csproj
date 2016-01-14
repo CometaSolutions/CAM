@@ -17,6 +17,10 @@
     <TargetFrameworkProfile>Profile328</TargetFrameworkProfile>
     <TargetFrameworkVersion>v4.0</TargetFrameworkVersion>
   </PropertyGroup>
+  <PropertyGroup Condition=" '$(UseUtilpackReference)' != ''">
+    <BaseIntermediateOutputPath>obj\</BaseIntermediateOutputPath>
+    <IntermediateOutputPath>$(BaseIntermediateOutputPath)$(Configuration)\WithUtilPack\</IntermediateOutputPath>
+  </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|AnyCPU' ">
     <DebugSymbols>true</DebugSymbols>
     <DebugType>full</DebugType>
@@ -111,4 +115,9 @@
     <AssemblyInfoVersionFilename>$(MSBuildThisFileDirectory)/../TabularMetaDataVersion.txt</AssemblyInfoVersionFilename>
   </PropertyGroup>
   <Import Project="$(MSBuildThisFileDirectory)../../CommonBuildTools/CLR/MSBuild/AssemblyInfo.targets" />
+  
+  <!-- When building from .build file, delete output file, since it might be of wrong configuration/have unexpected references -->
+  <Target Condition=" '$(IsCommandLineBuild)' != '' " Name="BeforeBuild">
+    <Delete Files="$(OutputPath)$(AssemblyName).dll" />
+  </Target>
 </Project>

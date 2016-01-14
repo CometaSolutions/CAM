@@ -1,15 +1,15 @@
 ﻿<?xml version="1.0" encoding="utf-8"?>
-<Project ToolsVersion="4.0" DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+<Project ToolsVersion="4.0" DefaultTargets="GenerateKeyFile;GenerateAssemblyInfoFile;Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <Import Project="$(MSBuildExtensionsPath)\$(MSBuildToolsVersion)\Microsoft.Common.props" Condition="Exists('$(MSBuildExtensionsPath)\$(MSBuildToolsVersion)\Microsoft.Common.props')" />
   <PropertyGroup>
     <MinimumVisualStudioVersion>10.0</MinimumVisualStudioVersion>
     <Configuration Condition=" '$(Configuration)' == '' ">Debug</Configuration>
     <Platform Condition=" '$(Platform)' == '' ">AnyCPU</Platform>
-    <ProjectGuid>{3C3EE913-1034-4C7D-AB79-67D19E3256FA}</ProjectGuid>
+    <ProjectGuid>{D3EB36E7-A707-4B40-B10F-C5C6B16C0B24}</ProjectGuid>
     <OutputType>Library</OutputType>
     <AppDesignerFolder>Properties</AppDesignerFolder>
-    <RootNamespace>CILAssemblyManipulator.Physical.Crypto</RootNamespace>
-    <AssemblyName>CILAssemblyManipulator.Physical.Crypto</AssemblyName>
+    <RootNamespace>CILAssemblyManipulator.Physical</RootNamespace>
+    <AssemblyName>CILAssemblyManipulator.Physical</AssemblyName>
     <DefaultLanguage>en-US</DefaultLanguage>
     <FileAlignment>512</FileAlignment>
     <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
@@ -19,11 +19,6 @@
     <TargetFrameworkVersion>v4.0</TargetFrameworkVersion>
     <TargetFrameworkProfile Condition=" '$(CAMPhysicalIsPortable)' != '' ">Profile328</TargetFrameworkProfile>
     <TargetFrameworkProfile Condition=" '$(CAMPhysicalIsPortable)' == '' ">Client</TargetFrameworkProfile>
-    <DefineConstants Condition=" '$(CAMPhysicalIsPortable)' != ''">CAM_PHYSICAL_IS_PORTABLE</DefineConstants>
-  </PropertyGroup>
-  <PropertyGroup Condition=" '$(UseUtilpackReference)' != ''">
-    <BaseIntermediateOutputPath>obj\</BaseIntermediateOutputPath>
-    <IntermediateOutputPath>$(BaseIntermediateOutputPath)$(Configuration)\WithUtilPack\</IntermediateOutputPath>
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|AnyCPU' ">
     <DebugSymbols>true</DebugSymbols>
@@ -59,47 +54,61 @@
     <ErrorReport>prompt</ErrorReport>
     <WarningLevel>4</WarningLevel>
   </PropertyGroup>
-  
-  <ItemGroup Condition=" '$(CAMPhysicalIsPortable)' == '' ">
-    <Reference Include="System" />
-    <Reference Include="System.Core" />
-    <Reference Include="System.Xml.Linq" />
-    <Reference Include="Microsoft.CSharp" />
-    <Reference Include="System.Xml" />
+
+  <PropertyGroup>
+    <SignAssembly>true</SignAssembly>
+    <KeyFilePath>$(MSBuildThisFileDirectory)..\..\..\Keys\CAM.snk</KeyFilePath>
+    <AssemblyOriginatorKeyFile>$(KeyFilePath)</AssemblyOriginatorKeyFile>
+  </PropertyGroup>
+
+  <ItemGroup>
   </ItemGroup>
   
   <ItemGroup>
-    <Reference Include="UtilPack" Condition=" '$(UseUtilpackReference)' != '' ">
-      <HintPath>$(OutputPath)UtilPack.dll</HintPath>
-    </Reference>
-    <!-- Make these different names from ProjectReferences in Include attribute, so that 'go to definition' would work properly in IDE. -->
-    <Reference Include="CommonUtils_dll" Condition=" '$(UseUtilpackReference)' == '' And '$(IsCommandLineBuild)' != '' ">
-      <HintPath>$(OutputPath)CommonUtils.dll</HintPath>
-    </Reference>
+    <None Include="README.md" />
+    <Compile Include="..\..\AssemblyInfo\$(AssemblyName).cs">
+      <Link>Properties\$(AssemblyName).AssemblyInfo.cs</Link>
+    </Compile>
   </ItemGroup>
   
-  <ItemGroup>
-    <ProjectReference Include="..\CILAssemblyManipulator.Physical.Core\CILAssemblyManipulator.Physical.Core.csproj">
-      <Project>{f8ba1950-209d-477f-83d6-3f969c0cbee6}</Project>
-      <Name>CILAssemblyManipulator.Physical.Core</Name>
-    </ProjectReference>
-    <ProjectReference Include="..\..\CommonUtils\CommonUtils.csproj" Condition=" '$(UseUtilpackReference)' == '' And '$(IsCommandLineBuild)' == ''">
-      <Project>{dba22cd8-ac89-4902-8e44-f4771875e781}</Project>
-      <Name>CommonUtils</Name>
-    </ProjectReference>
-  </ItemGroup>
-  
-  <ItemGroup>
-    <Compile Include="CryptoCallbacks.cs" />
-    <Compile Include="DotNET\CryptoCallbacks.cs" />
-    <Compile Include="Properties\AssemblyInfo.cs" />
-  </ItemGroup>
   
   <Import Condition=" '$(CAMPhysicalIsPortable)' == '' " Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
   <Import Condition=" '$(CAMPhysicalIsPortable)' != '' " Project="$(MSBuildExtensionsPath32)\Microsoft\Portable\$(TargetFrameworkVersion)\Microsoft.Portable.CSharp.targets" />
   
-  <!-- When building from .build file, delete output file, since it might be of wrong configuration/have unexpected references -->
-  <Target Condition=" '$(IsCommandLineBuild)' != '' " Name="BeforeBuild">
-    <Delete Files="$(OutputPath)$(AssemblyName).dll" />
+  <!-- Create .snk file if it doesn't exist to ensure smooth build -->
+  <Import Project="$(MSBuildThisFileDirectory)../../../CommonBuildTools/CLR/MSBuild/CreateKeyFileIfNeeded.targets" />
+
+  <!-- Assembly information -->
+  <PropertyGroup>
+    <AssemblyInfoCLSCompliant>true</AssemblyInfoCLSCompliant>
+    <AssemblyInfoOutputFile>$(MSBuildThisFileDirectory)/../../AssemblyInfo/$(AssemblyName).cs</AssemblyInfoOutputFile>
+    <AssemblyInfoDescription>CIL Assembly Manipulator (CAM) assembly providing API for accessing and manipulating CIL files on a absrtaction level of physical representation.</AssemblyInfoDescription>
+    <AssemblyInfoCompany>Cometa Solutions Ltd</AssemblyInfoCompany>
+    <AssemblyInfoTrademark>CAM</AssemblyInfoTrademark>
+    <AssemblyInfoAppendAssemblyCopyrightYears>true</AssemblyInfoAppendAssemblyCopyrightYears>
+    <AssemblyInfoAssemblyInceptionYear>2015</AssemblyInfoAssemblyInceptionYear>
+    <AssemblyInfoCopyrightAuthors>Stanislav Muhametsin</AssemblyInfoCopyrightAuthors>
+    <AssemblyInfoVersionFilename>$(MSBuildThisFileDirectory)/../../CAMPhysicalVersion.txt</AssemblyInfoVersionFilename>
+  </PropertyGroup>
+  <Import Project="$(MSBuildThisFileDirectory)../../../CommonBuildTools/CLR/MSBuild/AssemblyInfo.targets" />
+
+  <!-- Merge DLLs -->
+  <UsingTask TaskName="CILMerge.MSBuild.CILMergeTask" AssemblyFile="..\..\..\Output\Infrastructure\MSBuild\CILMerge.MSBuild.dll" />
+  <PropertyGroup Condition=" '$(Configuration)' == 'Release' Or '$(Configuration)' == 'Release_Portable' ">
+    <CILMergeNoDebug>True</CILMergeNoDebug>
+  </PropertyGroup>
+  <Target Name="AfterBuild">
+    <CILMerge.MSBuild.CILMergeTask
+      InputAssemblies="$(MSBuildThisFileDirectory)$(OutputPath)CILAssemblyManipulator.Physical.dll;$(MSBuildThisFileDirectory)$(OutputPath)CILAssemblyManipulator.Physical.Core.dll;$(MSBuildThisFileDirectory)$(OutputPath)CILAssemblyManipulator.Physical.Crypto.dll;$(MSBuildThisFileDirectory)$(OutputPath)CILAssemblyManipulator.Physical.IO.dll;$(MSBuildThisFileDirectory)$(OutputPath)..\SL\CILAssemblyManipulator.MResources.dll;$(MSBuildThisFileDirectory)$(OutputPath)..\SL\CILAssemblyManipulator.PDB.dll"
+      OutPath="$(MSBuildThisFileDirectory)$(OutputPath)$(AssemblyName).dll"
+      Union="True"
+      UnionExcludeFile="$(MSBuildProjectDirectory)\..\..\CAMPhysicalUnionExcludes.txt"
+      XmlDocs="True"
+      UseFullPublicKeyForRefs="True"
+      NoDebug="$(CILMergeNoDebug)"
+      KeyFile="$(KeyFilePath)"
+      VerifyOutput="true"
+      />
   </Target>
+
 </Project>

@@ -51,14 +51,26 @@
       Properties="Configuration=$(CAMPhysicalConfiguration);Platform=$(CAMPhysicalPlatform);IsCommandLineBuild=true;UseUtilpackReference=true"
       />
     <MSBuild
+      Projects="$(CAMPhysicalBaseDir)/Source/CILAssemblyManipulator/CILAssemblyManipulator.Physical.IO/CILAssemblyManipulator.Physical.IO.csproj"
+      Targets="Build"
+      Properties="Configuration=$(CAMPhysicalConfiguration)_Portable;Platform=$(CAMPhysicalPlatform);IsCommandLineBuild=true;UseUtilpackReference=true"
+      />
+    <MSBuild
+      Projects="$(CAMPhysicalBaseDir)/Source/CILAssemblyManipulator/CILAssemblyManipulator.Physical.IO/CILAssemblyManipulator.Physical.IO.csproj"
+      Targets="Build"
+      Properties="Configuration=$(CAMPhysicalConfiguration);Platform=$(CAMPhysicalPlatform);IsCommandLineBuild=true;UseUtilpackReference=true"
+      />
+    
+    <!-- Merge DLLs -->
+    <MSBuild
       Projects="$(CAMPhysicalBaseDir)/Source/CILAssemblyManipulator/CILAssemblyManipulator.Physical/CILAssemblyManipulator.Physical.csproj"
       Targets="$(CAMPhysicalBuildTargets)"
-      Properties="Configuration=$(CAMPhysicalConfiguration)_Portable;Platform=$(CAMPhysicalPlatform);IsCommandLineBuild=true;UseUtilpackReference=true"
+      Properties="Configuration=$(CAMPhysicalConfiguration)_Portable;Platform=$(CAMPhysicalPlatform);"
       />
     <MSBuild
       Projects="$(CAMPhysicalBaseDir)/Source/CILAssemblyManipulator/CILAssemblyManipulator.Physical/CILAssemblyManipulator.Physical.csproj"
       Targets="$(CAMPhysicalBuildTargets)"
-      Properties="Configuration=$(CAMPhysicalConfiguration);Platform=$(CAMPhysicalPlatform);IsCommandLineBuild=true;UseUtilpackReference=true"
+      Properties="Configuration=$(CAMPhysicalConfiguration);Platform=$(CAMPhysicalPlatform);"
       />
   </Target>
 </Project>
