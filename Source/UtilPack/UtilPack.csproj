@@ -66,14 +66,6 @@
   </PropertyGroup>
   <ItemGroup>
     <!-- A reference to the entire .NET Framework is automatically included -->
-    <ProjectReference Include="..\CommonUtils\CommonUtils.csproj">
-      <Project>{dba22cd8-ac89-4902-8e44-f4771875e781}</Project>
-      <Name>CommonUtils</Name>
-    </ProjectReference>
-    <ProjectReference Include="..\CollectionsWithRoles\CollectionsWithRoles.csproj">
-      <Project>{7f7ebfb0-2bf4-44d8-b96f-accc5f99f529}</Project>
-      <Name>CollectionsWithRoles</Name>
-    </ProjectReference>
   </ItemGroup>
   <ItemGroup>
     <Compile Include="..\AssemblyInfo\$(AssemblyName).cs">
