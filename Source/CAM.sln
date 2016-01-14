@@ -9,9 +9,9 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "CollectionsWithRoles", "Col
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "UtilPack", "UtilPack\UtilPack.csproj", "{656F55B6-085C-42A6-B004-A5C517DEB525}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "CILAssemblyManipulator.MResources", "CILAssemblyManipulator\CILAssemblyManipulator.MResources\CILAssemblyManipulator.MResources.csproj", "{99FCB99E-C7EB-49D0-980F-86E61F874FCB}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "CILAssemblyManipulator.Physical.MResources", "CILAssemblyManipulator\CILAssemblyManipulator.Physical.MResources\CILAssemblyManipulator.Physical.MResources.csproj", "{99FCB99E-C7EB-49D0-980F-86E61F874FCB}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "CILAssemblyManipulator.PDB", "CILAssemblyManipulator\CILAssemblyManipulator.PDB\CILAssemblyManipulator.PDB.csproj", "{5F874824-AEA5-45A0-A0A2-408210397B08}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "CILAssemblyManipulator.Physical.PDB", "CILAssemblyManipulator\CILAssemblyManipulator.Physical.PDB\CILAssemblyManipulator.Physical.PDB.csproj", "{5F874824-AEA5-45A0-A0A2-408210397B08}"
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ApplicationParameters", "ApplicationParameters\ApplicationParameters.csproj", "{30FF1A5B-C34F-4569-8955-03CB6DC30ED1}"
 EndProject

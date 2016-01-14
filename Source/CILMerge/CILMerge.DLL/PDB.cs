@@ -22,7 +22,7 @@ using System.Linq;
 using System.Runtime.InteropServices;
 using System.Runtime.InteropServices.ComTypes;
 using System.Text;
-using CILAssemblyManipulator.PDB;
+using CILAssemblyManipulator.Physical.PDB;
 using CommonUtils;
 using CILAssemblyManipulator.Physical.IO;
 

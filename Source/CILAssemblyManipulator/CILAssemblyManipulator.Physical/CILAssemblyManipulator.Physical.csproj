@@ -99,7 +99,7 @@
   </PropertyGroup>
   <Target Name="AfterBuild">
     <CILMerge.MSBuild.CILMergeTask
-      InputAssemblies="$(MSBuildThisFileDirectory)$(OutputPath)CILAssemblyManipulator.Physical.dll;$(MSBuildThisFileDirectory)$(OutputPath)CILAssemblyManipulator.Physical.Core.dll;$(MSBuildThisFileDirectory)$(OutputPath)CILAssemblyManipulator.Physical.Crypto.dll;$(MSBuildThisFileDirectory)$(OutputPath)CILAssemblyManipulator.Physical.IO.dll;$(MSBuildThisFileDirectory)$(OutputPath)..\SL\CILAssemblyManipulator.MResources.dll;$(MSBuildThisFileDirectory)$(OutputPath)..\SL\CILAssemblyManipulator.PDB.dll"
+      InputAssemblies="$(MSBuildThisFileDirectory)$(OutputPath)CILAssemblyManipulator.Physical.dll;$(MSBuildThisFileDirectory)$(OutputPath)CILAssemblyManipulator.Physical.Core.dll;$(MSBuildThisFileDirectory)$(OutputPath)CILAssemblyManipulator.Physical.Crypto.dll;$(MSBuildThisFileDirectory)$(OutputPath)CILAssemblyManipulator.Physical.IO.dll;$(MSBuildThisFileDirectory)$(OutputPath)..\SL\CILAssemblyManipulator.Physical.MResources.dll;$(MSBuildThisFileDirectory)$(OutputPath)..\SL\CILAssemblyManipulator.Physical.PDB.dll"
       OutPath="$(MSBuildThisFileDirectory)$(OutputPath)$(AssemblyName).dll"
       Union="True"
       UnionExcludeFile="$(MSBuildProjectDirectory)\..\..\CAMPhysicalUnionExcludes.txt"
