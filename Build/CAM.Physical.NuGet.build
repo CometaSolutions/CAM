@@ -38,19 +38,22 @@
     <MSBuild Projects="$(MSBuildThisFileDirectory)CAM.Physical.build" Properties="CAMPhysicalConfiguration=Release" />
   </Target>
    
-  <Target Name="CAMPhysical_PEVerify">
-    <!-- Copy UtilPack reference for PEVerify -->
-    <Copy SourceFiles="$(CAMPhysicalBaseDir)/Output/Release/dotNET/UtilPack.dll" DestinationFolder="$(CAMPhysicalBaseDir)/Output/Release/dotNET/Merged" />
-    <Copy SourceFiles="$(CAMPhysicalBaseDir)/Output/Release/SL/UtilPack.dll" DestinationFolder="$(CAMPhysicalBaseDir)/Output/Release/SL/Merged" />
-    
+  <Target Name="CAMPhysical_PEVerify">   
     <!-- First, delete all files that won't be included in the NuGet package. -->
     <ItemGroup>
+      <CAMPhysicalFilesToPersist Include="$(CAMPhysicalBaseDir)/Output/Release/dotNET/CILAssemblyManipulator.Physical.dll"/>
       <CAMPhysicalFilesToPersist Include="$(CAMPhysicalBaseDir)/Output/Release/dotNET/CILAssemblyManipulator.Physical.xml"/>
+      <CAMPhysicalReferencedFiles Include="$(CAMPhysicalBaseDir)/Output/Release/dotNET/UtilPack.dll"/>
+      <CAMPhysicalReferencedFiles Include="$(CAMPhysicalBaseDir)/Output/Release/dotNET/TabularMetaData.dll"/>
+      <CAMPhysicalFilesToPersist Include="$(CAMPhysicalBaseDir)/Output/Release/SL/CILAssemblyManipulator.Physical.dll"/>
       <CAMPhysicalFilesToPersist Include="$(CAMPhysicalBaseDir)/Output/Release/SL/CILAssemblyManipulator.Physical.xml"/>
+      <CAMPhysicalReferencedFiles Include="$(CAMPhysicalBaseDir)/Output/Release/SL/UtilPack.dll"/>
+      <CAMPhysicalReferencedFiles Include="$(CAMPhysicalBaseDir)/Output/Release/SL/TabularMetaData.dll"/>
       
       <CAMPhysicalFilesToDelete Include="$(CAMPhysicalBaseDir)/Output/Release/dotNET/*.*"/>
       <CAMPhysicalFilesToDelete Include="$(CAMPhysicalBaseDir)/Output/Release/SL/*.*"/>
       <CAMPhysicalFilesToDelete Remove="@(CAMPhysicalFilesToPersist)"/>
+      <CAMPhysicalFilesToDelete Remove="@(CAMPhysicalReferencedFiles)"/>
     </ItemGroup>
     <Delete
       Files="@(CAMPhysicalFilesToDelete)"
@@ -58,8 +61,8 @@
     
     <!-- Files for PEVerify -->
     <ItemGroup>
-      <PEVerifyFiles Include="$(CAMPhysicalBaseDir)/Output/Release/dotNET/Merged/CILAssemblyManipulator.Physical.dll" />
-      <PEVerifyFiles Include="$(CAMPhysicalBaseDir)/Output/Release/SL/Merged/CILAssemblyManipulator.Physical.dll" />
+      <PEVerifyFiles Include="$(CAMPhysicalBaseDir)/Output/Release/dotNET/CILAssemblyManipulator.Physical.dll" />
+      <PEVerifyFiles Include="$(CAMPhysicalBaseDir)/Output/Release/SL/CILAssemblyManipulator.Physical.dll" />
     </ItemGroup>
     
     <!-- Verify all .dll files exist -->
@@ -74,8 +77,8 @@
       FileToVerify="%(PEVerifyFiles.Identity)"
       />
       
-    <!-- Delete copied UtilPack files -->
-    <Delete Files="$(CAMPhysicalBaseDir)/Output/Release/dotNET/Merged/UtilPack.dll;$(CAMPhysicalBaseDir)/Output/Release/SL/Merged/UtilPack.dll" />
+    <!-- Delete referenced files -->
+    <Delete Files="@(CAMPhysicalReferencedFiles)" />
   </Target>
    
   <Target Name="CAMPhysical_NuGet">
@@ -89,13 +92,13 @@
       <CAMPhysicalNuSpecFilePath>$(CAMPhysicalBaseDirNuGet)/CAM.Physical.nuspec</CAMPhysicalNuSpecFilePath>
     </PropertyGroup>
     <ItemGroup>
-      <CAMPhysicalNuGetFile Include="Output/Release/SL/Merged/CILAssemblyManipulator.Physical.dll">
+      <CAMPhysicalNuGetFile Include="Output/Release/SL/CILAssemblyManipulator.Physical.dll">
         <TargetFilePath>lib/portable-net40+win8+sl50+wp80+wpa81/CILAssemblyManipulator.Physical.dll</TargetFilePath>
       </CAMPhysicalNuGetFile>
       <CAMPhysicalNuGetFile Include="Output/Release/SL/CILAssemblyManipulator.Physical.xml">
         <TargetFilePath>lib/portable-net40+win8+sl50+wp80+wpa81/CILAssemblyManipulator.Physical.xml</TargetFilePath>
       </CAMPhysicalNuGetFile>
-      <CAMPhysicalNuGetFile Include="Output/Release/dotNET/Merged/CILAssemblyManipulator.Physical.dll">
+      <CAMPhysicalNuGetFile Include="Output/Release/dotNET/CILAssemblyManipulator.Physical.dll">
         <TargetFilePath>lib/net40-client/CILAssemblyManipulator.Physical.dll</TargetFilePath>
       </CAMPhysicalNuGetFile>
       <CAMPhysicalNuGetFile Include="Output/Release/dotNET/CILAssemblyManipulator.Physical.xml">
@@ -105,6 +108,10 @@
       <CAMPhysicalNuGetDependency Include="UtilPack">
         <Version Condition=" '$(UtilPackNuSpecVersion)' == '' ">$([System.IO.File]::ReadAllText('$(CAMPhysicalBaseDir)/Source/UtilPackVersion.txt'))</Version>
         <Version Condition=" '$(UtilPackNuSpecVersion)' != '' ">$(UtilPackNuSpecVersion)</Version>
+      </CAMPhysicalNuGetDependency>
+      <CAMPhysicalNuGetDependency Include="TabularMetaData">
+        <Version Condition=" '$(TabularMetaDataNuSpecVersion)' == '' ">$([System.IO.File]::ReadAllText('$(CAMPhysicalBaseDir)/Source/TabularMetaDataVersion.txt'))</Version>
+        <Version Condition=" '$(TabularMetaDataNuSpecVersion)' != '' ">$(TabularMetaDataVersion)</Version>        
       </CAMPhysicalNuGetDependency>
     </ItemGroup>
     
