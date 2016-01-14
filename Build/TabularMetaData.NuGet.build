@@ -1,0 +1,147 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Project
+  DefaultTargets="TMD_CheckVariables;TMD_Tests;TMD_Compile;TMD_PEVerify;TMD_NuGet"
+  xmlns="http://schemas.microsoft.com/developer/msbuild/2003"
+  >
+  <PropertyGroup>
+    <TMDBaseDir Condition=" '$(TMDBaseDir)' == '' ">$(MSBuildThisFileDirectory)..</TMDBaseDir>
+  </PropertyGroup>
+  
+  <Target Name="TMD_CheckVariables">
+    <!-- Must specify release notes -->
+    <Error Condition="'$(TMDReleaseNotes)' == ''" Text="Please specify release notes in TMDReleaseNotes property." />
+  </Target>
+  
+  <Target Name="TMD_Tests">
+    <!-- NuGet restore (NUnit package) -->
+    <CommonBuildTools.NuGetTaskRestore
+      NuGetExecutable="$(TMDNuGetExecutable)"
+      NuGetManagementFile="$(TMDBaseDir)/NuGetPackages.xml"
+      />
+      
+    <!-- Compile CIL Tests assembly -->
+    <MSBuild
+      Projects="$(TMDBaseDir)/Source/CAM.sln"
+      Properties="Configuration=Release"
+      />
+      
+    <!-- Call NUnit task -->
+    <CommonBuildTools.NUnitTask
+      Assemblies="CILAssemblyManipulator.Tests.dll"
+      NoShadowAssemblies="True"
+      IncludeCategories="TabularMetaData"
+      WorkingDirectory="$(TMDBaseDir)/Source\CILAssemblyManipulator.Tests\bin\Release"
+      />
+  </Target>
+  
+  <Target Name="TMD_Compile">   
+    <MSBuild Projects="$(MSBuildThisFileDirectory)TabularMetaData.build" Properties="TMDConfiguration=Release" />
+  </Target>
+   
+  <Target Name="TMD_PEVerify">
+    <!-- First, delete all files that won't be included in the NuGet package. -->
+    <ItemGroup>
+      <TMDFilesToPersist Include="$(TMDBaseDir)/Output/Release/SL/TabularMetaData.*"/>
+      <TMDReferencedFiles Include="$(TMDBaseDir)/Output/Release/SL/UtilPack.dll" />
+      
+      <TMDFilesToDelete Include="$(TMDBaseDir)/Output/Release/SL/*.*"/>
+      <TMDFilesToDelete Remove="@(TMDFilesToPersist)"/>
+      <TMDFilesToDelete Remove="@(TMDReferencedFiles)"/>
+    </ItemGroup>
+    <Delete
+      Files="@(TMDFilesToDelete)"
+    />
+    
+    <!-- Files for PEVerify -->
+    <ItemGroup>
+      <TMDPEVerifyFiles Include="$(TMDBaseDir)/Output/Release/dotNET/TabularMetaData.dll" />
+    </ItemGroup>
+    
+    <!-- Verify all .dll files exist -->
+    <PropertyGroup>
+      <TMDPEVerifyFilesCount>@(TMDPEVerifyFiles->Count())</TMDPEVerifyFilesCount>
+      <TMDPEVerifyFilesExpectedCount>1</TMDPEVerifyFilesExpectedCount>
+    </PropertyGroup>
+    <Error Condition=" '$(TMDPEVerifyFilesCount)' != '$(TMDPEVerifyFilesExpectedCount)' " Text="Not all required files for PEVerify are present ($(TMDPEVerifyFilesCount))." />
+
+    <!-- Call PEVerify -->
+    <CommonBuildTools.PEVerifyTask
+      FileToVerify="%(TMDPEVerifyFiles.Identity)"
+      />
+      
+    <!-- Delete referenced files -->
+    <Delete Files="@(TMDReferencedFiles)" />
+  </Target>
+   
+  <Target Name="TMD_NuGet">
+    <!-- NuSpec file information -->
+    <PropertyGroup>
+      <!-- Common -->
+      <TMDBaseDirNuGet>$(TMDBaseDir)/NuGet</TMDBaseDirNuGet>
+    
+      <!-- NuGet Spec -->
+      <TMDNuSpecVersionFilename Condition=" '$(TMDNuSpecVersion)' == '' ">$(TMDBaseDir)/Source/TabularMetaDataVersion.txt</TMDNuSpecVersionFilename>
+      <TMDNuSpecFilePath>$(TMDBaseDirNuGet)/TabularMetaData.nuspec</TMDNuSpecFilePath>
+    </PropertyGroup>
+    <ItemGroup>
+      <TMDNuGetFile Include="Output/Release/SL/TabularMetaData.dll">
+        <TargetFilePath>lib\portable-net40+win8+sl50+wp80+wpa81/TabularMetaData.dll</TargetFilePath>
+      </TMDNuGetFile>
+      <TMDNuGetFile Include="Output/Release/SL/TabularMetaData.xml">
+        <TargetFilePath>lib\portable-net40+win8+sl50+wp80+wpa81/TabularMetaData.xml</TargetFilePath>
+      </TMDNuGetFile>
+      
+      <TMDNuGetDependency Include="UtilPack">
+        <Version Condition=" '$(UtilPackNuSpecVersion)' == '' ">$([System.IO.File]::ReadAllText('$(TMDBaseDir)/Source/UtilPackVersion.txt'))</Version>
+        <Version Condition=" '$(UtilPackNuSpecVersion)' != '' ">$(UtilPackNuSpecVersion)</Version>
+      </TMDNuGetDependency>
+    </ItemGroup>
+    
+    <!-- Generate .nuspec file -->
+    <CommonBuildTools.NuGetTaskNuSpec
+      VersionFile="$(TMDNuSpecVersionFilename)"
+      VersionContents="$(TMDNuSpecVersion)"
+      Copyright_InceptionYear="2015"
+      PackageID="TabularMetaData"
+      Authors="Stanislav Muhametsin"
+      Description="Project encapsulating some of the abstract and common properties of any data stored in ordered, dense tabular data format."
+      Title="TabularMetaData"
+      ReleaseNotes="$(TMDReleaseNotes)"
+      Tags="meta data cil tabular"
+      Summary="The TabularMetaData project exposes very abstract interfaces and classes, defining the API on how tabular meta data is accessed, and what kind of information about the tables is available."
+      ProjectURL="https://github.com/CometaSolutions/CAM"
+      LicenseURL="http://www.apache.org/licenses/LICENSE-2.0"
+      IconURL=""
+      RequireLicenseAcceptance="False"
+      Files="@(TMDNuGetFile)"
+      Dependencies="@(TMDNuGetDependency)"
+      OutputPath="$(TMDNuSpecFilePath)"
+      >
+      <Output TaskParameter="GeneratedNuSpecVersion" PropertyName="TMDNuSpecVersionGenerated" />
+    </CommonBuildTools.NuGetTaskNuSpec>
+
+    <!-- Generate the .nupkg file -->
+    <CommonBuildTools.NuGetTaskPackage
+      NuSpecFile="$(TMDNuSpecFilePath)"
+      OutputDirectory="$(TMDBaseDir)/NuGet"
+      BasePath="$(TMDBaseDir)"
+      MinClientVersion="2.5"
+    />
+    
+    <!-- Push if API-key or config file property specified -->
+    <CommonBuildTools.NuGetTaskPush
+      Condition=" '$(TMDNuGetPushAPIKey)' != '' or '$(TMDNuGetPushConfigFile)' != '' "
+      PackageFilePath="$(TMDBaseDirNuGet)/TMD.$(TMDNuSpecVersionGenerated).nupkg"
+      APIKey="$(TMDNuGetPushAPIKey)"
+      Source="$(TMDNuGetPushSource)"
+      ConfigFile="$(TMDNuGetPushConfigFile)"
+      />
+  </Target>
+  
+  <Import Project="$(TMDBaseDir)/CommonBuildTools/CLR/MSBuild/NuGetTasks.targets" />
+  
+  <Import Project="$(TMDBaseDir)/CommonBuildTools/CLR/MSBuild/PEVerify.targets" />
+    
+  <Import Project="$(TMDBaseDir)/CommonBuildTools/CLR/MSBuild/NUnit.targets" />
+  
+</Project>
