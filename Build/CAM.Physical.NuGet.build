@@ -110,8 +110,8 @@
         <Version Condition=" '$(UtilPackNuSpecVersion)' != '' ">$(UtilPackNuSpecVersion)</Version>
       </CAMPhysicalNuGetDependency>
       <CAMPhysicalNuGetDependency Include="TabularMetaData">
-        <Version Condition=" '$(TabularMetaDataNuSpecVersion)' == '' ">$([System.IO.File]::ReadAllText('$(CAMPhysicalBaseDir)/Source/TabularMetaDataVersion.txt'))</Version>
-        <Version Condition=" '$(TabularMetaDataNuSpecVersion)' != '' ">$(TabularMetaDataVersion)</Version>        
+        <Version Condition=" '$(TMDNuSpecVersion)' == '' ">$([System.IO.File]::ReadAllText('$(CAMPhysicalBaseDir)/Source/TabularMetaDataVersion.txt'))</Version>
+        <Version Condition=" '$(TMDNuSpecVersion)' != '' ">$(TMDNuSpecVersion)</Version>        
       </CAMPhysicalNuGetDependency>
     </ItemGroup>
     

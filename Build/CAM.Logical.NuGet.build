@@ -44,17 +44,24 @@
       <CAMLogicalFilesToPersist Include="$(CAMLogicalBaseDir)/Output/Release/SL/CILAssemblyManipulator.Logical.*"/>
       <CAMLogicalFilesToPersist Include="$(CAMLogicalBaseDir)/Output/Release/Portable/CILAssemblyManipulator.Logical.*"/>
       <CAMLogicalFilesToPersist Include="$(CAMLogicalBaseDir)/Output/Release/dotNET/CILAssemblyManipulator.Logical.*"/>
-      <CAMLogicalFilesToPersist Include="$(CAMLogicalBaseDir)/Output/Release/SL/UtilPack.dll"/>
-      <CAMLogicalFilesToPersist Include="$(CAMLogicalBaseDir)/Output/Release/Portable/UtilPack.dll"/>
-      <CAMLogicalFilesToPersist Include="$(CAMLogicalBaseDir)/Output/Release/dotNET/UtilPack.dll"/>
-      <CAMLogicalFilesToPersist Include="$(CAMLogicalBaseDir)/Output/Release/SL/CILAssemblyManipulator.Physical.dll"/>
-      <CAMLogicalFilesToPersist Include="$(CAMLogicalBaseDir)/Output/Release/Portable/CILAssemblyManipulator.Physical.dll"/>
-      <CAMLogicalFilesToPersist Include="$(CAMLogicalBaseDir)/Output/Release/dotNET/CILAssemblyManipulator.Physical.dll"/>
+      
+      <CAMLogicalReferencedFiles Include="$(CAMLogicalBaseDir)/Output/Release/SL/UtilPack.dll"/>
+      <CAMLogicalReferencedFiles Include="$(CAMLogicalBaseDir)/Output/Release/Portable/UtilPack.dll"/>
+      <CAMLogicalReferencedFiles Include="$(CAMLogicalBaseDir)/Output/Release/dotNET/UtilPack.dll"/>
+      
+      <CAMLogicalReferencedFiles Include="$(CAMLogicalBaseDir)/Output/Release/SL/TabularMetaData.dll"/>
+      <CAMLogicalReferencedFiles Include="$(CAMLogicalBaseDir)/Output/Release/Portable/TabularMetaData.dll"/>
+      <CAMLogicalReferencedFiles Include="$(CAMLogicalBaseDir)/Output/Release/dotNET/TabularMetaData.dll"/>
+
+      <CAMLogicalReferencedFiles Include="$(CAMLogicalBaseDir)/Output/Release/SL/CILAssemblyManipulator.Physical.dll"/>
+      <CAMLogicalReferencedFiles Include="$(CAMLogicalBaseDir)/Output/Release/Portable/CILAssemblyManipulator.Physical.dll"/>
+      <CAMLogicalReferencedFiles Include="$(CAMLogicalBaseDir)/Output/Release/dotNET/CILAssemblyManipulator.Physical.dll"/>
       
       <CAMLogicalFilesToDelete Include="$(CAMLogicalBaseDir)/Output/Release/SL/*.*"/>
       <CAMLogicalFilesToDelete Include="$(CAMLogicalBaseDir)/Output/Release/Portable/*.*"/>
       <CAMLogicalFilesToDelete Include="$(CAMLogicalBaseDir)/Output/Release/dotNET/*.*"/>
       <CAMLogicalFilesToDelete Remove="@(CAMLogicalFilesToPersist)"/>
+      <CAMLogicalFilesToDelete Remove="@(CAMLogicalReferencedFiles)"/>
     </ItemGroup>
     <Delete
       Files="@(CAMLogicalFilesToDelete)"
@@ -79,8 +86,8 @@
       FileToVerify="%(PEVerifyFiles.Identity)"
       />
     
-    <!-- Delete all referenced assemblies that won't be included to NuGetPackage -->
-    <Delete Files="$(CAMLogicalBaseDir)/Output/Release/SL/UtilPack.dll;$(CAMLogicalBaseDir)/Output/Release/Portable/UtilPack.dll;$(CAMLogicalBaseDir)/Output/Release/dotNET/UtilPack.dll;$(CAMLogicalBaseDir)/Output/Release/SL/CILAssemblyManipulator.Physical.dll;$(CAMLogicalBaseDir)/Output/Release/Portable/CILAssemblyManipulator.Physical.dll;$(CAMLogicalBaseDir)/Output/Release/dotNET/CILAssemblyManipulator.Physical.dll" />
+    <!-- Delete referenced files -->
+    <Delete Files="@(CAMLogicalReferencedFiles)" />
   </Target>
    
   <Target Name="CAMLogical_NuGet">
@@ -113,14 +120,18 @@
         <TargetFilePath>lib/net40-client/CILAssemblyManipulator.Logical.xml</TargetFilePath>
       </CAMLogicalNuGetFile>
       
-      <CAMStructuralNuGetDependency Include="UtilPack">
+      <CAMLogicalNuGetDependency Include="UtilPack">
         <Version Condition=" '$(UtilPackNuSpecVersion)' == '' ">$([System.IO.File]::ReadAllText('$(CAMLogicalBaseDir)/Source/UtilPackVersion.txt'))</Version>
         <Version Condition=" '$(UtilPackNuSpecVersion)' != '' ">$(UtilPackNuSpecVersion)</Version>
-      </CAMStructuralNuGetDependency>
-      <CAMStructuralNuGetDependency Include="CAM.Physical">
+      </CAMLogicalNuGetDependency>
+      <CAMLogicalNuGetDependency Include="TabularMetaData">
+        <Version Condition=" '$(TMDNuSpecVersion)' == '' ">$([System.IO.File]::ReadAllText('$(CAMLogicalBaseDir)/Source/TabularMetaDataVersion.txt'))</Version>
+        <Version Condition=" '$(TMDNuSpecVersion)' != '' ">$(TMDNuSpecVersion)</Version>        
+      </CAMLogicalNuGetDependency>
+      <CAMLogicalNuGetDependency Include="CAM.Physical">
         <Version Condition=" '$(CAMPhysicalNuSpecVersion)' == '' ">$([System.IO.File]::ReadAllText('$(CAMLogicalBaseDir)/Source/CAMPhysicalVersion.txt'))</Version>
         <Version Condition=" '$(CAMPhysicalNuSpecVersion)' != '' ">$(CAMPhysicalNuSpecVersion)</Version>
-      </CAMStructuralNuGetDependency>
+      </CAMLogicalNuGetDependency>
     </ItemGroup>
     
     <!-- Generate .nuspec file -->
@@ -139,7 +150,7 @@
       LicenseURL="http://www.apache.org/licenses/LICENSE-2.0"
       RequireLicenseAcceptance="False"
       Files="@(CAMLogicalNuGetFile)"
-      Dependencies="@(CAMStructuralNuGetDependency)"
+      Dependencies="@(CAMLogicalNuGetDependency)"
       OutputPath="$(CAMLogicalNuSpecFilePath)"
       >
       <Output TaskParameter="GeneratedNuSpecVersion" PropertyName="CAMLogicalNuSpecVersionGenerated" />

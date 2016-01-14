@@ -16,6 +16,7 @@
     <TargetFrameworkProfile Condition=" '$(CAMStructuralIsPortable)' != '' ">Profile328</TargetFrameworkProfile>
     <TargetFrameworkProfile Condition=" '$(CAMStructuralIsPortable)' == '' ">Client</TargetFrameworkProfile>
     <DefineConstants Condition=" '$(CAMStructuralIsPortable)' != ''">CAM_STRUCTURAL_IS_PORTABLE</DefineConstants>
+    <DefineConstants Condition=" '$(IsCommandLineBuild)' != '' ">$(DefineConstants);NO_ALIASES</DefineConstants>
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|AnyCPU' ">
     <DebugSymbols>true</DebugSymbols>
@@ -71,11 +72,11 @@
       <Project>{f8ba1950-209d-477f-83d6-3f969c0cbee6}</Project>
       <Name>CILAssemblyManipulator.Physical.Core</Name>
     </ProjectReference>
-    <ProjectReference Include="..\CILAssemblyManipulator.Physical.Crypto\CILAssemblyManipulator.Physical.Crypto.csproj">
+    <ProjectReference Condition=" '$(IsCommandLineBuild)' == ''" Include="..\CILAssemblyManipulator.Physical.Crypto\CILAssemblyManipulator.Physical.Crypto.csproj">
       <Project>{3c3ee913-1034-4c7d-ab79-67d19e3256fa}</Project>
       <Name>CILAssemblyManipulator.Physical.Crypto</Name>
     </ProjectReference>
-    <ProjectReference Include="..\CILAssemblyManipulator.Physical.IO\CILAssemblyManipulator.Physical.IO.csproj">
+    <ProjectReference Condition=" '$(IsCommandLineBuild)' == ''" Include="..\CILAssemblyManipulator.Physical.IO\CILAssemblyManipulator.Physical.IO.csproj">
       <Project>{4e0e1695-a15e-4b3d-adb2-c3ed8a0962a1}</Project>
       <Name>CILAssemblyManipulator.Physical.IO</Name>
       <Aliases>CAMPhysical</Aliases>
@@ -93,8 +94,7 @@
       <HintPath>$(OutputPath)UtilPack.dll</HintPath>
     </Reference>
     <Reference Include="CILAssemblyManipulator.Physical_dll" Condition=" '$(IsCommandLineBuild)' != '' ">
-      <HintPath>$(OutputPath)Merged\CILAssemblyManipulator.Physical.dll</HintPath>
-      <Aliases>CAMPhysical</Aliases>
+      <HintPath>$(OutputPath)CILAssemblyManipulator.Physical.dll</HintPath>
     </Reference>
   </ItemGroup>
   <ItemGroup>
