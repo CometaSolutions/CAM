@@ -23,6 +23,8 @@
     <DefineConstants Condition=" '$(CAMLogicalTargetKind)' == 'Portable' ">CAM_LOGICAL_IS_PORTABLE</DefineConstants>
     <DefineConstants Condition=" '$(CAMLogicalTargetKind)' == 'Silverlight' ">CAM_LOGICAL_IS_SL</DefineConstants>
     <DefineConstants Condition=" '$(CAMLogicalTargetKind)' == 'DotNET' ">CAM_LOGICAL_IS_DOT_NET</DefineConstants>
+    <DefineConstants Condition=" '$(IsCommandLineBuild)' != '' ">$(DefineConstants);NO_ALIASES</DefineConstants>
+    
     <!-- In SL and Profile5, keep "XML comment has cref attribute that could not be resolved" warning as warning -->
     <WarningsNotAsErrors Condition=" '$(CAMLogicalTargetKind)' == 'Silverlight' Or '$(CAMLogicalTargetKind)' == 'Portable' ">1574</WarningsNotAsErrors>
   </PropertyGroup>
@@ -77,7 +79,7 @@
     <ErrorReport>prompt</ErrorReport>
     <WarningLevel>4</WarningLevel>
   </PropertyGroup>
-  <PropertyGroup Condition=" '$(CAMLogicalTargetKind)' == 'DotNET' and '$(IsCommandLineBuild)' != '' ">
+  <PropertyGroup Condition="'$(IsCommandLineBuild)' != '' ">
     <DocumentationFile>$(OutputPath)$(AssemblyName).xml</DocumentationFile>
   </PropertyGroup>
   <ItemGroup>
@@ -97,11 +99,11 @@
       <Project>{f8ba1950-209d-477f-83d6-3f969c0cbee6}</Project>
       <Name>CILAssemblyManipulator.Physical.Core</Name>
     </ProjectReference>
-    <ProjectReference Include="..\CILAssemblyManipulator.Physical.Crypto\CILAssemblyManipulator.Physical.Crypto.csproj">
+    <ProjectReference Condition=" '$(IsCommandLineBuild)' == ''" Include="..\CILAssemblyManipulator.Physical.Crypto\CILAssemblyManipulator.Physical.Crypto.csproj">
       <Project>{3c3ee913-1034-4c7d-ab79-67d19e3256fa}</Project>
       <Name>CILAssemblyManipulator.Physical.Crypto</Name>
     </ProjectReference>
-    <ProjectReference Include="..\CILAssemblyManipulator.Physical.IO\CILAssemblyManipulator.Physical.IO.csproj">
+    <ProjectReference Condition=" '$(IsCommandLineBuild)' == ''" Include="..\CILAssemblyManipulator.Physical.IO\CILAssemblyManipulator.Physical.IO.csproj">
       <Project>{4e0e1695-a15e-4b3d-adb2-c3ed8a0962a1}</Project>
       <Name>CILAssemblyManipulator.Physical.IO</Name>
       <Aliases>CAMPhysical</Aliases>
@@ -120,9 +122,8 @@
       <HintPath Condition=" '$(CAMLogicalTargetKind)' != 'Portable' ">$(OutputPath)UtilPack.dll</HintPath>
     </Reference>
     <Reference Include="CILAssemblyManipulator.Physical_dll" Condition=" '$(IsCommandLineBuild)' != '' ">
-      <HintPath Condition=" '$(CAMLogicalTargetKind)' == 'Portable' ">$(OutputPath)..\SL\Merged\CILAssemblyManipulator.Physical.dll</HintPath>
-      <HintPath Condition=" '$(CAMLogicalTargetKind)' != 'Portable' ">$(OutputPath)Merged\CILAssemblyManipulator.Physical.dll</HintPath>
-      <Aliases>CAMPhysical</Aliases>
+      <HintPath Condition=" '$(CAMLogicalTargetKind)' == 'Portable' ">$(OutputPath)..\SL\CILAssemblyManipulator.Physical.dll</HintPath>
+      <HintPath Condition=" '$(CAMLogicalTargetKind)' != 'Portable' ">$(OutputPath)\CILAssemblyManipulator.Physical.dll</HintPath>
     </Reference>
   </ItemGroup>
   <ItemGroup>

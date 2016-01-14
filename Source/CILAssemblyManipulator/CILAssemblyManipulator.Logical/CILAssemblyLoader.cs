@@ -15,9 +15,13 @@
  * See the License for the specific language governing permissions and
  * limitations under the License. 
  */
+#if !NO_ALIASES
 extern alias CAMPhysical;
 using CAMPhysical;
 using CAMPhysical::CILAssemblyManipulator.Physical.IO;
+#else
+using CILAssemblyManipulator.Physical.IO;
+#endif
 
 using System;
 using System.Collections.Generic;

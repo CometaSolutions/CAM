@@ -351,7 +351,17 @@ namespace CILAssemblyManipulator.Logical
             }
 
             CILType customType;
-            var physicalInfo = AbstractMarshalingInfo.FromAttribute( attr );
+            var physicalInfo = AbstractMarshalingInfo.FromAttributeInfo(
+               (UnmanagedType) attr.Value,
+               attr.SizeConst,
+               attr.IidParameterIndex,
+               attr.SizeParamIndex,
+               (UnmanagedType) attr.ArraySubType,
+               (VarEnum) attr.SafeArraySubType,
+               attr.SafeArrayUserDefinedSubType,
+               attr.MarshalType,
+               attr.MarshalCookie
+               );
             switch ( physicalInfo.MarshalingInfoKind )
             {
                case MarshalingInfoKind.SafeArray:
