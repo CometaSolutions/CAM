@@ -2949,13 +2949,16 @@ namespace CILMerge
                // Rename was manually specified in a file, and it was successfully added to the set of all type names
                // Namespace and name might have changed.
                newFullTypeString = renamedValue;
-               Miscellaneous.ParseTypeNameStringForNamespace( newFullTypeString, out newNamespace, out newName );
                String enclosing, nested;
                if ( Miscellaneous.ParseTypeNameStringForNestedType( newFullTypeString, out enclosing, out nested ) )
                {
                   // This is a nested type
                   newNamespace = null;
                   newName = nested;
+               }
+               else
+               {
+                  Miscellaneous.ParseTypeNameStringForNamespace( newFullTypeString, out newNamespace, out newName );
                }
             }
             else if ( retVal )
