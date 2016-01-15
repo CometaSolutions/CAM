@@ -131,7 +131,7 @@
   <Import Project="$(MSBuildThisFileDirectory)../../CommonBuildTools/CLR/MSBuild/AssemblyInfo.targets" />
   
   <!-- When building from .build file, delete output file, since it might be of wrong configuration/have unexpected references -->
-  <Target Condition=" '$(IsCommandLineBuild)' != '' " Name="BeforeBuild">
+  <!-- <Target Condition=" '$(IsCommandLineBuild)' != '' " Name="BeforeBuild">
     <Delete Files="$(OutputPath)$(AssemblyName).dll" />
-  </Target>
+  </Target> -->
 </Project>
