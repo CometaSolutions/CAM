@@ -545,7 +545,7 @@ namespace CILMerge
                   {
                      return File.ReadAllLines( file )
                         .Select( line => line?.Trim() )
-                        .Where( line => !String.IsNullOrEmpty( line ) )
+                        .Where( line => !String.IsNullOrEmpty( line ) && line[0] != '#' )
                         .Select( line => new Regex( line.Length > 1 && line[0] == '@' ? Regex.Escape( line.Substring( 1 ) ) : line ) )
                         .ToArray();
                   }
@@ -2893,6 +2893,7 @@ namespace CILMerge
          if ( retVal )
          {
             // Have to rename
+            // TODO introduce rename-file option!
             if ( allTypeStringsSet == null )
             {
                allTypeStringsSet = new HashSet<String>( allTypeStrings.Values.SelectMany( dic => dic.Values ) );

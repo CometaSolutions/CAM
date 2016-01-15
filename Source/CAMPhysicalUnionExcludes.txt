@@ -1,1 +1,4 @@
-E_CILPhysical\+<>c
+# This file contains all type names that should not be merged into a single type when creating CILMerge or CAM.Physical assemblies.
+# The '@' symbol at the beginning tells the CILMerge to interpret the line as literal string instead of a regular expression.
+
+@E_CILPhysical+<>c
