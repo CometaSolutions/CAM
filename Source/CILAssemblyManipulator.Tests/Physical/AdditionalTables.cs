@@ -151,14 +151,12 @@ namespace CILAssemblyManipulator.Tests.Physical
       private static IEnumerable<MetaDataColumnInformation<MyAdditionalTableRow>> CreateAdditionalTableColumnInfo()
       {
          yield return MetaDataColumnInformationFactory.Number32<MyAdditionalTableRow, RawMyAdditionalTableRow>(
-            nameof( MyAdditionalTableRow.IntValue ),
             ( row, value ) => { row.IntValue = value; return true; },
             row => row.IntValue,
             ( rawRow, value ) => rawRow.IntValue = value
             );
 
          yield return MetaDataColumnInformationFactory.SystemString<MyAdditionalTableRow, RawMyAdditionalTableRow>(
-            nameof( MyAdditionalTableRow.StringValue ),
             ( row, value ) => { row.StringValue = value; return true; },
             row => row.StringValue,
             ( rawRow, value ) => rawRow.StringValue = value

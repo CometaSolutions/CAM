@@ -72,7 +72,7 @@ namespace CILAssemblyManipulator.Tests.CILMerge
          }
       }
 
-      //[Test]
+      [Test]
       public void TestMergingCILMergeSimple()
       {
          this.PerformTest( new CILMergeOptionsImpl()
@@ -85,7 +85,7 @@ namespace CILAssemblyManipulator.Tests.CILMerge
          } );
       }
 
-      //[Test]
+      [Test]
       public void TestMergingCILMergeMoreFeatures()
       {
          this.PerformTest( new CILMergeOptionsImpl()
@@ -148,7 +148,7 @@ namespace CILAssemblyManipulator.Tests.CILMerge
          } );
       }
 
-      //[Test]
+      [Test]
       public void TestMergingCAMPhysical()
       {
          var baseDir = Path.GetFullPath( Path.Combine( CILMergeLocation, "..", "..", "..", "..", ".." ) );

@@ -25,6 +25,9 @@ using System.Threading;
 
 namespace CILAssemblyManipulator.Physical
 {
+   /// <summary>
+   /// This class encapsulates common information for both <see cref="AssemblyDefinition"/>s and <see cref="AssemblyReference"/>s.
+   /// </summary>
    public sealed class AssemblyInformation : IEquatable<AssemblyInformation>
    {
       private String _name;
@@ -35,6 +38,10 @@ namespace CILAssemblyManipulator.Physical
       private Int32 _revision;
       private Byte[] _publicKeyOrToken;
 
+      /// <summary>
+      /// Gets or sets the name of the assembly.
+      /// </summary>
+      /// <value>The name of the assembly.</value>
       public String Name
       {
          set
@@ -48,9 +55,9 @@ namespace CILAssemblyManipulator.Physical
       }
 
       /// <summary>
-      /// Gets or sets the culture of the related assembly. Please note that culture-neutral assemblies have this property set to <c>null</c>.
+      /// Gets or sets the culture of the assembly.
       /// </summary>
-      /// <value>The culture of the related assembly.</value>
+      /// <value>The culture of the assembly.</value>
       public String Culture
       {
          set
@@ -64,9 +71,12 @@ namespace CILAssemblyManipulator.Physical
       }
 
       /// <summary>
-      /// Gets or sets the major version of the related assembly. The value will be casted to <see cref="UInt16"/> when emitting.
+      /// Gets or sets the major version of the assembly.
       /// </summary>
-      /// <value>The major version of the related assembly.</value>
+      /// <value>The major version of the assembly.</value>
+      /// <remarks>
+      /// By default, the value will be casted to <see cref="UInt16"/> when emitting assembly binary file.
+      /// </remarks>
       public Int32 VersionMajor
       {
          set
@@ -80,9 +90,12 @@ namespace CILAssemblyManipulator.Physical
       }
 
       /// <summary>
-      /// Gets or sets the minor version of the related assembly. The value will be casted to <see cref="UInt16"/> when emitting.
+      /// Gets or sets the minor version of the assembly.
       /// </summary>
-      /// <value>The minor version of the related assembly.</value>
+      /// <value>The minor version of the assembly.</value>
+      /// <remarks>
+      /// By default, the value will be casted to <see cref="UInt16"/> when emitting assembly binary file.
+      /// </remarks>
       public Int32 VersionMinor
       {
          set
@@ -96,9 +109,12 @@ namespace CILAssemblyManipulator.Physical
       }
 
       /// <summary>
-      /// Gets or sets the build number of the related assembly. The value will be casted to <see cref="UInt16"/> when emitting.
+      /// Gets or sets the build number of the assembly.
       /// </summary>
-      /// <value>The build number of the related assembly.</value>
+      /// <value>The build number of the assembly.</value>
+      /// <remarks>
+      /// By default, the value will be casted to <see cref="UInt16"/> when emitting assembly binary file.
+      /// </remarks>
       public Int32 VersionBuild
       {
          set
@@ -112,9 +128,12 @@ namespace CILAssemblyManipulator.Physical
       }
 
       /// <summary>
-      /// Gets or sets the revision of the related assembly. The value will be casted to <see cref="UInt16"/> when emitting.
+      /// Gets or sets the revision of the assembly.
       /// </summary>
-      /// <value>The revision of the related assembly.</value>
+      /// <value>The revision of the assembly.</value>
+      /// <remarks>
+      /// By default, the value will be casted to <see cref="UInt16"/> when emitting assembly binary file.
+      /// </remarks>
       public Int32 VersionRevision
       {
          set
@@ -128,9 +147,12 @@ namespace CILAssemblyManipulator.Physical
       }
 
       /// <summary>
-      /// Gets or sets the public key of the related assembly. Set to <c>null</c> or empty array to remove the usage of public key in the related assembly.
+      /// Gets or sets the public key of the assembly.
       /// </summary>
-      /// <value>The public key of the related assembly.</value>
+      /// <value>The public key of the assembly.</value>
+      /// <remarks>
+      /// Values of <c>null</c> and empty byte array are treated as if public key or token would not exist.
+      /// </remarks>
       public Byte[] PublicKeyOrToken
       {
          set
@@ -144,12 +166,23 @@ namespace CILAssemblyManipulator.Physical
       }
 
 
-
+      /// <summary>
+      /// Checks that this <see cref="AssemblyInformation"/> has the same values as given <paramref name="obj"/>, if <paramref name="obj"/> is of type <see cref="AssemblyInformation"/>.
+      /// </summary>
+      /// <param name="obj">The object to check.</param>
+      /// <returns><c>true</c> if <paramref name="obj"/> is of type <see cref="AssemblyInformation"/> and has same values as this <see cref="AssemblyInformation"/>.</returns>
       public override Boolean Equals( Object obj )
       {
          return this.Equals( obj as AssemblyInformation );
       }
 
+      /// <summary>
+      /// Gets the hash code for this <see cref="AssemblyInformation"/>.
+      /// </summary>
+      /// <returns>The hash code for this <see cref="AssemblyInformation"/>.</returns>
+      /// <remarks>
+      /// The values that are compared are <see cref="Name"/>, <see cref="Culture"/> (both exact and case-sensitive), <see cref="VersionMajor"/>, <see cref="VersionMinor"/>, <see cref="VersionBuild"/>, <see cref="VersionRevision"/>, and <see cref="PublicKeyOrToken"/> (exact array comparison, except that null matches empty array).
+      /// </remarks>
       public override Int32 GetHashCode()
       {
          unchecked
@@ -162,13 +195,32 @@ namespace CILAssemblyManipulator.Physical
          }
       }
 
+      /// <summary>
+      /// Checks that this <see cref="AssemblyInformation"/> has the same values as given <see cref="AssemblyInformation"/>.
+      /// </summary>
+      /// <param name="other">The other <see cref="AssemblyInformation"/>.</param>
+      /// <returns><c>true</c> if <paramref name="other"/> is not <c>null</c> and has same values as this <see cref="AssemblyInformation"/>; <c>false</c> otherwise.</returns>
+      /// <remarks>
+      /// The values that are compared are <see cref="Name"/>, <see cref="Culture"/> (both exact and case-sensitive), <see cref="VersionMajor"/>, <see cref="VersionMinor"/>, <see cref="VersionBuild"/>, <see cref="VersionRevision"/>, and <see cref="PublicKeyOrToken"/> (exact array comparison, except that null matches empty array).
+      /// </remarks>
       public Boolean Equals( AssemblyInformation other )
       {
          return this.Equals( other, true );
       }
 
+      /// <summary>
+      /// Checks that this <see cref="AssemblyInformation"/> has the same values as given <see cref="AssemblyInformation"/>, with parameterized comparison of <see cref="PublicKeyOrToken"/>.
+      /// </summary>
+      /// <param name="other">The other <see cref="AssemblyInformation"/>.</param>
+      /// <param name="comparePublicKeyOrToken">Whether to compare the <see cref="PublicKeyOrToken"/> properties.</param>
+      /// <returns><c>true</c>if <paramref name="other"/> is not <c>null</c> and has same values as this <see cref="AssemblyInformation"/>; <c>false</c> otherwise.</returns>
+      /// <remarks>
+      /// The values that are compared are <see cref="Name"/>, <see cref="Culture"/> (both exact and case-sensitive), <see cref="VersionMajor"/>, <see cref="VersionMinor"/>, <see cref="VersionBuild"/>, <see cref="VersionRevision"/>, and <see cref="PublicKeyOrToken"/> (exact array comparison, except that null matches empty array).
+      /// The <see cref="PublicKeyOrToken"/>s are compared only if <paramref name="comparePublicKeyOrToken"/> is <c>true</c>.
+      /// </remarks>
       public Boolean Equals( AssemblyInformation other, Boolean comparePublicKeyOrToken )
       {
+         Byte[] thisPK, otherPK;
          return Object.ReferenceEquals( this, other ) ||
             ( other != null
             && String.Equals( this.Name, other.Name )
@@ -176,7 +228,7 @@ namespace CILAssemblyManipulator.Physical
             && this.VersionMinor == other.VersionMinor
             && this.VersionBuild == other.VersionBuild
             && this.VersionRevision == other.VersionRevision
-            && ( !comparePublicKeyOrToken || this.PublicKeyOrToken.IsNullOrEmpty() == other.PublicKeyOrToken.IsNullOrEmpty() || ArrayEqualityComparer<Byte>.DefaultArrayEqualityComparer.Equals( this.PublicKeyOrToken, other.PublicKeyOrToken ) )
+            && ( !comparePublicKeyOrToken || ( thisPK = this.PublicKeyOrToken ).IsNullOrEmpty() == ( otherPK = other.PublicKeyOrToken ).IsNullOrEmpty() || ArrayEqualityComparer<Byte>.DefaultArrayEqualityComparer.Equals( thisPK, otherPK ) )
             && String.Equals( this.Culture, other.Culture )
             );
       }
@@ -202,6 +254,12 @@ namespace CILAssemblyManipulator.Physical
       internal const String NEUTRAL_CULTURE = "neutral";
       private const String NEUTRAL_CULTURE_NAME = "";
 
+      /// <summary>
+      /// Creates a new string conforming to CIL standards of how assembly strings should be represented.
+      /// </summary>
+      /// <param name="appendCultureIfNeutral">If <c>true</c>, then culture information will be always present in string. If <c>false</c>, then culture information is omitted if it is <c>null</c> or empty.</param>
+      /// <param name="isFullPublicKey">If <c>true</c>, then the <see cref="PublicKeyOrToken"/> will be interpreted as afull public key. If <c>false</c>, then the <see cref="PublicKeyOrToken"/> will be interpreted as a public key token. In either case, it will be omitted, if it is <c>null</c> or empty.</param>
+      /// <returns>The string representing information about this <see cref="AssemblyInformation"/> and conforming to CIL standards.</returns>
       public String ToString(
          Boolean appendCultureIfNeutral,
          Boolean isFullPublicKey
@@ -235,6 +293,17 @@ namespace CILAssemblyManipulator.Physical
          return sb.ToString();
       }
 
+      /// <summary>
+      /// Tries to parse given textual assembly name and throws <see cref="FormatException"/> if parsing is unsuccessful.
+      /// </summary>
+      /// <param name="textualAssemblyName">The textual assembly name.</param>
+      /// <returns>An instance <see cref="AssemblyInformation"/> with parsed components.</returns>
+      /// <exception cref="FormatException">If <paramref name="textualAssemblyName"/> is not a valid assembly name as whole.</exception>
+      /// <remarks>
+      /// The <see cref="System.Reflection.AssemblyName(String)"/> constructor apparently requires that the assembly of the referenced name actually exists and will try to load it.
+      /// Because of this, this method implements pure parsing of assembly name, without caring whether it actually exists or not.
+      /// The <see href="http://msdn.microsoft.com/en-us/library/yfsftwz6%28v=vs.110%29.aspx">Specifying Fully Qualified Type Names</see> resource at MSDN provides information about textual assembly names.
+      /// </remarks>
       public static AssemblyInformation Parse( String textualAssemblyName )
       {
          Boolean isFullPublicKey;
@@ -245,6 +314,7 @@ namespace CILAssemblyManipulator.Physical
       /// Tries to parse given textual assembly name and throws <see cref="FormatException"/> if parsing is unsuccessful.
       /// </summary>
       /// <param name="textualAssemblyName">The textual assembly name.</param>
+      /// <param name="isFullPublicKey">Whether the textual assembly name contained full public key information.</param>
       /// <returns>An instance <see cref="AssemblyInformation"/> with parsed components.</returns>
       /// <exception cref="FormatException">If <paramref name="textualAssemblyName"/> is not a valid assembly name as whole.</exception>
       /// <remarks>
@@ -270,6 +340,7 @@ namespace CILAssemblyManipulator.Physical
       /// </summary>
       /// <param name="textualAssemblyName">The textual assembly name.</param>
       /// <param name="assemblyName">If <paramref name="textualAssemblyName"/> is <c>null</c>, this will be <c>null</c>. Otherwise, this will hold a new instance of <see cref="CILAssemblyName"/> with any successfully parsed components.</param>
+      /// <param name="isFullPublicKey">Whether the textual assembly name contained full public key information.</param>
       /// <returns><c>true</c> if <paramref name="textualAssemblyName"/> was successfully parsed till the end; <c>false</c> otherwise.</returns>
       /// <remarks>
       /// The <see cref="System.Reflection.AssemblyName(String)"/> constructor apparently requires that the assembly of the referenced name actually exists and will try to load it.
@@ -477,8 +548,20 @@ namespace CILAssemblyManipulator.Physical
 
 public static partial class E_CILPhysical
 {
+   /// <summary>
+   /// Copies the contents of this <see cref="AssemblyInformation"/> to the given destination <see cref="AssemblyInformation"/>.
+   /// </summary>
+   /// <param name="source">The <see cref="AssemblyInformation"/> to copy information from.</param>
+   /// <param name="destination">The <see cref="AssemblyInformation"/> to copy information to.</param>
+   /// <remarks>
+   /// The <see cref="AssemblyInformation.PublicKeyOrToken"/> array is copied, if it is not null or empty, so that modification to this array in the original <see cref="AssemblyInformation"/> are not propagated to the <see cref="AssemblyInformation.PublicKeyOrToken"/> of the given target <see cref="AssemblyInformation"/>.
+   /// </remarks>
+   /// <exception cref="NullReferenceException">If <paramref name="source"/> is <c>null</c>.</exception>
+   /// <exception cref="ArgumentNullException">If <paramref name="destination"/> is <c>null</c>.</exception>
    public static void DeepCopyContentsTo( this AssemblyInformation source, AssemblyInformation destination )
    {
+      ArgumentValidator.ValidateNotNull( "Destination", destination );
+
       destination.Name = source.Name;
       destination.VersionMajor = source.VersionMajor;
       destination.VersionMinor = source.VersionMinor;
@@ -488,19 +571,26 @@ public static partial class E_CILPhysical
       destination.PublicKeyOrToken = source.PublicKeyOrToken.IsNullOrEmpty() ? source.PublicKeyOrToken : source.PublicKeyOrToken.CreateBlockCopy();
    }
 
+   /// <summary>
+   /// Creates a new <see cref="AssemblyInformation"/> that will hold the same values as source <see cref="AssemblyInformation"/>.
+   /// </summary>
+   /// <param name="assemblyInfo">The source <see cref="AssemblyInformation"/>.</param>
+   /// <returns><c>null</c> if <paramref name="assemblyInfo"/> is <c>null</c>, otherwise a new <see cref="AssemblyInformation"/> with same content as <paramref name="assemblyInfo"/>.</returns>
+   /// <remarks>
+   /// The <see cref="AssemblyInformation.PublicKeyOrToken"/> array is copied, if it is not null or empty, so that modification to this array in the original <see cref="AssemblyInformation"/> are not propagated to the <see cref="AssemblyInformation.PublicKeyOrToken"/> of the given target <see cref="AssemblyInformation"/>.
+   /// </remarks>
    public static AssemblyInformation CreateDeepCopy( this AssemblyInformation assemblyInfo )
    {
-      return assemblyInfo == null ?
-         null :
-         new AssemblyInformation()
-         {
-            Name = assemblyInfo.Name,
-            VersionMajor = assemblyInfo.VersionMajor,
-            VersionMinor = assemblyInfo.VersionMinor,
-            VersionBuild = assemblyInfo.VersionBuild,
-            VersionRevision = assemblyInfo.VersionRevision,
-            Culture = assemblyInfo.Culture,
-            PublicKeyOrToken = assemblyInfo.PublicKeyOrToken.IsNullOrEmpty() ? assemblyInfo.PublicKeyOrToken : assemblyInfo.PublicKeyOrToken.CreateBlockCopy()
-         };
+      AssemblyInformation retVal;
+      if ( assemblyInfo == null )
+      {
+         retVal = null;
+      }
+      else
+      {
+         retVal = new AssemblyInformation();
+         assemblyInfo.DeepCopyContentsTo( retVal );
+      }
+      return retVal;
    }
 }
