@@ -42,6 +42,7 @@ namespace CILMerge
       private const String XML_DOCS = "xmldocs";
       private const String LIB = "lib";
       private const String INTERNALIZE = "internalize";
+      private const String INTERNALIZE_EXCLUDE = "internalizeexclude";
       private const String DELAY_SIGN = "delaysign";
       private const String USE_FULL_PUBLIC_KEY_FOR_REFERENCES = "usefullpublickeyforreferences";
       private const String ALIGN = "align";
@@ -86,6 +87,7 @@ namespace CILMerge
                   new SwitchOptionModel(XML_DOCS),
                   new StringOptionModel(LIB),
                   new StringOptionModel(INTERNALIZE),
+                  new StringOptionModel(INTERNALIZE_EXCLUDE),
                   new SwitchOptionModel(DELAY_SIGN),
                   new SwitchOptionModel(USE_FULL_PUBLIC_KEY_FOR_REFERENCES),
                   new OptionModel(typeof(Int32), ALIGN),
@@ -223,12 +225,8 @@ namespace CILMerge
 
          options.XmlDocs = args.GetSingleOptionOrNull( XML_DOCS ).GetOrDefault( false );
          options.LibPaths = args.GetMultipleOptionsOrEmpty( LIB ).Select( o => o.OptionValueAsString ).ToArray();
-         var internalizeOption = args.GetSingleOptionOrNull( INTERNALIZE );
-         options.Internalize = internalizeOption != null;
-         if ( options.Internalize && !String.IsNullOrEmpty( internalizeOption.OptionValueAsString ) )
-         {
-            options.ExcludeFile = internalizeOption.OptionValueAsString;
-         }
+         options.Internalize = args.GetSingleOptionOrNull( INTERNALIZE )?.OptionValueAsString;
+         options.InternalizeExcludeFile = args.GetSingleOptionOrNull( INTERNALIZE_EXCLUDE )?.OptionValueAsString;
          options.DelaySign = args.GetSingleOptionOrNull( DELAY_SIGN ).GetOrDefault( false );
          options.UseFullPublicKeyForRefs = args.GetSingleOptionOrNull( USE_FULL_PUBLIC_KEY_FOR_REFERENCES ).GetOrDefault( false );
          options.FileAlign = args.GetSingleOptionOrNull( ALIGN ).GetOrDefault( MIN_FILE_ALIGN );
@@ -256,7 +254,7 @@ namespace CILMerge
          }
          options.KeyFile = RootPath( options.KeyFile );
          options.TargetAssemblyAttributeSource = RootPath( options.TargetAssemblyAttributeSource );
-         options.ExcludeFile = RootPath( options.ExcludeFile );
+         options.InternalizeExcludeFile = RootPath( options.InternalizeExcludeFile );
          var subSysStr = args.GetSingleOptionOrNull( SUBSYSTEMVERSION ).GetOrDefault( "4.0" );
          var sep = subSysStr.IndexOf( '.' );
          options.SubsystemMajor = Int32.Parse( subSysStr.Substring( 0, sep ) );

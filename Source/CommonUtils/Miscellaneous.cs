@@ -171,7 +171,7 @@ public static partial class E_CommonUtils
    /// <remarks>
    /// This should be a no-throw method.
    /// </remarks>
-   private static Boolean ParseAsBooleanSafe( this String str )
+   public static Boolean ParseAsBooleanSafe( this String str )
    {
       Boolean parsedBoolean;
       return Boolean.TryParse( str, out parsedBoolean ) && parsedBoolean;

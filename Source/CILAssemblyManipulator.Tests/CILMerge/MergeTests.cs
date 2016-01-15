@@ -72,7 +72,7 @@ namespace CILAssemblyManipulator.Tests.CILMerge
          }
       }
 
-      //[Test]
+      [Test]
       public void TestMergingCILMergeSimple()
       {
          this.PerformTest( new CILMergeOptionsImpl()
@@ -85,7 +85,7 @@ namespace CILAssemblyManipulator.Tests.CILMerge
          } );
       }
 
-      //[Test]
+      [Test]
       public void TestMergingCILMergeMoreFeatures()
       {
          this.PerformTest( new CILMergeOptionsImpl()
@@ -94,7 +94,7 @@ namespace CILAssemblyManipulator.Tests.CILMerge
             OutPath = Path.Combine( Path.GetDirectoryName( CILMergeLocation ), "CILMergeMerged.dll" ),
             Union = true,
             Closed = true,
-            Internalize = true,
+            InternalizeAll = true,
             UseFullPublicKeyForRefs = true,
             XmlDocs = true
          } );
@@ -115,7 +115,7 @@ namespace CILAssemblyManipulator.Tests.CILMerge
             Union = true,
             UnionExcludeFile = Path.Combine( baseDir, "Source", "CAMPhysicalUnionExcludes.txt" ),
             Closed = true,
-            Internalize = true,
+            InternalizeAll = true,
             UseFullPublicKeyForRefs = true,
             XmlDocs = true,
             KeyFile = Path.Combine( baseDir, "Keys", "CILMerge.snk" )
@@ -140,7 +140,7 @@ namespace CILAssemblyManipulator.Tests.CILMerge
             OutPath = Path.Combine( outDir, "UtilPack.dll" ),
             Union = true,
             Closed = true,
-            Internalize = true,
+            InternalizeAll = true,
             UseFullPublicKeyForRefs = true,
             XmlDocs = true,
             HighEntropyVA = true,

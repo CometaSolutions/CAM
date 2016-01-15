@@ -522,7 +522,9 @@ namespace CILMerge
 
 
       private readonly IList<String> _targetTypeNames;
-      private readonly Lazy<Regex[]> _excludeRegexes;
+      private readonly Boolean _internalizeAll;
+      private readonly Lazy<Regex[]> _internalizeIncludeRegexes;
+      private readonly Lazy<Regex[]> _internalizeExcludeRegexes;
       private readonly Lazy<Regex[]> _unionExcludeRegexes;
       private readonly String _inputBasePath;
 
@@ -589,8 +591,12 @@ namespace CILMerge
          this._multipleStaticCtorInfo = new Dictionary<Int32, List<Tuple<CILMetaData, Int32>>>();
          this._targetTypeNames = new List<String>();
 
+         var internalizeOption = options.Internalize;
+         var internalizeIsGiven = !String.IsNullOrEmpty( internalizeOption );
+         var internalizeOptionIsFile = !Boolean.TryParse( internalizeOption, out this._internalizeAll );
 
-         this._excludeRegexes = this.CreateRegexesFromFile( options.Internalize, options.ExcludeFile, "exclude" );
+         this._internalizeIncludeRegexes = this.CreateRegexesFromFile( internalizeIsGiven && internalizeOptionIsFile, internalizeOption, "internalize include" );
+         this._internalizeExcludeRegexes = this.CreateRegexesFromFile( internalizeIsGiven, options.InternalizeExcludeFile, "internalize exclude" );
          this._unionExcludeRegexes = this.CreateRegexesFromFile( options.Union, options.UnionExcludeFile, "union exclude" );
          this._inputBasePath = inputBasePath ?? Environment.CurrentDirectory;
       }
@@ -603,7 +609,11 @@ namespace CILMerge
             {
                try
                {
-                  return File.ReadAllLines( file ).Select( line => new Regex( line ) ).ToArray();
+                  return File.ReadAllLines( file )
+                     .Select( line => line?.Trim() )
+                     .Where( line => !String.IsNullOrEmpty( line ) )
+                     .Select( line => new Regex( line.Length > 1 && line[0] == '@' ? Regex.Escape( line.Substring( 1 ) ) : line ) )
+                     .ToArray();
                }
                catch ( Exception exc )
                {
@@ -2770,12 +2780,12 @@ namespace CILMerge
       {
          var attrs = md.TypeDefinitions.TableContents[tDefIndex].Attributes;
          // TODO cache all modules assembly def strings so we wouldn't call AssemblyDefinition.ToString() too excessively
-         if ( this._options.Internalize
-            && !this._primaryModule.Equals( md )
-            && !this._excludeRegexes.Value.Any(
-               reg => reg.IsMatch( typeString )
-               || ( md.AssemblyDefinitions.GetRowCount() > 0 && reg.IsMatch( "[" + md.AssemblyDefinitions.TableContents[0] + "]" + typeString ) )
+         if ( !this._primaryModule.Equals( md )
+            && (
+               this._internalizeAll
+               || MatchTypeString( this._internalizeIncludeRegexes, md, typeString )
                )
+            && !MatchTypeString( this._internalizeExcludeRegexes, md, typeString )
             )
          {
             // Have to make this type internal
@@ -2795,6 +2805,13 @@ namespace CILMerge
             }
          }
          return attrs;
+      }
+
+      private static Boolean MatchTypeString( Lazy<Regex[]> regexes, CILMetaData md, String typeStr )
+      {
+         var aDefs = md.AssemblyDefinitions.TableContents;
+         var hasADefs = aDefs.Count > 0;
+         return regexes.Value.Any( reg => reg.IsMatch( typeStr ) || ( aDefs.Count > 0 && reg.IsMatch( "[" + aDefs[0] + "]" + typeStr ) ) );
       }
 
       private Boolean IsDuplicateOK(

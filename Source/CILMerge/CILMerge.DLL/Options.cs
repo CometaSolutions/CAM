@@ -37,9 +37,9 @@ namespace CILMerge
       bool Closed { get; set; }
       bool CopyAttributes { get; set; }
       bool DelaySign { get; set; }
-      string ExcludeFile { get; set; }
+      string InternalizeExcludeFile { get; set; }
       string[] InputAssemblies { get; set; }
-      bool Internalize { get; set; }
+      String Internalize { get; set; }
       string KeyFile { get; set; }
       string CSPName { get; set; }
       CILAssemblyManipulator.Physical.AssemblyHashAlgorithm? SigningAlgorithm { get; set; }
@@ -156,8 +156,21 @@ namespace CILMerge
       public String ReferenceAssembliesDirectory { get; set; }
       public Boolean XmlDocs { get; set; }
       public String[] LibPaths { get; set; }
-      public Boolean Internalize { get; set; }
-      public String ExcludeFile { get { return this._excludeFile; } set { this._excludeFile = value; if ( !String.IsNullOrEmpty( value ) ) { this.Internalize = true; } } }
+      public String Internalize { get; set; }
+
+      public Boolean InternalizeAll
+      {
+         get
+         {
+            return this.Internalize.ParseAsBooleanSafe();
+         }
+         set
+         {
+            this.Internalize = value ? Boolean.TrueString : null;
+         }
+      }
+
+      public String InternalizeExcludeFile { get { return this._excludeFile; } set { this._excludeFile = value; if ( !String.IsNullOrEmpty( value ) && this.Internalize == null ) { this.InternalizeAll = true; } } }
       public Boolean DelaySign { get; set; }
       public Boolean UseFullPublicKeyForRefs { get; set; }
       public Int32 FileAlign { get; set; }

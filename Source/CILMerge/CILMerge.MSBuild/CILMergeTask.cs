@@ -158,12 +158,12 @@ namespace CILMerge.MSBuild
 
       public Boolean DelaySign { get; set; }
 
-      public String ExcludeFile { get; set; }
+      public String InternalizeExcludeFile { get; set; }
 
       [Required]
       public String[] InputAssemblies { get; set; }
 
-      public Boolean Internalize { get; set; }
+      public String Internalize { get; set; }
 
       public String KeyFile { get; set; }
 

@@ -1,0 +1,2 @@
+@CILAssemblyManipulator.Physical.Crypto.CryptoUtils
+@CILAssemblyManipulator.Physical.CAMCoreInternals

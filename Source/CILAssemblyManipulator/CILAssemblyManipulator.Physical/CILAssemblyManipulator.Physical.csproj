@@ -103,6 +103,7 @@
       OutPath="$(MSBuildThisFileDirectory)$(OutputPath)$(AssemblyName).dll"
       Union="True"
       UnionExcludeFile="$(MSBuildProjectDirectory)\..\..\CAMPhysicalUnionExcludes.txt"
+      Internalize="$(MSBuildProjectDirectory)\..\..\CAMPhysicalInternalizeIncludes.txt"
       XmlDocs="True"
       UseFullPublicKeyForRefs="True"
       NoDebug="$(CILMergeNoDebug)"
