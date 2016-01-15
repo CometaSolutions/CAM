@@ -2936,6 +2936,12 @@ namespace CILMerge
             if ( renameWasSpecified )
             {
                renameWasSpecified = allTypeStringsSet.Add( renamedValue );
+
+               if ( !renameWasSpecified && unionAll )
+               {
+                  // Don't perform renaming after all, the union was specified
+                  retVal = false;
+               }
             }
 
             if ( renameWasSpecified )
@@ -2952,7 +2958,7 @@ namespace CILMerge
                   newName = nested;
                }
             }
-            else
+            else if ( retVal )
             {
                // Perform automatic rename -> old name + _<number> (namespace doesn't change)
                var i = 1;
