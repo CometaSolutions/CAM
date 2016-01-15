@@ -187,7 +187,7 @@ namespace CILAssemblyManipulator.Physical
                }
                else
                {
-                  --curIdx;
+                  curIdx = sepIdx;
                }
             } while ( curIdx > 0 && sepIdx == -1 );
 

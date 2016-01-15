@@ -354,9 +354,7 @@ namespace CILMerge
       ErrorAccessingTargetFile,
       ErrorAccessingSNFile,
       ErrorAccessingLogFile,
-      PCL2TargetTypeFail,
-      PCL2TargetMethodFail,
-      PCL2TargetFieldFail,
+      ErrorAccessingRenameFile,
       ErrorAccessingInputPDB,
       ErrorAccessingTargetPDB,
       ErrorReadingPDB,
@@ -368,6 +366,7 @@ namespace CILMerge
       FailedToMapPDBType,
       VariableTypeGenericParameterCount,
       NoTargetFrameworkSpecified,
+
       //UnresolvableMemberReferenceToAnotherInputModule,
       //ErrorMatchingMemberReferenceSignature
    }
@@ -601,6 +600,7 @@ namespace CILMerge
       private readonly BooleanOrFileOptionWithExcludes _internalizeOption;
       private readonly BooleanOrFileOptionWithExcludes _unionOption;
       private readonly String _inputBasePath;
+      private readonly Lazy<IDictionary<String, String>> _renames;
 
       private readonly IEqualityComparer<AssemblyReference> _assemblyReferenceEqualityComparer;
 
@@ -679,6 +679,28 @@ namespace CILMerge
             );
 
          this._inputBasePath = inputBasePath ?? Environment.CurrentDirectory;
+
+         this._renames = new Lazy<IDictionary<String, String>>( () =>
+         {
+            var file = options.RenameFile;
+            var renameDic = new Dictionary<String, String>();
+            if ( !String.IsNullOrEmpty( file?.Trim() ) )
+            {
+               try
+               {
+                  File.ReadAllLines( file )
+                     .Select( line => line?.Split( ';' ) )
+                     .Where( parts => parts != null && parts.Length > 1 )
+                     .ToDictionary_Overwrite( parts => parts[0], parts => parts[1] );
+               }
+               catch ( Exception exc )
+               {
+                  throw this.NewCILMergeException( ExitCode.ErrorAccessingRenameFile, "Error accessing rename file " + file + ".", exc );
+               }
+            }
+
+            return renameDic;
+         }, LazyThreadSafetyMode.None );
       }
 
       internal CILModuleMergeResult MergeModules()
@@ -1227,14 +1249,15 @@ namespace CILMerge
                var added = currentlyAddedTypeNames.TryAdd_NotThreadSafe( typeStr, targetTDefIdx );
                var typeAttrs = this.GetNewTypeAttributesForType( md, tDefIdx, thisEnclosingTypeInfo.ContainsKey( tDefIdx ), typeStr );
                var newName = tDef.Name;
+               var newNS = tDef.Namespace;
                IList<Tuple<CILMetaData, Int32>> thisMergedTypes;
                var thisTypeFullName = typeStr;
-               if ( added || this.IsDuplicateOK( md, ref newName, typeStr, ref thisTypeFullName, typeAttrs, typeStrings, ref allTypeStringsSet ) )
+               if ( added || this.IsDuplicateOK( md, ref thisTypeFullName, ref newNS, ref newName, typeStr, typeAttrs, typeStrings, ref allTypeStringsSet ) )
                {
                   targetTypeDefs.Add( new TypeDefinition()
                   {
                      Name = newName,
-                     Namespace = tDef.Namespace,
+                     Namespace = newNS,
                      Attributes = typeAttrs
                   } );
                   thisMergedTypes = new List<Tuple<CILMetaData, Int32>>();
@@ -2863,18 +2886,24 @@ namespace CILMerge
          return attrs;
       }
 
-      private static Boolean MatchTypeString( Regex[] regexes, CILMetaData md, String typeStr )
+      private static Boolean MatchTypeString( Regex[] regexes, CILMetaData md, String typeString )
       {
          var aDefs = md.AssemblyDefinitions.TableContents;
          var hasADefs = aDefs.Count > 0;
-         return regexes.Any( reg => reg.IsMatch( typeStr ) || ( aDefs.Count > 0 && reg.IsMatch( "[" + aDefs[0] + "]" + typeStr ) ) );
+         return regexes.Any( reg => reg.IsMatch( typeString ) || ( aDefs.Count > 0 && reg.IsMatch( CreateAssemblyQualifiedTypeName( aDefs[0], typeString ) ) ) );
+      }
+
+      private static String CreateAssemblyQualifiedTypeName( AssemblyDefinition aDef, String typeString )
+      {
+         return "[" + aDef + "]" + typeString;
       }
 
       private Boolean IsDuplicateOK(
          CILMetaData currentMD,
+         ref String newFullTypeString,
+         ref String newNamespace,
          ref String newName,
          String fullTypeString,
-         ref String newFullTypeString,
          TypeAttributes newTypeAttrs,
          IDictionary<CILMetaData, IDictionary<Int32, String>> allTypeStrings,
          ref ISet<String> allTypeStringsSet
@@ -2882,6 +2911,7 @@ namespace CILMerge
       {
          var unionOption = this._unionOption;
          var unionAll = unionOption.BooleanValue.IsTrue();
+
          var retVal = ( unionAll && MatchTypeString( unionOption.ExcludeRegexes, currentMD, fullTypeString ) )
             || ( !unionAll
                && ( !newTypeAttrs.IsVisibleToOutsideOfDefinedAssembly()
@@ -2893,22 +2923,49 @@ namespace CILMerge
          if ( retVal )
          {
             // Have to rename
-            // TODO introduce rename-file option!
             if ( allTypeStringsSet == null )
             {
                allTypeStringsSet = new HashSet<String>( allTypeStrings.Values.SelectMany( dic => dic.Values ) );
             }
 
-            var i = 1;
-            var namePrefix = fullTypeString;
-            do
+            var renames = this._renames.Value;
+            var aDefs = currentMD.AssemblyDefinitions.TableContents;
+            String renamedValue;
+            var renameWasSpecified = renames.TryGetValue( fullTypeString, out renamedValue )
+               || ( aDefs.Count > 0 && renames.TryGetValue( CreateAssemblyQualifiedTypeName( aDefs[0], fullTypeString ), out renamedValue ) );
+            if ( renameWasSpecified )
             {
-               ++i;
-               fullTypeString = namePrefix + "_" + i;
-            } while ( !allTypeStringsSet.Add( fullTypeString ) );
+               renameWasSpecified = allTypeStringsSet.Add( renamedValue );
+            }
 
-            newFullTypeString = fullTypeString;
-            newName = newName + "_" + i;
+            if ( renameWasSpecified )
+            {
+               // Rename was manually specified in a file, and it was successfully added to the set of all type names
+               // Namespace and name might have changed.
+               newFullTypeString = renamedValue;
+               Miscellaneous.ParseTypeNameStringForNamespace( newFullTypeString, out newNamespace, out newName );
+               String enclosing, nested;
+               if ( Miscellaneous.ParseTypeNameStringForNestedType( newFullTypeString, out enclosing, out nested ) )
+               {
+                  // This is a nested type
+                  newNamespace = null;
+                  newName = nested;
+               }
+            }
+            else
+            {
+               // Perform automatic rename -> old name + _<number> (namespace doesn't change)
+               var i = 1;
+               var namePrefix = fullTypeString;
+               do
+               {
+                  ++i;
+                  fullTypeString = namePrefix + "_" + i;
+               } while ( !allTypeStringsSet.Add( fullTypeString ) );
+
+               newFullTypeString = fullTypeString;
+               newName = newName + "_" + i;
+            }
          }
          return retVal;
       }

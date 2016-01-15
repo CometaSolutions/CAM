@@ -215,6 +215,8 @@ namespace CILMerge.MSBuild
       public String TargetAssemblyName { get; set; }
       public String TargetModuleName { get; set; }
 
+      public String RenameFile { get; set; }
+
       #endregion
 
       #region CILMergeLogCallback Members

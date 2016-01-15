@@ -73,6 +73,7 @@ namespace CILMerge
 
       String TargetAssemblyName { get; set; }
       String TargetModuleName { get; set; }
+      String RenameFile { get; set; }
    }
 
    public interface CILMergeLogCallback
@@ -202,6 +203,7 @@ namespace CILMerge
       public Boolean SkipFixingAssemblyReferences { get; set; }
       public String TargetAssemblyName { get; set; }
       public String TargetModuleName { get; set; }
+      public String RenameFile { get; set; }
    }
 }
 

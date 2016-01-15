@@ -55,6 +55,7 @@ namespace CILMerge
       private const String PAUSE = "pause";
       private const String VERBOSE = "verbose";
       private const String WILDCARDS = "wildcards";
+      private const String RENAME_FILE = "renamefile";
 
       private const String SUBSYSTEMVERSION = "subsystemversion";
       private const String HIGH_ENTROPY_VA = "highentropyva";
@@ -102,7 +103,8 @@ namespace CILMerge
                   new SwitchOptionModel(VERBOSE),
                   new SwitchOptionModel(WILDCARDS),
                   new StringOptionModel(SUBSYSTEMVERSION, new System.Text.RegularExpressions.Regex(@"\d{1,5}\.\d{1,5}")),
-                  new SwitchOptionModel(HIGH_ENTROPY_VA)
+                  new SwitchOptionModel(HIGH_ENTROPY_VA),
+                  new StringOptionModel(RENAME_FILE)
                },
                1,
                LIB,
@@ -258,6 +260,8 @@ namespace CILMerge
          options.KeyFile = RootPath( options.KeyFile );
          options.TargetAssemblyAttributeSource = RootPath( options.TargetAssemblyAttributeSource );
          options.InternalizeExcludeFile = RootPath( options.InternalizeExcludeFile );
+         options.RenameFile = args.GetSingleOptionOrNull( RENAME_FILE )?.OptionValueAsString;
+
          var subSysStr = args.GetSingleOptionOrNull( SUBSYSTEMVERSION ).GetOrDefault( "4.0" );
          var sep = subSysStr.IndexOf( '.' );
          options.SubsystemMajor = Int32.Parse( subSysStr.Substring( 0, sep ) );
