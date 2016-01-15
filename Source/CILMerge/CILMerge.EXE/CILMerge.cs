@@ -33,6 +33,7 @@ namespace CILMerge
       private const String LOG = "log";
       private const String VER = "ver";
       private const String UNION = "union";
+      private const String UNION_EXCLUDE = "unionexclude";
       private const String NODEBUG = "ndebug";
       private const String COPY_ATTRS = "copyattrs";
       private const String ATTR = "attr";
@@ -77,7 +78,8 @@ namespace CILMerge
                   new EnumOptionModel<AssemblyHashAlgorithm>(SIGN_ALGORITHM, true),
                   new StringOptionModel(LOG),
                   new ListOptionModel(VER, new OptionModel(typeof(UInt16), null), ".", 4, 4),
-                  new SwitchOptionModel(UNION),
+                  new StringOptionModel(UNION),
+                  new StringOptionModel(UNION_EXCLUDE),
                   new SwitchOptionModel(NODEBUG),
                   new SwitchOptionModel(COPY_ATTRS),
                   new StringOptionModel(ATTR),
@@ -192,7 +194,8 @@ namespace CILMerge
          {
             options.VerMajor = options.VerMinor = options.VerBuild = options.VerRevision = -1;
          }
-         options.Union = args.GetSingleOptionOrNull( UNION ).GetOrDefault( false );
+         options.Union = args.GetSingleOptionOrNull( UNION )?.OptionValueAsString;
+         options.UnionExcludeFile = args.GetSingleOptionOrNull( UNION_EXCLUDE )?.OptionValueAsString;
          options.NoDebug = args.GetSingleOptionOrNull( NODEBUG ).GetOrDefault( false );
          options.CopyAttributes = args.GetSingleOptionOrNull( COPY_ATTRS ).GetOrDefault( false );
          options.TargetAssemblyAttributeSource = args.GetSingleOptionOrNull( ATTR ).GetOrDefault<String>();

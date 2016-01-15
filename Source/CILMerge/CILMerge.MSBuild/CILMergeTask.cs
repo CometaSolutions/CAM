@@ -183,7 +183,7 @@ namespace CILMerge.MSBuild
 
       public String ReferenceAssembliesDirectory { get; set; }
 
-      public Boolean Union { get; set; }
+      public String Union { get; set; }
 
       public String UnionExcludeFile { get; set; }
 

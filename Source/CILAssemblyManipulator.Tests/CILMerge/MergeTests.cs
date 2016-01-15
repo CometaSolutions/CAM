@@ -80,7 +80,7 @@ namespace CILAssemblyManipulator.Tests.CILMerge
             InputAssemblies = new[] { CILMergeLocation },
             OutPath = Path.Combine( Path.GetDirectoryName( CILMergeLocation ), "CILMergeMerged.dll" ),
             Closed = true,
-            Union = true,
+            UnionAll = true,
             NoDebug = true
          } );
       }
@@ -92,7 +92,7 @@ namespace CILAssemblyManipulator.Tests.CILMerge
          {
             InputAssemblies = new[] { CILMergeLocation },
             OutPath = Path.Combine( Path.GetDirectoryName( CILMergeLocation ), "CILMergeMerged.dll" ),
-            Union = true,
+            UnionAll = true,
             Closed = true,
             InternalizeAll = true,
             UseFullPublicKeyForRefs = true,
@@ -112,7 +112,7 @@ namespace CILAssemblyManipulator.Tests.CILMerge
             InputAssemblies = new[] { Path.Combine( baseDir, "Source", "CILMerge", "CILMerge.MSBuild", "obj", "Release", "CILMerge.MSBuild.dll" ) },
             LibPaths = new[] { outDir },
             OutPath = Path.Combine( outDir, "CILMerge.MSBuild.dll" ),
-            Union = true,
+            UnionAll = true,
             UnionExcludeFile = Path.Combine( baseDir, "Source", "CAMPhysicalUnionExcludes.txt" ),
             Closed = true,
             InternalizeAll = true,
@@ -138,7 +138,7 @@ namespace CILAssemblyManipulator.Tests.CILMerge
             },
             LibPaths = new[] { outDir },
             OutPath = Path.Combine( outDir, "UtilPack.dll" ),
-            Union = true,
+            UnionAll = true,
             Closed = true,
             InternalizeAll = true,
             UseFullPublicKeyForRefs = true,
@@ -177,7 +177,7 @@ namespace CILAssemblyManipulator.Tests.CILMerge
             },
             LibPaths = new[] { outDirSL },
             OutPath = Path.Combine( outDirSL, "CILAssemblyManipulator.Physical.Testing.dll" ),
-            Union = true,
+            UnionAll = true,
             UnionExcludeFile = Path.Combine( baseDir, "Source", "CAMPhysicalUnionExcludes.txt" ),
             UseFullPublicKeyForRefs = true,
             XmlDocs = true,

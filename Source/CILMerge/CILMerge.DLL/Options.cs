@@ -37,9 +37,9 @@ namespace CILMerge
       bool Closed { get; set; }
       bool CopyAttributes { get; set; }
       bool DelaySign { get; set; }
-      string InternalizeExcludeFile { get; set; }
       string[] InputAssemblies { get; set; }
-      String Internalize { get; set; }
+      string Internalize { get; set; }
+      string InternalizeExcludeFile { get; set; }
       string KeyFile { get; set; }
       string CSPName { get; set; }
       CILAssemblyManipulator.Physical.AssemblyHashAlgorithm? SigningAlgorithm { get; set; }
@@ -52,8 +52,7 @@ namespace CILMerge
       CILAssemblyManipulator.Physical.ModuleKind? Target { get; set; }
       String MetadataVersionString { get; set; }
       string ReferenceAssembliesDirectory { get; set; }
-      bool Union { get; set; }
-
+      string Union { get; set; }
       string UnionExcludeFile { get; set; }
       bool UseFullPublicKeyForRefs { get; set; }
       bool Verbose { get; set; }
@@ -144,7 +143,20 @@ namespace CILMerge
       public Int32 VerMinor { get; set; }
       public Int32 VerBuild { get; set; }
       public Int32 VerRevision { get; set; }
-      public Boolean Union { get; set; }
+
+      public Boolean UnionAll
+      {
+         get
+         {
+            return this.Union.ParseAsBooleanSafe();
+         }
+         set
+         {
+            this.Union = value ? Boolean.TrueString : null;
+         }
+      }
+
+      public String Union { get; set; }
 
       public String UnionExcludeFile { get; set; }
       public Boolean NoDebug { get; set; }

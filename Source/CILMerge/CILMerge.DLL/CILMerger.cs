@@ -347,7 +347,10 @@ namespace CILMerge
       AttrFileSpecifiedButDoesNotExist,
       ErrorAccessingInputFile,
       ErrorAccessingReferencedAssembly,
-      ErrorAccessingExcludeFile,
+      ErrorAccessingInternalizeIncludeFile,
+      ErrorAccessingInternalizeExcludeFile,
+      ErrorAccessingUnionIncludeFile,
+      ErrorAccessingUnionExcludeFile,
       ErrorAccessingTargetFile,
       ErrorAccessingSNFile,
       ErrorAccessingLogFile,
@@ -493,6 +496,79 @@ namespace CILMerge
 
    internal class CILAssemblyMerger : AbstractDisposable, IDisposable
    {
+      private sealed class BooleanOrFileOptionWithExcludes
+      {
+         private readonly Lazy<Regex[]> _includeRegexes;
+         private readonly Lazy<Regex[]> _excludeRegexes;
+
+         public BooleanOrFileOptionWithExcludes(
+            String booleanOrString,
+            String excludeFile,
+            Func<Exception, String, Exception> onIncludeError,
+            Func<Exception, String, Exception> onExcludeError
+            )
+         {
+            booleanOrString = booleanOrString?.Trim();
+            var optionIsGiven = !String.IsNullOrEmpty( booleanOrString );
+            Boolean booleanValue;
+            var optionIsIncludeFile = !Boolean.TryParse( booleanOrString, out booleanValue );
+            this.BooleanValue = optionIsGiven ? booleanValue : (Boolean?) null;
+            this._includeRegexes = CreateRegexesFromFile( optionIsGiven && optionIsIncludeFile, booleanOrString, onIncludeError );
+            this._excludeRegexes = CreateRegexesFromFile( optionIsGiven, excludeFile?.Trim(), onExcludeError );
+         }
+
+         public Boolean? BooleanValue { get; }
+
+         public Regex[] IncludeRegexes
+         {
+            get
+            {
+               return this._includeRegexes.Value;
+            }
+         }
+
+         public Regex[] ExcludeRegexes
+         {
+            get
+            {
+               return this._excludeRegexes.Value;
+            }
+         }
+
+         private static Lazy<Regex[]> CreateRegexesFromFile( Boolean isRelevant, String file, Func<Exception, String, Exception> onError )
+         {
+            return new Lazy<Regex[]>( () =>
+            {
+               if ( isRelevant && !String.IsNullOrEmpty( file ) )
+               {
+                  try
+                  {
+                     return File.ReadAllLines( file )
+                        .Select( line => line?.Trim() )
+                        .Where( line => !String.IsNullOrEmpty( line ) )
+                        .Select( line => new Regex( line.Length > 1 && line[0] == '@' ? Regex.Escape( line.Substring( 1 ) ) : line ) )
+                        .ToArray();
+                  }
+                  catch ( Exception exc )
+                  {
+                     var newError = onError( exc, file );
+                     if ( newError == null )
+                     {
+                        throw;
+                     }
+                     else
+                     {
+                        throw newError;
+                     }
+                  }
+               }
+               else
+               {
+                  return Empty<Regex>.Array;
+               }
+            }, LazyThreadSafetyMode.None );
+         }
+      }
 
       private static readonly Type ATTRIBUTE_USAGE_TYPE = typeof( AttributeUsageAttribute );
       private static readonly System.Reflection.PropertyInfo ALLOW_MULTIPLE_PROP = typeof( AttributeUsageAttribute ).GetProperty( "AllowMultiple" );
@@ -522,10 +598,8 @@ namespace CILMerge
 
 
       private readonly IList<String> _targetTypeNames;
-      private readonly Boolean _internalizeAll;
-      private readonly Lazy<Regex[]> _internalizeIncludeRegexes;
-      private readonly Lazy<Regex[]> _internalizeExcludeRegexes;
-      private readonly Lazy<Regex[]> _unionExcludeRegexes;
+      private readonly BooleanOrFileOptionWithExcludes _internalizeOption;
+      private readonly BooleanOrFileOptionWithExcludes _unionOption;
       private readonly String _inputBasePath;
 
       private readonly IEqualityComparer<AssemblyReference> _assemblyReferenceEqualityComparer;
@@ -591,40 +665,20 @@ namespace CILMerge
          this._multipleStaticCtorInfo = new Dictionary<Int32, List<Tuple<CILMetaData, Int32>>>();
          this._targetTypeNames = new List<String>();
 
-         var internalizeOption = options.Internalize;
-         var internalizeIsGiven = !String.IsNullOrEmpty( internalizeOption );
-         var internalizeOptionIsFile = !Boolean.TryParse( internalizeOption, out this._internalizeAll );
+         this._internalizeOption = new BooleanOrFileOptionWithExcludes(
+            options.Internalize,
+            options.InternalizeExcludeFile,
+            ( exc, file ) => this.NewCILMergeException( ExitCode.ErrorAccessingInternalizeIncludeFile, "Error accessing internalize include file " + file + ".", exc ),
+            ( exc, file ) => this.NewCILMergeException( ExitCode.ErrorAccessingInternalizeExcludeFile, "Error accessing internalize exclude file " + file + ".", exc )
+            );
+         this._unionOption = new BooleanOrFileOptionWithExcludes(
+            options.Union,
+            options.UnionExcludeFile,
+            ( exc, file ) => this.NewCILMergeException( ExitCode.ErrorAccessingUnionIncludeFile, "Error accessing union include file " + file + ".", exc ),
+            ( exc, file ) => this.NewCILMergeException( ExitCode.ErrorAccessingUnionExcludeFile, "Error accessing union exclude file " + file + ".", exc )
+            );
 
-         this._internalizeIncludeRegexes = this.CreateRegexesFromFile( internalizeIsGiven && internalizeOptionIsFile, internalizeOption, "internalize include" );
-         this._internalizeExcludeRegexes = this.CreateRegexesFromFile( internalizeIsGiven, options.InternalizeExcludeFile, "internalize exclude" );
-         this._unionExcludeRegexes = this.CreateRegexesFromFile( options.Union, options.UnionExcludeFile, "union exclude" );
          this._inputBasePath = inputBasePath ?? Environment.CurrentDirectory;
-      }
-
-      private Lazy<Regex[]> CreateRegexesFromFile( Boolean isRelevant, String file, String meaning )
-      {
-         return new Lazy<Regex[]>( () =>
-         {
-            if ( isRelevant && !String.IsNullOrEmpty( file ) )
-            {
-               try
-               {
-                  return File.ReadAllLines( file )
-                     .Select( line => line?.Trim() )
-                     .Where( line => !String.IsNullOrEmpty( line ) )
-                     .Select( line => new Regex( line.Length > 1 && line[0] == '@' ? Regex.Escape( line.Substring( 1 ) ) : line ) )
-                     .ToArray();
-               }
-               catch ( Exception exc )
-               {
-                  throw this.NewCILMergeException( ExitCode.ErrorAccessingExcludeFile, "Error accessing " + meaning + " file " + file + ".", exc );
-               }
-            }
-            else
-            {
-               return Empty<Regex>.Array;
-            }
-         }, LazyThreadSafetyMode.None );
       }
 
       internal CILModuleMergeResult MergeModules()
@@ -1152,6 +1206,8 @@ namespace CILMerge
             );
          targetTypeFullNames.Add( targetTypeDefs[0].Name );
 
+         var unionOption = this._unionOption;
+
          foreach ( var md in this._inputModules )
          {
             var thisTypeStrings = typeStrings[md];
@@ -1173,7 +1229,7 @@ namespace CILMerge
                var newName = tDef.Name;
                IList<Tuple<CILMetaData, Int32>> thisMergedTypes;
                var thisTypeFullName = typeStr;
-               if ( added || this.IsDuplicateOK( ref newName, typeStr, ref thisTypeFullName, typeAttrs, typeStrings, ref allTypeStringsSet ) )
+               if ( added || this.IsDuplicateOK( md, ref newName, typeStr, ref thisTypeFullName, typeAttrs, typeStrings, ref allTypeStringsSet ) )
                {
                   targetTypeDefs.Add( new TypeDefinition()
                   {
@@ -1185,7 +1241,7 @@ namespace CILMerge
                   targetTypeInfo.Add( thisMergedTypes );
                   targetTypeFullNames.Add( thisTypeFullName );
                }
-               else if ( this._options.Union )
+               else if ( unionOption.BooleanValue.IsTrue() || MatchTypeString( unionOption.IncludeRegexes, md, typeStr ) )
                {
                   targetTDefIdx = currentlyAddedTypeNames[typeStr];
                   thisMergedTypes = targetTypeInfo[targetTDefIdx];
@@ -2780,12 +2836,12 @@ namespace CILMerge
       {
          var attrs = md.TypeDefinitions.TableContents[tDefIndex].Attributes;
          // TODO cache all modules assembly def strings so we wouldn't call AssemblyDefinition.ToString() too excessively
-         if ( !this._primaryModule.Equals( md )
-            && (
-               this._internalizeAll
-               || MatchTypeString( this._internalizeIncludeRegexes, md, typeString )
-               )
-            && !MatchTypeString( this._internalizeExcludeRegexes, md, typeString )
+         var internalizeOption = this._internalizeOption;
+         if ( (
+               ( !this._primaryModule.Equals( md ) && internalizeOption.BooleanValue.IsTrue() )
+               || MatchTypeString( internalizeOption.IncludeRegexes, md, typeString )
+              )
+            && !MatchTypeString( internalizeOption.ExcludeRegexes, md, typeString )
             )
          {
             // Have to make this type internal
@@ -2807,14 +2863,15 @@ namespace CILMerge
          return attrs;
       }
 
-      private static Boolean MatchTypeString( Lazy<Regex[]> regexes, CILMetaData md, String typeStr )
+      private static Boolean MatchTypeString( Regex[] regexes, CILMetaData md, String typeStr )
       {
          var aDefs = md.AssemblyDefinitions.TableContents;
          var hasADefs = aDefs.Count > 0;
-         return regexes.Value.Any( reg => reg.IsMatch( typeStr ) || ( aDefs.Count > 0 && reg.IsMatch( "[" + aDefs[0] + "]" + typeStr ) ) );
+         return regexes.Any( reg => reg.IsMatch( typeStr ) || ( aDefs.Count > 0 && reg.IsMatch( "[" + aDefs[0] + "]" + typeStr ) ) );
       }
 
       private Boolean IsDuplicateOK(
+         CILMetaData currentMD,
          ref String newName,
          String fullTypeString,
          ref String newFullTypeString,
@@ -2823,9 +2880,10 @@ namespace CILMerge
          ref ISet<String> allTypeStringsSet
          )
       {
-
-         var retVal = ( this._options.Union && this._unionExcludeRegexes.Value.Any( r => r.IsMatch( fullTypeString ) ) )
-            || ( !this._options.Union
+         var unionOption = this._unionOption;
+         var unionAll = unionOption.BooleanValue.IsTrue();
+         var retVal = ( unionAll && MatchTypeString( unionOption.ExcludeRegexes, currentMD, fullTypeString ) )
+            || ( !unionAll
                && ( !newTypeAttrs.IsVisibleToOutsideOfDefinedAssembly()
                   || this._options.AllowDuplicateTypes == null
                   || this._options.AllowDuplicateTypes.Contains( fullTypeString )

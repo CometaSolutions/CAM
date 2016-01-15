@@ -27,7 +27,7 @@ using TabularMetaData;
 namespace CILAssemblyManipulator.Physical
 {
 
-   // TODO internalize this in merge.
+   // Note: This class will become internal when merging CAM.Physical DLL.
    public static class CAMCoreInternals
    {
       public const Int32 INDEX_MASK = 0x00FFFFF;

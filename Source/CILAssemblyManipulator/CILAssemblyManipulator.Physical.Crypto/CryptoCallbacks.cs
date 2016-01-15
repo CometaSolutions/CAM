@@ -144,7 +144,7 @@ namespace CILAssemblyManipulator.Physical.Crypto
    }
 
    // Most info from http://msdn.microsoft.com/en-us/library/cc250013.aspx 
-   // TODO internalize this in merge.
+   // Note: This class will become internal when merging CAM.Physical DLL.
    public static class CryptoUtils
    {
       private const UInt32 RSA1 = 0x31415352;
