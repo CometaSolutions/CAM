@@ -108,6 +108,7 @@
     <Compile Include="DotNET\API.cs" />
     <Compile Include="DotNET\Loaders.cs" />
     <Compile Include="DotNET\TargetFrameworkMapper.cs" />
+    <Compile Include="Enums.cs" />
     <Compile Include="Headers.cs" />
     <Compile Include="Loading.cs" />
     <Compile Include="Loading.Resolving.cs" />
@@ -128,10 +129,8 @@
   </ItemGroup>
   <Import Condition=" '$(CAMPhysicalIsPortable)' == '' " Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
   <Import Condition=" '$(CAMPhysicalIsPortable)' != '' " Project="$(MSBuildExtensionsPath32)\Microsoft\Portable\$(TargetFrameworkVersion)\Microsoft.Portable.CSharp.targets" />
-  
   <!-- When building from .build file, delete output file, since it might be of wrong configuration/have unexpected references -->
   <Target Condition=" '$(IsCommandLineBuild)' != '' " Name="BeforeBuild">
     <Delete Files="$(OutputPath)$(AssemblyName).dll" />
   </Target>
-
 </Project>

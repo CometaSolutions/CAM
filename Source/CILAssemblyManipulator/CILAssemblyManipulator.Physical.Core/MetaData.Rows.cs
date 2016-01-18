@@ -431,11 +431,11 @@ namespace CILAssemblyManipulator.Physical
    public sealed class ConstantDefinition
    {
       /// <summary>
-      /// Gets or sets the <see cref="SignatureElementTypes"/> for this <see cref="ConstantDefinition"/>.
+      /// Gets or sets the <see cref="ConstantValueType"/> for this <see cref="ConstantDefinition"/>.
       /// </summary>
-      /// <value>The <see cref="SignatureElementTypes"/> for this <see cref="ConstantDefinition"/>.</value>
-      /// <seealso cref="SignatureElementTypes"/>
-      public SignatureElementTypes Type { get; set; }
+      /// <value>The <see cref="ConstantValueType"/> for this <see cref="ConstantDefinition"/>.</value>
+      /// <seealso cref="ConstantValueType"/>
+      public ConstantValueType Type { get; set; }
 
       /// <summary>
       /// Gets or sets the owner for this <see cref="ConstantDefinition"/>.
@@ -456,6 +456,30 @@ namespace CILAssemblyManipulator.Physical
       /// If this property is <c>null</c>, then <see cref="Type"/> property should be <see cref="SignatureElementTypes.Class"/>.
       /// </remarks>
       public Object Value { get; set; }
+   }
+
+   /// <summary>
+   /// This enumeration represents the kind of <see cref="ConstantDefinition.Value"/>.
+   /// </summary>
+   /// <remarks>
+   /// The values of this enumeration are safe to be casted to <see cref="T:CILAssemblyManipulator.Physical.IO.SignatureElementTypes"/>.
+   /// </remarks>
+   public enum ConstantValueType : byte
+   {
+      Boolean = 0x02, // Same as SignatureElementTypes.Boolean
+      Char,
+      I1,
+      U1,
+      I2,
+      U2,
+      I4,
+      U4,
+      I8,
+      U8,
+      R4,
+      R8,
+      String,
+      Class = 0x12, // Same as SignatureElementTypes.Class
    }
 
    /// <summary>
@@ -674,7 +698,7 @@ namespace CILAssemblyManipulator.Physical
       public AbstractSignature Signature { get; set; }
 
       /// <summary>
-      /// Gets or sets the indicator, whether the <see cref="Signature"/> should be serialized with <see cref="SignatureStarters.Field"/> prefix.
+      /// Gets or sets the indicator, whether the <see cref="Signature"/> should be serialized with <see cref="MethodSignatureInformation.Field"/> prefix.
       /// </summary>
       /// <remarks>
       /// <para>
@@ -1562,36 +1586,6 @@ namespace CILAssemblyManipulator.Physical
 
 public static partial class E_CILPhysical
 {
-   public static Boolean IsHasThis( this SignatureStarters starter )
-   {
-      return ( starter & SignatureStarters.HasThis ) != 0;
-   }
-
-   public static Boolean IsExplicitThis( this SignatureStarters starter )
-   {
-      return ( starter & SignatureStarters.ExplicitThis ) != 0;
-   }
-
-   public static Boolean IsDefault( this SignatureStarters starter )
-   {
-      return starter == 0;
-   }
-
-   public static Boolean IsVarArg( this SignatureStarters starter )
-   {
-      return ( starter & SignatureStarters.VarArgs ) != 0;
-   }
-
-   public static Boolean IsGeneric( this SignatureStarters starter )
-   {
-      return ( starter & SignatureStarters.Generic ) != 0;
-   }
-
-   public static Boolean IsProperty( this SignatureStarters starter )
-   {
-      return ( starter & SignatureStarters.Property ) != 0;
-   }
-
    /// <summary>
    /// Checks whether the method is eligible to have method body. See ECMA specification (condition 33 for MethodDef table) for exact condition of methods having method bodies. In addition to that, the <see cref="E_CIL.IsIL"/> must return <c>true</c>.
    /// </summary>
@@ -1614,11 +1608,11 @@ public static partial class E_CILPhysical
       return index.ChangeIndex( index.Index + amount );
    }
 
-   public static Boolean IsSimpleTypeOfKind( this CustomAttributeArgumentType caType, SignatureElementTypes typeKind )
-   {
-      return caType.ArgumentTypeKind == CustomAttributeArgumentTypeKind.Simple
-         && ( (CustomAttributeArgumentTypeSimple) caType ).SimpleType == typeKind;
-   }
+   //public static Boolean IsSimpleTypeOfKind( this CustomAttributeArgumentType caType, SignatureElementTypes typeKind )
+   //{
+   //   return caType.ArgumentTypeKind == CustomAttributeArgumentTypeKind.Simple
+   //      && ( (CustomAttributeArgumentTypeSimple) caType ).SimpleType == typeKind;
+   //}
 
    public static Boolean CanBeReferencedFromIL( this Tables table )
    {

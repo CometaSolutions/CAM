@@ -623,10 +623,10 @@ public static partial class E_CILLogical
 
    private static void AddToConstantTable( this PhysicalCreationState state, TableIndex parent, Object constant )
    {
-      SignatureElementTypes sig;
+      ConstantValueType sig;
       if ( constant == null )
       {
-         sig = SignatureElementTypes.Class;
+         sig = ConstantValueType.Class;
       }
       else
       {
@@ -635,43 +635,43 @@ public static partial class E_CILLogical
          switch ( tc )
          {
             case TypeCode.Boolean:
-               sig = SignatureElementTypes.Boolean;
+               sig = ConstantValueType.Boolean;
                break;
             case TypeCode.Char:
-               sig = SignatureElementTypes.Char;
+               sig = ConstantValueType.Char;
                break;
             case TypeCode.SByte:
-               sig = SignatureElementTypes.I1;
+               sig = ConstantValueType.I1;
                break;
             case TypeCode.Byte:
-               sig = SignatureElementTypes.U1;
+               sig = ConstantValueType.U1;
                break;
             case TypeCode.Int16:
-               sig = SignatureElementTypes.I2;
+               sig = ConstantValueType.I2;
                break;
             case TypeCode.UInt16:
-               sig = SignatureElementTypes.U2;
+               sig = ConstantValueType.U2;
                break;
             case TypeCode.Int32:
-               sig = SignatureElementTypes.I4;
+               sig = ConstantValueType.I4;
                break;
             case TypeCode.UInt32:
-               sig = SignatureElementTypes.U4;
+               sig = ConstantValueType.U4;
                break;
             case TypeCode.Int64:
-               sig = SignatureElementTypes.I8;
+               sig = ConstantValueType.I8;
                break;
             case TypeCode.UInt64:
-               sig = SignatureElementTypes.U8;
+               sig = ConstantValueType.U8;
                break;
             case TypeCode.Single:
-               sig = SignatureElementTypes.R4;
+               sig = ConstantValueType.R4;
                break;
             case TypeCode.Double:
-               sig = SignatureElementTypes.R8;
+               sig = ConstantValueType.R8;
                break;
             case TypeCode.String:
-               sig = SignatureElementTypes.String;
+               sig = ConstantValueType.String;
                break;
             default:
                throw new InvalidOperationException( "Constant of type " + constant.GetType() + " is not supported." );
@@ -1429,7 +1429,7 @@ public static partial class E_CILLogical
    {
       var retVal = new MethodReferenceSignature( method.Parameters.Count );
       retVal.GenericArgumentCount = 0;
-      retVal.SignatureStarter = (SignatureStarters) method.CallingConvention;
+      retVal.MethodSignatureInformation = (MethodSignatureInformation) method.CallingConvention;
       retVal.ReturnType = state.CreateParameterSignature( method.ReturnParameter );
       retVal.Parameters.AddRange( method.Parameters.Select( p => state.CreateParameterSignature( p ) ) );
       return retVal;
@@ -1440,7 +1440,7 @@ public static partial class E_CILLogical
       var m = method.MethodKind == MethodKind.Method ? (CILMethod) method : null;
       var isGeneric = m.HasGenericArguments();
       sig.GenericArgumentCount = isGeneric ? m.GenericArguments.Count : 0;
-      sig.SignatureStarter = method.CallingConvention.GetSignatureStarter( method.Attributes.IsStatic(), isGeneric );
+      sig.MethodSignatureInformation = method.CallingConvention.GetSignatureStarter( method.Attributes.IsStatic(), isGeneric );
       sig.ReturnType = m == null ?
          new ParameterSignature()
          {

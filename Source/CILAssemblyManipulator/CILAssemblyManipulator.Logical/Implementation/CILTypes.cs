@@ -434,7 +434,7 @@ namespace CILAssemblyManipulator.Logical.Implementation
                   var layout = ctx.WrapperCallbacks.GetStructLayoutAttributeOrThrow( type );
                   return new LogicalClassLayout( layout.Size
 #if !CAM_LOGICAL_IS_SL
-                     // For some reason, SL version of this attribute does not have Pack property...
+// For some reason, SL version of this attribute does not have Pack property...
 , layout.Pack
 #endif
  );
@@ -1386,7 +1386,7 @@ namespace CILAssemblyManipulator.Logical.Implementation
    // -> behavious is very tricky from user point of view
    internal class CILMethodSignatureImpl : AbstractSignatureElement, CILMethodSignature, CILTypeBaseInternal
    {
-      private readonly UnmanagedCallingConventions _callConv;
+      private readonly MethodSignatureInformation _callConv;
       private readonly CILModule _module;
       private readonly ListQuery<CILParameterSignature> _params;
       private readonly CILParameterSignature _returnParam;
@@ -1394,7 +1394,7 @@ namespace CILAssemblyManipulator.Logical.Implementation
       private readonly Lazy<SettableValueForClasses<String>> _nameDummy;
       private readonly CILMethodBase _originatingMethod;
 
-      internal CILMethodSignatureImpl( CILReflectionContextImpl ctx, CILModule module, UnmanagedCallingConventions callConv, ListProxy<CILCustomModifier> rpCMods, CILTypeBase rpType, IList<Tuple<ListProxy<CILCustomModifier>, CILTypeBase>> paramsInfo, CILMethodBase originatingMethod )
+      internal CILMethodSignatureImpl( CILReflectionContextImpl ctx, CILModule module, MethodSignatureInformation callConv, ListProxy<CILCustomModifier> rpCMods, CILTypeBase rpType, IList<Tuple<ListProxy<CILCustomModifier>, CILTypeBase>> paramsInfo, CILMethodBase originatingMethod )
          : base( ctx )
       {
          ArgumentValidator.ValidateNotNull( "Module", module );
@@ -1478,7 +1478,7 @@ namespace CILAssemblyManipulator.Logical.Implementation
 
       #region CILMethodOrSignature<CILParameterSignature> Members
 
-      public UnmanagedCallingConventions CallingConvention
+      public MethodSignatureInformation CallingConvention
       {
          get
          {

@@ -564,37 +564,9 @@ public static partial class E_CILPhysical
       switch ( type.TypeSignatureKind )
       {
          case TypeSignatureKind.Simple:
-            switch ( ( (SimpleTypeSignature) type ).SimpleType )
-            {
-               case SignatureElementTypes.Boolean:
-                  return CustomAttributeArgumentTypeSimple.Boolean;
-               case SignatureElementTypes.Char:
-                  return CustomAttributeArgumentTypeSimple.Char;
-               case SignatureElementTypes.I1:
-                  return CustomAttributeArgumentTypeSimple.SByte;
-               case SignatureElementTypes.U1:
-                  return CustomAttributeArgumentTypeSimple.Byte;
-               case SignatureElementTypes.I2:
-                  return CustomAttributeArgumentTypeSimple.Int16;
-               case SignatureElementTypes.U2:
-                  return CustomAttributeArgumentTypeSimple.UInt16;
-               case SignatureElementTypes.I4:
-                  return CustomAttributeArgumentTypeSimple.Int32;
-               case SignatureElementTypes.U4:
-                  return CustomAttributeArgumentTypeSimple.UInt32;
-               case SignatureElementTypes.I8:
-                  return CustomAttributeArgumentTypeSimple.Int64;
-               case SignatureElementTypes.U8:
-                  return CustomAttributeArgumentTypeSimple.UInt64;
-               case SignatureElementTypes.R4:
-                  return CustomAttributeArgumentTypeSimple.Single;
-               case SignatureElementTypes.R8:
-                  return CustomAttributeArgumentTypeSimple.Double;
-               case SignatureElementTypes.String:
-                  return CustomAttributeArgumentTypeSimple.String;
-               default:
-                  return null;
-            }
+            CustomAttributeArgumentTypeSimple simple;
+            CustomAttributeArgumentTypeSimple.TryGetByKind( (CustomAttributeArgumentTypeSimpleKind) ( (SimpleTypeSignature) type ).SimpleType, out simple );
+            return simple; // Will be null if resolving unsuccessful
          case TypeSignatureKind.ClassOrValue:
             var clazz = (ClassOrValueTypeSignature) type;
             if ( clazz.GenericArguments.Count <= 0 )

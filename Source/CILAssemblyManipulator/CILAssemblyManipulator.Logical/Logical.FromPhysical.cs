@@ -15,6 +15,14 @@
  * See the License for the specific language governing permissions and
  * limitations under the License. 
  */
+#if !NO_ALIASES
+extern alias CAMPhysical;
+using CAMPhysical;
+using CAMPhysical::CILAssemblyManipulator.Physical.IO;
+#else
+using CILAssemblyManipulator.Physical.IO;
+#endif
+
 using CILAssemblyManipulator.Logical;
 using CILAssemblyManipulator.Physical;
 using CommonUtils;
@@ -590,7 +598,7 @@ public static partial class E_CILLogical
                var fn = ( (FunctionPointerTypeSignature) sig ).MethodSignature;
                return this._module.ReflectionContext.NewMethodSignature(
                   this._module,
-                  (UnmanagedCallingConventions) fn.SignatureStarter,
+                  fn.MethodSignatureInformation,
                   this.ResolveParamSignature( fn.ReturnType, contextType, contextMethod, populateAssemblyRefStructure ),
                   fn.ReturnType.CustomModifiers.Select( cm => CILCustomModifierFactory.CreateModifier( cm.IsOptional, (CILType) this.ResolveTypeDefOrRefOrSpec( cm.CustomModifierType, contextType, contextMethod, populateAssemblyRefStructure ) ) ).ToArray(),
                   fn.Parameters.Select( p => Tuple.Create( p.CustomModifiers.Select( cm => CILCustomModifierFactory.CreateModifier( cm.IsOptional, (CILType) this.ResolveTypeDefOrRefOrSpec( cm.CustomModifierType, contextType, contextMethod, populateAssemblyRefStructure ) ) ).ToArray(), this.ResolveParamSignature( p, contextType, contextMethod ) ) ).ToArray()
@@ -630,7 +638,7 @@ public static partial class E_CILLogical
             case TypeSignatureKind.Pointer:
                return this.ResolveTypeSignature( ( (PointerTypeSignature) sig ).PointerType, contextType, contextMethod, populateAssemblyRefStructure ).MakePointerType();
             case TypeSignatureKind.Simple:
-               return this.ResolveSimpleType( ( (SimpleTypeSignature) sig ).SimpleType );
+               return this.ResolveSimpleType( (SignatureElementTypes) ( (SimpleTypeSignature) sig ).SimpleType );
             case TypeSignatureKind.SimpleArray:
                return this.ResolveTypeSignature( ( (SimpleArrayTypeSignature) sig ).ArrayType, contextType, contextMethod, populateAssemblyRefStructure ).MakeArrayType();
             default:
@@ -832,7 +840,11 @@ public static partial class E_CILLogical
          }
       }
 
-      internal CILType ResolveSimpleType( SignatureElementTypes sigType )
+      internal CILType ResolveSimpleType(
+#if !NO_ALIASES
+         CAMPhysical::
+#endif
+         CILAssemblyManipulator.Physical.IO.SignatureElementTypes sigType )
       {
          return this._simpleTypes.GetOrAdd_NotThreadSafe( sigType, st =>
          {
@@ -1054,7 +1066,7 @@ public static partial class E_CILLogical
 
       private Boolean MatchMethodSignatures( AbstractMethodSignature thisSignature, LogicalAssemblyCreationResult declaringTypeCreationResult, AbstractMethodSignature declaringTypeSignature )
       {
-         return thisSignature.SignatureStarter == declaringTypeSignature.SignatureStarter
+         return thisSignature.MethodSignatureInformation == declaringTypeSignature.MethodSignatureInformation
             && thisSignature.GenericArgumentCount == declaringTypeSignature.GenericArgumentCount
             && ListEqualityComparer<List<ParameterSignature>, ParameterSignature>.ListEquality( thisSignature.Parameters, declaringTypeSignature.Parameters, ( t, d ) => this.MatchParameterSignatures( t, declaringTypeCreationResult, d ) )
             && this.MatchParameterSignatures( thisSignature.ReturnType, declaringTypeCreationResult, declaringTypeSignature.ReturnType );
@@ -1596,8 +1608,8 @@ public static partial class E_CILLogical
          var name = method.Name;
          var isCtor = String.Equals( name, Miscellaneous.INSTANCE_CTOR_NAME ) || String.Equals( name, Miscellaneous.CLASS_CTOR_NAME );
          var cilMethod = isCtor ?
-            (CILMethodBase) typeDef.AddConstructor( method.Attributes, method.Signature.SignatureStarter.GetCallingConventionFromSignature() ) :
-            typeDef.AddMethod( name, method.Attributes, method.Signature.SignatureStarter.GetCallingConventionFromSignature() );
+            (CILMethodBase) typeDef.AddConstructor( method.Attributes, method.Signature.MethodSignatureInformation.GetCallingConventionFromSignature() ) :
+            typeDef.AddMethod( name, method.Attributes, method.Signature.MethodSignatureInformation.GetCallingConventionFromSignature() );
          state.RecordMethodDef( cilMethod, mIdx );
          cilMethod.ImplementationAttributes = method.ImplementationAttributes;
 
@@ -1634,23 +1646,23 @@ public static partial class E_CILLogical
       {
          switch ( ( (SimpleTypeSignature) typeSig ).SimpleType )
          {
-            case SignatureElementTypes.Char:
+            case SimpleTypeSignatureKind.Char:
                return CILTypeCode.Char;
-            case SignatureElementTypes.I1:
+            case SimpleTypeSignatureKind.I1:
                return CILTypeCode.SByte;
-            case SignatureElementTypes.U1:
+            case SimpleTypeSignatureKind.U1:
                return CILTypeCode.Byte;
-            case SignatureElementTypes.I2:
+            case SimpleTypeSignatureKind.I2:
                return CILTypeCode.Int16;
-            case SignatureElementTypes.U2:
+            case SimpleTypeSignatureKind.U2:
                return CILTypeCode.UInt16;
-            case SignatureElementTypes.I4:
+            case SimpleTypeSignatureKind.I4:
                return CILTypeCode.Int32;
-            case SignatureElementTypes.U4:
+            case SimpleTypeSignatureKind.U4:
                return CILTypeCode.UInt64;
-            case SignatureElementTypes.I8:
+            case SimpleTypeSignatureKind.I8:
                return CILTypeCode.Int64;
-            case SignatureElementTypes.U8:
+            case SimpleTypeSignatureKind.U8:
                return CILTypeCode.UInt64;
             default:
                return CILTypeCode.Object;
@@ -2285,7 +2297,7 @@ public static partial class E_CILLogical
       switch ( sigType.ArgumentTypeKind )
       {
          case CustomAttributeArgumentTypeKind.Simple:
-            return state.ResolveSimpleType( ( (CustomAttributeArgumentTypeSimple) sigType ).SimpleType );
+            return state.ResolveSimpleType( (SignatureElementTypes) ( (CustomAttributeArgumentTypeSimple) sigType ).SimpleType );
          case CustomAttributeArgumentTypeKind.Array:
             return state.ResolveCAType( ( (CustomAttributeArgumentTypeArray) sigType ).ArrayType ).MakeArrayType();
          case CustomAttributeArgumentTypeKind.TypeString:

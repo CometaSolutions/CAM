@@ -627,30 +627,30 @@ namespace CILAssemblyManipulator.Logical
          return Object.ReferenceEquals( element, element.GenericDefinition );
       }
 
-      internal static SignatureStarters GetSignatureStarter( this CallingConventions convs, Boolean isStatic, Boolean isGeneric )
+      internal static MethodSignatureInformation GetSignatureStarter( this CallingConventions convs, Boolean isStatic, Boolean isGeneric )
       {
-         var starter = SignatureStarters.Default;
+         var starter = MethodSignatureInformation.Default;
          if ( !isStatic )
          {
-            starter |= SignatureStarters.HasThis;
+            starter |= MethodSignatureInformation.HasThis;
          }
          if ( convs.IsExplicitThis() )
          {
-            starter |= SignatureStarters.ExplicitThis;
+            starter |= MethodSignatureInformation.ExplicitThis;
          }
 
          if ( isGeneric )
          {
-            starter |= SignatureStarters.Generic;
+            starter |= MethodSignatureInformation.Generic;
          }
          else if ( convs.IsVarArgs() )
          {
-            starter |= SignatureStarters.VarArgs;
+            starter |= MethodSignatureInformation.VarArgs;
          }
          return starter;
       }
 
-      internal static CallingConventions GetCallingConventionFromSignature( this SignatureStarters starter )
+      internal static CallingConventions GetCallingConventionFromSignature( this MethodSignatureInformation starter )
       {
          // TODO is this method correct?
          CallingConventions result = 0;

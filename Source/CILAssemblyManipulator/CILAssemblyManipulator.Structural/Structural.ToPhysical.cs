@@ -918,10 +918,10 @@ public static partial class E_CILStructural
       if ( constantStruct.HasValue )
       {
          var constant = constantStruct.Value.Constant;
-         SignatureElementTypes sig;
+         ConstantValueType sig;
          if ( constant == null )
          {
-            sig = SignatureElementTypes.Class;
+            sig = ConstantValueType.Class;
          }
          else
          {
@@ -930,43 +930,43 @@ public static partial class E_CILStructural
             switch ( tc )
             {
                case TypeCode.Boolean:
-                  sig = SignatureElementTypes.Boolean;
+                  sig = ConstantValueType.Boolean;
                   break;
                case TypeCode.Char:
-                  sig = SignatureElementTypes.Char;
+                  sig = ConstantValueType.Char;
                   break;
                case TypeCode.SByte:
-                  sig = SignatureElementTypes.I1;
+                  sig = ConstantValueType.I1;
                   break;
                case TypeCode.Byte:
-                  sig = SignatureElementTypes.U1;
+                  sig = ConstantValueType.U1;
                   break;
                case TypeCode.Int16:
-                  sig = SignatureElementTypes.I2;
+                  sig = ConstantValueType.I2;
                   break;
                case TypeCode.UInt16:
-                  sig = SignatureElementTypes.U2;
+                  sig = ConstantValueType.U2;
                   break;
                case TypeCode.Int32:
-                  sig = SignatureElementTypes.I4;
+                  sig = ConstantValueType.I4;
                   break;
                case TypeCode.UInt32:
-                  sig = SignatureElementTypes.U4;
+                  sig = ConstantValueType.U4;
                   break;
                case TypeCode.Int64:
-                  sig = SignatureElementTypes.I8;
+                  sig = ConstantValueType.I8;
                   break;
                case TypeCode.UInt64:
-                  sig = SignatureElementTypes.U8;
+                  sig = ConstantValueType.U8;
                   break;
                case TypeCode.Single:
-                  sig = SignatureElementTypes.R4;
+                  sig = ConstantValueType.R4;
                   break;
                case TypeCode.Double:
-                  sig = SignatureElementTypes.R8;
+                  sig = ConstantValueType.R8;
                   break;
                case TypeCode.String:
-                  sig = SignatureElementTypes.String;
+                  sig = ConstantValueType.String;
                   break;
                default:
                   throw new InvalidOperationException( "Constant of type " + constant.GetType() + " is not supported." );
@@ -1202,7 +1202,7 @@ public static partial class E_CILStructural
                state.AddPhysicalCustomMods( ptrP.CustomModifiers, ptr.CustomModifiers );
                return ptrP;
             case TypeStructureSignatureKind.Simple:
-               return SimpleTypeSignature.GetByElement( ( (SimpleTypeStructureSignature) sig ).SimpleType );
+               return SimpleTypeSignature.GetByKind( ( (SimpleTypeStructureSignature) sig ).SimpleType );
             case TypeStructureSignatureKind.SimpleArray:
                var array = (SimpleArrayTypeStructureSignature) sig;
                var arrayP = new SimpleArrayTypeSignature( array.CustomModifiers.Count )
@@ -1246,7 +1246,7 @@ public static partial class E_CILStructural
 
    private static void PopulateAbstractPhysicalMethodSignature( this PhysicalCreationState state, AbstractMethodSignature physicalSig, AbstractMethodStructureSignature structureSig )
    {
-      physicalSig.SignatureStarter = structureSig.SignatureStarter;
+      physicalSig.MethodSignatureInformation = structureSig.SignatureStarter;
       physicalSig.GenericArgumentCount = structureSig.GenericArgumentCount;
       physicalSig.ReturnType = state.CreatePhysicalParameterSignature( structureSig.ReturnType );
       physicalSig.Parameters.AddRange( structureSig.Parameters.Select( p => state.CreatePhysicalParameterSignature( p ) ) );

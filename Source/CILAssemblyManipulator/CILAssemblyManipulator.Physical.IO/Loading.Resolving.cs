@@ -630,43 +630,11 @@ namespace CILAssemblyManipulator.Physical.IO
       }
 
 
-      private static CustomAttributeArgumentTypeSimple ResolveCATypeSimple( SignatureElementTypes elementType )
+      private static CustomAttributeArgumentTypeSimple ResolveCATypeSimple( SimpleTypeSignatureKind elementType )
       {
-         switch ( elementType )
-         {
-            case SignatureElementTypes.Boolean:
-               return CustomAttributeArgumentTypeSimple.Boolean;
-            case SignatureElementTypes.Char:
-               return CustomAttributeArgumentTypeSimple.Char;
-            case SignatureElementTypes.I1:
-               return CustomAttributeArgumentTypeSimple.SByte;
-            case SignatureElementTypes.U1:
-               return CustomAttributeArgumentTypeSimple.Byte;
-            case SignatureElementTypes.I2:
-               return CustomAttributeArgumentTypeSimple.Int16;
-            case SignatureElementTypes.U2:
-               return CustomAttributeArgumentTypeSimple.UInt16;
-            case SignatureElementTypes.I4:
-               return CustomAttributeArgumentTypeSimple.Int32;
-            case SignatureElementTypes.U4:
-               return CustomAttributeArgumentTypeSimple.UInt32;
-            case SignatureElementTypes.I8:
-               return CustomAttributeArgumentTypeSimple.Int64;
-            case SignatureElementTypes.U8:
-               return CustomAttributeArgumentTypeSimple.UInt64;
-            case SignatureElementTypes.R4:
-               return CustomAttributeArgumentTypeSimple.Single;
-            case SignatureElementTypes.R8:
-               return CustomAttributeArgumentTypeSimple.Double;
-            case SignatureElementTypes.String:
-               return CustomAttributeArgumentTypeSimple.String;
-            case SignatureElementTypes.Object:
-               return CustomAttributeArgumentTypeSimple.Object;
-            case SignatureElementTypes.Type:
-               return CustomAttributeArgumentTypeSimple.Type;
-            default:
-               return null;
-         }
+         CustomAttributeArgumentTypeSimple retVal;
+         CustomAttributeArgumentTypeSimple.TryGetByKind( (CustomAttributeArgumentTypeSimpleKind) elementType, out retVal );
+         return retVal; // Will be null if resolving unsuccessful
       }
 
       private CustomAttributeArgumentTypeEnum ResolveCATypeFromTableIndex(
@@ -766,54 +734,54 @@ namespace CILAssemblyManipulator.Physical.IO
                case CustomAttributeArgumentTypeKind.Simple:
                   switch ( ( (CustomAttributeArgumentTypeSimple) type ).SimpleType )
                   {
-                     case SignatureElementTypes.Boolean:
+                     case CustomAttributeArgumentTypeSimpleKind.Boolean:
                         value = caBLOB.ReadByteFromBytes( ref idx ) == 1;
                         break;
-                     case SignatureElementTypes.Char:
+                     case CustomAttributeArgumentTypeSimpleKind.Char:
                         value = Convert.ToChar( caBLOB.ReadUInt16LEFromBytes( ref idx ) );
                         break;
-                     case SignatureElementTypes.I1:
+                     case CustomAttributeArgumentTypeSimpleKind.I1:
                         value = caBLOB.ReadSByteFromBytes( ref idx );
                         break;
-                     case SignatureElementTypes.U1:
+                     case CustomAttributeArgumentTypeSimpleKind.U1:
                         value = caBLOB.ReadByteFromBytes( ref idx );
                         break;
-                     case SignatureElementTypes.I2:
+                     case CustomAttributeArgumentTypeSimpleKind.I2:
                         value = caBLOB.ReadInt16LEFromBytes( ref idx );
                         break;
-                     case SignatureElementTypes.U2:
+                     case CustomAttributeArgumentTypeSimpleKind.U2:
                         value = caBLOB.ReadUInt32LEFromBytes( ref idx );
                         break;
-                     case SignatureElementTypes.I4:
+                     case CustomAttributeArgumentTypeSimpleKind.I4:
                         value = caBLOB.ReadInt32LEFromBytes( ref idx );
                         break;
-                     case SignatureElementTypes.U4:
+                     case CustomAttributeArgumentTypeSimpleKind.U4:
                         value = caBLOB.ReadUInt32LEFromBytes( ref idx );
                         break;
-                     case SignatureElementTypes.I8:
+                     case CustomAttributeArgumentTypeSimpleKind.I8:
                         value = caBLOB.ReadInt64LEFromBytes( ref idx );
                         break;
-                     case SignatureElementTypes.U8:
+                     case CustomAttributeArgumentTypeSimpleKind.U8:
                         value = caBLOB.ReadUInt64LEFromBytes( ref idx );
                         break;
-                     case SignatureElementTypes.R4:
+                     case CustomAttributeArgumentTypeSimpleKind.R4:
                         value = caBLOB.ReadSingleLEFromBytes( ref idx );
                         break;
-                     case SignatureElementTypes.R8:
+                     case CustomAttributeArgumentTypeSimpleKind.R8:
                         value = caBLOB.ReadDoubleLEFromBytes( ref idx );
                         break;
-                     case SignatureElementTypes.String:
+                     case CustomAttributeArgumentTypeSimpleKind.String:
                         success = caBLOB.ReadLenPrefixedUTF8String( ref idx, out str );
                         value = str;
                         break;
-                     case SignatureElementTypes.Object:
+                     case CustomAttributeArgumentTypeSimpleKind.Type:
+                        success = caBLOB.ReadLenPrefixedUTF8String( ref idx, out str );
+                        value = success ? (Object) new CustomAttributeValue_TypeReference( str ) : null;
+                        break;
+                     case CustomAttributeArgumentTypeSimpleKind.Object:
                         type = ReadCAFieldOrPropType( caBLOB, ref idx );
                         success = TryReadCAFixedArgument( md, caBLOB, ref idx, type, out nestedCAType );
                         value = success ? nestedCAType.Value : null;
-                        break;
-                     case SignatureElementTypes.Type:
-                        success = caBLOB.ReadLenPrefixedUTF8String( ref idx, out str );
-                        value = success ? (Object) new CustomAttributeValue_TypeReference( str ) : null;
                         break;
                      default:
                         value = null;

@@ -55,7 +55,7 @@ namespace CILAssemblyManipulator.Structural
          this._parameters = new List<ParameterStructureSignature>( parameterCount );
       }
 
-      public SignatureStarters SignatureStarter { get; set; }
+      public MethodSignatureInformation SignatureStarter { get; set; }
       public Int32 GenericArgumentCount { get; set; }
       public ParameterStructureSignature ReturnType { get; set; }
       public List<ParameterStructureSignature> Parameters
@@ -283,30 +283,28 @@ namespace CILAssemblyManipulator.Structural
 
    public sealed class SimpleTypeStructureSignature : TypeStructureSignature
    {
-      public static readonly SimpleTypeStructureSignature Boolean = new SimpleTypeStructureSignature( SignatureElementTypes.Boolean );
-      public static readonly SimpleTypeStructureSignature Char = new SimpleTypeStructureSignature( SignatureElementTypes.Char );
-      public static readonly SimpleTypeStructureSignature SByte = new SimpleTypeStructureSignature( SignatureElementTypes.I1 );
-      public static readonly SimpleTypeStructureSignature Byte = new SimpleTypeStructureSignature( SignatureElementTypes.U1 );
-      public static readonly SimpleTypeStructureSignature Int16 = new SimpleTypeStructureSignature( SignatureElementTypes.I2 );
-      public static readonly SimpleTypeStructureSignature UInt16 = new SimpleTypeStructureSignature( SignatureElementTypes.U2 );
-      public static readonly SimpleTypeStructureSignature Int32 = new SimpleTypeStructureSignature( SignatureElementTypes.I4 );
-      public static readonly SimpleTypeStructureSignature UInt32 = new SimpleTypeStructureSignature( SignatureElementTypes.U4 );
-      public static readonly SimpleTypeStructureSignature Int64 = new SimpleTypeStructureSignature( SignatureElementTypes.I8 );
-      public static readonly SimpleTypeStructureSignature UInt64 = new SimpleTypeStructureSignature( SignatureElementTypes.U8 );
-      public static readonly SimpleTypeStructureSignature Single = new SimpleTypeStructureSignature( SignatureElementTypes.R4 );
-      public static readonly SimpleTypeStructureSignature Double = new SimpleTypeStructureSignature( SignatureElementTypes.R8 );
-      public static readonly SimpleTypeStructureSignature IntPtr = new SimpleTypeStructureSignature( SignatureElementTypes.I );
-      public static readonly SimpleTypeStructureSignature UIntPtr = new SimpleTypeStructureSignature( SignatureElementTypes.U );
-      public static readonly SimpleTypeStructureSignature Object = new SimpleTypeStructureSignature( SignatureElementTypes.Object );
-      public static readonly SimpleTypeStructureSignature String = new SimpleTypeStructureSignature( SignatureElementTypes.String );
-      public static readonly SimpleTypeStructureSignature Void = new SimpleTypeStructureSignature( SignatureElementTypes.Void );
-      public static readonly SimpleTypeStructureSignature TypedByRef = new SimpleTypeStructureSignature( SignatureElementTypes.TypedByRef );
+      public static readonly SimpleTypeStructureSignature Boolean = new SimpleTypeStructureSignature( SimpleTypeSignatureKind.Boolean );
+      public static readonly SimpleTypeStructureSignature Char = new SimpleTypeStructureSignature( SimpleTypeSignatureKind.Char );
+      public static readonly SimpleTypeStructureSignature SByte = new SimpleTypeStructureSignature( SimpleTypeSignatureKind.I1 );
+      public static readonly SimpleTypeStructureSignature Byte = new SimpleTypeStructureSignature( SimpleTypeSignatureKind.U1 );
+      public static readonly SimpleTypeStructureSignature Int16 = new SimpleTypeStructureSignature( SimpleTypeSignatureKind.I2 );
+      public static readonly SimpleTypeStructureSignature UInt16 = new SimpleTypeStructureSignature( SimpleTypeSignatureKind.U2 );
+      public static readonly SimpleTypeStructureSignature Int32 = new SimpleTypeStructureSignature( SimpleTypeSignatureKind.I4 );
+      public static readonly SimpleTypeStructureSignature UInt32 = new SimpleTypeStructureSignature( SimpleTypeSignatureKind.U4 );
+      public static readonly SimpleTypeStructureSignature Int64 = new SimpleTypeStructureSignature( SimpleTypeSignatureKind.I8 );
+      public static readonly SimpleTypeStructureSignature UInt64 = new SimpleTypeStructureSignature( SimpleTypeSignatureKind.U8 );
+      public static readonly SimpleTypeStructureSignature Single = new SimpleTypeStructureSignature( SimpleTypeSignatureKind.R4 );
+      public static readonly SimpleTypeStructureSignature Double = new SimpleTypeStructureSignature( SimpleTypeSignatureKind.R8 );
+      public static readonly SimpleTypeStructureSignature IntPtr = new SimpleTypeStructureSignature( SimpleTypeSignatureKind.I );
+      public static readonly SimpleTypeStructureSignature UIntPtr = new SimpleTypeStructureSignature( SimpleTypeSignatureKind.U );
+      public static readonly SimpleTypeStructureSignature Object = new SimpleTypeStructureSignature( SimpleTypeSignatureKind.Object );
+      public static readonly SimpleTypeStructureSignature String = new SimpleTypeStructureSignature( SimpleTypeSignatureKind.String );
+      public static readonly SimpleTypeStructureSignature Void = new SimpleTypeStructureSignature( SimpleTypeSignatureKind.Void );
+      public static readonly SimpleTypeStructureSignature TypedByRef = new SimpleTypeStructureSignature( SimpleTypeSignatureKind.TypedByRef );
 
-      private readonly SignatureElementTypes _type;
-
-      private SimpleTypeStructureSignature( SignatureElementTypes type )
+      private SimpleTypeStructureSignature( SimpleTypeSignatureKind type )
       {
-         this._type = type;
+         this.SimpleType = type;
       }
 
       public override TypeStructureSignatureKind TypeSignatureKind
@@ -317,53 +315,47 @@ namespace CILAssemblyManipulator.Structural
          }
       }
 
-      public SignatureElementTypes SimpleType
-      {
-         get
-         {
-            return this._type;
-         }
-      }
+      public SimpleTypeSignatureKind SimpleType { get; }
 
-      public static SimpleTypeStructureSignature GetByElement( SignatureElementTypes element )
+      public static SimpleTypeStructureSignature GetByElement( SimpleTypeSignatureKind element )
       {
          switch ( element )
          {
-            case SignatureElementTypes.Boolean:
+            case SimpleTypeSignatureKind.Boolean:
                return Boolean;
-            case SignatureElementTypes.Char:
+            case SimpleTypeSignatureKind.Char:
                return Char;
-            case SignatureElementTypes.I1:
+            case SimpleTypeSignatureKind.I1:
                return SByte;
-            case SignatureElementTypes.U1:
+            case SimpleTypeSignatureKind.U1:
                return Byte;
-            case SignatureElementTypes.I2:
+            case SimpleTypeSignatureKind.I2:
                return Int16;
-            case SignatureElementTypes.U2:
+            case SimpleTypeSignatureKind.U2:
                return UInt16;
-            case SignatureElementTypes.I4:
+            case SimpleTypeSignatureKind.I4:
                return Int32;
-            case SignatureElementTypes.U4:
+            case SimpleTypeSignatureKind.U4:
                return UInt32;
-            case SignatureElementTypes.I8:
+            case SimpleTypeSignatureKind.I8:
                return Int64;
-            case SignatureElementTypes.U8:
+            case SimpleTypeSignatureKind.U8:
                return UInt64;
-            case SignatureElementTypes.R4:
+            case SimpleTypeSignatureKind.R4:
                return Single;
-            case SignatureElementTypes.R8:
+            case SimpleTypeSignatureKind.R8:
                return Double;
-            case SignatureElementTypes.I:
+            case SimpleTypeSignatureKind.I:
                return IntPtr;
-            case SignatureElementTypes.U:
+            case SimpleTypeSignatureKind.U:
                return UIntPtr;
-            case SignatureElementTypes.Object:
+            case SimpleTypeSignatureKind.Object:
                return Object;
-            case SignatureElementTypes.String:
+            case SimpleTypeSignatureKind.String:
                return String;
-            case SignatureElementTypes.Void:
+            case SimpleTypeSignatureKind.Void:
                return Void;
-            case SignatureElementTypes.TypedByRef:
+            case SimpleTypeSignatureKind.TypedByRef:
                return TypedByRef;
             default:
                throw new InvalidOperationException( "Element " + element + " does not represent simple type." );

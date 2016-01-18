@@ -39,14 +39,14 @@ public static partial class E_CILLogical
    /// </summary>
    /// <param name="ctx">The current <see cref="CILReflectionContext"/>.</param>
    /// <param name="currentModule">The current <see cref="CILModule"/>.</param>
-   /// <param name="callingConventions">The <see cref="UnmanagedCallingConventions"/> for the method signature.</param>
+   /// <param name="callingConventions">The <see cref="MethodSignatureInformation"/> for the method signature.</param>
    /// <param name="returnType">The return type for the method signature.</param>
    /// <param name="paramTypes">The types of the parameters.</param>
    /// <returns>A new <see cref="CILMethodSignature"/>.</returns>
    /// <exception cref="NullReferenceException">If <paramref name="ctx"/> is <c>null</c>.</exception>
    /// <exception cref="ArgumentNullException">If <paramref name="currentModule"/>, <paramref name="returnType"/> or any of the types within <paramref name="paramTypes"/> is <c>null</c>.</exception>
    /// <seealso cref="CILMethodSignature"/>
-   public static CILMethodSignature NewMethodSignature( this CILReflectionContext ctx, CILModule currentModule, UnmanagedCallingConventions callingConventions, CILTypeBase returnType, params CILTypeBase[] paramTypes )
+   public static CILMethodSignature NewMethodSignature( this CILReflectionContext ctx, CILModule currentModule, MethodSignatureInformation callingConventions, CILTypeBase returnType, params CILTypeBase[] paramTypes )
    {
       return ctx.NewMethodSignature( currentModule, callingConventions, returnType, null, paramTypes.Select( pt => Tuple.Create( (CILCustomModifier[]) null, pt ) ).ToArray() );
    }

@@ -468,6 +468,10 @@ namespace CILAssemblyManipulator.Physical
       Public = 0x0006,
 
       /// <summary>
+      /// The managed method is exported by thunk to unmanaged code.
+      /// </summary>
+      UnmanagedExport = 0x0008,
+      /// <summary>
       /// No instance of declaring type is required to invoke method.
       /// </summary>
       Static = 0x0010,
@@ -514,10 +518,7 @@ namespace CILAssemblyManipulator.Physical
       /// The method implementation is forwarded through PInvoke.
       /// </summary>
       PinvokeImpl = 0x2000,
-      /// <summary>
-      /// The managed method is exported by thunk to unmanaged code.
-      /// </summary>
-      UnmanagedExport = 0x0008,
+
 
       /// <summary>
       /// Method is special in CIL context. The name denotes in what way type is special.
@@ -531,64 +532,6 @@ namespace CILAssemblyManipulator.Physical
       /// Method calls another method containing security code.
       /// </summary>
       RequireSecObject = 0x8000
-   }
-
-   ///// <summary>
-   ///// Class containing useful things about <see cref="MethodAttributes"/>.
-   ///// </summary>
-   //public static class MethodAttributesUtils
-   //{
-   //   /// <summary>
-   //   /// Method attributes for explicitly implementating methods.
-   //   /// </summary>
-   //   public const MethodAttributes EXPLICIT_IMPLEMENTATION_ATTRIBUTES = MethodAttributes.Private | MethodAttributes.HideBySig | MethodAttributes.NewSlot | MethodAttributes.Virtual | MethodAttributes.Final;
-   //}
-
-   /// <summary>
-   /// This enumeration provides values for calling convention of unmanaged methods. See ECMA specification about StandAloneMethodSig for more info.
-   /// </summary>
-   [Flags]
-   public enum UnmanagedCallingConventions
-   {
-      /// <summary>
-      /// The default calling convention.
-      /// </summary>
-      Default = 0x00,
-
-      /// <summary>
-      /// Calling convention used by Standard C.
-      /// </summary>
-      C = 0x01,
-
-      /// <summary>
-      /// Calling convention used by standard C++.
-      /// </summary>
-      StdCall = 0x02,
-
-      /// <summary>
-      /// C++ call that passes this pointer to the method.
-      /// </summary>
-      ThisCall = 0x03,
-
-      /// <summary>
-      /// Special optimized C++ calling convention.
-      /// </summary>
-      FastCall = 0x04,
-
-      /// <summary>
-      /// The calling convention to use for methods with variable arguments.
-      /// </summary>
-      VarArg = 0x05,
-
-      /// <summary>
-      /// The calling convention to use for instance or virtual methods.
-      /// </summary>
-      HasThis = 0x20,
-
-      /// <summary>
-      /// The calling convention to use for function-pointer signatures.
-      /// </summary>
-      ExplicitThis = 0x40
    }
 
    /// <summary>
@@ -803,29 +746,6 @@ namespace CILAssemblyManipulator.Physical
       DefaultConstructorConstraint = 0x0010
    }
 
-   ///// <summary>
-   ///// The kind of the module being loaded or emitted.
-   ///// </summary>
-   //public enum ModuleKind
-   //{
-   //   /// <summary>
-   //   /// The module is a class library (.dll) with assembly manifest.
-   //   /// </summary>
-   //   Dll,
-   //   /// <summary>
-   //   /// The module is a console application (.exe) with assembly manifest.
-   //   /// </summary>
-   //   Console,
-   //   /// <summary>
-   //   /// The module is a windows application (.exe) with assembly manifest.
-   //   /// </summary>
-   //   Windows,
-   //   /// <summary>
-   //   /// The module is a netmodule (.netmodule) without assembly manifest.
-   //   /// </summary>
-   //   NetModule,
-   //}
-
    /// <summary>
    /// Specifies the security actions (ECMA-335 pp. 218-219), minus the ones that were obsoleted by .NET 4 release.
    /// </summary>
@@ -853,46 +773,6 @@ namespace CILAssemblyManipulator.Physical
       /// </summary>
       InheritanceDemand = 7,
    }
-
-   ///// <summary>
-   ///// The target .NET runtime for the emitted module.
-   ///// </summary>
-   ///// <remarks>This controls things as metadata version string, mscorlib name and version, cli and tableheap versions.</remarks>
-   ///// <seealso cref="EmittingArguments"/>.
-   //public enum TargetRuntime
-   //{
-   //   /// <summary>
-   //   /// The .NET 1.0 runtime.
-   //   /// </summary>
-   //   Net_1_0,
-   //   /// <summary>
-   //   /// The .NET 1.1 runtime.
-   //   /// </summary>
-   //   Net_1_1,
-   //   /// <summary>
-   //   /// The .NET 2.0, 3.0 and 3.5 runtimes
-   //   /// </summary>
-   //   Net_2_0,
-   //   /// <summary>
-   //   /// The .NET 4.0 and 4.5 runtimes.
-   //   /// </summary>
-   //   Net_4_0,
-   //}
-
-   ///// <summary>
-   ///// Helper enumeration to separate custom modifiers into required and optional ones. See ECMA specification for more information about custom modifiers and their separation.
-   ///// </summary>
-   //public enum CILCustomModifierOptionality
-   //{
-   //   /// <summary>
-   //   /// The custom modifier is required to be processed.
-   //   /// </summary>
-   //   Required,
-   //   /// <summary>
-   //   /// The custom modifier is not required to be processed.
-   //   /// </summary>
-   //   Optional
-   //}
 
    /// <summary>
    /// This enumeration corresponds to <see cref="T:System.Runtime.InteropServices.VarEnum"/>.
@@ -1239,78 +1119,86 @@ namespace CILAssemblyManipulator.Physical
       /// A Windows Runtime string. You can use this member on the <see cref="T:System.String" /> data type.
       /// </summary>
       HString,
+      /// <summary>
+      /// This value indicates maximum reserved values. Values larger than this are specific per-implementation.
+      /// </summary>
       Max = 80,
+      /// <summary>
+      /// This value indicates that the <see cref="ArrayMarshalingInfo.ElementType"/> is not defined.
+      /// </summary>
       NotPresent = -1,
    }
 
    /// <summary>
-   /// This is enumeration of various values that the <see cref="AbstractSignature"/>s (excluding <see cref="TypeSignature"/>) can start with.
+   /// This is enumeration for <see cref="AbstractMethodSignature.MethodSignatureInformation"/>.
    /// </summary>  
-   public enum SignatureStarters : byte
+   public enum MethodSignatureInformation : byte
    {
-      // TODO this enum should be in IO project. It is here only because of the AbstractMethodSignature.SignatureStarter property!
-      // Probably the AbstractMethodSignature.SignatureStarter property should be refactored into CallingConventions and something else?
+      /// <summary>
+      /// This value indicates that method uses standard (managed) calling conventions.
+      /// </summary>
       Default = 0x00,
-      C = 0x01,
-      StandardCall = 0x02,
-      ThisCall = 0x03,
-      FastCall = 0x04,
-      VarArgs = 0x05,
-      Field = 0x06,
-      LocalSignature = 0x07,
-      Property = 0x08,
-      Unmanaged = 0x09,
-      MethodSpecGenericInst = 0x0A,
-      NativeVarArgs = 0x0B,
-      Generic = 0x10,
-      HasThis = 0x20,
-      ExplicitThis = 0x40,
-      Reserved = 0x80,
-   }
 
-   public enum SignatureElementTypes : byte
-   {
-      End = 0x00,
-      Void = 0x01,
-      Boolean = 0x02,
-      Char = 0x03,
-      I1 = 0x04,
-      U1 = 0x05,
-      I2 = 0x06,
-      U2 = 0x07,
-      I4 = 0x08,
-      U4 = 0x09,
-      I8 = 0x0A,
-      U8 = 0x0B,
-      R4 = 0x0C,
-      R8 = 0x0D,
-      String = 0x0E,
-      Ptr = 0x0F,
-      ByRef = 0x10,
-      ValueType = 0x11,
-      Class = 0x12,
-      Var = 0x13,
-      Array = 0x14,
-      GenericInst = 0x15,
-      TypedByRef = 0x16,
-      I = 0x18,
-      U = 0x19,
-      FnPtr = 0x1B,
-      Object = 0x1C,
-      SzArray = 0x1D,
-      MVar = 0x1E,
-      CModReqd = 0x1F,
-      CModOpt = 0x20,
-      Internal = 0x21,
-      Modifier = 0x40,
-      Sentinel = 0x41,
-      Pinned = 0x45,
-      Type = 0x50,
-      CA_Boxed = 0x51,
-      Reserved = 0x52,
-      CA_Field = 0x53,
-      CA_Property = 0x54,
-      CA_Enum = 0x55
+      /// <summary>
+      /// This value indicates that method uses unmanaged calling convention in C.
+      /// </summary>
+      C = 0x01,
+
+      /// <summary>
+      /// This value indicates that method uses unmanaged standard calling convention in C++.
+      /// </summary>
+      StandardCall = 0x02,
+
+      /// <summary>
+      /// This value this indicates that method uses unmanaged calling convention passing this-pointer in C++.
+      /// </summary>
+      ThisCall = 0x03,
+
+      /// <summary>
+      /// This value this indicates that method uses unmanaged special optimized calling convention in C++.
+      /// </summary>
+      FastCall = 0x04,
+
+      /// <summary>
+      /// This value this indicates that method uses standard (managed) calling conventions for vararg-method.
+      /// </summary>
+      VarArgs = 0x05,
+
+      /// <summary>
+      /// This value indicates that method uses undefined unmanaged calling conventions.
+      /// </summary>
+      /// <remarks>The meaning of this value is currently not clear.</remarks>
+      Unmanaged = 0x09,
+
+      /// <summary>
+      /// This value indicates that method uses unmanaged calling conventions for a native vararg-method.
+      /// </summary>
+      NativeVarArgs = 0x0B,
+
+      /// <summary>
+      /// This is mask which holds values relevant for calling conventions of a method (the lower 4 bits).
+      /// </summary>
+      CallingConventionsMask = 0x0F,
+
+      /// <summary>
+      /// This value this indicates that the method is generic.
+      /// </summary>
+      Generic = 0x10,
+
+      /// <summary>
+      /// This value this indicates that the method needs hidden 'this' parameter.
+      /// </summary>
+      HasThis = 0x20,
+
+      /// <summary>
+      /// This value this indicates that the method needs explicit 'this' parameter.
+      /// </summary>
+      ExplicitThis = 0x40,
+
+      /// <summary>
+      /// This value is currently reserved.
+      /// </summary>
+      Reserved = 0x80,
    }
 
    /// <summary>
@@ -1839,76 +1727,6 @@ public static partial class E_CILPhysical
    }
 
    /// <summary>
-   /// Checks whether the <see cref="UnmanagedCallingConventions.ExplicitThis"/> is set for given <see cref="UnmanagedCallingConventions"/>.
-   /// </summary>
-   /// <param name="conv">The <see cref="UnmanagedCallingConventions"/>.</param>
-   /// <returns><c>true</c> if <see cref="UnmanagedCallingConventions.ExplicitThis"/> is set for <paramref name="conv"/>; <c>false</c> otherwise.</returns>
-   public static Boolean IsExplicitThis( this UnmanagedCallingConventions conv )
-   {
-      return ( conv & UnmanagedCallingConventions.ExplicitThis ) != 0;
-   }
-
-   /// <summary>
-   /// Checks whether the <see cref="UnmanagedCallingConventions.HasThis"/> is set for given <see cref="UnmanagedCallingConventions"/>.
-   /// </summary>
-   /// <param name="conv">The <see cref="UnmanagedCallingConventions"/>.</param>
-   /// <returns><c>true</c> if <see cref="UnmanagedCallingConventions.HasThis"/> is set for <paramref name="conv"/>; <c>false</c> otherwise.</returns>
-   public static Boolean IsThis( this UnmanagedCallingConventions conv )
-   {
-      return ( conv & UnmanagedCallingConventions.HasThis ) != 0;
-   }
-
-   /// <summary>
-   /// Checks whether the <see cref="UnmanagedCallingConventions.C"/> is set for given <see cref="UnmanagedCallingConventions"/>.
-   /// </summary>
-   /// <param name="conv">The <see cref="UnmanagedCallingConventions"/>.</param>
-   /// <returns><c>true</c> if <see cref="UnmanagedCallingConventions.C"/> is set for <paramref name="conv"/>; <c>false</c> otherwise.</returns>
-   public static Boolean IsCCall( this UnmanagedCallingConventions conv )
-   {
-      return ( conv & UnmanagedCallingConventions.C ) != 0;
-   }
-
-   /// <summary>
-   /// Checks whether the <see cref="UnmanagedCallingConventions.StdCall"/> is set for given <see cref="UnmanagedCallingConventions"/>.
-   /// </summary>
-   /// <param name="conv">The <see cref="UnmanagedCallingConventions"/>.</param>
-   /// <returns><c>true</c> if <see cref="UnmanagedCallingConventions.StdCall"/> is set for <paramref name="conv"/>; <c>false</c> otherwise.</returns>
-   public static Boolean IsStdCall( this UnmanagedCallingConventions conv )
-   {
-      return ( conv & UnmanagedCallingConventions.StdCall ) != 0;
-   }
-
-   /// <summary>
-   /// Checks whether the <see cref="UnmanagedCallingConventions.ThisCall"/> is set for given <see cref="UnmanagedCallingConventions"/>.
-   /// </summary>
-   /// <param name="conv">The <see cref="UnmanagedCallingConventions"/>.</param>
-   /// <returns><c>true</c> if <see cref="UnmanagedCallingConventions.ThisCall"/> is set for <paramref name="conv"/>; <c>false</c> otherwise.</returns>
-   public static Boolean IsThisCall( this UnmanagedCallingConventions conv )
-   {
-      return ( conv & UnmanagedCallingConventions.ThisCall ) != 0;
-   }
-
-   /// <summary>
-   /// Checks whether the <see cref="UnmanagedCallingConventions.FastCall"/> is set for given <see cref="UnmanagedCallingConventions"/>.
-   /// </summary>
-   /// <param name="conv">The <see cref="UnmanagedCallingConventions"/>.</param>
-   /// <returns><c>true</c> if <see cref="UnmanagedCallingConventions.FastCall"/> is set for <paramref name="conv"/>; <c>false</c> otherwise.</returns>
-   public static Boolean IsFastCall( this UnmanagedCallingConventions conv )
-   {
-      return ( conv & UnmanagedCallingConventions.FastCall ) != 0;
-   }
-
-   /// <summary>
-   /// Checks whether the <see cref="UnmanagedCallingConventions.VarArg"/> is set for given <see cref="UnmanagedCallingConventions"/>.
-   /// </summary>
-   /// <param name="conv">The <see cref="UnmanagedCallingConventions"/>.</param>
-   /// <returns><c>true</c> if <see cref="UnmanagedCallingConventions.VarArg"/> is set for <paramref name="conv"/>; <c>false</c> otherwise.</returns>
-   public static Boolean IsVarArg( this UnmanagedCallingConventions conv )
-   {
-      return ( conv & UnmanagedCallingConventions.VarArg ) != 0;
-   }
-
-   /// <summary>
    /// Checks whether field attributes represent a field not accessible from the code.
    /// </summary>
    /// <param name="attrs">The <see cref="FieldAttributes"/></param>
@@ -2154,17 +1972,6 @@ public static partial class E_CILPhysical
    }
 
    ///// <summary>
-   ///// Checks whether given module kind requires emitted module to have DLL characteristics.
-   ///// </summary>
-   ///// <param name="kind">The <see cref="ModuleKind"/>.</param>
-   ///// <returns><c>true</c> if <paramref name="kind"/> represents a module kind which requires emitted module to have DLL characteristics; <c>false</c> otherwise.</returns>
-   //public static Boolean IsDLL( this ModuleKind kind )
-   //{
-   //   return ModuleKind.Dll == kind || ModuleKind.NetModule == kind;
-   //}
-
-
-   ///// <summary>
    ///// Checks whether custom modifier optionality represents optional custom modifier.
    ///// </summary>
    ///// <param name="optionality">The <see cref="CILCustomModifierOptionality"/>.</param>
@@ -2265,8 +2072,8 @@ public static partial class E_CILPhysical
          case UnmanagedType.AsAny:
          case UnmanagedType.LPStruct:
          case UnmanagedType.Error:
-         case UnmanagedType.IInspectable: // IInspectable
-         case UnmanagedType.HString: // HString
+         case UnmanagedType.IInspectable:
+         case UnmanagedType.HString:
             return true;
          default:
             return false;
@@ -2333,4 +2140,113 @@ public static partial class E_CILPhysical
       return ( attrs & GenericParameterAttributes.DefaultConstructorConstraint ) != 0;
    }
 
+   /// <summary>
+   /// Checks whether the calling convention of <see cref="MethodSignatureInformation"/> is <see cref="MethodSignatureInformation.Default"/>.
+   /// </summary>
+   /// <param name="info">The <see cref="MethodSignatureInformation"/> element.</param>
+   /// <returns><c>true</c> if <paramref name="info"/> has calling convention of <see cref="MethodSignatureInformation.Default"/>; <c>false</c> otherwise.</returns>
+   public static Boolean IsDefault( this MethodSignatureInformation info )
+   {
+      return ( info & MethodSignatureInformation.CallingConventionsMask ) == MethodSignatureInformation.Default;
+   }
+
+   /// <summary>
+   /// Checks whether the calling convention of <see cref="MethodSignatureInformation"/> is <see cref="MethodSignatureInformation.C"/>.
+   /// </summary>
+   /// <param name="info">The <see cref="MethodSignatureInformation"/> element.</param>
+   /// <returns><c>true</c> if <paramref name="info"/> has calling convention of <see cref="MethodSignatureInformation.C"/>; <c>false</c> otherwise.</returns>
+   public static Boolean IsC( this MethodSignatureInformation info )
+   {
+      return ( info & MethodSignatureInformation.CallingConventionsMask ) == MethodSignatureInformation.C;
+   }
+
+   /// <summary>
+   /// Checks whether the calling convention of <see cref="MethodSignatureInformation"/> is <see cref="MethodSignatureInformation.StandardCall"/>.
+   /// </summary>
+   /// <param name="info">The <see cref="MethodSignatureInformation"/> element.</param>
+   /// <returns><c>true</c> if <paramref name="info"/> has calling convention of <see cref="MethodSignatureInformation.StandardCall"/>; <c>false</c> otherwise.</returns>
+   public static Boolean IsStandardCall( this MethodSignatureInformation info )
+   {
+      return ( info & MethodSignatureInformation.CallingConventionsMask ) == MethodSignatureInformation.StandardCall;
+   }
+
+   /// <summary>
+   /// Checks whether the calling convention of <see cref="MethodSignatureInformation"/> is <see cref="MethodSignatureInformation.ThisCall"/>.
+   /// </summary>
+   /// <param name="info">The <see cref="MethodSignatureInformation"/> element.</param>
+   /// <returns><c>true</c> if <paramref name="info"/> has calling convention of <see cref="MethodSignatureInformation.ThisCall"/>; <c>false</c> otherwise.</returns>
+   public static Boolean IsThisCall( this MethodSignatureInformation info )
+   {
+      return ( info & MethodSignatureInformation.CallingConventionsMask ) == MethodSignatureInformation.ThisCall;
+   }
+
+   /// <summary>
+   /// Checks whether the calling convention of <see cref="MethodSignatureInformation"/> is <see cref="MethodSignatureInformation.FastCall"/>.
+   /// </summary>
+   /// <param name="info">The <see cref="MethodSignatureInformation"/> element.</param>
+   /// <returns><c>true</c> if <paramref name="info"/> has calling convention of <see cref="MethodSignatureInformation.FastCall"/>; <c>false</c> otherwise.</returns>
+   public static Boolean IsFastCall( this MethodSignatureInformation info )
+   {
+      return ( info & MethodSignatureInformation.CallingConventionsMask ) == MethodSignatureInformation.FastCall;
+   }
+
+   /// <summary>
+   /// Checks whether the calling convention of <see cref="MethodSignatureInformation"/> is <see cref="MethodSignatureInformation.VarArgs"/>.
+   /// </summary>
+   /// <param name="info">The <see cref="MethodSignatureInformation"/> element.</param>
+   /// <returns><c>true</c> if <paramref name="info"/> has calling convention of <see cref="MethodSignatureInformation.VarArgs"/>; <c>false</c> otherwise.</returns>
+   public static Boolean IsVarArg( this MethodSignatureInformation info )
+   {
+      return ( info & MethodSignatureInformation.CallingConventionsMask ) == MethodSignatureInformation.VarArgs;
+   }
+
+   /// <summary>
+   /// Checks whether the calling convention of <see cref="MethodSignatureInformation"/> is <see cref="MethodSignatureInformation.Unmanaged"/>.
+   /// </summary>
+   /// <param name="info">The <see cref="MethodSignatureInformation"/> element.</param>
+   /// <returns><c>true</c> if <paramref name="info"/> has calling convention of <see cref="MethodSignatureInformation.Unmanaged"/>; <c>false</c> otherwise.</returns>
+   public static Boolean IsUnmanaged( this MethodSignatureInformation info )
+   {
+      return ( info & MethodSignatureInformation.CallingConventionsMask ) == MethodSignatureInformation.Unmanaged;
+   }
+
+   /// <summary>
+   /// Checks whether the calling convention of <see cref="MethodSignatureInformation"/> is <see cref="MethodSignatureInformation.NativeVarArgs"/>.
+   /// </summary>
+   /// <param name="info">The <see cref="MethodSignatureInformation"/> element.</param>
+   /// <returns><c>true</c> if <paramref name="info"/> has calling convention of <see cref="MethodSignatureInformation.NativeVarArgs"/>; <c>false</c> otherwise.</returns>
+   public static Boolean IsNativeVarArgs( this MethodSignatureInformation info )
+   {
+      return ( info & MethodSignatureInformation.CallingConventionsMask ) == MethodSignatureInformation.NativeVarArgs;
+   }
+
+   /// <summary>
+   /// Checks whether the <see cref="MethodSignatureInformation"/> has <see cref="MethodSignatureInformation.Generic"/> flag.
+   /// </summary>
+   /// <param name="info">The <see cref="MethodSignatureInformation"/> element.</param>
+   /// <returns><c>true</c> if <paramref name="info"/> has <see cref="MethodSignatureInformation.Generic"/> flag; <c>false</c> otherwise.</returns>
+   public static Boolean IsGeneric( this MethodSignatureInformation info )
+   {
+      return ( info & MethodSignatureInformation.Generic ) != 0;
+   }
+
+   /// <summary>
+   /// Checks whether the <see cref="MethodSignatureInformation"/> has <see cref="MethodSignatureInformation.HasThis"/> flag.
+   /// </summary>
+   /// <param name="info">The <see cref="MethodSignatureInformation"/> element.</param>
+   /// <returns><c>true</c> if <paramref name="info"/> has <see cref="MethodSignatureInformation.HasThis"/> flag; <c>false</c> otherwise.</returns>
+   public static Boolean IsHasThis( this MethodSignatureInformation starter )
+   {
+      return ( starter & MethodSignatureInformation.HasThis ) != 0;
+   }
+
+   /// <summary>
+   /// Checks whether the <see cref="MethodSignatureInformation"/> has <see cref="MethodSignatureInformation.ExplicitThis"/> flag.
+   /// </summary>
+   /// <param name="info">The <see cref="MethodSignatureInformation"/> element.</param>
+   /// <returns><c>true</c> if <paramref name="info"/> has <see cref="MethodSignatureInformation.ExplicitThis"/> flag; <c>false</c> otherwise.</returns>
+   public static Boolean IsExplicitThis( this MethodSignatureInformation starter )
+   {
+      return ( starter & MethodSignatureInformation.ExplicitThis ) != 0;
+   }
 }

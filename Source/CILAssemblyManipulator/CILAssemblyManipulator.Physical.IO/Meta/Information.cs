@@ -645,7 +645,7 @@ namespace CILAssemblyManipulator.Physical.Meta
 
       protected static IEnumerable<MetaDataColumnInformation<ConstantDefinition>> GetConstantColumns()
       {
-         yield return MetaDataColumnInformationFactory.Constant8<ConstantDefinition, RawConstantDefinition, SignatureElementTypes>( ( r, v ) => { r.Type = v; return true; }, row => row.Type, ( r, v ) => r.Type = (SignatureElementTypes) v, i => (SignatureElementTypes) i, v => (Int32) v );
+         yield return MetaDataColumnInformationFactory.Constant8<ConstantDefinition, RawConstantDefinition, ConstantValueType>( ( r, v ) => { r.Type = v; return true; }, row => row.Type, ( r, v ) => r.Type = (ConstantValueType) v, i => (ConstantValueType) i, v => (Int32) v );
          yield return MetaDataColumnInformationFactory.Number8<ConstantDefinition, RawConstantDefinition>( ( r, v ) => { return true; }, row => 0, ( r, v ) => r.Padding = (Byte) v );
          yield return MetaDataColumnInformationFactory.CodedTableIndex<ConstantDefinition, RawConstantDefinition>( HasConstant, ( r, v ) => { r.Parent = v; return true; }, row => row.Parent, ( r, v ) => r.Parent = v );
          yield return MetaDataColumnInformationFactory.BLOBCustom<ConstantDefinition, RawConstantDefinition, Object>( ( r, v ) => { r.Value = v; return true; }, r => r.Value, ( r, v ) => r.Value = v, ( args, v, blobs ) => args.Row.Value = blobs.ReadConstantValue( v, args.Row.Type ), args => args.RowArgs.Array.CreateConstantBytes( args.Row.Value, args.Row.Type ) );

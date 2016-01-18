@@ -122,7 +122,7 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
 
    public sealed class RawConstantDefinition
    {
-      public SignatureElementTypes Type { get; set; }
+      public ConstantValueType Type { get; set; }
 
       public Byte Padding { get; set; }
 

@@ -923,7 +923,7 @@ public static partial class E_CILStructural
    private static void PopulateAbstractMethodStructureSignature( this StructuralCreationState state, AbstractMethodSignature original, AbstractMethodStructureSignature clone )
    {
       clone.GenericArgumentCount = original.GenericArgumentCount;
-      clone.SignatureStarter = original.SignatureStarter;
+      clone.SignatureStarter = original.MethodSignatureInformation;
       clone.ReturnType = state.CreateParameterStructureSignature( original.ReturnType );
       clone.Parameters.AddRange( original.Parameters.Select( p => state.CreateParameterStructureSignature( p ) ) );
    }

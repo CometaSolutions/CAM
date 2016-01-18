@@ -2421,7 +2421,7 @@ public static partial class E_CILPhysical
       if ( sig != null )
       {
          var isNewObj = code.Value == OpCodeEncoding.Newobj;
-         if ( sig.SignatureStarter.IsHasThis() && !isNewObj )
+         if ( sig.MethodSignatureInformation.IsHasThis() && !isNewObj )
          {
             // Pop 'this'
             --curStacksize;
@@ -2447,7 +2447,7 @@ public static partial class E_CILPhysical
 
          if ( isNewObj
             || rType.TypeSignatureKind != TypeSignatureKind.Simple
-            || ( (SimpleTypeSignature) rType ).SimpleType != SignatureElementTypes.Void
+            || ( (SimpleTypeSignature) rType ).SimpleType != SimpleTypeSignatureKind.Void
             )
          {
             // Push return value

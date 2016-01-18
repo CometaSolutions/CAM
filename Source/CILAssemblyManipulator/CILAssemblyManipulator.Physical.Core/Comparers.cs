@@ -1242,7 +1242,7 @@ namespace CILAssemblyManipulator.Physical
       /// </summary>
       /// <value>The equality comparer to check whether two instances of <see cref="AbstractMethodSignature"/> are equal in a scope of <see cref="AbstractMethodSignature"/> type.</value>
       /// <remarks>
-      /// Two instances of <see cref="AbstractMethodSignature"/> are considered to be equal by this equality comparer when their <see cref="AbstractMethodSignature.GenericArgumentCount"/>, <see cref="AbstractMethodSignature.Parameters"/>, <see cref="AbstractMethodSignature.ReturnType"/>, and <see cref="AbstractMethodSignature.SignatureStarter"/> are equal between the two instances.
+      /// Two instances of <see cref="AbstractMethodSignature"/> are considered to be equal by this equality comparer when their <see cref="AbstractMethodSignature.GenericArgumentCount"/>, <see cref="AbstractMethodSignature.Parameters"/>, <see cref="AbstractMethodSignature.ReturnType"/>, and <see cref="AbstractMethodSignature.MethodSignatureInformation"/> are equal between the two instances.
       /// </remarks>
       public static IEqualityComparer<AbstractMethodSignature> AbstractMethodSignatureEqualityComparer_IgnoreKind
       {
@@ -2246,7 +2246,7 @@ namespace CILAssemblyManipulator.Physical
       {
          return
             ( x != null && y != null
-            && x.SignatureStarter == y.SignatureStarter
+            && x.MethodSignatureInformation == y.MethodSignatureInformation
             && x.GenericArgumentCount == y.GenericArgumentCount
             && ParameterSignatureEqualityComparer.Equals( x.ReturnType, y.ReturnType )
             && Equality_ParameterSignatures( x.Parameters, y.Parameters )

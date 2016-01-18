@@ -76,8 +76,8 @@ namespace CILAssemblyManipulator.Logical
       /// </summary>
       /// <value>The calling conventions for this method signature.</value>
       /// <remarks>See ECMA specification for more information about calling conventions.</remarks>
-      /// <seealso cref="UnmanagedCallingConventions"/>
-      UnmanagedCallingConventions CallingConvention { get; }
+      /// <seealso cref="MethodSignatureInformation"/>
+      MethodSignatureInformation CallingConvention { get; }
 
       /// <summary>
       /// This method is called automatically whenever setting method signature type as field, event, parameter, or local type.

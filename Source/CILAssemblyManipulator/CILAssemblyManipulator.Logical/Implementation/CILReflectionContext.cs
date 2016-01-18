@@ -229,7 +229,7 @@ namespace CILAssemblyManipulator.Logical.Implementation
          return this.Cache.GetOrAdd( type );
       }
 
-      public CILMethodSignature NewMethodSignature( CILModule currentModule, UnmanagedCallingConventions callingConventions, CILTypeBase returnType, CILCustomModifier[] returnParamMods, params Tuple<CILCustomModifier[], CILTypeBase>[] parameters )
+      public CILMethodSignature NewMethodSignature( CILModule currentModule, MethodSignatureInformation callingConventions, CILTypeBase returnType, CILCustomModifier[] returnParamMods, params Tuple<CILCustomModifier[], CILTypeBase>[] parameters )
       {
          return new CILMethodSignatureImpl( this, currentModule, callingConventions, returnParamMods == null ? null : this.CollectionsFactory.NewListProxyFromParams( returnParamMods ), returnType, parameters.Select( t => Tuple.Create( t.Item1 == null ? null : this.CollectionsFactory.NewListProxyFromParams( t.Item1 ), t.Item2 ) ).ToList(), null );
       }

@@ -80,7 +80,7 @@ namespace CILAssemblyManipulator.Physical
          this._parameters = new List<ParameterSignature>( parameterCount );
       }
 
-      public SignatureStarters SignatureStarter { get; set; }
+      public MethodSignatureInformation MethodSignatureInformation { get; set; }
       public Int32 GenericArgumentCount { get; set; }
       public ParameterSignature ReturnType { get; set; }
       public List<ParameterSignature> Parameters
@@ -310,30 +310,28 @@ namespace CILAssemblyManipulator.Physical
 
    public sealed class SimpleTypeSignature : TypeSignature
    {
-      public static readonly SimpleTypeSignature Boolean = new SimpleTypeSignature( SignatureElementTypes.Boolean );
-      public static readonly SimpleTypeSignature Char = new SimpleTypeSignature( SignatureElementTypes.Char );
-      public static readonly SimpleTypeSignature SByte = new SimpleTypeSignature( SignatureElementTypes.I1 );
-      public static readonly SimpleTypeSignature Byte = new SimpleTypeSignature( SignatureElementTypes.U1 );
-      public static readonly SimpleTypeSignature Int16 = new SimpleTypeSignature( SignatureElementTypes.I2 );
-      public static readonly SimpleTypeSignature UInt16 = new SimpleTypeSignature( SignatureElementTypes.U2 );
-      public static readonly SimpleTypeSignature Int32 = new SimpleTypeSignature( SignatureElementTypes.I4 );
-      public static readonly SimpleTypeSignature UInt32 = new SimpleTypeSignature( SignatureElementTypes.U4 );
-      public static readonly SimpleTypeSignature Int64 = new SimpleTypeSignature( SignatureElementTypes.I8 );
-      public static readonly SimpleTypeSignature UInt64 = new SimpleTypeSignature( SignatureElementTypes.U8 );
-      public static readonly SimpleTypeSignature Single = new SimpleTypeSignature( SignatureElementTypes.R4 );
-      public static readonly SimpleTypeSignature Double = new SimpleTypeSignature( SignatureElementTypes.R8 );
-      public static readonly SimpleTypeSignature IntPtr = new SimpleTypeSignature( SignatureElementTypes.I );
-      public static readonly SimpleTypeSignature UIntPtr = new SimpleTypeSignature( SignatureElementTypes.U );
-      public static readonly SimpleTypeSignature Object = new SimpleTypeSignature( SignatureElementTypes.Object );
-      public static readonly SimpleTypeSignature String = new SimpleTypeSignature( SignatureElementTypes.String );
-      public static readonly SimpleTypeSignature Void = new SimpleTypeSignature( SignatureElementTypes.Void );
-      public static readonly SimpleTypeSignature TypedByRef = new SimpleTypeSignature( SignatureElementTypes.TypedByRef );
+      public static readonly SimpleTypeSignature Boolean = new SimpleTypeSignature( SimpleTypeSignatureKind.Boolean );
+      public static readonly SimpleTypeSignature Char = new SimpleTypeSignature( SimpleTypeSignatureKind.Char );
+      public static readonly SimpleTypeSignature SByte = new SimpleTypeSignature( SimpleTypeSignatureKind.I1 );
+      public static readonly SimpleTypeSignature Byte = new SimpleTypeSignature( SimpleTypeSignatureKind.U1 );
+      public static readonly SimpleTypeSignature Int16 = new SimpleTypeSignature( SimpleTypeSignatureKind.I2 );
+      public static readonly SimpleTypeSignature UInt16 = new SimpleTypeSignature( SimpleTypeSignatureKind.U2 );
+      public static readonly SimpleTypeSignature Int32 = new SimpleTypeSignature( SimpleTypeSignatureKind.I4 );
+      public static readonly SimpleTypeSignature UInt32 = new SimpleTypeSignature( SimpleTypeSignatureKind.U4 );
+      public static readonly SimpleTypeSignature Int64 = new SimpleTypeSignature( SimpleTypeSignatureKind.I8 );
+      public static readonly SimpleTypeSignature UInt64 = new SimpleTypeSignature( SimpleTypeSignatureKind.U8 );
+      public static readonly SimpleTypeSignature Single = new SimpleTypeSignature( SimpleTypeSignatureKind.R4 );
+      public static readonly SimpleTypeSignature Double = new SimpleTypeSignature( SimpleTypeSignatureKind.R8 );
+      public static readonly SimpleTypeSignature IntPtr = new SimpleTypeSignature( SimpleTypeSignatureKind.I );
+      public static readonly SimpleTypeSignature UIntPtr = new SimpleTypeSignature( SimpleTypeSignatureKind.U );
+      public static readonly SimpleTypeSignature Object = new SimpleTypeSignature( SimpleTypeSignatureKind.Object );
+      public static readonly SimpleTypeSignature String = new SimpleTypeSignature( SimpleTypeSignatureKind.String );
+      public static readonly SimpleTypeSignature Void = new SimpleTypeSignature( SimpleTypeSignatureKind.Void );
+      public static readonly SimpleTypeSignature TypedByRef = new SimpleTypeSignature( SimpleTypeSignatureKind.TypedByRef );
 
-      private readonly SignatureElementTypes _type;
-
-      private SimpleTypeSignature( SignatureElementTypes type )
+      private SimpleTypeSignature( SimpleTypeSignatureKind type )
       {
-         this._type = type;
+         this.SimpleType = type;
       }
 
       public override TypeSignatureKind TypeSignatureKind
@@ -344,58 +342,113 @@ namespace CILAssemblyManipulator.Physical
          }
       }
 
-      public SignatureElementTypes SimpleType
+      public SimpleTypeSignatureKind SimpleType { get; }
+
+
+
+      public static SimpleTypeSignature GetByKind( SimpleTypeSignatureKind kind )
       {
-         get
+         SimpleTypeSignature retVal;
+         if ( !TryGetByKind( kind, out retVal ) )
          {
-            return this._type;
+            throw new ArgumentException( "Unrecognized simple type signature kind: " + kind + "." );
          }
+         return retVal;
       }
 
-      public static SimpleTypeSignature GetByElement( SignatureElementTypes element )
+      public static Boolean TryGetByKind( SimpleTypeSignatureKind kind, out SimpleTypeSignature simpleType )
       {
-         switch ( element )
+         switch ( kind )
          {
-            case SignatureElementTypes.Boolean:
-               return Boolean;
-            case SignatureElementTypes.Char:
-               return Char;
-            case SignatureElementTypes.I1:
-               return SByte;
-            case SignatureElementTypes.U1:
-               return Byte;
-            case SignatureElementTypes.I2:
-               return Int16;
-            case SignatureElementTypes.U2:
-               return UInt16;
-            case SignatureElementTypes.I4:
-               return Int32;
-            case SignatureElementTypes.U4:
-               return UInt32;
-            case SignatureElementTypes.I8:
-               return Int64;
-            case SignatureElementTypes.U8:
-               return UInt64;
-            case SignatureElementTypes.R4:
-               return Single;
-            case SignatureElementTypes.R8:
-               return Double;
-            case SignatureElementTypes.I:
-               return IntPtr;
-            case SignatureElementTypes.U:
-               return UIntPtr;
-            case SignatureElementTypes.Object:
-               return Object;
-            case SignatureElementTypes.String:
-               return String;
-            case SignatureElementTypes.Void:
-               return Void;
-            case SignatureElementTypes.TypedByRef:
-               return TypedByRef;
+            case SimpleTypeSignatureKind.Boolean:
+               simpleType = Boolean;
+               break;
+            case SimpleTypeSignatureKind.Char:
+               simpleType = Char;
+               break;
+            case SimpleTypeSignatureKind.I1:
+               simpleType = SByte;
+               break;
+            case SimpleTypeSignatureKind.U1:
+               simpleType = Byte;
+               break;
+            case SimpleTypeSignatureKind.I2:
+               simpleType = Int16;
+               break;
+            case SimpleTypeSignatureKind.U2:
+               simpleType = UInt16;
+               break;
+            case SimpleTypeSignatureKind.I4:
+               simpleType = Int32;
+               break;
+            case SimpleTypeSignatureKind.U4:
+               simpleType = UInt32;
+               break;
+            case SimpleTypeSignatureKind.I8:
+               simpleType = Int64;
+               break;
+            case SimpleTypeSignatureKind.U8:
+               simpleType = UInt64;
+               break;
+            case SimpleTypeSignatureKind.R4:
+               simpleType = Single;
+               break;
+            case SimpleTypeSignatureKind.R8:
+               simpleType = Double;
+               break;
+            case SimpleTypeSignatureKind.I:
+               simpleType = IntPtr;
+               break;
+            case SimpleTypeSignatureKind.U:
+               simpleType = UIntPtr;
+               break;
+            case SimpleTypeSignatureKind.Object:
+               simpleType = Object;
+               break;
+            case SimpleTypeSignatureKind.String:
+               simpleType = String;
+               break;
+            case SimpleTypeSignatureKind.Void:
+               simpleType = Void;
+               break;
+            case SimpleTypeSignatureKind.TypedByRef:
+               simpleType = TypedByRef;
+               break;
             default:
-               throw new InvalidOperationException( "Element " + element + " does not represent simple type." );
+               simpleType = null;
+               break;
          }
+
+         return simpleType != null;
       }
+   }
+
+   /// <summary>
+   /// This enumeration represents the kind of <see cref="SimpleTypeSignature"/>.
+   /// </summary>
+   /// <remarks>
+   /// The values of this enumeration are safe to be casted to <see cref="T:CILAssemblyManipulator.Physical.IO.SignatureElementTypes"/>.
+   /// </remarks>
+   public enum SimpleTypeSignatureKind : byte
+   {
+      Void = 0x01, // Same as SignatureElementTypes.Void
+      Boolean,
+      Char,
+      I1,
+      U1,
+      I2,
+      U2,
+      I4,
+      U4,
+      I8,
+      U8,
+      R4,
+      R8,
+      String,
+      TypedByRef = 0x16, // Same as SignatureElementTypes.TypedByRef
+      I = 0x18, // Same as SignatureElementTypes.I
+      U,
+      Object = 0x1C, // Same as SignatureElementTypes.Object
    }
 
    public sealed class ClassOrValueTypeSignature : TypeSignature
@@ -1173,27 +1226,25 @@ namespace CILAssemblyManipulator.Physical
 
    public sealed class CustomAttributeArgumentTypeSimple : CustomAttributeArgumentType
    {
-      public static readonly CustomAttributeArgumentTypeSimple Boolean = new CustomAttributeArgumentTypeSimple( SignatureElementTypes.Boolean );
-      public static readonly CustomAttributeArgumentTypeSimple Char = new CustomAttributeArgumentTypeSimple( SignatureElementTypes.Char );
-      public static readonly CustomAttributeArgumentTypeSimple SByte = new CustomAttributeArgumentTypeSimple( SignatureElementTypes.I1 );
-      public static readonly CustomAttributeArgumentTypeSimple Byte = new CustomAttributeArgumentTypeSimple( SignatureElementTypes.U1 );
-      public static readonly CustomAttributeArgumentTypeSimple Int16 = new CustomAttributeArgumentTypeSimple( SignatureElementTypes.I2 );
-      public static readonly CustomAttributeArgumentTypeSimple UInt16 = new CustomAttributeArgumentTypeSimple( SignatureElementTypes.U2 );
-      public static readonly CustomAttributeArgumentTypeSimple Int32 = new CustomAttributeArgumentTypeSimple( SignatureElementTypes.I4 );
-      public static readonly CustomAttributeArgumentTypeSimple UInt32 = new CustomAttributeArgumentTypeSimple( SignatureElementTypes.U4 );
-      public static readonly CustomAttributeArgumentTypeSimple Int64 = new CustomAttributeArgumentTypeSimple( SignatureElementTypes.I8 );
-      public static readonly CustomAttributeArgumentTypeSimple UInt64 = new CustomAttributeArgumentTypeSimple( SignatureElementTypes.U8 );
-      public static readonly CustomAttributeArgumentTypeSimple Single = new CustomAttributeArgumentTypeSimple( SignatureElementTypes.R4 );
-      public static readonly CustomAttributeArgumentTypeSimple Double = new CustomAttributeArgumentTypeSimple( SignatureElementTypes.R8 );
-      public static readonly CustomAttributeArgumentTypeSimple String = new CustomAttributeArgumentTypeSimple( SignatureElementTypes.String );
-      public static readonly CustomAttributeArgumentTypeSimple Type = new CustomAttributeArgumentTypeSimple( SignatureElementTypes.Type );
-      public static readonly CustomAttributeArgumentTypeSimple Object = new CustomAttributeArgumentTypeSimple( SignatureElementTypes.Object );
+      public static readonly CustomAttributeArgumentTypeSimple Boolean = new CustomAttributeArgumentTypeSimple( CustomAttributeArgumentTypeSimpleKind.Boolean );
+      public static readonly CustomAttributeArgumentTypeSimple Char = new CustomAttributeArgumentTypeSimple( CustomAttributeArgumentTypeSimpleKind.Char );
+      public static readonly CustomAttributeArgumentTypeSimple SByte = new CustomAttributeArgumentTypeSimple( CustomAttributeArgumentTypeSimpleKind.I1 );
+      public static readonly CustomAttributeArgumentTypeSimple Byte = new CustomAttributeArgumentTypeSimple( CustomAttributeArgumentTypeSimpleKind.U1 );
+      public static readonly CustomAttributeArgumentTypeSimple Int16 = new CustomAttributeArgumentTypeSimple( CustomAttributeArgumentTypeSimpleKind.I2 );
+      public static readonly CustomAttributeArgumentTypeSimple UInt16 = new CustomAttributeArgumentTypeSimple( CustomAttributeArgumentTypeSimpleKind.U2 );
+      public static readonly CustomAttributeArgumentTypeSimple Int32 = new CustomAttributeArgumentTypeSimple( CustomAttributeArgumentTypeSimpleKind.I4 );
+      public static readonly CustomAttributeArgumentTypeSimple UInt32 = new CustomAttributeArgumentTypeSimple( CustomAttributeArgumentTypeSimpleKind.U4 );
+      public static readonly CustomAttributeArgumentTypeSimple Int64 = new CustomAttributeArgumentTypeSimple( CustomAttributeArgumentTypeSimpleKind.I8 );
+      public static readonly CustomAttributeArgumentTypeSimple UInt64 = new CustomAttributeArgumentTypeSimple( CustomAttributeArgumentTypeSimpleKind.U8 );
+      public static readonly CustomAttributeArgumentTypeSimple Single = new CustomAttributeArgumentTypeSimple( CustomAttributeArgumentTypeSimpleKind.R4 );
+      public static readonly CustomAttributeArgumentTypeSimple Double = new CustomAttributeArgumentTypeSimple( CustomAttributeArgumentTypeSimpleKind.R8 );
+      public static readonly CustomAttributeArgumentTypeSimple String = new CustomAttributeArgumentTypeSimple( CustomAttributeArgumentTypeSimpleKind.String );
+      public static readonly CustomAttributeArgumentTypeSimple Type = new CustomAttributeArgumentTypeSimple( CustomAttributeArgumentTypeSimpleKind.Type );
+      public static readonly CustomAttributeArgumentTypeSimple Object = new CustomAttributeArgumentTypeSimple( CustomAttributeArgumentTypeSimpleKind.Object );
 
-      private SignatureElementTypes _kind;
-
-      private CustomAttributeArgumentTypeSimple( SignatureElementTypes kind )
+      private CustomAttributeArgumentTypeSimple( CustomAttributeArgumentTypeSimpleKind kind )
       {
-         this._kind = kind;
+         this.SimpleType = kind;
       }
 
       public override CustomAttributeArgumentTypeKind ArgumentTypeKind
@@ -1204,13 +1255,99 @@ namespace CILAssemblyManipulator.Physical
          }
       }
 
-      public SignatureElementTypes SimpleType
+      public CustomAttributeArgumentTypeSimpleKind SimpleType { get; }
+
+      public static CustomAttributeArgumentTypeSimple GetByKind( CustomAttributeArgumentTypeSimpleKind kind )
       {
-         get
+         CustomAttributeArgumentTypeSimple retVal;
+         if ( !TryGetByKind( kind, out retVal ) )
          {
-            return this._kind;
+            throw new ArgumentException( "Unrecognized CA argument simple type kind: " + kind + "." );
          }
+         return retVal;
       }
+
+      public static Boolean TryGetByKind( CustomAttributeArgumentTypeSimpleKind kind, out CustomAttributeArgumentTypeSimple caArgType )
+      {
+         switch ( kind )
+         {
+            case CustomAttributeArgumentTypeSimpleKind.Boolean:
+               caArgType = Boolean;
+               break;
+            case CustomAttributeArgumentTypeSimpleKind.Char:
+               caArgType = Char;
+               break;
+            case CustomAttributeArgumentTypeSimpleKind.I1:
+               caArgType = SByte;
+               break;
+            case CustomAttributeArgumentTypeSimpleKind.U1:
+               caArgType = Byte;
+               break;
+            case CustomAttributeArgumentTypeSimpleKind.I2:
+               caArgType = Int16;
+               break;
+            case CustomAttributeArgumentTypeSimpleKind.U2:
+               caArgType = UInt16;
+               break;
+            case CustomAttributeArgumentTypeSimpleKind.I4:
+               caArgType = Int32;
+               break;
+            case CustomAttributeArgumentTypeSimpleKind.U4:
+               caArgType = UInt32;
+               break;
+            case CustomAttributeArgumentTypeSimpleKind.I8:
+               caArgType = Int64;
+               break;
+            case CustomAttributeArgumentTypeSimpleKind.U8:
+               caArgType = UInt64;
+               break;
+            case CustomAttributeArgumentTypeSimpleKind.R4:
+               caArgType = Single;
+               break;
+            case CustomAttributeArgumentTypeSimpleKind.R8:
+               caArgType = Double;
+               break;
+            case CustomAttributeArgumentTypeSimpleKind.String:
+               caArgType = String;
+               break;
+            case CustomAttributeArgumentTypeSimpleKind.Object:
+               caArgType = Object;
+               break;
+            case CustomAttributeArgumentTypeSimpleKind.Type:
+               caArgType = Type;
+               break;
+            default:
+               caArgType = null;
+               break;
+         }
+
+         return caArgType != null;
+      }
+   }
+
+   /// <summary>
+   /// This enumeration represents the kind of <see cref="CustomAttributeArgumentTypeSimple"/>.
+   /// </summary>
+   /// <remarks>
+   /// The values of this enumeration are safe to be casted to <see cref="T:CILAssemblyManipulator.Physical.IO.SignatureElementTypes"/>.
+   /// </remarks>
+   public enum CustomAttributeArgumentTypeSimpleKind : byte
+   {
+      Boolean = 0x02, // Same as SignatureElementTypes.Boolean
+      Char,
+      I1,
+      U1,
+      I2,
+      U2,
+      I4,
+      U4,
+      I8,
+      U8,
+      R4,
+      R8,
+      String,
+      Type = 0x50, // Same as SignatureElementTypes.Type
+      Object // Same as SignatureElementTypes.CA_Boxed
    }
 
    public sealed class CustomAttributeArgumentTypeEnum : CustomAttributeArgumentType
@@ -1415,7 +1552,7 @@ public static partial class E_CILPhysical
    private static void PopulateAbstractMethodSignature( AbstractMethodSignature original, AbstractMethodSignature clone, Func<TableIndex, TableIndex> tableIndexTranslator )
    {
       clone.GenericArgumentCount = original.GenericArgumentCount;
-      clone.SignatureStarter = original.SignatureStarter;
+      clone.MethodSignatureInformation = original.MethodSignatureInformation;
       clone.ReturnType = CloneParameterSignature( original.ReturnType, tableIndexTranslator );
       clone.Parameters.AddRange( original.Parameters.Select( p => CloneParameterSignature( p, tableIndexTranslator ) ) );
    }
@@ -1515,35 +1652,35 @@ public static partial class E_CILPhysical
          case CustomAttributeArgumentTypeKind.Simple:
             switch ( ( (CustomAttributeArgumentTypeSimple) elemType ).SimpleType )
             {
-               case SignatureElementTypes.Boolean:
+               case CustomAttributeArgumentTypeSimpleKind.Boolean:
                   return typeof( Boolean );
-               case SignatureElementTypes.Char:
+               case CustomAttributeArgumentTypeSimpleKind.Char:
                   return typeof( Char );
-               case SignatureElementTypes.I1:
+               case CustomAttributeArgumentTypeSimpleKind.I1:
                   return typeof( SByte );
-               case SignatureElementTypes.U1:
+               case CustomAttributeArgumentTypeSimpleKind.U1:
                   return typeof( Byte );
-               case SignatureElementTypes.I2:
+               case CustomAttributeArgumentTypeSimpleKind.I2:
                   return typeof( Int16 );
-               case SignatureElementTypes.U2:
+               case CustomAttributeArgumentTypeSimpleKind.U2:
                   return typeof( UInt16 );
-               case SignatureElementTypes.I4:
+               case CustomAttributeArgumentTypeSimpleKind.I4:
                   return typeof( Int32 );
-               case SignatureElementTypes.U4:
+               case CustomAttributeArgumentTypeSimpleKind.U4:
                   return typeof( UInt32 );
-               case SignatureElementTypes.I8:
+               case CustomAttributeArgumentTypeSimpleKind.I8:
                   return typeof( Int64 );
-               case SignatureElementTypes.U8:
+               case CustomAttributeArgumentTypeSimpleKind.U8:
                   return typeof( UInt64 );
-               case SignatureElementTypes.R4:
+               case CustomAttributeArgumentTypeSimpleKind.R4:
                   return typeof( Single );
-               case SignatureElementTypes.R8:
+               case CustomAttributeArgumentTypeSimpleKind.R8:
                   return typeof( Double );
-               case SignatureElementTypes.String:
+               case CustomAttributeArgumentTypeSimpleKind.String:
                   return typeof( String );
-               case SignatureElementTypes.Type:
+               case CustomAttributeArgumentTypeSimpleKind.Type:
                   return typeof( CustomAttributeValue_TypeReference );
-               case SignatureElementTypes.Object:
+               case CustomAttributeArgumentTypeSimpleKind.Object:
                   return typeof( Object );
                default:
                   return null;

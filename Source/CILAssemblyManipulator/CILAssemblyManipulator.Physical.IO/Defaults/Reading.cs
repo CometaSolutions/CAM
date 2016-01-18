@@ -566,7 +566,7 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
 
    public class DefaultReaderBLOBStreamHandler : AbstractReaderStreamHandlerWithArrayAndCache<Tuple<Int32, Int32>>, ReaderBLOBStreamHandler
    {
-      private readonly IDictionary<KeyValuePair<Int32, SignatureElementTypes>, Object> _constants;
+      private readonly IDictionary<KeyValuePair<Int32, ConstantValueType>, Object> _constants;
 
       public DefaultReaderBLOBStreamHandler(
          StreamHelper stream,
@@ -575,7 +575,7 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
          )
          : base( stream, startPosition, streamSize )
       {
-         this._constants = new Dictionary<KeyValuePair<Int32, SignatureElementTypes>, Object>();
+         this._constants = new Dictionary<KeyValuePair<Int32, ConstantValueType>, Object>();
       }
 
       public override String StreamName
@@ -618,12 +618,12 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
          return caSig;
       }
 
-      public Object ReadConstantValue( Int32 heapIndex, SignatureElementTypes constType )
+      public Object ReadConstantValue( Int32 heapIndex, ConstantValueType constType )
       {
          return heapIndex == 0 || heapIndex >= this.StreamSize ?
             null :
             this._constants.GetOrAdd_NotThreadSafe(
-               new KeyValuePair<Int32, SignatureElementTypes>( heapIndex, constType ),
+               new KeyValuePair<Int32, ConstantValueType>( heapIndex, constType ),
                kvp => this.DoReadConstantValue( kvp.Key, kvp.Value )
                );
       }
@@ -703,7 +703,7 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
             null;
       }
 
-      private Object DoReadConstantValue( Int32 heapIndex, SignatureElementTypes constType )
+      private Object DoReadConstantValue( Int32 heapIndex, ConstantValueType constType )
       {
 
          Object retVal;
@@ -713,31 +713,31 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
             var array = this.Bytes;
             switch ( constType )
             {
-               case SignatureElementTypes.Boolean:
+               case ConstantValueType.Boolean:
                   return blobSize >= 1 ? (Object) ( array[heapIndex] == 1 ) : null;
-               case SignatureElementTypes.Char:
+               case ConstantValueType.Char:
                   return blobSize >= 2 ? (Object) Convert.ToChar( array.ReadUInt16LEFromBytes( ref heapIndex ) ) : null;
-               case SignatureElementTypes.I1:
+               case ConstantValueType.I1:
                   return blobSize >= 1 ? (Object) array.ReadSByteFromBytes( ref heapIndex ) : null;
-               case SignatureElementTypes.U1:
+               case ConstantValueType.U1:
                   return blobSize >= 1 ? (Object) array.ReadByteFromBytes( ref heapIndex ) : null;
-               case SignatureElementTypes.I2:
+               case ConstantValueType.I2:
                   return blobSize >= 2 ? (Object) array.ReadInt16LEFromBytes( ref heapIndex ) : null;
-               case SignatureElementTypes.U2:
+               case ConstantValueType.U2:
                   return blobSize >= 2 ? (Object) array.ReadUInt16LEFromBytes( ref heapIndex ) : null;
-               case SignatureElementTypes.I4:
+               case ConstantValueType.I4:
                   return blobSize >= 4 ? (Object) array.ReadInt32LEFromBytes( ref heapIndex ) : null;
-               case SignatureElementTypes.U4:
+               case ConstantValueType.U4:
                   return blobSize >= 4 ? (Object) array.ReadUInt32LEFromBytes( ref heapIndex ) : null;
-               case SignatureElementTypes.I8:
+               case ConstantValueType.I8:
                   return blobSize >= 8 ? (Object) array.ReadInt64LEFromBytes( ref heapIndex ) : null;
-               case SignatureElementTypes.U8:
+               case ConstantValueType.U8:
                   return blobSize >= 8 ? (Object) array.ReadUInt64LEFromBytes( ref heapIndex ) : null;
-               case SignatureElementTypes.R4:
+               case ConstantValueType.R4:
                   return blobSize >= 4 ? (Object) array.ReadSingleLEFromBytes( ref heapIndex ) : null;
-               case SignatureElementTypes.R8:
+               case ConstantValueType.R8:
                   return blobSize >= 8 ? (Object) array.ReadDoubleLEFromBytes( ref heapIndex ) : null;
-               case SignatureElementTypes.String:
+               case ConstantValueType.String:
                   return MetaDataConstants.USER_STRING_ENCODING.GetString( array, heapIndex, blobSize );
                default:
                   return null;
@@ -935,28 +935,26 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
                   case TypeSignatureKind.Simple:
                      switch ( ( (SimpleTypeSignature) type ).SimpleType )
                      {
-                        case SignatureElementTypes.Boolean:
+                        case SimpleTypeSignatureKind.Boolean:
                            size = sizeof( Boolean ); // TODO is this actually 1 or 4?
                            break;
-                        case SignatureElementTypes.I1:
-                        case SignatureElementTypes.U1:
+                        case SimpleTypeSignatureKind.I1:
+                        case SimpleTypeSignatureKind.U1:
                            size = 1;
                            break;
-                        case SignatureElementTypes.I2:
-                        case SignatureElementTypes.U2:
-                        case SignatureElementTypes.Char:
+                        case SimpleTypeSignatureKind.I2:
+                        case SimpleTypeSignatureKind.U2:
+                        case SimpleTypeSignatureKind.Char:
                            size = 2;
                            break;
-                        case SignatureElementTypes.I4:
-                        case SignatureElementTypes.U4:
-                        case SignatureElementTypes.R4:
-                        case SignatureElementTypes.FnPtr:
-                        case SignatureElementTypes.Ptr: // I am not 100% sure of this.
+                        case SimpleTypeSignatureKind.I4:
+                        case SimpleTypeSignatureKind.U4:
+                        case SimpleTypeSignatureKind.R4:
                            size = 4;
                            break;
-                        case SignatureElementTypes.I8:
-                        case SignatureElementTypes.U8:
-                        case SignatureElementTypes.R8:
+                        case SimpleTypeSignatureKind.I8:
+                        case SimpleTypeSignatureKind.U8:
+                        case SimpleTypeSignatureKind.R8:
                            size = 8;
                            break;
                      }
@@ -986,6 +984,10 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
 
                         }
                      }
+                     break;
+                  case TypeSignatureKind.Pointer:
+                  case TypeSignatureKind.FunctionPointer:
+                     size = 4; // I am not 100% sure of this.
                      break;
                }
             }

@@ -344,15 +344,15 @@ public static partial class E_CILLogical
    /// Creates a new <see cref="CILMethodSignature"/> that captures the signature of the current method.
    /// </summary>
    /// <param name="method">The <see cref="CILMethodBase"/>.</param>
-   /// <param name="callConventions">The <see cref="UnmanagedCallingConventions"/> for the resulting <see cref="CILMethodSignature"/>.</param>
+   /// <param name="callConventions">The <see cref="MethodSignatureInformation"/> for the resulting <see cref="CILMethodSignature"/>.</param>
    /// <returns>The new <see cref="CILMethodSignature"/> that captures the signature of the <paramref name="method"/>.</returns>
    /// <exception cref="NullReferenceException">If <paramref name="method"/> is <c>null</c>.</exception>
    /// <exception cref="ArgumentNullException">If any type of parameters is <c>null</c>.</exception>
-   public static CILMethodSignature CreateMethodSignature( this CILMethodBase method, UnmanagedCallingConventions callConventions = UnmanagedCallingConventions.C )
+   public static CILMethodSignature CreateMethodSignature( this CILMethodBase method, MethodSignatureInformation callConventions = MethodSignatureInformation.C )
    {
       return method.ReflectionContext.NewMethodSignature(
          method.DeclaringType.Module,
-         callConventions | (UnmanagedCallingConventions) ( method.CallingConvention & CallingConventions.HasThis & CallingConventions.ExplicitThis ),
+         callConventions | (MethodSignatureInformation) ( method.CallingConvention & CallingConventions.HasThis & CallingConventions.ExplicitThis ),
          MethodKind.Method == method.MethodKind ?
             ( (CILMethod) method ).ReturnParameter.ParameterType :
             method.DeclaringType.Module.AssociatedMSCorLibModule.GetTypeByName( Consts.VOID ),

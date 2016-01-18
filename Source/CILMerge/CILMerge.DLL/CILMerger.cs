@@ -2042,7 +2042,7 @@ namespace CILMerge
 
       private Boolean MatchTargetMethodSignatureToMemberRefMethodSignature( CILMetaData defModule, CILMetaData refModule, AbstractMethodSignature methodDef, AbstractMethodSignature methodRef )
       {
-         return methodDef.SignatureStarter == methodRef.SignatureStarter
+         return methodDef.MethodSignatureInformation == methodRef.MethodSignatureInformation
             && methodDef.Parameters.Count == methodRef.Parameters.Count
             && methodDef.Parameters
                .Where( ( p, idx ) => this.MatchTargetParameterSignatureToMemberRefParameterSignature( defModule, refModule, p, methodRef.Parameters[idx] ) )

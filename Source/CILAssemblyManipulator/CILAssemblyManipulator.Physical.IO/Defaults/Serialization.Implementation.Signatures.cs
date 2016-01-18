@@ -25,6 +25,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
+using CILAssemblyManipulator.Physical.IO;
 
 namespace CILAssemblyManipulator.Physical.IO.Defaults
 {
@@ -103,7 +104,7 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
             {
                GenericArgumentCount = genericCount,
                ReturnType = returnParameter,
-               SignatureStarter = elementType,
+               MethodSignatureInformation = (MethodSignatureInformation) elementType,
             };
             retVal.Parameters.AddRange( parameters );
          }
@@ -130,7 +131,7 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
             {
                GenericArgumentCount = genericCount,
                ReturnType = returnParameter,
-               SignatureStarter = elementType,
+               MethodSignatureInformation = (MethodSignatureInformation) elementType,
             };
             retVal.Parameters.AddRange( vLength > 0 ? parameters.Take( pLength ) : parameters );
             if ( vLength > 0 )
@@ -239,7 +240,7 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
       public static FieldSignature ReadFieldSignature( Byte[] array, ref Int32 idx )
       {
          SignatureStarters starter;
-         return ( starter = array.ReadSigStarter( ref idx ) ) == SignatureStarters.Field ?
+         return ( starter = array.ReadSigStarter( ref idx ) ).IsField() ?
             ReadFieldSignatureAfterStarter( array, ref idx ) :
             null;
       }
@@ -298,7 +299,7 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
          )
       {
          SignatureStarters starter;
-         return ( starter = array.ReadSigStarter( ref idx ) ) == SignatureStarters.LocalSignature ?
+         return ( starter = array.ReadSigStarter( ref idx ) ).IsLocalSignature() ?
             ReadLocalVariablesSignatureAfterStarter( array, ref idx ) :
             null;
       }
@@ -410,7 +411,9 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
             case SignatureElementTypes.String:
             case SignatureElementTypes.Object:
             case SignatureElementTypes.Void:
-               retVal = SimpleTypeSignature.GetByElement( elementType );
+               SimpleTypeSignature simple;
+               SimpleTypeSignature.TryGetByKind( (SimpleTypeSignatureKind) elementType, out simple );
+               retVal = simple;
                break;
             case SignatureElementTypes.Array:
                var arrayType = ReadTypeSignature( array, ref idx );
@@ -740,7 +743,7 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
          return info.Array.CreateArrayCopy( idx );
       }
 
-      internal static Byte[] CreateConstantBytes( this ResizableArray<Byte> info, Object constant, SignatureElementTypes elementType )
+      internal static Byte[] CreateConstantBytes( this ResizableArray<Byte> info, Object constant, ConstantValueType elementType )
       {
          var idx = 0;
          return info.WriteConstantValue( ref idx, constant, elementType ) ?
@@ -881,7 +884,7 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
          switch ( type.TypeSignatureKind )
          {
             case TypeSignatureKind.Simple:
-               info.AddSigByte( ref idx, ( (SimpleTypeSignature) type ).SimpleType );
+               info.AddSigByte( ref idx, (SignatureElementTypes) ( (SimpleTypeSignature) type ).SimpleType );
                break;
             case TypeSignatureKind.SimpleArray:
                var szArray = (SimpleArrayTypeSignature) type;
@@ -954,8 +957,8 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
       {
          if ( method != null )
          {
-            var starter = method.SignatureStarter;
-            info.AddSigStarterByte( ref idx, method.SignatureStarter );
+            var starter = method.MethodSignatureInformation;
+            info.AddSigStarterByte( ref idx, (SignatureStarters) starter );
 
             if ( starter.IsGeneric() )
             {
@@ -1007,12 +1010,12 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
          return info;
       }
 
-      private static Boolean WriteConstantValue( this ResizableArray<Byte> info, ref Int32 idx, Object constant, SignatureElementTypes elementType )
+      private static Boolean WriteConstantValue( this ResizableArray<Byte> info, ref Int32 idx, Object constant, ConstantValueType elementType )
       {
          var retVal = true;
          if ( constant == null )
          {
-            retVal = elementType != SignatureElementTypes.String;
+            retVal = elementType != ConstantValueType.String;
             if ( retVal )
             {
                info.WriteInt32LEToBytes( ref idx, 0 );
@@ -1165,46 +1168,46 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
             case CustomAttributeArgumentTypeKind.Simple:
                switch ( ( (CustomAttributeArgumentTypeSimple) argType ).SimpleType )
                {
-                  case SignatureElementTypes.Boolean:
+                  case CustomAttributeArgumentTypeSimpleKind.Boolean:
                      info.WriteByteToBytes( ref idx, Convert.ToBoolean( arg ) ? (Byte) 1 : (Byte) 0 );
                      break;
-                  case SignatureElementTypes.I1:
+                  case CustomAttributeArgumentTypeSimpleKind.I1:
                      info.WriteSByteToBytes( ref idx, Convert.ToSByte( arg ) );
                      break;
-                  case SignatureElementTypes.U1:
+                  case CustomAttributeArgumentTypeSimpleKind.U1:
                      info.WriteByteToBytes( ref idx, Convert.ToByte( arg ) );
                      break;
-                  case SignatureElementTypes.Char:
+                  case CustomAttributeArgumentTypeSimpleKind.Char:
                      info.WriteUInt16LEToBytes( ref idx, Convert.ToUInt16( Convert.ToChar( arg ) ) );
                      break;
-                  case SignatureElementTypes.I2:
+                  case CustomAttributeArgumentTypeSimpleKind.I2:
                      info.WriteInt16LEToBytes( ref idx, Convert.ToInt16( arg ) );
                      break;
-                  case SignatureElementTypes.U2:
+                  case CustomAttributeArgumentTypeSimpleKind.U2:
                      info.WriteUInt16LEToBytes( ref idx, Convert.ToUInt16( arg ) );
                      break;
-                  case SignatureElementTypes.I4:
+                  case CustomAttributeArgumentTypeSimpleKind.I4:
                      info.WriteInt32LEToBytes( ref idx, Convert.ToInt32( arg ) );
                      break;
-                  case SignatureElementTypes.U4:
+                  case CustomAttributeArgumentTypeSimpleKind.U4:
                      info.WriteUInt32LEToBytes( ref idx, Convert.ToUInt32( arg ) );
                      break;
-                  case SignatureElementTypes.I8:
+                  case CustomAttributeArgumentTypeSimpleKind.I8:
                      info.WriteInt64LEToBytes( ref idx, Convert.ToInt64( arg ) );
                      break;
-                  case SignatureElementTypes.U8:
+                  case CustomAttributeArgumentTypeSimpleKind.U8:
                      info.WriteUInt64LEToBytes( ref idx, Convert.ToUInt64( arg ) );
                      break;
-                  case SignatureElementTypes.R4:
+                  case CustomAttributeArgumentTypeSimpleKind.R4:
                      info.WriteSingleLEToBytes( ref idx, Convert.ToSingle( arg ) );
                      break;
-                  case SignatureElementTypes.R8:
+                  case CustomAttributeArgumentTypeSimpleKind.R8:
                      info.WriteDoubleLEToBytes( ref idx, Convert.ToDouble( arg ) );
                      break;
-                  case SignatureElementTypes.String:
+                  case CustomAttributeArgumentTypeSimpleKind.String:
                      info.AddCAString( ref idx, arg == null ? null : Convert.ToString( arg ) );
                      break;
-                  case SignatureElementTypes.Type:
+                  case CustomAttributeArgumentTypeSimpleKind.Type:
                      String typeStr;
                      if ( arg != null )
                      {
@@ -1227,7 +1230,7 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
                      }
                      info.AddCAString( ref idx, typeStr );
                      break;
-                  case SignatureElementTypes.Object:
+                  case CustomAttributeArgumentTypeSimpleKind.Object:
                      if ( arg == null )
                      {
                         // Nulls are serialized as null strings
@@ -1369,11 +1372,7 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
                   .WriteCustomAttributeFieldOrPropType( ref idx, ref arrayType, ref dummy, false );
                break;
             case CustomAttributeArgumentTypeKind.Simple:
-               var sigStarter = ( (CustomAttributeArgumentTypeSimple) type ).SimpleType;
-               if ( sigStarter == SignatureElementTypes.Object )
-               {
-                  sigStarter = SignatureElementTypes.CA_Boxed;
-               }
+               var sigStarter = (SignatureElementTypes) ( (CustomAttributeArgumentTypeSimple) type ).SimpleType;
                info.AddSigByte( ref idx, sigStarter );
                break;
             case CustomAttributeArgumentTypeKind.TypeString:
