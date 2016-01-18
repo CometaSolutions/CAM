@@ -803,28 +803,28 @@ namespace CILAssemblyManipulator.Physical
       DefaultConstructorConstraint = 0x0010
    }
 
-   /// <summary>
-   /// The kind of the module being loaded or emitted.
-   /// </summary>
-   public enum ModuleKind
-   {
-      /// <summary>
-      /// The module is a class library (.dll) with assembly manifest.
-      /// </summary>
-      Dll,
-      /// <summary>
-      /// The module is a console application (.exe) with assembly manifest.
-      /// </summary>
-      Console,
-      /// <summary>
-      /// The module is a windows application (.exe) with assembly manifest.
-      /// </summary>
-      Windows,
-      /// <summary>
-      /// The module is a netmodule (.netmodule) without assembly manifest.
-      /// </summary>
-      NetModule,
-   }
+   ///// <summary>
+   ///// The kind of the module being loaded or emitted.
+   ///// </summary>
+   //public enum ModuleKind
+   //{
+   //   /// <summary>
+   //   /// The module is a class library (.dll) with assembly manifest.
+   //   /// </summary>
+   //   Dll,
+   //   /// <summary>
+   //   /// The module is a console application (.exe) with assembly manifest.
+   //   /// </summary>
+   //   Console,
+   //   /// <summary>
+   //   /// The module is a windows application (.exe) with assembly manifest.
+   //   /// </summary>
+   //   Windows,
+   //   /// <summary>
+   //   /// The module is a netmodule (.netmodule) without assembly manifest.
+   //   /// </summary>
+   //   NetModule,
+   //}
 
    /// <summary>
    /// Specifies the security actions (ECMA-335 pp. 218-219), minus the ones that were obsoleted by .NET 4 release.
@@ -895,8 +895,8 @@ namespace CILAssemblyManipulator.Physical
    //}
 
    /// <summary>
-   /// This enumeration is a copy of <see cref="T:System.Runtime.InteropServices.VarEnum"/>.
-   /// It is present in order to avoid warnings when compiling for Windows Phone 8.1.
+   /// This enumeration corresponds to <see cref="T:System.Runtime.InteropServices.VarEnum"/>.
+   /// The values from this enumeration and <see cref="T:System.Runtime.InteropServices.VarEnum"/> should be directly castable between each other.
    /// </summary>
    public enum VarEnum
    {
@@ -1077,13 +1077,15 @@ namespace CILAssemblyManipulator.Physical
       /// Indicates that a value is a reference.
       /// </summary>
       VT_BYREF = 16384,
-
+      /// <summary>
+      /// Indicates that the marshalling type is not specified.
+      /// </summary>
       VT_NOT_SPECIFIED = -1
    }
 
    /// <summary>
-   /// This enumeration is a copy of <see cref="T:System.Runtime.InteropServices.UnmanagedType"/>.
-   /// It is present in order to avoid warnings when compiling for Windows Phone 8.1.
+   /// This enumeration corresponds to <see cref="T:System.Runtime.InteropServices.UnmanagedType"/>.
+   /// /// The values from this enumeration and <see cref="T:System.Runtime.InteropServices.UnmanagedType"/> should be directly castable between each other.
    /// </summary>
    public enum UnmanagedType : int
    {
@@ -1241,8 +1243,13 @@ namespace CILAssemblyManipulator.Physical
       NotPresent = -1,
    }
 
+   /// <summary>
+   /// This is enumeration of various values that the <see cref="AbstractSignature"/>s (excluding <see cref="TypeSignature"/>) can start with.
+   /// </summary>  
    public enum SignatureStarters : byte
    {
+      // TODO this enum should be in IO project. It is here only because of the AbstractMethodSignature.SignatureStarter property!
+      // Probably the AbstractMethodSignature.SignatureStarter property should be refactored into CallingConventions and something else?
       Default = 0x00,
       C = 0x01,
       StandardCall = 0x02,
@@ -2146,15 +2153,15 @@ public static partial class E_CILPhysical
       return ( attrs & PropertyAttributes.HasDefault ) == PropertyAttributes.HasDefault;
    }
 
-   /// <summary>
-   /// Checks whether given module kind requires emitted module to have DLL characteristics.
-   /// </summary>
-   /// <param name="kind">The <see cref="ModuleKind"/>.</param>
-   /// <returns><c>true</c> if <paramref name="kind"/> represents a module kind which requires emitted module to have DLL characteristics; <c>false</c> otherwise.</returns>
-   public static Boolean IsDLL( this ModuleKind kind )
-   {
-      return ModuleKind.Dll == kind || ModuleKind.NetModule == kind;
-   }
+   ///// <summary>
+   ///// Checks whether given module kind requires emitted module to have DLL characteristics.
+   ///// </summary>
+   ///// <param name="kind">The <see cref="ModuleKind"/>.</param>
+   ///// <returns><c>true</c> if <paramref name="kind"/> represents a module kind which requires emitted module to have DLL characteristics; <c>false</c> otherwise.</returns>
+   //public static Boolean IsDLL( this ModuleKind kind )
+   //{
+   //   return ModuleKind.Dll == kind || ModuleKind.NetModule == kind;
+   //}
 
 
    ///// <summary>

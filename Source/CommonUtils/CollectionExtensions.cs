@@ -631,20 +631,20 @@ public static partial class E_CommonUtils
    /// <typeparam name="T">The type of array elements.</typeparam>
    /// <param name="x">The first array.</param>
    /// <param name="y">The second array.</param>
-   /// <param name="comparer">The optional equality comparer for array elements.</param>
+   /// <param name="equality">The optional equality comparer for array elements.</param>
    /// <returns><c>true</c> if <paramref name="x"/> and <paramref name="y"/> are of same size and have same elements; <c>false</c> otherwise.</returns>
-   public static Boolean ArraysDeepEquals<T>( this T[] x, T[] y, IEqualityComparer<T> comparer = null )
+   public static Boolean ArraysDeepEquals<T>( this T[] x, T[] y, Equality<T> equality = null )
    {
       var retVal = ReferenceEquals( x, y );
       if ( !retVal && x != null && y != null && x.Length == y.Length && x.Length > 0 )
       {
-         if ( comparer == null )
+         if ( equality == null )
          {
-            comparer = EqualityComparer<T>.Default;
+            equality = EqualityComparer<T>.Default.Equals;
          }
          var max = x.Length;
          var i = 0;
-         for ( ; i < max && comparer.Equals( x[i], y[i] ); ++i ) ;
+         for ( ; i < max && equality( x[i], y[i] ); ++i ) ;
          retVal = i == max;
       }
 
@@ -656,20 +656,24 @@ public static partial class E_CommonUtils
    /// </summary>
    /// <param name="x">The first array.</param>
    /// <param name="y">The second array.</param>
-   /// <param name="comparer">The optional equality comparer for array elements.</param>
+   /// <param name="equality">The optional equality callback for array elements.</param>
    /// <returns><c>true</c> if <paramref name="x"/> and <paramref name="y"/> are of same size and have same elements; <c>false</c> otherwise.</returns>
-   public static Boolean ArraysDeepEqualUntyped( this Array x, Array y, IEqualityComparer<Object> comparer = null )
+   public static Boolean ArraysDeepEqualUntyped( this Array x, Array y, Equality<Object> equality = null )
    {
       var retVal = ReferenceEquals( x, y );
-      if ( !retVal && x != null && y != null && x.Length == y.Length && x.Length > 0 && x.Rank == y.Rank )
+      if ( !retVal
+         && x != null && y != null
+         && x.Length == y.Length
+         && x.Rank == y.Rank
+         )
       {
-         if ( comparer == null )
+         if ( equality == null )
          {
-            comparer = EqualityComparer<Object>.Default;
+            equality = EqualityComparer<Object>.Default.Equals;
          }
          var max = x.Length;
          var i = 0;
-         for ( ; i < max && comparer.Equals( x.GetValue( i ), y.GetValue( i ) ); ++i ) ;
+         for ( ; i < max && equality( x.GetValue( i ), y.GetValue( i ) ); ++i ) ;
          retVal = i == max;
       }
       return retVal;

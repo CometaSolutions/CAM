@@ -6,6 +6,8 @@
 
 - CAM.Physical:
  - Documentation
+ - Extensible signatures
+ - Extensible op-codes
  
 - CAM.Logical:
  - Revisit documentation (code samples etc)

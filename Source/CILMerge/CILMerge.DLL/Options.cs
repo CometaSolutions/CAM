@@ -49,7 +49,7 @@ namespace CILMerge
       bool NoDebug { get; set; }
       string OutPath { get; set; }
       bool Parallel { get; set; }
-      CILAssemblyManipulator.Physical.ModuleKind? Target { get; set; }
+      //CILAssemblyManipulator.Physical.ModuleKind? Target { get; set; }
       String MetadataVersionString { get; set; }
       string ReferenceAssembliesDirectory { get; set; }
       string Union { get; set; }
@@ -164,7 +164,7 @@ namespace CILMerge
       public Boolean CopyAttributes { get; set; }
       public String TargetAssemblyAttributeSource { get; set; }
       public Boolean AllowMultipleAssemblyAttributes { get; set; }
-      public ModuleKind? Target { get; set; }
+      //public ModuleKind? Target { get; set; }
       public String MetadataVersionString { get; set; }
       public String ReferenceAssembliesDirectory { get; set; }
       public Boolean XmlDocs { get; set; }

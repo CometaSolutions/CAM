@@ -179,7 +179,7 @@ namespace CILMerge.MSBuild
 
       public Boolean Parallel { get; set; }
 
-      public ModuleKind? Target { get; set; }
+      //public ModuleKind? Target { get; set; }
 
       public String ReferenceAssembliesDirectory { get; set; }
 

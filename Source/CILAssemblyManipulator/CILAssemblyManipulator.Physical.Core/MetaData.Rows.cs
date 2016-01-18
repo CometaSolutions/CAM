@@ -1312,16 +1312,6 @@ namespace CILAssemblyManipulator.Physical
          return retVal;
       }
 
-      internal Int32 CompareTo( TableIndex other, Int32[] tableOrderArray )
-      {
-         var retVal = this.Index.CompareTo( other.Index );
-         if ( retVal == 0 )
-         {
-            retVal = tableOrderArray[(Int32) this.Table].CompareTo( tableOrderArray[(Int32) other.Table] );
-         }
-         return retVal;
-      }
-
       Int32 IComparable.CompareTo( Object obj )
       {
          if ( obj == null )
@@ -1434,29 +1424,6 @@ namespace CILAssemblyManipulator.Physical
       TypeDef = 0x02,
       TypeRef = 0x01,
       TypeSpec = 0x1B
-   }
-
-
-   // ECMA-335, pp. 274-276
-   public static class TableIndexSchemas
-   {
-      public static readonly ArrayQuery<Int32?> TypeDefOrRef = CollectionsFactorySingleton.DEFAULT_COLLECTIONS_FACTORY.NewArrayProxy( new Int32?[] { (Int32) Tables.TypeDef, (Int32) Tables.TypeRef, (Int32) Tables.TypeSpec } ).CQ;
-      public static readonly ArrayQuery<Int32?> HasConstant = CollectionsFactorySingleton.DEFAULT_COLLECTIONS_FACTORY.NewArrayProxy( new Int32?[] { (Int32) Tables.Field, (Int32) Tables.Parameter, (Int32) Tables.Property } ).CQ;
-      public static readonly ArrayQuery<Int32?> HasCustomAttribute = CollectionsFactorySingleton.DEFAULT_COLLECTIONS_FACTORY.NewArrayProxy( new Int32?[] { ( Int32)Tables.MethodDef, ( Int32)Tables.Field, ( Int32)Tables.TypeRef, ( Int32)Tables.TypeDef, ( Int32)Tables.Parameter,
-            ( Int32)Tables.InterfaceImpl, ( Int32)Tables.MemberRef, ( Int32)Tables.Module, ( Int32)Tables.DeclSecurity, ( Int32)Tables.Property, ( Int32)Tables.Event,
-            ( Int32)Tables.StandaloneSignature, ( Int32)Tables.ModuleRef, ( Int32)Tables.TypeSpec, ( Int32)Tables.Assembly, ( Int32)Tables.AssemblyRef, ( Int32)Tables.File,
-            ( Int32)Tables.ExportedType, ( Int32)Tables.ManifestResource, ( Int32)Tables.GenericParameter, ( Int32)Tables.GenericParameterConstraint, ( Int32)Tables.MethodSpec } ).CQ;
-      public static readonly ArrayQuery<Int32?> HasFieldMarshal = CollectionsFactorySingleton.DEFAULT_COLLECTIONS_FACTORY.NewArrayProxy( new Int32?[] { (Int32) Tables.Field, (Int32) Tables.Parameter } ).CQ;
-      public static readonly ArrayQuery<Int32?> HasSecurity = CollectionsFactorySingleton.DEFAULT_COLLECTIONS_FACTORY.NewArrayProxy( new Int32?[] { (Int32) Tables.TypeDef, (Int32) Tables.MethodDef, (Int32) Tables.Assembly } ).CQ;
-      public static readonly ArrayQuery<Int32?> MemberRefParent = CollectionsFactorySingleton.DEFAULT_COLLECTIONS_FACTORY.NewArrayProxy( new Int32?[] { (Int32) Tables.TypeDef, (Int32) Tables.TypeRef, (Int32) Tables.ModuleRef, (Int32) Tables.MethodDef, (Int32) Tables.TypeSpec } ).CQ;
-      public static readonly ArrayQuery<Int32?> HasSemantics = CollectionsFactorySingleton.DEFAULT_COLLECTIONS_FACTORY.NewArrayProxy( new Int32?[] { (Int32) Tables.Event, (Int32) Tables.Property } ).CQ;
-      public static readonly ArrayQuery<Int32?> MethodDefOrRef = CollectionsFactorySingleton.DEFAULT_COLLECTIONS_FACTORY.NewArrayProxy( new Int32?[] { (Int32) Tables.MethodDef, (Int32) Tables.MemberRef } ).CQ;
-      public static readonly ArrayQuery<Int32?> MemberForwarded = CollectionsFactorySingleton.DEFAULT_COLLECTIONS_FACTORY.NewArrayProxy( new Int32?[] { (Int32) Tables.Field, (Int32) Tables.MethodDef } ).CQ;
-      public static readonly ArrayQuery<Int32?> Implementation = CollectionsFactorySingleton.DEFAULT_COLLECTIONS_FACTORY.NewArrayProxy( new Int32?[] { (Int32) Tables.File, (Int32) Tables.AssemblyRef, (Int32) Tables.ExportedType } ).CQ;
-      public static readonly ArrayQuery<Int32?> CustomAttributeType = CollectionsFactorySingleton.DEFAULT_COLLECTIONS_FACTORY.NewArrayProxy( new Int32?[] { null, null, (Int32) Tables.MethodDef, (Int32) Tables.MemberRef, null } ).CQ;
-      public static readonly ArrayQuery<Int32?> ResolutionScope = CollectionsFactorySingleton.DEFAULT_COLLECTIONS_FACTORY.NewArrayProxy( new Int32?[] { (Int32) Tables.Module, (Int32) Tables.ModuleRef, (Int32) Tables.AssemblyRef, (Int32) Tables.TypeRef } ).CQ;
-      public static readonly ArrayQuery<Int32?> TypeOrMethodDef = CollectionsFactorySingleton.DEFAULT_COLLECTIONS_FACTORY.NewArrayProxy( new Int32?[] { (Int32) Tables.TypeDef, (Int32) Tables.MethodDef } ).CQ;
-
    }
 
    // System.Runtime.Versioning.FrameworkName is amazingly missing from all PCL framework assemblies.

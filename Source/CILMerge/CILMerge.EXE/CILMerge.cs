@@ -38,7 +38,7 @@ namespace CILMerge
       private const String COPY_ATTRS = "copyattrs";
       private const String ATTR = "attr";
       private const String ALLOW_MULTIPLE = "allowmultiple";
-      private const String TARGET = "target";
+      //private const String TARGET = "target";
       private const String TARGET_PLATFORM = "targetplatform";
       private const String XML_DOCS = "xmldocs";
       private const String LIB = "lib";
@@ -85,7 +85,7 @@ namespace CILMerge
                   new SwitchOptionModel(COPY_ATTRS),
                   new StringOptionModel(ATTR),
                   new SwitchOptionModel(ALLOW_MULTIPLE),
-                  new EnumOptionModel<ModuleKind>(TARGET, true),
+                  //new EnumOptionModel<ModuleKind>(TARGET, true),
                   new StringOptionModel(TARGET_PLATFORM),
                   new SwitchOptionModel(XML_DOCS),
                   new StringOptionModel(LIB),
@@ -202,7 +202,7 @@ namespace CILMerge
          options.CopyAttributes = args.GetSingleOptionOrNull( COPY_ATTRS ).GetOrDefault( false );
          options.TargetAssemblyAttributeSource = args.GetSingleOptionOrNull( ATTR ).GetOrDefault<String>();
          options.AllowMultipleAssemblyAttributes = args.GetSingleOptionOrNull( ALLOW_MULTIPLE ).GetOrDefault( false );
-         options.Target = args.GetSingleOptionOrNull( TARGET ).GetOrDefault<ModuleKind?>();
+         //options.Target = args.GetSingleOptionOrNull( TARGET ).GetOrDefault<ModuleKind?>();
          var tp = args.GetSingleOptionOrNull( TARGET_PLATFORM ).GetOrDefault<String>();
          if ( tp != null )
          {
