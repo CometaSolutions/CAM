@@ -43,6 +43,7 @@ namespace CILAssemblyManipulator.Logical.Implementation
       private readonly ConcurrentDictionary<String, CILType> typeNameCache;
 #endif
       private readonly IDictionary<String, AbstractLogicalManifestResource> manifestResources;
+      private readonly IDictionary<OpCodeEncoding, LogicalOpCodeInfoWithNoOperand> operandlessCodes;
 
       internal CILModuleImpl( CILReflectionContextImpl ctx, Int32 anID, System.Reflection.Module mod )
          : base( ctx, anID, CILElementKind.Module, cb => cb.GetCustomAttributesDataForOrThrow( mod ) )
@@ -58,6 +59,7 @@ namespace CILAssemblyManipulator.Logical.Implementation
             ref this.associatedMSCorLib,
             ref this.typeNameCache,
             ref this.manifestResources,
+            ref this.operandlessCodes,
             mod.Name,
             () => ctx.Cache.GetOrAdd( mod.Assembly ),
             () => ctx.CollectionsFactory.NewListProxy<CILType>( ctx.WrapperCallbacks.GetTopLevelDefinedTypesOrThrow( mod )
@@ -83,6 +85,7 @@ namespace CILAssemblyManipulator.Logical.Implementation
             ref this.associatedMSCorLib,
             ref this.typeNameCache,
             ref this.manifestResources,
+            ref this.operandlessCodes,
             name,
             () => ass,
             () => ctx.CollectionsFactory.NewListProxy<CILType>(),
@@ -106,6 +109,7 @@ namespace CILAssemblyManipulator.Logical.Implementation
  ref ConcurrentDictionary<String, CILType> typeNameCache,
 #endif
  ref IDictionary<String, AbstractLogicalManifestResource> manifestResources,
+         ref IDictionary<OpCodeEncoding, LogicalOpCodeInfoWithNoOperand> operandlessCodes,
          String aName,
          Func<CILAssembly> assemblyFunc,
          Func<ListProxy<CILType>> typesFunc,
@@ -129,6 +133,7 @@ namespace CILAssemblyManipulator.Logical.Implementation
 #endif
 ;
          manifestResources = mResources ?? new Dictionary<String, AbstractLogicalManifestResource>();
+         operandlessCodes = new Dictionary<OpCodeEncoding, LogicalOpCodeInfoWithNoOperand>();
       }
 
       private CILType BuildModuleInitializerType()
@@ -279,6 +284,11 @@ namespace CILAssemblyManipulator.Logical.Implementation
          {
             return this.manifestResources;
          }
+      }
+
+      public LogicalOpCodeInfoWithNoOperand GetOperandlessOpCode( OpCodeEncoding code )
+      {
+         return this.operandlessCodes.GetOrAdd_WithLock( code, c => new LogicalOpCodeInfoWithNoOperand( c ) );
       }
 
       #endregion

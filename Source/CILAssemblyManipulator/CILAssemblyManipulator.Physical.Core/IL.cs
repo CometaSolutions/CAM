@@ -16,6 +16,7 @@
 * limitations under the License. 
 */
 using CILAssemblyManipulator.Physical;
+using CILAssemblyManipulator.Physical.Meta;
 using CommonUtils;
 using System;
 using System.Collections.Generic;
@@ -147,21 +148,22 @@ namespace CILAssemblyManipulator.Physical
       private readonly UInt16 _code; // Save some memory - use integer instead of actual code (Int64 (amount of space taken by OpCode structure) -> Int16)
 
       // Disable inheritance to other assemblies
-      internal OpCodeInfo( OpCode code )
+      internal OpCodeInfo( OpCodeEncoding code )
       {
-         this._code = (UInt16) code.Value;
+         this._code = (UInt16) code;
       }
 
       /// <summary>
-      /// Gets the <see cref="OpCode"/> for this <see cref="OpCodeInfo"/>.
+      /// Gets the <see cref="OpCodeEncoding"/> for this <see cref="OpCodeInfo"/>.
       /// </summary>
+      /// <seealso cref="OpCodeEncoding"/>
       /// <seealso cref="Physical.OpCode"/>
       /// <seealso cref="OpCodes"/>
-      public OpCode OpCode
+      public OpCodeEncoding OpCode
       {
          get
          {
-            return OpCodes.GetCodeFor( (OpCodeEncoding) this._code );
+            return (OpCodeEncoding) this._code;
          }
       }
 
@@ -173,14 +175,14 @@ namespace CILAssemblyManipulator.Physical
       public abstract OpCodeOperandKind InfoKind { get; }
 
       /// <summary>
-      /// Gets the size of operand of this <see cref="OpCode"/>, in bytes.
+      /// Gets the additional size of operand of this <see cref="OpCode"/>, in bytes.
       /// </summary>
-      /// <value>The size of operand of this <see cref="OpCode"/>, in bytes.</value>
-      public virtual Int32 OperandByteSize
+      /// <value>The additional size of operand of this <see cref="OpCode"/>, in bytes.</value>
+      public virtual Int32 AdditionalOperandByteSize
       {
          get
          {
-            return this.OpCode.OperandSize;
+            return 0;
          }
       }
 
@@ -223,7 +225,7 @@ namespace CILAssemblyManipulator.Physical
    public abstract class OpCodeInfoWithOperand<TOperand> : OpCodeInfo, IOpCodeInfoWithOperand<TOperand>
    {
       // Disable inheritance to other assemblies
-      internal OpCodeInfoWithOperand( OpCode code, TOperand operand )
+      internal OpCodeInfoWithOperand( OpCodeEncoding code, TOperand operand )
          : base( code )
       {
          this.Operand = operand;
@@ -244,34 +246,12 @@ namespace CILAssemblyManipulator.Physical
       /// <summary>
       /// Creates a new instance of <see cref="OpCodeInfoWithTableIndex"/> with given <see cref="OpCode"/> and <see cref="TableIndex"/> as an operand.
       /// </summary>
-      /// <param name="code">The <see cref="OpCode"/>.</param>
+      /// <param name="code">The <see cref="OpCodeEncoding"/>.</param>
       /// <param name="token">The <see cref="TableIndex"/> acting as operand of the <paramref name="code"/>.</param>
-      /// <exception cref="ArgumentException">If <paramref name="code"/> does not accept table index as operand.</exception>
-      /// <remarks>
-      /// The <see cref="OpCode"/> is deemed to accept table index as an operand when its <see cref="OpCode.OperandType"/> is one of the following:
-      /// <list type="bullet">
-      /// <item><description><see cref="OperandType.InlineField"/>,</description></item>
-      /// <item><description><see cref="OperandType.InlineMethod"/>,</description></item>
-      /// <item><description><see cref="OperandType.InlineType"/>,</description></item>
-      /// <item><description><see cref="OperandType.InlineToken"/>, or</description></item>
-      /// <item><description><see cref="OperandType.InlineSignature"/>.</description></item>
-      /// </list>
-      /// </remarks>
       /// <seealso cref="OpCodes"/>
-      public OpCodeInfoWithTableIndex( OpCode code, TableIndex token )
+      public OpCodeInfoWithTableIndex( OpCodeEncoding code, TableIndex token )
          : base( code, token )
       {
-         switch ( code.OperandType )
-         {
-            case OperandType.InlineField:
-            case OperandType.InlineMethod:
-            case OperandType.InlineType:
-            case OperandType.InlineToken:
-            case OperandType.InlineSignature:
-               break;
-            default:
-               throw new ArgumentException( "The given code " + code.Value + " does not accept table index as an operand." );
-         }
       }
 
       /// <summary>
@@ -296,36 +276,12 @@ namespace CILAssemblyManipulator.Physical
       /// <summary>
       /// Creates a new instance of <see cref="OpCodeInfoWithInt32"/> with given <see cref="OpCode"/> and integer as operand.
       /// </summary>
-      /// <param name="code">The <see cref="OpCode"/>.</param>
+      /// <param name="code">The <see cref="OpCodeEncoding"/>.</param>
       /// <param name="operand">The integer acting as an operand for <paramref name="code"/>.</param>
-      /// <exception cref="ArgumentException">If <paramref name="code"/> does not accept integer as operand.</exception>
-      /// <remarks>
-      /// The <see cref="OpCode"/> is deemed to accept integer as an operand when its <see cref="OpCode.OperandType"/> is one of the following:
-      /// <list type="bullet">
-      /// <item><description><see cref="OperandType.ShortInlineI"/>,</description></item>
-      /// <item><description><see cref="OperandType.ShortInlineVar"/>,</description></item>
-      /// <item><description><see cref="OperandType.ShortInlineBrTarget"/>,</description></item>
-      /// <item><description><see cref="OperandType.InlineBrTarget"/>,</description></item>
-      /// <item><description><see cref="OperandType.InlineI"/>, or</description></item>
-      /// <item><description><see cref="OperandType.InlineVar"/>.</description></item>
-      /// </list>
-      /// </remarks>
       /// <seealso cref="OpCodes"/>
-      public OpCodeInfoWithInt32( OpCode code, Int32 operand )
+      public OpCodeInfoWithInt32( OpCodeEncoding code, Int32 operand )
          : base( code, operand )
       {
-         switch ( code.OperandType )
-         {
-            case OperandType.ShortInlineI:
-            case OperandType.ShortInlineVar:
-            case OperandType.ShortInlineBrTarget:
-            case OperandType.InlineBrTarget:
-            case OperandType.InlineI:
-            case OperandType.InlineVar:
-               break;
-            default:
-               throw new ArgumentException( "The given code " + code.Value + " does not accept integer as an operand." );
-         }
       }
 
       /// <summary>
@@ -349,26 +305,12 @@ namespace CILAssemblyManipulator.Physical
       /// <summary>
       /// Creates a new instance of <see cref="OpCodeInfoWithInt64"/> with given <see cref="OpCode"/> and 64-bit integer as operand.
       /// </summary>
-      /// <param name="code">The <see cref="OpCode"/>.</param>
+      /// <param name="code">The <see cref="OpCodeEncoding"/>.</param>
       /// <param name="operand">The 64-bit integer acting as an operand for <paramref name="code"/>.</param>
-      /// <exception cref="ArgumentException">If <paramref name="code"/> does not accept 64-bit integer as operand.</exception>
-      /// <remarks>
-      /// The <see cref="OpCode"/> is deemed to accept 64-bit integer as an operand when its <see cref="OpCode.OperandType"/> is one of the following:
-      /// <list type="bullet">
-      /// <item><description><see cref="OperandType.InlineI8"/>.</description></item>
-      /// </list>
-      /// </remarks>
       /// <seealso cref="OpCodes"/>
-      public OpCodeInfoWithInt64( OpCode code, Int64 operand )
+      public OpCodeInfoWithInt64( OpCodeEncoding code, Int64 operand )
          : base( code, operand )
       {
-         switch ( code.OperandType )
-         {
-            case OperandType.InlineI8:
-               break;
-            default:
-               throw new ArgumentException( "The given code " + code.Value + " does not accept 64-bit integer as an operand." );
-         }
       }
 
       /// <summary>
@@ -388,18 +330,12 @@ namespace CILAssemblyManipulator.Physical
    /// This class represents any op code which takes no operand.
    /// </summary>
    /// <remarks>
-   /// The instances of this class are obtained through <see cref="GetInstanceFor"/> and <see cref="TryGetInstanceFor"/> methods.
+   /// The instances of this class should be obtained through <see cref="Meta.OpCodeProvider.TryGetOperandlessInfoFor"/> or <see cref="E_CILPhysical.GetOperandlessInfoFor"/> methods.
+   /// This is to save memory - no need to allocate duplicate <see cref="OpCodeInfoWithNoOperand"/> objects with identical state.
    /// </remarks>
    public sealed class OpCodeInfoWithNoOperand : OpCodeInfo
    {
-      // TODO: maybe safer and faster would be to just use switch statement in TryGetInstance and yield return in OperandlessCodes ?
-      // But when the new op-codes are added, then this class would need an update.
-      private static readonly IDictionary<OpCodeEncoding, OpCodeInfoWithNoOperand> CodeInfosWithNoOperand = OpCodes.AllOpCodes
-         .Where( c => c.OperandType == OperandType.InlineNone )
-         .ToDictionary( c => c.Value, c => new OpCodeInfoWithNoOperand( c ) );
-
-
-      private OpCodeInfoWithNoOperand( OpCode code )
+      public OpCodeInfoWithNoOperand( OpCodeEncoding code )
          : base( code )
       {
 
@@ -417,61 +353,49 @@ namespace CILAssemblyManipulator.Physical
          }
       }
 
-      /// <summary>
-      /// Returns the value <c>0</c>.
-      /// </summary>
-      /// <value>The value <c>0</c>.</value>
-      public override Int32 OperandByteSize
-      {
-         get
-         {
-            return 0;
-         }
-      }
+      ///// <summary>
+      ///// This method can be used to obtain instance of <see cref="OpCodeInfoWithNoOperand"/> when the <see cref="OpCodeEncoding"/> is known.
+      ///// </summary>
+      ///// <param name="encoded">The <see cref="OpCodeEncoding"/> of an op code.</param>
+      ///// <returns>An instance of <see cref="OpCodeInfoWithNoOperand"/> for given <see cref="OpCodeEncoding"/>.</returns>
+      ///// <exception cref="ArgumentException">If <paramref name="encoded"/> does not represent an op code, which takes no operand.</exception>
+      ///// <remarks>
+      ///// The <see cref="OpCode"/> is deemed to accept no operand when its <see cref="OpCode.OperandType"/> is one of the following:
+      ///// <list type="bullet">
+      ///// <item><description><see cref="OperandType.InlineNone"/>.</description></item>
+      ///// </list>
+      ///// </remarks>
+      ///// <seealso cref="OpCodeEncoding"/>
+      ///// <seealso cref="OpCodes"/>
+      ///// 
+      ////public static OpCodeInfoWithNoOperand GetInstanceFor( OpCodeEncoding encoded )
+      ////{
+      ////   OpCodeInfoWithNoOperand retVal;
+      ////   if ( !TryGetInstanceFor( encoded, out retVal ) )
+      ////   {
+      ////      throw new ArgumentException( "Op code " + encoded + " is not operandless opcode." );
+      ////   }
+      ////   return retVal;
+      ////}
 
-      /// <summary>
-      /// This method can be used to obtain instance of <see cref="OpCodeInfoWithNoOperand"/> when the <see cref="OpCodeEncoding"/> is known.
-      /// </summary>
-      /// <param name="encoded">The <see cref="OpCodeEncoding"/> of an op code.</param>
-      /// <returns>An instance of <see cref="OpCodeInfoWithNoOperand"/> for given <see cref="OpCodeEncoding"/>.</returns>
-      /// <exception cref="ArgumentException">If <paramref name="encoded"/> does not represent an op code, which takes no operand.</exception>
-      /// <remarks>
-      /// The <see cref="OpCode"/> is deemed to accept no operand when its <see cref="OpCode.OperandType"/> is one of the following:
-      /// <list type="bullet">
-      /// <item><description><see cref="OperandType.InlineNone"/>.</description></item>
-      /// </list>
-      /// </remarks>
-      /// <seealso cref="OpCodeEncoding"/>
-      /// <seealso cref="OpCodes"/>
-      /// 
-      public static OpCodeInfoWithNoOperand GetInstanceFor( OpCodeEncoding encoded )
-      {
-         OpCodeInfoWithNoOperand retVal;
-         if ( !TryGetInstanceFor( encoded, out retVal ) )
-         {
-            throw new ArgumentException( "Op code " + encoded + " is not operandless opcode." );
-         }
-         return retVal;
-      }
-
-      /// <summary>
-      /// Tries to get an instance of <see cref="OpCodeInfoWithNoOperand"/> for a given <see cref="OpCodeEncoding"/>.
-      /// </summary>
-      /// <param name="encoded">The <see cref="OpCodeEncoding"/> of an op code.</param>
-      /// <param name="opCodeInfo">This parameter will hold the retrieved instance of <see cref="OpCodeInfoWithNoOperand"/>, if any.</param>
-      /// <returns><c>true</c> if <paramref name="encoded"/> represents an op code, which takes no operand; <c>false</c> otherwise.</returns>
-      /// <remarks>
-      /// The <see cref="OpCode"/> is deemed to accept no operand when its <see cref="OpCode.OperandType"/> is one of the following:
-      /// <list type="bullet">
-      /// <item><description><see cref="OperandType.InlineNone"/>.</description></item>
-      /// </list>
-      /// </remarks>
-      /// <seealso cref="OpCodeEncoding"/>
-      /// <seealso cref="OpCodes"/>
-      public static Boolean TryGetInstanceFor( OpCodeEncoding encoded, out OpCodeInfoWithNoOperand opCodeInfo )
-      {
-         return CodeInfosWithNoOperand.TryGetValue( encoded, out opCodeInfo );
-      }
+      ///// <summary>
+      ///// Tries to get an instance of <see cref="OpCodeInfoWithNoOperand"/> for a given <see cref="OpCodeEncoding"/>.
+      ///// </summary>
+      ///// <param name="encoded">The <see cref="OpCodeEncoding"/> of an op code.</param>
+      ///// <param name="opCodeInfo">This parameter will hold the retrieved instance of <see cref="OpCodeInfoWithNoOperand"/>, if any.</param>
+      ///// <returns><c>true</c> if <paramref name="encoded"/> represents an op code, which takes no operand; <c>false</c> otherwise.</returns>
+      ///// <remarks>
+      ///// The <see cref="OpCode"/> is deemed to accept no operand when its <see cref="OpCode.OperandType"/> is one of the following:
+      ///// <list type="bullet">
+      ///// <item><description><see cref="OperandType.InlineNone"/>.</description></item>
+      ///// </list>
+      ///// </remarks>
+      ///// <seealso cref="OpCodeEncoding"/>
+      ///// <seealso cref="OpCodes"/>
+      //public static Boolean TryGetInstanceFor( OpCodeEncoding encoded, out OpCodeInfoWithNoOperand opCodeInfo )
+      //{
+      //   return CodeInfosWithNoOperand.TryGetValue( encoded, out opCodeInfo );
+      //}
 
       //public static OpCodeInfoWithNoOperand GetInstanceFor( OpCode code )
       //{
@@ -499,26 +423,12 @@ namespace CILAssemblyManipulator.Physical
       /// <summary>
       /// Creates a new instance of <see cref="OpCodeInfoWithDouble"/> with given <see cref="OpCode"/> and 64-bit floating point number as operand.
       /// </summary>
-      /// <param name="code">The <see cref="OpCode"/>.</param>
+      /// <param name="code">The <see cref="OpCodeEncoding"/>.</param>
       /// <param name="operand">The 64-bit floating point number acting as an operand for <paramref name="code"/>.</param>
-      /// <exception cref="ArgumentException">If <paramref name="code"/> does not accept 64-bit floating point number as operand.</exception>
-      /// <remarks>
-      /// The <see cref="OpCode"/> is deemed to accept 64-bit floating point number as an operand when its <see cref="OpCode.OperandType"/> is one of the following:
-      /// <list type="bullet">
-      /// <item><description><see cref="OperandType.InlineR"/>.</description></item>
-      /// </list>
-      /// </remarks>
       /// <seealso cref="OpCodes"/>
-      public OpCodeInfoWithDouble( OpCode code, Double operand )
+      public OpCodeInfoWithDouble( OpCodeEncoding code, Double operand )
          : base( code, operand )
       {
-         switch ( code.OperandType )
-         {
-            case OperandType.InlineR:
-               break;
-            default:
-               throw new ArgumentException( "The given code " + code.Value + " does not accept 64-bit floating point number as an operand." );
-         }
       }
 
       /// <summary>
@@ -542,26 +452,12 @@ namespace CILAssemblyManipulator.Physical
       /// <summary>
       /// Creates a new instance of <see cref="OpCodeInfoWithString"/> with given <see cref="OpCode"/> and string as operand.
       /// </summary>
-      /// <param name="code">The <see cref="OpCode"/>.</param>
+      /// <param name="code">The <see cref="OpCodeEncoding"/>.</param>
       /// <param name="operand">The string acting as an operand for <paramref name="code"/>.</param>
-      /// <exception cref="ArgumentException">If <paramref name="code"/> does not accept string as operand.</exception>
-      /// <remarks>
-      /// The <see cref="OpCode"/> is deemed to accept string as an operand when its <see cref="OpCode.OperandType"/> is one of the following:
-      /// <list type="bullet">
-      /// <item><description><see cref="OperandType.InlineString"/>.</description></item>
-      /// </list>
-      /// </remarks>
       /// <seealso cref="OpCodes"/>
-      public OpCodeInfoWithString( OpCode code, String operand )
+      public OpCodeInfoWithString( OpCodeEncoding code, String operand )
          : base( code, operand )
       {
-         switch ( code.OperandType )
-         {
-            case OperandType.InlineString:
-               break;
-            default:
-               throw new ArgumentException( "The given code " + code.Value + " does not accept string as an operand." );
-         }
       }
 
       /// <summary>
@@ -585,27 +481,12 @@ namespace CILAssemblyManipulator.Physical
       /// <summary>
       /// Creates a new instance of <see cref="OpCodeInfoWithIntegers"/> with given <see cref="OpCode"/> and initial capacity for integer list.
       /// </summary>
-      /// <param name="code">The <see cref="OpCode"/>.</param>
+      /// <param name="code">The <see cref="OpCodeEncoding"/>.</param>
       /// <param name="offsetsCount">The initial capacity for <see cref="Operand"/>.</param>
-      /// <exception cref="ArgumentException">If <paramref name="code"/> does not accept integer list as operand.</exception>
-      /// <remarks>
-      /// The <see cref="OpCode"/> is deemed to accept integer list as an operand when its <see cref="OpCode.OperandType"/> is one of the following:
-      /// <list type="bullet">
-      /// <item><description><see cref="OperandType.InlineSwitch"/>.</description></item>
-      /// </list>
-      /// </remarks>
       /// <seealso cref="OpCodes"/>
-      public OpCodeInfoWithIntegers( OpCode code, Int32 offsetsCount = 0 )
+      public OpCodeInfoWithIntegers( OpCodeEncoding code, Int32 offsetsCount = 0 )
          : base( code )
       {
-         switch ( code.OperandType )
-         {
-            case OperandType.InlineSwitch:
-               break;
-            default:
-               throw new ArgumentException( "The given code " + code.Value + " does not accept integer list as an operand." );
-         }
-
          this.Operand = new List<Int32>( offsetsCount );
       }
 
@@ -628,11 +509,11 @@ namespace CILAssemblyManipulator.Physical
       public List<Int32> Operand { get; }
 
       /// <inheritdoc />
-      public override Int32 OperandByteSize
+      public override Int32 AdditionalOperandByteSize
       {
          get
          {
-            return base.OperandByteSize + this.Operand.Count * sizeof( Int32 );
+            return this.Operand.Count * sizeof( Int32 );
          }
       }
    }
@@ -647,24 +528,10 @@ namespace CILAssemblyManipulator.Physical
       /// </summary>
       /// <param name="code">The <see cref="OpCode"/>.</param>
       /// <param name="operand">The 32-bit floating point number acting as an operand for <paramref name="code"/>.</param>
-      /// <exception cref="ArgumentException">If <paramref name="code"/> does not accept 32-bit floating point number as operand.</exception>
-      /// <remarks>
-      /// The <see cref="OpCode"/> is deemed to accept 32-bit floating point number as an operand when its <see cref="OpCode.OperandType"/> is one of the following:
-      /// <list type="bullet">
-      /// <item><description><see cref="OperandType.ShortInlineR"/>.</description></item>
-      /// </list>
-      /// </remarks>
       /// <seealso cref="OpCodes"/>
-      public OpCodeInfoWithSingle( OpCode code, Single operand )
+      public OpCodeInfoWithSingle( OpCodeEncoding code, Single operand )
          : base( code, operand )
       {
-         switch ( code.OperandType )
-         {
-            case OperandType.ShortInlineR:
-               break;
-            default:
-               throw new ArgumentException( "The given code " + code.Value + " does not accept 64-bit floating point number as an operand." );
-         }
       }
 
       /// <summary>
@@ -730,9 +597,9 @@ public static partial class E_CILPhysical
    /// <remarks>
    /// The total byte count is the size of op code of <see cref="OpCodeInfo"/> added with <see cref="OpCodeInfo.OperandByteSize"/>.
    /// </remarks>
-   public static Int32 GetTotalByteCount( this OpCodeInfo info )
+   public static Int32 GetTotalByteCount( this OpCodeInfo info, OpCodeProvider opCodeProvider )
    {
-      return info == null ? 0 : ( info.OpCode.Size + info.OperandByteSize );
+      return info == null ? 0 : ( opCodeProvider.GetCodeFor( info.OpCode ).GetTotalByteCount() + info.AdditionalOperandByteSize );
    }
 
    public static void SortExceptionBlocks( this MethodILDefinition il )

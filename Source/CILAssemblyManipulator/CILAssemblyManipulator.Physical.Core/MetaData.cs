@@ -408,6 +408,8 @@ namespace CILAssemblyManipulator.Physical
       /// <seealso cref="AssemblyReferenceOS"/>
       [Obsolete( "This table should not be used anymore.", false )]
       MetaDataTable<AssemblyReferenceOS> AssemblyReferenceOSs { get; }
+
+      Meta.OpCodeProvider OpCodeProvider { get; }
    }
 
 
@@ -2326,7 +2328,9 @@ public static partial class E_CILPhysical
          var il = mDef.IL;
          if ( il != null )
          {
-            var state = new StackCalculationState( md, il.OpCodes.Sum( oc => oc.GetTotalByteCount() ) );
+
+            var ocp = md.OpCodeProvider;
+            var state = new StackCalculationState( md, il.OpCodes.Sum( oc => oc.GetTotalByteCount( ocp ) ) );
 
             // Setup exception block stack sizes
             foreach ( var block in il.ExceptionBlocks )
@@ -2346,7 +2350,7 @@ public static partial class E_CILPhysical
             // Calculate actual max stack
             foreach ( var codeInfo in il.OpCodes )
             {
-               var byteCount = codeInfo.GetTotalByteCount();
+               var byteCount = codeInfo.GetTotalByteCount( ocp );
                state.NextCodeByteOffset += byteCount;
                UpdateStackSize( state, codeInfo );
                state.CurrentCodeByteOffset += byteCount;
@@ -2364,7 +2368,7 @@ public static partial class E_CILPhysical
       OpCodeInfo codeInfo
       )
    {
-      var code = codeInfo.OpCode;
+      var code = state.MD.OpCodeProvider.GetCodeFor( codeInfo.OpCode );
       var curStacksize = Math.Max( state.CurrentStack, state.StackSizes[state.CurrentCodeByteOffset] );
       if ( FlowControl.Call == code.FlowControl )
       {

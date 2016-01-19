@@ -20,6 +20,7 @@ extern alias CAMPhysical;
 #endif
 
 using CILAssemblyManipulator.Physical;
+using CILAssemblyManipulator.Physical.Meta;
 using CILAssemblyManipulator.Structural;
 using CommonUtils;
 using System;
@@ -443,7 +444,10 @@ public static partial class E_CILStructural
       }
    }
 
-   public static CILMetaData CreatePhysicalRepresentationOfMainModule( this AssemblyStructure assembly )
+   public static CILMetaData CreatePhysicalRepresentationOfMainModule(
+      this AssemblyStructure assembly,
+      CILMetaDataTableInformationProvider tableInfoProvider = null
+      )
    {
       var module = assembly.Modules.FirstOrDefault( m => m.IsMainModule );
       if ( module == null )
@@ -451,29 +455,39 @@ public static partial class E_CILStructural
          throw new InvalidOperationException( "The given assembly does not have a main module." );
       }
 
-      return module.CreatePhysicalRepresentation( assembly );
+      return module.CreatePhysicalRepresentation( assembly, tableInfoProvider );
    }
 
-   public static CILMetaData[] CreatePhysicalRepresentation( this AssemblyStructure assembly )
+   public static CILMetaData[] CreatePhysicalRepresentation(
+      this AssemblyStructure assembly,
+      CILMetaDataTableInformationProvider tableInfoProvider = null
+      )
    {
       return assembly.Modules
-         .Select( m => m.CreatePhysicalRepresentation( assembly ) )
+         .Select( m => m.CreatePhysicalRepresentation( assembly, tableInfoProvider ) )
          .ToArray();
    }
 
-   public static CILMetaData CreatePhysicalRepresentation( this ModuleStructure module )
+   public static CILMetaData CreatePhysicalRepresentation(
+      this ModuleStructure module,
+      CILMetaDataTableInformationProvider tableInfoProvider = null
+      )
    {
-      return module.CreatePhysicalRepresentation( null );
+      return module.CreatePhysicalRepresentation( null, tableInfoProvider );
    }
 
-   private static CILMetaData CreatePhysicalRepresentation( this ModuleStructure module, AssemblyStructure assembly )
+   private static CILMetaData CreatePhysicalRepresentation(
+      this ModuleStructure module,
+      AssemblyStructure assembly,
+      CILMetaDataTableInformationProvider tableInfoProvider
+      )
    {
       // Don't use "MinimalModule", as it creates module-type
       var md =
 #if !NO_ALIASES
          CAMPhysical::
 #endif
-         CILAssemblyManipulator.Physical.CILMetaDataFactory.CreateMinimalModule( module.Name, false );
+         CILAssemblyManipulator.Physical.CILMetaDataFactory.CreateMinimalModule( module.Name, createModuleType: false, tableInfoProvider: tableInfoProvider );
 
       if ( module.IsMainModule && assembly != null )
       {
@@ -1056,6 +1070,7 @@ public static partial class E_CILStructural
          } ) );
 
          // Op codes
+         var ocp = state.MetaData.OpCodeProvider;
          ilP.OpCodes.AddRange( il.OpCodes.Select( o =>
          {
             if ( o == null )
@@ -1067,7 +1082,7 @@ public static partial class E_CILStructural
                switch ( o.OpCodeStructureKind )
                {
                   case OpCodeStructureKind.Simple:
-                     return OpCodeInfoWithNoOperand.GetInstanceFor( ( (OpCodeStructureSimple) o ).SimpleOpCode );
+                     return ocp.GetOperandlessInfoFor( ( (OpCodeStructureSimple) o ).SimpleOpCode.Value );
                   case OpCodeStructureKind.Wrapper:
                      return ( (OpCodeStructureWrapper) o ).PhysicalOpCode; // TODO clone
                   case OpCodeStructureKind.WithReference:
@@ -1110,7 +1125,7 @@ public static partial class E_CILStructural
                               throw new InvalidOperationException( "Invalid referenced structure token kind: " + oRefStructure.StructureTokenKind + " in IL." );
                         }
                      }
-                     return new OpCodeInfoWithTableIndex( oRef.OpCode, refIdx );
+                     return new OpCodeInfoWithTableIndex( oRef.OpCode.Value, refIdx );
 
                   default:
                      throw new InvalidOperationException( "Invalid structural op code kind: " + o.OpCodeStructureKind + "." );

@@ -18,6 +18,7 @@
 extern alias CAMPhysical;
 using CAMPhysical;
 using CAMPhysical::CILAssemblyManipulator.Physical;
+using CAMPhysical::CILAssemblyManipulator.Physical.Meta;
 
 using CILAssemblyManipulator.Physical;
 using CILAssemblyManipulator.Physical.IO;
@@ -215,7 +216,7 @@ public static partial class E_CILPhysical
    public static CILMetaData ReadMetaDataFromStream(
       this Stream stream,
       ReaderFunctionalityProvider readerProvider,
-      MetaDataTableInformationProvider tableInfoProvider,
+      CILMetaDataTableInformationProvider tableInfoProvider,
       EventHandler<SerializationErrorEventArgs> errorHandler,
       out ImageInformation imageInfo
       )
@@ -249,7 +250,7 @@ public static partial class E_CILPhysical
    public static CILMetaData ReadMetaDataFromStream(
       this Stream stream,
       ReaderFunctionality reader,
-      MetaDataTableInformationProvider tableInfoProvider,
+      CILMetaDataTableInformationProvider tableInfoProvider,
       EventHandler<SerializationErrorEventArgs> errorHandler,
       out ImageInformation imageInfo
       )

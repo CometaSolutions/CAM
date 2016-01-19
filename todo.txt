@@ -7,10 +7,6 @@
 - CAM.Physical:
  - Documentation
  - Extensible signatures
- - Extensible op-codes
-  - Start by changing OpCodeInfo.OpCode return type OpCode -> OpCodeEncoding. There will be a lot of changes but I think it is possible.
-  - A separate Meta.OpCodeProvider interface will be required, retrievable from CILMetaData.)
-  - OpCodeInfoWithNoOperand -> instances of this should retrieved from Meta.OpCodeProvider.
  
 - CAM.Logical:
  - Revisit documentation (code samples etc)

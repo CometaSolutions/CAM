@@ -18,6 +18,7 @@
 extern alias CAMPhysical;
 using CAMPhysical;
 using CAMPhysical::CILAssemblyManipulator.Physical;
+using CAMPhysical::CILAssemblyManipulator.Physical.Meta;
 
 using CILAssemblyManipulator.Physical;
 using CILAssemblyManipulator.Physical.Meta;
@@ -36,7 +37,7 @@ namespace CILAssemblyManipulator.Physical
 #pragma warning disable 618
 
       internal CILMetadataImpl(
-         MetaDataTableInformationProvider tableInfoProvider,
+         CILMetaDataTableInformationProvider tableInfoProvider,
          Int32[] sizes,
          out MetaDataTableInformation[] infos
          )
@@ -88,6 +89,7 @@ namespace CILAssemblyManipulator.Physical
          this.GenericParameterDefinitions = CreateFixedMDTable<GenericParameterDefinition>( Tables.GenericParameter, sizes, infos, ref defaultTableInfos );
          this.MethodSpecifications = CreateFixedMDTable<MethodSpecification>( Tables.MethodSpec, sizes, infos, ref defaultTableInfos );
          this.GenericParameterConstraintDefinitions = CreateFixedMDTable<GenericParameterConstraintDefinition>( Tables.GenericParameterConstraint, sizes, infos, ref defaultTableInfos );
+         this.OpCodeProvider = tableInfoProvider?.CreateOpCodeProvider() ?? DefaultOpCodeProvider.Instance;
       }
 #pragma warning restore 618
 
@@ -182,6 +184,8 @@ namespace CILAssemblyManipulator.Physical
 
       public MetaDataTable<AssemblyReferenceOS> AssemblyReferenceOSs { get; }
 #pragma warning restore 618
+
+      public OpCodeProvider OpCodeProvider { get; }
 
       protected override Boolean TryGetFixedTable( Int32 index, out MetaDataTable table )
       {
@@ -413,10 +417,10 @@ namespace CILAssemblyManipulator.Physical
       /// All of its tables will be empty.
       /// </summary>
       /// <param name="sizes">The optional initial size array for tables. The element at <c>0</c> (which is value of <see cref="Tables.Module"/>) will be the initial capacity for <see cref="CILMetaData.ModuleDefinitions"/> table, and so on.</param>
-      /// <param name="tableInfoProvider">The optional <see cref="MetaDataTableInformationProvider"/> to customize the tables that resulting <see cref="CILMetaData"/> will have.</param>
+      /// <param name="tableInfoProvider">The optional <see cref="CILMetaDataTableInformationProvider"/> to customize the tables that resulting <see cref="CILMetaData"/> will have.</param>
       /// <returns>The <see cref="CILMetaData"/> with empty tables.</returns>
       /// <exception cref="FixedTableCreationException">If <paramref name="tableInfoProvider"/> is not <c>null</c>, and returns fixed table with wrong row type.</exception>
-      public static CILMetaData NewBlankMetaData( Int32[] sizes = null, MetaDataTableInformationProvider tableInfoProvider = null )
+      public static CILMetaData NewBlankMetaData( Int32[] sizes = null, CILMetaDataTableInformationProvider tableInfoProvider = null )
       {
          MetaDataTableInformation[] infos;
          return new CILMetadataImpl( tableInfoProvider, sizes, out infos );
@@ -430,10 +434,10 @@ namespace CILAssemblyManipulator.Physical
       /// <param name="assemblyName">The name of the assembly.</param>
       /// <param name="moduleName">The name of the module, may be <c>null</c>. In that case, the name of <see cref="ModuleDefinition"/> will be <paramref name="assemblyName"/> concatenated with <c>.dll</c>.</param>
       /// <param name="createModuleType">Whether to create a module type, used to hold the "global" elements.</param>
-      /// <param name="tableInfoProvider">The optional <see cref="MetaDataTableInformationProvider"/> to customize the tables that resulting <see cref="CILMetaData"/> will have.</param>
+      /// <param name="tableInfoProvider">The optional <see cref="CILMetaDataTableInformationProvider"/> to customize the tables that resulting <see cref="CILMetaData"/> will have.</param>
       /// <returns>The <see cref="CILMetaData"/> with required information to be count as an assembly.</returns>
       /// <exception cref="FixedTableCreationException">If <paramref name="tableInfoProvider"/> is not <c>null</c>, and returns fixed table with wrong row type.</exception>
-      public static CILMetaData CreateMinimalAssembly( String assemblyName, String moduleName, Boolean createModuleType = true, MetaDataTableInformationProvider tableInfoProvider = null )
+      public static CILMetaData CreateMinimalAssembly( String assemblyName, String moduleName, Boolean createModuleType = true, CILMetaDataTableInformationProvider tableInfoProvider = null )
       {
          if ( !String.IsNullOrEmpty( assemblyName ) && String.IsNullOrEmpty( moduleName ) )
          {
@@ -455,10 +459,10 @@ namespace CILAssemblyManipulator.Physical
       /// </summary>
       /// <param name="moduleName">The name of the module.</param>
       /// <param name="createModuleType">Whether to create a module type, used to hold the "global" elements.</param>
-      /// <param name="tableInfoProvider">The optional <see cref="MetaDataTableInformationProvider"/> to customize the tables that resulting <see cref="CILMetaData"/> will have.</param>
+      /// <param name="tableInfoProvider">The optional <see cref="CILMetaDataTableInformationProvider"/> to customize the tables that resulting <see cref="CILMetaData"/> will have.</param>
       /// <returns>The <see cref="CILMetaData"/> with required information to be count as a module.</returns>
       /// <exception cref="FixedTableCreationException">If <paramref name="tableInfoProvider"/> is not <c>null</c>, and returns fixed table with wrong row type.</exception>
-      public static CILMetaData CreateMinimalModule( String moduleName, Boolean createModuleType = true, MetaDataTableInformationProvider tableInfoProvider = null )
+      public static CILMetaData CreateMinimalModule( String moduleName, Boolean createModuleType = true, CILMetaDataTableInformationProvider tableInfoProvider = null )
       {
          var md = CILMetaDataFactory.NewBlankMetaData( tableInfoProvider: tableInfoProvider );
 
@@ -510,7 +514,8 @@ public static partial class E_CILPhysical
       Boolean retVal;
       if ( il != null )
       {
-         ilCodeByteCount = il.OpCodes.Sum( oci => oci.GetTotalByteCount() );
+         var ocp = md.OpCodeProvider;
+         ilCodeByteCount = il.OpCodes.Sum( oci => oci.GetTotalByteCount( ocp ) );
 
          var lIdx = il.LocalsSignatureIndex;
          var localSig = lIdx.HasValue && lIdx.Value.Table == Tables.StandaloneSignature ?

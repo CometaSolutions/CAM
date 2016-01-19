@@ -126,6 +126,12 @@ namespace CILAssemblyManipulator.Logical
       /// <param name="block">The <see cref="ExceptionBlockInfo"/>.</param>
       /// <exception cref="ArgumentNullException">If <paramref name="block"/> is <c>null</c>.</exception>
       void AddExceptionBlockInfo( ExceptionBlockInfo block );
+
+      /// <summary>
+      /// Gets the module that owns this <see cref="MethodIL"/>.
+      /// </summary>
+      /// <value>The module that owns this <see cref="MethodIL"/>.</value>
+      CILModule Module { get; }
    }
 
    /// <summary>
@@ -640,10 +646,10 @@ public static partial class E_CILLogical
 
 
 
-   private static readonly IDictionary<CILTypeCode, LogicalOpCodeInfo> CHECKED_UNSIGNED_CONV_OPCODES;
-   private static readonly IDictionary<CILTypeCode, LogicalOpCodeInfo> CHECKED_SIGNED_CONV_OPCODES;
-   private static readonly IDictionary<CILTypeCode, LogicalOpCodeInfo> UNCHECKED_UNSIGNED_CONV_OPCODES;
-   private static readonly IDictionary<CILTypeCode, LogicalOpCodeInfo> UNCHECKED_SIGNED_CONV_OPCODES;
+   private static readonly IDictionary<CILTypeCode, OpCodeEncoding> CHECKED_UNSIGNED_CONV_OPCODES;
+   private static readonly IDictionary<CILTypeCode, OpCodeEncoding> CHECKED_SIGNED_CONV_OPCODES;
+   private static readonly IDictionary<CILTypeCode, OpCodeEncoding> UNCHECKED_UNSIGNED_CONV_OPCODES;
+   private static readonly IDictionary<CILTypeCode, OpCodeEncoding> UNCHECKED_SIGNED_CONV_OPCODES;
 
    static E_CILLogical()
    {
@@ -660,49 +666,49 @@ public static partial class E_CILLogical
       DECIMAL_CTOR_INT64 = typeof( Decimal ).LoadConstructorOrThrow( new Type[] { typeof( Int64 ) } );
       DECIMAL_CTOR_MULTIPLE = typeof( Decimal ).LoadConstructorOrThrow( 5 );
 
-      CHECKED_UNSIGNED_CONV_OPCODES = new Dictionary<CILTypeCode, LogicalOpCodeInfo>();
-      CHECKED_UNSIGNED_CONV_OPCODES.Add( CILTypeCode.SByte, LogicalOpCodeInfoWithNoOperand.GetInstanceFor( OpCodeEncoding.Conv_Ovf_I1_Un ) );
-      CHECKED_UNSIGNED_CONV_OPCODES.Add( CILTypeCode.Int16, LogicalOpCodeInfoWithNoOperand.GetInstanceFor( OpCodeEncoding.Conv_Ovf_I2_Un ) );
-      CHECKED_UNSIGNED_CONV_OPCODES.Add( CILTypeCode.Int32, LogicalOpCodeInfoWithNoOperand.GetInstanceFor( OpCodeEncoding.Conv_Ovf_I4_Un ) );
-      CHECKED_UNSIGNED_CONV_OPCODES.Add( CILTypeCode.Int64, LogicalOpCodeInfoWithNoOperand.GetInstanceFor( OpCodeEncoding.Conv_Ovf_I8_Un ) );
-      CHECKED_UNSIGNED_CONV_OPCODES.Add( CILTypeCode.Byte, LogicalOpCodeInfoWithNoOperand.GetInstanceFor( OpCodeEncoding.Conv_Ovf_U1_Un ) );
-      CHECKED_UNSIGNED_CONV_OPCODES.Add( CILTypeCode.UInt16, LogicalOpCodeInfoWithNoOperand.GetInstanceFor( OpCodeEncoding.Conv_Ovf_U2_Un ) );
-      CHECKED_UNSIGNED_CONV_OPCODES.Add( CILTypeCode.Char, LogicalOpCodeInfoWithNoOperand.GetInstanceFor( OpCodeEncoding.Conv_Ovf_U2_Un ) );
-      CHECKED_UNSIGNED_CONV_OPCODES.Add( CILTypeCode.UInt32, LogicalOpCodeInfoWithNoOperand.GetInstanceFor( OpCodeEncoding.Conv_Ovf_U4_Un ) );
-      CHECKED_UNSIGNED_CONV_OPCODES.Add( CILTypeCode.UInt64, LogicalOpCodeInfoWithNoOperand.GetInstanceFor( OpCodeEncoding.Conv_Ovf_U8_Un ) );
+      CHECKED_UNSIGNED_CONV_OPCODES = new Dictionary<CILTypeCode, OpCodeEncoding>();
+      CHECKED_UNSIGNED_CONV_OPCODES.Add( CILTypeCode.SByte, OpCodeEncoding.Conv_Ovf_I1_Un );
+      CHECKED_UNSIGNED_CONV_OPCODES.Add( CILTypeCode.Int16, OpCodeEncoding.Conv_Ovf_I2_Un );
+      CHECKED_UNSIGNED_CONV_OPCODES.Add( CILTypeCode.Int32, OpCodeEncoding.Conv_Ovf_I4_Un );
+      CHECKED_UNSIGNED_CONV_OPCODES.Add( CILTypeCode.Int64, OpCodeEncoding.Conv_Ovf_I8_Un );
+      CHECKED_UNSIGNED_CONV_OPCODES.Add( CILTypeCode.Byte, OpCodeEncoding.Conv_Ovf_U1_Un );
+      CHECKED_UNSIGNED_CONV_OPCODES.Add( CILTypeCode.UInt16, OpCodeEncoding.Conv_Ovf_U2_Un );
+      CHECKED_UNSIGNED_CONV_OPCODES.Add( CILTypeCode.Char, OpCodeEncoding.Conv_Ovf_U2_Un );
+      CHECKED_UNSIGNED_CONV_OPCODES.Add( CILTypeCode.UInt32, OpCodeEncoding.Conv_Ovf_U4_Un );
+      CHECKED_UNSIGNED_CONV_OPCODES.Add( CILTypeCode.UInt64, OpCodeEncoding.Conv_Ovf_U8_Un );
 
-      CHECKED_SIGNED_CONV_OPCODES = new Dictionary<CILTypeCode, LogicalOpCodeInfo>();
-      CHECKED_SIGNED_CONV_OPCODES.Add( CILTypeCode.SByte, LogicalOpCodeInfoWithNoOperand.GetInstanceFor( OpCodeEncoding.Conv_Ovf_I1 ) );
-      CHECKED_SIGNED_CONV_OPCODES.Add( CILTypeCode.Int16, LogicalOpCodeInfoWithNoOperand.GetInstanceFor( OpCodeEncoding.Conv_Ovf_I2 ) );
-      CHECKED_SIGNED_CONV_OPCODES.Add( CILTypeCode.Int32, LogicalOpCodeInfoWithNoOperand.GetInstanceFor( OpCodeEncoding.Conv_Ovf_I4 ) );
-      CHECKED_SIGNED_CONV_OPCODES.Add( CILTypeCode.Int64, LogicalOpCodeInfoWithNoOperand.GetInstanceFor( OpCodeEncoding.Conv_Ovf_I8 ) );
-      CHECKED_SIGNED_CONV_OPCODES.Add( CILTypeCode.Byte, LogicalOpCodeInfoWithNoOperand.GetInstanceFor( OpCodeEncoding.Conv_Ovf_U1 ) );
-      CHECKED_SIGNED_CONV_OPCODES.Add( CILTypeCode.UInt16, LogicalOpCodeInfoWithNoOperand.GetInstanceFor( OpCodeEncoding.Conv_Ovf_U2 ) );
-      CHECKED_SIGNED_CONV_OPCODES.Add( CILTypeCode.Char, LogicalOpCodeInfoWithNoOperand.GetInstanceFor( OpCodeEncoding.Conv_Ovf_U2 ) );
-      CHECKED_SIGNED_CONV_OPCODES.Add( CILTypeCode.UInt32, LogicalOpCodeInfoWithNoOperand.GetInstanceFor( OpCodeEncoding.Conv_Ovf_U4 ) );
-      CHECKED_SIGNED_CONV_OPCODES.Add( CILTypeCode.UInt64, LogicalOpCodeInfoWithNoOperand.GetInstanceFor( OpCodeEncoding.Conv_Ovf_U8 ) );
+      CHECKED_SIGNED_CONV_OPCODES = new Dictionary<CILTypeCode, OpCodeEncoding>();
+      CHECKED_SIGNED_CONV_OPCODES.Add( CILTypeCode.SByte, OpCodeEncoding.Conv_Ovf_I1 );
+      CHECKED_SIGNED_CONV_OPCODES.Add( CILTypeCode.Int16, OpCodeEncoding.Conv_Ovf_I2 );
+      CHECKED_SIGNED_CONV_OPCODES.Add( CILTypeCode.Int32, OpCodeEncoding.Conv_Ovf_I4 );
+      CHECKED_SIGNED_CONV_OPCODES.Add( CILTypeCode.Int64, OpCodeEncoding.Conv_Ovf_I8 );
+      CHECKED_SIGNED_CONV_OPCODES.Add( CILTypeCode.Byte, OpCodeEncoding.Conv_Ovf_U1 );
+      CHECKED_SIGNED_CONV_OPCODES.Add( CILTypeCode.UInt16, OpCodeEncoding.Conv_Ovf_U2 );
+      CHECKED_SIGNED_CONV_OPCODES.Add( CILTypeCode.Char, OpCodeEncoding.Conv_Ovf_U2 );
+      CHECKED_SIGNED_CONV_OPCODES.Add( CILTypeCode.UInt32, OpCodeEncoding.Conv_Ovf_U4 );
+      CHECKED_SIGNED_CONV_OPCODES.Add( CILTypeCode.UInt64, OpCodeEncoding.Conv_Ovf_U8 );
 
-      UNCHECKED_UNSIGNED_CONV_OPCODES = new Dictionary<CILTypeCode, LogicalOpCodeInfo>();
-      UNCHECKED_UNSIGNED_CONV_OPCODES.Add( CILTypeCode.SByte, LogicalOpCodeInfoWithNoOperand.GetInstanceFor( OpCodeEncoding.Conv_I1 ) );
-      UNCHECKED_UNSIGNED_CONV_OPCODES.Add( CILTypeCode.Int16, LogicalOpCodeInfoWithNoOperand.GetInstanceFor( OpCodeEncoding.Conv_I2 ) );
-      UNCHECKED_UNSIGNED_CONV_OPCODES.Add( CILTypeCode.Int32, LogicalOpCodeInfoWithNoOperand.GetInstanceFor( OpCodeEncoding.Conv_I4 ) );
-      UNCHECKED_UNSIGNED_CONV_OPCODES.Add( CILTypeCode.Int64, LogicalOpCodeInfoWithNoOperand.GetInstanceFor( OpCodeEncoding.Conv_U8 ) );
-      UNCHECKED_UNSIGNED_CONV_OPCODES.Add( CILTypeCode.Byte, LogicalOpCodeInfoWithNoOperand.GetInstanceFor( OpCodeEncoding.Conv_U1 ) );
-      UNCHECKED_UNSIGNED_CONV_OPCODES.Add( CILTypeCode.UInt16, LogicalOpCodeInfoWithNoOperand.GetInstanceFor( OpCodeEncoding.Conv_U2 ) );
-      UNCHECKED_UNSIGNED_CONV_OPCODES.Add( CILTypeCode.Char, LogicalOpCodeInfoWithNoOperand.GetInstanceFor( OpCodeEncoding.Conv_U2 ) );
-      UNCHECKED_UNSIGNED_CONV_OPCODES.Add( CILTypeCode.UInt32, LogicalOpCodeInfoWithNoOperand.GetInstanceFor( OpCodeEncoding.Conv_U4 ) );
-      UNCHECKED_UNSIGNED_CONV_OPCODES.Add( CILTypeCode.UInt64, LogicalOpCodeInfoWithNoOperand.GetInstanceFor( OpCodeEncoding.Conv_U8 ) );
+      UNCHECKED_UNSIGNED_CONV_OPCODES = new Dictionary<CILTypeCode, OpCodeEncoding>();
+      UNCHECKED_UNSIGNED_CONV_OPCODES.Add( CILTypeCode.SByte, OpCodeEncoding.Conv_I1 );
+      UNCHECKED_UNSIGNED_CONV_OPCODES.Add( CILTypeCode.Int16, OpCodeEncoding.Conv_I2 );
+      UNCHECKED_UNSIGNED_CONV_OPCODES.Add( CILTypeCode.Int32, OpCodeEncoding.Conv_I4 );
+      UNCHECKED_UNSIGNED_CONV_OPCODES.Add( CILTypeCode.Int64, OpCodeEncoding.Conv_U8 );
+      UNCHECKED_UNSIGNED_CONV_OPCODES.Add( CILTypeCode.Byte, OpCodeEncoding.Conv_U1 );
+      UNCHECKED_UNSIGNED_CONV_OPCODES.Add( CILTypeCode.UInt16, OpCodeEncoding.Conv_U2 );
+      UNCHECKED_UNSIGNED_CONV_OPCODES.Add( CILTypeCode.Char, OpCodeEncoding.Conv_U2 );
+      UNCHECKED_UNSIGNED_CONV_OPCODES.Add( CILTypeCode.UInt32, OpCodeEncoding.Conv_U4 );
+      UNCHECKED_UNSIGNED_CONV_OPCODES.Add( CILTypeCode.UInt64, OpCodeEncoding.Conv_U8 );
 
-      UNCHECKED_SIGNED_CONV_OPCODES = new Dictionary<CILTypeCode, LogicalOpCodeInfo>();
-      UNCHECKED_SIGNED_CONV_OPCODES.Add( CILTypeCode.SByte, LogicalOpCodeInfoWithNoOperand.GetInstanceFor( OpCodeEncoding.Conv_I1 ) );
-      UNCHECKED_SIGNED_CONV_OPCODES.Add( CILTypeCode.Int16, LogicalOpCodeInfoWithNoOperand.GetInstanceFor( OpCodeEncoding.Conv_I2 ) );
-      UNCHECKED_SIGNED_CONV_OPCODES.Add( CILTypeCode.Int32, LogicalOpCodeInfoWithNoOperand.GetInstanceFor( OpCodeEncoding.Conv_I4 ) );
-      UNCHECKED_SIGNED_CONV_OPCODES.Add( CILTypeCode.Int64, LogicalOpCodeInfoWithNoOperand.GetInstanceFor( OpCodeEncoding.Conv_I8 ) );
-      UNCHECKED_SIGNED_CONV_OPCODES.Add( CILTypeCode.Byte, LogicalOpCodeInfoWithNoOperand.GetInstanceFor( OpCodeEncoding.Conv_U1 ) );
-      UNCHECKED_SIGNED_CONV_OPCODES.Add( CILTypeCode.UInt16, LogicalOpCodeInfoWithNoOperand.GetInstanceFor( OpCodeEncoding.Conv_U2 ) );
-      UNCHECKED_SIGNED_CONV_OPCODES.Add( CILTypeCode.Char, LogicalOpCodeInfoWithNoOperand.GetInstanceFor( OpCodeEncoding.Conv_U2 ) );
-      UNCHECKED_SIGNED_CONV_OPCODES.Add( CILTypeCode.UInt32, LogicalOpCodeInfoWithNoOperand.GetInstanceFor( OpCodeEncoding.Conv_U4 ) );
-      UNCHECKED_SIGNED_CONV_OPCODES.Add( CILTypeCode.UInt64, LogicalOpCodeInfoWithNoOperand.GetInstanceFor( OpCodeEncoding.Conv_I8 ) );
+      UNCHECKED_SIGNED_CONV_OPCODES = new Dictionary<CILTypeCode, OpCodeEncoding>();
+      UNCHECKED_SIGNED_CONV_OPCODES.Add( CILTypeCode.SByte, OpCodeEncoding.Conv_I1 );
+      UNCHECKED_SIGNED_CONV_OPCODES.Add( CILTypeCode.Int16, OpCodeEncoding.Conv_I2 );
+      UNCHECKED_SIGNED_CONV_OPCODES.Add( CILTypeCode.Int32, OpCodeEncoding.Conv_I4 );
+      UNCHECKED_SIGNED_CONV_OPCODES.Add( CILTypeCode.Int64, OpCodeEncoding.Conv_I8 );
+      UNCHECKED_SIGNED_CONV_OPCODES.Add( CILTypeCode.Byte, OpCodeEncoding.Conv_U1 );
+      UNCHECKED_SIGNED_CONV_OPCODES.Add( CILTypeCode.UInt16, OpCodeEncoding.Conv_U2 );
+      UNCHECKED_SIGNED_CONV_OPCODES.Add( CILTypeCode.Char, OpCodeEncoding.Conv_U2 );
+      UNCHECKED_SIGNED_CONV_OPCODES.Add( CILTypeCode.UInt32, OpCodeEncoding.Conv_U4 );
+      UNCHECKED_SIGNED_CONV_OPCODES.Add( CILTypeCode.UInt64, OpCodeEncoding.Conv_I8 );
    }
 
    #region Extension Methods
@@ -807,7 +813,7 @@ public static partial class E_CILLogical
    /// </remarks>
    public static MethodIL EmitCall( this MethodIL il, CILMethod method )
    {
-      return il.Add( new LogicalOpCodeInfoWithMethodToken( method.Attributes.IsStatic() ? OpCodes.Call : OpCodes.Callvirt, method ) );
+      return il.Add( new LogicalOpCodeInfoWithMethodToken( method.Attributes.IsStatic() ? OpCodeEncoding.Call : OpCodeEncoding.Callvirt, method ) );
    }
 
    /// <summary>
@@ -821,7 +827,7 @@ public static partial class E_CILLogical
    public static MethodIL EmitCall( this MethodIL il, CILConstructor ctor )
    {
       return il.Add( new LogicalOpCodeInfoWithCtorToken(
-         OpCodes.Call,
+         OpCodeEncoding.Call,
          ctor
          ) );
    }
@@ -866,7 +872,7 @@ public static partial class E_CILLogical
    public static MethodIL EmitCallBase( this MethodIL il, CILMethod method )
    {
       return il.Add( new LogicalOpCodeInfoWithMethodToken(
-         OpCodes.Call,
+         OpCodeEncoding.Call,
          method
          ) );
    }
@@ -908,20 +914,20 @@ public static partial class E_CILLogical
          if ( !tfValType && !tfGParam && ( ttValType || ttGParam ) )
          {
             il.Add( new LogicalOpCodeInfoWithTypeToken(
-               OpCodes.Unbox_Any,
+               OpCodeEncoding.Unbox_Any,
                typeTo
                ) );
          }
          else if ( !ttValType && !ttGParam && ( tfValType || tfGParam ) )
          {
             il.Add( new LogicalOpCodeInfoWithTypeToken(
-               OpCodes.Box,
+               OpCodeEncoding.Box,
                typeFrom
                ) );
             if ( typeTo.GetTypeCode() != CILTypeCode.SystemObject )
             {
                il.Add( new LogicalOpCodeInfoWithTypeToken(
-                  OpCodes.Castclass,
+                  OpCodeEncoding.Castclass,
                   typeTo
                   ) );
             }
@@ -939,7 +945,7 @@ public static partial class E_CILLogical
             else if ( typeTo.ContainsGenericParameters() || ( !typeTo.IsAssignableFrom( typeFrom ) && !( typeFrom.IsInterface() && typeTo.GetTypeCode() == CILTypeCode.SystemObject ) ) )
             {
                il.Add( new LogicalOpCodeInfoWithTypeToken(
-                  OpCodes.Castclass,
+                  OpCodeEncoding.Castclass,
                   typeTo
                   ) );
             }
@@ -995,8 +1001,8 @@ public static partial class E_CILLogical
    /// <exception cref="ArgumentNullException">If <paramref name="type"/> or <paramref name="method"/> is <c>null</c>.</exception>
    public static MethodIL EmitConstraintedCall( this MethodIL il, CILTypeOrTypeParameter type, CILMethod method )
    {
-      return il.Add( new LogicalOpCodeInfoWithTypeToken( OpCodes.Constrained_, type ) )
-         .Add( new LogicalOpCodeInfoWithMethodToken( OpCodes.Callvirt, method ) );
+      return il.Add( new LogicalOpCodeInfoWithTypeToken( OpCodeEncoding.Constrained_, type ) )
+         .Add( new LogicalOpCodeInfoWithMethodToken( OpCodeEncoding.Callvirt, method ) );
    }
 
    /// <summary>
@@ -1020,7 +1026,7 @@ public static partial class E_CILLogical
    public static MethodIL EmitInitObj( this MethodIL il, CILTypeBase valueType )
    {
       return il.Add( new LogicalOpCodeInfoWithTypeToken(
-         OpCodes.Initobj,
+         OpCodeEncoding.Initobj,
          valueType
          ) );
    }
@@ -1036,7 +1042,7 @@ public static partial class E_CILLogical
    public static MethodIL EmitIsInst( this MethodIL il, CILTypeBase targetType )
    {
       return il.Add( new LogicalOpCodeInfoWithTypeToken(
-         OpCodes.Isinst,
+         OpCodeEncoding.Isinst,
          targetType
          ) );
    }
@@ -1064,8 +1070,8 @@ public static partial class E_CILLogical
    {
       EmitOptimalInstructionForShort(
          il,
-         OpCodes.Ldarg,
-         OpCodes.Ldarg_S,
+         OpCodeEncoding.Ldarg,
+         OpCodeEncoding.Ldarg_S,
          OpCodeEncoding.Ldarg_0,
          OpCodeEncoding.Ldarg_1,
          OpCodeEncoding.Ldarg_2,
@@ -1088,8 +1094,8 @@ public static partial class E_CILLogical
    {
       EmitOptimalInstructionForShort(
          il,
-         OpCodes.Ldarg,
-         OpCodes.Ldarg_S,
+         OpCodeEncoding.Ldarg,
+         OpCodeEncoding.Ldarg_S,
          OpCodeEncoding.Ldarg_0,
          OpCodeEncoding.Ldarg_1,
          OpCodeEncoding.Ldarg_2,
@@ -1109,7 +1115,7 @@ public static partial class E_CILLogical
    public static MethodIL EmitLoadArgAddress( this MethodIL il, Int32 index )
    {
       return il.Add( new LogicalOpCodeInfoWithFixedSizeOperandUInt16(
-            index <= Byte.MaxValue ? OpCodes.Ldarga_S : OpCodes.Ldarga,
+            index <= Byte.MaxValue ? OpCodeEncoding.Ldarga_S : OpCodeEncoding.Ldarga,
             (Int16) index
             )
          );
@@ -1397,7 +1403,7 @@ public static partial class E_CILLogical
    public static MethodIL EmitLoadInt64( this MethodIL il, Int64 value )
    {
       return il.Add( new LogicalOpCodeInfoWithFixedSizeOperandInt64(
-         OpCodes.Ldc_I8,
+         OpCodeEncoding.Ldc_I8,
          value
          ) )
          //
@@ -1422,7 +1428,7 @@ public static partial class E_CILLogical
    public static MethodIL EmitLoadUInt64( this MethodIL il, UInt64 value )
    {
       return il.Add( new LogicalOpCodeInfoWithFixedSizeOperandInt64(
-         OpCodes.Ldc_I8,
+         OpCodeEncoding.Ldc_I8,
          (Int64) value
          ) )
          // Can't use EmitNumericConversion, since the value loaded has different numerical value
@@ -1439,7 +1445,7 @@ public static partial class E_CILLogical
    public static MethodIL EmitLoadSingle( this MethodIL il, Single value )
    {
       return il.Add( new LogicalOpCodeInfoWithFixedSizeOperandSingle(
-         OpCodes.Ldc_R4,
+         OpCodeEncoding.Ldc_R4,
          value
          ) );
    }
@@ -1454,7 +1460,7 @@ public static partial class E_CILLogical
    public static MethodIL EmitLoadDouble( this MethodIL il, Double value )
    {
       return il.Add( new LogicalOpCodeInfoWithFixedSizeOperandDouble(
-         OpCodes.Ldc_R8,
+         OpCodeEncoding.Ldc_R8,
          value
          ) );
    }
@@ -1486,7 +1492,7 @@ public static partial class E_CILLogical
       EmitOptimalLoad(
          il,
          type,
-         OpCodes.Ldelem,
+         OpCodeEncoding.Ldelem,
          OpCodeEncoding.Ldelem_I1,
          OpCodeEncoding.Ldelem_I2,
          OpCodeEncoding.Ldelem_I4,
@@ -1512,7 +1518,7 @@ public static partial class E_CILLogical
    public static MethodIL EmitLoadElementAddress( this MethodIL il, CILTypeBase type )
    {
       return il.Add(
-         new LogicalOpCodeInfoWithTypeToken( OpCodes.Ldelema, type )
+         new LogicalOpCodeInfoWithTypeToken( OpCodeEncoding.Ldelema, type )
          );
    }
 
@@ -1538,14 +1544,14 @@ public static partial class E_CILLogical
    public static MethodIL EmitLoadThisField( this MethodIL il, CILField field, Boolean isVolatile = false )
    {
       ArgumentValidator.ValidateNotNull( "Field", field );
-      OpCode code;
+      OpCodeEncoding code;
       if ( field.Attributes.IsStatic() )
       {
          if ( isVolatile )
          {
             il.Add( OpCodeEncoding.Volatile_ );
          }
-         code = OpCodes.Ldsfld;
+         code = OpCodeEncoding.Ldsfld;
       }
       else
       {
@@ -1554,7 +1560,7 @@ public static partial class E_CILLogical
          {
             il.Add( OpCodeEncoding.Volatile_ );
          }
-         code = OpCodes.Ldfld;
+         code = OpCodeEncoding.Ldfld;
       }
       return il.Add( new LogicalOpCodeInfoWithFieldToken(
          code,
@@ -1573,15 +1579,15 @@ public static partial class E_CILLogical
    public static MethodIL EmitLoadThisFieldAddress( this MethodIL il, CILField field )
    {
       ArgumentValidator.ValidateNotNull( "Field", field );
-      OpCode code;
+      OpCodeEncoding code;
       if ( field.Attributes.IsStatic() )
       {
-         code = OpCodes.Ldsflda;
+         code = OpCodeEncoding.Ldsflda;
       }
       else
       {
          il.EmitLoadArg( 0 );
-         code = OpCodes.Ldflda;
+         code = OpCodeEncoding.Ldflda;
       }
       return il.Add( new LogicalOpCodeInfoWithFieldToken(
          code,
@@ -1602,7 +1608,7 @@ public static partial class E_CILLogical
       EmitOptimalLoad(
          il,
          type,
-         OpCodes.Ldobj,
+         OpCodeEncoding.Ldobj,
          OpCodeEncoding.Ldind_I1,
          OpCodeEncoding.Ldind_I2,
          OpCodeEncoding.Ldind_I4,
@@ -1660,7 +1666,7 @@ public static partial class E_CILLogical
             break;
          default:
             il.Add( new LogicalOpCodeInfoWithFixedSizeOperandInt32(
-               value >= SByte.MinValue && value <= SByte.MaxValue ? OpCodes.Ldc_I4_S : OpCodes.Ldc_I4,
+               value >= SByte.MinValue && value <= SByte.MaxValue ? OpCodeEncoding.Ldc_I4_S : OpCodeEncoding.Ldc_I4,
                value
                ) );
             break;
@@ -1681,8 +1687,8 @@ public static partial class E_CILLogical
       ArgumentValidator.ValidateNotNull( "Local", local );
       EmitOptimalInstructionForShort(
          il,
-         OpCodes.Ldloc,
-         OpCodes.Ldloc_S,
+         OpCodeEncoding.Ldloc,
+         OpCodeEncoding.Ldloc_S,
          OpCodeEncoding.Ldloc_0,
          OpCodeEncoding.Ldloc_1,
          OpCodeEncoding.Ldloc_2,
@@ -1704,7 +1710,7 @@ public static partial class E_CILLogical
    {
       var index = local.LocalIndex;
       il.Add( new LogicalOpCodeInfoWithFixedSizeOperandUInt16(
-         index <= Byte.MaxValue ? OpCodes.Ldloca_S : OpCodes.Ldloca,
+         index <= Byte.MaxValue ? OpCodeEncoding.Ldloca_S : OpCodeEncoding.Ldloca,
          (Int16) index
       ) );
       return il;
@@ -1731,7 +1737,7 @@ public static partial class E_CILLogical
    /// <exception cref="ArgumentNullException">If <paramref name="str"/> is <c>null</c>.</exception>
    public static MethodIL EmitLoadString( this MethodIL il, String str )
    {
-      return il.Add( new LogicalOpCodeInfoWithFixedSizeOperandString( OpCodes.Ldstr, str ) );
+      return il.Add( new LogicalOpCodeInfoWithFixedSizeOperandString( OpCodeEncoding.Ldstr, str ) );
    }
 
    /// <summary>
@@ -1744,7 +1750,7 @@ public static partial class E_CILLogical
    /// <exception cref="ArgumentNullException">If <paramref name="method"/> is <c>null</c>.</exception>
    public static MethodIL EmitLoadUnmanagedMethodToken( this MethodIL il, CILMethod method )
    {
-      return il.Add( new LogicalOpCodeInfoWithMethodToken( OpCodes.Ldftn, method ) );
+      return il.Add( new LogicalOpCodeInfoWithMethodToken( OpCodeEncoding.Ldftn, method ) );
    }
 
    /// <summary>
@@ -1760,7 +1766,7 @@ public static partial class E_CILLogical
    /// </remarks>
    public static MethodIL EmitLoadUnmanagedMethodTokenVirtual( this MethodIL il, CILMethod method )
    {
-      return il.Add( new LogicalOpCodeInfoWithMethodToken( OpCodes.Ldvirtftn, method ) );
+      return il.Add( new LogicalOpCodeInfoWithMethodToken( OpCodeEncoding.Ldvirtftn, method ) );
    }
 
    /// <summary>
@@ -1774,7 +1780,7 @@ public static partial class E_CILLogical
    public static MethodIL EmitNewArray( this MethodIL il, CILTypeBase arrayElementType )
    {
       return il.Add( new LogicalOpCodeInfoWithTypeToken(
-         OpCodes.Newarr,
+         OpCodeEncoding.Newarr,
          arrayElementType
          ) );
    }
@@ -1839,7 +1845,7 @@ public static partial class E_CILLogical
          }
          else
          {
-            LogicalOpCodeInfo code;
+            OpCodeEncoding code;
             Boolean allOK;
             if ( checkOverflow )
             {
@@ -1874,7 +1880,7 @@ public static partial class E_CILLogical
    public static MethodIL EmitNewObject( this MethodIL il, CILConstructor constructor )
    {
       return il.Add( new LogicalOpCodeInfoWithCtorToken(
-         OpCodes.Newobj,
+         OpCodeEncoding.Newobj,
          constructor
          ) );
    }
@@ -1912,7 +1918,7 @@ public static partial class E_CILLogical
    public static MethodIL EmitReflectionObjectOf( this MethodIL il, CILTypeBase targetType, TypeTokenKind typeTokenKind = TypeTokenKind.GenericInstantiation )
    {
       return il.Add( new LogicalOpCodeInfoWithTypeToken(
-         OpCodes.Ldtoken,
+         OpCodeEncoding.Ldtoken,
          targetType,
          typeTokenKind
          ) )
@@ -1939,15 +1945,15 @@ public static partial class E_CILLogical
       )
    {
       var methodWrapper = ResolveMSCorLibMethod( il, METHOD_OF_METHOD );
-      var mscorlib = ( (MethodILImpl) il ).OwningModule.AssociatedMSCorLibModule;
+      var mscorlib = il.Module.AssociatedMSCorLibModule;
       il.Add( new LogicalOpCodeInfoWithMethodToken(
-         OpCodes.Ldtoken,
+         OpCodeEncoding.Ldtoken,
          targetMethod,
          typeTokenKind,
          methodTokenKind
          ) )
          .Add( new LogicalOpCodeInfoWithTypeToken(
-         OpCodes.Ldtoken,
+         OpCodeEncoding.Ldtoken,
          targetMethod.DeclaringType,
          typeTokenKind
          ) )
@@ -1974,14 +1980,14 @@ public static partial class E_CILLogical
    public static MethodIL EmitReflectionObjectOf( this MethodIL il, CILConstructor targetCtor, TypeTokenKind typeTokenKind = TypeTokenKind.GenericInstantiation )
    {
       var methodWrapper = ResolveMSCorLibMethod( il, METHOD_OF_METHOD );
-      var mscorlib = ( (MethodILImpl) il ).OwningModule.AssociatedMSCorLibModule;
+      var mscorlib = il.Module.AssociatedMSCorLibModule;
       return il.Add( new LogicalOpCodeInfoWithCtorToken(
-         OpCodes.Ldtoken,
+         OpCodeEncoding.Ldtoken,
          targetCtor,
          typeTokenKind
          ) )
          .Add( new LogicalOpCodeInfoWithTypeToken(
-         OpCodes.Ldtoken,
+         OpCodeEncoding.Ldtoken,
          targetCtor.DeclaringType,
          typeTokenKind
          ) )
@@ -2001,12 +2007,12 @@ public static partial class E_CILLogical
    public static MethodIL EmitReflectionObjectOf( this MethodIL il, CILField field, TypeTokenKind typeTokenKind = TypeTokenKind.GenericInstantiation )
    {
       return il.Add( new LogicalOpCodeInfoWithFieldToken(
-         OpCodes.Ldtoken,
+         OpCodeEncoding.Ldtoken,
          field,
          typeTokenKind
          ) )
          .Add( new LogicalOpCodeInfoWithTypeToken(
-         OpCodes.Ldtoken,
+         OpCodeEncoding.Ldtoken,
          field.DeclaringType,
          typeTokenKind
          ) )
@@ -2048,7 +2054,7 @@ public static partial class E_CILLogical
       ArgumentValidator.ValidateNotNull( "Type", type );
 
       // TODO optimize - if Int32/UInt32, then just '4', etc.
-      return il.Add( new LogicalOpCodeInfoWithTypeToken( OpCodes.Sizeof, type ) );
+      return il.Add( new LogicalOpCodeInfoWithTypeToken( OpCodeEncoding.Sizeof, type ) );
    }
 
    /// <summary>
@@ -2064,7 +2070,7 @@ public static partial class E_CILLogical
       EmitOptimalStore(
          il,
          type,
-         OpCodes.Stobj,
+         OpCodeEncoding.Stobj,
          OpCodeEncoding.Stind_I1,
          OpCodeEncoding.Stind_I2,
          OpCodeEncoding.Stind_I4,
@@ -2086,7 +2092,7 @@ public static partial class E_CILLogical
    public static MethodIL EmitStoreArg( this MethodIL il, Int32 index )
    {
       return il.Add( new LogicalOpCodeInfoWithFixedSizeOperandUInt16(
-            index <= Byte.MaxValue ? OpCodes.Starg_S : OpCodes.Starg,
+            index <= Byte.MaxValue ? OpCodeEncoding.Starg_S : OpCodeEncoding.Starg,
             (Int16) index
             ) );
    }
@@ -2104,7 +2110,7 @@ public static partial class E_CILLogical
       EmitOptimalStore(
          il,
          elementType,
-         OpCodes.Stelem,
+         OpCodeEncoding.Stelem,
          OpCodeEncoding.Stelem_I1,
          OpCodeEncoding.Stelem_I2,
          OpCodeEncoding.Stelem_I4,
@@ -2158,8 +2164,8 @@ public static partial class E_CILLogical
    {
       EmitOptimalInstructionForShort(
          il,
-         OpCodes.Stloc,
-         OpCodes.Stloc_S,
+         OpCodeEncoding.Stloc,
+         OpCodeEncoding.Stloc_S,
          OpCodeEncoding.Stloc_0,
          OpCodeEncoding.Stloc_1,
          OpCodeEncoding.Stloc_2,
@@ -2782,7 +2788,7 @@ public static partial class E_CILLogical
    private static MethodIL EmitStoreField( MethodIL il, CILField field, Boolean isThisField, Action<MethodIL> whatToStore, Boolean isVolatile )
    {
       ArgumentValidator.ValidateNotNull( "Field", field );
-      OpCode code;
+      OpCodeEncoding code;
       if ( field.Attributes.IsStatic() )
       {
          whatToStore( il );
@@ -2790,7 +2796,7 @@ public static partial class E_CILLogical
          {
             il.Add( OpCodeEncoding.Volatile_ );
          }
-         code = OpCodes.Stsfld;
+         code = OpCodeEncoding.Stsfld;
       }
       else
       {
@@ -2803,7 +2809,7 @@ public static partial class E_CILLogical
          {
             il.Add( OpCodeEncoding.Volatile_ );
          }
-         code = OpCodes.Stfld;
+         code = OpCodeEncoding.Stfld;
       }
       il.Add( new LogicalOpCodeInfoWithFieldToken(
          code,
@@ -2814,8 +2820,8 @@ public static partial class E_CILLogical
 
    private static void EmitOptimalInstructionForShort(
       MethodIL il,
-      OpCode normalCode,
-      OpCode shortForm,
+      OpCodeEncoding normalCode,
+      OpCodeEncoding shortForm,
       OpCodeEncoding zeroCode,
       OpCodeEncoding firstCode,
       OpCodeEncoding secondCode,
@@ -2872,7 +2878,7 @@ public static partial class E_CILLogical
    private static void EmitOptimalLoad(
       MethodIL il,
       CILTypeBase type,
-      OpCode codeWithType,
+      OpCodeEncoding codeWithType,
       OpCodeEncoding i1,
       OpCodeEncoding i2,
       OpCodeEncoding i4,
@@ -2937,7 +2943,7 @@ public static partial class E_CILLogical
    private static void EmitOptimalStore(
       MethodIL il,
       CILTypeBase type,
-      OpCode codeWithType,
+      OpCodeEncoding codeWithType,
       OpCodeEncoding i1,
       OpCodeEncoding i2,
       OpCodeEncoding i4,
@@ -3030,7 +3036,7 @@ public static partial class E_CILLogical
 
    private static CILMethod ResolveMSCorLibMethod( MethodIL il, System.Reflection.MethodInfo nativeMethod )
    {
-      var mscorlib = ( (MethodILImpl) il ).OwningModule.AssociatedMSCorLibModule;
+      var mscorlib = il.Module.AssociatedMSCorLibModule;
       var pCount = nativeMethod.GetParameters().Length;
       return mscorlib
          .GetTypeByName( nativeMethod.DeclaringType.FullName )
@@ -3040,7 +3046,7 @@ public static partial class E_CILLogical
 
    private static CILConstructor ResolveMSCorLibCtor( MethodIL il, System.Reflection.ConstructorInfo nativeCtor )
    {
-      var mscorlib = ( (MethodILImpl) il ).OwningModule.AssociatedMSCorLibModule;
+      var mscorlib = il.Module.AssociatedMSCorLibModule;
       var pCount = nativeCtor.GetParameters().Length;
       return mscorlib
          .GetTypeByName( nativeCtor.DeclaringType.FullName )
@@ -3058,7 +3064,7 @@ public static partial class E_CILLogical
    /// <exception cref="NullReferenceException">If <paramref name="il"/> is <c>null</c>.</exception>
    public static MethodIL Add( this MethodIL il, OpCodeEncoding noOperandOpCode )
    {
-      return il.Add( LogicalOpCodeInfoWithNoOperand.GetInstanceFor( noOperandOpCode ) );
+      return il.Add( il.Module.GetOperandlessOpCode( noOperandOpCode ) );
    }
 
    #endregion

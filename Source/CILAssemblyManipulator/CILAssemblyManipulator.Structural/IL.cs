@@ -84,35 +84,18 @@ namespace CILAssemblyManipulator.Structural
 
    public sealed class OpCodeStructureSimple : OpCodeStructure
    {
-      private static readonly IDictionary<OpCodeEncoding, OpCodeStructureSimple> CodeInfosWithNoOperand = OpCodes.AllOpCodes
-         .Where( c => c.OperandType == OperandType.InlineNone )
-         .ToDictionary( c => c.Value, c => new OpCodeStructureSimple( c.Value ) );
+      private readonly OpCode _opCode;
 
-      private readonly OpCodeEncoding _opCode;
-
-      private OpCodeStructureSimple( OpCodeEncoding opCode )
+      public OpCodeStructureSimple( OpCode opCode )
       {
          this._opCode = opCode;
       }
 
-      public OpCodeEncoding SimpleOpCode
+      public OpCode SimpleOpCode
       {
          get
          {
             return this._opCode;
-         }
-      }
-
-      public static OpCodeStructureSimple GetInstanceFor( OpCodeEncoding opCode )
-      {
-         OpCodeStructureSimple retVal;
-         if ( CodeInfosWithNoOperand.TryGetValue( opCode, out retVal ) )
-         {
-            return retVal;
-         }
-         else
-         {
-            throw new ArgumentException( "Op code " + opCode + " is not operandless opcode." );
          }
       }
 

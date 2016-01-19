@@ -18,6 +18,7 @@
 extern alias CAMPhysical;
 using CAMPhysical;
 using CAMPhysical::CILAssemblyManipulator.Physical;
+using CAMPhysical::CILAssemblyManipulator.Physical.Meta;
 
 using CollectionsWithRoles.API;
 using CollectionsWithRoles.Implementation;
@@ -32,7 +33,7 @@ using TabularMetaData.Meta;
 
 namespace CILAssemblyManipulator.Physical.Meta
 {
-   public class DefaultMetaDataTableInformationProvider : MetaDataTableInformationProvider
+   public class DefaultMetaDataTableInformationProvider : CILMetaDataTableInformationProvider
    {
       public const Int32 AMOUNT_OF_FIXED_TABLES = 0x2D; // Enum.GetValues( typeof( Tables ) ).Length;
 
@@ -86,6 +87,11 @@ namespace CILAssemblyManipulator.Physical.Meta
          {
             yield return tableInfo;
          }
+      }
+
+      public virtual OpCodeProvider CreateOpCodeProvider()
+      {
+         return DefaultOpCodeProvider.Instance;
       }
 
       public static DefaultMetaDataTableInformationProvider CreateDefault()

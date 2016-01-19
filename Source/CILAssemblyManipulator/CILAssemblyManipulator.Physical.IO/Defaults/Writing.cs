@@ -1031,8 +1031,7 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
       )
       {
          const Int32 USER_STRING_MASK = 0x70 << 24;
-
-         var code = codeInfo.OpCode;
+         var code = this._md.OpCodeProvider.GetCodeFor( codeInfo.OpCode );
 
          if ( code.Size > 1 )
          {

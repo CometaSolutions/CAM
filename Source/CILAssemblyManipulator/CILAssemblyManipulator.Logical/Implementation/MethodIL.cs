@@ -68,18 +68,20 @@ namespace CILAssemblyManipulator.Logical.Implementation
          var labelsDic = new Dictionary<Int32, ILLabel>();
          var codeInfoILOffsets = new Dictionary<Int32, Int32>();
          Func<Int32, ILLabel> ilLabelDefiner = i => this.DefineLabel();
+         var ocp = CILAssemblyManipulator.Physical.Meta.DefaultOpCodeProvider.Instance;
          while ( ilOffset < il.Length )
          {
             codeInfoILOffsets.Add( ilOffset, this._opCodes.Count );
 
-            var physical = ILSerialization.TryReadOpCode( il, ref ilOffset, t => (String) tokenResolver( t, ILResolveKind.String ) );
+            var physical = ILSerialization.TryReadOpCode( il, ref ilOffset, t => (String) tokenResolver( t, ILResolveKind.String ), ocp );
             LogicalOpCodeInfo logical;
             Int32 int32;
-            var code = physical.OpCode;
+            var codeID = physical.OpCode;
+            var code = ocp.GetCodeFor( codeID );
             switch ( code.OperandType )
             {
                case OperandType.InlineNone:
-                  logical = LogicalOpCodeInfoWithNoOperand.GetInstanceFor( code );
+                  logical = this._module.GetOperandlessOpCode( code.Value );
                   break;
                case OperandType.ShortInlineBrTarget:
                case OperandType.InlineBrTarget:
@@ -88,23 +90,23 @@ namespace CILAssemblyManipulator.Logical.Implementation
                   break;
                case OperandType.ShortInlineI:
                case OperandType.InlineI:
-                  logical = new LogicalOpCodeInfoWithFixedSizeOperandInt32( code, ( (OpCodeInfoWithInt32) physical ).Operand );
+                  logical = new LogicalOpCodeInfoWithFixedSizeOperandInt32( codeID, ( (OpCodeInfoWithInt32) physical ).Operand );
                   break;
                case OperandType.ShortInlineVar:
                case OperandType.InlineVar:
-                  logical = new LogicalOpCodeInfoWithFixedSizeOperandUInt16( code, (Int16) ( (OpCodeInfoWithInt32) physical ).Operand );
+                  logical = new LogicalOpCodeInfoWithFixedSizeOperandUInt16( codeID, (Int16) ( (OpCodeInfoWithInt32) physical ).Operand );
                   break;
                case OperandType.ShortInlineR:
-                  logical = new LogicalOpCodeInfoWithFixedSizeOperandSingle( code, ( (OpCodeInfoWithSingle) physical ).Operand );
+                  logical = new LogicalOpCodeInfoWithFixedSizeOperandSingle( codeID, ( (OpCodeInfoWithSingle) physical ).Operand );
                   break;
                case OperandType.InlineR:
-                  logical = new LogicalOpCodeInfoWithFixedSizeOperandDouble( code, ( (OpCodeInfoWithDouble) physical ).Operand );
+                  logical = new LogicalOpCodeInfoWithFixedSizeOperandDouble( codeID, ( (OpCodeInfoWithDouble) physical ).Operand );
                   break;
                case OperandType.InlineI8:
-                  logical = new LogicalOpCodeInfoWithFixedSizeOperandInt64( code, ( (OpCodeInfoWithInt64) physical ).Operand );
+                  logical = new LogicalOpCodeInfoWithFixedSizeOperandInt64( codeID, ( (OpCodeInfoWithInt64) physical ).Operand );
                   break;
                case OperandType.InlineString:
-                  logical = new LogicalOpCodeInfoWithFixedSizeOperandString( code, ( (OpCodeInfoWithString) physical ).Operand );
+                  logical = new LogicalOpCodeInfoWithFixedSizeOperandString( codeID, ( (OpCodeInfoWithString) physical ).Operand );
                   break;
                case OperandType.InlineField:
                case OperandType.InlineMethod:
@@ -137,20 +139,20 @@ namespace CILAssemblyManipulator.Logical.Implementation
                   switch ( ( (CILCustomAttributeContainerImpl) resolved ).cilKind )
                   {
                      case CILElementKind.Type:
-                        logical = new LogicalOpCodeInfoWithTypeToken( code, (CILTypeBase) resolved, thisType.GetTypeTokenKind( resolved as CILType, table, Tables.TypeDef ) );
+                        logical = new LogicalOpCodeInfoWithTypeToken( codeID, (CILTypeBase) resolved, thisType.GetTypeTokenKind( resolved as CILType, table, Tables.TypeDef ) );
                         break;
                      case CILElementKind.Method:
                         var method = (CILMethod) resolved;
                         // Some loss of information here, but in order to extract TypeTokenKind precisely, we must be able to get method spec signature using System.Reflection API... not possible in PCL at least.
-                        logical = new LogicalOpCodeInfoWithMethodToken( code, method, thisType.GetTypeTokenKind( method.DeclaringType, table, Tables.MethodDef ), thisMethod.GetMethodTokenKind( method, table ) );
+                        logical = new LogicalOpCodeInfoWithMethodToken( codeID, method, thisType.GetTypeTokenKind( method.DeclaringType, table, Tables.MethodDef ), thisMethod.GetMethodTokenKind( method, table ) );
                         break;
                      case CILElementKind.Field:
                         var field = (CILField) resolved;
-                        logical = new LogicalOpCodeInfoWithFieldToken( code, field, thisType.GetTypeTokenKind( field.DeclaringType, table, Tables.Field ) );
+                        logical = new LogicalOpCodeInfoWithFieldToken( codeID, field, thisType.GetTypeTokenKind( field.DeclaringType, table, Tables.Field ) );
                         break;
                      case CILElementKind.Constructor:
                         var ctor = (CILConstructor) resolved;
-                        logical = new LogicalOpCodeInfoWithCtorToken( code, (CILConstructor) resolved, thisType.GetTypeTokenKind( ctor.DeclaringType, table, Tables.MethodDef ) );
+                        logical = new LogicalOpCodeInfoWithCtorToken( codeID, (CILConstructor) resolved, thisType.GetTypeTokenKind( ctor.DeclaringType, table, Tables.MethodDef ) );
                         break;
                      default:
                         throw new BadImageFormatException( "Token resolver resolved unsupported CIL element kind: " + ( (CILCustomAttributeContainerImpl) resolved ).cilKind + "." );
@@ -301,6 +303,14 @@ namespace CILAssemblyManipulator.Logical.Implementation
          this._allExceptionBlocks.Add( block );
       }
 
+      public CILModule Module
+      {
+         get
+         {
+            return this._module;
+         }
+      }
+
       #endregion
 
       internal IList<LocalBuilder> LocalsList
@@ -308,14 +318,6 @@ namespace CILAssemblyManipulator.Logical.Implementation
          get
          {
             return this._locals;
-         }
-      }
-
-      internal CILModule OwningModule
-      {
-         get
-         {
-            return this._module;
          }
       }
 
@@ -347,7 +349,7 @@ namespace CILAssemblyManipulator.Logical.Implementation
          var info = tuple.Item1;
          if ( ExceptionBlockType.Finally == info.BlockType || ExceptionBlockType.Fault == info.BlockType )
          {
-            this.Add( LogicalOpCodeInfoWithNoOperand.GetInstanceFor( OpCodeEncoding.Endfinally ) );
+            this.Add( this._module.GetOperandlessOpCode( OpCodeEncoding.Endfinally ) );
          }
 
          this.MarkLabel( tuple.Item2 );

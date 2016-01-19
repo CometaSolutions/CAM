@@ -29,22 +29,23 @@ namespace CILAssemblyManipulator.Logical
    /// </summary>
    public abstract class LogicalOpCodeInfoWithOneOpCode : LogicalOpCodeInfo
    {
+      // TODO - probably now with customizable op codes, this should store physical OpCode instead??
       private readonly UInt16 _opCode; // Save some memory and store enum instead of actual struct
 
-      internal LogicalOpCodeInfoWithOneOpCode( OpCode code )
+      internal LogicalOpCodeInfoWithOneOpCode( OpCodeEncoding code )
       {
-         this._opCode = (UInt16) code.Value;
+         this._opCode = (UInt16) code;
       }
 
       /// <summary>
-      /// Returns the <see cref="OpCode"/> to emit.
+      /// Returns the <see cref="OpCodeEncoding"/> to emit.
       /// </summary>
-      /// <value>The <see cref="OpCode"/> to emit.</value>
-      public OpCode Code
+      /// <value>The <see cref="OpCodeEncoding"/> to emit.</value>
+      public OpCodeEncoding Code
       {
          get
          {
-            return OpCodes.GetCodeFor( (OpCodeEncoding) this._opCode );
+            return (OpCodeEncoding) this._opCode; // OpCodes.GetCodeFor( (OpCodeEncoding) this._opCode );
          }
       }
 
@@ -70,8 +71,8 @@ namespace CILAssemblyManipulator.Logical
       /// Creates a new instance of <see cref="LogicalOpCodeInfoWithNoOperand"/>.
       /// </summary>
       /// <param name="code">The <see cref="OpCode"/>.</param>
-      private LogicalOpCodeInfoWithNoOperand( OpCodeEncoding code )
-         : base( OpCodes.GetCodeFor( code ) )
+      public LogicalOpCodeInfoWithNoOperand( OpCodeEncoding code )
+         : base( code )
       {
          ///// <exception cref="ArgumentException">If <see cref="OpCode.OperandType"/> property of <paramref name="code"/> is not <see cref="OperandType.InlineNone"/>.</exception>
          //if ( code.OperandType != OperandType.InlineNone )
@@ -89,33 +90,32 @@ namespace CILAssemblyManipulator.Logical
          }
       }
 
-      /// <summary>
-      /// Gets the <see cref="LogicalOpCodeInfoWithNoOperand"/> instance for given <see cref="OpCodeEncoding"/>.
-      /// </summary>
-      /// <param name="code">The <see cref="OpCodeEncoding"/> representing opcode.</param>
-      /// <returns><see cref="LogicalOpCodeInfoWithNoOperand"/> instance for given <paramref name="code"/>.</returns>
-      public static LogicalOpCodeInfoWithNoOperand GetInstanceFor( OpCodeEncoding code )
-      {
-         return Instances.GetOrAdd_WithLock(
-            code,
-            c =>
-            {
-               // Will throw if c is not operandless op code
-               OpCodeInfoWithNoOperand.GetInstanceFor( c );
-               return new LogicalOpCodeInfoWithNoOperand( c );
-            }
-            );
-      }
+      ///// <summary>
+      ///// Gets the <see cref="LogicalOpCodeInfoWithNoOperand"/> instance for given <see cref="OpCodeEncoding"/>.
+      ///// </summary>
+      ///// <param name="code">The <see cref="OpCodeEncoding"/> representing opcode.</param>
+      ///// <returns><see cref="LogicalOpCodeInfoWithNoOperand"/> instance for given <paramref name="code"/>.</returns>
+      //public static LogicalOpCodeInfoWithNoOperand GetInstanceFor( OpCodeEncoding code )
+      //{
+      //   return Instances.GetOrAdd_WithLock(
+      //      code,
+      //      c =>
+      //      {
+      //         // Will throw if c is not operandless op code
+      //         return new LogicalOpCodeInfoWithNoOperand( OpCodeInfoWithNoOperand.GetInstanceFor( c ).OpCode );
+      //      }
+      //      );
+      //}
 
-      /// <summary>
-      /// Gets the <see cref="LogicalOpCodeInfoWithNoOperand"/> instance for given <see cref="OpCode"/>.
-      /// </summary>
-      /// <param name="code">The <see cref="OpCode"/>.</param>
-      /// <returns><see cref="LogicalOpCodeInfoWithNoOperand"/> instance for given <paramref name="code"/>.</returns>
-      public static LogicalOpCodeInfoWithNoOperand GetInstanceFor( OpCode code )
-      {
-         return GetInstanceFor( code.Value );
-      }
+      ///// <summary>
+      ///// Gets the <see cref="LogicalOpCodeInfoWithNoOperand"/> instance for given <see cref="OpCode"/>.
+      ///// </summary>
+      ///// <param name="code">The <see cref="OpCode"/>.</param>
+      ///// <returns><see cref="LogicalOpCodeInfoWithNoOperand"/> instance for given <paramref name="code"/>.</returns>
+      //public static LogicalOpCodeInfoWithNoOperand GetInstanceFor( OpCode code )
+      //{
+      //   return GetInstanceFor( code.Value );
+      //}
    }
 
    /// <summary>
@@ -123,7 +123,7 @@ namespace CILAssemblyManipulator.Logical
    /// </summary>
    public abstract class LogicalOpCodeInfoWithFixedSizeOperand : LogicalOpCodeInfoWithOneOpCode
    {
-      internal LogicalOpCodeInfoWithFixedSizeOperand( OpCode opCode )
+      internal LogicalOpCodeInfoWithFixedSizeOperand( OpCodeEncoding opCode )
          : base( opCode )
       {
       }
@@ -137,7 +137,7 @@ namespace CILAssemblyManipulator.Logical
    {
       private readonly TOperand _operand;
 
-      internal LogicalOpCodeInfoWithFixedSizeOperand( OpCode opCode, TOperand operand )
+      internal LogicalOpCodeInfoWithFixedSizeOperand( OpCodeEncoding opCode, TOperand operand )
          : base( opCode )
       {
          this._operand = operand;
@@ -160,7 +160,7 @@ namespace CILAssemblyManipulator.Logical
    /// </summary>
    public abstract class LogicalOpCodeInfoWithTokenOperand : LogicalOpCodeInfoWithFixedSizeOperand
    {
-      internal LogicalOpCodeInfoWithTokenOperand( OpCode opCode )
+      internal LogicalOpCodeInfoWithTokenOperand( OpCodeEncoding opCode )
          : base( opCode )
       {
       }
@@ -252,7 +252,7 @@ namespace CILAssemblyManipulator.Logical
    {
       private readonly TypeTokenKind _typeTokenKind;
 
-      internal LogicalOpCodeInfoWithTokenOperandAndTypeTokenKind( OpCode opCode, TypeTokenKind typeTokenKind )
+      internal LogicalOpCodeInfoWithTokenOperandAndTypeTokenKind( OpCodeEncoding opCode, TypeTokenKind typeTokenKind )
          : base( opCode ) //, TOKEN_SIZE )
       {
          this._typeTokenKind = typeTokenKind;
@@ -285,7 +285,7 @@ namespace CILAssemblyManipulator.Logical
       /// <param name="type">The <see cref="CILTypeBase"/> to have as operand.</param>
       /// <param name="typeTokenKind"> The <see cref="TypeTokenKind"/></param>
       /// <exception cref="ArgumentNullException">If <paramref name="type"/> is <c>null</c>.</exception>
-      public LogicalOpCodeInfoWithTypeToken( OpCode opCode, CILTypeBase type, TypeTokenKind typeTokenKind = TypeTokenKind.GenericInstantiation )
+      public LogicalOpCodeInfoWithTypeToken( OpCodeEncoding opCode, CILTypeBase type, TypeTokenKind typeTokenKind = TypeTokenKind.GenericInstantiation )
          : base( opCode, typeTokenKind )
       {
          ArgumentValidator.ValidateNotNull( "Type", type );
@@ -328,7 +328,7 @@ namespace CILAssemblyManipulator.Logical
       /// <param name="field">The <see cref="CILField"/> to use as operand.</param>
       /// <param name="typeTokenKind">The <see cref="TypeTokenKind"/>.</param>
       /// <exception cref="ArgumentNullException">If <paramref name="field"/> is <c>null</c>.</exception>
-      public LogicalOpCodeInfoWithFieldToken( OpCode opCode, CILField field, TypeTokenKind typeTokenKind = TypeTokenKind.GenericInstantiation )
+      public LogicalOpCodeInfoWithFieldToken( OpCodeEncoding opCode, CILField field, TypeTokenKind typeTokenKind = TypeTokenKind.GenericInstantiation )
          : base( opCode, typeTokenKind )
       {
          ArgumentValidator.ValidateNotNull( "Field", field );
@@ -447,7 +447,7 @@ namespace CILAssemblyManipulator.Logical
    {
       private readonly MethodTokenKind _tokenKind;
 
-      internal LogicalOpCodeInfoWithMethodBaseToken( OpCode opCode, TypeTokenKind typeTokenKind, MethodTokenKind methodTokenKind )
+      internal LogicalOpCodeInfoWithMethodBaseToken( OpCodeEncoding opCode, TypeTokenKind typeTokenKind, MethodTokenKind methodTokenKind )
          : base( opCode, typeTokenKind )
       {
          this._tokenKind = methodTokenKind;
@@ -482,7 +482,7 @@ namespace CILAssemblyManipulator.Logical
       /// <param name="methodTokenKind"> The <see cref="Logical.MethodTokenKind"/>.</param>
       /// <exception cref="ArgumentNullException">If <paramref name="method"/> is <c>null</c>.</exception>
       /// <remarks>TODO varargs parameters</remarks>
-      public LogicalOpCodeInfoWithMethodToken( OpCode opCode, CILMethod method, TypeTokenKind typeTokenKind = TypeTokenKind.GenericInstantiation, MethodTokenKind methodTokenKind = MethodTokenKind.GenericInstantiation )
+      public LogicalOpCodeInfoWithMethodToken( OpCodeEncoding opCode, CILMethod method, TypeTokenKind typeTokenKind = TypeTokenKind.GenericInstantiation, MethodTokenKind methodTokenKind = MethodTokenKind.GenericInstantiation )
          : base( opCode, typeTokenKind, methodTokenKind )
       {
          ArgumentValidator.ValidateNotNull( "Method", method );
@@ -526,7 +526,7 @@ namespace CILAssemblyManipulator.Logical
       /// <param name="typeTokenKind">The <see cref="Logical.TypeTokenKind"/>.</param>
       /// <exception cref="ArgumentNullException">If <paramref name="ctor"/> is <c>null</c>.</exception>
       /// <remarks>TODO varargs parameters.</remarks>
-      public LogicalOpCodeInfoWithCtorToken( OpCode opCode, CILConstructor ctor, TypeTokenKind typeTokenKind = TypeTokenKind.GenericInstantiation )
+      public LogicalOpCodeInfoWithCtorToken( OpCodeEncoding opCode, CILConstructor ctor, TypeTokenKind typeTokenKind = TypeTokenKind.GenericInstantiation )
          : base( opCode, typeTokenKind )
       {
          ArgumentValidator.ValidateNotNull( "Constructor", ctor );
@@ -570,7 +570,7 @@ namespace CILAssemblyManipulator.Logical
       /// <param name="varArgs">The variable arguments for this call site. May be <c>null</c> or empty for non-varargs call.</param>
       /// <exception cref="ArgumentNullException">If <paramref name="methodSig"/> is <c>null</c>.</exception>
       public LogicalOpCodeInfoWithMethodSig( CILMethodSignature methodSig, VarArgInstance[] varArgs )
-         : base( OpCodes.Calli )
+         : base( OpCodeEncoding.Calli )
       {
          ArgumentValidator.ValidateNotNull( "Method signature", methodSig );
 
@@ -624,13 +624,13 @@ namespace CILAssemblyManipulator.Logical
       /// <param name="str">The string to use.</param>
       /// <exception cref="ArgumentNullException">If <paramref name="str"/> is <c>null</c>.</exception>
       /// <exception cref="ArgumentException">If <see cref="OpCode.OperandType"/> for <paramref name="code"/> is not <see cref="OperandType.InlineString"/>.</exception>
-      public LogicalOpCodeInfoWithFixedSizeOperandString( OpCode code, String str )
+      public LogicalOpCodeInfoWithFixedSizeOperandString( OpCodeEncoding code, String str )
          : base( code, str ) //, TOKEN_SIZE )
       {
-         if ( code.OperandType != OperandType.InlineString )
-         {
-            throw new ArgumentException( "The operand type of opcode is " + code.OperandType + " instead of string." );
-         }
+         //if ( code.OperandType != OperandType.InlineString )
+         //{
+         //   throw new ArgumentException( "The operand type of opcode is " + code.OperandType + " instead of string." );
+         //}
          ArgumentValidator.ValidateNotNull( "String", str );
       }
 
@@ -658,7 +658,7 @@ namespace CILAssemblyManipulator.Logical
       /// CIL will interpret <paramref name="int16"/> as <see cref="UInt16"/>.
       /// Additionally, if <see cref="OpCode.OperandType"/> property of <paramref name="opCode"/> is <see cref="OperandType.ShortInlineVar"/>, the <paramref name="int16"/> will emitted as <see cref="Byte"/>.
       /// </remarks>
-      public LogicalOpCodeInfoWithFixedSizeOperandUInt16( OpCode opCode, Int16 int16 )
+      public LogicalOpCodeInfoWithFixedSizeOperandUInt16( OpCodeEncoding opCode, Int16 int16 )
          : base( opCode, int16 ) //, opCode.OperandType == OperandType.ShortInlineVar ? (Byte) 1 : (Byte) 2 )
       {
       }
@@ -687,7 +687,7 @@ namespace CILAssemblyManipulator.Logical
       /// <remarks>
       /// If <see cref="OpCode.OperandType"/> property of <paramref name="opCode"/> is <see cref="OperandType.ShortInlineI"/>, the <paramref name="int32"/> will be emitted as <see cref="SByte"/>.
       /// </remarks>
-      public LogicalOpCodeInfoWithFixedSizeOperandInt32( OpCode opCode, Int32 int32 )
+      public LogicalOpCodeInfoWithFixedSizeOperandInt32( OpCodeEncoding opCode, Int32 int32 )
          : base( opCode, int32 ) //, opCode.OperandType == OperandType.ShortInlineI ? (Byte) 1 : (Byte) 4 )
       {
       }
@@ -713,7 +713,7 @@ namespace CILAssemblyManipulator.Logical
       /// </summary>
       /// <param name="opCode">The <see cref="OpCode"/> to emit.</param>
       /// <param name="int64">The operand.</param>
-      public LogicalOpCodeInfoWithFixedSizeOperandInt64( OpCode opCode, Int64 int64 )
+      public LogicalOpCodeInfoWithFixedSizeOperandInt64( OpCodeEncoding opCode, Int64 int64 )
          : base( opCode, int64 ) //, (Byte) 8 )
       {
       }
@@ -739,7 +739,7 @@ namespace CILAssemblyManipulator.Logical
       /// </summary>
       /// <param name="opCode">The <see cref="OpCode"/> to emit.</param>
       /// <param name="single">The operand.</param>
-      public LogicalOpCodeInfoWithFixedSizeOperandSingle( OpCode opCode, Single single )
+      public LogicalOpCodeInfoWithFixedSizeOperandSingle( OpCodeEncoding opCode, Single single )
          : base( opCode, single ) //, (Byte) 4 )
       {
       }
@@ -765,7 +765,7 @@ namespace CILAssemblyManipulator.Logical
       /// </summary>
       /// <param name="opCode">The <see cref="OpCode"/> to emit.</param>
       /// <param name="dbl">The operand.</param>
-      public LogicalOpCodeInfoWithFixedSizeOperandDouble( OpCode opCode, Double dbl )
+      public LogicalOpCodeInfoWithFixedSizeOperandDouble( OpCodeEncoding opCode, Double dbl )
          : base( opCode, dbl ) // , (Byte) 8 )
       {
       }
@@ -1079,11 +1079,11 @@ namespace CILAssemblyManipulator.Logical
       /// Gets the fixed branch code for this <see cref="LogicalOpCodeInfoForFixedBranchOrLeave"/>.
       /// </summary>
       /// <value>The fixed branch code for this <see cref="LogicalOpCodeInfoForFixedBranchOrLeave"/>.</value>
-      public OpCode Code
+      public OpCodeEncoding Code
       {
          get
          {
-            return OpCodes.GetCodeFor( (OpCodeEncoding) this._code );
+            return (OpCodeEncoding) this._code;
          }
       }
 

@@ -2320,52 +2320,55 @@ public static partial class E_CILLogical
          var labelByteOffsets = new Dictionary<ILLabel, Int32>();
          var curByteOffset = 0;
          var md = state.MetaData;
+         var ocp = md.OpCodeProvider;
          var methodSpecs = md.MethodSpecifications.TableContents;
 
          for ( var codeIdx = 0; codeIdx < physOpCodes.Count; ++codeIdx )
          {
             var code = physOpCodes[codeIdx];
             logicalByteOffsets.Add( curByteOffset, codeIdx );
-            curByteOffset += code.GetTotalByteCount();
+            curByteOffset += code.GetTotalByteCount( ocp );
+            var physOpCodeID = code.OpCode;
+            var physOpCode = ocp.GetCodeFor( physOpCodeID );
             LogicalOpCodeInfo logicalCode;
             switch ( code.InfoKind )
             {
                case OpCodeOperandKind.OperandInteger:
                   var physIntCode = (OpCodeInfoWithInt32) code;
-                  switch ( code.OpCode.OperandType )
+                  switch ( physOpCode.OperandType )
                   {
                      case OperandType.InlineBrTarget:
                      case OperandType.ShortInlineBrTarget:
                         var label = retVal.DefineLabel();
-                        logicalCode = new LogicalOpCodeInfoForFixedBranchOrLeave( code.OpCode, label );
+                        logicalCode = new LogicalOpCodeInfoForFixedBranchOrLeave( physOpCode, label );
                         labelByteOffsets.Add( label, curByteOffset + physIntCode.Operand );
                         break;
                      case OperandType.InlineI:
                      case OperandType.InlineVar:
-                        logicalCode = new LogicalOpCodeInfoWithFixedSizeOperandInt32( code.OpCode, physIntCode.Operand );
+                        logicalCode = new LogicalOpCodeInfoWithFixedSizeOperandInt32( physOpCodeID, physIntCode.Operand );
                         break;
                      case OperandType.ShortInlineI:
                      case OperandType.ShortInlineVar:
-                        logicalCode = new LogicalOpCodeInfoWithFixedSizeOperandUInt16( code.OpCode, (Int16) physIntCode.Operand );
+                        logicalCode = new LogicalOpCodeInfoWithFixedSizeOperandUInt16( physOpCodeID, (Int16) physIntCode.Operand );
                         break;
                      default:
-                        throw new InvalidOperationException( "Unsupported op code for physical op code with integer: " + code.OpCode + "." );
+                        throw new InvalidOperationException( "Unsupported op code for physical op code with integer: " + code + "." );
                   }
                   break;
                case OpCodeOperandKind.OperandInteger64:
-                  logicalCode = new LogicalOpCodeInfoWithFixedSizeOperandInt64( code.OpCode, ( (OpCodeInfoWithInt64) code ).Operand );
+                  logicalCode = new LogicalOpCodeInfoWithFixedSizeOperandInt64( physOpCodeID, ( (OpCodeInfoWithInt64) code ).Operand );
                   break;
                case OpCodeOperandKind.OperandNone:
-                  logicalCode = LogicalOpCodeInfoWithNoOperand.GetInstanceFor( code.OpCode );
+                  logicalCode = state.Module.GetOperandlessOpCode( code.OpCode );
                   break;
                case OpCodeOperandKind.OperandR4:
-                  logicalCode = new LogicalOpCodeInfoWithFixedSizeOperandSingle( code.OpCode, ( (OpCodeInfoWithSingle) code ).Operand );
+                  logicalCode = new LogicalOpCodeInfoWithFixedSizeOperandSingle( physOpCodeID, ( (OpCodeInfoWithSingle) code ).Operand );
                   break;
                case OpCodeOperandKind.OperandR8:
-                  logicalCode = new LogicalOpCodeInfoWithFixedSizeOperandDouble( code.OpCode, ( (OpCodeInfoWithDouble) code ).Operand );
+                  logicalCode = new LogicalOpCodeInfoWithFixedSizeOperandDouble( physOpCodeID, ( (OpCodeInfoWithDouble) code ).Operand );
                   break;
                case OpCodeOperandKind.OperandString:
-                  logicalCode = new LogicalOpCodeInfoWithFixedSizeOperandString( code.OpCode, ( (OpCodeInfoWithString) code ).Operand );
+                  logicalCode = new LogicalOpCodeInfoWithFixedSizeOperandString( physOpCodeID, ( (OpCodeInfoWithString) code ).Operand );
                   break;
                case OpCodeOperandKind.OperandIntegerList:
                   var physSwitch = (OpCodeInfoWithIntegers) code;
@@ -2383,23 +2386,23 @@ public static partial class E_CILLogical
                   {
                      case CILElementWithinILCode.Field:
                         var field = (CILField) resolved;
-                        logicalCode = new LogicalOpCodeInfoWithFieldToken( code.OpCode, field, contextType.GetTypeTokenKind( field.DeclaringType, token.Table, Tables.Field ) );
+                        logicalCode = new LogicalOpCodeInfoWithFieldToken( physOpCodeID, field, contextType.GetTypeTokenKind( field.DeclaringType, token.Table, Tables.Field ) );
                         break;
                      case CILElementWithinILCode.Method:
                         if ( resolved is CILMethod )
                         {
                            var cilMethod = (CILMethod) resolved;
                            var typeTable = state.GetTypeTableFromMethodDefOrMemberRef( token.Table == Tables.MethodSpec ? methodSpecs[token.Index].Method : token );
-                           logicalCode = new LogicalOpCodeInfoWithMethodToken( code.OpCode, cilMethod, contextType.GetTypeTokenKind( cilMethod.DeclaringType, typeTable, Tables.TypeDef ), method.GetMethodTokenKind( cilMethod, token.Table ) );
+                           logicalCode = new LogicalOpCodeInfoWithMethodToken( physOpCodeID, cilMethod, contextType.GetTypeTokenKind( cilMethod.DeclaringType, typeTable, Tables.TypeDef ), method.GetMethodTokenKind( cilMethod, token.Table ) );
                         }
                         else
                         {
                            var ctor = (CILConstructor) resolved;
-                           logicalCode = new LogicalOpCodeInfoWithCtorToken( code.OpCode, ctor, contextType.GetTypeTokenKind( ctor.DeclaringType, token.Table, Tables.MethodDef ) );
+                           logicalCode = new LogicalOpCodeInfoWithCtorToken( physOpCodeID, ctor, contextType.GetTypeTokenKind( ctor.DeclaringType, token.Table, Tables.MethodDef ) );
                         }
                         break;
                      case CILElementWithinILCode.Type:
-                        logicalCode = new LogicalOpCodeInfoWithTypeToken( code.OpCode, (CILTypeBase) resolved, contextType.GetTypeTokenKind( resolved as CILType, token.Table, Tables.TypeDef ) );
+                        logicalCode = new LogicalOpCodeInfoWithTypeToken( physOpCodeID, (CILTypeBase) resolved, contextType.GetTypeTokenKind( resolved as CILType, token.Table, Tables.TypeDef ) );
                         break;
                      default:
                         throw new InvalidOperationException( "Unrecognized tokenizable element kind: " + resolved.ElementTypeKind + "." );

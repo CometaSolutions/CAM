@@ -18,6 +18,7 @@
 extern alias CAMPhysical;
 using CAMPhysical;
 using CAMPhysical::CILAssemblyManipulator.Physical;
+using CAMPhysical::CILAssemblyManipulator.Physical.Meta;
 
 using System;
 using System.Collections.Generic;
@@ -31,7 +32,8 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
       public static OpCodeInfo TryReadOpCode(
         Byte[] bytes,
         ref Int32 idx,
-        Func<Int32, String> stringGetter
+        Func<Int32, String> stringGetter,
+        OpCodeProvider opCodeProvider
         )
       {
          OpCodeInfo info;
@@ -41,49 +43,49 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
             b );
 
          OpCode code;
-         if ( OpCodes.TryGetCodeFor( encoding, out code ) )
+         if ( ( opCodeProvider ?? DefaultOpCodeProvider.Instance ).TryGetCodeFor( encoding, out code ) )
          {
             switch ( code.OperandType )
             {
                case OperandType.InlineNone:
-                  info = OpCodeInfoWithNoOperand.GetInstanceFor( encoding );
+                  info = opCodeProvider.GetOperandlessInfoFor( encoding );
                   break;
                case OperandType.ShortInlineBrTarget:
                case OperandType.ShortInlineI:
-                  info = new OpCodeInfoWithInt32( code, (Int32) ( bytes.ReadSByteFromBytes( ref idx ) ) );
+                  info = new OpCodeInfoWithInt32( encoding, (Int32) ( bytes.ReadSByteFromBytes( ref idx ) ) );
                   break;
                case OperandType.ShortInlineVar:
-                  info = new OpCodeInfoWithInt32( code, bytes.ReadByteFromBytes( ref idx ) );
+                  info = new OpCodeInfoWithInt32( encoding, bytes.ReadByteFromBytes( ref idx ) );
                   break;
                case OperandType.ShortInlineR:
-                  info = new OpCodeInfoWithSingle( code, bytes.ReadSingleLEFromBytes( ref idx ) );
+                  info = new OpCodeInfoWithSingle( encoding, bytes.ReadSingleLEFromBytes( ref idx ) );
                   break;
                case OperandType.InlineBrTarget:
                case OperandType.InlineI:
-                  info = new OpCodeInfoWithInt32( code, bytes.ReadInt32LEFromBytes( ref idx ) );
+                  info = new OpCodeInfoWithInt32( encoding, bytes.ReadInt32LEFromBytes( ref idx ) );
                   break;
                case OperandType.InlineVar:
-                  info = new OpCodeInfoWithInt32( code, bytes.ReadUInt16LEFromBytes( ref idx ) );
+                  info = new OpCodeInfoWithInt32( encoding, bytes.ReadUInt16LEFromBytes( ref idx ) );
                   break;
                case OperandType.InlineR:
-                  info = new OpCodeInfoWithDouble( code, bytes.ReadDoubleLEFromBytes( ref idx ) );
+                  info = new OpCodeInfoWithDouble( encoding, bytes.ReadDoubleLEFromBytes( ref idx ) );
                   break;
                case OperandType.InlineI8:
-                  info = new OpCodeInfoWithInt64( code, bytes.ReadInt64LEFromBytes( ref idx ) );
+                  info = new OpCodeInfoWithInt64( encoding, bytes.ReadInt64LEFromBytes( ref idx ) );
                   break;
                case OperandType.InlineString:
-                  info = new OpCodeInfoWithString( code, stringGetter( bytes.ReadInt32LEFromBytes( ref idx ) ) );
+                  info = new OpCodeInfoWithString( encoding, stringGetter( bytes.ReadInt32LEFromBytes( ref idx ) ) );
                   break;
                case OperandType.InlineField:
                case OperandType.InlineMethod:
                case OperandType.InlineType:
                case OperandType.InlineToken:
                case OperandType.InlineSignature:
-                  info = new OpCodeInfoWithTableIndex( code, TableIndex.FromOneBasedToken( bytes.ReadInt32LEFromBytes( ref idx ) ) );
+                  info = new OpCodeInfoWithTableIndex( encoding, TableIndex.FromOneBasedToken( bytes.ReadInt32LEFromBytes( ref idx ) ) );
                   break;
                case OperandType.InlineSwitch:
                   var count = bytes.ReadInt32LEFromBytes( ref idx );
-                  var sInfo = new OpCodeInfoWithIntegers( code, count );
+                  var sInfo = new OpCodeInfoWithIntegers( encoding, count );
                   for ( var i = 0; i < count; ++i )
                   {
                      sInfo.Operand.Add( bytes.ReadInt32LEFromBytes( ref idx ) );

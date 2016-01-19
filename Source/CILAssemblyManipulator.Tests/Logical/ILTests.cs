@@ -107,7 +107,7 @@ namespace CILAssemblyManipulator.Tests.Logical
                {
                   il2.EmitLoadString( "" )
                      .EmitLoadLocal( local2 )
-                     .Add( new LogicalOpCodeInfoWithTypeToken( OpCodes.Box, objType ) )
+                     .Add( new LogicalOpCodeInfoWithTypeToken( OpCodeEncoding.Box, objType ) )
                      .EmitLoadString( "" )
                      .EmitCall( objMethod )
                      .EmitReflectionObjectOf( objType )
@@ -121,7 +121,7 @@ namespace CILAssemblyManipulator.Tests.Logical
                .EmitReturn();
 
 
-            Assert.DoesNotThrow( () => assembly.MainModule.CreatePhysicalRepresentation( false ) );
+            Assert.DoesNotThrow( () => assembly.MainModule.CreatePhysicalRepresentation( orderAndRemoveDuplicates: false ) );
          }
       }
 

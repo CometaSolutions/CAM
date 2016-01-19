@@ -22,6 +22,7 @@ using CAMPhysical;
 
 using CILAssemblyManipulator.Logical;
 using CILAssemblyManipulator.Physical;
+using CILAssemblyManipulator.Physical.Meta;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -451,9 +452,13 @@ public static partial class E_CILLogical
    /// <param name="assembly">The <see cref="CILAssembly"/>.</param>
    /// <param name="orderAndRemoveDuplicates">Whether to call <see cref="E_CILPhysical.OrderTablesAndRemoveDuplicates(CILMetaData)"/> method for the return value. This method should be called before writing Physical layer <see cref="CILMetaData"/> to disk, as this method may leave some duplicates in the return value tables.</param>
    /// <returns>The <see cref="CILMetaData"/> built from assembly's main module.</returns>
-   public static CILMetaData CreatePhysicalRepresentationForMainModule( this CILAssembly assembly, Boolean orderAndRemoveDuplicates = true )
+   public static CILMetaData CreatePhysicalRepresentationForMainModule(
+      this CILAssembly assembly,
+      CILMetaDataTableInformationProvider tableInfoProvider = null,
+      Boolean orderAndRemoveDuplicates = true
+      )
    {
-      return assembly.MainModule.CreatePhysicalRepresentation( orderAndRemoveDuplicates );
+      return assembly.MainModule.CreatePhysicalRepresentation( tableInfoProvider: tableInfoProvider, orderAndRemoveDuplicates: orderAndRemoveDuplicates );
    }
 
    /// <summary>
@@ -462,13 +467,17 @@ public static partial class E_CILLogical
    /// <param name="module">The <see cref="CILModule"/>.</param>
    /// <param name="orderAndRemoveDuplicates">Whether to call <see cref="E_CILPhysical.OrderTablesAndRemoveDuplicates(CILMetaData)"/> method for the return value. This method should be called before writing Physical layer <see cref="CILMetaData"/> to disk, as this method may leave some duplicates in the return value tables.</param>
    /// <returns>The <see cref="CILMetaData"/> build from given module.</returns>
-   public static CILMetaData CreatePhysicalRepresentation( this CILModule module, Boolean orderAndRemoveDuplicates = true )
+   public static CILMetaData CreatePhysicalRepresentation(
+      this CILModule module,
+      CILMetaDataTableInformationProvider tableInfoProvider = null,
+      Boolean orderAndRemoveDuplicates = true
+      )
    {
       var retVal =
 #if !NO_ALIASES
          CAMPhysical::
 #endif
-         CILAssemblyManipulator.Physical.CILMetaDataFactory.NewBlankMetaData();
+         CILAssemblyManipulator.Physical.CILMetaDataFactory.NewBlankMetaData( tableInfoProvider: tableInfoProvider );
 
       var state = new PhysicalCreationState( module, retVal );
       state.ProcessLogicalForPhysical( module );
@@ -966,6 +975,7 @@ public static partial class E_CILLogical
       var dynamicBranchInfos = ilState.DynamicOpCodeInfos;
       var pOpCodes = physicalIL.OpCodes;
       var branchCodeIndices = new List<Int32>();
+      var ocp = state.MetaData.OpCodeProvider;
 
       // I have a gut feeling that jumps fitting into SByte are much more common than the ones that would require longer, Int32 format
       // Therefore whenever encountering dynamic branch or leave, use short form as a guess
@@ -978,7 +988,7 @@ public static partial class E_CILLogical
          switch ( lOpCode.InfoKind )
          {
             case OpCodeInfoKind.OperandNone:
-               pOpCode = OpCodeInfoWithNoOperand.GetInstanceFor( ( (LogicalOpCodeInfoWithNoOperand) lOpCode ).Code.Value );
+               pOpCode = ocp.GetOperandlessInfoFor( ( (LogicalOpCodeInfoWithNoOperand) lOpCode ).Code );
                break;
             case OpCodeInfoKind.OperandTypeToken:
                var lt = (LogicalOpCodeInfoWithTypeToken) lOpCode;
@@ -1026,20 +1036,20 @@ public static partial class E_CILLogical
                break;
             case OpCodeInfoKind.Branch:
                var bl = (LogicalOpCodeInfoForBranch) lOpCode;
-               pOpCode = new OpCodeInfoWithInt32( bl.ShortForm, logicalIL.GetLabelOffset( bl.TargetLabel ) );
+               pOpCode = new OpCodeInfoWithInt32( bl.ShortForm.Value, logicalIL.GetLabelOffset( bl.TargetLabel ) );
                dynamicBranchInfos.Add( pOpCodes.Count );
                branchCodeIndices.Add( pOpCodes.Count );
                break;
             case OpCodeInfoKind.Switch:
                var sw = (LogicalOpCodeInfoForSwitch) lOpCode;
-               var pSw = new OpCodeInfoWithIntegers( OpCodes.Switch, sw.Labels.Count() );
+               var pSw = new OpCodeInfoWithIntegers( OpCodeEncoding.Switch, sw.Labels.Count() );
                pSw.Operand.AddRange( sw.Labels.Select( l => logicalIL.GetLabelOffset( l ) ) );
                pOpCode = pSw;
                branchCodeIndices.Add( pOpCodes.Count );
                break;
             case OpCodeInfoKind.Leave:
                var ll = (LogicalOpCodeInfoForLeave) lOpCode;
-               pOpCode = new OpCodeInfoWithInt32( ll.ShortForm, logicalIL.GetLabelOffset( ll.TargetLabel ) );
+               pOpCode = new OpCodeInfoWithInt32( ll.ShortForm.Value, logicalIL.GetLabelOffset( ll.TargetLabel ) );
                dynamicBranchInfos.Add( pOpCodes.Count );
                branchCodeIndices.Add( pOpCodes.Count );
                break;
@@ -1055,7 +1065,7 @@ public static partial class E_CILLogical
          pOpCodes.Add( pOpCode );
 
          byteOffsets[i] = curByteOffset;
-         curByteOffset += pOpCode.GetTotalByteCount();
+         curByteOffset += pOpCode.GetTotalByteCount( ocp );
       }
 
       // Walk dynamic branch codes, and if offset is larger than SByte, then re-adjust as needed all the previous jumps that jump over this
@@ -1063,15 +1073,16 @@ public static partial class E_CILLogical
       {
          var opCodeOffset = dynamicBranchInfos[i];
          var codeInfo = (OpCodeInfoWithInt32) pOpCodes[opCodeOffset];
-         var physicalOffset = ilState.TransformLogicalOffsetToPhysicalOffset( opCodeOffset, codeInfo.OpCode.GetTotalByteCount(), codeInfo.Operand );
+         var pCode = ocp.GetCodeFor( codeInfo.OpCode );
+         var physicalOffset = ilState.TransformLogicalOffsetToPhysicalOffset( opCodeOffset, pCode.GetTotalByteCount(), codeInfo.Operand );
          if ( !physicalOffset.IsShortJump() )
          {
             // Have to use long form
             var newForm = ( (LogicalOpCodeInfoForBranchingControlFlow) logicalIL.GetOpCodeInfo( opCodeOffset ) ).LongForm;
-            pOpCodes[opCodeOffset] = new OpCodeInfoWithInt32( newForm, codeInfo.Operand );
+            pOpCodes[opCodeOffset] = new OpCodeInfoWithInt32( newForm.Value, codeInfo.Operand );
 
             // Fix byte offsets and recursively check all previous jumps that jump over this
-            ilState.UpdateAllByteOffsetsFollowing( opCodeOffset, newForm.GetTotalByteCount() - codeInfo.OpCode.GetTotalByteCount() );
+            ilState.UpdateAllByteOffsetsFollowing( opCodeOffset, newForm.GetTotalByteCount() - pCode.GetTotalByteCount() );
             ilState.AfterDynamicChangedToLongForm( i );
          }
       }
@@ -1083,7 +1094,7 @@ public static partial class E_CILLogical
          if ( codeInfo.InfoKind == OpCodeOperandKind.OperandIntegerList )
          {
             var switchInfo = (OpCodeInfoWithIntegers) codeInfo;
-            var switchByteCount = switchInfo.GetTotalByteCount();
+            var switchByteCount = switchInfo.GetTotalByteCount( ocp );
             var targetList = switchInfo.Operand;
             for ( var j = 0; j < targetList.Count; ++j )
             {
@@ -1093,9 +1104,11 @@ public static partial class E_CILLogical
          else
          {
             var codeInfoBranch = (OpCodeInfoWithInt32) codeInfo;
-            var physicalOffset = ilState.TransformLogicalOffsetToPhysicalOffset( i, codeInfo.OpCode.GetTotalByteCount(), codeInfoBranch.Operand );
+            var pCodeInfo = ocp.GetCodeFor( codeInfo.OpCode );
+            var pCodeBranchInfo = ocp.GetCodeFor( codeInfoBranch.OpCode );
+            var physicalOffset = ilState.TransformLogicalOffsetToPhysicalOffset( i, pCodeInfo.GetTotalByteCount(), codeInfoBranch.Operand );
 
-            if ( codeInfoBranch.OpCode.OperandType == OperandType.ShortInlineBrTarget
+            if ( pCodeBranchInfo.OperandType == OperandType.ShortInlineBrTarget
                && !physicalOffset.IsShortJump()
                )
             {
@@ -1145,21 +1158,22 @@ public static partial class E_CILLogical
       var dynIndices = state.DynamicOpCodeInfos;
       var currentOpCodeIndex = dynIndices[startingOpCodeIndex];
       var pOpCodes = state.PhysicalIL.OpCodes;
+      var ocp = state.ModuleState.MetaData.OpCodeProvider;
       for ( var idx = 0; idx < startingOpCodeIndex; ++idx )
       {
          var currentDynamicIndex = dynIndices[idx];
          var dynamicJump = (LogicalOpCodeInfoForBranchingControlFlow) state.LogicalIL.GetOpCodeInfo( currentDynamicIndex );
          var codeInfo = (OpCodeInfoWithInt32) pOpCodes[currentDynamicIndex];
-         if ( codeInfo.Operand > currentOpCodeIndex && dynamicJump.ShortForm == codeInfo.OpCode )
+         if ( codeInfo.Operand > currentOpCodeIndex && dynamicJump.ShortForm.Value == codeInfo.OpCode )
          {
             // Short jump over the changed offset, see if we need to change this as well
-            var physicalOffset = state.TransformLogicalOffsetToPhysicalOffset( currentDynamicIndex, codeInfo.OpCode.GetTotalByteCount(), codeInfo.Operand );
+            var physicalOffset = state.TransformLogicalOffsetToPhysicalOffset( currentDynamicIndex, ocp.GetCodeFor( codeInfo.OpCode ).GetTotalByteCount(), codeInfo.Operand );
 
             if ( !physicalOffset.IsShortJump() )
             {
                // Have to use long form
                var newForm = dynamicJump.LongForm;
-               pOpCodes[currentDynamicIndex] = new OpCodeInfoWithInt32( newForm, codeInfo.Operand );
+               pOpCodes[currentDynamicIndex] = new OpCodeInfoWithInt32( newForm.Value, codeInfo.Operand );
                // Modify all byte offsets following this.
                state.UpdateAllByteOffsetsFollowing( currentDynamicIndex, newForm.GetTotalByteCount() - dynamicJump.ShortForm.GetTotalByteCount() );
                // Re-check dynamic jumps between start and this.

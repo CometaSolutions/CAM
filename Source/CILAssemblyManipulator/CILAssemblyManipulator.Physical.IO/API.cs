@@ -18,6 +18,7 @@
 extern alias CAMPhysical;
 using CAMPhysical;
 using CAMPhysical::CILAssemblyManipulator.Physical;
+using CAMPhysical::CILAssemblyManipulator.Physical.Meta;
 
 using CILAssemblyManipulator.Physical;
 using CILAssemblyManipulator.Physical.IO;
@@ -157,7 +158,7 @@ namespace CILAssemblyManipulator.Physical.IO
       }
       public ReaderFunctionalityProvider ReaderFunctionalityProvider { get; set; }
 
-      public MetaDataTableInformationProvider TableInformationProvider { get; set; }
+      public CILMetaDataTableInformationProvider TableInformationProvider { get; set; }
    }
 
    /// <summary>

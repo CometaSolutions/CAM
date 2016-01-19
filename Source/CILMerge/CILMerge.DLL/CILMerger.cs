@@ -1448,6 +1448,8 @@ namespace CILMerge
 
       private void MergeStaticCtors()
       {
+         var targetModule = this._targetModule;
+         var targetOCP = targetModule.OpCodeProvider;
          foreach ( var kvp in this._multipleStaticCtorInfo )
          {
             // Get target static ctor IL
@@ -1482,7 +1484,12 @@ namespace CILMerge
             // 4. (TODO) Optimize branch instruction operands (long -> short form).
 
             var originalByteOffsets = new Int32[inputs.Sum( i => i.Item1.MethodDefinitions.TableContents[i.Item2].IL.OpCodes.Count )];
-            var originalCodeOffsets = new Int32[inputs.Sum( i => i.Item1.MethodDefinitions.TableContents[i.Item2].IL.OpCodes.Sum( c => c.GetTotalByteCount() ) )];
+            var originalCodeOffsets = new Int32[inputs.Sum( i =>
+            {
+               var md = i.Item1;
+               var ocp = md.OpCodeProvider;
+               return md.MethodDefinitions.TableContents[i.Item2].IL.OpCodes.Sum( c => c.GetTotalByteCount( ocp ) );
+            } )];
             var blocks = new Int32[inputs.Count + 1];
             var blockByteOffsets = new Int32[inputs.Count + 1];
 
@@ -1505,18 +1512,19 @@ namespace CILMerge
                   );
             }
 
-            targetIL.OpCodes.Add( OpCodeInfoWithNoOperand.GetInstanceFor( OpCodeEncoding.Ret ) );
+            targetIL.OpCodes.Add( targetOCP.GetOperandlessInfoFor( OpCodeEncoding.Ret ) );
             blocks[blocks.Length - 1] = byteOffsetsIndex;
             blockByteOffsets[blockByteOffsets.Length - 1] = codeOffsetsIndex;
 
             var newOpCodes = targetIL.OpCodes;
+
             var newByteOffsets = new Int32[newOpCodes.Count];
             {
                var curByteOffset = 0;
                for ( var i = 0; i < newOpCodes.Count; ++i )
                {
                   newByteOffsets[i] = curByteOffset;
-                  curByteOffset += newOpCodes[i].GetTotalByteCount();
+                  curByteOffset += newOpCodes[i].GetTotalByteCount( targetOCP );
                }
             }
 
@@ -1532,7 +1540,7 @@ namespace CILMerge
             if ( newLocalCount > 0 && newLocalCount > originalLocalCount )
             {
                // Have to update locals-signature
-               var sigs = this._targetModule.StandaloneSignatures.TableContents;
+               var sigs = targetModule.StandaloneSignatures.TableContents;
                targetIL.LocalsSignatureIndex = new TableIndex( Tables.StandaloneSignature, sigs.Count );
                sigs.Add( new StandaloneSignature()
                {
@@ -1541,7 +1549,7 @@ namespace CILMerge
                } );
             }
 
-            this._targetModule.MethodDefinitions.TableContents[targetMDefIdx].IL = targetIL;
+            targetModule.MethodDefinitions.TableContents[targetMDefIdx].IL = targetIL;
          }
 
       }
@@ -1563,16 +1571,17 @@ namespace CILMerge
             var localCount = targetLocals.Locals.Count;
             var targetCodes = targetIL.OpCodes;
             var thisMappings = this._tableIndexMappings[inputModule];
+            var inputOCP = inputModule.OpCodeProvider;
 
             // Op Codes
             var sourceByteOffset = 0;
             var codez = sourceIL.OpCodes;
-            var ilByteSize = codez.Sum( oc => oc.GetTotalByteCount() );
+            var ilByteSize = codez.Sum( oc => oc.GetTotalByteCount( inputOCP ) );
             for ( var i = 0; i < codez.Count; ++i, ++byteOffsetsIndex )
             {
                var opCode = codez[i];
                byteOffsets[byteOffsetsIndex] = sourceByteOffset;
-               var oldCodeByteCount = opCode.GetTotalByteCount();
+               var oldCodeByteCount = opCode.GetTotalByteCount( inputOCP );
                sourceByteOffset += oldCodeByteCount;
                codeOffsets.FillWithOffsetAndCount( byteOffsets[i], oldCodeByteCount, i );
 
@@ -1606,7 +1615,7 @@ namespace CILMerge
          }
       }
 
-      private static void FixOpCodeWhenMergingIL(
+      private void FixOpCodeWhenMergingIL(
          ref OpCodeInfo newCode,
          Int32 sourceILByteOffsetAfterCode,
          Int32 sourceILByteSize,
@@ -1618,7 +1627,7 @@ namespace CILMerge
          var newLocalIndex = -1;
          if ( localsOffset > 0 )
          {
-            var codeValue = newCode.OpCode.Value;
+            var codeValue = newCode.OpCode;
             switch ( codeValue )
             {
                case OpCodeEncoding.Ldloc_0:
@@ -1649,14 +1658,15 @@ namespace CILMerge
 
             if ( newLocalIndex >= 0 )
             {
-               var newOpCode = OpCodes.GetCodeFor( GetOptimalLocalsCode( codeValue, newLocalIndex ) );
-               switch ( newOpCode.OperandType )
+               var newOpCodeKind = GetOptimalLocalsCode( codeValue, newLocalIndex );
+               var ocp = this._targetModule.OpCodeProvider;
+               switch ( ocp.GetCodeFor( newOpCodeKind ).OperandType )
                {
                   case OperandType.InlineNone:
-                     newCode = OpCodeInfoWithNoOperand.GetInstanceFor( newOpCode.Value );
+                     newCode = ocp.GetOperandlessInfoFor( newOpCodeKind );
                      break;
                   default:
-                     newCode = new OpCodeInfoWithInt32( newOpCode, newLocalIndex );
+                     newCode = new OpCodeInfoWithInt32( newOpCodeKind, newLocalIndex );
                      break;
                }
             }
@@ -1665,19 +1675,20 @@ namespace CILMerge
          // Then, check op codes that branch, or return
          if ( newLocalIndex == -1 )
          {
-            switch ( newCode.OpCode.OperandType )
+            var newOpCodeInfo = this._targetModule.OpCodeProvider.GetCodeFor( newCode.OpCode );
+            switch ( newOpCodeInfo.OperandType )
             {
                case OperandType.ShortInlineBrTarget:
                   // Change all existing short branch instructions to long branch instructions
                   // TODO this probably is not necessary once the branch code size optimization code is ready.
-                  newCode = new OpCodeInfoWithInt32( OpCodes.GetCodeFor( newCode.OpCode.OtherForm ), ( (OpCodeInfoWithInt32) newCode ).Operand );
+                  newCode = new OpCodeInfoWithInt32( newOpCodeInfo.OtherForm, ( (OpCodeInfoWithInt32) newCode ).Operand );
                   break;
                case OperandType.InlineNone:
-                  if ( newCode.OpCode.Value == OpCodeEncoding.Ret )
+                  if ( newCode.OpCode == OpCodeEncoding.Ret )
                   {
                      // Replace all 'Ret' instructions with long branch instructions to next 'block'
                      var jump = sourceILByteSize - sourceILByteOffsetAfterCode;
-                     newCode = jump == 0 ? null : new OpCodeInfoWithInt32( OpCodes.Br, jump );
+                     newCode = jump == 0 ? null : new OpCodeInfoWithInt32( OpCodeEncoding.Br, jump );
                   }
                   break;
             }
@@ -1749,7 +1760,7 @@ namespace CILMerge
          }
       }
 
-      private static void FixMergedILBranches(
+      private void FixMergedILBranches(
          List<OpCodeInfo> opCodes,
          Int32[] originalByteOffsets, // Index: op-code offset, Value: op-code start byte offset
          Int32[] originalCodeOffsets, // Index: op-code start byte offset: value: op-code offset
@@ -1759,6 +1770,7 @@ namespace CILMerge
          )
       {
          var curBlockOffset = 0;
+         var targetOCP = this._targetModule.OpCodeProvider;
          for ( var i = 0; i < opCodes.Count; ++i )
          {
             // Not needed - there is always a block for the last 'Ret' code.
@@ -1772,13 +1784,13 @@ namespace CILMerge
             //}
 
             var code = opCodes[i];
-            switch ( code.OpCode.OperandType )
+            switch ( targetOCP.GetCodeFor( code.OpCode ).OperandType )
             {
                case OperandType.ShortInlineBrTarget:
                case OperandType.InlineBrTarget:
                   var branchCode = (OpCodeInfoWithInt32) code;
                   var jump = branchCode.Operand;
-                  var curCodeByteCount = code.GetTotalByteCount();
+                  var curCodeByteCount = code.GetTotalByteCount( targetOCP );
                   var curBlockStart = blocks[curBlockOffset];
                   // Find out the index of target instruction
                   var originalByteOffset = originalByteOffsets[curBlockStart + i] + curCodeByteCount + jump;

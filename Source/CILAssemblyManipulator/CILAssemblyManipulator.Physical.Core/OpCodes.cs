@@ -901,13 +901,8 @@ namespace CILAssemblyManipulator.Physical
       /// </summary>
       public static readonly OpCode Readonly_;
 
-
-      internal static readonly IDictionary<OpCodeEncoding, OpCode> Codes;
-
       static OpCodes()
       {
-         Codes = new Dictionary<OpCodeEncoding, OpCode>();
-
          Nop = new OpCode( OpCodeEncoding.Nop, StackBehaviourPop.Pop0, StackBehaviourPush.Push0, OperandType.InlineNone, OpCodeType.Primitive, FlowControl.Next, false );
          Break = new OpCode( OpCodeEncoding.Break, StackBehaviourPop.Pop0, StackBehaviourPush.Push0, OperandType.InlineNone, OpCodeType.Primitive, FlowControl.Break, false );
          Ldarg_0 = new OpCode( OpCodeEncoding.Ldarg_0, StackBehaviourPop.Pop0, StackBehaviourPush.Push1, OperandType.InlineNone, OpCodeType.Macro, FlowControl.Next, false );
@@ -1129,39 +1124,39 @@ namespace CILAssemblyManipulator.Physical
 
       }
 
-      public static Boolean TryGetCodeFor( OpCodeEncoding codeEnum, out OpCode opCode )
-      {
-         return Codes.TryGetValue( codeEnum, out opCode );
-      }
+      //public static Boolean TryGetCodeFor( OpCodeEncoding codeEnum, out OpCode opCode )
+      //{
+      //   return Codes.TryGetValue( codeEnum, out opCode );
+      //}
 
-      public static OpCode GetCodeFor( OpCodeEncoding codeEnum )
-      {
-         OpCode retVal;
-         if ( TryGetCodeFor( codeEnum, out retVal ) )
-         {
-            return retVal;
-         }
-         else
-         {
-            throw new ArgumentException( "Opcode " + codeEnum + " is invalid or not supported by this framework." );
-         }
-      }
+      //public static OpCode GetCodeFor( OpCodeEncoding codeEnum )
+      //{
+      //   OpCode retVal;
+      //   if ( TryGetCodeFor( codeEnum, out retVal ) )
+      //   {
+      //      return retVal;
+      //   }
+      //   else
+      //   {
+      //      throw new ArgumentException( "Opcode " + codeEnum + " is invalid or not supported by this framework." );
+      //   }
+      //}
 
-      public static IEnumerable<OpCodeEncoding> AllOpCodesEncoded
-      {
-         get
-         {
-            return Codes.Keys;
-         }
-      }
+      //public static IEnumerable<OpCodeEncoding> AllOpCodesEncoded
+      //{
+      //   get
+      //   {
+      //      return Codes.Keys;
+      //   }
+      //}
 
-      public static IEnumerable<OpCode> AllOpCodes
-      {
-         get
-         {
-            return Codes.Values;
-         }
-      }
+      //public static IEnumerable<OpCode> AllOpCodes
+      //{
+      //   get
+      //   {
+      //      return Codes.Values;
+      //   }
+      //}
    }
 
    /// <summary>
@@ -1357,7 +1352,6 @@ namespace CILAssemblyManipulator.Physical
          System.Diagnostics.Debug.Assert( (UInt64) this.OperandSize == operandSize );
          System.Diagnostics.Debug.Assert( this.OtherForm == otherForm );
 #endif
-         OpCodes.Codes.Add( encoded, this );
       }
 
       /// <summary>

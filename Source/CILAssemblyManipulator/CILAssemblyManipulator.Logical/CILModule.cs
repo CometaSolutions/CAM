@@ -76,6 +76,13 @@ namespace CILAssemblyManipulator.Logical
       /// </summary>
       /// <value>The manifest resource information of this module.</value>
       IDictionary<String, AbstractLogicalManifestResource> ManifestResources { get; }
+
+      /// <summary>
+      /// Gets cached <see cref="LogicalOpCodeInfoWithNoOperand"/> for given <see cref="OpCode"/>.
+      /// </summary>
+      /// <param name="code">The <see cref="OpCodeEncoding"/>.</param>
+      /// <returns>Cached <see cref="LogicalOpCodeInfoWithNoOperand"/> for given <paramref name="code"/>.</returns>
+      LogicalOpCodeInfoWithNoOperand GetOperandlessOpCode( OpCodeEncoding code );
    }
 
    /// <summary>

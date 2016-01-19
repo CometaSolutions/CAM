@@ -722,6 +722,8 @@ public static partial class E_CILStructural
       }
 
       // IL
+      var ocp = md.OpCodeProvider;
+      var operandless = new Dictionary<OpCodeEncoding, OpCodeStructureSimple>();
       for ( var i = 0; i < mDefs.Count; ++i )
       {
          var il = mDefs[i].IL;
@@ -749,11 +751,11 @@ public static partial class E_CILStructural
                switch ( o.InfoKind )
                {
                   case OpCodeOperandKind.OperandNone:
-                     return OpCodeStructureSimple.GetInstanceFor( o.OpCode.Value );
+                     return operandless.GetOrAdd_NotThreadSafe( o.OpCode, c => new OpCodeStructureSimple( ocp.GetCodeFor( o.OpCode ) ) );
                   case OpCodeOperandKind.OperandTableIndex:
                      return new OpCodeStructureWithReference()
                      {
-                        OpCode = o.OpCode,
+                        OpCode = ocp.GetCodeFor( o.OpCode ),
                         Structure = state.FromILToken( fDefList, mDefList, memberRefList, standaloneSigList, methodSpecList, ( (OpCodeInfoWithTableIndex) o ).Operand )
                      };
                   default:

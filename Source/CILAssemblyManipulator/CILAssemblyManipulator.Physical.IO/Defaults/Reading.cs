@@ -788,7 +788,7 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
                if ( ( FORMAT_MASK & b ) == 0 )
                {
                   // Tiny header - no locals, no exceptions, no extra data
-                  CreateOpCodes( retVal, stream.Stream, array, b >> 2, userStrings );
+                  CreateOpCodes( args.MetaData, retVal, stream.Stream, array, b >> 2, userStrings );
                   // Max stack is 8
                   retVal.MaxStackSize = 8;
                   retVal.InitLocals = false;
@@ -807,7 +807,7 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
                   retVal.LocalsSignatureIndex = TableIndex.FromOneBasedTokenNullable( bytes.ReadInt32LEFromBytes( ref idx ) );
 
                   // Read code
-                  if ( CreateOpCodes( retVal, stream.Stream, array, codeSize, userStrings )
+                  if ( CreateOpCodes( args.MetaData, retVal, stream.Stream, array, codeSize, userStrings )
                      && ( flags & MethodHeaderFlags.MoreSections ) != 0 )
                   {
 
@@ -852,6 +852,7 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
       }
 
       private static Boolean CreateOpCodes(
+         CILMetaData md,
          MethodILDefinition methodIL,
          Stream stream,
          ResizableArray<Byte> array,
@@ -871,7 +872,8 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
                var curCodeInfo = ILSerialization.TryReadOpCode(
                   bytes,
                   ref idx,
-                  strToken => userStrings.GetString( TableIndex.FromZeroBasedToken( strToken ).Index )
+                  strToken => userStrings.GetString( TableIndex.FromZeroBasedToken( strToken ).Index ),
+                  md.OpCodeProvider
                   );
 
                if ( curCodeInfo == null )
