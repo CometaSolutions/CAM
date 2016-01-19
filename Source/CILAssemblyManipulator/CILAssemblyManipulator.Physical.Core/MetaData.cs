@@ -2303,9 +2303,9 @@ public static partial class E_CILPhysical
             }
 
             // Op codes
-            foreach ( var code in il.OpCodes.Where( code => code.InfoKind == OpCodeOperandKind.OperandToken ) )
+            foreach ( var code in il.OpCodes.Where( code => code.InfoKind == OpCodeOperandKind.OperandTableIndex ) )
             {
-               var codeInfo = (OpCodeInfoWithToken) code;
+               var codeInfo = (OpCodeInfoWithTableIndex) code;
                var token = codeInfo.Operand;
                var newIdx = state.GetFinalIndex( token );
                if ( newIdx != token.Index )
@@ -2368,7 +2368,7 @@ public static partial class E_CILPhysical
       var curStacksize = Math.Max( state.CurrentStack, state.StackSizes[state.CurrentCodeByteOffset] );
       if ( FlowControl.Call == code.FlowControl )
       {
-         curStacksize = UpdateStackSizeForMethod( state, code, ( (OpCodeInfoWithToken) codeInfo ).Operand, curStacksize );
+         curStacksize = UpdateStackSizeForMethod( state, code, ( (OpCodeInfoWithTableIndex) codeInfo ).Operand, curStacksize );
       }
       else
       {
@@ -2390,7 +2390,7 @@ public static partial class E_CILPhysical
                UpdateStackSizeAtBranchTarget( state, ( (OpCodeInfoWithInt32) codeInfo ).Operand, curStacksize );
                break;
             case OperandType.InlineSwitch:
-               var offsets = ( (OpCodeInfoWithSwitch) codeInfo ).Offsets;
+               var offsets = ( (OpCodeInfoWithIntegers) codeInfo ).Operand;
                for ( var i = 0; i < offsets.Count; ++i )
                {
                   UpdateStackSizeAtBranchTarget( state, offsets[i], curStacksize );

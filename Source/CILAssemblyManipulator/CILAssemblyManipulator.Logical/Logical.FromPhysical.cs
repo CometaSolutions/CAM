@@ -2367,17 +2367,17 @@ public static partial class E_CILLogical
                case OpCodeOperandKind.OperandString:
                   logicalCode = new LogicalOpCodeInfoWithFixedSizeOperandString( code.OpCode, ( (OpCodeInfoWithString) code ).Operand );
                   break;
-               case OpCodeOperandKind.OperandSwitch:
-                  var physSwitch = (OpCodeInfoWithSwitch) code;
-                  var labels = retVal.DefineLabels( physSwitch.Offsets.Count );
+               case OpCodeOperandKind.OperandIntegerList:
+                  var physSwitch = (OpCodeInfoWithIntegers) code;
+                  var labels = retVal.DefineLabels( physSwitch.Operand.Count );
                   logicalCode = new LogicalOpCodeInfoForSwitch( labels );
                   for ( var i = 0; i < labels.Length; ++i )
                   {
-                     labelByteOffsets.Add( labels[i], curByteOffset + physSwitch.Offsets[i] );
+                     labelByteOffsets.Add( labels[i], curByteOffset + physSwitch.Operand[i] );
                   }
                   break;
-               case OpCodeOperandKind.OperandToken:
-                  var token = ( (OpCodeInfoWithToken) code ).Operand;
+               case OpCodeOperandKind.OperandTableIndex:
+                  var token = ( (OpCodeInfoWithTableIndex) code ).Operand;
                   var resolved = state.ResolveToken( token, contextType, method );
                   switch ( resolved.ElementTypeKind )
                   {

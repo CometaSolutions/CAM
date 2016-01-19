@@ -77,16 +77,16 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
                case OperandType.InlineField:
                case OperandType.InlineMethod:
                case OperandType.InlineType:
-               case OperandType.InlineTok:
-               case OperandType.InlineSig:
-                  info = new OpCodeInfoWithToken( code, TableIndex.FromOneBasedToken( bytes.ReadInt32LEFromBytes( ref idx ) ) );
+               case OperandType.InlineToken:
+               case OperandType.InlineSignature:
+                  info = new OpCodeInfoWithTableIndex( code, TableIndex.FromOneBasedToken( bytes.ReadInt32LEFromBytes( ref idx ) ) );
                   break;
                case OperandType.InlineSwitch:
                   var count = bytes.ReadInt32LEFromBytes( ref idx );
-                  var sInfo = new OpCodeInfoWithSwitch( code, count );
+                  var sInfo = new OpCodeInfoWithIntegers( code, count );
                   for ( var i = 0; i < count; ++i )
                   {
-                     sInfo.Offsets.Add( bytes.ReadInt32LEFromBytes( ref idx ) );
+                     sInfo.Operand.Add( bytes.ReadInt32LEFromBytes( ref idx ) );
                   }
                   info = sInfo;
                   break;

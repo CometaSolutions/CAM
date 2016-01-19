@@ -1653,7 +1653,7 @@ namespace CILMerge
                switch ( newOpCode.OperandType )
                {
                   case OperandType.InlineNone:
-                     newCode = OpCodeInfoWithNoOperand.GetInstanceFor( newOpCode );
+                     newCode = OpCodeInfoWithNoOperand.GetInstanceFor( newOpCode.Value );
                      break;
                   default:
                      newCode = new OpCodeInfoWithInt32( newOpCode, newLocalIndex );
@@ -2398,13 +2398,13 @@ namespace CILMerge
                return new OpCodeInfoWithDouble( sourceOpCode.OpCode, ( (OpCodeInfoWithDouble) sourceOpCode ).Operand );
             case OpCodeOperandKind.OperandString:
                return new OpCodeInfoWithString( sourceOpCode.OpCode, ( (OpCodeInfoWithString) sourceOpCode ).Operand );
-            case OpCodeOperandKind.OperandSwitch:
-               var ocSwitch = (OpCodeInfoWithSwitch) sourceOpCode;
-               var ocSwitchTarget = new OpCodeInfoWithSwitch( sourceOpCode.OpCode, ocSwitch.Offsets.Count );
-               ocSwitchTarget.Offsets.AddRange( ocSwitch.Offsets );
+            case OpCodeOperandKind.OperandIntegerList:
+               var ocSwitch = (OpCodeInfoWithIntegers) sourceOpCode;
+               var ocSwitchTarget = new OpCodeInfoWithIntegers( sourceOpCode.OpCode, ocSwitch.Operand.Count );
+               ocSwitchTarget.Operand.AddRange( ocSwitch.Operand );
                return ocSwitchTarget;
-            case OpCodeOperandKind.OperandToken:
-               return new OpCodeInfoWithToken( sourceOpCode.OpCode, thisMappings[( (OpCodeInfoWithToken) sourceOpCode ).Operand] );
+            case OpCodeOperandKind.OperandTableIndex:
+               return new OpCodeInfoWithTableIndex( sourceOpCode.OpCode, thisMappings[( (OpCodeInfoWithTableIndex) sourceOpCode ).Operand] );
             default:
                throw new NotSupportedException( "Unknown op code kind: " + sourceOpCode.InfoKind + "." );
          }

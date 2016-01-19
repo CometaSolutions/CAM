@@ -60,10 +60,12 @@ namespace CILAssemblyManipulator.Logical
    /// </summary>
    public sealed class LogicalOpCodeInfoWithNoOperand : LogicalOpCodeInfoWithOneOpCode
    {
-      private static IDictionary<OpCodeEncoding, LogicalOpCodeInfoWithNoOperand> Instances = OpCodeInfoWithNoOperand.OperandlessCodes.ToDictionary(
-         code => code,
-         code => new LogicalOpCodeInfoWithNoOperand( code )
-         );
+      private static IDictionary<OpCodeEncoding, LogicalOpCodeInfoWithNoOperand> Instances = new Dictionary<OpCodeEncoding, LogicalOpCodeInfoWithNoOperand>();
+      //OpCodeInfoWithNoOperand.OperandlessCodes.ToDictionary(
+      // code => code,
+      //code => new LogicalOpCodeInfoWithNoOperand( code )
+      //);
+
       /// <summary>
       /// Creates a new instance of <see cref="LogicalOpCodeInfoWithNoOperand"/>.
       /// </summary>
@@ -94,15 +96,15 @@ namespace CILAssemblyManipulator.Logical
       /// <returns><see cref="LogicalOpCodeInfoWithNoOperand"/> instance for given <paramref name="code"/>.</returns>
       public static LogicalOpCodeInfoWithNoOperand GetInstanceFor( OpCodeEncoding code )
       {
-         LogicalOpCodeInfoWithNoOperand retVal;
-         if ( Instances.TryGetValue( code, out retVal ) )
-         {
-            return retVal;
-         }
-         else
-         {
-            throw new ArgumentException( "Opcode " + code + " is not operandless opcode." );
-         }
+         return Instances.GetOrAdd_WithLock(
+            code,
+            c =>
+            {
+               // Will throw if c is not operandless op code
+               OpCodeInfoWithNoOperand.GetInstanceFor( c );
+               return new LogicalOpCodeInfoWithNoOperand( c );
+            }
+            );
       }
 
       /// <summary>

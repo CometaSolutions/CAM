@@ -1081,13 +1081,13 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
                case OperandType.InlineField:
                case OperandType.InlineMethod:
                case OperandType.InlineType:
-               case OperandType.InlineTok:
-               case OperandType.InlineSig:
-                  var tIdx = ( (OpCodeInfoWithToken) codeInfo ).Operand;
+               case OperandType.InlineToken:
+               case OperandType.InlineSignature:
+                  var tIdx = ( (OpCodeInfoWithTableIndex) codeInfo ).Operand;
                   array.WriteInt32LEToBytes( ref idx, tIdx.OneBasedToken );
                   break;
                case OperandType.InlineSwitch:
-                  var offsets = ( (OpCodeInfoWithSwitch) codeInfo ).Offsets;
+                  var offsets = ( (OpCodeInfoWithIntegers) codeInfo ).Operand;
                   array.WriteInt32LEToBytes( ref idx, offsets.Count );
                   foreach ( var offset in offsets )
                   {

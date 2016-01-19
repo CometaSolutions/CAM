@@ -948,7 +948,7 @@ namespace CILAssemblyManipulator.Physical
          Pop = new OpCode( OpCodeEncoding.Pop, StackBehaviourPop.Pop1, StackBehaviourPush.Push0, OperandType.InlineNone, OpCodeType.Primitive, FlowControl.Next, false );
          Jmp = new OpCode( OpCodeEncoding.Jmp, StackBehaviourPop.Pop0, StackBehaviourPush.Push0, OperandType.InlineMethod, OpCodeType.Primitive, FlowControl.Call, true );
          Call = new OpCode( OpCodeEncoding.Call, StackBehaviourPop.Varpop, StackBehaviourPush.Varpush, OperandType.InlineMethod, OpCodeType.Primitive, FlowControl.Call, false );
-         Calli = new OpCode( OpCodeEncoding.Calli, StackBehaviourPop.Varpop, StackBehaviourPush.Varpush, OperandType.InlineSig, OpCodeType.Primitive, FlowControl.Call, false );
+         Calli = new OpCode( OpCodeEncoding.Calli, StackBehaviourPop.Varpop, StackBehaviourPush.Varpush, OperandType.InlineSignature, OpCodeType.Primitive, FlowControl.Call, false );
          Ret = new OpCode( OpCodeEncoding.Ret, StackBehaviourPop.Varpop, StackBehaviourPush.Push0, OperandType.InlineNone, OpCodeType.Primitive, FlowControl.Return, true );
          Br_S = new OpCode( OpCodeEncoding.Br_S, StackBehaviourPop.Pop0, StackBehaviourPush.Push0, OperandType.ShortInlineBrTarget, OpCodeType.Macro, FlowControl.Branch, true, OpCodeEncoding.Br );
          Brfalse_S = new OpCode( OpCodeEncoding.Brfalse_S, StackBehaviourPop.Popi, StackBehaviourPush.Push0, OperandType.ShortInlineBrTarget, OpCodeType.Macro, FlowControl.Cond_Branch, false, OpCodeEncoding.Brfalse );
@@ -1082,7 +1082,7 @@ namespace CILAssemblyManipulator.Physical
          Refanyval = new OpCode( OpCodeEncoding.Refanyval, StackBehaviourPop.Pop1, StackBehaviourPush.Pushi, OperandType.InlineType, OpCodeType.Primitive, FlowControl.Next, false );
          Ckfinite = new OpCode( OpCodeEncoding.Ckfinite, StackBehaviourPop.Pop1, StackBehaviourPush.Pushr8, OperandType.InlineNone, OpCodeType.Primitive, FlowControl.Next, false );
          Mkrefany = new OpCode( OpCodeEncoding.Mkrefany, StackBehaviourPop.Popi, StackBehaviourPush.Push1, OperandType.InlineType, OpCodeType.Primitive, FlowControl.Next, false );
-         Ldtoken = new OpCode( OpCodeEncoding.Ldtoken, StackBehaviourPop.Pop0, StackBehaviourPush.Pushi, OperandType.InlineTok, OpCodeType.Primitive, FlowControl.Next, false );
+         Ldtoken = new OpCode( OpCodeEncoding.Ldtoken, StackBehaviourPop.Pop0, StackBehaviourPush.Pushi, OperandType.InlineToken, OpCodeType.Primitive, FlowControl.Next, false );
          Conv_U2 = new OpCode( OpCodeEncoding.Conv_U2, StackBehaviourPop.Pop1, StackBehaviourPush.Pushi, OperandType.InlineNone, OpCodeType.Primitive, FlowControl.Next, false );
          Conv_U1 = new OpCode( OpCodeEncoding.Conv_U1, StackBehaviourPop.Pop1, StackBehaviourPush.Pushi, OperandType.InlineNone, OpCodeType.Primitive, FlowControl.Next, false );
          Conv_I = new OpCode( OpCodeEncoding.Conv_I, StackBehaviourPop.Pop1, StackBehaviourPush.Pushi, OperandType.InlineNone, OpCodeType.Primitive, FlowControl.Next, false );
@@ -1314,10 +1314,10 @@ namespace CILAssemblyManipulator.Physical
             case OperandType.InlineField:
             case OperandType.InlineI:
             case OperandType.InlineMethod:
-            case OperandType.InlineSig:
+            case OperandType.InlineSignature:
             case OperandType.InlineString:
             case OperandType.InlineSwitch:
-            case OperandType.InlineTok:
+            case OperandType.InlineToken:
             case OperandType.InlineType:
             case OperandType.ShortInlineR:
                operandSize = 4U;
@@ -2462,7 +2462,7 @@ namespace CILAssemblyManipulator.Physical
    /// <summary>
    /// Contains all possible values for flow control of CIL op codes.
    /// </summary>
-   public enum FlowControl
+   public enum FlowControl : byte
    {
       /// <summary>Branch instruction.</summary>
       Branch,
@@ -2487,7 +2487,7 @@ namespace CILAssemblyManipulator.Physical
    /// <summary>
    /// Contains all values for meta-information about CIL op codes.
    /// </summary>
-   public enum OpCodeType
+   public enum OpCodeType : byte
    {
       /// <summary>This enumerator value is reserved and should not be used.</summary>
       Annotation,
@@ -2506,7 +2506,7 @@ namespace CILAssemblyManipulator.Physical
    /// <summary>
    /// Contains all values for operand types of CIL op codes.
    /// </summary>
-   public enum OperandType
+   public enum OperandType : byte
    {
       /// <summary>The operand is a 32-bit integer branch target.</summary>
       InlineBrTarget,
@@ -2523,13 +2523,13 @@ namespace CILAssemblyManipulator.Physical
       /// <summary>The operand is a 64-bit IEEE floating point number.</summary>
       InlineR,
       /// <summary>The operand is a 32-bit metadata signature token.</summary>
-      InlineSig,
+      InlineSignature,
       /// <summary>The operand is a 32-bit metadata string token.</summary>
       InlineString,
       /// <summary>The operand is the 32-bit integer argument to a switch instruction.</summary>
       InlineSwitch,
       /// <summary>The operand is a FieldRef, MethodRef, or TypeRef token.</summary>
-      InlineTok,
+      InlineToken,
       /// <summary>The operand is a 32-bit metadata token.</summary>
       InlineType,
       /// <summary>The operand is 16-bit integer containing the ordinal of a local variable or an argument.</summary>
@@ -2547,7 +2547,7 @@ namespace CILAssemblyManipulator.Physical
    /// <summary>
    /// Contains all possible values for stack pushing behaviour of CIL op codes.
    /// </summary>
-   public enum StackBehaviourPush
+   public enum StackBehaviourPush : byte
    {
       /// <summary>No values are pushed onto the stack.</summary>
       Push0,
@@ -2572,7 +2572,7 @@ namespace CILAssemblyManipulator.Physical
    /// <summary>
    /// Contains all possible values for stack popping behaviour of CIL op codes.
    /// </summary>
-   public enum StackBehaviourPop
+   public enum StackBehaviourPop : byte
    {
       /// <summary>No values are popped off the stack.</summary>
       Pop0,

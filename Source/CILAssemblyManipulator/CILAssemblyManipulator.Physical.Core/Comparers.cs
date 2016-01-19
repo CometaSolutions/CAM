@@ -2152,11 +2152,11 @@ namespace CILAssemblyManipulator.Physical
                case OpCodeOperandKind.OperandString:
                   retVal = String.Equals( ( (OpCodeInfoWithString) x ).Operand, ( (OpCodeInfoWithString) y ).Operand );
                   break;
-               case OpCodeOperandKind.OperandSwitch:
-                  retVal = ListEqualityComparer<List<Int32>, Int32>.ListEquality( ( (OpCodeInfoWithSwitch) x ).Offsets, ( (OpCodeInfoWithSwitch) y ).Offsets );
+               case OpCodeOperandKind.OperandIntegerList:
+                  retVal = ListEqualityComparer<List<Int32>, Int32>.ListEquality( ( (OpCodeInfoWithIntegers) x ).Operand, ( (OpCodeInfoWithIntegers) y ).Operand );
                   break;
-               case OpCodeOperandKind.OperandToken:
-                  retVal = ( (OpCodeInfoWithToken) x ).Operand == ( (OpCodeInfoWithToken) y ).Operand;
+               case OpCodeOperandKind.OperandTableIndex:
+                  retVal = ( (OpCodeInfoWithTableIndex) x ).Operand == ( (OpCodeInfoWithTableIndex) y ).Operand;
                   break;
             }
          }
@@ -2906,8 +2906,8 @@ namespace CILAssemblyManipulator.Physical
                   case OpCodeOperandKind.OperandString:
                      operandHashCode = ( (OpCodeInfoWithString) x ).Operand.GetHashCodeSafe();
                      break;
-                  case OpCodeOperandKind.OperandToken:
-                     operandHashCode = ( (OpCodeInfoWithToken) x ).Operand.GetHashCode();
+                  case OpCodeOperandKind.OperandTableIndex:
+                     operandHashCode = ( (OpCodeInfoWithTableIndex) x ).Operand.GetHashCode();
                      break;
                   default:
                      operandHashCode = 0;

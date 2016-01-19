@@ -750,11 +750,11 @@ public static partial class E_CILStructural
                {
                   case OpCodeOperandKind.OperandNone:
                      return OpCodeStructureSimple.GetInstanceFor( o.OpCode.Value );
-                  case OpCodeOperandKind.OperandToken:
+                  case OpCodeOperandKind.OperandTableIndex:
                      return new OpCodeStructureWithReference()
                      {
                         OpCode = o.OpCode,
-                        Structure = state.FromILToken( fDefList, mDefList, memberRefList, standaloneSigList, methodSpecList, ( (OpCodeInfoWithToken) o ).Operand )
+                        Structure = state.FromILToken( fDefList, mDefList, memberRefList, standaloneSigList, methodSpecList, ( (OpCodeInfoWithTableIndex) o ).Operand )
                      };
                   default:
                      return new OpCodeStructureWrapper()

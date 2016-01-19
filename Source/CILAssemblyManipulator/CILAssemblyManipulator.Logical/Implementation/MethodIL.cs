@@ -109,8 +109,8 @@ namespace CILAssemblyManipulator.Logical.Implementation
                case OperandType.InlineField:
                case OperandType.InlineMethod:
                case OperandType.InlineType:
-               case OperandType.InlineTok:
-                  var tableIndex = ( (OpCodeInfoWithToken) physical ).Operand;
+               case OperandType.InlineToken:
+                  var tableIndex = ( (OpCodeInfoWithTableIndex) physical ).Operand;
                   ILResolveKind resolveKind;
                   var table = tableIndex.Table;
                   switch ( table )
@@ -157,13 +157,13 @@ namespace CILAssemblyManipulator.Logical.Implementation
                   }
                   break;
                case OperandType.InlineSwitch:
-                  var sw = (OpCodeInfoWithSwitch) physical;
-                  logical = new LogicalOpCodeInfoForSwitch( sw.Offsets
+                  var sw = (OpCodeInfoWithIntegers) physical;
+                  logical = new LogicalOpCodeInfoForSwitch( sw.Operand
                      .Select( ( o, sIdx ) => labelsDic.GetOrAdd_NotThreadSafe( ilOffset + o, ilLabelDefiner ) )
                      .ToArray() );
                   break;
-               case OperandType.InlineSig:
-                  var methodSig = (Tuple<CILMethodSignature, VarArgInstance[]>) tokenResolver( ( (OpCodeInfoWithToken) physical ).Operand.OneBasedToken, ILResolveKind.Signature );
+               case OperandType.InlineSignature:
+                  var methodSig = (Tuple<CILMethodSignature, VarArgInstance[]>) tokenResolver( ( (OpCodeInfoWithTableIndex) physical ).Operand.OneBasedToken, ILResolveKind.Signature );
                   logical = new LogicalOpCodeInfoWithMethodSig( methodSig.Item1, methodSig.Item2 );
                   break;
                default:

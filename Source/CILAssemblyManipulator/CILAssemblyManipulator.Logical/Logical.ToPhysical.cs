@@ -978,27 +978,27 @@ public static partial class E_CILLogical
          switch ( lOpCode.InfoKind )
          {
             case OpCodeInfoKind.OperandNone:
-               pOpCode = OpCodeInfoWithNoOperand.GetInstanceFor( ( (LogicalOpCodeInfoWithNoOperand) lOpCode ).Code );
+               pOpCode = OpCodeInfoWithNoOperand.GetInstanceFor( ( (LogicalOpCodeInfoWithNoOperand) lOpCode ).Code.Value );
                break;
             case OpCodeInfoKind.OperandTypeToken:
                var lt = (LogicalOpCodeInfoWithTypeToken) lOpCode;
-               pOpCode = new OpCodeInfoWithToken( lt.Code, state.GetTypeDefOrRefOrSpec( lt.ReflectionObject, thisType.IsConvertTypeDefToTypeSpec( lt.ReflectionObject, lt.TypeTokenKind ) ) );
+               pOpCode = new OpCodeInfoWithTableIndex( lt.Code, state.GetTypeDefOrRefOrSpec( lt.ReflectionObject, thisType.IsConvertTypeDefToTypeSpec( lt.ReflectionObject, lt.TypeTokenKind ) ) );
                break;
             case OpCodeInfoKind.OperandFieldToken:
                var ft = (LogicalOpCodeInfoWithFieldToken) lOpCode;
-               pOpCode = new OpCodeInfoWithToken( ft.Code, state.GetFieldDefOrMemberRef( ft.ReflectionObject, thisType.IsConvertTypeDefToTypeSpec( ft.ReflectionObject.DeclaringType, ft.TypeTokenKind ) ) );
+               pOpCode = new OpCodeInfoWithTableIndex( ft.Code, state.GetFieldDefOrMemberRef( ft.ReflectionObject, thisType.IsConvertTypeDefToTypeSpec( ft.ReflectionObject.DeclaringType, ft.TypeTokenKind ) ) );
                break;
             case OpCodeInfoKind.OperandMethodToken:
                var lm = (LogicalOpCodeInfoWithMethodToken) lOpCode;
-               pOpCode = new OpCodeInfoWithToken( lm.Code, state.GetMethodDefOrMemberRefOrMethodSpec( lm.ReflectionObject, thisMethod.IsConvertGenericMethodDefToMemberRefOrMethodSpec( lm.ReflectionObject, lm.MethodTokenKind ), thisType.IsConvertTypeDefToTypeSpec( lm.ReflectionObject.DeclaringType, lm.TypeTokenKind ) ) );
+               pOpCode = new OpCodeInfoWithTableIndex( lm.Code, state.GetMethodDefOrMemberRefOrMethodSpec( lm.ReflectionObject, thisMethod.IsConvertGenericMethodDefToMemberRefOrMethodSpec( lm.ReflectionObject, lm.MethodTokenKind ), thisType.IsConvertTypeDefToTypeSpec( lm.ReflectionObject.DeclaringType, lm.TypeTokenKind ) ) );
                break;
             case OpCodeInfoKind.OperandCtorToken:
                var ct = (LogicalOpCodeInfoWithCtorToken) lOpCode;
-               pOpCode = new OpCodeInfoWithToken( ct.Code, state.GetMethodDefOrMemberRefOrMethodSpec( ct.ReflectionObject, false, thisType.IsConvertTypeDefToTypeSpec( ct.ReflectionObject.DeclaringType, ct.TypeTokenKind ) ) );
+               pOpCode = new OpCodeInfoWithTableIndex( ct.Code, state.GetMethodDefOrMemberRefOrMethodSpec( ct.ReflectionObject, false, thisType.IsConvertTypeDefToTypeSpec( ct.ReflectionObject.DeclaringType, ct.TypeTokenKind ) ) );
                break;
             case OpCodeInfoKind.OperandMethodSigToken:
                var lms = (LogicalOpCodeInfoWithMethodSig) lOpCode;
-               pOpCode = new OpCodeInfoWithToken( lms.Code, state.GetMethodSignatureToken( lms.ReflectionObject, lms.VarArgs ) );
+               pOpCode = new OpCodeInfoWithTableIndex( lms.Code, state.GetMethodSignatureToken( lms.ReflectionObject, lms.VarArgs ) );
                break;
             case OpCodeInfoKind.OperandString:
                var s = (LogicalOpCodeInfoWithFixedSizeOperandString) lOpCode;
@@ -1032,8 +1032,8 @@ public static partial class E_CILLogical
                break;
             case OpCodeInfoKind.Switch:
                var sw = (LogicalOpCodeInfoForSwitch) lOpCode;
-               var pSw = new OpCodeInfoWithSwitch( OpCodes.Switch, sw.Labels.Count() );
-               pSw.Offsets.AddRange( sw.Labels.Select( l => logicalIL.GetLabelOffset( l ) ) );
+               var pSw = new OpCodeInfoWithIntegers( OpCodes.Switch, sw.Labels.Count() );
+               pSw.Operand.AddRange( sw.Labels.Select( l => logicalIL.GetLabelOffset( l ) ) );
                pOpCode = pSw;
                branchCodeIndices.Add( pOpCodes.Count );
                break;
@@ -1080,11 +1080,11 @@ public static partial class E_CILLogical
       foreach ( var i in branchCodeIndices )
       {
          var codeInfo = pOpCodes[i];
-         if ( codeInfo.InfoKind == OpCodeOperandKind.OperandSwitch )
+         if ( codeInfo.InfoKind == OpCodeOperandKind.OperandIntegerList )
          {
-            var switchInfo = (OpCodeInfoWithSwitch) codeInfo;
+            var switchInfo = (OpCodeInfoWithIntegers) codeInfo;
             var switchByteCount = switchInfo.GetTotalByteCount();
-            var targetList = switchInfo.Offsets;
+            var targetList = switchInfo.Operand;
             for ( var j = 0; j < targetList.Count; ++j )
             {
                targetList[j] = ilState.TransformLogicalOffsetToPhysicalOffset( i, switchByteCount, targetList[j] );

@@ -1110,7 +1110,7 @@ public static partial class E_CILStructural
                               throw new InvalidOperationException( "Invalid referenced structure token kind: " + oRefStructure.StructureTokenKind + " in IL." );
                         }
                      }
-                     return new OpCodeInfoWithToken( oRef.OpCode, refIdx );
+                     return new OpCodeInfoWithTableIndex( oRef.OpCode, refIdx );
 
                   default:
                      throw new InvalidOperationException( "Invalid structural op code kind: " + o.OpCodeStructureKind + "." );
