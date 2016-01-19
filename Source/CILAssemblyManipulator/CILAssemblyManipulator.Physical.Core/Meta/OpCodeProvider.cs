@@ -28,7 +28,7 @@ namespace CILAssemblyManipulator.Physical.Meta
    {
       Boolean TryGetCodeFor( OpCodeEncoding codeEnum, out OpCode opCode );
 
-      Boolean TryGetOperandlessInfoFor( OpCodeEncoding codeEnum, out OpCodeInfoWithNoOperand opCodeInfo );
+      OpCodeInfoWithNoOperand GetOperandlessInfoOrNull( OpCodeEncoding codeEnum );
 
    }
 
@@ -61,9 +61,10 @@ namespace CILAssemblyManipulator.Physical.Meta
          return this._codes.TryGetValue( codeEnum, out opCode );
       }
 
-      public Boolean TryGetOperandlessInfoFor( OpCodeEncoding codeEnum, out OpCodeInfoWithNoOperand opCodeInfo )
+      public OpCodeInfoWithNoOperand GetOperandlessInfoOrNull( OpCodeEncoding codeEnum )
       {
-         return this._operandless.TryGetValue( codeEnum, out opCodeInfo );
+         OpCodeInfoWithNoOperand retVal;
+         return this._operandless.TryGetValue( codeEnum, out retVal ) ? retVal : null;
       }
 
       public static IEnumerable<OpCode> GetDefaultOpCodes()
@@ -304,8 +305,8 @@ public static partial class E_CILPhysical
 
    public static OpCodeInfoWithNoOperand GetOperandlessInfoFor( this OpCodeProvider opCodeProvider, OpCodeEncoding codeID )
    {
-      OpCodeInfoWithNoOperand retVal;
-      if ( !opCodeProvider.TryGetOperandlessInfoFor( codeID, out retVal ) )
+      var retVal = opCodeProvider.GetOperandlessInfoOrNull( codeID );
+      if ( retVal == null )
       {
          throw new ArgumentException( "Op code " + codeID + " is not operandless opcode." );
       }

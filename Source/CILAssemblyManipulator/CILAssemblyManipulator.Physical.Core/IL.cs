@@ -330,8 +330,8 @@ namespace CILAssemblyManipulator.Physical
    /// This class represents any op code which takes no operand.
    /// </summary>
    /// <remarks>
-   /// The instances of this class should be obtained through <see cref="Meta.OpCodeProvider.TryGetOperandlessInfoFor"/> or <see cref="E_CILPhysical.GetOperandlessInfoFor"/> methods.
-   /// This is to save memory - no need to allocate duplicate <see cref="OpCodeInfoWithNoOperand"/> objects with identical state.
+   /// The instances of this class should be obtained through <see cref="Meta.OpCodeProvider.GetOperandlessInfoOrNull"/> or <see cref="E_CILPhysical.GetOperandlessInfoFor"/> methods.
+   /// This is to save memory - no need to allocate duplicate <see cref="OpCodeInfoWithNoOperand"/> objects with identical state (assuming <see cref="Meta.OpCodeProvider"/> caches the <see cref="OpCodeInfoWithNoOperand"/>s).
    /// </remarks>
    public sealed class OpCodeInfoWithNoOperand : OpCodeInfo
    {

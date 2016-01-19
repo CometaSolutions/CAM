@@ -86,7 +86,7 @@ namespace CILAssemblyManipulator.Logical.Implementation
                case OperandType.ShortInlineBrTarget:
                case OperandType.InlineBrTarget:
                   int32 = ilOffset + ( (OpCodeInfoWithInt32) physical ).Operand;
-                  logical = new LogicalOpCodeInfoForFixedBranchOrLeave( code, labelsDic.GetOrAdd_NotThreadSafe( int32, ilLabelDefiner ) );
+                  logical = new LogicalOpCodeInfoForFixedBranchOrLeave( codeID, labelsDic.GetOrAdd_NotThreadSafe( int32, ilLabelDefiner ) );
                   break;
                case OperandType.ShortInlineI:
                case OperandType.InlineI:

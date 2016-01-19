@@ -2340,7 +2340,7 @@ public static partial class E_CILLogical
                      case OperandType.InlineBrTarget:
                      case OperandType.ShortInlineBrTarget:
                         var label = retVal.DefineLabel();
-                        logicalCode = new LogicalOpCodeInfoForFixedBranchOrLeave( physOpCode, label );
+                        logicalCode = new LogicalOpCodeInfoForFixedBranchOrLeave( physOpCodeID, label );
                         labelByteOffsets.Add( label, curByteOffset + physIntCode.Operand );
                         break;
                      case OperandType.InlineI:

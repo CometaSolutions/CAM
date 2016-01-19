@@ -1055,10 +1055,10 @@ namespace CILAssemblyManipulator.Logical
       /// </summary>
       /// <param name="code">The <see cref="OpCode"/>.</param>
       /// <param name="label">The <see cref="ILLabel"/> to branch to.</param>
-      public LogicalOpCodeInfoForFixedBranchOrLeave( OpCode code, ILLabel label )
+      public LogicalOpCodeInfoForFixedBranchOrLeave( OpCodeEncoding code, ILLabel label )
       //: base( code.Size + ( code.OperandType == OperandType.ShortInlineBrTarget ? SHORT_BRANCH_OPERAND_SIZE : LONG_BRANCH_OPERAND_SIZE ) )
       {
-         this._code = (UInt16) code.Value;
+         this._code = (UInt16) code;
          this._label = label;
       }
 
