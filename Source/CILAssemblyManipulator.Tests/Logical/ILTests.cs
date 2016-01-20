@@ -107,7 +107,7 @@ namespace CILAssemblyManipulator.Tests.Logical
                {
                   il2.EmitLoadString( "" )
                      .EmitLoadLocal( local2 )
-                     .Add( new LogicalOpCodeInfoWithTypeToken( OpCodeEncoding.Box, objType ) )
+                     .Add( new LogicalOpCodeInfoWithTypeToken( OpCodeID.Box, objType ) )
                      .EmitLoadString( "" )
                      .EmitCall( objMethod )
                      .EmitReflectionObjectOf( objType )

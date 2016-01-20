@@ -26,9 +26,9 @@ namespace CILAssemblyManipulator.Physical.Meta
 {
    public interface OpCodeProvider
    {
-      Boolean TryGetCodeFor( OpCodeEncoding codeEnum, out OpCode opCode );
+      Boolean TryGetCodeFor( OpCodeID codeEnum, out OpCode opCode );
 
-      OpCodeInfoWithNoOperand GetOperandlessInfoOrNull( OpCodeEncoding codeEnum );
+      OpCodeInfoWithNoOperand GetOperandlessInfoOrNull( OpCodeID codeEnum );
 
    }
 
@@ -44,24 +44,24 @@ namespace CILAssemblyManipulator.Physical.Meta
          }
       }
 
-      private readonly IDictionary<OpCodeEncoding, OpCode> _codes;
-      private readonly IDictionary<OpCodeEncoding, OpCodeInfoWithNoOperand> _operandless;
+      private readonly IDictionary<OpCodeID, OpCode> _codes;
+      private readonly IDictionary<OpCodeID, OpCodeInfoWithNoOperand> _operandless;
 
       public DefaultOpCodeProvider( IEnumerable<OpCode> codes )
       {
-         this._codes = codes?.ToDictionary_Overwrite( c => c.Value, c => c ) ?? new Dictionary<OpCodeEncoding, OpCode>();
+         this._codes = codes?.ToDictionary_Overwrite( c => c.OpCodeID, c => c ) ?? new Dictionary<OpCodeID, OpCode>();
          this._operandless = this._codes
             .Values
             .Where( c => c.OperandType == OperandType.InlineNone )
-            .ToDictionary_Overwrite( c => c.Value, c => new OpCodeInfoWithNoOperand( c.Value ) );
+            .ToDictionary_Overwrite( c => c.OpCodeID, c => new OpCodeInfoWithNoOperand( c.OpCodeID ) );
       }
 
-      public Boolean TryGetCodeFor( OpCodeEncoding codeEnum, out OpCode opCode )
+      public Boolean TryGetCodeFor( OpCodeID codeEnum, out OpCode opCode )
       {
          return this._codes.TryGetValue( codeEnum, out opCode );
       }
 
-      public OpCodeInfoWithNoOperand GetOperandlessInfoOrNull( OpCodeEncoding codeEnum )
+      public OpCodeInfoWithNoOperand GetOperandlessInfoOrNull( OpCodeID codeEnum )
       {
          OpCodeInfoWithNoOperand retVal;
          return this._operandless.TryGetValue( codeEnum, out retVal ) ? retVal : null;
@@ -293,7 +293,7 @@ namespace CILAssemblyManipulator.Physical.Meta
 
 public static partial class E_CILPhysical
 {
-   public static OpCode GetCodeFor( this OpCodeProvider opCodeProvider, OpCodeEncoding codeID )
+   public static OpCode GetCodeFor( this OpCodeProvider opCodeProvider, OpCodeID codeID )
    {
       OpCode retVal;
       if ( !opCodeProvider.TryGetCodeFor( codeID, out retVal ) )
@@ -303,7 +303,7 @@ public static partial class E_CILPhysical
       return retVal;
    }
 
-   public static OpCodeInfoWithNoOperand GetOperandlessInfoFor( this OpCodeProvider opCodeProvider, OpCodeEncoding codeID )
+   public static OpCodeInfoWithNoOperand GetOperandlessInfoFor( this OpCodeProvider opCodeProvider, OpCodeID codeID )
    {
       var retVal = opCodeProvider.GetOperandlessInfoOrNull( codeID );
       if ( retVal == null )

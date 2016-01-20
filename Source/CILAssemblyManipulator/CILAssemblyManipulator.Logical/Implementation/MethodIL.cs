@@ -81,7 +81,7 @@ namespace CILAssemblyManipulator.Logical.Implementation
             switch ( code.OperandType )
             {
                case OperandType.InlineNone:
-                  logical = this._module.GetOperandlessOpCode( code.Value );
+                  logical = this._module.GetOperandlessOpCode( code.OpCodeID );
                   break;
                case OperandType.ShortInlineBrTarget:
                case OperandType.InlineBrTarget:
@@ -349,7 +349,7 @@ namespace CILAssemblyManipulator.Logical.Implementation
          var info = tuple.Item1;
          if ( ExceptionBlockType.Finally == info.BlockType || ExceptionBlockType.Fault == info.BlockType )
          {
-            this.Add( this._module.GetOperandlessOpCode( OpCodeEncoding.Endfinally ) );
+            this.Add( this._module.GetOperandlessOpCode( OpCodeID.Endfinally ) );
          }
 
          this.MarkLabel( tuple.Item2 );

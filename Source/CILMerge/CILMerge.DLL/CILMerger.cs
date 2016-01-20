@@ -1512,7 +1512,7 @@ namespace CILMerge
                   );
             }
 
-            targetIL.OpCodes.Add( targetOCP.GetOperandlessInfoFor( OpCodeEncoding.Ret ) );
+            targetIL.OpCodes.Add( targetOCP.GetOperandlessInfoFor( OpCodeID.Ret ) );
             blocks[blocks.Length - 1] = byteOffsetsIndex;
             blockByteOffsets[blockByteOffsets.Length - 1] = codeOffsetsIndex;
 
@@ -1630,28 +1630,28 @@ namespace CILMerge
             var codeValue = newCode.OpCode;
             switch ( codeValue )
             {
-               case OpCodeEncoding.Ldloc_0:
-               case OpCodeEncoding.Stloc_0:
+               case OpCodeID.Ldloc_0:
+               case OpCodeID.Stloc_0:
                   newLocalIndex = localsOffset;
                   break;
-               case OpCodeEncoding.Ldloc_1:
-               case OpCodeEncoding.Stloc_1:
+               case OpCodeID.Ldloc_1:
+               case OpCodeID.Stloc_1:
                   newLocalIndex = localsOffset + 1;
                   break;
-               case OpCodeEncoding.Ldloc_2:
-               case OpCodeEncoding.Stloc_2:
+               case OpCodeID.Ldloc_2:
+               case OpCodeID.Stloc_2:
                   newLocalIndex = localsOffset + 2;
                   break;
-               case OpCodeEncoding.Ldloc_3:
-               case OpCodeEncoding.Stloc_3:
+               case OpCodeID.Ldloc_3:
+               case OpCodeID.Stloc_3:
                   newLocalIndex = localsOffset + 3;
                   break;
-               case OpCodeEncoding.Ldloc_S:
-               case OpCodeEncoding.Ldloca_S:
-               case OpCodeEncoding.Stloc_S:
-               case OpCodeEncoding.Ldloc:
-               case OpCodeEncoding.Ldloca:
-               case OpCodeEncoding.Stloc:
+               case OpCodeID.Ldloc_S:
+               case OpCodeID.Ldloca_S:
+               case OpCodeID.Stloc_S:
+               case OpCodeID.Ldloc:
+               case OpCodeID.Ldloca:
+               case OpCodeID.Stloc:
                   newLocalIndex = localsOffset + ( (OpCodeInfoWithInt32) newCode ).Operand;
                   break;
             }
@@ -1684,76 +1684,76 @@ namespace CILMerge
                   newCode = new OpCodeInfoWithInt32( newOpCodeInfo.OtherForm, ( (OpCodeInfoWithInt32) newCode ).Operand );
                   break;
                case OperandType.InlineNone:
-                  if ( newCode.OpCode == OpCodeEncoding.Ret )
+                  if ( newCode.OpCode == OpCodeID.Ret )
                   {
                      // Replace all 'Ret' instructions with long branch instructions to next 'block'
                      var jump = sourceILByteSize - sourceILByteOffsetAfterCode;
-                     newCode = jump == 0 ? null : new OpCodeInfoWithInt32( OpCodeEncoding.Br, jump );
+                     newCode = jump == 0 ? null : new OpCodeInfoWithInt32( OpCodeID.Br, jump );
                   }
                   break;
             }
          }
       }
 
-      private static OpCodeEncoding GetOptimalLocalsCode(
-         OpCodeEncoding oldValue,
+      private static OpCodeID GetOptimalLocalsCode(
+         OpCodeID oldValue,
          Int32 newOperand
          )
       {
          // Assumes that newOperand always > oldOperand
          switch ( oldValue )
          {
-            case OpCodeEncoding.Ldloca_S:
+            case OpCodeID.Ldloca_S:
                // Either Ldloca_S or Ldloca
-               return newOperand > Byte.MaxValue ? OpCodeEncoding.Ldloca : OpCodeEncoding.Ldloca_S;
-            case OpCodeEncoding.Ldloca:
+               return newOperand > Byte.MaxValue ? OpCodeID.Ldloca : OpCodeID.Ldloca_S;
+            case OpCodeID.Ldloca:
                // No other option
-               return OpCodeEncoding.Ldloca;
-            case OpCodeEncoding.Ldloc_S:
+               return OpCodeID.Ldloca;
+            case OpCodeID.Ldloc_S:
                // Either LdLoc_S or Ldloc
-               return newOperand > Byte.MaxValue ? OpCodeEncoding.Ldloc : OpCodeEncoding.Ldloc_S;
-            case OpCodeEncoding.Ldloc:
+               return newOperand > Byte.MaxValue ? OpCodeID.Ldloc : OpCodeID.Ldloc_S;
+            case OpCodeID.Ldloc:
                // No other option
-               return OpCodeEncoding.Ldloc;
-            case OpCodeEncoding.Ldloc_0:
-            case OpCodeEncoding.Ldloc_1:
-            case OpCodeEncoding.Ldloc_2:
-            case OpCodeEncoding.Ldloc_3:
+               return OpCodeID.Ldloc;
+            case OpCodeID.Ldloc_0:
+            case OpCodeID.Ldloc_1:
+            case OpCodeID.Ldloc_2:
+            case OpCodeID.Ldloc_3:
                switch ( newOperand )
                {
                   case 0:
-                     return OpCodeEncoding.Ldloc_0;
+                     return OpCodeID.Ldloc_0;
                   case 1:
-                     return OpCodeEncoding.Ldloc_1;
+                     return OpCodeID.Ldloc_1;
                   case 2:
-                     return OpCodeEncoding.Ldloc_2;
+                     return OpCodeID.Ldloc_2;
                   case 3:
-                     return OpCodeEncoding.Ldloc_3;
+                     return OpCodeID.Ldloc_3;
                   default:
-                     return newOperand > Byte.MaxValue ? OpCodeEncoding.Ldloc : OpCodeEncoding.Ldloc_S;
+                     return newOperand > Byte.MaxValue ? OpCodeID.Ldloc : OpCodeID.Ldloc_S;
                }
-            case OpCodeEncoding.Stloc_S:
+            case OpCodeID.Stloc_S:
                // Either Stloc_S or Stloc
-               return newOperand > Byte.MaxValue ? OpCodeEncoding.Stloc : OpCodeEncoding.Stloc_S;
-            case OpCodeEncoding.Stloc:
+               return newOperand > Byte.MaxValue ? OpCodeID.Stloc : OpCodeID.Stloc_S;
+            case OpCodeID.Stloc:
                // No other option
-               return OpCodeEncoding.Stloc;
-            case OpCodeEncoding.Stloc_0:
-            case OpCodeEncoding.Stloc_1:
-            case OpCodeEncoding.Stloc_2:
-            case OpCodeEncoding.Stloc_3:
+               return OpCodeID.Stloc;
+            case OpCodeID.Stloc_0:
+            case OpCodeID.Stloc_1:
+            case OpCodeID.Stloc_2:
+            case OpCodeID.Stloc_3:
                switch ( newOperand )
                {
                   case 0:
-                     return OpCodeEncoding.Stloc_0;
+                     return OpCodeID.Stloc_0;
                   case 1:
-                     return OpCodeEncoding.Stloc_1;
+                     return OpCodeID.Stloc_1;
                   case 2:
-                     return OpCodeEncoding.Stloc_2;
+                     return OpCodeID.Stloc_2;
                   case 3:
-                     return OpCodeEncoding.Stloc_3;
+                     return OpCodeID.Stloc_3;
                   default:
-                     return newOperand > Byte.MaxValue ? OpCodeEncoding.Stloc : OpCodeEncoding.Stloc_S;
+                     return newOperand > Byte.MaxValue ? OpCodeID.Stloc : OpCodeID.Stloc_S;
                }
             default:
                throw new InvalidOperationException( "Unrecognized locals-related opcode: " + oldValue + "." );

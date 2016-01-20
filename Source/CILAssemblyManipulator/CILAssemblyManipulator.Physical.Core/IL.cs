@@ -148,22 +148,22 @@ namespace CILAssemblyManipulator.Physical
       private readonly UInt16 _code; // Save some memory - use integer instead of actual code (Int64 (amount of space taken by OpCode structure) -> Int16)
 
       // Disable inheritance to other assemblies
-      internal OpCodeInfo( OpCodeEncoding code )
+      internal OpCodeInfo( OpCodeID code )
       {
          this._code = (UInt16) code;
       }
 
       /// <summary>
-      /// Gets the <see cref="OpCodeEncoding"/> for this <see cref="OpCodeInfo"/>.
+      /// Gets the <see cref="OpCodeID"/> for this <see cref="OpCodeInfo"/>.
       /// </summary>
-      /// <seealso cref="OpCodeEncoding"/>
+      /// <seealso cref="OpCodeID"/>
       /// <seealso cref="Physical.OpCode"/>
       /// <seealso cref="OpCodes"/>
-      public OpCodeEncoding OpCode
+      public OpCodeID OpCode
       {
          get
          {
-            return (OpCodeEncoding) this._code;
+            return (OpCodeID) this._code;
          }
       }
 
@@ -225,7 +225,7 @@ namespace CILAssemblyManipulator.Physical
    public abstract class OpCodeInfoWithOperand<TOperand> : OpCodeInfo, IOpCodeInfoWithOperand<TOperand>
    {
       // Disable inheritance to other assemblies
-      internal OpCodeInfoWithOperand( OpCodeEncoding code, TOperand operand )
+      internal OpCodeInfoWithOperand( OpCodeID code, TOperand operand )
          : base( code )
       {
          this.Operand = operand;
@@ -246,10 +246,10 @@ namespace CILAssemblyManipulator.Physical
       /// <summary>
       /// Creates a new instance of <see cref="OpCodeInfoWithTableIndex"/> with given <see cref="OpCode"/> and <see cref="TableIndex"/> as an operand.
       /// </summary>
-      /// <param name="code">The <see cref="OpCodeEncoding"/>.</param>
+      /// <param name="code">The <see cref="OpCodeID"/>.</param>
       /// <param name="token">The <see cref="TableIndex"/> acting as operand of the <paramref name="code"/>.</param>
       /// <seealso cref="OpCodes"/>
-      public OpCodeInfoWithTableIndex( OpCodeEncoding code, TableIndex token )
+      public OpCodeInfoWithTableIndex( OpCodeID code, TableIndex token )
          : base( code, token )
       {
       }
@@ -276,10 +276,10 @@ namespace CILAssemblyManipulator.Physical
       /// <summary>
       /// Creates a new instance of <see cref="OpCodeInfoWithInt32"/> with given <see cref="OpCode"/> and integer as operand.
       /// </summary>
-      /// <param name="code">The <see cref="OpCodeEncoding"/>.</param>
+      /// <param name="code">The <see cref="OpCodeID"/>.</param>
       /// <param name="operand">The integer acting as an operand for <paramref name="code"/>.</param>
       /// <seealso cref="OpCodes"/>
-      public OpCodeInfoWithInt32( OpCodeEncoding code, Int32 operand )
+      public OpCodeInfoWithInt32( OpCodeID code, Int32 operand )
          : base( code, operand )
       {
       }
@@ -305,10 +305,10 @@ namespace CILAssemblyManipulator.Physical
       /// <summary>
       /// Creates a new instance of <see cref="OpCodeInfoWithInt64"/> with given <see cref="OpCode"/> and 64-bit integer as operand.
       /// </summary>
-      /// <param name="code">The <see cref="OpCodeEncoding"/>.</param>
+      /// <param name="code">The <see cref="OpCodeID"/>.</param>
       /// <param name="operand">The 64-bit integer acting as an operand for <paramref name="code"/>.</param>
       /// <seealso cref="OpCodes"/>
-      public OpCodeInfoWithInt64( OpCodeEncoding code, Int64 operand )
+      public OpCodeInfoWithInt64( OpCodeID code, Int64 operand )
          : base( code, operand )
       {
       }
@@ -335,7 +335,7 @@ namespace CILAssemblyManipulator.Physical
    /// </remarks>
    public sealed class OpCodeInfoWithNoOperand : OpCodeInfo
    {
-      public OpCodeInfoWithNoOperand( OpCodeEncoding code )
+      public OpCodeInfoWithNoOperand( OpCodeID code )
          : base( code )
       {
 
@@ -423,10 +423,10 @@ namespace CILAssemblyManipulator.Physical
       /// <summary>
       /// Creates a new instance of <see cref="OpCodeInfoWithDouble"/> with given <see cref="OpCode"/> and 64-bit floating point number as operand.
       /// </summary>
-      /// <param name="code">The <see cref="OpCodeEncoding"/>.</param>
+      /// <param name="code">The <see cref="OpCodeID"/>.</param>
       /// <param name="operand">The 64-bit floating point number acting as an operand for <paramref name="code"/>.</param>
       /// <seealso cref="OpCodes"/>
-      public OpCodeInfoWithDouble( OpCodeEncoding code, Double operand )
+      public OpCodeInfoWithDouble( OpCodeID code, Double operand )
          : base( code, operand )
       {
       }
@@ -452,10 +452,10 @@ namespace CILAssemblyManipulator.Physical
       /// <summary>
       /// Creates a new instance of <see cref="OpCodeInfoWithString"/> with given <see cref="OpCode"/> and string as operand.
       /// </summary>
-      /// <param name="code">The <see cref="OpCodeEncoding"/>.</param>
+      /// <param name="code">The <see cref="OpCodeID"/>.</param>
       /// <param name="operand">The string acting as an operand for <paramref name="code"/>.</param>
       /// <seealso cref="OpCodes"/>
-      public OpCodeInfoWithString( OpCodeEncoding code, String operand )
+      public OpCodeInfoWithString( OpCodeID code, String operand )
          : base( code, operand )
       {
       }
@@ -481,10 +481,10 @@ namespace CILAssemblyManipulator.Physical
       /// <summary>
       /// Creates a new instance of <see cref="OpCodeInfoWithIntegers"/> with given <see cref="OpCode"/> and initial capacity for integer list.
       /// </summary>
-      /// <param name="code">The <see cref="OpCodeEncoding"/>.</param>
+      /// <param name="code">The <see cref="OpCodeID"/>.</param>
       /// <param name="offsetsCount">The initial capacity for <see cref="Operand"/>.</param>
       /// <seealso cref="OpCodes"/>
-      public OpCodeInfoWithIntegers( OpCodeEncoding code, Int32 offsetsCount = 0 )
+      public OpCodeInfoWithIntegers( OpCodeID code, Int32 offsetsCount = 0 )
          : base( code )
       {
          this.Operand = new List<Int32>( offsetsCount );
@@ -529,7 +529,7 @@ namespace CILAssemblyManipulator.Physical
       /// <param name="code">The <see cref="OpCode"/>.</param>
       /// <param name="operand">The 32-bit floating point number acting as an operand for <paramref name="code"/>.</param>
       /// <seealso cref="OpCodes"/>
-      public OpCodeInfoWithSingle( OpCodeEncoding code, Single operand )
+      public OpCodeInfoWithSingle( OpCodeID code, Single operand )
          : base( code, operand )
       {
       }
@@ -593,15 +593,24 @@ public static partial class E_CILPhysical
    /// Gets the total byte count that a single <see cref="OpCodeInfo"/> takes.
    /// </summary>
    /// <param name="info">The single <see cref="OpCodeInfo"/>.</param>
+   /// <param name="opCodeProvider">The <see cref="OpCodeProvider"/> to use.</param>
    /// <returns>The total byte count of a single <see cref="OpCodeInfo"/>.</returns>
    /// <remarks>
    /// The total byte count is the size of op code of <see cref="OpCodeInfo"/> added with <see cref="OpCodeInfo.OperandByteSize"/>.
    /// </remarks>
+   /// <exception cref="NullReferenceException">If <paramref name="info"/> is <c>null</c>.</exception>
+   /// <exception cref="ArgumentNullException">If <paramref name="opCodeProvider"/> is <c>null</c>.</exception>
    public static Int32 GetTotalByteCount( this OpCodeInfo info, OpCodeProvider opCodeProvider )
    {
-      return info == null ? 0 : ( opCodeProvider.GetCodeFor( info.OpCode ).GetTotalByteCount() + info.AdditionalOperandByteSize );
+      // First call AdditionalOperandByteSize so we would get NullReferenceException *before* ArgumentNullException
+      return info.AdditionalOperandByteSize + ArgumentValidator.ValidateNotNullAndReturn( "Op code provider", opCodeProvider ).GetCodeFor( info.OpCode ).GetTotalByteCount();
    }
 
+   /// <summary>
+   /// This method will sort all <see cref="MethodILDefinition.ExceptionBlocks"/> so that they are in order they appear when traversing byte code.
+   /// </summary>
+   /// <param name="il">The <see cref="MethodILDefinition"/>.</param>
+   /// <exception cref="NullReferenceException">If <paramref name="il"/> is <c>null</c>.</exception>
    public static void SortExceptionBlocks( this MethodILDefinition il )
    {
       il.ExceptionBlocks.Sort( ( x, y ) =>

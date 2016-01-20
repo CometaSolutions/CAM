@@ -47,6 +47,24 @@ namespace CommonUtils
       }
 
       /// <summary>
+      /// Checks whether a method parameter is <c>null</c>.
+      /// </summary>
+      /// <typeparam name="T">Type of parameter, must be class; to ensure that this method won't be called for struct parameters.</typeparam>
+      /// <param name="parameterName">The name of the parameter.</param>
+      /// <param name="value">The given parameter.</param>
+      /// <returns>The <paramref name="value"/> given as parameter.</returns>
+      /// <exception cref="ArgumentNullException">If the <paramref name="value"/> is <c>null</c>.</exception>
+      public static T ValidateNotNullAndReturn<T>( String parameterName, T value )
+         where T : class
+      {
+         if ( value == null )
+         {
+            throw new ArgumentNullException( parameterName );
+         }
+         return value;
+      }
+
+      /// <summary>
       /// Checks whether given enumerable parameter has any elements.
       /// </summary>
       /// <typeparam name="T">The type of the enumerable element.</typeparam>

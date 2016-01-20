@@ -1033,11 +1033,15 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
          const Int32 USER_STRING_MASK = 0x70 << 24;
          var code = this._md.OpCodeProvider.GetCodeFor( codeInfo.OpCode );
 
-         if ( code.Size > 1 )
+         if ( code.Size == 1 )
          {
-            array.WriteByteToBytes( ref idx, code.Byte1 );
+            array.WriteByteToBytes( ref idx, (Byte) code.OpCodeID );
          }
-         array.WriteByteToBytes( ref idx, code.Byte2 );
+         else
+         {
+            // N.B.! Big-endian! Everywhere else everything is little-endian.
+            array.WriteUInt16BEToBytes( ref idx, (UInt16) code.OpCodeID );
+         }
 
          var operandType = code.OperandType;
          if ( operandType != OperandType.InlineNone )

@@ -723,7 +723,7 @@ public static partial class E_CILStructural
 
       // IL
       var ocp = md.OpCodeProvider;
-      var operandless = new Dictionary<OpCodeEncoding, OpCodeStructureSimple>();
+      var operandless = new Dictionary<OpCodeID, OpCodeStructureSimple>();
       for ( var i = 0; i < mDefs.Count; ++i )
       {
          var il = mDefs[i].IL;

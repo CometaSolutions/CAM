@@ -2424,7 +2424,7 @@ public static partial class E_CILPhysical
 
       if ( sig != null )
       {
-         var isNewObj = code.Value == OpCodeEncoding.Newobj;
+         var isNewObj = code.OpCodeID == OpCodeID.Newobj;
          if ( sig.MethodSignatureInformation.IsHasThis() && !isNewObj )
          {
             // Pop 'this'
@@ -2439,7 +2439,7 @@ public static partial class E_CILPhysical
             curStacksize -= refSig.VarArgsParameters.Count;
          }
 
-         if ( code.Value == OpCodeEncoding.Calli )
+         if ( code.OpCodeID == OpCodeID.Calli )
          {
             // Pop function pointer
             --curStacksize;

@@ -38,7 +38,7 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
       {
          OpCodeInfo info;
          var b = bytes[idx++];
-         var encoding = (OpCodeEncoding) ( b == OpCode.MAX_ONE_BYTE_INSTRUCTION ?
+         var encoding = (OpCodeID) ( b == OpCode.MAX_ONE_BYTE_INSTRUCTION ?
             ( ( b << 8 ) | bytes[idx++] ) :
             b );
 

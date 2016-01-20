@@ -1036,20 +1036,20 @@ public static partial class E_CILLogical
                break;
             case OpCodeInfoKind.Branch:
                var bl = (LogicalOpCodeInfoForBranch) lOpCode;
-               pOpCode = new OpCodeInfoWithInt32( bl.ShortForm.Value, logicalIL.GetLabelOffset( bl.TargetLabel ) );
+               pOpCode = new OpCodeInfoWithInt32( bl.ShortForm.OpCodeID, logicalIL.GetLabelOffset( bl.TargetLabel ) );
                dynamicBranchInfos.Add( pOpCodes.Count );
                branchCodeIndices.Add( pOpCodes.Count );
                break;
             case OpCodeInfoKind.Switch:
                var sw = (LogicalOpCodeInfoForSwitch) lOpCode;
-               var pSw = new OpCodeInfoWithIntegers( OpCodeEncoding.Switch, sw.Labels.Count() );
+               var pSw = new OpCodeInfoWithIntegers( OpCodeID.Switch, sw.Labels.Count() );
                pSw.Operand.AddRange( sw.Labels.Select( l => logicalIL.GetLabelOffset( l ) ) );
                pOpCode = pSw;
                branchCodeIndices.Add( pOpCodes.Count );
                break;
             case OpCodeInfoKind.Leave:
                var ll = (LogicalOpCodeInfoForLeave) lOpCode;
-               pOpCode = new OpCodeInfoWithInt32( ll.ShortForm.Value, logicalIL.GetLabelOffset( ll.TargetLabel ) );
+               pOpCode = new OpCodeInfoWithInt32( ll.ShortForm.OpCodeID, logicalIL.GetLabelOffset( ll.TargetLabel ) );
                dynamicBranchInfos.Add( pOpCodes.Count );
                branchCodeIndices.Add( pOpCodes.Count );
                break;
@@ -1079,7 +1079,7 @@ public static partial class E_CILLogical
          {
             // Have to use long form
             var newForm = ( (LogicalOpCodeInfoForBranchingControlFlow) logicalIL.GetOpCodeInfo( opCodeOffset ) ).LongForm;
-            pOpCodes[opCodeOffset] = new OpCodeInfoWithInt32( newForm.Value, codeInfo.Operand );
+            pOpCodes[opCodeOffset] = new OpCodeInfoWithInt32( newForm.OpCodeID, codeInfo.Operand );
 
             // Fix byte offsets and recursively check all previous jumps that jump over this
             ilState.UpdateAllByteOffsetsFollowing( opCodeOffset, newForm.GetTotalByteCount() - pCode.GetTotalByteCount() );
@@ -1164,7 +1164,7 @@ public static partial class E_CILLogical
          var currentDynamicIndex = dynIndices[idx];
          var dynamicJump = (LogicalOpCodeInfoForBranchingControlFlow) state.LogicalIL.GetOpCodeInfo( currentDynamicIndex );
          var codeInfo = (OpCodeInfoWithInt32) pOpCodes[currentDynamicIndex];
-         if ( codeInfo.Operand > currentOpCodeIndex && dynamicJump.ShortForm.Value == codeInfo.OpCode )
+         if ( codeInfo.Operand > currentOpCodeIndex && dynamicJump.ShortForm.OpCodeID == codeInfo.OpCode )
          {
             // Short jump over the changed offset, see if we need to change this as well
             var physicalOffset = state.TransformLogicalOffsetToPhysicalOffset( currentDynamicIndex, ocp.GetCodeFor( codeInfo.OpCode ).GetTotalByteCount(), codeInfo.Operand );
@@ -1173,7 +1173,7 @@ public static partial class E_CILLogical
             {
                // Have to use long form
                var newForm = dynamicJump.LongForm;
-               pOpCodes[currentDynamicIndex] = new OpCodeInfoWithInt32( newForm.Value, codeInfo.Operand );
+               pOpCodes[currentDynamicIndex] = new OpCodeInfoWithInt32( newForm.OpCodeID, codeInfo.Operand );
                // Modify all byte offsets following this.
                state.UpdateAllByteOffsetsFollowing( currentDynamicIndex, newForm.GetTotalByteCount() - dynamicJump.ShortForm.GetTotalByteCount() );
                // Re-check dynamic jumps between start and this.
