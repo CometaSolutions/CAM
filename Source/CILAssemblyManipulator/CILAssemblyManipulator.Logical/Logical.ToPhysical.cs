@@ -635,7 +635,7 @@ public static partial class E_CILLogical
       ConstantValueType sig;
       if ( constant == null )
       {
-         sig = ConstantValueType.Class;
+         sig = ConstantValueType.Null;
       }
       else
       {

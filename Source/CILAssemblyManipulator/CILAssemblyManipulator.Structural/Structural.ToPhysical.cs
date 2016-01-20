@@ -935,7 +935,7 @@ public static partial class E_CILStructural
          ConstantValueType sig;
          if ( constant == null )
          {
-            sig = ConstantValueType.Class;
+            sig = ConstantValueType.Null;
          }
          else
          {

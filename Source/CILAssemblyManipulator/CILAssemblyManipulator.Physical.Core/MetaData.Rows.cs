@@ -466,20 +466,62 @@ namespace CILAssemblyManipulator.Physical
    /// </remarks>
    public enum ConstantValueType : byte
    {
+      /// <summary>
+      /// The value is of type <see cref="Boolean"/>.
+      /// </summary>
       Boolean = 0x02, // Same as SignatureElementTypes.Boolean
+      /// <summary>
+      /// The value is of type <see cref="Char"/>.
+      /// </summary>
       Char,
+      /// <summary>
+      /// The value is of type <see cref="SByte"/>.
+      /// </summary>
       I1,
+      /// <summary>
+      /// The value is of type <see cref="Byte"/>.
+      /// </summary>
       U1,
+      /// <summary>
+      /// The value is of type <see cref="Int16"/>.
+      /// </summary>
       I2,
+      /// <summary>
+      /// The value is of type <see cref="UInt16"/>.
+      /// </summary>
       U2,
+      /// <summary>
+      /// The value is of type <see cref="Int32"/>.
+      /// </summary>
       I4,
+      /// <summary>
+      /// The value is of type <see cref="UInt32"/>.
+      /// </summary>
       U4,
+      /// <summary>
+      /// The value is of type <see cref="Int64"/>.
+      /// </summary>
       I8,
+      /// <summary>
+      /// The value is of type <see cref="UInt64"/>.
+      /// </summary>
       U8,
+      /// <summary>
+      /// The value is of type <see cref="Single"/>.
+      /// </summary>
       R4,
+      /// <summary>
+      /// The value is of type <see cref="Double"/>.
+      /// </summary>
       R8,
+      /// <summary>
+      /// The value is of type <see cref="String"/>.
+      /// </summary>
       String,
-      Class = 0x12, // Same as SignatureElementTypes.Class
+      /// <summary>
+      /// The value is <c>null</c>.
+      /// </summary>
+      Null = 0x12, // Same as SignatureElementTypes.Class
    }
 
    /// <summary>
