@@ -910,12 +910,12 @@ namespace CILMerge
          // TODO currently, closed merge on target framework directory is not possible.
          var rawValueLoading = // ( this._checkResourceForLoadingRawValues || !String.IsNullOrEmpty( pathForModuleBeingResolved ) )
             IsTargetFrameworkPath( this._loaderCallbacks.SanitizeResource( this._loaderCallbacks.TargetFrameworkBasePath ), resource ) ?
-            MethodILReadingKind.None :
-            MethodILReadingKind.ToRow;
+            RawValueReading.None :
+            RawValueReading.ToRow;
 
          return new ReadingArguments()
          {
-            MethodILReadingKind = rawValueLoading
+            RawValueReading = rawValueLoading
          };
       }
 
