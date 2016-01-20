@@ -42,7 +42,9 @@ namespace CILAssemblyManipulator.Physical.IO
             rArgs?.ReaderFunctionalityProvider,
             rArgs?.TableInformationProvider,
             rArgs?.ErrorHandler,
-            out imageInfo );
+            rArgs.MethodILReadingKind == MethodILReadingKind.ToRow,
+            out imageInfo
+            );
 
          if ( rArgs != null )
          {
@@ -159,6 +161,15 @@ namespace CILAssemblyManipulator.Physical.IO
       public ReaderFunctionalityProvider ReaderFunctionalityProvider { get; set; }
 
       public CILMetaDataTableInformationProvider TableInformationProvider { get; set; }
+
+      public MethodILReadingKind MethodILReadingKind { get; set; }
+   }
+
+   public enum MethodILReadingKind
+   {
+      ToRow,
+      //ToReadingArguments,
+      None
    }
 
    /// <summary>

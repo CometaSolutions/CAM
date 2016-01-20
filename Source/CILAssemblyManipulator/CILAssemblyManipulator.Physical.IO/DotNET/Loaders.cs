@@ -33,13 +33,12 @@ namespace CILAssemblyManipulator.Physical.IO
 {
    public sealed class CILMetaDataLoaderResourceCallbacksForFiles : CILMetaDataLoaderResourceCallbacks
    {
-      private readonly String _fwBasePath;
       private readonly String _basePath;
       private readonly IDictionary<CILMetaData, TargetFrameworkInfo> _targetFrameworks;
 
       public CILMetaDataLoaderResourceCallbacksForFiles( String referenceAssemblyBasePath = null, String basePath = null )
       {
-         this._fwBasePath = String.IsNullOrEmpty( referenceAssemblyBasePath ) ? GetDefaultReferenceAssemblyPath() : referenceAssemblyBasePath;
+         this.TargetFrameworkBasePath = String.IsNullOrEmpty( referenceAssemblyBasePath ) ? GetDefaultReferenceAssemblyPath() : referenceAssemblyBasePath;
          this._basePath = String.IsNullOrEmpty( basePath ) ? Environment.CurrentDirectory : basePath;
          this._targetFrameworks = new Dictionary<CILMetaData, TargetFrameworkInfo>( ReferenceEqualityComparer<CILMetaData>.ReferenceBasedComparer );
       }
@@ -138,7 +137,7 @@ namespace CILAssemblyManipulator.Physical.IO
          String retVal;
          if ( targetFW != null )
          {
-            retVal = Path.Combine( this._fwBasePath, targetFW.Identifier, targetFW.Version );
+            retVal = Path.Combine( this.TargetFrameworkBasePath, targetFW.Identifier, targetFW.Version );
             if ( !String.IsNullOrEmpty( targetFW.Profile ) )
             {
                retVal = Path.Combine( retVal, "Profile", targetFW.Profile );
@@ -160,6 +159,8 @@ namespace CILAssemblyManipulator.Physical.IO
             Directory.EnumerateFiles( targetFWPath, "*.dll", SearchOption.TopDirectoryOnly );
       }
 
+      public String TargetFrameworkBasePath { get; }
+
       public static String GetDefaultReferenceAssemblyPath()
       {
          switch ( Environment.OSVersion.Platform )
@@ -179,7 +180,7 @@ namespace CILAssemblyManipulator.Physical.IO
    {
       public CILMetaDataLoaderNotThreadSafeForFiles(
          CryptoCallbacks crypto = null,
-         Func<ReadingArguments> readingArgsFactory = null,
+         ReadingArgumentsFactoryDelegate readingArgsFactory = null,
          CILMetaDataLoaderResourceCallbacksForFiles callbacks = null
          )
          : base( crypto ?? new CryptoCallbacksDotNET(), readingArgsFactory, callbacks ?? new CILMetaDataLoaderResourceCallbacksForFiles() )
@@ -192,7 +193,7 @@ namespace CILAssemblyManipulator.Physical.IO
    {
       public CILMetaDataLoaderThreadSafeSimpleForFiles(
          CryptoCallbacks crypto = null,
-         Func<ReadingArguments> readingArgsFactory = null,
+         ReadingArgumentsFactoryDelegate readingArgsFactory = null,
          CILMetaDataLoaderResourceCallbacksForFiles callbacks = null
          )
          : base( crypto ?? new CryptoCallbacksDotNET(), readingArgsFactory, callbacks ?? new CILMetaDataLoaderResourceCallbacksForFiles() )
@@ -213,7 +214,7 @@ namespace CILAssemblyManipulator.Physical.IO
    {
       public CILMetaDataLoaderThreadSafeConcurrent(
          CryptoCallbacks crypto,
-         Func<ReadingArguments> readingArgsFactory,
+         ReadingArgumentsFactoryDelegate readingArgsFactory,
          CILMetaDataLoaderResourceCallbacks callbacks
          )
          : base( new ConcurrentDictionary<String, CILMetaData>(), crypto, readingArgsFactory, callbacks )
@@ -248,7 +249,7 @@ namespace CILAssemblyManipulator.Physical.IO
    {
       public CILMetaDataLoaderThreadSafeConcurrentForFiles(
          CryptoCallbacks crypto = null,
-         Func<ReadingArguments> readingArgsFactory = null,
+         ReadingArgumentsFactoryDelegate readingArgsFactory = null,
          CILMetaDataLoaderResourceCallbacksForFiles callbacks = null
          )
          : base( crypto ?? new CryptoCallbacksDotNET(), readingArgsFactory, callbacks ?? new CILMetaDataLoaderResourceCallbacksForFiles() )

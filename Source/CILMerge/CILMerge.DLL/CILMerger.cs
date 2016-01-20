@@ -615,8 +615,8 @@ namespace CILMerge
             );
          this._cryptoCallbacks = new CryptoCallbacksDotNET();
          this._moduleLoader = options.Parallel ?
-            (CILMetaDataLoader) new CILMetaDataLoaderThreadSafeConcurrentForFiles( crypto: this._cryptoCallbacks, callbacks: this._loaderCallbacks ) :
-            new CILMetaDataLoaderNotThreadSafeForFiles( crypto: this._cryptoCallbacks, callbacks: this._loaderCallbacks );
+            (CILMetaDataLoader) new CILMetaDataLoaderThreadSafeConcurrentForFiles( crypto: this._cryptoCallbacks, readingArgsFactory: this.ReadingArgumentsFactory, callbacks: this._loaderCallbacks ) :
+            new CILMetaDataLoaderNotThreadSafeForFiles( crypto: this._cryptoCallbacks, readingArgsFactory: this.ReadingArgumentsFactory, callbacks: this._loaderCallbacks );
          this._assemblyReferenceEqualityComparer = ComparerFromFunctions.NewEqualityComparer<AssemblyReference>(
             ( x, y ) =>
             {
@@ -905,6 +905,19 @@ namespace CILMerge
             } );
       }
 
+      private ReadingArguments ReadingArgumentsFactory( String resource, String pathForModuleBeingResolved )
+      {
+         // TODO currently, closed merge on target framework directory is not possible.
+         var rawValueLoading = // ( this._checkResourceForLoadingRawValues || !String.IsNullOrEmpty( pathForModuleBeingResolved ) )
+            IsTargetFrameworkPath( this._loaderCallbacks.SanitizeResource( this._loaderCallbacks.TargetFrameworkBasePath ), resource ) ?
+            MethodILReadingKind.None :
+            MethodILReadingKind.ToRow;
+
+         return new ReadingArguments()
+         {
+            MethodILReadingKind = rawValueLoading
+         };
+      }
 
 
       private void LoadAllInputModules()
@@ -932,6 +945,7 @@ namespace CILMerge
 
          paths = paths.Distinct().ToArray();
 
+         //this._checkResourceForLoadingRawValues = false;
          this.DoPotentiallyInParallel( paths, ( isRunningInParallel, path ) =>
          {
             var mod = this._moduleLoader.LoadAndResolve( path );
@@ -946,6 +960,7 @@ namespace CILMerge
 
          this._primaryModule = this._inputModules[0];
 
+         //this._checkResourceForLoadingRawValues = true;
          if ( this._options.Closed )
          {
             var set = new HashSet<CILMetaData>( this._inputModules, ReferenceEqualityComparer<CILMetaData>.ReferenceBasedComparer );
@@ -1032,7 +1047,7 @@ namespace CILMerge
          foreach ( var aRef in md.AssemblyReferences.TableContents )
          {
             var path = this.GetPossibleResourcesForAssemblyReference( md, aRef )
-               .Where( p => fwDir == null || !p.StartsWith( fwDir ) )
+               .Where( p => !IsTargetFrameworkPath( fwDir, p ) )
                .FirstOrDefault( p => this._loaderCallbacks.IsValidResource( p ) );
             if ( !String.IsNullOrEmpty( path ) )
             {
@@ -1043,6 +1058,12 @@ namespace CILMerge
                }
             }
          }
+      }
+
+      private static Boolean IsTargetFrameworkPath( String fwDir, String path )
+      {
+         // TODO case sensitivity?
+         return fwDir != null && path.StartsWith( fwDir );
       }
 
       private IEnumerable<String> GetPossibleResourcesForAssemblyReference( CILMetaData inputModule, AssemblyReference assemblyRef )

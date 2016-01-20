@@ -218,6 +218,7 @@ public static partial class E_CILPhysical
       ReaderFunctionalityProvider readerProvider,
       CILMetaDataTableInformationProvider tableInfoProvider,
       EventHandler<SerializationErrorEventArgs> errorHandler,
+      Boolean readRawValues,
       out ImageInformation imageInfo
       )
    {
@@ -232,16 +233,17 @@ public static partial class E_CILPhysical
       var reader = ( readerProvider ?? new DefaultReaderFunctionalityProvider() ).GetFunctionality( stream, tableInfoProvider, errorHandler, out newStream );
 
       CILMetaData md;
+      RawValueStorage<Int32> rawValueStorage;
       if ( newStream != null && !ReferenceEquals( stream, newStream ) )
       {
          using ( newStream )
          {
-            md = newStream.ReadMetaDataFromStream( reader, tableInfoProvider, errorHandler, out imageInfo );
+            md = newStream.ReadMetaDataFromStream( reader, tableInfoProvider, errorHandler, readRawValues, out imageInfo, out rawValueStorage );
          }
       }
       else
       {
-         md = stream.ReadMetaDataFromStream( reader, tableInfoProvider, errorHandler, out imageInfo );
+         md = stream.ReadMetaDataFromStream( reader, tableInfoProvider, errorHandler, readRawValues, out imageInfo, out rawValueStorage );
       }
 
       return md;
@@ -252,7 +254,9 @@ public static partial class E_CILPhysical
       ReaderFunctionality reader,
       CILMetaDataTableInformationProvider tableInfoProvider,
       EventHandler<SerializationErrorEventArgs> errorHandler,
-      out ImageInformation imageInfo
+      Boolean readRawValues,
+      out ImageInformation imageInfo,
+      out RawValueStorage<Int32> rawValueStorage
       )
    {
       ArgumentValidator.ValidateNotNull( "Stream", stream );
@@ -324,7 +328,7 @@ public static partial class E_CILPhysical
             mdStreams.Where( s => !ReferenceEquals( tblMDStream, s ) && !ReferenceEquals( blobStream, s ) && !ReferenceEquals( guidStream, s ) && !ReferenceEquals( sysStringStream, s ) && !ReferenceEquals( userStringStream, s ) )
             );
 
-      var rawValueStorage = tblMDStream.PopulateMetaDataStructure(
+      rawValueStorage = tblMDStream.PopulateMetaDataStructure(
          md,
          mdStreamContainer
          );
@@ -348,7 +352,10 @@ public static partial class E_CILPhysical
          );
 
       // 5. Populate IL, FieldRVA, and ManifestResource data
-      reader.HandleStoredRawValues( helper, imageInfo, rvaConverter, mdStreamContainer, md, rawValueStorage );
+      if ( readRawValues )
+      {
+         reader.HandleStoredRawValues( helper, imageInfo, rvaConverter, mdStreamContainer, md, rawValueStorage );
+      }
 
       // We're done
       return md;

@@ -61,18 +61,20 @@ namespace CILAssemblyManipulator.Physical.IO
       }
    }
 
+   public delegate ReadingArguments ReadingArgumentsFactoryDelegate( String resourceToLoad, String pathForModuleBeingResolved );
+
    public abstract class AbstractCILMetaDataLoader<TDictionary> : AbstractDisposable, CILMetaDataLoader
       where TDictionary : class, IDictionary<String, CILMetaData>
    {
       private readonly TDictionary _modules;
       private readonly Dictionary<CILMetaData, TModuleInfo> _moduleInfos;
       private readonly Lazy<HashStreamInfo> _hashStream;
-      private readonly Func<ReadingArguments> _readingArgumentsFactory;
+      private readonly ReadingArgumentsFactoryDelegate _readingArgumentsFactory;
 
       public AbstractCILMetaDataLoader(
          TDictionary metadatas,
          CryptoCallbacks cryptoCallbacks,
-         Func<ReadingArguments> readingArgsFactory
+         ReadingArgumentsFactoryDelegate readingArgsFactory
          )
       {
          ArgumentValidator.ValidateNotNull( "Modules", metadatas );
@@ -80,7 +82,7 @@ namespace CILAssemblyManipulator.Physical.IO
          this._modules = metadatas;
          this._moduleInfos = new Dictionary<CILMetaData, TModuleInfo>( ReferenceEqualityComparer<CILMetaData>.ReferenceBasedComparer );
          this._hashStream = cryptoCallbacks == null ? null : new Lazy<HashStreamInfo>( () => cryptoCallbacks.CreateHashStream( AssemblyHashAlgorithm.SHA1 ), System.Threading.LazyThreadSafetyMode.ExecutionAndPublication );
-         this._readingArgumentsFactory = readingArgsFactory ?? new Func<ReadingArguments>( () => new ReadingArguments() );
+         this._readingArgumentsFactory = readingArgsFactory ?? new ReadingArgumentsFactoryDelegate( ( resource, resolving ) => new ReadingArguments() );
       }
 
       private void _resolver_ModuleReferenceResolveEvent( Object sender, ModuleReferenceResolveEventArgs e )
@@ -102,10 +104,11 @@ namespace CILAssemblyManipulator.Physical.IO
          TModuleInfo thisModuleInfo;
          if ( this._moduleInfos.TryGetValue( e.ThisMetaData, out thisModuleInfo ) )
          {
+            var thisResource = thisModuleInfo.Item1;
             e.ResolvedMetaData = this
-               .GetPossibleResourcesForAssemblyReference( thisModuleInfo.Item1, e.ThisMetaData, e.ExistingAssemblyInformation, e.UnparsedAssemblyName )
+               .GetPossibleResourcesForAssemblyReference( thisResource, e.ThisMetaData, e.ExistingAssemblyInformation, e.UnparsedAssemblyName )
                .Where( r => this.IsValidResource( r ) )
-               .Select( r => this.GetOrLoadMetaData( r ) )
+               .Select( r => this.GetOrLoadMetaData( r, thisResource ) )
                .Where( md => md.AssemblyDefinitions.GetOrNull( 0 ).IsMatch( e.ExistingAssemblyInformation, false, this._hashStream == null ? (HashStreamInfo?) null : this._hashStream.Value ) )
                .FirstOrDefault();
          }
@@ -113,42 +116,7 @@ namespace CILAssemblyManipulator.Physical.IO
 
       public CILMetaData GetOrLoadMetaData( String resource )
       {
-         resource = this.SanitizeResource( resource );
-         ArgumentValidator.ValidateNotNull( "Resource", resource );
-         ReadingArguments rArgs = null;
-
-         var retVal = this.GetOrAddFromDictionary( resource, res =>
-         {
-            using ( var stream = this.GetStreamFor( res ) )
-            {
-               rArgs = new ReadingArguments();
-               try
-               {
-                  return stream.ReadModule( rArgs );
-               }
-               catch ( Exception exc )
-               {
-                  throw new MetaDataLoadException( "Error when loading CIL module from " + resource + ".", exc );
-               }
-            }
-         } );
-
-         Boolean added;
-         if ( this.IsSupportingConcurrency )
-         {
-            this._moduleInfos.GetOrAdd_WithLock( retVal, md => this.ModuleInfoFactory( resource, md, rArgs ), out added );
-         }
-         else
-         {
-            this._moduleInfos.GetOrAdd_NotThreadSafe( retVal, md => this.ModuleInfoFactory( resource, md, rArgs ), out added );
-         }
-
-         if ( added )
-         {
-            // TODO possibly event? ModuleLoadedEvent
-         }
-
-         return retVal;
+         return this.GetOrLoadMetaData( resource, null );
       }
 
 
@@ -240,6 +208,46 @@ namespace CILAssemblyManipulator.Physical.IO
          }
       }
 
+      private CILMetaData GetOrLoadMetaData( String resource, String pathForModuleBeingResolved )
+      {
+         resource = this.SanitizeResource( resource );
+         ArgumentValidator.ValidateNotNull( "Resource", resource );
+         ReadingArguments rArgs = null;
+
+         var retVal = this.GetOrAddFromDictionary( resource, res =>
+         {
+            using ( var stream = this.GetStreamFor( res ) )
+            {
+               rArgs = this._readingArgumentsFactory( resource, pathForModuleBeingResolved );
+               try
+               {
+                  return stream.ReadModule( rArgs );
+               }
+               catch ( Exception exc )
+               {
+                  throw new MetaDataLoadException( "Error when loading CIL module from " + resource + ".", exc );
+               }
+            }
+         } );
+
+         Boolean added;
+         if ( this.IsSupportingConcurrency )
+         {
+            this._moduleInfos.GetOrAdd_WithLock( retVal, md => this.ModuleInfoFactory( resource, md, rArgs ), out added );
+         }
+         else
+         {
+            this._moduleInfos.GetOrAdd_NotThreadSafe( retVal, md => this.ModuleInfoFactory( resource, md, rArgs ), out added );
+         }
+
+         if ( added )
+         {
+            // TODO possibly event? ModuleLoadedEvent
+         }
+
+         return retVal;
+      }
+
    }
 
    public interface CILMetaDataLoaderWithCallbacks : CILMetaDataLoader
@@ -267,7 +275,7 @@ namespace CILAssemblyManipulator.Physical.IO
       public CILMetaDataLoaderWithCallbacks(
          TDictionary dictionary,
          CryptoCallbacks cryptoCallbacks,
-         Func<ReadingArguments> readingArgsFactory,
+         ReadingArgumentsFactoryDelegate readingArgsFactory,
          CILMetaDataLoaderResourceCallbacks resourceCallbacks
          )
          : base( dictionary, cryptoCallbacks, readingArgsFactory )
@@ -316,7 +324,7 @@ namespace CILAssemblyManipulator.Physical.IO
    {
       public CILMetaDataLoaderNotThreadSafe(
          CryptoCallbacks cryptoCallbacks,
-         Func<ReadingArguments> readingArgsFactory,
+         ReadingArgumentsFactoryDelegate readingArgsFactory,
          CILMetaDataLoaderResourceCallbacks resourceCallbacks
          )
          : base( new Dictionary<String, CILMetaData>(), cryptoCallbacks, readingArgsFactory, resourceCallbacks )
@@ -348,7 +356,7 @@ namespace CILAssemblyManipulator.Physical.IO
 
       public CILMetaDataLoaderThreadSafeSimple(
          CryptoCallbacks cryptoCallbacks,
-         Func<ReadingArguments> readingArgsFactory,
+         ReadingArgumentsFactoryDelegate readingArgsFactory,
          CILMetaDataLoaderResourceCallbacks resourceCallbacks
          )
          : base( new Dictionary<String, CILMetaData>(), cryptoCallbacks, readingArgsFactory, resourceCallbacks )
