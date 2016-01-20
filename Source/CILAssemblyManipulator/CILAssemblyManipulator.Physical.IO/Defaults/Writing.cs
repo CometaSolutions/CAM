@@ -1031,7 +1031,7 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
       )
       {
          const Int32 USER_STRING_MASK = 0x70 << 24;
-         var code = this._md.OpCodeProvider.GetCodeFor( codeInfo.OpCode );
+         var code = this._md.OpCodeProvider.GetCodeFor( codeInfo.OpCodeID );
 
          if ( code.Size == 1 )
          {
@@ -1087,7 +1087,7 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
                case OperandType.InlineToken:
                case OperandType.InlineSignature:
                   var tIdx = ( (OpCodeInfoWithTableIndex) codeInfo ).Operand;
-                  array.WriteInt32LEToBytes( ref idx, tIdx.OneBasedToken );
+                  array.WriteInt32LEToBytes( ref idx, tIdx.GetOneBasedToken() );
                   break;
                case OperandType.InlineSwitch:
                   var offsets = ( (OpCodeInfoWithIntegers) codeInfo ).Operand;
@@ -1220,7 +1220,7 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
          if ( row.IsEmbeddedResource() )
          {
             retVal = new ManifestSizeInfo(
-               sizeof( Int32 ) + row.DataInCurrentFile.GetLengthOrDefault(),
+               sizeof( Int32 ) + row.EmbeddedData.GetLengthOrDefault(),
                startRVA,
                currentRVA
                );
@@ -1250,7 +1250,7 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
 
       protected override void WriteData( ManifestResource row, ManifestSizeInfo sizeInfo, Byte[] array )
       {
-         var data = row.DataInCurrentFile;
+         var data = row.EmbeddedData;
          var idx = 0;
          array
             .ZeroOut( ref idx, sizeInfo.PrePadding )

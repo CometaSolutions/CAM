@@ -2122,7 +2122,7 @@ public static partial class E_CILLogical
             }
             else
             {
-               resource = new EmbeddedManifestResource( mResource.Attributes, mResource.DataInCurrentFile );
+               resource = new EmbeddedManifestResource( mResource.Attributes, mResource.EmbeddedData );
             }
 
             state.Module.ManifestResources.Add( name, resource );
@@ -2328,7 +2328,7 @@ public static partial class E_CILLogical
             var code = physOpCodes[codeIdx];
             logicalByteOffsets.Add( curByteOffset, codeIdx );
             curByteOffset += code.GetTotalByteCount( ocp );
-            var physOpCodeID = code.OpCode;
+            var physOpCodeID = code.OpCodeID;
             var physOpCode = ocp.GetCodeFor( physOpCodeID );
             LogicalOpCodeInfo logicalCode;
             switch ( code.InfoKind )
@@ -2359,7 +2359,7 @@ public static partial class E_CILLogical
                   logicalCode = new LogicalOpCodeInfoWithFixedSizeOperandInt64( physOpCodeID, ( (OpCodeInfoWithInt64) code ).Operand );
                   break;
                case OpCodeOperandKind.OperandNone:
-                  logicalCode = state.Module.GetOperandlessOpCode( code.OpCode );
+                  logicalCode = state.Module.GetOperandlessOpCode( code.OpCodeID );
                   break;
                case OpCodeOperandKind.OperandR4:
                   logicalCode = new LogicalOpCodeInfoWithFixedSizeOperandSingle( physOpCodeID, ( (OpCodeInfoWithSingle) code ).Operand );

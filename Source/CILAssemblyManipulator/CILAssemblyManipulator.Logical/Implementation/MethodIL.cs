@@ -17,6 +17,7 @@
  */
 #if !NO_ALIASES
 extern alias CAMPhysical;
+using CAMPhysical;
 using CAMPhysical::CILAssemblyManipulator.Physical.IO.Defaults;
 #else
 using CILAssemblyManipulator.Physical.IO.Defaults;
@@ -76,7 +77,7 @@ namespace CILAssemblyManipulator.Logical.Implementation
             var physical = ILSerialization.TryReadOpCode( il, ref ilOffset, t => (String) tokenResolver( t, ILResolveKind.String ), ocp );
             LogicalOpCodeInfo logical;
             Int32 int32;
-            var codeID = physical.OpCode;
+            var codeID = physical.OpCodeID;
             var code = ocp.GetCodeFor( codeID );
             switch ( code.OperandType )
             {
@@ -135,7 +136,7 @@ namespace CILAssemblyManipulator.Logical.Implementation
                      default:
                         throw new BadImageFormatException( "Unknown inline token in IL at offset " + ilOffset + " (" + tableIndex + ")." );
                   }
-                  var resolved = tokenResolver( tableIndex.OneBasedToken, resolveKind );
+                  var resolved = tokenResolver( tableIndex.GetOneBasedToken(), resolveKind );
                   switch ( ( (CILCustomAttributeContainerImpl) resolved ).cilKind )
                   {
                      case CILElementKind.Type:
@@ -165,7 +166,7 @@ namespace CILAssemblyManipulator.Logical.Implementation
                      .ToArray() );
                   break;
                case OperandType.InlineSignature:
-                  var methodSig = (Tuple<CILMethodSignature, VarArgInstance[]>) tokenResolver( ( (OpCodeInfoWithTableIndex) physical ).Operand.OneBasedToken, ILResolveKind.Signature );
+                  var methodSig = (Tuple<CILMethodSignature, VarArgInstance[]>) tokenResolver( ( (OpCodeInfoWithTableIndex) physical ).Operand.GetOneBasedToken(), ILResolveKind.Signature );
                   logical = new LogicalOpCodeInfoWithMethodSig( methodSig.Item1, methodSig.Item2 );
                   break;
                default:

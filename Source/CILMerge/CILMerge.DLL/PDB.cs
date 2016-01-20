@@ -171,7 +171,7 @@ namespace CILMerge
             var ep = imageInfo.CLIInformation.CLIHeader.EntryPointToken;
             if ( ep.HasValue )
             {
-               this._unmanagedWriter.SetUserEntryPoint( new SymbolToken( ep.Value.OneBasedToken ) );
+               this._unmanagedWriter.SetUserEntryPoint( new SymbolToken( ep.Value.GetOneBasedToken() ) );
             }
             this._unmanagedWriter.Close();
             try
@@ -892,7 +892,7 @@ namespace CILMerge
          }
 
          return (UInt32) ( baseType.HasValue ?
-            baseType.Value.OneBasedToken :
+            baseType.Value.GetOneBasedToken() :
             0 );
       }
 
@@ -996,7 +996,7 @@ namespace CILMerge
             implAttrs = (Int32) mDef.ImplementationAttributes;
             pClass = (UInt32) new CILAssemblyManipulator.Physical.TableIndex(
                CILAssemblyManipulator.Physical.Tables.TypeDef,
-               this._methodDeclaringTypes[mIdx.Index] ).OneBasedToken;
+               this._methodDeclaringTypes[mIdx.Index] ).GetOneBasedToken();
          }
          else
          {
@@ -1169,7 +1169,7 @@ namespace CILMerge
          var nestedIdx = CILAssemblyManipulator.Physical.TableIndex.FromOneBasedToken( (Int32) tdNestedClass );
          Int32 enclosingTypeIdx;
          return (UInt32) ( this._typeEnclosingTypes.TryGetValue( nestedIdx.Index, out enclosingTypeIdx ) ?
-            new CILAssemblyManipulator.Physical.TableIndex( CILAssemblyManipulator.Physical.Tables.TypeDef, enclosingTypeIdx ).OneBasedToken :
+            new CILAssemblyManipulator.Physical.TableIndex( CILAssemblyManipulator.Physical.Tables.TypeDef, enclosingTypeIdx ).GetOneBasedToken() :
             0 );
       }
 

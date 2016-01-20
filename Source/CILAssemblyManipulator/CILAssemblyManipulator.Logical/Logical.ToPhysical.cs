@@ -738,7 +738,7 @@ public static partial class E_CILLogical
          switch ( res.ManifestResourceKind )
          {
             case ManifestResourceKind.Embedded:
-               retVal.DataInCurrentFile = ( (EmbeddedManifestResource) res ).Data;
+               retVal.EmbeddedData = ( (EmbeddedManifestResource) res ).Data;
                break;
             case ManifestResourceKind.AnotherFile:
                var fRes = (FileManifestResource) res;
@@ -1073,8 +1073,8 @@ public static partial class E_CILLogical
       {
          var opCodeOffset = dynamicBranchInfos[i];
          var codeInfo = (OpCodeInfoWithInt32) pOpCodes[opCodeOffset];
-         var pCode = ocp.GetCodeFor( codeInfo.OpCode );
-         var physicalOffset = ilState.TransformLogicalOffsetToPhysicalOffset( opCodeOffset, pCode.GetTotalByteCount(), codeInfo.Operand );
+         var pCode = ocp.GetCodeFor( codeInfo.OpCodeID );
+         var physicalOffset = ilState.TransformLogicalOffsetToPhysicalOffset( opCodeOffset, pCode.GetFixedByteCount(), codeInfo.Operand );
          if ( !physicalOffset.IsShortJump() )
          {
             // Have to use long form
@@ -1082,7 +1082,7 @@ public static partial class E_CILLogical
             pOpCodes[opCodeOffset] = new OpCodeInfoWithInt32( newForm.OpCodeID, codeInfo.Operand );
 
             // Fix byte offsets and recursively check all previous jumps that jump over this
-            ilState.UpdateAllByteOffsetsFollowing( opCodeOffset, newForm.GetTotalByteCount() - pCode.GetTotalByteCount() );
+            ilState.UpdateAllByteOffsetsFollowing( opCodeOffset, newForm.GetFixedByteCount() - pCode.GetFixedByteCount() );
             ilState.AfterDynamicChangedToLongForm( i );
          }
       }
@@ -1104,9 +1104,9 @@ public static partial class E_CILLogical
          else
          {
             var codeInfoBranch = (OpCodeInfoWithInt32) codeInfo;
-            var pCodeInfo = ocp.GetCodeFor( codeInfo.OpCode );
-            var pCodeBranchInfo = ocp.GetCodeFor( codeInfoBranch.OpCode );
-            var physicalOffset = ilState.TransformLogicalOffsetToPhysicalOffset( i, pCodeInfo.GetTotalByteCount(), codeInfoBranch.Operand );
+            var pCodeInfo = ocp.GetCodeFor( codeInfo.OpCodeID );
+            var pCodeBranchInfo = ocp.GetCodeFor( codeInfoBranch.OpCodeID );
+            var physicalOffset = ilState.TransformLogicalOffsetToPhysicalOffset( i, pCodeInfo.GetFixedByteCount(), codeInfoBranch.Operand );
 
             if ( pCodeBranchInfo.OperandType == OperandType.ShortInlineBrTarget
                && !physicalOffset.IsShortJump()
@@ -1164,10 +1164,10 @@ public static partial class E_CILLogical
          var currentDynamicIndex = dynIndices[idx];
          var dynamicJump = (LogicalOpCodeInfoForBranchingControlFlow) state.LogicalIL.GetOpCodeInfo( currentDynamicIndex );
          var codeInfo = (OpCodeInfoWithInt32) pOpCodes[currentDynamicIndex];
-         if ( codeInfo.Operand > currentOpCodeIndex && dynamicJump.ShortForm.OpCodeID == codeInfo.OpCode )
+         if ( codeInfo.Operand > currentOpCodeIndex && dynamicJump.ShortForm.OpCodeID == codeInfo.OpCodeID )
          {
             // Short jump over the changed offset, see if we need to change this as well
-            var physicalOffset = state.TransformLogicalOffsetToPhysicalOffset( currentDynamicIndex, ocp.GetCodeFor( codeInfo.OpCode ).GetTotalByteCount(), codeInfo.Operand );
+            var physicalOffset = state.TransformLogicalOffsetToPhysicalOffset( currentDynamicIndex, ocp.GetCodeFor( codeInfo.OpCodeID ).GetFixedByteCount(), codeInfo.Operand );
 
             if ( !physicalOffset.IsShortJump() )
             {
@@ -1175,7 +1175,7 @@ public static partial class E_CILLogical
                var newForm = dynamicJump.LongForm;
                pOpCodes[currentDynamicIndex] = new OpCodeInfoWithInt32( newForm.OpCodeID, codeInfo.Operand );
                // Modify all byte offsets following this.
-               state.UpdateAllByteOffsetsFollowing( currentDynamicIndex, newForm.GetTotalByteCount() - dynamicJump.ShortForm.GetTotalByteCount() );
+               state.UpdateAllByteOffsetsFollowing( currentDynamicIndex, newForm.GetFixedByteCount() - dynamicJump.ShortForm.GetFixedByteCount() );
                // Re-check dynamic jumps between start and this.
                state.AfterDynamicChangedToLongForm( idx );
             }

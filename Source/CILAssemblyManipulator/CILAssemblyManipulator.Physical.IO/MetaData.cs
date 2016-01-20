@@ -492,7 +492,7 @@ public static partial class E_CILPhysical
    internal static Int32 GetOneBasedToken( this TableIndex? tableIdx )
    {
       return tableIdx.HasValue ?
-         tableIdx.Value.OneBasedToken :
+         tableIdx.Value.GetOneBasedToken() :
          0;
    }
 
@@ -612,6 +612,16 @@ public static partial class E_CILPhysical
          default:
             return null;
       }
+   }
+
+   public static Int32 GetZeroBasedToken( this TableIndex index )
+   {
+      return ( index.CombinedValue & CAMCoreInternals.INDEX_MASK ) | ( index.CombinedValue & ~CAMCoreInternals.INDEX_MASK );
+   }
+
+   public static Int32 GetOneBasedToken( this TableIndex index )
+   {
+      return ( ( index.CombinedValue & CAMCoreInternals.INDEX_MASK ) + 1 ) | ( index.CombinedValue & ~CAMCoreInternals.INDEX_MASK );
    }
 
 }

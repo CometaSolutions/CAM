@@ -95,7 +95,7 @@ namespace CILAssemblyManipulator.Physical
       /// </list>
       /// </para>
       /// <para>
-      /// The schema for this table index corresponds to the <see cref="TableIndexSchemas.ResolutionScope"/> schema.
+      /// The schema for this table index corresponds to the <see cref="P:CILAssemblyManipulator.Physical.Meta.DefaultMetaDataTableInformationProvider.ResolutionScope"/> schema.
       /// </para>
       /// </remarks>
       /// <seealso cref="TableIndex"/>
@@ -163,7 +163,7 @@ namespace CILAssemblyManipulator.Physical
       /// </summary>
       /// <value>The optional reference to base type of this <see cref="TypeDefinition"/>.</value>
       /// <remarks>
-      /// The schema for this table index corresponds to the <see cref="TableIndexSchemas.TypeDefOrRef"/> schema.
+      /// The schema for this table index corresponds to the <see cref="P:CILAssemblyManipulator.Physical.Meta.DefaultMetaDataTableInformationProvider.TypeDefOrRef"/> schema.
       /// </remarks>
       /// <seealso cref="TableIndex"/>
       public TableIndex? BaseType { get; set; }
@@ -363,7 +363,7 @@ namespace CILAssemblyManipulator.Physical
       /// </summary>
       /// <value>The interface that <see cref="Class"/> implements or extends.</value>
       /// <remarks>
-      /// The schema for this table index corresponds to the <see cref="TableIndexSchemas.TypeDefOrRef"/> schema.
+      /// The schema for this table index corresponds to the <see cref="P:CILAssemblyManipulator.Physical.Meta.DefaultMetaDataTableInformationProvider.TypeDefOrRef"/> schema.
       /// </remarks>
       /// <seealso cref="TableIndex"/>
       public TableIndex Interface { get; set; }
@@ -400,7 +400,7 @@ namespace CILAssemblyManipulator.Physical
       /// </list>
       /// </para>
       /// <para>
-      /// The schema for this table index corresponds to the <see cref="TableIndexSchemas.MemberRefParent"/> schema.
+      /// The schema for this table index corresponds to the <see cref="P:CILAssemblyManipulator.Physical.Meta.DefaultMetaDataTableInformationProvider.MemberRefParent"/> schema.
       /// </para>
       /// </remarks>
       /// <seealso cref="TableIndex"/>
@@ -442,7 +442,7 @@ namespace CILAssemblyManipulator.Physical
       /// </summary>
       /// <value>The owner for this <see cref="ConstantDefinition"/>.</value>
       /// <remarks>
-      /// The schema for this table index corresponds to the <see cref="TableIndexSchemas.HasConstant"/> schema.
+      /// The schema for this table index corresponds to the <see cref="P:CILAssemblyManipulator.Physical.Meta.DefaultMetaDataTableInformationProvider.HasConstant"/> schema.
       /// </remarks>
       /// <seealso cref="TableIndex"/>
       public TableIndex Parent { get; set; }
@@ -492,7 +492,7 @@ namespace CILAssemblyManipulator.Physical
       /// </summary>
       /// <value>The owner for this <see cref="CustomAttributeDefinition"/>.</value>
       /// <remarks>
-      /// The schema for this table index corresponds to the <see cref="TableIndexSchemas.HasCustomAttribute"/> schema.
+      /// The schema for this table index corresponds to the <see cref="P:CILAssemblyManipulator.Physical.Meta.DefaultMetaDataTableInformationProvider.HasCustomAttribute"/> schema.
       /// </remarks>
       /// <seealso cref="TableIndex"/>
       public TableIndex Parent { get; set; }
@@ -502,7 +502,7 @@ namespace CILAssemblyManipulator.Physical
       /// </summary>
       /// <value>The constructor used to create instance of custom attribute.</value>
       /// <remarks>
-      /// The schema for this table index corresponds to the <see cref="TableIndexSchemas.CustomAttributeType"/> schema.
+      /// The schema for this table index corresponds to the <see cref="P:CILAssemblyManipulator.Physical.Meta.DefaultMetaDataTableInformationProvider.CustomAttributeType"/> schema.
       /// </remarks>
       /// <seealso cref="TableIndex"/>
       public TableIndex Type { get; set; }
@@ -525,7 +525,7 @@ namespace CILAssemblyManipulator.Physical
       /// </summary>
       /// <value>The owner of this <see cref="FieldMarshal"/>.</value>
       /// <remarks>
-      /// The schema for this table index corresponds to the <see cref="TableIndexSchemas.HasFieldMarshal"/> schema.
+      /// The schema for this table index corresponds to the <see cref="P:CILAssemblyManipulator.Physical.Meta.DefaultMetaDataTableInformationProvider.HasFieldMarshal"/> schema.
       /// </remarks>
       /// <seealso cref="TableIndex"/>
       public TableIndex Parent { get; set; }
@@ -575,7 +575,7 @@ namespace CILAssemblyManipulator.Physical
       /// </summary>
       /// <value>The owner for this <see cref="SecurityDefinition"/>.</value>
       /// <remarks>
-      /// The schema for this table index corresponds to the <see cref="TableIndexSchemas.HasSecurity"/> schema.
+      /// The schema for this table index corresponds to the <see cref="P:CILAssemblyManipulator.Physical.Meta.DefaultMetaDataTableInformationProvider.HasSecurity"/> schema.
       /// </remarks>
       /// <seealso cref="TableIndex"/>
       public TableIndex Parent { get; set; }
@@ -793,7 +793,7 @@ namespace CILAssemblyManipulator.Physical
       /// </summary>
       /// <value>The type for this <see cref="EventDefinition"/>.</value>
       /// <remarks>
-      /// The schema for this table index corresponds to the <see cref="TableIndexSchemas.TypeDefOrRef"/> schema.
+      /// The schema for this table index corresponds to the <see cref="P:CILAssemblyManipulator.Physical.Meta.DefaultMetaDataTableInformationProvider.TypeDefOrRef"/> schema.
       /// </remarks>
       /// <seealso cref="TableIndex"/>
       public TableIndex EventType { get; set; }
@@ -921,7 +921,7 @@ namespace CILAssemblyManipulator.Physical
       /// </summary>
       /// <value>The reference to associated element (event or property).</value>
       /// <remarks>
-      /// The schema for this table index corresponds to the <see cref="TableIndexSchemas.HasSemantics"/> schema.
+      /// The schema for this table index corresponds to the <see cref="P:CILAssemblyManipulator.Physical.Meta.DefaultMetaDataTableInformationProvider.HasSemantics"/> schema.
       /// </remarks>
       /// <seealso cref="TableIndex"/>
       public TableIndex Associaton { get; set; }
@@ -950,8 +950,35 @@ namespace CILAssemblyManipulator.Physical
          this.Class = new TableIndex( Tables.TypeDef, typeDefIndex );
       }
 
+      /// <summary>
+      /// Gets or sets the class for this <see cref="MethodImplementation"/>.
+      /// </summary>
+      /// <value>The class for this <see cref="MethodImplementation"/>.</value>
+      /// <remarks>
+      /// The <see cref="TableIndex.Table"/> property of this table index should always be <see cref="Tables.TypeDef"/>. 
+      /// </remarks>
+      /// <seealso cref="TableIndex"/>
       public TableIndex Class { get; set; }
+
+      /// <summary>
+      /// Gets or sets the reference to the method actually implementing <see cref="MethodDeclaration"/>.
+      /// </summary>
+      /// <value>The reference to the method actually implementing <see cref="MethodDeclaration"/>.</value>
+      /// <remarks>
+      /// The schema for this table index corresponds to the <see cref="P:CILAssemblyManipulator.Physical.Meta.DefaultMetaDataTableInformationProvider.MethodDefOrRef"/> schema.
+      /// </remarks>
+      /// <seealso cref="TableIndex"/>
       public TableIndex MethodBody { get; set; }
+
+
+      /// <summary>
+      /// Gets or sets the reference to the method being implemented.
+      /// </summary>
+      /// <value>The reference to the method being implemented.</value>
+      /// <remarks>
+      /// The schema for this table index corresponds to the <see cref="P:CILAssemblyManipulator.Physical.Meta.DefaultMetaDataTableInformationProvider.MethodDefOrRef"/> schema.
+      /// </remarks>
+      /// <seealso cref="TableIndex"/>
       public TableIndex MethodDeclaration { get; set; }
    }
 
@@ -960,6 +987,10 @@ namespace CILAssemblyManipulator.Physical
    /// </summary>
    public sealed class ModuleReference
    {
+      /// <summary>
+      /// Gets or sets the name of the module being referenced.
+      /// </summary>
+      /// <value>The name of the module being referenced.</value>
       public String ModuleName { get; set; }
    }
 
@@ -968,6 +999,10 @@ namespace CILAssemblyManipulator.Physical
    /// </summary>
    public sealed class TypeSpecification
    {
+      /// <summary>
+      /// Gets or sets the <see cref="TypeSignature"/> for this <see cref="TypeSpecification"/>.
+      /// </summary>
+      /// <value>The <see cref="TypeSignature"/> for this <see cref="TypeSpecification"/>.</value>
       public TypeSignature Signature { get; set; }
    }
 
@@ -976,14 +1011,53 @@ namespace CILAssemblyManipulator.Physical
    /// </summary>
    public sealed class MethodImplementationMap
    {
+      /// <summary>
+      /// Creates a new instance of <see cref="MethodImplementationMap"/> with <see cref="ImportScope"/> pointing to zeroth row of <see cref="Tables.ModuleRef"/> table.
+      /// </summary>
       public MethodImplementationMap()
+         : this( 0 )
       {
-         this.ImportScope = new TableIndex( Tables.ModuleRef, 0 );
+         // This exists instead of default parameters so that new() -constraint would be possible for rows (if ever needed)
       }
 
+      /// <summary>
+      /// Creates a new instance of <see cref="MethodImplementationMap"/> with <see cref="ImportScope"/> pointing to given row of <see cref="Tables.ModuleRef"/> table.
+      /// </summary>
+      /// <param name="moduleRefIndex">The zero-based index for <see cref="ImportScope"/>.</param>
+      public MethodImplementationMap( Int32 moduleRefIndex )
+      {
+         this.ImportScope = new TableIndex( Tables.ModuleRef, moduleRefIndex );
+      }
+
+      /// <summary>
+      /// Gets or sets the <see cref="PInvokeAttributes"/> for this <see cref="MethodImplementationMap"/>.
+      /// </summary>
       public PInvokeAttributes Attributes { get; set; }
+
+      /// <summary>
+      /// Gets or sets the reference to the member (field or method) being forwarded for this <see cref="MethodImplementationMap"/>.
+      /// </summary>
+      /// <value>The reference to the member (field or method) being forwarded for this <see cref="MethodImplementationMap"/>.</value>
+      /// <remarks>
+      /// The schema for this table index corresponds to the <see cref="P:CILAssemblyManipulator.Physical.Meta.DefaultMetaDataTableInformationProvider.MemberForwarded"/> schema.
+      /// </remarks>
+      /// <seealso cref="TableIndex"/>
       public TableIndex MemberForwarded { get; set; }
+
+      /// <summary>
+      /// Gets or sets the name of the imported function for this <see cref="MethodImplementationMap"/>.
+      /// </summary>
+      /// <value>The name of the imported function for this <see cref="MethodImplementationMap"/>.</value>
       public String ImportName { get; set; }
+
+      /// <summary>
+      /// Gets or sets the class for this <see cref="MethodImplementationMap"/>.
+      /// </summary>
+      /// <value>The class for this <see cref="MethodImplementationMap"/>.</value>
+      /// <remarks>
+      /// The <see cref="TableIndex.Table"/> property of this table index should always be <see cref="Tables.ModuleRef"/>. 
+      /// </remarks>
+      /// <seealso cref="TableIndex"/>
       public TableIndex ImportScope { get; set; }
    }
 
@@ -992,12 +1066,38 @@ namespace CILAssemblyManipulator.Physical
    /// </summary>
    public sealed class FieldRVA
    {
+      /// <summary>
+      /// Creates a new instance of <see cref="FieldRVA"/> with <see cref="Field"/> pointing to zeroth row of <see cref="Tables.Field"/> table.
+      /// </summary>
       public FieldRVA()
+         : this( 0 )
       {
-         this.Field = new TableIndex( Tables.Field, 0 );
+         // This exists instead of default parameters so that new() -constraint would be possible for rows (if ever needed)
       }
 
+      /// <summary>
+      /// Creates a new instance of <see cref="FieldRVA"/> with <see cref="Field"/> pointing to given row of <see cref="Tables.Field"/> table.
+      /// </summary>
+      /// <param name="fieldDefIndex">The zero-based index for <see cref="Field"/>.</param>
+      public FieldRVA( Int32 fieldDefIndex )
+      {
+         this.Field = new TableIndex( Tables.ModuleRef, fieldDefIndex );
+      }
+
+      /// <summary>
+      /// Gets or sets the binary data for this <see cref="FieldRVA"/>.
+      /// </summary>
+      /// <value>The binary data for this <see cref="FieldRVA"/>.</value>
       public Byte[] Data { get; set; }
+
+      /// <summary>
+      /// Gets or sets the field for this <see cref="FieldRVA"/>.
+      /// </summary>
+      /// <value>The field for this <see cref="FieldRVA"/>.</value>
+      /// <remarks>
+      /// The <see cref="TableIndex.Table"/> property of this table index should always be <see cref="Tables.Field"/>. 
+      /// </remarks>
+      /// <seealso cref="TableIndex"/>
       public TableIndex Field { get; set; }
    }
 
@@ -1006,25 +1106,41 @@ namespace CILAssemblyManipulator.Physical
    /// </summary>
    public sealed class AssemblyDefinition
    {
-      private readonly AssemblyInformation _assemblyInfo;
 
+      /// <summary>
+      /// Creates a new instance of <see cref="AssemblyDefinition"/>.
+      /// </summary>
       public AssemblyDefinition()
       {
-         this._assemblyInfo = new AssemblyInformation();
+         this.AssemblyInformation = new AssemblyInformation();
       }
 
+      /// <summary>
+      /// Gets or sets the <see cref="AssemblyFlags"/> for this <see cref="AssemblyDefinition"/>.
+      /// </summary>
+      /// <value>The <see cref="AssemblyFlags"/> for this <see cref="AssemblyDefinition"/>.</value>
       public AssemblyFlags Attributes { get; set; }
 
-      public AssemblyInformation AssemblyInformation
-      {
-         get
-         {
-            return this._assemblyInfo;
-         }
-      }
+      /// <summary>
+      /// Gets the <see cref="Physical.AssemblyInformation"/> for this <see cref="AssemblyDefinition"/>.
+      /// This object contains modifiable values like name, version, etc.
+      /// </summary>
+      /// <value>The <see cref="Physical.AssemblyInformation"/> for this <see cref="AssemblyDefinition"/>.</value>
+      public AssemblyInformation AssemblyInformation { get; }
 
+      /// <summary>
+      /// Gets or sets the <see cref="AssemblyHashAlgorithm"/> for this <see cref="AssemblyDefinition"/>.
+      /// </summary>
+      /// <value>The <see cref="AssemblyHashAlgorithm"/> for this <see cref="AssemblyDefinition"/>.</value>
       public AssemblyHashAlgorithm HashAlgorithm { get; set; }
 
+      /// <summary>
+      /// Creates a textual representation of this <see cref="AssemblyDefinition"/>.
+      /// </summary>
+      /// <returns>A textual representation of this <see cref="AssemblyDefinition"/>.</returns>
+      /// <remarks>
+      /// Calling this method is equivalent of calling <see cref="Physical.AssemblyInformation.ToString(Boolean, Boolean)"/> and specifying to always use culture string and full public key string.
+      /// </remarks>
       public override String ToString()
       {
          return this.AssemblyInformation.ToString( true, true );
@@ -1036,25 +1152,44 @@ namespace CILAssemblyManipulator.Physical
    /// </summary>
    public sealed class AssemblyReference
    {
-      private readonly AssemblyInformation _assemblyInfo;
 
+      /// <summary>
+      /// Creates a new instance of <see cref="AssemblyReference"/>.
+      /// </summary>
       public AssemblyReference()
       {
-         this._assemblyInfo = new AssemblyInformation();
+         this.AssemblyInformation = new AssemblyInformation();
       }
 
+      /// <summary>
+      /// Gets or sets the <see cref="AssemblyFlags"/> for this <see cref="AssemblyReference"/>.
+      /// </summary>
+      /// <value>The <see cref="AssemblyFlags"/> for this <see cref="AssemblyReference"/>.</value>
       public AssemblyFlags Attributes { get; set; }
 
-      public AssemblyInformation AssemblyInformation
-      {
-         get
-         {
-            return this._assemblyInfo;
-         }
-      }
+      /// <summary>
+      /// Gets the <see cref="Physical.AssemblyInformation"/> for this <see cref="AssemblyReference"/>.
+      /// This object contains modifiable values like name, version, etc.
+      /// </summary>
+      /// <value>The <see cref="Physical.AssemblyInformation"/> for this <see cref="AssemblyReference"/>.</value>
+      public AssemblyInformation AssemblyInformation { get; }
 
+      /// <summary>
+      /// Gets or sets the hash value of target assembly contents.
+      /// </summary>
+      /// <value>The hash value of target assembly contents.</value>
+      /// <remarks>
+      /// The algorithm for the hash is determined by <see cref="AssemblyDefinition.HashAlgorithm"/> of the <see cref="CILMetaData.AssemblyDefinitions"/>.
+      /// </remarks>
       public Byte[] HashValue { get; set; }
 
+      /// <summary>
+      /// Creates a textual representation of this <see cref="AssemblyReference"/>.
+      /// </summary>
+      /// <returns>A textual representation of this <see cref="AssemblyReference"/>.</returns>
+      /// <remarks>
+      /// Calling this method is equivalent of calling <see cref="Physical.AssemblyInformation.ToString(Boolean, Boolean)"/> and specifying to always use culture string, and use full public key string only if <see cref="Attributes"/> has <see cref="AssemblyFlags.PublicKey"/> flag.
+      /// </remarks>
       public override String ToString()
       {
          return this.AssemblyInformation.ToString( true, this.Attributes.IsFullPublicKey() );
@@ -1066,8 +1201,25 @@ namespace CILAssemblyManipulator.Physical
    /// </summary>
    public sealed class FileReference
    {
+      /// <summary>
+      /// Gets or sets the <see cref="FileAttributes"/> for this <see cref="FileReference"/>.
+      /// </summary>
+      /// <value>The <see cref="FileAttributes"/> for this <see cref="FileReference"/>.</value>
       public FileAttributes Attributes { get; set; }
+
+      /// <summary>
+      /// Gets or sets the name of this <see cref="FileReference"/>.
+      /// </summary>
+      /// <value>The name of this <see cref="FileReference"/>.</value>
       public String Name { get; set; }
+
+      /// <summary>
+      /// Gets or sets the hash value of this <see cref="FileReference"/>.
+      /// </summary>
+      /// <value>The hash value of this <see cref="FileReference"/>.</value>
+      /// <remarks>
+      /// The algorithm for the hash is determined by <see cref="AssemblyDefinition.HashAlgorithm"/> of the <see cref="CILMetaData.AssemblyDefinitions"/>.
+      /// </remarks>
       public Byte[] HashValue { get; set; }
    }
 
@@ -1076,10 +1228,38 @@ namespace CILAssemblyManipulator.Physical
    /// </summary>
    public sealed class ExportedType
    {
+      /// <summary>
+      /// Gets or sets the <see cref="TypeAttributes"/> for this <see cref="ExportedType"/>.
+      /// </summary>
+      /// <value>The <see cref="TypeAttributes"/> for this <see cref="ExportedType"/>.</value>
       public TypeAttributes Attributes { get; set; }
+
+      /// <summary>
+      /// Gets or sets a hint for what is the type definition index in another module for this <see cref="ExportedType"/>.
+      /// </summary>
+      /// <value>A hint for what is the type definition index in another module for this <see cref="ExportedType"/>.</value>
       public Int32 TypeDefinitionIndex { get; set; }
+
+      /// <summary>
+      /// Gets or sets the name of this <see cref="ExportedType"/>.
+      /// </summary>
+      /// <value>The name of this <see cref="ExportedType"/>.</value>
       public String Name { get; set; }
+
+      /// <summary>
+      /// Gets or sets the namespace of this <see cref="ExportedType"/>.
+      /// </summary>
+      /// <value>The namespace of this <see cref="ExportedType"/>.</value>
       public String Namespace { get; set; }
+
+      /// <summary>
+      /// Gets or sets the reference to the implementation (another module, enclosing type, or assembly reference) of this <see cref="ExportedType"/>.
+      /// </summary>
+      /// <value>The reference to the implementation (another module, enclosing type, or assembly reference) of this <see cref="ExportedType"/>.</value>
+      /// <remarks>
+      /// The schema for this table index corresponds to the <see cref="P:CILAssemblyManipulator.Physical.Meta.DefaultMetaDataTableInformationProvider.Implementation"/> schema.
+      /// </remarks>
+      /// <seealso cref="TableIndex"/>
       public TableIndex Implementation { get; set; }
    }
 
@@ -1089,15 +1269,45 @@ namespace CILAssemblyManipulator.Physical
    public sealed class ManifestResource
    {
       /// <summary>
-      /// This value is interpreted as unsigned 4-byte integer.
+      /// Gets or sets the offset in target file where this manifest resource starts, in bytes.
       /// </summary>
+      /// <value>The offset in target file where this manifest resource starts, in bytes.</value>
+      /// <remarks>
+      /// This value is interpreted as unsigned 4-byte integer.
+      /// </remarks>
       public Int32 Offset { get; set; }
+
+      /// <summary>
+      /// Gets or sets the <see cref="ManifestResourceAttributes"/> of this <see cref="ManifestResource"/>.
+      /// </summary>
+      /// <value>The <see cref="ManifestResourceAttributes"/> of this <see cref="ManifestResource"/>.</value>
       public ManifestResourceAttributes Attributes { get; set; }
+
+      /// <summary>
+      /// Gets or sets the name of this <see cref="ManifestResource"/>.
+      /// </summary>
+      /// <value>The name of this <see cref="ManifestResource"/>.</value>
       public String Name { get; set; }
+
+      /// <summary>
+      /// Gets or sets the optional reference to the location (another module or assembly reference) of this <see cref="ManifestResource"/>.
+      /// </summary>
+      /// <value>The optional reference to the location (another module or assembly reference) of this <see cref="ManifestResource"/>.</value>
+      /// <remarks>
+      /// The schema for this table index corresponds to the <see cref="P:CILAssemblyManipulator.Physical.Meta.DefaultMetaDataTableInformationProvider.Implementation"/> schema.
+      /// Exceptionally, the table <see cref="Tables.ExportedType"/> should not be used here.
+      /// </remarks>
+      /// <seealso cref="TableIndex"/>
       public TableIndex? Implementation { get; set; }
 
-      // This will be used only if Implementation is null
-      public Byte[] DataInCurrentFile { get; set; }
+      /// <summary>
+      /// Gets or sets the data that is embedded in the module when (de)serializing.
+      /// </summary>
+      /// <value>The data that is embedded in the module when (de)serializing.</value>
+      /// <remarks>
+      /// During (de)serializing process, this will be used only if <see cref="Implementation"/> is <c>null</c>.
+      /// </remarks>
+      public Byte[] EmbeddedData { get; set; }
    }
 
    /// <summary>
@@ -1105,13 +1315,44 @@ namespace CILAssemblyManipulator.Physical
    /// </summary>
    public sealed class NestedClassDefinition
    {
+      /// <summary>
+      /// Creates a new instance of <see cref="NestedClassDefinition"/> with <see cref="NestedClass"/> and <see cref="EnclosingClass"/> references pointing to zeroth row of <see cref="Tables.TypeDef"/> table.
+      /// </summary>
       public NestedClassDefinition()
+         : this( nestedClassIndex: 0, enclosingClassIndex: 0 )
       {
-         this.NestedClass = new TableIndex( Tables.TypeDef, 0 );
-         this.EnclosingClass = new TableIndex( Tables.TypeDef, 0 );
+         // This exists instead of default parameters so that new() -constraint would be possible for rows (if ever needed)
       }
 
+      /// <summary>
+      /// Creates a new instance of <see cref="NestedClassDefinition"/> with <see cref="NestedClass"/> and <see cref="EnclosingClass"/> references pointing to given rows of <see cref="Tables.TypeDef"/> table.
+      /// </summary>
+      /// <param name="nestedClassIndex">The zero-based index for <see cref="NestedClass"/>.</param>
+      /// <param name="enclosingClassIndex">The zero-based index for <see cref="EnclosingClass"/>.</param>
+      public NestedClassDefinition( Int32 nestedClassIndex = 0, Int32 enclosingClassIndex = 0 )
+      {
+         this.NestedClass = new TableIndex( Tables.TypeDef, nestedClassIndex );
+         this.EnclosingClass = new TableIndex( Tables.TypeDef, enclosingClassIndex );
+      }
+
+      /// <summary>
+      /// Gets or sets the index of the type considered as nested type for this <see cref="NestedClassDefinition"/>.
+      /// </summary>
+      /// <value>The index of the type considered as nested type for this <see cref="NestedClassDefinition"/>.</value>
+      /// <remarks>
+      /// The <see cref="TableIndex.Table"/> property of this table index should always be <see cref="Tables.TypeDef"/>. 
+      /// </remarks>
+      /// <seealso cref="TableIndex"/>
       public TableIndex NestedClass { get; set; }
+
+      /// <summary>
+      /// Gets or sets the index of the type considered as enclosing type for <see cref="NestedClass"/>.
+      /// </summary>
+      /// <value>The index of the type considered as nested type for <see cref="NestedClass"/>.</value>
+      /// <remarks>
+      /// The <see cref="TableIndex.Table"/> property of this table index should always be <see cref="Tables.TypeDef"/>. 
+      /// </remarks>
+      /// <seealso cref="TableIndex"/>
       public TableIndex EnclosingClass { get; set; }
    }
 
@@ -1120,9 +1361,32 @@ namespace CILAssemblyManipulator.Physical
    /// </summary>
    public sealed class GenericParameterDefinition
    {
+      /// <summary>
+      /// Gets or sets the index of this <see cref="GenericParameterDefinition"/> within the declaring type or method.
+      /// </summary>
+      /// <value>The index of this <see cref="GenericParameterDefinition"/> within the declaring type or method.</value>
       public Int32 GenericParameterIndex { get; set; }
+
+      /// <summary>
+      /// Gets or sets the <see cref="GenericParameterAttributes"/> of this <see cref="GenericParameterDefinition"/>.
+      /// </summary>
+      /// <value>The <see cref="GenericParameterAttributes"/> of this <see cref="GenericParameterDefinition"/>.</value>
       public GenericParameterAttributes Attributes { get; set; }
+
+      /// <summary>
+      /// Gets or sets the reference to the owner of this <see cref="GenericParameterDefinition"/>.
+      /// </summary>
+      /// <value>The reference to the owner of this <see cref="GenericParameterDefinition"/>.</value>
+      /// <remarks>
+      /// The schema for this table index corresponds to the <see cref="P:CILAssemblyManipulator.Physical.Meta.DefaultMetaDataTableInformationProvider.TypeOrMethodDef"/> schema.
+      /// </remarks>
+      /// <seealso cref="TableIndex"/>
       public TableIndex Owner { get; set; }
+
+      /// <summary>
+      /// Gets or sets the name of this <see cref="GenericParameterDefinition"/>.
+      /// </summary>
+      /// <value>The name of this <see cref="GenericParameterDefinition"/>.</value>
       public String Name { get; set; }
    }
 
@@ -1131,7 +1395,21 @@ namespace CILAssemblyManipulator.Physical
    /// </summary>
    public sealed class MethodSpecification
    {
+      /// <summary>
+      /// Gets or sets the method generic definition of this instantiated generic method.
+      /// </summary>
+      /// <value>The method generic definition of this instantiated generic method.</value>
+      /// <remarks>
+      /// The schema for this table index corresponds to the <see cref="P:CILAssemblyManipulator.Physical.Meta.DefaultMetaDataTableInformationProvider.MethodDefOrRef"/> schema.
+      /// </remarks>
+      /// <seealso cref="TableIndex"/>
       public TableIndex Method { get; set; }
+
+      /// <summary>
+      /// Gets or sets the signature of this instantiated generic method.
+      /// </summary>
+      /// <value>The signature of this instantiated generic method.</value>
+      /// <seealso cref="GenericMethodSignature"/>
       public GenericMethodSignature Signature { get; set; }
    }
 
@@ -1140,12 +1418,43 @@ namespace CILAssemblyManipulator.Physical
    /// </summary>
    public sealed class GenericParameterConstraintDefinition
    {
+
+      /// <summary>
+      /// Creates a new instance of <see cref="GenericParameterConstraintDefinition"/> with <see cref="Owner"/> pointing to zeroth row of <see cref="Tables.GenericParameter"/> table.
+      /// </summary>
       public GenericParameterConstraintDefinition()
+         : this( 0 )
       {
-         this.Owner = new TableIndex( Tables.GenericParameter, 0 );
+         // This exists instead of default parameters so that new() -constraint would be possible for rows (if ever needed)
       }
 
+      /// <summary>
+      /// Creates a new instance of <see cref="GenericParameterConstraintDefinition"/> with <see cref="Owner"/> pointing to given row of <see cref="Tables.GenericParameter"/> table.
+      /// </summary>
+      /// <param name="genericParamIndex">The zero-based index for <see cref="Owner"/>.</param>
+      public GenericParameterConstraintDefinition( Int32 genericParamIndex )
+      {
+         this.Owner = new TableIndex( Tables.GenericParameter, genericParamIndex );
+      }
+
+      /// <summary>
+      /// Gets or sets the owner of this <see cref="GenericParameterConstraintDefinition"/>.
+      /// </summary>
+      /// <value>The owner of  this <see cref="GenericParameterConstraintDefinition"/>.</value>
+      /// <remarks>
+      /// The <see cref="TableIndex.Table"/> property of this table index should always be <see cref="Tables.GenericParameter"/>. 
+      /// </remarks>
+      /// <seealso cref="TableIndex"/>
       public TableIndex Owner { get; set; }
+
+      /// <summary>
+      /// Gets or sets the constraint for this <see cref="GenericParameterConstraintDefinition"/>.
+      /// </summary>
+      /// <value>The constraint for this <see cref="GenericParameterConstraintDefinition"/>.</value>
+      /// <remarks>
+      /// The schema for this table index corresponds to the <see cref="P:CILAssemblyManipulator.Physical.Meta.DefaultMetaDataTableInformationProvider.TypeDefOrRef"/> schema.
+      /// </remarks>
+      /// <seealso cref="TableIndex"/>
       public TableIndex Constraint { get; set; }
    }
 
@@ -1154,7 +1463,16 @@ namespace CILAssemblyManipulator.Physical
    /// </summary>
    public sealed class EditAndContinueLog
    {
+      /// <summary>
+      /// Gets or sets the raw token for this <see cref="EditAndContinueLog"/>.
+      /// </summary>
+      /// <value>The raw token for this <see cref="EditAndContinueLog"/>.</value>
       public Int32 Token { get; set; }
+
+      /// <summary>
+      /// Gets or sets the function code for this <see cref="EditAndContinueLog"/>.
+      /// </summary>
+      /// <value>The function code for this <see cref="EditAndContinueLog"/>.</value>
       public Int32 FuncCode { get; set; }
    }
 
@@ -1163,6 +1481,10 @@ namespace CILAssemblyManipulator.Physical
    /// </summary>
    public sealed class EditAndContinueMap
    {
+      /// <summary>
+      /// Gets or sets the raw token for this <see cref="EditAndContinueMap"/>.
+      /// </summary>
+      /// <value>The raw token for this <see cref="EditAndContinueMap"/>.</value>
       public Int32 Token { get; set; }
    }
 
@@ -1171,6 +1493,14 @@ namespace CILAssemblyManipulator.Physical
    /// </summary>
    public sealed class FieldDefinitionPointer
    {
+      /// <summary>
+      /// Gets or sets the referenced field definition.
+      /// </summary>
+      /// <value>The the referenced field definition.</value>
+      /// <remarks>
+      /// The <see cref="TableIndex.Table"/> property of this table index should always be <see cref="Tables.Field"/>. 
+      /// </remarks>
+      /// <seealso cref="TableIndex"/>
       public TableIndex FieldIndex { get; set; }
    }
 
@@ -1179,6 +1509,14 @@ namespace CILAssemblyManipulator.Physical
    /// </summary>
    public sealed class MethodDefinitionPointer
    {
+      /// <summary>
+      /// Gets or sets the referenced method definition.
+      /// </summary>
+      /// <value>The the referenced method definition.</value>
+      /// <remarks>
+      /// The <see cref="TableIndex.Table"/> property of this table index should always be <see cref="Tables.MethodDef"/>. 
+      /// </remarks>
+      /// <seealso cref="TableIndex"/>
       public TableIndex MethodIndex { get; set; }
    }
 
@@ -1187,6 +1525,14 @@ namespace CILAssemblyManipulator.Physical
    /// </summary>
    public sealed class ParameterDefinitionPointer
    {
+      /// <summary>
+      /// Gets or sets the referenced parameter definition.
+      /// </summary>
+      /// <value>The the referenced parameter definition.</value>
+      /// <remarks>
+      /// The <see cref="TableIndex.Table"/> property of this table index should always be <see cref="Tables.Parameter"/>. 
+      /// </remarks>
+      /// <seealso cref="TableIndex"/>
       public TableIndex ParameterIndex { get; set; }
    }
 
@@ -1195,6 +1541,14 @@ namespace CILAssemblyManipulator.Physical
    /// </summary>
    public sealed class EventDefinitionPointer
    {
+      /// <summary>
+      /// Gets or sets the referenced event definition.
+      /// </summary>
+      /// <value>The the referenced event definition.</value>
+      /// <remarks>
+      /// The <see cref="TableIndex.Table"/> property of this table index should always be <see cref="Tables.Event"/>. 
+      /// </remarks>
+      /// <seealso cref="TableIndex"/>
       public TableIndex EventIndex { get; set; }
    }
 
@@ -1203,6 +1557,14 @@ namespace CILAssemblyManipulator.Physical
    /// </summary>
    public sealed class PropertyDefinitionPointer
    {
+      /// <summary>
+      /// Gets or sets the referenced property definition.
+      /// </summary>
+      /// <value>The the referenced property definition.</value>
+      /// <remarks>
+      /// The <see cref="TableIndex.Table"/> property of this table index should always be <see cref="Tables.Property"/>. 
+      /// </remarks>
+      /// <seealso cref="TableIndex"/>
       public TableIndex PropertyIndex { get; set; }
    }
 
@@ -1212,6 +1574,10 @@ namespace CILAssemblyManipulator.Physical
    [Obsolete( "Rows of these type should no longer be present in CIL meta data file.", false )]
    public sealed class AssemblyDefinitionProcessor
    {
+      /// <summary>
+      /// Gets or sets the processor kind for this <see cref="AssemblyDefinitionProcessor"/>.
+      /// </summary>
+      /// <value>The processor kind for this <see cref="AssemblyDefinitionProcessor"/>.</value>
       public Int32 Processor { get; set; }
    }
 
@@ -1221,10 +1587,22 @@ namespace CILAssemblyManipulator.Physical
    [Obsolete( "Rows of these type should no longer be present in CIL meta data file.", false )]
    public sealed class AssemblyDefinitionOS
    {
+      /// <summary>
+      /// Gets or sets the OS platform ID for this <see cref="AssemblyDefinitionOS"/>.
+      /// </summary>
+      /// <value>The OS platform ID for this <see cref="AssemblyDefinitionOS"/>.</value>
       public Int32 OSPlatformID { get; set; }
 
+      /// <summary>
+      /// Gets or sets the major version of OS for this <see cref="AssemblyDefinitionOS"/>.
+      /// </summary>
+      /// <value>The major version of OS for this <see cref="AssemblyDefinitionOS"/>.</value>
       public Int32 OSMajorVersion { get; set; }
 
+      /// <summary>
+      /// Gets or sets the minor version of OS for this <see cref="AssemblyDefinitionOS"/>.
+      /// </summary>
+      /// <value>The minor version of OS for this <see cref="AssemblyDefinitionOS"/>.</value>
       public Int32 OSMinorVersion { get; set; }
    }
 
@@ -1234,8 +1612,25 @@ namespace CILAssemblyManipulator.Physical
    [Obsolete( "Rows of these type should no longer be present in CIL meta data file.", false )]
    public sealed class AssemblyReferenceProcessor
    {
+      public AssemblyReferenceProcessor()
+      {
+         this.AssemblyRef = new TableIndex( Tables.AssemblyRef, 0 );
+      }
+
+      /// <summary>
+      /// Gets or sets the processor kind for this <see cref="AssemblyReferenceProcessor"/>.
+      /// </summary>
+      /// <value>The processor kind for this <see cref="AssemblyReferenceProcessor"/>.</value>
       public Int32 Processor { get; set; }
 
+      /// <summary>
+      /// Gets or sets the referenced assembly reference.
+      /// </summary>
+      /// <value>The the referenced assembly reference.</value>
+      /// <remarks>
+      /// The <see cref="TableIndex.Table"/> property of this table index should always be <see cref="Tables.AssemblyRef"/>. 
+      /// </remarks>
+      /// <seealso cref="TableIndex"/>
       public TableIndex AssemblyRef { get; set; }
    }
 
@@ -1245,21 +1640,59 @@ namespace CILAssemblyManipulator.Physical
    [Obsolete( "Rows of these type should no longer be present in CIL meta data file.", false )]
    public sealed class AssemblyReferenceOS
    {
+      public AssemblyReferenceOS()
+      {
+         this.AssemblyRef = new TableIndex( Tables.AssemblyRef, 0 );
+      }
+
+      /// <summary>
+      /// Gets or sets the OS platform ID for this <see cref="AssemblyReferenceOS"/>.
+      /// </summary>
+      /// <value>The OS platform ID for this <see cref="AssemblyReferenceOS"/>.</value>
       public Int32 OSPlatformID { get; set; }
 
+      /// <summary>
+      /// Gets or sets the major version of OS for this <see cref="AssemblyReferenceOS"/>.
+      /// </summary>
+      /// <value>The major version of OS for this <see cref="AssemblyReferenceOS"/>.</value>
       public Int32 OSMajorVersion { get; set; }
 
+      /// <summary>
+      /// Gets or sets the minor version of OS for this <see cref="AssemblyReferenceOS"/>.
+      /// </summary>
+      /// <value>The minor version of OS for this <see cref="AssemblyReferenceOS"/>.</value>
       public Int32 OSMinorVersion { get; set; }
 
+      /// <summary>
+      /// Gets or sets the referenced assembly reference.
+      /// </summary>
+      /// <value>The the referenced assembly reference.</value>
+      /// <remarks>
+      /// The <see cref="TableIndex.Table"/> property of this table index should always be <see cref="Tables.AssemblyRef"/>. 
+      /// </remarks>
+      /// <seealso cref="TableIndex"/>
       public TableIndex AssemblyRef { get; set; }
 
    }
 
+   /// <summary>
+   /// This structure represents a reference to a certain row in a certain table in <see cref="CILMetaData"/>.
+   /// </summary>
+   /// <remarks>
+   /// Because how this class is implemented, the maximum value for an <see cref="Index"/> is <c>0x00FFFFFF</c>.
+   /// </remarks>
    public struct TableIndex : IEquatable<TableIndex>, IComparable<TableIndex>, IComparable
    {
       private readonly Int32 _token;
 
-      // index is zero-based
+      /// <summary>
+      /// Creates a new <see cref="TableIndex"/> with given table and zero-based index.
+      /// </summary>
+      /// <param name="aTable">The <see cref="Tables"/> enumeration.</param>
+      /// <param name="anIdx">The zero-based index.</param>
+      /// <remarks>
+      /// Because how this class is implemented, the <paramref name="anIdx"/> should be in inclusive range <c>[0, 0x00FFFFFF]</c>.
+      /// </remarks>
       public TableIndex( Tables aTable, Int32 anIdx )
          : this( ( (Int32) aTable << 24 ) | anIdx )
       {
@@ -1270,6 +1703,10 @@ namespace CILAssemblyManipulator.Physical
          this._token = token;
       }
 
+      /// <summary>
+      /// Gets the <see cref="Tables"/> value identifying the target table.
+      /// </summary>
+      /// <value>The <see cref="Tables"/> value identifying the target table.</value>
       public Tables Table
       {
          get
@@ -1279,8 +1716,12 @@ namespace CILAssemblyManipulator.Physical
       }
 
       /// <summary>
-      /// This index is zero-based.
+      /// Gets the zero-based index identifying the row in the target table.
       /// </summary>
+      /// <value>The zero-based index identifying the row in the target table.</value>
+      /// <remarks>
+      /// Because how this class is implemented, the returned value will always be in inclusive range <c>[0, 0x00FFFFFF]</c>.
+      /// </remarks>
       public Int32 Index
       {
          get
@@ -1289,7 +1730,8 @@ namespace CILAssemblyManipulator.Physical
          }
       }
 
-      public Int32 ZeroBasedToken
+      // TODO this method needs to be internalized!!
+      public Int32 CombinedValue
       {
          get
          {
@@ -1297,34 +1739,53 @@ namespace CILAssemblyManipulator.Physical
          }
       }
 
-      public Int32 OneBasedToken
-      {
-         get
-         {
-            return ( ( this._token & CAMCoreInternals.INDEX_MASK ) + 1 ) | ( this._token & ~CAMCoreInternals.INDEX_MASK );
-         }
-      }
-
+      /// <summary>
+      /// Checks whether given object is of type <see cref="TableIndex"/> and is considered to be equal to this <see cref="TableIndex"/>.
+      /// </summary>
+      /// <param name="obj">The object to check.</param>
+      /// <returns><c>true</c> if <paramref name="obj"/> is of type <see cref="TableIndex"/> and is equa lto this <see cref="TableIndex"/>.</returns>
+      /// <seealso cref="Equals(TableIndex)"/>
       public override Boolean Equals( Object obj )
       {
          return obj is TableIndex && this.Equals( (TableIndex) obj );
       }
 
+      /// <summary>
+      /// Computes the hash code for this <see cref="TableIndex"/>.
+      /// </summary>
+      /// <returns>The hash code for this <see cref="TableIndex"/>.</returns>
       public override Int32 GetHashCode()
       {
          return this._token;
       }
 
+      /// <summary>
+      /// Checks that both <see cref="Table"/> and <see cref="Index"/> match for this <see cref="TableIndex"/> and the one given as parameter.
+      /// </summary>
+      /// <param name="other">The other <see cref="TableIndex"/>.</param>
+      /// <returns><c>true</c> if both <see cref="Table"/> and <see cref="Index"/> match for this <see cref="TableIndex"/> and <paramref name="other"/>; <c>false</c> otherwise.</returns>
       public Boolean Equals( TableIndex other )
       {
          return this._token == other._token;
       }
 
+      /// <summary>
+      /// Createss the textual representation of this <see cref="TableIndex"/>, containing the <see cref="Table"/> and <see cref="Index"/>.
+      /// </summary>
+      /// <returns>The textual representation of this <see cref="TableIndex"/>.</returns>
       public override String ToString()
       {
          return this.Table + "[" + this.Index + "]";
       }
 
+      /// <summary>
+      /// Compares this <see cref="TableIndex"/> to the one given as parameter, and returns integer indicating whether this <see cref="TableIndex"/> is less, equal to, or greaer than the parameter.
+      /// </summary>
+      /// <param name="other">The other <see cref="TableIndex"/>.</param>
+      /// <returns>Integer value indicating whether this <see cref="TableIndex"/> is less, equal to, or greater than <paramref name="other"/>.</returns>
+      /// <remarks>
+      /// Negative value means that this <see cref="TableIndex"/> is less than <paramref name="other"/>, zero means that both are equal, and positive value means that this <see cref="TableIndex"/> is greater than <paramref name="other"/>.
+      /// </remarks>
       public Int32 CompareTo( TableIndex other )
       {
          var retVal = this.Table.CompareTo( other.Table );
@@ -1353,31 +1814,67 @@ namespace CILAssemblyManipulator.Physical
          }
       }
 
+      /// <summary>
+      /// Compares two <see cref="TableIndex"/>es for equality.
+      /// </summary>
+      /// <param name="x">The first <see cref="TableIndex"/>.</param>
+      /// <param name="y">The second <see cref="TableIndex"/>.</param>
+      /// <returns>The result of <see cref="TableIndex.Equals(TableIndex)"/>.</returns>
       public static Boolean operator ==( TableIndex x, TableIndex y )
       {
          return x.Equals( y );
       }
 
+      /// <summary>
+      /// Compares two <see cref="TableIndex"/>es for inequality.
+      /// </summary>
+      /// <param name="x">The first <see cref="TableIndex"/>.</param>
+      /// <param name="y">The second <see cref="TableIndex"/>.</param>
+      /// <returns>The reversed result of <see cref="operator ==(TableIndex, TableIndex)"/>.</returns>
       public static Boolean operator !=( TableIndex x, TableIndex y )
       {
          return !( x == y );
       }
 
+      /// <summary>
+      /// Compares whether the first <see cref="TableIndex"/> is considered to be less than the second.
+      /// </summary>
+      /// <param name="x">The first <see cref="TableIndex"/>.</param>
+      /// <param name="y">The second <see cref="TableIndex"/>.</param>
+      /// <returns><c>true</c> if <paramref name="x"/> is considered to be less than <paramref name="y"/>; <c>false</c> otherwise.</returns>
       public static Boolean operator <( TableIndex x, TableIndex y )
       {
          return x.CompareTo( y ) < 0;
       }
 
+      /// <summary>
+      /// Compares whether the first <see cref="TableIndex"/> is considered to be greater than the second.
+      /// </summary>
+      /// <param name="x">The first <see cref="TableIndex"/>.</param>
+      /// <param name="y">The second <see cref="TableIndex"/>.</param>
+      /// <returns><c>true</c> if <paramref name="x"/> is considered to be greater than <paramref name="y"/>; <c>false</c> otherwise.</returns>
       public static Boolean operator >( TableIndex x, TableIndex y )
       {
          return x.CompareTo( y ) > 0;
       }
 
+      /// <summary>
+      /// Compares whether the first <see cref="TableIndex"/> is considered to be less than or equal to the second.
+      /// </summary>
+      /// <param name="x">The first <see cref="TableIndex"/>.</param>
+      /// <param name="y">The second <see cref="TableIndex"/>.</param>
+      /// <returns><c>true</c> if <paramref name="x"/> is considered to be less than or equal to <paramref name="y"/>; <c>false</c> otherwise.</returns>
       public static Boolean operator <=( TableIndex x, TableIndex y )
       {
          return !( x > y );
       }
 
+      /// <summary>
+      /// Compares whether the first <see cref="TableIndex"/> is considered to be greater than or equal to the second.
+      /// </summary>
+      /// <param name="x">The first <see cref="TableIndex"/>.</param>
+      /// <param name="y">The second <see cref="TableIndex"/>.</param>
+      /// <returns><c>true</c> if <paramref name="x"/> is considered to be greater than or equal to <paramref name="y"/>; <c>false</c> otherwise.</returns>
       public static Boolean operator >=( TableIndex x, TableIndex y )
       {
          return !( x < y );
@@ -1401,6 +1898,9 @@ namespace CILAssemblyManipulator.Physical
       }
    }
 
+   /// <summary>
+   /// This enumeration contains the IDs of all the fixed tables present in <see cref="CILMetaData"/>.
+   /// </summary>
    public enum Tables : byte
    {
       Assembly = 0x20,

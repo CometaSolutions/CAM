@@ -215,12 +215,13 @@ namespace CILAssemblyManipulator.Physical
       /// <param name="comparePublicKeyOrToken">Whether to compare the <see cref="PublicKeyOrToken"/> properties.</param>
       /// <returns><c>true</c>if <paramref name="other"/> is not <c>null</c> and has same values as this <see cref="AssemblyInformation"/>; <c>false</c> otherwise.</returns>
       /// <remarks>
-      /// The values that are compared are <see cref="Name"/>, <see cref="Culture"/> (both exact and case-sensitive), <see cref="VersionMajor"/>, <see cref="VersionMinor"/>, <see cref="VersionBuild"/>, <see cref="VersionRevision"/>, and <see cref="PublicKeyOrToken"/> (exact array comparison, except that null matches empty array).
+      /// The values that are compared are <see cref="Name"/>, <see cref="Culture"/> (both exact and case-sensitive), <see cref="VersionMajor"/>, <see cref="VersionMinor"/>, <see cref="VersionBuild"/>, <see cref="VersionRevision"/>, and <see cref="PublicKeyOrToken"/> (exact array comparison, except that nulls and empty arrays are considered equal).
       /// The <see cref="PublicKeyOrToken"/>s are compared only if <paramref name="comparePublicKeyOrToken"/> is <c>true</c>.
       /// </remarks>
       public Boolean Equals( AssemblyInformation other, Boolean comparePublicKeyOrToken )
       {
          Byte[] thisPK, otherPK;
+         Boolean thisIsNullOrEmpty;
          return Object.ReferenceEquals( this, other ) ||
             ( other != null
             && String.Equals( this.Name, other.Name )
@@ -228,7 +229,11 @@ namespace CILAssemblyManipulator.Physical
             && this.VersionMinor == other.VersionMinor
             && this.VersionBuild == other.VersionBuild
             && this.VersionRevision == other.VersionRevision
-            && ( !comparePublicKeyOrToken || ( thisPK = this.PublicKeyOrToken ).IsNullOrEmpty() == ( otherPK = other.PublicKeyOrToken ).IsNullOrEmpty() || ArrayEqualityComparer<Byte>.DefaultArrayEqualityComparer.Equals( thisPK, otherPK ) )
+            && ( !comparePublicKeyOrToken ||
+                  ( ( thisIsNullOrEmpty = ( thisPK = this.PublicKeyOrToken ).IsNullOrEmpty() ) == ( otherPK = other.PublicKeyOrToken ).IsNullOrEmpty()
+                     && ( thisIsNullOrEmpty || ArrayEqualityComparer<Byte>.DefaultArrayEqualityComparer.Equals( thisPK, otherPK ) )
+                  )
+               )
             && String.Equals( this.Culture, other.Culture )
             );
       }

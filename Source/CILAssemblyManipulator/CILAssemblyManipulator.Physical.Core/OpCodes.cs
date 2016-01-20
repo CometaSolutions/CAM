@@ -2588,11 +2588,16 @@ namespace CILAssemblyManipulator.Physical
 public static partial class E_CILPhysical
 {
    /// <summary>
-   /// Note: Switch instruction has dynamic byte count.
+   /// Calculates the total fixed byte count for a specific <see cref="OpCode"/>.
+   /// This is the sum of <see cref="OpCode.Size"/> and <see cref="OpCode.OperandSize"/>.
    /// </summary>
-   /// <param name="code"></param>
-   /// <returns></returns>
-   public static Int32 GetTotalByteCount( this OpCode code )
+   /// <param name="code">The <see cref="OpCode"/>.</param>
+   /// <returns>The total fixed byte count for a specific <see cref="OpCode"/>.</returns>
+   /// <remarks>
+   /// One should use <see cref="GetTotalByteCount"/> extension method when calculating byte sizes when writing or reading IL bytecode.
+   /// This is because switch instruction (<see cref="OpCodeID.Switch"/>) has additional offset array, the length of which is determined by the fixed operand of switch instruction.
+   /// </remarks>
+   public static Int32 GetFixedByteCount( this OpCode code )
    {
       return code.Size + code.OperandSize;
    }

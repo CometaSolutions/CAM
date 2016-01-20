@@ -1706,7 +1706,7 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
 
       private static ResizableArray<Byte> AddTDRSToken( this ResizableArray<Byte> info, ref Int32 idx, TableIndex token )
       {
-         return info.AddCompressedUInt32( ref idx, token.OneBasedToken.EncodeTypeDefOrRefOrSpec() );
+         return info.AddCompressedUInt32( ref idx, token.GetOneBasedToken().EncodeTypeDefOrRefOrSpec() );
       }
 
       internal static ResizableArray<Byte> AddCompressedUInt32( this ResizableArray<Byte> info, ref Int32 idx, Int32 value )

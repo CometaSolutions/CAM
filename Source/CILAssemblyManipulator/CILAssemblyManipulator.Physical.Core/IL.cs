@@ -154,12 +154,12 @@ namespace CILAssemblyManipulator.Physical
       }
 
       /// <summary>
-      /// Gets the <see cref="OpCodeID"/> for this <see cref="OpCodeInfo"/>.
+      /// Gets the <see cref="Physical.OpCodeID"/> for this <see cref="OpCodeInfo"/>.
       /// </summary>
-      /// <seealso cref="OpCodeID"/>
+      /// <seealso cref="Physical.OpCodeID"/>
       /// <seealso cref="Physical.OpCode"/>
       /// <seealso cref="OpCodes"/>
-      public OpCodeID OpCode
+      public OpCodeID OpCodeID
       {
          get
          {
@@ -175,10 +175,10 @@ namespace CILAssemblyManipulator.Physical
       public abstract OpCodeOperandKind InfoKind { get; }
 
       /// <summary>
-      /// Gets the additional size of operand of this <see cref="OpCode"/>, in bytes.
+      /// Gets the additional size of operand of this <see cref="OpCodeInfo"/>, in bytes.
       /// </summary>
-      /// <value>The additional size of operand of this <see cref="OpCode"/>, in bytes.</value>
-      public virtual Int32 AdditionalOperandByteSize
+      /// <value>The additional size of operand of this <see cref="OpCodeInfo"/>, in bytes.</value>
+      public virtual Int32 DynamicOperandByteSize
       {
          get
          {
@@ -188,12 +188,12 @@ namespace CILAssemblyManipulator.Physical
 
       /// <summary>
       /// Returns the textual representation of this <see cref="OpCodeInfo"/>.
-      /// This includes at least textual representation of the <see cref="OpCode"/>.
+      /// This includes at least textual representation of the <see cref="OpCodeID"/>.
       /// </summary>
       /// <returns>The textual representation of this <see cref="OpCodeInfo"/>.</returns>
       public override String ToString()
       {
-         return this.OpCode.ToString();
+         return this.OpCodeID.ToString();
       }
 
    }
@@ -509,7 +509,7 @@ namespace CILAssemblyManipulator.Physical
       public List<Int32> Operand { get; }
 
       /// <inheritdoc />
-      public override Int32 AdditionalOperandByteSize
+      public override Int32 DynamicOperandByteSize
       {
          get
          {
@@ -602,8 +602,8 @@ public static partial class E_CILPhysical
    /// <exception cref="ArgumentNullException">If <paramref name="opCodeProvider"/> is <c>null</c>.</exception>
    public static Int32 GetTotalByteCount( this OpCodeInfo info, OpCodeProvider opCodeProvider )
    {
-      // First call AdditionalOperandByteSize so we would get NullReferenceException *before* ArgumentNullException
-      return info.AdditionalOperandByteSize + ArgumentValidator.ValidateNotNullAndReturn( "Op code provider", opCodeProvider ).GetCodeFor( info.OpCode ).GetTotalByteCount();
+      // First call DynamicOperandByteSize so we would get NullReferenceException *before* ArgumentNullException
+      return info.DynamicOperandByteSize + ArgumentValidator.ValidateNotNullAndReturn( "Op code provider", opCodeProvider ).GetCodeFor( info.OpCodeID ).GetFixedByteCount();
    }
 
    /// <summary>

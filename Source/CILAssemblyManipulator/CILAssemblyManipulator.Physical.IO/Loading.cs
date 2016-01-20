@@ -90,10 +90,11 @@ namespace CILAssemblyManipulator.Physical.IO
          TModuleInfo thisModuleInfo;
          if ( this._moduleInfos.TryGetValue( e.ThisMetaData, out thisModuleInfo ) )
          {
+            var thisResource = thisModuleInfo.Item1;
             e.ResolvedMetaData = this
-               .GetPossibleResourcesForModuleReference( thisModuleInfo.Item1, e.ThisMetaData, e.ModuleName )
+               .GetPossibleResourcesForModuleReference( thisResource, e.ThisMetaData, e.ModuleName )
                .Where( r => this.IsValidResource( r ) )
-               .Select( r => this.GetOrLoadMetaData( r ) )
+               .Select( r => this.GetOrLoadMetaData( r, thisResource ) )
                .Where( md => md.AssemblyDefinitions.GetRowCount() == 0 && md.ModuleDefinitions.GetRowCount() > 0 && String.Equals( md.ModuleDefinitions.TableContents[0].Name, e.ModuleName ) )
                .FirstOrDefault();
          }

@@ -38,22 +38,126 @@ namespace CILAssemblyManipulator.Physical.Meta
       public const Int32 AMOUNT_OF_FIXED_TABLES = 0x2D; // Enum.GetValues( typeof( Tables ) ).Length;
 
       // ECMA-335, pp. 274-276
-      public static readonly ArrayQuery<Int32?> TypeDefOrRef = CollectionsFactorySingleton.DEFAULT_COLLECTIONS_FACTORY.NewArrayProxy( new Int32?[] { (Int32) Tables.TypeDef, (Int32) Tables.TypeRef, (Int32) Tables.TypeSpec } ).CQ;
-      public static readonly ArrayQuery<Int32?> HasConstant = CollectionsFactorySingleton.DEFAULT_COLLECTIONS_FACTORY.NewArrayProxy( new Int32?[] { (Int32) Tables.Field, (Int32) Tables.Parameter, (Int32) Tables.Property } ).CQ;
-      public static readonly ArrayQuery<Int32?> HasCustomAttribute = CollectionsFactorySingleton.DEFAULT_COLLECTIONS_FACTORY.NewArrayProxy( new Int32?[] { ( Int32)Tables.MethodDef, ( Int32)Tables.Field, ( Int32)Tables.TypeRef, ( Int32)Tables.TypeDef, ( Int32)Tables.Parameter,
+      private static readonly ArrayQuery<Int32?> _TypeDefOrRef = CollectionsFactorySingleton.DEFAULT_COLLECTIONS_FACTORY.NewArrayProxy( new Int32?[] { (Int32) Tables.TypeDef, (Int32) Tables.TypeRef, (Int32) Tables.TypeSpec } ).CQ;
+      private static readonly ArrayQuery<Int32?> _HasConstant = CollectionsFactorySingleton.DEFAULT_COLLECTIONS_FACTORY.NewArrayProxy( new Int32?[] { (Int32) Tables.Field, (Int32) Tables.Parameter, (Int32) Tables.Property } ).CQ;
+      private static readonly ArrayQuery<Int32?> _HasCustomAttribute = CollectionsFactorySingleton.DEFAULT_COLLECTIONS_FACTORY.NewArrayProxy( new Int32?[] { ( Int32)Tables.MethodDef, ( Int32)Tables.Field, ( Int32)Tables.TypeRef, ( Int32)Tables.TypeDef, ( Int32)Tables.Parameter,
             ( Int32)Tables.InterfaceImpl, ( Int32)Tables.MemberRef, ( Int32)Tables.Module, ( Int32)Tables.DeclSecurity, ( Int32)Tables.Property, ( Int32)Tables.Event,
             ( Int32)Tables.StandaloneSignature, ( Int32)Tables.ModuleRef, ( Int32)Tables.TypeSpec, ( Int32)Tables.Assembly, ( Int32)Tables.AssemblyRef, ( Int32)Tables.File,
             ( Int32)Tables.ExportedType, ( Int32)Tables.ManifestResource, ( Int32)Tables.GenericParameter, ( Int32)Tables.GenericParameterConstraint, ( Int32)Tables.MethodSpec } ).CQ;
-      public static readonly ArrayQuery<Int32?> HasFieldMarshal = CollectionsFactorySingleton.DEFAULT_COLLECTIONS_FACTORY.NewArrayProxy( new Int32?[] { (Int32) Tables.Field, (Int32) Tables.Parameter } ).CQ;
-      public static readonly ArrayQuery<Int32?> HasSecurity = CollectionsFactorySingleton.DEFAULT_COLLECTIONS_FACTORY.NewArrayProxy( new Int32?[] { (Int32) Tables.TypeDef, (Int32) Tables.MethodDef, (Int32) Tables.Assembly } ).CQ;
-      public static readonly ArrayQuery<Int32?> MemberRefParent = CollectionsFactorySingleton.DEFAULT_COLLECTIONS_FACTORY.NewArrayProxy( new Int32?[] { (Int32) Tables.TypeDef, (Int32) Tables.TypeRef, (Int32) Tables.ModuleRef, (Int32) Tables.MethodDef, (Int32) Tables.TypeSpec } ).CQ;
-      public static readonly ArrayQuery<Int32?> HasSemantics = CollectionsFactorySingleton.DEFAULT_COLLECTIONS_FACTORY.NewArrayProxy( new Int32?[] { (Int32) Tables.Event, (Int32) Tables.Property } ).CQ;
-      public static readonly ArrayQuery<Int32?> MethodDefOrRef = CollectionsFactorySingleton.DEFAULT_COLLECTIONS_FACTORY.NewArrayProxy( new Int32?[] { (Int32) Tables.MethodDef, (Int32) Tables.MemberRef } ).CQ;
-      public static readonly ArrayQuery<Int32?> MemberForwarded = CollectionsFactorySingleton.DEFAULT_COLLECTIONS_FACTORY.NewArrayProxy( new Int32?[] { (Int32) Tables.Field, (Int32) Tables.MethodDef } ).CQ;
-      public static readonly ArrayQuery<Int32?> Implementation = CollectionsFactorySingleton.DEFAULT_COLLECTIONS_FACTORY.NewArrayProxy( new Int32?[] { (Int32) Tables.File, (Int32) Tables.AssemblyRef, (Int32) Tables.ExportedType } ).CQ;
-      public static readonly ArrayQuery<Int32?> CustomAttributeType = CollectionsFactorySingleton.DEFAULT_COLLECTIONS_FACTORY.NewArrayProxy( new Int32?[] { null, null, (Int32) Tables.MethodDef, (Int32) Tables.MemberRef, null } ).CQ;
-      public static readonly ArrayQuery<Int32?> ResolutionScope = CollectionsFactorySingleton.DEFAULT_COLLECTIONS_FACTORY.NewArrayProxy( new Int32?[] { (Int32) Tables.Module, (Int32) Tables.ModuleRef, (Int32) Tables.AssemblyRef, (Int32) Tables.TypeRef } ).CQ;
-      public static readonly ArrayQuery<Int32?> TypeOrMethodDef = CollectionsFactorySingleton.DEFAULT_COLLECTIONS_FACTORY.NewArrayProxy( new Int32?[] { (Int32) Tables.TypeDef, (Int32) Tables.MethodDef } ).CQ;
+      private static readonly ArrayQuery<Int32?> _HasFieldMarshal = CollectionsFactorySingleton.DEFAULT_COLLECTIONS_FACTORY.NewArrayProxy( new Int32?[] { (Int32) Tables.Field, (Int32) Tables.Parameter } ).CQ;
+      private static readonly ArrayQuery<Int32?> _HasSecurity = CollectionsFactorySingleton.DEFAULT_COLLECTIONS_FACTORY.NewArrayProxy( new Int32?[] { (Int32) Tables.TypeDef, (Int32) Tables.MethodDef, (Int32) Tables.Assembly } ).CQ;
+      private static readonly ArrayQuery<Int32?> _MemberRefParent = CollectionsFactorySingleton.DEFAULT_COLLECTIONS_FACTORY.NewArrayProxy( new Int32?[] { (Int32) Tables.TypeDef, (Int32) Tables.TypeRef, (Int32) Tables.ModuleRef, (Int32) Tables.MethodDef, (Int32) Tables.TypeSpec } ).CQ;
+      private static readonly ArrayQuery<Int32?> _HasSemantics = CollectionsFactorySingleton.DEFAULT_COLLECTIONS_FACTORY.NewArrayProxy( new Int32?[] { (Int32) Tables.Event, (Int32) Tables.Property } ).CQ;
+      private static readonly ArrayQuery<Int32?> _MethodDefOrRef = CollectionsFactorySingleton.DEFAULT_COLLECTIONS_FACTORY.NewArrayProxy( new Int32?[] { (Int32) Tables.MethodDef, (Int32) Tables.MemberRef } ).CQ;
+      private static readonly ArrayQuery<Int32?> _MemberForwarded = CollectionsFactorySingleton.DEFAULT_COLLECTIONS_FACTORY.NewArrayProxy( new Int32?[] { (Int32) Tables.Field, (Int32) Tables.MethodDef } ).CQ;
+      private static readonly ArrayQuery<Int32?> _Implementation = CollectionsFactorySingleton.DEFAULT_COLLECTIONS_FACTORY.NewArrayProxy( new Int32?[] { (Int32) Tables.File, (Int32) Tables.AssemblyRef, (Int32) Tables.ExportedType } ).CQ;
+      private static readonly ArrayQuery<Int32?> _CustomAttributeType = CollectionsFactorySingleton.DEFAULT_COLLECTIONS_FACTORY.NewArrayProxy( new Int32?[] { null, null, (Int32) Tables.MethodDef, (Int32) Tables.MemberRef, null } ).CQ;
+      private static readonly ArrayQuery<Int32?> _ResolutionScope = CollectionsFactorySingleton.DEFAULT_COLLECTIONS_FACTORY.NewArrayProxy( new Int32?[] { (Int32) Tables.Module, (Int32) Tables.ModuleRef, (Int32) Tables.AssemblyRef, (Int32) Tables.TypeRef } ).CQ;
+      private static readonly ArrayQuery<Int32?> _TypeOrMethodDef = CollectionsFactorySingleton.DEFAULT_COLLECTIONS_FACTORY.NewArrayProxy( new Int32?[] { (Int32) Tables.TypeDef, (Int32) Tables.MethodDef } ).CQ;
+
+      public static ArrayQuery<Int32?> TypeDefOrRef
+      {
+         get
+         {
+            return _TypeDefOrRef;
+         }
+      }
+
+      public static ArrayQuery<Int32?> HasConstant
+      {
+         get
+         {
+            return _HasConstant;
+         }
+      }
+
+      public static ArrayQuery<Int32?> HasCustomAttribute
+      {
+         get
+         {
+            return _HasCustomAttribute;
+         }
+      }
+
+      public static ArrayQuery<Int32?> HasFieldMarshal
+      {
+         get
+         {
+            return _HasFieldMarshal;
+         }
+      }
+
+      public static ArrayQuery<Int32?> HasSecurity
+      {
+         get
+         {
+            return _HasSecurity;
+         }
+      }
+
+      public static ArrayQuery<Int32?> MemberRefParent
+      {
+         get
+         {
+            return _MemberRefParent;
+         }
+      }
+
+      public static ArrayQuery<Int32?> HasSemantics
+      {
+         get
+         {
+            return _HasSemantics;
+         }
+      }
+
+      public static ArrayQuery<Int32?> MethodDefOrRef
+      {
+         get
+         {
+            return _MethodDefOrRef;
+         }
+      }
+
+      public static ArrayQuery<Int32?> MemberForwarded
+      {
+         get
+         {
+            return _MemberForwarded;
+         }
+      }
+
+      public static ArrayQuery<Int32?> Implementation
+      {
+         get
+         {
+            return _Implementation;
+         }
+      }
+
+      public static ArrayQuery<Int32?> CustomAttributeType
+      {
+         get
+         {
+            return _CustomAttributeType;
+         }
+      }
+
+      public static ArrayQuery<Int32?> ResolutionScope
+      {
+         get
+         {
+            return _ResolutionScope;
+         }
+      }
+
+      public static ArrayQuery<Int32?> TypeOrMethodDef
+      {
+         get
+         {
+            return _TypeOrMethodDef;
+         }
+      }
 
       // Don't cache the instance in case the provider will become mutable at some point.
 
@@ -875,7 +979,7 @@ namespace CILAssemblyManipulator.Physical.Meta
    row.Offset = offset;
    if ( !row.Implementation.HasValue )
    {
-      row.DataInCurrentFile = DefaultMetaDataSerializationSupportProvider.DeserializeEmbeddedManifest( args.RowArgs, offset );
+      row.EmbeddedData = DefaultMetaDataSerializationSupportProvider.DeserializeEmbeddedManifest( args.RowArgs, offset );
    }
 },
          ( md, mdStreamContainer ) => new SectionPart_EmbeddedManifests( md ) );

@@ -2055,7 +2055,7 @@ namespace CILAssemblyManipulator.Physical
              && NullableEqualityComparer<TableIndex>.Equals( x.Implementation, y.Implementation )
              && ( !x.Implementation.HasValue || x.Offset == y.Offset )
              && x.Attributes == y.Attributes
-             && ArrayEqualityComparer<Byte>.DefaultArrayEqualityComparer.Equals( x.DataInCurrentFile, y.DataInCurrentFile )
+             && ArrayEqualityComparer<Byte>.DefaultArrayEqualityComparer.Equals( x.EmbeddedData, y.EmbeddedData )
              );
 
          return retVal;
@@ -2128,7 +2128,7 @@ namespace CILAssemblyManipulator.Physical
       private static Boolean Equality_OpCodeInfo( OpCodeInfo x, OpCodeInfo y )
       {
          var retVal = Object.ReferenceEquals( x, y );
-         if ( !retVal && x != null && y != null && x.OpCode == y.OpCode && x.InfoKind == y.InfoKind )
+         if ( !retVal && x != null && y != null && x.OpCodeID == y.OpCodeID && x.InfoKind == y.InfoKind )
          {
             switch ( x.InfoKind )
             {
@@ -2884,7 +2884,7 @@ namespace CILAssemblyManipulator.Physical
          }
          else
          {
-            retVal = 17 * 23 + x.OpCode.GetHashCode();
+            retVal = 17 * 23 + x.OpCodeID.GetHashCode();
             var infoKind = x.InfoKind;
             if ( infoKind != OpCodeOperandKind.OperandNone )
             {

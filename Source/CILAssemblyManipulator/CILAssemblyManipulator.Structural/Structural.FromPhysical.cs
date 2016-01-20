@@ -561,7 +561,7 @@ public static partial class E_CILStructural
          {
             data = new ManifestResourceStructureDataEmbedded()
             {
-               Data = res.DataInCurrentFile.CreateBlockCopy()
+               Data = res.EmbeddedData.CreateBlockCopy()
             };
          }
          if ( data != null )
@@ -751,11 +751,11 @@ public static partial class E_CILStructural
                switch ( o.InfoKind )
                {
                   case OpCodeOperandKind.OperandNone:
-                     return operandless.GetOrAdd_NotThreadSafe( o.OpCode, c => new OpCodeStructureSimple( ocp.GetCodeFor( o.OpCode ) ) );
+                     return operandless.GetOrAdd_NotThreadSafe( o.OpCodeID, c => new OpCodeStructureSimple( ocp.GetCodeFor( o.OpCodeID ) ) );
                   case OpCodeOperandKind.OperandTableIndex:
                      return new OpCodeStructureWithReference()
                      {
-                        OpCode = ocp.GetCodeFor( o.OpCode ),
+                        OpCode = ocp.GetCodeFor( o.OpCodeID ),
                         Structure = state.FromILToken( fDefList, mDefList, memberRefList, standaloneSigList, methodSpecList, ( (OpCodeInfoWithTableIndex) o ).Operand )
                      };
                   default:

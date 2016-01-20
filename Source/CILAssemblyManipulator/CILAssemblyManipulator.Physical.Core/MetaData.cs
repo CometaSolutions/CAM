@@ -2368,7 +2368,7 @@ public static partial class E_CILPhysical
       OpCodeInfo codeInfo
       )
    {
-      var code = state.MD.OpCodeProvider.GetCodeFor( codeInfo.OpCode );
+      var code = state.MD.OpCodeProvider.GetCodeFor( codeInfo.OpCodeID );
       var curStacksize = Math.Max( state.CurrentStack, state.StackSizes[state.CurrentCodeByteOffset] );
       if ( FlowControl.Call == code.FlowControl )
       {

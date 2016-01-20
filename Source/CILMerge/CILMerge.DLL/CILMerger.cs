@@ -187,7 +187,7 @@ namespace CILMerge
          var inputToken = TableIndex.FromOneBasedTokenNullable( (Int32) token );
          TableIndex targetToken;
          return inputToken.HasValue && mergeResult.InputToTargetMapping.TryGetValue( inputToken.Value, out targetToken ) ?
-            (UInt32) targetToken.OneBasedToken :
+            (UInt32) targetToken.GetOneBasedToken() :
             0u;
       }
 
@@ -196,7 +196,7 @@ namespace CILMerge
          var inputToken = TableIndex.FromOneBasedTokenNullable( (Int32) token );
          TableIndex targetToken;
          return inputToken.HasValue && mergeResult.InputToTargetMapping.TryGetValue( inputToken.Value, out targetToken ) ?
-            (UInt32) targetToken.OneBasedToken :
+            (UInt32) targetToken.GetOneBasedToken() :
             0u;
       }
 
@@ -1648,7 +1648,7 @@ namespace CILMerge
          var newLocalIndex = -1;
          if ( localsOffset > 0 )
          {
-            var codeValue = newCode.OpCode;
+            var codeValue = newCode.OpCodeID;
             switch ( codeValue )
             {
                case OpCodeID.Ldloc_0:
@@ -1696,7 +1696,7 @@ namespace CILMerge
          // Then, check op codes that branch, or return
          if ( newLocalIndex == -1 )
          {
-            var newOpCodeInfo = this._targetModule.OpCodeProvider.GetCodeFor( newCode.OpCode );
+            var newOpCodeInfo = this._targetModule.OpCodeProvider.GetCodeFor( newCode.OpCodeID );
             switch ( newOpCodeInfo.OperandType )
             {
                case OperandType.ShortInlineBrTarget:
@@ -1705,7 +1705,7 @@ namespace CILMerge
                   newCode = new OpCodeInfoWithInt32( newOpCodeInfo.OtherForm, ( (OpCodeInfoWithInt32) newCode ).Operand );
                   break;
                case OperandType.InlineNone:
-                  if ( newCode.OpCode == OpCodeID.Ret )
+                  if ( newCode.OpCodeID == OpCodeID.Ret )
                   {
                      // Replace all 'Ret' instructions with long branch instructions to next 'block'
                      var jump = sourceILByteSize - sourceILByteOffsetAfterCode;
@@ -1805,7 +1805,7 @@ namespace CILMerge
             //}
 
             var code = opCodes[i];
-            switch ( targetOCP.GetCodeFor( code.OpCode ).OperandType )
+            switch ( targetOCP.GetCodeFor( code.OpCodeID ).OperandType )
             {
                case OperandType.ShortInlineBrTarget:
                case OperandType.InlineBrTarget:
@@ -2420,24 +2420,24 @@ namespace CILMerge
          switch ( sourceOpCode.InfoKind )
          {
             case OpCodeOperandKind.OperandInteger:
-               return new OpCodeInfoWithInt32( sourceOpCode.OpCode, ( (OpCodeInfoWithInt32) sourceOpCode ).Operand );
+               return new OpCodeInfoWithInt32( sourceOpCode.OpCodeID, ( (OpCodeInfoWithInt32) sourceOpCode ).Operand );
             case OpCodeOperandKind.OperandInteger64:
-               return new OpCodeInfoWithInt64( sourceOpCode.OpCode, ( (OpCodeInfoWithInt64) sourceOpCode ).Operand );
+               return new OpCodeInfoWithInt64( sourceOpCode.OpCodeID, ( (OpCodeInfoWithInt64) sourceOpCode ).Operand );
             case OpCodeOperandKind.OperandNone:
                return sourceOpCode;
             case OpCodeOperandKind.OperandR4:
-               return new OpCodeInfoWithSingle( sourceOpCode.OpCode, ( (OpCodeInfoWithSingle) sourceOpCode ).Operand );
+               return new OpCodeInfoWithSingle( sourceOpCode.OpCodeID, ( (OpCodeInfoWithSingle) sourceOpCode ).Operand );
             case OpCodeOperandKind.OperandR8:
-               return new OpCodeInfoWithDouble( sourceOpCode.OpCode, ( (OpCodeInfoWithDouble) sourceOpCode ).Operand );
+               return new OpCodeInfoWithDouble( sourceOpCode.OpCodeID, ( (OpCodeInfoWithDouble) sourceOpCode ).Operand );
             case OpCodeOperandKind.OperandString:
-               return new OpCodeInfoWithString( sourceOpCode.OpCode, ( (OpCodeInfoWithString) sourceOpCode ).Operand );
+               return new OpCodeInfoWithString( sourceOpCode.OpCodeID, ( (OpCodeInfoWithString) sourceOpCode ).Operand );
             case OpCodeOperandKind.OperandIntegerList:
                var ocSwitch = (OpCodeInfoWithIntegers) sourceOpCode;
-               var ocSwitchTarget = new OpCodeInfoWithIntegers( sourceOpCode.OpCode, ocSwitch.Operand.Count );
+               var ocSwitchTarget = new OpCodeInfoWithIntegers( sourceOpCode.OpCodeID, ocSwitch.Operand.Count );
                ocSwitchTarget.Operand.AddRange( ocSwitch.Operand );
                return ocSwitchTarget;
             case OpCodeOperandKind.OperandTableIndex:
-               return new OpCodeInfoWithTableIndex( sourceOpCode.OpCode, thisMappings[( (OpCodeInfoWithTableIndex) sourceOpCode ).Operand] );
+               return new OpCodeInfoWithTableIndex( sourceOpCode.OpCodeID, thisMappings[( (OpCodeInfoWithTableIndex) sourceOpCode ).Operand] );
             default:
                throw new NotSupportedException( "Unknown op code kind: " + sourceOpCode.InfoKind + "." );
          }
@@ -3264,7 +3264,7 @@ namespace CILMerge
                foreach ( var tuple in list )
                {
                   var inputResource = tuple.Item2;
-                  var data = inputResource.DataInCurrentFile;
+                  var data = inputResource.EmbeddedData;
                   Boolean wasResourceManager;
                   foreach ( var resx in MResourcesIO.GetResourceInfo( data, out wasResourceManager ) )
                   {
@@ -3306,7 +3306,7 @@ namespace CILMerge
                }
 
                rw.Generate();
-               retVal.DataInCurrentFile = strm.ToArray();
+               retVal.EmbeddedData = strm.ToArray();
             }
          }
          else

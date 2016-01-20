@@ -816,7 +816,7 @@ public static partial class E_CILStructural
             {
                case ManifestResourceDataKind.Embedded:
                   implementation = null;
-                  resourcePhysical.DataInCurrentFile = ( (ManifestResourceStructureDataEmbedded) data ).Data;
+                  resourcePhysical.EmbeddedData = ( (ManifestResourceStructureDataEmbedded) data ).Data;
                   break;
                case ManifestResourceDataKind.File:
                   implementation = state.FileReferences.GetOrAdd( ( (ManifestResourceStrucureDataFile) data ).FileReference );

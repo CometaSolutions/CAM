@@ -375,6 +375,8 @@ namespace CommonUtils
    /// </remarks>
    public sealed class ArrayEqualityComparer<T> : IEqualityComparer<T[]>, System.Collections.IEqualityComparer
    {
+      // TODO add option to treat null arrays and empty arrays as equal!
+
       private static readonly IEqualityComparer<T[]> INSTANCE = new ArrayEqualityComparer<T>( ComparerFromFunctions.GetDefaultItemComparerForSomeSequence<T>() );
 
       /// <summary>
@@ -457,8 +459,8 @@ namespace CommonUtils
       /// <param name="itemComparer">The optional equality comparer for items of the array. If <c>null</c>, the <see cref="EqualityComparer{T}.Default"/> will be used.</param>
       /// <returns><c>true</c> if <paramref name="x"/> and <paramref name="y"/> are of same length and contain same elements.</returns>
       /// <remarks>
-      /// This is slightly better performing than just building a new <see cref="HashSet{T}"/> with given comparer and using <see cref="ISet{T}.SetEquals"/> method.
-      /// This method will check for reference equality for arrays, and that the arrays are of same length and contain at least one element before building a set.
+      /// This is slightly better performing than always building a new <see cref="HashSet{T}"/> with given comparer and using <see cref="ISet{T}.SetEquals"/> method.
+      /// This method will check for reference equality for arrays, and that the arrays are of same length and contain at least two elements before building a set.
       /// </remarks>
       public static Boolean IsPermutation( T[] x, T[] y, IEqualityComparer<T> itemComparer = null )
       {
@@ -467,8 +469,9 @@ namespace CommonUtils
             && x.Length == y.Length
             && ( x.Length == 0
                || ( x.Length == 1 ?
-                  ( itemComparer ?? EqualityComparer<T>.Default ).Equals( x[0], y[0] ) :
-                  new HashSet<T>( x, itemComparer ).SetEquals( y ) )
+                     ( itemComparer ?? EqualityComparer<T>.Default ).Equals( x[0], y[0] ) :
+                     new HashSet<T>( x, itemComparer ).SetEquals( y )
+                  )
                )
             );
       }
