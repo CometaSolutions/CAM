@@ -1403,7 +1403,7 @@ public static partial class E_CILLogical
                      var gArgs = t.GenericArguments;
                      var classOrValue = new ClassOrValueTypeSignature( gArgs.Count )
                      {
-                        IsClass = !t.IsValueType(),
+                        TypeReferenceKind = t.IsValueType() ? TypeReferenceKind.ValueType : TypeReferenceKind.Class,
                         Type = state.GetTypeDefOrRefOrSpec( t.IsGenericType() ? t.GenericDefinition : t )
                      };
                      foreach ( var gArg in gArgs )
@@ -1418,7 +1418,7 @@ public static partial class E_CILLogical
             return new GenericParameterTypeSignature()
             {
                GenericParameterIndex = tParam.GenericParameterPosition,
-               IsTypeParameter = tParam.DeclaringMethod == null
+               GenericParameterKind = tParam.DeclaringMethod == null ? GenericParameterKind.Type : GenericParameterKind.Method
             };
          default:
             throw new NotSupportedException( "Unknown type kind: " + type.TypeKind + "." );

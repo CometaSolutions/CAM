@@ -380,7 +380,7 @@ namespace CILAssemblyManipulator.Structural
          }
       }
 
-      public Boolean IsClass { get; set; }
+      public TypeReferenceKind TypeReferenceKind { get; set; }
       public AbstractTypeStructure Type { get; set; }
       public List<TypeStructureSignature> GenericArguments
       {
@@ -402,7 +402,7 @@ namespace CILAssemblyManipulator.Structural
          }
       }
 
-      public Boolean IsTypeParameter { get; set; }
+      public GenericParameterKind GenericParameterKind { get; set; }
       public Int32 GenericParameterIndex { get; set; }
    }
 

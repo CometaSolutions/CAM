@@ -2111,7 +2111,7 @@ namespace CILMerge
                   var classRef = (ClassOrValueTypeSignature) typeRef;
                   var gArgsDef = classDef.GenericArguments;
                   var gArgsRef = classRef.GenericArguments;
-                  retVal = classDef.IsClass == classRef.IsClass
+                  retVal = classDef.TypeReferenceKind == classRef.TypeReferenceKind
                      && this.MatchTargetSignatureTypeToMemberRefSignatureType( defModule, refModule, classDef.Type, classRef.Type )
                      && gArgsDef.Count == gArgsRef.Count
                      && gArgsDef

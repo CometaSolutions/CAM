@@ -632,7 +632,7 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
       public AbstractMarshalingInfo ReadMarshalingInfo( Int32 heapIndex, SignatureProvider sigProvider )
       {
          Int32 max;
-         return this.SetUpBLOBWithMax( ref heapIndex, out max ) ? SignatureSerialization.ReadMarshalingInfo( this.Bytes, ref heapIndex, max ) : null;
+         return this.SetUpBLOBWithMax( ref heapIndex, out max ) ? sigProvider.ReadMarshalingInfo( this.Bytes, ref heapIndex, max ) : null;
       }
 
       public AbstractSignature ReadNonTypeSignature( Int32 heapIndex, SignatureProvider sigProvider, bool methodSigIsDefinition, bool handleFieldSigAsLocalsSig, out bool fieldSigTransformedToLocalsSig )
@@ -664,7 +664,7 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
          Int32 max;
          if ( this.SetUpBLOBWithMax( ref heapIndex, out max ) )
          {
-            SignatureSerialization.ReadSecurityInformation( this.Bytes, ref heapIndex, max, securityInfo );
+            sigProvider.ReadSecurityInformation( this.Bytes, ref heapIndex, max, securityInfo );
          }
       }
 

@@ -2373,7 +2373,7 @@ namespace CILAssemblyManipulator.Physical
       {
          return x != null && y != null
             && x.Type == y.Type
-            && x.IsClass == y.IsClass
+            && x.TypeReferenceKind == y.TypeReferenceKind
             && ListEqualityComparer<List<TypeSignature>, TypeSignature>.Equals( x.GenericArguments, y.GenericArguments, TypeSignatureEqualityComparer );
       }
 
@@ -2381,7 +2381,7 @@ namespace CILAssemblyManipulator.Physical
       {
          return x != null && y != null
             && x.GenericParameterIndex == y.GenericParameterIndex
-            && x.IsTypeParameter == y.IsTypeParameter;
+            && x.GenericParameterKind == y.GenericParameterKind;
       }
 
       private static Boolean Equality_FunctionPointerTypeSignature_NoReferenceEquals( FunctionPointerTypeSignature x, FunctionPointerTypeSignature y )

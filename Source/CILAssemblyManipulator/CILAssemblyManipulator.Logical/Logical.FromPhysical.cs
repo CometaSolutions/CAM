@@ -605,7 +605,7 @@ public static partial class E_CILLogical
                   );
             case TypeSignatureKind.GenericParameter:
                var gSig = (GenericParameterTypeSignature) sig;
-               if ( gSig.IsTypeParameter )
+               if ( gSig.GenericParameterKind.IsTypeParameter() )
                {
                   if ( contextType == null )
                   {
@@ -1089,7 +1089,7 @@ public static partial class E_CILLogical
                case TypeSignatureKind.ClassOrValue:
                   var thisClass = (ClassOrValueTypeSignature) thisSignature;
                   var declaringClass = (ClassOrValueTypeSignature) declaringTypeSignature;
-                  retVal = thisClass.IsClass == declaringClass.IsClass
+                  retVal = thisClass.TypeReferenceKind == declaringClass.TypeReferenceKind
                      && this.MatchSignatureTableIndices( thisClass.Type, declaringTypeCreationResult, declaringClass.Type )
                      && ListEqualityComparer<List<TypeSignature>, TypeSignature>.ListEquality( thisClass.GenericArguments, declaringClass.GenericArguments, ( t, d ) => this.MatchTypeSignatures( t, declaringTypeCreationResult, d ) );
                   break;
@@ -1108,7 +1108,7 @@ public static partial class E_CILLogical
                   var thisGParam = (GenericParameterTypeSignature) thisSignature;
                   var declaringGParam = (GenericParameterTypeSignature) declaringTypeSignature;
                   retVal = thisGParam.GenericParameterIndex == declaringGParam.GenericParameterIndex
-                     && thisGParam.IsTypeParameter == declaringGParam.IsTypeParameter;
+                     && thisGParam.GenericParameterKind == declaringGParam.GenericParameterKind;
                   break;
                case TypeSignatureKind.Pointer:
                   var thisPtr = (PointerTypeSignature) thisSignature;

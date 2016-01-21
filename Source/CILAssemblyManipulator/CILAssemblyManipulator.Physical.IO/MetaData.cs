@@ -580,7 +580,7 @@ public static partial class E_CILPhysical
             var clazz = (ClassOrValueTypeSignature) type;
             if ( clazz.GenericArguments.Count <= 0 )
             {
-               if ( clazz.IsClass )
+               if ( clazz.TypeReferenceKind.IsClass() )
                {
                   // Either type or System.Object or System.Type are allowed here
                   if ( md.IsTypeType( clazz.Type ) )

@@ -83,7 +83,7 @@ namespace CILAssemblyManipulator.Tests.Physical
          md.TypeDefinitions.TableContents.Add( new TypeDefinition() { Namespace = "TestNS", Name = "TestType" } );
          var method = new MethodDefinition() { Name = "TestMethod", IL = new MethodILDefinition(), Signature = new MethodDefinitionSignature( 1 ) };
          md.MethodDefinitions.TableContents.Add( method );
-         var typeSpec = new ClassOrValueTypeSignature() { Type = new TableIndex( Tables.TypeDef, 0 ), IsClass = false };
+         var typeSpec = new ClassOrValueTypeSignature() { Type = new TableIndex( Tables.TypeDef, 0 ), TypeReferenceKind = TypeReferenceKind.ValueType };
 
          AddDuplicateRowToMD( md, method, typeSpec );
 
@@ -101,11 +101,11 @@ namespace CILAssemblyManipulator.Tests.Physical
          md.TypeDefinitions.TableContents.Add( new TypeDefinition() { Namespace = "TestNS", Name = "TestType" } );
          var method = new MethodDefinition() { Name = "TestMethod", IL = new MethodILDefinition(), Signature = new MethodDefinitionSignature( 1 ) };
          md.MethodDefinitions.TableContents.Add( method );
-         var typeSpec = new ClassOrValueTypeSignature() { Type = new TableIndex( Tables.TypeDef, 0 ), IsClass = false };
+         var typeSpec = new ClassOrValueTypeSignature() { Type = new TableIndex( Tables.TypeDef, 0 ), TypeReferenceKind = TypeReferenceKind.ValueType };
 
          var method2 = new MethodDefinition() { Name = "TestMethod2", IL = new MethodILDefinition(), Signature = new MethodDefinitionSignature( 1 ) };
          md.MethodDefinitions.TableContents.Add( method2 );
-         var typeSpec2 = new ClassOrValueTypeSignature( 1 ) { Type = new TableIndex( Tables.TypeDef, 0 ), IsClass = true };
+         var typeSpec2 = new ClassOrValueTypeSignature( 1 ) { Type = new TableIndex( Tables.TypeDef, 0 ), TypeReferenceKind = TypeReferenceKind.Class };
 
          AddDuplicateRowToMD( md, method, typeSpec );
          AddDuplicateRowToMD( md, method2, typeSpec2 );

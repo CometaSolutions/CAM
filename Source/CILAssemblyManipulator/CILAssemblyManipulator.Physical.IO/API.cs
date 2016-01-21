@@ -42,7 +42,7 @@ namespace CILAssemblyManipulator.Physical.IO
             rArgs?.ReaderFunctionalityProvider,
             rArgs?.TableInformationProvider,
             rArgs?.ErrorHandler,
-            rArgs.RawValueReading == RawValueReading.ToRow,
+            ( rArgs?.RawValueReading ?? RawValueReading.ToRow ) == RawValueReading.ToRow,
             out imageInfo
             );
 

@@ -1134,7 +1134,7 @@ namespace CILAssemblyManipulator.Structural
                         var thisG = (GenericParameterTypeStructureSignature) thisSig;
                         var otherG = (GenericParameterTypeStructureSignature) otherSig;
                         retVal = thisG.GenericParameterIndex == otherG.GenericParameterIndex
-                           && thisG.IsTypeParameter == otherG.IsTypeParameter;
+                           && thisG.GenericParameterKind == otherG.GenericParameterKind;
                         break;
                      case TypeStructureSignatureKind.Pointer:
                         retVal = Equivalence_Signature_Type_Pointer( (PointerTypeStructureSignature) thisSig, (PointerTypeStructureSignature) otherSig );
@@ -1159,7 +1159,7 @@ namespace CILAssemblyManipulator.Structural
       {
          var thisArgs = thisSig.GenericArguments;
          var otherArgs = otherSig.GenericArguments;
-         var retVal = thisSig.IsClass == otherSig.IsClass
+         var retVal = thisSig.TypeReferenceKind == otherSig.TypeReferenceKind
             && thisArgs.Count == otherArgs.Count
             && Equivalence_TypeDefOrRefOrSpec( thisSig.Type, otherSig.Type );
          if ( retVal && thisArgs.Count > 0 )

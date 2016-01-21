@@ -863,7 +863,7 @@ public static partial class E_CILStructural
             var clazz = (ClassOrValueTypeSignature) sig;
             var clazzClone = new ClassOrValueTypeStructureSignature( clazz.GenericArguments.Count )
             {
-               IsClass = clazz.IsClass,
+               TypeReferenceKind = clazz.TypeReferenceKind,
                Type = state.FromTypeDefOrRefOrSpec( clazz.Type )
             };
             clazzClone.GenericArguments.AddRange( clazz.GenericArguments.Select( gArg => state.CreateTypeStructureSignature( gArg ) ) );
@@ -900,7 +900,7 @@ public static partial class E_CILStructural
             retVal = new GenericParameterTypeStructureSignature()
             {
                GenericParameterIndex = gParam.GenericParameterIndex,
-               IsTypeParameter = gParam.IsTypeParameter,
+               GenericParameterKind = gParam.GenericParameterKind,
             };
             break;
          case TypeSignatureKind.Simple:

@@ -706,35 +706,115 @@ namespace CILAssemblyManipulator.Physical
    /// </remarks>
    public enum SimpleTypeSignatureKind : byte
    {
+      /// <summary>
+      /// This is type signature for <see cref="Void"/>.
+      /// </summary>
       Void = 0x01, // Same as SignatureElementTypes.Void
+
+      /// <summary>
+      /// This is type signature for <see cref="Boolean"/>.
+      /// </summary>
       Boolean,
+
+      /// <summary>
+      /// This is type signature for <see cref="Char"/>.
+      /// </summary>
       Char,
+
+      /// <summary>
+      /// This is type signature for <see cref="SByte"/>.
+      /// </summary>
       I1,
+
+      /// <summary>
+      /// This is type signature for <see cref="Byte"/>.
+      /// </summary>
       U1,
+
+      /// <summary>
+      /// This is type signature for <see cref="Int16"/>.
+      /// </summary>
       I2,
+
+      /// <summary>
+      /// This is type signature for <see cref="UInt16"/>.
+      /// </summary>
       U2,
+
+      /// <summary>
+      /// This is type signature for <see cref="Int32"/>.
+      /// </summary>
       I4,
+
+      /// <summary>
+      /// This is type signature for <see cref="UInt32"/>.
+      /// </summary>
       U4,
+
+      /// <summary>
+      /// This is type signature for <see cref="Int64"/>.
+      /// </summary>
       I8,
+
+      /// <summary>
+      /// This is type signature for <see cref="UInt64"/>.
+      /// </summary>
       U8,
+
+      /// <summary>
+      /// This is type signature for <see cref="Single"/>.
+      /// </summary>
       R4,
+
+      /// <summary>
+      /// This is type signature for <see cref="Double"/>.
+      /// </summary>
       R8,
+
+      /// <summary>
+      /// This is type signature for <see cref="String"/>.
+      /// </summary>
       String,
+
+      /// <summary>
+      /// This is type signature for <see cref="T:System.TypedByReference"/>.
+      /// </summary>
       TypedByRef = 0x16, // Same as SignatureElementTypes.TypedByRef
+
+      /// <summary>
+      /// This is type signature for <see cref="IntPtr"/>.
+      /// </summary>
       I = 0x18, // Same as SignatureElementTypes.I
+
+      /// <summary>
+      /// This is type signature for <see cref="UIntPtr"/>.
+      /// </summary>
       U,
+
+      /// <summary>
+      /// This is type signature for <see cref="Object"/>.
+      /// </summary>
       Object = 0x1C, // Same as SignatureElementTypes.Object
    }
 
+   /// <summary>
+   /// This class represents a signature for a direct reference to type which is not a built-in type.
+   /// </summary>
    public sealed class ClassOrValueTypeSignature : TypeSignature
    {
-      private readonly List<TypeSignature> _genericArguments;
-
+      /// <summary>
+      /// Creates a new instance of <see cref="ClassOrValueTypeSignature"/> with given initial capacity for <see cref="GenericArguments"/> list.
+      /// </summary>
+      /// <param name="genericArgumentsCount">The initial capacity for <see cref="GenericArguments"/> list.</param>
       public ClassOrValueTypeSignature( Int32 genericArgumentsCount = 0 )
       {
-         this._genericArguments = new List<TypeSignature>( genericArgumentsCount );
+         this.GenericArguments = new List<TypeSignature>( Math.Max( 0, genericArgumentsCount ) );
       }
 
+      /// <summary>
+      /// Returns the <see cref="TypeSignatureKind.ClassOrValue"/>.
+      /// </summary>
+      /// <value>The <see cref="TypeSignatureKind.ClassOrValue"/>.</value>
       public override TypeSignatureKind TypeSignatureKind
       {
          get
@@ -743,20 +823,65 @@ namespace CILAssemblyManipulator.Physical
          }
       }
 
-      public Boolean IsClass { get; set; }
+      /// <summary>
+      /// Gets or sets the <see cref="Physical.TypeReferenceKind"/> of this <see cref="ClassOrValueTypeSignature"/>.
+      /// </summary>
+      /// <value>
+      /// The <see cref="Physical.TypeReferenceKind"/> of this <see cref="ClassOrValueTypeSignature"/>.
+      /// </value>
+      /// <seealso cref="Physical.TypeReferenceKind"/>
+      public TypeReferenceKind TypeReferenceKind { get; set; }
+
+      /// <summary>
+      /// Gets or sets the type reference of this <see cref="ClassOrValueTypeSignature"/>.
+      /// </summary>
+      /// <value>The type reference of this <see cref="ClassOrValueTypeSignature"/>.</value>
+      /// <remarks>
+      /// The <see cref="TableIndex.Table"/> property of this <see cref="TableIndex"/> should be one of the following:
+      /// <list type="bullet">
+      /// <item><description><see cref="Tables.TypeDef"/>,</description></item>
+      /// <item><description><see cref="Tables.TypeRef"/>, or</description></item>
+      /// <item><description><see cref="Tables.TypeSpec"/>.</description></item>
+      /// </list>
+      /// </remarks>
       public TableIndex Type { get; set; }
-      public List<TypeSignature> GenericArguments
-      {
-         get
-         {
-            return this._genericArguments;
-         }
-      }
+
+      /// <summary>
+      /// Gets the list of generic arguments for this <see cref="ClassOrValueTypeSignature"/>.
+      /// </summary>
+      /// <value>The list of generic arguments for this <see cref="ClassOrValueTypeSignature"/>.</value>
+      public List<TypeSignature> GenericArguments { get; }
    }
 
+   /// <summary>
+   /// This enumeration tells what kind of type is in question for <see cref="ClassOrValueTypeSignature"/>.
+   /// </summary>
+   /// <remarks>
+   /// The values of this enumeration are safe to be casted to <see cref="T:CILAssemblyManipulator.Physical.IO.SignatureElementTypes"/>.
+   /// </remarks>
+   public enum TypeReferenceKind : byte
+   {
+      /// <summary>
+      /// The type is value type.
+      /// </summary>
+      ValueType = 0x11,
+
+      /// <summary>
+      /// The type is reference type.
+      /// </summary>
+      Class = 0x12,
+   }
+
+   /// <summary>
+   /// This class represents a type signature which is a reference to a type or method generic parameter.
+   /// </summary>
    public sealed class GenericParameterTypeSignature : TypeSignature
    {
 
+      /// <summary>
+      /// Returns the <see cref="TypeSignatureKind.GenericParameter"/>.
+      /// </summary>
+      /// <value>The <see cref="TypeSignatureKind.GenericParameter"/>.</value>
       public override TypeSignatureKind TypeSignatureKind
       {
          get
@@ -765,13 +890,49 @@ namespace CILAssemblyManipulator.Physical
          }
       }
 
-      public Boolean IsTypeParameter { get; set; }
+      /// <summary>
+      /// Gets or sets the <see cref="Physical.GenericParameterKind"/> of this <see cref="GenericParameterTypeSignature"/>.
+      /// </summary>
+      /// <value>The <see cref="Physical.GenericParameterKind"/> of this <see cref="GenericParameterTypeSignature"/>.</value>
+      /// <seealso cref="Physical.GenericParameterKind"/>
+      public GenericParameterKind GenericParameterKind { get; set; }
+
+      /// <summary>
+      /// Gets or sets the zero-based index of the referenced generic parameter.
+      /// </summary>
+      /// <value>The zero-based index of the referenced generic parameter.</value>
       public Int32 GenericParameterIndex { get; set; }
    }
 
+   /// <summary>
+   /// This enumeration tells what kind of generic parameter is in question for <see cref="GenericParameterTypeSignature"/>.
+   /// </summary>
+   /// <remarks>
+   /// The values of this enumeration are safe to be casted to <see cref="T:CILAssemblyManipulator.Physical.IO.SignatureElementTypes"/>.
+   /// </remarks>
+   public enum GenericParameterKind : byte
+   {
+      /// <summary>
+      /// The referenced generic parameter is type generic parameter.
+      /// </summary>
+      Type = 0x13,
+
+      /// <summary>
+      /// The referenced generic parameter is method generic parameter.
+      /// </summary>
+      Method = 0x1E,
+   }
+
+   /// <summary>
+   /// This class represents a type signature which is a pointer to a function with certain signature.
+   /// </summary>
    public sealed class FunctionPointerTypeSignature : TypeSignature
    {
 
+      /// <summary>
+      /// Returns the <see cref="TypeSignatureKind.FunctionPointer"/>.
+      /// </summary>
+      /// <value>The <see cref="TypeSignatureKind.FunctionPointer"/>.</value>
       public override TypeSignatureKind TypeSignatureKind
       {
          get
@@ -780,18 +941,32 @@ namespace CILAssemblyManipulator.Physical
          }
       }
 
+      /// <summary>
+      /// Gets or sets the <see cref="MethodReferenceSignature"/> of this <see cref="FunctionPointerTypeSignature"/>.
+      /// </summary>
+      /// <value>The <see cref="MethodReferenceSignature"/> of this <see cref="FunctionPointerTypeSignature"/>.</value>
       public MethodReferenceSignature MethodSignature { get; set; }
    }
 
+   /// <summary>
+   /// This class represents a type signature which is a pointer to a certain type (not a function).
+   /// </summary>
    public sealed class PointerTypeSignature : TypeSignature
    {
-      private readonly List<CustomModifierSignature> _customMods;
 
+      /// <summary>
+      /// Creates a new instance of <see cref="PointerTypeSignature"/> with given initial capacity for <see cref="CustomModifiers"/> list.
+      /// </summary>
+      /// <param name="customModCount">The initial capacity for <see cref="CustomModifiers"/> list.</param>
       public PointerTypeSignature( Int32 customModCount = 0 )
       {
-         this._customMods = new List<CustomModifierSignature>( customModCount );
+         this.CustomModifiers = new List<CustomModifierSignature>( Math.Max( 0, customModCount ) );
       }
 
+      /// <summary>
+      /// Returns the <see cref="TypeSignatureKind.Pointer"/>.
+      /// </summary>
+      /// <value>The <see cref="TypeSignatureKind.Pointer"/>.</value>
       public override TypeSignatureKind TypeSignatureKind
       {
          get
@@ -800,17 +975,30 @@ namespace CILAssemblyManipulator.Physical
          }
       }
 
-      public List<CustomModifierSignature> CustomModifiers
-      {
-         get
-         {
-            return this._customMods;
-         }
-      }
+      /// <summary>
+      /// Gets the list of all <see cref="CustomModifierSignature"/>s of this <see cref="PointerTypeSignature"/>.
+      /// </summary>
+      /// <value>The list of all <see cref="CustomModifierSignature"/>s of this <see cref="PointerTypeSignature"/>.</value>
+      public List<CustomModifierSignature> CustomModifiers { get; }
 
+      /// <summary>
+      /// Gets or sets the <see cref="TypeSignature"/> of this <see cref="PointerTypeSignature"/>.
+      /// </summary>
+      /// <value>The <see cref="TypeSignature"/> of this <see cref="PointerTypeSignature"/>.</value>
       public TypeSignature PointerType { get; set; }
    }
 
+   /// <summary>
+   /// This class is abstract base class for simple and complex array type signatures.
+   /// </summary>
+   /// <remarks>
+   /// Instances of this class can not be instantiated directly.
+   /// Instead, use one of the following:
+   /// <list type="bullet">
+   /// <item><description><see cref="SimpleArrayTypeSignature"/>, or</description></item>
+   /// <item><description><see cref="ComplexArrayTypeSignature"/>.</description></item>
+   /// </list>
+   /// </remarks>
    public abstract class AbstractArrayTypeSignature : TypeSignature
    {
       // Disable inheritance to other assemblies
@@ -819,20 +1007,33 @@ namespace CILAssemblyManipulator.Physical
 
       }
 
+      /// <summary>
+      /// Gets or sets the <see cref="TypeSignature"/> of this <see cref="AbstractArrayTypeSignature"/>.
+      /// </summary>
+      /// <value>The <see cref="TypeSignature"/> of this <see cref="AbstractArrayTypeSignature"/>.</value>
       public TypeSignature ArrayType { get; set; }
    }
 
+   /// <summary>
+   /// This class represents a multidimensional array type signature with customizable lower bounds and sizes.
+   /// </summary>
    public sealed class ComplexArrayTypeSignature : AbstractArrayTypeSignature
    {
-      private readonly List<Int32> _sizes;
-      private readonly List<Int32> _lowerBounds;
-
+      /// <summary>
+      /// Creates a new instance of <see cref="ComplexArrayTypeSignature"/> with given initial capacities for <see cref="Sizes"/> and <see cref="LowerBounds"/> lists.
+      /// </summary>
+      /// <param name="sizesCount">The initial capacity for <see cref="Sizes"/> list.</param>
+      /// <param name="lowerBoundsCount">The initial capacity for <see cref="LowerBounds"/> list.</param>
       public ComplexArrayTypeSignature( Int32 sizesCount = 0, Int32 lowerBoundsCount = 0 )
       {
-         this._sizes = new List<Int32>( sizesCount );
-         this._lowerBounds = new List<Int32>( lowerBoundsCount );
+         this.Sizes = new List<Int32>( Math.Max( 0, sizesCount ) );
+         this.LowerBounds = new List<Int32>( Math.Max( 0, lowerBoundsCount ) );
       }
 
+      /// <summary>
+      /// Returns the <see cref="TypeSignatureKind.ComplexArray"/>.
+      /// </summary>
+      /// <value>The <see cref="TypeSignatureKind.ComplexArray"/>.</value>
       public override TypeSignatureKind TypeSignatureKind
       {
          get
@@ -841,32 +1042,44 @@ namespace CILAssemblyManipulator.Physical
          }
       }
 
+      /// <summary>
+      /// Gets or sets the rank (number of dimensions) for this <see cref="ComplexArrayTypeSignature"/>.
+      /// </summary>
+      /// <value>The rank (number of dimensions) for this <see cref="ComplexArrayTypeSignature"/>.</value>
       public Int32 Rank { get; set; }
-      public List<Int32> Sizes
-      {
-         get
-         {
-            return this._sizes;
-         }
-      }
-      public List<Int32> LowerBounds
-      {
-         get
-         {
-            return this._lowerBounds;
-         }
-      }
+
+      /// <summary>
+      /// Gets the list of sizes of dimensions for this <see cref="ComplexArrayTypeSignature"/>.
+      /// </summary>
+      /// <value>The list for sizes of dimensions for this <see cref="ComplexArrayTypeSignature"/>.</value>
+      public List<Int32> Sizes { get; }
+
+      /// <summary>
+      /// Gets the list of lower bounds of dimensions for this <see cref="ComplexArrayTypeSignature"/>.
+      /// </summary>
+      /// <value>The list of lower bounds of dimensions for this <see cref="ComplexArrayTypeSignature"/>.</value>
+      public List<Int32> LowerBounds { get; }
    }
 
+   /// <summary>
+   /// This class represents a one-dimensional array type signature with no lower bound nor size constraints.
+   /// </summary>
    public sealed class SimpleArrayTypeSignature : AbstractArrayTypeSignature
    {
-      private readonly List<CustomModifierSignature> _customMods;
 
+      /// <summary>
+      /// Creates a new instance of <see cref="SimpleArrayTypeSignature"/> with given initial capacity for <see cref="CustomModifiers"/> list.
+      /// </summary>
+      /// <param name="customModCount">The initial capacity for <see cref="CustomModifiers"/> list.</param>
       public SimpleArrayTypeSignature( Int32 customModCount = 0 )
       {
-         this._customMods = new List<CustomModifierSignature>( customModCount );
+         this.CustomModifiers = new List<CustomModifierSignature>( customModCount );
       }
 
+      /// <summary>
+      /// Returns the <see cref="TypeSignatureKind.SimpleArray"/>.
+      /// </summary>
+      /// <value>The <see cref="TypeSignatureKind.SimpleArray"/>.</value>
       public override TypeSignatureKind TypeSignatureKind
       {
          get
@@ -875,24 +1088,32 @@ namespace CILAssemblyManipulator.Physical
          }
       }
 
-      public List<CustomModifierSignature> CustomModifiers
-      {
-         get
-         {
-            return this._customMods;
-         }
-      }
+      /// <summary>
+      /// Gets the list of all <see cref="CustomModifierSignature"/>s for this <see cref="SimpleArrayTypeSignature"/>.
+      /// </summary>
+      /// <value>The list of all <see cref="CustomModifierSignature"/>s for this <see cref="SimpleArrayTypeSignature"/>.</value>
+      public List<CustomModifierSignature> CustomModifiers { get; }
    }
 
+   /// <summary>
+   /// This class represents a signature for generic method instantiation.
+   /// </summary>
    public sealed class GenericMethodSignature : AbstractNotRawSignature
    {
-      private readonly List<TypeSignature> _genericArguments;
 
+      /// <summary>
+      /// Creates a new instance of <see cref="GenericMethodSignature"/> with given initial capacity for <see cref="GenericArguments"/> list.
+      /// </summary>
+      /// <param name="genericArgumentsCount">The initial capacity for <see cref="GenericArguments"/> list.</param>
       public GenericMethodSignature( Int32 genericArgumentsCount = 0 )
       {
-         this._genericArguments = new List<TypeSignature>( genericArgumentsCount );
+         this.GenericArguments = new List<TypeSignature>( Math.Max( 0, genericArgumentsCount ) );
       }
 
+      /// <summary>
+      /// Returns the <see cref="SignatureKind.GenericMethodInstantiation"/>.
+      /// </summary>
+      /// <value>The <see cref="SignatureKind.GenericMethodInstantiation"/>.</value>
       public override SignatureKind SignatureKind
       {
          get
@@ -901,13 +1122,12 @@ namespace CILAssemblyManipulator.Physical
          }
       }
 
-      public List<TypeSignature> GenericArguments
-      {
-         get
-         {
-            return this._genericArguments;
-         }
-      }
+      /// <summary>
+      /// Gets the list of all generic arguments of this <see cref="GenericMethodSignature"/>.
+      /// </summary>
+      /// <value>The list of all generic arguments of this <see cref="GenericMethodSignature"/>.</value>
+      /// <seealso cref="TypeSignature"/>
+      public List<TypeSignature> GenericArguments { get; }
    }
 
    /// <summary>
@@ -930,6 +1150,11 @@ namespace CILAssemblyManipulator.Physical
       /// <value>The <see cref="UnmanagedType" /> value the data is to be marshaled as.</value>
       public UnmanagedType Value { get; set; }
 
+      /// <summary>
+      /// Gets the <see cref="Physical.MarshalingInfoKind"/> enumeration descripting the actual type of this <see cref="AbstractMarshalingInfo"/>.
+      /// </summary>
+      /// <value>The <see cref="Physical.MarshalingInfoKind"/> enumeration descripting the actual type of this <see cref="AbstractMarshalingInfo"/>.</value>
+      /// <seealso cref="Physical.MarshalingInfoKind"/>
       public abstract MarshalingInfoKind MarshalingInfoKind { get; }
 
       /// <summary>
@@ -1044,24 +1269,63 @@ namespace CILAssemblyManipulator.Physical
 
 #endif
 
-
-
    }
 
+   /// <summary>
+   /// This enumeration tells what type instance of <see cref="AbstractMarshalingInfo"/> really is.
+   /// </summary>
    public enum MarshalingInfoKind
    {
+      /// <summary>
+      /// The <see cref="AbstractMarshalingInfo"/> is of type <see cref="SimpleMarshalingInfo"/>.
+      /// </summary>
       Simple,
+
+      /// <summary>
+      /// The <see cref="AbstractMarshalingInfo"/> is of type <see cref="FixedLengthStringMarshalingInfo"/>.
+      /// </summary>
       FixedLengthString,
+
+      /// <summary>
+      /// The <see cref="AbstractMarshalingInfo"/> is of type <see cref="FixedLengthArrayMarshalingInfo"/>.
+      /// </summary>
       FixedLengthArray,
+
+      /// <summary>
+      /// The <see cref="AbstractMarshalingInfo"/> is of type <see cref="SafeArrayMarshalingInfo"/>.
+      /// </summary>
       SafeArray,
+
+      /// <summary>
+      /// The <see cref="AbstractMarshalingInfo"/> is of type <see cref="ArrayMarshalingInfo"/>.
+      /// </summary>
       Array,
+
+      /// <summary>
+      /// The <see cref="AbstractMarshalingInfo"/> is of type <see cref="InterfaceMarshalingInfo"/>.
+      /// </summary>
       Interface,
+
+      /// <summary>
+      /// The <see cref="AbstractMarshalingInfo"/> is of type <see cref="CustomMarshalingInfo"/>.
+      /// </summary>
       Custom,
+
+      /// <summary>
+      /// The <see cref="AbstractMarshalingInfo"/> is of type <see cref="RawMarshalingInfo"/>.
+      /// </summary>
       Raw
    }
 
+   /// <summary>
+   /// This class represents marshaling information for simple built-in types, that are handled the same way both managed and unmanaged.
+   /// </summary>
    public sealed class SimpleMarshalingInfo : AbstractMarshalingInfo
    {
+      /// <summary>
+      /// Returns the <see cref="MarshalingInfoKind.Simple"/>.
+      /// </summary>
+      /// <value>The <see cref="MarshalingInfoKind.Simple"/>.</value>
       public override MarshalingInfoKind MarshalingInfoKind
       {
          get
@@ -1772,7 +2036,7 @@ public static partial class E_CILPhysical
             var clazz = (ClassOrValueTypeSignature) sig;
             var clazzClone = new ClassOrValueTypeSignature( clazz.GenericArguments.Count )
             {
-               IsClass = clazz.IsClass,
+               TypeReferenceKind = clazz.TypeReferenceKind,
                Type = tableIndexTranslator == null ? clazz.Type : tableIndexTranslator( clazz.Type )
             };
             clazzClone.GenericArguments.AddRange( clazz.GenericArguments.Select( gArg => CloneTypeSignature( gArg, tableIndexTranslator ) ) );
@@ -2090,5 +2354,15 @@ public static partial class E_CILPhysical
    public static Boolean IsOptional( this CustomModifierSignature customMod )
    {
       return customMod != null && customMod.Optionality == CustomModifierSignatureOptionality.Optional;
+   }
+
+   public static Boolean IsClass( this TypeReferenceKind typeReferenceKind )
+   {
+      return typeReferenceKind == TypeReferenceKind.Class;
+   }
+
+   public static Boolean IsTypeParameter( this GenericParameterKind genericParameterKind )
+   {
+      return genericParameterKind == GenericParameterKind.Type;
    }
 }
