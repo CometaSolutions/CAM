@@ -31,8 +31,40 @@ namespace CILAssemblyManipulator.Physical.IO
 {
    public interface TargetFrameworkMapper
    {
-      Boolean TryReMapReference( CILMetaData thisMD, AssemblyInformationForResolving aRef, String fullType, CILMetaDataLoaderWithCallbacks loader, TargetFrameworkInfo targetFW, out AssemblyReference newRef, out Boolean wasTargetFW );
-      Boolean ProcessTypeString( CILMetaData thisMD, CILMetaDataLoaderWithCallbacks loader, TargetFrameworkInfo targetFW, ref String typeString );
+      Boolean TryReMapReference(
+         CILMetaData thisMD,
+         AssemblyInformationForResolving aRef,
+         String fullType,
+         CILMetaDataLoaderWithCallbacks loader,
+         TargetFrameworkInfoWithRetargetabilityInformation targetFW,
+         out AssemblyReference newRef,
+         out Boolean wasTargetFW
+         );
+
+      Boolean ProcessTypeString(
+         CILMetaData thisMD,
+         CILMetaDataLoaderWithCallbacks loader,
+         TargetFrameworkInfoWithRetargetabilityInformation targetFW,
+         ref String typeString
+         );
+   }
+
+   public sealed class TargetFrameworkInfoWithRetargetabilityInformation
+   {
+      public TargetFrameworkInfoWithRetargetabilityInformation(
+         TargetFrameworkInfo targetFramework,
+         Boolean assemblyReferencesRetargetable
+         )
+      {
+         ArgumentValidator.ValidateNotNull( "Target framework information", targetFramework );
+
+         this.TargetFrameworkInfo = targetFramework;
+         this.AreFrameworkAssemblyReferencesRetargetable = assemblyReferencesRetargetable;
+      }
+
+      public TargetFrameworkInfo TargetFrameworkInfo { get; }
+
+      public Boolean AreFrameworkAssemblyReferencesRetargetable { get; }
    }
 
    public abstract class AbstractTargetFrameworkMapper<
@@ -82,7 +114,15 @@ namespace CILAssemblyManipulator.Physical.IO
          this._assemblyReferenceInnerFactory = assemblyReferenceInnerFactory;
       }
 
-      public Boolean TryReMapReference( CILMetaData thisMD, AssemblyInformationForResolving aRef, String fullType, CILMetaDataLoaderWithCallbacks loader, TargetFrameworkInfo targetFW, out AssemblyReference newRef, out Boolean wasTargetFW )
+      public Boolean TryReMapReference(
+         CILMetaData thisMD,
+         AssemblyInformationForResolving aRef,
+         String fullType,
+         CILMetaDataLoaderWithCallbacks loader,
+         TargetFrameworkInfoWithRetargetabilityInformation targetFW,
+         out AssemblyReference newRef,
+         out Boolean wasTargetFW
+         )
       {
          newRef = null;
 
@@ -91,7 +131,7 @@ namespace CILAssemblyManipulator.Physical.IO
          wasTargetFW = retVal;
          if ( retVal )
          {
-            var actualTargetFWAssembly = this.GetActualMDForType( targetFWAssembly, loader, fullType, targetFW );
+            var actualTargetFWAssembly = this.GetActualMDForType( targetFWAssembly, loader, fullType, targetFW.TargetFrameworkInfo );
 
             if ( actualTargetFWAssembly == null )
             {
@@ -111,7 +151,12 @@ namespace CILAssemblyManipulator.Physical.IO
          return retVal;
       }
 
-      public Boolean ProcessTypeString( CILMetaData thisMD, CILMetaDataLoaderWithCallbacks loader, TargetFrameworkInfo targetFW, ref String typeString )
+      public Boolean ProcessTypeString(
+         CILMetaData thisMD,
+         CILMetaDataLoaderWithCallbacks loader,
+         TargetFrameworkInfoWithRetargetabilityInformation targetFW,
+         ref String typeString
+         )
       {
          String typeName, assemblyName;
          AssemblyInformation assemblyInfo;
@@ -131,7 +176,12 @@ namespace CILAssemblyManipulator.Physical.IO
          return retVal;
       }
 
-      private CILMetaData GetActualMDForType( CILMetaData targetFWAssembly, CILMetaDataLoaderWithCallbacks loader, String fullType, TargetFrameworkInfo newTargetFW )
+      private CILMetaData GetActualMDForType(
+         CILMetaData targetFWAssembly,
+         CILMetaDataLoaderWithCallbacks loader,
+         String fullType,
+         TargetFrameworkInfo newTargetFW
+         )
       {
          return this.GetOrAdd_ResolvedTargetFWAssembliesInner(
             this.GetOrAdd_ResolvedTargetFWAssemblies( this._resolvedTargetFWAssemblies, targetFWAssembly, this._resolvedInnerFactory ),
@@ -142,7 +192,12 @@ namespace CILAssemblyManipulator.Physical.IO
             );
       }
 
-      private CILMetaData ResolveTargetFWReferenceOrNull( CILMetaData thisMD, AssemblyInformationForResolving assemblyRef, CILMetaDataLoaderWithCallbacks loader, TargetFrameworkInfo targetFW )
+      private CILMetaData ResolveTargetFWReferenceOrNull(
+         CILMetaData thisMD,
+         AssemblyInformationForResolving assemblyRef,
+         CILMetaDataLoaderWithCallbacks loader,
+         TargetFrameworkInfoWithRetargetabilityInformation targetFW
+         )
       {
          return this.GetOrAdd_AssemblyReferencesInner(
             this.GetOrAdd_AssemblyReferences( this._assemblyReferenceInfo, thisMD, this._assemblyReferenceInnerFactory ),
@@ -158,10 +213,10 @@ namespace CILAssemblyManipulator.Physical.IO
                if ( validResource == null )
                {
                   // Most likely this metadata didn't have target framework info attribute
-                  retVal = this.GetSuitableMDsForTargetFW( thisMD, loader, targetFW, false )
+                  retVal = this.GetSuitableMDsForTargetFW( thisMD, loader, targetFW.TargetFrameworkInfo, false )
                      .FirstOrDefault( md => md.AssemblyDefinitions.GetOrNull( 0 ).IsMatch( assemblyRef, targetFW.AreFrameworkAssemblyReferencesRetargetable, loader.PublicKeyComputer ) );
                }
-               else if ( validResource.StartsWith( cb.GetTargetFrameworkPathForFrameworkInfo( targetFW ) ) ) // Check whether resolved reference is located in target framework path
+               else if ( validResource.StartsWith( cb.GetTargetFrameworkPathForFrameworkInfo( targetFW.TargetFrameworkInfo ) ) ) // Check whether resolved reference is located in target framework path
                {
                   retVal = loader.GetOrLoadMetaData( validResource );
                }
@@ -179,7 +234,12 @@ namespace CILAssemblyManipulator.Physical.IO
             .Contains( typeName );
       }
 
-      private IEnumerable<CILMetaData> GetSuitableMDsForTargetFW( CILMetaData md, CILMetaDataLoaderWithCallbacks loader, TargetFrameworkInfo targetFW, Boolean returnThis )
+      private IEnumerable<CILMetaData> GetSuitableMDsForTargetFW(
+         CILMetaData md,
+         CILMetaDataLoaderWithCallbacks loader,
+         TargetFrameworkInfo targetFW,
+         Boolean returnThis
+         )
       {
          if ( returnThis )
          {
@@ -300,10 +360,15 @@ namespace CILAssemblyManipulator.Physical.IO
 
 public static partial class E_CILPhysical
 {
-   public static void ChangeTargetFramework( this TargetFrameworkMapper mapper, CILMetaData md, CILMetaDataLoaderWithCallbacks loader, TargetFrameworkInfo newTargetFW )
+   public static void ChangeTargetFramework(
+      this TargetFrameworkMapper mapper,
+      CILMetaData md,
+      CILMetaDataLoaderWithCallbacks loader,
+      TargetFrameworkInfoWithRetargetabilityInformation newTargetFW
+      )
    {
       var cb = loader.LoaderCallbacks;
-      var newTargetFWPath = cb.GetTargetFrameworkPathForFrameworkInfo( newTargetFW );
+      var newTargetFWPath = cb.GetTargetFrameworkPathForFrameworkInfo( newTargetFW.TargetFrameworkInfo );
       var aRefsTable = md.AssemblyReferences;
       var aRefs = aRefsTable.TableContents;
 
@@ -365,7 +430,13 @@ public static partial class E_CILPhysical
       }
    }
 
-   private static void ProcessMarshalInfo( this TargetFrameworkMapper mapper, CILMetaData md, CILMetaDataLoaderWithCallbacks loader, TargetFrameworkInfo newTargetFW, AbstractMarshalingInfo marshal )
+   private static void ProcessMarshalInfo(
+      this TargetFrameworkMapper mapper,
+      CILMetaData md,
+      CILMetaDataLoaderWithCallbacks loader,
+      TargetFrameworkInfoWithRetargetabilityInformation newTargetFW,
+      AbstractMarshalingInfo marshal
+      )
    {
       String typeStr;
       switch ( marshal?.MarshalingInfoKind )
@@ -390,7 +461,13 @@ public static partial class E_CILPhysical
 
    }
 
-   private static void ProcessCASignature( this TargetFrameworkMapper mapper, CILMetaData md, CILMetaDataLoaderWithCallbacks loader, TargetFrameworkInfo newTargetFW, AbstractCustomAttributeSignature sig )
+   private static void ProcessCASignature(
+      this TargetFrameworkMapper mapper,
+      CILMetaData md,
+      CILMetaDataLoaderWithCallbacks loader,
+      TargetFrameworkInfoWithRetargetabilityInformation newTargetFW,
+      AbstractCustomAttributeSignature sig
+      )
    {
       if ( sig != null && sig.CustomAttributeSignatureKind == CustomAttributeSignatureKind.Resolved )
       {
@@ -407,7 +484,13 @@ public static partial class E_CILPhysical
       }
    }
 
-   private static void ProcessCASignatureTyped( this TargetFrameworkMapper mapper, CILMetaData md, CILMetaDataLoaderWithCallbacks loader, TargetFrameworkInfo newTargetFW, CustomAttributeTypedArgument arg )
+   private static void ProcessCASignatureTyped(
+      this TargetFrameworkMapper mapper,
+      CILMetaData md,
+      CILMetaDataLoaderWithCallbacks loader,
+      TargetFrameworkInfoWithRetargetabilityInformation newTargetFW,
+      CustomAttributeTypedArgument arg
+      )
    {
       if ( arg != null )
       {
@@ -419,7 +502,13 @@ public static partial class E_CILPhysical
       }
    }
 
-   private static Boolean ProcessCASignatureTypedValue( this TargetFrameworkMapper mapper, CILMetaData md, CILMetaDataLoaderWithCallbacks loader, TargetFrameworkInfo newTargetFW, ref Object value )
+   private static Boolean ProcessCASignatureTypedValue(
+      this TargetFrameworkMapper mapper,
+      CILMetaData md,
+      CILMetaDataLoaderWithCallbacks loader,
+      TargetFrameworkInfoWithRetargetabilityInformation newTargetFW,
+      ref Object value
+      )
    {
       var retVal = false;
       if ( value != null )
@@ -482,7 +571,13 @@ public static partial class E_CILPhysical
       return retVal;
    }
 
-   private static void ProcessCASignatureNamed( this TargetFrameworkMapper mapper, CILMetaData md, CILMetaDataLoaderWithCallbacks loader, TargetFrameworkInfo newTargetFW, CustomAttributeNamedArgument arg )
+   private static void ProcessCASignatureNamed(
+      this TargetFrameworkMapper mapper,
+      CILMetaData md,
+      CILMetaDataLoaderWithCallbacks loader,
+      TargetFrameworkInfoWithRetargetabilityInformation newTargetFW,
+      CustomAttributeNamedArgument arg
+      )
    {
       if ( arg != null )
       {

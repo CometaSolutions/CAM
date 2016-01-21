@@ -24,7 +24,8 @@ using System.Text;
 namespace CILAssemblyManipulator.Physical
 {
    /// <summary>
-   /// Container for instances of <see cref="OpCode"/>s. In public scope, identical to <see cref="T:System.Reflection.Emit.OpCodes"/> class.
+   /// Container for instances of <see cref="OpCode"/>s.
+   /// Mimics the <see cref="T:System.Reflection.Emit.OpCodes"/> class.
    /// </summary>
    public static class OpCodes
    {

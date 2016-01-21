@@ -197,7 +197,7 @@ namespace CILAssemblyManipulator.Tests.Physical
          var typeSpecIndex = md.TypeSpecifications.GetRowCount();
          var type = new ClassOrValueTypeSignature() { Type = new TableIndex( Tables.TypeSpec, typeSpecIndex ) };
          method.Signature.Parameters.Add( new ParameterSignature() { Type = type } );
-         method.Signature.ReturnType = new ParameterSignature() { Type = SimpleTypeSignature.Void };
+         method.Signature.ReturnType = new ParameterSignature() { Type = md.SignatureProvider.GetSimpleTypeSignature( SimpleTypeSignatureKind.Void ) };
          method.IL.OpCodes.Add( new OpCodeInfoWithTableIndex( OpCodeID.Ldtoken, new TableIndex( Tables.TypeSpec, typeSpecIndex + 1 ) ) );
 
          var typeSpecRow = new TypeSpecification() { Signature = typeSpec };

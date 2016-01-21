@@ -89,7 +89,9 @@ namespace CILAssemblyManipulator.Physical
          this.GenericParameterDefinitions = CreateFixedMDTable<GenericParameterDefinition>( Tables.GenericParameter, sizes, infos, ref defaultTableInfos );
          this.MethodSpecifications = CreateFixedMDTable<MethodSpecification>( Tables.MethodSpec, sizes, infos, ref defaultTableInfos );
          this.GenericParameterConstraintDefinitions = CreateFixedMDTable<GenericParameterConstraintDefinition>( Tables.GenericParameterConstraint, sizes, infos, ref defaultTableInfos );
+
          this.OpCodeProvider = tableInfoProvider?.CreateOpCodeProvider() ?? DefaultOpCodeProvider.Instance;
+         this.SignatureProvider = tableInfoProvider?.CreateSignatureProvider() ?? DefaultSignatureProvider.Instance;
       }
 #pragma warning restore 618
 
@@ -186,6 +188,8 @@ namespace CILAssemblyManipulator.Physical
 #pragma warning restore 618
 
       public OpCodeProvider OpCodeProvider { get; }
+
+      public SignatureProvider SignatureProvider { get; }
 
       protected override Boolean TryGetFixedTable( Int32 index, out MetaDataTable table )
       {

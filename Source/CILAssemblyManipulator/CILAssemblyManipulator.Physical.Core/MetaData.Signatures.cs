@@ -24,18 +24,79 @@ using CILAssemblyManipulator.Physical;
 
 namespace CILAssemblyManipulator.Physical
 {
+   /// <summary>
+   /// This enumeration tells what type instance of <see cref="AbstractSignature"/> really is.
+   /// </summary>
    public enum SignatureKind
    {
+      /// <summary>
+      /// The <see cref="AbstractSignature"/> is of type <see cref="MethodDefinitionSignature"/>.
+      /// </summary>
       MethodDefinition,
+
+      /// <summary>
+      /// The <see cref="AbstractSignature"/> is of type <see cref="MethodReferenceSignature"/>.
+      /// </summary>
       MethodReference,
+
+      /// <summary>
+      /// The <see cref="AbstractSignature"/> is of type <see cref="FieldSignature"/>.
+      /// </summary>
       Field,
+
+      /// <summary>
+      /// The <see cref="AbstractSignature"/> is of type <see cref="PropertySignature"/>.
+      /// </summary>
       Property,
+
+      /// <summary>
+      /// The <see cref="AbstractSignature"/> is of type <see cref="LocalVariablesSignature"/>.
+      /// </summary>
       LocalVariables,
+
+      /// <summary>
+      /// The <see cref="AbstractSignature"/> is of type <see cref="TypeSignature"/>.
+      /// Use the <see cref="TypeSignatureKind"/> enumeration returned by <see cref="TypeSignature.TypeSignatureKind"/> to find out the exact type of the <see cref="TypeSignature"/>.
+      /// </summary>
       Type,
+
+      /// <summary>
+      /// The <see cref="AbstractSignature"/> is of type <see cref="GenericMethodSignature"/>.
+      /// </summary>
       GenericMethodInstantiation,
-      RawSignature
+
+      /// <summary>
+      /// The <see cref="AbstractSignature"/> is of type <see cref="RawSignature"/>.
+      /// </summary>
+      Raw
    }
 
+   /// <summary>
+   /// This is base class for all signatures in CAM.Physical framework.
+   /// </summary>
+   /// <remarks>
+   /// The instances of this class can not be directly instantiated.
+   /// Instead, use one of the following for non-type signatures:
+   /// <list type="bullet">
+   /// <item><description><see cref="MethodDefinitionSignature"/>,</description></item>
+   /// <item><description><see cref="MethodReferenceSignature"/>,</description></item>
+   /// <item><description><see cref="FieldSignature"/>,</description></item>
+   /// <item><description><see cref="PropertySignature"/>,</description></item>
+   /// <item><description><see cref="LocalVariablesSignature"/>,</description></item>
+   /// <item><description><see cref="GenericMethodSignature"/>, or</description></item>
+   /// <item><description><see cref="RawSignature"/>.</description></item>
+   /// </list>
+   /// For type signatures, use one of the following:
+   /// <list type="bullet">
+   /// <item><description><see cref="SimpleTypeSignature"/>,</description></item>
+   /// <item><description><see cref="ClassOrValueTypeSignature"/>,</description></item>
+   /// <item><description><see cref="SimpleArrayTypeSignature"/>,</description></item>
+   /// <item><description><see cref="GenericParameterTypeSignature"/>,</description></item>
+   /// <item><description><see cref="ComplexArrayTypeSignature"/>,</description></item>
+   /// <item><description><see cref="PointerTypeSignature"/>, or</description></item>
+   /// <item><description><see cref="FunctionPointerTypeSignature"/>.</description></item>
+   /// </list>
+   /// </remarks>
    public abstract class AbstractSignature
    {
       // Disable inheritance to other assemblies
@@ -44,61 +105,149 @@ namespace CILAssemblyManipulator.Physical
 
       }
 
+      /// <summary>
+      /// Gets the <see cref="Physical.SignatureKind"/> enumeration descripting the actual type of this <see cref="AbstractSignature"/>.
+      /// </summary>
+      /// <value>The <see cref="Physical.SignatureKind"/> enumeration descripting the actual type of this <see cref="AbstractSignature"/>.</value>
+      /// <seealso cref="Physical.SignatureKind"/>
       public abstract SignatureKind SignatureKind { get; }
    }
 
+   /// <summary>
+   /// This signature contains signature data as byte array.
+   /// </summary>
    public sealed class RawSignature : AbstractSignature
    {
+      /// <summary>
+      /// Creates a new instance of <see cref="RawSignature"/>, with <see cref="Bytes"/> set to <c>null</c>.
+      /// </summary>
       public RawSignature()
       {
 
       }
 
+      /// <summary>
+      /// Gets or sets the byte array acting as signature data for this <see cref="RawSignature"/>.
+      /// </summary>
+      /// <value>The byte array acting as signature data for this <see cref="RawSignature"/>.</value>
       public Byte[] Bytes { get; set; }
+
+      /// <summary>
+      /// Returns the <see cref="SignatureKind.Raw"/>.
+      /// </summary>
+      /// <value>The <see cref="SignatureKind.Raw"/>.</value>
       public override SignatureKind SignatureKind
       {
          get
          {
-            return SignatureKind.RawSignature;
+            return SignatureKind.Raw;
          }
       }
    }
 
+   /// <summary>
+   /// This is base class for all signatures that are not <see cref="RawSignature"/>.
+   /// It exposes extra data alongside actual signature when (de)serializing.
+   /// </summary>
+   /// <remarks>
+   /// Instances of this class can not be instantiated directly.
+   /// Instead, use one of the following for non-type signatures:
+   /// <list type="bullet">
+   /// <item><description><see cref="MethodDefinitionSignature"/>,</description></item>
+   /// <item><description><see cref="MethodReferenceSignature"/>,</description></item>
+   /// <item><description><see cref="FieldSignature"/>,</description></item>
+   /// <item><description><see cref="PropertySignature"/>,</description></item>
+   /// <item><description><see cref="LocalVariablesSignature"/>,</description></item>
+   /// <item><description><see cref="GenericMethodSignature"/>, or</description></item>
+   /// </list>
+   /// For type signatures, use one of the following:
+   /// <list type="bullet">
+   /// <item><description><see cref="SimpleTypeSignature"/>,</description></item>
+   /// <item><description><see cref="ClassOrValueTypeSignature"/>,</description></item>
+   /// <item><description><see cref="SimpleArrayTypeSignature"/>,</description></item>
+   /// <item><description><see cref="GenericParameterTypeSignature"/>,</description></item>
+   /// <item><description><see cref="ComplexArrayTypeSignature"/>,</description></item>
+   /// <item><description><see cref="PointerTypeSignature"/>, or</description></item>
+   /// <item><description><see cref="FunctionPointerTypeSignature"/>.</description></item>
+   /// </list>
+   /// </remarks>
    public abstract class AbstractNotRawSignature : AbstractSignature
    {
+      /// <summary>
+      /// Gets or sets the extra data for this <see cref="AbstractNotRawSignature"/>.
+      /// </summary>
+      /// <value>The extra data for this <see cref="AbstractNotRawSignature"/>.</value>
       public Byte[] ExtraData { get; set; }
 
    }
 
+   /// <summary>
+   /// This is base class for <see cref="MethodDefinitionSignature"/> and <see cref="MethodReferenceSignature"/>.
+   /// </summary>
+   /// <remarks>
+   /// Instances of this class can not be instantiated directly.
+   /// Instead, use one of the following:
+   /// <list type="bullet">
+   /// <item><description><see cref="MethodDefinitionSignature"/>, or</description></item>
+   /// <item><description><see cref="MethodReferenceSignature"/>.</description></item>
+   /// </list>
+   /// </remarks>
    public abstract class AbstractMethodSignature : AbstractNotRawSignature
    {
-      private readonly List<ParameterSignature> _parameters;
-
       // Disable inheritance to other assemblies
       internal AbstractMethodSignature( Int32 parameterCount )
       {
-         this._parameters = new List<ParameterSignature>( parameterCount );
+         this.Parameters = new List<ParameterSignature>( Math.Max( 0, parameterCount ) );
       }
 
+      /// <summary>
+      /// Gets or sets the <see cref="Physical.MethodSignatureInformation"/> of this <see cref="AbstractMethodSignature"/>, containing the calling conventions and other flags.
+      /// </summary>
+      /// <value>The <see cref="Physical.MethodSignatureInformation"/> of this <see cref="AbstractMethodSignature"/>, containing the calling conventions and other flags.</value>
       public MethodSignatureInformation MethodSignatureInformation { get; set; }
+
+      /// <summary>
+      /// Gets or sets the amount of generic arguments the method represented by this <see cref="AbstractMethodSignature"/> has.
+      /// </summary>
+      /// <value>The amount of generic arguments the method represented by this <see cref="AbstractMethodSignature"/> has.</value>
       public Int32 GenericArgumentCount { get; set; }
+
+      /// <summary>
+      /// Gets or sets the return type information for this <see cref="AbstractMethodSignature"/>.
+      /// </summary>
+      /// <value>The return type for this <see cref="AbstractMethodSignature"/>.</value>
+      /// <seealso cref="ParameterSignature"/>
       public ParameterSignature ReturnType { get; set; }
-      public List<ParameterSignature> Parameters
-      {
-         get
-         {
-            return this._parameters;
-         }
-      }
+
+      /// <summary>
+      /// Gets the list of all parameter information for this <see cref="AbstractMethodSignature"/>.
+      /// </summary>
+      /// <value>The list of all parameter information for this <see cref="AbstractMethodSignature"/>.</value>
+      /// <seealso cref="ParameterSignature"/>
+      public List<ParameterSignature> Parameters { get; }
    }
 
+   /// <summary>
+   /// This class is a signature for a <see cref="MethodDefinition"/>, accessible by <see cref="MethodDefinition.Signature"/> property.
+   /// </summary>
+   /// <remarks>
+   /// The difference between this class and <see cref="MethodReferenceSignature"/> is that <see cref="MethodReferenceSignature"/> can contain varargs parameters, capturing its on-site information.
+   /// </remarks>
    public sealed class MethodDefinitionSignature : AbstractMethodSignature
    {
+      /// <summary>
+      /// Creates a new instance of <see cref="MethodDefinitionSignature"/> with given initial capacity for <see cref="AbstractMethodSignature.Parameters"/> list.
+      /// </summary>
+      /// <param name="parameterCount">The initial capacity for <see cref="AbstractMethodSignature.Parameters"/> list.</param>
       public MethodDefinitionSignature( Int32 parameterCount = 0 )
          : base( parameterCount )
       {
       }
 
+      /// <summary>
+      /// Returns the <see cref="SignatureKind.MethodDefinition"/>.
+      /// </summary>
+      /// <value>The <see cref="SignatureKind.MethodDefinition"/>.</value>
       public override SignatureKind SignatureKind
       {
          get
@@ -108,24 +257,33 @@ namespace CILAssemblyManipulator.Physical
       }
    }
 
+   /// <summary>
+   /// This class represents a signature for method references, which may appear in metadata tables or be referenced by IL byte code.
+   /// </summary>
    public sealed class MethodReferenceSignature : AbstractMethodSignature
    {
-      private readonly List<ParameterSignature> _varArgsParameters;
-
+      /// <summary>
+      /// Creates a new instance of <see cref="MethodReferenceSignature"/> with given initial capacities for <see cref="AbstractMethodSignature.Parameters"/> and <see cref="VarArgsParameters"/> lists.
+      /// </summary>
+      /// <param name="parameterCount">The initial capacity for <see cref="AbstractMethodSignature.Parameters"/> list.</param>
+      /// <param name="varArgsParameterCount">The initial capacity for <see cref="VarArgsParameters"/> list.</param>
       public MethodReferenceSignature( Int32 parameterCount = 0, Int32 varArgsParameterCount = 0 )
          : base( parameterCount )
       {
-         this._varArgsParameters = new List<ParameterSignature>( varArgsParameterCount );
+         this.VarArgsParameters = new List<ParameterSignature>( Math.Max( 0, varArgsParameterCount ) );
       }
 
-      public List<ParameterSignature> VarArgsParameters
-      {
-         get
-         {
-            return this._varArgsParameters;
-         }
-      }
+      /// <summary>
+      /// Gets the list of all vararg parameter information for this <see cref="MethodReferenceSignature"/>.
+      /// </summary>
+      /// <value>The list of all vararg parameter information for this <see cref="MethodReferenceSignature"/>.</value>
+      /// <seealso cref="ParameterSignature"/>
+      public List<ParameterSignature> VarArgsParameters { get; }
 
+      /// <summary>
+      /// Returns the <see cref="SignatureKind.MethodReference"/>.
+      /// </summary>
+      /// <value>The <see cref="SignatureKind.MethodReference"/>.</value>
       public override SignatureKind SignatureKind
       {
          get
@@ -136,34 +294,53 @@ namespace CILAssemblyManipulator.Physical
 
    }
 
+   /// <summary>
+   /// This is base class for all signatures, that can have custom modifiers.
+   /// </summary>
+   /// <remarks>
+   /// Instances of this class can not be instantiated directly.
+   /// Instead, use one of the following:
+   /// <list type="bullet">
+   /// <item><description><see cref="FieldSignature"/>,</description></item>
+   /// <item><description><see cref="PropertySignature"/>,</description></item>
+   /// </list>
+   /// </remarks>
+   /// <seealso cref="CustomModifierSignature"/>
    public abstract class AbstractSignatureWithCustomMods : AbstractNotRawSignature
    {
-      private readonly List<CustomModifierSignature> _customMods;
 
       // Disable inheritance to other assemblies
       internal AbstractSignatureWithCustomMods( Int32 customModCount )
       {
-         this._customMods = new List<CustomModifierSignature>( customModCount );
+         this.CustomModifiers = new List<CustomModifierSignature>( Math.Max( 0, customModCount ) );
       }
 
-      public List<CustomModifierSignature> CustomModifiers
-      {
-         get
-         {
-            return this._customMods;
-         }
-      }
+      /// <summary>
+      /// Gets the list of all <see cref="CustomModifierSignature"/>s that this <see cref="AbstractSignatureWithCustomMods"/> contains.
+      /// </summary>
+      /// <value>The list of all <see cref="CustomModifierSignature"/>s that this <see cref="AbstractSignatureWithCustomMods"/> contains.</value>
+      /// <see cref="CustomModifierSignature"/>
+      public List<CustomModifierSignature> CustomModifiers { get; }
    }
 
+   /// <summary>
+   /// This class represents a signature for field definitions and references, which may appear in metadata tables or be referenced by IL byte code.
+   /// </summary>
    public sealed class FieldSignature : AbstractSignatureWithCustomMods
    {
+      /// <summary>
+      /// Creates a new instance of <see cref="FieldSignature"/> with given initial capacity for <see cref="AbstractSignatureWithCustomMods.CustomModifiers"/> list.
+      /// </summary>
+      /// <param name="customModCount">Initial capacity for <see cref="AbstractSignatureWithCustomMods.CustomModifiers"/> list.</param>
       public FieldSignature( Int32 customModCount = 0 )
          : base( customModCount )
       {
       }
 
-      public TypeSignature Type { get; set; }
-
+      /// <summary>
+      /// Returns the <see cref="SignatureKind.Field"/>.
+      /// </summary>
+      /// <value>The <see cref="SignatureKind.Field"/>.</value>
       public override SignatureKind SignatureKind
       {
          get
@@ -171,18 +348,35 @@ namespace CILAssemblyManipulator.Physical
             return SignatureKind.Field;
          }
       }
+
+      /// <summary>
+      /// Gets or sets the type for this <see cref="FieldSignature"/>.
+      /// </summary>
+      /// <value>The type for this <see cref="FieldSignature"/>.</value>
+      /// <seealso cref="TypeSignature"/>
+      public TypeSignature Type { get; set; }
    }
 
+   /// <summary>
+   /// This class represents a signature for a property, accessible by <see cref="PropertyDefinition.Signature"/> property.
+   /// </summary>
    public sealed class PropertySignature : AbstractSignatureWithCustomMods
    {
-      private readonly List<ParameterSignature> _parameters;
-
+      /// <summary>
+      /// Creates a new instance of <see cref="PropertySignature"/>, with given initial capacities for <see cref="AbstractSignatureWithCustomMods.CustomModifiers"/> and <see cref="Parameters"/> lists.
+      /// </summary>
+      /// <param name="customModCount">The initial capacity for <see cref="AbstractSignatureWithCustomMods.CustomModifiers"/> list.</param>
+      /// <param name="parameterCount">The initial capacity for <see cref="Parameters"/> list.</param>
       public PropertySignature( Int32 customModCount = 0, Int32 parameterCount = 0 )
          : base( customModCount )
       {
-         this._parameters = new List<ParameterSignature>( parameterCount );
+         this.Parameters = new List<ParameterSignature>( Math.Max( 0, parameterCount ) );
       }
 
+      /// <summary>
+      /// Returns the <see cref="SignatureKind.Property"/>.
+      /// </summary>
+      /// <value>The <see cref="SignatureKind.Property"/>.</value>
       public override SignatureKind SignatureKind
       {
          get
@@ -191,26 +385,48 @@ namespace CILAssemblyManipulator.Physical
          }
       }
 
+      /// <summary>
+      /// Gets or sets the value indicating whether this property signature is for static or instance property.
+      /// </summary>
+      /// <value>The value indicating whether this property signature is for static or instance property.</value>
+      /// <remarks>
+      /// Set to <c>true</c> for instance properties, and to <c>false</c> for static properties.
+      /// </remarks>
       public Boolean HasThis { get; set; }
+
+      /// <summary>
+      /// Gets or sets the <see cref="TypeSignature"/> for this <see cref="PropertySignature"/>.
+      /// </summary>
+      /// <value>The <see cref="TypeSignature"/> for this <see cref="PropertySignature"/>.</value>
+      /// <seealso cref="TypeSignature"/>
       public TypeSignature PropertyType { get; set; }
-      public List<ParameterSignature> Parameters
-      {
-         get
-         {
-            return this._parameters;
-         }
-      }
+
+      /// <summary>
+      /// Gets the list of all index parameters for this <see cref="PropertySignature"/>.
+      /// </summary>
+      /// <value>The list of all index parameters for this <see cref="PropertySignature"/>.</value>
+      /// <seealso cref="ParameterSignature"/>
+      public List<ParameterSignature> Parameters { get; }
    }
 
+   /// <summary>
+   /// This class represents the signature of local variables of a method, and is accessible through <see cref="StandaloneSignature.Signature"/> property.
+   /// </summary>
    public sealed class LocalVariablesSignature : AbstractNotRawSignature
    {
-      private readonly List<LocalVariableSignature> _locals;
-
+      /// <summary>
+      /// Creates a new instance of <see cref="LocalVariablesSignature"/> with given initial capacity for <see cref="Locals"/> list.
+      /// </summary>
+      /// <param name="localsCount">The initial capacity for <see cref="Locals"/> list.</param>
       public LocalVariablesSignature( Int32 localsCount = 0 )
       {
-         this._locals = new List<LocalVariableSignature>();
+         this.Locals = new List<LocalSignature>( Math.Max( 0, localsCount ) );
       }
 
+      /// <summary>
+      /// Returns the <see cref="SignatureKind.LocalVariables"/>.
+      /// </summary>
+      /// <value>The <see cref="SignatureKind.LocalVariables"/>.</value>
       public override SignatureKind SignatureKind
       {
          get
@@ -219,51 +435,87 @@ namespace CILAssemblyManipulator.Physical
          }
       }
 
-      public List<LocalVariableSignature> Locals
-      {
-         get
-         {
-            return this._locals;
-         }
-      }
+      /// <summary>
+      /// Gets the list of all <see cref="LocalSignature"/>s of this <see cref="LocalVariablesSignature"/>.
+      /// </summary>
+      /// <value>The list of all <see cref="LocalSignature"/>s of this <see cref="LocalVariablesSignature"/>.</value>
+      /// <seealso cref="LocalSignature"/>
+      public List<LocalSignature> Locals { get; }
    }
 
-   public abstract class ParameterOrLocalVariableSignature
+   /// <summary>
+   /// This class is abstract class for parameter or local variable signature.
+   /// </summary>
+   /// <remarks>
+   /// Instances of this class can not be instantiated directly.
+   /// Instead, use one of the following:
+   /// <list type="bullet">
+   /// <item><description><see cref="ParameterSignature"/>, or</description></item>
+   /// <item><description><see cref="LocalSignature"/>.</description></item>
+   /// </list>
+   /// </remarks>
+   public abstract class ParameterOrLocalSignature
    {
-      private readonly List<CustomModifierSignature> _customMods;
 
       // Disable inheritance to other assemblies
-      internal ParameterOrLocalVariableSignature( Int32 customModCount )
+      internal ParameterOrLocalSignature( Int32 customModCount )
       {
-         this._customMods = new List<CustomModifierSignature>( customModCount );
+         this.CustomModifiers = new List<CustomModifierSignature>( Math.Max( 0, customModCount ) );
       }
 
-      public List<CustomModifierSignature> CustomModifiers
-      {
-         get
-         {
-            return this._customMods;
-         }
-      }
+      /// <summary>
+      /// Gets the list of all <see cref="CustomModifierSignature"/>s that this <see cref="ParameterOrLocalSignature"/> contains.
+      /// </summary>
+      /// <value>The list of all <see cref="CustomModifierSignature"/>s that this <see cref="ParameterOrLocalSignature"/> contains.</value>
+      /// <see cref="CustomModifierSignature"/>
+      public List<CustomModifierSignature> CustomModifiers { get; }
 
+      /// <summary>
+      /// Gets or sets the value indicating whether this <see cref="ParameterOrLocalSignature"/> is by-ref type.
+      /// </summary>
+      /// <value>The value indicating whether this <see cref="ParameterOrLocalSignature"/> is by-ref type.</value>
       public Boolean IsByRef { get; set; }
+
+      /// <summary>
+      /// Gets or sets the <see cref="TypeSignature"/> of this <see cref="ParameterOrLocalSignature"/>.
+      /// </summary>
+      /// <value>The <see cref="TypeSignature"/> of this <see cref="ParameterOrLocalSignature"/>.</value>
+      /// <seealso cref="TypeSignature"/>
       public TypeSignature Type { get; set; }
    }
 
-   public sealed class LocalVariableSignature : ParameterOrLocalVariableSignature
+   /// <summary>
+   /// This class represents a signature for a single local in <see cref="LocalVariablesSignature"/>.
+   /// </summary>
+   public sealed class LocalSignature : ParameterOrLocalSignature
    {
-      public LocalVariableSignature( Int32 customModCount = 0 )
+      /// <summary>
+      /// Creates a new instance of <see cref="LocalSignature"/> with given initial capacity for <see cref="ParameterOrLocalSignature.CustomModifiers"/>.
+      /// </summary>
+      /// <param name="customModCount">The initial capacity for <see cref="ParameterOrLocalSignature.CustomModifiers"/>.</param>
+      public LocalSignature( Int32 customModCount = 0 )
          : base( customModCount )
       {
 
       }
 
+      /// <summary>
+      /// Gets or sets the value indicating whether this <see cref="LocalSignature"/> is pinned.
+      /// </summary>
+      /// <value>The value indicating whether this <see cref="LocalSignature"/> is pinned.</value>
       public Boolean IsPinned { get; set; }
 
    }
 
-   public sealed class ParameterSignature : ParameterOrLocalVariableSignature
+   /// <summary>
+   /// This class represents a single parameter in <see cref="AbstractMethodSignature.Parameters"/>, <see cref="MethodReferenceSignature.VarArgsParameters"/>, and <see cref="PropertySignature.Parameters"/>.
+   /// </summary>
+   public sealed class ParameterSignature : ParameterOrLocalSignature
    {
+      /// <summary>
+      /// Creates a new instance of <see cref="ParameterSignature"/> with given initial capacity for <see cref="ParameterOrLocalSignature.CustomModifiers"/>.
+      /// </summary>
+      /// <param name="customModCount">The initial capacity for <see cref="ParameterOrLocalSignature.CustomModifiers"/>.</param>
       public ParameterSignature( Int32 customModCount = 0 )
          : base( customModCount )
       {
@@ -271,12 +523,69 @@ namespace CILAssemblyManipulator.Physical
       }
    }
 
+   /// <summary>
+   /// This class represents a single custom modifier in <see cref="AbstractSignatureWithCustomMods.CustomModifiers"/>, <see cref="ParameterOrLocalSignature.CustomModifiers"/>, <see cref="PointerTypeSignature.CustomModifiers"/>, and <see cref="SimpleArrayTypeSignature.CustomModifiers"/> lists.
+   /// </summary>
    public sealed class CustomModifierSignature
    {
-      public Boolean IsOptional { get; set; }
+      /// <summary>
+      /// Gets or sets the optionality of this <see cref="CustomModifierSignature"/>.
+      /// </summary>
+      /// <value>The optionality of this <see cref="CustomModifierSignature"/>.</value>
+      /// <seealso cref="CustomModifierSignatureOptionality"/>
+      public CustomModifierSignatureOptionality Optionality { get; set; }
+
+      /// <summary>
+      /// Gets or sets the type reference of this <see cref="CustomModifierSignature"/>.
+      /// </summary>
+      /// <value>The type reference of this <see cref="CustomModifierSignature"/>.</value>
+      /// <remarks>
+      /// The <see cref="TableIndex.Table"/> property of this <see cref="TableIndex"/> should be one of the following:
+      /// <list type="bullet">
+      /// <item><description><see cref="Tables.TypeDef"/>,</description></item>
+      /// <item><description><see cref="Tables.TypeRef"/>, or</description></item>
+      /// <item><description><see cref="Tables.TypeSpec"/>.</description></item>
+      /// </list>
+      /// </remarks>
       public TableIndex CustomModifierType { get; set; }
    }
 
+   /// <summary>
+   /// This enumeration contains possible values for <see cref="CustomModifierSignature.Optionality"/>.
+   /// </summary>
+   /// <remarks>
+   /// The values of this enumeration are safe to be casted to <see cref="T:CILAssemblyManipulator.Physical.IO.SignatureElementTypes"/>.
+   /// </remarks>
+   public enum CustomModifierSignatureOptionality : byte
+   {
+      /// <summary>
+      /// The custom modifier is deemed to be required as specified in ECMA-335 standard.
+      /// </summary>
+      Required = 0x1F, // Same as SignatureElementTypes.CModReqd
+
+      /// <summary>
+      /// The custom modifier is deemed to be optional as specified in ECMA-335 standard.
+      /// </summary>
+      Optional = 0x20,
+   }
+
+   /// <summary>
+   /// This is base class for all type signatures in CAM.Physical framework.
+   /// The type signatures are accessible through <see cref="TypeSpecification.Signature"/> property.
+   /// </summary>
+   /// <remarks>
+   /// Instances of this class can not be instantiated directly.
+   /// Instead, use one of the following:
+   /// <list type="bullet">
+   /// <item><description><see cref="SimpleTypeSignature"/>,</description></item>
+   /// <item><description><see cref="ClassOrValueTypeSignature"/>,</description></item>
+   /// <item><description><see cref="SimpleArrayTypeSignature"/>,</description></item>
+   /// <item><description><see cref="GenericParameterTypeSignature"/>,</description></item>
+   /// <item><description><see cref="ComplexArrayTypeSignature"/>,</description></item>
+   /// <item><description><see cref="PointerTypeSignature"/>, or</description></item>
+   /// <item><description><see cref="FunctionPointerTypeSignature"/>.</description></item>
+   /// </list>
+   /// </remarks>
    public abstract class TypeSignature : AbstractNotRawSignature
    {
       // Disable inheritance to other assemblies
@@ -285,6 +594,10 @@ namespace CILAssemblyManipulator.Physical
 
       }
 
+      /// <summary>
+      /// Returns the <see cref="SignatureKind.Type"/>.
+      /// </summary>
+      /// <value>The <see cref="SignatureKind.Type"/>.</value>
       public override SignatureKind SignatureKind
       {
          get
@@ -293,47 +606,82 @@ namespace CILAssemblyManipulator.Physical
          }
       }
 
+      /// <summary>
+      /// Gets the <see cref="Physical.TypeSignatureKind"/> enumeration descripting the actual type of this <see cref="TypeSignature"/>.
+      /// </summary>
+      /// <value>The <see cref="Physical.TypeSignatureKind"/> enumeration descripting the actual type of this <see cref="TypeSignature"/>.</value>
+      /// <seealso cref="Physical.TypeSignatureKind"/>
       public abstract TypeSignatureKind TypeSignatureKind { get; }
 
    }
 
+   /// <summary>
+   /// This enumeration tells what type instance of <see cref="TypeSignature"/> really is.
+   /// </summary>
    public enum TypeSignatureKind : byte
    {
+      /// <summary>
+      /// The <see cref="TypeSignature"/> is of type <see cref="SimpleTypeSignature"/>.
+      /// </summary>
       Simple,
+
+      /// <summary>
+      /// The <see cref="TypeSignature"/> is of type <see cref="ComplexArrayTypeSignature"/>.
+      /// </summary>
       ComplexArray,
+
+      /// <summary>
+      /// The <see cref="TypeSignature"/> is of type <see cref="ClassOrValueTypeSignature"/>.
+      /// </summary>
       ClassOrValue,
+
+      /// <summary>
+      /// The <see cref="TypeSignature"/> is of type <see cref="GenericParameterTypeSignature"/>.
+      /// </summary>
       GenericParameter,
+
+      /// <summary>
+      /// The <see cref="TypeSignature"/> is of type <see cref="FunctionPointerTypeSignature"/>.
+      /// </summary>
       FunctionPointer,
+
+      /// <summary>
+      /// The <see cref="TypeSignature"/> is of type <see cref="PointerTypeSignature"/>.
+      /// </summary>
       Pointer,
+
+      /// <summary>
+      /// The <see cref="TypeSignature"/> is of type <see cref="SimpleArrayTypeSignature"/>.
+      /// </summary>
       SimpleArray,
    }
 
+   /// <summary>
+   /// This class represents type signature for built-in type, such as <see cref="Int32"/>, <see cref="String"/>, or <see cref="Void"/>.
+   /// The built-in types should always appear in signatures instead of their counterparts expressable with <see cref="ClassOrValueTypeSignature"/>.
+   /// </summary>
+   /// <remarks>
+   /// The instances of this class should be obtained through <see cref="Meta.SignatureProvider.GetSimpleTypeSignatureOrNull"/> or <see cref="E_CILPhysical.GetSimpleTypeSignature"/> methods.
+   /// This is to save memory - no need to allocate duplicate <see cref="SimpleTypeSignature"/> objects with identical state (assuming <see cref="Meta.SignatureProvider"/> caches the <see cref="SimpleTypeSignature"/>s).
+   /// </remarks>
    public sealed class SimpleTypeSignature : TypeSignature
    {
-      public static readonly SimpleTypeSignature Boolean = new SimpleTypeSignature( SimpleTypeSignatureKind.Boolean );
-      public static readonly SimpleTypeSignature Char = new SimpleTypeSignature( SimpleTypeSignatureKind.Char );
-      public static readonly SimpleTypeSignature SByte = new SimpleTypeSignature( SimpleTypeSignatureKind.I1 );
-      public static readonly SimpleTypeSignature Byte = new SimpleTypeSignature( SimpleTypeSignatureKind.U1 );
-      public static readonly SimpleTypeSignature Int16 = new SimpleTypeSignature( SimpleTypeSignatureKind.I2 );
-      public static readonly SimpleTypeSignature UInt16 = new SimpleTypeSignature( SimpleTypeSignatureKind.U2 );
-      public static readonly SimpleTypeSignature Int32 = new SimpleTypeSignature( SimpleTypeSignatureKind.I4 );
-      public static readonly SimpleTypeSignature UInt32 = new SimpleTypeSignature( SimpleTypeSignatureKind.U4 );
-      public static readonly SimpleTypeSignature Int64 = new SimpleTypeSignature( SimpleTypeSignatureKind.I8 );
-      public static readonly SimpleTypeSignature UInt64 = new SimpleTypeSignature( SimpleTypeSignatureKind.U8 );
-      public static readonly SimpleTypeSignature Single = new SimpleTypeSignature( SimpleTypeSignatureKind.R4 );
-      public static readonly SimpleTypeSignature Double = new SimpleTypeSignature( SimpleTypeSignatureKind.R8 );
-      public static readonly SimpleTypeSignature IntPtr = new SimpleTypeSignature( SimpleTypeSignatureKind.I );
-      public static readonly SimpleTypeSignature UIntPtr = new SimpleTypeSignature( SimpleTypeSignatureKind.U );
-      public static readonly SimpleTypeSignature Object = new SimpleTypeSignature( SimpleTypeSignatureKind.Object );
-      public static readonly SimpleTypeSignature String = new SimpleTypeSignature( SimpleTypeSignatureKind.String );
-      public static readonly SimpleTypeSignature Void = new SimpleTypeSignature( SimpleTypeSignatureKind.Void );
-      public static readonly SimpleTypeSignature TypedByRef = new SimpleTypeSignature( SimpleTypeSignatureKind.TypedByRef );
-
-      private SimpleTypeSignature( SimpleTypeSignatureKind type )
+      /// <summary>
+      /// Creates a new instance of <see cref="SimpleTypeSignature"/> with specified <see cref="SimpleTypeSignatureKind"/>.
+      /// </summary>
+      /// <param name="type">The <see cref="SimpleTypeSignatureKind"/>.</param>
+      /// <remarks>
+      /// The only place where this constructor should be used is by types implementing <see cref="Meta.SignatureProvider"/>.
+      /// </remarks>
+      public SimpleTypeSignature( SimpleTypeSignatureKind type )
       {
          this.SimpleType = type;
       }
 
+      /// <summary>
+      /// Returns the <see cref="TypeSignatureKind.Simple"/>.
+      /// </summary>
+      /// <value>The <see cref="TypeSignatureKind.Simple"/>.</value>
       public override TypeSignatureKind TypeSignatureKind
       {
          get
@@ -342,85 +690,12 @@ namespace CILAssemblyManipulator.Physical
          }
       }
 
+      /// <summary>
+      /// Gets the simple type value of this <see cref="SimpleTypeSignature"/>.
+      /// </summary>
+      /// <value>The simple type value of this <see cref="SimpleTypeSignature"/>.</value>
+      /// <seealso cref="SimpleTypeSignatureKind"/>
       public SimpleTypeSignatureKind SimpleType { get; }
-
-
-
-      public static SimpleTypeSignature GetByKind( SimpleTypeSignatureKind kind )
-      {
-         SimpleTypeSignature retVal;
-         if ( !TryGetByKind( kind, out retVal ) )
-         {
-            throw new ArgumentException( "Unrecognized simple type signature kind: " + kind + "." );
-         }
-         return retVal;
-      }
-
-      public static Boolean TryGetByKind( SimpleTypeSignatureKind kind, out SimpleTypeSignature simpleType )
-      {
-         switch ( kind )
-         {
-            case SimpleTypeSignatureKind.Boolean:
-               simpleType = Boolean;
-               break;
-            case SimpleTypeSignatureKind.Char:
-               simpleType = Char;
-               break;
-            case SimpleTypeSignatureKind.I1:
-               simpleType = SByte;
-               break;
-            case SimpleTypeSignatureKind.U1:
-               simpleType = Byte;
-               break;
-            case SimpleTypeSignatureKind.I2:
-               simpleType = Int16;
-               break;
-            case SimpleTypeSignatureKind.U2:
-               simpleType = UInt16;
-               break;
-            case SimpleTypeSignatureKind.I4:
-               simpleType = Int32;
-               break;
-            case SimpleTypeSignatureKind.U4:
-               simpleType = UInt32;
-               break;
-            case SimpleTypeSignatureKind.I8:
-               simpleType = Int64;
-               break;
-            case SimpleTypeSignatureKind.U8:
-               simpleType = UInt64;
-               break;
-            case SimpleTypeSignatureKind.R4:
-               simpleType = Single;
-               break;
-            case SimpleTypeSignatureKind.R8:
-               simpleType = Double;
-               break;
-            case SimpleTypeSignatureKind.I:
-               simpleType = IntPtr;
-               break;
-            case SimpleTypeSignatureKind.U:
-               simpleType = UIntPtr;
-               break;
-            case SimpleTypeSignatureKind.Object:
-               simpleType = Object;
-               break;
-            case SimpleTypeSignatureKind.String:
-               simpleType = String;
-               break;
-            case SimpleTypeSignatureKind.Void:
-               simpleType = Void;
-               break;
-            case SimpleTypeSignatureKind.TypedByRef:
-               simpleType = TypedByRef;
-               break;
-            default:
-               simpleType = null;
-               break;
-         }
-
-         return simpleType != null;
-      }
    }
 
    /// <summary>
@@ -1472,7 +1747,7 @@ public static partial class E_CILPhysical
             return CloneMethodRefSignature( sig as MethodReferenceSignature, tableIndexTranslator ) as TSignature;
          case SignatureKind.Type:
             return CloneTypeSignature( sig as TypeSignature, tableIndexTranslator ) as TSignature;
-         case SignatureKind.RawSignature:
+         case SignatureKind.Raw:
             return CloneRawSignature( sig as RawSignature, tableIndexTranslator ) as TSignature;
          case SignatureKind.Property:
             return ClonePropertySignature( sig as PropertySignature, tableIndexTranslator ) as TSignature;
@@ -1605,9 +1880,9 @@ public static partial class E_CILPhysical
       return retVal;
    }
 
-   private static LocalVariableSignature CloneLocalSignature( LocalVariableSignature local, Func<TableIndex, TableIndex> tableIndexTranslator )
+   private static LocalSignature CloneLocalSignature( LocalSignature local, Func<TableIndex, TableIndex> tableIndexTranslator )
    {
-      var retVal = new LocalVariableSignature( local.CustomModifiers.Count )
+      var retVal = new LocalSignature( local.CustomModifiers.Count )
       {
          IsByRef = local.IsByRef,
          IsPinned = local.IsPinned,
@@ -1635,7 +1910,7 @@ public static partial class E_CILPhysical
       {
          yield return new CustomModifierSignature()
          {
-            IsOptional = cm.IsOptional,
+            Optionality = cm.Optionality,
             CustomModifierType = tableIndexTranslator == null ? cm.CustomModifierType : tableIndexTranslator( cm.CustomModifierType )
          };
       }
@@ -1805,5 +2080,15 @@ public static partial class E_CILPhysical
       }
 
       return retVal;
+   }
+
+   public static Boolean IsRequired( this CustomModifierSignature customMod )
+   {
+      return customMod != null && customMod.Optionality == CustomModifierSignatureOptionality.Required;
+   }
+
+   public static Boolean IsOptional( this CustomModifierSignature customMod )
+   {
+      return customMod != null && customMod.Optionality == CustomModifierSignatureOptionality.Optional;
    }
 }

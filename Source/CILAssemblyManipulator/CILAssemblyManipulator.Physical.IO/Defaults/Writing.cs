@@ -2145,8 +2145,8 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
             options.HeaderMinorVersion ?? 0,
             CreateTableStreamFlags( mdStreams ),
             options.Reserved2 ?? 1,
-            this.GetPresentTablesBitVector(),
-            this.GetSortedTablesBitVector(),
+            (UInt64) ( options.PresentTablesBitVector ?? this.GetPresentTablesBitVector() ),
+            (UInt64) ( options.SortedTablesBitVector ?? this.GetSortedTablesBitVector() ),
             this.TableSizes.Select( s => (UInt32) s ).ToArrayProxy().CQ,
             options.HeaderExtraData
             );
@@ -2288,7 +2288,7 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
          return retVal;
       }
 
-      private UInt64 GetPresentTablesBitVector()
+      private Int64 GetPresentTablesBitVector()
       {
          var validBitvector = 0UL;
          var tableSizes = this.TableSizes;
@@ -2301,10 +2301,10 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
             }
          }
 
-         return validBitvector;
+         return (Int64) validBitvector;
       }
 
-      private UInt64 GetSortedTablesBitVector()
+      private Int64 GetSortedTablesBitVector()
       {
          var sortedBitvector = 0UL;
          var tableSerializations = this.TableSerializations;
@@ -2317,7 +2317,7 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
             }
          }
 
-         return sortedBitvector;
+         return (Int64) sortedBitvector;
       }
    }
 }

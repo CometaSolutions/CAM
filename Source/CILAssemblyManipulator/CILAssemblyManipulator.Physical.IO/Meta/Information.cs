@@ -172,9 +172,13 @@ namespace CILAssemblyManipulator.Physical.Meta
       //}
 
       private readonly MetaDataTableInformation[] _infos;
+      private readonly OpCodeProvider _opCodeProvider;
+      private readonly SignatureProvider _sigProvider;
 
       public DefaultMetaDataTableInformationProvider(
-         IEnumerable<MetaDataTableInformation> tableInfos = null
+         IEnumerable<MetaDataTableInformation> tableInfos = null,
+         OpCodeProvider opCodeProvider = null,
+         SignatureProvider sigProvider = null
          )
       {
          this._infos = new MetaDataTableInformation[CAMCoreInternals.AMOUNT_OF_TABLES];
@@ -183,6 +187,8 @@ namespace CILAssemblyManipulator.Physical.Meta
             var tKind = (Int32) tableInfo.TableIndex;
             this._infos[tKind] = tableInfo;
          }
+         this._opCodeProvider = opCodeProvider ?? DefaultOpCodeProvider.Instance;
+         this._sigProvider = sigProvider ?? DefaultSignatureProvider.Instance;
       }
 
       public IEnumerable<MetaDataTableInformation> GetAllSupportedTableInformations()
@@ -193,9 +199,14 @@ namespace CILAssemblyManipulator.Physical.Meta
          }
       }
 
-      public virtual OpCodeProvider CreateOpCodeProvider()
+      public OpCodeProvider CreateOpCodeProvider()
       {
-         return DefaultOpCodeProvider.Instance;
+         return this._opCodeProvider;
+      }
+
+      public SignatureProvider CreateSignatureProvider()
+      {
+         return this._sigProvider;
       }
 
       public static DefaultMetaDataTableInformationProvider CreateDefault()
@@ -758,27 +769,27 @@ namespace CILAssemblyManipulator.Physical.Meta
          yield return MetaDataColumnInformationFactory.Constant8<ConstantDefinition, RawConstantDefinition, ConstantValueType>( ( r, v ) => { r.Type = v; return true; }, row => row.Type, ( r, v ) => r.Type = (ConstantValueType) v, i => (ConstantValueType) i, v => (Int32) v );
          yield return MetaDataColumnInformationFactory.Number8<ConstantDefinition, RawConstantDefinition>( ( r, v ) => { return true; }, row => 0, ( r, v ) => r.Padding = (Byte) v );
          yield return MetaDataColumnInformationFactory.CodedTableIndex<ConstantDefinition, RawConstantDefinition>( HasConstant, ( r, v ) => { r.Parent = v; return true; }, row => row.Parent, ( r, v ) => r.Parent = v );
-         yield return MetaDataColumnInformationFactory.BLOBCustom<ConstantDefinition, RawConstantDefinition, Object>( ( r, v ) => { r.Value = v; return true; }, r => r.Value, ( r, v ) => r.Value = v, ( args, v, blobs ) => args.Row.Value = blobs.ReadConstantValue( v, args.Row.Type ), args => args.RowArgs.Array.CreateConstantBytes( args.Row.Value, args.Row.Type ) );
+         yield return MetaDataColumnInformationFactory.BLOBCustom<ConstantDefinition, RawConstantDefinition, Object>( ( r, v ) => { r.Value = v; return true; }, r => r.Value, ( r, v ) => r.Value = v, ( args, v, blobs ) => args.Row.Value = blobs.ReadConstantValue( v, args.RowArgs.SignatureProvider, args.Row.Type ), args => args.RowArgs.Array.CreateConstantBytes( args.Row.Value, args.Row.Type ) );
       }
 
       protected static IEnumerable<MetaDataColumnInformation<CustomAttributeDefinition>> GetCustomAttributeColumns()
       {
          yield return MetaDataColumnInformationFactory.CodedTableIndex<CustomAttributeDefinition, RawCustomAttributeDefinition>( HasCustomAttribute, ( r, v ) => { r.Parent = v; return true; }, row => row.Parent, ( r, v ) => r.Parent = v );
          yield return MetaDataColumnInformationFactory.CodedTableIndex<CustomAttributeDefinition, RawCustomAttributeDefinition>( CustomAttributeType, ( r, v ) => { r.Type = v; return true; }, row => row.Type, ( r, v ) => r.Type = v );
-         yield return MetaDataColumnInformationFactory.BLOBCustom<CustomAttributeDefinition, RawCustomAttributeDefinition, AbstractCustomAttributeSignature>( ( r, v ) => { r.Signature = v; return true; }, r => r.Signature, ( r, v ) => r.Signature = v, ( args, v, blobs ) => args.Row.Signature = blobs.ReadCASignature( v ), args => args.RowArgs.Array.CreateCustomAttributeSignature( args.RowArgs.MetaData, args.RowIndex ) );
+         yield return MetaDataColumnInformationFactory.BLOBCustom<CustomAttributeDefinition, RawCustomAttributeDefinition, AbstractCustomAttributeSignature>( ( r, v ) => { r.Signature = v; return true; }, r => r.Signature, ( r, v ) => r.Signature = v, ( args, v, blobs ) => args.Row.Signature = blobs.ReadCASignature( v, args.RowArgs.SignatureProvider ), args => args.RowArgs.Array.CreateCustomAttributeSignature( args.RowArgs.MetaData, args.RowIndex ) );
       }
 
       protected static IEnumerable<MetaDataColumnInformation<FieldMarshal>> GetFieldMarshalColumns()
       {
          yield return MetaDataColumnInformationFactory.CodedTableIndex<FieldMarshal, RawFieldMarshal>( HasFieldMarshal, ( r, v ) => { r.Parent = v; return true; }, row => row.Parent, ( r, v ) => r.Parent = v );
-         yield return MetaDataColumnInformationFactory.BLOBCustom<FieldMarshal, RawFieldMarshal, AbstractMarshalingInfo>( ( r, v ) => { r.NativeType = v; return true; }, row => row.NativeType, ( r, v ) => r.NativeType = v, ( args, v, blobs ) => args.Row.NativeType = blobs.ReadMarshalingInfo( v ), args => args.RowArgs.Array.CreateMarshalSpec( args.Row.NativeType ) );
+         yield return MetaDataColumnInformationFactory.BLOBCustom<FieldMarshal, RawFieldMarshal, AbstractMarshalingInfo>( ( r, v ) => { r.NativeType = v; return true; }, row => row.NativeType, ( r, v ) => r.NativeType = v, ( args, v, blobs ) => args.Row.NativeType = blobs.ReadMarshalingInfo( v, args.RowArgs.SignatureProvider ), args => args.RowArgs.Array.CreateMarshalSpec( args.Row.NativeType ) );
       }
 
       protected static IEnumerable<MetaDataColumnInformation<SecurityDefinition>> GetDeclSecurityColumns()
       {
          yield return MetaDataColumnInformationFactory.Constant16<SecurityDefinition, RawSecurityDefinition, SecurityAction>( ( r, v ) => { r.Action = v; return true; }, row => row.Action, ( r, v ) => r.Action = (SecurityAction) v, i => (SecurityAction) i, v => (Int32) v );
          yield return MetaDataColumnInformationFactory.CodedTableIndex<SecurityDefinition, RawSecurityDefinition>( HasSecurity, ( r, v ) => { r.Parent = v; return true; }, row => row.Parent, ( r, v ) => r.Parent = v );
-         yield return MetaDataColumnInformationFactory.BLOBCustom<SecurityDefinition, RawSecurityDefinition, List<AbstractSecurityInformation>>( ( r, v ) => { r.PermissionSets.Clear(); r.PermissionSets.AddRange( v ); return true; }, row => row.PermissionSets, ( r, v ) => r.PermissionSets = v, ( args, v, blobs ) => blobs.ReadSecurityInformation( v, args.Row.PermissionSets ), args => args.RowArgs.Array.CreateSecuritySignature( args.Row.PermissionSets, args.RowArgs.AuxArray ) );
+         yield return MetaDataColumnInformationFactory.BLOBCustom<SecurityDefinition, RawSecurityDefinition, List<AbstractSecurityInformation>>( ( r, v ) => { r.PermissionSets.Clear(); r.PermissionSets.AddRange( v ); return true; }, row => row.PermissionSets, ( r, v ) => r.PermissionSets = v, ( args, v, blobs ) => blobs.ReadSecurityInformation( v, args.RowArgs.SignatureProvider, args.Row.PermissionSets ), args => args.RowArgs.Array.CreateSecuritySignature( args.Row.PermissionSets, args.RowArgs.AuxArray ) );
       }
 
       protected static IEnumerable<MetaDataColumnInformation<ClassLayout>> GetClassLayoutColumns()
@@ -803,7 +814,7 @@ namespace CILAssemblyManipulator.Physical.Meta
         }, r => r.Signature, ( r, v ) => r.Signature = v, ( args, v, blobs ) =>
         {
            Boolean wasFieldSig;
-           args.Row.Signature = blobs.ReadNonTypeSignature( v, false, true, out wasFieldSig );
+           args.Row.Signature = blobs.ReadNonTypeSignature( v, args.RowArgs.SignatureProvider, false, true, out wasFieldSig );
            args.Row.StoreSignatureAsFieldSignature = wasFieldSig;
         }, args => args.RowArgs.Array.CreateStandaloneSignature( args.Row ) );
       }
@@ -1287,7 +1298,7 @@ namespace CILAssemblyManipulator.Physical.Meta
             setter,
             getter,
             rawSetter,
-            ( args, value, blobs ) => setter( args.Row, blobs.ReadTypeSignature( value ) ),
+            ( args, value, blobs ) => setter( args.Row, blobs.ReadTypeSignature( value, args.RowArgs.SignatureProvider ) ),
             args => args.RowArgs.Array.CreateAnySignature( getter( args.Row ) )
             );
       }
@@ -1309,7 +1320,7 @@ namespace CILAssemblyManipulator.Physical.Meta
             ( args, value, blobs ) =>
             {
                Boolean wasFieldSig;
-               setter( args.Row, blobs.ReadNonTypeSignature( value, isMethodDef, false, out wasFieldSig ) as TSignature );
+               setter( args.Row, blobs.ReadNonTypeSignature( value, args.RowArgs.SignatureProvider, isMethodDef, false, out wasFieldSig ) as TSignature );
             },
             args => args.RowArgs.Array.CreateAnySignature( getter( args.Row ) )
             );

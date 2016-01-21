@@ -18,6 +18,7 @@
 extern alias CAMPhysical;
 using CAMPhysical;
 using CAMPhysical::CILAssemblyManipulator.Physical;
+using CAMPhysical::CILAssemblyManipulator.Physical.Meta;
 
 using CILAssemblyManipulator.Physical.IO;
 using CollectionsWithRoles.API;
@@ -321,7 +322,7 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
             var rowCount = this.TableSizes[i];
             if ( rowCount > 0 )
             {
-               var args = new RowReadingArguments( array, this.TableStartOffsets[i], mdStreamContainer, rawValueStorage );
+               var args = new RowReadingArguments( array, this.TableStartOffsets[i], mdStreamContainer, rawValueStorage, md.SignatureProvider );
 
                var table = md.GetByTable( i );
                this.TableSerializationSupport[i].ReadRows( table, this.TableSizes[i], args );
@@ -592,7 +593,7 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
          return this.SetUpBLOBWithLength( ref heapIndex, out len ) ? this.Bytes.CreateArrayCopy( heapIndex, len ) : null;
       }
 
-      public AbstractCustomAttributeSignature ReadCASignature( Int32 heapIndex )
+      public AbstractCustomAttributeSignature ReadCASignature( Int32 heapIndex, SignatureProvider sigProvider )
       {
          AbstractCustomAttributeSignature caSig;
          Int32 blobSize;
@@ -618,7 +619,7 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
          return caSig;
       }
 
-      public Object ReadConstantValue( Int32 heapIndex, ConstantValueType constType )
+      public Object ReadConstantValue( Int32 heapIndex, SignatureProvider sigProvider, ConstantValueType constType )
       {
          return heapIndex == 0 || heapIndex >= this.StreamSize ?
             null :
@@ -628,19 +629,26 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
                );
       }
 
-      public AbstractMarshalingInfo ReadMarshalingInfo( Int32 heapIndex )
+      public AbstractMarshalingInfo ReadMarshalingInfo( Int32 heapIndex, SignatureProvider sigProvider )
       {
          Int32 max;
          return this.SetUpBLOBWithMax( ref heapIndex, out max ) ? SignatureSerialization.ReadMarshalingInfo( this.Bytes, ref heapIndex, max ) : null;
       }
 
-      public AbstractSignature ReadNonTypeSignature( Int32 heapIndex, bool methodSigIsDefinition, bool handleFieldSigAsLocalsSig, out bool fieldSigTransformedToLocalsSig )
+      public AbstractSignature ReadNonTypeSignature( Int32 heapIndex, SignatureProvider sigProvider, bool methodSigIsDefinition, bool handleFieldSigAsLocalsSig, out bool fieldSigTransformedToLocalsSig )
       {
          Int32 max;
          AbstractSignature retVal;
          if ( this.SetUpBLOBWithMax( ref heapIndex, out max ) )
          {
-            retVal = SignatureSerialization.ReadNonTypeSignature( this.Bytes, ref heapIndex, max, methodSigIsDefinition, handleFieldSigAsLocalsSig, out fieldSigTransformedToLocalsSig );
+            retVal = sigProvider.ReadNonTypeSignature(
+               this.Bytes,
+               ref heapIndex,
+               max,
+               methodSigIsDefinition,
+               handleFieldSigAsLocalsSig,
+               out fieldSigTransformedToLocalsSig
+               );
          }
          else
          {
@@ -651,7 +659,7 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
          return retVal;
       }
 
-      public void ReadSecurityInformation( Int32 heapIndex, List<AbstractSecurityInformation> securityInfo )
+      public void ReadSecurityInformation( Int32 heapIndex, SignatureProvider sigProvider, List<AbstractSecurityInformation> securityInfo )
       {
          Int32 max;
          if ( this.SetUpBLOBWithMax( ref heapIndex, out max ) )
@@ -660,10 +668,10 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
          }
       }
 
-      public TypeSignature ReadTypeSignature( Int32 heapIndex )
+      public TypeSignature ReadTypeSignature( Int32 heapIndex, SignatureProvider sigProvider )
       {
          Int32 max;
-         return this.SetUpBLOBWithMax( ref heapIndex, out max ) ? SignatureSerialization.ReadTypeSignature( this.Bytes, ref heapIndex, max ) : null;
+         return this.SetUpBLOBWithMax( ref heapIndex, out max ) ? sigProvider.ReadTypeSignature( this.Bytes, ref heapIndex, max ) : null;
       }
 
       protected Boolean SetUpBLOBWithMax( ref Int32 heapIndex, out Int32 max )

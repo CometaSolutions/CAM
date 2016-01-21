@@ -96,6 +96,7 @@
   <ItemGroup>
     <Compile Include="Meta\Information.cs" />
     <Compile Include="Meta\OpCodeProvider.cs" />
+    <Compile Include="Meta\SignatureProvider.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
     <Compile Include="AssemblyInfo.cs" />
     <Compile Include="DotNET\Verification.cs" />

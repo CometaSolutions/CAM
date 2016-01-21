@@ -18,6 +18,7 @@
 extern alias CAMPhysical;
 using CAMPhysical;
 using CAMPhysical::CILAssemblyManipulator.Physical;
+using CAMPhysical::CILAssemblyManipulator.Physical.Meta;
 
 using CILAssemblyManipulator.Physical;
 using CILAssemblyManipulator.Physical.IO.Defaults;
@@ -539,17 +540,20 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
          Byte[] array,
          Int32 index,
          ReaderMetaDataStreamContainer mdStreamContainer,
-         RawValueStorage<Int32> rawValueStorage
+         RawValueStorage<Int32> rawValueStorage,
+         SignatureProvider sigProvider
          )
       {
          ArgumentValidator.ValidateNotNull( "Array", array );
          ArgumentValidator.ValidateNotNull( "Meta data stream container", mdStreamContainer );
          ArgumentValidator.ValidateNotNull( "Raw value storage", rawValueStorage );
+         ArgumentValidator.ValidateNotNull( "Signature provider", sigProvider );
 
          this.Array = array;
          this.Index = index;
          this.MDStreamContainer = mdStreamContainer;
          this.RawValueStorage = rawValueStorage;
+         this.SignatureProvider = sigProvider;
       }
 
       public Byte[] Array { get; }
@@ -559,6 +563,8 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
       public ReaderMetaDataStreamContainer MDStreamContainer { get; }
 
       public RawValueStorage<Int32> RawValueStorage { get; }
+
+      public SignatureProvider SignatureProvider { get; }
    }
 
    public class RawValueProcessingArgs

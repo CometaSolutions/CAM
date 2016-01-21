@@ -168,11 +168,11 @@ namespace CILAssemblyManipulator.Physical
       }
 
       /// <summary>
-      /// Returns the <see cref="OpCodeOperandKind"/> of this <see cref="OpCodeInfo"/>, which can be used to deduce the actual type of this <see cref="OpCodeInfo"/>.
+      /// Returns the <see cref="OpCodeInfoKind"/> of this <see cref="OpCodeInfo"/>, which can be used to deduce the actual type of this <see cref="OpCodeInfo"/>.
       /// </summary>
-      /// <value>The <see cref="OpCodeOperandKind"/> of this <see cref="OpCodeInfo"/>, which can be used to deduce the actual type of this <see cref="OpCodeInfo"/>.</value>
-      /// <seealso cref="OpCodeOperandKind"/>
-      public abstract OpCodeOperandKind InfoKind { get; }
+      /// <value>The <see cref="OpCodeInfoKind"/> of this <see cref="OpCodeInfo"/>, which can be used to deduce the actual type of this <see cref="OpCodeInfo"/>.</value>
+      /// <seealso cref="OpCodeInfoKind"/>
+      public abstract OpCodeInfoKind InfoKind { get; }
 
       /// <summary>
       /// Gets the additional size of operand of this <see cref="OpCodeInfo"/>, in bytes.
@@ -255,14 +255,14 @@ namespace CILAssemblyManipulator.Physical
       }
 
       /// <summary>
-      /// Returns the <see cref="OpCodeOperandKind.OperandTableIndex"/>.
+      /// Returns the <see cref="OpCodeInfoKind.OperandTableIndex"/>.
       /// </summary>
-      /// <value>The <see cref="OpCodeOperandKind.OperandTableIndex"/>.</value>
-      public override OpCodeOperandKind InfoKind
+      /// <value>The <see cref="OpCodeInfoKind.OperandTableIndex"/>.</value>
+      public override OpCodeInfoKind InfoKind
       {
          get
          {
-            return OpCodeOperandKind.OperandTableIndex;
+            return OpCodeInfoKind.OperandTableIndex;
          }
       }
    }
@@ -285,14 +285,14 @@ namespace CILAssemblyManipulator.Physical
       }
 
       /// <summary>
-      /// Returns the <see cref="OpCodeOperandKind.OperandInteger"/>.
+      /// Returns the <see cref="OpCodeInfoKind.OperandInteger"/>.
       /// </summary>
-      /// <value>The <see cref="OpCodeOperandKind.OperandInteger"/>.</value>
-      public override OpCodeOperandKind InfoKind
+      /// <value>The <see cref="OpCodeInfoKind.OperandInteger"/>.</value>
+      public override OpCodeInfoKind InfoKind
       {
          get
          {
-            return OpCodeOperandKind.OperandInteger;
+            return OpCodeInfoKind.OperandInteger;
          }
       }
    }
@@ -314,14 +314,14 @@ namespace CILAssemblyManipulator.Physical
       }
 
       /// <summary>
-      /// Returns the <see cref="OpCodeOperandKind.OperandInteger64"/>.
+      /// Returns the <see cref="OpCodeInfoKind.OperandInteger64"/>.
       /// </summary>
-      /// <value>The <see cref="OpCodeOperandKind.OperandInteger64"/>.</value>
-      public override OpCodeOperandKind InfoKind
+      /// <value>The <see cref="OpCodeInfoKind.OperandInteger64"/>.</value>
+      public override OpCodeInfoKind InfoKind
       {
          get
          {
-            return OpCodeOperandKind.OperandInteger64;
+            return OpCodeInfoKind.OperandInteger64;
          }
       }
    }
@@ -330,11 +330,18 @@ namespace CILAssemblyManipulator.Physical
    /// This class represents any op code which takes no operand.
    /// </summary>
    /// <remarks>
-   /// The instances of this class should be obtained through <see cref="Meta.OpCodeProvider.GetOperandlessInfoOrNull"/> or <see cref="E_CILPhysical.GetOperandlessInfoFor"/> methods.
-   /// This is to save memory - no need to allocate duplicate <see cref="OpCodeInfoWithNoOperand"/> objects with identical state (assuming <see cref="Meta.OpCodeProvider"/> caches the <see cref="OpCodeInfoWithNoOperand"/>s).
+   /// The instances of this class should be obtained through <see cref="OpCodeProvider.GetOperandlessInfoOrNull"/> or <see cref="E_CILPhysical.GetOperandlessInfoFor"/> methods.
+   /// This is to save memory - no need to allocate duplicate <see cref="OpCodeInfoWithNoOperand"/> objects with identical state (assuming <see cref="OpCodeProvider"/> caches the <see cref="OpCodeInfoWithNoOperand"/>s).
    /// </remarks>
    public sealed class OpCodeInfoWithNoOperand : OpCodeInfo
    {
+      /// <summary>
+      /// Creates a new instance of <see cref="OpCodeInfoWithNoOperand"/> with specified <see cref="OpCodeID"/>.
+      /// </summary>
+      /// <param name="code">The <see cref="OpCodeID"/>.</param>
+      /// <remarks>
+      /// The only place where this constructor should be used is by types implementing <see cref="OpCodeProvider"/>.
+      /// </remarks>
       public OpCodeInfoWithNoOperand( OpCodeID code )
          : base( code )
       {
@@ -342,14 +349,14 @@ namespace CILAssemblyManipulator.Physical
       }
 
       /// <summary>
-      /// Returns the <see cref="OpCodeOperandKind.OperandNone"/>.
+      /// Returns the <see cref="OpCodeInfoKind.OperandNone"/>.
       /// </summary>
-      /// <value>The <see cref="OpCodeOperandKind.OperandNone"/>.</value>
-      public override OpCodeOperandKind InfoKind
+      /// <value>The <see cref="OpCodeInfoKind.OperandNone"/>.</value>
+      public override OpCodeInfoKind InfoKind
       {
          get
          {
-            return OpCodeOperandKind.OperandNone;
+            return OpCodeInfoKind.OperandNone;
          }
       }
 
@@ -432,14 +439,14 @@ namespace CILAssemblyManipulator.Physical
       }
 
       /// <summary>
-      /// Returns the <see cref="OpCodeOperandKind.OperandR8"/>.
+      /// Returns the <see cref="OpCodeInfoKind.OperandR8"/>.
       /// </summary>
-      /// <value>The <see cref="OpCodeOperandKind.OperandR8"/>.</value>
-      public override OpCodeOperandKind InfoKind
+      /// <value>The <see cref="OpCodeInfoKind.OperandR8"/>.</value>
+      public override OpCodeInfoKind InfoKind
       {
          get
          {
-            return OpCodeOperandKind.OperandR8;
+            return OpCodeInfoKind.OperandR8;
          }
       }
    }
@@ -461,14 +468,14 @@ namespace CILAssemblyManipulator.Physical
       }
 
       /// <summary>
-      /// Returns the <see cref="OpCodeOperandKind.OperandString"/>.
+      /// Returns the <see cref="OpCodeInfoKind.OperandString"/>.
       /// </summary>
-      /// <value>The <see cref="OpCodeOperandKind.OperandString"/>.</value>
-      public override OpCodeOperandKind InfoKind
+      /// <value>The <see cref="OpCodeInfoKind.OperandString"/>.</value>
+      public override OpCodeInfoKind InfoKind
       {
          get
          {
-            return OpCodeOperandKind.OperandString;
+            return OpCodeInfoKind.OperandString;
          }
       }
    }
@@ -491,14 +498,14 @@ namespace CILAssemblyManipulator.Physical
       }
 
       /// <summary>
-      /// Returns the <see cref="OpCodeOperandKind.OperandIntegerList"/>.
+      /// Returns the <see cref="OpCodeInfoKind.OperandIntegerList"/>.
       /// </summary>
-      /// <value>The <see cref="OpCodeOperandKind.OperandIntegerList"/>.</value>
-      public override OpCodeOperandKind InfoKind
+      /// <value>The <see cref="OpCodeInfoKind.OperandIntegerList"/>.</value>
+      public override OpCodeInfoKind InfoKind
       {
          get
          {
-            return OpCodeOperandKind.OperandIntegerList;
+            return OpCodeInfoKind.OperandIntegerList;
          }
       }
 
@@ -535,14 +542,14 @@ namespace CILAssemblyManipulator.Physical
       }
 
       /// <summary>
-      /// Returns the <see cref="OpCodeOperandKind.OperandR4"/>.
+      /// Returns the <see cref="OpCodeInfoKind.OperandR4"/>.
       /// </summary>
-      /// <value>The <see cref="OpCodeOperandKind.OperandR4"/>.</value>
-      public override OpCodeOperandKind InfoKind
+      /// <value>The <see cref="OpCodeInfoKind.OperandR4"/>.</value>
+      public override OpCodeInfoKind InfoKind
       {
          get
          {
-            return OpCodeOperandKind.OperandR4;
+            return OpCodeInfoKind.OperandR4;
          }
       }
    }
@@ -550,7 +557,7 @@ namespace CILAssemblyManipulator.Physical
    /// <summary>
    /// This enumeration contains information on what kind of of operand the <see cref="OpCodeInfo"/> has, and thus also what type it really is.
    /// </summary>
-   public enum OpCodeOperandKind
+   public enum OpCodeInfoKind
    {
       /// <summary>
       /// The <see cref="OpCodeInfo"/> does not have operand, and is of type <see cref="OpCodeInfoWithNoOperand"/>.

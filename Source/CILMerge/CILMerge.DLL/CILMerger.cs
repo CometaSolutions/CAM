@@ -790,14 +790,15 @@ namespace CILMerge
 
          if ( !this._options.SkipFixingAssemblyReferences )
          {
-            var targetFW = new Lazy<TargetFrameworkInfo>( () =>
+            var targetFW = new Lazy<TargetFrameworkInfoWithRetargetabilityInformation>( () =>
             {
                var fw = this._targetModule.GetTargetFrameworkInformationOrNull( this._moduleLoader.CreateNewResolver() );
                if ( fw == null )
                {
                   throw this.NewCILMergeException( ExitCode.NoTargetFrameworkSpecified, "TODO: allow specifying target framework info (id, version, profile) through options." );
                }
-               return fw;
+               // TODO better way of detecting whether target refs are portable
+               return new TargetFrameworkInfoWithRetargetabilityInformation( fw, String.Equals( fw.Identifier, ".NETPortable" ) );
             }, LazyThreadSafetyMode.None );
 
             foreach ( var inputModule in this._inputModules )
@@ -813,7 +814,7 @@ namespace CILMerge
                      if ( aRef.Attributes.IsRetargetable() )
                      {
                         var aInfo = aRef.AssemblyInformation;
-                        var correspondingNewAssembly = this._moduleLoader.GetOrLoadMetaData( Path.Combine( this._loaderCallbacks.GetTargetFrameworkPathForFrameworkInfo( targetFW.Value ), aInfo.Name + ".dll" ) );
+                        var correspondingNewAssembly = this._moduleLoader.GetOrLoadMetaData( Path.Combine( this._loaderCallbacks.GetTargetFrameworkPathForFrameworkInfo( targetFW.Value.TargetFrameworkInfo ), aInfo.Name + ".dll" ) );
                         var targetARef = this._targetModule.AssemblyReferences.TableContents[targetAssemblyRefIndex.Index];
                         if ( !targetFW.Value.AreFrameworkAssemblyReferencesRetargetable )
                         {
@@ -2094,7 +2095,7 @@ namespace CILMerge
       {
          return cmDef.Count == cmRef.Count
             && cmDef
-               .Where( ( c, idx ) => c.IsOptional == cmRef[idx].IsOptional && this.MatchTargetSignatureTypeToMemberRefSignatureType( defModule, refModule, c.CustomModifierType, cmRef[idx].CustomModifierType ) )
+               .Where( ( c, idx ) => c.Optionality == cmRef[idx].Optionality && this.MatchTargetSignatureTypeToMemberRefSignatureType( defModule, refModule, c.CustomModifierType, cmRef[idx].CustomModifierType ) )
                .Count() == cmDef.Count;
       }
 
@@ -2419,24 +2420,24 @@ namespace CILMerge
       {
          switch ( sourceOpCode.InfoKind )
          {
-            case OpCodeOperandKind.OperandInteger:
+            case OpCodeInfoKind.OperandInteger:
                return new OpCodeInfoWithInt32( sourceOpCode.OpCodeID, ( (OpCodeInfoWithInt32) sourceOpCode ).Operand );
-            case OpCodeOperandKind.OperandInteger64:
+            case OpCodeInfoKind.OperandInteger64:
                return new OpCodeInfoWithInt64( sourceOpCode.OpCodeID, ( (OpCodeInfoWithInt64) sourceOpCode ).Operand );
-            case OpCodeOperandKind.OperandNone:
+            case OpCodeInfoKind.OperandNone:
                return sourceOpCode;
-            case OpCodeOperandKind.OperandR4:
+            case OpCodeInfoKind.OperandR4:
                return new OpCodeInfoWithSingle( sourceOpCode.OpCodeID, ( (OpCodeInfoWithSingle) sourceOpCode ).Operand );
-            case OpCodeOperandKind.OperandR8:
+            case OpCodeInfoKind.OperandR8:
                return new OpCodeInfoWithDouble( sourceOpCode.OpCodeID, ( (OpCodeInfoWithDouble) sourceOpCode ).Operand );
-            case OpCodeOperandKind.OperandString:
+            case OpCodeInfoKind.OperandString:
                return new OpCodeInfoWithString( sourceOpCode.OpCodeID, ( (OpCodeInfoWithString) sourceOpCode ).Operand );
-            case OpCodeOperandKind.OperandIntegerList:
+            case OpCodeInfoKind.OperandIntegerList:
                var ocSwitch = (OpCodeInfoWithIntegers) sourceOpCode;
                var ocSwitchTarget = new OpCodeInfoWithIntegers( sourceOpCode.OpCodeID, ocSwitch.Operand.Count );
                ocSwitchTarget.Operand.AddRange( ocSwitch.Operand );
                return ocSwitchTarget;
-            case OpCodeOperandKind.OperandTableIndex:
+            case OpCodeInfoKind.OperandTableIndex:
                return new OpCodeInfoWithTableIndex( sourceOpCode.OpCodeID, thisMappings[( (OpCodeInfoWithTableIndex) sourceOpCode ).Operand] );
             default:
                throw new NotSupportedException( "Unknown op code kind: " + sourceOpCode.InfoKind + "." );

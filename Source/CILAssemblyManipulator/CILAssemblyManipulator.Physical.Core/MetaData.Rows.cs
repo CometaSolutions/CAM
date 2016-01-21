@@ -1922,6 +1922,11 @@ namespace CILAssemblyManipulator.Physical
          return !( x < y );
       }
 
+      /// <summary>
+      /// Creates a new <see cref="TableIndex"/> from token encoded with index value being one-based (i.e. first element is <c>1</c>, not <c>0</c>).
+      /// </summary>
+      /// <param name="token">The encoded token.</param>
+      /// <returns>A new <see cref="TableIndex"/> with decoded table and index values, or <c>null</c> if <paramref name="token"/> is <c>0</c>.</returns>
       public static TableIndex? FromOneBasedTokenNullable( Int32 token )
       {
          return token == 0 ?
@@ -1929,11 +1934,25 @@ namespace CILAssemblyManipulator.Physical
             FromOneBasedToken( token );
       }
 
+      /// <summary>
+      /// Creates a new <see cref="TableIndex"/> from token encoded with index value being one-based (i.e. first element is <c>1</c>, not <c>0</c>).
+      /// </summary>
+      /// <param name="token">The encoded token.</param>
+      /// <returns>A new <see cref="TableIndex"/> with decoded table and index values.</returns>
+      /// <remarks>
+      /// If <paramref name="token"/> is <c>0</c>, then the index of resulting <see cref="TableIndex"/> will be something else.
+      /// To support zero values, please use <see cref="FromOneBasedTokenNullable"/> method.
+      /// </remarks>
       public static TableIndex FromOneBasedToken( Int32 token )
       {
          return new TableIndex( ( ( token & CAMCoreInternals.INDEX_MASK ) - 1 ) | ( token & ~CAMCoreInternals.INDEX_MASK ) );
       }
 
+      /// <summary>
+      /// Creates a new <see cref="TableIndex"/> from token encoded with index value being zero-based (i.e. first element is <c>0</c>).
+      /// </summary>
+      /// <param name="token">The encoded token.</param>
+      /// <returns>A new <see cref="TableIndex"/> with decoded table and index values.</returns>
       public static TableIndex FromZeroBasedToken( Int32 token )
       {
          return new TableIndex( token );
@@ -1945,130 +1964,321 @@ namespace CILAssemblyManipulator.Physical
    /// </summary>
    public enum Tables : byte
    {
+      /// <summary>
+      /// The ID for <see cref="CILMetaData.AssemblyDefinitions"/> table (<c>0x20</c>).
+      /// </summary>
       Assembly = 0x20,
+
+      /// <summary>
+      /// The ID for <see cref="CILMetaData.AssemblyDefinitionOSs"/> table (<c>0x22</c>).
+      /// </summary>
       AssemblyOS = 0x22,
+
+      /// <summary>
+      /// The ID for <see cref="CILMetaData.AssemblyDefinitionProcessors"/> table (<c>0x21</c>).
+      /// </summary>
       AssemblyProcessor = 0x21,
+
+      /// <summary>
+      /// The ID for <see cref="CILMetaData.AssemblyReferences"/> table (<c>0x23</c>).
+      /// </summary>
       AssemblyRef = 0x23,
+
+      /// <summary>
+      /// The ID for <see cref="CILMetaData.AssemblyReferenceOSs"/> table (<c>0x25</c>).
+      /// </summary>
       AssemblyRefOS = 0x25,
+
+      /// <summary>
+      /// The ID for <see cref="CILMetaData.AssemblyReferenceProcessors"/> table (<c>0x24</c>).
+      /// </summary>
       AssemblyRefProcessor = 0x24,
+
+      /// <summary>
+      /// The ID for <see cref="CILMetaData.ClassLayouts"/> table (<c>0x0F</c>).
+      /// </summary>
       ClassLayout = 0x0F,
+
+      /// <summary>
+      /// The ID for <see cref="CILMetaData.ConstantDefinitions"/> table (<c>0x0B</c>).
+      /// </summary>
       Constant = 0x0B,
+
+      /// <summary>
+      /// The ID for <see cref="CILMetaData.CustomAttributeDefinitions"/> table (<c>0x0C</c>).
+      /// </summary>
       CustomAttribute = 0x0C,
+
+      /// <summary>
+      /// The ID for <see cref="CILMetaData.SecurityDefinitions"/> table (<c>0x0E</c>).
+      /// </summary>
       DeclSecurity = 0x0E,
+
+      /// <summary>
+      /// The ID for <see cref="CILMetaData.EditAndContinueLog"/> table (<c>0x1E</c>).
+      /// </summary>
       EncLog = 0x1E,
+
+      /// <summary>
+      /// The ID for <see cref="CILMetaData.EditAndContinueMap"/> table (<c>0x1F</c>).
+      /// </summary>
       EncMap = 0x1F,
+
+      /// <summary>
+      /// The ID for <see cref="CILMetaData.EventMaps"/> table (<c>0x12</c>).
+      /// </summary>
       EventMap = 0x12,
+
+      /// <summary>
+      /// The ID for <see cref="CILMetaData.EventDefinitions"/> table (<c>0x14</c>).
+      /// </summary>
       Event = 0x14,
+
+      /// <summary>
+      /// The ID for <see cref="CILMetaData.EventDefinitionPointers"/> table (<c>0x13</c>).
+      /// </summary>
       EventPtr = 0x13,
+
+      /// <summary>
+      /// The ID for <see cref="CILMetaData.ExportedTypes"/> table (<c>0x27</c>).
+      /// </summary>
       ExportedType = 0x27,
+
+      /// <summary>
+      /// The ID for <see cref="CILMetaData.FieldDefinitions"/> table (<c>0x04</c>).
+      /// </summary>
       Field = 0x04,
+
+      /// <summary>
+      /// The ID for <see cref="CILMetaData.FieldLayouts"/> table (<c>0x10</c>).
+      /// </summary>
       FieldLayout = 0x10,
+
+      /// <summary>
+      /// The ID for <see cref="CILMetaData.FieldMarshals"/> table (<c>0x0D</c>).
+      /// </summary>
       FieldMarshal = 0x0D,
+
+      /// <summary>
+      /// The ID for <see cref="CILMetaData.FieldDefinitionPointers"/> table (<c>0x03</c>).
+      /// </summary>
       FieldPtr = 0x03,
+
+      /// <summary>
+      /// The ID for <see cref="CILMetaData.FieldRVAs"/> table (<c>0x1D</c>).
+      /// </summary>
       FieldRVA = 0x1D,
+
+      /// <summary>
+      /// The ID for <see cref="CILMetaData.FileReferences"/> table (<c>0x26</c>).
+      /// </summary>
       File = 0x26,
+
+      /// <summary>
+      /// The ID for <see cref="CILMetaData.GenericParameterDefinitions"/> table (<c>0x2A</c>).
+      /// </summary>
       GenericParameter = 0x2A,
+
+      /// <summary>
+      /// The ID for <see cref="CILMetaData.GenericParameterConstraintDefinitions"/> table (<c>0x2C</c>).
+      /// </summary>
       GenericParameterConstraint = 0x2C,
+
+      /// <summary>
+      /// The ID for <see cref="CILMetaData.MethodImplementationMaps"/> table (<c>0x1C</c>).
+      /// </summary>
       ImplMap = 0x1C,
+
+      /// <summary>
+      /// The ID for <see cref="CILMetaData.InterfaceImplementations"/> table (<c>0x09</c>).
+      /// </summary>
       InterfaceImpl = 0x09,
+
+      /// <summary>
+      /// The ID for <see cref="CILMetaData.ManifestResources"/> table (<c>0x28</c>).
+      /// </summary>
       ManifestResource = 0x28,
+
+      /// <summary>
+      /// The ID for <see cref="CILMetaData.MemberReferences"/> table (<c>0x0A</c>).
+      /// </summary>
       MemberRef = 0x0A,
+
+      /// <summary>
+      /// The ID for <see cref="CILMetaData.MethodDefinitions"/> table (<c>0x06</c>).
+      /// </summary>
       MethodDef = 0x06,
+
+      /// <summary>
+      /// The ID for <see cref="CILMetaData.MethodImplementations"/> table (<c>0x19</c>).
+      /// </summary>
       MethodImpl = 0x19,
+
+      /// <summary>
+      /// The ID for <see cref="CILMetaData.MethodDefinitionPointers"/> table (<c>0x05</c>).
+      /// </summary>
       MethodPtr = 0x05,
+
+      /// <summary>
+      /// The ID for <see cref="CILMetaData.MethodSemantics"/> table (<c>0x18</c>).
+      /// </summary>
       MethodSemantics = 0x18,
+
+      /// <summary>
+      /// The ID for <see cref="CILMetaData.MethodSpecifications"/> table (<c>0x2B</c>).
+      /// </summary>
       MethodSpec = 0x2B,
+
+      /// <summary>
+      /// The ID for <see cref="CILMetaData.ModuleDefinitions"/> table (<c>0x00</c>).
+      /// </summary>
       Module = 0x00,
+
+      /// <summary>
+      /// The ID for <see cref="CILMetaData.ModuleReferences"/> table (<c>0x1A</c>).
+      /// </summary>
       ModuleRef = 0x1A,
+
+      /// <summary>
+      /// The ID for <see cref="CILMetaData.NestedClassDefinitions"/> table (<c>0x29</c>).
+      /// </summary>
       NestedClass = 0x29,
+
+      /// <summary>
+      /// The ID for <see cref="CILMetaData.ParameterDefinitions"/> table (<c>0x08</c>).
+      /// </summary>
       Parameter = 0x08,
+
+      /// <summary>
+      /// The ID for <see cref="CILMetaData.ParameterDefinitionPointers"/> table (<c>0x07</c>).
+      /// </summary>
       ParameterPtr = 0x07,
+
+      /// <summary>
+      /// The ID for <see cref="CILMetaData.PropertyDefinitions"/> table (<c>0x17</c>).
+      /// </summary>
       Property = 0x17,
+
+      /// <summary>
+      /// The ID for <see cref="CILMetaData.PropertyDefinitionPointers"/> table (<c>0x16</c>).
+      /// </summary>
       PropertyPtr = 0x16,
+
+      /// <summary>
+      /// The ID for <see cref="CILMetaData.PropertyMaps"/> table (<c>0x15</c>).
+      /// </summary>
       PropertyMap = 0x15,
+
+      /// <summary>
+      /// The ID for <see cref="CILMetaData.StandaloneSignatures"/> table (<c>0x11</c>).
+      /// </summary>
       StandaloneSignature = 0x11,
+
+      /// <summary>
+      /// The ID for <see cref="CILMetaData.TypeDefinitions"/> table (<c>0x02</c>).
+      /// </summary>
       TypeDef = 0x02,
+
+      /// <summary>
+      /// The ID for <see cref="CILMetaData.TypeReferences"/> table (<c>0x01</c>).
+      /// </summary>
       TypeRef = 0x01,
+
+      /// <summary>
+      /// The ID for <see cref="CILMetaData.TypeSpecifications"/> table (<c>0x1B</c>).
+      /// </summary>
       TypeSpec = 0x1B
    }
 
-   // System.Runtime.Versioning.FrameworkName is amazingly missing from all PCL framework assemblies.
+   /// <summary>
+   /// This class contains information about a single target framework (e.g. .NET 4.0, or .NETPortable 4.5 ProfileXY).
+   /// </summary>
+   /// <remarks>
+   /// This class exists mostly because the type <see cref="T:System.Runtime.Versioning.FrameworkName"/> is missing from PCL framework assemblies.
+   /// Furthermore, this class does not perform any kind of validation for values of <see cref="Identifier"/>, <see cref="Version"/>, and <see cref="Profile"/>.
+   /// </remarks>
    public sealed class TargetFrameworkInfo : IEquatable<TargetFrameworkInfo>
    {
-      private readonly String _fwName;
-      private readonly String _fwVersion;
-      private readonly String _fwProfile;
-      private readonly Boolean _assemblyRefsRetargetable;
-
-      public TargetFrameworkInfo( String name, String version, String profile )
+      /// <summary>
+      /// Creates a new instance of <see cref="TargetFrameworkInfo"/> with given target framework identifier, version, and profile.
+      /// </summary>
+      /// <param name="identifier">The target framework identifier. May be <c>null</c>.</param>
+      /// <param name="version">The target framework version. May be <c>null</c>.</param>
+      /// <param name="profile">The target framework profile. May be <c>null</c>.</param>
+      public TargetFrameworkInfo( String identifier, String version, String profile )
       {
-         this._fwName = name;
-         this._fwVersion = version;
-         this._fwProfile = profile;
-         // TODO better
-         this._assemblyRefsRetargetable = String.Equals( this._fwName, ".NETPortable" );
+         this.Identifier = identifier;
+         this.Version = version;
+         this.Profile = profile;
       }
 
-      public String Identifier
-      {
-         get
-         {
-            return this._fwName;
-         }
-      }
+      /// <summary>
+      /// Gets the the target framework identifier string.
+      /// </summary>
+      /// <value>The the target framework identifier string.</value>
+      public String Identifier { get; }
 
-      public String Version
-      {
-         get
-         {
-            return this._fwVersion;
-         }
-      }
+      /// <summary>
+      /// Gets the target framework version string.
+      /// </summary>
+      /// <value>The target framework version string.</value>
+      public String Version { get; }
 
-      public String Profile
-      {
-         get
-         {
-            return this._fwProfile;
-         }
-      }
+      /// <summary>
+      /// Gets the target framework profile string.
+      /// </summary>
+      /// <value>The target framework profile string.</value>
+      public String Profile { get; }
 
-      public Boolean AreFrameworkAssemblyReferencesRetargetable
-      {
-         get
-         {
-            return this._assemblyRefsRetargetable;
-         }
-      }
-
+      /// <summary>
+      /// Checks that given object is of type <see cref="TargetFrameworkInfo"/>, and that it contains same data as this <see cref="TargetFrameworkInfo"/>.
+      /// </summary>
+      /// <param name="obj">The object to check.</param>
+      /// <returns><c>true</c>, if <paramref name="obj"/> is of type <see cref="TargetFrameworkInfo"/>, ans contains same data as this <see cref="TargetFrameworkInfo"/>; <c>false</c> otherwise.</returns>
       public override Boolean Equals( Object obj )
       {
          return this.Equals( obj as TargetFrameworkInfo );
       }
 
+      /// <summary>
+      /// Computes the hash code for this <see cref="TargetFrameworkInfo"/>.
+      /// </summary>
+      /// <returns>The hash code for this <see cref="TargetFrameworkInfo"/>.</returns>
       public override Int32 GetHashCode()
       {
-         return ( ( 17 * 23 + this._fwName.GetHashCodeSafe() ) * 23 + this._fwVersion.GetHashCodeSafe() ) * 23 + this._fwProfile.GetHashCodeSafe();
+         return ( ( 17 * 23 + this.Identifier.GetHashCodeSafe() ) * 23 + this.Version.GetHashCodeSafe() ) * 23 + this.Profile.GetHashCodeSafe();
       }
 
+      /// <summary>
+      /// Creates a textual representation of this <see cref="TargetFrameworkInfo"/>.
+      /// This will contain <see cref="Identifier"/>, <see cref="Version"/>, and <see cref="Profile"/> in a same format as the <see cref="System.Runtime.Versioning.TargetFrameworkAttribute.TargetFrameworkAttribute(String)"/> constructor accepts it.
+      /// </summary>
+      /// <returns>A textual representation of this <see cref="TargetFrameworkInfo"/>.</returns>
       public override String ToString()
       {
-         var retVal = this._fwName + SEPARATOR + VERSION_PREFIX + this._fwVersion;
-         if ( !String.IsNullOrEmpty( this._fwProfile ) )
+         var retVal = this.Identifier + SEPARATOR + VERSION_PREFIX + this.Version;
+         if ( !String.IsNullOrEmpty( this.Profile ) )
          {
-            retVal += SEPARATOR + PROFILE_PREFIX + this._fwProfile;
+            retVal += SEPARATOR + PROFILE_PREFIX + this.Profile;
          }
          return retVal;
       }
 
+      /// <summary>
+      /// Checks that given <see cref="TargetFrameworkInfo"/> is same instance or contains same data as this <see cref="TargetFrameworkInfo"/>.
+      /// </summary>
+      /// <param name="other">The other <see cref="TargetFrameworkInfo"/>.</param>
+      /// <returns><c>true</c> if <paramref name="other"/> is same instance or contains same data as this <see cref="TargetFrameworkInfo"/>; <c>false</c> otherwise.</returns>
+      /// <remarks>
+      /// The values of <see cref="Identifier"/>, <see cref="Version"/>, and <see cref="Profile"/> are all compared in exact, case-sensitive manner.
+      /// </remarks>
       public Boolean Equals( TargetFrameworkInfo other )
       {
          return ReferenceEquals( this, other )
             || ( other != null
-            && String.Equals( this._fwName, other._fwName )
-            && String.Equals( this._fwVersion, other._fwVersion )
-            && String.Equals( this._fwProfile, other._fwProfile )
-            && this._assemblyRefsRetargetable == other._assemblyRefsRetargetable
+            && String.Equals( this.Identifier, other.Identifier )
+            && String.Equals( this.Version, other.Version )
+            && String.Equals( this.Profile, other.Profile )
             );
       }
 
@@ -2077,48 +2287,91 @@ namespace CILAssemblyManipulator.Physical
       private const String VERSION_PREFIX = "Version=";
       private const Char SEPARATOR = ',';
 
+      /// <summary>
+      /// Parses the given string into <see cref="TargetFrameworkInfo"/>, or throws an exception if parsing could not be done.
+      /// </summary>
+      /// <param name="str">The string to parse.</param>
+      /// <returns>The parsed <see cref="TargetFrameworkInfo"/>.</returns>
+      /// <remarks>
+      /// The string should be in same format as returned by <see cref="ToString"/> method.
+      /// </remarks>
+      /// <exception cref="FormatException">If <paramref name="str"/> could not be parsed into a <see cref="TargetFrameworkInfo"/>. This can happen if <paramref name="str"/> is <c>null</c>, empty, or contains only whitespace characters.</exception>
+      public static TargetFrameworkInfo Parse( String str )
+      {
+         String errorString;
+         TargetFrameworkInfo retVal;
+         if ( !TryParse( str, out retVal, out errorString ) )
+         {
+            throw new FormatException( "Failed to parse target framework string, reason: " + errorString + "." );
+         }
+         return retVal;
+      }
+
+      /// <summary>
+      /// Tries to parse given string into <see cref="TargetFrameworkInfo"/>.
+      /// </summary>
+      /// <param name="str">The string to parse.</param>
+      /// <param name="fwInfo">This parameter will contain the parsed <see cref="TargetFrameworkInfo"/>, if parsing is successful.</param>
+      /// <returns><c>true</c> if parsing is successful; <c>false</c> otherwise.</returns>
       public static Boolean TryParse( String str, out TargetFrameworkInfo fwInfo )
+      {
+         String errorString;
+         return TryParse( str, out fwInfo, out errorString );
+      }
+
+      private static Boolean TryParse( String str, out TargetFrameworkInfo fwInfo, out String errorString )
       {
          var retVal = !String.IsNullOrEmpty( str );
          if ( retVal )
          {
-            // First, framework name
-            var idx = str.IndexOf( SEPARATOR );
-            var fwName = idx == -1 ? str : str.Substring( 0, idx );
-
-            String fwVersion = null, fwProfile = null;
-            if ( idx > 0 )
+            str = str.Trim();
+            if ( str.Length > 0 )
             {
+               // First, framework name
+               var idx = str.IndexOf( SEPARATOR );
+               var fwName = idx == -1 ? str : str.Substring( 0, idx );
 
-               // Then, framework version
-               idx = str.IndexOf( VERSION_PREFIX, idx, StringComparison.Ordinal );
-               var nextIdx = idx + VERSION_PREFIX.Length;
-               var endIdx = str.IndexOf( SEPARATOR, nextIdx );
-               if ( endIdx == -1 )
-               {
-                  endIdx = str.Length;
-               }
-               fwVersion = idx != -1 && nextIdx < str.Length ? str.Substring( nextIdx, endIdx - nextIdx ) : null;
-
-               // Then, profile
+               String fwVersion = null, fwProfile = null;
                if ( idx > 0 )
                {
-                  idx = str.IndexOf( PROFILE_PREFIX, idx, StringComparison.Ordinal );
-                  nextIdx = idx + PROFILE_PREFIX.Length;
-                  endIdx = str.IndexOf( SEPARATOR, nextIdx );
+
+                  // Then, framework version
+                  idx = str.IndexOf( VERSION_PREFIX, idx, StringComparison.Ordinal );
+                  var nextIdx = idx + VERSION_PREFIX.Length;
+                  var endIdx = str.IndexOf( SEPARATOR, nextIdx );
                   if ( endIdx == -1 )
                   {
                      endIdx = str.Length;
                   }
-                  fwProfile = idx != -1 && nextIdx < str.Length ? str.Substring( nextIdx, endIdx - nextIdx ) : null;
-               }
-            }
+                  fwVersion = idx != -1 && nextIdx < str.Length ? str.Substring( nextIdx, endIdx - nextIdx ) : null;
 
-            fwInfo = new TargetFrameworkInfo( fwName, fwVersion, fwProfile );
+                  // Then, profile
+                  if ( idx > 0 )
+                  {
+                     idx = str.IndexOf( PROFILE_PREFIX, idx, StringComparison.Ordinal );
+                     nextIdx = idx + PROFILE_PREFIX.Length;
+                     endIdx = str.IndexOf( SEPARATOR, nextIdx );
+                     if ( endIdx == -1 )
+                     {
+                        endIdx = str.Length;
+                     }
+                     fwProfile = idx != -1 && nextIdx < str.Length ? str.Substring( nextIdx, endIdx - nextIdx ) : null;
+                  }
+               }
+
+               fwInfo = new TargetFrameworkInfo( fwName, fwVersion, fwProfile );
+               errorString = null;
+            }
+            else
+            {
+               fwInfo = null;
+               errorString = "String contained only whitespace characters";
+            }
          }
          else
          {
             fwInfo = null;
+            errorString = "Input string was null or empty";
          }
 
          return retVal;
@@ -2140,11 +2393,23 @@ public static partial class E_CILPhysical
       return method != null && method.Attributes.CanEmitIL() && method.ImplementationAttributes.IsIL();
    }
 
+   /// <summary>
+   /// Changes the index of given <see cref="TableIndex"/>, leaving the table the same.
+   /// </summary>
+   /// <param name="index">The <see cref="TableIndex"/>.</param>
+   /// <param name="newIndex">The new index of the same table.</param>
+   /// <returns>A new <see cref="TableIndex"/> with the same table as <paramref name="index"/>, but with index set to <paramref name="newIndex"/>.</returns>
    public static TableIndex ChangeIndex( this TableIndex index, Int32 newIndex )
    {
       return new TableIndex( index.Table, newIndex );
    }
 
+   /// <summary>
+   /// Increments the index of given <see cref="TableIndex"/>, optionally specifying by how much to increment.
+   /// </summary>
+   /// <param name="index">The <see cref="TableIndex"/>.</param>
+   /// <param name="amount">The amount to increment. Defaults to <c>1</c>.</param>
+   /// <returns>A new <see cref="TableIndex"/> with the same table as <paramref name="index"/>, but with index incremented by given <paramref name="amount"/>.</returns>
    public static TableIndex IncrementIndex( this TableIndex index, Int32 amount = 1 )
    {
       return index.ChangeIndex( index.Index + amount );
@@ -2156,29 +2421,45 @@ public static partial class E_CILPhysical
    //      && ( (CustomAttributeArgumentTypeSimple) caType ).SimpleType == typeKind;
    //}
 
-   public static Boolean CanBeReferencedFromIL( this Tables table )
-   {
-      switch ( table )
-      {
-         case Tables.TypeDef:
-         case Tables.TypeRef:
-         case Tables.TypeSpec:
-         case Tables.MethodDef:
-         case Tables.Field:
-         case Tables.MemberRef:
-         case Tables.MethodSpec:
-         case Tables.StandaloneSignature:
-            return true;
-         default:
-            return false;
-      }
-   }
+   //public static Boolean CanBeReferencedFromIL( this Tables table )
+   //{
+   //   switch ( table )
+   //   {
+   //      case Tables.TypeDef:
+   //      case Tables.TypeRef:
+   //      case Tables.TypeSpec:
+   //      case Tables.MethodDef:
+   //      case Tables.Field:
+   //      case Tables.MemberRef:
+   //      case Tables.MethodSpec:
+   //      case Tables.StandaloneSignature:
+   //         return true;
+   //      default:
+   //         return false;
+   //   }
+   //}
 
+   /// <summary>
+   /// Checks that this <see cref="ManifestResource"/> can be considered as embedded resource.
+   /// </summary>
+   /// <param name="resource">The <see cref="ManifestResource"/>.</param>
+   /// <returns><c>true</c> if <paramref name="resource"/> can be considered as embedded resource; <c>false</c> otherwise.</returns>
+   /// <remarks>
+   /// The <see cref="ManifestResource"/> is considered to be embedded resource when it is not <c>null</c> and it's <see cref="ManifestResource.Implementation"/> propery is <c>null</c>.
+   /// </remarks>
    public static Boolean IsEmbeddedResource( this ManifestResource resource )
    {
       return resource != null && !resource.Implementation.HasValue;
    }
 
+   /// <summary>
+   /// Creates a new <see cref="AssemblyReference"/>, based on this <see cref="AssemblyDefinition"/>.
+   /// </summary>
+   /// <param name="definition">The <see cref="AssemblyDefinition"/>.</param>
+   /// <returns>A new <see cref="AssemblyReference"/> with its <see cref="AssemblyReference.Attributes"/> having <see cref="AssemblyFlags.PublicKey"/> set, if this <see cref="AssemblyDefinition"/> its <see cref="AssemblyInformation.PublicKeyOrToken"/> not null and not empty.</returns>
+   /// <remarks>
+   /// All the contents of <see cref="AssemblyDefinition"/> is copied so that any subsequent modification to tis <see cref="AssemblyDefinition"/> will not affect the returned <see cref="AssemblyReference"/>.
+   /// </remarks>
    public static AssemblyReference AsAssemblyReference( this AssemblyDefinition definition )
    {
       var retVal = new AssemblyReference()
@@ -2191,8 +2472,4 @@ public static partial class E_CILPhysical
       return retVal;
 
    }
-
-
-
-
 }

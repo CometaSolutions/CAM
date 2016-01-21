@@ -163,6 +163,10 @@ namespace CILAssemblyManipulator.Physical.IO
 
       public Int32? HeaderExtraData { get; set; }
 
+      public Int64? PresentTablesBitVector { get; set; }
+
+      public Int64? SortedTablesBitVector { get; set; }
+
       // TODO ENC, HasDeleted
    }
 

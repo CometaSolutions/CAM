@@ -146,6 +146,11 @@ namespace CILAssemblyManipulator.Physical.IO
       TypedByRef = 0x16,
 
       /// <summary>
+      /// This enumeration value should no longer be used.
+      /// </summary>
+      ValueArray = 0x17,
+
+      /// <summary>
       /// Indicates that type is <see cref="IntPtr"/>.
       /// </summary>
       I = 0x18,
@@ -154,6 +159,11 @@ namespace CILAssemblyManipulator.Physical.IO
       /// Indicates that type is <see cref="UIntPtr"/>.
       /// </summary>
       U = 0x19,
+
+      /// <summary>
+      /// This enumeration value should no longer be used. 
+      /// </summary>
+      R = 0x1A,
 
       /// <summary>
       /// Indicates that type is <see cref="FunctionPointerTypeSignature"/>.

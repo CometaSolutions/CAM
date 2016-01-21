@@ -600,8 +600,8 @@ public static partial class E_CILLogical
                   this._module,
                   fn.MethodSignatureInformation,
                   this.ResolveParamSignature( fn.ReturnType, contextType, contextMethod, populateAssemblyRefStructure ),
-                  fn.ReturnType.CustomModifiers.Select( cm => CILCustomModifierFactory.CreateModifier( cm.IsOptional, (CILType) this.ResolveTypeDefOrRefOrSpec( cm.CustomModifierType, contextType, contextMethod, populateAssemblyRefStructure ) ) ).ToArray(),
-                  fn.Parameters.Select( p => Tuple.Create( p.CustomModifiers.Select( cm => CILCustomModifierFactory.CreateModifier( cm.IsOptional, (CILType) this.ResolveTypeDefOrRefOrSpec( cm.CustomModifierType, contextType, contextMethod, populateAssemblyRefStructure ) ) ).ToArray(), this.ResolveParamSignature( p, contextType, contextMethod ) ) ).ToArray()
+                  fn.ReturnType.CustomModifiers.Select( cm => CILCustomModifierFactory.CreateModifier( cm.IsOptional(), (CILType) this.ResolveTypeDefOrRefOrSpec( cm.CustomModifierType, contextType, contextMethod, populateAssemblyRefStructure ) ) ).ToArray(),
+                  fn.Parameters.Select( p => Tuple.Create( p.CustomModifiers.Select( cm => CILCustomModifierFactory.CreateModifier( cm.IsOptional(), (CILType) this.ResolveTypeDefOrRefOrSpec( cm.CustomModifierType, contextType, contextMethod, populateAssemblyRefStructure ) ) ).ToArray(), this.ResolveParamSignature( p, contextType, contextMethod ) ) ).ToArray()
                   );
             case TypeSignatureKind.GenericParameter:
                var gSig = (GenericParameterTypeSignature) sig;
@@ -646,7 +646,7 @@ public static partial class E_CILLogical
          }
       }
 
-      internal CILTypeBase ResolveParamSignature( ParameterOrLocalVariableSignature sig, CILType contextType, CILMethodBase contextMethod, Boolean populateAssemblyRefStructure = false )
+      internal CILTypeBase ResolveParamSignature( ParameterOrLocalSignature sig, CILType contextType, CILMethodBase contextMethod, Boolean populateAssemblyRefStructure = false )
       {
          var retVal = this.ResolveTypeSignature( sig.Type, contextType, contextMethod, populateAssemblyRefStructure );
          if ( sig.IsByRef )
@@ -700,7 +700,7 @@ public static partial class E_CILLogical
       {
          foreach ( var mod in mods )
          {
-            element.AddCustomModifier( this.ResolveTypeDefOrRefOrSpec( mod.CustomModifierType, contextType, contextMethod ) as CILType, mod.IsOptional );
+            element.AddCustomModifier( this.ResolveTypeDefOrRefOrSpec( mod.CustomModifierType, contextType, contextMethod ) as CILType, mod.IsOptional() );
          }
       }
 
@@ -1136,7 +1136,7 @@ public static partial class E_CILLogical
 
       private Boolean MatchCustomModifiers( List<CustomModifierSignature> thisMods, LogicalAssemblyCreationResult declaringTypeCreationResult, List<CustomModifierSignature> declaringTypeMods )
       {
-         return ListEqualityComparer<List<CustomModifierSignature>, CustomModifierSignature>.ListEquality( thisMods, declaringTypeMods, ( x, y ) => x.IsOptional == y.IsOptional && this.MatchSignatureTableIndices( x.CustomModifierType, declaringTypeCreationResult, y.CustomModifierType ) );
+         return ListEqualityComparer<List<CustomModifierSignature>, CustomModifierSignature>.ListEquality( thisMods, declaringTypeMods, ( x, y ) => x.Optionality == y.Optionality && this.MatchSignatureTableIndices( x.CustomModifierType, declaringTypeCreationResult, y.CustomModifierType ) );
       }
 
       private Boolean MatchSignatureTableIndices( TableIndex thisIndex, LogicalAssemblyCreationResult declaringTypeCreationResult, TableIndex declaringTypeIndex )
@@ -2333,7 +2333,7 @@ public static partial class E_CILLogical
             LogicalOpCodeInfo logicalCode;
             switch ( code.InfoKind )
             {
-               case OpCodeOperandKind.OperandInteger:
+               case CILAssemblyManipulator.Physical.OpCodeInfoKind.OperandInteger:
                   var physIntCode = (OpCodeInfoWithInt32) code;
                   switch ( physOpCode.OperandType )
                   {
@@ -2355,22 +2355,22 @@ public static partial class E_CILLogical
                         throw new InvalidOperationException( "Unsupported op code for physical op code with integer: " + code + "." );
                   }
                   break;
-               case OpCodeOperandKind.OperandInteger64:
+               case CILAssemblyManipulator.Physical.OpCodeInfoKind.OperandInteger64:
                   logicalCode = new LogicalOpCodeInfoWithFixedSizeOperandInt64( physOpCodeID, ( (OpCodeInfoWithInt64) code ).Operand );
                   break;
-               case OpCodeOperandKind.OperandNone:
+               case CILAssemblyManipulator.Physical.OpCodeInfoKind.OperandNone:
                   logicalCode = state.Module.GetOperandlessOpCode( code.OpCodeID );
                   break;
-               case OpCodeOperandKind.OperandR4:
+               case CILAssemblyManipulator.Physical.OpCodeInfoKind.OperandR4:
                   logicalCode = new LogicalOpCodeInfoWithFixedSizeOperandSingle( physOpCodeID, ( (OpCodeInfoWithSingle) code ).Operand );
                   break;
-               case OpCodeOperandKind.OperandR8:
+               case CILAssemblyManipulator.Physical.OpCodeInfoKind.OperandR8:
                   logicalCode = new LogicalOpCodeInfoWithFixedSizeOperandDouble( physOpCodeID, ( (OpCodeInfoWithDouble) code ).Operand );
                   break;
-               case OpCodeOperandKind.OperandString:
+               case CILAssemblyManipulator.Physical.OpCodeInfoKind.OperandString:
                   logicalCode = new LogicalOpCodeInfoWithFixedSizeOperandString( physOpCodeID, ( (OpCodeInfoWithString) code ).Operand );
                   break;
-               case OpCodeOperandKind.OperandIntegerList:
+               case CILAssemblyManipulator.Physical.OpCodeInfoKind.OperandIntegerList:
                   var physSwitch = (OpCodeInfoWithIntegers) code;
                   var labels = retVal.DefineLabels( physSwitch.Operand.Count );
                   logicalCode = new LogicalOpCodeInfoForSwitch( labels );
@@ -2379,7 +2379,7 @@ public static partial class E_CILLogical
                      labelByteOffsets.Add( labels[i], curByteOffset + physSwitch.Operand[i] );
                   }
                   break;
-               case OpCodeOperandKind.OperandTableIndex:
+               case CILAssemblyManipulator.Physical.OpCodeInfoKind.OperandTableIndex:
                   var token = ( (OpCodeInfoWithTableIndex) code ).Operand;
                   var resolved = state.ResolveToken( token, contextType, method );
                   switch ( resolved.ElementTypeKind )

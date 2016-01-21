@@ -26,5 +26,7 @@ namespace CILAssemblyManipulator.Physical.Meta
    public interface CILMetaDataTableInformationProvider : MetaDataTableInformationProvider
    {
       OpCodeProvider CreateOpCodeProvider();
+
+      SignatureProvider CreateSignatureProvider();
    }
 }

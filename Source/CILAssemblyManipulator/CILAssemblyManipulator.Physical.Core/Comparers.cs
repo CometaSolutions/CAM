@@ -96,7 +96,7 @@ namespace CILAssemblyManipulator.Physical
       private static IEqualityComparer<FieldSignature> _FieldSignatureEqualityComparer = null;
       private static IEqualityComparer<PropertySignature> _PropertySignatureEqualityComparer = null;
       private static IEqualityComparer<LocalVariablesSignature> _LocalVariablesSignatureEqualityComparer = null;
-      private static IEqualityComparer<LocalVariableSignature> _LocalVariableSignatureEqualityComparer = null;
+      private static IEqualityComparer<LocalSignature> _LocalVariableSignatureEqualityComparer = null;
       private static IEqualityComparer<ParameterSignature> _ParameterSignatureEqualityComparer = null;
       private static IEqualityComparer<CustomModifierSignature> _CustomModifierSignatureEqualityComparer = null;
       private static IEqualityComparer<TypeSignature> _TypeSignatureEqualityComparer = null;
@@ -1364,20 +1364,20 @@ namespace CILAssemblyManipulator.Physical
       }
 
       /// <summary>
-      /// Get the equality comparer to check whether two instances of <see cref="LocalVariableSignature"/> are exactly equal.
+      /// Get the equality comparer to check whether two instances of <see cref="LocalSignature"/> are exactly equal.
       /// </summary>
-      /// <value>The equality comparer to check whether two instances of <see cref="LocalVariableSignature"/> are exactly equal.</value>
+      /// <value>The equality comparer to check whether two instances of <see cref="LocalSignature"/> are exactly equal.</value>
       /// <remarks>
-      /// Two instances of <see cref="LocalVariableSignature"/> are considered to be equal by this equality comparer when all the properties of the <see cref="LocalVariableSignature"/> are equal.
+      /// Two instances of <see cref="LocalSignature"/> are considered to be equal by this equality comparer when all the properties of the <see cref="LocalSignature"/> are equal.
       /// </remarks>
-      public static IEqualityComparer<LocalVariableSignature> LocalVariableSignatureEqualityComparer
+      public static IEqualityComparer<LocalSignature> LocalVariableSignatureEqualityComparer
       {
          get
          {
             var retVal = _LocalVariableSignatureEqualityComparer;
             if ( retVal == null )
             {
-               retVal = ComparerFromFunctions.NewEqualityComparer<LocalVariableSignature>( Equality_LocalVariableSignature, HashCode_LocalVariableSignature );
+               retVal = ComparerFromFunctions.NewEqualityComparer<LocalSignature>( Equality_LocalVariableSignature, HashCode_LocalVariableSignature );
                _LocalVariableSignatureEqualityComparer = retVal;
             }
             return retVal;
@@ -2132,30 +2132,30 @@ namespace CILAssemblyManipulator.Physical
          {
             switch ( x.InfoKind )
             {
-               case OpCodeOperandKind.OperandInteger:
+               case OpCodeInfoKind.OperandInteger:
                   retVal = ( (OpCodeInfoWithInt32) x ).Operand == ( (OpCodeInfoWithInt32) y ).Operand;
                   break;
-               case OpCodeOperandKind.OperandInteger64:
+               case OpCodeInfoKind.OperandInteger64:
                   retVal = ( (OpCodeInfoWithInt64) x ).Operand == ( (OpCodeInfoWithInt64) y ).Operand;
                   break;
-               case OpCodeOperandKind.OperandNone:
+               case OpCodeInfoKind.OperandNone:
                   retVal = true;
                   break;
-               case OpCodeOperandKind.OperandR4:
+               case OpCodeInfoKind.OperandR4:
                   // Use .Equals in order for NaN's to work more intuitively
                   retVal = ( (OpCodeInfoWithSingle) x ).Operand.Equals( ( (OpCodeInfoWithSingle) y ).Operand );
                   break;
-               case OpCodeOperandKind.OperandR8:
+               case OpCodeInfoKind.OperandR8:
                   // Use .Equals in order for NaN's to work more intuitively
                   retVal = ( (OpCodeInfoWithDouble) x ).Operand.Equals( ( (OpCodeInfoWithDouble) y ).Operand );
                   break;
-               case OpCodeOperandKind.OperandString:
+               case OpCodeInfoKind.OperandString:
                   retVal = String.Equals( ( (OpCodeInfoWithString) x ).Operand, ( (OpCodeInfoWithString) y ).Operand );
                   break;
-               case OpCodeOperandKind.OperandIntegerList:
+               case OpCodeInfoKind.OperandIntegerList:
                   retVal = ListEqualityComparer<List<Int32>, Int32>.ListEquality( ( (OpCodeInfoWithIntegers) x ).Operand, ( (OpCodeInfoWithIntegers) y ).Operand );
                   break;
-               case OpCodeOperandKind.OperandTableIndex:
+               case OpCodeInfoKind.OperandTableIndex:
                   retVal = ( (OpCodeInfoWithTableIndex) x ).Operand == ( (OpCodeInfoWithTableIndex) y ).Operand;
                   break;
             }
@@ -2197,7 +2197,7 @@ namespace CILAssemblyManipulator.Physical
                case SignatureKind.Type:
                   retVal = TypeSignatureEqualityComparer.Equals( x as TypeSignature, y as TypeSignature );
                   break;
-               case SignatureKind.RawSignature:
+               case SignatureKind.Raw:
                   retVal = RawSignatureEqualityComparer.Equals( x as RawSignature, y as RawSignature );
                   break;
             }
@@ -2291,7 +2291,7 @@ namespace CILAssemblyManipulator.Physical
          );
       }
 
-      private static Boolean Equality_ParameterOrLocalVariableSignature_NoReferenceEquals( ParameterOrLocalVariableSignature x, ParameterOrLocalVariableSignature y )
+      private static Boolean Equality_ParameterOrLocalVariableSignature_NoReferenceEquals( ParameterOrLocalSignature x, ParameterOrLocalSignature y )
       {
          return x != null && y != null
             && TypeSignatureEqualityComparer.Equals( x.Type, y.Type )
@@ -2303,11 +2303,11 @@ namespace CILAssemblyManipulator.Physical
       {
          return Object.ReferenceEquals( x, y ) ||
          ( x != null && y != null
-            && ListEqualityComparer<List<LocalVariableSignature>, LocalVariableSignature>.Equals( x.Locals, y.Locals, LocalVariableSignatureEqualityComparer )
+            && ListEqualityComparer<List<LocalSignature>, LocalSignature>.Equals( x.Locals, y.Locals, LocalVariableSignatureEqualityComparer )
          );
       }
 
-      private static Boolean Equality_LocalVariableSignature( LocalVariableSignature x, LocalVariableSignature y )
+      private static Boolean Equality_LocalVariableSignature( LocalSignature x, LocalSignature y )
       {
          return Object.ReferenceEquals( x, y ) ||
          ( Equality_ParameterOrLocalVariableSignature_NoReferenceEquals( x, y )
@@ -2325,7 +2325,7 @@ namespace CILAssemblyManipulator.Physical
          return Object.ReferenceEquals( x, y ) ||
          ( x != null && y != null
             && x.CustomModifierType == y.CustomModifierType
-            && x.IsOptional == y.IsOptional
+            && x.Optionality == y.Optionality
          );
       }
 
@@ -2886,27 +2886,27 @@ namespace CILAssemblyManipulator.Physical
          {
             retVal = 17 * 23 + x.OpCodeID.GetHashCode();
             var infoKind = x.InfoKind;
-            if ( infoKind != OpCodeOperandKind.OperandNone )
+            if ( infoKind != OpCodeInfoKind.OperandNone )
             {
                Int32 operandHashCode;
                switch ( x.InfoKind )
                {
-                  case OpCodeOperandKind.OperandInteger:
+                  case OpCodeInfoKind.OperandInteger:
                      operandHashCode = ( (OpCodeInfoWithInt32) x ).Operand;
                      break;
-                  case OpCodeOperandKind.OperandInteger64:
+                  case OpCodeInfoKind.OperandInteger64:
                      operandHashCode = ( (OpCodeInfoWithInt64) x ).Operand.GetHashCode();
                      break;
-                  case OpCodeOperandKind.OperandR4:
+                  case OpCodeInfoKind.OperandR4:
                      operandHashCode = ( (OpCodeInfoWithSingle) x ).Operand.GetHashCode();
                      break;
-                  case OpCodeOperandKind.OperandR8:
+                  case OpCodeInfoKind.OperandR8:
                      operandHashCode = ( (OpCodeInfoWithDouble) x ).Operand.GetHashCode();
                      break;
-                  case OpCodeOperandKind.OperandString:
+                  case OpCodeInfoKind.OperandString:
                      operandHashCode = ( (OpCodeInfoWithString) x ).Operand.GetHashCodeSafe();
                      break;
-                  case OpCodeOperandKind.OperandTableIndex:
+                  case OpCodeInfoKind.OperandTableIndex:
                      operandHashCode = ( (OpCodeInfoWithTableIndex) x ).Operand.GetHashCode();
                      break;
                   default:
@@ -2947,7 +2947,7 @@ namespace CILAssemblyManipulator.Physical
                   return HashCode_MethodReferenceSignature( x as MethodReferenceSignature );
                case SignatureKind.Property:
                   return HashCode_PropertySignature( x as PropertySignature );
-               case SignatureKind.RawSignature:
+               case SignatureKind.Raw:
                   return HashCode_RawSignature( x as RawSignature );
                case SignatureKind.Type:
                   return HashCode_TypeSignature( x as TypeSignature );
@@ -2991,10 +2991,10 @@ namespace CILAssemblyManipulator.Physical
 
       private static Int32 HashCode_LocalVariablesSignature( LocalVariablesSignature x )
       {
-         return x == null ? 0 : ( 17 * 23 + ListEqualityComparer<List<LocalVariableSignature>, LocalVariableSignature>.GetHashCode( x.Locals, LocalVariableSignatureEqualityComparer ) );
+         return x == null ? 0 : ( 17 * 23 + ListEqualityComparer<List<LocalSignature>, LocalSignature>.GetHashCode( x.Locals, LocalVariableSignatureEqualityComparer ) );
       }
 
-      private static Int32 HashCode_LocalVariableSignature( LocalVariableSignature x )
+      private static Int32 HashCode_LocalVariableSignature( LocalSignature x )
       {
          return x == null ? 0 : HashCode_TypeSignature( x.Type );
       }

@@ -34,7 +34,7 @@ namespace CILAssemblyManipulator.Physical.Meta
 
    public class DefaultOpCodeProvider : OpCodeProvider
    {
-      private static readonly OpCodeProvider _Instance = new DefaultOpCodeProvider( GetDefaultOpCodes() );
+      private static readonly OpCodeProvider _Instance = new DefaultOpCodeProvider();
 
       public static OpCodeProvider Instance
       {
@@ -47,9 +47,9 @@ namespace CILAssemblyManipulator.Physical.Meta
       private readonly IDictionary<OpCodeID, OpCode> _codes;
       private readonly IDictionary<OpCodeID, OpCodeInfoWithNoOperand> _operandless;
 
-      public DefaultOpCodeProvider( IEnumerable<OpCode> codes )
+      public DefaultOpCodeProvider( IEnumerable<OpCode> codes = null )
       {
-         this._codes = codes?.ToDictionary_Overwrite( c => c.OpCodeID, c => c ) ?? new Dictionary<OpCodeID, OpCode>();
+         this._codes = ( codes ?? GetDefaultOpCodes() ).ToDictionary_Overwrite( c => c.OpCodeID, c => c );
          this._operandless = this._codes
             .Values
             .Where( c => c.OperandType == OperandType.InlineNone )

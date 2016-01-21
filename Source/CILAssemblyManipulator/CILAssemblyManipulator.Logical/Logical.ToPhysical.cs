@@ -987,73 +987,73 @@ public static partial class E_CILLogical
          OpCodeInfo pOpCode;
          switch ( lOpCode.InfoKind )
          {
-            case OpCodeInfoKind.OperandNone:
+            case CILAssemblyManipulator.Logical.OpCodeInfoKind.OperandNone:
                pOpCode = ocp.GetOperandlessInfoFor( ( (LogicalOpCodeInfoWithNoOperand) lOpCode ).Code );
                break;
-            case OpCodeInfoKind.OperandTypeToken:
+            case CILAssemblyManipulator.Logical.OpCodeInfoKind.OperandTypeToken:
                var lt = (LogicalOpCodeInfoWithTypeToken) lOpCode;
                pOpCode = new OpCodeInfoWithTableIndex( lt.Code, state.GetTypeDefOrRefOrSpec( lt.ReflectionObject, thisType.IsConvertTypeDefToTypeSpec( lt.ReflectionObject, lt.TypeTokenKind ) ) );
                break;
-            case OpCodeInfoKind.OperandFieldToken:
+            case CILAssemblyManipulator.Logical.OpCodeInfoKind.OperandFieldToken:
                var ft = (LogicalOpCodeInfoWithFieldToken) lOpCode;
                pOpCode = new OpCodeInfoWithTableIndex( ft.Code, state.GetFieldDefOrMemberRef( ft.ReflectionObject, thisType.IsConvertTypeDefToTypeSpec( ft.ReflectionObject.DeclaringType, ft.TypeTokenKind ) ) );
                break;
-            case OpCodeInfoKind.OperandMethodToken:
+            case CILAssemblyManipulator.Logical.OpCodeInfoKind.OperandMethodToken:
                var lm = (LogicalOpCodeInfoWithMethodToken) lOpCode;
                pOpCode = new OpCodeInfoWithTableIndex( lm.Code, state.GetMethodDefOrMemberRefOrMethodSpec( lm.ReflectionObject, thisMethod.IsConvertGenericMethodDefToMemberRefOrMethodSpec( lm.ReflectionObject, lm.MethodTokenKind ), thisType.IsConvertTypeDefToTypeSpec( lm.ReflectionObject.DeclaringType, lm.TypeTokenKind ) ) );
                break;
-            case OpCodeInfoKind.OperandCtorToken:
+            case CILAssemblyManipulator.Logical.OpCodeInfoKind.OperandCtorToken:
                var ct = (LogicalOpCodeInfoWithCtorToken) lOpCode;
                pOpCode = new OpCodeInfoWithTableIndex( ct.Code, state.GetMethodDefOrMemberRefOrMethodSpec( ct.ReflectionObject, false, thisType.IsConvertTypeDefToTypeSpec( ct.ReflectionObject.DeclaringType, ct.TypeTokenKind ) ) );
                break;
-            case OpCodeInfoKind.OperandMethodSigToken:
+            case CILAssemblyManipulator.Logical.OpCodeInfoKind.OperandMethodSigToken:
                var lms = (LogicalOpCodeInfoWithMethodSig) lOpCode;
                pOpCode = new OpCodeInfoWithTableIndex( lms.Code, state.GetMethodSignatureToken( lms.ReflectionObject, lms.VarArgs ) );
                break;
-            case OpCodeInfoKind.OperandString:
+            case CILAssemblyManipulator.Logical.OpCodeInfoKind.OperandString:
                var s = (LogicalOpCodeInfoWithFixedSizeOperandString) lOpCode;
                pOpCode = new OpCodeInfoWithString( s.Code, s.Operand );
                break;
-            case OpCodeInfoKind.OperandUInt16:
+            case CILAssemblyManipulator.Logical.OpCodeInfoKind.OperandUInt16:
                var sh = (LogicalOpCodeInfoWithFixedSizeOperandUInt16) lOpCode;
                pOpCode = new OpCodeInfoWithInt32( sh.Code, sh.Operand );
                break;
-            case OpCodeInfoKind.OperandInt32:
+            case CILAssemblyManipulator.Logical.OpCodeInfoKind.OperandInt32:
                var lg = (LogicalOpCodeInfoWithFixedSizeOperandInt32) lOpCode;
                pOpCode = new OpCodeInfoWithInt32( lg.Code, lg.Operand );
                break;
-            case OpCodeInfoKind.OperandInt64:
+            case CILAssemblyManipulator.Logical.OpCodeInfoKind.OperandInt64:
                var llg = (LogicalOpCodeInfoWithFixedSizeOperandInt64) lOpCode;
                pOpCode = new OpCodeInfoWithInt64( llg.Code, llg.Operand );
                break;
-            case OpCodeInfoKind.OperandR4:
+            case CILAssemblyManipulator.Logical.OpCodeInfoKind.OperandR4:
                var fs = (LogicalOpCodeInfoWithFixedSizeOperandSingle) lOpCode;
                pOpCode = new OpCodeInfoWithSingle( fs.Code, fs.Operand );
                break;
-            case OpCodeInfoKind.OperandR8:
+            case CILAssemblyManipulator.Logical.OpCodeInfoKind.OperandR8:
                var fd = (LogicalOpCodeInfoWithFixedSizeOperandDouble) lOpCode;
                pOpCode = new OpCodeInfoWithDouble( fd.Code, fd.Operand );
                break;
-            case OpCodeInfoKind.Branch:
+            case CILAssemblyManipulator.Logical.OpCodeInfoKind.Branch:
                var bl = (LogicalOpCodeInfoForBranch) lOpCode;
                pOpCode = new OpCodeInfoWithInt32( bl.ShortForm.OpCodeID, logicalIL.GetLabelOffset( bl.TargetLabel ) );
                dynamicBranchInfos.Add( pOpCodes.Count );
                branchCodeIndices.Add( pOpCodes.Count );
                break;
-            case OpCodeInfoKind.Switch:
+            case CILAssemblyManipulator.Logical.OpCodeInfoKind.Switch:
                var sw = (LogicalOpCodeInfoForSwitch) lOpCode;
                var pSw = new OpCodeInfoWithIntegers( OpCodeID.Switch, sw.Labels.Count() );
                pSw.Operand.AddRange( sw.Labels.Select( l => logicalIL.GetLabelOffset( l ) ) );
                pOpCode = pSw;
                branchCodeIndices.Add( pOpCodes.Count );
                break;
-            case OpCodeInfoKind.Leave:
+            case CILAssemblyManipulator.Logical.OpCodeInfoKind.Leave:
                var ll = (LogicalOpCodeInfoForLeave) lOpCode;
                pOpCode = new OpCodeInfoWithInt32( ll.ShortForm.OpCodeID, logicalIL.GetLabelOffset( ll.TargetLabel ) );
                dynamicBranchInfos.Add( pOpCodes.Count );
                branchCodeIndices.Add( pOpCodes.Count );
                break;
-            case OpCodeInfoKind.BranchOrLeaveFixed:
+            case CILAssemblyManipulator.Logical.OpCodeInfoKind.BranchOrLeaveFixed:
                var bf = (LogicalOpCodeInfoForFixedBranchOrLeave) lOpCode;
                pOpCode = new OpCodeInfoWithInt32( bf.Code, logicalIL.GetLabelOffset( bf.TargetLabel ) );
                branchCodeIndices.Add( pOpCodes.Count );
@@ -1091,7 +1091,7 @@ public static partial class E_CILLogical
       foreach ( var i in branchCodeIndices )
       {
          var codeInfo = pOpCodes[i];
-         if ( codeInfo.InfoKind == OpCodeOperandKind.OperandIntegerList )
+         if ( codeInfo.InfoKind == CILAssemblyManipulator.Physical.OpCodeInfoKind.OperandIntegerList )
          {
             var switchInfo = (OpCodeInfoWithIntegers) codeInfo;
             var switchByteCount = switchInfo.GetTotalByteCount( ocp );
@@ -1298,7 +1298,7 @@ public static partial class E_CILLogical
       {
          physicalMods.Add( new CustomModifierSignature()
          {
-            IsOptional = mod.IsOptional,
+            Optionality = mod.IsOptional ? CustomModifierSignatureOptionality.Optional : CustomModifierSignatureOptionality.Required,
             CustomModifierType = state.GetTypeDefOrRefOrSpec( mod.Modifier )
          } );
       }
@@ -1364,41 +1364,41 @@ public static partial class E_CILLogical
                switch ( tc )
                {
                   case CILTypeCode.Boolean:
-                     return SimpleTypeSignature.Boolean;
+                     return state.MetaData.SignatureProvider.GetSimpleTypeSignature( SimpleTypeSignatureKind.Boolean );
                   case CILTypeCode.Byte:
-                     return SimpleTypeSignature.Byte;
+                     return state.MetaData.SignatureProvider.GetSimpleTypeSignature( SimpleTypeSignatureKind.U1 );
                   case CILTypeCode.Char:
-                     return SimpleTypeSignature.Char;
+                     return state.MetaData.SignatureProvider.GetSimpleTypeSignature( SimpleTypeSignatureKind.Char );
                   case CILTypeCode.Double:
-                     return SimpleTypeSignature.Double;
+                     return state.MetaData.SignatureProvider.GetSimpleTypeSignature( SimpleTypeSignatureKind.R8 );
                   case CILTypeCode.Int16:
-                     return SimpleTypeSignature.Int16;
+                     return state.MetaData.SignatureProvider.GetSimpleTypeSignature( SimpleTypeSignatureKind.I2 );
                   case CILTypeCode.Int32:
-                     return SimpleTypeSignature.Int32;
+                     return state.MetaData.SignatureProvider.GetSimpleTypeSignature( SimpleTypeSignatureKind.I4 );
                   case CILTypeCode.Int64:
-                     return SimpleTypeSignature.Int64;
+                     return state.MetaData.SignatureProvider.GetSimpleTypeSignature( SimpleTypeSignatureKind.I8 );
                   case CILTypeCode.IntPtr:
-                     return SimpleTypeSignature.IntPtr;
+                     return state.MetaData.SignatureProvider.GetSimpleTypeSignature( SimpleTypeSignatureKind.I );
                   case CILTypeCode.SystemObject:
-                     return SimpleTypeSignature.Object;
+                     return state.MetaData.SignatureProvider.GetSimpleTypeSignature( SimpleTypeSignatureKind.Object );
                   case CILTypeCode.SByte:
-                     return SimpleTypeSignature.SByte;
+                     return state.MetaData.SignatureProvider.GetSimpleTypeSignature( SimpleTypeSignatureKind.I1 );
                   case CILTypeCode.Single:
-                     return SimpleTypeSignature.Single;
+                     return state.MetaData.SignatureProvider.GetSimpleTypeSignature( SimpleTypeSignatureKind.R4 );
                   case CILTypeCode.String:
-                     return SimpleTypeSignature.String;
+                     return state.MetaData.SignatureProvider.GetSimpleTypeSignature( SimpleTypeSignatureKind.String );
                   case CILTypeCode.TypedByRef:
-                     return SimpleTypeSignature.TypedByRef;
+                     return state.MetaData.SignatureProvider.GetSimpleTypeSignature( SimpleTypeSignatureKind.TypedByRef );
                   case CILTypeCode.UInt16:
-                     return SimpleTypeSignature.UInt16;
+                     return state.MetaData.SignatureProvider.GetSimpleTypeSignature( SimpleTypeSignatureKind.U2 );
                   case CILTypeCode.UInt32:
-                     return SimpleTypeSignature.UInt32;
+                     return state.MetaData.SignatureProvider.GetSimpleTypeSignature( SimpleTypeSignatureKind.U4 );
                   case CILTypeCode.UInt64:
-                     return SimpleTypeSignature.UInt64;
+                     return state.MetaData.SignatureProvider.GetSimpleTypeSignature( SimpleTypeSignatureKind.U8 );
                   case CILTypeCode.UIntPtr:
-                     return SimpleTypeSignature.UIntPtr;
+                     return state.MetaData.SignatureProvider.GetSimpleTypeSignature( SimpleTypeSignatureKind.U );
                   case CILTypeCode.Void:
-                     return SimpleTypeSignature.Void;
+                     return state.MetaData.SignatureProvider.GetSimpleTypeSignature( SimpleTypeSignatureKind.Void );
                   default:
                      var gArgs = t.GenericArguments;
                      var classOrValue = new ClassOrValueTypeSignature( gArgs.Count )
@@ -1459,7 +1459,7 @@ public static partial class E_CILLogical
          new ParameterSignature()
          {
             IsByRef = false,
-            Type = SimpleTypeSignature.Void
+            Type = state.MetaData.SignatureProvider.GetSimpleTypeSignature( SimpleTypeSignatureKind.Void )
          } :
          state.CreateParameterSignature( m.ReturnParameter );
       sig.Parameters.AddRange( method.Parameters.Select( p => state.CreateParameterSignature( p ) ) );
@@ -1754,7 +1754,7 @@ public static partial class E_CILLogical
    private static LocalVariablesSignature CreateLocalsSignature( this PhysicalCreationState state, IList<LocalBuilder> locals )
    {
       var retVal = new LocalVariablesSignature( locals.Count );
-      retVal.Locals.AddRange( locals.Select( lb => new LocalVariableSignature()
+      retVal.Locals.AddRange( locals.Select( lb => new LocalSignature()
       {
          IsPinned = lb.IsPinned,
          IsByRef = lb.LocalType.IsByRef(),

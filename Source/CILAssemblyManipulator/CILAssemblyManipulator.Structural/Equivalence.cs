@@ -1201,7 +1201,10 @@ namespace CILAssemblyManipulator.Structural
          if ( retVal && thisMods.Count > 0 )
          {
             var i = 0;
-            while ( i < thisMods.Count && thisMods[i].IsOptional == otherMods[i].IsOptional && Equivalence_TypeDefOrRefOrSpec( thisMods[i].CustomModifierType, otherMods[i].CustomModifierType ) )
+            while ( i < thisMods.Count
+               && thisMods[i].Optionality == otherMods[i].Optionality
+               && Equivalence_TypeDefOrRefOrSpec( thisMods[i].CustomModifierType, otherMods[i].CustomModifierType )
+               )
             {
                ++i;
             }

@@ -18,6 +18,7 @@
 extern alias CAMPhysical;
 using CAMPhysical;
 using CAMPhysical::CILAssemblyManipulator.Physical;
+using CAMPhysical::CILAssemblyManipulator.Physical.Meta;
 
 using CommonUtils;
 using CILAssemblyManipulator.Physical;
@@ -37,6 +38,7 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
       #region Deserialization
 
       public static AbstractNotRawSignature ReadNonTypeSignature(
+         this SignatureProvider sigProvider,
          Byte[] array,
          ref Int32 idx,
          Int32 max,
@@ -55,30 +57,30 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
                if ( fieldSigIsLocalsSig )
                {
                   var locals = new LocalVariablesSignature( 1 );
-                  locals.Locals.Add( ReadLocalVariableSignature( array, ref idx ) );
+                  locals.Locals.Add( sigProvider.ReadLocalVariableSignature( array, ref idx ) );
                   retVal = locals;
                   fieldSigTransformedToLocalsSig = true;
                }
                else
                {
-                  retVal = ReadFieldSignatureAfterStarter( array, ref idx );
+                  retVal = sigProvider.ReadFieldSignatureAfterStarter( array, ref idx );
                }
                break;
             case SignatureStarters.LocalSignature:
-               retVal = ReadLocalVariablesSignatureAfterStarter( array, ref idx );
+               retVal = sigProvider.ReadLocalVariablesSignatureAfterStarter( array, ref idx );
                break;
             case SignatureStarters.Property:
             case SignatureStarters.Property | SignatureStarters.HasThis:
-               retVal = ReadPropertySignatureAfterStarter( array, ref idx, starter );
+               retVal = sigProvider.ReadPropertySignatureAfterStarter( array, ref idx, starter );
                break;
             case SignatureStarters.MethodSpecGenericInst:
-               retVal = ReadGenericMethodSignatureAfterStarter( array, ref idx );
+               retVal = sigProvider.ReadGenericMethodSignatureAfterStarter( array, ref idx );
                break;
             default:
                --idx;
                retVal = methodSigIsDefinition ?
-                  (AbstractNotRawSignature) ReadMethodDefSignature( array, ref idx ) :
-                  ReadMethodRefSignature( array, ref idx );
+                  (AbstractNotRawSignature) sigProvider.ReadMethodDefSignature( array, ref idx ) :
+                  sigProvider.ReadMethodRefSignature( array, ref idx );
                break;
          }
 
@@ -90,7 +92,11 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
 
          return retVal;
       }
-      public static MethodDefinitionSignature ReadMethodDefSignature( Byte[] array, ref Int32 idx )
+      public static MethodDefinitionSignature ReadMethodDefSignature(
+         this SignatureProvider sigProvider,
+         Byte[] array,
+         ref Int32 idx
+         )
       {
          SignatureStarters elementType;
          Int32 genericCount;
@@ -98,7 +104,7 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
          ParameterSignature[] parameters;
          Int32 sentinelMark;
          MethodDefinitionSignature retVal;
-         if ( ReadAbstractMethodSig( array, ref idx, false, out elementType, out genericCount, out returnParameter, out parameters, out sentinelMark ) )
+         if ( sigProvider.ReadAbstractMethodSig( array, ref idx, false, out elementType, out genericCount, out returnParameter, out parameters, out sentinelMark ) )
          {
             retVal = new MethodDefinitionSignature( parameters.Length )
             {
@@ -115,15 +121,20 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
          return retVal;
       }
 
-      public static MethodReferenceSignature ReadMethodRefSignature( Byte[] array, ref Int32 idx )
+      public static MethodReferenceSignature ReadMethodRefSignature(
+         this SignatureProvider sigProvider,
+         Byte[] array,
+         ref Int32 idx
+         )
       {
+
          SignatureStarters elementType;
          Int32 genericCount;
          ParameterSignature returnParameter;
          ParameterSignature[] parameters;
          Int32 sentinelMark;
          MethodReferenceSignature retVal;
-         if ( ReadAbstractMethodSig( array, ref idx, true, out elementType, out genericCount, out returnParameter, out parameters, out sentinelMark ) )
+         if ( sigProvider.ReadAbstractMethodSig( array, ref idx, true, out elementType, out genericCount, out returnParameter, out parameters, out sentinelMark ) )
          {
             var pLength = sentinelMark == -1 ? parameters.Length : sentinelMark;
             var vLength = sentinelMark == -1 ? 0 : ( parameters.Length - sentinelMark );
@@ -147,6 +158,7 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
       }
 
       private static Boolean ReadAbstractMethodSig(
+         this SignatureProvider sigProvider,
          Byte[] array,
          ref Int32 idx,
          Boolean canHaveSentinel,
@@ -166,7 +178,7 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
          var retVal = amountOfParams <= UInt16.MaxValue;
          if ( retVal )
          {
-            returnParameter = ReadParameter( array, ref idx );
+            returnParameter = sigProvider.ReadParameter( array, ref idx );
             sentinelMark = -1;
             if ( amountOfParams > 0 )
             {
@@ -181,14 +193,14 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
                      {
                         sentinelMark = i;
                      }
-                     parameters[i] = ReadParameter( array, ref idx );
+                     parameters[i] = sigProvider.ReadParameter( array, ref idx );
                   }
                }
                else
                {
                   for ( i = 0; i < amountOfParams; ++i )
                   {
-                     parameters[i] = ReadParameter( array, ref idx );
+                     parameters[i] = sigProvider.ReadParameter( array, ref idx );
                   }
                }
             }
@@ -210,6 +222,7 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
       }
 
       internal static ParameterSignature ReadParameter(
+         this SignatureProvider sigProvider,
          Byte[] array,
          ref Int32 idx
          )
@@ -219,7 +232,7 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
          var elementType = array.ReadSigElementType( ref idx );
          if ( elementType == SignatureElementTypes.TypedByRef )
          {
-            retVal.Type = SimpleTypeSignature.TypedByRef;
+            retVal.Type = sigProvider.GetSimpleTypeSignatureOrNull( (SimpleTypeSignatureKind) elementType );
          }
          else
          {
@@ -232,39 +245,49 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
                // Go backwards
                --idx;
             }
-            retVal.Type = ReadTypeSignature( array, ref idx );
+            retVal.Type = sigProvider.ReadTypeSignature( array, ref idx );
          }
          return retVal;
       }
 
-      public static FieldSignature ReadFieldSignature( Byte[] array, ref Int32 idx )
+      public static FieldSignature ReadFieldSignature(
+         this SignatureProvider sigProvider,
+         Byte[] array,
+         ref Int32 idx
+         )
       {
          SignatureStarters starter;
          return ( starter = array.ReadSigStarter( ref idx ) ).IsField() ?
-            ReadFieldSignatureAfterStarter( array, ref idx ) :
+            sigProvider.ReadFieldSignatureAfterStarter( array, ref idx ) :
             null;
       }
 
-      internal static FieldSignature ReadFieldSignatureAfterStarter( Byte[] array, ref Int32 idx )
+      private static FieldSignature ReadFieldSignatureAfterStarter(
+         this SignatureProvider sigProvider,
+         Byte[] array,
+         ref Int32 idx
+         )
       {
          var retVal = new FieldSignature();
          AddFromBytes( array, ref idx, retVal.CustomModifiers );
-         retVal.Type = ReadTypeSignature( array, ref idx );
+         retVal.Type = sigProvider.ReadTypeSignature( array, ref idx );
          return retVal;
       }
 
       public static PropertySignature ReadPropertySignature(
+         this SignatureProvider sigProvider,
          Byte[] array,
          ref Int32 idx
          )
       {
          SignatureStarters starter;
          return ( starter = array.ReadSigStarter( ref idx ) ).IsProperty() ?
-            ReadPropertySignatureAfterStarter( array, ref idx, starter ) :
+            sigProvider.ReadPropertySignatureAfterStarter( array, ref idx, starter ) :
             null;
       }
 
-      internal static PropertySignature ReadPropertySignatureAfterStarter(
+      private static PropertySignature ReadPropertySignatureAfterStarter(
+         this SignatureProvider sigProvider,
          Byte[] array,
          ref Int32 idx,
          SignatureStarters starter
@@ -279,11 +302,11 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
                HasThis = starter.IsHasThis()
             };
             AddFromBytes( array, ref idx, retVal.CustomModifiers );
-            retVal.PropertyType = ReadTypeSignature( array, ref idx );
+            retVal.PropertyType = sigProvider.ReadTypeSignature( array, ref idx );
 
             for ( var i = 0; i < paramCount; ++i )
             {
-               retVal.Parameters.Add( ReadParameter( array, ref idx ) );
+               retVal.Parameters.Add( sigProvider.ReadParameter( array, ref idx ) );
             }
          }
          else
@@ -294,17 +317,19 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
       }
 
       public static LocalVariablesSignature ReadLocalVariablesSignature(
+         this SignatureProvider sigProvider,
          Byte[] array,
          ref Int32 idx
          )
       {
          SignatureStarters starter;
          return ( starter = array.ReadSigStarter( ref idx ) ).IsLocalSignature() ?
-            ReadLocalVariablesSignatureAfterStarter( array, ref idx ) :
+            sigProvider.ReadLocalVariablesSignatureAfterStarter( array, ref idx ) :
             null;
       }
 
       internal static LocalVariablesSignature ReadLocalVariablesSignatureAfterStarter(
+         this SignatureProvider sigProvider,
          Byte[] array,
          ref Int32 idx
          )
@@ -313,20 +338,21 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
          var retVal = new LocalVariablesSignature( localsCount );
          for ( var i = 0; i < localsCount; ++i )
          {
-            retVal.Locals.Add( ReadLocalVariableSignature( array, ref idx ) );
+            retVal.Locals.Add( sigProvider.ReadLocalVariableSignature( array, ref idx ) );
          }
          return retVal;
       }
 
-      public static LocalVariableSignature ReadLocalVariableSignature(
+      public static LocalSignature ReadLocalVariableSignature(
+         this SignatureProvider sigProvider,
          Byte[] array,
          ref Int32 idx
          )
       {
-         var retVal = new LocalVariableSignature();
+         var retVal = new LocalSignature();
          if ( array[idx] == (Byte) SignatureElementTypes.TypedByRef )
          {
-            retVal.Type = SimpleTypeSignature.TypedByRef;
+            retVal.Type = sigProvider.GetSimpleTypeSignatureOrNull( SimpleTypeSignatureKind.TypedByRef );
          }
          else
          {
@@ -343,7 +369,7 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
                ++idx;
             }
 
-            retVal.Type = ReadTypeSignature( array, ref idx );
+            retVal.Type = sigProvider.ReadTypeSignature( array, ref idx );
          }
 
          return retVal;
@@ -363,7 +389,7 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
                new CustomModifierSignature()
                {
                   CustomModifierType = TableIndex.FromOneBasedToken( array.DecodeTypeDefOrRefOrSpec( ref idx ) ),
-                  IsOptional = sigType == SignatureElementTypes.CModOpt
+                  Optionality = (CustomModifierSignatureOptionality) sigType
                };
          }
          else
@@ -387,7 +413,12 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
          }
       }
 
-      public static TypeSignature ReadTypeSignature( Byte[] array, ref Int32 idx, Int32 max = -1 )
+      public static TypeSignature ReadTypeSignature(
+         this SignatureProvider sigProvider,
+         Byte[] array,
+         ref Int32 idx,
+         Int32 max = -1
+         )
       {
          Int32 auxiliary;
          var elementType = array.ReadSigElementType( ref idx );
@@ -411,12 +442,10 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
             case SignatureElementTypes.String:
             case SignatureElementTypes.Object:
             case SignatureElementTypes.Void:
-               SimpleTypeSignature simple;
-               SimpleTypeSignature.TryGetByKind( (SimpleTypeSignatureKind) elementType, out simple );
-               retVal = simple;
+               retVal = sigProvider.GetSimpleTypeSignatureOrNull( (SimpleTypeSignatureKind) elementType );
                break;
             case SignatureElementTypes.Array:
-               var arrayType = ReadTypeSignature( array, ref idx );
+               var arrayType = sigProvider.ReadTypeSignature( array, ref idx );
                var arraySig = ReadArrayInfo( array, ref idx );
                arraySig.ArrayType = arrayType;
                retVal = arraySig;
@@ -443,7 +472,7 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
                   {
                      for ( var i = 0; i < auxiliary; ++i )
                      {
-                        var curGArg = ReadTypeSignature( array, ref idx );
+                        var curGArg = sigProvider.ReadTypeSignature( array, ref idx );
                         classOrValue.GenericArguments.Add( curGArg );
                      }
                   }
@@ -458,7 +487,7 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
             case SignatureElementTypes.FnPtr:
                retVal = new FunctionPointerTypeSignature()
                {
-                  MethodSignature = ReadMethodRefSignature( array, ref idx )
+                  MethodSignature = sigProvider.ReadMethodRefSignature( array, ref idx )
                };
                break;
             case SignatureElementTypes.MVar:
@@ -472,13 +501,13 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
             case SignatureElementTypes.Ptr:
                var ptr = new PointerTypeSignature();
                AddFromBytes( array, ref idx, ptr.CustomModifiers );
-               ptr.PointerType = ReadTypeSignature( array, ref idx );
+               ptr.PointerType = sigProvider.ReadTypeSignature( array, ref idx );
                retVal = ptr;
                break;
             case SignatureElementTypes.SzArray:
                var szArr = new SimpleArrayTypeSignature();
                AddFromBytes( array, ref idx, szArr.CustomModifiers );
-               szArr.ArrayType = ReadTypeSignature( array, ref idx );
+               szArr.ArrayType = sigProvider.ReadTypeSignature( array, ref idx );
                retVal = szArr;
                break;
             default:
@@ -495,7 +524,10 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
          return retVal;
       }
 
-      private static ComplexArrayTypeSignature ReadArrayInfo( Byte[] array, ref Int32 idx )
+      private static ComplexArrayTypeSignature ReadArrayInfo(
+         Byte[] array,
+         ref Int32 idx
+         )
       {
          var rank = array.DecompressUInt32( ref idx );
          var curSize = array.DecompressUInt32( ref idx );
@@ -519,17 +551,19 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
       }
 
       public static GenericMethodSignature ReadGenericMethodSignature(
+         this SignatureProvider sigProvider,
          Byte[] array,
          ref Int32 idx
          )
       {
          SignatureStarters starter;
          return ( starter = array.ReadSigStarter( ref idx ) ) == SignatureStarters.MethodSpecGenericInst ?
-            ReadGenericMethodSignatureAfterStarter( array, ref idx ) :
+            sigProvider.ReadGenericMethodSignatureAfterStarter( array, ref idx ) :
             null;
       }
 
       public static GenericMethodSignature ReadGenericMethodSignatureAfterStarter(
+         this SignatureProvider sigProvider,
          Byte[] array,
          ref Int32 idx
          )
@@ -538,7 +572,7 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
          var retVal = new GenericMethodSignature( gArgsCount );
          for ( var i = 0; i < gArgsCount; ++i )
          {
-            retVal.GenericArguments.Add( ReadTypeSignature( array, ref idx ) );
+            retVal.GenericArguments.Add( sigProvider.ReadTypeSignature( array, ref idx ) );
          }
          return retVal;
       }
@@ -719,7 +753,7 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
                   return info.CreateMethodSignature( sig as AbstractMethodSignature );
                case SignatureKind.Property:
                   return info.CreatePropertySignature( sig as PropertySignature );
-               case SignatureKind.RawSignature:
+               case SignatureKind.Raw:
                   return ( (RawSignature) sig ).Bytes.CreateArrayCopy();
                case SignatureKind.Type:
                   return info.CreateTypeSignature( sig as TypeSignature );
@@ -872,7 +906,7 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
             foreach ( var mod in mods )
             {
                info
-                  .AddSigByte( ref idx, mod.IsOptional ? SignatureElementTypes.CModOpt : SignatureElementTypes.CModReqd )
+                  .AddSigByte( ref idx, (SignatureElementTypes) mod.Optionality )
                   .AddTDRSToken( ref idx, mod.CustomModifierType );
             }
          }
@@ -990,22 +1024,31 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
          return info;
       }
 
+      private static Boolean ContinueWritingParameterOrLocalType( this ResizableArray<Byte> info, ref Int32 idx, TypeSignature type )
+      {
+         var wasTypedByRef = type != null
+            && type.TypeSignatureKind == TypeSignatureKind.Simple
+            && ( (SimpleTypeSignature) type ).SimpleType == SimpleTypeSignatureKind.TypedByRef;
+         if ( wasTypedByRef )
+         {
+            info.AddSigByte( ref idx, SignatureElementTypes.TypedByRef );
+         }
+         return !wasTypedByRef;
+      }
+
       private static ResizableArray<Byte> WriteParameterSignature( this ResizableArray<Byte> info, ref Int32 idx, ParameterSignature parameter )
       {
          info
             .WriteCustomModifiers( ref idx, parameter.CustomModifiers );
-         if ( SimpleTypeSignature.TypedByRef.Equals( parameter.Type ) )
-         {
-            info.AddSigByte( ref idx, SignatureElementTypes.TypedByRef );
-         }
-         else
+         var type = parameter.Type;
+         if ( info.ContinueWritingParameterOrLocalType( ref idx, type ) )
          {
             if ( parameter.IsByRef )
             {
                info.AddSigByte( ref idx, SignatureElementTypes.ByRef );
             }
 
-            info.WriteTypeSignature( ref idx, parameter.Type );
+            info.WriteTypeSignature( ref idx, type );
          }
          return info;
       }
@@ -1626,14 +1669,11 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
       private static ResizableArray<Byte> WriteLocalSignature(
          this ResizableArray<Byte> info,
          ref Int32 idx,
-         LocalVariableSignature sig
+         LocalSignature sig
          )
       {
-         if ( SimpleTypeSignature.TypedByRef.Equals( sig.Type ) )
-         {
-            info.AddSigByte( ref idx, SignatureElementTypes.TypedByRef );
-         }
-         else
+         var type = sig.Type;
+         if ( info.ContinueWritingParameterOrLocalType( ref idx, type ) )
          {
             info.WriteCustomModifiers( ref idx, sig.CustomModifiers );
             if ( sig.IsPinned )
@@ -1645,7 +1685,7 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
             {
                info.AddSigByte( ref idx, SignatureElementTypes.ByRef );
             }
-            info.WriteTypeSignature( ref idx, sig.Type );
+            info.WriteTypeSignature( ref idx, type );
          }
 
          return info;

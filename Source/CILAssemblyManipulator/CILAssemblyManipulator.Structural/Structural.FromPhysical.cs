@@ -750,9 +750,9 @@ public static partial class E_CILStructural
             {
                switch ( o.InfoKind )
                {
-                  case OpCodeOperandKind.OperandNone:
+                  case OpCodeInfoKind.OperandNone:
                      return operandless.GetOrAdd_NotThreadSafe( o.OpCodeID, c => new OpCodeStructureSimple( ocp.GetCodeFor( o.OpCodeID ) ) );
-                  case OpCodeOperandKind.OperandTableIndex:
+                  case OpCodeInfoKind.OperandTableIndex:
                      return new OpCodeStructureWithReference()
                      {
                         OpCode = ocp.GetCodeFor( o.OpCodeID ),
@@ -793,7 +793,7 @@ public static partial class E_CILStructural
                return state.CreatePropertyStructureSignature( (PropertySignature) signature );
             case SignatureKind.Type:
                return state.CreateTypeStructureSignature( (TypeSignature) signature );
-            case SignatureKind.RawSignature:
+            case SignatureKind.Raw:
                throw new NotSupportedException( "Raw signatures are not supported in structural layer." );
             default:
                throw new InvalidOperationException( "Invalid physical signature kind: " + signature.SignatureKind + "." );
@@ -978,7 +978,7 @@ public static partial class E_CILStructural
       return retVal;
    }
 
-   private static LocalVariableStructureSignature CreateLocalStructureSignature( this StructuralCreationState state, LocalVariableSignature local )
+   private static LocalVariableStructureSignature CreateLocalStructureSignature( this StructuralCreationState state, LocalSignature local )
    {
       var retVal = new LocalVariableStructureSignature( local.CustomModifiers.Count )
       {
@@ -1006,7 +1006,7 @@ public static partial class E_CILStructural
    {
       newMods.AddRange( original.Select( cm => new CustomModifierStructureSignature()
       {
-         IsOptional = cm.IsOptional,
+         Optionality = cm.Optionality,
          CustomModifierType = state.FromTypeDefOrRefOrSpec( cm.CustomModifierType )
       } ) );
    }

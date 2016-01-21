@@ -247,7 +247,7 @@ namespace CILAssemblyManipulator.Structural
 
    public sealed class CustomModifierStructureSignature
    {
-      public Boolean IsOptional { get; set; }
+      public CustomModifierSignatureOptionality Optionality { get; set; }
       public AbstractTypeStructure CustomModifierType { get; set; }
    }
 

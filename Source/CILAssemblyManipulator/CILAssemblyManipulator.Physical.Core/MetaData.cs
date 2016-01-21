@@ -410,6 +410,8 @@ namespace CILAssemblyManipulator.Physical
       MetaDataTable<AssemblyReferenceOS> AssemblyReferenceOSs { get; }
 
       Meta.OpCodeProvider OpCodeProvider { get; }
+
+      Meta.SignatureProvider SignatureProvider { get; }
    }
 
 
@@ -944,6 +946,9 @@ public static partial class E_CILPhysical
    /// <returns>
    /// <c>true</c> if <paramref name="md"/> and <paramref name="tIdx"/> are both non-<c>null</c>, and the <see cref="TableIndex.Table"/> of <paramref name="tIdx"/> is <see cref="Tables.TypeDef"/> or <see cref="Tables.TypeRef"/>, and that the <see cref="TypeReference.ResolutionScope"/> in case of <see cref="Tables.TypeRef"/> is <see cref="Tables.ModuleRef"/> or <see cref="Tables.AssemblyRef"/>, and if the namespace and name match; <c>false</c> otherwise.
    /// </returns>
+   /// <remarks>
+   /// No checks are done to parent type.
+   /// </remarks>
    public static Boolean IsSystemType(
       this CILMetaData md,
       TableIndex? tIdx,
@@ -2191,7 +2196,7 @@ public static partial class E_CILPhysical
             return ( (PropertySignature) sig ).GetAllSignaturesToUpdateForReOrder_Property();
          case SignatureKind.Type:
             return ( (TypeSignature) sig ).GetAllSignaturesToUpdateForReOrder_Type();
-         case SignatureKind.RawSignature:
+         case SignatureKind.Raw:
             return Empty<TSigInfo>.Enumerable;
          default:
             throw new InvalidOperationException( "Unrecognized signature kind: " + sig.SignatureKind + "." );
@@ -2220,7 +2225,7 @@ public static partial class E_CILPhysical
          .Concat( sig.Parameters.SelectMany( p => p.GetAllSignaturesToUpdateForReOrder_LocalOrSig() ) );
    }
 
-   private static IEnumerable<TSigInfo> GetAllSignaturesToUpdateForReOrder_LocalOrSig( this ParameterOrLocalVariableSignature sig )
+   private static IEnumerable<TSigInfo> GetAllSignaturesToUpdateForReOrder_LocalOrSig( this ParameterOrLocalSignature sig )
    {
       return sig.CustomModifiers.Select( cm => Tuple.Create( (Object) cm, cm.CustomModifierType ) )
          .Concat( sig.Type.GetAllSignaturesToUpdateForReOrder_Type() );
@@ -2305,7 +2310,7 @@ public static partial class E_CILPhysical
             }
 
             // Op codes
-            foreach ( var code in il.OpCodes.Where( code => code.InfoKind == OpCodeOperandKind.OperandTableIndex ) )
+            foreach ( var code in il.OpCodes.Where( code => code.InfoKind == OpCodeInfoKind.OperandTableIndex ) )
             {
                var codeInfo = (OpCodeInfoWithTableIndex) code;
                var token = codeInfo.Operand;

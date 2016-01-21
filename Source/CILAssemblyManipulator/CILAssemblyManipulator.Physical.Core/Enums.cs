@@ -77,7 +77,26 @@ namespace CILAssemblyManipulator.Physical
       /// <summary>
       /// Reserved (use at own caution).
       /// </summary>
-      EnableJITCompileTracking = 0x8000
+      EnableJITCompileTracking = 0x8000,
+
+      // TODO processor architectures (at least some .NET Portable reference assemblies seem to have them)
+      // Remember to update AsAssemblyReference( this AssemblyDefinition definition ) extension method then too.
+
+      /// <summary>
+      /// The assembly content is default (.dll or .exe or .netmodule files).
+      /// </summary>
+      ContentTypeDefault = 0x0000,
+
+      /// <summary>
+      /// The content type is Windows Runtime (.winmd files).
+      /// </summary>
+      ContentTypeWindowsRuntime = 0x0200,
+
+      /// <summary>
+      /// The mask value for content type (3 bits).
+      /// </summary>
+      ContentTypeMask = 0x0E00,
+
    }
 
    /// <summary>
@@ -1279,6 +1298,36 @@ public static partial class E_CILPhysical
    }
 
    /// <summary>
+   /// Extracts the content type value from given <see cref="AssemblyFlags"/>.
+   /// </summary>
+   /// <param name="flags">The <see cref="AssemblyFlags"/>.</param>
+   /// <returns>Result of bitwise AND between <paramref name="flags"/> and <see cref="AssemblyFlags.ContentTypeMask"/>, which will be <see cref="AssemblyFlags.ContentTypeDefault"/> or <see cref="AssemblyFlags.ContentTypeWindowsRuntime"/>.</returns>
+   public static AssemblyFlags GetContentType( this AssemblyFlags flags )
+   {
+      return ( flags & AssemblyFlags.ContentTypeMask );
+   }
+
+   /// <summary>
+   /// Checks whether the content type of a given assembly is <see cref="AssemblyFlags.ContentTypeDefault"/>.
+   /// </summary>
+   /// <param name="flags">The <see cref="AssemblyFlags"/>.</param>
+   /// <returns><c>true</c> if the given <paramref name="flags"/> have <see cref="AssemblyFlags.ContentTypeDefault"/> specified; <c>false</c> otherwise.</returns>
+   public static Boolean IsContentTypeDefault( this AssemblyFlags flags )
+   {
+      return flags.GetContentType() == AssemblyFlags.ContentTypeDefault;
+   }
+
+   /// <summary>
+   /// Checks whether the content type of a given assembly is <see cref="AssemblyFlags.ContentTypeWindowsRuntime"/>.
+   /// </summary>
+   /// <param name="flags">The <see cref="AssemblyFlags"/>.</param>
+   /// <returns><c>true</c> if the given <paramref name="flags"/> have <see cref="AssemblyFlags.ContentTypeWindowsRuntime"/> specified; <c>false</c> otherwise.</returns>
+   public static Boolean IsContentTypeWindowsRuntime( this AssemblyFlags flags )
+   {
+      return flags.GetContentType() == AssemblyFlags.ContentTypeWindowsRuntime;
+   }
+
+   /// <summary>
    /// Returns <c>true</c> if <paramref name="attrs"/> indicates that method implementation is in CIL.
    /// </summary>
    /// <param name="attrs">The <see cref="MethodImplAttributes"/></param>
@@ -2141,13 +2190,23 @@ public static partial class E_CILPhysical
    }
 
    /// <summary>
+   /// Gets the calling conventions from given <see cref="MethodSignatureInformation"/>.
+   /// </summary>
+   /// <param name="info">The <see cref="MethodSignatureInformation"/>.</param>
+   /// <returns>One of the calling convention values (lower 4 bits) of <see cref="MethodSignatureInformation"/>.</returns>
+   public static MethodSignatureInformation GetCallingConventions( this MethodSignatureInformation info )
+   {
+      return info & MethodSignatureInformation.CallingConventionsMask;
+   }
+
+   /// <summary>
    /// Checks whether the calling convention of <see cref="MethodSignatureInformation"/> is <see cref="MethodSignatureInformation.Default"/>.
    /// </summary>
    /// <param name="info">The <see cref="MethodSignatureInformation"/> element.</param>
    /// <returns><c>true</c> if <paramref name="info"/> has calling convention of <see cref="MethodSignatureInformation.Default"/>; <c>false</c> otherwise.</returns>
    public static Boolean IsDefault( this MethodSignatureInformation info )
    {
-      return ( info & MethodSignatureInformation.CallingConventionsMask ) == MethodSignatureInformation.Default;
+      return info.GetCallingConventions() == MethodSignatureInformation.Default;
    }
 
    /// <summary>
@@ -2157,7 +2216,7 @@ public static partial class E_CILPhysical
    /// <returns><c>true</c> if <paramref name="info"/> has calling convention of <see cref="MethodSignatureInformation.C"/>; <c>false</c> otherwise.</returns>
    public static Boolean IsC( this MethodSignatureInformation info )
    {
-      return ( info & MethodSignatureInformation.CallingConventionsMask ) == MethodSignatureInformation.C;
+      return info.GetCallingConventions() == MethodSignatureInformation.C;
    }
 
    /// <summary>
@@ -2167,7 +2226,7 @@ public static partial class E_CILPhysical
    /// <returns><c>true</c> if <paramref name="info"/> has calling convention of <see cref="MethodSignatureInformation.StandardCall"/>; <c>false</c> otherwise.</returns>
    public static Boolean IsStandardCall( this MethodSignatureInformation info )
    {
-      return ( info & MethodSignatureInformation.CallingConventionsMask ) == MethodSignatureInformation.StandardCall;
+      return info.GetCallingConventions() == MethodSignatureInformation.StandardCall;
    }
 
    /// <summary>
@@ -2177,7 +2236,7 @@ public static partial class E_CILPhysical
    /// <returns><c>true</c> if <paramref name="info"/> has calling convention of <see cref="MethodSignatureInformation.ThisCall"/>; <c>false</c> otherwise.</returns>
    public static Boolean IsThisCall( this MethodSignatureInformation info )
    {
-      return ( info & MethodSignatureInformation.CallingConventionsMask ) == MethodSignatureInformation.ThisCall;
+      return info.GetCallingConventions() == MethodSignatureInformation.ThisCall;
    }
 
    /// <summary>
@@ -2187,7 +2246,7 @@ public static partial class E_CILPhysical
    /// <returns><c>true</c> if <paramref name="info"/> has calling convention of <see cref="MethodSignatureInformation.FastCall"/>; <c>false</c> otherwise.</returns>
    public static Boolean IsFastCall( this MethodSignatureInformation info )
    {
-      return ( info & MethodSignatureInformation.CallingConventionsMask ) == MethodSignatureInformation.FastCall;
+      return info.GetCallingConventions() == MethodSignatureInformation.FastCall;
    }
 
    /// <summary>
@@ -2197,7 +2256,7 @@ public static partial class E_CILPhysical
    /// <returns><c>true</c> if <paramref name="info"/> has calling convention of <see cref="MethodSignatureInformation.VarArgs"/>; <c>false</c> otherwise.</returns>
    public static Boolean IsVarArg( this MethodSignatureInformation info )
    {
-      return ( info & MethodSignatureInformation.CallingConventionsMask ) == MethodSignatureInformation.VarArgs;
+      return info.GetCallingConventions() == MethodSignatureInformation.VarArgs;
    }
 
    /// <summary>
@@ -2207,7 +2266,7 @@ public static partial class E_CILPhysical
    /// <returns><c>true</c> if <paramref name="info"/> has calling convention of <see cref="MethodSignatureInformation.Unmanaged"/>; <c>false</c> otherwise.</returns>
    public static Boolean IsUnmanaged( this MethodSignatureInformation info )
    {
-      return ( info & MethodSignatureInformation.CallingConventionsMask ) == MethodSignatureInformation.Unmanaged;
+      return info.GetCallingConventions() == MethodSignatureInformation.Unmanaged;
    }
 
    /// <summary>
@@ -2217,7 +2276,7 @@ public static partial class E_CILPhysical
    /// <returns><c>true</c> if <paramref name="info"/> has calling convention of <see cref="MethodSignatureInformation.NativeVarArgs"/>; <c>false</c> otherwise.</returns>
    public static Boolean IsNativeVarArgs( this MethodSignatureInformation info )
    {
-      return ( info & MethodSignatureInformation.CallingConventionsMask ) == MethodSignatureInformation.NativeVarArgs;
+      return info.GetCallingConventions() == MethodSignatureInformation.NativeVarArgs;
    }
 
    /// <summary>

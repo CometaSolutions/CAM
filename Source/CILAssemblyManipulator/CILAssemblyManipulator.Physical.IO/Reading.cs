@@ -186,17 +186,17 @@ namespace CILAssemblyManipulator.Physical.IO
    {
       Byte[] GetBLOB( Int32 heapIndex );
 
-      AbstractSignature ReadNonTypeSignature( Int32 heapIndex, Boolean methodSigIsDefinition, Boolean handleFieldSigAsLocalsSig, out Boolean fieldSigTransformedToLocalsSig );
+      AbstractSignature ReadNonTypeSignature( Int32 heapIndex, SignatureProvider sigProvider, Boolean methodSigIsDefinition, Boolean handleFieldSigAsLocalsSig, out Boolean fieldSigTransformedToLocalsSig );
 
-      TypeSignature ReadTypeSignature( Int32 heapIndex );
+      TypeSignature ReadTypeSignature( Int32 heapIndex, SignatureProvider sigProvider );
 
-      AbstractCustomAttributeSignature ReadCASignature( Int32 heapIndex );
+      AbstractCustomAttributeSignature ReadCASignature( Int32 heapIndex, SignatureProvider sigProvider );
 
-      void ReadSecurityInformation( Int32 heapIndex, List<AbstractSecurityInformation> securityInfo );
+      void ReadSecurityInformation( Int32 heapIndex, SignatureProvider sigProvider, List<AbstractSecurityInformation> securityInfo );
 
-      AbstractMarshalingInfo ReadMarshalingInfo( Int32 heapIndex );
+      AbstractMarshalingInfo ReadMarshalingInfo( Int32 heapIndex, SignatureProvider sigProvider );
 
-      Object ReadConstantValue( Int32 heapIndex, ConstantValueType constType );
+      Object ReadConstantValue( Int32 heapIndex, SignatureProvider sigProvider, ConstantValueType constType );
 
    }
 

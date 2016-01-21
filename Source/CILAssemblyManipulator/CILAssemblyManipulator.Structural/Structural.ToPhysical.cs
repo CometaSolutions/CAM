@@ -1217,7 +1217,7 @@ public static partial class E_CILStructural
                state.AddPhysicalCustomMods( ptrP.CustomModifiers, ptr.CustomModifiers );
                return ptrP;
             case TypeStructureSignatureKind.Simple:
-               return SimpleTypeSignature.GetByKind( ( (SimpleTypeStructureSignature) sig ).SimpleType );
+               return state.MetaData.SignatureProvider.GetSimpleTypeSignature( ( (SimpleTypeStructureSignature) sig ).SimpleType );
             case TypeStructureSignatureKind.SimpleArray:
                var array = (SimpleArrayTypeStructureSignature) sig;
                var arrayP = new SimpleArrayTypeSignature( array.CustomModifiers.Count )
@@ -1237,7 +1237,7 @@ public static partial class E_CILStructural
       physicalMods.AddRange( structureMods.Select( mod => new CustomModifierSignature()
       {
          CustomModifierType = state.GetTypeDefOrRefOrSpec( mod.CustomModifierType ),
-         IsOptional = mod.IsOptional
+         Optionality = mod.Optionality
       } ) );
    }
 
@@ -1298,7 +1298,7 @@ public static partial class E_CILStructural
       return retVal;
    }
 
-   private static void PopulatePhysicalParameterOrLocalSig( this PhysicalCreationState state, ParameterOrLocalVariableSignature physicalSig, ParameterOrLocalVariableStructureSignature structureSig )
+   private static void PopulatePhysicalParameterOrLocalSig( this PhysicalCreationState state, ParameterOrLocalSignature physicalSig, ParameterOrLocalVariableStructureSignature structureSig )
    {
       physicalSig.IsByRef = structureSig.IsByRef;
       physicalSig.Type = state.CreatePhysicalTypeSignature( structureSig.Type );
@@ -1320,16 +1320,16 @@ public static partial class E_CILStructural
       return retVal;
    }
 
-   private static LocalVariableSignature CreatePhysicalLocalSignature( this PhysicalCreationState state, LocalVariableStructureSignature sig )
+   private static LocalSignature CreatePhysicalLocalSignature( this PhysicalCreationState state, LocalVariableStructureSignature sig )
    {
-      LocalVariableSignature retVal;
+      LocalSignature retVal;
       if ( sig == null )
       {
          retVal = null;
       }
       else
       {
-         retVal = new LocalVariableSignature( sig.CustomModifiers.Count )
+         retVal = new LocalSignature( sig.CustomModifiers.Count )
          {
             IsPinned = sig.IsPinned
          };
