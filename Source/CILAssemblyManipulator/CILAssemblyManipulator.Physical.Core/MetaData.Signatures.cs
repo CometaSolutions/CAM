@@ -1134,9 +1134,20 @@ namespace CILAssemblyManipulator.Physical
    /// This class represents marshalling information used for CIL parameters and fields.
    /// Subclasses of this class further define what kind of marshaling info is in question.
    /// </summary>
-   /// <seealso cref="CILElementWithMarshalingInfo"/>
-   /// <seealso cref="CILField"/>
-   /// <seealso cref="CILParameter"/>
+   /// <remarks>
+   /// The instances of this class can not be directly instantiated.
+   /// Instead, use one of the following:
+   /// <list type="bullet">
+   /// <item><description><see cref="SimpleMarshalingInfo"/>,</description></item>
+   /// <item><description><see cref="FixedLengthStringMarshalingInfo"/>,</description></item>
+   /// <item><description><see cref="InterfaceMarshalingInfo"/>,</description></item>
+   /// <item><description><see cref="SafeArrayMarshalingInfo"/>,</description></item>
+   /// <item><description><see cref="FixedLengthArrayMarshalingInfo"/>,</description></item>
+   /// <item><description><see cref="ArrayMarshalingInfo"/>,</description></item>
+   /// <item><description><see cref="CustomMarshalingInfo"/>, or</description></item>
+   /// <item><description><see cref="RawMarshalingInfo"/>.</description></item>
+   /// </list>
+   /// </remarks>
    public abstract class AbstractMarshalingInfo
    {
       // Disable inheritance to other assemblies
@@ -1320,6 +1331,39 @@ namespace CILAssemblyManipulator.Physical
    /// <summary>
    /// This class represents marshaling information for simple built-in types, that are handled the same way both managed and unmanaged.
    /// </summary>
+   /// <remarks>
+   /// The <see cref="AbstractMarshalingInfo.Value"/> should be one of the following:
+   /// <list type="bullet">
+   /// <item><description><see cref="UnmanagedType.Bool"/>,</description></item>
+   /// <item><description><see cref="UnmanagedType.I1"/>,</description></item>
+   /// <item><description><see cref="UnmanagedType.U1"/>,</description></item>
+   /// <item><description><see cref="UnmanagedType.I2"/>,</description></item>
+   /// <item><description><see cref="UnmanagedType.U2"/>,</description></item>
+   /// <item><description><see cref="UnmanagedType.I4"/>,</description></item>
+   /// <item><description><see cref="UnmanagedType.U4"/>,</description></item>
+   /// <item><description><see cref="UnmanagedType.I8"/>,</description></item>
+   /// <item><description><see cref="UnmanagedType.U8"/>,</description></item>
+   /// <item><description><see cref="UnmanagedType.R4"/>,</description></item>
+   /// <item><description><see cref="UnmanagedType.R8"/>,</description></item>
+   /// <item><description><see cref="UnmanagedType.LPStr"/>,</description></item>
+   /// <item><description><see cref="UnmanagedType.LPWStr"/>,</description></item>
+   /// <item><description><see cref="UnmanagedType.SysInt"/>,</description></item>
+   /// <item><description><see cref="UnmanagedType.SysUInt"/>,</description></item>
+   /// <item><description><see cref="UnmanagedType.FunctionPtr"/>,</description></item>
+   /// <item><description><see cref="UnmanagedType.Currency"/>,</description></item>
+   /// <item><description><see cref="UnmanagedType.BStr"/>,</description></item>
+   /// <item><description><see cref="UnmanagedType.Struct"/>,</description></item>
+   /// <item><description><see cref="UnmanagedType.VBByRefStr"/>,</description></item>
+   /// <item><description><see cref="UnmanagedType.AnsiBStr"/>,</description></item>
+   /// <item><description><see cref="UnmanagedType.TBStr"/>,</description></item>
+   /// <item><description><see cref="UnmanagedType.VariantBool"/>,</description></item>
+   /// <item><description><see cref="UnmanagedType.AsAny"/>,</description></item>
+   /// <item><description><see cref="UnmanagedType.LPStruct"/>,</description></item>
+   /// <item><description><see cref="UnmanagedType.Error"/>,</description></item>
+   /// <item><description><see cref="UnmanagedType.IInspectable"/> or</description></item>
+   /// <item><description><see cref="UnmanagedType.HString"/>.</description></item>
+   /// </list>
+   /// </remarks>
    public sealed class SimpleMarshalingInfo : AbstractMarshalingInfo
    {
       /// <summary>
@@ -1335,8 +1379,18 @@ namespace CILAssemblyManipulator.Physical
       }
    }
 
+   /// <summary>
+   /// This class represents marshaling parameter or field as fixed-length string.
+   /// </summary>
+   /// <remarks>
+   /// The <see cref="AbstractMarshalingInfo.Value"/> should be <see cref="UnmanagedType.ByValTStr"/>.
+   /// </remarks>
    public sealed class FixedLengthStringMarshalingInfo : AbstractMarshalingInfo
    {
+      /// <summary>
+      /// Returns the <see cref="MarshalingInfoKind.FixedLengthString"/>.
+      /// </summary>
+      /// <value>The <see cref="MarshalingInfoKind.FixedLengthString"/>.</value>
       public override MarshalingInfoKind MarshalingInfoKind
       {
          get
@@ -1352,8 +1406,23 @@ namespace CILAssemblyManipulator.Physical
       public Int32 Size { get; set; }
    }
 
+   /// <summary>
+   /// This class represents marshaling parameter or field as (COM) interface.
+   /// </summary>
+   /// <remarks>
+   /// The <see cref="AbstractMarshalingInfo.Value"/> should be one of the following:
+   /// <list type="bullet">
+   /// <item><description><see cref="UnmanagedType.IUnknown"/>,</description></item>
+   /// <item><description><see cref="UnmanagedType.IDispatch"/>, or</description></item>
+   /// <item><description><see cref="UnmanagedType.Interface"/>.</description></item>
+   /// </list>
+   /// </remarks>
    public sealed class InterfaceMarshalingInfo : AbstractMarshalingInfo
    {
+      /// <summary>
+      /// Returns the <see cref="MarshalingInfoKind.Interface"/>.
+      /// </summary>
+      /// <value>The <see cref="MarshalingInfoKind.Interface"/>.</value>
       public override MarshalingInfoKind MarshalingInfoKind
       {
          get
@@ -1369,8 +1438,18 @@ namespace CILAssemblyManipulator.Physical
       public Int32 IIDParameterIndex { get; set; }
    }
 
+   /// <summary>
+   /// This class represents marshaling parameter or field as safe array.
+   /// </summary>
+   /// <remarks>
+   /// The <see cref="AbstractMarshalingInfo.Value"/> should be <see cref="UnmanagedType.SafeArray"/>.
+   /// </remarks>
    public sealed class SafeArrayMarshalingInfo : AbstractMarshalingInfo
    {
+      /// <summary>
+      /// Returns the <see cref="MarshalingInfoKind.SafeArray"/>.
+      /// </summary>
+      /// <value>The <see cref="MarshalingInfoKind.SafeArray"/>.</value>
       public override MarshalingInfoKind MarshalingInfoKind
       {
          get
@@ -1392,8 +1471,18 @@ namespace CILAssemblyManipulator.Physical
       public String UserDefinedType { get; set; }
    }
 
+   /// <summary>
+   /// This class represents marshaling parameter or field as fixed-length array.
+   /// </summary>
+   /// <remarks>
+   /// The <see cref="AbstractMarshalingInfo.Value"/> should be <see cref="UnmanagedType.ByValArray"/>.
+   /// </remarks>
    public sealed class FixedLengthArrayMarshalingInfo : AbstractMarshalingInfo
    {
+      /// <summary>
+      /// Returns the <see cref="MarshalingInfoKind.FixedLengthArray"/>.
+      /// </summary>
+      /// <value>The <see cref="MarshalingInfoKind.FixedLengthArray"/>.</value>
       public override MarshalingInfoKind MarshalingInfoKind
       {
          get
@@ -1415,8 +1504,18 @@ namespace CILAssemblyManipulator.Physical
       public UnmanagedType ElementType { get; set; }
    }
 
+   /// <summary>
+   /// This class represents marshaling parameter or field as variable-length array.
+   /// </summary>
+   /// <remarks>
+   /// The <see cref="AbstractMarshalingInfo.Value"/> should be <see cref="UnmanagedType.LPArray"/>.
+   /// </remarks>
    public sealed class ArrayMarshalingInfo : AbstractMarshalingInfo
    {
+      /// <summary>
+      /// Returns the <see cref="MarshalingInfoKind.Array"/>.
+      /// </summary>
+      /// <value>The <see cref="MarshalingInfoKind.Array"/>.</value>
       public override MarshalingInfoKind MarshalingInfoKind
       {
          get
@@ -1450,8 +1549,18 @@ namespace CILAssemblyManipulator.Physical
       public Int32 Flags { get; set; }
    }
 
+   /// <summary>
+   /// This class represents marshaling parameter or field with customized marshaling callbacks.
+   /// </summary>
+   /// <remarks>
+   /// The <see cref="AbstractMarshalingInfo.Value"/> should be <see cref="UnmanagedType.CustomMarshaler"/>.
+   /// </remarks>
    public sealed class CustomMarshalingInfo : AbstractMarshalingInfo
    {
+      /// <summary>
+      /// Returns the <see cref="MarshalingInfoKind.Custom"/>.
+      /// </summary>
+      /// <value>The <see cref="MarshalingInfoKind.Custom"/>.</value>
       public override MarshalingInfoKind MarshalingInfoKind
       {
          get
@@ -1476,6 +1585,9 @@ namespace CILAssemblyManipulator.Physical
       /// Gets or sets the custom marshaler type name for this marshaling info.
       /// </summary>
       /// <value>The custom marshaler type name for this marshaling info.</value>
+      /// <remarks>
+      /// The type should implement the <see cref="System.Runtime.InteropServices.ICustomMarshaler"/> interface.
+      /// </remarks>
       public String CustomMarshalerTypeName { get; set; }
 
       /// <summary>
@@ -1485,8 +1597,18 @@ namespace CILAssemblyManipulator.Physical
       public String MarshalCookie { get; set; }
    }
 
+   /// <summary>
+   /// This class represents marshaling parameter or field as unstructured information.
+   /// </summary>
+   /// <remarks>
+   /// This class is typically used when the marshaling blob is unexpressable with this framework.
+   /// </remarks>
    public sealed class RawMarshalingInfo : AbstractMarshalingInfo
    {
+      /// <summary>
+      /// Returns the <see cref="MarshalingInfoKind.Raw"/>.
+      /// </summary>
+      /// <value>The <see cref="MarshalingInfoKind.Raw"/>.</value>
       public override MarshalingInfoKind MarshalingInfoKind
       {
          get
@@ -1502,6 +1624,17 @@ namespace CILAssemblyManipulator.Physical
       public Byte[] Bytes { get; set; }
    }
 
+   /// <summary>
+   /// This is base class for custom attribute data (signature).
+   /// </summary>
+   /// <remarks>
+   /// The instances of this class can not be directly instantiated.
+   /// Instead, use one of the following:
+   /// <list type="bullet">
+   /// <item><description><see cref="ResolvedCustomAttributeSignature"/>, or</description></item>
+   /// <item><description><see cref="RawCustomAttributeSignature"/>.</description></item>
+   /// </list>
+   /// </remarks>
    public abstract class AbstractCustomAttributeSignature
    {
       // Disable inheritance to other assemblies
@@ -1510,18 +1643,45 @@ namespace CILAssemblyManipulator.Physical
 
       }
 
+      /// <summary>
+      /// Gets the <see cref="Physical.CustomAttributeSignatureKind"/> enumeration descripting the actual type of this <see cref="AbstractCustomAttributeSignature"/>.
+      /// </summary>
+      /// <value>The <see cref="Physical.CustomAttributeSignatureKind"/> enumeration descripting the actual type of this <see cref="AbstractCustomAttributeSignature"/>.</value>
+      /// <seealso cref="Physical.CustomAttributeSignatureKind"/>
       public abstract CustomAttributeSignatureKind CustomAttributeSignatureKind { get; }
    }
 
+   /// <summary>
+   /// This enumeration tells what type instance of <see cref="AbstractCustomAttributeSignature"/> really is.
+   /// </summary>
    public enum CustomAttributeSignatureKind
    {
+      /// <summary>
+      /// The <see cref="AbstractCustomAttributeSignature"/> is of type <see cref="RawCustomAttributeSignature"/>.
+      /// </summary>
       Raw,
+
+      /// <summary>
+      /// The <see cref="AbstractCustomAttributeSignature"/> is of type <see cref="ResolvedCustomAttributeSignature"/>.
+      /// </summary>
       Resolved
    }
 
+   /// <summary>
+   /// This class represents unresolved custom attribute signature, where all data is represented as byte array.
+   /// </summary>
    public sealed class RawCustomAttributeSignature : AbstractCustomAttributeSignature
    {
+      /// <summary>
+      /// Gets or sets the binary data for this <see cref="RawCustomAttributeSignature"/>.
+      /// </summary>
+      /// <value>The binary data for this <see cref="RawCustomAttributeSignature"/>.</value>
       public Byte[] Bytes { get; set; }
+
+      /// <summary>
+      /// Returns the <see cref="CustomAttributeSignatureKind.Raw"/>.
+      /// </summary>
+      /// <value>The <see cref="CustomAttributeSignatureKind.Raw"/>.</value>
       public override CustomAttributeSignatureKind CustomAttributeSignatureKind
       {
          get
@@ -1531,17 +1691,27 @@ namespace CILAssemblyManipulator.Physical
       }
    }
 
-   public sealed class CustomAttributeSignature : AbstractCustomAttributeSignature
+   /// <summary>
+   /// This class represents resolved custom attribute signature, where all data is accessible through list of <see cref="CustomAttributeTypedArgument"/>s and <see cref="CustomAttributeNamedArgument"/>s.
+   /// </summary>
+   public sealed class ResolvedCustomAttributeSignature : AbstractCustomAttributeSignature
    {
-      private readonly List<CustomAttributeTypedArgument> _typedArgs;
-      private readonly List<CustomAttributeNamedArgument> _namedArgs;
 
-      public CustomAttributeSignature( Int32 typedArgsCount = 0, Int32 namedArgsCount = 0 )
+      /// <summary>
+      /// Creates a new instance of <see cref="ResolvedCustomAttributeSignature"/>, with given initial capacities for <see cref="TypedArguments"/> and <see cref="NamedArguments"/> lists.
+      /// </summary>
+      /// <param name="typedArgsCount">The initial capacity for <see cref="TypedArguments"/> list.</param>
+      /// <param name="namedArgsCount">The initial capacity for <see cref="NamedArguments"/> list.</param>
+      public ResolvedCustomAttributeSignature( Int32 typedArgsCount = 0, Int32 namedArgsCount = 0 )
       {
-         this._typedArgs = new List<CustomAttributeTypedArgument>( typedArgsCount );
-         this._namedArgs = new List<CustomAttributeNamedArgument>( namedArgsCount );
+         this.TypedArguments = new List<CustomAttributeTypedArgument>( Math.Max( 0, typedArgsCount ) );
+         this.NamedArguments = new List<CustomAttributeNamedArgument>( Math.Max( 0, namedArgsCount ) );
       }
 
+      /// <summary>
+      /// Returns the <see cref="CustomAttributeSignatureKind.Resolved"/>.
+      /// </summary>
+      /// <value>The <see cref="CustomAttributeSignatureKind.Resolved"/>.</value>
       public override CustomAttributeSignatureKind CustomAttributeSignatureKind
       {
          get
@@ -1550,55 +1720,116 @@ namespace CILAssemblyManipulator.Physical
          }
       }
 
-      public List<CustomAttributeTypedArgument> TypedArguments
-      {
-         get
-         {
-            return this._typedArgs;
-         }
-      }
+      /// <summary>
+      /// Gets the list of all <see cref="CustomAttributeTypedArgument"/>s for this <see cref="ResolvedCustomAttributeSignature"/>.
+      /// </summary>
+      /// <value>The list of all <see cref="CustomAttributeTypedArgument"/>s for this <see cref="ResolvedCustomAttributeSignature"/>.</value>
+      /// <seealso cref="CustomAttributeTypedArgument"/>
+      public List<CustomAttributeTypedArgument> TypedArguments { get; }
 
-      public List<CustomAttributeNamedArgument> NamedArguments
-      {
-         get
-         {
-            return this._namedArgs;
-         }
-      }
+      /// <summary>
+      /// Gets the list of all <see cref="CustomAttributeNamedArgument"/>s for this <see cref="ResolvedCustomAttributeSignature"/>.
+      /// </summary>
+      /// <value>The list of all <see cref="CustomAttributeNamedArgument"/>s for this <see cref="ResolvedCustomAttributeSignature"/>.</value>
+      /// <seealso cref="CustomAttributeNamedArgument"/>
+      public List<CustomAttributeNamedArgument> NamedArguments { get; }
    }
 
    /// <summary>
-   /// TODO: modification is easier if there is only one class for typed arguments, i.e. just use Value setter instead of creating new TypedArgument object and set value.
+   /// This class represents an implicitly-typed argument for a constructor in custom attribute signature.
    /// </summary>
    public sealed class CustomAttributeTypedArgument
    {
-      // Note: Enum values should be CustomAttributeValue_EnumReferences
-      // Note: Type values should be CustomAttributeValue_TypeReferences
-      // Note: Arrays should be CustomAttributeValue_Arrays
+      /// <summary>
+      /// Gets or sets the value for this <see cref="CustomAttributeTypedArgument"/>.
+      /// </summary>
+      /// <value>The value for this <see cref="CustomAttributeTypedArgument"/>.</value>
+      /// <remarks>
+      /// The type for non-null value should be one of the following:
+      /// <list type="bullet">
+      /// <item><description><see cref="Boolean"/> for <c>bool</c> values,</description></item>
+      /// <item><description><see cref="Char"/> for <c>char</c> values,</description></item>
+      /// <item><description><see cref="SByte"/> for <c>sbyte</c> values,</description></item>
+      /// <item><description><see cref="Byte"/> for <c>byte</c> values,</description></item>
+      /// <item><description><see cref="Int16"/> for <c>short</c> values,</description></item>
+      /// <item><description><see cref="UInt16"/> for <c>ushort</c> values,</description></item>
+      /// <item><description><see cref="Int32"/> for <c>int</c> values,</description></item>
+      /// <item><description><see cref="UInt32"/> for <c>uint</c> values,</description></item>
+      /// <item><description><see cref="Int64"/> for <c>long</c> values,</description></item>
+      /// <item><description><see cref="UInt64"/> for <c>ulong</c> values,</description></item>
+      /// <item><description><see cref="Single"/> for <c>float</c> values,</description></item>
+      /// <item><description><see cref="Double"/> for <c>double</c> values,</description></item>
+      /// <item><description><see cref="String"/> for <c>string</c> values,</description></item>
+      /// <item><description><see cref="CustomAttributeValue_TypeReference"/> for references to other types,</description></item>
+      /// <item><description><see cref="CustomAttributeValue_EnumReference"/> for references to enumeration values, or</description></item>
+      /// <item><description><see cref="CustomAttributeValue_Array"/> for arrays.</description></item>
+      /// </list>
+      /// </remarks>
       public Object Value { get; set; }
    }
 
+   /// <summary>
+   /// This enumeration tells what type instance of <see cref="CustomAttributeTypedArgumentValueComplex"/> really is.
+   /// </summary>
    public enum CustomAttributeTypedArgumentValueKind
    {
+      /// <summary>
+      /// The <see cref="CustomAttributeTypedArgumentValueComplex"/> is of type <see cref="CustomAttributeValue_TypeReference"/>.
+      /// </summary>
       Type,
+
+      /// <summary>
+      /// The <see cref="CustomAttributeTypedArgumentValueComplex"/> is of type <see cref="CustomAttributeValue_EnumReference"/>.
+      /// </summary>
       Enum,
+
+      /// <summary>
+      /// The <see cref="CustomAttributeTypedArgumentValueComplex"/> is of type <see cref="CustomAttributeValue_Array"/>.
+      /// </summary>
       Array
    }
 
+   /// <summary>
+   /// This is common interface for non-primitive value storable in <see cref="CustomAttributeTypedArgument.Value"/>.
+   /// </summary>
+   /// <remarks>
+   /// The following three structs implement this interface:
+   /// <list type="bullet">
+   /// <item><description><see cref="CustomAttributeValue_TypeReference"/>,</description></item>
+   /// <item><description><see cref="CustomAttributeValue_EnumReference"/>, and</description></item>
+   /// <item><description><see cref="CustomAttributeValue_Array"/>.</description></item>
+   /// </list>
+   /// </remarks>
    public interface CustomAttributeTypedArgumentValueComplex
    {
+      // TODO investigate whether it is truly necessary for implementing types to be structs.
+
+      /// <summary>
+      /// Gets the <see cref="Physical.CustomAttributeTypedArgumentValueKind"/> enumeration descripting the actual type of this <see cref="CustomAttributeTypedArgumentValueComplex"/>.
+      /// </summary>
+      /// <value>The <see cref="Physical.CustomAttributeTypedArgumentValueKind"/> enumeration descripting the actual type of this <see cref="CustomAttributeTypedArgumentValueComplex"/>.</value>
+      /// <seealso cref="Physical.CustomAttributeTypedArgumentValueKind"/>
       CustomAttributeTypedArgumentValueKind CustomAttributeTypedArgumentValueKind { get; }
    }
 
+   /// <summary>
+   /// This struct should be using when storing type references as custom attribute values in <see cref="CustomAttributeTypedArgument.Value"/>.
+   /// </summary>
    public struct CustomAttributeValue_TypeReference : IEquatable<CustomAttributeValue_TypeReference>, CustomAttributeTypedArgumentValueComplex
    {
-      private readonly String _typeString;
-
+      /// <summary>
+      /// Creates a new instance of <see cref="CustomAttributeValue_TypeReference"/> with given type string.
+      /// </summary>
+      /// <param name="typeString">The full type string.</param>
       public CustomAttributeValue_TypeReference( String typeString )
       {
-         this._typeString = typeString;
+         this.TypeString = typeString;
       }
 
+      /// <summary>
+      /// Returns the <see cref="CustomAttributeSignatureKind.Type"/>.
+      /// </summary>
+      /// <value>The <see cref="CustomAttributeSignatureKind.Type"/>.</value>
       public CustomAttributeTypedArgumentValueKind CustomAttributeTypedArgumentValueKind
       {
          get
@@ -1607,43 +1838,65 @@ namespace CILAssemblyManipulator.Physical
          }
       }
 
-      public String TypeString
-      {
-         get
-         {
-            return this._typeString;
-         }
-      }
+      /// <summary>
+      /// Gets the type string of this <see cref="CustomAttributeValue_TypeReference"/>.
+      /// </summary>
+      public String TypeString { get; }
 
+      /// <summary>
+      /// Checks that given object is of type <see cref="CustomAttributeValue_TypeReference"/> and that their data equals.
+      /// </summary>
+      /// <param name="obj">The object to check.</param>
+      /// <returns><c>true</c> if <paramref name="obj"/> is of type <see cref="CustomAttributeValue_TypeReference"/> and its data matches data of this object; <c>false</c> otherwise.</returns>
       public override Boolean Equals( Object obj )
       {
          return obj is CustomAttributeValue_TypeReference && this.Equals( (CustomAttributeValue_TypeReference) obj );
       }
 
+      /// <summary>
+      /// Computes the hash code of this <see cref="CustomAttributeValue_TypeReference"/>.
+      /// </summary>
+      /// <returns>The hash code of this <see cref="CustomAttributeValue_TypeReference"/>.</returns>
       public override Int32 GetHashCode()
       {
-         return this._typeString.GetHashCodeSafe();
+         return this.TypeString.GetHashCodeSafe();
       }
 
+      /// <summary>
+      /// Checks that this <see cref="CustomAttributeValue_TypeReference"/>s and others data matches.
+      /// </summary>
+      /// <param name="other">The other <see cref="CustomAttributeValue_TypeReference"/>.</param>
+      /// <returns><c>true</c> if data matches; <c>false</c> otherwise.</returns>
+      /// <remarks>
+      /// The data is considered to match when the <see cref="TypeString"/> of both matches exactly and case-sensitively.
+      /// </remarks>
       public Boolean Equals( CustomAttributeValue_TypeReference other )
       {
-         return String.Equals( this._typeString, other._typeString );
+         return String.Equals( this.TypeString, other.TypeString );
       }
-
-
    }
 
+   /// <summary>
+   /// This struct should be using when storing enum type values as custom attribute values in <see cref="CustomAttributeTypedArgument.Value"/>.
+   /// </summary>
    public struct CustomAttributeValue_EnumReference : IEquatable<CustomAttributeValue_EnumReference>, CustomAttributeTypedArgumentValueComplex
    {
-      private readonly String _enumType;
-      private readonly Object _enumValue;
 
+      /// <summary>
+      /// Creates a new instance of <see cref="CustomAttributeValue_EnumReference"/> with given enum type string and value.
+      /// </summary>
+      /// <param name="enumType">The full type string of the enum type.</param>
+      /// <param name="enumValue">The enum value.</param>
       public CustomAttributeValue_EnumReference( String enumType, Object enumValue )
       {
-         this._enumType = enumType;
-         this._enumValue = enumValue;
+         this.EnumType = enumType;
+         this.EnumValue = enumValue;
       }
 
+      /// <summary>
+      /// Returns the <see cref="CustomAttributeSignatureKind.Enum"/>.
+      /// </summary>
+      /// <value>The <see cref="CustomAttributeSignatureKind.Enum"/>.</value>
       public CustomAttributeTypedArgumentValueKind CustomAttributeTypedArgumentValueKind
       {
          get
@@ -1652,50 +1905,89 @@ namespace CILAssemblyManipulator.Physical
          }
       }
 
-      public String EnumType
-      {
-         get
-         {
-            return this._enumType;
-         }
-      }
+      /// <summary>
+      /// Gets the enum type string for this <see cref="CustomAttributeValue_EnumReference"/>.
+      /// </summary>
+      /// <value>The enum type string for this <see cref="CustomAttributeValue_EnumReference"/>.</value>
+      public String EnumType { get; }
 
-      public Object EnumValue
-      {
-         get
-         {
-            return this._enumValue;
-         }
-      }
+      /// <summary>
+      /// Gets the enum value for this <see cref="CustomAttributeValue_EnumReference"/>.
+      /// </summary>
+      /// <value>The enum value for this <see cref="CustomAttributeValue_EnumReference"/>.</value>
+      public Object EnumValue { get; }
 
+      /// <summary>
+      /// Checks that given object is of type <see cref="CustomAttributeValue_EnumReference"/> and that their data equals.
+      /// </summary>
+      /// <param name="obj">The object to check.</param>
+      /// <returns><c>true</c> if <paramref name="obj"/> is of type <see cref="CustomAttributeValue_EnumReference"/> and its data matches data of this object; <c>false</c> otherwise.</returns>
       public override Boolean Equals( Object obj )
       {
          return obj is CustomAttributeValue_EnumReference && this.Equals( (CustomAttributeValue_EnumReference) obj );
       }
 
+      /// <summary>
+      /// Computes the hash code for this <see cref="CustomAttributeValue_EnumReference"/>.
+      /// </summary>
+      /// <returns>The hash code for this <see cref="CustomAttributeValue_EnumReference"/>.</returns>
       public override Int32 GetHashCode()
       {
-         return ( 17 * 23 + this._enumType.GetHashCodeSafe() ) * 23 + this._enumValue.GetHashCodeSafe();
+         return ( 17 * 23 + this.EnumType.GetHashCodeSafe() ) * 23 + this.EnumValue.GetHashCodeSafe();
       }
 
+      /// <summary>
+      /// Checks that this <see cref="CustomAttributeValue_EnumReference"/>s and others data matches.
+      /// </summary>
+      /// <param name="other">The other <see cref="CustomAttributeValue_EnumReference"/>.</param>
+      /// <returns><c>true</c> if data matches; <c>false</c> otherwise.</returns>
+      /// <remarks>
+      /// The data is considered to match when all of the following condition become true:
+      /// <list type="bullet">
+      /// <item><description>The <see cref="EnumType"/> strings match exactly and case-sensitively, and</description></item>
+      /// <item><description>The <see cref="EnumValue"/> objects equal using their <see cref="Equals(object)"/> method.</description></item>
+      /// </list>
+      /// </remarks>
       public Boolean Equals( CustomAttributeValue_EnumReference other )
       {
-         return String.Equals( this._enumType, other._enumType )
-            && Equals( this._enumValue, other._enumValue );
+         return String.Equals( this.EnumType, other.EnumType )
+            && Equals( this.EnumValue, other.EnumValue );
       }
    }
 
+   /// <summary>
+   /// This struct should be using when storing arrays as custom attribute values in <see cref="CustomAttributeTypedArgument.Value"/>.
+   /// </summary>
    public struct CustomAttributeValue_Array : IEquatable<CustomAttributeValue_Array>, CustomAttributeTypedArgumentValueComplex
    {
-      private readonly Array _array;
-      private readonly CustomAttributeArgumentType _arrayElementType;
-
-      public CustomAttributeValue_Array( Array array, CustomAttributeArgumentType arrayElementTypeString )
+      /// <summary>
+      /// Creates a new instance of <see cref="CustomAttributeValue_Array"/> with given array and array element type.
+      /// </summary>
+      /// <param name="array">The array of values.</param>
+      /// <param name="arrayElementType">The array element type.</param>
+      /// <seealso cref="CustomAttributeArgumentType"/>
+      public CustomAttributeValue_Array( Array array, CustomAttributeArgumentType arrayElementType )
       {
-         this._array = array;
-         this._arrayElementType = arrayElementTypeString;
+         this.Array = array;
+         this.ArrayElementType = arrayElementType;
       }
 
+      /// <summary>
+      /// Creates a new instance of <see cref="CustomAttributeValue_Array"/> with given array, and tries to deduce the array element type automatically.
+      /// </summary>
+      /// <param name="array">The array of values.</param>
+      /// <param name="sigProvider">The <see cref="Meta.SignatureProvider"/> to use to deduce the array element type automatically.</param>
+      /// <seealso cref="E_CILPhysical.ResolveCAArgumentTypeFromObject"/>
+      public CustomAttributeValue_Array( Array array, Meta.SignatureProvider sigProvider )
+      {
+         this.Array = array;
+         this.ArrayElementType = sigProvider.ResolveCAArgumentTypeFromObject( array );
+      }
+
+      /// <summary>
+      /// Returns the <see cref="CustomAttributeSignatureKind.Enum"/>.
+      /// </summary>
+      /// <value>The <see cref="CustomAttributeSignatureKind.Enum"/>.</value>
       public CustomAttributeTypedArgumentValueKind CustomAttributeTypedArgumentValueKind
       {
          get
@@ -1704,54 +1996,143 @@ namespace CILAssemblyManipulator.Physical
          }
       }
 
-      public Array Array
-      {
-         get
-         {
-            return this._array;
-         }
-      }
+      /// <summary>
+      /// Gets the array of this <see cref="CustomAttributeValue_Array"/>.
+      /// </summary>
+      /// <value>The array of this <see cref="CustomAttributeValue_Array"/>.</value>
+      public Array Array { get; }
 
-      public CustomAttributeArgumentType ArrayElementType
-      {
-         get
-         {
-            return this._arrayElementType;
-         }
-      }
+      /// <summary>
+      /// Gets the array element type, as <see cref="CustomAttributeArgumentType"/>.
+      /// </summary>
+      /// <value>The array element type, as <see cref="CustomAttributeArgumentType"/>.</value>
+      public CustomAttributeArgumentType ArrayElementType { get; }
 
+      /// <summary>
+      /// Checks that given object is of type <see cref="CustomAttributeValue_Array"/> and that their data equals.
+      /// </summary>
+      /// <param name="obj">The object to check.</param>
+      /// <returns><c>true</c> if <paramref name="obj"/> is of type <see cref="CustomAttributeValue_Array"/> and its data matches data of this object; <c>false</c> otherwise.</returns>
       public override Boolean Equals( Object obj )
       {
          return obj is CustomAttributeValue_Array && this.Equals( (CustomAttributeValue_Array) obj );
       }
 
+      /// <summary>
+      /// Computes the hash code for this <see cref="CustomAttributeValue_Array"/>.
+      /// </summary>
+      /// <returns>The hash code for this <see cref="CustomAttributeValue_Array"/>.</returns>
       public override Int32 GetHashCode()
       {
-         return ( 17 * 23 + this._arrayElementType.GetHashCodeSafe() ) * 23 + SequenceEqualityComparer<IEnumerable<Object>, Object>.SequenceHashCode( this.Array.Cast<Object>() );
+         return ( 17 * 23 + this.ArrayElementType.GetHashCodeSafe() ) * 23 + SequenceEqualityComparer<IEnumerable<Object>, Object>.SequenceHashCode( this.Array?.Cast<Object>() );
       }
 
+      /// <summary>
+      /// Checks that this <see cref="CustomAttributeValue_EnumReference"/>s and others data matches.
+      /// </summary>
+      /// <param name="other">The other <see cref="CustomAttributeValue_EnumReference"/>.</param>
+      /// <returns><c>true</c> if data matches; <c>false</c> otherwise.</returns>
+      /// <remarks>
+      /// The data is considered to match when all of the following condition become true:
+      /// <list type="bullet">
+      /// <item><description>The <see cref="ArrayElementType"/> are equal</description></item>
+      /// <item><description>The <see cref="Array"/> objects equal using <see cref="Equals(object)"/> on their elements.</description></item>
+      /// </list>
+      /// </remarks>
       public Boolean Equals( CustomAttributeValue_Array other )
       {
-         return this._arrayElementType.EqualsTyped( other._arrayElementType )
-            && SequenceEqualityComparer<IEnumerable<Object>, Object>.SequenceEquality( this._array.Cast<Object>(), other._array.Cast<Object>() );
+         return this.ArrayElementType.EqualsTyped( other.ArrayElementType )
+            && SequenceEqualityComparer<IEnumerable<Object>, Object>.SequenceEquality( this.Array.Cast<Object>(), other.Array.Cast<Object>() );
       }
+
    }
 
+   /// <summary>
+   /// This class represents a named argument (field or property) in custom attribute signature.
+   /// </summary>
    public sealed class CustomAttributeNamedArgument
    {
+      /// <summary>
+      /// Gets or sets the <see cref="CustomAttributeTypedArgument"/> holding the value for this <see cref="CustomAttributeNamedArgument"/>.
+      /// </summary>
+      /// <value>The <see cref="CustomAttributeTypedArgument"/> holding the value for this <see cref="CustomAttributeNamedArgument"/>.</value>
+      /// <seealso cref="CustomAttributeTypedArgument"/>
       public CustomAttributeTypedArgument Value { get; set; }
+
+      /// <summary>
+      /// Gets or sets the type describing the target field or property, as <see cref="CustomAttributeArgumentType"/>.
+      /// </summary>
+      /// <value>The type describing the target field or property, as <see cref="CustomAttributeArgumentType"/>.</value>
+      /// <seealso cref="CustomAttributeArgumentType"/>
       public CustomAttributeArgumentType FieldOrPropertyType { get; set; }
+
+      /// <summary>
+      /// Gets or sets the name of the target field or property.
+      /// </summary>
+      /// <value>The name of the target field or property.</value>
       public String Name { get; set; }
-      public Boolean IsField { get; set; }
+
+      /// <summary>
+      /// Gets or sets the <see cref="CustomAttributeNamedArgumentTarget"/> of this <see cref="CustomAttributeNamedArgument"/>.
+      /// </summary>
+      /// <value>The <see cref="CustomAttributeNamedArgumentTarget"/> of this <see cref="CustomAttributeNamedArgument"/>.</value>
+      /// <seealso cref="CustomAttributeNamedArgumentTarget"/>
+      public CustomAttributeNamedArgumentTarget TargetKind { get; set; }
    }
 
+   /// <summary>
+   /// This enumeration contains possible values for <see cref="CustomAttributeNamedArgument.TargetKind"/>.
+   /// </summary>
+   /// <remarks>
+   /// The values of this enumeration are safe to be casted to <see cref="T:CILAssemblyManipulator.Physical.IO.SignatureElementTypes"/>.
+   /// </remarks>
+   public enum CustomAttributeNamedArgumentTarget : byte
+   {
+      /// <summary>
+      /// The target element is a field.
+      /// </summary>
+      Field = 0x53,
+
+      /// <summary>
+      /// The target element is a property.
+      /// </summary>
+      Property = 0x54
+   }
+
+   /// <summary>
+   /// This enumeration tells what type instance of <see cref="CustomAttributeArgumentType"/> really is.
+   /// </summary>
    public enum CustomAttributeArgumentTypeKind
    {
+      /// <summary>
+      /// The <see cref="CustomAttributeArgumentType"/> is of type <see cref="CustomAttributeArgumentTypeSimple"/>.
+      /// </summary>
       Simple,
-      TypeString,
+
+      /// <summary>
+      /// The <see cref="CustomAttributeArgumentType"/> is of type <see cref="CustomAttributeArgumentTypeEnum"/>.
+      /// </summary>
+      Enum,
+
+      /// <summary>
+      /// The <see cref="CustomAttributeArgumentType"/> is of type <see cref="CustomAttributeArgumentTypeArray"/>.
+      /// </summary>
       Array
    }
 
+   /// <summary>
+   /// This is base class for type information about values in custom attribute signatures.
+   /// Primarily used by <see cref="CustomAttributeNamedArgument.FieldOrPropertyType"/> and <see cref="CustomAttributeValue_Array.ArrayElementType"/>.
+   /// </summary>
+   /// <remarks>
+   /// The instances of this class can not be directly instantiated.
+   /// Instead, use one of the following:
+   /// <list type="bullet">
+   /// <item><description><see cref="CustomAttributeArgumentTypeSimple"/>,</description></item>
+   /// <item><description><see cref="CustomAttributeArgumentTypeEnum"/>, or</description></item>
+   /// <item><description><see cref="CustomAttributeArgumentTypeArray"/>.</description></item>
+   /// </list>
+   /// </remarks>
    public abstract class CustomAttributeArgumentType
    {
       // Disable inheritance to other assemblies
@@ -1760,32 +2141,42 @@ namespace CILAssemblyManipulator.Physical
 
       }
 
+      /// <summary>
+      /// Gets the <see cref="Physical.CustomAttributeArgumentTypeKind"/> enumeration descripting the actual type of this <see cref="CustomAttributeArgumentType"/>.
+      /// </summary>
+      /// <value>The <see cref="Physical.CustomAttributeArgumentTypeKind"/> enumeration descripting the actual type of this <see cref="CustomAttributeArgumentType"/>.</value>
+      /// <seealso cref="Physical.CustomAttributeArgumentTypeKind"/>
       public abstract CustomAttributeArgumentTypeKind ArgumentTypeKind { get; }
+
+
+
    }
 
+   /// <summary>
+   /// This is class to represent a simple type in <see cref="CustomAttributeNamedArgument.FieldOrPropertyType"/> and <see cref="CustomAttributeValue_Array.ArrayElementType"/>.
+   /// </summary>
+   /// <remarks>
+   /// The instances of this class should be obtained through <see cref="Meta.SignatureProvider.GetSimpleCATypeOrNull"/> or <see cref="E_CILPhysical.GetSimpleTypeSignature"/> methods.
+   /// This is to save memory - no need to allocate duplicate <see cref="CustomAttributeArgumentTypeSimple"/> objects with identical state (assuming <see cref="Meta.SignatureProvider"/> caches the <see cref="CustomAttributeArgumentTypeSimple"/>s).
+   /// </remarks>
    public sealed class CustomAttributeArgumentTypeSimple : CustomAttributeArgumentType
    {
-      public static readonly CustomAttributeArgumentTypeSimple Boolean = new CustomAttributeArgumentTypeSimple( CustomAttributeArgumentTypeSimpleKind.Boolean );
-      public static readonly CustomAttributeArgumentTypeSimple Char = new CustomAttributeArgumentTypeSimple( CustomAttributeArgumentTypeSimpleKind.Char );
-      public static readonly CustomAttributeArgumentTypeSimple SByte = new CustomAttributeArgumentTypeSimple( CustomAttributeArgumentTypeSimpleKind.I1 );
-      public static readonly CustomAttributeArgumentTypeSimple Byte = new CustomAttributeArgumentTypeSimple( CustomAttributeArgumentTypeSimpleKind.U1 );
-      public static readonly CustomAttributeArgumentTypeSimple Int16 = new CustomAttributeArgumentTypeSimple( CustomAttributeArgumentTypeSimpleKind.I2 );
-      public static readonly CustomAttributeArgumentTypeSimple UInt16 = new CustomAttributeArgumentTypeSimple( CustomAttributeArgumentTypeSimpleKind.U2 );
-      public static readonly CustomAttributeArgumentTypeSimple Int32 = new CustomAttributeArgumentTypeSimple( CustomAttributeArgumentTypeSimpleKind.I4 );
-      public static readonly CustomAttributeArgumentTypeSimple UInt32 = new CustomAttributeArgumentTypeSimple( CustomAttributeArgumentTypeSimpleKind.U4 );
-      public static readonly CustomAttributeArgumentTypeSimple Int64 = new CustomAttributeArgumentTypeSimple( CustomAttributeArgumentTypeSimpleKind.I8 );
-      public static readonly CustomAttributeArgumentTypeSimple UInt64 = new CustomAttributeArgumentTypeSimple( CustomAttributeArgumentTypeSimpleKind.U8 );
-      public static readonly CustomAttributeArgumentTypeSimple Single = new CustomAttributeArgumentTypeSimple( CustomAttributeArgumentTypeSimpleKind.R4 );
-      public static readonly CustomAttributeArgumentTypeSimple Double = new CustomAttributeArgumentTypeSimple( CustomAttributeArgumentTypeSimpleKind.R8 );
-      public static readonly CustomAttributeArgumentTypeSimple String = new CustomAttributeArgumentTypeSimple( CustomAttributeArgumentTypeSimpleKind.String );
-      public static readonly CustomAttributeArgumentTypeSimple Type = new CustomAttributeArgumentTypeSimple( CustomAttributeArgumentTypeSimpleKind.Type );
-      public static readonly CustomAttributeArgumentTypeSimple Object = new CustomAttributeArgumentTypeSimple( CustomAttributeArgumentTypeSimpleKind.Object );
-
-      private CustomAttributeArgumentTypeSimple( CustomAttributeArgumentTypeSimpleKind kind )
+      /// <summary>
+      /// Creates a new instance of <see cref="CustomAttributeArgumentTypeSimple"/> with specified <see cref="CustomAttributeArgumentTypeSimpleKind"/>.
+      /// </summary>
+      /// <param name="type">The <see cref="CustomAttributeArgumentTypeSimpleKind"/>.</param>
+      /// <remarks>
+      /// The only place where this constructor should be used is by types implementing <see cref="Meta.SignatureProvider"/>.
+      /// </remarks>
+      public CustomAttributeArgumentTypeSimple( CustomAttributeArgumentTypeSimpleKind kind )
       {
          this.SimpleType = kind;
       }
 
+      /// <summary>
+      /// Returns the <see cref="CustomAttributeArgumentTypeKind.Simple"/>.
+      /// </summary>
+      /// <value>The <see cref="CustomAttributeArgumentTypeKind.Simple"/>.</value>
       public override CustomAttributeArgumentTypeKind ArgumentTypeKind
       {
          get
@@ -1794,74 +2185,12 @@ namespace CILAssemblyManipulator.Physical
          }
       }
 
+      /// <summary>
+      /// Gets the <see cref="CustomAttributeArgumentTypeSimpleKind"/> of this <see cref="CustomAttributeArgumentTypeSimple"/>.
+      /// </summary>
+      /// <value>The <see cref="CustomAttributeArgumentTypeSimpleKind"/> of this <see cref="CustomAttributeArgumentTypeSimple"/>.</value>
       public CustomAttributeArgumentTypeSimpleKind SimpleType { get; }
 
-      public static CustomAttributeArgumentTypeSimple GetByKind( CustomAttributeArgumentTypeSimpleKind kind )
-      {
-         CustomAttributeArgumentTypeSimple retVal;
-         if ( !TryGetByKind( kind, out retVal ) )
-         {
-            throw new ArgumentException( "Unrecognized CA argument simple type kind: " + kind + "." );
-         }
-         return retVal;
-      }
-
-      public static Boolean TryGetByKind( CustomAttributeArgumentTypeSimpleKind kind, out CustomAttributeArgumentTypeSimple caArgType )
-      {
-         switch ( kind )
-         {
-            case CustomAttributeArgumentTypeSimpleKind.Boolean:
-               caArgType = Boolean;
-               break;
-            case CustomAttributeArgumentTypeSimpleKind.Char:
-               caArgType = Char;
-               break;
-            case CustomAttributeArgumentTypeSimpleKind.I1:
-               caArgType = SByte;
-               break;
-            case CustomAttributeArgumentTypeSimpleKind.U1:
-               caArgType = Byte;
-               break;
-            case CustomAttributeArgumentTypeSimpleKind.I2:
-               caArgType = Int16;
-               break;
-            case CustomAttributeArgumentTypeSimpleKind.U2:
-               caArgType = UInt16;
-               break;
-            case CustomAttributeArgumentTypeSimpleKind.I4:
-               caArgType = Int32;
-               break;
-            case CustomAttributeArgumentTypeSimpleKind.U4:
-               caArgType = UInt32;
-               break;
-            case CustomAttributeArgumentTypeSimpleKind.I8:
-               caArgType = Int64;
-               break;
-            case CustomAttributeArgumentTypeSimpleKind.U8:
-               caArgType = UInt64;
-               break;
-            case CustomAttributeArgumentTypeSimpleKind.R4:
-               caArgType = Single;
-               break;
-            case CustomAttributeArgumentTypeSimpleKind.R8:
-               caArgType = Double;
-               break;
-            case CustomAttributeArgumentTypeSimpleKind.String:
-               caArgType = String;
-               break;
-            case CustomAttributeArgumentTypeSimpleKind.Object:
-               caArgType = Object;
-               break;
-            case CustomAttributeArgumentTypeSimpleKind.Type:
-               caArgType = Type;
-               break;
-            default:
-               caArgType = null;
-               break;
-         }
-
-         return caArgType != null;
-      }
    }
 
    /// <summary>
@@ -1872,39 +2201,115 @@ namespace CILAssemblyManipulator.Physical
    /// </remarks>
    public enum CustomAttributeArgumentTypeSimpleKind : byte
    {
+      /// <summary>
+      /// This is type for <c>bool</c> values.
+      /// </summary>
       Boolean = 0x02, // Same as SignatureElementTypes.Boolean
+
+      /// <summary>
+      /// This is type for <c>char</c> values.
+      /// </summary>
       Char,
+
+      /// <summary>
+      /// This is type for <c>sbyte</c> values.
+      /// </summary>
       I1,
+
+      /// <summary>
+      /// This is type for <c>byte</c> values.
+      /// </summary>
       U1,
+
+      /// <summary>
+      /// This is type for <c>short</c> values.
+      /// </summary>
       I2,
+
+      /// <summary>
+      /// This is type for <c>ushort</c> values.
+      /// </summary>
       U2,
+
+      /// <summary>
+      /// This is type for <c>int</c> values.
+      /// </summary>
       I4,
+
+      /// <summary>
+      /// This is type for <c>uint</c> values.
+      /// </summary>
       U4,
+
+      /// <summary>
+      /// This is type for <c>long</c> values.
+      /// </summary>
       I8,
+
+      /// <summary>
+      /// This is type for <c>ulong</c> values.
+      /// </summary>
       U8,
+
+      /// <summary>
+      /// This is type for <c>float</c> values.
+      /// </summary>
       R4,
+
+      /// <summary>
+      /// This is type for <c>double</c> values.
+      /// </summary>
       R8,
+
+      /// <summary>
+      /// This is type for <c>string</c> values.
+      /// </summary>
       String,
+
+      /// <summary>
+      /// This is type for <see cref="Type"/> values.
+      /// </summary>
       Type = 0x50, // Same as SignatureElementTypes.Type
+
+      /// <summary>
+      /// This is type for boxed values.
+      /// </summary>
       Object // Same as SignatureElementTypes.CA_Boxed
    }
 
+   /// <summary>
+   /// This is class to represent a enum type in <see cref="CustomAttributeNamedArgument.FieldOrPropertyType"/> and <see cref="CustomAttributeValue_Array.ArrayElementType"/>.
+   /// </summary>
    public sealed class CustomAttributeArgumentTypeEnum : CustomAttributeArgumentType
    {
+      /// <summary>
+      /// Returns the <see cref="CustomAttributeArgumentTypeKind.Enum"/>.
+      /// </summary>
+      /// <value>The <see cref="CustomAttributeArgumentTypeKind.Enum"/>.</value>
       public override CustomAttributeArgumentTypeKind ArgumentTypeKind
       {
          get
          {
-            return CustomAttributeArgumentTypeKind.TypeString;
+            return CustomAttributeArgumentTypeKind.Enum;
          }
       }
 
+      /// <summary>
+      /// Gets or sets the full type string of target enum type.
+      /// </summary>
+      /// <value>The full type string of target enum type.</value>
       public String TypeString { get; set; }
    }
 
+   /// <summary>
+   /// This is class to represent a simple array type in <see cref="CustomAttributeNamedArgument.FieldOrPropertyType"/> and <see cref="CustomAttributeValue_Array.ArrayElementType"/>.
+   /// </summary>
    public sealed class CustomAttributeArgumentTypeArray : CustomAttributeArgumentType
    {
-
+      /// <summary>
+      /// Returns the <see cref="CustomAttributeArgumentTypeKind.Array"/>.
+      /// </summary>
+      /// <value>The <see cref="CustomAttributeArgumentTypeKind.Array"/>.</value>
       public override CustomAttributeArgumentTypeKind ArgumentTypeKind
       {
          get
@@ -1913,13 +2318,27 @@ namespace CILAssemblyManipulator.Physical
          }
       }
 
+      /// <summary>
+      /// Gets or sets the element type for this array type.
+      /// </summary>
+      /// <value>The element type for this array type.</value>
+      /// <seealso cref="CustomAttributeArgumentType"/>
       public CustomAttributeArgumentType ArrayType { get; set; }
    }
 
+   /// <summary>
+   /// This is base class for security informations present in <see cref="SecurityDefinition.PermissionSets"/> list.
+   /// </summary>
+   /// <remarks>
+   /// The instances of this class can not be directly instantiated.
+   /// Instead, use one of the following:
+   /// <list type="bullet">
+   /// <item><description><see cref="RawSecurityInformation"/>, or</description></item>
+   /// <item><description><see cref="SecurityInformation"/>.</description></item>
+   /// </list>
+   /// </remarks>
    public abstract class AbstractSecurityInformation
    {
-
-
       // Disable inheritance to other assemblies
       internal AbstractSecurityInformation()
       {
@@ -1927,25 +2346,57 @@ namespace CILAssemblyManipulator.Physical
       }
 
       /// <summary>
-      /// Gets or sets the type of the security attribute.
+      /// Gets or sets the full type string of the security attribute.
       /// </summary>
-      /// <value>The type of the security attribute.</value>
+      /// <value>The full type string of the security attribute.</value>
       public String SecurityAttributeType { get; set; }
 
+      /// <summary>
+      /// Gets the <see cref="Physical.SecurityInformationKind"/> enumeration descripting the actual type of this <see cref="AbstractSecurityInformation"/>.
+      /// </summary>
+      /// <value>The <see cref="Physical.SecurityInformationKind"/> enumeration descripting the actual type of this <see cref="AbstractSecurityInformation"/>.</value>
+      /// <seealso cref="Physical.SecurityInformationKind"/>
       public abstract SecurityInformationKind SecurityInformationKind { get; }
 
    }
 
+   /// <summary>
+   /// This enumeration tells what type instance of <see cref="AbstractSecurityInformation"/> really is.
+   /// </summary>
    public enum SecurityInformationKind
    {
+      /// <summary>
+      /// The <see cref="AbstractSecurityInformation"/> is of type <see cref="SecurityInformation"/>.
+      /// </summary>
       Resolved,
+
+      /// <summary>
+      /// The <see cref="AbstractSecurityInformation"/> is of type <see cref="RawSecurityInformation"/>.
+      /// </summary>
       Raw
    }
 
+   /// <summary>
+   /// This class represents the security information data as a byte array.
+   /// </summary>
    public sealed class RawSecurityInformation : AbstractSecurityInformation
    {
+      /// <summary>
+      /// Gets or sets the amount of named <see cref="CustomAttributeNamedArgument"/>s the data of this <see cref="RawSecurityInformation"/> holds.
+      /// </summary>
+      /// <value>The amount of named <see cref="CustomAttributeNamedArgument"/>s the data of this <see cref="RawSecurityInformation"/> holds.</value>
       public Int32 ArgumentCount { get; set; }
+
+      /// <summary>
+      /// Gets or sets the raw data of this <see cref="RawSecurityInformation"/>.
+      /// </summary>
+      /// <value>The raw data of this <see cref="RawSecurityInformation"/>.</value>
       public Byte[] Bytes { get; set; }
+
+      /// <summary>
+      /// Returns the <see cref="SecurityInformationKind.Raw"/>.
+      /// </summary>
+      /// <value>The <see cref="SecurityInformationKind.Raw"/>.</value>
       public override SecurityInformationKind SecurityInformationKind
       {
          get
@@ -1956,32 +2407,32 @@ namespace CILAssemblyManipulator.Physical
    }
 
    /// <summary>
-   /// This class represents a single security attribute declaration.
-   /// Instances of this class are created via <see cref="CILElementWithSecurityInformation.AddDeclarativeSecurity(API.SecurityAction, CILType)"/> method.
+   /// This class represents resolved security information, where data is available through list of <see cref="CustomAttributeNamedArgument"/>s.
    /// </summary>
-   /// <seealso cref="CILElementWithSecurityInformation"/>
-   /// <seealso cref="CILElementWithSecurityInformation.AddDeclarativeSecurity(API.SecurityAction, CILType)"/>
+   /// <seealso cref="CustomAttributeNamedArgument"/>
    public sealed class SecurityInformation : AbstractSecurityInformation
    {
-      private readonly List<CustomAttributeNamedArgument> _namedArguments;
 
+      /// <summary>
+      /// Creates a new instance of <see cref="SecurityInformation"/> with given initial capacity for <see cref="NamedArguments"/> list.
+      /// </summary>
+      /// <param name="namedArgumentsCount">The initial capacity for <see cref="NamedArguments"/> list.</param>
       public SecurityInformation( Int32 namedArgumentsCount = 0 )
       {
-         this._namedArguments = new List<CustomAttributeNamedArgument>( namedArgumentsCount );
+         this.NamedArguments = new List<CustomAttributeNamedArgument>( Math.Max( 0, namedArgumentsCount ) );
       }
 
       /// <summary>
-      /// Gets the <see cref="CILCustomAttributeNamedArgument"/>s of this security attribute declaration.
+      /// Gets the list of all <see cref="CustomAttributeNamedArgument"/>s of this security attribute declaration.
       /// </summary>
-      /// <value>The <see cref="CILCustomAttributeNamedArgument"/>s of this security attribute declaration.</value>
-      public List<CustomAttributeNamedArgument> NamedArguments
-      {
-         get
-         {
-            return this._namedArguments;
-         }
-      }
+      /// <value>The list of all <see cref="CustomAttributeNamedArgument"/>s of this security attribute declaration.</value>
+      /// <seealso cref="CustomAttributeNamedArgument"/>
+      public List<CustomAttributeNamedArgument> NamedArguments { get; }
 
+      /// <summary>
+      /// Returns the <see cref="SecurityInformationKind.Resolved"/>.
+      /// </summary>
+      /// <value>The <see cref="SecurityInformationKind.Resolved"/>.</value>
       public override SecurityInformationKind SecurityInformationKind
       {
          get
@@ -1994,6 +2445,15 @@ namespace CILAssemblyManipulator.Physical
 
 public static partial class E_CILPhysical
 {
+   /// <summary>
+   /// Creates a new instance of signature of given type, which will contain a deep copy of this signature.
+   /// </summary>
+   /// <typeparam name="TSignature">The type of signature reference.</typeparam>
+   /// <param name="sig">The <see cref="AbstractSignature"/>.</param>
+   /// <param name="tableIndexTranslator">Optional callback to translate table indices of <see cref="CustomModifierSignature.CustomModifierType"/> and <see cref="ClassOrValueTypeSignature.Type"/> properties while copying.</param>
+   /// <returns>A new instance of <typeparamref name="TSignature"/>, which has all of its contents deeply copied from given signature.</returns>
+   /// <exception cref="NullReferenceException">If <paramref name="sig"/> is <c>null</c>.</exception>
+   /// <exception cref="NotSupportedException">If <see cref="AbstractSignature.SignatureKind"/> returns any other value than what the <see cref="SignatureKind"/> enumeration has.</exception>
    public static TSignature CreateDeepCopy<TSignature>( this TSignature sig, Func<TableIndex, TableIndex> tableIndexTranslator = null )
       where TSignature : AbstractSignature
    {
@@ -2181,8 +2641,15 @@ public static partial class E_CILPhysical
    }
 
 
+   /// <summary>
+   /// Tries to get the native <see cref="Type"/> for this <see cref="CustomAttributeArgumentType"/>.
+   /// </summary>
+   /// <param name="elemType">The <see cref="CustomAttributeArgumentType"/>.</param>
+   /// <returns>The native type for given <see cref="CustomAttributeArgumentType"/>, where enums are represented with <see cref="CustomAttributeValue_EnumReference"/> and types with <see cref="CustomAttributeValue_TypeReference"/>.</returns>
+   /// <exception cref="NullReferenceException">If <paramref name="elemeType"/> is <c>null</c>.</exception>
    public static Type GetNativeTypeForCAArrayType( this CustomAttributeArgumentType elemType )
    {
+      // TODO decide and document what to do with arrays.
       switch ( elemType.ArgumentTypeKind )
       {
          case CustomAttributeArgumentTypeKind.Array:
@@ -2224,7 +2691,7 @@ public static partial class E_CILPhysical
                default:
                   return null;
             }
-         case CustomAttributeArgumentTypeKind.TypeString:
+         case CustomAttributeArgumentTypeKind.Enum:
             return typeof( CustomAttributeValue_EnumReference );
          default:
             return null;
@@ -2259,110 +2726,141 @@ public static partial class E_CILPhysical
    //   return retVal;
    //}
 
+   /// <summary>
+   /// Creates a new instance of marshal info, which will contain a deep copy of this marshal info.
+   /// </summary>
+   /// <param name="marshal">The <see cref="AbstractMarshalingInfo"/>.</param>
+   /// <returns>A new instance of the same type as given <see cref="AbstractMarshalingInfo"/>, which has all of its contents deeply copied from given signature.</returns>
+   /// <exception cref="NullReferenceException">If <paramref name="marshal"/> is <c>null.</c></exception>
+   /// <exception cref="NotSupportedException">If <see cref="AbstractMarshalingInfo.MarshalingInfoKind"/> returns any other value than what the <see cref="MarshalingInfoKind"/> enumeration has.</exception>
    public static AbstractMarshalingInfo CreateDeepCopy( this AbstractMarshalingInfo marshal )
    {
       AbstractMarshalingInfo retVal;
-      if ( marshal == null )
+      var mKind = marshal.MarshalingInfoKind;
+      switch ( mKind )
       {
-         retVal = null;
+         case MarshalingInfoKind.Simple:
+            retVal = new SimpleMarshalingInfo()
+            {
+               Value = marshal.Value
+            };
+            break;
+         case MarshalingInfoKind.FixedLengthString:
+            retVal = new FixedLengthStringMarshalingInfo()
+            {
+               Value = marshal.Value,
+               Size = ( (FixedLengthStringMarshalingInfo) marshal ).Size
+            };
+            break;
+         case MarshalingInfoKind.FixedLengthArray:
+            var flArray = (FixedLengthArrayMarshalingInfo) marshal;
+            retVal = new FixedLengthArrayMarshalingInfo()
+            {
+               Value = marshal.Value,
+               Size = flArray.Size,
+               ElementType = flArray.ElementType
+            };
+            break;
+         case MarshalingInfoKind.SafeArray:
+            var safeArray = (SafeArrayMarshalingInfo) marshal;
+            retVal = new SafeArrayMarshalingInfo()
+            {
+               Value = marshal.Value,
+               ElementType = safeArray.ElementType,
+               UserDefinedType = safeArray.UserDefinedType
+            };
+            break;
+         case MarshalingInfoKind.Array:
+            var array = (ArrayMarshalingInfo) marshal;
+            retVal = new ArrayMarshalingInfo()
+            {
+               Value = marshal.Value,
+               ElementType = array.ElementType,
+               SizeParameterIndex = array.SizeParameterIndex,
+               Size = array.Size,
+               Flags = array.Flags
+            };
+            break;
+         case MarshalingInfoKind.Interface:
+            retVal = new InterfaceMarshalingInfo()
+            {
+               Value = marshal.Value,
+               IIDParameterIndex = ( (InterfaceMarshalingInfo) marshal ).IIDParameterIndex
+            };
+            break;
+         case MarshalingInfoKind.Custom:
+            var custom = (CustomMarshalingInfo) marshal;
+            retVal = new CustomMarshalingInfo()
+            {
+               Value = marshal.Value,
+               GUIDString = custom.GUIDString,
+               NativeTypeName = custom.NativeTypeName,
+               CustomMarshalerTypeName = custom.CustomMarshalerTypeName,
+               MarshalCookie = custom.MarshalCookie
+            };
+            break;
+         case MarshalingInfoKind.Raw:
+            retVal = new RawMarshalingInfo()
+            {
+               Value = marshal.Value,
+               Bytes = ( (RawMarshalingInfo) marshal ).Bytes.CreateArrayCopy()
+            };
+            break;
+         default:
+            throw new NotSupportedException( "Unrecognized marshal kind: " + mKind + "." );
       }
-      else
-      {
-         var mKind = marshal.MarshalingInfoKind;
-         switch ( mKind )
-         {
-            case MarshalingInfoKind.Simple:
-               retVal = new SimpleMarshalingInfo()
-               {
-                  Value = marshal.Value
-               };
-               break;
-            case MarshalingInfoKind.FixedLengthString:
-               retVal = new FixedLengthStringMarshalingInfo()
-               {
-                  Value = marshal.Value,
-                  Size = ( (FixedLengthStringMarshalingInfo) marshal ).Size
-               };
-               break;
-            case MarshalingInfoKind.FixedLengthArray:
-               var flArray = (FixedLengthArrayMarshalingInfo) marshal;
-               retVal = new FixedLengthArrayMarshalingInfo()
-               {
-                  Value = marshal.Value,
-                  Size = flArray.Size,
-                  ElementType = flArray.ElementType
-               };
-               break;
-            case MarshalingInfoKind.SafeArray:
-               var safeArray = (SafeArrayMarshalingInfo) marshal;
-               retVal = new SafeArrayMarshalingInfo()
-               {
-                  Value = marshal.Value,
-                  ElementType = safeArray.ElementType,
-                  UserDefinedType = safeArray.UserDefinedType
-               };
-               break;
-            case MarshalingInfoKind.Array:
-               var array = (ArrayMarshalingInfo) marshal;
-               retVal = new ArrayMarshalingInfo()
-               {
-                  Value = marshal.Value,
-                  ElementType = array.ElementType,
-                  SizeParameterIndex = array.SizeParameterIndex,
-                  Size = array.Size,
-                  Flags = array.Flags
-               };
-               break;
-            case MarshalingInfoKind.Interface:
-               retVal = new InterfaceMarshalingInfo()
-               {
-                  Value = marshal.Value,
-                  IIDParameterIndex = ( (InterfaceMarshalingInfo) marshal ).IIDParameterIndex
-               };
-               break;
-            case MarshalingInfoKind.Custom:
-               var custom = (CustomMarshalingInfo) marshal;
-               retVal = new CustomMarshalingInfo()
-               {
-                  Value = marshal.Value,
-                  GUIDString = custom.GUIDString,
-                  NativeTypeName = custom.NativeTypeName,
-                  CustomMarshalerTypeName = custom.CustomMarshalerTypeName,
-                  MarshalCookie = custom.MarshalCookie
-               };
-               break;
-            case MarshalingInfoKind.Raw:
-               retVal = new RawMarshalingInfo()
-               {
-                  Value = marshal.Value,
-                  Bytes = ( (RawMarshalingInfo) marshal ).Bytes.CreateArrayCopy()
-               };
-               break;
-            default:
-               throw new InvalidOperationException( "Unrecognized marshal kind: " + mKind + "." );
-         }
-      }
+
 
       return retVal;
    }
 
-   public static Boolean IsRequired( this CustomModifierSignature customMod )
+   /// <summary>
+   /// Checks whether the given <see cref="CustomModifierSignatureOptionality"/> is <see cref="CustomModifierSignatureOptionality.Required"/>.
+   /// </summary>
+   /// <param name="customMod">The <see cref="CustomModifierSignatureOptionality"/>.</param>
+   /// <returns><c>true</c> if <paramref name="customMod"/> is <see cref="CustomModifierSignatureOptionality.Required"/>; <c>false</c> otherwise.</returns>
+   public static Boolean IsRequired( this CustomModifierSignatureOptionality customMod )
    {
-      return customMod != null && customMod.Optionality == CustomModifierSignatureOptionality.Required;
+      return customMod == CustomModifierSignatureOptionality.Required;
    }
 
-   public static Boolean IsOptional( this CustomModifierSignature customMod )
+   /// <summary>
+   /// Checks whether the given <see cref="CustomModifierSignatureOptionality"/> is <see cref="CustomModifierSignatureOptionality.Optional"/>.
+   /// </summary>
+   /// <param name="customMod">The <see cref="CustomModifierSignatureOptionality"/>.</param>
+   /// <returns><c>true</c> if <paramref name="customMod"/> is <see cref="CustomModifierSignatureOptionality.Optional"/>; <c>false</c> otherwise.</returns>
+   public static Boolean IsOptional( this CustomModifierSignatureOptionality customMod )
    {
-      return customMod != null && customMod.Optionality == CustomModifierSignatureOptionality.Optional;
+      return customMod == CustomModifierSignatureOptionality.Optional;
    }
 
+   /// <summary>
+   /// Checks whether the given <see cref="TypeReferenceKind"/> is <see cref="TypeReferenceKind.Class"/>.
+   /// </summary>
+   /// <param name="typeReferenceKind">The <see cref="TypeReferenceKind"/>.</param>
+   /// <returns><c>true</c> if <paramref name="typeReferenceKind"/> is <see cref="TypeReferenceKind.Class"/>; <c>false</c> otherwise.</returns>
    public static Boolean IsClass( this TypeReferenceKind typeReferenceKind )
    {
       return typeReferenceKind == TypeReferenceKind.Class;
    }
 
+   /// <summary>
+   /// Checks whether the given <see cref="GenericParameterKind"/> is <see cref="GenericParameterKind.Class"/>.
+   /// </summary>
+   /// <param name="genericParameterKind">The <see cref="GenericParameterKind"/>.</param>
+   /// <returns><c>true</c> if <paramref name="genericParameterKind"/> is <see cref="GenericParameterKind.Class"/>; <c>false</c> otherwise.</returns>
    public static Boolean IsTypeParameter( this GenericParameterKind genericParameterKind )
    {
       return genericParameterKind == GenericParameterKind.Type;
+   }
+
+   /// <summary>
+   /// Checks whether the given <see cref="CustomAttributeNamedArgumentTarget"/> is <see cref="CustomAttributeNamedArgumentTarget.Field"/>.
+   /// </summary>
+   /// <param name="targetKind">The <see cref="CustomAttributeNamedArgumentTarget"/>.</param>
+   /// <returns><c>true</c> if <paramref name="targetKind"/> is <see cref="CustomAttributeNamedArgumentTarget.Field"/>; <c>false</c> otherwise.</returns>
+   public static Boolean IsField( this CustomAttributeNamedArgumentTarget targetKind )
+   {
+      return targetKind == CustomAttributeNamedArgumentTarget.Field;
    }
 }

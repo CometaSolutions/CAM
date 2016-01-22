@@ -984,8 +984,8 @@ namespace CILAssemblyManipulator.Structural
             case CustomAttributeSignatureKind.Raw:
                return ArrayEqualityComparer<Byte>.ArrayEquality( ( (RawCustomAttributeSignature) x ).Bytes, ( (RawCustomAttributeSignature) y ).Bytes );
             case CustomAttributeSignatureKind.Resolved:
-               var xr = (CustomAttributeSignature) x;
-               var yr = (CustomAttributeSignature) y;
+               var xr = (ResolvedCustomAttributeSignature) x;
+               var yr = (ResolvedCustomAttributeSignature) y;
                return ListEqualityComparer<List<CustomAttributeTypedArgument>, CustomAttributeTypedArgument>.ListEquality( xr.TypedArguments, yr.TypedArguments, this.Equivalence_CATypedArg )
                   && ListEqualityComparer<List<CustomAttributeNamedArgument>, CustomAttributeNamedArgument>.IsPermutation( xr.NamedArguments, yr.NamedArguments, this._caNamedArgComparer );
             default:
@@ -998,7 +998,7 @@ namespace CILAssemblyManipulator.Structural
          return ReferenceEquals( x, y )
             || ( x != null && y != null
             && String.Equals( x.Name, y.Name )
-            && x.IsField == y.IsField
+            && x.TargetKind == y.TargetKind
             && this.Equivalence_CATypedArgType( x.FieldOrPropertyType, y.FieldOrPropertyType )
             && this.Equivalence_CATypedArg( x.Value, y.Value )
             );
@@ -1029,7 +1029,7 @@ namespace CILAssemblyManipulator.Structural
                return ( (CustomAttributeArgumentTypeSimple) x ).SimpleType == ( (CustomAttributeArgumentTypeSimple) y ).SimpleType;
             case CustomAttributeArgumentTypeKind.Array:
                return this.Equivalence_CATypedArgType( ( (CustomAttributeArgumentTypeArray) x ).ArrayType, ( (CustomAttributeArgumentTypeArray) y ).ArrayType );
-            case CustomAttributeArgumentTypeKind.TypeString:
+            case CustomAttributeArgumentTypeKind.Enum:
                return this.Equivalence_TypeString( ( (CustomAttributeArgumentTypeEnum) x ).TypeString, ( (CustomAttributeArgumentTypeEnum) y ).TypeString );
             default:
                throw new InvalidOperationException( "Invalid custom attribute argument type kind: " + x.ArgumentTypeKind + "." );
@@ -1068,7 +1068,7 @@ namespace CILAssemblyManipulator.Structural
             else if ( xHasAssembly != yHasAssembly )
             {
                retVal = AssemblyInformation.TryParse( xHasAssembly ? xAssembly : yAssembly, out xAssemblyInfo, out xFullPublicKey )
-                  && ( this._assemblyInfo.Equals( xAssemblyInfo ) || ( !xFullPublicKey && this._publicKeyComputer != null && this.Equivalence_AssemblyInfo_ComputeTokenIfNeeded( this._assemblyInfo, xAssemblyInfo, false, xFullPublicKey ) ) );
+                  && ( this._assemblyInfo.Equals( xAssemblyInfo ) || ( !xFullPublicKey && this._publicKeyComputer != null && this.Equivalence_AssemblyInfo_ComputeTokenIfNeeded( this._assemblyInfo, xAssemblyInfo, true, false ) ) );
 
             }
          }
@@ -1600,7 +1600,7 @@ namespace CILAssemblyManipulator.Structural
 
       private Int32 HashCode_GenericParameterTypeSignature( GenericParameterTypeStructureSignature x )
       {
-         return x == null ? 0 : ( ( 17 * 23 + x.GenericParameterIndex.GetHashCode() ) * 23 + x.IsTypeParameter.GetHashCode() );
+         return x == null ? 0 : ( ( 17 * 23 + x.GenericParameterIndex.GetHashCode() ) * 23 + x.GenericParameterKind.GetHashCode() );
       }
 
       private Int32 HashCode_FunctionPointerTypeSignature( FunctionPointerTypeStructureSignature x )

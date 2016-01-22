@@ -602,7 +602,7 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
             if ( blobSize <= 2 )
             {
                // Empty blob
-               caSig = new CustomAttributeSignature();
+               caSig = new ResolvedCustomAttributeSignature();
             }
             else
             {

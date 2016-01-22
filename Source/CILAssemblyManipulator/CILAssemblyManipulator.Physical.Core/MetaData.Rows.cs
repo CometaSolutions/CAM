@@ -585,7 +585,6 @@ namespace CILAssemblyManipulator.Physical
    /// </summary>
    public sealed class SecurityDefinition
    {
-      private readonly List<AbstractSecurityInformation> _permissionSets;
 
       /// <summary>
       /// Creates a new instance of <see cref="SecurityDefinition"/> with initial capacity of <see cref="PermissionSets"/> set to <c>0</c>.
@@ -602,7 +601,7 @@ namespace CILAssemblyManipulator.Physical
       /// <param name="permissionSetsCount">The initial capacity for <see cref="PermissionSets"/>.</param>
       public SecurityDefinition( Int32 permissionSetsCount )
       {
-         this._permissionSets = new List<AbstractSecurityInformation>( permissionSetsCount );
+         this.PermissionSets = new List<AbstractSecurityInformation>( permissionSetsCount );
       }
 
       /// <summary>
@@ -627,13 +626,7 @@ namespace CILAssemblyManipulator.Physical
       /// </summary>
       /// <value>The list of <see cref="AbstractSecurityInformation"/>s that this <see cref="SecurityDefinition"/> has.</value>
       /// <seealso cref="AbstractSecurityInformation"/>
-      public List<AbstractSecurityInformation> PermissionSets
-      {
-         get
-         {
-            return this._permissionSets;
-         }
-      }
+      public List<AbstractSecurityInformation> PermissionSets { get; }
    }
 
    /// <summary>

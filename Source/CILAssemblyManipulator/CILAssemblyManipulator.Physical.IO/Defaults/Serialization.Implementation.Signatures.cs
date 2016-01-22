@@ -717,7 +717,7 @@ public static partial class E_CILPhysical
          };
          secInfo.NamedArguments.Add( new CustomAttributeNamedArgument()
          {
-            IsField = false,
+            TargetKind = CustomAttributeNamedArgumentTarget.Property,
             Name = PERMISSION_SET_XML_PROP,
             Value = new CustomAttributeTypedArgument()
             {
@@ -799,7 +799,7 @@ public static partial class E_CILPhysical
       Byte[] retVal;
       if ( sig != null ) // sig.TypedArguments.Count > 0 || sig.NamedArguments.Count > 0 )
       {
-         var sigg = sig as CustomAttributeSignature;
+         var sigg = sig as ResolvedCustomAttributeSignature;
          if ( sigg != null )
          {
             var idx = 0;
@@ -827,10 +827,15 @@ public static partial class E_CILPhysical
          null;
    }
 
-   internal static Byte[] CreateSecuritySignature( this ResizableArray<Byte> info, List<AbstractSecurityInformation> permissions, ResizableArray<Byte> aux )
+   internal static Byte[] CreateSecuritySignature(
+      this ResizableArray<Byte> info,
+      List<AbstractSecurityInformation> permissions,
+      ResizableArray<Byte> aux,
+      SignatureProvider sigProvider
+      )
    {
       var idx = 0;
-      info.WriteSecuritySignature( ref idx, permissions, aux );
+      info.WriteSecuritySignature( ref idx, permissions, aux, sigProvider );
       return info.Array.CreateArrayCopy( idx );
    }
 
@@ -1127,10 +1132,15 @@ public static partial class E_CILPhysical
       }
    }
 
-   private static void WriteCustomAttributeSignature( this ResizableArray<Byte> info, ref Int32 idx, CILMetaData md, Int32 caIdx )
+   private static void WriteCustomAttributeSignature(
+      this ResizableArray<Byte> info,
+      ref Int32 idx,
+      CILMetaData md,
+      Int32 caIdx
+      )
    {
       var ca = md.CustomAttributeDefinitions.TableContents[caIdx];
-      var attrData = ca.Signature as CustomAttributeSignature;
+      var attrData = ca.Signature as ResolvedCustomAttributeSignature;
 
       var ctor = ca.Type;
       var sig = ctor.Table == Tables.MethodDef ?
@@ -1146,6 +1156,7 @@ public static partial class E_CILPhysical
          throw new InvalidOperationException( "Custom attribute constructor has different amount of parameters than supplied custom attribute data (custom attribute at index " + caIdx + ", ctor: " + ctor + ")." );
       }
 
+      var sigProvider = md.SignatureProvider;
 
       // Prolog
       info
@@ -1166,18 +1177,24 @@ public static partial class E_CILPhysical
             // TODO some kind of warning system instead of throwing
             throw new InvalidOperationException( "Failed to resolve custom attribute type for constructor parameter (custom attribute at index " + caIdx + ", ctor: " + ctor + ", param: " + i + ")." );
          }
-         info.WriteCustomAttributeFixedArg( ref idx, caType, arg.Value );
+         info.WriteCustomAttributeFixedArg( ref idx, caType, arg.Value, sigProvider );
       }
 
       // Named args
       info.WriteUInt16LEToBytes( ref idx, (UInt16) attrData.NamedArguments.Count );
       foreach ( var arg in attrData.NamedArguments )
       {
-         info.WriteCustomAttributeNamedArg( ref idx, arg );
+         info.WriteCustomAttributeNamedArg( ref idx, arg, sigProvider );
       }
    }
 
-   private static ResizableArray<Byte> WriteCustomAttributeFixedArg( this ResizableArray<Byte> info, ref Int32 idx, CustomAttributeArgumentType argType, Object arg )
+   private static ResizableArray<Byte> WriteCustomAttributeFixedArg(
+      this ResizableArray<Byte> info,
+      ref Int32 idx,
+      CustomAttributeArgumentType argType,
+      Object arg,
+      SignatureProvider sigProvider
+      )
    {
       switch ( argType.ArgumentTypeKind )
       {
@@ -1205,7 +1222,7 @@ public static partial class E_CILPhysical
                info.WriteInt32LEToBytes( ref idx, array.Length );
                foreach ( var elem in array )
                {
-                  info.WriteCustomAttributeFixedArg( ref idx, argType, elem );
+                  info.WriteCustomAttributeFixedArg( ref idx, argType, elem, sigProvider );
                }
             }
             break;
@@ -1278,22 +1295,23 @@ public static partial class E_CILPhysical
                   if ( arg == null )
                   {
                      // Nulls are serialized as null strings
-                     if ( !CustomAttributeArgumentTypeSimple.String.Equals( argType ) )
+                     var simple = argType as CustomAttributeArgumentTypeSimple;
+                     if ( simple == null || simple.SimpleType != CustomAttributeArgumentTypeSimpleKind.String )
                      {
-                        argType = CustomAttributeArgumentTypeSimple.String;
+                        argType = sigProvider.GetSimpleCAType( CustomAttributeArgumentTypeSimpleKind.String );
                      }
                   }
                   else
                   {
-                     argType = ResolveBoxedCAType( arg );
+                     argType = sigProvider.ResolveCAArgumentTypeFromObject( arg );
                   }
                   info
-                     .WriteCustomAttributeFieldOrPropType( ref idx, ref argType, ref arg )
-                     .WriteCustomAttributeFixedArg( ref idx, argType, arg );
+                     .WriteCustomAttributeFieldOrPropType( ref idx, ref argType, ref arg, sigProvider )
+                     .WriteCustomAttributeFixedArg( ref idx, argType, arg, sigProvider );
                   break;
             }
             break;
-         case CustomAttributeArgumentTypeKind.TypeString:
+         case CustomAttributeArgumentTypeKind.Enum:
             // TODO check for invalid types (bool, char, single, double, string, any other non-primitive)
             var valueToWrite = arg is CustomAttributeValue_EnumReference ? ( (CustomAttributeValue_EnumReference) arg ).EnumValue : arg;
             if ( valueToWrite == null )
@@ -1307,99 +1325,30 @@ public static partial class E_CILPhysical
       return info;
    }
 
-   private static CustomAttributeArgumentType ResolveBoxedCAType( Object arg, Boolean isWithinArray = false )
+   private static ResizableArray<Byte> WriteCustomAttributeNamedArg(
+      this ResizableArray<Byte> info,
+      ref Int32 idx,
+      CustomAttributeNamedArgument arg,
+      SignatureProvider sigProvider
+      )
    {
-      var argType = arg.GetType();
-      if ( argType.IsEnum )
-      {
-         return new CustomAttributeArgumentTypeEnum()
-         {
-            TypeString = argType.AssemblyQualifiedName
-         };
-      }
-      else
-      {
-         switch ( Type.GetTypeCode( argType ) )
-         {
-            case TypeCode.Boolean:
-               return CustomAttributeArgumentTypeSimple.Boolean;
-            case TypeCode.Char:
-               return CustomAttributeArgumentTypeSimple.Char;
-            case TypeCode.SByte:
-               return CustomAttributeArgumentTypeSimple.SByte;
-            case TypeCode.Byte:
-               return CustomAttributeArgumentTypeSimple.Byte;
-            case TypeCode.Int16:
-               return CustomAttributeArgumentTypeSimple.Int16;
-            case TypeCode.UInt16:
-               return CustomAttributeArgumentTypeSimple.UInt16;
-            case TypeCode.Int32:
-               return CustomAttributeArgumentTypeSimple.Int32;
-            case TypeCode.UInt32:
-               return CustomAttributeArgumentTypeSimple.UInt32;
-            case TypeCode.Int64:
-               return CustomAttributeArgumentTypeSimple.Int64;
-            case TypeCode.UInt64:
-               return CustomAttributeArgumentTypeSimple.UInt64;
-            case TypeCode.Single:
-               return CustomAttributeArgumentTypeSimple.Single;
-            case TypeCode.Double:
-               return CustomAttributeArgumentTypeSimple.Double;
-            case TypeCode.String:
-               return CustomAttributeArgumentTypeSimple.String;
-            case TypeCode.Object:
-               if ( argType.IsArray )
-               {
-                  return isWithinArray ?
-                     (CustomAttributeArgumentType) CustomAttributeArgumentTypeSimple.Object :
-                     new CustomAttributeArgumentTypeArray()
-                     {
-                        ArrayType = ResolveBoxedCAType( argType.GetElementType(), true )
-                     };
-               }
-               else
-               {
-                  // Check for enum reference
-                  if ( Equals( typeof( CustomAttributeValue_EnumReference ), argType ) )
-                  {
-                     return new CustomAttributeArgumentTypeEnum()
-                     {
-                        TypeString = ( (CustomAttributeValue_EnumReference) arg ).EnumType
-                     };
-                  }
-                  // System.Type or System.Object or CustomAttributeTypeReference
-                  else if ( Equals( typeof( CustomAttributeValue_TypeReference ), argType ) || Equals( typeof( Type ), argType ) )
-                  {
-                     return CustomAttributeArgumentTypeSimple.Type;
-                  }
-                  else if ( isWithinArray && Equals( typeof( Object ), argType ) )
-                  {
-                     return CustomAttributeArgumentTypeSimple.Object;
-                  }
-                  else
-                  {
-                     throw new InvalidOperationException( "Failed to deduce custom attribute type for " + argType + "." );
-                  }
-               }
-            default:
-               throw new InvalidOperationException( "Failed to deduce custom attribute type for " + argType + "." );
-         }
-      }
-   }
-
-   private static ResizableArray<Byte> WriteCustomAttributeNamedArg( this ResizableArray<Byte> info, ref Int32 idx, CustomAttributeNamedArgument arg )
-   {
-      var elem = arg.IsField ? SignatureElementTypes.CA_Field : SignatureElementTypes.CA_Property;
       var typedValueValue = arg.Value.Value;
       var caType = arg.FieldOrPropertyType;
       return info
-         .AddSigByte( ref idx, elem )
-         .WriteCustomAttributeFieldOrPropType( ref idx, ref caType, ref typedValueValue )
+         .AddSigByte( ref idx, (SignatureElementTypes) arg.TargetKind )
+         .WriteCustomAttributeFieldOrPropType( ref idx, ref caType, ref typedValueValue, sigProvider )
          .AddCAString( ref idx, arg.Name )
-         .WriteCustomAttributeFixedArg( ref idx, caType, typedValueValue );
+         .WriteCustomAttributeFixedArg( ref idx, caType, typedValueValue, sigProvider );
    }
 
-   private static ResizableArray<Byte> WriteCustomAttributeFieldOrPropType( this ResizableArray<Byte> info, ref Int32 idx, ref CustomAttributeArgumentType type, ref Object value, Boolean processEnumTypeAndValue = true )
+   private static ResizableArray<Byte> WriteCustomAttributeFieldOrPropType(
+      this ResizableArray<Byte> info,
+      ref Int32 idx,
+      ref CustomAttributeArgumentType type,
+      ref Object value,
+      SignatureProvider sigProvider,
+      Boolean processEnumTypeAndValue = true
+      )
    {
       if ( type == null )
       {
@@ -1413,13 +1362,13 @@ public static partial class E_CILPhysical
             Object dummy = null;
             info
                .AddSigByte( ref idx, SignatureElementTypes.SzArray )
-               .WriteCustomAttributeFieldOrPropType( ref idx, ref arrayType, ref dummy, false );
+               .WriteCustomAttributeFieldOrPropType( ref idx, ref arrayType, ref dummy, sigProvider, false );
             break;
          case CustomAttributeArgumentTypeKind.Simple:
             var sigStarter = (SignatureElementTypes) ( (CustomAttributeArgumentTypeSimple) type ).SimpleType;
             info.AddSigByte( ref idx, sigStarter );
             break;
-         case CustomAttributeArgumentTypeKind.TypeString:
+         case CustomAttributeArgumentTypeKind.Enum:
             info
                .AddSigByte( ref idx, SignatureElementTypes.CA_Enum )
                .AddCAString( ref idx, ( (CustomAttributeArgumentTypeEnum) type ).TypeString );
@@ -1445,28 +1394,28 @@ public static partial class E_CILPhysical
                      //   type = CustomAttributeArgumentTypeSimple.Char;
                      //   break;
                      case TypeCode.SByte:
-                        type = CustomAttributeArgumentTypeSimple.SByte;
+                        type = sigProvider.GetSimpleCATypeOrNull( CustomAttributeArgumentTypeSimpleKind.I1 );
                         break;
                      case TypeCode.Byte:
-                        type = CustomAttributeArgumentTypeSimple.Byte;
+                        type = sigProvider.GetSimpleCATypeOrNull( CustomAttributeArgumentTypeSimpleKind.U1 );
                         break;
                      case TypeCode.Int16:
-                        type = CustomAttributeArgumentTypeSimple.Int16;
+                        type = sigProvider.GetSimpleCATypeOrNull( CustomAttributeArgumentTypeSimpleKind.I2 );
                         break;
                      case TypeCode.UInt16:
-                        type = CustomAttributeArgumentTypeSimple.UInt16;
+                        type = sigProvider.GetSimpleCATypeOrNull( CustomAttributeArgumentTypeSimpleKind.U2 );
                         break;
                      case TypeCode.Int32:
-                        type = CustomAttributeArgumentTypeSimple.Int32;
+                        type = sigProvider.GetSimpleCATypeOrNull( CustomAttributeArgumentTypeSimpleKind.I4 );
                         break;
                      case TypeCode.UInt32:
-                        type = CustomAttributeArgumentTypeSimple.UInt32;
+                        type = sigProvider.GetSimpleCATypeOrNull( CustomAttributeArgumentTypeSimpleKind.U4 );
                         break;
                      case TypeCode.Int64:
-                        type = CustomAttributeArgumentTypeSimple.Int64;
+                        type = sigProvider.GetSimpleCATypeOrNull( CustomAttributeArgumentTypeSimpleKind.I8 );
                         break;
                      case TypeCode.UInt64:
-                        type = CustomAttributeArgumentTypeSimple.UInt64;
+                        type = sigProvider.GetSimpleCATypeOrNull( CustomAttributeArgumentTypeSimpleKind.U8 );
                         break;
                      //case TypeCode.Single:
                      //   type = CustomAttributeArgumentTypeSimple.Single;
@@ -1607,7 +1556,8 @@ public static partial class E_CILPhysical
       this ResizableArray<Byte> info,
       ref Int32 idx,
       List<AbstractSecurityInformation> permissions,
-      ResizableArray<Byte> aux
+      ResizableArray<Byte> aux,
+      SignatureProvider sigProvider
       )
    {
       // TODO currently only newer format, .NET 1 format not supported for writing
@@ -1625,7 +1575,7 @@ public static partial class E_CILPhysical
             var auxIdx = 0;
             foreach ( var arg in secInfo.NamedArguments )
             {
-               aux.WriteCustomAttributeNamedArg( ref auxIdx, arg );
+               aux.WriteCustomAttributeNamedArg( ref auxIdx, arg, sigProvider );
             }
             // Now write to sec blob
             secInfoBLOB = aux.Array.CreateArrayCopy( auxIdx );

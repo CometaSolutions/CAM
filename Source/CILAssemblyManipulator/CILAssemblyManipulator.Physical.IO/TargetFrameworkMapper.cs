@@ -471,7 +471,7 @@ public static partial class E_CILPhysical
    {
       if ( sig != null && sig.CustomAttributeSignatureKind == CustomAttributeSignatureKind.Resolved )
       {
-         var sigg = (CustomAttributeSignature) sig;
+         var sigg = (ResolvedCustomAttributeSignature) sig;
          foreach ( var typed in sigg.TypedArguments )
          {
             mapper.ProcessCASignatureTyped( md, loader, newTargetFW, typed );
@@ -528,7 +528,7 @@ public static partial class E_CILPhysical
                case CustomAttributeTypedArgumentValueKind.Array:
                   var arrayValue = (CustomAttributeValue_Array) complex;
                   var elType = arrayValue.ArrayElementType;
-                  typeString = elType != null && elType.ArgumentTypeKind == CustomAttributeArgumentTypeKind.TypeString ?
+                  typeString = elType != null && elType.ArgumentTypeKind == CustomAttributeArgumentTypeKind.Enum ?
                      ( (CustomAttributeArgumentTypeEnum) elType ).TypeString :
                      null;
                   var array = arrayValue.Array;
@@ -582,7 +582,7 @@ public static partial class E_CILPhysical
       if ( arg != null )
       {
          var type = arg.FieldOrPropertyType;
-         if ( type != null && type.ArgumentTypeKind == CustomAttributeArgumentTypeKind.TypeString )
+         if ( type != null && type.ArgumentTypeKind == CustomAttributeArgumentTypeKind.Enum )
          {
             var typeStrArg = (CustomAttributeArgumentTypeEnum) type;
             var typeString = typeStrArg.TypeString;

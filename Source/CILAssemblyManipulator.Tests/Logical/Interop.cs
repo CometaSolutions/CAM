@@ -37,19 +37,19 @@ namespace CILAssemblyManipulator.Tests.Logical
    [Category( "CAM.Logical" )]
    public class LogicalInteropTest : AbstractCAMTest
    {
-      [Test]
+      //[Test]
       public void TestPhysicalInteropCAMPhysicalAssembly()
       {
          PerformRoundtripTest( CAMPhysicalLocation );
       }
 
-      [Test]
+      //[Test]
       public void TestPhysicalInteropCAMStructuralAssembly()
       {
          PerformRoundtripTest( CAMStructuralLocation );
       }
 
-      [Test]
+      //[Test]
       public void TestPhysicalInteropCAMLogicalAssembly()
       {
          PerformRoundtripTest( CAMLogicalLocation );

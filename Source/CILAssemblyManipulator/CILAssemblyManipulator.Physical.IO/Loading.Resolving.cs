@@ -18,6 +18,7 @@
 extern alias CAMPhysical;
 using CAMPhysical;
 using CAMPhysical::CILAssemblyManipulator.Physical;
+using CAMPhysical::CILAssemblyManipulator.Physical.Meta;
 
 using CILAssemblyManipulator.Physical;
 using CILAssemblyManipulator.Physical.IO;
@@ -31,7 +32,7 @@ using TabularMetaData;
 namespace CILAssemblyManipulator.Physical.IO
 {
    /// <summary>
-   /// The sole purpose of this class is to resolve <see cref="RawCustomAttributeSignature"/>s and <see cref="RawSecurityInformation"/>s into <see cref="CustomAttributeSignature"/>s and <see cref="SecurityInformation"/>, respectively.
+   /// The sole purpose of this class is to resolve <see cref="RawCustomAttributeSignature"/>s and <see cref="RawSecurityInformation"/>s into <see cref="ResolvedCustomAttributeSignature"/>s and <see cref="SecurityInformation"/>, respectively.
    /// </summary>
    /// <remarks>
    /// <para>
@@ -165,12 +166,17 @@ namespace CILAssemblyManipulator.Physical.IO
                         var sig = md.FieldDefinitions.TableContents[enumFieldIndex].Signature.Type;
                         if ( sig != null && sig.TypeSignatureKind == TypeSignatureKind.Simple )
                         {
-                           retVal = ResolveCATypeSimple( ( (SimpleTypeSignature) sig ).SimpleType );
+                           retVal = this.ResolveCATypeSimple( ( (SimpleTypeSignature) sig ).SimpleType );
                         }
                      }
 
                      return retVal;
                   } );
+         }
+
+         private CustomAttributeArgumentTypeSimple ResolveCATypeSimple( SimpleTypeSignatureKind elementType )
+         {
+            return this._md.SignatureProvider.GetSimpleCATypeOrNull( (CustomAttributeArgumentTypeSimpleKind) elementType );
          }
 
          internal String ResolveTypeNameFromTypeDef( Int32 index )
@@ -415,7 +421,7 @@ namespace CILAssemblyManipulator.Physical.IO
       /// <param name="md">The <see cref="CILMetaData"/>.</param>
       /// <param name="index">The index in <see cref="CILMetaData.CustomAttributeDefinitions"/> to resolve signature.</param>
       /// <returns>non-<c>null</c> resolved signature, or <c>null</c> if resolving was unsuccessful.</returns>
-      public CustomAttributeSignature ResolveCustomAttributeSignature(
+      public ResolvedCustomAttributeSignature ResolveCustomAttributeSignature(
          CILMetaData md,
          Int32 index
          )
@@ -423,7 +429,7 @@ namespace CILAssemblyManipulator.Physical.IO
          ArgumentValidator.ValidateNotNull( "Metadata", md );
 
          var customAttribute = md.CustomAttributeDefinitions.GetOrNull( index );
-         CustomAttributeSignature signature = null;
+         ResolvedCustomAttributeSignature signature = null;
 
          if ( customAttribute != null )
          {
@@ -484,7 +490,7 @@ namespace CILAssemblyManipulator.Physical.IO
          }
       }
 
-      internal CustomAttributeSignature TryResolveCustomAttributeSignature(
+      internal ResolvedCustomAttributeSignature TryResolveCustomAttributeSignature(
          CILMetaData md,
          Byte[] blob,
          Int32 idx,
@@ -511,11 +517,11 @@ namespace CILAssemblyManipulator.Physical.IO
          }
 
          var success = ctorSig != null;
-         CustomAttributeSignature retVal = null;
+         ResolvedCustomAttributeSignature retVal = null;
          if ( success )
          {
             var startIdx = idx;
-            retVal = new CustomAttributeSignature( typedArgsCount: ctorSig.Parameters.Count );
+            retVal = new ResolvedCustomAttributeSignature( typedArgsCount: ctorSig.Parameters.Count );
 
             idx += 2; // Skip prolog
 
@@ -630,12 +636,7 @@ namespace CILAssemblyManipulator.Physical.IO
       }
 
 
-      private static CustomAttributeArgumentTypeSimple ResolveCATypeSimple( SimpleTypeSignatureKind elementType )
-      {
-         CustomAttributeArgumentTypeSimple retVal;
-         CustomAttributeArgumentTypeSimple.TryGetByKind( (CustomAttributeArgumentTypeSimpleKind) elementType, out retVal );
-         return retVal; // Will be null if resolving unsuccessful
-      }
+
 
       private CustomAttributeArgumentTypeEnum ResolveCATypeFromTableIndex(
          CILMetaData md,
@@ -779,7 +780,7 @@ namespace CILAssemblyManipulator.Physical.IO
                         value = success ? (Object) new CustomAttributeValue_TypeReference( str ) : null;
                         break;
                      case CustomAttributeArgumentTypeSimpleKind.Object:
-                        type = ReadCAFieldOrPropType( caBLOB, ref idx );
+                        type = ReadCAFieldOrPropType( md.SignatureProvider, caBLOB, ref idx );
                         success = TryReadCAFixedArgument( md, caBLOB, ref idx, type, out nestedCAType );
                         value = success ? nestedCAType.Value : null;
                         break;
@@ -788,7 +789,7 @@ namespace CILAssemblyManipulator.Physical.IO
                         break;
                   }
                   break;
-               case CustomAttributeArgumentTypeKind.TypeString:
+               case CustomAttributeArgumentTypeKind.Enum:
                   var enumTypeString = ( (CustomAttributeArgumentTypeEnum) type ).TypeString;
                   var actualType = this.ResolveTypeFromFullName( md, enumTypeString );
                   success = TryReadCAFixedArgument( md, caBLOB, ref idx, actualType, out nestedCAType );
@@ -808,7 +809,11 @@ namespace CILAssemblyManipulator.Physical.IO
             null;
       }
 
-      private static CustomAttributeArgumentType ReadCAFieldOrPropType( Byte[] array, ref Int32 idx )
+      private static CustomAttributeArgumentType ReadCAFieldOrPropType(
+         SignatureProvider sigProvider,
+         Byte[] array,
+         ref Int32 idx
+         )
       {
          var sigType = (SignatureElementTypes) array.ReadByteFromBytes( ref idx );
          switch ( sigType )
@@ -824,38 +829,24 @@ namespace CILAssemblyManipulator.Physical.IO
             case SignatureElementTypes.SzArray:
                return new CustomAttributeArgumentTypeArray()
                {
-                  ArrayType = ReadCAFieldOrPropType( array, ref idx )
+                  ArrayType = ReadCAFieldOrPropType( sigProvider, array, ref idx )
                };
             case SignatureElementTypes.CA_Boxed:
-               return CustomAttributeArgumentTypeSimple.Object;
             case SignatureElementTypes.Boolean:
-               return CustomAttributeArgumentTypeSimple.Boolean;
             case SignatureElementTypes.Char:
-               return CustomAttributeArgumentTypeSimple.Char;
             case SignatureElementTypes.I1:
-               return CustomAttributeArgumentTypeSimple.SByte;
             case SignatureElementTypes.U1:
-               return CustomAttributeArgumentTypeSimple.Byte;
             case SignatureElementTypes.I2:
-               return CustomAttributeArgumentTypeSimple.Int16;
             case SignatureElementTypes.U2:
-               return CustomAttributeArgumentTypeSimple.UInt16;
             case SignatureElementTypes.I4:
-               return CustomAttributeArgumentTypeSimple.Int32;
             case SignatureElementTypes.U4:
-               return CustomAttributeArgumentTypeSimple.UInt32;
             case SignatureElementTypes.I8:
-               return CustomAttributeArgumentTypeSimple.Int64;
             case SignatureElementTypes.U8:
-               return CustomAttributeArgumentTypeSimple.UInt64;
             case SignatureElementTypes.R4:
-               return CustomAttributeArgumentTypeSimple.Single;
             case SignatureElementTypes.R8:
-               return CustomAttributeArgumentTypeSimple.Double;
             case SignatureElementTypes.String:
-               return CustomAttributeArgumentTypeSimple.String;
             case SignatureElementTypes.Type:
-               return CustomAttributeArgumentTypeSimple.Type;
+               return sigProvider.GetSimpleCATypeOrNull( (CustomAttributeArgumentTypeSimpleKind) sigType );
             default:
                return null;
          }
@@ -867,9 +858,9 @@ namespace CILAssemblyManipulator.Physical.IO
          ref Int32 idx
          )
       {
-         var isField = (SignatureElementTypes) blob.ReadByteFromBytes( ref idx ) == SignatureElementTypes.CA_Field;
+         var targetKind = (SignatureElementTypes) blob.ReadByteFromBytes( ref idx );
 
-         var type = ReadCAFieldOrPropType( blob, ref idx );
+         var type = ReadCAFieldOrPropType( md.SignatureProvider, blob, ref idx );
          CustomAttributeNamedArgument retVal = null;
          String name;
          if ( type != null && blob.ReadLenPrefixedUTF8String( ref idx, out name ) )
@@ -880,7 +871,7 @@ namespace CILAssemblyManipulator.Physical.IO
                retVal = new CustomAttributeNamedArgument()
                {
                   FieldOrPropertyType = type,
-                  IsField = isField,
+                  TargetKind = (CustomAttributeNamedArgumentTarget) targetKind,
                   Name = name,
                   Value = typedArg
                };
@@ -1151,7 +1142,7 @@ public static partial class E_CILPhysical
                         ( resolverToUse ?? new MetaDataResolver() ).ResolveCustomAttributeSignature( md, caIdx );
                      }
 
-                     var caSig = ca.Signature as CustomAttributeSignature;
+                     var caSig = ca.Signature as ResolvedCustomAttributeSignature;
                      if ( caSig != null
                         && caSig.TypedArguments.Count > 0
                         )
@@ -1173,7 +1164,7 @@ public static partial class E_CILPhysical
          .Select( ca =>
          {
 
-            var fwInfoString = ( (CustomAttributeSignature) ca.Signature ).TypedArguments[0].Value.ToStringSafe( null );
+            var fwInfoString = ( (ResolvedCustomAttributeSignature) ca.Signature ).TypedArguments[0].Value.ToStringSafe( null );
             //var displayName = caSig.NamedArguments.Count > 0
             //   && String.Equals( caSig.NamedArguments[0].Name, "FrameworkDisplayName" )
             //   && caSig.NamedArguments[0].Value.Type.IsSimpleTypeOfKind( SignatureElementTypes.String ) ?

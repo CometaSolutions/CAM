@@ -52,7 +52,7 @@ namespace CILAssemblyManipulator.Tests.SampleCode
          // Let's add an attribute to our newly created type
          // For brevity, our custom attribute will have only one constructor argument, and no named arguments
          // The constructor argument will have its value to be '5'
-         var caSig = new CustomAttributeSignature();
+         var caSig = new ResolvedCustomAttributeSignature();
          caSig.TypedArguments.Add( new CustomAttributeTypedArgument()
          {
             Value = 5
@@ -108,7 +108,7 @@ namespace CILAssemblyManipulator.Tests.SampleCode
          };
          module.TopLevelTypeDefinitions.Add( myType );
 
-         var caSig = new CustomAttributeSignature();
+         var caSig = new ResolvedCustomAttributeSignature();
          caSig.TypedArguments.Add( new CustomAttributeTypedArgument()
          {
             Value = 5

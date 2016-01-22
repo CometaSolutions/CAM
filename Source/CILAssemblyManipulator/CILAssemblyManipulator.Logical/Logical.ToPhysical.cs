@@ -1547,9 +1547,9 @@ public static partial class E_CILLogical
       } ) );
    }
 
-   private static CustomAttributeSignature CreateCASignature( this PhysicalCreationState state, CILCustomAttribute attribute )
+   private static ResolvedCustomAttributeSignature CreateCASignature( this PhysicalCreationState state, CILCustomAttribute attribute )
    {
-      var retVal = new CustomAttributeSignature( attribute.ConstructorArguments.Count, attribute.NamedArguments.Count );
+      var retVal = new ResolvedCustomAttributeSignature( attribute.ConstructorArguments.Count, attribute.NamedArguments.Count );
       retVal.TypedArguments.AddRange( attribute.ConstructorArguments.Select( ( arg, idx ) => state.CreateCATypedArg( arg, attribute.Constructor.Parameters[idx].ParameterType ) ) );
       retVal.NamedArguments.AddRange( attribute.NamedArguments.Select( arg => state.CreateCANamedArg( arg ) ) );
       return retVal;
@@ -1643,7 +1643,7 @@ public static partial class E_CILLogical
       return new CustomAttributeNamedArgument()
       {
          FieldOrPropertyType = state.CreateCAType( fieldOrPropertyType, false ),
-         IsField = isField,
+         TargetKind = isField ? CustomAttributeNamedArgumentTarget.Field : CustomAttributeNamedArgumentTarget.Property,
          Name = member.Name,
          Value = state.CreateCATypedArg( arg.TypedValue, fieldOrPropertyType )
       };
@@ -1670,38 +1670,39 @@ public static partial class E_CILLogical
       }
       else
       {
+         var sigProvider = state.MetaData.SignatureProvider;
          switch ( type.TypeCode )
          {
             case CILTypeCode.Boolean:
-               return CustomAttributeArgumentTypeSimple.Boolean;
+               return sigProvider.GetSimpleCATypeOrNull( CustomAttributeArgumentTypeSimpleKind.Boolean );
             case CILTypeCode.Char:
-               return CustomAttributeArgumentTypeSimple.Char;
+               return sigProvider.GetSimpleCATypeOrNull( CustomAttributeArgumentTypeSimpleKind.Char );
             case CILTypeCode.SByte:
-               return CustomAttributeArgumentTypeSimple.SByte;
+               return sigProvider.GetSimpleCATypeOrNull( CustomAttributeArgumentTypeSimpleKind.I1 );
             case CILTypeCode.Byte:
-               return CustomAttributeArgumentTypeSimple.Byte;
+               return sigProvider.GetSimpleCATypeOrNull( CustomAttributeArgumentTypeSimpleKind.U1 );
             case CILTypeCode.Int16:
-               return CustomAttributeArgumentTypeSimple.Int16;
+               return sigProvider.GetSimpleCATypeOrNull( CustomAttributeArgumentTypeSimpleKind.I2 );
             case CILTypeCode.UInt16:
-               return CustomAttributeArgumentTypeSimple.UInt16;
+               return sigProvider.GetSimpleCATypeOrNull( CustomAttributeArgumentTypeSimpleKind.U2 );
             case CILTypeCode.Int32:
-               return CustomAttributeArgumentTypeSimple.Int32;
+               return sigProvider.GetSimpleCATypeOrNull( CustomAttributeArgumentTypeSimpleKind.I4 );
             case CILTypeCode.UInt32:
-               return CustomAttributeArgumentTypeSimple.UInt32;
+               return sigProvider.GetSimpleCATypeOrNull( CustomAttributeArgumentTypeSimpleKind.U4 );
             case CILTypeCode.Int64:
-               return CustomAttributeArgumentTypeSimple.Int64;
+               return sigProvider.GetSimpleCATypeOrNull( CustomAttributeArgumentTypeSimpleKind.I8 );
             case CILTypeCode.UInt64:
-               return CustomAttributeArgumentTypeSimple.UInt64;
+               return sigProvider.GetSimpleCATypeOrNull( CustomAttributeArgumentTypeSimpleKind.U8 );
             case CILTypeCode.Single:
-               return CustomAttributeArgumentTypeSimple.Single;
+               return sigProvider.GetSimpleCATypeOrNull( CustomAttributeArgumentTypeSimpleKind.R4 );
             case CILTypeCode.Double:
-               return CustomAttributeArgumentTypeSimple.Double;
+               return sigProvider.GetSimpleCATypeOrNull( CustomAttributeArgumentTypeSimpleKind.R8 );
             case CILTypeCode.String:
-               return CustomAttributeArgumentTypeSimple.String;
+               return sigProvider.GetSimpleCATypeOrNull( CustomAttributeArgumentTypeSimpleKind.String );
             case CILTypeCode.Type:
-               return CustomAttributeArgumentTypeSimple.Type;
+               return sigProvider.GetSimpleCATypeOrNull( CustomAttributeArgumentTypeSimpleKind.Type );
             case CILTypeCode.SystemObject:
-               return CustomAttributeArgumentTypeSimple.Object;
+               return sigProvider.GetSimpleCATypeOrNull( CustomAttributeArgumentTypeSimpleKind.Object );
             default:
                if ( type.IsVectorArray() )
                {
@@ -1711,7 +1712,7 @@ public static partial class E_CILLogical
                   //   throw new InvalidOperationException( "Custom attribute typed argument type was invalid: " + type + "." );
                   //}
                   return isWithinArray ?
-                     (CustomAttributeArgumentType) CustomAttributeArgumentTypeSimple.Object :
+                     (CustomAttributeArgumentType) sigProvider.GetSimpleCATypeOrNull( CustomAttributeArgumentTypeSimpleKind.Object ) :
                      new CustomAttributeArgumentTypeArray()
                      {
                         ArrayType = state.CreateCAType( elType, /*null,*/ true )

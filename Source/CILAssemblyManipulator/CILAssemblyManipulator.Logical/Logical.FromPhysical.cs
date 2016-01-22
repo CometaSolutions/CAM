@@ -600,8 +600,8 @@ public static partial class E_CILLogical
                   this._module,
                   fn.MethodSignatureInformation,
                   this.ResolveParamSignature( fn.ReturnType, contextType, contextMethod, populateAssemblyRefStructure ),
-                  fn.ReturnType.CustomModifiers.Select( cm => CILCustomModifierFactory.CreateModifier( cm.IsOptional(), (CILType) this.ResolveTypeDefOrRefOrSpec( cm.CustomModifierType, contextType, contextMethod, populateAssemblyRefStructure ) ) ).ToArray(),
-                  fn.Parameters.Select( p => Tuple.Create( p.CustomModifiers.Select( cm => CILCustomModifierFactory.CreateModifier( cm.IsOptional(), (CILType) this.ResolveTypeDefOrRefOrSpec( cm.CustomModifierType, contextType, contextMethod, populateAssemblyRefStructure ) ) ).ToArray(), this.ResolveParamSignature( p, contextType, contextMethod ) ) ).ToArray()
+                  fn.ReturnType.CustomModifiers.Select( cm => CILCustomModifierFactory.CreateModifier( cm.Optionality.IsOptional(), (CILType) this.ResolveTypeDefOrRefOrSpec( cm.CustomModifierType, contextType, contextMethod, populateAssemblyRefStructure ) ) ).ToArray(),
+                  fn.Parameters.Select( p => Tuple.Create( p.CustomModifiers.Select( cm => CILCustomModifierFactory.CreateModifier( cm.Optionality.IsOptional(), (CILType) this.ResolveTypeDefOrRefOrSpec( cm.CustomModifierType, contextType, contextMethod, populateAssemblyRefStructure ) ) ).ToArray(), this.ResolveParamSignature( p, contextType, contextMethod ) ) ).ToArray()
                   );
             case TypeSignatureKind.GenericParameter:
                var gSig = (GenericParameterTypeSignature) sig;
@@ -700,7 +700,7 @@ public static partial class E_CILLogical
       {
          foreach ( var mod in mods )
          {
-            element.AddCustomModifier( this.ResolveTypeDefOrRefOrSpec( mod.CustomModifierType, contextType, contextMethod ) as CILType, mod.IsOptional() );
+            element.AddCustomModifier( this.ResolveTypeDefOrRefOrSpec( mod.CustomModifierType, contextType, contextMethod ) as CILType, mod.Optionality.IsOptional() );
          }
       }
 
@@ -2211,7 +2211,7 @@ public static partial class E_CILLogical
          var sig = ca.Signature;
          if ( sig.CustomAttributeSignatureKind == CustomAttributeSignatureKind.Resolved )
          {
-            var caSig = (CustomAttributeSignature) sig;
+            var caSig = (ResolvedCustomAttributeSignature) sig;
             if ( ctor.Parameters.Count != caSig.TypedArguments.Count )
             {
                throw new InvalidOperationException( "Constructor parameter count mismatch ( custom attribute index " + caIdx + ", constuctor parameter count: " + ctor.Parameters.Count + ", signature parameter count: " + caSig.TypedArguments.Count + "." );
@@ -2280,13 +2280,13 @@ public static partial class E_CILLogical
 
    private static CILCustomAttributeNamedArgument CreateCANamedArg( this LogicalCreationState state, CILType declType, TableIndex caIdx, CustomAttributeNamedArgument sig )
    {
-      var isField = sig.IsField;
+      var isField = sig.TargetKind.IsField();
       var namedElement = isField ?
          (CILElementForNamedCustomAttribute) declType.GetBaseTypeChain().SelectMany( t => t.DeclaredFields ).FirstOrDefault( f => String.Equals( f.Name, sig.Name ) ) :
          declType.GetBaseTypeChain().SelectMany( t => t.DeclaredProperties ).FirstOrDefault( p => String.Equals( p.Name, sig.Name ) );
       if ( namedElement == null )
       {
-         throw new InvalidOperationException( "Failed to resolve " + ( sig.IsField ? "field" : "property" ) + " named \"" + sig.Name + "\" at " + caIdx + "." );
+         throw new InvalidOperationException( "Failed to resolve " + ( isField ? "field" : "property" ) + " named \"" + sig.Name + "\" at " + caIdx + "." );
       }
 
       return CILCustomAttributeFactory.NewNamedArgument( namedElement, state.CreateCATypedArg( isField ? ( (CILField) namedElement ).FieldType : ( (CILProperty) namedElement ).GetPropertyType(), sig.Value.Value ) );
@@ -2300,7 +2300,7 @@ public static partial class E_CILLogical
             return state.ResolveSimpleType( (SignatureElementTypes) ( (CustomAttributeArgumentTypeSimple) sigType ).SimpleType );
          case CustomAttributeArgumentTypeKind.Array:
             return state.ResolveCAType( ( (CustomAttributeArgumentTypeArray) sigType ).ArrayType ).MakeArrayType();
-         case CustomAttributeArgumentTypeKind.TypeString:
+         case CustomAttributeArgumentTypeKind.Enum:
             return state.ResolveTypeString( ( (CustomAttributeArgumentTypeEnum) sigType ).TypeString, false );
          default:
             throw new InvalidOperationException( "Unsupported custom attribute argument type: " + sigType.ArgumentTypeKind + "." );

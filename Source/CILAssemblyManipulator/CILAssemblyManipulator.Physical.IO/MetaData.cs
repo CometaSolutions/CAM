@@ -570,12 +570,11 @@ public static partial class E_CILPhysical
 
    private static CustomAttributeArgumentType ResolveCACtorType( this CILMetaData md, TypeSignature type, Func<TableIndex, CustomAttributeArgumentType> enumFactory, Boolean acceptArray )
    {
+      var sigProvider = md.SignatureProvider;
       switch ( type.TypeSignatureKind )
       {
          case TypeSignatureKind.Simple:
-            CustomAttributeArgumentTypeSimple simple;
-            CustomAttributeArgumentTypeSimple.TryGetByKind( (CustomAttributeArgumentTypeSimpleKind) ( (SimpleTypeSignature) type ).SimpleType, out simple );
-            return simple; // Will be null if resolving unsuccessful
+            return sigProvider.GetSimpleCATypeOrNull( (CustomAttributeArgumentTypeSimpleKind) ( (SimpleTypeSignature) type ).SimpleType );
          case TypeSignatureKind.ClassOrValue:
             var clazz = (ClassOrValueTypeSignature) type;
             if ( clazz.GenericArguments.Count <= 0 )
@@ -585,11 +584,11 @@ public static partial class E_CILPhysical
                   // Either type or System.Object or System.Type are allowed here
                   if ( md.IsTypeType( clazz.Type ) )
                   {
-                     return CustomAttributeArgumentTypeSimple.Type;
+                     return sigProvider.GetSimpleCATypeOrNull( CustomAttributeArgumentTypeSimpleKind.Type );
                   }
                   else if ( md.IsSystemObjectType( clazz.Type ) )
                   {
-                     return CustomAttributeArgumentTypeSimple.Object;
+                     return sigProvider.GetSimpleCATypeOrNull( CustomAttributeArgumentTypeSimpleKind.Object );
                   }
                   else
                   {

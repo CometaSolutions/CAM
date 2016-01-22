@@ -2132,7 +2132,7 @@ namespace CILMerge
                case TypeSignatureKind.GenericParameter:
                   var gDef = (GenericParameterTypeSignature) typeDef;
                   var gRef = (GenericParameterTypeSignature) typeRef;
-                  retVal = gDef.IsTypeParameter == gRef.IsTypeParameter
+                  retVal = gDef.GenericParameterKind == gRef.GenericParameterKind
                      && gDef.GenericParameterIndex == gRef.GenericParameterIndex;
                   break;
                case TypeSignatureKind.Pointer:
@@ -3015,9 +3015,15 @@ namespace CILMerge
 
       private AbstractMarshalingInfo ProcessMarshalingInfo( CILMetaData inputModule, AbstractMarshalingInfo inputMarshalingInfo )
       {
-         var retVal = inputMarshalingInfo.CreateDeepCopy();
-         if ( retVal != null )
+         AbstractMarshalingInfo retVal;
+         if ( inputMarshalingInfo == null )
          {
+            retVal = null;
+         }
+         else
+         {
+            retVal = inputMarshalingInfo.CreateDeepCopy();
+
             String typeStr;
             switch ( inputMarshalingInfo.MarshalingInfoKind )
             {
@@ -3039,7 +3045,6 @@ namespace CILMerge
                   break;
             }
          }
-
          return retVal;
       }
 
@@ -3121,8 +3126,8 @@ namespace CILMerge
                };
                break;
             case CustomAttributeSignatureKind.Resolved:
-               var resolved = (CustomAttributeSignature) sig;
-               var resolvedRetVal = new CustomAttributeSignature( resolved.TypedArguments.Count, resolved.NamedArguments.Count );
+               var resolved = (ResolvedCustomAttributeSignature) sig;
+               var resolvedRetVal = new ResolvedCustomAttributeSignature( resolved.TypedArguments.Count, resolved.NamedArguments.Count );
                resolvedRetVal.TypedArguments.AddRange( resolved.TypedArguments.Select( arg => this.ProcessCATypedArg( md, arg ) ) );
                resolvedRetVal.NamedArguments.AddRange( resolved.NamedArguments.Select( arg => this.ProcessCANamedArg( md, arg ) ) );
                retVal = resolvedRetVal;
@@ -3137,7 +3142,7 @@ namespace CILMerge
       {
          return new CustomAttributeNamedArgument()
          {
-            IsField = arg.IsField,
+            TargetKind = arg.TargetKind,
             Name = arg.Name,
             FieldOrPropertyType = this.ProcessCATypedArgType( inputModule, arg.FieldOrPropertyType ),
             Value = this.ProcessCATypedArg( inputModule, arg.Value )
@@ -3201,7 +3206,7 @@ namespace CILMerge
                };
             case CustomAttributeArgumentTypeKind.Simple:
                return type;
-            case CustomAttributeArgumentTypeKind.TypeString:
+            case CustomAttributeArgumentTypeKind.Enum:
                return new CustomAttributeArgumentTypeEnum()
                {
                   TypeString = this.ProcessTypeString( inputModule, ( (CustomAttributeArgumentTypeEnum) type ).TypeString )

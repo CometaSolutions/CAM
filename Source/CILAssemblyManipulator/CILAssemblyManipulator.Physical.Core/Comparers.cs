@@ -2427,8 +2427,8 @@ namespace CILAssemblyManipulator.Physical
       private static Boolean Equality_AbstractCustomAttributeSignature( AbstractCustomAttributeSignature x, AbstractCustomAttributeSignature y )
       {
          return Object.ReferenceEquals( x, y ) ||
-         ( x is CustomAttributeSignature ?
-            Equality_CustomAttributeSignature_NoReferenceEquals( x as CustomAttributeSignature, y as CustomAttributeSignature ) :
+         ( x is ResolvedCustomAttributeSignature ?
+            Equality_CustomAttributeSignature_NoReferenceEquals( x as ResolvedCustomAttributeSignature, y as ResolvedCustomAttributeSignature ) :
             Equality_RawCustomAttributeSignature_NoReferenceEquals( x as RawCustomAttributeSignature, y as RawCustomAttributeSignature )
          );
       }
@@ -2439,7 +2439,7 @@ namespace CILAssemblyManipulator.Physical
             && ArrayEqualityComparer<Byte>.DefaultArrayEqualityComparer.Equals( x.Bytes, y.Bytes );
       }
 
-      private static Boolean Equality_CustomAttributeSignature_NoReferenceEquals( CustomAttributeSignature x, CustomAttributeSignature y )
+      private static Boolean Equality_CustomAttributeSignature_NoReferenceEquals( ResolvedCustomAttributeSignature x, ResolvedCustomAttributeSignature y )
       {
          return x != null && y != null
             && ListEqualityComparer<List<CustomAttributeTypedArgument>, CustomAttributeTypedArgument>.Equals( x.TypedArguments, y.TypedArguments, CustomAttributeTypedArgumentEqualityComparer )
@@ -2464,7 +2464,7 @@ namespace CILAssemblyManipulator.Physical
       {
          return Object.ReferenceEquals( x, y ) ||
          ( x != null && y != null
-            && x.IsField == y.IsField
+            && x.TargetKind == y.TargetKind
             && String.Equals( x.Name, y.Name )
             && Equality_CustomAttributeArgumentType( x.FieldOrPropertyType, y.FieldOrPropertyType )
             && Equality_CustomAttributeTypedArgument( x.Value, y.Value ) // Optimize a bit - don't use CustomAttributeTypedArgumentEqualityComparer property
@@ -2485,7 +2485,7 @@ namespace CILAssemblyManipulator.Physical
                case CustomAttributeArgumentTypeKind.Simple:
                   retVal = Equality_CustomAttributeArgumentSimple_NoReferenceEquals( x as CustomAttributeArgumentTypeSimple, y as CustomAttributeArgumentTypeSimple );
                   break;
-               case CustomAttributeArgumentTypeKind.TypeString:
+               case CustomAttributeArgumentTypeKind.Enum:
                   retVal = Equality_CustomAttributeArgumentTypeEnum_NoReferenceEquals( x as CustomAttributeArgumentTypeEnum, y as CustomAttributeArgumentTypeEnum );
                   break;
                case CustomAttributeArgumentTypeKind.Array:
@@ -3081,7 +3081,7 @@ namespace CILAssemblyManipulator.Physical
 
       private static Int32 HashCode_AbstractCustomAttributeSignature( AbstractCustomAttributeSignature x )
       {
-         return x == null ? 0 : ( x is CustomAttributeSignature ? HashCode_CustomAttributeSignature( x as CustomAttributeSignature ) : HashCode_RawCustomAttributeSignature( x as RawCustomAttributeSignature ) );
+         return x == null ? 0 : ( x is ResolvedCustomAttributeSignature ? HashCode_CustomAttributeSignature( x as ResolvedCustomAttributeSignature ) : HashCode_RawCustomAttributeSignature( x as RawCustomAttributeSignature ) );
       }
 
       private static Int32 HashCode_RawCustomAttributeSignature( RawCustomAttributeSignature x )
@@ -3089,7 +3089,7 @@ namespace CILAssemblyManipulator.Physical
          return x == null ? 0 : ArrayEqualityComparer<Byte>.DefaultArrayEqualityComparer.GetHashCode( x.Bytes );
       }
 
-      private static Int32 HashCode_CustomAttributeSignature( CustomAttributeSignature x )
+      private static Int32 HashCode_CustomAttributeSignature( ResolvedCustomAttributeSignature x )
       {
          return x == null ? 0 : ListEqualityComparer<List<CustomAttributeTypedArgument>, CustomAttributeTypedArgument>.GetHashCode( x.TypedArguments, CustomAttributeTypedArgumentEqualityComparer );
       }

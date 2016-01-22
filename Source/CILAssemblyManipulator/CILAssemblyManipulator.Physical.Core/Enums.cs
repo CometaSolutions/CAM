@@ -2052,82 +2052,81 @@ public static partial class E_CILPhysical
       return attrs == FileAttributes.ContainsMetadata;
    }
 
-   /// <summary>
-   /// Checks whether given <see cref="UnmanagedType"/> can be present on its own without any extra information.
-   /// </summary>
-   /// <param name="ut">The <see cref="UnmanagedType"/>.</param>
-   /// <returns><c>true</c> if <paramref name="ut"/> can be present on its own without any extra information; <c>false</c> otherwise.</returns>
-   /// <remarks>
-   /// This method returns <c>true</c> when <paramref name="ut"/> is one of
-   /// <list type="bullet">
-   /// <item><description><see cref="UnmanagedType.Bool"/>,</description></item>
-   /// <item><description><see cref="UnmanagedType.I1"/>,</description></item>
-   /// <item><description><see cref="UnmanagedType.U1"/>,</description></item>
-   /// <item><description><see cref="UnmanagedType.I2"/>,</description></item>
-   /// <item><description><see cref="UnmanagedType.U2"/>,</description></item>
-   /// <item><description><see cref="UnmanagedType.I4"/>,</description></item>
-   /// <item><description><see cref="UnmanagedType.U4"/>,</description></item>
-   /// <item><description><see cref="UnmanagedType.I8"/>,</description></item>
-   /// <item><description><see cref="UnmanagedType.U8"/>,</description></item>
-   /// <item><description><see cref="UnmanagedType.R4"/>,</description></item>
-   /// <item><description><see cref="UnmanagedType.R8"/>,</description></item>
-   /// <item><description><see cref="UnmanagedType.LPStr"/>,</description></item>
-   /// <item><description><see cref="UnmanagedType.LPWStr"/>,</description></item>
-   /// <item><description><see cref="UnmanagedType.SysInt"/>,</description></item>
-   /// <item><description><see cref="UnmanagedType.SysUInt"/>,</description></item>
-   /// <item><description><see cref="UnmanagedType.FunctionPtr"/>,</description></item>
-   /// <item><description><see cref="UnmanagedType.Currency"/>,</description></item>
-   /// <item><description><see cref="UnmanagedType.BStr"/>,</description></item>
-   /// <item><description><see cref="UnmanagedType.Struct"/>,</description></item>
-   /// <item><description><see cref="UnmanagedType.Interface"/>,</description></item>
-   /// <item><description><see cref="UnmanagedType.VBByRefStr"/>,</description></item>
-   /// <item><description><see cref="UnmanagedType.AnsiBStr"/>,</description></item>
-   /// <item><description><see cref="UnmanagedType.TBStr"/>,</description></item>
-   /// <item><description><see cref="UnmanagedType.VariantBool"/>,</description></item>
-   /// <item><description><see cref="UnmanagedType.AsAny"/>,</description></item>
-   /// <item><description><see cref="UnmanagedType.LPStruct"/>,</description></item>
-   /// <item><description><see cref="UnmanagedType.Error"/>,</description></item>
-   /// <item><description><see cref="UnmanagedType.IInspectable"/> or</description></item>
-   /// <item><description><see cref="UnmanagedType.HString"/>.</description></item>
-   /// </list>
-   /// </remarks>
-   public static Boolean IsNativeInstric( this CILAssemblyManipulator.Physical.UnmanagedType ut )
-   {
-      switch ( ut )
-      {
-         case UnmanagedType.Bool:
-         case UnmanagedType.I1:
-         case UnmanagedType.U1:
-         case UnmanagedType.I2:
-         case UnmanagedType.U2:
-         case UnmanagedType.I4:
-         case UnmanagedType.U4:
-         case UnmanagedType.I8:
-         case UnmanagedType.U8:
-         case UnmanagedType.R4:
-         case UnmanagedType.R8:
-         case UnmanagedType.LPStr:
-         case UnmanagedType.LPWStr:
-         case UnmanagedType.SysInt:
-         case UnmanagedType.SysUInt:
-         case UnmanagedType.FunctionPtr:
-         case UnmanagedType.Currency:
-         case UnmanagedType.BStr:
-         case UnmanagedType.Struct:
-         case UnmanagedType.VBByRefStr:
-         case UnmanagedType.AnsiBStr:
-         case UnmanagedType.TBStr:
-         case UnmanagedType.VariantBool:
-         case UnmanagedType.AsAny:
-         case UnmanagedType.LPStruct:
-         case UnmanagedType.Error:
-         case UnmanagedType.IInspectable:
-         case UnmanagedType.HString:
-            return true;
-         default:
-            return false;
-      }
-   }
+   ///// <summary>
+   ///// Checks whether given <see cref="UnmanagedType"/> can be present on its own without any extra information.
+   ///// </summary>
+   ///// <param name="ut">The <see cref="UnmanagedType"/>.</param>
+   ///// <returns><c>true</c> if <paramref name="ut"/> can be present on its own without any extra information; <c>false</c> otherwise.</returns>
+   ///// <remarks>
+   ///// This method returns <c>true</c> when <paramref name="ut"/> is one of
+   ///// <list type="bullet">
+   ///// <item><description><see cref="UnmanagedType.Bool"/>,</description></item>
+   ///// <item><description><see cref="UnmanagedType.I1"/>,</description></item>
+   ///// <item><description><see cref="UnmanagedType.U1"/>,</description></item>
+   ///// <item><description><see cref="UnmanagedType.I2"/>,</description></item>
+   ///// <item><description><see cref="UnmanagedType.U2"/>,</description></item>
+   ///// <item><description><see cref="UnmanagedType.I4"/>,</description></item>
+   ///// <item><description><see cref="UnmanagedType.U4"/>,</description></item>
+   ///// <item><description><see cref="UnmanagedType.I8"/>,</description></item>
+   ///// <item><description><see cref="UnmanagedType.U8"/>,</description></item>
+   ///// <item><description><see cref="UnmanagedType.R4"/>,</description></item>
+   ///// <item><description><see cref="UnmanagedType.R8"/>,</description></item>
+   ///// <item><description><see cref="UnmanagedType.LPStr"/>,</description></item>
+   ///// <item><description><see cref="UnmanagedType.LPWStr"/>,</description></item>
+   ///// <item><description><see cref="UnmanagedType.SysInt"/>,</description></item>
+   ///// <item><description><see cref="UnmanagedType.SysUInt"/>,</description></item>
+   ///// <item><description><see cref="UnmanagedType.FunctionPtr"/>,</description></item>
+   ///// <item><description><see cref="UnmanagedType.Currency"/>,</description></item>
+   ///// <item><description><see cref="UnmanagedType.BStr"/>,</description></item>
+   ///// <item><description><see cref="UnmanagedType.Struct"/>,</description></item>
+   ///// <item><description><see cref="UnmanagedType.VBByRefStr"/>,</description></item>
+   ///// <item><description><see cref="UnmanagedType.AnsiBStr"/>,</description></item>
+   ///// <item><description><see cref="UnmanagedType.TBStr"/>,</description></item>
+   ///// <item><description><see cref="UnmanagedType.VariantBool"/>,</description></item>
+   ///// <item><description><see cref="UnmanagedType.AsAny"/>,</description></item>
+   ///// <item><description><see cref="UnmanagedType.LPStruct"/>,</description></item>
+   ///// <item><description><see cref="UnmanagedType.Error"/>,</description></item>
+   ///// <item><description><see cref="UnmanagedType.IInspectable"/> or</description></item>
+   ///// <item><description><see cref="UnmanagedType.HString"/>.</description></item>
+   ///// </list>
+   ///// </remarks>
+   //public static Boolean IsNativeInstric( this CILAssemblyManipulator.Physical.UnmanagedType ut )
+   //{
+   //   switch ( ut )
+   //   {
+   //      case UnmanagedType.Bool:
+   //      case UnmanagedType.I1:
+   //      case UnmanagedType.U1:
+   //      case UnmanagedType.I2:
+   //      case UnmanagedType.U2:
+   //      case UnmanagedType.I4:
+   //      case UnmanagedType.U4:
+   //      case UnmanagedType.I8:
+   //      case UnmanagedType.U8:
+   //      case UnmanagedType.R4:
+   //      case UnmanagedType.R8:
+   //      case UnmanagedType.LPStr:
+   //      case UnmanagedType.LPWStr:
+   //      case UnmanagedType.SysInt:
+   //      case UnmanagedType.SysUInt:
+   //      case UnmanagedType.FunctionPtr:
+   //      case UnmanagedType.Currency:
+   //      case UnmanagedType.BStr:
+   //      case UnmanagedType.Struct:
+   //      case UnmanagedType.VBByRefStr:
+   //      case UnmanagedType.AnsiBStr:
+   //      case UnmanagedType.TBStr:
+   //      case UnmanagedType.VariantBool:
+   //      case UnmanagedType.AsAny:
+   //      case UnmanagedType.LPStruct:
+   //      case UnmanagedType.Error:
+   //      case UnmanagedType.IInspectable:
+   //      case UnmanagedType.HString:
+   //         return true;
+   //      default:
+   //         return false;
+   //   }
+   //}
 
    /// <summary>
    /// Checks whether generic parameter attributes represent a covariant (<c>out</c>) type parameter.
