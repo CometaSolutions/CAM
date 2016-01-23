@@ -1586,7 +1586,7 @@ namespace CILAssemblyManipulator.Physical
       /// </summary>
       /// <value>The custom marshaler type name for this marshaling info.</value>
       /// <remarks>
-      /// The type should implement the <see cref="System.Runtime.InteropServices.ICustomMarshaler"/> interface.
+      /// The type should implement the <see cref="T:System.Runtime.InteropServices.ICustomMarshaler"/> interface.
       /// </remarks>
       public String CustomMarshalerTypeName { get; set; }
 
@@ -1827,9 +1827,9 @@ namespace CILAssemblyManipulator.Physical
       }
 
       /// <summary>
-      /// Returns the <see cref="CustomAttributeSignatureKind.Type"/>.
+      /// Returns the <see cref="CustomAttributeTypedArgumentValueKind.Type"/>.
       /// </summary>
-      /// <value>The <see cref="CustomAttributeSignatureKind.Type"/>.</value>
+      /// <value>The <see cref="CustomAttributeTypedArgumentValueKind.Type"/>.</value>
       public CustomAttributeTypedArgumentValueKind CustomAttributeTypedArgumentValueKind
       {
          get
@@ -1894,9 +1894,9 @@ namespace CILAssemblyManipulator.Physical
       }
 
       /// <summary>
-      /// Returns the <see cref="CustomAttributeSignatureKind.Enum"/>.
+      /// Returns the <see cref="CustomAttributeTypedArgumentValueKind.Enum"/>.
       /// </summary>
-      /// <value>The <see cref="CustomAttributeSignatureKind.Enum"/>.</value>
+      /// <value>The <see cref="CustomAttributeTypedArgumentValueKind.Enum"/>.</value>
       public CustomAttributeTypedArgumentValueKind CustomAttributeTypedArgumentValueKind
       {
          get
@@ -1985,9 +1985,9 @@ namespace CILAssemblyManipulator.Physical
       }
 
       /// <summary>
-      /// Returns the <see cref="CustomAttributeSignatureKind.Enum"/>.
+      /// Returns the <see cref="CustomAttributeTypedArgumentValueKind.Enum"/>.
       /// </summary>
-      /// <value>The <see cref="CustomAttributeSignatureKind.Enum"/>.</value>
+      /// <value>The <see cref="CustomAttributeTypedArgumentValueKind.Enum"/>.</value>
       public CustomAttributeTypedArgumentValueKind CustomAttributeTypedArgumentValueKind
       {
          get
@@ -2164,7 +2164,7 @@ namespace CILAssemblyManipulator.Physical
       /// <summary>
       /// Creates a new instance of <see cref="CustomAttributeArgumentTypeSimple"/> with specified <see cref="CustomAttributeArgumentTypeSimpleKind"/>.
       /// </summary>
-      /// <param name="type">The <see cref="CustomAttributeArgumentTypeSimpleKind"/>.</param>
+      /// <param name="kind">The <see cref="CustomAttributeArgumentTypeSimpleKind"/>.</param>
       /// <remarks>
       /// The only place where this constructor should be used is by types implementing <see cref="Meta.SignatureProvider"/>.
       /// </remarks>
@@ -2646,7 +2646,7 @@ public static partial class E_CILPhysical
    /// </summary>
    /// <param name="elemType">The <see cref="CustomAttributeArgumentType"/>.</param>
    /// <returns>The native type for given <see cref="CustomAttributeArgumentType"/>, where enums are represented with <see cref="CustomAttributeValue_EnumReference"/> and types with <see cref="CustomAttributeValue_TypeReference"/>.</returns>
-   /// <exception cref="NullReferenceException">If <paramref name="elemeType"/> is <c>null</c>.</exception>
+   /// <exception cref="NullReferenceException">If <paramref name="elemType"/> is <c>null</c>.</exception>
    public static Type GetNativeTypeForCAArrayType( this CustomAttributeArgumentType elemType )
    {
       // TODO decide and document what to do with arrays.
@@ -2845,10 +2845,10 @@ public static partial class E_CILPhysical
    }
 
    /// <summary>
-   /// Checks whether the given <see cref="GenericParameterKind"/> is <see cref="GenericParameterKind.Class"/>.
+   /// Checks whether the given <see cref="GenericParameterKind"/> is <see cref="GenericParameterKind.Type"/>.
    /// </summary>
    /// <param name="genericParameterKind">The <see cref="GenericParameterKind"/>.</param>
-   /// <returns><c>true</c> if <paramref name="genericParameterKind"/> is <see cref="GenericParameterKind.Class"/>; <c>false</c> otherwise.</returns>
+   /// <returns><c>true</c> if <paramref name="genericParameterKind"/> is <see cref="GenericParameterKind.Type"/>; <c>false</c> otherwise.</returns>
    public static Boolean IsTypeParameter( this GenericParameterKind genericParameterKind )
    {
       return genericParameterKind == GenericParameterKind.Type;

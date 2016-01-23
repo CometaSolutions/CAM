@@ -1477,7 +1477,6 @@ public static partial class E_CILPhysical
    /// </summary>
    /// <param name="attrs">The <see cref="TypeAttributes"/>.</param>
    /// <returns><c>true</c> if <paramref name="attrs"/> represents type forwarder; <c>false</c> otherwise.</returns>
-   /// <remarks>Normal <see cref="System.Type"/> objects never represent type forwarders. However, <see cref="CILAssembly.ForwardedTypeInfos"/> property returns all such types for the assembly in question.</remarks>
    /// <seealso cref="TypeAttributes.IsTypeForwarder"/>
    public static Boolean IsTypeForwarder( this TypeAttributes attrs )
    {
@@ -2293,9 +2292,9 @@ public static partial class E_CILPhysical
    /// </summary>
    /// <param name="info">The <see cref="MethodSignatureInformation"/> element.</param>
    /// <returns><c>true</c> if <paramref name="info"/> has <see cref="MethodSignatureInformation.HasThis"/> flag; <c>false</c> otherwise.</returns>
-   public static Boolean IsHasThis( this MethodSignatureInformation starter )
+   public static Boolean IsHasThis( this MethodSignatureInformation info )
    {
-      return ( starter & MethodSignatureInformation.HasThis ) != 0;
+      return ( info & MethodSignatureInformation.HasThis ) != 0;
    }
 
    /// <summary>
@@ -2303,8 +2302,8 @@ public static partial class E_CILPhysical
    /// </summary>
    /// <param name="info">The <see cref="MethodSignatureInformation"/> element.</param>
    /// <returns><c>true</c> if <paramref name="info"/> has <see cref="MethodSignatureInformation.ExplicitThis"/> flag; <c>false</c> otherwise.</returns>
-   public static Boolean IsExplicitThis( this MethodSignatureInformation starter )
+   public static Boolean IsExplicitThis( this MethodSignatureInformation info )
    {
-      return ( starter & MethodSignatureInformation.ExplicitThis ) != 0;
+      return ( info & MethodSignatureInformation.ExplicitThis ) != 0;
    }
 }

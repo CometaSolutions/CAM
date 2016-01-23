@@ -24,29 +24,56 @@ using System.Text;
 
 namespace CILAssemblyManipulator.Physical.Meta
 {
+   /// <summary>
+   /// This interface captures some of the operations crucial for interacting with reading and manipulating IL byte code.
+   /// </summary>
+   /// <remarks>
+   /// Unless specifically desired, instead of directly implementing this interface, a <see cref="DefaultOpCodeProvider"/> should be used direclty, or by subclassing.
+   /// </remarks>
    public interface OpCodeProvider
    {
-      Boolean TryGetCodeFor( OpCodeID codeEnum, out OpCode opCode );
+      /// <summary>
+      /// Tries to get an actual <see cref="OpCode"/> based on its <see cref="OpCodeID"/>.
+      /// </summary>
+      /// <param name="codeID">The <see cref="OpCodeID"/>.</param>
+      /// <param name="opCode">This parameter will contain the actual <see cref="OpCode"/> data structure if any is found for given <see cref="OpCodeID"/>.</param>
+      /// <returns><c>true</c> if this <see cref="OpCodeProvider"/> had a <see cref="OpCode"/> for given <paramref name="codeID"/>; <c>false</c> otherwise.</returns>
+      Boolean TryGetCodeFor( OpCodeID codeID, out OpCode opCode );
 
-      OpCodeInfoWithNoOperand GetOperandlessInfoOrNull( OpCodeID codeEnum );
+      /// <summary>
+      /// Tries to get an instance of <see cref="OpCodeInfoWithNoOperand"/> for a given <see cref="OpCodeID"/>, or return <c>null</c> on failure.
+      /// </summary>
+      /// <param name="codeID">The <see cref="OpCodeID"/>.</param>
+      /// <returns>An instance of <see cref="OpCodeInfoWithNoOperand"/> for a given <paramref name="codeID"/>, or <c>null</c> if the <paramref name="codeID"/> was unrecognized or did not represent an operandless op code.</returns>
+      OpCodeInfoWithNoOperand GetOperandlessInfoOrNull( OpCodeID codeID );
 
    }
 
+   /// <summary>
+   /// This class provides default implementation for <see cref="OpCodeProvider"/>.
+   /// It caches all the <see cref="OpCode"/>s based on their <see cref="OpCode.OpCodeID"/>, and also caches all <see cref="OpCodeInfoWithNoOperand"/>s based on their <see cref="OpCodeID"/>.
+   /// </summary>
    public class DefaultOpCodeProvider : OpCodeProvider
    {
-      private static readonly OpCodeProvider _Instance = new DefaultOpCodeProvider();
 
-      public static OpCodeProvider Instance
+      /// <summary>
+      /// Gets the default instance of <see cref="DefaultOpCodeProvider"/>.
+      /// It has support for codes returned by <see cref="GetDefaultOpCodes"/>.
+      /// </summary>
+      public static OpCodeProvider DefaultInstance { get; }
+
+      static DefaultOpCodeProvider()
       {
-         get
-         {
-            return _Instance;
-         }
+         DefaultInstance = new DefaultOpCodeProvider();
       }
 
       private readonly IDictionary<OpCodeID, OpCode> _codes;
       private readonly IDictionary<OpCodeID, OpCodeInfoWithNoOperand> _operandless;
 
+      /// <summary>
+      /// Creates a new instance of <see cref="DefaultOpCodeProvider"/> with support for given op code set.
+      /// </summary>
+      /// <param name="codes">The <see cref="OpCode"/>s to support. If <c>null</c>, the return value of <see cref="GetDefaultOpCodes"/> will be used.</param>
       public DefaultOpCodeProvider( IEnumerable<OpCode> codes = null )
       {
          this._codes = ( codes ?? GetDefaultOpCodes() ).ToDictionary_Overwrite( c => c.OpCodeID, c => c );
@@ -56,17 +83,23 @@ namespace CILAssemblyManipulator.Physical.Meta
             .ToDictionary_Overwrite( c => c.OpCodeID, c => new OpCodeInfoWithNoOperand( c.OpCodeID ) );
       }
 
-      public Boolean TryGetCodeFor( OpCodeID codeEnum, out OpCode opCode )
+      /// <inheritdoc />
+      public Boolean TryGetCodeFor( OpCodeID codeID, out OpCode opCode )
       {
-         return this._codes.TryGetValue( codeEnum, out opCode );
+         return this._codes.TryGetValue( codeID, out opCode );
       }
 
-      public OpCodeInfoWithNoOperand GetOperandlessInfoOrNull( OpCodeID codeEnum )
+      /// <inheritdoc />
+      public OpCodeInfoWithNoOperand GetOperandlessInfoOrNull( OpCodeID codeID )
       {
          OpCodeInfoWithNoOperand retVal;
-         return this._operandless.TryGetValue( codeEnum, out retVal ) ? retVal : null;
+         return this._operandless.TryGetValue( codeID, out retVal ) ? retVal : null;
       }
 
+      /// <summary>
+      /// Gets all of the op codes in <see cref="OpCodes"/> class.
+      /// </summary>
+      /// <returns>An enumerable to iterate all codes in <see cref="OpCodes"/> class.</returns>
       public static IEnumerable<OpCode> GetDefaultOpCodes()
       {
          yield return OpCodes.Nop;
@@ -293,6 +326,16 @@ namespace CILAssemblyManipulator.Physical.Meta
 
 public static partial class E_CILPhysical
 {
+   /// <summary>
+   /// Gets the code for given <see cref="OpCodeID"/>, or throws an exception if no code found.
+   /// </summary>
+   /// <param name="opCodeProvider">The <see cref="OpCodeProvider"/>.</param>
+   /// <param name="codeID">The <see cref="OpCodeID"/></param>
+   /// <returns>The <see cref="OpCode"/> for given <paramref name="codeID"/></returns>
+   /// <exception cref="NullReferenceException">If this <paramref name="opCodeProvider"/> is <c>null</c>.</exception>
+   /// <exception cref="ArgumentException">If no suitable <see cref="OpCode"/> is found.</exception>
+   /// <seealso cref="OpCode"/>
+   /// <seealso cref="OpCodeProvider.TryGetCodeFor"/>
    public static OpCode GetCodeFor( this OpCodeProvider opCodeProvider, OpCodeID codeID )
    {
       OpCode retVal;
@@ -303,6 +346,15 @@ public static partial class E_CILPhysical
       return retVal;
    }
 
+   /// <summary>
+   /// Gets the <see cref="OpCodeInfoWithNoOperand"/> for a given <see cref="OpCodeID"/>, or throws an exception if no <see cref="OpCodeInfoWithNoOperand"/> is found.
+   /// </summary>
+   /// <param name="opCodeProvider">The <see cref="OpCodeProvider"/>.</param>
+   /// <param name="codeID">The <see cref="OpCodeID"/>.</param>
+   /// <returns>An instance of <see cref="OpCodeInfoWithNoOperand"/> for <paramref name="codeID"/>.</returns>
+   /// <exception cref="NullReferenceException">If this <paramref name="opCodeProvider"/> is <c>null</c>.</exception>
+   /// <exception cref="ArgumentException">If no suitable <see cref="OpCodeInfoWithNoOperand"/> is found.</exception>
+   /// <seealso cref="OpCodeProvider.GetOperandlessInfoOrNull"/>
    public static OpCodeInfoWithNoOperand GetOperandlessInfoFor( this OpCodeProvider opCodeProvider, OpCodeID codeID )
    {
       var retVal = opCodeProvider.GetOperandlessInfoOrNull( codeID );

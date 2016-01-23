@@ -31,7 +31,7 @@ namespace CILAssemblyManipulator.Physical
    /// <summary>
    /// This interface represents a single metadata instance.
    /// It is composed of metadata tables.
-   /// The instances of this interface may be created via static methods of <see cref="CILMetaDataFactory" />.
+   /// The instances of this interface may be created via static methods of <see cref="T:CILAssemblyManipulator.Physical.CILMetaDataFactory" />.
    /// </summary>
    /// <remarks>
    /// <para>
@@ -41,7 +41,7 @@ namespace CILAssemblyManipulator.Physical
    /// This interface does not enforce any of the integrity and consistency rules of serialized and loadable metadata files.
    /// </para>
    /// </remarks>
-   /// <seealso cref="CILMetaDataFactory"/>
+   /// <seealso cref="T:CILAssemblyManipulator.Physical.CILMetaDataFactory"/>
    /// <seealso cref="MetaDataTable"/>
    public interface CILMetaData : TabularMetaDataWithSchema
    {
@@ -409,8 +409,18 @@ namespace CILAssemblyManipulator.Physical
       [Obsolete( "This table should not be used anymore.", false )]
       MetaDataTable<AssemblyReferenceOS> AssemblyReferenceOSs { get; }
 
+      /// <summary>
+      /// Gets the <see cref="Meta.OpCodeProvider"/> of this <see cref="CILMetaData"/>.
+      /// </summary>
+      /// <value>The <see cref="Meta.OpCodeProvider"/> of this <see cref="CILMetaData"/>.</value>
+      /// <seealso cref="Meta.OpCodeProvider"/>
       Meta.OpCodeProvider OpCodeProvider { get; }
 
+      /// <summary>
+      /// Gets the <see cref="Meta.SignatureProvider"/> of this <see cref="CILMetaData"/>.
+      /// </summary>
+      /// <value>The <see cref="Meta.SignatureProvider"/> of this <see cref="CILMetaData"/>.</value>
+      /// <seealso cref="Meta.SignatureProvider"/>
       Meta.SignatureProvider SignatureProvider { get; }
    }
 
@@ -2324,6 +2334,13 @@ public static partial class E_CILPhysical
       }
    }
 
+   /// <summary>
+   /// This method will calculate the max stack size suitable to use for <see cref="MethodILDefinition.MaxStackSize"/>.
+   /// </summary>
+   /// <param name="md">The <see cref="CILMetaData"/>.</param>
+   /// <param name="methodIndex">The zero-based index in <see cref="CILMetaData.MethodDefinitions"/> table for which to calculate max stack size for.</param>
+   /// <returns>The max stack size for method in <paramref name="md"/> in table <see cref="CILMetaData.MethodDefinitions"/> at index <paramref name="methodIndex"/>. If <paramref name="methodIndex"/> is invalid or if the <see cref="MethodDefinition"/> does not have IL, returns <c>-1</c>.</returns>
+   /// <exception cref="NullReferenceException">If <paramref name="md"/> is <c>null</c>.</exception>
    public static Int32 CalculateStackSize( this CILMetaData md, Int32 methodIndex )
    {
       var mDef = md.MethodDefinitions.GetOrNull( methodIndex );

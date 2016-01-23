@@ -113,7 +113,7 @@ namespace CILMerge.MSBuild
                   }
 
                   String peVerifyError = null, snError = null;
-                  retVal = !( this.VerifyOutput && Verification.RunPEVerify( null, outPath, this.OutputHasStrongName(), out peVerifyError, out snError ) );
+                  retVal = !( this.VerifyOutput && Verification.RunPEVerify( outPath, this.OutputHasStrongName(), out peVerifyError, out snError ) );
                   if ( !retVal )
                   {
                      this.Log.LogError( "PEVerify and/or strong name validation failed." );

@@ -1167,7 +1167,10 @@ namespace CILAssemblyManipulator.Physical
    {
 
 
-
+      /// <summary>
+      /// Contains the maximum value for <see cref="Physical.OpCodeID"/> which would fit into one byte.
+      /// </summary>
+      /// <remarks>This value is <c>0xFE</c>.</remarks>
       public const Int32 MAX_ONE_BYTE_INSTRUCTION = 0xFE;
 
 
@@ -1462,6 +1465,9 @@ namespace CILAssemblyManipulator.Physical
          }
       }
 
+      /// <summary>
+      /// Gets the fixed operand size, in bytes.
+      /// </summary>
       public Int32 OperandSize
       {
          get
@@ -1470,6 +1476,11 @@ namespace CILAssemblyManipulator.Physical
          }
       }
 
+      /// <summary>
+      /// For short branch instructions, returns their long branch instruction aliases.
+      /// For long branch instructions, returns their short instruction aliases.
+      /// For others, returns <see cref="OpCodeID.Nop"/>.
+      /// </summary>
       public OpCodeID OtherForm
       {
          get
@@ -2538,9 +2549,10 @@ namespace CILAssemblyManipulator.Physical
    // Value
    // Ref
    // Var
-   ///// <summary>
-   ///// Contains all possible values for stack popping behaviour of CIL op codes.
-   ///// </summary>
+
+   /// <summary>
+   /// Contains all possible values for stack popping behaviour of CIL op codes.
+   /// </summary>
    public enum StackBehaviourPop : byte
    {
       /// <summary>No values are popped off the stack.</summary>
@@ -2602,4 +2614,8 @@ public static partial class E_CILPhysical
    {
       return code.Size + code.OperandSize;
    }
+
+
+   private const Int32 MAX_ONE_BYTE_INSTRUCTION = 0xFE;
+
 }

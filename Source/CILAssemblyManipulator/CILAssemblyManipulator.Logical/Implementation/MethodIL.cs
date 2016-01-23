@@ -69,7 +69,7 @@ namespace CILAssemblyManipulator.Logical.Implementation
          var labelsDic = new Dictionary<Int32, ILLabel>();
          var codeInfoILOffsets = new Dictionary<Int32, Int32>();
          Func<Int32, ILLabel> ilLabelDefiner = i => this.DefineLabel();
-         var ocp = CILAssemblyManipulator.Physical.Meta.DefaultOpCodeProvider.Instance;
+         var ocp = CILAssemblyManipulator.Physical.Meta.DefaultOpCodeProvider.DefaultInstance;
          while ( ilOffset < il.Length )
          {
             codeInfoILOffsets.Add( ilOffset, this._opCodes.Count );

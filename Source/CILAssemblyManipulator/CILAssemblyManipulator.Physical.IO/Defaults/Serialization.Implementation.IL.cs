@@ -43,7 +43,7 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
             b );
 
          OpCode code;
-         if ( ( opCodeProvider ?? DefaultOpCodeProvider.Instance ).TryGetCodeFor( encoding, out code ) )
+         if ( ( opCodeProvider ?? DefaultOpCodeProvider.DefaultInstance ).TryGetCodeFor( encoding, out code ) )
          {
             switch ( code.OperandType )
             {

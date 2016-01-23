@@ -173,7 +173,7 @@ namespace CILAssemblyManipulator.Tests
 
       protected static void RunPEVerify( String fileName, Boolean verifyStrongName )
       {
-         Verification.RunPEVerify( null, fileName, verifyStrongName );
+         Verification.RunPEVerify( fileName, verifyStrongName );
       }
 
    }

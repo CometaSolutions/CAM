@@ -344,7 +344,7 @@ namespace CILAssemblyManipulator.Physical
       /// Tries to parse textual name of the assembly into a <see cref="AssemblyInformation"/>.
       /// </summary>
       /// <param name="textualAssemblyName">The textual assembly name.</param>
-      /// <param name="assemblyName">If <paramref name="textualAssemblyName"/> is <c>null</c>, this will be <c>null</c>. Otherwise, this will hold a new instance of <see cref="CILAssemblyName"/> with any successfully parsed components.</param>
+      /// <param name="assemblyName">If <paramref name="textualAssemblyName"/> is <c>null</c>, this will be <c>null</c>. Otherwise, this will hold a new instance of <see cref="AssemblyInformation"/> with any successfully parsed components.</param>
       /// <param name="isFullPublicKey">Whether the textual assembly name contained full public key information.</param>
       /// <returns><c>true</c> if <paramref name="textualAssemblyName"/> was successfully parsed till the end; <c>false</c> otherwise.</returns>
       /// <remarks>

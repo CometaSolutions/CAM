@@ -24,28 +24,56 @@ using System.Text;
 
 namespace CILAssemblyManipulator.Physical.Meta
 {
+   /// <summary>
+   /// This interface captures some of the operations crucial for interacting with signatures in CAM.Physical framework.
+   /// </summary>
+   /// <remarks>
+   /// Unless specifically desired, instead of directly implementing this interface, a <see cref="DefaultSignatureProvider"/> should be used direclty, or by subclassing.
+   /// </remarks>
    public interface SignatureProvider
    {
+      /// <summary>
+      /// Gets an instance of <see cref="SimpleTypeSignature"/> for a given <see cref="SimpleTypeSignatureKind"/>, or returns <c>null</c> on failure.
+      /// </summary>
+      /// <param name="kind">The <see cref="SimpleTypeSignatureKind"/></param>
+      /// <returns>An instance of <see cref="SimpleTypeSignature"/> for a given <paramref name="kind"/>, or <c>null</c> if the <paramref name="kind"/> was unrecognized.</returns>
+      /// <seealso cref="SimpleTypeSignature"/>
       SimpleTypeSignature GetSimpleTypeSignatureOrNull( SimpleTypeSignatureKind kind );
 
+      /// <summary>
+      /// Gets an instance of <see cref="CustomAttributeArgumentTypeSimple"/> for a given <see cref="CustomAttributeArgumentTypeSimpleKind"/>, or returns <c>null</c> on failure.
+      /// </summary>
+      /// <param name="kind">The <see cref="CustomAttributeArgumentTypeSimpleKind"/></param>
+      /// <returns>An instance of <see cref="CustomAttributeArgumentTypeSimple"/> for a given <paramref name="kind"/>, or <c>null</c> if the <paramref name="kind"/> was unrecognized.</returns>
+      /// <seealso cref="CustomAttributeArgumentTypeSimple"/>
       CustomAttributeArgumentTypeSimple GetSimpleCATypeOrNull( CustomAttributeArgumentTypeSimpleKind kind );
    }
 
+   /// <summary>
+   /// This class provides default implementation for <see cref="SignatureProvider"/>.
+   /// It caches all the <see cref="SimpleTypeSignature"/>s based on their <see cref="SimpleTypeSignature.SimpleType"/>, and also caches all <see cref="CustomAttributeArgumentTypeSimple"/>s based on their <see cref="CustomAttributeArgumentTypeSimple.SimpleType"/>.
+   /// </summary>
    public class DefaultSignatureProvider : SignatureProvider
    {
-      private static readonly SignatureProvider _Instance = new DefaultSignatureProvider();
+      /// <summary>
+      /// Gets the default instance of <see cref="DefaultSignatureProvider"/>.
+      /// It has support for simple type signatures returned by <see cref="GetDefaultSimpleTypeSignatures"/> method, and custom attribute simple types returned by <see cref="GetDefaultSimpleCATypes"/> method.
+      /// </summary>
+      public static SignatureProvider Instance { get; }
 
-      public static SignatureProvider Instance
+      static DefaultSignatureProvider()
       {
-         get
-         {
-            return _Instance;
-         }
+         Instance = new DefaultSignatureProvider();
       }
 
       private readonly IDictionary<SimpleTypeSignatureKind, SimpleTypeSignature> _simpleTypeSignatures;
       private readonly IDictionary<CustomAttributeArgumentTypeSimpleKind, CustomAttributeArgumentTypeSimple> _simpleCATypes;
 
+      /// <summary>
+      /// Creates a new instance of <see cref="DefaultSignatureProvider"/> with given supported <see cref="SimpleTypeSignature"/>s and <see cref="CustomAttributeArgumentTypeSimple"/>s.
+      /// </summary>
+      /// <param name="simpleTypeSignatures">The supported <see cref="SimpleTypeSignature"/>. If <c>null</c>, the return value of <see cref="GetDefaultSimpleTypeSignatures"/> will be used.</param>
+      /// <param name="simpleCATypes">The supported <see cref="CustomAttributeArgumentTypeSimple"/>. If <c>null</c>, the return value of <see cref="GetDefaultSimpleCATypes"/> will be used.</param>
       public DefaultSignatureProvider(
          IEnumerable<SimpleTypeSignature> simpleTypeSignatures = null,
          IEnumerable<CustomAttributeArgumentTypeSimple> simpleCATypes = null
@@ -59,18 +87,24 @@ namespace CILAssemblyManipulator.Physical.Meta
             .ToDictionary_Overwrite( s => s.SimpleType, s => s );
       }
 
+      /// <inheritdoc />
       public SimpleTypeSignature GetSimpleTypeSignatureOrNull( SimpleTypeSignatureKind kind )
       {
          SimpleTypeSignature sig;
          return this._simpleTypeSignatures.TryGetValue( kind, out sig ) ? sig : null;
       }
 
+      /// <inheritdoc />
       public CustomAttributeArgumentTypeSimple GetSimpleCATypeOrNull( CustomAttributeArgumentTypeSimpleKind kind )
       {
          CustomAttributeArgumentTypeSimple retVal;
          return this._simpleCATypes.TryGetValue( kind, out retVal ) ? retVal : null;
       }
 
+      /// <summary>
+      /// Gets an instance of <see cref="SimpleTypeSignature"/> for every value of <see cref="SimpleTypeSignatureKind"/> enumeration.
+      /// </summary>
+      /// <returns>An enumerable to iterate instances of <see cref="SimpleTypeSignature"/>s for every value of <see cref="SimpleTypeSignatureKind"/> enumeration.</returns>
       public static IEnumerable<SimpleTypeSignature> GetDefaultSimpleTypeSignatures()
       {
          yield return new SimpleTypeSignature( SimpleTypeSignatureKind.Boolean );
@@ -92,6 +126,11 @@ namespace CILAssemblyManipulator.Physical.Meta
          yield return new SimpleTypeSignature( SimpleTypeSignatureKind.Void );
          yield return new SimpleTypeSignature( SimpleTypeSignatureKind.TypedByRef );
       }
+
+      /// <summary>
+      /// Gets an instance of <see cref="CustomAttributeArgumentTypeSimple"/> for every value of <see cref="CustomAttributeArgumentTypeSimpleKind"/> enumeration.
+      /// </summary>
+      /// <returns>An enumerable to iterate instances of <see cref="CustomAttributeArgumentTypeSimple"/>s for every value of <see cref="CustomAttributeArgumentTypeSimpleKind"/> enumeration.</returns>
 
       public static IEnumerable<CustomAttributeArgumentTypeSimple> GetDefaultSimpleCATypes()
       {
@@ -116,6 +155,16 @@ namespace CILAssemblyManipulator.Physical.Meta
 
 public static partial class E_CILPhysical
 {
+   /// <summary>
+   /// Gets simple type signature for given <see cref="SimpleTypeSignatureKind"/>, or throws an exception if no suitable signature found.
+   /// </summary>
+   /// <param name="sigProvider">The <see cref="SignatureProvider"/>.</param>
+   /// <param name="kind">The <see cref="SimpleTypeSignatureKind"/></param>
+   /// <returns>The <see cref="SimpleTypeSignature"/> for given <paramref name="kind"/></returns>
+   /// <exception cref="NullReferenceException">If this <paramref name="sigProvider"/> is <c>null</c>.</exception>
+   /// <exception cref="ArgumentException">If no suitable <see cref="SimpleTypeSignature"/> is found.</exception>
+   /// <seealso cref="SimpleTypeSignature"/>
+   /// <seealso cref="SignatureProvider.GetSimpleTypeSignatureOrNull"/>
    public static SimpleTypeSignature GetSimpleTypeSignature( this SignatureProvider sigProvider, SimpleTypeSignatureKind kind )
    {
       var retVal = sigProvider.GetSimpleTypeSignatureOrNull( kind );
@@ -126,6 +175,16 @@ public static partial class E_CILPhysical
       return retVal;
    }
 
+   /// <summary>
+   /// Gets simple custom attribute type for given <see cref="CustomAttributeArgumentTypeSimpleKind"/>, or throws an exception if no suitable signature found.
+   /// </summary>
+   /// <param name="sigProvider">The <see cref="SignatureProvider"/>.</param>
+   /// <param name="kind">The <see cref="CustomAttributeArgumentTypeSimpleKind"/></param>
+   /// <returns>The <see cref="CustomAttributeArgumentTypeSimple"/> for given <paramref name="kind"/></returns>
+   /// <exception cref="NullReferenceException">If this <paramref name="sigProvider"/> is <c>null</c>.</exception>
+   /// <exception cref="ArgumentException">If no suitable <see cref="CustomAttributeArgumentTypeSimple"/> is found.</exception>
+   /// <seealso cref="CustomAttributeArgumentTypeSimple"/>
+   /// <seealso cref="SignatureProvider.GetSimpleCATypeOrNull"/>
    public static CustomAttributeArgumentTypeSimple GetSimpleCAType( this SignatureProvider sigProvider, CustomAttributeArgumentTypeSimpleKind kind )
    {
       var retVal = sigProvider.GetSimpleCATypeOrNull( kind );
@@ -139,6 +198,7 @@ public static partial class E_CILPhysical
    /// <summary>
    /// Creates a new instance of <see cref="CustomAttributeArgumentType"/> based on a native type.
    /// </summary>
+   /// <param name="sigProvider">The <see cref="SignatureProvider"/>.</param>
    /// <param name="type">The native type.</param>
    /// <param name="enumTypeStringFactory">The callback to get textual type string when type is <see cref="CustomAttributeValue_EnumReference"/>.</param>
    /// <returns>A new instance of <see cref="CustomAttributeArgumentType"/>, or <c>null</c> if <paramref name="type"/> is <c>null</c> or if the type could not be resolved.</returns>
@@ -151,8 +211,9 @@ public static partial class E_CILPhysical
    /// <summary>
    /// Creates a new instance of <see cref="CustomAttributeArgumentType"/> based on a existing value.
    /// </summary>
+   /// <param name="sigProvider">The <see cref="SignatureProvider"/>.</param>
    /// <param name="obj">The existing value.</param>
-   /// <returns>A new instance of <see cref="CustomAttributeArgumentType"/>, or <c>null</c> if <paramref name="type"/> is <c>null</c> or if the type could not be resolved.</returns>
+   /// <returns>A new instance of <see cref="CustomAttributeArgumentType"/>, or <c>null</c> if <paramref name="obj"/> is <c>null</c> or if the type could not be resolved.</returns>
    /// <exception cref="NullReferenceException">If <paramref name="sigProvider"/> is <c>null</c></exception>
    public static CustomAttributeArgumentType ResolveCAArgumentTypeFromObject( this SignatureProvider sigProvider, Object obj )
    {

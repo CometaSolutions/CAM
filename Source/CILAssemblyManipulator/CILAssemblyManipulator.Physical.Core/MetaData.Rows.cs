@@ -453,7 +453,7 @@ namespace CILAssemblyManipulator.Physical
       /// </summary>
       /// <value>The value for this <see cref="ConstantDefinition"/>.</value>
       /// <remarks>
-      /// If this property is <c>null</c>, then <see cref="Type"/> property should be <see cref="SignatureElementTypes.Class"/>.
+      /// If this property is <c>null</c>, then <see cref="Type"/> property should be <see cref="ConstantValueType.Null"/>.
       /// </remarks>
       public Object Value { get; set; }
    }
@@ -733,7 +733,7 @@ namespace CILAssemblyManipulator.Physical
       public AbstractSignature Signature { get; set; }
 
       /// <summary>
-      /// Gets or sets the indicator, whether the <see cref="Signature"/> should be serialized with <see cref="MethodSignatureInformation.Field"/> prefix.
+      /// Gets or sets the indicator, whether the <see cref="Signature"/> should be serialized with prefix used for field signatures.
       /// </summary>
       /// <remarks>
       /// <para>
@@ -979,7 +979,7 @@ namespace CILAssemblyManipulator.Physical
       /// <summary>
       /// Creates a new instance of <see cref="MethodImplementation"/> with <see cref="Class"/> pointing to given row of <see cref="Tables.TypeDef"/> table.
       /// </summary>
-      /// <param name="methodDefIndex">The zero-based index for <see cref="Class"/>.</param>
+      /// <param name="typeDefIndex">The zero-based index for <see cref="Class"/>.</param>
       public MethodImplementation( Int32 typeDefIndex )
       {
          this.Class = new TableIndex( Tables.TypeDef, typeDefIndex );
@@ -1647,9 +1647,22 @@ namespace CILAssemblyManipulator.Physical
    [Obsolete( "Rows of these type should no longer be present in CIL meta data file.", false )]
    public sealed class AssemblyReferenceProcessor
    {
+      /// <summary>
+      /// Creates a new instance of <see cref="AssemblyReferenceProcessor"/> with <see cref="AssemblyRef"/> pointing to zeroth row of <see cref="Tables.AssemblyRef"/> table.
+      /// </summary>
       public AssemblyReferenceProcessor()
+         : this( 0 )
       {
-         this.AssemblyRef = new TableIndex( Tables.AssemblyRef, 0 );
+         // This exists instead of default parameters so that new() -constraint would be possible for rows (if ever needed)
+      }
+
+      /// <summary>
+      /// Creates a new instance of <see cref="AssemblyReferenceProcessor"/> with <see cref="AssemblyRef"/> pointing to given row of <see cref="Tables.AssemblyRef"/> table.
+      /// </summary>
+      /// <param name="assemblyRefIndex">The zero-based index for <see cref="AssemblyRef"/>.</param>
+      public AssemblyReferenceProcessor( Int32 assemblyRefIndex )
+      {
+         this.AssemblyRef = new TableIndex( Tables.AssemblyRef, assemblyRefIndex );
       }
 
       /// <summary>
@@ -1675,9 +1688,22 @@ namespace CILAssemblyManipulator.Physical
    [Obsolete( "Rows of these type should no longer be present in CIL meta data file.", false )]
    public sealed class AssemblyReferenceOS
    {
+      /// <summary>
+      /// Creates a new instance of <see cref="AssemblyReferenceOS"/> with <see cref="AssemblyRef"/> pointing to zeroth row of <see cref="Tables.AssemblyRef"/> table.
+      /// </summary>
       public AssemblyReferenceOS()
+         : this( 0 )
       {
-         this.AssemblyRef = new TableIndex( Tables.AssemblyRef, 0 );
+         // This exists instead of default parameters so that new() -constraint would be possible for rows (if ever needed)
+      }
+
+      /// <summary>
+      /// Creates a new instance of <see cref="AssemblyReferenceOS"/> with <see cref="AssemblyRef"/> pointing to given row of <see cref="Tables.AssemblyRef"/> table.
+      /// </summary>
+      /// <param name="assemblyRefIndex">The zero-based index for <see cref="AssemblyRef"/>.</param>
+      public AssemblyReferenceOS( Int32 assemblyRefIndex )
+      {
+         this.AssemblyRef = new TableIndex( Tables.AssemblyRef, assemblyRefIndex );
       }
 
       /// <summary>
@@ -1765,7 +1791,9 @@ namespace CILAssemblyManipulator.Physical
          }
       }
 
-      // TODO this method needs to be internalized!!
+
+#pragma warning disable 1591
+      // TODO this property needs to be internalized!!
       public Int32 CombinedValue
       {
          get
@@ -1773,6 +1801,7 @@ namespace CILAssemblyManipulator.Physical
             return this._token;
          }
       }
+#pragma warning restore 1591
 
       /// <summary>
       /// Checks whether given object is of type <see cref="TableIndex"/> and is considered to be equal to this <see cref="TableIndex"/>.
@@ -2375,12 +2404,12 @@ namespace CILAssemblyManipulator.Physical
 public static partial class E_CILPhysical
 {
    /// <summary>
-   /// Checks whether the method is eligible to have method body. See ECMA specification (condition 33 for MethodDef table) for exact condition of methods having method bodies. In addition to that, the <see cref="E_CIL.IsIL"/> must return <c>true</c>.
+   /// Checks whether the method is eligible to have method body. See ECMA specification (condition 33 for MethodDef table) for exact condition of methods having method bodies. In addition to that, the <see cref="E_CILPhysical.IsIL"/> must return <c>true</c>.
    /// </summary>
    /// <param name="method">The method to check.</param>
    /// <returns><c>true</c> if the <paramref name="method"/> is non-<c>null</c> and can have IL method body; <c>false</c> otherwise.</returns>
-   /// <seealso cref="E_CIL.IsIL"/>
-   /// <seealso cref="E_CIL.CanEmitIL"/>
+   /// <seealso cref="E_CILPhysical.IsIL"/>
+   /// <seealso cref="E_CILPhysical.CanEmitIL"/>
    public static Boolean ShouldHaveMethodBody( this MethodDefinition method )
    {
       return method != null && method.Attributes.CanEmitIL() && method.ImplementationAttributes.IsIL();

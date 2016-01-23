@@ -23,10 +23,28 @@ using TabularMetaData.Meta;
 
 namespace CILAssemblyManipulator.Physical.Meta
 {
+   /// <summary>
+   /// This interface further extends <see cref="MetaDataTableInformationProvider"/> to include some aspects which are specific to CIL environment.
+   /// </summary>
+   /// <remarks>
+   /// Unless specifically desired, instead of directly implementing this interface, a <see cref="T:CILAssemblyManipulator.Physical.Meta.DefaultMetaDataTableInformationProvider"/> should be used direclty, or by subclassing.
+   /// </remarks>
    public interface CILMetaDataTableInformationProvider : MetaDataTableInformationProvider
    {
+      /// <summary>
+      /// Gets or creates a new <see cref="OpCodeProvider"/>.
+      /// </summary>
+      /// <returns>A <see cref="OpCodeProvider"/> supported by this <see cref="CILMetaDataTableInformationProvider"/>.</returns>
+      /// <seealso cref="OpCodeProvider"/>
       OpCodeProvider CreateOpCodeProvider();
 
+      /// <summary>
+      /// Gets or creates a new <see cref="SignatureProvider"/>.
+      /// </summary>
+      /// <returns>A <see cref="SignatureProvider"/> supported by this <see cref="CILMetaDataTableInformationProvider"/>.</returns>
+      /// <seealso cref="SignatureProvider"/>
       SignatureProvider CreateSignatureProvider();
+
+      // TODO ReOrderingProvider
    }
 }

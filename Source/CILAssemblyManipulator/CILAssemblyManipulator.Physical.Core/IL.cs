@@ -603,7 +603,7 @@ public static partial class E_CILPhysical
    /// <param name="opCodeProvider">The <see cref="OpCodeProvider"/> to use.</param>
    /// <returns>The total byte count of a single <see cref="OpCodeInfo"/>.</returns>
    /// <remarks>
-   /// The total byte count is the size of op code of <see cref="OpCodeInfo"/> added with <see cref="OpCodeInfo.OperandByteSize"/>.
+   /// The total byte count is the size of op code of <see cref="OpCodeInfo"/> added with <see cref="OpCodeInfo.DynamicOperandByteSize"/>.
    /// </remarks>
    /// <exception cref="NullReferenceException">If <paramref name="info"/> is <c>null</c>.</exception>
    /// <exception cref="ArgumentNullException">If <paramref name="opCodeProvider"/> is <c>null</c>.</exception>

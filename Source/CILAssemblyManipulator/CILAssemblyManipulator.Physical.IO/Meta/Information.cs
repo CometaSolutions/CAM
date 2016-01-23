@@ -187,7 +187,7 @@ namespace CILAssemblyManipulator.Physical.Meta
             var tKind = (Int32) tableInfo.TableIndex;
             this._infos[tKind] = tableInfo;
          }
-         this._opCodeProvider = opCodeProvider ?? DefaultOpCodeProvider.Instance;
+         this._opCodeProvider = opCodeProvider ?? DefaultOpCodeProvider.DefaultInstance;
          this._sigProvider = sigProvider ?? DefaultSignatureProvider.Instance;
       }
 

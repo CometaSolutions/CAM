@@ -264,25 +264,26 @@ namespace CILMerge
                new XElement( "doc",
                   new XElement( "assembly", new XElement( "name", Path.GetFileNameWithoutExtension( this._options.OutPath ) ) ), // Assembly name
                   new XElement( "members", xmlDocs
-                     .Select( kvp => Tuple.Create( kvp.Key, kvp.Value.XPathSelectElements( "/doc/members/*" ) ) )
-                     .SelectMany( tuple =>
+                     .SelectMany( kvp =>
                      {
-                        var renameDic = tuple.Item1.TypeRenames;
+
+                        var renameDic = kvp.Key.TypeRenames;
+                        var retVal = kvp.Value.XPathSelectElements( "/doc/members/*" );
                         if ( renameDic.Count > 0 )
                         {
-                           foreach ( var el in tuple.Item2 )
+                           foreach ( var el in retVal )
                            {
                               var nameAttr = el.Attribute( "name" );
                               String typeName;
                               if ( nameAttr != null && nameAttr.Value.StartsWith( "T:" ) && renameDic.TryGetValue( el.Attribute( "name" ).Value.Substring( 2 ), out typeName ) )
                               {
                                  // The name was changed during merge.
-                                 // TODO need to do same for members, etc.
+                                 // TODO need to do same for <see, etc. elements!!
                                  nameAttr.SetValue( typeName );
                               }
                            }
                         }
-                        return tuple.Item2;
+                        return retVal;
                      } )
                   )
                ).Save( fs );

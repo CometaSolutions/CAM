@@ -90,7 +90,7 @@ namespace CILAssemblyManipulator.Physical
          this.MethodSpecifications = CreateFixedMDTable<MethodSpecification>( Tables.MethodSpec, sizes, infos, ref defaultTableInfos );
          this.GenericParameterConstraintDefinitions = CreateFixedMDTable<GenericParameterConstraintDefinition>( Tables.GenericParameterConstraint, sizes, infos, ref defaultTableInfos );
 
-         this.OpCodeProvider = tableInfoProvider?.CreateOpCodeProvider() ?? DefaultOpCodeProvider.Instance;
+         this.OpCodeProvider = tableInfoProvider?.CreateOpCodeProvider() ?? DefaultOpCodeProvider.DefaultInstance;
          this.SignatureProvider = tableInfoProvider?.CreateSignatureProvider() ?? DefaultSignatureProvider.Instance;
       }
 #pragma warning restore 618

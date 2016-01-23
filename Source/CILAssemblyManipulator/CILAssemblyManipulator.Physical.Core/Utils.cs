@@ -26,20 +26,41 @@ using TabularMetaData;
 
 namespace CILAssemblyManipulator.Physical
 {
+   /// <summary>
+   /// This class contains miscellaneous methods, which are either not extension methods, or extension methods for types defined in other assemblies than this.
+   /// </summary>
    public static class Miscellaneous
    {
       private const Char ESCAPE_CHAR = '\\';
       private static readonly Char[] ESCAPABLE_CHARS_WITHIN_TYPESTRING = { ESCAPE_CHAR, ',', '+', '&', '*', '[', ']' };
       private static readonly Char[] CHARS_ENDING_SIMPLE_TYPENAME = { '&', '*', '[' };
+
+      /// <summary>
+      /// This is character that separates nested type names (<c>+</c>).
+      /// </summary>
       public const Char NESTED_TYPE_SEPARATOR = '+';
       private const String NESTED_TYPE_SEPARATOR_STRING = "+";
+
+      /// <summary>
+      /// This is character that separates namespace and type name (<c>.</c>).
+      /// </summary>
       public const Char NAMESPACE_SEPARATOR = '.';
 
       private const String TYPE_ASSEMBLY_SEPARATOR = ", ";
 
+      /// <summary>
+      /// This is the textual name of instance constructors (<c>.ctor</c>).
+      /// </summary>
       public const String INSTANCE_CTOR_NAME = ".ctor";
+
+      /// <summary>
+      /// This is the textual name of static constructors (<c>.cctor</c>).
+      /// </summary>
       public const String CLASS_CTOR_NAME = ".cctor";
 
+      /// <summary>
+      /// This is the name for type holding global functions and variables within the single CIL module (<c>&lt;Module&gt;</c>).
+      /// </summary>
       public const String MODULE_TYPE_NAME = "<Module>";
 
       /// <summary>
@@ -72,6 +93,14 @@ namespace CILAssemblyManipulator.Physical
          return retVal;
       }
 
+      /// <summary>
+      /// This is helper method to append assembly name to the current <see cref="StringBuilder"/>.
+      /// It appends a special separator (comma followed by space), and then it appends the given assembly name string.
+      /// </summary>
+      /// <param name="sb">This <see cref="StringBuilder"/>.</param>
+      /// <param name="assembly">The assembly name string.</param>
+      /// <returns>This <see cref="StringBuilder"/>.</returns>
+      /// <exception cref="NullReferenceException">If <paramref name="sb"/> is <c>null</c>.</exception>
       public static StringBuilder AppendAssemblyNameToTypeString( this StringBuilder sb, String assembly )
       {
          return sb
@@ -107,7 +136,7 @@ namespace CILAssemblyManipulator.Physical
       /// <returns><c>true</c> if type string represents nested type; <c>false</c> otherwise.</returns>
       /// <remarks>
       /// The <paramref name="nestedTypeName"/> may still represent nested type even if type string represents a nested type.
-      /// However, the <paramref name="enclosdingTypeName"/> will always be the name of the top-level type.
+      /// However, the <paramref name="topLevelTypeName"/> will always be the name of the top-level type.
       /// </remarks>
       public static Boolean ParseTypeNameStringForTopLevelType( this String str, out String topLevelTypeName, out String nestedTypeName )
       {
@@ -227,20 +256,62 @@ namespace CILAssemblyManipulator.Physical
          return retVal;
       }
 
-      // As specified in combination of
-      // http://msdn.microsoft.com/en-us/library/yfsftwz6%28v=vs.110%29.aspx 
-      // and
-      // http://msdn.microsoft.com/en-us/library/system.type.assemblyqualifiedname.aspx
+      /// <summary>
+      /// Given a type string, unescapes any escaped characters that were added by <see cref="EscapeCILTypeString(string)"/> or <see cref="EscapeCILTypeString(string, int, int)"/> methods.
+      /// </summary>
+      /// <param name="str">The string to unescape. May be <c>null</c>.</param>
+      /// <returns>The unescaped string.</returns>
+      /// <seealso cref="EscapeCILTypeString(string)"/>
+      /// <seealso cref="EscapeCILTypeString(string, int, int)"/>
       public static String UnescapeCILTypeString( this String str )
       {
          return String.IsNullOrEmpty( str ) ? str : str.UnescapeCILTypeString( 0, str.Length );
       }
 
+
+      /// <summary>
+      /// Given a type string, escapes any character that would mess the textual parsing of the type string back to type.
+      /// </summary>
+      /// <param name="str">The string to escape. May be <c>null</c>.</param>
+      /// <returns>The escaped type string.</returns>
+      /// <remarks>
+      /// The escapable characters are:
+      /// <list type="bullet">
+      /// <item><description><c>\</c> (the escape character itself),</description></item>
+      /// <item><description><c>,</c> (comma),</description></item>
+      /// <item><description><c>+</c> (plus),</description></item>
+      /// <item><description><c>&amp;</c> (ampersand),</description></item>
+      /// <item><description><c>*</c> (asterisk),</description></item>
+      /// <item><description><c>[</c> (left bracket), and</description></item>
+      /// <item><description><c>]</c> (right bracket).</description></item>
+      /// </list>
+      /// For more information about type strings, see <see href="http://msdn.microsoft.com/en-us/library/yfsftwz6%28v=vs.110%29.aspx"/> and <see href="http://msdn.microsoft.com/en-us/library/system.type.assemblyqualifiedname.aspx"/>.
+      /// </remarks>
       public static String EscapeCILTypeString( this String str )
       {
          return String.IsNullOrEmpty( str ) ? str : str.EscapeCILTypeString( 0, str.Length );
       }
 
+      /// <summary>
+      /// Given a type string, escapes any character that would mess the textual parsing of the type string back to type.
+      /// </summary>
+      /// <param name="str">The string to escape. May be <c>null</c>.</param>
+      /// <param name="startIdx">The index within given string to start looking for escapable characters.</param>
+      /// <param name="count">The amount of characters to check.</param>
+      /// <returns>The escaped type string.</returns>
+      /// <remarks>
+      /// The escapable characters are:
+      /// <list type="bullet">
+      /// <item><description><c>\</c> (the escape character itself),</description></item>
+      /// <item><description><c>,</c> (comma),</description></item>
+      /// <item><description><c>+</c> (plus),</description></item>
+      /// <item><description><c>&amp;</c> (ampersand),</description></item>
+      /// <item><description><c>*</c> (asterisk),</description></item>
+      /// <item><description><c>[</c> (left bracket), and</description></item>
+      /// <item><description><c>]</c> (right bracket).</description></item>
+      /// </list>
+      /// For more information about type strings, see <see href="http://msdn.microsoft.com/en-us/library/yfsftwz6%28v=vs.110%29.aspx"/> and <see href="http://msdn.microsoft.com/en-us/library/system.type.assemblyqualifiedname.aspx"/>.
+      /// </remarks>
       public static String EscapeCILTypeString( this String str, Int32 startIdx, Int32 count )
       {
          if ( !String.IsNullOrEmpty( str ) )
@@ -269,6 +340,15 @@ namespace CILAssemblyManipulator.Physical
          return str;
       }
 
+      /// <summary>
+      /// Given a type string, unescapes any escaped characters that were added by <see cref="EscapeCILTypeString(string)"/> or <see cref="EscapeCILTypeString(string, int, int)"/> methods.
+      /// </summary>
+      /// <param name="str">The string to unescape. May be <c>null</c>.</param>
+      /// <param name="startIdx">The index within given string to start looking for escapable characters.</param>
+      /// <param name="count">The amount of characters to check.</param>
+      /// <returns>The unescaped string.</returns>
+      /// <seealso cref="EscapeCILTypeString(string)"/>
+      /// <seealso cref="EscapeCILTypeString(string, int, int)"/>
       public static String UnescapeCILTypeString( this String str, Int32 startIdx, Int32 count )
       {
          if ( !String.IsNullOrEmpty( str ) )
@@ -303,22 +383,44 @@ namespace CILAssemblyManipulator.Physical
          return str;
       }
 
+      /// <summary>
+      /// Helper method to combine the namespace and name of the type.
+      /// Will check for null or empty namespaces, but will not check for empty or null type names.
+      /// </summary>
+      /// <param name="typeNamespace">The namespace of the type.</param>
+      /// <param name="typeName">The name of the type.</param>
+      /// <returns>If <paramref name="typeNamespace"/> is not <c>null</c> nor empty, then returns <paramref name="typeNamespace"/> concatenated with <see cref="NAMESPACE_SEPARATOR"/> concatenated with <paramref name="typeName"/>. Otherwise, returns <paramref name="typeName"/>.</returns>
       public static String CombineNamespaceAndType( String typeNamespace, String typeName )
       {
          return String.IsNullOrEmpty( typeNamespace ) ? typeName : ( typeNamespace + NAMESPACE_SEPARATOR + typeName );
       }
 
+      /// <summary>
+      /// Helper method to combine enclosing and nested type names.
+      /// Will check for null or empty enclosing type, but will not check for empty or null nested type names.
+      /// </summary>
+      /// <param name="enclosing">The enclosing type name, if any.</param>
+      /// <param name="nested">The nested type string.</param>
+      /// <returns>If <paramref name="enclosing"/> is not <c>null</c> nor empty, then returns <paramref name="enclosing"/> concatenated with <see cref="NESTED_TYPE_SEPARATOR"/> concatenated with <paramref name="nested"/>. Otherwise, returns <paramref name="nested"/>.</returns>
       public static String CombineEnclosingAndNestedType( String enclosing, String nested )
       {
-         return enclosing + NESTED_TYPE_SEPARATOR + nested;
+         return String.IsNullOrEmpty( enclosing ) ? nested : ( enclosing + NESTED_TYPE_SEPARATOR + nested );
       }
 
+      /// <summary>
+      /// Helper method to combine assembly name string and type string.
+      /// Will check for null or empty assembly name, but will not check for empty or null type names.
+      /// </summary>
+      /// <param name="assembly">The assembly name string.</param>
+      /// <param name="type">The type string.</param>
+      /// <returns>If <paramref name="assembly"/> is not <c>null</c> nor empty, then returns <paramref name="assembly"/> concatenated with comma and space, concatenated with <paramref name="type"/>. Otherwise, returns <paramref name="type"/>.</returns>
       public static String CombineAssemblyAndType( String assembly, String type )
       {
          return String.IsNullOrEmpty( assembly ) ? type : ( type + TYPE_ASSEMBLY_SEPARATOR + assembly );
       }
    }
 
+#pragma warning disable 1591
    // Note: This class will become internal when merging CAM.Physical DLL.
    public static class CAMCoreInternals
    {
@@ -344,6 +446,8 @@ namespace CILAssemblyManipulator.Physical
          return SequenceEqualityComparer<ArrayQuery<T>, T>.SequenceHashCode( x, hashCode );
       }
    }
+
+#pragma warning restore 1591
 
    internal static class Consts
    {
