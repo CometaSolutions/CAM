@@ -25,17 +25,27 @@ using System.Text;
 
 namespace CILAssemblyManipulator.Physical.Crypto
 {
+   /// <summary>
+   /// This class implements the <see cref="CryptoCallbacks"/> using standard .NET framework cryptographic services.
+   /// </summary>
+   /// <remarks>
+   /// When creating <see cref="HashStreamInfo"/>, this class always tries the managed version first, then the <c>cng</c> version, and the <c>csp</c> version when creating the <see cref="System.Security.Cryptography.HashAlgorithm"/> transform.
+   /// </remarks>
    public class CryptoCallbacksDotNET : CryptoCallbacks
    {
       private Boolean _canUseManagedCryptoAlgorithms;
       private Boolean _canUseCNGCryptoAlgorithms;
 
+      /// <summary>
+      /// Creates a new instance of <see cref="CryptoCallbacksDotNET"/>.
+      /// </summary>
       public CryptoCallbacksDotNET()
       {
          this._canUseManagedCryptoAlgorithms = true;
          this._canUseCNGCryptoAlgorithms = true;
       }
 
+      /// <inheritdoc />
       public HashStreamInfo CreateHashStream( AssemblyHashAlgorithm algorithm )
       {
          System.Security.Cryptography.HashAlgorithm transform;
@@ -65,11 +75,12 @@ namespace CILAssemblyManipulator.Physical.Crypto
          return new HashStreamInfo(
             algorithm,
             () => new System.Security.Cryptography.CryptoStream( Stream.Null, transform, System.Security.Cryptography.CryptoStreamMode.Write ),
+            transform,
             () => transform.Hash,
-            bytes => transform.ComputeHash( bytes ),
-            transform );
+            bytes => transform.ComputeHash( bytes ) );
       }
 
+      /// <inheritdoc />
       public IDisposable CreateRSAFromCSPContainer( String containerName )
       {
          var csp = new System.Security.Cryptography.CspParameters { Flags = System.Security.Cryptography.CspProviderFlags.UseMachineKeyStore };
@@ -81,6 +92,7 @@ namespace CILAssemblyManipulator.Physical.Crypto
          return new System.Security.Cryptography.RSACryptoServiceProvider( csp );
       }
 
+      /// <inheritdoc />
       public IDisposable CreateRSAFromParameters( RSAParameters parameters )
       {
          System.Security.Cryptography.RSA result = null;
@@ -123,6 +135,7 @@ namespace CILAssemblyManipulator.Physical.Crypto
          return result;
       }
 
+      /// <inheritdoc />
       public Byte[] CreateRSASignature( IDisposable rsa, String hashAlgorithmName, Byte[] contentsHash )
       {
          var formatter = new System.Security.Cryptography.RSAPKCS1SignatureFormatter( (System.Security.Cryptography.AsymmetricAlgorithm) rsa );
@@ -161,6 +174,7 @@ namespace CILAssemblyManipulator.Physical.Crypto
          return spVersion();
       }
 
+      /// <inheritdoc />
       public Byte[] ExtractPublicKeyFromCSPContainer( String containterName )
       {
 #if MONO

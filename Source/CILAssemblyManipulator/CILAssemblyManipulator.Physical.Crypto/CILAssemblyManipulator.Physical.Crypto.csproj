@@ -60,6 +60,10 @@
     <WarningLevel>4</WarningLevel>
   </PropertyGroup>
   
+  <PropertyGroup>
+    <DocumentationFile>$(OutputPath)$(AssemblyName).xml</DocumentationFile>
+  </PropertyGroup>
+  
   <ItemGroup Condition=" '$(CAMPhysicalIsPortable)' == '' ">
     <Reference Include="System" />
     <Reference Include="System.Core" />

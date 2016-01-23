@@ -26,78 +26,118 @@ using System.Text;
 
 namespace CILAssemblyManipulator.Physical.Crypto
 {
+   /// <summary>
+   /// This interface encapsulates all the cryptographical methods needed by CAM.Physical.
+   /// </summary>
    public interface CryptoCallbacks
    {
+      /// <summary>
+      /// Given a container name, extracts public key bytes from it.
+      /// </summary>
+      /// <param name="containterName">The container name.</param>
+      /// <returns>The public key bytes for given container name.</returns>
+      /// <exception cref="NotSupportedException">If container names are not supported on this platform.</exception>
       Byte[] ExtractPublicKeyFromCSPContainer( String containterName );
+
+      /// <summary>
+      /// Given an <see cref="AssemblyHashAlgorithm"/>, creates a new <see cref="HashStreamInfo"/> struct to be used for cryptographic purposes (e.g. computing public key token, or calculating storng name signature).
+      /// </summary>
+      /// <param name="algorithm">The <see cref="AssemblyHashAlgorithm"/> enumeration.</param>
+      /// <returns>A <see cref="HashStreamInfo"/> for given <paramref name="algorithm"/>.</returns>
+      /// <seealso cref="HashStreamInfo"/>
       HashStreamInfo CreateHashStream( AssemblyHashAlgorithm algorithm );
+
+      /// <summary>
+      /// Creates a new RSA service provider for a given container name.
+      /// </summary>
+      /// <param name="containerName">The container name.</param>
+      /// <returns>The RSA for given container name.</returns>
+      /// <remarks>
+      /// Usually return value is of type <see cref="T:System.Security.Cryptography.RSACryptoServiceProvider"/>, which is missing from PCL.
+      /// </remarks>
       IDisposable CreateRSAFromCSPContainer( String containerName );
+
+      /// <summary>
+      /// Creates a new RSA service provider with given <see cref="RSAParameters"/>.
+      /// </summary>
+      /// <param name="parameters">The <see cref="RSAParameters"/>.</param>
+      /// <returns>The RSA for given <see cref="RSAParameters"/>.</returns>
+      /// <remarks>
+      /// Usually return value is of type <see cref="T:System.Security.Cryptography.RSA"/>, which is missing from PCL.
+      /// </remarks>
       IDisposable CreateRSAFromParameters( RSAParameters parameters );
+
+      /// <summary>
+      /// Given a RSA service provider (usually obtained from <see cref="CreateRSAFromCSPContainer"/> or <see cref="CreateRSAFromParameters"/>), computes a signature from a hash bytes, using given algorithm.
+      /// </summary>
+      /// <param name="rsa">The RSA, should be of type <see cref="T:System.Security.Cryptography.AsymmetricAlgorithm"/>.</param>
+      /// <param name="hashAlgorithmName">The name of the algorithm to use when creating signature.</param>
+      /// <param name="contentsHash">The binary contents of the content from which to create signature from.</param>
+      /// <returns>The cryptographic signature created with <paramref name="hashAlgorithmName"/> algorithm from <paramref name="contentsHash"/>.</returns>
       Byte[] CreateRSASignature( IDisposable rsa, String hashAlgorithmName, Byte[] contentsHash );
    }
 
    /// <summary>
-   /// The event argument class used by <see cref="CILReflectionContext.HashStreamLoadEvent"/> event.
+   /// This struct encapsulates information about hash algorithm, and some additional cryptographic callbacks and objects, so that they are accessible in PCL.
    /// </summary>
    public struct HashStreamInfo
    {
-      private readonly AssemblyHashAlgorithm _algorithm;
-      private readonly Func<Stream> _cryptoStream;
-      private readonly Func<Byte[]> _hashGetter;
-      private readonly Func<Byte[], Byte[]> _hashComputer;
-      private readonly IDisposable _transform;
-
-      public HashStreamInfo( AssemblyHashAlgorithm algorithm, Func<Stream> cryptoStream, Func<Byte[]> hashGetter, Func<Byte[], Byte[]> hashComputer, IDisposable transform )
+      /// <summary>
+      /// Creates a new instance of <see cref="HashStreamInfo"/>, binding together <see cref="AssemblyHashAlgorithm"/>, a callback to create <see cref="T:System.Security.Cryptography.CryptoStream"/>, a <see cref="T:System.Security.Cryptography.HashAlgorithm"/> transform object, callback to get the hash from transform object, and callback to compute hash from given content, using the transform object.
+      /// All this is done in such way that it is possible to use this class in PCL.
+      /// </summary>
+      /// <param name="algorithm">The <see cref="AssemblyHashAlgorithm"/>.</param>
+      /// <param name="cryptoStream">The callback to create <see cref="T:System.Security.Cryptography.CryptoStream"/>.</param>
+      /// <param name="transform">The <see cref="T:System.Security.Cryptography.HashAlgorithm"/> object.</param>
+      /// <param name="hashGetter">The callback to get hash bytes from <paramref name="transform"/>.</param>
+      /// <param name="hashComputer">The callback to compute hash bytes from given contents, using <paramref name="transform"/>.</param>
+      public HashStreamInfo(
+         AssemblyHashAlgorithm algorithm,
+         Func<Stream> cryptoStream,
+         IDisposable transform,
+         Func<Byte[]> hashGetter,
+         Func<Byte[], Byte[]> hashComputer )
       {
-         this._algorithm = algorithm;
-         this._cryptoStream = cryptoStream;
-         this._hashGetter = hashGetter;
-         this._hashComputer = hashComputer;
-         this._transform = transform;
+         this.Algorithm = algorithm;
+         this.CryptoStream = cryptoStream;
+         this.HashGetter = hashGetter;
+         this.HashComputer = hashComputer;
+         this.Transform = transform;
       }
 
-      public AssemblyHashAlgorithm Algorithm
-      {
-         get
-         {
-            return this._algorithm;
-         }
-      }
+      /// <summary>
+      /// Gets the <see cref="AssemblyHashAlgorithm"/> of this <see cref="HashStreamInfo"/>.
+      /// </summary>
+      /// <value>The <see cref="AssemblyHashAlgorithm"/> of this <see cref="HashStreamInfo"/>.</value>
+      public AssemblyHashAlgorithm Algorithm { get; }
 
-      public Func<Stream> CryptoStream
-      {
-         get
-         {
-            return this._cryptoStream;
-         }
-      }
+      /// <summary>
+      /// Gets the callback to create <see cref="T:System.Security.Cryptography.CryptoStream"/> with <see cref="Transform"/> object.
+      /// </summary>
+      /// <value>The callback to create <see cref="T:System.Security.Cryptography.CryptoStream"/> with <see cref="Transform"/> object.</value>
+      public Func<Stream> CryptoStream { get; }
 
-      public Func<Byte[]> HashGetter
-      {
-         get
-         {
-            return this._hashGetter;
-         }
-      }
+      /// <summary>
+      /// Gets the callback to get hash bytes from <see cref="Transform"/>.
+      /// </summary>
+      /// <value>The callback to get hash bytes from <see cref="Transform"/>.</value>
+      public Func<Byte[]> HashGetter { get; }
 
-      public Func<Byte[], Byte[]> ComputeHash
-      {
-         get
-         {
-            return this._hashComputer;
-         }
-      }
+      /// <summary>
+      /// Gets the callback to compute hash for given content using <see cref="Transform"/>.
+      /// </summary>
+      /// <value>The callback to compute hash for given content using <see cref="Transform"/>.</value>
+      public Func<Byte[], Byte[]> HashComputer { get; }
 
-      public IDisposable Transform
-      {
-         get
-         {
-            return this._transform;
-         }
-      }
+      /// <summary>
+      /// Gets the <see cref="T:System.Security.Cryptography.HashAlgorithm"/> transform object.
+      /// </summary>
+      /// <value>The <see cref="T:System.Security.Cryptography.HashAlgorithm"/> transform object.</value>
+      public IDisposable Transform { get; }
    }
 
    /// <summary>
-   /// This is identical to System.Security.Cryptography.RSAParameters struct.
+   /// This is identical to System.Security.Cryptography.RSAParameters struct, which is missing from PCL.
    /// </summary>
    public struct RSAParameters
    {
@@ -143,6 +183,7 @@ namespace CILAssemblyManipulator.Physical.Crypto
       public Byte[] Q;
    }
 
+#pragma warning disable 1591
    // Most info from http://msdn.microsoft.com/en-us/library/cc250013.aspx 
    // Note: This class will become internal when merging CAM.Physical DLL.
    public static class CryptoUtils
@@ -318,10 +359,27 @@ namespace CILAssemblyManipulator.Physical.Crypto
       }
    }
 
+
 }
 
+// This class will get its documentation from CAM.Physical Core.
 public static partial class E_CILPhysical
 {
+
+#pragma warning restore 1591
+
+   /// <summary>
+   /// Helper method to create a new <see cref="HashStreamInfo"/> struct, and check that its properties are not <c>null</c>.
+   /// </summary>
+   /// <param name="callbacks">This <see cref="CryptoCallbacks"/>.</param>
+   /// <param name="algorithm">The <see cref="AssemblyHashAlgorithm"/>.</param>
+   /// <param name="checkCryptoStream">Whether to check <see cref="HashStreamInfo.CryptoStream"/> property for <c>null</c> value.</param>
+   /// <param name="checkHashGetter">Whether to check <see cref="HashStreamInfo.HashGetter"/> property for <c>null</c> value.</param>
+   /// <param name="checkComputeHash">Whether to check <see cref="HashStreamInfo.HashComputer"/> property for <c>null</c> value.</param>
+   /// <param name="checkTransform">Whether to check <see cref="HashStreamInfo.Transform"/> property for <c>null</c> value.</param>
+   /// <returns>The <see cref="HashStreamInfo"/> returned by <see cref="CryptoCallbacks.CreateHashStream"/> method.</returns>
+   /// <exception cref="ArgumentNullException">If any of the boolean parameters is <c>true</c>, and the corresponding property of <see cref="HashStreamInfo"/> is <c>null</c>.</exception>
+   /// <exception cref="NullReferenceException">If this <see cref="CryptoCallbacks"/> is <c>null</c>.</exception>
    public static HashStreamInfo CreateHashStreamAndCheck(
       this CryptoCallbacks callbacks,
       AssemblyHashAlgorithm algorithm,
@@ -342,7 +400,7 @@ public static partial class E_CILPhysical
       }
       if ( checkComputeHash )
       {
-         ArgumentValidator.ValidateNotNull( "Hash computer", retVal.ComputeHash );
+         ArgumentValidator.ValidateNotNull( "Hash computer", retVal.HashComputer );
       }
       if ( checkTransform )
       {
@@ -351,16 +409,34 @@ public static partial class E_CILPhysical
       return retVal;
    }
 
+   /// <summary>
+   /// Helper method to call <see cref="CryptoCallbacks.ExtractPublicKeyFromCSPContainer"/> method and check that return value is not <c>null</c> or empty.
+   /// </summary>
+   /// <param name="callbacks">This <see cref="CryptoCallbacks"/>.</param>
+   /// <param name="containerName">The container name.</param>
+   /// <returns>The non-<c>null</c> and non-empty public key for given container name.</returns>
+   /// <exception cref="ArgumentException">If the return value of <see cref="CryptoCallbacks.ExtractPublicKeyFromCSPContainer"/> method is <c>null</c> or empty.</exception>
+   /// <exception cref="NullReferenceException">If this <see cref="CryptoCallbacks"/> is <c>null</c>.</exception>
    public static Byte[] ExtractPublicKeyFromCSPContainerAndCheck( this CryptoCallbacks callbacks, String containerName )
    {
       var retVal = callbacks.ExtractPublicKeyFromCSPContainer( containerName );
       if ( retVal.IsNullOrEmpty() )
       {
-         throw new InvalidOperationException( "The public key of CSP \"" + containerName + "\" could not be resolved." );
+         throw new ArgumentException( "The public key of CSP \"" + containerName + "\" could not be resolved." );
       }
       return retVal;
    }
 
+   /// <summary>
+   /// Helper method to call <see cref="CryptoCallbacks.CreateRSASignature"/> method and check that the return value is not <c>null</c>.
+   /// </summary>
+   /// <param name="callbacks">This <see cref="CryptoCallbacks"/>.</param>
+   /// <param name="rsa">The RSA object returned by <see cref="CryptoCallbacks.CreateRSAFromCSPContainer"/> or <see cref="CryptoCallbacks.CreateRSAFromParameters"/>.</param>
+   /// <param name="algorithmName">The algorithm name to use when creating signature.</param>
+   /// <param name="contentsHash">The binary data to create signature from.</param>
+   /// <returns>Non-<c>null</c> signature bytes.</returns>
+   /// <exception cref="ArgumentNullException">If return value of <see cref="CryptoCallbacks.CreateRSASignature"/> is <c>null</c>.</exception>
+   /// <exception cref="NullReferenceException">If this <see cref="CryptoCallbacks"/> is <c>null</c>.</exception>
    public static Byte[] CreateRSASignatureAndCheck( this CryptoCallbacks callbacks, IDisposable rsa, String algorithmName, Byte[] contentsHash )
    {
       var retVal = callbacks.CreateRSASignature( rsa, algorithmName, contentsHash );
@@ -368,6 +444,14 @@ public static partial class E_CILPhysical
       return retVal;
    }
 
+   /// <summary>
+   /// Helper method to compute public key token for a given full public key.
+   /// </summary>
+   /// <param name="streamInfo">The <see cref="HashStreamInfo"/> object created by <see cref="CryptoCallbacks"/>.</param>
+   /// <param name="fullPublicKey">The full public key.</param>
+   /// <returns>The value of <paramref name="fullPublicKey"/>, if <paramref name="fullPublicKey"/> is <c>null</c> or empty, or the public key token of the <paramref name="fullPublicKey"/>.</returns>
+   /// <exception cref="InvalidOperationException">If <see cref="HashStreamInfo.Algorithm"/> is not <see cref="AssemblyHashAlgorithm.SHA1"/>.</exception>
+   /// <exception cref="ArgumentNullException">If <see cref="HashStreamInfo.Transform"/> or <see cref="HashStreamInfo.HashComputer"/> is <c>null</c>.</exception>
    public static Byte[] ComputePublicKeyToken( this HashStreamInfo streamInfo, Byte[] fullPublicKey )
    {
       Byte[] retVal;
@@ -382,9 +466,9 @@ public static partial class E_CILPhysical
             throw new InvalidOperationException( "Hash algorithm must be " + AssemblyHashAlgorithm.SHA1 + "." );
          }
          ArgumentValidator.ValidateNotNull( "Transform", streamInfo.Transform );
-         ArgumentValidator.ValidateNotNull( "Hash computer", streamInfo.ComputeHash );
+         ArgumentValidator.ValidateNotNull( "Hash computer", streamInfo.HashComputer );
 
-         retVal = streamInfo.ComputeHash( fullPublicKey );
+         retVal = streamInfo.HashComputer( fullPublicKey );
          retVal = retVal.Skip( retVal.Length - 8 ).Reverse().ToArray();
       }
       return retVal;
