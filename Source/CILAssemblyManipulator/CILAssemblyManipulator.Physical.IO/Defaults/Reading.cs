@@ -44,7 +44,7 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
          )
       {
          // We are going to do a lot of seeking, so just read whole stream into byte array and use memory stream
-         newStream = new MemoryStream( stream.ReadUntilTheEnd(), this.IsMemoryStreamWriteable );
+         newStream = stream is MemoryStream ? null : new MemoryStream( stream.ReadUntilTheEnd(), this.IsMemoryStreamWriteable );
          return new DefaultReaderFunctionality( new TableSerializationInfoCreationArgs( errorHandler ), tableInfoProvider: mdTableInfoProvider, mdSerialization: this.CreateMDSerialization() );
       }
 

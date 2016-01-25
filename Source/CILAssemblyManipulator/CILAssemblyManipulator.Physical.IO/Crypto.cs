@@ -30,7 +30,11 @@ using System.Text;
 
 public static partial class E_CILPhysical
 {
-   public static Byte[] CreatePublicKeyFromStrongName( this CryptoCallbacks eArgs, StrongNameKeyPair strongName, AssemblyHashAlgorithm? algorithmOverride = null )
+   public static Byte[] CreatePublicKeyFromStrongName(
+      this CryptoCallbacks eArgs,
+      StrongNameKeyPair strongName,
+      AssemblyHashAlgorithm? algorithmOverride = null
+      )
    {
       Byte[] retVal;
       if ( strongName == null )

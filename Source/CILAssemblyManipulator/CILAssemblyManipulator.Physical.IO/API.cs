@@ -33,8 +33,21 @@ using TabularMetaData.Meta;
 
 namespace CILAssemblyManipulator.Physical.IO
 {
+   /// <summary>
+   /// This class contains extension methods related to IO functionality of CAM.Physical, but adding methods to types not defined in CAM.Physical.
+   /// </summary>
    public static partial class CILMetaDataIO
    {
+      /// <summary>
+      /// Reads the serialized compressed meta data from this <see cref="Stream"/> into a <see cref="CILMetaData"/>, starting from the current position of the stream.
+      /// </summary>
+      /// <param name="stream">The stream to read compressed meta data from.</param>
+      /// <param name="rArgs">The optional <see cref="ReadingArguments"/> to hold additional data and to further customize the reading process.</param>
+      /// <returns>A new instance of <see cref="CILMetaData"/> holding the deserialized contents of compressed meta data.</returns>
+      /// <exception cref="NullReferenceException">If this <see cref="Stream"/> is <c>null</c>.</exception>
+      /// <exception cref="BadImageFormatException">If this <see cref="Stream"/> does not contain a managed meta data module.</exception>
+      /// <seealso cref="ReadingArguments"/>
+      /// <seealso cref="ReaderFunctionalityProvider"/>
       public static CILMetaData ReadModule( this Stream stream, ReadingArguments rArgs = null )
       {
          ImageInformation imageInfo;
@@ -55,12 +68,11 @@ namespace CILAssemblyManipulator.Physical.IO
    }
 
    /// <summary>
-   /// This class holds the required information when emitting strong-name assemblies. See ECMA specification for more information about strong named assemblies.
+   /// This class holds the required information when emitting strong-name assemblies.
+   /// It can either hold a direct reference to the full key byte contents, or have a container name, which will abstract the actual contents of the key.
    /// </summary>
    public sealed class StrongNameKeyPair
    {
-      private readonly Byte[] _keyPairArray;
-      private readonly String _containerName;
 
       /// <summary>
       /// Creates a <see cref="StrongNameKeyPair"/> based on byte contents of the key pair.
@@ -68,7 +80,7 @@ namespace CILAssemblyManipulator.Physical.IO
       /// <param name="keyPairArray">The byte contents of the key pair.</param>
       /// <exception cref="ArgumentNullException">If <paramref name="keyPairArray"/> is <c>null</c>.</exception>
       public StrongNameKeyPair( Byte[] keyPairArray )
-         : this( keyPairArray, null, "Key pair array" )
+         : this( keyPairArray?.Skip( 0 ), null, "Key pair array" )
       {
       }
 
@@ -83,43 +95,31 @@ namespace CILAssemblyManipulator.Physical.IO
       {
       }
 
-      private StrongNameKeyPair( Byte[] keyPairArray, String containerName, String argumentName )
+      private StrongNameKeyPair( IEnumerable<Byte> keyPairArray, String containerName, String argumentName )
       {
          if ( keyPairArray == null && containerName == null )
          {
             throw new ArgumentNullException( argumentName + " was null." );
          }
-         this._keyPairArray = keyPairArray;
-         this._containerName = containerName;
+         this.KeyPair = keyPairArray;
+         this.ContainerName = containerName;
       }
 
       /// <summary>
       /// Gets the byte contents of the key pair. Will be <c>null</c> if this <see cref="StrongNameKeyPair"/> was created based on the name of the container holding key pair.
       /// </summary>
       /// <value>The byte contents of the key pair.</value>
-      public IEnumerable<Byte> KeyPair
-      {
-         get
-         {
-            return this._keyPairArray == null ? null : this._keyPairArray.Skip( 0 );
-         }
-      }
+      public IEnumerable<Byte> KeyPair { get; }
 
       /// <summary>
       /// Gets the name of the container holding the key pair. Will be <c>null</c> if this <see cref="StrongNameKeyPair"/> was created based on the byte contents of the key pair.
       /// </summary>
       /// <value>The name of the container holding the key pair.</value>
-      public String ContainerName
-      {
-         get
-         {
-            return this._containerName;
-         }
-      }
+      public String ContainerName { get; }
    }
 
    /// <summary>
-   /// This is abstract base class for information used and produce during serialization process, either reading or writing <see cref="CILMetaData"/> objects.
+   /// This is abstract base class for information used and produced during serialization process, either reading or writing <see cref="CILMetaData"/> objects.
    /// </summary>
    /// <remarks>
    /// The concrete subclasses of this class are <see cref="ReadingArguments"/> and <see cref="WritingArguments"/>.
@@ -144,6 +144,18 @@ namespace CILAssemblyManipulator.Physical.IO
       /// <seealso cref="IO.ImageInformation"/>
       public ImageInformation ImageInformation { get; set; }
 
+      /// <summary>
+      /// Gets or sets the callback to use when the reading or writing process encounters an error.
+      /// </summary>
+      /// <value>The callback to use when the reading or writing process encounters an error.</value>
+      /// <remarks>
+      /// <para>
+      /// While this is property, it may still be used as event with <c>+=</c> and <c>-=</c> operators.
+      /// </para>
+      /// <para>
+      /// Currently, this is used only during reading process.
+      /// </para>
+      /// </remarks>
       public EventHandler<SerializationErrorEventArgs> ErrorHandler { get; set; }
    }
 
@@ -155,9 +167,6 @@ namespace CILAssemblyManipulator.Physical.IO
    /// <seealso cref="CILMetaDataIO.ReadModuleFrom(String, ReadingArguments)"/>
    public class ReadingArguments : IOArguments
    {
-      public ReadingArguments()
-      {
-      }
       public ReaderFunctionalityProvider ReaderFunctionalityProvider { get; set; }
 
       public CILMetaDataTableInformationProvider TableInformationProvider { get; set; }
@@ -189,7 +198,8 @@ namespace CILAssemblyManipulator.Physical.IO
       public StrongNameKeyPair StrongName { get; set; }
 
       /// <summary>
-      ///If the module is main module and should be strong-name signed, this property may be used to override the algorithm specified by key BLOB of <see cref="StrongName"/>.
+      /// This property controls the algorithm to use when computing strong name signature.
+      /// If the module is main module and should be strong-name signed, this property may be used to override the algorithm specified by key BLOB of <see cref="StrongName"/>.
       /// If this property does not have a value, the algorithm specified by key BLOB of <see cref="StrongName"/> will be used.
       /// If this property does not have a value, and the key BLOB of <see cref="StrongName"/> does not specify an algorithm, the assembly will be signed using <see cref="AssemblyHashAlgorithm.SHA1"/>.
       /// </summary>
@@ -200,9 +210,9 @@ namespace CILAssemblyManipulator.Physical.IO
       public AssemblyHashAlgorithm? SigningAlgorithm { get; set; }
 
       /// <summary>
-      /// If the module is main module and should be strong-name signed, setting this to <c>true</c> will only leave room for the hash, without actually computing it.
+      /// If the module is main module and should be strong-name signed, setting this to <c>true</c> will only leave room for the strong name signature, without actually computing it.
       /// </summary>
-      /// <value>Whether to delay signing procedure.</value>
+      /// <value>Should be <c>true</c> to skip strong name signature computing (but leaving room for it in the emitted image); <c>false</c> to compute strong name signature normally.</value>
       public Boolean DelaySign { get; set; }
 
       public CryptoCallbacks CryptoCallbacks { get; set; }
