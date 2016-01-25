@@ -167,6 +167,15 @@ namespace CILAssemblyManipulator.Physical.IO
    /// <seealso cref="CILMetaDataIO.ReadModuleFrom(String, ReadingArguments)"/>
    public class ReadingArguments : IOArguments
    {
+      /// <summary>
+      /// Gets or sets the <see cref="ReaderFunctionalityProvider"/> to use when performing deserialization.
+      /// </summary>
+      /// <value>The <see cref="ReaderFunctionalityProvider"/> to use when performing deserialization.</value>
+      /// <remarks>
+      /// If none is set, a <see cref="Defaults.DefaultReaderFunctionalityProvider"/> will be used.
+      /// </remarks>
+      /// <seealso cref="IO.ReaderFunctionalityProvider"/>
+      /// <seealso cref="E_CILPhysical.ReadMetaDataFromStream"/>
       public ReaderFunctionalityProvider ReaderFunctionalityProvider { get; set; }
 
       public CILMetaDataTableInformationProvider TableInformationProvider { get; set; }
@@ -191,7 +200,7 @@ namespace CILAssemblyManipulator.Physical.IO
    {
 
       /// <summary>
-      /// If the module is main module and should be strong-name signed, this <see cref="StrongNameKeyPair"/> will be used.
+      /// If the module should be strong-name signed, this <see cref="StrongNameKeyPair"/> will be used.
       /// Set to <c>null</c> if the module should not be strong-name signed.
       /// </summary>
       /// <value>The strong name of the module being emitted.</value>
@@ -199,7 +208,7 @@ namespace CILAssemblyManipulator.Physical.IO
 
       /// <summary>
       /// This property controls the algorithm to use when computing strong name signature.
-      /// If the module is main module and should be strong-name signed, this property may be used to override the algorithm specified by key BLOB of <see cref="StrongName"/>.
+      /// If the module should be strong-name signed, this property may be used to override the algorithm specified by key BLOB of <see cref="StrongName"/>.
       /// If this property does not have a value, the algorithm specified by key BLOB of <see cref="StrongName"/> will be used.
       /// If this property does not have a value, and the key BLOB of <see cref="StrongName"/> does not specify an algorithm, the assembly will be signed using <see cref="AssemblyHashAlgorithm.SHA1"/>.
       /// </summary>
@@ -210,13 +219,26 @@ namespace CILAssemblyManipulator.Physical.IO
       public AssemblyHashAlgorithm? SigningAlgorithm { get; set; }
 
       /// <summary>
-      /// If the module is main module and should be strong-name signed, setting this to <c>true</c> will only leave room for the strong name signature, without actually computing it.
+      /// If the module should be strong-name signed, setting this to <c>true</c> will only leave room for the strong name signature, without actually computing it.
       /// </summary>
       /// <value>Should be <c>true</c> to skip strong name signature computing (but leaving room for it in the emitted image); <c>false</c> to compute strong name signature normally.</value>
       public Boolean DelaySign { get; set; }
 
+      /// <summary>
+      /// Gets or sets the <see cref="Physical.CryptoCallbacks"/> to be used for computing strong-name signature.
+      /// </summary>
+      /// <value>The <see cref="Physical.CryptoCallbacks"/> to be used for computing strong-name signature.</value>
       public CryptoCallbacks CryptoCallbacks { get; set; }
 
+      /// <summary>
+      /// Gets or sets the <see cref="IO.WriterFunctionalityProvider"/> to use when performing serialization.
+      /// </summary>
+      /// <value>The <see cref="IO.WriterFunctionalityProvider"/> to use when performing serialization.</value>
+      /// <remarks>
+      /// If none is set, a <see cref="Defaults.DefaultWriterFunctionalityProvider"/> will be used.
+      /// </remarks>
+      /// <seealso cref="IO.WriterFunctionalityProvider"/>
+      /// <seealso cref="E_CILPhysical.WriteMetaDataToStream"/>
       public WriterFunctionalityProvider WriterFunctionalityProvider { get; set; }
 
       public WritingOptions WritingOptions { get; set; }

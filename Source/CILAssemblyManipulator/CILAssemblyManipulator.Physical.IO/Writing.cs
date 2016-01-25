@@ -485,7 +485,11 @@ public static partial class E_CILPhysical
 
       if ( useStrongName && cryptoCallbacks == null )
       {
-         throw new InvalidOperationException( "Assembly should be strong-named, but the crypto callbacks are not provided." );
+#if CAM_PHYSICAL_IS_PORTABLE
+         throw new ArgumentException( "Assembly strong name was provided, but the crypto callbacks were not." );
+#else
+         cryptoCallbacks = new CryptoCallbacksDotNET();
+#endif
       }
 
       StrongNameVariables retVal;
