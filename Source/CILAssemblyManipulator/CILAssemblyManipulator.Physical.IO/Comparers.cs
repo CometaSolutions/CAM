@@ -26,51 +26,63 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
-
+using System.Collections;
 
 namespace CILAssemblyManipulator.Physical
 {
    public static class Comparers
    {
-      private static IEqualityComparer<ImageInformation> _ImageInformationLogicalEqualityComparer = null;
-
-      private static IComparer<ClassLayout> _ClassLayoutComparer = null;
-      private static IComparer<ConstantDefinition> _ConstantDefinitionComparer = null;
-      private static IComparer<CustomAttributeDefinition> _CustomAttributeDefinitionComparer = null;
-      private static IComparer<SecurityDefinition> _SecurityDefinitionComparer = null;
-      private static IComparer<FieldLayout> _FieldLayoutComparer = null;
-      private static IComparer<FieldMarshal> _FieldMarshalComparer = null;
-      private static IComparer<FieldRVA> _FieldRVAComparer = null;
-      private static IComparer<GenericParameterDefinition> _GenericParameterDefinitionComparer = null;
-      private static IComparer<GenericParameterConstraintDefinition> _GenericParameterConstraintDefinitionComparer = null;
-      private static IComparer<MethodImplementationMap> _MethodImplementationMapComparer = null;
-      private static IComparer<InterfaceImplementation> _InterfaceImplementationComparer = null;
-      private static IComparer<MethodImplementation> _MethodImplementationComparer = null;
-      private static IComparer<MethodSemantics> _MethodSemanticsComparer = null;
-      private static IComparer<NestedClassDefinition> _NestedClassDefinitionComparer = null;
-
-      private static IComparer<TableIndex> _HasConstantComparer = null;
-      private static IComparer<TableIndex> _HasCustomAttributeComparer = null;
-      private static IComparer<TableIndex> _HasFieldMarshalComparer = null;
-      private static IComparer<TableIndex> _HasDeclSecurityComparer = null;
-      private static IComparer<TableIndex> _HasSemanticsComparer = null;
-      private static IComparer<TableIndex> _MemberForwardedComparer = null;
-      private static IComparer<TableIndex> _TypeOrMethodDefComparer = null;
-
-      public static IEqualityComparer<ImageInformation> ImageInformationLogicalEqualityComparer
-      {
-         get
-         {
-            var retVal = _ImageInformationLogicalEqualityComparer;
-            if ( retVal == null )
-            {
-               retVal = ComparerFromFunctions.NewEqualityComparer<ImageInformation>( Equality_ImageInformation_Logical, HashCode_HeadersData );
-               _ImageInformationLogicalEqualityComparer = retVal;
-            }
-            return retVal;
-         }
-      }
-
+      /// <summary>
+      /// Gets the <see cref="IEqualityComparer{T}"/> to use when comparing equality of two <see cref="ImageInformation"/> on a logical level.
+      /// This means that some properties will be left out of comparison.
+      /// </summary>
+      /// <value>The <see cref="IEqualityComparer{T}"/> to use when comparing equality of two <see cref="ImageInformation"/> on a logical level</value>
+      /// <remarks>
+      /// The properties left out of comparison are:
+      /// <list type="bullet">
+      /// <item><description><see cref="PEInformation.SectionHeaders"/>,</description></item>
+      /// <item><description><see cref="DOSHeader.NTHeaderOffset"/>,</description></item>
+      /// <item><description><see cref="FileHeader.NumberOfSections"/>,</description></item>
+      /// <item><description><see cref="FileHeader.PointerToSymbolTable"/>,</description></item>
+      /// <item><description><see cref="FileHeader.NumberOfSymbols"/>,</description></item>
+      /// <item><description><see cref="FileHeader.OptionalHeaderSize"/>,</description></item>
+      /// <item><description><see cref="OptionalHeader.OptionalHeaderKind"/>,</description></item>
+      /// <item><description><see cref="OptionalHeader.SizeOfCode"/>,</description></item>
+      /// <item><description><see cref="OptionalHeader.SizeOfInitializedData"/>,</description></item>
+      /// <item><description><see cref="OptionalHeader.SizeOfUninitializedData"/>,</description></item>
+      /// <item><description><see cref="OptionalHeader.EntryPointRVA"/>,</description></item>
+      /// <item><description><see cref="OptionalHeader.BaseOfCodeRVA"/>,</description></item>
+      /// <item><description><see cref="OptionalHeader.BaseOfDataRVA"/>,</description></item>
+      /// <item><description><see cref="OptionalHeader.ImageSize"/>,</description></item>
+      /// <item><description><see cref="OptionalHeader.HeaderSize"/>,</description></item>
+      /// <item><description><see cref="OptionalHeader.FileChecksum"/>,</description></item>
+      /// <item><description><see cref="OptionalHeader.DataDirectories"/>,</description></item>
+      /// <item><description><see cref="CLIInformation.StrongNameSignature"/>,</description></item>
+      /// <item><description><see cref="CLIInformation.MethodRVAs"/> (only size is compared, not contents),</description></item>
+      /// <item><description><see cref="CLIInformation.FieldRVAs"/> (only size is compared, not contents),</description></item>
+      /// <item><description><see cref="CLIHeader.HeaderSize"/>,</description></item>
+      /// <item><description><see cref="CLIHeader.MetaData"/>,</description></item>
+      /// <item><description><see cref="CLIHeader.Resources"/>,</description></item>
+      /// <item><description><see cref="CLIHeader.StrongNameSignature"/>,</description></item>
+      /// <item><description><see cref="CLIHeader.CodeManagerTable"/>,</description></item>
+      /// <item><description><see cref="CLIHeader.VTableFixups"/>,</description></item>
+      /// <item><description><see cref="CLIHeader.ExportAddressTableJumps"/>,</description></item>
+      /// <item><description><see cref="CLIHeader.ManagedNativeHeader"/>,</description></item>
+      /// <item><description><see cref="MetaDataRoot.VersionStringLength"/>,</description></item>
+      /// <item><description><see cref="MetaDataRoot.VersionString"/> (constructed from <see cref="MetaDataRoot.VersionStringBytes"/>),</description></item>
+      /// <item><description><see cref="MetaDataRoot.NumberOfStreams"/>,</description></item>
+      /// <item><description><see cref="MetaDataRoot.StreamHeaders"/>,</description></item>
+      /// <item><description><see cref="MetaDataTableStreamHeader.TableStreamFlags"/>,</description></item>
+      /// <item><description><see cref="MetaDataTableStreamHeader.PresentTablesBitVector"/>,</description></item>
+      /// <item><description><see cref="MetaDataTableStreamHeader.SortedTablesBitVector"/>,</description></item>
+      /// <item><description><see cref="MetaDataTableStreamHeader.TableSizes"/>,</description></item>
+      /// <item><description><see cref="DebugInformation.DataRVA"/>,</description></item>
+      /// <item><description><see cref="DebugInformation.DataPointer"/>,</description></item>
+      /// <item><description><see cref="DebugInformation.DataSize"/>, and</description></item>
+      /// <item><description><see cref="DebugInformation.DataRVA"/>.</description></item>
+      /// </list>
+      /// </remarks>
+      public static IEqualityComparer<ImageInformation> ImageInformationLogicalEqualityComparer { get; }
 
       /// <summary>
       /// Get the ordering comparer for <see cref="ClassLayout"/> according to ECMA-335 serialization standard.
@@ -79,19 +91,7 @@ namespace CILAssemblyManipulator.Physical
       /// <remarks>
       /// This comparer will use the <see cref="TableIndex.Index"/> property of <see cref="ClassLayout.Parent"/> to perform comparison.
       /// </remarks>
-      public static IComparer<ClassLayout> ClassLayoutComparer
-      {
-         get
-         {
-            var retVal = _ClassLayoutComparer;
-            if ( retVal == null )
-            {
-               retVal = ComparerFromFunctions.NewComparer<ClassLayout>( Comparison_ClassLayout );
-               _ClassLayoutComparer = retVal;
-            }
-            return retVal;
-         }
-      }
+      public static IComparer<ClassLayout> ClassLayoutComparer { get; }
 
       /// <summary>
       /// Get the ordering comparer for <see cref="ConstantDefinition"/> according to ECMA-335 serialization standard.
@@ -100,19 +100,7 @@ namespace CILAssemblyManipulator.Physical
       /// <remarks>
       /// This comparer will use the <see cref="HasConstantComparer"/> for <see cref="ConstantDefinition.Parent"/> property to perform comparison.
       /// </remarks>
-      public static IComparer<ConstantDefinition> ConstantDefinitionComparer
-      {
-         get
-         {
-            var retVal = _ConstantDefinitionComparer;
-            if ( retVal == null )
-            {
-               retVal = ComparerFromFunctions.NewComparer<ConstantDefinition>( Comparison_ConstantDefinition );
-               _ConstantDefinitionComparer = retVal;
-            }
-            return retVal;
-         }
-      }
+      public static IComparer<ConstantDefinition> ConstantDefinitionComparer { get; }
 
       /// <summary>
       /// Get the ordering comparer for <see cref="CustomAttributeDefinition"/> according to ECMA-335 serialization standard.
@@ -121,19 +109,7 @@ namespace CILAssemblyManipulator.Physical
       /// <remarks>
       /// This comparer will use the <see cref="HasCustomAttributeComparer"/> for <see cref="CustomAttributeDefinition.Parent"/> property to perform comparison.
       /// </remarks>
-      public static IComparer<CustomAttributeDefinition> CustomAttributeDefinitionComparer
-      {
-         get
-         {
-            var retVal = _CustomAttributeDefinitionComparer;
-            if ( retVal == null )
-            {
-               retVal = ComparerFromFunctions.NewComparer<CustomAttributeDefinition>( Comparison_CustomAttributeDefinition );
-               _CustomAttributeDefinitionComparer = retVal;
-            }
-            return retVal;
-         }
-      }
+      public static IComparer<CustomAttributeDefinition> CustomAttributeDefinitionComparer { get; }
 
       /// <summary>
       /// Get the ordering comparer for <see cref="CustomAttributeDefinition"/> according to ECMA-335 serialization standard.
@@ -142,265 +118,53 @@ namespace CILAssemblyManipulator.Physical
       /// <remarks>
       /// This comparer will use the <see cref="HasCustomAttributeComparer"/> for <see cref="CustomAttributeDefinition.Parent"/> property to perform comparison.
       /// </remarks>
-      public static IComparer<SecurityDefinition> SecurityDefinitionComparer
-      {
-         get
-         {
-            var retVal = _SecurityDefinitionComparer;
-            if ( retVal == null )
-            {
-               retVal = ComparerFromFunctions.NewComparer<SecurityDefinition>( Comparison_SecurityDefinition );
-               _SecurityDefinitionComparer = retVal;
-            }
-            return retVal;
-         }
-      }
+      public static IComparer<SecurityDefinition> SecurityDefinitionComparer { get; }
+      public static IComparer<FieldLayout> FieldLayoutComparer { get; }
+      public static IComparer<FieldMarshal> FieldMarshalComparer { get; }
+      public static IComparer<FieldRVA> FieldRVAComparer { get; }
+      public static IComparer<GenericParameterDefinition> GenericParameterDefinitionComparer { get; }
+      public static IComparer<GenericParameterConstraintDefinition> GenericParameterConstraintDefinitionComparer { get; }
+      public static IComparer<MethodImplementationMap> MethodImplementationMapComparer { get; }
+      public static IComparer<InterfaceImplementation> InterfaceImplementationComparer { get; }
+      public static IComparer<MethodImplementation> MethodImplementationComparer { get; }
+      public static IComparer<MethodSemantics> MethodSemanticsComparer { get; }
+      public static IComparer<NestedClassDefinition> NestedClassDefinitionComparer { get; }
 
-      public static IComparer<FieldLayout> FieldLayoutComparer
-      {
-         get
-         {
-            var retVal = _FieldLayoutComparer;
-            if ( retVal == null )
-            {
-               retVal = ComparerFromFunctions.NewComparer<FieldLayout>( Comparison_FieldLayout );
-               _FieldLayoutComparer = retVal;
-            }
-            return retVal;
-         }
-      }
+      public static CodedTableIndexComparer HasConstantComparer { get; }
+      public static CodedTableIndexComparer HasCustomAttributeComparer { get; }
+      public static CodedTableIndexComparer HasFieldMarshalComparer { get; }
+      public static CodedTableIndexComparer HasDeclSecurityComparer { get; }
+      public static CodedTableIndexComparer HasSemanticsComparer { get; }
+      public static CodedTableIndexComparer MemberForwardedComparer { get; }
+      public static CodedTableIndexComparer TypeOrMethodDefComparer { get; }
 
-      public static IComparer<FieldMarshal> FieldMarshalComparer
+      static Comparers()
       {
-         get
-         {
-            var retVal = _FieldMarshalComparer;
-            if ( retVal == null )
-            {
-               retVal = ComparerFromFunctions.NewComparer<FieldMarshal>( Comparison_FieldMarshal );
-               _FieldMarshalComparer = retVal;
-            }
-            return retVal;
-         }
-      }
+         ImageInformationLogicalEqualityComparer = ComparerFromFunctions.NewEqualityComparer<ImageInformation>( Equality_ImageInformation_Logical, HashCode_HeadersData );
 
-      public static IComparer<FieldRVA> FieldRVAComparer
-      {
-         get
-         {
-            var retVal = _FieldRVAComparer;
-            if ( retVal == null )
-            {
-               retVal = ComparerFromFunctions.NewComparer<FieldRVA>( Comparison_FieldRVA );
-               _FieldRVAComparer = retVal;
-            }
-            return retVal;
-         }
-      }
+         ClassLayoutComparer = ComparerFromFunctions.NewComparer<ClassLayout>( Comparison_ClassLayout );
+         ConstantDefinitionComparer = ComparerFromFunctions.NewComparer<ConstantDefinition>( Comparison_ConstantDefinition );
+         CustomAttributeDefinitionComparer = ComparerFromFunctions.NewComparer<CustomAttributeDefinition>( Comparison_CustomAttributeDefinition );
+         SecurityDefinitionComparer = ComparerFromFunctions.NewComparer<SecurityDefinition>( Comparison_SecurityDefinition );
+         FieldLayoutComparer = ComparerFromFunctions.NewComparer<FieldLayout>( Comparison_FieldLayout );
+         FieldMarshalComparer = ComparerFromFunctions.NewComparer<FieldMarshal>( Comparison_FieldMarshal );
+         FieldRVAComparer = ComparerFromFunctions.NewComparer<FieldRVA>( Comparison_FieldRVA );
+         GenericParameterDefinitionComparer = ComparerFromFunctions.NewComparer<GenericParameterDefinition>( Comparison_GenericParameterDefinition );
+         GenericParameterConstraintDefinitionComparer = ComparerFromFunctions.NewComparer<GenericParameterConstraintDefinition>( Comparison_GenericParameterConstraintDefinition );
+         MethodImplementationMapComparer = ComparerFromFunctions.NewComparer<MethodImplementationMap>( Comparison_MethodImplementationMap );
+         InterfaceImplementationComparer = ComparerFromFunctions.NewComparer<InterfaceImplementation>( Comparison_InterfaceImplementation );
+         MethodImplementationComparer = ComparerFromFunctions.NewComparer<MethodImplementation>( Comparison_MethodImplementation );
+         MethodSemanticsComparer = ComparerFromFunctions.NewComparer<MethodSemantics>( Comparison_MethodSemantics );
+         NestedClassDefinitionComparer = ComparerFromFunctions.NewComparer<NestedClassDefinition>( Comparison_NestedClassDefinition );
 
-      public static IComparer<GenericParameterDefinition> GenericParameterDefinitionComparer
-      {
-         get
-         {
-            var retVal = _GenericParameterDefinitionComparer;
-            if ( retVal == null )
-            {
-               retVal = ComparerFromFunctions.NewComparer<GenericParameterDefinition>( Comparison_GenericParameterDefinition );
-               _GenericParameterDefinitionComparer = retVal;
-            }
-            return retVal;
-         }
+         HasConstantComparer = new CodedTableIndexComparer( Meta.DefaultMetaDataTableInformationProvider.HasConstant );
+         HasCustomAttributeComparer = new CodedTableIndexComparer( Meta.DefaultMetaDataTableInformationProvider.HasCustomAttribute );
+         HasFieldMarshalComparer = new CodedTableIndexComparer( Meta.DefaultMetaDataTableInformationProvider.HasFieldMarshal );
+         HasDeclSecurityComparer = new CodedTableIndexComparer( Meta.DefaultMetaDataTableInformationProvider.HasSecurity );
+         HasSemanticsComparer = new CodedTableIndexComparer( Meta.DefaultMetaDataTableInformationProvider.HasSemantics );
+         MemberForwardedComparer = new CodedTableIndexComparer( Meta.DefaultMetaDataTableInformationProvider.MemberForwarded );
+         TypeOrMethodDefComparer = new CodedTableIndexComparer( Meta.DefaultMetaDataTableInformationProvider.TypeOrMethodDef );
       }
-
-      public static IComparer<GenericParameterConstraintDefinition> GenericParameterConstraintDefinitionComparer
-      {
-         get
-         {
-            var retVal = _GenericParameterConstraintDefinitionComparer;
-            if ( retVal == null )
-            {
-               retVal = ComparerFromFunctions.NewComparer<GenericParameterConstraintDefinition>( Comparison_GenericParameterConstraintDefinition );
-               _GenericParameterConstraintDefinitionComparer = retVal;
-            }
-            return retVal;
-         }
-      }
-
-      public static IComparer<MethodImplementationMap> MethodImplementationMapComparer
-      {
-         get
-         {
-            var retVal = _MethodImplementationMapComparer;
-            if ( retVal == null )
-            {
-               retVal = ComparerFromFunctions.NewComparer<MethodImplementationMap>( Comparison_MethodImplementationMap );
-               _MethodImplementationMapComparer = retVal;
-            }
-            return retVal;
-         }
-      }
-
-      public static IComparer<InterfaceImplementation> InterfaceImplementationComparer
-      {
-         get
-         {
-            var retVal = _InterfaceImplementationComparer;
-            if ( retVal == null )
-            {
-               retVal = ComparerFromFunctions.NewComparer<InterfaceImplementation>( Comparison_InterfaceImplementation );
-               _InterfaceImplementationComparer = retVal;
-            }
-            return retVal;
-         }
-      }
-
-      public static IComparer<MethodImplementation> MethodImplementationComparer
-      {
-         get
-         {
-            var retVal = _MethodImplementationComparer;
-            if ( retVal == null )
-            {
-               retVal = ComparerFromFunctions.NewComparer<MethodImplementation>( Comparison_MethodImplementation );
-               _MethodImplementationComparer = retVal;
-            }
-            return retVal;
-         }
-      }
-
-      public static IComparer<MethodSemantics> MethodSemanticsComparer
-      {
-         get
-         {
-            var retVal = _MethodSemanticsComparer;
-            if ( retVal == null )
-            {
-               retVal = ComparerFromFunctions.NewComparer<MethodSemantics>( Comparison_MethodSemantics );
-               _MethodSemanticsComparer = retVal;
-            }
-            return retVal;
-         }
-      }
-
-      public static IComparer<NestedClassDefinition> NestedClassDefinitionComparer
-      {
-         get
-         {
-            var retVal = _NestedClassDefinitionComparer;
-            if ( retVal == null )
-            {
-               retVal = ComparerFromFunctions.NewComparer<NestedClassDefinition>( Comparison_NestedClassDefinition );
-               _NestedClassDefinitionComparer = retVal;
-            }
-            return retVal;
-         }
-      }
-
-      public static IComparer<TableIndex> HasConstantComparer
-      {
-         get
-         {
-            var retVal = _HasConstantComparer;
-            if ( retVal == null )
-            {
-               var tableOrderArray = CreateTableOrderArray( Meta.DefaultMetaDataTableInformationProvider.HasConstant );
-               retVal = ComparerFromFunctions.NewComparer<TableIndex>( ( x, y ) => CompareWithTableOrderArray( x, y, tableOrderArray ) );
-               _HasConstantComparer = retVal;
-            }
-            return retVal;
-         }
-      }
-
-      public static IComparer<TableIndex> HasCustomAttributeComparer
-      {
-         get
-         {
-            var retVal = _HasCustomAttributeComparer;
-            if ( retVal == null )
-            {
-               var tableOrderArray = CreateTableOrderArray( Meta.DefaultMetaDataTableInformationProvider.HasCustomAttribute );
-               retVal = ComparerFromFunctions.NewComparer<TableIndex>( ( x, y ) => CompareWithTableOrderArray( x, y, tableOrderArray ) );
-               _HasCustomAttributeComparer = retVal;
-            }
-            return retVal;
-         }
-      }
-
-      public static IComparer<TableIndex> HasFieldMarshalComparer
-      {
-         get
-         {
-            var retVal = _HasFieldMarshalComparer;
-            if ( retVal == null )
-            {
-               var tableOrderArray = CreateTableOrderArray( Meta.DefaultMetaDataTableInformationProvider.HasFieldMarshal );
-               retVal = ComparerFromFunctions.NewComparer<TableIndex>( ( x, y ) => CompareWithTableOrderArray( x, y, tableOrderArray ) );
-               _HasFieldMarshalComparer = retVal;
-            }
-            return retVal;
-         }
-      }
-
-      public static IComparer<TableIndex> HasDeclSecurityComparer
-      {
-         get
-         {
-            var retVal = _HasDeclSecurityComparer;
-            if ( retVal == null )
-            {
-               var tableOrderArray = CreateTableOrderArray( Meta.DefaultMetaDataTableInformationProvider.HasSecurity );
-               retVal = ComparerFromFunctions.NewComparer<TableIndex>( ( x, y ) => CompareWithTableOrderArray( x, y, tableOrderArray ) );
-               _HasDeclSecurityComparer = retVal;
-            }
-            return retVal;
-         }
-      }
-
-      public static IComparer<TableIndex> HasSemanticsComparer
-      {
-         get
-         {
-            var retVal = _HasSemanticsComparer;
-            if ( retVal == null )
-            {
-               var tableOrderArray = CreateTableOrderArray( Meta.DefaultMetaDataTableInformationProvider.HasSemantics );
-               retVal = ComparerFromFunctions.NewComparer<TableIndex>( ( x, y ) => CompareWithTableOrderArray( x, y, tableOrderArray ) );
-               _HasSemanticsComparer = retVal;
-            }
-            return retVal;
-         }
-      }
-
-      public static IComparer<TableIndex> MemberForwardedComparer
-      {
-         get
-         {
-            var retVal = _MemberForwardedComparer;
-            if ( retVal == null )
-            {
-               var tableOrderArray = CreateTableOrderArray( Meta.DefaultMetaDataTableInformationProvider.MemberForwarded );
-               retVal = ComparerFromFunctions.NewComparer<TableIndex>( ( x, y ) => CompareWithTableOrderArray( x, y, tableOrderArray ) );
-               _MemberForwardedComparer = retVal;
-            }
-            return retVal;
-         }
-      }
-
-      public static IComparer<TableIndex> TypeOrMethodDefComparer
-      {
-         get
-         {
-            var retVal = _TypeOrMethodDefComparer;
-            if ( retVal == null )
-            {
-               var tableOrderArray = CreateTableOrderArray( Meta.DefaultMetaDataTableInformationProvider.TypeOrMethodDef );
-               retVal = ComparerFromFunctions.NewComparer<TableIndex>( ( x, y ) => CompareWithTableOrderArray( x, y, tableOrderArray ) );
-               _TypeOrMethodDefComparer = retVal;
-            }
-            return retVal;
-         }
-      }
-
 
       private static Boolean Equality_ImageInformation_Logical( ImageInformation x, ImageInformation y )
       {
@@ -636,29 +400,61 @@ namespace CILAssemblyManipulator.Physical
          // Sort by 'NestedClass' table index
          return x.NestedClass.Index.CompareTo( y.NestedClass.Index );
       }
+   }
 
-      private static Int32[] CreateTableOrderArray( ArrayQuery<Int32?> tablesInOrder )
+   public sealed class CodedTableIndexComparer : IComparer<TableIndex>, System.Collections.IComparer
+   {
+      private readonly Int32[] _tableOrderArray;
+
+      public CodedTableIndexComparer( IEnumerable<Int32?> possibleTables )
       {
-         var retVal = new Int32[CAMCoreInternals.AMOUNT_OF_TABLES];
-         for ( var i = 0; i < tablesInOrder.Count; ++i )
-         {
-            var cur = tablesInOrder[i];
-            if ( cur.HasValue )
-            {
-               retVal[cur.Value] = i;
-            }
-         }
-         return retVal;
+         this._tableOrderArray = new Int32[CAMCoreInternals.AMOUNT_OF_TABLES];
+         PopulateTableOrderArray( this._tableOrderArray, possibleTables );
       }
 
-      private static Int32 CompareWithTableOrderArray( TableIndex x, TableIndex y, Int32[] tableOrderArray )
+      public Int32 Compare( TableIndex x, TableIndex y )
       {
          var retVal = x.Index.CompareTo( y.Index );
          if ( retVal == 0 )
          {
-            retVal = tableOrderArray[(Int32) x.Table].CompareTo( tableOrderArray[(Int32) y.Table] );
+            retVal = this._tableOrderArray[(Int32) x.Table].CompareTo( this._tableOrderArray[(Int32) y.Table] );
          }
          return retVal;
+      }
+
+      Int32 IComparer.Compare( object x, object y )
+      {
+         Int32 retVal;
+         if ( x == null )
+         {
+            retVal = y == null ? 0 : -1;
+         }
+         else if ( y == null )
+         {
+            retVal = 1;
+         }
+         else if ( x is TableIndex && y is TableIndex )
+         {
+            retVal = this.Compare( (TableIndex) x, (TableIndex) y );
+         }
+         else
+         {
+            throw new ArgumentException( "Given object must be of type " + typeof( TableIndex ) + " or null." );
+         }
+         return retVal;
+      }
+
+      private static void PopulateTableOrderArray( Int32[] array, IEnumerable<Int32?> tablesInOrder )
+      {
+         var i = 0;
+         foreach ( var table in tablesInOrder )
+         {
+            if ( table.HasValue )
+            {
+               array[table.Value] = i;
+            }
+            ++i;
+         }
       }
    }
 }

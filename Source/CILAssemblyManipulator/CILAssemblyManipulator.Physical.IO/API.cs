@@ -50,19 +50,24 @@ namespace CILAssemblyManipulator.Physical.IO
       /// <seealso cref="ReaderFunctionalityProvider"/>
       public static CILMetaData ReadModule( this Stream stream, ReadingArguments rArgs = null )
       {
+         if ( rArgs == null )
+         {
+            rArgs = new ReadingArguments();
+         }
+
+         var rawValueReading = rArgs.RawValueReading;
          ImageInformation imageInfo;
          var md = stream.ReadMetaDataFromStream(
-            rArgs?.ReaderFunctionalityProvider,
-            rArgs?.TableInformationProvider,
-            rArgs?.ErrorHandler,
-            ( rArgs?.RawValueReading ?? RawValueReading.ToRow ) == RawValueReading.ToRow,
+            rArgs.ReaderFunctionalityProvider,
+            rArgs.TableInformationProvider,
+            rArgs.ErrorHandler,
+            rawValueReading == RawValueReading.ToRow,
             out imageInfo
             );
 
-         if ( rArgs != null )
-         {
-            rArgs.ImageInformation = imageInfo;
-         }
+         rArgs.ImageInformation = imageInfo;
+         // TODO when RawValueReading.ToReadingArguments is implemented, add byte arrays based on method RVAs, field RVAs, and manifest resources..
+
          return md;
       }
    }
@@ -127,9 +132,11 @@ namespace CILAssemblyManipulator.Physical.IO
    /// <seealso cref="ReadingArguments"/>
    /// <seealso cref="WritingArguments"/>
    /// <seealso cref="CILMetaDataIO.ReadModule(Stream, ReadingArguments)"/>
-   /// <seealso cref="CILMetaDataIO.ReadModuleFrom(String, ReadingArguments)"/>
    /// <seealso cref="E_CILPhysical.WriteModule(CILMetaData, Stream, WritingArguments)"/>
+#if !CAM_PHYSICAL_IS_PORTABLE
+   /// <seealso cref="CILMetaDataIO.ReadModuleFrom(String, ReadingArguments)"/>
    /// <seealso cref="E_CILPhysical.WriteModuleTo(CILMetaData, String, WritingArguments)"/>
+#endif
    public abstract class IOArguments
    {
       internal IOArguments()
@@ -164,7 +171,9 @@ namespace CILAssemblyManipulator.Physical.IO
    /// </summary>
    /// <seealso cref="IOArguments"/>
    /// <seealso cref="CILMetaDataIO.ReadModule(Stream, ReadingArguments)"/>
+#if !CAM_PHYSICAL_IS_PORTABLE
    /// <seealso cref="CILMetaDataIO.ReadModuleFrom(String, ReadingArguments)"/>
+#endif
    public class ReadingArguments : IOArguments
    {
       /// <summary>
@@ -178,24 +187,50 @@ namespace CILAssemblyManipulator.Physical.IO
       /// <seealso cref="E_CILPhysical.ReadMetaDataFromStream"/>
       public ReaderFunctionalityProvider ReaderFunctionalityProvider { get; set; }
 
+      /// <summary>
+      /// Gets or sets the <see cref="CILMetaDataTableInformationProvider"/> to be used when creating a new instance of <see cref="CILMetaData"/> via <see cref="CILMetaDataFactory.NewBlankMetaData(Int32[], CILMetaDataTableInformationProvider)"/> method.
+      /// </summary>
+      /// <value>The <see cref="CILMetaDataTableInformationProvider"/> to be used when creating a new instance of <see cref="CILMetaData"/> via <see cref="CILMetaDataFactory.NewBlankMetaData(Int32[], CILMetaDataTableInformationProvider)"/> method.</value>
+      /// <seealso cref="CILMetaDataTableInformationProvider"/>
+      /// <seealso cref="CILMetaDataFactory.NewBlankMetaData(Int32[], CILMetaDataTableInformationProvider)"/>
       public CILMetaDataTableInformationProvider TableInformationProvider { get; set; }
 
+      /// <summary>
+      /// Gets or sets the value on how to behave on reading the data outside the metadata PE directory.
+      /// </summary>
+      /// <value>The value on how to behave on reading the data outside the metadata PE directory.</value>
+      /// <seealso cref="IO.RawValueReading"/>
       public RawValueReading RawValueReading { get; set; }
    }
 
+   /// <summary>
+   /// This enumeration is used in <see cref="ReadingArguments.RawValueReading"/> property to control how the the data outside the metadata PE directory is read.
+   /// </summary>
    public enum RawValueReading
    {
+      /// <summary>
+      /// This enumeration value means that after reading the data, it should be transformed into its CAM.Physical corresponding object (e.g. <see cref="MethodILDefinition"/>), and then set the row property, e.g. <see cref="MethodDefinition.IL"/>.
+      /// This is the default value.
+      /// </summary>
       ToRow,
+
       //ToReadingArguments,
+
+      /// <summary>
+      /// This enumeration value means that the data should not be read at all, meaning that all properties of all rows which use the data (e.g. <see cref="MethodDefinition.IL"/>) will be left as <c>null</c>s.
+      /// This may have significant performance and memory consumption improvement, if it is certain that these properties will never be needed.
+      /// </summary>
       None
    }
 
    /// <summary>
-   /// This class specializes the <see cref="IOArguments"/> to further contain information specific to writing a <see cref="CILMetaData"/> to a binary data.
+   /// This class specializes the <see cref="IOArguments"/> to further contain information specific to writing a <see cref="CILMetaData"/> to a byte stream.
    /// </summary>
    /// <seealso cref="IOArguments"/>
    /// <seealso cref="E_CILPhysical.WriteModule(CILMetaData, Stream, WritingArguments)"/>
+#if !CAM_PHYSICAL_IS_PORTABLE
    /// <seealso cref="E_CILPhysical.WriteModuleTo(CILMetaData, String, WritingArguments)"/>
+#endif
    public class WritingArguments : IOArguments
    {
 
@@ -241,6 +276,12 @@ namespace CILAssemblyManipulator.Physical.IO
       /// <seealso cref="E_CILPhysical.WriteMetaDataToStream"/>
       public WriterFunctionalityProvider WriterFunctionalityProvider { get; set; }
 
+      /// <summary>
+      /// Gets or sets the <see cref="IO.WritingOptions"/> for this <see cref="WritingArguments"/>.
+      /// These options allow fine-grain control over the emitted PE image.
+      /// </summary>
+      /// <value>The <see cref="IO.WritingOptions"/> for this <see cref="WritingArguments"/>.</value>
+      /// <seealso cref="IO.WritingOptions"/>
       public WritingOptions WritingOptions { get; set; }
 
    }
@@ -250,13 +291,20 @@ namespace CILAssemblyManipulator.Physical.IO
    /// </summary>
    public class CryptographicException : Exception
    {
-      internal CryptographicException( String msg )
-         : this( msg, null )
+      internal CryptographicException( String msg, Exception inner = null )
+         : base( msg, inner )
       {
 
       }
 
-      internal CryptographicException( String msg, Exception inner )
+   }
+
+   /// <summary>
+   /// This will be thrown by <see cref="E_CILPhysical.ReadMetaDataFromStream(Stream, ReaderFunctionality, CILMetaDataTableInformationProvider, EventHandler{SerializationErrorEventArgs}, bool, out ImageInformation, out RawValueStorage{int}, out RVAConverter)"/> method when the module is not a managed module.
+   /// </summary>
+   public class NotAManagedModuleException : Exception
+   {
+      internal NotAManagedModuleException( String msg, Exception inner = null )
          : base( msg, inner )
       {
 
@@ -264,18 +312,20 @@ namespace CILAssemblyManipulator.Physical.IO
    }
 
    /// <summary>
-   /// This will be thrown by <see cref="CILMetaDataIO.ReadModule"/> method if the target file does not contain a managed assembly.
+   /// This class encapsulates information about an error occurred in (de)serialization process.
+   /// It is used by <see cref="IOArguments.ErrorHandler"/> customizable callback property.
    /// </summary>
-   public class NotAManagedModuleException : Exception
-   {
-      internal NotAManagedModuleException()
-      {
-
-      }
-   }
-
+   /// <remarks>
+   /// Not *all* error situations use the <see cref="IOArguments.ErrorHandler"/>, if an unrecoverable error is encountered, then an exception is thrown immediately without using the <see cref="IOArguments.ErrorHandler"/> callback.
+   /// For example, if the <see cref="ReaderFunctionality.ReadImageInformation"/> method returns invalid <see cref="PEInformation"/> object, the <see cref="BadImageFormatException"/> will be thrown right away, since it is impossible to continue.
+   /// </remarks>
    public class SerializationErrorEventArgs : EventArgs
    {
+      /// <summary>
+      /// Creates a new instance of <see cref="SerializationErrorEventArgs"/> with given exception object and whether it should be rethrown.
+      /// </summary>
+      /// <param name="occurredException">The occurred exception. May be <c>null</c>.</param>
+      /// <param name="rethrowException">Initial value for <see cref="RethrowException"/>.</param>
       public SerializationErrorEventArgs(
          Exception occurredException,
          Boolean rethrowException
@@ -285,13 +335,33 @@ namespace CILAssemblyManipulator.Physical.IO
          this.RethrowException = rethrowException;
       }
 
+      /// <summary>
+      /// Gets the exception that occurred.
+      /// May be <c>null</c>.
+      /// </summary>
+      /// <value>The exception that occurred.</value>
       public Exception OccurredException { get; }
 
+      /// <summary>
+      /// Gets or sets the value indicating whether to rethrow the exception (if any).
+      /// The callback for <see cref="IOArguments.ErrorHandler"/> may use this property to customize control flow of (de)serialization process.
+      /// </summary>
+      /// <value>The value indicating whether to rethrow the exception (if any).</value>
       public Boolean RethrowException { get; set; }
    }
 
+   /// <summary>
+   /// This class further specializes the <see cref="SerializationErrorEventArgs"/> for errors occurring during reading of table stream.
+   /// </summary>
    public class TableStreamSerializationErrorEventArgs : SerializationErrorEventArgs
    {
+      /// <summary>
+      /// Creates a new instance of <see cref="TableStreamSerializationErrorEventArgs"/> with given exception and column information.
+      /// </summary>
+      /// <param name="occuredException">The occurred exception.</param>
+      /// <param name="table">The <see cref="Tables"/> being currently processed.</param>
+      /// <param name="rowIndex">The zero-based row index of row being currently processed.</param>
+      /// <param name="columnIndex">The zero-based column index of value being currently processed.</param>
       public TableStreamSerializationErrorEventArgs(
          Exception occuredException,
          Tables table,
@@ -305,14 +375,38 @@ namespace CILAssemblyManipulator.Physical.IO
          this.ColumnIndex = columnIndex;
       }
 
+      /// <summary>
+      /// Gets the <see cref="Tables"/> where this error happened.
+      /// </summary>
+      /// <value>The <see cref="Tables"/> where this error happened.</value>
       public Tables Table { get; }
+
+      /// <summary>
+      /// Gets the zero-based row index where this error happened.
+      /// </summary>
+      /// <value>The zero-based row index where this error happened.</value>
       public Int32 RowIndex { get; }
+
+      /// <summary>
+      /// Gets the zero-based column index where this error happened.
+      /// </summary>
+      /// <value>The zero-based column index where this error happened.</value>
       public Int32 ColumnIndex { get; }
    }
 }
 
 public static partial class E_CILPhysical
 {
+   /// <summary>
+   /// Writes this <see cref="CILMetaData"/> as a compressed module to given byte stream.
+   /// </summary>
+   /// <param name="md">This <see cref="CILMetaData"/>.</param>
+   /// <param name="stream">The byte <see cref="Stream"/> where to write this <see cref="CILMetaData"/>.</param>
+   /// <param name="eArgs">The optional <see cref="WritingArguments"/> to control the serialization process.</param>
+   /// <seealso cref="WritingArguments"/>
+#if !CAM_PHYSICAL_IS_PORTABLE
+   /// <seealso cref="WriteModuleTo"/>
+#endif
    public static void WriteModule( this CILMetaData md, Stream stream, WritingArguments eArgs = null )
    {
       if ( eArgs == null )

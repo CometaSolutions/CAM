@@ -213,6 +213,9 @@ namespace CILAssemblyManipulator.Physical.IO
 
 public static partial class E_CILPhysical
 {
+   // THINK: maybe "this ReaderFunctionalityProvider" ??
+   // But then, what about null values of ReaderFunctionalityProvider ??
+   // OTOH, placing extension methods on Stream into class outside namespaces will clutter things.
    public static CILMetaData ReadMetaDataFromStream(
       this Stream stream,
       ReaderFunctionalityProvider readerProvider,
@@ -234,16 +237,17 @@ public static partial class E_CILPhysical
 
       CILMetaData md;
       RawValueStorage<Int32> rawValueStorage;
+      RVAConverter rvaConverter;
       if ( newStream != null && !ReferenceEquals( stream, newStream ) )
       {
          using ( newStream )
          {
-            md = newStream.ReadMetaDataFromStream( reader, tableInfoProvider, errorHandler, readRawValues, out imageInfo, out rawValueStorage );
+            md = newStream.ReadMetaDataFromStream( reader, tableInfoProvider, errorHandler, readRawValues, out imageInfo, out rawValueStorage, out rvaConverter );
          }
       }
       else
       {
-         md = stream.ReadMetaDataFromStream( reader, tableInfoProvider, errorHandler, readRawValues, out imageInfo, out rawValueStorage );
+         md = stream.ReadMetaDataFromStream( reader, tableInfoProvider, errorHandler, readRawValues, out imageInfo, out rawValueStorage, out rvaConverter );
       }
 
       return md;
@@ -256,7 +260,8 @@ public static partial class E_CILPhysical
       EventHandler<SerializationErrorEventArgs> errorHandler,
       Boolean readRawValues,
       out ImageInformation imageInfo,
-      out RawValueStorage<Int32> rawValueStorage
+      out RawValueStorage<Int32> rawValueStorage,
+      out RVAConverter rvaConverter
       )
    {
       ArgumentValidator.ValidateNotNull( "Stream", stream );
@@ -270,7 +275,6 @@ public static partial class E_CILPhysical
 
       // 1. Read image basic information (PE, sections, CLI header, md root)
       PEInformation peInfo;
-      RVAConverter rvaConverter;
       CLIHeader cliHeader;
       MetaDataRoot mdRoot;
       reader.ReadImageInformation( helper, out peInfo, out rvaConverter, out cliHeader, out mdRoot );
@@ -281,7 +285,7 @@ public static partial class E_CILPhysical
       }
       else if ( cliHeader == null )
       {
-         throw new NotAManagedModuleException();
+         throw new BadImageFormatException( "Missing CLI header." );
       }
       else if ( mdRoot == null )
       {
