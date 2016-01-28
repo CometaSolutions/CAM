@@ -33,81 +33,6 @@ namespace CILAssemblyManipulator.Physical
    /// </remarks>
    public static class Comparers
    {
-      // Metadata and metadata row comparers
-      private static IEqualityComparer<CILMetaData> _MetaDataEqualityComparer = null;
-      private static IEqualityComparer<ModuleDefinition> _ModuleDefinitionEqualityComparer = null;
-      private static IEqualityComparer<TypeReference> _TypeReferenceEqualityComparer = null;
-      private static IEqualityComparer<TypeDefinition> _TypeDefinitionEqualityComparer = null;
-      private static IEqualityComparer<FieldDefinitionPointer> _FieldDefinitionPointerEqualityComparer = null;
-      private static IEqualityComparer<FieldDefinition> _FieldDefinitionEqualityComparer = null;
-      private static IEqualityComparer<MethodDefinitionPointer> _MethodDefinitionPointerEqualityComparer = null;
-      private static IEqualityComparer<MethodDefinition> _MethodDefinitionEqualityComparer = null;
-      private static IEqualityComparer<ParameterDefinitionPointer> _ParameterDefinitionPointerEqualityComparer = null;
-      private static IEqualityComparer<ParameterDefinition> _ParameterDefinitionEqualityComparer = null;
-      private static IEqualityComparer<InterfaceImplementation> _InterfaceImplementationEqualityComparer = null;
-      private static IEqualityComparer<MemberReference> _MemberReferenceEqualityComparer = null;
-      private static IEqualityComparer<ConstantDefinition> _ConstantDefinitionEqualityComparer = null;
-      private static IEqualityComparer<CustomAttributeDefinition> _CustomAttributeDefinitionEqualityComparer = null;
-      private static IEqualityComparer<FieldMarshal> _FieldMarshalEqualityComparer = null;
-      private static IEqualityComparer<SecurityDefinition> _SecurityDefinitionEqualityComparer = null;
-      private static IEqualityComparer<ClassLayout> _ClassLayoutEqualityComparer = null;
-      private static IEqualityComparer<FieldLayout> _FieldLayoutEqualityComparer = null;
-      private static IEqualityComparer<StandaloneSignature> _StandaloneSignatureEqualityComparer = null;
-      private static IEqualityComparer<EventMap> _EventMapEqualityComparer = null;
-      private static IEqualityComparer<EventDefinitionPointer> _EventDefinitionPointerEqualityComparer = null;
-      private static IEqualityComparer<EventDefinition> _EventDefinitionEqualityComparer = null;
-      private static IEqualityComparer<PropertyMap> _PropertyMapEqualityComparer = null;
-      private static IEqualityComparer<PropertyDefinitionPointer> _PropertyDefinitionPointerEqualityComparer = null;
-      private static IEqualityComparer<PropertyDefinition> _PropertyDefinitionEqualityComparer = null;
-      private static IEqualityComparer<MethodSemantics> _MethodSemanticsEqualityComparer = null;
-      private static IEqualityComparer<MethodImplementation> _MethodImplementationEqualityComparer = null;
-      private static IEqualityComparer<ModuleReference> _ModuleReferenceEqualityComparer = null;
-      private static IEqualityComparer<TypeSpecification> _TypeSpecificationEqualityComparer = null;
-      private static IEqualityComparer<MethodImplementationMap> _MethodImplementationMapEqualityComparer = null;
-      private static IEqualityComparer<FieldRVA> _FieldRVAEqualityComparer = null;
-      private static IEqualityComparer<EditAndContinueLog> _EditAndContinueLogEqualityComparer = null;
-      private static IEqualityComparer<EditAndContinueMap> _EditAndContinueMapEqualityComparer = null;
-      private static IEqualityComparer<AssemblyDefinition> _AssemblyDefinitionEqualityComparer = null;
-      private static IEqualityComparer<AssemblyReference> _AssemblyReferenceEqualityComparer = null;
-#pragma warning disable 618
-      private static IEqualityComparer<AssemblyDefinitionProcessor> _AssemblyDefinitionProcessorEqualityComparer = null;
-      private static IEqualityComparer<AssemblyDefinitionOS> _AssemblyDefinitionOSEqualityComparer = null;
-      private static IEqualityComparer<AssemblyReferenceProcessor> _AssemblyReferenceProcessorEqualityComparer = null;
-      private static IEqualityComparer<AssemblyReferenceOS> _AssemblyReferenceOSEqualityComparer = null;
-#pragma warning restore 618
-      private static IEqualityComparer<FileReference> _FileReferenceEqualityComparer = null;
-      private static IEqualityComparer<ExportedType> _ExportedTypeEqualityComparer = null;
-      private static IEqualityComparer<ManifestResource> _ManifestResourceEqualityComparer = null;
-      private static IEqualityComparer<NestedClassDefinition> _NestedClassDefinitionEqualityComparer = null;
-      private static IEqualityComparer<GenericParameterDefinition> _GenericParameterDefinitionEqualityComparer = null;
-      private static IEqualityComparer<MethodSpecification> _MethodSpecificationEqualityComparer = null;
-      private static IEqualityComparer<GenericParameterConstraintDefinition> _GenericParameterConstraintDefinitionEqualityComparer = null;
-      private static IEqualityComparer<MethodILDefinition> _MethodILDefinitionEqualityComparer = null;
-      private static IEqualityComparer<MethodExceptionBlock> _MethodExceptionBlockEqualityComparer = null;
-      private static IEqualityComparer<OpCodeInfo> _OpCodeInfoEqualityComparer = null;
-
-      private static IEqualityComparer<AssemblyInformation> _AssemblyInformationEqualityComparer = null;
-      private static IEqualityComparer<AbstractSignature> _AbstractSignatureEqualityComparer = null;
-      private static IEqualityComparer<RawSignature> _RawSignatureEqualityComparer = null;
-      private static IEqualityComparer<AbstractMethodSignature> _AbstractMethodSignatureEqualityComparer = null;
-      private static IEqualityComparer<AbstractMethodSignature> _AbstractMethodSignatureEqualityComparer_IgnoreKind = null;
-      private static IEqualityComparer<MethodDefinitionSignature> _MethodDefinitionSignatureEqualityComparer = null;
-      private static IEqualityComparer<MethodReferenceSignature> _MethodReferenceSignatureEqualityComparer = null;
-      private static IEqualityComparer<FieldSignature> _FieldSignatureEqualityComparer = null;
-      private static IEqualityComparer<PropertySignature> _PropertySignatureEqualityComparer = null;
-      private static IEqualityComparer<LocalVariablesSignature> _LocalVariablesSignatureEqualityComparer = null;
-      private static IEqualityComparer<LocalSignature> _LocalVariableSignatureEqualityComparer = null;
-      private static IEqualityComparer<ParameterSignature> _ParameterSignatureEqualityComparer = null;
-      private static IEqualityComparer<CustomModifierSignature> _CustomModifierSignatureEqualityComparer = null;
-      private static IEqualityComparer<TypeSignature> _TypeSignatureEqualityComparer = null;
-      private static IEqualityComparer<GenericMethodSignature> _GenericMethodSignatureEqualityComparer = null;
-      private static IEqualityComparer<AbstractCustomAttributeSignature> _AbstractCustomAttributeSignatureEqualityComparer = null;
-      private static IEqualityComparer<CustomAttributeTypedArgument> _CustomAttributeTypedArgumentEqualityComparer = null;
-      private static IEqualityComparer<CustomAttributeNamedArgument> _CustomAttributeNamedArgumentEqualityComparer = null;
-      private static IEqualityComparer<CustomAttributeArgumentType> _CustomAttributeArgumentTypeEqualityComparer = null;
-      private static IEqualityComparer<AbstractSecurityInformation> _AbstractSecurityInformationEqualityComparer = null;
-      private static IEqualityComparer<AbstractMarshalingInfo> _MarshalingInfoEqualityComparer = null;
-
       /// <summary>
       /// Get the equality comparer to check whether two instances of <see cref="CILMetaData"/> are exactly equal.
       /// </summary>
@@ -115,20 +40,7 @@ namespace CILAssemblyManipulator.Physical
       /// <remarks>
       /// Two instances of <see cref="CILMetaData"/> are considered to be equal by this equality comparer when all the tables of the <see cref="CILMetaData"/> are considered equal by their <see cref="TabularMetaData.Meta.MetaDataTableInformation{TRow}.EqualityComparer"/>.
       /// </remarks>
-      public static IEqualityComparer<CILMetaData> MetaDataComparer
-      {
-         get
-         {
-            var retVal = _MetaDataEqualityComparer;
-            if ( retVal == null )
-            {
-               retVal = ComparerFromFunctions.NewEqualityComparer<CILMetaData>( Equality_MetaData, HashCode_MetaData );
-               _MetaDataEqualityComparer = retVal;
-            }
-
-            return retVal;
-         }
-      }
+      public static IEqualityComparer<CILMetaData> MetaDataEqualityComparer { get; }
 
       /// <summary>
       /// Get the equality comparer to check whether two instances of <see cref="ModuleDefinition"/> are exactly equal.
@@ -137,19 +49,7 @@ namespace CILAssemblyManipulator.Physical
       /// <remarks>
       /// Two instances of <see cref="ModuleDefinition"/> are considered to be equal by this equality comparer when all the properties of the <see cref="ModuleDefinition"/> are equal.
       /// </remarks>
-      public static IEqualityComparer<ModuleDefinition> ModuleDefinitionEqualityComparer
-      {
-         get
-         {
-            var retVal = _ModuleDefinitionEqualityComparer;
-            if ( retVal == null )
-            {
-               retVal = ComparerFromFunctions.NewEqualityComparer<ModuleDefinition>( Equality_ModuleDefinition, HashCode_ModuleDefinition );
-               _ModuleDefinitionEqualityComparer = retVal;
-            }
-            return retVal;
-         }
-      }
+      public static IEqualityComparer<ModuleDefinition> ModuleDefinitionEqualityComparer { get; }
 
       /// <summary>
       /// Get the equality comparer to check whether two instances of <see cref="TypeReference"/> are exactly equal.
@@ -158,19 +58,7 @@ namespace CILAssemblyManipulator.Physical
       /// <remarks>
       /// Two instances of <see cref="TypeReference"/> are considered to be equal by this equality comparer when all the properties of the <see cref="TypeReference"/> are equal.
       /// </remarks>
-      public static IEqualityComparer<TypeReference> TypeReferenceEqualityComparer
-      {
-         get
-         {
-            var retVal = _TypeReferenceEqualityComparer;
-            if ( retVal == null )
-            {
-               retVal = ComparerFromFunctions.NewEqualityComparer<TypeReference>( Equality_TypeReference, HashCode_TypeReference );
-               _TypeReferenceEqualityComparer = retVal;
-            }
-            return retVal;
-         }
-      }
+      public static IEqualityComparer<TypeReference> TypeReferenceEqualityComparer { get; }
 
       /// <summary>
       /// Get the equality comparer to check whether two instances of <see cref="TypeDefinition"/> are exactly equal.
@@ -179,19 +67,7 @@ namespace CILAssemblyManipulator.Physical
       /// <remarks>
       /// Two instances of <see cref="TypeDefinition"/> are considered to be equal by this equality comparer when all the properties of the <see cref="TypeDefinition"/> are equal.
       /// </remarks>
-      public static IEqualityComparer<TypeDefinition> TypeDefinitionEqualityComparer
-      {
-         get
-         {
-            var retVal = _TypeDefinitionEqualityComparer;
-            if ( retVal == null )
-            {
-               retVal = ComparerFromFunctions.NewEqualityComparer<TypeDefinition>( Equality_TypeDefinition, HashCode_TypeDefinition );
-               _TypeDefinitionEqualityComparer = retVal;
-            }
-            return retVal;
-         }
-      }
+      public static IEqualityComparer<TypeDefinition> TypeDefinitionEqualityComparer { get; }
 
       /// <summary>
       /// Get the equality comparer to check whether two instances of <see cref="FieldDefinitionPointer"/> are exactly equal.
@@ -200,19 +76,7 @@ namespace CILAssemblyManipulator.Physical
       /// <remarks>
       /// Two instances of <see cref="FieldDefinitionPointer"/> are considered to be equal by this equality comparer when all the properties of the <see cref="FieldDefinitionPointer"/> are equal.
       /// </remarks>
-      public static IEqualityComparer<FieldDefinitionPointer> FieldDefinitionPointerEqualityComparer
-      {
-         get
-         {
-            var retVal = _FieldDefinitionPointerEqualityComparer;
-            if ( retVal == null )
-            {
-               retVal = ComparerFromFunctions.NewEqualityComparer<FieldDefinitionPointer>( Equality_FieldDefinitionPointer, HashCode_FieldDefinitionPointer );
-               _FieldDefinitionPointerEqualityComparer = retVal;
-            }
-            return retVal;
-         }
-      }
+      public static IEqualityComparer<FieldDefinitionPointer> FieldDefinitionPointerEqualityComparer { get; }
 
       /// <summary>
       /// Get the equality comparer to check whether two instances of <see cref="FieldDefinition"/> are exactly equal.
@@ -221,19 +85,7 @@ namespace CILAssemblyManipulator.Physical
       /// <remarks>
       /// Two instances of <see cref="FieldDefinition"/> are considered to be equal by this equality comparer when all the properties of the <see cref="FieldDefinition"/> are equal.
       /// </remarks>
-      public static IEqualityComparer<FieldDefinition> FieldDefinitionEqualityComparer
-      {
-         get
-         {
-            var retVal = _FieldDefinitionEqualityComparer;
-            if ( retVal == null )
-            {
-               retVal = ComparerFromFunctions.NewEqualityComparer<FieldDefinition>( Equality_FieldDefinition, HashCode_FieldDefinition );
-               _FieldDefinitionEqualityComparer = retVal;
-            }
-            return retVal;
-         }
-      }
+      public static IEqualityComparer<FieldDefinition> FieldDefinitionEqualityComparer { get; }
 
       /// <summary>
       /// Get the equality comparer to check whether two instances of <see cref="MethodDefinitionPointer"/> are exactly equal.
@@ -242,19 +94,7 @@ namespace CILAssemblyManipulator.Physical
       /// <remarks>
       /// Two instances of <see cref="MethodDefinitionPointer"/> are considered to be equal by this equality comparer when all the properties of the <see cref="MethodDefinitionPointer"/> are equal.
       /// </remarks>
-      public static IEqualityComparer<MethodDefinitionPointer> MethodDefinitionPointerEqualityComparer
-      {
-         get
-         {
-            var retVal = _MethodDefinitionPointerEqualityComparer;
-            if ( retVal == null )
-            {
-               retVal = ComparerFromFunctions.NewEqualityComparer<MethodDefinitionPointer>( Equality_MethodDefinitionPointer, HashCode_MethodDefinitionPointer );
-               _MethodDefinitionPointerEqualityComparer = retVal;
-            }
-            return retVal;
-         }
-      }
+      public static IEqualityComparer<MethodDefinitionPointer> MethodDefinitionPointerEqualityComparer { get; }
 
       /// <summary>
       /// Get the equality comparer to check whether two instances of <see cref="MethodDefinition"/> are exactly equal.
@@ -264,19 +104,7 @@ namespace CILAssemblyManipulator.Physical
       /// Two instances of <see cref="MethodDefinition"/> are considered to be equal by this equality comparer when all the properties of the <see cref="MethodDefinition"/> are equal.
       /// This also includes comparing the <see cref="MethodDefinition.IL"/> using <see cref="MethodILDefinitionEqualityComparer"/>.
       /// </remarks>
-      public static IEqualityComparer<MethodDefinition> MethodDefinitionEqualityComparer
-      {
-         get
-         {
-            var retVal = _MethodDefinitionEqualityComparer;
-            if ( retVal == null )
-            {
-               retVal = ComparerFromFunctions.NewEqualityComparer<MethodDefinition>( Equality_MethodDefinition, HashCode_MethodDefinition );
-               _MethodDefinitionEqualityComparer = retVal;
-            }
-            return retVal;
-         }
-      }
+      public static IEqualityComparer<MethodDefinition> MethodDefinitionEqualityComparer { get; }
 
       /// <summary>
       /// Get the equality comparer to check whether two instances of <see cref="ParameterDefinitionPointer"/> are exactly equal.
@@ -285,19 +113,7 @@ namespace CILAssemblyManipulator.Physical
       /// <remarks>
       /// Two instances of <see cref="ParameterDefinitionPointer"/> are considered to be equal by this equality comparer when all the properties of the <see cref="ParameterDefinitionPointer"/> are equal.
       /// </remarks>
-      public static IEqualityComparer<ParameterDefinitionPointer> ParameterDefinitionPointerEqualityComparer
-      {
-         get
-         {
-            var retVal = _ParameterDefinitionPointerEqualityComparer;
-            if ( retVal == null )
-            {
-               retVal = ComparerFromFunctions.NewEqualityComparer<ParameterDefinitionPointer>( Equality_ParameterDefinitionPointer, HashCode_ParameterDefinitionPointer );
-               _ParameterDefinitionPointerEqualityComparer = retVal;
-            }
-            return retVal;
-         }
-      }
+      public static IEqualityComparer<ParameterDefinitionPointer> ParameterDefinitionPointerEqualityComparer { get; }
 
       /// <summary>
       /// Get the equality comparer to check whether two instances of <see cref="ParameterDefinition"/> are exactly equal.
@@ -306,19 +122,7 @@ namespace CILAssemblyManipulator.Physical
       /// <remarks>
       /// Two instances of <see cref="ParameterDefinition"/> are considered to be equal by this equality comparer when all the properties of the <see cref="ParameterDefinition"/> are equal.
       /// </remarks>
-      public static IEqualityComparer<ParameterDefinition> ParameterDefinitionEqualityComparer
-      {
-         get
-         {
-            var retVal = _ParameterDefinitionEqualityComparer;
-            if ( retVal == null )
-            {
-               retVal = ComparerFromFunctions.NewEqualityComparer<ParameterDefinition>( Equality_ParameterDefinition, HashCode_ParameterDefinition );
-               _ParameterDefinitionEqualityComparer = retVal;
-            }
-            return retVal;
-         }
-      }
+      public static IEqualityComparer<ParameterDefinition> ParameterDefinitionEqualityComparer { get; }
 
       /// <summary>
       /// Get the equality comparer to check whether two instances of <see cref="InterfaceImplementation"/> are exactly equal.
@@ -327,19 +131,7 @@ namespace CILAssemblyManipulator.Physical
       /// <remarks>
       /// Two instances of <see cref="InterfaceImplementation"/> are considered to be equal by this equality comparer when all the properties of the <see cref="InterfaceImplementation"/> are equal.
       /// </remarks>
-      public static IEqualityComparer<InterfaceImplementation> InterfaceImplementationEqualityComparer
-      {
-         get
-         {
-            var retVal = _InterfaceImplementationEqualityComparer;
-            if ( retVal == null )
-            {
-               retVal = ComparerFromFunctions.NewEqualityComparer<InterfaceImplementation>( Equality_InterfaceImplementation, HashCode_InterfaceImplementation );
-               _InterfaceImplementationEqualityComparer = retVal;
-            }
-            return retVal;
-         }
-      }
+      public static IEqualityComparer<InterfaceImplementation> InterfaceImplementationEqualityComparer { get; }
 
       /// <summary>
       /// Get the equality comparer to check whether two instances of <see cref="MemberReference"/> are exactly equal.
@@ -348,19 +140,7 @@ namespace CILAssemblyManipulator.Physical
       /// <remarks>
       /// Two instances of <see cref="MemberReference"/> are considered to be equal by this equality comparer when all the properties of the <see cref="MemberReference"/> are equal.
       /// </remarks>
-      public static IEqualityComparer<MemberReference> MemberReferenceEqualityComparer
-      {
-         get
-         {
-            var retVal = _MemberReferenceEqualityComparer;
-            if ( retVal == null )
-            {
-               retVal = ComparerFromFunctions.NewEqualityComparer<MemberReference>( Equality_MemberReference, HashCode_MemberReference );
-               _MemberReferenceEqualityComparer = retVal;
-            }
-            return retVal;
-         }
-      }
+      public static IEqualityComparer<MemberReference> MemberReferenceEqualityComparer { get; }
 
       /// <summary>
       /// Get the equality comparer to check whether two instances of <see cref="ConstantDefinition"/> are exactly equal.
@@ -369,19 +149,7 @@ namespace CILAssemblyManipulator.Physical
       /// <remarks>
       /// Two instances of <see cref="ConstantDefinition"/> are considered to be equal by this equality comparer when all the properties of the <see cref="ConstantDefinition"/> are equal.
       /// </remarks>
-      public static IEqualityComparer<ConstantDefinition> ConstantDefinitionEqualityComparer
-      {
-         get
-         {
-            var retVal = _ConstantDefinitionEqualityComparer;
-            if ( retVal == null )
-            {
-               retVal = ComparerFromFunctions.NewEqualityComparer<ConstantDefinition>( Equality_ConstantDefinition, HashCode_ConstantDefinition );
-               _ConstantDefinitionEqualityComparer = retVal;
-            }
-            return retVal;
-         }
-      }
+      public static IEqualityComparer<ConstantDefinition> ConstantDefinitionEqualityComparer { get; }
 
       /// <summary>
       /// Get the equality comparer to check whether two instances of <see cref="CustomAttributeDefinition"/> are exactly equal.
@@ -392,19 +160,7 @@ namespace CILAssemblyManipulator.Physical
       /// </remarks>
       /// <seealso cref="CustomAttributeTypedArgumentEqualityComparer"/>
       /// <see cref="CustomAttributeNamedArgumentEqualityComparer"/>
-      public static IEqualityComparer<CustomAttributeDefinition> CustomAttributeDefinitionEqualityComparer
-      {
-         get
-         {
-            var retVal = _CustomAttributeDefinitionEqualityComparer;
-            if ( retVal == null )
-            {
-               retVal = ComparerFromFunctions.NewEqualityComparer<CustomAttributeDefinition>( Equality_CustomAttributeDefinition, HashCode_CustomAttributeDefinition );
-               _CustomAttributeDefinitionEqualityComparer = retVal;
-            }
-            return retVal;
-         }
-      }
+      public static IEqualityComparer<CustomAttributeDefinition> CustomAttributeDefinitionEqualityComparer { get; }
 
       /// <summary>
       /// Get the equality comparer to check whether two instances of <see cref="FieldMarshal"/> are exactly equal.
@@ -413,19 +169,7 @@ namespace CILAssemblyManipulator.Physical
       /// <remarks>
       /// Two instances of <see cref="FieldMarshal"/> are considered to be equal by this equality comparer when all the properties of the <see cref="FieldMarshal"/> are equal.
       /// </remarks>
-      public static IEqualityComparer<FieldMarshal> FieldMarshalEqualityComparer
-      {
-         get
-         {
-            var retVal = _FieldMarshalEqualityComparer;
-            if ( retVal == null )
-            {
-               retVal = ComparerFromFunctions.NewEqualityComparer<FieldMarshal>( Equality_FieldMarshal, HashCode_FieldMarshal );
-               _FieldMarshalEqualityComparer = retVal;
-            }
-            return retVal;
-         }
-      }
+      public static IEqualityComparer<FieldMarshal> FieldMarshalEqualityComparer { get; }
 
       /// <summary>
       /// Get the equality comparer to check whether two instances of <see cref="SecurityDefinition"/> are exactly equal.
@@ -435,19 +179,7 @@ namespace CILAssemblyManipulator.Physical
       /// Two instances of <see cref="SecurityDefinition"/> are considered to be equal by this equality comparer when all the properties of the <see cref="SecurityDefinition"/> are equal.
       /// The values of <see cref="SecurityDefinition.PermissionSets"/> are compared using <see cref="AbstractSecurityInformationEqualityComparer"/>.
       /// </remarks>
-      public static IEqualityComparer<SecurityDefinition> SecurityDefinitionEqualityComparer
-      {
-         get
-         {
-            var retVal = _SecurityDefinitionEqualityComparer;
-            if ( retVal == null )
-            {
-               retVal = ComparerFromFunctions.NewEqualityComparer<SecurityDefinition>( Equality_SecurityDefinition, HashCode_SecurityDefinition );
-               _SecurityDefinitionEqualityComparer = retVal;
-            }
-            return retVal;
-         }
-      }
+      public static IEqualityComparer<SecurityDefinition> SecurityDefinitionEqualityComparer { get; }
 
       /// <summary>
       /// Get the equality comparer to check whether two instances of <see cref="ClassLayout"/> are exactly equal.
@@ -456,19 +188,7 @@ namespace CILAssemblyManipulator.Physical
       /// <remarks>
       /// Two instances of <see cref="ClassLayout"/> are considered to be equal by this equality comparer when all the properties of the <see cref="ClassLayout"/> are equal.
       /// </remarks>
-      public static IEqualityComparer<ClassLayout> ClassLayoutEqualityComparer
-      {
-         get
-         {
-            var retVal = _ClassLayoutEqualityComparer;
-            if ( retVal == null )
-            {
-               retVal = ComparerFromFunctions.NewEqualityComparer<ClassLayout>( Equality_ClassLayout, HashCode_ClassLayout );
-               _ClassLayoutEqualityComparer = retVal;
-            }
-            return retVal;
-         }
-      }
+      public static IEqualityComparer<ClassLayout> ClassLayoutEqualityComparer { get; }
 
       /// <summary>
       /// Get the equality comparer to check whether two instances of <see cref="FieldLayout"/> are exactly equal.
@@ -477,19 +197,7 @@ namespace CILAssemblyManipulator.Physical
       /// <remarks>
       /// Two instances of <see cref="FieldLayout"/> are considered to be equal by this equality comparer when all the properties of the <see cref="FieldLayout"/> are equal.
       /// </remarks>
-      public static IEqualityComparer<FieldLayout> FieldLayoutEqualityComparer
-      {
-         get
-         {
-            var retVal = _FieldLayoutEqualityComparer;
-            if ( retVal == null )
-            {
-               retVal = ComparerFromFunctions.NewEqualityComparer<FieldLayout>( Equality_FieldLayout, HashCode_FieldLayout );
-               _FieldLayoutEqualityComparer = retVal;
-            }
-            return retVal;
-         }
-      }
+      public static IEqualityComparer<FieldLayout> FieldLayoutEqualityComparer { get; }
 
       /// <summary>
       /// Get the equality comparer to check whether two instances of <see cref="StandaloneSignature"/> are exactly equal.
@@ -498,19 +206,7 @@ namespace CILAssemblyManipulator.Physical
       /// <remarks>
       /// Two instances of <see cref="StandaloneSignature"/> are considered to be equal by this equality comparer when all the properties of the <see cref="StandaloneSignature"/> are equal.
       /// </remarks>
-      public static IEqualityComparer<StandaloneSignature> StandaloneSignatureEqualityComparer
-      {
-         get
-         {
-            var retVal = _StandaloneSignatureEqualityComparer;
-            if ( retVal == null )
-            {
-               retVal = ComparerFromFunctions.NewEqualityComparer<StandaloneSignature>( Equality_StandaloneSignature, HashCode_StandaloneSignature );
-               _StandaloneSignatureEqualityComparer = retVal;
-            }
-            return retVal;
-         }
-      }
+      public static IEqualityComparer<StandaloneSignature> StandaloneSignatureEqualityComparer { get; }
 
       /// <summary>
       /// Get the equality comparer to check whether two instances of <see cref="EventMap"/> are exactly equal.
@@ -519,19 +215,7 @@ namespace CILAssemblyManipulator.Physical
       /// <remarks>
       /// Two instances of <see cref="EventMap"/> are considered to be equal by this equality comparer when all the properties of the <see cref="EventMap"/> are equal.
       /// </remarks>
-      public static IEqualityComparer<EventMap> EventMapEqualityComparer
-      {
-         get
-         {
-            var retVal = _EventMapEqualityComparer;
-            if ( retVal == null )
-            {
-               retVal = ComparerFromFunctions.NewEqualityComparer<EventMap>( Equality_EventMap, HashCode_EventMap );
-               _EventMapEqualityComparer = retVal;
-            }
-            return retVal;
-         }
-      }
+      public static IEqualityComparer<EventMap> EventMapEqualityComparer { get; }
 
       /// <summary>
       /// Get the equality comparer to check whether two instances of <see cref="EventDefinitionPointer"/> are exactly equal.
@@ -540,19 +224,7 @@ namespace CILAssemblyManipulator.Physical
       /// <remarks>
       /// Two instances of <see cref="EventDefinitionPointer"/> are considered to be equal by this equality comparer when all the properties of the <see cref="EventDefinitionPointer"/> are equal.
       /// </remarks>
-      public static IEqualityComparer<EventDefinitionPointer> EventDefinitionPointerEqualityComparer
-      {
-         get
-         {
-            var retVal = _EventDefinitionPointerEqualityComparer;
-            if ( retVal == null )
-            {
-               retVal = ComparerFromFunctions.NewEqualityComparer<EventDefinitionPointer>( Equality_EventDefinitionPointer, HashCode_EventDefinitionPointer );
-               _EventDefinitionPointerEqualityComparer = retVal;
-            }
-            return retVal;
-         }
-      }
+      public static IEqualityComparer<EventDefinitionPointer> EventDefinitionPointerEqualityComparer { get; }
 
       /// <summary>
       /// Get the equality comparer to check whether two instances of <see cref="EventDefinition"/> are exactly equal.
@@ -561,19 +233,7 @@ namespace CILAssemblyManipulator.Physical
       /// <remarks>
       /// Two instances of <see cref="EventDefinition"/> are considered to be equal by this equality comparer when all the properties of the <see cref="EventDefinition"/> are equal.
       /// </remarks>
-      public static IEqualityComparer<EventDefinition> EventDefinitionEqualityComparer
-      {
-         get
-         {
-            var retVal = _EventDefinitionEqualityComparer;
-            if ( retVal == null )
-            {
-               retVal = ComparerFromFunctions.NewEqualityComparer<EventDefinition>( Equality_EventDefinition, HashCode_EventDefinition );
-               _EventDefinitionEqualityComparer = retVal;
-            }
-            return retVal;
-         }
-      }
+      public static IEqualityComparer<EventDefinition> EventDefinitionEqualityComparer { get; }
 
       /// <summary>
       /// Get the equality comparer to check whether two instances of <see cref="PropertyMap"/> are exactly equal.
@@ -582,19 +242,7 @@ namespace CILAssemblyManipulator.Physical
       /// <remarks>
       /// Two instances of <see cref="PropertyMap"/> are considered to be equal by this equality comparer when all the properties of the <see cref="PropertyMap"/> are equal.
       /// </remarks>
-      public static IEqualityComparer<PropertyMap> PropertyMapEqualityComparer
-      {
-         get
-         {
-            var retVal = _PropertyMapEqualityComparer;
-            if ( retVal == null )
-            {
-               retVal = ComparerFromFunctions.NewEqualityComparer<PropertyMap>( Equality_PropertyMap, HashCode_PropertyMap );
-               _PropertyMapEqualityComparer = retVal;
-            }
-            return retVal;
-         }
-      }
+      public static IEqualityComparer<PropertyMap> PropertyMapEqualityComparer { get; }
 
       /// <summary>
       /// Get the equality comparer to check whether two instances of <see cref="PropertyDefinitionPointer"/> are exactly equal.
@@ -603,19 +251,7 @@ namespace CILAssemblyManipulator.Physical
       /// <remarks>
       /// Two instances of <see cref="PropertyDefinitionPointer"/> are considered to be equal by this equality comparer when all the properties of the <see cref="PropertyDefinitionPointer"/> are equal.
       /// </remarks>
-      public static IEqualityComparer<PropertyDefinitionPointer> PropertyDefinitionPointerEqualityComparer
-      {
-         get
-         {
-            var retVal = _PropertyDefinitionPointerEqualityComparer;
-            if ( retVal == null )
-            {
-               retVal = ComparerFromFunctions.NewEqualityComparer<PropertyDefinitionPointer>( Equality_PropertyDefinitionPointer, HashCode_PropertyDefinitionPointer );
-               _PropertyDefinitionPointerEqualityComparer = retVal;
-            }
-            return retVal;
-         }
-      }
+      public static IEqualityComparer<PropertyDefinitionPointer> PropertyDefinitionPointerEqualityComparer { get; }
 
       /// <summary>
       /// Get the equality comparer to check whether two instances of <see cref="PropertyDefinition"/> are exactly equal.
@@ -624,19 +260,7 @@ namespace CILAssemblyManipulator.Physical
       /// <remarks>
       /// Two instances of <see cref="PropertyDefinition"/> are considered to be equal by this equality comparer when all the properties of the <see cref="PropertyDefinition"/> are equal.
       /// </remarks>
-      public static IEqualityComparer<PropertyDefinition> PropertyDefinitionEqualityComparer
-      {
-         get
-         {
-            var retVal = _PropertyDefinitionEqualityComparer;
-            if ( retVal == null )
-            {
-               retVal = ComparerFromFunctions.NewEqualityComparer<PropertyDefinition>( Equality_PropertyDefinition, HashCode_PropertyDefinition );
-               _PropertyDefinitionEqualityComparer = retVal;
-            }
-            return retVal;
-         }
-      }
+      public static IEqualityComparer<PropertyDefinition> PropertyDefinitionEqualityComparer { get; }
 
       /// <summary>
       /// Get the equality comparer to check whether two instances of <see cref="MethodSemantics"/> are exactly equal.
@@ -645,19 +269,7 @@ namespace CILAssemblyManipulator.Physical
       /// <remarks>
       /// Two instances of <see cref="MethodSemantics"/> are considered to be equal by this equality comparer when all the properties of the <see cref="MethodSemantics"/> are equal.
       /// </remarks>
-      public static IEqualityComparer<MethodSemantics> MethodSemanticsEqualityComparer
-      {
-         get
-         {
-            var retVal = _MethodSemanticsEqualityComparer;
-            if ( retVal == null )
-            {
-               retVal = ComparerFromFunctions.NewEqualityComparer<MethodSemantics>( Equality_MethodSemantics, HashCode_MethodSemantics );
-               _MethodSemanticsEqualityComparer = retVal;
-            }
-            return retVal;
-         }
-      }
+      public static IEqualityComparer<MethodSemantics> MethodSemanticsEqualityComparer { get; }
 
       /// <summary>
       /// Get the equality comparer to check whether two instances of <see cref="MethodImplementation"/> are exactly equal.
@@ -666,19 +278,7 @@ namespace CILAssemblyManipulator.Physical
       /// <remarks>
       /// Two instances of <see cref="MethodImplementation"/> are considered to be equal by this equality comparer when all the properties of the <see cref="MethodImplementation"/> are equal.
       /// </remarks>
-      public static IEqualityComparer<MethodImplementation> MethodImplementationEqualityComparer
-      {
-         get
-         {
-            var retVal = _MethodImplementationEqualityComparer;
-            if ( retVal == null )
-            {
-               retVal = ComparerFromFunctions.NewEqualityComparer<MethodImplementation>( Equality_MethodImplementation, HashCode_MethodImplementation );
-               _MethodImplementationEqualityComparer = retVal;
-            }
-            return retVal;
-         }
-      }
+      public static IEqualityComparer<MethodImplementation> MethodImplementationEqualityComparer { get; }
 
       /// <summary>
       /// Get the equality comparer to check whether two instances of <see cref="ModuleReference"/> are exactly equal.
@@ -687,19 +287,7 @@ namespace CILAssemblyManipulator.Physical
       /// <remarks>
       /// Two instances of <see cref="ModuleReference"/> are considered to be equal by this equality comparer when all the properties of the <see cref="ModuleReference"/> are equal.
       /// </remarks>
-      public static IEqualityComparer<ModuleReference> ModuleReferenceEqualityComparer
-      {
-         get
-         {
-            var retVal = _ModuleReferenceEqualityComparer;
-            if ( retVal == null )
-            {
-               retVal = ComparerFromFunctions.NewEqualityComparer<ModuleReference>( Equality_ModuleReference, HashCode_ModuleReference );
-               _ModuleReferenceEqualityComparer = retVal;
-            }
-            return retVal;
-         }
-      }
+      public static IEqualityComparer<ModuleReference> ModuleReferenceEqualityComparer { get; }
 
       /// <summary>
       /// Get the equality comparer to check whether two instances of <see cref="TypeSpecification"/> are exactly equal.
@@ -708,19 +296,7 @@ namespace CILAssemblyManipulator.Physical
       /// <remarks>
       /// Two instances of <see cref="TypeSpecification"/> are considered to be equal by this equality comparer when all the properties of the <see cref="TypeSpecification"/> are equal.
       /// </remarks>
-      public static IEqualityComparer<TypeSpecification> TypeSpecificationEqualityComparer
-      {
-         get
-         {
-            var retVal = _TypeSpecificationEqualityComparer;
-            if ( retVal == null )
-            {
-               retVal = ComparerFromFunctions.NewEqualityComparer<TypeSpecification>( Equality_TypeSpecification, HashCode_TypeSpecification );
-               _TypeSpecificationEqualityComparer = retVal;
-            }
-            return retVal;
-         }
-      }
+      public static IEqualityComparer<TypeSpecification> TypeSpecificationEqualityComparer { get; }
 
       /// <summary>
       /// Get the equality comparer to check whether two instances of <see cref="MethodImplementationMap"/> are exactly equal.
@@ -729,19 +305,7 @@ namespace CILAssemblyManipulator.Physical
       /// <remarks>
       /// Two instances of <see cref="MethodImplementationMap"/> are considered to be equal by this equality comparer when all the properties of the <see cref="MethodImplementationMap"/> are equal.
       /// </remarks>
-      public static IEqualityComparer<MethodImplementationMap> MethodImplementationMapEqualityComparer
-      {
-         get
-         {
-            var retVal = _MethodImplementationMapEqualityComparer;
-            if ( retVal == null )
-            {
-               retVal = ComparerFromFunctions.NewEqualityComparer<MethodImplementationMap>( Equality_MethodImplementationMap, HashCode_MethodImplementationMap );
-               _MethodImplementationMapEqualityComparer = retVal;
-            }
-            return retVal;
-         }
-      }
+      public static IEqualityComparer<MethodImplementationMap> MethodImplementationMapEqualityComparer { get; }
 
       /// <summary>
       /// Get the equality comparer to check whether two instances of <see cref="FieldRVA"/> are exactly equal.
@@ -750,19 +314,7 @@ namespace CILAssemblyManipulator.Physical
       /// <remarks>
       /// Two instances of <see cref="FieldRVA"/> are considered to be equal by this equality comparer when all the properties of the <see cref="FieldRVA"/> are equal.
       /// </remarks>
-      public static IEqualityComparer<FieldRVA> FieldRVAEqualityComparer
-      {
-         get
-         {
-            var retVal = _FieldRVAEqualityComparer;
-            if ( retVal == null )
-            {
-               retVal = ComparerFromFunctions.NewEqualityComparer<FieldRVA>( Equality_FieldRVA, HashCode_FieldRVA );
-               _FieldRVAEqualityComparer = retVal;
-            }
-            return retVal;
-         }
-      }
+      public static IEqualityComparer<FieldRVA> FieldRVAEqualityComparer { get; }
 
       /// <summary>
       /// Get the equality comparer to check whether two instances of <see cref="EditAndContinueLog"/> are exactly equal.
@@ -771,19 +323,7 @@ namespace CILAssemblyManipulator.Physical
       /// <remarks>
       /// Two instances of <see cref="EditAndContinueLog"/> are considered to be equal by this equality comparer when all the properties of the <see cref="EditAndContinueLog"/> are equal.
       /// </remarks>
-      public static IEqualityComparer<EditAndContinueLog> EditAndContinueLogEqualityComparer
-      {
-         get
-         {
-            var retVal = _EditAndContinueLogEqualityComparer;
-            if ( retVal == null )
-            {
-               retVal = ComparerFromFunctions.NewEqualityComparer<EditAndContinueLog>( Equality_EditAndContinueLog, HashCode_EditAndContinueLog );
-               _EditAndContinueLogEqualityComparer = retVal;
-            }
-            return retVal;
-         }
-      }
+      public static IEqualityComparer<EditAndContinueLog> EditAndContinueLogEqualityComparer { get; }
 
       /// <summary>
       /// Get the equality comparer to check whether two instances of <see cref="EditAndContinueMap"/> are exactly equal.
@@ -792,19 +332,7 @@ namespace CILAssemblyManipulator.Physical
       /// <remarks>
       /// Two instances of <see cref="EditAndContinueMap"/> are considered to be equal by this equality comparer when all the properties of the <see cref="EditAndContinueMap"/> are equal.
       /// </remarks>
-      public static IEqualityComparer<EditAndContinueMap> EditAndContinueMapEqualityComparer
-      {
-         get
-         {
-            var retVal = _EditAndContinueMapEqualityComparer;
-            if ( retVal == null )
-            {
-               retVal = ComparerFromFunctions.NewEqualityComparer<EditAndContinueMap>( Equality_EditAndContinueMap, HashCode_EditAndContinueMap );
-               _EditAndContinueMapEqualityComparer = retVal;
-            }
-            return retVal;
-         }
-      }
+      public static IEqualityComparer<EditAndContinueMap> EditAndContinueMapEqualityComparer { get; }
 
       /// <summary>
       /// Get the equality comparer to check whether two instances of <see cref="AssemblyDefinition"/> are exactly equal.
@@ -813,19 +341,16 @@ namespace CILAssemblyManipulator.Physical
       /// <remarks>
       /// Two instances of <see cref="AssemblyDefinition"/> are considered to be equal by this equality comparer when all the properties of the <see cref="AssemblyDefinition"/> are equal.
       /// </remarks>
-      public static IEqualityComparer<AssemblyDefinition> AssemblyDefinitionEqualityComparer
-      {
-         get
-         {
-            var retVal = _AssemblyDefinitionEqualityComparer;
-            if ( retVal == null )
-            {
-               retVal = ComparerFromFunctions.NewEqualityComparer<AssemblyDefinition>( Equality_AssemblyDefinition, HashCode_AssemblyDefinition );
-               _AssemblyDefinitionEqualityComparer = retVal;
-            }
-            return retVal;
-         }
-      }
+      public static IEqualityComparer<AssemblyDefinition> AssemblyDefinitionEqualityComparer { get; }
+
+      /// <summary>
+      /// Get the equality comparer to check whether two instances of <see cref="AssemblyReference"/> are exactly equal.
+      /// </summary>
+      /// <value>The equality comparer to check whether two instances of <see cref="AssemblyReference"/> are exactly equal.</value>
+      /// <remarks>
+      /// Two instances of <see cref="AssemblyReference"/> are considered to be equal by this equality comparer when all the properties of the <see cref="AssemblyReference"/> are equal.
+      /// </remarks>
+      public static IEqualityComparer<AssemblyReference> AssemblyReferenceEqualityComparer { get; }
 
 #pragma warning disable 618
 
@@ -836,19 +361,7 @@ namespace CILAssemblyManipulator.Physical
       /// <remarks>
       /// Two instances of <see cref="AssemblyDefinitionProcessor"/> are considered to be equal by this equality comparer when all the properties of the <see cref="AssemblyDefinitionProcessor"/> are equal.
       /// </remarks>
-      public static IEqualityComparer<AssemblyDefinitionProcessor> AssemblyDefinitionProcessorEqualityComparer
-      {
-         get
-         {
-            var retVal = _AssemblyDefinitionProcessorEqualityComparer;
-            if ( retVal == null )
-            {
-               retVal = ComparerFromFunctions.NewEqualityComparer<AssemblyDefinitionProcessor>( Equality_AssemblyDefinitionProcessor, HashCode_AssemblyDefinitionProcessor );
-               _AssemblyDefinitionProcessorEqualityComparer = retVal;
-            }
-            return retVal;
-         }
-      }
+      public static IEqualityComparer<AssemblyDefinitionProcessor> AssemblyDefinitionProcessorEqualityComparer { get; }
 
       /// <summary>
       /// Get the equality comparer to check whether two instances of <see cref="AssemblyDefinitionOS"/> are exactly equal.
@@ -857,44 +370,7 @@ namespace CILAssemblyManipulator.Physical
       /// <remarks>
       /// Two instances of <see cref="AssemblyDefinitionOS"/> are considered to be equal by this equality comparer when all the properties of the <see cref="AssemblyDefinitionOS"/> are equal.
       /// </remarks>
-      public static IEqualityComparer<AssemblyDefinitionOS> AssemblyDefinitionOSEqualityComparer
-      {
-         get
-         {
-            var retVal = _AssemblyDefinitionOSEqualityComparer;
-            if ( retVal == null )
-            {
-               retVal = ComparerFromFunctions.NewEqualityComparer<AssemblyDefinitionOS>( Equality_AssemblyDefinitionOS, HashCode_AssemblyDefinitionOS );
-               _AssemblyDefinitionOSEqualityComparer = retVal;
-            }
-            return retVal;
-         }
-      }
-
-#pragma warning restore 618
-
-      /// <summary>
-      /// Get the equality comparer to check whether two instances of <see cref="AssemblyReference"/> are exactly equal.
-      /// </summary>
-      /// <value>The equality comparer to check whether two instances of <see cref="AssemblyReference"/> are exactly equal.</value>
-      /// <remarks>
-      /// Two instances of <see cref="AssemblyReference"/> are considered to be equal by this equality comparer when all the properties of the <see cref="AssemblyReference"/> are equal.
-      /// </remarks>
-      public static IEqualityComparer<AssemblyReference> AssemblyReferenceEqualityComparer
-      {
-         get
-         {
-            var retVal = _AssemblyReferenceEqualityComparer;
-            if ( retVal == null )
-            {
-               retVal = ComparerFromFunctions.NewEqualityComparer<AssemblyReference>( Equality_AssemblyReference, HashCode_AssemblyReference );
-               _AssemblyReferenceEqualityComparer = retVal;
-            }
-            return retVal;
-         }
-      }
-
-#pragma warning disable 618
+      public static IEqualityComparer<AssemblyDefinitionOS> AssemblyDefinitionOSEqualityComparer { get; }
 
       /// <summary>
       /// Get the equality comparer to check whether two instances of <see cref="AssemblyReferenceProcessor"/> are exactly equal.
@@ -903,19 +379,7 @@ namespace CILAssemblyManipulator.Physical
       /// <remarks>
       /// Two instances of <see cref="AssemblyReferenceProcessor"/> are considered to be equal by this equality comparer when all the properties of the <see cref="AssemblyReferenceProcessor"/> are equal.
       /// </remarks>
-      public static IEqualityComparer<AssemblyReferenceProcessor> AssemblyReferenceProcessorEqualityComparer
-      {
-         get
-         {
-            var retVal = _AssemblyReferenceProcessorEqualityComparer;
-            if ( retVal == null )
-            {
-               retVal = ComparerFromFunctions.NewEqualityComparer<AssemblyReferenceProcessor>( Equality_AssemblyReferenceProcessor, HashCode_AssemblyReferenceProcessor );
-               _AssemblyReferenceProcessorEqualityComparer = retVal;
-            }
-            return retVal;
-         }
-      }
+      public static IEqualityComparer<AssemblyReferenceProcessor> AssemblyReferenceProcessorEqualityComparer { get; }
 
       /// <summary>
       /// Get the equality comparer to check whether two instances of <see cref="AssemblyReferenceOS"/> are exactly equal.
@@ -924,19 +388,7 @@ namespace CILAssemblyManipulator.Physical
       /// <remarks>
       /// Two instances of <see cref="AssemblyReferenceOS"/> are considered to be equal by this equality comparer when all the properties of the <see cref="AssemblyReferenceOS"/> are equal.
       /// </remarks>
-      public static IEqualityComparer<AssemblyReferenceOS> AssemblyReferenceOSEqualityComparer
-      {
-         get
-         {
-            var retVal = _AssemblyReferenceOSEqualityComparer;
-            if ( retVal == null )
-            {
-               retVal = ComparerFromFunctions.NewEqualityComparer<AssemblyReferenceOS>( Equality_AssemblyReferenceOS, HashCode_AssemblyReferenceOS );
-               _AssemblyReferenceOSEqualityComparer = retVal;
-            }
-            return retVal;
-         }
-      }
+      public static IEqualityComparer<AssemblyReferenceOS> AssemblyReferenceOSEqualityComparer { get; }
 
 #pragma warning restore 618
 
@@ -947,19 +399,7 @@ namespace CILAssemblyManipulator.Physical
       /// <remarks>
       /// Two instances of <see cref="FileReference"/> are considered to be equal by this equality comparer when all the properties of the <see cref="FileReference"/> are equal.
       /// </remarks>
-      public static IEqualityComparer<FileReference> FileReferenceEqualityComparer
-      {
-         get
-         {
-            var retVal = _FileReferenceEqualityComparer;
-            if ( retVal == null )
-            {
-               retVal = ComparerFromFunctions.NewEqualityComparer<FileReference>( Equality_FileReference, HashCode_FileReference );
-               _FileReferenceEqualityComparer = retVal;
-            }
-            return retVal;
-         }
-      }
+      public static IEqualityComparer<FileReference> FileReferenceEqualityComparer { get; }
 
       /// <summary>
       /// Get the equality comparer to check whether two instances of <see cref="ExportedType"/> are exactly equal.
@@ -968,19 +408,7 @@ namespace CILAssemblyManipulator.Physical
       /// <remarks>
       /// Two instances of <see cref="ExportedType"/> are considered to be equal by this equality comparer when all the properties of the <see cref="ExportedType"/> are equal.
       /// </remarks>
-      public static IEqualityComparer<ExportedType> ExportedTypeEqualityComparer
-      {
-         get
-         {
-            var retVal = _ExportedTypeEqualityComparer;
-            if ( retVal == null )
-            {
-               retVal = ComparerFromFunctions.NewEqualityComparer<ExportedType>( Equality_ExportedType, HashCode_ExportedType );
-               _ExportedTypeEqualityComparer = retVal;
-            }
-            return retVal;
-         }
-      }
+      public static IEqualityComparer<ExportedType> ExportedTypeEqualityComparer { get; }
 
       /// <summary>
       /// Get the equality comparer to check whether two instances of <see cref="ManifestResource"/> are exactly equal.
@@ -989,19 +417,7 @@ namespace CILAssemblyManipulator.Physical
       /// <remarks>
       /// Two instances of <see cref="ManifestResource"/> are considered to be equal by this equality comparer when all the properties of the <see cref="ManifestResource"/> are equal.
       /// </remarks>
-      public static IEqualityComparer<ManifestResource> ManifestResourceEqualityComparer
-      {
-         get
-         {
-            var retVal = _ManifestResourceEqualityComparer;
-            if ( retVal == null )
-            {
-               retVal = ComparerFromFunctions.NewEqualityComparer<ManifestResource>( Equality_ManifestResource, HashCode_ManifestResource );
-               _ManifestResourceEqualityComparer = retVal;
-            }
-            return retVal;
-         }
-      }
+      public static IEqualityComparer<ManifestResource> ManifestResourceEqualityComparer { get; }
 
       /// <summary>
       /// Get the equality comparer to check whether two instances of <see cref="NestedClassDefinition"/> are exactly equal.
@@ -1010,19 +426,7 @@ namespace CILAssemblyManipulator.Physical
       /// <remarks>
       /// Two instances of <see cref="NestedClassDefinition"/> are considered to be equal by this equality comparer when all the properties of the <see cref="NestedClassDefinition"/> are equal.
       /// </remarks>
-      public static IEqualityComparer<NestedClassDefinition> NestedClassDefinitionEqualityComparer
-      {
-         get
-         {
-            var retVal = _NestedClassDefinitionEqualityComparer;
-            if ( retVal == null )
-            {
-               retVal = ComparerFromFunctions.NewEqualityComparer<NestedClassDefinition>( Equality_NestedClassDefinition, HashCode_NestedClassDefinition );
-               _NestedClassDefinitionEqualityComparer = retVal;
-            }
-            return retVal;
-         }
-      }
+      public static IEqualityComparer<NestedClassDefinition> NestedClassDefinitionEqualityComparer { get; }
 
       /// <summary>
       /// Get the equality comparer to check whether two instances of <see cref="GenericParameterDefinition"/> are exactly equal.
@@ -1031,19 +435,7 @@ namespace CILAssemblyManipulator.Physical
       /// <remarks>
       /// Two instances of <see cref="GenericParameterDefinition"/> are considered to be equal by this equality comparer when all the properties of the <see cref="GenericParameterDefinition"/> are equal.
       /// </remarks>
-      public static IEqualityComparer<GenericParameterDefinition> GenericParameterDefinitionEqualityComparer
-      {
-         get
-         {
-            var retVal = _GenericParameterDefinitionEqualityComparer;
-            if ( retVal == null )
-            {
-               retVal = ComparerFromFunctions.NewEqualityComparer<GenericParameterDefinition>( Equality_GenericParameterDefinition, HashCode_GenericParameterDefinition );
-               _GenericParameterDefinitionEqualityComparer = retVal;
-            }
-            return retVal;
-         }
-      }
+      public static IEqualityComparer<GenericParameterDefinition> GenericParameterDefinitionEqualityComparer { get; }
 
       /// <summary>
       /// Get the equality comparer to check whether two instances of <see cref="MethodSpecification"/> are exactly equal.
@@ -1052,19 +444,8 @@ namespace CILAssemblyManipulator.Physical
       /// <remarks>
       /// Two instances of <see cref="MethodSpecification"/> are considered to be equal by this equality comparer when all the properties of the <see cref="MethodSpecification"/> are equal.
       /// </remarks>
-      public static IEqualityComparer<MethodSpecification> MethodSpecificationEqualityComparer
-      {
-         get
-         {
-            var retVal = _MethodSpecificationEqualityComparer;
-            if ( retVal == null )
-            {
-               retVal = ComparerFromFunctions.NewEqualityComparer<MethodSpecification>( Equality_MethodSpecification, HashCode_MethodSpecification );
-               _MethodSpecificationEqualityComparer = retVal;
-            }
-            return retVal;
-         }
-      }
+      public static IEqualityComparer<MethodSpecification> MethodSpecificationEqualityComparer { get; }
+
 
       /// <summary>
       /// Get the equality comparer to check whether two instances of <see cref="GenericParameterConstraintDefinition"/> are exactly equal.
@@ -1073,19 +454,7 @@ namespace CILAssemblyManipulator.Physical
       /// <remarks>
       /// Two instances of <see cref="GenericParameterConstraintDefinition"/> are considered to be equal by this equality comparer when all the properties of the <see cref="GenericParameterConstraintDefinition"/> are equal.
       /// </remarks>
-      public static IEqualityComparer<GenericParameterConstraintDefinition> GenericParameterConstraintDefinitionEqualityComparer
-      {
-         get
-         {
-            var retVal = _GenericParameterConstraintDefinitionEqualityComparer;
-            if ( retVal == null )
-            {
-               retVal = ComparerFromFunctions.NewEqualityComparer<GenericParameterConstraintDefinition>( Equality_GenericParameterConstraintDefinition, HashCode_GenericParameterConstraintDefinition );
-               _GenericParameterConstraintDefinitionEqualityComparer = retVal;
-            }
-            return retVal;
-         }
-      }
+      public static IEqualityComparer<GenericParameterConstraintDefinition> GenericParameterConstraintDefinitionEqualityComparer { get; }
 
       /// <summary>
       /// Get the equality comparer to check whether two instances of <see cref="MethodILDefinition"/> are exactly equal.
@@ -1097,19 +466,7 @@ namespace CILAssemblyManipulator.Physical
       /// </remarks>
       /// <seealso cref="OpCodeInfoEqualityComparer"/>
       /// <seealso cref="MethodExceptionBlockEqualityComparer"/>
-      public static IEqualityComparer<MethodILDefinition> MethodILDefinitionEqualityComparer
-      {
-         get
-         {
-            var retVal = _MethodILDefinitionEqualityComparer;
-            if ( retVal == null )
-            {
-               retVal = ComparerFromFunctions.NewEqualityComparer<MethodILDefinition>( Equality_MethodILDefinition, HashCode_MethodILDefinition );
-               _MethodILDefinitionEqualityComparer = retVal;
-            }
-            return retVal;
-         }
-      }
+      public static IEqualityComparer<MethodILDefinition> MethodILDefinitionEqualityComparer { get; }
 
       /// <summary>
       /// Get the equality comparer to check whether two instances of <see cref="MethodExceptionBlock"/> are exactly equal.
@@ -1118,19 +475,7 @@ namespace CILAssemblyManipulator.Physical
       /// <remarks>
       /// Two instances of <see cref="MethodExceptionBlock"/> are considered to be equal by this equality comparer when all the properties of the <see cref="MethodExceptionBlock"/> are equal.
       /// </remarks>
-      public static IEqualityComparer<MethodExceptionBlock> MethodExceptionBlockEqualityComparer
-      {
-         get
-         {
-            var retVal = _MethodExceptionBlockEqualityComparer;
-            if ( retVal == null )
-            {
-               retVal = ComparerFromFunctions.NewEqualityComparer<MethodExceptionBlock>( Equality_MethodExceptionBlock, HashCode_MethodExceptionBlock );
-               _MethodExceptionBlockEqualityComparer = retVal;
-            }
-            return retVal;
-         }
-      }
+      public static IEqualityComparer<MethodExceptionBlock> MethodExceptionBlockEqualityComparer { get; }
 
       /// <summary>
       /// Get the equality comparer to check whether two instances of <see cref="OpCodeInfo"/> are exactly equal.
@@ -1139,19 +484,7 @@ namespace CILAssemblyManipulator.Physical
       /// <remarks>
       /// Two instances of <see cref="OpCodeInfo"/> are considered to be equal by this equality comparer when their <see cref="OpCodeInfo.InfoKind"/> match (i.e. they are of the same type) and all the content of the corresponding type deriving from <see cref="OpCodeInfo"/> is equal between the two instances.
       /// </remarks>
-      public static IEqualityComparer<OpCodeInfo> OpCodeInfoEqualityComparer
-      {
-         get
-         {
-            var retVal = _OpCodeInfoEqualityComparer;
-            if ( retVal == null )
-            {
-               retVal = ComparerFromFunctions.NewEqualityComparer<OpCodeInfo>( Equality_OpCodeInfo, HashCode_OpCodeInfo );
-               _OpCodeInfoEqualityComparer = retVal;
-            }
-            return retVal;
-         }
-      }
+      public static IEqualityComparer<OpCodeInfo> OpCodeInfoEqualityComparer { get; }
 
       /// <summary>
       /// Get the equality comparer to check whether two instances of <see cref="AssemblyInformation"/> are exactly equal.
@@ -1160,19 +493,7 @@ namespace CILAssemblyManipulator.Physical
       /// <remarks>
       /// Two instances of <see cref="AssemblyInformation"/> are considered to be equal by this equality comparer when <see cref="AssemblyInformation.Equals(AssemblyInformation)"/> returns <c>true</c>.
       /// </remarks>
-      public static IEqualityComparer<AssemblyInformation> AssemblyInformationEqualityComparer
-      {
-         get
-         {
-            var retVal = _AssemblyInformationEqualityComparer;
-            if ( retVal == null )
-            {
-               retVal = ComparerFromFunctions.NewEqualityComparer<AssemblyInformation>( Equality_AssemblyInformation, HashCode_AssemblyInformation );
-               _AssemblyInformationEqualityComparer = retVal;
-            }
-            return retVal;
-         }
-      }
+      public static IEqualityComparer<AssemblyInformation> AssemblyInformationEqualityComparer { get; }
 
       /// <summary>
       /// Get the equality comparer to check whether two instances of <see cref="AbstractSignature"/> are exactly equal.
@@ -1181,19 +502,7 @@ namespace CILAssemblyManipulator.Physical
       /// <remarks>
       /// Two instances of <see cref="AbstractSignature"/> are considered to be equal by this equality comparer when their <see cref="AbstractSignature.SignatureKind"/> match (i.e. they are of the same type) and all the content of the corresponding type deriving from <see cref="AbstractSignature"/> is equal between the two instances.
       /// </remarks>
-      public static IEqualityComparer<AbstractSignature> AbstractSignatureEqualityComparer
-      {
-         get
-         {
-            var retVal = _AbstractSignatureEqualityComparer;
-            if ( retVal == null )
-            {
-               retVal = ComparerFromFunctions.NewEqualityComparer<AbstractSignature>( Equality_AbstractSignature, HashCode_AbstractSignature );
-               _AbstractSignatureEqualityComparer = retVal;
-            }
-            return retVal;
-         }
-      }
+      public static IEqualityComparer<AbstractSignature> AbstractSignatureEqualityComparer { get; }
 
       /// <summary>
       /// Get the equality comparer to check whether two instances of <see cref="RawSignature"/> are exactly equal.
@@ -1202,19 +511,7 @@ namespace CILAssemblyManipulator.Physical
       /// <remarks>
       /// Two instances of <see cref="RawSignature"/> are considered to be equal by this equality comparer when their <see cref="RawSignature.Bytes"/> arrays are equal.
       /// </remarks>
-      public static IEqualityComparer<RawSignature> RawSignatureEqualityComparer
-      {
-         get
-         {
-            var retVal = _RawSignatureEqualityComparer;
-            if ( retVal == null )
-            {
-               retVal = ComparerFromFunctions.NewEqualityComparer<RawSignature>( Equality_RawSignature, HashCode_RawSignature );
-               _RawSignatureEqualityComparer = retVal;
-            }
-            return retVal;
-         }
-      }
+      public static IEqualityComparer<RawSignature> RawSignatureEqualityComparer { get; }
 
       /// <summary>
       /// Get the equality comparer to check whether two instances of <see cref="AbstractMethodSignature"/> are exactly equal.
@@ -1223,19 +520,7 @@ namespace CILAssemblyManipulator.Physical
       /// <remarks>
       /// Two instances of <see cref="AbstractMethodSignature"/> are considered to be equal by this equality comparer when their <see cref="AbstractSignature.SignatureKind"/> match (i.e. they are of the same type) and all the content of the corresponding type deriving from <see cref="AbstractMethodSignature"/> is equal between the two instances.
       /// </remarks>
-      public static IEqualityComparer<AbstractMethodSignature> AbstractMethodSignatureEqualityComparer
-      {
-         get
-         {
-            var retVal = _AbstractMethodSignatureEqualityComparer;
-            if ( retVal == null )
-            {
-               retVal = ComparerFromFunctions.NewEqualityComparer<AbstractMethodSignature>( Equality_AbstractMethodSignature, HashCode_AbstractMethodSignature );
-               _AbstractMethodSignatureEqualityComparer = retVal;
-            }
-            return retVal;
-         }
-      }
+      public static IEqualityComparer<AbstractMethodSignature> AbstractMethodSignatureEqualityComparer { get; }
 
       /// <summary>
       /// Get the equality comparer to check whether two instances of <see cref="AbstractMethodSignature"/> are equal in a scope of <see cref="AbstractMethodSignature"/> type, i.e. allowing different types of <see cref="AbstractMethodSignature"/> to mach, excluding <see cref="MethodReferenceSignature.VarArgsParameters"/>.
@@ -1244,19 +529,7 @@ namespace CILAssemblyManipulator.Physical
       /// <remarks>
       /// Two instances of <see cref="AbstractMethodSignature"/> are considered to be equal by this equality comparer when their <see cref="AbstractMethodSignature.GenericArgumentCount"/>, <see cref="AbstractMethodSignature.Parameters"/>, <see cref="AbstractMethodSignature.ReturnType"/>, and <see cref="AbstractMethodSignature.MethodSignatureInformation"/> are equal between the two instances.
       /// </remarks>
-      public static IEqualityComparer<AbstractMethodSignature> AbstractMethodSignatureEqualityComparer_IgnoreKind
-      {
-         get
-         {
-            var retVal = _AbstractMethodSignatureEqualityComparer_IgnoreKind;
-            if ( retVal == null )
-            {
-               retVal = ComparerFromFunctions.NewEqualityComparer<AbstractMethodSignature>( Equality_AbstractMethodSignature_IgnoreKind, HashCode_AbstractMethodSignature );
-               _AbstractMethodSignatureEqualityComparer_IgnoreKind = retVal;
-            }
-            return retVal;
-         }
-      }
+      public static IEqualityComparer<AbstractMethodSignature> AbstractMethodSignatureEqualityComparer_IgnoreKind { get; }
 
       /// <summary>
       /// Get the equality comparer to check whether two instances of <see cref="MethodDefinitionSignature"/> are exactly equal.
@@ -1265,19 +538,7 @@ namespace CILAssemblyManipulator.Physical
       /// <remarks>
       /// Two instances of <see cref="MethodDefinitionSignature"/> are considered to be equal by this equality comparer when all the properties of the <see cref="MethodDefinitionSignature"/> are equal.
       /// </remarks>
-      public static IEqualityComparer<MethodDefinitionSignature> MethodDefinitionSignatureEqualityComparer
-      {
-         get
-         {
-            var retVal = _MethodDefinitionSignatureEqualityComparer;
-            if ( retVal == null )
-            {
-               retVal = ComparerFromFunctions.NewEqualityComparer<MethodDefinitionSignature>( Equality_MethodDefinitionSignature, HashCode_MethodDefinitionSignature );
-               _MethodDefinitionSignatureEqualityComparer = retVal;
-            }
-            return retVal;
-         }
-      }
+      public static IEqualityComparer<MethodDefinitionSignature> MethodDefinitionSignatureEqualityComparer { get; }
 
       /// <summary>
       /// Get the equality comparer to check whether two instances of <see cref="MethodReferenceSignature"/> are exactly equal.
@@ -1286,19 +547,7 @@ namespace CILAssemblyManipulator.Physical
       /// <remarks>
       /// Two instances of <see cref="MethodReferenceSignature"/> are considered to be equal by this equality comparer when all the properties of the <see cref="MethodReferenceSignature"/> are equal.
       /// </remarks>
-      public static IEqualityComparer<MethodReferenceSignature> MethodReferenceSignatureEqualityComparer
-      {
-         get
-         {
-            var retVal = _MethodReferenceSignatureEqualityComparer;
-            if ( retVal == null )
-            {
-               retVal = ComparerFromFunctions.NewEqualityComparer<MethodReferenceSignature>( Equality_MethodReferenceSignature, HashCode_MethodReferenceSignature );
-               _MethodReferenceSignatureEqualityComparer = retVal;
-            }
-            return retVal;
-         }
-      }
+      public static IEqualityComparer<MethodReferenceSignature> MethodReferenceSignatureEqualityComparer { get; }
 
       /// <summary>
       /// Get the equality comparer to check whether two instances of <see cref="FieldSignature"/> are exactly equal.
@@ -1307,19 +556,7 @@ namespace CILAssemblyManipulator.Physical
       /// <remarks>
       /// Two instances of <see cref="FieldSignature"/> are considered to be equal by this equality comparer when all the properties of the <see cref="FieldSignature"/> are equal.
       /// </remarks>
-      public static IEqualityComparer<FieldSignature> FieldSignatureEqualityComparer
-      {
-         get
-         {
-            var retVal = _FieldSignatureEqualityComparer;
-            if ( retVal == null )
-            {
-               retVal = ComparerFromFunctions.NewEqualityComparer<FieldSignature>( Equality_FieldSignature, HashCode_FieldSignature );
-               _FieldSignatureEqualityComparer = retVal;
-            }
-            return retVal;
-         }
-      }
+      public static IEqualityComparer<FieldSignature> FieldSignatureEqualityComparer { get; }
 
       /// <summary>
       /// Get the equality comparer to check whether two instances of <see cref="PropertySignature"/> are exactly equal.
@@ -1328,19 +565,7 @@ namespace CILAssemblyManipulator.Physical
       /// <remarks>
       /// Two instances of <see cref="PropertySignature"/> are considered to be equal by this equality comparer when all the properties of the <see cref="PropertySignature"/> are equal.
       /// </remarks>
-      public static IEqualityComparer<PropertySignature> PropertySignatureEqualityComparer
-      {
-         get
-         {
-            var retVal = _PropertySignatureEqualityComparer;
-            if ( retVal == null )
-            {
-               retVal = ComparerFromFunctions.NewEqualityComparer<PropertySignature>( Equality_PropertySignature, HashCode_PropertySignature );
-               _PropertySignatureEqualityComparer = retVal;
-            }
-            return retVal;
-         }
-      }
+      public static IEqualityComparer<PropertySignature> PropertySignatureEqualityComparer { get; }
 
       /// <summary>
       /// Get the equality comparer to check whether two instances of <see cref="LocalVariablesSignature"/> are exactly equal.
@@ -1349,19 +574,7 @@ namespace CILAssemblyManipulator.Physical
       /// <remarks>
       /// Two instances of <see cref="LocalVariablesSignature"/> are considered to be equal by this equality comparer when all the properties of the <see cref="LocalVariablesSignature"/> are equal.
       /// </remarks>
-      public static IEqualityComparer<LocalVariablesSignature> LocalVariablesSignatureEqualityComparer
-      {
-         get
-         {
-            var retVal = _LocalVariablesSignatureEqualityComparer;
-            if ( retVal == null )
-            {
-               retVal = ComparerFromFunctions.NewEqualityComparer<LocalVariablesSignature>( Equality_LocalVariablesSignature, HashCode_LocalVariablesSignature );
-               _LocalVariablesSignatureEqualityComparer = retVal;
-            }
-            return retVal;
-         }
-      }
+      public static IEqualityComparer<LocalVariablesSignature> LocalVariablesSignatureEqualityComparer { get; }
 
       /// <summary>
       /// Get the equality comparer to check whether two instances of <see cref="LocalSignature"/> are exactly equal.
@@ -1370,19 +583,7 @@ namespace CILAssemblyManipulator.Physical
       /// <remarks>
       /// Two instances of <see cref="LocalSignature"/> are considered to be equal by this equality comparer when all the properties of the <see cref="LocalSignature"/> are equal.
       /// </remarks>
-      public static IEqualityComparer<LocalSignature> LocalVariableSignatureEqualityComparer
-      {
-         get
-         {
-            var retVal = _LocalVariableSignatureEqualityComparer;
-            if ( retVal == null )
-            {
-               retVal = ComparerFromFunctions.NewEqualityComparer<LocalSignature>( Equality_LocalVariableSignature, HashCode_LocalVariableSignature );
-               _LocalVariableSignatureEqualityComparer = retVal;
-            }
-            return retVal;
-         }
-      }
+      public static IEqualityComparer<LocalSignature> LocalVariableSignatureEqualityComparer { get; }
 
       /// <summary>
       /// Get the equality comparer to check whether two instances of <see cref="ParameterSignature"/> are exactly equal.
@@ -1391,19 +592,7 @@ namespace CILAssemblyManipulator.Physical
       /// <remarks>
       /// Two instances of <see cref="ParameterSignature"/> are considered to be equal by this equality comparer when all the properties of the <see cref="ParameterSignature"/> are equal.
       /// </remarks>
-      public static IEqualityComparer<ParameterSignature> ParameterSignatureEqualityComparer
-      {
-         get
-         {
-            var retVal = _ParameterSignatureEqualityComparer;
-            if ( retVal == null )
-            {
-               retVal = ComparerFromFunctions.NewEqualityComparer<ParameterSignature>( Equality_ParameterSignature, HashCode_ParameterSignature );
-               _ParameterSignatureEqualityComparer = retVal;
-            }
-            return retVal;
-         }
-      }
+      public static IEqualityComparer<ParameterSignature> ParameterSignatureEqualityComparer { get; }
 
       /// <summary>
       /// Get the equality comparer to check whether two instances of <see cref="CustomModifierSignature"/> are exactly equal.
@@ -1412,19 +601,7 @@ namespace CILAssemblyManipulator.Physical
       /// <remarks>
       /// Two instances of <see cref="CustomModifierSignature"/> are considered to be equal by this equality comparer when all the properties of the <see cref="CustomModifierSignature"/> are equal.
       /// </remarks>
-      public static IEqualityComparer<CustomModifierSignature> CustomModifierSignatureEqualityComparer
-      {
-         get
-         {
-            var retVal = _CustomModifierSignatureEqualityComparer;
-            if ( retVal == null )
-            {
-               retVal = ComparerFromFunctions.NewEqualityComparer<CustomModifierSignature>( Equality_CustomModifierSignature, HashCode_CustomModifierSignature );
-               _CustomModifierSignatureEqualityComparer = retVal;
-            }
-            return retVal;
-         }
-      }
+      public static IEqualityComparer<CustomModifierSignature> CustomModifierSignatureEqualityComparer { get; }
 
       /// <summary>
       /// Get the equality comparer to check whether two instances of <see cref="TypeSignature"/> are exactly equal.
@@ -1433,19 +610,7 @@ namespace CILAssemblyManipulator.Physical
       /// <remarks>
       /// Two instances of <see cref="TypeSignature"/> are considered to be equal by this equality comparer when their <see cref="TypeSignature.TypeSignatureKind"/> match (i.e. they are of the same type) and all the content of the corresponding type deriving from <see cref="TypeSignature"/> is equal between the two instances.
       /// </remarks>
-      public static IEqualityComparer<TypeSignature> TypeSignatureEqualityComparer
-      {
-         get
-         {
-            var retVal = _TypeSignatureEqualityComparer;
-            if ( retVal == null )
-            {
-               retVal = ComparerFromFunctions.NewEqualityComparer<TypeSignature>( Equality_TypeSignature, HashCode_TypeSignature );
-               _TypeSignatureEqualityComparer = retVal;
-            }
-            return retVal;
-         }
-      }
+      public static IEqualityComparer<TypeSignature> TypeSignatureEqualityComparer { get; }
 
       /// <summary>
       /// Get the equality comparer to check whether two instances of <see cref="GenericMethodSignature"/> are exactly equal.
@@ -1454,19 +619,7 @@ namespace CILAssemblyManipulator.Physical
       /// <remarks>
       /// Two instances of <see cref="GenericMethodSignature"/> are considered to be equal by this equality comparer when all the properties of the <see cref="GenericMethodSignature"/> are equal.
       /// </remarks>
-      public static IEqualityComparer<GenericMethodSignature> GenericMethodSignatureEqualityComparer
-      {
-         get
-         {
-            var retVal = _GenericMethodSignatureEqualityComparer;
-            if ( retVal == null )
-            {
-               retVal = ComparerFromFunctions.NewEqualityComparer<GenericMethodSignature>( Equality_GenericMethodSignature, HashCode_GenericMethodSignature );
-               _GenericMethodSignatureEqualityComparer = retVal;
-            }
-            return retVal;
-         }
-      }
+      public static IEqualityComparer<GenericMethodSignature> GenericMethodSignatureEqualityComparer { get; }
 
       /// <summary>
       /// Get the equality comparer to check whether two instances of <see cref="AbstractCustomAttributeSignature"/> are exactly equal.
@@ -1475,19 +628,7 @@ namespace CILAssemblyManipulator.Physical
       /// <remarks>
       /// Two instances of <see cref="AbstractCustomAttributeSignature"/> are considered to be equal by this equality comparer when their <see cref="AbstractCustomAttributeSignature.CustomAttributeSignatureKind"/> match (i.e. they are of the same type) and all the content of the corresponding type deriving from <see cref="AbstractCustomAttributeSignature"/> is equal between the two instances.
       /// </remarks>
-      public static IEqualityComparer<AbstractCustomAttributeSignature> AbstractCustomAttributeSignatureEqualityComparer
-      {
-         get
-         {
-            var retVal = _AbstractCustomAttributeSignatureEqualityComparer;
-            if ( retVal == null )
-            {
-               retVal = ComparerFromFunctions.NewEqualityComparer<AbstractCustomAttributeSignature>( Equality_AbstractCustomAttributeSignature, HashCode_AbstractCustomAttributeSignature );
-               _AbstractCustomAttributeSignatureEqualityComparer = retVal;
-            }
-            return retVal;
-         }
-      }
+      public static IEqualityComparer<AbstractCustomAttributeSignature> AbstractCustomAttributeSignatureEqualityComparer { get; }
 
       /// <summary>
       /// Get the equality comparer to check whether two instances of <see cref="CustomAttributeTypedArgument"/> are exactly equal.
@@ -1497,19 +638,7 @@ namespace CILAssemblyManipulator.Physical
       /// Two instances of <see cref="CustomAttributeTypedArgument"/> are considered to be equal by this equality comparer when all the properties of the <see cref="CustomAttributeTypedArgument"/> are equal.
       /// The <see cref="CustomAttributeTypedArgument.Value"/> property is equaled using <see cref="Object.Equals(Object, Object)"/> method, and arrays are equaled recursively using <see cref="E_CommonUtils.ArraysDeepEqualUntyped"/> method.
       /// </remarks>
-      public static IEqualityComparer<CustomAttributeTypedArgument> CustomAttributeTypedArgumentEqualityComparer
-      {
-         get
-         {
-            var retVal = _CustomAttributeTypedArgumentEqualityComparer;
-            if ( retVal == null )
-            {
-               retVal = ComparerFromFunctions.NewEqualityComparer<CustomAttributeTypedArgument>( Equality_CustomAttributeTypedArgument, HashCode_CustomAttributeTypedArgument );
-               _CustomAttributeTypedArgumentEqualityComparer = retVal;
-            }
-            return retVal;
-         }
-      }
+      public static IEqualityComparer<CustomAttributeTypedArgument> CustomAttributeTypedArgumentEqualityComparer { get; }
 
       /// <summary>
       /// Get the equality comparer to check whether two instances of <see cref="CustomAttributeNamedArgument"/> are exactly equal.
@@ -1520,19 +649,7 @@ namespace CILAssemblyManipulator.Physical
       /// </remarks>
       /// <seealso cref="CustomAttributeTypedArgumentEqualityComparer"/>
       /// <seealso cref="CustomAttributeArgumentTypeEqualityComparer"/>
-      public static IEqualityComparer<CustomAttributeNamedArgument> CustomAttributeNamedArgumentEqualityComparer
-      {
-         get
-         {
-            var retVal = _CustomAttributeNamedArgumentEqualityComparer;
-            if ( retVal == null )
-            {
-               retVal = ComparerFromFunctions.NewEqualityComparer<CustomAttributeNamedArgument>( Equality_CustomAttributeNamedArgument, HashCode_CustomAttributeNamedArgument );
-               _CustomAttributeNamedArgumentEqualityComparer = retVal;
-            }
-            return retVal;
-         }
-      }
+      public static IEqualityComparer<CustomAttributeNamedArgument> CustomAttributeNamedArgumentEqualityComparer { get; }
 
       /// <summary>
       /// Get the equality comparer to check whether two instances of <see cref="CustomAttributeArgumentType"/> are exactly equal.
@@ -1541,19 +658,7 @@ namespace CILAssemblyManipulator.Physical
       /// <remarks>
       /// Two instances of <see cref="CustomAttributeArgumentType"/> are considered to be equal by this equality comparer when their <see cref="CustomAttributeArgumentType.ArgumentTypeKind"/> match (i.e. they are of the same type) and all the content of the corresponding type deriving from <see cref="CustomAttributeArgumentType"/> is equal between the two instances.
       /// </remarks>
-      public static IEqualityComparer<CustomAttributeArgumentType> CustomAttributeArgumentTypeEqualityComparer
-      {
-         get
-         {
-            var retVal = _CustomAttributeArgumentTypeEqualityComparer;
-            if ( retVal == null )
-            {
-               retVal = ComparerFromFunctions.NewEqualityComparer<CustomAttributeArgumentType>( Equality_CustomAttributeArgumentType, HashCode_CustomAttributeArgumentType );
-               _CustomAttributeArgumentTypeEqualityComparer = retVal;
-            }
-            return retVal;
-         }
-      }
+      public static IEqualityComparer<CustomAttributeArgumentType> CustomAttributeArgumentTypeEqualityComparer { get; }
 
       /// <summary>
       /// Get the equality comparer to check whether two instances of <see cref="AbstractSecurityInformation"/> are exactly equal.
@@ -1562,19 +667,7 @@ namespace CILAssemblyManipulator.Physical
       /// <remarks>
       /// Two instances of <see cref="AbstractSecurityInformation"/> are considered to be equal by this equality comparer when their <see cref="AbstractSecurityInformation.SecurityInformationKind"/> match (i.e. they are of the same type) and all the content of the corresponding type deriving from <see cref="AbstractSecurityInformation"/> is equal between the two instances.
       /// </remarks>
-      public static IEqualityComparer<AbstractSecurityInformation> AbstractSecurityInformationEqualityComparer
-      {
-         get
-         {
-            var retVal = _AbstractSecurityInformationEqualityComparer;
-            if ( retVal == null )
-            {
-               retVal = ComparerFromFunctions.NewEqualityComparer<AbstractSecurityInformation>( Equality_AbstractSecurityInformation, HashCode_AbstractSecurityInformation );
-               _AbstractSecurityInformationEqualityComparer = retVal;
-            }
-            return retVal;
-         }
-      }
+      public static IEqualityComparer<AbstractSecurityInformation> AbstractSecurityInformationEqualityComparer { get; }
 
       /// <summary>
       /// Get the equality comparer to check whether two instances of <see cref="AbstractMarshalingInfo"/> are exactly equal.
@@ -1583,18 +676,82 @@ namespace CILAssemblyManipulator.Physical
       /// <remarks>
       /// Two instances of <see cref="AbstractMarshalingInfo"/> are considered to be equal by this equality comparer when their <see cref="AbstractMarshalingInfo.MarshalingInfoKind"/> match (i.e. they are of the same type) and all the content of the corresponding type deriving from <see cref="AbstractMarshalingInfo"/> is equal between the two instances.
       /// </remarks>
-      public static IEqualityComparer<AbstractMarshalingInfo> MarshalingInfoEqualityComparer
+      public static IEqualityComparer<AbstractMarshalingInfo> MarshalingInfoEqualityComparer { get; }
+
+      static Comparers()
       {
-         get
-         {
-            var retVal = _MarshalingInfoEqualityComparer;
-            if ( retVal == null )
-            {
-               retVal = ComparerFromFunctions.NewEqualityComparer<AbstractMarshalingInfo>( Equality_MarshalingInfo, HashCode_MarshalingInfo );
-               _MarshalingInfoEqualityComparer = retVal;
-            }
-            return retVal;
-         }
+         MetaDataEqualityComparer = ComparerFromFunctions.NewEqualityComparer<CILMetaData>( Equality_MetaData, HashCode_MetaData );
+         ModuleDefinitionEqualityComparer = ComparerFromFunctions.NewEqualityComparer<ModuleDefinition>( Equality_ModuleDefinition, HashCode_ModuleDefinition );
+         TypeReferenceEqualityComparer = ComparerFromFunctions.NewEqualityComparer<TypeReference>( Equality_TypeReference, HashCode_TypeReference );
+         TypeDefinitionEqualityComparer = ComparerFromFunctions.NewEqualityComparer<TypeDefinition>( Equality_TypeDefinition, HashCode_TypeDefinition );
+         FieldDefinitionPointerEqualityComparer = ComparerFromFunctions.NewEqualityComparer<FieldDefinitionPointer>( Equality_FieldDefinitionPointer, HashCode_FieldDefinitionPointer );
+         FieldDefinitionEqualityComparer = ComparerFromFunctions.NewEqualityComparer<FieldDefinition>( Equality_FieldDefinition, HashCode_FieldDefinition );
+         MethodDefinitionPointerEqualityComparer = ComparerFromFunctions.NewEqualityComparer<MethodDefinitionPointer>( Equality_MethodDefinitionPointer, HashCode_MethodDefinitionPointer );
+         MethodDefinitionEqualityComparer = ComparerFromFunctions.NewEqualityComparer<MethodDefinition>( Equality_MethodDefinition, HashCode_MethodDefinition );
+         ParameterDefinitionPointerEqualityComparer = ComparerFromFunctions.NewEqualityComparer<ParameterDefinitionPointer>( Equality_ParameterDefinitionPointer, HashCode_ParameterDefinitionPointer );
+         ParameterDefinitionEqualityComparer = ComparerFromFunctions.NewEqualityComparer<ParameterDefinition>( Equality_ParameterDefinition, HashCode_ParameterDefinition );
+         InterfaceImplementationEqualityComparer = ComparerFromFunctions.NewEqualityComparer<InterfaceImplementation>( Equality_InterfaceImplementation, HashCode_InterfaceImplementation );
+         MemberReferenceEqualityComparer = ComparerFromFunctions.NewEqualityComparer<MemberReference>( Equality_MemberReference, HashCode_MemberReference );
+         ConstantDefinitionEqualityComparer = ComparerFromFunctions.NewEqualityComparer<ConstantDefinition>( Equality_ConstantDefinition, HashCode_ConstantDefinition );
+         CustomAttributeDefinitionEqualityComparer = ComparerFromFunctions.NewEqualityComparer<CustomAttributeDefinition>( Equality_CustomAttributeDefinition, HashCode_CustomAttributeDefinition );
+         FieldMarshalEqualityComparer = ComparerFromFunctions.NewEqualityComparer<FieldMarshal>( Equality_FieldMarshal, HashCode_FieldMarshal );
+         SecurityDefinitionEqualityComparer = ComparerFromFunctions.NewEqualityComparer<SecurityDefinition>( Equality_SecurityDefinition, HashCode_SecurityDefinition );
+         ClassLayoutEqualityComparer = ComparerFromFunctions.NewEqualityComparer<ClassLayout>( Equality_ClassLayout, HashCode_ClassLayout );
+         FieldLayoutEqualityComparer = ComparerFromFunctions.NewEqualityComparer<FieldLayout>( Equality_FieldLayout, HashCode_FieldLayout );
+         StandaloneSignatureEqualityComparer = ComparerFromFunctions.NewEqualityComparer<StandaloneSignature>( Equality_StandaloneSignature, HashCode_StandaloneSignature );
+         EventMapEqualityComparer = ComparerFromFunctions.NewEqualityComparer<EventMap>( Equality_EventMap, HashCode_EventMap );
+         EventDefinitionPointerEqualityComparer = ComparerFromFunctions.NewEqualityComparer<EventDefinitionPointer>( Equality_EventDefinitionPointer, HashCode_EventDefinitionPointer );
+         EventDefinitionEqualityComparer = ComparerFromFunctions.NewEqualityComparer<EventDefinition>( Equality_EventDefinition, HashCode_EventDefinition );
+         PropertyMapEqualityComparer = ComparerFromFunctions.NewEqualityComparer<PropertyMap>( Equality_PropertyMap, HashCode_PropertyMap );
+         PropertyDefinitionPointerEqualityComparer = ComparerFromFunctions.NewEqualityComparer<PropertyDefinitionPointer>( Equality_PropertyDefinitionPointer, HashCode_PropertyDefinitionPointer );
+         PropertyDefinitionEqualityComparer = ComparerFromFunctions.NewEqualityComparer<PropertyDefinition>( Equality_PropertyDefinition, HashCode_PropertyDefinition );
+         MethodSemanticsEqualityComparer = ComparerFromFunctions.NewEqualityComparer<MethodSemantics>( Equality_MethodSemantics, HashCode_MethodSemantics );
+         MethodImplementationEqualityComparer = ComparerFromFunctions.NewEqualityComparer<MethodImplementation>( Equality_MethodImplementation, HashCode_MethodImplementation );
+         ModuleReferenceEqualityComparer = ComparerFromFunctions.NewEqualityComparer<ModuleReference>( Equality_ModuleReference, HashCode_ModuleReference );
+         TypeSpecificationEqualityComparer = ComparerFromFunctions.NewEqualityComparer<TypeSpecification>( Equality_TypeSpecification, HashCode_TypeSpecification );
+         MethodImplementationMapEqualityComparer = ComparerFromFunctions.NewEqualityComparer<MethodImplementationMap>( Equality_MethodImplementationMap, HashCode_MethodImplementationMap );
+         FieldRVAEqualityComparer = ComparerFromFunctions.NewEqualityComparer<FieldRVA>( Equality_FieldRVA, HashCode_FieldRVA );
+         EditAndContinueLogEqualityComparer = ComparerFromFunctions.NewEqualityComparer<EditAndContinueLog>( Equality_EditAndContinueLog, HashCode_EditAndContinueLog );
+         EditAndContinueMapEqualityComparer = ComparerFromFunctions.NewEqualityComparer<EditAndContinueMap>( Equality_EditAndContinueMap, HashCode_EditAndContinueMap );
+         AssemblyDefinitionEqualityComparer = ComparerFromFunctions.NewEqualityComparer<AssemblyDefinition>( Equality_AssemblyDefinition, HashCode_AssemblyDefinition );
+         AssemblyReferenceEqualityComparer = ComparerFromFunctions.NewEqualityComparer<AssemblyReference>( Equality_AssemblyReference, HashCode_AssemblyReference );
+#pragma warning disable 618
+         AssemblyDefinitionProcessorEqualityComparer = ComparerFromFunctions.NewEqualityComparer<AssemblyDefinitionProcessor>( Equality_AssemblyDefinitionProcessor, HashCode_AssemblyDefinitionProcessor );
+         AssemblyDefinitionOSEqualityComparer = ComparerFromFunctions.NewEqualityComparer<AssemblyDefinitionOS>( Equality_AssemblyDefinitionOS, HashCode_AssemblyDefinitionOS );
+         AssemblyReferenceProcessorEqualityComparer = ComparerFromFunctions.NewEqualityComparer<AssemblyReferenceProcessor>( Equality_AssemblyReferenceProcessor, HashCode_AssemblyReferenceProcessor );
+         AssemblyReferenceOSEqualityComparer = ComparerFromFunctions.NewEqualityComparer<AssemblyReferenceOS>( Equality_AssemblyReferenceOS, HashCode_AssemblyReferenceOS );
+#pragma warning restore 618
+         FileReferenceEqualityComparer = ComparerFromFunctions.NewEqualityComparer<FileReference>( Equality_FileReference, HashCode_FileReference );
+         ExportedTypeEqualityComparer = ComparerFromFunctions.NewEqualityComparer<ExportedType>( Equality_ExportedType, HashCode_ExportedType );
+         ManifestResourceEqualityComparer = ComparerFromFunctions.NewEqualityComparer<ManifestResource>( Equality_ManifestResource, HashCode_ManifestResource );
+         NestedClassDefinitionEqualityComparer = ComparerFromFunctions.NewEqualityComparer<NestedClassDefinition>( Equality_NestedClassDefinition, HashCode_NestedClassDefinition );
+         GenericParameterDefinitionEqualityComparer = ComparerFromFunctions.NewEqualityComparer<GenericParameterDefinition>( Equality_GenericParameterDefinition, HashCode_GenericParameterDefinition );
+         MethodSpecificationEqualityComparer = ComparerFromFunctions.NewEqualityComparer<MethodSpecification>( Equality_MethodSpecification, HashCode_MethodSpecification );
+         GenericParameterConstraintDefinitionEqualityComparer = ComparerFromFunctions.NewEqualityComparer<GenericParameterConstraintDefinition>( Equality_GenericParameterConstraintDefinition, HashCode_GenericParameterConstraintDefinition );
+         MethodILDefinitionEqualityComparer = ComparerFromFunctions.NewEqualityComparer<MethodILDefinition>( Equality_MethodILDefinition, HashCode_MethodILDefinition );
+         MethodExceptionBlockEqualityComparer = ComparerFromFunctions.NewEqualityComparer<MethodExceptionBlock>( Equality_MethodExceptionBlock, HashCode_MethodExceptionBlock );
+         OpCodeInfoEqualityComparer = ComparerFromFunctions.NewEqualityComparer<OpCodeInfo>( Equality_OpCodeInfo, HashCode_OpCodeInfo );
+         AssemblyInformationEqualityComparer = ComparerFromFunctions.NewEqualityComparer<AssemblyInformation>( Equality_AssemblyInformation, HashCode_AssemblyInformation );
+         AbstractSignatureEqualityComparer = ComparerFromFunctions.NewEqualityComparer<AbstractSignature>( Equality_AbstractSignature, HashCode_AbstractSignature );
+         RawSignatureEqualityComparer = ComparerFromFunctions.NewEqualityComparer<RawSignature>( Equality_RawSignature, HashCode_RawSignature );
+         AbstractMethodSignatureEqualityComparer = ComparerFromFunctions.NewEqualityComparer<AbstractMethodSignature>( Equality_AbstractMethodSignature, HashCode_AbstractMethodSignature );
+         AbstractMethodSignatureEqualityComparer_IgnoreKind = ComparerFromFunctions.NewEqualityComparer<AbstractMethodSignature>( Equality_AbstractMethodSignature_IgnoreKind, HashCode_AbstractMethodSignature );
+         MethodDefinitionSignatureEqualityComparer = ComparerFromFunctions.NewEqualityComparer<MethodDefinitionSignature>( Equality_MethodDefinitionSignature, HashCode_MethodDefinitionSignature );
+         MethodReferenceSignatureEqualityComparer = ComparerFromFunctions.NewEqualityComparer<MethodReferenceSignature>( Equality_MethodReferenceSignature, HashCode_MethodReferenceSignature );
+         FieldSignatureEqualityComparer = ComparerFromFunctions.NewEqualityComparer<FieldSignature>( Equality_FieldSignature, HashCode_FieldSignature );
+         PropertySignatureEqualityComparer = ComparerFromFunctions.NewEqualityComparer<PropertySignature>( Equality_PropertySignature, HashCode_PropertySignature );
+         LocalVariablesSignatureEqualityComparer = ComparerFromFunctions.NewEqualityComparer<LocalVariablesSignature>( Equality_LocalVariablesSignature, HashCode_LocalVariablesSignature );
+         LocalVariableSignatureEqualityComparer = ComparerFromFunctions.NewEqualityComparer<LocalSignature>( Equality_LocalVariableSignature, HashCode_LocalVariableSignature );
+         ParameterSignatureEqualityComparer = ComparerFromFunctions.NewEqualityComparer<ParameterSignature>( Equality_ParameterSignature, HashCode_ParameterSignature );
+         CustomModifierSignatureEqualityComparer = ComparerFromFunctions.NewEqualityComparer<CustomModifierSignature>( Equality_CustomModifierSignature, HashCode_CustomModifierSignature );
+         TypeSignatureEqualityComparer = ComparerFromFunctions.NewEqualityComparer<TypeSignature>( Equality_TypeSignature, HashCode_TypeSignature );
+         GenericMethodSignatureEqualityComparer = ComparerFromFunctions.NewEqualityComparer<GenericMethodSignature>( Equality_GenericMethodSignature, HashCode_GenericMethodSignature );
+         AbstractCustomAttributeSignatureEqualityComparer = ComparerFromFunctions.NewEqualityComparer<AbstractCustomAttributeSignature>( Equality_AbstractCustomAttributeSignature, HashCode_AbstractCustomAttributeSignature );
+         CustomAttributeTypedArgumentEqualityComparer = ComparerFromFunctions.NewEqualityComparer<CustomAttributeTypedArgument>( Equality_CustomAttributeTypedArgument, HashCode_CustomAttributeTypedArgument );
+         CustomAttributeNamedArgumentEqualityComparer = ComparerFromFunctions.NewEqualityComparer<CustomAttributeNamedArgument>( Equality_CustomAttributeNamedArgument, HashCode_CustomAttributeNamedArgument );
+         CustomAttributeArgumentTypeEqualityComparer = ComparerFromFunctions.NewEqualityComparer<CustomAttributeArgumentType>( Equality_CustomAttributeArgumentType, HashCode_CustomAttributeArgumentType );
+         AbstractSecurityInformationEqualityComparer = ComparerFromFunctions.NewEqualityComparer<AbstractSecurityInformation>( Equality_AbstractSecurityInformation, HashCode_AbstractSecurityInformation );
+         MarshalingInfoEqualityComparer = ComparerFromFunctions.NewEqualityComparer<AbstractMarshalingInfo>( Equality_MarshalingInfo, HashCode_MarshalingInfo );
       }
 
       private static Boolean Equality_MetaData( CILMetaData x, CILMetaData y )

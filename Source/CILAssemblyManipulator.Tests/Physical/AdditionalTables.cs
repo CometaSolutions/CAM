@@ -107,7 +107,7 @@ namespace CILAssemblyManipulator.Tests.Physical
 
          var additionalTable2 = (MetaDataTable<MyAdditionalTableRow>) md2.GetByTable( ADDITIONAL_TABLE );
 
-         Assert.IsTrue( Comparers.MetaDataComparer.Equals( md, md2 ) );
+         Assert.IsTrue( Comparers.MetaDataEqualityComparer.Equals( md, md2 ) );
          Assert.IsTrue( ListEqualityComparer<List<MyAdditionalTableRow>, MyAdditionalTableRow>.ListEquality(
             additionalTable.TableContents,
             additionalTable2.TableContents,
@@ -115,7 +115,7 @@ namespace CILAssemblyManipulator.Tests.Physical
             ) );
 
          additionalTable2.TableContents.Clear();
-         Assert.IsFalse( Comparers.MetaDataComparer.Equals( md, md2 ) );
+         Assert.IsFalse( Comparers.MetaDataEqualityComparer.Equals( md, md2 ) );
 
       }
 
