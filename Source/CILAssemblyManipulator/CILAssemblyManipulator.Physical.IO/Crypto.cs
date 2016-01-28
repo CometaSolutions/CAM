@@ -30,10 +30,16 @@ using System.Text;
 
 public static partial class E_CILPhysical
 {
+   /// <summary>
+   /// Helper method to create a public key from <see cref="StrongNameKeyPair"/>, be it the one storing whole public-private key pair in its <see cref="StrongNameKeyPair.KeyPair"/> property, or container name in its <see cref="StrongNameKeyPair.ContainerName"/>.
+   /// </summary>
+   /// <param name="cryptoCallbacks">The <see cref="CryptoCallbacks"/>.</param>
+   /// <param name="strongName">The <see cref="StrongNameKeyPair"/>. May be <c>null</c>.</param>
+   /// <returns>The extracted public key, if successful, <c>null</c> otherwise.</returns>
+   /// <exception cref="NullReferenceException">If <paramref name="strongName"/> is not <c>null</c> and has <see cref="StrongNameKeyPair.ContainerName"/> set, and this <see cref="CryptoCallbacks"/> is <c>null</c>.</exception>
    public static Byte[] CreatePublicKeyFromStrongName(
-      this CryptoCallbacks eArgs,
-      StrongNameKeyPair strongName,
-      AssemblyHashAlgorithm? algorithmOverride = null
+      this CryptoCallbacks cryptoCallbacks,
+      StrongNameKeyPair strongName
       )
    {
       Byte[] retVal;
@@ -51,7 +57,7 @@ public static partial class E_CILPhysical
             RSAParameters rParams;
             CryptoUtils.TryCreateSigningInformationFromKeyBLOB(
                strongName.KeyPair.ToArray(),
-               algorithmOverride,
+               null,
                out retVal,
                out signingAlgorithm,
                out rParams,
@@ -60,38 +66,52 @@ public static partial class E_CILPhysical
          }
          else
          {
-            retVal = eArgs.ExtractPublicKeyFromCSPContainer( container );
+            retVal = cryptoCallbacks.ExtractPublicKeyFromCSPContainer( container );
          }
       }
 
       return retVal;
    }
 
-   public static Boolean IsMatch( this AssemblyDefinition aDef, AssemblyReference aRef, HashStreamInfo? hashStreamInfo )
+   /// <summary>
+   /// Checks whether this <see cref="AssemblyDefinition"/> matches the given <see cref="AssemblyReference"/>, 
+   /// </summary>
+   /// <param name="aDef">The <see cref="AssemblyDefinition"/>.</param>
+   /// <param name="aRef">The optional <see cref="AssemblyReference"/>.</param>
+   /// <param name="publicKeyTokenComputer">The callback to use, if public key token computation is required.</param>
+   /// <returns><c>true</c> if <paramref name="aRef"/> is not <c>null</c> and matches this <see cref="AssemblyDefinition"/>, taking into account that <paramref name="aRef"/> might have public key token instead of full public key; <c>false</c> otherwise.</returns>
+   /// <exception cref="NullReferenceException">If this <see cref="AssemblyDefinition"/> is <c>null</c>.</exception>
+   /// <seealso cref="HashStreamInfo.HashComputer"/>
+   public static Boolean IsMatch( this AssemblyDefinition aDef, AssemblyReference aRef, Func<Byte[], Byte[]> publicKeyTokenComputer )
    {
-      return aDef.IsMatch( new AssemblyInformationForResolving( aRef ), aRef.Attributes.IsRetargetable(), hashStreamInfo );
+      return aDef.IsMatch( aRef == null ? null : new AssemblyInformationForResolving( aRef ), aRef?.Attributes.IsRetargetable() ?? false, publicKeyTokenComputer );
    }
 
-   public static Boolean IsMatch( this AssemblyDefinition aDef, AssemblyInformationForResolving? aRef, Boolean isRetargetable, HashStreamInfo? hashStreamInfo )
+   /// <summary>
+   /// Checks whether this <see cref="AssemblyDefinition"/> matches the given <see cref="AssemblyInformationForResolving"/>.
+   /// </summary>
+   /// <param name="aDef">The <see cref="AssemblyDefinition"/>.</param>
+   /// <param name="aRef">The optional <see cref="AssemblyInformationForResolving"/>.</param>
+   /// <param name="isRetargetable">Whether the <paramref name="aRef"/> is retargetable.</param>
+   /// <param name="publicKeyTokenComputer">The callback to use, if public key token computation is required.</param>
+   /// <returns><c>true</c> if <paramref name="aRef"/> is not <c>null</c> and matches this <see cref="AssemblyDefinition"/>, taking into account that <paramref name="aRef"/> might have public key token instead of full public key; <c>false</c> otherwise.</returns>
+   /// <exception cref="NullReferenceException">If this <see cref="AssemblyDefinition"/> is <c>null</c>.</exception>
+   /// <seealso cref="HashStreamInfo.HashComputer"/>
+   public static Boolean IsMatch( this AssemblyDefinition aDef, AssemblyInformationForResolving aRef, Boolean isRetargetable, Func<Byte[], Byte[]> publicKeyTokenComputer )
    {
-      var retVal = aDef != null
-         && aRef != null;
+      var defInfo = aDef.AssemblyInformation;
+      var retVal = aRef != null;
       if ( retVal )
       {
-         var aReff = aRef.Value;
-         var defInfo = aDef.AssemblyInformation;
-         var refInfo = aReff.AssemblyInformation;
-         if ( isRetargetable )
-         {
-            retVal = String.Equals( defInfo.Name, refInfo.Name );
-         }
-         else
+         var refInfo = aRef.AssemblyInformation;
+         retVal = String.Equals( defInfo.Name, refInfo.Name );
+         if ( retVal && !isRetargetable )
          {
             var defPK = defInfo.PublicKeyOrToken;
             var refPK = refInfo.PublicKeyOrToken;
             retVal = defPK.IsNullOrEmpty() == refPK.IsNullOrEmpty()
-               && defInfo.Equals( refInfo, aReff.IsFullPublicKey )
-               && ( aReff.IsFullPublicKey || ( hashStreamInfo.HasValue && ArrayEqualityComparer<Byte>.ArrayEquality( hashStreamInfo.Value.ComputePublicKeyToken( defPK ), refPK ) ) );
+               && defInfo.Equals( refInfo, aRef.IsFullPublicKey )
+               && ( aRef.IsFullPublicKey || ArrayEqualityComparer<Byte>.ArrayEquality( publicKeyTokenComputer?.Invoke( defPK ), refPK ) );
          }
       }
 

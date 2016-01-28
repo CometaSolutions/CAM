@@ -63,7 +63,7 @@ namespace CILAssemblyManipulator.Physical.IO
          return this.FilterPossibleResources( thisModulePath, this.GetAllPossibleResourcesForModuleReference( thisModulePath, thisMetaData, moduleReferenceName ) );
       }
 
-      public IEnumerable<String> GetPossibleResourcesForAssemblyReference( String thisModulePath, CILMetaData thisMetaData, AssemblyInformationForResolving? assemblyRefInfo, string unparsedAssemblyName )
+      public IEnumerable<String> GetPossibleResourcesForAssemblyReference( String thisModulePath, CILMetaData thisMetaData, AssemblyInformationForResolving assemblyRefInfo, string unparsedAssemblyName )
       {
          return this.FilterPossibleResources( thisModulePath, this.GetAllPossibleResourcesForAssemblyReference( thisModulePath, thisMetaData, assemblyRefInfo, unparsedAssemblyName ) );
       }
@@ -86,14 +86,16 @@ namespace CILAssemblyManipulator.Physical.IO
          }
       }
 
-      private IEnumerable<String> GetAllPossibleResourcesForAssemblyReference( String thisModulePath, CILMetaData thisMetaData, AssemblyInformationForResolving? assemblyRefInfo, string unparsedAssemblyName )
+      private IEnumerable<String> GetAllPossibleResourcesForAssemblyReference( String thisModulePath, CILMetaData thisMetaData, AssemblyInformationForResolving assemblyRefInfo, string unparsedAssemblyName )
       {
          // TODO need to emulate behaviour of .dll.config file as well!
 
          // Process only those string references which are successfully parsed as assembly names
-         if ( assemblyRefInfo.HasValue )
+         //if ( assemblyRefInfo != null )
+         //{
+         var assRefName = assemblyRefInfo?.AssemblyInformation?.Name;
+         if ( !String.IsNullOrEmpty( assRefName ) )
          {
-            var assRefName = assemblyRefInfo.Value.AssemblyInformation.Name;
             var path = Path.GetDirectoryName( thisModulePath );
             if ( !String.IsNullOrEmpty( path ) )
             {
@@ -111,8 +113,8 @@ namespace CILAssemblyManipulator.Physical.IO
             {
                yield return Path.Combine( path, assRefName + ".dll" );
             }
-
          }
+         //}
       }
 
       private IEnumerable<String> FilterPossibleResources( String thisModulePath, IEnumerable<String> allPossibleResources )

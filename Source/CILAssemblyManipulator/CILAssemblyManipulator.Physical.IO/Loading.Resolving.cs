@@ -115,7 +115,7 @@ namespace CILAssemblyManipulator.Physical.IO
                kkey => this._owner.ResolveAssemblyReferenceWithEvent(
                   this._md,
                   parseSuccessful ? null : assemblyString,
-                  parseSuccessful ? (AssemblyInformationForResolving) kkey : (AssemblyInformationForResolving?) null
+                  parseSuccessful ? (AssemblyInformationForResolving) kkey : null
                   )
                );
          }
@@ -426,6 +426,10 @@ namespace CILAssemblyManipulator.Physical.IO
          Int32 index
          )
       {
+         if ( index == 10 )
+         {
+
+         }
          ArgumentValidator.ValidateNotNull( "Metadata", md );
 
          var customAttribute = md.CustomAttributeDefinitions.GetOrNull( index );
@@ -564,7 +568,7 @@ namespace CILAssemblyManipulator.Physical.IO
          return success ? retVal : null;
       }
 
-      private MDSpecificCache ResolveAssemblyReferenceWithEvent( CILMetaData thisMD, String assemblyName, AssemblyInformationForResolving? assemblyInfo ) //, Boolean isRetargetable )
+      private MDSpecificCache ResolveAssemblyReferenceWithEvent( CILMetaData thisMD, String assemblyName, AssemblyInformationForResolving assemblyInfo ) //, Boolean isRetargetable )
       {
          var args = new AssemblyReferenceResolveEventArgs( thisMD, assemblyName, assemblyInfo ); //, isRetargetable );
          this.AssemblyReferenceResolveEvent?.Invoke( this, args );
@@ -929,12 +933,14 @@ namespace CILAssemblyManipulator.Physical.IO
    public sealed class AssemblyReferenceResolveEventArgs : AssemblyOrModuleReferenceResolveEventArgs
    {
       private readonly String _assemblyName;
-      private readonly AssemblyInformationForResolving? _assemblyInfo;
+      private readonly AssemblyInformationForResolving _assemblyInfo;
       //private readonly Boolean _isRetargetable;
 
-      internal AssemblyReferenceResolveEventArgs( CILMetaData thisMD, String assemblyName, AssemblyInformationForResolving? assemblyInfo ) //, Boolean isRetargetable )
+      // assemblyInfo may be null
+      internal AssemblyReferenceResolveEventArgs( CILMetaData thisMD, String assemblyName, AssemblyInformationForResolving assemblyInfo ) //, Boolean isRetargetable )
          : base( thisMD )
       {
+
          this._assemblyName = assemblyName;
          this._assemblyInfo = assemblyInfo;
          //this._isRetargetable = isRetargetable;
@@ -951,7 +957,7 @@ namespace CILAssemblyManipulator.Physical.IO
          }
       }
 
-      public AssemblyInformationForResolving? ExistingAssemblyInformation
+      public AssemblyInformationForResolving ExistingAssemblyInformation
       {
          get
          {
@@ -969,14 +975,15 @@ namespace CILAssemblyManipulator.Physical.IO
 
    }
 
-   public struct AssemblyInformationForResolving : IEquatable<AssemblyInformationForResolving>
+   // TODO investigate if this should really be struct.
+   public sealed class AssemblyInformationForResolving : IEquatable<AssemblyInformationForResolving>
    {
       private readonly AssemblyInformation _information;
       private readonly Boolean _isFullPublicKey;
       //private readonly Boolean _isRetargetable;
 
       public AssemblyInformationForResolving( AssemblyReference aRef )
-         : this( aRef.AssemblyInformation.CreateDeepCopy(), aRef.Attributes.IsFullPublicKey() ) //, aRef.Attributes.IsRetargetable() )
+         : this( ArgumentValidator.ValidateNotNullAndReturn( "Assembly reference", aRef ).AssemblyInformation.CreateDeepCopy(), aRef.Attributes.IsFullPublicKey() ) //, aRef.Attributes.IsRetargetable() )
       {
 
       }
@@ -1016,9 +1023,7 @@ namespace CILAssemblyManipulator.Physical.IO
 
       public override Boolean Equals( Object obj )
       {
-         return obj is AssemblyInformationForResolving ?
-            this.Equals( (AssemblyInformationForResolving) obj ) :
-            false;
+         return this.Equals( obj as AssemblyInformationForResolving );
       }
 
       public override Int32 GetHashCode()
@@ -1028,34 +1033,9 @@ namespace CILAssemblyManipulator.Physical.IO
 
       public Boolean Equals( AssemblyInformationForResolving other )
       {
-         return this._isFullPublicKey == other._isFullPublicKey
-               && Equals( this._information, other._information );
-      }
-
-      public static Boolean operator ==( AssemblyInformationForResolving x, AssemblyInformationForResolving y )
-      {
-         return x.Equals( y );
-      }
-
-      public static Boolean operator !=( AssemblyInformationForResolving x, AssemblyInformationForResolving y )
-      {
-         return !( x == y );
-      }
-
-      private static Boolean Equals( AssemblyInformation x, AssemblyInformation y )
-      {
-         return Object.ReferenceEquals( x, y )
-            || ( x != null
-               && y != null
-               && String.Equals( x.Name, y.Name )
-               && x.VersionMajor == y.VersionMajor
-               && x.VersionMinor == y.VersionMinor
-               && x.VersionBuild == y.VersionBuild
-               && x.VersionRevision == y.VersionRevision
-               && String.Equals( x.Culture, y.Culture )
-               && ArrayEqualityComparer<Byte>.DefaultArrayEqualityComparer.Equals( x.PublicKeyOrToken, y.PublicKeyOrToken )
-            );
-
+         return other != null
+            && this._isFullPublicKey == other._isFullPublicKey
+            && CAMPhysical::CILAssemblyManipulator.Physical.Comparers.AssemblyInformationEqualityComparer.Equals( this._information, other._information );
       }
    }
 }

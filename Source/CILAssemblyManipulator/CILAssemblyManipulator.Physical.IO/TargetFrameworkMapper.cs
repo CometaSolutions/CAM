@@ -199,7 +199,7 @@ namespace CILAssemblyManipulator.Physical.IO
          TargetFrameworkInfoWithRetargetabilityInformation targetFW
          )
       {
-         return this.GetOrAdd_AssemblyReferencesInner(
+         return assemblyRef == null ? null : this.GetOrAdd_AssemblyReferencesInner(
             this.GetOrAdd_AssemblyReferences( this._assemblyReferenceInfo, thisMD, this._assemblyReferenceInnerFactory ),
             assemblyRef,
             aRef =>
@@ -214,7 +214,7 @@ namespace CILAssemblyManipulator.Physical.IO
                {
                   // Most likely this metadata didn't have target framework info attribute
                   retVal = this.GetSuitableMDsForTargetFW( thisMD, loader, targetFW.TargetFrameworkInfo, false )
-                     .FirstOrDefault( md => md.AssemblyDefinitions.GetOrNull( 0 ).IsMatch( assemblyRef, targetFW.AreFrameworkAssemblyReferencesRetargetable, loader.PublicKeyComputer ) );
+                     .FirstOrDefault( md => md.AssemblyDefinitions.GetOrNull( 0 )?.IsMatch( assemblyRef, targetFW.AreFrameworkAssemblyReferencesRetargetable, loader.ComputePublicKeyTokenOrNull ) ?? false );
                }
                else if ( validResource.StartsWith( cb.GetTargetFrameworkPathForFrameworkInfo( targetFW.TargetFrameworkInfo ) ) ) // Check whether resolved reference is located in target framework path
                {

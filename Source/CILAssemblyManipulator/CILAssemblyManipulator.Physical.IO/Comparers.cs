@@ -85,57 +85,178 @@ namespace CILAssemblyManipulator.Physical
       public static IEqualityComparer<ImageInformation> ImageInformationLogicalEqualityComparer { get; }
 
       /// <summary>
-      /// Get the ordering comparer for <see cref="ClassLayout"/> according to ECMA-335 serialization standard.
+      /// Gets the ordering comparer for <see cref="ClassLayout"/> according to ECMA-335 standard.
       /// </summary>
-      /// <value>The ordering comparer to for <see cref="ClassLayout"/> according to ECMA-335 serialization standard.</value>
+      /// <value>The ordering comparer to for <see cref="ClassLayout"/> according to ECMA-335 standard.</value>
       /// <remarks>
       /// This comparer will use the <see cref="TableIndex.Index"/> property of <see cref="ClassLayout.Parent"/> to perform comparison.
       /// </remarks>
       public static IComparer<ClassLayout> ClassLayoutComparer { get; }
 
       /// <summary>
-      /// Get the ordering comparer for <see cref="ConstantDefinition"/> according to ECMA-335 serialization standard.
+      /// Gets the ordering comparer for <see cref="ConstantDefinition"/> according to ECMA-335 standard.
       /// </summary>
-      /// <value>The ordering comparer to for <see cref="ConstantDefinition"/> according to ECMA-335 serialization standard.</value>
+      /// <value>The ordering comparer to for <see cref="ConstantDefinition"/> according to ECMA-335 standard.</value>
       /// <remarks>
       /// This comparer will use the <see cref="HasConstantComparer"/> for <see cref="ConstantDefinition.Parent"/> property to perform comparison.
       /// </remarks>
       public static IComparer<ConstantDefinition> ConstantDefinitionComparer { get; }
 
       /// <summary>
-      /// Get the ordering comparer for <see cref="CustomAttributeDefinition"/> according to ECMA-335 serialization standard.
+      /// Gets the ordering comparer for <see cref="CustomAttributeDefinition"/> according to ECMA-335 standard.
       /// </summary>
-      /// <value>The ordering comparer to for <see cref="CustomAttributeDefinition"/> according to ECMA-335 serialization standard.</value>
+      /// <value>The ordering comparer to for <see cref="CustomAttributeDefinition"/> according to ECMA-335 standard.</value>
       /// <remarks>
       /// This comparer will use the <see cref="HasCustomAttributeComparer"/> for <see cref="CustomAttributeDefinition.Parent"/> property to perform comparison.
       /// </remarks>
       public static IComparer<CustomAttributeDefinition> CustomAttributeDefinitionComparer { get; }
 
       /// <summary>
-      /// Get the ordering comparer for <see cref="CustomAttributeDefinition"/> according to ECMA-335 serialization standard.
+      /// Gets the ordering comparer for <see cref="CustomAttributeDefinition"/> according to ECMA-335 standard.
       /// </summary>
-      /// <value>The ordering comparer to for <see cref="CustomAttributeDefinition"/> according to ECMA-335 serialization standard.</value>
+      /// <value>The ordering comparer to for <see cref="CustomAttributeDefinition"/> according to ECMA-335 standard.</value>
       /// <remarks>
       /// This comparer will use the <see cref="HasCustomAttributeComparer"/> for <see cref="CustomAttributeDefinition.Parent"/> property to perform comparison.
       /// </remarks>
       public static IComparer<SecurityDefinition> SecurityDefinitionComparer { get; }
+
+      /// <summary>
+      /// Gets the ordering comparer for <see cref="FieldLayout"/> according to ECMA-335 standard.
+      /// </summary>
+      /// <value>The ordering comparer to for <see cref="FieldLayout"/> according to ECMA-335 standard.</value>
+      /// <remarks>
+      /// This comparer will use the <see cref="TableIndex.Index"/> property of <see cref="FieldLayout.Field"/> to perform comparison.
+      /// </remarks>
       public static IComparer<FieldLayout> FieldLayoutComparer { get; }
+
+      /// <summary>
+      /// Gets the ordering comparer for <see cref="FieldMarshal"/> according to ECMA-335 standard.
+      /// </summary>
+      /// <value>The ordering comparer to for <see cref="FieldMarshal"/> according to ECMA-335 standard.</value>
+      /// <remarks>
+      /// This comparer will use the <see cref="HasFieldMarshalComparer"/> for <see cref="FieldMarshal.Parent"/> property to perform comparison.
+      /// </remarks>
       public static IComparer<FieldMarshal> FieldMarshalComparer { get; }
+
+      /// <summary>
+      /// Gets the ordering comparer for <see cref="FieldRVA"/> according to ECMA-335 standard.
+      /// </summary>
+      /// <value>The ordering comparer to for <see cref="FieldRVA"/> according to ECMA-335 standard.</value>
+      /// <remarks>
+      /// This comparer will use the <see cref="TableIndex.Index"/> property of <see cref="FieldRVA.Field"/> to perform comparison.
+      /// </remarks>
       public static IComparer<FieldRVA> FieldRVAComparer { get; }
+
+      /// <summary>
+      /// Gets the ordering comparer for <see cref="GenericParameterDefinition"/> according to ECMA-335 standard.
+      /// </summary>
+      /// <value>The ordering comparer to for <see cref="GenericParameterDefinition"/> according to ECMA-335 standard.</value>
+      /// <remarks>
+      /// This comparer will use the <see cref="TypeOrMethodDefComparer"/> for <see cref="GenericParameterDefinition.Owner"/> property as primary key, and <see cref="GenericParameterDefinition.GenericParameterIndex"/> as secondary key to perform comparison.
+      /// </remarks>
       public static IComparer<GenericParameterDefinition> GenericParameterDefinitionComparer { get; }
+
+      /// <summary>
+      /// Gets the ordering comparer for <see cref="GenericParameterConstraintDefinition"/> according to ECMA-335 standard.
+      /// </summary>
+      /// <value>The ordering comparer to for <see cref="GenericParameterConstraintDefinition"/> according to ECMA-335 standard.</value>
+      /// <remarks>
+      /// This comparer will use the <see cref="TableIndex.Index"/> property of <see cref="GenericParameterConstraintDefinition.Owner"/> to perform comparison.
+      /// </remarks>
       public static IComparer<GenericParameterConstraintDefinition> GenericParameterConstraintDefinitionComparer { get; }
+
+      /// <summary>
+      /// Gets the ordering comparer for <see cref="MethodImplementationMap"/> according to ECMA-335 standard.
+      /// </summary>
+      /// <value>The ordering comparer to for <see cref="MethodImplementationMap"/> according to ECMA-335 standard.</value>
+      /// <remarks>
+      /// This comparer will use the <see cref="MemberForwardedComparer"/> for <see cref="MethodImplementationMap.MemberForwarded"/> property to perform comparison.
+      /// </remarks>
       public static IComparer<MethodImplementationMap> MethodImplementationMapComparer { get; }
+
+      /// <summary>
+      /// Gets the ordering comparer for <see cref="InterfaceImplementation"/> according to ECMA-335 standard.
+      /// </summary>
+      /// <value>The ordering comparer to for <see cref="InterfaceImplementation"/> according to ECMA-335 standard.</value>
+      /// <remarks>
+      /// This comparer will use the <see cref="TableIndex.Index"/> property of the <see cref="InterfaceImplementation.Class"/> property as primary key, and the <see cref="TableIndex.Index"/> property of the <see cref="InterfaceImplementation.Interface"/> as secondary key to perform comparison.
+      /// </remarks>
       public static IComparer<InterfaceImplementation> InterfaceImplementationComparer { get; }
+
+      /// <summary>
+      /// Gets the ordering comparer for <see cref="MethodImplementation"/> according to ECMA-335 standard.
+      /// </summary>
+      /// <value>The ordering comparer to for <see cref="MethodImplementation"/> according to ECMA-335 standard.</value>
+      /// <remarks>
+      /// This comparer will use the <see cref="TableIndex.Index"/> property of <see cref="MethodImplementation.Class"/> to perform comparison.
+      /// </remarks>
       public static IComparer<MethodImplementation> MethodImplementationComparer { get; }
+
+      /// <summary>
+      /// Gets the ordering comparer for <see cref="MethodSemantics"/> according to ECMA-335 standard.
+      /// </summary>
+      /// <value>The ordering comparer to for <see cref="MethodSemantics"/> according to ECMA-335 standard.</value>
+      /// <remarks>
+      /// This comparer will use the <see cref="HasSemanticsComparer"/> for <see cref="MethodSemantics.Associaton"/> property to perform comparison.
+      /// </remarks>
       public static IComparer<MethodSemantics> MethodSemanticsComparer { get; }
+
+      /// <summary>
+      /// Gets the ordering comparer for <see cref="NestedClassDefinition"/> according to ECMA-335 standard.
+      /// </summary>
+      /// <value>The ordering comparer to for <see cref="NestedClassDefinition"/> according to ECMA-335 standard.</value>
+      /// <remarks>
+      /// This comparer will use the <see cref="TableIndex.Index"/> property of <see cref="NestedClassDefinition.NestedClass"/> to perform comparison.
+      /// </remarks>
       public static IComparer<NestedClassDefinition> NestedClassDefinitionComparer { get; }
 
+      /// <summary>
+      /// Gets the ordering comparer for <see cref="TableIndex"/> properties, possible tables for which are defined in <see cref="Meta.DefaultMetaDataTableInformationProvider.HasConstant"/>.
+      /// </summary>
+      /// <seealso cref="CodedTableIndexComparer"/>
+      /// <seealso cref="Meta.DefaultMetaDataTableInformationProvider.HasConstant"/>
       public static CodedTableIndexComparer HasConstantComparer { get; }
+
+      /// <summary>
+      /// Gets the ordering comparer for <see cref="TableIndex"/> properties, possible tables for which are defined in <see cref="Meta.DefaultMetaDataTableInformationProvider.HasCustomAttribute"/>.
+      /// </summary>
+      /// <seealso cref="CodedTableIndexComparer"/>
+      /// <seealso cref="Meta.DefaultMetaDataTableInformationProvider.HasCustomAttribute"/>
       public static CodedTableIndexComparer HasCustomAttributeComparer { get; }
+
+      /// <summary>
+      /// Gets the ordering comparer for <see cref="TableIndex"/> properties, possible tables for which are defined in <see cref="Meta.DefaultMetaDataTableInformationProvider.HasFieldMarshal"/>.
+      /// </summary>
+      /// <seealso cref="CodedTableIndexComparer"/>
+      /// <seealso cref="Meta.DefaultMetaDataTableInformationProvider.HasFieldMarshal"/>
       public static CodedTableIndexComparer HasFieldMarshalComparer { get; }
+
+      /// <summary>
+      /// Gets the ordering comparer for <see cref="TableIndex"/> properties, possible tables for which are defined in <see cref="Meta.DefaultMetaDataTableInformationProvider.HasSecurity"/>.
+      /// </summary>
+      /// <seealso cref="CodedTableIndexComparer"/>
+      /// <seealso cref="Meta.DefaultMetaDataTableInformationProvider.HasSecurity"/>
       public static CodedTableIndexComparer HasDeclSecurityComparer { get; }
+
+      /// <summary>
+      /// Gets the ordering comparer for <see cref="TableIndex"/> properties, possible tables for which are defined in <see cref="Meta.DefaultMetaDataTableInformationProvider.HasSemantics"/>.
+      /// </summary>
+      /// <seealso cref="CodedTableIndexComparer"/>
+      /// <seealso cref="Meta.DefaultMetaDataTableInformationProvider.HasSemantics"/>
       public static CodedTableIndexComparer HasSemanticsComparer { get; }
+
+      /// <summary>
+      /// Gets the ordering comparer for <see cref="TableIndex"/> properties, possible tables for which are defined in <see cref="Meta.DefaultMetaDataTableInformationProvider.MemberForwarded"/>.
+      /// </summary>
+      /// <seealso cref="CodedTableIndexComparer"/>
+      /// <seealso cref="Meta.DefaultMetaDataTableInformationProvider.MemberForwarded"/>
       public static CodedTableIndexComparer MemberForwardedComparer { get; }
+
+      /// <summary>
+      /// Gets the ordering comparer for <see cref="TableIndex"/> properties, possible tables for which are defined in <see cref="Meta.DefaultMetaDataTableInformationProvider.TypeOrMethodDef"/>.
+      /// </summary>
+      /// <seealso cref="CodedTableIndexComparer"/>
+      /// <seealso cref="Meta.DefaultMetaDataTableInformationProvider.TypeOrMethodDef"/>
       public static CodedTableIndexComparer TypeOrMethodDefComparer { get; }
 
       static Comparers()
@@ -402,16 +523,48 @@ namespace CILAssemblyManipulator.Physical
       }
    }
 
-   public sealed class CodedTableIndexComparer : IComparer<TableIndex>, System.Collections.IComparer
+   /// <summary>
+   /// This class provides functionality of comparing <see cref="TableIndex"/> structs, when the <see cref="TableIndex.Table"/> property is one of the pre-defined options.
+   /// </summary>
+   /// <remarks>
+   /// When specifying the pre-defined tables, the order is important.
+   /// The <see cref="TableIndex"/> objects with same <see cref="TableIndex.Index"/> will be ordered in such way, that their <see cref="TableIndex.Table"/> will be in same order as specified in constructor for this class.
+   /// </remarks>
+   public sealed class CodedTableIndexComparer : IComparer<TableIndex>, IComparer
    {
       private readonly Int32[] _tableOrderArray;
 
+      /// <summary>
+      /// Creates a new instance of <see cref="CodedTableIndexComparer"/> with given pre-defined tables.
+      /// </summary>
+      /// <param name="possibleTables">The possible values for <see cref="TableIndex.Table"/>, or <c>null</c> if value at that index is not in use.</param>
+      public CodedTableIndexComparer( IEnumerable<Tables?> possibleTables )
+         : this( possibleTables.Select( t => t.HasValue ? (Int32) t.Value : (Int32?) null ) )
+      {
+
+      }
+
+      /// <summary>
+      /// Creates a new instance of <see cref="CodedTableIndexComparer"/> with given pre-defined tables, as integers.
+      /// </summary>
+      /// <param name="possibleTables">The possible values for <see cref="TableIndex.Table"/> as integers, or <c>null</c> if value at that index is not in use.</param>
       public CodedTableIndexComparer( IEnumerable<Int32?> possibleTables )
       {
          this._tableOrderArray = new Int32[CAMCoreInternals.AMOUNT_OF_TABLES];
          PopulateTableOrderArray( this._tableOrderArray, possibleTables );
       }
 
+      /// <summary>
+      /// Compares the two instances of <see cref="TableIndex"/> so that <see cref="TableIndex.Index"/> acts are primary key, and <see cref="TableIndex.Table"/> acts as secondary key according to the pre-defined tables given to this <see cref="CodedTableIndexComparer"/>.
+      /// </summary>
+      /// <param name="x">The first <see cref="TableIndex"/>.</param>
+      /// <param name="y">The second <see cref="TableIndex"/>.</param>
+      /// <returns>Negative value if <paramref name="x"/> is considered less than <paramref name="y"/>, <c>0</c> if <paramref name="x"/> and <paramref name="y"/> are considered equal, or positive value if <paramref name="x"/> is considered to be greater than <paramref name="y"/>.</returns>
+      /// <remarks>
+      /// For example, consider that this <see cref="CodedTableIndexComparer"/> was created with following tables: <see cref="Tables.Property"/> and <see cref="Tables.Event"/>, in that order.
+      /// Then the table index to <c>9</c>th row of <see cref="Tables.Event"/> would be considered less than table index to <c>10</c>th row of <see cref="Tables.Property"/>, because the numerical index value is less.
+      /// However, the table index to <c>9</c>th row of <see cref="Tables.Event"/> would be considered greater than table index to <c>9</c>th row of <see cref="Tables.Property"/> table, becase the numerical index values are same, but the <see cref="Tables.Property"/> was specified before <see cref="Tables.Event"/>.
+      /// </remarks>
       public Int32 Compare( TableIndex x, TableIndex y )
       {
          var retVal = x.Index.CompareTo( y.Index );
@@ -422,6 +575,17 @@ namespace CILAssemblyManipulator.Physical
          return retVal;
       }
 
+      /// <summary>
+      /// Compares two <see cref="TableIndex"/> instances as objects, taking into account <c>null</c> vales.
+      /// </summary>
+      /// <param name="x">The first <see cref="TableIndex"/> or <c>null</c>.</param>
+      /// <param name="y">The second <see cref="TableIndex"/> or <c>null</c>.</param>
+      /// <returns>
+      /// If both <paramref name="x"/> and <paramref name="y"/> are of type <see cref="TableIndex"/>, the value of <see cref="Compare(TableIndex, TableIndex)"/>.
+      /// Otherwise, if one of them is <c>null</c>, returns value so that <c>null</c>s are always before non-<c>null</c>s.
+      /// If both are non-<c>null</c> and one or both are not <see cref="TableIndex"/>, then an exception is thrown.
+      /// </returns>
+      /// <exception cref="ArgumentException">If <paramref name="x"/> and <paramref name="y"/> are not <c>null</c> and their type is not <see cref="TableIndex"/>.</exception>
       Int32 IComparer.Compare( object x, object y )
       {
          Int32 retVal;

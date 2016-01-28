@@ -637,18 +637,17 @@ namespace CILMerge
                      )
                   {
                      Byte[] xBytes, yBytes;
-                     var computer = this._moduleLoader.PublicKeyComputer.Value;
                      if ( x.Attributes.IsFullPublicKey() )
                      {
                         // Create public key token for x and compare with y
-                        xBytes = computer.ComputePublicKeyToken( xa.PublicKeyOrToken );
+                        xBytes = this._moduleLoader.ComputePublicKeyTokenOrNull( xa.PublicKeyOrToken );
                         yBytes = ya.PublicKeyOrToken;
                      }
                      else
                      {
                         // Create public key token for y and compare with x
                         xBytes = xa.PublicKeyOrToken;
-                        yBytes = computer.ComputePublicKeyToken( ya.PublicKeyOrToken );
+                        yBytes = this._moduleLoader.ComputePublicKeyTokenOrNull( ya.PublicKeyOrToken );
                      }
                      retVal = ArrayEqualityComparer<Byte>.DefaultArrayEqualityComparer.Equals( xBytes, yBytes );
                   }
@@ -829,7 +828,7 @@ namespace CILMerge
                         }
                         else if ( !targetARef.Attributes.IsFullPublicKey() )
                         {
-                           targetARef.AssemblyInformation.PublicKeyOrToken = this._moduleLoader.PublicKeyComputer.Value.ComputePublicKeyToken( aDefInfo.PublicKeyOrToken );
+                           targetARef.AssemblyInformation.PublicKeyOrToken = this._moduleLoader.ComputePublicKeyTokenOrNull( aDefInfo.PublicKeyOrToken );
                         }
                         retargetableInfos.Add( targetAssemblyRefIndex.Index );
                      }
