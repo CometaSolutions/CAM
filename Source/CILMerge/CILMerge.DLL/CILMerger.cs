@@ -1069,7 +1069,7 @@ namespace CILMerge
 
       private IEnumerable<String> GetPossibleResourcesForAssemblyReference( CILMetaData inputModule, AssemblyReference assemblyRef )
       {
-         var aRefInfo = assemblyRef.NewInformationForResolving();
+         var aRefInfo = new AssemblyInformationForResolving( assemblyRef );
          var inputModulePath = this._moduleLoader.GetResourceFor( inputModule );
          var retVal = this._loaderCallbacks
             .GetPossibleResourcesForAssemblyReference( inputModulePath, inputModule, aRefInfo, null );

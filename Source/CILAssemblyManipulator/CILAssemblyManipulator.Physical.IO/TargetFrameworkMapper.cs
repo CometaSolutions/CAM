@@ -384,7 +384,7 @@ public static partial class E_CILPhysical
 
          AssemblyReference newRef;
          Boolean wasTargetFW;
-         if ( mapper.TryReMapReference( md, aRef.NewInformationForResolving(), Miscellaneous.CombineNamespaceAndType( tRef.Namespace, tRef.Name ), loader, newTargetFW, out newRef, out wasTargetFW ) )
+         if ( mapper.TryReMapReference( md, new AssemblyInformationForResolving( aRef ), Miscellaneous.CombineNamespaceAndType( tRef.Namespace, tRef.Name ), loader, newTargetFW, out newRef, out wasTargetFW ) )
          {
             Int32 aRefNewIdx;
             if ( !aRefDic.TryGetValue( newRef, out aRefNewIdx ) )

@@ -37,6 +37,7 @@ namespace CILAssemblyManipulator.Physical.IO
    /// <remarks>
    /// <para>
    /// This class is rarely used directly, as e.g. <see cref="CILMetaDataLoader"/> will use this by default in <see cref="CILMetaDataLoader.ResolveMetaData()"/> method.
+   /// In order to fully utilize this class, one should register to <see cref="AssemblyReferenceResolveEvent"/> and <see cref="ModuleReferenceResolveEvent"/> events.
    /// </para>
    /// <para>
    /// The custom attribute signatures are serialized in meta data (see ECMA-335 spec for more info) in such way that enum values have their type names present, but the underlying enum value type (e.g. integer) is not present.
@@ -384,7 +385,7 @@ namespace CILAssemblyManipulator.Physical.IO
                idx =>
                {
                   var aRef = this._md.AssemblyReferences.GetOrNull( idx );
-                  return aRef == null ? null : this._owner.ResolveAssemblyReferenceWithEvent( this._md, null, aRef.NewInformationForResolving() );
+                  return aRef == null ? null : this._owner.ResolveAssemblyReferenceWithEvent( this._md, null, new AssemblyInformationForResolving( aRef ) );
                } );
          }
       }
@@ -421,15 +422,12 @@ namespace CILAssemblyManipulator.Physical.IO
       /// <param name="md">The <see cref="CILMetaData"/>.</param>
       /// <param name="index">The index in <see cref="CILMetaData.CustomAttributeDefinitions"/> to resolve signature.</param>
       /// <returns>non-<c>null</c> resolved signature, or <c>null</c> if resolving was unsuccessful.</returns>
+      /// <exception cref="ArgumentNullException">If <paramref name="md"/> is <c>null</c>.</exception>
       public ResolvedCustomAttributeSignature ResolveCustomAttributeSignature(
          CILMetaData md,
          Int32 index
          )
       {
-         if ( index == 10 )
-         {
-
-         }
          ArgumentValidator.ValidateNotNull( "Metadata", md );
 
          var customAttribute = md.CustomAttributeDefinitions.GetOrNull( index );
@@ -451,7 +449,14 @@ namespace CILAssemblyManipulator.Physical.IO
          return signature;
       }
 
-      public void ResolveSecurityDeclaration(
+      /// <summary>
+      /// Tries to resolve a security declaration signatures in a given <see cref="CILMetaData"/> at a given index.
+      /// </summary>
+      /// <param name="md">The <see cref="CILMetaData"/>.</param>
+      /// <param name="index">The index in <see cref="CILMetaData.SecurityDefinitions"/> to resolve signature.</param>
+      /// <returns><c>true</c> if all <see cref="SecurityDefinition.PermissionSets"/> have been resolved; <c>false</c> otherwise.</returns>
+      /// <exception cref="ArgumentNullException">If <paramref name="md"/> is <c>null</c>.</exception>
+      public Boolean ResolveSecurityDeclaration(
          CILMetaData md,
          Int32 index
          )
@@ -459,7 +464,8 @@ namespace CILAssemblyManipulator.Physical.IO
          ArgumentValidator.ValidateNotNull( "Metadata", md );
 
          var sec = md.SecurityDefinitions.GetOrNull( index );
-         if ( sec != null )
+         var retVal = sec != null;
+         if ( retVal )
          {
             var permissions = sec.PermissionSets;
             for ( var i = 0; i < permissions.Count; ++i )
@@ -489,12 +495,18 @@ namespace CILAssemblyManipulator.Physical.IO
                   {
                      permissions[i] = secInfo;
                   }
+                  else
+                  {
+                     retVal = false;
+                  }
                }
             }
          }
+
+         return retVal;
       }
 
-      internal ResolvedCustomAttributeSignature TryResolveCustomAttributeSignature(
+      private ResolvedCustomAttributeSignature TryResolveCustomAttributeSignature(
          CILMetaData md,
          Byte[] blob,
          Int32 idx,
@@ -856,7 +868,7 @@ namespace CILAssemblyManipulator.Physical.IO
          }
       }
 
-      internal CustomAttributeNamedArgument ReadCANamedArgument(
+      private CustomAttributeNamedArgument ReadCANamedArgument(
          CILMetaData md,
          Byte[] blob,
          ref Int32 idx
@@ -888,170 +900,216 @@ namespace CILAssemblyManipulator.Physical.IO
 
    }
 
+   /// <summary>
+   /// This is common base class for <see cref="ModuleReferenceResolveEventArgs"/> and <see cref="AssemblyReferenceResolveEventArgs"/>.
+   /// It encapsulates some common properties when resolving module or assembly references with <see cref="MetaDataResolver.ModuleReferenceResolveEvent"/> and <see cref="MetaDataResolver.AssemblyReferenceResolveEvent"/> events, respectively.
+   /// </summary>
    public abstract class AssemblyOrModuleReferenceResolveEventArgs : EventArgs
    {
-      private readonly CILMetaData _thisMD;
 
       internal AssemblyOrModuleReferenceResolveEventArgs( CILMetaData thisMD )
       {
          ArgumentValidator.ValidateNotNull( "This metadata", thisMD );
 
-         this._thisMD = thisMD;
+         this.ThisMetaData = thisMD;
       }
 
-      public CILMetaData ThisMetaData
-      {
-         get
-         {
-            return this._thisMD;
-         }
-      }
+      /// <summary>
+      /// Gets the metadata which contained the module or assembly reference.
+      /// </summary>
+      /// <value>The metadata which contained the module or assembly reference.</value>
+      public CILMetaData ThisMetaData { get; }
 
-
+      /// <summary>
+      /// The event handlers of <see cref="MetaDataResolver.ModuleReferenceResolveEvent"/> and <see cref="MetaDataResolver.AssemblyReferenceResolveEvent"/> events should set this property to the <see cref="CILMetaData"/> corresponding to the module or assembly reference being resolved.
+      /// </summary>
       public CILMetaData ResolvedMetaData { get; set; }
    }
 
+   /// <summary>
+   /// This is arguments class for <see cref="MetaDataResolver.ModuleReferenceResolveEvent"/> event.
+   /// </summary>
    public sealed class ModuleReferenceResolveEventArgs : AssemblyOrModuleReferenceResolveEventArgs
    {
-      private readonly String _moduleName;
 
       internal ModuleReferenceResolveEventArgs( CILMetaData thisMD, String moduleName )
          : base( thisMD )
       {
-         this._moduleName = moduleName;
+         this.ModuleName = moduleName;
       }
 
-      public String ModuleName
-      {
-         get
-         {
-            return this._moduleName;
-         }
-      }
+      /// <summary>
+      /// Gets the name of the module being resolved.
+      /// </summary>
+      /// <value>The name of the module being resolved.</value>
+      public String ModuleName { get; }
    }
 
+   /// <summary>
+   /// This is arguments class for <see cref="MetaDataResolver.AssemblyReferenceResolveEvent"/> event.
+   /// </summary>
    public sealed class AssemblyReferenceResolveEventArgs : AssemblyOrModuleReferenceResolveEventArgs
    {
-      private readonly String _assemblyName;
-      private readonly AssemblyInformationForResolving _assemblyInfo;
-      //private readonly Boolean _isRetargetable;
 
-      // assemblyInfo may be null
       internal AssemblyReferenceResolveEventArgs( CILMetaData thisMD, String assemblyName, AssemblyInformationForResolving assemblyInfo ) //, Boolean isRetargetable )
          : base( thisMD )
       {
 
-         this._assemblyName = assemblyName;
-         this._assemblyInfo = assemblyInfo;
-         //this._isRetargetable = isRetargetable;
+         this.UnparsedAssemblyName = assemblyName;
+         this.AssemblyInformation = assemblyInfo;
       }
 
       /// <summary>
-      /// This may be <c>null</c>! This means that it is mscorlib assembly, (or possibly another module?)
+      /// Gets the unparsed assembly name in case parsing failed.
       /// </summary>
-      public String UnparsedAssemblyName
-      {
-         get
-         {
-            return this._assemblyName;
-         }
-      }
+      /// <value>The unparsed assembly name in case parsing failed.</value>
+      /// <remarks>
+      /// This will be <c>null</c> when the assembly reference was not in textual format, or when the assembly name was successfully parsed with <see cref="CAMPhysical::CILAssemblyManipulator.Physical.AssemblyInformation.TryParse(string, out CAMPhysical::CILAssemblyManipulator.Physical.AssemblyInformation, out bool)"/> method.
+      /// In such case, the <see cref="AssemblyInformation"/> will be non-<c>null</c>.
+      /// </remarks>
+      public String UnparsedAssemblyName { get; }
 
-      public AssemblyInformationForResolving ExistingAssemblyInformation
-      {
-         get
-         {
-            return this._assemblyInfo;
-         }
-      }
+      /// <summary>
+      /// Gets the <see cref="AssemblyInformationForResolving"/> in case of assembly references via <see cref="AssemblyReference"/> or successfully parsed assembly string.
+      /// </summary>
+      /// <value>The <see cref="AssemblyInformationForResolving"/> in case of assembly references via <see cref="AssemblyReference"/> or successfully parsed assembly string.</value>
+      /// <remarks>
+      /// This will be <c>null</c> if assembly reference was in textual format and parsing the assembly name failed.
+      /// In such case, the <see cref="UnparsedAssemblyName"/> will be set to the textual assembly name.
+      /// </remarks>
+      public AssemblyInformationForResolving AssemblyInformation { get; }
 
-      //public Boolean IsRetargetable
-      //{
-      //   get
-      //   {
-      //      return this._isRetargetable;
-      //   }
-      //}
 
    }
 
-   // TODO investigate if this should really be struct.
+   /// <summary>
+   /// This class encapsulates information which is required when resolving assembly references with <see cref="MetaDataResolver"/>, and more specifically, its <see cref="MetaDataResolver.AssemblyReferenceResolveEvent"/> event.
+   /// </summary>
    public sealed class AssemblyInformationForResolving : IEquatable<AssemblyInformationForResolving>
    {
-      private readonly AssemblyInformation _information;
-      private readonly Boolean _isFullPublicKey;
-      //private readonly Boolean _isRetargetable;
 
+      /// <summary>
+      /// Creates a new instance of <see cref="AssemblyInformationForResolving"/> with required information gathered from given <see cref="AssemblyReference"/> row.
+      /// </summary>
+      /// <param name="aRef">The <see cref="AssemblyReference"/> row.</param>
+      /// <exception cref="ArgumentNullException">If <paramref name="aRef"/> is <c>null</c>.</exception>
       public AssemblyInformationForResolving( AssemblyReference aRef )
-         : this( ArgumentValidator.ValidateNotNullAndReturn( "Assembly reference", aRef ).AssemblyInformation.CreateDeepCopy(), aRef.Attributes.IsFullPublicKey() ) //, aRef.Attributes.IsRetargetable() )
+         : this( ArgumentValidator.ValidateNotNullAndReturn( "Assembly reference", aRef ).AssemblyInformation.CreateDeepCopy(), aRef.Attributes.IsFullPublicKey() )
       {
 
       }
 
-      public AssemblyInformationForResolving( AssemblyInformation information, Boolean isFullPublicKey ) //, Boolean isRetargetable )
+      /// <summary>
+      /// Creates a new instance of <see cref="AssemblyInformationForResolving"/> with required information specified in a <see cref="CAMPhysical::CILAssemblyManipulator.Physical.AssemblyInformation"/> object, and separate boolean indicating whether the reference uses full public key, or public key token.
+      /// </summary>
+      /// <param name="information">The <see cref="CAMPhysical::CILAssemblyManipulator.Physical.AssemblyInformation"/> with required information.</param>
+      /// <param name="isFullPublicKey"><c>true</c> if this assembly reference uses full public key; <c>false</c> if it uses public key token.</param>
+      /// <exception cref="ArgumentNullException">If <paramref name="information"/> is <c>null</c>.</exception>
+      public AssemblyInformationForResolving( AssemblyInformation information, Boolean isFullPublicKey )
       {
          ArgumentValidator.ValidateNotNull( "Assembly information", information );
 
-         this._information = information;
-         this._isFullPublicKey = isFullPublicKey;
-         //this._isRetargetable = isRetargetable;
+         this.AssemblyInformation = information;
+         this.IsFullPublicKey = isFullPublicKey;
       }
 
-      public AssemblyInformation AssemblyInformation
-      {
-         get
-         {
-            return this._information;
-         }
-      }
+      /// <summary>
+      /// Gets the <see cref="CAMPhysical::CILAssemblyManipulator.Physical.AssemblyInformation"/> containing the name, culture, version, and public key information of this assembly reference.
+      /// </summary>
+      /// <value>The <see cref="CAMPhysical::CILAssemblyManipulator.Physical.AssemblyInformation"/> containing the name, culture, version, and public key information of this assembly reference.</value>
+      public AssemblyInformation AssemblyInformation { get; }
 
-      public Boolean IsFullPublicKey
-      {
-         get
-         {
-            return this._isFullPublicKey;
-         }
-      }
+      /// <summary>
+      /// Gets the value indicating whether the possible public key in <see cref="AssemblyInformation"/> is full public key, or public key token.
+      /// </summary>
+      /// <value>The value indicating whether the possible public key in <see cref="AssemblyInformation"/> is full public key, or public key token.</value>
+      public Boolean IsFullPublicKey { get; }
 
-      //public Boolean IsRetargetable
-      //{
-      //   get
-      //   {
-      //      return this._isRetargetable;
-      //   }
-      //}
-
+      /// <summary>
+      /// Checks whether given object is of type <see cref="AssemblyInformationForResolving"/> and that its data content is same as data content of this.
+      /// </summary>
+      /// <param name="obj">The object to check.</param>
+      /// <returns><c>true</c> if <paramref name="obj"/> is of type <see cref="AssemblyInformationForResolving"/> and its data content match to data content of this.</returns>
       public override Boolean Equals( Object obj )
       {
          return this.Equals( obj as AssemblyInformationForResolving );
       }
 
+      /// <summary>
+      /// Computes the hash code for this <see cref="AssemblyInformationForResolving"/>.
+      /// </summary>
+      /// <returns>The hash code for this <see cref="AssemblyInformationForResolving"/>.</returns>
       public override Int32 GetHashCode()
       {
-         return this._information.Name.GetHashCodeSafe();
+         return this.AssemblyInformation.Name.GetHashCodeSafe();
       }
 
+      /// <summary>
+      /// Checks whether this <see cref="AssemblyInformationForResolving"/> and given <see cref="AssemblyInformationForResolving"/> equal or have same data contents.
+      /// </summary>
+      /// <param name="other">Other <see cref="AssemblyInformationForResolving"/>.</param>
+      /// <returns><c>true</c> if <paramref name="other"/> is this or if its data content matches to this; <c>false</c> otherwise.</returns>
+      /// <remarks>
+      /// The following properites are checked when matching data content:
+      /// <list type="bullet">
+      /// <item><description><see cref="AssemblyInformation"/> (using <see cref="CAMPhysical::CILAssemblyManipulator.Physical.Comparers.AssemblyInformationEqualityComparer"/>), and</description></item>
+      /// <item><description><see cref="IsFullPublicKey"/>.</description></item>
+      /// </list>
+      /// </remarks>
       public Boolean Equals( AssemblyInformationForResolving other )
       {
-         return other != null
-            && this._isFullPublicKey == other._isFullPublicKey
-            && CAMPhysical::CILAssemblyManipulator.Physical.Comparers.AssemblyInformationEqualityComparer.Equals( this._information, other._information );
+         return ReferenceEquals( this, other ) ||
+            ( other != null
+            && this.IsFullPublicKey == other.IsFullPublicKey
+            && CAMPhysical::CILAssemblyManipulator.Physical.Comparers.AssemblyInformationEqualityComparer.Equals( this.AssemblyInformation, other.AssemblyInformation )
+            );
       }
    }
 }
 
 public static partial class E_CILPhysical
 {
+   /// <summary>
+   /// Helper method to resolve all custom attributes of given <see cref="CILMetaData"/> using <see cref="MetaDataResolver.ResolveCustomAttributeSignature(CILMetaData, int)"/>.
+   /// </summary>
+   /// <param name="resolver">This <see cref="MetaDataResolver"/>.</param>
+   /// <param name="md">The <see cref="CILMetaData"/>.</param>
+   /// <exception cref="NullReferenceException">If this <see cref="MetaDataResolver"/> is <c>null</c>.</exception>
+   /// <exception cref="ArgumentNullException">If <paramref name="md"/> is <c>null</c>.</exception>
    public static void ResolveAllCustomAttributes( this MetaDataResolver resolver, CILMetaData md )
    {
+      if ( resolver == null )
+      {
+         throw new NullReferenceException();
+      }
+      ArgumentValidator.ValidateNotNull( "Meta data", md );
       resolver.UseResolver( md, md.CustomAttributeDefinitions, ( r, m, i ) => r.ResolveCustomAttributeSignature( m, i ) );
    }
 
+   /// <summary>
+   /// Helper method to resolve all security signatures of given <see cref="CILMetaData"/> using <see cref="MetaDataResolver.ResolveSecurityDeclaration(CILMetaData, int)"/>.
+   /// </summary>
+   /// <param name="resolver">This <see cref="MetaDataResolver"/>.</param>
+   /// <param name="md">The <see cref="CILMetaData"/>.</param>
+   /// <exception cref="NullReferenceException">If this <see cref="MetaDataResolver"/> is <c>null</c>.</exception>
+   /// <exception cref="ArgumentNullException">If <paramref name="md"/> is <c>null</c>.</exception>
    public static void ResolveAllSecurityInformation( this MetaDataResolver resolver, CILMetaData md )
    {
+      if ( resolver == null )
+      {
+         throw new NullReferenceException();
+      }
+      ArgumentValidator.ValidateNotNull( "Meta data", md );
       resolver.UseResolver( md, md.SecurityDefinitions, ( r, m, i ) => r.ResolveSecurityDeclaration( m, i ) );
    }
 
+   /// <summary>
+   /// Helper method to resolve custom attribute signatures and security signatures in given <see cref="CILMetaData"/>.
+   /// </summary>
+   /// <param name="resolver">This <see cref="MetaDataResolver"/>.</param>
+   /// <param name="md">The <see cref="CILMetaData"/>.</param>
+   /// <exception cref="NullReferenceException">If this <see cref="MetaDataResolver"/> is <c>null</c>.</exception>
+   /// <exception cref="ArgumentNullException">If <paramref name="md"/> is <c>null</c>.</exception>
    public static void ResolveEverything( this MetaDataResolver resolver, CILMetaData md )
    {
       resolver.ResolveAllCustomAttributes( md );
@@ -1061,18 +1119,12 @@ public static partial class E_CILPhysical
    private static void UseResolver<T>( this MetaDataResolver resolver, CILMetaData md, MetaDataTable<T> list, Action<MetaDataResolver, CILMetaData, Int32> action )
       where T : class
    {
-      ArgumentValidator.ValidateNotNull( "Metadata", md );
 
       var max = list.GetRowCount();
       for ( var i = 0; i < max; ++i )
       {
          action( resolver, md, i );
       }
-   }
-
-   public static AssemblyInformationForResolving NewInformationForResolving( this AssemblyReference assemblyRef )
-   {
-      return new AssemblyInformationForResolving( assemblyRef );
    }
 
    /// <summary>

@@ -123,11 +123,11 @@ namespace CILAssemblyManipulator.Physical.IO
          return allPossibleResources.Where( r => !String.Equals( thisModulePath, r ) ); // TODO path comparison (case-(in)sensitive)
       }
 
-      public TargetFrameworkInfo GetTargetFrameworkInfoFor( CILMetaData md )
+      public TargetFrameworkInfo GetOrAddTargetFrameworkInfoFor( CILMetaData md )
       {
          // TODO consider changing this to extension method
          // Since if we change target framework info attribute for 'md', the cache will contain invalid information...
-         return this._targetFrameworks.GetOrAdd_WithLock( md, thisMD =>
+         return md == null ? null : this._targetFrameworks.GetOrAdd_WithLock( md, thisMD =>
          {
             TargetFrameworkInfo fwInfo;
             return thisMD.TryGetTargetFrameworkInformation( out fwInfo ) ? fwInfo : null;
@@ -137,17 +137,19 @@ namespace CILAssemblyManipulator.Physical.IO
       public String GetTargetFrameworkPathForFrameworkInfo( TargetFrameworkInfo targetFW )
       {
          String retVal;
-         if ( targetFW != null )
+         String id, v, p;
+         if ( targetFW == null || String.IsNullOrEmpty( ( id = targetFW.Identifier ) ) || String.IsNullOrEmpty( ( v = targetFW.Version ) ) )
          {
-            retVal = Path.Combine( this.TargetFrameworkBasePath, targetFW.Identifier, targetFW.Version );
-            if ( !String.IsNullOrEmpty( targetFW.Profile ) )
-            {
-               retVal = Path.Combine( retVal, "Profile", targetFW.Profile );
-            }
+            retVal = null;
          }
          else
          {
-            retVal = null;
+            retVal = Path.Combine( this.TargetFrameworkBasePath, id, v );
+            if ( !String.IsNullOrEmpty( ( p = targetFW.Profile ) ) )
+            {
+               retVal = Path.Combine( retVal, "Profile", p );
+            }
+
          }
 
          return retVal;
@@ -224,9 +226,9 @@ namespace CILAssemblyManipulator.Physical.IO
 
       }
 
-      protected override CILMetaData GetOrAddFromDictionary( String resource, Func<String, CILMetaData> factory )
+      protected override CILMetaData GetOrAddFromCache( String resource, Func<String, CILMetaData> factory )
       {
-         return this.Dictionary.GetOrAdd( resource, factory );
+         return this.Cache.GetOrAdd( resource, factory );
       }
 
       protected override Boolean IsSupportingConcurrency

@@ -500,12 +500,27 @@ public static partial class E_CILPhysical
          0;
    }
 
+   // TODO this method is only used by tests now, might remove maybe?
+   /// <summary>
+   /// Checks whether the <see cref="MethodDefinition"/> at given index has <see cref="MethodILDefinition"/> such that it would be serialized using tiny IL header.
+   /// </summary>
+   /// <param name="md">The <see cref="CILMetaData"/>.</param>
+   /// <param name="methodDefIndex">The index in <see cref="CILMetaData.MethodDefinitions"/> table.</param>
+   /// <returns><c>true</c> if <see cref="MethodILDefinition"/> would be serialized using tiny IL header; <c>false</c> otherwise.</returns>
    public static Boolean IsTinyILHeader( this CILMetaData md, Int32 methodDefIndex )
    {
       Int32 ilCodeByteCount; Boolean hasAnyExceptions, allAreSmall;
       return md.IsTinyILHeader( methodDefIndex, out ilCodeByteCount, out hasAnyExceptions, out allAreSmall );
    }
 
+   // TODO this method is not used at all, might remove maybe?
+   /// <summary>
+   /// Checks whether the <see cref="MethodDefinition"/> at given index has <see cref="MethodILDefinition"/> such that it would be serialized using tiny IL header.
+   /// </summary>
+   /// <param name="md">The <see cref="CILMetaData"/>.</param>
+   /// <param name="methodDefIndex">The index in <see cref="CILMetaData.MethodDefinitions"/> table.</param>
+   /// <param name="ilCodeByteCount">This parameter will have the byte count for IL bytecode of the target <see cref="MethodILDefinition"/>.</param>
+   /// <returns><c>true</c> if <see cref="MethodILDefinition"/> would be serialized using tiny IL header; <c>false</c> otherwise.</returns>
    public static Boolean IsTinyILHeader( this CILMetaData md, Int32 methodDefIndex, out Int32 ilCodeByteCount )
    {
       Boolean hasAnyExceptions, allAreSmall;
@@ -617,11 +632,21 @@ public static partial class E_CILPhysical
       }
    }
 
+   /// <summary>
+   /// Gets the zero-based metadata token (table + zero-based index value encoded in integer) for this <see cref="TableIndex"/>.
+   /// </summary>
+   /// <param name="index">The <see cref="TableIndex"/>.</param>
+   /// <returns>The zero-based metadata token for this <see cref="TableIndex"/>.</returns>
    public static Int32 GetZeroBasedToken( this TableIndex index )
    {
       return ( index.CombinedValue & CAMCoreInternals.INDEX_MASK ) | ( index.CombinedValue & ~CAMCoreInternals.INDEX_MASK );
    }
 
+   /// <summary>
+   /// Gets the one-based metadata token (table + one-based index value encoded in integer) for this <see cref="TableIndex"/>.
+   /// </summary>
+   /// <param name="index">The <see cref="TableIndex"/>.</param>
+   /// <returns>The one-based metadata token for this <see cref="TableIndex"/>.</returns>
    public static Int32 GetOneBasedToken( this TableIndex index )
    {
       return ( ( index.CombinedValue & CAMCoreInternals.INDEX_MASK ) + 1 ) | ( index.CombinedValue & ~CAMCoreInternals.INDEX_MASK );
