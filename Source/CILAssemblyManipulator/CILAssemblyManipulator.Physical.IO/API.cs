@@ -57,8 +57,8 @@ namespace CILAssemblyManipulator.Physical.IO
 
          var rawValueReading = rArgs.RawValueReading;
          ImageInformation imageInfo;
-         var md = stream.ReadMetaDataFromStream(
-            rArgs.ReaderFunctionalityProvider,
+         var md = ( rArgs.ReaderFunctionalityProvider ?? new Defaults.DefaultReaderFunctionalityProvider() ).ReadMetaDataFromStream(
+            stream,
             rArgs.TableInformationProvider,
             rArgs.ErrorHandler,
             rawValueReading == RawValueReading.ToRow,

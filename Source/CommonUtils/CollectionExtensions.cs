@@ -1095,7 +1095,10 @@ public static partial class E_CommonUtils
       {
          seed = aggregator( seed, item, cur );
          yield return seed;
-         ++cur;
+         checked
+         {
+            ++cur;
+         }
       }
    }
 
@@ -1120,7 +1123,10 @@ public static partial class E_CommonUtils
       {
          yield return seed;
          seed = aggregator( seed, item, cur );
-         ++cur;
+         checked
+         {
+            ++cur;
+         }
       }
    }
 

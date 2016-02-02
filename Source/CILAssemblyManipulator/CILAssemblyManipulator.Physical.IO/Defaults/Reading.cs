@@ -38,7 +38,7 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
    {
       public virtual ReaderFunctionality GetFunctionality(
          Stream stream,
-         MetaDataTableInformationProvider mdTableInfoProvider,
+         CILMetaDataTableInformationProvider mdTableInfoProvider,
          EventHandler<SerializationErrorEventArgs> errorHandler,
          out Stream newStream
          )
@@ -67,7 +67,7 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
 
       public DefaultReaderFunctionality(
          TableSerializationInfoCreationArgs serializationCreationArgs,
-         MetaDataTableInformationProvider tableInfoProvider = null,
+         CILMetaDataTableInformationProvider tableInfoProvider = null,
          MetaDataSerializationSupportProvider mdSerialization = null
          )
       {
