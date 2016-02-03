@@ -414,16 +414,17 @@ public static partial class E_CILPhysical
          eArgs = new WritingArguments();
       }
 
-      eArgs.ImageInformation = stream.WriteMetaDataToStream(
-         md,
-         eArgs.WriterFunctionalityProvider,
-         eArgs.WritingOptions,
-         eArgs.StrongName,
-         eArgs.DelaySign,
-         eArgs.CryptoCallbacks,
-         eArgs.SigningAlgorithm,
-         eArgs.ErrorHandler
-         );
+      eArgs.ImageInformation = ( eArgs.WriterFunctionalityProvider ?? new CILAssemblyManipulator.Physical.IO.Defaults.DefaultWriterFunctionalityProvider() )
+         .WriteMetaDataToStream(
+            stream,
+            md,
+            eArgs.WritingOptions,
+            eArgs.StrongName,
+            eArgs.DelaySign,
+            eArgs.CryptoCallbacks,
+            eArgs.SigningAlgorithm,
+            eArgs.ErrorHandler
+            );
 
    }
 }

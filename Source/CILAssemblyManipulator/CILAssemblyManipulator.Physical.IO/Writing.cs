@@ -34,8 +34,29 @@ using CILAssemblyManipulator.Physical.Meta;
 
 namespace CILAssemblyManipulator.Physical.IO
 {
+   /// <summary>
+   /// This interface is the 'root' interface which controls what happens when writing <see cref="CILMetaData"/> with <see cref="E_CILPhysical.WriteModule"/> method.
+   /// To customize the serialization process, it is possible to set <see cref="WritingArguments.WriterFunctionalityProvider"/> property to your own instances of <see cref="WriterFunctionalityProvider"/>.
+   /// </summary>
+   /// <seealso cref="WriterFunctionality"/>
+   /// <seealso cref="WritingArguments.ReaderFunctionalityProvider"/>
+   /// <seealso cref="E_CILPhysical.WriteMetaDataToStream(WriterFunctionalityProvider, Stream, CILMetaData, WritingOptions, StrongNameKeyPair, bool, CryptoCallbacks, AssemblyHashAlgorithm?, EventHandler{SerializationErrorEventArgs})"/>
+   /// <seealso cref="DefaultWriterFunctionalityProvider"/>
    public interface WriterFunctionalityProvider
    {
+      /// <summary>
+      /// Creates a new <see cref="WriterFunctionality"/> to be used to write <see cref="CILMetaData"/> to <see cref="Stream"/>.
+      /// Optionally, specifies a new <see cref="Stream"/> and/or a new <see cref="CILMetaData"/> to use.
+      /// </summary>
+      /// <param name="md">The original <see cref="CILMetaData"/>.</param>
+      /// <param name="options">The <see cref="WritingOptions"/> being used.</param>
+      /// <param name="errorHandler">The error handler callback.</param>
+      /// <param name="newMD">Optional new <see cref="CILMetaData"/> to use instead of <paramref name="md"/> in the further serialization process.</param>
+      /// <param name="newStream">Optional new <see cref="Stream"/> to use instead of <paramref name="stream"/> in the further sererialization process.</param>
+      /// <returns>The <see cref="WriterFunctionality"/> to use for actual deserialization.</returns>
+      /// <seealso cref="WriterFunctionality"/>
+      /// <seealso cref="IOArguments.ErrorHandler"/>
+      /// <seealso cref="E_CILPhysical.WriteMetaDataToStream(WriterFunctionality, Stream, CILMetaData, WritingOptions, StrongNameKeyPair, bool, CryptoCallbacks, AssemblyHashAlgorithm?, EventHandler{SerializationErrorEventArgs})"/>
       WriterFunctionality GetFunctionality(
          CILMetaData md,
          WritingOptions options,
@@ -45,29 +66,48 @@ namespace CILAssemblyManipulator.Physical.IO
          );
    }
 
+   /// <summary>
+   /// This interface provides core functionality to be used when serializing <see cref="CILMetaData"/> to <see cref="Stream"/>.
+   /// The instances of this interface are created via <see cref="WriterFunctionalityProvider.GetFunctionality"/> method, and the instances of <see cref="WriterFunctionalityProvider"/> may be customized by setting <see cref="WritingArguments.WriterFunctionalityProvider"/> property.
+   /// </summary>
+   /// <remarks>
+   /// The <see cref="E_CILPhysical.WriteMetaDataToStream(WriterFunctionality, Stream, CILMetaData, WritingOptions, StrongNameKeyPair, bool, CryptoCallbacks, AssemblyHashAlgorithm?, EventHandler{SerializationErrorEventArgs})"/> method will call the methods of this interface in the following order:
+   /// <list type="number">
+   /// <item><description><see cref="CreateMetaDataStreamHandlers"/>,</description></item>
+   /// <item><description><see cref="GetSectionCount"/>,</description></item>
+   /// <item><description><see cref="PopulateSections"/>,</description></item>
+   /// <item><description><see cref="BeforeMetaData"/>,</description></item>
+   /// <item><description><see cref="WriteMDRoot"/>,</description></item>
+   /// <item><description><see cref="AfterMetaData"/>, and</description></item>
+   /// <item><description><see cref="WritePEInformation"/>.</description></item>
+   /// </list>
+   /// </remarks>
+   /// <seealso cref="WriterFunctionalityProvider"/>
+   /// <seealso cref="DefaultWriterFunctionality"/>
+   /// <seealso cref="WriterFunctionalityProvider.GetFunctionality"/>
+   /// <seealso cref="E_CILPhysical.WriteMetaDataToStream(WriterFunctionality, Stream, CILMetaData, WritingOptions, StrongNameKeyPair, bool, CryptoCallbacks, AssemblyHashAlgorithm?, EventHandler{SerializationErrorEventArgs})"/>
+   /// <seealso cref="WritingArguments.WriterFunctionalityProvider"/>
    public interface WriterFunctionality
    {
-      IEnumerable<AbstractWriterStreamHandler> CreateStreamHandlers();
+      IEnumerable<AbstractWriterStreamHandler> CreateMetaDataStreamHandlers();
 
       Int32 GetSectionCount( ImageFileMachine machine );
 
-      RawValueProvider PopulateSections(
+      RawValueStorage<Int64> PopulateSections(
          WritingStatus writingStatus,
          WriterMetaDataStreamContainer mdStreamContainer,
          ArrayQuery<AbstractWriterStreamHandler> allMDStreams,
          SectionHeader[] sections,
          out RVAConverter rvaConverter,
          out MetaDataRoot mdRoot,
-         out Int32 mdRootSize,
-         out Int32 mdSize
+         out Int32 mdRootSize
          );
 
       void BeforeMetaData(
+         WritingStatus writingStatus,
          Stream stream,
          ResizableArray<Byte> array,
          ArrayQuery<SectionHeader> sections,
-         WritingStatus writingStatus,
-         RVAConverter rvaConverter,
          MetaDataRoot mdRoot,
          out CLIHeader cliHeader
          );
@@ -78,26 +118,18 @@ namespace CILAssemblyManipulator.Physical.IO
          );
 
       void AfterMetaData(
+         WritingStatus writingStatus,
          Stream stream,
          ResizableArray<Byte> array,
-         ArrayQuery<SectionHeader> sections,
-         WritingStatus writingStatus,
-         RVAConverter rvaConverter
+         ArrayQuery<SectionHeader> sections
          );
 
       void WritePEInformation(
+         WritingStatus writingStatus,
          Stream stream,
          ResizableArray<Byte> array,
-         WritingStatus writingStatus,
          PEInformation peInfo
          );
-   }
-
-   public interface RawValueProvider
-   {
-      Int32 GetRawValueFor( Tables table, Int32 rowIndex, Int32 columnIndex );
-
-      IEnumerable<Int32> GetRawValuesFor( Tables table, Int32 columnIndex );
    }
 
    public class WriterMetaDataStreamContainer
@@ -136,8 +168,7 @@ namespace CILAssemblyManipulator.Physical.IO
       void WriteStream(
          Stream sink,
          ResizableArray<Byte> array,
-         RawValueProvider rawValueProvder,
-         RVAConverter rvaConverter
+         RawValueStorage<Int64> rawValueProvder
          );
 
       Int32 CurrentSize { get; }
@@ -168,10 +199,6 @@ namespace CILAssemblyManipulator.Physical.IO
    public interface WriterGUIDStreamHandler : AbstractWriterStreamHandler
    {
       Int32 RegisterGUID( Guid? guid );
-   }
-
-   public interface WriterCustomStreamHandler : AbstractWriterStreamHandler
-   {
    }
 
    public class WritingStatus
@@ -249,9 +276,9 @@ public static partial class E_CILPhysical
    private const Int32 DATA_DIR_SIZE = 0x08;
 
    public static ImageInformation WriteMetaDataToStream(
-      this Stream stream,
+      this WriterFunctionalityProvider writerProvider,
+      Stream stream,
       CILMetaData md,
-      WriterFunctionalityProvider writerProvider,
       WritingOptions options,
       StrongNameKeyPair sn,
       Boolean delaySign,
@@ -260,11 +287,21 @@ public static partial class E_CILPhysical
       EventHandler<SerializationErrorEventArgs> errorHandler
       )
    {
+      if ( writerProvider == null )
+      {
+         throw new NullReferenceException();
+      }
+
       ArgumentValidator.ValidateNotNull( "Stream", stream );
       ArgumentValidator.ValidateNotNull( "Meta data", md );
 
+      if ( options == null )
+      {
+         options = new WritingOptions();
+      }
+
       CILMetaData newMD; Stream newStream;
-      var writer = ( writerProvider ?? new DefaultWriterFunctionalityProvider() ).GetFunctionality( md, options, errorHandler, out newMD, out newStream );
+      var writer = writerProvider.GetFunctionality( md, options, errorHandler, out newMD, out newStream ) ?? new DefaultWriterFunctionality( md, options, new TableSerializationInfoCreationArgs( errorHandler ) );
       if ( newMD != null )
       {
          md = newMD;
@@ -273,13 +310,13 @@ public static partial class E_CILPhysical
       ImageInformation retVal;
       if ( newStream == null )
       {
-         retVal = stream.WriteMetaDataToStream( md, writer, options, sn, delaySign, cryptoCallbacks, snAlgorithmOverride, errorHandler );
+         retVal = writer.WriteMetaDataToStream( stream, md, options, sn, delaySign, cryptoCallbacks, snAlgorithmOverride, errorHandler );
       }
       else
       {
          using ( newStream )
          {
-            retVal = newStream.WriteMetaDataToStream( md, writer, options, sn, delaySign, cryptoCallbacks, snAlgorithmOverride, errorHandler );
+            retVal = writer.WriteMetaDataToStream( stream, md, options, sn, delaySign, cryptoCallbacks, snAlgorithmOverride, errorHandler );
             newStream.Position = 0;
             newStream.CopyTo( stream );
          }
@@ -289,9 +326,9 @@ public static partial class E_CILPhysical
    }
 
    public static ImageInformation WriteMetaDataToStream(
-      this Stream stream,
+      this WriterFunctionality writer,
+      Stream stream,
       CILMetaData md,
-      WriterFunctionality writer,
       WritingOptions options,
       StrongNameKeyPair sn,
       Boolean delaySign,
@@ -301,6 +338,12 @@ public static partial class E_CILPhysical
       )
    {
       // Check arguments
+      if ( writer == null )
+      {
+         throw new NullReferenceException();
+         //writer = new DefaultWriterFunctionality( md, options, new TableSerializationInfoCreationArgs( errorHandler ) );
+      }
+
       ArgumentValidator.ValidateNotNull( "Stream", stream );
       ArgumentValidator.ValidateNotNull( "Meta data", md );
 
@@ -311,17 +354,12 @@ public static partial class E_CILPhysical
          options = new WritingOptions();
       }
 
-      if ( writer == null )
-      {
-         writer = new DefaultWriterFunctionality( md, options, new TableSerializationInfoCreationArgs( errorHandler ) );
-      }
-
       // Prepare strong name
       RSAParameters rParams;
       var snVars = md.PrepareStrongNameVariables( sn, ref delaySign, cryptoCallbacks, snAlgorithmOverride, out rParams );
 
       // 1. Create streams
-      var mdStreams = writer.CreateStreamHandlers().ToArrayProxy().CQ;
+      var mdStreams = writer.CreateMetaDataStreamHandlers().ToArrayProxy().CQ;
       var tblMDStream = mdStreams
          .OfType<WriterTableStreamHandler>()
          .FirstOrDefault() ?? new DefaultWriterTableStreamHandler( md, options.CLIOptions.TablesStreamOptions, DefaultMetaDataSerializationSupportProvider.Instance.CreateTableSerializationInfos( md, new TableSerializationInfoCreationArgs( errorHandler ) ).ToArrayProxy().CQ );
@@ -349,7 +387,8 @@ public static partial class E_CILPhysical
       var sectionsArray = new SectionHeader[writer.GetSectionCount( machine )];
 
       var peDataDirCount = peOptions.NumberOfDataDirectories ?? (Int32) DataDirectories.MaxValue;
-      var optionalHeaderSize = machine.GetOptionalHeaderSize( peDataDirCount );
+      var optionalHeaderKind = machine.GetOptionalHeaderKind();
+      var optionalHeaderSize = optionalHeaderKind.GetOptionalHeaderSize( peDataDirCount );
       var status = new WritingStatus(
          0x80 // DOS header size
          + PE_SIG_AND_FILE_HEADER_SIZE // PE Signature + File header size
@@ -365,7 +404,7 @@ public static partial class E_CILPhysical
          );
 
       // 4. Create sections and some headers
-      RVAConverter rvaConverter; MetaDataRoot mdRoot; Int32 mdRootSize; Int32 mdSize;
+      RVAConverter rvaConverter; MetaDataRoot mdRoot; Int32 mdRootSize;
       var rawValueProvider = writer.PopulateSections(
          status,
          mdStreamContainer,
@@ -373,8 +412,7 @@ public static partial class E_CILPhysical
          sectionsArray,
          out rvaConverter,
          out mdRoot,
-         out mdRootSize,
-         out mdSize
+         out mdRootSize
          );
 
       // 5. Position stream after headers, and write whatever is needed before meta data
@@ -382,7 +420,7 @@ public static partial class E_CILPhysical
       CLIHeader cliHeader;
       var headersSize = status.HeadersSize;
       stream.Position = headersSize;
-      writer.BeforeMetaData( stream, array, sections, status, rvaConverter, mdRoot, out cliHeader );
+      writer.BeforeMetaData( status, stream, array, sections, mdRoot, out cliHeader );
 
       if ( cliHeader == null )
       {
@@ -396,11 +434,11 @@ public static partial class E_CILPhysical
       stream.Write( array.Array, mdRootSize );
       foreach ( var mds in mdStreams.Where( mds => mds.Accessed ) )
       {
-         mds.WriteStream( stream, array, rawValueProvider, rvaConverter );
+         mds.WriteStream( stream, array, rawValueProvider );
       }
 
       // 7. Write whatever is needed after meta data
-      writer.AfterMetaData( stream, array, sections, status, rvaConverter );
+      writer.AfterMetaData( status, stream, array, sections );
 
       // 8. Create and write image information
       var cliOptions = options.CLIOptions;
@@ -420,11 +458,11 @@ public static partial class E_CILPhysical
                   optionalHeaderSize,
                   ( peOptions.Characteristics ?? machine.GetDefaultCharacteristics() ).ProcessCharacteristics( options.IsExecutable )
                   ),
-               machine.CreateOptionalHeader(
-                  peOptions,
+               peOptions.CreateOptionalHeader(
                   status,
                   sections,
-                  (UInt32) headersSize
+                  (UInt32) headersSize,
+                  optionalHeaderKind
                   )
                ),
             sections
@@ -435,13 +473,13 @@ public static partial class E_CILPhysical
             mdRoot,
             thHeader,
             snSignature == null ? null : cf.NewArrayProxy( snSignature ).CQ,
-            rawValueProvider.GetRawValuesFor( Tables.MethodDef, 0 ).Select( r => (UInt32) r ).ToArrayProxy().CQ,
-            rawValueProvider.GetRawValuesFor( Tables.FieldRVA, 0 ).Select( r => (UInt32) r ).ToArrayProxy().CQ
+            rawValueProvider.GetAllRawValuesForColumn( Tables.MethodDef, 0 ).Select( r => (UInt32) r ).ToArrayProxy().CQ,
+            rawValueProvider.GetAllRawValuesForColumn( Tables.FieldRVA, 0 ).Select( r => (UInt32) r ).ToArrayProxy().CQ
             )
          );
 
 
-      writer.WritePEInformation( stream, array, status, imageInfo.PEInformation );
+      writer.WritePEInformation( status, stream, array, imageInfo.PEInformation );
 
       // 9. Compute strong name signature, if needed
       CreateStrongNameSignature(
@@ -684,9 +722,9 @@ public static partial class E_CILPhysical
       return (Int32) ( DateTime.UtcNow - new DateTime( 1970, 1, 1, 0, 0, 0, DateTimeKind.Utc ) ).TotalSeconds;
    }
 
-   private static UInt16 GetOptionalHeaderSize( this ImageFileMachine machine, Int32 peDataDirectoriesCount )
+   private static UInt16 GetOptionalHeaderSize( this OptionalHeaderKind kind, Int32 peDataDirectoriesCount )
    {
-      return (UInt16) ( ( machine.RequiresPE64() ? 0x70 : 0x60 ) + DATA_DIR_SIZE * peDataDirectoriesCount );
+      return (UInt16) ( ( kind == OptionalHeaderKind.Optional64 ? 0x70 : 0x60 ) + DATA_DIR_SIZE * peDataDirectoriesCount );
    }
 
    private static FileHeaderCharacteristics ProcessCharacteristics(
@@ -700,11 +738,11 @@ public static partial class E_CILPhysical
    }
 
    private static OptionalHeader CreateOptionalHeader(
-      this ImageFileMachine machine,
-      WritingOptions_PE options,
+      this WritingOptions_PE options,
       WritingStatus writingStatus,
       ArrayQuery<SectionHeader> sections,
-      UInt32 headersSize
+      UInt32 headersSize,
+      OptionalHeaderKind kind
       )
    {
       const Byte linkerMajor = 0x0B;
@@ -766,75 +804,77 @@ public static partial class E_CILPhysical
       var ep = (UInt32) writingStatus.EntryPointRVA.GetValueOrDefault();
       var imageBase = writingStatus.ImageBase;
 
-      if ( machine.RequiresPE64() )
+      switch ( kind )
       {
-         return new OptionalHeader64(
-            options.MajorLinkerVersion ?? linkerMajor,
-            options.MinorLinkerVersion ?? linkerMinor,
-            codeSize,
-            initDataSize,
-            uninitDataSize,
-            ep,
-            codeBase,
-            (UInt64) imageBase,
-            sAlign,
-            fAlign,
-            (UInt16) ( options.MajorOSVersion ?? osMajor ),
-            (UInt16) ( options.MinorOSVersion ?? osMinor ),
-            (UInt16) ( options.MajorUserVersion ?? userMajor ),
-            (UInt16) ( options.MinorUserVersion ?? userMinor ),
-            (UInt16) ( options.MajorSubsystemVersion ?? subsystemMajor ),
-            (UInt16) ( options.MinorSubsystemVersion ?? subsystemMinor ),
-            (UInt32) ( options.Win32VersionValue ?? 0x00000000 ),
-            imageSize,
-            headersSize,
-            0x00000000,
-            options.Subsystem ?? subsystem,
-            options.DLLCharacteristics ?? dllFlags,
-            (UInt64) ( options.StackReserveSize ?? 0x0000000000400000 ),
-            (UInt64) ( options.StackCommitSize ?? 0x0000000000004000 ),
-            (UInt64) ( options.HeapReserveSize ?? 0x0000000000100000 ),
-            (UInt64) ( options.HeapCommitSize ?? 0x0000000000002000 ),
-            options.LoaderFlags ?? 0x00000000,
-            (UInt32) ( options.NumberOfDataDirectories ?? (Int32) DataDirectories.MaxValue ),
-            writingStatus.PEDataDirectories.CQ.ToArrayProxy().CQ
-            );
+         case OptionalHeaderKind.Optional32:
+            return new OptionalHeader32(
+               options.MajorLinkerVersion ?? linkerMajor,
+               options.MinorLinkerVersion ?? linkerMinor,
+               codeSize,
+               initDataSize,
+               uninitDataSize,
+               ep,
+               codeBase,
+               dataBase,
+               (UInt32) imageBase,
+               sAlign,
+               fAlign,
+               (UInt16) ( options.MajorOSVersion ?? osMajor ),
+               (UInt16) ( options.MinorOSVersion ?? osMinor ),
+               (UInt16) ( options.MajorUserVersion ?? userMajor ),
+               (UInt16) ( options.MinorUserVersion ?? userMinor ),
+               (UInt16) ( options.MajorSubsystemVersion ?? subsystemMajor ),
+               (UInt16) ( options.MinorSubsystemVersion ?? subsystemMinor ),
+               (UInt32) ( options.Win32VersionValue ?? 0x00000000 ),
+               imageSize,
+               headersSize,
+               0x00000000,
+               options.Subsystem ?? subsystem,
+               options.DLLCharacteristics ?? dllFlags,
+               (UInt32) ( options.StackReserveSize ?? 0x00100000 ),
+               (UInt32) ( options.StackCommitSize ?? 0x00001000 ),
+               (UInt32) ( options.HeapReserveSize ?? 0x00100000 ),
+               (UInt32) ( options.HeapCommitSize ?? 0x00001000 ),
+               options.LoaderFlags ?? 0x00000000,
+               (UInt32) ( options.NumberOfDataDirectories ?? (Int32) DataDirectories.MaxValue ),
+               writingStatus.PEDataDirectories.CQ.ToArrayProxy().CQ
+               );
+         case OptionalHeaderKind.Optional64:
+            return new OptionalHeader64(
+               options.MajorLinkerVersion ?? linkerMajor,
+               options.MinorLinkerVersion ?? linkerMinor,
+               codeSize,
+               initDataSize,
+               uninitDataSize,
+               ep,
+               codeBase,
+               (UInt64) imageBase,
+               sAlign,
+               fAlign,
+               (UInt16) ( options.MajorOSVersion ?? osMajor ),
+               (UInt16) ( options.MinorOSVersion ?? osMinor ),
+               (UInt16) ( options.MajorUserVersion ?? userMajor ),
+               (UInt16) ( options.MinorUserVersion ?? userMinor ),
+               (UInt16) ( options.MajorSubsystemVersion ?? subsystemMajor ),
+               (UInt16) ( options.MinorSubsystemVersion ?? subsystemMinor ),
+               (UInt32) ( options.Win32VersionValue ?? 0x00000000 ),
+               imageSize,
+               headersSize,
+               0x00000000,
+               options.Subsystem ?? subsystem,
+               options.DLLCharacteristics ?? dllFlags,
+               (UInt64) ( options.StackReserveSize ?? 0x0000000000400000 ),
+               (UInt64) ( options.StackCommitSize ?? 0x0000000000004000 ),
+               (UInt64) ( options.HeapReserveSize ?? 0x0000000000100000 ),
+               (UInt64) ( options.HeapCommitSize ?? 0x0000000000002000 ),
+               options.LoaderFlags ?? 0x00000000,
+               (UInt32) ( options.NumberOfDataDirectories ?? (Int32) DataDirectories.MaxValue ),
+               writingStatus.PEDataDirectories.CQ.ToArrayProxy().CQ
+               );
+         default:
+            throw new ArgumentException( "Unsupported optional header kind: " + kind + "." );
       }
-      else
-      {
-         return new OptionalHeader32(
-            options.MajorLinkerVersion ?? linkerMajor,
-            options.MinorLinkerVersion ?? linkerMinor,
-            codeSize,
-            initDataSize,
-            uninitDataSize,
-            ep,
-            codeBase,
-            dataBase,
-            (UInt32) imageBase,
-            sAlign,
-            fAlign,
-            (UInt16) ( options.MajorOSVersion ?? osMajor ),
-            (UInt16) ( options.MinorOSVersion ?? osMinor ),
-            (UInt16) ( options.MajorUserVersion ?? userMajor ),
-            (UInt16) ( options.MinorUserVersion ?? userMinor ),
-            (UInt16) ( options.MajorSubsystemVersion ?? subsystemMajor ),
-            (UInt16) ( options.MinorSubsystemVersion ?? subsystemMinor ),
-            (UInt32) ( options.Win32VersionValue ?? 0x00000000 ),
-            imageSize,
-            headersSize,
-            0x00000000,
-            options.Subsystem ?? subsystem,
-            options.DLLCharacteristics ?? dllFlags,
-            (UInt32) ( options.StackReserveSize ?? 0x00100000 ),
-            (UInt32) ( options.StackCommitSize ?? 0x00001000 ),
-            (UInt32) ( options.HeapReserveSize ?? 0x00100000 ),
-            (UInt32) ( options.HeapCommitSize ?? 0x00001000 ),
-            options.LoaderFlags ?? 0x00000000,
-            (UInt32) ( options.NumberOfDataDirectories ?? (Int32) DataDirectories.MaxValue ),
-            writingStatus.PEDataDirectories.CQ.ToArrayProxy().CQ
-            );
-      }
+
    }
 
    internal static Int32 SetCapacityAndAlign( this ResizableArray<Byte> array, Int64 streamPosition, Int32 dataSize, Int32 dataAlignmnet )

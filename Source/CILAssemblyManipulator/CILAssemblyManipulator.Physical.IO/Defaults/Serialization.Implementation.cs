@@ -767,15 +767,13 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
 
       public IEnumerable<Int32> GetAllRawValues(
          MetaDataTable table,
-         RawValueProvider rawValueProvider,
-         RawValueStorage<Int32> heapIndices,
-         RVAConverter rvaConverter
+         RawValueStorage<Int64> rawValueProvider,
+         RawValueStorage<Int32> heapIndices
          )
       {
          var list = ( (MetaDataTable<TRow>) table ).TableContents;
          if ( list.Count > 0 )
          {
-            var rawTransofrmArgs = new RawValueTransformationArguments( rvaConverter );
             var cols = this._columns;
             for ( var rowIdx = 0; rowIdx < list.Count; ++rowIdx )
             {
@@ -795,7 +793,7 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
                   }
                   else if ( col.RawColummnSectionPartCreator != null )
                   {
-                     yield return rawValueProvider.GetRawValueFor( this.Table, rowIdx, rawIdx );
+                     yield return (Int32) rawValueProvider.GetRawValue( this.Table, rowIdx, rawIdx );
                      ++rawIdx;
                   }
                   else

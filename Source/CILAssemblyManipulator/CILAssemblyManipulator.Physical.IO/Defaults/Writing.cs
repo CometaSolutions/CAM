@@ -41,7 +41,7 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
    {
       public virtual WriterFunctionality GetFunctionality(
          CILMetaData md,
-         WritingOptions headers,
+         WritingOptions options,
          EventHandler<SerializationErrorEventArgs> errorHandler,
          out CILMetaData newMD,
          out Stream newStream
@@ -49,7 +49,7 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
       {
          newMD = null;
          newStream = null;
-         return new DefaultWriterFunctionality( md, headers, new TableSerializationInfoCreationArgs( errorHandler ), mdSerialization: this.CreateMDSerialization() );
+         return new DefaultWriterFunctionality( md, options, new TableSerializationInfoCreationArgs( errorHandler ), mdSerialization: this.CreateMDSerialization() );
       }
 
       protected virtual MetaDataSerializationSupportProvider CreateMDSerialization()
@@ -66,7 +66,8 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
             SectionLayout layout,
             Int64 sectionStartOffset,
             TRVA sectionStartRVA,
-            Int32 fileAlignment
+            Int32 fileAlignment,
+            RawValueStorage<Int64> rawValues
             )
          {
             ArgumentValidator.ValidateNotNull( "Layout", layout );
@@ -81,7 +82,7 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
                if ( includePart )
                {
                   var prePadding = (Int32) ( curRVA.RoundUpI64( (UInt32) part.DataAlignment ) - curRVA );
-                  var size = part.GetDataSize( curOffset + prePadding, curRVA + prePadding );
+                  var size = part.GetDataSize( curOffset + prePadding, curRVA + prePadding, rawValues );
                   includePart = size != 0;
                   if ( includePart )
                   {
@@ -125,19 +126,19 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
 
       public DefaultWriterFunctionality(
          CILMetaData md,
-         WritingOptions headers,
+         WritingOptions options,
          TableSerializationInfoCreationArgs serializationCreationArgs,
          MetaDataSerializationSupportProvider mdSerialization = null
          )
       {
          this.MetaData = md;
-         this._options = headers ?? new WritingOptions();
+         this._options = options ?? new WritingOptions();
          this.MDSerialization = mdSerialization ?? DefaultMetaDataSerializationSupportProvider.Instance;
          this.TableSerializations = this.MDSerialization.CreateTableSerializationInfos( md, serializationCreationArgs ).ToArrayProxy().CQ;
          this.TableSizes = this.TableSerializations.CreateTableSizeArray( md );
       }
 
-      public virtual IEnumerable<AbstractWriterStreamHandler> CreateStreamHandlers()
+      public virtual IEnumerable<AbstractWriterStreamHandler> CreateMetaDataStreamHandlers()
       {
          yield return new DefaultWriterTableStreamHandler( this.MetaData, this._options.CLIOptions.TablesStreamOptions, this.TableSerializations );
          yield return new DefaultWriterSystemStringStreamHandler();
@@ -156,26 +157,26 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
          return retVal;
       }
 
-      public virtual RawValueProvider PopulateSections(
+      public virtual RawValueStorage<Int64> PopulateSections(
          WritingStatus writingStatus,
          WriterMetaDataStreamContainer mdStreamContainer,
          ArrayQuery<AbstractWriterStreamHandler> allMDStreams,
          SectionHeader[] sections,
          out RVAConverter rvaConverter,
          out MetaDataRoot mdRoot,
-         out Int32 mdRootSize,
-         out Int32 mdSize
+         out Int32 mdRootSize
          )
       {
          // Get raw value sections (IL, Field RVA, Embedded manifest resources)
-         IEnumerable<SectionPart> rawSections;
-         var rawValueProvider = this.CreateRawValueProvider( mdStreamContainer, out rawSections );
+         SectionPart[] rawSections;
+         var rawValueStorage = this.CreateRawValueProvider( mdStreamContainer, out rawSections );
 
          // MetaData
+         Int32 mdSize;
          mdRoot = this.CreateMDRoot( allMDStreams.Where( s => s.Accessed ), out mdRootSize, out mdSize );
 
          // Sections
-         this._sectionLayoutInfos = this.PopulateSections( writingStatus, rawSections, mdRoot, mdSize ).ToArray();
+         this._sectionLayoutInfos = this.PopulateSections( writingStatus, rawSections, mdRoot, mdSize, rawValueStorage ).ToArray();
          for ( var i = 0; i < this._sectionLayoutInfos.Length; ++i )
          {
             sections[i] = this._sectionLayoutInfos[i].SectionHeader;
@@ -184,15 +185,14 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
          // RVA converter
          rvaConverter = this.CreateRVAConverter( sections );
 
-         return rawValueProvider;
+         return rawValueStorage;
       }
 
       public virtual void BeforeMetaData(
+         WritingStatus writingStatus,
          Stream stream,
          ResizableArray<Byte> array,
          ArrayQuery<SectionHeader> sections,
-         WritingStatus writingStatus,
-         RVAConverter rvaConverter,
          MetaDataRoot mdRoot,
          out CLIHeader cliHeader
          )
@@ -211,7 +211,7 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
                foreach ( var partLayout in parts.TakeWhile( p => !( p.Part is SectionPart_MetaData ) ) )
                {
                   // Write to ResizableArray
-                  this.WritePart( partLayout, array, rvaConverter, stream, allParts, partInfos, writingStatus );
+                  this.WritePart( partLayout, array, stream, allParts, partInfos, writingStatus );
                   ++idx;
 
                   // Check for CLI Header
@@ -250,12 +250,11 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
       }
 
       public virtual void AfterMetaData(
+         WritingStatus writingStatus
+,
          Stream stream,
          ResizableArray<Byte> array,
-         ArrayQuery<SectionHeader> sections,
-         WritingStatus writingStatus,
-         RVAConverter rvaConverter
-         )
+         ArrayQuery<SectionHeader> sections )
       {
          var allParts = this._sectionLayoutInfos.SelectMany( s => s.PartInfos.Select( p => p.Part ) ).ToArrayProxy().CQ;
          var partInfos = this._sectionLayoutInfos.SelectMany( s => s.PartInfos ).ToDictionary( i => i.Part, i => i, ReferenceEqualityComparer<SectionPart>.ReferenceBasedComparer ).ToDictionaryProxy().CQ;
@@ -273,7 +272,7 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
                {
                   if ( mdEncountered )
                   {
-                     this.WritePart( partLayout, array, rvaConverter, stream, allParts, partInfos, writingStatus );
+                     this.WritePart( partLayout, array, stream, allParts, partInfos, writingStatus );
                   }
                   else
                   {
@@ -295,9 +294,9 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
       }
 
       public virtual void WritePEInformation(
+         WritingStatus writingStatus,
          Stream stream,
          ResizableArray<Byte> array,
-         WritingStatus writingStatus,
          PEInformation peInfo
          )
       {
@@ -323,19 +322,6 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
          return 1;
       }
 
-      protected virtual RawValueStorage<Int64> CreateRawValueStorage()
-      {
-         return this.CreateDefaultRawValueStorage();
-      }
-
-      protected RawValueStorage<Int64> CreateDefaultRawValueStorage()
-      {
-         return new RawValueStorage<Int64>(
-            this.TableSizes,
-            this.TableSerializations.Select( t => t.RawValueStorageColumnCount )
-            );
-      }
-
       protected virtual RVAConverter CreateRVAConverter( IEnumerable<SectionHeader> headers )
       {
          return new DefaultRVAConverter( headers );
@@ -345,7 +331,8 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
          WritingStatus writingStatus,
          IEnumerable<SectionPart> rawValueSectionParts,
          MetaDataRoot mdRoot,
-         Int32 mdSize
+         Int32 mdSize,
+         RawValueStorage<Int64> rawValues
          )
       {
          var encoding = Encoding.UTF8;
@@ -360,7 +347,8 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
                layout,
                curPointer,
                curRVA,
-               fAlign
+               fAlign,
+               rawValues
                );
             var hdr = layoutInfo.SectionHeader;
             if ( hdr.VirtualSize > 0 )
@@ -493,7 +481,6 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
       protected void WritePart(
          SectionPartInfo partLayout,
          ResizableArray<Byte> array,
-         RVAConverter rvaConverter,
          Stream stream,
          ArrayQuery<SectionPart> allParts,
          DictionaryQuery<SectionPart, SectionPartInfo> partInfos,
@@ -515,63 +502,22 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
             partLayout.Offset,
             allParts,
             partInfos,
-            rvaConverter,
             writingStatus
             ) );
       }
 
-      protected virtual RawValueProvider CreateRawValueProvider(
+      protected virtual RawValueStorage<Int64> CreateRawValueProvider(
          WriterMetaDataStreamContainer mdStreamContainer,
-         out IEnumerable<SectionPart> rawSectionParts
+         out SectionPart[] rawSectionParts
          )
       {
-         var retVal = new DefaultRawValueProvider( this.TableSerializations, this.MetaData, mdStreamContainer );
-         rawSectionParts = retVal.Parts;
+         //var retVal = new DefaultRawValueProvider( this.TableSerializations, this.MetaData, mdStreamContainer );
+         var retVal = new RawValueStorage<Int64>( this.TableSizes, this.TableSerializations.Select( s => s?.RawValueStorageColumnCount ?? 0 ) );
+         rawSectionParts = this.TableSerializations
+            .SelectMany( s => s?.CreateRawValueSectionParts( this.MetaData, mdStreamContainer ) ?? Empty<SectionPart>.Enumerable )
+            // Enumerate right here, to force e.g. user-string heap initialization for method IL section part
+            .ToArray();
          return retVal;
-      }
-   }
-
-   public class DefaultRawValueProvider : RawValueProvider
-   {
-      private readonly ArrayQuery<SectionPartWithRVAs>[] _parts;
-
-      public DefaultRawValueProvider( ArrayQuery<TableSerializationInfo> tableSerializations, CILMetaData md, WriterMetaDataStreamContainer mdStreamContainer )
-      {
-         var i = 0;
-         this._parts = new ArrayQuery<SectionPartWithRVAs>[tableSerializations.Count];
-         foreach ( var func in tableSerializations )
-         {
-            this._parts[i] = func == null ?
-               EmptyArrayProxy<SectionPartWithRVAs>.Query :
-               func.CreateRawValueSectionParts( md, mdStreamContainer ).ToArrayProxy().CQ;
-            ++i;
-         }
-      }
-
-      public Int32 GetRawValueFor( Tables table, Int32 rowIndex, Int32 columnIndex )
-      {
-         var rvas = this.GetRawValuesContainer( table, columnIndex );
-         return rowIndex >= 0 && rowIndex < rvas.Count ?
-            (Int32) rvas[rowIndex] :
-            0;
-      }
-
-      public IEnumerable<Int32> GetRawValuesFor( Tables table, Int32 columnIndex )
-      {
-         return this.GetRawValuesContainer( table, columnIndex ).Select( r => (Int32) r );
-      }
-
-      public IEnumerable<SectionPartWithRVAs> Parts
-      {
-         get
-         {
-            return this._parts.SelectMany( p => p );
-         }
-      }
-
-      private ArrayQuery<Int64> GetRawValuesContainer( Tables table, Int32 columnIndex )
-      {
-         return this._parts[(Int32) table][columnIndex].ValuesForTableStream;
       }
    }
 
@@ -602,16 +548,14 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
    {
       Int32 DataAlignment { get; }
 
-      Int32 GetDataSize( Int64 currentOffset, TRVA currentRVA );
+      Int32 GetDataSize( Int64 currentOffset, TRVA currentRVA, RawValueStorage<Int64> rawValues );
 
       void WriteData( SectionPartWritingArgs args );
    }
 
    public interface SectionPartWithRVAs : SectionPart
    {
-      ArrayQuery<TRVA> ValuesForTableStream { get; }
-
-      Int32 RelatedTable { get; }
+      Tables RelatedTable { get; }
 
       Int32 RelatedTableColumnIndex { get; }
    }
@@ -631,10 +575,10 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
 
       public Int32 DataAlignment { get; }
 
-      public Int32 GetDataSize( Int64 currentOffset, TRVA currentRVA )
+      public Int32 GetDataSize( Int64 currentOffset, TRVA currentRVA, RawValueStorage<Int64> rawValues )
       {
          return this.Write ?
-            this.DoGetDataSize( currentOffset, currentRVA ) :
+            this.DoGetDataSize( currentOffset, currentRVA, rawValues ) :
             0;
       }
 
@@ -642,7 +586,7 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
 
       protected Boolean Write { get; }
 
-      protected abstract Int32 DoGetDataSize( Int64 currentOffset, TRVA currentRVA );
+      protected abstract Int32 DoGetDataSize( Int64 currentOffset, TRVA currentRVA, RawValueStorage<Int64> rawValues );
    }
 
    public abstract class SectionPartWriteableToArray : SectionPartWithFixedAlignment
@@ -675,6 +619,13 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
          args.Stream.Write( bytez, capacity );
       }
 
+      protected override Int32 DoGetDataSize( Int64 currentOffset, Int64 currentRVA, RawValueStorage<Int64> rawValues )
+      {
+         return this.DoGetDataSize( currentOffset, currentRVA );
+      }
+
+      protected abstract Int32 DoGetDataSize( Int64 currentOffset, TRVA currentRVA );
+
       protected abstract Boolean DoWriteData( SectionPartWritingArgs args, Byte[] array, ref Int32 idx );
    }
 
@@ -706,7 +657,6 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
       private readonly Int32 _max;
       private readonly List<TRow> _rows;
       private readonly ArrayProxy<TSizeInfo?> _sizes;
-      private readonly ArrayProxy<TRVA> _rvas;
 
       public SectionPartWithMultipleItems(
          Int32 alignment,
@@ -747,21 +697,19 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
 
          var range = max - min;
          this._rows = rows;
-         this.RelatedTable = table.GetTableIndex();
+         this.RelatedTable = (Tables) table.GetTableIndex();
          this.RelatedTableColumnIndex = columnIndex;
          this._min = min;
          this._max = max;
          this._sizes = cf.NewArrayProxy( new TSizeInfo?[range] );
-         this._rvas = cf.NewArrayProxy( new TRVA[range] );
       }
 
-      protected override Int32 DoGetDataSize( Int64 currentOffset, TRVA currentRVA )
+      protected override Int32 DoGetDataSize( Int64 currentOffset, TRVA currentRVA, RawValueStorage<Int64> rawValues )
       {
          var startOffset = currentOffset;
          var startRVA = currentRVA;
          var rows = this._rows;
          var sizesArray = this._sizes.Array;
-         var rvaArray = this._rvas.Array;
          for ( var i = this._min; i < this._max; ++i )
          {
             // Calculate size
@@ -772,7 +720,12 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
             // Save size and RVA information
             sizesArray[arrayIdx] = sizeInfoNullable;
             var hasValue = sizeInfoNullable.HasValue;
-            rvaArray[arrayIdx] = hasValue ? this.GetValueForTableStream( currentRVA, sizeInfoNullable.Value ) : this.GetValueForTableStream( i, row );
+            rawValues.SetRawValue(
+               this.RelatedTable,
+               i,
+               this.RelatedTableColumnIndex,
+               hasValue ? this.GetValueForTableStream( currentRVA, sizeInfoNullable.Value ) : this.GetValueForTableStream( i, row )
+               );
 
             // Update offset + rva
             if ( hasValue )
@@ -820,15 +773,7 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
          }
       }
 
-      public ArrayQuery<TRVA> ValuesForTableStream
-      {
-         get
-         {
-            return this._rvas.CQ;
-         }
-      }
-
-      public Int32 RelatedTable { get; }
+      public Tables RelatedTable { get; }
 
       public Int32 RelatedTableColumnIndex { get; }
 
@@ -1272,7 +1217,6 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
          Int64 currentOffset,
          ArrayQuery<SectionPart> allParts,
          DictionaryQuery<SectionPart, SectionPartInfo> partInfos,
-         RVAConverter rvaConverter,
          WritingStatus writingStatus
          )
       {
@@ -1280,7 +1224,6 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
          ArgumentValidator.ValidateNotNull( "Array", array );
          ArgumentValidator.ValidateNotNull( "All parts", allParts );
          ArgumentValidator.ValidateNotNull( "Part infos", partInfos );
-         ArgumentValidator.ValidateNotNull( "RVA converter", rvaConverter );
          ArgumentValidator.ValidateNotNull( "Writing status", writingStatus );
 
          this.Stream = stream;
@@ -1290,7 +1233,6 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
          this.CurrentOffset = currentOffset;
          this.Parts = allParts;
          this.PartInfos = partInfos;
-         this.RVAConverter = rvaConverter;
          this.WritingStatus = writingStatus;
       }
 
@@ -1307,8 +1249,6 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
       public ArrayQuery<SectionPart> Parts { get; }
 
       public DictionaryQuery<SectionPart, SectionPartInfo> PartInfos { get; }
-
-      public RVAConverter RVAConverter { get; }
 
       public WritingStatus WritingStatus { get; }
    }
@@ -1376,8 +1316,7 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
          var parts = args.Parts;
          var embeddedResources = parts
             .OfType<SectionPartWithRVAs>()
-            .FirstOrDefault( p => p.RelatedTable == (Int32) Tables.ManifestResource );
-         var rvaConverter = args.RVAConverter;
+            .FirstOrDefault( p => p.RelatedTable == Tables.ManifestResource );
          var snData = parts
             .OfType<SectionPart_StrongNameSignature>()
             .FirstOrDefault();
@@ -1667,8 +1606,8 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
          {
             var dbgOptions = this._options;
             var dataOffset = (UInt32) ( args.CurrentOffset + HEADER_SIZE );
-            var dataRVA = (UInt32) ( args.RVAConverter.ToRVA( dataOffset ) );
-            new DebugInformation(
+            var dataRVA = (UInt32) ( args.PartInfos[this].RVA + HEADER_SIZE );
+            var debugInfo = new DebugInformation(
                dbgOptions.Characteristics,
                (UInt32) dbgOptions.Timestamp,
                (UInt16) dbgOptions.MajorVersion,
@@ -1678,10 +1617,11 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
                dataRVA,
                dataOffset,
                dbgData.ToArrayProxy().CQ
-               )
-               .WriteDebugInformation( array, ref idx );
+               );
 
+            debugInfo.WriteDebugInformation( array, ref idx );
             args.WritingStatus.PEDataDirectories[(Int32) DataDirectories.Debug] = args.GetDataDirectoryForSectionPart( this );
+            args.WritingStatus.DebugInformation = debugInfo;
          }
          return retVal;
       }
@@ -1715,8 +1655,7 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
       public virtual void WriteStream(
          Stream sink,
          ResizableArray<Byte> array,
-         RawValueProvider rawValueProvder,
-         RVAConverter rvaConverter
+         RawValueStorage<Int64> rawValueProvder
          )
       {
          if ( this.Accessed )
@@ -2178,8 +2117,7 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
       public void WriteStream(
          Stream sink,
          ResizableArray<Byte> array,
-         RawValueProvider rawValueProvder,
-         RVAConverter rvaConverter
+         RawValueStorage<Int64> rawValueProvder
          )
       {
          var writeInfo = this._writeDependantInfo;
@@ -2206,7 +2144,7 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
                var byteArray = array.Array;
                var valIdx = 0;
                var arrayIdx = 0;
-               foreach ( var rawValue in info.GetAllRawValues( table, rawValueProvder, heapIndices, rvaConverter ) )
+               foreach ( var rawValue in info.GetAllRawValues( table, rawValueProvder, heapIndices ) )
                {
                   var col = cols[valIdx % cols.Count];
                   col.WriteValue( byteArray, arrayIdx, rawValue );

@@ -57,6 +57,7 @@ namespace CILAssemblyManipulator.Physical.IO
       /// <seealso cref="ReaderFunctionality"/>
       /// <seealso cref="IOArguments.ErrorHandler"/>
       /// <seealso cref="CILMetaDataTableInformationProvider"/>
+      /// <seealso cref="E_CILPhysical.ReadMetaDataFromStream(ReaderFunctionality, Stream, CILMetaDataTableInformationProvider, EventHandler{SerializationErrorEventArgs}, bool, out ImageInformation, out RawValueStorage{int}, out RVAConverter)"/>
       ReaderFunctionality GetFunctionality(
          Stream stream,
          CILMetaDataTableInformationProvider mdTableInfoProvider,
@@ -78,6 +79,7 @@ namespace CILAssemblyManipulator.Physical.IO
    /// </list>
    /// </remarks>
    /// <seealso cref="ReaderFunctionalityProvider"/>
+   /// <seealso cref="DefaultReaderFunctionality"/>
    /// <seealso cref="ReaderFunctionalityProvider.GetFunctionality"/>
    /// <seealso cref="E_CILPhysical.ReadMetaDataFromStream(ReaderFunctionality, Stream, CILMetaDataTableInformationProvider, EventHandler{SerializationErrorEventArgs}, bool, out ImageInformation, out RawValueStorage{int}, out RVAConverter)"/>
    /// <seealso cref="ReadingArguments.ReaderFunctionalityProvider"/>
@@ -226,12 +228,29 @@ namespace CILAssemblyManipulator.Physical.IO
       /// Gets raw value for a given row in a given table, at a given column index.
       /// </summary>
       /// <param name="table">The <see cref="Tables"/> value.</param>
-      /// <param name="rowIndex"></param>
-      /// <param name="columnIndex"></param>
-      /// <returns></returns>
+      /// <param name="rowIndex">The zero-based row index.</param>
+      /// <param name="columnIndex">The zero-based column index amongst all raw value columns in the table.</param>
+      /// <returns>The value previously stored at specified table, row, and column.</returns>
       public TValue GetRawValue( Tables table, Int32 rowIndex, Int32 columnIndex )
       {
-         return this._rawValues[this._tableStartOffsets[(Int32) table] + rowIndex * this._tableColCount[(Int32) table] + columnIndex];
+         return this._rawValues[this.GetArrayIndex( (Int32) table, rowIndex, columnIndex )];
+      }
+
+      /// <summary>
+      /// Sets raw value for a given row in a given table, at a given column index.
+      /// </summary>
+      /// <param name="table">The <see cref="Tables"/> value.</param>
+      /// <param name="rowIndex">The zero-based row index.</param>
+      /// <param name="columnIndex">The zero-based column index amongst all raw value columns in the table.</param>
+      /// <param name="value">The value to set.</param>
+      public void SetRawValue( Tables table, Int32 rowIndex, Int32 columnIndex, TValue value )
+      {
+         this._rawValues[this.GetArrayIndex( (Int32) table, rowIndex, columnIndex )] = value;
+      }
+
+      private Int32 GetArrayIndex( Int32 table, Int32 row, Int32 col )
+      {
+         return this._tableStartOffsets[table] + row * this._tableColCount[table] + col;
       }
 
    }
@@ -550,7 +569,7 @@ public static partial class E_CILPhysical
       }
 
       Stream newStream;
-      var reader = readerProvider.GetFunctionality( ArgumentValidator.ValidateNotNullAndReturn( "Stream", stream ), tableInfoProvider, errorHandler, out newStream );
+      var reader = readerProvider.GetFunctionality( ArgumentValidator.ValidateNotNullAndReturn( "Stream", stream ), tableInfoProvider, errorHandler, out newStream ) ?? new DefaultReaderFunctionality( new TableSerializationInfoCreationArgs( errorHandler ) );
 
       CILMetaData md;
       RawValueStorage<Int32> rawValueStorage;

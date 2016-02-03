@@ -1564,14 +1564,19 @@ public static partial class E_CILPhysical
    /// <returns><c>true</c> if <paramref name="machine"/> represents a target platform requiring PE64 header; <c>false</c> otherwise.</returns>
    public static Boolean RequiresPE64( this ImageFileMachine machine )
    {
+      return machine.GetOptionalHeaderKind() == OptionalHeaderKind.Optional64;
+   }
+
+   public static OptionalHeaderKind GetOptionalHeaderKind( this ImageFileMachine machine )
+   {
       switch ( machine )
       {
          case ImageFileMachine.AMD64:
          case ImageFileMachine.IA64:
          case ImageFileMachine.ARM_64:
-            return true;
+            return OptionalHeaderKind.Optional64;
          default:
-            return false;
+            return OptionalHeaderKind.Optional32;
       }
    }
 

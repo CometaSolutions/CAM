@@ -482,9 +482,8 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
 
       IEnumerable<Int32> GetAllRawValues(
          MetaDataTable table,
-         RawValueProvider rawValueProvder,
-         RawValueStorage<Int32> heapIndices,
-         RVAConverter rvaConverter
+         RawValueStorage<Int64> rawValueProvder,
+         RawValueStorage<Int32> heapIndices
          );
    }
 
@@ -648,20 +647,6 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
       public CILMetaData MetaData { get; }
 
       public ResizableArray<Byte> AuxArray { get; }
-   }
-
-   public class RawValueTransformationArguments
-   {
-      public RawValueTransformationArguments(
-         RVAConverter rvaConverter
-         )
-      {
-         ArgumentValidator.ValidateNotNull( "RVA converter", rvaConverter );
-
-         this.RVAConverter = rvaConverter;
-      }
-
-      public RVAConverter RVAConverter { get; }
    }
 
    public interface ColumnSerializationFunctionality
