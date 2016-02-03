@@ -42,7 +42,7 @@ namespace CILAssemblyManipulator.Physical.IO
    /// <para>
    /// The custom attribute signatures are serialized in meta data (see ECMA-335 spec for more info) in such way that enum values have their type names present, but the underlying enum value type (e.g. integer) is not present.
    /// Therefore, the custom attribute signatures, and security signatures (which share some serialization functionality with custom attribute signatures) require dynamic resolving of what is the underlying enum value type.
-   /// This class encapsulates this resolving process, which may be complicated and involve loading of several additional assemblies.
+   /// This class encapsulates this resolving process, which may be complicated and involve loading of several dependant assemblies.
    /// </para>
    /// </remarks>
    public sealed class MetaDataResolver

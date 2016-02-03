@@ -434,13 +434,11 @@ public static partial class E_CILPhysical
    private sealed class StackCalculationState
    {
       private Int32 _maxStack;
-      private readonly Int32[] _stackSizes;
-      private readonly CILMetaData _md;
 
       internal StackCalculationState( CILMetaData md, Int32 ilByteCount )
       {
-         this._md = md;
-         this._stackSizes = new Int32[ilByteCount];
+         this.MD = md;
+         this.StackSizes = new Int32[ilByteCount];
          this._maxStack = 0;
       }
 
@@ -454,20 +452,10 @@ public static partial class E_CILPhysical
             return this._maxStack;
          }
       }
-      public CILMetaData MD
-      {
-         get
-         {
-            return this._md;
-         }
-      }
-      public Int32[] StackSizes
-      {
-         get
-         {
-            return this._stackSizes;
-         }
-      }
+
+      public CILMetaData MD { get; }
+
+      public Int32[] StackSizes { get; }
 
       public void UpdateMaxStack( Int32 newMaxStack )
       {
@@ -480,45 +468,24 @@ public static partial class E_CILPhysical
 
    private sealed class MetaDataReOrderState
    {
-      private readonly CILMetaData _md;
-      private readonly IDictionary<Tables, IDictionary<Int32, Int32>> _duplicates;
-      private readonly Int32[][] _finalIndices;
 
       internal MetaDataReOrderState( CILMetaData md )
       {
-         this._md = md;
-         this._duplicates = new Dictionary<Tables, IDictionary<Int32, Int32>>();
-         this._finalIndices = new Int32[CAMCoreInternals.AMOUNT_OF_TABLES][];
+         this.MetaData = md;
+         this.Duplicates = new Dictionary<Tables, IDictionary<Int32, Int32>>();
+         this.FinalIndices = new Int32[CAMCoreInternals.AMOUNT_OF_TABLES][];
       }
 
-      public CILMetaData MetaData
-      {
-         get
-         {
-            return this._md;
-         }
-      }
+      public CILMetaData MetaData { get; }
 
-      public IDictionary<Tables, IDictionary<Int32, Int32>> Duplicates
-      {
-         get
-         {
-            return this._duplicates;
-         }
-      }
+      public IDictionary<Tables, IDictionary<Int32, Int32>> Duplicates { get; }
 
-      public Int32[][] FinalIndices
-      {
-         get
-         {
-            return this._finalIndices;
-         }
-      }
+      public Int32[][] FinalIndices { get; }
 
       public void MarkDuplicate( Int32 tableIndex, Int32 duplicateIdx, Int32 actualIndex )
       {
          var table = (Tables) tableIndex;
-         var thisDuplicates = this._duplicates
+         var thisDuplicates = this.Duplicates
             .GetOrAdd_NotThreadSafe( table, t => new Dictionary<Int32, Int32>() );
          thisDuplicates
             .Add( duplicateIdx, actualIndex );
@@ -536,7 +503,7 @@ public static partial class E_CILPhysical
       public Boolean IsDuplicate( TableIndex index )
       {
          IDictionary<Int32, Int32> tableDuplicates;
-         return this._duplicates.TryGetValue( index.Table, out tableDuplicates )
+         return this.Duplicates.TryGetValue( index.Table, out tableDuplicates )
             && tableDuplicates.ContainsKey( index.Index );
       }
 
@@ -544,7 +511,7 @@ public static partial class E_CILPhysical
       {
          IDictionary<Int32, Int32> tableDuplicates;
          newIndex = -1;
-         var retVal = this._duplicates.TryGetValue( index.Table, out tableDuplicates )
+         var retVal = this.Duplicates.TryGetValue( index.Table, out tableDuplicates )
             && tableDuplicates.TryGetValue( index.Index, out newIndex );
          if ( !retVal )
          {
@@ -557,7 +524,7 @@ public static partial class E_CILPhysical
          where T : class
       {
          var tIdx = table.GetTableIndex();
-         var retVal = this._finalIndices[tIdx];
+         var retVal = this.FinalIndices[tIdx];
          if ( retVal == null )
          {
             var list = table.TableContents;
@@ -566,19 +533,19 @@ public static partial class E_CILPhysical
             {
                retVal[i] = i;
             }
-            this._finalIndices[tIdx] = retVal;
+            this.FinalIndices[tIdx] = retVal;
          }
          return retVal;
       }
 
       public Int32 GetFinalIndex( TableIndex index )
       {
-         return this._finalIndices[(Int32) index.Table][index.Index];
+         return this.FinalIndices[(Int32) index.Table][index.Index];
       }
 
       public Int32 GetFinalIndex( Tables table, Int32 index )
       {
-         return this._finalIndices[(Int32) table][index];
+         return this.FinalIndices[(Int32) table][index];
       }
    }
 
@@ -1216,6 +1183,8 @@ public static partial class E_CILPhysical
       // Sort exception blocks of all ILs
       // This should be in phase 3
       md.SortMethodILExceptionBlocks();
+
+      // TODO Extra tables!
 
       return reorderState.FinalIndices;
    }

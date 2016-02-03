@@ -428,6 +428,8 @@ public static partial class E_CILPhysical
       {
          mapper.ProcessCASignature( md, loader, newTargetFW, ca.Signature );
       }
+
+      // TODO Extra tables!
    }
 
    private static void ProcessMarshalInfo(

@@ -70,7 +70,7 @@ namespace CILAssemblyManipulator.Physical.IO
    /// The instances of this interface are created via <see cref="ReaderFunctionalityProvider.GetFunctionality"/> method, and the instances of <see cref="ReaderFunctionalityProvider"/> may be customized by setting <see cref="ReadingArguments.ReaderFunctionalityProvider"/> property.
    /// </summary>
    /// <remarks>
-   /// The <see cref="E_CILPhysical.ReadMetaDataFromStream(ReaderFunctionality, Stream, CILMetaDataTableInformationProvider, EventHandler{SerializationErrorEventArgs}, bool, out ImageInformation, out RawValueStorage{int}, out RVAConverter)"/> method will call the methods of this interface  in the following order:
+   /// The <see cref="E_CILPhysical.ReadMetaDataFromStream(ReaderFunctionality, Stream, CILMetaDataTableInformationProvider, EventHandler{SerializationErrorEventArgs}, bool, out ImageInformation, out RawValueStorage{int}, out RVAConverter)"/> method will call the methods of this interface in the following order:
    /// <list type="number">
    /// <item><description><see cref="ReadImageInformation"/>,</description></item>
    /// <item><description><see cref="CreateStreamHandler"/> (once for each header in <see cref="MetaDataRoot.StreamHeaders"/>), and</description></item>
@@ -293,28 +293,110 @@ namespace CILAssemblyManipulator.Physical.IO
          this.OtherStreams = ( otherStreams ?? Empty<AbstractReaderStreamHandler>.Enumerable ).ToArrayProxy().CQ;
       }
 
+      /// <summary>
+      /// Gets the <see cref="ReaderBLOBStreamHandler"/>.
+      /// </summary>
+      /// <value>The <see cref="ReaderBLOBStreamHandler"/>.</value>
+      /// <remarks>
+      /// This value may be <c>null</c>, if null was specific to the constructor of this <see cref="ReaderMetaDataStreamContainer"/>.
+      /// </remarks>
+      /// <seealso cref="ReaderBLOBStreamHandler"/>
       public ReaderBLOBStreamHandler BLOBs { get; }
 
+      /// <summary>
+      /// Gets the <see cref="ReaderGUIDStreamHandler"/>.
+      /// </summary>
+      /// <value>The <see cref="ReaderGUIDStreamHandler"/>.</value>
+      /// <remarks>
+      /// This value may be <c>null</c>, if null was specific to the constructor of this <see cref="ReaderMetaDataStreamContainer"/>.
+      /// </remarks>
+      /// <seealso cref="ReaderGUIDStreamHandler"/>
       public ReaderGUIDStreamHandler GUIDs { get; }
 
+      /// <summary>
+      /// Gets the <see cref="ReaderStringStreamHandler"/> for system strings.
+      /// </summary>
+      /// <value>The <see cref="ReaderStringStreamHandler"/> for system strings.</value>
+      /// <remarks>
+      /// This value may be <c>null</c>, if null was specific to the constructor of this <see cref="ReaderMetaDataStreamContainer"/>.
+      /// </remarks>
+      /// <seealso cref="ReaderStringStreamHandler"/>
       public ReaderStringStreamHandler SystemStrings { get; }
 
+      /// <summary>
+      /// Gets the <see cref="ReaderStringStreamHandler"/> for user strings.
+      /// </summary>
+      /// <value>The <see cref="ReaderStringStreamHandler"/> for user strings.</value>
+      /// <remarks>
+      /// This value may be <c>null</c>, if null was specific to the constructor of this <see cref="ReaderMetaDataStreamContainer"/>.
+      /// </remarks>
+      /// <seealso cref="ReaderStringStreamHandler"/>
       public ReaderStringStreamHandler UserStrings { get; }
 
+      /// <summary>
+      /// Gets the other <see cref="AbstractReaderStreamHandler"/>s given to this <see cref="ReaderMetaDataStreamContainer"/>.
+      /// </summary>
+      /// <value>The other <see cref="AbstractReaderStreamHandler"/>s given to this <see cref="ReaderMetaDataStreamContainer"/>.</value>
+      /// <remarks>
+      /// This value may be empty, but it is never <c>null</c>.
+      /// </remarks>
+      /// <seealso cref="AbstractReaderStreamHandler"/>
       public ArrayQuery<AbstractReaderStreamHandler> OtherStreams { get; }
    }
 
+   /// <summary>
+   /// This is common interface for all objects, which participate in deserialization process as handlers for meta data stream (e.g. table stream, BLOB stream, etc).
+   /// </summary>
+   /// <seealso cref="ReaderTableStreamHandler"/>
+   /// <seealso cref="ReaderBLOBStreamHandler"/>
+   /// <seealso cref="ReaderStringStreamHandler"/>
+   /// <seealso cref="ReaderGUIDStreamHandler"/>
    public interface AbstractReaderStreamHandler
    {
+      /// <summary>
+      /// Gets the textual name of this <see cref="AbstractReaderStreamHandler"/>.
+      /// </summary>
+      /// <value>The textual name of this <see cref="AbstractReaderStreamHandler"/>.</value>
       String StreamName { get; }
    }
 
+   /// <summary>
+   /// This interface should be implemented by objects handling reading of table stream in meta data section.
+   /// The table stream is where the structure of <see cref="CILMetaData"/> is defined (present tables, their size, etc).
+   /// </summary>
+   /// <remarks>
+   /// The <see cref="E_CILPhysical.ReadMetaDataFromStream(ReaderFunctionality, Stream, CILMetaDataTableInformationProvider, EventHandler{SerializationErrorEventArgs}, bool, out ImageInformation, out RawValueStorage{int}, out RVAConverter)"/> method will call the methods of this interface in the following order:
+   /// <list type="number">
+   /// <item><description><see cref="ReadHeader"/>,</description></item>
+   /// <item><description><see cref="TableSizes"/>, and</description></item>
+   /// <item><description><see cref="PopulateMetaDataStructure"/>.</description></item>
+   /// </list>
+   /// </remarks>
    public interface ReaderTableStreamHandler : AbstractReaderStreamHandler
    {
+      /// <summary>
+      /// Reads the <see cref="MetaDataTableStreamHeader"/> from this <see cref="ReaderTableStreamHandler"/>.
+      /// </summary>
+      /// <returns>The <see cref="MetaDataTableStreamHeader"/> with information about </returns>
       MetaDataTableStreamHeader ReadHeader();
 
+
+      /// <summary>
+      /// Gets the table sizes for the tables in this <see cref="ReaderTableStreamHandler"/>.
+      /// </summary>
+      /// <value>The table sizes for the tables in this <see cref="ReaderTableStreamHandler"/>.</value>
+      /// <remarks>
+      /// This property is used instead of directly creating table size array from <see cref="MetaDataTableStreamHeader"/> returned by <see cref="ReadHeader"/> in order to better customize the deserialization process in case the header for the table stream changes greatly in future releases.
+      /// </remarks>
       ArrayQuery<Int32> TableSizes { get; }
 
+      /// <summary>
+      /// This method should populate those properties of the rows in metadata tables, which are either stored directly in table stream, or can be created using meta data streams (e.g. strings, guids, signatures, etc).
+      /// After that is done, all the remaining values (RVAs) should be stored to <see cref="RawValueStorage{TValue}"/> and returned by this method.
+      /// </summary>
+      /// <param name="md">The <see cref="CILMetaData"/> to populate.</param>
+      /// <param name="mdStreamContainer">The <see cref="ReaderMetaDataStreamContainer"/> containing meta data streams.</param>
+      /// <returns>The raw values (RVAs) which were read from this table stream. The stored raw values will be used by <see cref="ReaderFunctionality.HandleStoredRawValues"/> method.</returns>
       RawValueStorage<Int32> PopulateMetaDataStructure(
          CILMetaData md,
          ReaderMetaDataStreamContainer mdStreamContainer
@@ -322,32 +404,88 @@ namespace CILAssemblyManipulator.Physical.IO
 
    }
 
+   /// <summary>
+   /// This interface should be implemented by objects handling reading of BLOB stream in meta data section.
+   /// The BLOB stream stores various signatures and also raw byte arrays.
+   /// </summary>
    public interface ReaderBLOBStreamHandler : AbstractReaderStreamHandler
    {
-      Byte[] GetBLOB( Int32 heapIndex );
+      /// <summary>
+      /// Given the stream index, reads the BLOB array that is located there.
+      /// </summary>
+      /// <param name="streamIndex">The zero-based stream index.</param>
+      /// <returns>The BLOB as byte array.</returns>
+      Byte[] GetBLOBByteArray( Int32 streamIndex );
 
-      AbstractSignature ReadNonTypeSignature( Int32 heapIndex, SignatureProvider sigProvider, Boolean methodSigIsDefinition, Boolean handleFieldSigAsLocalsSig, out Boolean fieldSigTransformedToLocalsSig );
+      /// <summary>
+      /// Given the stream index, reads a <see cref="AbstractSignature"/> which will not be a <see cref="TypeSignature"/>.
+      /// </summary>
+      /// <param name="streamIndex">The zero-based stream index.</param>
+      /// <param name="sigProvider">The <see cref="SignatureProvider"/> to use when deserializing the signature.</param>
+      /// <param name="methodSigIsDefinition">Whether the method signature, if any, should be a <see cref="MethodDefinitionSignature"/>.</param>
+      /// <param name="handleFieldSigAsLocalsSig">Whether to handle the field signature as <see cref="LocalVariablesSignature"/>.</param>
+      /// <param name="fieldSigTransformedToLocalsSig">If <paramref name="handleFieldSigAsLocalsSig"/> is <c>true</c> and the signature started with field prefix, this will be <c>true</c>. Otherwise, this will be <c>false</c>.</param>
+      /// <returns>The deserialized <see cref="AbstractSignature"/>.</returns>
+      /// <seealso cref="AbstractSignature"/>
+      AbstractSignature ReadNonTypeSignature( Int32 streamIndex, SignatureProvider sigProvider, Boolean methodSigIsDefinition, Boolean handleFieldSigAsLocalsSig, out Boolean fieldSigTransformedToLocalsSig );
 
-      TypeSignature ReadTypeSignature( Int32 heapIndex, SignatureProvider sigProvider );
+      /// <summary>
+      /// Given the stream index, reads a <see cref="TypeSignature"/>.
+      /// </summary>
+      /// <param name="streamIndex">The zero-based stream index.</param>
+      /// <param name="sigProvider">The <see cref="SignatureProvider"/> to use when deserializing the signature.</param>
+      /// <returns>The deserialized <see cref="AbstractSignature"/>.</returns>
+      TypeSignature ReadTypeSignature( Int32 streamIndex, SignatureProvider sigProvider );
 
-      AbstractCustomAttributeSignature ReadCASignature( Int32 heapIndex, SignatureProvider sigProvider );
+      /// <summary>
+      /// Given the stream index, reads the custom attribute signature as <see cref="AbstractCustomAttributeSignature"/>.
+      /// </summary>
+      /// <param name="streamIndex">The zero-based stream index.</param>
+      /// <param name="sigProvider">The <see cref="SignatureProvider"/> to use when deserializing the signature.</param>
+      /// <returns>The deserialized <see cref="AbstractCustomAttributeSignature"/>.</returns>
+      /// <seealso cref="DefaultReaderBLOBStreamHandler.ReadCASignature"/>
+      AbstractCustomAttributeSignature ReadCASignature( Int32 streamIndex, SignatureProvider sigProvider );
 
-      void ReadSecurityInformation( Int32 heapIndex, SignatureProvider sigProvider, List<AbstractSecurityInformation> securityInfo );
+      /// <summary>
+      /// Given the stream index, reads the security information into given list of <see cref="AbstractSecurityInformation"/>s.
+      /// </summary>
+      /// <param name="streamIndex">The zero-based stream index.</param>
+      /// <param name="sigProvider">The <see cref="SignatureProvider"/> to use when deserializing the signature.</param>
+      /// <param name="securityInfo">The list of seucurity information attributes to populate.</param>
+      /// <seealso cref="DefaultReaderBLOBStreamHandler.ReadSecurityInformation"/>
+      /// <seealso cref="SecurityDefinition.PermissionSets"/>
+      void ReadSecurityInformation( Int32 streamIndex, SignatureProvider sigProvider, List<AbstractSecurityInformation> securityInfo );
 
-      AbstractMarshalingInfo ReadMarshalingInfo( Int32 heapIndex, SignatureProvider sigProvider );
+      /// <summary>
+      /// Given the stream index, reads the marshaling information as <see cref="AbstractMarshalingInfo"/>.
+      /// </summary>
+      /// <param name="streamIndex">The zero-based stream index.</param>
+      /// <param name="sigProvider">The <see cref="SignatureProvider"/> to use when deserializing the signature.</param>
+      /// <returns>One of the concrete subclasses of <see cref="AbstractMarshalingInfo"/>.</returns>
+      /// <seealso cref="E_CILPhysical.ReadMarshalingInfo"/>
+      AbstractMarshalingInfo ReadMarshalingInfo( Int32 streamIndex, SignatureProvider sigProvider );
 
-      Object ReadConstantValue( Int32 heapIndex, SignatureProvider sigProvider, ConstantValueType constType );
+      /// <summary>
+      /// Given the stream index, reads the constant value stored in the stream.
+      /// </summary>
+      /// <param name="streamIndex">The zero-based stream index.</param>
+      /// <param name="sigProvider">The <see cref="SignatureProvider"/> to use when deserializing the signature.</param>
+      /// <param name="constType">The <see cref="ConstantValueType"/> describing what kind of constant is stored in the stream.</param>
+      /// <returns>The deserialized constant value.</returns>
+      /// <seealso cref="ConstantDefinition"/>
+      /// <seealso cref="ConstantDefinition.Value"/>
+      Object ReadConstantValue( Int32 streamIndex, SignatureProvider sigProvider, ConstantValueType constType );
 
    }
 
    public interface ReaderGUIDStreamHandler : AbstractReaderStreamHandler
    {
-      Guid? GetGUID( Int32 heapIndex );
+      Guid? GetGUID( Int32 streamIndex );
    }
 
    public interface ReaderStringStreamHandler : AbstractReaderStreamHandler
    {
-      String GetString( Int32 heapIndex );
+      String GetString( Int32 streamIndex );
    }
 }
 

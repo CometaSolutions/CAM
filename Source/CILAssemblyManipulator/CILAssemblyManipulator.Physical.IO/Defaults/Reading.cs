@@ -587,12 +587,22 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
          }
       }
 
-      public Byte[] GetBLOB( Int32 heapIndex )
+      public Byte[] GetBLOBByteArray( Int32 heapIndex )
       {
          Int32 len;
          return this.SetUpBLOBWithLength( ref heapIndex, out len ) ? this.Bytes.CreateArrayCopy( heapIndex, len ) : null;
       }
 
+      /// <summary>
+      /// 
+      /// </summary>
+      /// <param name="heapIndex"></param>
+      /// <param name="sigProvider"></param>
+      /// <returns></returns>
+      /// <remarks>
+      /// Because reading custom attribute signatures may require resolving, the only case when this method does returns an instance of <see cref="ResolvedCustomAttributeSignature"/> is when the signature BLOB represents empty custom attribute signature.
+      /// Whenever there is a non-empty signature, then an instance of <see cref="RawCustomAttributeSignature"/> is returned.
+      /// </remarks>
       public AbstractCustomAttributeSignature ReadCASignature( Int32 heapIndex, SignatureProvider sigProvider )
       {
          AbstractCustomAttributeSignature caSig;
