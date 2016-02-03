@@ -1255,6 +1255,7 @@ public static partial class E_CILPhysical
       peInfo.DOSHeader.WriteDOSHeader( bytez, ref idx );
 
       // NT Header
+      idx = (Int32) peInfo.DOSHeader.NTHeaderOffset;
       peInfo.NTHeader.WriteNTHeader( bytez, ref idx );
 
       // Sections
