@@ -29,28 +29,71 @@ using System.Text;
 
 namespace CILAssemblyManipulator.Physical.IO
 {
+   /// <summary>
+   /// This interface provides core methods required when mapping assembly references to possibly other target frameworks than assembly's current target framework.
+   /// </summary>
    public interface TargetFrameworkMapper
    {
-      Boolean TryReMapReference(
+      /// <summary>
+      /// Tries to map type referenced in the given <see cref="CILMetaData"/> into given target framework represented by <see cref="TargetFrameworkInfoWithRetargetabilityInformation"/>.
+      /// </summary>
+      /// <param name="thisMD">The <see cref="CILMetaData"/> containing the assembly reference.</param>
+      /// <param name="aRef">The assembly reference, as <see cref="AssemblyInformationForResolving"/>.</param>
+      /// <param name="fullType">The full type name (containing namespace, possible enclosing type names, and the type name) as string.</param>
+      /// <param name="loader">The <see cref="CILMetaDataLoaderWithCallbacks"/> to use when performing on-demand loading of the assemblies in given target framework.</param>
+      /// <param name="targetFW">The <see cref="TargetFrameworkInfoWithRetargetabilityInformation"/> representing the target framework that this type reference is being mapped to.</param>
+      /// <param name="newRef">If the type reference is found in the target framework represented by <paramref name="targetFW"/> parameter, then this will hold the <see cref="AssemblyInformationForResolving"/> object describing the new assembly reference.</param>
+      /// <returns>One of the values in <see cref="RemapResult"/>. If the value is <see cref="RemapResult.Success"/>, then <paramref name="newRef"/> will always be non-<c>null</c>.</returns>
+      /// <exception cref="ArgumentNullException">If <paramref name="loader"/> or <paramref name="targetFW"/> is <c>null</c>.</exception>
+      /// <seealso cref="RemapResult"/>
+      RemapResult TryRemapReference(
          CILMetaData thisMD,
          AssemblyInformationForResolving aRef,
          String fullType,
          CILMetaDataLoaderWithCallbacks loader,
          TargetFrameworkInfoWithRetargetabilityInformation targetFW,
-         out AssemblyReference newRef,
-         out Boolean wasTargetFW
-         );
-
-      Boolean ProcessTypeString(
-         CILMetaData thisMD,
-         CILMetaDataLoaderWithCallbacks loader,
-         TargetFrameworkInfoWithRetargetabilityInformation targetFW,
-         ref String typeString
+         out AssemblyInformationForResolving newRef
          );
    }
 
+   /// <summary>
+   /// This enumeration represents possible remapping results when changing type reference from one target framework into another, by <see cref="TargetFrameworkMapper.TryRemapReference"/> method.
+   /// </summary>
+   public enum RemapResult
+   {
+      /// <summary>
+      /// The type reference was successfully mapped into other assembly than original, and thus it has been changed.
+      /// Sometimes only assembly version information changes, but other times also assembly name.
+      /// </summary>
+      Success,
+
+      /// <summary>
+      /// The type reference does not represent a reference into type located in target framework assemblies.
+      /// </summary>
+      NotATargetFrameworkReference,
+
+      /// <summary>
+      /// The type reference was reference to type in one of the target framework assemblies, but it was already the correct one.
+      /// </summary>
+      AlreadyMapped,
+
+      /// <summary>
+      /// The type reference was reference to type in one of the target framework assemblies, but the new target framework did not have any assembly which would have the type with the same name.
+      /// </summary>
+      NotPresentInGivenTargetFramework
+   }
+
+   /// <summary>
+   /// This class encapsulates the information about target framework information (<see cref="CAMPhysical::CILAssemblyManipulator.Physical.TargetFrameworkInfo"/>) and whether the assembly references to that framework should be marked with <see cref="AssemblyFlags.Retargetable"/> flag.
+   /// </summary>
    public sealed class TargetFrameworkInfoWithRetargetabilityInformation
    {
+      /// <summary>
+      /// Creates a new instance of <see cref="TargetFrameworkInfoWithRetargetabilityInformation"/> with given <see cref="CAMPhysical::CILAssemblyManipulator.Physical.TargetFrameworkInfo"/> and whether the assembly references to this target framework are retargetable.
+      /// </summary>
+      /// <param name="targetFramework">The <see cref="CAMPhysical::CILAssemblyManipulator.Physical.TargetFrameworkInfo"/> representing target framework information.</param>
+      /// <param name="assemblyReferencesRetargetable">Whether the assembly references to <paramref name="targetFramework"/> should be tagged with <see cref="AssemblyFlags.Retargetable"/> flag.</param>
+      /// <exception cref="ArgumentNullException">If <paramref name="targetFramework"/> is <c>null</c>.</exception>
       public TargetFrameworkInfoWithRetargetabilityInformation(
          TargetFrameworkInfo targetFramework,
          Boolean assemblyReferencesRetargetable
@@ -62,11 +105,37 @@ namespace CILAssemblyManipulator.Physical.IO
          this.AreFrameworkAssemblyReferencesRetargetable = assemblyReferencesRetargetable;
       }
 
+      /// <summary>
+      /// Gets the <see cref="CAMPhysical::CILAssemblyManipulator.Physical.TargetFrameworkInfo"/> for represented target framework.
+      /// </summary>
+      /// <value>The <see cref="CAMPhysical::CILAssemblyManipulator.Physical.TargetFrameworkInfo"/> for represented target framework.</value>
       public TargetFrameworkInfo TargetFrameworkInfo { get; }
 
+      /// <summary>
+      /// Gets the value indicating whether assembly references to represented target framework should be tagged with <see cref="AssemblyFlags.Retargetable"/> flag.
+      /// </summary>
+      /// <value>The value indicating whether assembly references to represented target framework should be tagged with <see cref="AssemblyFlags.Retargetable"/> flag.</value>
       public Boolean AreFrameworkAssemblyReferencesRetargetable { get; }
    }
 
+   /// <summary>
+   /// This is abstract class implementing <see cref="TargetFrameworkMapper"/> in such way that the types of various dictionaries are parametrized via type parameters.
+   /// Thus the normal dictionaries, or concurrent dictionaries, may be used, depending on which one is required.
+   /// </summary>
+   /// <typeparam name="TTypesDic">The type of dictionary caching type strings.</typeparam>
+   /// <typeparam name="TTargetFWAssembliesDic">The type of dictionary caching target framework assemblies resources (paths).</typeparam>
+   /// <typeparam name="TResolvedTargetFWAssembliesDic">The type of dictionary caching target framework assembly references.</typeparam>
+   /// <typeparam name="TResolvedTargetFWAssembliesDicInner">The inner dictionary type for <typeparamref name="TResolvedTargetFWAssembliesDic"/>.</typeparam>
+   /// <typeparam name="TAssemblyReferenceDic">The of dictionary caching assembly references.</typeparam>
+   /// <typeparam name="TAssemblyReferenceDicInner">The inner dictionary type for <typeparamref name="TAssemblyReferenceDic"/>.</typeparam>
+   /// <remarks>
+   /// This class is not directly instanceable, instead use <see cref="TargetFrameworkMapperNotThreadSafe"/>
+#if CAM_PHYSICAL_IS_PORTABLE
+   /// class.
+#else
+   /// or <see cref="TargetFrameworkMapperConcurrent"/> class.
+#endif
+   /// </remarks>
    public abstract class AbstractTargetFrameworkMapper<
       TTypesDic,
       TTargetFWAssembliesDic,
@@ -114,63 +183,47 @@ namespace CILAssemblyManipulator.Physical.IO
          this._assemblyReferenceInnerFactory = assemblyReferenceInnerFactory;
       }
 
-      public Boolean TryReMapReference(
+      /// <inheritdoc />
+      public RemapResult TryRemapReference(
          CILMetaData thisMD,
          AssemblyInformationForResolving aRef,
          String fullType,
          CILMetaDataLoaderWithCallbacks loader,
          TargetFrameworkInfoWithRetargetabilityInformation targetFW,
-         out AssemblyReference newRef,
-         out Boolean wasTargetFW
+         out AssemblyInformationForResolving newRef
          )
       {
+         ArgumentValidator.ValidateNotNull( "Loader", loader );
+         ArgumentValidator.ValidateNotNull( "New target framework information", targetFW );
+
          newRef = null;
 
          var targetFWAssembly = this.ResolveTargetFWReferenceOrNull( thisMD, aRef, loader, targetFW );
-         var retVal = targetFWAssembly != null;
-         wasTargetFW = retVal;
-         if ( retVal )
+         RemapResult retVal;
+         if ( targetFWAssembly != null )
          {
             var actualTargetFWAssembly = this.GetActualMDForType( targetFWAssembly, loader, fullType, targetFW.TargetFrameworkInfo );
-
-            if ( actualTargetFWAssembly == null )
+            if ( actualTargetFWAssembly != null )
             {
-               throw new InvalidOperationException( "Failed to map type " + fullType + " in " + loader.GetResourceFor( targetFWAssembly ) + " to target framework " + targetFW + "." );
+               if ( !ReferenceEquals( targetFWAssembly, actualTargetFWAssembly ) )
+               {
+                  // Type was in another assembly
+                  newRef = new AssemblyInformationForResolving( actualTargetFWAssembly.AssemblyDefinitions.TableContents[0].AssemblyInformation, true );
+                  retVal = RemapResult.Success;
+               }
+               else
+               {
+                  retVal = RemapResult.AlreadyMapped;
+               }
             }
             else
             {
-               retVal = !ReferenceEquals( targetFWAssembly, actualTargetFWAssembly );
-               if ( retVal )
-               {
-                  // Type was in another assembly
-                  newRef = actualTargetFWAssembly.AssemblyDefinitions.TableContents[0].AsAssemblyReference();
-               }
+               retVal = RemapResult.NotPresentInGivenTargetFramework;
             }
          }
-
-         return retVal;
-      }
-
-      public Boolean ProcessTypeString(
-         CILMetaData thisMD,
-         CILMetaDataLoaderWithCallbacks loader,
-         TargetFrameworkInfoWithRetargetabilityInformation targetFW,
-         ref String typeString
-         )
-      {
-         String typeName, assemblyName;
-         AssemblyInformation assemblyInfo;
-         Boolean isFullPublicKey;
-         AssemblyReference newRef = null;
-         Boolean wasTargetFW;
-         var retVal = typeString.ParseAssemblyQualifiedTypeString( out typeName, out assemblyName )
-            && AssemblyInformation.TryParse( assemblyName, out assemblyInfo, out isFullPublicKey )
-            && this.TryReMapReference( thisMD, new AssemblyInformationForResolving( assemblyInfo, isFullPublicKey ), typeName, loader, targetFW, out newRef, out wasTargetFW );
-
-         if ( retVal )
+         else
          {
-            assemblyName = newRef.ToString();
-            typeString = Miscellaneous.CombineAssemblyAndType( assemblyName, typeName );
+            retVal = RemapResult.NotATargetFrameworkReference;
          }
 
          return retVal;
@@ -280,18 +333,78 @@ namespace CILAssemblyManipulator.Physical.IO
          return this.GetOrAdd_TargetFWAssemblies( this._targetFWAssemblies, targetFW, tfw => loader.LoaderCallbacks.GetAssemblyResourcesForFramework( tfw ).ToArray() );
       }
 
+      /// <summary>
+      /// Callback-method to get or add value to dictionary of type <typeparamref name="TTargetFWAssembliesDic"/>.
+      /// </summary>
+      /// <param name="dic">The dictionary.</param>
+      /// <param name="key">The key to dictionary.</param>
+      /// <param name="factory">The factory callback, if the value is not present for given <paramref name="key"/>.</param>
+      /// <returns>The existing or created value.</returns>
       protected abstract String[] GetOrAdd_TargetFWAssemblies( TTargetFWAssembliesDic dic, TargetFrameworkInfo key, Func<TargetFrameworkInfo, String[]> factory );
+
+      /// <summary>
+      /// Callback-method to get or add value to dictionary of type <typeparamref name="TTypesDic"/>.
+      /// </summary>
+      /// <param name="dic">The dictionary.</param>
+      /// <param name="key">The key to dictionary.</param>
+      /// <param name="factory">The factory callback, if the value is not present for given <paramref name="key"/>.</param>
+      /// <returns>The existing or created value.</returns>
       protected abstract ISet<String> GetOrAdd_MDTypes( TTypesDic dic, CILMetaData key, Func<CILMetaData, ISet<String>> factory );
+
+      /// <summary>
+      /// Callback-method to get or add value to dictionary of type <typeparamref name="TResolvedTargetFWAssembliesDic"/>.
+      /// </summary>
+      /// <param name="dic">The dictionary.</param>
+      /// <param name="key">The key to dictionary.</param>
+      /// <param name="factory">The factory callback, if the value is not present for given <paramref name="key"/>.</param>
+      /// <returns>The existing or created value.</returns>
       protected abstract TResolvedTargetFWAssembliesDicInner GetOrAdd_ResolvedTargetFWAssemblies( TResolvedTargetFWAssembliesDic dic, CILMetaData key, Func<CILMetaData, TResolvedTargetFWAssembliesDicInner> factory );
+
+      /// <summary>
+      /// Callback-method to get or add value to dictionary of type <typeparamref name="TResolvedTargetFWAssembliesDicInner"/>.
+      /// </summary>
+      /// <param name="dic">The dictionary.</param>
+      /// <param name="key">The key to dictionary.</param>
+      /// <param name="factory">The factory callback, if the value is not present for given <paramref name="key"/>.</param>
+      /// <returns>The existing or created value.</returns>
       protected abstract CILMetaData GetOrAdd_ResolvedTargetFWAssembliesInner( TResolvedTargetFWAssembliesDicInner dic, String key, Func<String, CILMetaData> factory );
+
+      /// <summary>
+      /// Callback-method to get or add value to dictionary of type <typeparamref name="TAssemblyReferenceDic"/>.
+      /// </summary>
+      /// <param name="dic">The dictionary.</param>
+      /// <param name="key">The key to dictionary.</param>
+      /// <param name="factory">The factory callback, if the value is not present for given <paramref name="key"/>.</param>
+      /// <returns>The existing or created value.</returns>
       protected abstract TAssemblyReferenceDicInner GetOrAdd_AssemblyReferences( TAssemblyReferenceDic dic, CILMetaData key, Func<CILMetaData, TAssemblyReferenceDicInner> factory );
+
+      /// <summary>
+      /// Callback-method to get or add value to dictionary of type <typeparamref name="TAssemblyReferenceDicInner"/>.
+      /// </summary>
+      /// <param name="dic">The dictionary.</param>
+      /// <param name="key">The key to dictionary.</param>
+      /// <param name="factory">The factory callback, if the value is not present for given <paramref name="key"/>.</param>
+      /// <returns>The existing or created value.</returns>
       protected abstract CILMetaData GetOrAdd_AssemblyReferencesInner( TAssemblyReferenceDicInner dic, AssemblyInformationForResolving key, Func<AssemblyInformationForResolving, CILMetaData> factory );
+
+      /// <summary>
+      /// Callback-method to record resource which is not a managed assembly.
+      /// </summary>
+      /// <param name="resource">The resource (path) for the assembly which was detected to be unmanaged assembly.</param>
       protected abstract void RecordNotManagedAssembly( String resource );
+
+      /// <summary>
+      /// Callback-method to check whether the resource represents previously recorded (via <see cref="RecordNotManagedAssembly"/> method) unmanaged assembly.
+      /// </summary>
+      /// <param name="resource">The resource (path) to check.</param>
+      /// <returns><c>true</c> if the assembly at given <paramref name="resource"/> was previously recorded to be as unmanaged assembly; <c>false</c> otherwise.</returns>
       protected abstract Boolean IsRecordedNotManagedAssembly( String resource );
 
    }
 
-
+   /// <summary>
+   /// This class extends <see cref="AbstractTargetFrameworkMapper{TTypesDic, TTargetFWAssembliesDic, TResolvedTargetFWAssembliesDic, TResolvedTargetFWAssembliesDicInner, TAssemblyReferenceDic, TAssemblyReferenceDicInner}"/> (and thus implements <see cref="TargetFrameworkMapper"/>) to be used in non-threadsafe scenarios.
+   /// </summary>
    public class TargetFrameworkMapperNotThreadSafe : AbstractTargetFrameworkMapper<
       Dictionary<CILMetaData, ISet<String>>,
       Dictionary<TargetFrameworkInfo, String[]>,
@@ -303,6 +416,9 @@ namespace CILAssemblyManipulator.Physical.IO
    {
       private readonly HashSet<String> _notManagedAssemblies;
 
+      /// <summary>
+      /// Creates a new instance of <see cref="TargetFrameworkMapperNotThreadSafe"/>.
+      /// </summary>
       public TargetFrameworkMapperNotThreadSafe()
          : base(
          new Dictionary<CILMetaData, ISet<String>>(),
@@ -316,59 +432,243 @@ namespace CILAssemblyManipulator.Physical.IO
          this._notManagedAssemblies = new HashSet<String>();
       }
 
+      /// <summary>
+      /// Implements <see cref="AbstractTargetFrameworkMapper{TTypesDic, TTargetFWAssembliesDic, TResolvedTargetFWAssembliesDic, TResolvedTargetFWAssembliesDicInner, TAssemblyReferenceDic, TAssemblyReferenceDicInner}.GetOrAdd_TargetFWAssemblies"/> by calling <see cref="E_CommonUtils.GetOrAdd_NotThreadSafe{TKey, TValue}(IDictionary{TKey, TValue}, TKey, Func{TKey, TValue})"/>.
+      /// </summary>
+      /// <param name="dic">The dictionary.</param>
+      /// <param name="key">The key to dictionary.</param>
+      /// <param name="factory">The factory callback, if the value is not present for given <paramref name="key"/>.</param>
+      /// <returns>The existing or created value.</returns>
       protected override String[] GetOrAdd_TargetFWAssemblies( Dictionary<TargetFrameworkInfo, String[]> dic, TargetFrameworkInfo key, Func<TargetFrameworkInfo, String[]> factory )
       {
          return dic.GetOrAdd_NotThreadSafe( key, factory );
       }
 
+      /// <summary>
+      /// Implements <see cref="AbstractTargetFrameworkMapper{TTypesDic, TTargetFWAssembliesDic, TResolvedTargetFWAssembliesDic, TResolvedTargetFWAssembliesDicInner, TAssemblyReferenceDic, TAssemblyReferenceDicInner}.GetOrAdd_MDTypes"/> by calling <see cref="E_CommonUtils.GetOrAdd_NotThreadSafe{TKey, TValue}(IDictionary{TKey, TValue}, TKey, Func{TKey, TValue})"/>.
+      /// </summary>
+      /// <param name="dic">The dictionary.</param>
+      /// <param name="key">The key to dictionary.</param>
+      /// <param name="factory">The factory callback, if the value is not present for given <paramref name="key"/>.</param>
+      /// <returns>The existing or created value.</returns>
       protected override ISet<String> GetOrAdd_MDTypes( Dictionary<CILMetaData, ISet<String>> dic, CILMetaData key, Func<CILMetaData, ISet<String>> factory )
       {
          return dic.GetOrAdd_NotThreadSafe( key, factory );
       }
 
+      /// <summary>
+      /// Implements <see cref="AbstractTargetFrameworkMapper{TTypesDic, TTargetFWAssembliesDic, TResolvedTargetFWAssembliesDic, TResolvedTargetFWAssembliesDicInner, TAssemblyReferenceDic, TAssemblyReferenceDicInner}.GetOrAdd_ResolvedTargetFWAssemblies"/> by calling <see cref="E_CommonUtils.GetOrAdd_NotThreadSafe{TKey, TValue}(IDictionary{TKey, TValue}, TKey, Func{TKey, TValue})"/>.
+      /// </summary>
+      /// <param name="dic">The dictionary.</param>
+      /// <param name="key">The key to dictionary.</param>
+      /// <param name="factory">The factory callback, if the value is not present for given <paramref name="key"/>.</param>
+      /// <returns>The existing or created value.</returns>
       protected override Dictionary<String, CILMetaData> GetOrAdd_ResolvedTargetFWAssemblies( Dictionary<CILMetaData, Dictionary<String, CILMetaData>> dic, CILMetaData key, Func<CILMetaData, Dictionary<String, CILMetaData>> factory )
       {
          return dic.GetOrAdd_NotThreadSafe( key, factory );
       }
 
+      /// <summary>
+      /// Implements <see cref="AbstractTargetFrameworkMapper{TTypesDic, TTargetFWAssembliesDic, TResolvedTargetFWAssembliesDic, TResolvedTargetFWAssembliesDicInner, TAssemblyReferenceDic, TAssemblyReferenceDicInner}.GetOrAdd_ResolvedTargetFWAssembliesInner"/> by calling <see cref="E_CommonUtils.GetOrAdd_NotThreadSafe{TKey, TValue}(IDictionary{TKey, TValue}, TKey, Func{TKey, TValue})"/>.
+      /// </summary>
+      /// <param name="dic">The dictionary.</param>
+      /// <param name="key">The key to dictionary.</param>
+      /// <param name="factory">The factory callback, if the value is not present for given <paramref name="key"/>.</param>
+      /// <returns>The existing or created value.</returns>
       protected override CILMetaData GetOrAdd_ResolvedTargetFWAssembliesInner( Dictionary<String, CILMetaData> dic, String key, Func<String, CILMetaData> factory )
       {
          return dic.GetOrAdd_NotThreadSafe( key, factory );
       }
 
+      /// <summary>
+      /// Implements <see cref="AbstractTargetFrameworkMapper{TTypesDic, TTargetFWAssembliesDic, TResolvedTargetFWAssembliesDic, TResolvedTargetFWAssembliesDicInner, TAssemblyReferenceDic, TAssemblyReferenceDicInner}.GetOrAdd_AssemblyReferences"/> by calling <see cref="E_CommonUtils.GetOrAdd_NotThreadSafe{TKey, TValue}(IDictionary{TKey, TValue}, TKey, Func{TKey, TValue})"/>.
+      /// </summary>
+      /// <param name="dic">The dictionary.</param>
+      /// <param name="key">The key to dictionary.</param>
+      /// <param name="factory">The factory callback, if the value is not present for given <paramref name="key"/>.</param>
+      /// <returns>The existing or created value.</returns>
       protected override Dictionary<AssemblyInformationForResolving, CILMetaData> GetOrAdd_AssemblyReferences( Dictionary<CILMetaData, Dictionary<AssemblyInformationForResolving, CILMetaData>> dic, CILMetaData key, Func<CILMetaData, Dictionary<AssemblyInformationForResolving, CILMetaData>> factory )
       {
          return dic.GetOrAdd_NotThreadSafe( key, factory );
       }
 
+      /// <summary>
+      /// Implements <see cref="AbstractTargetFrameworkMapper{TTypesDic, TTargetFWAssembliesDic, TResolvedTargetFWAssembliesDic, TResolvedTargetFWAssembliesDicInner, TAssemblyReferenceDic, TAssemblyReferenceDicInner}.GetOrAdd_AssemblyReferencesInner"/> by calling <see cref="E_CommonUtils.GetOrAdd_NotThreadSafe{TKey, TValue}(IDictionary{TKey, TValue}, TKey, Func{TKey, TValue})"/>.
+      /// </summary>
+      /// <param name="dic">The dictionary.</param>
+      /// <param name="key">The key to dictionary.</param>
+      /// <param name="factory">The factory callback, if the value is not present for given <paramref name="key"/>.</param>
+      /// <returns>The existing or created value.</returns>
       protected override CILMetaData GetOrAdd_AssemblyReferencesInner( Dictionary<AssemblyInformationForResolving, CILMetaData> dic, AssemblyInformationForResolving key, Func<AssemblyInformationForResolving, CILMetaData> factory )
       {
          return dic.GetOrAdd_NotThreadSafe( key, factory );
       }
 
+      /// <summary>
+      /// Implements <see cref="AbstractTargetFrameworkMapper{TTypesDic, TTargetFWAssembliesDic, TResolvedTargetFWAssembliesDic, TResolvedTargetFWAssembliesDicInner, TAssemblyReferenceDic, TAssemblyReferenceDicInner}.RecordNotManagedAssembly"/> by using basic <see cref="HashSet{T}"/>.
+      /// </summary>
+      /// <param name="resource">The resource (path) for the assembly which was detected to be unmanaged assembly.</param>
       protected override void RecordNotManagedAssembly( String resource )
       {
          this._notManagedAssemblies.Add( resource );
       }
 
+      /// <summary>
+      /// Implements <see cref="AbstractTargetFrameworkMapper{TTypesDic, TTargetFWAssembliesDic, TResolvedTargetFWAssembliesDic, TResolvedTargetFWAssembliesDicInner, TAssemblyReferenceDic, TAssemblyReferenceDicInner}.IsRecordedNotManagedAssembly"/> by using basic <see cref="HashSet{T}"/>.
+      /// </summary>
+      /// <param name="resource">The resource (path) to check.</param>
+      /// <returns><c>true</c> if the assembly at given <paramref name="resource"/> was previously recorded to be as unmanaged assembly; <c>false</c> otherwise.</returns>
       protected override bool IsRecordedNotManagedAssembly( String resource )
       {
          return this._notManagedAssemblies.Contains( resource );
+      }
+   }
+
+   /// <summary>
+   /// This exception is thrown by extension methods of <see cref="TargetFrameworkMapper"/>.
+   /// For example, <see cref="E_CILPhysical.RemapReference"/> and <see cref="E_CILPhysical.RemapTypeString"/> will throw this exception when the return value of <see cref="TargetFrameworkMapper.TryRemapReference"/> is <see cref="RemapResult.NotPresentInGivenTargetFramework"/>.
+   /// </summary>
+   public class TargetFrameworkRemapException : Exception
+   {
+      /// <summary>
+      /// Creates a new instance of <see cref="TargetFrameworkRemapException"/> with given message and optional inner exception.
+      /// </summary>
+      /// <param name="msg">The message.</param>
+      /// <param name="inner">The optional inner exception.</param>
+      public TargetFrameworkRemapException( String msg, Exception inner = null )
+         : base( msg, inner )
+      {
+
       }
    }
 }
 
 public static partial class E_CILPhysical
 {
+   /// <summary>
+   /// Helper method to try to remap type reference, and throw <see cref="TargetFrameworkRemapException"/> if the type was in original set of target framework assemblies, but not present in the new set of target framework assemblies.
+   /// </summary>
+   /// <param name="mapper">This <see cref="TargetFrameworkMapper"/>.</param>
+   /// <param name="thisMD">The <see cref="CILMetaData"/> containing the assembly reference.</param>
+   /// <param name="aRef">The assembly reference, as <see cref="AssemblyInformationForResolving"/>.</param>
+   /// <param name="fullType">The full type name (containing namespace, possible enclosing type names, and the type name) as string.</param>
+   /// <param name="loader">The <see cref="CILMetaDataLoaderWithCallbacks"/> to use when performing on-demand loading of the assemblies in given target framework.</param>
+   /// <param name="targetFW">The <see cref="TargetFrameworkInfoWithRetargetabilityInformation"/> representing the target framework that this type reference is being mapped to.</param>
+   /// <param name="newRef">If the type reference is found in the target framework represented by <paramref name="targetFW"/> parameter, then this will hold the <see cref="AssemblyInformationForResolving"/> object describing the new assembly reference.</param>
+   /// <returns>One of the values in <see cref="RemapResult"/>. If the value is <see cref="RemapResult.Success"/>, then <paramref name="newRef"/> will always be non-<c>null</c>.</returns>
+   /// <exception cref="NullReferenceException">If this <see cref="TargetFrameworkMapper"/> is <c>null</c>.</exception>
+   /// <exception cref="TargetFrameworkRemapException">If the return value of <see cref="TargetFrameworkMapper.TryRemapReference"/> is <see cref="RemapResult.NotPresentInGivenTargetFramework"/>.</exception>
+   public static RemapResult RemapReference(
+      this TargetFrameworkMapper mapper,
+      CILMetaData thisMD,
+      AssemblyInformationForResolving aRef,
+      String fullType,
+      CILMetaDataLoaderWithCallbacks loader,
+      TargetFrameworkInfoWithRetargetabilityInformation targetFW,
+      out AssemblyInformationForResolving newRef
+      )
+   {
+      var retVal = mapper.TryRemapReference( thisMD, aRef, fullType, loader, targetFW, out newRef );
+      if ( retVal == RemapResult.NotPresentInGivenTargetFramework )
+      {
+         throw new TargetFrameworkRemapException( "The type reference " + fullType + " located in " + loader.GetResourceFor( thisMD ) + " is not present in the " + targetFW + "." );
+      }
+      return retVal;
+   }
+
+   /// <summary>
+   /// Helper method to try to remap textual type reference using this <see cref="TargetFrameworkMapper"/>.
+   /// </summary>
+   /// <param name="mapper">This <see cref="TargetFrameworkMapper"/>.</param>
+   /// <param name="thisMD">The <see cref="CILMetaData"/> containing the assembly reference.</param>
+   /// <param name="loader">The <see cref="CILMetaDataLoaderWithCallbacks"/> to use when performing on-demand loading of the assemblies in given target framework.</param>
+   /// <param name="targetFW">The <see cref="TargetFrameworkInfoWithRetargetabilityInformation"/> representing the target framework that this type reference is being mapped to.</param>
+   /// <param name="typeString">The full type string including assembly name.</param>
+   /// <returns>If the <paramref name="typeString"/> did not contain assembly name, or if the assembly name could not be parsed using <see cref="AssemblyInformation.TryParse"/> method, returns <c>null</c>. Otherwise, returns the same value as <see cref="TargetFrameworkMapper.TryRemapReference"/>.</returns>
+   /// <exception cref="NullReferenceException">If this <see cref="TargetFrameworkMapper"/> is <c>null</c>.</exception>
+   public static RemapResult? TryRemapTypeString(
+      this TargetFrameworkMapper mapper,
+      CILMetaData thisMD,
+      CILMetaDataLoaderWithCallbacks loader,
+      TargetFrameworkInfoWithRetargetabilityInformation targetFW,
+      ref String typeString
+      )
+   {
+      String typeName, assemblyName;
+      AssemblyInformation assemblyInfo;
+      Boolean isFullPublicKey;
+
+      RemapResult? retVal;
+      if ( typeString.ParseAssemblyQualifiedTypeString( out typeName, out assemblyName )
+         && AssemblyInformation.TryParse( assemblyName, out assemblyInfo, out isFullPublicKey ) )
+      {
+         AssemblyInformationForResolving newRef = null;
+         retVal = mapper.TryRemapReference( thisMD, new AssemblyInformationForResolving( assemblyInfo, isFullPublicKey ), typeName, loader, targetFW, out newRef );
+
+         if ( retVal == RemapResult.Success )
+         {
+            assemblyName = newRef.AssemblyInformation.ToString( true, true );
+            typeString = Miscellaneous.CombineAssemblyAndType( assemblyName, typeName );
+         }
+      }
+      else
+      {
+         retVal = null;
+      }
+
+      return retVal;
+   }
+
+   /// <summary>
+   /// Helper method to try to remap textual type reference using this <see cref="TargetFrameworkMapper"/>, and throw <see cref="TargetFrameworkRemapException"/> if type string is parsed successfully and the type was in original set of target framework assemblies, but not present in the new set of target framework assemblies.
+   /// </summary>
+   /// <param name="mapper">This <see cref="TargetFrameworkMapper"/>.</param>
+   /// <param name="thisMD">The <see cref="CILMetaData"/> containing the assembly reference.</param>
+   /// <param name="loader">The <see cref="CILMetaDataLoaderWithCallbacks"/> to use when performing on-demand loading of the assemblies in given target framework.</param>
+   /// <param name="targetFW">The <see cref="TargetFrameworkInfoWithRetargetabilityInformation"/> representing the target framework that this type reference is being mapped to.</param>
+   /// <param name="typeString">The full type string including assembly name.</param>
+   /// <returns>If the <paramref name="typeString"/> did not contain assembly name, or if the assembly name could not be parsed using <see cref="AssemblyInformation.TryParse"/> method, returns <c>null</c>. Otherwise, returns the same value as <see cref="TargetFrameworkMapper.TryRemapReference"/>.</returns>
+   /// <exception cref="NullReferenceException">If this <see cref="TargetFrameworkMapper"/> is <c>null</c>.</exception>
+   /// <exception cref="TargetFrameworkRemapException">If the return value of <see cref="TryRemapTypeString"/> is <see cref="RemapResult.NotPresentInGivenTargetFramework"/>.</exception>
+   public static RemapResult? RemapTypeString(
+      this TargetFrameworkMapper mapper,
+      CILMetaData thisMD,
+      CILMetaDataLoaderWithCallbacks loader,
+      TargetFrameworkInfoWithRetargetabilityInformation targetFW,
+      ref String typeString
+      )
+   {
+      var retVal = mapper.TryRemapTypeString( thisMD, loader, targetFW, ref typeString );
+      if ( retVal.HasValue && retVal.Value == RemapResult.NotPresentInGivenTargetFramework )
+      {
+         throw new TargetFrameworkRemapException( "The type string " + typeString + " located in " + loader.GetResourceFor( thisMD ) + " is not present in the " + targetFW + "." );
+      }
+      return retVal;
+   }
+
+   /// <summary>
+   /// This method will remap all type references (including <see cref="CILMetaData.TypeReferences"/> table, and textual type strings in various signatures) to given target framework.
+   /// </summary>
+   /// <param name="mapper">This <see cref="TargetFrameworkMapper"/>.</param>
+   /// <param name="md">The <see cref="CILMetaData"/> to process.</param>
+   /// <param name="loader">The <see cref="CILMetaDataLoaderWithCallbacks"/> to use when performing on-demand loading of the assemblies in given target framework.</param>
+   /// <param name="targetFW">The <see cref="TargetFrameworkInfoWithRetargetabilityInformation"/> representing the target framework that this type reference is being mapped to.</param>
+   /// <exception cref="NullReferenceException">If this <see cref="TargetFrameworkMapper"/> is <c>null</c>.</exception>
+   /// <exception cref="ArgumentNullException">If <paramref name="loader"/> or <paramref name="targetFW"/> is <c>null</c>.</exception>
+   /// <exception cref="TargetFrameworkRemapException">If at least one resolved type reference is not present in the target framework represented by <paramref name="targetFW"/>.</exception>
    public static void ChangeTargetFramework(
       this TargetFrameworkMapper mapper,
       CILMetaData md,
       CILMetaDataLoaderWithCallbacks loader,
-      TargetFrameworkInfoWithRetargetabilityInformation newTargetFW
+      TargetFrameworkInfoWithRetargetabilityInformation targetFW
       )
    {
+      ArgumentValidator.ValidateNotNull( "Loader", loader );
+      ArgumentValidator.ValidateNotNull( "New target framework information", targetFW );
+
+
       var cb = loader.LoaderCallbacks;
-      var newTargetFWPath = cb.GetTargetFrameworkPathForFrameworkInfo( newTargetFW.TargetFrameworkInfo );
+      var newTargetFWPath = cb.GetTargetFrameworkPathForFrameworkInfo( targetFW.TargetFrameworkInfo );
       var aRefsTable = md.AssemblyReferences;
       var aRefs = aRefsTable.TableContents;
 
@@ -382,10 +682,14 @@ public static partial class E_CILPhysical
          var aRefIdx = tRef.ResolutionScope.Value;
          var aRef = aRefs[aRefIdx.Index];
 
+         AssemblyInformationForResolving newRefInfo;
+         var remapResult = mapper.RemapReference( md, new AssemblyInformationForResolving( aRef ), Miscellaneous.CombineNamespaceAndType( tRef.Namespace, tRef.Name ), loader, targetFW, out newRefInfo );
+         var wasTargetFW = remapResult != RemapResult.NotATargetFrameworkReference;
+
          AssemblyReference newRef;
-         Boolean wasTargetFW;
-         if ( mapper.TryReMapReference( md, new AssemblyInformationForResolving( aRef ), Miscellaneous.CombineNamespaceAndType( tRef.Namespace, tRef.Name ), loader, newTargetFW, out newRef, out wasTargetFW ) )
+         if ( remapResult == RemapResult.Success )
          {
+            newRef = newRefInfo.AssemblyInformation.AsAssemblyReference( newRefInfo.IsFullPublicKey );
             Int32 aRefNewIdx;
             if ( !aRefDic.TryGetValue( newRef, out aRefNewIdx ) )
             {
@@ -395,17 +699,21 @@ public static partial class E_CILPhysical
 
             tRef.ResolutionScope = aRefIdx.ChangeIndex( aRefNewIdx );
          }
-
-         if ( wasTargetFW && newTargetFW.AreFrameworkAssemblyReferencesRetargetable )
+         else
          {
-            ( newRef ?? aRef ).Attributes |= AssemblyFlags.Retargetable;
+            newRef = aRef;
+         }
+
+         if ( wasTargetFW && targetFW.AreFrameworkAssemblyReferencesRetargetable )
+         {
+            newRef.Attributes |= AssemblyFlags.Retargetable;
          }
       }
 
       // Then, all type strings (sec blobs, custom attrs, marshal infos)
       foreach ( var marshal in md.FieldMarshals.TableContents )
       {
-         mapper.ProcessMarshalInfo( md, loader, newTargetFW, marshal.NativeType );
+         mapper.ProcessMarshalInfo( md, loader, targetFW, marshal.NativeType );
       }
 
       foreach ( var sec in md.SecurityDefinitions.TableContents )
@@ -413,20 +721,20 @@ public static partial class E_CILPhysical
          foreach ( var permSet in sec.PermissionSets.OfType<SecurityInformation>() )
          {
             var typeStr = permSet.SecurityAttributeType;
-            if ( mapper.ProcessTypeString( md, loader, newTargetFW, ref typeStr ) )
+            if ( mapper.RemapTypeString( md, loader, targetFW, ref typeStr ).IsSuccess() )
             {
                permSet.SecurityAttributeType = typeStr;
             }
             foreach ( var namedArg in permSet.NamedArguments )
             {
-               mapper.ProcessCASignatureNamed( md, loader, newTargetFW, namedArg );
+               mapper.ProcessCASignatureNamed( md, loader, targetFW, namedArg );
             }
          }
       }
 
       foreach ( var ca in md.CustomAttributeDefinitions.TableContents )
       {
-         mapper.ProcessCASignature( md, loader, newTargetFW, ca.Signature );
+         mapper.ProcessCASignature( md, loader, targetFW, ca.Signature );
       }
 
       // TODO Extra tables!
@@ -446,7 +754,7 @@ public static partial class E_CILPhysical
          case MarshalingInfoKind.SafeArray:
             var safeArray = (SafeArrayMarshalingInfo) marshal;
             typeStr = safeArray.UserDefinedType;
-            if ( mapper.ProcessTypeString( md, loader, newTargetFW, ref typeStr ) )
+            if ( mapper.RemapTypeString( md, loader, newTargetFW, ref typeStr ).IsSuccess() )
             {
                safeArray.UserDefinedType = typeStr;
             }
@@ -454,7 +762,7 @@ public static partial class E_CILPhysical
          case MarshalingInfoKind.Custom:
             var custom = (CustomMarshalingInfo) marshal;
             typeStr = custom.CustomMarshalerTypeName;
-            if ( mapper.ProcessTypeString( md, loader, newTargetFW, ref typeStr ) )
+            if ( mapper.RemapTypeString( md, loader, newTargetFW, ref typeStr ).IsSuccess() )
             {
                custom.CustomMarshalerTypeName = typeStr;
             }
@@ -551,7 +859,7 @@ public static partial class E_CILPhysical
                   break;
             }
 
-            retVal = typeString != null && mapper.ProcessTypeString( md, loader, newTargetFW, ref typeString );
+            retVal = typeString != null && mapper.RemapTypeString( md, loader, newTargetFW, ref typeString ).IsSuccess();
             if ( retVal )
             {
                switch ( complex.CustomAttributeTypedArgumentValueKind )
@@ -588,12 +896,17 @@ public static partial class E_CILPhysical
          {
             var typeStrArg = (CustomAttributeArgumentTypeEnum) type;
             var typeString = typeStrArg.TypeString;
-            if ( mapper.ProcessTypeString( md, loader, newTargetFW, ref typeString ) )
+            if ( mapper.RemapTypeString( md, loader, newTargetFW, ref typeString ).IsSuccess() )
             {
                typeStrArg.TypeString = typeString;
             }
          }
          mapper.ProcessCASignatureTyped( md, loader, newTargetFW, arg.Value );
       }
+   }
+
+   private static Boolean IsSuccess( this RemapResult? res )
+   {
+      return res.HasValue && res.Value == RemapResult.Success;
    }
 }

@@ -565,6 +565,7 @@ public static partial class E_CILPhysical
    /// <exception cref="ArgumentNullException">If <paramref name="destination"/> is <c>null</c>.</exception>
    public static void DeepCopyContentsTo( this AssemblyInformation source, AssemblyInformation destination )
    {
+      // TODO maybe check for source being null first??
       ArgumentValidator.ValidateNotNull( "Destination", destination );
 
       destination.Name = source.Name;
@@ -596,6 +597,36 @@ public static partial class E_CILPhysical
          retVal = new AssemblyInformation();
          assemblyInfo.DeepCopyContentsTo( retVal );
       }
+      return retVal;
+   }
+
+   /// <summary>
+   /// Creates a new <see cref="AssemblyReference"/> based on this <see cref="AssemblyInformation"/>, and whether the <see cref="AssemblyInformation.PublicKeyOrToken"/> is full public key or not.
+   /// </summary>
+   /// <param name="assemblyInfo">This <see cref="AssemblyInformation"/>.</param>
+   /// <param name="isFullPublicKey">Whether the <see cref="AssemblyInformation.PublicKeyOrToken"/> is full public key, or token (if present). The resulting <see cref="AssemblyReference.Attributes"/> will be adjusted in suitable way.</param>
+   /// <returns>A new instance of <see cref="AssemblyReference"/> with contents copied from this <see cref="AssemblyInformation"/>, and <see cref="AssemblyReference.Attributes"/> having <see cref="AssemblyFlags.PublicKey"/> if necessary.</returns>
+   /// <exception cref="NullReferenceException">If this <see cref="AssemblyInformation"/> is <c>null</c>.</exception>
+   public static AssemblyReference AsAssemblyReference( this AssemblyInformation assemblyInfo, Boolean isFullPublicKey )
+   {
+      var retVal = new AssemblyReference();
+      assemblyInfo.DeepCopyContentsTo( retVal.AssemblyInformation );
+      if ( isFullPublicKey && !assemblyInfo.PublicKeyOrToken.IsNullOrEmpty() )
+      {
+         retVal.Attributes = AssemblyFlags.PublicKey;
+      }
+      return retVal;
+   }
+
+   /// <summary>
+   /// Creates a new <see cref="AssemblyDefinition"/> based on this <see cref="AssemblyInformation"/>.
+   /// </summary>
+   /// <param name="assemblyInfo">This <see cref="AssemblyInformation"/>.</param>
+   /// <returns>A new instance of <see cref="AssemblyDefinition"/> with contents copied from this <see cref="AssemblyInformation"/>. The <see cref="AssemblyDefinition.Attributes"/> will always be set to <see cref="AssemblyFlags.None"/>.</returns>
+   public static AssemblyDefinition AsAssemblyDefinition( this AssemblyInformation assemblyInfo )
+   {
+      var retVal = new AssemblyDefinition();
+      assemblyInfo.DeepCopyContentsTo( retVal.AssemblyInformation );
       return retVal;
    }
 }
