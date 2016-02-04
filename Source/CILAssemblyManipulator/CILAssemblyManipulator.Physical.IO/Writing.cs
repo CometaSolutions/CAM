@@ -99,7 +99,6 @@ namespace CILAssemblyManipulator.Physical.IO
          ArrayQuery<AbstractWriterStreamHandler> allMDStreams,
          SectionHeader[] sections,
          out RVAConverter rvaConverter,
-         out MetaDataRoot mdRoot,
          out Int32 mdRootSize
          );
 
@@ -107,12 +106,11 @@ namespace CILAssemblyManipulator.Physical.IO
          WritingStatus writingStatus,
          Stream stream,
          ResizableArray<Byte> array,
-         ArrayQuery<SectionHeader> sections,
-         MetaDataRoot mdRoot
+         ArrayQuery<SectionHeader> sections
          );
 
       void WriteMDRoot(
-         MetaDataRoot mdRoot,
+         WritingStatus writingStatus,
          ResizableArray<Byte> array
          );
 
@@ -248,6 +246,8 @@ namespace CILAssemblyManipulator.Physical.IO
       public DebugInformation DebugInformation { get; set; }
 
       public CLIHeader CLIHeader { get; set; }
+
+      public MetaDataRoot MDRoot { get; set; }
 
       public static Int32 CheckAlignment( Int32 alignment, Int32 defaultAlignment )
       {
@@ -405,14 +405,13 @@ public static partial class E_CILPhysical
          );
 
       // 4. Create sections and some headers
-      RVAConverter rvaConverter; MetaDataRoot mdRoot; Int32 mdRootSize;
+      RVAConverter rvaConverter; Int32 mdRootSize;
       var rawValueProvider = writer.PopulateSections(
          status,
          mdStreamContainer,
          mdStreams,
          sectionsArray,
          out rvaConverter,
-         out mdRoot,
          out mdRootSize
          );
       if ( rvaConverter == null )
@@ -424,7 +423,7 @@ public static partial class E_CILPhysical
       var sections = cf.NewArrayProxy( sectionsArray ).CQ;
       var headersSize = status.HeadersSize;
       stream.Position = headersSize;
-      writer.BeforeMetaData( status, stream, array, sections, mdRoot );
+      writer.BeforeMetaData( status, stream, array, sections );
 
       var cliHeader = status.CLIHeader;
       if ( cliHeader == null )
@@ -435,7 +434,7 @@ public static partial class E_CILPhysical
       // 6. Write meta data
       stream.SeekFromBegin( rvaConverter.ToOffset( (UInt32) cliHeader.MetaData.RVA ) );
       array.CurrentMaxCapacity = mdRootSize;
-      writer.WriteMDRoot( mdRoot, array );
+      writer.WriteMDRoot( status, array );
       stream.Write( array.Array, mdRootSize );
       foreach ( var mds in mdStreams.Where( mds => mds.Accessed ) )
       {
@@ -475,7 +474,7 @@ public static partial class E_CILPhysical
          status.DebugInformation,
          new CLIInformation(
             cliHeader,
-            mdRoot,
+            status.MDRoot,
             thHeader,
             snSignature == null ? null : cf.NewArrayProxy( snSignature ).CQ,
             rawValueProvider.GetAllRawValuesForColumn( Tables.MethodDef, 0 ).Select( r => (UInt32) r ).ToArrayProxy().CQ,

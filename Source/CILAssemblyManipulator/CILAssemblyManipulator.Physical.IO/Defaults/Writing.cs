@@ -180,7 +180,6 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
          ArrayQuery<AbstractWriterStreamHandler> allMDStreams,
          SectionHeader[] sections,
          out RVAConverter rvaConverter,
-         out MetaDataRoot mdRoot,
          out Int32 mdRootSize
          )
       {
@@ -190,7 +189,8 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
 
          // MetaData
          Int32 mdSize;
-         mdRoot = this.CreateMDRoot( allMDStreams.Where( s => s.Accessed ), out mdRootSize, out mdSize );
+         var mdRoot = this.CreateMDRoot( allMDStreams.Where( s => s.Accessed ), out mdRootSize, out mdSize );
+         writingStatus.MDRoot = mdRoot;
 
          // Sections
          this._sectionLayoutInfos = new SectionLayoutAggregator( this.PopulateSections( writingStatus, rawSections, mdRoot, mdSize, rawValueStorage ) );
@@ -213,8 +213,7 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
          WritingStatus writingStatus,
          Stream stream,
          ResizableArray<Byte> array,
-         ArrayQuery<SectionHeader> sections,
-         MetaDataRoot mdRoot
+         ArrayQuery<SectionHeader> sections
          )
       {
          foreach ( var section in this.CreatedSectionLayout.LayoutInfos )
@@ -250,12 +249,12 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
       }
 
       public virtual void WriteMDRoot(
-         MetaDataRoot mdRoot,
+         WritingStatus writingStatus,
          ResizableArray<Byte> array
          )
       {
          // Array capacity set by writing process
-         mdRoot.WriteMetaDataRoot( array );
+         writingStatus.MDRoot.WriteMetaDataRoot( array );
       }
 
       public virtual void AfterMetaData(
