@@ -108,8 +108,7 @@ namespace CILAssemblyManipulator.Physical.IO
          Stream stream,
          ResizableArray<Byte> array,
          ArrayQuery<SectionHeader> sections,
-         MetaDataRoot mdRoot,
-         out CLIHeader cliHeader
+         MetaDataRoot mdRoot
          );
 
       void WriteMDRoot(
@@ -247,6 +246,8 @@ namespace CILAssemblyManipulator.Physical.IO
       public Int32? EntryPointRVA { get; set; }
 
       public DebugInformation DebugInformation { get; set; }
+
+      public CLIHeader CLIHeader { get; set; }
 
       public static Int32 CheckAlignment( Int32 alignment, Int32 defaultAlignment )
       {
@@ -414,14 +415,18 @@ public static partial class E_CILPhysical
          out mdRoot,
          out mdRootSize
          );
+      if ( rvaConverter == null )
+      {
+         rvaConverter = new DefaultRVAConverter( sectionsArray );
+      }
 
       // 5. Position stream after headers, and write whatever is needed before meta data
       var sections = cf.NewArrayProxy( sectionsArray ).CQ;
-      CLIHeader cliHeader;
       var headersSize = status.HeadersSize;
       stream.Position = headersSize;
-      writer.BeforeMetaData( status, stream, array, sections, mdRoot, out cliHeader );
+      writer.BeforeMetaData( status, stream, array, sections, mdRoot );
 
+      var cliHeader = status.CLIHeader;
       if ( cliHeader == null )
       {
          throw new InvalidOperationException( "Writer failed to create CLI header." );
