@@ -15,9 +15,9 @@
 * See the License for the specific language governing permissions and
 * limitations under the License. 
 */
-//extern alias CAMPhysical;
-//using CAMPhysical;
-//using CAMPhysical::CILAssemblyManipulator.Physical;
+extern alias CAMPhysicalResolving;
+using CAMPhysicalResolving;
+using CAMPhysicalResolving::CILAssemblyManipulator.Physical.IO;
 
 using CILAssemblyManipulator.Physical;
 using CILAssemblyManipulator.Physical.IO;
@@ -348,16 +348,16 @@ namespace CILAssemblyManipulator.Physical.IO
       /// <param name="metaData">The <see cref="CILMetaData"/> to resolve.</param>
       /// <remarks>
       /// The purpose of this method is to enable e.g. locking or some other function around/before/after resolving.
-      /// It is assumed that this method will call <see cref="E_CILPhysical.ResolveEverything(MetaDataResolver, CILMetaData)"/>.
+      /// It is assumed that this method will call <see cref="CAMPhysicalResolving::E_CILPhysical.ResolveEverything(MetaDataResolver, CILMetaData)"/>.
       /// </remarks>
       /// <seealso cref="MetaDataResolver"/>
-      /// <seealso cref="E_CILPhysical.ResolveEverything(MetaDataResolver, CILMetaData)"/>
+      /// <seealso cref="CAMPhysicalResolving::E_CILPhysical.ResolveEverything(MetaDataResolver, CILMetaData)"/>
       protected abstract void PerformResolving( MetaDataResolver resolver, CILMetaData metaData );
 
       /// <summary>
       /// Disposes resources created by <see cref="CryptoCallbacks"/> supplied to this instance, if any.
       /// </summary>
-      /// <param name="disposing">Whether this is called from <see cref="AbstractDisposable.Dispose"/> method.</param>
+      /// <param name="disposing">Whether this is called from <see cref="AbstractDisposable.Dispose()"/> method.</param>
       protected override void Dispose( Boolean disposing )
       {
          if ( disposing && this._hashStream != null && this._hashStream.IsValueCreated )
@@ -441,7 +441,7 @@ namespace CILAssemblyManipulator.Physical.IO
       String SanitizeResource( String resource );
 
       /// <summary>
-      /// This method will be used when searching for referenced assembly or module when performing resolving (<see cref="ResolveMetaData(CILMetaData)"/>).
+      /// This method will be used when searching for referenced assembly or module when performing resolving (<see cref="CILMetaDataLoader.ResolveMetaData"/>).
       /// </summary>
       /// <param name="resource">The resource to check.</param>
       /// <returns><c>true</c> if the resource is valid; <c>false</c> otherwise.</returns>
@@ -470,7 +470,7 @@ namespace CILAssemblyManipulator.Physical.IO
       /// <param name="moduleReferenceName">The name of the module reference, that <paramref name="thisMetaData"/> references.</param>
       /// <returns>The enumerable for all possible (valid or not valid) resource for a module reference.</returns>
       /// <remarks>
-      /// This method is used during resolving of <see cref="CILMetaData"/> in <see cref="ResolveMetaData(CILMetaData)"/>.
+      /// This method is used during resolving of <see cref="CILMetaData"/> in <see cref="CILMetaDataLoader.ResolveMetaData"/>.
       /// </remarks>
       /// <seealso cref="AbstractCILMetaDataLoader{TDictionary}.GetPossibleResourcesForModuleReference(string, CILMetaData, string)"/>
       IEnumerable<String> GetPossibleResourcesForModuleReference( String thisMetaDataResource, CILMetaData thisMetaData, String moduleReferenceName );
@@ -484,9 +484,9 @@ namespace CILAssemblyManipulator.Physical.IO
       /// <param name="unparsedAssemblyName">This will be non-<c>null</c> only when the textual type name contained assembly name, which was unparseable.</param>
       /// <returns>The enumerable for all possible (valid or not valid) textual resources for an assembly reference.</returns>
       /// <remarks>
-      /// This method is used during resolving of <see cref="CILMetaData"/> in <see cref="ResolveMetaData(CILMetaData)"/>.
+      /// This method is used during resolving of <see cref="CILMetaData"/> in <see cref="CILMetaDataLoader.ResolveMetaData"/>.
       /// </remarks>
-      /// <seealso cref="AbstractCILMetaDataLoader{TDictionary}GetPossibleResourcesForAssemblyReference(string, CILMetaData, AssemblyInformationForResolving, string)"/>
+      /// <seealso cref="AbstractCILMetaDataLoader{TDictionary}.GetPossibleResourcesForAssemblyReference(string, CILMetaData, AssemblyInformationForResolving, string)"/>
       IEnumerable<String> GetPossibleResourcesForAssemblyReference( String thisMetaDataResource, CILMetaData thisMetaData, AssemblyInformationForResolving assemblyRefInfo, String unparsedAssemblyName );
 
 
@@ -496,10 +496,10 @@ namespace CILAssemblyManipulator.Physical.IO
       /// <param name="md">The <see cref="CILMetaData"/>.</param>
       /// <returns>The <see cref="TargetFrameworkInfo"/> for given <see cref="CILMetaData"/>, or <c>null</c> if <see cref="TargetFrameworkInfo"/> could not be deduced. Should also return <c>null</c> if <paramref name="md"/> is <c>null</c>.</returns>
       /// <remarks>
-      /// Note that if the <see cref="CILMetaData"/> is modified after calling this method in such way that it affects is <see cref="TargetFrameworkInfo"/> (constructed by e.g. <see cref="E_CILPhysical.TryGetTargetFrameworkInformation(CILMetaData, out TargetFrameworkInfo, MetaDataResolver)"/> method), this cache will not be updated.
+      /// Note that if the <see cref="CILMetaData"/> is modified after calling this method in such way that it affects is <see cref="TargetFrameworkInfo"/> (constructed by e.g. <see cref="CAMPhysicalResolving::E_CILPhysical.TryGetTargetFrameworkInformation(CILMetaData, out TargetFrameworkInfo, MetaDataResolver)"/> method), this cache will not be updated.
       /// </remarks>
       /// <seealso cref="TargetFrameworkInfo"/>
-      /// <seealso cref="E_CILPhysical.TryGetTargetFrameworkInformation(CILMetaData, out TargetFrameworkInfo, MetaDataResolver)"/>
+      /// <seealso cref="CAMPhysicalResolving::E_CILPhysical.TryGetTargetFrameworkInformation(CILMetaData, out TargetFrameworkInfo, MetaDataResolver)"/>
       TargetFrameworkInfo GetOrAddTargetFrameworkInfoFor( CILMetaData md );
 
       /// <summary>
@@ -653,7 +653,7 @@ namespace CILAssemblyManipulator.Physical.IO
       }
 
       /// <summary>
-      /// This method simply calls <see cref="E_CILPhysical.ResolveEverything(MetaDataResolver, CILMetaData)"/>.
+      /// This method simply calls <see cref="CAMPhysicalResolving::E_CILPhysical.ResolveEverything(MetaDataResolver, CILMetaData)"/>.
       /// </summary>
       /// <param name="resolver">The <see cref="MetaDataResolver"/>.</param>
       /// <param name="metaData">The <see cref="CILMetaData"/>.</param>
@@ -668,7 +668,7 @@ namespace CILAssemblyManipulator.Physical.IO
       /// </summary>
       /// <value>The <c>false</c>.</value>
       /// <seealso cref="AbstractCILMetaDataLoader{TDictionary}.IsSupportingConcurrency"/>
-      protected override Boolean IsSupportingConcurrency
+      protected sealed override Boolean IsSupportingConcurrency
       {
          get
          {
@@ -717,7 +717,7 @@ namespace CILAssemblyManipulator.Physical.IO
       }
 
       /// <summary>
-      /// This method locks the given <see cref="MetaDataResolver"/>, and then calls <see cref="E_CILPhysical.ResolveEverything(MetaDataResolver, CILMetaData)"/>.
+      /// This method locks the given <see cref="MetaDataResolver"/>, and then calls <see cref="CAMPhysicalResolving::E_CILPhysical.ResolveEverything(MetaDataResolver, CILMetaData)"/>.
       /// </summary>
       /// <param name="resolver">The <see cref="MetaDataResolver"/>.</param>
       /// <param name="metaData">The <see cref="CILMetaData"/>.</param>
@@ -739,7 +739,7 @@ namespace CILAssemblyManipulator.Physical.IO
       /// </summary>
       /// <value>The <c>true</c>.</value>
       /// <seealso cref="AbstractCILMetaDataLoader{TDictionary}.IsSupportingConcurrency"/>
-      protected override Boolean IsSupportingConcurrency
+      protected sealed override Boolean IsSupportingConcurrency
       {
          get
          {
@@ -749,7 +749,9 @@ namespace CILAssemblyManipulator.Physical.IO
    }
 }
 
+#pragma warning disable 1591
 public static partial class E_CILPhysical
+#pragma warning restore 1591
 {
    /// <summary>
    /// Helper method to load <see cref="CILMetaData"/> and resolve 

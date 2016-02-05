@@ -59,6 +59,9 @@
     <ErrorReport>prompt</ErrorReport>
     <WarningLevel>4</WarningLevel>
   </PropertyGroup>
+  <PropertyGroup>
+    <DocumentationFile>$(OutputPath)$(AssemblyName).xml</DocumentationFile>
+  </PropertyGroup>
   <ItemGroup>
     <Reference Include="UtilPack" Condition=" '$(UseUtilpackReference)' != '' ">
       <HintPath>$(OutputPath)UtilPack.dll</HintPath>
@@ -89,6 +92,7 @@
     <ProjectReference Include="..\CILAssemblyManipulator.Physical.IO.Resolving\CILAssemblyManipulator.Physical.IO.Resolving.csproj">
       <Project>{c891754e-7698-4f7b-92d9-c28921ebf746}</Project>
       <Name>CILAssemblyManipulator.Physical.IO.Resolving</Name>
+      <Aliases>CAMPhysicalResolving</Aliases>
     </ProjectReference>
     <ProjectReference Include="..\CILAssemblyManipulator.Physical.IO\CILAssemblyManipulator.Physical.IO.csproj">
       <Project>{4e0e1695-a15e-4b3d-adb2-c3ed8a0962a1}</Project>
