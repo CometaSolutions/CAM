@@ -215,29 +215,6 @@ namespace CILAssemblyManipulator.Physical.IO
       public Byte[] DebugData { get; set; }
    }
 
-   public class WritingData
-   {
-
-      public WritingData( CILMetaData md )
-      {
-         this.MethodRVAs = new List<Int32>( md.MethodDefinitions.GetRowCount() );
-         this.FieldRVAs = new List<Int32>( md.FieldRVAs.GetRowCount() );
-         this.EmbeddedManifestResourceOffsets = new List<Int32?>( md.ManifestResources.GetRowCount() );
-      }
-
-      // PE Header 
-      // Sections
-      // MD Header
-      // W32 Resources
-      // Relocation data
-
-      public List<Int32> MethodRVAs { get; }
-
-      public List<Int32> FieldRVAs { get; }
-
-      public List<Int32?> EmbeddedManifestResourceOffsets { get; }
-   }
-
 }
 
 public static partial class E_CILPhysical
