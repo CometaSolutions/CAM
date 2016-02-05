@@ -577,60 +577,7 @@ public static partial class E_CILPhysical
       return retVal;
    }
 
-   internal static CustomAttributeArgumentType ResolveCACtorType( this CILMetaData md, TypeSignature type, Func<TableIndex, CustomAttributeArgumentType> enumFactory )
-   {
-      return md.ResolveCACtorType( type, enumFactory, true );
-   }
 
-
-   private static CustomAttributeArgumentType ResolveCACtorType( this CILMetaData md, TypeSignature type, Func<TableIndex, CustomAttributeArgumentType> enumFactory, Boolean acceptArray )
-   {
-      var sigProvider = md.SignatureProvider;
-      switch ( type.TypeSignatureKind )
-      {
-         case TypeSignatureKind.Simple:
-            return sigProvider.GetSimpleCATypeOrNull( (CustomAttributeArgumentTypeSimpleKind) ( (SimpleTypeSignature) type ).SimpleType );
-         case TypeSignatureKind.ClassOrValue:
-            var clazz = (ClassOrValueTypeSignature) type;
-            if ( clazz.GenericArguments.Count <= 0 )
-            {
-               if ( clazz.TypeReferenceKind.IsClass() )
-               {
-                  // Either type or System.Object or System.Type are allowed here
-                  if ( md.IsTypeType( clazz.Type ) )
-                  {
-                     return sigProvider.GetSimpleCATypeOrNull( CustomAttributeArgumentTypeSimpleKind.Type );
-                  }
-                  else if ( md.IsSystemObjectType( clazz.Type ) )
-                  {
-                     return sigProvider.GetSimpleCATypeOrNull( CustomAttributeArgumentTypeSimpleKind.Object );
-                  }
-                  else
-                  {
-                     return null;
-                  }
-               }
-               else
-               {
-                  return enumFactory( clazz.Type );
-               }
-            }
-            else
-            {
-               return null;
-            }
-         case TypeSignatureKind.SimpleArray:
-            var retVal = acceptArray ?
-               new CustomAttributeArgumentTypeArray()
-               {
-                  ArrayType = md.ResolveCACtorType( ( (SimpleArrayTypeSignature) type ).ArrayType, enumFactory, false )
-               } :
-               null;
-            return retVal == null || retVal.ArrayType == null ? null : retVal;
-         default:
-            return null;
-      }
-   }
 
    /// <summary>
    /// Gets the zero-based metadata token (table + zero-based index value encoded in integer) for this <see cref="TableIndex"/>.

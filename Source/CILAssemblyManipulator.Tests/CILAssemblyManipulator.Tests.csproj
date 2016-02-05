@@ -67,10 +67,22 @@
       <Project>{3c3ee913-1034-4c7d-ab79-67d19e3256fa}</Project>
       <Name>CILAssemblyManipulator.Physical.Crypto</Name>
     </ProjectReference>
+    <ProjectReference Include="..\CILAssemblyManipulator\CILAssemblyManipulator.Physical.IO.Loading\CILAssemblyManipulator.Physical.IO.Loading.csproj">
+      <Project>{10ef5dbb-29d5-4266-9561-1fc44b671ac7}</Project>
+      <Name>CILAssemblyManipulator.Physical.IO.Loading</Name>
+    </ProjectReference>
+    <ProjectReference Include="..\CILAssemblyManipulator\CILAssemblyManipulator.Physical.IO.Resolving\CILAssemblyManipulator.Physical.IO.Resolving.csproj">
+      <Project>{c891754e-7698-4f7b-92d9-c28921ebf746}</Project>
+      <Name>CILAssemblyManipulator.Physical.IO.Resolving</Name>
+    </ProjectReference>
     <ProjectReference Include="..\CILAssemblyManipulator\CILAssemblyManipulator.Physical.IO\CILAssemblyManipulator.Physical.IO.csproj">
       <Project>{4e0e1695-a15e-4b3d-adb2-c3ed8a0962a1}</Project>
       <Name>CILAssemblyManipulator.Physical.IO</Name>
       <Aliases>CAMPhysical</Aliases>
+    </ProjectReference>
+    <ProjectReference Include="..\CILAssemblyManipulator\CILAssemblyManipulator.Physical.TypeRemapping\CILAssemblyManipulator.Physical.TypeRemapping.csproj">
+      <Project>{6d4697d6-491e-4684-b97b-651e7890cf02}</Project>
+      <Name>CILAssemblyManipulator.Physical.TypeRemapping</Name>
     </ProjectReference>
     <ProjectReference Include="..\TabularMetaData\TabularMetaData.csproj">
       <Project>{bcacfc5f-2656-4428-9450-890df6855591}</Project>

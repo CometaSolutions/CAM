@@ -730,6 +730,222 @@ public static partial class E_CILPhysical
 
    }
 
+
+
+   public static CustomAttributeTypedArgument ReadCAFixedArgument(
+      this SignatureProvider sigProvider,
+      Byte[] caBLOB,
+      ref Int32 idx,
+      CustomAttributeArgumentType type,
+      Func<String, CustomAttributeArgumentTypeSimple> enumTypeResolver
+      )
+   {
+      var success = type != null;
+
+      Object value;
+      if ( !success )
+      {
+         value = null;
+      }
+      else
+      {
+         String str;
+         CustomAttributeTypedArgument nestedCAType;
+         switch ( type.ArgumentTypeKind )
+         {
+            case CustomAttributeArgumentTypeKind.Array:
+               var amount = caBLOB.ReadInt32LEFromBytes( ref idx );
+               value = null;
+               if ( ( (UInt32) amount ) != 0xFFFFFFFF )
+               {
+                  var elemType = ( (CustomAttributeArgumentTypeArray) type ).ArrayType;
+                  var arrayType = elemType.GetNativeTypeForCAArrayType();
+                  success = arrayType != null;
+                  if ( success )
+                  {
+
+                     var array = Array.CreateInstance( arrayType, amount );
+
+                     for ( var i = 0; i < amount && success; ++i )
+                     {
+                        if ( sigProvider.TryReadCAFixedArgument( caBLOB, ref idx, elemType, enumTypeResolver, out nestedCAType ) )
+                        {
+                           array.SetValue( nestedCAType.Value, i );
+                        }
+                        else
+                        {
+                           success = false;
+                        }
+                     }
+                     value = new CustomAttributeValue_Array( array, elemType );
+                  }
+               }
+               break;
+            case CustomAttributeArgumentTypeKind.Simple:
+               switch ( ( (CustomAttributeArgumentTypeSimple) type ).SimpleType )
+               {
+                  case CustomAttributeArgumentTypeSimpleKind.Boolean:
+                     value = caBLOB.ReadByteFromBytes( ref idx ) == 1;
+                     break;
+                  case CustomAttributeArgumentTypeSimpleKind.Char:
+                     value = Convert.ToChar( caBLOB.ReadUInt16LEFromBytes( ref idx ) );
+                     break;
+                  case CustomAttributeArgumentTypeSimpleKind.I1:
+                     value = caBLOB.ReadSByteFromBytes( ref idx );
+                     break;
+                  case CustomAttributeArgumentTypeSimpleKind.U1:
+                     value = caBLOB.ReadByteFromBytes( ref idx );
+                     break;
+                  case CustomAttributeArgumentTypeSimpleKind.I2:
+                     value = caBLOB.ReadInt16LEFromBytes( ref idx );
+                     break;
+                  case CustomAttributeArgumentTypeSimpleKind.U2:
+                     value = caBLOB.ReadUInt32LEFromBytes( ref idx );
+                     break;
+                  case CustomAttributeArgumentTypeSimpleKind.I4:
+                     value = caBLOB.ReadInt32LEFromBytes( ref idx );
+                     break;
+                  case CustomAttributeArgumentTypeSimpleKind.U4:
+                     value = caBLOB.ReadUInt32LEFromBytes( ref idx );
+                     break;
+                  case CustomAttributeArgumentTypeSimpleKind.I8:
+                     value = caBLOB.ReadInt64LEFromBytes( ref idx );
+                     break;
+                  case CustomAttributeArgumentTypeSimpleKind.U8:
+                     value = caBLOB.ReadUInt64LEFromBytes( ref idx );
+                     break;
+                  case CustomAttributeArgumentTypeSimpleKind.R4:
+                     value = caBLOB.ReadSingleLEFromBytes( ref idx );
+                     break;
+                  case CustomAttributeArgumentTypeSimpleKind.R8:
+                     value = caBLOB.ReadDoubleLEFromBytes( ref idx );
+                     break;
+                  case CustomAttributeArgumentTypeSimpleKind.String:
+                     success = caBLOB.ReadLenPrefixedUTF8String( ref idx, out str );
+                     value = str;
+                     break;
+                  case CustomAttributeArgumentTypeSimpleKind.Type:
+                     success = caBLOB.ReadLenPrefixedUTF8String( ref idx, out str );
+                     value = success ? (Object) new CustomAttributeValue_TypeReference( str ) : null;
+                     break;
+                  case CustomAttributeArgumentTypeSimpleKind.Object:
+                     type = sigProvider.ReadCAFieldOrPropType( caBLOB, ref idx );
+                     success = sigProvider.TryReadCAFixedArgument( caBLOB, ref idx, type, enumTypeResolver, out nestedCAType );
+                     value = success ? nestedCAType.Value : null;
+                     break;
+                  default:
+                     value = null;
+                     break;
+               }
+               break;
+            case CustomAttributeArgumentTypeKind.Enum:
+               var enumTypeString = ( (CustomAttributeArgumentTypeEnum) type ).TypeString;
+               var actualType = enumTypeResolver( enumTypeString );
+               success = sigProvider.TryReadCAFixedArgument( caBLOB, ref idx, actualType, enumTypeResolver, out nestedCAType );
+               value = success ? (Object) new CustomAttributeValue_EnumReference( enumTypeString, nestedCAType.Value ) : null;
+               break;
+            default:
+               value = null;
+               break;
+         }
+      }
+
+      return success ?
+         new CustomAttributeTypedArgument()
+         {
+            Value = value
+         } :
+         null;
+   }
+
+   private static CustomAttributeArgumentType ReadCAFieldOrPropType(
+      this SignatureProvider sigProvider,
+      Byte[] array,
+      ref Int32 idx
+      )
+   {
+      var sigType = (SignatureElementTypes) array.ReadByteFromBytes( ref idx );
+      switch ( sigType )
+      {
+         case SignatureElementTypes.CA_Enum:
+            String str;
+            return array.ReadLenPrefixedUTF8String( ref idx, out str ) ?
+               new CustomAttributeArgumentTypeEnum()
+               {
+                  TypeString = str.UnescapeCILTypeString()
+               } :
+               null;
+         case SignatureElementTypes.SzArray:
+            return new CustomAttributeArgumentTypeArray()
+            {
+               ArrayType = ReadCAFieldOrPropType( sigProvider, array, ref idx )
+            };
+         case SignatureElementTypes.CA_Boxed:
+         case SignatureElementTypes.Boolean:
+         case SignatureElementTypes.Char:
+         case SignatureElementTypes.I1:
+         case SignatureElementTypes.U1:
+         case SignatureElementTypes.I2:
+         case SignatureElementTypes.U2:
+         case SignatureElementTypes.I4:
+         case SignatureElementTypes.U4:
+         case SignatureElementTypes.I8:
+         case SignatureElementTypes.U8:
+         case SignatureElementTypes.R4:
+         case SignatureElementTypes.R8:
+         case SignatureElementTypes.String:
+         case SignatureElementTypes.Type:
+            return sigProvider.GetSimpleCATypeOrNull( (CustomAttributeArgumentTypeSimpleKind) sigType );
+         default:
+            return null;
+      }
+   }
+
+   public static CustomAttributeNamedArgument ReadCANamedArgument(
+      this SignatureProvider sigProvider,
+      Byte[] blob,
+      ref Int32 idx,
+      Func<String, CustomAttributeArgumentTypeSimple> enumTypeResolver
+      )
+   {
+      var targetKind = (SignatureElementTypes) blob.ReadByteFromBytes( ref idx );
+
+      var type = sigProvider.ReadCAFieldOrPropType( blob, ref idx );
+      CustomAttributeNamedArgument retVal = null;
+      String name;
+      if ( type != null && blob.ReadLenPrefixedUTF8String( ref idx, out name ) )
+      {
+         var typedArg = sigProvider.ReadCAFixedArgument( blob, ref idx, type, enumTypeResolver );
+         if ( typedArg != null )
+         {
+            retVal = new CustomAttributeNamedArgument()
+            {
+               FieldOrPropertyType = type,
+               TargetKind = (CustomAttributeNamedArgumentTarget) targetKind,
+               Name = name,
+               Value = typedArg
+            };
+         }
+
+      }
+
+      return retVal;
+   }
+
+   private static Boolean TryReadCAFixedArgument(
+      this SignatureProvider sigProvider,
+      Byte[] caBLOB,
+      ref Int32 idx,
+      CustomAttributeArgumentType type,
+      Func<String, CustomAttributeArgumentTypeSimple> enumTypeResolver,
+      out CustomAttributeTypedArgument typedArg
+      )
+   {
+      typedArg = sigProvider.ReadCAFixedArgument( caBLOB, ref idx, type, enumTypeResolver );
+      return typedArg != null;
+   }
+
+
    #endregion
 
    #region Serialization
@@ -1167,7 +1383,7 @@ public static partial class E_CILPhysical
       for ( var i = 0; i < attrData.TypedArguments.Count; ++i )
       {
          var arg = attrData.TypedArguments[i];
-         var caType = md.ResolveCACtorType( sig.Parameters[i].Type, tIdx => new CustomAttributeArgumentTypeEnum()
+         var caType = md.TypeSignatureToCustomAttributeArgumentType( sig.Parameters[i].Type, tIdx => new CustomAttributeArgumentTypeEnum()
          {
             TypeString = "" // Type string doesn't matter, as values will be serialized directly...
          } );

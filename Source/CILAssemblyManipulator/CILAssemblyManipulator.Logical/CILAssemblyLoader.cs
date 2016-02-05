@@ -32,6 +32,7 @@ using System.IO;
 using CILAssemblyManipulator.Logical;
 using System.Threading;
 using CILAssemblyManipulator.Physical;
+using CILAssemblyManipulator.Physical.IO;
 
 namespace CILAssemblyManipulator.Logical
 {

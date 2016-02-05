@@ -15,19 +15,20 @@
  * See the License for the specific language governing permissions and
  * limitations under the License. 
  */
-extern alias CAMPhysical;
-using CAMPhysical;
-using CAMPhysical::CILAssemblyManipulator.Physical;
+//extern alias CAMPhysical;
+//using CAMPhysical;
+//using CAMPhysical::CILAssemblyManipulator.Physical;
 
 using CILAssemblyManipulator.Physical;
 using CILAssemblyManipulator.Physical.IO;
+using CILAssemblyManipulator.Physical.TypeRemapping;
 using CommonUtils;
 using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 
-namespace CILAssemblyManipulator.Physical.IO
+namespace CILAssemblyManipulator.Physical.TypeRemapping
 {
    /// <summary>
    /// This interface provides core methods required when mapping assembly references to possibly other target frameworks than assembly's current target framework.
@@ -84,41 +85,6 @@ namespace CILAssemblyManipulator.Physical.IO
    }
 
    /// <summary>
-   /// This class encapsulates the information about target framework information (<see cref="CAMPhysical::CILAssemblyManipulator.Physical.TargetFrameworkInfo"/>) and whether the assembly references to that framework should be marked with <see cref="AssemblyFlags.Retargetable"/> flag.
-   /// </summary>
-   public sealed class TargetFrameworkInfoWithRetargetabilityInformation
-   {
-      /// <summary>
-      /// Creates a new instance of <see cref="TargetFrameworkInfoWithRetargetabilityInformation"/> with given <see cref="CAMPhysical::CILAssemblyManipulator.Physical.TargetFrameworkInfo"/> and whether the assembly references to this target framework are retargetable.
-      /// </summary>
-      /// <param name="targetFramework">The <see cref="CAMPhysical::CILAssemblyManipulator.Physical.TargetFrameworkInfo"/> representing target framework information.</param>
-      /// <param name="assemblyReferencesRetargetable">Whether the assembly references to <paramref name="targetFramework"/> should be tagged with <see cref="AssemblyFlags.Retargetable"/> flag.</param>
-      /// <exception cref="ArgumentNullException">If <paramref name="targetFramework"/> is <c>null</c>.</exception>
-      public TargetFrameworkInfoWithRetargetabilityInformation(
-         TargetFrameworkInfo targetFramework,
-         Boolean assemblyReferencesRetargetable
-         )
-      {
-         ArgumentValidator.ValidateNotNull( "Target framework information", targetFramework );
-
-         this.TargetFrameworkInfo = targetFramework;
-         this.AreFrameworkAssemblyReferencesRetargetable = assemblyReferencesRetargetable;
-      }
-
-      /// <summary>
-      /// Gets the <see cref="CAMPhysical::CILAssemblyManipulator.Physical.TargetFrameworkInfo"/> for represented target framework.
-      /// </summary>
-      /// <value>The <see cref="CAMPhysical::CILAssemblyManipulator.Physical.TargetFrameworkInfo"/> for represented target framework.</value>
-      public TargetFrameworkInfo TargetFrameworkInfo { get; }
-
-      /// <summary>
-      /// Gets the value indicating whether assembly references to represented target framework should be tagged with <see cref="AssemblyFlags.Retargetable"/> flag.
-      /// </summary>
-      /// <value>The value indicating whether assembly references to represented target framework should be tagged with <see cref="AssemblyFlags.Retargetable"/> flag.</value>
-      public Boolean AreFrameworkAssemblyReferencesRetargetable { get; }
-   }
-
-   /// <summary>
    /// This is abstract class implementing <see cref="TargetFrameworkMapper"/> in such way that the types of various dictionaries are parametrized via type parameters.
    /// Thus the normal dictionaries, or concurrent dictionaries, may be used, depending on which one is required.
    /// </summary>
@@ -129,12 +95,7 @@ namespace CILAssemblyManipulator.Physical.IO
    /// <typeparam name="TAssemblyReferenceDic">The of dictionary caching assembly references.</typeparam>
    /// <typeparam name="TAssemblyReferenceDicInner">The inner dictionary type for <typeparamref name="TAssemblyReferenceDic"/>.</typeparam>
    /// <remarks>
-   /// This class is not directly instanceable, instead use <see cref="TargetFrameworkMapperNotThreadSafe"/>
-#if CAM_PHYSICAL_IS_PORTABLE
-   /// class.
-#else
-   /// or <see cref="TargetFrameworkMapperConcurrent"/> class.
-#endif
+   /// This class is not directly instanceable, instead use <see cref="TargetFrameworkMapperNotThreadSafe"/> or <see cref="T:CILAssemblyManipulator.Physical.TypeRemapping.TargetFrameworkMapperConcurrent"/> class.
    /// </remarks>
    public abstract class AbstractTargetFrameworkMapper<
       TTypesDic,
@@ -543,7 +504,9 @@ namespace CILAssemblyManipulator.Physical.IO
    }
 }
 
+#pragma warning disable 1591
 public static partial class E_CILPhysical
+#pragma warning restore 1591
 {
    /// <summary>
    /// Helper method to try to remap type reference, and throw <see cref="TargetFrameworkRemapException"/> if the type was in original set of target framework assemblies, but not present in the new set of target framework assemblies.

@@ -36,7 +36,7 @@ namespace CILAssemblyManipulator.Physical.IO
    /// </summary>
    /// <remarks>
    /// <para>
-   /// This class is rarely used directly, as e.g. <see cref="CILMetaDataLoader"/> will use this by default in <see cref="CILMetaDataLoader.ResolveMetaData()"/> method.
+   /// This class is rarely used directly, as e.g. <see cref="T:CILAssemblyManipulator.Physical.IO.CILMetaDataLoader"/> will use this by default in <see cref="T:CILAssemblyManipulator.Physical.IO.CILMetaDataLoader.ResolveMetaData()"/> method.
    /// In order to fully utilize this class, one should register to <see cref="AssemblyReferenceResolveEvent"/> and <see cref="ModuleReferenceResolveEvent"/> events.
    /// </para>
    /// <para>
@@ -393,12 +393,18 @@ namespace CILAssemblyManipulator.Physical.IO
       private readonly IDictionary<CILMetaData, MDSpecificCache> _mdCaches;
       private readonly Func<CILMetaData, MDSpecificCache> _mdCacheFactory;
 
+      /// <summary>
+      /// Creates a new instance of <see cref="MetaDataResolver"/> with an empty cache.
+      /// </summary>
       public MetaDataResolver()
       {
          this._mdCaches = new Dictionary<CILMetaData, MDSpecificCache>();
          this._mdCacheFactory = this.MDSpecificCacheFactory;
       }
 
+      /// <summary>
+      /// Clears all cached information of this <see cref="MetaDataResolver"/>.
+      /// </summary>
       public void ClearCache()
       {
          this._mdCaches.Clear();
@@ -480,7 +486,7 @@ namespace CILAssemblyManipulator.Physical.IO
                   var success = true;
                   for ( var j = 0; j < argCount && success; ++j )
                   {
-                     var arg = this.ReadCANamedArgument( md, bytes, ref idx );
+                     var arg = md.SignatureProvider.ReadCANamedArgument( bytes, ref idx, typeStr => this.ResolveTypeFromFullName( md, typeStr ) );
                      if ( arg == null )
                      {
                         success = false;
@@ -543,7 +549,7 @@ namespace CILAssemblyManipulator.Physical.IO
 
             for ( var i = 0; i < ctorSig.Parameters.Count; ++i )
             {
-               var caType = md.ResolveCACtorType( ctorSig.Parameters[i].Type, tIdx => this.ResolveCATypeFromTableIndex( md, tIdx ) );
+               var caType = md.TypeSignatureToCustomAttributeArgumentType( ctorSig.Parameters[i].Type, tIdx => this.ResolveCATypeFromTableIndex( md, tIdx ) );
                if ( caType == null )
                {
                   // We don't know the size of the type -> stop
@@ -552,7 +558,7 @@ namespace CILAssemblyManipulator.Physical.IO
                }
                else
                {
-                  retVal.TypedArguments.Add( ReadCAFixedArgument( md, blob, ref idx, caType ) );
+                  retVal.TypedArguments.Add( md.SignatureProvider.ReadCAFixedArgument( blob, ref idx, caType, typeStr => this.ResolveTypeFromFullName( md, typeStr ) ) );
                }
             }
 
@@ -563,7 +569,7 @@ namespace CILAssemblyManipulator.Physical.IO
                var namedCount = blob.ReadUInt16LEFromBytes( ref idx );
                for ( var i = 0; i < namedCount && success; ++i )
                {
-                  var caNamedArg = this.ReadCANamedArgument( md, blob, ref idx );
+                  var caNamedArg = md.SignatureProvider.ReadCANamedArgument( blob, ref idx, typeStr => this.ResolveTypeFromFullName( md, typeStr ) );
 
                   if ( caNamedArg == null )
                   {
@@ -688,386 +694,14 @@ namespace CILAssemblyManipulator.Physical.IO
          };
       }
 
-      private Boolean TryReadCAFixedArgument(
-         CILMetaData md,
-         Byte[] caBLOB,
-         ref Int32 idx,
-         CustomAttributeArgumentType type,
-         out CustomAttributeTypedArgument typedArg
-         )
-      {
-         typedArg = this.ReadCAFixedArgument( md, caBLOB, ref idx, type );
-         return typedArg != null;
-      }
-
-      private CustomAttributeTypedArgument ReadCAFixedArgument(
-         CILMetaData md,
-         Byte[] caBLOB,
-         ref Int32 idx,
-         CustomAttributeArgumentType type
-         )
-      {
-         var success = type != null;
-
-         Object value;
-         if ( !success )
-         {
-            value = null;
-         }
-         else
-         {
-            String str;
-            CustomAttributeTypedArgument nestedCAType;
-            switch ( type.ArgumentTypeKind )
-            {
-               case CustomAttributeArgumentTypeKind.Array:
-                  var amount = caBLOB.ReadInt32LEFromBytes( ref idx );
-                  value = null;
-                  if ( ( (UInt32) amount ) != 0xFFFFFFFF )
-                  {
-                     var elemType = ( (CustomAttributeArgumentTypeArray) type ).ArrayType;
-                     var arrayType = elemType.GetNativeTypeForCAArrayType();
-                     success = arrayType != null;
-                     if ( success )
-                     {
-
-                        var array = Array.CreateInstance( arrayType, amount );
-
-                        for ( var i = 0; i < amount && success; ++i )
-                        {
-                           if ( TryReadCAFixedArgument( md, caBLOB, ref idx, elemType, out nestedCAType ) )
-                           {
-                              array.SetValue( nestedCAType.Value, i );
-                           }
-                           else
-                           {
-                              success = false;
-                           }
-                        }
-                        value = new CustomAttributeValue_Array( array, elemType );
-                     }
-                  }
-                  break;
-               case CustomAttributeArgumentTypeKind.Simple:
-                  switch ( ( (CustomAttributeArgumentTypeSimple) type ).SimpleType )
-                  {
-                     case CustomAttributeArgumentTypeSimpleKind.Boolean:
-                        value = caBLOB.ReadByteFromBytes( ref idx ) == 1;
-                        break;
-                     case CustomAttributeArgumentTypeSimpleKind.Char:
-                        value = Convert.ToChar( caBLOB.ReadUInt16LEFromBytes( ref idx ) );
-                        break;
-                     case CustomAttributeArgumentTypeSimpleKind.I1:
-                        value = caBLOB.ReadSByteFromBytes( ref idx );
-                        break;
-                     case CustomAttributeArgumentTypeSimpleKind.U1:
-                        value = caBLOB.ReadByteFromBytes( ref idx );
-                        break;
-                     case CustomAttributeArgumentTypeSimpleKind.I2:
-                        value = caBLOB.ReadInt16LEFromBytes( ref idx );
-                        break;
-                     case CustomAttributeArgumentTypeSimpleKind.U2:
-                        value = caBLOB.ReadUInt32LEFromBytes( ref idx );
-                        break;
-                     case CustomAttributeArgumentTypeSimpleKind.I4:
-                        value = caBLOB.ReadInt32LEFromBytes( ref idx );
-                        break;
-                     case CustomAttributeArgumentTypeSimpleKind.U4:
-                        value = caBLOB.ReadUInt32LEFromBytes( ref idx );
-                        break;
-                     case CustomAttributeArgumentTypeSimpleKind.I8:
-                        value = caBLOB.ReadInt64LEFromBytes( ref idx );
-                        break;
-                     case CustomAttributeArgumentTypeSimpleKind.U8:
-                        value = caBLOB.ReadUInt64LEFromBytes( ref idx );
-                        break;
-                     case CustomAttributeArgumentTypeSimpleKind.R4:
-                        value = caBLOB.ReadSingleLEFromBytes( ref idx );
-                        break;
-                     case CustomAttributeArgumentTypeSimpleKind.R8:
-                        value = caBLOB.ReadDoubleLEFromBytes( ref idx );
-                        break;
-                     case CustomAttributeArgumentTypeSimpleKind.String:
-                        success = caBLOB.ReadLenPrefixedUTF8String( ref idx, out str );
-                        value = str;
-                        break;
-                     case CustomAttributeArgumentTypeSimpleKind.Type:
-                        success = caBLOB.ReadLenPrefixedUTF8String( ref idx, out str );
-                        value = success ? (Object) new CustomAttributeValue_TypeReference( str ) : null;
-                        break;
-                     case CustomAttributeArgumentTypeSimpleKind.Object:
-                        type = ReadCAFieldOrPropType( md.SignatureProvider, caBLOB, ref idx );
-                        success = TryReadCAFixedArgument( md, caBLOB, ref idx, type, out nestedCAType );
-                        value = success ? nestedCAType.Value : null;
-                        break;
-                     default:
-                        value = null;
-                        break;
-                  }
-                  break;
-               case CustomAttributeArgumentTypeKind.Enum:
-                  var enumTypeString = ( (CustomAttributeArgumentTypeEnum) type ).TypeString;
-                  var actualType = this.ResolveTypeFromFullName( md, enumTypeString );
-                  success = TryReadCAFixedArgument( md, caBLOB, ref idx, actualType, out nestedCAType );
-                  value = success ? (Object) new CustomAttributeValue_EnumReference( enumTypeString, nestedCAType.Value ) : null;
-                  break;
-               default:
-                  value = null;
-                  break;
-            }
-         }
-
-         return success ?
-            new CustomAttributeTypedArgument()
-            {
-               Value = value
-            } :
-            null;
-      }
-
-      private static CustomAttributeArgumentType ReadCAFieldOrPropType(
-         SignatureProvider sigProvider,
-         Byte[] array,
-         ref Int32 idx
-         )
-      {
-         var sigType = (SignatureElementTypes) array.ReadByteFromBytes( ref idx );
-         switch ( sigType )
-         {
-            case SignatureElementTypes.CA_Enum:
-               String str;
-               return array.ReadLenPrefixedUTF8String( ref idx, out str ) ?
-                  new CustomAttributeArgumentTypeEnum()
-                  {
-                     TypeString = str.UnescapeCILTypeString()
-                  } :
-                  null;
-            case SignatureElementTypes.SzArray:
-               return new CustomAttributeArgumentTypeArray()
-               {
-                  ArrayType = ReadCAFieldOrPropType( sigProvider, array, ref idx )
-               };
-            case SignatureElementTypes.CA_Boxed:
-            case SignatureElementTypes.Boolean:
-            case SignatureElementTypes.Char:
-            case SignatureElementTypes.I1:
-            case SignatureElementTypes.U1:
-            case SignatureElementTypes.I2:
-            case SignatureElementTypes.U2:
-            case SignatureElementTypes.I4:
-            case SignatureElementTypes.U4:
-            case SignatureElementTypes.I8:
-            case SignatureElementTypes.U8:
-            case SignatureElementTypes.R4:
-            case SignatureElementTypes.R8:
-            case SignatureElementTypes.String:
-            case SignatureElementTypes.Type:
-               return sigProvider.GetSimpleCATypeOrNull( (CustomAttributeArgumentTypeSimpleKind) sigType );
-            default:
-               return null;
-         }
-      }
-
-      private CustomAttributeNamedArgument ReadCANamedArgument(
-         CILMetaData md,
-         Byte[] blob,
-         ref Int32 idx
-         )
-      {
-         var targetKind = (SignatureElementTypes) blob.ReadByteFromBytes( ref idx );
-
-         var type = ReadCAFieldOrPropType( md.SignatureProvider, blob, ref idx );
-         CustomAttributeNamedArgument retVal = null;
-         String name;
-         if ( type != null && blob.ReadLenPrefixedUTF8String( ref idx, out name ) )
-         {
-            var typedArg = this.ReadCAFixedArgument( md, blob, ref idx, type );
-            if ( typedArg != null )
-            {
-               retVal = new CustomAttributeNamedArgument()
-               {
-                  FieldOrPropertyType = type,
-                  TargetKind = (CustomAttributeNamedArgumentTarget) targetKind,
-                  Name = name,
-                  Value = typedArg
-               };
-            }
-
-         }
-
-         return retVal;
-      }
 
    }
 
-   /// <summary>
-   /// This is common base class for <see cref="ModuleReferenceResolveEventArgs"/> and <see cref="AssemblyReferenceResolveEventArgs"/>.
-   /// It encapsulates some common properties when resolving module or assembly references with <see cref="MetaDataResolver.ModuleReferenceResolveEvent"/> and <see cref="MetaDataResolver.AssemblyReferenceResolveEvent"/> events, respectively.
-   /// </summary>
-   public abstract class AssemblyOrModuleReferenceResolveEventArgs : EventArgs
-   {
-
-      internal AssemblyOrModuleReferenceResolveEventArgs( CILMetaData thisMD )
-      {
-         ArgumentValidator.ValidateNotNull( "This metadata", thisMD );
-
-         this.ThisMetaData = thisMD;
-      }
-
-      /// <summary>
-      /// Gets the metadata which contained the module or assembly reference.
-      /// </summary>
-      /// <value>The metadata which contained the module or assembly reference.</value>
-      public CILMetaData ThisMetaData { get; }
-
-      /// <summary>
-      /// The event handlers of <see cref="MetaDataResolver.ModuleReferenceResolveEvent"/> and <see cref="MetaDataResolver.AssemblyReferenceResolveEvent"/> events should set this property to the <see cref="CILMetaData"/> corresponding to the module or assembly reference being resolved.
-      /// </summary>
-      public CILMetaData ResolvedMetaData { get; set; }
-   }
-
-   /// <summary>
-   /// This is arguments class for <see cref="MetaDataResolver.ModuleReferenceResolveEvent"/> event.
-   /// </summary>
-   public sealed class ModuleReferenceResolveEventArgs : AssemblyOrModuleReferenceResolveEventArgs
-   {
-
-      internal ModuleReferenceResolveEventArgs( CILMetaData thisMD, String moduleName )
-         : base( thisMD )
-      {
-         this.ModuleName = moduleName;
-      }
-
-      /// <summary>
-      /// Gets the name of the module being resolved.
-      /// </summary>
-      /// <value>The name of the module being resolved.</value>
-      public String ModuleName { get; }
-   }
-
-   /// <summary>
-   /// This is arguments class for <see cref="MetaDataResolver.AssemblyReferenceResolveEvent"/> event.
-   /// </summary>
-   public sealed class AssemblyReferenceResolveEventArgs : AssemblyOrModuleReferenceResolveEventArgs
-   {
-
-      internal AssemblyReferenceResolveEventArgs( CILMetaData thisMD, String assemblyName, AssemblyInformationForResolving assemblyInfo ) //, Boolean isRetargetable )
-         : base( thisMD )
-      {
-
-         this.UnparsedAssemblyName = assemblyName;
-         this.AssemblyInformation = assemblyInfo;
-      }
-
-      /// <summary>
-      /// Gets the unparsed assembly name in case parsing failed.
-      /// </summary>
-      /// <value>The unparsed assembly name in case parsing failed.</value>
-      /// <remarks>
-      /// This will be <c>null</c> when the assembly reference was not in textual format, or when the assembly name was successfully parsed with <see cref="CAMPhysical::CILAssemblyManipulator.Physical.AssemblyInformation.TryParse(string, out CAMPhysical::CILAssemblyManipulator.Physical.AssemblyInformation, out bool)"/> method.
-      /// In such case, the <see cref="AssemblyInformation"/> will be non-<c>null</c>.
-      /// </remarks>
-      public String UnparsedAssemblyName { get; }
-
-      /// <summary>
-      /// Gets the <see cref="AssemblyInformationForResolving"/> in case of assembly references via <see cref="AssemblyReference"/> or successfully parsed assembly string.
-      /// </summary>
-      /// <value>The <see cref="AssemblyInformationForResolving"/> in case of assembly references via <see cref="AssemblyReference"/> or successfully parsed assembly string.</value>
-      /// <remarks>
-      /// This will be <c>null</c> if assembly reference was in textual format and parsing the assembly name failed.
-      /// In such case, the <see cref="UnparsedAssemblyName"/> will be set to the textual assembly name.
-      /// </remarks>
-      public AssemblyInformationForResolving AssemblyInformation { get; }
-
-
-   }
-
-   /// <summary>
-   /// This class encapsulates information which is required when resolving assembly references with <see cref="MetaDataResolver"/>, and more specifically, its <see cref="MetaDataResolver.AssemblyReferenceResolveEvent"/> event.
-   /// </summary>
-   public sealed class AssemblyInformationForResolving : IEquatable<AssemblyInformationForResolving>
-   {
-
-      /// <summary>
-      /// Creates a new instance of <see cref="AssemblyInformationForResolving"/> with required information gathered from given <see cref="AssemblyReference"/> row.
-      /// </summary>
-      /// <param name="aRef">The <see cref="AssemblyReference"/> row.</param>
-      /// <exception cref="ArgumentNullException">If <paramref name="aRef"/> is <c>null</c>.</exception>
-      public AssemblyInformationForResolving( AssemblyReference aRef )
-         : this( ArgumentValidator.ValidateNotNullAndReturn( "Assembly reference", aRef ).AssemblyInformation.CreateDeepCopy(), aRef.Attributes.IsFullPublicKey() )
-      {
-
-      }
-
-      /// <summary>
-      /// Creates a new instance of <see cref="AssemblyInformationForResolving"/> with required information specified in a <see cref="CAMPhysical::CILAssemblyManipulator.Physical.AssemblyInformation"/> object, and separate boolean indicating whether the reference uses full public key, or public key token.
-      /// </summary>
-      /// <param name="information">The <see cref="CAMPhysical::CILAssemblyManipulator.Physical.AssemblyInformation"/> with required information.</param>
-      /// <param name="isFullPublicKey"><c>true</c> if this assembly reference uses full public key; <c>false</c> if it uses public key token.</param>
-      /// <exception cref="ArgumentNullException">If <paramref name="information"/> is <c>null</c>.</exception>
-      public AssemblyInformationForResolving( AssemblyInformation information, Boolean isFullPublicKey )
-      {
-         ArgumentValidator.ValidateNotNull( "Assembly information", information );
-
-         this.AssemblyInformation = information;
-         this.IsFullPublicKey = isFullPublicKey;
-      }
-
-      /// <summary>
-      /// Gets the <see cref="CAMPhysical::CILAssemblyManipulator.Physical.AssemblyInformation"/> containing the name, culture, version, and public key information of this assembly reference.
-      /// </summary>
-      /// <value>The <see cref="CAMPhysical::CILAssemblyManipulator.Physical.AssemblyInformation"/> containing the name, culture, version, and public key information of this assembly reference.</value>
-      public AssemblyInformation AssemblyInformation { get; }
-
-      /// <summary>
-      /// Gets the value indicating whether the possible public key in <see cref="AssemblyInformation"/> is full public key, or public key token.
-      /// </summary>
-      /// <value>The value indicating whether the possible public key in <see cref="AssemblyInformation"/> is full public key, or public key token.</value>
-      public Boolean IsFullPublicKey { get; }
-
-      /// <summary>
-      /// Checks whether given object is of type <see cref="AssemblyInformationForResolving"/> and that its data content is same as data content of this.
-      /// </summary>
-      /// <param name="obj">The object to check.</param>
-      /// <returns><c>true</c> if <paramref name="obj"/> is of type <see cref="AssemblyInformationForResolving"/> and its data content match to data content of this.</returns>
-      public override Boolean Equals( Object obj )
-      {
-         return this.Equals( obj as AssemblyInformationForResolving );
-      }
-
-      /// <summary>
-      /// Computes the hash code for this <see cref="AssemblyInformationForResolving"/>.
-      /// </summary>
-      /// <returns>The hash code for this <see cref="AssemblyInformationForResolving"/>.</returns>
-      public override Int32 GetHashCode()
-      {
-         return this.AssemblyInformation.Name.GetHashCodeSafe();
-      }
-
-      /// <summary>
-      /// Checks whether this <see cref="AssemblyInformationForResolving"/> and given <see cref="AssemblyInformationForResolving"/> equal or have same data contents.
-      /// </summary>
-      /// <param name="other">Other <see cref="AssemblyInformationForResolving"/>.</param>
-      /// <returns><c>true</c> if <paramref name="other"/> is this or if its data content matches to this; <c>false</c> otherwise.</returns>
-      /// <remarks>
-      /// The following properites are checked when matching data content:
-      /// <list type="bullet">
-      /// <item><description><see cref="AssemblyInformation"/> (using <see cref="CAMPhysical::CILAssemblyManipulator.Physical.Comparers.AssemblyInformationEqualityComparer"/>), and</description></item>
-      /// <item><description><see cref="IsFullPublicKey"/>.</description></item>
-      /// </list>
-      /// </remarks>
-      public Boolean Equals( AssemblyInformationForResolving other )
-      {
-         return ReferenceEquals( this, other ) ||
-            ( other != null
-            && this.IsFullPublicKey == other.IsFullPublicKey
-            && CAMPhysical::CILAssemblyManipulator.Physical.Comparers.AssemblyInformationEqualityComparer.Equals( this.AssemblyInformation, other.AssemblyInformation )
-            );
-      }
-   }
 }
 
+#pragma warning disable 1591
 public static partial class E_CILPhysical
+#pragma warning restore 1591
 {
    /// <summary>
    /// Helper method to resolve all custom attributes of given <see cref="CILMetaData"/> using <see cref="MetaDataResolver.ResolveCustomAttributeSignature(CILMetaData, int)"/>.

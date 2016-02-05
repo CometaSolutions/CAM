@@ -2399,6 +2399,41 @@ namespace CILAssemblyManipulator.Physical
          return retVal;
       }
    }
+
+   /// <summary>
+   /// This class encapsulates the information about target framework information (<see cref="Physical.TargetFrameworkInfo"/>) and whether the assembly references to that framework should be marked with <see cref="AssemblyFlags.Retargetable"/> flag.
+   /// </summary>
+   public sealed class TargetFrameworkInfoWithRetargetabilityInformation
+   {
+      /// <summary>
+      /// Creates a new instance of <see cref="TargetFrameworkInfoWithRetargetabilityInformation"/> with given <see cref="Physical.TargetFrameworkInfo"/> and whether the assembly references to this target framework are retargetable.
+      /// </summary>
+      /// <param name="targetFramework">The <see cref="Physical.TargetFrameworkInfo"/> representing target framework information.</param>
+      /// <param name="assemblyReferencesRetargetable">Whether the assembly references to <paramref name="targetFramework"/> should be tagged with <see cref="AssemblyFlags.Retargetable"/> flag.</param>
+      /// <exception cref="ArgumentNullException">If <paramref name="targetFramework"/> is <c>null</c>.</exception>
+      public TargetFrameworkInfoWithRetargetabilityInformation(
+         TargetFrameworkInfo targetFramework,
+         Boolean assemblyReferencesRetargetable
+         )
+      {
+         ArgumentValidator.ValidateNotNull( "Target framework information", targetFramework );
+
+         this.TargetFrameworkInfo = targetFramework;
+         this.AreFrameworkAssemblyReferencesRetargetable = assemblyReferencesRetargetable;
+      }
+
+      /// <summary>
+      /// Gets the <see cref="Physical.TargetFrameworkInfo"/> for represented target framework.
+      /// </summary>
+      /// <value>The <see cref="Physical.TargetFrameworkInfo"/> for represented target framework.</value>
+      public TargetFrameworkInfo TargetFrameworkInfo { get; }
+
+      /// <summary>
+      /// Gets the value indicating whether assembly references to represented target framework should be tagged with <see cref="AssemblyFlags.Retargetable"/> flag.
+      /// </summary>
+      /// <value>The value indicating whether assembly references to represented target framework should be tagged with <see cref="AssemblyFlags.Retargetable"/> flag.</value>
+      public Boolean AreFrameworkAssemblyReferencesRetargetable { get; }
+   }
 }
 
 public static partial class E_CILPhysical

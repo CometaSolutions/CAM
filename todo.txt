@@ -7,7 +7,6 @@
 - CAM.Physical:
  - Documentation
  - Extensible signatures
- - Maybe: CAM.Physical.IO.Resolving, <- CAM.Physical.IO.Loading, <- CAM.Physical.TargetFW, projects?
  
 - CAM.Logical:
  - Revisit documentation (code samples etc)

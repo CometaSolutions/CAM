@@ -21,6 +21,7 @@ using CAMPhysical::CILAssemblyManipulator.Physical.IO;
 
 using CILAssemblyManipulator.Logical;
 using CILAssemblyManipulator.Physical;
+using CILAssemblyManipulator.Physical.IO;
 using CILAssemblyManipulator.Structural;
 using CILAssemblyManipulator.Tests.Logical;
 using CommonUtils;

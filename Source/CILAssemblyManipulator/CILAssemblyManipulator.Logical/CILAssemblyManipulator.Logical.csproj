@@ -24,7 +24,6 @@
     <DefineConstants Condition=" '$(CAMLogicalTargetKind)' == 'Silverlight' ">CAM_LOGICAL_IS_SL</DefineConstants>
     <DefineConstants Condition=" '$(CAMLogicalTargetKind)' == 'DotNET' ">CAM_LOGICAL_IS_DOT_NET</DefineConstants>
     <DefineConstants Condition=" '$(IsCommandLineBuild)' != '' ">$(DefineConstants);NO_ALIASES</DefineConstants>
-    
     <!-- In SL and Profile5, keep "XML comment has cref attribute that could not be resolved" warning as warning -->
     <WarningsNotAsErrors Condition=" '$(CAMLogicalTargetKind)' == 'Silverlight' Or '$(CAMLogicalTargetKind)' == 'Portable' ">1574</WarningsNotAsErrors>
   </PropertyGroup>
@@ -102,6 +101,14 @@
     <ProjectReference Condition=" '$(IsCommandLineBuild)' == ''" Include="..\CILAssemblyManipulator.Physical.Crypto\CILAssemblyManipulator.Physical.Crypto.csproj">
       <Project>{3c3ee913-1034-4c7d-ab79-67d19e3256fa}</Project>
       <Name>CILAssemblyManipulator.Physical.Crypto</Name>
+    </ProjectReference>
+    <ProjectReference Condition=" '$(IsCommandLineBuild)' == ''" Include="..\CILAssemblyManipulator.Physical.IO.Loading\CILAssemblyManipulator.Physical.IO.Loading.csproj">
+      <Project>{10ef5dbb-29d5-4266-9561-1fc44b671ac7}</Project>
+      <Name>CILAssemblyManipulator.Physical.IO.Loading</Name>
+    </ProjectReference>
+    <ProjectReference Condition=" '$(IsCommandLineBuild)' == ''" Include="..\CILAssemblyManipulator.Physical.IO.Resolving\CILAssemblyManipulator.Physical.IO.Resolving.csproj">
+      <Project>{c891754e-7698-4f7b-92d9-c28921ebf746}</Project>
+      <Name>CILAssemblyManipulator.Physical.IO.Resolving</Name>
     </ProjectReference>
     <ProjectReference Condition=" '$(IsCommandLineBuild)' == ''" Include="..\CILAssemblyManipulator.Physical.IO\CILAssemblyManipulator.Physical.IO.csproj">
       <Project>{4e0e1695-a15e-4b3d-adb2-c3ed8a0962a1}</Project>

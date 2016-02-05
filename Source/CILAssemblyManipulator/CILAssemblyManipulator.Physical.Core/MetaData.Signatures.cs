@@ -2863,4 +2863,73 @@ public static partial class E_CILPhysical
    {
       return targetKind == CustomAttributeNamedArgumentTarget.Field;
    }
+
+   /// <summary>
+   /// Given a <see cref="TypeSignature"/> located in a given <see cref="CILMetaData"/>, tries to create a new <see cref="CustomAttributeArgumentType"/> which would logically match the given <see cref="TypeSignature"/>.
+   /// </summary>
+   /// <param name="md">The <see cref="CILMetaData"/> holding the type signature.</param>
+   /// <param name="type">The <see cref="TypeSignature"/>.</param>
+   /// <param name="enumFactory">The callback to create <see cref="CustomAttributeArgumentTypeEnum"/> from a given <see cref="TableIndex"/>.</param>
+   /// <returns>An object of some type extending <see cref="CustomAttributeArgumentType"/>, or <c>null</c> if transformation was not successful.</returns>
+   public static CustomAttributeArgumentType TypeSignatureToCustomAttributeArgumentType( this CILMetaData md, TypeSignature type, Func<TableIndex, CustomAttributeArgumentTypeEnum> enumFactory )
+   {
+      return md.TypeSignatureToCustomAttributeArgumentType( type, enumFactory, true );
+   }
+
+
+   private static CustomAttributeArgumentType TypeSignatureToCustomAttributeArgumentType( this CILMetaData md, TypeSignature type, Func<TableIndex, CustomAttributeArgumentTypeEnum> enumFactory, Boolean acceptArray )
+   {
+      var sigProvider = md.SignatureProvider;
+      switch ( type.TypeSignatureKind )
+      {
+         case TypeSignatureKind.Simple:
+            return sigProvider.GetSimpleCATypeOrNull( (CustomAttributeArgumentTypeSimpleKind) ( (SimpleTypeSignature) type ).SimpleType );
+         case TypeSignatureKind.ClassOrValue:
+            var clazz = (ClassOrValueTypeSignature) type;
+            if ( clazz.GenericArguments.Count <= 0 )
+            {
+               if ( clazz.TypeReferenceKind.IsClass() )
+               {
+                  // Either type or System.Object or System.Type are allowed here
+                  if ( md.IsTypeType( clazz.Type ) )
+                  {
+                     return sigProvider.GetSimpleCATypeOrNull( CustomAttributeArgumentTypeSimpleKind.Type );
+                  }
+                  else if ( md.IsSystemObjectType( clazz.Type ) )
+                  {
+                     return sigProvider.GetSimpleCATypeOrNull( CustomAttributeArgumentTypeSimpleKind.Object );
+                  }
+                  else
+                  {
+                     return null;
+                  }
+               }
+               else
+               {
+                  return enumFactory( clazz.Type );
+               }
+            }
+            else
+            {
+               return null;
+            }
+         case TypeSignatureKind.SimpleArray:
+            if ( acceptArray )
+            {
+               var retVal = acceptArray ?
+               new CustomAttributeArgumentTypeArray()
+               {
+                  ArrayType = md.TypeSignatureToCustomAttributeArgumentType( ( (SimpleArrayTypeSignature) type ).ArrayType, enumFactory, false )
+               } :
+               null;
+               return retVal == null || retVal.ArrayType == null ? null : retVal;
+            }
+            else
+            {
+               return sigProvider.GetSimpleCATypeOrNull( CustomAttributeArgumentTypeSimpleKind.Object );
+            }
+         default:
+            return null;
+      }
+   }
 }

@@ -72,49 +72,4 @@ public static partial class E_CILPhysical
 
       return retVal;
    }
-
-   /// <summary>
-   /// Checks whether this <see cref="AssemblyDefinition"/> matches the given <see cref="AssemblyReference"/>, 
-   /// </summary>
-   /// <param name="aDef">The <see cref="AssemblyDefinition"/>.</param>
-   /// <param name="aRef">The optional <see cref="AssemblyReference"/>.</param>
-   /// <param name="publicKeyTokenComputer">The callback to use, if public key token computation is required.</param>
-   /// <returns><c>true</c> if <paramref name="aRef"/> is not <c>null</c> and matches this <see cref="AssemblyDefinition"/>, taking into account that <paramref name="aRef"/> might have public key token instead of full public key; <c>false</c> otherwise.</returns>
-   /// <exception cref="NullReferenceException">If this <see cref="AssemblyDefinition"/> is <c>null</c>.</exception>
-   /// <seealso cref="HashStreamInfo.HashComputer"/>
-   public static Boolean IsMatch( this AssemblyDefinition aDef, AssemblyReference aRef, Func<Byte[], Byte[]> publicKeyTokenComputer )
-   {
-      return aDef.IsMatch( aRef == null ? null : new AssemblyInformationForResolving( aRef ), aRef?.Attributes.IsRetargetable() ?? false, publicKeyTokenComputer );
-   }
-
-   /// <summary>
-   /// Checks whether this <see cref="AssemblyDefinition"/> matches the given <see cref="AssemblyInformationForResolving"/>.
-   /// </summary>
-   /// <param name="aDef">The <see cref="AssemblyDefinition"/>.</param>
-   /// <param name="aRef">The optional <see cref="AssemblyInformationForResolving"/>.</param>
-   /// <param name="isRetargetable">Whether the <paramref name="aRef"/> is retargetable.</param>
-   /// <param name="publicKeyTokenComputer">The callback to use, if public key token computation is required.</param>
-   /// <returns><c>true</c> if <paramref name="aRef"/> is not <c>null</c> and matches this <see cref="AssemblyDefinition"/>, taking into account that <paramref name="aRef"/> might have public key token instead of full public key; <c>false</c> otherwise.</returns>
-   /// <exception cref="NullReferenceException">If this <see cref="AssemblyDefinition"/> is <c>null</c>.</exception>
-   /// <seealso cref="HashStreamInfo.HashComputer"/>
-   public static Boolean IsMatch( this AssemblyDefinition aDef, AssemblyInformationForResolving aRef, Boolean isRetargetable, Func<Byte[], Byte[]> publicKeyTokenComputer )
-   {
-      var defInfo = aDef.AssemblyInformation;
-      var retVal = aRef != null;
-      if ( retVal )
-      {
-         var refInfo = aRef.AssemblyInformation;
-         retVal = String.Equals( defInfo.Name, refInfo.Name );
-         if ( retVal && !isRetargetable )
-         {
-            var defPK = defInfo.PublicKeyOrToken;
-            var refPK = refInfo.PublicKeyOrToken;
-            retVal = defPK.IsNullOrEmpty() == refPK.IsNullOrEmpty()
-               && defInfo.Equals( refInfo, aRef.IsFullPublicKey )
-               && ( aRef.IsFullPublicKey || ArrayEqualityComparer<Byte>.ArrayEquality( publicKeyTokenComputer?.Invoke( defPK ), refPK ) );
-         }
-      }
-
-      return retVal;
-   }
 }
