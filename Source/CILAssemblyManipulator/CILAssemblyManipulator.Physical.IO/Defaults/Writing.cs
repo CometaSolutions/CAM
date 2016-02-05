@@ -60,86 +60,7 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
 
    public class DefaultWriterFunctionality : WriterFunctionality
    {
-      protected class SectionLayoutInfo
-      {
-         public SectionLayoutInfo(
-            SectionLayout layout,
-            Int64 sectionStartOffset,
-            TRVA sectionStartRVA,
-            Int32 fileAlignment,
-            RawValueStorage<Int64> rawValues
-            )
-         {
-            ArgumentValidator.ValidateNotNull( "Layout", layout );
-
-            var curRVA = sectionStartRVA;
-            var curOffset = sectionStartOffset;
-
-            var list = new List<SectionPartInfo>( layout.Parts.Count );
-            foreach ( var part in layout.Parts )
-            {
-               var includePart = part != null;
-               if ( includePart )
-               {
-                  var prePadding = (Int32) ( curRVA.RoundUpI64( (UInt32) part.DataAlignment ) - curRVA );
-                  var size = part.GetDataSize( curOffset + prePadding, curRVA + prePadding, rawValues );
-                  includePart = size != 0;
-                  if ( includePart )
-                  {
-                     curOffset += prePadding;
-                     curRVA += prePadding;
-
-                     list.Add( new SectionPartInfo( part, prePadding, size, curOffset, curRVA ) );
-
-                     curOffset += (UInt32) size;
-                     curRVA += (UInt32) size;
-                  }
-               }
-            }
-
-            this.PartInfos = list.ToArrayProxy().CQ;
-            var nameBytes = layout.NameBytes;
-            var virtualSize = (UInt32) ( curOffset - sectionStartOffset );
-            this.SectionHeader = new SectionHeader(
-               nameBytes.IsNullOrEmpty() ? layout.Name.CreateASCIIBytes( 0, 0x08, 0x08 ) : nameBytes.ToArrayProxy().CQ,
-               virtualSize,
-               (UInt32) sectionStartRVA,
-               virtualSize.RoundUpU32( (UInt32) fileAlignment ),
-               (UInt32) sectionStartOffset,
-               0,
-               0,
-               0,
-               0,
-               layout.Characteristics
-            );
-
-         }
-
-         public ArrayQuery<SectionPartInfo> PartInfos { get; }
-
-         public SectionHeader SectionHeader { get; }
-      }
-
-      protected sealed class SectionLayoutAggregator
-      {
-
-         public SectionLayoutAggregator( IEnumerable<SectionLayoutInfo> layoutInfos )
-         {
-            this.LayoutInfos = layoutInfos.ToArrayProxy().CQ;
-            this.AllSectionParts = this.LayoutInfos.SelectMany( s => s.PartInfos.Select( p => p.Part ) ).ToArrayProxy().CQ;
-            this.SectionPartInfos = this.LayoutInfos.SelectMany( s => s.PartInfos ).ToDictionary( i => i.Part, i => i, ReferenceEqualityComparer<SectionPart>.ReferenceBasedComparer ).ToDictionaryProxy().CQ;
-
-         }
-
-         public ArrayQuery<SectionLayoutInfo> LayoutInfos { get; }
-
-         public ArrayQuery<SectionPart> AllSectionParts { get; }
-
-         public DictionaryQuery<SectionPart, SectionPartInfo> SectionPartInfos { get; }
-      }
-
-
-      private SectionLayoutAggregator _sectionLayoutInfos;
+      public const Int32 PE_SIG_AND_FILE_HEADER_SIZE = 0x18; // PE signature + file header
 
       public DefaultWriterFunctionality(
          CILMetaData md,
@@ -164,21 +85,38 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
          yield return new DefaultWriterUserStringStreamHandler();
       }
 
-      public virtual Int32 GetSectionCount( ImageFileMachine machine )
+      public virtual WritingStatus CreateWritingStatus(
+         StrongNameVariables snVars
+         )
       {
-         var retVal = this.GetMinimumSectionCount();
-         if ( !machine.RequiresPE64() )
-         {
-            ++retVal; // Relocs
-         }
-         return retVal;
+         var options = this.WritingOptions;
+         var peOptions = options.PEOptions;
+         var machine = peOptions.Machine ?? ImageFileMachine.I386;
+         var sectionsCount = this.GetSectionCount( machine );
+
+         var peDataDirCount = peOptions.NumberOfDataDirectories ?? (Int32) DataDirectories.MaxValue;
+         var optionalHeaderKind = machine.GetOptionalHeaderKind();
+         var optionalHeaderSize = optionalHeaderKind.GetOptionalHeaderSize( peDataDirCount );
+         return this.DoCreateWritingStatus(
+            0x80 // DOS header size
+            + PE_SIG_AND_FILE_HEADER_SIZE // PE Signature + File header size
+            + optionalHeaderSize // Optional header size
+            + sectionsCount * 0x28 // Sections
+            ,
+            machine,
+            peOptions.FileAlignment ?? WritingStatus.DEFAULT_FILE_ALIGNMENT,
+            peOptions.SectionAlignment ?? WritingStatus.DEFAULT_SECTION_ALIGNMENT,
+            peOptions.ImageBase,
+            snVars,
+            peDataDirCount,
+            sectionsCount
+            );
       }
 
-      public virtual RawValueStorage<Int64> PopulateSections(
+      public virtual RawValueStorage<Int64> CalculateImageLayout(
          WritingStatus writingStatus,
          WriterMetaDataStreamContainer mdStreamContainer,
-         ArrayQuery<AbstractWriterStreamHandler> allMDStreams,
-         SectionHeader[] sections,
+         IEnumerable<AbstractWriterStreamHandler> allStreams,
          out RVAConverter rvaConverter,
          out Int32 mdRootSize
          )
@@ -189,12 +127,15 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
 
          // MetaData
          Int32 mdSize;
-         var mdRoot = this.CreateMDRoot( allMDStreams.Where( s => s.Accessed ), out mdRootSize, out mdSize );
+         var mdRoot = this.CreateMDRoot( allStreams.Where( s => s.Accessed ), out mdRootSize, out mdSize );
          writingStatus.MDRoot = mdRoot;
 
          // Sections
-         this._sectionLayoutInfos = new SectionLayoutAggregator( this.PopulateSections( writingStatus, rawSections, mdRoot, mdSize, rawValueStorage ) );
-         var allLayouts = this.CreatedSectionLayout.LayoutInfos;
+         var sectionLayoutInfos = new SectionLayoutAggregator( this.PopulateSections( writingStatus, rawSections, mdRoot, mdSize, rawValueStorage ) );
+         var dStatus = (DefaultWritingStatus) writingStatus;
+         dStatus.SectionLayouts = sectionLayoutInfos;
+         var allLayouts = sectionLayoutInfos.LayoutInfos;
+         var sections = writingStatus.SectionHeaders;
          for ( var i = 0; i < allLayouts.Count; ++i )
          {
             sections[i] = allLayouts[i].SectionHeader;
@@ -204,7 +145,7 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
          rvaConverter = this.CreateRVAConverter( sections );
 
          // CLI Header
-         writingStatus.CLIHeader = this.CreateCLIHeader( writingStatus );
+         writingStatus.CLIHeader = this.CreateCLIHeader( dStatus );
 
          return rawValueStorage;
       }
@@ -212,11 +153,10 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
       public virtual void BeforeMetaData(
          WritingStatus writingStatus,
          Stream stream,
-         ResizableArray<Byte> array,
-         ArrayQuery<SectionHeader> sections
+         ResizableArray<Byte> array
          )
       {
-         foreach ( var section in this.CreatedSectionLayout.LayoutInfos )
+         foreach ( var section in ( (DefaultWritingStatus) writingStatus ).SectionLayouts.LayoutInfos )
          {
             var parts = section.PartInfos;
             if ( parts.Count > 0 )
@@ -260,12 +200,12 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
       public virtual void AfterMetaData(
          WritingStatus writingStatus,
          Stream stream,
-         ResizableArray<Byte> array,
-         ArrayQuery<SectionHeader> sections )
+         ResizableArray<Byte> array
+         )
       {
 
          var mdEncountered = false;
-         foreach ( var section in this.CreatedSectionLayout.LayoutInfos.SkipWhile( s => !s.PartInfos.Any( p => p.Part is SectionPart_MetaData ) ) )
+         foreach ( var section in ( (DefaultWritingStatus) writingStatus ).SectionLayouts.LayoutInfos.SkipWhile( s => !s.PartInfos.Any( p => p.Part is SectionPart_MetaData ) ) )
          {
             var parts = section.PartInfos;
             if ( parts.Count > 0 )
@@ -323,12 +263,14 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
 
       protected WritingOptions WritingOptions { get; }
 
-      protected SectionLayoutAggregator CreatedSectionLayout
+      protected virtual Int32 GetSectionCount( ImageFileMachine machine )
       {
-         get
+         var retVal = this.GetMinimumSectionCount();
+         if ( !machine.RequiresPE64() )
          {
-            return this._sectionLayoutInfos;
+            ++retVal; // Relocs
          }
+         return retVal;
       }
 
       protected virtual Int32 GetMinimumSectionCount()
@@ -440,6 +382,29 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
          }
       }
 
+      protected virtual DefaultWritingStatus DoCreateWritingStatus(
+         Int32 headersSize,
+         ImageFileMachine machine,
+         Int32 fileAlignment,
+         Int32 sectionAlignment,
+         Int64? imageBase,
+         StrongNameVariables strongNameVariables,
+         Int32 dataDirCount,
+         Int32 sectionsCount
+         )
+      {
+         return new DefaultWritingStatus(
+            headersSize,
+            machine,
+            fileAlignment,
+            sectionAlignment,
+            imageBase,
+            strongNameVariables,
+            dataDirCount,
+            sectionsCount
+            );
+      }
+
       protected virtual IEnumerable<SectionPart> GetTextSectionParts(
          WritingStatus writingStatus,
          Int32 mdSize,
@@ -511,9 +476,7 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
             array,
             partLayout.PrePadding,
             partLayout.Size,
-            this.CreatedSectionLayout.AllSectionParts,
-            this.CreatedSectionLayout.SectionPartInfos,
-            writingStatus
+            (DefaultWritingStatus) writingStatus
             ) );
       }
 
@@ -532,10 +495,10 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
       }
 
       protected virtual CLIHeader CreateCLIHeader(
-         WritingStatus writingStatus
+         DefaultWritingStatus writingStatus
          )
       {
-         var partInfos = this.CreatedSectionLayout.SectionPartInfos;
+         var partInfos = writingStatus.SectionLayouts.SectionPartInfos;
          var parts = partInfos.Keys;
          var embeddedResources = parts
             .OfType<SectionPartWithRVAs>()
@@ -568,6 +531,104 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
                );
       }
 
+   }
+
+   public class DefaultWritingStatus : WritingStatus
+   {
+      public DefaultWritingStatus(
+         Int32 headersSize,
+         ImageFileMachine machine,
+         Int32 fileAlignment,
+         Int32 sectionAlignment,
+         Int64? imageBase,
+         StrongNameVariables strongNameVariables,
+         Int32 dataDirCount,
+         Int32 sectionsCount
+         ) : base( headersSize, machine, fileAlignment, sectionAlignment, imageBase, strongNameVariables, dataDirCount, sectionsCount )
+      {
+
+      }
+
+      public SectionLayoutAggregator SectionLayouts { get; set; }
+   }
+
+   public class SectionLayoutInfo
+   {
+      public SectionLayoutInfo(
+         SectionLayout layout,
+         Int64 sectionStartOffset,
+         TRVA sectionStartRVA,
+         Int32 fileAlignment,
+         RawValueStorage<Int64> rawValues
+         )
+      {
+         ArgumentValidator.ValidateNotNull( "Layout", layout );
+
+         var curRVA = sectionStartRVA;
+         var curOffset = sectionStartOffset;
+
+         var list = new List<SectionPartInfo>( layout.Parts.Count );
+         foreach ( var part in layout.Parts )
+         {
+            var includePart = part != null;
+            if ( includePart )
+            {
+               var prePadding = (Int32) ( curRVA.RoundUpI64( (UInt32) part.DataAlignment ) - curRVA );
+               var size = part.GetDataSize( curOffset + prePadding, curRVA + prePadding, rawValues );
+               includePart = size != 0;
+               if ( includePart )
+               {
+                  curOffset += prePadding;
+                  curRVA += prePadding;
+
+                  list.Add( new SectionPartInfo( part, prePadding, size, curOffset, curRVA ) );
+
+                  curOffset += (UInt32) size;
+                  curRVA += (UInt32) size;
+               }
+            }
+         }
+
+         this.PartInfos = list.ToArrayProxy().CQ;
+         var nameBytes = layout.NameBytes;
+         var virtualSize = (UInt32) ( curOffset - sectionStartOffset );
+         this.SectionHeader = new SectionHeader(
+            nameBytes.IsNullOrEmpty() ? layout.Name.CreateASCIIBytes( 0, 0x08, 0x08 ) : nameBytes.ToArrayProxy().CQ,
+            virtualSize,
+            (UInt32) sectionStartRVA,
+            virtualSize.RoundUpU32( (UInt32) fileAlignment ),
+            (UInt32) sectionStartOffset,
+            0,
+            0,
+            0,
+            0,
+            layout.Characteristics
+         );
+
+      }
+
+      public ArrayQuery<SectionPartInfo> PartInfos { get; }
+
+      public SectionHeader SectionHeader { get; }
+   }
+
+   public sealed class SectionLayoutAggregator
+   {
+
+      public SectionLayoutAggregator( IEnumerable<SectionLayoutInfo> layoutInfos )
+      {
+         this.LayoutInfos = layoutInfos.ToArrayProxy().CQ;
+         this.AllSectionParts = this.LayoutInfos.SelectMany( s => s.PartInfos.Select( p => p.Part ) ).ToArrayProxy().CQ;
+         this.SectionPartInfos = this.LayoutInfos.SelectMany( s => s.PartInfos ).ToDictionary( i => i.Part, i => i, ReferenceEqualityComparer<SectionPart>.ReferenceBasedComparer ).ToDictionaryProxy().CQ;
+
+      }
+
+      public ArrayQuery<SectionLayoutInfo> LayoutInfos { get; }
+
+      // TODO this might be useless property (consider extension method)
+      public ArrayQuery<SectionPart> AllSectionParts { get; }
+
+      public DictionaryQuery<SectionPart, SectionPartInfo> SectionPartInfos { get; }
    }
 
    public class SectionLayout
@@ -1263,23 +1324,17 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
          ResizableArray<Byte> array,
          Int32 prePadding,
          Int32 dataLength,
-         ArrayQuery<SectionPart> allParts,
-         DictionaryQuery<SectionPart, SectionPartInfo> partInfos,
-         WritingStatus writingStatus
+         DefaultWritingStatus writingStatus
          )
       {
          ArgumentValidator.ValidateNotNull( "Stream", stream );
          ArgumentValidator.ValidateNotNull( "Array", array );
-         ArgumentValidator.ValidateNotNull( "All parts", allParts );
-         ArgumentValidator.ValidateNotNull( "Part infos", partInfos );
          ArgumentValidator.ValidateNotNull( "Writing status", writingStatus );
 
          this.Stream = stream;
          this.ArrayHelper = array;
          this.PrePadding = prePadding;
          this.DataLength = dataLength;
-         this.Parts = allParts;
-         this.PartInfos = partInfos;
          this.WritingStatus = writingStatus;
       }
 
@@ -1291,11 +1346,7 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
 
       public Int32 DataLength { get; }
 
-      public ArrayQuery<SectionPart> Parts { get; }
-
-      public DictionaryQuery<SectionPart, SectionPartInfo> PartInfos { get; }
-
-      public WritingStatus WritingStatus { get; }
+      public DefaultWritingStatus WritingStatus { get; }
    }
 
    public class SectionPartInfo
@@ -1390,7 +1441,7 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
 
       protected override Boolean DoWriteData( SectionPartWritingArgs args, Byte[] array, ref Int32 idx )
       {
-         var importDir = args.Parts.OfType<SectionPart_ImportDirectory>().FirstOrDefault();
+         var importDir = args.WritingStatus.SectionLayouts.AllSectionParts.OfType<SectionPart_ImportDirectory>().FirstOrDefault();
          var retVal = importDir != null;
          if ( retVal )
          {
@@ -1475,7 +1526,8 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
 
       protected override Boolean DoWriteData( SectionPartWritingArgs args, Byte[] array, ref Int32 idx )
       {
-         var addressTable = args.Parts.OfType<SectionPart_ImportAddressTable>().FirstOrDefault();
+         var wStatus = args.WritingStatus;
+         var addressTable = wStatus.SectionLayouts.AllSectionParts.OfType<SectionPart_ImportAddressTable>().FirstOrDefault();
 
          var retVal = addressTable != null;
          if ( retVal )
@@ -1486,7 +1538,7 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
                .WriteInt32LEToBytes( ref idx, 0 ) // TimeDateStamp
                .WriteInt32LEToBytes( ref idx, 0 ) // ForwarderChain
                .WriteUInt32LEToBytes( ref idx, this._mscoreeRVA ) // Name of module
-               .WriteUInt32LEToBytes( ref idx, (UInt32) args.PartInfos[addressTable].RVA ) // Address table RVA
+               .WriteUInt32LEToBytes( ref idx, (UInt32) wStatus.SectionLayouts.SectionPartInfos[addressTable].RVA ) // Address table RVA
                .WriteInt64LEToBytes( ref idx, 0 ) // ?
                .WriteInt64LEToBytes( ref idx, 0 ) // ?
                .WriteInt32LEToBytes( ref idx, 0 ) // ?
@@ -1506,7 +1558,7 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
                .WriteASCIIString( ref idx, this._moduleName, true )
                .WriteByteToBytes( ref idx, 0 );
 
-            args.WritingStatus.PEDataDirectories[(Int32) DataDirectories.ImportTable] = args.GetDataDirectoryForSectionPart( this );
+            wStatus.PEDataDirectories[(Int32) DataDirectories.ImportTable] = args.GetDataDirectoryForSectionPart( this );
          }
 
          return retVal;
@@ -1543,16 +1595,17 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
 
       protected override Boolean DoWriteData( SectionPartWritingArgs args, Byte[] array, ref Int32 idx )
       {
-         var addressTable = args.Parts.OfType<SectionPart_ImportAddressTable>().FirstOrDefault();
+         var sectionLayouts = args.WritingStatus.SectionLayouts;
+         var addressTable = sectionLayouts.AllSectionParts.OfType<SectionPart_ImportAddressTable>().FirstOrDefault();
          var retVal = addressTable != null;
          if ( retVal )
          {
             array
                .ZeroOut( ref idx, PADDING ) // Padding - 2 zero bytes
                .WriteUInt16LEToBytes( ref idx, 0x25FF ) // JMP
-               .WriteUInt32LEToBytes( ref idx, this._imageBase + (UInt32) ( args.PartInfos[addressTable].RVA ) ); // First entry of address table = RVA of _CorDll/ExeMain
+               .WriteUInt32LEToBytes( ref idx, this._imageBase + (UInt32) ( sectionLayouts.SectionPartInfos[addressTable].RVA ) ); // First entry of address table = RVA of _CorDll/ExeMain
 
-            args.WritingStatus.EntryPointRVA = (Int32) ( args.PartInfos[this].RVA + this.EntryPointOffset );
+            args.WritingStatus.EntryPointRVA = (Int32) ( sectionLayouts.SectionPartInfos[this].RVA + this.EntryPointOffset );
          }
          return retVal;
       }
@@ -1572,11 +1625,12 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
 
       protected override Boolean DoWriteData( SectionPartWritingArgs args, Byte[] array, ref Int32 idx )
       {
-         var startupCode = args.Parts.OfType<SectionPart_StartupCode>().FirstOrDefault();
+         var sectionLayouts = args.WritingStatus.SectionLayouts;
+         var startupCode = sectionLayouts.AllSectionParts.OfType<SectionPart_StartupCode>().FirstOrDefault();
          var retVal = startupCode != null;
          if ( retVal )
          {
-            var rva = (UInt32) ( args.PartInfos[startupCode].RVA + startupCode.EntryPointInstructionAddressOffset );
+            var rva = (UInt32) ( sectionLayouts.SectionPartInfos[startupCode].RVA + startupCode.EntryPointInstructionAddressOffset );
             array
                .WriteUInt32LEToBytes( ref idx, rva & ( ~RELOCATION_PAGE_MASK ) ) // Page RVA
                .WriteInt32LEToBytes( ref idx, SIZE ) // Block size
@@ -1608,9 +1662,10 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
          var retVal = !dbgData.IsNullOrEmpty();
          if ( retVal )
          {
+            var parts = args.WritingStatus.SectionLayouts.SectionPartInfos;
             var dbgOptions = this._options;
-            var dataOffset = (UInt32) ( args.PartInfos[this].Offset + HEADER_SIZE );
-            var dataRVA = (UInt32) ( args.PartInfos[this].RVA + HEADER_SIZE );
+            var dataOffset = (UInt32) ( parts[this].Offset + HEADER_SIZE );
+            var dataRVA = (UInt32) ( parts[this].RVA + HEADER_SIZE );
             var debugInfo = new DebugInformation(
                dbgOptions.Characteristics,
                (UInt32) dbgOptions.Timestamp,
@@ -2268,7 +2323,7 @@ public static partial class E_CILPhysical
 {
    public static DataDirectory GetDataDirectoryForSectionPart( this SectionPartWritingArgs args, SectionPart part )
    {
-      return part == null ? default( DataDirectory ) : args.PartInfos[part].GetDataDirectory();
+      return part == null ? default( DataDirectory ) : args.WritingStatus.SectionLayouts.SectionPartInfos[part].GetDataDirectory();
    }
 
    public static DataDirectory GetDataDirectory( this SectionPartInfo info )

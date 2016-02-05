@@ -71,13 +71,15 @@ namespace CILAssemblyManipulator.Physical.IO
    /// The instances of this interface are created via <see cref="WriterFunctionalityProvider.GetFunctionality"/> method, and the instances of <see cref="WriterFunctionalityProvider"/> may be customized by setting <see cref="WritingArguments.WriterFunctionalityProvider"/> property.
    /// </summary>
    /// <remarks>
-   /// The <see cref="E_CILPhysical.WriteMetaDataToStream(WriterFunctionality, Stream, CILMetaData, WritingOptions, StrongNameKeyPair, bool, CryptoCallbacks, AssemblyHashAlgorithm?, EventHandler{SerializationErrorEventArgs})"/> method will call the methods of this interface in the following order:
+   /// The <see cref="E_CILPhysical.WriteMetaDataToStream(WriterFunctionality, Stream, CILMetaData, WritingOptions, StrongNameKeyPair, bool, CryptoCallbacks, AssemblyHashAlgorithm?, EventHandler{SerializationErrorEventArgs})"/> method will call the methods of this interface (and others) in the following order:
    /// <list type="number">
+   /// <item><description><see cref="CreateWritingStatus"/>,</description></item>
    /// <item><description><see cref="CreateMetaDataStreamHandlers"/>,</description></item>
-   /// <item><description><see cref="GetSectionCount"/>,</description></item>
-   /// <item><description><see cref="PopulateSections"/>,</description></item>
+   /// <item><description><see cref="WriterTableStreamHandler.FillHeaps"/>,</description></item>
+   /// <item><description><see cref="CalculateImageLayout"/>,</description></item>
    /// <item><description><see cref="BeforeMetaData"/>,</description></item>
    /// <item><description><see cref="WriteMDRoot"/>,</description></item>
+   /// <item><description><see cref="AbstractWriterStreamHandler.WriteStream"/> (once for each of the streams returned by <see cref="CreateMetaDataStreamHandlers"/>, in the same order as they were returned by <see cref="CreateMetaDataStreamHandlers"/>),</description></item>
    /// <item><description><see cref="AfterMetaData"/>, and</description></item>
    /// <item><description><see cref="WritePEInformation"/>.</description></item>
    /// </list>
@@ -89,38 +91,85 @@ namespace CILAssemblyManipulator.Physical.IO
    /// <seealso cref="WritingArguments.WriterFunctionalityProvider"/>
    public interface WriterFunctionality
    {
+      /// <summary>
+      /// This method should return enumerable of all <see cref="AbstractWriterStreamHandler"/>s supported by this <see cref="WriterFunctionality"/>.
+      /// </summary>
+      /// <returns>An enumerable of all <see cref="AbstractWriterStreamHandler"/>s supported by this <see cref="WriterFunctionality"/>.</returns>
+      /// <seealso cref="AbstractWriterStreamHandler"/>
       IEnumerable<AbstractWriterStreamHandler> CreateMetaDataStreamHandlers();
 
-      Int32 GetSectionCount( ImageFileMachine machine );
+      /// <summary>
+      /// This method should create a new instance of <see cref="WritingStatus"/> to be used throughout the serialization process.
+      /// </summary>
+      /// <param name="snVars">The <see cref="StrongNameVariables"/> for current serialization process. May be <c>null</c> if the resulting image will not be strong-name signed.</param>
+      /// <returns>A new instance of <see cref="WritingStatus"/> object.</returns>
+      WritingStatus CreateWritingStatus(
+         StrongNameVariables snVars
+         );
 
-      RawValueStorage<Int64> PopulateSections(
+      /// <summary>
+      /// This method is called to calculate the layout for the image created by serialization process.
+      /// </summary>
+      /// <param name="writingStatus">The <see cref="WritingStatus"/> created by<see cref="CreateWritingStatus"/> method.</param>
+      /// <param name="mdStreamContainer">The <see cref="WriterMetaDataStreamContainer"/>.</param>
+      /// <param name="allStreams">All streams, as returned by <see cref="CreateMetaDataStreamHandlers"/> method.</param>
+      /// <param name="rvaConverter">This parameter should contain the <see cref="RVAConverter"/> to be used when serialization process converts from RVAs to offsets.</param>
+      /// <param name="mdRootSize">This parameter should contain the size of the <see cref="MetaDataRoot"/> in bytes.</param>
+      /// <returns>A <see cref="RawValueStorage{TValue}"/> filled with data offsets, e.g. <see cref="MethodDefinition.IL"/> RVAs, and so on.</returns>
+      /// <remarks>
+      /// The returned <see cref="RawValueStorage{TValue}"/> will be used as argument for <see cref="AbstractWriterStreamHandler.WriteStream"/> method.
+      /// </remarks>
+      /// <seealso cref="RawValueStorage{TValue}"/>
+      /// <seealso cref="AbstractWriterStreamHandler.WriteStream"/>
+      RawValueStorage<Int64> CalculateImageLayout(
          WritingStatus writingStatus,
          WriterMetaDataStreamContainer mdStreamContainer,
-         ArrayQuery<AbstractWriterStreamHandler> allMDStreams,
-         SectionHeader[] sections,
+         IEnumerable<AbstractWriterStreamHandler> allStreams,
          out RVAConverter rvaConverter,
          out Int32 mdRootSize
          );
 
+      /// <summary>
+      /// This method should write whatever is needed before the metadata itself is written to the stream.
+      /// </summary>
+      /// <param name="writingStatus">The <see cref="WritingStatus"/> created by<see cref="CreateWritingStatus"/> method.</param>
+      /// <param name="stream">The <see cref="Stream"/> to write data to.</param>
+      /// <param name="array">The <see cref="ResizableArray{T}"/> helper.</param>
       void BeforeMetaData(
          WritingStatus writingStatus,
          Stream stream,
-         ResizableArray<Byte> array,
-         ArrayQuery<SectionHeader> sections
+         ResizableArray<Byte> array
          );
 
+      /// <summary>
+      /// This method should write the metadata root.
+      /// </summary>
+      /// <param name="writingStatus">The <see cref="WritingStatus"/> created by<see cref="CreateWritingStatus"/> method.</param>
+      /// <param name="array">The <see cref="ResizableArray{T}"/> helper.</param>
       void WriteMDRoot(
          WritingStatus writingStatus,
          ResizableArray<Byte> array
          );
 
+      /// <summary>
+      /// This method should write whatever is needed after the metadata itself is written to the stream.
+      /// </summary>
+      /// <param name="writingStatus">The <see cref="WritingStatus"/> created by<see cref="CreateWritingStatus"/> method.</param>
+      /// <param name="stream">The <see cref="Stream"/> to write data to.</param>
+      /// <param name="array">The <see cref="ResizableArray{T}"/> helper.</param>
       void AfterMetaData(
          WritingStatus writingStatus,
          Stream stream,
-         ResizableArray<Byte> array,
-         ArrayQuery<SectionHeader> sections
+         ResizableArray<Byte> array
          );
 
+      /// <summary>
+      /// This method should write the given <see cref="PEInformation"/> to the given <see cref="Stream"/>.
+      /// </summary>
+      /// <param name="writingStatus">The <see cref="WritingStatus"/> created by<see cref="CreateWritingStatus"/> method.</param>
+      /// <param name="stream">The <see cref="Stream"/> to write data to.</param>
+      /// <param name="array">The <see cref="ResizableArray{T}"/> helper.</param>
+      /// <param name="peInfo">The <see cref="PEInformation"/> object.</param>
       void WritePEInformation(
          WritingStatus writingStatus,
          Stream stream,
@@ -210,7 +259,8 @@ namespace CILAssemblyManipulator.Physical.IO
          Int32 sectionAlignment,
          Int64? imageBase,
          StrongNameVariables strongNameVariables,
-         Int32 dataDirCount
+         Int32 dataDirCount,
+         Int32 sectionsCount
          )
       {
          fileAlignment = CheckAlignment( fileAlignment, DEFAULT_FILE_ALIGNMENT );
@@ -222,7 +272,8 @@ namespace CILAssemblyManipulator.Physical.IO
          this.SectionAlignment = sectionAlignment;
          this.ImageBase = imageBase ?? ( machine.RequiresPE64() ? 0x0000000140000000 : 0x0000000000400000 );
          this.StrongNameVariables = strongNameVariables;
-         this.PEDataDirectories = Enumerable.Repeat<DataDirectory>( default( DataDirectory ), dataDirCount ).ToArrayProxy();
+         this.PEDataDirectories = Enumerable.Repeat( default( DataDirectory ), dataDirCount ).ToArray();
+         this.SectionHeaders = Enumerable.Repeat<SectionHeader>( null, sectionsCount ).ToArray();
       }
 
       public Int32 HeadersSize { get; }
@@ -239,7 +290,9 @@ namespace CILAssemblyManipulator.Physical.IO
 
       public StrongNameVariables StrongNameVariables { get; }
 
-      public ArrayProxy<DataDirectory> PEDataDirectories { get; }
+      public DataDirectory[] PEDataDirectories { get; }
+
+      public SectionHeader[] SectionHeaders { get; }
 
       public Int32? EntryPointRVA { get; set; }
 
@@ -273,7 +326,6 @@ namespace CILAssemblyManipulator.Physical.IO
 
 public static partial class E_CILPhysical
 {
-   private const Int32 PE_SIG_AND_FILE_HEADER_SIZE = 0x18; // PE signature + file header
    private const Int32 DATA_DIR_SIZE = 0x08;
 
    public static ImageInformation WriteMetaDataToStream(
@@ -355,11 +407,19 @@ public static partial class E_CILPhysical
          options = new WritingOptions();
       }
 
+
+
+      // 1. Create WritingStatus
       // Prepare strong name
       RSAParameters rParams;
-      var snVars = md.PrepareStrongNameVariables( sn, ref delaySign, cryptoCallbacks, snAlgorithmOverride, out rParams );
+      var status = writer.CreateWritingStatus( md.PrepareStrongNameVariables( sn, ref delaySign, cryptoCallbacks, snAlgorithmOverride, out rParams ) );
+      if ( status == null )
+      {
+         throw new InvalidOperationException( "Writer failed to create writing status object." );
+      }
+      var snVars = status.StrongNameVariables;
 
-      // 1. Create streams
+      // 2. Create streams
       var mdStreams = writer.CreateMetaDataStreamHandlers().ToArrayProxy().CQ;
       var tblMDStream = mdStreams
          .OfType<WriterTableStreamHandler>()
@@ -377,53 +437,30 @@ public static partial class E_CILPhysical
             mdStreams.Where( s => !ReferenceEquals( tblMDStream, s ) && !ReferenceEquals( blobStream, s ) && !ReferenceEquals( guidStream, s ) && !ReferenceEquals( sysStringStream, s ) && !ReferenceEquals( userStringStream, s ) )
             );
 
-      // 2. Populate streams
+      // 3. Populate streams
       var array = new ResizableArray<Byte>( initialSize: 0x1000 );
       MetaDataTableStreamHeader thHeader;
       tblMDStream.FillHeaps( snVars?.PublicKey?.ToArrayProxy()?.CQ, mdStreamContainer, array, out thHeader );
 
-      // 3. Create WritingStatus (TODO maybe let writer create it?)
-      var peOptions = options.PEOptions;
-      var machine = peOptions.Machine ?? ImageFileMachine.I386;
-      var sectionsArray = new SectionHeader[writer.GetSectionCount( machine )];
-
-      var peDataDirCount = peOptions.NumberOfDataDirectories ?? (Int32) DataDirectories.MaxValue;
-      var optionalHeaderKind = machine.GetOptionalHeaderKind();
-      var optionalHeaderSize = optionalHeaderKind.GetOptionalHeaderSize( peDataDirCount );
-      var status = new WritingStatus(
-         0x80 // DOS header size
-         + PE_SIG_AND_FILE_HEADER_SIZE // PE Signature + File header size
-         + optionalHeaderSize // Optional header size
-         + sectionsArray.Length * 0x28 // Sections
-         ,
-         machine,
-         peOptions.FileAlignment ?? WritingStatus.DEFAULT_FILE_ALIGNMENT,
-         peOptions.SectionAlignment ?? WritingStatus.DEFAULT_SECTION_ALIGNMENT,
-         peOptions.ImageBase,
-         snVars,
-         peDataDirCount
-         );
-
       // 4. Create sections and some headers
       RVAConverter rvaConverter; Int32 mdRootSize;
-      var rawValueProvider = writer.PopulateSections(
+      var rawValueProvider = writer.CalculateImageLayout(
          status,
          mdStreamContainer,
          mdStreams,
-         sectionsArray,
          out rvaConverter,
          out mdRootSize
          );
+
       if ( rvaConverter == null )
       {
-         rvaConverter = new DefaultRVAConverter( sectionsArray );
+         rvaConverter = new DefaultRVAConverter( status.SectionHeaders );
       }
 
       // 5. Position stream after headers, and write whatever is needed before meta data
-      var sections = cf.NewArrayProxy( sectionsArray ).CQ;
       var headersSize = status.HeadersSize;
       stream.Position = headersSize;
-      writer.BeforeMetaData( status, stream, array, sections );
+      writer.BeforeMetaData( status, stream, array );
 
       var cliHeader = status.CLIHeader;
       if ( cliHeader == null )
@@ -442,13 +479,18 @@ public static partial class E_CILPhysical
       }
 
       // 7. Write whatever is needed after meta data
-      writer.AfterMetaData( status, stream, array, sections );
+      writer.AfterMetaData( status, stream, array );
 
       // 8. Create and write image information
       var cliOptions = options.CLIOptions;
       var snSignature = snVars == null ? null : new Byte[snVars.SignatureSize];
       var cliHeaderOptions = cliOptions.HeaderOptions;
       var thOptions = cliOptions.TablesStreamOptions;
+      var machine = status.Machine;
+      var peOptions = options.PEOptions;
+      var optionalHeaderKind = machine.GetOptionalHeaderKind();
+      var optionalHeaderSize = optionalHeaderKind.GetOptionalHeaderSize( status.PEDataDirectories.Length );
+      var sections = status.SectionHeaders.ToArrayProxy().CQ;
       var imageInfo = new ImageInformation(
          new PEInformation(
             new DOSHeader( 0x5A4D, 0x00000080u ),
@@ -641,14 +683,14 @@ public static partial class E_CILPhysical
                   const Int32 peCheckSumOffsetWithinOptionalHeader = 0x40;
                   var ntHeaderStart = (Int32) imageInfo.DOSHeader.NTHeaderOffset;
                   idx = ntHeaderStart
-                     + PE_SIG_AND_FILE_HEADER_SIZE // NT header signature + file header size
+                     + DefaultWriterFunctionality.PE_SIG_AND_FILE_HEADER_SIZE // NT header signature + file header size
                      + peCheckSumOffsetWithinOptionalHeader; // Offset of PE checksum entry.
                   hdrArray.WriteInt32LEToBytes( ref idx, 0 );
 
                   var optionalHeaderSizeWithoutDataDirs = imageInfo.NTHeader.FileHeader.OptionalHeaderSize - DATA_DIR_SIZE * imageInfo.NTHeader.OptionalHeader.DataDirectories.Count;
 
                   idx = ntHeaderStart
-                     + PE_SIG_AND_FILE_HEADER_SIZE // NT header signature + file header size
+                     + DefaultWriterFunctionality.PE_SIG_AND_FILE_HEADER_SIZE // NT header signature + file header size
                      + optionalHeaderSizeWithoutDataDirs
                      + 4 * DATA_DIR_SIZE; // Authenticode is 5th data directory, and optionalHeaderSize includes all data directories
                   hdrArray.WriteDataDirectory( ref idx, default( DataDirectory ) );
@@ -726,7 +768,7 @@ public static partial class E_CILPhysical
       return (Int32) ( DateTime.UtcNow - new DateTime( 1970, 1, 1, 0, 0, 0, DateTimeKind.Utc ) ).TotalSeconds;
    }
 
-   private static UInt16 GetOptionalHeaderSize( this OptionalHeaderKind kind, Int32 peDataDirectoriesCount )
+   internal static UInt16 GetOptionalHeaderSize( this OptionalHeaderKind kind, Int32 peDataDirectoriesCount )
    {
       return (UInt16) ( ( kind == OptionalHeaderKind.Optional64 ? 0x70 : 0x60 ) + DATA_DIR_SIZE * peDataDirectoriesCount );
    }
@@ -841,7 +883,7 @@ public static partial class E_CILPhysical
                (UInt32) ( options.HeapCommitSize ?? 0x00001000 ),
                options.LoaderFlags ?? 0x00000000,
                (UInt32) ( options.NumberOfDataDirectories ?? (Int32) DataDirectories.MaxValue ),
-               writingStatus.PEDataDirectories.CQ.ToArrayProxy().CQ
+               writingStatus.PEDataDirectories.ToArrayProxy().CQ
                );
          case OptionalHeaderKind.Optional64:
             return new OptionalHeader64(
@@ -873,7 +915,7 @@ public static partial class E_CILPhysical
                (UInt64) ( options.HeapCommitSize ?? 0x0000000000002000 ),
                options.LoaderFlags ?? 0x00000000,
                (UInt32) ( options.NumberOfDataDirectories ?? (Int32) DataDirectories.MaxValue ),
-               writingStatus.PEDataDirectories.CQ.ToArrayProxy().CQ
+               writingStatus.PEDataDirectories.ToArrayProxy().CQ
                );
          default:
             throw new ArgumentException( "Unsupported optional header kind: " + kind + "." );

@@ -38,7 +38,7 @@ namespace CILAssemblyManipulator.Physical.IO
    /// </summary>
    /// <remarks>
    /// This interface does not specify whether it is thread-safe or not, that depends on the class implementing this interface.
-   /// The <see cref="CILMetaDataLoaderNotThreadSafeForFiles"/>, <see cref="CILMetaDataLoaderThreadSafeSimpleForFiles"/>, and <see cref="CILMetaDataLoaderThreadSafeConcurrentForFiles"/> provide ready-to-use implementation of this interface in non-portable usage scenarios.
+   /// The <see cref="T:CILAssemblyManipulator.Physical.IO.CILMetaDataLoaderNotThreadSafeForFiles"/>, <see cref="T:CILAssemblyManipulator.Physical.IO.CILMetaDataLoaderThreadSafeSimpleForFiles"/>, and <see cref="T:CILAssemblyManipulator.Physical.IO.CILMetaDataLoaderThreadSafeConcurrentForFiles"/> provide ready-to-use implementation of this interface in non-portable usage scenarios.
    /// The <see cref="CILMetaDataLoaderNotThreadSafe"/> and <see cref="CILMetaDataLoaderThreadSafeSimple"/> implement this interface in a way suitable for most of the portable usage scenarios.
    /// </remarks>
    public interface CILMetaDataLoader : IDisposable
