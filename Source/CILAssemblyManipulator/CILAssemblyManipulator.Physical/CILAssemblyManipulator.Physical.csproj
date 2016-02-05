@@ -97,9 +97,22 @@
   <PropertyGroup Condition=" '$(Configuration)' == 'Release' Or '$(Configuration)' == 'Release_Portable' ">
     <CILMergeNoDebug>True</CILMergeNoDebug>
   </PropertyGroup>
+
   <Target Name="AfterBuild">
+    <ItemGroup>
+      <ProjectToMerge Include="@(IntermediateAssembly)" />
+      <ProjectToMerge Include="$(MSBuildThisFileDirectory)$(OutputPath)CILAssemblyManipulator.Physical.Core.dll" />
+      <ProjectToMerge Include="$(MSBuildThisFileDirectory)$(OutputPath)CILAssemblyManipulator.Physical.Crypto.dll" />
+      <ProjectToMerge Include="$(MSBuildThisFileDirectory)$(OutputPath)CILAssemblyManipulator.Physical.IO.dll" />
+      <ProjectToMerge Include="$(MSBuildThisFileDirectory)$(OutputPath)..\SL\CILAssemblyManipulator.Physical.IO.Resolving.dll" />
+      <ProjectToMerge Include="$(MSBuildThisFileDirectory)$(OutputPath)CILAssemblyManipulator.Physical.IO.Loading.dll" />
+      <ProjectToMerge Include="$(MSBuildThisFileDirectory)$(OutputPath)CILAssemblyManipulator.Physical.TypeRemapping.dll" />
+      <ProjectToMerge Include="$(MSBuildThisFileDirectory)$(OutputPath)..\SL\CILAssemblyManipulator.Physical.MResources.dll" />
+      <ProjectToMerge Include="$(MSBuildThisFileDirectory)$(OutputPath)..\SL\CILAssemblyManipulator.Physical.PDB.dll" />
+    </ItemGroup>
+    
     <CILMerge.MSBuild.CILMergeTask
-      InputAssemblies="@(IntermediateAssembly);$(MSBuildThisFileDirectory)$(OutputPath)CILAssemblyManipulator.Physical.Core.dll;$(MSBuildThisFileDirectory)$(OutputPath)CILAssemblyManipulator.Physical.Crypto.dll;$(MSBuildThisFileDirectory)$(OutputPath)CILAssemblyManipulator.Physical.IO.dll;$(MSBuildThisFileDirectory)$(OutputPath)..\SL\CILAssemblyManipulator.Physical.MResources.dll;$(MSBuildThisFileDirectory)$(OutputPath)..\SL\CILAssemblyManipulator.Physical.PDB.dll"
+      InputAssemblies="@(ProjectToMerge)"
       OutPath="$(MSBuildThisFileDirectory)$(OutputPath)$(AssemblyName).dll"
       Union="True"
       UnionExcludeFile="$(MSBuildProjectDirectory)\..\..\CAMPhysicalUnionExcludes.txt"
