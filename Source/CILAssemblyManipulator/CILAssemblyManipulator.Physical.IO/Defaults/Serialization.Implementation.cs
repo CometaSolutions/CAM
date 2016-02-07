@@ -723,12 +723,12 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
          }
       }
 
-      public void ExtractTableHeapValues(
+      public void PopulateTableHeapValues(
          CILMetaData md,
          RawValueStorage<Int32> storage,
          WriterMetaDataStreamContainer mdStreamContainer,
          ResizableArray<Byte> array,
-         ArrayQuery<Byte> thisAssemblyPublicKeyIfPresentNull
+         ArrayQuery<Byte> publicKey
          )
       {
          MetaDataTable tbl;
@@ -742,7 +742,7 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
             if ( cols.Length > 0 )
             {
                var list = table.TableContents;
-               var rArgs = new RowHeapFillingArguments( mdStreamContainer, array, thisAssemblyPublicKeyIfPresentNull, md );
+               var rArgs = new RowHeapFillingArguments( mdStreamContainer, array, publicKey, md );
                for ( var i = 0; i < list.Count; ++i )
                {
                   var cArgs = new ColumnFunctionalityArgs<TRow, RowHeapFillingArguments>( i, list[i], rArgs );

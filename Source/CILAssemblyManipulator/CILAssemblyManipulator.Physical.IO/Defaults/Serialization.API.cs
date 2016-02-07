@@ -472,12 +472,12 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
          );
 
 
-      void ExtractTableHeapValues(
+      void PopulateTableHeapValues(
          CILMetaData md,
          RawValueStorage<Int32> storage,
          WriterMetaDataStreamContainer mdStreamContainer,
          ResizableArray<Byte> array,
-         ArrayQuery<Byte> thisAssemblyPublicKeyIfPresentNull
+         ArrayQuery<Byte> publicKey
          );
 
       IEnumerable<Int32> GetAllRawValues(
@@ -623,7 +623,7 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
       public RowHeapFillingArguments(
          WriterMetaDataStreamContainer mdStreamContainer,
          ResizableArray<Byte> array,
-         ArrayQuery<Byte> thisAssemblyPublicKeyIfPresentNull,
+         ArrayQuery<Byte> publicKey,
          CILMetaData metaData
          )
       {
@@ -633,7 +633,7 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
 
          this.MDStreamContainer = mdStreamContainer;
          this.Array = array;
-         this.ThisAssemblyPublicKeyIfPresentNull = thisAssemblyPublicKeyIfPresentNull;
+         this.PublicKey = publicKey;
          this.MetaData = metaData;
          this.AuxArray = new ResizableArray<Byte>();
       }
@@ -642,7 +642,7 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
 
       public WriterMetaDataStreamContainer MDStreamContainer { get; }
 
-      public ArrayQuery<Byte> ThisAssemblyPublicKeyIfPresentNull { get; }
+      public ArrayQuery<Byte> PublicKey { get; }
 
       public CILMetaData MetaData { get; }
 

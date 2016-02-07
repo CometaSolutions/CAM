@@ -115,7 +115,7 @@ namespace CILAssemblyManipulator.Tests.CILMerge
             UnionAll = true,
             UnionExcludeFile = Path.Combine( baseDir, "Source", "CAMPhysicalUnionExcludes.txt" ),
             Closed = true,
-            InternalizeAll = true,
+            Internalize = Path.Combine( baseDir, "Source", "CAMPhysicalInternalizeIncludes.txt" ),
             UseFullPublicKeyForRefs = true,
             XmlDocs = true,
             KeyFile = Path.Combine( baseDir, "Keys", "CILMerge.snk" )

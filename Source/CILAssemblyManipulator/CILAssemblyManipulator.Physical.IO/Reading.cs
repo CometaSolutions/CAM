@@ -283,7 +283,7 @@ namespace CILAssemblyManipulator.Physical.IO
    }
 
    /// <summary>
-   /// This class encapsulates all <see cref="AbstractReaderStreamHandler"/>s created by <see cref="ReaderFunctionality.CreateStreamHandler"/> to be more easily accessable and useable.
+   /// This class encapsulates all <see cref="AbstractReaderStreamHandler"/>s created by <see cref="ReaderFunctionality.CreateStreamHandler"/> (except <see cref="ReaderTableStreamHandler"/>) to be more easily accessable and useable.
    /// </summary>
    public class ReaderMetaDataStreamContainer
    {
@@ -318,7 +318,7 @@ namespace CILAssemblyManipulator.Physical.IO
       /// </summary>
       /// <value>The <see cref="ReaderBLOBStreamHandler"/>.</value>
       /// <remarks>
-      /// This value may be <c>null</c>, if null was specific to the constructor of this <see cref="ReaderMetaDataStreamContainer"/>.
+      /// This value may be <c>null</c>, if null was specified to the constructor of this <see cref="ReaderMetaDataStreamContainer"/>.
       /// </remarks>
       /// <seealso cref="ReaderBLOBStreamHandler"/>
       public ReaderBLOBStreamHandler BLOBs { get; }
@@ -328,7 +328,7 @@ namespace CILAssemblyManipulator.Physical.IO
       /// </summary>
       /// <value>The <see cref="ReaderGUIDStreamHandler"/>.</value>
       /// <remarks>
-      /// This value may be <c>null</c>, if null was specific to the constructor of this <see cref="ReaderMetaDataStreamContainer"/>.
+      /// This value may be <c>null</c>, if null was specified to the constructor of this <see cref="ReaderMetaDataStreamContainer"/>.
       /// </remarks>
       /// <seealso cref="ReaderGUIDStreamHandler"/>
       public ReaderGUIDStreamHandler GUIDs { get; }
@@ -338,7 +338,7 @@ namespace CILAssemblyManipulator.Physical.IO
       /// </summary>
       /// <value>The <see cref="ReaderStringStreamHandler"/> for system strings.</value>
       /// <remarks>
-      /// This value may be <c>null</c>, if null was specific to the constructor of this <see cref="ReaderMetaDataStreamContainer"/>.
+      /// This value may be <c>null</c>, if null was specified to the constructor of this <see cref="ReaderMetaDataStreamContainer"/>.
       /// </remarks>
       /// <seealso cref="ReaderStringStreamHandler"/>
       public ReaderStringStreamHandler SystemStrings { get; }
@@ -348,7 +348,7 @@ namespace CILAssemblyManipulator.Physical.IO
       /// </summary>
       /// <value>The <see cref="ReaderStringStreamHandler"/> for user strings.</value>
       /// <remarks>
-      /// This value may be <c>null</c>, if null was specific to the constructor of this <see cref="ReaderMetaDataStreamContainer"/>.
+      /// This value may be <c>null</c>, if null was specified to the constructor of this <see cref="ReaderMetaDataStreamContainer"/>.
       /// </remarks>
       /// <seealso cref="ReaderStringStreamHandler"/>
       public ReaderStringStreamHandler UserStrings { get; }

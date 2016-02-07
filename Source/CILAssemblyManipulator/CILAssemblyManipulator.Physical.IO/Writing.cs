@@ -75,7 +75,7 @@ namespace CILAssemblyManipulator.Physical.IO
    /// <list type="number">
    /// <item><description><see cref="CreateWritingStatus"/>,</description></item>
    /// <item><description><see cref="CreateMetaDataStreamHandlers"/>,</description></item>
-   /// <item><description><see cref="WriterTableStreamHandler.FillHeaps"/>,</description></item>
+   /// <item><description><see cref="WriterTableStreamHandler.FillOtherMDStreams"/>,</description></item>
    /// <item><description><see cref="CalculateImageLayout"/>,</description></item>
    /// <item><description><see cref="BeforeMetaData"/>,</description></item>
    /// <item><description><see cref="WriteMDRoot"/>,</description></item>
@@ -101,10 +101,10 @@ namespace CILAssemblyManipulator.Physical.IO
       /// <summary>
       /// This method should create a new instance of <see cref="WritingStatus"/> to be used throughout the serialization process.
       /// </summary>
-      /// <param name="snVars">The <see cref="StrongNameVariables"/> for current serialization process. May be <c>null</c> if the resulting image will not be strong-name signed.</param>
+      /// <param name="snVars">The <see cref="StrongNameInformation"/> for current serialization process. May be <c>null</c> if the resulting image will not be strong-name signed.</param>
       /// <returns>A new instance of <see cref="WritingStatus"/> object.</returns>
       WritingStatus CreateWritingStatus(
-         StrongNameVariables snVars
+         StrongNameInformation snVars
          );
 
       /// <summary>
@@ -178,8 +178,22 @@ namespace CILAssemblyManipulator.Physical.IO
          );
    }
 
+   /// <summary>
+   /// This class encapsulates all <see cref="AbstractWriterStreamHandler"/>s created by <see cref="WriterFunctionality.CreateMetaDataStreamHandlers"/> (except <see cref="WriterTableStreamHandler"/>) to be more easily accessable and useable.
+   /// </summary>
    public class WriterMetaDataStreamContainer
    {
+      /// <summary>
+      /// Creates a new instance of <see cref="WriterMetaDataStreamContainer"/> with given streams.
+      /// </summary>
+      /// <param name="blobs">The <see cref="WriterBLOBStreamHandler"/> for <c>#Blobs</c> stream.</param>
+      /// <param name="guids">The <see cref="WriterGUIDStreamHandler"/> for <c>#GUID</c> stream.</param>
+      /// <param name="sysStrings">The <see cref="WriterStringStreamHandler"/> for <c>#String</c> stream.</param>
+      /// <param name="userStrings">The <see cref="WriterStringStreamHandler"/> for <c>#US</c> stream.</param>
+      /// <param name="otherStreams">Any other streams.</param>
+      /// <remarks>
+      /// None of the parameters are checked for <c>null</c> values.
+      /// </remarks>
       public WriterMetaDataStreamContainer(
          WriterBLOBStreamHandler blobs,
          WriterGUIDStreamHandler guids,
@@ -195,131 +209,371 @@ namespace CILAssemblyManipulator.Physical.IO
          this.OtherStreams = otherStreams.ToArrayProxy().CQ;
       }
 
+      /// <summary>
+      /// Gets the <see cref="WriterBLOBStreamHandler"/>.
+      /// </summary>
+      /// <value>The <see cref="WriterBLOBStreamHandler"/>.</value>
+      /// <remarks>
+      /// This value may be <c>null</c>, if null was specified to the constructor of this <see cref="WriterMetaDataStreamContainer"/>.
+      /// </remarks>
+      /// <seealso cref="WriterBLOBStreamHandler"/>
       public WriterBLOBStreamHandler BLOBs { get; }
 
+      /// <summary>
+      /// Gets the <see cref="WriterGUIDStreamHandler"/>.
+      /// </summary>
+      /// <value>The <see cref="WriterGUIDStreamHandler"/>.</value>
+      /// <remarks>
+      /// This value may be <c>null</c>, if null was specified to the constructor of this <see cref="WriterMetaDataStreamContainer"/>.
+      /// </remarks>
+      /// <seealso cref="WriterGUIDStreamHandler"/>
       public WriterGUIDStreamHandler GUIDs { get; }
 
+      /// <summary>
+      /// Gets the <see cref="WriterStringStreamHandler"/> for system strings.
+      /// </summary>
+      /// <value>The <see cref="WriterStringStreamHandler"/> for system strings.</value>
+      /// <remarks>
+      /// This value may be <c>null</c>, if null was specified to the constructor of this <see cref="WriterMetaDataStreamContainer"/>.
+      /// </remarks>
+      /// <seealso cref="WriterStringStreamHandler"/>
       public WriterStringStreamHandler SystemStrings { get; }
 
+      /// <summary>
+      /// Gets the <see cref="WriterStringStreamHandler"/> for user strings.
+      /// </summary>
+      /// <value>The <see cref="WriterStringStreamHandler"/> for user strings.</value>
+      /// <remarks>
+      /// This value may be <c>null</c>, if null was specified to the constructor of this <see cref="WriterMetaDataStreamContainer"/>.
+      /// </remarks>
+      /// <seealso cref="WriterStringStreamHandler"/>
       public WriterStringStreamHandler UserStrings { get; }
 
+      /// <summary>
+      /// Gets the other <see cref="AbstractWriterStreamHandler"/>s given to this <see cref="WriterMetaDataStreamContainer"/>.
+      /// </summary>
+      /// <value>The other <see cref="AbstractWriterStreamHandler"/>s given to this <see cref="WriterMetaDataStreamContainer"/>.</value>
+      /// <remarks>
+      /// This value may be empty, but it is never <c>null</c>.
+      /// </remarks>
+      /// <seealso cref="AbstractWriterStreamHandler"/>
       public ArrayQuery<AbstractWriterStreamHandler> OtherStreams { get; }
    }
 
-
+   /// <summary>
+   /// This is common interface for all objects, which participate in serialization process as handlers for meta data stream (e.g. table stream, BLOB stream, etc).
+   /// </summary>
+   /// <seealso cref="WriterTableStreamHandler"/>
+   /// <seealso cref="WriterBLOBStreamHandler"/>
+   /// <seealso cref="WriterStringStreamHandler"/>
+   /// <seealso cref="WriterGUIDStreamHandler"/>
    public interface AbstractWriterStreamHandler
    {
+      /// <summary>
+      /// Gets the textual name of this <see cref="AbstractWriterStreamHandler"/>.
+      /// </summary>
+      /// <value>The textual name of this <see cref="AbstractWriterStreamHandler"/>.</value>
       String StreamName { get; }
 
+      /// <summary>
+      /// Writes the current contents of this <see cref="AbstractWriterStreamHandler"/> to given <see cref="Stream"/>.
+      /// </summary>
+      /// <param name="stream">The <see cref="Stream"/> to write the contents to.</param>
+      /// <param name="array">The auxiliary <see cref="ResizableArray{T}"/> to use.</param>
+      /// <param name="rawValueProvder">The data references created by <see cref="WriterFunctionality.CalculateImageLayout"/>.</param>
       void WriteStream(
-         Stream sink,
+         Stream stream,
          ResizableArray<Byte> array,
          RawValueStorage<Int64> rawValueProvder
          );
 
+      /// <summary>
+      /// Gets the current size of this <see cref="AbstractWriterStreamHandler"/> in bytes.
+      /// </summary>
+      /// <value>The current size of this <see cref="AbstractWriterStreamHandler"/> in bytes.</value>
       Int32 CurrentSize { get; }
 
+      /// <summary>
+      /// Gets the value indicating whether this <see cref="AbstractWriterStreamHandler"/> has been accessed in some way yet.
+      /// </summary>
+      /// <value>The value indicating whether this <see cref="AbstractWriterStreamHandler"/> has been accessed in some way yet.</value>
       Boolean Accessed { get; }
    }
 
+   /// <summary>
+   /// This interface should be implemented by objects handling writing of table stream in meta data.
+   /// The table stream is where the structure of <see cref="CILMetaData"/> is defined (present tables, their size, etc).
+   /// </summary>
+   /// <remarks>
+   /// The <see cref="E_CILPhysical.WriteMetaDataToStream(WriterFunctionality, Stream, CILMetaData, WritingOptions, StrongNameKeyPair, bool, CryptoCallbacks, AssemblyHashAlgorithm?, EventHandler{SerializationErrorEventArgs})"/> method will call the methods of this interface in the following order:
+   /// <list type="number">
+   /// <item><description><see cref="FillOtherMDStreams"/>, and</description></item>
+   /// <item><description><see cref="AbstractWriterStreamHandler.WriteStream"/>.</description></item>
+   /// </list>
+   /// </remarks>
    public interface WriterTableStreamHandler : AbstractWriterStreamHandler
    {
-      RawValueStorage<Int32> FillHeaps(
-         ArrayQuery<Byte> thisAssemblyPublicKeyIfPresentNull,
+      /// <summary>
+      /// Fills the other meta data streams represented by <see cref="AbstractWriterStreamHandler"/>s with the data from the <see cref="CILMetaData"/> originally supplied to <see cref="WriterFunctionalityProvider.GetFunctionality"/> method.
+      /// </summary>
+      /// <param name="publicKey">The public key to use instead of <see cref="AssemblyInformation.PublicKeyOrToken"/> of the <see cref="AssemblyDefinition"/> row.</param>
+      /// <param name="mdStreams">The <see cref="WriterMetaDataStreamContainer"/> object containing other <see cref="AbstractWriterStreamHandler"/>s returned by <see cref="WriterFunctionality.CreateMetaDataStreamHandlers"/> method.</param>
+      /// <param name="array">The auxiliary byte <see cref="ResizableArray{T}"/>.</param>
+      /// <returns>A new instance of <see cref="MetaDataTableStreamHeader"/> describing the header for this meta-data.</returns>
+      MetaDataTableStreamHeader FillOtherMDStreams(
+         ArrayQuery<Byte> publicKey,
          WriterMetaDataStreamContainer mdStreams,
-         ResizableArray<Byte> array,
-         out MetaDataTableStreamHeader header
+         ResizableArray<Byte> array
          );
    }
 
+   /// <summary>
+   /// This interface should be implemented by objects handling writing of BLOB stream in meta data.
+   /// </summary>
    public interface WriterBLOBStreamHandler : AbstractWriterStreamHandler
    {
+      /// <summary>
+      /// Gets the index for given BLOB as byte array.
+      /// </summary>
+      /// <param name="blob">The BLOB byte array. May be <c>null</c>.</param>
+      /// <returns>An index for the given BLOB byte array.</returns>
       Int32 RegisterBLOB( Byte[] blob );
    }
 
-   public interface WriterStringStreamHandler : AbstractWriterStreamHandler
-   {
-      Int32 RegisterString( String systemString );
-   }
-
+   /// <summary>
+   /// This interface should be implemented by objects handling writing of GUID stream in meta data.
+   /// </summary>
    public interface WriterGUIDStreamHandler : AbstractWriterStreamHandler
    {
+      /// <summary>
+      /// Gets the index for given <see cref="Guid"/>.
+      /// </summary>
+      /// <param name="guid">The <see cref="Guid"/>. May be <c>null</c>.</param>
+      /// <returns>An index for the given <see cref="Guid"/>.</returns>
       Int32 RegisterGUID( Guid? guid );
    }
 
+   /// <summary>
+   /// This interface should be implemented by objects handling writing of various string streams in meta data.
+   /// </summary>
+   public interface WriterStringStreamHandler : AbstractWriterStreamHandler
+   {
+      /// <summary>
+      /// Gets the index for given string.
+      /// </summary>
+      /// <param name="str">The string. May be <c>null</c>.</param>
+      /// <returns>An index for the given string.</returns>
+      Int32 RegisterString( String str );
+   }
+
+   /// <summary>
+   /// This class contains various information about the image being writen by <see cref="E_CILPhysical.WriteMetaDataToStream(WriterFunctionality, Stream, CILMetaData, WritingOptions, StrongNameKeyPair, bool, CryptoCallbacks, AssemblyHashAlgorithm?, EventHandler{SerializationErrorEventArgs})"/> method.
+   /// Some of the information is read-only and set by the method, and another should be set by <see cref="WriterFunctionality"/> itself or the objects it creates.
+   /// The purpose of this object is to hide when and where exactly the mutable information is set, as it will be needed only at the very end of the serialization process.
+   /// </summary>
+   /// <remarks>
+   /// Custom <see cref="WriterFunctionality"/> implementors may extend this class containing information specific to their customized writing process.
+   /// </remarks>
    public class WritingStatus
    {
-      public const Int32 DEFAULT_FILE_ALIGNMENT = 0x200;
-      public const Int32 DEFAULT_SECTION_ALIGNMENT = 0x2000;
+      private const Int32 DEFAULT_FILE_ALIGNMENT = 0x200;
+      private const Int32 DEFAULT_SECTION_ALIGNMENT = 0x2000;
 
+      /// <summary>
+      /// Creates a new instance of <see cref="WritingStatus"/> with given parameters.
+      /// </summary>
+      /// <param name="headersSizeUnaligned">The exact, unaligned size of the headers. See <see cref="HeadersSizeUnaligned"/> for more information.</param>
+      /// <param name="machine">The <see cref="ImageFileMachine"/> enumeration describing the target machine for the image.</param>
+      /// <param name="fileAlignment">The optional file alignment. If none supplied, the default will be used.</param>
+      /// <param name="sectionAlignment">The optional section alignment. If none supplied, the default will be used.</param>
+      /// <param name="imageBase">The optional image base. If none supplied, the default will be used. This default will depend on the <paramref name="machine"/>.</param>
+      /// <param name="strongNameVariables">The optional <see cref="IO.StrongNameInformation"/>, describing the public key information for the assembly being emitted. May be <c>null</c> if assembly is not strong-name signed.</param>
+      /// <param name="dataDirCount">The amount of data directories in PE header (these will become <see cref="OptionalHeader.DataDirectories"/>). The amount of <see cref="PEDataDirectories"/> will be this amount.</param>
+      /// <param name="sectionsCount">The amount of sections in this image. The amount of <see cref="SectionHeaders"/> will be this amount.</param>
       public WritingStatus(
-         Int32 headersSize,
+         Int32 headersSizeUnaligned,
          ImageFileMachine machine,
-         Int32 fileAlignment,
-         Int32 sectionAlignment,
+         Int32? fileAlignment,
+         Int32? sectionAlignment,
          Int64? imageBase,
-         StrongNameVariables strongNameVariables,
+         StrongNameInformation strongNameVariables,
          Int32 dataDirCount,
          Int32 sectionsCount
          )
       {
-         fileAlignment = CheckAlignment( fileAlignment, DEFAULT_FILE_ALIGNMENT );
-         sectionAlignment = CheckAlignment( sectionAlignment, DEFAULT_SECTION_ALIGNMENT );
-         this.HeadersSizeUnaligned = headersSize;
-         this.HeadersSize = headersSize.RoundUpI32( fileAlignment );
+         var fAlign = CheckAlignment( fileAlignment ?? DEFAULT_FILE_ALIGNMENT, DEFAULT_FILE_ALIGNMENT );
+         var sAlign = CheckAlignment( sectionAlignment ?? DEFAULT_SECTION_ALIGNMENT, DEFAULT_SECTION_ALIGNMENT );
+         this.HeadersSizeUnaligned = headersSizeUnaligned;
          this.Machine = machine;
-         this.FileAlignment = fileAlignment;
-         this.SectionAlignment = sectionAlignment;
+         this.FileAlignment = fAlign;
+         this.SectionAlignment = sAlign;
          this.ImageBase = imageBase ?? ( machine.RequiresPE64() ? 0x0000000140000000 : 0x0000000000400000 );
-         this.StrongNameVariables = strongNameVariables;
+         this.StrongNameInformation = strongNameVariables;
          this.PEDataDirectories = Enumerable.Repeat( default( DataDirectory ), dataDirCount ).ToArray();
          this.SectionHeaders = Enumerable.Repeat<SectionHeader>( null, sectionsCount ).ToArray();
       }
 
-      public Int32 HeadersSize { get; }
-
+      /// <summary>
+      /// Gets the exact, unaligned size of the headers.
+      /// </summary>
+      /// <value>The exact, unaligned size of the headers.</value>
+      /// <remarks>
+      /// The size of the following headers should be included:
+      /// <list type="bullet">
+      /// <item><description><see cref="DOSHeader"/>,</description></item>
+      /// <item><description><see cref="NTHeader"/>, and</description></item>
+      /// <item><description>all of the <see cref="SectionHeader"/>s.</description></item>
+      /// </list>
+      /// </remarks>
       public Int32 HeadersSizeUnaligned { get; }
 
+      /// <summary>
+      /// Gets the <see cref="ImageFileMachine"/> of the image.
+      /// </summary>
+      /// <value>The <see cref="ImageFileMachine"/> of the image.</value>
+      /// <seealso cref="ImageFileMachine"/>
       public ImageFileMachine Machine { get; }
 
+      /// <summary>
+      /// Gets the file alignment of the image.
+      /// </summary>
+      /// <value>The file alignment of the image.</value>
+      /// <seealso cref="OptionalHeader.FileAlignment"/>
+      /// <seealso cref="WritingOptions_PE.FileAlignment"/>
       public Int32 FileAlignment { get; }
 
-      public Int64 ImageBase { get; }
-
+      /// <summary>
+      /// Gets the section alignment of the image.
+      /// </summary>
+      /// <value>The section alignment of the image.</value>
+      /// <seealso cref="OptionalHeader.SectionAlignment"/>
+      /// <seealso cref="WritingOptions_PE.SectionAlignment"/>
       public Int32 SectionAlignment { get; }
 
-      public StrongNameVariables StrongNameVariables { get; }
+      /// <summary>
+      /// Gets the image base address.
+      /// </summary>
+      /// <value>The image base address.</value>
+      /// <seealso cref="OptionalHeader.ImageBase"/>
+      /// <seealso cref="WritingOptions_PE.ImageBase"/>
+      public Int64 ImageBase { get; }
 
+      /// <summary>
+      /// Gets the <see cref="IO.StrongNameInformation"/> constructed by <see cref="E_CILPhysical.WriteMetaDataToStream(WriterFunctionality, Stream, CILMetaData, WritingOptions, StrongNameKeyPair, bool, CryptoCallbacks, AssemblyHashAlgorithm?, EventHandler{SerializationErrorEventArgs})"/> method.
+      /// </summary>
+      /// <value>The <see cref="IO.StrongNameInformation"/> constructed by <see cref="E_CILPhysical.WriteMetaDataToStream(WriterFunctionality, Stream, CILMetaData, WritingOptions, StrongNameKeyPair, bool, CryptoCallbacks, AssemblyHashAlgorithm?, EventHandler{SerializationErrorEventArgs})"/> method.</value>
+      public StrongNameInformation StrongNameInformation { get; }
+
+      /// <summary>
+      /// Gets the data directories of the <see cref="OptionalHeader"/>.
+      /// </summary>
+      /// <value>The data directories of the <see cref="OptionalHeader"/>.</value>
+      /// <remarks>
+      /// The elements of this property should be modified during writing process by <see cref="WriterFunctionality"/> or the objects it creates.
+      /// </remarks>
+      /// <seealso cref="OptionalHeader.DataDirectories"/>
+      /// <seealso cref="WritingOptions_PE.NumberOfDataDirectories"/>
       public DataDirectory[] PEDataDirectories { get; }
 
+      /// <summary>
+      /// Gets the <see cref="SectionHeader"/>s.
+      /// </summary>
+      /// <value>The <see cref="SectionHeader"/>s.</value>
+      /// <remarks>
+      /// The elements of this property should be modified during writing process by <see cref="WriterFunctionality"/> or the objects it creates.
+      /// </remarks>
+      /// <seealso cref="FileHeader.NumberOfSections"/>
       public SectionHeader[] SectionHeaders { get; }
 
+      /// <summary>
+      /// Gets or sets the optional entry point RVA.
+      /// </summary>
+      /// <value>The optional entry point RVA.</value>
+      /// <remarks>
+      /// This property should be modified, if necessary, during writing process by <see cref="WriterFunctionality"/> or the objects it creates.
+      /// </remarks>
+      /// <seealso cref="OptionalHeader.EntryPointRVA"/>
       public Int32? EntryPointRVA { get; set; }
 
+      /// <summary>
+      /// Gets or sets the <see cref="IO.DebugInformation"/> to write.
+      /// </summary>
+      /// <value>The <see cref="IO.DebugInformation"/> to write.</value>
+      /// <remarks>
+      /// This property should be modified, if necessary, during writing process by <see cref="WriterFunctionality"/> or the objects it creates.
+      /// </remarks>
+      /// <seealso cref="ImageInformation.DebugInformation"/>
       public DebugInformation DebugInformation { get; set; }
 
+      /// <summary>
+      /// Gets or sets the <see cref="IO.CLIHeader"/> to write.
+      /// </summary>
+      /// <value>The <see cref="IO.CLIHeader"/> to write.</value>
+      /// <remarks>
+      /// This property should be modified during writing process by <see cref="WriterFunctionality"/> or the objects it creates.
+      /// The <see cref="WriterFunctionality.BeforeMetaData"/> method is the last chance to set this property.
+      /// See <see cref="WriterFunctionality"/> description for information in which order the methods are invoked.
+      /// </remarks>
       public CLIHeader CLIHeader { get; set; }
 
+      /// <summary>
+      /// Gets or sets the <see cref="MetaDataRoot"/> to write.
+      /// </summary>
+      /// <value>The <see cref="MetaDataRoot"/> to write.</value>
+      /// <remarks>
+      /// This property should be modified during writing process by <see cref="WriterFunctionality"/> or the objects it creates.
+      /// The <see cref="WriterFunctionality.AfterMetaData"/> method is the last chance to set this property.
+      /// See <see cref="WriterFunctionality"/> description for information in which order the methods are invoked.
+      /// </remarks>
       public MetaDataRoot MDRoot { get; set; }
 
-      public static Int32 CheckAlignment( Int32 alignment, Int32 defaultAlignment )
+      private static Int32 CheckAlignment( Int32 alignment, Int32 defaultAlignment )
       {
          // TODO reset all bits following MSB set bit in alignment
          return alignment == 0 ? defaultAlignment : alignment;
       }
    }
 
-   public class StrongNameVariables
+   /// <summary>
+   /// This class contains the required information for emitting strong-name signed image, without access to private key data.
+   /// </summary>
+   public class StrongNameInformation
    {
-      public Int32 SignatureSize { get; set; }
+      /// <summary>
+      /// Creates a new instance of <see cref="StrongNameInformation"/> with given parameters.
+      /// </summary>
+      /// <param name="hashAlgorithm">The <see cref="AssemblyHashAlgorithm"/> describing the algorithm to use in strong name signature computation.</param>
+      /// <param name="signatureSize">The size of the strong name signature.</param>
+      /// <param name="publicKey">The public key of the strong name.</param>
+      public StrongNameInformation(
+         AssemblyHashAlgorithm hashAlgorithm,
+         Int32 signatureSize,
+         IEnumerable<Byte> publicKey
+         )
+      {
+         this.HashAlgorithm = hashAlgorithm;
+         this.SignatureSize = signatureSize;
+         this.PublicKey = publicKey.ToArrayProxy().CQ;
+      }
+      /// <summary>
+      /// Gets the size of the strong-name signature.
+      /// </summary>
+      /// <value></value>
+      /// <remarks>This should be the size of the <see cref="CLIHeader.StrongNameSignature"/> data directory.</remarks>
+      public Int32 SignatureSize { get; }
 
-      //public Int32 SignaturePaddingSize { get; set; }
+      /// <summary>
+      /// Gets the <see cref="AssemblyHashAlgorithm"/> describing the algorithm to use when calcualting strong name signature.
+      /// </summary>
+      /// <value>The <see cref="AssemblyHashAlgorithm"/> describing the algorithm to use when calcualting strong name signature.</value>
+      public AssemblyHashAlgorithm HashAlgorithm { get; }
 
-      public AssemblyHashAlgorithm HashAlgorithm { get; set; }
+      /// <summary>
+      /// Gets the public key of this strong name.
+      /// </summary>
+      /// <value>The public key of this strong name.</value>
+      public ArrayQuery<Byte> PublicKey { get; }
 
-      public Byte[] PublicKey { get; set; }
-
-      public String ContainerName { get; set; }
    }
 }
 
@@ -399,25 +653,20 @@ public static partial class E_CILPhysical
 
       ArgumentValidator.ValidateNotNull( "Stream", stream );
       ArgumentValidator.ValidateNotNull( "Meta data", md );
-
-      var cf = CollectionsWithRoles.Implementation.CollectionsFactorySingleton.DEFAULT_COLLECTIONS_FACTORY;
-
       if ( options == null )
       {
          options = new WritingOptions();
       }
 
-
-
       // 1. Create WritingStatus
       // Prepare strong name
-      RSAParameters rParams;
-      var status = writer.CreateWritingStatus( md.PrepareStrongNameVariables( sn, ref delaySign, cryptoCallbacks, snAlgorithmOverride, out rParams ) );
+      RSAParameters rParams; String snContainerName;
+      var status = writer.CreateWritingStatus( md.PrepareStrongNameVariables( sn, ref delaySign, cryptoCallbacks, snAlgorithmOverride, out rParams, out snContainerName ) );
       if ( status == null )
       {
          throw new InvalidOperationException( "Writer failed to create writing status object." );
       }
-      var snVars = status.StrongNameVariables;
+      var snVars = status.StrongNameInformation;
 
       // 2. Create streams
       var mdStreams = writer.CreateMetaDataStreamHandlers().ToArrayProxy().CQ;
@@ -439,8 +688,11 @@ public static partial class E_CILPhysical
 
       // 3. Populate streams
       var array = new ResizableArray<Byte>( initialSize: 0x1000 );
-      MetaDataTableStreamHeader thHeader;
-      tblMDStream.FillHeaps( snVars?.PublicKey?.ToArrayProxy()?.CQ, mdStreamContainer, array, out thHeader );
+      var thHeader = tblMDStream.FillOtherMDStreams( snVars?.PublicKey?.ToArrayProxy()?.CQ, mdStreamContainer, array );
+      if ( thHeader == null )
+      {
+         throw new InvalidOperationException( "Writer failed to create meta data table header." );
+      }
 
       // 4. Create sections and some headers
       RVAConverter rvaConverter; Int32 mdRootSize;
@@ -458,7 +710,7 @@ public static partial class E_CILPhysical
       }
 
       // 5. Position stream after headers, and write whatever is needed before meta data
-      var headersSize = status.HeadersSize;
+      var headersSize = status.GetAlignedHeadersSize();
       stream.Position = headersSize;
       writer.BeforeMetaData( status, stream, array );
 
@@ -518,7 +770,7 @@ public static partial class E_CILPhysical
             cliHeader,
             status.MDRoot,
             thHeader,
-            snSignature == null ? null : cf.NewArrayProxy( snSignature ).CQ,
+            snSignature?.ToArrayProxy()?.CQ,
             rawValueProvider.GetAllRawValuesForColumn( Tables.MethodDef, 0 ).Select( r => (UInt32) r ).ToArrayProxy().CQ,
             rawValueProvider.GetAllRawValuesForColumn( Tables.FieldRVA, 0 ).Select( r => (UInt32) r ).ToArrayProxy().CQ
             )
@@ -534,6 +786,7 @@ public static partial class E_CILPhysical
          delaySign,
          cryptoCallbacks,
          rParams,
+         snContainerName,
          cliHeader,
          rvaConverter,
          snSignature,
@@ -544,13 +797,14 @@ public static partial class E_CILPhysical
       return imageInfo;
    }
 
-   private static StrongNameVariables PrepareStrongNameVariables(
+   private static StrongNameInformation PrepareStrongNameVariables(
       this CILMetaData md,
       StrongNameKeyPair strongName,
       ref Boolean delaySign,
       CryptoCallbacks cryptoCallbacks,
       AssemblyHashAlgorithm? algoOverride,
-      out RSAParameters rParams
+      out RSAParameters rParams,
+      out String containerName
       )
    {
       var useStrongName = strongName != null;
@@ -576,7 +830,7 @@ public static partial class E_CILPhysical
 #endif
       }
 
-      StrongNameVariables retVal;
+      StrongNameInformation retVal;
 
       if ( computingHash )
       {
@@ -591,7 +845,7 @@ public static partial class E_CILPhysical
          }
 
          Byte[] pkToProcess;
-         var containerName = strongName?.ContainerName;
+         containerName = strongName?.ContainerName;
          if ( ( useStrongName && containerName != null ) || ( !useStrongName && delaySign ) )
          {
             if ( thisAssemblyPublicKey.IsNullOrEmpty() )
@@ -623,18 +877,17 @@ public static partial class E_CILPhysical
             throw new CryptographicException( errorString );
          }
 
-         retVal = new StrongNameVariables()
-         {
-            HashAlgorithm = signingAlgorithm,
-            PublicKey = thisAssemblyPublicKey,
-            SignatureSize = snSize,
-            ContainerName = containerName
-         };
+         retVal = new StrongNameInformation(
+            signingAlgorithm,
+            snSize,
+            thisAssemblyPublicKey
+            );
       }
       else
       {
          retVal = null;
          rParams = default( RSAParameters );
+         containerName = null;
       }
 
       return retVal;
@@ -642,10 +895,11 @@ public static partial class E_CILPhysical
 
    private static void CreateStrongNameSignature(
       Stream stream,
-      StrongNameVariables snVars,
+      StrongNameInformation snVars,
       Boolean delaySign,
       CryptoCallbacks cryptoCallbacks,
       RSAParameters rParams,
+      String containerName,
       CLIHeader cliHeader,
       RVAConverter rvaConverter,
       Byte[] snSignatureArray,
@@ -655,7 +909,6 @@ public static partial class E_CILPhysical
    {
       if ( snVars != null && !delaySign )
       {
-         var containerName = snVars.ContainerName;
          using ( var rsa = ( containerName == null ? cryptoCallbacks.CreateRSAFromParameters( rParams ) : cryptoCallbacks.CreateRSAFromCSPContainer( containerName ) ) )
          {
             var algo = snVars.HashAlgorithm;
@@ -945,5 +1198,10 @@ public static partial class E_CILPhysical
       {
          yield return os;
       }
+   }
+
+   public static Int32 GetAlignedHeadersSize( this WritingStatus status )
+   {
+      return status.HeadersSizeUnaligned.RoundUpI32( status.FileAlignment );
    }
 }

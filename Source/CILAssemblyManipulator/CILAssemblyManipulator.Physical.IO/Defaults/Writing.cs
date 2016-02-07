@@ -86,7 +86,7 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
       }
 
       public virtual WritingStatus CreateWritingStatus(
-         StrongNameVariables snVars
+         StrongNameInformation snVars
          )
       {
          var options = this.WritingOptions;
@@ -104,8 +104,8 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
             + sectionsCount * 0x28 // Sections
             ,
             machine,
-            peOptions.FileAlignment ?? WritingStatus.DEFAULT_FILE_ALIGNMENT,
-            peOptions.SectionAlignment ?? WritingStatus.DEFAULT_SECTION_ALIGNMENT,
+            peOptions.FileAlignment,
+            peOptions.SectionAlignment,
             peOptions.ImageBase,
             snVars,
             peDataDirCount,
@@ -294,7 +294,7 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
          var encoding = Encoding.UTF8;
          var fAlign = writingStatus.FileAlignment;
          var sAlign = (UInt32) writingStatus.SectionAlignment;
-         var curPointer = (UInt32) writingStatus.HeadersSize;
+         var curPointer = (UInt32) writingStatus.GetAlignedHeadersSize();
          var curRVA = sAlign;
 
          foreach ( var layout in this.GetSectionLayouts( writingStatus, mdSize, rawValueSectionParts ) )
@@ -385,10 +385,10 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
       protected virtual DefaultWritingStatus DoCreateWritingStatus(
          Int32 headersSize,
          ImageFileMachine machine,
-         Int32 fileAlignment,
-         Int32 sectionAlignment,
+         Int32? fileAlignment,
+         Int32? sectionAlignment,
          Int64? imageBase,
-         StrongNameVariables strongNameVariables,
+         StrongNameInformation strongNameVariables,
          Int32 dataDirCount,
          Int32 sectionsCount
          )
@@ -421,7 +421,7 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
          yield return new SectionPart_CLIHeader();
 
          // 3. Strong name signature
-         yield return new SectionPart_StrongNameSignature( writingStatus.StrongNameVariables, machine );
+         yield return new SectionPart_StrongNameSignature( writingStatus.StrongNameInformation, machine );
 
          // 4. Method IL, Field RVAs, Embedded Manifests
          foreach ( var rawValueSectionPart in rawValueSectionParts )
@@ -511,7 +511,7 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
             .FirstOrDefault();
          var options = this.WritingOptions.CLIOptions.HeaderOptions;
          var flags = options.ModuleFlags ?? ModuleFlags.ILOnly;
-         if ( writingStatus.StrongNameVariables != null )
+         if ( writingStatus.StrongNameInformation != null )
          {
             flags |= ModuleFlags.StrongNameSigned;
          }
@@ -538,10 +538,10 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
       public DefaultWritingStatus(
          Int32 headersSize,
          ImageFileMachine machine,
-         Int32 fileAlignment,
-         Int32 sectionAlignment,
+         Int32? fileAlignment,
+         Int32? sectionAlignment,
          Int64? imageBase,
-         StrongNameVariables strongNameVariables,
+         StrongNameInformation strongNameVariables,
          Int32 dataDirCount,
          Int32 sectionsCount
          ) : base( headersSize, machine, fileAlignment, sectionAlignment, imageBase, strongNameVariables, dataDirCount, sectionsCount )
@@ -1402,7 +1402,7 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
 
    public class SectionPart_StrongNameSignature : SectionPartWithFixedLength
    {
-      public SectionPart_StrongNameSignature( StrongNameVariables snVars, ImageFileMachine machine )
+      public SectionPart_StrongNameSignature( StrongNameInformation snVars, ImageFileMachine machine )
          : base( machine.RequiresPE64() ? 0x10 : 0x04, true, snVars?.SignatureSize ?? 0 )
       {
 
@@ -1410,7 +1410,7 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
 
       protected override Boolean DoWriteData( SectionPartWritingArgs args, Byte[] array, ref Int32 idx )
       {
-         // Don't write actual signature, since we don't have required information. The strong name signature will be written by default implementation.
+         // Don't write actual signature, since we don't have required information. The strong name signature will be written by WriteMetaData implementation.
          array.ZeroOut( ref idx, args.PrePadding + args.DataLength );
          return true;
       }
@@ -2077,12 +2077,12 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
       }
 
       private readonly CILMetaData _md;
-      private readonly WritingOptions_TableStream _writingData;
+      private readonly WritingOptions_TableStream _options;
       private WriteDependantInfo _writeDependantInfo;
 
       public DefaultWriterTableStreamHandler(
          CILMetaData md,
-         WritingOptions_TableStream writingData,
+         WritingOptions_TableStream options,
          ArrayQuery<TableSerializationInfo> tableSerializations
          )
       {
@@ -2092,7 +2092,7 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
          this._md = md;
          this.TableSerializations = tableSerializations;
          this.TableSizes = tableSerializations.CreateTableSizeArray( md );
-         this._writingData = writingData ?? new WritingOptions_TableStream();
+         this._options = options ?? new WritingOptions_TableStream();
       }
 
       public String StreamName
@@ -2122,22 +2122,21 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
       }
 
 
-      public RawValueStorage<Int32> FillHeaps(
-         ArrayQuery<Byte> thisAssemblyPublicKeyIfPresentNull,
+      public MetaDataTableStreamHeader FillOtherMDStreams(
+         ArrayQuery<Byte> publicKey,
          WriterMetaDataStreamContainer mdStreams,
-         ResizableArray<Byte> array,
-         out MetaDataTableStreamHeader header
+         ResizableArray<Byte> array
          )
       {
          var retVal = new RawValueStorage<Int32>( this.TableSizes, this.TableSerializations.Select( info => info?.HeapValueColumnCount ?? 0 ) );
          foreach ( var info in this.TableSerializations )
          {
-            info?.ExtractTableHeapValues( this._md, retVal, mdStreams, array, thisAssemblyPublicKeyIfPresentNull );
+            info?.PopulateTableHeapValues( this._md, retVal, mdStreams, array, publicKey );
          }
 
          // Create table stream header
-         var options = this._writingData;
-         header = new MetaDataTableStreamHeader(
+         var options = this._options;
+         var header = new MetaDataTableStreamHeader(
             options.Reserved ?? 0,
             options.HeaderMajorVersion ?? 2,
             options.HeaderMinorVersion ?? 0,
@@ -2149,9 +2148,9 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
             options.HeaderExtraData
             );
 
-         Interlocked.Exchange( ref this._writeDependantInfo, new WriteDependantInfo( this._writingData, this.TableSizes, this.TableSerializations, mdStreams, retVal, header, this.CreateSerializationCreationArgs( mdStreams ) ) );
+         Interlocked.Exchange( ref this._writeDependantInfo, new WriteDependantInfo( this._options, this.TableSizes, this.TableSerializations, mdStreams, retVal, header, this.CreateSerializationCreationArgs( mdStreams ) ) );
 
-         return retVal;
+         return header;
       }
 
       protected virtual ColumnSerializationSupportCreationArgs CreateSerializationCreationArgs(
@@ -2277,7 +2276,7 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
             retVal |= TableStreamFlags.WideBLOB;
          }
 
-         if ( this._writingData.HeaderExtraData.HasValue )
+         if ( this._options.HeaderExtraData.HasValue )
          {
             retVal |= TableStreamFlags.ExtraData;
          }
