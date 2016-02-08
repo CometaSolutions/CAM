@@ -265,7 +265,7 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
          Int32 streamSize,
          String tableStreamName,
          ArrayQuery<TableSerializationInfo> tableSerializations,
-         Func<DefaultReaderTableStreamHandler, ArrayQuery<Int32>, ColumnSerializationSupportCreationArgs> creationArgsFunc
+         Func<DefaultReaderTableStreamHandler, ArrayQuery<Int32>, DefaultColumnSerializationSupportCreationArgs> creationArgsFunc
          )
          : base( stream, startPosition, streamSize, tableStreamName )
       {

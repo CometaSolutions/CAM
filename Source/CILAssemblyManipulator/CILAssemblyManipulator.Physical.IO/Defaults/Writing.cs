@@ -2041,7 +2041,7 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
             WriterMetaDataStreamContainer mdStreams,
             RawValueStorage<Int32> heapIndices,
             MetaDataTableStreamHeader header,
-            ColumnSerializationSupportCreationArgs creationArgs
+            DefaultColumnSerializationSupportCreationArgs creationArgs
             )
          {
 
@@ -2153,7 +2153,7 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
          return header;
       }
 
-      protected virtual ColumnSerializationSupportCreationArgs CreateSerializationCreationArgs(
+      protected virtual DefaultColumnSerializationSupportCreationArgs CreateSerializationCreationArgs(
          WriterMetaDataStreamContainer mdStreams
          )
       {

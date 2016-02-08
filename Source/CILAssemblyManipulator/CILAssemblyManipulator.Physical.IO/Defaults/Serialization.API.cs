@@ -454,7 +454,7 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
       Boolean IsSorted { get; }
 
       TableSerializationFunctionality CreateSupport(
-         ColumnSerializationSupportCreationArgs args
+         DefaultColumnSerializationSupportCreationArgs args
          );
 
       Int32 RawValueStorageColumnCount { get; }
@@ -487,14 +487,7 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
          );
    }
 
-   public interface ColumnSerializationSupportCreationArgs
-   {
-      ArrayQuery<Int32> TableSizes { get; }
-
-      Boolean IsWide( String heapName );
-   }
-
-   public class DefaultColumnSerializationSupportCreationArgs : ColumnSerializationSupportCreationArgs
+   public class DefaultColumnSerializationSupportCreationArgs
    {
 
       public DefaultColumnSerializationSupportCreationArgs(

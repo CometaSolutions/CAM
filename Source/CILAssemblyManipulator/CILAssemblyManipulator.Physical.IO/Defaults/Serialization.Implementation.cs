@@ -106,7 +106,7 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
       }
    }
 
-   public delegate ColumnSerializationFunctionality CreateSerializationSupportDelegate( ColumnSerializationSupportCreationArgs args );
+   public delegate ColumnSerializationFunctionality CreateSerializationSupportDelegate( DefaultColumnSerializationSupportCreationArgs args );
 
    // Sets a property on a raw row
    public delegate void RawRowColumnSetterDelegate<TRawRow>( TRawRow rawRow, Int32 value );
@@ -805,7 +805,7 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
          }
       }
 
-      public TableSerializationFunctionality CreateSupport( ColumnSerializationSupportCreationArgs supportArgs )
+      public TableSerializationFunctionality CreateSupport( DefaultColumnSerializationSupportCreationArgs supportArgs )
       {
          return new DefaultTableSerializationFunctionality<TRawRow, TRow>(
             this,
@@ -833,7 +833,7 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
 
          internal ColumnSerializationInstance(
             DefaultColumnSerializationInfo<TRawRow, TRow> serializationInfo,
-            ColumnSerializationSupportCreationArgs args
+            DefaultColumnSerializationSupportCreationArgs args
             )
          {
 
@@ -858,7 +858,7 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
       {
          internal ColumnSerializationInstance_RawValue(
             DefaultColumnSerializationInfo<TRawRow, TRow> serializationInfo,
-            ColumnSerializationSupportCreationArgs args
+            DefaultColumnSerializationSupportCreationArgs args
             )
             : base( serializationInfo, args )
          {
@@ -880,7 +880,7 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
 
          internal ColumnSerializationInstance_NormalValue(
             DefaultColumnSerializationInfo<TRawRow, TRow> serializationInfo,
-            ColumnSerializationSupportCreationArgs args,
+            DefaultColumnSerializationSupportCreationArgs args,
             Tables table,
             Int32 columnIndex,
             EventHandler<SerializationErrorEventArgs> errorHandler
@@ -914,7 +914,7 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
       public DefaultTableSerializationFunctionality(
          TableSerializationInfo tableSerializationInfo,
          IEnumerable<DefaultColumnSerializationInfo<TRawRow, TRow>> columns,
-         ColumnSerializationSupportCreationArgs args,
+         DefaultColumnSerializationSupportCreationArgs args,
          Func<TRow> rowFactory,
          Func<TRawRow> rawRowFactory,
          EventHandler<SerializationErrorEventArgs> errorHandler
