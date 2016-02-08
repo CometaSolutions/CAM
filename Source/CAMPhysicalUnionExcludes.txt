@@ -2,3 +2,4 @@
 # The '@' symbol at the beginning tells the CILMerge to interpret the line as literal string instead of a regular expression.
 
 @E_CILPhysical+<>c
+@CILAssemblyManipulator.Physical.Comparers+<>c

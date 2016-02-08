@@ -667,7 +667,7 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
 
       public void ProcessRowForRawValues(
          RawValueProcessingArgs args,
-         RawValueStorage<Int32> storage
+         ColumnValueStorage<Int32> storage
          )
       {
          var md = args.MetaData;
@@ -725,7 +725,7 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
 
       public void PopulateTableHeapValues(
          CILMetaData md,
-         RawValueStorage<Int32> storage,
+         ColumnValueStorage<Int32> storage,
          WriterMetaDataStreamContainer mdStreamContainer,
          ResizableArray<Byte> array,
          ArrayQuery<Byte> publicKey
@@ -767,8 +767,8 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
 
       public IEnumerable<Int32> GetAllRawValues(
          MetaDataTable table,
-         RawValueStorage<Int64> rawValueProvider,
-         RawValueStorage<Int32> heapIndices
+         ColumnValueStorage<Int64> rawValueProvider,
+         ColumnValueStorage<Int32> heapIndices
          )
       {
          var list = ( (MetaDataTable<TRow>) table ).TableContents;

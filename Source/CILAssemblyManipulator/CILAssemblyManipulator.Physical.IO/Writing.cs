@@ -115,13 +115,13 @@ namespace CILAssemblyManipulator.Physical.IO
       /// <param name="allStreams">All streams, as returned by <see cref="CreateMetaDataStreamHandlers"/> method.</param>
       /// <param name="rvaConverter">This parameter should contain the <see cref="RVAConverter"/> to be used when serialization process converts from RVAs to offsets.</param>
       /// <param name="mdRootSize">This parameter should contain the size of the <see cref="MetaDataRoot"/> in bytes.</param>
-      /// <returns>A <see cref="RawValueStorage{TValue}"/> filled with data offsets, e.g. <see cref="MethodDefinition.IL"/> RVAs, and so on.</returns>
+      /// <returns>A <see cref="ColumnValueStorage{TValue}"/> filled with data offsets, e.g. <see cref="MethodDefinition.IL"/> RVAs, and so on.</returns>
       /// <remarks>
-      /// The returned <see cref="RawValueStorage{TValue}"/> will be used as argument for <see cref="AbstractWriterStreamHandler.WriteStream"/> method.
+      /// The returned <see cref="ColumnValueStorage{TValue}"/> will be used as argument for <see cref="AbstractWriterStreamHandler.WriteStream"/> method.
       /// </remarks>
-      /// <seealso cref="RawValueStorage{TValue}"/>
+      /// <seealso cref="ColumnValueStorage{TValue}"/>
       /// <seealso cref="AbstractWriterStreamHandler.WriteStream"/>
-      RawValueStorage<Int64> CalculateImageLayout(
+      ColumnValueStorage<Int64> CalculateImageLayout(
          WritingStatus writingStatus,
          WriterMetaDataStreamContainer mdStreamContainer,
          IEnumerable<AbstractWriterStreamHandler> allStreams,
@@ -284,7 +284,7 @@ namespace CILAssemblyManipulator.Physical.IO
       void WriteStream(
          Stream stream,
          ResizableArray<Byte> array,
-         RawValueStorage<Int64> rawValueProvder
+         ColumnValueStorage<Int64> rawValueProvder
          );
 
       /// <summary>
@@ -771,8 +771,7 @@ public static partial class E_CILPhysical
             status.MDRoot,
             thHeader,
             snSignature?.ToArrayProxy()?.CQ,
-            rawValueProvider.GetAllRawValuesForColumn( Tables.MethodDef, 0 ).Select( r => (UInt32) r ).ToArrayProxy().CQ,
-            rawValueProvider.GetAllRawValuesForColumn( Tables.FieldRVA, 0 ).Select( r => (UInt32) r ).ToArrayProxy().CQ
+            rawValueProvider.GetDataReferenceInfos( i => i )
             )
          );
 

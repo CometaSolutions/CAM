@@ -463,7 +463,7 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
 
       void ProcessRowForRawValues(
          RawValueProcessingArgs args,
-         RawValueStorage<Int32> storage
+         ColumnValueStorage<Int32> storage
          );
 
       IEnumerable<SectionPartWithRVAs> CreateRawValueSectionParts(
@@ -474,7 +474,7 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
 
       void PopulateTableHeapValues(
          CILMetaData md,
-         RawValueStorage<Int32> storage,
+         ColumnValueStorage<Int32> storage,
          WriterMetaDataStreamContainer mdStreamContainer,
          ResizableArray<Byte> array,
          ArrayQuery<Byte> publicKey
@@ -482,8 +482,8 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
 
       IEnumerable<Int32> GetAllRawValues(
          MetaDataTable table,
-         RawValueStorage<Int64> rawValueProvder,
-         RawValueStorage<Int32> heapIndices
+         ColumnValueStorage<Int64> rawValueProvder,
+         ColumnValueStorage<Int32> heapIndices
          );
    }
 
@@ -532,7 +532,7 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
          Byte[] array,
          Int32 index,
          ReaderMetaDataStreamContainer mdStreamContainer,
-         RawValueStorage<Int32> rawValueStorage,
+         ColumnValueStorage<Int32> rawValueStorage,
          SignatureProvider sigProvider
          )
       {
@@ -554,7 +554,7 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
 
       public ReaderMetaDataStreamContainer MDStreamContainer { get; }
 
-      public RawValueStorage<Int32> RawValueStorage { get; }
+      public ColumnValueStorage<Int32> RawValueStorage { get; }
 
       public SignatureProvider SignatureProvider { get; }
    }

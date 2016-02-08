@@ -57,7 +57,7 @@ namespace CILAssemblyManipulator.Physical.IO
       /// <seealso cref="ReaderFunctionality"/>
       /// <seealso cref="IOArguments.ErrorHandler"/>
       /// <seealso cref="CILMetaDataTableInformationProvider"/>
-      /// <seealso cref="E_CILPhysical.ReadMetaDataFromStream(ReaderFunctionality, Stream, CILMetaDataTableInformationProvider, EventHandler{SerializationErrorEventArgs}, bool, out ImageInformation, out RawValueStorage{int}, out RVAConverter)"/>
+      /// <seealso cref="E_CILPhysical.ReadMetaDataFromStream(ReaderFunctionality, Stream, CILMetaDataTableInformationProvider, EventHandler{SerializationErrorEventArgs}, bool, out ImageInformation, out ColumnValueStorage{int}, out RVAConverter)"/>
       ReaderFunctionality GetFunctionality(
          Stream stream,
          CILMetaDataTableInformationProvider mdTableInfoProvider,
@@ -71,7 +71,7 @@ namespace CILAssemblyManipulator.Physical.IO
    /// The instances of this interface are created via <see cref="ReaderFunctionalityProvider.GetFunctionality"/> method, and the instances of <see cref="ReaderFunctionalityProvider"/> may be customized by setting <see cref="ReadingArguments.ReaderFunctionalityProvider"/> property.
    /// </summary>
    /// <remarks>
-   /// The <see cref="E_CILPhysical.ReadMetaDataFromStream(ReaderFunctionality, Stream, CILMetaDataTableInformationProvider, EventHandler{SerializationErrorEventArgs}, bool, out ImageInformation, out RawValueStorage{int}, out RVAConverter)"/> method will call the methods of this interface (and others) in the following order:
+   /// The <see cref="E_CILPhysical.ReadMetaDataFromStream(ReaderFunctionality, Stream, CILMetaDataTableInformationProvider, EventHandler{SerializationErrorEventArgs}, bool, out ImageInformation, out ColumnValueStorage{int}, out RVAConverter)"/> method will call the methods of this interface (and others) in the following order:
    /// <list type="number">
    /// <item><description><see cref="ReadImageInformation"/>,</description></item>
    /// <item><description><see cref="CreateStreamHandler"/> (once for each header in <see cref="MetaDataRoot.StreamHeaders"/>),</description></item>
@@ -82,7 +82,7 @@ namespace CILAssemblyManipulator.Physical.IO
    /// <seealso cref="ReaderFunctionalityProvider"/>
    /// <seealso cref="DefaultReaderFunctionality"/>
    /// <seealso cref="ReaderFunctionalityProvider.GetFunctionality"/>
-   /// <seealso cref="E_CILPhysical.ReadMetaDataFromStream(ReaderFunctionality, Stream, CILMetaDataTableInformationProvider, EventHandler{SerializationErrorEventArgs}, bool, out ImageInformation, out RawValueStorage{int}, out RVAConverter)"/>
+   /// <seealso cref="E_CILPhysical.ReadMetaDataFromStream(ReaderFunctionality, Stream, CILMetaDataTableInformationProvider, EventHandler{SerializationErrorEventArgs}, bool, out ImageInformation, out ColumnValueStorage{int}, out RVAConverter)"/>
    /// <seealso cref="ReadingArguments.ReaderFunctionalityProvider"/>
    public interface ReaderFunctionality
    {
@@ -129,7 +129,7 @@ namespace CILAssemblyManipulator.Physical.IO
       /// <param name="rvaConverter">The <see cref="RVAConverter"/> created by <see cref="ReadImageInformation"/> method.</param>
       /// <param name="mdStreamContainer">The <see cref="ReaderMetaDataStreamContainer"/> containing all streams created by <see cref="CreateStreamHandler"/> method.</param>
       /// <param name="md">The instance of <see cref="CILMetaData"/> that will be result of this deserialization process.</param>
-      /// <param name="dataReferences">The <see cref="RawValueStorage{TValue}"/> created by <see cref="ReaderTableStreamHandler.PopulateMetaDataStructure"/> method.</param>
+      /// <param name="dataReferences">The <see cref="ColumnValueStorage{TValue}"/> created by <see cref="ReaderTableStreamHandler.PopulateMetaDataStructure"/> method.</param>
       /// <remarks>
       /// The values that need data from elsewhere than <see cref="AbstractReaderStreamHandler"/>s, are at least:
       /// <list type="bullet">
@@ -144,7 +144,7 @@ namespace CILAssemblyManipulator.Physical.IO
          RVAConverter rvaConverter,
          ReaderMetaDataStreamContainer mdStreamContainer,
          CILMetaData md,
-         RawValueStorage<Int32> dataReferences
+         ColumnValueStorage<Int32> dataReferences
          );
    }
 
@@ -153,7 +153,7 @@ namespace CILAssemblyManipulator.Physical.IO
    /// The raw value storage has a pre-set capacity, which can not changed, and can only be filled once.
    /// </summary>
    /// <typeparam name="TValue">The type of the values to store.</typeparam>
-   public sealed class RawValueStorage<TValue>
+   public sealed class ColumnValueStorage<TValue>
    {
       private readonly ArrayQuery<Int32> _tableSizes;
       private readonly Int32[] _tableColCount;
@@ -162,11 +162,11 @@ namespace CILAssemblyManipulator.Physical.IO
       private Int32 _currentIndex;
 
       /// <summary>
-      /// Creates a new instance of <see cref="RawValueStorage{TValue}"/> with given information about table sizes and raw value column count for each table.
+      /// Creates a new instance of <see cref="ColumnValueStorage{TValue}"/> with given information about table sizes and raw value column count for each table.
       /// </summary>
       /// <param name="tableSizes">The table size array. The index of the array is value of <see cref="Tables"/> enumeration, and the value in that array is the size of that table. So if <see cref="Tables.Module"/> would have 1 element, the element at index <c>0</c> (value of <see cref="Tables.Module"/>) would be <c>1</c>.</param>
       /// <param name="rawColumnInfo">The count of raw value columns for each table. The index of the array is value of <see cref="Tables"/> enumeration, and the value in that array is the raw column count. Since <see cref="Tables.MethodDef"/> has one raw value column (the method IL RVA), the element at index <c>6</c> (value of <see cref="Tables.MethodDef"/>) would be <c>1</c>.</param>
-      public RawValueStorage(
+      public ColumnValueStorage(
          ArrayQuery<Int32> tableSizes,
          IEnumerable<Int32> rawColumnInfo
          )
@@ -187,7 +187,7 @@ namespace CILAssemblyManipulator.Physical.IO
       /// Appends raw value to the end of the list of the raw values.
       /// </summary>
       /// <param name="rawValue">The raw value to append.</param>
-      /// <exception cref="IndexOutOfRangeException">If this <see cref="RawValueStorage{TValue}"/> has already been filled.</exception>
+      /// <exception cref="IndexOutOfRangeException">If this <see cref="ColumnValueStorage{TValue}"/> has already been filled.</exception>
       public void AddRawValue( TValue rawValue )
       {
          this._rawValues[this._currentIndex++] = rawValue;
@@ -247,6 +247,32 @@ namespace CILAssemblyManipulator.Physical.IO
       public void SetRawValue( Tables table, Int32 rowIndex, Int32 columnIndex, TValue value )
       {
          this._rawValues[this.GetArrayIndex( (Int32) table, rowIndex, columnIndex )] = value;
+      }
+
+      /// <summary>
+      /// Gets the enumerable representing tables which have at least one storable column value specified.
+      /// </summary>
+      /// <returns>The enumerable representing tables which have at least one storable column value specified.</returns>
+      public IEnumerable<Tables> GetPresentTables()
+      {
+         var tableColCount = this._tableColCount;
+         for ( var i = 0; i < tableColCount.Length; ++i )
+         {
+            if ( tableColCount[i] > 0 )
+            {
+               yield return (Tables) i;
+            }
+         }
+      }
+
+      /// <summary>
+      /// Gets the amount of stored column values for a specific table.
+      /// </summary>
+      /// <param name="table">The table.</param>
+      /// <returns>The amount of stored column values for a specific table.</returns>
+      public Int32 GetStoredColumnsCount( Tables table )
+      {
+         return this._tableColCount[(Int32) table];
       }
 
       private Int32 GetArrayIndex( Int32 table, Int32 row, Int32 col )
@@ -385,7 +411,7 @@ namespace CILAssemblyManipulator.Physical.IO
    /// The table stream is where the structure of <see cref="CILMetaData"/> is defined (present tables, their size, etc).
    /// </summary>
    /// <remarks>
-   /// The <see cref="E_CILPhysical.ReadMetaDataFromStream(ReaderFunctionality, Stream, CILMetaDataTableInformationProvider, EventHandler{SerializationErrorEventArgs}, bool, out ImageInformation, out RawValueStorage{int}, out RVAConverter)"/> method will call the methods of this interface in the following order:
+   /// The <see cref="E_CILPhysical.ReadMetaDataFromStream(ReaderFunctionality, Stream, CILMetaDataTableInformationProvider, EventHandler{SerializationErrorEventArgs}, bool, out ImageInformation, out ColumnValueStorage{int}, out RVAConverter)"/> method will call the methods of this interface in the following order:
    /// <list type="number">
    /// <item><description><see cref="ReadHeader"/>,</description></item>
    /// <item><description><see cref="TableSizes"/>, and</description></item>
@@ -412,12 +438,12 @@ namespace CILAssemblyManipulator.Physical.IO
 
       /// <summary>
       /// This method should populate those properties of the rows in metadata tables, which are either stored directly in table stream, or can be created using meta data streams (e.g. strings, guids, signatures, etc).
-      /// After that is done, all the remaining values (RVAs) should be stored to <see cref="RawValueStorage{TValue}"/> and returned by this method.
+      /// After that is done, all the remaining values (RVAs) should be stored to <see cref="ColumnValueStorage{TValue}"/> and returned by this method.
       /// </summary>
       /// <param name="md">The <see cref="CILMetaData"/> to populate.</param>
       /// <param name="mdStreamContainer">The <see cref="ReaderMetaDataStreamContainer"/> containing meta data streams.</param>
       /// <returns>The raw values (RVAs) which were read from this table stream. The stored raw values will be used by <see cref="ReaderFunctionality.HandleDataReferences"/> method.</returns>
-      RawValueStorage<Int32> PopulateMetaDataStructure(
+      ColumnValueStorage<Int32> PopulateMetaDataStructure(
          CILMetaData md,
          ReaderMetaDataStreamContainer mdStreamContainer
          );
@@ -549,7 +575,7 @@ public static partial class E_CILPhysical
    /// <seealso cref="ReaderFunctionalityProvider"/>
    /// <seealso cref="CILMetaDataIO.ReadModule"/>
    /// <seealso cref="CILMetaDataLoader"/>
-   /// <seealso cref="ReadMetaDataFromStream(ReaderFunctionality, Stream, CILMetaDataTableInformationProvider, EventHandler{SerializationErrorEventArgs}, bool, out ImageInformation, out RawValueStorage{int}, out RVAConverter)"/>
+   /// <seealso cref="ReadMetaDataFromStream(ReaderFunctionality, Stream, CILMetaDataTableInformationProvider, EventHandler{SerializationErrorEventArgs}, bool, out ImageInformation, out ColumnValueStorage{int}, out RVAConverter)"/>
    public static CILMetaData ReadMetaDataFromStream(
       this ReaderFunctionalityProvider readerProvider,
       Stream stream,
@@ -573,7 +599,7 @@ public static partial class E_CILPhysical
       var reader = readerProvider.GetFunctionality( ArgumentValidator.ValidateNotNullAndReturn( "Stream", stream ), tableInfoProvider, errorHandler, out newStream ) ?? new DefaultReaderFunctionality( new TableSerializationInfoCreationArgs( errorHandler ) );
 
       CILMetaData md;
-      RawValueStorage<Int32> rawValueStorage;
+      ColumnValueStorage<Int32> rawValueStorage;
       //RVAConverter rvaConverter;
       if ( newStream != null && !ReferenceEquals( stream, newStream ) )
       {
@@ -617,7 +643,7 @@ public static partial class E_CILPhysical
       EventHandler<SerializationErrorEventArgs> errorHandler,
       Boolean deserializeDataReferences,
       out ImageInformation imageInfo,
-      out RawValueStorage<Int32> dataReferences
+      out ColumnValueStorage<Int32> dataReferences
       //out RVAConverter rvaConverter
       )
    {
@@ -709,8 +735,7 @@ public static partial class E_CILPhysical
             snOffset > 0 && snDD.Size > 0 ?
                helper.At( snOffset ).ReadAndCreateArray( checked((Int32) snDD.Size) ).ToArrayProxy().CQ :
                null,
-            dataReferences.GetAllRawValuesForColumn( Tables.MethodDef, 0 ).Select( rva => (UInt32) rva ).ToArrayProxy().CQ,
-            dataReferences.GetAllRawValuesForColumn( Tables.FieldRVA, 0 ).Select( rva => (UInt32) rva ).ToArrayProxy().CQ
+            dataReferences.GetDataReferenceInfos( i => (UInt32) i )
             )
          );
 
@@ -727,5 +752,20 @@ public static partial class E_CILPhysical
    private static AbstractReaderStreamHandler CreateDefaultHandlerFor( MetaDataStreamHeader header, StreamHelper helper )
    {
       throw new NotImplementedException( "Creating default handler for stream." );
+   }
+
+   public static IEnumerable<DataReferenceInfo> GetDataReferenceInfos<T>( this ColumnValueStorage<T> values, Func<T, Int64> converter )
+   {
+      foreach ( var tbl in values.GetPresentTables() )
+      {
+         var cols = values.GetStoredColumnsCount( tbl );
+         for ( var i = 0; i < cols; ++i )
+         {
+            foreach ( var val in values.GetAllRawValuesForColumn( tbl, i ) )
+            {
+               yield return new DataReferenceInfo( tbl, i, converter( val ) );
+            }
+         }
+      }
    }
 }

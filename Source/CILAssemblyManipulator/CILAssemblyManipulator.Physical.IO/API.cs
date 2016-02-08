@@ -300,7 +300,7 @@ namespace CILAssemblyManipulator.Physical.IO
    }
 
    /// <summary>
-   /// This will be thrown by <see cref="E_CILPhysical.ReadMetaDataFromStream(Stream, ReaderFunctionality, CILMetaDataTableInformationProvider, EventHandler{SerializationErrorEventArgs}, bool, out ImageInformation, out RawValueStorage{int}, out RVAConverter)"/> method when the module is not a managed module.
+   /// This will be thrown by <see cref="E_CILPhysical.ReadMetaDataFromStream(Stream, ReaderFunctionality, CILMetaDataTableInformationProvider, EventHandler{SerializationErrorEventArgs}, bool, out ImageInformation, out ColumnValueStorage{int}, out RVAConverter)"/> method when the module is not a managed module.
    /// </summary>
    public class NotAManagedModuleException : Exception
    {

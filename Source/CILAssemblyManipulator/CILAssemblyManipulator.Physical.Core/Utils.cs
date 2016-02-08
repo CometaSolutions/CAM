@@ -445,6 +445,22 @@ namespace CILAssemblyManipulator.Physical
          // TODO make equality classes to CWR
          return SequenceEqualityComparer<ArrayQuery<T>, T>.SequenceHashCode( x, hashCode );
       }
+
+      public static Boolean DictionaryQueryEquality<TKey, TValue>( this DictionaryQuery<TKey, TValue> x, DictionaryQuery<TKey, TValue> y, Equality<TValue> equality = null )
+      {
+         // TODO make equality classes to CWR
+         if ( equality == null )
+         {
+            equality = ( xVal, yVal ) => EqualityComparer<TValue>.Default.Equals( xVal, yVal );
+         }
+
+         return x.Count == y.Count && x.All( kvp =>
+         {
+            TValue val;
+            return y.TryGetValue( kvp.Key, out val )
+               && equality( kvp.Value, val );
+         } );
+      }
    }
 
 #pragma warning restore 1591

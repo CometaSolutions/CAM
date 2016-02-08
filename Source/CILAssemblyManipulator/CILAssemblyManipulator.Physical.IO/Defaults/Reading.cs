@@ -144,7 +144,7 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
          RVAConverter rvaConverter,
          ReaderMetaDataStreamContainer mdStreamContainer,
          CILMetaData md,
-         RawValueStorage<Int32> rawValues
+         ColumnValueStorage<Int32> rawValues
          )
       {
          var args = this.CreateRawValueProcessingArgs( stream, imageInfo, rvaConverter, mdStreamContainer, md ) ?? CreateDefaultRawValueProcessingArgs( stream, imageInfo, rvaConverter, mdStreamContainer, md );
@@ -310,7 +310,7 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
 
       public ArrayQuery<Int32> TableSizes { get; }
 
-      public virtual RawValueStorage<Int32> PopulateMetaDataStructure(
+      public virtual ColumnValueStorage<Int32> PopulateMetaDataStructure(
          CILMetaData md,
          ReaderMetaDataStreamContainer mdStreamContainer
          )
@@ -358,14 +358,14 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
          return this.TableStreamHeader;
       }
 
-      protected virtual RawValueStorage<Int32> CreateRawValueStorage()
+      protected virtual ColumnValueStorage<Int32> CreateRawValueStorage()
       {
          return this.CreateDefaultRawValueStorage();
       }
 
-      protected RawValueStorage<Int32> CreateDefaultRawValueStorage()
+      protected ColumnValueStorage<Int32> CreateDefaultRawValueStorage()
       {
-         return new RawValueStorage<Int32>(
+         return new ColumnValueStorage<Int32>(
             this.TableSizes,
             this.TableSerializationInfo.Select( t => t?.RawValueStorageColumnCount ?? 0 )
             );

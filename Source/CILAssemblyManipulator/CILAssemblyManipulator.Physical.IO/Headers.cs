@@ -838,22 +838,41 @@ namespace CILAssemblyManipulator.Physical.IO
          MetaDataRoot mdRoot,
          MetaDataTableStreamHeader tableStreamHeader,
          ArrayQuery<Byte> strongNameSignature,
-         ArrayQuery<TRVA> methodRVAs,
-         ArrayQuery<TRVA> fieldRVAs
+         IEnumerable<DataReferenceInfo> dataRefs
          )
       {
          ArgumentValidator.ValidateNotNull( "CLI header", cliHeader );
          ArgumentValidator.ValidateNotNull( "MetaData root", mdRoot );
          ArgumentValidator.ValidateNotNull( "Table stream header", tableStreamHeader );
-         ArgumentValidator.ValidateNotNull( "Method RVAs", methodRVAs );
-         ArgumentValidator.ValidateNotNull( "Field RVAs", fieldRVAs );
 
          this.CLIHeader = cliHeader;
          this.MetaDataRoot = mdRoot;
          this.TableStreamHeader = tableStreamHeader;
          this.StrongNameSignature = strongNameSignature;
-         this.MethodRVAs = methodRVAs;
-         this.FieldRVAs = fieldRVAs;
+         var cf = CollectionsWithRoles.Implementation.CollectionsFactorySingleton.DEFAULT_COLLECTIONS_FACTORY;
+         var dic = new Dictionary<Tables, DictionaryWithRoles<Int32, ArrayProxy<Int64>, ArrayProxyQuery<Int64>, ArrayQuery<Int64>>>();
+         var tSizes = tableStreamHeader.CreateTableSizesArray();
+         var indices = new Int32[tSizes.Length];
+         foreach ( var dataRef in dataRefs )
+         {
+            var table = dataRef.Table;
+            var thisTableDic = dic
+               .GetOrAdd_NotThreadSafe( table, t => cf.NewDictionary<Int32, ArrayProxy<Int64>, ArrayProxyQuery<Int64>, ArrayQuery<Int64>>() );
+            var cIdx = dataRef.ColumnIndex;
+            ArrayProxy<Int64> array;
+            if ( !thisTableDic.CQ.TryGetValue( cIdx, out array ) )
+            {
+               array = cf.NewArrayProxy<Int64>( new Int64[tSizes[(Int32) table]] );
+               thisTableDic.Add( cIdx, array );
+            }
+            array[indices[(Int32) table]++] = dataRef.DataReference;
+         }
+         this.DataReferences = cf.NewDictionary<
+            Tables,
+            DictionaryWithRoles<Int32, ArrayProxy<Int64>, ArrayProxyQuery<Int64>, ArrayQuery<Int64>>,
+            DictionaryQueryOfMutables<Int32, ArrayProxy<Int64>, ArrayProxyQuery<Int64>, ArrayQuery<Int64>>,
+            DictionaryQuery<Int32, ArrayQuery<Int64>>
+            >( dic ).CQ.IQ;
       }
 
       public CLIHeader CLIHeader { get; }
@@ -864,13 +883,21 @@ namespace CILAssemblyManipulator.Physical.IO
 
       public ArrayQuery<Byte> StrongNameSignature { get; }
 
-      // TODO DictionaryQuery<Tables, ListQuery<ListQuery<Int32>>> DataReferences { get; }
+      public DictionaryQuery<Tables, DictionaryQuery<Int32, ArrayQuery<Int64>>> DataReferences { get; }
+   }
 
-      [CLSCompliant( false )]
-      public ArrayQuery<TRVA> MethodRVAs { get; }
+   public struct DataReferenceInfo
+   {
+      public DataReferenceInfo( Tables table, Int32 columnIndex, Int64 dataReference )
+      {
+         this.Table = table;
+         this.ColumnIndex = columnIndex;
+         this.DataReference = dataReference;
+      }
 
-      [CLSCompliant( false )]
-      public ArrayQuery<TRVA> FieldRVAs { get; }
+      public Tables Table { get; }
+      public Int32 ColumnIndex { get; }
+      public Int64 DataReference { get; }
    }
 
    public sealed class CLIHeader
@@ -1818,6 +1845,28 @@ public static partial class E_CILPhysical
    public static Boolean HasDelete( this TableStreamFlags flags )
    {
       return ( flags & TableStreamFlags.HasDelete ) != 0;
+   }
+
+   public static ArrayQuery<Int64> GetMethodRVAs( this CLIInformation info )
+   {
+      return info.GetDataReferencesFor( Tables.MethodDef, 0 );
+   }
+
+   public static ArrayQuery<Int64> GetFieldRVAs( this CLIInformation info )
+   {
+      return info.GetDataReferencesFor( Tables.FieldRVA, 0 );
+   }
+
+   public static ArrayQuery<Int64> GetDataReferencesFor( this CLIInformation info, Tables table, Int32 colIndex )
+   {
+      DictionaryQuery<Int32, ArrayQuery<Int64>> dic;
+      ArrayQuery<Int64> refs = null;
+      if ( info.DataReferences.TryGetValue( table, out dic )
+         && dic.TryGetValue( colIndex, out refs ) )
+      {
+
+      }
+      return refs ?? EmptyArrayProxy<Int64>.Query;
    }
 
    #endregion
