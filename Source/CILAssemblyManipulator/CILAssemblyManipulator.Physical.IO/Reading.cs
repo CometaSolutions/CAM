@@ -76,7 +76,7 @@ namespace CILAssemblyManipulator.Physical.IO
    /// <item><description><see cref="ReadImageInformation"/>,</description></item>
    /// <item><description><see cref="CreateStreamHandler"/> (once for each header in <see cref="MetaDataRoot.StreamHeaders"/>),</description></item>
    /// <item><description><see cref="ReaderTableStreamHandler.PopulateMetaDataStructure"/>, and</description></item>
-   /// <item><description><see cref="HandleStoredRawValues"/>.</description></item>
+   /// <item><description><see cref="HandleDataReferences"/>.</description></item>
    /// </list>
    /// </remarks>
    /// <seealso cref="ReaderFunctionalityProvider"/>
@@ -112,7 +112,7 @@ namespace CILAssemblyManipulator.Physical.IO
       /// <param name="header">The <see cref="MetaDataStreamHeader"/>, containing the size and name information for this meta data stream.</param>
       /// <returns>An instance of <see cref="AbstractReaderStreamHandler"/> representing the contents</returns>
       /// <remarks>
-      /// The <see cref="AbstractReaderStreamHandler"/>s returned by this method are further handled to <see cref="ReaderMetaDataStreamContainer"/>, used in <see cref="ReaderTableStreamHandler.PopulateMetaDataStructure"/> and <see cref="HandleStoredRawValues"/> methods.
+      /// The <see cref="AbstractReaderStreamHandler"/>s returned by this method are further handled to <see cref="ReaderMetaDataStreamContainer"/>, used in <see cref="ReaderTableStreamHandler.PopulateMetaDataStructure"/> and <see cref="HandleDataReferences"/> methods.
       /// </remarks>
       AbstractReaderStreamHandler CreateStreamHandler(
          StreamHelper stream,
@@ -129,7 +129,7 @@ namespace CILAssemblyManipulator.Physical.IO
       /// <param name="rvaConverter">The <see cref="RVAConverter"/> created by <see cref="ReadImageInformation"/> method.</param>
       /// <param name="mdStreamContainer">The <see cref="ReaderMetaDataStreamContainer"/> containing all streams created by <see cref="CreateStreamHandler"/> method.</param>
       /// <param name="md">The instance of <see cref="CILMetaData"/> that will be result of this deserialization process.</param>
-      /// <param name="rawValues"></param>
+      /// <param name="dataReferences">The <see cref="RawValueStorage{TValue}"/> created by <see cref="ReaderTableStreamHandler.PopulateMetaDataStructure"/> method.</param>
       /// <remarks>
       /// The values that need data from elsewhere than <see cref="AbstractReaderStreamHandler"/>s, are at least:
       /// <list type="bullet">
@@ -138,13 +138,13 @@ namespace CILAssemblyManipulator.Physical.IO
       /// <item><description><see cref="ManifestResource.EmbeddedData"/>.</description></item>
       /// </list>
       /// </remarks>
-      void HandleStoredRawValues(
+      void HandleDataReferences(
          StreamHelper stream,
          ImageInformation imageInfo,
          RVAConverter rvaConverter,
          ReaderMetaDataStreamContainer mdStreamContainer,
          CILMetaData md,
-         RawValueStorage<Int32> rawValues
+         RawValueStorage<Int32> dataReferences
          );
    }
 
@@ -416,7 +416,7 @@ namespace CILAssemblyManipulator.Physical.IO
       /// </summary>
       /// <param name="md">The <see cref="CILMetaData"/> to populate.</param>
       /// <param name="mdStreamContainer">The <see cref="ReaderMetaDataStreamContainer"/> containing meta data streams.</param>
-      /// <returns>The raw values (RVAs) which were read from this table stream. The stored raw values will be used by <see cref="ReaderFunctionality.HandleStoredRawValues"/> method.</returns>
+      /// <returns>The raw values (RVAs) which were read from this table stream. The stored raw values will be used by <see cref="ReaderFunctionality.HandleDataReferences"/> method.</returns>
       RawValueStorage<Int32> PopulateMetaDataStructure(
          CILMetaData md,
          ReaderMetaDataStreamContainer mdStreamContainer
@@ -716,7 +716,7 @@ public static partial class E_CILPhysical
       // 5. Populate IL, FieldRVA, and ManifestResource data
       if ( deserializeDataReferences )
       {
-         reader.HandleStoredRawValues( helper, imageInfo, rvaConverter, mdStreamContainer, md, dataReferences );
+         reader.HandleDataReferences( helper, imageInfo, rvaConverter, mdStreamContainer, md, dataReferences );
       }
 
       // We're done

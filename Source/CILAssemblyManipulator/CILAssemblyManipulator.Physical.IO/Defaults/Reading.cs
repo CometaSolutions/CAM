@@ -138,7 +138,7 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
          }
       }
 
-      public virtual void HandleStoredRawValues(
+      public virtual void HandleDataReferences(
          StreamHelper stream,
          ImageInformation imageInfo,
          RVAConverter rvaConverter,

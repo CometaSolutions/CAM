@@ -864,6 +864,8 @@ namespace CILAssemblyManipulator.Physical.IO
 
       public ArrayQuery<Byte> StrongNameSignature { get; }
 
+      // TODO DictionaryQuery<Tables, ListQuery<ListQuery<Int32>>> DataReferences { get; }
+
       [CLSCompliant( false )]
       public ArrayQuery<TRVA> MethodRVAs { get; }
 
