@@ -574,17 +574,17 @@ public static partial class E_CILPhysical
 
       CILMetaData md;
       RawValueStorage<Int32> rawValueStorage;
-      RVAConverter rvaConverter;
+      //RVAConverter rvaConverter;
       if ( newStream != null && !ReferenceEquals( stream, newStream ) )
       {
          using ( newStream )
          {
-            md = reader.ReadMetaDataFromStream( newStream, tableInfoProvider, errorHandler, deserializeDataReferences, out imageInfo, out rawValueStorage, out rvaConverter );
+            md = reader.ReadMetaDataFromStream( newStream, tableInfoProvider, errorHandler, deserializeDataReferences, out imageInfo, out rawValueStorage );
          }
       }
       else
       {
-         md = reader.ReadMetaDataFromStream( stream, tableInfoProvider, errorHandler, deserializeDataReferences, out imageInfo, out rawValueStorage, out rvaConverter );
+         md = reader.ReadMetaDataFromStream( stream, tableInfoProvider, errorHandler, deserializeDataReferences, out imageInfo, out rawValueStorage );
       }
 
       return md;
@@ -599,7 +599,7 @@ public static partial class E_CILPhysical
    /// <param name="errorHandler">The callback to handle errors during deserialization.</param>
    /// <param name="deserializeDataReferences">Whether to deserialize data references (e.g. <see cref="MethodDefinition.IL"/>).</param>
    /// <param name="imageInfo">This parameter will hold the <see cref="ImageInformation"/> read from the <see cref="Stream"/>.</param>
-   /// <param name="dataReferences">This parameter will hold the <see cref="RawValueStorage{TValue}"/> returned by <see cref="ReaderTableStreamHandler.PopulateMetaDataStructure"/>.</param>
+   ///// <param name="dataReferences">This parameter will hold the <see cref="RawValueStorage{TValue}"/> returned by <see cref="ReaderTableStreamHandler.PopulateMetaDataStructure"/>.</param>
    /// <param name="rvaConverter">This parameter will hold the <see cref="RVAConverter"/> obtained with <see cref="ReaderFunctionality.ReadImageInformation"/>, or <see cref="DefaultRVAConverter"/> if that method did not obtain rva converter.</param>
    /// <returns>An instance of <see cref="CILMetaData"/> with its data read from the <paramref name="stream"/>.</returns>
    /// <exception cref="BadImageFormatException">If the structure of the image represented by <see cref="Stream"/> is invalid (e.g. missing PE header or CLI header, etc).</exception>
@@ -617,8 +617,8 @@ public static partial class E_CILPhysical
       EventHandler<SerializationErrorEventArgs> errorHandler,
       Boolean deserializeDataReferences,
       out ImageInformation imageInfo,
-      out RawValueStorage<Int32> dataReferences,
-      out RVAConverter rvaConverter
+      out RawValueStorage<Int32> dataReferences
+      //out RVAConverter rvaConverter
       )
    {
       if ( reader == null )
@@ -635,6 +635,7 @@ public static partial class E_CILPhysical
       PEInformation peInfo;
       CLIHeader cliHeader;
       MetaDataRoot mdRoot;
+      RVAConverter rvaConverter;
       reader.ReadImageInformation( helper, out peInfo, out rvaConverter, out cliHeader, out mdRoot );
 
       if ( peInfo == null )
