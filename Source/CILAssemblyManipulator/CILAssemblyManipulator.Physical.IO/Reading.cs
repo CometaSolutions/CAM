@@ -309,9 +309,108 @@ namespace CILAssemblyManipulator.Physical.IO
    }
 
    /// <summary>
+   /// This class encapsulates all <see cref="AbstractReaderStreamHandler"/>s or <see cref="AbstractWriterStreamHandler"/>s used in (de)serialization process.
+   /// </summary>
+   /// <typeparam name="TAbstractStream">The type of the abstract meta data stream. Should be <see cref="AbstractReaderStreamHandler"/> for deserialization process, and <see cref="AbstractWriterStreamHandler"/> for serialization process.</typeparam>
+   /// <typeparam name="TBLOBStream">The type of the BLOB meta data stream. Should be <see cref="ReaderBLOBStreamHandler"/> for deserialization process, and <see cref="WriterBLOBStreamHandler"/> for serialization process.</typeparam>
+   /// <typeparam name="TGUIDStream">The type of the GUID meta data stream. Should be <see cref="ReaderGUIDStreamHandler"/> for deserialization process, and <see cref="WriterGUIDStreamHandler"/> for serialization process.</typeparam>
+   /// <typeparam name="TStringStream">The type of the various string meta data streams. Should be <see cref="ReaderStringStreamHandler"/> for deserialization process, and <see cref="WriterStringStreamHandler"/> for serialization process.</typeparam>
+   /// <seealso cref="ReaderMetaDataStreamContainer"/>
+   /// <seealso cref="WriterMetaDataStreamContainer"/>
+   public class MetaDataStreamContainer<TAbstractStream, TBLOBStream, TGUIDStream, TStringStream>
+      where TAbstractStream : AbstractMetaDataStreamHandler
+      where TBLOBStream : TAbstractStream
+      where TGUIDStream : TAbstractStream
+      where TStringStream : TAbstractStream
+   {
+      /// <summary>
+      /// Creates a new instance of <see cref="MetaDataStreamContainer{TAbstractStream, TBLOBStream, TGUIDStream, TStringStream}"/> with given streams.
+      /// </summary>
+      /// <param name="blobs">The handler for <c>#Blobs</c> stream.</param>
+      /// <param name="guids">The handler for <c>#GUID</c> stream.</param>
+      /// <param name="sysStrings">The handler for <c>#String</c> stream.</param>
+      /// <param name="userStrings">The handler for <c>#US</c> stream.</param>
+      /// <param name="otherStreams">Any other streams.</param>
+      /// <remarks>
+      /// None of the parameters are checked for <c>null</c> values.
+      /// </remarks>
+      public MetaDataStreamContainer(
+         TBLOBStream blobs,
+         TGUIDStream guids,
+         TStringStream sysStrings,
+         TStringStream userStrings,
+         IEnumerable<TAbstractStream> otherStreams
+         )
+      {
+         this.BLOBs = blobs;
+         this.GUIDs = guids;
+         this.SystemStrings = sysStrings;
+         this.UserStrings = userStrings;
+         this.OtherStreams = otherStreams.ToArrayProxy().CQ;
+      }
+
+      /// <summary>
+      /// Gets the handler for <c>#Blobs</c> stream..
+      /// </summary>
+      /// <value>The handler for <c>#Blobs</c> stream..</value>
+      /// <remarks>
+      /// This value may be <c>null</c>, if null was specified to the constructor of this <see cref="MetaDataStreamContainer{TAbstractStream, TBLOBStream, TGUIDStream, TStringStream}"/>.
+      /// </remarks>
+      /// <seealso cref="ReaderBLOBStreamHandler"/>
+      /// <seealso cref="WriterBLOBStreamHandler"/>
+      public TBLOBStream BLOBs { get; }
+
+      /// <summary>
+      /// Gets the handler for <c>#GUID</c> stream..
+      /// </summary>
+      /// <value>The handler for <c>#GUID</c> stream..</value>
+      /// <remarks>
+      /// This value may be <c>null</c>, if null was specified to the constructor of this <see cref="MetaDataStreamContainer{TAbstractStream, TBLOBStream, TGUIDStream, TStringStream}"/>.
+      /// </remarks>
+      /// <seealso cref="ReaderGUIDStreamHandler"/>
+      /// <seealso cref="WriterGUIDStreamHandler"/>
+      public TGUIDStream GUIDs { get; }
+
+      /// <summary>
+      /// Gets the handler for <c>#String</c> stream.
+      /// </summary>
+      /// <value>The the handler for <c>#String</c> stream.</value>
+      /// <remarks>
+      /// This value may be <c>null</c>, if null was specified to the constructor of this <see cref="MetaDataStreamContainer{TAbstractStream, TBLOBStream, TGUIDStream, TStringStream}"/>.
+      /// </remarks>
+      /// <seealso cref="ReaderStringStreamHandler"/>
+      /// <seealso cref="WriterStringStreamHandler"/>
+      public TStringStream SystemStrings { get; }
+
+      /// <summary>
+      /// Gets the handler for <c>#US</c> stream..
+      /// </summary>
+      /// <value>The handler for <c>#US</c> stream..</value>
+      /// <remarks>
+      /// This value may be <c>null</c>, if null was specified to the constructor of this <see cref="MetaDataStreamContainer{TAbstractStream, TBLOBStream, TGUIDStream, TStringStream}"/>.
+      /// </remarks>
+      /// <seealso cref="ReaderStringStreamHandler"/>
+      /// <seealso cref="WriterStringStreamHandler"/>
+      public TStringStream UserStrings { get; }
+
+      /// <summary>
+      /// Gets the other streams given to this <see cref="MetaDataStreamContainer{TAbstractStream, TBLOBStream, TGUIDStream, TStringStream}"/>.
+      /// </summary>
+      /// <value>The other streams given to this <see cref="MetaDataStreamContainer{TAbstractStream, TBLOBStream, TGUIDStream, TStringStream}"/>.</value>
+      /// <remarks>
+      /// This value may be empty, but it is never <c>null</c>.
+      /// </remarks>
+      /// <seealso cref="AbstractReaderStreamHandler"/>
+      /// <seealso cref="AbstractWriterStreamHandler"/>
+      public ArrayQuery<TAbstractStream> OtherStreams { get; }
+   }
+
+
+
+   /// <summary>
    /// This class encapsulates all <see cref="AbstractReaderStreamHandler"/>s created by <see cref="ReaderFunctionality.CreateStreamHandler"/> (except <see cref="ReaderTableStreamHandler"/>) to be more easily accessable and useable.
    /// </summary>
-   public class ReaderMetaDataStreamContainer
+   public class ReaderMetaDataStreamContainer : MetaDataStreamContainer<AbstractReaderStreamHandler, ReaderBLOBStreamHandler, ReaderGUIDStreamHandler, ReaderStringStreamHandler>
    {
       /// <summary>
       /// Creates a new instance of <see cref="ReaderMetaDataStreamContainer"/> with given streams.
@@ -330,64 +429,31 @@ namespace CILAssemblyManipulator.Physical.IO
          ReaderStringStreamHandler sysStrings,
          ReaderStringStreamHandler userStrings,
          IEnumerable<AbstractReaderStreamHandler> otherStreams
-         )
+         ) : base( blobs, guids, sysStrings, userStrings, otherStreams )
       {
-         this.BLOBs = blobs;
-         this.GUIDs = guids;
-         this.SystemStrings = sysStrings;
-         this.UserStrings = userStrings;
-         this.OtherStreams = ( otherStreams ?? Empty<AbstractReaderStreamHandler>.Enumerable ).ToArrayProxy().CQ;
       }
 
+   }
+
+   /// <summary>
+   /// This is common interface for <see cref="AbstractReaderStreamHandler"/> and <see cref="AbstractWriterStreamHandler"/>.
+   /// It contains elements common for meta data streams in both serialization and deserialization processes.
+   /// </summary>
+   /// <seealso cref="AbstractReaderStreamHandler"/>
+   /// <seealso cref="AbstractWriterStreamHandler"/>
+   public interface AbstractMetaDataStreamHandler
+   {
       /// <summary>
-      /// Gets the <see cref="ReaderBLOBStreamHandler"/>.
+      /// Gets the textual name of this <see cref="ReaderOrWriterStreamHandler"/>.
       /// </summary>
-      /// <value>The <see cref="ReaderBLOBStreamHandler"/>.</value>
-      /// <remarks>
-      /// This value may be <c>null</c>, if null was specified to the constructor of this <see cref="ReaderMetaDataStreamContainer"/>.
-      /// </remarks>
-      /// <seealso cref="ReaderBLOBStreamHandler"/>
-      public ReaderBLOBStreamHandler BLOBs { get; }
+      /// <value>The textual name of this <see cref="ReaderOrWriterStreamHandler"/>.</value>
+      String StreamName { get; }
 
       /// <summary>
-      /// Gets the <see cref="ReaderGUIDStreamHandler"/>.
+      /// Gets the size of this <see cref="ReaderOrWriterStreamHandler"/> in bytes.
       /// </summary>
-      /// <value>The <see cref="ReaderGUIDStreamHandler"/>.</value>
-      /// <remarks>
-      /// This value may be <c>null</c>, if null was specified to the constructor of this <see cref="ReaderMetaDataStreamContainer"/>.
-      /// </remarks>
-      /// <seealso cref="ReaderGUIDStreamHandler"/>
-      public ReaderGUIDStreamHandler GUIDs { get; }
-
-      /// <summary>
-      /// Gets the <see cref="ReaderStringStreamHandler"/> for system strings.
-      /// </summary>
-      /// <value>The <see cref="ReaderStringStreamHandler"/> for system strings.</value>
-      /// <remarks>
-      /// This value may be <c>null</c>, if null was specified to the constructor of this <see cref="ReaderMetaDataStreamContainer"/>.
-      /// </remarks>
-      /// <seealso cref="ReaderStringStreamHandler"/>
-      public ReaderStringStreamHandler SystemStrings { get; }
-
-      /// <summary>
-      /// Gets the <see cref="ReaderStringStreamHandler"/> for user strings.
-      /// </summary>
-      /// <value>The <see cref="ReaderStringStreamHandler"/> for user strings.</value>
-      /// <remarks>
-      /// This value may be <c>null</c>, if null was specified to the constructor of this <see cref="ReaderMetaDataStreamContainer"/>.
-      /// </remarks>
-      /// <seealso cref="ReaderStringStreamHandler"/>
-      public ReaderStringStreamHandler UserStrings { get; }
-
-      /// <summary>
-      /// Gets the other <see cref="AbstractReaderStreamHandler"/>s given to this <see cref="ReaderMetaDataStreamContainer"/>.
-      /// </summary>
-      /// <value>The other <see cref="AbstractReaderStreamHandler"/>s given to this <see cref="ReaderMetaDataStreamContainer"/>.</value>
-      /// <remarks>
-      /// This value may be empty, but it is never <c>null</c>.
-      /// </remarks>
-      /// <seealso cref="AbstractReaderStreamHandler"/>
-      public ArrayQuery<AbstractReaderStreamHandler> OtherStreams { get; }
+      /// <value>The size of this <see cref="ReaderOrWriterStreamHandler"/> in bytes.</value>
+      Int32 StreamSize { get; }
    }
 
    /// <summary>
@@ -397,13 +463,8 @@ namespace CILAssemblyManipulator.Physical.IO
    /// <seealso cref="ReaderBLOBStreamHandler"/>
    /// <seealso cref="ReaderStringStreamHandler"/>
    /// <seealso cref="ReaderGUIDStreamHandler"/>
-   public interface AbstractReaderStreamHandler
+   public interface AbstractReaderStreamHandler : AbstractMetaDataStreamHandler
    {
-      /// <summary>
-      /// Gets the textual name of this <see cref="AbstractReaderStreamHandler"/>.
-      /// </summary>
-      /// <value>The textual name of this <see cref="AbstractReaderStreamHandler"/>.</value>
-      String StreamName { get; }
    }
 
    /// <summary>
@@ -570,11 +631,11 @@ public static partial class E_CILPhysical
    /// <exception cref="NullReferenceException">If this <see cref="ReaderFunctionalityProvider"/> is <c>null</c>.</exception>
    /// <remarks>
    /// This method is used by <see cref="CILMetaDataIO.ReadModule"/> to actually perform deserialization, and thus is rarely needed to be used directly.
-   /// Instead, use <see cref="CILMetaDataIO.ReadModule"/> or any of the classes implementing <see cref="CILMetaDataLoader"/>.
+   /// Instead, use <see cref="CILMetaDataIO.ReadModule"/> or any of the classes implementing <see cref="T:CILAssemblyManipulator.Physical.CILMetaDataLoader"/>.
    /// </remarks>
    /// <seealso cref="ReaderFunctionalityProvider"/>
    /// <seealso cref="CILMetaDataIO.ReadModule"/>
-   /// <seealso cref="CILMetaDataLoader"/>
+   /// <seealso cref="T:CILAssemblyManipulator.Physical.CILMetaDataLoader"/>
    /// <seealso cref="ReadMetaDataFromStream(ReaderFunctionality, Stream, CILMetaDataTableInformationProvider, EventHandler{SerializationErrorEventArgs}, bool, out ImageInformation, out ColumnValueStorage{int}, out RVAConverter)"/>
    public static CILMetaData ReadMetaDataFromStream(
       this ReaderFunctionalityProvider readerProvider,

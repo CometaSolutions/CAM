@@ -181,7 +181,7 @@ namespace CILAssemblyManipulator.Physical.IO
    /// <summary>
    /// This class encapsulates all <see cref="AbstractWriterStreamHandler"/>s created by <see cref="WriterFunctionality.CreateMetaDataStreamHandlers"/> (except <see cref="WriterTableStreamHandler"/>) to be more easily accessable and useable.
    /// </summary>
-   public class WriterMetaDataStreamContainer
+   public class WriterMetaDataStreamContainer : MetaDataStreamContainer<AbstractWriterStreamHandler, WriterBLOBStreamHandler, WriterGUIDStreamHandler, WriterStringStreamHandler>
    {
       /// <summary>
       /// Creates a new instance of <see cref="WriterMetaDataStreamContainer"/> with given streams.
@@ -200,64 +200,9 @@ namespace CILAssemblyManipulator.Physical.IO
          WriterStringStreamHandler sysStrings,
          WriterStringStreamHandler userStrings,
          IEnumerable<AbstractWriterStreamHandler> otherStreams
-         )
+         ) : base( blobs, guids, sysStrings, userStrings, otherStreams )
       {
-         this.BLOBs = blobs;
-         this.GUIDs = guids;
-         this.SystemStrings = sysStrings;
-         this.UserStrings = userStrings;
-         this.OtherStreams = otherStreams.ToArrayProxy().CQ;
       }
-
-      /// <summary>
-      /// Gets the <see cref="WriterBLOBStreamHandler"/>.
-      /// </summary>
-      /// <value>The <see cref="WriterBLOBStreamHandler"/>.</value>
-      /// <remarks>
-      /// This value may be <c>null</c>, if null was specified to the constructor of this <see cref="WriterMetaDataStreamContainer"/>.
-      /// </remarks>
-      /// <seealso cref="WriterBLOBStreamHandler"/>
-      public WriterBLOBStreamHandler BLOBs { get; }
-
-      /// <summary>
-      /// Gets the <see cref="WriterGUIDStreamHandler"/>.
-      /// </summary>
-      /// <value>The <see cref="WriterGUIDStreamHandler"/>.</value>
-      /// <remarks>
-      /// This value may be <c>null</c>, if null was specified to the constructor of this <see cref="WriterMetaDataStreamContainer"/>.
-      /// </remarks>
-      /// <seealso cref="WriterGUIDStreamHandler"/>
-      public WriterGUIDStreamHandler GUIDs { get; }
-
-      /// <summary>
-      /// Gets the <see cref="WriterStringStreamHandler"/> for system strings.
-      /// </summary>
-      /// <value>The <see cref="WriterStringStreamHandler"/> for system strings.</value>
-      /// <remarks>
-      /// This value may be <c>null</c>, if null was specified to the constructor of this <see cref="WriterMetaDataStreamContainer"/>.
-      /// </remarks>
-      /// <seealso cref="WriterStringStreamHandler"/>
-      public WriterStringStreamHandler SystemStrings { get; }
-
-      /// <summary>
-      /// Gets the <see cref="WriterStringStreamHandler"/> for user strings.
-      /// </summary>
-      /// <value>The <see cref="WriterStringStreamHandler"/> for user strings.</value>
-      /// <remarks>
-      /// This value may be <c>null</c>, if null was specified to the constructor of this <see cref="WriterMetaDataStreamContainer"/>.
-      /// </remarks>
-      /// <seealso cref="WriterStringStreamHandler"/>
-      public WriterStringStreamHandler UserStrings { get; }
-
-      /// <summary>
-      /// Gets the other <see cref="AbstractWriterStreamHandler"/>s given to this <see cref="WriterMetaDataStreamContainer"/>.
-      /// </summary>
-      /// <value>The other <see cref="AbstractWriterStreamHandler"/>s given to this <see cref="WriterMetaDataStreamContainer"/>.</value>
-      /// <remarks>
-      /// This value may be empty, but it is never <c>null</c>.
-      /// </remarks>
-      /// <seealso cref="AbstractWriterStreamHandler"/>
-      public ArrayQuery<AbstractWriterStreamHandler> OtherStreams { get; }
    }
 
    /// <summary>
@@ -267,31 +212,21 @@ namespace CILAssemblyManipulator.Physical.IO
    /// <seealso cref="WriterBLOBStreamHandler"/>
    /// <seealso cref="WriterStringStreamHandler"/>
    /// <seealso cref="WriterGUIDStreamHandler"/>
-   public interface AbstractWriterStreamHandler
+   public interface AbstractWriterStreamHandler : AbstractMetaDataStreamHandler
    {
-      /// <summary>
-      /// Gets the textual name of this <see cref="AbstractWriterStreamHandler"/>.
-      /// </summary>
-      /// <value>The textual name of this <see cref="AbstractWriterStreamHandler"/>.</value>
-      String StreamName { get; }
 
       /// <summary>
       /// Writes the current contents of this <see cref="AbstractWriterStreamHandler"/> to given <see cref="Stream"/>.
       /// </summary>
       /// <param name="stream">The <see cref="Stream"/> to write the contents to.</param>
       /// <param name="array">The auxiliary <see cref="ResizableArray{T}"/> to use.</param>
-      /// <param name="rawValueProvder">The data references created by <see cref="WriterFunctionality.CalculateImageLayout"/>.</param>
+      /// <param name="dataReferences">The data references created by <see cref="WriterFunctionality.CalculateImageLayout"/>.</param>
       void WriteStream(
          Stream stream,
          ResizableArray<Byte> array,
-         ColumnValueStorage<Int64> rawValueProvder
+         ColumnValueStorage<Int64> dataReferences
          );
 
-      /// <summary>
-      /// Gets the current size of this <see cref="AbstractWriterStreamHandler"/> in bytes.
-      /// </summary>
-      /// <value>The current size of this <see cref="AbstractWriterStreamHandler"/> in bytes.</value>
-      Int32 CurrentSize { get; }
 
       /// <summary>
       /// Gets the value indicating whether this <see cref="AbstractWriterStreamHandler"/> has been accessed in some way yet.
@@ -582,6 +517,29 @@ public static partial class E_CILPhysical
 {
    private const Int32 DATA_DIR_SIZE = 0x08;
 
+   /// <summary>
+   /// This is extension method to write given <see cref="CILMetaData"/> to <see cref="Stream"/> using this <see cref="WriterFunctionalityProvider"/>.
+   /// It takes into account the possible new stream, and the possible new meta data created by <see cref="WriterFunctionalityProvider.GetFunctionality"/> method.
+   /// </summary>
+   /// <param name="writerProvider">This <see cref="WriterFunctionalityProvider"/>.</param>
+   /// <param name="stream">The <see cref="Stream"/> to write <see cref="CILMetaData"/> to.</param>
+   /// <param name="md">The <see cref="CILMetaData"/> to write.</param>
+   /// <param name="options">The <see cref="WritingOptions"/> object to control header values. May be <c>null</c>.</param>
+   /// <param name="sn">The <see cref="StrongNameKeyPair"/> to use, if the <see cref="CILMetaData"/> should be strong-name signed.</param>
+   /// <param name="delaySign">Setting this to <c>true</c> will leave the room for strong-name signature, but will not compute it.</param>
+   /// <param name="cryptoCallbacks">The <see cref="CryptoCallbacks"/> to use, if the <see cref="CILMetaData"/> should be strong-name signed.</param>
+   /// <param name="snAlgorithmOverride">Overrides the signing algorithm, which originally is deduceable from the key BLOB of the <see cref="StrongNameKeyPair"/>.</param>
+   /// <param name="errorHandler">The callback to handle errors during serialization.</param>
+   /// <returns>An instance of <see cref="ImageInformation"/> containing information about the headers and other values created during serialization.</returns>
+   /// <exception cref="ArgumentNullException">If <paramref name="stream"/> or <paramref name="md"/> is <c>null</c>.</exception>
+   /// <exception cref="NullReferenceException">If this <see cref="WriterFunctionalityProvider"/> is <c>null</c>.</exception>
+   /// <remarks>
+   /// This method is used by <see cref="E_CILPhysical.WriteModule"/> to actually perform serialization, and thus is rarely needed to be used directly.
+   /// Instead, use <see cref="E_CILPhysical.WriteModule"/>.
+   /// </remarks>
+   /// <seealso cref="WriterFunctionalityProvider"/>
+   /// <seealso cref="E_CILPhysical.WriteModule"/>
+   /// <seealso cref="WriteMetaDataToStream(WriterFunctionality, Stream, CILMetaData, WritingOptions, StrongNameKeyPair, bool, CryptoCallbacks, AssemblyHashAlgorithm?, EventHandler{SerializationErrorEventArgs})"/>
    public static ImageInformation WriteMetaDataToStream(
       this WriterFunctionalityProvider writerProvider,
       Stream stream,
@@ -632,6 +590,28 @@ public static partial class E_CILPhysical
       return retVal;
    }
 
+   /// <summary>
+   /// This is extension method to write given <see cref="CILMetaData"/> to <see cref="Stream"/> using this <see cref="WriterFunctionality"/>.
+   /// </summary>
+   /// <param name="writer">This <see cref="WriterFunctionality"/>.</param>
+   /// <param name="stream">The <see cref="Stream"/> to write <see cref="CILMetaData"/> to.</param>
+   /// <param name="md">The <see cref="CILMetaData"/> to write.</param>
+   /// <param name="options">The <see cref="WritingOptions"/> object to control header values. May be <c>null</c>.</param>
+   /// <param name="sn">The <see cref="StrongNameKeyPair"/> to use, if the <see cref="CILMetaData"/> should be strong-name signed.</param>
+   /// <param name="delaySign">Setting this to <c>true</c> will leave the room for strong-name signature, but will not compute it.</param>
+   /// <param name="cryptoCallbacks">The <see cref="CryptoCallbacks"/> to use, if the <see cref="CILMetaData"/> should be strong-name signed.</param>
+   /// <param name="snAlgorithmOverride">Overrides the signing algorithm, which originally is deduceable from the key BLOB of the <see cref="StrongNameKeyPair"/>.</param>
+   /// <param name="errorHandler">The callback to handle errors during serialization.</param>
+   /// <returns>An instance of <see cref="ImageInformation"/> containing information about the headers and other values created during serialization.</returns>
+   /// <exception cref="ArgumentNullException">If <paramref name="stream"/> or <paramref name="md"/> is <c>null</c>.</exception>
+   /// <exception cref="NullReferenceException">If this <see cref="WriterFunctionality"/> is <c>null</c>.</exception>
+   /// <exception cref="InvalidOperationException">If this <see cref="WriterFunctionality"/> returns invalid values.</exception>
+   /// <remarks>
+   /// This method is used by <see cref="E_CILPhysical.WriteModule"/> to actually perform serialization, and thus is rarely needed to be used directly.
+   /// Instead, use <see cref="E_CILPhysical.WriteModule"/>.
+   /// </remarks>
+   /// <seealso cref="WriterFunctionality"/>
+   /// <seealso cref="E_CILPhysical.WriteModule"/>
    public static ImageInformation WriteMetaDataToStream(
       this WriterFunctionality writer,
       Stream stream,
@@ -925,6 +905,9 @@ public static partial class E_CILPhysical
             {
                using ( var cryptoStream = hashStream() )
                {
+                  // TODO: WriterFunctionality should have method:
+                  // IEnumerable<Tuple<Int64, Int64>> GetRangesSkippedInStrongNameSignatureCalculation(ImageInformation imageInfo);
+
                   // Calculate hash of required parts of file (ECMA-335, p.117)
                   // Read all headers first DOS header (start of file to the NT headers)
                   stream.SeekFromBegin( 0 );
@@ -986,33 +969,6 @@ public static partial class E_CILPhysical
             snSignatureArray.BlockCopyFrom( ref idx, strongNameArray );
          }
       }
-   }
-
-
-   public static Boolean IsWide( this AbstractWriterStreamHandler stream )
-   {
-      return stream.CurrentSize > UInt16.MaxValue;
-   }
-
-   internal static ArrayQuery<Byte> CreateASCIIBytes( this String str, Int32 align, Int32 minLen = 0, Int32 maxLen = -1 )
-   {
-      Byte[] bytez;
-      if ( String.IsNullOrEmpty( str ) )
-      {
-         bytez = new Byte[Math.Max( align, minLen )];
-      }
-      else
-      {
-         var byteArrayLen = ( str.Length + 1 ).RoundUpI32( align );
-         bytez = new Byte[maxLen >= 0 ? Math.Max( maxLen, byteArrayLen ) : byteArrayLen];
-         var idx = 0;
-         while ( idx < bytez.Length && idx < str.Length )
-         {
-            bytez[idx] = (Byte) str[idx];
-            ++idx;
-         }
-      }
-      return CollectionsWithRoles.Implementation.CollectionsFactorySingleton.DEFAULT_COLLECTIONS_FACTORY.NewArrayProxy( bytez ).CQ;
    }
 
    private static Int32 CreateNewPETimestamp()
@@ -1187,11 +1143,25 @@ public static partial class E_CILPhysical
       stream.Position = stream.Position.RoundUpI64( dataAlignment ) + dataSize;
    }
 
-   public static IEnumerable<AbstractWriterStreamHandler> GetAllStreams( this WriterMetaDataStreamContainer mdStreams )
+   /// <summary>
+   /// Creates an <see cref="IEnumerable{T}"/> to enumerate all the streams of this <see cref="MetaDataStreamContainer{TAbstractStream, TBLOBStream, TGUIDStream, TStringStream}"/>.
+   /// </summary>
+   /// <typeparam name="TAbstractStream">The type of the abstract meta data stream.</typeparam>
+   /// <typeparam name="TBLOBStream">The type of the BLOB meta data stream.</typeparam>
+   /// <typeparam name="TGUIDStream">The type of the GUID meta data stream.</typeparam>
+   /// <typeparam name="TStringStream">The type of the various string meta data streams.</typeparam>
+   /// <param name="mdStreams">This <see cref="MetaDataStreamContainer{TAbstractStream, TBLOBStream, TGUIDStream, TStringStream}"/>.</param>
+   /// <returns>An enumerable to enumerate all of the streams of this <see cref="MetaDataStreamContainer{TAbstractStream, TBLOBStream, TGUIDStream, TStringStream}"/>.</returns>
+   /// <exception cref="NullReferenceException">If this <see cref="MetaDataStreamContainer{TAbstractStream, TBLOBStream, TGUIDStream, TStringStream}"/> is <c>null</c>.</exception>
+   public static IEnumerable<TAbstractStream> GetAllStreams<TAbstractStream, TBLOBStream, TGUIDStream, TStringStream>( this MetaDataStreamContainer<TAbstractStream, TBLOBStream, TGUIDStream, TStringStream> mdStreams )
+      where TAbstractStream : AbstractMetaDataStreamHandler
+      where TBLOBStream : TAbstractStream
+      where TGUIDStream : TAbstractStream
+      where TStringStream : TAbstractStream
    {
-      yield return mdStreams.SystemStrings;
       yield return mdStreams.BLOBs;
       yield return mdStreams.GUIDs;
+      yield return mdStreams.SystemStrings;
       yield return mdStreams.UserStrings;
       foreach ( var os in mdStreams.OtherStreams )
       {
@@ -1199,6 +1169,12 @@ public static partial class E_CILPhysical
       }
    }
 
+   /// <summary>
+   /// This is helper method to get the aligned size of the DOS and NT headers of the PE image.
+   /// </summary>
+   /// <param name="status">This <see cref="WritingStatus"/>.</param>
+   /// <returns>The aligned size of the DOS and NT headers, which will be <see cref="WritingStatus.HeadersSizeUnaligned"/> aligned to <see cref="WritingStatus.FileAlignment"/>.</returns>
+   /// <exception cref="NullReferenceException">If this <see cref="WritingStatus"/> is <c>null</c>.</exception>
    public static Int32 GetAlignedHeadersSize( this WritingStatus status )
    {
       return status.HeadersSizeUnaligned.RoundUpI32( status.FileAlignment );

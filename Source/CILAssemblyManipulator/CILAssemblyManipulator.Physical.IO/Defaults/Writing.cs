@@ -326,7 +326,7 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
          var mdOptions = this.WritingOptions.CLIOptions.MDRootOptions;
          var mdVersionBytes = MetaDataRoot.GetVersionStringBytes( mdOptions.VersionString );
          var streamNamesBytes = presentStreams
-            .Select( mds => Tuple.Create( mds.StreamName.CreateASCIIBytes( 4 ), (UInt32) mds.CurrentSize ) )
+            .Select( mds => Tuple.Create( mds.StreamName.CreateASCIIBytes( 4 ), (UInt32) mds.StreamSize ) )
             .ToArray();
          var streamOffset = (UInt32) ( 0x14 + mdVersionBytes.Count + streamNamesBytes.Sum( sh => 0x08 + sh.Item1.Count ) );
          mdRootSize = (Int32) streamOffset;
@@ -1732,7 +1732,7 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
          }
       }
 
-      public Int32 CurrentSize
+      public Int32 StreamSize
       {
          get
          {
@@ -2103,7 +2103,7 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
          }
       }
 
-      public Int32 CurrentSize
+      public Int32 StreamSize
       {
          get
          {
@@ -2169,7 +2169,7 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
       {
          return mdStreams
             .GetAllStreams()
-            .ToDictionary_Preserve( s => s.StreamName, s => s.CurrentSize );
+            .ToDictionary_Preserve( s => s.StreamName, s => s.StreamSize );
       }
 
       public void WriteStream(
@@ -2333,5 +2333,31 @@ public static partial class E_CILPhysical
       return partOrNull == null || !partInfos.TryGetValue( partOrNull, out info ) ?
          default( DataDirectory ) :
          info.GetDataDirectory();
+   }
+
+   public static Boolean IsWide( this AbstractWriterStreamHandler stream )
+   {
+      return stream.StreamSize > UInt16.MaxValue;
+   }
+
+   internal static ArrayQuery<Byte> CreateASCIIBytes( this String str, Int32 align, Int32 minLen = 0, Int32 maxLen = -1 )
+   {
+      Byte[] bytez;
+      if ( String.IsNullOrEmpty( str ) )
+      {
+         bytez = new Byte[Math.Max( align, minLen )];
+      }
+      else
+      {
+         var byteArrayLen = ( str.Length + 1 ).RoundUpI32( align );
+         bytez = new Byte[maxLen >= 0 ? Math.Max( maxLen, byteArrayLen ) : byteArrayLen];
+         var idx = 0;
+         while ( idx < bytez.Length && idx < str.Length )
+         {
+            bytez[idx] = (Byte) str[idx];
+            ++idx;
+         }
+      }
+      return CollectionsWithRoles.Implementation.CollectionsFactorySingleton.DEFAULT_COLLECTIONS_FACTORY.NewArrayProxy( bytez ).CQ;
    }
 }

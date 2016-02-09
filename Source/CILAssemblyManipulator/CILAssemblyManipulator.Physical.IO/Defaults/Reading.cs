@@ -209,18 +209,21 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
          ArgumentValidator.ValidateNotNull( "Stream", stream );
 
          this.Bytes = stream.At( startPosition ).ReadAndCreateArray( streamSize );
-         this.StreamSize = (UInt32) streamSize;
+         this.StreamSize = streamSize;
+         this.StreamSize64 = (UInt32) streamSize;
       }
 
       public abstract String StreamName { get; }
 
+      public Int32 StreamSize { get; }
+
       protected Byte[] Bytes { get; }
 
-      protected Int64 StreamSize { get; }
+      protected Int64 StreamSize64 { get; }
 
       protected virtual Boolean CheckHeapOffset( Int32 heapOffset )
       {
-         return ( (UInt32) heapOffset ) < this.StreamSize;
+         return ( (UInt32) heapOffset ) < this.StreamSize64;
       }
    }
 
@@ -468,7 +471,7 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
 
       protected override Guid? ValueFactory( Int32 heapOffset )
       {
-         if ( heapOffset == 0 || (UInt32) heapOffset > this.StreamSize - MetaDataConstants.GUID_SIZE + 1 )
+         if ( heapOffset == 0 || (UInt32) heapOffset > this.StreamSize64 - MetaDataConstants.GUID_SIZE + 1 )
          {
             return null;
          }
@@ -631,7 +634,7 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
 
       public Object ReadConstantValue( Int32 heapIndex, SignatureProvider sigProvider, ConstantValueType constType )
       {
-         return heapIndex == 0 || heapIndex >= this.StreamSize ?
+         return heapIndex == 0 || heapIndex >= this.StreamSize64 ?
             null :
             this._constants.GetOrAdd_NotThreadSafe(
                new KeyValuePair<Int32, ConstantValueType>( heapIndex, constType ),
@@ -716,7 +719,7 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
       {
          var array = this.Bytes;
          Int32 length;
-         return array.TryDecompressUInt32( ref heapOffset, array.Length, out length ) && heapOffset + length <= this.StreamSize ?
+         return array.TryDecompressUInt32( ref heapOffset, array.Length, out length ) && heapOffset + length <= this.StreamSize64 ?
             Tuple.Create( heapOffset, length ) :
             null;
       }
