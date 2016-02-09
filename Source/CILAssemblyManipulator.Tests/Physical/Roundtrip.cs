@@ -16,7 +16,9 @@
  * limitations under the License. 
  */
 extern alias CAMPhysical;
+extern alias CAMPhysicalR;
 using CAMPhysical;
+using CAMPhysicalR;
 using CAMPhysical::CILAssemblyManipulator.Physical.Meta;
 using CAMPhysical::CILAssemblyManipulator.Physical.IO;
 
@@ -27,7 +29,6 @@ using System.Text;
 using NUnit.Framework;
 using System.IO;
 using CILAssemblyManipulator.Physical;
-using CILAssemblyManipulator.Physical.IO;
 
 namespace CILAssemblyManipulator.Tests.Physical
 {
@@ -42,7 +43,6 @@ namespace CILAssemblyManipulator.Tests.Physical
 
       private static void PerformRoundtripTest( String fileLocation, Action<CILMetaData> afterFirstRead, Action<CILMetaData> afterSecondRead )
       {
-         var resolver = new MetaDataResolver();
 
          var rArgs1 = new ReadingArguments();
 
@@ -52,7 +52,7 @@ namespace CILAssemblyManipulator.Tests.Physical
             read1 = fs.ReadModule( rArgs1 );
          }
 
-         resolver.ResolveEverything( read1 );
+         read1.ResolveEverything();
          if ( afterFirstRead != null )
          {
             afterFirstRead( read1 );
@@ -76,7 +76,7 @@ namespace CILAssemblyManipulator.Tests.Physical
             read2 = ms.ReadModule( rArgs2 );
          }
 
-         resolver.ResolveEverything( read2 );
+         read2.ResolveEverything();
          if ( afterSecondRead != null )
          {
             afterSecondRead( read2 );

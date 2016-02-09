@@ -96,6 +96,15 @@
       <Project>{3c3ee913-1034-4c7d-ab79-67d19e3256fa}</Project>
       <Name>CILAssemblyManipulator.Physical.Crypto</Name>
     </ProjectReference>
+    <ProjectReference Include="..\CILAssemblyManipulator.Physical.IO.Loading\CILAssemblyManipulator.Physical.IO.Loading.csproj">
+      <Project>{10ef5dbb-29d5-4266-9561-1fc44b671ac7}</Project>
+      <Name>CILAssemblyManipulator.Physical.IO.Loading</Name>
+    </ProjectReference>
+    <ProjectReference Include="..\CILAssemblyManipulator.Physical.IO.Resolving\CILAssemblyManipulator.Physical.IO.Resolving.csproj">
+      <Project>{c891754e-7698-4f7b-92d9-c28921ebf746}</Project>
+      <Name>CILAssemblyManipulator.Physical.IO.Resolving</Name>
+      <Aliases>CAMPhysicalR</Aliases>
+    </ProjectReference>
   </ItemGroup>
   <ItemGroup>
     <Compile Include="API.cs" />
@@ -108,6 +117,8 @@
     <Compile Include="API.DotNET.cs" />
     <Compile Include="Enums.cs" />
     <Compile Include="Headers.cs" />
+    <Compile Include="Loading.cs" />
+    <Compile Include="Loading.DotNET.cs" />
     <Compile Include="MetaData.cs" />
     <Compile Include="Meta\Information.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />

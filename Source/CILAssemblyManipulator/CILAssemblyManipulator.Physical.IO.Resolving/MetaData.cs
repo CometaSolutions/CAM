@@ -1,5 +1,5 @@
 ﻿/*
- * Copyright 2015 Stanislav Muhametsin. All rights Reserved.
+ * Copyright 2016 Stanislav Muhametsin. All rights Reserved.
  *
  * Licensed  under the  Apache License,  Version 2.0  (the "License");
  * you may not use  this file  except in  compliance with the License.
@@ -15,22 +15,25 @@
  * See the License for the specific language governing permissions and
  * limitations under the License. 
  */
-#if !CAM_PHYSICAL_IS_PORTABLE
-extern alias CAMPhysicalR;
-using CAMPhysicalR;
-using CAMPhysicalR::CILAssemblyManipulator.Physical.Resolving;
-
-using CILAssemblyManipulator.Physical.Crypto;
-using CommonUtils;
 using System;
-using System.Collections.Concurrent;
 using System.Collections.Generic;
-using System.IO;
 using System.Linq;
 using System.Text;
 
-namespace CILAssemblyManipulator.Physical.Loading
+namespace CILAssemblyManipulator.Physical
 {
 
+#pragma warning disable 1591
+   public interface CILMetaData
+   {
+#pragma warning restore 1591
+
+      /// <summary>
+      /// Gets the <see cref="Meta.ResolvingProvider"/> for this <see cref="CILMetaData"/>.
+      /// </summary>
+      /// <value>The <see cref="Meta.ResolvingProvider"/> for this <see cref="CILMetaData"/>.</value>
+      /// <seealso cref="Meta.ResolvingProvider"/>
+      Meta.ResolvingProvider ResolvingProvider { get; }
+
+   }
 }
-#endif

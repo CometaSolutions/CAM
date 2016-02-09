@@ -16,12 +16,14 @@
 * limitations under the License. 
 */
 extern alias CAMPhysical;
+extern alias CAMPhysicalR;
 using CAMPhysical;
 using CAMPhysical::CILAssemblyManipulator.Physical;
 using CAMPhysical::CILAssemblyManipulator.Physical.Meta;
 
 using CILAssemblyManipulator.Physical;
 using CILAssemblyManipulator.Physical.Meta;
+using CommonUtils;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -31,7 +33,7 @@ using TabularMetaData.Meta;
 
 namespace CILAssemblyManipulator.Physical
 {
-   internal sealed class CILMetadataImpl : TabularMetaDataWithSchemaImpl, CILMetaData
+   internal sealed class CILMetadataImpl : TabularMetaDataWithSchemaImpl, CILMetaData, CAMPhysicalR::CILAssemblyManipulator.Physical.CILMetaData
    {
 
 #pragma warning disable 618
@@ -92,6 +94,7 @@ namespace CILAssemblyManipulator.Physical
 
          this.OpCodeProvider = tableInfoProvider?.CreateOpCodeProvider() ?? DefaultOpCodeProvider.DefaultInstance;
          this.SignatureProvider = tableInfoProvider?.CreateSignatureProvider() ?? DefaultSignatureProvider.Instance;
+         this.ResolvingProvider = ( (CAMPhysicalR::CILAssemblyManipulator.Physical.Meta.CILMetaDataTableInformationProvider) tableInfoProvider )?.CreateResolvingProvider( this ) ?? new CAMPhysicalR::CILAssemblyManipulator.Physical.Meta.DefaultResolvingProvider( this, Empty<Tuple<Tables, CAMPhysicalR::CILAssemblyManipulator.Physical.Meta.MetaDataColumnInformationWithResolvingCapability>>.Enumerable );
       }
 #pragma warning restore 618
 
@@ -190,6 +193,8 @@ namespace CILAssemblyManipulator.Physical
       public OpCodeProvider OpCodeProvider { get; }
 
       public SignatureProvider SignatureProvider { get; }
+
+      public CAMPhysicalR::CILAssemblyManipulator.Physical.Meta.ResolvingProvider ResolvingProvider { get; }
 
       protected override Boolean TryGetFixedTable( Int32 index, out MetaDataTable table )
       {

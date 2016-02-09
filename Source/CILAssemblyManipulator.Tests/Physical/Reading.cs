@@ -16,7 +16,9 @@
  * limitations under the License. 
  */
 extern alias CAMPhysical;
+extern alias CAMPhysicalR;
 using CAMPhysical;
+using CAMPhysicalR;
 using CAMPhysical::CILAssemblyManipulator.Physical.Meta;
 using CAMPhysical::CILAssemblyManipulator.Physical.IO;
 
@@ -25,7 +27,6 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using CILAssemblyManipulator.Physical;
-using CILAssemblyManipulator.Physical.IO;
 using NUnit.Framework;
 using System.IO;
 
@@ -79,10 +80,9 @@ namespace CILAssemblyManipulator.Tests.Physical
 
       private void TestReading( System.Reflection.Assembly assembly, Action<CILMetaData> validationAction = null )
       {
-         var resolver = new MetaDataResolver();
          var md = ReadFromAssembly( assembly, null );
 
-         resolver.ResolveEverything( md );
+         md.ResolveEverything();
 
          if ( validationAction != null )
          {

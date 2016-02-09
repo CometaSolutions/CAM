@@ -84,6 +84,7 @@
     <ProjectReference Include="..\..\CILAssemblyManipulator\CILAssemblyManipulator.Physical.IO.Resolving\CILAssemblyManipulator.Physical.IO.Resolving.csproj">
       <Project>{c891754e-7698-4f7b-92d9-c28921ebf746}</Project>
       <Name>CILAssemblyManipulator.Physical.IO.Resolving</Name>
+      <Aliases>CAMPhysicalR</Aliases>
     </ProjectReference>
     <ProjectReference Include="..\..\CILAssemblyManipulator\CILAssemblyManipulator.Physical.MResources\CILAssemblyManipulator.Physical.MResources.csproj">
       <Project>{99fcb99e-c7eb-49d0-980f-86e61f874fcb}</Project>

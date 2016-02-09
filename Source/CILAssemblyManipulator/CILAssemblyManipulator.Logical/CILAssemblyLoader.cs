@@ -17,10 +17,14 @@
  */
 #if !NO_ALIASES
 extern alias CAMPhysical;
+extern alias CAMPhysicalR;
 using CAMPhysical;
+using CAMPhysicalR;
 using CAMPhysical::CILAssemblyManipulator.Physical.IO;
+using CAMPhysicalR::CILAssemblyManipulator.Physical.Resolving;
 #else
 using CILAssemblyManipulator.Physical.IO;
+using CILAssemblyManipulator.Physical.Resolving;
 #endif
 
 using System;
@@ -32,7 +36,7 @@ using System.IO;
 using CILAssemblyManipulator.Logical;
 using System.Threading;
 using CILAssemblyManipulator.Physical;
-using CILAssemblyManipulator.Physical.IO;
+using CILAssemblyManipulator.Physical.Loading;
 
 namespace CILAssemblyManipulator.Logical
 {

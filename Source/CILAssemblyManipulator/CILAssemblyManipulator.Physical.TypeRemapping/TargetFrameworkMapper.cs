@@ -15,11 +15,12 @@
  * See the License for the specific language governing permissions and
  * limitations under the License. 
  */
-//extern alias CAMPhysical;
-//using CAMPhysical;
-//using CAMPhysical::CILAssemblyManipulator.Physical;
+extern alias CAMPhysicalR;
+using CAMPhysicalR;
+using CAMPhysicalR::CILAssemblyManipulator.Physical.Resolving;
 
 using CILAssemblyManipulator.Physical;
+using CILAssemblyManipulator.Physical.Loading;
 using CILAssemblyManipulator.Physical.IO;
 using CILAssemblyManipulator.Physical.TypeRemapping;
 using CommonUtils;

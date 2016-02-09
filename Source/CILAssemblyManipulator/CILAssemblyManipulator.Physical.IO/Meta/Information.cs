@@ -16,9 +16,13 @@
  * limitations under the License. 
  */
 extern alias CAMPhysical;
+extern alias CAMPhysicalR;
 using CAMPhysical;
 using CAMPhysical::CILAssemblyManipulator.Physical;
 using CAMPhysical::CILAssemblyManipulator.Physical.Meta;
+
+using CAMPhysicalR;
+using CAMPhysicalR::CILAssemblyManipulator.Physical.Resolving;
 
 using CollectionsWithRoles.API;
 using CollectionsWithRoles.Implementation;
@@ -33,7 +37,7 @@ using TabularMetaData.Meta;
 
 namespace CILAssemblyManipulator.Physical.Meta
 {
-   public class DefaultMetaDataTableInformationProvider : CILMetaDataTableInformationProvider
+   public class DefaultMetaDataTableInformationProvider : CILMetaDataTableInformationProvider, CAMPhysicalR::CILAssemblyManipulator.Physical.Meta.CILMetaDataTableInformationProvider
    {
       public const Int32 AMOUNT_OF_FIXED_TABLES = 0x2D; // Enum.GetValues( typeof( Tables ) ).Length;
 
@@ -207,6 +211,18 @@ namespace CILAssemblyManipulator.Physical.Meta
       public SignatureProvider CreateSignatureProvider()
       {
          return this._sigProvider;
+      }
+
+      public CAMPhysicalR::CILAssemblyManipulator.Physical.Meta.ResolvingProvider CreateResolvingProvider( CILMetaData thisMD )
+      {
+         return new CAMPhysicalR::CILAssemblyManipulator.Physical.Meta.DefaultResolvingProvider(
+            thisMD,
+            this._infos.SelectMany( i => i?.ColumnsInformationNotGeneric
+               .OfType<MetaDataColumnInformationWithResolving>()
+               .Where( c => c.ResolvingHandler != null )
+               .Select( c => Tuple.Create( (Tables) i.TableIndex, c.ResolvingHandler ) ) ?? Empty<Tuple<Tables, CAMPhysicalR::CILAssemblyManipulator.Physical.Meta.MetaDataColumnInformationWithResolvingCapability>>.Enumerable
+               )
+            );
       }
 
       public static DefaultMetaDataTableInformationProvider CreateDefault()
@@ -731,7 +747,7 @@ namespace CILAssemblyManipulator.Physical.Meta
 
       protected static IEnumerable<MetaDataColumnInformation<MethodDefinition>> GetMethodDefColumns()
       {
-         yield return MetaDataColumnInformationFactory.DataReference<MethodDefinition, RawMethodDefinition, MethodILDefinition>( ( r, v ) => { r.IL = v; return true; }, r => r.IL, ( r, v ) => r.RVA = v, ( args, v ) => args.Row.IL = DefaultMetaDataSerializationSupportProvider.DeserializeIL( args.RowArgs, v, args.Row ), ( md, mdStreamContainer ) => new SectionPart_MethodIL( md, mdStreamContainer.UserStrings ) );
+         yield return MetaDataColumnInformationFactory.DataReference<MethodDefinition, RawMethodDefinition, MethodILDefinition>( ( r, v ) => { r.IL = v; return true; }, r => r.IL, ( r, v ) => r.RVA = v, ( args, v ) => args.Row.IL = DefaultMetaDataSerializationSupportProvider.DeserializeIL( args.RowArgs, v, args.Row ), ( md, mdStreamContainer ) => new SectionPart_MethodIL( md, mdStreamContainer.UserStrings ), null, null );
          yield return MetaDataColumnInformationFactory.Constant16<MethodDefinition, RawMethodDefinition, MethodImplAttributes>( ( r, v ) => { r.ImplementationAttributes = v; return true; }, row => row.ImplementationAttributes, ( r, v ) => r.ImplementationAttributes = (MethodImplAttributes) v, i => (MethodImplAttributes) i, v => (Int32) v );
          yield return MetaDataColumnInformationFactory.Constant16<MethodDefinition, RawMethodDefinition, MethodAttributes>( ( r, v ) => { r.Attributes = v; return true; }, row => row.Attributes, ( r, v ) => r.Attributes = (MethodAttributes) v, i => (MethodAttributes) i, v => (Int32) v );
          yield return MetaDataColumnInformationFactory.SystemString<MethodDefinition, RawMethodDefinition>( ( r, v ) => { r.Name = v; return true; }, row => row.Name, ( r, v ) => r.Name = v );
@@ -769,27 +785,27 @@ namespace CILAssemblyManipulator.Physical.Meta
          yield return MetaDataColumnInformationFactory.Constant8<ConstantDefinition, RawConstantDefinition, ConstantValueType>( ( r, v ) => { r.Type = v; return true; }, row => row.Type, ( r, v ) => r.Type = (ConstantValueType) v, i => (ConstantValueType) i, v => (Int32) v );
          yield return MetaDataColumnInformationFactory.Number8<ConstantDefinition, RawConstantDefinition>( ( r, v ) => { return true; }, row => 0, ( r, v ) => r.Padding = (Byte) v );
          yield return MetaDataColumnInformationFactory.CodedTableIndex<ConstantDefinition, RawConstantDefinition>( HasConstant, ( r, v ) => { r.Parent = v; return true; }, row => row.Parent, ( r, v ) => r.Parent = v );
-         yield return MetaDataColumnInformationFactory.BLOBCustom<ConstantDefinition, RawConstantDefinition, Object>( ( r, v ) => { r.Value = v; return true; }, r => r.Value, ( r, v ) => r.Value = v, ( args, v, blobs ) => args.Row.Value = blobs.ReadConstantValue( v, args.RowArgs.SignatureProvider, args.Row.Type ), args => args.RowArgs.Array.CreateConstantBytes( args.Row.Value, args.Row.Type ) );
+         yield return MetaDataColumnInformationFactory.BLOBCustom<ConstantDefinition, RawConstantDefinition, Object>( ( r, v ) => { r.Value = v; return true; }, r => r.Value, ( r, v ) => r.Value = v, ( args, v, blobs ) => args.Row.Value = blobs.ReadConstantValue( v, args.RowArgs.SignatureProvider, args.Row.Type ), args => args.RowArgs.Array.CreateConstantBytes( args.Row.Value, args.Row.Type ), null, null );
       }
 
       protected static IEnumerable<MetaDataColumnInformation<CustomAttributeDefinition>> GetCustomAttributeColumns()
       {
          yield return MetaDataColumnInformationFactory.CodedTableIndex<CustomAttributeDefinition, RawCustomAttributeDefinition>( HasCustomAttribute, ( r, v ) => { r.Parent = v; return true; }, row => row.Parent, ( r, v ) => r.Parent = v );
          yield return MetaDataColumnInformationFactory.CodedTableIndex<CustomAttributeDefinition, RawCustomAttributeDefinition>( CustomAttributeType, ( r, v ) => { r.Type = v; return true; }, row => row.Type, ( r, v ) => r.Type = v );
-         yield return MetaDataColumnInformationFactory.BLOBCustom<CustomAttributeDefinition, RawCustomAttributeDefinition, AbstractCustomAttributeSignature>( ( r, v ) => { r.Signature = v; return true; }, r => r.Signature, ( r, v ) => r.Signature = v, ( args, v, blobs ) => args.Row.Signature = blobs.ReadCASignature( v, args.RowArgs.SignatureProvider ), args => args.RowArgs.Array.CreateCustomAttributeSignature( args.RowArgs.MetaData, args.RowIndex ) );
+         yield return MetaDataColumnInformationFactory.BLOBCustom<CustomAttributeDefinition, RawCustomAttributeDefinition, AbstractCustomAttributeSignature>( ( r, v ) => { r.Signature = v; return true; }, r => r.Signature, ( r, v ) => r.Signature = v, ( args, v, blobs ) => args.Row.Signature = blobs.ReadCASignature( v, args.RowArgs.SignatureProvider ), args => args.RowArgs.Array.CreateCustomAttributeSignature( args.RowArgs.MetaData, args.RowIndex ), CreateCAColumnSpecificCache, ResolveCASignature );
       }
 
       protected static IEnumerable<MetaDataColumnInformation<FieldMarshal>> GetFieldMarshalColumns()
       {
          yield return MetaDataColumnInformationFactory.CodedTableIndex<FieldMarshal, RawFieldMarshal>( HasFieldMarshal, ( r, v ) => { r.Parent = v; return true; }, row => row.Parent, ( r, v ) => r.Parent = v );
-         yield return MetaDataColumnInformationFactory.BLOBCustom<FieldMarshal, RawFieldMarshal, AbstractMarshalingInfo>( ( r, v ) => { r.NativeType = v; return true; }, row => row.NativeType, ( r, v ) => r.NativeType = v, ( args, v, blobs ) => args.Row.NativeType = blobs.ReadMarshalingInfo( v, args.RowArgs.SignatureProvider ), args => args.RowArgs.Array.CreateMarshalSpec( args.Row.NativeType ) );
+         yield return MetaDataColumnInformationFactory.BLOBCustom<FieldMarshal, RawFieldMarshal, AbstractMarshalingInfo>( ( r, v ) => { r.NativeType = v; return true; }, row => row.NativeType, ( r, v ) => r.NativeType = v, ( args, v, blobs ) => args.Row.NativeType = blobs.ReadMarshalingInfo( v, args.RowArgs.SignatureProvider ), args => args.RowArgs.Array.CreateMarshalSpec( args.Row.NativeType ), null, null );
       }
 
       protected static IEnumerable<MetaDataColumnInformation<SecurityDefinition>> GetDeclSecurityColumns()
       {
          yield return MetaDataColumnInformationFactory.Constant16<SecurityDefinition, RawSecurityDefinition, SecurityAction>( ( r, v ) => { r.Action = v; return true; }, row => row.Action, ( r, v ) => r.Action = (SecurityAction) v, i => (SecurityAction) i, v => (Int32) v );
          yield return MetaDataColumnInformationFactory.CodedTableIndex<SecurityDefinition, RawSecurityDefinition>( HasSecurity, ( r, v ) => { r.Parent = v; return true; }, row => row.Parent, ( r, v ) => r.Parent = v );
-         yield return MetaDataColumnInformationFactory.BLOBCustom<SecurityDefinition, RawSecurityDefinition, List<AbstractSecurityInformation>>( ( r, v ) => { r.PermissionSets.Clear(); r.PermissionSets.AddRange( v ); return true; }, row => row.PermissionSets, ( r, v ) => r.PermissionSets = v, ( args, v, blobs ) => blobs.ReadSecurityInformation( v, args.RowArgs.SignatureProvider, args.Row.PermissionSets ), args => args.RowArgs.Array.CreateSecuritySignature( args.Row.PermissionSets, args.RowArgs.AuxArray, args.RowArgs.MetaData.SignatureProvider ) );
+         yield return MetaDataColumnInformationFactory.BLOBCustom<SecurityDefinition, RawSecurityDefinition, List<AbstractSecurityInformation>>( ( r, v ) => { r.PermissionSets.Clear(); r.PermissionSets.AddRange( v ); return true; }, row => row.PermissionSets, ( r, v ) => r.PermissionSets = v, ( args, v, blobs ) => blobs.ReadSecurityInformation( v, args.RowArgs.SignatureProvider, args.Row.PermissionSets ), args => args.RowArgs.Array.CreateSecuritySignature( args.Row.PermissionSets, args.RowArgs.AuxArray, args.RowArgs.MetaData.SignatureProvider ), CreateCAColumnSpecificCache, ResolveSecurityPermissionSets );
       }
 
       protected static IEnumerable<MetaDataColumnInformation<ClassLayout>> GetClassLayoutColumns()
@@ -808,15 +824,15 @@ namespace CILAssemblyManipulator.Physical.Meta
       protected static IEnumerable<MetaDataColumnInformation<StandaloneSignature>> GetStandaloneSigColumns()
       {
          yield return MetaDataColumnInformationFactory.BLOBCustom<StandaloneSignature, RawStandaloneSignature, AbstractSignature>( ( r, v ) =>
-        {
-           r.Signature = v;
-           return true;
-        }, r => r.Signature, ( r, v ) => r.Signature = v, ( args, v, blobs ) =>
-        {
-           Boolean wasFieldSig;
-           args.Row.Signature = blobs.ReadNonTypeSignature( v, args.RowArgs.SignatureProvider, false, true, out wasFieldSig );
-           args.Row.StoreSignatureAsFieldSignature = wasFieldSig;
-        }, args => args.RowArgs.Array.CreateStandaloneSignature( args.Row ) );
+         {
+            r.Signature = v;
+            return true;
+         }, r => r.Signature, ( r, v ) => r.Signature = v, ( args, v, blobs ) =>
+         {
+            Boolean wasFieldSig;
+            args.Row.Signature = blobs.ReadNonTypeSignature( v, args.RowArgs.SignatureProvider, false, true, out wasFieldSig );
+            args.Row.StoreSignatureAsFieldSignature = wasFieldSig;
+         }, args => args.RowArgs.Array.CreateStandaloneSignature( args.Row ), null, null );
       }
 
       protected static IEnumerable<MetaDataColumnInformation<EventMap>> GetEventMapColumns()
@@ -889,7 +905,7 @@ namespace CILAssemblyManipulator.Physical.Meta
 
       protected static IEnumerable<MetaDataColumnInformation<FieldRVA>> GetFieldRVAColumns()
       {
-         yield return MetaDataColumnInformationFactory.DataReference<FieldRVA, RawFieldRVA, Byte[]>( ( r, v ) => { r.Data = v; return true; }, r => r.Data, ( r, v ) => r.RVA = v, ( args, rva ) => args.Row.Data = DefaultMetaDataSerializationSupportProvider.DeserializeConstantValue( args.RowArgs, args.Row, rva ), ( md, mdStreamContainer ) => new SectionPart_FieldRVA( md ) );
+         yield return MetaDataColumnInformationFactory.DataReference<FieldRVA, RawFieldRVA, Byte[]>( ( r, v ) => { r.Data = v; return true; }, r => r.Data, ( r, v ) => r.RVA = v, ( args, rva ) => args.Row.Data = DefaultMetaDataSerializationSupportProvider.DeserializeConstantValue( args.RowArgs, args.Row, rva ), ( md, mdStreamContainer ) => new SectionPart_FieldRVA( md ), null, null );
          yield return MetaDataColumnInformationFactory.SimpleTableIndex<FieldRVA, RawFieldRVA>( Tables.Field, ( r, v ) => { r.Field = v; return true; }, row => row.Field, ( r, v ) => r.Field = v );
       }
 
@@ -912,7 +928,7 @@ namespace CILAssemblyManipulator.Physical.Meta
          yield return MetaDataColumnInformationFactory.Number32_SerializedAs16<AssemblyDefinition, RawAssemblyDefinition>( ( r, v ) => { r.AssemblyInformation.VersionBuild = v; return true; }, row => row.AssemblyInformation.VersionBuild, ( r, v ) => r.BuildNumber = v );
          yield return MetaDataColumnInformationFactory.Number32_SerializedAs16<AssemblyDefinition, RawAssemblyDefinition>( ( r, v ) => { r.AssemblyInformation.VersionRevision = v; return true; }, row => row.AssemblyInformation.VersionRevision, ( r, v ) => r.RevisionNumber = v );
          yield return MetaDataColumnInformationFactory.Constant32<AssemblyDefinition, RawAssemblyDefinition, AssemblyFlags>( ( r, v ) => { r.Attributes = v; return true; }, row => row.Attributes, ( r, v ) => r.Attributes = (AssemblyFlags) v, i => (AssemblyFlags) i, v => (Int32) v );
-         yield return MetaDataColumnInformationFactory.BLOBCustom<AssemblyDefinition, RawAssemblyDefinition, Byte[]>( ( r, v ) => { r.AssemblyInformation.PublicKeyOrToken = v; return true; }, r => r.AssemblyInformation.PublicKeyOrToken, ( r, v ) => r.PublicKey = v, ( args, v, blobs ) => args.Row.AssemblyInformation.PublicKeyOrToken = blobs.GetBLOBByteArray( v ), args => args.RowArgs.PublicKey?.ToArray() );
+         yield return MetaDataColumnInformationFactory.BLOBCustom<AssemblyDefinition, RawAssemblyDefinition, Byte[]>( ( r, v ) => { r.AssemblyInformation.PublicKeyOrToken = v; return true; }, r => r.AssemblyInformation.PublicKeyOrToken, ( r, v ) => r.PublicKey = v, ( args, v, blobs ) => args.Row.AssemblyInformation.PublicKeyOrToken = blobs.GetBLOBByteArray( v ), args => args.RowArgs.PublicKey?.ToArray(), null, null );
          //{
          //   var pk = args.Row.AssemblyInformation.PublicKeyOrToken;
          //   return pk.IsNullOrEmpty() ?  : pk;
@@ -982,18 +998,18 @@ namespace CILAssemblyManipulator.Physical.Meta
       protected static IEnumerable<MetaDataColumnInformation<ManifestResource>> GetManifestResourceColumns()
       {
          yield return MetaDataColumnInformationFactory.DataReference<ManifestResource, RawManifestResource, Int32>( ( r, v ) =>
-        {
-           r.Offset = v; return true;
-        }, r => r.Offset, ( r, v ) => r.Offset = v, ( args, offset ) =>
-{
-   var row = args.Row;
-   row.Offset = offset;
-   if ( !row.Implementation.HasValue )
-   {
-      row.EmbeddedData = DefaultMetaDataSerializationSupportProvider.DeserializeEmbeddedManifest( args.RowArgs, offset );
-   }
-},
-         ( md, mdStreamContainer ) => new SectionPart_EmbeddedManifests( md ) );
+         {
+            r.Offset = v; return true;
+         }, r => r.Offset, ( r, v ) => r.Offset = v, ( args, offset ) =>
+         {
+            var row = args.Row;
+            row.Offset = offset;
+            if ( !row.Implementation.HasValue )
+            {
+               row.EmbeddedData = DefaultMetaDataSerializationSupportProvider.DeserializeEmbeddedManifest( args.RowArgs, offset );
+            }
+         },
+         ( md, mdStreamContainer ) => new SectionPart_EmbeddedManifests( md ), null, null );
          yield return MetaDataColumnInformationFactory.Constant32<ManifestResource, RawManifestResource, ManifestResourceAttributes>( ( r, v ) => { r.Attributes = v; return true; }, row => row.Attributes, ( r, v ) => r.Attributes = (ManifestResourceAttributes) v, i => (ManifestResourceAttributes) i, v => (Int32) v );
          yield return MetaDataColumnInformationFactory.SystemString<ManifestResource, RawManifestResource>( ( r, v ) => { r.Name = v; return true; }, row => row.Name, ( r, v ) => r.Name = v );
          yield return MetaDataColumnInformationFactory.CodedTableIndexNullable<ManifestResource, RawManifestResource>( Implementation, ( r, v ) => { r.Implementation = v; return true; }, row => row.Implementation, ( r, v ) => r.Implementation = v );
@@ -1023,6 +1039,212 @@ namespace CILAssemblyManipulator.Physical.Meta
       {
          yield return MetaDataColumnInformationFactory.SimpleTableIndex<GenericParameterConstraintDefinition, RawGenericParameterConstraintDefinition>( Tables.GenericParameter, ( r, v ) => { r.Owner = v; return true; }, row => row.Owner, ( r, v ) => r.Owner = v );
          yield return MetaDataColumnInformationFactory.CodedTableIndex<GenericParameterConstraintDefinition, RawGenericParameterConstraintDefinition>( TypeDefOrRef, ( r, v ) => { r.Constraint = v; return true; }, row => row.Constraint, ( r, v ) => r.Constraint = v );
+      }
+
+
+      private static Object CreateCAColumnSpecificCache()
+      {
+         return new Dictionary<CILMetaData, IDictionary<Int32, CustomAttributeArgumentTypeSimple>>();
+      }
+
+      private static Boolean ResolveCASignature(
+         CILMetaData md,
+         Int32 rowIndex,
+         MetaDataResolver resolver,
+         Object cache
+         )
+      {
+         var row = md?.CustomAttributeDefinitions?.GetOrNull( rowIndex );
+         var sig = row?.Signature as RawCustomAttributeSignature;
+         var retVal = sig != null;
+         if ( retVal )
+         {
+            var resolved = TryResolveCustomAttributeSignature( md, sig.Bytes, 0, row.Type, resolver, (IDictionary<CILMetaData, IDictionary<Int32, CustomAttributeArgumentTypeSimple>>) cache );
+            retVal = resolved != null;
+            if ( retVal )
+            {
+               row.Signature = resolved;
+            }
+         }
+         return retVal;
+      }
+
+      private static Boolean ResolveSecurityPermissionSets(
+         CILMetaData md,
+         Int32 rowIndex,
+         MetaDataResolver resolver,
+         Object cache
+         )
+      {
+         var sec = md?.SecurityDefinitions?.GetOrNull( rowIndex );
+         var retVal = sec != null;
+         if ( retVal )
+         {
+            var permissions = sec.PermissionSets;
+            var actualCache = (IDictionary<CILMetaData, IDictionary<Int32, CustomAttributeArgumentTypeSimple>>) cache;
+            for ( var i = 0; i < permissions.Count; ++i )
+            {
+               var permission = permissions[i] as RawSecurityInformation;
+               if ( permission != null )
+               {
+                  var idx = 0;
+                  var bytes = permission.Bytes;
+                  var argCount = permission.ArgumentCount;
+                  var secInfo = new SecurityInformation( argCount ) { SecurityAttributeType = permission.SecurityAttributeType };
+                  var success = true;
+                  for ( var j = 0; j < argCount && success; ++j )
+                  {
+                     var arg = md.SignatureProvider.ReadCANamedArgument( bytes, ref idx, typeStr => ResolveTypeFromFullName( md, typeStr, resolver, actualCache ) );
+                     if ( arg == null )
+                     {
+                        success = false;
+                     }
+                     else
+                     {
+                        secInfo.NamedArguments.Add( arg );
+                     }
+                  }
+
+                  if ( success )
+                  {
+                     permissions[i] = secInfo;
+                  }
+                  else
+                  {
+                     retVal = false;
+                  }
+               }
+            }
+         }
+
+         return retVal;
+      }
+
+      private static ResolvedCustomAttributeSignature TryResolveCustomAttributeSignature(
+         CILMetaData md,
+         Byte[] blob,
+         Int32 idx,
+         TableIndex caTypeTableIndex,
+         MetaDataResolver resolver,
+         IDictionary<CILMetaData, IDictionary<Int32, CustomAttributeArgumentTypeSimple>> cache
+         )
+      {
+
+         AbstractMethodSignature ctorSig;
+         switch ( caTypeTableIndex.Table )
+         {
+            case Tables.MethodDef:
+               ctorSig = caTypeTableIndex.Index < md.MethodDefinitions.GetRowCount() ?
+                  md.MethodDefinitions.TableContents[caTypeTableIndex.Index].Signature :
+                  null;
+               break;
+            case Tables.MemberRef:
+               ctorSig = caTypeTableIndex.Index < md.MemberReferences.GetRowCount() ?
+                  md.MemberReferences.TableContents[caTypeTableIndex.Index].Signature as AbstractMethodSignature :
+                  null;
+               break;
+            default:
+               ctorSig = null;
+               break;
+         }
+
+         var success = ctorSig != null;
+         ResolvedCustomAttributeSignature retVal = null;
+         if ( success )
+         {
+            var startIdx = idx;
+            retVal = new ResolvedCustomAttributeSignature( typedArgsCount: ctorSig.Parameters.Count );
+
+            idx += 2; // Skip prolog
+
+            for ( var i = 0; i < ctorSig.Parameters.Count; ++i )
+            {
+               var caType = md.TypeSignatureToCustomAttributeArgumentType( ctorSig.Parameters[i].Type, tIdx => ResolveCATypeFromTableIndex( md, tIdx, resolver ) );
+               if ( caType == null )
+               {
+                  // We don't know the size of the type -> stop
+                  retVal.TypedArguments.Clear();
+                  break;
+               }
+               else
+               {
+                  retVal.TypedArguments.Add( md.SignatureProvider.ReadCAFixedArgument( blob, ref idx, caType, typeStr => ResolveTypeFromFullName( md, typeStr, resolver, cache ) ) );
+               }
+            }
+
+            // Check if we had failed to resolve ctor type before.
+            success = retVal.TypedArguments.Count == ctorSig.Parameters.Count;
+            if ( success )
+            {
+               var namedCount = blob.ReadUInt16LEFromBytes( ref idx );
+               for ( var i = 0; i < namedCount && success; ++i )
+               {
+                  var caNamedArg = md.SignatureProvider.ReadCANamedArgument( blob, ref idx, typeStr => ResolveTypeFromFullName( md, typeStr, resolver, cache ) );
+
+                  if ( caNamedArg == null )
+                  {
+                     // We don't know the size of the type -> stop
+                     success = false;
+                  }
+                  else
+                  {
+                     retVal.NamedArguments.Add( caNamedArg );
+                  }
+               }
+            }
+         }
+         return success ? retVal : null;
+      }
+
+      private static CustomAttributeArgumentTypeEnum ResolveCATypeFromTableIndex(
+         CILMetaData md,
+         TableIndex tIdx,
+         MetaDataResolver resolver
+         )
+      {
+         var typeName = resolver.ResolveTypeNameFromTypeDefOrRefOrSpec( md, tIdx );
+
+         return typeName == null ? null : new CustomAttributeArgumentTypeEnum()
+         {
+            TypeString = typeName
+         };
+      }
+
+      private static CustomAttributeArgumentTypeSimple ResolveTypeFromFullName(
+         CILMetaData md,
+         String typeString,
+         MetaDataResolver resolver,
+         IDictionary<CILMetaData, IDictionary<Int32, CustomAttributeArgumentTypeSimple>> cache
+         )
+      {
+         CILMetaData otherMD; Int32 typeDefIndex;
+         return resolver.TryResolveTypeString( md, typeString, out otherMD, out typeDefIndex ) ?
+            cache
+               .GetOrAdd_NotThreadSafe( otherMD, omd => new Dictionary<Int32, CustomAttributeArgumentTypeSimple>() )
+               .GetOrAdd_NotThreadSafe( typeDefIndex, tDefIdx => ResolveTypeFromTypeDef( otherMD, tDefIdx ) ) :
+            null;
+      }
+
+      private static CustomAttributeArgumentTypeSimple ResolveTypeFromTypeDef(
+         CILMetaData md,
+         Int32 index
+         )
+      {
+         CustomAttributeArgumentTypeSimple retVal = null;
+         if ( index >= 0 )
+         {
+            Int32 enumFieldIndex;
+            if ( md.TryGetEnumValueFieldIndex( index, out enumFieldIndex ) )
+            {
+               var sig = md.FieldDefinitions.TableContents[enumFieldIndex].Signature.Type;
+               if ( sig != null && sig.TypeSignatureKind == TypeSignatureKind.Simple )
+               {
+                  retVal = md.SignatureProvider.GetSimpleCATypeOrNull( (CustomAttributeArgumentTypeSimpleKind) ( (SimpleTypeSignature) sig ).SimpleType );
+               }
+            }
+         }
+
+         return retVal;
       }
 
    }
@@ -1225,7 +1447,7 @@ namespace CILAssemblyManipulator.Physical.Meta
          where TRawRow : class
          where TValue : struct
       {
-         return new MetaDataColumnInformationForClassesOrStructs<TRow, TRawRow, TValue>( getter, setter, new MetaDataColumnDataInformation_FixedSizeConstant( byteCount ), serializationInfo );
+         return new MetaDataColumnInformationForClassesOrStructs<TRow, TRawRow, TValue>( getter, setter, new MetaDataColumnDataInformation_FixedSizeConstant( byteCount ), null, null, serializationInfo );
       }
 
       public static MetaDataColumnInformationForClassesOrStructs<TRow, TRawRow, String> SystemString<TRow, TRawRow>(
@@ -1236,7 +1458,7 @@ namespace CILAssemblyManipulator.Physical.Meta
          where TRow : class
          where TRawRow : class
       {
-         return new MetaDataColumnInformationForClassesOrStructs<TRow, TRawRow, String>( getter, setter, new MetaDataColumnDataInformation_HeapIndex( MetaDataConstants.SYS_STRING_STREAM_NAME ), () => DefaultColumnSerializationInfoFactory.SystemString<TRawRow, TRow>( rawSetter, ( args, v ) => setter( args.Row, v ), getter ) );
+         return new MetaDataColumnInformationForClassesOrStructs<TRow, TRawRow, String>( getter, setter, new MetaDataColumnDataInformation_HeapIndex( MetaDataConstants.SYS_STRING_STREAM_NAME ), null, null, () => DefaultColumnSerializationInfoFactory.SystemString<TRawRow, TRow>( rawSetter, ( args, v ) => setter( args.Row, v ), getter ) );
       }
 
       public static MetaDataColumnInformationForNullables<TRow, TRawRow, Guid> GUID<TRow, TRawRow>(
@@ -1247,7 +1469,7 @@ namespace CILAssemblyManipulator.Physical.Meta
          where TRow : class
          where TRawRow : class
       {
-         return new MetaDataColumnInformationForNullables<TRow, TRawRow, Guid>( getter, setter, new MetaDataColumnDataInformation_HeapIndex( MetaDataConstants.GUID_STREAM_NAME ), () => DefaultColumnSerializationInfoFactory.GUID<TRawRow, TRow>( rawSetter, ( args, v ) => setter( args.Row, v ), getter ) );
+         return new MetaDataColumnInformationForNullables<TRow, TRawRow, Guid>( getter, setter, new MetaDataColumnDataInformation_HeapIndex( MetaDataConstants.GUID_STREAM_NAME ), null, null, () => DefaultColumnSerializationInfoFactory.GUID<TRawRow, TRow>( rawSetter, ( args, v ) => setter( args.Row, v ), getter ) );
       }
 
       public static MetaDataColumnInformationForClassesOrStructs<TRow, TRawRow, TableIndex> SimpleTableIndex<TRow, TRawRow>(
@@ -1259,7 +1481,7 @@ namespace CILAssemblyManipulator.Physical.Meta
          where TRow : class
          where TRawRow : class
       {
-         return new MetaDataColumnInformationForClassesOrStructs<TRow, TRawRow, TableIndex>( getter, setter, new MetaDataColumnDataInformation_SimpleTableIndex( (Int32) targetTable ), () => DefaultColumnSerializationInfoFactory.SimpleReference<TRawRow, TRow>( targetTable, rawSetter, ( args, v ) => setter( args.Row, v ), getter ) );
+         return new MetaDataColumnInformationForClassesOrStructs<TRow, TRawRow, TableIndex>( getter, setter, new MetaDataColumnDataInformation_SimpleTableIndex( (Int32) targetTable ), null, null, () => DefaultColumnSerializationInfoFactory.SimpleReference<TRawRow, TRow>( targetTable, rawSetter, ( args, v ) => setter( args.Row, v ), getter ) );
       }
 
       public static MetaDataColumnInformationForClassesOrStructs<TRow, TRawRow, TableIndex> CodedTableIndex<TRow, TRawRow>(
@@ -1271,7 +1493,7 @@ namespace CILAssemblyManipulator.Physical.Meta
          where TRow : class
          where TRawRow : class
       {
-         return new MetaDataColumnInformationForClassesOrStructs<TRow, TRawRow, TableIndex>( getter, setter, new MetaDataColumnDataInformation_CodedTableIndex( targetTables ), () => DefaultColumnSerializationInfoFactory.CodedReference<TRawRow, TRow>( targetTables, rawSetter, ( args, v ) => setter( args.Row, v.GetValueOrDefault() ), r => getter( r ) ) );
+         return new MetaDataColumnInformationForClassesOrStructs<TRow, TRawRow, TableIndex>( getter, setter, new MetaDataColumnDataInformation_CodedTableIndex( targetTables ), null, null, () => DefaultColumnSerializationInfoFactory.CodedReference<TRawRow, TRow>( targetTables, rawSetter, ( args, v ) => setter( args.Row, v.GetValueOrDefault() ), r => getter( r ) ) );
       }
 
       public static MetaDataColumnInformationForNullables<TRow, TRawRow, TableIndex> CodedTableIndexNullable<TRow, TRawRow>(
@@ -1283,7 +1505,7 @@ namespace CILAssemblyManipulator.Physical.Meta
          where TRow : class
          where TRawRow : class
       {
-         return new MetaDataColumnInformationForNullables<TRow, TRawRow, TableIndex>( getter, setter, new MetaDataColumnDataInformation_CodedTableIndex( targetTables ), () => DefaultColumnSerializationInfoFactory.CodedReference<TRawRow, TRow>( targetTables, rawSetter, ( args, v ) => setter( args.Row, v ), getter ) );
+         return new MetaDataColumnInformationForNullables<TRow, TRawRow, TableIndex>( getter, setter, new MetaDataColumnDataInformation_CodedTableIndex( targetTables ), null, null, () => DefaultColumnSerializationInfoFactory.CodedReference<TRawRow, TRow>( targetTables, rawSetter, ( args, v ) => setter( args.Row, v ), getter ) );
       }
 
       public static MetaDataColumnInformationForClassesOrStructs<TRow, TRawRow, TypeSignature> BLOBTypeSignature<TRow, TRawRow>(
@@ -1299,7 +1521,9 @@ namespace CILAssemblyManipulator.Physical.Meta
             getter,
             rawSetter,
             ( args, value, blobs ) => setter( args.Row, blobs.ReadTypeSignature( value, args.RowArgs.SignatureProvider ) ),
-            args => args.RowArgs.Array.CreateAnySignature( getter( args.Row ) )
+            args => args.RowArgs.Array.CreateAnySignature( getter( args.Row ) ),
+            null,
+            null
             );
       }
 
@@ -1322,7 +1546,9 @@ namespace CILAssemblyManipulator.Physical.Meta
                Boolean wasFieldSig;
                setter( args.Row, blobs.ReadNonTypeSignature( value, args.RowArgs.SignatureProvider, isMethodDef, false, out wasFieldSig ) as TSignature );
             },
-            args => args.RowArgs.Array.CreateAnySignature( getter( args.Row ) )
+            args => args.RowArgs.Array.CreateAnySignature( getter( args.Row ) ),
+            null,
+            null
             );
       }
 
@@ -1339,7 +1565,9 @@ namespace CILAssemblyManipulator.Physical.Meta
             getter,
             rawSetter,
             ( args, heapIndex, blobs ) => setter( args.Row, blobs.GetBLOBByteArray( heapIndex ) ),
-            args => getter( args.Row )
+            args => getter( args.Row ),
+            null,
+            null
             );
       }
 
@@ -1348,12 +1576,14 @@ namespace CILAssemblyManipulator.Physical.Meta
          RowColumnGetterDelegate<TRow, TValue> getter,
          RawRowColumnSetterDelegate<TRawRow> rawSetter,
          Action<ColumnFunctionalityArgs<TRow, RowReadingArguments>, Int32, ReaderBLOBStreamHandler> blobReader, // TODO delegat-ize these
-         Func<ColumnFunctionalityArgs<TRow, RowHeapFillingArguments>, Byte[]> blobCreator
+         Func<ColumnFunctionalityArgs<TRow, RowHeapFillingArguments>, Byte[]> blobCreator,
+         ResolverCacheCreatorDelegate resolverCacheCreator,
+         ResolverDelegate resolver
          )
          where TRow : class
          where TRawRow : class
       {
-         return new MetaDataColumnInformationForClassesOrStructs<TRow, TRawRow, TValue>( getter, setter, new MetaDataColumnDataInformation_HeapIndex( MetaDataConstants.BLOB_STREAM_NAME ), () => DefaultColumnSerializationInfoFactory.BLOBCustom<TRawRow, TRow>( rawSetter, blobReader, blobCreator ) );
+         return new MetaDataColumnInformationForClassesOrStructs<TRow, TRawRow, TValue>( getter, setter, new MetaDataColumnDataInformation_HeapIndex( MetaDataConstants.BLOB_STREAM_NAME ), resolverCacheCreator, resolver, () => DefaultColumnSerializationInfoFactory.BLOBCustom<TRawRow, TRow>( rawSetter, blobReader, blobCreator ) );
       }
 
       public static MetaDataColumnInformationForClassesOrStructs<TRow, TRawRow, TValue> DataReference<TRow, TRawRow, TValue>(
@@ -1361,12 +1591,14 @@ namespace CILAssemblyManipulator.Physical.Meta
          RowColumnGetterDelegate<TRow, TValue> getter,
          RawRowColumnSetterDelegate<TRawRow> rawSetter,
          RowRawColumnSetterDelegate<TRow> rawValueProcessor,
-         RawColumnSectionPartCreationDelegte<TRow> rawColummnSectionPartCreator
+         RawColumnSectionPartCreationDelegte<TRow> rawColummnSectionPartCreator,
+         ResolverCacheCreatorDelegate resolverCacheCreator,
+         ResolverDelegate resolver
          )
          where TRow : class
          where TRawRow : class
       {
-         return new MetaDataColumnInformationForClassesOrStructs<TRow, TRawRow, TValue>( getter, setter, new MetaDataColumnDataInformation_DataReference(), () => DefaultColumnSerializationInfoFactory.RawValueStorageColumn<TRawRow, TRow>( rawSetter, rawValueProcessor, rawColummnSectionPartCreator ) );
+         return new MetaDataColumnInformationForClassesOrStructs<TRow, TRawRow, TValue>( getter, setter, new MetaDataColumnDataInformation_DataReference(), resolverCacheCreator, resolver, () => DefaultColumnSerializationInfoFactory.RawValueStorageColumn<TRawRow, TRow>( rawSetter, rawValueProcessor, rawColummnSectionPartCreator ) );
       }
 
 
@@ -1384,6 +1616,7 @@ namespace CILAssemblyManipulator.Physical.Meta
       DefaultColumnSerializationInfo<TRawRow, TRow> DefaultColumnSerializationInfoWithRawType { get; }
    }
 
+   // TODO this interface and MetaDataColumnDataInformation class are obsolete.
    public interface MetaDataColumnInformationWithDataMeaning
    {
       MetaDataColumnDataInformation DataInformation { get; }
@@ -1394,8 +1627,43 @@ namespace CILAssemblyManipulator.Physical.Meta
       Type RawRowType { get; }
    }
 
+   public interface MetaDataColumnInformationWithResolving
+   {
+      CAMPhysicalR::CILAssemblyManipulator.Physical.Meta.MetaDataColumnInformationWithResolvingCapability ResolvingHandler { get; }
+   }
 
-   public sealed class MetaDataColumnInformationForClassesOrStructs<TRow, TRawRow, TValue> : MetaDataColumnInformationForClassesOrStructs<TRow, TValue>, MetaDataColumnInformationWithSerializationCapability<TRow, TRawRow>, MetaDataColumnInformationWithDataMeaning, MetaDataColumnInformationWithRawRowType
+   public sealed class MetaDataColumnInformationWithResolvingCapabilityWithCallbacks : CAMPhysicalR::CILAssemblyManipulator.Physical.Meta.MetaDataColumnInformationWithResolvingCapability
+   {
+      private readonly ResolverCacheCreatorDelegate _cacheCreator;
+      private readonly ResolverDelegate _resolver;
+
+      public MetaDataColumnInformationWithResolvingCapabilityWithCallbacks(
+         ResolverCacheCreatorDelegate cacheCreator,
+         ResolverDelegate resolver
+         )
+      {
+         ArgumentValidator.ValidateNotNull( "Resolver", resolver );
+
+         this._cacheCreator = cacheCreator;
+         this._resolver = resolver;
+      }
+
+      public Object CreateCache()
+      {
+         return this._cacheCreator?.Invoke();
+      }
+
+      public Boolean Resolve( CILMetaData md, Int32 rowIndex, MetaDataResolver resolver, Object cache )
+      {
+         return this._resolver( md, rowIndex, resolver, cache );
+      }
+   }
+
+   public delegate Object ResolverCacheCreatorDelegate();
+
+   public delegate Boolean ResolverDelegate( CILMetaData md, Int32 rowIndex, MetaDataResolver resolver, Object cache );
+
+   public sealed class MetaDataColumnInformationForClassesOrStructs<TRow, TRawRow, TValue> : MetaDataColumnInformationForClassesOrStructs<TRow, TValue>, MetaDataColumnInformationWithSerializationCapability<TRow, TRawRow>, MetaDataColumnInformationWithDataMeaning, MetaDataColumnInformationWithRawRowType, MetaDataColumnInformationWithResolving
       where TRow : class
       where TRawRow : class
    {
@@ -1406,6 +1674,8 @@ namespace CILAssemblyManipulator.Physical.Meta
          RowColumnGetterDelegate<TRow, TValue> getter,
          RowColumnSetterDelegate<TRow, TValue> setter,
          MetaDataColumnDataInformation information,
+         ResolverCacheCreatorDelegate resolverCacheCreator,
+         ResolverDelegate resolver,
          Func<DefaultColumnSerializationInfo<TRawRow, TRow>> defaultSerializationInfo
          )
          : base( getter, setter )
@@ -1413,7 +1683,7 @@ namespace CILAssemblyManipulator.Physical.Meta
          ArgumentValidator.ValidateNotNull( "Data information", information );
 
          this.DataInformation = information;
-         // TODO check for null or not?
+         this.ResolvingHandler = resolver == null ? null : new MetaDataColumnInformationWithResolvingCapabilityWithCallbacks( resolverCacheCreator, resolver );
          this._serializationInfo = defaultSerializationInfo == null ? null : new Lazy<DefaultColumnSerializationInfo<TRawRow, TRow>>( defaultSerializationInfo, System.Threading.LazyThreadSafetyMode.ExecutionAndPublication );
       }
 
@@ -1442,9 +1712,11 @@ namespace CILAssemblyManipulator.Physical.Meta
       }
 
       public MetaDataColumnDataInformation DataInformation { get; }
+
+      public CAMPhysicalR::CILAssemblyManipulator.Physical.Meta.MetaDataColumnInformationWithResolvingCapability ResolvingHandler { get; }
    }
 
-   public sealed class MetaDataColumnInformationForNullables<TRow, TRawRow, TValue> : MetaDataColumnInformationForNullables<TRow, TValue>, MetaDataColumnInformationWithSerializationCapability<TRow, TRawRow>, MetaDataColumnInformationWithDataMeaning, MetaDataColumnInformationWithRawRowType
+   public sealed class MetaDataColumnInformationForNullables<TRow, TRawRow, TValue> : MetaDataColumnInformationForNullables<TRow, TValue>, MetaDataColumnInformationWithSerializationCapability<TRow, TRawRow>, MetaDataColumnInformationWithDataMeaning, MetaDataColumnInformationWithRawRowType, MetaDataColumnInformationWithResolving
       where TRow : class
       where TValue : struct
       where TRawRow : class
@@ -1456,6 +1728,8 @@ namespace CILAssemblyManipulator.Physical.Meta
          RowColumnGetterDelegate<TRow, TValue?> getter,
          RowColumnSetterDelegate<TRow, TValue?> setter,
          MetaDataColumnDataInformation information,
+         ResolverCacheCreatorDelegate resolverCacheCreator,
+         ResolverDelegate resolver,
          Func<DefaultColumnSerializationInfo<TRawRow, TRow>> defaultSerializationInfo
          )
          : base( getter, setter )
@@ -1463,7 +1737,7 @@ namespace CILAssemblyManipulator.Physical.Meta
          ArgumentValidator.ValidateNotNull( "Data information", information );
 
          this.DataInformation = information;
-         // TODO check for null or not?
+         this.ResolvingHandler = resolver == null ? null : new MetaDataColumnInformationWithResolvingCapabilityWithCallbacks( resolverCacheCreator, resolver );
          this._serializationInfo = defaultSerializationInfo == null ? null : new Lazy<DefaultColumnSerializationInfo<TRawRow, TRow>>( defaultSerializationInfo, System.Threading.LazyThreadSafetyMode.ExecutionAndPublication );
       }
 
@@ -1492,6 +1766,8 @@ namespace CILAssemblyManipulator.Physical.Meta
       }
 
       public MetaDataColumnDataInformation DataInformation { get; }
+
+      public CAMPhysicalR::CILAssemblyManipulator.Physical.Meta.MetaDataColumnInformationWithResolvingCapability ResolvingHandler { get; }
    }
 
    public abstract class MetaDataColumnDataInformation

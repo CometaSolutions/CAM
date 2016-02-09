@@ -15,8 +15,13 @@
  * See the License for the specific language governing permissions and
  * limitations under the License. 
  */
+extern alias CAMPhysical;
+using CAMPhysical;
+using CAMPhysical::CILAssemblyManipulator.Physical;
+using CAMPhysical::CILAssemblyManipulator.Physical.Meta;
+
 using CILAssemblyManipulator.Physical;
-using CILAssemblyManipulator.Physical.IO;
+using CILAssemblyManipulator.Physical.Resolving;
 using CommonUtils;
 using System;
 using System.Collections.Generic;
@@ -24,7 +29,7 @@ using System.Linq;
 using System.Text;
 using TabularMetaData;
 
-namespace CILAssemblyManipulator.Physical.IO
+namespace CILAssemblyManipulator.Physical.Resolving
 {
    /// <summary>
    /// This is common base class for <see cref="ModuleReferenceResolveEventArgs"/> and <see cref="AssemblyReferenceResolveEventArgs"/>.
@@ -33,7 +38,7 @@ namespace CILAssemblyManipulator.Physical.IO
    public abstract class AssemblyOrModuleReferenceResolveEventArgs : EventArgs
    {
 
-      internal AssemblyOrModuleReferenceResolveEventArgs( CILMetaData thisMD )
+      internal AssemblyOrModuleReferenceResolveEventArgs( CAMPhysical::CILAssemblyManipulator.Physical.CILMetaData thisMD )
       {
          ArgumentValidator.ValidateNotNull( "This metadata", thisMD );
 
@@ -44,12 +49,12 @@ namespace CILAssemblyManipulator.Physical.IO
       /// Gets the metadata which contained the module or assembly reference.
       /// </summary>
       /// <value>The metadata which contained the module or assembly reference.</value>
-      public CILMetaData ThisMetaData { get; }
+      public CAMPhysical::CILAssemblyManipulator.Physical.CILMetaData ThisMetaData { get; }
 
       /// <summary>
       /// The event handlers of <see cref="MetaDataResolver.ModuleReferenceResolveEvent"/> and <see cref="MetaDataResolver.AssemblyReferenceResolveEvent"/> events should set this property to the <see cref="CILMetaData"/> corresponding to the module or assembly reference being resolved.
       /// </summary>
-      public CILMetaData ResolvedMetaData { get; set; }
+      public CAMPhysical::CILAssemblyManipulator.Physical.CILMetaData ResolvedMetaData { get; set; }
    }
 
    /// <summary>
@@ -58,7 +63,7 @@ namespace CILAssemblyManipulator.Physical.IO
    public sealed class ModuleReferenceResolveEventArgs : AssemblyOrModuleReferenceResolveEventArgs
    {
 
-      internal ModuleReferenceResolveEventArgs( CILMetaData thisMD, String moduleName )
+      internal ModuleReferenceResolveEventArgs( CAMPhysical::CILAssemblyManipulator.Physical.CILMetaData thisMD, String moduleName )
          : base( thisMD )
       {
          this.ModuleName = moduleName;
@@ -77,7 +82,7 @@ namespace CILAssemblyManipulator.Physical.IO
    public sealed class AssemblyReferenceResolveEventArgs : AssemblyOrModuleReferenceResolveEventArgs
    {
 
-      internal AssemblyReferenceResolveEventArgs( CILMetaData thisMD, String assemblyName, AssemblyInformationForResolving assemblyInfo ) //, Boolean isRetargetable )
+      internal AssemblyReferenceResolveEventArgs( CAMPhysical::CILAssemblyManipulator.Physical.CILMetaData thisMD, String assemblyName, AssemblyInformationForResolving assemblyInfo ) //, Boolean isRetargetable )
          : base( thisMD )
       {
 
@@ -126,9 +131,9 @@ namespace CILAssemblyManipulator.Physical.IO
       }
 
       /// <summary>
-      /// Creates a new instance of <see cref="AssemblyInformationForResolving"/> with required information specified in a <see cref="Physical.AssemblyInformation"/> object, and separate boolean indicating whether the reference uses full public key, or public key token.
+      /// Creates a new instance of <see cref="AssemblyInformationForResolving"/> with required information specified in a <see cref="CAMPhysical::CILAssemblyManipulator.Physical.AssemblyInformation"/> object, and separate boolean indicating whether the reference uses full public key, or public key token.
       /// </summary>
-      /// <param name="information">The <see cref="Physical.AssemblyInformation"/> with required information.</param>
+      /// <param name="information">The <see cref="CAMPhysical::CILAssemblyManipulator.Physical.AssemblyInformation"/> with required information.</param>
       /// <param name="isFullPublicKey"><c>true</c> if this assembly reference uses full public key; <c>false</c> if it uses public key token.</param>
       /// <exception cref="ArgumentNullException">If <paramref name="information"/> is <c>null</c>.</exception>
       public AssemblyInformationForResolving( AssemblyInformation information, Boolean isFullPublicKey )
@@ -140,9 +145,9 @@ namespace CILAssemblyManipulator.Physical.IO
       }
 
       /// <summary>
-      /// Gets the <see cref="Physical.AssemblyInformation"/> containing the name, culture, version, and public key information of this assembly reference.
+      /// Gets the <see cref="CAMPhysical::CILAssemblyManipulator.Physical.AssemblyInformation"/> containing the name, culture, version, and public key information of this assembly reference.
       /// </summary>
-      /// <value>The <see cref="Physical.AssemblyInformation"/> containing the name, culture, version, and public key information of this assembly reference.</value>
+      /// <value>The <see cref="CAMPhysical::CILAssemblyManipulator.Physical.AssemblyInformation"/> containing the name, culture, version, and public key information of this assembly reference.</value>
       public AssemblyInformation AssemblyInformation { get; }
 
       /// <summary>

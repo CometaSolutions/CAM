@@ -16,7 +16,9 @@
  * limitations under the License. 
  */
 extern alias CAMPhysical;
+extern alias CAMPhysicalR;
 using CAMPhysical;
+using CAMPhysicalR;
 using CAMPhysical::CILAssemblyManipulator.Physical.Meta;
 using CAMPhysical::CILAssemblyManipulator.Physical.IO;
 
@@ -25,7 +27,6 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using CILAssemblyManipulator.Physical;
-using CILAssemblyManipulator.Physical.IO;
 using NUnit.Framework;
 using CommonUtils;
 using CILAssemblyManipulator.Tests.Physical;
@@ -208,8 +209,7 @@ namespace CILAssemblyManipulator.Tests.Physical
 
       private static void ReOrderAndValidate( CILMetaData md )
       {
-         var resolver = new MetaDataResolver();
-         resolver.ResolveEverything( md );
+         md.ResolveEverything();
 
          var structure1 = md.CreateStructuralRepresentation();
 

@@ -15,6 +15,11 @@
  * See the License for the specific language governing permissions and
  * limitations under the License. 
  */
+extern alias CAMPhysicalR;
+
+using CAMPhysicalR;
+using CAMPhysicalR::CILAssemblyManipulator.Physical.Resolving;
+
 using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
@@ -34,6 +39,7 @@ using System.Diagnostics;
 using CILAssemblyManipulator.Physical.IO;
 using TabularMetaData;
 using CILAssemblyManipulator.Physical.Crypto;
+using CILAssemblyManipulator.Physical.Loading;
 
 namespace CILMerge
 {
@@ -789,7 +795,7 @@ namespace CILMerge
          {
             var targetFW = new Lazy<TargetFrameworkInfoWithRetargetabilityInformation>( () =>
             {
-               var fw = this._targetModule.GetTargetFrameworkInformationOrNull( this._moduleLoader.CreateNewResolver() );
+               var fw = this._targetModule.GetTargetFrameworkInformationOrNull();
                if ( fw == null )
                {
                   throw this.NewCILMergeException( ExitCode.NoTargetFrameworkSpecified, "TODO: allow specifying target framework info (id, version, profile) through options." );
