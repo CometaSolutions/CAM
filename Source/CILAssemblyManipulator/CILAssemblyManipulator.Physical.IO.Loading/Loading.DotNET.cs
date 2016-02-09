@@ -34,7 +34,7 @@ namespace CILAssemblyManipulator.Physical.IO
    /// <summary>
    /// This class implements <see cref="CILMetaDataLoaderResourceCallbacks"/> in such way that it works with textual resources acting as file paths.
    /// </summary>
-   public sealed class CILMetaDataLoaderResourceCallbacksForFiles : CILMetaDataLoaderResourceCallbacks
+   public sealed class CILMetaDataLoaderResourceCallbacksForFiles : CILMetaDataBinaryLoaderResourceCallbacks
    {
       private readonly IDictionary<CILMetaData, TargetFrameworkInfo> _targetFrameworks;
 
@@ -75,7 +75,7 @@ namespace CILAssemblyManipulator.Physical.IO
       }
 
       /// <summary>
-      /// Implements the <see cref="CILMetaDataLoaderResourceCallbacks.GetStreamFor"/> method so that it returns read-only stream for given file path.
+      /// Implements the <see cref="CILMetaDataBinaryLoaderResourceCallbacks.GetStreamFor"/> method so that it returns read-only stream for given file path.
       /// The <see cref="FileShare.Read"/> flag is used when opening the file.
       /// </summary>
       /// <param name="resource">The file path.</param>
@@ -333,7 +333,7 @@ namespace CILAssemblyManipulator.Physical.IO
       public CILMetaDataLoaderThreadSafeConcurrent(
          CryptoCallbacks cryptoCallbacks,
          ReadingArgumentsFactoryDelegate readingArgsFactory,
-         CILMetaDataLoaderResourceCallbacks resourceCallbacks
+         CILMetaDataBinaryLoaderResourceCallbacks resourceCallbacks
          )
          : base( new ConcurrentDictionary<String, CILMetaData>(), cryptoCallbacks, readingArgsFactory, resourceCallbacks )
       {

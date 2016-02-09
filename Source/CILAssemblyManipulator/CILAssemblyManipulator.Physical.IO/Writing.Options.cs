@@ -323,6 +323,7 @@ namespace CILAssemblyManipulator.Physical.IO
       /// <value>The textual name of the imported module for import directory, if present.</value>
       /// <remarks>
       /// By default, the value of <c>"mscoree.dll"</c> will be used.
+      /// This value will not be used at all if the import directory is not present.
       /// </remarks>
       public String ImportDirectoryName { get; set; }
 
@@ -332,73 +333,258 @@ namespace CILAssemblyManipulator.Physical.IO
       /// <value>The textual name of the imported function for import directory, if present.</value>
       /// <remarks>
       /// By default, the value of  <c>"_CorExeMain"</c> will be used when <see cref="WritingOptions.IsExecutable"/> is <c>true</c>, and <c>"_CorDllMain"</c> will be used when <see cref="WritingOptions.IsExecutable"/> is <c>false</c>.
+      /// This value will not be used at all if the import directory is not present.
       /// </remarks>
       public String ImportHintName { get; set; }
    }
 
+   /// <summary>
+   /// This class contains properties controlling various values of <see cref="CLIHeader"/>, <see cref="MetaDataRoot"/>, and <see cref="MetaDataTableStreamHeader"/> in <see cref="E_CILPhysical.WriteMetaDataToStream(WriterFunctionality, System.IO.Stream, CILMetaData, WritingOptions, StrongNameKeyPair, bool, Crypto.CryptoCallbacks, AssemblyHashAlgorithm?, EventHandler{SerializationErrorEventArgs})"/> method.
+   /// </summary>
+   /// <seealso cref="WritingOptions"/>
+   /// <seealso cref="WritingArguments.WritingOptions"/>
    public class WritingOptions_CLI
    {
+      /// <summary>
+      /// Creates a new instance of <see cref="WritingOptions_CLI"/>, with optional <see cref="WritingOptions_CLIHeader"/>, <see cref="WritingOptions_MetaDataRoot"/>, and <see cref="WritingOptions_TableStream"/> options.
+      /// </summary>
+      /// <param name="headerOptions">The options for <see cref="CLIHeader"/>. If <c>null</c>, a new instance of <see cref="WritingOptions_CLIHeader"/> will be created.</param>
+      /// <param name="mdRootOptions">The options for <see cref="MetaDataRoot"/>. If <c>null</c>, a new instance of <see cref="WritingOptions_MetaDataRoot"/> will be created.</param>
+      /// <param name="tableStreamOptions">The options for <see cref="MetaDataTableStreamHeader"/>. If <c>null</c>, a new instance of <see cref="WritingOptions_TableStream"/> will be created.</param>
       public WritingOptions_CLI(
          WritingOptions_CLIHeader headerOptions = null,
          WritingOptions_MetaDataRoot mdRootOptions = null,
-         WritingOptions_TableStream tablesStreamOptions = null
+         WritingOptions_TableStream tableStreamOptions = null
          )
       {
          this.HeaderOptions = headerOptions ?? new WritingOptions_CLIHeader();
          this.MDRootOptions = mdRootOptions ?? new WritingOptions_MetaDataRoot();
-         this.TablesStreamOptions = tablesStreamOptions ?? new WritingOptions_TableStream();
+         this.TablesStreamOptions = tableStreamOptions ?? new WritingOptions_TableStream();
       }
 
+      /// <summary>
+      /// Gets the <see cref="WritingOptions_CLIHeader"/> object. Will never be null.
+      /// </summary>
+      /// <value>The <see cref="WritingOptions_CLIHeader"/> object.</value>
       public WritingOptions_CLIHeader HeaderOptions { get; }
 
+      /// <summary>
+      /// Gets the <see cref="WritingOptions_MetaDataRoot"/> object. Will never be null.
+      /// </summary>
+      /// <value>The <see cref="WritingOptions_MetaDataRoot"/> object.</value>
       public WritingOptions_MetaDataRoot MDRootOptions { get; }
 
+      /// <summary>
+      /// Gets the <see cref="WritingOptions_TableStream"/> object. Will never be null.
+      /// </summary>
+      /// <value>The <see cref="WritingOptions_TableStream"/> object.</value>
       public WritingOptions_TableStream TablesStreamOptions { get; }
 
    }
 
+   /// <summary>
+   /// This class contains properties controlling various values of <see cref="CLIHeader"/> in <see cref="E_CILPhysical.WriteMetaDataToStream(WriterFunctionality, System.IO.Stream, CILMetaData, WritingOptions, StrongNameKeyPair, bool, Crypto.CryptoCallbacks, AssemblyHashAlgorithm?, EventHandler{SerializationErrorEventArgs})"/> method.
+   /// </summary>
+   /// <seealso cref="WritingOptions_CLI"/>
+   /// <seealso cref="WritingArguments.WritingOptions"/>
    public class WritingOptions_CLIHeader
    {
+      /// <summary>
+      /// Gets or sets the value for <see cref="CLIHeader.MajorRuntimeVersion"/> property.
+      /// </summary>
+      /// <value>The value for <see cref="CLIHeader.MajorRuntimeVersion"/> property.</value>
+      /// <remarks>
+      /// By default, the value of <c>0x0002</c> will be used.
+      /// </remarks>
+      /// <seealso cref="CLIHeader.MajorRuntimeVersion"/>
       public Int16? MajorRuntimeVersion { get; set; }
 
+      /// <summary>
+      /// Gets or sets the value for <see cref="CLIHeader.MinorRuntimeVersion"/> property.
+      /// </summary>
+      /// <value>The value for <see cref="CLIHeader.MinorRuntimeVersion"/> property.</value>
+      /// <remarks>
+      /// By default, the value of <c>0x0005</c> will be used.
+      /// </remarks>
+      /// <seealso cref="CLIHeader.MinorRuntimeVersion"/>
       public Int16? MinorRuntimeVersion { get; set; }
 
+      /// <summary>
+      /// Gets or sets the value for <see cref="CLIHeader.Flags"/> property.
+      /// </summary>
+      /// <value>The value for <see cref="CLIHeader.Flags"/> property.</value>
+      /// <remarks>
+      /// By default, the automatically calculated value will be used.
+      /// </remarks>
+      /// <seealso cref="CLIHeader.Flags"/>
       public ModuleFlags? ModuleFlags { get; set; }
 
+      /// <summary>
+      /// Gets or sets the value for <see cref="CLIHeader.EntryPointToken"/> property.
+      /// </summary>
+      /// <value>The value for <see cref="CLIHeader.EntryPointToken"/> property.</value>
+      /// <remarks>
+      /// By default, the <c>null</c> value will be used.
+      /// </remarks>
+      /// <seealso cref="CLIHeader.EntryPointToken"/>
       public TableIndex? EntryPointToken { get; set; }
    }
 
+   /// <summary>
+   /// This class contains properties controlling various values of <see cref="MetaDataRoot"/> in <see cref="E_CILPhysical.WriteMetaDataToStream(WriterFunctionality, System.IO.Stream, CILMetaData, WritingOptions, StrongNameKeyPair, bool, Crypto.CryptoCallbacks, AssemblyHashAlgorithm?, EventHandler{SerializationErrorEventArgs})"/> method.
+   /// </summary>
+   /// <seealso cref="WritingOptions_CLI"/>
+   /// <seealso cref="WritingArguments.WritingOptions"/>
    public class WritingOptions_MetaDataRoot
    {
+      /// <summary>
+      /// Gets or sets the value for <see cref="MetaDataRoot.Signature"/> property.
+      /// </summary>
+      /// <value>The value for <see cref="MetaDataRoot.Signature"/> property.</value>
+      /// <remarks>
+      /// By default, the value of <c>0x424A5342</c> will be used.
+      /// </remarks>
+      /// <seealso cref="MetaDataRoot.Signature"/>
       public Int32? Signature { get; set; }
 
+      /// <summary>
+      /// Gets or sets the value for <see cref="MetaDataRoot.MajorVersion"/> property.
+      /// </summary>
+      /// <value>The value for <see cref="MetaDataRoot.MajorVersion"/> property.</value>
+      /// <remarks>
+      /// By default, the value of <c>0x0001</c> will be used.
+      /// </remarks>
+      /// <seealso cref="MetaDataRoot.MajorVersion"/>
       public Int16? MajorVersion { get; set; }
 
+      /// <summary>
+      /// Gets or sets the value for <see cref="MetaDataRoot.MinorVersion"/> property.
+      /// </summary>
+      /// <value>The value for <see cref="MetaDataRoot.MinorVersion"/> property.</value>
+      /// <remarks>
+      /// By default, the value of <c>0x0001</c> will be used.
+      /// </remarks>
+      /// <seealso cref="MetaDataRoot.MinorVersion"/>
       public Int16? MinorVersion { get; set; }
 
+      /// <summary>
+      /// Gets or sets the value for <see cref="MetaDataRoot.Reserved"/> property.
+      /// </summary>
+      /// <value>The value for <see cref="MetaDataRoot.Reserved"/> property.</value>
+      /// <remarks>
+      /// By default, the value of <c>0x00000000</c> will be used.
+      /// </remarks>
+      /// <seealso cref="MetaDataRoot.Reserved"/>
       public Int32? Reserved { get; set; }
 
+      /// <summary>
+      /// Gets or sets the value for <see cref="MetaDataRoot.VersionString"/> property.
+      /// </summary>
+      /// <value>The value for <see cref="MetaDataRoot.VersionString"/> property.</value>
+      /// <remarks>
+      /// By default, the value of <c>"v4.0.30319"</c> will be used.
+      /// </remarks>
+      /// <seealso cref="MetaDataRoot.VersionString"/>
       public String VersionString { get; set; }
 
+      /// <summary>
+      /// Gets or sets the value for <see cref="MetaDataRoot.StorageFlags"/> property.
+      /// </summary>
+      /// <value>The value for <see cref="MetaDataRoot.StorageFlags"/> property.</value>
+      /// <remarks>
+      /// By default, the value of <see cref="IO.StorageFlags.Normal"/> is used.
+      /// Note that setting this to something else than that will make module load fail on most environments.
+      /// </remarks>
+      /// <seealso cref="MetaDataRoot.StorageFlags"/>
+      /// <seealso cref="IO.StorageFlags"/>
       public StorageFlags? StorageFlags { get; set; }
 
+      /// <summary>
+      /// Gets or sets the value for <see cref="MetaDataRoot.Reserved2"/> property.
+      /// </summary>
+      /// <value>The value for <see cref="MetaDataRoot.Reserved2"/> property.</value>
+      /// <remarks>
+      /// By default, the value of <c>0x00</c> will be used.
+      /// </remarks>
+      /// <seealso cref="MetaDataRoot.Reserved2"/>
       public Byte? Reserved2 { get; set; }
    }
 
+   /// <summary>
+   /// This class contains properties controlling various values of <see cref="MetaDataTableStreamHeader"/> in <see cref="E_CILPhysical.WriteMetaDataToStream(WriterFunctionality, System.IO.Stream, CILMetaData, WritingOptions, StrongNameKeyPair, bool, Crypto.CryptoCallbacks, AssemblyHashAlgorithm?, EventHandler{SerializationErrorEventArgs})"/> method.
+   /// </summary>
+   /// <seealso cref="WritingOptions_CLI"/>
+   /// <seealso cref="WritingArguments.WritingOptions"/>
    public class WritingOptions_TableStream
    {
+      /// <summary>
+      /// Gets or sets the value for <see cref="MetaDataTableStreamHeader.Reserved"/> property.
+      /// </summary>
+      /// <value>The value for <see cref="MetaDataTableStreamHeader.Reserved"/> property.</value>
+      /// <remarks>
+      /// By default, the value of <c>0x00000000</c> will be used.
+      /// </remarks>
+      /// <seealso cref="MetaDataTableStreamHeader.Reserved"/>
       public Int32? Reserved { get; set; }
 
-      public Byte? HeaderMajorVersion { get; set; }
+      /// <summary>
+      /// Gets or sets the value for <see cref="MetaDataTableStreamHeader.MajorVersion"/> property.
+      /// </summary>
+      /// <value>The value for <see cref="MetaDataTableStreamHeader.MajorVersion"/> property.</value>
+      /// <remarks>
+      /// By default, the value of <c>0x02</c> will be used.
+      /// </remarks>
+      /// <seealso cref="MetaDataTableStreamHeader.MajorVersion"/>
+      public Byte? MajorVersion { get; set; }
 
-      public Byte? HeaderMinorVersion { get; set; }
+      /// <summary>
+      /// Gets or sets the value for <see cref="MetaDataTableStreamHeader.MinorVersion"/> property.
+      /// </summary>
+      /// <value>The value for <see cref="MetaDataTableStreamHeader.MinorVersion"/> property.</value>
+      /// <remarks>
+      /// By default, the value of <c>0x00</c> will be used.
+      /// </remarks>
+      /// <seealso cref="MetaDataTableStreamHeader.MinorVersion"/>
+      public Byte? MinorVersion { get; set; }
 
+      /// <summary>
+      /// Gets or sets the value for <see cref="MetaDataTableStreamHeader.Reserved2"/> property.
+      /// </summary>
+      /// <value>The value for <see cref="MetaDataTableStreamHeader.Reserved2"/> property.</value>
+      /// <remarks>
+      /// By default, the value of <c>0x01</c> will be used.
+      /// </remarks>
+      /// <seealso cref="MetaDataTableStreamHeader.Reserved2"/>
       public Byte? Reserved2 { get; set; }
 
-      public Int32? HeaderExtraData { get; set; }
+      /// <summary>
+      /// Gets or sets the value for <see cref="MetaDataTableStreamHeader.ExtraData"/> property.
+      /// </summary>
+      /// <value>The value for <see cref="MetaDataTableStreamHeader.ExtraData"/> property.</value>
+      /// <remarks>
+      /// By default, the <c>null</c> value will be used.
+      /// </remarks>
+      /// <seealso cref="MetaDataTableStreamHeader.ExtraData"/>
+      public Int32? ExtraData { get; set; }
 
+      /// <summary>
+      /// Gets or sets the value for <see cref="MetaDataTableStreamHeader.PresentTablesBitVector"/> property.
+      /// </summary>
+      /// <value>The value for <see cref="MetaDataTableStreamHeader.PresentTablesBitVector"/> property.</value>
+      /// <remarks>
+      /// By default, the automatically calculated value will be used.
+      /// </remarks>
+      /// <seealso cref="MetaDataTableStreamHeader.PresentTablesBitVector"/>
       public Int64? PresentTablesBitVector { get; set; }
 
+      /// <summary>
+      /// Gets or sets the value for <see cref="MetaDataTableStreamHeader.SortedTablesBitVector"/> property.
+      /// </summary>
+      /// <value>The value for <see cref="MetaDataTableStreamHeader.SortedTablesBitVector"/> property.</value>
+      /// <remarks>
+      /// By default, the automatically calculated value will be used.
+      /// </remarks>
+      /// <seealso cref="MetaDataTableStreamHeader.SortedTablesBitVector"/>
       public Int64? SortedTablesBitVector { get; set; }
 
       // TODO ENC, HasDeleted
@@ -453,6 +639,19 @@ namespace CILAssemblyManipulator.Physical.IO
 
 public static partial class E_CILPhysical
 {
+   /// <summary>
+   /// This is extension method to help create a new <see cref="WritingOptions"/> with all of its contents from given <see cref="ImageInformation"/>.
+   /// </summary>
+   /// <param name="imageInformation">The <see cref="ImageInformation"/> to use when populating various properties of the writing option objects.</param>
+   /// <returns>A new <see cref="WritingOptions"/> object with options set from this <see cref="ImageInformation"/>.</returns>
+   /// <exception cref="NullReferenceException">If this <see cref="ImageInformation"/> is <c>null</c>.</exception>
+   /// <remarks>
+   /// The following properties are not set:
+   /// <list type="bullet">
+   /// <item><description><see cref="WritingOptions_TableStream.PresentTablesBitVector"/>, and</description></item>
+   /// <item><description><see cref="WritingOptions_TableStream.SortedTablesBitVector"/>.</description></item>
+   /// </list>
+   /// </remarks>
    public static WritingOptions CreateWritingOptions( this ImageInformation imageInformation )
    {
       var peInfo = imageInformation.PEInformation;
@@ -515,9 +714,9 @@ public static partial class E_CILPhysical
             },
             new WritingOptions_TableStream()
             {
-               HeaderExtraData = tableStream.ExtraData,
-               HeaderMajorVersion = tableStream.MajorVersion,
-               HeaderMinorVersion = tableStream.MinorVersion,
+               ExtraData = tableStream.ExtraData,
+               MajorVersion = tableStream.MajorVersion,
+               MinorVersion = tableStream.MinorVersion,
                Reserved = tableStream.Reserved,
                Reserved2 = tableStream.Reserved2
             }

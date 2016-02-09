@@ -99,9 +99,7 @@ namespace CILMerge
          var bag = new ConcurrentBag<PDBInstance>();
          this.DoPotentiallyInParallel( mergeResult.InputMergeResults, ( isRunningInParallel, iResult ) =>
          {
-
-            var eArg = iResult.ReadingArguments;
-            var debugInfo = eArg.ImageInformation.DebugInformation;
+            var debugInfo = iResult.ImageInformation.DebugInformation;
             if ( debugInfo != null && debugInfo.DebugType == 2 ) // CodeView
             {
                var pdbFNStartIdx = 24;
@@ -436,27 +434,27 @@ namespace CILMerge
    {
       private readonly CILMetaData _inputModule;
       private readonly String _modulePath;
-      private readonly ReadingArguments _readingArguments;
+      private readonly ImageInformation _readingArguments;
       private readonly Lazy<IDictionary<String, String>> _typeRenames;
       private readonly Lazy<IDictionary<TableIndex, TableIndex>> _inputToTargetMapping;
 
       public InputModuleMergeResult(
          CILMetaData inputModule,
          String modulePath,
-         ReadingArguments readingArguments,
+         ImageInformation imageInformation,
          Func<IDictionary<String, String>> typeRenames,
          Func<IDictionary<TableIndex, TableIndex>> inputToTarget
          )
       {
          ArgumentValidator.ValidateNotNull( "Input module", inputModule );
          ArgumentValidator.ValidateNotEmpty( "Module path", modulePath );
-         ArgumentValidator.ValidateNotNull( "Reading arguments", readingArguments );
+         ArgumentValidator.ValidateNotNull( "Image information", imageInformation );
          ArgumentValidator.ValidateNotNull( "Type renames", typeRenames );
          ArgumentValidator.ValidateNotNull( "Input to target mapping", inputToTarget );
 
          this._inputModule = inputModule;
          this._modulePath = modulePath;
-         this._readingArguments = readingArguments;
+         this._readingArguments = imageInformation;
          this._typeRenames = new Lazy<IDictionary<String, String>>( typeRenames, LazyThreadSafetyMode.ExecutionAndPublication );
          this._inputToTargetMapping = new Lazy<IDictionary<TableIndex, TableIndex>>( inputToTarget, LazyThreadSafetyMode.ExecutionAndPublication );
       }
@@ -469,7 +467,7 @@ namespace CILMerge
          }
       }
 
-      public ReadingArguments ReadingArguments
+      public ImageInformation ImageInformation
       {
          get
          {
@@ -576,7 +574,7 @@ namespace CILMerge
       private readonly CILMerger _merger;
       private readonly CILMergeOptions _options;
       private readonly CILMetaDataLoaderResourceCallbacksForFiles _loaderCallbacks;
-      private readonly CILMetaDataLoader _moduleLoader;
+      private readonly CILMetaDataBinaryLoader _moduleLoader;
       private readonly CryptoCallbacks _cryptoCallbacks;
 
       private readonly List<CILMetaData> _inputModules;
@@ -616,7 +614,7 @@ namespace CILMerge
             );
          this._cryptoCallbacks = new CryptoCallbacksDotNET();
          this._moduleLoader = options.Parallel ?
-            (CILMetaDataLoader) new CILMetaDataLoaderThreadSafeConcurrentForFiles( crypto: this._cryptoCallbacks, readingArgsFactory: this.ReadingArgumentsFactory, callbacks: this._loaderCallbacks ) :
+            (CILMetaDataBinaryLoader) new CILMetaDataLoaderThreadSafeConcurrentForFiles( crypto: this._cryptoCallbacks, readingArgsFactory: this.ReadingArgumentsFactory, callbacks: this._loaderCallbacks ) :
             new CILMetaDataLoaderNotThreadSafeForFiles( crypto: this._cryptoCallbacks, readingArgsFactory: this.ReadingArgumentsFactory, callbacks: this._loaderCallbacks );
          this._assemblyReferenceEqualityComparer = ComparerFromFunctions.NewEqualityComparer<AssemblyReference>(
             ( x, y ) =>
@@ -749,7 +747,7 @@ namespace CILMerge
             // Prepare PDB
 
             // Create PDB helper here, so it would modify EmittingArguments *before* actual emitting
-            pdbHelper = !this._options.NoDebug && this._inputModules.Any( m => this._moduleLoader.GetReadingArgumentsForMetaData( m ).ImageInformation.DebugInformation != null ) ?
+            pdbHelper = !this._options.NoDebug && this._inputModules.Any( m => this._moduleLoader.GetImageInformation( m ).DebugInformation != null ) ?
                new PDBHelper( this._targetModule, eArgs, this._options.OutPath ) :
                null;
 
@@ -758,13 +756,12 @@ namespace CILMerge
                // 8. Emit module
                try
                {
-                  this._targetModule.WriteModuleTo( this._options.OutPath, eArgs );
+                  this.WriteMergedMetaData( eArgs );
                }
                catch ( Exception exc )
                {
-                  throw this.NewCILMergeException( ExitCode.ErrorAccessingTargetFile, "Error accessing target file " + this._options.OutPath + "(" + exc + ").", exc );
+                  throw this.NewCILMergeException( ExitCode.ErrorAccessingTargetFile, "Error writign target file " + this._options.OutPath + "(" + exc + ").", exc );
                }
-
             } );
          } );
 
@@ -775,7 +772,7 @@ namespace CILMerge
             this._inputModules.Select( m => new InputModuleMergeResult(
                m,
                this._moduleLoader.GetResourceFor( m ),
-               this._moduleLoader.GetReadingArgumentsForMetaData( m ),
+               this._moduleLoader.GetImageInformation( m ),
                () => this.CreateRenameDictionaryForInputModule( m ),
                () => this.CreateTableIndexMappingForInputModule( m, reorderResult )
                ) )
@@ -875,6 +872,18 @@ namespace CILMerge
          }
       }
 
+      private void WriteMergedMetaData(
+         WritingArguments eArgs
+         )
+      {
+         var ep = this._moduleLoader.GetImageInformation( this._primaryModule ).CLIInformation.CLIHeader.EntryPointToken;
+         if ( ep.HasValue )
+         {
+            eArgs.WritingOptions.CLIOptions.HeaderOptions.EntryPointToken = this._tableIndexMappings[this._primaryModule][ep.Value];
+         }
+         this._targetModule.WriteModuleTo( this._options.OutPath, eArgs );
+      }
+
       private IDictionary<String, String> CreateRenameDictionaryForInputModule( CILMetaData inputModule )
       {
          var retVal = new Dictionary<String, String>();
@@ -950,8 +959,8 @@ namespace CILMerge
          this.DoPotentiallyInParallel( paths, ( isRunningInParallel, path ) =>
          {
             var mod = this._moduleLoader.LoadAndResolve( path );
-            var rArgs = this._moduleLoader.GetReadingArgumentsForMetaData( mod );
-            if ( !rArgs.ImageInformation.CLIInformation.CLIHeader.Flags.IsILOnly() && !this._options.ZeroPEKind )
+            var rArgs = this._moduleLoader.GetImageInformation( mod );
+            if ( !rArgs.CLIInformation.CLIHeader.Flags.IsILOnly() && !this._options.ZeroPEKind )
             {
                throw this.NewCILMergeException( ExitCode.NonILOnlyModule, "The module in " + path + " is not IL-only." );
             }
@@ -1108,8 +1117,7 @@ namespace CILMerge
          }
 
          // Prepare emitting arguments
-         var pEArgs = this._moduleLoader.GetReadingArgumentsForMetaData( this._primaryModule );
-         var pHeaders = pEArgs.ImageInformation;
+         var pHeaders = this._moduleLoader.GetImageInformation( this._primaryModule );
 
          var eArgs = new WritingArguments();
          var eHeaders = pHeaders.CreateWritingOptions();

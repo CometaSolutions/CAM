@@ -31,7 +31,7 @@ using System.Text;
 
 namespace CILAssemblyManipulator.Physical.IO
 {
-   using TModuleInfo = Tuple<String, ReadingArguments, MetaDataResolver>;
+   using TModuleInfo = Tuple<String, MetaDataResolver>;
 
    /// <summary>
    /// This interface represents a object which caches instances of <see cref="CILMetaData"/> based on textual resource, e.g. file path.
@@ -65,15 +65,6 @@ namespace CILAssemblyManipulator.Physical.IO
       /// <returns><c>true</c> if <paramref name="metaData"/> was obtained through <see cref="GetOrLoadMetaData"/> method of this <see cref="CILMetaDataLoader"/>; <c>false</c> otherwise.</returns>
       Boolean ResolveMetaData( CILMetaData metaData );
 
-      // TODO this method might not be portable enough - what if implementation of this interface uses something else than serialization provided by this framework?
-      /// <summary>
-      /// Gets the <see cref="ReadingArguments"/> used to load the <see cref="CILMetaData"/>, or <c>null</c>.
-      /// </summary>
-      /// <param name="metaData">The <see cref="CILMetaData"/>, which should have been obtained through <see cref="GetOrLoadMetaData"/> method of this <see cref="CILMetaDataLoader"/>.</param>
-      /// <returns>An instance of <see cref="ReadingArguments"/> used to load given <paramref name="metaData"/> if <paramref name="metaData"/> was obtained through <see cref="GetOrLoadMetaData"/> method of this <see cref="CILMetaDataLoader"/>; <c>null</c> otherwise.</returns>
-      /// <seealso cref="ReadingArguments"/>
-      ReadingArguments GetReadingArgumentsForMetaData( CILMetaData metaData );
-
       /// <summary>
       /// Gets the resource used to load the <see cref="CILMetaData"/>, or <c>null</c>.
       /// </summary>
@@ -97,6 +88,20 @@ namespace CILAssemblyManipulator.Physical.IO
    }
 
    /// <summary>
+   /// This interface further refines the <see cref="CILMetaDataLoader"/> with the assumption that each textual resource represents a binary stream.
+   /// </summary>
+   public interface CILMetaDataBinaryLoader : CILMetaDataLoader
+   {
+      /// <summary>
+      /// Gets the <see cref="ImageInformation"/> for given <see cref="CILMetaData"/>, or <c>null</c>.
+      /// </summary>
+      /// <param name="metaData">The <see cref="CILMetaData"/>, which should have been obtained through <see cref="CILMetaDataLoader.GetOrLoadMetaData"/> method of this <see cref="CILMetaDataLoader"/>.</param>
+      /// <returns>An instance of <see cref="ImageInformation"/> for given <paramref name="metaData"/> if <paramref name="metaData"/> was obtained through <see cref="CILMetaDataLoader.GetOrLoadMetaData"/> method of this <see cref="CILMetaDataLoader"/>; <c>null</c> otherwise.</returns>
+      /// <seealso cref="ImageInformation"/>
+      ImageInformation GetImageInformation( CILMetaData metaData );
+   }
+
+   /// <summary>
    /// This exception is thrown by <see cref="CILMetaDataLoader.GetOrLoadMetaData"/> method when somethign goes wrong when loading <see cref="CILMetaData"/> from stream.
    /// </summary>
    public class MetaDataLoadException : Exception
@@ -113,13 +118,7 @@ namespace CILAssemblyManipulator.Physical.IO
       }
    }
 
-   /// <summary>
-   /// This is the delegate for callback used by <see cref="AbstractCILMetaDataLoader{TDictionary}"/> to create instance of <see cref="ReadingArguments"/> to be used by <see cref="CILMetaDataIO.ReadModule(Stream, ReadingArguments)"/> method.
-   /// </summary>
-   /// <param name="resourceToLoad">The textual resource (e.g. file path) of module being loaded.</param>
-   /// <param name="pathForModuleBeingResolved">The optional path of the module currently being resolved by <see cref="CILMetaDataLoader.ResolveMetaData"/> method. This separates the situations when module is loaded directly by <see cref="CILMetaDataLoader.GetOrLoadMetaData"/> method and when modules are being loaded indirectly by <see cref="CILMetaDataLoader.ResolveMetaData"/> method.</param>
-   /// <returns>Should return the <see cref="ReadingArguments"/> to be used when loading module. If <c>null</c> is returned, then the code will create a new instance of <see cref="ReadingArguments"/>.</returns>
-   public delegate ReadingArguments ReadingArgumentsFactoryDelegate( String resourceToLoad, String pathForModuleBeingResolved );
+
 
    /// <summary>
    /// This class provides skeleton implementation of <see cref="CILMetaDataLoader"/> with parametrizable dictionary type (for possible use of <see cref="T:System.Collections.Concurrent.ConcurrentDictionary"/>).
@@ -134,19 +133,16 @@ namespace CILAssemblyManipulator.Physical.IO
       private readonly TDictionary _modules;
       private readonly Dictionary<CILMetaData, TModuleInfo> _moduleInfos;
       private readonly Lazy<HashStreamInfo> _hashStream;
-      private readonly ReadingArgumentsFactoryDelegate _readingArgumentsFactory;
 
       /// <summary>
-      /// Constructs this <see cref="AbstractCILMetaDataLoader{TDictionary}"/> with given dictionary, <see cref="CryptoCallbacks"/> (for public key token computation), and <see cref="ReadingArgumentsFactoryDelegate"/> to use when creating <see cref="ReadingArguments"/>.
+      /// Constructs this <see cref="AbstractCILMetaDataLoader{TDictionary}"/> with given dictionary and <see cref="CryptoCallbacks"/> (for public key token computation).
       /// </summary>
       /// <param name="dictionary">The dictionary to cache <see cref="CILMetaData"/> instances.</param>
       /// <param name="cryptoCallbacks">The optional <see cref="CryptoCallbacks"/> to use for public key token computation.</param>
-      /// <param name="readingArgsFactory">The optional <see cref="ReadingArgumentsFactoryDelegate"/> to use to create <see cref="ReadingArguments"/>.</param>
       /// <exception cref="ArgumentNullException">If <paramref name="dictionary"/> is <c>null</c>.</exception>
       public AbstractCILMetaDataLoader(
          TDictionary dictionary,
-         CryptoCallbacks cryptoCallbacks,
-         ReadingArgumentsFactoryDelegate readingArgsFactory
+         CryptoCallbacks cryptoCallbacks
          )
       {
          ArgumentValidator.ValidateNotNull( "Modules", dictionary );
@@ -154,7 +150,6 @@ namespace CILAssemblyManipulator.Physical.IO
          this._modules = dictionary;
          this._moduleInfos = new Dictionary<CILMetaData, TModuleInfo>( ReferenceEqualityComparer<CILMetaData>.ReferenceBasedComparer );
          this._hashStream = cryptoCallbacks == null ? null : new Lazy<HashStreamInfo>( () => cryptoCallbacks.CreateHashStream( AssemblyHashAlgorithm.SHA1 ), System.Threading.LazyThreadSafetyMode.ExecutionAndPublication );
-         this._readingArgumentsFactory = readingArgsFactory ?? new ReadingArgumentsFactoryDelegate( ( resource, resolving ) => new ReadingArguments() );
       }
 
       private void _resolver_ModuleReferenceResolveEvent( Object sender, ModuleReferenceResolveEventArgs e )
@@ -208,19 +203,10 @@ namespace CILAssemblyManipulator.Physical.IO
 
          if ( retVal )
          {
-            this.PerformResolving( moduleInfo.Item3, metaData );
+            this.PerformResolving( moduleInfo.Item2, metaData );
          }
 
          return retVal;
-      }
-
-      /// <inheritdoc />
-      public ReadingArguments GetReadingArgumentsForMetaData( CILMetaData metaData )
-      {
-         TModuleInfo moduleInfo;
-         return this._moduleInfos.TryGetValue( metaData, out moduleInfo ) ?
-            moduleInfo.Item2 :
-            null;
       }
 
       /// <inheritdoc />
@@ -245,12 +231,6 @@ namespace CILAssemblyManipulator.Physical.IO
       public Byte[] ComputePublicKeyTokenOrNull( Byte[] publicKey )
       {
          return this._hashStream?.Value.ComputePublicKeyToken( publicKey );
-      }
-
-      private TModuleInfo ModuleInfoFactory( String resource, CILMetaData md, ReadingArguments rArgs )
-      {
-         var resolver = this.CreateNewResolver();
-         return Tuple.Create( resource, rArgs, resolver );
       }
 
       /// <summary>
@@ -294,16 +274,6 @@ namespace CILAssemblyManipulator.Physical.IO
       /// In file-oriented loader, this usually means returning the value of <see cref="M:System.IO.File.Exists(System.String)"/>
       /// </remarks>
       protected abstract Boolean IsValidResource( String resource );
-
-      /// <summary>
-      /// This method should transform the given textual resource into a byte stream.
-      /// </summary>
-      /// <param name="resource">The textual resource.</param>
-      /// <returns>The <see cref="Stream"/> for the <paramref name="resource"/>.</returns>
-      /// <remarks>
-      /// In file-oriented loader, this usually means returning the value of <see cref="M:System.IO.File.Open(System.String, System.IO.FileMode, System.IO.FileAccess, System.IO.FileShare)"/>
-      /// </remarks>
-      protected abstract Stream GetStreamFor( String resource );
 
       /// <summary>
       /// This method should return all possible (valid or not valid) textual resources for a module reference occurring in a <see cref="CILMetaData"/>.
@@ -374,18 +344,15 @@ namespace CILAssemblyManipulator.Physical.IO
 
          var retVal = this.GetOrAddFromCache( resource, res =>
          {
-            using ( var stream = this.GetStreamFor( res ) )
+            try
             {
-               rArgs = this._readingArgumentsFactory( resource, pathForModuleBeingResolved ) ?? new ReadingArguments();
-               try
-               {
-                  return stream.ReadModule( rArgs );
-               }
-               catch ( Exception exc )
-               {
-                  throw new MetaDataLoadException( "Error when loading CIL module from " + resource + ".", exc );
-               }
+               return this.GetMetaDataFromResource( res, pathForModuleBeingResolved );
             }
+            catch ( Exception exc )
+            {
+               throw new MetaDataLoadException( "Error when loading CIL module from " + res + ".", exc );
+            }
+
          } );
 
          Boolean added;
@@ -406,6 +373,115 @@ namespace CILAssemblyManipulator.Physical.IO
          return retVal;
       }
 
+      /// <summary>
+      /// This method should return an instance of <see cref="CILMetaData"/> for given sanitized textual resource (e.g. file path).
+      /// </summary>
+      /// <param name="sanitizedResource">The sanitized textual resource.</param>
+      /// <param name="pathForModuleBeingResolved">If the load</param>
+      /// <returns>An instance of <see cref="CILMetaData"/> which represents the given <paramref name="sanitizedResource"/>.</returns>
+      protected abstract CILMetaData GetMetaDataFromResource( String sanitizedResource, String pathForModuleBeingResolved );
+
+
+      private TModuleInfo ModuleInfoFactory( String resource, CILMetaData md, ReadingArguments rArgs )
+      {
+         this.AfterModuleLoad( resource, md, rArgs );
+         var resolver = this.CreateNewResolver();
+         return Tuple.Create( resource, resolver );
+      }
+
+      /// <summary>
+      /// This method is called right after a new instance of <see cref="CILMetaData"/> has been added to <see cref="Cache"/>.
+      /// </summary>
+      /// <param name="resource">The sanitized textual resource.</param>
+      /// <param name="md">The new instance of <see cref="CILMetaData"/>.</param>
+      /// <param name="rArgs">The <see cref="ReadingArguments"/> used to load the <paramref name="md"/>.</param>
+      /// <remarks>
+      /// This method implementation, by default, does nothing.
+      /// If <see cref="IsSupportingConcurrency"/> returns <c>true</c> for this <see cref="AbstractCILMetaDataLoader{TDictionary}"/>, this method will be called inside a lock, meaning that any other concurrent requests to load the <see cref="CILMetaData"/> from the *same resource* will be waiting for this method to complete.
+      /// Furthermore, during this method, even though the given <see cref="CILMetaData"/> is present in the <see cref="Cache"/> dictionary, methods <see cref="ResolveMetaData"/> and <see cref="GetResourceFor"/> will think that the <paramref name="md"/> is not present in this <see cref="AbstractCILMetaDataLoader{TDictionary}"/>.
+      /// </remarks>
+      protected virtual void AfterModuleLoad( String resource, CILMetaData md, ReadingArguments rArgs )
+      {
+         // Nothing to do.
+      }
+
+   }
+
+   /// <summary>
+   /// This is the delegate for callback used by <see cref="AbstractCILMetaDataBinaryLoader{TDictionary}"/> to create instance of <see cref="ReadingArguments"/> to be used by <see cref="CILMetaDataIO.ReadModule(Stream, ReadingArguments)"/> method.
+   /// </summary>
+   /// <param name="resourceToLoad">The textual resource (e.g. file path) of module being loaded.</param>
+   /// <param name="pathForModuleBeingResolved">The optional path of the module currently being resolved by <see cref="CILMetaDataLoader.ResolveMetaData"/> method. This separates the situations when module is loaded directly by <see cref="CILMetaDataLoader.GetOrLoadMetaData"/> method and when modules are being loaded indirectly by <see cref="CILMetaDataLoader.ResolveMetaData"/> method.</param>
+   /// <returns>Should return the <see cref="ReadingArguments"/> to be used when loading module. If <c>null</c> is returned, then the code will create a new instance of <see cref="ReadingArguments"/>.</returns>
+   public delegate ReadingArguments ReadingArgumentsFactoryDelegate( String resourceToLoad, String pathForModuleBeingResolved );
+
+   /// <summary>
+   /// This class extends <see cref="AbstractCILMetaDataLoader{TDictionary}"/> and implements <see cref="CILMetaDataBinaryLoader"/> in order to provide implementation for common things needed when loading <see cref="CILMetaData"/> from binary stream with <see cref="CILMetaDataIO.ReadModule"/> method.
+   /// </summary>
+   /// <typeparam name="TDictionary"></typeparam>
+   public abstract class AbstractCILMetaDataBinaryLoader<TDictionary> : AbstractCILMetaDataLoader<TDictionary>, CILMetaDataBinaryLoader
+      where TDictionary : class, IDictionary<String, CILMetaData>
+   {
+
+      private readonly ReadingArgumentsFactoryDelegate _readingArgumentsFactory;
+      private readonly IDictionary<CILMetaData, ImageInformation> _imageInfos;
+
+      /// <summary>
+      /// Creates a new instance of <see cref="AbstractCILMetaDataBinaryLoader{TDictionary}"/> with given dictionary, <see cref="CryptoCallbacks"/> (for public key token computation), and <see cref="ReadingArgumentsFactoryDelegate"/> to use when creating <see cref="ReadingArguments"/>.
+      /// </summary>
+      /// <param name="dictionary">The dictionary to cache <see cref="CILMetaData"/> instances.</param>
+      /// <param name="cryptoCallbacks">The optional <see cref="CryptoCallbacks"/> to use for public key token computation.</param>
+      /// <param name="readingArgsFactory">The optional <see cref="ReadingArgumentsFactoryDelegate"/> to use to create <see cref="ReadingArguments"/>.</param>
+      public AbstractCILMetaDataBinaryLoader(
+         TDictionary dictionary,
+         CryptoCallbacks cryptoCallbacks,
+         ReadingArgumentsFactoryDelegate readingArgsFactory
+         ) : base( dictionary, cryptoCallbacks )
+      {
+         this._readingArgumentsFactory = readingArgsFactory;
+         this._imageInfos = new Dictionary<CILMetaData, ImageInformation>( ReferenceEqualityComparer<CILMetaData>.ReferenceBasedComparer );
+      }
+
+      /// <summary>
+      /// This method will use <see cref="CILMetaDataIO.ReadModule"/> method to read the <see cref="CILMetaData"/> from file path represented by given textual resource.
+      /// </summary>
+      /// <param name="sanitizedResource">The file path.</param>
+      /// <param name="pathForModuleBeingResolved">The optional path of the module currently being resolved by <see cref="CILMetaDataLoader.ResolveMetaData"/> method. This separates the situations when module is loaded directly by <see cref="CILMetaDataLoader.GetOrLoadMetaData"/> method and when modules are being loaded indirectly by <see cref="CILMetaDataLoader.ResolveMetaData"/> method.</param>
+      /// <returns>A new instance of <see cref="CILMetaData"/> with contents read from the given file path.</returns>
+      protected override CILMetaData GetMetaDataFromResource( String sanitizedResource, String pathForModuleBeingResolved )
+      {
+         using ( var stream = this.GetStreamFor( sanitizedResource ) )
+         {
+            var rArgs = this._readingArgumentsFactory?.Invoke( sanitizedResource, pathForModuleBeingResolved ) ?? new ReadingArguments();
+            var retVal = stream.ReadModule( rArgs );
+            if ( this.IsSupportingConcurrency )
+            {
+               this._imageInfos.GetOrAdd_WithLock( retVal, md => rArgs.ImageInformation );
+            }
+            else
+            {
+               this._imageInfos.GetOrAdd_NotThreadSafe( retVal, md => rArgs.ImageInformation );
+            }
+            return retVal;
+         }
+      }
+
+      /// <inheritdoc />
+      public ImageInformation GetImageInformation( CILMetaData metaData )
+      {
+         ImageInformation retVal;
+         return this._imageInfos.TryGetValue( metaData, out retVal ) ? retVal : null;
+      }
+
+      /// <summary>
+      /// This method should transform the given textual resource into a byte stream.
+      /// </summary>
+      /// <param name="resource">The textual resource.</param>
+      /// <returns>The <see cref="Stream"/> for the <paramref name="resource"/>.</returns>
+      /// <remarks>
+      /// In file-oriented loader, this usually means returning the value of <see cref="M:System.IO.File.Open(System.String, System.IO.FileMode, System.IO.FileAccess, System.IO.FileShare)"/>
+      /// </remarks>
+      protected abstract Stream GetStreamFor( String resource );
    }
 
    /// <summary>
@@ -452,17 +528,6 @@ namespace CILAssemblyManipulator.Physical.IO
       Boolean IsValidResource( String resource );
 
       /// <summary>
-      /// This method should transform the given textual resource into a byte stream.
-      /// </summary>
-      /// <param name="resource">The textual resource.</param>
-      /// <returns>The <see cref="Stream"/> for the <paramref name="resource"/>.</returns>
-      /// <remarks>
-      /// In file-oriented loader, this usually means returning the value of <see cref="M:System.IO.File.Open(System.String, System.IO.FileMode, System.IO.FileAccess, System.IO.FileShare)"/>
-      /// </remarks>
-      /// <seealso cref="AbstractCILMetaDataLoader{TDictionary}.GetStreamFor(string)"/>
-      Stream GetStreamFor( String resource );
-
-      /// <summary>
       /// This method should return all possible (valid or not valid) textual resources for a module reference occurring in a <see cref="CILMetaData"/>.
       /// </summary>
       /// <param name="thisMetaDataResource">The textual resource for this <see cref="CILMetaData"/>.</param>
@@ -488,7 +553,6 @@ namespace CILAssemblyManipulator.Physical.IO
       /// </remarks>
       /// <seealso cref="AbstractCILMetaDataLoader{TDictionary}.GetPossibleResourcesForAssemblyReference(string, CILMetaData, AssemblyInformationForResolving, string)"/>
       IEnumerable<String> GetPossibleResourcesForAssemblyReference( String thisMetaDataResource, CILMetaData thisMetaData, AssemblyInformationForResolving assemblyRefInfo, String unparsedAssemblyName );
-
 
       /// <summary>
       /// Gets possibly cached value of <see cref="TargetFrameworkInfo"/> for a given <see cref="CILMetaData"/>.
@@ -522,10 +586,27 @@ namespace CILAssemblyManipulator.Physical.IO
    }
 
    /// <summary>
+   /// This interface further refines the <see cref="CILMetaDataLoaderResourceCallbacks"/> with ability to get binary stream from a given resource, e.g. file path.
+   /// </summary>
+   public interface CILMetaDataBinaryLoaderResourceCallbacks : CILMetaDataLoaderResourceCallbacks
+   {
+      /// <summary>
+      /// This method should transform the given textual resource into a byte stream.
+      /// </summary>
+      /// <param name="resource">The textual resource.</param>
+      /// <returns>The <see cref="Stream"/> for the <paramref name="resource"/>.</returns>
+      /// <remarks>
+      /// In file-oriented loader, this usually means returning the value of <see cref="M:System.IO.File.Open(System.String, System.IO.FileMode, System.IO.FileAccess, System.IO.FileShare)"/>
+      /// </remarks>
+      /// <seealso cref="AbstractCILMetaDataBinaryLoader{TDictionary}.GetStreamFor(string)"/>
+      Stream GetStreamFor( String resource );
+   }
+
+   /// <summary>
    /// This class extends the <see cref="AbstractCILMetaDataLoader{TDictionary}"/> and implements <see cref="CILMetaDataLoaderWithCallbacks"/>, so that the required abstract methods of <see cref="AbstractCILMetaDataLoader{TDictionary}"/> will be call-throughs to the methods of <see cref="CILMetaDataLoaderResourceCallbacks"/>.
    /// </summary>
    /// <typeparam name="TDictionary">The type of dictionary to cache instances of <see cref="CILMetaData"/>.</typeparam>
-   public abstract class CILMetaDataLoaderWithCallbacks<TDictionary> : AbstractCILMetaDataLoader<TDictionary>, CILMetaDataLoaderWithCallbacks
+   public abstract class CILMetaDataLoaderWithCallbacks<TDictionary> : AbstractCILMetaDataBinaryLoader<TDictionary>, CILMetaDataLoaderWithCallbacks
       where TDictionary : class, IDictionary<String, CILMetaData>
    {
 
@@ -541,17 +622,29 @@ namespace CILAssemblyManipulator.Physical.IO
          TDictionary dictionary,
          CryptoCallbacks cryptoCallbacks,
          ReadingArgumentsFactoryDelegate readingArgsFactory,
-         CILMetaDataLoaderResourceCallbacks resourceCallbacks
+         CILMetaDataBinaryLoaderResourceCallbacks resourceCallbacks
          )
          : base( dictionary, cryptoCallbacks, readingArgsFactory )
       {
          ArgumentValidator.ValidateNotNull( "Resource callbacks", resourceCallbacks );
 
-         this.LoaderCallbacks = resourceCallbacks;
+         this.LoaderBinaryCallbacks = resourceCallbacks;
       }
 
       /// <inheritdoc />
-      public CILMetaDataLoaderResourceCallbacks LoaderCallbacks { get; }
+      public CILMetaDataLoaderResourceCallbacks LoaderCallbacks
+      {
+         get
+         {
+            return this.LoaderBinaryCallbacks;
+         }
+      }
+
+      /// <summary>
+      /// Gets the <see cref="CILMetaDataBinaryLoaderResourceCallbacks"/> callbacks object of this <see cref="CILMetaDataLoaderWithCallbacks{TDictionary}"/>.
+      /// </summary>
+      /// <value>The <see cref="CILMetaDataBinaryLoaderResourceCallbacks"/> callbacks object of this <see cref="CILMetaDataLoaderWithCallbacks{TDictionary}"/>.</value>
+      public CILMetaDataBinaryLoaderResourceCallbacks LoaderBinaryCallbacks { get; }
 
       /// <summary>
       /// The implementation of this method is delegated to <see cref="CILMetaDataLoaderResourceCallbacks.SanitizeResource(string)"/>.
@@ -561,7 +654,7 @@ namespace CILAssemblyManipulator.Physical.IO
       /// <seealso cref="AbstractCILMetaDataLoader{TDictionary}.SanitizeResource(string)"/>
       protected override String SanitizeResource( String resource )
       {
-         return this.LoaderCallbacks.SanitizeResource( resource );
+         return this.LoaderBinaryCallbacks.SanitizeResource( resource );
       }
 
       /// <summary>
@@ -572,18 +665,18 @@ namespace CILAssemblyManipulator.Physical.IO
       /// <seealso cref="AbstractCILMetaDataLoader{TDictionary}.IsValidResource(string)"/>
       protected override Boolean IsValidResource( String resource )
       {
-         return this.LoaderCallbacks.IsValidResource( resource );
+         return this.LoaderBinaryCallbacks.IsValidResource( resource );
       }
 
       /// <summary>
-      /// The implementation of this method is delegated to <see cref="CILMetaDataLoaderResourceCallbacks.GetStreamFor(string)"/>.
+      /// The implementation of this method is delegated to <see cref="CILMetaDataBinaryLoaderResourceCallbacks.GetStreamFor(string)"/>.
       /// </summary>
       /// <param name="resource">The textual resource.</param>
-      /// <returns>Result of <see cref="CILMetaDataLoaderResourceCallbacks.GetStreamFor(string)"/>.</returns>
-      /// <seealso cref="AbstractCILMetaDataLoader{TDictionary}.GetStreamFor(string)"/>
+      /// <returns>Result of <see cref="CILMetaDataBinaryLoaderResourceCallbacks.GetStreamFor(string)"/>.</returns>
+      /// <seealso cref="AbstractCILMetaDataBinaryLoader{TDictionary}.GetStreamFor(string)"/>
       protected override Stream GetStreamFor( String resource )
       {
-         return this.LoaderCallbacks.GetStreamFor( resource );
+         return this.LoaderBinaryCallbacks.GetStreamFor( resource );
       }
 
       /// <summary>
@@ -596,7 +689,7 @@ namespace CILAssemblyManipulator.Physical.IO
       /// <seealso cref="AbstractCILMetaDataLoader{TDictionary}.GetPossibleResourcesForModuleReference(string, CILMetaData, string)"/>
       protected override IEnumerable<String> GetPossibleResourcesForModuleReference( String thisMetaDataResource, CILMetaData thisMetaData, String moduleReferenceName )
       {
-         return this.LoaderCallbacks.GetPossibleResourcesForModuleReference( thisMetaDataResource, thisMetaData, moduleReferenceName );
+         return this.LoaderBinaryCallbacks.GetPossibleResourcesForModuleReference( thisMetaDataResource, thisMetaData, moduleReferenceName );
       }
 
       /// <summary>
@@ -610,7 +703,7 @@ namespace CILAssemblyManipulator.Physical.IO
       /// <seealso cref="AbstractCILMetaDataLoader{TDictionary}.GetPossibleResourcesForAssemblyReference(string, CILMetaData, AssemblyInformationForResolving, string)"/>
       protected override IEnumerable<String> GetPossibleResourcesForAssemblyReference( String thisMetaDataResource, CILMetaData thisMetaData, AssemblyInformationForResolving assemblyRefInfo, String unparsedAssemblyName )
       {
-         return this.LoaderCallbacks.GetPossibleResourcesForAssemblyReference( thisMetaDataResource, thisMetaData, assemblyRefInfo, unparsedAssemblyName );
+         return this.LoaderBinaryCallbacks.GetPossibleResourcesForAssemblyReference( thisMetaDataResource, thisMetaData, assemblyRefInfo, unparsedAssemblyName );
       }
 
    }
@@ -630,7 +723,7 @@ namespace CILAssemblyManipulator.Physical.IO
       public CILMetaDataLoaderNotThreadSafe(
          CryptoCallbacks cryptoCallbacks,
          ReadingArgumentsFactoryDelegate readingArgsFactory,
-         CILMetaDataLoaderResourceCallbacks resourceCallbacks
+         CILMetaDataBinaryLoaderResourceCallbacks resourceCallbacks
          )
          : base( new Dictionary<String, CILMetaData>(), cryptoCallbacks, readingArgsFactory, resourceCallbacks )
       {
@@ -694,7 +787,7 @@ namespace CILAssemblyManipulator.Physical.IO
       public CILMetaDataLoaderThreadSafeSimple(
          CryptoCallbacks cryptoCallbacks,
          ReadingArgumentsFactoryDelegate readingArgsFactory,
-         CILMetaDataLoaderResourceCallbacks resourceCallbacks
+         CILMetaDataBinaryLoaderResourceCallbacks resourceCallbacks
          )
          : base( new Dictionary<String, CILMetaData>(), cryptoCallbacks, readingArgsFactory, resourceCallbacks )
       {

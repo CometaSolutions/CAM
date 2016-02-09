@@ -2047,7 +2047,7 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
 
             var presentTables = header.TableSizes.Count( s => s > 0 );
             var hdrSize = 24 + 4 * presentTables;
-            if ( writingOptions.HeaderExtraData.HasValue )
+            if ( writingOptions.ExtraData.HasValue )
             {
                hdrSize += 4;
             }
@@ -2138,14 +2138,14 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
          var options = this._options;
          var header = new MetaDataTableStreamHeader(
             options.Reserved ?? 0,
-            options.HeaderMajorVersion ?? 2,
-            options.HeaderMinorVersion ?? 0,
+            options.MajorVersion ?? 2,
+            options.MinorVersion ?? 0,
             CreateTableStreamFlags( mdStreams ),
             options.Reserved2 ?? 1,
             (UInt64) ( options.PresentTablesBitVector ?? this.GetPresentTablesBitVector() ),
             (UInt64) ( options.SortedTablesBitVector ?? this.GetSortedTablesBitVector() ),
             this.TableSizes.Select( s => (UInt32) s ).Where( s => s > 0 ).ToArrayProxy().CQ,
-            options.HeaderExtraData
+            options.ExtraData
             );
 
          Interlocked.Exchange( ref this._writeDependantInfo, new WriteDependantInfo( this._options, this.TableSizes, this.TableSerializations, mdStreams, retVal, header, this.CreateSerializationCreationArgs( mdStreams ) ) );
@@ -2273,7 +2273,7 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
             retVal |= TableStreamFlags.WideBLOB;
          }
 
-         if ( this._options.HeaderExtraData.HasValue )
+         if ( this._options.ExtraData.HasValue )
          {
             retVal |= TableStreamFlags.ExtraData;
          }
