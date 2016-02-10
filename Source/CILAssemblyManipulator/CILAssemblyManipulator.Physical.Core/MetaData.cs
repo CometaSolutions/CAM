@@ -490,6 +490,7 @@ public static partial class E_CILPhysical
          thisDuplicates
             .Add( duplicateIdx, actualIndex );
          // Update all other duplicates as well
+         // TODO I'm not sure if this is needed anymore, now that each table is processed only exactly once (and not in e.g. loop)
          foreach ( var kvp in thisDuplicates.ToArray() )
          {
             if ( kvp.Value == duplicateIdx )
@@ -1414,11 +1415,15 @@ public static partial class E_CILPhysical
          ( ed, indices ) => reorderState.UpdateMDTableWithTableIndices1( ed, e => e.EventType, ( e, t ) => e.EventType = t )
          );
 
-      // Sort InterfaceImpl table ( Class, Interface)
+      // Sort InterfaceImpl table ( Class, Interface)      
       reorderState.UpdateMDTableIndices(
          md.InterfaceImplementations,
-         ( iFaceImpl, indices ) => reorderState.UpdateMDTableWithTableIndices2( iFaceImpl, i => i.Class, ( i, c ) => i.Class = c, i => i.Interface, ( i, iface ) => i.Interface = iface )
-         );
+         ( iFaceImpl, indices ) =>
+         {
+            reorderState.UpdateMDTableWithTableIndices2( iFaceImpl, i => i.Class, ( i, c ) => i.Class = c, i => i.Interface, ( i, iface ) => i.Interface = iface );
+            reorderState.CheckMDDuplicatesUnsorted( md.InterfaceImplementations );
+         } );
+      reorderState.FixDuplicatesAfterSorting( Tables.InterfaceImpl );
 
       // Sort ConstantDef table (Parent)
       reorderState.UpdateMDTableIndices(
@@ -1503,7 +1508,6 @@ public static partial class E_CILPhysical
          md.CustomAttributeDefinitions,
          ( ca, indices ) => reorderState.UpdateMDTableWithTableIndices2( ca, c => c.Parent, ( c, p ) => c.Parent = p, c => c.Type, ( c, t ) => c.Type = t )
          );
-
    }
 
    private static void RemoveDuplicatesUnsortedInPlace<T>( this MetaDataTable<T> mdTable )
@@ -1554,6 +1558,23 @@ public static partial class E_CILPhysical
          {
             ++curIdx;
          }
+      }
+   }
+
+   private static void FixDuplicatesAfterSorting( this MetaDataReOrderState reorderState, Tables table )
+   {
+      IDictionary<Int32, Int32> dupInfo;
+      if ( reorderState.Duplicates.TryGetValue( table, out dupInfo ) )
+      {
+         var newDupInfo = new Dictionary<Int32, Int32>();
+         var indices = reorderState.FinalIndices[(Int32) table];
+         foreach ( var kvp in dupInfo )
+         {
+            var dupIndex = kvp.Key;
+            var actualIndex = kvp.Value;
+            newDupInfo.Add( indices[dupIndex], indices[actualIndex] );
+         }
+         reorderState.Duplicates[table] = newDupInfo;
       }
    }
 
@@ -1692,12 +1713,22 @@ public static partial class E_CILPhysical
             table.Sort( comparer );
 
             // 3. For each element, do a binary search to find where it is now after sorting
+            var nullCount = 0;
             for ( var i = 0; i < count; ++i )
             {
                var idx = table.BinarySearchDeferredEqualityDetection( copy[i], comparer );
-               while ( !ReferenceEquals( copy[i], table[idx] ) )
+               if ( copy[i] == null )
                {
-                  ++idx;
+                  // Duplicate
+                  idx += nullCount;
+                  ++nullCount;
+               }
+               else
+               {
+                  while ( !ReferenceEquals( copy[i], table[idx] ) )
+                  {
+                     ++idx;
+                  }
                }
                indices[i] = idx;
             }

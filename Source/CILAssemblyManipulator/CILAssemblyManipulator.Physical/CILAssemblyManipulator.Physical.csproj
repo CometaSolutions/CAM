@@ -103,9 +103,9 @@
       <ProjectToMerge Include="@(IntermediateAssembly)" />
       <ProjectToMerge Include="$(MSBuildThisFileDirectory)$(OutputPath)CILAssemblyManipulator.Physical.Core.dll" />
       <ProjectToMerge Include="$(MSBuildThisFileDirectory)$(OutputPath)CILAssemblyManipulator.Physical.Crypto.dll" />
+      <ProjectToMerge Include="$(MSBuildThisFileDirectory)$(OutputPath)..\SL\CILAssemblyManipulator.Physical.Resolving.dll" />
+      <ProjectToMerge Include="$(MSBuildThisFileDirectory)$(OutputPath)CILAssemblyManipulator.Physical.Loading.dll" />
       <ProjectToMerge Include="$(MSBuildThisFileDirectory)$(OutputPath)CILAssemblyManipulator.Physical.IO.dll" />
-      <ProjectToMerge Include="$(MSBuildThisFileDirectory)$(OutputPath)..\SL\CILAssemblyManipulator.Physical.IO.Resolving.dll" />
-      <ProjectToMerge Include="$(MSBuildThisFileDirectory)$(OutputPath)CILAssemblyManipulator.Physical.IO.Loading.dll" />
       <ProjectToMerge Include="$(MSBuildThisFileDirectory)$(OutputPath)CILAssemblyManipulator.Physical.TypeRemapping.dll" />
       <ProjectToMerge Include="$(MSBuildThisFileDirectory)$(OutputPath)..\SL\CILAssemblyManipulator.Physical.MResources.dll" />
       <ProjectToMerge Include="$(MSBuildThisFileDirectory)$(OutputPath)..\SL\CILAssemblyManipulator.Physical.PDB.dll" />

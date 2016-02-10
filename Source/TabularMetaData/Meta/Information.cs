@@ -129,7 +129,7 @@ namespace TabularMetaData.Meta
          Func<TRow> rowFactory,
          IEnumerable<MetaDataColumnInformation<TRow>> columns
          )
-         : base( tableIndex, new EqualityComparerWrapper<TRow>( equalityComparer ), comparer == null ? null : new ComparerWrapper<TRow>( comparer ) )
+         : base( tableIndex, new EqualityComparerWrapper<TRow>( equalityComparer ), comparer == null ? null : ( ( comparer as System.Collections.IComparer ) ?? new ComparerWrapper<TRow>( comparer ) ) )
       {
          ArgumentValidator.ValidateNotNull( "Row factory", rowFactory );
          ArgumentValidator.ValidateNotNull( "Columns", columns );

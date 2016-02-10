@@ -27,31 +27,6 @@
       Properties="Configuration=$(CAMPhysicalConfiguration);Platform=$(CAMPhysicalPlatform);IsCommandLineBuild=true;UseUtilpackReference=true"
       />
     <MSBuild
-      Projects="$(CAMPhysicalBaseDir)/Source/CILAssemblyManipulator/CILAssemblyManipulator.Physical.IO/CILAssemblyManipulator.Physical.IO.csproj"
-      Targets="Build"
-      Properties="Configuration=$(CAMPhysicalConfiguration)_Portable;Platform=$(CAMPhysicalPlatform);IsCommandLineBuild=true;UseUtilpackReference=true"
-      />
-    <MSBuild
-      Projects="$(CAMPhysicalBaseDir)/Source/CILAssemblyManipulator/CILAssemblyManipulator.Physical.IO/CILAssemblyManipulator.Physical.IO.csproj"
-      Targets="Build"
-      Properties="Configuration=$(CAMPhysicalConfiguration);Platform=$(CAMPhysicalPlatform);IsCommandLineBuild=true;UseUtilpackReference=true"
-      />
-    <MSBuild
-      Projects="$(CAMPhysicalBaseDir)/Source/CILAssemblyManipulator/CILAssemblyManipulator.Physical.IO.Resolving/CILAssemblyManipulator.Physical.IO.Resolving.csproj"
-      Targets="Build"
-      Properties="Configuration=$(CAMPhysicalConfiguration)_Portable;Platform=$(CAMPhysicalPlatform);IsCommandLineBuild=true;UseUtilpackReference=true"
-      />
-    <MSBuild
-      Projects="$(CAMPhysicalBaseDir)/Source/CILAssemblyManipulator/CILAssemblyManipulator.Physical.IO.Loading/CILAssemblyManipulator.Physical.IO.Loading.csproj"
-      Targets="Build"
-      Properties="Configuration=$(CAMPhysicalConfiguration)_Portable;Platform=$(CAMPhysicalPlatform);IsCommandLineBuild=true;UseUtilpackReference=true"
-      />
-    <MSBuild
-      Projects="$(CAMPhysicalBaseDir)/Source/CILAssemblyManipulator/CILAssemblyManipulator.Physical.IO.Loading/CILAssemblyManipulator.Physical.IO.Loading.csproj"
-      Targets="Build"
-      Properties="Configuration=$(CAMPhysicalConfiguration);Platform=$(CAMPhysicalPlatform);IsCommandLineBuild=true;UseUtilpackReference=true"
-      />
-    <MSBuild
       Projects="$(CAMPhysicalBaseDir)/Source/CILAssemblyManipulator/CILAssemblyManipulator.Physical.TypeRemapping/CILAssemblyManipulator.Physical.TypeRemapping.csproj"
       Targets="Build"
       Properties="Configuration=$(CAMPhysicalConfiguration)_Portable;Platform=$(CAMPhysicalPlatform);IsCommandLineBuild=true;UseUtilpackReference=true"

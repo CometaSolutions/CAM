@@ -263,20 +263,20 @@ namespace CILAssemblyManipulator.Physical
       {
          ImageInformationLogicalEqualityComparer = ComparerFromFunctions.NewEqualityComparer<ImageInformation>( Equality_ImageInformation_Logical, HashCode_HeadersData );
 
-         ClassLayoutComparer = ComparerFromFunctions.NewComparer<ClassLayout>( Comparison_ClassLayout );
-         ConstantDefinitionComparer = ComparerFromFunctions.NewComparer<ConstantDefinition>( Comparison_ConstantDefinition );
-         CustomAttributeDefinitionComparer = ComparerFromFunctions.NewComparer<CustomAttributeDefinition>( Comparison_CustomAttributeDefinition );
-         SecurityDefinitionComparer = ComparerFromFunctions.NewComparer<SecurityDefinition>( Comparison_SecurityDefinition );
-         FieldLayoutComparer = ComparerFromFunctions.NewComparer<FieldLayout>( Comparison_FieldLayout );
-         FieldMarshalComparer = ComparerFromFunctions.NewComparer<FieldMarshal>( Comparison_FieldMarshal );
-         FieldRVAComparer = ComparerFromFunctions.NewComparer<FieldRVA>( Comparison_FieldRVA );
-         GenericParameterDefinitionComparer = ComparerFromFunctions.NewComparer<GenericParameterDefinition>( Comparison_GenericParameterDefinition );
-         GenericParameterConstraintDefinitionComparer = ComparerFromFunctions.NewComparer<GenericParameterConstraintDefinition>( Comparison_GenericParameterConstraintDefinition );
-         MethodImplementationMapComparer = ComparerFromFunctions.NewComparer<MethodImplementationMap>( Comparison_MethodImplementationMap );
-         InterfaceImplementationComparer = ComparerFromFunctions.NewComparer<InterfaceImplementation>( Comparison_InterfaceImplementation );
-         MethodImplementationComparer = ComparerFromFunctions.NewComparer<MethodImplementation>( Comparison_MethodImplementation );
-         MethodSemanticsComparer = ComparerFromFunctions.NewComparer<MethodSemantics>( Comparison_MethodSemantics );
-         NestedClassDefinitionComparer = ComparerFromFunctions.NewComparer<NestedClassDefinition>( Comparison_NestedClassDefinition );
+         ClassLayoutComparer = ComparerFromFunctions.NewComparerWithNullStrategy<ClassLayout>( Comparison_ClassLayout, NullSorting.NullsLast );
+         ConstantDefinitionComparer = ComparerFromFunctions.NewComparerWithNullStrategy<ConstantDefinition>( Comparison_ConstantDefinition, NullSorting.NullsLast );
+         CustomAttributeDefinitionComparer = ComparerFromFunctions.NewComparerWithNullStrategy<CustomAttributeDefinition>( Comparison_CustomAttributeDefinition, NullSorting.NullsLast );
+         SecurityDefinitionComparer = ComparerFromFunctions.NewComparerWithNullStrategy<SecurityDefinition>( Comparison_SecurityDefinition, NullSorting.NullsLast );
+         FieldLayoutComparer = ComparerFromFunctions.NewComparerWithNullStrategy<FieldLayout>( Comparison_FieldLayout, NullSorting.NullsLast );
+         FieldMarshalComparer = ComparerFromFunctions.NewComparerWithNullStrategy<FieldMarshal>( Comparison_FieldMarshal, NullSorting.NullsLast );
+         FieldRVAComparer = ComparerFromFunctions.NewComparerWithNullStrategy<FieldRVA>( Comparison_FieldRVA, NullSorting.NullsLast );
+         GenericParameterDefinitionComparer = ComparerFromFunctions.NewComparerWithNullStrategy<GenericParameterDefinition>( Comparison_GenericParameterDefinition, NullSorting.NullsLast );
+         GenericParameterConstraintDefinitionComparer = ComparerFromFunctions.NewComparerWithNullStrategy<GenericParameterConstraintDefinition>( Comparison_GenericParameterConstraintDefinition, NullSorting.NullsLast );
+         MethodImplementationMapComparer = ComparerFromFunctions.NewComparerWithNullStrategy<MethodImplementationMap>( Comparison_MethodImplementationMap, NullSorting.NullsLast );
+         InterfaceImplementationComparer = ComparerFromFunctions.NewComparerWithNullStrategy<InterfaceImplementation>( Comparison_InterfaceImplementation, NullSorting.NullsLast );
+         MethodImplementationComparer = ComparerFromFunctions.NewComparerWithNullStrategy<MethodImplementation>( Comparison_MethodImplementation, NullSorting.NullsLast );
+         MethodSemanticsComparer = ComparerFromFunctions.NewComparerWithNullStrategy<MethodSemantics>( Comparison_MethodSemantics, NullSorting.NullsLast );
+         NestedClassDefinitionComparer = ComparerFromFunctions.NewComparerWithNullStrategy<NestedClassDefinition>( Comparison_NestedClassDefinition, NullSorting.NullsLast );
 
          HasConstantComparer = new CodedTableIndexComparer( Meta.DefaultMetaDataTableInformationProvider.HasConstant );
          HasCustomAttributeComparer = new CodedTableIndexComparer( Meta.DefaultMetaDataTableInformationProvider.HasCustomAttribute );
@@ -370,10 +370,6 @@ namespace CILAssemblyManipulator.Physical
             && Equality_MDTableStreamHeader( x.TableStreamHeader, y.TableStreamHeader )
             // TODO SequenceEquality -methods to DictionaryEqualityComparer
             && x.DataReferences.DictionaryQueryEquality( y.DataReferences, ( xDataRefs, yDataRefs ) => xDataRefs.DictionaryQueryEquality( yDataRefs, ( xColRefs, yColRefs ) => xColRefs.Count == yColRefs.Count ) )
-            //DictionaryEqualityComparer<Tables, DictionaryQuery<ArrayQuery<Int32>>>.NewDictionaryEqualityComparer(
-            //   DictionaryEqualityComparer<>
-            //   //ComparerFromFunctions.NewEqualityComparer<ArrayQuery<ArrayQuery<Int32>>>( ( ax, ay ) => ax.ArrayQueryEquality( ay, ( aax, aay ) => aax.Count == aay.Count ), ax => { throw new NotImplementedException(); } )
-            //   ).Equals( x.DataReferences, y.DataReferences )
             );
       }
 

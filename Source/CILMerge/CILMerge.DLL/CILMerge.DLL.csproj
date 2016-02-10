@@ -77,13 +77,13 @@
     <Compile Include="Properties\AssemblyInfo.cs" />
   </ItemGroup>
   <ItemGroup>
-    <ProjectReference Include="..\..\CILAssemblyManipulator\CILAssemblyManipulator.Physical.IO.Loading\CILAssemblyManipulator.Physical.IO.Loading.csproj">
+    <ProjectReference Include="..\..\CILAssemblyManipulator\CILAssemblyManipulator.Physical.Loading\CILAssemblyManipulator.Physical.Loading.csproj">
       <Project>{10ef5dbb-29d5-4266-9561-1fc44b671ac7}</Project>
-      <Name>CILAssemblyManipulator.Physical.IO.Loading</Name>
+      <Name>CILAssemblyManipulator.Physical.Loading</Name>
     </ProjectReference>
-    <ProjectReference Include="..\..\CILAssemblyManipulator\CILAssemblyManipulator.Physical.IO.Resolving\CILAssemblyManipulator.Physical.IO.Resolving.csproj">
+    <ProjectReference Include="..\..\CILAssemblyManipulator\CILAssemblyManipulator.Physical.Resolving\CILAssemblyManipulator.Physical.Resolving.csproj">
       <Project>{c891754e-7698-4f7b-92d9-c28921ebf746}</Project>
-      <Name>CILAssemblyManipulator.Physical.IO.Resolving</Name>
+      <Name>CILAssemblyManipulator.Physical.Resolving</Name>
       <Aliases>CAMPhysicalR</Aliases>
     </ProjectReference>
     <ProjectReference Include="..\..\CILAssemblyManipulator\CILAssemblyManipulator.Physical.MResources\CILAssemblyManipulator.Physical.MResources.csproj">

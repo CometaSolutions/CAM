@@ -39,9 +39,9 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "CILAssemblyManipulator.Phys
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "CILAssemblyManipulator.Physical", "CILAssemblyManipulator\CILAssemblyManipulator.Physical\CILAssemblyManipulator.Physical.csproj", "{D3EB36E7-A707-4B40-B10F-C5C6B16C0B24}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "CILAssemblyManipulator.Physical.IO.Resolving", "CILAssemblyManipulator\CILAssemblyManipulator.Physical.IO.Resolving\CILAssemblyManipulator.Physical.IO.Resolving.csproj", "{C891754E-7698-4F7B-92D9-C28921EBF746}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "CILAssemblyManipulator.Physical.Resolving", "CILAssemblyManipulator\CILAssemblyManipulator.Physical.Resolving\CILAssemblyManipulator.Physical.Resolving.csproj", "{C891754E-7698-4F7B-92D9-C28921EBF746}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "CILAssemblyManipulator.Physical.IO.Loading", "CILAssemblyManipulator\CILAssemblyManipulator.Physical.IO.Loading\CILAssemblyManipulator.Physical.IO.Loading.csproj", "{10EF5DBB-29D5-4266-9561-1FC44B671AC7}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "CILAssemblyManipulator.Physical.Loading", "CILAssemblyManipulator\CILAssemblyManipulator.Physical.Loading\CILAssemblyManipulator.Physical.Loading.csproj", "{10EF5DBB-29D5-4266-9561-1FC44B671AC7}"
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "CILAssemblyManipulator.Physical.TypeRemapping", "CILAssemblyManipulator\CILAssemblyManipulator.Physical.TypeRemapping\CILAssemblyManipulator.Physical.TypeRemapping.csproj", "{6D4697D6-491E-4684-B97B-651E7890CF02}"
 EndProject

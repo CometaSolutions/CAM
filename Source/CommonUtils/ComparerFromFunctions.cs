@@ -15,6 +15,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License. 
  */
+using CommonUtils;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -67,9 +68,9 @@ namespace CommonUtils
 
       private sealed class ComparerWithFunction<T> : IComparer<T>, System.Collections.IComparer
       {
-         private readonly Func<T, T, Int32> _compareFunc;
+         private readonly Comparison<T> _compareFunc;
 
-         internal ComparerWithFunction( Func<T, T, Int32> compareFunc )
+         internal ComparerWithFunction( Comparison<T> compareFunc )
          {
             ArgumentValidator.ValidateNotNull( "Comparer function", compareFunc );
             this._compareFunc = compareFunc;
@@ -90,6 +91,43 @@ namespace CommonUtils
          }
       }
 
+      private sealed class ComparerWithFunctionAndNullStrategy<T> : IComparer<T>, System.Collections.IComparer
+      {
+         private readonly Comparison<T> _compareFunc;
+         private readonly NullSorting _nullSorting;
+
+         internal ComparerWithFunctionAndNullStrategy( Comparison<T> compareFunc, NullSorting nullSorting )
+         {
+            ArgumentValidator.ValidateNotNull( "Comparer function", compareFunc );
+            this._compareFunc = compareFunc;
+            this._nullSorting = nullSorting;
+         }
+
+         #region IComparer<T> Members
+
+         Int32 IComparer<T>.Compare( T x, T y )
+         {
+            Int32 retVal;
+            if ( this._nullSorting.CheckForNullValues( x, y, out retVal ) )
+            {
+               retVal = this._compareFunc( x, y );
+            }
+            return retVal;
+         }
+
+         #endregion
+
+         Int32 System.Collections.IComparer.Compare( Object x, Object y )
+         {
+            Int32 retVal;
+            if ( this._nullSorting.CheckForNullValues( x, y, out retVal ) )
+            {
+               retVal = this._compareFunc( (T) x, (T) y );
+            }
+            return retVal;
+         }
+      }
+
       /// <summary>
       /// Creates a new <see cref="IEqualityComparer{T}"/> which behaves as <paramref name="equals"/> and <paramref name="hashCode"/> callbakcs specify.
       /// </summary>
@@ -105,16 +143,31 @@ namespace CommonUtils
       }
 
       /// <summary>
-      /// Creates a new <see cref="IComparer{T}"/> which behaves as <paramref name="comparerFunc"/> callbacks specify.
+      /// Creates a new <see cref="IComparer{T}"/> which behaves as <paramref name="comparison"/> callback specify.
       /// </summary>
       /// <typeparam name="T">The type of object being compared.</typeparam>
-      /// <param name="comparerFunc">The function comparing the object, should return same as <see cref="IComparer{T}.Compare(T,T)"/> method.</param>
+      /// <param name="comparison">The function comparing the object, should return same as <see cref="IComparer{T}.Compare(T,T)"/> method.</param>
       /// <returns>A new <see cref="IComparer{T}"/> which behaves as parameters specify.</returns>
-      /// <exception cref="ArgumentNullException">If <paramref name="comparerFunc"/> is <c>null</c>.</exception>
+      /// <exception cref="ArgumentNullException">If <paramref name="comparison"/> is <c>null</c>.</exception>
       /// <remarks>The return value can be casted to <see cref="System.Collections.IComparer"/>.</remarks>
-      public static IComparer<T> NewComparer<T>( Func<T, T, Int32> comparerFunc )
+      public static IComparer<T> NewComparer<T>( Comparison<T> comparison )
       {
-         return new ComparerWithFunction<T>( comparerFunc );
+         return new ComparerWithFunction<T>( comparison );
+      }
+
+      /// <summary>
+      /// Creates a new <see cref="IComparer{T}"/> which behaves as <paramref name="comparison"/> callback specify, and which sorts <c>null</c> values according to given strategy.
+      /// This means that the given callback will never receive <c>null</c> values.
+      /// </summary>
+      /// <typeparam name="T">The type of object being compared.</typeparam>
+      /// <param name="comparison">The function comparing the object, should return same as <see cref="IComparer{T}.Compare(T,T)"/> method.</param>
+      /// <param name="nullSortingStrategy">The strategy to sort <c>null</c> values.</param>
+      /// <returns>A new <see cref="IComparer{T}"/> which behaves as parameters specify.</returns>
+      /// <exception cref="ArgumentNullException">If <paramref name="comparison"/> is <c>null</c>.</exception>
+      /// <remarks>The return value can be casted to <see cref="System.Collections.IComparer"/>.</remarks>
+      public static IComparer<T> NewComparerWithNullStrategy<T>( Comparison<T> comparison, NullSorting nullSortingStrategy )
+      {
+         return new ComparerWithFunctionAndNullStrategy<T>( comparison, nullSortingStrategy );
       }
 
       /// <summary>
@@ -188,5 +241,56 @@ namespace CommonUtils
             .GetGetMethod()
             .Invoke( null, null );
       }
+   }
+
+   /// <summary>
+   /// This is the enumeration for picking strategy for sorting null values.
+   /// </summary>
+   /// 
+   public enum NullSorting
+   {
+      /// <summary>
+      /// This tells to sort <c>null</c> values first.
+      /// </summary>
+      NullsFirst,
+      /// <summary>
+      /// This tells to sort <c>null</c> values last.
+      /// </summary>
+      NullsLast
+   }
+}
+
+public static partial class E_CommonUtils
+{
+   /// <summary>
+   /// This is helper method, which checks whether one or both of the given objects are <c>null</c>, and if so, assigns comparison result appropriate to this <see cref="NullSorting"/> enumeration, and returns <c>false</c>.
+   /// If neither of the given objects are <c>null</c>, this then returns <c>true</c>.
+   /// </summary>
+   /// <param name="nullSortingStrategy">This <see cref="NullSorting"/> strategy.</param>
+   /// <param name="x">The first argument to comparison.</param>
+   /// <param name="y">The second argument to comparison.</param>
+   /// <param name="comparisonResult">This parameter will hold the result of the comparison, if <paramref name="x"/> or <paramref name="y"/> or both are <c>null</c>.</param>
+   /// <returns><c>true</c> if <paramref name="x"/> and <paramref name="y"/> are both non-<c>null</c>; <c>false</c> otherwise.</returns>
+   public static Boolean CheckForNullValues( this NullSorting nullSortingStrategy, Object x, Object y, out Int32 comparisonResult )
+   {
+      Boolean retVal;
+      if ( x == null )
+      {
+         retVal = false;
+         comparisonResult = y == null ? 0 : ( nullSortingStrategy == NullSorting.NullsFirst ? -1 : 1 );
+      }
+      else if ( y == null )
+      {
+         retVal = false;
+         comparisonResult = nullSortingStrategy == NullSorting.NullsFirst ? 1 : -1;
+      }
+      else
+      {
+         retVal = true;
+         comparisonResult = 0;
+      }
+
+      return retVal;
+
    }
 }
