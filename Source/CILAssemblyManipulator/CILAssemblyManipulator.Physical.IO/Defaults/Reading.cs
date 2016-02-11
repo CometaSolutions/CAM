@@ -84,7 +84,7 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
          )
       {
          // Read PE info
-         peInfo = stream.NewPEImageInformationFromStream();
+         peInfo = stream.ReadPEInformation();
 
          // Create RVA converter
          rvaConverter = this.CreateRVAConverter( peInfo ) ?? this.CreateDefaultRVAConverter( peInfo );

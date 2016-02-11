@@ -33,8 +33,18 @@ using TRVA = System.UInt32;
 
 namespace CILAssemblyManipulator.Physical.IO
 {
+   /// <summary>
+   /// This class is the root class to access various information about headers and data references in binary (de)serialization.
+   /// </summary>
    public sealed class ImageInformation
    {
+      /// <summary>
+      /// Creates a new instance of <see cref="ImageInformation"/>, with given <see cref="IO.PEInformation"/>, <see cref="IO.DebugInformation"/>, and <see cref="IO.CLIInformation"/>.
+      /// </summary>
+      /// <param name="peInfo">The <see cref="IO.PEInformation"/>.</param>
+      /// <param name="debugInfo">The <see cref="IO.DebugInformation"/>.</param>
+      /// <param name="cliInfo">The <see cref="IO.CLIInformation"/>.</param>
+      /// <exception cref="ArgumentNullException">If <paramref name="peInfo"/> or <paramref name="cliInfo"/> is <c>null</c>.</exception>
       public ImageInformation(
          PEInformation peInfo,
          DebugInformation debugInfo,
@@ -49,17 +59,60 @@ namespace CILAssemblyManipulator.Physical.IO
          this.CLIInformation = cliInfo;
       }
 
+      /// <summary>
+      /// Gets the <see cref="IO.PEInformation"/> of this <see cref="ImageInformation"/>.
+      /// </summary>
+      /// <value>The <see cref="IO.PEInformation"/> of this <see cref="ImageInformation"/>.</value>
+      /// <remarks>
+      /// This value is never <c>null</c>.
+      /// </remarks>
+      /// <seealso cref="IO.PEInformation"/>
       public PEInformation PEInformation { get; }
 
+      /// <summary>
+      /// Gets the <see cref="IO.DebugInformation"/> of this <see cref="ImageInformation"/>.
+      /// </summary>
+      /// <value>The <see cref="IO.DebugInformation"/> of this <see cref="ImageInformation"/>.</value>
+      /// <remarks>
+      /// This value may be <c>null</c>.
+      /// </remarks>
+      /// <seealso cref="IO.DebugInformation"/>
       public DebugInformation DebugInformation { get; }
 
+      /// <summary>
+      /// Gets the <see cref="IO.CLIInformation"/> of this <see cref="ImageInformation"/>.
+      /// </summary>
+      /// <value>The <see cref="IO.CLIInformation"/> of this <see cref="ImageInformation"/>.</value>
+      /// <remarks>
+      /// This value is never <c>null</c>.
+      /// </remarks>
+      /// <seealso cref="IO.CLIInformation"/>
       public CLIInformation CLIInformation { get; }
    }
 
    #region PE-related
 
+   /// <summary>
+   /// This class contains information related to various PE (Portable Executable) headers and values.
+   /// </summary>
+   /// <seealso cref="ImageInformation"/>
+   /// <seealso cref="ImageInformation.PEInformation"/>
+   /// <seealso cref="E_CILPhysical.ReadPEInformation"/>
+   /// <seealso cref="E_CILPhysical.WritePEinformation"/>
    public sealed class PEInformation
    {
+      /// <summary>
+      /// Creates a new instance of <see cref="PEInformation"/> with given <see cref="IO.DOSHeader"/>, <see cref="IO.NTHeader"/>, and <see cref="SectionHeader"/>s.
+      /// </summary>
+      /// <param name="dosHeader">The <see cref="IO.DOSHeader"/>.</param>
+      /// <param name="ntHeader">The <see cref="IO.NTHeader"/>.</param>
+      /// <param name="sectionHeaders">The <see cref="SectionHeader"/>s.</param>
+      /// <exception cref="ArgumentNullException">If <paramref name="dosHeader"/>, <paramref name="ntHeader"/>, or <paramref name="sectionHeaders"/> is <c>null</c>.</exception>
+      /// <remarks>
+      /// Note that empty array for <paramref name="sectionHeaders"/> is allowed.
+      /// </remarks>
+      /// <seealso cref="E_CILPhysical.ReadPEInformation"/>
+      /// <seealso cref="E_CILPhysical.WritePEinformation"/>
       public PEInformation(
          DOSHeader dosHeader,
          NTHeader ntHeader,
@@ -74,27 +127,90 @@ namespace CILAssemblyManipulator.Physical.IO
          this.NTHeader = ntHeader;
          this.SectionHeaders = sectionHeaders;
       }
+
+      /// <summary>
+      /// Gets the <see cref="IO.DOSHeader"/> of this <see cref="PEInformation"/>.
+      /// </summary>
+      /// <value>The <see cref="IO.DOSHeader"/> of this <see cref="PEInformation"/>.</value>
+      /// <remarks>
+      /// This value is never <c>null</c>.
+      /// </remarks>
+      /// <seealso cref="IO.DOSHeader"/>
       public DOSHeader DOSHeader { get; }
+
+      /// <summary>
+      /// Gets the <see cref="IO.NTHeader"/> of this <see cref="PEInformation"/>.
+      /// </summary>
+      /// <value>The <see cref="IO.NTHeader"/> of this <see cref="PEInformation"/>.</value>
+      /// <remarks>
+      /// This value is never <c>null</c>.
+      /// </remarks>
+      /// <seealso cref="IO.NTHeader"/>
       public NTHeader NTHeader { get; }
+
+      /// <summary>
+      /// Gets the <see cref="SectionHeader"/>s of this <see cref="PEInformation"/>.
+      /// </summary>
+      /// <value>The <see cref="SectionHeader"/>s of this <see cref="PEInformation"/>.</value>
+      /// <remarks>
+      /// This value is never <c>null</c>, but it may be empty.
+      /// </remarks>
+      /// <seealso cref="IO.SectionHeader"/>
       public ArrayQuery<SectionHeader> SectionHeaders { get; }
    }
 
+   /// <summary>
+   /// This class contains those fields of DOS header, which are useful in PE image handling.
+   /// </summary>
+   /// <seealso cref="E_CILPhysical.ReadDOSHeader"/>
+   /// <seealso cref="E_CILPhysical.WriteDOSHeader"/>
    public sealed class DOSHeader
    {
+      /// <summary>
+      /// Creates a new instance of <see cref="DOSHeader"/> with given signature and offset for <see cref="NTHeader"/>.
+      /// </summary>
+      /// <param name="signature">The signature.</param>
+      /// <param name="ntHeadersOffset">The offset where <see cref="NTHeader"/> may be read.</param>
+      /// <seealso cref="E_CILPhysical.ReadDOSHeader"/>
+      /// <seealso cref="E_CILPhysical.WriteDOSHeader"/>
       [CLSCompliant( false )]
       public DOSHeader( Int16 signature, UInt32 ntHeadersOffset )
       {
          this.Signature = signature;
          this.NTHeaderOffset = ntHeadersOffset;
       }
+
+      /// <summary>
+      /// Gets the signature of this <see cref="DOSHeader"/>.
+      /// </summary>
+      /// <value>The signature of this <see cref="DOSHeader"/>.</value>
       public Int16 Signature { get; }
 
+      /// <summary>
+      /// Gets the offset where the <see cref="NTHeader"/> is located.
+      /// </summary>
+      /// <value>The offset where the <see cref="NTHeader"/> is located.</value>
+      /// <seealso cref="NTHeader"/>
       [CLSCompliant( false )]
       public UInt32 NTHeaderOffset { get; }
    }
 
+   /// <summary>
+   /// This class contains fields and values of the PE NT header and all the headers it contains.
+   /// </summary>
+   /// <seealso cref="E_CILPhysical.ReadNTHeader"/>
+   /// <seealso cref="E_CILPhysical.WriteNTHeader"/>
    public sealed class NTHeader
    {
+      /// <summary>
+      /// Creates a new instance of <see cref="NTHeader"/> with given signature, <see cref="IO.FileHeader"/>, and <see cref="IO.OptionalHeader"/>.
+      /// </summary>
+      /// <param name="signature">The signature.</param>
+      /// <param name="fileHeader">The <see cref="IO.FileHeader"/>.</param>
+      /// <param name="optionalHeader">The <see cref="IO.OptionalHeader"/>.</param>
+      /// <exception cref="ArgumentNullException">If <paramref name="fileHeader"/> or <paramref name="optionalHeader"/> is <c>null</c>.</exception>
+      /// <seealso cref="E_CILPhysical.ReadNTHeader"/>
+      /// <seealso cref="E_CILPhysical.WriteNTHeader"/>
       public NTHeader(
          Int32 signature,
          FileHeader fileHeader,
@@ -109,15 +225,50 @@ namespace CILAssemblyManipulator.Physical.IO
          this.OptionalHeader = optionalHeader;
       }
 
+      /// <summary>
+      /// Gets the signature of this <see cref="NTHeader"/>.
+      /// </summary>
+      /// <value>The signature of this <see cref="NTHeader"/>.</value>
       public Int32 Signature { get; }
 
+      /// <summary>
+      /// Gets the <see cref="IO.FileHeader"/> of this <see cref="NTHeader"/>.
+      /// </summary>
+      /// <value>The <see cref="IO.FileHeader"/> of this <see cref="NTHeader"/>.</value>
+      /// <remarks>
+      /// This value is never <c>null</c>.
+      /// </remarks>
+      /// <seealso cref="IO.FileHeader"/>
       public FileHeader FileHeader { get; }
 
+      /// <summary>
+      /// Gets the <see cref="IO.OptionalHeader"/> of this <see cref="NTHeader"/>.
+      /// </summary>
+      /// <value>The <see cref="IO.OptionalHeader"/> of this <see cref="NTHeader"/>.</value>
+      /// <remarks>
+      /// This value is never <c>null</c>.
+      /// </remarks>
+      /// <seealso cref="IO.OptionalHeader"/>
       public OptionalHeader OptionalHeader { get; }
    }
 
+   /// <summary>
+   /// This class contains fields and values of the PE file header.
+   /// </summary>
+   /// <seealso cref="E_CILPhysical.ReadFileHeader"/>
+   /// <seealso cref="E_CILPhysical.WriteFileHeader"/>
    public sealed class FileHeader
    {
+      /// <summary>
+      /// Creates a new instance of <see cref="FileHeader"/> with given values.
+      /// </summary>
+      /// <param name="machine">The <see cref="ImageFileMachine"/>.</param>
+      /// <param name="numberOfSections">The amount of <see cref="SectionHeader"/>s in <see cref="PEInformation.SectionHeaders"/>.</param>
+      /// <param name="timeDateStamp">The timedate stamp as integer.</param>
+      /// <param name="pointerToSymbolTable">The pointer to symbol table.</param>
+      /// <param name="numberOfSymbols">The amount of symbols.</param>
+      /// <param name="optionalHeaderSize">The size of <see cref="OptionalHeader"/>, in bytes.</param>
+      /// <param name="characteristics">The <see cref="FileHeaderCharacteristics"/>.</param>
       [CLSCompliant( false )]
       public FileHeader(
          ImageFileMachine machine,
@@ -138,31 +289,107 @@ namespace CILAssemblyManipulator.Physical.IO
          this.Characteristics = characteristics;
       }
 
+      /// <summary>
+      /// Gets the <see cref="ImageFileMachine"/> of this <see cref="FileHeader"/>.
+      /// </summary>
+      /// <value>The <see cref="ImageFileMachine"/> of this <see cref="FileHeader"/>.</value>
+      /// <seealso cref="ImageFileMachine"/>
       public ImageFileMachine Machine { get; }
 
+      /// <summary>
+      /// Gets the number of section headers.
+      /// </summary>
+      /// <value>The number of section headers.</value>
+      /// <remarks>
+      /// This should be the amount of section headers in <see cref="PEInformation.SectionHeaders"/>.
+      /// </remarks>
       [CLSCompliant( false )]
       public UInt16 NumberOfSections { get; }
 
+      /// <summary>
+      /// Gets the PE time date stamp, as integer.
+      /// </summary>
+      /// <value>The PE time date stamp, as integer.</value>
       [CLSCompliant( false )]
       public UInt32 TimeDateStamp { get; }
 
+      /// <summary>
+      /// Gets the pointer to the symbol table.
+      /// </summary>
+      /// <value>The pointer to the symbol table.</value>
       [CLSCompliant( false )]
       public UInt32 PointerToSymbolTable { get; }
 
+      /// <summary>
+      /// Gets the number of the symbols in symbol table.
+      /// </summary>
+      /// <value>The number of the symbols in symbol table.</value>
       [CLSCompliant( false )]
       public UInt32 NumberOfSymbols { get; }
 
+      /// <summary>
+      /// Gets the size of the <see cref="OptionalHeader"/>, in bytes.
+      /// </summary>
+      /// <value>The size of the <see cref="OptionalHeader"/>, in bytes.</value>
       [CLSCompliant( false )]
       public UInt16 OptionalHeaderSize { get; }
 
+      /// <summary>
+      /// Gets the <see cref="FileHeaderCharacteristics"/> of this <see cref="FileHeader"/>.
+      /// </summary>
+      /// <value>The <see cref="FileHeaderCharacteristics"/> of this <see cref="FileHeader"/>.</value>
+      /// <seealso cref="FileHeaderCharacteristics"/>
       public FileHeaderCharacteristics Characteristics { get; }
    }
 
-
+   /// <summary>
+   /// This class contains fields and values of the PE optional header.
+   /// </summary>
+   /// <remarks>
+   /// This is abstract class. Use <see cref="OptionalHeader32"/> or <see cref="OptionalHeader64"/> for instantation.
+   /// </remarks>
+   /// <seealso cref="OptionalHeader32"/>
+   /// <seealso cref="OptionalHeader64"/>
+   /// <seealso cref="E_CILPhysical.ReadOptionalHeader"/>
+   /// <seealso cref="E_CILPhysical.WriteOptionalHeader"/>
    public abstract class OptionalHeader
    {
 
-      internal OptionalHeader(
+      /// <summary>
+      /// Initializes properties of this <see cref="OptionalHeader"/>.
+      /// </summary>
+      /// <param name="majorLinkerVersion">The value for <see cref="MajorLinkerVersion"/>.</param>
+      /// <param name="minorLinkerVersion">The value for <see cref="MinorLinkerVersion"/>.</param>
+      /// <param name="sizeOfCode">The value for <see cref="SizeOfCode"/>.</param>
+      /// <param name="sizeOfInitializedData">The value for <see cref="SizeOfInitializedData"/>.</param>
+      /// <param name="sizeOfUninitializedData">The value of <see cref="SizeOfUninitializedData"/>.</param>
+      /// <param name="entryPointRVA">The value for <see cref="EntryPointRVA"/>.</param>
+      /// <param name="baseOfCodeRVA">The value for <see cref="BaseOfCodeRVA"/>.</param>
+      /// <param name="baseOfDataRVA">The value for <see cref="BaseOfDataRVA"/>.</param>
+      /// <param name="imageBase">The value for <see cref="ImageBase"/>.</param>
+      /// <param name="sectionAlignment">The value for <see cref="SectionAlignment"/>.</param>
+      /// <param name="fileAlignment">The value for <see cref="FileAlignment"/>.</param>
+      /// <param name="majorOSVersion">The value for <see cref="MajorOSVersion"/>.</param>
+      /// <param name="minorOSVersion">The value for <see cref="MinorOSVersion"/>.</param>
+      /// <param name="majorUserVersion">The value for <see cref="MajorUserVersion"/>.</param>
+      /// <param name="minorUserVersion">The value for <see cref="MinorUserVersion"/>.</param>
+      /// <param name="majorSubsystemVersion">The value for <see cref="MajorSubsystemVersion"/>.</param>
+      /// <param name="minorSubsystemVersion">The value for <see cref="MinorSubsystemVersion"/>.</param>
+      /// <param name="win32VersionValue">The value for <see cref="Win32VersionValue"/>.</param>
+      /// <param name="imageSize">The value for <see cref="ImageSize"/>.</param>
+      /// <param name="headerSize">The value for <see cref="HeaderSize"/>.</param>
+      /// <param name="fileChecksum">The value for <see cref="FileChecksum"/>.</param>
+      /// <param name="subsystem">The value for <see cref="Subsystem"/>.</param>
+      /// <param name="dllCharacteristics">The value for <see cref="DLLCharacteristics"/>.</param>
+      /// <param name="stackReserveSize">The value for <see cref="StackReserveSize"/>.</param>
+      /// <param name="stackCommitSize">The value for <see cref="StackCommitSize"/>.</param>
+      /// <param name="heapReserveSize">The value for <see cref="HeapReserveSize"/>.</param>
+      /// <param name="heapCommitSize">The value for <see cref="HeapCommitSize"/>.</param>
+      /// <param name="loaderFlags">The value for <see cref="LoaderFlags"/>.</param>
+      /// <param name="numberOfDataDirectories">The value for <see cref="NumberOfDataDirectories"/>.</param>
+      /// <param name="dataDirectories">The value for <see cref="DataDirectories"/></param>
+      [CLSCompliant( false )]
+      public OptionalHeader(
          Byte majorLinkerVersion,
          Byte minorLinkerVersion,
          UInt32 sizeOfCode,
@@ -228,96 +455,297 @@ namespace CILAssemblyManipulator.Physical.IO
       }
 
       // Standard
+      /// <summary>
+      /// Gets the <see cref="IO.OptionalHeaderKind"/> enumeration describing the kind of this optional header.
+      /// </summary>
+      /// <value>The <see cref="IO.OptionalHeaderKind"/> enumeration describing the kind of this optional header.</value>
+      /// <seealso cref="IO.OptionalHeaderKind"/>
+      /// <seealso cref="OptionalHeader32"/>
+      /// <seealso cref="OptionalHeader64"/>
       public abstract OptionalHeaderKind OptionalHeaderKind { get; }
 
+      /// <summary>
+      /// Gets the linker major version.
+      /// </summary>
+      /// <value>The linker major version.</value>
       public Byte MajorLinkerVersion { get; }
 
+      /// <summary>
+      /// Gets the linker minor version.
+      /// </summary>
+      /// <value>The linker minor version.</value>
       public Byte MinorLinkerVersion { get; }
 
+      /// <summary>
+      /// Gets the size of code, in bytes.
+      /// </summary>
+      /// <value>The size of code, in bytes.</value>
+      /// <remarks>
+      /// Typically, this value is calculated based on <see cref="PEInformation.SectionHeaders"/>.
+      /// </remarks>
       [CLSCompliant( false )]
       public UInt32 SizeOfCode { get; }
 
+      /// <summary>
+      /// Gets the size of initialized data, in bytes.
+      /// </summary>
+      /// <value>The size of initialized data, in bytes.</value>
+      /// <remarks>
+      /// Typically, this value is calculated based on <see cref="PEInformation.SectionHeaders"/>.
+      /// </remarks>
       [CLSCompliant( false )]
       public UInt32 SizeOfInitializedData { get; }
 
+      /// <summary>
+      /// Gets the size of uninitialized data, in bytes.
+      /// </summary>
+      /// <value>The size of uninitialized data, in bytes.</value>
+      /// <remarks>
+      /// Typically, this value is calculated based on <see cref="PEInformation.SectionHeaders"/>.
+      /// </remarks>
       [CLSCompliant( false )]
       public UInt32 SizeOfUninitializedData { get; }
 
+      /// <summary>
+      /// Gets the RVA of the entry point code.
+      /// </summary>
+      /// <value>The RVA of the entry point code.</value>
       [CLSCompliant( false )]
       public TRVA EntryPointRVA { get; }
 
+      /// <summary>
+      /// Gets the RVA where the first occurrence of code is.
+      /// </summary>
+      /// <value>Gets the RVA where the first occurrence of code is.</value>
+      /// <remarks>
+      /// Typically, this value is calculated based on <see cref="PEInformation.SectionHeaders"/>.
+      /// </remarks>
       [CLSCompliant( false )]
       public TRVA BaseOfCodeRVA { get; }
 
+      /// <summary>
+      /// Gets the RVA where the first occurrence of data (initialized or uninitialized) is.
+      /// </summary>
+      /// <value>Gets the RVA where the first occurrence of data (initialized or uninitialized) is.</value>
+      /// <remarks>
+      /// Typically, this value is calculated based on <see cref="PEInformation.SectionHeaders"/>.
+      /// </remarks>
       [CLSCompliant( false )]
       public TRVA BaseOfDataRVA { get; }
 
       // NT-Specific 
+
+      /// <summary>
+      /// Gets the image base address.
+      /// </summary>
+      /// <value>The image base address.</value>
+      /// <remarks>
+      /// This value is used in the entry point code, when the "_CorDllMain" or "_CorExeMain" is called.
+      /// </remarks>
       [CLSCompliant( false )]
       public UInt64 ImageBase { get; }
 
+      /// <summary>
+      /// Gets the section alignment, in bytes.
+      /// </summary>
+      /// <value>The section alignment, in bytes.</value>
       [CLSCompliant( false )]
       public UInt32 SectionAlignment { get; }
 
+      /// <summary>
+      /// Gets the file alignment, in bytes.
+      /// </summary>
+      /// <value>The file alignment, in bytes.</value>
       [CLSCompliant( false )]
       public UInt32 FileAlignment { get; }
 
+      /// <summary>
+      /// Gets the OS major version.
+      /// </summary>
+      /// <value>The OS major version.</value>
       [CLSCompliant( false )]
       public UInt16 MajorOSVersion { get; }
 
+      /// <summary>
+      /// Gets the OS minor version.
+      /// </summary>
+      /// <value>The OS minor version.</value>
       [CLSCompliant( false )]
       public UInt16 MinorOSVersion { get; }
 
+      /// <summary>
+      /// Gets the user-defined major version.
+      /// </summary>
+      /// <value>The user-defined major version.</value>
       [CLSCompliant( false )]
       public UInt16 MajorUserVersion { get; }
 
+      /// <summary>
+      /// Gets the user-defined minor version.
+      /// </summary>
+      /// <value>The user-defined minor version.</value>
       [CLSCompliant( false )]
       public UInt16 MinorUserVersion { get; }
 
+      /// <summary>
+      /// Gets the subsystem major version.
+      /// </summary>
+      /// <value>The subsystem major version.</value>
       [CLSCompliant( false )]
       public UInt16 MajorSubsystemVersion { get; }
 
+      /// <summary>
+      /// Gets the subsystem minor version.
+      /// </summary>
+      /// <value>The subsystem minor version.</value>
       [CLSCompliant( false )]
       public UInt16 MinorSubsystemVersion { get; }
 
+      /// <summary>
+      /// Gets the Win32 version.
+      /// </summary>
+      /// <value>The Win32 version.</value>
       [CLSCompliant( false )]
       public UInt32 Win32VersionValue { get; }
 
+      /// <summary>
+      /// Gets the size of the image when it's been laid out in memory, in bytes.
+      /// </summary>
+      /// <value>The size of the image when it's been laid out in memory, in bytes.</value>
+      /// <remarks>
+      /// This value should be aligned with <see cref="SectionAlignment"/>.
+      /// </remarks>
       [CLSCompliant( false )]
       public UInt32 ImageSize { get; }
 
+      /// <summary>
+      /// Gets the size of the various PE headers when the image has been laid out in memory, in bytes.
+      /// </summary>
+      /// <value>The size of the various PE headers when the image has been laid out in memory, in bytes.</value>
+      /// <remarks>
+      /// This value should be aligned with <see cref="SectionAlignment"/>.
+      /// </remarks>
       [CLSCompliant( false )]
       public UInt32 HeaderSize { get; }
 
+      /// <summary>
+      /// Gets the checksum calculated for the file.
+      /// </summary>
+      /// <value>The checksum calculated for the file.</value>
+      /// <remarks>
+      /// This is one of the portions of the file not included when calculating strong name signature (<see cref="CLIInformation.StrongNameSignature"/>).
+      /// </remarks>
       [CLSCompliant( false )]
       public UInt32 FileChecksum { get; }
 
+      /// <summary>
+      /// Gets the <see cref="IO.Subsystem"/> for this <see cref="OptionalHeader"/>.
+      /// </summary><
+      /// <value>The <see cref="IO.Subsystem"/> for this <see cref="OptionalHeader"/>.</value>
+      /// <seealso cref="IO.Subsystem"/>
       public Subsystem Subsystem { get; }
 
+      /// <summary>
+      /// Gest the <see cref="DLLFlags"/> for this <see cref="OptionalHeader"/>.
+      /// </summary>
+      /// <value>The <see cref="DLLFlags"/> for this <see cref="OptionalHeader"/>.</value>
+      /// <seealso cref="DLLFlags"/>
       public DLLFlags DLLCharacteristics { get; }
 
+      /// <summary>
+      /// Gets the stack reserve size.
+      /// </summary>
+      /// <value>The stack reserve size.</value>
       [CLSCompliant( false )]
       public UInt64 StackReserveSize { get; }
 
+      /// <summary>
+      /// Gets the stack commit size.
+      /// </summary>
+      /// <value>The stack commit size.</value>
       [CLSCompliant( false )]
       public UInt64 StackCommitSize { get; }
 
+      /// <summary>
+      /// Gets the heap reserve size.
+      /// </summary>
+      /// <value>The heap reserve size.</value>
       [CLSCompliant( false )]
       public UInt64 HeapReserveSize { get; }
 
+      /// <summary>
+      /// Gets the heap commit size.
+      /// </summary>
+      /// <value>The heap commit size.</value>
       [CLSCompliant( false )]
       public UInt64 HeapCommitSize { get; }
 
+      /// <summary>
+      /// Gets the flags for loader.
+      /// </summary>
+      /// <value>The flags for loader.</value>
       public Int32 LoaderFlags { get; }
 
+      /// <summary>
+      /// Gets the number of data directories in <see cref="DataDirectories"/> property.
+      /// </summary>
+      /// <value>The number of data directories in <see cref="DataDirectories"/> property.</value>
+      /// <remarks>
+      /// Even though this value *should* indicate the number of elements in <see cref="DataDirectories"/> property, there is no code to enforce or check this.
+      /// </remarks>
       [CLSCompliant( false )]
       public UInt32 NumberOfDataDirectories { get; }
 
+      /// <summary>
+      /// Gets the data directories of this <see cref="OptionalHeader"/>.
+      /// </summary>
+      /// <value>The data directories of this <see cref="OptionalHeader"/>.</value>
+      /// <remarks>
+      /// See <see cref="IO.DataDirectories"/> enumeration interpret the <see cref="DataDirectory"/> at certain index.
+      /// </remarks>
+      /// <seealso cref="IO.DataDirectories"/>
+      /// <seealso cref="DataDirectory"/>
       public ArrayQuery<DataDirectory> DataDirectories { get; }
    }
 
+   /// <summary>
+   /// This class represents optional header for 32-bit systems.
+   /// </summary>
    public sealed class OptionalHeader32 : OptionalHeader
    {
+      /// <summary>
+      /// Creates a new instance of <see cref="OptionalHeader32"/> with given values.
+      /// </summary>
+      /// <param name="majorLinkerVersion">The value for <see cref="OptionalHeader.MajorLinkerVersion"/>.</param>
+      /// <param name="minorLinkerVersion">The value for <see cref="OptionalHeader.MinorLinkerVersion"/>.</param>
+      /// <param name="sizeOfCode">The value for <see cref="OptionalHeader.SizeOfCode"/>.</param>
+      /// <param name="sizeOfInitializedData">The value for <see cref="OptionalHeader.SizeOfInitializedData"/>.</param>
+      /// <param name="sizeOfUninitializedData">The value of <see cref="OptionalHeader.SizeOfUninitializedData"/>.</param>
+      /// <param name="entryPointRVA">The value for <see cref="OptionalHeader.EntryPointRVA"/>.</param>
+      /// <param name="baseOfCodeRVA">The value for <see cref="OptionalHeader.BaseOfCodeRVA"/>.</param>
+      /// <param name="baseOfDataRVA">The value for <see cref="OptionalHeader.BaseOfDataRVA"/>.</param>
+      /// <param name="imageBase">The value for <see cref="OptionalHeader.ImageBase"/>.</param>
+      /// <param name="sectionAlignment">The value for <see cref="OptionalHeader.SectionAlignment"/>.</param>
+      /// <param name="fileAlignment">The value for <see cref="OptionalHeader.FileAlignment"/>.</param>
+      /// <param name="majorOSVersion">The value for <see cref="OptionalHeader.MajorOSVersion"/>.</param>
+      /// <param name="minorOSVersion">The value for <see cref="OptionalHeader.MinorOSVersion"/>.</param>
+      /// <param name="majorUserVersion">The value for <see cref="OptionalHeader.MajorUserVersion"/>.</param>
+      /// <param name="minorUserVersion">The value for <see cref="OptionalHeader.MinorUserVersion"/>.</param>
+      /// <param name="majorSubsystemVersion">The value for <see cref="OptionalHeader.MajorSubsystemVersion"/>.</param>
+      /// <param name="minorSubsystemVersion">The value for <see cref="OptionalHeader.MinorSubsystemVersion"/>.</param>
+      /// <param name="win32VersionValue">The value for <see cref="OptionalHeader.Win32VersionValue"/>.</param>
+      /// <param name="imageSize">The value for <see cref="OptionalHeader.ImageSize"/>.</param>
+      /// <param name="headerSize">The value for <see cref="OptionalHeader.HeaderSize"/>.</param>
+      /// <param name="fileChecksum">The value for <see cref="OptionalHeader.FileChecksum"/>.</param>
+      /// <param name="subsystem">The value for <see cref="OptionalHeader.Subsystem"/>.</param>
+      /// <param name="dllCharacteristics">The value for <see cref="OptionalHeader.DLLCharacteristics"/>.</param>
+      /// <param name="stackReserveSize">The value for <see cref="OptionalHeader.StackReserveSize"/>.</param>
+      /// <param name="stackCommitSize">The value for <see cref="OptionalHeader.StackCommitSize"/>.</param>
+      /// <param name="heapReserveSize">The value for <see cref="OptionalHeader.HeapReserveSize"/>.</param>
+      /// <param name="heapCommitSize">The value for <see cref="OptionalHeader.HeapCommitSize"/>.</param>
+      /// <param name="loaderFlags">The value for <see cref="OptionalHeader.LoaderFlags"/>.</param>
+      /// <param name="numberOfDataDirectories">The value for <see cref="OptionalHeader.NumberOfDataDirectories"/>.</param>
+      /// <param name="dataDirectories">The value for <see cref="OptionalHeader.DataDirectories"/></param>
       [CLSCompliant( false )]
       public OptionalHeader32(
          Byte majorLinkerVersion,
@@ -386,6 +814,11 @@ namespace CILAssemblyManipulator.Physical.IO
       {
       }
 
+      /// <summary>
+      /// The value <see cref="OptionalHeaderKind.Optional32"/> is returned.
+      /// </summary>
+      /// <value>The value <see cref="OptionalHeaderKind.Optional32"/></value>
+      /// <seealso cref="IO.OptionalHeaderKind"/>
       public override OptionalHeaderKind OptionalHeaderKind
       {
          get
@@ -395,8 +828,46 @@ namespace CILAssemblyManipulator.Physical.IO
       }
    }
 
+   /// <summary>
+   /// This class represents optional header for 64-bit systems.
+   /// </summary>
    public sealed class OptionalHeader64 : OptionalHeader
    {
+      /// <summary>
+      /// Creates a new instance of <see cref="OptionalHeader64"/> with given values.
+      /// </summary>
+      /// <param name="majorLinkerVersion">The value for <see cref="OptionalHeader.MajorLinkerVersion"/>.</param>
+      /// <param name="minorLinkerVersion">The value for <see cref="OptionalHeader.MinorLinkerVersion"/>.</param>
+      /// <param name="sizeOfCode">The value for <see cref="OptionalHeader.SizeOfCode"/>.</param>
+      /// <param name="sizeOfInitializedData">The value for <see cref="OptionalHeader.SizeOfInitializedData"/>.</param>
+      /// <param name="sizeOfUninitializedData">The value of <see cref="OptionalHeader.SizeOfUninitializedData"/>.</param>
+      /// <param name="entryPointRVA">The value for <see cref="OptionalHeader.EntryPointRVA"/>.</param>
+      /// <param name="baseOfCodeRVA">The value for <see cref="OptionalHeader.BaseOfCodeRVA"/>.</param>
+      /// <param name="imageBase">The value for <see cref="OptionalHeader.ImageBase"/>.</param>
+      /// <param name="sectionAlignment">The value for <see cref="OptionalHeader.SectionAlignment"/>.</param>
+      /// <param name="fileAlignment">The value for <see cref="OptionalHeader.FileAlignment"/>.</param>
+      /// <param name="majorOSVersion">The value for <see cref="OptionalHeader.MajorOSVersion"/>.</param>
+      /// <param name="minorOSVersion">The value for <see cref="OptionalHeader.MinorOSVersion"/>.</param>
+      /// <param name="majorUserVersion">The value for <see cref="OptionalHeader.MajorUserVersion"/>.</param>
+      /// <param name="minorUserVersion">The value for <see cref="OptionalHeader.MinorUserVersion"/>.</param>
+      /// <param name="majorSubsystemVersion">The value for <see cref="OptionalHeader.MajorSubsystemVersion"/>.</param>
+      /// <param name="minorSubsystemVersion">The value for <see cref="OptionalHeader.MinorSubsystemVersion"/>.</param>
+      /// <param name="win32VersionValue">The value for <see cref="OptionalHeader.Win32VersionValue"/>.</param>
+      /// <param name="imageSize">The value for <see cref="OptionalHeader.ImageSize"/>.</param>
+      /// <param name="headerSize">The value for <see cref="OptionalHeader.HeaderSize"/>.</param>
+      /// <param name="fileChecksum">The value for <see cref="OptionalHeader.FileChecksum"/>.</param>
+      /// <param name="subsystem">The value for <see cref="OptionalHeader.Subsystem"/>.</param>
+      /// <param name="dllCharacteristics">The value for <see cref="OptionalHeader.DLLCharacteristics"/>.</param>
+      /// <param name="stackReserveSize">The value for <see cref="OptionalHeader.StackReserveSize"/>.</param>
+      /// <param name="stackCommitSize">The value for <see cref="OptionalHeader.StackCommitSize"/>.</param>
+      /// <param name="heapReserveSize">The value for <see cref="OptionalHeader.HeapReserveSize"/>.</param>
+      /// <param name="heapCommitSize">The value for <see cref="OptionalHeader.HeapCommitSize"/>.</param>
+      /// <param name="loaderFlags">The value for <see cref="OptionalHeader.LoaderFlags"/>.</param>
+      /// <param name="numberOfDataDirectories">The value for <see cref="OptionalHeader.NumberOfDataDirectories"/>.</param>
+      /// <param name="dataDirectories">The value for <see cref="OptionalHeader.DataDirectories"/></param>
+      /// <remarks>
+      /// The <see cref="OptionalHeader.BaseOfDataRVA"/> will be <c>0</c>.
+      /// </remarks>
       [CLSCompliant( false )]
       public OptionalHeader64(
          Byte majorLinkerVersion,
@@ -464,6 +935,11 @@ namespace CILAssemblyManipulator.Physical.IO
       {
       }
 
+      /// <summary>
+      /// The value <see cref="OptionalHeaderKind.Optional64"/> is returned.
+      /// </summary>
+      /// <value>The value <see cref="OptionalHeaderKind.Optional64"/></value>
+      /// <seealso cref="IO.OptionalHeaderKind"/>
       public override OptionalHeaderKind OptionalHeaderKind
       {
          get
@@ -473,97 +949,289 @@ namespace CILAssemblyManipulator.Physical.IO
       }
    }
 
+   /// <summary>
+   /// This struct represents a single chunk within an image, starting at specific RVA and having a specific size.
+   /// </summary>
    public struct DataDirectory : IEquatable<DataDirectory>
    {
+      /// <summary>
+      /// Creates a new instance of <see cref="DataDirectory"/> with given RVA and size, in bytes.
+      /// </summary>
+      /// <param name="rva">The RVA where the chunk starts.</param>
+      /// <param name="size">The size of the chunk, in bytes.</param>
       [CLSCompliant( false )]
       public DataDirectory( TRVA rva, UInt32 size )
       {
          this.RVA = rva;
          this.Size = size;
       }
+
+      /// <summary>
+      /// Gets the RVA where this <see cref="DataDirectory"/> starts.
+      /// </summary>
+      /// <value>The RVA where this <see cref="DataDirectory"/> starts.</value>
       [CLSCompliant( false )]
       public TRVA RVA { get; }
 
+      /// <summary>
+      /// Gets the size of this <see cref="DataDirectory"/>, in bytes.
+      /// </summary>
+      /// <value>The size of this <see cref="DataDirectory"/>, in bytes.</value>
       [CLSCompliant( false )]
       public UInt32 Size { get; }
 
+      /// <summary>
+      /// Checks whether given object is <see cref="DataDirectory"/> and that it has the same values as this <see cref="DataDirectory"/>.
+      /// </summary>
+      /// <param name="obj">The object to check.</param>
+      /// <returns><c>true</c> if <paramref name="obj"/> is <see cref="DataDirectory"/> and has same values as this <see cref="DataDirectory"/>; <c>false</c> otherwise.</returns>
+      /// <seealso cref="Equals(DataDirectory)"/>
       public override Boolean Equals( Object obj )
       {
          return obj is DataDirectory && this.Equals( (DataDirectory) obj );
       }
 
+      /// <summary>
+      /// Computes the hash code for this <see cref="DataDirectory"/>.
+      /// </summary>
+      /// <returns>The hash code for this <see cref="DataDirectory"/>.</returns>
       public override Int32 GetHashCode()
       {
          return unchecked((Int32) ( ( 17 * 23 + this.RVA ) * 23 + this.Size ));
       }
 
+      /// <summary>
+      /// Creates the textual representation of this <see cref="DataDirectory"/>.
+      /// </summary>
+      /// <returns>The textual representation of this <see cref="DataDirectory"/>.</returns>
       public override String ToString()
       {
          return "[" + this.RVA + ";" + this.Size + "]";
       }
 
+      /// <summary>
+      /// Checks whether this <see cref="DataDirectory"/> has same values as given <see cref="DataDirectory"/>.
+      /// </summary>
+      /// <param name="other">The other <see cref="DataDirectory"/>.</param>
+      /// <returns><c>true</c> if this <see cref="DataDirectory"/> has same values as <paramref name="other"/>; <c>false</c> otherwise.</returns>
+      /// <remarks>
+      /// The following properties are checked for equality:
+      /// <list type="bullet">
+      /// <item><description><see cref="RVA"/>, and</description></item>
+      /// <item><description><see cref="Size"/>.</description></item>
+      /// </list>
+      /// </remarks>
       public Boolean Equals( DataDirectory other )
       {
          return this.RVA == other.RVA && this.Size == other.Size;
       }
 
+      /// <summary>
+      /// Checks whether two <see cref="DataDirectory"/> instances are considered to be equal.
+      /// </summary>
+      /// <param name="x">The first <see cref="DataDirectory"/>.</param>
+      /// <param name="y">The second <see cref="DataDirectory"/>.</param>
+      /// <returns>The value of <see cref="Equals(DataDirectory)"/>.</returns>
+      /// <seealso cref="Equals(DataDirectory)"/>
       public static Boolean operator ==( DataDirectory x, DataDirectory y )
       {
          return x.Equals( y );
       }
 
+      /// <summary>
+      /// Checks whether two <see cref="DataDirectory"/> instances are not considered to be equal.
+      /// </summary>
+      /// <param name="x">The first <see cref="DataDirectory"/>.</param>
+      /// <param name="y">The second <see cref="DataDirectory"/>.</param>
+      /// <returns>The inverted value of <see cref="Equals(DataDirectory)"/>.</returns>
+      /// <seealso cref="Equals(DataDirectory)"/>
       public static Boolean operator !=( DataDirectory x, DataDirectory y )
       {
          return !( x == y );
       }
    }
 
+   /// <summary>
+   /// This enumeration tells the semantic meaning of the <see cref="DataDirectory"/> located at index represented by this enum, in <see cref="OptionalHeader.DataDirectories"/>.
+   /// </summary>
    public enum DataDirectories
    {
+      /// <summary>
+      /// The target of the <see cref="DataDirectory"/> is a table for exported symbols.
+      /// </summary>
       ExportTable,
+
+      /// <summary>
+      /// The target of the <see cref="DataDirectory"/> is a table for imported symbols.
+      /// </summary>
       ImportTable,
+
+      /// <summary>
+      /// The target of the <see cref="DataDirectory"/> is a table for resources.
+      /// </summary>
       ResourceTable,
+
+      /// <summary>
+      /// The target of the <see cref="DataDirectory"/> is a table for exceptions.
+      /// </summary>
       ExceptionTable,
+
+      /// <summary>
+      /// The target of the <see cref="DataDirectory"/> is a table for certificate.
+      /// </summary>
       CertificateTable,
+
+      /// <summary>
+      /// The target of the <see cref="DataDirectory"/> is base relocation table.
+      /// </summary>
       BaseRelocationTable,
+
+      /// <summary>
+      /// The target of the <see cref="DataDirectory"/> is serialized <see cref="DebugInformation"/>.
+      /// </summary>
+      /// <seealso cref="DebugInformation"/>
       Debug,
+
+      /// <summary>
+      /// The target of the <see cref="DataDirectory"/> is serialized copyright information.
+      /// </summary>
       Copyright,
+
+      /// <summary>
+      /// The target of the <see cref="DataDirectory"/> is globals table.
+      /// </summary>
       Globals,
+
+      /// <summary>
+      /// The target of the <see cref="DataDirectory"/> is TLS table.
+      /// </summary>
       TLSTable,
+
+      /// <summary>
+      /// The target of the <see cref="DataDirectory"/> is load configuration table.
+      /// </summary>
       LoadConfigTable,
+
+      /// <summary>
+      /// The target of the <see cref="DataDirectory"/> is serialized bound imports information.
+      /// </summary>
       BoundImport,
+
+      /// <summary>
+      /// The target of the <see cref="DataDirectory"/> is address table for imports.
+      /// </summary>
+      /// <seealso cref="Defaults.SectionPart_ImportAddressTable"/>
       ImportAddressTable,
+
+      /// <summary>
+      /// The target of the <see cref="DataDirectory"/> is descriptor for delayed imports.
+      /// </summary>
       DelayImportDescriptor,
+
+      /// <summary>
+      /// The target of the <see cref="DataDirectory"/> is <see cref="IO.CLIHeader"/>.
+      /// </summary>
+      /// <seealso cref="IO.CLIHeader"/>
       CLIHeader,
+
+      /// <summary>
+      /// This value is reserved for future usage.
+      /// </summary>
       Reserved,
+
+      /// <summary>
+      /// This value represents the maximum value for <see cref="DataDirectories"/>.
+      /// </summary>
       MaxValue
    }
 
+   /// <summary>
+   /// This enumeration tells what type instance of <see cref="OptionalHeader"/> really is.
+   /// </summary>
    public enum OptionalHeaderKind : short
    {
+      /// <summary>
+      /// The <see cref="OptionalHeader"/> is of type <see cref="OptionalHeader32"/>.
+      /// </summary>
       Optional32 = 0x010B,
+
+      /// <summary>
+      /// The <see cref="OptionalHeader"/> is of type <see cref="OptionalHeader64"/>.
+      /// </summary>
       Optional64 = 0x020B,
+
       // OptionalROM = 0x0107
    }
 
+   /// <summary>
+   /// This enumeration represents possible values for <see cref="FileHeader.Characteristics"/>.
+   /// </summary>
    [Flags]
    public enum FileHeaderCharacteristics : short
    {
+      /// <summary>
+      /// TODO
+      /// </summary>
       RelocsStripped = 0x0001,
+      /// <summary>
+      /// TODO
+      /// </summary>
       ExecutableImage = 0x0002,
+      /// <summary>
+      /// TODO
+      /// </summary>
       LineNumsStripped = 0x0004,
+      /// <summary>
+      /// TODO
+      /// </summary>
       LocalSymsStripped = 0x0008,
+      /// <summary>
+      /// TODO
+      /// </summary>
       AggressiveWSTrim = 0x0010,
+      /// <summary>
+      /// TODO
+      /// </summary>
       LargeAddressAware = 0x0020,
+      /// <summary>
+      /// TODO
+      /// </summary>
       Reserved1 = 0x0040,
+      /// <summary>
+      /// TODO
+      /// </summary>
       BytesReversedLo = 0x0080,
+      /// <summary>
+      /// TODO
+      /// </summary>
       Machine32Bit = 0x0100,
+      /// <summary>
+      /// TODO
+      /// </summary>
       DebugStripped = 0x0200,
+      /// <summary>
+      /// TODO
+      /// </summary>
       RemovableRunFromSwap = 0x0400,
+      /// <summary>
+      /// TODO
+      /// </summary>
       NetRunFromSwap = 0x0800,
+      /// <summary>
+      /// TODO
+      /// </summary>
       System = 0x1000,
+      /// <summary>
+      /// TODO
+      /// </summary>
       Dll = 0x2000,
+      /// <summary>
+      /// TODO
+      /// </summary>
       UPSystemOnly = 0x4000,
+      /// <summary>
+      /// TODO
+      /// </summary>
       BytesReversedHi = unchecked((Int16) 0x8000),
    }
 
@@ -1257,14 +1925,14 @@ public static partial class E_CILPhysical
 
    #region PE-related
 
-   public static PEInformation NewPEImageInformationFromStream( this StreamHelper stream )
+   public static PEInformation ReadPEInformation( this StreamHelper stream )
    {
       // Read DOS header
-      var dosHeader = stream.NewDOSHeaderFromStream();
+      var dosHeader = stream.ReadDOSHeader();
 
       // Read NT header
       stream.Stream.SeekFromBegin( dosHeader.NTHeaderOffset );
-      var ntHeader = stream.NewNTHeaderFromStream();
+      var ntHeader = stream.ReadNTHeader();
 
       // Read section headers
       var sections = stream.ReadSequentialElements( ntHeader.FileHeader.NumberOfSections, s => s.NewSectionHeaderFromStream() );
@@ -1294,7 +1962,7 @@ public static partial class E_CILPhysical
       }
    }
 
-   public static DOSHeader NewDOSHeaderFromStream( this StreamHelper stream )
+   public static DOSHeader ReadDOSHeader( this StreamHelper stream )
    {
       return new DOSHeader(
          stream.ReadInt16LEFromBytes(),
@@ -1323,12 +1991,12 @@ public static partial class E_CILPhysical
          } );
    }
 
-   public static NTHeader NewNTHeaderFromStream( this StreamHelper stream )
+   public static NTHeader ReadNTHeader( this StreamHelper stream )
    {
       return new NTHeader(
          stream.ReadInt32LEFromBytes(),
-         stream.NewFileHeaderFromStream(),
-         stream.NewOptionalHeaderFromStream()
+         stream.ReadFileHeader(),
+         stream.ReadOptionalHeader()
          );
    }
 
@@ -1339,7 +2007,7 @@ public static partial class E_CILPhysical
       header.OptionalHeader.WriteOptionalHeader( array, ref idx );
    }
 
-   public static FileHeader NewFileHeaderFromStream( this StreamHelper stream )
+   public static FileHeader ReadFileHeader( this StreamHelper stream )
    {
       return new FileHeader(
          (ImageFileMachine) stream.ReadInt16LEFromBytes(), // Machine
@@ -1364,7 +2032,7 @@ public static partial class E_CILPhysical
          .WriteInt16LEToBytes( ref idx, (Int16) header.Characteristics );
    }
 
-   public static OptionalHeader NewOptionalHeaderFromStream( this StreamHelper stream )
+   public static OptionalHeader ReadOptionalHeader( this StreamHelper stream )
    {
       var kind = (OptionalHeaderKind) stream.ReadInt16LEFromBytes();
       UInt32 ddDirCount;
