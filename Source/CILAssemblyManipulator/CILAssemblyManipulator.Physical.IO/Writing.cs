@@ -1022,12 +1022,9 @@ public static partial class E_CILPhysical
       foreach ( var section in sections )
       {
          var chars = section.Characteristics;
-         var isCode = chars.HasFlag( SectionHeaderCharacteristics.Contains_Code );
-         var isInitData = chars.HasFlag( SectionHeaderCharacteristics.Contains_InitializedData );
-         var isUninitData = chars.HasFlag( SectionHeaderCharacteristics.Contains_UninitializedData );
          var curSize = section.RawDataSize;
 
-         if ( isCode )
+         if ( chars.HasFlag( SectionHeaderCharacteristics.Contains_Code ) )
          {
             if ( codeBase == 0u )
             {
@@ -1035,7 +1032,7 @@ public static partial class E_CILPhysical
             }
             codeSize += curSize;
          }
-         if ( isInitData )
+         if ( chars.HasFlag( SectionHeaderCharacteristics.Contains_InitializedData ) )
          {
             if ( dataBase == 0u )
             {
@@ -1043,7 +1040,7 @@ public static partial class E_CILPhysical
             }
             initDataSize += curSize;
          }
-         if ( isUninitData )
+         if ( chars.HasFlag( SectionHeaderCharacteristics.Contains_UninitializedData ) )
          {
             if ( dataBase == 0u )
             {

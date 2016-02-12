@@ -788,7 +788,7 @@ public static partial class E_CILPhysical
       var snOffset = rvaConverter.ToOffset( snDD.RVA );
       imageInfo = new ImageInformation(
          peInfo,
-         helper.NewDebugInformationFromStream( peInfo, rvaConverter ),
+         helper.ReadDebugInformation( peInfo, rvaConverter ),
          new CLIInformation(
             cliHeader,
             mdRoot,

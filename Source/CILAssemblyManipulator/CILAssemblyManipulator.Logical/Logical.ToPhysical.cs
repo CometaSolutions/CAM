@@ -499,8 +499,6 @@ public static partial class E_CILLogical
          ModuleGUID = Guid.NewGuid()
       } );
 
-      var kek = module.GetAllTypes().ToArray();
-
       foreach ( var type in module.GetAllTypes() )
       {
          state.ProcessLogicalForPhysical( type );

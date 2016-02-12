@@ -952,6 +952,8 @@ namespace CILAssemblyManipulator.Physical.IO
    /// <summary>
    /// This struct represents a single chunk within an image, starting at specific RVA and having a specific size.
    /// </summary>
+   /// <seealso cref="E_CILPhysical.ReadDataDirectory"/>
+   /// <seealso cref="E_CILPhysical.WriteDataDirectory(DataDirectory, byte[], ref int)"/>
    public struct DataDirectory : IEquatable<DataDirectory>
    {
       /// <summary>
@@ -1235,10 +1237,32 @@ namespace CILAssemblyManipulator.Physical.IO
       BytesReversedHi = unchecked((Int16) 0x8000),
    }
 
+   /// <summary>
+   /// This class contains fields and values of the PE section header.
+   /// </summary>
+   /// <seealso cref="PEInformation.SectionHeaders"/>
+   /// <seealso cref="E_CILPhysical.ReadSectionHeader"/>
+   /// <seealso cref="E_CILPhysical.WriteSectionHeader"/>
    public sealed class SectionHeader
    {
       private readonly Lazy<String> _name;
 
+      /// <summary>
+      /// Creates a new instance of <see cref="SectionHeader"/> with given values.
+      /// </summary>
+      /// <param name="nameBytes">The value for <see cref="NameBytes"/>.</param>
+      /// <param name="virtualSize">The value for <see cref="VirtualSize"/>.</param>
+      /// <param name="virtualAddress">The value for <see cref="VirtualAddress"/>.</param>
+      /// <param name="rawDataSize">The value for <see cref="RawDataSize"/>.</param>
+      /// <param name="rawDataPointer">The value for <see cref="RawDataPointer"/>.</param>
+      /// <param name="relocationsPointer">The value for <see cref="RelocationsPointer"/>.</param>
+      /// <param name="lineNumbersPointer">The value for <see cref="LineNumbersPointer"/>.</param>
+      /// <param name="numberOfRelocations">The value for <see cref="NumberOfRelocations"/>.</param>
+      /// <param name="numberOfLineNumbers">The value for <see cref="NumberOfLineNumbers"/>.</param>
+      /// <param name="characteristics">The value for <see cref="Characteristics"/>.</param>
+      /// <remarks>
+      /// If <paramref name="nameBytes"/> is <c>null</c>, an empty array is used instead.
+      /// </remarks>
       [CLSCompliant( false )]
       public SectionHeader(
          ArrayQuery<Byte> nameBytes,
@@ -1253,7 +1277,7 @@ namespace CILAssemblyManipulator.Physical.IO
          SectionHeaderCharacteristics characteristics
          )
       {
-         this.NameBytes = nameBytes;
+         this.NameBytes = nameBytes ?? EmptyArrayProxy<Byte>.Query;
          this.VirtualSize = virtualSize;
          this.VirtualAddress = virtualAddress;
          this.RawDataSize = rawDataSize;
@@ -1270,7 +1294,19 @@ namespace CILAssemblyManipulator.Physical.IO
             );
       }
 
+      /// <summary>
+      /// Gets the bytes that constitute the name for this <see cref="SectionHeader"/>.
+      /// </summary>
+      /// <value>The bytes that constitute the name for this <see cref="SectionHeader"/>.</value>
       public ArrayQuery<Byte> NameBytes { get; }
+
+      /// <summary>
+      /// Gets the name for this <see cref="SectionHeader"/>, in textual format.
+      /// </summary>
+      /// <value>The name for this <see cref="SectionHeader"/>, in textual format.</value>
+      /// <remarks>
+      /// This will be lazily created from <see cref="NameBytes"/> property, interpreting bytes as zero-terminated ASCII string.
+      /// </remarks>
       public String Name
       {
          get
@@ -1279,37 +1315,80 @@ namespace CILAssemblyManipulator.Physical.IO
          }
       }
 
+      /// <summary>
+      /// Gets the size of this section when it has been laid out in memory.
+      /// </summary>
+      /// <value>The size of this section when it has been laid out in memory.</value>
+      /// <remarks>
+      /// Typically this is the size of the contents of the section, without the padding up to <see cref="OptionalHeader.FileAlignment"/>.
+      /// </remarks>
       [CLSCompliant( false )]
       public TRVA VirtualSize { get; }
 
+      /// <summary>
+      /// Gets the address of the first byte in this section when it has been laid out in memory.
+      /// </summary>
+      /// <value>The address of the first byte in this section when it has been laid out in memory.</value>
       [CLSCompliant( false )]
       public TRVA VirtualAddress { get; }
 
+      /// <summary>
+      /// Gets the size of this section in image.
+      /// </summary>
+      /// <value>The size of this section in image.</value>
       [CLSCompliant( false )]
       public UInt32 RawDataSize { get; }
 
+      /// <summary>
+      /// Gets the pointer within image to the data of this section.
+      /// </summary><
+      /// <value>The pointer within image to the data of this section.</value>
       [CLSCompliant( false )]
       public UInt32 RawDataPointer { get; }
 
+      /// <summary>
+      /// Gets the pointer within image to the relocation data of this section.
+      /// </summary>
+      /// <value>The pointer within image to the relocation data of this section.</value>
       [CLSCompliant( false )]
       public UInt32 RelocationsPointer { get; }
 
+      /// <summary>
+      /// Gets the pointer wihin image to the line number data of this section.
+      /// </summary>
+      /// <value>The pointer wihin image to the line number data of this section.</value>
       [CLSCompliant( false )]
       public UInt32 LineNumbersPointer { get; }
 
+      /// <summary>
+      /// Gets the number of relocations in relocation data chunk of this section.
+      /// </summary>
+      /// <value>The number of relocations in relocation data chunk of this section.</value>
       [CLSCompliant( false )]
       public UInt16 NumberOfRelocations { get; }
 
+      /// <summary>
+      /// GEts the number of line numbers in line number data chunk of this section.
+      /// </summary>
+      /// <value>The number of line numbers in line number data chunk of this section.</value>
       [CLSCompliant( false )]
       public UInt16 NumberOfLineNumbers { get; }
 
+      /// <summary>
+      /// Gets the <see cref="SectionHeaderCharacteristics"/> of this <see cref="SectionHeader"/>, describing the data of this section.
+      /// </summary>
+      /// <value>The <see cref="SectionHeaderCharacteristics"/> of this <see cref="SectionHeader"/>, describing the data of this section.</value>
+      /// <seealso cref="SectionHeaderCharacteristics"/>
       public SectionHeaderCharacteristics Characteristics { get; }
    }
 
+   /// <summary>
+   /// This enumeration describes information about data and layout of one section represented by <see cref="SectionHeader"/>.
+   /// </summary>
    [Flags]
    public enum SectionHeaderCharacteristics : int
    {
-      //Reserved1 = 0x00000000,
+      Reserved1 = 0x00000000,
       Reserved2 = 0x00000001,
       Reserved3 = 0x00000002,
       Reserved4 = 0x00000004,
@@ -1360,7 +1439,8 @@ namespace CILAssemblyManipulator.Physical.IO
    /// <remarks>This enumeration has same values as <c>System.Reflection.ImageFileMachine</c> enumeration, and more. It will end up as 'Machine' field in <see cref="IO.FileHeader"/>.</remarks>
    public enum ImageFileMachine : short
    {
-      Unknown = 0,
+      //Unknown = 0,
+
       /// <summary>
       /// Targets Intel 32-bit processor.
       /// </summary>
@@ -1443,8 +1523,29 @@ namespace CILAssemblyManipulator.Physical.IO
       TerminalServerAware = unchecked((Int16) 0x8000),
    }
 
+   /// <summary>
+   /// This class represents debug data located at <see cref="DataDirectories.Debug"/> in <see cref="OptionalHeader.DataDirectories"/>.
+   /// </summary>
+   /// <seealso cref="ImageInformation.DebugInformation"/>
+   /// <seealso cref="E_CILPhysical.ReadDebugInformation(StreamHelper)"/>
+   /// <seealso cref="E_CILPhysical.WriteDebugInformation"/>
    public sealed class DebugInformation
    {
+      /// <summary>
+      /// Creates a new instance of <see cref="DebugInformation"/> with given values.
+      /// </summary>
+      /// <param name="characteristics">The value for <see cref="Characteristics"/>.</param>
+      /// <param name="timestamp">The value for <see cref="Timestamp"/>.</param>
+      /// <param name="versionMajor">The value for <see cref="VersionMajor"/>.</param>
+      /// <param name="versionMinor">The value for <see cref="VersionMinor"/>.</param>
+      /// <param name="debugType">The value for <see cref="DebugType"/>.</param>
+      /// <param name="dataSize">The value for <see cref="DataSize"/>.</param>
+      /// <param name="dataRVA">The value for <see cref="DataRVA"/>.</param>
+      /// <param name="dataPointer">The value for <see cref="DataPointer"/>.</param>
+      /// <param name="data">The value for <see cref="DebugData"/>.</param>
+      /// <remarks>
+      /// If <paramref name="data"/> is <c>null</c>, an empty array is used instead.
+      /// </remarks>
       [CLSCompliant( false )]
       public DebugInformation(
          Int32 characteristics,
@@ -1935,7 +2036,7 @@ public static partial class E_CILPhysical
       var ntHeader = stream.ReadNTHeader();
 
       // Read section headers
-      var sections = stream.ReadSequentialElements( ntHeader.FileHeader.NumberOfSections, s => s.NewSectionHeaderFromStream() );
+      var sections = stream.ReadSequentialElements( ntHeader.FileHeader.NumberOfSections, s => s.ReadSectionHeader() );
       return new PEInformation(
          dosHeader,
          ntHeader,
@@ -2186,9 +2287,8 @@ public static partial class E_CILPhysical
 
    private static Byte[] WriteDataDirectory( this Byte[] array, ref Int32 idx, DataDirectory dataDir )
    {
-      return array
-         .WriteUInt32LEToBytes( ref idx, dataDir.RVA )
-         .WriteUInt32LEToBytes( ref idx, dataDir.Size );
+      dataDir.WriteDataDirectory( array, ref idx );
+      return array;
    }
 
    [CLSCompliant( false )]
@@ -2224,7 +2324,7 @@ public static partial class E_CILPhysical
       return new DataDirectory( stream.ReadRVAFromBytes(), stream.ReadUInt32LEFromBytes() );
    }
 
-   public static SectionHeader NewSectionHeaderFromStream( this StreamHelper stream )
+   public static SectionHeader ReadSectionHeader( this StreamHelper stream )
    {
       return new SectionHeader(
          CollectionsWithRoles.Implementation.CollectionsFactorySingleton.DEFAULT_COLLECTIONS_FACTORY.NewArrayProxy( stream.ReadAndCreateArray( 8 ) ).CQ,
@@ -2406,7 +2506,7 @@ public static partial class E_CILPhysical
          );
    }
 
-   public static DebugInformation NewDebugInformationFromStream( this StreamHelper stream, PEInformation peInfo, RVAConverter rvaConverter )
+   private static DebugInformation ReadDebugInformation( this StreamHelper stream, PEInformation peInfo, RVAConverter rvaConverter )
    {
       var dataDirs = peInfo.NTHeader.OptionalHeader.DataDirectories;
       DataDirectory debugDD;
@@ -2415,11 +2515,11 @@ public static partial class E_CILPhysical
          && ( debugDD = dataDirs[debugDDIdx] ).RVA > 0 ?
          stream
             .At( rvaConverter.ToOffset( debugDD.RVA ) )
-            .NewDebugInformationFromStream() :
+            .ReadDebugInformation() :
          null;
    }
 
-   public static DebugInformation NewDebugInformationFromStream( this StreamHelper stream )
+   public static DebugInformation ReadDebugInformation( this StreamHelper stream )
    {
       UInt32 dataSize, dataPtr;
       return new DebugInformation(
