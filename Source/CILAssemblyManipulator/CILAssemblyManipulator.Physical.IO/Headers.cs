@@ -1601,6 +1601,20 @@ namespace CILAssemblyManipulator.Physical.IO
 
    public sealed class CLIInformation
    {
+      public struct DataReferenceInfo
+      {
+         public DataReferenceInfo( Tables table, Int32 columnIndex, Int64 dataReference )
+         {
+            this.Table = table;
+            this.ColumnIndex = columnIndex;
+            this.DataReference = dataReference;
+         }
+
+         public Tables Table { get; }
+         public Int32 ColumnIndex { get; }
+         public Int64 DataReference { get; }
+      }
+
       [CLSCompliant( false )]
       public CLIInformation(
          CLIHeader cliHeader,
@@ -1653,20 +1667,6 @@ namespace CILAssemblyManipulator.Physical.IO
       public ArrayQuery<Byte> StrongNameSignature { get; }
 
       public DictionaryQuery<Tables, DictionaryQuery<Int32, ArrayQuery<Int64>>> DataReferences { get; }
-   }
-
-   public struct DataReferenceInfo
-   {
-      public DataReferenceInfo( Tables table, Int32 columnIndex, Int64 dataReference )
-      {
-         this.Table = table;
-         this.ColumnIndex = columnIndex;
-         this.DataReference = dataReference;
-      }
-
-      public Tables Table { get; }
-      public Int32 ColumnIndex { get; }
-      public Int64 DataReference { get; }
    }
 
    public sealed class CLIHeader

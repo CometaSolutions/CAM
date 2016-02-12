@@ -815,7 +815,7 @@ public static partial class E_CILPhysical
       throw new NotImplementedException( "Creating default handler for stream." );
    }
 
-   public static IEnumerable<DataReferenceInfo> GetDataReferenceInfos<T>( this ColumnValueStorage<T> values, Func<T, Int64> converter )
+   public static IEnumerable<CLIInformation.DataReferenceInfo> GetDataReferenceInfos<T>( this ColumnValueStorage<T> values, Func<T, Int64> converter )
    {
       foreach ( var tbl in values.GetPresentTables() )
       {
@@ -824,7 +824,7 @@ public static partial class E_CILPhysical
          {
             foreach ( var val in values.GetAllRawValuesForColumn( tbl, i ) )
             {
-               yield return new DataReferenceInfo( tbl, i, converter( val ) );
+               yield return new CLIInformation.DataReferenceInfo( tbl, i, converter( val ) );
             }
          }
       }
