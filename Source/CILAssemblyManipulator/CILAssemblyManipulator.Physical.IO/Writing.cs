@@ -121,7 +121,7 @@ namespace CILAssemblyManipulator.Physical.IO
       /// </remarks>
       /// <seealso cref="ColumnValueStorage{TValue}"/>
       /// <seealso cref="AbstractWriterStreamHandler.WriteStream"/>
-      ColumnValueStorage<Int64> CalculateImageLayout(
+      IEnumerable<DataReferenceInfo> CalculateImageLayout(
          WritingStatus writingStatus,
          WriterMetaDataStreamContainer mdStreamContainer,
          IEnumerable<AbstractWriterStreamHandler> allStreams,
@@ -224,7 +224,7 @@ namespace CILAssemblyManipulator.Physical.IO
       void WriteStream(
          Stream stream,
          ResizableArray<Byte> array,
-         ColumnValueStorage<Int64> dataReferences
+         DataReferencesInfo dataReferences
          );
 
 
@@ -676,13 +676,13 @@ public static partial class E_CILPhysical
 
       // 4. Create sections and some headers
       RVAConverter rvaConverter; Int32 mdRootSize;
-      var rawValueProvider = writer.CalculateImageLayout(
+      var dataRefs = thHeader.CreateDataReferencesDictionary( writer.CalculateImageLayout(
          status,
          mdStreamContainer,
          mdStreams,
          out rvaConverter,
          out mdRootSize
-         );
+         ) );
 
       if ( rvaConverter == null )
       {
@@ -707,7 +707,7 @@ public static partial class E_CILPhysical
       stream.Write( array.Array, mdRootSize );
       foreach ( var mds in mdStreams.Where( mds => mds.Accessed ) )
       {
-         mds.WriteStream( stream, array, rawValueProvider );
+         mds.WriteStream( stream, array, dataRefs );
       }
 
       // 7. Write whatever is needed after meta data
@@ -751,7 +751,7 @@ public static partial class E_CILPhysical
             status.MDRoot,
             thHeader,
             snSignature?.ToArrayProxy()?.CQ,
-            rawValueProvider.GetDataReferenceInfos( i => i )
+            dataRefs
             )
          );
 

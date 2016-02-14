@@ -368,7 +368,15 @@ namespace CILAssemblyManipulator.Physical
             && Equality_CLIHeader_Logical( x.CLIHeader, y.CLIHeader )
             && Equality_MDRoot_Logical( x.MetaDataRoot, y.MetaDataRoot )
             && Equality_MDTableStreamHeader( x.TableStreamHeader, y.TableStreamHeader )
-            // TODO SequenceEquality -methods to DictionaryEqualityComparer
+            && Equality_DataReferences_Logical( x.DataReferences, y.DataReferences )
+            );
+      }
+
+      private static Boolean Equality_DataReferences_Logical( DataReferencesInfo x, DataReferencesInfo y )
+      {
+         // TODO SequenceEquality -methods to DictionaryEqualityComparer
+         return Object.ReferenceEquals( x, y ) ||
+            ( x != null && y != null
             && x.DataReferences.DictionaryQueryEquality( y.DataReferences, ( xDataRefs, yDataRefs ) => xDataRefs.DictionaryQueryEquality( yDataRefs, ( xColRefs, yColRefs ) => xColRefs.Count == yColRefs.Count ) )
             );
       }

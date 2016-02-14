@@ -125,11 +125,11 @@ namespace CILAssemblyManipulator.Physical.IO
       /// This method is called after <see cref="ReaderTableStreamHandler.PopulateMetaDataStructure"/>, to populate the values that need data from elsewhere than <see cref="AbstractReaderStreamHandler"/>s.
       /// </summary>
       /// <param name="stream">The <see cref="StreamHelper"/> object, encapsulating the actual <see cref="Stream"/>.</param>
-      /// <param name="imageInfo">The full <see cref="ImageInformation"/>.</param>
+      /// <param name="imageInfo">The full <see cref="ImageInformation"/>. The data references will be in <see cref="CLIInformation.DataReferences"/> property.</param>
       /// <param name="rvaConverter">The <see cref="RVAConverter"/> created by <see cref="ReadImageInformation"/> method.</param>
       /// <param name="mdStreamContainer">The <see cref="ReaderMetaDataStreamContainer"/> containing all streams created by <see cref="CreateStreamHandler"/> method.</param>
       /// <param name="md">The instance of <see cref="CILMetaData"/> that will be result of this deserialization process.</param>
-      /// <param name="dataReferences">The <see cref="ColumnValueStorage{TValue}"/> created by <see cref="ReaderTableStreamHandler.PopulateMetaDataStructure"/> method.</param>
+      ///// <param name="dataReferences">The <see cref="ColumnValueStorage{TValue}"/> created by <see cref="ReaderTableStreamHandler.PopulateMetaDataStructure"/> method.</param>
       /// <remarks>
       /// The values that need data from elsewhere than <see cref="AbstractReaderStreamHandler"/>s, are at least:
       /// <list type="bullet">
@@ -143,8 +143,7 @@ namespace CILAssemblyManipulator.Physical.IO
          ImageInformation imageInfo,
          RVAConverter rvaConverter,
          ReaderMetaDataStreamContainer mdStreamContainer,
-         CILMetaData md,
-         ColumnValueStorage<Int32> dataReferences
+         CILMetaData md
          );
    }
 
@@ -201,10 +200,12 @@ namespace CILAssemblyManipulator.Physical.IO
       /// <returns>Enumerable of all raw values for given column.</returns>
       public IEnumerable<TValue> GetAllRawValuesForColumn( Tables table, Int32 columnIndex )
       {
-         var size = this._tableSizes[(Int32) table];
-         for ( var i = this._tableStartOffsets[(Int32) table]; i < size; ++i )
+         var colCount = this._tableColCount[(Int32) table];
+         var start = this._tableStartOffsets[(Int32) table] + columnIndex;
+         var max = start + this._tableSizes[(Int32) table] * colCount;
+         for ( var i = start; i < max; i += colCount )
          {
-            yield return this._rawValues[i + columnIndex];
+            yield return this._rawValues[i];
          }
       }
 
@@ -503,12 +504,47 @@ namespace CILAssemblyManipulator.Physical.IO
       /// </summary>
       /// <param name="md">The <see cref="CILMetaData"/> to populate.</param>
       /// <param name="mdStreamContainer">The <see cref="ReaderMetaDataStreamContainer"/> containing meta data streams.</param>
-      /// <returns>The raw values (RVAs) which were read from this table stream. The stored raw values will be used by <see cref="ReaderFunctionality.HandleDataReferences"/> method.</returns>
-      ColumnValueStorage<Int32> PopulateMetaDataStructure(
+      /// <returns>The raw values (RVAs) which were read from this table stream. The stored raw values will be transformed into <see cref="CLIInformation.DataReferences"/> dictionary, and used by <see cref="ReaderFunctionality.HandleDataReferences"/> method.</returns>
+      IEnumerable<DataReferenceInfo> PopulateMetaDataStructure(
          CILMetaData md,
          ReaderMetaDataStreamContainer mdStreamContainer
          );
 
+   }
+
+   /// <summary>
+   /// This is simple struct containing information about a single data reference.
+   /// </summary>
+   /// <remarks>
+   /// One example of data reference is the <see cref="RawMethodDefinition.RVA"/> property, which gets transformed into <see cref="MethodDefinition.IL"/>.
+   /// </remarks>
+   public struct DataReferenceInfo
+   {
+      public DataReferenceInfo( Tables table, Int32 columnIndex, Int64 dataReference )
+      {
+         this.Table = table;
+         this.ColumnIndex = columnIndex;
+         this.DataReference = dataReference;
+      }
+
+      /// <summary>
+      /// Gets the table id of this data reference.
+      /// </summary>
+      /// <value>The table id of this data reference.</value>
+      /// <seealso cref="Tables"/>
+      public Tables Table { get; }
+
+      /// <summary>
+      /// Gets the zero-based column index of this data reference.
+      /// </summary>
+      /// <value>The zero-based column index of this data reference.</value>
+      public Int32 ColumnIndex { get; }
+
+      /// <summary>
+      /// Gets the data reference value.
+      /// </summary>
+      /// <value>The data reference value.</value>
+      public Int64 DataReference { get; }
    }
 
    /// <summary>
@@ -660,18 +696,16 @@ public static partial class E_CILPhysical
       var reader = readerProvider.GetFunctionality( ArgumentValidator.ValidateNotNullAndReturn( "Stream", stream ), tableInfoProvider, errorHandler, out newStream ) ?? new DefaultReaderFunctionality( new TableSerializationInfoCreationArgs( errorHandler ) );
 
       CILMetaData md;
-      ColumnValueStorage<Int32> rawValueStorage;
-      //RVAConverter rvaConverter;
       if ( newStream != null && !ReferenceEquals( stream, newStream ) )
       {
          using ( newStream )
          {
-            md = reader.ReadMetaDataFromStream( newStream, tableInfoProvider, errorHandler, deserializeDataReferences, out imageInfo, out rawValueStorage );
+            md = reader.ReadMetaDataFromStream( newStream, tableInfoProvider, errorHandler, deserializeDataReferences, out imageInfo );
          }
       }
       else
       {
-         md = reader.ReadMetaDataFromStream( stream, tableInfoProvider, errorHandler, deserializeDataReferences, out imageInfo, out rawValueStorage );
+         md = reader.ReadMetaDataFromStream( stream, tableInfoProvider, errorHandler, deserializeDataReferences, out imageInfo );
       }
 
       return md;
@@ -687,7 +721,7 @@ public static partial class E_CILPhysical
    /// <param name="deserializeDataReferences">Whether to deserialize data references (e.g. <see cref="MethodDefinition.IL"/>).</param>
    /// <param name="imageInfo">This parameter will hold the <see cref="ImageInformation"/> read from the <see cref="Stream"/>.</param>
    ///// <param name="dataReferences">This parameter will hold the <see cref="RawValueStorage{TValue}"/> returned by <see cref="ReaderTableStreamHandler.PopulateMetaDataStructure"/>.</param>
-   /// <param name="rvaConverter">This parameter will hold the <see cref="RVAConverter"/> obtained with <see cref="ReaderFunctionality.ReadImageInformation"/>, or <see cref="DefaultRVAConverter"/> if that method did not obtain rva converter.</param>
+   ///// <param name="rvaConverter">This parameter will hold the <see cref="RVAConverter"/> obtained with <see cref="ReaderFunctionality.ReadImageInformation"/>, or <see cref="DefaultRVAConverter"/> if that method did not obtain rva converter.</param>
    /// <returns>An instance of <see cref="CILMetaData"/> with its data read from the <paramref name="stream"/>.</returns>
    /// <exception cref="BadImageFormatException">If the structure of the image represented by <see cref="Stream"/> is invalid (e.g. missing PE header or CLI header, etc).</exception>
    /// <exception cref="ArgumentNullException">If <paramref name="stream"/> is <c>null</c>.</exception>
@@ -703,8 +737,8 @@ public static partial class E_CILPhysical
       CILMetaDataTableInformationProvider tableInfoProvider,
       EventHandler<SerializationErrorEventArgs> errorHandler,
       Boolean deserializeDataReferences,
-      out ImageInformation imageInfo,
-      out ColumnValueStorage<Int32> dataReferences
+      out ImageInformation imageInfo
+      //out ColumnValueStorage<Int32> dataReferences
       //out RVAConverter rvaConverter
       )
    {
@@ -778,10 +812,10 @@ public static partial class E_CILPhysical
             mdStreams.Where( s => !ReferenceEquals( tblMDStream, s ) && !ReferenceEquals( blobStream, s ) && !ReferenceEquals( guidStream, s ) && !ReferenceEquals( sysStringStream, s ) && !ReferenceEquals( userStringStream, s ) )
             );
 
-      dataReferences = tblMDStream.PopulateMetaDataStructure(
+      var dataReferences = tblHeader.CreateDataReferencesDictionary( tblMDStream.PopulateMetaDataStructure(
          md,
          mdStreamContainer
-         );
+         ) );
 
       // 4. Create image information
       var snDD = cliHeader.StrongNameSignature;
@@ -796,14 +830,14 @@ public static partial class E_CILPhysical
             snOffset > 0 && snDD.Size > 0 ?
                helper.At( snOffset ).ReadAndCreateArray( checked((Int32) snDD.Size) ).ToArrayProxy().CQ :
                null,
-            dataReferences.GetDataReferenceInfos( i => (UInt32) i )
+             dataReferences
             )
          );
 
       // 5. Populate IL, FieldRVA, and ManifestResource data
       if ( deserializeDataReferences )
       {
-         reader.HandleDataReferences( helper, imageInfo, rvaConverter, mdStreamContainer, md, dataReferences );
+         reader.HandleDataReferences( helper, imageInfo, rvaConverter, mdStreamContainer, md );
       }
 
       // We're done
@@ -815,7 +849,7 @@ public static partial class E_CILPhysical
       throw new NotImplementedException( "Creating default handler for stream." );
    }
 
-   public static IEnumerable<CLIInformation.DataReferenceInfo> GetDataReferenceInfos<T>( this ColumnValueStorage<T> values, Func<T, Int64> converter )
+   public static IEnumerable<DataReferenceInfo> GetDataReferenceInfos<T>( this ColumnValueStorage<T> values, Func<T, Int64> converter )
    {
       foreach ( var tbl in values.GetPresentTables() )
       {
@@ -824,7 +858,7 @@ public static partial class E_CILPhysical
          {
             foreach ( var val in values.GetAllRawValuesForColumn( tbl, i ) )
             {
-               yield return new CLIInformation.DataReferenceInfo( tbl, i, converter( val ) );
+               yield return new DataReferenceInfo( tbl, i, converter( val ) );
             }
          }
       }

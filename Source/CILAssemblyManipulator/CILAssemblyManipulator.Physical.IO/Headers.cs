@@ -1570,28 +1570,70 @@ namespace CILAssemblyManipulator.Physical.IO
          this.DebugData = data ?? EmptyArrayProxy<Byte>.Query;
       }
 
+      // TODO some of these properties would be good to be enums instead of integers
+
+      /// <summary>
+      /// Gets the characteristics of this <see cref="DebugInformation"/>.
+      /// </summary>
+      /// <value>The characteristics of this <see cref="DebugInformation"/>.</value>
       public Int32 Characteristics { get; }
 
+      /// <summary>
+      /// Gets the timestamp of this <see cref="DebugInformation"/> as integer.
+      /// </summary>
+      /// <value>The timestamp of this <see cref="DebugInformation"/> as integer.</value>
       [CLSCompliant( false )]
       public UInt32 Timestamp { get; }
 
+      /// <summary>
+      /// Gets the major version of this <see cref="DebugInformation"/>.
+      /// </summary>
+      /// <value>The major version of this <see cref="DebugInformation"/>.</value>
       [CLSCompliant( false )]
       public UInt16 VersionMajor { get; }
 
+      /// <summary>
+      /// Gets the minor version of this <see cref="DebugInformation"/>.
+      /// </summary>
+      /// <value>The minor version of this <see cref="DebugInformation"/>.</value>
       [CLSCompliant( false )]
       public UInt16 VersionMinor { get; }
 
+      /// <summary>
+      /// Gets the debug type of this <see cref="DebugInformation"/>.
+      /// This will affect how the debug data is interpreted.
+      /// </summary>
+      /// <value>The debug type of this <see cref="DebugInformation"/>.</value>
       public Int32 DebugType { get; }
 
+      /// <summary>
+      /// Gets the size of the debug data.
+      /// </summary>
+      /// <value>The size of the debug data.</value>
+      /// <seealso cref="DebugData"/>
       [CLSCompliant( false )]
       public UInt32 DataSize { get; }
 
+      /// <summary>
+      /// Gets the RVA where the debug data is located.
+      /// </summary>
+      /// <value>The RVA where the debug data is located.</value>
+      /// <seealso cref="DebugData"/>
       [CLSCompliant( false )]
       public UInt32 DataRVA { get; }
 
+      /// <summary>
+      /// Gets the raw pointer in file where the debug data is located.
+      /// </summary>
+      /// <value>The raw pointer in file where the debug data is located.</value>
+      /// <seealso cref="DebugData"/>
       [CLSCompliant( false )]
       public UInt32 DataPointer { get; }
 
+      /// <summary>
+      /// Gets the debug data of this <see cref="DebugInformation"/>.
+      /// </summary>
+      /// <value>The debug data of this <see cref="DebugInformation"/>.</value>
       public ArrayQuery<Byte> DebugData { get; }
    }
 
@@ -1599,63 +1641,30 @@ namespace CILAssemblyManipulator.Physical.IO
 
    #region CIL-related
 
+   /// <summary>
+   /// This class contains CLI-related information of <see cref="ImageInformation"/> obtained when (de)serializing <see cref="CILMetaData"/>.
+   /// </summary>
    public sealed class CLIInformation
    {
-      public struct DataReferenceInfo
-      {
-         public DataReferenceInfo( Tables table, Int32 columnIndex, Int64 dataReference )
-         {
-            this.Table = table;
-            this.ColumnIndex = columnIndex;
-            this.DataReference = dataReference;
-         }
-
-         public Tables Table { get; }
-         public Int32 ColumnIndex { get; }
-         public Int64 DataReference { get; }
-      }
-
       [CLSCompliant( false )]
       public CLIInformation(
          CLIHeader cliHeader,
          MetaDataRoot mdRoot,
          MetaDataTableStreamHeader tableStreamHeader,
          ArrayQuery<Byte> strongNameSignature,
-         IEnumerable<DataReferenceInfo> dataRefs
+         DataReferencesInfo dataRefs
          )
       {
          ArgumentValidator.ValidateNotNull( "CLI header", cliHeader );
          ArgumentValidator.ValidateNotNull( "MetaData root", mdRoot );
          ArgumentValidator.ValidateNotNull( "Table stream header", tableStreamHeader );
+         ArgumentValidator.ValidateNotNull( "Data references", dataRefs );
 
          this.CLIHeader = cliHeader;
          this.MetaDataRoot = mdRoot;
          this.TableStreamHeader = tableStreamHeader;
          this.StrongNameSignature = strongNameSignature;
-         var cf = CollectionsWithRoles.Implementation.CollectionsFactorySingleton.DEFAULT_COLLECTIONS_FACTORY;
-         var dic = new Dictionary<Tables, DictionaryWithRoles<Int32, ArrayProxy<Int64>, ArrayProxyQuery<Int64>, ArrayQuery<Int64>>>();
-         var tSizes = tableStreamHeader.CreateTableSizesArray();
-         var indices = new Int32[tSizes.Length];
-         foreach ( var dataRef in dataRefs )
-         {
-            var table = dataRef.Table;
-            var thisTableDic = dic
-               .GetOrAdd_NotThreadSafe( table, t => cf.NewDictionary<Int32, ArrayProxy<Int64>, ArrayProxyQuery<Int64>, ArrayQuery<Int64>>() );
-            var cIdx = dataRef.ColumnIndex;
-            ArrayProxy<Int64> array;
-            if ( !thisTableDic.CQ.TryGetValue( cIdx, out array ) )
-            {
-               array = cf.NewArrayProxy<Int64>( new Int64[tSizes[(Int32) table]] );
-               thisTableDic.Add( cIdx, array );
-            }
-            array[indices[(Int32) table]++] = dataRef.DataReference;
-         }
-         this.DataReferences = cf.NewDictionary<
-            Tables,
-            DictionaryWithRoles<Int32, ArrayProxy<Int64>, ArrayProxyQuery<Int64>, ArrayQuery<Int64>>,
-            DictionaryQueryOfMutables<Int32, ArrayProxy<Int64>, ArrayProxyQuery<Int64>, ArrayQuery<Int64>>,
-            DictionaryQuery<Int32, ArrayQuery<Int64>>
-            >( dic ).CQ.IQ;
+         this.DataReferences = dataRefs;
       }
 
       public CLIHeader CLIHeader { get; }
@@ -1666,6 +1675,17 @@ namespace CILAssemblyManipulator.Physical.IO
 
       public ArrayQuery<Byte> StrongNameSignature { get; }
 
+      public DataReferencesInfo DataReferences { get; }
+   }
+
+   public sealed class DataReferencesInfo
+   {
+      public DataReferencesInfo( DictionaryQuery<Tables, DictionaryQuery<Int32, ArrayQuery<Int64>>> dataRefs )
+      {
+         ArgumentValidator.ValidateNotNull( "Data references", dataRefs );
+
+         this.DataReferences = dataRefs;
+      }
       public DictionaryQuery<Tables, DictionaryQuery<Int32, ArrayQuery<Int64>>> DataReferences { get; }
    }
 
@@ -2629,12 +2649,40 @@ public static partial class E_CILPhysical
    {
       DictionaryQuery<Int32, ArrayQuery<Int64>> dic;
       ArrayQuery<Int64> refs = null;
-      if ( info.DataReferences.TryGetValue( table, out dic )
+      if ( info.DataReferences.DataReferences.TryGetValue( table, out dic )
          && dic.TryGetValue( colIndex, out refs ) )
       {
 
       }
       return refs ?? EmptyArrayProxy<Int64>.Query;
+   }
+
+   public static DataReferencesInfo CreateDataReferencesDictionary( this MetaDataTableStreamHeader header, IEnumerable<DataReferenceInfo> refs )
+   {
+      var cf = CollectionsWithRoles.Implementation.CollectionsFactorySingleton.DEFAULT_COLLECTIONS_FACTORY;
+      var dic = new Dictionary<Tables, DictionaryWithRoles<Int32, ArrayProxy<Int64>, ArrayProxyQuery<Int64>, ArrayQuery<Int64>>>();
+      var tSizes = header.CreateTableSizesArray();
+      var indices = new Int32[tSizes.Length];
+      foreach ( var dataRef in refs )
+      {
+         var table = dataRef.Table;
+         var thisTableDic = dic
+            .GetOrAdd_NotThreadSafe( table, t => cf.NewDictionary<Int32, ArrayProxy<Int64>, ArrayProxyQuery<Int64>, ArrayQuery<Int64>>() );
+         var cIdx = dataRef.ColumnIndex;
+         ArrayProxy<Int64> array;
+         if ( !thisTableDic.CQ.TryGetValue( cIdx, out array ) )
+         {
+            array = cf.NewArrayProxy<Int64>( new Int64[tSizes[(Int32) table]] );
+            thisTableDic.Add( cIdx, array );
+         }
+         array[indices[(Int32) table]++] = dataRef.DataReference;
+      }
+      return new DataReferencesInfo( cf.NewDictionary<
+         Tables,
+         DictionaryWithRoles<Int32, ArrayProxy<Int64>, ArrayProxyQuery<Int64>, ArrayQuery<Int64>>,
+         DictionaryQueryOfMutables<Int32, ArrayProxy<Int64>, ArrayProxyQuery<Int64>, ArrayQuery<Int64>>,
+         DictionaryQuery<Int32, ArrayQuery<Int64>>
+         >( dic ).CQ.IQ );
    }
 
    #endregion
