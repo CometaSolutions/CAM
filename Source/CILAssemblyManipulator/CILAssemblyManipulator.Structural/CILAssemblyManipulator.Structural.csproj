@@ -76,10 +76,15 @@
       <Project>{3c3ee913-1034-4c7d-ab79-67d19e3256fa}</Project>
       <Name>CILAssemblyManipulator.Physical.Crypto</Name>
     </ProjectReference>
+    <ProjectReference Include="..\CILAssemblyManipulator.Physical.IO.Defaults\CILAssemblyManipulator.Physical.IO.Defaults.csproj">
+      <Project>{c444fb53-6a71-4ff2-b412-8b1c88595955}</Project>
+      <Name>CILAssemblyManipulator.Physical.IO.Defaults</Name>
+      <Aliases>CAMPhysicalIOD</Aliases>
+    </ProjectReference>
     <ProjectReference Condition=" '$(IsCommandLineBuild)' == ''" Include="..\CILAssemblyManipulator.Physical.IO\CILAssemblyManipulator.Physical.IO.csproj">
       <Project>{4e0e1695-a15e-4b3d-adb2-c3ed8a0962a1}</Project>
       <Name>CILAssemblyManipulator.Physical.IO</Name>
-      <Aliases>CAMPhysical</Aliases>
+      <Aliases>CAMPhysicalIO</Aliases>
     </ProjectReference>
   </ItemGroup>
   <ItemGroup Condition=" '$(CAMStructuralIsPortable)' == '' ">

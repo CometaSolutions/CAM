@@ -15,9 +15,9 @@
  * See the License for the specific language governing permissions and
  * limitations under the License. 
  */
-extern alias CAMPhysical;
-using CAMPhysical;
-using CAMPhysical::CILAssemblyManipulator.Physical.IO;
+extern alias CAMPhysicalIOD;
+using CAMPhysicalIOD;
+using CAMPhysicalIOD::CILAssemblyManipulator.Physical.IO;
 
 using CILAssemblyManipulator.Logical;
 using CILAssemblyManipulator.Physical;

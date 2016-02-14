@@ -566,3 +566,83 @@ namespace CILAssemblyManipulator.Physical.IO
       //}
    }
 }
+
+public static partial class E_CILPhysical
+{
+   // TODO this method is only used by tests now, might remove maybe?
+   /// <summary>
+   /// Checks whether the <see cref="MethodDefinition"/> at given index has <see cref="MethodILDefinition"/> such that it would be serialized using tiny IL header.
+   /// </summary>
+   /// <param name="md">The <see cref="CILMetaData"/>.</param>
+   /// <param name="methodDefIndex">The index in <see cref="CILMetaData.MethodDefinitions"/> table.</param>
+   /// <returns><c>true</c> if <see cref="MethodILDefinition"/> would be serialized using tiny IL header; <c>false</c> otherwise.</returns>
+   public static Boolean IsTinyILHeader( this CILMetaData md, Int32 methodDefIndex )
+   {
+      Int32 ilCodeByteCount; Boolean hasAnyExceptions, allAreSmall;
+      return md.IsTinyILHeader( methodDefIndex, out ilCodeByteCount, out hasAnyExceptions, out allAreSmall );
+   }
+
+   // TODO this method is not used at all, might remove maybe?
+   /// <summary>
+   /// Checks whether the <see cref="MethodDefinition"/> at given index has <see cref="MethodILDefinition"/> such that it would be serialized using tiny IL header.
+   /// </summary>
+   /// <param name="md">The <see cref="CILMetaData"/>.</param>
+   /// <param name="methodDefIndex">The index in <see cref="CILMetaData.MethodDefinitions"/> table.</param>
+   /// <param name="ilCodeByteCount">This parameter will have the byte count for IL bytecode of the target <see cref="MethodILDefinition"/>.</param>
+   /// <returns><c>true</c> if <see cref="MethodILDefinition"/> would be serialized using tiny IL header; <c>false</c> otherwise.</returns>
+   public static Boolean IsTinyILHeader( this CILMetaData md, Int32 methodDefIndex, out Int32 ilCodeByteCount )
+   {
+      Boolean hasAnyExceptions, allAreSmall;
+      return md.IsTinyILHeader( methodDefIndex, out ilCodeByteCount, out hasAnyExceptions, out allAreSmall );
+   }
+
+   internal static Boolean IsTinyILHeader( this CILMetaData md, Int32 methodDefIndex, out Int32 ilCodeByteCount, out Boolean hasAnyExceptions, out Boolean allAreSmall )
+   {
+      var il = md?.MethodDefinitions?.GetOrNull( methodDefIndex )?.IL;
+      Boolean retVal;
+      if ( il != null )
+      {
+         var ocp = md.OpCodeProvider;
+         ilCodeByteCount = il.OpCodes.Sum( oci => oci.GetTotalByteCount( ocp ) );
+
+         var lIdx = il.LocalsSignatureIndex;
+         var localSig = lIdx.HasValue && lIdx.Value.Table == Tables.StandaloneSignature ?
+            md.StandaloneSignatures.GetOrNull( lIdx.Value.Index )?.Signature as LocalVariablesSignature :
+            null;
+
+
+         // Then calculate the size of headers and other stuff
+         var exceptionBlocks = il.ExceptionBlocks;
+         // PEVerify doesn't like mixed small and fat blocks at all (however, at least Cecil understands that kind of situation)
+         // Apparently, PEVerify doesn't like multiple small blocks either (Cecil still loads code fine)
+         // So to use small exception blocks at all, all the blocks must be small, and there must be a limited amount of them
+         allAreSmall = exceptionBlocks.Count <= CILAssemblyManipulator.Physical.IO.Defaults.SectionPart_MethodIL.MAX_SMALL_EXC_HANDLERS_IN_ONE_SECTION
+            && exceptionBlocks.All( excBlock =>
+            {
+               return excBlock.TryLength <= Byte.MaxValue
+                  && excBlock.HandlerLength <= Byte.MaxValue
+                  && excBlock.TryOffset <= UInt16.MaxValue
+                  && excBlock.HandlerOffset <= UInt16.MaxValue;
+            } );
+
+         var maxStack = il.MaxStackSize;
+
+         var excCount = exceptionBlocks.Count;
+         hasAnyExceptions = excCount > 0;
+         retVal = ilCodeByteCount < 64
+            && !hasAnyExceptions
+            && maxStack <= 8
+            && ( localSig == null || localSig.Locals.Count == 0 );
+
+      }
+      else
+      {
+         ilCodeByteCount = 0;
+         hasAnyExceptions = false;
+         allAreSmall = false;
+         retVal = false;
+      }
+
+      return retVal;
+   }
+}

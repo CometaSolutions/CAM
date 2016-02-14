@@ -2390,10 +2390,14 @@ namespace CILMerge
          var sSigs = targetModule.StandaloneSignatures.TableContents;
          for ( var i = 0; i < sSigs.Count; ++i )
          {
-            var inputInfo = this._targetTableIndexMappings[new TableIndex( Tables.StandaloneSignature, i )];
-            var inputModule = inputInfo.Item1;
-            var thisMappings = this._tableIndexMappings[inputModule];
-            sSigs[i].Signature = inputModule.StandaloneSignatures.TableContents[inputInfo.Item2].Signature.CreateDeepCopy( tIdx => thisMappings[tIdx] );
+            // Merging static ctors might have added a new standalone signature, so check this here.
+            var inputInfo = this._targetTableIndexMappings.GetOrDefault( new TableIndex( Tables.StandaloneSignature, i ) );
+            if ( inputInfo != null )
+            {
+               var inputModule = inputInfo.Item1;
+               var thisMappings = this._tableIndexMappings[inputModule];
+               sSigs[i].Signature = inputModule.StandaloneSignatures.TableContents[inputInfo.Item2].Signature.CreateDeepCopy( tIdx => thisMappings[tIdx] );
+            }
          }
 
          // PropertyDef

@@ -16,9 +16,14 @@
  * limitations under the License. 
  */
 #if !NO_ALIASES
-extern alias CAMPhysical;
-using CAMPhysical;
-using CAMPhysical::CILAssemblyManipulator.Physical.IO;
+extern alias CAMPhysicalIOD;
+extern alias CAMPhysicalIO;
+
+using CAMPhysicalIO;
+using CAMPhysicalIO::CILAssemblyManipulator.Physical.IO;
+using CAMPhysicalIOD;
+using CAMPhysicalIOD::CILAssemblyManipulator.Physical.IO;
+using CAMPhysicalIOD::CILAssemblyManipulator.Physical.IO.Defaults;
 #else
 using CILAssemblyManipulator.Physical.IO;
 #endif
@@ -842,7 +847,7 @@ public static partial class E_CILLogical
 
       internal CILType ResolveSimpleType(
 #if !NO_ALIASES
-         CAMPhysical::
+         CAMPhysicalIOD::
 #endif
          CILAssemblyManipulator.Physical.IO.SignatureElementTypes sigType )
       {

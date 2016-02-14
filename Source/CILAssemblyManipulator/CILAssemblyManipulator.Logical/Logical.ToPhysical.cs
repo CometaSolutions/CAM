@@ -16,8 +16,10 @@
  * limitations under the License. 
  */
 #if !NO_ALIASES
-extern alias CAMPhysical;
-using CAMPhysical;
+extern alias CAMPhysicalIO;
+extern alias CAMPhysicalIOD;
+
+using CAMPhysicalIO;
 #endif
 
 using CILAssemblyManipulator.Logical;
@@ -475,7 +477,7 @@ public static partial class E_CILLogical
    {
       var retVal =
 #if !NO_ALIASES
-         CAMPhysical::
+         CAMPhysicalIOD::
 #endif
          CILAssemblyManipulator.Physical.CILMetaDataFactory.NewBlankMetaData( tableInfoProvider: tableInfoProvider );
 

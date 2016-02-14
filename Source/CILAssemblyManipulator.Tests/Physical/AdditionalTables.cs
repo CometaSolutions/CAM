@@ -15,10 +15,15 @@
  * See the License for the specific language governing permissions and
  * limitations under the License. 
  */
-extern alias CAMPhysical;
-using CAMPhysical;
-using CAMPhysical::CILAssemblyManipulator.Physical.Meta;
-using CAMPhysical::CILAssemblyManipulator.Physical.IO;
+extern alias CAMPhysicalIOD;
+extern alias CAMPhysicalIO;
+
+using CAMPhysicalIOD;
+using CAMPhysicalIOD::CILAssemblyManipulator.Physical;
+using CAMPhysicalIOD::CILAssemblyManipulator.Physical.Meta;
+using CAMPhysicalIOD::CILAssemblyManipulator.Physical.IO;
+
+using CAMPhysicalIO::CILAssemblyManipulator.Physical.IO;
 
 using CILAssemblyManipulator.Physical;
 using CommonUtils;
@@ -41,7 +46,7 @@ namespace CILAssemblyManipulator.Tests.Physical
       [Test]
       public void TestBorderLineCases()
       {
-         var md = CAMPhysical::CILAssemblyManipulator.Physical.CILMetaDataFactory.NewBlankMetaData();
+         var md = CILMetaDataFactory.NewBlankMetaData();
          MetaDataTable tbl;
          Assert.IsFalse( md.TryGetByTable( (Int32) Tables.GenericParameterConstraint + 1, out tbl ) );
          Assert.IsFalse( md.TryGetByTable( (Int32) Byte.MaxValue, out tbl ) );
@@ -50,7 +55,7 @@ namespace CILAssemblyManipulator.Tests.Physical
       [Test]
       public void TestGettingTables()
       {
-         var md = CAMPhysical::CILAssemblyManipulator.Physical.CILMetaDataFactory.NewBlankMetaData();
+         var md = CILMetaDataFactory.NewBlankMetaData();
          var tablesReturned = md.GetAllTables().ToArray();
          var tablesOrdered = tablesReturned.OrderBy( t => t.GetTableIndex() ).ToArray();
          Assert.IsTrue( tablesReturned.SequenceEqual( tablesOrdered ) );
@@ -121,7 +126,7 @@ namespace CILAssemblyManipulator.Tests.Physical
 
       private static CILMetaData CreateMDWithAdditionalTables()
       {
-         return CAMPhysical::CILAssemblyManipulator.Physical.CILMetaDataFactory.CreateMinimalAssembly(
+         return CILMetaDataFactory.CreateMinimalAssembly(
             "Test_Assembly",
             null,
             createModuleType: true,

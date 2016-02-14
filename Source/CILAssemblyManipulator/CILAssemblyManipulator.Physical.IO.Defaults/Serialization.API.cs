@@ -16,9 +16,13 @@
  * limitations under the License. 
  */
 extern alias CAMPhysical;
+extern alias CAMPhysicalIO;
 using CAMPhysical;
 using CAMPhysical::CILAssemblyManipulator.Physical;
 using CAMPhysical::CILAssemblyManipulator.Physical.Meta;
+
+using CAMPhysicalIO;
+using CAMPhysicalIO::CILAssemblyManipulator.Physical.IO;
 
 using CILAssemblyManipulator.Physical;
 using CILAssemblyManipulator.Physical.IO.Defaults;

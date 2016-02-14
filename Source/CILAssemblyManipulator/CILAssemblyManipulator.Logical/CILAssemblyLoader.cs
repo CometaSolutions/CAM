@@ -16,11 +16,11 @@
  * limitations under the License. 
  */
 #if !NO_ALIASES
-extern alias CAMPhysical;
+extern alias CAMPhysicalIO;
 extern alias CAMPhysicalR;
-using CAMPhysical;
+using CAMPhysicalIO;
 using CAMPhysicalR;
-using CAMPhysical::CILAssemblyManipulator.Physical.IO;
+using CAMPhysicalIO::CILAssemblyManipulator.Physical.IO;
 using CAMPhysicalR::CILAssemblyManipulator.Physical.Resolving;
 #else
 using CILAssemblyManipulator.Physical.IO;

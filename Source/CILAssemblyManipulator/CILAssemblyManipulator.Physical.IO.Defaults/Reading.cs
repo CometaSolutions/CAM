@@ -16,9 +16,14 @@
  * limitations under the License. 
  */
 extern alias CAMPhysical;
+extern alias CAMPhysicalIO;
+
 using CAMPhysical;
 using CAMPhysical::CILAssemblyManipulator.Physical;
 using CAMPhysical::CILAssemblyManipulator.Physical.Meta;
+
+using CAMPhysicalIO;
+using CAMPhysicalIO::CILAssemblyManipulator.Physical.IO;
 
 using CILAssemblyManipulator.Physical.IO;
 using CollectionsWithRoles.API;
@@ -1045,24 +1050,8 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
 
 public static partial class E_CILPhysical
 {
-   // Technically, max size is 255, but the bitmask in CLI header can only describe presence of 64 tables
-   private const Int32 TABLE_ARRAY_SIZE = 64;
 
-   public static Int32[] CreateTableSizesArray( this MetaDataTableStreamHeader tableStreamHeader )
-   {
-      var tableSizes = new Int32[TABLE_ARRAY_SIZE];
-      var present = tableStreamHeader.PresentTablesBitVector;
-      var sizeIdx = 0;
-      for ( var i = 0; i < TABLE_ARRAY_SIZE; ++i )
-      {
-         if ( ( ( present >> i ) & 0x1 ) != 0 )
-         {
-            tableSizes[i] = (Int32) tableStreamHeader.TableSizes[sizeIdx++];
-         }
-      }
 
-      return tableSizes;
-   }
 
    [CLSCompliant( false )]
    public static UInt32 ToRVANullable( this RVAConverter rvaConverter, Int64? offset )

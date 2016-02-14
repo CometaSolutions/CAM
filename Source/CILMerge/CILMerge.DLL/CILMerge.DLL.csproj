@@ -77,6 +77,10 @@
     <Compile Include="Properties\AssemblyInfo.cs" />
   </ItemGroup>
   <ItemGroup>
+    <ProjectReference Include="..\..\CILAssemblyManipulator\CILAssemblyManipulator.Physical.IO.Defaults\CILAssemblyManipulator.Physical.IO.Defaults.csproj">
+      <Project>{c444fb53-6a71-4ff2-b412-8b1c88595955}</Project>
+      <Name>CILAssemblyManipulator.Physical.IO.Defaults</Name>
+    </ProjectReference>
     <ProjectReference Include="..\..\CILAssemblyManipulator\CILAssemblyManipulator.Physical.Loading\CILAssemblyManipulator.Physical.Loading.csproj">
       <Project>{10ef5dbb-29d5-4266-9561-1fc44b671ac7}</Project>
       <Name>CILAssemblyManipulator.Physical.Loading</Name>

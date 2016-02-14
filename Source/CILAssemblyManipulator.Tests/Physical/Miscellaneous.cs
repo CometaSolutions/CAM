@@ -15,10 +15,15 @@
  * See the License for the specific language governing permissions and
  * limitations under the License. 
  */
-extern alias CAMPhysical;
-using CAMPhysical;
-using CAMPhysical::CILAssemblyManipulator.Physical.Meta;
-using CAMPhysical::CILAssemblyManipulator.Physical.IO;
+extern alias CAMPhysicalIOD;
+extern alias CAMPhysicalIO;
+
+using CAMPhysicalIOD;
+using CAMPhysicalIOD::CILAssemblyManipulator.Physical;
+using CAMPhysicalIOD::CILAssemblyManipulator.Physical.Meta;
+using CAMPhysicalIOD::CILAssemblyManipulator.Physical.IO;
+
+using CAMPhysicalIO::CILAssemblyManipulator.Physical.IO;
 
 using CILAssemblyManipulator.Physical;
 using CommonUtils;
@@ -36,7 +41,7 @@ namespace CILAssemblyManipulator.Tests.Physical
       [Test]
       public void TestTypeDefNamesNoTypes()
       {
-         var md = CAMPhysical::CILAssemblyManipulator.Physical.CILMetaDataFactory.NewBlankMetaData();
+         var md = CILMetaDataFactory.NewBlankMetaData();
          Assert.IsEmpty( md.GetTypeDefinitionsFullNames() );
       }
 
@@ -46,7 +51,7 @@ namespace CILAssemblyManipulator.Tests.Physical
          const String NAME = "TestType";
          const String NAMESPACE = "TestNamespace";
 
-         var md = CAMPhysical::CILAssemblyManipulator.Physical.CILMetaDataFactory.NewBlankMetaData();
+         var md = CILMetaDataFactory.NewBlankMetaData();
          var tDefs = md.TypeDefinitions.TableContents;
 
          tDefs.Add( new TypeDefinition()
@@ -69,7 +74,7 @@ namespace CILAssemblyManipulator.Tests.Physical
          const String NAMESPACE_NESTED = "TestNamespace1";
 
 
-         var md = CAMPhysical::CILAssemblyManipulator.Physical.CILMetaDataFactory.NewBlankMetaData();
+         var md = CILMetaDataFactory.NewBlankMetaData();
          var tDefs = md.TypeDefinitions.TableContents;
 
          tDefs.Add( new TypeDefinition()
@@ -108,7 +113,7 @@ namespace CILAssemblyManipulator.Tests.Physical
          const String NAMESPACE_NESTED = "TestNamespace";
 
 
-         var md = CAMPhysical::CILAssemblyManipulator.Physical.CILMetaDataFactory.NewBlankMetaData();
+         var md = CILMetaDataFactory.NewBlankMetaData();
          var tDefs = md.TypeDefinitions.TableContents;
 
          tDefs.Add( new TypeDefinition()
@@ -150,7 +155,7 @@ namespace CILAssemblyManipulator.Tests.Physical
          const String NAME_NESTED4 = "NestedType4";
 
 
-         var md = CAMPhysical::CILAssemblyManipulator.Physical.CILMetaDataFactory.NewBlankMetaData();
+         var md = CILMetaDataFactory.NewBlankMetaData();
          var tDefs = md.TypeDefinitions.TableContents;
 
          tDefs.Add( new TypeDefinition()
@@ -230,7 +235,7 @@ namespace CILAssemblyManipulator.Tests.Physical
          const String NAME_NESTED4 = "NestedType4";
 
 
-         var md = CAMPhysical::CILAssemblyManipulator.Physical.CILMetaDataFactory.NewBlankMetaData();
+         var md = CILMetaDataFactory.NewBlankMetaData();
          var tDefs = md.TypeDefinitions.TableContents;
 
          tDefs.Add( new TypeDefinition()
@@ -313,7 +318,7 @@ namespace CILAssemblyManipulator.Tests.Physical
          const String NAMESPACE_NESTED = "NestedNamespace";
 
 
-         var md = CAMPhysical::CILAssemblyManipulator.Physical.CILMetaDataFactory.NewBlankMetaData();
+         var md = CILMetaDataFactory.NewBlankMetaData();
          var tDefs = md.TypeDefinitions.TableContents;
 
 
@@ -384,7 +389,7 @@ namespace CILAssemblyManipulator.Tests.Physical
       [Test]
       public void TestCapacities()
       {
-         var md = CAMPhysical::CILAssemblyManipulator.Physical.CILMetaDataFactory.NewBlankMetaData( sizes: new[] { 1, 2 } );
+         var md = CILMetaDataFactory.NewBlankMetaData( sizes: new[] { 1, 2 } );
          Assert.AreEqual( md.ModuleDefinitions.TableContents.Capacity, 1 );
          Assert.AreEqual( md.TypeReferences.TableContents.Capacity, 2 );
       }

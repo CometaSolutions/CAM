@@ -16,7 +16,7 @@
  * limitations under the License. 
  */
 #if !NO_ALIASES
-extern alias CAMPhysical;
+extern alias CAMPhysicalIOD;
 #endif
 
 using CILAssemblyManipulator.Physical;
@@ -485,7 +485,7 @@ public static partial class E_CILStructural
       // Don't use "MinimalModule", as it creates module-type
       var md =
 #if !NO_ALIASES
-         CAMPhysical::
+         CAMPhysicalIOD::
 #endif
          CILAssemblyManipulator.Physical.CILMetaDataFactory.CreateMinimalModule( module.Name, createModuleType: false, tableInfoProvider: tableInfoProvider );
 

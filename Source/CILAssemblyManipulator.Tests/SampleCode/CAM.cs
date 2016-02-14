@@ -15,10 +15,15 @@
  * See the License for the specific language governing permissions and
  * limitations under the License. 
  */
-extern alias CAMPhysical;
-using CAMPhysical;
-using CAMPhysical::CILAssemblyManipulator.Physical.Meta;
-using CAMPhysical::CILAssemblyManipulator.Physical.IO;
+extern alias CAMPhysicalIOD;
+extern alias CAMPhysicalIO;
+
+using CAMPhysicalIOD;
+using CAMPhysicalIOD::CILAssemblyManipulator.Physical;
+using CAMPhysicalIOD::CILAssemblyManipulator.Physical.Meta;
+using CAMPhysicalIOD::CILAssemblyManipulator.Physical.IO;
+
+using CAMPhysicalIO::CILAssemblyManipulator.Physical.IO;
 
 using CILAssemblyManipulator.Physical;
 using CILAssemblyManipulator.Logical;
@@ -39,7 +44,7 @@ namespace CILAssemblyManipulator.Tests.SampleCode
          // The first argument is assembly name, and second is optional module name
          // When assembly name is supplied, and module name is not, the module name will be assembly name appended by ".dll"
          // The TypeDefinition table will have the module type definition (to hold global methods) as its only row.
-         var md = CAMPhysical::CILAssemblyManipulator.Physical.CILMetaDataFactory.CreateMinimalAssembly( "MyAssembly", null );
+         var md = CILMetaDataFactory.CreateMinimalAssembly( "MyAssembly", null );
 
          // Let's add a type
          md.TypeDefinitions.TableContents.Add( new TypeDefinition()

@@ -15,12 +15,18 @@
  * See the License for the specific language governing permissions and
  * limitations under the License. 
  */
-extern alias CAMPhysical;
+extern alias CAMPhysicalIOD;
+extern alias CAMPhysicalIO;
 extern alias CAMPhysicalR;
-using CAMPhysical;
+
+using CAMPhysicalIOD;
+using CAMPhysicalIOD::CILAssemblyManipulator.Physical;
+using CAMPhysicalIOD::CILAssemblyManipulator.Physical.Meta;
+using CAMPhysicalIOD::CILAssemblyManipulator.Physical.IO;
+
+using CAMPhysicalIO::CILAssemblyManipulator.Physical.IO;
+
 using CAMPhysicalR;
-using CAMPhysical::CILAssemblyManipulator.Physical.Meta;
-using CAMPhysical::CILAssemblyManipulator.Physical.IO;
 
 using System;
 using System.Collections.Generic;
@@ -43,7 +49,7 @@ namespace CILAssemblyManipulator.Tests.Physical
          const String NS = "TestNamespace";
          const String NESTED_CLASS_NAME = "NestedType";
          const String ENCLOSING_CLASS_NAME = "EnclosingType";
-         var md = CAMPhysical::CILAssemblyManipulator.Physical.CILMetaDataFactory.CreateMinimalAssembly( null, null, false );
+         var md = CILMetaDataFactory.CreateMinimalAssembly( null, null, false );
 
          // Create some types
          md.TypeDefinitions.TableContents.Add( new TypeDefinition() { Namespace = NS, Name = NESTED_CLASS_NAME } );
@@ -81,7 +87,7 @@ namespace CILAssemblyManipulator.Tests.Physical
       [Test]
       public void TestDuplicateRemovingWithOneDuplicate()
       {
-         var md = CAMPhysical::CILAssemblyManipulator.Physical.CILMetaDataFactory.CreateMinimalAssembly( null, null, false );
+         var md = CILMetaDataFactory.CreateMinimalAssembly( null, null, false );
          md.TypeDefinitions.TableContents.Add( new TypeDefinition() { Namespace = "TestNS", Name = "TestType" } );
          var method = new MethodDefinition() { Name = "TestMethod", IL = new MethodILDefinition(), Signature = new MethodDefinitionSignature( 1 ) };
          md.MethodDefinitions.TableContents.Add( method );
@@ -99,7 +105,7 @@ namespace CILAssemblyManipulator.Tests.Physical
       [Test]
       public void TestDuplicateRemovingWithTwoDuplicates()
       {
-         var md = CAMPhysical::CILAssemblyManipulator.Physical.CILMetaDataFactory.CreateMinimalAssembly( null, null, false );
+         var md = CILMetaDataFactory.CreateMinimalAssembly( null, null, false );
          md.TypeDefinitions.TableContents.Add( new TypeDefinition() { Namespace = "TestNS", Name = "TestType" } );
          var method = new MethodDefinition() { Name = "TestMethod", IL = new MethodILDefinition(), Signature = new MethodDefinitionSignature( 1 ) };
          md.MethodDefinitions.TableContents.Add( method );

@@ -2033,6 +2033,17 @@ namespace CILAssemblyManipulator.Physical.IO
    #endregion
 
    public delegate T ReadElementFromArrayDelegate<T>( Byte[] array, ref Int32 idx );
+
+   public static class CAMIOInternals
+   {
+      public const Int32 DATA_DIR_SIZE = 0x08;
+
+      public static Byte[] WriteDataDirectory( this Byte[] array, ref Int32 idx, DataDirectory dataDir )
+      {
+         dataDir.WriteDataDirectory( array, ref idx );
+         return array;
+      }
+   }
 }
 
 public static partial class E_CILPhysical
@@ -2418,6 +2429,11 @@ public static partial class E_CILPhysical
    //   return ImageFileMachine.I386 == machine;
    //}
 
+   public static Int32 GetOptionalHeaderSize( this OptionalHeaderKind kind, Int32 peDataDirectoriesCount )
+   {
+      return ( ( kind == OptionalHeaderKind.Optional64 ? 0x70 : 0x60 ) + CAMIOInternals.DATA_DIR_SIZE * peDataDirectoriesCount );
+   }
+
    #endregion
 
    #region CIL-related
@@ -2524,19 +2540,6 @@ public static partial class E_CILPhysical
          array.ReadSequentialElements( ref idx, (UInt32) BinaryUtils.CountBitsSetU64( presentTables ), ( Byte[] a, ref Int32 i ) => a.ReadUInt32LEFromBytes( ref i ) ),
          thFlags.HasExtraData() ? array.ReadInt32LEFromBytes( ref idx ) : (Int32?) null
          );
-   }
-
-   private static DebugInformation ReadDebugInformation( this StreamHelper stream, PEInformation peInfo, RVAConverter rvaConverter )
-   {
-      var dataDirs = peInfo.NTHeader.OptionalHeader.DataDirectories;
-      DataDirectory debugDD;
-      var debugDDIdx = (Int32) DataDirectories.Debug;
-      return dataDirs.Count > debugDDIdx
-         && ( debugDD = dataDirs[debugDDIdx] ).RVA > 0 ?
-         stream
-            .At( rvaConverter.ToOffset( debugDD.RVA ) )
-            .ReadDebugInformation() :
-         null;
    }
 
    public static DebugInformation ReadDebugInformation( this StreamHelper stream )
@@ -2685,6 +2688,25 @@ public static partial class E_CILPhysical
          >( dic ).CQ.IQ );
    }
 
+   // Technically, max size is 255, but the bitmask in CLI header can only describe presence of 64 tables
+   private const Int32 TABLE_ARRAY_SIZE = 64;
+
+   public static Int32[] CreateTableSizesArray( this MetaDataTableStreamHeader tableStreamHeader )
+   {
+      var tableSizes = new Int32[TABLE_ARRAY_SIZE];
+      var present = tableStreamHeader.PresentTablesBitVector;
+      var sizeIdx = 0;
+      for ( var i = 0; i < TABLE_ARRAY_SIZE; ++i )
+      {
+         if ( ( ( present >> i ) & 0x1 ) != 0 )
+         {
+            tableSizes[i] = (Int32) tableStreamHeader.TableSizes[sizeIdx++];
+         }
+      }
+
+      return tableSizes;
+   }
+
    #endregion
 
    private static Byte[] WriteBytesEnumerable( this Byte[] bytez, ref Int32 idx, IEnumerable<Byte> enumerable )
@@ -2695,4 +2717,6 @@ public static partial class E_CILPhysical
       }
       return bytez;
    }
+
+
 }

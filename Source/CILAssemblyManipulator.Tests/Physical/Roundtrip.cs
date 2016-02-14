@@ -15,12 +15,19 @@
  * See the License for the specific language governing permissions and
  * limitations under the License. 
  */
-extern alias CAMPhysical;
+extern alias CAMPhysicalIOD;
+extern alias CAMPhysicalIO;
 extern alias CAMPhysicalR;
-using CAMPhysical;
+
+using CAMPhysicalIOD;
+using CAMPhysicalIOD::CILAssemblyManipulator.Physical;
+using CAMPhysicalIOD::CILAssemblyManipulator.Physical.Meta;
+using CAMPhysicalIOD::CILAssemblyManipulator.Physical.IO;
+
+using CAMPhysicalIO;
+using CAMPhysicalIO::CILAssemblyManipulator.Physical.IO;
+
 using CAMPhysicalR;
-using CAMPhysical::CILAssemblyManipulator.Physical.Meta;
-using CAMPhysical::CILAssemblyManipulator.Physical.IO;
 
 using System;
 using System.Collections.Generic;
@@ -100,7 +107,7 @@ namespace CILAssemblyManipulator.Tests.Physical
          Assert.IsTrue( Comparers.MetaDataEqualityComparer.Equals( read1, read2 ) );
          // We don't use public key when emitting module
          //rArgs1.Headers.ModuleFlags = ModuleFlags.ILOnly;
-         Assert.IsTrue( CAMPhysical::CILAssemblyManipulator.Physical.Comparers.ImageInformationLogicalEqualityComparer.Equals( rArgs1.ImageInformation, rArgs2.ImageInformation ) );
+         Assert.IsTrue( CAMPhysicalIO::CILAssemblyManipulator.Physical.Comparers.ImageInformationLogicalEqualityComparer.Equals( rArgs1.ImageInformation, rArgs2.ImageInformation ) );
       }
 
    }

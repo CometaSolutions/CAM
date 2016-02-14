@@ -17,8 +17,13 @@
  */
 #if !CAM_PHYSICAL_IS_PORTABLE
 extern alias CAMPhysical;
+extern alias CAMPhysicalIO;
+
 using CAMPhysical;
 using CAMPhysical::CILAssemblyManipulator.Physical;
+
+using CAMPhysicalIO;
+using CAMPhysicalIO::CILAssemblyManipulator.Physical.IO;
 
 using CILAssemblyManipulator.Physical;
 using CILAssemblyManipulator.Physical.IO;
