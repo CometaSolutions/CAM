@@ -597,21 +597,16 @@ namespace CILAssemblyManipulator.Physical
       Int32 IComparer.Compare( object x, object y )
       {
          Int32 retVal;
-         if ( x == null )
+         if ( NullSorting.NullsFirst.CheckForNullValues( x, y, out retVal ) )
          {
-            retVal = y == null ? 0 : -1;
-         }
-         else if ( y == null )
-         {
-            retVal = 1;
-         }
-         else if ( x is TableIndex && y is TableIndex )
-         {
-            retVal = this.Compare( (TableIndex) x, (TableIndex) y );
-         }
-         else
-         {
-            throw new ArgumentException( "Given object must be of type " + typeof( TableIndex ) + " or null." );
+            if ( x is TableIndex && y is TableIndex )
+            {
+               retVal = this.Compare( (TableIndex) x, (TableIndex) y );
+            }
+            else
+            {
+               throw new ArgumentException( "Given object must be of type " + typeof( TableIndex ) + " or null." );
+            }
          }
          return retVal;
       }
