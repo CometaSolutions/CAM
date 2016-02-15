@@ -1646,7 +1646,6 @@ namespace CILAssemblyManipulator.Physical.IO
    /// </summary>
    public sealed class CLIInformation
    {
-      [CLSCompliant( false )]
       public CLIInformation(
          CLIHeader cliHeader,
          MetaDataRoot mdRoot,
