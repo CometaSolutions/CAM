@@ -340,6 +340,24 @@ namespace CILAssemblyManipulator.Physical.IO
       /// </summary>
       Reserved = 0x80,
    }
+
+   [Flags]
+   public enum MethodHeaderFlags
+   {
+      TinyFormat = 0x2,
+      FatFormat = 0x3,
+      MoreSections = 0x8,
+      InitLocals = 0x10
+   }
+
+   [Flags]
+   public enum MethodDataFlags
+   {
+      ExceptionHandling = 0x1,
+      OptimizeILTable = 0x2,
+      FatFormat = 0x40,
+      MoreSections = 0x80
+   }
 }
 
 public static partial class E_CILPhysical

@@ -103,12 +103,12 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
             // Read CLI header
             cliHeader = stream
                .GoToRVA( rvaConverter, dataDirs[cliDataDirIndex].RVA )
-               .NewCLIHeaderFromStream();
+               .ReadCLIHeader();
 
             // Read MD root
             mdRoot = stream
                .GoToRVA( rvaConverter, cliHeader.MetaData.RVA )
-               .NewMetaDataRootFromStream();
+               .ReadMetaDataRoot();
          }
          else
          {
@@ -280,7 +280,7 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
 
          var array = this.Bytes;
          var idx = 0;
-         var tableHeader = array.NewTableStreamHeaderFromStream( ref idx );
+         var tableHeader = array.ReadTableStreamHeader( ref idx );
          var thFlags = tableHeader.TableStreamFlags;
 
          var tableStartPosition = idx;
@@ -1051,11 +1051,15 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
 public static partial class E_CILPhysical
 {
 
-
-
-   [CLSCompliant( false )]
-   public static UInt32 ToRVANullable( this RVAConverter rvaConverter, Int64? offset )
+   public static StreamHelper GoToRVA( this StreamHelper stream, RVAConverter rvaConverter, Int64 rva )
    {
-      return offset.HasValue ? (UInt32) rvaConverter.ToRVA( offset.Value ) : 0;
+      stream.Stream.SeekFromBegin( rvaConverter.ToOffset( rva ) );
+      return stream;
    }
+
+   //[CLSCompliant( false )]
+   //public static UInt32 ToRVANullable( this RVAConverter rvaConverter, Int64? offset )
+   //{
+   //   return offset.HasValue ? (UInt32) rvaConverter.ToRVA( offset.Value ) : 0;
+   //}
 }

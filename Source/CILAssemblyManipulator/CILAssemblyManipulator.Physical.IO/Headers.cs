@@ -1646,6 +1646,15 @@ namespace CILAssemblyManipulator.Physical.IO
    /// </summary>
    public sealed class CLIInformation
    {
+      /// <summary>
+      /// Creates a new instance of <see cref="CLIInformation"/> with given headers, strong name signature, and data references.
+      /// </summary>
+      /// <param name="cliHeader">The value for <see cref="CLIHeader"/>.</param>
+      /// <param name="mdRoot">The value for <see cref="MetaDataRoot"/>.</param>
+      /// <param name="tableStreamHeader">The value for <see cref="TableStreamHeader"/>.</param>
+      /// <param name="strongNameSignature">The value for <see cref="StrongNameSignature"/>.</param>
+      /// <param name="dataRefs">The value for <see cref="DataReferences"/>.</param>
+      /// <exception cref="ArgumentNullException">If <paramref name="cliHeader"/>, <paramref name="mdRoot"/>, <paramref name="tableStreamHeader"/> or <paramref name="dataRefs"/> is <c>null</c>.</exception>
       public CLIInformation(
          CLIHeader cliHeader,
          MetaDataRoot mdRoot,
@@ -1666,30 +1675,105 @@ namespace CILAssemblyManipulator.Physical.IO
          this.DataReferences = dataRefs;
       }
 
+      /// <summary>
+      /// Gets the <see cref="IO.CLIHeader"/> of this <see cref="CLIInformation"/>.
+      /// </summary>
+      /// <value>The <see cref="IO.CLIHeader"/> of this <see cref="CLIInformation"/>.</value>
+      /// <remarks>
+      /// This value is never <c>null</c>.
+      /// </remarks>
+      /// <seealso cref="IO.CLIHeader"/>
       public CLIHeader CLIHeader { get; }
 
+      /// <summary>
+      /// Gets the <see cref="IO.MetaDataRoot"/> of this <see cref="CLIInformation"/>.
+      /// </summary>
+      /// <value>The <see cref="IO.MetaDataRoot"/> of this <see cref="CLIInformation"/>.</value>
+      /// <remarks>
+      /// This value is never <c>null</c>.
+      /// </remarks>
+      /// <seealso cref="IO.MetaDataRoot"/>
       public MetaDataRoot MetaDataRoot { get; }
 
+      /// <summary>
+      /// Gets the <see cref="IO.MetaDataTableStreamHeader"/> of this <see cref="CLIInformation"/>.
+      /// </summary>
+      /// <value>The <see cref="IO.MetaDataTableStreamHeader"/> of this <see cref="CLIInformation"/>.</value>
+      /// <remarks>
+      /// This value is never <c>null</c>.
+      /// </remarks>
+      /// <seealso cref="IO.MetaDataTableStreamHeader"/>
       public MetaDataTableStreamHeader TableStreamHeader { get; }
 
+      /// <summary>
+      /// Gets the contents of strong name signature, or <c>null</c> if the image was not strong-name signed.
+      /// </summary>
+      /// <value>The contents of strong name signature, or <c>null</c> if the image was not strong-name signed.</value>
+      /// <remarks>
+      /// This value may be <c>null</c>.
+      /// </remarks>
       public ArrayQuery<Byte> StrongNameSignature { get; }
 
+      /// <summary>
+      /// Gets the <see cref="IO.DataReferencesInfo"/> containing information about data references of this <see cref="CLIInformation"/>.
+      /// </summary>
+      /// <value>The <see cref="IO.DataReferencesInfo"/> containing information about data references of this <see cref="CLIInformation"/>.</value>
+      /// <remarks>
+      /// This value is never <c>null</c>.
+      /// </remarks>
+      /// <seealso cref="IO.DataReferencesInfo"/>
       public DataReferencesInfo DataReferences { get; }
    }
 
+   /// <summary>
+   /// This class contains information about all data references when (de)serializing single <see cref="CILMetaData"/>.
+   /// </summary>
+   /// <seealso cref="CLIInformation.DataReferences"/>
    public sealed class DataReferencesInfo
    {
-      public DataReferencesInfo( DictionaryQuery<Tables, DictionaryQuery<Int32, ArrayQuery<Int64>>> dataRefs )
+      /// <summary>
+      /// Creates a new instance of <see cref="DataReferencesInfo"/> with given information about data references.
+      /// </summary>
+      /// <param name="dataRefs">The data references.</param>
+      /// <exception cref="ArgumentNullException">If <paramref name="dataRefs"/> is <c>null</c>.</exception>
+      public DataReferencesInfo(
+         DictionaryQuery<Tables, DictionaryQuery<Int32, ArrayQuery<Int64>>> dataRefs
+         )
       {
          ArgumentValidator.ValidateNotNull( "Data references", dataRefs );
 
          this.DataReferences = dataRefs;
       }
+
+      /// <summary>
+      /// Gets the data references contents for this <see cref="DataReferencesInfo"/>.
+      /// </summary>
+      /// <value>The data references contents for this <see cref="DataReferencesInfo"/>.</value>
       public DictionaryQuery<Tables, DictionaryQuery<Int32, ArrayQuery<Int64>>> DataReferences { get; }
    }
 
+   /// <summary>
+   /// This class contains fields and values of the CLI header.
+   /// </summary>
+   /// <seealso cref="E_CILPhysical.ReadCLIHeader"/>
+   /// <seealso cref="E_CILPhysical.WriteCLIHeader"/>
    public sealed class CLIHeader
    {
+      /// <summary>
+      /// Creates a new instance of <see cref="CLIHeader"/> with given values.
+      /// </summary>
+      /// <param name="headerSize">The value for <see cref="HeaderSize"/>.</param>
+      /// <param name="majorRuntimeVersion">The value for <see cref="MajorRuntimeVersion"/>.</param>
+      /// <param name="minorRuntimeVersion">The value for <see cref="MinorRuntimeVersion"/>.</param>
+      /// <param name="metaData">The value for <see cref="MetaData"/>.</param>
+      /// <param name="flags">The value for <see cref="Flags"/>.</param>
+      /// <param name="entryPointToken">The value for <see cref="EntryPointToken"/>.</param>
+      /// <param name="resources">The value for <see cref="Resources"/>.</param>
+      /// <param name="strongNameSignature">The value for <see cref="StrongNameSignature"/>.</param>
+      /// <param name="codeManagerTable">The value for <see cref="CodeManagerTable"/>.</param>
+      /// <param name="vTableFixups">The value for <see cref="VTableFixups"/>.</param>
+      /// <param name="exportAddressTableJumps">The value for <see cref="ExportAddressTableJumps"/>.</param>
+      /// <param name="managedNativeHeader">The value for <see cref="ManagedNativeHeader"/>.</param>
       [CLSCompliant( false )]
       public CLIHeader(
          UInt32 headerSize,
@@ -1697,7 +1781,7 @@ namespace CILAssemblyManipulator.Physical.IO
          UInt16 minorRuntimeVersion,
          DataDirectory metaData,
          ModuleFlags flags,
-         TableIndex? entryPointToken,
+         TRVA entryPointToken,
          DataDirectory resources,
          DataDirectory strongNameSignature,
          DataDirectory codeManagerTable,
@@ -1720,34 +1804,93 @@ namespace CILAssemblyManipulator.Physical.IO
          this.ManagedNativeHeader = managedNativeHeader;
       }
 
+      /// <summary>
+      /// Gets the size of this <see cref="CLIHeader"/>, in bytes.
+      /// </summary>
+      /// <value>The size of this <see cref="CLIHeader"/>, in bytes.</value>
       [CLSCompliant( false )]
       public UInt32 HeaderSize { get; }
 
+      /// <summary>
+      /// Gets the major version of the runtime the metadata was built against.
+      /// </summary>
+      /// <value>The major version of the runtime the metadata was built against.</value>
       [CLSCompliant( false )]
       public UInt16 MajorRuntimeVersion { get; }
 
+      /// <summary>
+      /// Gets the minor version of the runtime the metadata was built against.
+      /// </summary>
+      /// <value>The minor version of the runtime the metadata was built against.</value>
       [CLSCompliant( false )]
       public UInt16 MinorRuntimeVersion { get; }
 
+      /// <summary>
+      /// Gets the <see cref="DataDirectory"/> pointing to the metadata.
+      /// </summary>
+      /// <value>The <see cref="DataDirectory"/> pointing to the metadata.</value>
+      /// <seealso cref="MetaDataRoot"/>
       public DataDirectory MetaData { get; }
 
+      /// <summary>
+      /// Gets the <see cref="ModuleFlags"/> of this <see cref="CLIHeader"/>.
+      /// </summary>
+      /// <value>The <see cref="ModuleFlags"/> of this <see cref="CLIHeader"/>.</value>
+      /// <seealso cref="ModuleFlags"/>
       public ModuleFlags Flags { get; }
 
-      public TableIndex? EntryPointToken { get; }
+      /// <summary>
+      /// Gets the entry point token of this <see cref="CLIHeader"/>.
+      /// </summary>
+      /// <value>The entry point token of this <see cref="CLIHeader"/>.</value>
+      /// <seealso cref="E_CILPhysical.TryGetManagedEntryPoint"/>
+      /// <seealso cref="E_CILPhysical.TryGetManagedOrUnmanagedEntryPoint"/>
+      [CLSCompliant( false )]
+      public TRVA EntryPointToken { get; }
 
+      /// <summary>
+      /// Gets the <see cref="DataDirectory"/> pointing to the embedded managed resources.
+      /// These resources may be used by <see cref="ManifestResource"/> rows.
+      /// </summary>
+      /// <value>The <see cref="DataDirectory"/> pointing to the embedded managed resources.</value>
       public DataDirectory Resources { get; }
 
+      /// <summary>
+      /// Gets the <see cref="DataDirectory"/> pointing to the strong name signature.
+      /// </summary>
+      /// <value>The <see cref="DataDirectory"/> pointing to the strong name signature.</value>
       public DataDirectory StrongNameSignature { get; }
 
+      /// <summary>
+      /// Gets the <see cref="DataDirectory"/> pointing to the code manager table.
+      /// </summary>
+      /// <value>The <see cref="DataDirectory"/> pointing to the code manager table.</value>
       public DataDirectory CodeManagerTable { get; }
 
+      /// <summary>
+      /// Gets the <see cref="DataDirectory"/> pointing to the virtual table fixups.
+      /// </summary>
+      /// <value>The <see cref="DataDirectory"/> pointing to the virtual table fixups.</value>
       public DataDirectory VTableFixups { get; }
 
+      /// <summary>
+      /// Gets the <see cref="DataDirectory"/> pointing to the export address table jumps.
+      /// </summary>
+      /// <value>The <see cref="DataDirectory"/> pointing to the export address table jumps.</value>
       public DataDirectory ExportAddressTableJumps { get; }
 
+      /// <summary>
+      /// Gets the <see cref="DataDirectory"/> pointing to the managed native header.
+      /// </summary>
+      /// <value>The <see cref="DataDirectory"/> pointing to the managed native header.</value>
       public DataDirectory ManagedNativeHeader { get; }
    }
 
+   /// <summary>
+   /// This class contains fields and values of the header present at the start of the meta data.
+   /// </summary>
+   /// <seealso cref="E_CILPhysical.ReadMetaDataRoot"/>
+   /// <seealso cref="E_CILPhysical.WriteMetaDataRoot"/>
    public sealed class MetaDataRoot
    {
       private static readonly Encoding VERSION_ENCODING = new UTF8Encoding( false, false );
@@ -1760,12 +1903,22 @@ namespace CILAssemblyManipulator.Physical.IO
       //   }
       //}
 
+      /// <summary>
+      /// This helper method gets the number of bytes it would take to encode given version string for <see cref="VersionStringBytes"/>.
+      /// </summary>
+      /// <param name="versionString">The textual version string.</param>
+      /// <returns>The amount of bytes to encode given <paramref name="versionString"/> for <see cref="VersionStringBytes"/>.</returns>
       public static Int32 GetVersionStringByteCount( String versionString )
       {
          ArgumentValidator.ValidateNotNull( "Version string", versionString );
          return ( VERSION_ENCODING.GetByteCount( versionString ) + 1 ).RoundUpI32( 4 );
       }
 
+      /// <summary>
+      /// This helper method gets the byte content of the given textual version string for <see cref="VersionStringBytes"/>.
+      /// </summary>
+      /// <param name="versionString">The textual version string.</param>
+      /// <returns>The byte contents of given <paramref name="versionString"/> for <see cref="VersionStringBytes"/>.</returns>
       public static ArrayQuery<Byte> GetVersionStringBytes( String versionString )
       {
          if ( String.IsNullOrEmpty( versionString ) )
@@ -1779,6 +1932,20 @@ namespace CILAssemblyManipulator.Physical.IO
 
       private readonly Lazy<String> _versionString;
 
+      /// <summary>
+      /// Creates a new instance of <see cref="MetaDataRoot"/> with given values.
+      /// </summary>
+      /// <param name="signature">The value for <see cref="Signature"/>.</param>
+      /// <param name="majorVersion">The value for <see cref="MajorVersion"/>.</param>
+      /// <param name="minorVersion">The value for <see cref="MinorVersion"/>.</param>
+      /// <param name="reserved">The value for <see cref="Reserved"/>.</param>
+      /// <param name="versionStringLength">The value for <see cref="VersionStringLength"/>.</param>
+      /// <param name="versionStringBytes">The value for <see cref="VersionStringBytes"/>.</param>
+      /// <param name="storageFlags">The value for <see cref="StorageFlags"/>.</param>
+      /// <param name="reserved2">The value for <see cref="Reserved2"/>.</param>
+      /// <param name="numberOfStreams">The value for <see cref="NumberOfStreams"/>.</param>
+      /// <param name="streamHeaders">The value for <see cref="StreamHeaders"/>.</param>
+      /// <exception cref="ArgumentNullException">If <paramref name="versionStringBytes"/> or <paramref name="streamHeaders"/> is <c>null</c>.</exception>
       [CLSCompliant( false )]
       public MetaDataRoot(
          Int32 signature,
@@ -1816,21 +1983,55 @@ namespace CILAssemblyManipulator.Physical.IO
             );
       }
 
+      /// <summary>
+      /// Gets the signature of this <see cref="MetaDataRoot"/>.
+      /// </summary>
+      /// <value>The signature of this <see cref="MetaDataRoot"/>.</value>
       public Int32 Signature { get; }
 
+      /// <summary>
+      /// Gets the major version of this <see cref="MetaDataRoot"/>.
+      /// </summary>
+      /// <value>The major version of this <see cref="MetaDataRoot"/>.</value>
       [CLSCompliant( false )]
       public UInt16 MajorVersion { get; }
 
+      /// <summary>
+      /// Gets the minor version of this <see cref="MetaDataRoot"/>.
+      /// </summary>
+      /// <value>The minor version of this <see cref="MetaDataRoot"/>.</value>
       [CLSCompliant( false )]
       public UInt16 MinorVersion { get; }
 
+      /// <summary>
+      /// Gets the value reserved for future.
+      /// </summary>
+      /// <value>The value reserved for future.</value>
       public Int32 Reserved { get; }
 
+      /// <summary>
+      /// Gets the amount of the version string bytes.
+      /// </summary>
+      /// <value>The amout of the version string bytes.</value>
+      /// <remarks>
+      /// This should be the length of the <see cref="VersionStringBytes"/>.
+      /// </remarks>
       [CLSCompliant( false )]
       public UInt32 VersionStringLength { get; }
 
+      /// <summary>
+      /// Gets the bytes constituting the <see cref="VersionString"/>.
+      /// </summary>
+      /// <value>The bytes constituting the <see cref="VersionString"/>.</value>
       public ArrayQuery<Byte> VersionStringBytes { get; }
 
+      /// <summary>
+      /// Gets the version string, in textual format.
+      /// </summary>
+      /// <value>The version string, in textual format.</value>
+      /// <remarks>
+      /// This value is lazily initialized from <see cref="VersionStringBytes"/>.
+      /// </remarks>
       public String VersionString
       {
          get
@@ -1839,26 +2040,72 @@ namespace CILAssemblyManipulator.Physical.IO
          }
       }
 
+      /// <summary>
+      /// Gets the <see cref="IO.StorageFlags"/> of this <see cref="MetaDataRoot"/>.
+      /// </summary>
+      /// <value>The <see cref="IO.StorageFlags"/> of this <see cref="MetaDataRoot"/>.</value>
+      /// <seealso cref="IO.StorageFlags"/>
       public StorageFlags StorageFlags { get; }
 
+      /// <summary>
+      /// Gets the another reserved value of this <see cref="MetaDataRoot"/>.
+      /// </summary>
+      /// <value>The another reserved value of this <see cref="MetaDataRoot"/>.</value>
       public Byte Reserved2 { get; }
 
+      /// <summary>
+      /// Gets the number of metadata streams of this <see cref="MetaDataRoot"/>.
+      /// </summary>
+      /// <value>The number of metadata streams of this <see cref="MetaDataRoot"/>.</value>
+      /// <remarks>
+      /// This should be the length of the <see cref="StreamHeaders"/>.
+      /// </remarks>
       [CLSCompliant( false )]
       public UInt16 NumberOfStreams { get; }
 
+      /// <summary>
+      /// Gets the headers of all meta data streams.
+      /// </summary>
+      /// <value>The headers of all meta data streams.</value>
+      /// <seealso cref="MetaDataStreamHeader"/>
       public ArrayQuery<MetaDataStreamHeader> StreamHeaders { get; }
    }
 
+   /// <summary>
+   /// This enumeration is used by <see cref="MetaDataRoot.StorageFlags"/> to contain information about how meta data is stored.
+   /// </summary>
    public enum StorageFlags : byte
    {
+      /// <summary>
+      /// No extra information is stored with meta data.
+      /// </summary>
       Normal = 0,
+      /// <summary>
+      /// There is extra information with meta data.
+      /// </summary>
+      /// <remarks>
+      /// If this flag is set, typically the .NET runtime will refuse to load the assembly.
+      /// </remarks>
       ExtraData = 1
    }
 
+   /// <summary>
+   /// This class contains fields and values for a single meta data stream header.
+   /// </summary>
+   /// <seealso cref="E_CILPhysical.ReadMetaDataStreamHeader"/>
+   /// <seealso cref="E_CILPhysical.WriteMetaDataStreamHeader"/>
+   /// <seealso cref="AbstractMetaDataStreamHandler"/>
    public sealed class MetaDataStreamHeader
    {
       private readonly Lazy<String> _nameString;
 
+      /// <summary>
+      /// Creates a new instance of <see cref="MetaDataStreamHeader"/> with given values.
+      /// </summary>
+      /// <param name="offset">The value for <see cref="Offset"/>.</param>
+      /// <param name="size">The value for <see cref="Size"/>.</param>
+      /// <param name="nameBytes">The value for <see cref="NameBytes"/>.</param>
+      /// <exception cref="ArgumentNullException">If <paramref name="nameBytes"/> is <c>null</c>.</exception>
       [CLSCompliant( false )]
       public MetaDataStreamHeader(
          UInt32 offset,
@@ -1877,14 +2124,33 @@ namespace CILAssemblyManipulator.Physical.IO
             LazyThreadSafetyMode.ExecutionAndPublication );
       }
 
+      /// <summary>
+      /// Gets the offset where the stream starts, in bytes, from the start of the meta data.
+      /// </summary>
+      /// <value>The offset where the stream starts, in bytes, from the start of the meta data.</value>
       [CLSCompliant( false )]
       public UInt32 Offset { get; }
 
+      /// <summary>
+      /// Gets the size of the stream, in bytes.
+      /// </summary>
+      /// <value>The size of the stream, in bytes.</value>
       [CLSCompliant( false )]
       public UInt32 Size { get; }
 
+      /// <summary>
+      /// Gets the bytes constituting the <see cref="Name"/>.
+      /// </summary>
+      /// <value>The bytes constituting the <see cref="Name"/>.</value>
       public ArrayQuery<Byte> NameBytes { get; }
 
+      /// <summary>
+      /// Gets the name of the stream, in textual format.
+      /// </summary>
+      /// <value>The name of the stream, in textual format.</value>
+      /// <remarks>
+      /// This value is lazily initialized from <see cref="NameBytes"/>.
+      /// </remarks>
       public String Name
       {
          get
@@ -1894,8 +2160,28 @@ namespace CILAssemblyManipulator.Physical.IO
       }
    }
 
+   /// <summary>
+   /// This class contains fields and values for the header of the table stream.
+   /// </summary>
+   /// <seealso cref="ReaderTableStreamHandler"/>
+   /// <seealso cref="WriterTableStreamHandler"/>
+   /// <seealso cref="E_CILPhysical.ReadTableStreamHeader"/>
+   /// <seealso cref="E_CILPhysical.WriteTableStreamHeader"/>
    public sealed class MetaDataTableStreamHeader
    {
+      /// <summary>
+      /// Creates a new instance of <see cref="MetaDataTableStreamHeader"/> with given values.
+      /// </summary>
+      /// <param name="reserved">The value for <see cref="Reserved"/>.</param>
+      /// <param name="majorVersion">The value for <see cref="MajorVersion"/>.</param>
+      /// <param name="minorVersion">The value for <see cref="MinorVersion"/>.</param>
+      /// <param name="tableStreamFlags">The value for <see cref="TableStreamFlags"/>.</param>
+      /// <param name="reserved2">The value for <see cref="Reserved2"/>.</param>
+      /// <param name="presentTablesBitVector">The value for <see cref="PresentTablesBitVector"/>.</param>
+      /// <param name="sortedTablesBitVector">The value for <see cref="SortedTablesBitVector"/>.</param>
+      /// <param name="tableSizes">The value for <see cref="TableSizes"/>.</param>
+      /// <param name="extraData">The value for <see cref="ExtraData"/>.</param>
+      /// <exception cref="ArgumentNullException">If <paramref name="tableSizes"/> is <c>null</c>.</exception>
       [CLSCompliant( false )]
       public MetaDataTableStreamHeader(
          Int32 reserved,
@@ -1922,38 +2208,109 @@ namespace CILAssemblyManipulator.Physical.IO
          this.ExtraData = extraData;
       }
 
+      /// <summary>
+      /// Gets the value reserved for future use.
+      /// </summary>
+      /// <value>The value reserved for future use.</value>
       public Int32 Reserved { get; }
 
+      /// <summary>
+      /// Ges the major version of the table stream.
+      /// </summary>
+      /// <value>The major version of the table stream.</value>
       public Byte MajorVersion { get; }
 
+      /// <summary>
+      /// Ges the minor version of the table stream.
+      /// </summary>
+      /// <value>The minor version of the table stream.</value>
       public Byte MinorVersion { get; }
 
+      /// <summary>
+      /// Gets the <see cref="IO.TableStreamFlags"/> of this <see cref="MetaDataTableStreamHeader"/>.
+      /// </summary>
+      /// <value>The <see cref="IO.TableStreamFlags"/> of this <see cref="MetaDataTableStreamHeader"/>.</value>
+      /// <seealso cref="IO.TableStreamFlags"/>
       public TableStreamFlags TableStreamFlags { get; }
 
+      /// <summary>
+      /// Gest the another value reserved for future use.
+      /// </summary>
+      /// <value>The another value reserved for future use.</value>
       public Byte Reserved2 { get; }
 
+      /// <summary>
+      /// Gets the bit vector of the present tables.
+      /// </summary>
+      /// <value>The bit vector of the present tables.</value>
       [CLSCompliant( false )]
       public UInt64 PresentTablesBitVector { get; }
 
+      /// <summary>
+      /// Gets the bit vector of the sorted tables.
+      /// </summary>
+      /// <value>The bit vector of the sorted tables.</value>
       [CLSCompliant( false )]
       public UInt64 SortedTablesBitVector { get; }
 
+      /// <summary>
+      /// Gets the table sizes of the present tables.
+      /// </summary>
+      /// <value>The table sizes of the present tables.</value>
       [CLSCompliant( false )]
       public ArrayQuery<UInt32> TableSizes { get; }
 
+      /// <summary>
+      /// Gets the optional extra data of this <see cref="MetaDataTableStreamHeader"/>.
+      /// </summary>
+      /// <value>The optional extra data of this <see cref="MetaDataTableStreamHeader"/>.</value>
       public Int32? ExtraData { get; }
    }
 
+
+   /// <summary>
+   /// This enumeration is used by <see cref="MetaDataTableStreamHeader.TableStreamFlags"/> to aid reading the table stream.
+   /// </summary>
    [Flags]
    public enum TableStreamFlags : byte
    {
+      /// <summary>
+      /// The indices to the system string meta data stream are 4 bytes, instead of 2 bytes.
+      /// </summary>
       WideStrings = 0x01,
+
+      /// <summary>
+      /// The indices to the GUID meta data stream are 4 bytes, instead of 2 bytes.
+      /// </summary>
       WideGUID = 0x02,
+
+      /// <summary>
+      /// The indices to the BLOB meta data stream are 4 bytes, instead of 2 bytes.
+      /// </summary>
       WideBLOB = 0x04,
+      /// <summary>
+      /// TODO documentation.
+      /// </summary>
       Padding = 0x08,
+
+      /// <summary>
+      /// This value is reserved.
+      /// </summary>
       Reserved = 0x10,
+
+      /// <summary>
+      /// TODO documentation.
+      /// </summary>
       DeltaOnly = 0x20,
+
+      /// <summary>
+      /// The <see cref="MetaDataTableStreamHeader.ExtraData"/> value is present, following immediately the table sizes.
+      /// </summary>
       ExtraData = 0x40,
+
+      /// <summary>
+      /// The tables can have deleted rows.
+      /// </summary>
       HasDelete = 0x80,
    }
 
@@ -1971,27 +2328,33 @@ namespace CILAssemblyManipulator.Physical.IO
       /// The module contains IL code only.
       /// </summary>
       ILOnly = 0x00000001,
+
       /// <summary>
       /// The module will load into 32-bit process only (the 64-bit processes won't be able to load it).
       /// </summary>
       Required32Bit = 0x00000002,
+
       /// <summary>
       /// Obsolete flag.
       /// </summary>
       [Obsolete( "This flag should no longer be used." )]
       ILLibrary = 0x00000004,
+
       /// <summary>
       /// This module is signed with the strong name.
       /// </summary>
       StrongNameSigned = 0x00000008,
+
       /// <summary>
-      /// This module's entry point is an unmanaged method.
+      /// This module's entry point (the <see cref="CLIHeader.EntryPointToken"/>) is an unmanaged method.
       /// </summary>
       NativeEntrypoint = 0x00000010,
+
       /// <summary>
       /// Some flag related to debugging modules in WinDbg, maybe?
       /// </summary>
       TrackDebugData = 0x00010000,
+
       /// <summary>
       /// If this module is not a class library, the process it starts will run as 32-bit process even in 64-bit OS.
       /// </summary>
@@ -2011,28 +2374,11 @@ namespace CILAssemblyManipulator.Physical.IO
       Preferred32Bit = 0x00020000
    }
 
-   [Flags]
-   public enum MethodHeaderFlags
-   {
-      TinyFormat = 0x2,
-      FatFormat = 0x3,
-      MoreSections = 0x8,
-      InitLocals = 0x10
-   }
-
-   [Flags]
-   public enum MethodDataFlags
-   {
-      ExceptionHandling = 0x1,
-      OptimizeILTable = 0x2,
-      FatFormat = 0x40,
-      MoreSections = 0x80
-   }
-
    #endregion
 
-   public delegate T ReadElementFromArrayDelegate<T>( Byte[] array, ref Int32 idx );
+   internal delegate T ReadElementFromArrayDelegate<T>( Byte[] array, ref Int32 idx );
 
+   // This class will become internal when merging the CAM.Physical assemblies.
    public static class CAMIOInternals
    {
       public const Int32 DATA_DIR_SIZE = 0x08;
@@ -2048,14 +2394,18 @@ namespace CILAssemblyManipulator.Physical.IO
 public static partial class E_CILPhysical
 {
 
-   public static StreamHelper GoToRVA( this StreamHelper stream, RVAConverter rvaConverter, Int64 rva )
-   {
-      stream.Stream.SeekFromBegin( rvaConverter.ToOffset( rva ) );
-      return stream;
-   }
-
    #region PE-related
 
+   /// <summary>
+   /// This is extension method to read the <see cref="PEInformation"/> as a whole from the given stream.
+   /// </summary>
+   /// <param name="stream">The stream, as <see cref="StreamHelper"/>.</param>
+   /// <returns>The <see cref="PEInformation"/>, contents of which is read from the <paramref name="stream"/>.</returns>
+   /// <remarks>
+   /// This method assumes that the given <paramref name="stream"/> is positioned at the beginning of the <see cref="DOSHeader"/>.
+   /// This typically means the beginning of the stream itself.
+   /// </remarks>
+   /// <exception cref="NullReferenceException">If <paramref name="stream"/> is <c>null</c>.</exception>
    public static PEInformation ReadPEInformation( this StreamHelper stream )
    {
       // Read DOS header
@@ -2074,25 +2424,38 @@ public static partial class E_CILPhysical
          );
    }
 
-   public static void WritePEinformation( this PEInformation peInfo, ResizableArray<Byte> array )
+   /// <summary>
+   /// This is extension method to write this <see cref="PEInformation"/> into a given array.
+   /// </summary>
+   /// <param name="peInfo">This <see cref="PEInformation"/>.</param>
+   /// <param name="array">The byte array.</param>
+   /// <exception cref="NullReferenceException">If this <see cref="PEInformation"/> is <c>null</c>.</exception>
+   /// <exception cref="ArgumentNullException">If <paramref name="array"/> is <c>null</c>.</exception>
+   /// <exception cref="IndexOutOfRangeException">If the given <paramref name="array"/> is too small.</exception>
+   public static void WritePEinformation( this PEInformation peInfo, Byte[] array )
    {
-      var bytez = array.Array;
       var idx = 0;
 
       // DOS header
-      peInfo.DOSHeader.WriteDOSHeader( bytez, ref idx );
+      peInfo.DOSHeader.WriteDOSHeader( array, ref idx );
 
       // NT Header
       idx = (Int32) peInfo.DOSHeader.NTHeaderOffset;
-      peInfo.NTHeader.WriteNTHeader( bytez, ref idx );
+      peInfo.NTHeader.WriteNTHeader( array, ref idx );
 
       // Sections
       foreach ( var section in peInfo.SectionHeaders )
       {
-         section.WriteSectionHeader( bytez, ref idx );
+         section.WriteSectionHeader( array, ref idx );
       }
    }
 
+   /// <summary>
+   /// This is extension method to read the <see cref="DOSHeader"/> from the given stream.
+   /// </summary>
+   /// <param name="stream">The stream, as <see cref="StreamHelper"/>.</param>
+   /// <returns>The <see cref="DOSHeader"/>, contents of which is read from the <paramref name="stream"/>.</returns>
+   /// <exception cref="NullReferenceException">If <paramref name="stream"/> is <c>null</c>.</exception>
    public static DOSHeader ReadDOSHeader( this StreamHelper stream )
    {
       return new DOSHeader(
@@ -2101,8 +2464,19 @@ public static partial class E_CILPhysical
          );
    }
 
+   /// <summary>
+   /// This is extension method to write this <see cref="DOSHeader"/> into a given array.
+   /// </summary>
+   /// <param name="header">The <see cref="DOSHeader"/>.</param>
+   /// <param name="array">The byte array.</param>
+   /// <param name="idx">The index where to start writing the <see cref="DOSHeader"/>.</param>
+   /// <exception cref="NullReferenceException">If this <see cref="PEInformation"/> is <c>null</c>.</exception>
+   /// <exception cref="ArgumentNullException">If <paramref name="array"/> is <c>null</c>.</exception>
+   /// <exception cref="IndexOutOfRangeException">If the given <paramref name="array"/> is too small.</exception>
    public static void WriteDOSHeader( this DOSHeader header, Byte[] array, ref Int32 idx )
    {
+      ArgumentValidator.ValidateNotNull( "Array", array );
+
       array
          .WriteInt16LEToBytes( ref idx, header.Signature )
          .BlockCopyFrom( ref idx, new Byte[]
@@ -2338,8 +2712,8 @@ public static partial class E_CILPhysical
       return CollectionsWithRoles.Implementation.CollectionsFactorySingleton.DEFAULT_COLLECTIONS_FACTORY.NewArrayProxy( array ).CQ;
    }
 
-   [CLSCompliant( false )]
-   public static ArrayQuery<T> ReadSequentialElements<T>( this Byte[] array, ref Int32 idx, UInt32 elementCount, ReadElementFromArrayDelegate<T> singleElementReader )
+   //[CLSCompliant( false )]
+   internal static ArrayQuery<T> ReadSequentialElements<T>( this Byte[] array, ref Int32 idx, UInt32 elementCount, ReadElementFromArrayDelegate<T> singleElementReader )
    {
       var retVal = new T[elementCount];
       for ( var i = 0u; i < elementCount; ++i )
@@ -2437,7 +2811,7 @@ public static partial class E_CILPhysical
 
    #region CIL-related
 
-   public static CLIHeader NewCLIHeaderFromStream( this StreamHelper stream )
+   public static CLIHeader ReadCLIHeader( this StreamHelper stream )
    {
       return new CLIHeader(
          stream.ReadUInt32LEFromBytes(),
@@ -2445,7 +2819,7 @@ public static partial class E_CILPhysical
          stream.ReadUInt16LEFromBytes(),
          stream.ReadDataDirectory(),
          (ModuleFlags) stream.ReadInt32LEFromBytes(),
-         TableIndex.FromOneBasedTokenNullable( stream.ReadInt32LEFromBytes() ),
+         stream.ReadUInt32LEFromBytes(),
          stream.ReadDataDirectory(),
          stream.ReadDataDirectory(),
          stream.ReadDataDirectory(),
@@ -2463,7 +2837,7 @@ public static partial class E_CILPhysical
          .WriteUInt16LEToBytes( ref idx, header.MinorRuntimeVersion )
          .WriteDataDirectory( ref idx, header.MetaData )
          .WriteInt32LEToBytes( ref idx, (Int32) header.Flags )
-         .WriteInt32LEToBytes( ref idx, header.EntryPointToken.GetOneBasedToken() )
+         .WriteUInt32LEToBytes( ref idx, header.EntryPointToken )
          .WriteDataDirectory( ref idx, header.Resources )
          .WriteDataDirectory( ref idx, header.StrongNameSignature )
          .WriteDataDirectory( ref idx, header.CodeManagerTable )
@@ -2472,7 +2846,7 @@ public static partial class E_CILPhysical
          .WriteDataDirectory( ref idx, header.ManagedNativeHeader );
    }
 
-   public static MetaDataRoot NewMetaDataRootFromStream( this StreamHelper stream )
+   public static MetaDataRoot ReadMetaDataRoot( this StreamHelper stream )
    {
       UInt32 strLen;
       UInt16 streamCount;
@@ -2486,11 +2860,11 @@ public static partial class E_CILPhysical
          (StorageFlags) stream.ReadByteFromBytes(),
          stream.ReadByteFromBytes(),
          ( streamCount = stream.ReadUInt16LEFromBytes() ),
-         stream.ReadSequentialElements( streamCount, s => s.NewMetaDataStreamHeaderFromStream() )
+         stream.ReadSequentialElements( streamCount, s => s.ReadMetaDataStreamHeader() )
          );
    }
 
-   public static MetaDataStreamHeader NewMetaDataStreamHeaderFromStream( this StreamHelper stream )
+   public static MetaDataStreamHeader ReadMetaDataStreamHeader( this StreamHelper stream )
    {
       return new MetaDataStreamHeader(
          stream.ReadUInt32LEFromBytes(),
@@ -2499,7 +2873,7 @@ public static partial class E_CILPhysical
          );
    }
 
-   public static Int32 WriteMetaDataRoot( this MetaDataRoot header, ResizableArray<Byte> array )
+   public static void WriteMetaDataRoot( this MetaDataRoot header, ResizableArray<Byte> array )
    {
       var bytez = array.Array;
       var idx = 0;
@@ -2515,16 +2889,19 @@ public static partial class E_CILPhysical
          .WriteUInt16LEToBytes( ref idx, header.NumberOfStreams );
       foreach ( var hdr in header.StreamHeaders )
       {
-         bytez
-            .WriteUInt32LEToBytes( ref idx, hdr.Offset )
-            .WriteUInt32LEToBytes( ref idx, hdr.Size )
-            .WriteBytesEnumerable( ref idx, hdr.NameBytes );
+         hdr.WriteMetaDataStreamHeader( bytez, ref idx );
       }
-
-      return idx;
    }
 
-   public static MetaDataTableStreamHeader NewTableStreamHeaderFromStream( this Byte[] array, ref Int32 idx )
+   public static void WriteMetaDataStreamHeader( this MetaDataStreamHeader header, Byte[] array, ref Int32 idx )
+   {
+      array
+         .WriteUInt32LEToBytes( ref idx, header.Offset )
+         .WriteUInt32LEToBytes( ref idx, header.Size )
+         .WriteBytesEnumerable( ref idx, header.NameBytes );
+   }
+
+   public static MetaDataTableStreamHeader ReadTableStreamHeader( this Byte[] array, ref Int32 idx )
    {
       UInt64 presentTables;
       TableStreamFlags thFlags;
@@ -2539,6 +2916,33 @@ public static partial class E_CILPhysical
          array.ReadSequentialElements( ref idx, (UInt32) BinaryUtils.CountBitsSetU64( presentTables ), ( Byte[] a, ref Int32 i ) => a.ReadUInt32LEFromBytes( ref i ) ),
          thFlags.HasExtraData() ? array.ReadInt32LEFromBytes( ref idx ) : (Int32?) null
          );
+   }
+
+   public static Int32 WriteTableStreamHeader( this MetaDataTableStreamHeader header, ResizableArray<Byte> byteArray )
+   {
+      var idx = 0;
+      var array = byteArray.Array;
+      array
+         .WriteInt32LEToBytes( ref idx, header.Reserved )
+         .WriteByteToBytes( ref idx, header.MajorVersion )
+         .WriteByteToBytes( ref idx, header.MinorVersion )
+         .WriteByteToBytes( ref idx, (Byte) header.TableStreamFlags )
+         .WriteByteToBytes( ref idx, header.Reserved2 )
+         .WriteUInt64LEToBytes( ref idx, header.PresentTablesBitVector )
+         .WriteUInt64LEToBytes( ref idx, header.SortedTablesBitVector );
+
+      var tableSizes = header.TableSizes;
+      for ( var i = 0; i < tableSizes.Count; ++i )
+      {
+         array.WriteUInt32LEToBytes( ref idx, tableSizes[i] );
+      }
+      var extraData = header.ExtraData;
+      if ( extraData.HasValue )
+      {
+         array.WriteInt32LEToBytes( ref idx, extraData.Value );
+      }
+
+      return idx;
    }
 
    public static DebugInformation ReadDebugInformation( this StreamHelper stream )
@@ -2600,6 +3004,11 @@ public static partial class E_CILPhysical
    public static Boolean IsILOnly( this ModuleFlags mFlags )
    {
       return ( mFlags & ModuleFlags.ILOnly ) != 0;
+   }
+
+   public static Boolean IsNativeEntryPoint( this ModuleFlags mFlags )
+   {
+      return ( mFlags & ModuleFlags.NativeEntrypoint ) != 0;
    }
 
    public static Boolean IsWideStrings( this TableStreamFlags flags )
@@ -2704,6 +3113,39 @@ public static partial class E_CILPhysical
       }
 
       return tableSizes;
+   }
+
+   public static Boolean TryGetManagedEntryPoint( this CLIHeader header, out TableIndex managedEP )
+   {
+      TableIndex? ep;
+      Boolean retVal;
+      if ( !header.Flags.IsNativeEntryPoint() && ( ep = TableIndex.FromOneBasedTokenNullable( (Int32) header.EntryPointToken ) ).HasValue )
+      {
+         managedEP = ep.Value;
+         retVal = true;
+      }
+      else
+      {
+         managedEP = default( TableIndex );
+         retVal = false;
+      }
+      return retVal;
+   }
+
+   public static Boolean TryGetManagedOrUnmanagedEntryPoint( this CLIHeader header, out Int32 entryPointToken )
+   {
+      Boolean retVal = header.Flags.IsNativeEntryPoint();
+      if ( header.Flags.IsNativeEntryPoint() )
+      {
+         entryPointToken = (Int32) header.EntryPointToken;
+      }
+      else
+      {
+         TableIndex ep;
+         retVal = header.TryGetManagedEntryPoint( out ep );
+         entryPointToken = retVal ? ep.GetOneBasedToken() : 0;
+      }
+      return retVal;
    }
 
    #endregion

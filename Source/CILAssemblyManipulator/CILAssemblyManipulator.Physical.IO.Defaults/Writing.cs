@@ -251,7 +251,7 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
          // PE information
          var headersSize = writingStatus.HeadersSizeUnaligned;
          array.CurrentMaxCapacity = headersSize;
-         peInfo.WritePEinformation( array );
+         peInfo.WritePEinformation( array.Array );
 
          stream.Position = 0;
          stream.Write( array.Array, headersSize );
@@ -519,13 +519,33 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
          {
             flags |= ModuleFlags.StrongNameSigned;
          }
+         var managedEP = options.ManagedEntryPointToken;
+         Int32 ep;
+         if ( managedEP.HasValue )
+         {
+            ep = managedEP.Value.GetOneBasedToken();
+         }
+         else
+         {
+            var nativeEP = options.UnmanagedEntryPointToken;
+            if ( nativeEP.HasValue )
+            {
+               ep = nativeEP.Value;
+               flags |= ModuleFlags.NativeEntrypoint;
+            }
+            else
+            {
+               ep = 0;
+            }
+         }
+
          return new CLIHeader(
                SectionPart_CLIHeader.HEADER_SIZE,
                (UInt16) ( options.MajorRuntimeVersion ?? 2 ),
                (UInt16) ( options.MinorRuntimeVersion ?? 5 ),
                partInfos.GetDataDirectoryForSectionPart( md ),
                flags,
-               options.EntryPointToken,
+               (UInt32) ep,
                partInfos.GetDataDirectoryForSectionPart( embeddedResources ),
                partInfos.GetDataDirectoryForSectionPart( snData ),
                default( DataDirectory ), // TODO: customize code manager
@@ -2186,7 +2206,7 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
 
          // Header
          array.CurrentMaxCapacity = (Int32) writeInfo.HeaderSize;
-         var headerSize = WriteTableHeader( array, writeInfo.Header );
+         var headerSize = writeInfo.Header.WriteTableStreamHeader( array );
          sink.Write( array.Array, headerSize );
 
          // Rows
@@ -2234,36 +2254,6 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
       protected ArrayQuery<TableSerializationInfo> TableSerializations { get; }
 
       protected ArrayQuery<Int32> TableSizes { get; }
-
-      private static Int32 WriteTableHeader(
-         ResizableArray<Byte> byteArray,
-         MetaDataTableStreamHeader header
-         )
-      {
-         var idx = 0;
-         var array = byteArray.Array;
-         array
-            .WriteInt32LEToBytes( ref idx, header.Reserved )
-            .WriteByteToBytes( ref idx, header.MajorVersion )
-            .WriteByteToBytes( ref idx, header.MinorVersion )
-            .WriteByteToBytes( ref idx, (Byte) header.TableStreamFlags )
-            .WriteByteToBytes( ref idx, header.Reserved2 )
-            .WriteUInt64LEToBytes( ref idx, header.PresentTablesBitVector )
-            .WriteUInt64LEToBytes( ref idx, header.SortedTablesBitVector );
-
-         var tableSizes = header.TableSizes;
-         for ( var i = 0; i < tableSizes.Count; ++i )
-         {
-            array.WriteUInt32LEToBytes( ref idx, tableSizes[i] );
-         }
-         var extraData = header.ExtraData;
-         if ( extraData.HasValue )
-         {
-            array.WriteInt32LEToBytes( ref idx, extraData.Value );
-         }
-
-         return idx;
-      }
 
       private TableStreamFlags CreateTableStreamFlags( WriterMetaDataStreamContainer streams )
       {

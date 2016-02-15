@@ -168,10 +168,10 @@ namespace CILMerge
          var imageInfo = this._eArgs.ImageInformation;
          if ( imageInfo != null )
          {
-            var ep = imageInfo.CLIInformation.CLIHeader.EntryPointToken;
-            if ( ep.HasValue )
+            Int32 epToken;
+            if ( imageInfo.CLIInformation.CLIHeader.TryGetManagedOrUnmanagedEntryPoint( out epToken ) )
             {
-               this._unmanagedWriter.SetUserEntryPoint( new SymbolToken( ep.Value.GetOneBasedToken() ) );
+               this._unmanagedWriter.SetUserEntryPoint( new SymbolToken( epToken ) );
             }
             this._unmanagedWriter.Close();
             try

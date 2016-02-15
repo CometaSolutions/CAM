@@ -882,10 +882,10 @@ namespace CILMerge
          WritingArguments eArgs
          )
       {
-         var ep = this._moduleLoader.GetImageInformation( this._primaryModule ).CLIInformation.CLIHeader.EntryPointToken;
-         if ( ep.HasValue )
+         TableIndex ep;
+         if ( this._moduleLoader.GetImageInformation( this._primaryModule ).CLIInformation.CLIHeader.TryGetManagedEntryPoint( out ep ) )
          {
-            eArgs.WritingOptions.CLIOptions.HeaderOptions.EntryPointToken = this._tableIndexMappings[this._primaryModule][ep.Value];
+            eArgs.WritingOptions.CLIOptions.HeaderOptions.ManagedEntryPointToken = this._tableIndexMappings[this._primaryModule][ep];
          }
          this._targetModule.WriteModuleTo( this._options.OutPath, eArgs );
       }

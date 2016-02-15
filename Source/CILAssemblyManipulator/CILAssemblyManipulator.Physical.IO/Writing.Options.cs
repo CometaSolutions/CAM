@@ -420,14 +420,27 @@ namespace CILAssemblyManipulator.Physical.IO
       public ModuleFlags? ModuleFlags { get; set; }
 
       /// <summary>
-      /// Gets or sets the value for <see cref="CLIHeader.EntryPointToken"/> property.
+      /// Gets or sets the value for <see cref="CLIHeader.EntryPointToken"/> property, as <see cref="TableIndex"/> reference to managed code.
       /// </summary>
-      /// <value>The value for <see cref="CLIHeader.EntryPointToken"/> property.</value>
+      /// <value>The value for <see cref="CLIHeader.EntryPointToken"/> property, as <see cref="TableIndex"/> reference to managed code.</value>
       /// <remarks>
       /// By default, the <c>null</c> value will be used.
+      /// The <see cref="TableIndex.Table"/> property should be either <see cref="Tables.MethodDef"/> or <see cref="Tables.File"/>.
+      /// If both <see cref="ManagedEntryPointToken"/> and <see cref="UnmanagedEntryPointToken"/> are set, then the <see cref="ManagedEntryPointToken"/> takes precedence.
       /// </remarks>
       /// <seealso cref="CLIHeader.EntryPointToken"/>
-      public TableIndex? EntryPointToken { get; set; }
+      public TableIndex? ManagedEntryPointToken { get; set; }
+
+      /// <summary>
+      /// Gets or sets the value for <see cref="CLIHeader.EntryPointToken"/> property, as RVA to unmanaged code.
+      /// </summary>
+      /// <value>The value for <see cref="CLIHeader.EntryPointToken"/> property, as RVA to unmanaged code.</value>
+      /// <remarks>
+      /// By default, the <c>null</c> value will be used.
+      /// If both <see cref="ManagedEntryPointToken"/> and <see cref="UnmanagedEntryPointToken"/> are set, then the <see cref="ManagedEntryPointToken"/> takes precedence.
+      /// </remarks>
+      /// <seealso cref="CLIHeader.EntryPointToken"/>
+      public Int32? UnmanagedEntryPointToken { get; set; }
    }
 
    /// <summary>
@@ -664,6 +677,22 @@ public static partial class E_CILPhysical
       var cliHeader = cliInfo.CLIHeader;
       var mdRoot = cliInfo.MetaDataRoot;
       var tableStream = cliInfo.TableStreamHeader;
+      var cliOptions = new WritingOptions_CLIHeader()
+      {
+         MajorRuntimeVersion = (Int16) cliHeader.MajorRuntimeVersion,
+         MinorRuntimeVersion = (Int16) cliHeader.MinorRuntimeVersion,
+         ModuleFlags = cliHeader.Flags
+      };
+      var epInt = (Int32) cliHeader.EntryPointToken;
+
+      if ( cliHeader.Flags.IsNativeEntryPoint() )
+      {
+         cliOptions.UnmanagedEntryPointToken = epInt;
+      }
+      else
+      {
+         cliOptions.ManagedEntryPointToken = TableIndex.FromOneBasedTokenNullable( (Int32) cliHeader.EntryPointToken );
+      }
 
       return new WritingOptions(
          new WritingOptions_PE()
@@ -695,13 +724,7 @@ public static partial class E_CILPhysical
             Win32VersionValue = (Int32) optionalHeader.Win32VersionValue
          },
          new WritingOptions_CLI(
-            new WritingOptions_CLIHeader()
-            {
-               EntryPointToken = cliHeader.EntryPointToken,
-               MajorRuntimeVersion = (Int16) cliHeader.MajorRuntimeVersion,
-               MinorRuntimeVersion = (Int16) cliHeader.MinorRuntimeVersion,
-               ModuleFlags = cliHeader.Flags
-            },
+            cliOptions,
             new WritingOptions_MetaDataRoot()
             {
                MajorVersion = (Int16) mdRoot.MajorVersion,
@@ -734,4 +757,5 @@ public static partial class E_CILPhysical
          IsExecutable = !fileHeader.Characteristics.IsDLL()
       };
    }
+
 }
