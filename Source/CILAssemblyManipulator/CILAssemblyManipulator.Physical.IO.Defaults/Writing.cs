@@ -53,12 +53,7 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
       {
          newMD = null;
          newStream = null;
-         return new DefaultWriterFunctionality( md, options, new TableSerializationInfoCreationArgs( errorHandler ), mdSerialization: this.CreateMDSerialization() );
-      }
-
-      protected virtual MetaDataSerializationSupportProvider CreateMDSerialization()
-      {
-         return DefaultMetaDataSerializationSupportProvider.Instance;
+         return new DefaultWriterFunctionality( md, options, new TableSerializationInfoCreationArgs( errorHandler ) );
       }
    }
 
@@ -68,14 +63,12 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
       public DefaultWriterFunctionality(
          CILMetaData md,
          WritingOptions options,
-         TableSerializationInfoCreationArgs serializationCreationArgs,
-         MetaDataSerializationSupportProvider mdSerialization = null
+         TableSerializationInfoCreationArgs serializationCreationArgs
          )
       {
          this.MetaData = md;
          this.WritingOptions = options ?? new WritingOptions();
-         this.MDSerialization = mdSerialization ?? DefaultMetaDataSerializationSupportProvider.Instance;
-         this.TableSerializations = this.MDSerialization.CreateTableSerializationInfos( md, serializationCreationArgs ).ToArrayProxy().CQ;
+         this.TableSerializations = serializationCreationArgs.CreateTableSerializationInfos( md ).ToArrayProxy().CQ;
          this.TableSizes = this.TableSerializations.CreateTableSizeArray( md );
       }
 
@@ -257,8 +250,6 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
       }
 
       protected CILMetaData MetaData { get; }
-
-      protected MetaDataSerializationSupportProvider MDSerialization { get; }
 
       protected ArrayQuery<TableSerializationInfo> TableSerializations { get; }
 
@@ -1708,16 +1699,6 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
          return retVal;
       }
    }
-
-   public partial class DefaultMetaDataSerializationSupportProvider
-   {
-      protected virtual SectionPartWithRVAs ProcessSectionPart( SectionPartWithRVAs section )
-      {
-         // Just return the section itself.
-         return section;
-      }
-   }
-
 
 
    public abstract class AbstractWriterStreamHandlerImpl : AbstractWriterStreamHandler

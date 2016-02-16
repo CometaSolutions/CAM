@@ -610,7 +610,7 @@ public static partial class E_CILPhysical
    public static Int32 GetTotalByteCount( this OpCodeInfo info, OpCodeProvider opCodeProvider )
    {
       // First call DynamicOperandByteSize so we would get NullReferenceException *before* ArgumentNullException
-      return info.DynamicOperandByteSize + ArgumentValidator.ValidateNotNullAndReturn( "Op code provider", opCodeProvider ).GetCodeFor( info.OpCodeID ).GetFixedByteCount();
+      return info.DynamicOperandByteSize + ArgumentValidator.ValidateNotNull( "Op code provider", opCodeProvider ).GetCodeFor( info.OpCodeID ).GetFixedByteCount();
    }
 
    /// <summary>

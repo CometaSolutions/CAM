@@ -77,7 +77,7 @@ namespace CILAssemblyManipulator.Logical.Implementation
          {
             codeInfoILOffsets.Add( ilOffset, this._opCodes.Count );
 
-            var physical = ILSerialization.TryReadOpCode( il, ref ilOffset, t => (String) tokenResolver( t, ILResolveKind.String ), ocp );
+            var physical = ocp.TryReadOpCode( il, ref ilOffset, t => (String) tokenResolver( t, ILResolveKind.String ) );
             LogicalOpCodeInfo logical;
             Int32 int32;
             var codeID = physical.OpCodeID;

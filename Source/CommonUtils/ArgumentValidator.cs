@@ -36,25 +36,9 @@ namespace CommonUtils
       /// <typeparam name="T">Type of parameter, must be class; to ensure that this method won't be called for struct parameters.</typeparam>
       /// <param name="parameterName">The name of the parameter.</param>
       /// <param name="value">The given parameter.</param>
+      /// <returns>The <paramref name="value"/>.</returns>
       /// <exception cref="ArgumentNullException">If the <paramref name="value"/> is <c>null</c>.</exception>
-      public static void ValidateNotNull<T>( String parameterName, T value )
-         where T : class
-      {
-         if ( value == null )
-         {
-            throw new ArgumentNullException( parameterName );
-         }
-      }
-
-      /// <summary>
-      /// Checks whether a method parameter is <c>null</c>.
-      /// </summary>
-      /// <typeparam name="T">Type of parameter, must be class; to ensure that this method won't be called for struct parameters.</typeparam>
-      /// <param name="parameterName">The name of the parameter.</param>
-      /// <param name="value">The given parameter.</param>
-      /// <returns>The <paramref name="value"/> given as parameter.</returns>
-      /// <exception cref="ArgumentNullException">If the <paramref name="value"/> is <c>null</c>.</exception>
-      public static T ValidateNotNullAndReturn<T>( String parameterName, T value )
+      public static T ValidateNotNull<T>( String parameterName, T value )
          where T : class
       {
          if ( value == null )
@@ -65,20 +49,43 @@ namespace CommonUtils
       }
 
       /// <summary>
+      /// Checks whether the <c>this</c> parameter for extension method is <c>null</c>.
+      /// </summary>
+      /// <typeparam name="T">Type of parameter, must be class; to ensure that this method won't be called for struct parameters.</typeparam>
+      /// <param name="value">The <c>this</c> parameter.</param>
+      /// <returns>The <paramref name="value"/></returns>
+      /// <exception cref="NullReferenceException">If <paramref name="value"/> is <c>null</c>.</exception>
+      /// <remarks>
+      /// This method throws <see cref="NullReferenceException"/> instead of <see cref="ArgumentNullException"/> because it is intended to be used solely as validating the <c>this</c> parameter of an extension method.
+      /// If the extension method is later added to the interface itself instead of being an extension method, the exception behaviour will not change, and the client code don't need to re-adapt their catch-handlers.
+      /// </remarks>
+      public static T ValidateNotNullReference<T>( T value )
+         where T : class
+      {
+         if ( value == null )
+         {
+            throw new NullReferenceException( "Extension method 'this' parameter is null." );
+         }
+         return value;
+      }
+
+      /// <summary>
       /// Checks whether given enumerable parameter has any elements.
       /// </summary>
       /// <typeparam name="T">The type of the enumerable element.</typeparam>
       /// <param name="parameterName">The name of the parameter.</param>
       /// <param name="value">The given parameter.</param>
+      /// <returns>The <paramref name="value"/>.</returns>
       /// <exception cref="ArgumentNullException">If the <paramref name="value"/> is <c>null</c>.</exception>
       /// <exception cref="ArgumentException">If the <paramref name="value"/> is empty.</exception>
-      public static void ValidateNotEmpty<T>( String parameterName, IEnumerable<T> value )
+      public static IEnumerable<T> ValidateNotEmpty<T>( String parameterName, IEnumerable<T> value )
       {
          ValidateNotNull( parameterName, value );
          if ( !value.Any() )
          {
             throw new ArgumentException( parameterName + " was empty." );
          }
+         return value;
       }
 
       /// <summary>
@@ -87,15 +94,17 @@ namespace CommonUtils
       /// <typeparam name="T">The type of the array element.</typeparam>
       /// <param name="parameterName">The name of the parameter</param>
       /// <param name="value">The given parameter</param>
+      /// <returns>The <paramref name="value"/>.</returns>
       /// <exception cref="ArgumentNullException">If the <paramref name="value"/> is <c>null</c>.</exception>
       /// <exception cref="ArgumentException">If the <paramref name="value"/> is empty.</exception>
-      public static void ValidateNotEmpty<T>( String parameterName, T[] value )
+      public static T[] ValidateNotEmpty<T>( String parameterName, T[] value )
       {
          ValidateNotNull( parameterName, value );
          if ( value.Length <= 0 )
          {
             throw new ArgumentException( parameterName + " was empty." );
          }
+         return value;
       }
 
       /// <summary>
@@ -103,15 +112,17 @@ namespace CommonUtils
       /// </summary>
       /// <param name="parameterName">The name of the parameter</param>
       /// <param name="value">The given parameter</param>
+      /// <returns>The <paramref name="value"/>.</returns>
       /// <exception cref="ArgumentNullException">If the <paramref name="value"/> is <c>null</c>.</exception>
       /// <exception cref="ArgumentException">If the <paramref name="value"/> is empty.</exception>
-      public static void ValidateNotEmpty( String parameterName, String value )
+      public static String ValidateNotEmpty( String parameterName, String value )
       {
          ValidateNotNull( parameterName, value );
          if ( value.Length == 0 )
          {
             throw new ArgumentException( parameterName + " was empty string." );
          }
+         return value;
       }
 
       /// <summary>
@@ -121,8 +132,9 @@ namespace CommonUtils
       /// <typeparam name="T">The type of items.</typeparam>
       /// <param name="parameterName">The name of the parameter.</param>
       /// <param name="values">The given paramter.</param>
+      /// <returns>The <paramref name="values"/>.</returns>
       /// <exception cref="ArgumentNullException">If <paramref name="values"/> is <c>null</c>, or if it contains at least one <c>null</c> item.</exception>
-      public static void ValidateAllNotNull<T>( String parameterName, IEnumerable<T> values )
+      public static IEnumerable<T> ValidateAllNotNull<T>( String parameterName, IEnumerable<T> values )
          where T : class
       {
          ValidateNotNull( parameterName, values );
@@ -137,6 +149,8 @@ namespace CommonUtils
          {
             throw new ArgumentNullException( $"The item at index ${idx - 1} was null." );
          }
+
+         return values;
       }
    }
 }

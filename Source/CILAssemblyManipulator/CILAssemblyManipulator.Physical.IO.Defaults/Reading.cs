@@ -39,31 +39,49 @@ using CILAssemblyManipulator.Physical.Meta;
 
 namespace CILAssemblyManipulator.Physical.IO.Defaults
 {
+   /// <summary>
+   /// This class provides default implementation for <see cref="ReaderFunctionalityProvider"/>.
+   /// </summary>
    public class DefaultReaderFunctionalityProvider : ReaderFunctionalityProvider
    {
+      /// <summary>
+      /// This method will return <see cref="DefaultReaderFunctionality"/>.
+      /// </summary>
+      /// <param name="stream">The <see cref="Stream"/>.</param>
+      /// <param name="mdTableInfoProvider">The <see cref="CILMetaDataTableInformationProvider"/>.</param>
+      /// <param name="errorHandler">The error handler callback.</param>
+      /// <param name="deserializingDataReferences">Whether data references are deserialized.</param>
+      /// <param name="newStream">This parameter will hold a new <see cref="MemoryStream"/> if <paramref name="stream"/> is not already a <see cref="MemoryStream"/>, and <paramref name="deserializingDataReferences"/> is <c>true</c>. Otherwise, this will be <c>null</c>.</param>
+      /// <returns>A new instance of <see cref="DefaultReaderFunctionality"/>.</returns>
       public virtual ReaderFunctionality GetFunctionality(
          Stream stream,
          CILMetaDataTableInformationProvider mdTableInfoProvider,
          EventHandler<SerializationErrorEventArgs> errorHandler,
+         Boolean deserializingDataReferences,
          out Stream newStream
          )
       {
          // We are going to do a lot of seeking, so just read whole stream into byte array and use memory stream
-         newStream = stream is MemoryStream ? null : new MemoryStream( stream.ReadUntilTheEnd(), this.IsMemoryStreamWriteable );
-         return new DefaultReaderFunctionality( new TableSerializationInfoCreationArgs( errorHandler ), tableInfoProvider: mdTableInfoProvider, mdSerialization: this.CreateMDSerialization() );
+         newStream = !( stream is MemoryStream ) && deserializingDataReferences ?
+            new MemoryStream( stream.ReadUntilTheEnd(), this.IsMemoryStreamWriteable ) :
+            null;
+         return new DefaultReaderFunctionality( new TableSerializationInfoCreationArgs( errorHandler ), tableInfoProvider: mdTableInfoProvider );
       }
 
+      /// <summary>
+      /// Gets the value indicating whether the memory stream created by <see cref="GetFunctionality"/> method is writeable.
+      /// </summary>
+      /// <value>The value indicating whether the memory stream created by <see cref="GetFunctionality"/> method is writeable.</value>
+      /// <remarks>
+      /// By default, this method returns <c>false</c>.
+      /// Subclasses may override for customized behaviour.
+      /// </remarks>
       protected virtual Boolean IsMemoryStreamWriteable
       {
          get
          {
             return false;
          }
-      }
-
-      protected virtual MetaDataSerializationSupportProvider CreateMDSerialization()
-      {
-         return DefaultMetaDataSerializationSupportProvider.Instance;
       }
    }
 
@@ -72,13 +90,11 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
 
       public DefaultReaderFunctionality(
          TableSerializationInfoCreationArgs serializationCreationArgs,
-         CILMetaDataTableInformationProvider tableInfoProvider = null,
-         MetaDataSerializationSupportProvider mdSerialization = null
+         CILMetaDataTableInformationProvider tableInfoProvider = null
          )
       {
-         this.MDSerialization = mdSerialization ?? new DefaultMetaDataSerializationSupportProvider();
          this.TableInfoProvider = tableInfoProvider ?? DefaultMetaDataTableInformationProvider.CreateDefault();
-         this.TableSerializations = this.MDSerialization.CreateTableSerializationInfos( this.TableInfoProvider, serializationCreationArgs ).ToArrayProxy().CQ;
+         this.TableSerializations = serializationCreationArgs.CreateTableSerializationInfos( this.TableInfoProvider ).ToArrayProxy().CQ;
       }
 
       public virtual Boolean ReadImageInformation(
@@ -207,8 +223,6 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
       }
 
       protected CILMetaDataTableInformationProvider TableInfoProvider { get; }
-
-      protected MetaDataSerializationSupportProvider MDSerialization { get; }
 
       protected ArrayQuery<TableSerializationInfo> TableSerializations { get; }
 
@@ -804,276 +818,6 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
             retVal = null;
          }
 
-         return retVal;
-      }
-   }
-
-   public partial class DefaultMetaDataSerializationSupportProvider
-   {
-
-
-      public static MethodILDefinition DeserializeIL(
-         RawValueProcessingArgs args,
-         Int32 rva,
-         MethodDefinition mDef
-         )
-      {
-         Int64 offset;
-         MethodILDefinition retVal = null;
-         if ( rva != 0
-            && ( offset = args.RVAConverter.ToOffset( rva ) ) > 0
-            && mDef.ShouldHaveMethodBody()
-            )
-         {
-            var stream = args.Stream.At( offset );
-            var array = args.Array;
-            var userStrings = args.MDStreamContainer.UserStrings;
-
-
-            const Int32 FORMAT_MASK = 0x00000001;
-            const Int32 FLAG_MASK = 0x00000FFF;
-            const Int32 SEC_SIZE_MASK = unchecked((Int32) 0xFFFFFF00);
-            const Int32 SEC_FLAG_MASK = 0x000000FF;
-            retVal = new MethodILDefinition();
-
-            Byte b;
-            Int32 codeSize;
-            if ( stream.TryReadByteFromBytes( out b ) )
-            {
-               Byte b2;
-               if ( ( FORMAT_MASK & b ) == 0 )
-               {
-                  // Tiny header - no locals, no exceptions, no extra data
-                  CreateOpCodes( args.MetaData, retVal, stream.Stream, array, b >> 2, userStrings );
-                  // Max stack is 8
-                  retVal.MaxStackSize = 8;
-                  retVal.InitLocals = false;
-               }
-               else if ( stream.TryReadByteFromBytes( out b2 ) )
-               {
-                  var starter = ( b2 << 8 ) | b;
-                  var flags = (MethodHeaderFlags) ( starter & FLAG_MASK );
-                  retVal.InitLocals = ( flags & MethodHeaderFlags.InitLocals ) != 0;
-                  var headerSize = ( starter >> 12 ) * 4; // Header size is written as amount of integers
-                                                          // Read max stack
-                  var bytes = array.ReadIntoResizableArray( stream.Stream, headerSize - 2 );
-                  var idx = 0;
-                  retVal.MaxStackSize = bytes.ReadUInt16LEFromBytes( ref idx );
-                  codeSize = bytes.ReadInt32LEFromBytes( ref idx );
-                  retVal.LocalsSignatureIndex = TableIndex.FromOneBasedTokenNullable( bytes.ReadInt32LEFromBytes( ref idx ) );
-
-                  // Read code
-                  if ( CreateOpCodes( args.MetaData, retVal, stream.Stream, array, codeSize, userStrings )
-                     && ( flags & MethodHeaderFlags.MoreSections ) != 0 )
-                  {
-
-                     stream.SkipToNextAlignmentInt32();
-                     // Read sections
-                     MethodDataFlags secFlags;
-                     do
-                     {
-                        var secHeader = stream.ReadInt32LEFromBytes();
-                        secFlags = (MethodDataFlags) ( secHeader & SEC_FLAG_MASK );
-                        var secByteSize = ( secHeader & SEC_SIZE_MASK ) >> 8;
-                        secByteSize -= 4;
-                        var isFat = ( secFlags & MethodDataFlags.FatFormat ) != 0;
-                        bytes = array.ReadIntoResizableArray( stream.Stream, secByteSize );
-                        idx = 0;
-                        while ( secByteSize > 0 )
-                        {
-                           var eType = (ExceptionBlockType) ( isFat ? bytes.ReadInt32LEFromBytes( ref idx ) : bytes.ReadUInt16LEFromBytes( ref idx ) );
-                           retVal.ExceptionBlocks.Add( new MethodExceptionBlock()
-                           {
-                              BlockType = eType,
-                              TryOffset = isFat ? bytes.ReadInt32LEFromBytes( ref idx ) : bytes.ReadUInt16LEFromBytes( ref idx ),
-                              TryLength = isFat ? bytes.ReadInt32LEFromBytes( ref idx ) : bytes.ReadByteFromBytes( ref idx ),
-                              HandlerOffset = isFat ? bytes.ReadInt32LEFromBytes( ref idx ) : bytes.ReadUInt16LEFromBytes( ref idx ),
-                              HandlerLength = isFat ? bytes.ReadInt32LEFromBytes( ref idx ) : bytes.ReadByteFromBytes( ref idx ),
-                              ExceptionType = eType == ExceptionBlockType.Filter ? (TableIndex?) null : TableIndex.FromOneBasedTokenNullable( bytes.ReadInt32LEFromBytes( ref idx ) ),
-                              FilterOffset = eType == ExceptionBlockType.Filter ? bytes.ReadInt32LEFromBytes( ref idx ) : 0
-                           } );
-                           secByteSize -= ( isFat ? 24 : 12 );
-                        }
-                     } while ( ( secFlags & MethodDataFlags.MoreSections ) != 0 );
-
-                  }
-               }
-               else
-               {
-                  retVal = null;
-               }
-            }
-         }
-         return retVal;
-      }
-
-      private static Boolean CreateOpCodes(
-         CILMetaData md,
-         MethodILDefinition methodIL,
-         Stream stream,
-         ResizableArray<Byte> array,
-         Int32 codeSize,
-         ReaderStringStreamHandler userStrings
-         )
-      {
-
-         var success = codeSize >= 0;
-         if ( codeSize > 0 )
-         {
-            var opCodes = methodIL.OpCodes;
-            var idx = 0;
-            var bytes = array.ReadIntoResizableArray( stream, codeSize );
-            while ( idx < codeSize && success )
-            {
-               var curCodeInfo = ILSerialization.TryReadOpCode(
-                  bytes,
-                  ref idx,
-                  strToken => userStrings.GetString( TableIndex.FromZeroBasedToken( strToken ).Index ),
-                  md.OpCodeProvider
-                  );
-
-               if ( curCodeInfo == null )
-               {
-                  success = false;
-               }
-               else
-               {
-                  opCodes.Add( curCodeInfo );
-               }
-            }
-         }
-
-         return success;
-      }
-
-      public static Byte[] DeserializeConstantValue(
-         RawValueProcessingArgs args,
-         FieldRVA row,
-         Int32 rva
-         )
-      {
-         Byte[] retVal = null;
-         Int64 offset;
-         if ( rva > 0
-            && ( offset = args.RVAConverter.ToOffset( rva ) ) > 0
-            )
-         {
-            // Read all field RVA content
-
-            var stream = args.Stream.At( offset );
-            Int32 size;
-            if ( TryCalculateFieldTypeSize( args, row.Field.Index, out size )
-               && stream.Stream.CanReadNextBytes( size ).IsTrue()
-               )
-            {
-               // Sometimes there are field RVAs that are unresolvable...
-               retVal = stream.ReadAndCreateArray( size );
-            }
-         }
-         return retVal;
-      }
-
-      private static Boolean TryCalculateFieldTypeSize(
-         RawValueProcessingArgs args,
-         Int32 fieldIdx,
-         out Int32 size,
-         Boolean onlySimpleTypeValid = false
-         )
-      {
-         var md = args.MetaData;
-         var fDef = md.FieldDefinitions.TableContents;
-         size = 0;
-         if ( fieldIdx < fDef.Count )
-         {
-            var type = fDef[fieldIdx]?.Signature?.Type;
-            if ( type != null )
-            {
-               switch ( type.TypeSignatureKind )
-               {
-                  case TypeSignatureKind.Simple:
-                     switch ( ( (SimpleTypeSignature) type ).SimpleType )
-                     {
-                        case SimpleTypeSignatureKind.Boolean:
-                           size = sizeof( Boolean ); // TODO is this actually 1 or 4?
-                           break;
-                        case SimpleTypeSignatureKind.I1:
-                        case SimpleTypeSignatureKind.U1:
-                           size = 1;
-                           break;
-                        case SimpleTypeSignatureKind.I2:
-                        case SimpleTypeSignatureKind.U2:
-                        case SimpleTypeSignatureKind.Char:
-                           size = 2;
-                           break;
-                        case SimpleTypeSignatureKind.I4:
-                        case SimpleTypeSignatureKind.U4:
-                        case SimpleTypeSignatureKind.R4:
-                           size = 4;
-                           break;
-                        case SimpleTypeSignatureKind.I8:
-                        case SimpleTypeSignatureKind.U8:
-                        case SimpleTypeSignatureKind.R8:
-                           size = 8;
-                           break;
-                     }
-                     break;
-                  case TypeSignatureKind.ClassOrValue:
-                     if ( !onlySimpleTypeValid )
-                     {
-                        var c = (ClassOrValueTypeSignature) type;
-
-                        var typeIdx = c.Type;
-                        if ( typeIdx.Table == Tables.TypeDef )
-                        {
-                           // Only possible for types defined in this module
-                           Int32 enumValueFieldIndex;
-                           if ( md.TryGetEnumValueFieldIndex( typeIdx.Index, out enumValueFieldIndex ) )
-                           {
-                              TryCalculateFieldTypeSize( args, enumValueFieldIndex, out size, true ); // Last parameter true to prevent possible infinite recursion in case of malformed metadata
-                           }
-                           else
-                           {
-                              ClassLayout layout;
-                              if ( args.LayoutInfo.TryGetValue( typeIdx.Index, out layout ) )
-                              {
-                                 size = layout.ClassSize;
-                              }
-                           }
-
-                        }
-                     }
-                     break;
-                  case TypeSignatureKind.Pointer:
-                  case TypeSignatureKind.FunctionPointer:
-                     size = 4; // I am not 100% sure of this.
-                     break;
-               }
-            }
-         }
-         return size != 0;
-      }
-
-      public static Byte[] DeserializeEmbeddedManifest(
-         RawValueProcessingArgs args,
-         Int32 offset
-         )
-      {
-         Byte[] retVal = null;
-         var stream = args.Stream;
-         var rsrcDD = args.ImageInformation.CLIInformation.CLIHeader.Resources;
-         Int64 ddOffset;
-         if ( rsrcDD.RVA > 0
-            && ( ddOffset = args.RVAConverter.ToOffset( rsrcDD.RVA ) ) > 0
-            && ( stream = stream.At( ddOffset ) ).Stream.CanReadNextBytes( offset + sizeof( Int32 ) ).IsTrue()
-            )
-         {
-            stream = stream.At( ddOffset + offset );
-            var size = stream.ReadInt32LEFromBytes();
-            if ( stream.Stream.CanReadNextBytes( size ).IsTrue() )
-            {
-               retVal = stream.ReadAndCreateArray( size );
-            }
-         }
          return retVal;
       }
    }

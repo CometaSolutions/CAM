@@ -527,44 +527,6 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
       public TRowArgs RowArgs { get; }
    }
 
-   public partial class DefaultMetaDataSerializationSupportProvider : MetaDataSerializationSupportProvider
-   {
-      private static readonly DefaultMetaDataSerializationSupportProvider _instance = new DefaultMetaDataSerializationSupportProvider();
-
-      public static MetaDataSerializationSupportProvider Instance
-      {
-         get
-         {
-            return _instance;
-         }
-      }
-
-      public virtual IEnumerable<TableSerializationInfo> CreateTableSerializationInfos(
-         IEnumerable<MetaDataTableInformation> tableInfos,
-         TableSerializationInfoCreationArgs serializationCreationArgs
-         )
-      {
-         var tableInfoDic = tableInfos
-            .Where( ti => ti != null )
-            .ToDictionary_Overwrite(
-               info => (Int32) info.TableIndex,
-               info => ( info as Meta.MetaDataTableInformationWithSerializationCapability )?.CreateTableSerializationInfoNotGeneric( serializationCreationArgs )
-            );
-         var curMax = 0;
-         foreach ( var kvp in tableInfoDic.OrderBy( kvp => kvp.Key ) )
-         {
-            var cur = kvp.Key;
-            while ( curMax < cur )
-            {
-               yield return null;
-               ++curMax;
-            }
-            yield return kvp.Value;
-            ++curMax;
-         }
-      }
-   }
-
    public class DefaultTableSerializationInfo<TRawRow, TRow> : TableSerializationInfo
       where TRawRow : class
       where TRow : class

@@ -86,6 +86,7 @@ public static partial class E_CILPhysical
    /// <param name="md">This <see cref="CILMetaData"/>.</param>
    /// <param name="stream">The byte <see cref="Stream"/> where to write this <see cref="CILMetaData"/>.</param>
    /// <param name="eArgs">The optional <see cref="WritingArguments"/> to control the serialization process.</param>
+   /// <exception cref="ArgumentNullException">If <paramref name="stream"/> is <c>null</c>.</exception>
    /// <seealso cref="WritingArguments"/>
    /// <seealso cref="WriteModuleTo"/>
    public static void WriteModule( this CILMetaData md, Stream stream, WritingArguments eArgs = null )

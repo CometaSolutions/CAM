@@ -125,7 +125,7 @@ namespace CILAssemblyManipulator.Physical.Resolving
       /// <param name="aRef">The <see cref="AssemblyReference"/> row.</param>
       /// <exception cref="ArgumentNullException">If <paramref name="aRef"/> is <c>null</c>.</exception>
       public AssemblyInformationForResolving( AssemblyReference aRef )
-         : this( ArgumentValidator.ValidateNotNullAndReturn( "Assembly reference", aRef ).AssemblyInformation.CreateDeepCopy(), aRef.Attributes.IsFullPublicKey() )
+         : this( ArgumentValidator.ValidateNotNull( "Assembly reference", aRef ).AssemblyInformation.CreateDeepCopy(), aRef.Attributes.IsFullPublicKey() )
       {
 
       }

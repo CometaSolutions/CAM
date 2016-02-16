@@ -51,6 +51,7 @@ namespace CILAssemblyManipulator.Physical.IO
       /// <param name="stream">The original <see cref="Stream"/>.</param>
       /// <param name="mdTableInfoProvider">The <see cref="CILMetaDataTableInformationProvider"/> which describes what tables are supported by this deserialization process.</param>
       /// <param name="errorHandler">The error handler callback.</param>
+      /// <param name="deserialingDataReferences">Whether the data references (e.g. method RVAs, etc) will be deserialized.</param>
       /// <param name="newStream">Optional new <see cref="Stream"/> to use instead of <paramref name="stream"/> in the further desererialization process.</param>
       /// <returns>The <see cref="ReaderFunctionality"/> to use for actual deserialization.</returns>
       /// <seealso cref="ReaderFunctionality"/>
@@ -61,6 +62,7 @@ namespace CILAssemblyManipulator.Physical.IO
          Stream stream,
          CILMetaDataTableInformationProvider mdTableInfoProvider,
          EventHandler<SerializationErrorEventArgs> errorHandler,
+         Boolean deserialingDataReferences,
          out Stream newStream
          );
    }
@@ -374,14 +376,10 @@ public static partial class E_CILPhysical
       out ImageInformation imageInfo
       )
    {
-      if ( readerProvider == null )
-      {
-         throw new NullReferenceException();
-      }
-
+      ArgumentValidator.ValidateNotNullReference( readerProvider );
       Stream newStream;
       var reader = readerProvider
-         .GetFunctionality( ArgumentValidator.ValidateNotNullAndReturn( "Stream", stream ), ArgumentValidator.ValidateNotNullAndReturn( "Table info provider", tableInfoProvider ), errorHandler, out newStream )
+         .GetFunctionality( ArgumentValidator.ValidateNotNull( "Stream", stream ), ArgumentValidator.ValidateNotNull( "Table info provider", tableInfoProvider ), errorHandler, deserializeDataReferences, out newStream )
          .CheckForDeserializationException( "Reader", true );
 
       CILMetaData md;
@@ -426,12 +424,7 @@ public static partial class E_CILPhysical
       out ImageInformation imageInfo
       )
    {
-      if ( reader == null )
-      {
-         throw new NullReferenceException();
-         //reader = new DefaultReaderFunctionality( new TableSerializationInfoCreationArgs( errorHandler ) );
-      }
-
+      ArgumentValidator.ValidateNotNullReference( reader );
       ArgumentValidator.ValidateNotNull( "Stream", stream );
 
       var helper = new StreamHelper( stream );

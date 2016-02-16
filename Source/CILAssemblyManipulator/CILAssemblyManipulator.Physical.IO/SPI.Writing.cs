@@ -549,11 +549,7 @@ public static partial class E_CILPhysical
       EventHandler<SerializationErrorEventArgs> errorHandler
       )
    {
-      if ( writerProvider == null )
-      {
-         throw new NullReferenceException();
-      }
-
+      ArgumentValidator.ValidateNotNullReference( writerProvider );
       ArgumentValidator.ValidateNotNull( "Stream", stream );
       ArgumentValidator.ValidateNotNull( "Meta data", md );
 
@@ -625,12 +621,7 @@ public static partial class E_CILPhysical
       )
    {
       // Check arguments
-      if ( writer == null )
-      {
-         throw new NullReferenceException();
-         //writer = new DefaultWriterFunctionality( md, options, new TableSerializationInfoCreationArgs( errorHandler ) );
-      }
-
+      ArgumentValidator.ValidateNotNullReference( writer );
       ArgumentValidator.ValidateNotNull( "Stream", stream );
       ArgumentValidator.ValidateNotNull( "Meta data", md );
       if ( options == null )

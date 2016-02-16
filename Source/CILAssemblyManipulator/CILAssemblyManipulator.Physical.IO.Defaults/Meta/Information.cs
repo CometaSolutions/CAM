@@ -629,7 +629,19 @@ namespace CILAssemblyManipulator.Physical.Meta
 
       protected static IEnumerable<MetaDataColumnInformation<MethodDefinition>> GetMethodDefColumns()
       {
-         yield return MetaDataColumnInformationFactory.DataReference<MethodDefinition, RawMethodDefinition, MethodILDefinition>( ( r, v ) => { r.IL = v; return true; }, r => r.IL, ( r, v ) => r.RVA = v, ( args, v ) => args.Row.IL = DefaultMetaDataSerializationSupportProvider.DeserializeIL( args.RowArgs, v, args.Row ), ( md, mdStreamContainer ) => new SectionPart_MethodIL( md, mdStreamContainer.UserStrings ), null, null );
+         yield return MetaDataColumnInformationFactory.DataReference<MethodDefinition, RawMethodDefinition, MethodILDefinition>( ( r, v ) => { r.IL = v; return true; }, r => r.IL, ( r, v ) => r.RVA = v, ( args, rva ) =>
+         {
+            Int64 offset;
+            var rArgs = args.RowArgs;
+            var mDef = args.Row;
+            if ( rva != 0
+               && ( offset = rArgs.RVAConverter.ToOffset( rva ) ) > 0
+               && mDef.ShouldHaveMethodBody()
+               )
+            {
+               mDef.IL = rArgs.MetaData.OpCodeProvider.DeserializeIL( rArgs.Stream.At( offset ), rArgs.Array, rArgs.MDStreamContainer.UserStrings );
+            }
+         }, ( md, mdStreamContainer ) => new SectionPart_MethodIL( md, mdStreamContainer.UserStrings ), null, null );
          yield return MetaDataColumnInformationFactory.Constant16<MethodDefinition, RawMethodDefinition, MethodImplAttributes>( ( r, v ) => { r.ImplementationAttributes = v; return true; }, row => row.ImplementationAttributes, ( r, v ) => r.ImplementationAttributes = (MethodImplAttributes) v, i => (MethodImplAttributes) i, v => (Int32) v );
          yield return MetaDataColumnInformationFactory.Constant16<MethodDefinition, RawMethodDefinition, MethodAttributes>( ( r, v ) => { r.Attributes = v; return true; }, row => row.Attributes, ( r, v ) => r.Attributes = (MethodAttributes) v, i => (MethodAttributes) i, v => (Int32) v );
          yield return MetaDataColumnInformationFactory.SystemString<MethodDefinition, RawMethodDefinition>( ( r, v ) => { r.Name = v; return true; }, row => row.Name, ( r, v ) => r.Name = v );
@@ -787,7 +799,24 @@ namespace CILAssemblyManipulator.Physical.Meta
 
       protected static IEnumerable<MetaDataColumnInformation<FieldRVA>> GetFieldRVAColumns()
       {
-         yield return MetaDataColumnInformationFactory.DataReference<FieldRVA, RawFieldRVA, Byte[]>( ( r, v ) => { r.Data = v; return true; }, r => r.Data, ( r, v ) => r.RVA = v, ( args, rva ) => args.Row.Data = DefaultMetaDataSerializationSupportProvider.DeserializeConstantValue( args.RowArgs, args.Row, rva ), ( md, mdStreamContainer ) => new SectionPart_FieldRVA( md ), null, null );
+         yield return MetaDataColumnInformationFactory.DataReference<FieldRVA, RawFieldRVA, Byte[]>( ( r, v ) => { r.Data = v; return true; }, r => r.Data, ( r, v ) => r.RVA = v, ( args, rva ) =>
+         {
+            var rArgs = args.RowArgs;
+            var md = rArgs.MetaData;
+            var fRVA = args.Row;
+            var stream = rArgs.Stream;
+            Int64 offset;
+            Int32 size;
+            if ( rva > 0
+               && ( offset = rArgs.RVAConverter.ToOffset( rva ) ) > 0
+               && md.TryCalculateFieldTypeSize( rArgs.LayoutInfo, fRVA.Field.Index, out size )
+               && stream.At( offset ).Stream.CanReadNextBytes( size ).IsTrue() // Sometimes there are RVAs which are unresolvable...
+               )
+            {
+               // Read all field RVA content
+               args.Row.Data = stream.ReadAndCreateArray( size );
+            }
+         }, ( md, mdStreamContainer ) => new SectionPart_FieldRVA( md ), null, null );
          yield return MetaDataColumnInformationFactory.SimpleTableIndex<FieldRVA, RawFieldRVA>( Tables.Field, ( r, v ) => { r.Field = v; return true; }, row => row.Field, ( r, v ) => r.Field = v );
       }
 
@@ -888,7 +917,22 @@ namespace CILAssemblyManipulator.Physical.Meta
             row.Offset = offset;
             if ( !row.Implementation.HasValue )
             {
-               row.EmbeddedData = DefaultMetaDataSerializationSupportProvider.DeserializeEmbeddedManifest( args.RowArgs, offset );
+               var rArgs = args.RowArgs;
+               var stream = rArgs.Stream;
+               var rsrcDD = rArgs.ImageInformation.CLIInformation.CLIHeader.Resources;
+               Int64 ddOffset;
+               if ( rsrcDD.RVA > 0
+                  && ( ddOffset = rArgs.RVAConverter.ToOffset( rsrcDD.RVA ) ) > 0
+                  && ( stream = stream.At( ddOffset ) ).Stream.CanReadNextBytes( offset + sizeof( Int32 ) ).IsTrue()
+                  )
+               {
+                  stream = stream.At( ddOffset + offset );
+                  var size = stream.ReadInt32LEFromBytes();
+                  if ( stream.Stream.CanReadNextBytes( size ).IsTrue() )
+                  {
+                     row.EmbeddedData = stream.ReadAndCreateArray( size );
+                  }
+               }
             }
          },
          ( md, mdStreamContainer ) => new SectionPart_EmbeddedManifests( md ), null, null );

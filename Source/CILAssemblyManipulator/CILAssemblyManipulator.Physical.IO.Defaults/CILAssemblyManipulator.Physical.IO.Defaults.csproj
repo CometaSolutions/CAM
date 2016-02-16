@@ -73,7 +73,6 @@
     </Reference>
   </ItemGroup>
   <ItemGroup>
-    <Compile Include="Common.cs" />
     <Compile Include="Core\MetaData.cs" />
     <Compile Include="Enums.cs" />
     <Compile Include="IO\API.cs" />
@@ -85,7 +84,7 @@
     <Compile Include="Reading.cs" />
     <Compile Include="Serialization.API.cs" />
     <Compile Include="Serialization.Implementation.cs" />
-    <Compile Include="Serialization.Implementation.IL.cs" />
+    <Compile Include="Serialization.Implementation.DataRefs.cs" />
     <Compile Include="Serialization.Implementation.Signatures.cs" />
     <Compile Include="Utils.cs" />
     <Compile Include="Writing.cs" />
