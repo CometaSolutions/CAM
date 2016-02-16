@@ -73,6 +73,7 @@
     </Reference>
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="Common.cs" />
     <Compile Include="Core\MetaData.cs" />
     <Compile Include="Enums.cs" />
     <Compile Include="IO\API.cs" />

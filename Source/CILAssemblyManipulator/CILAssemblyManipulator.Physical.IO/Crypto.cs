@@ -28,7 +28,9 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 
+#pragma warning disable 1591
 public static partial class E_CILPhysical
+#pragma warning restore 1591
 {
    /// <summary>
    /// Helper method to create a public key from <see cref="StrongNameKeyPair"/>, be it the one storing whole public-private key pair in its <see cref="StrongNameKeyPair.KeyPair"/> property, or container name in its <see cref="StrongNameKeyPair.ContainerName"/>.

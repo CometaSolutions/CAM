@@ -30,6 +30,7 @@ using System.Text;
 using System.Threading;
 
 using TRVA = System.UInt32;
+using TRVAList = CollectionsWithRoles.API.ArrayQuery<System.Int64>;
 
 namespace CILAssemblyManipulator.Physical.IO
 {
@@ -640,7 +641,7 @@ namespace CILAssemblyManipulator.Physical.IO
 
       /// <summary>
       /// Gets the <see cref="IO.Subsystem"/> for this <see cref="OptionalHeader"/>.
-      /// </summary><
+      /// </summary>
       /// <value>The <see cref="IO.Subsystem"/> for this <see cref="OptionalHeader"/>.</value>
       /// <seealso cref="IO.Subsystem"/>
       public Subsystem Subsystem { get; }
@@ -1122,7 +1123,7 @@ namespace CILAssemblyManipulator.Physical.IO
       /// <summary>
       /// The target of the <see cref="DataDirectory"/> is address table for imports.
       /// </summary>
-      /// <seealso cref="Defaults.SectionPart_ImportAddressTable"/>
+      /// <seealso cref="T:CILAssemblyManipulator.Physical.IO.Defaults.SectionPart_ImportAddressTable"/>
       ImportAddressTable,
 
       /// <summary>
@@ -1341,7 +1342,7 @@ namespace CILAssemblyManipulator.Physical.IO
 
       /// <summary>
       /// Gets the pointer within image to the data of this section.
-      /// </summary><
+      /// </summary>
       /// <value>The pointer within image to the data of this section.</value>
       [CLSCompliant( false )]
       public UInt32 RawDataPointer { get; }
@@ -1388,48 +1389,177 @@ namespace CILAssemblyManipulator.Physical.IO
    [Flags]
    public enum SectionHeaderCharacteristics : int
    {
+      /// <summary>
+      /// TODO documentation.
+      /// </summary>
       Reserved1 = 0x00000000,
+      /// <summary>
+      /// TODO documentation.
+      /// </summary>
       Reserved2 = 0x00000001,
+      /// <summary>
+      /// TODO documentation.
+      /// </summary>
       Reserved3 = 0x00000002,
+      /// <summary>
+      /// TODO documentation.
+      /// </summary>
       Reserved4 = 0x00000004,
+      /// <summary>
+      /// TODO documentation.
+      /// </summary>
       Type_NoPad = 0x00000008,
+      /// <summary>
+      /// TODO documentation.
+      /// </summary>
       Reserved5 = 0x00000010,
+      /// <summary>
+      /// TODO documentation.
+      /// </summary>
       Contains_Code = 0x00000020,
+      /// <summary>
+      /// TODO documentation.
+      /// </summary>
       Contains_InitializedData = 0x00000040,
+      /// <summary>
+      /// TODO documentation.
+      /// </summary>
       Contains_UninitializedData = 0x00000080,
+      /// <summary>
+      /// TODO documentation.
+      /// </summary>
       Link_Other = 0x00000100,
+      /// <summary>
+      /// TODO documentation.
+      /// </summary>
       Link_Info = 0x00000200,
+      /// <summary>
+      /// TODO documentation.
+      /// </summary>
       Link_Reserved = 0x00000400,
+      /// <summary>
+      /// TODO documentation.
+      /// </summary>
       Link_Remove = 0x00000800,
+      /// <summary>
+      /// TODO documentation.
+      /// </summary>
       Link_COMDAT = 0x00001000,
+      /// <summary>
+      /// TODO documentation.
+      /// </summary>
       Reserved6 = 0x00002000,
+      /// <summary>
+      /// TODO documentation.
+      /// </summary>
       NoDeferredSpeculativeExceptions = 0x00004000,
+      /// <summary>
+      /// TODO documentation.
+      /// </summary>
       GPRelative = 0x00008000,
+      /// <summary>
+      /// TODO documentation.
+      /// </summary>
       Reserved7 = 0x00010000,
+      /// <summary>
+      /// TODO documentation.
+      /// </summary>
       Memory_Purgeable = 0x00020000,
+      /// <summary>
+      /// TODO documentation.
+      /// </summary>
       Memory_Locked = 0x00040000,
+      /// <summary>
+      /// TODO documentation.
+      /// </summary>
       Memory_PreLoad = 0x00080000,
+      /// <summary>
+      /// TODO documentation.
+      /// </summary>
       Align_1Bytes = 0x00100000,
+      /// <summary>
+      /// TODO documentation.
+      /// </summary>
       Align_2Bytes = 0x00200000,
+      /// <summary>
+      /// TODO documentation.
+      /// </summary>
       Align_4Bytes = 0x00300000,
+      /// <summary>
+      /// TODO documentation.
+      /// </summary>
       Align_8Bytes = 0x00400000,
+      /// <summary>
+      /// TODO documentation.
+      /// </summary>
       Align_16Bytes = 0x00500000,
+      /// <summary>
+      /// TODO documentation.
+      /// </summary>
       Align_32Bytes = 0x00600000,
+      /// <summary>
+      /// TODO documentation.
+      /// </summary>
       Align_64Bytes = 0x00700000,
+      /// <summary>
+      /// TODO documentation.
+      /// </summary>
       Align_128Bytes = 0x00800000,
+      /// <summary>
+      /// TODO documentation.
+      /// </summary>
       Align_256Bytes = 0x00900000,
+      /// <summary>
+      /// TODO documentation.
+      /// </summary>
       Align_512Bytes = 0x00A00000,
+      /// <summary>
+      /// TODO documentation.
+      /// </summary>
       Align_1028Bytes = 0x00B00000,
+      /// <summary>
+      /// TODO documentation.
+      /// </summary>
       Align_2048Bytes = 0x00C00000,
+      /// <summary>
+      /// TODO documentation.
+      /// </summary>
       Align_4096Bytes = 0x00D00000,
+      /// <summary>
+      /// TODO documentation.
+      /// </summary>
       Align_8192Bytes = 0x00E00000,
+      /// <summary>
+      /// TODO documentation.
+      /// </summary>
       Link_NoRelocationsOverflow = 0x01000000,
+      /// <summary>
+      /// TODO documentation.
+      /// </summary>
       Memory_Discardable = 0x02000000,
+      /// <summary>
+      /// TODO documentation.
+      /// </summary>
       Memory_NotCached = 0x04000000,
+      /// <summary>
+      /// TODO documentation.
+      /// </summary>
       Memory_NotPaged = 0x08000000,
+      /// <summary>
+      /// TODO documentation.
+      /// </summary>
       Memory_Shared = 0x10000000,
+      /// <summary>
+      /// TODO documentation.
+      /// </summary>
       Memory_Execute = 0x20000000,
+      /// <summary>
+      /// TODO documentation.
+      /// </summary>
       Memory_Read = 0x40000000,
+      /// <summary>
+      /// TODO documentation.
+      /// </summary>
       Memory_Write = unchecked((Int32) 0x80000000),
    }
 
@@ -1445,81 +1575,249 @@ namespace CILAssemblyManipulator.Physical.IO
       /// Targets Intel 32-bit processor.
       /// </summary>
       I386 = 0x014C,
+      /// <summary>
+      /// TODO documentation.
+      /// </summary>
       R3000 = 0x0162,
+      /// <summary>
+      /// TODO documentation.
+      /// </summary>
       R4000 = 0x0166,
+      /// <summary>
+      /// TODO documentation.
+      /// </summary>
       R10000 = 0x0168,
+      /// <summary>
+      /// TODO documentation.
+      /// </summary>
       WCE_MIPS_v2 = 0x0169,
+      /// <summary>
+      /// TODO documentation.
+      /// </summary>
       AlphaAXP = 0x0184,
+      /// <summary>
+      /// TODO documentation.
+      /// </summary>
       SH3 = 0x01A2,
+      /// <summary>
+      /// TODO documentation.
+      /// </summary>
       SH3DSP = 0x01A3,
+      /// <summary>
+      /// TODO documentation.
+      /// </summary>
       SH3E = 0x01A4,
+      /// <summary>
+      /// TODO documentation.
+      /// </summary>
       SH4 = 0x01A6,
+      /// <summary>
+      /// TODO documentation.
+      /// </summary>
       SH5 = 0x01A8,
+      /// <summary>
+      /// TODO documentation.
+      /// </summary>
       ARM = 0x01C0,
+      /// <summary>
+      /// TODO documentation.
+      /// </summary>
       ARMThumb = 0x01C2,
       /// <summary>
       /// Targets ARM processor.
       /// </summary>
       ARMv7 = 0x01C4,
+      /// <summary>
+      /// TODO documentation.
+      /// </summary>
       ARM_AM33 = 0x01D3,
+      /// <summary>
+      /// TODO documentation.
+      /// </summary>
       PowerPC = 0x01F0,
+      /// <summary>
+      /// TODO documentation.
+      /// </summary>
       PowerPC_FP = 0x01F1,
       /// <summary>
       /// Targets Intel 64-bit processor.
       /// </summary>
       IA64 = 0x0200,
+      /// <summary>
+      /// TODO documentation.
+      /// </summary>
       MIPS_16 = 0x0266,
+      /// <summary>
+      /// TODO documentation.
+      /// </summary>
       ALPHA64 = 0x0284,
+      /// <summary>
+      /// TODO documentation.
+      /// </summary>
       MIPS_FPU = 0x0366,
+      /// <summary>
+      /// TODO documentation.
+      /// </summary>
       MIPS_FPU_16 = 0x0466,
+      /// <summary>
+      /// TODO documentation.
+      /// </summary>
       Infineon_Tricore = 0x0520,
+      /// <summary>
+      /// TODO documentation.
+      /// </summary>
       Infineon_CEF = 0x0CEF,
+      /// <summary>
+      /// TODO documentation.
+      /// </summary>
       EBC = 0x0EBC,
       /// <summary>
       /// Targets AMD 64-bit processor.
       /// </summary>
       AMD64 = unchecked((Int16) 0x8664),
+      /// <summary>
+      /// TODO documentation.
+      /// </summary>
       M32R = unchecked((Int16) 0x9041),
+      /// <summary>
+      /// TODO documentation.
+      /// </summary>
       ARM_64 = unchecked((Int16) 0xAA64),
+      /// <summary>
+      /// TODO documentation.
+      /// </summary>
       CEE = unchecked((Int16) 0xC0EE),
 
    }
 
+   /// <summary>
+   /// This is enumeration for <see cref="OptionalHeader.Subsystem"/> header value.
+   /// </summary>
    public enum Subsystem : short
    {
+      /// <summary>
+      /// TODO documentation.
+      /// </summary>
       Native = 0x0001,
+      /// <summary>
+      /// TODO documentation.
+      /// </summary>
       WindowsGUI = 0x0002,
+      /// <summary>
+      /// TODO documentation.
+      /// </summary>
       WindowsConsole = 0x0003,
+      /// <summary>
+      /// TODO documentation.
+      /// </summary>
       OS2Console = 0x0005,
+      /// <summary>
+      /// TODO documentation.
+      /// </summary>
       PosixConsole = 0x0007,
+      /// <summary>
+      /// TODO documentation.
+      /// </summary>
       NativeWin9XDriver = 0x0008,
+      /// <summary>
+      /// TODO documentation.
+      /// </summary>
       WinCE = 0x0009,
+      /// <summary>
+      /// TODO documentation.
+      /// </summary>
       EFIApplication = 0x000A,
+      /// <summary>
+      /// TODO documentation.
+      /// </summary>
       EFIBootDriver = 0x000B,
+      /// <summary>
+      /// TODO documentation.
+      /// </summary>
       EFIRuntimeDriver = 0x000C,
+      /// <summary>
+      /// TODO documentation.
+      /// </summary>
       EFIROM = 0x000D,
+      /// <summary>
+      /// TODO documentation.
+      /// </summary>
       XBox = 0x000E,
+      /// <summary>
+      /// TODO documentation.
+      /// </summary>
       WindowsBootApplication = 0x0010
    }
 
+   /// <summary>
+   /// This is enumeration for <see cref="OptionalHeader.DLLCharacteristics"/> header value.
+   /// </summary>
    [Flags]
    public enum DLLFlags : short
    {
+      /// <summary>
+      /// TODO documentation.
+      /// </summary>
       Reserved1 = 0x0001,
+      /// <summary>
+      /// TODO documentation.
+      /// </summary>
       Reserved2 = 0x0002,
+      /// <summary>
+      /// TODO documentation.
+      /// </summary>
       Reserved3 = 0x0004,
+      /// <summary>
+      /// TODO documentation.
+      /// </summary>
       Reserved4 = 0x0008,
+      /// <summary>
+      /// TODO documentation.
+      /// </summary>
       Reserved5 = 0x0010,
+      /// <summary>
+      /// TODO documentation.
+      /// </summary>
       HighEntropyVA = 0x0020,
+      /// <summary>
+      /// TODO documentation.
+      /// </summary>
       DynamicBase = 0x0040,
+      /// <summary>
+      /// TODO documentation.
+      /// </summary>
       ForceIntegroty = 0x0080,
+      /// <summary>
+      /// TODO documentation.
+      /// </summary>
       NXCompatible = 0x0100,
+      /// <summary>
+      /// TODO documentation.
+      /// </summary>
       NoIsolation = 0x0200,
+      /// <summary>
+      /// TODO documentation.
+      /// </summary>
       NoSEH = 0x0400,
+      /// <summary>
+      /// TODO documentation.
+      /// </summary>
       NoBind = 0x0800,
+      /// <summary>
+      /// TODO documentation.
+      /// </summary>
       AppContainer = 0x1000,
+      /// <summary>
+      /// TODO documentation.
+      /// </summary>
       WdmDriver = 0x2000,
+      /// <summary>
+      /// TODO documentation.
+      /// </summary>
       GuardControlFlow = 0x4000,
+      /// <summary>
+      /// TODO documentation.
+      /// </summary>
       TerminalServerAware = unchecked((Int16) 0x8000),
    }
 
@@ -1737,7 +2035,7 @@ namespace CILAssemblyManipulator.Physical.IO
       /// <param name="dataRefs">The data references.</param>
       /// <exception cref="ArgumentNullException">If <paramref name="dataRefs"/> is <c>null</c>.</exception>
       public DataReferencesInfo(
-         DictionaryQuery<Tables, DictionaryQuery<Int32, ArrayQuery<Int64>>> dataRefs
+         DictionaryQuery<Tables, DictionaryQuery<Int32, TRVAList>> dataRefs
          )
       {
          ArgumentValidator.ValidateNotNull( "Data references", dataRefs );
@@ -1749,7 +2047,7 @@ namespace CILAssemblyManipulator.Physical.IO
       /// Gets the data references contents for this <see cref="DataReferencesInfo"/>.
       /// </summary>
       /// <value>The data references contents for this <see cref="DataReferencesInfo"/>.</value>
-      public DictionaryQuery<Tables, DictionaryQuery<Int32, ArrayQuery<Int64>>> DataReferences { get; }
+      public DictionaryQuery<Tables, DictionaryQuery<Int32, TRVAList>> DataReferences { get; }
    }
 
    /// <summary>
@@ -1844,7 +2142,8 @@ namespace CILAssemblyManipulator.Physical.IO
       /// </summary>
       /// <value>The entry point token of this <see cref="CLIHeader"/>.</value>
       /// <seealso cref="E_CILPhysical.TryGetManagedEntryPoint"/>
-      /// <seealso cref="E_CILPhysical.TryGetManagedOrUnmanagedEntryPoint"/>
+      /// <seealso cref="E_CILPhysical.TryGetManagedOrUnmanagedEntryPoint(CLIHeader, out int)"/>
+      /// <seealso cref="E_CILPhysical.TryGetManagedOrUnmanagedEntryPoint(CLIHeader, out int, out bool)"/>
       [CLSCompliant( false )]
       public TRVA EntryPointToken { get; }
 
@@ -2379,6 +2678,7 @@ namespace CILAssemblyManipulator.Physical.IO
    internal delegate T ReadElementFromArrayDelegate<T>( Byte[] array, ref Int32 idx );
 
    // This class will become internal when merging the CAM.Physical assemblies.
+#pragma warning disable 1591
    public static class CAMIOInternals
    {
       public const Int32 DATA_DIR_SIZE = 0x08;
@@ -2389,9 +2689,13 @@ namespace CILAssemblyManipulator.Physical.IO
          return array;
       }
    }
+
+#pragma warning restore 1591
 }
 
+#pragma warning disable 1591
 public static partial class E_CILPhysical
+#pragma warning restore 1591
 {
 
    #region PE-related
@@ -2406,6 +2710,7 @@ public static partial class E_CILPhysical
    /// This typically means the beginning of the stream itself.
    /// </remarks>
    /// <exception cref="NullReferenceException">If <paramref name="stream"/> is <c>null</c>.</exception>
+   /// <exception cref="System.IO.EndOfStreamException">If stream ends before required amount of bytes is read.</exception>
    public static PEInformation ReadPEInformation( this StreamHelper stream )
    {
       // Read DOS header
@@ -2454,8 +2759,9 @@ public static partial class E_CILPhysical
    /// This is extension method to read the <see cref="DOSHeader"/> from the given stream.
    /// </summary>
    /// <param name="stream">The stream, as <see cref="StreamHelper"/>.</param>
-   /// <returns>The <see cref="DOSHeader"/>, contents of which is read from the <paramref name="stream"/>.</returns>
+   /// <returns>The <see cref="DOSHeader"/>, contents of which is read from the <paramref name="stream"/>, starting from its current position.</returns>
    /// <exception cref="NullReferenceException">If <paramref name="stream"/> is <c>null</c>.</exception>
+   /// <exception cref="System.IO.EndOfStreamException">If stream ends before required amount of bytes is read.</exception>
    public static DOSHeader ReadDOSHeader( this StreamHelper stream )
    {
       return new DOSHeader(
@@ -2470,7 +2776,7 @@ public static partial class E_CILPhysical
    /// <param name="header">The <see cref="DOSHeader"/>.</param>
    /// <param name="array">The byte array.</param>
    /// <param name="idx">The index where to start writing the <see cref="DOSHeader"/>.</param>
-   /// <exception cref="NullReferenceException">If this <see cref="PEInformation"/> is <c>null</c>.</exception>
+   /// <exception cref="NullReferenceException">If this <see cref="DOSHeader"/> is <c>null</c>.</exception>
    /// <exception cref="ArgumentNullException">If <paramref name="array"/> is <c>null</c>.</exception>
    /// <exception cref="IndexOutOfRangeException">If the given <paramref name="array"/> is too small.</exception>
    public static void WriteDOSHeader( this DOSHeader header, Byte[] array, ref Int32 idx )
@@ -2496,6 +2802,13 @@ public static partial class E_CILPhysical
          } );
    }
 
+   /// <summary>
+   /// This is extension method to read the <see cref="NTHeader"/> from the given stream.
+   /// </summary>
+   /// <param name="stream">The stream, as <see cref="StreamHelper"/>.</param>
+   /// <returns>The <see cref="NTHeader"/>, contents of which is read from the <paramref name="stream"/>, starting from its current position.</returns>
+   /// <exception cref="NullReferenceException">If <paramref name="stream"/> is <c>null</c>.</exception>
+   /// <exception cref="System.IO.EndOfStreamException">If stream ends before required amount of bytes is read.</exception>
    public static NTHeader ReadNTHeader( this StreamHelper stream )
    {
       return new NTHeader(
@@ -2505,13 +2818,31 @@ public static partial class E_CILPhysical
          );
    }
 
+   /// <summary>
+   /// This is extension method to write this <see cref="NTHeader"/> into a given array.
+   /// </summary>
+   /// <param name="header">The <see cref="NTHeader"/>.</param>
+   /// <param name="array">The byte array.</param>
+   /// <param name="idx">The index where to start writing the <see cref="NTHeader"/>.</param>
+   /// <exception cref="NullReferenceException">If this <see cref="NTHeader"/> is <c>null</c>.</exception>
+   /// <exception cref="ArgumentNullException">If <paramref name="array"/> is <c>null</c>.</exception>
+   /// <exception cref="IndexOutOfRangeException">If the given <paramref name="array"/> is too small.</exception>
    public static void WriteNTHeader( this NTHeader header, Byte[] array, ref Int32 idx )
    {
+      ArgumentValidator.ValidateNotNull( "Array", array );
+
       array.WriteInt32LEToBytes( ref idx, header.Signature );
       header.FileHeader.WriteFileHeader( array, ref idx );
       header.OptionalHeader.WriteOptionalHeader( array, ref idx );
    }
 
+   /// <summary>
+   /// This is extension method to read the <see cref="NTHeader"/> from the given stream.
+   /// </summary>
+   /// <param name="stream">The stream, as <see cref="StreamHelper"/>.</param>
+   /// <returns>The <see cref="NTHeader"/>, contents of which is read from the <paramref name="stream"/>, starting from its current position.</returns>
+   /// <exception cref="NullReferenceException">If <paramref name="stream"/> is <c>null</c>.</exception>
+   /// <exception cref="System.IO.EndOfStreamException">If stream ends before required amount of bytes is read.</exception>
    public static FileHeader ReadFileHeader( this StreamHelper stream )
    {
       return new FileHeader(
@@ -2525,8 +2856,19 @@ public static partial class E_CILPhysical
          );
    }
 
+   /// <summary>
+   /// This is extension method to write this <see cref="FileHeader"/> into a given array.
+   /// </summary>
+   /// <param name="header">The <see cref="FileHeader"/>.</param>
+   /// <param name="array">The byte array.</param>
+   /// <param name="idx">The index where to start writing the <see cref="FileHeader"/>.</param>
+   /// <exception cref="NullReferenceException">If this <see cref="FileHeader"/> is <c>null</c>.</exception>
+   /// <exception cref="ArgumentNullException">If <paramref name="array"/> is <c>null</c>.</exception>
+   /// <exception cref="IndexOutOfRangeException">If the given <paramref name="array"/> is too small.</exception>
    public static void WriteFileHeader( this FileHeader header, Byte[] array, ref Int32 idx )
    {
+      ArgumentValidator.ValidateNotNull( "Array", array );
+
       array
          .WriteInt16LEToBytes( ref idx, (Int16) header.Machine )
          .WriteUInt16LEToBytes( ref idx, header.NumberOfSections )
@@ -2537,6 +2879,17 @@ public static partial class E_CILPhysical
          .WriteInt16LEToBytes( ref idx, (Int16) header.Characteristics );
    }
 
+   /// <summary>
+   /// This is extension method to read the <see cref="OptionalHeader"/> from the given stream.
+   /// </summary>
+   /// <param name="stream">The stream, as <see cref="StreamHelper"/>.</param>
+   /// <returns>The <see cref="OptionalHeader"/>, contents of which is read from the <paramref name="stream"/>, starting from its current position.</returns>
+   /// <exception cref="NullReferenceException">If <paramref name="stream"/> is <c>null</c>.</exception>
+   /// <exception cref="System.IO.EndOfStreamException">If stream ends before required amount of bytes is read.</exception>
+   /// <exception cref="BadImageFormatException">If the kind of the optional header is not recognized.</exception>
+   /// <remarks>
+   /// Currently recognized optional header kinds are values of <see cref="OptionalHeaderKind"/>.
+   /// </remarks>
    public static OptionalHeader ReadOptionalHeader( this StreamHelper stream )
    {
       var kind = (OptionalHeaderKind) stream.ReadInt16LEFromBytes();
@@ -2613,8 +2966,23 @@ public static partial class E_CILPhysical
       }
    }
 
+   /// <summary>
+   /// This is extension method to write this <see cref="OptionalHeader"/> into a given array.
+   /// </summary>
+   /// <param name="header">The <see cref="OptionalHeader"/>.</param>
+   /// <param name="array">The byte array.</param>
+   /// <param name="idx">The index where to start writing the <see cref="OptionalHeader"/>.</param>
+   /// <exception cref="NullReferenceException">If this <see cref="OptionalHeader"/> is <c>null</c>.</exception>
+   /// <exception cref="ArgumentNullException">If <paramref name="array"/> is <c>null</c>.</exception>
+   /// <exception cref="IndexOutOfRangeException">If the given <paramref name="array"/> is too small.</exception>
+   /// <exception cref="NotSupportedException">If the <see cref="OptionalHeaderKind"/> of the given header's <see cref="OptionalHeader.OptionalHeaderKind"/> is uncrecognized.</exception>
+   /// <remarks>
+   /// Currently recognized optional header kinds are values of <see cref="OptionalHeaderKind"/>.
+   /// </remarks>
    public static void WriteOptionalHeader( this OptionalHeader header, Byte[] array, ref Int32 idx )
    {
+      ArgumentValidator.ValidateNotNull( "Array", array );
+
       var peKind = header.OptionalHeaderKind;
       Boolean isPE32;
       switch ( peKind )
@@ -2682,25 +3050,45 @@ public static partial class E_CILPhysical
       }
    }
 
+   /// <summary>
+   /// This is extension method to write this <see cref="DataDirectory"/> into a given array.
+   /// </summary>
+   /// <param name="dataDir">The <see cref="DataDirectory"/>.</param>
+   /// <param name="array">The byte array.</param>
+   /// <param name="idx">The index where to start writing the <see cref="DataDirectory"/>.</param>
+   /// <exception cref="ArgumentNullException">If <paramref name="array"/> is <c>null</c>.</exception>
+   /// <exception cref="IndexOutOfRangeException">If the given <paramref name="array"/> is too small.</exception>
    public static void WriteDataDirectory( this DataDirectory dataDir, Byte[] array, ref Int32 idx )
    {
+      ArgumentValidator.ValidateNotNull( "Array", array );
+
       array
          .WriteUInt32LEToBytes( ref idx, dataDir.RVA )
          .WriteUInt32LEToBytes( ref idx, dataDir.Size );
    }
 
-   private static Byte[] WriteDataDirectory( this Byte[] array, ref Int32 idx, DataDirectory dataDir )
-   {
-      dataDir.WriteDataDirectory( array, ref idx );
-      return array;
-   }
-
+   /// <summary>
+   /// This is extension method to read the RVA from the given stream.
+   /// </summary>
+   /// <param name="stream">The stream, as <see cref="StreamHelper"/>.</param>
+   /// <returns>The RVA read from the <paramref name="stream"/>, starting from its current position.</returns>
+   /// <exception cref="NullReferenceException">If <paramref name="stream"/> is <c>null</c>.</exception>
+   /// <exception cref="System.IO.EndOfStreamException">If stream ends before required amount of bytes is read.</exception>
    [CLSCompliant( false )]
    public static TRVA ReadRVAFromBytes( this StreamHelper stream )
    {
       return stream.ReadUInt32LEFromBytes();
    }
 
+   /// <summary>
+   /// This is extension method to read elements of data which are serialized sequentially.
+   /// </summary>
+   /// <param name="stream">The stream, as <see cref="StreamHelper"/>.</param>
+   /// <param name="elementCount">The amount of elements to read.</param>
+   /// <param name="singleElementReader">The callback to read one element from the <see cref="StreamHelper"/>.</param>
+   /// <returns>The <see cref="ArrayQuery{TValue}"/> of elements read from the <paramref name="stream"/>, starting from its current position.</returns>
+   /// <exception cref="NullReferenceException">If <paramref name="stream"/> is <c>null</c>.</exception>
+   /// <exception cref="System.IO.EndOfStreamException">If stream ends before required amount of bytes is read.</exception>
    [CLSCompliant( false )]
    public static ArrayQuery<T> ReadSequentialElements<T>( this StreamHelper stream, UInt32 elementCount, Func<StreamHelper, T> singleElementReader )
    {
@@ -2723,11 +3111,25 @@ public static partial class E_CILPhysical
       return CollectionsWithRoles.Implementation.CollectionsFactorySingleton.DEFAULT_COLLECTIONS_FACTORY.NewArrayProxy( retVal ).CQ;
    }
 
+   /// <summary>
+   /// This is extension method to read the <see cref="DataDirectory"/> from the given stream.
+   /// </summary>
+   /// <param name="stream">The stream, as <see cref="StreamHelper"/>.</param>
+   /// <returns>The <see cref="DataDirectory"/>, contents of which is read from the <paramref name="stream"/>, starting from its current position.</returns>
+   /// <exception cref="NullReferenceException">If <paramref name="stream"/> is <c>null</c>.</exception>
+   /// <exception cref="System.IO.EndOfStreamException">If stream ends before required amount of bytes is read.</exception>
    public static DataDirectory ReadDataDirectory( this StreamHelper stream )
    {
       return new DataDirectory( stream.ReadRVAFromBytes(), stream.ReadUInt32LEFromBytes() );
    }
 
+   /// <summary>
+   /// This is extension method to read the <see cref="SectionHeader"/> from the given stream.
+   /// </summary>
+   /// <param name="stream">The stream, as <see cref="StreamHelper"/>.</param>
+   /// <returns>The <see cref="SectionHeader"/>, contents of which is read from the <paramref name="stream"/>, starting from its current position.</returns>
+   /// <exception cref="NullReferenceException">If <paramref name="stream"/> is <c>null</c>.</exception>
+   /// <exception cref="System.IO.EndOfStreamException">If stream ends before required amount of bytes is read.</exception>
    public static SectionHeader ReadSectionHeader( this StreamHelper stream )
    {
       return new SectionHeader(
@@ -2744,19 +3146,28 @@ public static partial class E_CILPhysical
          );
    }
 
-   public static void WriteSectionHeader( this SectionHeader section, Byte[] array, ref Int32 idx )
+   /// <summary>
+   /// This is extension method to write this <see cref="SectionHeader"/> into a given array.
+   /// </summary>
+   /// <param name="header">The <see cref="SectionHeader"/>.</param>
+   /// <param name="array">The byte array.</param>
+   /// <param name="idx">The index where to start writing the <see cref="SectionHeader"/>.</param>
+   /// <exception cref="NullReferenceException">If this <see cref="SectionHeader"/> is <c>null</c>.</exception>
+   /// <exception cref="ArgumentNullException">If <paramref name="array"/> is <c>null</c>.</exception>
+   /// <exception cref="IndexOutOfRangeException">If the given <paramref name="array"/> is too small.</exception>
+   public static void WriteSectionHeader( this SectionHeader header, Byte[] array, ref Int32 idx )
    {
       array
-         .WriteBytesEnumerable( ref idx, section.NameBytes )
-         .WriteUInt32LEToBytes( ref idx, section.VirtualSize )
-         .WriteUInt32LEToBytes( ref idx, section.VirtualAddress )
-         .WriteUInt32LEToBytes( ref idx, section.RawDataSize )
-         .WriteUInt32LEToBytes( ref idx, section.RawDataPointer )
-         .WriteUInt32LEToBytes( ref idx, section.RelocationsPointer )
-         .WriteUInt32LEToBytes( ref idx, section.LineNumbersPointer )
-         .WriteUInt16LEToBytes( ref idx, section.NumberOfRelocations )
-         .WriteUInt16LEToBytes( ref idx, section.NumberOfLineNumbers )
-         .WriteInt32LEToBytes( ref idx, (Int32) section.Characteristics );
+         .WriteBytesEnumerable( ref idx, header.NameBytes )
+         .WriteUInt32LEToBytes( ref idx, header.VirtualSize )
+         .WriteUInt32LEToBytes( ref idx, header.VirtualAddress )
+         .WriteUInt32LEToBytes( ref idx, header.RawDataSize )
+         .WriteUInt32LEToBytes( ref idx, header.RawDataPointer )
+         .WriteUInt32LEToBytes( ref idx, header.RelocationsPointer )
+         .WriteUInt32LEToBytes( ref idx, header.LineNumbersPointer )
+         .WriteUInt16LEToBytes( ref idx, header.NumberOfRelocations )
+         .WriteUInt16LEToBytes( ref idx, header.NumberOfLineNumbers )
+         .WriteInt32LEToBytes( ref idx, (Int32) header.Characteristics );
    }
 
    /// <summary>
@@ -2769,6 +3180,20 @@ public static partial class E_CILPhysical
       return machine.GetOptionalHeaderKind() == OptionalHeaderKind.Optional64;
    }
 
+   /// <summary>
+   /// Gets the <see cref="OptionalHeaderKind"/> suitable for this <see cref="ImageFileMachine"/>.
+   /// </summary>
+   /// <param name="machine">The <see cref="ImageFileMachine"/>.</param>
+   /// <returns>The <see cref="OptionalHeaderKind"/> suitable for this <see cref="ImageFileMachine"/>.</returns>
+   /// <remarks>
+   /// This method returns <see cref="OptionalHeaderKind.Optional64"/> for following values:
+   /// <list type="bullet">
+   /// <item><description><see cref="ImageFileMachine.AMD64"/>,</description></item>
+   /// <item><description><see cref="ImageFileMachine.IA64"/>, and</description></item>
+   /// <item><description><see cref="ImageFileMachine.ARM_64"/>.</description></item>
+   /// </list>
+   /// For all other values, this method returns <see cref="OptionalHeaderKind.Optional32"/>.
+   /// </remarks>
    public static OptionalHeaderKind GetOptionalHeaderKind( this ImageFileMachine machine )
    {
       switch ( machine )
@@ -2782,11 +3207,21 @@ public static partial class E_CILPhysical
       }
    }
 
-   public static FileHeaderCharacteristics GetDefaultCharacteristics( this ImageFileMachine machine )
-   {
-      return FileHeaderCharacteristics.ExecutableImage | FileHeaderCharacteristics.LargeAddressAware; //  ( machine.RequiresPE64() ? FileHeaderCharacteristics.ExecutableImage : FileHeaderCharacteristics.Machine32Bit );
-   }
+   ///// <summary>
+   ///// Gets the default <see cref="FileHeaderCharacteristics"/> for this <see cref="ImageFileMachine"/>.
+   ///// </summary>
+   ///// <param name="machine">The <see cref="ImageFileMachine"/>.</param>
+   ///// <returns></returns>
+   //public static FileHeaderCharacteristics GetDefaultCharacteristics( this ImageFileMachine machine )
+   //{
+   //   return FileHeaderCharacteristics.ExecutableImage | FileHeaderCharacteristics.LargeAddressAware; //  ( machine.RequiresPE64() ? FileHeaderCharacteristics.ExecutableImage : FileHeaderCharacteristics.Machine32Bit );
+   //}
 
+   /// <summary>
+   /// Checks whether this <see cref="FileHeaderCharacteristics"/> has the <see cref="FileHeaderCharacteristics.Dll"/> flag.
+   /// </summary>
+   /// <param name="characteristics">The <see cref="FileHeaderCharacteristics"/>.</param>
+   /// <returns><c>true</c> if this <see cref="FileHeaderCharacteristics"/> has <see cref="FileHeaderCharacteristics.Dll"/> flag; <c>false</c> otherwise.</returns>
    public static Boolean IsDLL( this FileHeaderCharacteristics characteristics )
    {
       return ( characteristics & FileHeaderCharacteristics.Dll ) != 0;
@@ -2802,6 +3237,12 @@ public static partial class E_CILPhysical
    //   return ImageFileMachine.I386 == machine;
    //}
 
+   /// <summary>
+   /// Gets the size, in bytes, of the <see cref="OptionalHeader"/> of the given <see cref="OptionalHeaderKind"/> and given amount of PE directories.
+   /// </summary>
+   /// <param name="kind">The <see cref="OptionalHeaderKind"/>.</param>
+   /// <param name="peDataDirectoriesCount">The amount of PE <see cref="OptionalHeader.DataDirectories"/>.</param>
+   /// <returns>The size, in bytes, of the <see cref="OptionalHeader"/> of the given <see cref="OptionalHeaderKind"/> and given amount of PE directories.</returns>
    public static Int32 GetOptionalHeaderSize( this OptionalHeaderKind kind, Int32 peDataDirectoriesCount )
    {
       return ( ( kind == OptionalHeaderKind.Optional64 ? 0x70 : 0x60 ) + CAMIOInternals.DATA_DIR_SIZE * peDataDirectoriesCount );
@@ -2811,6 +3252,13 @@ public static partial class E_CILPhysical
 
    #region CIL-related
 
+   /// <summary>
+   /// This is extension method to read the <see cref="CLIHeader"/> from the given stream.
+   /// </summary>
+   /// <param name="stream">The stream, as <see cref="StreamHelper"/>.</param>
+   /// <returns>The <see cref="CLIHeader"/>, contents of which is read from the <paramref name="stream"/>, starting from its current position.</returns>
+   /// <exception cref="NullReferenceException">If <paramref name="stream"/> is <c>null</c>.</exception>
+   /// <exception cref="System.IO.EndOfStreamException">If stream ends before required amount of bytes is read.</exception>
    public static CLIHeader ReadCLIHeader( this StreamHelper stream )
    {
       return new CLIHeader(
@@ -2829,8 +3277,19 @@ public static partial class E_CILPhysical
          );
    }
 
+   /// <summary>
+   /// This is extension method to write this <see cref="CLIHeader"/> into a given array.
+   /// </summary>
+   /// <param name="header">The <see cref="CLIHeader"/>.</param>
+   /// <param name="array">The byte array.</param>
+   /// <param name="idx">The index where to start writing the <see cref="CLIHeader"/>.</param>
+   /// <exception cref="NullReferenceException">If this <see cref="CLIHeader"/> is <c>null</c>.</exception>
+   /// <exception cref="ArgumentNullException">If <paramref name="array"/> is <c>null</c>.</exception>
+   /// <exception cref="IndexOutOfRangeException">If the given <paramref name="array"/> is too small.</exception>
    public static void WriteCLIHeader( this CLIHeader header, Byte[] array, ref Int32 idx )
    {
+      ArgumentValidator.ValidateNotNull( "Array", array );
+
       array
          .WriteUInt32LEToBytes( ref idx, header.HeaderSize )
          .WriteUInt16LEToBytes( ref idx, header.MajorRuntimeVersion )
@@ -2846,6 +3305,13 @@ public static partial class E_CILPhysical
          .WriteDataDirectory( ref idx, header.ManagedNativeHeader );
    }
 
+   /// <summary>
+   /// This is extension method to read the <see cref="MetaDataRoot"/> from the given stream.
+   /// </summary>
+   /// <param name="stream">The stream, as <see cref="StreamHelper"/>.</param>
+   /// <returns>The <see cref="MetaDataRoot"/>, contents of which is read from the <paramref name="stream"/>, starting from its current position.</returns>
+   /// <exception cref="NullReferenceException">If <paramref name="stream"/> is <c>null</c>.</exception>
+   /// <exception cref="System.IO.EndOfStreamException">If stream ends before required amount of bytes is read.</exception>
    public static MetaDataRoot ReadMetaDataRoot( this StreamHelper stream )
    {
       UInt32 strLen;
@@ -2864,6 +3330,13 @@ public static partial class E_CILPhysical
          );
    }
 
+   /// <summary>
+   /// This is extension method to read the <see cref="MetaDataStreamHeader"/> from the given stream.
+   /// </summary>
+   /// <param name="stream">The stream, as <see cref="StreamHelper"/>.</param>
+   /// <returns>The <see cref="MetaDataStreamHeader"/>, contents of which is read from the <paramref name="stream"/>, starting from its current position.</returns>
+   /// <exception cref="NullReferenceException">If <paramref name="stream"/> is <c>null</c>.</exception>
+   /// <exception cref="System.IO.EndOfStreamException">If stream ends before required amount of bytes is read.</exception>
    public static MetaDataStreamHeader ReadMetaDataStreamHeader( this StreamHelper stream )
    {
       return new MetaDataStreamHeader(
@@ -2873,6 +3346,14 @@ public static partial class E_CILPhysical
          );
    }
 
+   /// <summary>
+   /// This is extension method to write this <see cref="MetaDataRoot"/> into a given array.
+   /// </summary>
+   /// <param name="header">The <see cref="MetaDataRoot"/>.</param>
+   /// <param name="array">The byte array.</param>
+   /// <exception cref="NullReferenceException">If this <see cref="MetaDataRoot"/> is <c>null</c>.</exception>
+   /// <exception cref="ArgumentNullException">If <paramref name="array"/> is <c>null</c>.</exception>
+   /// <exception cref="IndexOutOfRangeException">If the given <paramref name="array"/> is too small.</exception>
    public static void WriteMetaDataRoot( this MetaDataRoot header, ResizableArray<Byte> array )
    {
       var bytez = array.Array;
@@ -2893,6 +3374,15 @@ public static partial class E_CILPhysical
       }
    }
 
+   /// <summary>
+   /// This is extension method to write this <see cref="MetaDataStreamHeader"/> into a given array.
+   /// </summary>
+   /// <param name="header">The <see cref="MetaDataStreamHeader"/>.</param>
+   /// <param name="array">The byte array.</param>
+   /// <param name="idx">The index where to start writing the <see cref="MetaDataStreamHeader"/>.</param>
+   /// <exception cref="NullReferenceException">If this <see cref="MetaDataStreamHeader"/> is <c>null</c>.</exception>
+   /// <exception cref="ArgumentNullException">If <paramref name="array"/> is <c>null</c>.</exception>
+   /// <exception cref="IndexOutOfRangeException">If the given <paramref name="array"/> is too small.</exception>
    public static void WriteMetaDataStreamHeader( this MetaDataStreamHeader header, Byte[] array, ref Int32 idx )
    {
       array
@@ -2901,6 +3391,14 @@ public static partial class E_CILPhysical
          .WriteBytesEnumerable( ref idx, header.NameBytes );
    }
 
+   /// <summary>
+   /// This is extension method to read the <see cref="MetaDataTableStreamHeader"/> from the given stream.
+   /// </summary>
+   /// <param name="array">The byte array.</param>
+   /// <param name="idx">The index where to start writing the <see cref="CLIHeader"/>.</param>
+   /// <returns>The <see cref="MetaDataTableStreamHeader"/>, contents of which is read from the <paramref name="array"/>, starting from given index.</returns>
+   /// <exception cref="NullReferenceException">If <paramref name="array"/> is <c>null</c>.</exception>
+   /// <exception cref="System.IO.EndOfStreamException">If stream ends before required amount of bytes is read.</exception>
    public static MetaDataTableStreamHeader ReadTableStreamHeader( this Byte[] array, ref Int32 idx )
    {
       UInt64 presentTables;
@@ -2918,11 +3416,19 @@ public static partial class E_CILPhysical
          );
    }
 
-   public static Int32 WriteTableStreamHeader( this MetaDataTableStreamHeader header, ResizableArray<Byte> byteArray )
+   /// <summary>
+   /// This is extension method to write this <see cref="MetaDataStreamHeader"/> into a given array.
+   /// </summary>
+   /// <param name="header">The <see cref="MetaDataStreamHeader"/>.</param>
+   /// <param name="array">The byte array.</param>
+   /// <exception cref="NullReferenceException">If this <see cref="MetaDataStreamHeader"/> is <c>null</c>.</exception>
+   /// <exception cref="ArgumentNullException">If <paramref name="array"/> is <c>null</c>.</exception>
+   /// <exception cref="IndexOutOfRangeException">If the given <paramref name="array"/> is too small.</exception>
+   public static Int32 WriteTableStreamHeader( this MetaDataTableStreamHeader header, ResizableArray<Byte> array )
    {
       var idx = 0;
-      var array = byteArray.Array;
-      array
+      var bytez = array.Array;
+      bytez
          .WriteInt32LEToBytes( ref idx, header.Reserved )
          .WriteByteToBytes( ref idx, header.MajorVersion )
          .WriteByteToBytes( ref idx, header.MinorVersion )
@@ -2934,17 +3440,24 @@ public static partial class E_CILPhysical
       var tableSizes = header.TableSizes;
       for ( var i = 0; i < tableSizes.Count; ++i )
       {
-         array.WriteUInt32LEToBytes( ref idx, tableSizes[i] );
+         bytez.WriteUInt32LEToBytes( ref idx, tableSizes[i] );
       }
       var extraData = header.ExtraData;
       if ( extraData.HasValue )
       {
-         array.WriteInt32LEToBytes( ref idx, extraData.Value );
+         bytez.WriteInt32LEToBytes( ref idx, extraData.Value );
       }
 
       return idx;
    }
 
+   /// <summary>
+   /// This is extension method to read the <see cref="DebugInformation"/> from the given stream.
+   /// </summary>
+   /// <param name="stream">The stream, as <see cref="StreamHelper"/>.</param>
+   /// <returns>The <see cref="DebugInformation"/>, contents of which is read from the <paramref name="stream"/>, starting from its current position.</returns>
+   /// <exception cref="NullReferenceException">If <paramref name="stream"/> is <c>null</c>.</exception>
+   /// <exception cref="System.IO.EndOfStreamException">If stream ends before required amount of bytes is read.</exception>
    public static DebugInformation ReadDebugInformation( this StreamHelper stream )
    {
       UInt32 dataSize, dataPtr;
@@ -2961,6 +3474,15 @@ public static partial class E_CILPhysical
          );
    }
 
+   /// <summary>
+   /// This is extension method to write this <see cref="DebugInformation"/> into a given array.
+   /// </summary>
+   /// <param name="debugInfo">The <see cref="DebugInformation"/>.</param>
+   /// <param name="array">The byte array.</param>
+   /// <param name="idx">The index where to start writing the <see cref="DebugInformation"/>.</param>
+   /// <exception cref="NullReferenceException">If this <see cref="DebugInformation"/> is <c>null</c>.</exception>
+   /// <exception cref="ArgumentNullException">If <paramref name="array"/> is <c>null</c>.</exception>
+   /// <exception cref="IndexOutOfRangeException">If the given <paramref name="array"/> is too small.</exception>
    public static void WriteDebugInformation( this DebugInformation debugInfo, Byte[] array, ref Int32 idx )
    {
       array
@@ -2999,68 +3521,128 @@ public static partial class E_CILPhysical
    /// <summary>
    /// Checks whether given <see cref="ModuleFlags"/> has its <see cref="ModuleFlags.ILOnly"/> flag set.
    /// </summary>
-   /// <param name="mFlags">The <see cref="ModuleFlags"/>.</param>
-   /// <returns><c>true</c> if <paramref name="mFlags"/> has <see cref="ModuleFlags.ILOnly"/> flag set; <c>false</c> otherwise.</returns>
-   public static Boolean IsILOnly( this ModuleFlags mFlags )
+   /// <param name="flags">The <see cref="ModuleFlags"/>.</param>
+   /// <returns><c>true</c> if <paramref name="flags"/> has <see cref="ModuleFlags.ILOnly"/> flag set; <c>false</c> otherwise.</returns>
+   public static Boolean IsILOnly( this ModuleFlags flags )
    {
-      return ( mFlags & ModuleFlags.ILOnly ) != 0;
+      return ( flags & ModuleFlags.ILOnly ) != 0;
    }
 
-   public static Boolean IsNativeEntryPoint( this ModuleFlags mFlags )
+   /// <summary>
+   /// Checks whether given <see cref="ModuleFlags"/> has its <see cref="ModuleFlags.NativeEntrypoint"/> flag set.
+   /// </summary>
+   /// <param name="flags">The <see cref="ModuleFlags"/>.</param>
+   /// <returns><c>true</c> if <paramref name="flags"/> has <see cref="ModuleFlags.NativeEntrypoint"/> flag set; <c>false</c> otherwise.</returns>
+   public static Boolean IsNativeEntryPoint( this ModuleFlags flags )
    {
-      return ( mFlags & ModuleFlags.NativeEntrypoint ) != 0;
+      return ( flags & ModuleFlags.NativeEntrypoint ) != 0;
    }
 
+   /// <summary>
+   /// Checks whether given <see cref="ModuleFlags"/> has its <see cref="TableStreamFlags.WideStrings"/> flag set.
+   /// </summary>
+   /// <param name="flags">The <see cref="ModuleFlags"/>.</param>
+   /// <returns><c>true</c> if <paramref name="flags"/> has <see cref="TableStreamFlags.WideStrings"/> flag set; <c>false</c> otherwise.</returns>
    public static Boolean IsWideStrings( this TableStreamFlags flags )
    {
       return ( flags & TableStreamFlags.WideStrings ) != 0;
    }
 
+   /// <summary>
+   /// Checks whether given <see cref="ModuleFlags"/> has its <see cref="TableStreamFlags.WideGUID"/> flag set.
+   /// </summary>
+   /// <param name="flags">The <see cref="ModuleFlags"/>.</param>
+   /// <returns><c>true</c> if <paramref name="flags"/> has <see cref="TableStreamFlags.WideGUID"/> flag set; <c>false</c> otherwise.</returns>
    public static Boolean IsWideGUID( this TableStreamFlags flags )
    {
       return ( flags & TableStreamFlags.WideGUID ) != 0;
    }
 
+   /// <summary>
+   /// Checks whether given <see cref="ModuleFlags"/> has its <see cref="TableStreamFlags.WideBLOB"/> flag set.
+   /// </summary>
+   /// <param name="flags">The <see cref="ModuleFlags"/>.</param>
+   /// <returns><c>true</c> if <paramref name="flags"/> has <see cref="TableStreamFlags.WideBLOB"/> flag set; <c>false</c> otherwise.</returns>
    public static Boolean IsWideBLOB( this TableStreamFlags flags )
    {
       return ( flags & TableStreamFlags.WideBLOB ) != 0;
    }
 
+   /// <summary>
+   /// Checks whether given <see cref="ModuleFlags"/> has its <see cref="TableStreamFlags.Padding"/> flag set.
+   /// </summary>
+   /// <param name="flags">The <see cref="ModuleFlags"/>.</param>
+   /// <returns><c>true</c> if <paramref name="flags"/> has <see cref="TableStreamFlags.Padding"/> flag set; <c>false</c> otherwise.</returns>
    public static Boolean HasPadding( this TableStreamFlags flags )
    {
       return ( flags & TableStreamFlags.Padding ) != 0;
    }
 
+   /// <summary>
+   /// Checks whether given <see cref="ModuleFlags"/> has its <see cref="TableStreamFlags.DeltaOnly"/> flag set.
+   /// </summary>
+   /// <param name="flags">The <see cref="ModuleFlags"/>.</param>
+   /// <returns><c>true</c> if <paramref name="flags"/> has <see cref="TableStreamFlags.DeltaOnly"/> flag set; <c>false</c> otherwise.</returns>
    public static Boolean IsDeltaOnly( this TableStreamFlags flags )
    {
       return ( flags & TableStreamFlags.DeltaOnly ) != 0;
    }
 
+   /// <summary>
+   /// Checks whether given <see cref="ModuleFlags"/> has its <see cref="TableStreamFlags.ExtraData"/> flag set.
+   /// </summary>
+   /// <param name="flags">The <see cref="ModuleFlags"/>.</param>
+   /// <returns><c>true</c> if <paramref name="flags"/> has <see cref="TableStreamFlags.ExtraData"/> flag set; <c>false</c> otherwise.</returns>
    public static Boolean HasExtraData( this TableStreamFlags flags )
    {
       return ( flags & TableStreamFlags.ExtraData ) != 0;
    }
 
+   /// <summary>
+   /// Checks whether given <see cref="ModuleFlags"/> has its <see cref="TableStreamFlags.HasDelete"/> flag set.
+   /// </summary>
+   /// <param name="flags">The <see cref="ModuleFlags"/>.</param>
+   /// <returns><c>true</c> if <paramref name="flags"/> has <see cref="TableStreamFlags.HasDelete"/> flag set; <c>false</c> otherwise.</returns>
    public static Boolean HasDelete( this TableStreamFlags flags )
    {
       return ( flags & TableStreamFlags.HasDelete ) != 0;
    }
 
-   public static ArrayQuery<Int64> GetMethodRVAs( this CLIInformation info )
+   /// <summary>
+   /// Gets the list of method RVAs from this <see cref="DataReferencesInfo"/>.
+   /// </summary>
+   /// <param name="info">The <see cref="DataReferencesInfo"/>.</param>
+   /// <returns>A list of method RVAs.</returns>
+   /// <exception cref="NullReferenceException">If this <see cref="DataReferencesInfo"/> is <c>null</c>.</exception>
+   public static TRVAList GetMethodRVAs( this DataReferencesInfo info )
    {
-      return info.GetDataReferencesFor( Tables.MethodDef, 0 );
+      return info.GetDataReferencesOrEmpty( Tables.MethodDef, 0 );
    }
 
-   public static ArrayQuery<Int64> GetFieldRVAs( this CLIInformation info )
+   /// <summary>
+   /// Gets the list of field RVAs from this <see cref="DataReferencesInfo"/>.
+   /// </summary>
+   /// <param name="info">The <see cref="DataReferencesInfo"/>.</param>
+   /// <returns>A list of field RVAs.</returns>
+   /// <exception cref="NullReferenceException">If this <see cref="DataReferencesInfo"/> is <c>null</c>.</exception>
+   public static TRVAList GetFieldRVAs( this DataReferencesInfo info )
    {
-      return info.GetDataReferencesFor( Tables.FieldRVA, 0 );
+      return info.GetDataReferencesOrEmpty( Tables.FieldRVA, 0 );
    }
 
-   public static ArrayQuery<Int64> GetDataReferencesFor( this CLIInformation info, Tables table, Int32 colIndex )
+   /// <summary>
+   /// Returns a list of data references for a given table and column index.
+   /// </summary>
+   /// <param name="info">The <see cref="DataReferencesInfo"/>.</param>
+   /// <param name="table">The <see cref="Tables"/> ID of the table.</param>
+   /// <param name="colIndex">The column index.</param>
+   /// <returns>A list of data references, or empty <see cref="ArrayQuery{TValue}"/> if this <see cref="DataReferencesInfo"/> did not have a list of data references for given <see cref="Tables"/> ID or column index.</returns>
+   /// <exception cref="NullReferenceException">If this <see cref="DataReferencesInfo"/> is <c>null</c>.</exception>
+   public static TRVAList GetDataReferencesOrEmpty( this DataReferencesInfo info, Tables table, Int32 colIndex )
    {
-      DictionaryQuery<Int32, ArrayQuery<Int64>> dic;
-      ArrayQuery<Int64> refs = null;
-      if ( info.DataReferences.DataReferences.TryGetValue( table, out dic )
+      DictionaryQuery<Int32, TRVAList> dic;
+      TRVAList refs = null;
+      if ( info.DataReferences.TryGetValue( table, out dic )
          && dic.TryGetValue( colIndex, out refs ) )
       {
 
@@ -3068,37 +3650,57 @@ public static partial class E_CILPhysical
       return refs ?? EmptyArrayProxy<Int64>.Query;
    }
 
-   public static DataReferencesInfo CreateDataReferencesDictionary( this MetaDataTableStreamHeader header, IEnumerable<DataReferenceInfo> refs )
+   /// <summary>
+   /// This is extension method to create a new instance of <see cref="DataReferencesInfo"/> from this <see cref="MetaDataTableStreamHeader"/> with given enumerable of <see cref="DataReferenceInfo"/>s.
+   /// </summary>
+   /// <param name="header">The <see cref="MetaDataTableStreamHeader"/>.</param>
+   /// <param name="refs">The enumerable of <see cref="DataReferenceInfo"/>s. May be <c>null</c>.</param>
+   /// <returns>A new instance of <see cref="DataReferencesInfo"/> with information extracted from given enumerable of <see cref="DataReferencesInfo"/>s.</returns>
+   /// <exception cref="NullReferenceException">If this <see cref="MetaDataTableStreamHeader"/> is <c>null</c>.</exception>
+   public static DataReferencesInfo CreateDataReferencesInfo( this MetaDataTableStreamHeader header, IEnumerable<DataReferenceInfo> refs )
    {
+
       var cf = CollectionsWithRoles.Implementation.CollectionsFactorySingleton.DEFAULT_COLLECTIONS_FACTORY;
-      var dic = new Dictionary<Tables, DictionaryWithRoles<Int32, ArrayProxy<Int64>, ArrayProxyQuery<Int64>, ArrayQuery<Int64>>>();
-      var tSizes = header.CreateTableSizesArray();
-      var indices = new Int32[tSizes.Length];
-      foreach ( var dataRef in refs )
+      var dic = new Dictionary<Tables, DictionaryWithRoles<Int32, ArrayProxy<Int64>, ArrayProxyQuery<Int64>, TRVAList>>();
+      if ( refs != null )
       {
-         var table = dataRef.Table;
-         var thisTableDic = dic
-            .GetOrAdd_NotThreadSafe( table, t => cf.NewDictionary<Int32, ArrayProxy<Int64>, ArrayProxyQuery<Int64>, ArrayQuery<Int64>>() );
-         var cIdx = dataRef.ColumnIndex;
-         ArrayProxy<Int64> array;
-         if ( !thisTableDic.CQ.TryGetValue( cIdx, out array ) )
+         var tSizes = header.CreateTableSizesArray();
+         var indices = new Int32[tSizes.Length];
+         foreach ( var dataRef in refs )
          {
-            array = cf.NewArrayProxy<Int64>( new Int64[tSizes[(Int32) table]] );
-            thisTableDic.Add( cIdx, array );
+            var table = dataRef.Table;
+            var thisTableDic = dic
+               .GetOrAdd_NotThreadSafe( table, t => cf.NewDictionary<Int32, ArrayProxy<Int64>, ArrayProxyQuery<Int64>, TRVAList>() );
+            var cIdx = dataRef.ColumnIndex;
+            ArrayProxy<Int64> array;
+            if ( !thisTableDic.CQ.TryGetValue( cIdx, out array ) )
+            {
+               array = cf.NewArrayProxy<Int64>( new Int64[tSizes[(Int32) table]] );
+               thisTableDic.Add( cIdx, array );
+            }
+            array[indices[(Int32) table]++] = dataRef.DataReference;
          }
-         array[indices[(Int32) table]++] = dataRef.DataReference;
       }
       return new DataReferencesInfo( cf.NewDictionary<
          Tables,
-         DictionaryWithRoles<Int32, ArrayProxy<Int64>, ArrayProxyQuery<Int64>, ArrayQuery<Int64>>,
-         DictionaryQueryOfMutables<Int32, ArrayProxy<Int64>, ArrayProxyQuery<Int64>, ArrayQuery<Int64>>,
-         DictionaryQuery<Int32, ArrayQuery<Int64>>
+         DictionaryWithRoles<Int32, ArrayProxy<Int64>, ArrayProxyQuery<Int64>, TRVAList>,
+         DictionaryQueryOfMutables<Int32, ArrayProxy<Int64>, ArrayProxyQuery<Int64>, TRVAList>,
+         DictionaryQuery<Int32, TRVAList>
          >( dic ).CQ.IQ );
    }
 
    // Technically, max size is 255, but the bitmask in CLI header can only describe presence of 64 tables
    private const Int32 TABLE_ARRAY_SIZE = 64;
 
+   /// <summary>
+   /// This extension method will create based on the <see cref="MetaDataTableStreamHeader.TableSizes"/> of this <see cref="MetaDataTableStreamHeader"/>, where the size of any given <see cref="Tables"/> table can be determined by using the integer value of the <see cref="Tables"/> as index into the array.
+   /// </summary>
+   /// <param name="tableStreamHeader">This <see cref="MetaDataTableStreamHeader"/>.</param>
+   /// <returns>An array where the size of any <see cref="Tables"/> can be easily determined.</returns>
+   /// <remarks>
+   /// Since the <see cref="MetaDataTableStreamHeader.TableSizes"/> contains only non-zero table sizes (i.e. only for tables present in <see cref="MetaDataTableStreamHeader.PresentTablesBitVector"/>), the size of the meta data table is not easily determineable.
+   /// However, using the array returned by this method, assuming there is a variable callaed <c>table</c> of type <see cref="Tables"/>, the size of the meta data table for variable <c>table</c> can be determined with: <c>array[(Int32)table]</c>.
+   /// </remarks>
    public static Int32[] CreateTableSizesArray( this MetaDataTableStreamHeader tableStreamHeader )
    {
       var tableSizes = new Int32[TABLE_ARRAY_SIZE];
@@ -3115,35 +3717,54 @@ public static partial class E_CILPhysical
       return tableSizes;
    }
 
+   /// <summary>
+   /// This method tries to get the <see cref="CLIHeader.EntryPointToken"/> of this <see cref="CLIHeader"/> as <see cref="TableIndex"/>.
+   /// </summary>
+   /// <param name="header">This <see cref="CLIHeader"/>.</param>
+   /// <param name="managedEP">This parameter will contain the entry point as <see cref="TableIndex"/>, if this method returns <c>true</c>.</param>
+   /// <returns><c>true</c>, if the <see cref="CLIHeader.EntryPointToken"/> is a managed entry point; <c>false</c> otherwise.</returns>
+   /// <exception cref="NullReferenceException">If this <see cref="CLIHeader"/> is <c>null</c>.</exception>
    public static Boolean TryGetManagedEntryPoint( this CLIHeader header, out TableIndex managedEP )
    {
-      TableIndex? ep;
-      Boolean retVal;
-      if ( !header.Flags.IsNativeEntryPoint() && ( ep = TableIndex.FromOneBasedTokenNullable( (Int32) header.EntryPointToken ) ).HasValue )
-      {
-         managedEP = ep.Value;
-         retVal = true;
-      }
-      else
-      {
-         managedEP = default( TableIndex );
-         retVal = false;
-      }
+      Int32 ep; Boolean wasManaged;
+      var retVal = header.TryGetManagedOrUnmanagedEntryPoint( out ep, out wasManaged )
+         && wasManaged;
+      managedEP = retVal ?
+         TableIndex.FromOneBasedToken( ep ) :
+         default( TableIndex );
       return retVal;
    }
 
+   /// <summary>
+   /// This method tries to get the <see cref="CLIHeader.EntryPointToken"/> as integer, whether that is managed or unmanaged entry point token.
+   /// </summary>
+   /// <param name="header">This <see cref="CLIHeader"/>.</param>
+   /// <param name="entryPointToken">This parameter will contain the entry point as integer, if this method returns <c>true</c>.</param>
+   /// <returns><c>true</c> if the <see cref="CLIHeader.EntryPointToken"/> is a managed or unmanaged entry point; <c>false</c> otherwise.</returns>
+   /// <exception cref="NullReferenceException">If this <see cref="CLIHeader"/> is <c>null</c>.</exception>
    public static Boolean TryGetManagedOrUnmanagedEntryPoint( this CLIHeader header, out Int32 entryPointToken )
    {
+      Boolean wasManaged;
+      return header.TryGetManagedOrUnmanagedEntryPoint( out entryPointToken, out wasManaged );
+   }
+
+   /// <summary>
+   /// This method tries to get the <see cref="CLIHeader.EntryPointToken"/> as integer, whether that is managed or unmanaged entry point token.
+   /// </summary>
+   /// <param name="header">This <see cref="CLIHeader"/>.</param>
+   /// <param name="entryPointToken">This parameter will contain the entry point as integer, if this method returns <c>true</c>.</param>
+   /// <param name="wasManaged">This parameter will be <c>true</c> the entry point token was managed.</param>
+   /// <returns><c>true</c> if the <see cref="CLIHeader.EntryPointToken"/> is a managed or unmanaged entry point; <c>false</c> otherwise.</returns>
+   /// <exception cref="NullReferenceException">If this <see cref="CLIHeader"/> is <c>null</c>.</exception>
+   public static Boolean TryGetManagedOrUnmanagedEntryPoint( this CLIHeader header, out Int32 entryPointToken, out Boolean wasManaged )
+   {
       Boolean retVal = header.Flags.IsNativeEntryPoint();
-      if ( header.Flags.IsNativeEntryPoint() )
+      wasManaged = !retVal;
+      entryPointToken = (Int32) header.EntryPointToken;
+      if ( wasManaged )
       {
-         entryPointToken = (Int32) header.EntryPointToken;
-      }
-      else
-      {
-         TableIndex ep;
-         retVal = header.TryGetManagedEntryPoint( out ep );
-         entryPointToken = retVal ? ep.GetOneBasedToken() : 0;
+         var ep = TableIndex.FromOneBasedTokenNullable( entryPointToken );
+         retVal = ep.HasValue;
       }
       return retVal;
    }

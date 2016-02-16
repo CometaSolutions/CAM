@@ -76,7 +76,7 @@ namespace CILAssemblyManipulator.Physical.IO
    }
 
    /// <summary>
-   /// This class contains properties controlling various values of <see cref="OptionalHeader"/> and <see cref="FileHeader"/> in <see cref="E_CILPhysical.WriteMetaDataToStream(WriterFunctionality, System.IO.Stream, CILMetaData, WritingOptions, StrongNameKeyPair, bool, Crypto.CryptoCallbacks, AssemblyHashAlgorithm?, EventHandler{SerializationErrorEventArgs})"/> method.
+   /// This class contains properties controlling various values of <see cref="OptionalHeader"/> and <see cref="FileHeader"/> in <see cref="M:E_CILPhysical.WriteMetaDataToStream(WriterFunctionality, System.IO.Stream, CILMetaData, WritingOptions, StrongNameKeyPair, bool, Crypto.CryptoCallbacks, AssemblyHashAlgorithm?, EventHandler{SerializationErrorEventArgs})"/> method.
    /// Additionally, the <see cref="ImportDirectoryName"/> and <see cref="ImportHintName"/> control import directory content, if the import directory is present.
    /// </summary>
    /// <seealso cref="WritingOptions"/>
@@ -109,7 +109,7 @@ namespace CILAssemblyManipulator.Physical.IO
       /// </summary>
       /// <value>The value for <see cref="FileHeader.Characteristics"/> property.</value>
       /// <remarks>
-      /// By default, the automatically calculated value will be used.
+      /// By default, the combination of <see cref="FileHeaderCharacteristics.ExecutableImage"/> and <see cref="FileHeaderCharacteristics.LargeAddressAware" /> values will be used.
       /// </remarks>
       /// <seealso cref="FileHeader.Characteristics"/>
       /// <seealso cref="FileHeaderCharacteristics"/>
@@ -339,7 +339,7 @@ namespace CILAssemblyManipulator.Physical.IO
    }
 
    /// <summary>
-   /// This class contains properties controlling various values of <see cref="CLIHeader"/>, <see cref="MetaDataRoot"/>, and <see cref="MetaDataTableStreamHeader"/> in <see cref="E_CILPhysical.WriteMetaDataToStream(WriterFunctionality, System.IO.Stream, CILMetaData, WritingOptions, StrongNameKeyPair, bool, Crypto.CryptoCallbacks, AssemblyHashAlgorithm?, EventHandler{SerializationErrorEventArgs})"/> method.
+   /// This class contains properties controlling various values of <see cref="CLIHeader"/>, <see cref="MetaDataRoot"/>, and <see cref="MetaDataTableStreamHeader"/> in <see cref="M:E_CILPhysical.WriteMetaDataToStream(WriterFunctionality, System.IO.Stream, CILMetaData, WritingOptions, StrongNameKeyPair, bool, Crypto.CryptoCallbacks, AssemblyHashAlgorithm?, EventHandler{SerializationErrorEventArgs})"/> method.
    /// </summary>
    /// <seealso cref="WritingOptions"/>
    /// <seealso cref="WritingArguments.WritingOptions"/>
@@ -383,7 +383,7 @@ namespace CILAssemblyManipulator.Physical.IO
    }
 
    /// <summary>
-   /// This class contains properties controlling various values of <see cref="CLIHeader"/> in <see cref="E_CILPhysical.WriteMetaDataToStream(WriterFunctionality, System.IO.Stream, CILMetaData, WritingOptions, StrongNameKeyPair, bool, Crypto.CryptoCallbacks, AssemblyHashAlgorithm?, EventHandler{SerializationErrorEventArgs})"/> method.
+   /// This class contains properties controlling various values of <see cref="CLIHeader"/> in <see cref="M:E_CILPhysical.WriteMetaDataToStream(WriterFunctionality, System.IO.Stream, CILMetaData, WritingOptions, StrongNameKeyPair, bool, Crypto.CryptoCallbacks, AssemblyHashAlgorithm?, EventHandler{SerializationErrorEventArgs})"/> method.
    /// </summary>
    /// <seealso cref="WritingOptions_CLI"/>
    /// <seealso cref="WritingArguments.WritingOptions"/>
@@ -444,7 +444,7 @@ namespace CILAssemblyManipulator.Physical.IO
    }
 
    /// <summary>
-   /// This class contains properties controlling various values of <see cref="MetaDataRoot"/> in <see cref="E_CILPhysical.WriteMetaDataToStream(WriterFunctionality, System.IO.Stream, CILMetaData, WritingOptions, StrongNameKeyPair, bool, Crypto.CryptoCallbacks, AssemblyHashAlgorithm?, EventHandler{SerializationErrorEventArgs})"/> method.
+   /// This class contains properties controlling various values of <see cref="MetaDataRoot"/> in <see cref="M:E_CILPhysical.WriteMetaDataToStream(WriterFunctionality, System.IO.Stream, CILMetaData, WritingOptions, StrongNameKeyPair, bool, Crypto.CryptoCallbacks, AssemblyHashAlgorithm?, EventHandler{SerializationErrorEventArgs})"/> method.
    /// </summary>
    /// <seealso cref="WritingOptions_CLI"/>
    /// <seealso cref="WritingArguments.WritingOptions"/>
@@ -524,7 +524,7 @@ namespace CILAssemblyManipulator.Physical.IO
    }
 
    /// <summary>
-   /// This class contains properties controlling various values of <see cref="MetaDataTableStreamHeader"/> in <see cref="E_CILPhysical.WriteMetaDataToStream(WriterFunctionality, System.IO.Stream, CILMetaData, WritingOptions, StrongNameKeyPair, bool, Crypto.CryptoCallbacks, AssemblyHashAlgorithm?, EventHandler{SerializationErrorEventArgs})"/> method.
+   /// This class contains properties controlling various values of <see cref="MetaDataTableStreamHeader"/> in <see cref="M:E_CILPhysical.WriteMetaDataToStream(WriterFunctionality, System.IO.Stream, CILMetaData, WritingOptions, StrongNameKeyPair, bool, Crypto.CryptoCallbacks, AssemblyHashAlgorithm?, EventHandler{SerializationErrorEventArgs})"/> method.
    /// </summary>
    /// <seealso cref="WritingOptions_CLI"/>
    /// <seealso cref="WritingArguments.WritingOptions"/>

@@ -202,7 +202,7 @@ public static partial class E_CILPhysical
             mdStreams.Where( s => !ReferenceEquals( tblMDStream, s ) && !ReferenceEquals( blobStream, s ) && !ReferenceEquals( guidStream, s ) && !ReferenceEquals( sysStringStream, s ) && !ReferenceEquals( userStringStream, s ) )
             );
 
-      var dataReferences = tblHeader.CreateDataReferencesDictionary( tblMDStream.PopulateMetaDataStructure(
+      var dataReferences = tblHeader.CreateDataReferencesInfo( tblMDStream.PopulateMetaDataStructure(
          md,
          mdStreamContainer
          ) );

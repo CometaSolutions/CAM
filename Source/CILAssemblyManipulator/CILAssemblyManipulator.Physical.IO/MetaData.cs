@@ -53,6 +53,11 @@ public static partial class E_CILPhysical
       return ( ( index.CombinedValue & CAMCoreInternals.INDEX_MASK ) + 1 ) | ( index.CombinedValue & ~CAMCoreInternals.INDEX_MASK );
    }
 
+   /// <summary>
+   ///  Gets the one-based metadata token (table + one-based index value encoded in integer) for this nullable <see cref="TableIndex"/>.
+   /// </summary>
+   /// <param name="tableIdx">The nullable<see cref="TableIndex"/>.</param>
+   /// <returns>The one-based metadata token for this <see cref="TableIndex"/>, or <c>0</c> if this nullable <see cref="TableIndex"/> does not have a value.</returns>
    public static Int32 GetOneBasedToken( this TableIndex? tableIdx )
    {
       return tableIdx.HasValue ?

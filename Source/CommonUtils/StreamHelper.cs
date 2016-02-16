@@ -524,6 +524,8 @@ public static partial class E_CommonUtils
    /// </summary>
    /// <param name="array">The byte array.</param>
    /// <returns>The decoded <see cref="Int16"/>.</returns>
+   /// <exception cref="NullReferenceException">If this <see cref="StreamHelper"/> is <c>null</c>.</exception>
+   /// <exception cref="EndOfStreamException">If stream ends before required amount of bytes is read.</exception>
    public static Int16 ReadInt16LEFromBytes( this StreamHelper array )
    {
       var bytez = array.ReadAndReturnArray( sizeof( Int16 ) );
@@ -535,6 +537,8 @@ public static partial class E_CommonUtils
    /// </summary>
    /// <param name="array">The byte array.</param>
    /// <returns>The decoded <see cref="UInt16"/>.</returns>
+   /// <exception cref="NullReferenceException">If this <see cref="StreamHelper"/> is <c>null</c>.</exception>
+   /// <exception cref="EndOfStreamException">If stream ends before required amount of bytes is read.</exception>
    [CLSCompliant( false )]
    public static UInt16 ReadUInt16LEFromBytes( this StreamHelper array )
    {
@@ -547,6 +551,8 @@ public static partial class E_CommonUtils
    /// </summary>
    /// <param name="array">The byte array.</param>
    /// <returns>The decoded <see cref="Int32"/>.</returns>
+   /// <exception cref="NullReferenceException">If this <see cref="StreamHelper"/> is <c>null</c>.</exception>
+   /// <exception cref="EndOfStreamException">If stream ends before required amount of bytes is read.</exception>
    public static Int32 ReadInt32LEFromBytes( this StreamHelper array )
    {
       var bytez = array.ReadAndReturnArray( sizeof( Int32 ) );
@@ -559,6 +565,8 @@ public static partial class E_CommonUtils
    /// </summary>
    /// <param name="array">The byte array.</param>
    /// <returns>The decoded <see cref="UInt32"/>.</returns>
+   /// <exception cref="NullReferenceException">If this <see cref="StreamHelper"/> is <c>null</c>.</exception>
+   /// <exception cref="EndOfStreamException">If stream ends before required amount of bytes is read.</exception>
    [CLSCompliant( false )]
    public static UInt32 ReadUInt32LEFromBytes( this StreamHelper array )
    {
@@ -570,6 +578,8 @@ public static partial class E_CommonUtils
    /// </summary>
    /// <param name="array">The byte array.</param>
    /// <returns>The decoded <see cref="Int64"/>.</returns>
+   /// <exception cref="NullReferenceException">If this <see cref="StreamHelper"/> is <c>null</c>.</exception>
+   /// <exception cref="EndOfStreamException">If stream ends before required amount of bytes is read.</exception>
    public static Int64 ReadInt64LEFromBytes( this StreamHelper array )
    {
       var bytez = array.ReadAndReturnArray( sizeof( Int64 ) );
@@ -582,6 +592,8 @@ public static partial class E_CommonUtils
    /// </summary>
    /// <param name="array">The byte array.</param>
    /// <returns>The decoded <see cref="Int64"/>.</returns>
+   /// <exception cref="NullReferenceException">If this <see cref="StreamHelper"/> is <c>null</c>.</exception>
+   /// <exception cref="EndOfStreamException">If stream ends before required amount of bytes is read.</exception>
    [CLSCompliant( false )]
    public static UInt64 ReadUInt64LEFromBytes( this StreamHelper array )
    {
@@ -593,7 +605,7 @@ public static partial class E_CommonUtils
    /// </summary>
    /// <param name="array">The byte array.</param>
    /// <returns>The decoded <see cref="Single"/>.</returns>
-   /// <exception cref="NullReferenceException">If <paramref name="array"/> is <c>null</c>.</exception>
+   /// <exception cref="NullReferenceException">If this <see cref="StreamHelper"/> is <c>null</c>.</exception>
    public static Single ReadSingleLEFromBytes( this StreamHelper array )
    {
       var bytez = array.ReadAndReturnArray( sizeof( Single ) );
@@ -614,6 +626,8 @@ public static partial class E_CommonUtils
    /// </summary>
    /// <param name="array">The byte array.</param>
    /// <returns>The decoded <see cref="Double"/>.</returns>
+   /// <exception cref="NullReferenceException">If this <see cref="StreamHelper"/> is <c>null</c>.</exception>
+   /// <exception cref="EndOfStreamException">If stream ends before required amount of bytes is read.</exception>
    public static Double ReadDoubleLEFromBytes( this StreamHelper array )
    {
       return BitConverter.Int64BitsToDouble( array.ReadInt64LEFromBytes() );
@@ -625,6 +639,8 @@ public static partial class E_CommonUtils
    /// <param name="array">The byte array.</param>
    /// <param name="intArrayLen">The amount of integers to read.</param>
    /// <returns>The integer array.</returns>
+   /// <exception cref="NullReferenceException">If this <see cref="StreamHelper"/> is <c>null</c>.</exception>
+   /// <exception cref="EndOfStreamException">If stream ends before required amount of bytes is read.</exception>
    public static Int32[] ReadInt32ArrayLEFromBytes( this StreamHelper array, Int32 intArrayLen )
    {
       var result = new Int32[intArrayLen];
@@ -641,6 +657,8 @@ public static partial class E_CommonUtils
    /// <param name="array">The byte array.</param>
    /// <param name="intArrayLen">The amount of unsigned integers to read.</param>
    /// <returns>The unsigned integer array.</returns>
+   /// <exception cref="NullReferenceException">If this <see cref="StreamHelper"/> is <c>null</c>.</exception>
+   /// <exception cref="EndOfStreamException">If stream ends before required amount of bytes is read.</exception>
    [CLSCompliant( false )]
    public static UInt32[] ReadUInt32ArrayLEFromBytes( this StreamHelper array, Int32 intArrayLen )
    {

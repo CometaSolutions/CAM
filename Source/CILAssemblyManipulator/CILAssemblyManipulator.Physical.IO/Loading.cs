@@ -35,7 +35,7 @@ using System.Text;
 namespace CILAssemblyManipulator.Physical.Loading
 {
    /// <summary>
-   /// This interface further refines the <see cref="CILMetaDataLoader"/> with the assumption that each textual resource represents a binary stream readable by <see cref="CILMetaDataIO.ReadModule"/> method.
+   /// This interface further refines the <see cref="CILMetaDataLoader"/> with the assumption that each textual resource represents a binary stream readable by <see cref="M:CILMetaDataIO.ReadModule"/> method.
    /// </summary>
    public interface CILMetaDataBinaryLoader : CILMetaDataLoader
    {
@@ -61,7 +61,7 @@ namespace CILAssemblyManipulator.Physical.Loading
       /// <remarks>
       /// In file-oriented loader, this usually means returning the value of <see cref="M:System.IO.File.Open(System.String, System.IO.FileMode, System.IO.FileAccess, System.IO.FileShare)"/>
       /// </remarks>
-      /// <seealso cref="AbstractCILMetaDataBinaryLoader{TDictionary}.GetStreamFor(string)"/>
+      /// <seealso cref="M:AbstractCILMetaDataBinaryLoader{TDictionary}.GetStreamFor(string)"/>
       Stream GetStreamFor( String resource );
    }
 

@@ -200,7 +200,7 @@ public static partial class E_CILPhysical
 
       // 4. Create sections and some headers
       RVAConverter rvaConverter; Int32 mdRootSize;
-      var dataRefs = thHeader.CreateDataReferencesDictionary( writer.CalculateImageLayout(
+      var dataRefs = thHeader.CreateDataReferencesInfo( writer.CalculateImageLayout(
          status,
          mdStreamContainer,
          mdStreams,
@@ -258,7 +258,7 @@ public static partial class E_CILPhysical
                   0, // Pointer to symbol table
                   0, // Number of symbols
                   (UInt16) optionalHeaderSize,
-                  ( peOptions.Characteristics ?? machine.GetDefaultCharacteristics() ).ProcessCharacteristics( options.IsExecutable )
+                  ( peOptions.Characteristics ?? ( FileHeaderCharacteristics.ExecutableImage | FileHeaderCharacteristics.LargeAddressAware ) ).ProcessCharacteristics( options.IsExecutable )
                   ),
                peOptions.CreateOptionalHeader(
                   status,

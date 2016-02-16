@@ -272,7 +272,7 @@ namespace CILAssemblyManipulator.Physical.TypeRemapping
             }
             catch ( MetaDataLoadException e )
             {
-               if ( e.InnerException is NotAManagedModuleException )
+               if ( e.InnerException is BadImageFormatException )
                {
                   current = null;
                   this.RecordNotManagedAssembly( res );

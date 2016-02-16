@@ -30,7 +30,10 @@ using System.Collections;
 
 namespace CILAssemblyManipulator.Physical
 {
+#pragma warning disable 1591
+   // This class will gets its documentation from CAM.Physical Core.
    public static class Comparers
+#pragma warning restore 1591
    {
       /// <summary>
       /// Gets the <see cref="IEqualityComparer{T}"/> to use when comparing equality of two <see cref="ImageInformation"/> on a logical level.
@@ -58,8 +61,7 @@ namespace CILAssemblyManipulator.Physical
       /// <item><description><see cref="OptionalHeader.FileChecksum"/>,</description></item>
       /// <item><description><see cref="OptionalHeader.DataDirectories"/>,</description></item>
       /// <item><description><see cref="CLIInformation.StrongNameSignature"/>,</description></item>
-      /// <item><description><see cref="CLIInformation.MethodRVAs"/> (only size is compared, not contents),</description></item>
-      /// <item><description><see cref="CLIInformation.FieldRVAs"/> (only size is compared, not contents),</description></item>
+      /// <item><description><see cref="CLIInformation.DataReferences"/> (only size is compared, not contents),</description></item>
       /// <item><description><see cref="CLIHeader.HeaderSize"/>,</description></item>
       /// <item><description><see cref="CLIHeader.MetaData"/>,</description></item>
       /// <item><description><see cref="CLIHeader.Resources"/>,</description></item>
@@ -211,6 +213,13 @@ namespace CILAssemblyManipulator.Physical
       public static IComparer<NestedClassDefinition> NestedClassDefinitionComparer { get; }
 
       /// <summary>
+      /// Gets the ordering comparer for <see cref="TableIndex"/> properties, possible tables for which are defined in <see cref="Meta.DefaultMetaDataTableInformationProvider.TypeDefOrRef"/>.
+      /// </summary>
+      /// <seealso cref="CodedTableIndexComparer"/>
+      /// <seealso cref="Meta.DefaultMetaDataTableInformationProvider.TypeDefOrRef"/>
+      public static CodedTableIndexComparer TypeDefOrRefComparer { get; }
+
+      /// <summary>
       /// Gets the ordering comparer for <see cref="TableIndex"/> properties, possible tables for which are defined in <see cref="Meta.DefaultMetaDataTableInformationProvider.HasConstant"/>.
       /// </summary>
       /// <seealso cref="CodedTableIndexComparer"/>
@@ -239,6 +248,13 @@ namespace CILAssemblyManipulator.Physical
       public static CodedTableIndexComparer HasDeclSecurityComparer { get; }
 
       /// <summary>
+      /// Gets the ordering comparer for <see cref="TableIndex"/> properties, possible tables for which are defined in <see cref="Meta.DefaultMetaDataTableInformationProvider.MemberRefParent"/>.
+      /// </summary>
+      /// <seealso cref="CodedTableIndexComparer"/>
+      /// <seealso cref="Meta.DefaultMetaDataTableInformationProvider.MemberRefParent"/>
+      public static CodedTableIndexComparer MemberRefParentComparer { get; }
+
+      /// <summary>
       /// Gets the ordering comparer for <see cref="TableIndex"/> properties, possible tables for which are defined in <see cref="Meta.DefaultMetaDataTableInformationProvider.HasSemantics"/>.
       /// </summary>
       /// <seealso cref="CodedTableIndexComparer"/>
@@ -246,11 +262,40 @@ namespace CILAssemblyManipulator.Physical
       public static CodedTableIndexComparer HasSemanticsComparer { get; }
 
       /// <summary>
+      /// Gets the ordering comparer for <see cref="TableIndex"/> properties, possible tables for which are defined in <see cref="Meta.DefaultMetaDataTableInformationProvider.MethodDefOrRef"/>.
+      /// </summary>
+      /// <seealso cref="CodedTableIndexComparer"/>
+      /// <seealso cref="Meta.DefaultMetaDataTableInformationProvider.MethodDefOrRef"/>
+      public static CodedTableIndexComparer MethodDefOrRefComparer { get; }
+
+      /// <summary>
       /// Gets the ordering comparer for <see cref="TableIndex"/> properties, possible tables for which are defined in <see cref="Meta.DefaultMetaDataTableInformationProvider.MemberForwarded"/>.
       /// </summary>
       /// <seealso cref="CodedTableIndexComparer"/>
       /// <seealso cref="Meta.DefaultMetaDataTableInformationProvider.MemberForwarded"/>
       public static CodedTableIndexComparer MemberForwardedComparer { get; }
+
+      /// <summary>
+      /// Gets the ordering comparer for <see cref="TableIndex"/> properties, possible tables for which are defined in <see cref="Meta.DefaultMetaDataTableInformationProvider.Implementation"/>.
+      /// </summary>
+      /// <seealso cref="CodedTableIndexComparer"/>
+      /// <seealso cref="Meta.DefaultMetaDataTableInformationProvider.Implementation"/>
+      public static CodedTableIndexComparer ImplementationComparer { get; }
+
+      /// <summary>
+      /// Gets the ordering comparer for <see cref="TableIndex"/> properties, possible tables for which are defined in <see cref="Meta.DefaultMetaDataTableInformationProvider.CustomAttributeType"/>.
+      /// </summary>
+      /// <seealso cref="CodedTableIndexComparer"/>
+      /// <seealso cref="Meta.DefaultMetaDataTableInformationProvider.CustomAttributeType"/>
+      public static CodedTableIndexComparer CustomAttributeTypeComparer { get; }
+
+      /// <summary>
+      /// Gets the ordering comparer for <see cref="TableIndex"/> properties, possible tables for which are defined in <see cref="Meta.DefaultMetaDataTableInformationProvider.ResolutionScope"/>.
+      /// </summary>
+      /// <seealso cref="CodedTableIndexComparer"/>
+      /// <seealso cref="Meta.DefaultMetaDataTableInformationProvider.ResolutionScope"/>
+      public static CodedTableIndexComparer ResolutionScopeComparer { get; }
+
 
       /// <summary>
       /// Gets the ordering comparer for <see cref="TableIndex"/> properties, possible tables for which are defined in <see cref="Meta.DefaultMetaDataTableInformationProvider.TypeOrMethodDef"/>.
@@ -278,12 +323,18 @@ namespace CILAssemblyManipulator.Physical
          MethodSemanticsComparer = ComparerFromFunctions.NewComparerWithNullStrategy<MethodSemantics>( Comparison_MethodSemantics, NullSorting.NullsLast );
          NestedClassDefinitionComparer = ComparerFromFunctions.NewComparerWithNullStrategy<NestedClassDefinition>( Comparison_NestedClassDefinition, NullSorting.NullsLast );
 
+         TypeDefOrRefComparer = new CodedTableIndexComparer( Meta.DefaultMetaDataTableInformationProvider.TypeDefOrRef );
          HasConstantComparer = new CodedTableIndexComparer( Meta.DefaultMetaDataTableInformationProvider.HasConstant );
          HasCustomAttributeComparer = new CodedTableIndexComparer( Meta.DefaultMetaDataTableInformationProvider.HasCustomAttribute );
          HasFieldMarshalComparer = new CodedTableIndexComparer( Meta.DefaultMetaDataTableInformationProvider.HasFieldMarshal );
          HasDeclSecurityComparer = new CodedTableIndexComparer( Meta.DefaultMetaDataTableInformationProvider.HasSecurity );
+         MemberRefParentComparer = new CodedTableIndexComparer( Meta.DefaultMetaDataTableInformationProvider.MemberRefParent );
          HasSemanticsComparer = new CodedTableIndexComparer( Meta.DefaultMetaDataTableInformationProvider.HasSemantics );
+         MethodDefOrRefComparer = new CodedTableIndexComparer( Meta.DefaultMetaDataTableInformationProvider.MethodDefOrRef );
          MemberForwardedComparer = new CodedTableIndexComparer( Meta.DefaultMetaDataTableInformationProvider.MemberForwarded );
+         ImplementationComparer = new CodedTableIndexComparer( Meta.DefaultMetaDataTableInformationProvider.Implementation );
+         CustomAttributeTypeComparer = new CodedTableIndexComparer( Meta.DefaultMetaDataTableInformationProvider.CustomAttributeType );
+         ResolutionScopeComparer = new CodedTableIndexComparer( Meta.DefaultMetaDataTableInformationProvider.ResolutionScope );
          TypeOrMethodDefComparer = new CodedTableIndexComparer( Meta.DefaultMetaDataTableInformationProvider.TypeOrMethodDef );
       }
 

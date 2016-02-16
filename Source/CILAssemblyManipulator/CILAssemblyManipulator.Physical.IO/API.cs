@@ -93,12 +93,10 @@ namespace CILAssemblyManipulator.Physical.IO
    /// </remarks>
    /// <seealso cref="ReadingArguments"/>
    /// <seealso cref="WritingArguments"/>
-   /// <seealso cref="CILMetaDataIO.ReadModule(Stream, ReadingArguments)"/>
-   /// <seealso cref="E_CILPhysical.WriteModule(CILMetaData, Stream, WritingArguments)"/>
-#if !CAM_PHYSICAL_IS_PORTABLE
-   /// <seealso cref="CILMetaDataIO.ReadModuleFrom(String, ReadingArguments)"/>
-   /// <seealso cref="E_CILPhysical.WriteModuleTo(CILMetaData, String, WritingArguments)"/>
-#endif
+   /// <seealso cref="M:CILMetaDataIO.ReadModule(Stream, ReadingArguments)"/>
+   /// <seealso cref="M:E_CILPhysical.WriteModule(CILMetaData, Stream, WritingArguments)"/>
+   /// <seealso cref="M:CILMetaDataIO.ReadModuleFrom(String, ReadingArguments)"/>
+   /// <seealso cref="M:E_CILPhysical.WriteModuleTo(CILMetaData, String, WritingArguments)"/>
    public abstract class IOArguments
    {
       internal IOArguments()
@@ -132,10 +130,8 @@ namespace CILAssemblyManipulator.Physical.IO
    /// This class specializes the <see cref="IOArguments"/> to further contain information specific to reading a <see cref="CILMetaData"/> from a binary data.
    /// </summary>
    /// <seealso cref="IOArguments"/>
-   /// <seealso cref="CILMetaDataIO.ReadModule(Stream, ReadingArguments)"/>
-#if !CAM_PHYSICAL_IS_PORTABLE
-   /// <seealso cref="CILMetaDataIO.ReadModuleFrom(String, ReadingArguments)"/>
-#endif
+   /// <seealso cref="M:CILMetaDataIO.ReadModule(Stream, ReadingArguments)"/>
+   /// <seealso cref="M:CILMetaDataIO.ReadModuleFrom(String, ReadingArguments)"/>
    public class ReadingArguments : IOArguments
    {
       /// <summary>
@@ -143,18 +139,18 @@ namespace CILAssemblyManipulator.Physical.IO
       /// </summary>
       /// <value>The <see cref="ReaderFunctionalityProvider"/> to use when performing deserialization.</value>
       /// <remarks>
-      /// If none is set, a <see cref="Defaults.DefaultReaderFunctionalityProvider"/> will be used.
+      /// If none is set, a <see cref="T:CILAssemblyManipulator.Physical.IO.Defaults.DefaultReaderFunctionalityProvider"/> will be used.
       /// </remarks>
       /// <seealso cref="IO.ReaderFunctionalityProvider"/>
-      /// <seealso cref="E_CILPhysical.ReadMetaDataFromStream"/>
+      ///// <seealso cref="E_CILPhysical.ReadMetaDataFromStream"/>
       public ReaderFunctionalityProvider ReaderFunctionalityProvider { get; set; }
 
       /// <summary>
-      /// Gets or sets the <see cref="CILMetaDataTableInformationProvider"/> to be used when creating a new instance of <see cref="CILMetaData"/> via <see cref="CILMetaDataFactory.NewBlankMetaData(Int32[], CILMetaDataTableInformationProvider)"/> method.
+      /// Gets or sets the <see cref="CILMetaDataTableInformationProvider"/> to be used when creating a new instance of <see cref="CILMetaData"/> via <see cref="M:CILAssemblyManipulator.Physical.CILMetaDataFactory.NewBlankMetaData(System.Int32[],CILAssemblyManipulator.Physical.Meta.CILMetaDataTableInformationProvider)"/> method.
       /// </summary>
-      /// <value>The <see cref="CILMetaDataTableInformationProvider"/> to be used when creating a new instance of <see cref="CILMetaData"/> via <see cref="CILMetaDataFactory.NewBlankMetaData(Int32[], CILMetaDataTableInformationProvider)"/> method.</value>
+      /// <value>The <see cref="CILMetaDataTableInformationProvider"/> to be used when creating a new instance of <see cref="CILMetaData"/> via <see cref="M:CILAssemblyManipulator.Physical.CILMetaDataFactory.NewBlankMetaData(System.Int32[],CILAssemblyManipulator.Physical.Meta.CILMetaDataTableInformationProvider)"/> method.</value>
       /// <seealso cref="CILMetaDataTableInformationProvider"/>
-      /// <seealso cref="CILMetaDataFactory.NewBlankMetaData(Int32[], CILMetaDataTableInformationProvider)"/>
+      /// <seealso cref="M:CILAssemblyManipulator.Physical.CILMetaDataFactory.NewBlankMetaData(System.Int32[],CILAssemblyManipulator.Physical.Meta.CILMetaDataTableInformationProvider)"/>
       public CILMetaDataTableInformationProvider TableInformationProvider { get; set; }
 
       /// <summary>
@@ -189,10 +185,8 @@ namespace CILAssemblyManipulator.Physical.IO
    /// This class specializes the <see cref="IOArguments"/> to further contain information specific to writing a <see cref="CILMetaData"/> to a byte stream.
    /// </summary>
    /// <seealso cref="IOArguments"/>
-   /// <seealso cref="E_CILPhysical.WriteModule(CILMetaData, Stream, WritingArguments)"/>
-#if !CAM_PHYSICAL_IS_PORTABLE
-   /// <seealso cref="E_CILPhysical.WriteModuleTo(CILMetaData, String, WritingArguments)"/>
-#endif
+   /// <seealso cref="M:E_CILPhysical.WriteModule"/>
+   /// <seealso cref="M:E_CILPhysical.WriteModuleTo(CILAssemblyManipulator.Physical.CILMetaData,System.String,CILAssemblyManipulator.Physical.WritingArguments)"/>
    public class WritingArguments : IOArguments
    {
 
@@ -222,9 +216,9 @@ namespace CILAssemblyManipulator.Physical.IO
       public Boolean DelaySign { get; set; }
 
       /// <summary>
-      /// Gets or sets the <see cref="Physical.CryptoCallbacks"/> to be used for computing strong-name signature.
+      /// Gets or sets the <see cref="Crypto.CryptoCallbacks"/> to be used for computing strong-name signature.
       /// </summary>
-      /// <value>The <see cref="Physical.CryptoCallbacks"/> to be used for computing strong-name signature.</value>
+      /// <value>The <see cref="Crypto.CryptoCallbacks"/> to be used for computing strong-name signature.</value>
       public CryptoCallbacks CryptoCallbacks { get; set; }
 
       /// <summary>
@@ -232,10 +226,10 @@ namespace CILAssemblyManipulator.Physical.IO
       /// </summary>
       /// <value>The <see cref="IO.WriterFunctionalityProvider"/> to use when performing serialization.</value>
       /// <remarks>
-      /// If none is set, a <see cref="Defaults.DefaultWriterFunctionalityProvider"/> will be used.
+      /// If none is set, a <see cref="T:CILAssemblyManipulator.Physical.IO.Defaults.DefaultWriterFunctionalityProvider"/> will be used.
       /// </remarks>
       /// <seealso cref="IO.WriterFunctionalityProvider"/>
-      /// <seealso cref="E_CILPhysical.WriteMetaDataToStream"/>
+      /// <seealso cref="M:E_CILPhysical.WriteMetaDataToStream"/>
       public WriterFunctionalityProvider WriterFunctionalityProvider { get; set; }
 
       /// <summary>
@@ -246,20 +240,6 @@ namespace CILAssemblyManipulator.Physical.IO
       /// <seealso cref="IO.WritingOptions"/>
       public WritingOptions WritingOptions { get; set; }
 
-   }
-
-
-
-   /// <summary>
-   /// This will be thrown by <see cref="E_CILPhysical.ReadMetaDataFromStream(Stream, ReaderFunctionality, CILMetaDataTableInformationProvider, EventHandler{SerializationErrorEventArgs}, bool, out ImageInformation, out ColumnValueStorage{int}, out RVAConverter)"/> method when the module is not a managed module.
-   /// </summary>
-   public class NotAManagedModuleException : Exception
-   {
-      internal NotAManagedModuleException( String msg, Exception inner = null )
-         : base( msg, inner )
-      {
-
-      }
    }
 
    /// <summary>

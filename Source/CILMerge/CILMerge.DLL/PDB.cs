@@ -992,7 +992,7 @@ namespace CILMerge
             var mDef = mDefs[mIdx.Index];
             pchMethod = PDBHelper.WriteStringUnmanaged( szMethod, cchMethod, mDef.Name );
             PDBHelper.WriteInt32Unmanaged( pdwAttr, (Int32) mDef.Attributes );
-            PDBHelper.WriteInt32Unmanaged( pulCodeRVA, (Int32) this._eArgs.ImageInformation.CLIInformation.GetMethodRVAs()[mIdx.Index] );
+            PDBHelper.WriteInt32Unmanaged( pulCodeRVA, (Int32) this._eArgs.ImageInformation.CLIInformation.DataReferences.GetMethodRVAs()[mIdx.Index] );
             implAttrs = (Int32) mDef.ImplementationAttributes;
             pClass = (UInt32) new CILAssemblyManipulator.Physical.TableIndex(
                CILAssemblyManipulator.Physical.Tables.TypeDef,

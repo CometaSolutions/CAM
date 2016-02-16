@@ -34,13 +34,13 @@ using CILAssemblyManipulator.Physical.Meta;
 namespace CILAssemblyManipulator.Physical.IO
 {
    /// <summary>
-   /// This interface is the 'root' interface which controls what happens when writing <see cref="CILMetaData"/> with <see cref="E_CILPhysical.WriteModule"/> method.
+   /// This interface is the 'root' interface which controls what happens when writing <see cref="CILMetaData"/> with <see cref="M:E_CILPhysical.WriteModule"/> method.
    /// To customize the serialization process, it is possible to set <see cref="WritingArguments.WriterFunctionalityProvider"/> property to your own instances of <see cref="WriterFunctionalityProvider"/>.
    /// </summary>
    /// <seealso cref="WriterFunctionality"/>
-   /// <seealso cref="WritingArguments.ReaderFunctionalityProvider"/>
-   /// <seealso cref="E_CILPhysical.WriteMetaDataToStream(WriterFunctionalityProvider, Stream, CILMetaData, WritingOptions, StrongNameKeyPair, bool, CryptoCallbacks, AssemblyHashAlgorithm?, EventHandler{SerializationErrorEventArgs})"/>
-   /// <seealso cref="DefaultWriterFunctionalityProvider"/>
+   /// <seealso cref="WritingArguments.WriterFunctionalityProvider"/>
+   /// <seealso cref="M:E_CILPhysical.WriteMetaDataToStream(WriterFunctionalityProvider, Stream, CILMetaData, WritingOptions, StrongNameKeyPair, bool, CryptoCallbacks, AssemblyHashAlgorithm?, EventHandler{SerializationErrorEventArgs})"/>
+   /// <seealso cref="T:CILAssemblyManipulator.Physical.IO.Defaults.DefaultWriterFunctionalityProvider"/>
    public interface WriterFunctionalityProvider
    {
       /// <summary>
@@ -51,11 +51,11 @@ namespace CILAssemblyManipulator.Physical.IO
       /// <param name="options">The <see cref="WritingOptions"/> being used.</param>
       /// <param name="errorHandler">The error handler callback.</param>
       /// <param name="newMD">Optional new <see cref="CILMetaData"/> to use instead of <paramref name="md"/> in the further serialization process.</param>
-      /// <param name="newStream">Optional new <see cref="Stream"/> to use instead of <paramref name="stream"/> in the further sererialization process.</param>
+      /// <param name="newStream">Optional new <see cref="Stream"/> to use instead of originally supplied stream in the further sererialization process.</param>
       /// <returns>The <see cref="WriterFunctionality"/> to use for actual deserialization.</returns>
       /// <seealso cref="WriterFunctionality"/>
       /// <seealso cref="IOArguments.ErrorHandler"/>
-      /// <seealso cref="E_CILPhysical.WriteMetaDataToStream(WriterFunctionality, Stream, CILMetaData, WritingOptions, StrongNameKeyPair, bool, CryptoCallbacks, AssemblyHashAlgorithm?, EventHandler{SerializationErrorEventArgs})"/>
+      /// <seealso cref="M:E_CILPhysical.WriteMetaDataToStream(WriterFunctionality, Stream, CILMetaData, WritingOptions, StrongNameKeyPair, bool, CryptoCallbacks, AssemblyHashAlgorithm?, EventHandler{SerializationErrorEventArgs})"/>
       WriterFunctionality GetFunctionality(
          CILMetaData md,
          WritingOptions options,
@@ -70,7 +70,7 @@ namespace CILAssemblyManipulator.Physical.IO
    /// The instances of this interface are created via <see cref="WriterFunctionalityProvider.GetFunctionality"/> method, and the instances of <see cref="WriterFunctionalityProvider"/> may be customized by setting <see cref="WritingArguments.WriterFunctionalityProvider"/> property.
    /// </summary>
    /// <remarks>
-   /// The <see cref="E_CILPhysical.WriteMetaDataToStream(WriterFunctionality, Stream, CILMetaData, WritingOptions, StrongNameKeyPair, bool, CryptoCallbacks, AssemblyHashAlgorithm?, EventHandler{SerializationErrorEventArgs})"/> method will call the methods of this interface (and others) in the following order:
+   /// The <see cref="M:E_CILPhysical.WriteMetaDataToStream(WriterFunctionality, Stream, CILMetaData, WritingOptions, StrongNameKeyPair, bool, CryptoCallbacks, AssemblyHashAlgorithm?, EventHandler{SerializationErrorEventArgs})"/> method will call the methods of this interface (and others) in the following order:
    /// <list type="number">
    /// <item><description><see cref="CreateWritingStatus"/>,</description></item>
    /// <item><description><see cref="CreateMetaDataStreamHandlers"/>,</description></item>
@@ -84,9 +84,9 @@ namespace CILAssemblyManipulator.Physical.IO
    /// </list>
    /// </remarks>
    /// <seealso cref="WriterFunctionalityProvider"/>
-   /// <seealso cref="DefaultWriterFunctionality"/>
+   /// <seealso cref="T:CILAssemblyManipulator.Physical.IO.Defaults.DefaultWriterFunctionality"/>
    /// <seealso cref="WriterFunctionalityProvider.GetFunctionality"/>
-   /// <seealso cref="E_CILPhysical.WriteMetaDataToStream(WriterFunctionality, Stream, CILMetaData, WritingOptions, StrongNameKeyPair, bool, CryptoCallbacks, AssemblyHashAlgorithm?, EventHandler{SerializationErrorEventArgs})"/>
+   /// <seealso cref="M:E_CILPhysical.WriteMetaDataToStream(WriterFunctionality, Stream, CILMetaData, WritingOptions, StrongNameKeyPair, bool, CryptoCallbacks, AssemblyHashAlgorithm?, EventHandler{SerializationErrorEventArgs})"/>
    /// <seealso cref="WritingArguments.WriterFunctionalityProvider"/>
    public interface WriterFunctionality
    {
@@ -114,11 +114,12 @@ namespace CILAssemblyManipulator.Physical.IO
       /// <param name="allStreams">All streams, as returned by <see cref="CreateMetaDataStreamHandlers"/> method.</param>
       /// <param name="rvaConverter">This parameter should contain the <see cref="RVAConverter"/> to be used when serialization process converts from RVAs to offsets.</param>
       /// <param name="mdRootSize">This parameter should contain the size of the <see cref="MetaDataRoot"/> in bytes.</param>
-      /// <returns>A <see cref="ColumnValueStorage{TValue}"/> filled with data offsets, e.g. <see cref="MethodDefinition.IL"/> RVAs, and so on.</returns>
+      /// <returns>An enumerable of <see cref="DataReferenceInfo"/>s filled with data offsets, e.g. <see cref="MethodDefinition.IL"/> RVAs, and so on.</returns>
       /// <remarks>
-      /// The returned <see cref="ColumnValueStorage{TValue}"/> will be used as argument for <see cref="AbstractWriterStreamHandler.WriteStream"/> method.
+      /// The returned enumerable of <see cref="DataReferenceInfo"/> will be converted to <see cref="DataReferencesInfo"/> and used as argument for <see cref="AbstractWriterStreamHandler.WriteStream"/> method.
       /// </remarks>
-      /// <seealso cref="ColumnValueStorage{TValue}"/>
+      /// <seealso cref="DataReferenceInfo"/>
+      /// <seealso cref="DataReferencesInfo"/>
       /// <seealso cref="AbstractWriterStreamHandler.WriteStream"/>
       IEnumerable<DataReferenceInfo> CalculateImageLayout(
          WritingStatus writingStatus,
@@ -239,7 +240,7 @@ namespace CILAssemblyManipulator.Physical.IO
    /// The table stream is where the structure of <see cref="CILMetaData"/> is defined (present tables, their size, etc).
    /// </summary>
    /// <remarks>
-   /// The <see cref="E_CILPhysical.WriteMetaDataToStream(WriterFunctionality, Stream, CILMetaData, WritingOptions, StrongNameKeyPair, bool, CryptoCallbacks, AssemblyHashAlgorithm?, EventHandler{SerializationErrorEventArgs})"/> method will call the methods of this interface in the following order:
+   /// The <see cref="M:E_CILPhysical.WriteMetaDataToStream(WriterFunctionality, Stream, CILMetaData, WritingOptions, StrongNameKeyPair, bool, CryptoCallbacks, AssemblyHashAlgorithm?, EventHandler{SerializationErrorEventArgs})"/> method will call the methods of this interface in the following order:
    /// <list type="number">
    /// <item><description><see cref="FillOtherMDStreams"/>, and</description></item>
    /// <item><description><see cref="AbstractWriterStreamHandler.WriteStream"/>.</description></item>
@@ -301,7 +302,7 @@ namespace CILAssemblyManipulator.Physical.IO
    }
 
    /// <summary>
-   /// This class contains various information about the image being writen by <see cref="E_CILPhysical.WriteMetaDataToStream(WriterFunctionality, Stream, CILMetaData, WritingOptions, StrongNameKeyPair, bool, CryptoCallbacks, AssemblyHashAlgorithm?, EventHandler{SerializationErrorEventArgs})"/> method.
+   /// This class contains various information about the image being writen by <see cref="M:E_CILPhysical.WriteMetaDataToStream(WriterFunctionality, Stream, CILMetaData, WritingOptions, StrongNameKeyPair, bool, CryptoCallbacks, AssemblyHashAlgorithm?, EventHandler{SerializationErrorEventArgs})"/> method.
    /// Some of the information is read-only and set by the method, and another should be set by <see cref="WriterFunctionality"/> itself or the objects it creates.
    /// The purpose of this object is to hide when and where exactly the mutable information is set, as it will be needed only at the very end of the serialization process.
    /// </summary>
@@ -393,9 +394,9 @@ namespace CILAssemblyManipulator.Physical.IO
       public Int64 ImageBase { get; }
 
       /// <summary>
-      /// Gets the <see cref="IO.StrongNameInformation"/> constructed by <see cref="E_CILPhysical.WriteMetaDataToStream(WriterFunctionality, Stream, CILMetaData, WritingOptions, StrongNameKeyPair, bool, CryptoCallbacks, AssemblyHashAlgorithm?, EventHandler{SerializationErrorEventArgs})"/> method.
+      /// Gets the <see cref="IO.StrongNameInformation"/> constructed by <see cref="M:E_CILPhysical.WriteMetaDataToStream(WriterFunctionality, Stream, CILMetaData, WritingOptions, StrongNameKeyPair, bool, CryptoCallbacks, AssemblyHashAlgorithm?, EventHandler{SerializationErrorEventArgs})"/> method.
       /// </summary>
-      /// <value>The <see cref="IO.StrongNameInformation"/> constructed by <see cref="E_CILPhysical.WriteMetaDataToStream(WriterFunctionality, Stream, CILMetaData, WritingOptions, StrongNameKeyPair, bool, CryptoCallbacks, AssemblyHashAlgorithm?, EventHandler{SerializationErrorEventArgs})"/> method.</value>
+      /// <value>The <see cref="IO.StrongNameInformation"/> constructed by <see cref="M:E_CILPhysical.WriteMetaDataToStream(WriterFunctionality, Stream, CILMetaData, WritingOptions, StrongNameKeyPair, bool, CryptoCallbacks, AssemblyHashAlgorithm?, EventHandler{SerializationErrorEventArgs})"/> method.</value>
       public StrongNameInformation StrongNameInformation { get; }
 
       /// <summary>
