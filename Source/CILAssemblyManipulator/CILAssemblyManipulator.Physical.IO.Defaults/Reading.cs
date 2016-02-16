@@ -337,8 +337,18 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
 
    }
 
+   /// <summary>
+   /// This class implements <see cref="AbstractReaderStreamHandler"/> so that all the contents of the meta data stream is accessible from a single byte array.
+   /// </summary>
    public abstract class AbstractReaderStreamHandlerWithArray : AbstractReaderStreamHandler
    {
+      /// <summary>
+      /// Initializes a new instance of <see cref="AbstractReaderStreamHandlerWithArray"/> with the contents read from the given stream.
+      /// </summary>
+      /// <param name="stream">The stream, as <see cref="StreamHelper"/>.</param>
+      /// <param name="startPosition">The start position of the <paramref name="stream"/> where this meta data stream begins.</param>
+      /// <param name="streamSize">The size of this meta data stream, in bytes.</param>
+      /// <exception cref="ArgumentNullException">If <paramref name="stream"/> is <c>null</c>.</exception>
       protected AbstractReaderStreamHandlerWithArray(
          StreamHelper stream,
          Int64 startPosition,
@@ -348,26 +358,53 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
          ArgumentValidator.ValidateNotNull( "Stream", stream );
 
          this.Bytes = stream.At( startPosition ).ReadAndCreateArray( streamSize );
-         this.StreamSize64 = (UInt32) streamSize;
+         this.StreamSizeU32 = (UInt32) streamSize;
       }
 
+      /// <summary>
+      /// Leaves the implementation of the <see cref="AbstractMetaDataStreamHandler.StreamName"/> to subclasses.
+      /// </summary>
       public abstract String StreamName { get; }
 
+      /// <summary>
+      /// Implements the <see cref="AbstractMetaDataStreamHandler.StreamSize"/> as downcast of <see cref="StreamSizeU32"/>.
+      /// </summary>
+      /// <value>The size of the stream, downcasted from <see cref="StreamSizeU32"/>.</value>
       public Int32 StreamSize
       {
          get
          {
-            return (Int32) this.StreamSize64;
+            return (Int32) this.StreamSizeU32;
          }
       }
 
+      /// <summary>
+      /// Gets the contents of the stream as byte array.
+      /// </summary>
+      /// <value>The contents of the stream as byte array.</value>
       protected Byte[] Bytes { get; }
 
-      protected Int64 StreamSize64 { get; }
+      /// <summary>
+      /// Gets the size of this stream, as <see cref="UInt32"/>.
+      /// </summary>
+      /// <value>The size of this stream, as <see cref="UInt32"/>.</value>
+      [CLSCompliant( false )]
+      protected UInt32 StreamSizeU32 { get; }
    }
 
+   /// <summary>
+   /// This class extends the <see cref="AbstractReaderStreamHandlerWithArray"/> so that it also stores the name of the stream into a field.
+   /// </summary>
    public abstract class AbstractReaderStreamHandlerWithArrayAndName : AbstractReaderStreamHandlerWithArray
    {
+      /// <summary>
+      /// Initializes a new instance of <see cref="AbstractReaderStreamHandlerWithArrayAndName"/> with given stream and name.
+      /// </summary>
+      /// <param name="stream">The stream, as <see cref="StreamHelper"/>.</param>
+      /// <param name="startPosition">The start position of the <paramref name="stream"/> where this meta data stream begins.</param>
+      /// <param name="streamSize">The size of this meta data stream, in bytes.</param>
+      /// <param name="streamName">The textual name of this stream.</param>
+      /// <exception cref="ArgumentNullException">If <paramref name="stream"/> is <c>null</c>.</exception>
       protected AbstractReaderStreamHandlerWithArrayAndName(
          StreamHelper stream,
          Int64 startPosition,
@@ -380,12 +417,19 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
          this.StreamName = streamName;
       }
 
+      /// <summary>
+      /// Gets the stored name of this <see cref="AbstractReaderStreamHandlerWithArrayAndName"/>.
+      /// </summary>
+      /// <value>The stored name of this <see cref="AbstractReaderStreamHandlerWithArrayAndName"/>.</value>
       public override String StreamName { get; }
 
    }
 
-
-
+   /// <summary>
+   /// This class provides default implementation for <see cref="ReaderTableStreamHandler"/>.
+   /// </summary>
+   /// <seealso cref="ReaderTableStreamHandler"/>
+   /// <seealso cref="ReaderFunctionality"/>
    public class DefaultReaderTableStreamHandler : AbstractReaderStreamHandlerWithArrayAndName, ReaderTableStreamHandler
    {
       public DefaultReaderTableStreamHandler(
@@ -412,6 +456,7 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
          : base( stream, startPosition, streamSize, tableStreamName )
       {
          ArgumentValidator.ValidateAllNotNull( "Table serializations", tableSerializations );
+         ArgumentValidator.ValidateNotNull( "Serialization support creation args callback", creationArgsFunc );
 
          var array = this.Bytes;
          var idx = 0;
@@ -563,7 +608,7 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
 
       protected virtual Boolean CheckHeapOffset( Int32 heapOffset )
       {
-         return ( (UInt32) heapOffset ) < this.StreamSize64;
+         return ( (UInt32) heapOffset ) < this.StreamSizeU32;
       }
    }
 
@@ -618,7 +663,7 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
 
       protected override Guid? ValueFactory( Int32 heapOffset )
       {
-         if ( heapOffset == 0 || (UInt32) heapOffset > this.StreamSize64 - MetaDataConstants.GUID_SIZE + 1 )
+         if ( heapOffset == 0 || (UInt32) heapOffset > this.StreamSizeU32 - MetaDataConstants.GUID_SIZE + 1 )
          {
             return null;
          }
@@ -797,7 +842,7 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
 
       public Object ReadConstantValue( Int32 heapIndex, SignatureProvider sigProvider, ConstantValueType constType )
       {
-         return heapIndex == 0 || heapIndex >= this.StreamSize64 ?
+         return heapIndex == 0 || (UInt32) heapIndex >= this.StreamSizeU32 ?
             null :
             this._constants.GetOrAdd_NotThreadSafe(
                new KeyValuePair<Int32, ConstantValueType>( heapIndex, constType ),
@@ -882,7 +927,7 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
       {
          var array = this.Bytes;
          Int32 length;
-         return array.TryDecompressUInt32( ref heapOffset, array.Length, out length ) && heapOffset + length <= this.StreamSize64 ?
+         return array.TryDecompressUInt32( ref heapOffset, array.Length, out length ) && (UInt32) heapOffset + (UInt32) length <= this.StreamSizeU32 ?
             Tuple.Create( heapOffset, length ) :
             null;
       }

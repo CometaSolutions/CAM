@@ -334,7 +334,7 @@ public static partial class E_CILPhysical
       where TAbstractStream : AbstractMetaDataStreamHandler
       where TBLOBStream : TAbstractStream
       where TGUIDStream : TAbstractStream
-      where TStringStream : TAbstractStream
+      where TStringStream : TAbstractStream, AbstractStringStreamHandler
    {
       yield return mdStreams.BLOBs;
       yield return mdStreams.GUIDs;
