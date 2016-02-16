@@ -40,7 +40,7 @@ namespace CILAssemblyManipulator.Physical.IO
    /// </summary>
    /// <seealso cref="ReaderFunctionality"/>
    /// <seealso cref="ReadingArguments.ReaderFunctionalityProvider"/>
-   /// <seealso cref="M:E_CILPhysical.ReadMetaDataFromStream(ReaderFunctionalityProvider, Stream, CILMetaDataTableInformationProvider, EventHandler{SerializationErrorEventArgs}, bool, out ImageInformation)"/>
+   /// <seealso cref="E_CILPhysical.ReadMetaDataFromStream(ReaderFunctionalityProvider, Stream, CILMetaDataTableInformationProvider, EventHandler{SerializationErrorEventArgs}, bool, out ImageInformation)"/>
    /// <seealso cref="T:CILAssemblyManipulator.Physical.IO.Defaults.DefaultReaderFunctionalityProvider"/>
    public interface ReaderFunctionalityProvider
    {
@@ -56,7 +56,7 @@ namespace CILAssemblyManipulator.Physical.IO
       /// <seealso cref="ReaderFunctionality"/>
       /// <seealso cref="IOArguments.ErrorHandler"/>
       /// <seealso cref="CILMetaDataTableInformationProvider"/>
-      /// <seealso cref="M:E_CILPhysical.ReadMetaDataFromStream(ReaderFunctionality, Stream, CILMetaDataTableInformationProvider, EventHandler{SerializationErrorEventArgs}, bool, out ImageInformation, out ColumnValueStorage{int}, out RVAConverter)"/>
+      /// <seealso cref="E_CILPhysical.ReadMetaDataFromStream(ReaderFunctionality, Stream,  EventHandler{SerializationErrorEventArgs}, bool, out ImageInformation)"/>
       ReaderFunctionality GetFunctionality(
          Stream stream,
          CILMetaDataTableInformationProvider mdTableInfoProvider,
@@ -70,10 +70,12 @@ namespace CILAssemblyManipulator.Physical.IO
    /// The instances of this interface are created via <see cref="ReaderFunctionalityProvider.GetFunctionality"/> method, and the instances of <see cref="ReaderFunctionalityProvider"/> may be customized by setting <see cref="ReadingArguments.ReaderFunctionalityProvider"/> property.
    /// </summary>
    /// <remarks>
-   /// The <see cref="M:E_CILPhysical.ReadMetaDataFromStream(ReaderFunctionality, Stream, CILMetaDataTableInformationProvider, EventHandler{SerializationErrorEventArgs}, bool, out ImageInformation, out ColumnValueStorage{int}, out RVAConverter)"/> method will call the methods of this interface (and others) in the following order:
+   /// The <see cref="E_CILPhysical.ReadMetaDataFromStream(ReaderFunctionality, Stream, EventHandler{SerializationErrorEventArgs}, bool, out ImageInformation)"/> method will call the methods of this interface (and others) in the following order:
    /// <list type="number">
    /// <item><description><see cref="ReadImageInformation"/>,</description></item>
    /// <item><description><see cref="CreateStreamHandler"/> (once for each header in <see cref="MetaDataRoot.StreamHeaders"/>),</description></item>
+   /// <item><description><see cref="ReaderTableStreamHandler.ReadHeader"/>,</description></item>
+   /// <item><description><see cref="CreateBlankMetaData"/>,</description></item>
    /// <item><description><see cref="ReaderTableStreamHandler.PopulateMetaDataStructure"/>, and</description></item>
    /// <item><description><see cref="HandleDataReferences"/>.</description></item>
    /// </list>
@@ -81,7 +83,7 @@ namespace CILAssemblyManipulator.Physical.IO
    /// <seealso cref="ReaderFunctionalityProvider"/>
    /// <seealso cref="T:CILAssemblyManipulator.Physical.IO.Defaults.DefaultReaderFunctionality"/>
    /// <seealso cref="ReaderFunctionalityProvider.GetFunctionality"/>
-   /// <seealso cref="M:E_CILPhysical.ReadMetaDataFromStream(ReaderFunctionality, Stream, CILMetaDataTableInformationProvider, EventHandler{SerializationErrorEventArgs}, bool, out ImageInformation, out ColumnValueStorage{int}, out RVAConverter)"/>
+   /// <seealso cref="E_CILPhysical.ReadMetaDataFromStream(ReaderFunctionality, Stream, EventHandler{SerializationErrorEventArgs}, bool, out ImageInformation)"/>
    /// <seealso cref="ReadingArguments.ReaderFunctionalityProvider"/>
    public interface ReaderFunctionality
    {
@@ -89,12 +91,13 @@ namespace CILAssemblyManipulator.Physical.IO
       /// <summary>
       /// This method should read required image information from the <see cref="StreamHelper"/>.
       /// </summary>
+      /// <returns><c>true</c> if the PE image is managed assembly; <c>false</c> otherwise.</returns>
       /// <param name="stream">The <see cref="StreamHelper"/> object, encapsulating the actual <see cref="Stream"/>.</param>
       /// <param name="peInfo">This parameter should have the <see cref="PEInformation"/> object read from the stream.</param>
       /// <param name="rvaConverter">This parameter should have <see cref="RVAConverter"/> object to convert RVA values of this stream into actual offsets.</param>
       /// <param name="cliHeader">This parameter should have the <see cref="CLIHeader"/> object read from the stream.</param>
       /// <param name="mdRoot">This parameter should have the <see cref="MetaDataRoot"/> object read from the stream.</param>
-      void ReadImageInformation(
+      Boolean ReadImageInformation(
          StreamHelper stream,
          out PEInformation peInfo,
          out RVAConverter rvaConverter,
@@ -119,6 +122,13 @@ namespace CILAssemblyManipulator.Physical.IO
          Int64 startPosition,
          MetaDataStreamHeader header
          );
+
+      /// <summary>
+      /// This method should create blank <see cref="CILMetaData"/>, preferably with all meta data tables having the capacity of their lists set to the given table sizes.
+      /// </summary>
+      /// <param name="tableSizes">The table size array.</param>
+      /// <returns>A new instance of <see cref="CILMetaData"/>.</returns>
+      CILMetaData CreateBlankMetaData( ArrayQuery<Int32> tableSizes );
 
       /// <summary>
       /// This method is called after <see cref="ReaderTableStreamHandler.PopulateMetaDataStructure"/>, to populate the values that need data from elsewhere than <see cref="AbstractReaderStreamHandler"/>s.
@@ -190,7 +200,7 @@ namespace CILAssemblyManipulator.Physical.IO
    /// The table stream is where the structure of <see cref="CILMetaData"/> is defined (present tables, their size, etc).
    /// </summary>
    /// <remarks>
-   /// The <see cref="M:E_CILPhysical.ReadMetaDataFromStream(ReaderFunctionality, Stream, CILMetaDataTableInformationProvider, EventHandler{SerializationErrorEventArgs}, bool, out ImageInformation, out ColumnValueStorage{int}, out RVAConverter)"/> method will call the methods of this interface in the following order:
+   /// The <see cref="E_CILPhysical.ReadMetaDataFromStream(ReaderFunctionality, Stream, EventHandler{SerializationErrorEventArgs}, bool, out ImageInformation)"/> method will call the methods of this interface in the following order:
    /// <list type="number">
    /// <item><description><see cref="ReadHeader"/>,</description></item>
    /// <item><description><see cref="TableSizes"/>, and</description></item>
@@ -318,7 +328,7 @@ namespace CILAssemblyManipulator.Physical.IO
    /// <summary>
    /// This interface should be implemented by objects handling reading of various string streams in meta data.
    /// </summary>
-   public interface ReaderStringStreamHandler : AbstractReaderStreamHandler
+   public interface ReaderStringStreamHandler : AbstractReaderStreamHandler, AbstractStringStreamHandler
    {
       /// <summary>
       /// Given the stream index, reads a string thatis located there.
@@ -326,5 +336,212 @@ namespace CILAssemblyManipulator.Physical.IO
       /// <param name="streamIndex">The zero-based stream index.</param>
       /// <returns>The deserialized string, or <c>null</c> if <paramref name="streamIndex"/> is <c>0</c> or reading a string would go outside the bounds of this stream.</returns>
       String GetString( Int32 streamIndex );
+   }
+
+}
+
+public static partial class E_CILPhysical
+{
+   /// <summary>
+   /// This is extension method to read <see cref="CILMetaData"/> from <see cref="Stream"/> using this <see cref="ReaderFunctionalityProvider"/>.
+   /// It takes into account the possible new stream created by <see cref="ReaderFunctionalityProvider.GetFunctionality"/> method.
+   /// </summary>
+   /// <param name="readerProvider">This <see cref="ReaderFunctionalityProvider"/>.</param>
+   /// <param name="stream">The <see cref="Stream"/> to read <see cref="CILMetaData"/> from.</param>
+   /// <param name="tableInfoProvider">The <see cref="CILMetaDataTableInformationProvider"/> to use when creating a new instance of <see cref="CILMetaData"/> with <see cref="M:CILMetaDataFactory.NewBlankMetaData"/>.</param>
+   /// <param name="errorHandler">The callback to handle errors during deserialization.</param>
+   /// <param name="deserializeDataReferences">Whether to deserialize data references (e.g. <see cref="MethodDefinition.IL"/>).</param>
+   /// <param name="imageInfo">This parameter will hold the <see cref="ImageInformation"/> read from the <see cref="Stream"/>.</param>
+   /// <returns>An instance of <see cref="CILMetaData"/> with its data read from the <paramref name="stream"/>.</returns>
+   /// <exception cref="BadImageFormatException">If the structure of the image represented by <see cref="Stream"/> is invalid (e.g. missing PE header or CLI header, etc).</exception>
+   /// <exception cref="ArgumentNullException">If <paramref name="stream"/> or <paramref name="tableInfoProvider"/> is <c>null</c>.</exception>
+   /// <exception cref="NullReferenceException">If this <see cref="ReaderFunctionalityProvider"/> is <c>null</c>.</exception>
+   /// <exception cref="SerializationFunctionalityException">If this <see cref="ReaderFunctionalityProvider"/> or the objects it creates return <c>null</c>s when they shouldn't.</exception>
+   /// <remarks>
+   /// This method is used by <see cref="M:CILMetaDataIO.ReadModule"/> to actually perform deserialization, and thus is rarely needed to be used directly.
+   /// Instead, use <see cref="M:CILMetaDataIO.ReadModule"/> or any of the classes implementing <see cref="T:CILAssemblyManipulator.Physical.Loading.CILMetaDataLoader"/>.
+   /// </remarks>
+   /// <seealso cref="ReaderFunctionalityProvider"/>
+   /// <seealso cref="M:CILMetaDataIO.ReadModule"/>
+   /// <seealso cref="T:CILAssemblyManipulator.Physical.Loading.CILMetaDataLoader"/>
+   /// <seealso cref="ReadMetaDataFromStream(ReaderFunctionality, Stream, EventHandler{SerializationErrorEventArgs}, bool, out ImageInformation)"/>
+   public static CILMetaData ReadMetaDataFromStream(
+      this ReaderFunctionalityProvider readerProvider,
+      Stream stream,
+      CILMetaDataTableInformationProvider tableInfoProvider,
+      EventHandler<SerializationErrorEventArgs> errorHandler,
+      Boolean deserializeDataReferences,
+      out ImageInformation imageInfo
+      )
+   {
+      if ( readerProvider == null )
+      {
+         throw new NullReferenceException();
+      }
+
+      Stream newStream;
+      var reader = readerProvider
+         .GetFunctionality( ArgumentValidator.ValidateNotNullAndReturn( "Stream", stream ), ArgumentValidator.ValidateNotNullAndReturn( "Table info provider", tableInfoProvider ), errorHandler, out newStream )
+         .CheckForDeserializationException( "Reader", true );
+
+      CILMetaData md;
+      if ( newStream != null && !ReferenceEquals( stream, newStream ) )
+      {
+         using ( newStream )
+         {
+            md = reader.ReadMetaDataFromStream( newStream, errorHandler, deserializeDataReferences, out imageInfo );
+         }
+      }
+      else
+      {
+         md = reader.ReadMetaDataFromStream( stream, errorHandler, deserializeDataReferences, out imageInfo );
+      }
+
+      return md;
+   }
+
+   /// <summary>
+   /// This is extension method to read <see cref="CILMetaData"/> from <see cref="Stream"/> using this <see cref="ReaderFunctionality"/>.
+   /// </summary>
+   /// <param name="reader">This <see cref="ReaderFunctionality"/>.</param>
+   /// <param name="stream">The <see cref="Stream"/> to read <see cref="CILMetaData"/> from.</param>
+   /// <param name="errorHandler">The callback to handle errors during deserialization.</param>
+   /// <param name="deserializeDataReferences">Whether to deserialize data references (e.g. <see cref="MethodDefinition.IL"/>).</param>
+   /// <param name="imageInfo">This parameter will hold the <see cref="ImageInformation"/> read from the <see cref="Stream"/>.</param>
+   /// <returns>An instance of <see cref="CILMetaData"/> with its data read from the <paramref name="stream"/>.</returns>
+   /// <exception cref="BadImageFormatException">If the structure of the image represented by <see cref="Stream"/> is invalid (e.g. missing PE header or CLI header, etc).</exception>
+   /// <exception cref="ArgumentNullException">If <paramref name="stream"/> is <c>null</c>.</exception>
+   /// <exception cref="NullReferenceException">If this <see cref="ReaderFunctionality"/> is <c>null</c>.</exception>
+   /// <exception cref="SerializationFunctionalityException">If this <see cref="ReaderFunctionality"/> or the objects it creates return <c>null</c>s when they shouldn't.</exception>
+   /// <remarks>
+   /// This method is used by <see cref="ReadMetaDataFromStream(ReaderFunctionalityProvider, Stream, CILMetaDataTableInformationProvider, EventHandler{SerializationErrorEventArgs}, bool, out ImageInformation)"/>, which in turn is used by <see cref="M:CILMetaDataIO.ReadModule"/> to actually perform deserialization.
+   /// Thus, this method is rarely needed to be used directly.
+   /// Instead, use <see cref="M:CILMetaDataIO.ReadModule"/> or any of the classes implementing <see cref="T:CILAssemblyManipulator.Physical.Loading.CILMetaDataLoader"/>.
+   /// </remarks>
+   public static CILMetaData ReadMetaDataFromStream(
+      this ReaderFunctionality reader,
+      Stream stream,
+      EventHandler<SerializationErrorEventArgs> errorHandler,
+      Boolean deserializeDataReferences,
+      out ImageInformation imageInfo
+      )
+   {
+      if ( reader == null )
+      {
+         throw new NullReferenceException();
+         //reader = new DefaultReaderFunctionality( new TableSerializationInfoCreationArgs( errorHandler ) );
+      }
+
+      ArgumentValidator.ValidateNotNull( "Stream", stream );
+
+      var helper = new StreamHelper( stream );
+
+      // 1. Read image basic information (PE, sections, CLI header, md root)
+      PEInformation peInfo;
+      CLIHeader cliHeader;
+      MetaDataRoot mdRoot;
+      RVAConverter rvaConverter;
+      var wasManaged = reader
+         .ReadImageInformation( helper, out peInfo, out rvaConverter, out cliHeader, out mdRoot );
+
+      if ( !wasManaged )
+      {
+         throw new BadImageFormatException( "Not a managed assembly." );
+      }
+      peInfo.CheckForDeserializationException( "PE information" );
+      cliHeader.CheckForDeserializationException( "CLI header" );
+      mdRoot.CheckForDeserializationException( "Meta data root" );
+
+      if ( rvaConverter == null )
+      {
+         rvaConverter = new DefaultRVAConverter( peInfo.SectionHeaders );
+      }
+
+      // 2. Create MD streams
+      var mdStreamHeaders = mdRoot.StreamHeaders;
+      var mdStreams = new AbstractReaderStreamHandler[mdStreamHeaders.Count];
+      for ( var i = 0; i < mdStreams.Length; ++i )
+      {
+         var hdr = mdStreamHeaders[i];
+         var startPos = rvaConverter.ToOffset( cliHeader.MetaData.RVA ) + hdr.Offset;
+         var mdHelper = helper.NewStreamPortion( startPos, (UInt32) hdr.Size );
+         mdStreams[i] = reader.CreateStreamHandler( mdHelper, mdRoot, 0, hdr );
+      }
+
+      // 3. Create and populate meta-data structure
+      var tblMDStream = mdStreams
+         .OfType<ReaderTableStreamHandler>()
+         .FirstOrDefault()
+         .CheckForDeserializationException( "Table stream" );
+
+      var tblHeader = tblMDStream.ReadHeader().CheckForDeserializationException( "Table stream header" );
+
+      var md = reader.CreateBlankMetaData( tblMDStream.TableSizes ).CheckForDeserializationException( "Blank meta data" );
+
+      var blobStream = mdStreams.OfType<ReaderBLOBStreamHandler>().FirstOrDefault();
+      var guidStream = mdStreams.OfType<ReaderGUIDStreamHandler>().FirstOrDefault();
+      var sysStringStream = mdStreams.OfType<ReaderStringStreamHandler>().FirstOrDefault( s => s.StringStreamKind == StringStreamKind.SystemStrings );
+      var userStringStream = mdStreams.OfType<ReaderStringStreamHandler>().FirstOrDefault( s => s.StringStreamKind == StringStreamKind.UserStrings );
+      var mdStreamContainer = new ReaderMetaDataStreamContainer(
+            blobStream,
+            guidStream,
+            sysStringStream,
+            userStringStream,
+            mdStreams.Where( s => !ReferenceEquals( tblMDStream, s ) && !ReferenceEquals( blobStream, s ) && !ReferenceEquals( guidStream, s ) && !ReferenceEquals( sysStringStream, s ) && !ReferenceEquals( userStringStream, s ) )
+            );
+
+      var dataReferences = tblMDStream.PopulateMetaDataStructure(
+         md,
+         mdStreamContainer
+         ).CheckForDeserializationException( "Data references" );
+
+      // 4. Create image information
+      var snDD = cliHeader.StrongNameSignature;
+      var snOffset = rvaConverter.ToOffset( snDD.RVA );
+      imageInfo = new ImageInformation(
+         peInfo,
+         helper.ReadDebugInformation( peInfo, rvaConverter ),
+         new CLIInformation(
+            cliHeader,
+            mdRoot,
+            tblHeader,
+            snOffset > 0 && snDD.Size > 0 ?
+               helper.At( snOffset ).ReadAndCreateArray( checked((Int32) snDD.Size) ).ToArrayProxy().CQ :
+               null,
+             dataReferences
+            )
+         );
+
+      // 5. Populate IL, FieldRVA, and ManifestResource data
+      if ( deserializeDataReferences )
+      {
+         reader.HandleDataReferences( helper, imageInfo, rvaConverter, mdStreamContainer, md );
+      }
+
+      // We're done
+      return md;
+   }
+
+   private static DebugInformation ReadDebugInformation( this StreamHelper stream, PEInformation peInfo, RVAConverter rvaConverter )
+   {
+      var dataDirs = peInfo.NTHeader.OptionalHeader.DataDirectories;
+      DataDirectory debugDD;
+      var debugDDIdx = (Int32) DataDirectories.Debug;
+      return dataDirs.Count > debugDDIdx
+         && ( debugDD = dataDirs[debugDDIdx] ).RVA > 0 ?
+         stream
+            .At( rvaConverter.ToOffset( debugDD.RVA ) )
+            .ReadDebugInformation() :
+         null;
+   }
+
+   private static T CheckForDeserializationException<T>( this T value, String what, Boolean isProvider = false )
+      where T : class
+   {
+      if ( value == null )
+      {
+         throw SerializationFunctionalityException.ExceptionDuringDeserialization( what, isProvider );
+      }
+      return value;
    }
 }

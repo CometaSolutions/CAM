@@ -117,7 +117,7 @@ public static partial class E_CWR
                      else if ( result.Length == size )
                      {
                         // Have to grow array x2
-                        tmp = new T[checked( size * 2 )];
+                        tmp = new T[checked(size * 2)];
                         Array.Copy( result, 0, tmp, 0, size );
                         result = tmp;
                      }
@@ -178,7 +178,7 @@ public static partial class E_CWR
    }
 
    /// <summary>
-   /// Helper function to perform simple for-loop (not the foreach loop with .GetEnumerator() calls) over a <see cref="ArrayQuery{T}"/>.
+   /// Helper function to perform simple for-loop (not the foreach loop with try-finally and .GetEnumerator() calls) over a <see cref="ArrayQuery{T}"/>.
    /// </summary>
    /// <typeparam name="TValue">The type of array elements.</typeparam>
    /// <param name="array">The array. If <c>null</c>, this method does nothing.</param>
@@ -192,5 +192,17 @@ public static partial class E_CWR
             action( array[i] );
          }
       }
+   }
+
+   /// <summary>
+   /// Helper method similar to <see cref="E_CommonUtils.GetOrDefault"/>, but for <see cref="ArrayQuery{TValue}"/>.
+   /// </summary>
+   /// <typeparam name="T">The type of the values in the array.</typeparam>
+   /// <param name="array">This <see cref="ArrayQuery{TValue}"/>.</param>
+   /// <param name="index">The index to retrieve value at.</param>
+   /// <returns>Value at <paramref name="index"/>, or default value for <typeparamref name="T"/>, if index was outside array index bounds.</returns>
+   public static T GetOrDefault<T>( this ArrayQuery<T> array, Int32 index )
+   {
+      return index >= 0 && index < array.Count ? array[index] : default( T );
    }
 }

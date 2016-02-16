@@ -64,7 +64,6 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
 
    public class DefaultWriterFunctionality : WriterFunctionality
    {
-      public const Int32 PE_SIG_AND_FILE_HEADER_SIZE = 0x18; // PE signature + file header
 
       public DefaultWriterFunctionality(
          CILMetaData md,
@@ -103,7 +102,7 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
          var optionalHeaderSize = optionalHeaderKind.GetOptionalHeaderSize( peDataDirCount );
          return this.DoCreateWritingStatus(
             0x80 // DOS header size
-            + PE_SIG_AND_FILE_HEADER_SIZE // PE Signature + File header size
+            + CAMIOInternals.PE_SIG_AND_FILE_HEADER_SIZE // PE Signature + File header size
             + optionalHeaderSize // Optional header size
             + sectionsCount * 0x28 // Sections
             ,
@@ -1925,6 +1924,8 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
          return (Int32) result;
       }
 
+      public abstract StringStreamKind StringStreamKind { get; }
+
       internal Int32 StringCount
       {
          get
@@ -1977,6 +1978,14 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
          get
          {
             return MetaDataConstants.USER_STRING_STREAM_NAME;
+         }
+      }
+
+      public override StringStreamKind StringStreamKind
+      {
+         get
+         {
+            return StringStreamKind.UserStrings;
          }
       }
 
@@ -2034,6 +2043,14 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
          get
          {
             return MetaDataConstants.SYS_STRING_STREAM_NAME;
+         }
+      }
+
+      public override StringStreamKind StringStreamKind
+      {
+         get
+         {
+            return StringStreamKind.SystemStrings;
          }
       }
 

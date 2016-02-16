@@ -463,6 +463,20 @@ public static partial class E_CommonUtils
    }
 
    /// <summary>
+   /// Helper method to return empty enumerable in case given enumerable is <c>null</c>.
+   /// </summary>
+   /// <typeparam name="T">The type of enumerable elements.</typeparam>
+   /// <param name="enumerable">The enumerable.</param>
+   /// <returns>Empty enumerable if <paramref name="enumerable"/> is <c>null</c>; the <paramref name="enumerable"/> if it is not <c>null</c>.</returns>
+   /// <remarks>
+   /// This will return different enumerable only if it is <c>null</c>.
+   /// </remarks>
+   public static IEnumerable<T> EmptyIfNull<T>( this IEnumerable<T> enumerable )
+   {
+      return enumerable ?? Empty<T>.Enumerable;
+   }
+
+   /// <summary>
    /// This is method to quickly fill array with values, utilizing the fact that <see cref="Array.Copy(Array, Array, Int32)"/> methods are very, very fast.
    /// </summary>
    /// <typeparam name="T">The type of array elements.</typeparam>

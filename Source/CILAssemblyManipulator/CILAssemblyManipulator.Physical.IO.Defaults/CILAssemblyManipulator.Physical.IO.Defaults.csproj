@@ -80,8 +80,6 @@
     <Compile Include="IO\API.DotNET.cs" />
     <Compile Include="Loading\Loading.cs" />
     <Compile Include="Loading\Loading.DotNET.cs" />
-    <Compile Include="IO\Reading.cs" />
-    <Compile Include="IO\Writing.cs" />
     <Compile Include="Meta\Information.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
     <Compile Include="Reading.cs" />

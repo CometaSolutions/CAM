@@ -2683,6 +2683,8 @@ namespace CILAssemblyManipulator.Physical.IO
    {
       public const Int32 DATA_DIR_SIZE = 0x08;
 
+      public const Int32 PE_SIG_AND_FILE_HEADER_SIZE = 0x18; // PE signature + file header
+
       public static Byte[] WriteDataDirectory( this Byte[] array, ref Int32 idx, DataDirectory dataDir )
       {
          dataDir.WriteDataDirectory( array, ref idx );

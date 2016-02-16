@@ -64,7 +64,7 @@ namespace CILAssemblyManipulator.Physical.IO
          ImageInformation imageInfo;
          var md = ( rArgs.ReaderFunctionalityProvider ?? new Defaults.DefaultReaderFunctionalityProvider() ).ReadMetaDataFromStream(
             stream,
-            rArgs.TableInformationProvider,
+            rArgs.TableInformationProvider ?? Meta.DefaultMetaDataTableInformationProvider.CreateDefault(),
             rArgs.ErrorHandler,
             rawValueReading == RawValueReading.ToRow,
             out imageInfo
@@ -75,19 +75,6 @@ namespace CILAssemblyManipulator.Physical.IO
 
          return md;
       }
-   }
-
-   /// <summary>
-   /// This exception is thrown whenever something goes wrong when emitting a strong-signed module.
-   /// </summary>
-   public class CryptographicException : Exception
-   {
-      internal CryptographicException( String msg, Exception inner = null )
-         : base( msg, inner )
-      {
-
-      }
-
    }
 }
 

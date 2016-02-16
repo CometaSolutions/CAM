@@ -18,7 +18,7 @@
 extern alias CAMPhysical;
 using CAMPhysical;
 using CAMPhysical::CILAssemblyManipulator.Physical;
-
+using CILAssemblyManipulator.Physical.IO;
 using CollectionsWithRoles.API;
 using CommonUtils;
 using System;
@@ -235,5 +235,114 @@ namespace CILAssemblyManipulator.Physical.IO
       Int32 StreamSize { get; }
    }
 
+   /// <summary>
+   /// This exception is thrown when the functionality (<see cref="WriterFunctionalityProvider"/>, <see cref="WriterFunctionality"/>, <see cref="ReaderFunctionalityProvider"/>, or <see cref="ReaderFunctionality"/>) in (de)serialization process violates some contract.
+   /// </summary>
+   public class SerializationFunctionalityException : Exception
+   {
+      /// <summary>
+      /// Creates a new instance of <see cref="SerializationFunctionalityException"/> with given message and inner exception.
+      /// </summary>
+      /// <param name="msg">The textual message.</param>
+      /// <param name="inner">The optional inner exception.</param>
+      public SerializationFunctionalityException( String msg, Exception inner = null )
+         : base( msg, inner )
+      {
 
+      }
+
+      /// <summary>
+      /// Creates a new instance of <see cref="SerializationFunctionalityException"/> with pre-built message about failure in serialization (writing) process.
+      /// </summary>
+      /// <param name="whatFailedToProvide">What the writer functionality (provider) failed to provide.</param>
+      /// <param name="isProvider"><c>true</c> if the object in question was <see cref="WriterFunctionalityProvider"/>; <c>false</c> if it was <see cref="WriterFunctionality"/>.</param>
+      /// <returns>A new instance of <see cref="SerializationFunctionalityException"/> with pre-built message.</returns>
+      public static SerializationFunctionalityException ExceptionDuringSerialization( String whatFailedToProvide, Boolean isProvider )
+      {
+         return ExceptionDuringProcess( "Writer", whatFailedToProvide, isProvider );
+      }
+
+
+      /// <summary>
+      /// Creates a new instance of <see cref="SerializationFunctionalityException"/> with pre-built message about failure in deserialization (reading) process.
+      /// </summary>
+      /// <param name="whatFailedToProvide">What the reader functionality (provider) failed to provide.</param>
+      /// <param name="isProvider"><c>true</c> if the object in question was <see cref="ReaderFunctionalityProvider"/>; <c>false</c> if it was <see cref="ReaderFunctionality"/>.</param>
+      /// <returns>A new instance of <see cref="SerializationFunctionalityException"/> with pre-built message.</returns>
+      public static SerializationFunctionalityException ExceptionDuringDeserialization( String whatFailedToProvide, Boolean isProvider )
+      {
+         return ExceptionDuringProcess( "Reader", whatFailedToProvide, isProvider );
+      }
+
+      /// <summary>
+      /// Creates a new instance of <see cref="SerializationFunctionalityException"/> with pre-built message. 
+      /// </summary>
+      /// <param name="processName">The customized process name.</param>
+      /// <param name="whatFailedToProvide">What the writer functionality (provider) failed to provide.</param>
+      /// <param name="isProvider"><c>true</c> if the object in question was <see cref="WriterFunctionalityProvider"/> or <see cref="ReaderFunctionalityProvider"/>; <c>false</c> if it was <see cref="WriterFunctionality"/> or <see cref="ReaderFunctionality"/>.</param>
+      /// <returns>A new instance of <see cref="SerializationFunctionalityException"/> with pre-built message.</returns>
+      public static SerializationFunctionalityException ExceptionDuringProcess( String processName, String whatFailedToProvide, Boolean isProvider )
+      {
+         return new SerializationFunctionalityException( processName + " functionality" + ( isProvider ? " provider" : "" ) + " failed to provide " + whatFailedToProvide + "." );
+      }
+   }
+
+   /// <summary>
+   /// This is common interface for <see cref="ReaderStringStreamHandler"/> and <see cref="WriterStringStreamHandler"/>.
+   /// </summary>
+   public interface AbstractStringStreamHandler : AbstractReaderStreamHandler
+   {
+      /// <summary>
+      /// Gets the <see cref="IO.StringStreamKind"/> describing what kind of strings are stored in this stream.
+      /// </summary>
+      /// <value>The <see cref="IO.StringStreamKind"/> describing what kind of strings are stored in this stream.</value>
+      /// <seealso cref="IO.StringStreamKind"/>
+      StringStreamKind StringStreamKind { get; }
+   }
+
+
+   /// <summary>
+   /// This enumeration tells the deserialization process what kind of strings are stored to <see cref="AbstractStringStreamHandler"/>.
+   /// </summary>
+   public enum StringStreamKind
+   {
+      /// <summary>
+      /// The <see cref="AbstractStringStreamHandler"/> stores system strings (type and method names, etc).
+      /// </summary>
+      SystemStrings,
+
+      /// <summary>
+      /// The <see cref="AbstractStringStreamHandler"/> stores user strings (string literals within IL code).
+      /// </summary>
+      UserStrings
+   }
+}
+
+public static partial class E_CILPhysical
+{
+   /// <summary>
+   /// Creates an <see cref="IEnumerable{T}"/> to enumerate all the streams of this <see cref="MetaDataStreamContainer{TAbstractStream, TBLOBStream, TGUIDStream, TStringStream}"/>.
+   /// </summary>
+   /// <typeparam name="TAbstractStream">The type of the abstract meta data stream.</typeparam>
+   /// <typeparam name="TBLOBStream">The type of the BLOB meta data stream.</typeparam>
+   /// <typeparam name="TGUIDStream">The type of the GUID meta data stream.</typeparam>
+   /// <typeparam name="TStringStream">The type of the various string meta data streams.</typeparam>
+   /// <param name="mdStreams">This <see cref="MetaDataStreamContainer{TAbstractStream, TBLOBStream, TGUIDStream, TStringStream}"/>.</param>
+   /// <returns>An enumerable to enumerate all of the streams of this <see cref="MetaDataStreamContainer{TAbstractStream, TBLOBStream, TGUIDStream, TStringStream}"/>.</returns>
+   /// <exception cref="NullReferenceException">If this <see cref="MetaDataStreamContainer{TAbstractStream, TBLOBStream, TGUIDStream, TStringStream}"/> is <c>null</c>.</exception>
+   public static IEnumerable<TAbstractStream> GetAllStreams<TAbstractStream, TBLOBStream, TGUIDStream, TStringStream>( this MetaDataStreamContainer<TAbstractStream, TBLOBStream, TGUIDStream, TStringStream> mdStreams )
+      where TAbstractStream : AbstractMetaDataStreamHandler
+      where TBLOBStream : TAbstractStream
+      where TGUIDStream : TAbstractStream
+      where TStringStream : TAbstractStream
+   {
+      yield return mdStreams.BLOBs;
+      yield return mdStreams.GUIDs;
+      yield return mdStreams.SystemStrings;
+      yield return mdStreams.UserStrings;
+      foreach ( var os in mdStreams.OtherStreams )
+      {
+         yield return os;
+      }
+   }
 }

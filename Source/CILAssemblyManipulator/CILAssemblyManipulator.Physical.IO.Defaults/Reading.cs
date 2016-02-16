@@ -77,10 +77,11 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
          )
       {
          this.MDSerialization = mdSerialization ?? new DefaultMetaDataSerializationSupportProvider();
-         this.TableSerializations = this.MDSerialization.CreateTableSerializationInfos( tableInfoProvider, serializationCreationArgs ).ToArrayProxy().CQ;
+         this.TableInfoProvider = tableInfoProvider ?? DefaultMetaDataTableInformationProvider.CreateDefault();
+         this.TableSerializations = this.MDSerialization.CreateTableSerializationInfos( this.TableInfoProvider, serializationCreationArgs ).ToArrayProxy().CQ;
       }
 
-      public virtual void ReadImageInformation(
+      public virtual Boolean ReadImageInformation(
          StreamHelper stream,
          out PEInformation peInfo,
          out RVAConverter rvaConverter,
@@ -94,15 +95,14 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
          // Create RVA converter
          rvaConverter = this.CreateRVAConverter( peInfo ) ?? this.CreateDefaultRVAConverter( peInfo );
 
-         var dataDirs = peInfo.NTHeader.OptionalHeader.DataDirectories;
+         var cliDDRVA = peInfo.NTHeader.OptionalHeader.DataDirectories.GetOrDefault( (Int32) DataDirectories.CLIHeader ).RVA;
 
-         var cliDataDirIndex = (Int32) DataDirectories.CLIHeader;
-
-         if ( cliDataDirIndex < dataDirs.Count )
+         var retVal = cliDDRVA > 0;
+         if ( retVal )
          {
             // Read CLI header
             cliHeader = stream
-               .GoToRVA( rvaConverter, dataDirs[cliDataDirIndex].RVA )
+               .GoToRVA( rvaConverter, cliDDRVA )
                .ReadCLIHeader();
 
             // Read MD root
@@ -115,6 +115,8 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
             cliHeader = null;
             mdRoot = null;
          }
+
+         return retVal;
       }
 
       public virtual AbstractReaderStreamHandler CreateStreamHandler(
@@ -141,6 +143,14 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
             default:
                return null;
          }
+      }
+
+      public virtual CILMetaData CreateBlankMetaData( ArrayQuery<Int32> tableSizes )
+      {
+         return CILMetaDataFactory.NewBlankMetaData(
+            sizes: tableSizes.ToArray(),
+            tableInfoProvider: this.TableInfoProvider
+            );
       }
 
       public virtual void HandleDataReferences(
@@ -195,6 +205,8 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
       {
          return new RawValueProcessingArgs( stream, imageInfo, rvaConverter, mdStreamContainer, md, new ResizableArray<Byte>( initialSize: 0x1000 ) );
       }
+
+      protected CILMetaDataTableInformationProvider TableInfoProvider { get; }
 
       protected MetaDataSerializationSupportProvider MDSerialization { get; }
 
@@ -446,6 +458,9 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
       {
          return this.GetOrAddValue( heapIndex );
       }
+
+      public abstract StringStreamKind StringStreamKind { get; }
+
       protected Encoding Encoding { get; }
    }
 
@@ -506,6 +521,14 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
          }
       }
 
+      public override StringStreamKind StringStreamKind
+      {
+         get
+         {
+            return StringStreamKind.SystemStrings;
+         }
+      }
+
       protected override String ValueFactory( Int32 heapIndex )
       {
          var start = heapIndex;
@@ -537,6 +560,14 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
          get
          {
             return MetaDataConstants.USER_STRING_STREAM_NAME;
+         }
+      }
+
+      public override StringStreamKind StringStreamKind
+      {
+         get
+         {
+            return StringStreamKind.UserStrings;
          }
       }
 
