@@ -235,45 +235,5 @@ namespace CILAssemblyManipulator.Physical.IO
       Int32 StreamSize { get; }
    }
 
-   // TODO consider removing this class and just use DataReferencesInfo
-   /// <summary>
-   /// This is simple struct containing information about a single data reference.
-   /// </summary>
-   /// <remarks>
-   /// One example of data reference is the <see cref="T:CILAssemblyManipulator.Physical.IO.Defaults.RawMethodDefinition.RVA"/> property, which gets transformed into <see cref="MethodDefinition.IL"/>.
-   /// </remarks>
-   public struct DataReferenceInfo
-   {
-      /// <summary>
-      /// Creates a new instance of <see cref="DataReferenceInfo"/> with given values.
-      /// </summary>
-      /// <param name="table">The value for <see cref="Table"/> property.</param>
-      /// <param name="columnIndex">The value for <see cref="ColumnIndex"/> property.</param>
-      /// <param name="dataReference">The value for <see cref="DataReference"/> property.</param>
-      public DataReferenceInfo( Tables table, Int32 columnIndex, Int64 dataReference )
-      {
-         this.Table = table;
-         this.ColumnIndex = columnIndex;
-         this.DataReference = dataReference;
-      }
 
-      /// <summary>
-      /// Gets the table id of this data reference.
-      /// </summary>
-      /// <value>The table id of this data reference.</value>
-      /// <seealso cref="Tables"/>
-      public Tables Table { get; }
-
-      /// <summary>
-      /// Gets the zero-based column index of this data reference.
-      /// </summary>
-      /// <value>The zero-based column index of this data reference.</value>
-      public Int32 ColumnIndex { get; }
-
-      /// <summary>
-      /// Gets the data reference value.
-      /// </summary>
-      /// <value>The data reference value.</value>
-      public Int64 DataReference { get; }
-   }
 }

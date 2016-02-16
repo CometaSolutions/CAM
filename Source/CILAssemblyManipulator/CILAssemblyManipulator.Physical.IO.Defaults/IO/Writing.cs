@@ -200,13 +200,13 @@ public static partial class E_CILPhysical
 
       // 4. Create sections and some headers
       RVAConverter rvaConverter; Int32 mdRootSize;
-      var dataRefs = thHeader.CreateDataReferencesInfo( writer.CalculateImageLayout(
+      var dataRefs = writer.CalculateImageLayout(
          status,
          mdStreamContainer,
          mdStreams,
          out rvaConverter,
          out mdRootSize
-         ) );
+         );
 
       if ( rvaConverter == null )
       {

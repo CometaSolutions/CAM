@@ -202,10 +202,10 @@ public static partial class E_CILPhysical
             mdStreams.Where( s => !ReferenceEquals( tblMDStream, s ) && !ReferenceEquals( blobStream, s ) && !ReferenceEquals( guidStream, s ) && !ReferenceEquals( sysStringStream, s ) && !ReferenceEquals( userStringStream, s ) )
             );
 
-      var dataReferences = tblHeader.CreateDataReferencesInfo( tblMDStream.PopulateMetaDataStructure(
+      var dataReferences = tblMDStream.PopulateMetaDataStructure(
          md,
          mdStreamContainer
-         ) );
+         );
 
       // 4. Create image information
       var snDD = cliHeader.StrongNameSignature;
@@ -237,21 +237,6 @@ public static partial class E_CILPhysical
    private static AbstractReaderStreamHandler CreateDefaultHandlerFor( MetaDataStreamHeader header, StreamHelper helper )
    {
       throw new NotImplementedException( "Creating default handler for stream." );
-   }
-
-   public static IEnumerable<DataReferenceInfo> GetDataReferenceInfos<T>( this ColumnValueStorage<T> values, Func<T, Int64> converter )
-   {
-      foreach ( var tbl in values.GetPresentTables() )
-      {
-         var cols = values.GetStoredColumnsCount( tbl );
-         for ( var i = 0; i < cols; ++i )
-         {
-            foreach ( var val in values.GetAllRawValuesForColumn( tbl, i ) )
-            {
-               yield return new DataReferenceInfo( tbl, i, converter( val ) );
-            }
-         }
-      }
    }
 
    private static DebugInformation ReadDebugInformation( this StreamHelper stream, PEInformation peInfo, RVAConverter rvaConverter )

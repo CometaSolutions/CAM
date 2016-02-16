@@ -428,7 +428,7 @@ namespace CILAssemblyManipulator.Physical
          // TODO SequenceEquality -methods to DictionaryEqualityComparer
          return Object.ReferenceEquals( x, y ) ||
             ( x != null && y != null
-            && x.DataReferences.DictionaryQueryEquality( y.DataReferences, ( xDataRefs, yDataRefs ) => xDataRefs.DictionaryQueryEquality( yDataRefs, ( xColRefs, yColRefs ) => xColRefs.Count == yColRefs.Count ) )
+            && x.DataReferences.DictionaryQueryEquality( y.DataReferences, ( xDataRefs, yDataRefs ) => xDataRefs.ArrayQueryEquality( yDataRefs, ( xColRefs, yColRefs ) => xColRefs.Count == yColRefs.Count ) )
             );
       }
 

@@ -317,7 +317,7 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
 
       public ArrayQuery<Int32> TableSizes { get; }
 
-      public virtual IEnumerable<DataReferenceInfo> PopulateMetaDataStructure(
+      public virtual DataReferencesInfo PopulateMetaDataStructure(
          CILMetaData md,
          ReaderMetaDataStreamContainer mdStreamContainer
          )
@@ -336,7 +336,7 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
             }
          }
 
-         return rawValueStorage.GetDataReferenceInfos( i => (UInt32) i );
+         return rawValueStorage.CreateDataReferencesInfo( i => (UInt32) i );
       }
 
       public virtual Object GetRawRowOrNull( Tables table, Int32 idx )

@@ -117,7 +117,7 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
             );
       }
 
-      public virtual IEnumerable<DataReferenceInfo> CalculateImageLayout(
+      public virtual DataReferencesInfo CalculateImageLayout(
          WritingStatus writingStatus,
          WriterMetaDataStreamContainer mdStreamContainer,
          IEnumerable<AbstractWriterStreamHandler> allStreams,
@@ -151,7 +151,7 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
          // CLI Header
          writingStatus.CLIHeader = this.CreateCLIHeader( dStatus );
 
-         return rawValueStorage.GetDataReferenceInfos( i => i );
+         return rawValueStorage.CreateDataReferencesInfo( i => i );
       }
 
       public virtual void BeforeMetaData(
@@ -2226,7 +2226,7 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
                var byteArray = array.Array;
                var valIdx = 0;
                var arrayIdx = 0;
-               DictionaryQuery<Int32, ArrayQuery<Int64>> dataRefs;
+               ArrayQuery<ArrayQuery<Int64>> dataRefs;
                rawValueProvder.DataReferences.TryGetValue( info.Table, out dataRefs );
 
                foreach ( var rawValue in info.GetAllRawValues( table, dataRefs, heapIndices ) )

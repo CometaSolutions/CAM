@@ -2035,7 +2035,7 @@ namespace CILAssemblyManipulator.Physical.IO
       /// <param name="dataRefs">The data references.</param>
       /// <exception cref="ArgumentNullException">If <paramref name="dataRefs"/> is <c>null</c>.</exception>
       public DataReferencesInfo(
-         DictionaryQuery<Tables, DictionaryQuery<Int32, TRVAList>> dataRefs
+         DictionaryQuery<Tables, ArrayQuery<TRVAList>> dataRefs
          )
       {
          ArgumentValidator.ValidateNotNull( "Data references", dataRefs );
@@ -2047,7 +2047,7 @@ namespace CILAssemblyManipulator.Physical.IO
       /// Gets the data references contents for this <see cref="DataReferencesInfo"/>.
       /// </summary>
       /// <value>The data references contents for this <see cref="DataReferencesInfo"/>.</value>
-      public DictionaryQuery<Tables, DictionaryQuery<Int32, TRVAList>> DataReferences { get; }
+      public DictionaryQuery<Tables, ArrayQuery<TRVAList>> DataReferences { get; }
    }
 
    /// <summary>
@@ -3640,53 +3640,13 @@ public static partial class E_CILPhysical
    /// <exception cref="NullReferenceException">If this <see cref="DataReferencesInfo"/> is <c>null</c>.</exception>
    public static TRVAList GetDataReferencesOrEmpty( this DataReferencesInfo info, Tables table, Int32 colIndex )
    {
-      DictionaryQuery<Int32, TRVAList> dic;
+      ArrayQuery<TRVAList> array;
       TRVAList refs = null;
-      if ( info.DataReferences.TryGetValue( table, out dic )
-         && dic.TryGetValue( colIndex, out refs ) )
-      {
-
-      }
+      refs = info.DataReferences.TryGetValue( table, out array )
+         && colIndex < array.Count ?
+         array[colIndex] :
+         null;
       return refs ?? EmptyArrayProxy<Int64>.Query;
-   }
-
-   /// <summary>
-   /// This is extension method to create a new instance of <see cref="DataReferencesInfo"/> from this <see cref="MetaDataTableStreamHeader"/> with given enumerable of <see cref="DataReferenceInfo"/>s.
-   /// </summary>
-   /// <param name="header">The <see cref="MetaDataTableStreamHeader"/>.</param>
-   /// <param name="refs">The enumerable of <see cref="DataReferenceInfo"/>s. May be <c>null</c>.</param>
-   /// <returns>A new instance of <see cref="DataReferencesInfo"/> with information extracted from given enumerable of <see cref="DataReferencesInfo"/>s.</returns>
-   /// <exception cref="NullReferenceException">If this <see cref="MetaDataTableStreamHeader"/> is <c>null</c>.</exception>
-   public static DataReferencesInfo CreateDataReferencesInfo( this MetaDataTableStreamHeader header, IEnumerable<DataReferenceInfo> refs )
-   {
-
-      var cf = CollectionsWithRoles.Implementation.CollectionsFactorySingleton.DEFAULT_COLLECTIONS_FACTORY;
-      var dic = new Dictionary<Tables, DictionaryWithRoles<Int32, ArrayProxy<Int64>, ArrayProxyQuery<Int64>, TRVAList>>();
-      if ( refs != null )
-      {
-         var tSizes = header.CreateTableSizesArray();
-         var indices = new Int32[tSizes.Length];
-         foreach ( var dataRef in refs )
-         {
-            var table = dataRef.Table;
-            var thisTableDic = dic
-               .GetOrAdd_NotThreadSafe( table, t => cf.NewDictionary<Int32, ArrayProxy<Int64>, ArrayProxyQuery<Int64>, TRVAList>() );
-            var cIdx = dataRef.ColumnIndex;
-            ArrayProxy<Int64> array;
-            if ( !thisTableDic.CQ.TryGetValue( cIdx, out array ) )
-            {
-               array = cf.NewArrayProxy<Int64>( new Int64[tSizes[(Int32) table]] );
-               thisTableDic.Add( cIdx, array );
-            }
-            array[indices[(Int32) table]++] = dataRef.DataReference;
-         }
-      }
-      return new DataReferencesInfo( cf.NewDictionary<
-         Tables,
-         DictionaryWithRoles<Int32, ArrayProxy<Int64>, ArrayProxyQuery<Int64>, TRVAList>,
-         DictionaryQueryOfMutables<Int32, ArrayProxy<Int64>, ArrayProxyQuery<Int64>, TRVAList>,
-         DictionaryQuery<Int32, TRVAList>
-         >( dic ).CQ.IQ );
    }
 
    // Technically, max size is 255, but the bitmask in CLI header can only describe presence of 64 tables

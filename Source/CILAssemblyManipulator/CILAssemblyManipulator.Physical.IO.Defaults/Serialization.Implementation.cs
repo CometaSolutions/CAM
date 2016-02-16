@@ -722,7 +722,7 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
 
       public IEnumerable<Int32> GetAllRawValues(
          MetaDataTable table,
-         DictionaryQuery<Int32, ArrayQuery<Int64>> rawValueProvider,
+         ArrayQuery<ArrayQuery<Int64>> rawValueProvider,
          ColumnValueStorage<Int32> heapIndices
          )
       {

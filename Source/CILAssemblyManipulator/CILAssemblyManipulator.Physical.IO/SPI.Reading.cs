@@ -221,8 +221,8 @@ namespace CILAssemblyManipulator.Physical.IO
       /// </summary>
       /// <param name="md">The <see cref="CILMetaData"/> to populate.</param>
       /// <param name="mdStreamContainer">The <see cref="ReaderMetaDataStreamContainer"/> containing meta data streams.</param>
-      /// <returns>The data references (e.g. RVAs) which were read from this table stream. The data references will be transformed into <see cref="CLIInformation.DataReferences"/> dictionary, and used by <see cref="ReaderFunctionality.HandleDataReferences"/> method.</returns>
-      IEnumerable<DataReferenceInfo> PopulateMetaDataStructure(
+      /// <returns>The data references (e.g. RVAs) which were read from this table stream. The data references will be used by <see cref="ReaderFunctionality.HandleDataReferences"/> method.</returns>
+      DataReferencesInfo PopulateMetaDataStructure(
          CILMetaData md,
          ReaderMetaDataStreamContainer mdStreamContainer
          );

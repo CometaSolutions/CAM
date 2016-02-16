@@ -18,14 +18,20 @@
 extern alias CAMPhysical;
 extern alias CAMPhysicalR;
 extern alias CAMPhysicalIO;
+
 using CAMPhysical;
 using CAMPhysical::CILAssemblyManipulator.Physical;
 
+using CAMPhysicalIO;
+using CAMPhysicalIO::CILAssemblyManipulator.Physical.IO;
+using CILAssemblyManipulator.Physical.IO.Defaults;
 using CollectionsWithRoles.API;
 using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
+
+using TRVAList = CollectionsWithRoles.API.ArrayQuery<System.Int64>;
 
 namespace CILAssemblyManipulator.Physical.IO.Defaults
 {
@@ -36,7 +42,6 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
    /// <typeparam name="TValue">The type of the values to store.</typeparam>
    public sealed class ColumnValueStorage<TValue>
    {
-      private readonly ArrayQuery<Int32> _tableSizes;
       private readonly Int32[] _tableColCount;
       private readonly Int32[] _tableStartOffsets;
       private readonly TValue[] _rawValues;
@@ -52,7 +57,7 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
          IEnumerable<Int32> rawColumnInfo
          )
       {
-         this._tableSizes = tableSizes;
+         this.TableSizes = tableSizes;
          this._tableColCount = rawColumnInfo.ToArray();
          this._tableStartOffsets = tableSizes
             .AggregateIntermediate_BeforeAggregation(
@@ -84,7 +89,7 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
       {
          var colCount = this._tableColCount[(Int32) table];
          var start = this._tableStartOffsets[(Int32) table] + columnIndex;
-         var max = start + this._tableSizes[(Int32) table] * colCount;
+         var max = start + this.TableSizes[(Int32) table] * colCount;
          for ( var i = start; i < max; i += colCount )
          {
             yield return this._rawValues[i];
@@ -158,10 +163,55 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
          return this._tableColCount[(Int32) table];
       }
 
+      public ArrayQuery<Int32> TableSizes { get; }
+
       private Int32 GetArrayIndex( Int32 table, Int32 row, Int32 col )
       {
          return this._tableStartOffsets[table] + row * this._tableColCount[table] + col;
       }
 
    }
+}
+
+public static partial class E_CILPhysical
+{
+   /// <summary>
+   /// This is extension method to create a new instance of <see cref="DataReferencesInfo"/> from this <see cref="MetaDataTableStreamHeader"/> with given enumerable of <see cref="DataReferenceInfo"/>s.
+   /// </summary>
+   /// <param name="valueStorage">The <see cref="MetaDataTableStreamHeader"/>.</param>
+   /// <returns>A new instance of <see cref="DataReferencesInfo"/> with information extracted from given enumerable of <see cref="DataReferencesInfo"/>s.</returns>
+   /// <exception cref="NullReferenceException">If this <see cref="MetaDataTableStreamHeader"/> is <c>null</c>.</exception>
+   public static DataReferencesInfo CreateDataReferencesInfo<T>( this ColumnValueStorage<T> valueStorage, Func<T, Int64> converter )
+   {
+
+      var cf = CollectionsWithRoles.Implementation.CollectionsFactorySingleton.DEFAULT_COLLECTIONS_FACTORY;
+      var dic = new Dictionary<
+         Tables,
+         ArrayQuery<ArrayQuery<Int64>>
+         >();
+      foreach ( var tbl in valueStorage.GetPresentTables() )
+      {
+         var dataRefsColCount = valueStorage.GetStoredColumnsCount( tbl );
+         if ( dataRefsColCount > 0 )
+         {
+            var arr = new ArrayQuery<Int64>[dataRefsColCount];
+            var tSize = valueStorage.TableSizes[(Int32) tbl];
+            for ( var i = 0; i < dataRefsColCount; ++i )
+            {
+               // TODO: to CommonUtils: public static T[] FillFromEnumerable<T>(this IEnumerable<T>, Int32 size, SizeMismatchStrategy = Ignore | ThrowIfArraySmaller | ThrowIfArrayGreater )
+               var values = new Int64[tSize];
+               var idx = 0;
+               foreach ( var val in valueStorage.GetAllRawValuesForColumn( tbl, i ) )
+               {
+                  values[idx++] = converter( val );
+               }
+               arr[i] = cf.NewArrayProxy( values ).CQ;
+            }
+            dic.Add( tbl, cf.NewArrayProxy( arr ).CQ );
+         }
+      }
+
+      return new DataReferencesInfo( cf.NewDictionaryProxy( dic ).CQ );
+   }
+
 }

@@ -114,14 +114,13 @@ namespace CILAssemblyManipulator.Physical.IO
       /// <param name="allStreams">All streams, as returned by <see cref="CreateMetaDataStreamHandlers"/> method.</param>
       /// <param name="rvaConverter">This parameter should contain the <see cref="RVAConverter"/> to be used when serialization process converts from RVAs to offsets.</param>
       /// <param name="mdRootSize">This parameter should contain the size of the <see cref="MetaDataRoot"/> in bytes.</param>
-      /// <returns>An enumerable of <see cref="DataReferenceInfo"/>s filled with data offsets, e.g. <see cref="MethodDefinition.IL"/> RVAs, and so on.</returns>
+      /// <returns>The <see cref="DataReferencesInfo"/> filled with data offsets, e.g. <see cref="MethodDefinition.IL"/> RVAs, and so on.</returns>
       /// <remarks>
-      /// The returned enumerable of <see cref="DataReferenceInfo"/> will be converted to <see cref="DataReferencesInfo"/> and used as argument for <see cref="AbstractWriterStreamHandler.WriteStream"/> method.
+      /// The returned <see cref="DataReferencesInfo"/> will be used as argument for <see cref="AbstractWriterStreamHandler.WriteStream"/> method.
       /// </remarks>
-      /// <seealso cref="DataReferenceInfo"/>
       /// <seealso cref="DataReferencesInfo"/>
       /// <seealso cref="AbstractWriterStreamHandler.WriteStream"/>
-      IEnumerable<DataReferenceInfo> CalculateImageLayout(
+      DataReferencesInfo CalculateImageLayout(
          WritingStatus writingStatus,
          WriterMetaDataStreamContainer mdStreamContainer,
          IEnumerable<AbstractWriterStreamHandler> allStreams,
