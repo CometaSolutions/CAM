@@ -205,7 +205,6 @@ namespace CILAssemblyManipulator.Physical.IO
    /// The <see cref="E_CILPhysical.ReadMetaDataFromStream(ReaderFunctionality, Stream, EventHandler{SerializationErrorEventArgs}, bool, out ImageInformation)"/> method will call the methods of this interface in the following order:
    /// <list type="number">
    /// <item><description><see cref="ReadHeader"/>,</description></item>
-   /// <item><description><see cref="TableSizes"/>, and</description></item>
    /// <item><description><see cref="PopulateMetaDataStructure"/>.</description></item>
    /// </list>
    /// </remarks>
@@ -216,16 +215,6 @@ namespace CILAssemblyManipulator.Physical.IO
       /// </summary>
       /// <returns>The <see cref="MetaDataTableStreamHeader"/> with information about </returns>
       MetaDataTableStreamHeader ReadHeader();
-
-
-      /// <summary>
-      /// Gets the table sizes for the tables in this <see cref="ReaderTableStreamHandler"/>.
-      /// </summary>
-      /// <value>The table sizes for the tables in this <see cref="ReaderTableStreamHandler"/>.</value>
-      /// <remarks>
-      /// This property is used instead of directly creating table size array from <see cref="MetaDataTableStreamHeader"/> returned by <see cref="ReadHeader"/> in order to better customize the deserialization process in case the header for the table stream changes greatly in future releases.
-      /// </remarks>
-      ArrayQuery<Int32> TableSizes { get; }
 
       /// <summary>
       /// This method should populate those properties of the rows in metadata tables, which are either stored directly in table stream, or can be created using meta data streams (e.g. strings, guids, signatures, etc).
@@ -469,7 +458,7 @@ public static partial class E_CILPhysical
 
       var tblHeader = tblMDStream.ReadHeader().CheckForDeserializationException( "Table stream header" );
 
-      var md = reader.CreateBlankMetaData( tblMDStream.TableSizes ).CheckForDeserializationException( "Blank meta data" );
+      var md = reader.CreateBlankMetaData( tblHeader.CreateTableSizesArray().ToArrayProxy().CQ ).CheckForDeserializationException( "Blank meta data" );
 
       var blobStream = mdStreams.OfType<ReaderBLOBStreamHandler>().FirstOrDefault();
       var guidStream = mdStreams.OfType<ReaderGUIDStreamHandler>().FirstOrDefault();

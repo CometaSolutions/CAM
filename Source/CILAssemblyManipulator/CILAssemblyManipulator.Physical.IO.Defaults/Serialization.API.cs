@@ -733,6 +733,7 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
       public RVAConverter RVAConverter { get; }
 
       public ReaderMetaDataStreamContainer MDStreamContainer { get; }
+
       public CILMetaData MetaData { get; }
 
       public ResizableArray<Byte> Array { get; }

@@ -45,7 +45,7 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
    public class DefaultReaderFunctionalityProvider : ReaderFunctionalityProvider
    {
       /// <summary>
-      /// This method will return <see cref="DefaultReaderFunctionality"/>.
+      /// This method implements <see cref="ReaderFunctionalityProvider.GetFunctionality"/>, and will return <see cref="DefaultReaderFunctionality"/>.
       /// </summary>
       /// <param name="stream">The <see cref="Stream"/>.</param>
       /// <param name="mdTableInfoProvider">The <see cref="CILMetaDataTableInformationProvider"/>.</param>
@@ -61,7 +61,6 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
          out Stream newStream
          )
       {
-         // We are going to do a lot of seeking, so just read whole stream into byte array and use memory stream
          newStream = !( stream is MemoryStream ) && deserializingDataReferences ?
             new MemoryStream( stream.ReadUntilTheEnd(), this.IsMemoryStreamWriteable ) :
             null;
@@ -85,9 +84,19 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
       }
    }
 
+   /// <summary>
+   /// This class provides default implementation for <see cref="ReaderFunctionality"/>.
+   /// It will use the <see cref="MetaDataTableInformationWithSerializationCapability.CreateTableSerializationInfoNotGeneric"/> to create <see cref="TableSerializationInfo"/> for each table.
+   /// These <see cref="TableSerializationInfo"/>s will be used by this class and <see cref="DefaultReaderTableStreamHandler"/> to deserialize values for rows of tables of <see cref="CILMetaData"/>.
+   /// </summary>
    public class DefaultReaderFunctionality : ReaderFunctionality
    {
 
+      /// <summary>
+      /// Creates a new instance of <see cref="DefaultReaderFunctionality"/> with given <see cref="TableSerializationInfoCreationArgs"/> and optional <see cref="CILMetaDataTableInformationProvider"/>.
+      /// </summary>
+      /// <param name="serializationCreationArgs">The <see cref="TableSerializationInfoCreationArgs"/> to be used in <see cref="MetaDataTableInformationWithSerializationCapability.CreateTableSerializationInfoNotGeneric"/>.</param>
+      /// <param name="tableInfoProvider">The optional <see cref="CILMetaDataTableInformationProvider"/>. If not supplied, the result of <see cref="DefaultMetaDataTableInformationProvider.CreateDefault"/> will be used.</param>
       public DefaultReaderFunctionality(
          TableSerializationInfoCreationArgs serializationCreationArgs,
          CILMetaDataTableInformationProvider tableInfoProvider = null
@@ -97,6 +106,7 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
          this.TableSerializations = serializationCreationArgs.CreateTableSerializationInfos( this.TableInfoProvider ).ToArrayProxy().CQ;
       }
 
+      /// <inheritdoc />
       public virtual Boolean ReadImageInformation(
          StreamHelper stream,
          out PEInformation peInfo,
@@ -109,7 +119,7 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
          peInfo = stream.ReadPEInformation();
 
          // Create RVA converter
-         rvaConverter = this.CreateRVAConverter( peInfo ) ?? this.CreateDefaultRVAConverter( peInfo );
+         rvaConverter = this.CreateRVAConverter( peInfo ) ?? CreateDefaultRVAConverter( peInfo );
 
          var cliDDRVA = peInfo.NTHeader.OptionalHeader.DataDirectories.GetOrDefault( (Int32) DataDirectories.CLIHeader ).RVA;
 
@@ -135,6 +145,47 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
          return retVal;
       }
 
+      /// <summary>
+      /// This method implements <see cref="ReaderFunctionality.CreateStreamHandler"/> by creating an appropriate <see cref="AbstractReaderStreamHandler"/> based on the <see cref="MetaDataStreamHeader.Name"/> of the given <see cref="MetaDataStreamHeader"/>.
+      /// </summary>
+      /// <param name="stream">The stream containing data.</param>
+      /// <param name="mdRoot">The <see cref="MetaDataRoot"/>.</param>
+      /// <param name="startPosition">The start position of the stream.</param>
+      /// <param name="header">The <see cref="MetaDataStreamHeader"/>.</param>
+      /// <returns>Appropriate <see cref="AbstractReaderStreamHandler"/> based on the <see cref="MetaDataStreamHeader.Name"/> of the <paramref name="header"/>.</returns>
+      /// <remarks>
+      /// The logic is as follows:
+      /// <list type="table">
+      /// <listheader>
+      /// <term>The value of <see cref="MetaDataStreamHeader.Name"/></term>
+      /// <term>The type of the returned <see cref="AbstractReaderStreamHandler"/></term>
+      /// </listheader>
+      /// <item>
+      /// <term><c>"#~"</c> or <c>"#-"</c></term>
+      /// <term><see cref="DefaultReaderTableStreamHandler"/></term>
+      /// </item>
+      /// <item>
+      /// <term><c>"#Blob"</c></term>
+      /// <term><see cref="DefaultReaderBLOBStreamHandler"/></term>
+      /// </item>
+      /// <item>
+      /// <term><c>"#GUID"</c></term>
+      /// <term><see cref="DefaultReaderGUIDStreamHandler"/></term>
+      /// </item>
+      /// <item>
+      /// <term><c>"#Strings"</c></term>
+      /// <term><see cref="DefaultReaderSystemStringStreamHandler"/></term>
+      /// </item>
+      /// <item>
+      /// <term><c>"#US"</c></term>
+      /// <term><see cref="DefaultReaderUserStringsStreamHandler"/></term>
+      /// </item>
+      /// <item>
+      /// <term>Anything else</term>
+      /// <term>A <c>null</c> value.</term>
+      /// </item>
+      /// </list>
+      /// </remarks>
       public virtual AbstractReaderStreamHandler CreateStreamHandler(
          StreamHelper stream,
          MetaDataRoot mdRoot,
@@ -161,6 +212,11 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
          }
       }
 
+      /// <summary>
+      /// This method implements <see cref="ReaderFunctionality.CreateBlankMetaData"/> by calling <see cref="CILMetaDataFactory.NewBlankMetaData"/> and passing given table sizes and <see cref="TableInfoProvider"/> as arguments.
+      /// </summary>
+      /// <param name="tableSizes">The table size array.</param>
+      /// <returns>A new, blank instance of <see cref="CILMetaData"/>.</returns>
       public virtual CILMetaData CreateBlankMetaData( ArrayQuery<Int32> tableSizes )
       {
          return CILMetaDataFactory.NewBlankMetaData(
@@ -169,6 +225,14 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
             );
       }
 
+      /// <summary>
+      /// This method implements <see cref="ReaderFunctionality.HandleDataReferences"/> by calling <see cref="TableSerializationInfo.ProcessRowForRawValues"/> for each serialization info in <see cref="TableSerializations"/>.
+      /// </summary>
+      /// <param name="stream">The <see cref="StreamHelper"/>.</param>
+      /// <param name="imageInfo">The <see cref="ImageInformation"/> containing the data references.</param>
+      /// <param name="rvaConverter">The <see cref="RVAConverter"/>.</param>
+      /// <param name="mdStreamContainer">The <see cref="ReaderMetaDataStreamContainer"/>.</param>
+      /// <param name="md">The <see cref="CILMetaData"/>.</param>
       public virtual void HandleDataReferences(
          StreamHelper stream,
          ImageInformation imageInfo,
@@ -184,14 +248,29 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
          }
       }
 
+      /// <summary>
+      /// This method is called by <see cref="ReadImageInformation"/> in order to create a new <see cref="RVAConverter"/>.
+      /// </summary>
+      /// <param name="peInformation">The deserialized <see cref="PEInformation"/>.</param>
+      /// <returns>An instance of <see cref="DefaultRVAConverter"/>.</returns>
+      /// <remarks>
+      /// Subclasses may override this to return something else.
+      /// By default, this returns result of <see cref="CreateDefaultRVAConverter"/>.
+      /// </remarks>
       protected virtual RVAConverter CreateRVAConverter(
          PEInformation peInformation
          )
       {
-         return this.CreateDefaultRVAConverter( peInformation );
+         return CreateDefaultRVAConverter( peInformation );
       }
 
-      protected RVAConverter CreateDefaultRVAConverter(
+      /// <summary>
+      /// This static method is called by <see cref="CreateRVAConverter"/>.
+      /// It returns a new instance of <see cref="DefaultRVAConverter"/>.
+      /// </summary>
+      /// <param name="peInformation">The deserialized <see cref="PEInformation"/>.</param>
+      /// <returns>A new instance of <see cref="DefaultRVAConverter"/>.</returns>
+      protected static RVAConverter CreateDefaultRVAConverter(
          PEInformation peInformation
          )
       {
@@ -199,7 +278,19 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
       }
 
 
-
+      /// <summary>
+      /// This method is called by <see cref="HandleDataReferences"/>, and should return <see cref="RawValueProcessingArgs"/> to be used in <see cref="TableSerializationInfo.ProcessRowForRawValues"/>.
+      /// </summary>
+      /// <param name="stream">The <see cref="StreamHelper"/>.</param>
+      /// <param name="imageInfo">The <see cref="ImageInformation"/>.</param>
+      /// <param name="rvaConverter">The <see cref="RVAConverter"/>.</param>
+      /// <param name="mdStreamContainer">The <see cref="ReaderMetaDataStreamContainer"/>.</param>
+      /// <param name="md">The <see cref="CILMetaData"/>.</param>
+      /// <returns>An instance of <see cref="RawValueProcessingArgs"/>.</returns>
+      /// <remarks>
+      /// Subclasses may override this to return something else.
+      /// By default, this returns result of <see cref="CreateDefaultRawValueProcessingArgs"/>.
+      /// </remarks>
       protected virtual RawValueProcessingArgs CreateRawValueProcessingArgs(
          StreamHelper stream,
          ImageInformation imageInfo,
@@ -211,6 +302,16 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
          return CreateDefaultRawValueProcessingArgs( stream, imageInfo, rvaConverter, mdStreamContainer, md );
       }
 
+      /// <summary>
+      /// This static method is called by <see cref="CreateRawValueProcessingArgs"/>.
+      /// It returns a new instance of <see cref="RawValueProcessingArgs"/>.
+      /// </summary>
+      /// <param name="stream">The <see cref="StreamHelper"/>.</param>
+      /// <param name="imageInfo">The <see cref="ImageInformation"/>.</param>
+      /// <param name="rvaConverter">The <see cref="RVAConverter"/>.</param>
+      /// <param name="mdStreamContainer">The <see cref="ReaderMetaDataStreamContainer"/>.</param>
+      /// <param name="md">The <see cref="CILMetaData"/>.</param>
+      /// <returns>An instance of <see cref="RawValueProcessingArgs"/>.</returns>
       protected static RawValueProcessingArgs CreateDefaultRawValueProcessingArgs(
          StreamHelper stream,
          ImageInformation imageInfo,
@@ -222,8 +323,16 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
          return new RawValueProcessingArgs( stream, imageInfo, rvaConverter, mdStreamContainer, md, new ResizableArray<Byte>( initialSize: 0x1000 ) );
       }
 
+      /// <summary>
+      /// Gets the <see cref="CILMetaDataTableInformationProvider"/> given to this <see cref="DefaultReaderFunctionality"/>.
+      /// </summary>
+      /// <value>The <see cref="CILMetaDataTableInformationProvider"/> given to this <see cref="DefaultReaderFunctionality"/>.</value>
       protected CILMetaDataTableInformationProvider TableInfoProvider { get; }
 
+      /// <summary>
+      /// Gets all the <see cref="TableSerializationInfo"/> created by this <see cref="DefaultReaderFunctionality"/>.
+      /// </summary>
+      /// <value>All the <see cref="TableSerializationInfo"/> created by this <see cref="DefaultReaderFunctionality"/>.</value>
       protected ArrayQuery<TableSerializationInfo> TableSerializations { get; }
 
    }
@@ -239,22 +348,22 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
          ArgumentValidator.ValidateNotNull( "Stream", stream );
 
          this.Bytes = stream.At( startPosition ).ReadAndCreateArray( streamSize );
-         this.StreamSize = streamSize;
          this.StreamSize64 = (UInt32) streamSize;
       }
 
       public abstract String StreamName { get; }
 
-      public Int32 StreamSize { get; }
+      public Int32 StreamSize
+      {
+         get
+         {
+            return (Int32) this.StreamSize64;
+         }
+      }
 
       protected Byte[] Bytes { get; }
 
       protected Int64 StreamSize64 { get; }
-
-      protected virtual Boolean CheckHeapOffset( Int32 heapOffset )
-      {
-         return ( (UInt32) heapOffset ) < this.StreamSize64;
-      }
    }
 
    public abstract class AbstractReaderStreamHandlerWithArrayAndName : AbstractReaderStreamHandlerWithArray
@@ -341,7 +450,7 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
 
       }
 
-      public ArrayQuery<Int32> TableSizes { get; }
+      protected ArrayQuery<Int32> TableSizes { get; }
 
       public virtual DataReferencesInfo PopulateMetaDataStructure(
          CILMetaData md,
@@ -451,6 +560,11 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
       }
 
       protected abstract TValue ValueFactory( Int32 heapOffset );
+
+      protected virtual Boolean CheckHeapOffset( Int32 heapOffset )
+      {
+         return ( (UInt32) heapOffset ) < this.StreamSize64;
+      }
    }
 
    public abstract class AbstractReaderStringStreamHandler : AbstractReaderStreamHandlerWithArrayAndCache<String>, ReaderStringStreamHandler
