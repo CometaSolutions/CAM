@@ -130,7 +130,7 @@ namespace CILAssemblyManipulator.Physical.IO
       where TAbstractStream : AbstractMetaDataStreamHandler
       where TBLOBStream : TAbstractStream
       where TGUIDStream : TAbstractStream
-      where TStringStream : TAbstractStream
+      where TStringStream : TAbstractStream, AbstractStringStreamHandler
    {
       /// <summary>
       /// Creates a new instance of <see cref="MetaDataStreamContainer{TAbstractStream, TBLOBStream, TGUIDStream, TStringStream}"/> with given streams.
