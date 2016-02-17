@@ -586,23 +586,23 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
       protected TValue GetOrAddValue( Int32 heapOffset )
       {
          return this.CheckHeapOffset( heapOffset ) ?
-            this._cache.GetOrAdd_NotThreadSafe( heapOffset, this.ValueFactoryWrapper ) :
+            this._cache.GetOrAdd_NotThreadSafe( heapOffset, this.ValueFactory ) :
             (TValue) (Object) null;
       }
 
-      private TValue ValueFactoryWrapper( Int32 heapOffset )
-      {
+      //private TValue ValueFactoryWrapper( Int32 heapOffset )
+      //{
 
-         try
-         {
-            return this.ValueFactory( heapOffset );
-         }
-         catch
-         {
-            return (TValue) (Object) null;
-         }
+      //   try
+      //   {
+      //      return this.ValueFactory( heapOffset );
+      //   }
+      //   catch
+      //   {
+      //      return (TValue) (Object) null;
+      //   }
 
-      }
+      //}
 
       protected abstract TValue ValueFactory( Int32 heapOffset );
 
