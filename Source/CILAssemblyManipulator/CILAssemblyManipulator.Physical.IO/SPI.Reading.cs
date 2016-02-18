@@ -79,7 +79,7 @@ namespace CILAssemblyManipulator.Physical.IO
    /// <item><description><see cref="ReaderTableStreamHandler.ReadHeader"/>,</description></item>
    /// <item><description><see cref="CreateBlankMetaData"/>,</description></item>
    /// <item><description><see cref="ReaderTableStreamHandler.PopulateMetaDataStructure"/>, and</description></item>
-   /// <item><description><see cref="HandleDataReferences"/>.</description></item>
+   /// <item><description><see cref="ReaderTableStreamHandler.HandleDataReferences"/>.</description></item>
    /// </list>
    /// </remarks>
    /// <seealso cref="ReaderFunctionalityProvider"/>
@@ -116,7 +116,7 @@ namespace CILAssemblyManipulator.Physical.IO
       /// <param name="header">The <see cref="MetaDataStreamHeader"/>, containing the size and name information for this meta data stream.</param>
       /// <returns>An instance of <see cref="AbstractReaderStreamHandler"/> representing the contents</returns>
       /// <remarks>
-      /// The <see cref="AbstractReaderStreamHandler"/>s returned by this method are further handled to <see cref="ReaderMetaDataStreamContainer"/>, used in <see cref="ReaderTableStreamHandler.PopulateMetaDataStructure"/> and <see cref="HandleDataReferences"/> methods.
+      /// The <see cref="AbstractReaderStreamHandler"/>s returned by this method are further handled to <see cref="ReaderMetaDataStreamContainer"/>, used in <see cref="ReaderTableStreamHandler.PopulateMetaDataStructure"/> and <see cref="ReaderTableStreamHandler.HandleDataReferences"/> methods.
       /// </remarks>
       AbstractReaderStreamHandler CreateStreamHandler(
          StreamHelper stream,
@@ -132,29 +132,7 @@ namespace CILAssemblyManipulator.Physical.IO
       /// <returns>A new instance of <see cref="CILMetaData"/>.</returns>
       CILMetaData CreateBlankMetaData( ArrayQuery<Int32> tableSizes );
 
-      /// <summary>
-      /// This method is called after <see cref="ReaderTableStreamHandler.PopulateMetaDataStructure"/>, to populate the values that need data from elsewhere than <see cref="AbstractReaderStreamHandler"/>s.
-      /// </summary>
-      /// <param name="stream">The <see cref="StreamHelper"/> object, encapsulating the actual <see cref="Stream"/>.</param>
-      /// <param name="imageInfo">The full <see cref="ImageInformation"/>. The data references will be in <see cref="CLIInformation.DataReferences"/> property.</param>
-      /// <param name="rvaConverter">The <see cref="RVAConverter"/> created by <see cref="ReadImageInformation"/> method.</param>
-      /// <param name="mdStreamContainer">The <see cref="ReaderMetaDataStreamContainer"/> containing all streams created by <see cref="CreateStreamHandler"/> method.</param>
-      /// <param name="md">The instance of <see cref="CILMetaData"/> that will be result of this deserialization process.</param>
-      /// <remarks>
-      /// The values that need data from elsewhere than <see cref="AbstractReaderStreamHandler"/>s, are at least:
-      /// <list type="bullet">
-      /// <item><description><see cref="MethodDefinition.IL"/>,</description></item>
-      /// <item><description><see cref="FieldRVA.Data"/>, and</description></item>
-      /// <item><description><see cref="ManifestResource.EmbeddedData"/>.</description></item>
-      /// </list>
-      /// </remarks>
-      void HandleDataReferences(
-         StreamHelper stream,
-         ImageInformation imageInfo,
-         RVAConverter rvaConverter,
-         ReaderMetaDataStreamContainer mdStreamContainer,
-         CILMetaData md
-         );
+
    }
 
    /// <summary>
@@ -222,12 +200,35 @@ namespace CILAssemblyManipulator.Physical.IO
       /// </summary>
       /// <param name="md">The <see cref="CILMetaData"/> to populate.</param>
       /// <param name="mdStreamContainer">The <see cref="ReaderMetaDataStreamContainer"/> containing meta data streams.</param>
-      /// <returns>The data references (e.g. RVAs) which were read from this table stream. The data references will be used by <see cref="ReaderFunctionality.HandleDataReferences"/> method.</returns>
+      /// <returns>The data references (e.g. RVAs) which were read from this table stream. The data references will be used by <see cref="HandleDataReferences"/> method.</returns>
       DataReferencesInfo PopulateMetaDataStructure(
          CILMetaData md,
          ReaderMetaDataStreamContainer mdStreamContainer
          );
 
+      /// <summary>
+      /// This method is called after <see cref="ReaderTableStreamHandler.PopulateMetaDataStructure"/>, to populate the values that need data from elsewhere than <see cref="AbstractReaderStreamHandler"/>s.
+      /// </summary>
+      /// <param name="stream">The <see cref="StreamHelper"/> object, encapsulating the actual <see cref="Stream"/>.</param>
+      /// <param name="imageInfo">The full <see cref="ImageInformation"/>. The data references will be in <see cref="CLIInformation.DataReferences"/> property.</param>
+      /// <param name="rvaConverter">The <see cref="RVAConverter"/> created by <see cref="ReaderFunctionality.ReadImageInformation"/> method.</param>
+      /// <param name="mdStreamContainer">The <see cref="ReaderMetaDataStreamContainer"/> containing all other streams created by <see cref="ReaderFunctionality.CreateStreamHandler"/> method.</param>
+      /// <param name="md">The instance of <see cref="CILMetaData"/> that will be result of this deserialization process.</param>
+      /// <remarks>
+      /// The values that need data from elsewhere than <see cref="AbstractReaderStreamHandler"/>s, are at least:
+      /// <list type="bullet">
+      /// <item><description><see cref="MethodDefinition.IL"/>,</description></item>
+      /// <item><description><see cref="FieldRVA.Data"/>, and</description></item>
+      /// <item><description><see cref="ManifestResource.EmbeddedData"/>.</description></item>
+      /// </list>
+      /// </remarks>
+      void HandleDataReferences(
+         StreamHelper stream,
+         ImageInformation imageInfo,
+         RVAConverter rvaConverter,
+         ReaderMetaDataStreamContainer mdStreamContainer,
+         CILMetaData md
+         );
    }
 
    /// <summary>
@@ -497,12 +498,26 @@ public static partial class E_CILPhysical
       // 5. Populate IL, FieldRVA, and ManifestResource data
       if ( deserializeDataReferences )
       {
-         reader.HandleDataReferences( helper, imageInfo, rvaConverter, mdStreamContainer, md );
+         tblMDStream.HandleDataReferences( helper, imageInfo, rvaConverter, mdStreamContainer, md );
       }
 
       // We're done
       return md;
    }
+
+   /// <summary>
+   /// This is helper method to position given stream at offset transformed from given RVA.
+   /// </summary>
+   /// <param name="stream">The stream, as <see cref="StreamHelper"/>.</param>
+   /// <param name="rvaConverter">The <see cref="RVAConverter"/> to use.</param>
+   /// <param name="rva">The RVA.</param>
+   /// <returns>The <paramref name="stream"/> positioned at offset transformed from given RVA.</returns>
+   public static StreamHelper GoToRVA( this StreamHelper stream, RVAConverter rvaConverter, Int64 rva )
+   {
+      stream.Stream.SeekFromBegin( rvaConverter.ToOffset( rva ) );
+      return stream;
+   }
+
 
    private static DebugInformation ReadDebugInformation( this StreamHelper stream, PEInformation peInfo, RVAConverter rvaConverter )
    {

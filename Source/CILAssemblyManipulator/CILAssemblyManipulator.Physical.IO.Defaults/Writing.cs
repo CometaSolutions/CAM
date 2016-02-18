@@ -2333,7 +2333,12 @@ public static partial class E_CILPhysical
 
    public static Boolean IsWide( this AbstractWriterStreamHandler stream )
    {
-      return stream.StreamSize > UInt16.MaxValue;
+      return stream.StreamSize.IsWideMDStreamSize();
+   }
+
+   internal static Boolean IsWideMDStreamSize( this Int32 size )
+   {
+      return ( (UInt32) size ) > UInt16.MaxValue;
    }
 
    internal static ArrayQuery<Byte> CreateASCIIBytes( this String str, Int32 align, Int32 minLen = 0, Int32 maxLen = -1 )

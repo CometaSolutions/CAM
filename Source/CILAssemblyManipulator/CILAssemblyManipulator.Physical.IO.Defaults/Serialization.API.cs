@@ -39,28 +39,93 @@ using TabularMetaData.Meta;
 
 namespace CILAssemblyManipulator.Physical.IO.Defaults
 {
+   /// <summary>
+   /// This is raw row type for <see cref="ModuleDefinition"/>.
+   /// </summary>
    public sealed class RawModuleDefinition
    {
+      /// <summary>
+      /// Gets or sets the raw version of <see cref="ModuleDefinition.Generation"/>.
+      /// </summary>
+      /// <value>The raw version of <see cref="ModuleDefinition.Generation"/>.</value>
+      /// <remarks>
+      /// Modifying this value has no effect on the actual rows read by <see cref="ReaderTableStreamHandler"/>.
+      /// </remarks>
       public Int32 Generation { get; set; }
 
+      /// <summary>
+      /// Gets or sets the raw version of <see cref="ModuleDefinition.Name"/>.
+      /// </summary>
+      /// <value>The raw version of <see cref="ModuleDefinition.Name"/>.</value>
+      /// <remarks>
+      /// Modifying this value has no effect on the actual rows read by <see cref="ReaderTableStreamHandler"/>.
+      /// </remarks>
       public Int32 Name { get; set; }
 
+      /// <summary>
+      /// Gets or sets the raw version of <see cref="ModuleDefinition.ModuleGUID"/>.
+      /// </summary>
+      /// <value>The raw version of <see cref="ModuleDefinition.ModuleGUID"/>.</value>
+      /// <remarks>
+      /// Modifying this value has no effect on the actual rows read by <see cref="ReaderTableStreamHandler"/>.
+      /// </remarks>
       public Int32 ModuleGUID { get; set; }
 
+      /// <summary>
+      /// Gets or sets the raw version of <see cref="ModuleDefinition.EditAndContinueGUID"/>.
+      /// </summary>
+      /// <value>The raw version of <see cref="ModuleDefinition.EditAndContinueGUID"/>.</value>
+      /// <remarks>
+      /// Modifying this value has no effect on the actual rows read by <see cref="ReaderTableStreamHandler"/>.
+      /// </remarks>
       public Int32 EditAndContinueGUID { get; set; }
 
+      /// <summary>
+      /// Gets or sets the raw version of <see cref="ModuleDefinition.EditAndContinueBaseGUID"/>.
+      /// </summary>
+      /// <value>The raw version of <see cref="ModuleDefinition.EditAndContinueBaseGUID"/>.</value>
+      /// <remarks>
+      /// Modifying this value has no effect on the actual rows read by <see cref="ReaderTableStreamHandler"/>.
+      /// </remarks>
       public Int32 EditAndContinueBaseGUID { get; set; }
    }
 
+   /// <summary>
+   /// This is raw row type for <see cref="TypeReference"/>.
+   /// </summary>
    public sealed class RawTypeReference
    {
+      /// <summary>
+      /// Gets or sets the raw version of <see cref="TypeReference.ResolutionScope"/>.
+      /// </summary>
+      /// <value>The raw version of <see cref="TypeReference.ResolutionScope"/>.</value>
+      /// <remarks>
+      /// Modifying this value has no effect on the actual rows read by <see cref="ReaderTableStreamHandler"/>.
+      /// </remarks>
       public Int32 ResolutionScope { get; set; }
 
+      /// <summary>
+      /// Gets or sets the raw version of <see cref="TypeReference.ResolutionScope"/>.
+      /// </summary>
+      /// <value>The raw version of <see cref="TypeReference.ResolutionScope"/>.</value>
+      /// <remarks>
+      /// Modifying this value has no effect on the actual rows read by <see cref="ReaderTableStreamHandler"/>.
+      /// </remarks>
       public Int32 Name { get; set; }
 
+      /// <summary>
+      /// Gets or sets the raw version of <see cref="TypeReference.ResolutionScope"/>.
+      /// </summary>
+      /// <value>The raw version of <see cref="TypeReference.ResolutionScope"/>.</value>
+      /// <remarks>
+      /// Modifying this value has no effect on the actual rows read by <see cref="ReaderTableStreamHandler"/>.
+      /// </remarks>
       public Int32 Namespace { get; set; }
    }
 
+   /// <summary>
+   /// This is raw row type for <see cref="TypeDefinition"/>.
+   /// </summary>
    public sealed class RawTypeDefinition
    {
       public TypeAttributes Attributes { get; set; }
@@ -76,6 +141,9 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
       public Int32 MethodList { get; set; }
    }
 
+   /// <summary>
+   /// This is raw row type for <see cref="FieldDefinition"/>.
+   /// </summary>
    public sealed class RawFieldDefinition
    {
       public FieldAttributes Attributes { get; set; }
@@ -85,6 +153,9 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
       public Int32 Signature { get; set; }
    }
 
+   /// <summary>
+   /// This is raw row type for <see cref="MethodDefinition"/>.
+   /// </summary>
    public sealed class RawMethodDefinition
    {
       public Int32 RVA { get; set; }
@@ -100,6 +171,9 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
       public Int32 ParameterList { get; set; }
    }
 
+   /// <summary>
+   /// This is raw row type for <see cref="ParameterDefinition"/>.
+   /// </summary>
    public sealed class RawParameterDefinition
    {
       public ParameterAttributes Attributes { get; set; }
@@ -109,6 +183,9 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
       public Int32 Name { get; set; }
    }
 
+   /// <summary>
+   /// This is raw row type for <see cref="InterfaceImplementation"/>.
+   /// </summary>
    public sealed class RawInterfaceImplementation
    {
       public Int32 Class { get; set; }
@@ -116,6 +193,9 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
       public Int32 Interface { get; set; }
    }
 
+   /// <summary>
+   /// This is raw row type for <see cref="MemberReference"/>.
+   /// </summary>
    public sealed class RawMemberReference
    {
       public Int32 DeclaringType { get; set; }
@@ -125,6 +205,9 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
       public Int32 Signature { get; set; }
    }
 
+   /// <summary>
+   /// This is raw row type for <see cref="ConstantDefinition"/>.
+   /// </summary>
    public sealed class RawConstantDefinition
    {
       public ConstantValueType Type { get; set; }
@@ -136,6 +219,9 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
       public Int32 Value { get; set; }
    }
 
+   /// <summary>
+   /// This is raw row type for <see cref="CustomAttributeDefinition"/>.
+   /// </summary>
    public sealed class RawCustomAttributeDefinition
    {
       public Int32 Parent { get; set; }
@@ -145,6 +231,9 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
       public Int32 Signature { get; set; }
    }
 
+   /// <summary>
+   /// This is raw row type for <see cref="FieldMarshal"/>.
+   /// </summary>
    public sealed class RawFieldMarshal
    {
       public Int32 Parent { get; set; }
@@ -152,6 +241,9 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
       public Int32 NativeType { get; set; }
    }
 
+   /// <summary>
+   /// This is raw row type for <see cref="SecurityDefinition"/>.
+   /// </summary>
    public sealed class RawSecurityDefinition
    {
       public SecurityAction Action { get; set; }
@@ -161,6 +253,9 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
       public Int32 PermissionSets { get; set; }
    }
 
+   /// <summary>
+   /// This is raw row type for <see cref="ClassLayout"/>.
+   /// </summary>
    public sealed class RawClassLayout
    {
       public Int32 PackingSize { get; set; }
@@ -170,6 +265,9 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
       public Int32 Parent { get; set; }
    }
 
+   /// <summary>
+   /// This is raw row type for <see cref="FieldLayout"/>.
+   /// </summary>
    public sealed class RawFieldLayout
    {
       public Int32 Offset { get; set; }
@@ -177,12 +275,18 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
       public Int32 Field { get; set; }
    }
 
+   /// <summary>
+   /// This is raw row type for <see cref="StandaloneSignature"/>.
+   /// </summary>
    public sealed class RawStandaloneSignature
    {
       public Int32 Signature { get; set; }
 
    }
 
+   /// <summary>
+   /// This is raw row type for <see cref="EventMap"/>.
+   /// </summary>
    public sealed class RawEventMap
    {
       public Int32 Parent { get; set; }
@@ -190,6 +294,9 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
       public Int32 EventList { get; set; }
    }
 
+   /// <summary>
+   /// This is raw row type for <see cref="EventDefinition"/>.
+   /// </summary>
    public sealed class RawEventDefinition
    {
       public EventAttributes Attributes { get; set; }
@@ -199,6 +306,9 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
       public Int32 EventType { get; set; }
    }
 
+   /// <summary>
+   /// This is raw row type for <see cref="PropertyMap"/>.
+   /// </summary>
    public sealed class RawPropertyMap
    {
       public Int32 Parent { get; set; }
@@ -206,6 +316,9 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
       public Int32 PropertyList { get; set; }
    }
 
+   /// <summary>
+   /// This is raw row type for <see cref="PropertyDefinition"/>.
+   /// </summary>
    public sealed class RawPropertyDefinition
    {
       public PropertyAttributes Attributes { get; set; }
@@ -215,6 +328,9 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
       public Int32 Signature { get; set; }
    }
 
+   /// <summary>
+   /// This is raw row type for <see cref="MethodSemantics"/>.
+   /// </summary>
    public sealed class RawMethodSemantics
    {
 
@@ -225,6 +341,9 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
       public Int32 Associaton { get; set; }
    }
 
+   /// <summary>
+   /// This is raw row type for <see cref="MethodImplementation"/>.
+   /// </summary>
    public sealed class RawMethodImplementation
    {
       public Int32 Class { get; set; }
@@ -234,16 +353,25 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
       public Int32 MethodDeclaration { get; set; }
    }
 
+   /// <summary>
+   /// This is raw row type for <see cref="ModuleReference"/>.
+   /// </summary>
    public sealed class RawModuleReference
    {
       public Int32 ModuleName { get; set; }
    }
 
+   /// <summary>
+   /// This is raw row type for <see cref="TypeSpecification"/>.
+   /// </summary>
    public sealed class RawTypeSpecification
    {
       public Int32 Signature { get; set; }
    }
 
+   /// <summary>
+   /// This is raw row type for <see cref="MethodImplementationMap"/>.
+   /// </summary>
    public sealed class RawMethodImplementationMap
    {
 
@@ -256,6 +384,9 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
       public Int32 ImportScope { get; set; }
    }
 
+   /// <summary>
+   /// This is raw row type for <see cref="FieldRVA"/>.
+   /// </summary>
    public sealed class RawFieldRVA
    {
       public Int32 RVA { get; set; }
@@ -263,6 +394,9 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
       public Int32 Field { get; set; }
    }
 
+   /// <summary>
+   /// This is raw row type for <see cref="AssemblyDefinition"/>.
+   /// </summary>
    public sealed class RawAssemblyDefinition
    {
       public AssemblyHashAlgorithm HashAlgorithm { get; set; }
@@ -285,6 +419,9 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
 
    }
 
+   /// <summary>
+   /// This is raw row type for <see cref="AssemblyReference"/>.
+   /// </summary>
    public sealed class RawAssemblyReference
    {
       public Int32 MajorVersion { get; set; }
@@ -307,6 +444,9 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
 
    }
 
+   /// <summary>
+   /// This is raw row type for <see cref="FileReference"/>.
+   /// </summary>
    public sealed class RawFileReference
    {
       public CAMPhysical::CILAssemblyManipulator.Physical.FileAttributes Attributes { get; set; }
@@ -316,6 +456,9 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
       public Int32 HashValue { get; set; }
    }
 
+   /// <summary>
+   /// This is raw row type for <see cref="ExportedType"/>.
+   /// </summary>
    public sealed class RawExportedType
    {
       public TypeAttributes Attributes { get; set; }
@@ -329,6 +472,9 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
       public Int32 Implementation { get; set; }
    }
 
+   /// <summary>
+   /// This is raw row type for <see cref="ManifestResource"/>.
+   /// </summary>
    public sealed class RawManifestResource
    {
       public Int32 Offset { get; set; }
@@ -341,6 +487,9 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
 
    }
 
+   /// <summary>
+   /// This is raw row type for <see cref="NestedClassDefinition"/>.
+   /// </summary>
    public sealed class RawNestedClassDefinition
    {
       public Int32 NestedClass { get; set; }
@@ -348,6 +497,9 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
       public Int32 EnclosingClass { get; set; }
    }
 
+   /// <summary>
+   /// This is raw row type for <see cref="GenericParameterDefinition"/>.
+   /// </summary>
    public sealed class RawGenericParameterDefinition
    {
       public Int32 GenericParameterIndex { get; set; }
@@ -359,6 +511,9 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
       public Int32 Name { get; set; }
    }
 
+   /// <summary>
+   /// This is raw row type for <see cref="MethodSpecification"/>.
+   /// </summary>
    public sealed class RawMethodSpecification
    {
       public Int32 Method { get; set; }
@@ -366,6 +521,9 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
       public Int32 Signature { get; set; }
    }
 
+   /// <summary>
+   /// This is raw row type for <see cref="GenericParameterConstraintDefinition"/>.
+   /// </summary>
    public sealed class RawGenericParameterConstraintDefinition
    {
       public Int32 Owner { get; set; }
@@ -373,6 +531,9 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
       public Int32 Constraint { get; set; }
    }
 
+   /// <summary>
+   /// This is raw row type for <see cref="EditAndContinueLog"/>.
+   /// </summary>
    public sealed class RawEditAndContinueLog
    {
       public Int32 Token { get; set; }
@@ -380,41 +541,65 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
       public Int32 FuncCode { get; set; }
    }
 
+   /// <summary>
+   /// This is raw row type for <see cref="EditAndContinueMap"/>.
+   /// </summary>
    public sealed class RawEditAndContinueMap
    {
       public Int32 Token { get; set; }
    }
 
+   /// <summary>
+   /// This is raw row type for <see cref="FieldDefinitionPointer"/>.
+   /// </summary>
    public sealed class RawFieldDefinitionPointer
    {
       public Int32 FieldIndex { get; set; }
    }
 
+   /// <summary>
+   /// This is raw row type for <see cref="MethodDefinitionPointer"/>.
+   /// </summary>
    public sealed class RawMethodDefinitionPointer
    {
       public Int32 MethodIndex { get; set; }
    }
 
+   /// <summary>
+   /// This is raw row type for <see cref="ParameterDefinitionPointer"/>.
+   /// </summary>
    public sealed class RawParameterDefinitionPointer
    {
       public Int32 ParameterIndex { get; set; }
    }
 
+   /// <summary>
+   /// This is raw row type for <see cref="EventDefinitionPointer"/>.
+   /// </summary>
    public sealed class RawEventDefinitionPointer
    {
       public Int32 EventIndex { get; set; }
    }
 
+   /// <summary>
+   /// This is raw row type for <see cref="PropertyDefinitionPointer"/>.
+   /// </summary>
    public sealed class RawPropertyDefinitionPointer
    {
       public Int32 PropertyIndex { get; set; }
    }
 
+   /// <summary>
+   /// This is raw row type for <see cref="AssemblyDefinitionProcessor"/>.
+   /// </summary>
    public sealed class RawAssemblyDefinitionProcessor
    {
       public Int32 Processor { get; set; }
    }
 
+   /// <summary>
+   /// This is raw row type for <see cref="AssemblyDefinitionOS"/>.
+   /// </summary>
    public sealed class RawAssemblyDefinitionOS
    {
       public Int32 OSPlatformID { get; set; }
@@ -424,6 +609,9 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
       public Int32 OSMinorVersion { get; set; }
    }
 
+   /// <summary>
+   /// This is raw row type for <see cref="AssemblyReferenceProcessor"/>.
+   /// </summary>
    public sealed class RawAssemblyReferenceProcessor
    {
       public Int32 Processor { get; set; }
@@ -431,6 +619,9 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
       public Int32 AssemblyRef { get; set; }
    }
 
+   /// <summary>
+   /// This is raw row type for <see cref="AssemblyReferenceOS"/>.
+   /// </summary>
    public sealed class RawAssemblyReferenceOS
    {
       public Int32 OSPlatformID { get; set; }
@@ -646,7 +837,7 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
          Int32 streamSize;
          return heapName != null
             && this.StreamSizes.TryGetValue( heapName, out streamSize )
-            && ( (UInt32) streamSize ) > UInt16.MaxValue;
+            && streamSize.IsWideMDStreamSize();
       }
 
    }

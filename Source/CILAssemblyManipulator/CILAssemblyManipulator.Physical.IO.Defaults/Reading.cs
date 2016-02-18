@@ -102,8 +102,8 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
          CILMetaDataTableInformationProvider tableInfoProvider = null
          )
       {
+         this.SerializationCreationArgs = serializationCreationArgs;
          this.TableInfoProvider = tableInfoProvider ?? DefaultMetaDataTableInformationProvider.CreateDefault();
-         this.TableSerializations = serializationCreationArgs.CreateTableSerializationInfos( this.TableInfoProvider ).ToArrayProxy().CQ;
       }
 
       /// <inheritdoc />
@@ -198,7 +198,7 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
          {
             case MetaDataConstants.TABLE_STREAM_NAME:
             case "#-":
-               return new DefaultReaderTableStreamHandler( stream, startPosition, size, header.Name, this.TableSerializations, mdRoot );
+               return new DefaultReaderTableStreamHandler( stream, startPosition, size, header.Name, this.TableInfoProvider, this.SerializationCreationArgs, mdRoot );
             case MetaDataConstants.BLOB_STREAM_NAME:
                return new DefaultReaderBLOBStreamHandler( stream, startPosition, size );
             case MetaDataConstants.GUID_STREAM_NAME:
@@ -225,28 +225,6 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
             );
       }
 
-      /// <summary>
-      /// This method implements <see cref="ReaderFunctionality.HandleDataReferences"/> by calling <see cref="TableSerializationInfo.ProcessRowForRawValues"/> for each serialization info in <see cref="TableSerializations"/>.
-      /// </summary>
-      /// <param name="stream">The <see cref="StreamHelper"/>.</param>
-      /// <param name="imageInfo">The <see cref="ImageInformation"/> containing the data references.</param>
-      /// <param name="rvaConverter">The <see cref="RVAConverter"/>.</param>
-      /// <param name="mdStreamContainer">The <see cref="ReaderMetaDataStreamContainer"/>.</param>
-      /// <param name="md">The <see cref="CILMetaData"/>.</param>
-      public virtual void HandleDataReferences(
-         StreamHelper stream,
-         ImageInformation imageInfo,
-         RVAConverter rvaConverter,
-         ReaderMetaDataStreamContainer mdStreamContainer,
-         CILMetaData md
-         )
-      {
-         var args = this.CreateRawValueProcessingArgs( stream, imageInfo, rvaConverter, mdStreamContainer, md ) ?? CreateDefaultRawValueProcessingArgs( stream, imageInfo, rvaConverter, mdStreamContainer, md );
-         foreach ( var tableSerialization in this.TableSerializations )
-         {
-            tableSerialization?.ProcessRowForRawValues( args );
-         }
-      }
 
       /// <summary>
       /// This method is called by <see cref="ReadImageInformation"/> in order to create a new <see cref="RVAConverter"/>.
@@ -279,61 +257,16 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
 
 
       /// <summary>
-      /// This method is called by <see cref="HandleDataReferences"/>, and should return <see cref="RawValueProcessingArgs"/> to be used in <see cref="TableSerializationInfo.ProcessRowForRawValues"/>.
-      /// </summary>
-      /// <param name="stream">The <see cref="StreamHelper"/>.</param>
-      /// <param name="imageInfo">The <see cref="ImageInformation"/>.</param>
-      /// <param name="rvaConverter">The <see cref="RVAConverter"/>.</param>
-      /// <param name="mdStreamContainer">The <see cref="ReaderMetaDataStreamContainer"/>.</param>
-      /// <param name="md">The <see cref="CILMetaData"/>.</param>
-      /// <returns>An instance of <see cref="RawValueProcessingArgs"/>.</returns>
-      /// <remarks>
-      /// Subclasses may override this to return something else.
-      /// By default, this returns result of <see cref="CreateDefaultRawValueProcessingArgs"/>.
-      /// </remarks>
-      protected virtual RawValueProcessingArgs CreateRawValueProcessingArgs(
-         StreamHelper stream,
-         ImageInformation imageInfo,
-         RVAConverter rvaConverter,
-         ReaderMetaDataStreamContainer mdStreamContainer,
-         CILMetaData md
-         )
-      {
-         return CreateDefaultRawValueProcessingArgs( stream, imageInfo, rvaConverter, mdStreamContainer, md );
-      }
-
-      /// <summary>
-      /// This static method is called by <see cref="CreateRawValueProcessingArgs"/>.
-      /// It returns a new instance of <see cref="RawValueProcessingArgs"/>.
-      /// </summary>
-      /// <param name="stream">The <see cref="StreamHelper"/>.</param>
-      /// <param name="imageInfo">The <see cref="ImageInformation"/>.</param>
-      /// <param name="rvaConverter">The <see cref="RVAConverter"/>.</param>
-      /// <param name="mdStreamContainer">The <see cref="ReaderMetaDataStreamContainer"/>.</param>
-      /// <param name="md">The <see cref="CILMetaData"/>.</param>
-      /// <returns>An instance of <see cref="RawValueProcessingArgs"/>.</returns>
-      protected static RawValueProcessingArgs CreateDefaultRawValueProcessingArgs(
-         StreamHelper stream,
-         ImageInformation imageInfo,
-         RVAConverter rvaConverter,
-         ReaderMetaDataStreamContainer mdStreamContainer,
-         CILMetaData md
-         )
-      {
-         return new RawValueProcessingArgs( stream, imageInfo, rvaConverter, mdStreamContainer, md, new ResizableArray<Byte>( initialSize: 0x1000 ) );
-      }
-
-      /// <summary>
       /// Gets the <see cref="CILMetaDataTableInformationProvider"/> given to this <see cref="DefaultReaderFunctionality"/>.
       /// </summary>
       /// <value>The <see cref="CILMetaDataTableInformationProvider"/> given to this <see cref="DefaultReaderFunctionality"/>.</value>
       protected CILMetaDataTableInformationProvider TableInfoProvider { get; }
 
       /// <summary>
-      /// Gets all the <see cref="TableSerializationInfo"/> created by this <see cref="DefaultReaderFunctionality"/>.
+      /// Gets the <see cref="TableSerializationInfoCreationArgs"/> passed to this <see cref="DefaultReaderFunctionality"/>.
       /// </summary>
-      /// <value>All the <see cref="TableSerializationInfo"/> created by this <see cref="DefaultReaderFunctionality"/>.</value>
-      protected ArrayQuery<TableSerializationInfo> TableSerializations { get; }
+      /// <value>The <see cref="TableSerializationInfoCreationArgs"/> passed to this <see cref="DefaultReaderFunctionality"/>.</value>
+      protected TableSerializationInfoCreationArgs SerializationCreationArgs { get; }
 
    }
 
@@ -432,31 +365,29 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
    /// <seealso cref="ReaderFunctionality"/>
    public class DefaultReaderTableStreamHandler : AbstractReaderStreamHandlerWithArrayAndName, ReaderTableStreamHandler
    {
+      /// <summary>
+      /// Creates a new instance of <see cref="DefaultReaderTableStreamHandler"/> with given stream, stream name, serialization functionality, and meta data root.
+      /// </summary>
+      /// <param name="stream">The stream, as <see cref="StreamHelper"/>.</param>
+      /// <param name="startPosition">Position in <paramref name="stream"/>, where this table stream starts.</param>
+      /// <param name="streamSize">The size of this table stream, in bytes.</param>
+      /// <param name="tableStreamName">The name of this table stream.</param>
+      /// <param name="tableInfoProvider">The <see cref="CILMetaDataTableInformationProvider"/> to use when creating <see cref="Defaults.TableSerializationInfo"/>s.</param>
+      /// <param name="serializationCreationArgs">The <see cref="TableSerializationInfoCreationArgs"/> to use when creating <see cref="Defaults.TableSerializationInfo"/>s.</param>
+      /// <param name="mdRoot">The <see cref="MetaDataRoot"/> holding information about the other streams, used when calculating the size of single table row, in bytes.</param>
+      /// <exception cref="ArgumentNullException">If <paramref name="stream"/> or <paramref name="tableInfoProvider"/> is <c>null</c>.</exception>
       public DefaultReaderTableStreamHandler(
          StreamHelper stream,
          Int64 startPosition,
          Int32 streamSize,
          String tableStreamName,
-         ArrayQuery<TableSerializationInfo> tableSerializations,
+         CILMetaDataTableInformationProvider tableInfoProvider,
+         TableSerializationInfoCreationArgs serializationCreationArgs,
          MetaDataRoot mdRoot
-         )
-         : this( stream, startPosition, streamSize, tableStreamName, tableSerializations, ( me, tableSizes ) => new DefaultColumnSerializationSupportCreationArgs( tableSizes, mdRoot.StreamHeaders.ToDictionary_Preserve( sh => sh.Name, sh => (Int32) sh.Size ).ToDictionaryProxy().CQ ) )
-      {
-
-      }
-
-      protected DefaultReaderTableStreamHandler(
-         StreamHelper stream,
-         Int64 startPosition,
-         Int32 streamSize,
-         String tableStreamName,
-         ArrayQuery<TableSerializationInfo> tableSerializations,
-         Func<DefaultReaderTableStreamHandler, ArrayQuery<Int32>, DefaultColumnSerializationSupportCreationArgs> creationArgsFunc
          )
          : base( stream, startPosition, streamSize, tableStreamName )
       {
-         ArgumentValidator.ValidateAllNotNull( "Table serializations", tableSerializations );
-         ArgumentValidator.ValidateNotNull( "Serialization support creation args callback", creationArgsFunc );
+         ArgumentValidator.ValidateNotNull( "Table info provider", tableInfoProvider );
 
          var array = this.Bytes;
          var idx = 0;
@@ -467,22 +398,21 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
          this.TableStreamHeader = tableHeader;
          this.TableSizes = tableHeader.CreateTableSizesArray().ToArrayProxy().CQ;
 
-         tableSerializations = tableSerializations
-            .Concat( Enumerable.Repeat<TableSerializationInfo>( null, Math.Max( 0, this.TableSizes.Count - tableSerializations.Count ) ) )
+         var tableSerializationsArray = serializationCreationArgs.CreateTableSerializationInfos( tableInfoProvider ).ToArray();
+         this.TableSerializationInfos = tableSerializationsArray
+            .Concat( Enumerable.Repeat<TableSerializationInfo>( null, Math.Max( 0, this.TableSizes.Count - tableSerializationsArray.Length ) ) )
             .ToArrayProxy()
             .CQ;
 
-
-         this.TableSerializationInfo = tableSerializations;
-         var creationArgs = creationArgsFunc( this, this.TableSizes );
-         this.TableSerializationSupport =
-            this.TableSerializationInfo
+         var creationArgs = new DefaultColumnSerializationSupportCreationArgs( this.TableSizes, mdRoot.StreamHeaders.ToDictionary_Preserve( sh => sh.Name, sh => (Int32) sh.Size ).ToDictionaryProxy().CQ );
+         this.TableSerializationFunctionalities =
+            this.TableSerializationInfos
             .Select( table => table?.CreateSupport( creationArgs ) )
             .ToArrayProxy()
             .CQ;
 
          this.TableWidths =
-            this.TableSerializationSupport
+            this.TableSerializationFunctionalities
             .Select( table => table?.ColumnSerializationSupports.Aggregate( 0, ( curRowBytecount, colInfo ) => curRowBytecount + colInfo.ColumnByteCount ) ?? 0 )
             .ToArrayProxy()
             .CQ;
@@ -495,14 +425,20 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
 
       }
 
-      protected ArrayQuery<Int32> TableSizes { get; }
-
+      /// <summary>
+      /// This method implements <see cref="ReaderTableStreamHandler.PopulateMetaDataStructure"/> by calling <see cref="TableSerializationFunctionality.ReadRows"/> for each <see cref="TableSerializationFunctionality"/> in <see cref="TableSerializationFunctionalities"/> array.
+      /// </summary>
+      /// <param name="md">The <see cref="CILMetaData"/> to populate</param>
+      /// <param name="mdStreamContainer">The <see cref="ReaderMetaDataStreamContainer"/> containing other meta data streams.</param>
+      /// <returns>A <see cref="DataReferencesInfo"/> object containing information about data references.</returns>
+      /// <seealso cref="TableSerializationFunctionalities"/>
+      /// <seealso cref="TableSerializationFunctionality.ReadRows"/>
       public virtual DataReferencesInfo PopulateMetaDataStructure(
          CILMetaData md,
          ReaderMetaDataStreamContainer mdStreamContainer
          )
       {
-         var rawValueStorage = this.CreateRawValueStorage() ?? this.CreateDefaultRawValueStorage();
+         var rawValueStorage = this.CreateDataReferencesStorage() ?? this.CreateDefaultDataReferencesStorage();
          var array = this.Bytes;
          for ( var i = 0; i < this.TableSizes.Count; ++i )
          {
@@ -512,26 +448,59 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
                var args = new RowReadingArguments( array, this.TableStartOffsets[i], mdStreamContainer, rawValueStorage, md.SignatureProvider );
 
                var table = md.GetByTable( i );
-               this.TableSerializationSupport[i].ReadRows( table, this.TableSizes[i], args );
+               this.TableSerializationFunctionalities[i].ReadRows( table, this.TableSizes[i], args );
             }
          }
 
          return rawValueStorage.CreateDataReferencesInfo( i => (UInt32) i );
       }
 
-      public virtual Object GetRawRowOrNull( Tables table, Int32 idx )
+      /// <summary>
+      /// This method implements <see cref="ReaderFunctionality.HandleDataReferences"/> by calling <see cref="TableSerializationInfo.ProcessRowForRawValues"/> for each serialization info in <see cref="TableSerializationInfos"/>.
+      /// </summary>
+      /// <param name="stream">The <see cref="StreamHelper"/>.</param>
+      /// <param name="imageInfo">The <see cref="ImageInformation"/> containing the data references.</param>
+      /// <param name="rvaConverter">The <see cref="RVAConverter"/>.</param>
+      /// <param name="mdStreamContainer">The <see cref="ReaderMetaDataStreamContainer"/>.</param>
+      /// <param name="md">The <see cref="CILMetaData"/>.</param>
+      /// <seealso cref="TableSerializationInfos"/>
+      /// <seealso cref="TableSerializationInfo.ProcessRowForRawValues"/>
+      public virtual void HandleDataReferences(
+         StreamHelper stream,
+         ImageInformation imageInfo,
+         RVAConverter rvaConverter,
+         ReaderMetaDataStreamContainer mdStreamContainer,
+         CILMetaData md
+         )
+      {
+         var args = this.CreateRawValueProcessingArgs( stream, imageInfo, rvaConverter, mdStreamContainer, md ) ?? CreateDefaultRawValueProcessingArgs( stream, imageInfo, rvaConverter, mdStreamContainer, md );
+         foreach ( var tableSerialization in this.TableSerializationInfos )
+         {
+            tableSerialization?.ProcessRowForRawValues( args );
+         }
+      }
+
+      /// <summary>
+      /// Reads a raw table row directly from this stream, using <see cref="TableSerializationFunctionality.ReadRawRow"/> method.
+      /// </summary>
+      /// <param name="table">The table ID as <see cref="Tables"/> enumeration.</param>
+      /// <param name="rowIndex">The zero-based row index.</param>
+      /// <returns>A raw row.</returns>
+      /// <seealso cref="TableSerializationFunctionalities"/>
+      /// <seealso cref="TableSerializationFunctionality.ReadRawRow"/>
+      public virtual Object GetRawRowOrNull( Tables table, Int32 rowIndex )
       {
          var tableSizes = this.TableSizes;
          var tableInt = (Int32) table;
          Object retVal;
          if ( tableInt >= 0
             && tableInt < tableSizes.Count
-            && idx >= 0
-            && tableSizes[tableInt] > idx
+            && rowIndex >= 0
+            && tableSizes[tableInt] > rowIndex
             )
          {
-            var offset = this.TableStartOffsets[tableInt] + idx * this.TableWidths[tableInt];
-            retVal = this.TableSerializationSupport[tableInt].ReadRawRow( this.Bytes, offset );
+            var offset = this.TableStartOffsets[tableInt] + rowIndex * this.TableWidths[tableInt];
+            retVal = this.TableSerializationFunctionalities[tableInt].ReadRawRow( this.Bytes, offset );
          }
          else
          {
@@ -540,40 +509,155 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
          return retVal;
       }
 
+      /// <summary>
+      /// Implements <see cref="ReaderTableStreamHandler.ReadHeader"/> by returns the <see cref="MetaDataTableStreamHeader"/>, which was read already in constructor.
+      /// </summary>
+      /// <returns>The <see cref="MetaDataTableStreamHeader"/>.</returns>
       public virtual MetaDataTableStreamHeader ReadHeader()
       {
          return this.TableStreamHeader;
       }
 
-      protected virtual ColumnValueStorage<Int32> CreateRawValueStorage()
+      /// <summary>
+      /// This method is called by <see cref="PopulateMetaDataStructure"/> to create storage for data references.
+      /// Sublcasses may override this method.
+      /// </summary>
+      /// <returns>This implementation returns the value of <see cref="CreateDefaultDataReferencesStorage"/>.</returns>
+      /// <remarks>
+      /// If this method returns <c>null</c>, then the <see cref="PopulateMetaDataStructure"/> will use the result of <see cref="CreateDefaultDataReferencesStorage"/>.
+      /// </remarks>
+      protected virtual ColumnValueStorage<Int32> CreateDataReferencesStorage()
       {
-         return this.CreateDefaultRawValueStorage();
+         return this.CreateDefaultDataReferencesStorage();
       }
 
-      protected ColumnValueStorage<Int32> CreateDefaultRawValueStorage()
+      /// <summary>
+      /// This method is called by <see cref="CreateDataReferencesStorage"/>.
+      /// It returns an instance of <see cref="ColumnValueStorage{TValue}"/>.
+      /// </summary>
+      /// <returns>An instance of <see cref="ColumnValueStorage{TValue}"/>.</returns>
+      protected ColumnValueStorage<Int32> CreateDefaultDataReferencesStorage()
       {
          return new ColumnValueStorage<Int32>(
             this.TableSizes,
-            this.TableSerializationInfo.Select( t => t?.RawValueStorageColumnCount ?? 0 )
+            this.TableSerializationInfos.Select( t => t?.RawValueStorageColumnCount ?? 0 )
             );
       }
 
+      /// <summary>
+      /// This method is called by <see cref="HandleDataReferences"/>, and should return <see cref="RawValueProcessingArgs"/> to be used in <see cref="TableSerializationInfo.ProcessRowForRawValues"/>.
+      /// </summary>
+      /// <param name="stream">The <see cref="StreamHelper"/>.</param>
+      /// <param name="imageInfo">The <see cref="ImageInformation"/>.</param>
+      /// <param name="rvaConverter">The <see cref="RVAConverter"/>.</param>
+      /// <param name="mdStreamContainer">The <see cref="ReaderMetaDataStreamContainer"/>.</param>
+      /// <param name="md">The <see cref="CILMetaData"/>.</param>
+      /// <returns>An instance of <see cref="RawValueProcessingArgs"/>.</returns>
+      /// <remarks>
+      /// Subclasses may override this to return something else.
+      /// By default, this returns result of <see cref="CreateDefaultRawValueProcessingArgs"/>.
+      /// </remarks>
+      protected virtual RawValueProcessingArgs CreateRawValueProcessingArgs(
+         StreamHelper stream,
+         ImageInformation imageInfo,
+         RVAConverter rvaConverter,
+         ReaderMetaDataStreamContainer mdStreamContainer,
+         CILMetaData md
+         )
+      {
+         return CreateDefaultRawValueProcessingArgs( stream, imageInfo, rvaConverter, mdStreamContainer, md );
+      }
+
+      /// <summary>
+      /// This static method is called by <see cref="CreateRawValueProcessingArgs"/>.
+      /// It returns a new instance of <see cref="RawValueProcessingArgs"/>.
+      /// </summary>
+      /// <param name="stream">The <see cref="StreamHelper"/>.</param>
+      /// <param name="imageInfo">The <see cref="ImageInformation"/>.</param>
+      /// <param name="rvaConverter">The <see cref="RVAConverter"/>.</param>
+      /// <param name="mdStreamContainer">The <see cref="ReaderMetaDataStreamContainer"/>.</param>
+      /// <param name="md">The <see cref="CILMetaData"/>.</param>
+      /// <returns>An instance of <see cref="RawValueProcessingArgs"/>.</returns>
+      protected static RawValueProcessingArgs CreateDefaultRawValueProcessingArgs(
+         StreamHelper stream,
+         ImageInformation imageInfo,
+         RVAConverter rvaConverter,
+         ReaderMetaDataStreamContainer mdStreamContainer,
+         CILMetaData md
+         )
+      {
+         return new RawValueProcessingArgs( stream, imageInfo, rvaConverter, mdStreamContainer, md, new ResizableArray<Byte>( initialSize: 0x1000 ) );
+      }
+
+      /// <summary>
+      /// Gets the <see cref="MetaDataTableStreamHeader"/> read in constructor.
+      /// </summary>
+      /// <value>The <see cref="MetaDataTableStreamHeader"/> read in constructor.</value>
       protected MetaDataTableStreamHeader TableStreamHeader { get; }
 
+      /// <summary>
+      /// Gets the table size array.
+      /// </summary>
+      /// <value>The table size array.</value>
+      /// <remarks>
+      /// The table ID as <see cref="Tables"/> enumeration integer value acts as index, and the array element is the table row count.
+      /// </remarks>
+      protected ArrayQuery<Int32> TableSizes { get; }
+
+      /// <summary>
+      /// Gets the table width array.
+      /// </summary>
+      /// <value>The table width array.</value>
+      /// <remarks>
+      /// The table ID as <see cref="Tables"/> enumeration integer value acts as index, and the array element is the byte count for one row.
+      /// </remarks>
       protected ArrayQuery<Int32> TableWidths { get; }
 
+      /// <summary>
+      /// Gets the table start offset array.
+      /// </summary>
+      /// <value>The table start offset array.</value>
+      /// <remarks>
+      /// The table ID as <see cref="Tables"/> enumeration integer value acts as index, and the array element is the byte offset in <see cref="AbstractReaderStreamHandlerWithArray.Bytes"/> where the table rows start.
+      /// </remarks>
       protected ArrayQuery<Int32> TableStartOffsets { get; }
 
-      protected ArrayQuery<TableSerializationInfo> TableSerializationInfo { get; }
+      /// <summary>
+      /// Gets the array holding <see cref="TableSerializationInfo"/> objects for each table.
+      /// </summary>
+      /// <value>The array holding <see cref="TableSerializationInfo"/> objects for each table.</value>
+      /// <remarks>
+      /// The table ID as <see cref="Tables"/> enumeration integer value acts as index, and the array element is the <see cref="TableSerializationInfo"/> object (potentially <c>null</c>) for that table.
+      /// </remarks>
+      /// <seealso cref="TableSerializationInfo"/>
+      protected ArrayQuery<TableSerializationInfo> TableSerializationInfos { get; }
 
-      protected ArrayQuery<TableSerializationFunctionality> TableSerializationSupport { get; }
+      /// <summary>
+      /// Gets the array holding the <see cref="TableSerializationFunctionality"/> objects for each table.
+      /// </summary>
+      /// <value>The array holding the <see cref="TableSerializationFunctionality"/> objects for each table.</value>
+      /// <remarks>
+      /// The table ID as <see cref="Tables"/> enumeration integer value acts as index, and the array element is the <see cref="TableSerializationFunctionality"/> object (potentially <c>null</c>) for that table.
+      /// </remarks>
+      /// <seealso cref="TableSerializationFunctionality"/>
+      protected ArrayQuery<TableSerializationFunctionality> TableSerializationFunctionalities { get; }
 
    }
 
+   /// <summary>
+   /// This class specializes <see cref="AbstractReaderStreamHandlerWithArray"/> by adding a cache for values at given heap indices.
+   /// </summary>
+   /// <typeparam name="TValue">The type of values to cache.</typeparam>
    public abstract class AbstractReaderStreamHandlerWithArrayAndCache<TValue> : AbstractReaderStreamHandlerWithArray
    {
       private readonly IDictionary<Int32, TValue> _cache;
 
+      /// <summary>
+      /// Initializes this instance of <see cref="AbstractReaderStreamHandlerWithArrayAndCache{TValue}"/> with given stream.
+      /// </summary>
+      /// <param name="stream">The stream, as <see cref="StreamHelper"/>.</param>
+      /// <param name="startPosition">The position in <paramref name="stream"/> where the contents of this meta data stream start.</param>
+      /// <param name="streamSize">The size, in bytes, of the contents of this meta data stream.</param>
       protected AbstractReaderStreamHandlerWithArrayAndCache(
          StreamHelper stream,
          Int64 startPosition,
@@ -583,37 +667,75 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
          this._cache = new Dictionary<Int32, TValue>();
       }
 
+      /// <summary>
+      /// Subclasses should use this method to retrieve the value from cache or deserialize it from stream.
+      /// </summary>
+      /// <param name="heapOffset">The heap offset.</param>
+      /// <returns>Cached or deserialzied value.</returns>
+      /// <remarks>
+      /// The <see cref="ValueFactory"/> method will be called if the value is not already cached.
+      /// The given <paramref name="heapOffset"/> will be directly passed to it.
+      /// This method is not threadsafe.
+      /// </remarks>
+      /// <seealso cref="ValueFactory"/>
       protected TValue GetOrAddValue( Int32 heapOffset )
       {
-         return this.CheckHeapOffset( heapOffset ) ?
-            this._cache.GetOrAdd_NotThreadSafe( heapOffset, this.ValueFactory ) :
-            (TValue) (Object) null;
+         if ( heapOffset == 0 )
+         {
+            return this.ZeroValue();
+         }
+         else
+         {
+            return this.CheckHeapOffset( heapOffset ) ?
+               this._cache.GetOrAdd_NotThreadSafe( heapOffset, this.ValueFactory ) :
+               (TValue) (Object) null;
+         }
       }
 
-      //private TValue ValueFactoryWrapper( Int32 heapOffset )
-      //{
-
-      //   try
-      //   {
-      //      return this.ValueFactory( heapOffset );
-      //   }
-      //   catch
-      //   {
-      //      return (TValue) (Object) null;
-      //   }
-
-      //}
-
+      /// <summary>
+      /// Subclasses should implement this method to return value to be cached.
+      /// </summary>
+      /// <param name="heapOffset">The heap offset, as it was given to <seealso cref="GetOrAddValue"/>.</param>
+      /// <returns>Deserialized value.</returns>
       protected abstract TValue ValueFactory( Int32 heapOffset );
 
+      /// <summary>
+      /// This method is called by <see cref="GetOrAddValue"/> before accessing cache, to check whether given heap offset is of meaningful value.
+      /// </summary>
+      /// <param name="heapOffset">The heap offset, as it was given to <see cref="GetOrAddValue"/>.</param>
+      /// <returns><c>true</c> if <paramref name="heapOffset"/> was meaningful value; <c>false</c> otherwise.</returns>
+      /// <remarks>
+      /// This implementation just checks whether the value of <paramref name="heapOffset"/> as <see cref="UInt32"/> is smaller than <see cref="AbstractReaderStreamHandlerWithArray.StreamSizeU32"/>.
+      /// Subclasses may override this method.
+      /// </remarks>
       protected virtual Boolean CheckHeapOffset( Int32 heapOffset )
       {
          return ( (UInt32) heapOffset ) < this.StreamSizeU32;
       }
+
+      /// <summary>
+      /// This method is always called by <see cref="GetOrAddValue"/> if the given heap offset was zero.
+      /// </summary>
+      /// <returns>The value for zero heap offset. By default, it is <c>null</c>.</returns>
+      protected virtual TValue ZeroValue()
+      {
+         return (TValue) (Object) null;
+      }
    }
 
+   /// <summary>
+   /// This class subclasses the <see cref="AbstractReaderStreamHandlerWithArrayAndCache{TValue}"/> and implements <see cref="ReaderStringStreamHandler"/>, leaving the exact deserialization of the strings as abstract methods.
+   /// </summary>
    public abstract class AbstractReaderStringStreamHandler : AbstractReaderStreamHandlerWithArrayAndCache<String>, ReaderStringStreamHandler
    {
+      /// <summary>
+      /// Initialzies a new instance of <see cref="AbstractReaderStringStreamHandler"/> with given stream and string encoding.
+      /// </summary>
+      /// <param name="stream">The stream, as <see cref="StreamHelper"/>.</param>
+      /// <param name="startPosition">The position in <paramref name="stream"/> where the contents of this meta data stream start.</param>
+      /// <param name="streamSize">The size, in bytes, of the contents of this meta data stream.</param>
+      /// <param name="encoding">The <see cref="Encoding"/> for the strings.</param>
+      /// <exception cref="ArgumentNullException">If <paramref name="stream"/> or <paramref name="encoding"/> is <c>null</c>.</exception>
       public AbstractReaderStringStreamHandler(
          StreamHelper stream,
          Int64 startPosition,
@@ -627,18 +749,41 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
          this.Encoding = encoding;
       }
 
+      /// <summary>
+      /// This method implements <see cref="ReaderStringStreamHandler.GetString"/> by calling <see cref="AbstractReaderStreamHandlerWithArrayAndCache{TValue}.GetOrAddValue"/>.
+      /// </summary>
+      /// <param name="heapIndex">The index of the string in this meta data stream.</param>
+      /// <returns>Deserialized string, or <c>null</c>.</returns>
       public String GetString( Int32 heapIndex )
       {
          return this.GetOrAddValue( heapIndex );
       }
 
+      /// <summary>
+      /// Leaves the actual implementation of <see cref="AbstractStringStreamHandler.StringStreamKind"/> to subclasses.
+      /// </summary>
+      /// <value>The <see cref="Defaults.StringStreamKind"/> of this <see cref="AbstractReaderStringStreamHandler"/>.</value>
       public abstract StringStreamKind StringStreamKind { get; }
 
+      /// <summary>
+      /// Gets the <see cref="System.Text.Encoding"/> to be used when deserializing strings.
+      /// </summary>
+      /// <value>The <see cref="System.Text.Encoding"/> to be used when deserializing strings.</value>
       protected Encoding Encoding { get; }
    }
 
+   /// <summary>
+   /// This class subclasses the <see cref="AbstractReaderStreamHandlerWithArrayAndCache{TValue}"/> and implements <see cref="ReaderGUIDStreamHandler"/>, providing full implementation for <c>"#GUID"</c> stream.
+   /// </summary>
    public class DefaultReaderGUIDStreamHandler : AbstractReaderStreamHandlerWithArrayAndCache<Guid?>, ReaderGUIDStreamHandler
    {
+      /// <summary>
+      /// Creates a new instance of <see cref="DefaultReaderGUIDStreamHandler"/> with given stream.
+      /// </summary>
+      /// <param name="stream">The stream, as <see cref="StreamHelper"/>.</param>
+      /// <param name="startPosition">The position in <paramref name="stream"/> where the contents of this meta data stream start.</param>
+      /// <param name="streamSize">The size, in bytes, of the contents of this meta data stream.</param>
+      /// <exception cref="ArgumentNullException">If <paramref name="stream"/> is <c>null</c>.</exception>
       public DefaultReaderGUIDStreamHandler(
          StreamHelper stream,
          Int64 startPosition,
@@ -648,6 +793,10 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
       {
       }
 
+      /// <summary>
+      /// Implements the <see cref="AbstractMetaDataStreamHandler.StreamName"/> by returning <c>"#GUID"</c>.
+      /// </summary>
+      /// <value>The <c>"#GUID"</c>.</value>
       public override String StreamName
       {
          get
@@ -656,26 +805,49 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
          }
       }
 
+      /// <summary>
+      /// This method implements <see cref="ReaderGUIDStreamHandler.GetGUID"/> by calling <see cref="AbstractReaderStreamHandlerWithArrayAndCache{TValue}.GetOrAddValue"/>.
+      /// </summary>
+      /// <param name="heapIndex">The index of the <see cref="Guid"/> in this meta data stream.</param>
+      /// <returns>Deserialized <see cref="Guid"/>, or <c>null</c>.</returns>
       public Guid? GetGUID( Int32 heapIndex )
       {
          return this.GetOrAddValue( heapIndex );
       }
 
+      /// <summary>
+      /// This methid implements <see cref="AbstractReaderStreamHandlerWithArrayAndCache{TValue}.ValueFactory"/> by creating <see cref="Guid"/> using <see cref="Guid(byte[])"/> constructor.
+      /// </summary>
+      /// <param name="heapOffset">The index of the <see cref="Guid"/> in this meta data stream.</param>
+      /// <returns>Deserialized <see cref="Guid"/>, or <c>null</c>.</returns>
       protected override Guid? ValueFactory( Int32 heapOffset )
       {
-         if ( heapOffset == 0 || (UInt32) heapOffset > this.StreamSizeU32 - MetaDataConstants.GUID_SIZE + 1 )
-         {
-            return null;
-         }
-         else
-         {
-            return new Guid( this.Bytes.CreateArrayCopy( heapOffset - 1, MetaDataConstants.GUID_SIZE ) );
-         }
+         return new Guid( this.Bytes.CreateArrayCopy( heapOffset - 1, MetaDataConstants.GUID_SIZE ) );
+      }
+
+      /// <summary>
+      /// Checks whether the given heap offset is small enough to leave room to reading whole <see cref="Guid"/>.
+      /// </summary>
+      /// <param name="heapOffset">The given heap offset.</param>
+      /// <returns><c>true</c> if heap offset is valid; <c>false</c> otherwise.</returns>
+      protected override Boolean CheckHeapOffset( Int32 heapOffset )
+      {
+         return (UInt32) heapOffset <= this.StreamSizeU32 - MetaDataConstants.GUID_SIZE + 1;
       }
    }
 
+   /// <summary>
+   /// This class subclasses <see cref="AbstractReaderStringStreamHandler"/> and provides full implementation for <c>"#Strings"</c> stream.
+   /// </summary>
    public class DefaultReaderSystemStringStreamHandler : AbstractReaderStringStreamHandler
    {
+      /// <summary>
+      /// Creates a new instance of <see cref="DefaultReaderSystemStringStreamHandler"/> with given stream.
+      /// </summary>
+      /// <param name="stream">The stream, as <see cref="StreamHelper"/>.</param>
+      /// <param name="startPosition">The position in <paramref name="stream"/> where the contents of this meta data stream start.</param>
+      /// <param name="streamSize">The size, in bytes, of the contents of this meta data stream.</param>
+      /// <exception cref="ArgumentNullException">If <paramref name="stream"/> is <c>null</c>.</exception>
       public DefaultReaderSystemStringStreamHandler(
          StreamHelper stream,
          Int64 startPosition,
@@ -686,6 +858,10 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
 
       }
 
+      /// <summary>
+      /// Implements the <see cref="AbstractMetaDataStreamHandler.StreamName"/> by returning <c>"#Strings"</c>.
+      /// </summary>
+      /// <value>The <c>"#Strings"</c>.</value>
       public override String StreamName
       {
          get
@@ -694,6 +870,10 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
          }
       }
 
+      /// <summary>
+      /// Implements the <see cref="AbstractReaderStringStreamHandler.StringStreamKind"/> by returning <see cref="StringStreamKind.SystemStrings"/>.
+      /// </summary>
+      /// <value>The <see cref="StringStreamKind.SystemStrings"/>.</value>
       public override StringStreamKind StringStreamKind
       {
          get
@@ -702,6 +882,11 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
          }
       }
 
+      /// <summary>
+      /// Implements the <see cref="AbstractReaderStreamHandlerWithArrayAndCache{TValue}.ValueFactory"/> by deserializing string as zero-terminated UTF-8 -encoded string.
+      /// </summary>
+      /// <param name="heapIndex">The index of the string in this meta data stream.</param>
+      /// <returns>Deserialized string.</returns>
       protected override String ValueFactory( Int32 heapIndex )
       {
          var start = heapIndex;
@@ -716,8 +901,18 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
       }
    }
 
+   /// <summary>
+   /// This class subclasses <see cref="AbstractReaderStringStreamHandler"/> and provides full implementation for <c>"#US"</c> stream.
+   /// </summary>
    public class DefaultReaderUserStringsStreamHandler : AbstractReaderStringStreamHandler
    {
+      /// <summary>
+      /// Creates a new instance of <see cref="DefaultReaderUserStringsStreamHandler"/> with given stream.
+      /// </summary>
+      /// <param name="stream">The stream, as <see cref="StreamHelper"/>.</param>
+      /// <param name="startPosition">The position in <paramref name="stream"/> where the contents of this meta data stream start.</param>
+      /// <param name="streamSize">The size, in bytes, of the contents of this meta data stream.</param>
+      /// <exception cref="ArgumentNullException">If <paramref name="stream"/> is <c>null</c>.</exception>
       public DefaultReaderUserStringsStreamHandler(
          StreamHelper stream,
          Int64 startPosition,
@@ -728,6 +923,10 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
 
       }
 
+      /// <summary>
+      /// Implements the <see cref="AbstractMetaDataStreamHandler.StreamName"/> by returning <c>"#US"</c>.
+      /// </summary>
+      /// <value>The <c>"#US"</c>.</value>
       public override String StreamName
       {
          get
@@ -736,6 +935,10 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
          }
       }
 
+      /// <summary>
+      /// Implements the <see cref="AbstractReaderStringStreamHandler.StringStreamKind"/> by returning <see cref="StringStreamKind.UserStrings"/>.
+      /// </summary>
+      /// <value>The <see cref="StringStreamKind.UserStrings"/>.</value>
       public override StringStreamKind StringStreamKind
       {
          get
@@ -744,42 +947,59 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
          }
       }
 
+      /// <summary>
+      /// Implements the <see cref="AbstractReaderStreamHandlerWithArrayAndCache{TValue}.ValueFactory"/> by deserializing string as length-prefixed UTF-16 -encoded string.
+      /// </summary>
+      /// <param name="heapIndex">The index of the string in this meta data stream.</param>
+      /// <returns>Deserialized string, or <c>null</c>.</returns>
       protected override String ValueFactory( Int32 heapIndex )
       {
+         var array = this.Bytes;
          String retVal;
-         if ( heapIndex == 0 )
+         Int32 length;
+         if ( array.TryDecompressUInt32( ref heapIndex, array.Length, out length ) && heapIndex <= array.Length - length )
          {
-            retVal = "";
-         }
-         else
-         {
-            var array = this.Bytes;
-
-            Int32 length;
-            if ( array.TryDecompressUInt32( ref heapIndex, array.Length, out length ) && heapIndex <= array.Length - length )
+            if ( length > 1 )
             {
-               if ( length > 1 )
-               {
-                  retVal = this.Encoding.GetString( array, heapIndex, length - 1 );
-               }
-               else
-               {
-                  retVal = "";
-               }
+               retVal = this.Encoding.GetString( array, heapIndex, length - 1 );
             }
             else
             {
-               retVal = null;
+               retVal = "";
             }
          }
+         else
+         {
+            retVal = null;
+         }
+
          return retVal;
+      }
+
+      /// <summary>
+      /// Returns empty string, as user strings can not have <c>null</c>.
+      /// </summary>
+      /// <returns>Empty string.</returns>
+      protected override String ZeroValue()
+      {
+         return "";
       }
    }
 
+   /// <summary>
+   /// This class subclasses <see cref="AbstractReaderStreamHandlerWithArrayAndCache{TValue}"/> and provides full implementation for <c>"#Blob"</c> stream.
+   /// </summary>
    public class DefaultReaderBLOBStreamHandler : AbstractReaderStreamHandlerWithArrayAndCache<Tuple<Int32, Int32>>, ReaderBLOBStreamHandler
    {
       private readonly IDictionary<KeyValuePair<Int32, ConstantValueType>, Object> _constants;
 
+      /// <summary>
+      /// Creates a new instance of <see cref="DefaultReaderBLOBStreamHandler"/> with given stream.
+      /// </summary>
+      /// <param name="stream">The stream, as <see cref="StreamHelper"/>.</param>
+      /// <param name="startPosition">The position in <paramref name="stream"/> where the contents of this meta data stream start.</param>
+      /// <param name="streamSize">The size, in bytes, of the contents of this meta data stream.</param>
+      /// <exception cref="ArgumentNullException">If <paramref name="stream"/> is <c>null</c>.</exception>
       public DefaultReaderBLOBStreamHandler(
          StreamHelper stream,
          Int64 startPosition,
@@ -790,6 +1010,10 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
          this._constants = new Dictionary<KeyValuePair<Int32, ConstantValueType>, Object>();
       }
 
+      /// <summary>
+      /// Implements the <see cref="AbstractMetaDataStreamHandler.StreamName"/> by returning <c>"#Blob"</c>.
+      /// </summary>
+      /// <value>The <c>"#Blob"</c>.</value>
       public override String StreamName
       {
          get
@@ -798,6 +1022,11 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
          }
       }
 
+      /// <summary>
+      /// Implements the <see cref="ReaderBLOBStreamHandler.GetBLOBByteArray"/>.
+      /// </summary>
+      /// <param name="heapIndex">The index to this meta data stream.</param>
+      /// <returns>A new byte array, or <c>null</c>.</returns>
       public Byte[] GetBLOBByteArray( Int32 heapIndex )
       {
          Int32 len;
@@ -805,11 +1034,11 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
       }
 
       /// <summary>
-      /// 
+      /// Implements the <see cref="ReaderBLOBStreamHandler.ReadCASignature"/>.
       /// </summary>
-      /// <param name="heapIndex"></param>
-      /// <param name="sigProvider"></param>
-      /// <returns></returns>
+      /// <param name="heapIndex">The index to this meta data stream.</param>
+      /// <param name="sigProvider">The <see cref="SignatureProvider"/>.</param>
+      /// <returns>A new <see cref="RawCustomAttributeSignature"/> or <see cref="ResolvedCustomAttributeSignature"/>, or <c>null</c>.</returns>
       /// <remarks>
       /// Because reading custom attribute signatures may require resolving, the only case when this method does returns an instance of <see cref="ResolvedCustomAttributeSignature"/> is when the signature BLOB represents empty custom attribute signature.
       /// Whenever there is a non-empty signature, then an instance of <see cref="RawCustomAttributeSignature"/> is returned.
@@ -840,6 +1069,13 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
          return caSig;
       }
 
+      /// <summary>
+      /// Implements the <see cref="ReaderBLOBStreamHandler.ReadConstantValue"/>.
+      /// </summary>
+      /// <param name="heapIndex">The index to this meta data stream.</param>
+      /// <param name="sigProvider">The <see cref="SignatureProvider"/>.</param>
+      /// <param name="constType">The kind of the constant.</param>
+      /// <returns>A constant value, possibly <c>null</c>.</returns>
       public Object ReadConstantValue( Int32 heapIndex, SignatureProvider sigProvider, ConstantValueType constType )
       {
          return heapIndex == 0 || (UInt32) heapIndex >= this.StreamSizeU32 ?
@@ -850,12 +1086,27 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
                );
       }
 
+      /// <summary>
+      /// Implements the <see cref="ReaderBLOBStreamHandler.ReadMarshalingInfo"/>.
+      /// </summary>
+      /// <param name="heapIndex">The index to this meta data stream.</param>
+      /// <param name="sigProvider">The <see cref="SignatureProvider"/>.</param>
+      /// <returns>A new instance of <see cref="AbstractMarshalingInfo"/>, or <c>null</c>.</returns>
       public AbstractMarshalingInfo ReadMarshalingInfo( Int32 heapIndex, SignatureProvider sigProvider )
       {
          Int32 max;
          return this.SetUpBLOBWithMax( ref heapIndex, out max ) ? sigProvider.ReadMarshalingInfo( this.Bytes, ref heapIndex, max ) : null;
       }
 
+      /// <summary>
+      /// Implements the <see cref="ReaderBLOBStreamHandler.ReadNonTypeSignature"/>.
+      /// </summary>
+      /// <param name="streamIndex">The zero-based stream index.</param>
+      /// <param name="sigProvider">The <see cref="SignatureProvider"/> to use when deserializing the signature.</param>
+      /// <param name="methodSigIsDefinition">Whether the method signature, if any, should be a <see cref="MethodDefinitionSignature"/>.</param>
+      /// <param name="handleFieldSigAsLocalsSig">Whether to handle the field signature as <see cref="LocalVariablesSignature"/>.</param>
+      /// <param name="fieldSigTransformedToLocalsSig">If <paramref name="handleFieldSigAsLocalsSig"/> is <c>true</c> and the signature started with field prefix, this will be <c>true</c>. Otherwise, this will be <c>false</c>.</param>
+      /// <returns>A new instance of <see cref="AbstractSignature"/>, or <c>null</c>.</returns>
       public AbstractSignature ReadNonTypeSignature( Int32 heapIndex, SignatureProvider sigProvider, bool methodSigIsDefinition, bool handleFieldSigAsLocalsSig, out bool fieldSigTransformedToLocalsSig )
       {
          Int32 max;
@@ -880,6 +1131,12 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
          return retVal;
       }
 
+      /// <summary>
+      /// Implements the <see cref="ReaderBLOBStreamHandler.ReadSecurityInformation"/>.
+      /// </summary>
+      /// <param name="streamIndex">The zero-based stream index.</param>
+      /// <param name="sigProvider">The <see cref="SignatureProvider"/> to use when deserializing the signature.</param>
+      /// <param name="securityInfo">The list of <see cref="AbstractSecurityInformation"/>s to populate.</param>
       public void ReadSecurityInformation( Int32 heapIndex, SignatureProvider sigProvider, List<AbstractSecurityInformation> securityInfo )
       {
          Int32 max;
@@ -889,12 +1146,24 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
          }
       }
 
+      /// <summary>
+      /// Implements the <see cref="ReaderBLOBStreamHandler.ReadTypeSignature"/>.
+      /// </summary>
+      /// <param name="streamIndex">The zero-based stream index.</param>
+      /// <param name="sigProvider">The <see cref="SignatureProvider"/> to use when deserializing the signature.</param>
+      /// <returns>A new instance of <see cref="TypeSignature"/>, or <c>null</c>.</returns>
       public TypeSignature ReadTypeSignature( Int32 heapIndex, SignatureProvider sigProvider )
       {
          Int32 max;
          return this.SetUpBLOBWithMax( ref heapIndex, out max ) ? sigProvider.ReadTypeSignature( this.Bytes, ref heapIndex, max ) : null;
       }
 
+      /// <summary>
+      /// This method is used to set up reading the BLOB from <see cref="AbstractReaderStreamHandlerWithArray.Bytes"/>.
+      /// </summary>
+      /// <param name="heapIndex">The given meta data stream index. This will be modified so that the BLOB can be read from <see cref="AbstractReaderStreamHandlerWithArray.Bytes"/> at this index.</param>
+      /// <param name="max">The exclusive max value for the BLOB.</param>
+      /// <returns><c>true</c> if BLOB length was read successfully and it is ok to read; <c>false</c> otherwise.</returns>
       protected Boolean SetUpBLOBWithMax( ref Int32 heapIndex, out Int32 max )
       {
          var retVal = this.SetUpBLOBWithLength( ref heapIndex, out max );
@@ -905,6 +1174,12 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
          return retVal;
       }
 
+      /// <summary>
+      /// This method is used to set up reading the BLOB from <see cref="AbstractReaderStreamHandlerWithArray.Bytes"/>.
+      /// </summary>
+      /// <param name="heapIndex">The given meta data stream index. This will be modified so that the BLOB can be read from <see cref="AbstractReaderStreamHandlerWithArray.Bytes"/> at this index.</param>
+      /// <param name="length">The length of BLOB, in bytes.</param>
+      /// <returns><c>true</c> if BLOB length was read successfully and it is ok to read; <c>false</c> otherwise.</returns>
       protected Boolean SetUpBLOBWithLength( ref Int32 heapIndex, out Int32 length )
       {
          if ( heapIndex > 0 )
@@ -914,7 +1189,6 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
             heapIndex = tuple?.Item1 ?? heapIndex;
             length = tuple?.Item2 ?? 0;
             return tuple != null;
-            //return array.TryDecompressUInt32( ref heapIndex, array.Length, out length ) && heapIndex + length <= this.StreamSize;
          }
          else
          {
@@ -923,6 +1197,11 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
          }
       }
 
+      /// <summary>
+      /// This method implements <see cref="AbstractReaderStreamHandlerWithArrayAndCache{TValue}.ValueFactory"/> so that it caches the start index and length of the BLOB at given meta data stream index.
+      /// </summary>
+      /// <param name="heapOffset">The meta data stream index.</param>
+      /// <returns>Tuple with start index and length, or <c>null</c>.</returns>
       protected override Tuple<Int32, Int32> ValueFactory( int heapOffset )
       {
          var array = this.Bytes;
@@ -980,20 +1259,4 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
          return retVal;
       }
    }
-}
-
-public static partial class E_CILPhysical
-{
-
-   public static StreamHelper GoToRVA( this StreamHelper stream, RVAConverter rvaConverter, Int64 rva )
-   {
-      stream.Stream.SeekFromBegin( rvaConverter.ToOffset( rva ) );
-      return stream;
-   }
-
-   //[CLSCompliant( false )]
-   //public static UInt32 ToRVANullable( this RVAConverter rvaConverter, Int64? offset )
-   //{
-   //   return offset.HasValue ? (UInt32) rvaConverter.ToRVA( offset.Value ) : 0;
-   //}
 }
