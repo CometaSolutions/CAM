@@ -456,7 +456,7 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
       }
 
       /// <summary>
-      /// This method implements <see cref="ReaderFunctionality.HandleDataReferences"/> by calling <see cref="TableSerializationInfo.ProcessRowForRawValues"/> for each serialization info in <see cref="TableSerializationInfos"/>.
+      /// This method implements <see cref="ReaderFunctionality.HandleDataReferences"/> by calling <see cref="TableSerializationInfo.SetDataReferenceProperties"/> for each serialization info in <see cref="TableSerializationInfos"/>.
       /// </summary>
       /// <param name="stream">The <see cref="StreamHelper"/>.</param>
       /// <param name="imageInfo">The <see cref="ImageInformation"/> containing the data references.</param>
@@ -464,7 +464,7 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
       /// <param name="mdStreamContainer">The <see cref="ReaderMetaDataStreamContainer"/>.</param>
       /// <param name="md">The <see cref="CILMetaData"/>.</param>
       /// <seealso cref="TableSerializationInfos"/>
-      /// <seealso cref="TableSerializationInfo.ProcessRowForRawValues"/>
+      /// <seealso cref="TableSerializationInfo.SetDataReferenceProperties"/>
       public virtual void HandleDataReferences(
          StreamHelper stream,
          ImageInformation imageInfo,
@@ -476,7 +476,7 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
          var args = this.CreateRawValueProcessingArgs( stream, imageInfo, rvaConverter, mdStreamContainer, md ) ?? CreateDefaultRawValueProcessingArgs( stream, imageInfo, rvaConverter, mdStreamContainer, md );
          foreach ( var tableSerialization in this.TableSerializationInfos )
          {
-            tableSerialization?.ProcessRowForRawValues( args );
+            tableSerialization?.SetDataReferenceProperties( args );
          }
       }
 
@@ -545,7 +545,7 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
       }
 
       /// <summary>
-      /// This method is called by <see cref="HandleDataReferences"/>, and should return <see cref="RawValueProcessingArgs"/> to be used in <see cref="TableSerializationInfo.ProcessRowForRawValues"/>.
+      /// This method is called by <see cref="HandleDataReferences"/>, and should return <see cref="RawValueProcessingArgs"/> to be used in <see cref="TableSerializationInfo.SetDataReferenceProperties"/>.
       /// </summary>
       /// <param name="stream">The <see cref="StreamHelper"/>.</param>
       /// <param name="imageInfo">The <see cref="ImageInformation"/>.</param>

@@ -580,7 +580,7 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
          }
       }
 
-      public void ProcessRowForRawValues(
+      public void SetDataReferenceProperties(
          RawValueProcessingArgs args
          )
       {
@@ -625,7 +625,7 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
          }
       }
 
-      public IEnumerable<SectionPartWithRVAs> CreateRawValueSectionParts(
+      public IEnumerable<SectionPartWithRVAs> CreateDataReferenceSectionParts(
          CILMetaData md,
          WriterMetaDataStreamContainer mdStreamContainer
       )
@@ -715,6 +715,7 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
                   }
                   else
                   {
+                     // TODO pass error handler here, and process error.
                      yield return 0;
                   }
                }

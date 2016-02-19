@@ -448,7 +448,7 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
       {
          return this.TableSerializations
             .Where( ser => ser != null )
-            .SelectMany( ser => ser.CreateRawValueSectionParts( this.MetaData, mdStreamContainer ) );
+            .SelectMany( ser => ser.CreateDataReferenceSectionParts( this.MetaData, mdStreamContainer ) );
       }
 
       protected void WritePart(
@@ -482,7 +482,7 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
          //var retVal = new DefaultRawValueProvider( this.TableSerializations, this.MetaData, mdStreamContainer );
          var retVal = new ColumnValueStorage<Int64>( this.TableSizes, this.TableSerializations.Select( s => s?.RawValueStorageColumnCount ?? 0 ) );
          rawSectionParts = this.TableSerializations
-            .SelectMany( s => s?.CreateRawValueSectionParts( this.MetaData, mdStreamContainer ) ?? Empty<SectionPart>.Enumerable )
+            .SelectMany( s => s?.CreateDataReferenceSectionParts( this.MetaData, mdStreamContainer ) ?? Empty<SectionPart>.Enumerable )
             // Enumerate right here, to force e.g. user-string heap initialization for method IL section part
             .ToArray();
          return retVal;

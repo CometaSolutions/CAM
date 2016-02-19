@@ -31,7 +31,9 @@ using System.Text;
 using TabularMetaData;
 using TabularMetaData.Meta;
 
+#pragma warning disable 1591
 public static partial class E_CILPhysical
+#pragma warning restore 1591
 {
    /// <summary>
    /// Gets the zero-based metadata token (table + zero-based index value encoded in integer) for this <see cref="TableIndex"/>.
