@@ -442,15 +442,6 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
          yield return new SectionPart_DebugDirectory( options.DebugOptions );
       }
 
-      protected virtual IEnumerable<SectionPartWithRVAs> GetRawValueSections(
-         WriterMetaDataStreamContainer mdStreamContainer
-         )
-      {
-         return this.TableSerializations
-            .Where( ser => ser != null )
-            .SelectMany( ser => ser.CreateDataReferenceSectionParts( this.MetaData, mdStreamContainer ) );
-      }
-
       protected void WritePart(
          SectionPartInfo partLayout,
          ResizableArray<Byte> array,
@@ -480,7 +471,7 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
          )
       {
          //var retVal = new DefaultRawValueProvider( this.TableSerializations, this.MetaData, mdStreamContainer );
-         var retVal = new ColumnValueStorage<Int64>( this.TableSizes, this.TableSerializations.Select( s => s?.RawValueStorageColumnCount ?? 0 ) );
+         var retVal = new ColumnValueStorage<Int64>( this.TableSizes, this.TableSerializations.Select( s => s?.DataReferenceColumnCount ?? 0 ) );
          rawSectionParts = this.TableSerializations
             .SelectMany( s => s?.CreateDataReferenceSectionParts( this.MetaData, mdStreamContainer ) ?? Empty<SectionPart>.Enumerable )
             // Enumerate right here, to force e.g. user-string heap initialization for method IL section part
@@ -495,7 +486,7 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
          var partInfos = writingStatus.SectionLayouts.SectionPartInfos;
          var parts = partInfos.Keys;
          var embeddedResources = parts
-            .OfType<SectionPartWithRVAs>()
+            .OfType<SectionPartWithDataReferenceTargets>()
             .FirstOrDefault( p => p.RelatedTable == Tables.ManifestResource );
          var snData = parts
             .OfType<SectionPart_StrongNameSignature>()
@@ -677,7 +668,7 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
       void WriteData( SectionPartWritingArgs args );
    }
 
-   public interface SectionPartWithRVAs : SectionPart
+   public interface SectionPartWithDataReferenceTargets : SectionPart
    {
       Tables RelatedTable { get; }
 
@@ -773,7 +764,7 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
       }
    }
 
-   public abstract class SectionPartWithMultipleItems<TRow, TSizeInfo> : SectionPartWithFixedAlignment, SectionPartWithRVAs
+   public abstract class SectionPartWithMultipleItems<TRow, TSizeInfo> : SectionPartWithFixedAlignment, SectionPartWithDataReferenceTargets
       where TRow : class
       where TSizeInfo : struct
    {
@@ -2150,10 +2141,10 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
          ResizableArray<Byte> array
          )
       {
-         var retVal = new ColumnValueStorage<Int32>( this.TableSizes, this.TableSerializations.Select( info => info?.HeapValueColumnCount ?? 0 ) );
+         var retVal = new ColumnValueStorage<Int32>( this.TableSizes, this.TableSerializations.Select( info => info?.MetaDataStreamReferenceColumnCount ?? 0 ) );
          foreach ( var info in this.TableSerializations )
          {
-            info?.PopulateTableHeapValues( this._md, retVal, mdStreams, array, publicKey );
+            info?.ExtractMetaDataStreamReferences( this._md, retVal, mdStreams, array, publicKey );
          }
 
          // Create table stream header

@@ -77,7 +77,7 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
       where TRow : class;
 
 
-   public delegate SectionPartWithRVAs RawColumnSectionPartCreationDelegte<TRow>( CILMetaData md, WriterMetaDataStreamContainer mdStreamContainer );
+   public delegate SectionPartWithDataReferenceTargets RawColumnSectionPartCreationDelegte<TRow>( CILMetaData md, WriterMetaDataStreamContainer mdStreamContainer );
 
 
    public class DefaultColumnSerializationInfo<TRawRow, TRow> : DefaultColumnSerializationInfo<TRow>
@@ -563,7 +563,7 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
 
       public Boolean IsSorted { get; }
 
-      public Int32 RawValueStorageColumnCount
+      public Int32 DataReferenceColumnCount
       {
          get
          {
@@ -572,7 +572,7 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
       }
 
 
-      public Int32 HeapValueColumnCount
+      public Int32 MetaDataStreamReferenceColumnCount
       {
          get
          {
@@ -580,7 +580,7 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
          }
       }
 
-      public void SetDataReferenceProperties(
+      public void PopulateDataReferences(
          RawValueProcessingArgs args
          )
       {
@@ -625,7 +625,7 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
          }
       }
 
-      public IEnumerable<SectionPartWithRVAs> CreateDataReferenceSectionParts(
+      public IEnumerable<SectionPartWithDataReferenceTargets> CreateDataReferenceSectionParts(
          CILMetaData md,
          WriterMetaDataStreamContainer mdStreamContainer
       )
@@ -640,7 +640,7 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
          }
       }
 
-      public void PopulateTableHeapValues(
+      public void ExtractMetaDataStreamReferences(
          CILMetaData md,
          ColumnValueStorage<Int32> storage,
          WriterMetaDataStreamContainer mdStreamContainer,

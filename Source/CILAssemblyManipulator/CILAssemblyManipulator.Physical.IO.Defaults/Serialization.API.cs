@@ -1518,21 +1518,55 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
          DefaultColumnSerializationSupportCreationArgs args
          );
 
-      Int32 RawValueStorageColumnCount { get; }
+      /// <summary>
+      /// Gets the number of data reference columns in this table.
+      /// </summary>
+      /// <value>The number of data reference columns in this table.</value>
+      Int32 DataReferenceColumnCount { get; }
 
-      Int32 HeapValueColumnCount { get; }
+      /// <summary>
+      /// Gets the number of meta data stream ('heap') reference columns in this table.
+      /// </summary>
+      /// <value>The number of meta data stream ('heap') reference columns in this table.</value>
+      Int32 MetaDataStreamReferenceColumnCount { get; }
 
-      void SetDataReferenceProperties(
+      /// <summary>
+      /// Given the data references, sets all data reference values to their deserialized version (e.g. <see cref="MethodDefinition.IL"/>).
+      /// </summary>
+      /// <param name="args">The <see cref="RawValueProcessingArgs"/>.</param>
+      /// <remarks>
+      /// This method is used when deserializing (reading) a module.
+      /// </remarks>
+      void PopulateDataReferences(
          RawValueProcessingArgs args
          );
 
-      IEnumerable<SectionPartWithRVAs> CreateDataReferenceSectionParts(
+      /// <summary>
+      /// This method creates a <see cref="SectionPartWithDataReferenceTargets"/> object for each of the data reference columns.
+      /// </summary>
+      /// <param name="md">The <see cref="CILMetaData"/>.</param>
+      /// <param name="mdStreamContainer">The <see cref="WriterMetaDataStreamContainer"/>.</param>
+      /// <returns>An enumeraboe of <see cref="SectionPartWithDataReferenceTargets"/>, one for each data reference column.</returns>
+      /// <remarks>
+      /// This method is used when serializing (writing) a module.
+      /// </remarks>
+      IEnumerable<SectionPartWithDataReferenceTargets> CreateDataReferenceSectionParts(
          CILMetaData md,
          WriterMetaDataStreamContainer mdStreamContainer
          );
 
-
-      void PopulateTableHeapValues(
+      /// <summary>
+      /// This method extracts and stores all meta data stream reference values to given <see cref="ColumnValueStorage{TValue}"/>.
+      /// </summary>
+      /// <param name="md">The <see cref="CILMetaData"/>.</param>
+      /// <param name="storage">The <see cref="ColumnValueStorage{TValue}"/> where to store the meta data stream reference values.</param>
+      /// <param name="mdStreamContainer">The <see cref="WriterMetaDataStreamContainer"/>.</param>
+      /// <param name="array">The auxiliary byte array.</param>
+      /// <param name="publicKey">The processed and actual public key of the assembly. May be <c>null</c>.</param>
+      /// <remarks>
+      /// This method is used when serializing (writing) a module.
+      /// </remarks>
+      void ExtractMetaDataStreamReferences(
          CILMetaData md,
          ColumnValueStorage<Int32> storage,
          WriterMetaDataStreamContainer mdStreamContainer,
@@ -1540,9 +1574,16 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
          ArrayQuery<Byte> publicKey
          );
 
+      /// <summary>
+      /// This method returns all the columns of all the rows of this table, as integers.
+      /// </summary>
+      /// <param name="table">The <see cref="MetaDataTable"/>.</param>
+      /// <param name="dataReferences">The data references, from <see cref="DataReferencesInfo.DataReferences"/>.</param>
+      /// <param name="heapIndices">The meta data stream references, after they been populated by <see cref="ExtractMetaDataStreamReferences"/> method.</param>
+      /// <returns>An enumerable of all columns of all the rows of this table, as integers and in correct order.</returns>
       IEnumerable<Int32> GetAllRawValues(
          MetaDataTable table,
-         ArrayQuery<ArrayQuery<Int64>> rawValueProvder,
+         ArrayQuery<ArrayQuery<Int64>> dataReferences,
          ColumnValueStorage<Int32> heapIndices
          );
    }
