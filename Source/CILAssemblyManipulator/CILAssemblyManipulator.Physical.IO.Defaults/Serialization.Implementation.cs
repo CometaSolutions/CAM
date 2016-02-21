@@ -59,7 +59,7 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
       }
    }
 
-   public delegate ColumnSerializationFunctionality CreateSerializationSupportDelegate( DefaultColumnSerializationSupportCreationArgs args );
+   public delegate ColumnSerializationBinaryFunctionality CreateSerializationSupportDelegate( TableSerializationBinaryFunctionalityCreationArgs args );
 
    // Sets a property on a raw row
    public delegate void RawRowColumnSetterDelegate<TRawRow>( TRawRow rawRow, Int32 value );
@@ -69,7 +69,7 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
       where TRow : class;
 
    // Sets a raw value property (Method IL, FieldRVA Data column, Manifest Resource Data) on a normal row
-   public delegate void RowRawColumnSetterDelegate<TRow>( ColumnFunctionalityArgs<TRow, RawValueProcessingArgs> args, Int32 rawValue )
+   public delegate void RowRawColumnSetterDelegate<TRow>( ColumnFunctionalityArgs<TRow, DataReferencesProcessingArgs> args, Int32 rawValue )
       where TRow : class;
 
    // Gets the heap index that will be written to table stream
@@ -77,7 +77,7 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
       where TRow : class;
 
 
-   public delegate SectionPartWithDataReferenceTargets RawColumnSectionPartCreationDelegte<TRow>( CILMetaData md, WriterMetaDataStreamContainer mdStreamContainer );
+   public delegate SectionPartWithDataReferenceTargets RawColumnSectionPartCreationDelegate<TRow>( CILMetaData md, WriterMetaDataStreamContainer mdStreamContainer );
 
 
    public class DefaultColumnSerializationInfo<TRawRow, TRow> : DefaultColumnSerializationInfo<TRow>
@@ -109,7 +109,7 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
          RawRowColumnSetterDelegate<TRawRow> rawSetter,
          RowColumnSerializationSetterDelegate<TRow, Int32> setter,
          RowRawColumnSetterDelegate<TRow> rawValueProcessor,
-         RawColumnSectionPartCreationDelegte<TRow> rawColummnSectionPartCreator
+         RawColumnSectionPartCreationDelegate<TRow> rawColummnSectionPartCreator
          )
          : this(
               serializationCreator,
@@ -150,7 +150,7 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
          RowRawColumnSetterDelegate<TRow> rawValueProcessor,
          RowHeapColumnGetterDelegate<TRow> heapValueExtractor,
          RowColumnGetterDelegate<TRow, Int32> constExtractor,
-         RawColumnSectionPartCreationDelegte<TRow> rawColummnSectionPartCreator
+         RawColumnSectionPartCreationDelegate<TRow> rawColummnSectionPartCreator
          )
       {
          ArgumentValidator.ValidateNotNull( "Raw setter", rawSetter );
@@ -182,7 +182,7 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
       public RowRawColumnSetterDelegate<TRow> RawValueProcessor { get; }
 
       // Writing
-      public RawColumnSectionPartCreationDelegte<TRow> RawColummnSectionPartCreator { get; }
+      public RawColumnSectionPartCreationDelegate<TRow> RawColummnSectionPartCreator { get; }
       public RowHeapColumnGetterDelegate<TRow> HeapValueExtractor { get; }
       public RowColumnGetterDelegate<TRow, Int32> ConstantExtractor { get; }
    }
@@ -405,10 +405,10 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
             );
       }
 
-      public static DefaultColumnSerializationInfo<TRawRow, TRow> RawValueStorageColumn<TRawRow, TRow>(
+      public static DefaultColumnSerializationInfo<TRawRow, TRow> DataReferenceColumn<TRawRow, TRow>(
          RawRowColumnSetterDelegate<TRawRow> rawSetter,
          RowRawColumnSetterDelegate<TRow> rawValueProcessor,
-         RawColumnSectionPartCreationDelegte<TRow> rawColummnSectionPartCreator
+         RawColumnSectionPartCreationDelegate<TRow> rawColummnSectionPartCreator
          )
          where TRawRow : class
          where TRow : class
@@ -527,7 +527,7 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
       public TRowArgs RowArgs { get; }
    }
 
-   public class DefaultTableSerializationInfo<TRawRow, TRow> : TableSerializationInfo
+   public class DefaultTableSerializationInfo<TRawRow, TRow> : TableSerializationLogicalFunctionality
       where TRawRow : class
       where TRow : class
    {
@@ -535,7 +535,7 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
       private readonly DefaultColumnSerializationInfo<TRawRow, TRow>[] _columns;
       private readonly Func<TRow> _rowFactory;
       private readonly Func<TRawRow> _rawRowFactory;
-      private readonly TableSerializationInfoCreationArgs _creationArgs;
+      private readonly TableSerializationLogicalFunctionalityCreationArgs _creationArgs;
 
       public DefaultTableSerializationInfo(
          Tables table,
@@ -543,7 +543,7 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
          IEnumerable<DefaultColumnSerializationInfo<TRawRow, TRow>> columns,
          Func<TRow> rowFactory,
          Func<TRawRow> rawRowFactory,
-         TableSerializationInfoCreationArgs args
+         TableSerializationLogicalFunctionalityCreationArgs args
          )
       {
          ArgumentValidator.ValidateNotNull( "Columns", columns );
@@ -581,7 +581,7 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
       }
 
       public void PopulateDataReferences(
-         RawValueProcessingArgs args
+         DataReferencesProcessingArgs args
          )
       {
          var md = args.MetaData;
@@ -603,7 +603,7 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
                var dataRefColCount = dataRefs.Count;
                for ( var i = 0; i < list.Count; ++i )
                {
-                  var cArgs = new ColumnFunctionalityArgs<TRow, RawValueProcessingArgs>( i, list[i], args );
+                  var cArgs = new ColumnFunctionalityArgs<TRow, DataReferencesProcessingArgs>( i, list[i], args );
                   for ( var cur = 0; cur < dataRefColCount; ++cur )
                   {
                      var tuple = cols[cur];
@@ -723,7 +723,7 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
          }
       }
 
-      public TableSerializationFunctionality CreateSupport( DefaultColumnSerializationSupportCreationArgs supportArgs )
+      public TableSerializationBinaryFunctionality CreateBinaryFunctionality( TableSerializationBinaryFunctionalityCreationArgs supportArgs )
       {
          return new DefaultTableSerializationFunctionality<TRawRow, TRow>(
             this,
@@ -736,7 +736,7 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
       }
    }
 
-   public class DefaultTableSerializationFunctionality<TRawRow, TRow> : TableSerializationFunctionality
+   public class DefaultTableSerializationFunctionality<TRawRow, TRow> : TableSerializationBinaryFunctionality
       where TRawRow : class
       where TRow : class
    {
@@ -751,7 +751,7 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
 
          internal ColumnSerializationInstance(
             DefaultColumnSerializationInfo<TRawRow, TRow> serializationInfo,
-            DefaultColumnSerializationSupportCreationArgs args
+            TableSerializationBinaryFunctionalityCreationArgs args
             )
          {
 
@@ -762,13 +762,14 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
             this._rawSetter = serializationInfo.RawSetter;
          }
 
-         public ColumnSerializationFunctionality Functionality { get; }
+         public ColumnSerializationBinaryFunctionality Functionality { get; }
 
-         public abstract void SetNormalRowValue( RowReadingArguments rowArgs, ref Int32 idx, TRow row, Int32 rowIndex );
+         public abstract void SetNormalRowValue( RowReadingArguments rowArgs, Byte[] array, ref Int32 idx, TRow row, Int32 rowIndex );
 
          public void SetRawRowValue( TRawRow row, Byte[] array, ref Int32 idx )
          {
-            this._rawSetter( row, this.Functionality.ReadRawValue( array, ref idx ) );
+            this._rawSetter( row, this.Functionality.ReadRawValue( array, idx ) );
+            idx += this.Functionality.ColumnByteCount;
          }
       }
 
@@ -776,16 +777,17 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
       {
          internal ColumnSerializationInstance_RawValue(
             DefaultColumnSerializationInfo<TRawRow, TRow> serializationInfo,
-            DefaultColumnSerializationSupportCreationArgs args
+            TableSerializationBinaryFunctionalityCreationArgs args
             )
             : base( serializationInfo, args )
          {
 
          }
 
-         public override void SetNormalRowValue( RowReadingArguments rowArgs, ref Int32 idx, TRow row, Int32 rowIndex )
+         public override void SetNormalRowValue( RowReadingArguments rowArgs, Byte[] array, ref Int32 idx, TRow row, Int32 rowIndex )
          {
-            rowArgs.RawValueStorage.AddRawValue( this.Functionality.ReadRawValue( rowArgs.Array, ref idx ) );
+            rowArgs.DataReferencesStorage.AddRawValue( this.Functionality.ReadRawValue( array, idx ) );
+            idx += this.Functionality.ColumnByteCount;
          }
       }
 
@@ -798,7 +800,7 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
 
          internal ColumnSerializationInstance_NormalValue(
             DefaultColumnSerializationInfo<TRawRow, TRow> serializationInfo,
-            DefaultColumnSerializationSupportCreationArgs args,
+            TableSerializationBinaryFunctionalityCreationArgs args,
             Tables table,
             Int32 columnIndex,
             EventHandler<SerializationErrorEventArgs> errorHandler
@@ -813,11 +815,11 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
             this._errorHandler = errorHandler;
          }
 
-         public override void SetNormalRowValue( RowReadingArguments rowArgs, ref Int32 idx, TRow row, Int32 rowIndex )
+         public override void SetNormalRowValue( RowReadingArguments rowArgs, Byte[] array, ref Int32 idx, TRow row, Int32 rowIndex )
          {
             try
             {
-               this._setter( new ColumnFunctionalityArgs<TRow, RowReadingArguments>( rowIndex, row, rowArgs ), this.Functionality.ReadRawValue( rowArgs.Array, ref idx ) );
+               this._setter( new ColumnFunctionalityArgs<TRow, RowReadingArguments>( rowIndex, row, rowArgs ), this.Functionality.ReadRawValue( array, idx ) );
             }
             catch ( Exception exc )
             {
@@ -826,13 +828,14 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
                   throw;
                }
             }
+            idx += this.Functionality.ColumnByteCount;
          }
       }
 
       public DefaultTableSerializationFunctionality(
-         TableSerializationInfo tableSerializationInfo,
+         TableSerializationLogicalFunctionality tableSerializationInfo,
          IEnumerable<DefaultColumnSerializationInfo<TRawRow, TRow>> columns,
-         DefaultColumnSerializationSupportCreationArgs args,
+         TableSerializationBinaryFunctionalityCreationArgs args,
          Func<TRow> rowFactory,
          Func<TRawRow> rawRowFactory,
          EventHandler<SerializationErrorEventArgs> errorHandler
@@ -853,23 +856,24 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
             .Select( c => c.Functionality )
             .ToArrayProxy()
             .CQ;
-         this.TableSerializationInfo = tableSerializationInfo;
+         this.LogicalFunctionality = tableSerializationInfo;
       }
 
-      public TableSerializationInfo TableSerializationInfo { get; }
+      public TableSerializationLogicalFunctionality LogicalFunctionality { get; }
 
-      public ArrayQuery<ColumnSerializationFunctionality> ColumnSerializationSupports { get; }
+      public ArrayQuery<ColumnSerializationBinaryFunctionality> ColumnSerializationSupports { get; }
 
       public void ReadRows(
          MetaDataTable table,
          Int32 tableRowCount,
+         Byte[] array,
+         Int32 index,
          RowReadingArguments args
          )
       {
          if ( tableRowCount > 0 )
          {
             var list = ( (MetaDataTable<TRow>) table ).TableContents;
-            var idx = args.Index;
             var cArray = this._columnArray;
             var cArrayMax = this._columnArray.Length;
 
@@ -878,7 +882,7 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
                var row = this._rowFactory();
                for ( var j = 0; j < cArrayMax; ++j )
                {
-                  cArray[j].SetNormalRowValue( args, ref idx, row, i );
+                  cArray[j].SetNormalRowValue( args, array, ref index, row, i );
                }
 
                list.Add( row );
@@ -898,23 +902,14 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
 
    }
 
-   public sealed class ColumnSerializationSupport_Constant8 : ColumnSerializationFunctionality
+   public sealed class ColumnSerializationSupport_Constant8 : ColumnSerializationBinaryFunctionality
    {
 
-      private static ColumnSerializationFunctionality _instance;
+      public static ColumnSerializationBinaryFunctionality Instance { get; }
 
-      public static ColumnSerializationFunctionality Instance
+      static ColumnSerializationSupport_Constant8()
       {
-         get
-         {
-            var retVal = _instance;
-            if ( retVal == null )
-            {
-               retVal = new ColumnSerializationSupport_Constant8();
-               _instance = retVal;
-            }
-            return retVal;
-         }
+         Instance = new ColumnSerializationSupport_Constant8();
       }
 
       private ColumnSerializationSupport_Constant8()
@@ -931,9 +926,9 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
          }
       }
 
-      public Int32 ReadRawValue( Byte[] array, ref Int32 idx )
+      public Int32 ReadRawValue( Byte[] array, Int32 idx )
       {
-         return array.ReadByteFromBytes( ref idx );
+         return array[idx];
       }
 
       public void WriteValue( Byte[] bytes, Int32 idx, Int32 value )
@@ -941,22 +936,13 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
          bytes.WriteByteToBytes( ref idx, (Byte) value );
       }
    }
-   public sealed class ColumnSerializationSupport_Constant16 : ColumnSerializationFunctionality
+   public sealed class ColumnSerializationSupport_Constant16 : ColumnSerializationBinaryFunctionality
    {
-      private static ColumnSerializationFunctionality _instance;
+      public static ColumnSerializationBinaryFunctionality Instance { get; }
 
-      public static ColumnSerializationFunctionality Instance
+      static ColumnSerializationSupport_Constant16()
       {
-         get
-         {
-            var retVal = _instance;
-            if ( retVal == null )
-            {
-               retVal = new ColumnSerializationSupport_Constant16();
-               _instance = retVal;
-            }
-            return retVal;
-         }
+         Instance = new ColumnSerializationSupport_Constant16();
       }
 
       private ColumnSerializationSupport_Constant16()
@@ -972,9 +958,9 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
          }
       }
 
-      public Int32 ReadRawValue( Byte[] array, ref Int32 idx )
+      public Int32 ReadRawValue( Byte[] array, Int32 idx )
       {
-         return array.ReadUInt16LEFromBytes( ref idx );
+         return array.ReadUInt16LEFromBytesNoRef( idx );
       }
 
       public void WriteValue( Byte[] bytes, Int32 idx, Int32 value )
@@ -983,22 +969,13 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
       }
    }
 
-   public sealed class ColumnSerializationSupport_Constant32 : ColumnSerializationFunctionality
+   public sealed class ColumnSerializationSupport_Constant32 : ColumnSerializationBinaryFunctionality
    {
-      private static ColumnSerializationFunctionality _instance;
+      public static ColumnSerializationBinaryFunctionality Instance { get; }
 
-      public static ColumnSerializationFunctionality Instance
+      static ColumnSerializationSupport_Constant32()
       {
-         get
-         {
-            var retVal = _instance;
-            if ( retVal == null )
-            {
-               retVal = new ColumnSerializationSupport_Constant32();
-               _instance = retVal;
-            }
-            return retVal;
-         }
+         Instance = new ColumnSerializationSupport_Constant32();
       }
 
       private ColumnSerializationSupport_Constant32()
@@ -1014,9 +991,9 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
          }
       }
 
-      public Int32 ReadRawValue( Byte[] array, ref Int32 idx )
+      public Int32 ReadRawValue( Byte[] array, Int32 idx )
       {
-         return array.ReadInt32LEFromBytes( ref idx );
+         return array.ReadInt32LEFromBytesNoRef( idx );
       }
 
       public void WriteValue( Byte[] bytes, Int32 idx, Int32 value )

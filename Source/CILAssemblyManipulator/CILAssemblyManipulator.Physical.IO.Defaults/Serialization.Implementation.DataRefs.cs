@@ -244,94 +244,99 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
 
       }
 
-      public static Boolean TryCalculateFieldTypeSize(
-         this CILMetaData md,
-         DictionaryQuery<Int32, ClassLayout> layoutInfo,
-         Int32 fieldIdx,
-         out Int32 size
-         )
-      {
-         return md.TryCalculateFieldTypeSize( layoutInfo, fieldIdx, out size, false );
-      }
 
-      private static Boolean TryCalculateFieldTypeSize(
-         this CILMetaData md,
-         DictionaryQuery<Int32, ClassLayout> layoutInfo,
-         Int32 fieldIdx,
-         out Int32 size,
-         Boolean onlySimpleTypeValid
-         )
+   }
+}
+
+public static partial class E_CILPhysical
+{
+   public static Boolean TryCalculateFieldTypeSize(
+   this CILMetaData md,
+   DictionaryQuery<Int32, ClassLayout> layoutInfo,
+   Int32 fieldIdx,
+   out Int32 size
+   )
+   {
+      return md.TryCalculateFieldTypeSize( layoutInfo, fieldIdx, out size, false );
+   }
+
+   private static Boolean TryCalculateFieldTypeSize(
+      this CILMetaData md,
+      DictionaryQuery<Int32, ClassLayout> layoutInfo,
+      Int32 fieldIdx,
+      out Int32 size,
+      Boolean onlySimpleTypeValid
+      )
+   {
+      var fDef = md.FieldDefinitions.TableContents;
+      size = 0;
+      if ( fieldIdx < fDef.Count )
       {
-         var fDef = md.FieldDefinitions.TableContents;
-         size = 0;
-         if ( fieldIdx < fDef.Count )
+         var type = fDef[fieldIdx]?.Signature?.Type;
+         if ( type != null )
          {
-            var type = fDef[fieldIdx]?.Signature?.Type;
-            if ( type != null )
+            switch ( type.TypeSignatureKind )
             {
-               switch ( type.TypeSignatureKind )
-               {
-                  case TypeSignatureKind.Simple:
-                     switch ( ( (SimpleTypeSignature) type ).SimpleType )
-                     {
-                        case SimpleTypeSignatureKind.Boolean:
-                           size = sizeof( Boolean ); // TODO is this actually 1 or 4?
-                           break;
-                        case SimpleTypeSignatureKind.I1:
-                        case SimpleTypeSignatureKind.U1:
-                           size = 1;
-                           break;
-                        case SimpleTypeSignatureKind.I2:
-                        case SimpleTypeSignatureKind.U2:
-                        case SimpleTypeSignatureKind.Char:
-                           size = 2;
-                           break;
-                        case SimpleTypeSignatureKind.I4:
-                        case SimpleTypeSignatureKind.U4:
-                        case SimpleTypeSignatureKind.R4:
-                           size = 4;
-                           break;
-                        case SimpleTypeSignatureKind.I8:
-                        case SimpleTypeSignatureKind.U8:
-                        case SimpleTypeSignatureKind.R8:
-                           size = 8;
-                           break;
-                     }
-                     break;
-                  case TypeSignatureKind.ClassOrValue:
-                     if ( !onlySimpleTypeValid )
-                     {
-                        var c = (ClassOrValueTypeSignature) type;
+               case TypeSignatureKind.Simple:
+                  switch ( ( (SimpleTypeSignature) type ).SimpleType )
+                  {
+                     case SimpleTypeSignatureKind.Boolean:
+                        size = sizeof( Boolean ); // TODO is this actually 1 or 4?
+                        break;
+                     case SimpleTypeSignatureKind.I1:
+                     case SimpleTypeSignatureKind.U1:
+                        size = 1;
+                        break;
+                     case SimpleTypeSignatureKind.I2:
+                     case SimpleTypeSignatureKind.U2:
+                     case SimpleTypeSignatureKind.Char:
+                        size = 2;
+                        break;
+                     case SimpleTypeSignatureKind.I4:
+                     case SimpleTypeSignatureKind.U4:
+                     case SimpleTypeSignatureKind.R4:
+                        size = 4;
+                        break;
+                     case SimpleTypeSignatureKind.I8:
+                     case SimpleTypeSignatureKind.U8:
+                     case SimpleTypeSignatureKind.R8:
+                        size = 8;
+                        break;
+                  }
+                  break;
+               case TypeSignatureKind.ClassOrValue:
+                  if ( !onlySimpleTypeValid )
+                  {
+                     var c = (ClassOrValueTypeSignature) type;
 
-                        var typeIdx = c.Type;
-                        if ( typeIdx.Table == Tables.TypeDef )
+                     var typeIdx = c.Type;
+                     if ( typeIdx.Table == Tables.TypeDef )
+                     {
+                        // Only possible for types defined in this module
+                        Int32 enumValueFieldIndex;
+                        if ( md.TryGetEnumValueFieldIndex( typeIdx.Index, out enumValueFieldIndex ) )
                         {
-                           // Only possible for types defined in this module
-                           Int32 enumValueFieldIndex;
-                           if ( md.TryGetEnumValueFieldIndex( typeIdx.Index, out enumValueFieldIndex ) )
-                           {
-                              md.TryCalculateFieldTypeSize( layoutInfo, enumValueFieldIndex, out size, true ); // Last parameter true to prevent possible infinite recursion in case of malformed metadata
-                           }
-                           else
-                           {
-                              ClassLayout layout;
-                              if ( layoutInfo.TryGetValue( typeIdx.Index, out layout ) )
-                              {
-                                 size = layout.ClassSize;
-                              }
-                           }
-
+                           md.TryCalculateFieldTypeSize( layoutInfo, enumValueFieldIndex, out size, true ); // Last parameter true to prevent possible infinite recursion in case of malformed metadata
                         }
+                        else
+                        {
+                           ClassLayout layout;
+                           if ( layoutInfo.TryGetValue( typeIdx.Index, out layout ) )
+                           {
+                              size = layout.ClassSize;
+                           }
+                        }
+
                      }
-                     break;
-                  case TypeSignatureKind.Pointer:
-                  case TypeSignatureKind.FunctionPointer:
-                     size = 4; // I am not 100% sure of this.
-                     break;
-               }
+                  }
+                  break;
+               case TypeSignatureKind.Pointer:
+               case TypeSignatureKind.FunctionPointer:
+                  size = 4; // I am not 100% sure of this.
+                  break;
             }
          }
-         return size != 0;
       }
+      return size != 0;
    }
 }

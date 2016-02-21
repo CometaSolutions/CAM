@@ -286,7 +286,7 @@ public static partial class E_CommonUtils
    /// <returns>The decoded <see cref="Int16"/>.</returns>
    public static Int16 ReadInt16LEFromBytesNoRef( this Byte[] array, Int32 idx )
    {
-      return ReadInt16LEFromBytes( array, ref idx );
+      return (Int16) ( ( array[idx + 1] << 8 ) | array[idx] );
    }
 
    /// <summary>
@@ -310,7 +310,7 @@ public static partial class E_CommonUtils
    [CLSCompliant( false )]
    public static UInt16 ReadUInt16LEFromBytesNoRef( this Byte[] array, Int32 idx )
    {
-      return (UInt16) ReadInt16LEFromBytes( array, ref idx );
+      return (UInt16) ReadInt16LEFromBytesNoRef( array, idx );
    }
 
    /// <summary>
@@ -333,7 +333,7 @@ public static partial class E_CommonUtils
    /// <returns>Decoded <see cref="Int32"/>.</returns>
    public static Int32 ReadInt32LEFromBytesNoRef( this Byte[] array, Int32 idx )
    {
-      return ReadInt32LEFromBytes( array, ref idx );
+      return ( array[idx + 3] << 24 ) | ( array[idx + 2] << 16 ) | ( array[idx + 1] << 8 ) | array[idx];
    }
 
    /// <summary>
@@ -357,7 +357,7 @@ public static partial class E_CommonUtils
    [CLSCompliant( false )]
    public static UInt32 ReadUInt32LEFromBytesNoRef( this Byte[] array, Int32 idx )
    {
-      return (UInt32) ReadInt32LEFromBytes( array, ref idx );
+      return (UInt32) ReadInt32LEFromBytesNoRef( array, idx );
    }
 
    /// <summary>
@@ -380,7 +380,7 @@ public static partial class E_CommonUtils
    /// <returns>The decoded <see cref="Int64"/>.</returns>
    public static Int64 ReadInt64LEFromBytesNoRef( this Byte[] array, Int32 idx )
    {
-      return ReadInt64LEFromBytes( array, ref idx );
+      return ( ( (Int64) ReadInt32LEFromBytesNoRef( array, idx + 4 ) ) << 32 ) | ( ( (UInt32) ReadInt32LEFromBytesNoRef( array, idx ) ) );
    }
 
    /// <summary>
@@ -487,7 +487,7 @@ public static partial class E_CommonUtils
    /// <returns>The decoded <see cref="Double"/>.</returns>
    public static Double ReadDoubleLEFromBytesNoRef( this Byte[] array, Int32 idx )
    {
-      return ReadDoubleLEFromBytes( array, ref idx );
+      return BitConverter.Int64BitsToDouble( array.ReadInt64LEFromBytesNoRef( idx ) );
    }
 
    /// <summary>
@@ -804,7 +804,7 @@ public static partial class E_CommonUtils
    /// <returns>The decoded <see cref="Int16"/>.</returns>
    public static Int16 ReadInt16BEFromBytesNoRef( this Byte[] array, Int32 idx )
    {
-      return ReadInt16BEFromBytes( array, ref idx );
+      return (Int16) ( ( array[idx] << 8 ) | array[idx + 1] );
    }
 
    /// <summary>
@@ -828,7 +828,7 @@ public static partial class E_CommonUtils
    [CLSCompliant( false )]
    public static UInt16 ReadUInt16BEFromBytesNoRef( this Byte[] array, Int32 idx )
    {
-      return (UInt16) ReadInt16BEFromBytes( array, ref idx );
+      return (UInt16) ReadInt16BEFromBytesNoRef( array, idx );
    }
 
    /// <summary>
@@ -851,7 +851,7 @@ public static partial class E_CommonUtils
    /// <returns>Decoded <see cref="Int32"/>.</returns>
    public static Int32 ReadInt32BEFromBytesNoRef( this Byte[] array, Int32 idx )
    {
-      return ReadInt32BEFromBytes( array, ref idx );
+      return ( array[idx] << 24 ) | ( array[idx + 1] << 16 ) | ( array[idx + 2] << 8 ) | array[idx + 3];
    }
 
    /// <summary>
@@ -875,7 +875,7 @@ public static partial class E_CommonUtils
    [CLSCompliant( false )]
    public static UInt32 ReadUInt32BEFromBytesNoRef( this Byte[] array, Int32 idx )
    {
-      return (UInt32) ReadInt32BEFromBytes( array, ref idx );
+      return (UInt32) ReadInt32BEFromBytesNoRef( array, idx );
    }
 
    /// <summary>
@@ -898,7 +898,7 @@ public static partial class E_CommonUtils
    /// <returns>The decoded <see cref="Int64"/>.</returns>
    public static Int64 ReadInt64BEFromBytesNoRef( this Byte[] array, Int32 idx )
    {
-      return ReadInt64BEFromBytes( array, ref idx );
+      return ( ( (Int64) ReadInt32BEFromBytesNoRef( array, idx ) ) << 32 ) | ( ( (UInt32) ReadInt32BEFromBytesNoRef( array, idx + 4 ) ) );
    }
 
    /// <summary>
@@ -922,7 +922,7 @@ public static partial class E_CommonUtils
    [CLSCompliant( false )]
    public static UInt64 ReadUInt64BEFromBytesNoRef( this Byte[] array, Int32 idx )
    {
-      return (UInt64) ReadInt64BEFromBytes( array, ref idx );
+      return (UInt64) ReadInt64BEFromBytesNoRef( array, idx );
    }
 
    ///// <summary>
@@ -1004,7 +1004,7 @@ public static partial class E_CommonUtils
    /// <returns>The decoded <see cref="Double"/>.</returns>
    public static Double ReadDoubleBEFromBytesNoRef( this Byte[] array, Int32 idx )
    {
-      return ReadDoubleBEFromBytes( array, ref idx );
+      return BitConverter.Int64BitsToDouble( array.ReadInt64BEFromBytesNoRef( idx ) );
    }
 
    /// <summary>

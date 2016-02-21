@@ -64,7 +64,7 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
          newStream = !( stream is MemoryStream ) && deserializingDataReferences ?
             new MemoryStream( stream.ReadUntilTheEnd(), this.IsMemoryStreamWriteable ) :
             null;
-         return new DefaultReaderFunctionality( new TableSerializationInfoCreationArgs( errorHandler ), tableInfoProvider: mdTableInfoProvider );
+         return new DefaultReaderFunctionality( new TableSerializationLogicalFunctionalityCreationArgs( errorHandler ), tableInfoProvider: mdTableInfoProvider );
       }
 
       /// <summary>
@@ -86,19 +86,19 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
 
    /// <summary>
    /// This class provides default implementation for <see cref="ReaderFunctionality"/>.
-   /// It will use the <see cref="MetaDataTableInformationWithSerializationCapability.CreateTableSerializationInfoNotGeneric"/> to create <see cref="TableSerializationInfo"/> for each table.
-   /// These <see cref="TableSerializationInfo"/>s will be used by this class and <see cref="DefaultReaderTableStreamHandler"/> to deserialize values for rows of tables of <see cref="CILMetaData"/>.
+   /// It will use the <see cref="MetaDataTableInformationWithSerializationCapability.CreateTableSerializationInfoNotGeneric"/> to create <see cref="TableSerializationLogicalFunctionality"/> for each table.
+   /// These <see cref="TableSerializationLogicalFunctionality"/>s will be used by this class and <see cref="DefaultReaderTableStreamHandler"/> to deserialize values for rows of tables of <see cref="CILMetaData"/>.
    /// </summary>
    public class DefaultReaderFunctionality : ReaderFunctionality
    {
 
       /// <summary>
-      /// Creates a new instance of <see cref="DefaultReaderFunctionality"/> with given <see cref="TableSerializationInfoCreationArgs"/> and optional <see cref="CILMetaDataTableInformationProvider"/>.
+      /// Creates a new instance of <see cref="DefaultReaderFunctionality"/> with given <see cref="TableSerializationLogicalFunctionalityCreationArgs"/> and optional <see cref="CILMetaDataTableInformationProvider"/>.
       /// </summary>
-      /// <param name="serializationCreationArgs">The <see cref="TableSerializationInfoCreationArgs"/> to be used in <see cref="MetaDataTableInformationWithSerializationCapability.CreateTableSerializationInfoNotGeneric"/>.</param>
+      /// <param name="serializationCreationArgs">The <see cref="TableSerializationLogicalFunctionalityCreationArgs"/> to be used in <see cref="MetaDataTableInformationWithSerializationCapability.CreateTableSerializationInfoNotGeneric"/>.</param>
       /// <param name="tableInfoProvider">The optional <see cref="CILMetaDataTableInformationProvider"/>. If not supplied, the result of <see cref="DefaultMetaDataTableInformationProvider.CreateDefault"/> will be used.</param>
       public DefaultReaderFunctionality(
-         TableSerializationInfoCreationArgs serializationCreationArgs,
+         TableSerializationLogicalFunctionalityCreationArgs serializationCreationArgs,
          CILMetaDataTableInformationProvider tableInfoProvider = null
          )
       {
@@ -263,10 +263,10 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
       protected CILMetaDataTableInformationProvider TableInfoProvider { get; }
 
       /// <summary>
-      /// Gets the <see cref="TableSerializationInfoCreationArgs"/> passed to this <see cref="DefaultReaderFunctionality"/>.
+      /// Gets the <see cref="TableSerializationLogicalFunctionalityCreationArgs"/> passed to this <see cref="DefaultReaderFunctionality"/>.
       /// </summary>
-      /// <value>The <see cref="TableSerializationInfoCreationArgs"/> passed to this <see cref="DefaultReaderFunctionality"/>.</value>
-      protected TableSerializationInfoCreationArgs SerializationCreationArgs { get; }
+      /// <value>The <see cref="TableSerializationLogicalFunctionalityCreationArgs"/> passed to this <see cref="DefaultReaderFunctionality"/>.</value>
+      protected TableSerializationLogicalFunctionalityCreationArgs SerializationCreationArgs { get; }
 
    }
 
@@ -372,8 +372,8 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
       /// <param name="startPosition">Position in <paramref name="stream"/>, where this table stream starts.</param>
       /// <param name="streamSize">The size of this table stream, in bytes.</param>
       /// <param name="tableStreamName">The name of this table stream.</param>
-      /// <param name="tableInfoProvider">The <see cref="CILMetaDataTableInformationProvider"/> to use when creating <see cref="Defaults.TableSerializationInfo"/>s.</param>
-      /// <param name="serializationCreationArgs">The <see cref="TableSerializationInfoCreationArgs"/> to use when creating <see cref="Defaults.TableSerializationInfo"/>s.</param>
+      /// <param name="tableInfoProvider">The <see cref="CILMetaDataTableInformationProvider"/> to use when creating <see cref="Defaults.TableSerializationLogicalFunctionality"/>s.</param>
+      /// <param name="serializationCreationArgs">The <see cref="TableSerializationLogicalFunctionalityCreationArgs"/> to use when creating <see cref="Defaults.TableSerializationLogicalFunctionality"/>s.</param>
       /// <param name="mdRoot">The <see cref="MetaDataRoot"/> holding information about the other streams, used when calculating the size of single table row, in bytes.</param>
       /// <exception cref="ArgumentNullException">If <paramref name="stream"/> or <paramref name="tableInfoProvider"/> is <c>null</c>.</exception>
       public DefaultReaderTableStreamHandler(
@@ -382,7 +382,7 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
          Int32 streamSize,
          String tableStreamName,
          CILMetaDataTableInformationProvider tableInfoProvider,
-         TableSerializationInfoCreationArgs serializationCreationArgs,
+         TableSerializationLogicalFunctionalityCreationArgs serializationCreationArgs,
          MetaDataRoot mdRoot
          )
          : base( stream, startPosition, streamSize, tableStreamName )
@@ -398,16 +398,16 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
          this.TableStreamHeader = tableHeader;
          this.TableSizes = tableHeader.CreateTableSizesArray().ToArrayProxy().CQ;
 
-         var tableSerializationsArray = serializationCreationArgs.CreateTableSerializationInfos( tableInfoProvider ).ToArray();
+         var tableSerializationsArray = serializationCreationArgs.CreateTableSerializationInfos( tableInfoProvider.GetAllSupportedTableInformations() ).ToArray();
          this.TableSerializationInfos = tableSerializationsArray
-            .Concat( Enumerable.Repeat<TableSerializationInfo>( null, Math.Max( 0, this.TableSizes.Count - tableSerializationsArray.Length ) ) )
+            .Concat( Enumerable.Repeat<TableSerializationLogicalFunctionality>( null, Math.Max( 0, this.TableSizes.Count - tableSerializationsArray.Length ) ) )
             .ToArrayProxy()
             .CQ;
 
-         var creationArgs = new DefaultColumnSerializationSupportCreationArgs( this.TableSizes, mdRoot.StreamHeaders.ToDictionary_Preserve( sh => sh.Name, sh => (Int32) sh.Size ).ToDictionaryProxy().CQ );
+         var creationArgs = new TableSerializationBinaryFunctionalityCreationArgs( this.TableSizes, mdRoot.StreamHeaders.ToDictionary_Preserve( sh => sh.Name, sh => (Int32) sh.Size ).ToDictionaryProxy().CQ );
          this.TableSerializationFunctionalities =
             this.TableSerializationInfos
-            .Select( table => table?.CreateSupport( creationArgs ) )
+            .Select( table => table?.CreateBinaryFunctionality( creationArgs ) )
             .ToArrayProxy()
             .CQ;
 
@@ -426,13 +426,13 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
       }
 
       /// <summary>
-      /// This method implements <see cref="ReaderTableStreamHandler.PopulateMetaDataStructure"/> by calling <see cref="TableSerializationFunctionality.ReadRows"/> for each <see cref="TableSerializationFunctionality"/> in <see cref="TableSerializationFunctionalities"/> array.
+      /// This method implements <see cref="ReaderTableStreamHandler.PopulateMetaDataStructure"/> by calling <see cref="TableSerializationBinaryFunctionality.ReadRows"/> for each <see cref="TableSerializationBinaryFunctionality"/> in <see cref="TableSerializationFunctionalities"/> array.
       /// </summary>
       /// <param name="md">The <see cref="CILMetaData"/> to populate</param>
       /// <param name="mdStreamContainer">The <see cref="ReaderMetaDataStreamContainer"/> containing other meta data streams.</param>
       /// <returns>A <see cref="DataReferencesInfo"/> object containing information about data references.</returns>
       /// <seealso cref="TableSerializationFunctionalities"/>
-      /// <seealso cref="TableSerializationFunctionality.ReadRows"/>
+      /// <seealso cref="TableSerializationBinaryFunctionality.ReadRows"/>
       public virtual DataReferencesInfo PopulateMetaDataStructure(
          CILMetaData md,
          ReaderMetaDataStreamContainer mdStreamContainer
@@ -445,10 +445,10 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
             var rowCount = this.TableSizes[i];
             if ( rowCount > 0 )
             {
-               var args = new RowReadingArguments( array, this.TableStartOffsets[i], mdStreamContainer, rawValueStorage, md.SignatureProvider );
+               var args = new RowReadingArguments( mdStreamContainer, rawValueStorage, md );
 
                var table = md.GetByTable( i );
-               this.TableSerializationFunctionalities[i].ReadRows( table, this.TableSizes[i], args );
+               this.TableSerializationFunctionalities[i].ReadRows( table, this.TableSizes[i], array, this.TableStartOffsets[i], args );
             }
          }
 
@@ -456,7 +456,7 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
       }
 
       /// <summary>
-      /// This method implements <see cref="ReaderFunctionality.HandleDataReferences"/> by calling <see cref="TableSerializationInfo.PopulateDataReferences"/> for each serialization info in <see cref="TableSerializationInfos"/>.
+      /// This method implements <see cref="ReaderFunctionality.HandleDataReferences"/> by calling <see cref="TableSerializationLogicalFunctionality.PopulateDataReferences"/> for each serialization info in <see cref="TableSerializationInfos"/>.
       /// </summary>
       /// <param name="stream">The <see cref="StreamHelper"/>.</param>
       /// <param name="imageInfo">The <see cref="ImageInformation"/> containing the data references.</param>
@@ -464,7 +464,7 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
       /// <param name="mdStreamContainer">The <see cref="ReaderMetaDataStreamContainer"/>.</param>
       /// <param name="md">The <see cref="CILMetaData"/>.</param>
       /// <seealso cref="TableSerializationInfos"/>
-      /// <seealso cref="TableSerializationInfo.PopulateDataReferences"/>
+      /// <seealso cref="TableSerializationLogicalFunctionality.PopulateDataReferences"/>
       public virtual void HandleDataReferences(
          StreamHelper stream,
          ImageInformation imageInfo,
@@ -473,7 +473,7 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
          CILMetaData md
          )
       {
-         var args = this.CreateRawValueProcessingArgs( stream, imageInfo, rvaConverter, mdStreamContainer, md ) ?? CreateDefaultRawValueProcessingArgs( stream, imageInfo, rvaConverter, mdStreamContainer, md );
+         var args = this.CreateDataReferencesProcessingArgs( stream, imageInfo, rvaConverter, mdStreamContainer, md ) ?? CreateDefaultDataReferencesProcessingArgs( stream, imageInfo, rvaConverter, mdStreamContainer, md );
          foreach ( var tableSerialization in this.TableSerializationInfos )
          {
             tableSerialization?.PopulateDataReferences( args );
@@ -481,13 +481,13 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
       }
 
       /// <summary>
-      /// Reads a raw table row directly from this stream, using <see cref="TableSerializationFunctionality.ReadRawRow"/> method.
+      /// Reads a raw table row directly from this stream, using <see cref="TableSerializationBinaryFunctionality.ReadRawRow"/> method.
       /// </summary>
       /// <param name="table">The table ID as <see cref="Tables"/> enumeration.</param>
       /// <param name="rowIndex">The zero-based row index.</param>
       /// <returns>A raw row.</returns>
       /// <seealso cref="TableSerializationFunctionalities"/>
-      /// <seealso cref="TableSerializationFunctionality.ReadRawRow"/>
+      /// <seealso cref="TableSerializationBinaryFunctionality.ReadRawRow"/>
       public virtual Object GetRawRowOrNull( Tables table, Int32 rowIndex )
       {
          var tableSizes = this.TableSizes;
@@ -545,19 +545,19 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
       }
 
       /// <summary>
-      /// This method is called by <see cref="HandleDataReferences"/>, and should return <see cref="RawValueProcessingArgs"/> to be used in <see cref="TableSerializationInfo.PopulateDataReferences"/>.
+      /// This method is called by <see cref="HandleDataReferences"/>, and should return <see cref="DataReferencesProcessingArgs"/> to be used in <see cref="TableSerializationLogicalFunctionality.PopulateDataReferences"/>.
       /// </summary>
       /// <param name="stream">The <see cref="StreamHelper"/>.</param>
       /// <param name="imageInfo">The <see cref="ImageInformation"/>.</param>
       /// <param name="rvaConverter">The <see cref="RVAConverter"/>.</param>
       /// <param name="mdStreamContainer">The <see cref="ReaderMetaDataStreamContainer"/>.</param>
       /// <param name="md">The <see cref="CILMetaData"/>.</param>
-      /// <returns>An instance of <see cref="RawValueProcessingArgs"/>.</returns>
+      /// <returns>An instance of <see cref="DataReferencesProcessingArgs"/>.</returns>
       /// <remarks>
       /// Subclasses may override this to return something else.
-      /// By default, this returns result of <see cref="CreateDefaultRawValueProcessingArgs"/>.
+      /// By default, this returns result of <see cref="CreateDefaultDataReferencesProcessingArgs"/>.
       /// </remarks>
-      protected virtual RawValueProcessingArgs CreateRawValueProcessingArgs(
+      protected virtual DataReferencesProcessingArgs CreateDataReferencesProcessingArgs(
          StreamHelper stream,
          ImageInformation imageInfo,
          RVAConverter rvaConverter,
@@ -565,20 +565,20 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
          CILMetaData md
          )
       {
-         return CreateDefaultRawValueProcessingArgs( stream, imageInfo, rvaConverter, mdStreamContainer, md );
+         return CreateDefaultDataReferencesProcessingArgs( stream, imageInfo, rvaConverter, mdStreamContainer, md );
       }
 
       /// <summary>
-      /// This static method is called by <see cref="CreateRawValueProcessingArgs"/>.
-      /// It returns a new instance of <see cref="RawValueProcessingArgs"/>.
+      /// This static method is called by <see cref="CreateDataReferencesProcessingArgs"/>.
+      /// It returns a new instance of <see cref="DataReferencesProcessingArgs"/>.
       /// </summary>
       /// <param name="stream">The <see cref="StreamHelper"/>.</param>
       /// <param name="imageInfo">The <see cref="ImageInformation"/>.</param>
       /// <param name="rvaConverter">The <see cref="RVAConverter"/>.</param>
       /// <param name="mdStreamContainer">The <see cref="ReaderMetaDataStreamContainer"/>.</param>
       /// <param name="md">The <see cref="CILMetaData"/>.</param>
-      /// <returns>An instance of <see cref="RawValueProcessingArgs"/>.</returns>
-      protected static RawValueProcessingArgs CreateDefaultRawValueProcessingArgs(
+      /// <returns>An instance of <see cref="DataReferencesProcessingArgs"/>.</returns>
+      protected static DataReferencesProcessingArgs CreateDefaultDataReferencesProcessingArgs(
          StreamHelper stream,
          ImageInformation imageInfo,
          RVAConverter rvaConverter,
@@ -586,7 +586,7 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
          CILMetaData md
          )
       {
-         return new RawValueProcessingArgs( stream, imageInfo, rvaConverter, mdStreamContainer, md, new ResizableArray<Byte>( initialSize: 0x1000 ) );
+         return new DataReferencesProcessingArgs( stream, imageInfo, rvaConverter, mdStreamContainer, md, new ResizableArray<Byte>( initialSize: 0x1000 ) );
       }
 
       /// <summary>
@@ -623,24 +623,24 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
       protected ArrayQuery<Int32> TableStartOffsets { get; }
 
       /// <summary>
-      /// Gets the array holding <see cref="TableSerializationInfo"/> objects for each table.
+      /// Gets the array holding <see cref="TableSerializationLogicalFunctionality"/> objects for each table.
       /// </summary>
-      /// <value>The array holding <see cref="TableSerializationInfo"/> objects for each table.</value>
+      /// <value>The array holding <see cref="TableSerializationLogicalFunctionality"/> objects for each table.</value>
       /// <remarks>
-      /// The table ID as <see cref="Tables"/> enumeration integer value acts as index, and the array element is the <see cref="TableSerializationInfo"/> object (potentially <c>null</c>) for that table.
+      /// The table ID as <see cref="Tables"/> enumeration integer value acts as index, and the array element is the <see cref="TableSerializationLogicalFunctionality"/> object (potentially <c>null</c>) for that table.
       /// </remarks>
-      /// <seealso cref="TableSerializationInfo"/>
-      protected ArrayQuery<TableSerializationInfo> TableSerializationInfos { get; }
+      /// <seealso cref="TableSerializationLogicalFunctionality"/>
+      protected ArrayQuery<TableSerializationLogicalFunctionality> TableSerializationInfos { get; }
 
       /// <summary>
-      /// Gets the array holding the <see cref="TableSerializationFunctionality"/> objects for each table.
+      /// Gets the array holding the <see cref="TableSerializationBinaryFunctionality"/> objects for each table.
       /// </summary>
-      /// <value>The array holding the <see cref="TableSerializationFunctionality"/> objects for each table.</value>
+      /// <value>The array holding the <see cref="TableSerializationBinaryFunctionality"/> objects for each table.</value>
       /// <remarks>
-      /// The table ID as <see cref="Tables"/> enumeration integer value acts as index, and the array element is the <see cref="TableSerializationFunctionality"/> object (potentially <c>null</c>) for that table.
+      /// The table ID as <see cref="Tables"/> enumeration integer value acts as index, and the array element is the <see cref="TableSerializationBinaryFunctionality"/> object (potentially <c>null</c>) for that table.
       /// </remarks>
-      /// <seealso cref="TableSerializationFunctionality"/>
-      protected ArrayQuery<TableSerializationFunctionality> TableSerializationFunctionalities { get; }
+      /// <seealso cref="TableSerializationBinaryFunctionality"/>
+      protected ArrayQuery<TableSerializationBinaryFunctionality> TableSerializationFunctionalities { get; }
 
    }
 

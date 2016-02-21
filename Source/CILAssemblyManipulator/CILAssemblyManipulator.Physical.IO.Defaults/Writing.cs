@@ -34,6 +34,7 @@ using CILAssemblyManipulator.Physical;
 using CILAssemblyManipulator.Physical.IO;
 using CILAssemblyManipulator.Physical.IO.Defaults;
 using CollectionsWithRoles.API;
+using TabularMetaData;
 
 namespace CILAssemblyManipulator.Physical.IO.Defaults
 {
@@ -53,7 +54,7 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
       {
          newMD = null;
          newStream = null;
-         return new DefaultWriterFunctionality( md, options, new TableSerializationInfoCreationArgs( errorHandler ) );
+         return new DefaultWriterFunctionality( md, options, new TableSerializationLogicalFunctionalityCreationArgs( errorHandler ) );
       }
    }
 
@@ -63,18 +64,18 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
       public DefaultWriterFunctionality(
          CILMetaData md,
          WritingOptions options,
-         TableSerializationInfoCreationArgs serializationCreationArgs
+         TableSerializationLogicalFunctionalityCreationArgs serializationCreationArgs
          )
       {
          this.MetaData = md;
          this.WritingOptions = options ?? new WritingOptions();
-         this.TableSerializations = serializationCreationArgs.CreateTableSerializationInfos( md ).ToArrayProxy().CQ;
+         this.TableSerializations = serializationCreationArgs.CreateTableSerializationInfos( md.GetAllTables().Select( t => t.TableInformationNotGeneric ) ).ToArrayProxy().CQ;
          this.TableSizes = this.TableSerializations.CreateTableSizeArray( md );
       }
 
       public virtual IEnumerable<AbstractWriterStreamHandler> CreateMetaDataStreamHandlers()
       {
-         yield return new DefaultWriterTableStreamHandler( this.MetaData, this.WritingOptions.CLIOptions.TablesStreamOptions, this.TableSerializations );
+         yield return new DefaultWriterTableStreamHandler( this.MetaData, this.WritingOptions.CLIOptions.TablesStreamOptions, this.TableSerializations, this.TableSizes );
          yield return new DefaultWriterSystemStringStreamHandler();
          yield return new DefaultWriterBLOBStreamHandler();
          yield return new DefaultWriterGuidStreamHandler();
@@ -251,7 +252,7 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
 
       protected CILMetaData MetaData { get; }
 
-      protected ArrayQuery<TableSerializationInfo> TableSerializations { get; }
+      protected ArrayQuery<TableSerializationLogicalFunctionality> TableSerializations { get; }
 
       protected ArrayQuery<Int32> TableSizes { get; }
 
@@ -470,7 +471,6 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
          out SectionPart[] rawSectionParts
          )
       {
-         //var retVal = new DefaultRawValueProvider( this.TableSerializations, this.MetaData, mdStreamContainer );
          var retVal = new ColumnValueStorage<Int64>( this.TableSizes, this.TableSerializations.Select( s => s?.DataReferenceColumnCount ?? 0 ) );
          rawSectionParts = this.TableSerializations
             .SelectMany( s => s?.CreateDataReferenceSectionParts( this.MetaData, mdStreamContainer ) ?? Empty<SectionPart>.Enumerable )
@@ -2050,11 +2050,11 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
          internal WriteDependantInfo(
             WritingOptions_TableStream writingOptions,
             ArrayQuery<Int32> tableSizes,
-            ArrayQuery<TableSerializationInfo> infos,
+            ArrayQuery<TableSerializationLogicalFunctionality> infos,
             WriterMetaDataStreamContainer mdStreams,
             ColumnValueStorage<Int32> heapIndices,
             MetaDataTableStreamHeader header,
-            DefaultColumnSerializationSupportCreationArgs creationArgs
+            TableSerializationBinaryFunctionalityCreationArgs creationArgs
             )
          {
 
@@ -2066,7 +2066,7 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
             }
 
             this.HeapIndices = heapIndices;
-            this.Serialization = infos.Select( info => info?.CreateSupport( creationArgs ) ).ToArrayProxy().CQ;
+            this.Serialization = infos.Select( info => info?.CreateBinaryFunctionality( creationArgs ) ).ToArrayProxy().CQ;
             this.HeaderSize = (UInt32) hdrSize;
             this.ContentSize = tableSizes.Select( ( size, idx ) => (UInt32) size * (UInt32) ( this.Serialization[idx]?.ColumnSerializationSupports?.Sum( c => c.ColumnByteCount ) ?? 0 ) ).Sum();
             var totalSize = ( this.HeaderSize + this.ContentSize ).RoundUpU32( 4 );
@@ -2077,7 +2077,7 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
          public ColumnValueStorage<Int32> HeapIndices { get; }
 
 
-         public ArrayQuery<TableSerializationFunctionality> Serialization { get; }
+         public ArrayQuery<TableSerializationBinaryFunctionality> Serialization { get; }
 
          public UInt32 HeaderSize { get; }
 
@@ -2096,15 +2096,17 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
       public DefaultWriterTableStreamHandler(
          CILMetaData md,
          WritingOptions_TableStream options,
-         ArrayQuery<TableSerializationInfo> tableSerializations
+         ArrayQuery<TableSerializationLogicalFunctionality> tableSerializations,
+         ArrayQuery<Int32> tableSizes
          )
       {
          ArgumentValidator.ValidateNotNull( "Meta data", md );
          ArgumentValidator.ValidateAllNotNull( "Table serialization info", tableSerializations );
+         ArgumentValidator.ValidateNotNull( "Table sizes", tableSizes );
 
          this._md = md;
          this.TableSerializations = tableSerializations;
-         this.TableSizes = tableSerializations.CreateTableSizeArray( md );
+         this.TableSizes = tableSizes;
          this._options = options ?? new WritingOptions_TableStream();
       }
 
@@ -2166,11 +2168,11 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
          return header;
       }
 
-      protected virtual DefaultColumnSerializationSupportCreationArgs CreateSerializationCreationArgs(
+      protected virtual TableSerializationBinaryFunctionalityCreationArgs CreateSerializationCreationArgs(
          WriterMetaDataStreamContainer mdStreams
          )
       {
-         return new DefaultColumnSerializationSupportCreationArgs(
+         return new TableSerializationBinaryFunctionalityCreationArgs(
             this.TableSizes,
             this.CreateSerializationCreationArgsStreamDictionary( mdStreams ).ToDictionaryProxy().CQ
             );
@@ -2240,7 +2242,7 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
          sink.Write( array.Array, postPadding );
       }
 
-      protected ArrayQuery<TableSerializationInfo> TableSerializations { get; }
+      protected ArrayQuery<TableSerializationLogicalFunctionality> TableSerializations { get; }
 
       protected ArrayQuery<Int32> TableSizes { get; }
 
@@ -2351,5 +2353,16 @@ public static partial class E_CILPhysical
          }
       }
       return CollectionsWithRoles.Implementation.CollectionsFactorySingleton.DEFAULT_COLLECTIONS_FACTORY.NewArrayProxy( bytez ).CQ;
+   }
+
+   public static ArrayQuery<Int32> CreateTableSizeArray( this IEnumerable<TableSerializationLogicalFunctionality> infos, CILMetaData md )
+   {
+      return infos.Select( info =>
+      {
+         MetaDataTable tbl;
+         return info != null && md.TryGetByTable( (Int32) info.Table, out tbl ) ?
+            tbl.GetRowCount() :
+            0;
+      } ).ToArrayProxy().CQ;
    }
 }

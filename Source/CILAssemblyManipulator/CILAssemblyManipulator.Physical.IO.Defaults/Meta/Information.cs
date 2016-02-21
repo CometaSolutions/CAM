@@ -679,27 +679,27 @@ namespace CILAssemblyManipulator.Physical.Meta
          yield return MetaDataColumnInformationFactory.Constant8<ConstantDefinition, RawConstantDefinition, ConstantValueType>( ( r, v ) => { r.Type = v; return true; }, row => row.Type, ( r, v ) => r.Type = (ConstantValueType) v, i => (ConstantValueType) i, v => (Int32) v );
          yield return MetaDataColumnInformationFactory.Number8<ConstantDefinition, RawConstantDefinition>( ( r, v ) => { return true; }, row => 0, ( r, v ) => r.Padding = (Byte) v );
          yield return MetaDataColumnInformationFactory.CodedTableIndex<ConstantDefinition, RawConstantDefinition>( CAMPhysicalIO::CILAssemblyManipulator.Physical.Meta.DefaultMetaDataTableInformationProvider.HasConstant, ( r, v ) => { r.Parent = v; return true; }, row => row.Parent, ( r, v ) => r.Parent = v );
-         yield return MetaDataColumnInformationFactory.BLOBCustom<ConstantDefinition, RawConstantDefinition, Object>( ( r, v ) => { r.Value = v; return true; }, r => r.Value, ( r, v ) => r.Value = v, ( args, v, blobs ) => args.Row.Value = blobs.ReadConstantValue( v, args.RowArgs.SignatureProvider, args.Row.Type ), args => args.RowArgs.Array.CreateConstantBytes( args.Row.Value, args.Row.Type ), null, null );
+         yield return MetaDataColumnInformationFactory.BLOBCustom<ConstantDefinition, RawConstantDefinition, Object>( ( r, v ) => { r.Value = v; return true; }, r => r.Value, ( r, v ) => r.Value = v, ( args, v, blobs ) => args.Row.Value = blobs.ReadConstantValue( v, args.RowArgs.MetaData.SignatureProvider, args.Row.Type ), args => args.RowArgs.Array.CreateConstantBytes( args.Row.Value, args.Row.Type ), null, null );
       }
 
       protected static IEnumerable<MetaDataColumnInformation<CustomAttributeDefinition>> GetCustomAttributeColumns()
       {
          yield return MetaDataColumnInformationFactory.CodedTableIndex<CustomAttributeDefinition, RawCustomAttributeDefinition>( CAMPhysicalIO::CILAssemblyManipulator.Physical.Meta.DefaultMetaDataTableInformationProvider.HasCustomAttribute, ( r, v ) => { r.Parent = v; return true; }, row => row.Parent, ( r, v ) => r.Parent = v );
          yield return MetaDataColumnInformationFactory.CodedTableIndex<CustomAttributeDefinition, RawCustomAttributeDefinition>( CAMPhysicalIO::CILAssemblyManipulator.Physical.Meta.DefaultMetaDataTableInformationProvider.CustomAttributeType, ( r, v ) => { r.Type = v; return true; }, row => row.Type, ( r, v ) => r.Type = v );
-         yield return MetaDataColumnInformationFactory.BLOBCustom<CustomAttributeDefinition, RawCustomAttributeDefinition, AbstractCustomAttributeSignature>( ( r, v ) => { r.Signature = v; return true; }, r => r.Signature, ( r, v ) => r.Signature = v, ( args, v, blobs ) => args.Row.Signature = blobs.ReadCASignature( v, args.RowArgs.SignatureProvider ), args => args.RowArgs.Array.CreateCustomAttributeSignature( args.RowArgs.MetaData, args.RowIndex ), CreateCAColumnSpecificCache, ResolveCASignature );
+         yield return MetaDataColumnInformationFactory.BLOBCustom<CustomAttributeDefinition, RawCustomAttributeDefinition, AbstractCustomAttributeSignature>( ( r, v ) => { r.Signature = v; return true; }, r => r.Signature, ( r, v ) => r.Signature = v, ( args, v, blobs ) => args.Row.Signature = blobs.ReadCASignature( v, args.RowArgs.MetaData.SignatureProvider ), args => args.RowArgs.Array.CreateCustomAttributeSignature( args.RowArgs.MetaData, args.RowIndex ), CreateCAColumnSpecificCache, ResolveCASignature );
       }
 
       protected static IEnumerable<MetaDataColumnInformation<FieldMarshal>> GetFieldMarshalColumns()
       {
          yield return MetaDataColumnInformationFactory.CodedTableIndex<FieldMarshal, RawFieldMarshal>( CAMPhysicalIO::CILAssemblyManipulator.Physical.Meta.DefaultMetaDataTableInformationProvider.HasFieldMarshal, ( r, v ) => { r.Parent = v; return true; }, row => row.Parent, ( r, v ) => r.Parent = v );
-         yield return MetaDataColumnInformationFactory.BLOBCustom<FieldMarshal, RawFieldMarshal, AbstractMarshalingInfo>( ( r, v ) => { r.NativeType = v; return true; }, row => row.NativeType, ( r, v ) => r.NativeType = v, ( args, v, blobs ) => args.Row.NativeType = blobs.ReadMarshalingInfo( v, args.RowArgs.SignatureProvider ), args => args.RowArgs.Array.CreateMarshalSpec( args.Row.NativeType ), null, null );
+         yield return MetaDataColumnInformationFactory.BLOBCustom<FieldMarshal, RawFieldMarshal, AbstractMarshalingInfo>( ( r, v ) => { r.NativeType = v; return true; }, row => row.NativeType, ( r, v ) => r.NativeType = v, ( args, v, blobs ) => args.Row.NativeType = blobs.ReadMarshalingInfo( v, args.RowArgs.MetaData.SignatureProvider ), args => args.RowArgs.Array.CreateMarshalSpec( args.Row.NativeType ), null, null );
       }
 
       protected static IEnumerable<MetaDataColumnInformation<SecurityDefinition>> GetDeclSecurityColumns()
       {
          yield return MetaDataColumnInformationFactory.Constant16<SecurityDefinition, RawSecurityDefinition, SecurityAction>( ( r, v ) => { r.Action = v; return true; }, row => row.Action, ( r, v ) => r.Action = (SecurityAction) v, i => (SecurityAction) i, v => (Int32) v );
          yield return MetaDataColumnInformationFactory.CodedTableIndex<SecurityDefinition, RawSecurityDefinition>( CAMPhysicalIO::CILAssemblyManipulator.Physical.Meta.DefaultMetaDataTableInformationProvider.HasSecurity, ( r, v ) => { r.Parent = v; return true; }, row => row.Parent, ( r, v ) => r.Parent = v );
-         yield return MetaDataColumnInformationFactory.BLOBCustom<SecurityDefinition, RawSecurityDefinition, List<AbstractSecurityInformation>>( ( r, v ) => { r.PermissionSets.Clear(); r.PermissionSets.AddRange( v ); return true; }, row => row.PermissionSets, ( r, v ) => r.PermissionSets = v, ( args, v, blobs ) => blobs.ReadSecurityInformation( v, args.RowArgs.SignatureProvider, args.Row.PermissionSets ), args => args.RowArgs.Array.CreateSecuritySignature( args.Row.PermissionSets, args.RowArgs.AuxArray, args.RowArgs.MetaData.SignatureProvider ), CreateCAColumnSpecificCache, ResolveSecurityPermissionSets );
+         yield return MetaDataColumnInformationFactory.BLOBCustom<SecurityDefinition, RawSecurityDefinition, List<AbstractSecurityInformation>>( ( r, v ) => { r.PermissionSets.Clear(); r.PermissionSets.AddRange( v ); return true; }, row => row.PermissionSets, ( r, v ) => r.PermissionSets = v, ( args, v, blobs ) => blobs.ReadSecurityInformation( v, args.RowArgs.MetaData.SignatureProvider, args.Row.PermissionSets ), args => args.RowArgs.Array.CreateSecuritySignature( args.Row.PermissionSets, args.RowArgs.AuxArray, args.RowArgs.MetaData.SignatureProvider ), CreateCAColumnSpecificCache, ResolveSecurityPermissionSets );
       }
 
       protected static IEnumerable<MetaDataColumnInformation<ClassLayout>> GetClassLayoutColumns()
@@ -724,7 +724,7 @@ namespace CILAssemblyManipulator.Physical.Meta
          }, r => r.Signature, ( r, v ) => r.Signature = v, ( args, v, blobs ) =>
          {
             Boolean wasFieldSig;
-            args.Row.Signature = blobs.ReadNonTypeSignature( v, args.RowArgs.SignatureProvider, false, true, out wasFieldSig );
+            args.Row.Signature = blobs.ReadNonTypeSignature( v, args.RowArgs.MetaData.SignatureProvider, false, true, out wasFieldSig );
             args.Row.StoreSignatureAsFieldSignature = wasFieldSig;
          }, args => args.RowArgs.Array.CreateStandaloneSignature( args.Row ), null, null );
       }
@@ -1177,12 +1177,12 @@ namespace CILAssemblyManipulator.Physical.Meta
 
    public interface MetaDataTableInformationWithSerializationCapability
    {
-      TableSerializationInfo CreateTableSerializationInfoNotGeneric( TableSerializationInfoCreationArgs args );
+      TableSerializationLogicalFunctionality CreateTableSerializationInfoNotGeneric( TableSerializationLogicalFunctionalityCreationArgs args );
    }
 
-   public struct TableSerializationInfoCreationArgs
+   public struct TableSerializationLogicalFunctionalityCreationArgs
    {
-      public TableSerializationInfoCreationArgs( EventHandler<SerializationErrorEventArgs> errorHandler )
+      public TableSerializationLogicalFunctionalityCreationArgs( EventHandler<SerializationErrorEventArgs> errorHandler )
       {
          this.ErrorHandler = errorHandler;
       }
@@ -1219,7 +1219,7 @@ namespace CILAssemblyManipulator.Physical.Meta
          return this._rawRowFactory();
       }
 
-      public DefaultTableSerializationInfo<TRawRow, TRow> CreateTableSerializationInfo( TableSerializationInfoCreationArgs args )
+      public DefaultTableSerializationInfo<TRawRow, TRow> CreateTableSerializationInfo( TableSerializationLogicalFunctionalityCreationArgs args )
       {
          return new DefaultTableSerializationInfo<TRawRow, TRow>(
             (Tables) this.TableIndex,
@@ -1233,7 +1233,7 @@ namespace CILAssemblyManipulator.Physical.Meta
 
       public Boolean IsSortedForSerialization { get; }
 
-      public TableSerializationInfo CreateTableSerializationInfoNotGeneric( TableSerializationInfoCreationArgs args )
+      public TableSerializationLogicalFunctionality CreateTableSerializationInfoNotGeneric( TableSerializationLogicalFunctionalityCreationArgs args )
       {
          return this.CreateTableSerializationInfo( args );
       }
@@ -1446,7 +1446,7 @@ namespace CILAssemblyManipulator.Physical.Meta
             setter,
             getter,
             rawSetter,
-            ( args, value, blobs ) => setter( args.Row, blobs.ReadTypeSignature( value, args.RowArgs.SignatureProvider ) ),
+            ( args, value, blobs ) => setter( args.Row, blobs.ReadTypeSignature( value, args.RowArgs.MetaData.SignatureProvider ) ),
             args => args.RowArgs.Array.CreateAnySignature( getter( args.Row ) ),
             null,
             null
@@ -1470,7 +1470,7 @@ namespace CILAssemblyManipulator.Physical.Meta
             ( args, value, blobs ) =>
             {
                Boolean wasFieldSig;
-               setter( args.Row, blobs.ReadNonTypeSignature( value, args.RowArgs.SignatureProvider, isMethodDef, false, out wasFieldSig ) as TSignature );
+               setter( args.Row, blobs.ReadNonTypeSignature( value, args.RowArgs.MetaData.SignatureProvider, isMethodDef, false, out wasFieldSig ) as TSignature );
             },
             args => args.RowArgs.Array.CreateAnySignature( getter( args.Row ) ),
             null,
@@ -1517,14 +1517,14 @@ namespace CILAssemblyManipulator.Physical.Meta
          RowColumnGetterDelegate<TRow, TValue> getter,
          RawRowColumnSetterDelegate<TRawRow> rawSetter,
          RowRawColumnSetterDelegate<TRow> rawValueProcessor,
-         RawColumnSectionPartCreationDelegte<TRow> rawColummnSectionPartCreator,
+         RawColumnSectionPartCreationDelegate<TRow> rawColummnSectionPartCreator,
          ResolverCacheCreatorDelegate resolverCacheCreator,
          ResolverDelegate resolver
          )
          where TRow : class
          where TRawRow : class
       {
-         return new MetaDataColumnInformationForClassesOrStructs<TRow, TRawRow, TValue>( getter, setter, new MetaDataColumnDataInformation_DataReference(), resolverCacheCreator, resolver, () => DefaultColumnSerializationInfoFactory.RawValueStorageColumn<TRawRow, TRow>( rawSetter, rawValueProcessor, rawColummnSectionPartCreator ) );
+         return new MetaDataColumnInformationForClassesOrStructs<TRow, TRawRow, TValue>( getter, setter, new MetaDataColumnDataInformation_DataReference(), resolverCacheCreator, resolver, () => DefaultColumnSerializationInfoFactory.DataReferenceColumn<TRawRow, TRow>( rawSetter, rawValueProcessor, rawColummnSectionPartCreator ) );
       }
 
 
