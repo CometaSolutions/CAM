@@ -663,7 +663,7 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
    {
       Int32 DataAlignment { get; }
 
-      Int32 GetDataSize( Int64 currentOffset, TRVA currentRVA, ColumnValueStorage<Int64> rawValues );
+      Int32 GetDataSize( Int64 currentOffset, TRVA currentRVA, ColumnValueStorage<Int64> dataRefs );
 
       void WriteData( SectionPartWritingArgs args );
    }

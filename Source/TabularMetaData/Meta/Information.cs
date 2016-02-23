@@ -362,7 +362,7 @@ namespace TabularMetaData.Meta
    /// <typeparam name="TValue">The type of the column value.</typeparam>
    /// <param name="row">The row. Guaranteed to be non-<c>null</c>.</param>
    /// <returns>The row's value corresponding to the column in question.</returns>
-   public delegate TValue RowColumnGetterDelegate<TRow, TValue>( TRow row )
+   public delegate TValue RowColumnGetterDelegate<in TRow, out TValue>( TRow row )
       where TRow : class;
 
    /// <summary>
@@ -373,7 +373,7 @@ namespace TabularMetaData.Meta
    /// <param name="row">The row. Guaranteed to be non-<c>null</c>.</param>
    /// <param name="value">The value to set.</param>
    /// <returns><c>true</c> if value passed domain-specific checks, and was set to <paramref name="row"/>; <c>false</c> otherwise.</returns>
-   public delegate Boolean RowColumnSetterDelegate<TRow, TValue>( TRow row, TValue value )
+   public delegate Boolean RowColumnSetterDelegate<in TRow, in TValue>( TRow row, TValue value )
       where TRow : class;
 
    /// <summary>

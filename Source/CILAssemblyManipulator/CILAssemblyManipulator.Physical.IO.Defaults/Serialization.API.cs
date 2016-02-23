@@ -1635,7 +1635,7 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
    /// The <see cref="TableSerializationLogicalFunctionality"/> is agnostic to the byte size of a single row, that is what <see cref="TableSerializationBinaryFunctionality"/> is for, obtaineable by <see cref="CreateBinaryFunctionality"/> method.
    /// </summary>
    /// <remarks>
-   /// This interface is implemented by <see cref="DefaultTableSerializationInfo{TRawRow, TRow}"/>.
+   /// This interface is implemented by <see cref="TableSerializationLogicalFunctionalityImpl{TRawRow, TRow}"/>.
    /// </remarks>
    public interface TableSerializationLogicalFunctionality
    {
@@ -2372,6 +2372,9 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
    /// <summary>
    /// This interface contains functionality directly interfacing with binary data, for one column of one table.
    /// </summary>
+   /// <seealso cref="ColumnSerializationSupport_Constant8"/>
+   /// <seealso cref="ColumnSerializationSupport_Constant16"/>
+   /// <seealso cref="ColumnSerializationSupport_Constant32"/>
    public interface ColumnSerializationBinaryFunctionality
    {
       /// <summary>
@@ -2473,7 +2476,7 @@ public static partial class E_CILPhysical
          var tSize = valueStorage.TableSizes[(Int32) tbl];
          for ( var i = 0; i < dataRefsColCount; ++i )
          {
-            // TODO: to CommonUtils: public static T[] FillFromEnumerable<T>(this IEnumerable<T>, Int32 size, SizeMismatchStrategy = Ignore | ThrowIfArraySmaller | ThrowIfArrayGreater )
+            // TODO: to CommonUtils: public static U[] FillFromEnumerable<T, U>(this IEnumerable<T>, Func<T, U> converter, Int32 size, SizeMismatchStrategy = Ignore | ThrowIfArraySmaller | ThrowIfArrayGreater )
             var values = new Int64[tSize];
             var idx = 0;
             foreach ( var val in valueStorage.GetAllRawValuesForColumn( tbl, i ) )
