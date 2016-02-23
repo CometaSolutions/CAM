@@ -42,8 +42,20 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
 
    using TRVA = Int64;
 
+   /// <summary>
+   /// This class provides default implementation for <see cref="WriterFunctionalityProvider"/>.
+   /// </summary>
    public class DefaultWriterFunctionalityProvider : WriterFunctionalityProvider
    {
+      /// <summary>
+      /// This method implements <see cref="WriterFunctionalityProvider.GetFunctionality"/>, and will return <see cref="DefaultWriterFunctionality"/>.
+      /// </summary>
+      /// <param name="md">The <see cref="CILMetaData"/>.</param>
+      /// <param name="options">The <see cref="WritingOptions"/>.</param>
+      /// <param name="errorHandler">The error handler callback.</param>
+      /// <param name="newMD">This will be <c>null</c>.</param>
+      /// <param name="newStream">This will be <c>null</c>.</param>
+      /// <returns>A new instance of <see cref="DefaultWriterFunctionality"/>.</returns>
       public virtual WriterFunctionality GetFunctionality(
          CILMetaData md,
          WritingOptions options,
@@ -69,18 +81,10 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
       {
          this.MetaData = md;
          this.WritingOptions = options ?? new WritingOptions();
-         this.TableSerializations = serializationCreationArgs.CreateTableSerializationInfos( md.GetAllTables().Select( t => t.TableInformationNotGeneric ) ).ToArrayProxy().CQ;
-         this.TableSizes = this.TableSerializations.CreateTableSizeArray( md );
+         this.TableSerializationLogicalFunctionalityCreationArgs = serializationCreationArgs;
       }
 
-      public virtual IEnumerable<AbstractWriterStreamHandler> CreateMetaDataStreamHandlers()
-      {
-         yield return new DefaultWriterTableStreamHandler( this.MetaData, this.WritingOptions.CLIOptions.TablesStreamOptions, this.TableSerializations, this.TableSizes );
-         yield return new DefaultWriterSystemStringStreamHandler();
-         yield return new DefaultWriterBLOBStreamHandler();
-         yield return new DefaultWriterGuidStreamHandler();
-         yield return new DefaultWriterUserStringStreamHandler();
-      }
+
 
       public virtual WritingStatus CreateWritingStatus(
          StrongNameInformation snVars
@@ -110,6 +114,17 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
             );
       }
 
+      public virtual IEnumerable<AbstractWriterStreamHandler> CreateMetaDataStreamHandlers(
+         WritingStatus status
+         )
+      {
+         yield return new DefaultWriterTableStreamHandler( this.MetaData, this.WritingOptions.CLIOptions.TablesStreamOptions, this.TableSerializationLogicalFunctionalityCreationArgs, (DefaultWritingStatus) status );
+         yield return new DefaultWriterSystemStringStreamHandler();
+         yield return new DefaultWriterBLOBStreamHandler();
+         yield return new DefaultWriterGuidStreamHandler();
+         yield return new DefaultWriterUserStringStreamHandler();
+      }
+
       public virtual DataReferencesInfo CalculateImageLayout(
          WritingStatus writingStatus,
          WriterMetaDataStreamContainer mdStreamContainer,
@@ -118,9 +133,11 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
          out Int32 mdRootSize
          )
       {
+         var dStatus = (DefaultWritingStatus) writingStatus;
+
          // Get raw value sections (IL, Field RVA, Embedded manifest resources)
-         SectionPart[] rawSections;
-         var rawValueStorage = this.CreateRawValueProvider( mdStreamContainer, out rawSections );
+         // Enumerate right here, to force e.g. user-string heap initialization for method IL section part
+         var rawSections = dStatus.DataReferencesSectionParts.ToArray();
 
          // MetaData
          Int32 mdSize;
@@ -128,8 +145,8 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
          writingStatus.MDRoot = mdRoot;
 
          // Sections
-         var sectionLayoutInfos = new SectionLayoutAggregator( this.PopulateSections( writingStatus, rawSections, mdRoot, mdSize, rawValueStorage ) );
-         var dStatus = (DefaultWritingStatus) writingStatus;
+         var sectionLayoutInfos = new SectionLayoutAggregator( this.PopulateSections( dStatus, rawSections, mdRoot, mdSize ) );
+
          dStatus.SectionLayouts = sectionLayoutInfos;
          var allLayouts = sectionLayoutInfos.LayoutInfos;
          var sections = writingStatus.SectionHeaders;
@@ -144,7 +161,7 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
          // CLI Header
          writingStatus.CLIHeader = this.CreateCLIHeader( dStatus );
 
-         return rawValueStorage.CreateDataReferencesInfo( i => i );
+         return dStatus.DataReferencesStorage.CreateDataReferencesInfo( i => i );
       }
 
       public virtual void BeforeMetaData(
@@ -252,9 +269,7 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
 
       protected CILMetaData MetaData { get; }
 
-      protected ArrayQuery<TableSerializationLogicalFunctionality> TableSerializations { get; }
-
-      protected ArrayQuery<Int32> TableSizes { get; }
+      protected TableSerializationLogicalFunctionalityCreationArgs TableSerializationLogicalFunctionalityCreationArgs { get; }
 
       protected WritingOptions WritingOptions { get; }
 
@@ -279,11 +294,10 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
       }
 
       protected virtual IEnumerable<SectionLayoutInfo> PopulateSections(
-         WritingStatus writingStatus,
-         IEnumerable<SectionPart> rawValueSectionParts,
+         DefaultWritingStatus writingStatus,
+         IEnumerable<SectionPartWithDataReferenceTargets> rawValueSectionParts,
          MetaDataRoot mdRoot,
-         Int32 mdSize,
-         ColumnValueStorage<Int64> rawValues
+         Int32 mdSize
          )
       {
          var encoding = Encoding.UTF8;
@@ -299,7 +313,7 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
                curPointer,
                curRVA,
                fAlign,
-               rawValues
+               writingStatus.DataReferencesStorage
                );
             var hdr = layoutInfo.SectionHeader;
             if ( hdr.VirtualSize > 0 )
@@ -354,7 +368,7 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
       protected virtual IEnumerable<SectionLayout> GetSectionLayouts(
          WritingStatus writingStatus,
          Int32 mdSize,
-         IEnumerable<SectionPart> rawValueSectionParts
+         IEnumerable<SectionPartWithDataReferenceTargets> rawValueSectionParts
          )
       {
          // 1. Text section
@@ -403,7 +417,7 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
       protected virtual IEnumerable<SectionPart> GetTextSectionParts(
          WritingStatus writingStatus,
          Int32 mdSize,
-         IEnumerable<SectionPart> rawValueSectionParts
+         IEnumerable<SectionPartWithDataReferenceTargets> rawValueSectionParts
          )
       {
          var options = this.WritingOptions;
@@ -464,19 +478,6 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
             partLayout.Size,
             (DefaultWritingStatus) writingStatus
             ) );
-      }
-
-      protected virtual ColumnValueStorage<Int64> CreateRawValueProvider(
-         WriterMetaDataStreamContainer mdStreamContainer,
-         out SectionPart[] rawSectionParts
-         )
-      {
-         var retVal = new ColumnValueStorage<Int64>( this.TableSizes, this.TableSerializations.Select( s => s?.DataReferenceColumnCount ?? 0 ) );
-         rawSectionParts = this.TableSerializations
-            .SelectMany( s => s?.CreateDataReferenceSectionParts( this.MetaData, mdStreamContainer ) ?? Empty<SectionPart>.Enumerable )
-            // Enumerate right here, to force e.g. user-string heap initialization for method IL section part
-            .ToArray();
-         return retVal;
       }
 
       protected virtual CLIHeader CreateCLIHeader(
@@ -555,6 +556,10 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
       }
 
       public SectionLayoutAggregator SectionLayouts { get; set; }
+
+      public ColumnValueStorage<Int64> DataReferencesStorage { get; set; }
+
+      public IEnumerable<SectionPartWithDataReferenceTargets> DataReferencesSectionParts { get; set; }
    }
 
    public class SectionLayoutInfo
@@ -2096,17 +2101,16 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
       public DefaultWriterTableStreamHandler(
          CILMetaData md,
          WritingOptions_TableStream options,
-         ArrayQuery<TableSerializationLogicalFunctionality> tableSerializations,
-         ArrayQuery<Int32> tableSizes
+         TableSerializationLogicalFunctionalityCreationArgs serializationCreationArgs,
+         DefaultWritingStatus writingStatus
          )
       {
          ArgumentValidator.ValidateNotNull( "Meta data", md );
-         ArgumentValidator.ValidateAllNotNull( "Table serialization info", tableSerializations );
-         ArgumentValidator.ValidateNotNull( "Table sizes", tableSizes );
 
          this._md = md;
-         this.TableSerializations = tableSerializations;
-         this.TableSizes = tableSizes;
+         this.TableSerializations = serializationCreationArgs.CreateTableSerializationInfos( md.GetAllTables().Select( t => t.TableInformationNotGeneric ) ).ToArrayProxy().CQ; ;
+         this.TableSizes = this.TableSerializations.CreateTableSizeArray( md );
+         this.WritingStatus = writingStatus;
          this._options = options ?? new WritingOptions_TableStream();
       }
 
@@ -2164,6 +2168,15 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
             );
 
          Interlocked.Exchange( ref this._writeDependantInfo, new WriteDependantInfo( this._options, this.TableSizes, this.TableSerializations, mdStreams, retVal, header, this.CreateSerializationCreationArgs( mdStreams ) ) );
+
+         // Set values for writing status
+         var status = this.WritingStatus;
+         if ( status != null )
+         {
+            status.DataReferencesStorage = new ColumnValueStorage<Int64>( this.TableSizes, this.TableSerializations.Select( s => s?.DataReferenceColumnCount ?? 0 ) );
+            status.DataReferencesSectionParts = this.TableSerializations
+               .SelectMany( s => s?.CreateDataReferenceSectionParts( this._md, mdStreams ) ?? Empty<SectionPartWithDataReferenceTargets>.Enumerable );
+         }
 
          return header;
       }
@@ -2245,6 +2258,8 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
       protected ArrayQuery<TableSerializationLogicalFunctionality> TableSerializations { get; }
 
       protected ArrayQuery<Int32> TableSizes { get; }
+
+      protected DefaultWritingStatus WritingStatus { get; }
 
       private TableStreamFlags CreateTableStreamFlags( WriterMetaDataStreamContainer streams )
       {

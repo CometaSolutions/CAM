@@ -93,9 +93,10 @@ namespace CILAssemblyManipulator.Physical.IO
       /// <summary>
       /// This method should return enumerable of all <see cref="AbstractWriterStreamHandler"/>s supported by this <see cref="WriterFunctionality"/>.
       /// </summary>
+      /// <param name="writingStatus">The <see cref="WritingStatus"/> created by <see cref="CreateWritingStatus"/>.</param>
       /// <returns>An enumerable of all <see cref="AbstractWriterStreamHandler"/>s supported by this <see cref="WriterFunctionality"/>.</returns>
       /// <seealso cref="AbstractWriterStreamHandler"/>
-      IEnumerable<AbstractWriterStreamHandler> CreateMetaDataStreamHandlers();
+      IEnumerable<AbstractWriterStreamHandler> CreateMetaDataStreamHandlers( WritingStatus writingStatus );
 
       /// <summary>
       /// This method should create a new instance of <see cref="WritingStatus"/> to be used throughout the serialization process.
@@ -639,7 +640,7 @@ public static partial class E_CILPhysical
 
       // 2. Create streams
       var mdStreams = writer
-         .CreateMetaDataStreamHandlers()
+         .CreateMetaDataStreamHandlers( status )
          .EmptyIfNull()
          .ToArrayProxy().CQ;
       var tblMDStream = mdStreams
