@@ -31,6 +31,7 @@ using CommonUtils;
 using System.Threading;
 using System.IO;
 using CILAssemblyManipulator.Physical;
+using CILAssemblyManipulator.Physical.Meta;
 using CILAssemblyManipulator.Physical.IO;
 using CILAssemblyManipulator.Physical.IO.Defaults;
 using CollectionsWithRoles.API;
@@ -38,8 +39,7 @@ using TabularMetaData;
 
 namespace CILAssemblyManipulator.Physical.IO.Defaults
 {
-   using Meta;
-   using TabularMetaData;
+
    using TRVA = Int64;
 
    public class DefaultWriterFunctionalityProvider : WriterFunctionalityProvider

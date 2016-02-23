@@ -40,6 +40,23 @@ public static partial class E_CILPhysical
 
    #region Deserialization
 
+   /// <summary>
+   /// Using this <see cref="SignatureProvider"/>, deserializes a signature which is not a <see cref="TypeSignature"/> from given byte array.
+   /// </summary>
+   /// <param name="sigProvider">This <see cref="SignatureProvider"/>.</param>
+   /// <param name="array">The byte array.</param>
+   /// <param name="idx">The index in <paramref name="array"/> where to start reading.</param>
+   /// <param name="max">The maximum index, inclusive.</param>
+   /// <param name="methodSigIsDefinition">If the signature is method signature, then <c>true</c> will create <see cref="MethodDefinitionSignature"/>, while <c>false</c> will create <see cref="MethodReferenceSignature"/></param>
+   /// <param name="fieldSigIsLocalsSig">If the signature is field signature, then <c>true</c> will create <see cref="LocalVariablesSignature"/>, while <c>false</c> will create <see cref="FieldSignature"/>. See <see cref="StandaloneSignature.StoreSignatureAsFieldSignature"/> for more information.</param>
+   /// <param name="fieldSigTransformedToLocalsSig">This value will be <c>true</c> if <paramref name="fieldSigIsLocalsSig"/> was <c>true</c> and if field signature was interpreted as <see cref="LocalVariablesSignature"/>.</param>
+   /// <returns>The deserialized <see cref="AbstractNotRawSignature"/>, or <c>null</c> if deserialization fails.</returns>
+   /// <exception cref="NullReferenceException">If this <see cref="SignatureProvider"/> is <c>null</c>.</exception>
+   /// <exception cref="ArgumentNullException">If <paramref name="array"/> is <c>null</c>.</exception>
+   /// <exception cref="IndexOutOfRangeException">If the signature is malformed.</exception>
+   /// <remarks>
+   /// This method is not inteded to be used directly, instead one should use <see cref="CAMPhysicalIO::CILAssemblyManipulator.Physical.IO.ReaderBLOBStreamHandler.ReadNonTypeSignature"/>.
+   /// </remarks>
    public static AbstractNotRawSignature ReadNonTypeSignature(
       this SignatureProvider sigProvider,
       Byte[] array,
@@ -50,6 +67,9 @@ public static partial class E_CILPhysical
       out Boolean fieldSigTransformedToLocalsSig
       )
    {
+      ArgumentValidator.ValidateNotNullReference( sigProvider );
+      ArgumentValidator.ValidateNotNull( "Array", array );
+
       AbstractNotRawSignature retVal;
       fieldSigTransformedToLocalsSig = false;
       var starter = array.ReadSigStarter( ref idx );
@@ -88,14 +108,15 @@ public static partial class E_CILPhysical
       }
 
       Byte[] extraData;
-      if ( retVal != null && array.TryReadExtraData( idx, max, out extraData ) )
+      if ( retVal != null && array.TryReadExtraData( idx, max, out extraData, ref retVal ) )
       {
          retVal.ExtraData = extraData;
       }
 
       return retVal;
    }
-   public static MethodDefinitionSignature ReadMethodDefSignature(
+
+   private static MethodDefinitionSignature ReadMethodDefSignature(
       this SignatureProvider sigProvider,
       Byte[] array,
       ref Int32 idx
@@ -124,7 +145,7 @@ public static partial class E_CILPhysical
       return retVal;
    }
 
-   public static MethodReferenceSignature ReadMethodRefSignature(
+   private static MethodReferenceSignature ReadMethodRefSignature(
       this SignatureProvider sigProvider,
       Byte[] array,
       ref Int32 idx
@@ -224,7 +245,7 @@ public static partial class E_CILPhysical
       return retVal;
    }
 
-   internal static ParameterSignature ReadParameter(
+   private static ParameterSignature ReadParameter(
       this SignatureProvider sigProvider,
       Byte[] array,
       ref Int32 idx
@@ -253,7 +274,7 @@ public static partial class E_CILPhysical
       return retVal;
    }
 
-   public static FieldSignature ReadFieldSignature(
+   private static FieldSignature ReadFieldSignature(
       this SignatureProvider sigProvider,
       Byte[] array,
       ref Int32 idx
@@ -277,7 +298,7 @@ public static partial class E_CILPhysical
       return retVal;
    }
 
-   public static PropertySignature ReadPropertySignature(
+   private static PropertySignature ReadPropertySignature(
       this SignatureProvider sigProvider,
       Byte[] array,
       ref Int32 idx
@@ -319,7 +340,7 @@ public static partial class E_CILPhysical
       return retVal;
    }
 
-   public static LocalVariablesSignature ReadLocalVariablesSignature(
+   private static LocalVariablesSignature ReadLocalVariablesSignature(
       this SignatureProvider sigProvider,
       Byte[] array,
       ref Int32 idx
@@ -331,7 +352,7 @@ public static partial class E_CILPhysical
          null;
    }
 
-   internal static LocalVariablesSignature ReadLocalVariablesSignatureAfterStarter(
+   private static LocalVariablesSignature ReadLocalVariablesSignatureAfterStarter(
       this SignatureProvider sigProvider,
       Byte[] array,
       ref Int32 idx
@@ -346,7 +367,7 @@ public static partial class E_CILPhysical
       return retVal;
    }
 
-   public static LocalSignature ReadLocalVariableSignature(
+   private static LocalSignature ReadLocalVariableSignature(
       this SignatureProvider sigProvider,
       Byte[] array,
       ref Int32 idx
@@ -378,7 +399,7 @@ public static partial class E_CILPhysical
       return retVal;
    }
 
-   public static CustomModifierSignature ReadFromBytes(
+   private static CustomModifierSignature ReadFromBytes(
       Byte[] array,
       ref Int32 idx
       )
@@ -403,7 +424,7 @@ public static partial class E_CILPhysical
       return retVal;
    }
 
-   public static void AddFromBytes(
+   private static void AddFromBytes(
       Byte[] array,
       ref Int32 idx,
       IList<CustomModifierSignature> customMods
@@ -416,11 +437,44 @@ public static partial class E_CILPhysical
       }
    }
 
+   /// <summary>
+   /// Using this <see cref="SignatureProvider"/>, deserializes a <see cref="TypeSignature"/> from given byte array.
+   /// </summary>
+   /// <param name="sigProvider">This <see cref="SignatureProvider"/>.</param>
+   /// <param name="array">The byte array.</param>
+   /// <param name="idx">The index in <paramref name="array"/> where to start reading.</param>
+   /// <param name="max">The maximum index, inclusive.</param>
+   /// <returns>The deserialized <see cref="TypeSignature"/>, or <c>null</c> if deserialization fails.</returns>
+   /// <exception cref="NullReferenceException">If this <see cref="SignatureProvider"/> is <c>null</c>.</exception>
+   /// <exception cref="ArgumentNullException">If <paramref name="array"/> is <c>null</c>.</exception>
+   /// <exception cref="IndexOutOfRangeException">If the signature is malformed.</exception>
+   /// <remarks>
+   /// This method is not inteded to be used directly, instead one should use <see cref="CAMPhysicalIO::CILAssemblyManipulator.Physical.IO.ReaderBLOBStreamHandler.ReadTypeSignature"/>.
+   /// </remarks>
    public static TypeSignature ReadTypeSignature(
       this SignatureProvider sigProvider,
       Byte[] array,
       ref Int32 idx,
-      Int32 max = -1
+      Int32 max
+      )
+   {
+      ArgumentValidator.ValidateNotNullReference( sigProvider );
+      ArgumentValidator.ValidateNotNull( "Array", array );
+
+      var retVal = sigProvider.ReadTypeSignature( array, ref idx );
+      Byte[] extraData;
+      if ( retVal != null && array.TryReadExtraData( idx, max, out extraData, ref retVal ) )
+      {
+         retVal.ExtraData = extraData;
+      }
+
+      return retVal;
+   }
+
+   private static TypeSignature ReadTypeSignature(
+      this SignatureProvider sigProvider,
+      Byte[] array,
+      ref Int32 idx
       )
    {
       Int32 auxiliary;
@@ -518,12 +572,6 @@ public static partial class E_CILPhysical
             break;
       }
 
-      Byte[] extraData;
-      if ( max >= 0 && retVal != null && array.TryReadExtraData( idx, max, out extraData ) )
-      {
-         retVal.ExtraData = extraData;
-      }
-
       return retVal;
    }
 
@@ -553,7 +601,7 @@ public static partial class E_CILPhysical
       return retVal;
    }
 
-   public static GenericMethodSignature ReadGenericMethodSignature(
+   private static GenericMethodSignature ReadGenericMethodSignature(
       this SignatureProvider sigProvider,
       Byte[] array,
       ref Int32 idx
@@ -565,7 +613,7 @@ public static partial class E_CILPhysical
          null;
    }
 
-   public static GenericMethodSignature ReadGenericMethodSignatureAfterStarter(
+   private static GenericMethodSignature ReadGenericMethodSignatureAfterStarter(
       this SignatureProvider sigProvider,
       Byte[] array,
       ref Int32 idx
@@ -580,6 +628,20 @@ public static partial class E_CILPhysical
       return retVal;
    }
 
+   /// <summary>
+   /// Using this <see cref="SignatureProvider"/>, deserializes a <see cref="AbstractMarshalingInfo"/> from given byte array.
+   /// </summary>
+   /// <param name="sigProvider">This <see cref="SignatureProvider"/>.</param>
+   /// <param name="array">The byte array.</param>
+   /// <param name="idx">The index in <paramref name="array"/> where to start reading.</param>
+   /// <param name="max">The maximum index, inclusive.</param>
+   /// <returns>The deserialized <see cref="AbstractMarshalingInfo"/>, or <c>null</c> if deserialization fails.</returns>
+   /// <exception cref="NullReferenceException">If this <see cref="SignatureProvider"/> is <c>null</c>.</exception>
+   /// <exception cref="ArgumentNullException">If <paramref name="array"/> is <c>null</c>.</exception>
+   /// <exception cref="IndexOutOfRangeException">If the signature is malformed.</exception>
+   /// <remarks>
+   /// This method is not inteded to be used directly, instead one should use <see cref="CAMPhysicalIO::CILAssemblyManipulator.Physical.IO.ReaderBLOBStreamHandler.ReadMarshalingInfo"/>.
+   /// </remarks>
    public static AbstractMarshalingInfo ReadMarshalingInfo(
       this SignatureProvider sigProvider,
       Byte[] array,
@@ -587,6 +649,9 @@ public static partial class E_CILPhysical
       Int32 max
       )
    {
+      ArgumentValidator.ValidateNotNullReference( sigProvider );
+      ArgumentValidator.ValidateNotNull( "Array", array );
+
       const Int32 NO_INDEX = -1;
       AbstractMarshalingInfo result = null;
       var ut = array.ReadUnmanagedType( ref idx );
@@ -662,6 +727,21 @@ public static partial class E_CILPhysical
       return result;
    }
 
+
+   /// <summary>
+   /// Using this <see cref="SignatureProvider"/>, deserializes a list of <see cref="RawSecurityInformation"/>s from given byte array.
+   /// </summary>
+   /// <param name="sigProvider">This <see cref="SignatureProvider"/>.</param>
+   /// <param name="array">The byte array.</param>
+   /// <param name="idx">The index in <paramref name="array"/> where to start reading.</param>
+   /// <param name="max">The maximum index, inclusive.</param>
+   /// <param name="secInfos">The list of <see cref="AbstractSecurityInformation"/>s to add the deserialized <see cref="RawSecurityInformation"/>s.</param>
+   /// <exception cref="NullReferenceException">If this <see cref="SignatureProvider"/> is <c>null</c>.</exception>
+   /// <exception cref="ArgumentNullException">If any of the <paramref name="array"/> or <paramref name="secInfos"/> is <c>null</c>.</exception>
+   /// <exception cref="IndexOutOfRangeException">If the signature is malformed.</exception>
+   /// <remarks>
+   /// This method is not inteded to be used directly, instead one should use <see cref="CAMPhysicalIO::CILAssemblyManipulator.Physical.IO.ReaderBLOBStreamHandler.ReadSecurityInformation"/>.
+   /// </remarks>
    public static void ReadSecurityInformation(
       this SignatureProvider sigProvider,
       Byte[] array,
@@ -672,6 +752,10 @@ public static partial class E_CILPhysical
    {
       const String PERMISSION_SET = "System.Security.Permissions.PermissionSetAttribute";
       const String PERMISSION_SET_XML_PROP = "XML";
+
+      ArgumentValidator.ValidateNotNullReference( sigProvider );
+      ArgumentValidator.ValidateNotNull( "Array", array );
+      ArgumentValidator.ValidateNotNull( "Security information list", secInfos );
 
       var b = array[idx++];
       if ( b == DECL_SECURITY_HEADER )
@@ -696,18 +780,7 @@ public static partial class E_CILPhysical
                ArgumentCount = argCount,
                Bytes = array.CreateArrayCopy( ref idx, bytesToCopy )
             };
-            //}
-            //else
-            //{
-            //   secInfo = new SecurityInformation()
-            //   {
-            //      SecurityAttributeType = secType
-            //   };
-            //   idx += attributeByteCount - 1;
-            //}
-
             secInfos.Add( secInfo );
-
          }
 
       }
@@ -736,7 +809,7 @@ public static partial class E_CILPhysical
 
 
 
-   public static CustomAttributeTypedArgument ReadCAFixedArgument(
+   internal static CustomAttributeTypedArgument ReadCAFixedArgument(
       this SignatureProvider sigProvider,
       Byte[] caBLOB,
       ref Int32 idx,
@@ -905,7 +978,7 @@ public static partial class E_CILPhysical
       }
    }
 
-   public static CustomAttributeNamedArgument ReadCANamedArgument(
+   internal static CustomAttributeNamedArgument ReadCANamedArgument(
       this SignatureProvider sigProvider,
       Byte[] blob,
       ref Int32 idx,
@@ -1972,7 +2045,8 @@ public static partial class E_CILPhysical
       return (UnmanagedType) array[idx++];
    }
 
-   internal static Boolean TryReadExtraData( this Byte[] array, Int32 idx, Int32 max, out Byte[] extraData )
+   private static Boolean TryReadExtraData<TSignature>( this Byte[] array, Int32 idx, Int32 max, out Byte[] extraData, ref TSignature signature )
+      where TSignature : class
    {
       var retVal = max >= idx;
       if ( retVal )
@@ -1982,6 +2056,7 @@ public static partial class E_CILPhysical
       else
       {
          extraData = null;
+         signature = null;
       }
       return retVal;
    }
