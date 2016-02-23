@@ -1219,9 +1219,9 @@ namespace CILAssemblyManipulator.Physical.Meta
          return this._rawRowFactory();
       }
 
-      public TableSerializationLogicalFunctionalityImpl<TRawRow, TRow> CreateTableSerializationInfo( TableSerializationLogicalFunctionalityCreationArgs args )
+      public TableSerializationLogicalFunctionalityImpl<TRow, TRawRow> CreateTableSerializationInfo( TableSerializationLogicalFunctionalityCreationArgs args )
       {
-         return new TableSerializationLogicalFunctionalityImpl<TRawRow, TRow>(
+         return new TableSerializationLogicalFunctionalityImpl<TRow, TRawRow>(
             (Tables) this.TableIndex,
             this.IsSortedForSerialization,
             this.ColumnsInformation.Select( c => ( c as MetaDataColumnInformationWithSerializationCapability<TRow, TRawRow> )?.DefaultColumnSerializationInfoWithRawType ),
@@ -1257,7 +1257,7 @@ namespace CILAssemblyManipulator.Physical.Meta
       //      sizeof( Int16 ),
       //      getter,
       //      setter,
-      //      () => DefaultColumnSerializationInfoFactory.Constant16<TRawRow, TRow>( rawSetter, ( args, v ) => setter( args.Row, fromInteger( v ) ), r => toInteger( getter( r ) ) )
+      //      () => DefaultColumnSerializationInfoFactory.Constant16<TRow, TRawRow>( rawSetter, ( args, v ) => setter( args.Row, fromInteger( v ) ), r => toInteger( getter( r ) ) )
       //      );
       //}
 
@@ -1276,7 +1276,7 @@ namespace CILAssemblyManipulator.Physical.Meta
       //      sizeof( Int32 ),
       //      getter,
       //      setter,
-      //      () => DefaultColumnSerializationInfoFactory.Constant32<TRawRow, TRow>( rawSetter, ( args, v ) => setter( args.Row, fromInteger( v ) ), r => toInteger( getter( r ) ) )
+      //      () => DefaultColumnSerializationInfoFactory.Constant32<TRow, TRawRow>( rawSetter, ( args, v ) => setter( args.Row, fromInteger( v ) ), r => toInteger( getter( r ) ) )
       //      );
       //}
 
@@ -1324,7 +1324,7 @@ namespace CILAssemblyManipulator.Physical.Meta
       //      sizeof( Int16 ),
       //      getter,
       //      setter,
-      //      () => DefaultColumnSerializationInfoFactory.Constant16<TRawRow, TRow>( rawSetter, ( row, v ) => setter( row, v ), r => getter( r ) )
+      //      () => DefaultColumnSerializationInfoFactory.Constant16<TRow, TRawRow>( rawSetter, ( row, v ) => setter( row, v ), r => getter( r ) )
       //      );
       //}
 
@@ -1348,7 +1348,7 @@ namespace CILAssemblyManipulator.Physical.Meta
          Int32 byteCount,
          RowColumnGetterDelegate<TRow, TValue> getter,
          RowColumnSetterDelegate<TRow, TValue> setter,
-         Func<DefaultColumnSerializationInfo<TRawRow, TRow>> serializationInfo
+         Func<DefaultColumnSerializationInfo<TRow, TRawRow>> serializationInfo
          )
          where TRow : class
          where TRawRow : class
@@ -1365,7 +1365,7 @@ namespace CILAssemblyManipulator.Physical.Meta
          where TRow : class
          where TRawRow : class
       {
-         return new MetaDataColumnInformationForClassesOrStructs<TRow, TRawRow, String>( getter, setter, new MetaDataColumnDataInformation_HeapIndex( MetaDataConstants.SYS_STRING_STREAM_NAME ), null, null, () => DefaultColumnSerializationInfoFactory.SystemString<TRawRow, TRow>( rawSetter, setter, getter ) );
+         return new MetaDataColumnInformationForClassesOrStructs<TRow, TRawRow, String>( getter, setter, new MetaDataColumnDataInformation_HeapIndex( MetaDataConstants.SYS_STRING_STREAM_NAME ), null, null, () => DefaultColumnSerializationInfoFactory.SystemString<TRow, TRawRow>( rawSetter, setter, getter ) );
       }
 
       public static MetaDataColumnInformationForNullables<TRow, TRawRow, Guid> GUID<TRow, TRawRow>(
@@ -1376,7 +1376,7 @@ namespace CILAssemblyManipulator.Physical.Meta
          where TRow : class
          where TRawRow : class
       {
-         return new MetaDataColumnInformationForNullables<TRow, TRawRow, Guid>( getter, setter, new MetaDataColumnDataInformation_HeapIndex( MetaDataConstants.GUID_STREAM_NAME ), null, null, () => DefaultColumnSerializationInfoFactory.GUID<TRawRow, TRow>( rawSetter, setter, getter ) );
+         return new MetaDataColumnInformationForNullables<TRow, TRawRow, Guid>( getter, setter, new MetaDataColumnDataInformation_HeapIndex( MetaDataConstants.GUID_STREAM_NAME ), null, null, () => DefaultColumnSerializationInfoFactory.GUID<TRow, TRawRow>( rawSetter, setter, getter ) );
       }
 
       public static MetaDataColumnInformationForClassesOrStructs<TRow, TRawRow, TableIndex> SimpleTableIndex<TRow, TRawRow>(
@@ -1388,7 +1388,7 @@ namespace CILAssemblyManipulator.Physical.Meta
          where TRow : class
          where TRawRow : class
       {
-         return new MetaDataColumnInformationForClassesOrStructs<TRow, TRawRow, TableIndex>( getter, setter, new MetaDataColumnDataInformation_SimpleTableIndex( (Int32) targetTable ), null, null, () => DefaultColumnSerializationInfoFactory.SimpleReference<TRawRow, TRow>( targetTable, rawSetter, setter, getter ) );
+         return new MetaDataColumnInformationForClassesOrStructs<TRow, TRawRow, TableIndex>( getter, setter, new MetaDataColumnDataInformation_SimpleTableIndex( (Int32) targetTable ), null, null, () => DefaultColumnSerializationInfoFactory.SimpleReference<TRow, TRawRow>( targetTable, rawSetter, setter, getter ) );
       }
 
       public static MetaDataColumnInformationForClassesOrStructs<TRow, TRawRow, TableIndex> CodedTableIndex<TRow, TRawRow>(
@@ -1400,7 +1400,7 @@ namespace CILAssemblyManipulator.Physical.Meta
          where TRow : class
          where TRawRow : class
       {
-         return new MetaDataColumnInformationForClassesOrStructs<TRow, TRawRow, TableIndex>( getter, setter, new MetaDataColumnDataInformation_CodedTableIndex( targetTables ), null, null, () => DefaultColumnSerializationInfoFactory.CodedReference<TRawRow, TRow>( targetTables, rawSetter, ( row, v ) => setter( row, v.GetValueOrDefault() ), r => getter( r ) ) );
+         return new MetaDataColumnInformationForClassesOrStructs<TRow, TRawRow, TableIndex>( getter, setter, new MetaDataColumnDataInformation_CodedTableIndex( targetTables ), null, null, () => DefaultColumnSerializationInfoFactory.CodedReference<TRow, TRawRow>( targetTables, rawSetter, ( row, v ) => setter( row, v.GetValueOrDefault() ), r => getter( r ) ) );
       }
 
       public static MetaDataColumnInformationForNullables<TRow, TRawRow, TableIndex> CodedTableIndexNullable<TRow, TRawRow>(
@@ -1412,7 +1412,7 @@ namespace CILAssemblyManipulator.Physical.Meta
          where TRow : class
          where TRawRow : class
       {
-         return new MetaDataColumnInformationForNullables<TRow, TRawRow, TableIndex>( getter, setter, new MetaDataColumnDataInformation_CodedTableIndex( targetTables ), null, null, () => DefaultColumnSerializationInfoFactory.CodedReference<TRawRow, TRow>( targetTables, rawSetter, setter, getter ) );
+         return new MetaDataColumnInformationForNullables<TRow, TRawRow, TableIndex>( getter, setter, new MetaDataColumnDataInformation_CodedTableIndex( targetTables ), null, null, () => DefaultColumnSerializationInfoFactory.CodedReference<TRow, TRawRow>( targetTables, rawSetter, setter, getter ) );
       }
 
       public static MetaDataColumnInformationForClassesOrStructs<TRow, TRawRow, TypeSignature> BLOBTypeSignature<TRow, TRawRow>(
@@ -1490,7 +1490,7 @@ namespace CILAssemblyManipulator.Physical.Meta
          where TRow : class
          where TRawRow : class
       {
-         return new MetaDataColumnInformationForClassesOrStructs<TRow, TRawRow, TValue>( getter, setter, new MetaDataColumnDataInformation_HeapIndex( MetaDataConstants.BLOB_STREAM_NAME ), resolverCacheCreator, resolver, () => DefaultColumnSerializationInfoFactory.BLOB<TRawRow, TRow>( rawSetter, blobReader, blobCreator ) );
+         return new MetaDataColumnInformationForClassesOrStructs<TRow, TRawRow, TValue>( getter, setter, new MetaDataColumnDataInformation_HeapIndex( MetaDataConstants.BLOB_STREAM_NAME ), resolverCacheCreator, resolver, () => DefaultColumnSerializationInfoFactory.BLOB<TRow, TRawRow>( rawSetter, blobReader, blobCreator ) );
       }
 
       public static MetaDataColumnInformationForClassesOrStructs<TRow, TRawRow, TValue> DataReference<TRow, TRawRow, TValue>(
@@ -1505,7 +1505,7 @@ namespace CILAssemblyManipulator.Physical.Meta
          where TRow : class
          where TRawRow : class
       {
-         return new MetaDataColumnInformationForClassesOrStructs<TRow, TRawRow, TValue>( getter, setter, new MetaDataColumnDataInformation_DataReference(), resolverCacheCreator, resolver, () => DefaultColumnSerializationInfoFactory.DataReferenceColumn<TRawRow, TRow>( rawSetter, rawValueProcessor, rawColummnSectionPartCreator ) );
+         return new MetaDataColumnInformationForClassesOrStructs<TRow, TRawRow, TValue>( getter, setter, new MetaDataColumnDataInformation_DataReference(), resolverCacheCreator, resolver, () => DefaultColumnSerializationInfoFactory.DataReferenceColumn<TRow, TRawRow>( rawSetter, rawValueProcessor, rawColummnSectionPartCreator ) );
       }
 
 
@@ -1520,7 +1520,7 @@ namespace CILAssemblyManipulator.Physical.Meta
       where TRow : class
       where TRawRow : class
    {
-      DefaultColumnSerializationInfo<TRawRow, TRow> DefaultColumnSerializationInfoWithRawType { get; }
+      DefaultColumnSerializationInfo<TRow, TRawRow> DefaultColumnSerializationInfoWithRawType { get; }
    }
 
    // TODO this interface and MetaDataColumnDataInformation class are obsolete.
@@ -1575,7 +1575,7 @@ namespace CILAssemblyManipulator.Physical.Meta
       where TRawRow : class
    {
 
-      private readonly Lazy<DefaultColumnSerializationInfo<TRawRow, TRow>> _serializationInfo;
+      private readonly Lazy<DefaultColumnSerializationInfo<TRow, TRawRow>> _serializationInfo;
 
       public MetaDataColumnInformationForClassesOrStructs(
          RowColumnGetterDelegate<TRow, TValue> getter,
@@ -1583,7 +1583,7 @@ namespace CILAssemblyManipulator.Physical.Meta
          MetaDataColumnDataInformation information,
          ResolverCacheCreatorDelegate resolverCacheCreator,
          ResolverDelegate resolver,
-         Func<DefaultColumnSerializationInfo<TRawRow, TRow>> defaultSerializationInfo
+         Func<DefaultColumnSerializationInfo<TRow, TRawRow>> defaultSerializationInfo
          )
          : base( getter, setter )
       {
@@ -1591,10 +1591,10 @@ namespace CILAssemblyManipulator.Physical.Meta
 
          this.DataInformation = information;
          this.ResolvingHandler = resolver == null ? null : new MetaDataColumnInformationWithResolvingCapabilityWithCallbacks( resolverCacheCreator, resolver );
-         this._serializationInfo = defaultSerializationInfo == null ? null : new Lazy<DefaultColumnSerializationInfo<TRawRow, TRow>>( defaultSerializationInfo, System.Threading.LazyThreadSafetyMode.ExecutionAndPublication );
+         this._serializationInfo = defaultSerializationInfo == null ? null : new Lazy<DefaultColumnSerializationInfo<TRow, TRawRow>>( defaultSerializationInfo, System.Threading.LazyThreadSafetyMode.ExecutionAndPublication );
       }
 
-      public DefaultColumnSerializationInfo<TRawRow, TRow> DefaultColumnSerializationInfoWithRawType
+      public DefaultColumnSerializationInfo<TRow, TRawRow> DefaultColumnSerializationInfoWithRawType
       {
          get
          {
@@ -1629,7 +1629,7 @@ namespace CILAssemblyManipulator.Physical.Meta
       where TRawRow : class
    {
 
-      private readonly Lazy<DefaultColumnSerializationInfo<TRawRow, TRow>> _serializationInfo;
+      private readonly Lazy<DefaultColumnSerializationInfo<TRow, TRawRow>> _serializationInfo;
 
       public MetaDataColumnInformationForNullables(
          RowColumnGetterDelegate<TRow, TValue?> getter,
@@ -1637,7 +1637,7 @@ namespace CILAssemblyManipulator.Physical.Meta
          MetaDataColumnDataInformation information,
          ResolverCacheCreatorDelegate resolverCacheCreator,
          ResolverDelegate resolver,
-         Func<DefaultColumnSerializationInfo<TRawRow, TRow>> defaultSerializationInfo
+         Func<DefaultColumnSerializationInfo<TRow, TRawRow>> defaultSerializationInfo
          )
          : base( getter, setter )
       {
@@ -1645,10 +1645,10 @@ namespace CILAssemblyManipulator.Physical.Meta
 
          this.DataInformation = information;
          this.ResolvingHandler = resolver == null ? null : new MetaDataColumnInformationWithResolvingCapabilityWithCallbacks( resolverCacheCreator, resolver );
-         this._serializationInfo = defaultSerializationInfo == null ? null : new Lazy<DefaultColumnSerializationInfo<TRawRow, TRow>>( defaultSerializationInfo, System.Threading.LazyThreadSafetyMode.ExecutionAndPublication );
+         this._serializationInfo = defaultSerializationInfo == null ? null : new Lazy<DefaultColumnSerializationInfo<TRow, TRawRow>>( defaultSerializationInfo, System.Threading.LazyThreadSafetyMode.ExecutionAndPublication );
       }
 
-      public DefaultColumnSerializationInfo<TRawRow, TRow> DefaultColumnSerializationInfoWithRawType
+      public DefaultColumnSerializationInfo<TRow, TRawRow> DefaultColumnSerializationInfoWithRawType
       {
          get
          {

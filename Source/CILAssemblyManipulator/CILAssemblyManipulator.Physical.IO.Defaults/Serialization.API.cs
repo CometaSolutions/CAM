@@ -1635,7 +1635,7 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
    /// The <see cref="TableSerializationLogicalFunctionality"/> is agnostic to the byte size of a single row, that is what <see cref="TableSerializationBinaryFunctionality"/> is for, obtaineable by <see cref="CreateBinaryFunctionality"/> method.
    /// </summary>
    /// <remarks>
-   /// This interface is implemented by <see cref="TableSerializationLogicalFunctionalityImpl{TRawRow, TRow}"/>.
+   /// This interface is implemented by <see cref="TableSerializationLogicalFunctionalityImpl{TRow, TRawRow}"/>.
    /// </remarks>
    public interface TableSerializationLogicalFunctionality
    {

@@ -65,7 +65,7 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
    /// <param name="args">The <see cref="TableSerializationBinaryFunctionalityCreationArgs"/> containing information to create <see cref="ColumnSerializationBinaryFunctionality"/>.</param>
    /// <returns>A new instance of <see cref="ColumnSerializationBinaryFunctionality"/>.</returns>
    /// <remarks>
-   /// This delegate is used by <see cref="DefaultTableSerializationFunctionality{TRawRow, TRow}"/> in order to create <see cref="ColumnSerializationBinaryFunctionality"/> instances.
+   /// This delegate is used by <see cref="TableSerializationBinaryFunctionalityImpl{TRow, TRawRow}"/> in order to create <see cref="ColumnSerializationBinaryFunctionality"/> instances.
    /// </remarks>
    public delegate ColumnSerializationBinaryFunctionality CreateSerializationSupportDelegate( TableSerializationBinaryFunctionalityCreationArgs args );
 
@@ -76,7 +76,7 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
    /// <param name="rawRow">The instance of the raw row.</param>
    /// <param name="value">The integer value to set.</param>
    /// <remarks>
-   /// This delegate is used by <see cref="DefaultTableSerializationFunctionality{TRawRow, TRow}.ReadRawRow"/> to set columns of the raw row.
+   /// This delegate is used by <see cref="TableSerializationBinaryFunctionalityImpl{TRow, TRawRow}.ReadRawRow"/> to set columns of the raw row.
    /// </remarks>
    public delegate void RawRowColumnSetterDelegate<in TRawRow>( TRawRow rawRow, Int32 value );
 
@@ -89,7 +89,7 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
    /// <param name="args">The <see cref="ColumnValueArgs{TRow, TRowArgs}"/> containing row and <see cref="RowReadingArguments"/>.</param>
    /// <param name="value">The value, as integer.</param>
    /// <remarks>
-   /// This delegate is used by <see cref="DefaultTableSerializationFunctionality{TRawRow, TRow}.ReadRows"/> method for setting column values for rows.
+   /// This delegate is used by <see cref="TableSerializationBinaryFunctionalityImpl{TRow, TRawRow}.ReadRows"/> method for setting column values for rows.
    /// </remarks>
    public delegate void RowColumnNormalSetterDelegate<TRow>( ColumnValueArgs<TRow, RowReadingArguments> args, Int32 value )
       where TRow : class;
@@ -103,7 +103,7 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
    /// <param name="args">The <see cref="ColumnValueArgs{TRow, TRowArgs}"/> containing row and <see cref="DataReferencesProcessingArgs"/>.</param>
    /// <param name="dataReference">The data reference, as integer.</param>
    /// <remarks>
-   /// This delegate is used by <see cref="TableSerializationLogicalFunctionalityImpl{TRawRow, TRow}.PopulateDataReferences"/> when setting data reference columns.
+   /// This delegate is used by <see cref="TableSerializationLogicalFunctionalityImpl{TRow, TRawRow}.PopulateDataReferences"/> when setting data reference columns.
    /// </remarks>
    public delegate void RowColumnDataReferenceSetterDelegate<TRow>( ColumnValueArgs<TRow, DataReferencesProcessingArgs> args, Int32 dataReference )
       where TRow : class;
@@ -115,7 +115,7 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
    /// <param name="args">The <see cref="ColumnValueArgs{TRow, TRowArgs}"/> containing row and <see cref="RowHeapFillingArguments"/>.</param>
    /// <returns>An index to other meta data stream for the related column of this row.</returns>
    /// <remarks>
-   /// This delegate is used by <see cref="TableSerializationLogicalFunctionalityImpl{TRawRow, TRow}.ExtractMetaDataStreamReferences"/> when populating other meta data streams.
+   /// This delegate is used by <see cref="TableSerializationLogicalFunctionalityImpl{TRow, TRawRow}.ExtractMetaDataStreamReferences"/> when populating other meta data streams.
    /// </remarks>
    public delegate Int32 RowHeapColumnGetterDelegate<TRow>( ColumnValueArgs<TRow, RowHeapFillingArguments> args )
       where TRow : class;
@@ -142,7 +142,7 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
    /// The instances of this class are not meant to be directly created.
    /// Instead, use methods of <see cref="MetaDataColumnInformationFactory"/> or <see cref="DefaultColumnSerializationInfoFactory"/>.
    /// </remarks>
-   public class DefaultColumnSerializationInfo<TRawRow, TRow> // : DefaultColumnSerializationInfo<TRow>
+   public class DefaultColumnSerializationInfo<TRow, TRawRow> // : DefaultColumnSerializationInfo<TRow>
       where TRawRow : class
       where TRow : class
    {
@@ -329,7 +329,7 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
    }
 
    /// <summary>
-   /// This is static class used to create instances of <see cref="DefaultColumnSerializationInfo{TRawRow, TRow}"/>.
+   /// This is static class used to create instances of <see cref="DefaultColumnSerializationInfo{TRow, TRawRow}"/>.
    /// </summary>
    /// <remarks>
    /// This class and methods of it are typically not meant to be used directly, instead one should use <see cref="MetaDataColumnInformationFactory"/>.
@@ -337,15 +337,15 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
    public static class DefaultColumnSerializationInfoFactory
    {
       /// <summary>
-      /// Returns a <see cref="DefaultColumnSerializationInfo{TRawRow, TRow}"/> for <c>1</c>-byte value embedded in table stream.
+      /// Returns a <see cref="DefaultColumnSerializationInfo{TRow, TRawRow}"/> for <c>1</c>-byte value embedded in table stream.
       /// </summary>
       /// <typeparam name="TRawRow">The type of the raw row.</typeparam>
       /// <typeparam name="TRow">The type of the normal row (part of the tables in <see cref="CILMetaData"/>).</typeparam>
       /// <param name="rawSetter">The <see cref="RawRowColumnSetterDelegate{TRawRow}"/>.</param>
       /// <param name="setter">The <see cref="RowColumnSetterDelegate{TRow, TValue}"/>.</param>
       /// <param name="getter">The <see cref="RowColumnGetterDelegate{TRow, TValue}"/>.</param>
-      /// <returns>A new instance of <see cref="DefaultColumnSerializationInfo{TRawRow, TRow}"/>.</returns>
-      public static DefaultColumnSerializationInfo<TRawRow, TRow> Constant8<TRawRow, TRow>(
+      /// <returns>A new instance of <see cref="DefaultColumnSerializationInfo{TRow, TRawRow}"/>.</returns>
+      public static DefaultColumnSerializationInfo<TRow, TRawRow> Constant8<TRow, TRawRow>(
          RawRowColumnSetterDelegate<TRawRow> rawSetter,
          RowColumnSetterDelegate<TRow, Byte> setter,
          RowColumnGetterDelegate<TRow, Byte> getter
@@ -353,7 +353,7 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
          where TRawRow : class
          where TRow : class
       {
-         return new DefaultColumnSerializationInfo<TRawRow, TRow>(
+         return new DefaultColumnSerializationInfo<TRow, TRawRow>(
             args => ColumnSerializationSupport_Constant8.Instance,
             rawSetter,
             ( args, v ) => setter( args.Row, (Byte) v ),
@@ -362,15 +362,15 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
       }
 
       /// <summary>
-      /// Returns a <see cref="DefaultColumnSerializationInfo{TRawRow, TRow}"/> for <c>2</c>-byte value embedded in table stream.
+      /// Returns a <see cref="DefaultColumnSerializationInfo{TRow, TRawRow}"/> for <c>2</c>-byte value embedded in table stream.
       /// </summary>
       /// <typeparam name="TRawRow">The type of the raw row.</typeparam>
       /// <typeparam name="TRow">The type of the normal row (part of the tables in <see cref="CILMetaData"/>).</typeparam>
       /// <param name="rawSetter">The <see cref="RawRowColumnSetterDelegate{TRawRow}"/>.</param>
       /// <param name="setter">The <see cref="RowColumnSetterDelegate{TRow, TValue}"/>.</param>
       /// <param name="getter">The <see cref="RowColumnGetterDelegate{TRow, TValue}"/>.</param>
-      /// <returns>A new instance of <see cref="DefaultColumnSerializationInfo{TRawRow, TRow}"/>.</returns>
-      public static DefaultColumnSerializationInfo<TRawRow, TRow> Constant16<TRawRow, TRow>(
+      /// <returns>A new instance of <see cref="DefaultColumnSerializationInfo{TRow, TRawRow}"/>.</returns>
+      public static DefaultColumnSerializationInfo<TRow, TRawRow> Constant16<TRow, TRawRow>(
          RawRowColumnSetterDelegate<TRawRow> rawSetter,
          RowColumnSetterDelegate<TRow, Int16> setter,
          RowColumnGetterDelegate<TRow, Int16> getter
@@ -378,7 +378,7 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
          where TRawRow : class
          where TRow : class
       {
-         return new DefaultColumnSerializationInfo<TRawRow, TRow>(
+         return new DefaultColumnSerializationInfo<TRow, TRawRow>(
             args => ColumnSerializationSupport_Constant16.Instance,
             rawSetter,
             ( args, v ) => setter( args.Row, (Int16) v ),
@@ -387,15 +387,15 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
       }
 
       /// <summary>
-      /// Returns a <see cref="DefaultColumnSerializationInfo{TRawRow, TRow}"/> for <c>4</c>-byte value embedded in table stream.
+      /// Returns a <see cref="DefaultColumnSerializationInfo{TRow, TRawRow}"/> for <c>4</c>-byte value embedded in table stream.
       /// </summary>
       /// <typeparam name="TRawRow">The type of the raw row.</typeparam>
       /// <typeparam name="TRow">The type of the normal row (part of the tables in <see cref="CILMetaData"/>).</typeparam>
       /// <param name="rawSetter">The <see cref="RawRowColumnSetterDelegate{TRawRow}"/>.</param>
       /// <param name="setter">The <see cref="RowColumnSetterDelegate{TRow, TValue}"/>.</param>
       /// <param name="getter">The <see cref="RowColumnGetterDelegate{TRow, TValue}"/>.</param>
-      /// <returns>A new instance of <see cref="DefaultColumnSerializationInfo{TRawRow, TRow}"/>.</returns>
-      public static DefaultColumnSerializationInfo<TRawRow, TRow> Constant32<TRawRow, TRow>(
+      /// <returns>A new instance of <see cref="DefaultColumnSerializationInfo{TRow, TRawRow}"/>.</returns>
+      public static DefaultColumnSerializationInfo<TRow, TRawRow> Constant32<TRow, TRawRow>(
          RawRowColumnSetterDelegate<TRawRow> rawSetter,
          RowColumnSetterDelegate<TRow, Int32> setter,
          RowColumnGetterDelegate<TRow, Int32> getter
@@ -403,7 +403,7 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
          where TRawRow : class
          where TRow : class
       {
-         return new DefaultColumnSerializationInfo<TRawRow, TRow>(
+         return new DefaultColumnSerializationInfo<TRow, TRawRow>(
             args => ColumnSerializationSupport_Constant32.Instance,
             rawSetter,
             ( args, v ) => setter( args.Row, v ),
@@ -412,7 +412,7 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
       }
 
       /// <summary>
-      /// Returns a <see cref="DefaultColumnSerializationInfo{TRawRow, TRow}"/> for column value, which is table index into one pre-defined table.
+      /// Returns a <see cref="DefaultColumnSerializationInfo{TRow, TRawRow}"/> for column value, which is table index into one pre-defined table.
       /// </summary>
       /// <typeparam name="TRawRow">The type of the raw row.</typeparam>
       /// <typeparam name="TRow">The type of the normal row (part of the tables in <see cref="CILMetaData"/>).</typeparam>
@@ -420,8 +420,8 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
       /// <param name="rawSetter">The <see cref="RawRowColumnSetterDelegate{TRawRow}"/>.</param>
       /// <param name="setter">The <see cref="RowColumnSetterDelegate{TRow, TValue}"/>.</param>
       /// <param name="getter">The <see cref="RowColumnGetterDelegate{TRow, TValue}"/>.</param>
-      /// <returns>A new instance of <see cref="DefaultColumnSerializationInfo{TRawRow, TRow}"/>.</returns>
-      public static DefaultColumnSerializationInfo<TRawRow, TRow> SimpleReference<TRawRow, TRow>(
+      /// <returns>A new instance of <see cref="DefaultColumnSerializationInfo{TRow, TRawRow}"/>.</returns>
+      public static DefaultColumnSerializationInfo<TRow, TRawRow> SimpleReference<TRow, TRawRow>(
          Tables targetTable,
          RawRowColumnSetterDelegate<TRawRow> rawSetter,
          RowColumnSetterDelegate<TRow, TableIndex> setter,
@@ -430,7 +430,7 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
          where TRawRow : class
          where TRow : class
       {
-         return new DefaultColumnSerializationInfo<TRawRow, TRow>(
+         return new DefaultColumnSerializationInfo<TRow, TRawRow>(
             args => args.TableSizes[(Int32) targetTable] >= UInt16.MaxValue ? ColumnSerializationSupport_Constant32.Instance : ColumnSerializationSupport_Constant16.Instance,
             rawSetter,
             ( args, value ) =>
@@ -445,7 +445,7 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
       }
 
       /// <summary>
-      /// Returns a <see cref="DefaultColumnSerializationInfo{TRawRow, TRow}"/> for column value, which is table index into a set of pre-defined tables.
+      /// Returns a <see cref="DefaultColumnSerializationInfo{TRow, TRawRow}"/> for column value, which is table index into a set of pre-defined tables.
       /// </summary>
       /// <typeparam name="TRawRow">The type of the raw row.</typeparam>
       /// <typeparam name="TRow">The type of the normal row (part of the tables in <see cref="CILMetaData"/>).</typeparam>
@@ -453,8 +453,8 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
       /// <param name="rawSetter">The <see cref="RawRowColumnSetterDelegate{TRawRow}"/>.</param>
       /// <param name="setter">The <see cref="RowColumnSetterDelegate{TRow, TValue}"/>.</param>
       /// <param name="getter">The <see cref="RowColumnGetterDelegate{TRow, TValue}"/>.</param>
-      /// <returns>A new instance of <see cref="DefaultColumnSerializationInfo{TRawRow, TRow}"/>.</returns>
-      public static DefaultColumnSerializationInfo<TRawRow, TRow> CodedReference<TRawRow, TRow>(
+      /// <returns>A new instance of <see cref="DefaultColumnSerializationInfo{TRow, TRawRow}"/>.</returns>
+      public static DefaultColumnSerializationInfo<TRow, TRawRow> CodedReference<TRow, TRawRow>(
          ArrayQuery<Int32?> targetTables,
          RawRowColumnSetterDelegate<TRawRow> rawSetter,
          RowColumnSetterDelegate<TRow, TableIndex?> setter,
@@ -465,7 +465,7 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
       {
          var decoder = new CodedTableIndexDecoder( targetTables );
 
-         return new DefaultColumnSerializationInfo<TRawRow, TRow>(
+         return new DefaultColumnSerializationInfo<TRow, TRawRow>(
             args => CodedTableIndexDecoder.GetCodedTableSize( args.TableSizes, targetTables ) < sizeof( Int32 ) ? ColumnSerializationSupport_Constant16.Instance : ColumnSerializationSupport_Constant32.Instance,
             rawSetter,
             ( args, value ) => setter( args.Row, decoder.DecodeTableIndex( value ) ),
@@ -474,15 +474,15 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
       }
 
       /// <summary>
-      /// Returns a <see cref="DefaultColumnSerializationInfo{TRawRow, TRow}"/> for column value, which is serialized as reference to <c>"#Blob"</c> meta data stream.
+      /// Returns a <see cref="DefaultColumnSerializationInfo{TRow, TRawRow}"/> for column value, which is serialized as reference to <c>"#Blob"</c> meta data stream.
       /// </summary>
       /// <typeparam name="TRawRow">The type of the raw row.</typeparam>
       /// <typeparam name="TRow">The type of the normal row (part of the tables in <see cref="CILMetaData"/>).</typeparam>
       /// <param name="rawSetter">The <see cref="RawRowColumnSetterDelegate{TRawRow}"/>.</param>
       /// <param name="setter">The callback to set the value.</param>
       /// <param name="blobCreator">The callback to create byte array from the value.</param>
-      /// <returns>A new instance of <see cref="DefaultColumnSerializationInfo{TRawRow, TRow}"/>.</returns>
-      public static DefaultColumnSerializationInfo<TRawRow, TRow> BLOB<TRawRow, TRow>(
+      /// <returns>A new instance of <see cref="DefaultColumnSerializationInfo{TRow, TRawRow}"/>.</returns>
+      public static DefaultColumnSerializationInfo<TRow, TRawRow> BLOB<TRow, TRawRow>(
          RawRowColumnSetterDelegate<TRawRow> rawSetter,
          Action<ColumnValueArgs<TRow, RowReadingArguments>, Int32, ReaderBLOBStreamHandler> setter, // TODO delegat-ize these
          Func<ColumnValueArgs<TRow, RowHeapFillingArguments>, Byte[]> blobCreator
@@ -490,7 +490,7 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
          where TRawRow : class
          where TRow : class
       {
-         return HeapIndex<TRawRow, TRow>(
+         return HeapIndex<TRow, TRawRow>(
             MetaDataConstants.BLOB_STREAM_NAME,
             rawSetter,
             ( args, value ) => setter( args, value, args.RowArgs.MDStreamContainer.BLOBs ),
@@ -499,15 +499,15 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
       }
 
       /// <summary>
-      /// Returns a <see cref="DefaultColumnSerializationInfo{TRawRow, TRow}"/> for column value, which is serialized as reference to <c>"#GUID"</c> meta data stream.
+      /// Returns a <see cref="DefaultColumnSerializationInfo{TRow, TRawRow}"/> for column value, which is serialized as reference to <c>"#GUID"</c> meta data stream.
       /// </summary>
       /// <typeparam name="TRawRow">The type of the raw row.</typeparam>
       /// <typeparam name="TRow">The type of the normal row (part of the tables in <see cref="CILMetaData"/>).</typeparam>
       /// <param name="rawSetter">The <see cref="RawRowColumnSetterDelegate{TRawRow}"/>.</param>
       /// <param name="setter">The <see cref="RowColumnSetterDelegate{TRow, TValue}"/>.</param>
       /// <param name="getter">The <see cref="RowColumnGetterDelegate{TRow, TValue}"/>.</param>
-      /// <returns>A new instance of <see cref="DefaultColumnSerializationInfo{TRawRow, TRow}"/>.</returns>
-      public static DefaultColumnSerializationInfo<TRawRow, TRow> GUID<TRawRow, TRow>(
+      /// <returns>A new instance of <see cref="DefaultColumnSerializationInfo{TRow, TRawRow}"/>.</returns>
+      public static DefaultColumnSerializationInfo<TRow, TRawRow> GUID<TRow, TRawRow>(
          RawRowColumnSetterDelegate<TRawRow> rawSetter,
          RowColumnSetterDelegate<TRow, Guid?> setter,
          RowColumnGetterDelegate<TRow, Guid?> getter
@@ -515,7 +515,7 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
          where TRawRow : class
          where TRow : class
       {
-         return HeapIndex<TRawRow, TRow>(
+         return HeapIndex<TRow, TRawRow>(
             MetaDataConstants.GUID_STREAM_NAME,
             rawSetter,
             ( args, value ) => setter( args.Row, args.RowArgs.MDStreamContainer.GUIDs.GetGUID( value ) ),
@@ -524,15 +524,15 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
       }
 
       /// <summary>
-      /// Returns a <see cref="DefaultColumnSerializationInfo{TRawRow, TRow}"/> for column value, which is serialized as reference to <c>"#Strings"</c> meta data stream.
+      /// Returns a <see cref="DefaultColumnSerializationInfo{TRow, TRawRow}"/> for column value, which is serialized as reference to <c>"#Strings"</c> meta data stream.
       /// </summary>
       /// <typeparam name="TRawRow">The type of the raw row.</typeparam>
       /// <typeparam name="TRow">The type of the normal row (part of the tables in <see cref="CILMetaData"/>).</typeparam>
       /// <param name="rawSetter">The <see cref="RawRowColumnSetterDelegate{TRawRow}"/>.</param>
       /// <param name="setter">The <see cref="RowColumnSetterDelegate{TRow, TValue}"/>.</param>
       /// <param name="getter">The <see cref="RowColumnGetterDelegate{TRow, TValue}"/>.</param>
-      /// <returns>A new instance of <see cref="DefaultColumnSerializationInfo{TRawRow, TRow}"/>.</returns>
-      public static DefaultColumnSerializationInfo<TRawRow, TRow> SystemString<TRawRow, TRow>(
+      /// <returns>A new instance of <see cref="DefaultColumnSerializationInfo{TRow, TRawRow}"/>.</returns>
+      public static DefaultColumnSerializationInfo<TRow, TRawRow> SystemString<TRow, TRawRow>(
          RawRowColumnSetterDelegate<TRawRow> rawSetter,
          RowColumnSetterDelegate<TRow, String> setter,
          RowColumnGetterDelegate<TRow, String> getter
@@ -540,7 +540,7 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
          where TRawRow : class
          where TRow : class
       {
-         return HeapIndex<TRawRow, TRow>(
+         return HeapIndex<TRow, TRawRow>(
             MetaDataConstants.SYS_STRING_STREAM_NAME,
             rawSetter,
             ( args, value ) => setter( args.Row, args.RowArgs.MDStreamContainer.SystemStrings.GetString( value ) ),
@@ -549,7 +549,7 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
       }
 
       /// <summary>
-      /// Returns a <see cref="DefaultColumnSerializationInfo{TRawRow, TRow}"/> for column value, which is serialized as reference to meta data stream with given name.
+      /// Returns a <see cref="DefaultColumnSerializationInfo{TRow, TRawRow}"/> for column value, which is serialized as reference to meta data stream with given name.
       /// </summary>
       /// <typeparam name="TRawRow">The type of the raw row.</typeparam>
       /// <typeparam name="TRow">The type of the normal row (part of the tables in <see cref="CILMetaData"/>).</typeparam>
@@ -557,8 +557,8 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
       /// <param name="rawSetter">The <see cref="RawRowColumnSetterDelegate{TRawRow}"/>.</param>
       /// <param name="setter">The <see cref="RowColumnSetterDelegate{TRow, TValue}"/>.</param>
       /// <param name="heapValueExtractor">The <see cref="RowHeapColumnGetterDelegate{TRow}"/>.</param>
-      /// <returns>A new instance of <see cref="DefaultColumnSerializationInfo{TRawRow, TRow}"/>.</returns>
-      public static DefaultColumnSerializationInfo<TRawRow, TRow> HeapIndex<TRawRow, TRow>(
+      /// <returns>A new instance of <see cref="DefaultColumnSerializationInfo{TRow, TRawRow}"/>.</returns>
+      public static DefaultColumnSerializationInfo<TRow, TRawRow> HeapIndex<TRow, TRawRow>(
          String heapName,
          RawRowColumnSetterDelegate<TRawRow> rawSetter,
          RowColumnNormalSetterDelegate<TRow> setter,
@@ -568,7 +568,7 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
          where TRow : class
       {
 
-         return new DefaultColumnSerializationInfo<TRawRow, TRow>(
+         return new DefaultColumnSerializationInfo<TRow, TRawRow>(
             heapName,
             rawSetter,
             ( args, value ) =>
@@ -583,15 +583,15 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
       }
 
       /// <summary>
-      /// Returns a <see cref="DefaultColumnSerializationInfo{TRawRow, TRow}"/> for column value, which is serialized as reference to data somewhere in image.
+      /// Returns a <see cref="DefaultColumnSerializationInfo{TRow, TRawRow}"/> for column value, which is serialized as reference to data somewhere in image.
       /// </summary>
       /// <typeparam name="TRawRow">The type of the raw row.</typeparam>
       /// <typeparam name="TRow">The type of the normal row (part of the tables in <see cref="CILMetaData"/>).</typeparam>
       /// <param name="rawSetter">The <see cref="RawRowColumnSetterDelegate{TRawRow}"/>.</param>
       /// <param name="dataReferenceSetter">The <see cref="RowColumnDataReferenceSetterDelegate{TRow}"/>.</param>
       /// <param name="dataReferenceColumnSectionPartCreator">The <see cref="DataReferenceColumnSectionPartCreationDelegate{TRow}"/>.</param>
-      /// <returns>A new instance of <see cref="DefaultColumnSerializationInfo{TRawRow, TRow}"/>.</returns>
-      public static DefaultColumnSerializationInfo<TRawRow, TRow> DataReferenceColumn<TRawRow, TRow>(
+      /// <returns>A new instance of <see cref="DefaultColumnSerializationInfo{TRow, TRawRow}"/>.</returns>
+      public static DefaultColumnSerializationInfo<TRow, TRawRow> DataReferenceColumn<TRow, TRawRow>(
          RawRowColumnSetterDelegate<TRawRow> rawSetter,
          RowColumnDataReferenceSetterDelegate<TRow> dataReferenceSetter,
          DataReferenceColumnSectionPartCreationDelegate<TRow> dataReferenceColumnSectionPartCreator
@@ -599,7 +599,7 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
          where TRawRow : class
          where TRow : class
       {
-         return new DefaultColumnSerializationInfo<TRawRow, TRow>(
+         return new DefaultColumnSerializationInfo<TRow, TRawRow>(
             args => ColumnSerializationSupport_Constant32.Instance,
             rawSetter,
             dataReferenceSetter,
@@ -810,7 +810,7 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
    }
 
    /// <summary>
-   /// This class implements <see cref="TableSerializationLogicalFunctionality"/> using the callbacks of given <see cref="DefaultColumnSerializationInfo{TRawRow, TRow}"/>s.
+   /// This class implements <see cref="TableSerializationLogicalFunctionality"/> by using the callbacks of given <see cref="DefaultColumnSerializationInfo{TRow, TRawRow}"/>s.
    /// </summary>
    /// <typeparam name="TRawRow">The type of the raw row.</typeparam>
    /// <typeparam name="TRow">The type of the normal row (part of the tables in <see cref="CILMetaData"/>).</typeparam>
@@ -819,22 +819,22 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
    /// </remarks>
    /// <seealso cref="MetaDataTableInformation{TRow, TRawRow}"/>
    /// <seealso cref="MetaDataTableInformation{TRow, TRawRow}.CreateTableSerializationInfo"/>
-   public class TableSerializationLogicalFunctionalityImpl<TRawRow, TRow> : TableSerializationLogicalFunctionality
+   public class TableSerializationLogicalFunctionalityImpl<TRow, TRawRow> : TableSerializationLogicalFunctionality
       where TRawRow : class
       where TRow : class
    {
 
-      private readonly DefaultColumnSerializationInfo<TRawRow, TRow>[] _columns;
+      private readonly DefaultColumnSerializationInfo<TRow, TRawRow>[] _columns;
       private readonly Func<TRow> _rowFactory;
       private readonly Func<TRawRow> _rawRowFactory;
       private readonly TableSerializationLogicalFunctionalityCreationArgs _creationArgs;
 
       /// <summary>
-      /// Creates a new instance of <see cref="TableSerializationLogicalFunctionalityImpl{TRawRow, TRow}"/> with given parameters.
+      /// Creates a new instance of <see cref="TableSerializationLogicalFunctionalityImpl{TRow, TRawRow}"/> with given parameters.
       /// </summary>
       /// <param name="table">The table ID, as <see cref="Tables"/> enumeration.</param>
       /// <param name="isSorted">Whether this table is marked as sorted in <see cref="MetaDataTableStreamHeader.SortedTablesBitVector"/>.</param>
-      /// <param name="columns">The enumerable of <see cref="DefaultColumnSerializationInfo{TRawRow, TRow}"/>s containing callbacks to use by this <see cref="TableSerializationLogicalFunctionalityImpl{TRawRow, TRow}"/>.</param>
+      /// <param name="columns">The enumerable of <see cref="DefaultColumnSerializationInfo{TRow, TRawRow}"/>s containing callbacks to use by this <see cref="TableSerializationLogicalFunctionalityImpl{TRow, TRawRow}"/>.</param>
       /// <param name="rowFactory">The callback to create a blank normal row.</param>
       /// <param name="rawRowFactory">The callback to create a blank raw row.</param>
       /// <param name="args">The <see cref="TableSerializationLogicalFunctionalityCreationArgs"/> containing e.g. error handler.</param>
@@ -842,7 +842,7 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
       public TableSerializationLogicalFunctionalityImpl(
          Tables table,
          Boolean isSorted,
-         IEnumerable<DefaultColumnSerializationInfo<TRawRow, TRow>> columns,
+         IEnumerable<DefaultColumnSerializationInfo<TRow, TRawRow>> columns,
          Func<TRow> rowFactory,
          Func<TRawRow> rawRowFactory,
          TableSerializationLogicalFunctionalityCreationArgs args
@@ -907,7 +907,7 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
       }
 
       /// <summary>
-      /// This method implements <see cref="TableSerializationLogicalFunctionality.PopulateDataReferences"/> by utilizing the <see cref="DefaultColumnSerializationInfo{TRawRow, TRow}.DataReferenceSetter"/> callback.
+      /// This method implements <see cref="TableSerializationLogicalFunctionality.PopulateDataReferences"/> by utilizing the <see cref="DefaultColumnSerializationInfo{TRow, TRawRow}.DataReferenceSetter"/> callback.
       /// </summary>
       /// <param name="args">The <see cref="DataReferencesProcessingArgs"/>.</param>
       public void PopulateDataReferences(
@@ -956,7 +956,7 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
       }
 
       /// <summary>
-      /// This method implements the <see cref="TableSerializationLogicalFunctionality.CreateDataReferenceSectionParts"/> by utilizing the <see cref="DefaultColumnSerializationInfo{TRawRow, TRow}.DataReferenceColumnSectionPartCreator"/> callback.
+      /// This method implements the <see cref="TableSerializationLogicalFunctionality.CreateDataReferenceSectionParts"/> by utilizing the <see cref="DefaultColumnSerializationInfo{TRow, TRawRow}.DataReferenceColumnSectionPartCreator"/> callback.
       /// </summary>
       /// <param name="md">The <see cref="CILMetaData"/>.</param>
       /// <param name="mdStreamContainer">The <see cref="WriterMetaDataStreamContainer"/>.</param>
@@ -977,7 +977,7 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
       }
 
       /// <summary>
-      /// This method implements the <see cref="TableSerializationLogicalFunctionality.ExtractMetaDataStreamReferences"/> by utilizing <see cref="DefaultColumnSerializationInfo{TRawRow, TRow}.HeapValueExtractor"/> callback.
+      /// This method implements the <see cref="TableSerializationLogicalFunctionality.ExtractMetaDataStreamReferences"/> by utilizing <see cref="DefaultColumnSerializationInfo{TRow, TRawRow}.HeapValueExtractor"/> callback.
       /// </summary>
       /// <param name="md">The <see cref="CILMetaData"/>.</param>
       /// <param name="storage">The <see cref="ColumnValueStorage{TValue}"/> to store meta data references.</param>
@@ -1027,7 +1027,7 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
       }
 
       /// <summary>
-      /// This method implements the <see cref="TableSerializationLogicalFunctionality.GetAllRawValues"/> by utilizing the <see cref="DefaultColumnSerializationInfo{TRawRow, TRow}.ConstantExtractor"/>, or extracting value from given <see cref="ColumnValueStorage{TValue}"/> of meta data stream references or from given data references array.
+      /// This method implements the <see cref="TableSerializationLogicalFunctionality.GetAllRawValues"/> by utilizing the <see cref="DefaultColumnSerializationInfo{TRow, TRawRow}.ConstantExtractor"/>, or extracting value from given <see cref="ColumnValueStorage{TValue}"/> of meta data stream references or from given data references array.
       /// </summary>
       /// <param name="table">The <see cref="MetaDataTable"/>.</param>
       /// <param name="dataReferences">The data references array.</param>
@@ -1075,16 +1075,16 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
       }
 
       /// <summary>
-      /// This method implements <see cref="TableSerializationLogicalFunctionality.CreateBinaryFunctionality"/> by returning instance of <see cref="DefaultTableSerializationFunctionality{TRawRow, TRow}"/>.
+      /// This method implements <see cref="TableSerializationLogicalFunctionality.CreateBinaryFunctionality"/> by returning instance of <see cref="TableSerializationBinaryFunctionalityImpl{TRow, TRawRow}"/>.
       /// </summary>
-      /// <param name="supportArgs"></param>
-      /// <returns></returns>
-      public TableSerializationBinaryFunctionality CreateBinaryFunctionality( TableSerializationBinaryFunctionalityCreationArgs supportArgs )
+      /// <param name="binaryCreationArg">The <see cref="TableSerializationBinaryFunctionalityCreationArgs"/>.</param>
+      /// <returns>A new instance of <see cref="TableSerializationBinaryFunctionalityImpl{TRow, TRawRow}"/>.</returns>
+      public TableSerializationBinaryFunctionality CreateBinaryFunctionality( TableSerializationBinaryFunctionalityCreationArgs binaryCreationArg )
       {
-         return new DefaultTableSerializationFunctionality<TRawRow, TRow>(
+         return new TableSerializationBinaryFunctionalityImpl<TRow, TRawRow>(
             this,
             this._columns,
-            supportArgs,
+            binaryCreationArg,
             this._rowFactory,
             this._rawRowFactory,
             this._creationArgs.ErrorHandler
@@ -1092,7 +1092,20 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
       }
    }
 
-   public class DefaultTableSerializationFunctionality<TRawRow, TRow> : TableSerializationBinaryFunctionality
+   /// <summary>
+   /// This class implements the <see cref="TableSerializationBinaryFunctionality"/> by using the callbacks of given <see cref="DefaultColumnSerializationInfo{TRow, TRawRow}"/>s.
+   /// </summary>
+   /// <typeparam name="TRow">The type of the normal row (part of the tables in <see cref="CILMetaData"/>).</typeparam>
+   /// <typeparam name="TRawRow">The type of the raw row.</typeparam>
+   /// <remarks>
+   /// This class is not meant to be instanced directly, instead use the <see cref="TableSerializationLogicalFunctionalityImpl{TRow, TRawRow}.CreateBinaryFunctionality"/> method.
+   /// The <see cref="TableSerializationLogicalFunctionalityImpl{TRow, TRawRow}"/> themselves are created by <see cref="MetaDataTableInformation{TRow, TRawRow}.CreateTableSerializationInfo"/>.
+   /// </remarks>
+   /// <seealso cref="TableSerializationLogicalFunctionalityImpl{TRow, TRawRow}"/>
+   /// <seealso cref="TableSerializationLogicalFunctionalityImpl{TRow, TRawRow}.CreateBinaryFunctionality"/>
+   /// <seealso cref="MetaDataTableInformation{TRow, TRawRow}"/>
+   /// <seealso cref="MetaDataTableInformation{TRow, TRawRow}.CreateTableSerializationInfo"/>
+   public class TableSerializationBinaryFunctionalityImpl<TRow, TRawRow> : TableSerializationBinaryFunctionality
       where TRawRow : class
       where TRow : class
    {
@@ -1106,7 +1119,7 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
          private readonly RawRowColumnSetterDelegate<TRawRow> _rawSetter;
 
          internal ColumnSerializationInstance(
-            DefaultColumnSerializationInfo<TRawRow, TRow> serializationInfo,
+            DefaultColumnSerializationInfo<TRow, TRawRow> serializationInfo,
             TableSerializationBinaryFunctionalityCreationArgs args
             )
          {
@@ -1132,7 +1145,7 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
       private sealed class ColumnSerializationInstance_RawValue : ColumnSerializationInstance
       {
          internal ColumnSerializationInstance_RawValue(
-            DefaultColumnSerializationInfo<TRawRow, TRow> serializationInfo,
+            DefaultColumnSerializationInfo<TRow, TRawRow> serializationInfo,
             TableSerializationBinaryFunctionalityCreationArgs args
             )
             : base( serializationInfo, args )
@@ -1155,7 +1168,7 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
          private readonly EventHandler<SerializationErrorEventArgs> _errorHandler;
 
          internal ColumnSerializationInstance_NormalValue(
-            DefaultColumnSerializationInfo<TRawRow, TRow> serializationInfo,
+            DefaultColumnSerializationInfo<TRow, TRawRow> serializationInfo,
             TableSerializationBinaryFunctionalityCreationArgs args,
             Tables table,
             Int32 columnIndex,
@@ -1188,9 +1201,18 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
          }
       }
 
-      public DefaultTableSerializationFunctionality(
+      /// <summary>
+      /// Creates a new instance of <see cref="TableSerializationBinaryFunctionalityImpl{TRow, TRawRow}"/> with given parameters.
+      /// </summary>
+      /// <param name="tableSerializationInfo">The <see cref="TableSerializationLogicalFunctionality"/> which created this <see cref="TableSerializationBinaryFunctionalityImpl{TRow, TRawRow}"/>.</param>
+      /// <param name="columns">The enumerable of <see cref="DefaultColumnSerializationInfo{TRow, TRawRow}"/>.</param>
+      /// <param name="args">The <see cref="TableSerializationBinaryFunctionalityCreationArgs"/>.</param>
+      /// <param name="rowFactory">The callback to create blank normal rows.</param>
+      /// <param name="rawRowFactory">The callback to create blank raw rows.</param>
+      /// <param name="errorHandler">The error handler callback.</param>
+      public TableSerializationBinaryFunctionalityImpl(
          TableSerializationLogicalFunctionality tableSerializationInfo,
-         IEnumerable<DefaultColumnSerializationInfo<TRawRow, TRow>> columns,
+         IEnumerable<DefaultColumnSerializationInfo<TRow, TRawRow>> columns,
          TableSerializationBinaryFunctionalityCreationArgs args,
          Func<TRow> rowFactory,
          Func<TRawRow> rawRowFactory,
@@ -1215,10 +1237,29 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
          this.LogicalFunctionality = tableSerializationInfo;
       }
 
+      /// <summary>
+      /// Gets the <see cref="TableSerializationLogicalFunctionality"/> which created this <see cref="TableSerializationBinaryFunctionalityImpl{TRow, TRawRow}"/>.
+      /// </summary>
+      /// <value>The <see cref="TableSerializationLogicalFunctionality"/> which created this <see cref="TableSerializationBinaryFunctionalityImpl{TRow, TRawRow}"/>.</value>
+      /// <seealso cref="TableSerializationLogicalFunctionality"/>
+      /// <seealso cref="TableSerializationLogicalFunctionalityImpl{TRow, TRawRow}"/>
       public TableSerializationLogicalFunctionality LogicalFunctionality { get; }
 
+      /// <summary>
+      /// Gets the array of <see cref="ColumnSerializationBinaryFunctionality"/> responsible for serializing and deserializing column values.
+      /// </summary>
+      /// <value>The array of <see cref="ColumnSerializationBinaryFunctionality"/> responsible for serializing and deserializing column values.</value>
+      /// <seealso cref="ColumnSerializationBinaryFunctionality"/>
       public ArrayQuery<ColumnSerializationBinaryFunctionality> ColumnSerializationSupports { get; }
 
+      /// <summary>
+      /// This method implements the <see cref="TableSerializationBinaryFunctionality.ReadRows"/> method by storing data reference value into <see cref="RowReadingArguments.DataReferencesStorage"/> for data reference columns, and utilizing the <see cref="DefaultColumnSerializationInfo{TRow, TRawRow}.Setter"/> callback for other columns.
+      /// </summary>
+      /// <param name="table">The <see cref="MetaDataTable"/> to fill.</param>
+      /// <param name="tableRowCount">The amount of rows to read.</param>
+      /// <param name="array">The byte array where to read raw integer values.</param>
+      /// <param name="index">The index in <paramref name="array"/> where to start reading.</param>
+      /// <param name="args">The <see cref="RowReadingArguments"/>.</param>
       public void ReadRows(
          MetaDataTable table,
          Int32 tableRowCount,
@@ -1246,6 +1287,12 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
          }
       }
 
+      /// <summary>
+      /// This method implements the <see cref="TableSerializationBinaryFunctionality.ReadRawRow"/> method by utilizing the <see cref="DefaultColumnSerializationInfo{TRow, TRawRow}.RawSetter"/> callback.
+      /// </summary>
+      /// <param name="array">The array where to read row from.</param>
+      /// <param name="idx">The index in <paramref name="array"/> where to start reading.</param>
+      /// <returns>An instance of raw row.</returns>
       public Object ReadRawRow( Byte[] array, Int32 idx )
       {
          var row = this._rawRowFactory();
@@ -1258,9 +1305,19 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
 
    }
 
+   /// <summary>
+   /// This class implements <see cref="ColumnSerializationBinaryFunctionality"/> for integers serialized as <c>1</c>-byte values.
+   /// </summary>
+   /// <remarks>
+   /// This is stateless singleton class, instance of which are accessible through <see cref="Instance"/> static property.
+   /// </remarks>
    public sealed class ColumnSerializationSupport_Constant8 : ColumnSerializationBinaryFunctionality
    {
 
+      /// <summary>
+      /// Gets the instance of this <see cref="ColumnSerializationSupport_Constant8"/>.
+      /// </summary>
+      /// <value>The instance of this <see cref="ColumnSerializationSupport_Constant8"/>.</value>
       public static ColumnSerializationBinaryFunctionality Instance { get; }
 
       static ColumnSerializationSupport_Constant8()
@@ -1273,7 +1330,10 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
 
       }
 
-
+      /// <summary>
+      /// Implements the <see cref="ColumnSerializationBinaryFunctionality.ColumnByteCount"/>, returning <c>1</c>.
+      /// </summary>
+      /// <value>The value <c>1</c>.</value>
       public Int32 ColumnByteCount
       {
          get
@@ -1282,18 +1342,41 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
          }
       }
 
+      /// <summary>
+      /// Implements the <see cref="ColumnSerializationBinaryFunctionality.ReadRawValue"/>, reading one byte from the given array.
+      /// </summary>
+      /// <param name="array">The byte array to read value from.</param>
+      /// <param name="idx">The index in <paramref name="array"/> where to start reading.</param>
+      /// <returns>The integer value of deserialized <see cref="Byte"/>.</returns>
       public Int32 ReadRawValue( Byte[] array, Int32 idx )
       {
          return array[idx];
       }
 
+      /// <summary>
+      /// Implements the <see cref="ColumnSerializationBinaryFunctionality.WriteValue"/>, writing one byte into given array.
+      /// </summary>
+      /// <param name="bytes">The array to write value to.</param>
+      /// <param name="idx">The index in <paramref name="array"/> where to start writing.</param>
+      /// <param name="value">The value to write.</param>
       public void WriteValue( Byte[] bytes, Int32 idx, Int32 value )
       {
          bytes.WriteByteToBytes( ref idx, (Byte) value );
       }
    }
+
+   /// <summary>
+   /// This class implements <see cref="ColumnSerializationBinaryFunctionality"/> for integers serialized as <c>2</c>-byte values.
+   /// </summary>
+   /// <remarks>
+   /// This is stateless singleton class, instance of which are accessible through <see cref="Instance"/> static property.
+   /// </remarks>
    public sealed class ColumnSerializationSupport_Constant16 : ColumnSerializationBinaryFunctionality
    {
+      /// <summary>
+      /// Gets the instance of this <see cref="ColumnSerializationSupport_Constant16"/>.
+      /// </summary>
+      /// <value>The instance of this <see cref="ColumnSerializationSupport_Constant16"/>.</value>
       public static ColumnSerializationBinaryFunctionality Instance { get; }
 
       static ColumnSerializationSupport_Constant16()
@@ -1306,6 +1389,10 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
 
       }
 
+      /// <summary>
+      /// Implements the <see cref="ColumnSerializationBinaryFunctionality.ColumnByteCount"/>, returning <c>2</c>.
+      /// </summary>
+      /// <value>The value <c>2</c>.</value>
       public Int32 ColumnByteCount
       {
          get
@@ -1314,19 +1401,41 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
          }
       }
 
+      /// <summary>
+      /// Implements the <see cref="ColumnSerializationBinaryFunctionality.ReadRawValue"/>, reading two bytes from the given array and interpreting them as little-endian <see cref="UInt16"/>.
+      /// </summary>
+      /// <param name="array">The byte array to read value from.</param>
+      /// <param name="idx">The index in <paramref name="array"/> where to start reading.</param>
+      /// <returns>The integer value of deserialized <see cref="UInt16"/>.</returns>
       public Int32 ReadRawValue( Byte[] array, Int32 idx )
       {
          return array.ReadUInt16LEFromBytesNoRef( idx );
       }
 
+      /// <summary>
+      /// Implements the <see cref="ColumnSerializationBinaryFunctionality.WriteValue"/>, writing two bytes into given array, as little-endian <see cref="UInt16"/>.
+      /// </summary>
+      /// <param name="bytes">The array to write value to.</param>
+      /// <param name="idx">The index in <paramref name="array"/> where to start writing.</param>
+      /// <param name="value">The value to write.</param>
       public void WriteValue( Byte[] bytes, Int32 idx, Int32 value )
       {
          bytes.WriteUInt16LEToBytes( ref idx, (UInt16) value );
       }
    }
 
+   /// <summary>
+   /// This class implements <see cref="ColumnSerializationBinaryFunctionality"/> for integers serialized as <c>4</c>-byte values.
+   /// </summary>
+   /// <remarks>
+   /// This is stateless singleton class, instance of which are accessible through <see cref="Instance"/> static property.
+   /// </remarks>
    public sealed class ColumnSerializationSupport_Constant32 : ColumnSerializationBinaryFunctionality
    {
+      /// <summary>
+      /// Gets the instance of this <see cref="ColumnSerializationSupport_Constant32"/>.
+      /// </summary>
+      /// <value>The instance of this <see cref="ColumnSerializationSupport_Constant32"/>.</value>
       public static ColumnSerializationBinaryFunctionality Instance { get; }
 
       static ColumnSerializationSupport_Constant32()
@@ -1339,6 +1448,10 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
 
       }
 
+      /// <summary>
+      /// Implements the <see cref="ColumnSerializationBinaryFunctionality.ColumnByteCount"/>, returning <c>4</c>.
+      /// </summary>
+      /// <value>The value <c>4</c>.</value>
       public Int32 ColumnByteCount
       {
          get
@@ -1347,11 +1460,23 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
          }
       }
 
+      /// <summary>
+      /// Implements the <see cref="ColumnSerializationBinaryFunctionality.ReadRawValue"/>, reading four bytes from the given array and interpreting them as little-endian <see cref="Int32"/>.
+      /// </summary>
+      /// <param name="array">The byte array to read value from.</param>
+      /// <param name="idx">The index in <paramref name="array"/> where to start reading.</param>
+      /// <returns>The integer value of deserialized <see cref="Int32"/>.</returns>
       public Int32 ReadRawValue( Byte[] array, Int32 idx )
       {
          return array.ReadInt32LEFromBytesNoRef( idx );
       }
 
+      /// <summary>
+      /// Implements the <see cref="ColumnSerializationBinaryFunctionality.WriteValue"/>, writing four bytes into given array, as little-endian <see cref="Int32"/>.
+      /// </summary>
+      /// <param name="bytes">The array to write value to.</param>
+      /// <param name="idx">The index in <paramref name="array"/> where to start writing.</param>
+      /// <param name="value">The value to write.</param>
       public void WriteValue( Byte[] bytes, Int32 idx, Int32 value )
       {
          bytes.WriteInt32LEToBytes( ref idx, value );
