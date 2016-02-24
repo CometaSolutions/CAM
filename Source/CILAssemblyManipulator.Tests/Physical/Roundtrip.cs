@@ -48,6 +48,24 @@ namespace CILAssemblyManipulator.Tests.Physical
          PerformRoundtripTest( MSCorLibLocation, ValidateAllIsResolved, ValidateAllIsResolved );
       }
 
+      [Test]
+      public void TestReadingAndWritingGUIDStream()
+      {
+         const String ASSEMBLY = "SimpleTestAssembly1";
+
+         var md = CILMetaDataFactory.CreateMinimalAssembly( ASSEMBLY, ASSEMBLY + ".dll" );
+         md.ModuleDefinitions.TableContents[0].EditAndContinueGUID = Guid.NewGuid();
+         CILMetaData md2;
+         using ( var stream = new MemoryStream() )
+         {
+            md.WriteModule( stream );
+            stream.Position = 0;
+            md2 = stream.ReadModule();
+         }
+
+         Assert.IsTrue( Comparers.MetaDataEqualityComparer.Equals( md, md2 ) );
+      }
+
       private static void PerformRoundtripTest( String fileLocation, Action<CILMetaData> afterFirstRead, Action<CILMetaData> afterSecondRead )
       {
 

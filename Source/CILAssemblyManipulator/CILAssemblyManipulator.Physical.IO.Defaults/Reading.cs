@@ -822,7 +822,7 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
       /// <returns>Deserialized <see cref="Guid"/>, or <c>null</c>.</returns>
       protected override Guid? ValueFactory( Int32 heapOffset )
       {
-         return new Guid( this.Bytes.CreateArrayCopy( heapOffset - 1, MetaDataConstants.GUID_SIZE ) );
+         return new Guid( this.Bytes.CreateArrayCopy( ( heapOffset - 1 ) * MetaDataConstants.GUID_SIZE, MetaDataConstants.GUID_SIZE ) );
       }
 
       /// <summary>
@@ -832,7 +832,7 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
       /// <returns><c>true</c> if heap offset is valid; <c>false</c> otherwise.</returns>
       protected override Boolean CheckHeapOffset( Int32 heapOffset )
       {
-         return (UInt32) heapOffset <= this.StreamSizeU32 - MetaDataConstants.GUID_SIZE + 1;
+         return ( ( (UInt32) heapOffset ) - 1 ) * MetaDataConstants.GUID_SIZE <= this.StreamSizeU32;
       }
    }
 
