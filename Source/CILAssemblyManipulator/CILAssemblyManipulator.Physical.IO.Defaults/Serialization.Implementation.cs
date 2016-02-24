@@ -121,17 +121,17 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
       where TRow : class;
 
    /// <summary>
-   /// This delegate defines signature for methods returning instances of <see cref="SectionPartWithDataReferenceTargets"/>, representing a continuous range of targets of data reference columns.
+   /// This delegate defines signature for methods returning instances of <see cref="SectionPartFunctionalityWithDataReferenceTargets"/>, representing a continuous range of targets of data reference columns.
    /// </summary>
    /// <typeparam name="TRow">The type of the row.</typeparam>
    /// <param name="md">The <see cref="CILMetaData"/>.</param>
    /// <param name="mdStreamContainer">The <see cref="WriterMetaDataStreamContainer"/> containing other streams.</param>
-   /// <returns>An instance of <see cref="SectionPartWithDataReferenceTargets"/>.</returns>
+   /// <returns>An instance of <see cref="SectionPartFunctionalityWithDataReferenceTargets"/>.</returns>
    /// <remarks>
-   /// For example, <see cref="MethodILDefinition"/> is a target for data reference column <see cref="MethodDefinition.IL"/>, so the returned <see cref="SectionPartWithDataReferenceTargets"/> could represent the serialized <see cref="MethodILDefinition"/>s.
+   /// For example, <see cref="MethodILDefinition"/> is a target for data reference column <see cref="MethodDefinition.IL"/>, so the returned <see cref="SectionPartFunctionalityWithDataReferenceTargets"/> could represent the serialized <see cref="MethodILDefinition"/>s.
    /// </remarks>
-   /// <seealso cref="SectionPartWithDataReferenceTargets"/>
-   public delegate SectionPartWithDataReferenceTargets DataReferenceColumnSectionPartCreationDelegate<TRow>( CILMetaData md, WriterMetaDataStreamContainer mdStreamContainer );
+   /// <seealso cref="SectionPartFunctionalityWithDataReferenceTargets"/>
+   public delegate SectionPartFunctionalityWithDataReferenceTargets DataReferenceColumnSectionPartCreationDelegate<TRow>( CILMetaData md, WriterMetaDataStreamContainer mdStreamContainer );
 
    /// <summary>
    /// This class combines all delegates participating in serializing and deserializing single column value of a single row.
@@ -301,9 +301,9 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
       public RowColumnDataReferenceSetterDelegate<TRow> DataReferenceSetter { get; }
 
       /// <summary>
-      /// Gets the <see cref="DataReferenceColumnSectionPartCreationDelegate{TRow}"/> used to create <see cref="SectionPartWithDataReferenceTargets"/> for data reference column targets.
+      /// Gets the <see cref="DataReferenceColumnSectionPartCreationDelegate{TRow}"/> used to create <see cref="SectionPartFunctionalityWithDataReferenceTargets"/> for data reference column targets.
       /// </summary>
-      /// <value>The <see cref="DataReferenceColumnSectionPartCreationDelegate{TRow}"/> used to create <see cref="SectionPartWithDataReferenceTargets"/> for data reference column targets.</value>
+      /// <value>The <see cref="DataReferenceColumnSectionPartCreationDelegate{TRow}"/> used to create <see cref="SectionPartFunctionalityWithDataReferenceTargets"/> for data reference column targets.</value>
       /// <remarks>
       /// This property is used during serialization (writing) process.
       /// </remarks>
@@ -960,8 +960,8 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
       /// </summary>
       /// <param name="md">The <see cref="CILMetaData"/>.</param>
       /// <param name="mdStreamContainer">The <see cref="WriterMetaDataStreamContainer"/>.</param>
-      /// <returns>An enumerable of <see cref="SectionPartWithDataReferenceTargets"/>.</returns>
-      public IEnumerable<SectionPartWithDataReferenceTargets> CreateDataReferenceSectionParts(
+      /// <returns>An enumerable of <see cref="SectionPartFunctionalityWithDataReferenceTargets"/>.</returns>
+      public IEnumerable<SectionPartFunctionalityWithDataReferenceTargets> CreateDataReferenceSectionParts(
          CILMetaData md,
          WriterMetaDataStreamContainer mdStreamContainer
       )

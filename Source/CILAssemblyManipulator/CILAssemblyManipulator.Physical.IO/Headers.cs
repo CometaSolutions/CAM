@@ -2690,6 +2690,11 @@ namespace CILAssemblyManipulator.Physical.IO
          dataDir.WriteDataDirectory( array, ref idx );
          return array;
       }
+
+      public static Int32 GetAlignedHeadersSize( this Int32 unalignedHeadersSize, Int32 fileAlign )
+      {
+         return unalignedHeadersSize.RoundUpI32( fileAlign );
+      }
    }
 
 #pragma warning restore 1591

@@ -1685,15 +1685,15 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
          );
 
       /// <summary>
-      /// This method creates a <see cref="SectionPartWithDataReferenceTargets"/> object for each of the data reference columns.
+      /// This method creates a <see cref="SectionPartFunctionalityWithDataReferenceTargets"/> object for each of the data reference columns.
       /// </summary>
       /// <param name="md">The <see cref="CILMetaData"/>.</param>
       /// <param name="mdStreamContainer">The <see cref="WriterMetaDataStreamContainer"/>.</param>
-      /// <returns>An enumeraboe of <see cref="SectionPartWithDataReferenceTargets"/>, one for each data reference column.</returns>
+      /// <returns>An enumeraboe of <see cref="SectionPartFunctionalityWithDataReferenceTargets"/>, one for each data reference column.</returns>
       /// <remarks>
       /// This method is used when serializing (writing) a module.
       /// </remarks>
-      IEnumerable<SectionPartWithDataReferenceTargets> CreateDataReferenceSectionParts(
+      IEnumerable<SectionPartFunctionalityWithDataReferenceTargets> CreateDataReferenceSectionParts(
          CILMetaData md,
          WriterMetaDataStreamContainer mdStreamContainer
          );

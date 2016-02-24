@@ -315,39 +315,33 @@ namespace CILAssemblyManipulator.Physical.IO
       /// <summary>
       /// Creates a new instance of <see cref="WritingStatus"/> with given parameters.
       /// </summary>
-      /// <param name="headersSizeUnaligned">The exact, unaligned size of the headers. See <see cref="HeadersSizeUnaligned"/> for more information.</param>
       /// <param name="machine">The <see cref="ImageFileMachine"/> enumeration describing the target machine for the image.</param>
       /// <param name="fileAlignment">The optional file alignment. If none supplied, the default will be used.</param>
       /// <param name="sectionAlignment">The optional section alignment. If none supplied, the default will be used.</param>
       /// <param name="imageBase">The optional image base. If none supplied, the default will be used. This default will depend on the <paramref name="machine"/>.</param>
       /// <param name="strongNameVariables">The optional <see cref="IO.StrongNameInformation"/>, describing the public key information for the assembly being emitted. May be <c>null</c> if assembly is not strong-name signed.</param>
       /// <param name="dataDirCount">The amount of data directories in PE header (these will become <see cref="OptionalHeader.DataDirectories"/>). The amount of <see cref="PEDataDirectories"/> will be this amount.</param>
-      /// <param name="sectionsCount">The amount of sections in this image. The amount of <see cref="SectionHeaders"/> will be this amount.</param>
       public WritingStatus(
-         Int32 headersSizeUnaligned,
          ImageFileMachine machine,
          Int32? fileAlignment,
          Int32? sectionAlignment,
          Int64? imageBase,
          StrongNameInformation strongNameVariables,
-         Int32 dataDirCount,
-         Int32 sectionsCount
+         Int32 dataDirCount
          )
       {
          var fAlign = CheckAlignment( fileAlignment ?? DEFAULT_FILE_ALIGNMENT, DEFAULT_FILE_ALIGNMENT );
          var sAlign = CheckAlignment( sectionAlignment ?? DEFAULT_SECTION_ALIGNMENT, DEFAULT_SECTION_ALIGNMENT );
-         this.HeadersSizeUnaligned = headersSizeUnaligned;
          this.Machine = machine;
          this.FileAlignment = fAlign;
          this.SectionAlignment = sAlign;
          this.ImageBase = imageBase ?? ( machine.RequiresPE64() ? 0x0000000140000000 : 0x0000000000400000 );
          this.StrongNameInformation = strongNameVariables;
          this.PEDataDirectories = Enumerable.Repeat( default( DataDirectory ), dataDirCount ).ToArray();
-         this.SectionHeaders = Enumerable.Repeat<SectionHeader>( null, sectionsCount ).ToArray();
       }
 
       /// <summary>
-      /// Gets the exact, unaligned size of the headers.
+      /// Gets or sets the exact, unaligned size of the headers.
       /// </summary>
       /// <value>The exact, unaligned size of the headers.</value>
       /// <remarks>
@@ -358,7 +352,7 @@ namespace CILAssemblyManipulator.Physical.IO
       /// <item><description>all of the <see cref="SectionHeader"/>s.</description></item>
       /// </list>
       /// </remarks>
-      public Int32 HeadersSizeUnaligned { get; }
+      public Int32 HeadersSizeUnaligned { get; set; }
 
       /// <summary>
       /// Gets the <see cref="ImageFileMachine"/> of the image.
@@ -409,14 +403,14 @@ namespace CILAssemblyManipulator.Physical.IO
       public DataDirectory[] PEDataDirectories { get; }
 
       /// <summary>
-      /// Gets the <see cref="SectionHeader"/>s.
+      /// Gets or sets the <see cref="SectionHeader"/>s.
       /// </summary>
       /// <value>The <see cref="SectionHeader"/>s.</value>
       /// <remarks>
       /// The elements of this property should be modified during writing process by <see cref="WriterFunctionality"/> or the objects it creates.
       /// </remarks>
       /// <seealso cref="FileHeader.NumberOfSections"/>
-      public SectionHeader[] SectionHeaders { get; }
+      public SectionHeader[] SectionHeaders { get; set; }
 
       /// <summary>
       /// Gets or sets the optional entry point RVA.
@@ -698,14 +692,18 @@ public static partial class E_CILPhysical
          out mdRootSize
          )
          .CheckForSerializationException( "Data references" );
+      var sections = status.SectionHeaders
+         .CheckForSerializationException( "PE section headers" )
+         .ToArrayProxy().CQ;
 
       if ( rvaConverter == null )
       {
-         rvaConverter = new DefaultRVAConverter( status.SectionHeaders );
+         rvaConverter = new DefaultRVAConverter( sections );
       }
 
       // 5. Position stream after headers, and write whatever is needed before meta data
-      var headersSize = status.GetAlignedHeadersSize();
+      var headersSizeUnaligned = status.HeadersSizeUnaligned;
+      var headersSize = headersSizeUnaligned.GetAlignedHeadersSize( status.FileAlignment );
       stream.Position = headersSize;
       writer.BeforeMetaData( status, stream, array );
 
@@ -725,15 +723,12 @@ public static partial class E_CILPhysical
       writer.AfterMetaData( status, stream, array );
 
       // 8. Create and write image information
-      var cliOptions = options.CLIOptions;
       var snSignature = snVars == null ? null : new Byte[snVars.SignatureSize];
-      var cliHeaderOptions = cliOptions.HeaderOptions;
-      var thOptions = cliOptions.TablesStreamOptions;
       var machine = status.Machine;
       var peOptions = options.PEOptions;
       var optionalHeaderKind = machine.GetOptionalHeaderKind();
       var optionalHeaderSize = optionalHeaderKind.GetOptionalHeaderSize( status.PEDataDirectories.Length );
-      var sections = status.SectionHeaders.ToArrayProxy().CQ;
+
       var imageInfo = new ImageInformation(
          new PEInformation(
             new DOSHeader( 0x5A4D, 0x00000080u ),
@@ -781,7 +776,7 @@ public static partial class E_CILPhysical
          rvaConverter,
          snSignature,
          imageInfo.PEInformation,
-         status.HeadersSizeUnaligned
+         headersSizeUnaligned
          );
 
       return imageInfo;
@@ -1146,16 +1141,16 @@ public static partial class E_CILPhysical
    //   stream.Position = stream.Position.RoundUpI64( dataAlignment ) + dataSize;
    //}
 
-   /// <summary>
-   /// This is helper method to get the aligned size of the DOS and NT headers of the PE image.
-   /// </summary>
-   /// <param name="status">This <see cref="WritingStatus"/>.</param>
-   /// <returns>The aligned size of the DOS and NT headers, which will be <see cref="WritingStatus.HeadersSizeUnaligned"/> aligned to <see cref="WritingStatus.FileAlignment"/>.</returns>
-   /// <exception cref="NullReferenceException">If this <see cref="WritingStatus"/> is <c>null</c>.</exception>
-   public static Int32 GetAlignedHeadersSize( this WritingStatus status )
-   {
-      return status.HeadersSizeUnaligned.RoundUpI32( status.FileAlignment );
-   }
+   ///// <summary>
+   ///// This is helper method to get the aligned size of the DOS and NT headers of the PE image.
+   ///// </summary>
+   ///// <param name="status">This <see cref="WritingStatus"/>.</param>
+   ///// <returns>The aligned size of the DOS and NT headers, which will be <see cref="WritingStatus.HeadersSizeUnaligned"/> aligned to <see cref="WritingStatus.FileAlignment"/>.</returns>
+   ///// <exception cref="NullReferenceException">If this <see cref="WritingStatus"/> is <c>null</c>.</exception>
+   //public static Int32 GetAlignedHeadersSize( this WritingStatus status )
+   //{
+   //   return status.HeadersSizeUnaligned.RoundUpI32( status.FileAlignment );
+   //}
 
    private static T CheckForSerializationException<T>( this T value, String what, Boolean isProvider = false )
       where T : class

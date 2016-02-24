@@ -116,24 +116,16 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
       {
          var peOptions = this.WritingOptions.PEOptions;
          var machine = peOptions.Machine ?? ImageFileMachine.I386;
-         var sectionsCount = this.GetSectionCount( machine );
 
          var peDataDirCount = peOptions.NumberOfDataDirectories ?? (Int32) DataDirectories.MaxValue;
-         var optionalHeaderKind = machine.GetOptionalHeaderKind();
-         var optionalHeaderSize = optionalHeaderKind.GetOptionalHeaderSize( peDataDirCount );
+
          return this.DoCreateWritingStatus(
-            0x80 // DOS header size
-            + CAMIOInternals.PE_SIG_AND_FILE_HEADER_SIZE // PE Signature + File header size
-            + optionalHeaderSize // Optional header size
-            + sectionsCount * 0x28 // Sections
-            ,
             machine,
             peOptions.FileAlignment,
             peOptions.SectionAlignment,
             peOptions.ImageBase,
             snVars,
-            peDataDirCount,
-            sectionsCount
+            peDataDirCount
             );
       }
 
@@ -174,12 +166,11 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
       /// <remarks>
       /// This method works as follows.
       /// <list type="number">
-      /// <item><description>The <see cref="DefaultWritingStatus.DataReferencesSectionParts"/> enumerable is enumerated, causing user string meta data stream to be populated.</description></item>
       /// <item><description>The <see cref="MetaDataRoot"/> is created with <see cref="CreateMDRoot"/> method, and then the <see cref="WritingStatus.MDRoot"/> property is assigned. Also the <paramref name="mdRootSize"/> is assigned then too.</description></item>
-      /// <item><description>The section layout is calculated with <see cref="PopulateSections"/> method.</description></item>
-      /// <item><description>The <see cref="SectionLayoutAggregator"/> is created and populated, and <see cref="DefaultWritingStatus.SectionLayouts"/> is assigned.</description></item>
+      /// <item><description>The section layout is calculated with <see cref="CreateSectionLayouts"/> method.</description></item>
+      /// <item><description>The <see cref="ImageSectionsInfo"/> is created and populated, and <see cref="DefaultWritingStatus.SectionLayouts"/> along with <see cref="WritingStatus.SectionHeaders"/> are assigned.</description></item>
       /// <item><description>The <paramref name="rvaConverter"/> is assigned to the result of <see cref="CreateRVAConverter"/> method.</description></item>
-      /// <item><description>The <see cref="CLIHeader"/> is created and <see cref="WritingStatus.CLIHeader"/> property is assigned.</description></item>
+      /// <item><description>The <see cref="CLIHeader"/> is created with <see cref="CreateCLIHeader"/> methodand <see cref="WritingStatus.CLIHeader"/> property is assigned.</description></item>
       /// <item><description>Finally, the <see cref="DataReferencesInfo"/> is created from <see cref="DefaultWritingStatus.DataReferencesStorage"/> by <see cref="E_CILPhysical.CreateDataReferencesInfo"/> method.</description></item>
       /// </list>
       /// </remarks>
@@ -192,29 +183,20 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
       {
          var dStatus = (DefaultWritingStatus) writingStatus;
 
-         // Get raw value sections (IL, Field RVA, Embedded manifest resources)
-         // Enumerate right here, to force e.g. user-string heap initialization for method IL section part
-         // This will cause 'presentStreams' enumerable to also return user strings heap!
-         var rawSections = dStatus.DataReferencesSectionParts.ToArray();
-
          // MetaData
          Int32 mdSize;
          var mdRoot = this.CreateMDRoot( presentStreams, out mdRootSize, out mdSize );
          writingStatus.MDRoot = mdRoot;
 
          // Sections
-         var sectionLayoutInfos = new SectionLayoutAggregator( this.PopulateSections( dStatus, rawSections, mdRoot, mdSize ) );
+         var sectionLayoutInfos = new ImageSectionsInfo( this.CreateSectionLayouts( dStatus, mdRoot, mdSize ) );
 
          dStatus.SectionLayouts = sectionLayoutInfos;
-         var allLayouts = sectionLayoutInfos.LayoutInfos;
-         var sections = writingStatus.SectionHeaders;
-         for ( var i = 0; i < allLayouts.Count; ++i )
-         {
-            sections[i] = allLayouts[i].SectionHeader;
-         }
+         var sectionHeaders = sectionLayoutInfos.Sections.Select( s => s.SectionHeader ).ToArray();
+         dStatus.SectionHeaders = sectionHeaders;
 
          // RVA converter
-         rvaConverter = this.CreateRVAConverter( sections );
+         rvaConverter = this.CreateRVAConverter( sectionHeaders );
 
          // CLI Header
          writingStatus.CLIHeader = this.CreateCLIHeader( dStatus );
@@ -235,14 +217,14 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
          )
       {
          var dStatus = (DefaultWritingStatus) writingStatus;
-         foreach ( var section in dStatus.SectionLayouts.LayoutInfos )
+         foreach ( var section in dStatus.SectionLayouts.Sections )
          {
-            var parts = section.PartInfos;
+            var parts = section.Parts;
             if ( parts.Count > 0 )
             {
                // Write either whole section, or all parts up until metadata
                var idx = 0;
-               foreach ( var partLayout in parts.TakeWhile( p => !( p.Part is SectionPart_MetaData ) ) )
+               foreach ( var partLayout in parts.TakeWhile( p => !( p.Functionality is SectionPart_MetaData ) ) )
                {
                   // Write to ResizableArray
                   this.WritePart( partLayout, array, stream, dStatus );
@@ -296,9 +278,9 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
       {
          var dStatus = (DefaultWritingStatus) writingStatus;
          var mdEncountered = false;
-         foreach ( var section in dStatus.SectionLayouts.LayoutInfos.SkipWhile( s => !s.PartInfos.Any( p => p.Part is SectionPart_MetaData ) ) )
+         foreach ( var section in dStatus.SectionLayouts.Sections.SkipWhile( s => !s.Parts.Any( p => p.Functionality is SectionPart_MetaData ) ) )
          {
-            var parts = section.PartInfos;
+            var parts = section.Parts;
             if ( parts.Count > 0 )
             {
 
@@ -311,7 +293,7 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
                   }
                   else
                   {
-                     if ( partLayout.Part is SectionPart_MetaData )
+                     if ( partLayout.Functionality is SectionPart_MetaData )
                      {
                         mdEncountered = true;
                      }
@@ -351,48 +333,70 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
          stream.Write( array.Array, headersSize );
       }
 
+      /// <summary>
+      /// Gets the <see cref="CILMetaData"/> being serialized.
+      /// </summary>
+      /// <value>The <see cref="CILMetaData"/> being serialized.</value>
       protected CILMetaData MetaData { get; }
 
+      /// <summary>
+      /// Gets the <see cref="TableSerializationLogicalFunctionalityCreationArgs"/> used by table stream.
+      /// </summary>
+      /// <value>The <see cref="TableSerializationLogicalFunctionalityCreationArgs"/> used by table stream.</value>
       protected TableSerializationLogicalFunctionalityCreationArgs SerializationCreationArgs { get; }
 
+      /// <summary>
+      /// Gets the <see cref="CAMPhysicalIO::CILAssemblyManipulator.Physical.IO.WritingOptions"/> supplied to this <see cref="DefaultWriterFunctionality"/>.
+      /// </summary>
+      /// <value>The <see cref="CAMPhysicalIO::CILAssemblyManipulator.Physical.IO.WritingOptions"/> supplied to this <see cref="DefaultWriterFunctionality"/>.</value>
+      /// <remarks>
+      /// This value is never <c>null</c>.
+      /// </remarks>
       protected WritingOptions WritingOptions { get; }
 
-      protected virtual Int32 GetSectionCount( ImageFileMachine machine )
-      {
-         var retVal = this.GetMinimumSectionCount();
-         if ( !machine.RequiresPE64() )
-         {
-            ++retVal; // Relocs
-         }
-         return retVal;
-      }
-
-      protected virtual Int32 GetMinimumSectionCount()
-      {
-         return 1;
-      }
-
+      /// <summary>
+      /// This method is called by <see cref="CalculateImageLayout"/> after the section layout has been done.
+      /// Creates an instance of <see cref="DefaultRVAConverter"/> with given <see cref="SectionHeader"/>s.
+      /// </summary>
+      /// <param name="headers">All the <see cref="SectionHeader"/>s of the image being emitted.</param>
+      /// <returns>An instance of <see cref="DefaultRVAConverter"/>.</returns>
       protected virtual RVAConverter CreateRVAConverter( IEnumerable<SectionHeader> headers )
       {
          return new DefaultRVAConverter( headers );
       }
 
-      protected virtual IEnumerable<SectionLayoutInfo> PopulateSections(
+      /// <summary>
+      /// This method is called by <see cref="CalculateImageLayout"/> in order to produce enumerable of <see cref="SectionLayout"/>s, one for each section.
+      /// It does so by calling <see cref="CreateSectionDescriptions"/>, and then building <see cref="SectionLayout"/> for each returned <see cref="SectionDescription"/>.
+      /// </summary>
+      /// <param name="writingStatus">The <see cref="DefaultWritingStatus"/>, with its <see cref="DefaultWritingStatus.DataReferencesStorage"/> and <see cref="DefaultWritingStatus.DataReferencesSectionParts"/> values set by table stream.</param>
+      /// <param name="mdRoot">The <see cref="MetaDataRoot"/> created by <see cref="CreateMDRoot"/> method.</param>
+      /// <param name="mdSize">The calculated size of the meta data.</param>
+      /// <returns>An enumerable of <see cref="SectionLayout"/>s, one for each sections.</returns>
+      /// <seealso cref="SectionLayout"/>
+      protected virtual IEnumerable<SectionLayout> CreateSectionLayouts(
          DefaultWritingStatus writingStatus,
-         IEnumerable<SectionPartWithDataReferenceTargets> rawValueSectionParts,
          MetaDataRoot mdRoot,
          Int32 mdSize
          )
       {
-         var encoding = Encoding.UTF8;
+         // It's important to call 'ToArray()' here, so we won't iterate layouts twice (since there is foreach loop later)
+         var sectionLayouts = this.CreateSectionDescriptions( writingStatus, mdSize ).ToArray();
+         var sectionsCount = sectionLayouts.Length;
+         var optionalHeaderSize = writingStatus.Machine.GetOptionalHeaderKind().GetOptionalHeaderSize( writingStatus.PEDataDirectories.Length );
+         var headersSize = 0x80 // DOS header size
+            + CAMIOInternals.PE_SIG_AND_FILE_HEADER_SIZE // PE Signature + File header size
+            + optionalHeaderSize // Optional header size
+            + sectionsCount * 0x28; // Sections
+         writingStatus.HeadersSizeUnaligned = headersSize;
+
          var fAlign = writingStatus.FileAlignment;
          var sAlign = (UInt32) writingStatus.SectionAlignment;
-         var curPointer = (UInt32) writingStatus.GetAlignedHeadersSize();
+         var curPointer = (UInt32) headersSize.GetAlignedHeadersSize( fAlign );
          var curRVA = sAlign;
-
-         foreach ( var layout in this.GetSectionLayouts( writingStatus, mdSize, rawValueSectionParts ) )
+         foreach ( var layout in sectionLayouts )
          {
-            var layoutInfo = new SectionLayoutInfo(
+            var layoutInfo = new SectionLayout(
                layout,
                curPointer,
                curRVA,
@@ -410,6 +414,13 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
          }
       }
 
+      /// <summary>
+      /// This method is called by <see cref="CalculateImageLayout"/> in order to create <see cref="MetaDataRoot"/> describing meta data properties.
+      /// </summary>
+      /// <param name="presentStreams">Description of all meta data streams, that will be present.</param>
+      /// <param name="mdRootSize">This parameter should have the size of the <see cref="MetaDataRoot"/>, in bytes.</param>
+      /// <param name="mdSize">This parameter should have the size of whole meta data (root, and all streams), in bytes.</param>
+      /// <returns>An instance of <see cref="MetaDataRoot"/>.</returns>
       protected virtual MetaDataRoot CreateMDRoot(
          IEnumerable<StreamHandlerInfo> presentStreams,
          out Int32 mdRootSize,
@@ -431,7 +442,7 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
             mdOptions.Reserved ?? 0x00000000,
             (UInt32) mdVersionBytes.Count,
             mdVersionBytes,
-            mdOptions.StorageFlags ?? (StorageFlags) 0,
+            mdOptions.StorageFlags ?? 0,
             mdOptions.Reserved2 ?? 0,
             (UInt16) streamNamesBytes.Length,
             streamNamesBytes
@@ -449,14 +460,23 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
       }
 
 
-      protected virtual IEnumerable<SectionLayout> GetSectionLayouts(
-         WritingStatus writingStatus,
-         Int32 mdSize,
-         IEnumerable<SectionPartWithDataReferenceTargets> rawValueSectionParts
+      /// <summary>
+      /// This method is called by <see cref="CreateSectionLayouts"/> in order to produce enumerable of <see cref="SectionDescription"/>s, one for each section.
+      /// </summary>
+      /// <param name="writingStatus">The <see cref="DefaultWritingStatus"/>.</param>
+      /// <param name="mdSize">The size of the meta data, as calculated previously by <see cref="CreateMDRoot"/> method.</param>
+      /// <returns>An enumerable of <see cref="SectionDescription"/>s, one for each </returns>
+      /// <remarks>
+      /// When customizing the sections of the image being emitted, this is the method that should be overridden.
+      /// </remarks>
+      /// <seealso cref="SectionDescription"/>
+      protected virtual IEnumerable<SectionDescription> CreateSectionDescriptions(
+         DefaultWritingStatus writingStatus,
+         Int32 mdSize
          )
       {
          // 1. Text section
-         yield return new SectionLayout( this.GetTextSectionParts( writingStatus, mdSize, rawValueSectionParts ) )
+         yield return new SectionDescription( this.GetTextSectionParts( writingStatus, mdSize ) )
          {
             Name = ".text",
             Characteristics = SectionHeaderCharacteristics.Memory_Execute | SectionHeaderCharacteristics.Memory_Read | SectionHeaderCharacteristics.Contains_Code
@@ -467,7 +487,7 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
          // 3. Relocation section
          if ( !writingStatus.Machine.RequiresPE64() )
          {
-            yield return new SectionLayout( new SectionPart[] { new SectionPart_RelocDirectory( writingStatus.Machine ) } )
+            yield return new SectionDescription( new SectionPartFunctionality[] { new SectionPart_RelocDirectory( writingStatus.Machine ) } )
             {
                Name = ".reloc",
                Characteristics = SectionHeaderCharacteristics.Memory_Read | SectionHeaderCharacteristics.Memory_Discardable | SectionHeaderCharacteristics.Contains_InitializedData
@@ -475,33 +495,63 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
          }
       }
 
+      /// <summary>
+      /// This method is called by <see cref="CreateWritingStatus"/>, after doing some processing for parameters, which should be common for all scenarios.
+      /// </summary>
+      /// <param name="machine">The <see cref="ImageFileMachine"/> of the image being emitted.</param>
+      /// <param name="fileAlignment">The file alignment.</param>
+      /// <param name="sectionAlignment">The section alignment.</param>
+      /// <param name="imageBase">The image base address.</param>
+      /// <param name="strongNameVariables">The <see cref="StrongNameInformation"/>, or <c>null</c>.</param>
+      /// <param name="dataDirCount">The amount of PE data directories in optional header.</param>
+      /// <returns>A new instance of <see cref="DefaultWritingStatus"/>.</returns>
       protected virtual DefaultWritingStatus DoCreateWritingStatus(
-         Int32 headersSize,
          ImageFileMachine machine,
          Int32? fileAlignment,
          Int32? sectionAlignment,
          Int64? imageBase,
          StrongNameInformation strongNameVariables,
-         Int32 dataDirCount,
-         Int32 sectionsCount
+         Int32 dataDirCount
          )
       {
          return new DefaultWritingStatus(
-            headersSize,
             machine,
             fileAlignment,
             sectionAlignment,
             imageBase,
             strongNameVariables,
-            dataDirCount,
-            sectionsCount
+            dataDirCount
             );
       }
 
-      protected virtual IEnumerable<SectionPart> GetTextSectionParts(
-         WritingStatus writingStatus,
-         Int32 mdSize,
-         IEnumerable<SectionPartWithDataReferenceTargets> rawValueSectionParts
+      /// <summary>
+      /// This method is called by <see cref="CreateSectionDescriptions"/> when the <see cref="SectionPartFunctionality"/>s for <c>.text</c> section of the image are being collected.
+      /// </summary>
+      /// <param name="writingStatus">The <see cref="DefaultWritingStatus"/>.</param>
+      /// <param name="mdSize">The meta data size, in bytes.</param>
+      /// <returns>An enumerable of <see cref="SectionPartFunctionality"/>s making up the <c>.text</c> section.</returns>
+      /// <remarks>
+      /// <para>
+      /// More specifically, the returned <see cref="SectionPartFunctionality"/>s are these, in the following order:
+      /// <list type="number">
+      /// <item><description><see cref="SectionPart_ImportAddressTable"/>,</description></item>
+      /// <item><description><see cref="SectionPart_CLIHeader"/>,</description></item>
+      /// <item><description><see cref="SectionPart_StrongNameSignature"/>,</description></item>
+      /// <item><description>all <see cref="SectionPartFunctionalityWithDataReferenceTargets"/> in <see cref="DefaultWritingStatus.DataReferencesSectionParts"/>,</description></item>
+      /// <item><description><see cref="SectionPart_MetaData"/>,</description></item>
+      /// <item><description><see cref="SectionPart_ImportDirectory"/>,</description></item>
+      /// <item><description><see cref="SectionPart_StartupCode"/>,</description></item>
+      /// <item><description><see cref="SectionPart_DebugDirectory"/>,</description></item>
+      /// </list>
+      /// </para>
+      /// <para>
+      /// Finally, note that when building <see cref="SectionLayout"/>s in order to get final <see cref="SectionHeader"/>s, the <see cref="SectionPartFunctionality"/>s with zero size are discarded.
+      /// So not all <see cref="SectionPartFunctionality"/>s returned by this method are always included in the final image.
+      /// </para>
+      /// </remarks>
+      protected virtual IEnumerable<SectionPartFunctionality> GetTextSectionParts(
+         DefaultWritingStatus writingStatus,
+         Int32 mdSize
          )
       {
          var options = this.WritingOptions;
@@ -517,7 +567,7 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
          yield return new SectionPart_StrongNameSignature( writingStatus.StrongNameInformation, machine );
 
          // 4. Method IL, Field RVAs, Embedded Manifests
-         foreach ( var rawValueSectionPart in rawValueSectionParts )
+         foreach ( var rawValueSectionPart in writingStatus.DataReferencesSectionParts )
          {
             yield return rawValueSectionPart;
          }
@@ -541,44 +591,49 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
          yield return new SectionPart_DebugDirectory( options.DebugOptions );
       }
 
+      /// <summary>
+      /// This method is called by <see cref="BeforeMetaData"/> and <see cref="AfterMetaData"/> for each <see cref="SectionPart"/> that should be written to stream.
+      /// </summary>
+      /// <param name="part">The <see cref="SectionPart"/> to write.</param>
+      /// <param name="array">The auxiliary byte array to use.</param>
+      /// <param name="stream">The stream to write the <paramref name="part"/> to.</param>
+      /// <param name="writingStatus">The <see cref="DefaultWritingStatus"/>.</param>
       protected void WritePart(
-         SectionPartInfo partLayout,
+         SectionPart part,
          ResizableArray<Byte> array,
          Stream stream,
          DefaultWritingStatus writingStatus
          )
       {
-         if ( stream.Position != partLayout.Offset - partLayout.PrePadding )
+         if ( stream.Position != part.Offset - part.PrePadding )
          {
             // TODO better exception type
-            throw new BadImageFormatException( "Internal error: stream position for " + partLayout.Part + " was calculated to be " + ( partLayout.Offset - partLayout.PrePadding ) + ", but was " + stream.Position + "." );
+            throw new BadImageFormatException( "Internal error: stream position for " + part.Functionality + " was calculated to be " + ( part.Offset - part.PrePadding ) + ", but was " + stream.Position + "." );
          }
 
          // Write to ResizableArray
-         partLayout.Part.WriteData( new SectionPartWritingArgs(
+         part.Functionality.WriteData( new SectionPartWritingArgs(
             stream,
             array,
-            partLayout.PrePadding,
-            partLayout.Size,
+            part.PrePadding,
+            part.Size,
             writingStatus
             ) );
       }
 
+      /// <summary>
+      /// This method is called by <see cref="CalculateImageLayout"/> in order to create <see cref="CLIHeader"/>.
+      /// </summary>
+      /// <param name="writingStatus">The <see cref="DefaultWritingStatus"/>.</param>
+      /// <returns>A new instance of <see cref="CLIHeader"/>.</returns>
       protected virtual CLIHeader CreateCLIHeader(
          DefaultWritingStatus writingStatus
          )
       {
-         var partInfos = writingStatus.SectionLayouts.SectionPartInfos;
-         var parts = partInfos.Keys;
-         var embeddedResources = parts
-            .OfType<SectionPartWithDataReferenceTargets>()
-            .FirstOrDefault( p => p.RelatedTable == Tables.ManifestResource );
-         var snData = parts
-            .OfType<SectionPart_StrongNameSignature>()
-            .FirstOrDefault();
-         var md = parts
-            .OfType<SectionPart_MetaData>()
-            .FirstOrDefault();
+         var imageSections = writingStatus.SectionLayouts;
+         var embeddedResources = imageSections.GetSectionPartWithFunctionalityOfType<SectionPartFunctionalityWithDataReferenceTargets>( f => f.RelatedTable == Tables.ManifestResource );
+         var snData = imageSections.GetSectionPartWithFunctionalityOfType<SectionPart_StrongNameSignature>();
+         var md = imageSections.GetSectionPartWithFunctionalityOfType<SectionPart_MetaData>();
          var options = this.WritingOptions.CLIOptions.HeaderOptions;
          var flags = options.ModuleFlags ?? ModuleFlags.ILOnly;
          if ( writingStatus.StrongNameInformation != null )
@@ -609,11 +664,11 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
                SectionPart_CLIHeader.HEADER_SIZE,
                (UInt16) ( options.MajorRuntimeVersion ?? 2 ),
                (UInt16) ( options.MinorRuntimeVersion ?? 5 ),
-               partInfos.GetDataDirectoryForSectionPart( md ),
+               md.GetDataDirectory(),
                flags,
                (UInt32) ep,
-               partInfos.GetDataDirectoryForSectionPart( embeddedResources ),
-               partInfos.GetDataDirectoryForSectionPart( snData ),
+               embeddedResources.GetDataDirectory(),
+               snData.GetDataDirectory(),
                default( DataDirectory ), // TODO: customize code manager
                default( DataDirectory ), // TODO: customize vtable fixups
                default( DataDirectory ), // TODO: customize exported address table jumps
@@ -623,33 +678,76 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
 
    }
 
+   /// <summary>
+   /// This class specializes <see cref="WritingStatus"/> to hold some additional information regarding section layout and data reference columns.
+   /// </summary>
    public class DefaultWritingStatus : WritingStatus
    {
+      /// <summary>
+      /// Creates a new instance of <see cref="DefaultWritingStatus"/> with given parameters.
+      /// </summary>
+      /// <param name="machine"></param>
+      /// <param name="fileAlignment"></param>
+      /// <param name="sectionAlignment"></param>
+      /// <param name="imageBase"></param>
+      /// <param name="strongNameVariables"></param>
+      /// <param name="dataDirCount"></param>
       public DefaultWritingStatus(
-         Int32 headersSize,
          ImageFileMachine machine,
          Int32? fileAlignment,
          Int32? sectionAlignment,
          Int64? imageBase,
          StrongNameInformation strongNameVariables,
-         Int32 dataDirCount,
-         Int32 sectionsCount
-         ) : base( headersSize, machine, fileAlignment, sectionAlignment, imageBase, strongNameVariables, dataDirCount, sectionsCount )
+         Int32 dataDirCount
+         ) : base( machine, fileAlignment, sectionAlignment, imageBase, strongNameVariables, dataDirCount )
       {
 
       }
 
-      public SectionLayoutAggregator SectionLayouts { get; set; }
+      /// <summary>
+      /// Gets or sets the <see cref="ImageSectionsInfo"/> containing information about all the sections of the image being emitted.
+      /// </summary>
+      /// <value>The <see cref="ImageSectionsInfo"/> containing information about all the sections of the image being emitted.</value>
+      /// <remarks>
+      /// This property is set by <see cref="DefaultWriterFunctionality.CalculateImageLayout"/> method.
+      /// </remarks>
+      public ImageSectionsInfo SectionLayouts { get; set; }
 
+      /// <summary>
+      /// Gets or sets the <see cref="ColumnValueStorage{TValue}"/> holding values for all data reference columns in <see cref="CILMetaData"/> being written.
+      /// </summary>
+      /// <value>The <see cref="ColumnValueStorage{TValue}"/> holding values for all data reference columns in <see cref="CILMetaData"/> being written.</value>
+      /// <remarks>
+      /// This property is set by <see cref="DefaultWriterTableStreamHandler.FillOtherMDStreams"/> method.
+      /// </remarks>
       public ColumnValueStorage<Int64> DataReferencesStorage { get; set; }
 
-      public IEnumerable<SectionPartWithDataReferenceTargets> DataReferencesSectionParts { get; set; }
+      /// <summary>
+      /// Gets or sets the <see cref="SectionPartFunctionalityWithDataReferenceTargets"/> objects in order to write the data for the data reference columns in <see cref="CILMetaData"/>  being written.
+      /// </summary>
+      /// <value>The <see cref="SectionPartFunctionalityWithDataReferenceTargets"/> objects in order to write the data for the data reference columns in <see cref="CILMetaData"/>  being written.</value>
+      /// <remarks>
+      /// This property is set by <see cref="DefaultWriterTableStreamHandler.FillOtherMDStreams"/> method.
+      /// </remarks>
+      public ArrayQuery<SectionPartFunctionalityWithDataReferenceTargets> DataReferencesSectionParts { get; set; }
    }
 
-   public class SectionLayoutInfo
+   /// <summary>
+   /// This class contains the final information about single section, with complete <see cref="CAMPhysicalIO::CILAssemblyManipulator.Physical.IO.SectionHeader"/> and an array of <see cref="SectionPart"/>s describing the byte size and offset of each continuous chunk in the section.
+   /// </summary>
+   public class SectionLayout
    {
-      public SectionLayoutInfo(
-         SectionLayout layout,
+      /// <summary>
+      /// Creates a new <see cref="SectionLayout"/> from given <see cref="SectionDescription"/>, and using given parameters to calculate the data for <see cref="SectionHeader"/>.
+      /// </summary>
+      /// <param name="layout">The <see cref="SectionDescription"/> object, containing the <see cref="SectionPartFunctionality"/>s constituting the section.</param>
+      /// <param name="sectionStartOffset">The absolute offset, in bytes, where this section starts.</param>
+      /// <param name="sectionStartRVA">The RVA where this section starts.</param>
+      /// <param name="fileAlignment">The file alignment.</param>
+      /// <param name="rawValues">The <see cref="ColumnValueStorage{TValue}"/> for data reference columns of <see cref="CILMetaData"/>. This constructor will call <see cref="SectionPartFunctionality.GetDataSize"/>, where this <see cref="ColumnValueStorage{TValue}"/> is populated.</param>
+      /// <exception cref="ArgumentNullException">If <paramref name="layout"/> is <c>null</c>.</exception>
+      public SectionLayout(
+         SectionDescription layout,
          Int64 sectionStartOffset,
          TRVA sectionStartRVA,
          Int32 fileAlignment,
@@ -661,8 +759,8 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
          var curRVA = sectionStartRVA;
          var curOffset = sectionStartOffset;
 
-         var list = new List<SectionPartInfo>( layout.Parts.Count );
-         foreach ( var part in layout.Parts )
+         var list = new List<SectionPart>( layout.Functionalities.Count );
+         foreach ( var part in layout.Functionalities )
          {
             var includePart = part != null;
             if ( includePart )
@@ -675,7 +773,7 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
                   curOffset += prePadding;
                   curRVA += prePadding;
 
-                  list.Add( new SectionPartInfo( part, prePadding, size, curOffset, curRVA ) );
+                  list.Add( new SectionPart( part, prePadding, size, curOffset, curRVA ) );
 
                   curOffset += (UInt32) size;
                   curRVA += (UInt32) size;
@@ -683,7 +781,7 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
             }
          }
 
-         this.PartInfos = list.ToArrayProxy().CQ;
+         this.Parts = list.ToArrayProxy().CQ;
          var nameBytes = layout.NameBytes;
          var virtualSize = (UInt32) ( curOffset - sectionStartOffset );
          this.SectionHeader = new SectionHeader(
@@ -701,72 +799,160 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
 
       }
 
-      public ArrayQuery<SectionPartInfo> PartInfos { get; }
+      /// <summary>
+      /// Gets the array of <see cref="SectionPart"/>s making up this section.
+      /// </summary>
+      /// <value>The array of <see cref="SectionPart"/>s making up this section.</value>
+      public ArrayQuery<SectionPart> Parts { get; }
 
+      /// <summary>
+      /// Gets the constructed <see cref="CAMPhysicalIO::CILAssemblyManipulator.Physical.IO.SectionHeader"/>.
+      /// </summary>
+      /// <value>The constructed <see cref="CAMPhysicalIO::CILAssemblyManipulator.Physical.IO.SectionHeader"/>.</value>
       public SectionHeader SectionHeader { get; }
    }
 
-   public sealed class SectionLayoutAggregator
+   /// <summary>
+   /// This class contains information about all the sections that will be written to image.
+   /// </summary>
+   public sealed class ImageSectionsInfo
    {
 
-      public SectionLayoutAggregator( IEnumerable<SectionLayoutInfo> layoutInfos )
+      /// <summary>
+      /// Creates a new <see cref="ImageSectionsInfo"/> with given <see cref="SectionLayout"/>s
+      /// </summary>
+      /// <param name="layoutInfos">The array of <see cref="SectionLayout"/>s, one each for section.</param>
+      public ImageSectionsInfo( IEnumerable<SectionLayout> layoutInfos )
       {
-         this.LayoutInfos = layoutInfos.ToArrayProxy().CQ;
-         this.AllSectionParts = this.LayoutInfos.SelectMany( s => s.PartInfos.Select( p => p.Part ) ).ToArrayProxy().CQ;
-         this.SectionPartInfos = this.LayoutInfos.SelectMany( s => s.PartInfos ).ToDictionary( i => i.Part, i => i, ReferenceEqualityComparer<SectionPart>.ReferenceBasedComparer ).ToDictionaryProxy().CQ;
-
+         this.Sections = layoutInfos.ToArrayProxy().CQ;
       }
 
-      public ArrayQuery<SectionLayoutInfo> LayoutInfos { get; }
-
-      // TODO this might be useless property (consider extension method)
-      public ArrayQuery<SectionPart> AllSectionParts { get; }
-
-      public DictionaryQuery<SectionPart, SectionPartInfo> SectionPartInfos { get; }
+      /// <summary>
+      /// Gets the array of <see cref="SectionLayout"/>s, making up all sections of the image.
+      /// </summary>
+      /// <value>The array of <see cref="SectionLayout"/>s, making up all sections of the image.</value>
+      public ArrayQuery<SectionLayout> Sections { get; }
    }
 
-   public class SectionLayout
+   /// <summary>
+   /// This class represents abstract description of the section and what it may contain.
+   /// The concrete offsets and RVAs are not known at this stage.
+   /// </summary>
+   public class SectionDescription
    {
 
-      public SectionLayout()
+      /// <summary>
+      /// Creates a new instance of <see cref="SectionDescription"/> with empty <see cref="Functionalities"/> list.
+      /// </summary>
+      public SectionDescription()
       {
-         this.Parts = new List<SectionPart>();
+         this.Functionalities = new List<SectionPartFunctionality>();
       }
 
-      public SectionLayout( IEnumerable<SectionPart> parts )
+      /// <summary>
+      /// Creates a new instance of <see cref="SectionDescription"/>, and fills the <see cref="Functionalities"/> list with given enumerable of <see cref="SectionPartFunctionality"/>.
+      /// </summary>
+      /// <param name="parts">The enumerable of <see cref="SectionPartFunctionality"/> objects. May be <c>null</c>. If not <c>null</c>, the single <c>null</c> elements will be filtered out.</param>
+      public SectionDescription( IEnumerable<SectionPartFunctionality> parts )
          : this()
       {
-         this.Parts.AddRange( parts );
+         this.Functionalities.AddRange( parts?.Where( p => p != null ) ?? Empty<SectionPartFunctionality>.Enumerable );
       }
 
+      /// <summary>
+      /// Gets the textual name of the section.
+      /// </summary>
+      /// <value>The textual name of the section.</value>
+      /// <remarks>
+      /// When creating concrete <see cref="SectionLayout"/>, the non-<c>null</c> and non-empty <see cref="NameBytes"/> takes precedence over this property.
+      /// </remarks>
       public String Name { get; set; }
 
+      /// <summary>
+      /// Gets the name bytes of the section.
+      /// </summary>
+      /// <value>The name bytes of the section.</value>
+      /// <remarks>
+      /// When creating concrete <see cref="SectionLayout"/>, this property takes precedence over <see cref="Name"/>, if this is non-<c>null</c> and non-empty.
+      /// </remarks>
       public Byte[] NameBytes { get; set; }
 
+      /// <summary>
+      /// Gets or sets the <see cref="SectionHeaderCharacteristics"/> of this section.
+      /// </summary>
+      /// <value>The <see cref="SectionHeaderCharacteristics"/> of this section.</value>
       public SectionHeaderCharacteristics Characteristics { get; set; }
 
-      public List<SectionPart> Parts { get; }
+      /// <summary>
+      /// Gets the modifiable list of all <see cref="SectionPartFunctionality"/> objects that may be part of the actual written section.
+      /// </summary>
+      /// <value>The modifiable list of all <see cref="SectionPartFunctionality"/> objects that may be part of the actual written section.</value>
+      public List<SectionPartFunctionality> Functionalities { get; }
    }
 
-   public interface SectionPart
+   /// <summary>
+   /// This interface should be implemented by all objects intending to participate in writing any data that is located in some image section.
+   /// </summary>
+   public interface SectionPartFunctionality
    {
+      /// <summary>
+      /// Gets the alignment that this section part should be aligned as.
+      /// </summary>
+      /// <value>The alignment that this section part should be aligned as.</value>
+      /// <remarks>
+      /// This value should be power of two, although this is currently not enforced at run-time.
+      /// </remarks>
       Int32 DataAlignment { get; }
 
+      /// <summary>
+      /// Computes the size of this section part, in bytes.
+      /// </summary>
+      /// <param name="currentOffset">The current offset of the image.</param>
+      /// <param name="currentRVA">The current RVA of the image.</param>
+      /// <param name="dataRefs">The <see cref="ColumnValueStorage{TValue}"/> for data reference columns of <see cref="CILMetaData"/>.</param>
+      /// <returns>The size of this section part, in bytes.</returns>
+      /// <remarks>
+      /// If the returned size is <c>0</c>, this <see cref="SectionPartFunctionality"/> will not participate in writing data, i.e. its <see cref="WriteData"/> method will not be called.
+      /// </remarks>
       Int32 GetDataSize( Int64 currentOffset, TRVA currentRVA, ColumnValueStorage<Int64> dataRefs );
 
+      /// <summary>
+      /// This method should write the whatever data there is.
+      /// </summary>
+      /// <param name="args">The <see cref="SectionPartWritingArgs"/> containing required information to write the data.</param>
       void WriteData( SectionPartWritingArgs args );
    }
 
-   public interface SectionPartWithDataReferenceTargets : SectionPart
+   /// <summary>
+   /// This interface further specializes <see cref="SectionPartFunctionality"/> for section parts containing data, which is referenced by data reference columns of <see cref="CILMetaData"/> (e.g. <see cref="MethodDefinition.IL"/>).
+   /// </summary>
+   public interface SectionPartFunctionalityWithDataReferenceTargets : SectionPartFunctionality
    {
+      /// <summary>
+      /// Gets the table ID of the related table, as <see cref="Tables"/> enumeration.
+      /// </summary>
+      /// <value>The table ID of the related table, as <see cref="Tables"/> enumeration.</value>
       Tables RelatedTable { get; }
 
+      /// <summary>
+      /// Gets the column index within the table for data reference column.
+      /// </summary>
+      /// <value>The column index within the table for data reference column.</value>
       Int32 RelatedTableColumnIndex { get; }
    }
 
-   public abstract class SectionPartWithFixedAlignment : SectionPart
+   /// <summary>
+   /// This class implements <see cref="SectionPartFunctionality"/> with fixed alignment, and possibility to opt out from calculating data size.
+   /// </summary>
+   public abstract class SectionPartFunctionalityWithFixedAlignment : SectionPartFunctionality
    {
-      public SectionPartWithFixedAlignment( Int32 alignment, Boolean isPresent )
+      /// <summary>
+      /// Creates new instance of <see cref="SectionPartFunctionalityWithFixedAlignment"/> with given alignment and flag indicating whether this <see cref="SectionPartFunctionalityWithFixedAlignment"/> should be present in the final image.
+      /// </summary>
+      /// <param name="alignment">The data alignment, should be power of two and greater than zero.</param>
+      /// <param name="isPresent">Whether this <see cref="SectionPartFunctionalityWithFixedAlignment"/> is present in final image.</param>
+      /// <exception cref="ArgumentOutOfRangeException">If <paramref name="alignment"/> is <c>0</c> or less.</exception>
+      public SectionPartFunctionalityWithFixedAlignment( Int32 alignment, Boolean isPresent )
       {
          if ( alignment <= 0 )
          {
@@ -777,8 +963,19 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
          this.Write = isPresent;
       }
 
+      /// <summary>
+      /// Gets the data alignment supplied to this <see cref="SectionPartFunctionalityWithFixedAlignment"/>.
+      /// </summary>
+      /// <value>The data alignment supplied to this <see cref="SectionPartFunctionalityWithFixedAlignment"/>.</value>
       public Int32 DataAlignment { get; }
 
+      /// <summary>
+      /// Implements the <see cref="SectionPartFunctionality.GetDataSize"/> by first checking the <see cref="Write"/> property, and then invoking <see cref="DoGetDataSize"/>, if the property is <c>true</c>.
+      /// </summary>
+      /// <param name="currentOffset">The current offset.</param>
+      /// <param name="currentRVA">The current RVA.</param>
+      /// <param name="rawValues">The <see cref="ColumnValueStorage{TValue}"/> for data reference columns.</param>
+      /// <returns>The value of <see cref="DoGetDataSize"/> if <paramref name="Write"/> is <c>true</c>; <c>0</c> otherwise.</returns>
       public Int32 GetDataSize( Int64 currentOffset, TRVA currentRVA, ColumnValueStorage<Int64> rawValues )
       {
          return this.Write ?
@@ -786,21 +983,49 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
             0;
       }
 
+      /// <summary>
+      /// Performs writing.
+      /// </summary>
+      /// <param name="args">The <see cref="SectionPartWritingArgs"/>.</param>
       public abstract void WriteData( SectionPartWritingArgs args );
 
+      /// <summary>
+      /// Gets the presence flag supplied to this <see cref="SectionPartFunctionalityWithFixedAlignment"/>.
+      /// </summary>
+      /// <value>The presence flag supplied to this <see cref="SectionPartFunctionalityWithFixedAlignment"/>.</value>
       protected Boolean Write { get; }
 
+      /// <summary>
+      /// Performs actual data size calculation.
+      /// </summary>
+      /// <param name="currentOffset">The current offset.</param>
+      /// <param name="currentRVA">The current RVA.</param>
+      /// <param name="rawValues">The <see cref="ColumnValueStorage{TValue}"/> for data reference columns.</param>
+      /// <returns>The size of this <see cref="SectionPartFunctionalityWithFixedAlignment"/>, in bytes.</returns>
       protected abstract Int32 DoGetDataSize( Int64 currentOffset, TRVA currentRVA, ColumnValueStorage<Int64> rawValues );
    }
 
-   public abstract class SectionPartWriteableToArray : SectionPartWithFixedAlignment
+   /// <summary>
+   /// This class specializes <see cref="SectionPartFunctionalityWithFixedAlignment"/> for section part functionalities having small enough data content so that it can be written into byte array in single go.
+   /// </summary>
+   public abstract class SectionPartFunctionalityWriteableToArray : SectionPartFunctionalityWithFixedAlignment
    {
-      public SectionPartWriteableToArray( Int32 alignment, Boolean write )
-         : base( alignment, write )
+      /// <summary>
+      /// Creates new instance of <see cref="SectionPartFunctionalityWriteableToArray"/> with given alignment and flag indicating whether this <see cref="SectionPartFunctionalityWriteableToArray"/> should be present in the final image.
+      /// </summary>
+      /// <param name="alignment">The data alignment, should be power of two and greater than zero.</param>
+      /// <param name="isPresent">Whether this <see cref="SectionPartFunctionalityWriteableToArray"/> is present in final image.</param>
+      /// <exception cref="ArgumentOutOfRangeException">If <paramref name="alignment"/> is <c>0</c> or less.</exception>
+      public SectionPartFunctionalityWriteableToArray( Int32 alignment, Boolean isPresent )
+         : base( alignment, isPresent )
       {
       }
 
-
+      /// <summary>
+      /// Sets up the <see cref="SectionPartWritingArgs.ArrayHelper"/>, and calls <see cref="DoWriteData"/> to write the data to array.
+      /// Then writes the array contents to <see cref="SectionPartWritingArgs.Stream"/>.
+      /// </summary>
+      /// <param name="args">The <see cref="SectionPartWritingArgs"/>.</param>
       public override void WriteData( SectionPartWritingArgs args )
       {
          var array = args.ArrayHelper;
@@ -811,49 +1036,79 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
          var bytez = array.Array;
          var dummyIdx = 0;
 
-         if ( !this.DoWriteData( args, bytez, ref idx ) )
+         if ( this.DoWriteData( args.WritingStatus, bytez, ref idx ) )
          {
-            bytez.ZeroOut( ref dummyIdx, capacity );
+            bytez.ZeroOut( ref dummyIdx, prePadding );
          }
          else
          {
-            bytez.ZeroOut( ref dummyIdx, prePadding );
+            bytez.ZeroOut( ref dummyIdx, capacity );
          }
 
          args.Stream.Write( bytez, capacity );
       }
 
-      protected override Int32 DoGetDataSize( Int64 currentOffset, Int64 currentRVA, ColumnValueStorage<Int64> rawValues )
-      {
-         return this.DoGetDataSize( currentOffset, currentRVA );
-      }
-
-      protected abstract Int32 DoGetDataSize( Int64 currentOffset, TRVA currentRVA );
-
-      protected abstract Boolean DoWriteData( SectionPartWritingArgs args, Byte[] array, ref Int32 idx );
+      /// <summary>
+      /// This method should write the section contents to given array.
+      /// </summary>
+      /// <param name="wStatus">The <see cref="DefaultWritingStatus"/>.</param>
+      /// <param name="array">The array to write data to.</param>
+      /// <param name="idx">The index in <paramref name="array"/> where to start writing.</param>
+      /// <returns><c>true</c> if writing was successful; <c>false</c> otherwise.</returns>
+      /// <remarks>
+      /// If return value is <c>false</c>, then the whole section part data will be zeroed out.
+      /// </remarks>
+      protected abstract Boolean DoWriteData( DefaultWritingStatus wStatus, Byte[] array, ref Int32 idx );
    }
 
-   public abstract class SectionPartWithFixedLength : SectionPartWriteableToArray
+   /// <summary>
+   /// This class specializes <see cref="SectionPartFunctionalityWriteableToArray"/> when the data size of the section part is known at construction time.
+   /// </summary>
+   public abstract class SectionPartFunctionalityWithFixedLength : SectionPartFunctionalityWriteableToArray
    {
-      private readonly Int32 _dataSize;
 
-      public SectionPartWithFixedLength( Int32 alignment, Boolean write, Int32 size )
-         : base( alignment, write )
+      /// <summary>
+      /// Creates new instance of <see cref="SectionPartFunctionalityWriteableToArray"/> with given alignment and flag indicating whether this <see cref="SectionPartFunctionalityWriteableToArray"/> should be present in the final image, in addition to pre-calculated data size.
+      /// </summary>
+      /// <param name="alignment">The data alignment, should be power of two and greater than zero.</param>
+      /// <param name="isPresent">Whether this <see cref="SectionPartFunctionalityWriteableToArray"/> is present in final image.</param>
+      /// <param name="size">The size, in bytes, of this section part, if present.</param>
+      /// <exception cref="ArgumentOutOfRangeException">If <paramref name="alignment"/> is <c>0</c> or less.</exception>
+      public SectionPartFunctionalityWithFixedLength( Int32 alignment, Boolean isPresent, Int32 size )
+         : base( alignment, isPresent )
       {
          if ( size < 0 )
          {
             throw new ArgumentOutOfRangeException( "Size" );
          }
-         this._dataSize = size;
+         this.DataSize = size;
       }
 
-      protected override Int32 DoGetDataSize( Int64 currentOffset, TRVA currentRVA )
+      /// <summary>
+      /// Gets the size of data, in bytes.
+      /// </summary>
+      /// <value>The size of data, in bytes.</value>
+      protected Int32 DataSize { get; }
+
+      /// <summary>
+      /// Returns the value of <see cref="DataSize"/>.
+      /// </summary>
+      /// <param name="currentOffset">The current offset.</param>
+      /// <param name="currentRVA">The current RVA.</param>
+      /// <param name="rawValues">The <see cref="ColumnValueStorage{TValue}"/> for data reference columns.</param>
+      /// <returns>The value of <see cref="DataSize"/>.</returns>
+      protected override Int32 DoGetDataSize( Int64 currentOffset, TRVA currentRVA, ColumnValueStorage<Int64> rawValues )
       {
-         return this._dataSize;
+         return this.DataSize;
       }
    }
 
-   public abstract class SectionPartWithMultipleItems<TRow, TSizeInfo> : SectionPartWithFixedAlignment, SectionPartWithDataReferenceTargets
+   /// <summary>
+   /// This class specializes <see cref="SectionPartFunctionalityWithFixedAlignment"/> and implements <see cref="SectionPartFunctionalityWithDataReferenceTargets"/>, defining simple abstract methods that should be implemented to actually write data for data reference column values.
+   /// </summary>
+   /// <typeparam name="TRow">The type of the row.</typeparam>
+   /// <typeparam name="TSizeInfo">The type describing information about the size of the data of a single column value.</typeparam>
+   public abstract class SectionPartFunctionalityWithDataReferenceTargetsImpl<TRow, TSizeInfo> : SectionPartFunctionalityWithFixedAlignment, SectionPartFunctionalityWithDataReferenceTargets
       where TRow : class
       where TSizeInfo : struct
    {
@@ -862,7 +1117,17 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
       private readonly List<TRow> _rows;
       private readonly ArrayProxy<TSizeInfo?> _sizes;
 
-      public SectionPartWithMultipleItems(
+      /// <summary>
+      /// Creates a new instance of <see cref="SectionPartFunctionalityWithDataReferenceTargetsImpl{TRow, TSizeInfo}"/> with given parameters.
+      /// </summary>
+      /// <param name="alignment">The data alignment.</param>
+      /// <param name="table">The <see cref="MetaDataTable{TRow}"/> containing rows with data reference columns.</param>
+      /// <param name="columnIndex">The index of the data reference column that will be used.</param>
+      /// <param name="min">The minimum index of the rows, inclusive. Use <c>-1</c> to include rows from the beginning.</param>
+      /// <param name="max">The maximum index of the rows, exclusive. Use <c>-1</c> to include rows until the end.</param>
+      /// <exception cref="ArgumentOutOfRangeException">If <paramref name="alignment"/> is <c>0</c> or less.</exception>
+      /// <exception cref="ArgumentNullException">If <paramref name="table"/> is <c>null</c>.</exception>
+      public SectionPartFunctionalityWithDataReferenceTargetsImpl(
          Int32 alignment,
          MetaDataTable<TRow> table,
          Int32 columnIndex,
@@ -908,6 +1173,13 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
          this._sizes = cf.NewArrayProxy( new TSizeInfo?[range] );
       }
 
+      /// <summary>
+      /// Computes the data size by iterating rows and using <see cref="GetSizeInfo"/>, <see cref="GetValueForTableStreamFromSize"/>, <see cref="GetValueForTableStreamFromRow"/>, and <see cref="GetSize"/> methods.
+      /// </summary>
+      /// <param name="currentOffset">The current offset.</param>
+      /// <param name="currentRVA">The current RVA.</param>
+      /// <param name="rawValues">The <see cref="ColumnValueStorage{TValue}"/> for data reference columns.</param>
+      /// <returns>The size of this <see cref="SectionPartFunctionalityWithFixedAlignment"/>, in bytes.</returns>
       protected override Int32 DoGetDataSize( Int64 currentOffset, TRVA currentRVA, ColumnValueStorage<Int64> rawValues )
       {
          var startOffset = currentOffset;
@@ -943,6 +1215,10 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
          return (Int32) ( currentOffset - startOffset );
       }
 
+      /// <summary>
+      /// Writes all the data of the rows using <see cref="WriteData(TRow, TSizeInfo, byte[])"/> method to write data of the single row.
+      /// </summary>
+      /// <param name="args">The <see cref="SectionPartWritingArgs"/>.</param>
       public override void WriteData( SectionPartWritingArgs args )
       {
          // Write pre-padding first
@@ -977,22 +1253,57 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
          }
       }
 
+      /// <inheritdoc />
       public Tables RelatedTable { get; }
 
+      /// <inheritdoc />
       public Int32 RelatedTableColumnIndex { get; }
 
+      /// <summary>
+      /// This method should be implemented by subclasses to extract size information for single data reference column of a single row.
+      /// </summary>
+      /// <param name="rowIndex">The index of the row.</param>
+      /// <param name="row">The row instance.</param>
+      /// <param name="currentOffset">Current offset.</param>
+      /// <param name="currentRVA">Current RVA.</param>
+      /// <param name="startOffset">Offset at the start of this section part.</param>
+      /// <param name="startRVA">RVA at the start of this section part.</param>
+      /// <returns>Size information object for this row and column, or <c>null</c> if this row does not have data that should be written to this section part.</returns>
       protected abstract TSizeInfo? GetSizeInfo( Int32 rowIndex, TRow row, Int64 currentOffset, TRVA currentRVA, Int64 startOffset, TRVA startRVA );
 
+      /// <summary>
+      /// Given the size information object, this should extract the actual size as integer.
+      /// </summary>
+      /// <param name="sizeInfo">The size information object.</param>
+      /// <returns>The size, in bytes, of the data.</returns>
       protected abstract Int32 GetSize( TSizeInfo sizeInfo );
 
+      /// <summary>
+      /// Gets the value to be written to table stream from size information object, if such was supplied by <see cref="GetSizeInfo"/> method.
+      /// </summary>
+      /// <param name="currentRVA">Current RVA.</param>
+      /// <param name="sizeInfo">The size information object.</param>
+      /// <returns>The value to be written to table stream.</returns>
       protected abstract TRVA GetValueForTableStreamFromSize( TRVA currentRVA, TSizeInfo sizeInfo );
 
+      /// <summary>
+      /// Gets the value to be written to table stream from row, if <see cref="GetSizeInfo"/> method returned <c>null</c>.
+      /// </summary>
+      /// <param name="rowIndex">The row index.</param>
+      /// <param name="row">The row instance.</param>
+      /// <returns>The value to be written to table stream.</returns>
       protected abstract TRVA GetValueForTableStreamFromRow( Int32 rowIndex, TRow row );
 
+      /// <summary>
+      /// This method should write the data of the data reference column to given array.
+      /// </summary>
+      /// <param name="row">The row instance.</param>
+      /// <param name="sizeInfo">The size information object for this row, as returned by <see cref="GetSizeInfo"/>.</param>
+      /// <param name="array">The array to write data to. The writing should begin at index <c>0</c>.</param>
       protected abstract void WriteData( TRow row, TSizeInfo sizeInfo, Byte[] array );
    }
 
-   public class SectionPart_MethodIL : SectionPartWithMultipleItems<MethodDefinition, SectionPart_MethodIL.MethodSizeInfo>
+   public class SectionPart_MethodIL : SectionPartFunctionalityWithDataReferenceTargetsImpl<MethodDefinition, SectionPart_MethodIL.MethodSizeInfo>
    {
       public struct MethodSizeInfo
       {
@@ -1300,7 +1611,7 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
       }
    }
 
-   public class SectionPart_FieldRVA : SectionPartWithMultipleItems<FieldRVA, Int32>
+   public class SectionPart_FieldRVA : SectionPartFunctionalityWithDataReferenceTargetsImpl<FieldRVA, Int32>
    {
       public SectionPart_FieldRVA( CILMetaData md, Int32 columnIndex = 0, Int32 min = 0, Int32 max = -1 )
          : base( 0x08, md.FieldRVAs, columnIndex, min, max )
@@ -1338,7 +1649,7 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
       }
    }
 
-   public class SectionPart_EmbeddedManifests : SectionPartWithMultipleItems<ManifestResource, SectionPart_EmbeddedManifests.ManifestSizeInfo>
+   public class SectionPart_EmbeddedManifests : SectionPartFunctionalityWithDataReferenceTargetsImpl<ManifestResource, SectionPart_EmbeddedManifests.ManifestSizeInfo>
    {
       public struct ManifestSizeInfo
       {
@@ -1443,26 +1754,26 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
       public DefaultWritingStatus WritingStatus { get; }
    }
 
-   public class SectionPartInfo
+   public class SectionPart
    {
-      public SectionPartInfo(
-         SectionPart part,
+      public SectionPart(
+         SectionPartFunctionality functionality,
          Int32 prePadding,
          Int32 size,
          Int64 offset,
          TRVA rva
          )
       {
-         ArgumentValidator.ValidateNotNull( "Part", part );
+         ArgumentValidator.ValidateNotNull( "Functionality", functionality );
 
-         this.Part = part;
+         this.Functionality = functionality;
          this.PrePadding = prePadding;
          this.Size = size;
          this.Offset = offset;
          this.RVA = rva;
       }
 
-      public SectionPart Part { get; }
+      public SectionPartFunctionality Functionality { get; }
 
       public Int32 PrePadding { get; }
 
@@ -1473,7 +1784,7 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
       public TRVA RVA { get; }
    }
 
-   public class SectionPart_CLIHeader : SectionPartWithFixedLength
+   public class SectionPart_CLIHeader : SectionPartFunctionalityWithFixedLength
    {
       internal const Int32 HEADER_SIZE = 0x48;
 
@@ -1483,18 +1794,18 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
       {
       }
 
-      protected override Boolean DoWriteData( SectionPartWritingArgs args, Byte[] array, ref Int32 idx )
+      protected override Boolean DoWriteData( DefaultWritingStatus wStatus, Byte[] array, ref Int32 idx )
       {
-         var status = args.WritingStatus;
-         status.CLIHeader.WriteCLIHeader( array, ref idx );
-         status.PEDataDirectories[(Int32) DataDirectories.CLIHeader] = args.GetDataDirectoryForSectionPart( this );
+         var imageSections = wStatus.SectionLayouts;
+         wStatus.CLIHeader.WriteCLIHeader( array, ref idx );
+         wStatus.PEDataDirectories[(Int32) DataDirectories.CLIHeader] = imageSections.GetDataDirectoryForSectionPart( this );
 
          return true;
       }
 
    }
 
-   public class SectionPart_StrongNameSignature : SectionPartWithFixedLength
+   public class SectionPart_StrongNameSignature : SectionPartFunctionalityWithFixedLength
    {
       public SectionPart_StrongNameSignature( StrongNameInformation snVars, ImageFileMachine machine )
          : base( machine.RequiresPE64() ? 0x10 : 0x04, true, snVars?.SignatureSize ?? 0 )
@@ -1502,15 +1813,16 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
 
       }
 
-      protected override Boolean DoWriteData( SectionPartWritingArgs args, Byte[] array, ref Int32 idx )
+      protected override Boolean DoWriteData( DefaultWritingStatus wStatus, Byte[] array, ref Int32 idx )
       {
          // Don't write actual signature, since we don't have required information. The strong name signature will be written by WriteMetaData implementation.
-         array.ZeroOut( ref idx, args.PrePadding + args.DataLength );
-         return true;
+         return false;
+         //array.ZeroOut( ref idx, args.PrePadding + args.DataLength );
+         //return true;
       }
    }
 
-   public class SectionPart_MetaData : SectionPartWithFixedLength
+   public class SectionPart_MetaData : SectionPartFunctionalityWithFixedLength
    {
       public SectionPart_MetaData( Int32 size )
          : base( 0x04, true, size )
@@ -1518,14 +1830,14 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
 
       }
 
-      protected override Boolean DoWriteData( SectionPartWritingArgs args, Byte[] array, ref Int32 idx )
+      protected override Boolean DoWriteData( DefaultWritingStatus wStatus, Byte[] array, ref Int32 idx )
       {
          // This method will never get really called
          throw new NotSupportedException( "This method should not be called." );
       }
    }
 
-   public class SectionPart_ImportAddressTable : SectionPartWithFixedLength
+   public class SectionPart_ImportAddressTable : SectionPartFunctionalityWithFixedLength
    {
       public SectionPart_ImportAddressTable( ImageFileMachine machine )
          : base( 0x04, !machine.RequiresPE64(), 0x08 )
@@ -1533,23 +1845,24 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
       }
 
 
-      protected override Boolean DoWriteData( SectionPartWritingArgs args, Byte[] array, ref Int32 idx )
+      protected override Boolean DoWriteData( DefaultWritingStatus wStatus, Byte[] array, ref Int32 idx )
       {
-         var importDir = args.WritingStatus.SectionLayouts.AllSectionParts.OfType<SectionPart_ImportDirectory>().FirstOrDefault();
+         var imageSections = wStatus.SectionLayouts;
+         var importDir = imageSections.GetSectionPartWithFunctionalityOfType<SectionPart_ImportDirectory>();
          var retVal = importDir != null;
          if ( retVal )
          {
             array
-               .WriteInt32LEToBytes( ref idx, importDir.CorMainRVA ) // RVA of _CorDll/ExeMain
+               .WriteInt32LEToBytes( ref idx, ( (SectionPart_ImportDirectory) importDir.Functionality ).CorMainRVA ) // RVA of _CorDll/ExeMain
                .WriteInt32LEToBytes( ref idx, 0 ); // Terminating entry
 
-            args.WritingStatus.PEDataDirectories[(Int32) DataDirectories.ImportAddressTable] = args.GetDataDirectoryForSectionPart( this );
+            wStatus.PEDataDirectories[(Int32) DataDirectories.ImportAddressTable] = imageSections.GetDataDirectoryForSectionPart( this );
          }
          return retVal;
       }
    }
 
-   public class SectionPart_ImportDirectory : SectionPartWriteableToArray
+   public class SectionPart_ImportDirectory : SectionPartFunctionalityWriteableToArray
    {
 
       internal const String HINTNAME_FOR_DLL = "_CorDllMain";
@@ -1582,7 +1895,7 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
 
       }
 
-      protected override Int32 DoGetDataSize( Int64 currentOffset, TRVA currentRVA )
+      protected override Int32 DoGetDataSize( Int64 currentOffset, TRVA currentRVA, ColumnValueStorage<Int64> rawValues )
       {
          var startRVA = (UInt32) currentRVA.RoundUpI64( this.DataAlignment );
          var len = 0x28u; // Import directory actual size
@@ -1618,10 +1931,10 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
          }
       }
 
-      protected override Boolean DoWriteData( SectionPartWritingArgs args, Byte[] array, ref Int32 idx )
+      protected override Boolean DoWriteData( DefaultWritingStatus wStatus, Byte[] array, ref Int32 idx )
       {
-         var wStatus = args.WritingStatus;
-         var addressTable = wStatus.SectionLayouts.AllSectionParts.OfType<SectionPart_ImportAddressTable>().FirstOrDefault();
+         var imageSections = wStatus.SectionLayouts;
+         var addressTable = imageSections.GetSectionPartWithFunctionalityOfType<SectionPart_ImportAddressTable>();
 
          var retVal = addressTable != null;
          if ( retVal )
@@ -1632,7 +1945,7 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
                .WriteInt32LEToBytes( ref idx, 0 ) // TimeDateStamp
                .WriteInt32LEToBytes( ref idx, 0 ) // ForwarderChain
                .WriteUInt32LEToBytes( ref idx, this._mscoreeRVA ) // Name of module
-               .WriteUInt32LEToBytes( ref idx, (UInt32) wStatus.SectionLayouts.SectionPartInfos[addressTable].RVA ) // Address table RVA
+               .WriteUInt32LEToBytes( ref idx, (UInt32) addressTable.RVA ) // Address table RVA
                .WriteInt64LEToBytes( ref idx, 0 ) // ?
                .WriteInt64LEToBytes( ref idx, 0 ) // ?
                .WriteInt32LEToBytes( ref idx, 0 ) // ?
@@ -1652,14 +1965,14 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
                .WriteASCIIString( ref idx, this._moduleName, true )
                .WriteByteToBytes( ref idx, 0 );
 
-            wStatus.PEDataDirectories[(Int32) DataDirectories.ImportTable] = args.GetDataDirectoryForSectionPart( this );
+            wStatus.PEDataDirectories[(Int32) DataDirectories.ImportTable] = imageSections.GetDataDirectoryForSectionPart( this );
          }
 
          return retVal;
       }
    }
 
-   public class SectionPart_StartupCode : SectionPartWithFixedLength
+   public class SectionPart_StartupCode : SectionPartFunctionalityWithFixedLength
    {
       private readonly UInt32 _imageBase;
 
@@ -1687,25 +2000,25 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
          }
       }
 
-      protected override Boolean DoWriteData( SectionPartWritingArgs args, Byte[] array, ref Int32 idx )
+      protected override Boolean DoWriteData( DefaultWritingStatus wStatus, Byte[] array, ref Int32 idx )
       {
-         var sectionLayouts = args.WritingStatus.SectionLayouts;
-         var addressTable = sectionLayouts.AllSectionParts.OfType<SectionPart_ImportAddressTable>().FirstOrDefault();
+         var sectionLayouts = wStatus.SectionLayouts;
+         var addressTable = sectionLayouts.GetSectionPartWithFunctionalityOfType<SectionPart_ImportAddressTable>();
          var retVal = addressTable != null;
          if ( retVal )
          {
             array
                .ZeroOut( ref idx, PADDING ) // Padding - 2 zero bytes
                .WriteUInt16LEToBytes( ref idx, 0x25FF ) // JMP
-               .WriteUInt32LEToBytes( ref idx, this._imageBase + (UInt32) ( sectionLayouts.SectionPartInfos[addressTable].RVA ) ); // First entry of address table = RVA of _CorDll/ExeMain
+               .WriteUInt32LEToBytes( ref idx, this._imageBase + (UInt32) addressTable.RVA ); // First entry of address table = RVA of _CorDll/ExeMain
 
-            args.WritingStatus.EntryPointRVA = (Int32) ( sectionLayouts.SectionPartInfos[this].RVA + this.EntryPointOffset );
+            wStatus.EntryPointRVA = (Int32) ( sectionLayouts.GetSectionPartFor( this ).RVA + this.EntryPointOffset );
          }
          return retVal;
       }
    }
 
-   public class SectionPart_RelocDirectory : SectionPartWithFixedLength
+   public class SectionPart_RelocDirectory : SectionPartFunctionalityWithFixedLength
    {
       private const Int32 SIZE = 0x0C;
       private const UInt32 RELOCATION_PAGE_MASK = 0x0FFF; // ECMA-335, p. 282
@@ -1717,27 +2030,27 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
 
       }
 
-      protected override Boolean DoWriteData( SectionPartWritingArgs args, Byte[] array, ref Int32 idx )
+      protected override Boolean DoWriteData( DefaultWritingStatus wStatus, Byte[] array, ref Int32 idx )
       {
-         var sectionLayouts = args.WritingStatus.SectionLayouts;
-         var startupCode = sectionLayouts.AllSectionParts.OfType<SectionPart_StartupCode>().FirstOrDefault();
+         var imageSections = wStatus.SectionLayouts;
+         var startupCode = imageSections.GetSectionPartWithFunctionalityOfType<SectionPart_StartupCode>();
          var retVal = startupCode != null;
          if ( retVal )
          {
-            var rva = (UInt32) ( sectionLayouts.SectionPartInfos[startupCode].RVA + startupCode.EntryPointInstructionAddressOffset );
+            var rva = (UInt32) ( startupCode.RVA + ( (SectionPart_StartupCode) startupCode.Functionality ).EntryPointInstructionAddressOffset );
             array
                .WriteUInt32LEToBytes( ref idx, rva & ( ~RELOCATION_PAGE_MASK ) ) // Page RVA
                .WriteInt32LEToBytes( ref idx, SIZE ) // Block size
                .WriteUInt16LEToBytes( ref idx, (UInt16) ( ( RELOCATION_FIXUP_TYPE << 12 ) | ( rva & RELOCATION_PAGE_MASK ) ) ) // Type (high 4 bits) + Offset (lower 12 bits) + dummy entry (16 bits)
                .WriteUInt16LEToBytes( ref idx, 0 ); // Terminating entry
 
-            args.WritingStatus.PEDataDirectories[(Int32) DataDirectories.BaseRelocationTable] = args.GetDataDirectoryForSectionPart( this );
+            wStatus.PEDataDirectories[(Int32) DataDirectories.BaseRelocationTable] = imageSections.GetDataDirectoryForSectionPart( this );
          }
          return retVal;
       }
    }
 
-   public class SectionPart_DebugDirectory : SectionPartWithFixedLength
+   public class SectionPart_DebugDirectory : SectionPartFunctionalityWithFixedLength
    {
       private const Int32 ALIGNMENT = 0x04;
       private const Int32 HEADER_SIZE = 0x1C;
@@ -1750,16 +2063,17 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
          this._options = options;
       }
 
-      protected override Boolean DoWriteData( SectionPartWritingArgs args, Byte[] array, ref Int32 idx )
+      protected override Boolean DoWriteData( DefaultWritingStatus wStatus, Byte[] array, ref Int32 idx )
       {
          var dbgData = this._options?.DebugData;
          var retVal = !dbgData.IsNullOrEmpty();
          if ( retVal )
          {
-            var parts = args.WritingStatus.SectionLayouts.SectionPartInfos;
+            var imageSections = wStatus.SectionLayouts;
+            var thisPart = imageSections.GetSectionPartFor( this );
             var dbgOptions = this._options;
-            var dataOffset = (UInt32) ( parts[this].Offset + HEADER_SIZE );
-            var dataRVA = (UInt32) ( parts[this].RVA + HEADER_SIZE );
+            var dataOffset = (UInt32) ( thisPart.Offset + HEADER_SIZE );
+            var dataRVA = (UInt32) ( thisPart.RVA + HEADER_SIZE );
             var debugInfo = new DebugInformation(
                dbgOptions.Characteristics,
                (UInt32) dbgOptions.Timestamp,
@@ -1773,8 +2087,8 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
                );
 
             debugInfo.WriteDebugInformation( array, ref idx );
-            args.WritingStatus.PEDataDirectories[(Int32) DataDirectories.Debug] = args.GetDataDirectoryForSectionPart( this );
-            args.WritingStatus.DebugInformation = debugInfo;
+            wStatus.PEDataDirectories[(Int32) DataDirectories.Debug] = imageSections.GetDataDirectoryForSectionPart( this );
+            wStatus.DebugInformation = debugInfo;
          }
          return retVal;
       }
@@ -2259,7 +2573,8 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
          {
             status.DataReferencesStorage = new ColumnValueStorage<Int64>( this.TableSizes, this.TableSerializations.Select( s => s?.DataReferenceColumnCount ?? 0 ) );
             status.DataReferencesSectionParts = this.TableSerializations
-               .SelectMany( s => s?.CreateDataReferenceSectionParts( this._md, mdStreams ) ?? Empty<SectionPartWithDataReferenceTargets>.Enumerable );
+               .SelectMany( s => s?.CreateDataReferenceSectionParts( this._md, mdStreams ) ?? Empty<SectionPartFunctionalityWithDataReferenceTargets>.Enumerable )
+               .ToArrayProxy().CQ;
          }
 
          return header;
@@ -2405,22 +2720,10 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
 
 public static partial class E_CILPhysical
 {
-   public static DataDirectory GetDataDirectoryForSectionPart( this SectionPartWritingArgs args, SectionPart part )
-   {
-      return part == null ? default( DataDirectory ) : args.WritingStatus.SectionLayouts.SectionPartInfos[part].GetDataDirectory();
-   }
 
-   public static DataDirectory GetDataDirectory( this SectionPartInfo info )
+   public static DataDirectory GetDataDirectory( this SectionPart info )
    {
-      return new DataDirectory( (UInt32) info.RVA, (UInt32) info.Size );
-   }
-
-   internal static DataDirectory GetDataDirectoryForSectionPart( this DictionaryQuery<SectionPart, SectionPartInfo> partInfos, SectionPart partOrNull )
-   {
-      SectionPartInfo info;
-      return partOrNull == null || !partInfos.TryGetValue( partOrNull, out info ) ?
-         default( DataDirectory ) :
-         info.GetDataDirectory();
+      return info == null ? default( DataDirectory ) : new DataDirectory( (UInt32) info.RVA, (UInt32) info.Size );
    }
 
    public static Boolean IsWide( this AbstractWriterStreamHandler stream )
@@ -2464,4 +2767,34 @@ public static partial class E_CILPhysical
             0;
       } ).ToArrayProxy().CQ;
    }
+
+   public static DataDirectory GetDataDirectoryForSectionPart( this ImageSectionsInfo imageSections, SectionPartFunctionality part )
+   {
+      return part == null ? default( DataDirectory ) : imageSections.GetSectionPartFor( part ).GetDataDirectory();
+   }
+
+   public static IEnumerable<SectionPart> GetAllSectionParts( this ImageSectionsInfo imageSections )
+   {
+      return imageSections.Sections.SelectMany( s => s.Parts );
+   }
+
+   public static SectionPart GetSectionPartWithFunctionalityOfType<TFunctionality>( this ImageSectionsInfo imageSections, Func<TFunctionality, Boolean> additionalCheck = null )
+      where TFunctionality : class, SectionPartFunctionality
+   {
+      var parts = imageSections.GetAllSectionParts();
+      return additionalCheck == null ?
+         parts.FirstOrDefault( p => p.Functionality is TFunctionality ) :
+         parts.FirstOrDefault( p =>
+         {
+            var f = p.Functionality as TFunctionality;
+            return f != null && additionalCheck( f );
+         } );
+
+   }
+
+   public static SectionPart GetSectionPartFor( this ImageSectionsInfo imageSections, SectionPartFunctionality functionality )
+   {
+      return imageSections.GetAllSectionParts().FirstOrDefault( p => ReferenceEquals( p.Functionality, functionality ) );
+   }
+
 }
