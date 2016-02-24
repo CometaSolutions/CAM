@@ -70,28 +70,51 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
       }
    }
 
+   /// <summary>
+   /// This class provides default implementation for <see cref="WriterFunctionality"/>.
+   /// </summary>
    public class DefaultWriterFunctionality : WriterFunctionality
    {
 
+      /// <summary>
+      /// Creates a new instance of <see cref="DefaultWriterFunctionality"/> with given parameters.
+      /// </summary>
+      /// <param name="md">The <see cref="CILMetaData"/>.</param>
+      /// <param name="options">The <see cref="CAMPhysicalIO::CILAssemblyManipulator.Physical.IO.WritingOptions"/>.</param>
+      /// <param name="serializationCreationArgs">The <see cref="TableSerializationLogicalFunctionalityCreationArgs"/> for table stream.</param>
+      /// <exception cref="ArgumentNullException">If <paramref name="md"/> is <c>null</c>.</exception>
       public DefaultWriterFunctionality(
          CILMetaData md,
          WritingOptions options,
          TableSerializationLogicalFunctionalityCreationArgs serializationCreationArgs
          )
       {
+         ArgumentValidator.ValidateNotNull( "Meta data", md );
+
          this.MetaData = md;
          this.WritingOptions = options ?? new WritingOptions();
-         this.TableSerializationLogicalFunctionalityCreationArgs = serializationCreationArgs;
+         this.SerializationCreationArgs = serializationCreationArgs;
       }
 
-
-
+      /// <summary>
+      /// This method implements the <see cref="WriterFunctionality.CreateWritingStatus"/> by delegating creation to <see cref="DoCreateWritingStatus"/> method.
+      /// </summary>
+      /// <param name="snVars">The <see cref="StrongNameInformation"/>. May be <c>null</c>.</param>
+      /// <returns>A new instance of <see cref="DefaultWritingStatus"/>.</returns>
+      /// <remarks>
+      /// A number of methods will cast given <see cref="WritingStatus"/> into <see cref="DefaultWritingStatus"/>, namely:
+      /// <list type="bullet">
+      /// <item><description><see cref="CreateMetaDataStreamHandlers"/>,</description></item>
+      /// <item><description><see cref="CalculateImageLayout"/>,</description></item>
+      /// <item><description><see cref="BeforeMetaData"/>, and</description></item>
+      /// <item><description><see cref="AfterMetaData"/>.</description></item>
+      /// </list>
+      /// </remarks>
       public virtual WritingStatus CreateWritingStatus(
          StrongNameInformation snVars
          )
       {
-         var options = this.WritingOptions;
-         var peOptions = options.PEOptions;
+         var peOptions = this.WritingOptions.PEOptions;
          var machine = peOptions.Machine ?? ImageFileMachine.I386;
          var sectionsCount = this.GetSectionCount( machine );
 
@@ -114,21 +137,55 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
             );
       }
 
+      /// <summary>
+      /// This method implements the <see cref="WriterFunctionality.CreateMetaDataStreamHandlers"/> by returning five meta data stream handlers.
+      /// </summary>
+      /// <param name="status">The <see cref="WritingStatus"/> created by <see cref="CreateWritingStatus"/> method.</param>
+      /// <returns>Five meta data stream handlers.</returns>
+      /// <remarks>
+      /// The returned meta data stream handlers are the following, in this order:
+      /// <list type="number">
+      /// <item><description><see cref="DefaultWriterTableStreamHandler"/>,</description></item>
+      /// <item><description><see cref="DefaultWriterSystemStringStreamHandler"/>,</description></item>
+      /// <item><description><see cref="DefaultWriterBLOBStreamHandler"/>,</description></item>
+      /// <item><description><see cref="DefaultWriterGuidStreamHandler"/>, and</description></item>
+      /// <item><description><see cref="DefaultWriterUserStringStreamHandler"/>.</description></item>
+      /// </list>
+      /// </remarks>
       public virtual IEnumerable<AbstractWriterStreamHandler> CreateMetaDataStreamHandlers(
          WritingStatus status
          )
       {
-         yield return new DefaultWriterTableStreamHandler( this.MetaData, this.WritingOptions.CLIOptions.TablesStreamOptions, this.TableSerializationLogicalFunctionalityCreationArgs, (DefaultWritingStatus) status );
+         yield return new DefaultWriterTableStreamHandler( this.MetaData, this.WritingOptions.CLIOptions.TablesStreamOptions, this.SerializationCreationArgs, (DefaultWritingStatus) status );
          yield return new DefaultWriterSystemStringStreamHandler();
          yield return new DefaultWriterBLOBStreamHandler();
          yield return new DefaultWriterGuidStreamHandler();
          yield return new DefaultWriterUserStringStreamHandler();
       }
 
+      /// <summary>
+      /// This method implements the <see cref="WriterFunctionality.CalculateImageLayout"/>.
+      /// </summary>
+      /// <param name="writingStatus">The <see cref="WritingStatus"/>, will be casted to <see cref="DefaultWritingStatus"/>.</param>
+      /// <param name="presentStreams">The information about present streams.</param>
+      /// <param name="rvaConverter">This parameter will hold the <see cref="RVAConverter"/> to use.</param>
+      /// <param name="mdRootSize">This parameter will hold the meta data root byte size.</param>
+      /// <returns></returns>
+      /// <remarks>
+      /// This method works as follows.
+      /// <list type="number">
+      /// <item><description>The <see cref="DefaultWritingStatus.DataReferencesSectionParts"/> enumerable is enumerated, causing user string meta data stream to be populated.</description></item>
+      /// <item><description>The <see cref="MetaDataRoot"/> is created with <see cref="CreateMDRoot"/> method, and then the <see cref="WritingStatus.MDRoot"/> property is assigned. Also the <paramref name="mdRootSize"/> is assigned then too.</description></item>
+      /// <item><description>The section layout is calculated with <see cref="PopulateSections"/> method.</description></item>
+      /// <item><description>The <see cref="SectionLayoutAggregator"/> is created and populated, and <see cref="DefaultWritingStatus.SectionLayouts"/> is assigned.</description></item>
+      /// <item><description>The <paramref name="rvaConverter"/> is assigned to the result of <see cref="CreateRVAConverter"/> method.</description></item>
+      /// <item><description>The <see cref="CLIHeader"/> is created and <see cref="WritingStatus.CLIHeader"/> property is assigned.</description></item>
+      /// <item><description>Finally, the <see cref="DataReferencesInfo"/> is created from <see cref="DefaultWritingStatus.DataReferencesStorage"/> by <see cref="E_CILPhysical.CreateDataReferencesInfo"/> method.</description></item>
+      /// </list>
+      /// </remarks>
       public virtual DataReferencesInfo CalculateImageLayout(
          WritingStatus writingStatus,
-         WriterMetaDataStreamContainer mdStreamContainer,
-         IEnumerable<AbstractWriterStreamHandler> allStreams,
+         IEnumerable<StreamHandlerInfo> presentStreams,
          out RVAConverter rvaConverter,
          out Int32 mdRootSize
          )
@@ -137,11 +194,12 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
 
          // Get raw value sections (IL, Field RVA, Embedded manifest resources)
          // Enumerate right here, to force e.g. user-string heap initialization for method IL section part
+         // This will cause 'presentStreams' enumerable to also return user strings heap!
          var rawSections = dStatus.DataReferencesSectionParts.ToArray();
 
          // MetaData
          Int32 mdSize;
-         var mdRoot = this.CreateMDRoot( allStreams.Where( s => s.Accessed ), out mdRootSize, out mdSize );
+         var mdRoot = this.CreateMDRoot( presentStreams, out mdRootSize, out mdSize );
          writingStatus.MDRoot = mdRoot;
 
          // Sections
@@ -164,13 +222,20 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
          return dStatus.DataReferencesStorage.CreateDataReferencesInfo( i => i );
       }
 
+      /// <summary>
+      /// This method implements the <see cref="WriterFunctionality.BeforeMetaData"/> by calling <see cref="WritePart"/> for each section part for each section layout in <see cref="DefaultWritingStatus.SectionLayouts"/> until it encounters <see cref="SectionPart_MetaData"/>.
+      /// </summary>
+      /// <param name="writingStatus">The <see cref="WritingStatus"/>, will be casted to <see cref="DefaultWritingStatus"/>.</param>
+      /// <param name="stream">The stream where to write, positioned after headers.</param>
+      /// <param name="array">The auxiliary array to use.</param>
       public virtual void BeforeMetaData(
          WritingStatus writingStatus,
          Stream stream,
          ResizableArray<Byte> array
          )
       {
-         foreach ( var section in ( (DefaultWritingStatus) writingStatus ).SectionLayouts.LayoutInfos )
+         var dStatus = (DefaultWritingStatus) writingStatus;
+         foreach ( var section in dStatus.SectionLayouts.LayoutInfos )
          {
             var parts = section.PartInfos;
             if ( parts.Count > 0 )
@@ -180,7 +245,7 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
                foreach ( var partLayout in parts.TakeWhile( p => !( p.Part is SectionPart_MetaData ) ) )
                {
                   // Write to ResizableArray
-                  this.WritePart( partLayout, array, stream, writingStatus );
+                  this.WritePart( partLayout, array, stream, dStatus );
                   ++idx;
                }
 
@@ -192,7 +257,7 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
                else
                {
                   // We've written the whole section - pad with zeroes
-                  var pad = (Int32) ( stream.Position.RoundUpI64( writingStatus.FileAlignment ) - stream.Position );
+                  var pad = (Int32) ( stream.Position.RoundUpI64( dStatus.FileAlignment ) - stream.Position );
                   array.CurrentMaxCapacity = pad;
                   idx = 0;
                   array.ZeroOut( ref idx, pad );
@@ -202,6 +267,12 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
          }
       }
 
+
+      /// <summary>
+      /// This method implements the <see cref="WriterFunctionality.WriteMDRoot"/> by calling <see cref="CAMPhysicalIO::E_CILPhysical.WriteMetaDataRoot"/> on <see cref="WritingStatus.MDRoot"/>.
+      /// </summary>
+      /// <param name="writingStatus">The <see cref="WritingStatus"/>.</param>
+      /// <param name="array">The auxiliary byte array to use.</param>
       public virtual void WriteMDRoot(
          WritingStatus writingStatus,
          ResizableArray<Byte> array
@@ -211,15 +282,21 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
          writingStatus.MDRoot.WriteMetaDataRoot( array );
       }
 
+      /// <summary>
+      /// This method implements the <see cref="WriterFunctionality.AfterMetaData"/> by calling <see cref="WritePart"/> for each section part for each section layout in <see cref="DefaultWritingStatus.SectionLayouts"/> after first encounter of <see cref="SectionPart_MetaData"/>.
+      /// </summary>
+      /// <param name="writingStatus">The <see cref="WritingStatus"/>, will be casted to <see cref="DefaultWritingStatus"/>.</param>
+      /// <param name="stream">The stream where to write, positioned right after meta data.</param>
+      /// <param name="array">The auxiliary array to use.</param>
       public virtual void AfterMetaData(
          WritingStatus writingStatus,
          Stream stream,
          ResizableArray<Byte> array
          )
       {
-
+         var dStatus = (DefaultWritingStatus) writingStatus;
          var mdEncountered = false;
-         foreach ( var section in ( (DefaultWritingStatus) writingStatus ).SectionLayouts.LayoutInfos.SkipWhile( s => !s.PartInfos.Any( p => p.Part is SectionPart_MetaData ) ) )
+         foreach ( var section in dStatus.SectionLayouts.LayoutInfos.SkipWhile( s => !s.PartInfos.Any( p => p.Part is SectionPart_MetaData ) ) )
          {
             var parts = section.PartInfos;
             if ( parts.Count > 0 )
@@ -230,7 +307,7 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
                {
                   if ( mdEncountered )
                   {
-                     this.WritePart( partLayout, array, stream, writingStatus );
+                     this.WritePart( partLayout, array, stream, dStatus );
                   }
                   else
                   {
@@ -251,6 +328,13 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
          }
       }
 
+      /// <summary>
+      /// This method implements the <see cref="WriterFunctionality.WritePEInformation"/> by calling <see cref="CAMPhysicalIO::E_CILPhysical.WritePEinformation"/> on given <see cref="PEInformation"/>.
+      /// </summary>
+      /// <param name="writingStatus">The <see cref="WritingStatus"/>.</param>
+      /// <param name="stream">The stream to write PE information to.</param>
+      /// <param name="array">The auxiliary byte array to use.</param>
+      /// <param name="peInfo">The <see cref="PEInformation"/> to write.</param>
       public virtual void WritePEInformation(
          WritingStatus writingStatus,
          Stream stream,
@@ -269,7 +353,7 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
 
       protected CILMetaData MetaData { get; }
 
-      protected TableSerializationLogicalFunctionalityCreationArgs TableSerializationLogicalFunctionalityCreationArgs { get; }
+      protected TableSerializationLogicalFunctionalityCreationArgs SerializationCreationArgs { get; }
 
       protected WritingOptions WritingOptions { get; }
 
@@ -327,7 +411,7 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
       }
 
       protected virtual MetaDataRoot CreateMDRoot(
-         IEnumerable<AbstractWriterStreamHandler> presentStreams,
+         IEnumerable<StreamHandlerInfo> presentStreams,
          out Int32 mdRootSize,
          out Int32 mdSize
          )
@@ -461,7 +545,7 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
          SectionPartInfo partLayout,
          ResizableArray<Byte> array,
          Stream stream,
-         WritingStatus writingStatus
+         DefaultWritingStatus writingStatus
          )
       {
          if ( stream.Position != partLayout.Offset - partLayout.PrePadding )
@@ -476,7 +560,7 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
             array,
             partLayout.PrePadding,
             partLayout.Size,
-            (DefaultWritingStatus) writingStatus
+            writingStatus
             ) );
       }
 

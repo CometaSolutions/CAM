@@ -111,8 +111,7 @@ namespace CILAssemblyManipulator.Physical.IO
       /// This method is called to calculate the layout for the image created by serialization process.
       /// </summary>
       /// <param name="writingStatus">The <see cref="WritingStatus"/> created by<see cref="CreateWritingStatus"/> method.</param>
-      /// <param name="mdStreamContainer">The <see cref="WriterMetaDataStreamContainer"/>.</param>
-      /// <param name="allStreams">All streams, as returned by <see cref="CreateMetaDataStreamHandlers"/> method.</param>
+      /// <param name="presentStreams">The information about all meta data streams created by <see cref="CreateMetaDataStreamHandlers"/> method, which have their <see cref="AbstractWriterStreamHandler.Accessed"/> property as <c>true</c>.</param>
       /// <param name="rvaConverter">This parameter should contain the <see cref="RVAConverter"/> to be used when serialization process converts from RVAs to offsets.</param>
       /// <param name="mdRootSize">This parameter should contain the size of the <see cref="MetaDataRoot"/> in bytes.</param>
       /// <returns>The <see cref="DataReferencesInfo"/> filled with data offsets, e.g. <see cref="MethodDefinition.IL"/> RVAs, and so on.</returns>
@@ -123,8 +122,7 @@ namespace CILAssemblyManipulator.Physical.IO
       /// <seealso cref="AbstractWriterStreamHandler.WriteStream"/>
       DataReferencesInfo CalculateImageLayout(
          WritingStatus writingStatus,
-         WriterMetaDataStreamContainer mdStreamContainer,
-         IEnumerable<AbstractWriterStreamHandler> allStreams,
+         IEnumerable<StreamHandlerInfo> presentStreams,
          out RVAConverter rvaConverter,
          out Int32 mdRootSize
          );
@@ -510,6 +508,31 @@ namespace CILAssemblyManipulator.Physical.IO
       public ArrayQuery<Byte> PublicKey { get; }
 
    }
+
+   /// <summary>
+   /// This class captures the information of <see cref="AbstractMetaDataStreamHandler"/> without exposing the actual stream.
+   /// </summary>
+   public class StreamHandlerInfo : AbstractMetaDataStreamHandler
+   {
+      /// <summary>
+      /// Creates a new instance of <see cref="StreamHandlerInfo"/> from given <see cref="AbstractMetaDataStreamHandler"/>.
+      /// </summary>
+      /// <param name="stream">The stream to get information from.</param>
+      /// <exception cref="ArgumentNullException">If <paramref name="stream"/> is <c>null</c>.</exception>
+      public StreamHandlerInfo( AbstractMetaDataStreamHandler stream )
+      {
+         ArgumentValidator.ValidateNotNull( "Meta data stream", stream );
+
+         this.StreamName = stream.StreamName;
+         this.StreamSize = stream.StreamSize;
+      }
+
+      /// <inheritdoc />
+      public String StreamName { get; }
+
+      /// <inheritdoc />
+      public Int32 StreamSize { get; }
+   }
 }
 
 public static partial class E_CILPhysical
@@ -670,8 +693,7 @@ public static partial class E_CILPhysical
       RVAConverter rvaConverter; Int32 mdRootSize;
       var dataRefs = writer.CalculateImageLayout(
          status,
-         mdStreamContainer,
-         mdStreams,
+         mdStreams.Where( s => s.Accessed ).Select( s => new StreamHandlerInfo( s ) ),
          out rvaConverter,
          out mdRootSize
          )

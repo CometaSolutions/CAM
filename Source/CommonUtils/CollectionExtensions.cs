@@ -1201,4 +1201,38 @@ public static partial class E_CommonUtils
          --count;
       }
    }
+
+   /// <summary>
+   /// Returns enumerable which will return all items in this enumerable, and then concatenate a single item at the end.
+   /// </summary>
+   /// <typeparam name="T">The type of elements in <see cref="IEnumerable{T}"/>.</typeparam>
+   /// <param name="enumerable">The <see cref="IEnumerable{T}"/>.</param>
+   /// <param name="singleItem">The single item.</param>
+   /// <returns>Enumerable which will enumerate this enumerable, and then concatenate a single item at the end.</returns>
+   public static IEnumerable<T> ConcatSingle<T>( this IEnumerable<T> enumerable, T singleItem )
+   {
+      foreach ( var item in enumerable )
+      {
+         yield return item;
+      }
+
+      yield return singleItem;
+   }
+
+   /// <summary>
+   /// Returns enumerable which will first return given single item, and then all items in this enumerable.
+   /// </summary>
+   /// <typeparam name="T">The type of elements in <see cref="IEnumerable{T}"/>.</typeparam>
+   /// <param name="enumerable">The <see cref="IEnumerable{T}"/>.</param>
+   /// <param name="singleItem">The single item.</param>
+   /// <returns>Enumerable which will first return given single item, and then all items in this enumerable.</returns>
+   public static IEnumerable<T> PrependSingle<T>( this IEnumerable<T> enumerable, T singleItem )
+   {
+      yield return singleItem;
+
+      foreach ( var item in enumerable )
+      {
+         yield return item;
+      }
+   }
 }

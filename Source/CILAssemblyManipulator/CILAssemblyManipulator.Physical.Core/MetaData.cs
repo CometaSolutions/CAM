@@ -2265,8 +2265,8 @@ public static partial class E_CILPhysical
       {
          case TypeSignatureKind.ClassOrValue:
             var clazz = (ClassOrValueTypeSignature) sig;
-            return Tuple.Create( (Object) clazz, clazz.Type ).Singleton()
-               .Concat( clazz.GenericArguments.SelectMany( g => g.GetAllSignaturesToUpdateForReOrder_Type() ) );
+            return clazz.GenericArguments.SelectMany( g => g.GetAllSignaturesToUpdateForReOrder_Type() )
+               .PrependSingle( Tuple.Create( (Object) clazz, clazz.Type ) );
          case TypeSignatureKind.ComplexArray:
             return ( (ComplexArrayTypeSignature) sig ).ArrayType.GetAllSignaturesToUpdateForReOrder_Type();
          case TypeSignatureKind.FunctionPointer:
