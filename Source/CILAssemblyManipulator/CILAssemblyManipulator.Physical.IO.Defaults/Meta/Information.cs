@@ -641,7 +641,7 @@ namespace CILAssemblyManipulator.Physical.Meta
             {
                mDef.IL = rArgs.MetaData.OpCodeProvider.DeserializeIL( rArgs.Stream.At( offset ), rArgs.Array, rArgs.MDStreamContainer.UserStrings );
             }
-         }, ( md, mdStreamContainer ) => new SectionPart_MethodIL( md, mdStreamContainer.UserStrings ), null, null );
+         }, ( md, mdStreamContainer ) => new SectionPartFunctionality_MethodIL( md, mdStreamContainer.UserStrings ), null, null );
          yield return MetaDataColumnInformationFactory.Number16<MethodDefinition, RawMethodDefinition>( ( r, v ) => { r.ImplementationAttributes = (MethodImplAttributes) v; return true; }, row => (Int16) row.ImplementationAttributes, ( r, v ) => r.ImplementationAttributes = (MethodImplAttributes) v );
          yield return MetaDataColumnInformationFactory.Number16<MethodDefinition, RawMethodDefinition>( ( r, v ) => { r.Attributes = (MethodAttributes) v; return true; }, row => (Int16) row.Attributes, ( r, v ) => r.Attributes = (MethodAttributes) v );
          yield return MetaDataColumnInformationFactory.SystemString<MethodDefinition, RawMethodDefinition>( ( r, v ) => { r.Name = v; return true; }, row => row.Name, ( r, v ) => r.Name = v );

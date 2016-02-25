@@ -7,6 +7,7 @@
 - CAM.Physical:
  - Documentation
  - Extensible signatures
+ - Win32 resources
  
 - CAM.Logical:
  - Revisit documentation (code samples etc)
@@ -16,3 +17,13 @@
 - CAM.Structural:
  - Add "MergeWithAnother" functionality to assembly, module, type.
  - Documentation
+
+- CILMerge:
+ - BAML merging
+ - Minify functionality
+  - Option: Minify: true|false|<string>
+   - If "false" or not specified, then no minifying is performed.
+   - If "true", then EP is attempted to read from CILHeader.
+   - If <string>, then the string is interpreted as EP method.
+ - Exported types
+ - Win32 resources, once they are done to CAM.Physical

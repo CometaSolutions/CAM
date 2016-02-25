@@ -616,7 +616,7 @@ public static partial class E_CILPhysical
          // PEVerify doesn't like mixed small and fat blocks at all (however, at least Cecil understands that kind of situation)
          // Apparently, PEVerify doesn't like multiple small blocks either (Cecil still loads code fine)
          // So to use small exception blocks at all, all the blocks must be small, and there must be a limited amount of them
-         allAreSmall = exceptionBlocks.Count <= CILAssemblyManipulator.Physical.IO.Defaults.SectionPart_MethodIL.MAX_SMALL_EXC_HANDLERS_IN_ONE_SECTION
+         allAreSmall = exceptionBlocks.Count <= CILAssemblyManipulator.Physical.IO.Defaults.SectionPartFunctionality_MethodIL.MAX_SMALL_EXC_HANDLERS_IN_ONE_SECTION
             && exceptionBlocks.All( excBlock =>
             {
                return excBlock.TryLength <= Byte.MaxValue

@@ -1303,10 +1303,24 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
       protected abstract void WriteData( TRow row, TSizeInfo sizeInfo, Byte[] array );
    }
 
-   public class SectionPart_MethodIL : SectionPartFunctionalityWithDataReferenceTargetsImpl<MethodDefinition, SectionPart_MethodIL.MethodSizeInfo>
+   /// <summary>
+   /// This class specializes <see cref="SectionPartFunctionalityWithDataReferenceTargetsImpl{TRow, TSizeInfo}"/> to implement writing <see cref="MethodILDefinition"/>s.
+   /// </summary>
+   public class SectionPartFunctionality_MethodIL : SectionPartFunctionalityWithDataReferenceTargetsImpl<MethodDefinition, SectionPartFunctionality_MethodIL.MethodSizeInfo>
    {
+      /// <summary>
+      /// This struct contains information about the size of the serialized <see cref="MethodILDefinition"/>.
+      /// </summary>
       public struct MethodSizeInfo
       {
+         /// <summary>
+         /// Creates a new instance of <see cref="MethodSizeInfo"/> with given parameters.
+         /// </summary>
+         /// <param name="prePadding">The padding before actual content starts.</param>
+         /// <param name="byteSize">The size of the content, in bytes.</param>
+         /// <param name="ilCodeByteCount">The size of the IL.</param>
+         /// <param name="isTinyHeader">Whether the header before IL is tiny.</param>
+         /// <param name="exceptionSectionsAreLarge">Whether the exception sections are large.</param>
          public MethodSizeInfo( Int32 prePadding, Int32 byteSize, Int32 ilCodeByteCount, Boolean isTinyHeader, Boolean exceptionSectionsAreLarge )
          {
             this.PrePadding = prePadding;
@@ -1316,14 +1330,34 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
             this.ExceptionSectionsAreLarge = exceptionSectionsAreLarge;
          }
 
+         /// <summary>
+         /// Gets the amount of zero padding before actual content starts.
+         /// </summary>
+         /// <value>The amount of zero padding before actual content starts.</value>
          public Int32 PrePadding { get; }
 
+         /// <summary>
+         /// Gets the size of the content, in bytes.
+         /// </summary>
+         /// <value>The size of the content, in bytes.</value>
          public Int32 ByteSize { get; }
 
+         /// <summary>
+         /// Gets the size of the IL code, in bytes.
+         /// </summary>
+         /// <value>The size of the IL code, in bytes.</value>
          public Int32 ILCodeByteCount { get; }
 
+         /// <summary>
+         /// Gets the value indicating whether the header before IL code is tiny.
+         /// </summary>
+         /// <value>The value indicating whether the header before IL code is tiny.</value>
          public Boolean IsTinyHeader { get; }
 
+         /// <summary>
+         /// Gets the value indicating whether the exception sections after IL are large.
+         /// </summary>
+         /// <value>The value indicating whether the exception sections after IL are large.</value>
          public Boolean ExceptionSectionsAreLarge { get; }
       }
 
@@ -1336,10 +1370,25 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
 
       private readonly CILMetaData _md;
       private readonly IDictionary<OpCodeInfoWithString, Int32> _stringTokens;
-      public SectionPart_MethodIL( CILMetaData md, WriterStringStreamHandler userStrings, Int32 columnIndex = 0, Int32 min = 0, Int32 max = -1 )
-         : base( 0x04, md.MethodDefinitions, columnIndex, min, max )
+
+      /// <summary>
+      /// Creates a new instance of <see cref="SectionPartFunctionality_MethodIL"/>.
+      /// </summary>
+      /// <param name="md">The <see cref="CILMetaData"/> to use to obtain <see cref="MethodILDefinition"/>s from <see cref="CILMetaData.MethodDefinitions"/>.</param>
+      /// <param name="userStrings">The <see cref="WriterStringStreamHandler"/> to get indices for string values of <see cref="OpCodeInfoWithString"/>s.</param>
+      /// <param name="columnIndex">The column index of <see cref="MethodDefinition"/>. Should be left at zero.</param>
+      /// <param name="min">The minimum index to start reading contents of <see cref="CILMetaData.MethodDefinitions"/>, inclusive. Use <c>-1</c> or <c>0</c> to start reading from beginning.</param>
+      /// <param name="max">The maximum index to end reading contents of <see cref="CILMetaData.MethodDefinitions"/>, exclusive. Use <c>-1</c> to read until the end.</param>
+      /// <exception cref="ArgumentNullException">If any of the <paramref name="md"/> or <paramref name="userStrings"/> is <c>null</c>.</exception>
+      public SectionPartFunctionality_MethodIL(
+         CILMetaData md,
+         WriterStringStreamHandler userStrings,
+         Int32 columnIndex = 0,
+         Int32 min = 0,
+         Int32 max = -1
+         )
+         : base( 0x04, ArgumentValidator.ValidateNotNull( "Meta data", md ).MethodDefinitions, columnIndex, min, max )
       {
-         ArgumentValidator.ValidateNotNull( "Meta data", md );
          ArgumentValidator.ValidateNotNull( "User strings", userStrings );
 
          this._md = md;
