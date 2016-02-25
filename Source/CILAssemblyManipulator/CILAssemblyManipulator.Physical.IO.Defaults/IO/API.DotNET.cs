@@ -37,11 +37,18 @@ namespace CILAssemblyManipulator.Physical.IO
 {
    public static partial class CILMetaDataIO
    {
-      public static CILMetaData ReadModuleFrom( String filePath, ReadingArguments rArgs = null )
+      /// <summary>
+      /// This method will read the <see cref="CILMetaData"/> from given file path.
+      /// </summary>
+      /// <param name="filePath">The file path.</param>
+      /// <param name="args">The optional <see cref="ReadingArguments"/>.</param>
+      /// <returns>The <see cref="CILMetaData"/> read from given file path.</returns>
+      /// <seealso cref="ReadModule"/>
+      public static CILMetaData ReadModuleFrom( String filePath, ReadingArguments args = null )
       {
-         using ( var stream = File.OpenRead( filePath ) )
+         using ( var stream = File.Open( filePath, FileMode.Open, FileAccess.Read, FileShare.Read ) )
          {
-            return stream.ReadModule( rArgs );
+            return stream.ReadModule( args );
          }
       }
    }
@@ -49,11 +56,21 @@ namespace CILAssemblyManipulator.Physical.IO
 
 public static partial class E_CILPhysical
 {
-   public static void WriteModuleTo( this CILMetaData module, String filePath, WritingArguments eArgs = null )
+   /// <summary>
+   /// This method will write the given <see cref="CILMetaData"/> to file located in given file path.
+   /// </summary>
+   /// <param name="module">The <see cref="CILMetaData"/>.</param>
+   /// <param name="filePath">The file path to write the <paramref name="module"/> to.</param>
+   /// <param name="args">The optional <see cref="WritingArguments"/>.</param>
+   /// <seealso cref="WriteModule"/>
+   /// <remarks>
+   /// If the file at given <paramref name="filePath"/> does not exist, it will be created.
+   /// </remarks>
+   public static void WriteModuleTo( this CILMetaData module, String filePath, WritingArguments args = null )
    {
-      using ( var fs = System.IO.File.Open( filePath, FileMode.Create, FileAccess.ReadWrite, FileShare.None ) )
+      using ( var fs = File.Open( filePath, FileMode.Create, FileAccess.ReadWrite, FileShare.None ) )
       {
-         module.WriteModule( fs, eArgs );
+         module.WriteModule( fs, args );
       }
    }
 }
