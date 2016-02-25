@@ -2647,18 +2647,28 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
       protected abstract void DoWriteStream( Stream stream, ResizableArray<Byte> array );
    }
 
-   internal class DefaultWriterBLOBStreamHandler : AbstractWriterStreamHandlerImpl, WriterBLOBStreamHandler
+   /// <summary>
+   /// This class provides default implementation for <see cref="WriterBLOBStreamHandler"/>.
+   /// </summary>
+   public class DefaultWriterBLOBStreamHandler : AbstractWriterStreamHandlerImpl, WriterBLOBStreamHandler
    {
       private readonly IDictionary<Byte[], UInt32> _blobIndices;
       private readonly IList<Byte[]> _blobs;
 
-      internal DefaultWriterBLOBStreamHandler()
+      /// <summary>
+      /// Creates a new instance of <see cref="DefaultWriterBLOBStreamHandler"/>.
+      /// </summary>
+      public DefaultWriterBLOBStreamHandler()
          : base( 1 )
       {
          this._blobIndices = new Dictionary<Byte[], UInt32>( ArrayEqualityComparer<Byte>.DefaultArrayEqualityComparer );
          this._blobs = new List<Byte[]>();
       }
 
+      /// <summary>
+      /// Gets the name of the BLOB stream, which is always <c>"#Blobs"</c>.
+      /// </summary>
+      /// <value>The string value <c>"#Blobs"</c>.</value>
       public override String StreamName
       {
          get
@@ -2667,6 +2677,11 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
          }
       }
 
+      /// <summary>
+      /// This method implements <see cref="WriterBLOBStreamHandler.RegisterBLOB"/>.
+      /// </summary>
+      /// <param name="blob">The BLOB, as byte array, that should be stored in this BLOB stream.</param>
+      /// <returns>The index within this stream where the given <paramref name="blob"/> is located.</returns>
       public Int32 RegisterBLOB( Byte[] blob )
       {
          UInt32 result;
@@ -2688,12 +2703,17 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
          return (Int32) result;
       }
 
+      /// <summary>
+      /// Implements the <see cref="AbstractWriterStreamHandlerImpl.DoWriteStream"/> with code that will write all registered BLOBs to the given stream.
+      /// </summary>
+      /// <param name="stream">The <see cref="Stream"/> to write this BLOB stream to.</param>
+      /// <param name="array">The auxiliary array to use.</param>
       protected override void DoWriteStream(
-         Stream sink,
+         Stream stream,
          ResizableArray<Byte> array
          )
       {
-         sink.WriteByte( 0 );
+         stream.WriteByte( 0 );
          var idx = 0;
          if ( this._blobs.Count > 0 )
          {
@@ -2701,24 +2721,34 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
             {
                idx = 0;
                array.AddCompressedUInt32( ref idx, blob.Length );
-               sink.Write( array.Array, idx );
-               sink.Write( blob );
+               stream.Write( array.Array, idx );
+               stream.Write( blob );
             }
          }
       }
 
    }
 
+   /// <summary>
+   /// This class provides default implementation for <see cref="WriterGUIDStreamHandler"/>.
+   /// </summary>
    public class DefaultWriterGuidStreamHandler : AbstractWriterStreamHandlerImpl, WriterGUIDStreamHandler
    {
       private readonly IDictionary<Guid, UInt32> _guids;
 
-      internal DefaultWriterGuidStreamHandler()
+      /// <summary>
+      /// Creates a new instance of <see cref="DefaultWriterGuidStreamHandler"/>.
+      /// </summary>
+      public DefaultWriterGuidStreamHandler()
          : base( 0 )
       {
          this._guids = new Dictionary<Guid, UInt32>();
       }
 
+      /// <summary>
+      /// Gets the name of the GUID stream, which is always <c>"#GUID"</c>.
+      /// </summary>
+      /// <value>The string value <c>"#GUID"</c>.</value>
       public override String StreamName
       {
          get
@@ -2727,6 +2757,11 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
          }
       }
 
+      /// <summary>
+      /// This method implements <see cref="WriterGUIDStreamHandler.RegisterGUID"/>.
+      /// </summary>
+      /// <param name="guid">The nullable <see cref="Guid"/> that should be stored in this GUID stream.</param>
+      /// <returns>The index within this stream where the given <paramref name="guid"/> is located.</returns>
       public Int32 RegisterGUID( Guid? guid )
       {
          UInt32 result;
@@ -2747,6 +2782,11 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
          return (Int32) result;
       }
 
+      /// <summary>
+      /// Implements the <see cref="AbstractWriterStreamHandlerImpl.DoWriteStream"/> with code that will write all registered GUIDs to the given stream.
+      /// </summary>
+      /// <param name="stream">The <see cref="Stream"/> to write this GUID stream to.</param>
+      /// <param name="array">The auxiliary array to use.</param>
       protected override void DoWriteStream(
          Stream sink,
          ResizableArray<Byte> array
@@ -2760,18 +2800,34 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
       }
    }
 
-   public abstract class AbstractWriterStringStreamHandlerImpl : AbstractWriterStreamHandlerImpl, WriterStringStreamHandler
+   /// <summary>
+   /// This class provides default implementation for <see cref="WriterStringStreamHandler"/>.
+   /// </summary>
+   public abstract class DefaultWriterStringStreamHandlerImpl : AbstractWriterStreamHandlerImpl, WriterStringStreamHandler
    {
       private readonly IDictionary<String, KeyValuePair<UInt32, Int32>> _strings;
-      private readonly Encoding _encoding;
 
-      internal AbstractWriterStringStreamHandlerImpl( Encoding encoding )
+      /// <summary>
+      /// Creates a new instance of <see cref="DefaultWriterStringStreamHandlerImpl"/> with given <see cref="System.Text.Encoding"/>.
+      /// </summary>
+      /// <param name="encoding">The encoding that this <see cref="DefaultWriterStringStreamHandlerImpl"/> is deemed to serialize strings with.</param>
+      /// <exception cref="ArgumentNullException">If <paramref name="encoding"/> is <c>null</c>.</exception>
+      protected DefaultWriterStringStreamHandlerImpl( Encoding encoding )
          : base( 1 )
       {
-         this._encoding = encoding;
+         ArgumentValidator.ValidateNotNull( "Encoding", encoding );
+         this.Encoding = encoding;
          this._strings = new Dictionary<String, KeyValuePair<UInt32, Int32>>();
       }
 
+      /// <summary>
+      /// This method implements <see cref="WriterStringStreamHandler.RegisterString"/>.
+      /// </summary>
+      /// <param name="str">The string that should be stored in this string stream.</param>
+      /// <returns>The index within this stream where the given <paramref name="str"/> is located.</returns>
+      /// <remarks>
+      /// This method will use the <see cref="GetByteCountForString"/> to obtain the actual byte count for a given string.
+      /// </remarks>
       public Int32 RegisterString( String str )
       {
          UInt32 result;
@@ -2797,16 +2853,20 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
          return (Int32) result;
       }
 
+      /// <summary>
+      /// Leaves the implementation of the <see cref="AbstractStringStreamHandler.StringStreamKind"/> property to subclasses.
+      /// </summary>
+      /// <value>The <see cref="CAMPhysicalIO::CILAssemblyManipulator.Physical.IO.StringStreamKind"/> of this string stream.</value>
       public abstract StringStreamKind StringStreamKind { get; }
 
-      internal Int32 StringCount
-      {
-         get
-         {
-            return this._strings.Count;
-         }
-      }
-
+      /// <summary>
+      /// Implements the <see cref="AbstractWriterStreamHandlerImpl.DoWriteStream"/> with code that will write all registered strings to the given stream.
+      /// </summary>
+      /// <param name="stream">The <see cref="Stream"/> to write this string stream to.</param>
+      /// <param name="array">The auxiliary array to use.</param>
+      /// <remarks>
+      /// This method will use <see cref="Serialize"/> to delegate the writing of the string to byte array.
+      /// </remarks>
       protected override void DoWriteStream(
          Stream sink,
          ResizableArray<Byte> array
@@ -2819,33 +2879,51 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
             {
                var arrayLen = kvp.Value.Value;
                array.CurrentMaxCapacity = arrayLen;
-               this.Serialize( kvp.Key, array );
+               this.Serialize( kvp.Key, array.Array );
                sink.Write( array.Array, arrayLen );
             }
          }
       }
 
-      protected Encoding Encoding
-      {
-         get
-         {
-            return this._encoding;
-         }
-      }
+      /// <summary>
+      /// Gets the <see cref="System.Text.Encoding"/> specified to this string stream.
+      /// </summary>
+      /// <value>The <see cref="System.Text.Encoding"/> specified to this string stream.</value>
+      protected Encoding Encoding { get; }
 
+      /// <summary>
+      /// This method should calculate the byte count for given string.
+      /// </summary>
+      /// <param name="str">The given string. Is guaranteed to be non-<c>null</c>.</param>
+      /// <returns>The byte count for <paramref name="str"/>.</returns>
       protected abstract Int32 GetByteCountForString( String str );
 
-      protected abstract void Serialize( String str, ResizableArray<Byte> byteArrayHelper );
+      /// <summary>
+      /// This method should write the given string to given byte array.
+      /// </summary>
+      /// <param name="str">The string to serialize. Is guaranteed to be non-<c>null</c>.</param>
+      /// <param name="array">The byte array to serialize string to. The array will always be at least the size of what <see cref="GetByteCountForString"/> returned for given <paramref name="str"/>.</param>
+      protected abstract void Serialize( String str, Byte[] array );
    }
 
-   public class DefaultWriterUserStringStreamHandler : AbstractWriterStringStreamHandlerImpl
+   /// <summary>
+   /// This class specializes the <see cref="DefaultWriterStringStreamHandlerImpl"/> to provide default implementation for user string (<c>"#US"</c>) meta data stream.
+   /// </summary>
+   public class DefaultWriterUserStringStreamHandler : DefaultWriterStringStreamHandlerImpl
    {
-      internal DefaultWriterUserStringStreamHandler()
+      /// <summary>
+      /// Creates a new instance of <see cref="DefaultWriterUserStringStreamHandler"/>.
+      /// </summary>
+      public DefaultWriterUserStringStreamHandler()
          : base( MetaDataConstants.USER_STRING_ENCODING )
       {
 
       }
 
+      /// <summary>
+      /// Gets the name of this string stream, which is always <c>"#US"</c>.
+      /// </summary>
+      /// <value>The string value <c>"#US"</c>.</value>
       public override String StreamName
       {
          get
@@ -2854,6 +2932,10 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
          }
       }
 
+      /// <summary>
+      /// Returns the <see cref="StringStreamKind.UserStrings"/>.
+      /// </summary>
+      /// <value>The <see cref="StringStreamKind.UserStrings"/>.</value>
       public override StringStreamKind StringStreamKind
       {
          get
@@ -2862,6 +2944,11 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
          }
       }
 
+      /// <summary>
+      /// Implements the <see cref="DefaultWriterStringStreamHandlerImpl.GetByteCountForString"/> method.
+      /// </summary>
+      /// <param name="str">The string.</param>
+      /// <returns>The byte count for user string, as specified in ECMA-335 standard.</returns>
       protected override Int32 GetByteCountForString( String str )
       {
          var retVal = str.Length * 2 // Each character is 2 bytes
@@ -2870,10 +2957,13 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
          return retVal;
       }
 
-      protected override void Serialize( String str, ResizableArray<Byte> byteArrayHelper )
+      /// <summary>
+      /// Implements the <see cref="DefaultWriterStringStreamHandlerImpl.Serialize"/> method.
+      /// </summary>
+      /// <param name="str">The string.</param>
+      /// <param name="array">The byte array to write <paramref name="str"/> to.</param>
+      protected override void Serialize( String str, Byte[] array )
       {
-         // Byte array helper has already been set up to hold array size
-         var array = byteArrayHelper.Array;
          // Byte count
          var arrayIndex = 0;
          array.CompressUInt32( ref arrayIndex, str.Length * 2 + 1 );
@@ -2903,14 +2993,24 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
 
    }
 
-   public class DefaultWriterSystemStringStreamHandler : AbstractWriterStringStreamHandlerImpl
+   /// <summary>
+   /// This class specializes the <see cref="DefaultWriterStringStreamHandlerImpl"/> to provide default implementation for system string (<c>"#Strings"</c>) meta data stream.
+   /// </summary>
+   public class DefaultWriterSystemStringStreamHandler : DefaultWriterStringStreamHandlerImpl
    {
+      /// <summary>
+      /// Creates a new instance of <see cref="DefaultWriterSystemStringStreamHandler"/>.
+      /// </summary>
       public DefaultWriterSystemStringStreamHandler()
          : base( MetaDataConstants.SYS_STRING_ENCODING )
       {
 
       }
 
+      /// <summary>
+      /// Gets the name of this string stream, which is always <c>"#Strings"</c>.
+      /// </summary>
+      /// <value>The string value <c>"#Strings"</c>.</value>
       public override String StreamName
       {
          get
@@ -2919,6 +3019,10 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
          }
       }
 
+      /// <summary>
+      /// Returns the <see cref="StringStreamKind.SystemStrings"/>.
+      /// </summary>
+      /// <value>The <see cref="StringStreamKind.SystemStrings"/>.</value>
       public override StringStreamKind StringStreamKind
       {
          get
@@ -2927,25 +3031,38 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
          }
       }
 
+      /// <summary>
+      /// Implements the <see cref="DefaultWriterStringStreamHandlerImpl.GetByteCountForString"/> method.
+      /// </summary>
+      /// <param name="str">The string.</param>
+      /// <returns>The byte count for user string, as specified in ECMA-335 standard.</returns>
       protected override Int32 GetByteCountForString( String str )
       {
          return this.Encoding.GetByteCount( str ) // Byte count for string
             + 1; // Trailing zero
       }
 
-      protected override void Serialize( String str, ResizableArray<Byte> byteArrayHelper )
+      /// <summary>
+      /// Implements the <see cref="DefaultWriterStringStreamHandlerImpl.Serialize"/> method.
+      /// </summary>
+      /// <param name="str">The string.</param>
+      /// <param name="array">The byte array to write <paramref name="str"/> to.</param>
+      protected override void Serialize( String str, Byte[] array )
       {
          // Byte array helper has already been set up to hold array size
-         var array = byteArrayHelper.Array;
          var byteCount = this.Encoding.GetBytes( str, 0, str.Length, array, 0 );
          // Remember trailing zero
          array[byteCount] = 0;
       }
    }
 
+   /// <summary>
+   /// This class provides default implementation for <see cref="WriterTableStreamHandler"/>.
+   /// The serialization functionality is by default delegated further to <see cref="TableSerializationLogicalFunctionality"/> and <see cref="TableSerializationBinaryFunctionality"/> instances.
+   /// </summary>
    public class DefaultWriterTableStreamHandler : WriterTableStreamHandler
    {
-
+      // TODO make this class public and store it to DefaultWritingStatus.
       private sealed class WriteDependantInfo
       {
          internal WriteDependantInfo(
@@ -2994,6 +3111,13 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
       private readonly WritingOptions_TableStream _options;
       private WriteDependantInfo _writeDependantInfo;
 
+      /// <summary>
+      /// Creates a new instance of <see cref="DefaultWriterTableStreamHandler"/> with given parameters.
+      /// </summary>
+      /// <param name="md">The <see cref="CILMetaData"/> containing tables to serialize.</param>
+      /// <param name="options">The <see cref="WritingOptions_TableStream"/> for this <see cref="DefaultWriterTableStreamHandler"/>.</param>
+      /// <param name="serializationCreationArgs">The <see cref="TableSerializationLogicalFunctionalityCreationArgs"/> to use when creating <see cref="TableSerializationLogicalFunctionality"/> objects.</param>
+      /// <param name="writingStatus">The <see cref="DefaultWritingStatus"/>.</param>
       public DefaultWriterTableStreamHandler(
          CILMetaData md,
          WritingOptions_TableStream options,
@@ -3010,6 +3134,10 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
          this._options = options ?? new WritingOptions_TableStream();
       }
 
+      /// <summary>
+      /// Returns the <c>"#~"</c> string.
+      /// </summary>
+      /// <value>The <c>"#~"</c> string.</value>
       public String StreamName
       {
          get
@@ -3018,15 +3146,27 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
          }
       }
 
+      /// <summary>
+      /// Returns the size of this table stream.
+      /// </summary>
+      /// <value>The size of this table stream.</value>
+      /// <remarks>
+      /// This property will return <c>-1</c> when the size has not yet been computed.
+      /// The size is computed by <see cref="FillOtherMDStreams"/> method.
+      /// </remarks>
       public Int32 StreamSize
       {
          get
          {
             var writeInfo = this._writeDependantInfo;
-            return (Int32) ( writeInfo.HeaderSize + writeInfo.ContentSize + writeInfo.PaddingSize );
+            return writeInfo == null ? -1 : (Int32) ( writeInfo.HeaderSize + writeInfo.ContentSize + writeInfo.PaddingSize );
          }
       }
 
+      /// <summary>
+      /// Returns the <c>true</c> value.
+      /// </summary>
+      /// <value>The <c>true</c> value.</value>
       public Boolean Accessed
       {
          get
@@ -3036,17 +3176,28 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
          }
       }
 
-
+      /// <summary>
+      /// Implements the <see cref="WriterTableStreamHandler.FillOtherMDStreams"/> method.
+      /// </summary>
+      /// <param name="publicKey">The public key to use instead of <see cref="AssemblyInformation.PublicKeyOrToken"/> of the <see cref="AssemblyDefinition"/> row.</param>
+      /// <param name="mdStreams">The <see cref="WriterMetaDataStreamContainer"/> object containing other <see cref="AbstractWriterStreamHandler"/>s returned by <see cref="WriterFunctionality.CreateMetaDataStreamHandlers"/> method.</param>
+      /// <param name="array">The auxiliary byte <see cref="ResizableArray{T}"/>.</param>
+      /// <returns>A new instance of <see cref="MetaDataTableStreamHeader"/> describing the header for this meta-data.</returns>
+      /// <remarks>
+      /// This method will use <see cref="TableSerializationLogicalFunctionality.ExtractMetaDataStreamReferences"/> method to extract and store references to other meta data streams.
+      /// Then the <see cref="TableSerializationBinaryFunctionality"/> objects will be built, and table stream size will become queryable via <see cref="StreamSize"/> property.
+      /// Finally, the <see cref="DefaultWritingStatus.DataReferencesStorage"/> and <see cref="DefaultWritingStatus.DataReferencesSectionParts"/> properties are set.
+      /// </remarks>
       public MetaDataTableStreamHeader FillOtherMDStreams(
          ArrayQuery<Byte> publicKey,
          WriterMetaDataStreamContainer mdStreams,
          ResizableArray<Byte> array
          )
       {
-         var retVal = new ColumnValueStorage<Int32>( this.TableSizes, this.TableSerializations.Select( info => info?.MetaDataStreamReferenceColumnCount ?? 0 ) );
+         var mdStreamsRefs = new ColumnValueStorage<Int32>( this.TableSizes, this.TableSerializations.Select( info => info?.MetaDataStreamReferenceColumnCount ?? 0 ) );
          foreach ( var info in this.TableSerializations )
          {
-            info?.ExtractMetaDataStreamReferences( this._md, retVal, mdStreams, array, publicKey );
+            info?.ExtractMetaDataStreamReferences( this._md, mdStreamsRefs, mdStreams, array, publicKey );
          }
 
          // Create table stream header
@@ -3063,7 +3214,7 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
             options.ExtraData
             );
 
-         Interlocked.Exchange( ref this._writeDependantInfo, new WriteDependantInfo( this._options, this.TableSizes, this.TableSerializations, mdStreams, retVal, header, this.CreateSerializationCreationArgs( mdStreams ) ) );
+         Interlocked.Exchange( ref this._writeDependantInfo, new WriteDependantInfo( this._options, this.TableSizes, this.TableSerializations, mdStreams, mdStreamsRefs, header, this.CreateSerializationCreationArgs( mdStreams ) ) );
 
          // Set values for writing status
          var status = this.WritingStatus;
@@ -3078,6 +3229,11 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
          return header;
       }
 
+      /// <summary>
+      /// Creates a new <see cref="TableSerializationBinaryFunctionalityCreationArgs"/> to be used to create <see cref="TableSerializationBinaryFunctionality"/> objects in <see cref="FillOtherMDStreams"/> method.
+      /// </summary>
+      /// <param name="mdStreams">The <see cref="WriterMetaDataStreamContainer"/>.</param>
+      /// <returns>A new instance of <see cref="TableSerializationBinaryFunctionalityCreationArgs"/>.</returns>
       protected virtual TableSerializationBinaryFunctionalityCreationArgs CreateSerializationCreationArgs(
          WriterMetaDataStreamContainer mdStreams
          )
@@ -3088,6 +3244,11 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
             );
       }
 
+      /// <summary>
+      /// Creates a dictionary to use for <see cref="TableSerializationBinaryFunctionalityCreationArgs"/>.
+      /// </summary>
+      /// <param name="mdStreams">The <see cref="WriterMetaDataStreamContainer"/>.</param>
+      /// <returns>The dictionary created from all streams in given <paramref name="mdStreams"/> with <see cref="E_CommonUtils.ToDictionary_Preserve"/> method.</returns>
       protected virtual IDictionary<String, Int32> CreateSerializationCreationArgsStreamDictionary(
          WriterMetaDataStreamContainer mdStreams
          )
@@ -3097,10 +3258,16 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
             .ToDictionary_Preserve( s => s.StreamName, s => s.StreamSize );
       }
 
+      /// <summary>
+      /// Implements the <see cref="AbstractWriterStreamHandler.WriteStream"/> method by writing the full table stream.
+      /// </summary>
+      /// <param name="stream">The <see cref="Stream"/> to write this table stream to.</param>
+      /// <param name="array">The auxiliary provider to use.</param>
+      /// <param name="dataReferences">The <see cref="DataReferencesInfo"/> containing all the data reference column values.</param>
       public void WriteStream(
-         Stream sink,
+         Stream stream,
          ResizableArray<Byte> array,
-         DataReferencesInfo rawValueProvder
+         DataReferencesInfo dataReferences
          )
       {
          var writeInfo = this._writeDependantInfo;
@@ -3108,7 +3275,7 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
          // Header
          array.CurrentMaxCapacity = (Int32) writeInfo.HeaderSize;
          var headerSize = writeInfo.Header.WriteTableStreamHeader( array );
-         sink.Write( array.Array, headerSize );
+         stream.Write( array.Array, headerSize );
 
          // Rows
          var heapIndices = writeInfo.HeapIndices;
@@ -3128,7 +3295,7 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
                var valIdx = 0;
                var arrayIdx = 0;
                ArrayQuery<ArrayQuery<Int64>> dataRefs;
-               rawValueProvder.DataReferences.TryGetValue( info.Table, out dataRefs );
+               dataReferences.DataReferences.TryGetValue( info.Table, out dataRefs );
 
                foreach ( var rawValue in info.GetAllRawValues( table, dataRefs, heapIndices ) )
                {
@@ -3138,7 +3305,7 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
                   ++valIdx;
                }
 
-               sink.Write( byteArray, arrayIdx );
+               stream.Write( byteArray, arrayIdx );
 
             }
 
@@ -3149,13 +3316,25 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
          array.CurrentMaxCapacity = postPadding;
          var idx = 0;
          array.Array.ZeroOut( ref idx, postPadding );
-         sink.Write( array.Array, postPadding );
+         stream.Write( array.Array, postPadding );
       }
 
+      /// <summary>
+      /// Gets the array of all <see cref="TableSerializationLogicalFunctionality"/> objects.
+      /// </summary>
+      /// <value>The array of all <see cref="TableSerializationLogicalFunctionality"/> objects.</value>
       protected ArrayQuery<TableSerializationLogicalFunctionality> TableSerializations { get; }
 
+      /// <summary>
+      /// Gets the table size array.
+      /// </summary>
+      /// <value>The table size array.</value>
       protected ArrayQuery<Int32> TableSizes { get; }
 
+      /// <summary>
+      /// Gets the <see cref="DefaultWritingStatus"/> provided to this table stream.
+      /// </summary>
+      /// <value>The <see cref="DefaultWritingStatus"/> provided to this table stream.</value>
       protected DefaultWritingStatus WritingStatus { get; }
 
       private TableStreamFlags CreateTableStreamFlags( WriterMetaDataStreamContainer streams )
@@ -3218,12 +3397,21 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
 
 public static partial class E_CILPhysical
 {
-
-   public static DataDirectory GetDataDirectory( this SectionPart info )
+   /// <summary>
+   /// Gets the <see cref="DataDirectory"/> object for this <see cref="SectionPart"/>.
+   /// </summary>
+   /// <param name="part">The <see cref="SectionPart"/>.</param>
+   /// <returns>The <see cref="DataDirectory"/> for <see cref="SectionPart"/>, or default value of <see cref="DataDirectory"/> if this <see cref="SectionPart"/> is <c>null</c>.</returns>
+   public static DataDirectory GetDataDirectory( this SectionPart part )
    {
-      return info == null ? default( DataDirectory ) : new DataDirectory( (UInt32) info.RVA, (UInt32) info.Size );
+      return part == null ? default( DataDirectory ) : new DataDirectory( (UInt32) part.RVA, (UInt32) part.Size );
    }
 
+   /// <summary>
+   /// Returns value indicating whether the indices to this <see cref="AbstractWriterStreamHandler"/> are considered to be wide.
+   /// </summary>
+   /// <param name="stream">The <see cref="AbstractWriterStreamHandler"/>.</param>
+   /// <returns><c>true</c> if indices to this <see cref="AbstractWriterStreamHandler"/> are wide (4 byte long).</returns>
    public static Boolean IsWide( this AbstractWriterStreamHandler stream )
    {
       return stream.StreamSize.IsWideMDStreamSize();
@@ -3255,7 +3443,7 @@ public static partial class E_CILPhysical
       return CollectionsWithRoles.Implementation.CollectionsFactorySingleton.DEFAULT_COLLECTIONS_FACTORY.NewArrayProxy( bytez ).CQ;
    }
 
-   public static ArrayQuery<Int32> CreateTableSizeArray( this IEnumerable<TableSerializationLogicalFunctionality> infos, CILMetaData md )
+   internal static ArrayQuery<Int32> CreateTableSizeArray( this IEnumerable<TableSerializationLogicalFunctionality> infos, CILMetaData md )
    {
       return infos.Select( info =>
       {
@@ -3266,16 +3454,37 @@ public static partial class E_CILPhysical
       } ).ToArrayProxy().CQ;
    }
 
+   /// <summary>
+   /// Helper method to get <see cref="DataDirectory"/> for given <see cref="SectionPartFunctionality"/>.
+   /// </summary>
+   /// <param name="imageSections">This <see cref="ImageSectionsInfo"/>.</param>
+   /// <param name="part">The <see cref="SectionPartFunctinality"/>. May be <c>null</c>.</param>
+   /// <returns>The <see cref="DataDirectory"/> for given <paramref name="part"/>, or default value of <see cref="DataDirectory"/> if <paramref name="part"/> is <c>null</c> or not found.</returns>
+   /// <exception cref="NullReferenceException">If this <see cref="ImageSectionsInfo"/> is <c>null</c>.</exception>
    public static DataDirectory GetDataDirectoryForSectionPart( this ImageSectionsInfo imageSections, SectionPartFunctionality part )
    {
       return part == null ? default( DataDirectory ) : imageSections.GetSectionPartFor( part ).GetDataDirectory();
    }
 
+   /// <summary>
+   /// Helper method to return all <see cref="SectionPart"/>s of all <see cref="SectionLayout"/>s in this <see cref="ImageSectionsInfo"/>.
+   /// </summary>
+   /// <param name="imageSections">The <see cref="ImageSectionsInfo"/>.</param>
+   /// <returns>Enumerable of all <see cref="SectionPart"/>s of all <see cref="SectionLayout"/>s in this <see cref="ImageSectionsInfo"/>.</returns>
+   /// <exception cref="NullReferenceException">If <see cref="ImageSectionsInfo"/> is <c>null</c>.</exception>
    public static IEnumerable<SectionPart> GetAllSectionParts( this ImageSectionsInfo imageSections )
    {
       return imageSections.Sections.SelectMany( s => s.Parts );
    }
 
+   /// <summary>
+   /// Helper method to find the <see cref="SectionPart"/> which would have its <see cref="SectionPart.Functionality"/> object of given type, and pass optional additional checks.
+   /// </summary>
+   /// <typeparam name="TFunctionality">The type that <see cref="SectionPart.Functionality"/> must be.</typeparam>
+   /// <param name="imageSections">The <see cref="ImageSectionsInfo"/>.</param>
+   /// <param name="additionalCheck">The optional additional check for <see cref="SectionPartFunctionality"/>.</param>
+   /// <returns>The first suitable <see cref="SectionPart"/>, or <c>null</c> if no such parts are found.</returns>
+   /// <exception cref="NullReferenceException">If this <see cref="ImageSectionsInfo"/> is <c>null</c>.</exception>
    public static SectionPart GetSectionPartWithFunctionalityOfType<TFunctionality>( this ImageSectionsInfo imageSections, Func<TFunctionality, Boolean> additionalCheck = null )
       where TFunctionality : class, SectionPartFunctionality
    {
@@ -3290,6 +3499,13 @@ public static partial class E_CILPhysical
 
    }
 
+   /// <summary>
+   /// Helper method to find <see cref="SectionPart"/> which <see cref="SectionPart.Functionality"/> would be same reference as given <see cref="SectionPartFunctionality"/>.
+   /// </summary>
+   /// <param name="imageSections">The <see cref="ImageSectionsInfo"/>.</param>
+   /// <param name="functionality">The <see cref="SectionPartFunctionality"/> to match.</param>
+   /// <returns>The first suitable <see cref="SectionPart"/>, or <c>null</c> if no such parts are found.</returns>
+   /// <exception cref="NullReferenceException">If this <see cref="ImageSectionsInfo"/> is <c>null</c>.</exception>
    public static SectionPart GetSectionPartFor( this ImageSectionsInfo imageSections, SectionPartFunctionality functionality )
    {
       return imageSections.GetAllSectionParts().FirstOrDefault( p => ReferenceEquals( p.Functionality, functionality ) );
