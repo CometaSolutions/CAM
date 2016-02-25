@@ -205,7 +205,7 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
       }
 
       /// <summary>
-      /// This method implements the <see cref="WriterFunctionality.BeforeMetaData"/> by calling <see cref="WritePart"/> for each section part for each section layout in <see cref="DefaultWritingStatus.SectionLayouts"/> until it encounters <see cref="SectionPart_MetaData"/>.
+      /// This method implements the <see cref="WriterFunctionality.BeforeMetaData"/> by calling <see cref="WritePart"/> for each section part for each section layout in <see cref="DefaultWritingStatus.SectionLayouts"/> until it encounters <see cref="SectionPartFunctionality_MetaData"/>.
       /// </summary>
       /// <param name="writingStatus">The <see cref="WritingStatus"/>, will be casted to <see cref="DefaultWritingStatus"/>.</param>
       /// <param name="stream">The stream where to write, positioned after headers.</param>
@@ -224,7 +224,7 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
             {
                // Write either whole section, or all parts up until metadata
                var idx = 0;
-               foreach ( var partLayout in parts.TakeWhile( p => !( p.Functionality is SectionPart_MetaData ) ) )
+               foreach ( var partLayout in parts.TakeWhile( p => !( p.Functionality is SectionPartFunctionality_MetaData ) ) )
                {
                   // Write to ResizableArray
                   this.WritePart( partLayout, array, stream, dStatus );
@@ -265,7 +265,7 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
       }
 
       /// <summary>
-      /// This method implements the <see cref="WriterFunctionality.AfterMetaData"/> by calling <see cref="WritePart"/> for each section part for each section layout in <see cref="DefaultWritingStatus.SectionLayouts"/> after first encounter of <see cref="SectionPart_MetaData"/>.
+      /// This method implements the <see cref="WriterFunctionality.AfterMetaData"/> by calling <see cref="WritePart"/> for each section part for each section layout in <see cref="DefaultWritingStatus.SectionLayouts"/> after first encounter of <see cref="SectionPartFunctionality_MetaData"/>.
       /// </summary>
       /// <param name="writingStatus">The <see cref="WritingStatus"/>, will be casted to <see cref="DefaultWritingStatus"/>.</param>
       /// <param name="stream">The stream where to write, positioned right after meta data.</param>
@@ -278,7 +278,7 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
       {
          var dStatus = (DefaultWritingStatus) writingStatus;
          var mdEncountered = false;
-         foreach ( var section in dStatus.SectionLayouts.Sections.SkipWhile( s => !s.Parts.Any( p => p.Functionality is SectionPart_MetaData ) ) )
+         foreach ( var section in dStatus.SectionLayouts.Sections.SkipWhile( s => !s.Parts.Any( p => p.Functionality is SectionPartFunctionality_MetaData ) ) )
          {
             var parts = section.Parts;
             if ( parts.Count > 0 )
@@ -293,7 +293,7 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
                   }
                   else
                   {
-                     if ( partLayout.Functionality is SectionPart_MetaData )
+                     if ( partLayout.Functionality is SectionPartFunctionality_MetaData )
                      {
                         mdEncountered = true;
                      }
@@ -487,7 +487,7 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
          // 3. Relocation section
          if ( !writingStatus.Machine.RequiresPE64() )
          {
-            yield return new SectionDescription( new SectionPartFunctionality[] { new SectionPart_RelocDirectory( writingStatus.Machine ) } )
+            yield return new SectionDescription( new SectionPartFunctionality[] { new SectionPartFunctionality_RelocDirectory( writingStatus.Machine ) } )
             {
                Name = ".reloc",
                Characteristics = SectionHeaderCharacteristics.Memory_Read | SectionHeaderCharacteristics.Memory_Discardable | SectionHeaderCharacteristics.Contains_InitializedData
@@ -534,14 +534,14 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
       /// <para>
       /// More specifically, the returned <see cref="SectionPartFunctionality"/>s are these, in the following order:
       /// <list type="number">
-      /// <item><description><see cref="SectionPart_ImportAddressTable"/>,</description></item>
-      /// <item><description><see cref="SectionPart_CLIHeader"/>,</description></item>
-      /// <item><description><see cref="SectionPart_StrongNameSignature"/>,</description></item>
+      /// <item><description><see cref="SectionPartFunctionality_ImportAddressTable"/>,</description></item>
+      /// <item><description><see cref="SectionPartFunctionality_CLIHeader"/>,</description></item>
+      /// <item><description><see cref="SectionPartFunctionality_StrongNameSignature"/>,</description></item>
       /// <item><description>all <see cref="SectionPartFunctionalityWithDataReferenceTargets"/> in <see cref="DefaultWritingStatus.DataReferencesSectionParts"/>,</description></item>
-      /// <item><description><see cref="SectionPart_MetaData"/>,</description></item>
-      /// <item><description><see cref="SectionPart_ImportDirectory"/>,</description></item>
-      /// <item><description><see cref="SectionPart_StartupCode"/>,</description></item>
-      /// <item><description><see cref="SectionPart_DebugDirectory"/>,</description></item>
+      /// <item><description><see cref="SectionPartFunctionality_MetaData"/>,</description></item>
+      /// <item><description><see cref="SectionPartFunctionality_ImportDirectory"/>,</description></item>
+      /// <item><description><see cref="SectionPartFunctionality_StartupCode"/>,</description></item>
+      /// <item><description><see cref="SectionPartFunctionality_DebugDirectory"/>,</description></item>
       /// </list>
       /// </para>
       /// <para>
@@ -558,13 +558,13 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
          var machine = writingStatus.Machine;
 
          // 1. IAT
-         yield return new SectionPart_ImportAddressTable( machine );
+         yield return new SectionPartFunctionality_ImportAddressTable( machine );
 
          // 2. CLI Header
-         yield return new SectionPart_CLIHeader();
+         yield return new SectionPartFunctionality_CLIHeader();
 
          // 3. Strong name signature
-         yield return new SectionPart_StrongNameSignature( writingStatus.StrongNameInformation, machine );
+         yield return new SectionPartFunctionality_StrongNameSignature( writingStatus.StrongNameInformation, machine );
 
          // 4. Method IL, Field RVAs, Embedded Manifests
          foreach ( var rawValueSectionPart in writingStatus.DataReferencesSectionParts )
@@ -573,11 +573,11 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
          }
 
          // 5. Meta data
-         yield return new SectionPart_MetaData( mdSize );
+         yield return new SectionPartFunctionality_MetaData( mdSize );
 
          // 6. Import directory
          var peOptions = options.PEOptions;
-         yield return new SectionPart_ImportDirectory(
+         yield return new SectionPartFunctionality_ImportDirectory(
             machine,
             peOptions.ImportHintName,
             peOptions.ImportDirectoryName,
@@ -585,10 +585,10 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
             );
 
          // 7. Startup code
-         yield return new SectionPart_StartupCode( machine, writingStatus.ImageBase );
+         yield return new SectionPartFunctionality_StartupCode( machine );
 
          // 8. Debug directory (will get filtered away if no debug data)
-         yield return new SectionPart_DebugDirectory( options.DebugOptions );
+         yield return new SectionPartFunctionality_DebugDirectory( options.DebugOptions );
       }
 
       /// <summary>
@@ -598,6 +598,9 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
       /// <param name="array">The auxiliary byte array to use.</param>
       /// <param name="stream">The stream to write the <paramref name="part"/> to.</param>
       /// <param name="writingStatus">The <see cref="DefaultWritingStatus"/>.</param>
+      /// <remarks>
+      /// This method assumes that the stream is positioned at the end of the previous <see cref="SectionPart"/>.
+      /// </remarks>
       protected void WritePart(
          SectionPart part,
          ResizableArray<Byte> array,
@@ -605,17 +608,41 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
          DefaultWritingStatus writingStatus
          )
       {
-         if ( stream.Position != part.Offset - part.PrePadding )
+         var partOffset = part.Offset;
+         var prePadding = checked((Int32) ( partOffset - stream.Position ));
+         if ( prePadding < 0 || stream.Position != partOffset - prePadding )
          {
             // TODO better exception type
-            throw new BadImageFormatException( "Internal error: stream position for " + part.Functionality + " was calculated to be " + ( part.Offset - part.PrePadding ) + ", but was " + stream.Position + "." );
+            throw new InvalidOperationException( "Internal error: stream position for " + part.Functionality + " was calculated to be " + ( partOffset - prePadding ) + ", but was " + stream.Position + "." );
          }
 
-         // Write to ResizableArray
+         // Write pre-padding
+         if ( prePadding > 0 )
+         {
+            var idx = 0;
+            array.CurrentMaxCapacity = prePadding;
+            array.ZeroOut( ref idx, prePadding );
+            stream.Write( array.Array, prePadding );
+         }
+
+         // Write actual contents
+         var size = part.Size;
+         var cur = 0;
          part.Functionality.WriteData( new SectionPartWritingArgs(
-            stream,
+            bytesToWrite =>
+            {
+               if ( bytesToWrite > 0 )
+               {
+                  if ( cur + bytesToWrite > size )
+                  {
+                     // TODO better exception type
+                     throw new InvalidOperationException( "Internal error: " + part.Functionality + " tried to write " + bytesToWrite + " bytes, which would have been bigger than its size of " + size + " bytes." );
+                  }
+                  stream.Write( array.Array, bytesToWrite );
+                  cur += bytesToWrite;
+               }
+            },
             array,
-            part.PrePadding,
             part.Size,
             writingStatus
             ) );
@@ -632,8 +659,8 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
       {
          var imageSections = writingStatus.SectionLayouts;
          var embeddedResources = imageSections.GetSectionPartWithFunctionalityOfType<SectionPartFunctionalityWithDataReferenceTargets>( f => f.RelatedTable == Tables.ManifestResource );
-         var snData = imageSections.GetSectionPartWithFunctionalityOfType<SectionPart_StrongNameSignature>();
-         var md = imageSections.GetSectionPartWithFunctionalityOfType<SectionPart_MetaData>();
+         var snData = imageSections.GetSectionPartWithFunctionalityOfType<SectionPartFunctionality_StrongNameSignature>();
+         var md = imageSections.GetSectionPartWithFunctionalityOfType<SectionPartFunctionality_MetaData>();
          var options = this.WritingOptions.CLIOptions.HeaderOptions;
          var flags = options.ModuleFlags ?? ModuleFlags.ILOnly;
          if ( writingStatus.StrongNameInformation != null )
@@ -661,7 +688,7 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
          }
 
          return new CLIHeader(
-               SectionPart_CLIHeader.HEADER_SIZE,
+               SectionPartFunctionality_CLIHeader.HEADER_SIZE,
                (UInt16) ( options.MajorRuntimeVersion ?? 2 ),
                (UInt16) ( options.MinorRuntimeVersion ?? 5 ),
                md.GetDataDirectory(),
@@ -734,6 +761,7 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
 
    /// <summary>
    /// This class contains the final information about single section, with complete <see cref="CAMPhysicalIO::CILAssemblyManipulator.Physical.IO.SectionHeader"/> and an array of <see cref="SectionPart"/>s describing the byte size and offset of each continuous chunk in the section.
+   /// Unlike <see cref="SectionDescription"/>, the offsets and RVAs are calculated at this stage.
    /// </summary>
    public class SectionLayout
    {
@@ -773,7 +801,7 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
                   curOffset += prePadding;
                   curRVA += prePadding;
 
-                  list.Add( new SectionPart( part, prePadding, size, curOffset, curRVA ) );
+                  list.Add( new SectionPart( part, size, curOffset, curRVA ) );
 
                   curOffset += (UInt32) size;
                   curRVA += (UInt32) size;
@@ -904,6 +932,11 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
       /// </remarks>
       Int32 DataAlignment { get; }
 
+      // TODO this method should be something like this
+      // SectionPartWriter CreateWriter( Int64 currentOffset, TRVA currentRVA, ColumnValueStorage<Int64> dataRefs, out Int32 dataSize);
+      // And SectionPartWriter is interface containing single method:
+      // void WriteData( SectionPartWritingArgs args );
+
       /// <summary>
       /// Computes the size of this section part, in bytes.
       /// </summary>
@@ -974,12 +1007,12 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
       /// </summary>
       /// <param name="currentOffset">The current offset.</param>
       /// <param name="currentRVA">The current RVA.</param>
-      /// <param name="rawValues">The <see cref="ColumnValueStorage{TValue}"/> for data reference columns.</param>
+      /// <param name="dataReferences">The <see cref="ColumnValueStorage{TValue}"/> for data reference columns.</param>
       /// <returns>The value of <see cref="DoGetDataSize"/> if <paramref name="Write"/> is <c>true</c>; <c>0</c> otherwise.</returns>
-      public Int32 GetDataSize( Int64 currentOffset, TRVA currentRVA, ColumnValueStorage<Int64> rawValues )
+      public Int32 GetDataSize( Int64 currentOffset, TRVA currentRVA, ColumnValueStorage<Int64> dataReferences )
       {
          return this.Write ?
-            this.DoGetDataSize( currentOffset, currentRVA, rawValues ) :
+            this.DoGetDataSize( currentOffset, currentRVA, dataReferences ) :
             0;
       }
 
@@ -1000,9 +1033,9 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
       /// </summary>
       /// <param name="currentOffset">The current offset.</param>
       /// <param name="currentRVA">The current RVA.</param>
-      /// <param name="rawValues">The <see cref="ColumnValueStorage{TValue}"/> for data reference columns.</param>
+      /// <param name="dataReferences">The <see cref="ColumnValueStorage{TValue}"/> for data reference columns.</param>
       /// <returns>The size of this <see cref="SectionPartFunctionalityWithFixedAlignment"/>, in bytes.</returns>
-      protected abstract Int32 DoGetDataSize( Int64 currentOffset, TRVA currentRVA, ColumnValueStorage<Int64> rawValues );
+      protected abstract Int32 DoGetDataSize( Int64 currentOffset, TRVA currentRVA, ColumnValueStorage<Int64> dataReferences );
    }
 
    /// <summary>
@@ -1029,36 +1062,27 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
       public override void WriteData( SectionPartWritingArgs args )
       {
          var array = args.ArrayHelper;
-         var prePadding = args.PrePadding;
-         var idx = prePadding;
-         var capacity = idx + args.DataLength;
-         array.CurrentMaxCapacity = capacity;
+         var size = args.PartSize;
+         array.CurrentMaxCapacity = size;
          var bytez = array.Array;
-         var dummyIdx = 0;
-
-         if ( this.DoWriteData( args.WritingStatus, bytez, ref idx ) )
+         if ( !this.DoWriteData( args.WritingStatus, bytez ) )
          {
-            bytez.ZeroOut( ref dummyIdx, prePadding );
+            var idx = 0;
+            bytez.ZeroOut( ref idx, size );
          }
-         else
-         {
-            bytez.ZeroOut( ref dummyIdx, capacity );
-         }
-
-         args.Stream.Write( bytez, capacity );
+         args.WriteCallback( size );
       }
 
       /// <summary>
-      /// This method should write the section contents to given array.
+      /// This method should write the section contents to given array, starting at index <c>0</c>.
       /// </summary>
       /// <param name="wStatus">The <see cref="DefaultWritingStatus"/>.</param>
       /// <param name="array">The array to write data to.</param>
-      /// <param name="idx">The index in <paramref name="array"/> where to start writing.</param>
       /// <returns><c>true</c> if writing was successful; <c>false</c> otherwise.</returns>
       /// <remarks>
       /// If return value is <c>false</c>, then the whole section part data will be zeroed out.
       /// </remarks>
-      protected abstract Boolean DoWriteData( DefaultWritingStatus wStatus, Byte[] array, ref Int32 idx );
+      protected abstract Boolean DoWriteData( DefaultWritingStatus wStatus, Byte[] array );
    }
 
    /// <summary>
@@ -1221,17 +1245,8 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
       /// <param name="args">The <see cref="SectionPartWritingArgs"/>.</param>
       public override void WriteData( SectionPartWritingArgs args )
       {
-         // Write pre-padding first
-         var stream = args.Stream;
-
          var array = args.ArrayHelper;
-         var prePadding = args.PrePadding;
-         if ( prePadding > 0 )
-         {
-            var idx = 0;
-            array.ZeroOut( ref idx, prePadding );
-            stream.Write( array.Array, prePadding );
-         }
+         var writeCB = args.WriteCallback;
 
          // Write contents
          var sizesArray = this._sizes.Array;
@@ -1247,7 +1262,7 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
                   array.CurrentMaxCapacity = capacity;
                   var bytez = array.Array;
                   this.WriteData( this._rows[i], sizeInfo, bytez );
-                  stream.Write( bytez, capacity );
+                  writeCB( capacity );
                }
             }
          }
@@ -1399,29 +1414,62 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
             .ToDictionary_Overwrite( o => o, o => userStrings.RegisterString( o.Operand ), ReferenceEqualityComparer<OpCodeInfoWithString>.ReferenceBasedComparer );
       }
 
+      /// <summary>
+      /// Implements the <see cref="SectionPartFunctionalityWithDataReferenceTargetsImpl{TRow, TSizeInfo}.GetSize"/> method.
+      /// </summary>
+      /// <param name="sizeInfo">The <see cref="MethodSizeInfo"/>.</param>
+      /// <returns>The sum of <see cref="MethodSizeInfo.PrePadding"/> and <see cref="MethodSizeInfo.ByteSize"/>.</returns>
       protected override Int32 GetSize( MethodSizeInfo sizeInfo )
       {
          return sizeInfo.PrePadding + sizeInfo.ByteSize;
       }
 
+      /// <summary>
+      /// Implements the <see cref="SectionPartFunctionalityWithDataReferenceTargetsImpl{TRow, TSizeInfo}.GetSizeInfo"/> method.
+      /// </summary>
+      /// <param name="rowIndex">The row index.</param>
+      /// <param name="row">The <see cref="MethodDefinition"/> row.</param>
+      /// <param name="currentOffset">The current offset.</param>
+      /// <param name="currentRVA">The current RVA.</param>
+      /// <param name="startOffset">The start offset of this section part.</param>
+      /// <param name="startRVA">The start RVA of this section part.</param>
+      /// <returns>The result of <see cref="CalculateSizeForMethodIL"/>, if <paramref name="row"/> is not <c>null</c> and its <see cref="MethodDefinition.IL"/> property is not <c>null</c>. Otherwise returns <c>null</c>.</returns>
       protected override MethodSizeInfo? GetSizeInfo( Int32 rowIndex, MethodDefinition row, Int64 currentOffset, TRVA currentRVA, Int64 startOffset, TRVA startRVA )
       {
          var il = row?.IL;
          return il == null ?
             (MethodSizeInfo?) null :
-            this.CalculateByteSizeForMethod( rowIndex, il, currentRVA );
+            this.CalculateSizeForMethodIL( rowIndex, currentRVA );
       }
 
+      /// <summary>
+      /// Implements the <see cref="SectionPartFunctionalityWithDataReferenceTargetsImpl{TRow, TSizeInfo}.GetValueForTableStreamFromSize"/> method.
+      /// </summary>
+      /// <param name="currentRVA">The current RVA.</param>
+      /// <param name="sizeInfo">The size information about this <see cref="MethodILDefinition"/>.</param>
+      /// <returns>The sum of <paramref name="currentRVA"/> and <see cref="MethodSizeInfo.PrePadding"/> of <paramref name="sizeInfo"/>.</returns>
       protected override TRVA GetValueForTableStreamFromSize( TRVA currentRVA, MethodSizeInfo sizeInfo )
       {
          return currentRVA + sizeInfo.PrePadding;
       }
 
+      /// <summary>
+      /// Implements the <see cref="SectionPartFunctionalityWithDataReferenceTargetsImpl{TRow, TSizeInfo}.GetValueForTableStreamFromRow"/> method.
+      /// </summary>
+      /// <param name="rowIndex">The row index.</param>
+      /// <param name="row">The <see cref="MethodDefinition"/> row.</param>
+      /// <returns>The value <c>0</c>, since this method is called when row or <see cref="MethodDefinition.IL"/> is <c>null</c>.</returns>
       protected override TRVA GetValueForTableStreamFromRow( Int32 rowIndex, MethodDefinition row )
       {
          return 0;
       }
 
+      /// <summary>
+      /// Implements the <see cref="SectionPartFunctionalityWithDataReferenceTargetsImpl{TRow, TSizeInfo}.WriteData"/> method.
+      /// </summary>
+      /// <param name="row">The <see cref="MethodDefinition"/> row.</param>
+      /// <param name="sizeInfo">The <see cref="MethodSizeInfo"/> returned by <see cref="GetSizeInfo"/>.</param>
+      /// <param name="array">The array to write data to.</param>
       protected override void WriteData( MethodDefinition row, MethodSizeInfo sizeInfo, Byte[] array )
       {
          var idx = 0;
@@ -1533,7 +1581,14 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
          }
       }
 
-      protected void EmitOpCodeInfo(
+      /// <summary>
+      /// This method is used by <see cref="WriteData"/>, in order to write single <see cref="OpCodeInfo"/> to byte array.
+      /// </summary>
+      /// <param name="codeInfo">The <see cref="OpCodeInfo"/> to write.</param>
+      /// <param name="array">The array to write <paramref name="codeInfo"/> to.</param>
+      /// <param name="idx">The index in <paramref name="array"/> where to start writing.</param>
+      /// <exception cref="NullReferenceException"></exception>
+      private void EmitOpCodeInfo(
          OpCodeInfo codeInfo,
          Byte[] array,
          ref Int32 idx
@@ -1612,12 +1667,24 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
          }
       }
 
-      protected MethodSizeInfo CalculateByteSizeForMethod(
+      /// <summary>
+      /// This method is used by <see cref="GetSizeInfo"/> to return a <see cref="MethodSizeInfo"/> object describing various properties related to the size of serialized <see cref="MethodILDefinition"/>.
+      /// </summary>
+      /// <param name="rowIndex">The index in <see cref="CILMetaData.MethodDefinitions"/> to search for <see cref="MethodILDefinition"/>.</param>
+      /// <param name="currentRVA">The current RVA.</param>
+      /// <returns>A <see cref="MethodSizeInfo"/> describing the size of serialized <see cref="MethodILDefinition"/>.</returns>
+      /// <exception cref="InvalidOperationException">If <paramref name="rowIndex"/> was invalid or the <see cref="MethodDefinition"/> at <paramref name="rowIndex"/> did not have a <see cref="MethodILDefinition"/>.</exception>
+      protected MethodSizeInfo CalculateSizeForMethodIL(
          Int32 rowIndex,
-         MethodILDefinition il,
          TRVA currentRVA
          )
       {
+         var il = this._md.MethodDefinitions.GetOrNull( rowIndex )?.IL;
+
+         if ( il == null )
+         {
+            throw new InvalidOperationException( "Either row index was invalid or method does not have IL." );
+         }
          Int32 ilCodeByteCount; Boolean hasAnyExc, allAreSmall;
          var isTinyHeader = this._md.IsTinyILHeader( rowIndex, out ilCodeByteCount, out hasAnyExc, out allAreSmall );
 
@@ -1660,75 +1727,163 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
       }
    }
 
-   public class SectionPart_FieldRVA : SectionPartFunctionalityWithDataReferenceTargetsImpl<FieldRVA, Int32>
+   /// <summary>
+   /// This class specializes <see cref="SectionPartFunctionalityWithDataReferenceTargetsImpl{TRow, TSizeInfo}"/> to implement writing the <see cref="FieldRVA.Data"/> for <see cref="FieldRVA"/>s.
+   /// </summary>
+   public class SectionPartFunctionality_FieldRVA : SectionPartFunctionalityWithDataReferenceTargetsImpl<FieldRVA, Int32>
    {
-      public SectionPart_FieldRVA( CILMetaData md, Int32 columnIndex = 0, Int32 min = 0, Int32 max = -1 )
+      /// <summary>
+      /// Creates a new instance of <see cref="SectionPartFunctionality_FieldRVA"/>.
+      /// </summary>
+      /// <param name="md">The <see cref="CILMetaData"/> to use to obtain <see cref="FieldRVA"/>s from <see cref="CILMetaData.FieldRVAs"/>.</param>
+      /// <param name="columnIndex">The column index of <see cref="FieldRVA"/>. Should be left at zero.</param>
+      /// <param name="min">The minimum index to start reading contents of <see cref="CILMetaData.FieldRVAs"/>, inclusive. Use <c>-1</c> or <c>0</c> to start reading from beginning.</param>
+      /// <param name="max">The maximum index to end reading contents of <see cref="CILMetaData.FieldRVAs"/>, exclusive. Use <c>-1</c> to read until the end.</param>
+      /// <exception cref="ArgumentNullException">If the <paramref name="md"/> is <c>null</c>.</exception>
+      public SectionPartFunctionality_FieldRVA( CILMetaData md, Int32 columnIndex = 0, Int32 min = 0, Int32 max = -1 )
          : base( 0x08, md.FieldRVAs, columnIndex, min, max )
       {
       }
 
+      /// <summary>
+      /// Implements the <see cref="SectionPartFunctionalityWithDataReferenceTargetsImpl{TRow, TSizeInfo}.GetSizeInfo"/> method.
+      /// </summary>
+      /// <param name="rowIndex">The row index.</param>
+      /// <param name="row">The <see cref="FieldRVA"/> row.</param>
+      /// <param name="currentOffset">The current offset.</param>
+      /// <param name="currentRVA">The current RVA.</param>
+      /// <param name="startOffset">The start offset of this section part.</param>
+      /// <param name="startRVA">The start RVA of this section part.</param>
+      /// <returns>The length of <see cref="FieldRVA.Data"/>, if <paramref name="row"/> and <see cref="FieldRVA.Data"/> is not <c>null</c>. Otherwise, returns <c>null</c>.</returns>
       protected override Int32? GetSizeInfo( Int32 rowIndex, FieldRVA row, Int64 currentOffset, TRVA currentRVA, Int64 startOffset, TRVA startRVA )
       {
          return row?.Data?.Length;
       }
 
+      /// <summary>
+      /// Implements the <see cref="SectionPartFunctionalityWithDataReferenceTargetsImpl{TRow, TSizeInfo}.GetSize"/> method.
+      /// </summary>
+      /// <param name="sizeInfo">The length of <see cref="FieldRVA.Data"/>.</param>
+      /// <returns>The <paramref name="sizeInfo"/>, as the length of the <see cref="FieldRVA.Data"/> is the directly the size of the data written to image.</returns>
       protected override Int32 GetSize( Int32 sizeInfo )
       {
          return sizeInfo;
       }
 
+      /// <summary>
+      /// Implements the <see cref="SectionPartFunctionalityWithDataReferenceTargetsImpl{TRow, TSizeInfo}.GetValueForTableStreamFromSize"/> method.
+      /// </summary>
+      /// <param name="currentRVA">The current RVA.</param>
+      /// <param name="sizeInfo">The length of <see cref="FieldRVA.Data"/>.</param>
+      /// <returns>The <paramref name="currentRVA"/>, as the <see cref="FieldRVA.Data"/> is will be written directly to the image.</returns>
       protected override TRVA GetValueForTableStreamFromSize( TRVA currentRVA, Int32 sizeInfo )
       {
          return currentRVA;
       }
 
+      /// <summary>
+      /// Implements the <see cref="SectionPartFunctionalityWithDataReferenceTargetsImpl{TRow, TSizeInfo}.GetValueForTableStreamFromRow"/> method.
+      /// </summary>
+      /// <param name="rowIndex">The row index.</param>
+      /// <param name="row">The <see cref="FieldRVA"/> row.</param>
+      /// <returns>The value <c>0</c>, since this method is called when row or <see cref="FieldRVA.Data"/> is <c>null</c>.</returns>
       protected override TRVA GetValueForTableStreamFromRow( Int32 rowIndex, FieldRVA row )
       {
          return 0;
       }
 
+      /// <summary>
+      /// Implements the <see cref="SectionPartFunctionalityWithDataReferenceTargetsImpl{TRow, TSizeInfo}.WriteData"/> method.
+      /// </summary>
+      /// <param name="row">The <see cref="FieldRVA"/> row.</param>
+      /// <param name="sizeInfo">The length of <see cref="FieldRVA.Data"/>.</param>
+      /// <param name="array">The array to write data to.</param>
+      /// <remarks>
+      /// This method copies the <see cref="FieldRVA.Data"/> array directly to given <paramref name="array"/>.
+      /// </remarks>
       protected override void WriteData( FieldRVA row, Int32 sizeInfo, Byte[] array )
       {
-         var idx = 0;
-         var data = row.Data;
-         if ( !data.IsNullOrEmpty() )
+         if ( sizeInfo > 0 )
          {
+            var idx = 0;
             array.BlockCopyFrom( ref idx, row.Data );
          }
       }
    }
 
-   public class SectionPart_EmbeddedManifests : SectionPartFunctionalityWithDataReferenceTargetsImpl<ManifestResource, SectionPart_EmbeddedManifests.ManifestSizeInfo>
+   /// <summary>
+   /// This class specializes <see cref="SectionPartFunctionalityWithDataReferenceTargetsImpl{TRow, TSizeInfo}"/> to implement writing the <see cref="ManifestResource.EmbeddedData"/> for embedded <see cref="ManifestResource"/>s.
+   /// </summary>
+   public class SectionPartFunctionality_EmbeddedManifests : SectionPartFunctionalityWithDataReferenceTargetsImpl<ManifestResource, SectionPartFunctionality_EmbeddedManifests.ManifestResourceSizeInfo>
    {
-      public struct ManifestSizeInfo
+      /// <summary>
+      /// This struct contains information about the size of the serialized <see cref="ManifestResource.EmbeddedData"/> of embedded <see cref="ManifestResource"/>.
+      /// </summary>
+      public struct ManifestResourceSizeInfo
       {
-         public ManifestSizeInfo( Int32 byteCount, TRVA startRVA, TRVA currentRVA )
+         /// <summary>
+         /// Create a new instance of <see cref="ManifestResourceSizeInfo"/>.
+         /// </summary>
+         /// <param name="byteCount">The size of the data to write.</param>
+         /// <param name="startRVA">The RVA of the start of this section part.</param>
+         /// <param name="currentRVA">The current RVA.</param>
+         public ManifestResourceSizeInfo( Int32 byteCount, TRVA startRVA, TRVA currentRVA )
          {
             this.ByteCount = byteCount;
             this.PrePadding = (Int32) ( currentRVA.RoundUpI64( ALIGNMENT ) - currentRVA );
             this.Offset = (Int32) ( currentRVA - startRVA + this.PrePadding );
          }
 
+         /// <summary>
+         /// Gets the size, in bytes, of the data to write.
+         /// </summary>
+         /// <value>The size, in bytes, of the data to write.</value>
          public Int32 ByteCount { get; }
 
+         /// <summary>
+         /// Gets the size, in bytes, of zero padding before the data.
+         /// </summary>
+         /// <value>The size, in bytes, of zero padding before the data.</value>
          public Int32 PrePadding { get; }
 
+         /// <summary>
+         /// Gets the offset of data from the start of the section.
+         /// </summary>
+         /// <value>The offset of data from the start of the section.</value>
          public Int32 Offset { get; }
       }
 
       private const Int32 ALIGNMENT = 0x08;
 
-      public SectionPart_EmbeddedManifests( CILMetaData md, Int32 columnIndex = 0, Int32 min = 0, Int32 max = -1 )
-         : base( ALIGNMENT, md.ManifestResources, columnIndex, min, max )
+      /// <summary>
+      /// Creates a new instance of <see cref="SectionPartFunctionality_EmbeddedManifests"/>.
+      /// </summary>
+      /// <param name="md">The <see cref="CILMetaData"/> to use to obtain <see cref="ManifestResource"/>s from <see cref="CILMetaData.ManifestResources"/>.</param>
+      /// <param name="columnIndex">The column index of <see cref="ManifestResource"/>. Should be left at zero.</param>
+      /// <remarks>
+      /// Embedded manifests must be written as continous chunk, therefore the are no <c>min</c> or <c>max</c> parameters, like in <see cref="SectionPartFunctionality_MethodIL"/> or <see cref="SectionPartFunctionality_FieldRVA"/> constructors.
+      /// </remarks>
+      public SectionPartFunctionality_EmbeddedManifests( CILMetaData md, Int32 columnIndex = 0 )
+         : base( ALIGNMENT, md.ManifestResources, columnIndex, 0, -1 )
       {
       }
 
-      protected override ManifestSizeInfo? GetSizeInfo( Int32 rowIndex, ManifestResource row, Int64 currentOffset, TRVA currentRVA, Int64 startOffset, TRVA startRVA )
+      /// <summary>
+      /// Implements the <see cref="SectionPartFunctionalityWithDataReferenceTargetsImpl{TRow, TSizeInfo}.GetSizeInfo"/> method.
+      /// </summary>
+      /// <param name="rowIndex">The row index.</param>
+      /// <param name="row">The <see cref="ManifestResource"/> row.</param>
+      /// <param name="currentOffset">The current offset.</param>
+      /// <param name="currentRVA">The current RVA.</param>
+      /// <param name="startOffset">The start offset of this section part.</param>
+      /// <param name="startRVA">The start RVA of this section part.</param>
+      /// <returns>The <see cref="ManifestResourceSizeInfo"/>, if <see cref="CAMPhysical::E_CILPhysical.IsEmbeddedResource"/> method returns <c>true</c> for <paramref name="row"/>. Otherwise, returns <c>null</c>.</returns>
+      protected override ManifestResourceSizeInfo? GetSizeInfo( Int32 rowIndex, ManifestResource row, Int64 currentOffset, TRVA currentRVA, Int64 startOffset, TRVA startRVA )
       {
-         ManifestSizeInfo? retVal;
+         ManifestResourceSizeInfo? retVal;
          if ( row.IsEmbeddedResource() )
          {
-            retVal = new ManifestSizeInfo(
+            retVal = new ManifestResourceSizeInfo(
                sizeof( Int32 ) + row.EmbeddedData.GetLengthOrDefault(),
                startRVA,
                currentRVA
@@ -1742,22 +1897,48 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
          return retVal;
       }
 
-      protected override Int32 GetSize( ManifestSizeInfo sizeInfo )
+      /// <summary>
+      /// Implements the <see cref="SectionPartFunctionalityWithDataReferenceTargetsImpl{TRow, TSizeInfo}.GetSize"/> method.
+      /// </summary>
+      /// <param name="sizeInfo">The <see cref="ManifestResourceSizeInfo"/>.</param>
+      /// <returns>The sum of <see cref="ManifestResourceSizeInfo.PrePadding"/> and <see cref="ManifestResourceSizeInfo.ByteCount"/> of <paramref name="sizeInfo"/>.</returns>
+      protected override Int32 GetSize( ManifestResourceSizeInfo sizeInfo )
       {
          return sizeInfo.PrePadding + sizeInfo.ByteCount;
       }
 
-      protected override TRVA GetValueForTableStreamFromSize( TRVA currentRVA, ManifestSizeInfo sizeInfo )
+      /// <summary>
+      /// Implements the <see cref="SectionPartFunctionalityWithDataReferenceTargetsImpl{TRow, TSizeInfo}.GetValueForTableStreamFromSize"/> method.
+      /// </summary>
+      /// <param name="currentRVA">The current RVA.</param>
+      /// <param name="sizeInfo">The <see cref="ManifestResourceSizeInfo"/>.</param>
+      /// <returns>The <see cref="ManifestResourceSizeInfo.Offset"/> of <paramref name="sizeInfo"/>, as the value written to table stream for embedded manifest resources is offset from the RVA of <see cref="CLIHeader.Resources"/> data directory.</returns>
+      protected override TRVA GetValueForTableStreamFromSize( TRVA currentRVA, ManifestResourceSizeInfo sizeInfo )
       {
          return sizeInfo.Offset;
       }
 
+      /// <summary>
+      /// Implements the <see cref="SectionPartFunctionalityWithDataReferenceTargetsImpl{TRow, TSizeInfo}.GetValueForTableStreamFromRow"/> method.
+      /// </summary>
+      /// <param name="rowIndex">The row index.</param>
+      /// <param name="row">The <see cref="ManifestResource"/> row.</param>
+      /// <returns>The value of <see cref="ManifestResource.Offset"/> of <paramref name="row"/>, as the value written to table stream foor non-embedded manifest resources is directly the specified offset.</returns>
       protected override TRVA GetValueForTableStreamFromRow( Int32 rowIndex, ManifestResource row )
       {
          return row.Offset;
       }
 
-      protected override void WriteData( ManifestResource row, ManifestSizeInfo sizeInfo, Byte[] array )
+      /// <summary>
+      /// Implements the <see cref="SectionPartFunctionalityWithDataReferenceTargetsImpl{TRow, TSizeInfo}.WriteData"/> method.
+      /// </summary>
+      /// <param name="row">The <see cref="ManifestResource"/> row.</param>
+      /// <param name="sizeInfo">The <see cref="ManifestResourceSizeInfo"/>.</param>
+      /// <param name="array">The array to write data to.</param>
+      /// <remarks>
+      /// This method first zeroes out the <see cref="ManifestResourceSizeInfo.PrePadding"/> amount of bytes, then writes the length of <see cref="ManifestResource.EmbeddedData"/> array, and then copies that array to given byte <paramref name="array"/>.
+      /// </remarks>
+      protected override void WriteData( ManifestResource row, ManifestResourceSizeInfo sizeInfo, Byte[] array )
       {
          var data = row.EmbeddedData;
          var idx = 0;
@@ -1771,43 +1952,84 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
       }
    }
 
+   /// <summary>
+   /// This class combines information required to write a single <see cref="SectionPartFunctionality"/> in its <see cref="SectionPartFunctionality.WriteData"/> method.
+   /// </summary>
+   /// <remarks>
+   /// The typical usecase for using this class is to write data to the array of <see cref="ArrayHelper"/>, and then calling <see cref="WriteCallback"/> specifying the amount of bytes to write from the array of <see cref="ArrayHelper"/> to the stream.
+   /// </remarks>
    public class SectionPartWritingArgs
    {
+      /// <summary>
+      /// Creates a new instance of <see cref="SectionPartWritingArgs"/> with given parameters.
+      /// </summary>
+      /// <param name="writeCallback">The callback to use when it is needed to write specific amount of bytes from <paramref name="array"/> to stream.</param>
+      /// <param name="array">The auxiliary array to use to write data to.</param>
+      /// <param name="partSize">The size, in bytes, of this section part.</param>
+      /// <param name="writingStatus">The <see cref="DefaultWritingStatus"/>.</param>
+      /// <exception cref="ArgumentNullException">If any of the <paramref name="writeCallback"/>, <paramref name="array"/>, or <paramref name="writingStatus"/> is <c>null</c>.</exception>
       public SectionPartWritingArgs(
-         Stream stream,
+         Action<Int32> writeCallback,
          ResizableArray<Byte> array,
-         Int32 prePadding,
-         Int32 dataLength,
+         Int32 partSize,
          DefaultWritingStatus writingStatus
          )
       {
-         ArgumentValidator.ValidateNotNull( "Stream", stream );
+         ArgumentValidator.ValidateNotNull( "Write callback", writeCallback );
          ArgumentValidator.ValidateNotNull( "Array", array );
          ArgumentValidator.ValidateNotNull( "Writing status", writingStatus );
 
-         this.Stream = stream;
+         this.WriteCallback = writeCallback;
          this.ArrayHelper = array;
-         this.PrePadding = prePadding;
-         this.DataLength = dataLength;
+         this.PartSize = partSize;
          this.WritingStatus = writingStatus;
       }
 
-      public Stream Stream { get; }
+      /// <summary>
+      /// Gets the callback which will use the array of <see cref="ArrayHelper"/> to write specific amount of bytes to the stream.
+      /// </summary>
+      /// <value>The callback which will use the array of <see cref="ArrayHelper"/> to write specific amount of bytes to the stream.</value>
+      /// <remarks>
+      /// This callback provides more controlled way of writing data as compared to revealing the actual <see cref="Stream"/> object.
+      /// The callback will throw <see cref="InvalidOperationException"/> if the total byte count for this section part would exceed the <see cref="PartSize"/>.
+      /// </remarks>
+      public Action<Int32> WriteCallback { get; }
 
+      /// <summary>
+      /// Gets the auxiliary array to write the data to.
+      /// </summary>
+      /// <value>The auxiliary array to write the data to.</value>
       public ResizableArray<Byte> ArrayHelper { get; }
 
-      public Int32 PrePadding { get; }
+      /// <summary>
+      /// Gets the size of this section part, in bytes.
+      /// </summary>
+      /// <value>The size of this section part, in bytes.</value>
+      public Int32 PartSize { get; } // TODO maybe replace this with public SectionPart Part { get; } ?
 
-      public Int32 DataLength { get; }
-
+      /// <summary>
+      /// Gets the <see cref="DefaultWritingStatus"/>.
+      /// </summary>
+      /// <value>The <see cref="DefaultWritingStatus"/>.</value>
       public DefaultWritingStatus WritingStatus { get; }
    }
 
+   /// <summary>
+   /// This class represents the concrete information about some continous part of the image section.
+   /// Unlike <see cref="SectionPartFunctionality"/>, the size, offset, and RVA of this section part have already been calculated.
+   /// </summary>
    public class SectionPart
    {
+      /// <summary>
+      /// Creates a new instance of <see cref="SectionPart"/>, representing contents of given <see cref="SectionPartFunctionality"/>.
+      /// </summary>
+      /// <param name="functionality">The <see cref="SectionPartFunctionality"/>.</param>
+      /// <param name="size">The size of this section part, in bytes.</param>
+      /// <param name="offset">The offset of this section part, in bytes.</param>
+      /// <param name="rva">The RVA of this section part, in bytes.</param>
+      /// <exception cref="ArgumentNullException">If <paramref name="functionality"/> is <c>null</c>.</exception>
       public SectionPart(
          SectionPartFunctionality functionality,
-         Int32 prePadding,
          Int32 size,
          Int64 offset,
          TRVA rva
@@ -1816,36 +2038,65 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
          ArgumentValidator.ValidateNotNull( "Functionality", functionality );
 
          this.Functionality = functionality;
-         this.PrePadding = prePadding;
          this.Size = size;
          this.Offset = offset;
          this.RVA = rva;
       }
 
+      /// <summary>
+      /// Gets the <see cref="SectionPartFunctionality"/> that this <see cref="SectionPart"/> represents.
+      /// </summary>
+      /// <value>The <see cref="SectionPartFunctionality"/> that this <see cref="SectionPart"/> represents.</value>
       public SectionPartFunctionality Functionality { get; }
 
-      public Int32 PrePadding { get; }
-
+      /// <summary>
+      /// Gets the size of this <see cref="SectionPart"/>, in bytes.
+      /// </summary>
+      /// <value>The size of this <see cref="SectionPart"/>, in bytes.</value>
       public Int32 Size { get; }
 
+      /// <summary>
+      /// Gets the offset of this <see cref="SectionPart"/>, in bytes.
+      /// </summary>
+      /// <value>The offset of this <see cref="SectionPart"/>, in bytes.</value>
       public Int64 Offset { get; }
 
+      /// <summary>
+      /// Gets the RVA of this <see cref="SectionPart"/>.
+      /// </summary>
+      /// <value>The RVA of this <see cref="SectionPart"/>.</value>
       public TRVA RVA { get; }
    }
 
-   public class SectionPart_CLIHeader : SectionPartFunctionalityWithFixedLength
+   /// <summary>
+   /// This class specializes <see cref="SectionPartFunctionalityWithFixedLength"/> in order to write <see cref="CLIHeader"/>.
+   /// </summary>
+   public class SectionPartFunctionality_CLIHeader : SectionPartFunctionalityWithFixedLength
    {
       internal const Int32 HEADER_SIZE = 0x48;
 
-
-      public SectionPart_CLIHeader()
+      /// <summary>
+      /// Creates a new instance of <see cref="SectionPartFunctionality_CLIHeader"/>.
+      /// </summary>
+      public SectionPartFunctionality_CLIHeader()
          : base( 4, true, HEADER_SIZE )
       {
       }
 
-      protected override Boolean DoWriteData( DefaultWritingStatus wStatus, Byte[] array, ref Int32 idx )
+      /// <summary>
+      /// Implements the <see cref="SectionPartFunctionalityWriteableToArray.DoWriteData"/> method so that the <see cref="CLIHeader"/> is written to given array, and the <see cref="WritingStatus.PEDataDirectories"/> array is updated to contain the <see cref="DataDirectory"/> at index of <see cref="DataDirectories.CLIHeader"/> for the written <see cref="CLIHeader"/>.
+      /// </summary>
+      /// <param name="wStatus">The <see cref="DefaultWritingStatus"/>.</param>
+      /// <param name="array">The byte array to write <see cref="CLIHeader"/> to.</param>
+      /// <returns>Always returns value of <c>true</c>.</returns>
+      /// <remarks>
+      /// The instance of <see cref="CLIHeader"/> to write is obtained through <see cref="WritingStatus.CLIHeader"/> of given <paramref name="wStatus"/>.
+      /// </remarks>
+      /// <seealso cref="CAMPhysicalIO::E_CILPhysical.WriteCLIHeader"/>
+      protected override Boolean DoWriteData( DefaultWritingStatus wStatus, Byte[] array )
       {
          var imageSections = wStatus.SectionLayouts;
+         var idx = 0;
          wStatus.CLIHeader.WriteCLIHeader( array, ref idx );
          wStatus.PEDataDirectories[(Int32) DataDirectories.CLIHeader] = imageSections.GetDataDirectoryForSectionPart( this );
 
@@ -1854,55 +2105,116 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
 
    }
 
-   public class SectionPart_StrongNameSignature : SectionPartFunctionalityWithFixedLength
+   /// <summary>
+   /// This class specializes <see cref="SectionPartFunctionalityWithFixedLength"/> in order to write strong name signature.
+   /// </summary>
+   public class SectionPartFunctionality_StrongNameSignature : SectionPartFunctionalityWithFixedLength
    {
-      public SectionPart_StrongNameSignature( StrongNameInformation snVars, ImageFileMachine machine )
-         : base( machine.RequiresPE64() ? 0x10 : 0x04, true, snVars?.SignatureSize ?? 0 )
+      /// <summary>
+      /// Creates a new instance of <see cref="SectionPartFunctionality_StrongNameSignature"/>.
+      /// </summary>
+      /// <param name="snVars">The <see cref="StrongNameInformation"/>. If <c>null</c>, then this section part will not be written to image.</param>
+      /// <param name="machine">The <see cref="ImageFileMachine"/> of the image being written. This is required to calculate the alignment for this section part.</param>
+      public SectionPartFunctionality_StrongNameSignature( StrongNameInformation snVars, ImageFileMachine machine )
+         : base( machine.RequiresPE64() ? 0x10 : 0x04, snVars != null, snVars?.SignatureSize ?? 0 )
       {
-
       }
 
-      protected override Boolean DoWriteData( DefaultWritingStatus wStatus, Byte[] array, ref Int32 idx )
+      /// <summary>
+      /// Implements the <see cref="SectionPartFunctionalityWriteableToArray.DoWriteData"/> method, but always just returns <c>false</c>.
+      /// </summary>
+      /// <param name="wStatus">The <see cref="DefaultWritingStatus"/>.</param>
+      /// <param name="array">The byte array to use.</param>
+      /// <returns>Always returns <c>false</c>.</returns>
+      /// <remarks>
+      /// By returng <c>false</c>, the <see cref="SectionPartFunctionalityWriteableToArray.WriteData"/> method will zero out the contents.
+      /// This is useful in this case, as the actual strong name signature will be written by <see cref="CAMPhysicalIO::E_CILPhysical.WriteMetaDataToStream(WriterFunctionality, Stream, CILMetaData, WritingOptions, StrongNameKeyPair, bool, Crypto.CryptoCallbacks, AssemblyHashAlgorithm?, EventHandler{SerializationErrorEventArgs})"/> method, if needed.
+      /// </remarks>
+      protected override Boolean DoWriteData( DefaultWritingStatus wStatus, Byte[] array )
       {
          // Don't write actual signature, since we don't have required information. The strong name signature will be written by WriteMetaData implementation.
          return false;
-         //array.ZeroOut( ref idx, args.PrePadding + args.DataLength );
-         //return true;
       }
    }
 
-   public class SectionPart_MetaData : SectionPartFunctionalityWithFixedLength
+   /// <summary>
+   /// This class specializes <see cref="SectionPartFunctionalityWithFixedAlignment"/>, but only acts as a placeholder, since the actual meta data contents will be written by <see cref="CAMPhysicalIO::E_CILPhysical.WriteMetaDataToStream(WriterFunctionality, Stream, CILMetaData, WritingOptions, StrongNameKeyPair, bool, Crypto.CryptoCallbacks, AssemblyHashAlgorithm?, EventHandler{SerializationErrorEventArgs})"/> method.
+   /// </summary>
+   public class SectionPartFunctionality_MetaData : SectionPartFunctionalityWithFixedAlignment
    {
-      public SectionPart_MetaData( Int32 size )
-         : base( 0x04, true, size )
+      private readonly Int32 _size;
+
+      /// <summary>
+      /// Creates a new instance of <see cref="SectionPartFunctionality_MetaData"/> with given meta data size, in bytes.
+      /// </summary>
+      /// <param name="size">The meta data size, in bytes.</param>
+      public SectionPartFunctionality_MetaData( Int32 size )
+         : base( 0x04, true )
       {
 
       }
 
-      protected override Boolean DoWriteData( DefaultWritingStatus wStatus, Byte[] array, ref Int32 idx )
+      /// <summary>
+      /// Implements the <see cref="SectionPartFunctionalityWithFixedAlignment.DoGetDataSize"/> method by returning the meta data size passed as argument to the <see cref="SectionPartFunctionality_MetaData(Int32)"/> constructor.
+      /// </summary>
+      /// <param name="currentOffset">The current offset.</param>
+      /// <param name="currentRVA">The current RVA.</param>
+      /// <param name="dataReferences">The <see cref="ColumnValueStorage{TValue}"/> for data reference columns.</param>
+      /// <returns>The meta data size passed as argument to the <see cref="SectionPartFunctionality_MetaData(Int32)"/> constructor.</returns>
+      protected override Int32 DoGetDataSize( Int64 currentOffset, TRVA currentRVA, ColumnValueStorage<Int64> dataReferences )
       {
-         // This method will never get really called
+         return this._size;
+      }
+
+      /// <summary>
+      /// Implements the <see cref="SectionPartFunctionalityWithFixedAlignment.WriteData"/> method, but always throws the <see cref="NotSupportedException"/>, since this method is not supposed to be called on this object.
+      /// </summary>
+      /// <param name="args">The <see cref="SectionPartWritingArgs"/>.</param>
+      /// <remarks>
+      /// The <see cref="DefaultWriterFunctionality"/> will know never to call this method on this object.
+      /// </remarks>
+      public override void WriteData( SectionPartWritingArgs args )
+      {
          throw new NotSupportedException( "This method should not be called." );
       }
    }
 
-   public class SectionPart_ImportAddressTable : SectionPartFunctionalityWithFixedLength
+   /// <summary>
+   /// This class specializes <see cref="SectionPartFunctionalityWithFixedLength"/> in order to write import address table for managed images.
+   /// </summary>
+   public class SectionPartFunctionality_ImportAddressTable : SectionPartFunctionalityWithFixedLength
    {
-      public SectionPart_ImportAddressTable( ImageFileMachine machine )
+      /// <summary>
+      /// Creates a new instance of <see cref="SectionPartFunctionality_ImportAddressTable"/> for given <see cref="ImageFileMachine"/>.
+      /// </summary>
+      /// <param name="machine">The <see cref="ImageFileMachine"/> of the image being emitted.</param>
+      /// <remarks>
+      /// The section part will not be present in the final image, if the <see cref="CAMPhysicalIO::E_CILPhysical.RequiresPE64"/> will return <c>true</c> for given <paramref name="machine"/>.
+      /// </remarks>
+      public SectionPartFunctionality_ImportAddressTable( ImageFileMachine machine )
          : base( 0x04, !machine.RequiresPE64(), 0x08 )
       {
       }
 
-
-      protected override Boolean DoWriteData( DefaultWritingStatus wStatus, Byte[] array, ref Int32 idx )
+      /// <summary>
+      /// Implements the <see cref="SectionPartFunctionalityWriteableToArray.DoWriteData"/> method in order to write import address table, and the <see cref="WritingStatus.PEDataDirectories"/> array is updated to contain the <see cref="DataDirectory"/> at index of <see cref="DataDirectories.ImportAddressTable"/> for the written import data directory.
+      /// </summary>
+      /// <param name="wStatus">The <see cref="DefaultWritingStatus"/>.</param>
+      /// <param name="array">The byte array to write import address table to.</param>
+      /// <returns>The value <c>true</c> if any data was written, <c>false</c> otherwise.</returns>
+      /// <remarks>
+      /// In order to obtain the RVA of import name, this method will search for <see cref="SectionPart"/> that is related to <see cref="SectionPartFunctionality_ImportDirectory"/> from <see cref="ImageSectionsInfo"/> of the supplied <see cref="DefaultWritingStatus"/>.
+      /// </remarks>
+      protected override Boolean DoWriteData( DefaultWritingStatus wStatus, Byte[] array )
       {
          var imageSections = wStatus.SectionLayouts;
-         var importDir = imageSections.GetSectionPartWithFunctionalityOfType<SectionPart_ImportDirectory>();
+         var importDir = imageSections.GetSectionPartWithFunctionalityOfType<SectionPartFunctionality_ImportDirectory>();
          var retVal = importDir != null;
          if ( retVal )
          {
+            var idx = 0;
             array
-               .WriteInt32LEToBytes( ref idx, ( (SectionPart_ImportDirectory) importDir.Functionality ).CorMainRVA ) // RVA of _CorDll/ExeMain
+               .WriteInt32LEToBytes( ref idx, ( (SectionPartFunctionality_ImportDirectory) importDir.Functionality ).CorMainRVA ) // RVA of _CorDll/ExeMain
                .WriteInt32LEToBytes( ref idx, 0 ); // Terminating entry
 
             wStatus.PEDataDirectories[(Int32) DataDirectories.ImportAddressTable] = imageSections.GetDataDirectoryForSectionPart( this );
@@ -1911,7 +2223,10 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
       }
    }
 
-   public class SectionPart_ImportDirectory : SectionPartFunctionalityWriteableToArray
+   /// <summary>
+   /// This class specializes <see cref="SectionPartFunctionalityWriteableToArray"/> in order to write import directory for managed images.
+   /// </summary>
+   public class SectionPartFunctionality_ImportDirectory : SectionPartFunctionalityWriteableToArray
    {
 
       internal const String HINTNAME_FOR_DLL = "_CorDllMain";
@@ -1925,7 +2240,17 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
       private UInt32 _corMainRVA;
       private UInt32 _mscoreeRVA;
 
-      public SectionPart_ImportDirectory( ImageFileMachine machine, String functionName, String moduleName, Boolean isExecutable )
+      /// <summary>
+      /// Creates a new instance of <see cref="SectionPartFunctionality_ImportDirectory"/> for given <see cref="ImageFileMachine"/> and given imported module and function names.
+      /// </summary>
+      /// <param name="machine">The <see cref="ImageFileMachine"/> of the image being emitted.</param>
+      /// <param name="functionName">The name of the function to import. Will default to <c>"_CorExeMain"</c> if <paramref name="isExecutable"/> is <c>true</c>, and to <c>"_CorDllMain"</c> if <paramref name="isExectuable"/> is <c>false</c>.</param>
+      /// <param name="moduleName">The name of the module to import. Will default to <c>"mscoree.dll"</c> if not given.</param>
+      /// <param name="isExecutable">Whether this image is executable.</param>
+      /// <remarks>
+      /// The section part will not be present in the final image, if the <see cref="CAMPhysicalIO::E_CILPhysical.RequiresPE64"/> will return <c>true</c> for given <paramref name="machine"/>.
+      /// </remarks>
+      public SectionPartFunctionality_ImportDirectory( ImageFileMachine machine, String functionName, String moduleName, Boolean isExecutable )
          : base( 0x04, !machine.RequiresPE64() )
       {
          if ( String.IsNullOrEmpty( moduleName ) )
@@ -1944,9 +2269,16 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
 
       }
 
-      protected override Int32 DoGetDataSize( Int64 currentOffset, TRVA currentRVA, ColumnValueStorage<Int64> rawValues )
+      /// <summary>
+      /// This method implements <see cref="SectionPartFunctionalityWithFixedAlignment.DoGetDataSize"/> by calculating the size of this import directory, in bytes.
+      /// </summary>
+      /// <param name="currentOffset">The current offset.</param>
+      /// <param name="currentRVA">The current RVA.</param>
+      /// <param name="dataReferences">The <see cref="ColumnValueStorage{TValue}"/> for data reference columns.</param>
+      /// <returns>The size of this import directory, in bytes.</returns>
+      protected override Int32 DoGetDataSize( Int64 currentOffset, TRVA currentRVA, ColumnValueStorage<Int64> dataReferences )
       {
-         var startRVA = (UInt32) currentRVA.RoundUpI64( this.DataAlignment );
+         var startRVA = (UInt32) currentRVA;
          var len = 0x28u; // Import directory actual size
 
          this._lookupTableRVA = startRVA + len;
@@ -1972,6 +2304,10 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
          return (Int32) len;
       }
 
+      /// <summary>
+      /// Returns the RVA of the imported function name (typically <c>"_CorExeMain"</c> or <c>"_CorDllMain"</c>).
+      /// </summary>
+      /// <value>The RVA of the imported function name.</value>
       public Int32 CorMainRVA
       {
          get
@@ -1980,14 +2316,24 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
          }
       }
 
-      protected override Boolean DoWriteData( DefaultWritingStatus wStatus, Byte[] array, ref Int32 idx )
+      /// <summary>
+      /// Implements the <see cref="SectionPartFunctionalityWriteableToArray.DoWriteData"/> method by writing the contents of this import directory, and the <see cref="WritingStatus.PEDataDirectories"/> array is updated to contain the <see cref="DataDirectory"/> at index of <see cref="DataDirectories.ImportTable"/> for the written import directory.
+      /// </summary>
+      /// <param name="wStatus">The <see cref="DefaultWritingStatus"/>.</param>
+      /// <param name="array">The byte array to write import directory to.</param>
+      /// <returns>The value <c>true</c> if any data was written, <c>false</c> otherwise.</returns>
+      /// <remarks>
+      /// In order to obtain the RVA of import address table, this method will search for <see cref="SectionPart"/> that is related to <see cref="SectionPartFunctionality_ImportAddressTable"/> from <see cref="ImageSectionsInfo"/> of the supplied <see cref="DefaultWritingStatus"/>.
+      /// </remarks>
+      protected override Boolean DoWriteData( DefaultWritingStatus wStatus, Byte[] array )
       {
          var imageSections = wStatus.SectionLayouts;
-         var addressTable = imageSections.GetSectionPartWithFunctionalityOfType<SectionPart_ImportAddressTable>();
+         var addressTable = imageSections.GetSectionPartWithFunctionalityOfType<SectionPartFunctionality_ImportAddressTable>();
 
          var retVal = addressTable != null;
          if ( retVal )
          {
+            var idx = 0;
             array
                // Import directory
                .WriteUInt32LEToBytes( ref idx, this._lookupTableRVA )
@@ -2021,72 +2367,110 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
       }
    }
 
-   public class SectionPart_StartupCode : SectionPartFunctionalityWithFixedLength
+   /// <summary>
+   /// This class specializes <see cref="SectionPartFunctionalityWithFixedLength"/> in order to write native startup code stub for managed images.
+   /// </summary>
+   public class SectionPartFunctionality_StartupCode : SectionPartFunctionalityWithFixedLength
    {
-      private readonly UInt32 _imageBase;
 
       private const Int32 ALIGNMENT = 0x04;
       private const Int32 PADDING = 2;
-      public SectionPart_StartupCode( ImageFileMachine machine, Int64 imageBase )
+
+      /// <summary>
+      /// Creates a new instance for <see cref="SectionPartFunctionality_StartupCode"/> for given <see cref="ImageFileMachine"/>.
+      /// </summary>
+      /// <param name="machine">The <see cref="ImageFileMachine"/> of the image being emitted.</param>
+      /// <remarks>
+      /// The section part will not be present in the final image, if the <see cref="CAMPhysicalIO::E_CILPhysical.RequiresPE64"/> will return <c>true</c> for given <paramref name="machine"/>.
+      /// </remarks>
+      public SectionPartFunctionality_StartupCode( ImageFileMachine machine )
          : base( ALIGNMENT, !machine.RequiresPE64(), 0x08 )
       {
-         this._imageBase = (UInt32) imageBase;
       }
 
-      public Int32 EntryPointOffset
-      {
-         get
-         {
-            return PADDING;
-         }
-      }
-
+      /// <summary>
+      /// Returns the offset within this section part, where the address of the called function is.
+      /// </summary>
+      /// <value>The offset within this section part, where the address of the called function is.</value>
+      /// <remarks>
+      /// This value is used by <see cref="SectionPartFunctionality_RelocDirectory"/> in order to keep track of the relocatable addresses.
+      /// </remarks>
       public Int32 EntryPointInstructionAddressOffset
       {
          get
          {
-            return this.EntryPointOffset + 2;
+            return PADDING + 2;
          }
       }
 
-      protected override Boolean DoWriteData( DefaultWritingStatus wStatus, Byte[] array, ref Int32 idx )
+      /// <summary>
+      /// Implements the <see cref="SectionPartFunctionalityWriteableToArray.DoWriteData"/> method by writing the contents of this native startup code stub, and the <see cref="WritingStatus.EntryPointRVA"/> array is updated to be the RVA of this startup code.
+      /// </summary>
+      /// <param name="wStatus">The <see cref="DefaultWritingStatus"/>.</param>
+      /// <param name="array">The byte array to write native startup code stub to.</param>
+      /// <returns>The value <c>true</c> if any data was written, <c>false</c> otherwise.</returns>
+      /// <remarks>
+      /// In order to obtain the RVA of import address table, this method will search for <see cref="SectionPart"/> that is related to <see cref="SectionPartFunctionality_ImportAddressTable"/> from <see cref="ImageSectionsInfo"/> of the supplied <see cref="DefaultWritingStatus"/>.
+      /// </remarks>
+      protected override Boolean DoWriteData( DefaultWritingStatus wStatus, Byte[] array )
       {
          var sectionLayouts = wStatus.SectionLayouts;
-         var addressTable = sectionLayouts.GetSectionPartWithFunctionalityOfType<SectionPart_ImportAddressTable>();
+         var addressTable = sectionLayouts.GetSectionPartWithFunctionalityOfType<SectionPartFunctionality_ImportAddressTable>();
          var retVal = addressTable != null;
          if ( retVal )
          {
+            var idx = 0;
             array
                .ZeroOut( ref idx, PADDING ) // Padding - 2 zero bytes
                .WriteUInt16LEToBytes( ref idx, 0x25FF ) // JMP
-               .WriteUInt32LEToBytes( ref idx, this._imageBase + (UInt32) addressTable.RVA ); // First entry of address table = RVA of _CorDll/ExeMain
+               .WriteUInt32LEToBytes( ref idx, (UInt32) ( wStatus.ImageBase + addressTable.RVA ) ); // First entry of address table = RVA of _CorDll/ExeMain
 
-            wStatus.EntryPointRVA = (Int32) ( sectionLayouts.GetSectionPartFor( this ).RVA + this.EntryPointOffset );
+            wStatus.EntryPointRVA = (Int32) ( sectionLayouts.GetSectionPartFor( this ).RVA + PADDING );
          }
          return retVal;
       }
    }
 
-   public class SectionPart_RelocDirectory : SectionPartFunctionalityWithFixedLength
+   /// <summary>
+   /// This class specializes <see cref="SectionPartFunctionalityWithFixedLength"/> in order to write relocation directory for managed images.
+   /// </summary>
+   public class SectionPartFunctionality_RelocDirectory : SectionPartFunctionalityWithFixedLength
    {
       private const Int32 SIZE = 0x0C;
       private const UInt32 RELOCATION_PAGE_MASK = 0x0FFF; // ECMA-335, p. 282
       private const UInt16 RELOCATION_FIXUP_TYPE = 0x3; // ECMA-335, p. 282
 
-      public SectionPart_RelocDirectory( ImageFileMachine machine )
+      /// <summary>
+      /// Creates a new instance for <see cref="SectionPartFunctionality_RelocDirectory"/> for given <see cref="ImageFileMachine"/>.
+      /// </summary>
+      /// <param name="machine">The <see cref="ImageFileMachine"/> of the image being emitted.</param>
+      /// <remarks>
+      /// The section part will not be present in the final image, if the <see cref="CAMPhysicalIO::E_CILPhysical.RequiresPE64"/> will return <c>true</c> for given <paramref name="machine"/>.
+      /// </remarks>
+      public SectionPartFunctionality_RelocDirectory( ImageFileMachine machine )
          : base( 0x04, !machine.RequiresPE64(), SIZE )
       {
 
       }
 
-      protected override Boolean DoWriteData( DefaultWritingStatus wStatus, Byte[] array, ref Int32 idx )
+      /// <summary>
+      /// Implements the <see cref="SectionPartFunctionalityWriteableToArray.DoWriteData"/> method by writing the contents of this relocation directory, and the <see cref="WritingStatus.PEDataDirectories"/> array is updated to contain the <see cref="DataDirectory"/> at index of <see cref="DataDirectories.BaseRelocationTable"/> for the written relocation directory.
+      /// </summary>
+      /// <param name="wStatus">The <see cref="DefaultWritingStatus"/>.</param>
+      /// <param name="array">The byte array to write relocation directory to.</param>
+      /// <returns>The value <c>true</c> if any data was written, <c>false</c> otherwise.</returns>
+      /// <remarks>
+      /// In order to obtain the RVA of used address of the native code startup stub, this method will search for <see cref="SectionPart"/> that is related to <see cref="SectionPartFunctionality_StartupCode"/> from <see cref="ImageSectionsInfo"/> of the supplied <see cref="DefaultWritingStatus"/>.
+      /// </remarks>
+      protected override Boolean DoWriteData( DefaultWritingStatus wStatus, Byte[] array )
       {
          var imageSections = wStatus.SectionLayouts;
-         var startupCode = imageSections.GetSectionPartWithFunctionalityOfType<SectionPart_StartupCode>();
+         var startupCode = imageSections.GetSectionPartWithFunctionalityOfType<SectionPartFunctionality_StartupCode>();
          var retVal = startupCode != null;
          if ( retVal )
          {
-            var rva = (UInt32) ( startupCode.RVA + ( (SectionPart_StartupCode) startupCode.Functionality ).EntryPointInstructionAddressOffset );
+            var idx = 0;
+            var rva = (UInt32) ( startupCode.RVA + ( (SectionPartFunctionality_StartupCode) startupCode.Functionality ).EntryPointInstructionAddressOffset );
             array
                .WriteUInt32LEToBytes( ref idx, rva & ( ~RELOCATION_PAGE_MASK ) ) // Page RVA
                .WriteInt32LEToBytes( ref idx, SIZE ) // Block size
@@ -2099,20 +2483,37 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
       }
    }
 
-   public class SectionPart_DebugDirectory : SectionPartFunctionalityWithFixedLength
+   /// <summary>
+   /// This class specializes <see cref="SectionPartFunctionalityWithFixedLength"/> in order to write debug information.
+   /// </summary>
+   /// <seealso cref="DebugInformation"/>
+   public class SectionPartFunctionality_DebugDirectory : SectionPartFunctionalityWithFixedLength
    {
       private const Int32 ALIGNMENT = 0x04;
       private const Int32 HEADER_SIZE = 0x1C;
 
       private readonly WritingOptions_Debug _options;
 
-      public SectionPart_DebugDirectory( WritingOptions_Debug options )
+      /// <summary>
+      /// Creates a new <see cref="SectionPartFunctionality_DebugDirectory"/> from given <see cref="WritingOptions_Debug"/>.
+      /// </summary>
+      /// <param name="options">The <see cref="WritingOptions_Debug"/>. May be <c>null</c>.</param>
+      /// <remarks>
+      /// The section part will not be present in the final image, if the <paramref name="options"/> is <c>null</c>, or its <see cref="WritingOptions_Debug.DebugData"/> is <c>null</c> or empty.
+      /// </remarks>
+      public SectionPartFunctionality_DebugDirectory( WritingOptions_Debug options )
          : base( ALIGNMENT, !( options?.DebugData ).IsNullOrEmpty(), ( HEADER_SIZE + ( options?.DebugData?.Length ?? 0 ) ) )
       {
          this._options = options;
       }
 
-      protected override Boolean DoWriteData( DefaultWritingStatus wStatus, Byte[] array, ref Int32 idx )
+      /// <summary>
+      /// Implements the <see cref="SectionPartFunctionalityWriteableToArray.DoWriteData"/> method by writing the contents of this relocation directory, and the <see cref="WritingStatus.PEDataDirectories"/> array is updated to contain the <see cref="DataDirectory"/> at index of <see cref="DataDirectories.Debug"/> for the written debug information.
+      /// </summary>
+      /// <param name="wStatus">The <see cref="DefaultWritingStatus"/>.</param>
+      /// <param name="array">The byte array to write debug information to.</param>
+      /// <returns>The value <c>true</c> if any data was written, <c>false</c> otherwise.</returns>
+      protected override Boolean DoWriteData( DefaultWritingStatus wStatus, Byte[] array )
       {
          var dbgData = this._options?.DebugData;
          var retVal = !dbgData.IsNullOrEmpty();
@@ -2134,68 +2535,116 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
                dataOffset,
                dbgData.ToArrayProxy().CQ
                );
-
+            var idx = 0;
             debugInfo.WriteDebugInformation( array, ref idx );
-            wStatus.PEDataDirectories[(Int32) DataDirectories.Debug] = imageSections.GetDataDirectoryForSectionPart( this );
+            wStatus.PEDataDirectories[(Int32) DataDirectories.Debug] = thisPart.GetDataDirectory();
             wStatus.DebugInformation = debugInfo;
          }
          return retVal;
       }
    }
 
-
+   /// <summary>
+   /// This class provides implementation of the <see cref="AbstractWriterStreamHandler"/> suitable for most meta data stream handlers participating in writing process.
+   /// </summary>
    public abstract class AbstractWriterStreamHandlerImpl : AbstractWriterStreamHandler
    {
       private readonly UInt32 _startingIndex;
-      [CLSCompliant( false )]
-      protected UInt32 curIndex;
 
-      internal AbstractWriterStreamHandlerImpl( UInt32 startingIndex )
+      /// <summary>
+      /// Creates a new <see cref="AbstractWriterStreamHandlerImpl"/> with given index as index within the meta data stream, where to start writing data.
+      /// </summary>
+      /// <param name="startingIndex">The index within the meta data stream, where to start writing data.</param>
+      /// <remarks>
+      /// The value of <paramref name="startingIndex"/> will be used to determine whether this stream has been accessed, in <see cref="Accessed"/> property.
+      /// </remarks>
+      [CLSCompliant( false )]
+      protected AbstractWriterStreamHandlerImpl( UInt32 startingIndex )
       {
          this._startingIndex = startingIndex;
-         this.curIndex = startingIndex;
+         this.CurrentSize = startingIndex;
       }
 
+      /// <summary>
+      /// This class leaves out the implementation of <see cref="AbstractMetaDataStreamHandler.StreamName"/> to the subclasses.
+      /// </summary>
+      /// <value>The name of this <see cref="AbstractWriterStreamHandlerImpl"/>.</value>
       public abstract String StreamName { get; }
 
+      /// <summary>
+      /// This method implements the <see cref="AbstractWriterStreamHandler.WriteStream"/> method.
+      /// </summary>
+      /// <param name="stream">The stream where to write the contents to.</param>
+      /// <param name="array">The auxiliary byte array to use.</param>
+      /// <param name="dataReferences">The <see cref="DataReferencesInfo"/> containing values of the data reference columns.</param>
       public virtual void WriteStream(
-         Stream sink,
+         Stream stream,
          ResizableArray<Byte> array,
-         DataReferencesInfo rawValueProvder
+         DataReferencesInfo dataReferences
          )
       {
          if ( this.Accessed )
          {
-            this.DoWriteStream( sink, array );
-            var size = this.curIndex;
+            this.DoWriteStream( stream, array );
+            var size = this.CurrentSize;
             var padding = (Int32) ( size.RoundUpU32( 4 ) - size );
             if ( padding > 0 )
             {
                array.CurrentMaxCapacity = padding;
                var idx = 0;
                array.Array.ZeroOut( ref idx, padding );
-               sink.Write( array.Array, padding );
+               stream.Write( array.Array, padding );
             }
          }
       }
 
+      /// <summary>
+      /// Gets the size of the stream.
+      /// </summary>
+      /// <value>The size of the stream.</value>
+      /// <remarks>
+      /// The returned size will always be aligned up by <c>4</c>.
+      /// </remarks>
       public Int32 StreamSize
       {
          get
          {
-            return (Int32) this.curIndex.RoundUpU32( 4 );
+            return (Int32) this.CurrentSize.RoundUpU32( 4 );
          }
       }
 
+      /// <summary>
+      /// Gets the value indicating whether this stream has anything stored in it.
+      /// </summary>
+      /// <value>The value indicating whether this stream has anything stored in it.</value>
+      /// <remarks>
+      /// The check is performed by comparing <see cref="CurrentSize"/> to the starting index given to the <see cref="AbstractWriterStreamHandlerImpl(UInt32)"/> constructor.
+      /// If the <see cref="CurrentSize"/> is larger, this stream is considered to have something in storage.
+      /// </remarks>
       public Boolean Accessed
       {
          get
          {
-            return this.curIndex > this._startingIndex;
+            return this.CurrentSize > this._startingIndex;
          }
       }
 
-      protected abstract void DoWriteStream( Stream sink, ResizableArray<Byte> array );
+      /// <summary>
+      /// Gets or sets the current size of this stream.
+      /// </summary>
+      /// <value>The current size of this stream.</value>
+      /// <remarks>
+      /// Subclasses should update this value as appropriate.
+      /// </remarks>
+      [CLSCompliant( false )]
+      protected UInt32 CurrentSize { get; set; }
+
+      /// <summary>
+      /// This is abstract method to perform actual writing of this meta data stream.
+      /// </summary>
+      /// <param name="stream">The <see cref="Stream"/> to write contents to.</param>
+      /// <param name="array">The auxiliary array to use.</param>
+      protected abstract void DoWriteStream( Stream stream, ResizableArray<Byte> array );
    }
 
    internal class DefaultWriterBLOBStreamHandler : AbstractWriterStreamHandlerImpl, WriterBLOBStreamHandler
@@ -2229,10 +2678,10 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
          {
             if ( !this._blobIndices.TryGetValue( blob, out result ) )
             {
-               result = this.curIndex;
+               result = this.CurrentSize;
                this._blobIndices.Add( blob, result );
                this._blobs.Add( blob );
-               this.curIndex += (UInt32) blob.Length + (UInt32) BitUtils.GetEncodedUIntSize( blob.Length );
+               this.CurrentSize += (UInt32) blob.Length + (UInt32) BitUtils.GetEncodedUIntSize( blob.Length );
             }
          }
 
@@ -2286,7 +2735,7 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
             result = this._guids.GetOrAdd_NotThreadSafe( guid.Value, g =>
             {
                var retVal = (UInt32) this._guids.Count + 1;
-               this.curIndex += MetaDataConstants.GUID_SIZE;
+               this.CurrentSize += MetaDataConstants.GUID_SIZE;
                return retVal;
             } );
          }
@@ -2339,10 +2788,10 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
             }
             else
             {
-               result = this.curIndex;
+               result = this.CurrentSize;
                var byteCount = this.GetByteCountForString( str );
-               this._strings.Add( str, new KeyValuePair<UInt32, Int32>( this.curIndex, byteCount ) );
-               this.curIndex += (UInt32) byteCount;
+               this._strings.Add( str, new KeyValuePair<UInt32, Int32>( this.CurrentSize, byteCount ) );
+               this.CurrentSize += (UInt32) byteCount;
             }
          }
          return (Int32) result;

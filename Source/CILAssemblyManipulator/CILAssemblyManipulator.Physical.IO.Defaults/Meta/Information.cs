@@ -816,7 +816,7 @@ namespace CILAssemblyManipulator.Physical.Meta
                // Read all field RVA content
                args.Row.Data = stream.ReadAndCreateArray( size );
             }
-         }, ( md, mdStreamContainer ) => new SectionPart_FieldRVA( md ), null, null );
+         }, ( md, mdStreamContainer ) => new SectionPartFunctionality_FieldRVA( md ), null, null );
          yield return MetaDataColumnInformationFactory.SimpleTableIndex<FieldRVA, RawFieldRVA>( Tables.Field, ( r, v ) => { r.Field = v; return true; }, row => row.Field, ( r, v ) => r.Field = v );
       }
 
@@ -935,7 +935,7 @@ namespace CILAssemblyManipulator.Physical.Meta
                }
             }
          },
-         ( md, mdStreamContainer ) => new SectionPart_EmbeddedManifests( md ), null, null );
+         ( md, mdStreamContainer ) => new SectionPartFunctionality_EmbeddedManifests( md ), null, null );
          yield return MetaDataColumnInformationFactory.Number32<ManifestResource, RawManifestResource>( ( r, v ) => { r.Attributes = (ManifestResourceAttributes) v; return true; }, row => (Int32) row.Attributes, ( r, v ) => r.Attributes = (ManifestResourceAttributes) v );
          yield return MetaDataColumnInformationFactory.SystemString<ManifestResource, RawManifestResource>( ( r, v ) => { r.Name = v; return true; }, row => row.Name, ( r, v ) => r.Name = v );
          yield return MetaDataColumnInformationFactory.CodedTableIndexNullable<ManifestResource, RawManifestResource>( CAMPhysicalIO::CILAssemblyManipulator.Physical.Meta.DefaultMetaDataTableInformationProvider.Implementation, ( r, v ) => { r.Implementation = v; return true; }, row => row.Implementation, ( r, v ) => r.Implementation = v );
