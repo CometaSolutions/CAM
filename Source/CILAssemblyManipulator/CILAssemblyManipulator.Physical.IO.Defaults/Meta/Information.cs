@@ -41,9 +41,16 @@ using TabularMetaData.Meta;
 
 namespace CILAssemblyManipulator.Physical.Meta
 {
+   /// <summary>
+   /// This class provides default implementation for <see cref="CILMetaDataTableInformationProvider"/>.
+   /// </summary>
+   /// <remarks>
+   /// Typical customization usecase would be not to subclass this class, but rather provide extra <see cref="MetaDataTableInformation{TRow, TRawRow}"/>s to the constructor.
+   /// Subclassing may be required for addition of new providers alike <see cref="OpCodeProvider"/> or <see cref="SignatureProvider"/>.
+   /// </remarks>
    public class DefaultMetaDataTableInformationProvider : CILMetaDataTableInformationProvider, CAMPhysicalR::CILAssemblyManipulator.Physical.Meta.CILMetaDataTableInformationProvider
    {
-      public const Int32 AMOUNT_OF_FIXED_TABLES = 0x2D; // Enum.GetValues( typeof( Tables ) ).Length;
+      internal const Int32 AMOUNT_OF_FIXED_TABLES = 0x2D;
 
       // Don't cache the instance in case the provider will become mutable at some point.
 
@@ -61,22 +68,36 @@ namespace CILAssemblyManipulator.Physical.Meta
       private readonly OpCodeProvider _opCodeProvider;
       private readonly SignatureProvider _sigProvider;
 
-      public DefaultMetaDataTableInformationProvider(
+      /// <summary>
+      /// Creates a new instance of <see cref="DefaultMetaDataTableInformationProvider"/> with given optional parameters.
+      /// </summary>
+      /// <param name="tableInfos">The optional table informations. If not specified, the result of <see cref="CreateFixedTableInformations"/> will be used. The order does not matter.</param>
+      /// <param name="opCodeProvider">The optional <see cref="OpCodeProvider"/>. If not specified, the <see cref="DefaultOpCodeProvider.DefaultInstance"/> will be used.</param>
+      /// <param name="sigProvider">The optional <see cref="SignatureProvider"/>. If not specified, the <see cref="DefaultSignatureProvider.DefaultInstance"/> will be used.</param>
+      /// <remarks>
+      /// Typically, the instances of <see cref="MetaDataTableInformation"/> should be instances of <see cref="MetaDataTableInformation{TRow, TRawRow}"/> in order to integrate seamlessly into serialization functionality.
+      /// This class however does not enforce the give <see cref="MetaDataTableInformation"/>s to be <see cref="MetaDataTableInformation{TRow, TRawRow}"/>s.
+      /// </remarks>
+      protected DefaultMetaDataTableInformationProvider(
          IEnumerable<MetaDataTableInformation> tableInfos = null,
          OpCodeProvider opCodeProvider = null,
          SignatureProvider sigProvider = null
          )
       {
          this._infos = new MetaDataTableInformation[CAMCoreInternals.AMOUNT_OF_TABLES];
-         foreach ( var tableInfo in ( tableInfos ?? CreateDefaultTableInformation() ).Where( ti => ti != null ) )
+         foreach ( var tableInfo in ( tableInfos ?? CreateFixedTableInformations() ).Where( ti => ti != null ) )
          {
             var tKind = (Int32) tableInfo.TableIndex;
             this._infos[tKind] = tableInfo;
          }
          this._opCodeProvider = opCodeProvider ?? DefaultOpCodeProvider.DefaultInstance;
-         this._sigProvider = sigProvider ?? DefaultSignatureProvider.Instance;
+         this._sigProvider = sigProvider ?? DefaultSignatureProvider.DefaultInstance;
       }
 
+      /// <summary>
+      /// Implements the <see cref="MetaDataTableInformationProvider.GetAllSupportedTableInformations"/> method.
+      /// </summary>
+      /// <returns>All non-<c>null</c> <see cref="MetaDataTableInformation"/>s passed to this <see cref="DefaultMetaDataTableInformationProvider"/>.</returns>
       public IEnumerable<MetaDataTableInformation> GetAllSupportedTableInformations()
       {
          foreach ( var tableInfo in this._infos )
@@ -85,16 +106,29 @@ namespace CILAssemblyManipulator.Physical.Meta
          }
       }
 
+      /// <summary>
+      /// Implements the <see cref="CILMetaDataTableInformationProvider.CreateOpCodeProvider"/> method.
+      /// </summary>
+      /// <returns>A non-<c>null</c> <see cref="OpCodeProvider"/>, either default or passed to this <see cref="DefaultMetaDataTableInformationProvider"/>.</returns>
       public OpCodeProvider CreateOpCodeProvider()
       {
          return this._opCodeProvider;
       }
 
+      /// <summary>
+      /// Implements the <see cref="CILMetaDataTableInformationProvider.CreateSignatureProvider"/> method.
+      /// </summary>
+      /// <returns>A non-<c>null</c> <see cref="SignatureProvider"/>, either default or passed to this <see cref="DefaultMetaDataTableInformationProvider"/>.</returns>
       public SignatureProvider CreateSignatureProvider()
       {
          return this._sigProvider;
       }
 
+      /// <summary>
+      /// Implements the <see cref="CAMPhysicalR::CILAssemblyManipulator.Physical.Meta.CILMetaDataTableInformationProvider.CreateResolvingProvider"/>.
+      /// </summary>
+      /// <param name="thisMD">The <see cref="CILMetaData"/> in question.</param>
+      /// <returns>A new instance of <see cref="CAMPhysicalR::CILAssemblyManipulator.Physical.Meta.DefaultResolvingProvider"/>.</returns>
       public CAMPhysicalR::CILAssemblyManipulator.Physical.Meta.ResolvingProvider CreateResolvingProvider( CILMetaData thisMD )
       {
          return new CAMPhysicalR::CILAssemblyManipulator.Physical.Meta.DefaultResolvingProvider(
@@ -107,23 +141,92 @@ namespace CILAssemblyManipulator.Physical.Meta
             );
       }
 
+      /// <summary>
+      /// This helper method creates the default instance of <see cref="DefaultMetaDataTableInformationProvider"/>.
+      /// </summary>
+      /// <returns>The new instance of <see cref="DefaultMetaDataTableInformationProvider"/>.</returns>
       public static DefaultMetaDataTableInformationProvider CreateDefault()
       {
          return new DefaultMetaDataTableInformationProvider();
       }
 
+      /// <summary>
+      /// This helper method creates the default instance of <see cref="DefaultMetaDataTableInformationProvider"/> with given <see cref="MetaDataTableInformation"/> objects for any additional tables.
+      /// </summary>
+      /// <param name="tableInfos">The enumerable of <see cref="MetaDataTableInformation"/>. May be <c>null</c> or contain <c>null</c> values. The order does not matter.</param>
+      /// <returns>The new instance of <see cref="DefaultMetaDataTableInformationProvider"/> containing <see cref="MetaDataTableInformation"/> for additional tables.</returns>
+      /// <remarks>
+      /// The <see cref="MetaDataTableInformation.TableIndex"/> of the given <paramref name="tableInfos"/> should be greater than maximum value of <see cref="Tables"/> enumeration.
+      /// </remarks>
       public static DefaultMetaDataTableInformationProvider CreateWithAdditionalTables( IEnumerable<MetaDataTableInformation> tableInfos )
       {
          ArgumentValidator.ValidateNotNull( "Additional table infos", tableInfos );
-         return new DefaultMetaDataTableInformationProvider( CreateDefaultTableInformation().Concat( tableInfos.Where( t => (Int32) t.TableIndex > AMOUNT_OF_FIXED_TABLES ) ) );
+         return new DefaultMetaDataTableInformationProvider( CreateFixedTableInformations().Concat( tableInfos?.Where( t => (Int32) ( t?.TableIndex ?? 0 ) > AMOUNT_OF_FIXED_TABLES ) ?? Empty<MetaDataTableInformation>.Enumerable ) );
       }
 
+      /// <summary>
+      /// This helper method creates the default instance of <see cref="DefaultMetaDataTableInformationProvider"/> with given <see cref="MetaDataTableInformation"/> objects for all tables.
+      /// </summary>
+      /// <param name="tableInfos">The enumerable of <see cref="MetaDataTableInformation"/>. May be <c>null</c> or containg <c>null</c> values. The order does not matter.</param>
+      /// <returns>The new instance of <see cref="DefaultMetaDataTableInformationProvider"/> containing <see cref="MetaDataTableInformation"/> for all tables, including the fixed ones of <see cref="CILMetaData"/>.</returns>
       public static DefaultMetaDataTableInformationProvider CreateWithExactTables( IEnumerable<MetaDataTableInformation> tableInfos )
       {
          return new DefaultMetaDataTableInformationProvider( tableInfos );
       }
 
-      protected static IEnumerable<MetaDataTableInformation> CreateDefaultTableInformation()
+      /// <summary>
+      /// This is helper static method to generate enumerable of <see cref="MetaDataTableInformation"/>s for all fixed tables of <see cref="CILMetaData"/>.
+      /// </summary>
+      /// <returns>Enumerable of <see cref="MetaDataTableInformation"/>s for all fixed tables of <see cref="CILMetaData"/>.</returns>
+      /// <remarks>
+      /// The returned <see cref="MetaDataTableInformation"/>s are actually instances of <see cref="MetaDataTableInformation{TRow, TRawRow}"/>, with their generic arguments depending on the type of the row of the fixed table.
+      /// </remarks>
+      /// <seealso cref="GetModuleDefColumns"/>
+      /// <seealso cref="GetTypeRefColumns"/>
+      /// <seealso cref="GetTypeDefColumns"/>
+      /// <seealso cref="GetFieldPtrColumns"/>
+      /// <seealso cref="GetFieldDefColumns"/>
+      /// <seealso cref="GetMethodPtrColumns"/>
+      /// <seealso cref="GetMethodDefColumns"/>
+      /// <seealso cref="GetParamPtrColumns"/>
+      /// <seealso cref="GetParamColumns"/>
+      /// <seealso cref="GetInterfaceImplColumns"/>
+      /// <seealso cref="GetMemberRefColumns"/>
+      /// <seealso cref="GetConstantColumns"/>
+      /// <seealso cref="GetCustomAttributeColumns"/>
+      /// <seealso cref="GetFieldMarshalColumns"/>
+      /// <seealso cref="GetDeclSecurityColumns"/>
+      /// <seealso cref="GetClassLayoutColumns"/>
+      /// <seealso cref="GetFieldLayoutColumns"/>
+      /// <seealso cref="GetStandaloneSigColumns"/>
+      /// <seealso cref="GetEventMapColumns"/>
+      /// <seealso cref="GetEventPtrColumns"/>
+      /// <seealso cref="GetEventDefColumns"/>
+      /// <seealso cref="GetPropertyMapColumns"/>
+      /// <seealso cref="GetPropertyPtrColumns"/>
+      /// <seealso cref="GetPropertyDefColumns"/>
+      /// <seealso cref="GetMethodSemanticsColumns"/>
+      /// <seealso cref="GetMethodImplColumns"/>
+      /// <seealso cref="GetModuleRefColumns"/>
+      /// <seealso cref="GetTypeSpecColumns"/>
+      /// <seealso cref="GetImplMapColumns"/>
+      /// <seealso cref="GetFieldRVAColumns"/>
+      /// <seealso cref="GetENCLogColumns"/>
+      /// <seealso cref="GetENCMapColumns"/>
+      /// <seealso cref="GetAssemblyDefColumns"/>
+      /// <seealso cref="GetAssemblyDefProcessorColumns"/>
+      /// <seealso cref="GetAssemblyDefOSColumns"/>
+      /// <seealso cref="GetAssemblyRefColumns"/>
+      /// <seealso cref="GetAssemblyRefProcessorColumns"/>
+      /// <seealso cref="GetAssemblyRefOSColumns"/>
+      /// <seealso cref="GetFileColumns"/>
+      /// <seealso cref="GetExportedTypeColumns"/>
+      /// <seealso cref="GetManifestResourceColumns"/>
+      /// <seealso cref="GetNestedClassColumns"/>
+      /// <seealso cref="GetGenericParamColumns"/>
+      /// <seealso cref="GetMethodSpecColumns"/>
+      /// <seealso cref="GetGenericParamConstraintColumns"/>
+      protected static IEnumerable<MetaDataTableInformation> CreateFixedTableInformations()
       {
          yield return new MetaDataTableInformation<ModuleDefinition, RawModuleDefinition>(
             Tables.Module,
@@ -584,49 +687,91 @@ namespace CILAssemblyManipulator.Physical.Meta
             );
       }
 
+      /// <summary>
+      /// Returns the enumerable of <see cref="MetaDataColumnInformation{TRow, TValue}"/>s for <see cref="Tables.Module"/> table.
+      /// </summary>
+      /// <returns>The enumerable of <see cref="MetaDataColumnInformation{TRow, TValue}"/>s for <see cref="Tables.Module"/> table.</returns>
+      /// <seealso cref="ModuleDefinition"/>
+      /// <seealso cref="RawModuleDefinition"/>
       protected static IEnumerable<MetaDataColumnInformation<ModuleDefinition>> GetModuleDefColumns()
       {
-         yield return MetaDataColumnInformationFactory.Number16<ModuleDefinition, RawModuleDefinition>( ( r, v ) => { r.Generation = v; return true; }, row => row.Generation, ( r, v ) => r.Generation = v );
-         yield return MetaDataColumnInformationFactory.SystemString<ModuleDefinition, RawModuleDefinition>( ( r, v ) => { r.Name = v; return true; }, row => row.Name, ( r, v ) => r.Name = v );
+         yield return MetaDataColumnInformationFactory.Number16<ModuleDefinition, RawModuleDefinition>( row => row.Generation, ( r, v ) => { r.Generation = v; return true; }, ( r, v ) => r.Generation = v );
+         yield return MetaDataColumnInformationFactory.SystemString<ModuleDefinition, RawModuleDefinition>( row => row.Name, ( r, v ) => { r.Name = v; return true; }, ( r, v ) => r.Name = v );
          yield return MetaDataColumnInformationFactory.GUID<ModuleDefinition, RawModuleDefinition>( ( r, v ) => { r.ModuleGUID = v; return true; }, row => row.ModuleGUID, ( r, v ) => r.ModuleGUID = v );
          yield return MetaDataColumnInformationFactory.GUID<ModuleDefinition, RawModuleDefinition>( ( r, v ) => { r.EditAndContinueGUID = v; return true; }, row => row.EditAndContinueGUID, ( r, v ) => r.EditAndContinueGUID = v );
          yield return MetaDataColumnInformationFactory.GUID<ModuleDefinition, RawModuleDefinition>( ( r, v ) => { r.EditAndContinueBaseGUID = v; return true; }, row => row.EditAndContinueBaseGUID, ( r, v ) => r.EditAndContinueBaseGUID = v );
       }
 
+      /// <summary>
+      /// Returns the enumerable of <see cref="MetaDataColumnInformation{TRow, TValue}"/>s for <see cref="Tables.TypeRef"/> table.
+      /// </summary>
+      /// <returns>The enumerable of <see cref="MetaDataColumnInformation{TRow, TValue}"/>s for <see cref="Tables.TypeRef"/> table.</returns>
+      /// <seealso cref="TypeReference"/>
+      /// <seealso cref="RawTypeReference"/>
       protected static IEnumerable<MetaDataColumnInformation<TypeReference>> GetTypeRefColumns()
       {
          yield return MetaDataColumnInformationFactory.CodedTableIndexNullable<TypeReference, RawTypeReference>( CAMPhysicalIO::CILAssemblyManipulator.Physical.Meta.DefaultMetaDataTableInformationProvider.ResolutionScope, ( r, v ) => { r.ResolutionScope = v; return true; }, row => row.ResolutionScope, ( r, v ) => r.ResolutionScope = v );
-         yield return MetaDataColumnInformationFactory.SystemString<TypeReference, RawTypeReference>( ( r, v ) => { r.Name = v; return true; }, row => row.Name, ( r, v ) => r.Name = v );
-         yield return MetaDataColumnInformationFactory.SystemString<TypeReference, RawTypeReference>( ( r, v ) => { r.Namespace = v; return true; }, row => row.Namespace, ( r, v ) => r.Namespace = v );
+         yield return MetaDataColumnInformationFactory.SystemString<TypeReference, RawTypeReference>( row => row.Name, ( r, v ) => { r.Name = v; return true; }, ( r, v ) => r.Name = v );
+         yield return MetaDataColumnInformationFactory.SystemString<TypeReference, RawTypeReference>( row => row.Namespace, ( r, v ) => { r.Namespace = v; return true; }, ( r, v ) => r.Namespace = v );
       }
 
+      /// <summary>
+      /// Returns the enumerable of <see cref="MetaDataColumnInformation{TRow, TValue}"/>s for <see cref="Tables.TypeDef"/> table.
+      /// </summary>
+      /// <returns>The enumerable of <see cref="MetaDataColumnInformation{TRow, TValue}"/>s for <see cref="Tables.TypeDef"/> table.</returns>
+      /// <seealso cref="TypeDefinition"/>
+      /// <seealso cref="RawTypeDefinition"/>
       protected static IEnumerable<MetaDataColumnInformation<TypeDefinition>> GetTypeDefColumns()
       {
-         yield return MetaDataColumnInformationFactory.Number32<TypeDefinition, RawTypeDefinition>( ( r, v ) => { r.Attributes = (TypeAttributes) v; return true; }, row => (Int32) row.Attributes, ( r, v ) => r.Attributes = (TypeAttributes) v );
-         yield return MetaDataColumnInformationFactory.SystemString<TypeDefinition, RawTypeDefinition>( ( r, v ) => { r.Name = v; return true; }, row => row.Name, ( r, v ) => r.Name = v );
-         yield return MetaDataColumnInformationFactory.SystemString<TypeDefinition, RawTypeDefinition>( ( r, v ) => { r.Namespace = v; return true; }, row => row.Namespace, ( r, v ) => r.Namespace = v );
+         yield return MetaDataColumnInformationFactory.Number32<TypeDefinition, RawTypeDefinition>( row => (Int32) row.Attributes, ( r, v ) => { r.Attributes = (TypeAttributes) v; return true; }, ( r, v ) => r.Attributes = (TypeAttributes) v );
+         yield return MetaDataColumnInformationFactory.SystemString<TypeDefinition, RawTypeDefinition>( row => row.Name, ( r, v ) => { r.Name = v; return true; }, ( r, v ) => r.Name = v );
+         yield return MetaDataColumnInformationFactory.SystemString<TypeDefinition, RawTypeDefinition>( row => row.Namespace, ( r, v ) => { r.Namespace = v; return true; }, ( r, v ) => r.Namespace = v );
          yield return MetaDataColumnInformationFactory.CodedTableIndexNullable<TypeDefinition, RawTypeDefinition>( CAMPhysicalIO::CILAssemblyManipulator.Physical.Meta.DefaultMetaDataTableInformationProvider.TypeDefOrRef, ( r, v ) => { r.BaseType = v; return true; }, row => row.BaseType, ( r, v ) => r.BaseType = v );
          yield return MetaDataColumnInformationFactory.SimpleTableIndex<TypeDefinition, RawTypeDefinition>( Tables.Field, ( r, v ) => { r.FieldList = v; return true; }, row => row.FieldList, ( r, v ) => r.FieldList = v );
          yield return MetaDataColumnInformationFactory.SimpleTableIndex<TypeDefinition, RawTypeDefinition>( Tables.MethodDef, ( r, v ) => { r.MethodList = v; return true; }, row => row.MethodList, ( r, v ) => r.MethodList = v );
       }
 
+      /// <summary>
+      /// Returns the enumerable of <see cref="MetaDataColumnInformation{TRow, TValue}"/>s for <see cref="Tables.FieldPtr"/> table.
+      /// </summary>
+      /// <returns>The enumerable of <see cref="MetaDataColumnInformation{TRow, TValue}"/>s for <see cref="Tables.FieldPtr"/> table.</returns>
+      /// <seealso cref="FieldDefinitionPointer"/>
+      /// <seealso cref="RawFieldDefinitionPointer"/>
       protected static IEnumerable<MetaDataColumnInformation<FieldDefinitionPointer>> GetFieldPtrColumns()
       {
          yield return MetaDataColumnInformationFactory.SimpleTableIndex<FieldDefinitionPointer, RawFieldDefinitionPointer>( Tables.Field, ( r, v ) => { r.FieldIndex = v; return true; }, row => row.FieldIndex, ( r, v ) => r.FieldIndex = v );
       }
 
+      /// <summary>
+      /// Returns the enumerable of <see cref="MetaDataColumnInformation{TRow, TValue}"/>s for <see cref="Tables.Field"/> table.
+      /// </summary>
+      /// <returns>The enumerable of <see cref="MetaDataColumnInformation{TRow, TValue}"/>s for <see cref="Tables.Field"/> table.</returns>
+      /// <seealso cref="FieldDefinition"/>
+      /// <seealso cref="RawFieldDefinition"/>
       protected static IEnumerable<MetaDataColumnInformation<FieldDefinition>> GetFieldDefColumns()
       {
-         yield return MetaDataColumnInformationFactory.Number16<FieldDefinition, RawFieldDefinition>( ( r, v ) => { r.Attributes = (FieldAttributes) v; return true; }, row => (Int16) row.Attributes, ( r, v ) => r.Attributes = (FieldAttributes) v );
-         yield return MetaDataColumnInformationFactory.SystemString<FieldDefinition, RawFieldDefinition>( ( r, v ) => { r.Name = v; return true; }, row => row.Name, ( r, v ) => r.Name = v );
+         yield return MetaDataColumnInformationFactory.Number16<FieldDefinition, RawFieldDefinition>( row => (Int16) row.Attributes, ( r, v ) => { r.Attributes = (FieldAttributes) v; return true; }, ( r, v ) => r.Attributes = (FieldAttributes) v );
+         yield return MetaDataColumnInformationFactory.SystemString<FieldDefinition, RawFieldDefinition>( row => row.Name, ( r, v ) => { r.Name = v; return true; }, ( r, v ) => r.Name = v );
          yield return MetaDataColumnInformationFactory.BLOBNonTypeSignature<FieldDefinition, RawFieldDefinition, FieldSignature>( ( r, v ) => { r.Signature = v; return true; }, row => row.Signature, ( r, v ) => r.Signature = v );
       }
 
+      /// <summary>
+      /// Returns the enumerable of <see cref="MetaDataColumnInformation{TRow, TValue}"/>s for <see cref="Tables.MethodPtr"/> table.
+      /// </summary>
+      /// <returns>The enumerable of <see cref="MetaDataColumnInformation{TRow, TValue}"/>s for <see cref="Tables.MethodPtr"/> table.</returns>
+      /// <seealso cref="MethodDefinitionPointer"/>
+      /// <seealso cref="RawMethodDefinitionPointer"/>
       protected static IEnumerable<MetaDataColumnInformation<MethodDefinitionPointer>> GetMethodPtrColumns()
       {
          yield return MetaDataColumnInformationFactory.SimpleTableIndex<MethodDefinitionPointer, RawMethodDefinitionPointer>( Tables.MethodDef, ( r, v ) => { r.MethodIndex = v; return true; }, row => row.MethodIndex, ( r, v ) => r.MethodIndex = v );
       }
 
+      /// <summary>
+      /// Returns the enumerable of <see cref="MetaDataColumnInformation{TRow, TValue}"/>s for <see cref="Tables.MethodDef"/> table.
+      /// </summary>
+      /// <returns>The enumerable of <see cref="MetaDataColumnInformation{TRow, TValue}"/>s for <see cref="Tables.MethodDef"/> table.</returns>
+      /// <seealso cref="MethodDefinition"/>
+      /// <seealso cref="RawMethodDefinition"/>
       protected static IEnumerable<MetaDataColumnInformation<MethodDefinition>> GetMethodDefColumns()
       {
          yield return MetaDataColumnInformationFactory.DataReference<MethodDefinition, RawMethodDefinition, MethodILDefinition>( ( r, v ) => { r.IL = v; return true; }, r => r.IL, ( r, v ) => r.RVA = v, ( args, rva ) =>
@@ -642,46 +787,82 @@ namespace CILAssemblyManipulator.Physical.Meta
                mDef.IL = rArgs.MetaData.OpCodeProvider.DeserializeIL( rArgs.Stream.At( offset ), rArgs.Array, rArgs.MDStreamContainer.UserStrings );
             }
          }, ( md, mdStreamContainer ) => new SectionPartFunctionality_MethodIL( md, mdStreamContainer.UserStrings ), null, null );
-         yield return MetaDataColumnInformationFactory.Number16<MethodDefinition, RawMethodDefinition>( ( r, v ) => { r.ImplementationAttributes = (MethodImplAttributes) v; return true; }, row => (Int16) row.ImplementationAttributes, ( r, v ) => r.ImplementationAttributes = (MethodImplAttributes) v );
-         yield return MetaDataColumnInformationFactory.Number16<MethodDefinition, RawMethodDefinition>( ( r, v ) => { r.Attributes = (MethodAttributes) v; return true; }, row => (Int16) row.Attributes, ( r, v ) => r.Attributes = (MethodAttributes) v );
-         yield return MetaDataColumnInformationFactory.SystemString<MethodDefinition, RawMethodDefinition>( ( r, v ) => { r.Name = v; return true; }, row => row.Name, ( r, v ) => r.Name = v );
+         yield return MetaDataColumnInformationFactory.Number16<MethodDefinition, RawMethodDefinition>( row => (Int16) row.ImplementationAttributes, ( r, v ) => { r.ImplementationAttributes = (MethodImplAttributes) v; return true; }, ( r, v ) => r.ImplementationAttributes = (MethodImplAttributes) v );
+         yield return MetaDataColumnInformationFactory.Number16<MethodDefinition, RawMethodDefinition>( row => (Int16) row.Attributes, ( r, v ) => { r.Attributes = (MethodAttributes) v; return true; }, ( r, v ) => r.Attributes = (MethodAttributes) v );
+         yield return MetaDataColumnInformationFactory.SystemString<MethodDefinition, RawMethodDefinition>( row => row.Name, ( r, v ) => { r.Name = v; return true; }, ( r, v ) => r.Name = v );
          yield return MetaDataColumnInformationFactory.BLOBNonTypeSignature<MethodDefinition, RawMethodDefinition, MethodDefinitionSignature>( ( r, v ) => { r.Signature = v; return true; }, row => row.Signature, ( r, v ) => r.Signature = v );
          yield return MetaDataColumnInformationFactory.SimpleTableIndex<MethodDefinition, RawMethodDefinition>( Tables.Parameter, ( r, v ) => { r.ParameterList = v; return true; }, row => row.ParameterList, ( r, v ) => r.ParameterList = v );
       }
 
+      /// <summary>
+      /// Returns the enumerable of <see cref="MetaDataColumnInformation{TRow, TValue}"/>s for <see cref="Tables.ParameterPtr"/> table.
+      /// </summary>
+      /// <returns>The enumerable of <see cref="MetaDataColumnInformation{TRow, TValue}"/>s for <see cref="Tables.ParameterPtr"/> table.</returns>
+      /// <seealso cref="ParameterDefinitionPointer"/>
+      /// <seealso cref="RawParameterDefinitionPointer"/>
       protected static IEnumerable<MetaDataColumnInformation<ParameterDefinitionPointer>> GetParamPtrColumns()
       {
          yield return MetaDataColumnInformationFactory.SimpleTableIndex<ParameterDefinitionPointer, RawParameterDefinitionPointer>( Tables.Parameter, ( r, v ) => { r.ParameterIndex = v; return true; }, row => row.ParameterIndex, ( r, v ) => r.ParameterIndex = v );
       }
 
+      /// <summary>
+      /// Returns the enumerable of <see cref="MetaDataColumnInformation{TRow, TValue}"/>s for <see cref="Tables.Parameter"/> table.
+      /// </summary>
+      /// <returns>The enumerable of <see cref="MetaDataColumnInformation{TRow, TValue}"/>s for <see cref="Tables.Parameter"/> table.</returns>
+      /// <seealso cref="ParameterDefinition"/>
+      /// <seealso cref="RawParameterDefinition"/>
       protected static IEnumerable<MetaDataColumnInformation<ParameterDefinition>> GetParamColumns()
       {
-         yield return MetaDataColumnInformationFactory.Number16<ParameterDefinition, RawParameterDefinition>( ( r, v ) => { r.Attributes = (ParameterAttributes) v; return true; }, row => (Int16) row.Attributes, ( r, v ) => r.Attributes = (ParameterAttributes) v );
-         yield return MetaDataColumnInformationFactory.Number16<ParameterDefinition, RawParameterDefinition>( ( r, v ) => { r.Sequence = (UInt16) v; return true; }, row => (Int16) row.Sequence, ( r, v ) => r.Sequence = v );
-         yield return MetaDataColumnInformationFactory.SystemString<ParameterDefinition, RawParameterDefinition>( ( r, v ) => { r.Name = v; return true; }, row => row.Name, ( r, v ) => r.Name = v );
+         yield return MetaDataColumnInformationFactory.Number16<ParameterDefinition, RawParameterDefinition>( row => (Int16) row.Attributes, ( r, v ) => { r.Attributes = (ParameterAttributes) v; return true; }, ( r, v ) => r.Attributes = (ParameterAttributes) v );
+         yield return MetaDataColumnInformationFactory.Number16<ParameterDefinition, RawParameterDefinition>( row => (Int16) row.Sequence, ( r, v ) => { r.Sequence = (UInt16) v; return true; }, ( r, v ) => r.Sequence = v );
+         yield return MetaDataColumnInformationFactory.SystemString<ParameterDefinition, RawParameterDefinition>( row => row.Name, ( r, v ) => { r.Name = v; return true; }, ( r, v ) => r.Name = v );
       }
 
+      /// <summary>
+      /// Returns the enumerable of <see cref="MetaDataColumnInformation{TRow, TValue}"/>s for <see cref="Tables.InterfaceImpl"/> table.
+      /// </summary>
+      /// <returns>The enumerable of <see cref="MetaDataColumnInformation{TRow, TValue}"/>s for <see cref="Tables.InterfaceImpl"/> table.</returns>
+      /// <seealso cref="InterfaceImplementation"/>
+      /// <seealso cref="RawInterfaceImplementation"/>
       protected static IEnumerable<MetaDataColumnInformation<InterfaceImplementation>> GetInterfaceImplColumns()
       {
          yield return MetaDataColumnInformationFactory.SimpleTableIndex<InterfaceImplementation, RawInterfaceImplementation>( Tables.TypeDef, ( r, v ) => { r.Class = v; return true; }, row => row.Class, ( r, v ) => r.Class = v );
          yield return MetaDataColumnInformationFactory.CodedTableIndex<InterfaceImplementation, RawInterfaceImplementation>( CAMPhysicalIO::CILAssemblyManipulator.Physical.Meta.DefaultMetaDataTableInformationProvider.TypeDefOrRef, ( r, v ) => { r.Interface = v; return true; }, row => row.Interface, ( r, v ) => r.Interface = v );
       }
 
+      /// <summary>
+      /// Returns the enumerable of <see cref="MetaDataColumnInformation{TRow, TValue}"/>s for <see cref="Tables.MemberRef"/> table.
+      /// </summary>
+      /// <returns>The enumerable of <see cref="MetaDataColumnInformation{TRow, TValue}"/>s for <see cref="Tables.MemberRef"/> table.</returns>
+      /// <seealso cref="MemberReference"/>
+      /// <seealso cref="RawMemberReference"/>
       protected static IEnumerable<MetaDataColumnInformation<MemberReference>> GetMemberRefColumns()
       {
          yield return MetaDataColumnInformationFactory.CodedTableIndex<MemberReference, RawMemberReference>( CAMPhysicalIO::CILAssemblyManipulator.Physical.Meta.DefaultMetaDataTableInformationProvider.MemberRefParent, ( r, v ) => { r.DeclaringType = v; return true; }, row => row.DeclaringType, ( r, v ) => r.DeclaringType = v );
-         yield return MetaDataColumnInformationFactory.SystemString<MemberReference, RawMemberReference>( ( r, v ) => { r.Name = v; return true; }, row => row.Name, ( r, v ) => r.Name = v );
+         yield return MetaDataColumnInformationFactory.SystemString<MemberReference, RawMemberReference>( row => row.Name, ( r, v ) => { r.Name = v; return true; }, ( r, v ) => r.Name = v );
          yield return MetaDataColumnInformationFactory.BLOBNonTypeSignature<MemberReference, RawMemberReference, AbstractSignature>( ( r, v ) => { r.Signature = v; return true; }, row => row.Signature, ( r, v ) => r.Signature = v );
       }
 
+      /// <summary>
+      /// Returns the enumerable of <see cref="MetaDataColumnInformation{TRow, TValue}"/>s for <see cref="Tables.Constant"/> table.
+      /// </summary>
+      /// <returns>The enumerable of <see cref="MetaDataColumnInformation{TRow, TValue}"/>s for <see cref="Tables.Constant"/> table.</returns>
+      /// <seealso cref="ConstantDefinition"/>
+      /// <seealso cref="RawConstantDefinition"/>
       protected static IEnumerable<MetaDataColumnInformation<ConstantDefinition>> GetConstantColumns()
       {
-         yield return MetaDataColumnInformationFactory.Number8<ConstantDefinition, RawConstantDefinition>( ( r, v ) => { r.Type = (ConstantValueType) v; return true; }, row => (Byte) row.Type, ( r, v ) => r.Type = (ConstantValueType) v );
-         yield return MetaDataColumnInformationFactory.Number8<ConstantDefinition, RawConstantDefinition>( ( r, v ) => { return true; }, row => 0, ( r, v ) => r.Padding = (Byte) v );
+         yield return MetaDataColumnInformationFactory.Number8<ConstantDefinition, RawConstantDefinition>( row => (Byte) row.Type, ( r, v ) => { r.Type = (ConstantValueType) v; return true; }, ( r, v ) => r.Type = (ConstantValueType) v );
+         yield return MetaDataColumnInformationFactory.Number8<ConstantDefinition, RawConstantDefinition>( row => 0, ( r, v ) => { return true; }, ( r, v ) => r.Padding = (Byte) v );
          yield return MetaDataColumnInformationFactory.CodedTableIndex<ConstantDefinition, RawConstantDefinition>( CAMPhysicalIO::CILAssemblyManipulator.Physical.Meta.DefaultMetaDataTableInformationProvider.HasConstant, ( r, v ) => { r.Parent = v; return true; }, row => row.Parent, ( r, v ) => r.Parent = v );
          yield return MetaDataColumnInformationFactory.BLOBCustom<ConstantDefinition, RawConstantDefinition, Object>( ( r, v ) => { r.Value = v; return true; }, r => r.Value, ( r, v ) => r.Value = v, ( args, v, blobs ) => args.Row.Value = blobs.ReadConstantValue( v, args.RowArgs.MetaData.SignatureProvider, args.Row.Type ), args => args.RowArgs.Array.CreateConstantBytes( args.Row.Value, args.Row.Type ), null, null );
       }
 
+      /// <summary>
+      /// Returns the enumerable of <see cref="MetaDataColumnInformation{TRow, TValue}"/>s for <see cref="Tables.CustomAttribute"/> table.
+      /// </summary>
+      /// <returns>The enumerable of <see cref="MetaDataColumnInformation{TRow, TValue}"/>s for <see cref="Tables.CustomAttribute"/> table.</returns>
+      /// <seealso cref="CustomAttributeDefinition"/>
+      /// <seealso cref="RawCustomAttributeDefinition"/>
       protected static IEnumerable<MetaDataColumnInformation<CustomAttributeDefinition>> GetCustomAttributeColumns()
       {
          yield return MetaDataColumnInformationFactory.CodedTableIndex<CustomAttributeDefinition, RawCustomAttributeDefinition>( CAMPhysicalIO::CILAssemblyManipulator.Physical.Meta.DefaultMetaDataTableInformationProvider.HasCustomAttribute, ( r, v ) => { r.Parent = v; return true; }, row => row.Parent, ( r, v ) => r.Parent = v );
@@ -689,32 +870,62 @@ namespace CILAssemblyManipulator.Physical.Meta
          yield return MetaDataColumnInformationFactory.BLOBCustom<CustomAttributeDefinition, RawCustomAttributeDefinition, AbstractCustomAttributeSignature>( ( r, v ) => { r.Signature = v; return true; }, r => r.Signature, ( r, v ) => r.Signature = v, ( args, v, blobs ) => args.Row.Signature = blobs.ReadCASignature( v, args.RowArgs.MetaData.SignatureProvider ), args => args.RowArgs.Array.CreateCustomAttributeSignature( args.RowArgs.MetaData, args.RowIndex ), CreateCAColumnSpecificCache, ResolveCASignature );
       }
 
+      /// <summary>
+      /// Returns the enumerable of <see cref="MetaDataColumnInformation{TRow, TValue}"/>s for <see cref="Tables.FieldMarshal"/> table.
+      /// </summary>
+      /// <returns>The enumerable of <see cref="MetaDataColumnInformation{TRow, TValue}"/>s for <see cref="Tables.FieldMarshal"/> table.</returns>
+      /// <seealso cref="FieldMarshal"/>
+      /// <seealso cref="RawFieldMarshal"/>
       protected static IEnumerable<MetaDataColumnInformation<FieldMarshal>> GetFieldMarshalColumns()
       {
          yield return MetaDataColumnInformationFactory.CodedTableIndex<FieldMarshal, RawFieldMarshal>( CAMPhysicalIO::CILAssemblyManipulator.Physical.Meta.DefaultMetaDataTableInformationProvider.HasFieldMarshal, ( r, v ) => { r.Parent = v; return true; }, row => row.Parent, ( r, v ) => r.Parent = v );
          yield return MetaDataColumnInformationFactory.BLOBCustom<FieldMarshal, RawFieldMarshal, AbstractMarshalingInfo>( ( r, v ) => { r.NativeType = v; return true; }, row => row.NativeType, ( r, v ) => r.NativeType = v, ( args, v, blobs ) => args.Row.NativeType = blobs.ReadMarshalingInfo( v, args.RowArgs.MetaData.SignatureProvider ), args => args.RowArgs.Array.CreateMarshalSpec( args.Row.NativeType ), null, null );
       }
 
+      /// <summary>
+      /// Returns the enumerable of <see cref="MetaDataColumnInformation{TRow, TValue}"/>s for <see cref="Tables.DeclSecurity"/> table.
+      /// </summary>
+      /// <returns>The enumerable of <see cref="MetaDataColumnInformation{TRow, TValue}"/>s for <see cref="Tables.DeclSecurity"/> table.</returns>
+      /// <seealso cref="SecurityDefinition"/>
+      /// <seealso cref="RawSecurityDefinition"/>
       protected static IEnumerable<MetaDataColumnInformation<SecurityDefinition>> GetDeclSecurityColumns()
       {
-         yield return MetaDataColumnInformationFactory.Number16<SecurityDefinition, RawSecurityDefinition>( ( r, v ) => { r.Action = (SecurityAction) v; return true; }, row => (Int16) row.Action, ( r, v ) => r.Action = (SecurityAction) v );
+         yield return MetaDataColumnInformationFactory.Number16<SecurityDefinition, RawSecurityDefinition>( row => (Int16) row.Action, ( r, v ) => { r.Action = (SecurityAction) v; return true; }, ( r, v ) => r.Action = (SecurityAction) v );
          yield return MetaDataColumnInformationFactory.CodedTableIndex<SecurityDefinition, RawSecurityDefinition>( CAMPhysicalIO::CILAssemblyManipulator.Physical.Meta.DefaultMetaDataTableInformationProvider.HasSecurity, ( r, v ) => { r.Parent = v; return true; }, row => row.Parent, ( r, v ) => r.Parent = v );
          yield return MetaDataColumnInformationFactory.BLOBCustom<SecurityDefinition, RawSecurityDefinition, List<AbstractSecurityInformation>>( ( r, v ) => { r.PermissionSets.Clear(); r.PermissionSets.AddRange( v ); return true; }, row => row.PermissionSets, ( r, v ) => r.PermissionSets = v, ( args, v, blobs ) => blobs.ReadSecurityInformation( v, args.RowArgs.MetaData.SignatureProvider, args.Row.PermissionSets ), args => args.RowArgs.Array.CreateSecuritySignature( args.Row.PermissionSets, args.RowArgs.AuxArray, args.RowArgs.MetaData.SignatureProvider ), CreateCAColumnSpecificCache, ResolveSecurityPermissionSets );
       }
 
+      /// <summary>
+      /// Returns the enumerable of <see cref="MetaDataColumnInformation{TRow, TValue}"/>s for <see cref="Tables.ClassLayout"/> table.
+      /// </summary>
+      /// <returns>The enumerable of <see cref="MetaDataColumnInformation{TRow, TValue}"/>s for <see cref="Tables.ClassLayout"/> table.</returns>
+      /// <seealso cref="ClassLayout"/>
+      /// <seealso cref="RawClassLayout"/>
       protected static IEnumerable<MetaDataColumnInformation<ClassLayout>> GetClassLayoutColumns()
       {
-         yield return MetaDataColumnInformationFactory.Number16<ClassLayout, RawClassLayout>( ( r, v ) => { r.PackingSize = (UInt16) v; return true; }, row => (Int16) row.PackingSize, ( r, v ) => r.PackingSize = v );
-         yield return MetaDataColumnInformationFactory.Number32<ClassLayout, RawClassLayout>( ( r, v ) => { r.ClassSize = v; return true; }, row => row.ClassSize, ( r, v ) => r.ClassSize = v );
+         yield return MetaDataColumnInformationFactory.Number16<ClassLayout, RawClassLayout>( row => (Int16) row.PackingSize, ( r, v ) => { r.PackingSize = (UInt16) v; return true; }, ( r, v ) => r.PackingSize = v );
+         yield return MetaDataColumnInformationFactory.Number32<ClassLayout, RawClassLayout>( row => row.ClassSize, ( r, v ) => { r.ClassSize = v; return true; }, ( r, v ) => r.ClassSize = v );
          yield return MetaDataColumnInformationFactory.SimpleTableIndex<ClassLayout, RawClassLayout>( Tables.TypeDef, ( r, v ) => { r.Parent = v; return true; }, row => row.Parent, ( r, v ) => r.Parent = v );
       }
 
+      /// <summary>
+      /// Returns the enumerable of <see cref="MetaDataColumnInformation{TRow, TValue}"/>s for <see cref="Tables.FieldLayout"/> table.
+      /// </summary>
+      /// <returns>The enumerable of <see cref="MetaDataColumnInformation{TRow, TValue}"/>s for <see cref="Tables.FieldLayout"/> table.</returns>
+      /// <seealso cref="FieldLayout"/>
+      /// <seealso cref="RawFieldLayout"/>
       protected static IEnumerable<MetaDataColumnInformation<FieldLayout>> GetFieldLayoutColumns()
       {
-         yield return MetaDataColumnInformationFactory.Number32<FieldLayout, RawFieldLayout>( ( r, v ) => { r.Offset = v; return true; }, row => row.Offset, ( r, v ) => r.Offset = v );
+         yield return MetaDataColumnInformationFactory.Number32<FieldLayout, RawFieldLayout>( row => row.Offset, ( r, v ) => { r.Offset = v; return true; }, ( r, v ) => r.Offset = v );
          yield return MetaDataColumnInformationFactory.SimpleTableIndex<FieldLayout, RawFieldLayout>( Tables.Field, ( r, v ) => { r.Field = v; return true; }, row => row.Field, ( r, v ) => r.Field = v );
       }
 
+      /// <summary>
+      /// Returns the enumerable of <see cref="MetaDataColumnInformation{TRow, TValue}"/>s for <see cref="Tables.StandaloneSignature"/> table.
+      /// </summary>
+      /// <returns>The enumerable of <see cref="MetaDataColumnInformation{TRow, TValue}"/>s for <see cref="Tables.StandaloneSignature"/> table.</returns>
+      /// <seealso cref="StandaloneSignature"/>
+      /// <seealso cref="RawStandaloneSignature"/>
       protected static IEnumerable<MetaDataColumnInformation<StandaloneSignature>> GetStandaloneSigColumns()
       {
          yield return MetaDataColumnInformationFactory.BLOBCustom<StandaloneSignature, RawStandaloneSignature, AbstractSignature>( ( r, v ) =>
@@ -729,49 +940,97 @@ namespace CILAssemblyManipulator.Physical.Meta
          }, args => args.RowArgs.Array.CreateStandaloneSignature( args.Row ), null, null );
       }
 
+      /// <summary>
+      /// Returns the enumerable of <see cref="MetaDataColumnInformation{TRow, TValue}"/>s for <see cref="Tables.EventMap"/> table.
+      /// </summary>
+      /// <returns>The enumerable of <see cref="MetaDataColumnInformation{TRow, TValue}"/>s for <see cref="Tables.EventMap"/> table.</returns>
+      /// <seealso cref="EventMap"/>
+      /// <seealso cref="RawEventMap"/>
       protected static IEnumerable<MetaDataColumnInformation<EventMap>> GetEventMapColumns()
       {
          yield return MetaDataColumnInformationFactory.SimpleTableIndex<EventMap, RawEventMap>( Tables.TypeDef, ( r, v ) => { r.Parent = v; return true; }, row => row.Parent, ( r, v ) => r.Parent = v );
          yield return MetaDataColumnInformationFactory.SimpleTableIndex<EventMap, RawEventMap>( Tables.Event, ( r, v ) => { r.EventList = v; return true; }, row => row.EventList, ( r, v ) => r.EventList = v );
       }
 
+      /// <summary>
+      /// Returns the enumerable of <see cref="MetaDataColumnInformation{TRow, TValue}"/>s for <see cref="Tables.EventPtr"/> table.
+      /// </summary>
+      /// <returns>The enumerable of <see cref="MetaDataColumnInformation{TRow, TValue}"/>s for <see cref="Tables.EventPtr"/> table.</returns>
+      /// <seealso cref="EventDefinitionPointer"/>
+      /// <seealso cref="RawEventDefinitionPointer"/>
       protected static IEnumerable<MetaDataColumnInformation<EventDefinitionPointer>> GetEventPtrColumns()
       {
          yield return MetaDataColumnInformationFactory.SimpleTableIndex<EventDefinitionPointer, RawEventDefinitionPointer>( Tables.Event, ( r, v ) => { r.EventIndex = v; return true; }, row => row.EventIndex, ( r, v ) => r.EventIndex = v );
       }
 
+      /// <summary>
+      /// Returns the enumerable of <see cref="MetaDataColumnInformation{TRow, TValue}"/>s for <see cref="Tables.Event"/> table.
+      /// </summary>
+      /// <returns>The enumerable of <see cref="MetaDataColumnInformation{TRow, TValue}"/>s for <see cref="Tables.Event"/> table.</returns>
+      /// <seealso cref="EventDefinition"/>
+      /// <seealso cref="RawEventDefinition"/>
       protected static IEnumerable<MetaDataColumnInformation<EventDefinition>> GetEventDefColumns()
       {
-         yield return MetaDataColumnInformationFactory.Number16<EventDefinition, RawEventDefinition>( ( r, v ) => { r.Attributes = (EventAttributes) v; return true; }, row => (Int16) row.Attributes, ( r, v ) => r.Attributes = (EventAttributes) v );
-         yield return MetaDataColumnInformationFactory.SystemString<EventDefinition, RawEventDefinition>( ( r, v ) => { r.Name = v; return true; }, row => row.Name, ( r, v ) => r.Name = v );
+         yield return MetaDataColumnInformationFactory.Number16<EventDefinition, RawEventDefinition>( row => (Int16) row.Attributes, ( r, v ) => { r.Attributes = (EventAttributes) v; return true; }, ( r, v ) => r.Attributes = (EventAttributes) v );
+         yield return MetaDataColumnInformationFactory.SystemString<EventDefinition, RawEventDefinition>( row => row.Name, ( r, v ) => { r.Name = v; return true; }, ( r, v ) => r.Name = v );
          yield return MetaDataColumnInformationFactory.CodedTableIndex<EventDefinition, RawEventDefinition>( CAMPhysicalIO::CILAssemblyManipulator.Physical.Meta.DefaultMetaDataTableInformationProvider.TypeDefOrRef, ( r, v ) => { r.EventType = v; return true; }, row => row.EventType, ( r, v ) => r.EventType = v );
       }
 
+      /// <summary>
+      /// Returns the enumerable of <see cref="MetaDataColumnInformation{TRow, TValue}"/>s for <see cref="Tables.PropertyMap"/> table.
+      /// </summary>
+      /// <returns>The enumerable of <see cref="MetaDataColumnInformation{TRow, TValue}"/>s for <see cref="Tables.PropertyMap"/> table.</returns>
+      /// <seealso cref="PropertyMap"/>
+      /// <seealso cref="RawPropertyMap"/>
       protected static IEnumerable<MetaDataColumnInformation<PropertyMap>> GetPropertyMapColumns()
       {
          yield return MetaDataColumnInformationFactory.SimpleTableIndex<PropertyMap, RawPropertyMap>( Tables.TypeDef, ( r, v ) => { r.Parent = v; return true; }, row => row.Parent, ( r, v ) => r.Parent = v );
          yield return MetaDataColumnInformationFactory.SimpleTableIndex<PropertyMap, RawPropertyMap>( Tables.Property, ( r, v ) => { r.PropertyList = v; return true; }, row => row.PropertyList, ( r, v ) => r.PropertyList = v );
       }
 
+      /// <summary>
+      /// Returns the enumerable of <see cref="MetaDataColumnInformation{TRow, TValue}"/>s for <see cref="Tables.PropertyPtr"/> table.
+      /// </summary>
+      /// <returns>The enumerable of <see cref="MetaDataColumnInformation{TRow, TValue}"/>s for <see cref="Tables.PropertyPtr"/> table.</returns>
+      /// <seealso cref="PropertyDefinitionPointer"/>
+      /// <seealso cref="RawPropertyDefinitionPointer"/>
       protected static IEnumerable<MetaDataColumnInformation<PropertyDefinitionPointer>> GetPropertyPtrColumns()
       {
          yield return MetaDataColumnInformationFactory.SimpleTableIndex<PropertyDefinitionPointer, RawPropertyDefinitionPointer>( Tables.Property, ( r, v ) => { r.PropertyIndex = v; return true; }, row => row.PropertyIndex, ( r, v ) => r.PropertyIndex = v );
       }
 
+      /// <summary>
+      /// Returns the enumerable of <see cref="MetaDataColumnInformation{TRow, TValue}"/>s for <see cref="Tables.Property"/> table.
+      /// </summary>
+      /// <returns>The enumerable of <see cref="MetaDataColumnInformation{TRow, TValue}"/>s for <see cref="Tables.Property"/> table.</returns>
+      /// <seealso cref="PropertyDefinition"/>
+      /// <seealso cref="RawPropertyDefinition"/>
       protected static IEnumerable<MetaDataColumnInformation<PropertyDefinition>> GetPropertyDefColumns()
       {
-         yield return MetaDataColumnInformationFactory.Number16<PropertyDefinition, RawPropertyDefinition>( ( r, v ) => { r.Attributes = (PropertyAttributes) v; return true; }, row => (Int16) row.Attributes, ( r, v ) => r.Attributes = (PropertyAttributes) v );
-         yield return MetaDataColumnInformationFactory.SystemString<PropertyDefinition, RawPropertyDefinition>( ( r, v ) => { r.Name = v; return true; }, row => row.Name, ( r, v ) => r.Name = v );
+         yield return MetaDataColumnInformationFactory.Number16<PropertyDefinition, RawPropertyDefinition>( row => (Int16) row.Attributes, ( r, v ) => { r.Attributes = (PropertyAttributes) v; return true; }, ( r, v ) => r.Attributes = (PropertyAttributes) v );
+         yield return MetaDataColumnInformationFactory.SystemString<PropertyDefinition, RawPropertyDefinition>( row => row.Name, ( r, v ) => { r.Name = v; return true; }, ( r, v ) => r.Name = v );
          yield return MetaDataColumnInformationFactory.BLOBNonTypeSignature<PropertyDefinition, RawPropertyDefinition, PropertySignature>( ( r, v ) => { r.Signature = v; return true; }, row => row.Signature, ( r, v ) => r.Signature = v );
       }
 
+      /// <summary>
+      /// Returns the enumerable of <see cref="MetaDataColumnInformation{TRow, TValue}"/>s for <see cref="Tables.MethodSemantics"/> table.
+      /// </summary>
+      /// <returns>The enumerable of <see cref="MetaDataColumnInformation{TRow, TValue}"/>s for <see cref="Tables.MethodSemantics"/> table.</returns>
+      /// <seealso cref="MethodSemantics"/>
+      /// <seealso cref="RawMethodSemantics"/>
       protected static IEnumerable<MetaDataColumnInformation<MethodSemantics>> GetMethodSemanticsColumns()
       {
-         yield return MetaDataColumnInformationFactory.Number16<MethodSemantics, RawMethodSemantics>( ( r, v ) => { r.Attributes = (MethodSemanticsAttributes) v; return true; }, row => (Int16) row.Attributes, ( r, v ) => r.Attributes = (MethodSemanticsAttributes) v );
+         yield return MetaDataColumnInformationFactory.Number16<MethodSemantics, RawMethodSemantics>( row => (Int16) row.Attributes, ( r, v ) => { r.Attributes = (MethodSemanticsAttributes) v; return true; }, ( r, v ) => r.Attributes = (MethodSemanticsAttributes) v );
          yield return MetaDataColumnInformationFactory.SimpleTableIndex<MethodSemantics, RawMethodSemantics>( Tables.MethodDef, ( r, v ) => { r.Method = v; return true; }, row => row.Method, ( r, v ) => r.Method = v );
          yield return MetaDataColumnInformationFactory.CodedTableIndex<MethodSemantics, RawMethodSemantics>( CAMPhysicalIO::CILAssemblyManipulator.Physical.Meta.DefaultMetaDataTableInformationProvider.HasSemantics, ( r, v ) => { r.Associaton = v; return true; }, row => row.Associaton, ( r, v ) => r.Associaton = v );
       }
 
+      /// <summary>
+      /// Returns the enumerable of <see cref="MetaDataColumnInformation{TRow, TValue}"/>s for <see cref="Tables.MethodImpl"/> table.
+      /// </summary>
+      /// <returns>The enumerable of <see cref="MetaDataColumnInformation{TRow, TValue}"/>s for <see cref="Tables.MethodImpl"/> table.</returns>
+      /// <seealso cref="MethodImplementation"/>
+      /// <seealso cref="RawMethodImplementation"/>
       protected static IEnumerable<MetaDataColumnInformation<MethodImplementation>> GetMethodImplColumns()
       {
          yield return MetaDataColumnInformationFactory.SimpleTableIndex<MethodImplementation, RawMethodImplementation>( Tables.TypeDef, ( r, v ) => { r.Class = v; return true; }, row => row.Class, ( r, v ) => r.Class = v );
@@ -779,24 +1038,48 @@ namespace CILAssemblyManipulator.Physical.Meta
          yield return MetaDataColumnInformationFactory.CodedTableIndex<MethodImplementation, RawMethodImplementation>( CAMPhysicalIO::CILAssemblyManipulator.Physical.Meta.DefaultMetaDataTableInformationProvider.MethodDefOrRef, ( r, v ) => { r.MethodDeclaration = v; return true; }, row => row.MethodDeclaration, ( r, v ) => r.MethodDeclaration = v );
       }
 
+      /// <summary>
+      /// Returns the enumerable of <see cref="MetaDataColumnInformation{TRow, TValue}"/>s for <see cref="Tables.ModuleRef"/> table.
+      /// </summary>
+      /// <returns>The enumerable of <see cref="MetaDataColumnInformation{TRow, TValue}"/>s for <see cref="Tables.ModuleRef"/> table.</returns>
+      /// <seealso cref="ModuleReference"/>
+      /// <seealso cref="RawModuleReference"/>
       protected static IEnumerable<MetaDataColumnInformation<ModuleReference>> GetModuleRefColumns()
       {
-         yield return MetaDataColumnInformationFactory.SystemString<ModuleReference, RawModuleReference>( ( r, v ) => { r.ModuleName = v; return true; }, row => row.ModuleName, ( r, v ) => r.ModuleName = v );
+         yield return MetaDataColumnInformationFactory.SystemString<ModuleReference, RawModuleReference>( row => row.ModuleName, ( r, v ) => { r.ModuleName = v; return true; }, ( r, v ) => r.ModuleName = v );
       }
 
+      /// <summary>
+      /// Returns the enumerable of <see cref="MetaDataColumnInformation{TRow, TValue}"/>s for <see cref="Tables.TypeSpec"/> table.
+      /// </summary>
+      /// <returns>The enumerable of <see cref="MetaDataColumnInformation{TRow, TValue}"/>s for <see cref="Tables.TypeSpec"/> table.</returns>
+      /// <seealso cref="TypeSpecification"/>
+      /// <seealso cref="RawTypeSpecification"/>
       protected static IEnumerable<MetaDataColumnInformation<TypeSpecification>> GetTypeSpecColumns()
       {
          yield return MetaDataColumnInformationFactory.BLOBTypeSignature<TypeSpecification, RawTypeSpecification>( ( r, v ) => { r.Signature = v; return true; }, row => row.Signature, ( r, v ) => r.Signature = v );
       }
 
+      /// <summary>
+      /// Returns the enumerable of <see cref="MetaDataColumnInformation{TRow, TValue}"/>s for <see cref="Tables.ImplMap"/> table.
+      /// </summary>
+      /// <returns>The enumerable of <see cref="MetaDataColumnInformation{TRow, TValue}"/>s for <see cref="Tables.ImplMap"/> table.</returns>
+      /// <seealso cref="MethodImplementationMap"/>
+      /// <seealso cref="RawMethodImplementationMap"/>
       protected static IEnumerable<MetaDataColumnInformation<MethodImplementationMap>> GetImplMapColumns()
       {
-         yield return MetaDataColumnInformationFactory.Number16<MethodImplementationMap, RawMethodImplementationMap>( ( r, v ) => { r.Attributes = (PInvokeAttributes) v; return true; }, row => (Int16) row.Attributes, ( r, v ) => r.Attributes = (PInvokeAttributes) v );
+         yield return MetaDataColumnInformationFactory.Number16<MethodImplementationMap, RawMethodImplementationMap>( row => (Int16) row.Attributes, ( r, v ) => { r.Attributes = (PInvokeAttributes) v; return true; }, ( r, v ) => r.Attributes = (PInvokeAttributes) v );
          yield return MetaDataColumnInformationFactory.CodedTableIndex<MethodImplementationMap, RawMethodImplementationMap>( CAMPhysicalIO::CILAssemblyManipulator.Physical.Meta.DefaultMetaDataTableInformationProvider.MemberForwarded, ( r, v ) => { r.MemberForwarded = v; return true; }, row => row.MemberForwarded, ( r, v ) => r.MemberForwarded = v );
-         yield return MetaDataColumnInformationFactory.SystemString<MethodImplementationMap, RawMethodImplementationMap>( ( r, v ) => { r.ImportName = v; return true; }, row => row.ImportName, ( r, v ) => r.ImportName = v );
+         yield return MetaDataColumnInformationFactory.SystemString<MethodImplementationMap, RawMethodImplementationMap>( row => row.ImportName, ( r, v ) => { r.ImportName = v; return true; }, ( r, v ) => r.ImportName = v );
          yield return MetaDataColumnInformationFactory.SimpleTableIndex<MethodImplementationMap, RawMethodImplementationMap>( Tables.ModuleRef, ( r, v ) => { r.ImportScope = v; return true; }, row => row.ImportScope, ( r, v ) => r.ImportScope = v );
       }
 
+      /// <summary>
+      /// Returns the enumerable of <see cref="MetaDataColumnInformation{TRow, TValue}"/>s for <see cref="Tables.FieldRVA"/> table.
+      /// </summary>
+      /// <returns>The enumerable of <see cref="MetaDataColumnInformation{TRow, TValue}"/>s for <see cref="Tables.FieldRVA"/> table.</returns>
+      /// <seealso cref="FieldRVA"/>
+      /// <seealso cref="RawFieldRVA"/>
       protected static IEnumerable<MetaDataColumnInformation<FieldRVA>> GetFieldRVAColumns()
       {
          yield return MetaDataColumnInformationFactory.DataReference<FieldRVA, RawFieldRVA, Byte[]>( ( r, v ) => { r.Data = v; return true; }, r => r.Data, ( r, v ) => r.RVA = v, ( args, rva ) =>
@@ -820,92 +1103,162 @@ namespace CILAssemblyManipulator.Physical.Meta
          yield return MetaDataColumnInformationFactory.SimpleTableIndex<FieldRVA, RawFieldRVA>( Tables.Field, ( r, v ) => { r.Field = v; return true; }, row => row.Field, ( r, v ) => r.Field = v );
       }
 
+      /// <summary>
+      /// Returns the enumerable of <see cref="MetaDataColumnInformation{TRow, TValue}"/>s for <see cref="Tables.EncLog"/> table.
+      /// </summary>
+      /// <returns>The enumerable of <see cref="MetaDataColumnInformation{TRow, TValue}"/>s for <see cref="Tables.EncLog"/> table.</returns>
+      /// <seealso cref="EditAndContinueLog"/>
+      /// <seealso cref="RawEditAndContinueLog"/>
       protected static IEnumerable<MetaDataColumnInformation<EditAndContinueLog>> GetENCLogColumns()
       {
-         yield return MetaDataColumnInformationFactory.Number32<EditAndContinueLog, RawEditAndContinueLog>( ( r, v ) => { r.Token = v; return true; }, row => row.Token, ( r, v ) => r.Token = v );
-         yield return MetaDataColumnInformationFactory.Number32<EditAndContinueLog, RawEditAndContinueLog>( ( r, v ) => { r.FuncCode = v; return true; }, row => row.FuncCode, ( r, v ) => r.FuncCode = v );
+         yield return MetaDataColumnInformationFactory.Number32<EditAndContinueLog, RawEditAndContinueLog>( row => row.Token, ( r, v ) => { r.Token = v; return true; }, ( r, v ) => r.Token = v );
+         yield return MetaDataColumnInformationFactory.Number32<EditAndContinueLog, RawEditAndContinueLog>( row => row.FuncCode, ( r, v ) => { r.FuncCode = v; return true; }, ( r, v ) => r.FuncCode = v );
       }
 
+      /// <summary>
+      /// Returns the enumerable of <see cref="MetaDataColumnInformation{TRow, TValue}"/>s for <see cref="Tables.EncMap"/> table.
+      /// </summary>
+      /// <returns>The enumerable of <see cref="MetaDataColumnInformation{TRow, TValue}"/>s for <see cref="Tables.EncMap"/> table.</returns>
+      /// <seealso cref="EditAndContinueMap"/>
+      /// <seealso cref="RawEditAndContinueMap"/>
       protected static IEnumerable<MetaDataColumnInformation<EditAndContinueMap>> GetENCMapColumns()
       {
-         yield return MetaDataColumnInformationFactory.Number32<EditAndContinueMap, RawEditAndContinueMap>( ( r, v ) => { r.Token = v; return true; }, row => row.Token, ( r, v ) => r.Token = v );
+         yield return MetaDataColumnInformationFactory.Number32<EditAndContinueMap, RawEditAndContinueMap>( row => row.Token, ( r, v ) => { r.Token = v; return true; }, ( r, v ) => r.Token = v );
       }
 
+      /// <summary>
+      /// Returns the enumerable of <see cref="MetaDataColumnInformation{TRow, TValue}"/>s for <see cref="Tables.Assembly"/> table.
+      /// </summary>
+      /// <returns>The enumerable of <see cref="MetaDataColumnInformation{TRow, TValue}"/>s for <see cref="Tables.Assembly"/> table.</returns>
+      /// <seealso cref="AssemblyDefinition"/>
+      /// <seealso cref="RawAssemblyDefinition"/>
       protected static IEnumerable<MetaDataColumnInformation<AssemblyDefinition>> GetAssemblyDefColumns()
       {
-         yield return MetaDataColumnInformationFactory.Number32<AssemblyDefinition, RawAssemblyDefinition>( ( r, v ) => { r.HashAlgorithm = (AssemblyHashAlgorithm) v; return true; }, row => (Int32) row.HashAlgorithm, ( r, v ) => r.HashAlgorithm = (AssemblyHashAlgorithm) v );
-         yield return MetaDataColumnInformationFactory.Number16<AssemblyDefinition, RawAssemblyDefinition>( ( r, v ) => { r.AssemblyInformation.VersionMajor = (UInt16) v; return true; }, row => (Int16) row.AssemblyInformation.VersionMajor, ( r, v ) => r.MajorVersion = v );
-         yield return MetaDataColumnInformationFactory.Number16<AssemblyDefinition, RawAssemblyDefinition>( ( r, v ) => { r.AssemblyInformation.VersionMinor = (UInt16) v; return true; }, row => (Int16) row.AssemblyInformation.VersionMinor, ( r, v ) => r.MinorVersion = v );
-         yield return MetaDataColumnInformationFactory.Number16<AssemblyDefinition, RawAssemblyDefinition>( ( r, v ) => { r.AssemblyInformation.VersionBuild = (UInt16) v; return true; }, row => (Int16) row.AssemblyInformation.VersionBuild, ( r, v ) => r.BuildNumber = v );
-         yield return MetaDataColumnInformationFactory.Number16<AssemblyDefinition, RawAssemblyDefinition>( ( r, v ) => { r.AssemblyInformation.VersionRevision = (UInt16) v; return true; }, row => (Int16) row.AssemblyInformation.VersionRevision, ( r, v ) => r.RevisionNumber = v );
-         yield return MetaDataColumnInformationFactory.Number32<AssemblyDefinition, RawAssemblyDefinition>( ( r, v ) => { r.Attributes = (AssemblyFlags) v; return true; }, row => (Int32) row.Attributes, ( r, v ) => r.Attributes = (AssemblyFlags) v );
+         yield return MetaDataColumnInformationFactory.Number32<AssemblyDefinition, RawAssemblyDefinition>( row => (Int32) row.HashAlgorithm, ( r, v ) => { r.HashAlgorithm = (AssemblyHashAlgorithm) v; return true; }, ( r, v ) => r.HashAlgorithm = (AssemblyHashAlgorithm) v );
+         yield return MetaDataColumnInformationFactory.Number16<AssemblyDefinition, RawAssemblyDefinition>( row => (Int16) row.AssemblyInformation.VersionMajor, ( r, v ) => { r.AssemblyInformation.VersionMajor = (UInt16) v; return true; }, ( r, v ) => r.MajorVersion = v );
+         yield return MetaDataColumnInformationFactory.Number16<AssemblyDefinition, RawAssemblyDefinition>( row => (Int16) row.AssemblyInformation.VersionMinor, ( r, v ) => { r.AssemblyInformation.VersionMinor = (UInt16) v; return true; }, ( r, v ) => r.MinorVersion = v );
+         yield return MetaDataColumnInformationFactory.Number16<AssemblyDefinition, RawAssemblyDefinition>( row => (Int16) row.AssemblyInformation.VersionBuild, ( r, v ) => { r.AssemblyInformation.VersionBuild = (UInt16) v; return true; }, ( r, v ) => r.BuildNumber = v );
+         yield return MetaDataColumnInformationFactory.Number16<AssemblyDefinition, RawAssemblyDefinition>( row => (Int16) row.AssemblyInformation.VersionRevision, ( r, v ) => { r.AssemblyInformation.VersionRevision = (UInt16) v; return true; }, ( r, v ) => r.RevisionNumber = v );
+         yield return MetaDataColumnInformationFactory.Number32<AssemblyDefinition, RawAssemblyDefinition>( row => (Int32) row.Attributes, ( r, v ) => { r.Attributes = (AssemblyFlags) v; return true; }, ( r, v ) => r.Attributes = (AssemblyFlags) v );
          yield return MetaDataColumnInformationFactory.BLOBCustom<AssemblyDefinition, RawAssemblyDefinition, Byte[]>( ( r, v ) => { r.AssemblyInformation.PublicKeyOrToken = v; return true; }, r => r.AssemblyInformation.PublicKeyOrToken, ( r, v ) => r.PublicKey = v, ( args, v, blobs ) => args.Row.AssemblyInformation.PublicKeyOrToken = blobs.GetBLOBByteArray( v ), args => args.RowArgs.PublicKey?.ToArray(), null, null );
          //{
          //   var pk = args.Row.AssemblyInformation.PublicKeyOrToken;
          //   return pk.IsNullOrEmpty() ?  : pk;
          //} );
-         yield return MetaDataColumnInformationFactory.SystemString<AssemblyDefinition, RawAssemblyDefinition>( ( r, v ) => { r.AssemblyInformation.Name = v; return true; }, row => row.AssemblyInformation.Name, ( r, v ) => r.Name = v );
-         yield return MetaDataColumnInformationFactory.SystemString<AssemblyDefinition, RawAssemblyDefinition>( ( r, v ) => { r.AssemblyInformation.Culture = v; return true; }, row => row.AssemblyInformation.Culture, ( r, v ) => r.Culture = v );
+         yield return MetaDataColumnInformationFactory.SystemString<AssemblyDefinition, RawAssemblyDefinition>( row => row.AssemblyInformation.Name, ( r, v ) => { r.AssemblyInformation.Name = v; return true; }, ( r, v ) => r.Name = v );
+         yield return MetaDataColumnInformationFactory.SystemString<AssemblyDefinition, RawAssemblyDefinition>( row => row.AssemblyInformation.Culture, ( r, v ) => { r.AssemblyInformation.Culture = v; return true; }, ( r, v ) => r.Culture = v );
       }
 #pragma warning disable 618
+
+      /// <summary>
+      /// Returns the enumerable of <see cref="MetaDataColumnInformation{TRow, TValue}"/>s for <see cref="Tables.AssemblyProcessor"/> table.
+      /// </summary>
+      /// <returns>The enumerable of <see cref="MetaDataColumnInformation{TRow, TValue}"/>s for <see cref="Tables.AssemblyProcessor"/> table.</returns>
+      /// <seealso cref="AssemblyDefinitionProcessor"/>
+      /// <seealso cref="RawAssemblyDefinitionProcessor"/>
       protected static IEnumerable<MetaDataColumnInformation<AssemblyDefinitionProcessor>> GetAssemblyDefProcessorColumns()
       {
-         yield return MetaDataColumnInformationFactory.Number32<AssemblyDefinitionProcessor, RawAssemblyDefinitionProcessor>( ( r, v ) => { r.Processor = v; return true; }, row => row.Processor, ( r, v ) => r.Processor = v );
+         yield return MetaDataColumnInformationFactory.Number32<AssemblyDefinitionProcessor, RawAssemblyDefinitionProcessor>( row => row.Processor, ( r, v ) => { r.Processor = v; return true; }, ( r, v ) => r.Processor = v );
       }
 
+      /// <summary>
+      /// Returns the enumerable of <see cref="MetaDataColumnInformation{TRow, TValue}"/>s for <see cref="Tables.AssemblyOS"/> table.
+      /// </summary>
+      /// <returns>The enumerable of <see cref="MetaDataColumnInformation{TRow, TValue}"/>s for <see cref="Tables.AssemblyOS"/> table.</returns>
+      /// <seealso cref="AssemblyDefinitionOS"/>
+      /// <seealso cref="RawAssemblyDefinitionOS"/>
       protected static IEnumerable<MetaDataColumnInformation<AssemblyDefinitionOS>> GetAssemblyDefOSColumns()
       {
-         yield return MetaDataColumnInformationFactory.Number32<AssemblyDefinitionOS, RawAssemblyDefinitionOS>( ( r, v ) => { r.OSPlatformID = v; return true; }, row => row.OSPlatformID, ( r, v ) => r.OSPlatformID = v );
-         yield return MetaDataColumnInformationFactory.Number32<AssemblyDefinitionOS, RawAssemblyDefinitionOS>( ( r, v ) => { r.OSMajorVersion = v; return true; }, row => row.OSMajorVersion, ( r, v ) => r.OSMajorVersion = v );
-         yield return MetaDataColumnInformationFactory.Number32<AssemblyDefinitionOS, RawAssemblyDefinitionOS>( ( r, v ) => { r.OSMinorVersion = v; return true; }, row => row.OSMinorVersion, ( r, v ) => r.OSMinorVersion = v );
+         yield return MetaDataColumnInformationFactory.Number32<AssemblyDefinitionOS, RawAssemblyDefinitionOS>( row => row.OSPlatformID, ( r, v ) => { r.OSPlatformID = v; return true; }, ( r, v ) => r.OSPlatformID = v );
+         yield return MetaDataColumnInformationFactory.Number32<AssemblyDefinitionOS, RawAssemblyDefinitionOS>( row => row.OSMajorVersion, ( r, v ) => { r.OSMajorVersion = v; return true; }, ( r, v ) => r.OSMajorVersion = v );
+         yield return MetaDataColumnInformationFactory.Number32<AssemblyDefinitionOS, RawAssemblyDefinitionOS>( row => row.OSMinorVersion, ( r, v ) => { r.OSMinorVersion = v; return true; }, ( r, v ) => r.OSMinorVersion = v );
       }
+
 #pragma warning restore 618
 
+      /// <summary>
+      /// Returns the enumerable of <see cref="MetaDataColumnInformation{TRow, TValue}"/>s for <see cref="Tables.AssemblyRef"/> table.
+      /// </summary>
+      /// <returns>The enumerable of <see cref="MetaDataColumnInformation{TRow, TValue}"/>s for <see cref="Tables.AssemblyRef"/> table.</returns>
+      /// <seealso cref="AssemblyReference"/>
+      /// <seealso cref="RawAssemblyReference"/>
       protected static IEnumerable<MetaDataColumnInformation<AssemblyReference>> GetAssemblyRefColumns()
       {
-         yield return MetaDataColumnInformationFactory.Number16<AssemblyReference, RawAssemblyReference>( ( r, v ) => { r.AssemblyInformation.VersionMajor = (UInt16) v; return true; }, row => (Int16) row.AssemblyInformation.VersionMajor, ( r, v ) => r.MajorVersion = v );
-         yield return MetaDataColumnInformationFactory.Number16<AssemblyReference, RawAssemblyReference>( ( r, v ) => { r.AssemblyInformation.VersionMinor = (UInt16) v; return true; }, row => (Int16) row.AssemblyInformation.VersionMinor, ( r, v ) => r.MinorVersion = v );
-         yield return MetaDataColumnInformationFactory.Number16<AssemblyReference, RawAssemblyReference>( ( r, v ) => { r.AssemblyInformation.VersionBuild = (UInt16) v; return true; }, row => (Int16) row.AssemblyInformation.VersionBuild, ( r, v ) => r.BuildNumber = v );
-         yield return MetaDataColumnInformationFactory.Number16<AssemblyReference, RawAssemblyReference>( ( r, v ) => { r.AssemblyInformation.VersionRevision = (UInt16) v; return true; }, row => (Int16) row.AssemblyInformation.VersionRevision, ( r, v ) => r.RevisionNumber = v );
-         yield return MetaDataColumnInformationFactory.Number32<AssemblyReference, RawAssemblyReference>( ( r, v ) => { r.Attributes = (AssemblyFlags) v; return true; }, row => (Int32) row.Attributes, ( r, v ) => r.Attributes = (AssemblyFlags) v );
+         yield return MetaDataColumnInformationFactory.Number16<AssemblyReference, RawAssemblyReference>( row => (Int16) row.AssemblyInformation.VersionMajor, ( r, v ) => { r.AssemblyInformation.VersionMajor = (UInt16) v; return true; }, ( r, v ) => r.MajorVersion = v );
+         yield return MetaDataColumnInformationFactory.Number16<AssemblyReference, RawAssemblyReference>( row => (Int16) row.AssemblyInformation.VersionMinor, ( r, v ) => { r.AssemblyInformation.VersionMinor = (UInt16) v; return true; }, ( r, v ) => r.MinorVersion = v );
+         yield return MetaDataColumnInformationFactory.Number16<AssemblyReference, RawAssemblyReference>( row => (Int16) row.AssemblyInformation.VersionBuild, ( r, v ) => { r.AssemblyInformation.VersionBuild = (UInt16) v; return true; }, ( r, v ) => r.BuildNumber = v );
+         yield return MetaDataColumnInformationFactory.Number16<AssemblyReference, RawAssemblyReference>( row => (Int16) row.AssemblyInformation.VersionRevision, ( r, v ) => { r.AssemblyInformation.VersionRevision = (UInt16) v; return true; }, ( r, v ) => r.RevisionNumber = v );
+         yield return MetaDataColumnInformationFactory.Number32<AssemblyReference, RawAssemblyReference>( row => (Int32) row.Attributes, ( r, v ) => { r.Attributes = (AssemblyFlags) v; return true; }, ( r, v ) => r.Attributes = (AssemblyFlags) v );
          yield return MetaDataColumnInformationFactory.BLOBByteArray<AssemblyReference, RawAssemblyReference>( ( r, v ) => { r.AssemblyInformation.PublicKeyOrToken = v; return true; }, r => r.AssemblyInformation.PublicKeyOrToken, ( r, v ) => r.PublicKeyOrToken = v );
-         yield return MetaDataColumnInformationFactory.SystemString<AssemblyReference, RawAssemblyReference>( ( r, v ) => { r.AssemblyInformation.Name = v; return true; }, row => row.AssemblyInformation.Name, ( r, v ) => r.Name = v );
-         yield return MetaDataColumnInformationFactory.SystemString<AssemblyReference, RawAssemblyReference>( ( r, v ) => { r.AssemblyInformation.Culture = v; return true; }, row => row.AssemblyInformation.Culture, ( r, v ) => r.Culture = v );
+         yield return MetaDataColumnInformationFactory.SystemString<AssemblyReference, RawAssemblyReference>( row => row.AssemblyInformation.Name, ( r, v ) => { r.AssemblyInformation.Name = v; return true; }, ( r, v ) => r.Name = v );
+         yield return MetaDataColumnInformationFactory.SystemString<AssemblyReference, RawAssemblyReference>( row => row.AssemblyInformation.Culture, ( r, v ) => { r.AssemblyInformation.Culture = v; return true; }, ( r, v ) => r.Culture = v );
          yield return MetaDataColumnInformationFactory.BLOBByteArray<AssemblyReference, RawAssemblyReference>( ( r, v ) => { r.HashValue = v; return true; }, row => row.HashValue, ( r, v ) => r.HashValue = v );
       }
 
 #pragma warning disable 618
+
+      /// <summary>
+      /// Returns the enumerable of <see cref="MetaDataColumnInformation{TRow, TValue}"/>s for <see cref="Tables.AssemblyRefProcessor"/> table.
+      /// </summary>
+      /// <returns>The enumerable of <see cref="MetaDataColumnInformation{TRow, TValue}"/>s for <see cref="Tables.AssemblyRefProcessor"/> table.</returns>
+      /// <seealso cref="AssemblyReferenceProcessor"/>
+      /// <seealso cref="RawAssemblyReferenceProcessor"/>
       protected static IEnumerable<MetaDataColumnInformation<AssemblyReferenceProcessor>> GetAssemblyRefProcessorColumns()
       {
-         yield return MetaDataColumnInformationFactory.Number32<AssemblyReferenceProcessor, RawAssemblyReferenceProcessor>( ( r, v ) => { r.Processor = v; return true; }, row => row.Processor, ( r, v ) => r.Processor = v );
+         yield return MetaDataColumnInformationFactory.Number32<AssemblyReferenceProcessor, RawAssemblyReferenceProcessor>( row => row.Processor, ( r, v ) => { r.Processor = v; return true; }, ( r, v ) => r.Processor = v );
          yield return MetaDataColumnInformationFactory.SimpleTableIndex<AssemblyReferenceProcessor, RawAssemblyReferenceProcessor>( Tables.AssemblyRef, ( r, v ) => { r.AssemblyRef = v; return true; }, row => row.AssemblyRef, ( r, v ) => r.AssemblyRef = v );
       }
 
+      /// <summary>
+      /// Returns the enumerable of <see cref="MetaDataColumnInformation{TRow, TValue}"/>s for <see cref="Tables.AssemblyRefOS"/> table.
+      /// </summary>
+      /// <returns>The enumerable of <see cref="MetaDataColumnInformation{TRow, TValue}"/>s for <see cref="Tables.AssemblyRefOS"/> table.</returns>
+      /// <seealso cref="AssemblyReferenceOS"/>
+      /// <seealso cref="RawAssemblyReferenceOS"/>
       protected static IEnumerable<MetaDataColumnInformation<AssemblyReferenceOS>> GetAssemblyRefOSColumns()
       {
-         yield return MetaDataColumnInformationFactory.Number32<AssemblyReferenceOS, RawAssemblyReferenceOS>( ( r, v ) => { r.OSPlatformID = v; return true; }, row => row.OSPlatformID, ( r, v ) => r.OSPlatformID = v );
-         yield return MetaDataColumnInformationFactory.Number32<AssemblyReferenceOS, RawAssemblyReferenceOS>( ( r, v ) => { r.OSMajorVersion = v; return true; }, row => row.OSMajorVersion, ( r, v ) => r.OSMajorVersion = v );
-         yield return MetaDataColumnInformationFactory.Number32<AssemblyReferenceOS, RawAssemblyReferenceOS>( ( r, v ) => { r.OSMinorVersion = v; return true; }, row => row.OSMinorVersion, ( r, v ) => r.OSMinorVersion = v );
+         yield return MetaDataColumnInformationFactory.Number32<AssemblyReferenceOS, RawAssemblyReferenceOS>( row => row.OSPlatformID, ( r, v ) => { r.OSPlatformID = v; return true; }, ( r, v ) => r.OSPlatformID = v );
+         yield return MetaDataColumnInformationFactory.Number32<AssemblyReferenceOS, RawAssemblyReferenceOS>( row => row.OSMajorVersion, ( r, v ) => { r.OSMajorVersion = v; return true; }, ( r, v ) => r.OSMajorVersion = v );
+         yield return MetaDataColumnInformationFactory.Number32<AssemblyReferenceOS, RawAssemblyReferenceOS>( row => row.OSMinorVersion, ( r, v ) => { r.OSMinorVersion = v; return true; }, ( r, v ) => r.OSMinorVersion = v );
          yield return MetaDataColumnInformationFactory.SimpleTableIndex<AssemblyReferenceOS, RawAssemblyReferenceOS>( Tables.AssemblyRef, ( r, v ) => { r.AssemblyRef = v; return true; }, row => row.AssemblyRef, ( r, v ) => r.AssemblyRef = v );
       }
+
 #pragma warning restore 618
 
+      /// <summary>
+      /// Returns the enumerable of <see cref="MetaDataColumnInformation{TRow, TValue}"/>s for <see cref="Tables.File"/> table.
+      /// </summary>
+      /// <returns>The enumerable of <see cref="MetaDataColumnInformation{TRow, TValue}"/>s for <see cref="Tables.File"/> table.</returns>
+      /// <seealso cref="FileReference"/>
+      /// <seealso cref="RawFileReference"/>
       protected static IEnumerable<MetaDataColumnInformation<FileReference>> GetFileColumns()
       {
-         yield return MetaDataColumnInformationFactory.Number32<FileReference, RawFileReference>( ( r, v ) => { r.Attributes = (FileAttributes) v; return true; }, row => (Int32) row.Attributes, ( r, v ) => r.Attributes = (FileAttributes) v );
-         yield return MetaDataColumnInformationFactory.SystemString<FileReference, RawFileReference>( ( r, v ) => { r.Name = v; return true; }, row => row.Name, ( r, v ) => r.Name = v );
+         yield return MetaDataColumnInformationFactory.Number32<FileReference, RawFileReference>( row => (Int32) row.Attributes, ( r, v ) => { r.Attributes = (FileAttributes) v; return true; }, ( r, v ) => r.Attributes = (FileAttributes) v );
+         yield return MetaDataColumnInformationFactory.SystemString<FileReference, RawFileReference>( row => row.Name, ( r, v ) => { r.Name = v; return true; }, ( r, v ) => r.Name = v );
          yield return MetaDataColumnInformationFactory.BLOBByteArray<FileReference, RawFileReference>( ( r, v ) => { r.HashValue = v; return true; }, row => row.HashValue, ( r, v ) => r.HashValue = v );
       }
 
+      /// <summary>
+      /// Returns the enumerable of <see cref="MetaDataColumnInformation{TRow, TValue}"/>s for <see cref="Tables.ExportedType"/> table.
+      /// </summary>
+      /// <returns>The enumerable of <see cref="MetaDataColumnInformation{TRow, TValue}"/>s for <see cref="Tables.ExportedType"/> table.</returns>
+      /// <seealso cref="ExportedType"/>
+      /// <seealso cref="RawExportedType"/>
       protected static IEnumerable<MetaDataColumnInformation<ExportedType>> GetExportedTypeColumns()
       {
-         yield return MetaDataColumnInformationFactory.Number32<ExportedType, RawExportedType>( ( r, v ) => { r.Attributes = (TypeAttributes) v; return true; }, row => (Int32) row.Attributes, ( r, v ) => r.Attributes = (TypeAttributes) v );
-         yield return MetaDataColumnInformationFactory.Number32<ExportedType, RawExportedType>( ( r, v ) => { r.TypeDefinitionIndex = v; return true; }, row => row.TypeDefinitionIndex, ( r, v ) => r.TypeDefinitionIndex = v );
-         yield return MetaDataColumnInformationFactory.SystemString<ExportedType, RawExportedType>( ( r, v ) => { r.Name = v; return true; }, row => row.Name, ( r, v ) => r.Name = v );
-         yield return MetaDataColumnInformationFactory.SystemString<ExportedType, RawExportedType>( ( r, v ) => { r.Namespace = v; return true; }, row => row.Namespace, ( r, v ) => r.Namespace = v );
+         yield return MetaDataColumnInformationFactory.Number32<ExportedType, RawExportedType>( row => (Int32) row.Attributes, ( r, v ) => { r.Attributes = (TypeAttributes) v; return true; }, ( r, v ) => r.Attributes = (TypeAttributes) v );
+         yield return MetaDataColumnInformationFactory.Number32<ExportedType, RawExportedType>( row => row.TypeDefinitionIndex, ( r, v ) => { r.TypeDefinitionIndex = v; return true; }, ( r, v ) => r.TypeDefinitionIndex = v );
+         yield return MetaDataColumnInformationFactory.SystemString<ExportedType, RawExportedType>( row => row.Name, ( r, v ) => { r.Name = v; return true; }, ( r, v ) => r.Name = v );
+         yield return MetaDataColumnInformationFactory.SystemString<ExportedType, RawExportedType>( row => row.Namespace, ( r, v ) => { r.Namespace = v; return true; }, ( r, v ) => r.Namespace = v );
          yield return MetaDataColumnInformationFactory.CodedTableIndex<ExportedType, RawExportedType>( CAMPhysicalIO::CILAssemblyManipulator.Physical.Meta.DefaultMetaDataTableInformationProvider.Implementation, ( r, v ) => { r.Implementation = v; return true; }, row => row.Implementation, ( r, v ) => r.Implementation = v );
       }
 
+      /// <summary>
+      /// Returns the enumerable of <see cref="MetaDataColumnInformation{TRow, TValue}"/>s for <see cref="Tables.ManifestResource"/> table.
+      /// </summary>
+      /// <returns>The enumerable of <see cref="MetaDataColumnInformation{TRow, TValue}"/>s for <see cref="Tables.ManifestResource"/> table.</returns>
+      /// <seealso cref="ManifestResource"/>
+      /// <seealso cref="RawManifestResource"/>
       protected static IEnumerable<MetaDataColumnInformation<ManifestResource>> GetManifestResourceColumns()
       {
          yield return MetaDataColumnInformationFactory.DataReference<ManifestResource, RawManifestResource, Int32>( ( r, v ) =>
@@ -936,31 +1289,55 @@ namespace CILAssemblyManipulator.Physical.Meta
             }
          },
          ( md, mdStreamContainer ) => new SectionPartFunctionality_EmbeddedManifests( md ), null, null );
-         yield return MetaDataColumnInformationFactory.Number32<ManifestResource, RawManifestResource>( ( r, v ) => { r.Attributes = (ManifestResourceAttributes) v; return true; }, row => (Int32) row.Attributes, ( r, v ) => r.Attributes = (ManifestResourceAttributes) v );
-         yield return MetaDataColumnInformationFactory.SystemString<ManifestResource, RawManifestResource>( ( r, v ) => { r.Name = v; return true; }, row => row.Name, ( r, v ) => r.Name = v );
+         yield return MetaDataColumnInformationFactory.Number32<ManifestResource, RawManifestResource>( row => (Int32) row.Attributes, ( r, v ) => { r.Attributes = (ManifestResourceAttributes) v; return true; }, ( r, v ) => r.Attributes = (ManifestResourceAttributes) v );
+         yield return MetaDataColumnInformationFactory.SystemString<ManifestResource, RawManifestResource>( row => row.Name, ( r, v ) => { r.Name = v; return true; }, ( r, v ) => r.Name = v );
          yield return MetaDataColumnInformationFactory.CodedTableIndexNullable<ManifestResource, RawManifestResource>( CAMPhysicalIO::CILAssemblyManipulator.Physical.Meta.DefaultMetaDataTableInformationProvider.Implementation, ( r, v ) => { r.Implementation = v; return true; }, row => row.Implementation, ( r, v ) => r.Implementation = v );
       }
 
+      /// <summary>
+      /// Returns the enumerable of <see cref="MetaDataColumnInformation{TRow, TValue}"/>s for <see cref="Tables.NestedClass"/> table.
+      /// </summary>
+      /// <returns>The enumerable of <see cref="MetaDataColumnInformation{TRow, TValue}"/>s for <see cref="Tables.NestedClass"/> table.</returns>
+      /// <seealso cref="NestedClassDefinition"/>
+      /// <seealso cref="RawNestedClassDefinition"/>
       protected static IEnumerable<MetaDataColumnInformation<NestedClassDefinition>> GetNestedClassColumns()
       {
          yield return MetaDataColumnInformationFactory.SimpleTableIndex<NestedClassDefinition, RawNestedClassDefinition>( Tables.TypeDef, ( r, v ) => { r.NestedClass = v; return true; }, row => row.NestedClass, ( r, v ) => r.NestedClass = v );
          yield return MetaDataColumnInformationFactory.SimpleTableIndex<NestedClassDefinition, RawNestedClassDefinition>( Tables.TypeDef, ( r, v ) => { r.EnclosingClass = v; return true; }, row => row.EnclosingClass, ( r, v ) => r.EnclosingClass = v );
       }
 
+      /// <summary>
+      /// Returns the enumerable of <see cref="MetaDataColumnInformation{TRow, TValue}"/>s for <see cref="Tables.GenericParameter"/> table.
+      /// </summary>
+      /// <returns>The enumerable of <see cref="MetaDataColumnInformation{TRow, TValue}"/>s for <see cref="Tables.GenericParameter"/> table.</returns>
+      /// <seealso cref="GenericParameterDefinition"/>
+      /// <seealso cref="RawGenericParameterDefinition"/>
       protected static IEnumerable<MetaDataColumnInformation<GenericParameterDefinition>> GetGenericParamColumns()
       {
-         yield return MetaDataColumnInformationFactory.Number16<GenericParameterDefinition, RawGenericParameterDefinition>( ( r, v ) => { r.GenericParameterIndex = (UInt16) v; return true; }, row => (Int16) row.GenericParameterIndex, ( r, v ) => r.GenericParameterIndex = v );
-         yield return MetaDataColumnInformationFactory.Number16<GenericParameterDefinition, RawGenericParameterDefinition>( ( r, v ) => { r.Attributes = (GenericParameterAttributes) v; return true; }, row => (Int16) row.Attributes, ( r, v ) => r.Attributes = (GenericParameterAttributes) v );
+         yield return MetaDataColumnInformationFactory.Number16<GenericParameterDefinition, RawGenericParameterDefinition>( row => (Int16) row.GenericParameterIndex, ( r, v ) => { r.GenericParameterIndex = (UInt16) v; return true; }, ( r, v ) => r.GenericParameterIndex = v );
+         yield return MetaDataColumnInformationFactory.Number16<GenericParameterDefinition, RawGenericParameterDefinition>( row => (Int16) row.Attributes, ( r, v ) => { r.Attributes = (GenericParameterAttributes) v; return true; }, ( r, v ) => r.Attributes = (GenericParameterAttributes) v );
          yield return MetaDataColumnInformationFactory.CodedTableIndex<GenericParameterDefinition, RawGenericParameterDefinition>( CAMPhysicalIO::CILAssemblyManipulator.Physical.Meta.DefaultMetaDataTableInformationProvider.TypeOrMethodDef, ( r, v ) => { r.Owner = v; return true; }, row => row.Owner, ( r, v ) => r.Owner = v );
-         yield return MetaDataColumnInformationFactory.SystemString<GenericParameterDefinition, RawGenericParameterDefinition>( ( r, v ) => { r.Name = v; return true; }, row => row.Name, ( r, v ) => r.Name = v );
+         yield return MetaDataColumnInformationFactory.SystemString<GenericParameterDefinition, RawGenericParameterDefinition>( row => row.Name, ( r, v ) => { r.Name = v; return true; }, ( r, v ) => r.Name = v );
       }
 
+      /// <summary>
+      /// Returns the enumerable of <see cref="MetaDataColumnInformation{TRow, TValue}"/>s for <see cref="Tables.MethodSpec"/> table.
+      /// </summary>
+      /// <returns>The enumerable of <see cref="MetaDataColumnInformation{TRow, TValue}"/>s for <see cref="Tables.MethodSpec"/> table.</returns>
+      /// <seealso cref="MethodSpecification"/>
+      /// <seealso cref="RawMethodSpecification"/>
       protected static IEnumerable<MetaDataColumnInformation<MethodSpecification>> GetMethodSpecColumns()
       {
          yield return MetaDataColumnInformationFactory.CodedTableIndex<MethodSpecification, RawMethodSpecification>( CAMPhysicalIO::CILAssemblyManipulator.Physical.Meta.DefaultMetaDataTableInformationProvider.MethodDefOrRef, ( r, v ) => { r.Method = v; return true; }, row => row.Method, ( r, v ) => r.Method = v );
          yield return MetaDataColumnInformationFactory.BLOBNonTypeSignature<MethodSpecification, RawMethodSpecification, GenericMethodSignature>( ( r, v ) => { r.Signature = v; return true; }, row => row.Signature, ( r, v ) => r.Signature = v );
       }
 
+      /// <summary>
+      /// Returns the enumerable of <see cref="MetaDataColumnInformation{TRow, TValue}"/>s for <see cref="Tables.GenericParameterConstraint"/> table.
+      /// </summary>
+      /// <returns>The enumerable of <see cref="MetaDataColumnInformation{TRow, TValue}"/>s for <see cref="Tables.GenericParameterConstraint"/> table.</returns>
+      /// <seealso cref="GenericParameterConstraintDefinition"/>
+      /// <seealso cref="RawGenericParameterConstraintDefinition"/>
       protected static IEnumerable<MetaDataColumnInformation<GenericParameterConstraintDefinition>> GetGenericParamConstraintColumns()
       {
          yield return MetaDataColumnInformationFactory.SimpleTableIndex<GenericParameterConstraintDefinition, RawGenericParameterConstraintDefinition>( Tables.GenericParameter, ( r, v ) => { r.Owner = v; return true; }, row => row.Owner, ( r, v ) => r.Owner = v );
@@ -1175,27 +1552,71 @@ namespace CILAssemblyManipulator.Physical.Meta
 
    }
 
+   /// <summary>
+   /// This interface provides a way to create <see cref="TableSerializationLogicalFunctionality"/> without the knowledge of generic arguments of <see cref="MetaDataTableInformation{TRow, TRawRow}"/>, which implements this interface.
+   /// </summary>
    public interface MetaDataTableInformationWithSerializationCapability
    {
+      /// <summary>
+      /// Creates a new <see cref="TableSerializationLogicalFunctionality"/>, using given <see cref="TableSerializationLogicalFunctionalityCreationArgs"/>.
+      /// </summary>
+      /// <param name="args">The <see cref="TableSerializationLogicalFunctionalityCreationArgs"/>.</param>
+      /// <returns>A new instance of <see cref="TableSerializationLogicalFunctionality"/>.</returns>
       TableSerializationLogicalFunctionality CreateTableSerializationInfoNotGeneric( TableSerializationLogicalFunctionalityCreationArgs args );
    }
 
+   /// <summary>
+   /// This struct defines all data that is used by <see cref="TableSerializationLogicalFunctionality"/> but specified outside the scope of the <see cref="MetaDataTableInformationWithSerializationCapability"/>.
+   /// </summary>
    public struct TableSerializationLogicalFunctionalityCreationArgs
    {
+      /// <summary>
+      /// Creates a new <see cref="TableSerializationLogicalFunctionalityCreationArgs"/> with given parameters.
+      /// </summary>
+      /// <param name="errorHandler">The error handler, as specified in <see cref="CAMPhysicalIO::E_CILPhysical.WriteMetaDataToStream(WriterFunctionality, System.IO.Stream, CILMetaData, WritingOptions, StrongNameKeyPair, bool, Crypto.CryptoCallbacks, AssemblyHashAlgorithm?, EventHandler{SerializationErrorEventArgs})"/> or <see cref="CAMPhysicalIO::E_CILPhysical.ReadMetaDataFromStream(ReaderFunctionality, System.IO.Stream, EventHandler{SerializationErrorEventArgs}, bool, out ImageInformation)"/> method.</param>
       public TableSerializationLogicalFunctionalityCreationArgs( EventHandler<SerializationErrorEventArgs> errorHandler )
       {
          this.ErrorHandler = errorHandler;
       }
 
+      /// <summary>
+      /// Gets the callback for handling errors during (de)serialization process.
+      /// </summary>
+      /// <value>The callback for handling errors during (de)serialization process.</value>
+      /// <remarks>
+      /// This value may be <c>null</c>.
+      /// </remarks>
       public EventHandler<SerializationErrorEventArgs> ErrorHandler { get; }
    }
 
+   /// <summary>
+   /// This class specializes <see cref="MetaDataTableInformation{TRow}"/> and implements <see cref="MetaDataTableInformationWithSerializationCapability"/> to provide full functionality for table in CAM.Physical framework.
+   /// </summary>
+   /// <typeparam name="TRow">The type of the rows of this table.</typeparam>
+   /// <typeparam name="TRawRow">The type of the raw rows of this table.</typeparam>
+   /// <remarks>
+   /// One should use methods of <see cref="MetaDataColumnInformationFactory"/> to create objects describing the columns of this <see cref="MetaDataTableInformation{TRow, TRawRow}"/>.
+   /// </remarks>
    public sealed class MetaDataTableInformation<TRow, TRawRow> : MetaDataTableInformation<TRow>, MetaDataTableInformationWithSerializationCapability
       where TRow : class
       where TRawRow : class
    {
       private readonly Func<TRawRow> _rawRowFactory;
 
+      /// <summary>
+      /// Creates a new instance of <see cref="MetaDataTableInformation{TRow, TRawRow}"/> with given parameters.
+      /// </summary>
+      /// <param name="tableKind">The table ID, as <see cref="Tables"/>.</param>
+      /// <param name="equalityComparer">The equality comparer for the rows.</param>
+      /// <param name="comparer">The comparer for the rows. May be <c>null</c>.</param>
+      /// <param name="rowFactory">The callback to create blank normal row.</param>
+      /// <param name="columns">The columns of this table. The elements should implement <see cref="MetaDataColumnInformationWithResolving"/> and <see cref="MetaDataColumnInformationWithSerializationCapability{TRow, TRawRow}"/> interfaces, but this is not enforced.</param>
+      /// <param name="rawRowFactory">The callback to create blank raw row.</param>
+      /// <param name="isSorted">Whether this table is marked as sorted in <see cref="MetaDataTableStreamHeader.SortedTablesBitVector"/>.</param>
+      /// <exception cref="ArgumentNullException">If any of the <paramref name="equalityComparer"/>, <paramref name="rowFactory"/>, <paramref name="columns"/>, or <paramref name="rawRowFactory"/> is <c>null</c>.</exception>
+      /// <remarks>
+      /// One should use methods of <see cref="MetaDataColumnInformationFactory"/> to create objects for <paramref name="columns"/> parameter.
+      /// </remarks>
       public MetaDataTableInformation(
          Tables tableKind,
          IEqualityComparer<TRow> equalityComparer,
@@ -1213,12 +1634,23 @@ namespace CILAssemblyManipulator.Physical.Meta
          this.IsSortedForSerialization = isSorted;
       }
 
-
+      /// <summary>
+      /// This method will create a new blank raw row.
+      /// </summary>
+      /// <returns>A new instance of blank raw row.</returns>
       public TRawRow CreateRawRow()
       {
          return this._rawRowFactory();
       }
 
+      /// <summary>
+      /// This method creates new instance of <see cref="TableSerializationLogicalFunctionalityImpl{TRow, TRawRow}"/> using given <see cref="TableSerializationLogicalFunctionalityCreationArgs"/>.
+      /// </summary>
+      /// <param name="args">The <see cref="TableSerializationLogicalFunctionalityCreationArgs"/>.</param>
+      /// <returns>A new instance of <see cref="TableSerializationLogicalFunctionalityImpl{TRow, TRawRow}"/>.</returns>
+      /// <remarks>
+      /// If there is a need to create <see cref="TableSerializationLogicalFunctionalityImpl{TRow, TRawRow}"/> without the knowledge of the generic arguments of this class, use <see cref="CreateTableSerializationInfoNotGeneric"/>.
+      /// </remarks>
       public TableSerializationLogicalFunctionalityImpl<TRow, TRawRow> CreateTableSerializationInfo( TableSerializationLogicalFunctionalityCreationArgs args )
       {
          return new TableSerializationLogicalFunctionalityImpl<TRow, TRawRow>(
@@ -1231,58 +1663,46 @@ namespace CILAssemblyManipulator.Physical.Meta
             );
       }
 
+      /// <summary>
+      /// Gets the value indicating whether this <see cref="MetaDataTableInformation{TRow, TRawRow}"/> will affect the <see cref="MetaDataTableStreamHeader.SortedTablesBitVector"/> value.
+      /// </summary>
+      /// <value>The value indicating whether this <see cref="MetaDataTableInformation{TRow, TRawRow}"/> will affect the <see cref="MetaDataTableStreamHeader.SortedTablesBitVector"/> value.</value>
       public Boolean IsSortedForSerialization { get; }
 
+      /// <summary>
+      /// This method implements <see cref="MetaDataTableInformationWithSerializationCapability.CreateTableSerializationInfoNotGeneric"/> by returning result of <see cref="CreateTableSerializationInfo"/>.
+      /// </summary>
+      /// <param name="args">The <see cref="TableSerializationLogicalFunctionalityCreationArgs"/>.</param>
+      /// <returns>A new instance of <see cref="TableSerializationLogicalFunctionalityImpl{TRow, TRawRow}"/>.</returns>
+      /// <remarks>
+      /// The purpose of this method and the <see cref="MetaDataTableInformationWithSerializationCapability"/> interface is to create <see cref="TableSerializationLogicalFunctionality"/> without the need to know the generic arguments of this class.
+      /// </remarks>
       public TableSerializationLogicalFunctionality CreateTableSerializationInfoNotGeneric( TableSerializationLogicalFunctionalityCreationArgs args )
       {
          return this.CreateTableSerializationInfo( args );
       }
    }
 
+   /// <summary>
+   /// This static class should be used to create information about columns for <see cref="MetaDataTableInformation{TRow, TRawRow}"/> constructor.
+   /// </summary>
    public static class MetaDataColumnInformationFactory
    {
 
-      //public static MetaDataColumnInformationForClassesOrStructs<TRow, TRawRow, TValue> Constant16<TRow, TRawRow, TValue>(
-      //   RowColumnSetterDelegate<TRow, TValue> setter,
-      //   RowColumnGetterDelegate<TRow, TValue> getter,
-      //   RawRowColumnSetterDelegate<TRawRow> rawSetter,
-      //   Func<Int32, TValue> fromInteger,
-      //   Func<TValue, Int32> toInteger
-      //   )
-      //   where TRow : class
-      //   where TRawRow : class
-      //   where TValue : struct
-      //{
-      //   return ConstantCustom<TRow, TRawRow, TValue>(
-      //      sizeof( Int16 ),
-      //      getter,
-      //      setter,
-      //      () => DefaultColumnSerializationInfoFactory.Constant16<TRow, TRawRow>( rawSetter, ( args, v ) => setter( args.Row, fromInteger( v ) ), r => toInteger( getter( r ) ) )
-      //      );
-      //}
-
-      //public static MetaDataColumnInformationForClassesOrStructs<TRow, TRawRow, TValue> Constant32<TRow, TRawRow, TValue>(
-      //   RowColumnSetterDelegate<TRow, TValue> setter,
-      //   RowColumnGetterDelegate<TRow, TValue> getter,
-      //   RawRowColumnSetterDelegate<TRawRow> rawSetter,
-      //   Func<Int32, TValue> fromInteger,
-      //   Func<TValue, Int32> toInteger
-      //   )
-      //   where TRow : class
-      //   where TRawRow : class
-      //   where TValue : struct
-      //{
-      //   return ConstantCustom<TRow, TRawRow, TValue>(
-      //      sizeof( Int32 ),
-      //      getter,
-      //      setter,
-      //      () => DefaultColumnSerializationInfoFactory.Constant32<TRow, TRawRow>( rawSetter, ( args, v ) => setter( args.Row, fromInteger( v ) ), r => toInteger( getter( r ) ) )
-      //      );
-      //}
-
-      public static MetaDataColumnInformationForClassesOrStructs<TRow, TRawRow, Byte> Number8<TRow, TRawRow>(
-         RowColumnSetterDelegate<TRow, Byte> setter,
+      /// <summary>
+      /// This method creates the appropriate <see cref="MetaDataColumnInformation{TRow, TRawRow, TValue}"/> for column, which is serialized using one byte.
+      /// </summary>
+      /// <typeparam name="TRow">The type of the row.</typeparam>
+      /// <typeparam name="TRawRow">The type of the raw row.</typeparam>
+      /// <param name="getter">The callback to get the byte value from row.</param>
+      /// <param name="setter">The callback to set the byte value on row.</param>
+      /// <param name="rawSetter">The callback to set the byte value on raw row.</param>
+      /// <returns>A new instance of <see cref="MetaDataColumnInformation{TRow, TRawRow, TValue}"/> with given information.</returns>
+      /// <exception cref="ArgumentNullException">If any of the <paramref name="getter"/> or <paramref name="setter"/> is <c>null</c>.</exception>
+      /// <seealso cref="ConstantCustom"/>
+      public static MetaDataColumnInformation<TRow, TRawRow, Byte> Number8<TRow, TRawRow>(
          RowColumnGetterDelegate<TRow, Byte> getter,
+         RowColumnSetterDelegate<TRow, Byte> setter,
          RawRowColumnSetterDelegate<TRawRow> rawSetter
          )
          where TRow : class
@@ -1296,9 +1716,20 @@ namespace CILAssemblyManipulator.Physical.Meta
             );
       }
 
-      public static MetaDataColumnInformationForClassesOrStructs<TRow, TRawRow, Int16> Number16<TRow, TRawRow>(
-         RowColumnSetterDelegate<TRow, Int16> setter,
+      /// <summary>
+      /// This method creates the appropriate <see cref="MetaDataColumnInformation{TRow, TRawRow, TValue}"/> for column, which is serialized using two bytes.
+      /// </summary>
+      /// <typeparam name="TRow">The type of the row.</typeparam>
+      /// <typeparam name="TRawRow">The type of the raw row.</typeparam>
+      /// <param name="getter">The callback to get the (unsigned) short value from row.</param>
+      /// <param name="setter">The callback to set the (unsigned) short value on row.</param>
+      /// <param name="rawSetter">The callback to set the (unsigned) short value on raw row.</param>
+      /// <returns>A new instance of <see cref="MetaDataColumnInformation{TRow, TRawRow, TValue}"/> with given information.</returns>
+      /// <exception cref="ArgumentNullException">If any of the <paramref name="getter"/> or <paramref name="setter"/> is <c>null</c>.</exception>
+      /// <seealso cref="ConstantCustom"/>
+      public static MetaDataColumnInformation<TRow, TRawRow, Int16> Number16<TRow, TRawRow>(
          RowColumnGetterDelegate<TRow, Int16> getter,
+         RowColumnSetterDelegate<TRow, Int16> setter,
          RawRowColumnSetterDelegate<TRawRow> rawSetter
          )
          where TRow : class
@@ -1312,25 +1743,20 @@ namespace CILAssemblyManipulator.Physical.Meta
             );
       }
 
-      //public static MetaDataColumnInformationForClassesOrStructs<TRow, TRawRow, Int32> Number32_SerializedAs16<TRow, TRawRow>(
-      //   RowColumnSetterDelegate<TRow, Int32> setter,
-      //   RowColumnGetterDelegate<TRow, Int32> getter,
-      //   RawRowColumnSetterDelegate<TRawRow> rawSetter
-      //   )
-      //   where TRow : class
-      //   where TRawRow : class
-      //{
-      //   return ConstantCustom<TRow, TRawRow, Int32>(
-      //      sizeof( Int16 ),
-      //      getter,
-      //      setter,
-      //      () => DefaultColumnSerializationInfoFactory.Constant16<TRow, TRawRow>( rawSetter, ( row, v ) => setter( row, v ), r => getter( r ) )
-      //      );
-      //}
-
-      public static MetaDataColumnInformationForClassesOrStructs<TRow, TRawRow, Int32> Number32<TRow, TRawRow>(
-         RowColumnSetterDelegate<TRow, Int32> setter,
+      /// <summary>
+      /// This method creates the appropriate <see cref="MetaDataColumnInformation{TRow, TRawRow, TValue}"/> for column, which is serialized using four bytes.
+      /// </summary>
+      /// <typeparam name="TRow">The type of the row.</typeparam>
+      /// <typeparam name="TRawRow">The type of the raw row.</typeparam>
+      /// <param name="getter">The callback to get the (unsigned) int value from row.</param>
+      /// <param name="setter">The callback to set the (unsigned) int value on row.</param>
+      /// <param name="rawSetter">The callback to set the (unsigned) int value on raw row.</param>
+      /// <returns>A new instance of <see cref="MetaDataColumnInformation{TRow, TRawRow, TValue}"/> with given information.</returns>
+      /// <exception cref="ArgumentNullException">If any of the <paramref name="getter"/> or <paramref name="setter"/> is <c>null</c>.</exception>
+      /// <seealso cref="ConstantCustom"/>
+      public static MetaDataColumnInformation<TRow, TRawRow, Int32> Number32<TRow, TRawRow>(
          RowColumnGetterDelegate<TRow, Int32> getter,
+         RowColumnSetterDelegate<TRow, Int32> setter,
          RawRowColumnSetterDelegate<TRawRow> rawSetter
          )
          where TRow : class
@@ -1344,7 +1770,19 @@ namespace CILAssemblyManipulator.Physical.Meta
             );
       }
 
-      public static MetaDataColumnInformationForClassesOrStructs<TRow, TRawRow, TValue> ConstantCustom<TRow, TRawRow, TValue>(
+      /// <summary>
+      /// This method creates the appropriate <see cref="MetaDataColumnInformation{TRow, TRawRow, TValue}"/> for column, which is serialized using constant amount of bytes.
+      /// </summary>
+      /// <typeparam name="TRow">The type of the row.</typeparam>
+      /// <typeparam name="TRawRow">The type of the raw row.</typeparam>
+      /// <typeparam name="TValue">The type of the value.</typeparam>
+      /// <param name="byteCount">The amount of bytes to use when serializing.</param>
+      /// <param name="setter">The callback to set the value on row.</param>
+      /// <param name="getter">The callback to get the value from row.</param>
+      /// <param name="serializationInfo">The callback to create <see cref="DefaultColumnSerializationInfo{TRow, TRawRow}"/>.</param>
+      /// <returns>A new instance of <see cref="MetaDataColumnInformation{TRow, TRawRow, TValue}"/> with given information.</returns>
+      /// <exception cref="ArgumentNullException">If any of the <paramref name="getter"/> or <paramref name="setter"/> is <c>null</c>.</exception>
+      public static MetaDataColumnInformation<TRow, TRawRow, TValue> ConstantCustom<TRow, TRawRow, TValue>(
          Int32 byteCount,
          RowColumnGetterDelegate<TRow, TValue> getter,
          RowColumnSetterDelegate<TRow, TValue> setter,
@@ -1354,21 +1792,45 @@ namespace CILAssemblyManipulator.Physical.Meta
          where TRawRow : class
          where TValue : struct
       {
-         return new MetaDataColumnInformationForClassesOrStructs<TRow, TRawRow, TValue>( getter, setter, new MetaDataColumnDataInformation_FixedSizeConstant( byteCount ), null, null, serializationInfo );
+         return new MetaDataColumnInformation<TRow, TRawRow, TValue>(
+            getter,
+            setter,
+            //new MetaDataColumnDataInformation_FixedSizeConstant( byteCount ),
+            null,
+            null,
+            serializationInfo
+            );
       }
 
-      public static MetaDataColumnInformationForClassesOrStructs<TRow, TRawRow, String> SystemString<TRow, TRawRow>(
-         RowColumnSetterDelegate<TRow, String> setter,
+      /// <summary>
+      /// This method creates the appropriate <see cref="MetaDataColumnInformation{TRow, TRawRow, TValue}"/> for column, which is serialized as reference to system string meta data stream.
+      /// </summary>
+      /// <typeparam name="TRow">The type of the row.</typeparam>
+      /// <typeparam name="TRawRow">The type of the raw row.</typeparam>
+      /// <param name="setter">The callback to set the value on row.</param>
+      /// <param name="getter">The callback to get the value from row.</param>
+      /// <param name="rawSetter">The callback to set the value on raw row.</param>
+      /// <returns>A new instance of <see cref="MetaDataColumnInformation{TRow, TRawRow, TValue}"/> with given information.</returns>
+      /// <exception cref="ArgumentNullException">If any of the <paramref name="setter"/> or <paramref name="getter"/> is <c>null</c>.</exception>
+      public static MetaDataColumnInformation<TRow, TRawRow, String> SystemString<TRow, TRawRow>(
          RowColumnGetterDelegate<TRow, String> getter,
+         RowColumnSetterDelegate<TRow, String> setter,
          RawRowColumnSetterDelegate<TRawRow> rawSetter
          )
          where TRow : class
          where TRawRow : class
       {
-         return new MetaDataColumnInformationForClassesOrStructs<TRow, TRawRow, String>( getter, setter, new MetaDataColumnDataInformation_HeapIndex( MetaDataConstants.SYS_STRING_STREAM_NAME ), null, null, () => DefaultColumnSerializationInfoFactory.SystemString<TRow, TRawRow>( rawSetter, setter, getter ) );
+         return new MetaDataColumnInformation<TRow, TRawRow, String>(
+            getter,
+            setter,
+            //new MetaDataColumnDataInformation_HeapIndex( MetaDataConstants.SYS_STRING_STREAM_NAME ),
+            null,
+            null,
+            () => DefaultColumnSerializationInfoFactory.SystemString( rawSetter, setter, getter )
+            );
       }
 
-      public static MetaDataColumnInformationForNullables<TRow, TRawRow, Guid> GUID<TRow, TRawRow>(
+      public static MetaDataColumnInformation<TRow, TRawRow, Guid?> GUID<TRow, TRawRow>(
          RowColumnSetterDelegate<TRow, Guid?> setter,
          RowColumnGetterDelegate<TRow, Guid?> getter,
          RawRowColumnSetterDelegate<TRawRow> rawSetter
@@ -1376,10 +1838,17 @@ namespace CILAssemblyManipulator.Physical.Meta
          where TRow : class
          where TRawRow : class
       {
-         return new MetaDataColumnInformationForNullables<TRow, TRawRow, Guid>( getter, setter, new MetaDataColumnDataInformation_HeapIndex( MetaDataConstants.GUID_STREAM_NAME ), null, null, () => DefaultColumnSerializationInfoFactory.GUID<TRow, TRawRow>( rawSetter, setter, getter ) );
+         return new MetaDataColumnInformation<TRow, TRawRow, Guid?>(
+            getter,
+            setter,
+            //new MetaDataColumnDataInformation_HeapIndex( MetaDataConstants.GUID_STREAM_NAME ),
+            null,
+            null,
+            () => DefaultColumnSerializationInfoFactory.GUID( rawSetter, setter, getter )
+            );
       }
 
-      public static MetaDataColumnInformationForClassesOrStructs<TRow, TRawRow, TableIndex> SimpleTableIndex<TRow, TRawRow>(
+      public static MetaDataColumnInformation<TRow, TRawRow, TableIndex> SimpleTableIndex<TRow, TRawRow>(
          Tables targetTable,
          RowColumnSetterDelegate<TRow, TableIndex> setter,
          RowColumnGetterDelegate<TRow, TableIndex> getter,
@@ -1388,10 +1857,17 @@ namespace CILAssemblyManipulator.Physical.Meta
          where TRow : class
          where TRawRow : class
       {
-         return new MetaDataColumnInformationForClassesOrStructs<TRow, TRawRow, TableIndex>( getter, setter, new MetaDataColumnDataInformation_SimpleTableIndex( (Int32) targetTable ), null, null, () => DefaultColumnSerializationInfoFactory.SimpleReference<TRow, TRawRow>( targetTable, rawSetter, setter, getter ) );
+         return new MetaDataColumnInformation<TRow, TRawRow, TableIndex>(
+            getter,
+            setter,
+            //new MetaDataColumnDataInformation_SimpleTableIndex( (Int32) targetTable ),
+            null,
+            null,
+            () => DefaultColumnSerializationInfoFactory.SimpleReference( targetTable, rawSetter, setter, getter )
+            );
       }
 
-      public static MetaDataColumnInformationForClassesOrStructs<TRow, TRawRow, TableIndex> CodedTableIndex<TRow, TRawRow>(
+      public static MetaDataColumnInformation<TRow, TRawRow, TableIndex> CodedTableIndex<TRow, TRawRow>(
          ArrayQuery<Int32?> targetTables,
          RowColumnSetterDelegate<TRow, TableIndex> setter,
          RowColumnGetterDelegate<TRow, TableIndex> getter,
@@ -1400,10 +1876,17 @@ namespace CILAssemblyManipulator.Physical.Meta
          where TRow : class
          where TRawRow : class
       {
-         return new MetaDataColumnInformationForClassesOrStructs<TRow, TRawRow, TableIndex>( getter, setter, new MetaDataColumnDataInformation_CodedTableIndex( targetTables ), null, null, () => DefaultColumnSerializationInfoFactory.CodedReference<TRow, TRawRow>( targetTables, rawSetter, ( row, v ) => setter( row, v.GetValueOrDefault() ), r => getter( r ) ) );
+         return new MetaDataColumnInformation<TRow, TRawRow, TableIndex>(
+            getter,
+            setter,
+            //new MetaDataColumnDataInformation_CodedTableIndex( targetTables ),
+            null,
+            null,
+            () => DefaultColumnSerializationInfoFactory.CodedReference<TRow, TRawRow>( targetTables, rawSetter, ( row, v ) => setter( row, v.GetValueOrDefault() ), r => getter( r ) )
+            );
       }
 
-      public static MetaDataColumnInformationForNullables<TRow, TRawRow, TableIndex> CodedTableIndexNullable<TRow, TRawRow>(
+      public static MetaDataColumnInformation<TRow, TRawRow, TableIndex?> CodedTableIndexNullable<TRow, TRawRow>(
          ArrayQuery<Int32?> targetTables,
          RowColumnSetterDelegate<TRow, TableIndex?> setter,
          RowColumnGetterDelegate<TRow, TableIndex?> getter,
@@ -1412,10 +1895,17 @@ namespace CILAssemblyManipulator.Physical.Meta
          where TRow : class
          where TRawRow : class
       {
-         return new MetaDataColumnInformationForNullables<TRow, TRawRow, TableIndex>( getter, setter, new MetaDataColumnDataInformation_CodedTableIndex( targetTables ), null, null, () => DefaultColumnSerializationInfoFactory.CodedReference<TRow, TRawRow>( targetTables, rawSetter, setter, getter ) );
+         return new MetaDataColumnInformation<TRow, TRawRow, TableIndex?>(
+            getter,
+            setter,
+            //new MetaDataColumnDataInformation_CodedTableIndex( targetTables ),
+            null,
+            null,
+            () => DefaultColumnSerializationInfoFactory.CodedReference( targetTables, rawSetter, setter, getter )
+            );
       }
 
-      public static MetaDataColumnInformationForClassesOrStructs<TRow, TRawRow, TypeSignature> BLOBTypeSignature<TRow, TRawRow>(
+      public static MetaDataColumnInformation<TRow, TRawRow, TypeSignature> BLOBTypeSignature<TRow, TRawRow>(
          RowColumnSetterDelegate<TRow, TypeSignature> setter,
          RowColumnGetterDelegate<TRow, TypeSignature> getter,
          RawRowColumnSetterDelegate<TRawRow> rawSetter
@@ -1434,7 +1924,7 @@ namespace CILAssemblyManipulator.Physical.Meta
             );
       }
 
-      public static MetaDataColumnInformationForClassesOrStructs<TRow, TRawRow, TSignature> BLOBNonTypeSignature<TRow, TRawRow, TSignature>(
+      public static MetaDataColumnInformation<TRow, TRawRow, TSignature> BLOBNonTypeSignature<TRow, TRawRow, TSignature>(
          RowColumnSetterDelegate<TRow, TSignature> setter,
          RowColumnGetterDelegate<TRow, TSignature> getter,
          RawRowColumnSetterDelegate<TRawRow> rawSetter
@@ -1459,7 +1949,7 @@ namespace CILAssemblyManipulator.Physical.Meta
             );
       }
 
-      public static MetaDataColumnInformationForClassesOrStructs<TRow, TRawRow, Byte[]> BLOBByteArray<TRow, TRawRow>(
+      public static MetaDataColumnInformation<TRow, TRawRow, Byte[]> BLOBByteArray<TRow, TRawRow>(
          RowColumnSetterDelegate<TRow, Byte[]> setter,
          RowColumnGetterDelegate<TRow, Byte[]> getter,
          RawRowColumnSetterDelegate<TRawRow> rawSetter
@@ -1478,7 +1968,7 @@ namespace CILAssemblyManipulator.Physical.Meta
             );
       }
 
-      public static MetaDataColumnInformationForClassesOrStructs<TRow, TRawRow, TValue> BLOBCustom<TRow, TRawRow, TValue>(
+      public static MetaDataColumnInformation<TRow, TRawRow, TValue> BLOBCustom<TRow, TRawRow, TValue>(
          RowColumnSetterDelegate<TRow, TValue> setter,
          RowColumnGetterDelegate<TRow, TValue> getter,
          RawRowColumnSetterDelegate<TRawRow> rawSetter,
@@ -1490,10 +1980,17 @@ namespace CILAssemblyManipulator.Physical.Meta
          where TRow : class
          where TRawRow : class
       {
-         return new MetaDataColumnInformationForClassesOrStructs<TRow, TRawRow, TValue>( getter, setter, new MetaDataColumnDataInformation_HeapIndex( MetaDataConstants.BLOB_STREAM_NAME ), resolverCacheCreator, resolver, () => DefaultColumnSerializationInfoFactory.BLOB<TRow, TRawRow>( rawSetter, blobReader, blobCreator ) );
+         return new MetaDataColumnInformation<TRow, TRawRow, TValue>(
+            getter,
+            setter,
+            //new MetaDataColumnDataInformation_HeapIndex( MetaDataConstants.BLOB_STREAM_NAME ),
+            resolverCacheCreator,
+            resolver,
+            () => DefaultColumnSerializationInfoFactory.BLOB( rawSetter, blobReader, blobCreator )
+            );
       }
 
-      public static MetaDataColumnInformationForClassesOrStructs<TRow, TRawRow, TValue> DataReference<TRow, TRawRow, TValue>(
+      public static MetaDataColumnInformation<TRow, TRawRow, TValue> DataReference<TRow, TRawRow, TValue>(
          RowColumnSetterDelegate<TRow, TValue> setter,
          RowColumnGetterDelegate<TRow, TValue> getter,
          RawRowColumnSetterDelegate<TRawRow> rawSetter,
@@ -1505,29 +2002,30 @@ namespace CILAssemblyManipulator.Physical.Meta
          where TRow : class
          where TRawRow : class
       {
-         return new MetaDataColumnInformationForClassesOrStructs<TRow, TRawRow, TValue>( getter, setter, new MetaDataColumnDataInformation_DataReference(), resolverCacheCreator, resolver, () => DefaultColumnSerializationInfoFactory.DataReferenceColumn<TRow, TRawRow>( rawSetter, rawValueProcessor, rawColummnSectionPartCreator ) );
+         return new MetaDataColumnInformation<TRow, TRawRow, TValue>(
+            getter,
+            setter,
+            //new MetaDataColumnDataInformation_DataReference(),
+            resolverCacheCreator,
+            resolver,
+            () => DefaultColumnSerializationInfoFactory.DataReferenceColumn( rawSetter, rawValueProcessor, rawColummnSectionPartCreator )
+            );
       }
 
 
    }
 
-   //public interface MetaDataColumnInformationWithSerializationCapability
-   //{
-   //   DefaultColumnSerializationInfo DefaultColumnSerializationInfoNotGeneric { get; }
-   //}
-
-   public interface MetaDataColumnInformationWithSerializationCapability<TRow, TRawRow> // : MetaDataColumnInformationWithSerializationCapability
+   public interface MetaDataColumnInformationWithSerializationCapability<TRow, TRawRow>
       where TRow : class
       where TRawRow : class
    {
       DefaultColumnSerializationInfo<TRow, TRawRow> DefaultColumnSerializationInfoWithRawType { get; }
    }
 
-   // TODO this interface and MetaDataColumnDataInformation class are obsolete.
-   public interface MetaDataColumnInformationWithDataMeaning
-   {
-      MetaDataColumnDataInformation DataInformation { get; }
-   }
+   //public interface MetaDataColumnInformationWithDataMeaning
+   //{
+   //   MetaDataColumnDataInformation DataInformation { get; }
+   //}
 
    public interface MetaDataColumnInformationWithRawRowType
    {
@@ -1570,26 +2068,26 @@ namespace CILAssemblyManipulator.Physical.Meta
 
    public delegate Boolean ResolverDelegate( CILMetaData md, Int32 rowIndex, MetaDataResolver resolver, Object cache );
 
-   public sealed class MetaDataColumnInformationForClassesOrStructs<TRow, TRawRow, TValue> : MetaDataColumnInformationForClassesOrStructs<TRow, TValue>, MetaDataColumnInformationWithSerializationCapability<TRow, TRawRow>, MetaDataColumnInformationWithDataMeaning, MetaDataColumnInformationWithRawRowType, MetaDataColumnInformationWithResolving
+   public sealed class MetaDataColumnInformation<TRow, TRawRow, TValue> : MetaDataColumnInformation<TRow, TValue>, MetaDataColumnInformationWithSerializationCapability<TRow, TRawRow>, MetaDataColumnInformationWithRawRowType, MetaDataColumnInformationWithResolving //, MetaDataColumnInformationWithDataMeaning
       where TRow : class
       where TRawRow : class
    {
 
       private readonly Lazy<DefaultColumnSerializationInfo<TRow, TRawRow>> _serializationInfo;
 
-      public MetaDataColumnInformationForClassesOrStructs(
+      public MetaDataColumnInformation(
          RowColumnGetterDelegate<TRow, TValue> getter,
          RowColumnSetterDelegate<TRow, TValue> setter,
-         MetaDataColumnDataInformation information,
+         //MetaDataColumnDataInformation information,
          ResolverCacheCreatorDelegate resolverCacheCreator,
          ResolverDelegate resolver,
          Func<DefaultColumnSerializationInfo<TRow, TRawRow>> defaultSerializationInfo
          )
          : base( getter, setter )
       {
-         ArgumentValidator.ValidateNotNull( "Data information", information );
+         //ArgumentValidator.ValidateNotNull( "Data information", information );
 
-         this.DataInformation = information;
+         //this.DataInformation = information;
          this.ResolvingHandler = resolver == null ? null : new MetaDataColumnInformationWithResolvingCapabilityWithCallbacks( resolverCacheCreator, resolver );
          this._serializationInfo = defaultSerializationInfo == null ? null : new Lazy<DefaultColumnSerializationInfo<TRow, TRawRow>>( defaultSerializationInfo, System.Threading.LazyThreadSafetyMode.ExecutionAndPublication );
       }
@@ -1618,187 +2116,187 @@ namespace CILAssemblyManipulator.Physical.Meta
          }
       }
 
-      public MetaDataColumnDataInformation DataInformation { get; }
+      //public MetaDataColumnDataInformation DataInformation { get; }
 
       public CAMPhysicalR::CILAssemblyManipulator.Physical.Meta.MetaDataColumnInformationWithResolvingCapability ResolvingHandler { get; }
    }
 
-   public sealed class MetaDataColumnInformationForNullables<TRow, TRawRow, TValue> : MetaDataColumnInformationForNullables<TRow, TValue>, MetaDataColumnInformationWithSerializationCapability<TRow, TRawRow>, MetaDataColumnInformationWithDataMeaning, MetaDataColumnInformationWithRawRowType, MetaDataColumnInformationWithResolving
-      where TRow : class
-      where TValue : struct
-      where TRawRow : class
-   {
+   //public sealed class MetaDataColumnInformationForNullables<TRow, TRawRow, TValue> : MetaDataColumnInformationForNullables<TRow, TValue>, MetaDataColumnInformationWithSerializationCapability<TRow, TRawRow>, MetaDataColumnInformationWithRawRowType, MetaDataColumnInformationWithResolving //, MetaDataColumnInformationWithDataMeaning
+   //   where TRow : class
+   //   where TValue : struct
+   //   where TRawRow : class
+   //{
 
-      private readonly Lazy<DefaultColumnSerializationInfo<TRow, TRawRow>> _serializationInfo;
+   //   private readonly Lazy<DefaultColumnSerializationInfo<TRow, TRawRow>> _serializationInfo;
 
-      public MetaDataColumnInformationForNullables(
-         RowColumnGetterDelegate<TRow, TValue?> getter,
-         RowColumnSetterDelegate<TRow, TValue?> setter,
-         MetaDataColumnDataInformation information,
-         ResolverCacheCreatorDelegate resolverCacheCreator,
-         ResolverDelegate resolver,
-         Func<DefaultColumnSerializationInfo<TRow, TRawRow>> defaultSerializationInfo
-         )
-         : base( getter, setter )
-      {
-         ArgumentValidator.ValidateNotNull( "Data information", information );
+   //   public MetaDataColumnInformationForNullables(
+   //      RowColumnGetterDelegate<TRow, TValue?> getter,
+   //      RowColumnSetterDelegate<TRow, TValue?> setter,
+   //      //MetaDataColumnDataInformation information,
+   //      ResolverCacheCreatorDelegate resolverCacheCreator,
+   //      ResolverDelegate resolver,
+   //      Func<DefaultColumnSerializationInfo<TRow, TRawRow>> defaultSerializationInfo
+   //      )
+   //      : base( getter, setter )
+   //   {
+   //      //ArgumentValidator.ValidateNotNull( "Data information", information );
 
-         this.DataInformation = information;
-         this.ResolvingHandler = resolver == null ? null : new MetaDataColumnInformationWithResolvingCapabilityWithCallbacks( resolverCacheCreator, resolver );
-         this._serializationInfo = defaultSerializationInfo == null ? null : new Lazy<DefaultColumnSerializationInfo<TRow, TRawRow>>( defaultSerializationInfo, System.Threading.LazyThreadSafetyMode.ExecutionAndPublication );
-      }
+   //      //this.DataInformation = information;
+   //      this.ResolvingHandler = resolver == null ? null : new MetaDataColumnInformationWithResolvingCapabilityWithCallbacks( resolverCacheCreator, resolver );
+   //      this._serializationInfo = defaultSerializationInfo == null ? null : new Lazy<DefaultColumnSerializationInfo<TRow, TRawRow>>( defaultSerializationInfo, System.Threading.LazyThreadSafetyMode.ExecutionAndPublication );
+   //   }
 
-      public DefaultColumnSerializationInfo<TRow, TRawRow> DefaultColumnSerializationInfoWithRawType
-      {
-         get
-         {
-            return this._serializationInfo?.Value;
-         }
-      }
+   //   public DefaultColumnSerializationInfo<TRow, TRawRow> DefaultColumnSerializationInfoWithRawType
+   //   {
+   //      get
+   //      {
+   //         return this._serializationInfo?.Value;
+   //      }
+   //   }
 
-      //public DefaultColumnSerializationInfo DefaultColumnSerializationInfoNotGeneric
-      //{
-      //   get
-      //   {
-      //      return this.DefaultColumnSerializationInfoWithRawType;
-      //   }
-      //}
+   //   //public DefaultColumnSerializationInfo DefaultColumnSerializationInfoNotGeneric
+   //   //{
+   //   //   get
+   //   //   {
+   //   //      return this.DefaultColumnSerializationInfoWithRawType;
+   //   //   }
+   //   //}
 
-      public Type RawRowType
-      {
-         get
-         {
-            return typeof( TRawRow );
-         }
-      }
+   //   public Type RawRowType
+   //   {
+   //      get
+   //      {
+   //         return typeof( TRawRow );
+   //      }
+   //   }
 
-      public MetaDataColumnDataInformation DataInformation { get; }
+   //   //public MetaDataColumnDataInformation DataInformation { get; }
 
-      public CAMPhysicalR::CILAssemblyManipulator.Physical.Meta.MetaDataColumnInformationWithResolvingCapability ResolvingHandler { get; }
-   }
+   //   public CAMPhysicalR::CILAssemblyManipulator.Physical.Meta.MetaDataColumnInformationWithResolvingCapability ResolvingHandler { get; }
+   //}
 
-   public abstract class MetaDataColumnDataInformation
-   {
-      internal MetaDataColumnDataInformation()
-      {
-      }
+   //public abstract class MetaDataColumnDataInformation
+   //{
+   //   internal MetaDataColumnDataInformation()
+   //   {
+   //   }
 
-      public abstract MetaDataColumnInformationKind ColumnKind { get; }
-   }
+   //   public abstract MetaDataColumnInformationKind ColumnKind { get; }
+   //}
 
-   public sealed class MetaDataColumnDataInformation_FixedSizeConstant : MetaDataColumnDataInformation
-   {
-      public MetaDataColumnDataInformation_FixedSizeConstant(
-         Int32 byteSize
-         )
-         : base()
-      {
-         this.FixedSize = byteSize;
-      }
+   //public sealed class MetaDataColumnDataInformation_FixedSizeConstant : MetaDataColumnDataInformation
+   //{
+   //   public MetaDataColumnDataInformation_FixedSizeConstant(
+   //      Int32 byteSize
+   //      )
+   //      : base()
+   //   {
+   //      this.FixedSize = byteSize;
+   //   }
 
 
-      public Int32 FixedSize { get; }
+   //   public Int32 FixedSize { get; }
 
-      public override MetaDataColumnInformationKind ColumnKind
-      {
-         get
-         {
-            return MetaDataColumnInformationKind.FixedSizeConstant;
-         }
-      }
-   }
+   //   public override MetaDataColumnInformationKind ColumnKind
+   //   {
+   //      get
+   //      {
+   //         return MetaDataColumnInformationKind.FixedSizeConstant;
+   //      }
+   //   }
+   //}
 
-   public sealed class MetaDataColumnDataInformation_SimpleTableIndex : MetaDataColumnDataInformation
-   {
-      public MetaDataColumnDataInformation_SimpleTableIndex(
-         Int32 targetTable
-         )
-         : base()
-      {
-         this.TargetTable = targetTable;
-      }
+   //public sealed class MetaDataColumnDataInformation_SimpleTableIndex : MetaDataColumnDataInformation
+   //{
+   //   public MetaDataColumnDataInformation_SimpleTableIndex(
+   //      Int32 targetTable
+   //      )
+   //      : base()
+   //   {
+   //      this.TargetTable = targetTable;
+   //   }
 
-      public Int32 TargetTable { get; }
+   //   public Int32 TargetTable { get; }
 
-      public override MetaDataColumnInformationKind ColumnKind
-      {
-         get
-         {
-            return MetaDataColumnInformationKind.SimpleTableIndex;
-         }
-      }
-   }
+   //   public override MetaDataColumnInformationKind ColumnKind
+   //   {
+   //      get
+   //      {
+   //         return MetaDataColumnInformationKind.SimpleTableIndex;
+   //      }
+   //   }
+   //}
 
-   public sealed class MetaDataColumnDataInformation_CodedTableIndex : MetaDataColumnDataInformation
-   {
-      public MetaDataColumnDataInformation_CodedTableIndex(
-         IEnumerable<Int32?> targetTables
-         )
-         : base()
-      {
+   //public sealed class MetaDataColumnDataInformation_CodedTableIndex : MetaDataColumnDataInformation
+   //{
+   //   public MetaDataColumnDataInformation_CodedTableIndex(
+   //      IEnumerable<Int32?> targetTables
+   //      )
+   //      : base()
+   //   {
 
-         this.TargetTables = ( targetTables ?? Empty<Int32?>.Enumerable ).ToArrayProxy().CQ;
-      }
+   //      this.TargetTables = ( targetTables ?? Empty<Int32?>.Enumerable ).ToArrayProxy().CQ;
+   //   }
 
-      public ArrayQuery<Int32?> TargetTables { get; }
+   //   public ArrayQuery<Int32?> TargetTables { get; }
 
-      public override MetaDataColumnInformationKind ColumnKind
-      {
-         get
-         {
-            return MetaDataColumnInformationKind.CodedTableIndex;
-         }
-      }
-   }
+   //   public override MetaDataColumnInformationKind ColumnKind
+   //   {
+   //      get
+   //      {
+   //         return MetaDataColumnInformationKind.CodedTableIndex;
+   //      }
+   //   }
+   //}
 
-   public sealed class MetaDataColumnDataInformation_HeapIndex : MetaDataColumnDataInformation
-   {
-      public MetaDataColumnDataInformation_HeapIndex(
-         String heapName
-         )
-         : base()
-      {
-         ArgumentValidator.ValidateNotEmpty( "Heap name", heapName );
+   //public sealed class MetaDataColumnDataInformation_HeapIndex : MetaDataColumnDataInformation
+   //{
+   //   public MetaDataColumnDataInformation_HeapIndex(
+   //      String heapName
+   //      )
+   //      : base()
+   //   {
+   //      ArgumentValidator.ValidateNotEmpty( "Heap name", heapName );
 
-         this.HeapName = heapName;
-      }
+   //      this.HeapName = heapName;
+   //   }
 
-      public String HeapName { get; }
+   //   public String HeapName { get; }
 
-      public override MetaDataColumnInformationKind ColumnKind
-      {
-         get
-         {
-            return MetaDataColumnInformationKind.HeapIndex;
-         }
-      }
-   }
+   //   public override MetaDataColumnInformationKind ColumnKind
+   //   {
+   //      get
+   //      {
+   //         return MetaDataColumnInformationKind.HeapIndex;
+   //      }
+   //   }
+   //}
 
-   public sealed class MetaDataColumnDataInformation_DataReference : MetaDataColumnDataInformation
-   {
-      public MetaDataColumnDataInformation_DataReference(
-         )
-         : base()
-      {
+   //public sealed class MetaDataColumnDataInformation_DataReference : MetaDataColumnDataInformation
+   //{
+   //   public MetaDataColumnDataInformation_DataReference(
+   //      )
+   //      : base()
+   //   {
 
-      }
+   //   }
 
-      public override MetaDataColumnInformationKind ColumnKind
-      {
-         get
-         {
-            return MetaDataColumnInformationKind.DataReference;
-         }
-      }
-   }
+   //   public override MetaDataColumnInformationKind ColumnKind
+   //   {
+   //      get
+   //      {
+   //         return MetaDataColumnInformationKind.DataReference;
+   //      }
+   //   }
+   //}
 
-   public enum MetaDataColumnInformationKind
-   {
-      FixedSizeConstant,
-      SimpleTableIndex,
-      CodedTableIndex,
-      HeapIndex,
-      DataReference
-   }
+   //public enum MetaDataColumnInformationKind
+   //{
+   //   FixedSizeConstant,
+   //   SimpleTableIndex,
+   //   CodedTableIndex,
+   //   HeapIndex,
+   //   DataReference
+   //}
 
 }

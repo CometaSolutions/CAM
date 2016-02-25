@@ -93,7 +93,7 @@ namespace CILAssemblyManipulator.Physical
          this.GenericParameterConstraintDefinitions = CreateFixedMDTable<GenericParameterConstraintDefinition>( Tables.GenericParameterConstraint, sizes, infos, ref defaultTableInfos );
 
          this.OpCodeProvider = tableInfoProvider?.CreateOpCodeProvider() ?? DefaultOpCodeProvider.DefaultInstance;
-         this.SignatureProvider = tableInfoProvider?.CreateSignatureProvider() ?? DefaultSignatureProvider.Instance;
+         this.SignatureProvider = tableInfoProvider?.CreateSignatureProvider() ?? DefaultSignatureProvider.DefaultInstance;
          this.ResolvingProvider = ( (CAMPhysicalR::CILAssemblyManipulator.Physical.Meta.CILMetaDataTableInformationProvider) tableInfoProvider )?.CreateResolvingProvider( this ) ?? new CAMPhysicalR::CILAssemblyManipulator.Physical.Meta.DefaultResolvingProvider( this, Empty<Tuple<Tables, CAMPhysicalR::CILAssemblyManipulator.Physical.Meta.MetaDataColumnInformationWithResolvingCapability>>.Enumerable );
       }
 #pragma warning restore 618

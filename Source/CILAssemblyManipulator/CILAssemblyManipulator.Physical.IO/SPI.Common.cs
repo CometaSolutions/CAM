@@ -318,7 +318,9 @@ namespace CILAssemblyManipulator.Physical.IO
    }
 }
 
+#pragma warning disable 1591
 public static partial class E_CILPhysical
+#pragma warning restore 1591
 {
    /// <summary>
    /// Creates an <see cref="IEnumerable{T}"/> to enumerate all the streams of this <see cref="MetaDataStreamContainer{TAbstractStream, TBLOBStream, TGUIDStream, TStringStream}"/>.

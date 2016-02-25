@@ -2151,7 +2151,7 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
       public SectionPartFunctionality_MetaData( Int32 size )
          : base( 0x04, true )
       {
-
+         this._size = size;
       }
 
       /// <summary>

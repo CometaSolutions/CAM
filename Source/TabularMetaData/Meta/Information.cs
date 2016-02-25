@@ -219,13 +219,11 @@ namespace TabularMetaData.Meta
    /// This class encapsulates information about a single column of a single metadata table.
    /// </summary>
    /// <remarks>
-   /// The instances of this class may not be instantiated directly, instead use <see cref="MetaDataColumnInformationForClassesOrStructs{TRow, TValue}"/> or <see cref="MetaDataColumnInformationForNullables{TRow, TValue}"/> classes.
+   /// The instances of this class may not be instantiated directly, instead use <see cref="MetaDataColumnInformation{TRow, TValue}"/>.
    /// </remarks>
    /// <seealso cref="MetaDataTableInformation"/>
    /// <seealso cref="MetaDataColumnInformation{TRow}"/>
    /// <seealso cref="MetaDataColumnInformation{TRow, TValue}"/>
-   /// <seealso cref="MetaDataColumnInformationForClassesOrStructs{TRow, TValue}"/>
-   /// <seealso cref="MetaDataColumnInformationForNullables{TRow, TValue}"/>
    public abstract class MetaDataColumnInformation
    {
       // Disable instatiation of this class from other assemblies.
@@ -269,13 +267,11 @@ namespace TabularMetaData.Meta
    /// </summary>
    /// <typeparam name="TRow">The type of the row this column can be attached to.</typeparam>
    /// <remarks>
-   /// The instances of this class may not be instantiated directly, instead use <see cref="MetaDataColumnInformationForClassesOrStructs{TRow, TValue}"/> or <see cref="MetaDataColumnInformationForNullables{TRow, TValue}"/> classes.
+   /// The instances of this class may not be instantiated directly, instead use <see cref="MetaDataColumnInformation{TRow, TValue}"/>.
    /// </remarks>
    /// <seealso cref="MetaDataTableInformation"/>
    /// <seealso cref="MetaDataColumnInformation{TRow}"/>
    /// <seealso cref="MetaDataColumnInformation{TRow, TValue}"/>
-   /// <seealso cref="MetaDataColumnInformationForClassesOrStructs{TRow, TValue}"/>
-   /// <seealso cref="MetaDataColumnInformationForNullables{TRow, TValue}"/>
    public abstract class MetaDataColumnInformation<TRow> : MetaDataColumnInformation
       where TRow : class
    {
@@ -325,24 +321,44 @@ namespace TabularMetaData.Meta
    }
 
    /// <summary>
-   /// This class further specializes the <see cref="MetaDataColumnInformation{TRow}"/> by constraining the type of the values that the column can hold.
+   /// This class specializes the <see cref="MetaDataColumnInformation{TRow}"/> by constraining the type of the values that the column can hold.
    /// </summary>
    /// <typeparam name="TRow">The type of the row this column can be attached to.</typeparam>
    /// <typeparam name="TValue">The type of the values that the column can hold.</typeparam>
-   /// <remarks>
-   /// The instances of this class may not be instantiated directly, instead use <see cref="MetaDataColumnInformationForClassesOrStructs{TRow, TValue}"/> or <see cref="MetaDataColumnInformationForNullables{TRow, TValue}"/> classes.
-   /// </remarks>
+
    /// <seealso cref="MetaDataTableInformation"/>
    /// <seealso cref="MetaDataColumnInformation{TRow}"/>
    /// <seealso cref="MetaDataColumnInformation{TRow, TValue}"/>
-   /// <seealso cref="MetaDataColumnInformationForClassesOrStructs{TRow, TValue}"/>
-   /// <seealso cref="MetaDataColumnInformationForNullables{TRow, TValue}"/>
-   public abstract class MetaDataColumnInformation<TRow, TValue> : MetaDataColumnInformation<TRow>
+   public class MetaDataColumnInformation<TRow, TValue> : MetaDataColumnInformation<TRow>
       where TRow : class
    {
-      // Disable instatiation of this class from other assemblies.
-      internal MetaDataColumnInformation()
+      private readonly RowColumnGetterDelegate<TRow, TValue> _getter;
+      private readonly RowColumnSetterDelegate<TRow, TValue> _setter;
+      private readonly Boolean _acceptsNulls;
+
+      /// <summary>
+      /// Creates a new instance of <see cref="MetaDataColumnInformation{TRow, TValue}"/> with given callbacks to get and set column value.
+      /// </summary>
+      /// <param name="getter">The callback to get row value.</param>
+      /// <param name="setter">The callback to set row value.</param>
+      /// <seealso cref="RowColumnGetterDelegate{TRow, TValue}"/>
+      /// <seealso cref="RowColumnSetterDelegate{TRow, TValue}"/>
+      public MetaDataColumnInformation(
+         RowColumnGetterDelegate<TRow, TValue> getter,
+         RowColumnSetterDelegate<TRow, TValue> setter
+         )
       {
+         // <remarks>
+         // The instances of this class may not be instantiated directly, instead use <see cref="MetaDataColumnInformationForClassesOrStructs{TRow, TValue}"/> or <see cref="MetaDataColumnInformationForNullables{TRow, TValue}"/> classes.
+         // </remarks>
+
+         ArgumentValidator.ValidateNotNull( "Column value getter", getter );
+         ArgumentValidator.ValidateNotNull( "Column value setter", setter );
+
+         this._getter = getter;
+         this._setter = setter;
+         var type = typeof( TValue );
+         this._acceptsNulls = !type.IsValueType || type.IsNullable();
       }
 
       /// <inheritdoc />
@@ -352,64 +368,6 @@ namespace TabularMetaData.Meta
          {
             return typeof( TValue );
          }
-      }
-   }
-
-   /// <summary>
-   /// This delegate is used by <see cref="MetaDataColumnInformationForClassesOrStructs{TRow, TValue}"/> and by <see cref="MetaDataColumnInformationForNullables{TRow, TValue}"/> to retrieve the column value from a row.
-   /// </summary>
-   /// <typeparam name="TRow">The type of the row.</typeparam>
-   /// <typeparam name="TValue">The type of the column value.</typeparam>
-   /// <param name="row">The row. Guaranteed to be non-<c>null</c>.</param>
-   /// <returns>The row's value corresponding to the column in question.</returns>
-   public delegate TValue RowColumnGetterDelegate<in TRow, out TValue>( TRow row )
-      where TRow : class;
-
-   /// <summary>
-   /// This delegate is used by <see cref="MetaDataColumnInformationForClassesOrStructs{TRow, TValue}"/> and by <see cref="MetaDataColumnInformationForNullables{TRow, TValue}"/> to set the column value of a row.
-   /// </summary>
-   /// <typeparam name="TRow">The type of the row.</typeparam>
-   /// <typeparam name="TValue">The type of the column value.</typeparam>
-   /// <param name="row">The row. Guaranteed to be non-<c>null</c>.</param>
-   /// <param name="value">The value to set.</param>
-   /// <returns><c>true</c> if value passed domain-specific checks, and was set to <paramref name="row"/>; <c>false</c> otherwise.</returns>
-   public delegate Boolean RowColumnSetterDelegate<in TRow, in TValue>( TRow row, TValue value )
-      where TRow : class;
-
-   /// <summary>
-   /// This class implements the <see cref="MetaDataColumnInformation{TRow, TValue}"/> for columns accepting structs or classes.
-   /// If the column value is a nullable type, the <see cref="MetaDataColumnInformationForNullables{TRow, TValue}"/> should be used.
-   /// </summary>
-   /// <typeparam name="TRow">The type of the row this column can be attached to.</typeparam>
-   /// <typeparam name="TValue">The type of the values that the column can hold.</typeparam>
-   /// <seealso cref="MetaDataTableInformation"/>
-   /// <seealso cref="MetaDataColumnInformation{TRow}"/>
-   /// <seealso cref="MetaDataColumnInformation{TRow, TValue}"/>
-   /// <seealso cref="MetaDataColumnInformationForNullables{TRow, TValue}"/>
-   public class MetaDataColumnInformationForClassesOrStructs<TRow, TValue> : MetaDataColumnInformation<TRow, TValue>
-      where TRow : class
-   {
-      private readonly RowColumnGetterDelegate<TRow, TValue> _getter;
-      private readonly RowColumnSetterDelegate<TRow, TValue> _setter;
-
-      /// <summary>
-      /// Creates a new instance of <see cref="MetaDataColumnInformationForClassesOrStructs{TRow, TValue}"/> with given callbacks to get and set column value.
-      /// </summary>
-      /// <param name="getter">The callback to get row value.</param>
-      /// <param name="setter">The callback to set row value.</param>
-      /// <seealso cref="RowColumnGetterDelegate{TRow, TValue}"/>
-      /// <seealso cref="RowColumnSetterDelegate{TRow, TValue}"/>
-      public MetaDataColumnInformationForClassesOrStructs(
-         RowColumnGetterDelegate<TRow, TValue> getter,
-         RowColumnSetterDelegate<TRow, TValue> setter
-         )
-      {
-         ArgumentValidator.ValidateNotNull( "Column value getter", getter );
-         ArgumentValidator.ValidateNotNull( "Column value setter", setter );
-
-         this._getter = getter;
-         this._setter = setter;
-
       }
 
       /// <inheritdoc />
@@ -423,78 +381,155 @@ namespace TabularMetaData.Meta
       public sealed override Boolean Setter( TRow row, Object value )
       {
          // TODO maybe do specific class for structs? Is 'is' operator a lot faster when it is known at compile-time that it is struct?
-         return row != null && value is TValue && this._setter( row, (TValue) value );
+         return row != null
+            && ( ( this._acceptsNulls && value == null ) || value is TValue )
+            && this._setter( row, (TValue) value );
       }
    }
 
    /// <summary>
-   /// This class implements the <see cref="MetaDataColumnInformation{TRow, TValue}"/> for columns accepting nullable types.
-   /// If the column value is not a nullable type, the <see cref="MetaDataColumnInformationForClassesOrStructs{TRow, TValue}"/> should be used.
+   /// This delegate is used by <see cref="MetaDataColumnInformation{TRow, TValue}"/> to retrieve the column value from a row.
    /// </summary>
-   /// <typeparam name="TRow">The type of the row this column can be attached to.</typeparam>
-   /// <typeparam name="TValue">The nullable type of the values that the column can hold. E.g. if column holds value <c>Int32?</c>, this should be <c>Int32</c>.</typeparam>
-   /// <seealso cref="MetaDataTableInformation"/>
-   /// <seealso cref="MetaDataColumnInformation{TRow}"/>
-   /// <seealso cref="MetaDataColumnInformation{TRow, TValue}"/>
-   /// <seealso cref="MetaDataColumnInformationForClassesOrStructs{TRow, TValue}"/>
-   public class MetaDataColumnInformationForNullables<TRow, TValue> : MetaDataColumnInformation<TRow, TValue?>
-      where TRow : class
-      where TValue : struct
-   {
+   /// <typeparam name="TRow">The type of the row.</typeparam>
+   /// <typeparam name="TValue">The type of the column value.</typeparam>
+   /// <param name="row">The row. Guaranteed to be non-<c>null</c>.</param>
+   /// <returns>The row's value corresponding to the column in question.</returns>
+   public delegate TValue RowColumnGetterDelegate<in TRow, out TValue>( TRow row )
+      where TRow : class;
 
-      private readonly RowColumnGetterDelegate<TRow, TValue?> _getter;
-      private readonly RowColumnSetterDelegate<TRow, TValue?> _setter;
+   /// <summary>
+   /// This delegate is used by <see cref="MetaDataColumnInformation{TRow, TValue}"/> to set the column value of a row.
+   /// </summary>
+   /// <typeparam name="TRow">The type of the row.</typeparam>
+   /// <typeparam name="TValue">The type of the column value.</typeparam>
+   /// <param name="row">The row. Guaranteed to be non-<c>null</c>.</param>
+   /// <param name="value">The value to set.</param>
+   /// <returns><c>true</c> if value passed domain-specific checks, and was set to <paramref name="row"/>; <c>false</c> otherwise.</returns>
+   public delegate Boolean RowColumnSetterDelegate<in TRow, in TValue>( TRow row, TValue value )
+      where TRow : class;
 
-      /// <summary>
-      /// Creates a new instance of <see cref="MetaDataColumnInformationForNullables{TRow, TValue}"/> with given callbacks to get and set column value.
-      /// </summary>
-      /// <param name="getter">The callback to get row value.</param>
-      /// <param name="setter">The callback to set row value.</param>
-      /// <seealso cref="RowColumnGetterDelegate{TRow, TValue}"/>
-      /// <seealso cref="RowColumnSetterDelegate{TRow, TValue}"/>
-      public MetaDataColumnInformationForNullables(
-         RowColumnGetterDelegate<TRow, TValue?> getter,
-         RowColumnSetterDelegate<TRow, TValue?> setter
-         )
-      {
-         ArgumentValidator.ValidateNotNull( "Column value getter", getter );
-         ArgumentValidator.ValidateNotNull( "Column value setter", setter );
+   ///// <summary>
+   ///// This class implements the <see cref="MetaDataColumnInformation{TRow, TValue}"/> for columns accepting structs or classes.
+   ///// If the column value is a nullable type, the <see cref="MetaDataColumnInformationForNullables{TRow, TValue}"/> should be used.
+   ///// </summary>
+   ///// <typeparam name="TRow">The type of the row this column can be attached to.</typeparam>
+   ///// <typeparam name="TValue">The type of the values that the column can hold.</typeparam>
+   ///// <seealso cref="MetaDataTableInformation"/>
+   ///// <seealso cref="MetaDataColumnInformation{TRow}"/>
+   ///// <seealso cref="MetaDataColumnInformation{TRow, TValue}"/>
+   ///// <seealso cref="MetaDataColumnInformationForNullables{TRow, TValue}"/>
+   //public class MetaDataColumnInformationForClassesOrStructs<TRow, TValue> : MetaDataColumnInformation<TRow, TValue>
+   //   where TRow : class
+   //{
+   //   private readonly RowColumnGetterDelegate<TRow, TValue> _getter;
+   //   private readonly RowColumnSetterDelegate<TRow, TValue> _setter;
+   //   private readonly Boolean _acceptsNulls;
 
-         this._getter = getter;
-         this._setter = setter;
-      }
+   //   /// <summary>
+   //   /// Creates a new instance of <see cref="MetaDataColumnInformationForClassesOrStructs{TRow, TValue}"/> with given callbacks to get and set column value.
+   //   /// </summary>
+   //   /// <param name="getter">The callback to get row value.</param>
+   //   /// <param name="setter">The callback to set row value.</param>
+   //   /// <seealso cref="RowColumnGetterDelegate{TRow, TValue}"/>
+   //   /// <seealso cref="RowColumnSetterDelegate{TRow, TValue}"/>
+   //   public MetaDataColumnInformationForClassesOrStructs(
+   //      RowColumnGetterDelegate<TRow, TValue> getter,
+   //      RowColumnSetterDelegate<TRow, TValue> setter
+   //      )
+   //   {
+   //      ArgumentValidator.ValidateNotNull( "Column value getter", getter );
+   //      ArgumentValidator.ValidateNotNull( "Column value setter", setter );
 
-      /// <inheritdoc />
-      public sealed override Object Getter( TRow row, out Boolean success )
-      {
-         success = row != null;
-         return success ? (Object) this._getter( row ) : null;
-      }
+   //      this._getter = getter;
+   //      this._setter = setter;
+   //      this._acceptsNulls = typeof( TValue ).IsValueType;
+   //   }
 
-      /// <inheritdoc />
-      public sealed override Boolean Setter( TRow row, Object value )
-      {
-         var success = row != null;
-         if ( success )
-         {
-            // Boxed nulls will show up as normal nulls
-            if ( value == null )
-            {
-               this._setter( row, null );
-            }
-            // Otherwise, this is not null, and "is X" returns true when something is of type X? ( https://msdn.microsoft.com/en-us/library/ms366789.aspx )
-            else if ( value is TValue )
-            {
-               this._setter( row, (TValue) value );
-            }
-            // Otherwise, this is of wrong type
-            else
-            {
-               success = false;
-            }
-         }
+   //   /// <inheritdoc />
+   //   public sealed override Object Getter( TRow row, out Boolean success )
+   //   {
+   //      success = row != null;
+   //      return success ? (Object) this._getter( row ) : null;
+   //   }
 
-         return success;
-      }
-   }
+   //   /// <inheritdoc />
+   //   public sealed override Boolean Setter( TRow row, Object value )
+   //   {
+   //      // TODO maybe do specific class for structs? Is 'is' operator a lot faster when it is known at compile-time that it is struct?
+   //      return row != null
+   //         && ((this._acceptsNulls && value == null) || value is TValue )
+   //         && this._setter( row, (TValue) value );
+   //   }
+   //}
+
+   ///// <summary>
+   ///// This class implements the <see cref="MetaDataColumnInformation{TRow, TValue}"/> for columns accepting nullable types.
+   ///// If the column value is not a nullable type, the <see cref="MetaDataColumnInformationForClassesOrStructs{TRow, TValue}"/> should be used.
+   ///// </summary>
+   ///// <typeparam name="TRow">The type of the row this column can be attached to.</typeparam>
+   ///// <typeparam name="TValue">The nullable type of the values that the column can hold. E.g. if column holds value <c>Int32?</c>, this should be <c>Int32</c>.</typeparam>
+   ///// <seealso cref="MetaDataTableInformation"/>
+   ///// <seealso cref="MetaDataColumnInformation{TRow}"/>
+   ///// <seealso cref="MetaDataColumnInformation{TRow, TValue}"/>
+   ///// <seealso cref="MetaDataColumnInformationForClassesOrStructs{TRow, TValue}"/>
+   //public class MetaDataColumnInformationForNullables<TRow, TValue> : MetaDataColumnInformation<TRow, TValue?>
+   //   where TRow : class
+   //   where TValue : struct
+   //{
+
+   //   private readonly RowColumnGetterDelegate<TRow, TValue?> _getter;
+   //   private readonly RowColumnSetterDelegate<TRow, TValue?> _setter;
+
+   //   /// <summary>
+   //   /// Creates a new instance of <see cref="MetaDataColumnInformationForNullables{TRow, TValue}"/> with given callbacks to get and set column value.
+   //   /// </summary>
+   //   /// <param name="getter">The callback to get row value.</param>
+   //   /// <param name="setter">The callback to set row value.</param>
+   //   /// <seealso cref="RowColumnGetterDelegate{TRow, TValue}"/>
+   //   /// <seealso cref="RowColumnSetterDelegate{TRow, TValue}"/>
+   //   public MetaDataColumnInformationForNullables(
+   //      RowColumnGetterDelegate<TRow, TValue?> getter,
+   //      RowColumnSetterDelegate<TRow, TValue?> setter
+   //      )
+   //   {
+   //      ArgumentValidator.ValidateNotNull( "Column value getter", getter );
+   //      ArgumentValidator.ValidateNotNull( "Column value setter", setter );
+
+   //      this._getter = getter;
+   //      this._setter = setter;
+   //   }
+
+   //   /// <inheritdoc />
+   //   public sealed override Object Getter( TRow row, out Boolean success )
+   //   {
+   //      success = row != null;
+   //      return success ? (Object) this._getter( row ) : null;
+   //   }
+
+   //   /// <inheritdoc />
+   //   public sealed override Boolean Setter( TRow row, Object value )
+   //   {
+   //      var success = row != null;
+   //      if ( success )
+   //      {
+   //         // Boxed nulls will show up as normal nulls
+   //         if ( value == null )
+   //         {
+   //            this._setter( row, null );
+   //         }
+   //         // Otherwise, this is not null, and "is X" returns true when something is of type X? ( https://msdn.microsoft.com/en-us/library/ms366789.aspx )
+   //         else if ( value is TValue )
+   //         {
+   //            this._setter( row, (TValue) value );
+   //         }
+   //         // Otherwise, this is of wrong type
+   //         else
+   //         {
+   //            success = false;
+   //         }
+   //      }
+
+   //      return success;
+   //   }
+   //}
 }

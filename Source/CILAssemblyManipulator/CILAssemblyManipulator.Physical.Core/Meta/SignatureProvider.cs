@@ -59,11 +59,11 @@ namespace CILAssemblyManipulator.Physical.Meta
       /// Gets the default instance of <see cref="DefaultSignatureProvider"/>.
       /// It has support for simple type signatures returned by <see cref="GetDefaultSimpleTypeSignatures"/> method, and custom attribute simple types returned by <see cref="GetDefaultSimpleCATypes"/> method.
       /// </summary>
-      public static SignatureProvider Instance { get; }
+      public static SignatureProvider DefaultInstance { get; }
 
       static DefaultSignatureProvider()
       {
-         Instance = new DefaultSignatureProvider();
+         DefaultInstance = new DefaultSignatureProvider();
       }
 
       private readonly IDictionary<SimpleTypeSignatureKind, SimpleTypeSignature> _simpleTypeSignatures;
