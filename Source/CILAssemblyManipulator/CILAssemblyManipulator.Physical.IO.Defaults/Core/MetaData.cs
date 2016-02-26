@@ -21,6 +21,8 @@ using CAMPhysical;
 using CAMPhysical::CILAssemblyManipulator.Physical;
 using CAMPhysical::CILAssemblyManipulator.Physical.Meta;
 
+using CAMPhysicalR;
+
 using CILAssemblyManipulator.Physical;
 using CILAssemblyManipulator.Physical.Meta;
 using CommonUtils;
@@ -39,11 +41,11 @@ namespace CILAssemblyManipulator.Physical
 #pragma warning disable 618
 
       internal CILMetadataImpl(
-         CILMetaDataTableInformationProvider tableInfoProvider,
+         MetaDataTableInformationProvider tableInfoProvider,
          Int32[] sizes,
          out MetaDataTableInformation[] infos
          )
-         : base( tableInfoProvider ?? DefaultMetaDataTableInformationProvider.CreateDefault(), DefaultMetaDataTableInformationProvider.AMOUNT_OF_FIXED_TABLES, sizes, out infos )
+         : base( tableInfoProvider ?? CILMetaDataTableInformationProviderFactory.CreateDefault(), CILMetaDataTableInformationProviderFactory.AMOUNT_OF_FIXED_TABLES, sizes, out infos )
       {
          MetaDataTableInformation[] defaultTableInfos = null;
          this.ModuleDefinitions = CreateFixedMDTable<ModuleDefinition>( Tables.Module, sizes, infos, ref defaultTableInfos );
@@ -94,7 +96,7 @@ namespace CILAssemblyManipulator.Physical
 
          this.OpCodeProvider = tableInfoProvider?.CreateOpCodeProvider() ?? DefaultOpCodeProvider.DefaultInstance;
          this.SignatureProvider = tableInfoProvider?.CreateSignatureProvider() ?? DefaultSignatureProvider.DefaultInstance;
-         this.ResolvingProvider = ( (CAMPhysicalR::CILAssemblyManipulator.Physical.Meta.CILMetaDataTableInformationProvider) tableInfoProvider )?.CreateResolvingProvider( this ) ?? new CAMPhysicalR::CILAssemblyManipulator.Physical.Meta.DefaultResolvingProvider( this, Empty<Tuple<Tables, CAMPhysicalR::CILAssemblyManipulator.Physical.Meta.MetaDataColumnInformationWithResolvingCapability>>.Enumerable );
+         this.ResolvingProvider = tableInfoProvider?.CreateResolvingProvider( this ) ?? new CAMPhysicalR::CILAssemblyManipulator.Physical.Meta.DefaultResolvingProvider( this, Empty<Tuple<Tables, CAMPhysicalR::CILAssemblyManipulator.Physical.Meta.MetaDataColumnInformationWithResolvingCapability>>.Enumerable );
       }
 #pragma warning restore 618
 
@@ -410,7 +412,7 @@ namespace CILAssemblyManipulator.Physical
             sizes,
             infos,
             ref defaultInfos,
-            DefaultMetaDataTableInformationProvider.CreateDefault
+            CILMetaDataTableInformationProviderFactory.CreateDefault
             );
       }
    }
@@ -426,10 +428,10 @@ namespace CILAssemblyManipulator.Physical
       /// All of its tables will be empty.
       /// </summary>
       /// <param name="sizes">The optional initial size array for tables. The element at <c>0</c> (which is value of <see cref="Tables.Module"/>) will be the initial capacity for <see cref="CILMetaData.ModuleDefinitions"/> table, and so on.</param>
-      /// <param name="tableInfoProvider">The optional <see cref="CILMetaDataTableInformationProvider"/> to customize the tables that resulting <see cref="CILMetaData"/> will have.</param>
+      /// <param name="tableInfoProvider">The optional <see cref="MetaDataTableInformationProvider"/> to customize the tables that resulting <see cref="CILMetaData"/> will have.</param>
       /// <returns>The <see cref="CILMetaData"/> with empty tables.</returns>
       /// <exception cref="FixedTableCreationException">If <paramref name="tableInfoProvider"/> is not <c>null</c>, and returns fixed table with wrong row type.</exception>
-      public static CILMetaData NewBlankMetaData( Int32[] sizes = null, CILMetaDataTableInformationProvider tableInfoProvider = null )
+      public static CILMetaData NewBlankMetaData( Int32[] sizes = null, MetaDataTableInformationProvider tableInfoProvider = null )
       {
          MetaDataTableInformation[] infos;
          return new CILMetadataImpl( tableInfoProvider, sizes, out infos );
@@ -443,10 +445,10 @@ namespace CILAssemblyManipulator.Physical
       /// <param name="assemblyName">The name of the assembly.</param>
       /// <param name="moduleName">The name of the module, may be <c>null</c>. In that case, the name of <see cref="ModuleDefinition"/> will be <paramref name="assemblyName"/> concatenated with <c>.dll</c>.</param>
       /// <param name="createModuleType">Whether to create a module type, used to hold the "global" elements.</param>
-      /// <param name="tableInfoProvider">The optional <see cref="CILMetaDataTableInformationProvider"/> to customize the tables that resulting <see cref="CILMetaData"/> will have.</param>
+      /// <param name="tableInfoProvider">The optional <see cref="MetaDataTableInformationProvider"/> to customize the tables that resulting <see cref="CILMetaData"/> will have.</param>
       /// <returns>The <see cref="CILMetaData"/> with required information to be count as an assembly.</returns>
       /// <exception cref="FixedTableCreationException">If <paramref name="tableInfoProvider"/> is not <c>null</c>, and returns fixed table with wrong row type.</exception>
-      public static CILMetaData CreateMinimalAssembly( String assemblyName, String moduleName, Boolean createModuleType = true, CILMetaDataTableInformationProvider tableInfoProvider = null )
+      public static CILMetaData CreateMinimalAssembly( String assemblyName, String moduleName, Boolean createModuleType = true, MetaDataTableInformationProvider tableInfoProvider = null )
       {
          if ( !String.IsNullOrEmpty( assemblyName ) && String.IsNullOrEmpty( moduleName ) )
          {
@@ -468,10 +470,10 @@ namespace CILAssemblyManipulator.Physical
       /// </summary>
       /// <param name="moduleName">The name of the module.</param>
       /// <param name="createModuleType">Whether to create a module type, used to hold the "global" elements.</param>
-      /// <param name="tableInfoProvider">The optional <see cref="CILMetaDataTableInformationProvider"/> to customize the tables that resulting <see cref="CILMetaData"/> will have.</param>
+      /// <param name="tableInfoProvider">The optional <see cref="MetaDataTableInformationProvider"/> to customize the tables that resulting <see cref="CILMetaData"/> will have.</param>
       /// <returns>The <see cref="CILMetaData"/> with required information to be count as a module.</returns>
       /// <exception cref="FixedTableCreationException">If <paramref name="tableInfoProvider"/> is not <c>null</c>, and returns fixed table with wrong row type.</exception>
-      public static CILMetaData CreateMinimalModule( String moduleName, Boolean createModuleType = true, CILMetaDataTableInformationProvider tableInfoProvider = null )
+      public static CILMetaData CreateMinimalModule( String moduleName, Boolean createModuleType = true, MetaDataTableInformationProvider tableInfoProvider = null )
       {
          var md = CILMetaDataFactory.NewBlankMetaData( tableInfoProvider: tableInfoProvider );
 

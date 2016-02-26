@@ -48,14 +48,14 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
       /// This method implements <see cref="ReaderFunctionalityProvider.GetFunctionality"/>, and will return <see cref="DefaultReaderFunctionality"/>.
       /// </summary>
       /// <param name="stream">The <see cref="Stream"/>.</param>
-      /// <param name="mdTableInfoProvider">The <see cref="CILMetaDataTableInformationProvider"/>.</param>
+      /// <param name="mdTableInfoProvider">The <see cref="MetaDataTableInformationProvider"/>.</param>
       /// <param name="errorHandler">The error handler callback.</param>
       /// <param name="deserializingDataReferences">Whether data references are deserialized.</param>
       /// <param name="newStream">This parameter will hold a new <see cref="MemoryStream"/> if <paramref name="stream"/> is not already a <see cref="MemoryStream"/>, and <paramref name="deserializingDataReferences"/> is <c>true</c>. Otherwise, this will be <c>null</c>.</param>
       /// <returns>A new instance of <see cref="DefaultReaderFunctionality"/>.</returns>
       public virtual ReaderFunctionality GetFunctionality(
          Stream stream,
-         CILMetaDataTableInformationProvider mdTableInfoProvider,
+         MetaDataTableInformationProvider mdTableInfoProvider,
          EventHandler<SerializationErrorEventArgs> errorHandler,
          Boolean deserializingDataReferences,
          out Stream newStream
@@ -91,17 +91,17 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
    {
 
       /// <summary>
-      /// Creates a new instance of <see cref="DefaultReaderFunctionality"/> with given <see cref="TableSerializationLogicalFunctionalityCreationArgs"/> and optional <see cref="CILMetaDataTableInformationProvider"/>.
+      /// Creates a new instance of <see cref="DefaultReaderFunctionality"/> with given <see cref="TableSerializationLogicalFunctionalityCreationArgs"/> and optional <see cref="MetaDataTableInformationProvider"/>.
       /// </summary>
       /// <param name="serializationCreationArgs">The <see cref="TableSerializationLogicalFunctionalityCreationArgs"/> for table stream.</param>
-      /// <param name="tableInfoProvider">The optional <see cref="CILMetaDataTableInformationProvider"/>. If not supplied, the result of <see cref="DefaultMetaDataTableInformationProvider.CreateDefault"/> will be used.</param>
+      /// <param name="tableInfoProvider">The optional <see cref="MetaDataTableInformationProvider"/>. If not supplied, the result of <see cref="CILMetaDataTableInformationProviderFactory.CreateDefault"/> will be used.</param>
       public DefaultReaderFunctionality(
          TableSerializationLogicalFunctionalityCreationArgs serializationCreationArgs,
-         CILMetaDataTableInformationProvider tableInfoProvider = null
+         MetaDataTableInformationProvider tableInfoProvider = null
          )
       {
          this.SerializationCreationArgs = serializationCreationArgs;
-         this.TableInfoProvider = tableInfoProvider ?? DefaultMetaDataTableInformationProvider.CreateDefault();
+         this.TableInfoProvider = tableInfoProvider ?? CILMetaDataTableInformationProviderFactory.CreateDefault();
       }
 
       /// <inheritdoc />
@@ -255,10 +255,10 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
 
 
       /// <summary>
-      /// Gets the <see cref="CILMetaDataTableInformationProvider"/> given to this <see cref="DefaultReaderFunctionality"/>.
+      /// Gets the <see cref="MetaDataTableInformationProvider"/> given to this <see cref="DefaultReaderFunctionality"/>.
       /// </summary>
-      /// <value>The <see cref="CILMetaDataTableInformationProvider"/> given to this <see cref="DefaultReaderFunctionality"/>.</value>
-      protected CILMetaDataTableInformationProvider TableInfoProvider { get; }
+      /// <value>The <see cref="MetaDataTableInformationProvider"/> given to this <see cref="DefaultReaderFunctionality"/>.</value>
+      protected MetaDataTableInformationProvider TableInfoProvider { get; }
 
       /// <summary>
       /// Gets the <see cref="TableSerializationLogicalFunctionalityCreationArgs"/> passed to this <see cref="DefaultReaderFunctionality"/>.
@@ -358,7 +358,7 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
 
    /// <summary>
    /// This class provides default implementation for <see cref="ReaderTableStreamHandler"/>.
-   /// It will use the <see cref="MetaDataTableInformationWithSerializationCapability.CreateTableSerializationInfoNotGeneric"/> to create <see cref="TableSerializationLogicalFunctionality"/> for each table.
+   /// It will use the <see cref="MetaDataTableInformationWithSerializationCapability.CreateTableSerializationInfo"/> to create <see cref="TableSerializationLogicalFunctionality"/> for each table.
    /// These <see cref="TableSerializationLogicalFunctionality"/> objects will be used by this class to deserialize values for rows of tables of <see cref="CILMetaData"/>.
    /// </summary>
    /// <seealso cref="ReaderTableStreamHandler"/>
@@ -372,7 +372,7 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
       /// <param name="startPosition">Position in <paramref name="stream"/>, where this table stream starts.</param>
       /// <param name="streamSize">The size of this table stream, in bytes.</param>
       /// <param name="tableStreamName">The name of this table stream.</param>
-      /// <param name="tableInfoProvider">The <see cref="CILMetaDataTableInformationProvider"/> to use when creating <see cref="TableSerializationLogicalFunctionality"/>s.</param>
+      /// <param name="tableInfoProvider">The <see cref="MetaDataTableInformationProvider"/> to use when creating <see cref="TableSerializationLogicalFunctionality"/>s.</param>
       /// <param name="serializationCreationArgs">The <see cref="TableSerializationLogicalFunctionalityCreationArgs"/> to use when creating <see cref="TableSerializationLogicalFunctionality"/>s.</param>
       /// <param name="mdRoot">The <see cref="MetaDataRoot"/> holding information about the other streams, used when calculating the size of single table row, in bytes.</param>
       /// <exception cref="ArgumentNullException">If <paramref name="stream"/> or <paramref name="tableInfoProvider"/> is <c>null</c>.</exception>
@@ -381,7 +381,7 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
          Int64 startPosition,
          Int32 streamSize,
          String tableStreamName,
-         CILMetaDataTableInformationProvider tableInfoProvider,
+         MetaDataTableInformationProvider tableInfoProvider,
          TableSerializationLogicalFunctionalityCreationArgs serializationCreationArgs,
          MetaDataRoot mdRoot
          )

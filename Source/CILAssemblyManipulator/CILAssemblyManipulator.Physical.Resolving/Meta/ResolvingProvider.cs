@@ -29,13 +29,27 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using TabularMetaData;
+using TabularMetaData.Meta;
 
 namespace CILAssemblyManipulator.Physical.Meta
 {
-#pragma warning disable 1591
-   public interface CILMetaDataTableInformationProvider
+   /// <summary>
+   /// This class provides creation of <see cref="ResolvingProvider"/> through a callback.
+   /// </summary>
+   public sealed class ResolvingProviderProvider
    {
-#pragma warning restore 1591
+      private readonly Func<CAMPhysical::CILAssemblyManipulator.Physical.CILMetaData, ResolvingProvider> _callback;
+
+      /// <summary>
+      /// Creates a new instance of <see cref="ResolvingProviderProvider"/> with given callback.
+      /// </summary>
+      /// <param name="callback">The callback to create <see cref="ResolvingProvider"/>.</param>
+      public ResolvingProviderProvider( Func<CAMPhysical::CILAssemblyManipulator.Physical.CILMetaData, ResolvingProvider> callback )
+      {
+         ArgumentValidator.ValidateNotNull( "Callback", callback );
+
+         this._callback = callback;
+      }
 
       /// <summary>
       /// Creates a new <see cref="ResolvingProvider"/> for a given <see cref="CILMetaData"/>.
@@ -45,8 +59,10 @@ namespace CILAssemblyManipulator.Physical.Meta
       /// <remarks>
       /// The returned <see cref="ResolvingProvider"/> will be accessible via <see cref="CILMetaData.ResolvingProvider"/> property.
       /// </remarks>
-      ResolvingProvider CreateResolvingProvider( CAMPhysical::CILAssemblyManipulator.Physical.CILMetaData thisMD );
-
+      public ResolvingProvider CreateResolvingProvider( CAMPhysical::CILAssemblyManipulator.Physical.CILMetaData thisMD )
+      {
+         return this._callback( thisMD );
+      }
    }
 
    /// <summary>
@@ -350,5 +366,17 @@ public static partial class E_CILPhysical
       return md.TryGetTargetFrameworkInformation( out retVal ) ?
          retVal :
          null;
+   }
+
+   /// <summary>
+   /// Gets or creates a new <see cref="ResolvingProvider"/>.
+   /// </summary>
+   /// <param name="provider">The <see cref="MetaDataTableInformationProvider"/>.</param>
+   /// <param name="md">The <see cref="CILMetaData"/>.</param>
+   /// <returns>A <see cref="ResolvingProvider"/> supported by this <see cref="MetaDataTableInformationProvider"/>.</returns>
+   /// <seealso cref="ResolvingProvider"/>
+   public static ResolvingProvider CreateResolvingProvider( this MetaDataTableInformationProvider provider, CAMPhysical::CILAssemblyManipulator.Physical.CILMetaData md )
+   {
+      return provider.GetFunctionality<ResolvingProviderProvider>()?.CreateResolvingProvider( md );
    }
 }

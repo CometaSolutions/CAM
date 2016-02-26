@@ -146,12 +146,12 @@ namespace CILAssemblyManipulator.Physical.IO
       public ReaderFunctionalityProvider ReaderFunctionalityProvider { get; set; }
 
       /// <summary>
-      /// Gets or sets the <see cref="CILMetaDataTableInformationProvider"/> to be used when creating a new instance of <see cref="CILMetaData"/> via <see cref="M:CILAssemblyManipulator.Physical.CILMetaDataFactory.NewBlankMetaData(System.Int32[],CILAssemblyManipulator.Physical.Meta.CILMetaDataTableInformationProvider)"/> method.
+      /// Gets or sets the <see cref="MetaDataTableInformationProvider"/> to be used when creating a new instance of <see cref="CILMetaData"/> via <see cref="M:CILAssemblyManipulator.Physical.CILMetaDataFactory.NewBlankMetaData(System.Int32[],TabularMetaData.Meta.CILMetaDataTableInformationProvider)"/> method.
       /// </summary>
-      /// <value>The <see cref="CILMetaDataTableInformationProvider"/> to be used when creating a new instance of <see cref="CILMetaData"/> via <see cref="M:CILAssemblyManipulator.Physical.CILMetaDataFactory.NewBlankMetaData(System.Int32[],CILAssemblyManipulator.Physical.Meta.CILMetaDataTableInformationProvider)"/> method.</value>
-      /// <seealso cref="CILMetaDataTableInformationProvider"/>
-      /// <seealso cref="M:CILAssemblyManipulator.Physical.CILMetaDataFactory.NewBlankMetaData(System.Int32[],CILAssemblyManipulator.Physical.Meta.CILMetaDataTableInformationProvider)"/>
-      public CILMetaDataTableInformationProvider TableInformationProvider { get; set; }
+      /// <value>The <see cref="MetaDataTableInformationProvider"/> to be used when creating a new instance of <see cref="CILMetaData"/> via <see cref="M:CILAssemblyManipulator.Physical.CILMetaDataFactory.NewBlankMetaData(System.Int32[],TabularMetaData.Meta.CILMetaDataTableInformationProvider)"/> method.</value>
+      /// <seealso cref="MetaDataTableInformationProvider"/>
+      /// <seealso cref="M:CILAssemblyManipulator.Physical.CILMetaDataFactory.NewBlankMetaData(System.Int32[],TabularMetaData.Meta.MetaDataTableInformationProvider)"/>
+      public MetaDataTableInformationProvider TableInformationProvider { get; set; }
 
       /// <summary>
       /// Gets or sets the value on how to behave on reading the data outside the metadata PE directory.

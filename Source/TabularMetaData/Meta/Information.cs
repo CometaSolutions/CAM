@@ -27,16 +27,147 @@ using TabularMetaData.Meta;
 namespace TabularMetaData.Meta
 {
    /// <summary>
-   /// This interface is used to create <see cref="MetaDataTableInformation"/>s when creating new <see cref="TabularMetaDataWithSchema"/>s.
+   /// This is common interface for objects providing extensionability through composition (instead of inheritance).
    /// </summary>
-   public interface MetaDataTableInformationProvider
+   /// <typeparam name="TFunctionality">The base type for all extensions that this type supports.</typeparam>
+   public interface ExtensionByCompositionProvider<TFunctionality>
+      where TFunctionality : class
    {
+      /// <summary>
+      /// Registers a certain type of functionality for this <see cref="ExtensionByCompositionProvider{TFunctionality}"/>, with lazy initialization of functionality.
+      /// </summary>
+      /// <typeparam name="TThisFunctionality">The type of the functionality.</typeparam>
+      /// <param name="functionality">The callback to create an instance of functionality.</param>
+      /// <returns><c>true</c> if <paramref name="functionality"/> was not <c>null</c> and registered; <c>false</c> otherwise.</returns>
+      Boolean RegisterFunctionality<TThisFunctionality>( Func<TThisFunctionality> functionality )
+         where TThisFunctionality : class, TFunctionality;
+
+      /// <summary>
+      /// Gets all the functionalities for this <see cref="MetaDataColumnInformation"/>.
+      /// </summary>
+      /// <value>All the functionalities for this <see cref="MetaDataColumnInformation"/>.</value>
+      DictionaryQuery<Type, Lazy<TFunctionality>> Functionalities { get; }
+   }
+
+   /// <summary>
+   /// This class provides default implementation of <see cref="ExtensionByCompositionProvider{TFunctionality}"/>.
+   /// </summary>
+   /// <typeparam name="TFunctionality">The base type for all functionalities.</typeparam>
+   public class DefaultExtensionByCompositionProvider<TFunctionality> : ExtensionByCompositionProvider<TFunctionality>
+      where TFunctionality : class
+   {
+      private readonly DictionaryProxy<Type, Lazy<TFunctionality>> _functionalities;
+
+      /// <summary>
+      /// Creates a new instance of <see cref="DefaultExtensionByCompositionProvider{TFunctionality}"/>.
+      /// </summary>
+      public DefaultExtensionByCompositionProvider()
+      {
+         this._functionalities = new Dictionary<Type, Lazy<TFunctionality>>().ToDictionaryProxy();
+      }
+
+      /// <inheritdoc />
+      public DictionaryQuery<Type, Lazy<TFunctionality>> Functionalities
+      {
+         get
+         {
+            return this._functionalities.CQ;
+         }
+      }
+
+      /// <inheritdoc />
+      public Boolean RegisterFunctionality<TThisFunctionality>( Func<TThisFunctionality> functionality )
+          where TThisFunctionality : class, TFunctionality
+      {
+         var retVal = functionality != null;
+         if ( retVal )
+         {
+            this._functionalities[typeof( TThisFunctionality )] = new Lazy<TFunctionality>( () => functionality(), System.Threading.LazyThreadSafetyMode.ExecutionAndPublication );
+         }
+         return retVal;
+      }
+   }
+
+   /// <summary>
+   /// This class is used to obtain <see cref="MetaDataTableInformation"/>s when creating new <see cref="TabularMetaDataWithSchema"/>s.
+   /// </summary>
+   public abstract class MetaDataTableInformationProvider : DefaultExtensionByCompositionProvider<Object>
+   {
+      /// <summary>
+      /// Creates a new instance of <see cref="MetaDataTableInformationProvider"/>.
+      /// </summary>
+      protected MetaDataTableInformationProvider()
+      {
+
+      }
+
+
       /// <summary>
       /// This method is used to obtain all <see cref="MetaDataTableInformation"/> instances that will indicate the present tables in <see cref="TabularMetaDataWithSchema"/>.
       /// Any <c>null</c> values will be filtered out.
       /// </summary>
       /// <returns>The <see cref="MetaDataTableInformation"/> instances. The order does not matter.</returns>
-      IEnumerable<MetaDataTableInformation> GetAllSupportedTableInformations();
+      public IEnumerable<MetaDataTableInformation> GetAllSupportedTableInformations()
+      {
+         foreach ( var tableInfo in this.GetTableInfos() )
+         {
+            if ( tableInfo != null )
+            {
+               yield return tableInfo;
+            }
+         }
+      }
+
+      /// <summary>
+      /// Subclasses should implement this method to return direct instance of the enumerable of <see cref="MetaDataTableInformation"/>s.
+      /// </summary>
+      /// <returns>The direct instance of the enumerable of <see cref="MetaDataTableInformation"/>s.</returns>
+      protected abstract IEnumerable<MetaDataTableInformation> GetTableInfos();
+   }
+
+   /// <summary>
+   /// This class specializes <see cref="MetaDataTableInformationProvider"/> by storing all <see cref="MetaDataTableInformation"/>s into array, with their <see cref="MetaDataTableInformation.TableIndex"/> as array index.
+   /// This works in situations when the max value of <see cref="MetaDataTableInformation.TableIndex"/> is relatively small, e.g. when it is really a byte or some other small integer.
+   /// </summary>
+   public sealed class MetaDataTableInformationProviderWithArray : MetaDataTableInformationProvider
+   {
+
+
+      /// <summary>
+      /// Creates a new instance of <see cref="MetaDataTableInformationProviderWithArray"/> with given <see cref="MetaDataTableInformation"/>s.
+      /// </summary>
+      /// <param name="tableInfos">The optional table informations.</param>
+      /// <param name="arraySize">The array size.</param>
+      public MetaDataTableInformationProviderWithArray(
+         IEnumerable<MetaDataTableInformation> tableInfos,
+         Int32 arraySize
+         )
+      {
+         ArgumentValidator.ValidateNotNull( "Table informations", tableInfos );
+         var infos = new MetaDataTableInformation[arraySize];
+         foreach ( var tableInfo in tableInfos.Where( ti => ti != null ) )
+         {
+            var tKind = (Int32) tableInfo.TableIndex;
+            infos[tKind] = tableInfo;
+         }
+         this.TableInformationArray = infos.AsArrayProxy().CQ;
+      }
+
+      /// <summary>
+      /// Gets the array of <see cref="MetaDataTableInformation"/>s.
+      /// </summary>
+      /// <value>The array of <see cref="MetaDataTableInformation"/>s.</value>
+      /// <remarks>
+      /// The returned array may contain <c>null</c> values.
+      /// The <see cref="MetaDataTableInformation"/> with its <see cref="MetaDataTableInformation.TableIndex"/> of value <c>X</c> will be located at the array index <c>X</c>.
+      /// </remarks>
+      public ArrayQuery<MetaDataTableInformation> TableInformationArray { get; }
+
+      /// <inheritdoc />
+      protected override IEnumerable<MetaDataTableInformation> GetTableInfos()
+      {
+         return this.TableInformationArray;
+      }
    }
 
    /// <summary>
@@ -47,7 +178,7 @@ namespace TabularMetaData.Meta
    /// </remarks>
    /// <seealso cref="MetaDataTableInformation{TRow}"/>
    /// <seealso cref="MetaDataColumnInformation"/>
-   public abstract class MetaDataTableInformation
+   public abstract class MetaDataTableInformation : DefaultExtensionByCompositionProvider<Object>
    {
       // Disable instatiation of this class from other assemblies.
       internal MetaDataTableInformation(
@@ -225,14 +356,11 @@ namespace TabularMetaData.Meta
    /// <seealso cref="MetaDataTableInformation"/>
    /// <seealso cref="MetaDataColumnInformation{TRow}"/>
    /// <seealso cref="MetaDataColumnInformation{TRow, TValue}"/>
-   public abstract class MetaDataColumnInformation
+   public abstract class MetaDataColumnInformation : DefaultExtensionByCompositionProvider<Object>
    {
-      private readonly DictionaryProxy<Type, Lazy<Object>> _functionalities;
-
       // Disable instatiation of this class from other assemblies.
       internal MetaDataColumnInformation()
       {
-         this._functionalities = new Dictionary<Type, Lazy<Object>>().ToDictionaryProxy();
       }
 
       /// <summary>
@@ -263,46 +391,6 @@ namespace TabularMetaData.Meta
       /// <value>The type of the accepted column values.</value>
       public abstract Type ValueType { get; }
 
-      /// <summary>
-      /// Registers a certain type of functionality for this <see cref="MetaDataColumnInformation"/>, with lazy initialization of functionality.
-      /// </summary>
-      /// <typeparam name="TFunctionality">The type of the functionality.</typeparam>
-      /// <param name="functionality">The callback to create an instance of functionality.</param>
-      /// <returns><c>true</c> if <paramref name="functionality"/> was not <c>null</c> and registered; <c>false</c> otherwise.</returns>
-      public Boolean RegisterFunctionality<TFunctionality>( Func<TFunctionality> functionality )
-         where TFunctionality : class
-      {
-         var retVal = functionality != null;
-         if ( retVal )
-         {
-            this._functionalities[typeof( TFunctionality )] = new Lazy<Object>( functionality, System.Threading.LazyThreadSafetyMode.ExecutionAndPublication );
-         }
-         return retVal;
-      }
-
-      /// <summary>
-      /// Registers a certain type of functionality for this <see cref="MetaDataColumnInformation"/>, when the functionality is already created.
-      /// </summary>
-      /// <typeparam name="TFunctionality">The type of the functionality.</typeparam>
-      /// <param name="functionality">The instance of functionality.</param>
-      /// <returns><c>true</c> if <paramref name="functionality"/> was not <c>null</c> and registered; <c>false</c> otherwise.</returns>
-      public Boolean RegisterFunctionalityDirect<TFunctionality>( TFunctionality functionality )
-         where TFunctionality : class
-      {
-         return functionality != null && this.RegisterFunctionality<TFunctionality>( () => functionality );
-      }
-
-      /// <summary>
-      /// Gets all the functionalities for this <see cref="MetaDataColumnInformation"/>.
-      /// </summary>
-      /// <value>All the functionalities for this <see cref="MetaDataColumnInformation"/>.</value>
-      public DictionaryQuery<Type, Lazy<Object>> Functionalities
-      {
-         get
-         {
-            return this._functionalities.CQ;
-         }
-      }
    }
 
    /// <summary>
@@ -451,158 +539,94 @@ namespace TabularMetaData.Meta
    public delegate Boolean RowColumnSetterDelegate<in TRow, in TValue>( TRow row, TValue value )
       where TRow : class;
 
-   ///// <summary>
-   ///// This class implements the <see cref="MetaDataColumnInformation{TRow, TValue}"/> for columns accepting structs or classes.
-   ///// If the column value is a nullable type, the <see cref="MetaDataColumnInformationForNullables{TRow, TValue}"/> should be used.
-   ///// </summary>
-   ///// <typeparam name="TRow">The type of the row this column can be attached to.</typeparam>
-   ///// <typeparam name="TValue">The type of the values that the column can hold.</typeparam>
-   ///// <seealso cref="MetaDataTableInformation"/>
-   ///// <seealso cref="MetaDataColumnInformation{TRow}"/>
-   ///// <seealso cref="MetaDataColumnInformation{TRow, TValue}"/>
-   ///// <seealso cref="MetaDataColumnInformationForNullables{TRow, TValue}"/>
-   //public class MetaDataColumnInformationForClassesOrStructs<TRow, TValue> : MetaDataColumnInformation<TRow, TValue>
-   //   where TRow : class
-   //{
-   //   private readonly RowColumnGetterDelegate<TRow, TValue> _getter;
-   //   private readonly RowColumnSetterDelegate<TRow, TValue> _setter;
-   //   private readonly Boolean _acceptsNulls;
-
-   //   /// <summary>
-   //   /// Creates a new instance of <see cref="MetaDataColumnInformationForClassesOrStructs{TRow, TValue}"/> with given callbacks to get and set column value.
-   //   /// </summary>
-   //   /// <param name="getter">The callback to get row value.</param>
-   //   /// <param name="setter">The callback to set row value.</param>
-   //   /// <seealso cref="RowColumnGetterDelegate{TRow, TValue}"/>
-   //   /// <seealso cref="RowColumnSetterDelegate{TRow, TValue}"/>
-   //   public MetaDataColumnInformationForClassesOrStructs(
-   //      RowColumnGetterDelegate<TRow, TValue> getter,
-   //      RowColumnSetterDelegate<TRow, TValue> setter
-   //      )
-   //   {
-   //      ArgumentValidator.ValidateNotNull( "Column value getter", getter );
-   //      ArgumentValidator.ValidateNotNull( "Column value setter", setter );
-
-   //      this._getter = getter;
-   //      this._setter = setter;
-   //      this._acceptsNulls = typeof( TValue ).IsValueType;
-   //   }
-
-   //   /// <inheritdoc />
-   //   public sealed override Object Getter( TRow row, out Boolean success )
-   //   {
-   //      success = row != null;
-   //      return success ? (Object) this._getter( row ) : null;
-   //   }
-
-   //   /// <inheritdoc />
-   //   public sealed override Boolean Setter( TRow row, Object value )
-   //   {
-   //      // TODO maybe do specific class for structs? Is 'is' operator a lot faster when it is known at compile-time that it is struct?
-   //      return row != null
-   //         && ((this._acceptsNulls && value == null) || value is TValue )
-   //         && this._setter( row, (TValue) value );
-   //   }
-   //}
-
-   ///// <summary>
-   ///// This class implements the <see cref="MetaDataColumnInformation{TRow, TValue}"/> for columns accepting nullable types.
-   ///// If the column value is not a nullable type, the <see cref="MetaDataColumnInformationForClassesOrStructs{TRow, TValue}"/> should be used.
-   ///// </summary>
-   ///// <typeparam name="TRow">The type of the row this column can be attached to.</typeparam>
-   ///// <typeparam name="TValue">The nullable type of the values that the column can hold. E.g. if column holds value <c>Int32?</c>, this should be <c>Int32</c>.</typeparam>
-   ///// <seealso cref="MetaDataTableInformation"/>
-   ///// <seealso cref="MetaDataColumnInformation{TRow}"/>
-   ///// <seealso cref="MetaDataColumnInformation{TRow, TValue}"/>
-   ///// <seealso cref="MetaDataColumnInformationForClassesOrStructs{TRow, TValue}"/>
-   //public class MetaDataColumnInformationForNullables<TRow, TValue> : MetaDataColumnInformation<TRow, TValue?>
-   //   where TRow : class
-   //   where TValue : struct
-   //{
-
-   //   private readonly RowColumnGetterDelegate<TRow, TValue?> _getter;
-   //   private readonly RowColumnSetterDelegate<TRow, TValue?> _setter;
-
-   //   /// <summary>
-   //   /// Creates a new instance of <see cref="MetaDataColumnInformationForNullables{TRow, TValue}"/> with given callbacks to get and set column value.
-   //   /// </summary>
-   //   /// <param name="getter">The callback to get row value.</param>
-   //   /// <param name="setter">The callback to set row value.</param>
-   //   /// <seealso cref="RowColumnGetterDelegate{TRow, TValue}"/>
-   //   /// <seealso cref="RowColumnSetterDelegate{TRow, TValue}"/>
-   //   public MetaDataColumnInformationForNullables(
-   //      RowColumnGetterDelegate<TRow, TValue?> getter,
-   //      RowColumnSetterDelegate<TRow, TValue?> setter
-   //      )
-   //   {
-   //      ArgumentValidator.ValidateNotNull( "Column value getter", getter );
-   //      ArgumentValidator.ValidateNotNull( "Column value setter", setter );
-
-   //      this._getter = getter;
-   //      this._setter = setter;
-   //   }
-
-   //   /// <inheritdoc />
-   //   public sealed override Object Getter( TRow row, out Boolean success )
-   //   {
-   //      success = row != null;
-   //      return success ? (Object) this._getter( row ) : null;
-   //   }
-
-   //   /// <inheritdoc />
-   //   public sealed override Boolean Setter( TRow row, Object value )
-   //   {
-   //      var success = row != null;
-   //      if ( success )
-   //      {
-   //         // Boxed nulls will show up as normal nulls
-   //         if ( value == null )
-   //         {
-   //            this._setter( row, null );
-   //         }
-   //         // Otherwise, this is not null, and "is X" returns true when something is of type X? ( https://msdn.microsoft.com/en-us/library/ms366789.aspx )
-   //         else if ( value is TValue )
-   //         {
-   //            this._setter( row, (TValue) value );
-   //         }
-   //         // Otherwise, this is of wrong type
-   //         else
-   //         {
-   //            success = false;
-   //         }
-   //      }
-
-   //      return success;
-   //   }
-   //}
 }
 
 public static partial class E_TabularMetaData
 {
    /// <summary>
+   /// Registers a certain type of functionality for this <see cref="ExtensionByCompositionProvider{TFunctionality}"/>, when the functionality is already created.
+   /// </summary>
+   /// <typeparam name="TFunctionality">The base type of the functionality.</typeparam>
+   /// <typeparam name="TThisFunctionality">The type of this functionality.</typeparam>
+   /// <param name="provider">The <see cref="ExtensionByCompositionProvider{TFunctionality}"/>.</param>
+   /// <param name="functionality">The instance of functionality.</param>
+   /// <returns><c>true</c> if <paramref name="functionality"/> was not <c>null</c> and registered; <c>false</c> otherwise.</returns>
+   public static Boolean RegisterFunctionalityDirect<TFunctionality, TThisFunctionality>( this ExtensionByCompositionProvider<TFunctionality> provider, TThisFunctionality functionality )
+      where TFunctionality : class
+      where TThisFunctionality : class, TFunctionality
+   {
+      return functionality != null && provider.RegisterFunctionality( () => functionality );
+   }
+
+   /// <summary>
+   /// Registers a certain type of functionality for this <see cref="ExtensionByCompositionProvider{TFunctionality}"/>, when the functionality is already created.
+   /// </summary>
+   /// <typeparam name="TThisFunctionality">The type of this functionality.</typeparam>
+   /// <param name="provider">The <see cref="ExtensionByCompositionProvider{TFunctionality}"/>.</param>
+   /// <param name="functionality">The instance of functionality.</param>
+   /// <returns><c>true</c> if <paramref name="functionality"/> was not <c>null</c> and registered; <c>false</c> otherwise.</returns>
+   public static Boolean RegisterFunctionalityDirect<TThisFunctionality>( this ExtensionByCompositionProvider<Object> provider, TThisFunctionality functionality )
+      where TThisFunctionality : class
+   {
+      return functionality != null && provider.RegisterFunctionality( () => functionality );
+   }
+
+   /// <summary>
    /// Helper method to get functionality when the type of functionality is known at compile time.
    /// </summary>
-   /// <typeparam name="TFunctionality">The type of the functionality.</typeparam>
-   /// <param name="info">The <see cref="MetaDataColumnInformation"/>.</param>
+   /// <typeparam name="TFunctionality">The base type of the functionality.</typeparam>
+   /// <typeparam name="TThisFunctionality">The type of this functionality.</typeparam>
+   /// <param name="provider">The <see cref="ExtensionByCompositionProvider{TFunctionality}"/>.</param>
    /// <returns>The functionality, or <c>null</c> if functionality is not found.</returns>
-   /// <exception cref="NullReferenceException">If the <see cref="MetaDataColumnInformation"/> is <c>null</c>.</exception>
-   public static TFunctionality GetFunctionality<TFunctionality>( this MetaDataColumnInformation info )
+   /// <exception cref="NullReferenceException">If the <see cref="ExtensionByCompositionProvider{TFunctionality}"/> is <c>null</c>.</exception>
+   public static TThisFunctionality GetFunctionality<TFunctionality, TThisFunctionality>( this ExtensionByCompositionProvider<TFunctionality> provider )
       where TFunctionality : class
+      where TThisFunctionality : class, TFunctionality
    {
-      return info.GetFunctionality( typeof( TFunctionality ) ) as TFunctionality;
+      return provider.GetFunctionality( typeof( TThisFunctionality ) ) as TThisFunctionality;
+   }
+
+   /// <summary>
+   /// Helper method to get functionality when the type of functionality is known at compile time.
+   /// </summary>
+   /// <typeparam name="TThisFunctionality">The type of this functionality.</typeparam>
+   /// <param name="provider">The <see cref="ExtensionByCompositionProvider{TFunctionality}"/>.</param>
+   /// <returns>The functionality, or <c>null</c> if functionality is not found.</returns>
+   /// <exception cref="NullReferenceException">If the <see cref="ExtensionByCompositionProvider{TFunctionality}"/> is <c>null</c>.</exception>
+   public static TThisFunctionality GetFunctionality<TThisFunctionality>( this ExtensionByCompositionProvider<Object> provider )
+      where TThisFunctionality : class
+   {
+      return provider.GetFunctionality( typeof( TThisFunctionality ) ) as TThisFunctionality;
    }
 
    /// <summary>
    /// Helpe rmethod to get functionality when the type of functionality is not known at compile time.
    /// </summary>
-   /// <param name="info">The <see cref="MetaDataColumnInformation"/>.</param>
+   /// <typeparam name="TFunctionality">The base type of the functionality.</typeparam>
+   /// <param name="provider">The <see cref="ExtensionByCompositionProvider{TFunctionality}"/>.</param>
    /// <param name="functionalityType">The type of the functionality.</param>
    /// <returns>The functionality, or <c>null</c> if functionality is not found.</returns>
-   /// <exception cref="NullReferenceException">If the <see cref="MetaDataColumnInformation"/> is <c>null</c>.</exception>
-   public static Object GetFunctionality( this MetaDataColumnInformation info, Type functionalityType )
+   /// <exception cref="NullReferenceException">If the <see cref="ExtensionByCompositionProvider{TFunctionality}"/> is <c>null</c>.</exception>
+   public static Object GetFunctionality<TFunctionality>( this ExtensionByCompositionProvider<TFunctionality> provider, Type functionalityType )
+      where TFunctionality : class
+   {
+      Lazy<TFunctionality> retVal;
+      return functionalityType != null && provider.Functionalities.TryGetValue( functionalityType, out retVal ) ?
+         retVal.Value :
+         null;
+   }
+
+   /// <summary>
+   /// Helpe rmethod to get functionality when the type of functionality is not known at compile time.
+   /// </summary>
+   /// <param name="provider">The <see cref="ExtensionByCompositionProvider{TFunctionality}"/>.</param>
+   /// <param name="functionalityType">The type of the functionality.</param>
+   /// <returns>The functionality, or <c>null</c> if functionality is not found.</returns>
+   /// <exception cref="NullReferenceException">If the <see cref="ExtensionByCompositionProvider{TFunctionality}"/> is <c>null</c>.</exception>
+   public static Object GetFunctionality( this ExtensionByCompositionProvider<Object> provider, Type functionalityType )
    {
       Lazy<Object> retVal;
-      return functionalityType != null && info.Functionalities.TryGetValue( functionalityType, out retVal ) ?
+      return functionalityType != null && provider.Functionalities.TryGetValue( functionalityType, out retVal ) ?
          retVal.Value :
          null;
    }

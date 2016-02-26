@@ -40,7 +40,7 @@ namespace CILAssemblyManipulator.Physical.IO
    /// </summary>
    /// <seealso cref="ReaderFunctionality"/>
    /// <seealso cref="ReadingArguments.ReaderFunctionalityProvider"/>
-   /// <seealso cref="E_CILPhysical.ReadMetaDataFromStream(ReaderFunctionalityProvider, Stream, CILMetaDataTableInformationProvider, EventHandler{SerializationErrorEventArgs}, bool, out ImageInformation)"/>
+   /// <seealso cref="E_CILPhysical.ReadMetaDataFromStream(ReaderFunctionalityProvider, Stream, MetaDataTableInformationProvider, EventHandler{SerializationErrorEventArgs}, bool, out ImageInformation)"/>
    /// <seealso cref="T:CILAssemblyManipulator.Physical.IO.Defaults.DefaultReaderFunctionalityProvider"/>
    public interface ReaderFunctionalityProvider
    {
@@ -49,18 +49,18 @@ namespace CILAssemblyManipulator.Physical.IO
       /// Optionally, specifies a new <see cref="Stream"/> to be used.
       /// </summary>
       /// <param name="stream">The original <see cref="Stream"/>.</param>
-      /// <param name="mdTableInfoProvider">The <see cref="CILMetaDataTableInformationProvider"/> which describes what tables are supported by this deserialization process.</param>
+      /// <param name="mdTableInfoProvider">The <see cref="MetaDataTableInformationProvider"/> which describes what tables are supported by this deserialization process.</param>
       /// <param name="errorHandler">The error handler callback.</param>
       /// <param name="deserialingDataReferences">Whether the data references (e.g. method RVAs, etc) will be deserialized.</param>
       /// <param name="newStream">Optional new <see cref="Stream"/> to use instead of <paramref name="stream"/> in the further desererialization process.</param>
       /// <returns>The <see cref="ReaderFunctionality"/> to use for actual deserialization.</returns>
       /// <seealso cref="ReaderFunctionality"/>
       /// <seealso cref="IOArguments.ErrorHandler"/>
-      /// <seealso cref="CILMetaDataTableInformationProvider"/>
+      /// <seealso cref="MetaDataTableInformationProvider"/>
       /// <seealso cref="E_CILPhysical.ReadMetaDataFromStream(ReaderFunctionality, Stream,  EventHandler{SerializationErrorEventArgs}, bool, out ImageInformation)"/>
       ReaderFunctionality GetFunctionality(
          Stream stream,
-         CILMetaDataTableInformationProvider mdTableInfoProvider,
+         MetaDataTableInformationProvider mdTableInfoProvider,
          EventHandler<SerializationErrorEventArgs> errorHandler,
          Boolean deserialingDataReferences,
          out Stream newStream
@@ -342,7 +342,7 @@ public static partial class E_CILPhysical
    /// </summary>
    /// <param name="readerProvider">This <see cref="ReaderFunctionalityProvider"/>.</param>
    /// <param name="stream">The <see cref="Stream"/> to read <see cref="CILMetaData"/> from.</param>
-   /// <param name="tableInfoProvider">The <see cref="CILMetaDataTableInformationProvider"/> to use when creating a new instance of <see cref="CILMetaData"/> with <see cref="M:CILMetaDataFactory.NewBlankMetaData"/>.</param>
+   /// <param name="tableInfoProvider">The <see cref="MetaDataTableInformationProvider"/> to use when creating a new instance of <see cref="CILMetaData"/> with <see cref="M:CILMetaDataFactory.NewBlankMetaData"/>.</param>
    /// <param name="errorHandler">The callback to handle errors during deserialization.</param>
    /// <param name="deserializeDataReferences">Whether to deserialize data references (e.g. <see cref="MethodDefinition.IL"/>).</param>
    /// <param name="imageInfo">This parameter will hold the <see cref="ImageInformation"/> read from the <see cref="Stream"/>.</param>
@@ -362,7 +362,7 @@ public static partial class E_CILPhysical
    public static CILMetaData ReadMetaDataFromStream(
       this ReaderFunctionalityProvider readerProvider,
       Stream stream,
-      CILMetaDataTableInformationProvider tableInfoProvider,
+      MetaDataTableInformationProvider tableInfoProvider,
       EventHandler<SerializationErrorEventArgs> errorHandler,
       Boolean deserializeDataReferences,
       out ImageInformation imageInfo
@@ -404,7 +404,7 @@ public static partial class E_CILPhysical
    /// <exception cref="NullReferenceException">If this <see cref="ReaderFunctionality"/> is <c>null</c>.</exception>
    /// <exception cref="SerializationFunctionalityException">If this <see cref="ReaderFunctionality"/> or the objects it creates return <c>null</c>s when they shouldn't.</exception>
    /// <remarks>
-   /// This method is used by <see cref="ReadMetaDataFromStream(ReaderFunctionalityProvider, Stream, CILMetaDataTableInformationProvider, EventHandler{SerializationErrorEventArgs}, bool, out ImageInformation)"/>, which in turn is used by <see cref="M:CILMetaDataIO.ReadModule"/> to actually perform deserialization.
+   /// This method is used by <see cref="ReadMetaDataFromStream(ReaderFunctionalityProvider, Stream, MetaDataTableInformationProvider, EventHandler{SerializationErrorEventArgs}, bool, out ImageInformation)"/>, which in turn is used by <see cref="M:CILMetaDataIO.ReadModule"/> to actually perform deserialization.
    /// Thus, this method is rarely needed to be used directly.
    /// Instead, use <see cref="M:CILMetaDataIO.ReadModule"/> or any of the classes implementing <see cref="T:CILAssemblyManipulator.Physical.Loading.CILMetaDataLoader"/>.
    /// </remarks>

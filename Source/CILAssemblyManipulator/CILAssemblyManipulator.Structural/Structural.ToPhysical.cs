@@ -27,6 +27,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
+using TabularMetaData.Meta;
 
 public static partial class E_CILStructural
 {
@@ -446,7 +447,7 @@ public static partial class E_CILStructural
 
    public static CILMetaData CreatePhysicalRepresentationOfMainModule(
       this AssemblyStructure assembly,
-      CILMetaDataTableInformationProvider tableInfoProvider = null
+      MetaDataTableInformationProvider tableInfoProvider = null
       )
    {
       var module = assembly.Modules.FirstOrDefault( m => m.IsMainModule );
@@ -460,7 +461,7 @@ public static partial class E_CILStructural
 
    public static CILMetaData[] CreatePhysicalRepresentation(
       this AssemblyStructure assembly,
-      CILMetaDataTableInformationProvider tableInfoProvider = null
+      MetaDataTableInformationProvider tableInfoProvider = null
       )
    {
       return assembly.Modules
@@ -470,7 +471,7 @@ public static partial class E_CILStructural
 
    public static CILMetaData CreatePhysicalRepresentation(
       this ModuleStructure module,
-      CILMetaDataTableInformationProvider tableInfoProvider = null
+      MetaDataTableInformationProvider tableInfoProvider = null
       )
    {
       return module.CreatePhysicalRepresentation( null, tableInfoProvider );
@@ -479,7 +480,7 @@ public static partial class E_CILStructural
    private static CILMetaData CreatePhysicalRepresentation(
       this ModuleStructure module,
       AssemblyStructure assembly,
-      CILMetaDataTableInformationProvider tableInfoProvider
+      MetaDataTableInformationProvider tableInfoProvider
       )
    {
       // Don't use "MinimalModule", as it creates module-type

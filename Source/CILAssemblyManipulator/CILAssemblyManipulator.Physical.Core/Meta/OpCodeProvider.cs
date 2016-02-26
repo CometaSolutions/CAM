@@ -21,6 +21,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
+using TabularMetaData.Meta;
 
 namespace CILAssemblyManipulator.Physical.Meta
 {
@@ -363,5 +364,16 @@ public static partial class E_CILPhysical
          throw new ArgumentException( "Op code " + codeID + " is not operandless opcode." );
       }
       return retVal;
+   }
+
+   /// <summary>
+   /// Gets or creates a new <see cref="OpCodeProvider"/>.
+   /// </summary>
+   /// <param name="provider">The <see cref="MetaDataTableInformationProvider"/>.</param>
+   /// <returns>A <see cref="OpCodeProvider"/> supported by this <see cref="MetaDataTableInformationProvider"/>.</returns>
+   /// <seealso cref="OpCodeProvider"/>
+   public static OpCodeProvider CreateOpCodeProvider( this MetaDataTableInformationProvider provider )
+   {
+      return provider.GetFunctionality<OpCodeProvider>();
    }
 }

@@ -134,15 +134,15 @@ namespace CILAssemblyManipulator.Tests.Physical
             );
       }
 
-      private static DefaultMetaDataTableInformationProvider CreateTableProvider()
+      private static MetaDataTableInformationProvider CreateTableProvider()
       {
-         return DefaultMetaDataTableInformationProvider.CreateWithAdditionalTables( CreateAdditionalTableInfo() );
+         return CILMetaDataTableInformationProviderFactory.CreateWithAdditionalTables( CreateAdditionalTableInfo() );
       }
 
 
       private static IEnumerable<MetaDataTableInformation> CreateAdditionalTableInfo()
       {
-         yield return new MetaDataTableInformation<MyAdditionalTableRow, RawMyAdditionalTableRow>(
+         yield return CILMetaDataTableInformationProviderFactory.CreateSingleTableInfo(
             (Tables) ADDITIONAL_TABLE,
             new MyAdditionalTableRowEqualityComparer(),
             null,

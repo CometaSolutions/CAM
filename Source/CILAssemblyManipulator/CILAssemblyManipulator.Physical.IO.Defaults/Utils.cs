@@ -567,7 +567,9 @@ namespace CILAssemblyManipulator.Physical.IO
    }
 }
 
+#pragma warning disable 1591
 public static partial class E_CILPhysical
+#pragma warning restore 1591
 {
    // TODO this method is only used by tests now, might remove maybe?
    /// <summary>

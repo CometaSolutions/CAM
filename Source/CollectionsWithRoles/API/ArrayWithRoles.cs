@@ -131,4 +131,17 @@ public static partial class E_CWR
    {
       return CollectionsFactorySingleton.DEFAULT_COLLECTIONS_FACTORY.NewArrayProxy( enumerable.ToArray() );
    }
+
+   /// <summary>
+   /// Creates a new <see cref="ArrayProxy{TValue}"/> from given enumerable using default <see cref="CollectionsFactory"/>.
+   /// </summary>
+   /// <typeparam name="T">The type of enumerable items.</typeparam>
+   /// <param name="array">The array of <typeparamref name="T"/> typed elements.</param>
+   /// <returns>A new <see cref="ArrayProxy{TValue}"/> with contents directly accessing given <paramref name="array"/>.</returns>
+   /// <seealso cref="ArrayProxy{TValue}"/>
+   /// <seealso cref="CollectionsFactorySingleton.DEFAULT_COLLECTIONS_FACTORY"/>
+   public static ArrayProxy<T> AsArrayProxy<T>( this T[] array )
+   {
+      return CollectionsFactorySingleton.DEFAULT_COLLECTIONS_FACTORY.NewArrayProxy( array );
+   }
 }

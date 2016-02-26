@@ -2120,7 +2120,7 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
       /// </item>
       /// <item>
       /// <term>Any other value</term>
-      /// <term>Depends on the raw row creation callback passed to <see cref="MetaDataTableInformation{TRow, TRawRow}"/></term>
+      /// <term>Depends on the raw row creation callback passed to <see cref="CILMetaDataTableInformationProviderFactory.CreateSingleTableInfo"/></term>
       /// </item>
       /// </list>
       /// </para>
@@ -2416,7 +2416,9 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
    }
 }
 
+#pragma warning disable 1591
 public static partial class E_CILPhysical
+#pragma warning restore 1591
 {
 
 
@@ -2427,7 +2429,7 @@ public static partial class E_CILPhysical
    /// <param name="tableInfos">The enumerable of <see cref="MetaDataTableInformation"/>s.</param>
    /// <returns>An enumerable of created <see cref="TableSerializationLogicalFunctionality"/> objects.</returns>
    /// <exception cref="ArgumentNullException">If <paramref name="tableInfos"/> is <c>null</c>.</exception>
-   /// <seealso cref="MetaDataTableInformationWithSerializationCapability.CreateTableSerializationInfoNotGeneric"/>
+   /// <seealso cref="MetaDataTableInformationWithSerializationCapability.CreateTableSerializationInfo"/>
    public static IEnumerable<TableSerializationLogicalFunctionality> CreateTableSerializationInfos(
       this TableSerializationLogicalFunctionalityCreationArgs serializationCreationArgs,
       IEnumerable<MetaDataTableInformation> tableInfos
@@ -2439,7 +2441,7 @@ public static partial class E_CILPhysical
          .Where( ti => ti != null )
          .ToDictionary_Overwrite(
             info => (Int32) info.TableIndex,
-            info => ( info as MetaDataTableInformationWithSerializationCapability )?.CreateTableSerializationInfoNotGeneric( serializationCreationArgs )
+            info => info.GetFunctionality<MetaDataTableInformationWithSerializationCapability>()?.CreateTableSerializationInfo( serializationCreationArgs )
          );
       var curMax = 0;
       foreach ( var kvp in tableInfoDic.OrderBy( kvp => kvp.Key ) )

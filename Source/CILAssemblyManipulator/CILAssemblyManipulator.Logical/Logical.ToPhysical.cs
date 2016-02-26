@@ -31,6 +31,7 @@ using System.Linq;
 using System.Text;
 using CommonUtils;
 using CollectionsWithRoles.API;
+using TabularMetaData.Meta;
 
 public static partial class E_CILLogical
 {
@@ -456,7 +457,7 @@ public static partial class E_CILLogical
    /// <returns>The <see cref="CILMetaData"/> built from assembly's main module.</returns>
    public static CILMetaData CreatePhysicalRepresentationForMainModule(
       this CILAssembly assembly,
-      CILMetaDataTableInformationProvider tableInfoProvider = null,
+      MetaDataTableInformationProvider tableInfoProvider = null,
       Boolean orderAndRemoveDuplicates = true
       )
    {
@@ -471,7 +472,7 @@ public static partial class E_CILLogical
    /// <returns>The <see cref="CILMetaData"/> build from given module.</returns>
    public static CILMetaData CreatePhysicalRepresentation(
       this CILModule module,
-      CILMetaDataTableInformationProvider tableInfoProvider = null,
+      MetaDataTableInformationProvider tableInfoProvider = null,
       Boolean orderAndRemoveDuplicates = true
       )
    {

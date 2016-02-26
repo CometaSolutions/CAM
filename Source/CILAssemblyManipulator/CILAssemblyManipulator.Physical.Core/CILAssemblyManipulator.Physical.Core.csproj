@@ -94,7 +94,6 @@
     </Reference>
   </ItemGroup>
   <ItemGroup>
-    <Compile Include="Meta\Information.cs" />
     <Compile Include="Meta\OpCodeProvider.cs" />
     <Compile Include="Meta\SignatureProvider.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />

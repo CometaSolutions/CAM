@@ -3395,7 +3395,9 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
    }
 }
 
+#pragma warning disable 1591
 public static partial class E_CILPhysical
+#pragma warning restore 1591
 {
    /// <summary>
    /// Gets the <see cref="DataDirectory"/> object for this <see cref="SectionPart"/>.

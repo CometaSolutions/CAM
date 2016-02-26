@@ -147,9 +147,8 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
    /// This class is the functionality that will be present in <see cref="MetaDataColumnInformation{TRow, TValue}"/>s created by methods of <see cref="MetaDataColumnInformationFactory"/> class.
    /// </para>
    /// </remarks>
-   /// <seealso cref="MetaDataColumnInformation.Functionalities"/>
-   /// <seealso cref="E_TabularMetaData.GetFunctionality(MetaDataColumnInformation, Type)"/>
-   /// <seealso cref="E_TabularMetaData.GetFunctionality{TFunctionality}(MetaDataColumnInformation)"/>
+   /// <seealso cref="ExtensionByCompositionProvider{TFunctionality}"/>
+   /// <seealso cref="MetaDataColumnInformation"/>
    public class DefaultColumnSerializationInfo<TRow, TRawRow> // : DefaultColumnSerializationInfo<TRow>
       where TRawRow : class
       where TRow : class
@@ -827,10 +826,10 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
    /// <typeparam name="TRawRow">The type of the raw row.</typeparam>
    /// <typeparam name="TRow">The type of the normal row (part of the tables in <see cref="CILMetaData"/>).</typeparam>
    /// <remarks>
-   /// This class is not meant to be instanced directly, instead the <see cref="MetaDataTableInformation{TRow, TRawRow}.CreateTableSerializationInfo"/> will create object of this type.
+   /// This class is not meant to be instanced directly, instead the <see cref="MetaDataTableInformationWithSerializationCapability.CreateTableSerializationInfo"/> will create object of this type.
    /// </remarks>
-   /// <seealso cref="MetaDataTableInformation{TRow, TRawRow}"/>
-   /// <seealso cref="MetaDataTableInformation{TRow, TRawRow}.CreateTableSerializationInfo"/>
+   /// <seealso cref="MetaDataTableInformationWithSerializationCapability"/>
+   /// <seealso cref="MetaDataTableInformationWithSerializationCapability.CreateTableSerializationInfo"/>
    public class TableSerializationLogicalFunctionalityImpl<TRow, TRawRow> : TableSerializationLogicalFunctionality
       where TRawRow : class
       where TRow : class
@@ -1111,12 +1110,12 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
    /// <typeparam name="TRawRow">The type of the raw row.</typeparam>
    /// <remarks>
    /// This class is not meant to be instanced directly, instead use the <see cref="TableSerializationLogicalFunctionalityImpl{TRow, TRawRow}.CreateBinaryFunctionality"/> method.
-   /// The <see cref="TableSerializationLogicalFunctionalityImpl{TRow, TRawRow}"/> themselves are created by <see cref="MetaDataTableInformation{TRow, TRawRow}.CreateTableSerializationInfo"/>.
+   /// The <see cref="TableSerializationLogicalFunctionalityImpl{TRow, TRawRow}"/> themselves are created by <see cref="MetaDataTableInformationWithSerializationCapability.CreateTableSerializationInfo"/>.
    /// </remarks>
    /// <seealso cref="TableSerializationLogicalFunctionalityImpl{TRow, TRawRow}"/>
    /// <seealso cref="TableSerializationLogicalFunctionalityImpl{TRow, TRawRow}.CreateBinaryFunctionality"/>
-   /// <seealso cref="MetaDataTableInformation{TRow, TRawRow}"/>
-   /// <seealso cref="MetaDataTableInformation{TRow, TRawRow}.CreateTableSerializationInfo"/>
+   /// <seealso cref="MetaDataTableInformationWithSerializationCapability"/>
+   /// <seealso cref="MetaDataTableInformationWithSerializationCapability.CreateTableSerializationInfo"/>
    public class TableSerializationBinaryFunctionalityImpl<TRow, TRawRow> : TableSerializationBinaryFunctionality
       where TRawRow : class
       where TRow : class

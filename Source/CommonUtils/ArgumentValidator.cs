@@ -139,15 +139,13 @@ namespace CommonUtils
       {
          ValidateNotNull( parameterName, values );
          var idx = 0UL;
-         var firstNull = values.FirstOrDefault( item =>
+         foreach ( var val in values )
          {
+            if ( val == null )
+            {
+               throw new ArgumentNullException( $"The item at index ${idx} was null." );
+            }
             ++idx;
-            return item == null;
-         } );
-
-         if ( firstNull != null )
-         {
-            throw new ArgumentNullException( $"The item at index ${idx - 1} was null." );
          }
 
          return values;

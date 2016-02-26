@@ -21,6 +21,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
+using TabularMetaData.Meta;
 
 namespace CILAssemblyManipulator.Physical.Meta
 {
@@ -333,5 +334,16 @@ public static partial class E_CILPhysical
                //throw new InvalidOperationException( "Failed to deduce custom attribute type for " + argType + "." );
          }
       }
+   }
+
+   /// <summary>
+   /// Gets or creates a new <see cref="SignatureProvider"/>.
+   /// </summary>
+   /// <param name="provider">The <see cref="MetaDataTableInformationProvider"/>.</param>
+   /// <returns>A <see cref="SignatureProvider"/> supported by this <see cref="MetaDataTableInformationProvider"/>.</returns>
+   /// <seealso cref="SignatureProvider"/>
+   public static SignatureProvider CreateSignatureProvider( this MetaDataTableInformationProvider provider )
+   {
+      return provider.GetFunctionality<SignatureProvider>();
    }
 }
