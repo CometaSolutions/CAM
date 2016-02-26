@@ -88,7 +88,7 @@ public static partial class E_CILPhysical
    /// <param name="eArgs">The optional <see cref="WritingArguments"/> to control the serialization process.</param>
    /// <exception cref="ArgumentNullException">If <paramref name="stream"/> is <c>null</c>.</exception>
    /// <seealso cref="WritingArguments"/>
-   /// <seealso cref="WriteModuleTo"/>
+   /// <seealso cref="M:E_CLPhysical.WriteModuleTo(CILAssemblyManipulator.Physical.CILMetaData, System.String, CILAssemblyManipulator.Physical.IO.WritingArguments)"/>
    public static void WriteModule( this CILMetaData md, Stream stream, WritingArguments eArgs = null )
    {
       if ( eArgs == null )

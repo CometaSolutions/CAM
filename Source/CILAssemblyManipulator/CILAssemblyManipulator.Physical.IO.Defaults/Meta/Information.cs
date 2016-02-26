@@ -1610,7 +1610,7 @@ namespace CILAssemblyManipulator.Physical.Meta
       /// <param name="equalityComparer">The equality comparer for the rows.</param>
       /// <param name="comparer">The comparer for the rows. May be <c>null</c>.</param>
       /// <param name="rowFactory">The callback to create blank normal row.</param>
-      /// <param name="columns">The columns of this table. The elements should implement <see cref="MetaDataColumnInformationWithResolving"/> and <see cref="MetaDataColumnInformationWithSerializationCapability{TRow, TRawRow}"/> interfaces, but this is not enforced.</param>
+      /// <param name="columns">The columns of this table.</param>
       /// <param name="rawRowFactory">The callback to create blank raw row.</param>
       /// <param name="isSorted">Whether this table is marked as sorted in <see cref="MetaDataTableStreamHeader.SortedTablesBitVector"/>.</param>
       /// <exception cref="ArgumentNullException">If any of the <paramref name="equalityComparer"/>, <paramref name="rowFactory"/>, <paramref name="columns"/>, or <paramref name="rawRowFactory"/> is <c>null</c>.</exception>

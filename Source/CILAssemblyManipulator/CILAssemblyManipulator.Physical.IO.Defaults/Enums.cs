@@ -15,6 +15,8 @@
  * See the License for the specific language governing permissions and
  * limitations under the License. 
  */
+extern alias CAMPhysical;
+
 using CILAssemblyManipulator.Physical.IO;
 using System;
 using System.Collections.Generic;
@@ -131,7 +133,7 @@ namespace CILAssemblyManipulator.Physical.IO
       Var = 0x13,
 
       /// <summary>
-      /// Prefix for complex array types, <see cref="ComplexArrayTypeSignature"/>.
+      /// Prefix for complex array types, <see cref="CAMPhysical::CILAssemblyManipulator.Physical.ComplexArrayTypeSignature"/>.
       /// </summary>
       Array = 0x14,
 
@@ -166,7 +168,7 @@ namespace CILAssemblyManipulator.Physical.IO
       R = 0x1A,
 
       /// <summary>
-      /// Indicates that type is <see cref="FunctionPointerTypeSignature"/>.
+      /// Indicates that type is <see cref="CAMPhysical::CILAssemblyManipulator.Physical.FunctionPointerTypeSignature"/>.
       /// </summary>
       FnPtr = 0x1B,
 
@@ -176,7 +178,7 @@ namespace CILAssemblyManipulator.Physical.IO
       Object = 0x1C,
 
       /// <summary>
-      /// Prefix for simple vector array types, <see cref="SimpleArrayTypeSignature"/>.
+      /// Prefix for simple vector array types, <see cref="CAMPhysical::CILAssemblyManipulator.Physical.SimpleArrayTypeSignature"/>.
       /// </summary>
       SzArray = 0x1D,
 
@@ -187,12 +189,12 @@ namespace CILAssemblyManipulator.Physical.IO
       MVar = 0x1E,
 
       /// <summary>
-      /// Indicates that <see cref="CustomModifierSignature"/> is required.
+      /// Indicates that <see cref="CAMPhysical::CILAssemblyManipulator.Physical.CustomModifierSignature"/> is required.
       /// </summary>
       CModReqd = 0x1F,
 
       /// <summary>
-      /// Indicates that <see cref="CustomModifierSignature"/> is optional.
+      /// Indicates that <see cref="CAMPhysical::CILAssemblyManipulator.Physical.CustomModifierSignature"/> is optional.
       /// </summary>
       CModOpt = 0x20,
 
@@ -212,7 +214,7 @@ namespace CILAssemblyManipulator.Physical.IO
       Modifier = 0x40,
 
       /// <summary>
-      /// This is sentinel mark to separate which parameters belong to <see cref="AbstractMethodSignature.Parameters"/> and which ones belong to <see cref="MethodReferenceSignature.VarArgsParameters"/>.
+      /// This is sentinel mark to separate which parameters belong to <see cref="CAMPhysical::CILAssemblyManipulator.Physical.AbstractMethodSignature.Parameters"/> and which ones belong to <see cref="CAMPhysical::CILAssemblyManipulator.Physical.MethodReferenceSignature.VarArgsParameters"/>.
       /// </summary>
       Sentinel = 0x41,
 
@@ -237,17 +239,17 @@ namespace CILAssemblyManipulator.Physical.IO
       Reserved = 0x52,
 
       /// <summary>
-      /// Indicates that the custom attribute named argument is field (<see cref="CustomAttributeNamedArgument.IsField"/> will be <c>true</c>).
+      /// Indicates that the custom attribute named argument is field (<see cref="CAMPhysical::CILAssemblyManipulator.Physical.CustomAttributeNamedArgument.TargetKind"/> will be this value).
       /// </summary>
       CA_Field = 0x53,
 
       /// <summary>
-      /// Indicates that the custom attribute named argument is property (<see cref="CustomAttributeNamedArgument.IsField"/> will be <c>false</c>).
+      /// Indicates that the custom attribute named argument is property (<see cref="CAMPhysical::CILAssemblyManipulator.Physical.CustomAttributeNamedArgument.TargetKind"/> will be this value).
       /// </summary>
       CA_Property = 0x54,
 
       /// <summary>
-      /// Indicates that <see cref="CustomAttributeNamedArgument.FieldOrPropertyType"/> is <see cref="CustomAttributeArgumentTypeEnum"/>.
+      /// Indicates that <see cref="CAMPhysical::CILAssemblyManipulator.Physical.CustomAttributeNamedArgument.FieldOrPropertyType"/> is <see cref="CAMPhysical::CILAssemblyManipulator.Physical.CustomAttributeArgumentTypeEnum"/>.
       /// </summary>
       CA_Enum = 0x55
    }
@@ -285,17 +287,17 @@ namespace CILAssemblyManipulator.Physical.IO
       VarArgs = 0x05,
 
       /// <summary>
-      /// When present as signature's first byte, this value indicates that the signature is <see cref="FieldSignature"/>.
+      /// When present as signature's first byte, this value indicates that the signature is <see cref="CAMPhysical::CILAssemblyManipulator.Physical.FieldSignature"/>.
       /// </summary>
       Field = 0x06,
 
       /// <summary>
-      /// When present as signature's first byte, this value indicates that the signature is <see cref="LocalVariablesSignature"/>.
+      /// When present as signature's first byte, this value indicates that the signature is <see cref="CAMPhysical::CILAssemblyManipulator.Physical.LocalVariablesSignature"/>.
       /// </summary>
       LocalSignature = 0x07,
 
       /// <summary>
-      /// When present as signature's first byte, this value indicates that the signature is <see cref="PropertySignature"/>.
+      /// When present as signature's first byte, this value indicates that the signature is <see cref="CAMPhysical::CILAssemblyManipulator.Physical.PropertySignature"/>.
       /// </summary>
       Property = 0x08,
 
@@ -306,7 +308,7 @@ namespace CILAssemblyManipulator.Physical.IO
       Unmanaged = 0x09,
 
       /// <summary>
-      /// When present as signature's first byte, this value indicates that the signature is <see cref="GenericMethodSignature"/>.
+      /// When present as signature's first byte, this value indicates that the signature is <see cref="CAMPhysical::CILAssemblyManipulator.Physical.GenericMethodSignature"/>.
       /// </summary>
       MethodSpecGenericInst = 0x0A,
 
@@ -342,7 +344,7 @@ namespace CILAssemblyManipulator.Physical.IO
    }
 
    [Flags]
-   public enum MethodHeaderFlags
+   internal enum MethodHeaderFlags
    {
       TinyFormat = 0x2,
       FatFormat = 0x3,
@@ -351,7 +353,7 @@ namespace CILAssemblyManipulator.Physical.IO
    }
 
    [Flags]
-   public enum MethodDataFlags
+   internal enum MethodDataFlags
    {
       ExceptionHandling = 0x1,
       OptimizeILTable = 0x2,
@@ -360,43 +362,45 @@ namespace CILAssemblyManipulator.Physical.IO
    }
 }
 
+#pragma warning disable 1591
 public static partial class E_CILPhysical
+#pragma warning restore 1591
 {
    /// <summary>
-   /// Checks whether the given <see cref="SignatureStarters"/> represents a <see cref="FieldSignature"/>.
+   /// Checks whether the given <see cref="SignatureStarters"/> represents a <see cref="CAMPhysical::CILAssemblyManipulator.Physical.FieldSignature"/>.
    /// </summary>
    /// <param name="starter">The <see cref="SignatureStarters"/> element.</param>
-   /// <returns><c>true</c> if <paramref name="starter"/> represents a <see cref="FieldSignature"/>; <c>false</c> otherwise.</returns>
+   /// <returns><c>true</c> if <paramref name="starter"/> represents a <see cref="CAMPhysical::CILAssemblyManipulator.Physical.FieldSignature"/>; <c>false</c> otherwise.</returns>
    internal static Boolean IsField( this SignatureStarters starter )
    {
       return ( starter & SignatureStarters.CallingConventionsMask ) == SignatureStarters.Field;
    }
 
    /// <summary>
-   /// Checks whether the given <see cref="SignatureStarters"/> represents a <see cref="LocalVariablesSignature"/>.
+   /// Checks whether the given <see cref="SignatureStarters"/> represents a <see cref="CAMPhysical::CILAssemblyManipulator.Physical.LocalVariablesSignature"/>.
    /// </summary>
    /// <param name="starter">The <see cref="SignatureStarters"/> element.</param>
-   /// <returns><c>true</c> if <paramref name="starter"/> represents a <see cref="LocalVariablesSignature"/>; <c>false</c> otherwise.</returns>
+   /// <returns><c>true</c> if <paramref name="starter"/> represents a <see cref="CAMPhysical::CILAssemblyManipulator.Physical.LocalVariablesSignature"/>; <c>false</c> otherwise.</returns>
    internal static Boolean IsLocalSignature( this SignatureStarters starter )
    {
       return ( starter & SignatureStarters.CallingConventionsMask ) == SignatureStarters.LocalSignature;
    }
 
    /// <summary>
-   /// Checks whether the given <see cref="SignatureStarters"/> represents a <see cref="PropertySignature"/>.
+   /// Checks whether the given <see cref="SignatureStarters"/> represents a <see cref="CAMPhysical::CILAssemblyManipulator.Physical.PropertySignature"/>.
    /// </summary>
    /// <param name="starter">The <see cref="SignatureStarters"/> element.</param>
-   /// <returns><c>true</c> if <paramref name="starter"/> represents a <see cref="PropertySignature"/>; <c>false</c> otherwise.</returns>
+   /// <returns><c>true</c> if <paramref name="starter"/> represents a <see cref="CAMPhysical::CILAssemblyManipulator.Physical.PropertySignature"/>; <c>false</c> otherwise.</returns>
    internal static Boolean IsProperty( this SignatureStarters starter )
    {
       return ( starter & SignatureStarters.CallingConventionsMask ) == SignatureStarters.Property;
    }
 
    /// <summary>
-   /// Checks whether the given <see cref="SignatureStarters"/> represents a <see cref="GenericMethodSignature"/>.
+   /// Checks whether the given <see cref="SignatureStarters"/> represents a <see cref="CAMPhysical::CILAssemblyManipulator.Physical.GenericMethodSignature"/>.
    /// </summary>
    /// <param name="starter">The <see cref="SignatureStarters"/> element.</param>
-   /// <returns><c>true</c> if <paramref name="starter"/> represents a <see cref="GenericMethodSignature"/>; <c>false</c> otherwise.</returns>
+   /// <returns><c>true</c> if <paramref name="starter"/> represents a <see cref="CAMPhysical::CILAssemblyManipulator.Physical.GenericMethodSignature"/>; <c>false</c> otherwise.</returns>
    internal static Boolean IsMethodSpecGenericInst( this SignatureStarters starter )
    {
       return ( starter & SignatureStarters.CallingConventionsMask ) == SignatureStarters.MethodSpecGenericInst;

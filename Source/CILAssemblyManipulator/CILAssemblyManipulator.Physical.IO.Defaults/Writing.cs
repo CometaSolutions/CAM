@@ -1008,7 +1008,7 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
       /// <param name="currentOffset">The current offset.</param>
       /// <param name="currentRVA">The current RVA.</param>
       /// <param name="dataReferences">The <see cref="ColumnValueStorage{TValue}"/> for data reference columns.</param>
-      /// <returns>The value of <see cref="DoGetDataSize"/> if <paramref name="Write"/> is <c>true</c>; <c>0</c> otherwise.</returns>
+      /// <returns>The value of <see cref="DoGetDataSize"/> if <see cref="Write"/> is <c>true</c>; <c>0</c> otherwise.</returns>
       public Int32 GetDataSize( Int64 currentOffset, TRVA currentRVA, ColumnValueStorage<Int64> dataReferences )
       {
          return this.Write ?
@@ -1056,7 +1056,7 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
 
       /// <summary>
       /// Sets up the <see cref="SectionPartWritingArgs.ArrayHelper"/>, and calls <see cref="DoWriteData"/> to write the data to array.
-      /// Then writes the array contents to <see cref="SectionPartWritingArgs.Stream"/>.
+      /// Then writes the array contents using <see cref="SectionPartWritingArgs.WriteCallback"/>.
       /// </summary>
       /// <param name="args">The <see cref="SectionPartWritingArgs"/>.</param>
       public override void WriteData( SectionPartWritingArgs args )
@@ -1240,7 +1240,7 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
       }
 
       /// <summary>
-      /// Writes all the data of the rows using <see cref="WriteData(TRow, TSizeInfo, byte[])"/> method to write data of the single row.
+      /// Writes all the data of the rows using <see cref="WriteDataToArray"/> method to write data of the single row.
       /// </summary>
       /// <param name="args">The <see cref="SectionPartWritingArgs"/>.</param>
       public override void WriteData( SectionPartWritingArgs args )
@@ -1261,7 +1261,7 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
                {
                   array.CurrentMaxCapacity = capacity;
                   var bytez = array.Array;
-                  this.WriteData( this._rows[i], sizeInfo, bytez );
+                  this.WriteDataToArray( this._rows[i], sizeInfo, bytez );
                   writeCB( capacity );
                }
             }
@@ -1315,7 +1315,7 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
       /// <param name="row">The row instance.</param>
       /// <param name="sizeInfo">The size information object for this row, as returned by <see cref="GetSizeInfo"/>.</param>
       /// <param name="array">The array to write data to. The writing should begin at index <c>0</c>.</param>
-      protected abstract void WriteData( TRow row, TSizeInfo sizeInfo, Byte[] array );
+      protected abstract void WriteDataToArray( TRow row, TSizeInfo sizeInfo, Byte[] array );
    }
 
    /// <summary>
@@ -1465,12 +1465,12 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
       }
 
       /// <summary>
-      /// Implements the <see cref="SectionPartFunctionalityWithDataReferenceTargetsImpl{TRow, TSizeInfo}.WriteData"/> method.
+      /// Implements the <see cref="SectionPartFunctionalityWithDataReferenceTargetsImpl{TRow, TSizeInfo}.WriteDataToArray"/> method.
       /// </summary>
       /// <param name="row">The <see cref="MethodDefinition"/> row.</param>
       /// <param name="sizeInfo">The <see cref="MethodSizeInfo"/> returned by <see cref="GetSizeInfo"/>.</param>
       /// <param name="array">The array to write data to.</param>
-      protected override void WriteData( MethodDefinition row, MethodSizeInfo sizeInfo, Byte[] array )
+      protected override void WriteDataToArray( MethodDefinition row, MethodSizeInfo sizeInfo, Byte[] array )
       {
          var idx = 0;
          var il = row.IL;
@@ -1582,7 +1582,7 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
       }
 
       /// <summary>
-      /// This method is used by <see cref="WriteData"/>, in order to write single <see cref="OpCodeInfo"/> to byte array.
+      /// This method is used by <see cref="WriteDataToArray"/>, in order to write single <see cref="OpCodeInfo"/> to byte array.
       /// </summary>
       /// <param name="codeInfo">The <see cref="OpCodeInfo"/> to write.</param>
       /// <param name="array">The array to write <paramref name="codeInfo"/> to.</param>
@@ -1793,7 +1793,7 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
       }
 
       /// <summary>
-      /// Implements the <see cref="SectionPartFunctionalityWithDataReferenceTargetsImpl{TRow, TSizeInfo}.WriteData"/> method.
+      /// Implements the <see cref="SectionPartFunctionalityWithDataReferenceTargetsImpl{TRow, TSizeInfo}.WriteDataToArray"/> method.
       /// </summary>
       /// <param name="row">The <see cref="FieldRVA"/> row.</param>
       /// <param name="sizeInfo">The length of <see cref="FieldRVA.Data"/>.</param>
@@ -1801,7 +1801,7 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
       /// <remarks>
       /// This method copies the <see cref="FieldRVA.Data"/> array directly to given <paramref name="array"/>.
       /// </remarks>
-      protected override void WriteData( FieldRVA row, Int32 sizeInfo, Byte[] array )
+      protected override void WriteDataToArray( FieldRVA row, Int32 sizeInfo, Byte[] array )
       {
          if ( sizeInfo > 0 )
          {
@@ -1930,7 +1930,7 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
       }
 
       /// <summary>
-      /// Implements the <see cref="SectionPartFunctionalityWithDataReferenceTargetsImpl{TRow, TSizeInfo}.WriteData"/> method.
+      /// Implements the <see cref="SectionPartFunctionalityWithDataReferenceTargetsImpl{TRow, TSizeInfo}.WriteDataToArray"/> method.
       /// </summary>
       /// <param name="row">The <see cref="ManifestResource"/> row.</param>
       /// <param name="sizeInfo">The <see cref="ManifestResourceSizeInfo"/>.</param>
@@ -1938,7 +1938,7 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
       /// <remarks>
       /// This method first zeroes out the <see cref="ManifestResourceSizeInfo.PrePadding"/> amount of bytes, then writes the length of <see cref="ManifestResource.EmbeddedData"/> array, and then copies that array to given byte <paramref name="array"/>.
       /// </remarks>
-      protected override void WriteData( ManifestResource row, ManifestResourceSizeInfo sizeInfo, Byte[] array )
+      protected override void WriteDataToArray( ManifestResource row, ManifestResourceSizeInfo sizeInfo, Byte[] array )
       {
          var data = row.EmbeddedData;
          var idx = 0;
@@ -2244,7 +2244,7 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
       /// Creates a new instance of <see cref="SectionPartFunctionality_ImportDirectory"/> for given <see cref="ImageFileMachine"/> and given imported module and function names.
       /// </summary>
       /// <param name="machine">The <see cref="ImageFileMachine"/> of the image being emitted.</param>
-      /// <param name="functionName">The name of the function to import. Will default to <c>"_CorExeMain"</c> if <paramref name="isExecutable"/> is <c>true</c>, and to <c>"_CorDllMain"</c> if <paramref name="isExectuable"/> is <c>false</c>.</param>
+      /// <param name="functionName">The name of the function to import. Will default to <c>"_CorExeMain"</c> if <paramref name="isExecutable"/> is <c>true</c>, and to <c>"_CorDllMain"</c> if <paramref name="isExecutable"/> is <c>false</c>.</param>
       /// <param name="moduleName">The name of the module to import. Will default to <c>"mscoree.dll"</c> if not given.</param>
       /// <param name="isExecutable">Whether this image is executable.</param>
       /// <remarks>
@@ -2788,13 +2788,13 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
       /// <param name="stream">The <see cref="Stream"/> to write this GUID stream to.</param>
       /// <param name="array">The auxiliary array to use.</param>
       protected override void DoWriteStream(
-         Stream sink,
+         Stream stream,
          ResizableArray<Byte> array
          )
       {
          foreach ( var kvp in this._guids )
          {
-            sink.Write( kvp.Key.ToByteArray() );
+            stream.Write( kvp.Key.ToByteArray() );
          }
 
       }
@@ -2868,11 +2868,11 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
       /// This method will use <see cref="Serialize"/> to delegate the writing of the string to byte array.
       /// </remarks>
       protected override void DoWriteStream(
-         Stream sink,
+         Stream stream,
          ResizableArray<Byte> array
          )
       {
-         sink.WriteByte( 0 );
+         stream.WriteByte( 0 );
          if ( this._strings.Count > 0 )
          {
             foreach ( var kvp in this._strings )
@@ -2880,7 +2880,7 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
                var arrayLen = kvp.Value.Value;
                array.CurrentMaxCapacity = arrayLen;
                this.Serialize( kvp.Key, array.Array );
-               sink.Write( array.Array, arrayLen );
+               stream.Write( array.Array, arrayLen );
             }
          }
       }
@@ -3458,7 +3458,7 @@ public static partial class E_CILPhysical
    /// Helper method to get <see cref="DataDirectory"/> for given <see cref="SectionPartFunctionality"/>.
    /// </summary>
    /// <param name="imageSections">This <see cref="ImageSectionsInfo"/>.</param>
-   /// <param name="part">The <see cref="SectionPartFunctinality"/>. May be <c>null</c>.</param>
+   /// <param name="part">The <see cref="SectionPartFunctionality"/>. May be <c>null</c>.</param>
    /// <returns>The <see cref="DataDirectory"/> for given <paramref name="part"/>, or default value of <see cref="DataDirectory"/> if <paramref name="part"/> is <c>null</c> or not found.</returns>
    /// <exception cref="NullReferenceException">If this <see cref="ImageSectionsInfo"/> is <c>null</c>.</exception>
    public static DataDirectory GetDataDirectoryForSectionPart( this ImageSectionsInfo imageSections, SectionPartFunctionality part )

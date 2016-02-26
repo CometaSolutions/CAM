@@ -336,18 +336,18 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
    public sealed class RawInterfaceImplementation
    {
       /// <summary>
-      /// Gets or sets the raw version of <see cref="ParameterDefinition.Class"/>.
+      /// Gets or sets the raw version of <see cref="InterfaceImplementation.Class"/>.
       /// </summary>
-      /// <value>The raw version of <see cref="ParameterDefinition.Class"/>.</value>
+      /// <value>The raw version of <see cref="InterfaceImplementation.Class"/>.</value>
       /// <remarks>
       /// Modifying this value has no effect on the actual rows read by <see cref="ReaderTableStreamHandler"/>.
       /// </remarks>
       public Int32 Class { get; set; }
 
       /// <summary>
-      /// Gets or sets the raw version of <see cref="ParameterDefinition.Interface"/>.
+      /// Gets or sets the raw version of <see cref="InterfaceImplementation.Interface"/>.
       /// </summary>
-      /// <value>The raw version of <see cref="ParameterDefinition.Interface"/>.</value>
+      /// <value>The raw version of <see cref="InterfaceImplementation.Interface"/>.</value>
       /// <remarks>
       /// Modifying this value has no effect on the actual rows read by <see cref="ReaderTableStreamHandler"/>.
       /// </remarks>
@@ -408,9 +408,9 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
       public ConstantValueType Type { get; set; }
 
       /// <summary>
-      /// Gets or sets the raw version of <see cref="ConstantDefinition.Padding"/>.
+      /// Gets or sets the padding value, which is not present in normal <see cref="ConstantDefinition"/> row.
       /// </summary>
-      /// <value>The raw version of <see cref="ConstantDefinition.Padding"/>.</value>
+      /// <value>The padding value, which is not present in normal <see cref="ConstantDefinition"/> row.</value>
       /// <remarks>
       /// Modifying this value has no effect on the actual rows read by <see cref="ReaderTableStreamHandler"/>.
       /// </remarks>
@@ -906,9 +906,9 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
    public sealed class RawFieldRVA
    {
       /// <summary>
-      /// Gets or sets the raw version of <see cref="FieldRVA.RVA"/>.
+      /// Gets or sets the raw version of <see cref="FieldRVA.Data"/>.
       /// </summary>
-      /// <value>The raw version of <see cref="FieldRVA.RVA"/>.</value>
+      /// <value>The raw version of <see cref="FieldRVA.Data"/>.</value>
       /// <remarks>
       /// Modifying this value has no effect on the actual rows read by <see cref="ReaderTableStreamHandler"/>.
       /// </remarks>
@@ -1305,9 +1305,9 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
       public Int32 Owner { get; set; }
 
       /// <summary>
-      /// Gets or sets the raw version of <see cref="GenericParameterDefinitionGenericParameterDefinitionName"/>.
+      /// Gets or sets the raw version of <see cref="GenericParameterDefinition.Name"/>.
       /// </summary>
-      /// <value>The raw version of <see cref="XXX.Name"/>.</value>
+      /// <value>The raw version of <see cref="GenericParameterDefinition.Name"/>.</value>
       /// <remarks>
       /// Modifying this value has no effect on the actual rows read by <see cref="ReaderTableStreamHandler"/>.
       /// </remarks>
@@ -2456,9 +2456,10 @@ public static partial class E_CILPhysical
    }
 
    /// <summary>
-   /// This is extension method to create a new instance of <see cref="DataReferencesInfo"/> from this <see cref="ColumnValueStorage{TValue}"/> with given enumerable of <see cref="DataReferenceInfo"/>s.
+   /// This is extension method to create a new instance of <see cref="DataReferencesInfo"/> from this <see cref="ColumnValueStorage{TValue}"/> with given conversion callback.
    /// </summary>
    /// <param name="valueStorage">The <see cref="ColumnValueStorage{TValue}"/>.</param>
+   /// <param name="converter">The callback to convert values into <see cref="Int64"/>.</param>
    /// <returns>A new instance of <see cref="DataReferencesInfo"/> with information extracted from given <see cref="ColumnValueStorage{TValue}"/>.</returns>
    /// <exception cref="NullReferenceException">If this <see cref="ColumnValueStorage{TValue}"/> is <c>null</c>.</exception>
    public static DataReferencesInfo CreateDataReferencesInfo<T>( this ColumnValueStorage<T> valueStorage, Func<T, Int64> converter )

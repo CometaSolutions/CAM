@@ -1368,12 +1368,12 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
       /// <summary>
       /// Implements the <see cref="ColumnSerializationBinaryFunctionality.WriteValue"/>, writing one byte into given array.
       /// </summary>
-      /// <param name="bytes">The array to write value to.</param>
+      /// <param name="array">The array to write value to.</param>
       /// <param name="idx">The index in <paramref name="array"/> where to start writing.</param>
       /// <param name="value">The value to write.</param>
-      public void WriteValue( Byte[] bytes, Int32 idx, Int32 value )
+      public void WriteValue( Byte[] array, Int32 idx, Int32 value )
       {
-         bytes.WriteByteToBytes( ref idx, (Byte) value );
+         array.WriteByteToBytes( ref idx, (Byte) value );
       }
    }
 
@@ -1427,12 +1427,12 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
       /// <summary>
       /// Implements the <see cref="ColumnSerializationBinaryFunctionality.WriteValue"/>, writing two bytes into given array, as little-endian <see cref="UInt16"/>.
       /// </summary>
-      /// <param name="bytes">The array to write value to.</param>
+      /// <param name="array">The array to write value to.</param>
       /// <param name="idx">The index in <paramref name="array"/> where to start writing.</param>
       /// <param name="value">The value to write.</param>
-      public void WriteValue( Byte[] bytes, Int32 idx, Int32 value )
+      public void WriteValue( Byte[] array, Int32 idx, Int32 value )
       {
-         bytes.WriteUInt16LEToBytes( ref idx, (UInt16) value );
+         array.WriteUInt16LEToBytes( ref idx, (UInt16) value );
       }
    }
 
@@ -1486,12 +1486,12 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
       /// <summary>
       /// Implements the <see cref="ColumnSerializationBinaryFunctionality.WriteValue"/>, writing four bytes into given array, as little-endian <see cref="Int32"/>.
       /// </summary>
-      /// <param name="bytes">The array to write value to.</param>
+      /// <param name="array">The array to write value to.</param>
       /// <param name="idx">The index in <paramref name="array"/> where to start writing.</param>
       /// <param name="value">The value to write.</param>
-      public void WriteValue( Byte[] bytes, Int32 idx, Int32 value )
+      public void WriteValue( Byte[] array, Int32 idx, Int32 value )
       {
-         bytes.WriteInt32LEToBytes( ref idx, value );
+         array.WriteInt32LEToBytes( ref idx, value );
       }
    }
 

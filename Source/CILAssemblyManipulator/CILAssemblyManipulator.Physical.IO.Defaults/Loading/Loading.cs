@@ -262,9 +262,8 @@ namespace CILAssemblyManipulator.Physical.Loading
       }
 
       /// <summary>
-      /// This method simply calls <see cref="CAMPhysicalResolving::E_CILPhysical.ResolveEverything(MetaDataResolver, CILMetaData)"/>.
+      /// This method simply calls <see cref="CAMPhysicalR::E_CILPhysical.ResolveEverything"/>.
       /// </summary>
-      /// <param name="resolver">The <see cref="MetaDataResolver"/>.</param>
       /// <param name="metaData">The <see cref="CILMetaData"/>.</param>
       /// <seealso cref="AbstractCILMetaDataLoader{TDictionary}.PerformResolving"/>
       protected override void PerformResolving( CILMetaData metaData )
@@ -326,9 +325,8 @@ namespace CILAssemblyManipulator.Physical.Loading
       }
 
       /// <summary>
-      /// This method locks the given <see cref="MetaDataResolver"/>, and then calls <see cref="CAMPhysicalResolving::E_CILPhysical.ResolveEverything(MetaDataResolver, CILMetaData)"/>.
+      /// This method locks the given <see cref="MetaDataResolver"/>, and then calls <see cref="CAMPhysicalR::E_CILPhysical.ResolveEverything"/>.
       /// </summary>
-      /// <param name="resolver">The <see cref="MetaDataResolver"/>.</param>
       /// <param name="metaData">The <see cref="CILMetaData"/>.</param>
       /// <seealso cref="AbstractCILMetaDataLoader{TDictionary}.PerformResolving"/>
       /// <remarks>

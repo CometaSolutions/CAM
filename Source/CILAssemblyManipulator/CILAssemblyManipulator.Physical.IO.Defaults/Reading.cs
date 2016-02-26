@@ -456,7 +456,7 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
       }
 
       /// <summary>
-      /// This method implements <see cref="ReaderFunctionality.HandleDataReferences"/> by calling <see cref="TableSerializationLogicalFunctionality.PopulateDataReferences"/> for each serialization info in <see cref="TableSerializationInfos"/>.
+      /// This method implements <see cref="ReaderTableStreamHandler.HandleDataReferences"/> by calling <see cref="TableSerializationLogicalFunctionality.PopulateDataReferences"/> for each serialization info in <see cref="TableSerializationInfos"/>.
       /// </summary>
       /// <param name="stream">The <see cref="StreamHelper"/>.</param>
       /// <param name="imageInfo">The <see cref="ImageInformation"/> containing the data references.</param>
@@ -762,7 +762,7 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
       /// <summary>
       /// Leaves the actual implementation of <see cref="AbstractStringStreamHandler.StringStreamKind"/> to subclasses.
       /// </summary>
-      /// <value>The <see cref="Defaults.StringStreamKind"/> of this <see cref="AbstractReaderStringStreamHandler"/>.</value>
+      /// <value>The <see cref="CAMPhysicalIO::CILAssemblyManipulator.Physical.IO.StringStreamKind"/> of this <see cref="AbstractReaderStringStreamHandler"/>.</value>
       public abstract StringStreamKind StringStreamKind { get; }
 
       /// <summary>
@@ -1107,15 +1107,15 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
       /// <param name="handleFieldSigAsLocalsSig">Whether to handle the field signature as <see cref="LocalVariablesSignature"/>.</param>
       /// <param name="fieldSigTransformedToLocalsSig">If <paramref name="handleFieldSigAsLocalsSig"/> is <c>true</c> and the signature started with field prefix, this will be <c>true</c>. Otherwise, this will be <c>false</c>.</param>
       /// <returns>A new instance of <see cref="AbstractSignature"/>, or <c>null</c>.</returns>
-      public AbstractSignature ReadNonTypeSignature( Int32 heapIndex, SignatureProvider sigProvider, bool methodSigIsDefinition, bool handleFieldSigAsLocalsSig, out bool fieldSigTransformedToLocalsSig )
+      public AbstractSignature ReadNonTypeSignature( Int32 streamIndex, SignatureProvider sigProvider, bool methodSigIsDefinition, bool handleFieldSigAsLocalsSig, out bool fieldSigTransformedToLocalsSig )
       {
          Int32 max;
          AbstractSignature retVal;
-         if ( this.SetUpBLOBWithMax( ref heapIndex, out max ) )
+         if ( this.SetUpBLOBWithMax( ref streamIndex, out max ) )
          {
             retVal = sigProvider.ReadNonTypeSignature(
                this.Bytes,
-               ref heapIndex,
+               ref streamIndex,
                max,
                methodSigIsDefinition,
                handleFieldSigAsLocalsSig,
@@ -1137,12 +1137,12 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
       /// <param name="streamIndex">The zero-based stream index.</param>
       /// <param name="sigProvider">The <see cref="SignatureProvider"/> to use when deserializing the signature.</param>
       /// <param name="securityInfo">The list of <see cref="AbstractSecurityInformation"/>s to populate.</param>
-      public void ReadSecurityInformation( Int32 heapIndex, SignatureProvider sigProvider, List<AbstractSecurityInformation> securityInfo )
+      public void ReadSecurityInformation( Int32 streamIndex, SignatureProvider sigProvider, List<AbstractSecurityInformation> securityInfo )
       {
          Int32 max;
-         if ( this.SetUpBLOBWithMax( ref heapIndex, out max ) )
+         if ( this.SetUpBLOBWithMax( ref streamIndex, out max ) )
          {
-            sigProvider.ReadSecurityInformation( this.Bytes, ref heapIndex, max, securityInfo );
+            sigProvider.ReadSecurityInformation( this.Bytes, ref streamIndex, max, securityInfo );
          }
       }
 
@@ -1152,10 +1152,10 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
       /// <param name="streamIndex">The zero-based stream index.</param>
       /// <param name="sigProvider">The <see cref="SignatureProvider"/> to use when deserializing the signature.</param>
       /// <returns>A new instance of <see cref="TypeSignature"/>, or <c>null</c>.</returns>
-      public TypeSignature ReadTypeSignature( Int32 heapIndex, SignatureProvider sigProvider )
+      public TypeSignature ReadTypeSignature( Int32 streamIndex, SignatureProvider sigProvider )
       {
          Int32 max;
-         return this.SetUpBLOBWithMax( ref heapIndex, out max ) ? sigProvider.ReadTypeSignature( this.Bytes, ref heapIndex, max ) : null;
+         return this.SetUpBLOBWithMax( ref streamIndex, out max ) ? sigProvider.ReadTypeSignature( this.Bytes, ref streamIndex, max ) : null;
       }
 
       /// <summary>
