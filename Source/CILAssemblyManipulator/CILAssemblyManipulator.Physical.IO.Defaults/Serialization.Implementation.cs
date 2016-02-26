@@ -139,9 +139,17 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
    /// <typeparam name="TRawRow">The type of the raw row.</typeparam>
    /// <typeparam name="TRow">The type of normal row (part of the tables in <see cref="CILMetaData"/>).</typeparam>
    /// <remarks>
+   /// <para>
    /// The instances of this class are not meant to be directly created.
    /// Instead, use methods of <see cref="MetaDataColumnInformationFactory"/> or <see cref="DefaultColumnSerializationInfoFactory"/>.
+   /// </para>
+   /// <para>
+   /// This class is the functionality that will be present in <see cref="MetaDataColumnInformation{TRow, TValue}"/>s created by methods of <see cref="MetaDataColumnInformationFactory"/> class.
+   /// </para>
    /// </remarks>
+   /// <seealso cref="MetaDataColumnInformation.Functionalities"/>
+   /// <seealso cref="E_TabularMetaData.GetFunctionality(MetaDataColumnInformation, Type)"/>
+   /// <seealso cref="E_TabularMetaData.GetFunctionality{TFunctionality}(MetaDataColumnInformation)"/>
    public class DefaultColumnSerializationInfo<TRow, TRawRow> // : DefaultColumnSerializationInfo<TRow>
       where TRawRow : class
       where TRow : class
@@ -482,6 +490,7 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
       /// <param name="setter">The callback to set the value.</param>
       /// <param name="blobCreator">The callback to create byte array from the value.</param>
       /// <returns>A new instance of <see cref="DefaultColumnSerializationInfo{TRow, TRawRow}"/>.</returns>
+      /// <exception cref="ArgumentNullException">If any of the <paramref name="rawSetter"/>, <paramref name="setter"/>, or <paramref name="blobCreator"/> is <c>null</c>.</exception>
       public static DefaultColumnSerializationInfo<TRow, TRawRow> BLOB<TRow, TRawRow>(
          RawRowColumnSetterDelegate<TRawRow> rawSetter,
          Action<ColumnValueArgs<TRow, RowReadingArguments>, Int32, ReaderBLOBStreamHandler> setter, // TODO delegat-ize these
@@ -490,6 +499,9 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
          where TRawRow : class
          where TRow : class
       {
+         ArgumentValidator.ValidateNotNull( "Setter", setter );
+         ArgumentValidator.ValidateNotNull( "BLOB creator", blobCreator );
+
          return HeapIndex<TRow, TRawRow>(
             MetaDataConstants.BLOB_STREAM_NAME,
             rawSetter,

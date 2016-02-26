@@ -22,6 +22,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
+using TabularMetaData.Meta;
 
 namespace TabularMetaData.Meta
 {
@@ -226,9 +227,12 @@ namespace TabularMetaData.Meta
    /// <seealso cref="MetaDataColumnInformation{TRow, TValue}"/>
    public abstract class MetaDataColumnInformation
    {
+      private readonly DictionaryProxy<Type, Lazy<Object>> _functionalities;
+
       // Disable instatiation of this class from other assemblies.
       internal MetaDataColumnInformation()
       {
+         this._functionalities = new Dictionary<Type, Lazy<Object>>().ToDictionaryProxy();
       }
 
       /// <summary>
@@ -259,7 +263,46 @@ namespace TabularMetaData.Meta
       /// <value>The type of the accepted column values.</value>
       public abstract Type ValueType { get; }
 
+      /// <summary>
+      /// Registers a certain type of functionality for this <see cref="MetaDataColumnInformation"/>, with lazy initialization of functionality.
+      /// </summary>
+      /// <typeparam name="TFunctionality">The type of the functionality.</typeparam>
+      /// <param name="functionality">The callback to create an instance of functionality.</param>
+      /// <returns><c>true</c> if <paramref name="functionality"/> was not <c>null</c> and registered; <c>false</c> otherwise.</returns>
+      public Boolean RegisterFunctionality<TFunctionality>( Func<TFunctionality> functionality )
+         where TFunctionality : class
+      {
+         var retVal = functionality != null;
+         if ( retVal )
+         {
+            this._functionalities[typeof( TFunctionality )] = new Lazy<Object>( functionality, System.Threading.LazyThreadSafetyMode.ExecutionAndPublication );
+         }
+         return retVal;
+      }
 
+      /// <summary>
+      /// Registers a certain type of functionality for this <see cref="MetaDataColumnInformation"/>, when the functionality is already created.
+      /// </summary>
+      /// <typeparam name="TFunctionality">The type of the functionality.</typeparam>
+      /// <param name="functionality">The instance of functionality.</param>
+      /// <returns><c>true</c> if <paramref name="functionality"/> was not <c>null</c> and registered; <c>false</c> otherwise.</returns>
+      public Boolean RegisterFunctionalityDirect<TFunctionality>( TFunctionality functionality )
+         where TFunctionality : class
+      {
+         return functionality != null && this.RegisterFunctionality<TFunctionality>( () => functionality );
+      }
+
+      /// <summary>
+      /// Gets all the functionalities for this <see cref="MetaDataColumnInformation"/>.
+      /// </summary>
+      /// <value>All the functionalities for this <see cref="MetaDataColumnInformation"/>.</value>
+      public DictionaryQuery<Type, Lazy<Object>> Functionalities
+      {
+         get
+         {
+            return this._functionalities.CQ;
+         }
+      }
    }
 
    /// <summary>
@@ -329,7 +372,7 @@ namespace TabularMetaData.Meta
    /// <seealso cref="MetaDataTableInformation"/>
    /// <seealso cref="MetaDataColumnInformation{TRow}"/>
    /// <seealso cref="MetaDataColumnInformation{TRow, TValue}"/>
-   public class MetaDataColumnInformation<TRow, TValue> : MetaDataColumnInformation<TRow>
+   public sealed class MetaDataColumnInformation<TRow, TValue> : MetaDataColumnInformation<TRow>
       where TRow : class
    {
       private readonly RowColumnGetterDelegate<TRow, TValue> _getter;
@@ -532,4 +575,35 @@ namespace TabularMetaData.Meta
    //      return success;
    //   }
    //}
+}
+
+public static partial class E_TabularMetaData
+{
+   /// <summary>
+   /// Helper method to get functionality when the type of functionality is known at compile time.
+   /// </summary>
+   /// <typeparam name="TFunctionality">The type of the functionality.</typeparam>
+   /// <param name="info">The <see cref="MetaDataColumnInformation"/>.</param>
+   /// <returns>The functionality, or <c>null</c> if functionality is not found.</returns>
+   /// <exception cref="NullReferenceException">If the <see cref="MetaDataColumnInformation"/> is <c>null</c>.</exception>
+   public static TFunctionality GetFunctionality<TFunctionality>( this MetaDataColumnInformation info )
+      where TFunctionality : class
+   {
+      return info.GetFunctionality( typeof( TFunctionality ) ) as TFunctionality;
+   }
+
+   /// <summary>
+   /// Helpe rmethod to get functionality when the type of functionality is not known at compile time.
+   /// </summary>
+   /// <param name="info">The <see cref="MetaDataColumnInformation"/>.</param>
+   /// <param name="functionalityType">The type of the functionality.</param>
+   /// <returns>The functionality, or <c>null</c> if functionality is not found.</returns>
+   /// <exception cref="NullReferenceException">If the <see cref="MetaDataColumnInformation"/> is <c>null</c>.</exception>
+   public static Object GetFunctionality( this MetaDataColumnInformation info, Type functionalityType )
+   {
+      Lazy<Object> retVal;
+      return functionalityType != null && info.Functionalities.TryGetValue( functionalityType, out retVal ) ?
+         retVal.Value :
+         null;
+   }
 }

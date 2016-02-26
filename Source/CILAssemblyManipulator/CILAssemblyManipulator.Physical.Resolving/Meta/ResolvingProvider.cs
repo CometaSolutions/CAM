@@ -104,16 +104,20 @@ namespace CILAssemblyManipulator.Physical.Meta
       /// </summary>
       /// <param name="md">The <see cref="CILMetaData"/>.</param>
       /// <param name="resolvableColumns">All of the resolvable columns.</param>
+      /// <exception cref="ArgumentNullException">If <paramref name="md"/> is <c>null</c>.</exception>
       public DefaultResolvingProvider(
          CAMPhysical::CILAssemblyManipulator.Physical.CILMetaData md,
          IEnumerable<Tuple<Tables, MetaDataColumnInformationWithResolvingCapability>> resolvableColumns
          )
       {
+         ArgumentValidator.ValidateNotNull( "Meta data", md );
+
          this._md = md;
 
          this.Resolver = new DefaultMetaDataResolver();
          var cols = new Dictionary<Tables, List<Tuple<MetaDataColumnInformationWithResolvingCapability, Object>>>();
-         foreach ( var resolvableColumn in resolvableColumns )
+         foreach ( var resolvableColumn in ( resolvableColumns ?? Empty<Tuple<Tables, MetaDataColumnInformationWithResolvingCapability>>.Enumerable )
+            .Where( rc => rc != null ) )
          {
             cols.GetOrAdd_NotThreadSafe( resolvableColumn.Item1, t => new List<Tuple<MetaDataColumnInformationWithResolvingCapability, Object>>() )
                .Add( Tuple.Create( resolvableColumn.Item2, resolvableColumn.Item2.CreateCache() ) );
