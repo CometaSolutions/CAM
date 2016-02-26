@@ -33,7 +33,9 @@ using System.Text;
 using CILAssemblyManipulator.Physical.IO;
 using CILAssemblyManipulator.Physical.IO.Defaults;
 
+#pragma warning disable 1591
 public static partial class E_CILPhysical
+#pragma warning restore 1591
 {
 
    private const Byte DECL_SECURITY_HEADER = 0x2E; // '.'

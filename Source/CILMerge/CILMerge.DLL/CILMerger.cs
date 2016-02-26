@@ -3281,6 +3281,8 @@ namespace CILMerge
 
          if ( firstRes.IsEmbeddedResource() )
          {
+
+            var seenResourceNotReadableByManager = false;
             // Then all resources are embedded
             using ( var strm = new MemoryStream() )
             {
@@ -3289,48 +3291,70 @@ namespace CILMerge
                {
                   var inputResource = tuple.Item2;
                   var data = inputResource.EmbeddedData;
+
                   Boolean wasResourceManager;
-                  foreach ( var resx in MResourcesIO.GetResourceInfo( data, out wasResourceManager ) )
+                  foreach ( var resx in data.ReadResourceManagerEntries( out wasResourceManager ) )
                   {
                      var resName = resx.Name;
-                     var resType = resx.Type;
-                     if ( !resx.IsUserDefinedType && String.Equals( "ResourceTypeCode.String", resType ) )
+                     var resXValue = resx.CreateEntry( data );
+                     var resXKind = resXValue.ResourceManagerEntryKind;
+                     switch ( resXKind )
                      {
-                        // In case there is textual information about types serialized, have to fix that.
-                        var idx = resx.DataOffset;
-                        var strlen = data.ReadInt32Encoded7Bit( ref idx );
-                        rw.AddResource( resName, this.ProcessTypeString( md, data.ReadStringWithEncoding( ref idx, strlen, Encoding.UTF8 ) ) );
-                     }
-                     else
-                     {
-                        var newTypeStr = this.ProcessTypeString( md, resType );
-                        if ( String.Equals( newTypeStr, resType ) )
-                        {
-                           // Predefined ResourceTypeCode or pure reference type, add right away
-                           var array = new Byte[resx.DataSize];
-                           var dataStart = resx.DataOffset;
-                           data.BlockCopyFrom( ref dataStart, array );
-                           rw.AddResourceData( resName, resType, array );
-                        }
-                        else
-                        {
+                        case ResourceManagerEntryKind.UserDefined:
+                           var ud = (UserDefinedResourceManagerEntry) resXValue;
+                           var newTypeStr = this.ProcessTypeString( md, ud.UserDefinedType );
                            // Have to fix records one by one
                            var idx = resx.DataOffset;
-                           var records = MResourcesIO.ReadNRBFRecords( data, ref idx, idx + resx.DataSize );
+                           var records = ud.Contents;
                            foreach ( var rec in records )
                            {
                               this.ProcessNRBFRecord( md, rec );
                            }
                            var strm2 = new MemoryStream();
-                           MResourcesIO.WriteNRBFRecords( records, strm2 );
+                           records.WriteNRBFRecords( strm2 );
                            rw.AddResourceData( resName, newTypeStr, strm2.ToArray() );
-                        }
+                           break;
+                        case ResourceManagerEntryKind.PreDefined:
+                           var pd = (PreDefinedResourceManagerEntry) resXValue;
+                           if ( pd.TypeCode == ResourceTypeCode.String )
+                           {
+                              rw.AddResource( resName, this.ProcessTypeString( md, (String) pd.Value ) );
+                           }
+                           break;
+                        default:
+                           this.Log( MessageLevel.Error, "Unrecognized resource manager entry kind: {0}. ", resXKind );
+                           break;
                      }
+                  }
+
+                  if ( !wasResourceManager )
+                  {
+                     seenResourceNotReadableByManager = true;
+                     this.Log( MessageLevel.Info, "Resource named {0} in {1} was not readable by resource manager.", inputResource, this._moduleLoader.GetResourceFor( tuple.Item1 ) );
                   }
                }
 
-               rw.Generate();
-               retVal.EmbeddedData = strm.ToArray();
+               Byte[] newEmbeddedData;
+               if ( seenResourceNotReadableByManager )
+               {
+                  if ( list.Count == 1 )
+                  {
+                     // Merging just one resource not readable by resource manager
+                     newEmbeddedData = list[0].Item2.EmbeddedData;
+                  }
+                  else
+                  {
+                     newEmbeddedData = Empty<Byte>.Array;
+                     this.Log( MessageLevel.Error, "Failed to merge resource named {0} because there was at least one resource not readable by resource manager.", retVal.Name );
+                  }
+               }
+               else
+               {
+                  rw.Generate();
+                  newEmbeddedData = strm.ToArray();
+               }
+
+               retVal.EmbeddedData = newEmbeddedData;
             }
          }
          else
@@ -3346,7 +3370,7 @@ namespace CILMerge
       {
          if ( record != null )
          {
-            switch ( record.Kind )
+            switch ( record.RecordKind )
             {
                case RecordKind.String:
                   ( (StringRecord) record ).StringValue = this.ProcessTypeString( inputModule, ( (StringRecord) record ).StringValue );

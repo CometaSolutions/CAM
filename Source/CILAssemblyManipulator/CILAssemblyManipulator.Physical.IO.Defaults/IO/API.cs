@@ -78,7 +78,9 @@ namespace CILAssemblyManipulator.Physical.IO
    }
 }
 
+#pragma warning disable 1591
 public static partial class E_CILPhysical
+#pragma warning restore 1591
 {
    /// <summary>
    /// Writes this <see cref="CILMetaData"/> as a compressed module to given byte stream.

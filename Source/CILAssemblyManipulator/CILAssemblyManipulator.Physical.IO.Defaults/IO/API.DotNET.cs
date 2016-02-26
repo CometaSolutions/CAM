@@ -54,7 +54,9 @@ namespace CILAssemblyManipulator.Physical.IO
    }
 }
 
+#pragma warning disable 1591
 public static partial class E_CILPhysical
+#pragma warning restore 1591
 {
    /// <summary>
    /// This method will write the given <see cref="CILMetaData"/> to file located in given file path.

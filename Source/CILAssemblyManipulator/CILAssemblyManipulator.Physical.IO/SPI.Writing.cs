@@ -529,7 +529,9 @@ namespace CILAssemblyManipulator.Physical.IO
    }
 }
 
+#pragma warning disable 1591
 public static partial class E_CILPhysical
+#pragma warning restore 1591
 {
    /// <summary>
    /// This is extension method to write given <see cref="CILMetaData"/> to <see cref="Stream"/> using this <see cref="WriterFunctionalityProvider"/>.

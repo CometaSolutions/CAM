@@ -1497,7 +1497,9 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
 
 }
 
+#pragma warning disable 1591
 public static partial class E_CILPhysical
+#pragma warning restore 1591
 {
    private const Int32 UINT_ONE_BYTE_MAX = 0x7F;
    private const Int32 UINT_TWO_BYTES_MAX = 0x3FFF;

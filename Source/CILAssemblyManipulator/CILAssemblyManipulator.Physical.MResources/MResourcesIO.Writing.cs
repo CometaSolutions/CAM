@@ -65,7 +65,7 @@ namespace CILAssemblyManipulator.Physical.MResources
       {
          if ( curRecord != null )
          {
-            switch ( curRecord.Kind )
+            switch ( curRecord.RecordKind )
             {
                case RecordKind.Class:
                   var claas = (ClassRecord) curRecord;
@@ -115,7 +115,7 @@ namespace CILAssemblyManipulator.Physical.MResources
          if ( state.TryAddRecord( record, out id ) || forceWrite )
          {
             // If record hasn't been previously processed, or if we are told to write contents no matter what
-            switch ( record.Kind )
+            switch ( record.RecordKind )
             {
                case RecordKind.String:
                   var s = ( (StringRecord) record ).StringValue;
@@ -526,7 +526,7 @@ namespace CILAssemblyManipulator.Physical.MResources
                case TypeCode.Object:
                   if ( obj is AbstractRecord )
                   {
-                     switch ( ( (AbstractRecord) obj ).Kind )
+                     switch ( ( (AbstractRecord) obj ).RecordKind )
                      {
                         case RecordKind.String:
                            return BinaryTypeEnumeration.String;
@@ -737,6 +737,12 @@ namespace CILAssemblyManipulator.Physical.MResources
 
       private sealed class SerializationState
       {
+         // TODO Make Comparers static class, as in CAM.Physical Core project.
+         private static readonly IEqualityComparer<StringRecord> StringRecordComparer = ComparerFromFunctions.NewEqualityComparer<StringRecord>(
+            ( x, y ) => ReferenceEquals( x, y ) || ( x != null && y != null && String.Equals( x.StringValue, y.StringValue ) ),
+            x => x?.StringValue?.GetHashCode() ?? 0
+            );
+
          internal readonly Stream stream;
          internal Byte[] array;
          internal Int32 idx;
@@ -751,7 +757,23 @@ namespace CILAssemblyManipulator.Physical.MResources
             ArgumentValidator.ValidateNotNull( "Stream", aStream );
 
             this.stream = aStream;
-            this.records = new Dictionary<AbstractRecord, Int32>();
+            this.records = new Dictionary<AbstractRecord, Int32>( ComparerFromFunctions.NewEqualityComparer<AbstractRecord>(
+               ( x, y ) =>
+               {
+                  var retVal = ReferenceEquals( x, y );
+                  if ( !retVal )
+                  {
+                     var xStr = x as StringRecord;
+                     var yStr = y as StringRecord;
+                     retVal = xStr != null && yStr != null && StringRecordComparer.Equals( xStr, yStr );
+                  }
+                  return retVal;
+               },
+               x =>
+               {
+                  var xStr = x as StringRecord;
+                  return xStr == null ? x.GetHashCodeSafe() : StringRecordComparer.GetHashCode( xStr );
+               } ) );
             this.assemblies = new Dictionary<String, Int32>();
             this.recordQueue = new Queue<AbstractRecord>();
             this.serializedObjects = new Dictionary<Tuple<String, String>, Int32>();

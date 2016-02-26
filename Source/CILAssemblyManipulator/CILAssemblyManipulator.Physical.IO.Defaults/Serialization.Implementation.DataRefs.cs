@@ -34,7 +34,9 @@ using System.IO;
 using System.Linq;
 using System.Text;
 
+#pragma warning disable 1591
 public static partial class E_CILPhysical
+#pragma warning restore 1591
 {
    /// <summary>
    /// Using this <see cref="OpCodeProvider"/>, deserializes <see cref="MethodILDefinition"/> from a given stream.

@@ -363,10 +363,10 @@ namespace CILAssemblyManipulator.Physical.Crypto
 }
 
 // This class will get its documentation from CAM.Physical Core.
+#pragma warning disable 1591
 public static partial class E_CILPhysical
-{
-
 #pragma warning restore 1591
+{
 
    /// <summary>
    /// Helper method to create a new <see cref="HashStreamInfo"/> struct, and check that its properties are not <c>null</c>.
@@ -381,13 +381,13 @@ public static partial class E_CILPhysical
    /// <exception cref="ArgumentNullException">If any of the boolean parameters is <c>true</c>, and the corresponding property of <see cref="HashStreamInfo"/> is <c>null</c>.</exception>
    /// <exception cref="NullReferenceException">If this <see cref="CryptoCallbacks"/> is <c>null</c>.</exception>
    public static HashStreamInfo CreateHashStreamAndCheck(
-      this CryptoCallbacks callbacks,
-      AssemblyHashAlgorithm algorithm,
-      Boolean checkCryptoStream,
-      Boolean checkHashGetter,
-      Boolean checkComputeHash,
-      Boolean checkTransform
-      )
+         this CryptoCallbacks callbacks,
+         AssemblyHashAlgorithm algorithm,
+         Boolean checkCryptoStream,
+         Boolean checkHashGetter,
+         Boolean checkComputeHash,
+         Boolean checkTransform
+         )
    {
       var retVal = callbacks.CreateHashStream( algorithm );
       if ( checkCryptoStream )

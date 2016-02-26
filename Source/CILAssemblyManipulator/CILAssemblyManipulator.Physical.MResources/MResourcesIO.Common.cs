@@ -28,31 +28,6 @@ namespace CILAssemblyManipulator.Physical.MResources
       private static readonly Encoding UTF8 = new UTF8Encoding( false, true );
       private static readonly Encoding UTF16LE = new UnicodeEncoding( false, false, true );
 
-      private enum ResourceTypeCode
-      {
-         Null = 0,
-         String = 1,
-         Boolean = 2,
-         Char = 3,
-         Byte = 4,
-         SByte = 5,
-         Int16 = 6,
-         UInt16 = 7,
-         Int32 = 8,
-         UInt32 = 9,
-         Int64 = 10,
-         UInt64 = 11,
-         Single = 12,
-         Double = 13,
-         Decimal = 14,
-         DateTime = 15,
-         LastPrimitive = 16,
-         TimeSpan = 16,
-         ByteArray = 32,
-         Stream = 33,
-         StartOfUserTypes = 64,
-      }
-
       // MS-NRBF, pp. 15-17
       private enum RecordTypeEnumeration : byte
       {

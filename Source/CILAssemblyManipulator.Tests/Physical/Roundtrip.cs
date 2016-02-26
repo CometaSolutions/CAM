@@ -36,6 +36,7 @@ using System.Text;
 using NUnit.Framework;
 using System.IO;
 using CILAssemblyManipulator.Physical;
+using CILAssemblyManipulator.Physical.MResources;
 
 namespace CILAssemblyManipulator.Tests.Physical
 {
@@ -78,6 +79,20 @@ namespace CILAssemblyManipulator.Tests.Physical
          }
 
          read1.ResolveEverything();
+         foreach ( var mr in read1.ManifestResources.TableContents.Where( m => m.IsEmbeddedResource() ) )
+         {
+            var data = mr.EmbeddedData;
+            Boolean wasResourceManagerData;
+            var items = data.ReadResourceManagerEntries( out wasResourceManagerData );
+            if ( wasResourceManagerData )
+            {
+               var nrbfs = items.Select( i =>
+               {
+                  var idx = i.DataOffset;
+                  return Tuple.Create( i.Name, i.CreateEntry( data ) );
+               } ).ToArray();
+            }
+         }
          if ( afterFirstRead != null )
          {
             afterFirstRead( read1 );

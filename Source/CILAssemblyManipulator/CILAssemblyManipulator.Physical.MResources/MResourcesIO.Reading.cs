@@ -21,16 +21,220 @@ using System.IO;
 using System.Linq;
 using System.Text;
 using CommonUtils;
+using CILAssemblyManipulator.Physical.MResources;
 
 namespace CILAssemblyManipulator.Physical.MResources
 {
-   public sealed class ResourceItem
+   /// <summary>
+   /// This class contains information about single entry in the manifest resource data written by <see cref="System.Resources.ResourceManager"/>.
+   /// </summary>
+   public sealed class ResourceManagerEntryInformation
    {
+      /// <summary>
+      /// Gets or sets the name of this resource.
+      /// </summary>
+      /// <value>The name of this resource.</value>
       public String Name { get; set; }
-      public String Type { get; set; }
-      public Boolean IsUserDefinedType { get; set; }
+
+      /// <summary>
+      /// Gets or sets the type of the resource, as user-defined textual type string.
+      /// </summary>
+      /// <value>The type of the resource, as user-defined textual type string.</value>
+      /// <remarks>
+      /// If this property is <c>null</c>, then the type of the resource can be deduced from <see cref="PredefinedTypeCode"/> property.
+      /// </remarks>
+      public String UserDefinedType { get; set; }
+
+      /// <summary>
+      /// Gets or sets the type of the resource as one of pre-defined types.
+      /// </summary>
+      /// <value>The type of the resource as one of pre-defined types.</value>
+      /// <remarks>
+      /// One should always check for <see cref="UserDefinedType"/> property before this property to find out the actual type of the resource.
+      /// </remarks>
+      public ResourceTypeCode PredefinedTypeCode { get; set; }
+
+      /// <summary>
+      /// Gets or sets the offset in the data where the contents of this resource start.
+      /// </summary>
+      /// <value>The offset in the data where the contents of this resource start.</value>
       public Int32 DataOffset { get; set; }
+
+      /// <summary>
+      /// Gets or sets the size of the data, in bytes.
+      /// </summary>
+      /// <value>The size of the data, in bytes.</value>
       public Int32 DataSize { get; set; }
+   }
+
+   /// <summary>
+   /// This enumeration contains type codes for pre-defined resource types.
+   /// </summary>
+   public enum ResourceTypeCode
+   {
+      /// <summary>
+      /// The resource is <c>null</c> value.
+      /// </summary>
+      Null = 0,
+
+      /// <summary>
+      /// The resource is a <see cref="System.String"/>.
+      /// </summary>
+      String = 1,
+
+      /// <summary>
+      /// The resource is a <see cref="System.Boolean"/>.
+      /// </summary>
+      Boolean = 2,
+
+      /// <summary>
+      /// The resource is a <see cref="System.Char"/>.
+      /// </summary>
+      Char = 3,
+
+      /// <summary>
+      /// The resource is a <see cref="System.Byte"/>.
+      /// </summary>
+      Byte = 4,
+
+      /// <summary>
+      /// The resource is a <see cref="System.SByte"/>.
+      /// </summary>
+      SByte = 5,
+
+      /// <summary>
+      /// The resource is a <see cref="System.Int16"/>.
+      /// </summary>
+      Int16 = 6,
+
+      /// <summary>
+      /// The resource is a <see cref="System.UInt16"/>.
+      /// </summary>
+      UInt16 = 7,
+
+      /// <summary>
+      /// The resource is a <see cref="System.Int32"/>.
+      /// </summary>
+      Int32 = 8,
+
+      /// <summary>
+      /// The resource is a <see cref="System.UInt32"/>.
+      /// </summary>
+      UInt32 = 9,
+
+      /// <summary>
+      /// The resource is a <see cref="System.Int64"/>.
+      /// </summary>
+      Int64 = 10,
+
+      /// <summary>
+      /// The resource is a <see cref="System.UInt64"/>.
+      /// </summary>
+      UInt64 = 11,
+
+      /// <summary>
+      /// The resource is a <see cref="System.Single"/>.
+      /// </summary>
+      Single = 12,
+
+      /// <summary>
+      /// The resource is a <see cref="System.Double"/>.
+      /// </summary>
+      Double = 13,
+
+      /// <summary>
+      /// The resource is a <see cref="System.Decimal"/>.
+      /// </summary>
+      Decimal = 14,
+
+      /// <summary>
+      /// The resource is a <see cref="System.DateTime"/>.
+      /// </summary>
+      DateTime = 15,
+
+      /// <summary>
+      /// This value is the biggest value for primitive types.
+      /// </summary>
+      LastPrimitive = 16,
+
+      /// <summary>
+      /// The resource is a <see cref="System.TimeSpan"/>.
+      /// </summary>
+      TimeSpan = 16,
+
+      /// <summary>
+      /// The resource is a byte array.
+      /// </summary>
+      ByteArray = 32,
+
+      /// <summary>
+      /// The resource is a <see cref="System.IO.Stream"/>.
+      /// </summary>
+      Stream = 33,
+
+      /// <summary>
+      /// This value indicates the first value which is used by user-defined types.
+      /// </summary>
+      StartOfUserTypes = 64,
+   }
+
+   public abstract class ResourceManagerEntry
+   {
+      internal ResourceManagerEntry()
+      {
+
+      }
+
+      public abstract ResourceManagerEntryKind ResourceManagerEntryKind { get; }
+   }
+
+   public sealed class PreDefinedResourceManagerEntry : ResourceManagerEntry
+   {
+
+      public PreDefinedResourceManagerEntry( ResourceTypeCode typeCode, Object value )
+      {
+         this.TypeCode = typeCode;
+         this.Value = value;
+      }
+
+      public ResourceTypeCode TypeCode { get; }
+
+      public Object Value { get; }
+
+      public override ResourceManagerEntryKind ResourceManagerEntryKind
+      {
+         get
+         {
+            return ResourceManagerEntryKind.PreDefined;
+         }
+      }
+   }
+
+   public sealed class UserDefinedResourceManagerEntry : ResourceManagerEntry
+   {
+      public UserDefinedResourceManagerEntry( String type, List<AbstractRecord> contents )
+      {
+         this.UserDefinedType = type;
+         this.Contents = contents;
+      }
+
+      public String UserDefinedType { get; }
+
+      public List<AbstractRecord> Contents { get; }
+
+      public override ResourceManagerEntryKind ResourceManagerEntryKind
+      {
+         get
+         {
+            return ResourceManagerEntryKind.UserDefined;
+         }
+      }
+   }
+
+   public enum ResourceManagerEntryKind
+   {
+      PreDefined,
+      UserDefined
    }
 
    public static partial class MResourcesIO
@@ -45,7 +249,15 @@ namespace CILAssemblyManipulator.Physical.MResources
       // Item3 - whether type is user-defined
       // Item4 - offset in array where data starts
       // Item5 - size of data
-      public static IEnumerable<ResourceItem> GetResourceInfo( Byte[] array, out Boolean wasResourceManager, Int32 idx = 0 )
+
+      /// <summary>
+      /// Reads the resource manager data for manifest resource binary data
+      /// </summary>
+      /// <param name="array"></param>
+      /// <param name="wasResourceManager"></param>
+      /// <param name="idx"></param>
+      /// <returns></returns>
+      public static IEnumerable<ResourceManagerEntryInformation> ReadResourceManagerEntries( this Byte[] array, out Boolean wasResourceManager, Int32 idx = 0 )
       {
          // See http://www.dotnetframework.org/default.aspx/4@0/4@0/untmp/DEVDIV_TFS/Dev10/Releases/RTMRel/ndp/clr/src/BCL/System/Resources/RuntimeResourceSet@cs/1305376/RuntimeResourceSet@cs for some explanation of format
          // Or ResReader.cs in ILRepack
@@ -55,10 +267,10 @@ namespace CILAssemblyManipulator.Physical.MResources
          wasResourceManager = RES_MANAGER_HEADER_MAGIC == resHdrMagic;
          return wasResourceManager ?
             GetResourceInfoFromResourceManagerData( array, startIdx, idx ) :
-            Empty<ResourceItem>.Enumerable;
+            Empty<ResourceManagerEntryInformation>.Enumerable;
       }
 
-      private static IEnumerable<ResourceItem> GetResourceInfoFromResourceManagerData( Byte[] array, Int32 startIdx, Int32 idx )
+      private static IEnumerable<ResourceManagerEntryInformation> GetResourceInfoFromResourceManagerData( Byte[] array, Int32 startIdx, Int32 idx )
       {
          if ( array.ReadInt32LEFromBytes( ref idx ) > 1 ) // Resource manager version
          {
@@ -80,7 +292,7 @@ namespace CILAssemblyManipulator.Physical.MResources
             types[i] = array.Read7BitLengthPrefixedString( ref idx );
          }
          // Skip to next alignment of 8
-         idx += 8 - ( idx & 7 );
+         idx = idx.RoundUpI32( 8 );
          // Skip name hashes
          idx += 4 * resCount;
          var namePositions = array.ReadInt32ArrayLEFromBytes( ref idx, resCount ); // Relative positions of names
@@ -104,17 +316,11 @@ namespace CILAssemblyManipulator.Physical.MResources
             var iIdx = dataNamesAndOffsets[i].Item2;
             var tIdx = array.ReadInt32Encoded7Bit( ref iIdx );
             var isUserType = version != 1 && tIdx >= (Int32) ResourceTypeCode.StartOfUserTypes;
-            var resType = version == 1 ?
-               types[tIdx] :
-               ( isUserType ?
-                  types[tIdx - (Int32) ResourceTypeCode.StartOfUserTypes] :
-                  ( "ResourceTypeCode." + (ResourceTypeCode) tIdx )
-               );
-            yield return new ResourceItem()
+            yield return new ResourceManagerEntryInformation()
             {
                Name = dataNamesAndOffsets[i].Item1,
-               Type = resType,
-               IsUserDefinedType = isUserType,
+               UserDefinedType = isUserType ? types[tIdx - (Int32) ResourceTypeCode.StartOfUserTypes] : null,
+               PredefinedTypeCode = isUserType ? ResourceTypeCode.Null : (ResourceTypeCode) tIdx,
                DataOffset = iIdx,
                DataSize = ( i < resCount - 1 ? dataNamesAndOffsets[i + 1].Item2 : array.Length ) - iIdx
             };
@@ -122,7 +328,93 @@ namespace CILAssemblyManipulator.Physical.MResources
 
       }
 
-      public static IList<AbstractRecord> ReadNRBFRecords( Byte[] array, ref Int32 idx, Int32 maxIndex )
+      public static ResourceManagerEntry CreateEntry( this ResourceManagerEntryInformation entry, Byte[] array )
+      {
+         ResourceManagerEntry retVal;
+         var idx = entry.DataOffset;
+         if ( entry.IsUserDefinedType() )
+         {
+            // Read the NRBF records directly
+            retVal = new UserDefinedResourceManagerEntry( entry.UserDefinedType, array.ReadNRBFRecords( ref idx, idx + entry.DataSize ) );
+         }
+         else
+         {
+            // Pre-defined type
+            Object value;
+            var tc = entry.PredefinedTypeCode;
+            switch ( tc )
+            {
+               case ResourceTypeCode.Null:
+                  value = null;
+                  break;
+               case ResourceTypeCode.String:
+                  value = array.Read7BitLengthPrefixedString( ref idx );
+                  break;
+               case ResourceTypeCode.Boolean:
+                  value = array.ReadByteFromBytes( ref idx ) > 0;
+                  break;
+               case ResourceTypeCode.Char:
+                  value = (Char) array.ReadUInt16LEFromBytes( ref idx );
+                  break;
+               case ResourceTypeCode.Byte:
+                  value = array.ReadByteFromBytes( ref idx );
+                  break;
+               case ResourceTypeCode.SByte:
+                  value = array.ReadSByteFromBytes( ref idx );
+                  break;
+               case ResourceTypeCode.Int16:
+                  value = array.ReadInt16LEFromBytes( ref idx );
+                  break;
+               case ResourceTypeCode.UInt16:
+                  value = array.ReadUInt16LEFromBytes( ref idx );
+                  break;
+               case ResourceTypeCode.Int32:
+                  value = array.ReadInt32LEFromBytes( ref idx );
+                  break;
+               case ResourceTypeCode.UInt32:
+                  value = array.ReadUInt32LEFromBytes( ref idx );
+                  break;
+               case ResourceTypeCode.Int64:
+                  value = array.ReadInt64LEFromBytes( ref idx );
+                  break;
+               case ResourceTypeCode.UInt64:
+                  value = array.ReadUInt64LEFromBytes( ref idx );
+                  break;
+               case ResourceTypeCode.Single:
+                  value = array.ReadSingleLEFromBytes( ref idx );
+                  break;
+               case ResourceTypeCode.Double:
+                  value = array.ReadDoubleLEFromBytes( ref idx );
+                  break;
+               case ResourceTypeCode.Decimal:
+                  value = new Decimal( array.ReadInt32ArrayLEFromBytes( ref idx, 4 ) );
+                  break;
+               case ResourceTypeCode.DateTime:
+                  value = DateTime.FromBinary( array.ReadInt64LEFromBytes( ref idx ) );
+                  break;
+               case ResourceTypeCode.TimeSpan:
+                  value = new TimeSpan( array.ReadInt64LEFromBytes( ref idx ) );
+                  break;
+               case ResourceTypeCode.ByteArray:
+                  var arrayLen = array.ReadInt32LEFromBytes( ref idx );
+                  value = array.CreateAndBlockCopyTo( ref idx, arrayLen );
+                  break;
+               case ResourceTypeCode.Stream:
+                  var streamLen = array.ReadInt32LEFromBytes( ref idx );
+                  var ms = new MemoryStream();
+                  ms.Write( array, idx, streamLen );
+                  value = ms;
+                  break;
+               default:
+                  throw new ArgumentException( "The given resource manager entry has invalid resource type code: " + tc + "." );
+            }
+            retVal = new PreDefinedResourceManagerEntry( tc, value );
+         }
+         return retVal;
+      }
+
+
+      private static List<AbstractRecord> ReadNRBFRecords( this Byte[] array, ref Int32 idx, Int32 maxIndex )
       {
          var state = new DeserializationState( array, idx );
          var list = new List<AbstractRecord>();
@@ -276,9 +568,9 @@ namespace CILAssemblyManipulator.Physical.MResources
                   retVal = aRecord;
                   break;
                case RecordTypeEnumeration.MethodCall:
-                  throw new NotImplementedException(); // TODO
+                  throw new NotImplementedException( "Serialized method calls are not implemented" );
                case RecordTypeEnumeration.MethodReturn:
-                  throw new NotImplementedException(); // TODO
+                  throw new NotImplementedException( "Serialized method calls are not implemented" );
                default:
                   throw new InvalidOperationException( "Unsupported record type: " + recType + "." );
             }
@@ -510,10 +802,10 @@ namespace CILAssemblyManipulator.Physical.MResources
          {
             var ph = record as RecordPlaceholder;
             retVal = ph != null;
-            rec = retVal ? state.records[( (RecordPlaceholder) record ).id] : null;
+            rec = retVal ? state.records[( (RecordPlaceholder) record ).ID] : null;
             if ( !retVal )
             {
-               switch ( record.Kind )
+               switch ( record.RecordKind )
                {
                   case RecordKind.Class:
                      var claas = (ClassRecord) record;
@@ -574,14 +866,15 @@ namespace CILAssemblyManipulator.Physical.MResources
 
       private sealed class RecordPlaceholder : AbstractRecord
       {
-         internal readonly Int32 id;
 
          internal RecordPlaceholder( Int32 anID )
          {
-            this.id = anID;
+            this.ID = anID;
          }
 
-         public override RecordKind Kind
+         public Int32 ID { get; }
+
+         public override RecordKind RecordKind
          {
             get
             {
@@ -589,5 +882,15 @@ namespace CILAssemblyManipulator.Physical.MResources
             }
          }
       }
+   }
+}
+
+#pragma warning disable 1591
+public static partial class E_CILPhysical
+#pragma warning restore 1591
+{
+   public static Boolean IsUserDefinedType( this ResourceManagerEntryInformation item )
+   {
+      return item.UserDefinedType != null;
    }
 }
