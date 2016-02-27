@@ -22,6 +22,7 @@ using System.Linq;
 using System.Text;
 using CommonUtils;
 using CILAssemblyManipulator.Physical.MResources;
+using CollectionsWithRoles.API;
 
 namespace CILAssemblyManipulator.Physical.MResources
 {
@@ -68,195 +69,20 @@ namespace CILAssemblyManipulator.Physical.MResources
    }
 
    /// <summary>
-   /// This enumeration contains type codes for pre-defined resource types.
+   /// This class holds extension methods related to manifest resources, but for objects not defined in CAM.Physical framework.
    /// </summary>
-   public enum ResourceTypeCode
-   {
-      /// <summary>
-      /// The resource is <c>null</c> value.
-      /// </summary>
-      Null = 0,
-
-      /// <summary>
-      /// The resource is a <see cref="System.String"/>.
-      /// </summary>
-      String = 1,
-
-      /// <summary>
-      /// The resource is a <see cref="System.Boolean"/>.
-      /// </summary>
-      Boolean = 2,
-
-      /// <summary>
-      /// The resource is a <see cref="System.Char"/>.
-      /// </summary>
-      Char = 3,
-
-      /// <summary>
-      /// The resource is a <see cref="System.Byte"/>.
-      /// </summary>
-      Byte = 4,
-
-      /// <summary>
-      /// The resource is a <see cref="System.SByte"/>.
-      /// </summary>
-      SByte = 5,
-
-      /// <summary>
-      /// The resource is a <see cref="System.Int16"/>.
-      /// </summary>
-      Int16 = 6,
-
-      /// <summary>
-      /// The resource is a <see cref="System.UInt16"/>.
-      /// </summary>
-      UInt16 = 7,
-
-      /// <summary>
-      /// The resource is a <see cref="System.Int32"/>.
-      /// </summary>
-      Int32 = 8,
-
-      /// <summary>
-      /// The resource is a <see cref="System.UInt32"/>.
-      /// </summary>
-      UInt32 = 9,
-
-      /// <summary>
-      /// The resource is a <see cref="System.Int64"/>.
-      /// </summary>
-      Int64 = 10,
-
-      /// <summary>
-      /// The resource is a <see cref="System.UInt64"/>.
-      /// </summary>
-      UInt64 = 11,
-
-      /// <summary>
-      /// The resource is a <see cref="System.Single"/>.
-      /// </summary>
-      Single = 12,
-
-      /// <summary>
-      /// The resource is a <see cref="System.Double"/>.
-      /// </summary>
-      Double = 13,
-
-      /// <summary>
-      /// The resource is a <see cref="System.Decimal"/>.
-      /// </summary>
-      Decimal = 14,
-
-      /// <summary>
-      /// The resource is a <see cref="System.DateTime"/>.
-      /// </summary>
-      DateTime = 15,
-
-      /// <summary>
-      /// This value is the biggest value for primitive types.
-      /// </summary>
-      LastPrimitive = 16,
-
-      /// <summary>
-      /// The resource is a <see cref="System.TimeSpan"/>.
-      /// </summary>
-      TimeSpan = 16,
-
-      /// <summary>
-      /// The resource is a byte array.
-      /// </summary>
-      ByteArray = 32,
-
-      /// <summary>
-      /// The resource is a <see cref="System.IO.Stream"/>.
-      /// </summary>
-      Stream = 33,
-
-      /// <summary>
-      /// This value indicates the first value which is used by user-defined types.
-      /// </summary>
-      StartOfUserTypes = 64,
-   }
-
-   public abstract class ResourceManagerEntry
-   {
-      internal ResourceManagerEntry()
-      {
-
-      }
-
-      public abstract ResourceManagerEntryKind ResourceManagerEntryKind { get; }
-   }
-
-   public sealed class PreDefinedResourceManagerEntry : ResourceManagerEntry
-   {
-
-      public PreDefinedResourceManagerEntry( ResourceTypeCode typeCode, Object value )
-      {
-         this.TypeCode = typeCode;
-         this.Value = value;
-      }
-
-      public ResourceTypeCode TypeCode { get; }
-
-      public Object Value { get; }
-
-      public override ResourceManagerEntryKind ResourceManagerEntryKind
-      {
-         get
-         {
-            return ResourceManagerEntryKind.PreDefined;
-         }
-      }
-   }
-
-   public sealed class UserDefinedResourceManagerEntry : ResourceManagerEntry
-   {
-      public UserDefinedResourceManagerEntry( String type, List<AbstractRecord> contents )
-      {
-         this.UserDefinedType = type;
-         this.Contents = contents;
-      }
-
-      public String UserDefinedType { get; }
-
-      public List<AbstractRecord> Contents { get; }
-
-      public override ResourceManagerEntryKind ResourceManagerEntryKind
-      {
-         get
-         {
-            return ResourceManagerEntryKind.UserDefined;
-         }
-      }
-   }
-
-   public enum ResourceManagerEntryKind
-   {
-      PreDefined,
-      UserDefined
-   }
-
    public static partial class MResourcesIO
    {
       private const UInt32 RES_MANAGER_HEADER_MAGIC = 0xBEEFCACEu;
-
-      // Gets resource information without deserializing the values.
-      // I think the same could be accomplished by iterating System.Resources.ResourceReader and never accessing the 'Value' property of it, but I'm not 100% sure.
-      // The format is quite simple though so to be sure, just do it ourselves.
-      // Item1 - resource name
-      // Item2 - resource type
-      // Item3 - whether type is user-defined
-      // Item4 - offset in array where data starts
-      // Item5 - size of data
+      private static readonly Encoding UTF16LE = new UnicodeEncoding( false, false, true );
 
       /// <summary>
-      /// Reads the resource manager data for manifest resource binary data
+      /// Tries to read data of the manifest resource as enumerable of <see cref="ResourceManagerEntryInformation"/>s.
       /// </summary>
-      /// <param name="array"></param>
-      /// <param name="wasResourceManager"></param>
-      /// <param name="idx"></param>
-      /// <returns></returns>
+      /// <param name="array">The manifest resource data.</param>
+      /// <param name="wasResourceManager">This parameter will be <c>true</c> if the data was written by <see cref="System.Resources.ResourceManager"/>. Otherwise it will be false.</param>
+      /// <param name="idx">The optional index to start reading the <paramref name="array"/>.</param>
+      /// <returns>The enumerable of <see cref="ResourceManagerEntryInformation"/>s. Will be empty, if <paramref name="wasResourceManager"/> will be <c>false</c>.</returns>
       public static IEnumerable<ResourceManagerEntryInformation> ReadResourceManagerEntries( this Byte[] array, out Boolean wasResourceManager, Int32 idx = 0 )
       {
          // See http://www.dotnetframework.org/default.aspx/4@0/4@0/untmp/DEVDIV_TFS/Dev10/Releases/RTMRel/ndp/clr/src/BCL/System/Resources/RuntimeResourceSet@cs/1305376/RuntimeResourceSet@cs for some explanation of format
@@ -328,560 +154,9 @@ namespace CILAssemblyManipulator.Physical.MResources
 
       }
 
-      public static ResourceManagerEntry CreateEntry( this ResourceManagerEntryInformation entry, Byte[] array )
-      {
-         ResourceManagerEntry retVal;
-         var idx = entry.DataOffset;
-         if ( entry.IsUserDefinedType() )
-         {
-            // Read the NRBF records directly
-            retVal = new UserDefinedResourceManagerEntry( entry.UserDefinedType, array.ReadNRBFRecords( ref idx, idx + entry.DataSize ) );
-         }
-         else
-         {
-            // Pre-defined type
-            Object value;
-            var tc = entry.PredefinedTypeCode;
-            switch ( tc )
-            {
-               case ResourceTypeCode.Null:
-                  value = null;
-                  break;
-               case ResourceTypeCode.String:
-                  value = array.Read7BitLengthPrefixedString( ref idx );
-                  break;
-               case ResourceTypeCode.Boolean:
-                  value = array.ReadByteFromBytes( ref idx ) > 0;
-                  break;
-               case ResourceTypeCode.Char:
-                  value = (Char) array.ReadUInt16LEFromBytes( ref idx );
-                  break;
-               case ResourceTypeCode.Byte:
-                  value = array.ReadByteFromBytes( ref idx );
-                  break;
-               case ResourceTypeCode.SByte:
-                  value = array.ReadSByteFromBytes( ref idx );
-                  break;
-               case ResourceTypeCode.Int16:
-                  value = array.ReadInt16LEFromBytes( ref idx );
-                  break;
-               case ResourceTypeCode.UInt16:
-                  value = array.ReadUInt16LEFromBytes( ref idx );
-                  break;
-               case ResourceTypeCode.Int32:
-                  value = array.ReadInt32LEFromBytes( ref idx );
-                  break;
-               case ResourceTypeCode.UInt32:
-                  value = array.ReadUInt32LEFromBytes( ref idx );
-                  break;
-               case ResourceTypeCode.Int64:
-                  value = array.ReadInt64LEFromBytes( ref idx );
-                  break;
-               case ResourceTypeCode.UInt64:
-                  value = array.ReadUInt64LEFromBytes( ref idx );
-                  break;
-               case ResourceTypeCode.Single:
-                  value = array.ReadSingleLEFromBytes( ref idx );
-                  break;
-               case ResourceTypeCode.Double:
-                  value = array.ReadDoubleLEFromBytes( ref idx );
-                  break;
-               case ResourceTypeCode.Decimal:
-                  value = new Decimal( array.ReadInt32ArrayLEFromBytes( ref idx, 4 ) );
-                  break;
-               case ResourceTypeCode.DateTime:
-                  value = DateTime.FromBinary( array.ReadInt64LEFromBytes( ref idx ) );
-                  break;
-               case ResourceTypeCode.TimeSpan:
-                  value = new TimeSpan( array.ReadInt64LEFromBytes( ref idx ) );
-                  break;
-               case ResourceTypeCode.ByteArray:
-                  var arrayLen = array.ReadInt32LEFromBytes( ref idx );
-                  value = array.CreateAndBlockCopyTo( ref idx, arrayLen );
-                  break;
-               case ResourceTypeCode.Stream:
-                  var streamLen = array.ReadInt32LEFromBytes( ref idx );
-                  var ms = new MemoryStream();
-                  ms.Write( array, idx, streamLen );
-                  value = ms;
-                  break;
-               default:
-                  throw new ArgumentException( "The given resource manager entry has invalid resource type code: " + tc + "." );
-            }
-            retVal = new PreDefinedResourceManagerEntry( tc, value );
-         }
-         return retVal;
-      }
 
 
-      private static List<AbstractRecord> ReadNRBFRecords( this Byte[] array, ref Int32 idx, Int32 maxIndex )
-      {
-         var state = new DeserializationState( array, idx );
-         var list = new List<AbstractRecord>();
-         while ( idx < maxIndex && !state.recordsEnded )
-         {
-            var record = ReadSingleRecord( state );
-            if ( record != null )
-            {
-               list.Add( record );
-            }
-         }
-         for ( var i = 0; i < list.Count; ++i )
-         {
-            var rec = list[i];
-            AbstractRecord actual;
-            if ( CheckPlaceholder( state, rec, out actual ) )
-            {
-               list[i] = actual;
-            }
-         }
-         return list;
-      }
 
-      private static AbstractRecord ReadSingleRecord( DeserializationState state )
-      {
-         AbstractRecord retVal;
-         if ( state.nullCount > 0 )
-         {
-            --state.nullCount;
-            retVal = null;
-         }
-         else
-         {
-            ClassRecord cRecord;
-            ArrayRecord aRecord;
-            var recType = (RecordTypeEnumeration) state.array.ReadByteFromBytes( ref state.idx );
-            switch ( recType )
-            {
-               case RecordTypeEnumeration.SerializedStreamHeader:
-                  state.array.Skip( ref state.idx, 16 ); // Skip the header of 4 ints
-                  retVal = null;
-                  break;
-               case RecordTypeEnumeration.ClassWithID:
-                  cRecord = NewRecord<ClassRecord>( state );
-                  var refID = state.array.ReadInt32LEFromBytes( ref state.idx );
-                  var refRecord = (ClassRecord) state.records[refID];
-                  // Copy metadata from referenced object
-                  cRecord.AssemblyName = refRecord.AssemblyName;
-                  cRecord.TypeName = refRecord.TypeName;
-                  cRecord.Members.Capacity = refRecord.Members.Count;
-                  for ( var i = 0; i < refRecord.Members.Count; ++i )
-                  {
-                     var member = new ClassRecordMember();
-                     var refMember = refRecord.Members[i];
-                     member.AssemblyName = refMember.AssemblyName;
-                     member.TypeName = refMember.TypeName;
-                     member.Name = refMember.Name;
-                     cRecord.Members.Add( member );
-                  }
-                  // Read values
-                  ReadMemberValues( state, cRecord );
-                  retVal = cRecord;
-                  break;
-               case RecordTypeEnumeration.SystemClassWithMembers:
-                  cRecord = NewRecord<ClassRecord>( state );
-                  ReadMembers( state, cRecord );
-                  ReadMemberValues( state, cRecord );
-                  retVal = cRecord;
-                  break;
-               case RecordTypeEnumeration.ClassWithMembers:
-                  cRecord = NewRecord<ClassRecord>( state );
-                  ReadMembers( state, cRecord );
-                  cRecord.AssemblyName = state.assemblies[state.array.ReadInt32LEFromBytes( ref state.idx )];
-                  ReadMemberValues( state, cRecord );
-                  retVal = cRecord;
-                  break;
-               case RecordTypeEnumeration.SystemClassWithMembersAndTypes:
-                  cRecord = NewRecord<ClassRecord>( state );
-                  ReadMembers( state, cRecord );
-                  ReadMemberTypes( state, cRecord );
-                  ReadMemberValues( state, cRecord );
-                  retVal = cRecord;
-                  break;
-               case RecordTypeEnumeration.ClassWithMembersAndTypes:
-                  cRecord = NewRecord<ClassRecord>( state );
-                  ReadMembers( state, cRecord );
-                  ReadMemberTypes( state, cRecord );
-                  cRecord.AssemblyName = state.assemblies[state.array.ReadInt32LEFromBytes( ref state.idx )];
-                  ReadMemberValues( state, cRecord );
-                  retVal = cRecord;
-                  break;
-               case RecordTypeEnumeration.BinaryObjectString:
-                  var strRecord = NewRecord<StringRecord>( state );
-                  strRecord.StringValue = state.array.Read7BitLengthPrefixedString( ref state.idx );
-                  retVal = strRecord;
-                  break;
-               case RecordTypeEnumeration.BinaryArray:
-                  aRecord = NewRecord<ArrayRecord>( state );
-                  ReadArrayInformation( state, aRecord );
-                  ReadArrayValues( state, aRecord );
-                  retVal = aRecord;
-                  break;
-               case RecordTypeEnumeration.MemberPrimitiveTyped:
-                  var pRecord = new PrimitiveWrapperRecord();
-                  pRecord.Value = ReadPrimitiveValue( state, (PrimitiveTypeEnumeration) state.array.ReadByteFromBytes( ref state.idx ) );
-                  retVal = pRecord;
-                  break;
-               case RecordTypeEnumeration.MemberReference:
-                  retVal = new RecordPlaceholder( state.array.ReadInt32LEFromBytes( ref state.idx ) );
-                  break;
-               case RecordTypeEnumeration.ObjectNull:
-                  retVal = null;
-                  break;
-               case RecordTypeEnumeration.MessageEnd:
-                  state.recordsEnded = true;
-                  retVal = null;
-                  break;
-               case RecordTypeEnumeration.BinaryLibrary:
-                  // VS2012 should guarantee that first parameter will be executed first
-                  state.assemblies.Add( state.array.ReadInt32LEFromBytes( ref state.idx ), state.array.Read7BitLengthPrefixedString( ref state.idx ) );
-                  retVal = null;
-                  break;
-               case RecordTypeEnumeration.ObjectNullMultiple256:
-                  state.nullCount = state.array.ReadByteFromBytes( ref state.idx ) - 1; // Returning the first null
-                  retVal = null;
-                  break;
-               case RecordTypeEnumeration.ObjectNullMultiple:
-                  state.nullCount = state.array.ReadInt32LEFromBytes( ref state.idx ) - 1; // Returning the first null
-                  retVal = null;
-                  break;
-               case RecordTypeEnumeration.ArraySinglePrimitive:
-                  aRecord = NewRecord<ArrayRecord>( state );
-                  state.typeInfos.Add( aRecord, BinaryTypeEnumeration.Primitive );
-                  ReadArrayLengths( state, aRecord );
-                  ReadAdditionalTypeInfo( state, aRecord );
-                  ReadArrayValues( state, aRecord );
-                  retVal = aRecord;
-                  break;
-               case RecordTypeEnumeration.ArraySingleObject:
-                  aRecord = NewRecord<ArrayRecord>( state );
-                  state.typeInfos.Add( aRecord, BinaryTypeEnumeration.Object );
-                  ReadArrayLengths( state, aRecord );
-                  ReadArrayValues( state, aRecord );
-                  retVal = aRecord;
-                  break;
-               case RecordTypeEnumeration.ArraySingleString:
-                  aRecord = NewRecord<ArrayRecord>( state );
-                  state.typeInfos.Add( aRecord, BinaryTypeEnumeration.String );
-                  ReadArrayLengths( state, aRecord );
-                  ReadArrayValues( state, aRecord );
-                  retVal = aRecord;
-                  break;
-               case RecordTypeEnumeration.MethodCall:
-                  throw new NotImplementedException( "Serialized method calls are not implemented" );
-               case RecordTypeEnumeration.MethodReturn:
-                  throw new NotImplementedException( "Serialized method calls are not implemented" );
-               default:
-                  throw new InvalidOperationException( "Unsupported record type: " + recType + "." );
-            }
-         }
-         return retVal;
-      }
-
-      private static void ReadMembers( DeserializationState state, ClassRecord record )
-      {
-         record.TypeName = state.array.Read7BitLengthPrefixedString( ref state.idx );
-         var cap = state.array.ReadInt32LEFromBytes( ref state.idx );
-         record.Members.Capacity = cap;
-         for ( var i = 0; i < cap; ++i )
-         {
-            var member = new ClassRecordMember();
-            member.Name = state.array.Read7BitLengthPrefixedString( ref state.idx );
-            record.Members.Add( member );
-         }
-      }
-
-      private static void ReadMemberValues( DeserializationState state, ClassRecord record )
-      {
-         foreach ( var member in record.Members )
-         {
-            var val = ReadMemberValue( state, member );
-            member.Value = val;
-         }
-      }
-
-      private static Object ReadMemberValue( DeserializationState state, Object member )
-      {
-         BinaryTypeEnumeration typeInfo;
-         if ( state.typeInfos.TryGetValue( member, out typeInfo ) )
-         {
-            switch ( typeInfo )
-            {
-               case BinaryTypeEnumeration.Primitive:
-                  return ReadPrimitiveValue( state, state.primitiveTypeInfos[member] );
-               default:
-                  return ReadSingleRecord( state );
-            }
-         }
-         else
-         {
-            throw new NotImplementedException( "Neither SystemClassWithMember nor ClassWithMembers is currently implemented." );
-         }
-      }
-
-      private static Object ReadPrimitiveValue( DeserializationState state, PrimitiveTypeEnumeration primitive )
-      {
-         Object value;
-         switch ( primitive )
-         {
-            case PrimitiveTypeEnumeration.Boolean:
-               value = state.array.ReadByteFromBytes( ref state.idx ) != 0;
-               break;
-            case PrimitiveTypeEnumeration.Byte:
-               value = state.array.ReadByteFromBytes( ref state.idx );
-               break;
-            case PrimitiveTypeEnumeration.Char:
-               var startIdx = state.idx;
-               var charArray = new Char[1];
-               Int32 charsRead;
-               do
-               {
-                  ++state.idx;
-                  charsRead = UTF8.GetChars( state.array, startIdx, state.idx - startIdx, charArray, 0 );
-               } while ( charsRead == 0 );
-               value = charArray[0];
-               break;
-            case PrimitiveTypeEnumeration.Decimal:
-               var str = state.array.Read7BitLengthPrefixedString( ref state.idx );
-               Decimal d;
-               Decimal.TryParse( str, out d );
-               // I'm not quite sure why but apparently actual binary value of decimal follows?
-               var int1 = state.array.ReadInt32LEFromBytes( ref state.idx );
-               var int2 = state.array.ReadInt32LEFromBytes( ref state.idx );
-               var int3 = state.array.ReadInt32LEFromBytes( ref state.idx );
-               var int4 = state.array.ReadInt32LEFromBytes( ref state.idx );
-               value = new Decimal( new[] { int1, int2, int3, int4 } );
-               break;
-            case PrimitiveTypeEnumeration.Double:
-               value = state.array.ReadDoubleLEFromBytes( ref state.idx );
-               break;
-            case PrimitiveTypeEnumeration.Int16:
-               value = state.array.ReadInt16LEFromBytes( ref state.idx );
-               break;
-            case PrimitiveTypeEnumeration.Int32:
-               value = state.array.ReadInt32LEFromBytes( ref state.idx );
-               break;
-            case PrimitiveTypeEnumeration.Int64:
-               value = state.array.ReadInt64LEFromBytes( ref state.idx );
-               break;
-            case PrimitiveTypeEnumeration.SByte:
-               value = state.array.ReadSByteFromBytes( ref state.idx );
-               break;
-            case PrimitiveTypeEnumeration.Single:
-               value = state.array.ReadSingleLEFromBytes( ref state.idx );
-               break;
-            case PrimitiveTypeEnumeration.TimeSpan:
-               value = TimeSpan.FromTicks( state.array.ReadInt64LEFromBytes( ref state.idx ) );
-               break;
-            case PrimitiveTypeEnumeration.DateTime:
-               value = DateTime.FromBinary( state.array.ReadInt64LEFromBytes( ref state.idx ) );
-               break;
-            case PrimitiveTypeEnumeration.UInt16:
-               value = state.array.ReadUInt16LEFromBytes( ref state.idx );
-               break;
-            case PrimitiveTypeEnumeration.UInt32:
-               value = state.array.ReadUInt32LEFromBytes( ref state.idx );
-               break;
-            case PrimitiveTypeEnumeration.UInt64:
-               value = state.array.ReadUInt64LEFromBytes( ref state.idx );
-               break;
-            case PrimitiveTypeEnumeration.Null:
-               value = null;
-               break;
-            case PrimitiveTypeEnumeration.String:
-               value = state.array.Read7BitLengthPrefixedString( ref state.idx );
-               break;
-            default:
-               throw new InvalidOperationException( "Unknown primitive type: " + primitive + "." );
-         }
-         return value;
-      }
-
-      private static void ReadMemberTypes( DeserializationState state, ClassRecord record )
-      {
-         // First normal info
-         foreach ( var member in record.Members )
-         {
-            ReadBasicTypeInfo( state, member );
-         }
-
-         // Then additional info, if any
-         foreach ( var member in record.Members )
-         {
-            ReadAdditionalTypeInfo( state, member );
-         }
-      }
-
-      private static void ReadBasicTypeInfo( DeserializationState state, Object member )
-      {
-         state.typeInfos.Add( member, (BinaryTypeEnumeration) state.array.ReadByteFromBytes( ref state.idx ) );
-      }
-
-      private static void ReadAdditionalTypeInfo( DeserializationState state, ElementWithTypeInfo member )
-      {
-         switch ( state.typeInfos[member] )
-         {
-            case BinaryTypeEnumeration.Primitive:
-            case BinaryTypeEnumeration.PrimitiveArray:
-               state.primitiveTypeInfos.Add( member, (PrimitiveTypeEnumeration) state.array.ReadByteFromBytes( ref state.idx ) );
-               break;
-            case BinaryTypeEnumeration.SystemClass:
-               member.TypeName = state.array.Read7BitLengthPrefixedString( ref state.idx );
-               break;
-            case BinaryTypeEnumeration.Class:
-               member.TypeName = state.array.Read7BitLengthPrefixedString( ref state.idx );
-               member.AssemblyName = state.assemblies[state.array.ReadInt32LEFromBytes( ref state.idx )];
-               break;
-         }
-      }
-
-      private static void ReadArrayInformation( DeserializationState state, ArrayRecord record )
-      {
-         var arType = (BinaryArrayTypeEnumeration) state.array.ReadByteFromBytes( ref state.idx );
-         record.ArrayKind = arType;
-         record.Rank = state.array.ReadInt32LEFromBytes( ref state.idx );
-
-         ReadArrayLengths( state, record );
-
-         switch ( arType )
-         {
-            case BinaryArrayTypeEnumeration.SingleOffset:
-            case BinaryArrayTypeEnumeration.JaggedOffset:
-            case BinaryArrayTypeEnumeration.RectangularOffset:
-               record.LowerBounds.Capacity = record.Rank;
-               for ( var i = 0; i < record.Rank; ++i )
-               {
-                  record.LowerBounds.Add( state.array.ReadInt32LEFromBytes( ref state.idx ) );
-               }
-               break;
-         }
-         ReadBasicTypeInfo( state, record );
-         ReadAdditionalTypeInfo( state, record );
-      }
-
-      private static void ReadArrayLengths( DeserializationState state, ArrayRecord record )
-      {
-         record.Lengths.Capacity = record.Rank;
-         for ( var i = 0; i < record.Rank; ++i )
-         {
-            record.Lengths.Add( state.array.ReadInt32LEFromBytes( ref state.idx ) );
-         }
-      }
-
-      private static void ReadArrayValues( DeserializationState state, ArrayRecord record )
-      {
-         var maxLen = record.Lengths.Aggregate( 1, ( cur, length ) => cur * length );
-         record.ValuesAsVector.Capacity = maxLen;
-         for ( var i = 0; i < maxLen; ++i )
-         {
-            record.ValuesAsVector.Add( ReadMemberValue( state, record ) );
-         }
-      }
-
-      private static T NewRecord<T>( DeserializationState state )
-         where T : AbstractRecord, new()
-      {
-         var rec = new T();
-         state.records.Add( state.array.ReadInt32LEFromBytes( ref state.idx ), rec );
-         return rec;
-      }
-
-      private static String Read7BitLengthPrefixedString( this Byte[] array, ref Int32 idx, Encoding encoding = null )
-      {
-         var len = array.ReadInt32Encoded7Bit( ref idx );
-         var str = ( encoding ?? UTF8 ).GetString( array, idx, len );
-         idx += len;
-         return str;
-      }
-
-      private static Boolean CheckPlaceholder( DeserializationState state, Object value, out AbstractRecord rec )
-      {
-         var record = value as AbstractRecord;
-         var retVal = record != null;
-         if ( retVal )
-         {
-            var ph = record as RecordPlaceholder;
-            retVal = ph != null;
-            rec = retVal ? state.records[( (RecordPlaceholder) record ).ID] : null;
-            if ( !retVal )
-            {
-               switch ( record.RecordKind )
-               {
-                  case RecordKind.Class:
-                     var claas = (ClassRecord) record;
-                     foreach ( var member in claas.Members )
-                     {
-                        if ( CheckPlaceholder( state, member.Value, out rec ) )
-                        {
-                           member.Value = rec;
-                        }
-                     }
-                     break;
-                  case RecordKind.Array:
-                     var array = (ArrayRecord) record;
-                     for ( var i = 0; i < array.ValuesAsVector.Count; ++i )
-                     {
-                        if ( CheckPlaceholder( state, array.ValuesAsVector[i], out rec ) )
-                        {
-                           array.ValuesAsVector[i] = rec;
-                        }
-                     }
-                     break;
-               }
-            }
-            ( (ClassRecord) rec ).IsSerializedInPlace = !retVal;
-         }
-         else
-         {
-            rec = null;
-         }
-         return retVal;
-      }
-
-      private sealed class DeserializationState
-      {
-         internal readonly Byte[] array;
-         internal Int32 idx;
-         internal readonly IDictionary<Int32, AbstractRecord> records;
-         internal readonly IDictionary<Int32, String> assemblies;
-         internal readonly IDictionary<Object, BinaryTypeEnumeration> typeInfos;
-         internal readonly IDictionary<Object, PrimitiveTypeEnumeration> primitiveTypeInfos;
-         internal readonly IDictionary<ArrayRecord, BinaryArrayTypeEnumeration> arrayTypeInfos;
-         internal Boolean recordsEnded;
-         internal Int32 nullCount;
-
-         internal DeserializationState( Byte[] array, Int32 idx )
-         {
-            this.array = array;
-            this.idx = idx;
-            this.records = new Dictionary<Int32, AbstractRecord>();
-            this.assemblies = new Dictionary<Int32, String>();
-            this.typeInfos = new Dictionary<Object, BinaryTypeEnumeration>();
-            this.primitiveTypeInfos = new Dictionary<Object, PrimitiveTypeEnumeration>();
-            this.arrayTypeInfos = new Dictionary<ArrayRecord, BinaryArrayTypeEnumeration>();
-            this.recordsEnded = false;
-            this.nullCount = 0;
-         }
-      }
-
-      private sealed class RecordPlaceholder : AbstractRecord
-      {
-
-         internal RecordPlaceholder( Int32 anID )
-         {
-            this.ID = anID;
-         }
-
-         public Int32 ID { get; }
-
-         public override RecordKind RecordKind
-         {
-            get
-            {
-               throw new InvalidOperationException( "This class is not direclty in use." );
-            }
-         }
-      }
    }
 }
 
@@ -889,8 +164,585 @@ namespace CILAssemblyManipulator.Physical.MResources
 public static partial class E_CILPhysical
 #pragma warning restore 1591
 {
+   /// <summary>
+   /// Gets the value indicating whether this <see cref="ResourceManagerEntryInformation"/> represents information about object of user-defined type.
+   /// </summary>
+   /// <param name="item">The <see cref="ResourceManagerEntryInformation"/>.</param>
+   /// <returns><c>true</c> if this <see cref="ResourceManagerEntryInformation"/> represents information about entry, which is of user-defined type.</returns>
    public static Boolean IsUserDefinedType( this ResourceManagerEntryInformation item )
    {
       return item.UserDefinedType != null;
+   }
+
+   /// <summary>
+   /// Creates a new <see cref="ResourceManagerEntry"/> from this <see cref="ResourceManagerEntryInformation"/> and given data array.
+   /// </summary>
+   /// <param name="entry">The <see cref="ResourceManagerEntryInformation"/>.</param>
+   /// <param name="array">The data array to use to read data based on <see cref="ResourceManagerEntryInformation.DataOffset"/> and <see cref="ResourceManagerEntryInformation.DataSize"/>.</param>
+   /// <returns>A new <see cref="ResourceManagerEntry"/>.</returns>
+   /// <remarks>
+   /// The exact type of the returned object is determined based on properties of <see cref="ResourceManagerEntryInformation"/>.
+   /// If <see cref="IsUserDefinedType"/> returns <c>true</c> for this <see cref="ResourceManagerEntryInformation"/>, then the returned object will be <see cref="UserDefinedResourceManagerEntry"/>.
+   /// Otherwise, it will be <see cref="PreDefinedResourceManagerEntry"/>.
+   /// </remarks>
+   /// <seealso cref="ResourceManagerEntry"/>
+   public static ResourceManagerEntry CreateEntry( this ResourceManagerEntryInformation entry, Byte[] array )
+   {
+      ResourceManagerEntry retVal;
+      var idx = entry.DataOffset;
+      if ( entry.IsUserDefinedType() )
+      {
+         // Read the NRBF records directly
+         var ud = new UserDefinedResourceManagerEntry()
+         {
+            UserDefinedType = entry.UserDefinedType
+         };
+         array.ReadNRBFRecords( ref idx, idx + entry.DataSize, ud.Contents );
+         retVal = ud;
+      }
+      else
+      {
+         // Pre-defined type
+         Object value;
+         var tc = entry.PredefinedTypeCode;
+         switch ( tc )
+         {
+            case ResourceTypeCode.Null:
+               value = null;
+               break;
+            case ResourceTypeCode.String:
+               value = array.Read7BitLengthPrefixedString( ref idx );
+               break;
+            case ResourceTypeCode.Boolean:
+               value = array.ReadByteFromBytes( ref idx ) > 0;
+               break;
+            case ResourceTypeCode.Char:
+               value = (Char) array.ReadUInt16LEFromBytes( ref idx );
+               break;
+            case ResourceTypeCode.Byte:
+               value = array.ReadByteFromBytes( ref idx );
+               break;
+            case ResourceTypeCode.SByte:
+               value = array.ReadSByteFromBytes( ref idx );
+               break;
+            case ResourceTypeCode.Int16:
+               value = array.ReadInt16LEFromBytes( ref idx );
+               break;
+            case ResourceTypeCode.UInt16:
+               value = array.ReadUInt16LEFromBytes( ref idx );
+               break;
+            case ResourceTypeCode.Int32:
+               value = array.ReadInt32LEFromBytes( ref idx );
+               break;
+            case ResourceTypeCode.UInt32:
+               value = array.ReadUInt32LEFromBytes( ref idx );
+               break;
+            case ResourceTypeCode.Int64:
+               value = array.ReadInt64LEFromBytes( ref idx );
+               break;
+            case ResourceTypeCode.UInt64:
+               value = array.ReadUInt64LEFromBytes( ref idx );
+               break;
+            case ResourceTypeCode.Single:
+               value = array.ReadSingleLEFromBytes( ref idx );
+               break;
+            case ResourceTypeCode.Double:
+               value = array.ReadDoubleLEFromBytes( ref idx );
+               break;
+            case ResourceTypeCode.Decimal:
+               value = new Decimal( array.ReadInt32ArrayLEFromBytes( ref idx, 4 ) );
+               break;
+            case ResourceTypeCode.DateTime:
+               value = DateTime.FromBinary( array.ReadInt64LEFromBytes( ref idx ) );
+               break;
+            case ResourceTypeCode.TimeSpan:
+               value = new TimeSpan( array.ReadInt64LEFromBytes( ref idx ) );
+               break;
+            case ResourceTypeCode.ByteArray:
+               var arrayLen = array.ReadInt32LEFromBytes( ref idx );
+               value = array.CreateAndBlockCopyTo( ref idx, arrayLen );
+               break;
+            case ResourceTypeCode.Stream:
+               var streamLen = array.ReadInt32LEFromBytes( ref idx );
+               var ms = new MemoryStream();
+               ms.Write( array, idx, streamLen );
+               value = ms;
+               break;
+            default:
+               throw new ArgumentException( "The given resource manager entry has invalid resource type code: " + tc + "." );
+         }
+         retVal = new PreDefinedResourceManagerEntry()
+         {
+            Value = value
+         };
+      }
+      return retVal;
+   }
+
+   private static void ReadNRBFRecords( this Byte[] array, ref Int32 idx, Int32 maxIndex, List<AbstractRecord> list )
+   {
+      var state = new DeserializationState( array, idx );
+      while ( idx < maxIndex && !state.recordsEnded )
+      {
+         var record = ReadSingleRecord( state );
+         if ( record != null )
+         {
+            list.Add( record );
+         }
+      }
+      for ( var i = 0; i < list.Count; ++i )
+      {
+         var rec = list[i];
+         AbstractRecord actual;
+         if ( CheckPlaceholder( state, rec, out actual ) )
+         {
+            list[i] = actual;
+         }
+      }
+   }
+
+   private static AbstractRecord ReadSingleRecord( DeserializationState state )
+   {
+      AbstractRecord retVal;
+      if ( state.nullCount > 0 )
+      {
+         --state.nullCount;
+         retVal = null;
+      }
+      else
+      {
+         ClassRecord cRecord;
+         ArrayRecord aRecord;
+         var recType = (RecordTypeEnumeration) state.array.ReadByteFromBytes( ref state.idx );
+         switch ( recType )
+         {
+            case RecordTypeEnumeration.SerializedStreamHeader:
+               state.array.Skip( ref state.idx, 16 ); // Skip the header of 4 ints
+               retVal = null;
+               break;
+            case RecordTypeEnumeration.ClassWithID:
+               cRecord = NewRecord<ClassRecord>( state );
+               var refID = state.array.ReadInt32LEFromBytes( ref state.idx );
+               var refRecord = (ClassRecord) state.records[refID];
+               // Copy metadata from referenced object
+               cRecord.AssemblyName = refRecord.AssemblyName;
+               cRecord.TypeName = refRecord.TypeName;
+               cRecord.Members.Capacity = refRecord.Members.Count;
+               for ( var i = 0; i < refRecord.Members.Count; ++i )
+               {
+                  var member = new ClassRecordMember();
+                  var refMember = refRecord.Members[i];
+                  member.AssemblyName = refMember.AssemblyName;
+                  member.TypeName = refMember.TypeName;
+                  member.Name = refMember.Name;
+                  cRecord.Members.Add( member );
+               }
+               // Read values
+               ReadMemberValues( state, cRecord );
+               retVal = cRecord;
+               break;
+            case RecordTypeEnumeration.SystemClassWithMembers:
+               cRecord = NewRecord<ClassRecord>( state );
+               ReadMembers( state, cRecord );
+               ReadMemberValues( state, cRecord );
+               retVal = cRecord;
+               break;
+            case RecordTypeEnumeration.ClassWithMembers:
+               cRecord = NewRecord<ClassRecord>( state );
+               ReadMembers( state, cRecord );
+               cRecord.AssemblyName = state.assemblies[state.array.ReadInt32LEFromBytes( ref state.idx )];
+               ReadMemberValues( state, cRecord );
+               retVal = cRecord;
+               break;
+            case RecordTypeEnumeration.SystemClassWithMembersAndTypes:
+               cRecord = NewRecord<ClassRecord>( state );
+               ReadMembers( state, cRecord );
+               ReadMemberTypes( state, cRecord );
+               ReadMemberValues( state, cRecord );
+               retVal = cRecord;
+               break;
+            case RecordTypeEnumeration.ClassWithMembersAndTypes:
+               cRecord = NewRecord<ClassRecord>( state );
+               ReadMembers( state, cRecord );
+               ReadMemberTypes( state, cRecord );
+               cRecord.AssemblyName = state.assemblies[state.array.ReadInt32LEFromBytes( ref state.idx )];
+               ReadMemberValues( state, cRecord );
+               retVal = cRecord;
+               break;
+            case RecordTypeEnumeration.BinaryObjectString:
+               var strRecord = NewRecord<StringRecord>( state );
+               strRecord.StringValue = state.array.Read7BitLengthPrefixedString( ref state.idx );
+               retVal = strRecord;
+               break;
+            case RecordTypeEnumeration.BinaryArray:
+               aRecord = NewRecord<ArrayRecord>( state );
+               ReadArrayInformation( state, aRecord );
+               ReadArrayValues( state, aRecord );
+               retVal = aRecord;
+               break;
+            case RecordTypeEnumeration.MemberPrimitiveTyped:
+               var pRecord = new PrimitiveWrapperRecord();
+               pRecord.Value = ReadPrimitiveValue( state, (PrimitiveTypeEnumeration) state.array.ReadByteFromBytes( ref state.idx ) );
+               retVal = pRecord;
+               break;
+            case RecordTypeEnumeration.MemberReference:
+               retVal = new RecordPlaceholder( state.array.ReadInt32LEFromBytes( ref state.idx ) );
+               break;
+            case RecordTypeEnumeration.ObjectNull:
+               retVal = null;
+               break;
+            case RecordTypeEnumeration.MessageEnd:
+               state.recordsEnded = true;
+               retVal = null;
+               break;
+            case RecordTypeEnumeration.BinaryLibrary:
+               // VS2012 should guarantee that first parameter will be executed first
+               state.assemblies.Add( state.array.ReadInt32LEFromBytes( ref state.idx ), state.array.Read7BitLengthPrefixedString( ref state.idx ) );
+               retVal = null;
+               break;
+            case RecordTypeEnumeration.ObjectNullMultiple256:
+               state.nullCount = state.array.ReadByteFromBytes( ref state.idx ) - 1; // Returning the first null
+               retVal = null;
+               break;
+            case RecordTypeEnumeration.ObjectNullMultiple:
+               state.nullCount = state.array.ReadInt32LEFromBytes( ref state.idx ) - 1; // Returning the first null
+               retVal = null;
+               break;
+            case RecordTypeEnumeration.ArraySinglePrimitive:
+               aRecord = NewRecord<ArrayRecord>( state );
+               state.typeInfos.Add( aRecord, BinaryTypeEnumeration.Primitive );
+               ReadArrayLengths( state, aRecord );
+               ReadAdditionalTypeInfo( state, aRecord );
+               ReadArrayValues( state, aRecord );
+               retVal = aRecord;
+               break;
+            case RecordTypeEnumeration.ArraySingleObject:
+               aRecord = NewRecord<ArrayRecord>( state );
+               state.typeInfos.Add( aRecord, BinaryTypeEnumeration.Object );
+               ReadArrayLengths( state, aRecord );
+               ReadArrayValues( state, aRecord );
+               retVal = aRecord;
+               break;
+            case RecordTypeEnumeration.ArraySingleString:
+               aRecord = NewRecord<ArrayRecord>( state );
+               state.typeInfos.Add( aRecord, BinaryTypeEnumeration.String );
+               ReadArrayLengths( state, aRecord );
+               ReadArrayValues( state, aRecord );
+               retVal = aRecord;
+               break;
+            case RecordTypeEnumeration.MethodCall:
+               throw new NotImplementedException( "Serialized method calls are not implemented" );
+            case RecordTypeEnumeration.MethodReturn:
+               throw new NotImplementedException( "Serialized method calls are not implemented" );
+            default:
+               throw new InvalidOperationException( "Unsupported record type: " + recType + "." );
+         }
+      }
+      return retVal;
+   }
+
+   private static void ReadMembers( DeserializationState state, ClassRecord record )
+   {
+      record.TypeName = state.array.Read7BitLengthPrefixedString( ref state.idx );
+      var cap = state.array.ReadInt32LEFromBytes( ref state.idx );
+      record.Members.Capacity = cap;
+      for ( var i = 0; i < cap; ++i )
+      {
+         var member = new ClassRecordMember();
+         member.Name = state.array.Read7BitLengthPrefixedString( ref state.idx );
+         record.Members.Add( member );
+      }
+   }
+
+   private static void ReadMemberValues( DeserializationState state, ClassRecord record )
+   {
+      foreach ( var member in record.Members )
+      {
+         var val = ReadMemberValue( state, member );
+         member.Value = val;
+      }
+   }
+
+   private static Object ReadMemberValue( DeserializationState state, Object member )
+   {
+      BinaryTypeEnumeration typeInfo;
+      if ( state.typeInfos.TryGetValue( member, out typeInfo ) )
+      {
+         switch ( typeInfo )
+         {
+            case BinaryTypeEnumeration.Primitive:
+               return ReadPrimitiveValue( state, state.primitiveTypeInfos[member] );
+            default:
+               return ReadSingleRecord( state );
+         }
+      }
+      else
+      {
+         throw new NotImplementedException( "Neither SystemClassWithMember nor ClassWithMembers is currently implemented." );
+      }
+   }
+
+   private static Object ReadPrimitiveValue( DeserializationState state, PrimitiveTypeEnumeration primitive )
+   {
+      Object value;
+      switch ( primitive )
+      {
+         case PrimitiveTypeEnumeration.Boolean:
+            value = state.array.ReadByteFromBytes( ref state.idx ) != 0;
+            break;
+         case PrimitiveTypeEnumeration.Byte:
+            value = state.array.ReadByteFromBytes( ref state.idx );
+            break;
+         case PrimitiveTypeEnumeration.Char:
+            var startIdx = state.idx;
+            var charArray = new Char[1];
+            Int32 charsRead;
+            do
+            {
+               ++state.idx;
+               charsRead = UTF8.GetChars( state.array, startIdx, state.idx - startIdx, charArray, 0 );
+            } while ( charsRead == 0 );
+            value = charArray[0];
+            break;
+         case PrimitiveTypeEnumeration.Decimal:
+            var str = state.array.Read7BitLengthPrefixedString( ref state.idx );
+            Decimal d;
+            Decimal.TryParse( str, out d );
+            // I'm not quite sure why but apparently actual binary value of decimal follows?
+            var int1 = state.array.ReadInt32LEFromBytes( ref state.idx );
+            var int2 = state.array.ReadInt32LEFromBytes( ref state.idx );
+            var int3 = state.array.ReadInt32LEFromBytes( ref state.idx );
+            var int4 = state.array.ReadInt32LEFromBytes( ref state.idx );
+            value = new Decimal( new[] { int1, int2, int3, int4 } );
+            break;
+         case PrimitiveTypeEnumeration.Double:
+            value = state.array.ReadDoubleLEFromBytes( ref state.idx );
+            break;
+         case PrimitiveTypeEnumeration.Int16:
+            value = state.array.ReadInt16LEFromBytes( ref state.idx );
+            break;
+         case PrimitiveTypeEnumeration.Int32:
+            value = state.array.ReadInt32LEFromBytes( ref state.idx );
+            break;
+         case PrimitiveTypeEnumeration.Int64:
+            value = state.array.ReadInt64LEFromBytes( ref state.idx );
+            break;
+         case PrimitiveTypeEnumeration.SByte:
+            value = state.array.ReadSByteFromBytes( ref state.idx );
+            break;
+         case PrimitiveTypeEnumeration.Single:
+            value = state.array.ReadSingleLEFromBytes( ref state.idx );
+            break;
+         case PrimitiveTypeEnumeration.TimeSpan:
+            value = TimeSpan.FromTicks( state.array.ReadInt64LEFromBytes( ref state.idx ) );
+            break;
+         case PrimitiveTypeEnumeration.DateTime:
+            value = DateTime.FromBinary( state.array.ReadInt64LEFromBytes( ref state.idx ) );
+            break;
+         case PrimitiveTypeEnumeration.UInt16:
+            value = state.array.ReadUInt16LEFromBytes( ref state.idx );
+            break;
+         case PrimitiveTypeEnumeration.UInt32:
+            value = state.array.ReadUInt32LEFromBytes( ref state.idx );
+            break;
+         case PrimitiveTypeEnumeration.UInt64:
+            value = state.array.ReadUInt64LEFromBytes( ref state.idx );
+            break;
+         case PrimitiveTypeEnumeration.Null:
+            value = null;
+            break;
+         case PrimitiveTypeEnumeration.String:
+            value = state.array.Read7BitLengthPrefixedString( ref state.idx );
+            break;
+         default:
+            throw new InvalidOperationException( "Unknown primitive type: " + primitive + "." );
+      }
+      return value;
+   }
+
+   private static void ReadMemberTypes( DeserializationState state, ClassRecord record )
+   {
+      // First normal info
+      foreach ( var member in record.Members )
+      {
+         ReadBasicTypeInfo( state, member );
+      }
+
+      // Then additional info, if any
+      foreach ( var member in record.Members )
+      {
+         ReadAdditionalTypeInfo( state, member );
+      }
+   }
+
+   private static void ReadBasicTypeInfo( DeserializationState state, Object member )
+   {
+      state.typeInfos.Add( member, (BinaryTypeEnumeration) state.array.ReadByteFromBytes( ref state.idx ) );
+   }
+
+   private static void ReadAdditionalTypeInfo( DeserializationState state, ElementWithTypeInfo member )
+   {
+      switch ( state.typeInfos[member] )
+      {
+         case BinaryTypeEnumeration.Primitive:
+         case BinaryTypeEnumeration.PrimitiveArray:
+            state.primitiveTypeInfos.Add( member, (PrimitiveTypeEnumeration) state.array.ReadByteFromBytes( ref state.idx ) );
+            break;
+         case BinaryTypeEnumeration.SystemClass:
+            member.TypeName = state.array.Read7BitLengthPrefixedString( ref state.idx );
+            break;
+         case BinaryTypeEnumeration.Class:
+            member.TypeName = state.array.Read7BitLengthPrefixedString( ref state.idx );
+            member.AssemblyName = state.assemblies[state.array.ReadInt32LEFromBytes( ref state.idx )];
+            break;
+      }
+   }
+
+   private static void ReadArrayInformation( DeserializationState state, ArrayRecord record )
+   {
+      var arType = (BinaryArrayTypeEnumeration) state.array.ReadByteFromBytes( ref state.idx );
+      record.ArrayKind = arType;
+      record.Rank = state.array.ReadInt32LEFromBytes( ref state.idx );
+
+      ReadArrayLengths( state, record );
+
+      switch ( arType )
+      {
+         case BinaryArrayTypeEnumeration.SingleOffset:
+         case BinaryArrayTypeEnumeration.JaggedOffset:
+         case BinaryArrayTypeEnumeration.RectangularOffset:
+            record.LowerBounds.Capacity = record.Rank;
+            for ( var i = 0; i < record.Rank; ++i )
+            {
+               record.LowerBounds.Add( state.array.ReadInt32LEFromBytes( ref state.idx ) );
+            }
+            break;
+      }
+      ReadBasicTypeInfo( state, record );
+      ReadAdditionalTypeInfo( state, record );
+   }
+
+   private static void ReadArrayLengths( DeserializationState state, ArrayRecord record )
+   {
+      record.Lengths.Capacity = record.Rank;
+      for ( var i = 0; i < record.Rank; ++i )
+      {
+         record.Lengths.Add( state.array.ReadInt32LEFromBytes( ref state.idx ) );
+      }
+   }
+
+   private static void ReadArrayValues( DeserializationState state, ArrayRecord record )
+   {
+      var maxLen = record.Lengths.Aggregate( 1, ( cur, length ) => cur * length );
+      record.ValuesAsVector.Capacity = maxLen;
+      for ( var i = 0; i < maxLen; ++i )
+      {
+         record.ValuesAsVector.Add( ReadMemberValue( state, record ) );
+      }
+   }
+
+   private static T NewRecord<T>( DeserializationState state )
+      where T : AbstractRecord, new()
+   {
+      var rec = new T();
+      state.records.Add( state.array.ReadInt32LEFromBytes( ref state.idx ), rec );
+      return rec;
+   }
+
+   internal static String Read7BitLengthPrefixedString( this Byte[] array, ref Int32 idx, Encoding encoding = null )
+   {
+      var len = array.ReadInt32Encoded7Bit( ref idx );
+      var str = ( encoding ?? UTF8 ).GetString( array, idx, len );
+      idx += len;
+      return str;
+   }
+
+   private static Boolean CheckPlaceholder( DeserializationState state, Object value, out AbstractRecord rec )
+   {
+      var record = value as AbstractRecord;
+      var retVal = record != null;
+      if ( retVal )
+      {
+         var ph = record as RecordPlaceholder;
+         retVal = ph != null;
+         rec = retVal ? state.records[( (RecordPlaceholder) record ).ID] : null;
+         if ( !retVal )
+         {
+            switch ( record.RecordKind )
+            {
+               case RecordKind.Class:
+                  var claas = (ClassRecord) record;
+                  foreach ( var member in claas.Members )
+                  {
+                     if ( CheckPlaceholder( state, member.Value, out rec ) )
+                     {
+                        member.Value = rec;
+                     }
+                  }
+                  break;
+               case RecordKind.Array:
+                  var array = (ArrayRecord) record;
+                  for ( var i = 0; i < array.ValuesAsVector.Count; ++i )
+                  {
+                     if ( CheckPlaceholder( state, array.ValuesAsVector[i], out rec ) )
+                     {
+                        array.ValuesAsVector[i] = rec;
+                     }
+                  }
+                  break;
+            }
+         }
+         ( (ClassRecord) rec ).IsSerializedInPlace = !retVal;
+      }
+      else
+      {
+         rec = null;
+      }
+      return retVal;
+   }
+
+   private sealed class DeserializationState
+   {
+      internal readonly Byte[] array;
+      internal Int32 idx;
+      internal readonly IDictionary<Int32, AbstractRecord> records;
+      internal readonly IDictionary<Int32, String> assemblies;
+      internal readonly IDictionary<Object, BinaryTypeEnumeration> typeInfos;
+      internal readonly IDictionary<Object, PrimitiveTypeEnumeration> primitiveTypeInfos;
+      internal readonly IDictionary<ArrayRecord, BinaryArrayTypeEnumeration> arrayTypeInfos;
+      internal Boolean recordsEnded;
+      internal Int32 nullCount;
+
+      internal DeserializationState( Byte[] array, Int32 idx )
+      {
+         this.array = array;
+         this.idx = idx;
+         this.records = new Dictionary<Int32, AbstractRecord>();
+         this.assemblies = new Dictionary<Int32, String>();
+         this.typeInfos = new Dictionary<Object, BinaryTypeEnumeration>();
+         this.primitiveTypeInfos = new Dictionary<Object, PrimitiveTypeEnumeration>();
+         this.arrayTypeInfos = new Dictionary<ArrayRecord, BinaryArrayTypeEnumeration>();
+         this.recordsEnded = false;
+         this.nullCount = 0;
+      }
+   }
+
+   private sealed class RecordPlaceholder : AbstractRecord
+   {
+
+      internal RecordPlaceholder( Int32 anID )
+      {
+         this.ID = anID;
+      }
+
+      public Int32 ID { get; }
+
+      public override RecordKind RecordKind
+      {
+         get
+         {
+            throw new InvalidOperationException( "This class is not direclty in use." );
+         }
+      }
    }
 }

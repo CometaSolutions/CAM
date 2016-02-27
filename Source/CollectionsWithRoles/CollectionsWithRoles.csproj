@@ -16,10 +16,10 @@
     <DefaultLanguage>en-US</DefaultLanguage>
     <ProjectTypeGuids>{786C830F-07A1-408B-BD7F-6EE04809D6DB};{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}</ProjectTypeGuids>
     <TargetFrameworkVersion>v4.0</TargetFrameworkVersion>
-    <!-- .NET & Windows 8 -->
-    <TargetFrameworkProfile Condition=" '$(Configuration)' == 'Debug' or '$(Configuration)' == 'Release' ">Profile92</TargetFrameworkProfile>
     <!-- SL5 & WPSL 8 -->
     <TargetFrameworkProfile Condition=" '$(Configuration)' == 'Debug_SL' or '$(Configuration)' == 'Release_SL' ">Profile328</TargetFrameworkProfile>
+    <!-- .NET & Windows 8 -->
+    <TargetFrameworkProfile Condition=" '$(Configuration)' == 'Debug' or '$(Configuration)' == 'Release' ">Profile92</TargetFrameworkProfile>
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|AnyCPU' ">
     <DebugSymbols>true</DebugSymbols>

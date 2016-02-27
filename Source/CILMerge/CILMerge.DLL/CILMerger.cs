@@ -3296,6 +3296,33 @@ namespace CILMerge
                   foreach ( var resx in data.ReadResourceManagerEntries( out wasResourceManager ) )
                   {
                      var resName = resx.Name;
+                     //if ( resx.IsUserDefinedType() )
+                     //{
+                     //   var ud = (UserDefinedResourceManagerEntry) resx.CreateEntry( data );
+                     //   var newTypeStr = this.ProcessTypeString( md, ud.UserDefinedType );
+                     //   // Have to fix records one by one
+                     //   var idx = resx.DataOffset;
+                     //   var records = ud.Contents;
+                     //   foreach ( var rec in records )
+                     //   {
+                     //      this.ProcessNRBFRecord( md, rec );
+                     //   }
+                     //   using ( var strm2 = new MemoryStream() )
+                     //   {
+                     //      records.WriteNRBFRecords( strm2 );
+                     //      rw.AddResourceData( resName, newTypeStr, strm2.ToArray() );
+                     //   }
+                     //}
+                     //else if ( resx.PredefinedTypeCode == ResourceTypeCode.String )
+                     //{
+                     //   rw.AddResource( resName, this.ProcessTypeString( md, (String) pd.Value ) );
+                     //}
+                     //else
+                     //{
+                     //   var thisIdx = resx.DataOffset;
+                     //   rw.AddResourceData( resName, "ResourceTypeCode." + pd.TypeCode, data.CreateAndBlockCopyTo( ref thisIdx, resx.DataSize ) );
+                     //}
+
                      var resXValue = resx.CreateEntry( data );
                      var resXKind = resXValue.ResourceManagerEntryKind;
                      switch ( resXKind )
@@ -3310,15 +3337,21 @@ namespace CILMerge
                            {
                               this.ProcessNRBFRecord( md, rec );
                            }
-                           var strm2 = new MemoryStream();
-                           records.WriteNRBFRecords( strm2 );
-                           rw.AddResourceData( resName, newTypeStr, strm2.ToArray() );
+                           using ( var strm2 = new MemoryStream() )
+                           {
+                              ud.WriteEntry( strm2 );
+                              rw.AddResourceData( resName, newTypeStr, strm2.ToArray() );
+                           }
                            break;
                         case ResourceManagerEntryKind.PreDefined:
                            var pd = (PreDefinedResourceManagerEntry) resXValue;
-                           if ( pd.TypeCode == ResourceTypeCode.String )
+                           if ( resx.PredefinedTypeCode == ResourceTypeCode.String )
                            {
                               rw.AddResource( resName, this.ProcessTypeString( md, (String) pd.Value ) );
+                           }
+                           else
+                           {
+                              rw.AddResource( resName, pd.Value );
                            }
                            break;
                         default:

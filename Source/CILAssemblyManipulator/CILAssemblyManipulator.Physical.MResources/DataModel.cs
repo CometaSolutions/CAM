@@ -15,6 +15,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License. 
  */
+using CollectionsWithRoles.API;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -22,6 +23,316 @@ using System.Text;
 
 namespace CILAssemblyManipulator.Physical.MResources
 {
+   /// <summary>
+   /// This is abstract class for entries that are managed by <see cref="System.Resources.ResourceManager"/>.
+   /// </summary>
+   public abstract class ResourceManagerEntry
+   {
+      internal ResourceManagerEntry()
+      {
+
+      }
+
+      /// <summary>
+      /// Gets the <see cref="MResources.ResourceManagerEntryKind"/> enumeration descripting the actual type of this <see cref="ResourceManagerEntry"/>.
+      /// </summary>
+      /// <value>The <see cref="MResources.ResourceManagerEntryKind"/> enumeration descripting the actual type of this <see cref="ResourceManagerEntry"/>.</value>
+      /// <seealso cref="MResources.ResourceManagerEntryKind"/>
+      public abstract ResourceManagerEntryKind ResourceManagerEntryKind { get; }
+   }
+
+   /// <summary>
+   /// This class specializes <see cref="ResourceManagerEntry"/> for entry value, the type of which is one of the pre-defined types.
+   /// </summary>
+   public sealed class PreDefinedResourceManagerEntry : ResourceManagerEntry
+   {
+
+      ///// <summary>
+      ///// Creates a new instance of <see cref="PreDefinedResourceManagerEntry"/> with given value.
+      ///// </summary>
+      ///// <param name="value"></param>
+      //public PreDefinedResourceManagerEntry( Object value )
+      //   : this( GetResourceTypeCode( value ), value )
+      //{
+      //}
+
+      //internal PreDefinedResourceManagerEntry( ResourceTypeCode typeCode, Object value )
+      //{
+      //   this.ResourceTypeCode = typeCode;
+      //   this.Value = value;
+      //}
+
+      ///// <summary>
+      ///// Gets the <see cref="MResoures.ResourceTypeCode"/> enumeration for <see cref="Value"/>.
+      ///// </summary>
+      ///// <value>The <see cref="MResoures.ResourceTypeCode"/> enumeration for <see cref="Value"/>.</value>
+      //public ResourceTypeCode ResourceTypeCode { get; }
+
+      /// <summary>
+      /// Gets or sets the value of this <see cref="PreDefinedResourceManagerEntry"/>.
+      /// </summary>
+      /// <value>The value of this <see cref="PreDefinedResourceManagerEntry"/>.</value>
+      public Object Value { get; set; }
+
+      /// <summary>
+      /// Returns the <see cref="ResourceManagerEntryKind.PreDefined"/>.
+      /// </summary>
+      /// <value>The <see cref="ResourceManagerEntryKind.PreDefined"/>.</value>
+      public override ResourceManagerEntryKind ResourceManagerEntryKind
+      {
+         get
+         {
+            return ResourceManagerEntryKind.PreDefined;
+         }
+      }
+
+      /// <summary>
+      /// Creates textual representation of this <see cref="PreDefinedResourceManagerEntry"/>.
+      /// </summary>
+      /// <returns>Textual representation of this <see cref="PreDefinedResourceManagerEntry"/>.</returns>
+      public override String ToString()
+      {
+         var val = this.Value;
+         var str = val as String;
+         return str == null ? val.ToStringSafe( "<null>" ) : ( "\"" + str + "\"" );
+      }
+
+      private static ResourceTypeCode GetResourceTypeCode( Object obj )
+      {
+         switch ( Type.GetTypeCode( obj?.GetType() ) )
+         {
+            case TypeCode.Empty:
+               return ResourceTypeCode.Null;
+            case TypeCode.Boolean:
+               return ResourceTypeCode.Boolean;
+            case TypeCode.Char:
+               return ResourceTypeCode.Char;
+            case TypeCode.SByte:
+               return ResourceTypeCode.SByte;
+            case TypeCode.Byte:
+               return ResourceTypeCode.Byte;
+            case TypeCode.Int16:
+               return ResourceTypeCode.Int16;
+            case TypeCode.UInt16:
+               return ResourceTypeCode.UInt16;
+            case TypeCode.Int32:
+               return ResourceTypeCode.Int32;
+            case TypeCode.UInt32:
+               return ResourceTypeCode.UInt32;
+            case TypeCode.Int64:
+               return ResourceTypeCode.Int64;
+            case TypeCode.UInt64:
+               return ResourceTypeCode.UInt64;
+            case TypeCode.Single:
+               return ResourceTypeCode.Single;
+            case TypeCode.Double:
+               return ResourceTypeCode.Double;
+            case TypeCode.String:
+               return ResourceTypeCode.String;
+            case TypeCode.DateTime:
+               return ResourceTypeCode.DateTime;
+            case TypeCode.Decimal:
+               return ResourceTypeCode.Decimal;
+            default:
+               if ( obj is Byte[] )
+               {
+                  return ResourceTypeCode.ByteArray;
+               }
+               else if ( obj is System.IO.Stream )
+               {
+                  return ResourceTypeCode.Stream;
+               }
+               else
+               {
+                  throw new ArgumentException( "The type of given object, " + obj?.GetType() + ", is not one of the pre-defined types." );
+               }
+         }
+
+      }
+   }
+
+   /// <summary>
+   /// This class specializes <see cref="ResourceManagerEntry"/> for entry value, the type of which is not one of the pre-defined ones.
+   /// </summary>
+   public sealed class UserDefinedResourceManagerEntry : ResourceManagerEntry
+   {
+      ///// <summary>
+      ///// Creates a new <see cref="UserDefinedResourceManagerEntry"/> with given type and contents.
+      ///// </summary>
+      ///// <param name="type">The textual type information of this entry.</param>
+      ///// <param name="contents">The contents, as array of <see cref="AbstractRecord"/>s.</param>
+      //public UserDefinedResourceManagerEntry(
+      //   String type,
+      //   ArrayQuery<AbstractRecord> contents
+      //   )
+      //{
+      //   this.UserDefinedType = type;
+      //   this.Contents = new List<AbstractRecord>();
+      //}
+
+      /// <summary>
+      /// Gets or sets the textual type information of this <see cref="UserDefinedResourceManagerEntry"/>.
+      /// </summary>
+      /// <value>The textual type information of this <see cref="UserDefinedResourceManagerEntry"/>.</value>
+      public String UserDefinedType { get; set; }
+
+      /// <summary>
+      /// Gets the contents of this <see cref="UserDefinedResourceManagerEntry"/> as list of <see cref="AbstractRecord"/>s.
+      /// </summary>
+      /// <value>The contents of this <see cref="UserDefinedResourceManagerEntry"/> as list of <see cref="AbstractRecord"/>s.</value>
+      /// <seealso cref="AbstractRecord"/>
+      public List<AbstractRecord> Contents { get; }
+
+      /// <summary>
+      /// Returns the <see cref="ResourceManagerEntryKind.UserDefined"/>.
+      /// </summary>
+      /// <value>The <see cref="ResourceManagerEntryKind.UserDefined"/>.</value>
+      public override ResourceManagerEntryKind ResourceManagerEntryKind
+      {
+         get
+         {
+            return ResourceManagerEntryKind.UserDefined;
+         }
+      }
+
+      /// <summary>
+      /// Creates textual representation of this <see cref="UserDefinedResourceManagerEntry"/>.
+      /// </summary>
+      /// <returns>Textual representation of this <see cref="UserDefinedResourceManagerEntry"/>.</returns>
+      public override String ToString()
+      {
+         return "Resource of type " + this.UserDefinedType + " with " + this.Contents.Count + " records.";
+      }
+   }
+
+   /// <summary>
+   /// This enumeration tells what type instance of <see cref="ResourceManagerEntry"/> really is.
+   /// </summary>
+   public enum ResourceManagerEntryKind
+   {
+      /// <summary>
+      /// The <see cref="ResourceManagerEntry"/> is of type <see cref="PreDefinedResourceManagerEntry"/>.
+      /// </summary>
+      PreDefined,
+
+      /// <summary>
+      /// The <see cref="ResourceManagerEntry"/> is of type <see cref="UserDefinedResourceManagerEntry"/>.
+      /// </summary>
+      UserDefined
+   }
+
+   /// <summary>
+   /// This enumeration contains type codes for pre-defined resource types.
+   /// </summary>
+   public enum ResourceTypeCode
+   {
+      /// <summary>
+      /// The resource is <c>null</c> value.
+      /// </summary>
+      Null = 0,
+
+      /// <summary>
+      /// The resource is a <see cref="System.String"/>.
+      /// </summary>
+      String = 1,
+
+      /// <summary>
+      /// The resource is a <see cref="System.Boolean"/>.
+      /// </summary>
+      Boolean = 2,
+
+      /// <summary>
+      /// The resource is a <see cref="System.Char"/>.
+      /// </summary>
+      Char = 3,
+
+      /// <summary>
+      /// The resource is a <see cref="System.Byte"/>.
+      /// </summary>
+      Byte = 4,
+
+      /// <summary>
+      /// The resource is a <see cref="System.SByte"/>.
+      /// </summary>
+      SByte = 5,
+
+      /// <summary>
+      /// The resource is a <see cref="System.Int16"/>.
+      /// </summary>
+      Int16 = 6,
+
+      /// <summary>
+      /// The resource is a <see cref="System.UInt16"/>.
+      /// </summary>
+      UInt16 = 7,
+
+      /// <summary>
+      /// The resource is a <see cref="System.Int32"/>.
+      /// </summary>
+      Int32 = 8,
+
+      /// <summary>
+      /// The resource is a <see cref="System.UInt32"/>.
+      /// </summary>
+      UInt32 = 9,
+
+      /// <summary>
+      /// The resource is a <see cref="System.Int64"/>.
+      /// </summary>
+      Int64 = 10,
+
+      /// <summary>
+      /// The resource is a <see cref="System.UInt64"/>.
+      /// </summary>
+      UInt64 = 11,
+
+      /// <summary>
+      /// The resource is a <see cref="System.Single"/>.
+      /// </summary>
+      Single = 12,
+
+      /// <summary>
+      /// The resource is a <see cref="System.Double"/>.
+      /// </summary>
+      Double = 13,
+
+      /// <summary>
+      /// The resource is a <see cref="System.Decimal"/>.
+      /// </summary>
+      Decimal = 14,
+
+      /// <summary>
+      /// The resource is a <see cref="System.DateTime"/>.
+      /// </summary>
+      DateTime = 15,
+
+      /// <summary>
+      /// This value is the biggest value for primitive types.
+      /// </summary>
+      LastPrimitive = 16,
+
+      /// <summary>
+      /// The resource is a <see cref="System.TimeSpan"/>.
+      /// </summary>
+      TimeSpan = 16,
+
+      /// <summary>
+      /// The resource is a byte array.
+      /// </summary>
+      ByteArray = 32,
+
+      /// <summary>
+      /// The resource is a <see cref="System.IO.Stream"/>.
+      /// </summary>
+      Stream = 33,
+
+      /// <summary>
+      /// This value indicates the first value which is used by user-defined types.
+      /// </summary>
+      StartOfUserTypes = 64,
+   }
+
+
    /// <summary>
    /// This is interface for manifest resource elements which can have assembly and type name.
    /// </summary>
@@ -105,10 +416,10 @@ namespace CILAssemblyManipulator.Physical.MResources
    }
 
    /// <summary>
-   /// This is common class for all records that make up the contents of manifest resource.
+   /// This is common class for all records that make up the contents <see cref="UserDefinedResourceManagerEntry"/>.
    /// </summary>
    /// <remarks>
-   /// It is recommended to read the document explaining the .NET remoting API, available from <see href="http://download.microsoft.com/download/9/5/E/95EF66AF-9026-4BB0-A41D-A4F81802D92C/%5BMS-NRBF%5D.pdf"/>.
+   /// It is recommended to read the document explaining the .NET Remoting Binary Protocol (NRBF), available from <see href="http://download.microsoft.com/download/9/5/E/95EF66AF-9026-4BB0-A41D-A4F81802D92C/%5BMS-NRBF%5D.pdf"/>.
    /// The various records and overall structure of contents of manifest resource are a subset of the protocol defined in that document.
    /// </remarks>
    public abstract class AbstractRecord
