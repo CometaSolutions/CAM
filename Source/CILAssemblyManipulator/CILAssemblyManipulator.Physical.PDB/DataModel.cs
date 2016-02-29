@@ -23,356 +23,116 @@ using CommonUtils;
 
 namespace CILAssemblyManipulator.Physical.PDB
 {
+   /// <summary>
+   /// This is root class to obtain all PDB information related to the single PDB file.
+   /// </summary>
    public sealed class PDBInstance
    {
-      private readonly IDictionary<String, PDBSource> _sources;
-      private readonly IDictionary<String, PDBModule> _modules;
-      private Guid _guid;
-      private UInt32 _age;
-      private String _sourceServer;
 
+      /// <summary>
+      /// Creates new instance of <see cref="PDBInstance"/>.
+      /// </summary>
       public PDBInstance()
       {
-         this._sources = new Dictionary<String, PDBSource>();
-         this._modules = new Dictionary<String, PDBModule>();
+         this.Sources = new Dictionary<String, PDBSource>();
+         this.Modules = new Dictionary<String, PDBModule>();
       }
 
-      public IEnumerable<PDBSource> Sources
-      {
-         get
-         {
-            return this._sources.Values;
-         }
-      }
+      /// <summary>
+      /// Gets the dictionary of <see cref="PDBSource"/> objects for this <see cref="PDBInstance"/>.
+      /// </summary>
+      /// <value>The dictionary of <see cref="PDBSource"/> objects for this <see cref="PDBInstance"/>.</value>
+      /// <remarks>
+      /// The key of the dictionary is the name of the associated <see cref="PDBSource"/>.
+      /// </remarks>
+      public IDictionary<String, PDBSource> Sources { get; }
 
-      public IEnumerable<PDBModule> Modules
-      {
-         get
-         {
-            return this._modules.Values;
-         }
-      }
+      /// <summary>
+      /// Gets the dictionary of <see cref="PDBModule"/> objects for this <see cref="PDBInstance"/>.
+      /// </summary>
+      /// <value>The dictionary of <see cref="PDBModule"/> objects for this <see cref="PDBInstance"/>.</value>
+      /// <remarks>
+      /// The key of the dictionary is the name of the associated <see cref="PDBModule"/>.
+      /// </remarks>
+      public IDictionary<String, PDBModule> Modules { get; }
 
-      public PDBSource GetOrAddSource( String sourceName )
-      {
-         return this._sources.GetOrAdd_NotThreadSafe( sourceName, srcN => new PDBSource( srcN ) );
-      }
+      /// <summary>
+      /// Gets or sets the unique identifier of this <see cref="PDBInstance"/>.
+      /// </summary>
+      /// <value>The unique identifier of this <see cref="PDBInstance"/>.</value>
+      /// <remarks>
+      /// This <see cref="Guid"/> should match the one serialized in <see cref="P:CILAssemblyManipulator.Physical.DebugInformation.DebugData"/>.
+      /// </remarks>
+      public Guid DebugGUID { get; set; }
 
-      public Boolean TryGetSource( String sourceName, out PDBSource source )
-      {
-         return this._sources.TryGetValue( sourceName, out source );
-      }
-
-      public Boolean TryAddSource( String sourceName, PDBSource source )
-      {
-         ArgumentValidator.ValidateNotNull( "Source", source );
-         var result = !this._sources.ContainsKey( sourceName );
-         if ( result )
-         {
-            this._sources.Add( sourceName, source );
-         }
-         return result;
-      }
-
-      public void AddSource( PDBSource source )
-      {
-         ArgumentValidator.ValidateNotNull( "Source", source );
-         this._sources.Add( source.Name, source );
-      }
-
-      public PDBModule GetOrAddModule( String moduleName )
-      {
-         return this._modules.GetOrAdd_NotThreadSafe( moduleName, srcN => new PDBModule( srcN ) );
-      }
-
-      public Boolean TryGetModule( String moduleName, out PDBModule module )
-      {
-         return this._modules.TryGetValue( moduleName, out module );
-      }
-
-      public Boolean TryAddModule( PDBModule module )
-      {
-         ArgumentValidator.ValidateNotNull( "Module", module );
-         var moduleName = module.Name;
-         var result = !this._sources.ContainsKey( moduleName );
-         if ( result )
-         {
-            this._modules.Add( moduleName, module );
-         }
-         return result;
-      }
-
-      public void AddModule( PDBModule module )
-      {
-         ArgumentValidator.ValidateNotNull( "Module", module );
-         this._modules.Add( module.Name, module );
-      }
-
-      public Guid DebugGUID
-      {
-         get
-         {
-            return this._guid;
-         }
-         set
-         {
-            this._guid = value;
-         }
-      }
-
+      /// <summary>
+      /// Gets or sets the age of this <see cref="PDBInstance"/>.
+      /// </summary>
+      /// <value>The age of this <see cref="PDBInstance"/>.</value>
+      /// <remarks>
+      /// This integer should match the one serialized in <see cref="P:CILAssemblyManipulator.Physical.DebugInformation.DebugData"/>.
+      /// </remarks>
       [CLSCompliant( false )]
-      public UInt32 Age
-      {
-         get
-         {
-            return this._age;
-         }
-         set
-         {
-            this._age = value;
-         }
-      }
+      public UInt32 Age { get; set; }
 
-      public String SourceServer
-      {
-         get
-         {
-            return this._sourceServer;
-         }
-         set
-         {
-            this._sourceServer = value;
-         }
-      }
+      /// <summary>
+      /// Gets or sets the server for the sources of this <see cref="PDBInstance"/>, as string.
+      /// </summary>
+      /// <value>The server for the sources of this <see cref="PDBInstance"/>, as string.</value>
+      public String SourceServer { get; set; }
    }
 
    public sealed class PDBSource
    {
-      private readonly String _name;
-      private Guid _documentType;
-      private Guid _language;
-      private Guid _vendor;
-      private Guid _hashAlgorithm;
-      private Byte[] _hash;
-
-      internal PDBSource( String aName )
+      public PDBSource()
       {
-         ArgumentValidator.ValidateNotNull( "Source name", aName );
-
-         this._name = aName;
-         this._documentType = Guid.Empty;
-         this._language = Guid.Empty;
-         this._vendor = Guid.Empty;
-         this._hashAlgorithm = Guid.Empty;
+         this.DocumentType = Guid.Empty;
+         this.Language = Guid.Empty;
+         this.Vendor = Guid.Empty;
+         this.HashAlgorithm = Guid.Empty;
       }
 
-      public String Name
-      {
-         get
-         {
-            return this._name;
-         }
-      }
+      public Guid DocumentType { get; set; }
 
-      public Guid DocumentType
-      {
-         get
-         {
-            return this._documentType;
-         }
-         set
-         {
-            this._documentType = value;
-         }
-      }
+      public Guid Language { get; set; }
 
-      public Guid Language
-      {
-         get
-         {
-            return this._language;
-         }
-         set
-         {
-            this._language = value;
-         }
-      }
+      public Guid Vendor { get; set; }
 
-      public Guid Vendor
-      {
-         get
-         {
-            return this._vendor;
-         }
-         set
-         {
-            this._vendor = value;
-         }
-      }
+      public Guid HashAlgorithm { get; set; }
 
-      public Guid HashAlgorithm
-      {
-         get
-         {
-            return this._hashAlgorithm;
-         }
-         set
-         {
-            this._hashAlgorithm = value;
-         }
-      }
-
-      public Byte[] Hash
-      {
-         get
-         {
-            return this._hash;
-         }
-         set
-         {
-            this._hash = value;
-         }
-      }
-
-      public override String ToString()
-      {
-         return this._name;
-      }
-
-      //public override Boolean Equals( Object obj )
-      //{
-      //   return Object.ReferenceEquals( this, obj ) || this.DoesEqual( obj as PDBSource );
-      //}
-
-      //private Boolean DoesEqual( PDBSource other )
-      //{
-      //   return other != null && String.Equals( this._name, other._name );
-      //}
-
-      //public override Int32 GetHashCode()
-      //{
-      //   return this._name == null ? 0 : this._name.GetHashCode();
-      //}
+      public Byte[] Hash { get; set; }
    }
 
    public sealed class PDBModule
    {
-      private readonly String _name;
-      private readonly IList<PDBFunction> _functions;
 
-      internal PDBModule( String name )
+      public PDBModule()
       {
-         ArgumentValidator.ValidateNotNull( "Name", name );
-
-         this._name = name;
-         this._functions = new List<PDBFunction>();
+         this.Functions = new List<PDBFunction>();
       }
 
-      public IList<PDBFunction> Functions
-      {
-         get
-         {
-            return this._functions;
-         }
-      }
-
-      public String Name
-      {
-         get
-         {
-            return this._name;
-         }
-      }
-
-      public override String ToString()
-      {
-         return this._name;
-      }
+      public List<PDBFunction> Functions { get; }
    }
 
    public abstract class PDBScopeOrFunction
    {
-      //private readonly IList<PDBConstant> constants;
-      private readonly IList<PDBSlot> slots;
-      private readonly IList<PDBScope> scopes;
-      private readonly IList<String> usedNamespaces;
-      private String name;
-      private Int32 _length;
-
       internal PDBScopeOrFunction()
-         : this( /*new List<PDBConstant>(),*/ new List<PDBSlot>(), new List<PDBScope>(), new List<String>() )
       {
-
+         this.Slots = new List<PDBSlot>();
+         this.Scopes = new List<PDBScope>();
+         this.UsedNamespaces = new List<String>();
       }
 
-      private PDBScopeOrFunction( /*IList<PDBConstant> consts, */IList<PDBSlot> sls, IList<PDBScope> scps, IList<String> un )
-      {
-         //this.constants = consts;
-         this.slots = sls;
-         this.scopes = scps;
-         this.usedNamespaces = un;
-      }
+      public IList<PDBSlot> Slots { get; }
 
-      //public IList<PDBConstant> Constants
-      //{
-      //   get
-      //   {
-      //      return this.constants;
-      //   }
-      //}
+      public IList<PDBScope> Scopes { get; }
 
-      public IList<PDBSlot> Slots
-      {
-         get
-         {
-            return this.slots;
-         }
-      }
+      public IList<String> UsedNamespaces { get; }
 
-      public IList<PDBScope> Scopes
-      {
-         get
-         {
-            return this.scopes;
-         }
-      }
+      public String Name { get; set; }
 
-      public IList<String> UsedNamespaces
-      {
-         get
-         {
-            return this.usedNamespaces;
-         }
-      }
+      public Int32 Length { get; set; }
 
-      public String Name
-      {
-         get
-         {
-            return this.name;
-         }
-         set
-         {
-            this.name = value;
-         }
-      }
-
-      public Int32 Length
-      {
-         get
-         {
-            return this._length;
-         }
-         set
-         {
-            this._length = value;
-         }
-      }
-
-      public override String ToString()
-      {
-         return this.name;
-      }
    }
 
    public sealed class PDBFunction : PDBScopeOrFunction
@@ -386,75 +146,28 @@ namespace CILAssemblyManipulator.Physical.PDB
 
       //internal Int32 debugStart;
       //internal Int32 debugEnd;
-      private UInt32 _token;
       //internal Int32 _offset;
       //internal UInt16 _segment;
       //private Byte _flags;
       //internal UInt16 returnReg;
 
-      private List<UInt16> _usingCounts;
-      private UInt32 _forwardingMethodToken;
-      private UInt32 _moduleForwardingMethodToken;
-      private readonly List<PDBLocalScope> _localScopes;
-      private String _iteratorClass;
-      private UInt32 _encID;
-
-      private readonly IDictionary<String, IList<PDBLine>> _lineInfo;
-
-      private PDBAsyncMethodInfo _asyncMethodInfo;
 
       internal PDBFunction()
       {
-         this._localScopes = new List<PDBLocalScope>();
-         this._lineInfo = new Dictionary<String, IList<PDBLine>>();
-         this._usingCounts = new List<UInt16>();
+         this.LocalScopes = new List<PDBLocalScope>();
+         this.Lines = new Dictionary<String, IList<PDBLine>>();
+         this.UsingCounts = new List<UInt16>();
       }
 
-      public IDictionary<String, IList<PDBLine>> Lines
-      {
-         get
-         {
-            return this._lineInfo;
-         }
-      }
+      public IDictionary<String, IList<PDBLine>> Lines { get; }
 
       [CLSCompliant( false )]
-      public UInt32 Token
-      {
-         get
-         {
-            return this._token;
-         }
-         set
-         {
-            this._token = value;
-         }
-      }
+      public UInt32 Token { get; set; }
 
-      public PDBAsyncMethodInfo AsyncMethodInfo
-      {
-         get
-         {
-            return this._asyncMethodInfo;
-         }
-         set
-         {
-            this._asyncMethodInfo = value;
-         }
-      }
+      public PDBAsyncMethodInfo AsyncMethodInfo { get; set; }
 
       [CLSCompliant( false )]
-      public UInt32 ENCID // TODO the heck is this...
-      {
-         get
-         {
-            return this._encID;
-         }
-         set
-         {
-            this._encID = value;
-         }
-      }
+      public UInt32 ENCID { get; set; }
 
       //public Byte Flags // TODO is this used *only* when serializing/deserializing?
       //{
@@ -469,86 +182,32 @@ namespace CILAssemblyManipulator.Physical.PDB
       //}
 
       [CLSCompliant( false )]
-      public UInt32 ForwardingMethodToken
-      {
-         get
-         {
-            return this._forwardingMethodToken;
-         }
-         set
-         {
-            this._forwardingMethodToken = value;
-         }
-      }
+      public UInt32 ForwardingMethodToken { get; set; }
 
-      public List<PDBLocalScope> LocalScopes
-      {
-         get
-         {
-            return this._localScopes;
-         }
-      }
+      public List<PDBLocalScope> LocalScopes { get; }
 
-      public String IteratorClass
-      {
-         get
-         {
-            return this._iteratorClass;
-         }
-         set
-         {
-            this._iteratorClass = value;
-         }
-      }
+      public String IteratorClass { get; set; }
 
       [CLSCompliant( false )]
-      public List<UInt16> UsingCounts
-      {
-         get
-         {
-            return this._usingCounts;
-         }
-      }
+      public List<UInt16> UsingCounts { get; }
 
       [CLSCompliant( false )]
-      public UInt32 ModuleForwardingMethodToken
+      public UInt32 ModuleForwardingMethodToken { get; set; }
+
+      public override String ToString()
       {
-         get
-         {
-            return this._moduleForwardingMethodToken;
-         }
-         set
-         {
-            this._moduleForwardingMethodToken = value;
-         }
+         return "Function " + this.Name + " @" + this.Token;
       }
    }
 
    public sealed class PDBScope : PDBScopeOrFunction
    {
-      private Int32 _offset;
 
-      public PDBScope( String name )
+      public Int32 Offset { get; set; }
+
+      public override String ToString()
       {
-         this.Name = name ?? String.Empty;
-      }
-
-      //internal PDBScope( PDBFunction scope )
-      //   : base( scope.constants, scope.slots, scope.scopes, scope.usedNamespaces )
-      //{
-
-      //}
-
-      public Int32 Offset
-      {
-         get
-         {
-            return this._offset;
-         }
-         set
-         {
-            this._offset = value;
-         }
+         return "Scope " + this.Name + " @" + this.Offset;
       }
    }
 
@@ -659,87 +318,26 @@ namespace CILAssemblyManipulator.Physical.PDB
 
    public sealed class PDBSlot
    {
-      private Int32 _slot;
-      private UInt32 _typeToken;
-      private String _name;
-      private PDBSlotFlags _flags;
-      private Int32 _address;
 
-      public PDBSlot()
-      {
+      public String Name { get; set; }
 
-      }
+      public Int32 SlotIndex { get; set; }
+
+      [CLSCompliant( false )]
+      public UInt32 TypeToken { get; set; }
+
+      public PDBSlotFlags Flags { get; set; }
+
+      public Int32 Address { get; set; }
 
       public override String ToString()
       {
-         return this._name;
-      }
-
-      public String Name
-      {
-         get
-         {
-            return this._name;
-         }
-         set
-         {
-            this._name = value;
-         }
-      }
-
-      public Int32 SlotIndex
-      {
-         get
-         {
-            return this._slot;
-         }
-         set
-         {
-            this._slot = value;
-         }
-      }
-
-      [CLSCompliant( false )]
-      public UInt32 TypeToken
-      {
-         get
-         {
-            return this._typeToken;
-         }
-         set
-         {
-            this._typeToken = value;
-         }
-      }
-
-      [CLSCompliant( false )]
-      public PDBSlotFlags Flags
-      {
-         get
-         {
-            return this._flags;
-         }
-         set
-         {
-            this._flags = value;
-         }
-      }
-
-      public Int32 Address
-      {
-         get
-         {
-            return this._address;
-         }
-         set
-         {
-            this._address = value;
-         }
+         return this.Name;
       }
    }
 
-   [Flags, CLSCompliant( false )]
-   public enum PDBSlotFlags : ushort
+   [Flags]
+   public enum PDBSlotFlags : short
    {
       IsParameter = 0x0001,
       AddressIsTaken = 0x0002,
@@ -752,253 +350,63 @@ namespace CILAssemblyManipulator.Physical.PDB
 
    public sealed class PDBAsyncMethodInfo
    {
-      private UInt32 _kickoffMethodToken;
-      private Int32 _catchHandlerOffset;
-      private IList<PDBSynchronizationPoint> _syncPoints;
-
-      [CLSCompliant( false )]
-      public PDBAsyncMethodInfo( UInt32 kickoffMethodToken, Int32 catchHandlerOffset )
+      public PDBAsyncMethodInfo()
       {
-         this._kickoffMethodToken = kickoffMethodToken;
-         this._catchHandlerOffset = catchHandlerOffset;
-         this._syncPoints = new List<PDBSynchronizationPoint>();
+         this.SynchronizationPoints = new List<PDBSynchronizationPoint>();
       }
 
       [CLSCompliant( false )]
-      public UInt32 KickoffMethodToken
-      {
-         get
-         {
-            return this._kickoffMethodToken;
-         }
-         set
-         {
-            this._kickoffMethodToken = value;
-         }
-      }
+      public UInt32 KickoffMethodToken { get; set; }
 
-      public Int32 CatchHandlerOffset
-      {
-         get
-         {
-            return this._catchHandlerOffset;
-         }
-         set
-         {
-            this._catchHandlerOffset = value;
-         }
-      }
+      public Int32 CatchHandlerOffset { get; set; }
 
-      public IList<PDBSynchronizationPoint> SynchronizationPoints
-      {
-         get
-         {
-            return this._syncPoints;
-         }
-      }
+      public IList<PDBSynchronizationPoint> SynchronizationPoints { get; }
    }
 
    public sealed class PDBSynchronizationPoint
    {
-      private Int32 _syncOffset;
-      private UInt32 _continuationMethodToken;
-      private Int32 _continuationOffset;
+      public Int32 SyncOffset { get; set; }
 
       [CLSCompliant( false )]
-      public PDBSynchronizationPoint( Int32 syncOffset, UInt32 continuationMethodToken, Int32 continuationOffset )
-      {
-         this._syncOffset = syncOffset;
-         this._continuationMethodToken = continuationMethodToken;
-         this._continuationOffset = continuationOffset;
-      }
-
-      public Int32 SyncOffset
-      {
-         get
-         {
-            return this._syncOffset;
-         }
-         set
-         {
-            this._syncOffset = value;
-         }
-      }
-
-      [CLSCompliant( false )]
-      public UInt32 ContinuationMethodToken
-      {
-         get
-         {
-            return this._continuationMethodToken;
-         }
-         set
-         {
-            this._continuationMethodToken = value;
-         }
-      }
-
-      public Int32 ContinuationOffset
-      {
-         get
-         {
-            return this._continuationOffset;
-         }
-         set
-         {
-            this._continuationOffset = value;
-         }
-      }
+      public UInt32 ContinuationMethodToken { get; set; }
+      public Int32 ContinuationOffset { get; set; }
    }
 
    public sealed class PDBLocalScope
    {
-      private Int32 _offset;
-      private Int32 _length;
+      public Int32 Offset { get; set; }
 
-      public PDBLocalScope( Int32 offset, Int32 length )
-      {
-         this._offset = offset;
-         this._length = length;
-      }
+      public Int32 Length { get; set; }
 
       public override String ToString()
       {
-         return String.Format( "IL_{0:X4} .. IL_{1:X4}", this._offset, this._offset + this._length );
+         return String.Format( "IL_{0:X4} .. IL_{1:X4}", this.Offset, this.Offset + this.Length );
       }
 
-      public Int32 Offset
-      {
-         get
-         {
-            return this._offset;
-         }
-         set
-         {
-            this._offset = value;
-         }
-      }
-
-      public Int32 Length
-      {
-         get
-         {
-            return this._length;
-         }
-         set
-         {
-            this._length = value;
-         }
-      }
    }
 
    public sealed class PDBLine
    {
-      private readonly Int32 _offset;
-      private Int32 _lineStart;
-      private Int32 _lineEnd;
-      private UInt16? _colStart;
-      private UInt16? _colEnd;
-      private Boolean _isStatement;
 
-      public PDBLine( Int32 anOffset )
-      {
-         this._offset = anOffset;
-      }
 
-      //public override Boolean Equals( Object obj )
-      //{
-      //   return Object.ReferenceEquals( this, obj ) || this.DoesEqual( obj as PDBLine );
-      //}
+      // IL Byte offset
+      public Int32 Offset { get; set; }
 
-      //private Boolean DoesEqual( PDBLine line )
-      //{
-      //   return line != null
-      //      && this._offset == line._offset
-      //      && this._lineStart == line._lineStart
-      //      && this._lineEnd == line._lineEnd
-      //      && this._colStart == line._colStart
-      //      && this._colEnd == line._colEnd;
-      //}
+      public Int32 LineStart { get; set; }
 
-      //public override Int32 GetHashCode()
-      //{
-      //   return this._offset.GetHashCode();
-      //}
+      public Int32 LineEnd { get; set; }
+
+      [CLSCompliant( false )]
+      public UInt16? ColumnStart { get; set; }
+
+      [CLSCompliant( false )]
+      public UInt16? ColumnEnd { get; set; }
+      public Boolean IsStatement { get; set; }
 
       public override String ToString()
       {
-         return String.Format( "IL_{0:X4}", this._offset ) +
-            " [" + this._lineStart + ( this._lineEnd == this._lineStart ? "" : ( "->" + this._lineEnd ) ) + "]";
-      }
-
-      public Int32 Offset
-      {
-         get
-         {
-            return this._offset;
-         }
-      }
-
-      public Int32 LineStart
-      {
-         get
-         {
-            return this._lineStart;
-         }
-         set
-         {
-            this._lineStart = value;
-         }
-      }
-
-      public Int32 LineEnd
-      {
-         get
-         {
-            return this._lineEnd;
-         }
-         set
-         {
-            this._lineEnd = value;
-         }
-      }
-
-      [CLSCompliant( false )]
-      public UInt16? ColumnStart
-      {
-         get
-         {
-            return this._colStart;
-         }
-         set
-         {
-            this._colStart = value;
-         }
-      }
-
-      [CLSCompliant( false )]
-      public UInt16? ColumnEnd
-      {
-         get
-         {
-            return this._colEnd;
-         }
-         set
-         {
-            this._colEnd = value;
-         }
-      }
-
-      public Boolean IsStatement
-      {
-         get
-         {
-            return this._isStatement;
-         }
-         set
-         {
-            this._isStatement = value;
-         }
+         return String.Format( "IL_{0:X4}", this.Offset ) +
+            " [" + this.LineStart + ( this.LineEnd == this.LineStart ? "" : ( "->" + this.LineEnd ) ) + "]";
       }
    }
 }

@@ -196,7 +196,7 @@ namespace CILAssemblyManipulator.Physical.PDB
             stream.ReadPagedData( pageSize, dataStreamPages[debugHeader.snTokenRidMap], tokenRemapSize, array );
             idx = 0;
             var tokens = array.ReadUInt32ArrayLEFromBytes( ref idx, tokenRemapSize / INT_SIZE );
-            foreach ( var function in instance.Modules.SelectMany( mod => mod.Functions ) )
+            foreach ( var function in instance.Modules.Values.SelectMany( mod => mod.Functions ) )
             {
                function.Token = METHOD_TABLE | tokens[function.Token & METHOD_TABLE_INDEX_MASK];
             }
@@ -307,7 +307,7 @@ namespace CILAssemblyManipulator.Physical.PDB
       {
          var idx = INT_SIZE; // Skip signature
          var thisFuncs = new List<PDBFunctionInfo>();
-         var module = instance.GetOrAddModule( moduleInfo.moduleName );
+         var module = instance.Modules.GetOrAdd_NotThreadSafe( moduleInfo.moduleName, n => new PDBModule() );
          while ( idx < moduleInfo.symbolByteCount )
          {
             var blockLen = array.ReadUInt16LEFromBytes( ref idx );
@@ -348,7 +348,7 @@ namespace CILAssemblyManipulator.Physical.PDB
          }
       }
 
-      private static IDictionary<Int32, PDBSource> LoadSourcesAndLinesFromModuleStream(
+      private static void LoadSourcesAndLinesFromModuleStream(
          StreamInfo stream,
          Int32 pageSize,
          Int32[][] streamPages,
@@ -362,7 +362,7 @@ namespace CILAssemblyManipulator.Physical.PDB
          List<PDBFunctionInfo> functions
          )
       {
-         var sourcesLocal = new Dictionary<Int32, PDBSource>();
+         var sourcesLocal = new Dictionary<Int32, Tuple<String, PDBSource>>();
          var lines = new List<Tuple<Int32, PDBLine>>[functions.Count];
 
          while ( idx < max )
@@ -383,25 +383,24 @@ namespace CILAssemblyManipulator.Physical.PDB
                      array.ReadByteFromBytes( ref idx );
 
                      var name = nameIndex[nameIdx];
-                     PDBSource pdbSource;
-                     if ( !instance.TryGetSource( name, out pdbSource ) )
+                     var pdbSource = instance.Sources.GetOrAdd_NotThreadSafe( name, sourceName =>
                      {
-                        pdbSource = new PDBSource( name );
+                        var source = new PDBSource();
                         Int32 sourceStreamIdx;
-                        if ( streamNameIndices.TryGetValue( SOURCE_FILE_PREFIX + name, out sourceStreamIdx ) )
+                        if ( streamNameIndices.TryGetValue( SOURCE_FILE_PREFIX + sourceName, out sourceStreamIdx ) )
                         {
                            var sourceBytes = stream.ReadPagedData( pageSize, streamPages[sourceStreamIdx], streamSizes[sourceStreamIdx] );
                            var tmpIdx = 0;
-                           pdbSource.Language = sourceBytes.ReadGUIDFromBytes( ref tmpIdx );
-                           pdbSource.Vendor = sourceBytes.ReadGUIDFromBytes( ref tmpIdx );
-                           pdbSource.DocumentType = sourceBytes.ReadGUIDFromBytes( ref tmpIdx );
-                           pdbSource.HashAlgorithm = sourceBytes.ReadGUIDFromBytes( ref tmpIdx );
-                           pdbSource.Hash = sourceBytes.CreateAndBlockCopyTo( ref tmpIdx, sourceBytes.Length - tmpIdx );
+                           source.Language = sourceBytes.ReadGUIDFromBytes( ref tmpIdx );
+                           source.Vendor = sourceBytes.ReadGUIDFromBytes( ref tmpIdx );
+                           source.DocumentType = sourceBytes.ReadGUIDFromBytes( ref tmpIdx );
+                           source.HashAlgorithm = sourceBytes.ReadGUIDFromBytes( ref tmpIdx );
+                           source.Hash = sourceBytes.CreateAndBlockCopyTo( ref tmpIdx, sourceBytes.Length - tmpIdx );
                         }
-                        instance.AddSource( pdbSource );
-                     };
+                        return source;
+                     } );
 
-                     sourcesLocal.Add( curSrcFileIdx, pdbSource );
+                     sourcesLocal.Add( curSrcFileIdx, Tuple.Create( name, pdbSource ) );
 #if DEBUG
                      if ( thisLen != 0 )
                      {
@@ -446,8 +445,10 @@ namespace CILAssemblyManipulator.Physical.PDB
                            {
                               // Reset index after possible column read
                               idx = lineStartIdx + LINE_MULTIPLIER * i;
-                              var offset = array.ReadInt32LEFromBytes( ref idx );
-                              var line = new PDBLine( offset );
+                              var line = new PDBLine()
+                              {
+                                 Offset = array.ReadInt32LEFromBytes( ref idx )
+                              };
                               var lineFlags = array.ReadUInt32LEFromBytes( ref idx );
                               line.LineStart = (Int32) ( lineFlags & 0x00ffffffu ); // Lower 3 bytes are start line of statement/expression
                               line.LineEnd = line.LineStart + (Int32) ( ( lineFlags & 0x7f000000u ) >> 24 ); // High seven bits is delta of line
@@ -496,12 +497,11 @@ namespace CILAssemblyManipulator.Physical.PDB
             {
                foreach ( var line in lineList )
                {
-                  functions[i].function.Lines.GetOrAdd_NotThreadSafe( sourcesLocal[line.Item1].Name, ni => new List<PDBLine>() )
+                  functions[i].function.Lines.GetOrAdd_NotThreadSafe( sourcesLocal[line.Item1].Item1, ni => new List<PDBLine>() )
                      .Add( line.Item2 );
                }
             }
          }
-         return sourcesLocal;
       }
 
       internal static Int32 AmountOfPagesTaken( Int32 byteSize, Int32 pageSize )
@@ -566,24 +566,31 @@ namespace CILAssemblyManipulator.Physical.PDB
 
       private static PDBLocalScope NewPDBLocalScope( Byte[] array, ref Int32 idx )
       {
-         var offset = array.ReadInt32LEFromBytes( ref idx );
-         var length = array.ReadInt32LEFromBytes( ref idx ) - offset;
-         return new PDBLocalScope( offset, length );
+         Int32 offset;
+         return new PDBLocalScope()
+         {
+            Offset = ( offset = array.ReadInt32LEFromBytes( ref idx ) ),
+            Length = array.ReadInt32LEFromBytes( ref idx ) - offset
+         };
       }
 
       private static PDBSynchronizationPoint NewPDBSynchronizationPoint( Byte[] array, ref Int32 idx )
       {
-         var syncOffset = array.ReadInt32LEFromBytes( ref idx );
-         var continuationMethodToken = array.ReadUInt32LEFromBytes( ref idx );
-         var continuationOffset = array.ReadInt32LEFromBytes( ref idx );
-         return new PDBSynchronizationPoint( syncOffset, continuationMethodToken, continuationOffset );
+         return new PDBSynchronizationPoint()
+         {
+            SyncOffset = array.ReadInt32LEFromBytes( ref idx ),
+            ContinuationMethodToken = array.ReadUInt32LEFromBytes( ref idx ),
+            ContinuationOffset = array.ReadInt32LEFromBytes( ref idx )
+         };
       }
 
       private static PDBAsyncMethodInfo NewPDBAsyncMethodInfo( Byte[] array, ref Int32 idx )
       {
-         var kickoffMethodToken = array.ReadUInt32LEFromBytes( ref idx );
-         var catchHandlerOffset = array.ReadInt32LEFromBytes( ref idx );
-         var result = new PDBAsyncMethodInfo( kickoffMethodToken, catchHandlerOffset );
+         var result = new PDBAsyncMethodInfo()
+         {
+            KickoffMethodToken = array.ReadUInt32LEFromBytes( ref idx ),
+            CatchHandlerOffset = array.ReadInt32LEFromBytes( ref idx )
+         };
          var syncPointCount = array.ReadInt32LEFromBytes( ref idx );
          for ( var i = 0; i < syncPointCount; ++i )
          {
@@ -613,9 +620,12 @@ namespace CILAssemblyManipulator.Physical.PDB
          var length = array.ReadInt32LEFromBytes( ref idx );
          address = array.ReadInt32LEFromBytes( ref idx );
          segment = array.ReadUInt16LEFromBytes( ref idx );
-         var result = new PDBScope( array.ReadZeroTerminatedStringFromBytes( ref idx, NAME_ENCODING ) );
-         result.Offset = address - funcOffset;
-         result.Length = length;
+         var result = new PDBScope()
+         {
+            Name = array.ReadZeroTerminatedStringFromBytes( ref idx, NAME_ENCODING ),
+            Offset = address - funcOffset,
+            Length = length
+         };
 
          idx = listsStartIdx;
          ReadListsFromBytes( result, array, ref idx, end, funcOffset );

@@ -112,6 +112,20 @@ namespace CILAssemblyManipulator.Physical.Meta
       /// <param name="rawRowFactory">The callback to create blank raw row.</param>
       /// <param name="isSorted">Whether this table is sorted, will affect <see cref="MetaDataTableStreamHeader.SortedTablesBitVector"/> value.</param>
       /// <returns>A new instance of <see cref="MetaDataTableInformation{TRow}"/> with required functionalities registered.</returns>
+      /// <remarks>
+      /// The functionalities that are registered by this method are as follows:
+      /// <list type="table">
+      /// <listheader>
+      /// <term>Functionality type</term>
+      /// <term>Description</term>
+      /// </listheader>
+      /// <item>
+      /// <term><see cref="MetaDataTableInformationWithSerializationCapabilityDelegate"/></term>
+      /// <term>Always registered, contain callback to create <see cref="TableSerializationLogicalFunctionality"/>.</term>
+      /// </item>
+      /// </list>
+      /// All of these functionalities are accessible from the created <see cref="MetaDataTableInformation{TRow}"/> with methods and extension methods of <see cref="ExtensionByCompositionProvider{TFunctionality}"/>.
+      /// </remarks>
       public static MetaDataTableInformation<TRow> CreateSingleTableInfo<TRow, TRawRow>(
          Tables tableKind,
          IEqualityComparer<TRow> equalityComparer,
@@ -126,14 +140,14 @@ namespace CILAssemblyManipulator.Physical.Meta
       {
          ArgumentValidator.ValidateNotNull( "Raw row factory", rawRowFactory );
          var retVal = new MetaDataTableInformation<TRow>( (Int32) tableKind, equalityComparer, comparer, rowFactory, columns );
-         retVal.RegisterFunctionality<MetaDataTableInformationWithSerializationCapability>( () => new MetaDataTableInformationWithSerializationCapability( args => new TableSerializationLogicalFunctionalityImpl<TRow, TRawRow>(
+         retVal.RegisterFunctionalityDirect<MetaDataTableInformationWithSerializationCapabilityDelegate>( args => new TableSerializationLogicalFunctionalityImpl<TRow, TRawRow>(
             (Tables) retVal.TableIndex,
             isSorted,
             retVal.ColumnsInformation.Select( c => c.GetFunctionality<DefaultColumnSerializationInfo<TRow, TRawRow>>() ),
             retVal.CreateRow,
             rawRowFactory,
             args
-            ) ) );
+            ) );
 
          return retVal;
       }
@@ -1517,39 +1531,15 @@ namespace CILAssemblyManipulator.Physical.Meta
    }
 
    /// <summary>
-   /// This class provides a way to create <see cref="TableSerializationLogicalFunctionality"/> without the knowledge of generic arguments of <see cref="MetaDataTableInformation{TRow}"/>.
+   /// This delegate a way to create <see cref="TableSerializationLogicalFunctionality"/> without the knowledge of generic arguments of <see cref="MetaDataTableInformation{TRow}"/>.
    /// </summary>
    /// <remarks>
-   /// This class is accessible through (extension) methods for <see cref="ExtensionByCompositionProvider{TFunctionality}"/> of <see cref="MetaDataTableInformation"/>.
+   /// This delegate is accessible through (extension) methods for <see cref="ExtensionByCompositionProvider{TFunctionality}"/> of <see cref="MetaDataTableInformation"/>.
    /// </remarks>
-   public sealed class MetaDataTableInformationWithSerializationCapability
-   {
-      private readonly Func<TableSerializationLogicalFunctionalityCreationArgs, TableSerializationLogicalFunctionality> _callback;
-
-      /// <summary>
-      /// Creates new instance of <see cref="MetaDataTableInformationWithSerializationCapability"/> with given callback.
-      /// </summary>
-      /// <param name="callback">The callback to create <see cref="TableSerializationLogicalFunctionality"/>.</param>
-      public MetaDataTableInformationWithSerializationCapability( Func<TableSerializationLogicalFunctionalityCreationArgs, TableSerializationLogicalFunctionality> callback )
-      {
-         ArgumentValidator.ValidateNotNull( "Callback", callback );
-
-         this._callback = callback;
-      }
-
-      /// <summary>
-      /// Creates a new <see cref="TableSerializationLogicalFunctionality"/>, using given <see cref="TableSerializationLogicalFunctionalityCreationArgs"/>.
-      /// </summary>
-      /// <param name="args">The <see cref="TableSerializationLogicalFunctionalityCreationArgs"/>.</param>
-      /// <returns>A new instance of <see cref="TableSerializationLogicalFunctionality"/>.</returns>
-      public TableSerializationLogicalFunctionality CreateTableSerializationInfo( TableSerializationLogicalFunctionalityCreationArgs args )
-      {
-         return this._callback( args );
-      }
-   }
+   public delegate TableSerializationLogicalFunctionality MetaDataTableInformationWithSerializationCapabilityDelegate( TableSerializationLogicalFunctionalityCreationArgs args );
 
    /// <summary>
-   /// This struct defines all data that is used by <see cref="TableSerializationLogicalFunctionality"/> but specified outside the scope of the <see cref="MetaDataTableInformationWithSerializationCapability"/>.
+   /// This struct defines all data that is used to create <see cref="TableSerializationLogicalFunctionality"/> by <see cref="MetaDataTableInformationWithSerializationCapabilityDelegate"/>.
    /// </summary>
    public struct TableSerializationLogicalFunctionalityCreationArgs
    {

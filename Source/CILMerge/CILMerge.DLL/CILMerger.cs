@@ -129,7 +129,7 @@ namespace CILMerge
                   {
                      bag.Add( iPDB );
                      // Translate all tokens
-                     foreach ( var func in iPDB.Modules.SelectMany( m => m.Functions ) )
+                     foreach ( var func in iPDB.Modules.Values.SelectMany( m => m.Functions ) )
                      {
                         func.Token = this.MapMethodToken( iResult, func.Token );
                         func.ForwardingMethodToken = this.MapMethodToken( iResult, func.ForwardingMethodToken );
@@ -156,14 +156,16 @@ namespace CILMerge
          foreach ( var currentPDB in bag )
          {
             // Merge sources
-            foreach ( var src in currentPDB.Sources )
+            foreach ( var kvp in currentPDB.Sources )
             {
-               pdb.TryAddSource( src.Name, src );
+               pdb.Sources.TryAdd_NotThreadSafe( kvp.Key, kvp.Value );
             }
+
             // Merge modules
-            foreach ( var mod in currentPDB.Modules )
+            foreach ( var kvp in currentPDB.Modules )
             {
-               var curMod = pdb.GetOrAddModule( mod.Name );
+               var mod = kvp.Value;
+               var curMod = pdb.Modules.GetOrAdd_NotThreadSafe( kvp.Key, n => new PDBModule() );
                foreach ( var func in mod.Functions )
                {
                   curMod.Functions.Add( func );

@@ -358,7 +358,7 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
 
    /// <summary>
    /// This class provides default implementation for <see cref="ReaderTableStreamHandler"/>.
-   /// It will use the <see cref="MetaDataTableInformationWithSerializationCapability.CreateTableSerializationInfo"/> to create <see cref="TableSerializationLogicalFunctionality"/> for each table.
+   /// It will use the <see cref="MetaDataTableInformationWithSerializationCapabilityDelegate"/> to create <see cref="TableSerializationLogicalFunctionality"/> for each table.
    /// These <see cref="TableSerializationLogicalFunctionality"/> objects will be used by this class to deserialize values for rows of tables of <see cref="CILMetaData"/>.
    /// </summary>
    /// <seealso cref="ReaderTableStreamHandler"/>

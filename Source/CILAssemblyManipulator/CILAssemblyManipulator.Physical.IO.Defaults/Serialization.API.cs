@@ -2429,7 +2429,7 @@ public static partial class E_CILPhysical
    /// <param name="tableInfos">The enumerable of <see cref="MetaDataTableInformation"/>s.</param>
    /// <returns>An enumerable of created <see cref="TableSerializationLogicalFunctionality"/> objects.</returns>
    /// <exception cref="ArgumentNullException">If <paramref name="tableInfos"/> is <c>null</c>.</exception>
-   /// <seealso cref="MetaDataTableInformationWithSerializationCapability.CreateTableSerializationInfo"/>
+   /// <seealso cref="MetaDataTableInformationWithSerializationCapabilityDelegate"/>
    public static IEnumerable<TableSerializationLogicalFunctionality> CreateTableSerializationInfos(
       this TableSerializationLogicalFunctionalityCreationArgs serializationCreationArgs,
       IEnumerable<MetaDataTableInformation> tableInfos
@@ -2441,7 +2441,7 @@ public static partial class E_CILPhysical
          .Where( ti => ti != null )
          .ToDictionary_Overwrite(
             info => (Int32) info.TableIndex,
-            info => info.GetFunctionality<MetaDataTableInformationWithSerializationCapability>()?.CreateTableSerializationInfo( serializationCreationArgs )
+            info => info.GetFunctionality<MetaDataTableInformationWithSerializationCapabilityDelegate>()?.Invoke( serializationCreationArgs )
          );
       var curMax = 0;
       foreach ( var kvp in tableInfoDic.OrderBy( kvp => kvp.Key ) )

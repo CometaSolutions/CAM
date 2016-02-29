@@ -98,41 +98,40 @@ namespace CILMerge
 
       internal void ProcessPDB( PDBInstance pdb )
       {
-         foreach ( var src in pdb.Sources )
+         foreach ( var kvp in pdb.Sources )
          {
+            var src = kvp.Value;
+            var name = kvp.Key;
             var lang = src.Language;
             var docType = src.DocumentType;
             var vendor = src.Vendor;
             ISymUnmanagedDocumentWriter uDoc;
-            this._unmanagedWriter.DefineDocument( src.Name, ref lang, ref vendor, ref docType, out uDoc );
-            this._unmanagedDocs.Add( src.Name, uDoc );
+            this._unmanagedWriter.DefineDocument( name, ref lang, ref vendor, ref docType, out uDoc );
+            this._unmanagedDocs.Add( name, uDoc );
          }
 
-         foreach ( var mod in pdb.Modules )
+         foreach ( var func in pdb.Modules.Values.SelectMany( m => m.Functions ) )
          {
-            foreach ( var func in mod.Functions )
+            this._unmanagedWriter.OpenMethod( new SymbolToken( (Int32) func.Token ) );
+            Int32 dummy;
+            this._unmanagedWriter.OpenScope( 0, out dummy );
+
+            foreach ( var kvp in func.Lines )
             {
-               this._unmanagedWriter.OpenMethod( new SymbolToken( (Int32) func.Token ) );
-               Int32 dummy;
-               this._unmanagedWriter.OpenScope( 0, out dummy );
-
-               foreach ( var kvp in func.Lines )
-               {
-                  this._unmanagedWriter.DefineSequencePoints(
-                     this._unmanagedDocs[kvp.Key],
-                     kvp.Value.Count,
-                     kvp.Value.Select( l => l.Offset ).ToArray(),
-                     kvp.Value.Select( l => l.LineStart ).ToArray(),
-                     kvp.Value.Select( l => (Int32) l.ColumnStart.Value ).ToArray(),
-                     kvp.Value.Select( l => l.LineEnd ).ToArray(),
-                     kvp.Value.Select( l => (Int32) l.ColumnEnd.Value ).ToArray() );
-               }
-
-               this.ProcessPDBScopeOrFunc( func, 0, func.Length );
-
-               this._unmanagedWriter.CloseScope( func.Length );
-               this._unmanagedWriter.CloseMethod();
+               this._unmanagedWriter.DefineSequencePoints(
+                  this._unmanagedDocs[kvp.Key],
+                  kvp.Value.Count,
+                  kvp.Value.Select( l => l.Offset ).ToArray(),
+                  kvp.Value.Select( l => l.LineStart ).ToArray(),
+                  kvp.Value.Select( l => (Int32) l.ColumnStart.Value ).ToArray(),
+                  kvp.Value.Select( l => l.LineEnd ).ToArray(),
+                  kvp.Value.Select( l => (Int32) l.ColumnEnd.Value ).ToArray() );
             }
+
+            this.ProcessPDBScopeOrFunc( func, 0, func.Length );
+
+            this._unmanagedWriter.CloseScope( func.Length );
+            this._unmanagedWriter.CloseMethod();
          }
 
       }

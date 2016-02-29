@@ -153,6 +153,7 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
       where TRawRow : class
       where TRow : class
    {
+      // TODO this class can and should be replaced by simply adding the required delegates directly to column infos, via ExtensionByCompositionProvider .
 
       /// <summary>
       /// This constructor is used for columns, which have value embedded directly in table stream.
@@ -826,10 +827,9 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
    /// <typeparam name="TRawRow">The type of the raw row.</typeparam>
    /// <typeparam name="TRow">The type of the normal row (part of the tables in <see cref="CILMetaData"/>).</typeparam>
    /// <remarks>
-   /// This class is not meant to be instanced directly, instead the <see cref="MetaDataTableInformationWithSerializationCapability.CreateTableSerializationInfo"/> will create object of this type.
+   /// This class is not meant to be instanced directly, instead the <see cref="MetaDataTableInformation{TRow}"/> created by <see cref="CILMetaDataTableInformationProviderFactory.CreateSingleTableInfo"/> will have <see cref="MetaDataTableInformationWithSerializationCapabilityDelegate"/> registered to create instnance of this class.
    /// </remarks>
-   /// <seealso cref="MetaDataTableInformationWithSerializationCapability"/>
-   /// <seealso cref="MetaDataTableInformationWithSerializationCapability.CreateTableSerializationInfo"/>
+   /// <seealso cref="MetaDataTableInformationWithSerializationCapabilityDelegate"/>
    public class TableSerializationLogicalFunctionalityImpl<TRow, TRawRow> : TableSerializationLogicalFunctionality
       where TRawRow : class
       where TRow : class
@@ -1110,12 +1110,10 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
    /// <typeparam name="TRawRow">The type of the raw row.</typeparam>
    /// <remarks>
    /// This class is not meant to be instanced directly, instead use the <see cref="TableSerializationLogicalFunctionalityImpl{TRow, TRawRow}.CreateBinaryFunctionality"/> method.
-   /// The <see cref="TableSerializationLogicalFunctionalityImpl{TRow, TRawRow}"/> themselves are created by <see cref="MetaDataTableInformationWithSerializationCapability.CreateTableSerializationInfo"/>.
    /// </remarks>
    /// <seealso cref="TableSerializationLogicalFunctionalityImpl{TRow, TRawRow}"/>
    /// <seealso cref="TableSerializationLogicalFunctionalityImpl{TRow, TRawRow}.CreateBinaryFunctionality"/>
-   /// <seealso cref="MetaDataTableInformationWithSerializationCapability"/>
-   /// <seealso cref="MetaDataTableInformationWithSerializationCapability.CreateTableSerializationInfo"/>
+   /// <seealso cref="MetaDataTableInformationWithSerializationCapabilityDelegate"/>
    public class TableSerializationBinaryFunctionalityImpl<TRow, TRawRow> : TableSerializationBinaryFunctionality
       where TRawRow : class
       where TRow : class
