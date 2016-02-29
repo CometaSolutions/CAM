@@ -34,18 +34,19 @@ namespace CILAssemblyManipulator.Physical.PDB
       /// </summary>
       public PDBInstance()
       {
-         this.Sources = new Dictionary<String, PDBSource>();
+         //this.Sources = new Dictionary<String, PDBSource>();
          this.Modules = new Dictionary<String, PDBModule>();
       }
 
-      /// <summary>
-      /// Gets the dictionary of <see cref="PDBSource"/> objects for this <see cref="PDBInstance"/>.
-      /// </summary>
-      /// <value>The dictionary of <see cref="PDBSource"/> objects for this <see cref="PDBInstance"/>.</value>
-      /// <remarks>
-      /// The key of the dictionary is the name of the associated <see cref="PDBSource"/>.
-      /// </remarks>
-      public IDictionary<String, PDBSource> Sources { get; }
+      ///// <summary>
+      ///// Gets the dictionary of <see cref="PDBSource"/> objects for this <see cref="PDBInstance"/>.
+      ///// </summary>
+      ///// <value>The dictionary of <see cref="PDBSource"/> objects for this <see cref="PDBInstance"/>.</value>
+      ///// <remarks>
+      ///// The key of the dictionary is the name of the associated <see cref="PDBSource"/>.
+      ///// The name is typically the file name of the document represented by <see cref="PDBSource"/>.
+      ///// </remarks>
+      //public IDictionary<String, PDBSource> Sources { get; }
 
       /// <summary>
       /// Gets the dictionary of <see cref="PDBModule"/> objects for this <see cref="PDBInstance"/>.
@@ -53,6 +54,7 @@ namespace CILAssemblyManipulator.Physical.PDB
       /// <value>The dictionary of <see cref="PDBModule"/> objects for this <see cref="PDBInstance"/>.</value>
       /// <remarks>
       /// The key of the dictionary is the name of the associated <see cref="PDBModule"/>.
+      /// The name is typically the name of the class.
       /// </remarks>
       public IDictionary<String, PDBModule> Modules { get; }
 
@@ -82,8 +84,15 @@ namespace CILAssemblyManipulator.Physical.PDB
       public String SourceServer { get; set; }
    }
 
+   /// <summary>
+   /// This class represents a single source in PDB, typically meaning a single file.
+   /// </summary>
    public sealed class PDBSource
    {
+
+      /// <summary>
+      /// Creates a new instance of <see cref="PDBSource"/>.
+      /// </summary>
       public PDBSource()
       {
          this.DocumentType = Guid.Empty;
@@ -92,28 +101,88 @@ namespace CILAssemblyManipulator.Physical.PDB
          this.HashAlgorithm = Guid.Empty;
       }
 
+      /// <summary>
+      /// Gets or sets the <see cref="Guid"/> for the type of the document represented by this <see cref="PDBSource"/>.
+      /// </summary>
+      /// <value>The <see cref="Guid"/> for the type of the document represented by this <see cref="PDBSource"/>.</value>
       public Guid DocumentType { get; set; }
 
+      /// <summary>
+      /// Gets or sets the <see cref="Guid"/> for the type of language of the document represented by this <see cref="PDBSource"/>.
+      /// </summary>
+      /// <value>The <see cref="Guid"/> for the type of language of the document represented by this <see cref="PDBSource"/>.</value>
       public Guid Language { get; set; }
 
+      /// <summary>
+      /// Gets or sets the <see cref="Guid"/> for the vendor of the document represented by this <see cref="PDBSource"/>.
+      /// </summary>
+      /// <value>The <see cref="Guid"/> for the vendor of the document represented by this <see cref="PDBSource"/>.</value>
       public Guid Vendor { get; set; }
 
+      /// <summary>
+      /// Gets or sets the <see cref="Guid"/> for the hash algorithm used to compute <see cref="Hash"/> for this <see cref="PDBSource"/>.
+      /// </summary>
+      /// <value>The <see cref="Guid"/> for the hash algorithm used to compute <see cref="Hash"/> for this <see cref="PDBSource"/>.</value>
       public Guid HashAlgorithm { get; set; }
 
+      /// <summary>
+      /// Gets or sets the hash computed for the document represented by this <see cref="PDBSource"/>, as byte array.
+      /// </summary>
+      /// <value>The hash computed for the document represented by this <see cref="PDBSource"/>, as byte array.</value>
       public Byte[] Hash { get; set; }
+
+      /// <summary>
+      /// Gets or sets the name of this <see cref="PDBSource"/>.
+      /// </summary>
+      /// <value>The name of this <see cref="PDBSource"/>.</value>
+      /// <remarks>
+      /// Typically, the name is full file path to the document represented by this <see cref="PDBSource"/>.
+      /// </remarks>
+      public String Name { get; set; }
+
+      /// <summary>
+      /// Creates the textual representation of this <see cref="PDBSource"/>.
+      /// </summary>
+      /// <returns>The textual representation of this <see cref="PDBSource"/>.</returns>
+      /// <remarks>
+      /// The textual representation of this <see cref="PDBSource"/> is the value of the <see cref="Name"/> property.
+      /// </remarks>
+      public override String ToString()
+      {
+         return this.Name;
+      }
    }
 
+   /// <summary>
+   /// This class represents a single module of the PDB, holding a list of <see cref="PDBFunction"/>s.
+   /// </summary>
+   /// <remarks>
+   /// Typically, one module is created for each class.
+   /// </remarks>
    public sealed class PDBModule
    {
-
+      /// <summary>
+      /// Creates a new instance of <see cref="PDBModule"/>.
+      /// </summary>
       public PDBModule()
       {
          this.Functions = new List<PDBFunction>();
       }
 
+      /// <summary>
+      /// Gets the list of all <see cref="PDBFunction"/>s that this <see cref="PDBModule"/> holds.
+      /// </summary>
+      /// <value>The list of all <see cref="PDBFunction"/>s that this <see cref="PDBModule"/> holds.</value>
+      /// <seealso cref="PDBFunction"/>
       public List<PDBFunction> Functions { get; }
    }
 
+   /// <summary>
+   /// This abstract class exposes common properties of <see cref="PDBScope"/> and <see cref="PDBFunction"/>.
+   /// </summary>
+   /// <remarks>
+   /// This class can not be instantiated directly, instead use <see cref="PDBScope"/> or <see cref="PDBFunction"/>.
+   /// </remarks>
    public abstract class PDBScopeOrFunction
    {
       internal PDBScopeOrFunction()
@@ -123,18 +192,50 @@ namespace CILAssemblyManipulator.Physical.PDB
          this.UsedNamespaces = new List<String>();
       }
 
+      /// <summary>
+      /// Gets the list of all <see cref="PDBSlot"/>s of this <see cref="PDBScopeOrFunction"/>.
+      /// </summary>
+      /// <value>The list of all <see cref="PDBSlot"/>s of this <see cref="PDBScopeOrFunction"/>.</value>
+      /// <remarks>
+      /// Typically, one <see cref="PDBSlot"/> is created for each local variable.
+      /// </remarks>
+      /// <seealso cref="PDBSlot"/>
       public IList<PDBSlot> Slots { get; }
 
+      /// <summary>
+      /// Gets the list of sub-scopes of this <see cref="PDBScopeOrFunction"/>.
+      /// </summary>
+      /// <value>The list of sub-scopes of this <see cref="PDBScopeOrFunction"/>.</value>
+      /// <seealso cref="PDBScope"/>
       public IList<PDBScope> Scopes { get; }
 
+      /// <summary>
+      /// Gets the list of all namespaces for 'using' declarations.
+      /// </summary>
+      /// <value>The list of all namespaces for 'using' declarations.</value>
       public IList<String> UsedNamespaces { get; }
 
+      /// <summary>
+      /// Gets or sets the name of this <see cref="PDBScopeOrFunction"/>.
+      /// </summary>
+      /// <value>The name of this <see cref="PDBScopeOrFunction"/>.</value>
       public String Name { get; set; }
 
+      /// <summary>
+      /// Gets or sets the length of this <see cref="PDBScopeOrFunction"/>, in bytes.
+      /// </summary>
+      /// <value>The length of this <see cref="PDBScopeOrFunction"/>, in bytes.</value>
       public Int32 Length { get; set; }
 
    }
 
+
+   /// <summary>
+   /// This class represents a single function in PDB.
+   /// </summary>
+   /// <remarks>
+   /// Typically, one instance of <see cref="PDBFunction"/> is created for every method.
+   /// </remarks>
    public sealed class PDBFunction : PDBScopeOrFunction
    {
 
@@ -152,14 +253,14 @@ namespace CILAssemblyManipulator.Physical.PDB
       //internal UInt16 returnReg;
 
 
-      internal PDBFunction()
+      public PDBFunction()
       {
          this.LocalScopes = new List<PDBLocalScope>();
-         this.Lines = new Dictionary<String, IList<PDBLine>>();
+         this.Lines = new Dictionary<PDBSource, IList<PDBLine>>( ReferenceEqualityComparer<PDBSource>.ReferenceBasedComparer );
          this.UsingCounts = new List<UInt16>();
       }
 
-      public IDictionary<String, IList<PDBLine>> Lines { get; }
+      public IDictionary<PDBSource, IList<PDBLine>> Lines { get; }
 
       [CLSCompliant( false )]
       public UInt32 Token { get; set; }
@@ -196,7 +297,7 @@ namespace CILAssemblyManipulator.Physical.PDB
 
       public override String ToString()
       {
-         return "Function " + this.Name + " @" + this.Token;
+         return "Function " + this.Name + " @" + String.Format( "{0:X8}", this.Token );
       }
    }
 
@@ -207,7 +308,7 @@ namespace CILAssemblyManipulator.Physical.PDB
 
       public override String ToString()
       {
-         return "Scope " + this.Name + " @" + this.Offset;
+         return "Scope " + this.Name + " @" + String.Format( "{0:X8}", this.Offset );
       }
    }
 

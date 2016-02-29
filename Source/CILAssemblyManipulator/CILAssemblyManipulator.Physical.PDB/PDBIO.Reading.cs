@@ -362,7 +362,7 @@ namespace CILAssemblyManipulator.Physical.PDB
          List<PDBFunctionInfo> functions
          )
       {
-         var sourcesLocal = new Dictionary<Int32, Tuple<String, PDBSource>>();
+         var sourcesLocal = new Dictionary<Int32, PDBSource>();
          var lines = new List<Tuple<Int32, PDBLine>>[functions.Count];
 
          while ( idx < max )
@@ -383,24 +383,23 @@ namespace CILAssemblyManipulator.Physical.PDB
                      array.ReadByteFromBytes( ref idx );
 
                      var name = nameIndex[nameIdx];
-                     var pdbSource = instance.Sources.GetOrAdd_NotThreadSafe( name, sourceName =>
+                     var pdbSource = new PDBSource()
                      {
-                        var source = new PDBSource();
-                        Int32 sourceStreamIdx;
-                        if ( streamNameIndices.TryGetValue( SOURCE_FILE_PREFIX + sourceName, out sourceStreamIdx ) )
-                        {
-                           var sourceBytes = stream.ReadPagedData( pageSize, streamPages[sourceStreamIdx], streamSizes[sourceStreamIdx] );
-                           var tmpIdx = 0;
-                           source.Language = sourceBytes.ReadGUIDFromBytes( ref tmpIdx );
-                           source.Vendor = sourceBytes.ReadGUIDFromBytes( ref tmpIdx );
-                           source.DocumentType = sourceBytes.ReadGUIDFromBytes( ref tmpIdx );
-                           source.HashAlgorithm = sourceBytes.ReadGUIDFromBytes( ref tmpIdx );
-                           source.Hash = sourceBytes.CreateAndBlockCopyTo( ref tmpIdx, sourceBytes.Length - tmpIdx );
-                        }
-                        return source;
-                     } );
+                        Name = name
+                     };
+                     Int32 sourceStreamIdx;
+                     if ( streamNameIndices.TryGetValue( SOURCE_FILE_PREFIX + name, out sourceStreamIdx ) )
+                     {
+                        var sourceBytes = stream.ReadPagedData( pageSize, streamPages[sourceStreamIdx], streamSizes[sourceStreamIdx] );
+                        var tmpIdx = 0;
+                        pdbSource.Language = sourceBytes.ReadGUIDFromBytes( ref tmpIdx );
+                        pdbSource.Vendor = sourceBytes.ReadGUIDFromBytes( ref tmpIdx );
+                        pdbSource.DocumentType = sourceBytes.ReadGUIDFromBytes( ref tmpIdx );
+                        pdbSource.HashAlgorithm = sourceBytes.ReadGUIDFromBytes( ref tmpIdx );
+                        pdbSource.Hash = sourceBytes.CreateAndBlockCopyTo( ref tmpIdx, sourceBytes.Length - tmpIdx );
+                     }
 
-                     sourcesLocal.Add( curSrcFileIdx, Tuple.Create( name, pdbSource ) );
+                     sourcesLocal.Add( curSrcFileIdx, pdbSource );
 #if DEBUG
                      if ( thisLen != 0 )
                      {
@@ -497,7 +496,8 @@ namespace CILAssemblyManipulator.Physical.PDB
             {
                foreach ( var line in lineList )
                {
-                  functions[i].function.Lines.GetOrAdd_NotThreadSafe( sourcesLocal[line.Item1].Item1, ni => new List<PDBLine>() )
+                  functions[i].function.Lines
+                     .GetOrAdd_NotThreadSafe( sourcesLocal[line.Item1], ni => new List<PDBLine>() )
                      .Add( line.Item2 );
                }
             }

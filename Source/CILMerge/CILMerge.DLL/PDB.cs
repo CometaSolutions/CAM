@@ -50,7 +50,7 @@ namespace CILMerge
       private readonly String _tmpFN;
       private readonly String _fn;
       private readonly ISymUnmanagedWriter2 _unmanagedWriter;
-      private readonly IDictionary<String, ISymUnmanagedDocumentWriter> _unmanagedDocs;
+      private readonly IDictionary<PDBSource, ISymUnmanagedDocumentWriter> _unmanagedDocs;
       private readonly WritingArguments _eArgs;
       internal PDBHelper(
          CILAssemblyManipulator.Physical.CILMetaData module,
@@ -61,7 +61,10 @@ namespace CILMerge
          Object writer;
          CoCreateInstance( ref UNMANAGED_WRITER_GUID, null, 1u, ref SYM_WRITER_GUID, out writer );
          this._unmanagedWriter = (ISymUnmanagedWriter2) writer;
-         this._unmanagedDocs = new Dictionary<String, ISymUnmanagedDocumentWriter>();
+         this._unmanagedDocs = new Dictionary<PDBSource, ISymUnmanagedDocumentWriter>( ComparerFromFunctions.NewEqualityComparer<PDBSource>(
+            ( x, y ) => String.Equals( x, y ),
+            x => x?.Name.GetHashCode() ?? 0
+            ) );
 
          this._tmpFN = System.IO.Path.Combine( System.IO.Path.GetTempPath(), System.IO.Path.GetRandomFileName() ) + ".pdb";
          this._fn = System.IO.Path.ChangeExtension( outPath, "pdb" );
@@ -98,17 +101,17 @@ namespace CILMerge
 
       internal void ProcessPDB( PDBInstance pdb )
       {
-         foreach ( var kvp in pdb.Sources )
-         {
-            var src = kvp.Value;
-            var name = kvp.Key;
-            var lang = src.Language;
-            var docType = src.DocumentType;
-            var vendor = src.Vendor;
-            ISymUnmanagedDocumentWriter uDoc;
-            this._unmanagedWriter.DefineDocument( name, ref lang, ref vendor, ref docType, out uDoc );
-            this._unmanagedDocs.Add( name, uDoc );
-         }
+         //foreach ( var kvp in pdb.Sources )
+         //{
+         //   var src = kvp.Value;
+         //   var name = kvp.Key;
+         //   var lang = src.Language;
+         //   var docType = src.DocumentType;
+         //   var vendor = src.Vendor;
+         //   ISymUnmanagedDocumentWriter uDoc;
+         //   this._unmanagedWriter.DefineDocument( name, ref lang, ref vendor, ref docType, out uDoc );
+         //   this._unmanagedDocs.Add( name, uDoc );
+         //}
 
          foreach ( var func in pdb.Modules.Values.SelectMany( m => m.Functions ) )
          {
@@ -118,14 +121,16 @@ namespace CILMerge
 
             foreach ( var kvp in func.Lines )
             {
+               var src = kvp.Key;
+               var lines = kvp.Value;
                this._unmanagedWriter.DefineSequencePoints(
-                  this._unmanagedDocs[kvp.Key],
-                  kvp.Value.Count,
-                  kvp.Value.Select( l => l.Offset ).ToArray(),
-                  kvp.Value.Select( l => l.LineStart ).ToArray(),
-                  kvp.Value.Select( l => (Int32) l.ColumnStart.Value ).ToArray(),
-                  kvp.Value.Select( l => l.LineEnd ).ToArray(),
-                  kvp.Value.Select( l => (Int32) l.ColumnEnd.Value ).ToArray() );
+                  this._unmanagedDocs.GetOrAdd_NotThreadSafe( src, this.CreateUnmanagedDocumentWriterForSource ),
+                  lines.Count,
+                  lines.Select( l => l.Offset ).ToArray(),
+                  lines.Select( l => l.LineStart ).ToArray(),
+                  lines.Select( l => (Int32) l.ColumnStart.Value ).ToArray(),
+                  lines.Select( l => l.LineEnd ).ToArray(),
+                  lines.Select( l => (Int32) l.ColumnEnd.Value ).ToArray() );
             }
 
             this.ProcessPDBScopeOrFunc( func, 0, func.Length );
@@ -134,6 +139,18 @@ namespace CILMerge
             this._unmanagedWriter.CloseMethod();
          }
 
+      }
+
+      private ISymUnmanagedDocumentWriter CreateUnmanagedDocumentWriterForSource( PDBSource source )
+      {
+         var name = source.Name;
+         var lang = source.Language;
+         var docType = source.DocumentType;
+         var vendor = source.Vendor;
+         ISymUnmanagedDocumentWriter uDoc;
+         this._unmanagedWriter.DefineDocument( name, ref lang, ref vendor, ref docType, out uDoc );
+         this._unmanagedDocs.Add( source, uDoc );
+         return uDoc;
       }
 
       private void ProcessPDBScopeOrFunc( PDBScopeOrFunction scp, Int32 startOffset, Int32 endOffset )

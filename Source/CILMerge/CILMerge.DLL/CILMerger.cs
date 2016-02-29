@@ -155,12 +155,6 @@ namespace CILMerge
          // Add all information. Should be ok, since all IL offsets remain unchanged, and all tokens are translated.
          foreach ( var currentPDB in bag )
          {
-            // Merge sources
-            foreach ( var kvp in currentPDB.Sources )
-            {
-               pdb.Sources.TryAdd_NotThreadSafe( kvp.Key, kvp.Value );
-            }
-
             // Merge modules
             foreach ( var kvp in currentPDB.Modules )
             {

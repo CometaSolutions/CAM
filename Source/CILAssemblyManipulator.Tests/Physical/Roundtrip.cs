@@ -37,12 +37,25 @@ using NUnit.Framework;
 using System.IO;
 using CILAssemblyManipulator.Physical;
 using CILAssemblyManipulator.Physical.MResources;
+using CILAssemblyManipulator.Physical.PDB;
 
 namespace CILAssemblyManipulator.Tests.Physical
 {
    [Category( "CAM.Physical" )]
    public class RoundtripTest : AbstractCAMTest
    {
+
+      [Test]
+      [Category( "CAM.Physical.PDB" )]
+      public void TestPDB()
+      {
+         PDBInstance pdb;
+         using ( var fs = File.OpenRead( Path.Combine( Path.GetDirectoryName( CILMergeLocation ), "CILAssemblyManipulator.Physical.Core.pdb" ) ) )
+         {
+            pdb = PDBIO.FromStream( fs );
+         }
+      }
+
       [Test]
       public void TestRoundtripMSCorLib()
       {
