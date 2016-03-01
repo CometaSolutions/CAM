@@ -129,7 +129,7 @@ namespace CILMerge
                   {
                      bag.Add( iPDB );
                      // Translate all tokens
-                     foreach ( var func in iPDB.Modules.Values.SelectMany( m => m.Functions ) )
+                     foreach ( var func in iPDB.Modules.SelectMany( m => m.Functions ) )
                      {
                         func.Token = this.MapMethodToken( iResult, func.Token );
                         func.ForwardingMethodToken = this.MapMethodToken( iResult, func.ForwardingMethodToken );
@@ -153,13 +153,21 @@ namespace CILMerge
          //pdb.Age = (UInt32) targetEArgs.DebugInformation.DebugFileAge;
          //pdb.DebugGUID = targetEArgs.DebugInformation.DebugFileGUID;
          // Add all information. Should be ok, since all IL offsets remain unchanged, and all tokens are translated.
+         var modulesByName = new Dictionary<String, PDBModule>();
          foreach ( var currentPDB in bag )
          {
             // Merge modules
-            foreach ( var kvp in currentPDB.Modules )
+            foreach ( var mod in currentPDB.Modules )
             {
-               var mod = kvp.Value;
-               var curMod = pdb.Modules.GetOrAdd_NotThreadSafe( kvp.Key, n => new PDBModule() );
+               var curMod = modulesByName.GetOrAdd_NotThreadSafe( mod.Name, n =>
+               {
+                  var m = new PDBModule()
+                  {
+                     Name = n
+                  };
+                  pdb.Modules.Add( m );
+                  return m;
+               } );
                foreach ( var func in mod.Functions )
                {
                   curMod.Functions.Add( func );

@@ -185,7 +185,7 @@ namespace CILAssemblyManipulator.Physical.PDB
             if ( module.stream > 0 && module.stream < dataStreamCount )
             {
                stream.ReadPagedData( pageSize, dataStreamPages[module.stream], dataStreamSizes[module.stream], array );
-               LoadFunctionsFromDBIModule( stream, pageSize, dataStreamPages, dataStreamSizes, array, streamNameIndices, nameIndex, module, instance );
+               instance.Modules.Add( LoadFunctionsFromDBIModule( stream, pageSize, dataStreamPages, dataStreamSizes, array, streamNameIndices, nameIndex, module ) );
             }
          }
 
@@ -196,7 +196,7 @@ namespace CILAssemblyManipulator.Physical.PDB
             stream.ReadPagedData( pageSize, dataStreamPages[debugHeader.snTokenRidMap], tokenRemapSize, array );
             idx = 0;
             var tokens = array.ReadUInt32ArrayLEFromBytes( ref idx, tokenRemapSize / INT_SIZE );
-            foreach ( var function in instance.Modules.Values.SelectMany( mod => mod.Functions ) )
+            foreach ( var function in instance.Modules.SelectMany( mod => mod.Functions ) )
             {
                function.Token = METHOD_TABLE | tokens[function.Token & METHOD_TABLE_INDEX_MASK];
             }
@@ -293,7 +293,7 @@ namespace CILAssemblyManipulator.Physical.PDB
          debugHeader = dbiHeader.debugHeaderSize > 0 ? new DBIDebugHeader( array, ref idx ) : null;
       }
 
-      private static void LoadFunctionsFromDBIModule(
+      private static PDBModule LoadFunctionsFromDBIModule(
          StreamInfo stream,
          Int32 pageSize,
          Int32[][] streamPages,
@@ -301,13 +301,15 @@ namespace CILAssemblyManipulator.Physical.PDB
          Byte[] array,
          IDictionary<String, Int32> streamNameIndices,
          IDictionary<Int32, String> nameIndex,
-         DBIModuleInfo moduleInfo,
-         PDBInstance instance
+         DBIModuleInfo moduleInfo
          )
       {
          var idx = INT_SIZE; // Skip signature
          var thisFuncs = new List<PDBFunctionInfo>();
-         var module = instance.Modules.GetOrAdd_NotThreadSafe( moduleInfo.moduleName, n => new PDBModule() );
+         var module = new PDBModule()
+         {
+            Name = moduleInfo.moduleName
+         };
          while ( idx < moduleInfo.symbolByteCount )
          {
             var blockLen = array.ReadUInt16LEFromBytes( ref idx );
@@ -344,8 +346,9 @@ namespace CILAssemblyManipulator.Physical.PDB
             // Sort the functions based on their address and token in order for fast lookup
             thisFuncs.Sort( PDB_FUNC_ADDRESS_AND_TOKEN_BASED );
             // Load PDBSources and PDBLines and modify PDBFunction's lineInfo to contain the information about sources and lines.
-            LoadSourcesAndLinesFromModuleStream( stream, pageSize, streamPages, streamSizes, array, idx, idx + moduleInfo.linesByteCount, streamNameIndices, nameIndex, instance, thisFuncs );
+            LoadSourcesAndLinesFromModuleStream( stream, pageSize, streamPages, streamSizes, array, idx, idx + moduleInfo.linesByteCount, streamNameIndices, nameIndex, thisFuncs );
          }
+         return module;
       }
 
       private static void LoadSourcesAndLinesFromModuleStream(
@@ -358,7 +361,6 @@ namespace CILAssemblyManipulator.Physical.PDB
          Int32 max,
          IDictionary<String, Int32> streamNameIndices,
          IDictionary<Int32, String> nameIndex,
-         PDBInstance instance,
          List<PDBFunctionInfo> functions
          )
       {
@@ -494,11 +496,11 @@ namespace CILAssemblyManipulator.Physical.PDB
             var lineList = lines[i];
             if ( lineList != null )
             {
-               foreach ( var line in lineList )
+               foreach ( var tuple in lineList )
                {
-                  functions[i].function.Lines
-                     .GetOrAdd_NotThreadSafe( sourcesLocal[line.Item1], ni => new List<PDBLine>() )
-                     .Add( line.Item2 );
+                  var line = tuple.Item2;
+                  line.Source = sourcesLocal[tuple.Item1];
+                  functions[i].function.Lines.Add( line );
                }
             }
          }
@@ -601,15 +603,15 @@ namespace CILAssemblyManipulator.Physical.PDB
 
       private static PDBSlot NewPDBSlot( Byte[] array, ref Int32 idx )
       {
-         var slot = new PDBSlot();
-         slot.SlotIndex = array.ReadInt32LEFromBytes( ref idx );
-         slot.TypeToken = array.ReadUInt32LEFromBytes( ref idx );
-         slot.Address = array.ReadInt32LEFromBytes( ref idx );
-         /*var segment = */
-         array.ReadUInt16LEFromBytes( ref idx );
-         slot.Flags = (PDBSlotFlags) array.ReadUInt16LEFromBytes( ref idx );
-         slot.Name = array.ReadZeroTerminatedStringFromBytes( ref idx, NAME_ENCODING );
-         return slot;
+         return new PDBSlot()
+         {
+            SlotIndex = array.ReadInt32LEFromBytes( ref idx ),
+            TypeToken = array.ReadUInt32LEFromBytes( ref idx ),
+            //Address = array.ReadInt32LEFromBytes( ref idx ),
+            Flags = (PDBSlotFlags) array.Skip( ref idx, sizeof( Int32 ) * 2 ) // Skip address & segment
+               .ReadUInt16LEFromBytes( ref idx ),
+            Name = array.ReadZeroTerminatedStringFromBytes( ref idx, NAME_ENCODING )
+         };
       }
 
       private static PDBScope NewPDBScope( Byte[] array, ref Int32 idx, Int32 funcOffset, Int32 listsStartIdx, out Int32 address, out UInt16 segment, out Int32 end )
@@ -796,13 +798,16 @@ namespace CILAssemblyManipulator.Physical.PDB
             switch ( mdKind )
             {
                case MD2_USED_NAMESPACES:
-                  // Using info
-                  var uSize = array.ReadUInt16LEFromBytes( ref idx );
-                  func.UsingCounts.Capacity = uSize;
-                  for ( UInt16 i = 0; i < uSize; ++i )
-                  {
-                     func.UsingCounts.Add( array.ReadUInt16LEFromBytes( ref idx ) );
-                  }
+                  // Counts for using namespace -lists of scopes.
+                  // Could set the capacities of the using lists of each slot, but at this point the slots may or may not have been created...
+                  // So just skip.
+
+                  //var uSize = array.ReadUInt16LEFromBytes( ref idx );
+                  //func.UsingCounts.Capacity = uSize;
+                  //for ( UInt16 i = 0; i < uSize; ++i )
+                  //{
+                  //   func.UsingCounts.Add( array.ReadUInt16LEFromBytes( ref idx ) );
+                  //}
                   break;
                case MD2_FORWARDING_METHOD_TOKEN:
                   // Forwarding information

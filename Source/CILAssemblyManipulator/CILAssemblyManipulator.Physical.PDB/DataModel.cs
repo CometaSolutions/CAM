@@ -35,7 +35,7 @@ namespace CILAssemblyManipulator.Physical.PDB
       public PDBInstance()
       {
          //this.Sources = new Dictionary<String, PDBSource>();
-         this.Modules = new Dictionary<String, PDBModule>();
+         this.Modules = new List<PDBModule>();
       }
 
       ///// <summary>
@@ -49,14 +49,10 @@ namespace CILAssemblyManipulator.Physical.PDB
       //public IDictionary<String, PDBSource> Sources { get; }
 
       /// <summary>
-      /// Gets the dictionary of <see cref="PDBModule"/> objects for this <see cref="PDBInstance"/>.
+      /// Gets the list of <see cref="PDBModule"/> objects for this <see cref="PDBInstance"/>.
       /// </summary>
-      /// <value>The dictionary of <see cref="PDBModule"/> objects for this <see cref="PDBInstance"/>.</value>
-      /// <remarks>
-      /// The key of the dictionary is the name of the associated <see cref="PDBModule"/>.
-      /// The name is typically the name of the class.
-      /// </remarks>
-      public IDictionary<String, PDBModule> Modules { get; }
+      /// <value>The list of <see cref="PDBModule"/> objects for this <see cref="PDBInstance"/>.</value>
+      public List<PDBModule> Modules { get; }
 
       /// <summary>
       /// Gets or sets the unique identifier of this <see cref="PDBInstance"/>.
@@ -175,6 +171,24 @@ namespace CILAssemblyManipulator.Physical.PDB
       /// <value>The list of all <see cref="PDBFunction"/>s that this <see cref="PDBModule"/> holds.</value>
       /// <seealso cref="PDBFunction"/>
       public List<PDBFunction> Functions { get; }
+
+      /// <summary>
+      /// Gets or sets the name of this module.
+      /// </summary>
+      /// <value>The name of this module.</value>
+      public String Name { get; set; }
+
+      /// <summary>
+      /// Creates the textual representation of this <see cref="PDBModule"/>.
+      /// </summary>
+      /// <returns>The textual representation of this <see cref="PDBModule"/>.</returns>
+      /// <remarks>
+      /// The textual representation of this <see cref="PDBModule"/> is the value of the <see cref="Name"/> property.
+      /// </remarks>
+      public override String ToString()
+      {
+         return this.Name;
+      }
    }
 
    /// <summary>
@@ -200,20 +214,20 @@ namespace CILAssemblyManipulator.Physical.PDB
       /// Typically, one <see cref="PDBSlot"/> is created for each local variable.
       /// </remarks>
       /// <seealso cref="PDBSlot"/>
-      public IList<PDBSlot> Slots { get; }
+      public List<PDBSlot> Slots { get; }
 
       /// <summary>
       /// Gets the list of sub-scopes of this <see cref="PDBScopeOrFunction"/>.
       /// </summary>
       /// <value>The list of sub-scopes of this <see cref="PDBScopeOrFunction"/>.</value>
       /// <seealso cref="PDBScope"/>
-      public IList<PDBScope> Scopes { get; }
+      public List<PDBScope> Scopes { get; }
 
       /// <summary>
       /// Gets the list of all namespaces for 'using' declarations.
       /// </summary>
       /// <value>The list of all namespaces for 'using' declarations.</value>
-      public IList<String> UsedNamespaces { get; }
+      public List<String> UsedNamespaces { get; }
 
       /// <summary>
       /// Gets or sets the name of this <see cref="PDBScopeOrFunction"/>.
@@ -234,7 +248,7 @@ namespace CILAssemblyManipulator.Physical.PDB
    /// This class represents a single function in PDB.
    /// </summary>
    /// <remarks>
-   /// Typically, one instance of <see cref="PDBFunction"/> is created for every method.
+   /// Typically, one instance of <see cref="PDBFunction"/> is created for every method with IL code.
    /// </remarks>
    public sealed class PDBFunction : PDBScopeOrFunction
    {
@@ -252,21 +266,43 @@ namespace CILAssemblyManipulator.Physical.PDB
       //private Byte _flags;
       //internal UInt16 returnReg;
 
-
+      /// <summary>
+      /// Creates a new instance of <see cref="PDBFunction"/>.
+      /// </summary>
       public PDBFunction()
       {
          this.LocalScopes = new List<PDBLocalScope>();
-         this.Lines = new Dictionary<PDBSource, IList<PDBLine>>( ReferenceEqualityComparer<PDBSource>.ReferenceBasedComparer );
-         this.UsingCounts = new List<UInt16>();
+         this.Lines = new List<PDBLine>();
+         //this.UsingCounts = new List<UInt16>();
       }
 
-      public IDictionary<PDBSource, IList<PDBLine>> Lines { get; }
+      /// <summary>
+      /// Gets the list of all <see cref="PDBLine"/>s with source information about the code of this <see cref="PDBFunction"/>.
+      /// </summary>
+      /// <value>The list of all <see cref="PDBLine"/>s with source information about the code of this <see cref="PDBFunction"/>.</value>
+      /// <seealso cref="PDBLine"/>
+      public List<PDBLine> Lines { get; }
 
+      /// <summary>
+      /// Gets or sets the token of this <see cref="PDBFunction"/>.
+      /// </summary>
+      /// <value>The token of this <see cref="PDBFunction"/>.</value>
+      /// <remarks>
+      /// The token should be transformable into <see cref="T:CILAssemblyManipulator.Physical.TableIndex"/> by <see cref="M:CILAssemblyManipulator.Physical.TableIndex.FromOneBasedToken(System.Int32)"/> method.
+      /// </remarks>
       [CLSCompliant( false )]
       public UInt32 Token { get; set; }
 
+      /// <summary>
+      /// Gets or sets the <see cref="PDBAsyncMethodInfo"/> associated with this <see cref="PDBFunction"/>.
+      /// </summary>
+      /// <value>The <see cref="PDBAsyncMethodInfo"/> associated with this <see cref="PDBFunction"/>.</value>
       public PDBAsyncMethodInfo AsyncMethodInfo { get; set; }
 
+      /// <summary>
+      /// Gets or sets the edit and continue -ID of this <see cref="PDBFunction"/>.
+      /// </summary>
+      /// <value>The edit and continue -ID of this <see cref="PDBFunction"/>.</value>
       [CLSCompliant( false )]
       public UInt32 ENCID { get; set; }
 
@@ -282,30 +318,71 @@ namespace CILAssemblyManipulator.Physical.PDB
       //   }
       //}
 
+      /// <summary>
+      /// Gets or sets the token of forwarding method for this <see cref="PDBFunction"/>.
+      /// </summary>
+      /// <value>The token of forwarding method for this <see cref="PDBFunction"/>.</value>
       [CLSCompliant( false )]
       public UInt32 ForwardingMethodToken { get; set; }
 
+      /// <summary>
+      /// Gets the list of all local scopes of this <see cref="PDBFunction"/>.
+      /// </summary>
+      /// <value>The list of all local scopes of this <see cref="PDBFunction"/>.</value>
       public List<PDBLocalScope> LocalScopes { get; }
 
+      /// <summary>
+      /// Gets or sets the name of the iterator class, if this <see cref="PDBFunction"/> represents iterator method.
+      /// </summary>
+      /// <value>The name of the iterator class, if this <see cref="PDBFunction"/> represents iterator method.</value>
       public String IteratorClass { get; set; }
 
-      [CLSCompliant( false )]
-      public List<UInt16> UsingCounts { get; }
+      //[CLSCompliant( false )]
+      //public List<UInt16> UsingCounts { get; }
 
+      /// <summary>
+      /// Gets or sets the oken of forwarding method on module scope for this <see cref="PDBFunction"/>.
+      /// </summary>
+      /// <value>The oken of forwarding method on module scope for this <see cref="PDBFunction"/>.</value>
       [CLSCompliant( false )]
       public UInt32 ModuleForwardingMethodToken { get; set; }
 
+      /// <summary>
+      /// Creates the textual representation of this <see cref="PDBFunction"/>.
+      /// </summary>
+      /// <returns>The textual representation of this <see cref="PDBFunction"/>.</returns>
+      /// <remarks>
+      /// The textual representation of this <see cref="PDBFunction"/> includes the values of the <see cref="PDBScopeOrFunction.Name"/> and <see cref="Token"/> properties.
+      /// </remarks>
       public override String ToString()
       {
          return "Function " + this.Name + " @" + String.Format( "{0:X8}", this.Token );
       }
    }
 
+   /// <summary>
+   /// This class represents a single lexical scope within a <see cref="PDBFunction"/>.
+   /// </summary>
+   /// <seealso cref="PDBScopeOrFunction.Scopes"/>
    public sealed class PDBScope : PDBScopeOrFunction
    {
 
+      /// <summary>
+      /// Gets or sets the offset, in bytes, where this <see cref="PDBScope"/> begins.
+      /// </summary>
+      /// <value>The offset, in bytes, where this <see cref="PDBScope"/> begins.</value>
+      /// <remarks>
+      /// The length of this scope is determined by <see cref="PDBScopeOrFunction.Length"/> property.
+      /// </remarks>
       public Int32 Offset { get; set; }
 
+      /// <summary>
+      /// Creates the textual representation of this <see cref="PDBScope"/>.
+      /// </summary>
+      /// <returns>The textual representation of this <see cref="PDBScope"/>.</returns>
+      /// <remarks>
+      /// The textual representation of this <see cref="PDBScope"/> includes the values of the <see cref="PDBScopeOrFunction.Name"/> and <see cref="Offset"/> properties.
+      /// </remarks>
       public override String ToString()
       {
          return "Scope " + this.Name + " @" + String.Format( "{0:X8}", this.Offset );
@@ -417,68 +494,195 @@ namespace CILAssemblyManipulator.Physical.PDB
    //   }
    //}
 
+   /// <summary>
+   /// This class represents a single data slot of the <see cref="PDBFunction"/>.
+   /// </summary>
+   /// <remarks>
+   /// Typically, one instance of <see cref="PDBSlot"/> is created for every local variable of method represented by <see cref="PDBFunction"/>.
+   /// </remarks>
+   /// <seealso cref="PDBFunction"/>
+   /// <seealso cref="PDBScopeOrFunction.Slots"/>
    public sealed class PDBSlot
    {
 
+      /// <summary>
+      /// Gets or sets the name of this <see cref="PDBSlot"/>.
+      /// </summary>
+      /// <value>The name of this <see cref="PDBSlot"/>.</value>
       public String Name { get; set; }
 
+      // TODO maybe remove this property and let the order of PDBScopeOrFunction.Slots decide the slot index??
+      /// <summary>
+      /// Gets or sets the index of this <see cref="PDBSlot"/> within all slots of <see cref="PDBScopeOrFunction"/>.
+      /// </summary>
+      /// <value>The index of this <see cref="PDBSlot"/> within all slots of <see cref="PDBScopeOrFunction"/>.</value>
       public Int32 SlotIndex { get; set; }
 
+      /// <summary>
+      /// Gets or sets the token which has the information about the type of the local variable represented by this <see cref="PDBSlot"/>.
+      /// </summary>
+      /// <value>The token which has the information about the type of the local variable represented by this <see cref="PDBSlot"/>.</value>
+      /// <remarks>
+      /// The token should be transformable into <see cref="T:CILAssemblyManipulator.Physical.TableIndex"/> by <see cref="M:CILAssemblyManipulator.Physical.TableIndex.FromOneBasedToken(System.Int32)"/> method.
+      /// </remarks>
       [CLSCompliant( false )]
       public UInt32 TypeToken { get; set; }
 
+      /// <summary>
+      /// Gets or sets the <see cref="PDBSlotFlags"/> of this <see cref="PDBSlot"/>.
+      /// </summary>
+      /// <value>The <see cref="PDBSlotFlags"/> of this <see cref="PDBSlot"/>.</value>
       public PDBSlotFlags Flags { get; set; }
 
-      public Int32 Address { get; set; }
+      //public Int32 Address { get; set; }
 
+      /// <summary>
+      /// Creates the textual representation of this <see cref="PDBSlot"/>.
+      /// </summary>
+      /// <returns>The textual representation of this <see cref="PDBSlot"/>.</returns>
+      /// <remarks>
+      /// The textual representation of this <see cref="PDBSlot"/> includes the values of the <see cref="PDBSlot.Name"/> and <see cref="TypeToken"/> properties.
+      /// </remarks>
       public override String ToString()
       {
-         return this.Name;
+         return this.Name + " @" + String.Format( "{0:X8}", this.TypeToken );
       }
    }
 
+   /// <summary>
+   /// This enumeration holds flags for <see cref="PDBSlot"/>.
+   /// </summary>
    [Flags]
    public enum PDBSlotFlags : short
    {
+      /// <summary>
+      /// TOOD documentation.
+      /// </summary>
       IsParameter = 0x0001,
+
+      /// <summary>
+      /// TOOD documentation.
+      /// </summary>
       AddressIsTaken = 0x0002,
+
+      /// <summary>
+      /// TOOD documentation.
+      /// </summary>
       IsCompilerGenerated = 0x0004,
+
+      /// <summary>
+      /// TOOD documentation.
+      /// </summary>
       IsAggregate = 0x0008,
+
+      /// <summary>
+      /// TOOD documentation.
+      /// </summary>
       IsAggregated = 0x0010,
+
+      /// <summary>
+      /// TOOD documentation.
+      /// </summary>
       IsAliased = 0x0020,
+
+      /// <summary>
+      /// TOOD documentation.
+      /// </summary>
       IsAlias = 0x0040,
    }
 
+   /// <summary>
+   /// This class represents information about the <c>async</c> method, represented by <see cref="PDBFunction"/>.
+   /// </summary>
+   /// <seealso cref="PDBFunction"/>
+   /// <seealso cref="PDBFunction.AsyncMethodInfo"/>
    public sealed class PDBAsyncMethodInfo
    {
+      /// <summary>
+      /// Creates a new instance of <see cref="PDBAsyncMethodInfo"/>.
+      /// </summary>
       public PDBAsyncMethodInfo()
       {
          this.SynchronizationPoints = new List<PDBSynchronizationPoint>();
       }
 
+      /// <summary>
+      /// Gets or sets the token of the kick-off method.
+      /// </summary>
+      /// <value>The token of the kick-off method.</value>
+      /// <remarks>
+      /// The token should be transformable into <see cref="T:CILAssemblyManipulator.Physical.TableIndex"/> by <see cref="M:CILAssemblyManipulator.Physical.TableIndex.FromOneBasedToken(System.Int32)"/> method.
+      /// </remarks>
       [CLSCompliant( false )]
       public UInt32 KickoffMethodToken { get; set; }
 
+      /// <summary>
+      /// Gets or sets the offset of the catch handler, in bytes.
+      /// </summary>
+      /// <value>The offset of the catch handler, in bytes.</value>
       public Int32 CatchHandlerOffset { get; set; }
 
-      public IList<PDBSynchronizationPoint> SynchronizationPoints { get; }
+      /// <summary>
+      /// Gets the list of <see cref="PDBSynchronizationPoint"/>s of this <see cref="PDBAsyncMethodInfo"/>.
+      /// </summary>
+      /// <value>The list of <see cref="PDBSynchronizationPoint"/>s of this <see cref="PDBAsyncMethodInfo"/>.</value>
+      public List<PDBSynchronizationPoint> SynchronizationPoints { get; }
    }
 
+   /// <summary>
+   /// The class contains information about single synchronization point of <see cref="PDBAsyncMethodInfo"/>.
+   /// </summary>
+   /// <seealso cref="PDBAsyncMethodInfo"/>
+   /// <seealso cref="PDBAsyncMethodInfo.SynchronizationPoints"/>
    public sealed class PDBSynchronizationPoint
    {
+      /// <summary>
+      /// Gets or sets the offset for the synchronization point, in bytes.
+      /// </summary>
+      /// <value>The offset for the synchronization point, in bytes.</value>
       public Int32 SyncOffset { get; set; }
 
+      /// <summary>
+      /// Gets or sets the token of the continuation method.
+      /// </summary>
+      /// <value>The token of the continuation method.</value>
+      /// <remarks>
+      /// The token should be transformable into <see cref="T:CILAssemblyManipulator.Physical.TableIndex"/> by <see cref="M:CILAssemblyManipulator.Physical.TableIndex.FromOneBasedToken(System.Int32)"/> method.
+      /// </remarks>
       [CLSCompliant( false )]
       public UInt32 ContinuationMethodToken { get; set; }
+
+      /// <summary>
+      /// Gets or sets the offset in the continuation method, of something.
+      /// </summary>
+      /// <value>The offset in the continuation method, of something.</value>
       public Int32 ContinuationOffset { get; set; }
    }
 
+   /// <summary>
+   /// This class represents a lexical scope of local variables of method.
+   /// </summary>
    public sealed class PDBLocalScope
    {
+      /// <summary>
+      /// Gets or sets the offset, in bytes, where this <see cref="PDBLocalScope"/> starts.
+      /// </summary>
+      /// <value>The offset, in bytes, where this <see cref="PDBLocalScope"/> starts.</value>
       public Int32 Offset { get; set; }
 
+      /// <summary>
+      /// Gets or sets the length, in bytes, of this <see cref="PDBLocalScope"/>.
+      /// </summary>
+      /// <value>The length, in bytes, of this <see cref="PDBLocalScope"/>.</value>
       public Int32 Length { get; set; }
 
+      /// <summary>
+      /// Creates the textual representation of this <see cref="PDBLocalScope"/>.
+      /// </summary>
+      /// <returns>The textual representation of this <see cref="PDBLocalScope"/>.</returns>
+      /// <remarks>
+      /// The textual representation of this <see cref="PDBLocalScope"/> includes the values of the <see cref="Offset"/> and <see cref="Length"/> properties.
+      /// </remarks>
       public override String ToString()
       {
          return String.Format( "IL_{0:X4} .. IL_{1:X4}", this.Offset, this.Offset + this.Length );
@@ -486,28 +690,68 @@ namespace CILAssemblyManipulator.Physical.PDB
 
    }
 
+   /// <summary>
+   /// This class represents information about source code fragment, related to some <see cref="PDBFunction"/>.
+   /// </summary>
    public sealed class PDBLine
    {
+      /// <summary>
+      /// Gets or sets the <see cref="PDBSource"/> of this <see cref="PDBLine"/>.
+      /// </summary>
+      /// <value>The <see cref="PDBSource"/> of this <see cref="PDBLine"/>.</value>
+      /// <remarks>The <see cref="PDBSource"/> basically represents a file where this line belongs to.</remarks>
+      public PDBSource Source { get; set; }
 
-
-      // IL Byte offset
+      /// <summary>
+      /// Gets or sets the IL byte offset this <see cref="PDBLine"/> is related to.
+      /// </summary>
+      /// <value>The IL byte offset this <see cref="PDBLine"/> is related to.</value>
       public Int32 Offset { get; set; }
 
+      /// <summary>
+      /// Gets or sets the inclusive line number where the source fragment starts.
+      /// </summary>
+      /// <value>The inclusive line number where the source fragment starts.</value>
       public Int32 LineStart { get; set; }
 
+      /// <summary>
+      /// Gets or sets the inclusive line number where the source fragment ends.
+      /// </summary>
+      /// <value>The inclusive line number where the source fragment ends.</value>
       public Int32 LineEnd { get; set; }
 
+      /// <summary>
+      /// Gets or sets the optional inclusive column number where the source fragment starts.
+      /// </summary>
+      /// <value>The optional inclusive column number where the source fragment starts.</value>
       [CLSCompliant( false )]
       public UInt16? ColumnStart { get; set; }
 
+      /// <summary>
+      /// Gets or sets the optional exclusive column number where the source fragment ends.
+      /// </summary>
+      /// <value>The optional exclusive column number where the source fragment ends.</value>
       [CLSCompliant( false )]
       public UInt16? ColumnEnd { get; set; }
+
+      /// <summary>
+      /// Gets or sets the value indicating whether source fragment is a statement.
+      /// </summary>
+      /// <value>The value indicating whether source fragment is a statement.</value>
       public Boolean IsStatement { get; set; }
 
+
+      /// <summary>
+      /// Creates the textual representation of this <see cref="PDBLine"/>.
+      /// </summary>
+      /// <returns>The textual representation of this <see cref="PDBLine"/>.</returns>
+      /// <remarks>
+      /// The textual representation of this <see cref="PDBLine"/> includes the values of the <see cref="Offset"/>, <see cref="Source"/>, <see cref="LineStart"/>, and <see cref="LineEnd"/> properties.
+      /// </remarks>
       public override String ToString()
       {
          return String.Format( "IL_{0:X4}", this.Offset ) +
-            " [" + this.LineStart + ( this.LineEnd == this.LineStart ? "" : ( "->" + this.LineEnd ) ) + "]";
+            " " + this.Source + ": " + " [" + this.LineStart + ( this.LineEnd == this.LineStart ? "" : ( "->" + this.LineEnd ) ) + "]";
       }
    }
 }

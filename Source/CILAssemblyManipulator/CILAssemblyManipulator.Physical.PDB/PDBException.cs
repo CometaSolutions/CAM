@@ -23,8 +23,16 @@ using System.Text;
 
 namespace CILAssemblyManipulator.Physical.PDB
 {
+   /// <summary>
+   /// This exception is thrown when something goes wrong in <see cref="PDBIO.FromStream"/> method.
+   /// </summary>
    public class PDBException : Exception
    {
+      /// <summary>
+      /// Creates a new instance of <see cref="PDBException"/> with given message and optional inner exception.
+      /// </summary>
+      /// <param name="msg">The exception message.</param>
+      /// <param name="inner">The optional inner exception.</param>
       public PDBException( String msg, Exception inner = null )
          : base( msg, inner )
       {

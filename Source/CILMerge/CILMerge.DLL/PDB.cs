@@ -62,7 +62,7 @@ namespace CILMerge
          CoCreateInstance( ref UNMANAGED_WRITER_GUID, null, 1u, ref SYM_WRITER_GUID, out writer );
          this._unmanagedWriter = (ISymUnmanagedWriter2) writer;
          this._unmanagedDocs = new Dictionary<PDBSource, ISymUnmanagedDocumentWriter>( ComparerFromFunctions.NewEqualityComparer<PDBSource>(
-            ( x, y ) => String.Equals( x, y ),
+            ( x, y ) => String.Equals( x.Name, y.Name ),
             x => x?.Name.GetHashCode() ?? 0
             ) );
 
@@ -113,18 +113,26 @@ namespace CILMerge
          //   this._unmanagedDocs.Add( name, uDoc );
          //}
 
-         foreach ( var func in pdb.Modules.Values.SelectMany( m => m.Functions ) )
+         foreach ( var func in pdb.Modules.SelectMany( m => m.Functions ) )
          {
             this._unmanagedWriter.OpenMethod( new SymbolToken( (Int32) func.Token ) );
             Int32 dummy;
             this._unmanagedWriter.OpenScope( 0, out dummy );
 
-            foreach ( var kvp in func.Lines )
+            var lineDic = new Dictionary<ISymUnmanagedDocumentWriter, List<PDBLine>>( ReferenceEqualityComparer<ISymUnmanagedDocumentWriter>.ReferenceBasedComparer );
+            func.Lines.ToDictionary_Overwrite(
+               line => this._unmanagedDocs.GetOrAdd_NotThreadSafe( line.Source, this.CreateUnmanagedDocumentWriterForSource ),
+               line => lineDic.GetOrAdd_NotThreadSafe( this._unmanagedDocs.GetOrAdd_NotThreadSafe( line.Source, this.CreateUnmanagedDocumentWriterForSource ), s => new List<PDBLine>() ),
+               dictionaryFactory: eq => lineDic
+               );
+
+
+            foreach ( var kvp in lineDic )
             {
                var src = kvp.Key;
                var lines = kvp.Value;
                this._unmanagedWriter.DefineSequencePoints(
-                  this._unmanagedDocs.GetOrAdd_NotThreadSafe( src, this.CreateUnmanagedDocumentWriterForSource ),
+                  src,
                   lines.Count,
                   lines.Select( l => l.Offset ).ToArray(),
                   lines.Select( l => l.LineStart ).ToArray(),
