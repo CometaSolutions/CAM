@@ -24,7 +24,7 @@ using System.Text;
 namespace CILAssemblyManipulator.Physical.PDB
 {
    /// <summary>
-   /// This exception is thrown when something goes wrong in <see cref="PDBIO.FromStream"/> method.
+   /// This exception is thrown when something goes wrong in <see cref="PDBIO.ReadPDBInstance"/> method.
    /// </summary>
    public class PDBException : Exception
    {

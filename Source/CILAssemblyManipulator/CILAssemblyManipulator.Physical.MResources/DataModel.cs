@@ -394,10 +394,10 @@ namespace CILAssemblyManipulator.Physical.MResources
    /// </summary>
    public enum RecordKind
    {
-      /// <summary>
-      /// The <see cref="AbstractRecord"/> is of type <see cref="StringRecord"/>.
-      /// </summary>
-      String,
+      ///// <summary>
+      ///// The <see cref="AbstractRecord"/> is of type <see cref="StringRecord"/>.
+      ///// </summary>
+      //String,
 
       /// <summary>
       /// The <see cref="AbstractRecord"/> is of type <see cref="ClassRecord"/>.
@@ -409,10 +409,10 @@ namespace CILAssemblyManipulator.Physical.MResources
       /// </summary>
       Array,
 
-      /// <summary>
-      /// The <see cref="AbstractRecord"/> is of type <see cref="PrimitiveWrapperRecord"/>.
-      /// </summary>
-      PrimitiveWrapper
+      ///// <summary>
+      ///// The <see cref="AbstractRecord"/> is of type <see cref="PrimitiveWrapperRecord"/>.
+      ///// </summary>
+      //PrimitiveWrapper
    }
 
    /// <summary>
@@ -437,36 +437,36 @@ namespace CILAssemblyManipulator.Physical.MResources
       public abstract RecordKind RecordKind { get; }
    }
 
-   /// <summary>
-   /// This class represents a single string within the contents manifest resource.
-   /// </summary>
-   public sealed class StringRecord : AbstractRecord //, IEquatable<StringRecord>
-   {
-      /// <summary>
-      /// Creates a blank instance of <see cref="StringRecord"/>.
-      /// </summary>
-      public StringRecord()
-      {
-      }
+   ///// <summary>
+   ///// This class represents a single string within the contents manifest resource.
+   ///// </summary>
+   //public sealed class StringRecord : AbstractRecord //, IEquatable<StringRecord>
+   //{
+   //   /// <summary>
+   //   /// Creates a blank instance of <see cref="StringRecord"/>.
+   //   /// </summary>
+   //   public StringRecord()
+   //   {
+   //   }
 
-      /// <summary>
-      /// Gets or sets the string value of this <see cref="StringRecord"/>.
-      /// </summary>
-      /// <value>The string value of this <see cref="StringRecord"/>.</value>
-      public String StringValue { get; set; }
+   //   /// <summary>
+   //   /// Gets or sets the string value of this <see cref="StringRecord"/>.
+   //   /// </summary>
+   //   /// <value>The string value of this <see cref="StringRecord"/>.</value>
+   //   public String StringValue { get; set; }
 
-      /// <summary>
-      /// Returns the <see cref="RecordKind.String"/>.
-      /// </summary>
-      /// <value>The <see cref="RecordKind.String"/>.</value>
-      public override RecordKind RecordKind
-      {
-         get
-         {
-            return RecordKind.String;
-         }
-      }
-   }
+   //   /// <summary>
+   //   /// Returns the <see cref="RecordKind.String"/>.
+   //   /// </summary>
+   //   /// <value>The <see cref="RecordKind.String"/>.</value>
+   //   public override RecordKind RecordKind
+   //   {
+   //      get
+   //      {
+   //         return RecordKind.String;
+   //      }
+   //   }
+   //}
 
    /// <summary>
    /// This class represents a single instance of object within the contents of manifest resource.
@@ -500,6 +500,7 @@ namespace CILAssemblyManipulator.Physical.MResources
       /// <value>The assembly name of the type of the serialized object instance.</value>
       public String AssemblyName { get; set; }
 
+      // TODO get rid of this property
       /// <summary>
       /// Gets or sets the value indicating whether this record should be serialized in place, instead of being serialized as reference.
       /// </summary>
@@ -665,38 +666,38 @@ namespace CILAssemblyManipulator.Physical.MResources
       RectangularOffset = 5
    }
 
-   /// <summary>
-   /// This class represents a wrapped primitive value as <see cref="AbstractRecord"/>.
-   /// </summary>
-   public sealed class PrimitiveWrapperRecord : AbstractRecord, ElementWithValue
-   {
-      /// <summary>
-      /// Creates a new blank instance of <see cref="PrimitiveWrapperRecord"/>.
-      /// </summary>
-      public PrimitiveWrapperRecord()
-      {
+   ///// <summary>
+   ///// This class represents a wrapped primitive value as <see cref="AbstractRecord"/>.
+   ///// </summary>
+   //public sealed class PrimitiveWrapperRecord : AbstractRecord, ElementWithValue
+   //{
+   //   /// <summary>
+   //   /// Creates a new blank instance of <see cref="PrimitiveWrapperRecord"/>.
+   //   /// </summary>
+   //   public PrimitiveWrapperRecord()
+   //   {
 
-      }
+   //   }
 
-      /// <summary>
-      /// Gets or sets the primitive value of this <see cref="PrimitiveWrapperRecord"/>.
-      /// </summary>
-      /// <value>The primitive value of this <see cref="PrimitiveWrapperRecord"/>.</value>
-      /// <remarks>
-      /// See the <see cref="ElementWithValue.Value"/> property for possible values, except that <see cref="AbstractRecord"/> values should not be stored here.
-      /// </remarks>
-      public Object Value { get; set; }
+   //   /// <summary>
+   //   /// Gets or sets the primitive value of this <see cref="PrimitiveWrapperRecord"/>.
+   //   /// </summary>
+   //   /// <value>The primitive value of this <see cref="PrimitiveWrapperRecord"/>.</value>
+   //   /// <remarks>
+   //   /// See the <see cref="ElementWithValue.Value"/> property for possible values, except that <see cref="AbstractRecord"/> values should not be stored here.
+   //   /// </remarks>
+   //   public Object Value { get; set; }
 
-      /// <summary>
-      /// Returns the <see cref="RecordKind.PrimitiveWrapper"/>.
-      /// </summary>
-      /// <value>The <see cref="RecordKind.PrimitiveWrapper"/>.</value>
-      public override RecordKind RecordKind
-      {
-         get
-         {
-            return RecordKind.PrimitiveWrapper;
-         }
-      }
-   }
+   //   /// <summary>
+   //   /// Returns the <see cref="RecordKind.PrimitiveWrapper"/>.
+   //   /// </summary>
+   //   /// <value>The <see cref="RecordKind.PrimitiveWrapper"/>.</value>
+   //   public override RecordKind RecordKind
+   //   {
+   //      get
+   //      {
+   //         return RecordKind.PrimitiveWrapper;
+   //      }
+   //   }
+   //}
 }

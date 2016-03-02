@@ -284,7 +284,7 @@ public static partial class E_CILPhysical
       var state = new DeserializationState( array, idx );
       while ( idx < maxIndex && !state.recordsEnded )
       {
-         var record = ReadSingleRecord( state );
+         var record = ReadSingleRecord( state ) as AbstractRecord;
          if ( record != null )
          {
             list.Add( record );
@@ -301,9 +301,9 @@ public static partial class E_CILPhysical
       }
    }
 
-   private static AbstractRecord ReadSingleRecord( DeserializationState state )
+   private static Object ReadSingleRecord( DeserializationState state )
    {
-      AbstractRecord retVal;
+      Object retVal;
       if ( state.nullCount > 0 )
       {
          --state.nullCount;
@@ -370,9 +370,18 @@ public static partial class E_CILPhysical
                retVal = cRecord;
                break;
             case RecordTypeEnumeration.BinaryObjectString:
-               var strRecord = NewRecord<StringRecord>( state );
-               strRecord.StringValue = state.array.Read7BitLengthPrefixedString( ref state.idx );
-               retVal = strRecord;
+               var strID = state.array.ReadInt32LEFromBytes( ref state.idx );
+               var str = state.array.Read7BitLengthPrefixedString( ref state.idx );
+               if ( !state.records.ContainsKey( strID ) )
+               {
+                  state.records.Add( strID, str );
+               }
+               else
+               {
+                  // TODO what would be best here?
+                  // Currently preserving old IDs.
+               }
+               retVal = str;
                break;
             case RecordTypeEnumeration.BinaryArray:
                aRecord = NewRecord<ArrayRecord>( state );
@@ -381,9 +390,7 @@ public static partial class E_CILPhysical
                retVal = aRecord;
                break;
             case RecordTypeEnumeration.MemberPrimitiveTyped:
-               var pRecord = new PrimitiveWrapperRecord();
-               pRecord.Value = ReadPrimitiveValue( state, (PrimitiveTypeEnumeration) state.array.ReadByteFromBytes( ref state.idx ) );
-               retVal = pRecord;
+               retVal = ReadPrimitiveValue( state, (PrimitiveTypeEnumeration) state.array.ReadByteFromBytes( ref state.idx ) );
                break;
             case RecordTypeEnumeration.MemberReference:
                retVal = new RecordPlaceholder( state.array.ReadInt32LEFromBytes( ref state.idx ) );
@@ -665,7 +672,9 @@ public static partial class E_CILPhysical
       {
          var ph = record as RecordPlaceholder;
          retVal = ph != null;
-         rec = retVal ? state.records[( (RecordPlaceholder) record ).ID] : null;
+         rec = retVal ?
+            state.records[( (RecordPlaceholder) record ).ID] as AbstractRecord :
+            null;
          if ( !retVal )
          {
             switch ( record.RecordKind )
@@ -705,7 +714,7 @@ public static partial class E_CILPhysical
    {
       internal readonly Byte[] array;
       internal Int32 idx;
-      internal readonly IDictionary<Int32, AbstractRecord> records;
+      internal readonly IDictionary<Int32, Object> records;
       internal readonly IDictionary<Int32, String> assemblies;
       internal readonly IDictionary<Object, BinaryTypeEnumeration> typeInfos;
       internal readonly IDictionary<Object, PrimitiveTypeEnumeration> primitiveTypeInfos;
@@ -717,7 +726,7 @@ public static partial class E_CILPhysical
       {
          this.array = array;
          this.idx = idx;
-         this.records = new Dictionary<Int32, AbstractRecord>();
+         this.records = new Dictionary<Int32, Object>();
          this.assemblies = new Dictionary<Int32, String>();
          this.typeInfos = new Dictionary<Object, BinaryTypeEnumeration>();
          this.primitiveTypeInfos = new Dictionary<Object, PrimitiveTypeEnumeration>();

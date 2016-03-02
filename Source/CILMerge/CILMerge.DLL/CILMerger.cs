@@ -117,7 +117,7 @@ namespace CILMerge
                   {
                      using ( var fs = File.Open( pdbFN, FileMode.Open, FileAccess.Read, FileShare.Read ) )
                      {
-                        iPDB = PDBIO.FromStream( fs );
+                        iPDB = fs.ReadPDBInstance();
                      }
                   }
                   catch ( Exception exc )
@@ -3409,9 +3409,6 @@ namespace CILMerge
          {
             switch ( record.RecordKind )
             {
-               case RecordKind.String:
-                  ( (StringRecord) record ).StringValue = this.ProcessTypeString( inputModule, ( (StringRecord) record ).StringValue );
-                  break;
                case RecordKind.Class:
                   var claas = (ClassRecord) record;
                   this.ProcessNRBFTypeInfo( claas );
@@ -3425,13 +3422,6 @@ namespace CILMerge
                   foreach ( var val in ( (ArrayRecord) record ).ValuesAsVector )
                   {
                      this.ProcessNRBFRecord( inputModule, val as AbstractRecord );
-                  }
-                  break;
-               case RecordKind.PrimitiveWrapper:
-                  var wrapper = (PrimitiveWrapperRecord) record;
-                  if ( wrapper.Value is String )
-                  {
-                     wrapper.Value = this.ProcessTypeString( inputModule, wrapper.Value as String );
                   }
                   break;
             }

@@ -24,6 +24,9 @@ using CommonUtils;
 
 namespace CILAssemblyManipulator.Physical.PDB
 {
+   /// <summary>
+   /// This class holds the method to read <see cref="PDBInstance"/> from <see cref="Stream"/>.
+   /// </summary>
    public static partial class PDBIO
    {
 
@@ -39,14 +42,20 @@ namespace CILAssemblyManipulator.Physical.PDB
       private const String ASYNC_METHOD_OEM_NAME = "asyncMethodInfo";
       private const String ENC_OEM_NAME = "ENC";
 
-      public static PDBInstance FromStream( Stream readingStream, Boolean ignoreCaseSourceFileStreamNames = true )
+      /// <summary>
+      /// Reads the <see cref="PDBInstance"/> from the given <see cref="Stream"/>.
+      /// </summary>
+      /// <param name="stream">The <see cref="Stream"/> to read <see cref="PDBInstance"/> from.</param>
+      /// <param name="ignoreCaseSourceFileStreamNames">Whether ignore case in source file stream names.</param>
+      /// <returns>A new instance of <see cref="PDBInstance"/> containing deserialized information relevant to CLR meta data.</returns>
+      public static PDBInstance ReadPDBInstance( this Stream stream, Boolean ignoreCaseSourceFileStreamNames = true )
       {
-         var stream = new StreamInfo( readingStream );
+         var streamHelper = new StreamInfo( stream );
          // Header
          // Skip first 32 bytes (it's just text and magic ints)
-         stream.stream.SeekFromCurrent( 32 );
+         streamHelper.stream.SeekFromCurrent( 32 );
          var array = new Byte[20];
-         stream.stream.ReadWholeArray( array );
+         streamHelper.stream.ReadWholeArray( array );
          var idx = 0;
          var pageSize = array.ReadInt32LEFromBytes( ref idx );
          if ( pageSize <= 0 )
@@ -64,18 +73,18 @@ namespace CILAssemblyManipulator.Physical.PDB
          var directoryPageOffsetPageCount = AmountOfPagesTaken(
             INT_SIZE * directoryPageCount,
             pageSize );
-         array = stream.stream.ReadWholeArray( INT_SIZE * directoryPageOffsetPageCount );
+         array = streamHelper.stream.ReadWholeArray( INT_SIZE * directoryPageOffsetPageCount );
          idx = 0;
          var directoryPageOffsets = array.ReadInt32ArrayLEFromBytes( ref idx, directoryPageOffsetPageCount );
 
          // Directory
          // Read directory pages
-         array = stream.ReadPagedData( pageSize, directoryPageOffsets, directoryPageCount * INT_SIZE );
+         array = streamHelper.ReadPagedData( pageSize, directoryPageOffsets, directoryPageCount * INT_SIZE );
          idx = 0;
          directoryPageOffsets = array.ReadInt32ArrayLEFromBytes( ref idx, directoryPageCount );
 
          // Read directory data
-         array = stream.ReadPagedData( pageSize, directoryPageOffsets, directoryByteCount );
+         array = streamHelper.ReadPagedData( pageSize, directoryPageOffsets, directoryByteCount );
          idx = 0;
          var dataStreamCount = array.ReadInt32LEFromBytes( ref idx );
          var dataStreamSizes = array.ReadInt32ArrayLEFromBytes( ref idx, dataStreamCount );
@@ -90,7 +99,7 @@ namespace CILAssemblyManipulator.Physical.PDB
          }
 
          // Read DBI data
-         array = stream.ReadPagedData( pageSize, dataStreamPages[3], dataStreamSizes[3] );
+         array = streamHelper.ReadPagedData( pageSize, dataStreamPages[3], dataStreamSizes[3] );
          idx = 0;
          DBIHeader dbiHeader; DBIModuleInfo[] modules; DBIDebugHeader debugHeader;
          LoadDBIStream( array, ref idx, out dbiHeader, out modules, out debugHeader );
@@ -103,7 +112,7 @@ namespace CILAssemblyManipulator.Physical.PDB
          var instance = new PDBInstance();
 
          // Read root stream
-         stream.ReadPagedData( pageSize, dataStreamPages[1], dataStreamSizes[1], array );
+         streamHelper.ReadPagedData( pageSize, dataStreamPages[1], dataStreamSizes[1], array );
          idx = 8; // Skip version & timestamp
          instance.Age = array.ReadUInt32LEFromBytes( ref idx );
          instance.DebugGUID = array.ReadGUIDFromBytes( ref idx );
@@ -123,13 +132,13 @@ namespace CILAssemblyManipulator.Physical.PDB
          Int32 srcStrmIdx;
          if ( streamNameIndices.TryGetValue( SOURCE_SERVER_STREAM_NAME, out srcStrmIdx ) && srcStrmIdx < dataStreamCount )
          {
-            stream.ReadPagedData( pageSize, dataStreamPages[srcStrmIdx], dataStreamSizes[srcStrmIdx], array );
+            streamHelper.ReadPagedData( pageSize, dataStreamPages[srcStrmIdx], dataStreamSizes[srcStrmIdx], array );
             idx = 0;
             instance.SourceServer = array.ReadStringWithEncoding( ref idx, dataStreamSizes[srcStrmIdx], NAME_ENCODING );
          }
 
          // Read name index.
-         stream.ReadPagedData( pageSize, dataStreamPages[namesStreamIdx], dataStreamSizes[namesStreamIdx], array );
+         streamHelper.ReadPagedData( pageSize, dataStreamPages[namesStreamIdx], dataStreamSizes[namesStreamIdx], array );
          idx = 0;
          /*var nsSig = */
          array.ReadUInt32LEFromBytes( ref idx );
@@ -184,8 +193,8 @@ namespace CILAssemblyManipulator.Physical.PDB
          {
             if ( module.stream > 0 && module.stream < dataStreamCount )
             {
-               stream.ReadPagedData( pageSize, dataStreamPages[module.stream], dataStreamSizes[module.stream], array );
-               instance.Modules.Add( LoadFunctionsFromDBIModule( stream, pageSize, dataStreamPages, dataStreamSizes, array, streamNameIndices, nameIndex, module ) );
+               streamHelper.ReadPagedData( pageSize, dataStreamPages[module.stream], dataStreamSizes[module.stream], array );
+               instance.Modules.Add( LoadFunctionsFromDBIModule( streamHelper, pageSize, dataStreamPages, dataStreamSizes, array, streamNameIndices, nameIndex, module ) );
             }
          }
 
@@ -193,7 +202,7 @@ namespace CILAssemblyManipulator.Physical.PDB
          if ( debugHeader != null && debugHeader.snTokenRidMap != UInt16.MinValue && debugHeader.snTokenRidMap != UInt16.MaxValue )
          {
             var tokenRemapSize = dataStreamSizes[debugHeader.snTokenRidMap];
-            stream.ReadPagedData( pageSize, dataStreamPages[debugHeader.snTokenRidMap], tokenRemapSize, array );
+            streamHelper.ReadPagedData( pageSize, dataStreamPages[debugHeader.snTokenRidMap], tokenRemapSize, array );
             idx = 0;
             var tokens = array.ReadUInt32ArrayLEFromBytes( ref idx, tokenRemapSize / INT_SIZE );
             foreach ( var function in instance.Modules.SelectMany( mod => mod.Functions ) )

@@ -133,44 +133,49 @@ public static partial class E_CILPhysical
 
    }
 
-   private static void WriteSingleRecord( SerializationState state, AbstractRecord record, Boolean forceWrite )
+   private static void WriteSingleRecord( SerializationState state, AbstractRecord record, Boolean forceWrite, Object primitiveValue = null )
    {
       Int32 id;
-      if ( state.TryAddRecord( record, out id ) || forceWrite )
+      var str = primitiveValue as String;
+      if ( state.TryAddRecord( (Object) record ?? str, out id ) || forceWrite )
       {
          // If record hasn't been previously processed, or if we are told to write contents no matter what
-         switch ( record.RecordKind )
+         if ( record == null )
          {
-            case RecordKind.String:
-               var s = ( (StringRecord) record ).StringValue;
-               var len = UTF8.GetByteCount( s );
-               state.EnsureCapacity( 10 + len );
-               state.array
-                  .WriteByteToBytes( ref state.idx, (Byte) RecordTypeEnumeration.BinaryObjectString )
-                  .WriteInt32LEToBytes( ref state.idx, id )
-                  .WriteInt32Encoded7Bit( ref state.idx, len )
-                  .WriteStringToBytes( ref state.idx, UTF8, s );
-               state.WriteArrayToStream();
-               break;
-            case RecordKind.Class:
-               WriteClassRecord( state, (ClassRecord) record, id );
-               break;
-            case RecordKind.Array:
-               WriteArrayRecord( state, (ArrayRecord) record, id );
-               break;
-            case RecordKind.PrimitiveWrapper:
-               // Write header
-               state.EnsureCapacity( 2 );
-               var p = ( (PrimitiveWrapperRecord) record ).Value;
-               var pType = GetPrimitiveType( p );
-               state.array
-                  .WriteByteToBytes( ref state.idx, (Byte) RecordTypeEnumeration.MemberPrimitiveTyped )
-                  .WriteByteToBytes( ref state.idx, (Byte) pType );
-               state.WriteArrayToStream();
-               // Write primitive
-               WritePrimitive( state, p, pType );
-               break;
+            var len = UTF8.GetByteCount( str );
+            state.EnsureCapacity( 10 + len );
+            state.array
+               .WriteByteToBytes( ref state.idx, (Byte) RecordTypeEnumeration.BinaryObjectString )
+               .WriteInt32LEToBytes( ref state.idx, id )
+               .WriteInt32Encoded7Bit( ref state.idx, len )
+               .WriteStringToBytes( ref state.idx, UTF8, str );
+            state.WriteArrayToStream();
          }
+         else
+         {
+            switch ( record.RecordKind )
+            {
+               case RecordKind.Class:
+                  WriteClassRecord( state, (ClassRecord) record, id );
+                  break;
+               case RecordKind.Array:
+                  WriteArrayRecord( state, (ArrayRecord) record, id );
+                  break;
+            }
+         }
+
+      }
+      else if ( record == null )
+      {
+         // Write header
+         state.EnsureCapacity( 2 );
+         var pType = GetPrimitiveType( primitiveValue );
+         state.array
+            .WriteByteToBytes( ref state.idx, (Byte) RecordTypeEnumeration.MemberPrimitiveTyped )
+            .WriteByteToBytes( ref state.idx, (Byte) pType );
+         state.WriteArrayToStream();
+         // Write primitive
+         WritePrimitive( state, primitiveValue, pType );
       }
       else
       {
@@ -281,15 +286,8 @@ public static partial class E_CILPhysical
             var member = claas.Members[i];
             var val = member.Value;
 
-            // Change raw string values to StringRecords to enable caching strings by id
-            if ( val is String )
-            {
-               var sRec = new StringRecord();
-               sRec.StringValue = (String) val;
-               val = sRec;
-            }
             var rec = val as AbstractRecord;
-            if ( rec != null )
+            if ( val is String || rec != null )
             {
                // All arrays and non-structs are serialized afterwards.
                if ( rec is ArrayRecord || ( rec is ClassRecord && !( (ClassRecord) rec ).IsSerializedInPlace ) )
@@ -329,13 +327,13 @@ public static partial class E_CILPhysical
       var nonNullEncountered = false;
       foreach ( var val in array.ValuesAsVector )
       {
-         if ( val != null || ( val is PrimitiveWrapperRecord && ( (PrimitiveWrapperRecord) val ).Value != null ) )
+         if ( val != null )
          {
-            var valType = ( val is PrimitiveWrapperRecord ? ( (PrimitiveWrapperRecord) val ).Value : val ).GetType();
+            var valType = val.GetType();
             if ( nonNullEncountered )
             {
                if (
-                  ( recType == RecordTypeEnumeration.ArraySingleString && !( val is String || val is StringRecord ) )
+                  ( recType == RecordTypeEnumeration.ArraySingleString && !( val is String ) )
                   || ( recType == RecordTypeEnumeration.ArraySinglePrimitive && !Object.Equals( pType, valType ) )
                   )
                {
@@ -344,11 +342,11 @@ public static partial class E_CILPhysical
             }
             else
             {
-               recType = ( val is String || val is StringRecord ) ?
+               recType = val is String ?
                      RecordTypeEnumeration.ArraySingleString :
-                     ( ( !( val is AbstractRecord ) || val is PrimitiveWrapperRecord ) ?
-                        RecordTypeEnumeration.ArraySinglePrimitive :
-                        RecordTypeEnumeration.ArraySingleObject );
+                     ( val is AbstractRecord ?
+                        RecordTypeEnumeration.ArraySingleObject :
+                        RecordTypeEnumeration.ArraySinglePrimitive );
                if ( recType == RecordTypeEnumeration.ArraySinglePrimitive )
                {
                   pType = valType;
@@ -434,22 +432,7 @@ public static partial class E_CILPhysical
                }
                else
                {
-                  var rec = obj as AbstractRecord;
-                  if ( rec == null )
-                  {
-                     if ( obj is String )
-                     {
-                        rec = new StringRecord();
-                        ( (StringRecord) rec ).StringValue = (String) obj;
-                     }
-                     else
-                     {
-                        rec = new PrimitiveWrapperRecord();
-                        ( (PrimitiveWrapperRecord) rec ).Value = obj;
-                     }
-
-                  }
-                  WriteSingleRecord( state, rec, false );
+                  WriteSingleRecord( state, obj as AbstractRecord, false, obj );
                }
             } );
             break;
@@ -459,30 +442,18 @@ public static partial class E_CILPhysical
             pEnum = GetPrimitiveTypeFromType( pType );
             state.array.WriteByteToBytes( ref state.idx, (Byte) pEnum );
             state.WriteArrayToStream();
-            WriteArrayValues( state, array.ValuesAsVector, obj => WritePrimitive( state, obj is PrimitiveWrapperRecord ? ( (PrimitiveWrapperRecord) obj ).Value : obj, pEnum ) );
+            WriteArrayValues( state, array.ValuesAsVector, obj => WritePrimitive( state, obj, pEnum ) );
             break;
          case RecordTypeEnumeration.ArraySingleObject:
             WriteArrayValues( state, array.ValuesAsVector, obj =>
             {
-               var objRec = obj as AbstractRecord;
-               if ( objRec == null )
-               {
-                  objRec = new PrimitiveWrapperRecord();
-                  ( (PrimitiveWrapperRecord) objRec ).Value = obj;
-               }
-               WriteSingleRecord( state, objRec, false );
+               WriteSingleRecord( state, obj as AbstractRecord, false, obj );
             } );
             break;
          case RecordTypeEnumeration.ArraySingleString:
             WriteArrayValues( state, array.ValuesAsVector, obj =>
             {
-               var str = obj as StringRecord;
-               if ( str == null )
-               {
-                  str = new StringRecord();
-                  str.StringValue = (String) obj;
-               }
-               WriteSingleRecord( state, str, false );
+               WriteSingleRecord( state, null, false, obj );
             } );
             break;
       }
@@ -552,8 +523,6 @@ public static partial class E_CILPhysical
                {
                   switch ( ( (AbstractRecord) obj ).RecordKind )
                   {
-                     case RecordKind.String:
-                        return BinaryTypeEnumeration.String;
                      case RecordKind.Class:
                         return ( (ClassRecord) obj ).AssemblyName == null ? BinaryTypeEnumeration.SystemClass : BinaryTypeEnumeration.Class;
                      case RecordKind.Array:
@@ -575,8 +544,6 @@ public static partial class E_CILPhysical
                         {
                            return BinaryTypeEnumeration.ObjectArray;
                         }
-                     case RecordKind.PrimitiveWrapper:
-                        return BinaryTypeEnumeration.SystemClass;
                      default:
                         throw new NotSupportedException( "Unknown record " + obj + "." );
 
@@ -761,17 +728,11 @@ public static partial class E_CILPhysical
 
    private sealed class SerializationState
    {
-      // TODO Make Comparers static class, as in CAM.Physical Core project.
-      private static readonly IEqualityComparer<StringRecord> StringRecordComparer = ComparerFromFunctions.NewEqualityComparer<StringRecord>(
-         ( x, y ) => ReferenceEquals( x, y ) || ( x != null && y != null && String.Equals( x.StringValue, y.StringValue ) ),
-         x => x?.StringValue?.GetHashCode() ?? 0
-         );
-
       internal readonly Stream stream;
       internal Byte[] array;
       internal Int32 idx;
       internal Int32 arrayLen;
-      internal readonly IDictionary<AbstractRecord, Int32> records;
+      internal readonly IDictionary<Object, Int32> records;
       internal readonly IDictionary<String, Int32> assemblies;
       internal readonly Queue<AbstractRecord> recordQueue;
       internal readonly IDictionary<Tuple<String, String>, Int32> serializedObjects;
@@ -781,22 +742,14 @@ public static partial class E_CILPhysical
          ArgumentValidator.ValidateNotNull( "Stream", aStream );
 
          this.stream = aStream;
-         this.records = new Dictionary<AbstractRecord, Int32>( ComparerFromFunctions.NewEqualityComparer<AbstractRecord>(
+         this.records = new Dictionary<Object, Int32>( ComparerFromFunctions.NewEqualityComparer<Object>(
             ( x, y ) =>
             {
-               var retVal = ReferenceEquals( x, y );
-               if ( !retVal )
-               {
-                  var xStr = x as StringRecord;
-                  var yStr = y as StringRecord;
-                  retVal = xStr != null && yStr != null && StringRecordComparer.Equals( xStr, yStr );
-               }
-               return retVal;
+               return ReferenceEquals( x, y ) || String.Equals( x as String, y as String );
             },
             x =>
             {
-               var xStr = x as StringRecord;
-               return xStr == null ? x.GetHashCodeSafe() : StringRecordComparer.GetHashCode( xStr );
+               return x.GetHashCodeSafe();
             } ) );
          this.assemblies = new Dictionary<String, Int32>();
          this.recordQueue = new Queue<AbstractRecord>();
@@ -818,7 +771,7 @@ public static partial class E_CILPhysical
          return retVal;
       }
 
-      internal Boolean TryAddRecord( AbstractRecord record, out Int32 id )
+      internal Boolean TryAddRecord( Object record, out Int32 id )
       {
          id = 0;
          var retVal = record != null && !this.records.TryGetValue( record, out id );
