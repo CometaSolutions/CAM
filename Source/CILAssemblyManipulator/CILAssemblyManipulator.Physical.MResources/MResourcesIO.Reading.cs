@@ -501,26 +501,27 @@ public static partial class E_CILPhysical
             value = state.array.ReadByteFromBytes( ref state.idx );
             break;
          case PrimitiveTypeEnumeration.Char:
+            // TODO better...
             var startIdx = state.idx;
-            var charArray = new Char[1];
-            Int32 charsRead;
-            do
-            {
-               ++state.idx;
-               charsRead = UTF8.GetChars( state.array, startIdx, state.idx - startIdx, charArray, 0 );
-            } while ( charsRead == 0 );
+            var charArray = new Char[4];
+            var charsRead = UTF8.GetChars( state.array, startIdx, 4, charArray, 0 );
             value = charArray[0];
+            state.idx += UTF8.GetByteCount( charArray, 0, 1 );
+            //Int32 charsRead;
+            //var encoding = UTF8;
+            //do
+            //{
+            //   ++state.idx;
+            //   charsRead = encoding.GetCharCount( state.array, startIdx, state.idx - startIdx );
+            //} while ( charsRead == 0 );
+            //UTF8.GetChars( state.array, startIdx, state.idx - startIdx, charArray, 0 );
+            //value = charArray[0];
             break;
          case PrimitiveTypeEnumeration.Decimal:
             var str = state.array.Read7BitLengthPrefixedString( ref state.idx );
             Decimal d;
-            Decimal.TryParse( str, out d );
-            // I'm not quite sure why but apparently actual binary value of decimal follows?
-            var int1 = state.array.ReadInt32LEFromBytes( ref state.idx );
-            var int2 = state.array.ReadInt32LEFromBytes( ref state.idx );
-            var int3 = state.array.ReadInt32LEFromBytes( ref state.idx );
-            var int4 = state.array.ReadInt32LEFromBytes( ref state.idx );
-            value = new Decimal( new[] { int1, int2, int3, int4 } );
+            Decimal.TryParse( str, System.Globalization.NumberStyles.Number, System.Globalization.CultureInfo.InvariantCulture, out d );
+            value = d;
             break;
          case PrimitiveTypeEnumeration.Double:
             value = state.array.ReadDoubleLEFromBytes( ref state.idx );
@@ -544,7 +545,13 @@ public static partial class E_CILPhysical
             value = TimeSpan.FromTicks( state.array.ReadInt64LEFromBytes( ref state.idx ) );
             break;
          case PrimitiveTypeEnumeration.DateTime:
-            value = DateTime.FromBinary( state.array.ReadInt64LEFromBytes( ref state.idx ) );
+            var rawDateTime = state.array.ReadUInt64LEFromBytes( ref state.idx );
+            if ( ( rawDateTime & 0x8000000000000000uL ) != 0uL )
+            {
+               // This is local date-time, do UTC offset tick adjustment
+               rawDateTime -= (UInt64) TimeZoneInfo.Local.GetUtcOffset( DateTime.MinValue ).Ticks;
+            }
+            value = DateTime.FromBinary( (Int64) rawDateTime );
             break;
          case PrimitiveTypeEnumeration.UInt16:
             value = state.array.ReadUInt16LEFromBytes( ref state.idx );
@@ -701,7 +708,11 @@ public static partial class E_CILPhysical
                   break;
             }
          }
-         ( (ClassRecord) rec ).IsSerializedInPlace = !retVal;
+         var cr = rec as ClassRecord;
+         if ( cr != null )
+         {
+            cr.IsSerializedInPlace = !retVal;
+         }
       }
       else
       {

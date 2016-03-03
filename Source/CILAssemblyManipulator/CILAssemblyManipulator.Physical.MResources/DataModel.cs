@@ -156,19 +156,14 @@ namespace CILAssemblyManipulator.Physical.MResources
    /// </summary>
    public sealed class UserDefinedResourceManagerEntry : ResourceManagerEntry
    {
-      ///// <summary>
-      ///// Creates a new <see cref="UserDefinedResourceManagerEntry"/> with given type and contents.
-      ///// </summary>
-      ///// <param name="type">The textual type information of this entry.</param>
-      ///// <param name="contents">The contents, as array of <see cref="AbstractRecord"/>s.</param>
-      //public UserDefinedResourceManagerEntry(
-      //   String type,
-      //   ArrayQuery<AbstractRecord> contents
-      //   )
-      //{
-      //   this.UserDefinedType = type;
-      //   this.Contents = new List<AbstractRecord>();
-      //}
+      /// <summary>
+      /// Creates a new instance of <see cref="UserDefinedResourceManagerEntry"/>.
+      /// </summary>
+      public UserDefinedResourceManagerEntry(
+         )
+      {
+         this.Contents = new List<AbstractRecord>();
+      }
 
       /// <summary>
       /// Gets or sets the textual type information of this <see cref="UserDefinedResourceManagerEntry"/>.
@@ -554,6 +549,18 @@ namespace CILAssemblyManipulator.Physical.MResources
       /// See <see cref="ElementWithValue.Value"/> property for more information about possible values for this property.
       /// </remarks>
       public Object Value { get; set; }
+
+      /// <summary>
+      /// Creates the textual representation of this <see cref="ClassRecordMember"/>.
+      /// </summary>
+      /// <returns>The textual representation of this <see cref="ClassRecordMember"/>.</returns>
+      /// <remarks>
+      /// The textual representation of this <see cref="ClassRecordMember"/> includes the values of the <see cref="Name"/> and <see cref="Value"/> properties.
+      /// </remarks>
+      public override String ToString()
+      {
+         return this.Name + ":" + this.Value;
+      }
    }
 
    /// <summary>

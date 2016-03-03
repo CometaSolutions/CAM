@@ -686,7 +686,7 @@ public static partial class E_CILPhysical
             break;
          case PrimitiveTypeEnumeration.DateTime:
             state.EnsureCapacity( 8 );
-            state.array.WriteInt64LEToBytes( ref state.idx, ( (DateTime) primitive ).Ticks );
+            state.array.WriteInt64LEToBytes( ref state.idx, ( (DateTime) primitive ).ToBinary() );
             break;
          case PrimitiveTypeEnumeration.UInt16:
             state.EnsureCapacity( 2 );
@@ -712,8 +712,7 @@ public static partial class E_CILPhysical
                .WriteStringToBytes( ref state.idx, UTF8, s );
             break;
          default:
-            state.EnsureCapacity( 0 );
-            break;
+            throw new ArgumentException( "Unrecognized primitive type enumeration value: " + pType + "." );
       }
       state.WriteArrayToStream();
    }
@@ -799,6 +798,37 @@ public static partial class E_CILPhysical
          {
             this.array = new Byte[capacity];
          }
+      }
+   }
+
+
+   private static Int64 ToBinary( this DateTime dt )
+   {
+      // DateTime.ToBinary does not exist in this PCL profile...
+      var kind = dt.Kind;
+      switch ( dt.Kind )
+      {
+         case DateTimeKind.Local:
+            var localUtcOffset = TimeZoneInfo.Local.GetUtcOffset( dt );
+            var tickOffset = dt.Ticks - localUtcOffset.Ticks;
+            if ( tickOffset < 0L )
+            {
+               tickOffset = 0x4000000000000000L + tickOffset;
+            }
+            // It seems that the representation of date time is one unsigned long, where the two MSB bits behave like this (MSB first, then next-to-MSB):
+            // 00 - Unspecified DateTime (unknown, whether it is local or UTC)
+            // 01 - UTC DateTime
+            // 10 - Local DateTime
+            // 11 - Local DateTime, but ambiguous daylight saving time (whatever that means)
+
+            // This OR forces the local-flag
+            return tickOffset | unchecked((Int64) 0x8000000000000000uL);
+         case DateTimeKind.Unspecified:
+            return dt.Ticks;
+         case DateTimeKind.Utc:
+            return dt.Ticks | 0x4000000000000000L;
+         default:
+            throw new ArgumentException( "Unrecognized DateTime kind: " + kind );
       }
    }
 }

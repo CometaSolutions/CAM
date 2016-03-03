@@ -38,16 +38,6 @@ namespace CILAssemblyManipulator.Physical.PDB
          this.Modules = new List<PDBModule>();
       }
 
-      ///// <summary>
-      ///// Gets the dictionary of <see cref="PDBSource"/> objects for this <see cref="PDBInstance"/>.
-      ///// </summary>
-      ///// <value>The dictionary of <see cref="PDBSource"/> objects for this <see cref="PDBInstance"/>.</value>
-      ///// <remarks>
-      ///// The key of the dictionary is the name of the associated <see cref="PDBSource"/>.
-      ///// The name is typically the file name of the document represented by <see cref="PDBSource"/>.
-      ///// </remarks>
-      //public IDictionary<String, PDBSource> Sources { get; }
-
       /// <summary>
       /// Gets the list of <see cref="PDBModule"/> objects for this <see cref="PDBInstance"/>.
       /// </summary>
@@ -273,7 +263,6 @@ namespace CILAssemblyManipulator.Physical.PDB
       {
          this.LocalScopes = new List<PDBLocalScope>();
          this.Lines = new List<PDBLine>();
-         //this.UsingCounts = new List<UInt16>();
       }
 
       /// <summary>
@@ -306,18 +295,6 @@ namespace CILAssemblyManipulator.Physical.PDB
       [CLSCompliant( false )]
       public UInt32 ENCID { get; set; }
 
-      //public Byte Flags // TODO is this used *only* when serializing/deserializing?
-      //{
-      //   get
-      //   {
-      //      return this._flags;
-      //   }
-      //   set
-      //   {
-      //      this._flags = value;
-      //   }
-      //}
-
       /// <summary>
       /// Gets or sets the token of forwarding method for this <see cref="PDBFunction"/>.
       /// </summary>
@@ -336,9 +313,6 @@ namespace CILAssemblyManipulator.Physical.PDB
       /// </summary>
       /// <value>The name of the iterator class, if this <see cref="PDBFunction"/> represents iterator method.</value>
       public String IteratorClass { get; set; }
-
-      //[CLSCompliant( false )]
-      //public List<UInt16> UsingCounts { get; }
 
       /// <summary>
       /// Gets or sets the oken of forwarding method on module scope for this <see cref="PDBFunction"/>.
@@ -511,7 +485,6 @@ namespace CILAssemblyManipulator.Physical.PDB
       /// <value>The name of this <see cref="PDBSlot"/>.</value>
       public String Name { get; set; }
 
-      // TODO maybe remove this property and let the order of PDBScopeOrFunction.Slots decide the slot index??
       /// <summary>
       /// Gets or sets the index of this <see cref="PDBSlot"/> within all slots of <see cref="PDBScopeOrFunction"/>.
       /// </summary>

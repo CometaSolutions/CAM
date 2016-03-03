@@ -26,7 +26,7 @@ public static partial class E_CILPhysical
 #pragma warning restore 1591
 {
 
-   private static readonly Encoding UTF8 = new UTF8Encoding( false, true );
+   private static readonly Encoding UTF8 = new UTF8Encoding( false, false );
 
    // MS-NRBF, pp. 15-17
    private enum RecordTypeEnumeration : byte

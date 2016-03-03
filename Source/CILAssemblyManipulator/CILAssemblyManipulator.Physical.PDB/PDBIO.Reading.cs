@@ -617,9 +617,9 @@ namespace CILAssemblyManipulator.Physical.PDB
             SlotIndex = array.ReadInt32LEFromBytes( ref idx ),
             TypeToken = array.ReadUInt32LEFromBytes( ref idx ),
             //Address = array.ReadInt32LEFromBytes( ref idx ),
-            Flags = (PDBSlotFlags) array.Skip( ref idx, sizeof( Int32 ) * 2 ) // Skip address & segment
-               .ReadUInt16LEFromBytes( ref idx ),
-            Name = array.ReadZeroTerminatedStringFromBytes( ref idx, NAME_ENCODING )
+            Flags = (PDBSlotFlags) array.Skip( ref idx, 6 ) // Skip address & segment
+               .ReadInt16LEFromBytes( ref idx ),
+            Name = array.ReadZeroTerminatedStringFromBytes( ref idx, NAME_ENCODING ),
          };
       }
 
@@ -875,5 +875,23 @@ namespace CILAssemblyManipulator.Physical.PDB
          }
          return retVal;
       } );
+
+      private static void SetAtSpecificIndex<T>( this List<T> list, Int32 index, T value )
+      {
+         var c = list.Count;
+         if ( index < c )
+         {
+            list[index] = value;
+         }
+         else if ( index == c )
+         {
+            list.Add( value );
+         }
+         else
+         {
+            list.AddRange( Enumerable.Repeat<T>( default( T ), index - c ) );
+            list.Add( value );
+         }
+      }
    }
 }
