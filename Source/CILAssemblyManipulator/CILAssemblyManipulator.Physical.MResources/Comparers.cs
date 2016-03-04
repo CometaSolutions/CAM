@@ -19,6 +19,7 @@ using CILAssemblyManipulator.Physical.MResources;
 using CommonUtils;
 using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
 using System.Text;
 
@@ -168,7 +169,28 @@ namespace CILAssemblyManipulator.Physical
       {
          return ReferenceEquals( x, y ) ||
             ( x != null && y != null
-            && Equals( x.Value, y.Value )
+            && Equality_ResourceManagerEntry_PreDefined_Value( x.Value, y.Value )
+            );
+      }
+
+      private static Boolean Equality_ResourceManagerEntry_PreDefined_Value( Object x, Object y )
+      {
+         var retVal = Equals( x, y );
+         if ( !retVal )
+         {
+            retVal = ArrayEqualityComparer<Byte>.ArrayEquality( x as Byte[], y as Byte[] )
+               || Equality_Stream( x as Stream, y as Stream );
+         }
+         return retVal;
+      }
+
+      private static Boolean Equality_Stream( Stream x, Stream y )
+      {
+         // TODO using ReadUntilTheEnd here is not very memory efficient...
+         return Object.ReferenceEquals( x, y )
+            || ( x != null && y != null
+            && x.Length == y.Length
+            && ArrayEqualityComparer<Byte>.ArrayEquality( x.SeekFromBegin( 0 ).ReadUntilTheEnd(), y.SeekFromBegin( 0 ).ReadUntilTheEnd() )
             );
       }
 
@@ -177,7 +199,7 @@ namespace CILAssemblyManipulator.Physical
          return ReferenceEquals( x, y ) ||
             ( x != null && y != null
             && String.Equals( x.UserDefinedType, y.UserDefinedType )
-            && ListEqualityComparer<List<AbstractRecord>, AbstractRecord>.ListEquality( x.Contents, y.Contents, Equality_AbstractRecord )
+            && Equality_AbstractRecord( x.Contents, y.Contents )
             );
       }
 
@@ -276,7 +298,7 @@ namespace CILAssemblyManipulator.Physical
 
       private static Int32 HashCode_ResourceManagerEntry_UserDefined( UserDefinedResourceManagerEntry x )
       {
-         return x == null ? 0 : ( ( 17 * 23 + x.UserDefinedType.GetHashCodeSafe( 1 ) ) * 23 + ListEqualityComparer<List<AbstractRecord>, AbstractRecord>.ListHashCode( x.Contents, HashCode_AbstractRecord ) );
+         return x == null ? 0 : ( ( 17 * 23 + x.UserDefinedType.GetHashCodeSafe( 1 ) ) * 23 + HashCode_AbstractRecord( x.Contents ) );
       }
 
       private static Int32 HashCode_AbstractRecord( AbstractRecord x )

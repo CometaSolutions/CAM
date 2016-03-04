@@ -95,21 +95,21 @@ namespace CILAssemblyManipulator.Tests.Physical
          }
 
          read1.ResolveEverything();
-         var resManagerList1 = new List<Tuple<String, ResourceManagerEntry>[]>();
-         foreach ( var mr in read1.ManifestResources.TableContents.Where( m => m.IsEmbeddedResource() ) )
-         {
-            var data = mr.EmbeddedData;
-            Boolean wasResourceManagerData;
-            var items = data.ReadResourceManagerEntries( out wasResourceManagerData );
-            if ( wasResourceManagerData )
-            {
-               resManagerList1.Add( items.Select( i =>
-                {
-                   var idx = i.DataOffset;
-                   return Tuple.Create( i.Name, i.CreateEntry( data ) );
-                } ).ToArray() );
-            }
-         }
+         //var resManagerList1 = new List<Tuple<String, ResourceManagerEntry>[]>();
+         //foreach ( var mr in read1.ManifestResources.TableContents.Where( m => m.IsEmbeddedResource() ) )
+         //{
+         //   var data = mr.EmbeddedData;
+         //   Boolean wasResourceManagerData;
+         //   var items = data.ReadResourceManagerEntries( out wasResourceManagerData );
+         //   if ( wasResourceManagerData )
+         //   {
+         //      resManagerList1.Add( items.Select( i =>
+         //       {
+         //          var idx = i.DataOffset;
+         //          return Tuple.Create( i.Name, i.CreateEntry( data ) );
+         //       } ).ToArray() );
+         //   }
+         //}
          if ( afterFirstRead != null )
          {
             afterFirstRead( read1 );
@@ -134,21 +134,21 @@ namespace CILAssemblyManipulator.Tests.Physical
          }
 
          read2.ResolveEverything();
-         var resManagerList2 = new List<Tuple<String, ResourceManagerEntry>[]>();
-         foreach ( var mr in read2.ManifestResources.TableContents.Where( m => m.IsEmbeddedResource() ) )
-         {
-            var data = mr.EmbeddedData;
-            Boolean wasResourceManagerData;
-            var items = data.ReadResourceManagerEntries( out wasResourceManagerData );
-            if ( wasResourceManagerData )
-            {
-               resManagerList2.Add( items.Select( i =>
-               {
-                  var idx = i.DataOffset;
-                  return Tuple.Create( i.Name, i.CreateEntry( data ) );
-               } ).ToArray() );
-            }
-         }
+         //var resManagerList2 = new List<Tuple<String, ResourceManagerEntry>[]>();
+         //foreach ( var mr in read2.ManifestResources.TableContents.Where( m => m.IsEmbeddedResource() ) )
+         //{
+         //   var data = mr.EmbeddedData;
+         //   Boolean wasResourceManagerData;
+         //   var items = data.ReadResourceManagerEntries( out wasResourceManagerData );
+         //   if ( wasResourceManagerData )
+         //   {
+         //      resManagerList2.Add( items.Select( i =>
+         //      {
+         //         var idx = i.DataOffset;
+         //         return Tuple.Create( i.Name, i.CreateEntry( data ) );
+         //      } ).ToArray() );
+         //   }
+         //}
          if ( afterSecondRead != null )
          {
             afterSecondRead( read2 );
@@ -173,7 +173,7 @@ namespace CILAssemblyManipulator.Tests.Physical
          // We don't use public key when emitting module
          //rArgs1.Headers.ModuleFlags = ModuleFlags.ILOnly;
          Assert.IsTrue( CAMPhysicalIO::CILAssemblyManipulator.Physical.Comparers.ImageInformationLogicalEqualityComparer.Equals( rArgs1.ImageInformation, rArgs2.ImageInformation ) );
-         Assert.IsTrue( CommonUtils.ListEqualityComparer<List<Tuple<String, ResourceManagerEntry>[]>, Tuple<String, ResourceManagerEntry>[]>.ListEquality( resManagerList1, resManagerList2, ( xArray, yArray ) => CommonUtils.ArrayEqualityComparer<Tuple<String, ResourceManagerEntry>>.ArrayEquality( xArray, yArray, ( x, y ) => String.Equals( x.Item1, y.Item1 ) && CAMPhysicalM::CILAssemblyManipulator.Physical.Comparers.ResourceManagerEntryEqualityComparer.Equals( x.Item2, y.Item2 ) ) ) );
+         //Assert.IsTrue( CommonUtils.ListEqualityComparer<List<Tuple<String, ResourceManagerEntry>[]>, Tuple<String, ResourceManagerEntry>[]>.ListEquality( resManagerList1, resManagerList2, ( xArray, yArray ) => CommonUtils.ArrayEqualityComparer<Tuple<String, ResourceManagerEntry>>.ArrayEquality( xArray, yArray, ( x, y ) => String.Equals( x.Item1, y.Item1 ) && CAMPhysicalM::CILAssemblyManipulator.Physical.Comparers.ResourceManagerEntryEqualityComparer.Equals( x.Item2, y.Item2 ) ) ) );
       }
 
    }

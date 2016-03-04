@@ -193,12 +193,11 @@ public static partial class E_CILPhysical
       if ( entry.IsUserDefinedType() )
       {
          // Read the NRBF records directly
-         var ud = new UserDefinedResourceManagerEntry()
+         retVal = new UserDefinedResourceManagerEntry()
          {
-            UserDefinedType = entry.UserDefinedType
+            UserDefinedType = entry.UserDefinedType,
+            Contents = array.ReadUserDefinedEntryContents( ref idx, idx + entry.DataSize )
          };
-         array.ReadNRBFRecords( ref idx, idx + entry.DataSize, ud.Contents );
-         retVal = ud;
       }
       else
       {
@@ -253,10 +252,10 @@ public static partial class E_CILPhysical
                value = new Decimal( array.ReadInt32ArrayLEFromBytes( ref idx, 4 ) );
                break;
             case ResourceTypeCode.DateTime:
-               value = DateTime.FromBinary( array.ReadInt64LEFromBytes( ref idx ) );
+               value = array.ReadResourceManagerDateTime_AsResourceManagerEntry( ref idx );
                break;
             case ResourceTypeCode.TimeSpan:
-               value = new TimeSpan( array.ReadInt64LEFromBytes( ref idx ) );
+               value = array.ReadResourceManagerTimeSpan_AsResourceManagerEntry( ref idx );
                break;
             case ResourceTypeCode.ByteArray:
                var arrayLen = array.ReadInt32LEFromBytes( ref idx );
@@ -266,6 +265,7 @@ public static partial class E_CILPhysical
                var streamLen = array.ReadInt32LEFromBytes( ref idx );
                var ms = new MemoryStream();
                ms.Write( array, idx, streamLen );
+               ms.Position = 0;
                value = ms;
                break;
             default:
@@ -279,26 +279,26 @@ public static partial class E_CILPhysical
       return retVal;
    }
 
-   private static void ReadNRBFRecords( this Byte[] array, ref Int32 idx, Int32 maxIndex, List<AbstractRecord> list )
+   private static AbstractRecord ReadUserDefinedEntryContents( this Byte[] array, ref Int32 idx, Int32 maxIndex )
    {
       var state = new DeserializationState( array, idx );
+      AbstractRecord retVal = null;
       while ( idx < maxIndex && !state.recordsEnded )
       {
          var record = ReadSingleRecord( state ) as AbstractRecord;
-         if ( record != null )
+         if ( record != null && retVal == null )
          {
-            list.Add( record );
+            retVal = record;
          }
       }
-      for ( var i = 0; i < list.Count; ++i )
+
+      Object actual;
+      if ( CheckPlaceholder( state, retVal, out actual ) )
       {
-         var rec = list[i];
-         AbstractRecord actual;
-         if ( CheckPlaceholder( state, rec, out actual ) )
-         {
-            list[i] = actual;
-         }
+         retVal = actual as AbstractRecord;
       }
+
+      return retVal;
    }
 
    private static Object ReadSingleRecord( DeserializationState state )
@@ -322,23 +322,19 @@ public static partial class E_CILPhysical
                break;
             case RecordTypeEnumeration.ClassWithID:
                cRecord = NewRecord<ClassRecord>( state );
-               var refID = state.array.ReadInt32LEFromBytes( ref state.idx );
-               var refRecord = (ClassRecord) state.records[refID];
+               var refRecord = (ClassRecord) state.records[state.array.ReadInt32LEFromBytes( ref state.idx )];
                // Copy metadata from referenced object
                cRecord.AssemblyName = refRecord.AssemblyName;
                cRecord.TypeName = refRecord.TypeName;
                cRecord.Members.Capacity = refRecord.Members.Count;
-               for ( var i = 0; i < refRecord.Members.Count; ++i )
+               cRecord.Members.AddRange( refRecord.Members.Select( refMember => new ClassRecordMember()
                {
-                  var member = new ClassRecordMember();
-                  var refMember = refRecord.Members[i];
-                  member.AssemblyName = refMember.AssemblyName;
-                  member.TypeName = refMember.TypeName;
-                  member.Name = refMember.Name;
-                  cRecord.Members.Add( member );
-               }
+                  AssemblyName = refMember.AssemblyName,
+                  TypeName = refMember.TypeName,
+                  Name = refMember.Name
+               } ) );
                // Read values
-               ReadMemberValues( state, cRecord );
+               ReadMemberValues( state, cRecord, refRecord );
                retVal = cRecord;
                break;
             case RecordTypeEnumeration.SystemClassWithMembers:
@@ -461,12 +457,13 @@ public static partial class E_CILPhysical
       }
    }
 
-   private static void ReadMemberValues( DeserializationState state, ClassRecord record )
+   private static void ReadMemberValues( DeserializationState state, ClassRecord record, ClassRecord refRecord = null )
    {
-      foreach ( var member in record.Members )
+      var mems = record.Members;
+      for ( var i = 0; i < mems.Count; ++i )
       {
-         var val = ReadMemberValue( state, member );
-         member.Value = val;
+         var member = mems[i];
+         member.Value = ReadMemberValue( state, refRecord == null ? member : refRecord.Members[i] );
       }
    }
 
@@ -501,26 +498,24 @@ public static partial class E_CILPhysical
             value = state.array.ReadByteFromBytes( ref state.idx );
             break;
          case PrimitiveTypeEnumeration.Char:
-            // TODO better...
-            var startIdx = state.idx;
-            var charArray = new Char[4];
-            var charsRead = UTF8.GetChars( state.array, startIdx, 4, charArray, 0 );
-            value = charArray[0];
-            state.idx += UTF8.GetByteCount( charArray, 0, 1 );
-            //Int32 charsRead;
-            //var encoding = UTF8;
-            //do
-            //{
-            //   ++state.idx;
-            //   charsRead = encoding.GetCharCount( state.array, startIdx, state.idx - startIdx );
-            //} while ( charsRead == 0 );
-            //UTF8.GetChars( state.array, startIdx, state.idx - startIdx, charArray, 0 );
-            //value = charArray[0];
+            if ( UTF8.GetChars( state.array, state.idx, 4, state.charArray, 0 ) > 0 )
+            {
+               value = state.charArray[0];
+               state.idx += UTF8.GetByteCount( state.charArray, 0, 1 );
+            }
+            else
+            {
+               throw new InvalidOperationException( "Char was not really a char?" );
+            }
             break;
          case PrimitiveTypeEnumeration.Decimal:
-            var str = state.array.Read7BitLengthPrefixedString( ref state.idx );
             Decimal d;
-            Decimal.TryParse( str, System.Globalization.NumberStyles.Number, System.Globalization.CultureInfo.InvariantCulture, out d );
+            Decimal.TryParse(
+               state.array.Read7BitLengthPrefixedString( ref state.idx ),
+               System.Globalization.NumberStyles.Number,
+               System.Globalization.CultureInfo.InvariantCulture,
+               out d
+               );
             value = d;
             break;
          case PrimitiveTypeEnumeration.Double:
@@ -542,16 +537,10 @@ public static partial class E_CILPhysical
             value = state.array.ReadSingleLEFromBytes( ref state.idx );
             break;
          case PrimitiveTypeEnumeration.TimeSpan:
-            value = TimeSpan.FromTicks( state.array.ReadInt64LEFromBytes( ref state.idx ) );
+            value = state.array.ReadResourceManagerTimeSpan_AsClassRecordMemberValue( ref state.idx );
             break;
          case PrimitiveTypeEnumeration.DateTime:
-            var rawDateTime = state.array.ReadUInt64LEFromBytes( ref state.idx );
-            if ( ( rawDateTime & 0x8000000000000000uL ) != 0uL )
-            {
-               // This is local date-time, do UTC offset tick adjustment
-               rawDateTime -= (UInt64) TimeZoneInfo.Local.GetUtcOffset( DateTime.MinValue ).Ticks;
-            }
-            value = DateTime.FromBinary( (Int64) rawDateTime );
+            value = state.array.ReadResourceManagerDateTime_AsClassRecordMemberValue( ref state.idx );
             break;
          case PrimitiveTypeEnumeration.UInt16:
             value = state.array.ReadUInt16LEFromBytes( ref state.idx );
@@ -671,7 +660,7 @@ public static partial class E_CILPhysical
       return str;
    }
 
-   private static Boolean CheckPlaceholder( DeserializationState state, Object value, out AbstractRecord rec )
+   private static Boolean CheckPlaceholder( DeserializationState state, Object value, out Object rec )
    {
       var record = value as AbstractRecord;
       var retVal = record != null;
@@ -680,7 +669,7 @@ public static partial class E_CILPhysical
          var ph = record as RecordPlaceholder;
          retVal = ph != null;
          rec = retVal ?
-            state.records[( (RecordPlaceholder) record ).ID] as AbstractRecord :
+            state.records[( (RecordPlaceholder) record ).ID] :
             null;
          if ( !retVal )
          {
@@ -690,9 +679,10 @@ public static partial class E_CILPhysical
                   var claas = (ClassRecord) record;
                   foreach ( var member in claas.Members )
                   {
-                     if ( CheckPlaceholder( state, member.Value, out rec ) )
+                     Object cur;
+                     if ( CheckPlaceholder( state, member.Value, out cur ) )
                      {
-                        member.Value = rec;
+                        member.Value = cur;
                      }
                   }
                   break;
@@ -700,9 +690,10 @@ public static partial class E_CILPhysical
                   var array = (ArrayRecord) record;
                   for ( var i = 0; i < array.ValuesAsVector.Count; ++i )
                   {
-                     if ( CheckPlaceholder( state, array.ValuesAsVector[i], out rec ) )
+                     Object cur;
+                     if ( CheckPlaceholder( state, array.ValuesAsVector[i], out cur ) )
                      {
-                        array.ValuesAsVector[i] = rec;
+                        array.ValuesAsVector[i] = cur;
                      }
                   }
                   break;
@@ -721,6 +712,32 @@ public static partial class E_CILPhysical
       return retVal;
    }
 
+   private static DateTime ReadResourceManagerDateTime_AsResourceManagerEntry( this Byte[] array, ref Int32 idx )
+   {
+      return DateTime.FromBinary( array.ReadInt64LEFromBytes( ref idx ) );
+   }
+
+   private static TimeSpan ReadResourceManagerTimeSpan_AsResourceManagerEntry( this Byte[] array, ref Int32 idx )
+   {
+      return TimeSpan.FromTicks( array.ReadInt64LEFromBytes( ref idx ) );
+   }
+
+   private static DateTime ReadResourceManagerDateTime_AsClassRecordMemberValue( this Byte[] array, ref Int32 idx )
+   {
+      var rawDateTime = array.ReadUInt64LEFromBytes( ref idx );
+      if ( ( rawDateTime & 0x8000000000000000uL ) != 0uL )
+      {
+         // This is local date-time, do UTC offset tick adjustment
+         rawDateTime -= (UInt64) TimeZoneInfo.Local.GetUtcOffset( DateTime.MinValue ).Ticks;
+      }
+      return DateTime.FromBinary( (Int64) rawDateTime );
+   }
+
+   private static TimeSpan ReadResourceManagerTimeSpan_AsClassRecordMemberValue( this Byte[] array, ref Int32 idx )
+   {
+      return TimeSpan.FromTicks( array.ReadInt64LEFromBytes( ref idx ) );
+   }
+
    private sealed class DeserializationState
    {
       internal readonly Byte[] array;
@@ -732,6 +749,7 @@ public static partial class E_CILPhysical
       internal readonly IDictionary<ArrayRecord, BinaryArrayTypeEnumeration> arrayTypeInfos;
       internal Boolean recordsEnded;
       internal Int32 nullCount;
+      internal Char[] charArray;
 
       internal DeserializationState( Byte[] array, Int32 idx )
       {
@@ -744,6 +762,7 @@ public static partial class E_CILPhysical
          this.arrayTypeInfos = new Dictionary<ArrayRecord, BinaryArrayTypeEnumeration>();
          this.recordsEnded = false;
          this.nullCount = 0;
+         this.charArray = new Char[4];
       }
    }
 

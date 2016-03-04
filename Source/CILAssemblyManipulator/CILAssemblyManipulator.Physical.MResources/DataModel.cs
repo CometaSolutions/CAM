@@ -157,26 +157,17 @@ namespace CILAssemblyManipulator.Physical.MResources
    public sealed class UserDefinedResourceManagerEntry : ResourceManagerEntry
    {
       /// <summary>
-      /// Creates a new instance of <see cref="UserDefinedResourceManagerEntry"/>.
-      /// </summary>
-      public UserDefinedResourceManagerEntry(
-         )
-      {
-         this.Contents = new List<AbstractRecord>();
-      }
-
-      /// <summary>
       /// Gets or sets the textual type information of this <see cref="UserDefinedResourceManagerEntry"/>.
       /// </summary>
       /// <value>The textual type information of this <see cref="UserDefinedResourceManagerEntry"/>.</value>
       public String UserDefinedType { get; set; }
 
       /// <summary>
-      /// Gets the contents of this <see cref="UserDefinedResourceManagerEntry"/> as list of <see cref="AbstractRecord"/>s.
+      /// Gets or sets the contents of this <see cref="UserDefinedResourceManagerEntry"/> as <see cref="AbstractRecord"/>.
       /// </summary>
-      /// <value>The contents of this <see cref="UserDefinedResourceManagerEntry"/> as list of <see cref="AbstractRecord"/>s.</value>
+      /// <value>The contents of this <see cref="UserDefinedResourceManagerEntry"/> as <see cref="AbstractRecord"/>.</value>
       /// <seealso cref="AbstractRecord"/>
-      public List<AbstractRecord> Contents { get; }
+      public AbstractRecord Contents { get; set; }
 
       /// <summary>
       /// Returns the <see cref="ResourceManagerEntryKind.UserDefined"/>.
@@ -196,7 +187,7 @@ namespace CILAssemblyManipulator.Physical.MResources
       /// <returns>Textual representation of this <see cref="UserDefinedResourceManagerEntry"/>.</returns>
       public override String ToString()
       {
-         return "Resource of type " + this.UserDefinedType + " with " + this.Contents.Count + " records.";
+         return "Resource of type " + this.UserDefinedType;
       }
    }
 

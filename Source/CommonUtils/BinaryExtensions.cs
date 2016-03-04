@@ -153,10 +153,12 @@ public static partial class E_CommonUtils
    /// </summary>
    /// <param name="stream">The <see cref="Stream"/>.</param>
    /// <param name="amount">How many bytes to advance or go back.</param>
+   /// <returns>The <paramref name="stream"/>.</returns>
    /// <exception cref="NullReferenceException">If <paramref name="stream"/> is <c>null</c>.</exception>
-   public static void SeekFromCurrent( this Stream stream, Int64 amount )
+   public static Stream SeekFromCurrent( this Stream stream, Int64 amount )
    {
       stream.Seek( amount, SeekOrigin.Current );
+      return stream;
    }
 
    /// <summary>
@@ -164,10 +166,12 @@ public static partial class E_CommonUtils
    /// </summary>
    /// <param name="stream">The <see cref="Stream"/>.</param>
    /// <param name="position">How many bytes to seek from the beginning.</param>
+   /// <returns>The <paramref name="stream"/>.</returns>
    /// <exception cref="NullReferenceException">If <paramref name="stream"/> is <c>null</c>.</exception>
-   public static void SeekFromBegin( this Stream stream, Int64 position )
+   public static Stream SeekFromBegin( this Stream stream, Int64 position )
    {
       stream.Seek( position, SeekOrigin.Begin );
+      return stream;
    }
 
    /// <summary>

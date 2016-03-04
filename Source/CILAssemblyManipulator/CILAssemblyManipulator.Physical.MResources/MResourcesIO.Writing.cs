@@ -43,14 +43,14 @@ public static partial class E_CILPhysical
          case ResourceManagerEntryKind.PreDefined:
             throw new NotImplementedException( "Not implemented yet." );
          case ResourceManagerEntryKind.UserDefined:
-            ( (UserDefinedResourceManagerEntry) entry ).Contents.WriteNRBFRecords( stream );
+            ( (UserDefinedResourceManagerEntry) entry ).WriteNRBFRecords( stream );
             break;
          default:
             throw new ArgumentException( "Unrecognized resource manager entry kind: " + kind + "." );
       }
    }
 
-   private static void WriteNRBFRecords( this List<AbstractRecord> records, Stream stream )
+   private static void WriteNRBFRecords( this UserDefinedResourceManagerEntry entry, Stream stream )
    {
       var state = new SerializationState( stream );
       // Write header
@@ -64,20 +64,20 @@ public static partial class E_CILPhysical
       stream.Write( state.array );
 
       // Collect all assembly names
-      foreach ( var rec in records )
+      var rec = entry.Contents;
+
+      // Write used assembly names first
+      WriteAssemblyNames( state, rec );
+
+      // Write record structure
+      WriteSingleRecord( state, rec, false );
+
+      // Empty queue of reference objects
+      while ( state.recordQueue.Count > 0 )
       {
-         // Write used assembly names first
-         WriteAssemblyNames( state, rec );
-
-         // Write record structure
-         WriteSingleRecord( state, rec, false );
-
-         // Empty queue of reference objects
-         while ( state.recordQueue.Count > 0 )
-         {
-            WriteSingleRecord( state, state.recordQueue.Dequeue(), true );
-         }
+         WriteSingleRecord( state, state.recordQueue.Dequeue(), true );
       }
+
 
       // Write end
       state.EnsureCapacity( 1 );

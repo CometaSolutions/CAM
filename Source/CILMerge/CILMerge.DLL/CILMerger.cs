@@ -3336,11 +3336,7 @@ namespace CILMerge
                            var newTypeStr = this.ProcessTypeString( md, ud.UserDefinedType );
                            // Have to fix records one by one
                            var idx = resx.DataOffset;
-                           var records = ud.Contents;
-                           foreach ( var rec in records )
-                           {
-                              this.ProcessNRBFRecord( md, rec );
-                           }
+                           this.ProcessNRBFRecord( md, ud.Contents );
                            using ( var strm2 = new MemoryStream() )
                            {
                               ud.WriteEntry( strm2 );
