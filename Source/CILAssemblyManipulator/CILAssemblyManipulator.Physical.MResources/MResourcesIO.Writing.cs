@@ -549,12 +549,15 @@ public static partial class E_CILPhysical
 
                   }
                }
+               else if ( obj is TimeSpan )
+               {
+                  pType = PrimitiveTypeEnumeration.TimeSpan;
+                  return BinaryTypeEnumeration.Primitive;
+               }
                else
                {
                   throw new InvalidOperationException( "Only primitives and AbstractRecords allowed as values. Encountered " + obj + " as value." );
                }
-            case TypeCode.String:
-               return BinaryTypeEnumeration.String;
             default:
                pType = GetPrimitiveType( obj );
                return BinaryTypeEnumeration.Primitive;

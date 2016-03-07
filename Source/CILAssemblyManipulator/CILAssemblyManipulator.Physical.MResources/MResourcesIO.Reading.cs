@@ -671,12 +671,13 @@ public static partial class E_CILPhysical
          rec = retVal ?
             state.records[( (RecordPlaceholder) record ).ID] :
             null;
-         if ( !retVal )
+         var recordToCheck = ( retVal ? rec : value ) as AbstractRecord;
+         if ( recordToCheck != null )
          {
-            switch ( record.RecordKind )
+            switch ( recordToCheck.RecordKind )
             {
                case RecordKind.Class:
-                  var claas = (ClassRecord) record;
+                  var claas = (ClassRecord) recordToCheck;
                   foreach ( var member in claas.Members )
                   {
                      Object cur;
@@ -687,7 +688,7 @@ public static partial class E_CILPhysical
                   }
                   break;
                case RecordKind.Array:
-                  var array = (ArrayRecord) record;
+                  var array = (ArrayRecord) recordToCheck;
                   for ( var i = 0; i < array.ValuesAsVector.Count; ++i )
                   {
                      Object cur;

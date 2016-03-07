@@ -164,26 +164,57 @@ namespace CILAssemblyManipulator.Tests.Physical
             Tuple.Create( NAME + "_" + nameof( TestSimpleArrayResourceType.Array_Nulls ), new UserDefinedResourceManagerEntry() { UserDefinedType = typeof( Object[] ).AssemblyQualifiedName, Contents = resourceValue.Array_Nulls.CreateArrayRecord() } ),
             Tuple.Create( NAME + "_" + nameof( TestSimpleArrayResourceType.Array_String ), new UserDefinedResourceManagerEntry() { UserDefinedType = typeof( String[] ).AssemblyQualifiedName, Contents = resourceValue.Array_String.CreateArrayRecord() } ),
             Tuple.Create( NAME + "_" + nameof( TestSimpleArrayResourceType.Array_Int32 ), new UserDefinedResourceManagerEntry() { UserDefinedType = typeof( Int32[] ).AssemblyQualifiedName, Contents = resourceValue.Array_Int32.CreateArrayRecord() } ),
-            Tuple.Create( NAME + "_" + nameof( TestSimpleArrayResourceType.Array_UserDefined ), new UserDefinedResourceManagerEntry() { UserDefinedType = typeof( UserDefinedResourceManagerEntry[] ).AssemblyQualifiedName, Contents = resourceValue.Array_UserDefined.CreateArrayRecord( i => CreateRecordFrom( i ) ) } ),
+            Tuple.Create( NAME + "_" + nameof( TestSimpleArrayResourceType.Array_UserDefined ), new UserDefinedResourceManagerEntry() { UserDefinedType = typeof( TestResourceType[] ).AssemblyQualifiedName, Contents = resourceValue.Array_UserDefined.CreateArrayRecord( i => CreateRecordFrom( i ) ) } ),
          };
 
          Boolean resourceManagerIdentified;
          var resources = serializedResource.ReadResourceManagerEntries( out resourceManagerIdentified ).ToArray();
          Assert.IsTrue( resourceManagerIdentified );
          Assert.AreEqual( resourceInfo.Length, resources.Length );
-         var deserializedPrimitiveInfo = resources.Select( res => Tuple.Create( res.Name, (UserDefinedResourceManagerEntry) res.CreateEntry( serializedResource ) ) ).ToArray();
+         var deserializedInfo = resources.Select( res => Tuple.Create( res.Name, (UserDefinedResourceManagerEntry) res.CreateEntry( serializedResource ) ) ).ToArray();
          Assert.IsTrue(
             ArrayEqualityComparer<Tuple<String, UserDefinedResourceManagerEntry>>.IsPermutation(
                resourceInfo,
-               deserializedPrimitiveInfo,
+               deserializedInfo,
                ComparerFromFunctions.NewEqualityComparer<Tuple<String, UserDefinedResourceManagerEntry>>(
                   ( x, y ) => String.Equals( x.Item1, y.Item1 ) && CAMPhysicalM::CILAssemblyManipulator.Physical.Comparers.UserDefinedResourceManagerEntryEqualityComparer.Equals( x.Item2, y.Item2 ),
                   x => x.Item1.GetHashCodeSafe()
                   )
                ),
-            "Primitive values of {0} were not serialized properly",
+            "Array values of {0} were not serialized properly",
             resourceValue );
 
+      }
+
+      [Test]
+      public void RoundtripTest_UserDefinedTypes()
+      {
+         var resource = CreateNativeResourceObject();
+         var typeStr = resource.GetType().AssemblyQualifiedName;
+         var entry = new UserDefinedResourceManagerEntry()
+         {
+            UserDefinedType = typeStr,
+            Contents = CreateRecordFrom( resource )
+         };
+         Byte[] data;
+         using ( var stream = new MemoryStream() )
+         {
+            entry.WriteEntry( stream );
+            data = stream.ToArray();
+         }
+
+         var entry2 = new ResourceManagerEntryInformation()
+         {
+            DataOffset = 0,
+            DataSize = data.Length,
+            UserDefinedType = typeStr
+         }.CreateEntry( data ) as UserDefinedResourceManagerEntry;
+
+
+         Assert.IsTrue(
+            CAMPhysicalM::CILAssemblyManipulator.Physical.Comparers.UserDefinedResourceManagerEntryEqualityComparer.Equals( entry, entry2 ),
+            "Native value: {0}", resource
+            );
       }
 
       private static TestResourceType CreateNativeResourceObject()
@@ -194,7 +225,7 @@ namespace CILAssemblyManipulator.Tests.Physical
          {
             NullValue = null,
             BooleanValue = r.Next() % 2 == 1,
-            CharValue = (Char) r.Next(),
+            CharValue = r.NextChar(),
             SByteValue = (SByte) r.Next(),
             ByteValue = (Byte) r.Next(),
             Int16Value = (Int16) r.Next(),
@@ -370,7 +401,9 @@ namespace CILAssemblyManipulator.Tests.Physical
             new ClassRecordMember()
             {
                Name = FIELD_PREFIX + nameof(TestSimpleArrayResourceType.Array_UserDefined) + FIELD_SUFFIX,
-               Value = res.Array_UserDefined.CreateArrayRecord( el => CreateRecordFrom(el))
+               Value = res.Array_UserDefined.CreateArrayRecord( el => CreateRecordFrom(el)),
+               AssemblyName = typeof(TestResourceType[]).Assembly.GetName().ToString(),
+               TypeName = typeof(TestResourceType[]).FullName
             },
          } );
          return rec;
@@ -474,13 +507,29 @@ public static class E_Util
       var elementType = typeof( T );
       var retVal = new ArrayRecord()
       {
-         ArrayKind = BinaryArrayTypeEnumeration.Single,
-         AssemblyName = elementType.ToString(),
-         TypeName = elementType.FullName,
-         Rank = 1
+         ArrayKind = BinaryArrayTypeEnumeration.Single
       }.AddValuesToArrayRecord( array.Select( t => itemProcessor == null ? (Object) t : itemProcessor( t ) ) );
+      if ( ArrayElementTypeNeedsInfo( array.GetType().GetElementType() ) )
+      {
+         retVal.AssemblyName = elementType.Assembly.GetName().ToString();
+         retVal.TypeName = elementType.FullName;
+      }
       retVal.Lengths.Add( array.Length );
       return retVal;
+   }
+
+   private static Boolean ArrayElementTypeNeedsInfo( Type elementType )
+   {
+      switch ( Type.GetTypeCode( elementType ) )
+      {
+         case TypeCode.DateTime:
+         case TypeCode.Decimal:
+            return true;
+         case TypeCode.Object:
+            return typeof( Object ).Equals( elementType ) ? false : true;
+         default:
+            return false;
+      }
    }
 
    internal static ArrayRecord AddValuesToArrayRecord( this ArrayRecord record, IEnumerable<Object> values )
@@ -499,6 +548,16 @@ public static class E_Util
       var bytez = new Byte[byteCount];
       rng.NextBytes( bytez );
       return bytez;
+   }
+
+   public static Char NextChar( this Random rng )
+   {
+      Char ch;
+      do
+      {
+         ch = (Char) rng.NextInt32();
+      } while ( Char.IsSurrogate( ch ) );
+      return ch;
    }
 
    public static Int64 NextInt64( this Random rng )
