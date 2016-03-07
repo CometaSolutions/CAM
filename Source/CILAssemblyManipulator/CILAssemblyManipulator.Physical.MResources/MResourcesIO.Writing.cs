@@ -165,26 +165,29 @@ public static partial class E_CILPhysical
          }
 
       }
-      else if ( record == null )
-      {
-         // Write header
-         state.EnsureCapacity( 2 );
-         var pType = GetPrimitiveType( primitiveValue );
-         state.array
-            .WriteByteToBytes( ref state.idx, (Byte) RecordTypeEnumeration.MemberPrimitiveTyped )
-            .WriteByteToBytes( ref state.idx, (Byte) pType );
-         state.WriteArrayToStream();
-         // Write primitive
-         WritePrimitive( state, primitiveValue, pType );
-      }
       else
       {
-         // Record was already serialized, write member reference to it
-         state.EnsureCapacity( 5 );
-         state.array
-            .WriteByteToBytes( ref state.idx, (Byte) RecordTypeEnumeration.MemberReference )
-            .WriteInt32LEToBytes( ref state.idx, id );
-         state.WriteArrayToStream();
+         if ( record == null )
+         {
+            // Write header
+            state.EnsureCapacity( 2 );
+            var pType = GetPrimitiveType( primitiveValue );
+            state.array
+               .WriteByteToBytes( ref state.idx, (Byte) RecordTypeEnumeration.MemberPrimitiveTyped )
+               .WriteByteToBytes( ref state.idx, (Byte) pType );
+            state.WriteArrayToStream();
+            // Write primitive
+            WritePrimitive( state, primitiveValue, pType );
+         }
+         else
+         {
+            // Record was already serialized, write member reference to it
+            state.EnsureCapacity( 5 );
+            state.array
+               .WriteByteToBytes( ref state.idx, (Byte) RecordTypeEnumeration.MemberReference )
+               .WriteInt32LEToBytes( ref state.idx, id );
+            state.WriteArrayToStream();
+         }
       }
    }
 
@@ -285,6 +288,24 @@ public static partial class E_CILPhysical
          {
             var member = claas.Members[i];
             var val = member.Value;
+            //var typeInfo = mTypeCodes[i];
+            //switch ( typeInfo.Item1 )
+            //{
+            //   case BinaryTypeEnumeration.Primitive:
+            //      WritePrimitive( state, val, typeInfo.Item2 );
+            //      break;
+            //   case BinaryTypeEnumeration.String:
+            //      WriteSingleRecord( state, null, false, val );
+            //      break;
+            //   case BinaryTypeEnumeration.Object:
+            //   case BinaryTypeEnumeration.SystemClass:
+            //   case BinaryTypeEnumeration.Class:
+            //   case BinaryTypeEnumeration.ObjectArray:
+            //   case BinaryTypeEnumeration.StringArray:
+            //   case BinaryTypeEnumeration.PrimitiveArray:
+
+
+            //}
 
             var rec = val as AbstractRecord;
             if ( val is String || rec != null )
@@ -512,7 +533,7 @@ public static partial class E_CILPhysical
       if ( obj == null )
       {
          pType = PrimitiveTypeEnumeration.Null;
-         return BinaryTypeEnumeration.Primitive;
+         return BinaryTypeEnumeration.Object;
       }
       else
       {
@@ -558,6 +579,9 @@ public static partial class E_CILPhysical
                {
                   throw new InvalidOperationException( "Only primitives and AbstractRecords allowed as values. Encountered " + obj + " as value." );
                }
+            case TypeCode.String:
+               pType = PrimitiveTypeEnumeration.String;
+               return BinaryTypeEnumeration.String;
             default:
                pType = GetPrimitiveType( obj );
                return BinaryTypeEnumeration.Primitive;
@@ -646,18 +670,7 @@ public static partial class E_CILPhysical
             state.idx = UTF8.GetBytes( new[] { (Char) primitive }, 0, 1, state.array, 0 );
             break;
          case PrimitiveTypeEnumeration.Decimal:
-            var d = (Decimal) primitive;
-            s = d.ToString();
-            len = UTF8.GetByteCount( s );
-            var ints = Decimal.GetBits( d );
-            state.EnsureCapacity( 5 + len + 16 );
-            state.array
-               .WriteInt32Encoded7Bit( ref state.idx, len )
-               .WriteStringToBytes( ref state.idx, UTF8, s )
-               .WriteInt32LEToBytes( ref state.idx, ints[0] )
-               .WriteInt32LEToBytes( ref state.idx, ints[1] )
-               .WriteInt32LEToBytes( ref state.idx, ints[2] )
-               .WriteInt32LEToBytes( ref state.idx, ints[3] );
+            state.WriteResourceManagerDecimal_AsClassRecordMemberValue( (Decimal) primitive );
             break;
          case PrimitiveTypeEnumeration.Double:
             state.EnsureCapacity( 8 );
@@ -684,12 +697,10 @@ public static partial class E_CILPhysical
             state.array.WriteSingleLEToBytes( ref state.idx, (Single) primitive );
             break;
          case PrimitiveTypeEnumeration.TimeSpan:
-            state.EnsureCapacity( 8 );
-            state.array.WriteInt64LEToBytes( ref state.idx, ( (TimeSpan) primitive ).Ticks );
+            state.WriteResourceManagerTimeSpan_AsClassRecordMemberValue( (TimeSpan) primitive );
             break;
          case PrimitiveTypeEnumeration.DateTime:
-            state.EnsureCapacity( 8 );
-            state.array.WriteInt64LEToBytes( ref state.idx, ( (DateTime) primitive ).ToBinary() );
+            state.WriteResourceManagerDateTime_AsClassRecordMemberValue( (DateTime) primitive );
             break;
          case PrimitiveTypeEnumeration.UInt16:
             state.EnsureCapacity( 2 );
@@ -725,6 +736,55 @@ public static partial class E_CILPhysical
       return String.IsNullOrEmpty( str ) ?
          0 :
          ( encoding ?? UTF8 ).GetByteCount( str );
+   }
+
+   private static void WriteResourceManagerDateTime_AsResourceManagerEntry( this SerializationState state, DateTime dt )
+   {
+      state.EnsureCapacity( state.idx + 8 );
+      state.array.WriteInt64LEToBytes( ref state.idx, dt.ToBinary() );
+   }
+
+   private static void WriteResourceManagerTimeSpan_AsResourceManagerEntry( this SerializationState state, TimeSpan ts )
+   {
+      state.EnsureCapacity( state.idx + 8 );
+      state.array.WriteInt64LEToBytes( ref state.idx, ts.Ticks );
+   }
+
+   private static void WriteResourceManagerDateTime_AsClassRecordMemberValue( this SerializationState state, DateTime dt )
+   {
+      var rawDateTime = (UInt64) dt.ToBinary();
+      if ( ( rawDateTime & 0x8000000000000000uL ) != 0uL )
+      {
+         // This is local date-time, do UTC offset tick adjustment
+         rawDateTime -= (UInt64) TimeZoneInfo.Local.GetUtcOffset( DateTime.MinValue ).Ticks;
+      }
+      state.EnsureCapacity( state.idx + 8 );
+      state.array.WriteUInt64LEToBytes( ref state.idx, rawDateTime );
+   }
+
+   private static void WriteResourceManagerTimeSpan_AsClassRecordMemberValue( this SerializationState state, TimeSpan ts )
+   {
+      state.EnsureCapacity( state.idx + 8 );
+      state.array.WriteInt64LEToBytes( ref state.idx, ts.Ticks );
+   }
+
+   private static void WriteResourceManagerDecimal_AsResourceManagerEntry( this SerializationState state, Decimal d )
+   {
+      state.EnsureCapacity( state.idx + 16 );
+      foreach ( var val in Decimal.GetBits( d ) )
+      {
+         state.array.WriteInt32LEToBytes( ref state.idx, val );
+      }
+   }
+
+   private static void WriteResourceManagerDecimal_AsClassRecordMemberValue( this SerializationState state, Decimal d )
+   {
+      var str = d.ToString( null, System.Globalization.CultureInfo.InvariantCulture );
+      var len = UTF8.GetByteCount( str );
+      state.EnsureCapacity( 5 + len );
+      state.array
+         .WriteInt32Encoded7Bit( ref state.idx, len )
+         .WriteStringToBytes( ref state.idx, UTF8, str );
    }
 
 

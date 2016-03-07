@@ -153,10 +153,6 @@ namespace CILAssemblyManipulator.Physical.MResources
          }
 
       }
-
-
-
-
    }
 }
 
@@ -249,7 +245,7 @@ public static partial class E_CILPhysical
                value = array.ReadDoubleLEFromBytes( ref idx );
                break;
             case ResourceTypeCode.Decimal:
-               value = new Decimal( array.ReadInt32ArrayLEFromBytes( ref idx, 4 ) );
+               value = array.ReadResourceManagerDecimal_AsResourceManagerEntry( ref idx );
                break;
             case ResourceTypeCode.DateTime:
                value = array.ReadResourceManagerDateTime_AsResourceManagerEntry( ref idx );
@@ -460,10 +456,10 @@ public static partial class E_CILPhysical
    private static void ReadMemberValues( DeserializationState state, ClassRecord record, ClassRecord refRecord = null )
    {
       var mems = record.Members;
+      var refMems = refRecord == null ? mems : refRecord.Members;
       for ( var i = 0; i < mems.Count; ++i )
       {
-         var member = mems[i];
-         member.Value = ReadMemberValue( state, refRecord == null ? member : refRecord.Members[i] );
+         mems[i].Value = ReadMemberValue( state, refMems[i] );
       }
    }
 
@@ -509,14 +505,7 @@ public static partial class E_CILPhysical
             }
             break;
          case PrimitiveTypeEnumeration.Decimal:
-            Decimal d;
-            Decimal.TryParse(
-               state.array.Read7BitLengthPrefixedString( ref state.idx ),
-               System.Globalization.NumberStyles.Number,
-               System.Globalization.CultureInfo.InvariantCulture,
-               out d
-               );
-            value = d;
+            value = state.array.ReadResourceManagerDecimal_AsClassRecordMemberValue( ref state.idx );
             break;
          case PrimitiveTypeEnumeration.Double:
             value = state.array.ReadDoubleLEFromBytes( ref state.idx );
@@ -737,6 +726,23 @@ public static partial class E_CILPhysical
    private static TimeSpan ReadResourceManagerTimeSpan_AsClassRecordMemberValue( this Byte[] array, ref Int32 idx )
    {
       return TimeSpan.FromTicks( array.ReadInt64LEFromBytes( ref idx ) );
+   }
+
+   private static Decimal ReadResourceManagerDecimal_AsResourceManagerEntry( this Byte[] array, ref Int32 idx )
+   {
+      return new Decimal( array.ReadInt32ArrayLEFromBytes( ref idx, 4 ) );
+   }
+
+   private static Decimal ReadResourceManagerDecimal_AsClassRecordMemberValue( this Byte[] array, ref Int32 idx )
+   {
+      Decimal d;
+      Decimal.TryParse(
+         array.Read7BitLengthPrefixedString( ref idx ),
+         System.Globalization.NumberStyles.Number,
+         System.Globalization.CultureInfo.InvariantCulture,
+         out d
+         );
+      return d;
    }
 
    private sealed class DeserializationState
