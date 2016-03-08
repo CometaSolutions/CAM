@@ -71,6 +71,8 @@ namespace CILAssemblyManipulator.Tests.Physical
             "Native value: {0}, serialized value: {1}",
             resourceValue, serializedResourceString
             );
+
+
       }
 
       [Test]
@@ -203,18 +205,61 @@ namespace CILAssemblyManipulator.Tests.Physical
             data = stream.ToArray();
          }
 
-         var entry2 = new ResourceManagerEntryInformation()
+         var entryInfo = new ResourceManagerEntryInformation()
          {
+            Name = NAME,
             DataOffset = 0,
             DataSize = data.Length,
             UserDefinedType = typeStr
-         }.CreateEntry( data ) as UserDefinedResourceManagerEntry;
+         };
+         var entry2 = entryInfo.CreateEntry( data ) as UserDefinedResourceManagerEntry;
 
 
          Assert.IsTrue(
             CAMPhysicalM::CILAssemblyManipulator.Physical.Comparers.UserDefinedResourceManagerEntryEqualityComparer.Equals( entry, entry2 ),
             "Native value: {0}", resource
             );
+
+
+         Byte[] fullResourceData;
+         using ( var stream = new MemoryStream() )
+         {
+            using ( var rw = new ResourceWriter( stream ) )
+            {
+               rw.AddResourceData( entryInfo.Name, entryInfo.UserDefinedType, data );
+               rw.Generate();
+            }
+            fullResourceData = stream.ToArray();
+         }
+
+         Byte[] data2;
+         using ( var stream = new MemoryStream() )
+         {
+            using ( var rw = new ResourceWriter( stream ) )
+            {
+               rw.AddResource( entryInfo.Name, resource );
+            }
+            var array = stream.ToArray();
+            Boolean wasResMan;
+            var info = array.ReadResourceManagerEntries( out wasResMan ).ToArray()[0];
+            data2 = array.CreateArrayCopy( info.DataOffset, info.DataSize );
+         }
+
+         Tuple<String, Object>[] deserializedResources;
+         using ( var stream = new MemoryStream( fullResourceData ) )
+         using ( var rr = new ResourceReader( stream ) )
+         {
+            var enumz = rr.GetEnumerator();
+            var list = new List<Tuple<String, Object>>();
+            while ( enumz.MoveNext() )
+            {
+               list.Add( Tuple.Create( (String) enumz.Key, enumz.Value ) );
+            }
+
+            deserializedResources = list.ToArray();
+         }
+
+         Assert.IsTrue( resource.Equals( deserializedResources[0].Item2 ), "Serialized value did not equal deserialized: {0}\n\n{1}", resource, deserializedResources[0].Item2 );
       }
 
       private static TestResourceType CreateNativeResourceObject()
@@ -419,7 +464,7 @@ namespace CILAssemblyManipulator.Tests.Physical
    }
 
    [Serializable]
-   public class TestResourceType
+   public class TestResourceType : IEquatable<TestResourceType>
    {
       public Object NullValue { get; set; }
       public Boolean BooleanValue { get; set; }
@@ -483,6 +528,43 @@ namespace CILAssemblyManipulator.Tests.Physical
             + nameof( TimeSpanValue ) + ":" + this.TimeSpanValue + "\n"
             + nameof( StringValue ) + ":" + this.StringValue + "\n"
             + "}";
+      }
+
+      public override Boolean Equals( Object obj )
+      {
+         return this.Equals( obj as TestResourceType );
+      }
+
+      public override Int32 GetHashCode()
+      {
+         throw new NotSupportedException();
+      }
+
+      public Boolean Equals( TestResourceType other )
+      {
+         return ReferenceEquals( this, other ) ||
+            ( other != null
+            && this.NullValue == other.NullValue
+            && this.BooleanValue == other.BooleanValue
+            && this.CharValue == other.CharValue
+            && this.SByteValue == other.SByteValue
+            && this.ByteValue == other.ByteValue
+            && this.Int16Value == other.Int16Value
+            && this.UInt16Value == other.UInt16Value
+            && this.Int32Value == other.Int32Value
+            && this.UInt32Value == other.UInt32Value
+            && this.Int64Value == other.Int64Value
+            && this.UInt64Value == other.UInt64Value
+            && this.SingleValue == other.SingleValue
+            && this.DoubleValue == other.DoubleValue
+            && this.DecimalValue == other.DecimalValue
+            && this.DateTimeValue_Local == other.DateTimeValue_Local
+            && this.DateTimeValue_LocalAmbiguous == other.DateTimeValue_LocalAmbiguous
+            && this.DateTimeValue_UTC == other.DateTimeValue_UTC
+            && this.DateTimeValue_Unspecified == other.DateTimeValue_Unspecified
+            && this.TimeSpanValue == other.TimeSpanValue
+            && this.StringValue == other.StringValue
+            );
       }
    }
 

@@ -279,7 +279,7 @@ public static partial class E_CILPhysical
    {
       var state = new DeserializationState( array, idx );
       AbstractRecord retVal = null;
-      while ( idx < maxIndex && !state.recordsEnded )
+      while ( state.idx < maxIndex && !state.recordsEnded )
       {
          var record = ReadSingleRecord( state ) as AbstractRecord;
          if ( record != null && retVal == null )

@@ -57,11 +57,11 @@ public static partial class E_CILPhysical
       state.EnsureCapacity( 17 ); // Header + header value
       state.array
          .WriteByteToBytes( ref state.idx, (Byte) RecordTypeEnumeration.SerializedStreamHeader )
-         .WriteInt32LEToBytes( ref state.idx, 1 )
-         .WriteInt32LEToBytes( ref state.idx, -1 )
-         .WriteInt32LEToBytes( ref state.idx, 1 )
-         .WriteInt32LEToBytes( ref state.idx, 0 );
-      stream.Write( state.array );
+         .WriteInt32LEToBytes( ref state.idx, 1 ) // ID of "top object"
+         .WriteInt32LEToBytes( ref state.idx, -1 ) // ID of header
+         .WriteInt32LEToBytes( ref state.idx, 1 ) // Formatter major version
+         .WriteInt32LEToBytes( ref state.idx, 0 ); // Formatter minor version
+      state.WriteArrayToStream();
 
       // Collect all assembly names
       var rec = entry.Contents;
@@ -75,14 +75,14 @@ public static partial class E_CILPhysical
       // Empty queue of reference objects
       while ( state.recordQueue.Count > 0 )
       {
-         WriteSingleRecord( state, state.recordQueue.Dequeue(), true );
+         var item = state.recordQueue.Dequeue();
+         WriteSingleRecord( state, item as AbstractRecord, true, item );
       }
-
 
       // Write end
       state.EnsureCapacity( 1 );
       state.array.WriteByteToBytes( ref state.idx, (Byte) RecordTypeEnumeration.MessageEnd );
-      stream.Write( state.array );
+      state.WriteArrayToStream();
    }
 
    private static void WriteAssemblyNames( SerializationState state, AbstractRecord curRecord )
@@ -167,17 +167,26 @@ public static partial class E_CILPhysical
       }
       else
       {
-         if ( record == null )
+         if ( record == null && str == null )
          {
-            // Write header
-            state.EnsureCapacity( 2 );
-            var pType = GetPrimitiveType( primitiveValue );
-            state.array
-               .WriteByteToBytes( ref state.idx, (Byte) RecordTypeEnumeration.MemberPrimitiveTyped )
-               .WriteByteToBytes( ref state.idx, (Byte) pType );
-            state.WriteArrayToStream();
-            // Write primitive
-            WritePrimitive( state, primitiveValue, pType );
+            if ( primitiveValue == null )
+            {
+               state.EnsureCapacity( 1 );
+               state.array.WriteByteToBytes( ref state.idx, (Byte) RecordTypeEnumeration.ObjectNull );
+               state.WriteArrayToStream();
+            }
+            else
+            {
+               // Write header
+               state.EnsureCapacity( 2 );
+               var pType = GetPrimitiveType( primitiveValue );
+               state.array
+                  .WriteByteToBytes( ref state.idx, (Byte) RecordTypeEnumeration.MemberPrimitiveTyped )
+                  .WriteByteToBytes( ref state.idx, (Byte) pType );
+               state.WriteArrayToStream();
+               // Write primitive
+               WritePrimitive( state, primitiveValue, pType );
+            }
          }
          else
          {
@@ -288,48 +297,30 @@ public static partial class E_CILPhysical
          {
             var member = claas.Members[i];
             var val = member.Value;
-            //var typeInfo = mTypeCodes[i];
-            //switch ( typeInfo.Item1 )
-            //{
-            //   case BinaryTypeEnumeration.Primitive:
-            //      WritePrimitive( state, val, typeInfo.Item2 );
-            //      break;
-            //   case BinaryTypeEnumeration.String:
-            //      WriteSingleRecord( state, null, false, val );
-            //      break;
-            //   case BinaryTypeEnumeration.Object:
-            //   case BinaryTypeEnumeration.SystemClass:
-            //   case BinaryTypeEnumeration.Class:
-            //   case BinaryTypeEnumeration.ObjectArray:
-            //   case BinaryTypeEnumeration.StringArray:
-            //   case BinaryTypeEnumeration.PrimitiveArray:
-
-
-            //}
-
-            var rec = val as AbstractRecord;
-            if ( val is String || rec != null )
+            var typeInfo = mTypeCodes[i];
+            var binaryType = typeInfo.Item1;
+            if ( binaryType == BinaryTypeEnumeration.Primitive )
             {
-               // All arrays and non-structs are serialized afterwards.
-               if ( rec is ArrayRecord || ( rec is ClassRecord && !( (ClassRecord) rec ).IsSerializedInPlace ) )
-               {
-                  // Add to mapping before calling recursively in order to create MemberReference
-                  if ( state.TryAddRecord( rec, out id ) )
-                  {
-                     // The record hasn't been serialized, add to queue
-                     state.recordQueue.Enqueue( rec );
-                  }
-               }
-
-               // Write the record
-               WriteSingleRecord( state, rec, false );
-
+               WritePrimitive( state, val, typeInfo.Item2 );
             }
             else
             {
-               // Write value as primitive
-               WritePrimitive( state, val, mTypeCodes[i].Item2 );
+               if ( binaryType == BinaryTypeEnumeration.String )
+               {
+                  WriteSingleRecord( state, null, false, val );
+               }
+               else
+               {
+                  if ( state.TryAddRecord( val, out id ) )
+                  {
+                     // The record hasn't been serialized, add to queue
+                     // This will force member references be serialized instead of member values being serialized in-place
+                     state.recordQueue.Enqueue( val );
+                  }
+                  WriteSingleRecord( state, (AbstractRecord) val, false );
+               }
             }
+
          }
 
       }
@@ -758,7 +749,7 @@ public static partial class E_CILPhysical
       if ( ( rawDateTime & 0x8000000000000000uL ) != 0uL )
       {
          // This is local date-time, do UTC offset tick adjustment
-         rawDateTime -= (UInt64) TimeZoneInfo.Local.GetUtcOffset( DateTime.MinValue ).Ticks;
+         rawDateTime += (UInt64) TimeZoneInfo.Local.GetUtcOffset( DateTime.MinValue ).Ticks;
       }
       state.EnsureCapacity( state.idx + 8 );
       state.array.WriteUInt64LEToBytes( ref state.idx, rawDateTime );
@@ -798,7 +789,7 @@ public static partial class E_CILPhysical
       internal Int32 arrayLen;
       internal readonly IDictionary<Object, Int32> records;
       internal readonly IDictionary<String, Int32> assemblies;
-      internal readonly Queue<AbstractRecord> recordQueue;
+      internal readonly Queue<Object> recordQueue;
       internal readonly IDictionary<Tuple<String, String>, Int32> serializedObjects;
 
       internal SerializationState( Stream aStream )
@@ -816,7 +807,7 @@ public static partial class E_CILPhysical
                return x.GetHashCodeSafe();
             } ) );
          this.assemblies = new Dictionary<String, Int32>();
-         this.recordQueue = new Queue<AbstractRecord>();
+         this.recordQueue = new Queue<Object>();
          this.serializedObjects = new Dictionary<Tuple<String, String>, Int32>();
       }
 
@@ -825,7 +816,8 @@ public static partial class E_CILPhysical
          var retVal = !String.IsNullOrEmpty( aName ) && !this.assemblies.ContainsKey( aName );
          if ( retVal )
          {
-            id = this.assemblies.Count + 1;
+            // The ID must start with '2', since '1' is reserved for top object
+            id = this.assemblies.Count + 2;
             this.assemblies.Add( aName, id );
          }
          else
@@ -841,7 +833,7 @@ public static partial class E_CILPhysical
          var retVal = record != null && !this.records.TryGetValue( record, out id );
          if ( retVal )
          {
-            id = this.assemblies.Count + this.records.Count + 1;
+            id = this.records.Count == 0 ? 1 : ( this.assemblies.Count + this.records.Count + 1 );
             this.records.Add( record, id );
          }
          return retVal;
@@ -852,6 +844,7 @@ public static partial class E_CILPhysical
          if ( idx > 0 )
          {
             this.stream.Write( this.array, this.idx );
+            this.idx = 0;
          }
       }
 
