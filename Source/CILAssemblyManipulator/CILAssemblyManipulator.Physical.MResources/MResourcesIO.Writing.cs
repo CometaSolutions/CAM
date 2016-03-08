@@ -540,15 +540,16 @@ public static partial class E_CILPhysical
          switch ( Type.GetTypeCode( obj.GetType() ) )
          {
             case TypeCode.Object:
-               if ( obj is AbstractRecord )
+               var rec = obj as AbstractRecord;
+               if ( rec != null )
                {
-                  switch ( ( (AbstractRecord) obj ).RecordKind )
+                  switch ( rec.RecordKind )
                   {
                      case RecordKind.Class:
                         return ( (ClassRecord) obj ).AssemblyName == null ? BinaryTypeEnumeration.SystemClass : BinaryTypeEnumeration.Class;
                      case RecordKind.Array:
                         var array = (ArrayRecord) obj;
-                        if ( array.Rank == 1 )
+                        if ( array.ArrayKind == BinaryArrayTypeEnumeration.Single )
                         {
                            var firstNonNull = array.ValuesAsVector.FirstOrDefault( o => o != null );
                            switch ( GetTypeInfo( firstNonNull, out pType ) )
@@ -558,7 +559,8 @@ public static partial class E_CILPhysical
                               case BinaryTypeEnumeration.Primitive:
                                  return BinaryTypeEnumeration.PrimitiveArray;
                               default:
-                                 return BinaryTypeEnumeration.ObjectArray;
+                                 // If firstNonNull == null then all of them are nulls => PrimitiveArray with PrimitiveTypeEnumeration.Null
+                                 return firstNonNull == null ? BinaryTypeEnumeration.PrimitiveArray : BinaryTypeEnumeration.ObjectArray;
                            }
                         }
                         else
@@ -566,7 +568,7 @@ public static partial class E_CILPhysical
                            return BinaryTypeEnumeration.ObjectArray;
                         }
                      default:
-                        throw new NotSupportedException( "Unknown record " + obj + "." );
+                        throw new NotSupportedException( "Unknown record kind " + rec.RecordKind + "." );
 
                   }
                }
