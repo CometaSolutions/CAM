@@ -56,7 +56,6 @@ namespace CILAssemblyManipulator.Physical
       /// <remarks>
       /// Two instances of <see cref="UserDefinedResourceManagerEntry"/> are considered to be equal by this equality when:
       /// <list type="bullet">
-      /// <item><description><see cref="UserDefinedResourceManagerEntry.UserDefinedType"/> match exactly, using <see cref="String.Equals(String, String)"/> method, and</description></item>
       /// <item><description><see cref="UserDefinedResourceManagerEntry.Contents"/> match exactly with elements being compared using <see cref="AbstractRecordEqualityComparer"/>.</description></item>
       /// </list>
       /// </remarks>
@@ -198,7 +197,7 @@ namespace CILAssemblyManipulator.Physical
       {
          return ReferenceEquals( x, y ) ||
             ( x != null && y != null
-            && String.Equals( x.UserDefinedType, y.UserDefinedType )
+            //&& String.Equals( x.UserDefinedType, y.UserDefinedType )
             && Equality_AbstractRecord( x.Contents, y.Contents )
             );
       }
@@ -298,7 +297,8 @@ namespace CILAssemblyManipulator.Physical
 
       private static Int32 HashCode_ResourceManagerEntry_UserDefined( UserDefinedResourceManagerEntry x )
       {
-         return x == null ? 0 : ( ( 17 * 23 + x.UserDefinedType.GetHashCodeSafe( 1 ) ) * 23 + HashCode_AbstractRecord( x.Contents ) );
+         return x == null ? 0 : // ( ( 17 * 23 + x.UserDefinedType.GetHashCodeSafe( 1 ) ) * 23 + HashCode_AbstractRecord( x.Contents ) );
+            ( 17 * 23 + HashCode_AbstractRecord( x.Contents ) );
       }
 
       private static Int32 HashCode_AbstractRecord( AbstractRecord x )

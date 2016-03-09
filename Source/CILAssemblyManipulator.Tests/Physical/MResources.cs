@@ -42,35 +42,40 @@ namespace CILAssemblyManipulator.Tests.Physical
       [Test]
       public void TestInteropWithNativeResourceManagerWriter_UserDefinedTypes()
       {
-         var resourceValue = CreateNativeResourceObject();
-
-         Byte[] serializedResource;
-         using ( var stream = new MemoryStream() )
+         var resourceValue = CreateNativeResourceObject( null );
+         PerformManifestResourceTest( new Tuple<string, object, ResourceManagerEntry>[]
          {
-            using ( var rw = new ResourceWriter( stream ) )
-            {
-               rw.AddResource( NAME, resourceValue );
-               rw.Generate();
-            }
+            Tuple.Create<String, Object, ResourceManagerEntry>( NAME, resourceValue, new UserDefinedResourceManagerEntry() { Contents = CreateRecordFrom(resourceValue) } )
+         } );
+         //var resourceValue = CreateNativeResourceObject();
 
-            serializedResource = stream.ToArray();
-         }
+         //Byte[] serializedResource;
+         //using ( var stream = new MemoryStream() )
+         //{
+         //   using ( var rw = new ResourceWriter( stream ) )
+         //   {
+         //      rw.AddResource( NAME, resourceValue );
+         //      rw.Generate();
+         //   }
 
-         Boolean resourceManagerIdentified;
-         var resources = serializedResource.ReadResourceManagerEntries( out resourceManagerIdentified ).ToArray();
-         Assert.IsTrue( resourceManagerIdentified );
-         Assert.AreEqual( 1, resources.Length );
-         var resInfo = resources[0];
-         Assert.AreEqual( NAME, resInfo.Name );
-         Assert.IsTrue( resInfo.IsUserDefinedType() );
-         Assert.AreEqual( typeof( TestResourceType ).AssemblyQualifiedName, resInfo.UserDefinedType );
-         var deserializedResoure = (UserDefinedResourceManagerEntry) resInfo.CreateEntry( serializedResource );
-         var serializedResourceString = new String( serializedResource.Select( b => String.Format( "{0:X2}", b ) ).SelectMany( s => s.ToCharArray() ).ToArray() );
-         Assert.IsTrue(
-            CAMPhysicalM::CILAssemblyManipulator.Physical.Comparers.AbstractRecordEqualityComparer.Equals( deserializedResoure.Contents, CreateRecordFrom( resourceValue ) ),
-            "Native value: {0}, serialized value: {1}",
-            resourceValue, serializedResourceString
-            );
+         //   serializedResource = stream.ToArray();
+         //}
+
+         //Boolean resourceManagerIdentified;
+         //var resources = serializedResource.ReadResourceManagerEntries( out resourceManagerIdentified ).ToArray();
+         //Assert.IsTrue( resourceManagerIdentified );
+         //Assert.AreEqual( 1, resources.Length );
+         //var resInfo = resources[0];
+         //Assert.AreEqual( NAME, resInfo.Name );
+         //Assert.IsTrue( resInfo.IsUserDefinedType() );
+         //Assert.AreEqual( typeof( TestResourceType ).AssemblyQualifiedName, resInfo.UserDefinedType );
+         //var deserializedResoure = (UserDefinedResourceManagerEntry) resInfo.CreateEntry( serializedResource );
+         //var serializedResourceString = new String( serializedResource.Select( b => String.Format( "{0:X2}", b ) ).SelectMany( s => s.ToCharArray() ).ToArray() );
+         //Assert.IsTrue(
+         //   CAMPhysicalM::CILAssemblyManipulator.Physical.Comparers.AbstractRecordEqualityComparer.Equals( deserializedResoure.Contents, CreateRecordFrom( resourceValue ) ),
+         //   "Native value: {0}, serialized value: {1}",
+         //   resourceValue, serializedResourceString
+         //   );
 
 
       }
@@ -78,65 +83,37 @@ namespace CILAssemblyManipulator.Tests.Physical
       [Test]
       public void TestInteropWithNativeResourceManagerWriter_PreDefinedTypes()
       {
-         var resourceValue = CreateNativeResourceObject();
          var random = new Random();
-         var primitiveInfo = new Tuple<String, ResourceTypeCode, PreDefinedResourceManagerEntry>[]
+         var resourceValue = CreateNativeResourceObject( random );
+         var bytez = random.NextBytes( random.Next( 50, 100 ) );
+         using ( var stream = new MemoryStream( random.NextBytes( random.Next( 50, 100 ) ) ) )
          {
-            Tuple.Create( NAME + "_Null", ResourceTypeCode.Null, new PreDefinedResourceManagerEntry() { Value = resourceValue.NullValue } ),
-            Tuple.Create( NAME + "_Boolean", ResourceTypeCode.Boolean, new PreDefinedResourceManagerEntry() { Value = resourceValue.BooleanValue } ),
-            Tuple.Create( NAME + "_Char", ResourceTypeCode.Char, new PreDefinedResourceManagerEntry() { Value = resourceValue.CharValue } ),
-            Tuple.Create( NAME + "_SByte", ResourceTypeCode.SByte, new PreDefinedResourceManagerEntry() { Value = resourceValue.SByteValue } ),
-            Tuple.Create( NAME + "_Byte", ResourceTypeCode.Byte, new PreDefinedResourceManagerEntry() { Value = resourceValue.ByteValue } ),
-            Tuple.Create( NAME + "_Int16", ResourceTypeCode.Int16, new PreDefinedResourceManagerEntry() { Value = resourceValue.Int16Value } ),
-            Tuple.Create( NAME + "_UInt16", ResourceTypeCode.UInt16, new PreDefinedResourceManagerEntry() { Value = resourceValue.UInt16Value } ),
-            Tuple.Create( NAME + "_Int32", ResourceTypeCode.Int32, new PreDefinedResourceManagerEntry() { Value = resourceValue.Int32Value } ),
-            Tuple.Create( NAME + "_UInt32", ResourceTypeCode.UInt32, new PreDefinedResourceManagerEntry() { Value = resourceValue.UInt32Value } ),
-            Tuple.Create( NAME + "_Int64", ResourceTypeCode.Int64, new PreDefinedResourceManagerEntry() { Value = resourceValue.Int64Value } ),
-            Tuple.Create( NAME + "_UInt64", ResourceTypeCode.UInt64, new PreDefinedResourceManagerEntry() { Value = resourceValue.UInt64Value } ),
-            Tuple.Create( NAME + "_Single", ResourceTypeCode.Single, new PreDefinedResourceManagerEntry() { Value = resourceValue.SingleValue } ),
-            Tuple.Create( NAME + "_Double", ResourceTypeCode.Double, new PreDefinedResourceManagerEntry() { Value = resourceValue.DoubleValue } ),
-            Tuple.Create( NAME + "_Decimal", ResourceTypeCode.Decimal, new PreDefinedResourceManagerEntry() { Value = resourceValue.DecimalValue } ),
-            Tuple.Create( NAME + "_TimeSpan", ResourceTypeCode.TimeSpan, new PreDefinedResourceManagerEntry() { Value = resourceValue.TimeSpanValue } ),
-            Tuple.Create( NAME + "_DateTime_Local", ResourceTypeCode.DateTime, new PreDefinedResourceManagerEntry() { Value = resourceValue.DateTimeValue_Local } ),
-            Tuple.Create( NAME + "_DateTime_LocalAmbiguous", ResourceTypeCode.DateTime, new PreDefinedResourceManagerEntry() { Value = resourceValue.DateTimeValue_LocalAmbiguous } ),
-            Tuple.Create( NAME + "_DateTime_UTC", ResourceTypeCode.DateTime, new PreDefinedResourceManagerEntry() { Value = resourceValue.DateTimeValue_UTC } ),
-            Tuple.Create( NAME + "_DateTime_Unspecified", ResourceTypeCode.DateTime, new PreDefinedResourceManagerEntry() { Value = resourceValue.DateTimeValue_Unspecified } ),
-            Tuple.Create( NAME + "_String", ResourceTypeCode.String, new PreDefinedResourceManagerEntry() { Value = resourceValue.StringValue } ),
-            Tuple.Create( NAME + "_Bytes", ResourceTypeCode.ByteArray, new PreDefinedResourceManagerEntry() { Value = random.NextBytes( random.Next( 50, 100 ) ) } ),
-            Tuple.Create( NAME + "_Stream", ResourceTypeCode.Stream, new PreDefinedResourceManagerEntry() { Value = new MemoryStream( random.NextBytes( random.Next( 50, 100 ) ) ) } ),
-         };
-
-         Byte[] serializedResource;
-         using ( var stream = new MemoryStream() )
-         {
-            using ( var rw = new ResourceWriter( stream ) )
+            PerformManifestResourceTest( new Tuple<string, object, ResourceManagerEntry>[]
             {
-               foreach ( var tuple in primitiveInfo )
-               {
-                  rw.AddResource( tuple.Item1, tuple.Item3.Value );
-               }
-               rw.Generate();
-            }
-
-            serializedResource = stream.ToArray();
+               Tuple.Create<String, Object, ResourceManagerEntry>( NAME + "_Null", resourceValue.NullValue, new PreDefinedResourceManagerEntry() { Value = resourceValue.NullValue } ),
+               Tuple.Create<String, Object, ResourceManagerEntry>( NAME + "_Boolean", resourceValue.BooleanValue, new PreDefinedResourceManagerEntry() { Value = resourceValue.BooleanValue } ),
+               Tuple.Create<String, Object, ResourceManagerEntry>( NAME + "_Char", resourceValue.CharValue, new PreDefinedResourceManagerEntry() { Value = resourceValue.CharValue } ),
+               Tuple.Create<String, Object, ResourceManagerEntry>( NAME + "_SByte", resourceValue.SByteValue, new PreDefinedResourceManagerEntry() { Value = resourceValue.SByteValue } ),
+               Tuple.Create<String, Object, ResourceManagerEntry>( NAME + "_Byte", resourceValue.ByteValue, new PreDefinedResourceManagerEntry() { Value = resourceValue.ByteValue } ),
+               Tuple.Create<String, Object, ResourceManagerEntry>( NAME + "_Int16", resourceValue.Int16Value, new PreDefinedResourceManagerEntry() { Value = resourceValue.Int16Value } ),
+               Tuple.Create<String, Object, ResourceManagerEntry>( NAME + "_UInt16", resourceValue.UInt16Value, new PreDefinedResourceManagerEntry() { Value = resourceValue.UInt16Value } ),
+               Tuple.Create<String, Object, ResourceManagerEntry>( NAME + "_Int32", resourceValue.Int32Value, new PreDefinedResourceManagerEntry() { Value = resourceValue.Int32Value } ),
+               Tuple.Create<String, Object, ResourceManagerEntry>( NAME + "_UInt32", resourceValue.UInt32Value, new PreDefinedResourceManagerEntry() { Value = resourceValue.UInt32Value } ),
+               Tuple.Create<String, Object, ResourceManagerEntry>( NAME + "_Int64", resourceValue.Int64Value, new PreDefinedResourceManagerEntry() { Value = resourceValue.Int64Value } ),
+               Tuple.Create<String, Object, ResourceManagerEntry>( NAME + "_UInt64", resourceValue.UInt64Value, new PreDefinedResourceManagerEntry() { Value = resourceValue.UInt64Value } ),
+               Tuple.Create<String, Object, ResourceManagerEntry>( NAME + "_Single", resourceValue.SingleValue, new PreDefinedResourceManagerEntry() { Value = resourceValue.SingleValue } ),
+               Tuple.Create<String, Object, ResourceManagerEntry>( NAME + "_Double", resourceValue.DoubleValue, new PreDefinedResourceManagerEntry() { Value = resourceValue.DoubleValue } ),
+               Tuple.Create<String, Object, ResourceManagerEntry>( NAME + "_Decimal", resourceValue.DecimalValue, new PreDefinedResourceManagerEntry() { Value = resourceValue.DecimalValue } ),
+               Tuple.Create<String, Object, ResourceManagerEntry>( NAME + "_TimeSpan", resourceValue.TimeSpanValue, new PreDefinedResourceManagerEntry() { Value = resourceValue.TimeSpanValue } ),
+               Tuple.Create<String, Object, ResourceManagerEntry>( NAME + "_DateTime_Local", resourceValue.DateTimeValue_Local, new PreDefinedResourceManagerEntry() { Value = resourceValue.DateTimeValue_Local } ),
+               Tuple.Create<String, Object, ResourceManagerEntry>( NAME + "_DateTime_LocalAmbiguous", resourceValue.DateTimeValue_LocalAmbiguous, new PreDefinedResourceManagerEntry() { Value = resourceValue.DateTimeValue_LocalAmbiguous } ),
+               Tuple.Create<String, Object, ResourceManagerEntry>( NAME + "_DateTime_UTC", resourceValue.DateTimeValue_UTC, new PreDefinedResourceManagerEntry() { Value = resourceValue.DateTimeValue_UTC } ),
+               Tuple.Create<String, Object, ResourceManagerEntry>( NAME + "_DateTime_Unspecified", resourceValue.DateTimeValue_Unspecified, new PreDefinedResourceManagerEntry() { Value = resourceValue.DateTimeValue_Unspecified } ),
+               Tuple.Create<String, Object, ResourceManagerEntry>( NAME + "_String", resourceValue.StringValue, new PreDefinedResourceManagerEntry() { Value = resourceValue.StringValue } ),
+               Tuple.Create<String, Object, ResourceManagerEntry>( NAME + "_Bytes", bytez, new PreDefinedResourceManagerEntry() { Value = bytez } ),
+               Tuple.Create<String, Object, ResourceManagerEntry>( NAME + "_Stream", stream, new PreDefinedResourceManagerEntry() { Value = stream } ),
+            } );
          }
-
-         Boolean resourceManagerIdentified;
-         var resources = serializedResource.ReadResourceManagerEntries( out resourceManagerIdentified ).ToArray();
-         Assert.IsTrue( resourceManagerIdentified );
-         Assert.AreEqual( primitiveInfo.Length, resources.Length );
-         var deserializedPrimitiveInfo = resources.Select( res => Tuple.Create( res.Name, res.PredefinedTypeCode, (PreDefinedResourceManagerEntry) res.CreateEntry( serializedResource ) ) ).ToArray();
-         Assert.IsTrue(
-            ArrayEqualityComparer<Tuple<String, ResourceTypeCode, PreDefinedResourceManagerEntry>>.IsPermutation(
-               primitiveInfo,
-               deserializedPrimitiveInfo,
-               ComparerFromFunctions.NewEqualityComparer<Tuple<String, ResourceTypeCode, PreDefinedResourceManagerEntry>>(
-                  ( x, y ) => String.Equals( x.Item1, y.Item1 ) && x.Item2 == y.Item2 && CAMPhysicalM::CILAssemblyManipulator.Physical.Comparers.PreDefinedResourceManagerEntryEqualityComparer.Equals( x.Item3, y.Item3 ),
-                  x => x.Item1.GetHashCodeSafe()
-                  )
-               ),
-            "Primitive values of {0} were not serialized properly",
-            resourceValue );
       }
 
       [Test]
@@ -162,11 +139,11 @@ namespace CILAssemblyManipulator.Tests.Physical
 
          var resourceInfo = new Tuple<String, UserDefinedResourceManagerEntry>[]
          {
-            Tuple.Create( NAME, new UserDefinedResourceManagerEntry() { UserDefinedType = resourceValue.GetType().AssemblyQualifiedName, Contents = CreateRecordFrom(resourceValue ) } ),
-            Tuple.Create( NAME + "_" + nameof( TestSimpleArrayResourceType.Array_Nulls ), new UserDefinedResourceManagerEntry() { UserDefinedType = typeof( Object[] ).AssemblyQualifiedName, Contents = resourceValue.Array_Nulls.CreateArrayRecord() } ),
-            Tuple.Create( NAME + "_" + nameof( TestSimpleArrayResourceType.Array_String ), new UserDefinedResourceManagerEntry() { UserDefinedType = typeof( String[] ).AssemblyQualifiedName, Contents = resourceValue.Array_String.CreateArrayRecord() } ),
-            Tuple.Create( NAME + "_" + nameof( TestSimpleArrayResourceType.Array_Int32 ), new UserDefinedResourceManagerEntry() { UserDefinedType = typeof( Int32[] ).AssemblyQualifiedName, Contents = resourceValue.Array_Int32.CreateArrayRecord() } ),
-            Tuple.Create( NAME + "_" + nameof( TestSimpleArrayResourceType.Array_UserDefined ), new UserDefinedResourceManagerEntry() { UserDefinedType = typeof( TestResourceType[] ).AssemblyQualifiedName, Contents = resourceValue.Array_UserDefined.CreateArrayRecord( i => CreateRecordFrom( i ) ) } ),
+            Tuple.Create( NAME, new UserDefinedResourceManagerEntry() { Contents = CreateRecordFrom(resourceValue ) } ),
+            Tuple.Create( NAME + "_" + nameof( TestSimpleArrayResourceType.Array_Nulls ), new UserDefinedResourceManagerEntry() { Contents = resourceValue.Array_Nulls.CreateArrayRecord() } ),
+            Tuple.Create( NAME + "_" + nameof( TestSimpleArrayResourceType.Array_String ), new UserDefinedResourceManagerEntry() { Contents = resourceValue.Array_String.CreateArrayRecord() } ),
+            Tuple.Create( NAME + "_" + nameof( TestSimpleArrayResourceType.Array_Int32 ), new UserDefinedResourceManagerEntry() { Contents = resourceValue.Array_Int32.CreateArrayRecord() } ),
+            Tuple.Create( NAME + "_" + nameof( TestSimpleArrayResourceType.Array_UserDefined ), new UserDefinedResourceManagerEntry() { Contents = resourceValue.Array_UserDefined.CreateArrayRecord( i => CreateRecordFrom( i ) ) } ),
          };
 
          Boolean resourceManagerIdentified;
@@ -188,84 +165,164 @@ namespace CILAssemblyManipulator.Tests.Physical
 
       }
 
-      [Test]
-      public void RoundtripTest_UserDefinedTypes()
+      //[Test]
+      //public void RoundtripTest_UserDefinedTypes()
+      //{
+      //   var resource = CreateNativeResourceObject( null );
+      //   var typeStr = resource.GetType().AssemblyQualifiedName;
+      //   var entry = new UserDefinedResourceManagerEntry()
+      //   {
+      //      Contents = CreateRecordFrom( resource )
+      //   };
+      //   Byte[] data;
+      //   using ( var stream = new MemoryStream() )
+      //   {
+      //      entry.WriteEntry( stream );
+      //      data = stream.ToArray();
+      //   }
+
+      //   var entryInfo = new ResourceManagerEntryInformation()
+      //   {
+      //      Name = NAME,
+      //      DataOffset = 0,
+      //      DataSize = data.Length,
+      //      UserDefinedType = typeStr
+      //   };
+      //   var entry2 = entryInfo.CreateEntry( data ) as UserDefinedResourceManagerEntry;
+
+
+      //   Assert.IsTrue(
+      //      CAMPhysicalM::CILAssemblyManipulator.Physical.Comparers.UserDefinedResourceManagerEntryEqualityComparer.Equals( entry, entry2 ),
+      //      "Native value: {0}", resource
+      //      );
+
+
+      //   Byte[] fullResourceData;
+      //   using ( var stream = new MemoryStream() )
+      //   {
+      //      using ( var rw = new ResourceWriter( stream ) )
+      //      {
+      //         rw.AddResourceData( entryInfo.Name, entryInfo.UserDefinedType, data );
+      //         rw.Generate();
+      //      }
+      //      fullResourceData = stream.ToArray();
+      //   }
+
+      //   Byte[] data2;
+      //   using ( var stream = new MemoryStream() )
+      //   {
+      //      using ( var rw = new ResourceWriter( stream ) )
+      //      {
+      //         rw.AddResource( entryInfo.Name, resource );
+      //      }
+      //      var array = stream.ToArray();
+      //      Boolean wasResMan;
+      //      var info = array.ReadResourceManagerEntries( out wasResMan ).ToArray()[0];
+      //      data2 = array.CreateArrayCopy( info.DataOffset, info.DataSize );
+      //   }
+
+      //   Tuple<String, Object>[] deserializedResources;
+      //   using ( var stream = new MemoryStream( fullResourceData ) )
+      //   using ( var rr = new ResourceReader( stream ) )
+      //   {
+      //      var enumz = rr.GetEnumerator();
+      //      var list = new List<Tuple<String, Object>>();
+      //      while ( enumz.MoveNext() )
+      //      {
+      //         list.Add( Tuple.Create( (String) enumz.Key, enumz.Value ) );
+      //      }
+
+      //      deserializedResources = list.ToArray();
+      //   }
+
+      //   Assert.IsTrue( resource.Equals( deserializedResources[0].Item2 ), "Serialized value did not equal deserialized: {0}\n\n{1}", resource, deserializedResources[0].Item2 );
+      //}
+
+      private static void PerformManifestResourceTest(
+         Tuple<String, Object, ResourceManagerEntry>[] resources
+         )
       {
-         var resource = CreateNativeResourceObject();
-         var typeStr = resource.GetType().AssemblyQualifiedName;
-         var entry = new UserDefinedResourceManagerEntry()
+         // 1. Test writing
+         Byte[][] datas = new Byte[resources.Length][];
+         for ( var i = 0; i < resources.Length; ++i )
          {
-            UserDefinedType = typeStr,
-            Contents = CreateRecordFrom( resource )
-         };
-         Byte[] data;
-         using ( var stream = new MemoryStream() )
-         {
-            entry.WriteEntry( stream );
-            data = stream.ToArray();
+            var res = resources[i];
+            using ( var stream = new MemoryStream() )
+            {
+               res.Item3.WriteEntry( stream );
+               datas[i] = stream.ToArray();
+            }
          }
 
-         var entryInfo = new ResourceManagerEntryInformation()
+         // 2. Test reading
+         var createdInfos = resources.Select( ( tuple, idx ) =>
          {
-            Name = NAME,
-            DataOffset = 0,
-            DataSize = data.Length,
-            UserDefinedType = typeStr
-         };
-         var entry2 = entryInfo.CreateEntry( data ) as UserDefinedResourceManagerEntry;
+            var res = resources[idx];
+            var obj = res.Item2;
+            var code = PreDefinedResourceManagerEntry.GetResourceTypeCodeForObject( obj );
+            return new ResourceManagerEntryInformation()
+            {
+               Name = res.Item1,
+               DataOffset = 0,
+               DataSize = datas[idx].Length,
+               UserDefinedType = code == null ? obj.GetType().AssemblyQualifiedName : null,
+               PredefinedTypeCode = code ?? ResourceTypeCode.Null
+            };
+         } ).ToArray();
+         for ( var i = 0; i < resources.Length; ++i )
+         {
+            var res = resources[i];
+            var entry = createdInfos[i].CreateEntry( datas[i] );
 
-
-         Assert.IsTrue(
-            CAMPhysicalM::CILAssemblyManipulator.Physical.Comparers.UserDefinedResourceManagerEntryEqualityComparer.Equals( entry, entry2 ),
-            "Native value: {0}", resource
+            Assert.IsTrue(
+               CAMPhysicalM::CILAssemblyManipulator.Physical.Comparers.ResourceManagerEntryEqualityComparer.Equals( entry, res.Item3 ),
+               "Deserialized resource manager entry equality failed, serialized value: {0}", res.Item2
             );
+         }
 
-
+         // 3. Test interop
          Byte[] fullResourceData;
          using ( var stream = new MemoryStream() )
          {
             using ( var rw = new ResourceWriter( stream ) )
             {
-               rw.AddResourceData( entryInfo.Name, entryInfo.UserDefinedType, data );
+               foreach ( var res in resources )
+               {
+                  rw.AddResource( res.Item1, res.Item2 );
+               }
                rw.Generate();
             }
             fullResourceData = stream.ToArray();
          }
+         Boolean wasResMan;
+         var deserializedInfos = fullResourceData.ReadResourceManagerEntries( out wasResMan ).ToArray();
+         Assert.IsTrue( wasResMan );
+         Assert.IsTrue( ArrayEqualityComparer<ResourceManagerEntryInformation>.IsPermutation(
+            createdInfos,
+            deserializedInfos,
+            ComparerFromFunctions.NewEqualityComparer<ResourceManagerEntryInformation>(
+               ( x, y ) => ReferenceEquals( x, y ) ||
+                  ( x != null && y != null
+                  && x.PredefinedTypeCode == y.PredefinedTypeCode
+                  && String.Equals( x.UserDefinedType, y.UserDefinedType )
+                  ),
+               x => x == null ? 0 : ( ( 17 * 23 + x.PredefinedTypeCode.GetHashCode() ) * 23 + x.UserDefinedType.GetHashCodeSafe() )
+               )
+            ) );
 
-         Byte[] data2;
-         using ( var stream = new MemoryStream() )
-         {
-            using ( var rw = new ResourceWriter( stream ) )
-            {
-               rw.AddResource( entryInfo.Name, resource );
-            }
-            var array = stream.ToArray();
-            Boolean wasResMan;
-            var info = array.ReadResourceManagerEntries( out wasResMan ).ToArray()[0];
-            data2 = array.CreateArrayCopy( info.DataOffset, info.DataSize );
-         }
-
-         Tuple<String, Object>[] deserializedResources;
-         using ( var stream = new MemoryStream( fullResourceData ) )
-         using ( var rr = new ResourceReader( stream ) )
-         {
-            var enumz = rr.GetEnumerator();
-            var list = new List<Tuple<String, Object>>();
-            while ( enumz.MoveNext() )
-            {
-               list.Add( Tuple.Create( (String) enumz.Key, enumz.Value ) );
-            }
-
-            deserializedResources = list.ToArray();
-         }
-
-         Assert.IsTrue( resource.Equals( deserializedResources[0].Item2 ), "Serialized value did not equal deserialized: {0}\n\n{1}", resource, deserializedResources[0].Item2 );
+         var givenResources = resources.ToDictionary( tuple => tuple.Item1, tuple => tuple.Item3 );
+         var deserializedResources = deserializedInfos.ToDictionary( resx => resx.Name, resx => resx.CreateEntry( fullResourceData ) );
+         Assert.IsTrue( DictionaryEqualityComparer<String, ResourceManagerEntry>.NewDictionaryEqualityComparer( CAMPhysicalM::CILAssemblyManipulator.Physical.Comparers.ResourceManagerEntryEqualityComparer )
+            .Equals( givenResources, deserializedResources ) );
       }
 
-      private static TestResourceType CreateNativeResourceObject()
+      private static TestResourceType CreateNativeResourceObject( Random r )
       {
+         if ( r == null )
+         {
+            r = new Random();
+         }
          var dtTicks = DateTime.UtcNow.Ticks;
-         var r = new Random();
          return new TestResourceType()
          {
             NullValue = null,
@@ -299,7 +356,7 @@ namespace CILAssemblyManipulator.Tests.Physical
             Array_Nulls = Enumerable.Repeat<Object>( null, r.Next( 10, 20 ) ).ToArray(),
             Array_String = Generate( r.Next( 10, 20 ), i => r.NextString() ).ToArray(),
             Array_Int32 = Generate( r.Next( 10, 20 ), i => r.NextInt32() ).ToArray(),
-            Array_UserDefined = Generate( r.Next( 10, 20 ), i => CreateNativeResourceObject() ).ToArray()
+            Array_UserDefined = Generate( r.Next( 10, 20 ), i => CreateNativeResourceObject( r ) ).ToArray()
          };
       }
 

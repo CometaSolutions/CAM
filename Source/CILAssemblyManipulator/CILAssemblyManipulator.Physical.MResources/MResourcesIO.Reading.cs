@@ -191,8 +191,7 @@ public static partial class E_CILPhysical
          // Read the NRBF records directly
          retVal = new UserDefinedResourceManagerEntry()
          {
-            UserDefinedType = entry.UserDefinedType,
-            Contents = array.ReadUserDefinedEntryContents( ref idx, idx + entry.DataSize )
+            Contents = array.ReadUserDefinedEntryContents( idx, idx + entry.DataSize )
          };
       }
       else
@@ -275,23 +274,37 @@ public static partial class E_CILPhysical
       return retVal;
    }
 
-   private static AbstractRecord ReadUserDefinedEntryContents( this Byte[] array, ref Int32 idx, Int32 maxIndex )
+   private static AbstractRecord ReadUserDefinedEntryContents( this Byte[] array, Int32 idx, Int32 maxIndex )
    {
       var state = new DeserializationState( array, idx );
-      AbstractRecord retVal = null;
+
+      // 1. Read records
       while ( state.idx < maxIndex && !state.recordsEnded )
       {
-         var record = ReadSingleRecord( state ) as AbstractRecord;
-         if ( record != null && retVal == null )
-         {
-            retVal = record;
-         }
+         ReadSingleRecord( state );
       }
 
-      Object actual;
-      if ( CheckPlaceholder( state, retVal, out actual ) )
+      // 2. Check placeholders
+      foreach ( var rec in state.records.Values )
       {
-         retVal = actual as AbstractRecord;
+         CheckPlaceholder( state, rec as AbstractRecord );
+      }
+
+      // 3. Deduce what to return
+      var topID = state.TopObjectID;
+      Object record;
+      AbstractRecord retVal;
+      if ( !topID.HasValue )
+      {
+         throw new ManifestResourceSerializationException( "Missing serialization header." );
+      }
+      else if ( !state.records.TryGetValue( topID.Value, out record ) )
+      {
+         throw new ManifestResourceSerializationException( "The record for top ID " + topID.Value + " was not present." );
+      }
+      else if ( ( retVal = record as AbstractRecord ) == null )
+      {
+         throw new ManifestResourceSerializationException( "The object for top ID " + topID.Value + " was not a record." );
       }
 
       return retVal;
@@ -313,7 +326,8 @@ public static partial class E_CILPhysical
          switch ( recType )
          {
             case RecordTypeEnumeration.SerializedStreamHeader:
-               state.array.Skip( ref state.idx, 16 ); // Skip the header of 4 ints
+               state.TopObjectID = state.array.ReadInt32LEFromBytes( ref state.idx );
+               state.array.Skip( ref state.idx, 12 ); // Skip the rest
                retVal = null;
                break;
             case RecordTypeEnumeration.ClassWithID:
@@ -649,57 +663,43 @@ public static partial class E_CILPhysical
       return str;
    }
 
-   private static Boolean CheckPlaceholder( DeserializationState state, Object value, out Object rec )
+   private static void CheckPlaceholder( DeserializationState state, AbstractRecord record )
    {
-      var record = value as AbstractRecord;
-      var retVal = record != null;
-      if ( retVal )
+      if ( record != null )
       {
-         var ph = record as RecordPlaceholder;
-         retVal = ph != null;
-         rec = retVal ?
-            state.records[( (RecordPlaceholder) record ).ID] :
-            null;
-         var recordToCheck = ( retVal ? rec : value ) as AbstractRecord;
-         if ( recordToCheck != null )
+         switch ( record.RecordKind )
          {
-            switch ( recordToCheck.RecordKind )
-            {
-               case RecordKind.Class:
-                  var claas = (ClassRecord) recordToCheck;
-                  foreach ( var member in claas.Members )
+            case RecordKind.Class:
+               var claas = (ClassRecord) record;
+               foreach ( var member in claas.Members )
+               {
+                  Object cur;
+                  if ( CheckPlaceholderValue( state, member.Value, out cur ) )
                   {
-                     Object cur;
-                     if ( CheckPlaceholder( state, member.Value, out cur ) )
-                     {
-                        member.Value = cur;
-                     }
+                     member.Value = cur;
                   }
-                  break;
-               case RecordKind.Array:
-                  var array = (ArrayRecord) recordToCheck;
-                  for ( var i = 0; i < array.ValuesAsVector.Count; ++i )
+               }
+               break;
+            case RecordKind.Array:
+               var array = (ArrayRecord) record;
+               for ( var i = 0; i < array.ValuesAsVector.Count; ++i )
+               {
+                  Object cur;
+                  if ( CheckPlaceholderValue( state, array.ValuesAsVector[i], out cur ) )
                   {
-                     Object cur;
-                     if ( CheckPlaceholder( state, array.ValuesAsVector[i], out cur ) )
-                     {
-                        array.ValuesAsVector[i] = cur;
-                     }
+                     array.ValuesAsVector[i] = cur;
                   }
-                  break;
-            }
-         }
-         var cr = rec as ClassRecord;
-         if ( cr != null )
-         {
-            cr.IsSerializedInPlace = !retVal;
+               }
+               break;
          }
       }
-      else
-      {
-         rec = null;
-      }
-      return retVal;
+   }
+
+   private static Boolean CheckPlaceholderValue( DeserializationState state, Object value, out Object rec )
+   {
+      var ph = value as RecordPlaceholder;
+      rec = ph == null ? null : state.records[ph.ID];
+      return ph != null;
    }
 
    private static DateTime ReadResourceManagerDateTime_AsResourceManagerEntry( this Byte[] array, ref Int32 idx )
@@ -771,6 +771,8 @@ public static partial class E_CILPhysical
          this.nullCount = 0;
          this.charArray = new Char[4];
       }
+
+      public Int32? TopObjectID { get; set; }
    }
 
    private sealed class RecordPlaceholder : AbstractRecord

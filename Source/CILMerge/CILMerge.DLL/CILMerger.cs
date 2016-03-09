@@ -3333,7 +3333,7 @@ namespace CILMerge
                      {
                         case ResourceManagerEntryKind.UserDefined:
                            var ud = (UserDefinedResourceManagerEntry) resXValue;
-                           var newTypeStr = this.ProcessTypeString( md, ud.UserDefinedType );
+                           var newTypeStr = this.ProcessTypeString( md, resx.UserDefinedType );
                            // Have to fix records one by one
                            var idx = resx.DataOffset;
                            this.ProcessNRBFRecord( md, ud.Contents );

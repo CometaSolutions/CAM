@@ -41,16 +41,114 @@ public static partial class E_CILPhysical
       switch ( kind )
       {
          case ResourceManagerEntryKind.PreDefined:
-            throw new NotImplementedException( "Not implemented yet." );
+            ( (PreDefinedResourceManagerEntry) entry ).WritePreDefinedEntry( stream );
+            break;
          case ResourceManagerEntryKind.UserDefined:
-            ( (UserDefinedResourceManagerEntry) entry ).WriteNRBFRecords( stream );
+            ( (UserDefinedResourceManagerEntry) entry ).WriteUserDefinedEntry( stream );
             break;
          default:
             throw new ArgumentException( "Unrecognized resource manager entry kind: " + kind + "." );
       }
    }
 
-   private static void WriteNRBFRecords( this UserDefinedResourceManagerEntry entry, Stream stream )
+   private static void WritePreDefinedEntry( this PreDefinedResourceManagerEntry entry, Stream stream )
+   {
+      var array = new ResizableArray<Byte>( 8 );
+      var idx = 0;
+      var val = entry.Value;
+      var tc = PreDefinedResourceManagerEntry.GetResourceTypeCodeForObject( val );
+      if ( tc.HasValue )
+      {
+         var writeArray = true;
+         switch ( tc.Value )
+         {
+            case ResourceTypeCode.Null:
+               break;
+            case ResourceTypeCode.String:
+               var str = (String) val;
+               var byteCount = UTF8.GetByteCount( str );
+               array.CurrentMaxCapacity = 5 + byteCount;
+               array.Array
+                  .WriteInt32Encoded7Bit( ref idx, byteCount )
+                  .WriteStringToBytes( ref idx, UTF8, str );
+               break;
+            case ResourceTypeCode.Boolean:
+               array.Array.WriteByteToBytes( ref idx, (Byte) ( (Boolean) val ? 1 : 0 ) );
+               break;
+            case ResourceTypeCode.Char:
+               array.Array.WriteUInt16LEToBytes( ref idx, (UInt16) ( (Char) val ) );
+               break;
+            case ResourceTypeCode.Byte:
+               array.Array.WriteByteToBytes( ref idx, (Byte) val );
+               break;
+            case ResourceTypeCode.SByte:
+               array.Array.WriteSByteToBytes( ref idx, (SByte) val );
+               break;
+            case ResourceTypeCode.Int16:
+               array.Array.WriteInt16LEToBytes( ref idx, (Int16) val );
+               break;
+            case ResourceTypeCode.UInt16:
+               array.Array.WriteUInt16LEToBytes( ref idx, (UInt16) val );
+               break;
+            case ResourceTypeCode.Int32:
+               array.Array.WriteInt32LEToBytes( ref idx, (Int32) val );
+               break;
+            case ResourceTypeCode.UInt32:
+               array.Array.WriteUInt32LEToBytes( ref idx, (UInt32) val );
+               break;
+            case ResourceTypeCode.Int64:
+               array.Array.WriteInt64LEToBytes( ref idx, (Int64) val );
+               break;
+            case ResourceTypeCode.UInt64:
+               array.Array.WriteUInt64LEToBytes( ref idx, (UInt64) val );
+               break;
+            case ResourceTypeCode.Single:
+               array.Array.WriteSingleLEToBytes( ref idx, (Single) val );
+               break;
+            case ResourceTypeCode.Double:
+               array.Array.WriteDoubleLEToBytes( ref idx, (Double) val );
+               break;
+            case ResourceTypeCode.Decimal:
+               array.WriteResourceManagerDecimal_AsResourceManagerEntry( ref idx, (Decimal) val );
+               break;
+            case ResourceTypeCode.DateTime:
+               array.WriteResourceManagerDateTime_AsResourceManagerEntry( ref idx, (DateTime) val );
+               break;
+            case ResourceTypeCode.TimeSpan:
+               array.WriteResourceManagerTimeSpan_AsResourceManagerEntry( ref idx, (TimeSpan) val );
+               break;
+            case ResourceTypeCode.ByteArray:
+               var bytes = (Byte[]) val;
+               var len = bytes.Length;
+               array.CurrentMaxCapacity = len + sizeof( Int32 );
+               array.Array
+                  .WriteInt32LEToBytes( ref idx, len )
+                  .BlockCopyFrom( ref idx, bytes );
+               break;
+            case ResourceTypeCode.Stream:
+               var sourceStream = (Stream) val;
+               sourceStream.Position = 0;
+               array.Array.WriteInt32LEToBytes( ref idx, (Int32) sourceStream.Length );
+               stream.Write( array.Array, idx );
+               writeArray = false;
+               sourceStream.CopyTo( stream );
+               break;
+            default:
+               throw new ManifestResourceSerializationException( "Unrecognized resource type code: " + tc.Value + "." );
+         }
+
+         if ( writeArray )
+         {
+            stream.Write( array.Array, idx );
+         }
+      }
+      else
+      {
+         throw new ManifestResourceSerializationException( "The type " + val.GetType() + " is not one of the pre-defined types." );
+      }
+   }
+
+   private static void WriteUserDefinedEntry( this UserDefinedResourceManagerEntry entry, Stream stream )
    {
       var state = new SerializationState( stream );
       // Write header
@@ -731,16 +829,14 @@ public static partial class E_CILPhysical
          ( encoding ?? UTF8 ).GetByteCount( str );
    }
 
-   private static void WriteResourceManagerDateTime_AsResourceManagerEntry( this SerializationState state, DateTime dt )
+   private static void WriteResourceManagerDateTime_AsResourceManagerEntry( this ResizableArray<Byte> array, ref Int32 idx, DateTime dt )
    {
-      state.EnsureCapacity( state.idx + 8 );
-      state.array.WriteInt64LEToBytes( ref state.idx, dt.ToBinary() );
+      array.WriteInt64LEToBytes( ref idx, dt.ToBinary() );
    }
 
-   private static void WriteResourceManagerTimeSpan_AsResourceManagerEntry( this SerializationState state, TimeSpan ts )
+   private static void WriteResourceManagerTimeSpan_AsResourceManagerEntry( this ResizableArray<Byte> array, ref Int32 idx, TimeSpan ts )
    {
-      state.EnsureCapacity( state.idx + 8 );
-      state.array.WriteInt64LEToBytes( ref state.idx, ts.Ticks );
+      array.WriteInt64LEToBytes( ref idx, ts.Ticks );
    }
 
    private static void WriteResourceManagerDateTime_AsClassRecordMemberValue( this SerializationState state, DateTime dt )
@@ -761,12 +857,12 @@ public static partial class E_CILPhysical
       state.array.WriteInt64LEToBytes( ref state.idx, ts.Ticks );
    }
 
-   private static void WriteResourceManagerDecimal_AsResourceManagerEntry( this SerializationState state, Decimal d )
+   private static void WriteResourceManagerDecimal_AsResourceManagerEntry( this ResizableArray<Byte> array, ref Int32 idx, Decimal d )
    {
-      state.EnsureCapacity( state.idx + 16 );
+      array.CurrentMaxCapacity = 16;
       foreach ( var val in Decimal.GetBits( d ) )
       {
-         state.array.WriteInt32LEToBytes( ref state.idx, val );
+         array.Array.WriteInt32LEToBytes( ref idx, val );
       }
    }
 

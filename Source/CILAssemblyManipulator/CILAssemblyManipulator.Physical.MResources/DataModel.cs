@@ -97,9 +97,24 @@ namespace CILAssemblyManipulator.Physical.MResources
          return str == null ? val.ToStringSafe( "<null>" ) : ( "\"" + str + "\"" );
       }
 
-      private static ResourceTypeCode GetResourceTypeCode( Object obj )
+      /// <summary>
+      /// Gets the <see cref="ResourceTypeCode"/> which corresponds to the type of the given object.
+      /// </summary>
+      /// <param name="obj">The object, may be <c>null</c>.</param>
+      /// <returns>The <see cref="ResourceTypeCode"/> for given <paramref name="obj"/>, or <c>null</c> if the <paramref name="obj"/> needs to be represented using <see cref="UserDefinedResourceManagerEntry"/>.</returns>
+      public static ResourceTypeCode? GetResourceTypeCodeForObject( Object obj )
       {
-         switch ( Type.GetTypeCode( obj?.GetType() ) )
+         return GetResourceTypeCodeForType( obj?.GetType() );
+      }
+
+      /// <summary>
+      /// Gets the <see cref="ResourceTypeCode"/> which corresponds to given type.
+      /// </summary>
+      /// <param name="type">The type, may be <c>null</c>.</param>
+      /// <returns>The <see cref="ResourceTypeCode"/> for given <paramref name="type"/>, or <c>null</c> if the <paramref name="type"/> needs to be represented using <see cref="UserDefinedResourceManagerEntry"/>.</returns>
+      public static ResourceTypeCode? GetResourceTypeCodeForType( Type type )
+      {
+         switch ( Type.GetTypeCode( type ) )
          {
             case TypeCode.Empty:
                return ResourceTypeCode.Null;
@@ -134,17 +149,21 @@ namespace CILAssemblyManipulator.Physical.MResources
             case TypeCode.Decimal:
                return ResourceTypeCode.Decimal;
             default:
-               if ( obj is Byte[] )
+               if ( Equals( type, typeof( TimeSpan ) ) )
+               {
+                  return ResourceTypeCode.TimeSpan;
+               }
+               else if ( Equals( type, typeof( Byte[] ) ) )
                {
                   return ResourceTypeCode.ByteArray;
                }
-               else if ( obj is System.IO.Stream )
+               else if ( typeof( System.IO.Stream ).IsAssignableFrom_IgnoreGenericArgumentsForGenericTypes( type ) )
                {
                   return ResourceTypeCode.Stream;
                }
                else
                {
-                  throw new ArgumentException( "The type of given object, " + obj?.GetType() + ", is not one of the pre-defined types." );
+                  return null;
                }
          }
 
@@ -156,11 +175,11 @@ namespace CILAssemblyManipulator.Physical.MResources
    /// </summary>
    public sealed class UserDefinedResourceManagerEntry : ResourceManagerEntry
    {
-      /// <summary>
-      /// Gets or sets the textual type information of this <see cref="UserDefinedResourceManagerEntry"/>.
-      /// </summary>
-      /// <value>The textual type information of this <see cref="UserDefinedResourceManagerEntry"/>.</value>
-      public String UserDefinedType { get; set; }
+      ///// <summary>
+      ///// Gets or sets the textual type information of this <see cref="UserDefinedResourceManagerEntry"/>.
+      ///// </summary>
+      ///// <value>The textual type information of this <see cref="UserDefinedResourceManagerEntry"/>.</value>
+      //public String UserDefinedType { get; set; }
 
       /// <summary>
       /// Gets or sets the contents of this <see cref="UserDefinedResourceManagerEntry"/> as <see cref="AbstractRecord"/>.
@@ -187,7 +206,7 @@ namespace CILAssemblyManipulator.Physical.MResources
       /// <returns>Textual representation of this <see cref="UserDefinedResourceManagerEntry"/>.</returns>
       public override String ToString()
       {
-         return "Resource of type " + this.UserDefinedType;
+         return "User-defined resource";
       }
    }
 
@@ -446,16 +465,6 @@ namespace CILAssemblyManipulator.Physical.MResources
       /// <value>The assembly name of the type of the serialized object instance.</value>
       public String AssemblyName { get; set; }
 
-      // TODO get rid of this property
-      /// <summary>
-      /// Gets or sets the value indicating whether this record should be serialized in place, instead of being serialized as reference.
-      /// </summary>
-      /// <value>The value indicating whether this record should be serialized in place, instead of being serialized as reference.</value>
-      /// <remarks>
-      /// This property might be removed in the future.
-      /// </remarks>
-      public Boolean IsSerializedInPlace { get; set; }
-
       /// <summary>
       /// Returns the <see cref="RecordKind.Class"/>.
       /// </summary>
@@ -623,4 +632,20 @@ namespace CILAssemblyManipulator.Physical.MResources
       RectangularOffset = 5
    }
 
+   /// <summary>
+   /// This exception is thrown whenever something goes wrong when serializing or deserializing manifest resources (<see cref="ResourceManagerEntry"/>).
+   /// </summary>
+   public class ManifestResourceSerializationException : Exception
+   {
+      /// <summary>
+      /// Creates a new instance of <see cref="ManifestResourceSerializationException"/> with given message and optional inner exception.
+      /// </summary>
+      /// <param name="msg">The message.</param>
+      /// <param name="inner">The inner exception.</param>
+      public ManifestResourceSerializationException( String msg, Exception inner = null )
+         : base( msg, inner )
+      {
+
+      }
+   }
 }
