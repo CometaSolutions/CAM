@@ -47,27 +47,6 @@ namespace CILAssemblyManipulator.Physical.MResources
    public sealed class PreDefinedResourceManagerEntry : ResourceManagerEntry
    {
 
-      ///// <summary>
-      ///// Creates a new instance of <see cref="PreDefinedResourceManagerEntry"/> with given value.
-      ///// </summary>
-      ///// <param name="value"></param>
-      //public PreDefinedResourceManagerEntry( Object value )
-      //   : this( GetResourceTypeCode( value ), value )
-      //{
-      //}
-
-      //internal PreDefinedResourceManagerEntry( ResourceTypeCode typeCode, Object value )
-      //{
-      //   this.ResourceTypeCode = typeCode;
-      //   this.Value = value;
-      //}
-
-      ///// <summary>
-      ///// Gets the <see cref="MResoures.ResourceTypeCode"/> enumeration for <see cref="Value"/>.
-      ///// </summary>
-      ///// <value>The <see cref="MResoures.ResourceTypeCode"/> enumeration for <see cref="Value"/>.</value>
-      //public ResourceTypeCode ResourceTypeCode { get; }
-
       /// <summary>
       /// Gets or sets the value of this <see cref="PreDefinedResourceManagerEntry"/>.
       /// </summary>
@@ -175,12 +154,6 @@ namespace CILAssemblyManipulator.Physical.MResources
    /// </summary>
    public sealed class UserDefinedResourceManagerEntry : ResourceManagerEntry
    {
-      ///// <summary>
-      ///// Gets or sets the textual type information of this <see cref="UserDefinedResourceManagerEntry"/>.
-      ///// </summary>
-      ///// <value>The textual type information of this <see cref="UserDefinedResourceManagerEntry"/>.</value>
-      //public String UserDefinedType { get; set; }
-
       /// <summary>
       /// Gets or sets the contents of this <see cref="UserDefinedResourceManagerEntry"/> as <see cref="AbstractRecord"/>.
       /// </summary>
@@ -360,39 +333,6 @@ namespace CILAssemblyManipulator.Physical.MResources
       String TypeName { get; set; }
    }
 
-   /// <summary>
-   /// This is interface for manifest resource elements which have a serializable value.
-   /// </summary>
-   public interface ElementWithValue
-   {
-      /// <summary>
-      /// Gets or sets the value of this element.
-      /// </summary>
-      /// <value>The value of this element.</value>
-      /// <remarks>
-      /// If the value is not <c>null</c>, then the type of the value should be one of the following:
-      /// <list type="bullet">
-      /// <item><description>any sub-type of <see cref="AbstractRecord"/>,</description></item>
-      /// <item><description><see cref="Boolean"/>,</description></item>
-      /// <item><description><see cref="Byte"/>,</description></item>
-      /// <item><description><see cref="Char"/>,</description></item>
-      /// <item><description><see cref="Decimal"/>,</description></item>
-      /// <item><description><see cref="Double"/>,</description></item>
-      /// <item><description><see cref="Int16"/>,</description></item>
-      /// <item><description><see cref="Int32"/>,</description></item>
-      /// <item><description><see cref="Int64"/>,</description></item>
-      /// <item><description><see cref="SByte"/>,</description></item>
-      /// <item><description><see cref="Single"/>,</description></item>
-      /// <item><description><see cref="TimeSpan"/>,</description></item>
-      /// <item><description><see cref="DateTime"/>,</description></item>
-      /// <item><description><see cref="UInt16"/>,</description></item>
-      /// <item><description><see cref="UInt32"/>,</description></item>
-      /// <item><description><see cref="UInt64"/>, or</description></item>
-      /// <item><description><see cref="String"/>.</description></item>
-      /// </list>
-      /// </remarks>
-      Object Value { get; set; }
-   }
 
    /// <summary>
    /// This enumeration tells what type instance of <see cref="AbstractRecord"/> really is.
@@ -481,7 +421,7 @@ namespace CILAssemblyManipulator.Physical.MResources
    /// <summary>
    /// This class represents a single field of the serialized object instance.
    /// </summary>
-   public sealed class ClassRecordMember : ElementWithTypeInfo, ElementWithValue
+   public sealed class ClassRecordMember : ElementWithTypeInfo
    {
       /// <summary>
       /// Gets or sets the name of this field.
@@ -506,7 +446,26 @@ namespace CILAssemblyManipulator.Physical.MResources
       /// </summary>
       /// <value>The actual value of the field.</value>
       /// <remarks>
-      /// See <see cref="ElementWithValue.Value"/> property for more information about possible values for this property.
+      /// If the value is not <c>null</c>, then the type of the value should be one of the following:
+      /// <list type="bullet">
+      /// <item><description>any sub-type of <see cref="AbstractRecord"/>,</description></item>
+      /// <item><description><see cref="Boolean"/>,</description></item>
+      /// <item><description><see cref="Byte"/>,</description></item>
+      /// <item><description><see cref="Char"/>,</description></item>
+      /// <item><description><see cref="Decimal"/>,</description></item>
+      /// <item><description><see cref="Double"/>,</description></item>
+      /// <item><description><see cref="Int16"/>,</description></item>
+      /// <item><description><see cref="Int32"/>,</description></item>
+      /// <item><description><see cref="Int64"/>,</description></item>
+      /// <item><description><see cref="SByte"/>,</description></item>
+      /// <item><description><see cref="Single"/>,</description></item>
+      /// <item><description><see cref="TimeSpan"/>,</description></item>
+      /// <item><description><see cref="DateTime"/>,</description></item>
+      /// <item><description><see cref="UInt16"/>,</description></item>
+      /// <item><description><see cref="UInt32"/>,</description></item>
+      /// <item><description><see cref="UInt64"/>, or</description></item>
+      /// <item><description><see cref="String"/>.</description></item>
+      /// </list>
       /// </remarks>
       public Object Value { get; set; }
 
