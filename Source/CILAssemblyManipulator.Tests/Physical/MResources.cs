@@ -40,10 +40,10 @@ namespace CILAssemblyManipulator.Tests.Physical
       const String FIELD_SUFFIX = ">k__BackingField";
 
       [Test]
-      public void TestInteropWithNativeResourceManagerWriter_UserDefinedTypes()
+      public void TestManifestResources_UserDefined_Object()
       {
          var resourceValue = CreateNativeResourceObject( null );
-         PerformManifestResourceTest( new Tuple<string, object, ResourceManagerEntry>[]
+         PerformManifestResourceTest( new Tuple<String, Object, ResourceManagerEntry>[]
          {
             Tuple.Create<String, Object, ResourceManagerEntry>( NAME, resourceValue, new UserDefinedResourceManagerEntry() { Contents = CreateRecordFrom(resourceValue) } )
          } );
@@ -81,14 +81,14 @@ namespace CILAssemblyManipulator.Tests.Physical
       }
 
       [Test]
-      public void TestInteropWithNativeResourceManagerWriter_PreDefinedTypes()
+      public void TestManifestResources_PreDefined()
       {
          var random = new Random();
          var resourceValue = CreateNativeResourceObject( random );
          var bytez = random.NextBytes( random.Next( 50, 100 ) );
          using ( var stream = new MemoryStream( random.NextBytes( random.Next( 50, 100 ) ) ) )
          {
-            PerformManifestResourceTest( new Tuple<string, object, ResourceManagerEntry>[]
+            PerformManifestResourceTest( new Tuple<String, Object, ResourceManagerEntry>[]
             {
                Tuple.Create<String, Object, ResourceManagerEntry>( NAME + "_Null", resourceValue.NullValue, new PreDefinedResourceManagerEntry() { Value = resourceValue.NullValue } ),
                Tuple.Create<String, Object, ResourceManagerEntry>( NAME + "_Boolean", resourceValue.BooleanValue, new PreDefinedResourceManagerEntry() { Value = resourceValue.BooleanValue } ),
@@ -117,51 +117,61 @@ namespace CILAssemblyManipulator.Tests.Physical
       }
 
       [Test]
-      public void TestInteropWithNativeResourceManagerWriter_Arrays()
+      public void TestManifestResources_UserDefined_Arrays()
       {
          var resourceValue = CreateNativeArrayResourceObject();
-
-         Byte[] serializedResource;
-         using ( var stream = new MemoryStream() )
+         PerformManifestResourceTest( new Tuple<String, Object, ResourceManagerEntry>[]
          {
-            using ( var rw = new ResourceWriter( stream ) )
-            {
-               rw.AddResource( NAME, resourceValue );
-               rw.AddResource( NAME + "_" + nameof( TestSimpleArrayResourceType.Array_Nulls ), resourceValue.Array_Nulls );
-               rw.AddResource( NAME + "_" + nameof( TestSimpleArrayResourceType.Array_String ), resourceValue.Array_String );
-               rw.AddResource( NAME + "_" + nameof( TestSimpleArrayResourceType.Array_Int32 ), resourceValue.Array_Int32 );
-               rw.AddResource( NAME + "_" + nameof( TestSimpleArrayResourceType.Array_UserDefined ), resourceValue.Array_UserDefined );
-               rw.Generate();
-            }
+            Tuple.Create<String, Object, ResourceManagerEntry>( NAME, resourceValue, new UserDefinedResourceManagerEntry() { Contents = CreateRecordFrom(resourceValue ) } ),
+            Tuple.Create<String, Object, ResourceManagerEntry>( NAME + "_" + nameof( TestSimpleArrayResourceType.Array_Nulls ), resourceValue.Array_Nulls, new UserDefinedResourceManagerEntry() { Contents = resourceValue.Array_Nulls.CreateArrayRecord() } ),
+            Tuple.Create<String, Object, ResourceManagerEntry>( NAME + "_" + nameof( TestSimpleArrayResourceType.Array_String ), resourceValue.Array_String, new UserDefinedResourceManagerEntry() { Contents = resourceValue.Array_String.CreateArrayRecord() } ),
+            Tuple.Create<String, Object, ResourceManagerEntry>( NAME + "_" + nameof( TestSimpleArrayResourceType.Array_Int32 ),resourceValue.Array_Int32, new UserDefinedResourceManagerEntry() { Contents = resourceValue.Array_Int32.CreateArrayRecord() } ),
+            Tuple.Create<String, Object, ResourceManagerEntry>( NAME + "_" + nameof( TestSimpleArrayResourceType.Array_UserDefined ), resourceValue.Array_UserDefined, new UserDefinedResourceManagerEntry() { Contents = resourceValue.Array_UserDefined.CreateArrayRecord( i => CreateRecordFrom( i ) ) } ),
+         } );
 
-            serializedResource = stream.ToArray();
-         }
 
-         var resourceInfo = new Tuple<String, UserDefinedResourceManagerEntry>[]
-         {
-            Tuple.Create( NAME, new UserDefinedResourceManagerEntry() { Contents = CreateRecordFrom(resourceValue ) } ),
-            Tuple.Create( NAME + "_" + nameof( TestSimpleArrayResourceType.Array_Nulls ), new UserDefinedResourceManagerEntry() { Contents = resourceValue.Array_Nulls.CreateArrayRecord() } ),
-            Tuple.Create( NAME + "_" + nameof( TestSimpleArrayResourceType.Array_String ), new UserDefinedResourceManagerEntry() { Contents = resourceValue.Array_String.CreateArrayRecord() } ),
-            Tuple.Create( NAME + "_" + nameof( TestSimpleArrayResourceType.Array_Int32 ), new UserDefinedResourceManagerEntry() { Contents = resourceValue.Array_Int32.CreateArrayRecord() } ),
-            Tuple.Create( NAME + "_" + nameof( TestSimpleArrayResourceType.Array_UserDefined ), new UserDefinedResourceManagerEntry() { Contents = resourceValue.Array_UserDefined.CreateArrayRecord( i => CreateRecordFrom( i ) ) } ),
-         };
 
-         Boolean resourceManagerIdentified;
-         var resources = serializedResource.ReadResourceManagerEntries( out resourceManagerIdentified ).ToArray();
-         Assert.IsTrue( resourceManagerIdentified );
-         Assert.AreEqual( resourceInfo.Length, resources.Length );
-         var deserializedInfo = resources.Select( res => Tuple.Create( res.Name, (UserDefinedResourceManagerEntry) res.CreateEntry( serializedResource ) ) ).ToArray();
-         Assert.IsTrue(
-            ArrayEqualityComparer<Tuple<String, UserDefinedResourceManagerEntry>>.IsPermutation(
-               resourceInfo,
-               deserializedInfo,
-               ComparerFromFunctions.NewEqualityComparer<Tuple<String, UserDefinedResourceManagerEntry>>(
-                  ( x, y ) => String.Equals( x.Item1, y.Item1 ) && CAMPhysicalM::CILAssemblyManipulator.Physical.Comparers.UserDefinedResourceManagerEntryEqualityComparer.Equals( x.Item2, y.Item2 ),
-                  x => x.Item1.GetHashCodeSafe()
-                  )
-               ),
-            "Array values of {0} were not serialized properly",
-            resourceValue );
+         //Byte[] serializedResource;
+         //using ( var stream = new MemoryStream() )
+         //{
+         //   using ( var rw = new ResourceWriter( stream ) )
+         //   {
+         //      rw.AddResource( NAME, resourceValue );
+         //      rw.AddResource( NAME + "_" + nameof( TestSimpleArrayResourceType.Array_Nulls ), resourceValue.Array_Nulls );
+         //      rw.AddResource( NAME + "_" + nameof( TestSimpleArrayResourceType.Array_String ), resourceValue.Array_String );
+         //      rw.AddResource( NAME + "_" + nameof( TestSimpleArrayResourceType.Array_Int32 ), resourceValue.Array_Int32 );
+         //      rw.AddResource( NAME + "_" + nameof( TestSimpleArrayResourceType.Array_UserDefined ), resourceValue.Array_UserDefined );
+         //      rw.Generate();
+         //   }
+
+         //   serializedResource = stream.ToArray();
+         //}
+
+         //var resourceInfo = new Tuple<String, UserDefinedResourceManagerEntry>[]
+         //{
+         //   Tuple.Create( NAME, new UserDefinedResourceManagerEntry() { Contents = CreateRecordFrom(resourceValue ) } ),
+         //   Tuple.Create( NAME + "_" + nameof( TestSimpleArrayResourceType.Array_Nulls ), new UserDefinedResourceManagerEntry() { Contents = resourceValue.Array_Nulls.CreateArrayRecord() } ),
+         //   Tuple.Create( NAME + "_" + nameof( TestSimpleArrayResourceType.Array_String ), new UserDefinedResourceManagerEntry() { Contents = resourceValue.Array_String.CreateArrayRecord() } ),
+         //   Tuple.Create( NAME + "_" + nameof( TestSimpleArrayResourceType.Array_Int32 ), new UserDefinedResourceManagerEntry() { Contents = resourceValue.Array_Int32.CreateArrayRecord() } ),
+         //   Tuple.Create( NAME + "_" + nameof( TestSimpleArrayResourceType.Array_UserDefined ), new UserDefinedResourceManagerEntry() { Contents = resourceValue.Array_UserDefined.CreateArrayRecord( i => CreateRecordFrom( i ) ) } ),
+         //};
+
+         //Boolean resourceManagerIdentified;
+         //var resources = serializedResource.ReadResourceManagerEntries( out resourceManagerIdentified ).ToArray();
+         //Assert.IsTrue( resourceManagerIdentified );
+         //Assert.AreEqual( resourceInfo.Length, resources.Length );
+         //var deserializedInfo = resources.Select( res => Tuple.Create( res.Name, (UserDefinedResourceManagerEntry) res.CreateEntry( serializedResource ) ) ).ToArray();
+         //Assert.IsTrue(
+         //   ArrayEqualityComparer<Tuple<String, UserDefinedResourceManagerEntry>>.IsPermutation(
+         //      resourceInfo,
+         //      deserializedInfo,
+         //      ComparerFromFunctions.NewEqualityComparer<Tuple<String, UserDefinedResourceManagerEntry>>(
+         //         ( x, y ) => String.Equals( x.Item1, y.Item1 ) && CAMPhysicalM::CILAssemblyManipulator.Physical.Comparers.UserDefinedResourceManagerEntryEqualityComparer.Equals( x.Item2, y.Item2 ),
+         //         x => x.Item1.GetHashCodeSafe()
+         //         )
+         //      ),
+         //   "Array values of {0} were not serialized properly",
+         //   resourceValue );
 
       }
 

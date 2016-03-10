@@ -301,7 +301,8 @@ public static partial class E_CILPhysical
    private static void WriteClassRecord( SerializationState state, ClassRecord claas, Int32 id )
    {
       var metaDataKey = Tuple.Create( claas.AssemblyName, claas.TypeName );
-      Int32 otherID;
+      Tuple<BinaryTypeEnumeration, PrimitiveTypeEnumeration>[] mTypeCodes;
+      Tuple<Int32, Tuple<BinaryTypeEnumeration, PrimitiveTypeEnumeration>[]> otherID;
       if ( state.serializedObjects.TryGetValue( metaDataKey, out otherID ) )
       {
          // Another record of the same type was serialized earlier, can use previous info
@@ -309,8 +310,9 @@ public static partial class E_CILPhysical
          state.array
             .WriteByteToBytes( ref state.idx, (Byte) RecordTypeEnumeration.ClassWithID )
             .WriteInt32LEToBytes( ref state.idx, id )
-            .WriteInt32LEToBytes( ref state.idx, otherID );
+            .WriteInt32LEToBytes( ref state.idx, otherID.Item1 );
          state.WriteArrayToStream();
+         mTypeCodes = otherID.Item2;
       }
       else
       {
@@ -337,17 +339,20 @@ public static partial class E_CILPhysical
          }
          // Write member type infos
          state.EnsureCapacity( claas.Members.Count );
-         var mTypeCodes = new List<Tuple<BinaryTypeEnumeration, PrimitiveTypeEnumeration>>( claas.Members.Count );
-         foreach ( var member in claas.Members )
+         mTypeCodes = new Tuple<BinaryTypeEnumeration, PrimitiveTypeEnumeration>[claas.Members.Count];
+         for ( var i = 0; i < claas.Members.Count; ++i )
          {
+            var member = claas.Members[i];
             PrimitiveTypeEnumeration pType;
             var bt = GetTypeInfo( member.Value, out pType );
-            mTypeCodes.Add( Tuple.Create( bt, pType ) );
+            mTypeCodes[i] = Tuple.Create( bt, pType );
             state.array.WriteByteToBytes( ref state.idx, (Byte) bt );
          }
          state.WriteArrayToStream();
+         state.serializedObjects.Add( metaDataKey, Tuple.Create( id, mTypeCodes ) );
+
          // Write additional type info where applicable
-         for ( var i = 0; i < mTypeCodes.Count; ++i )
+         for ( var i = 0; i < mTypeCodes.Length; ++i )
          {
             var member = claas.Members[i];
             var tuple = mTypeCodes[i];
@@ -389,100 +394,106 @@ public static partial class E_CILPhysical
             state.array.WriteInt32LEToBytes( ref state.idx, state.assemblies[claas.AssemblyName] );
             state.WriteArrayToStream();
          }
+      }
 
-         // Write member values
-         for ( var i = 0; i < mTypeCodes.Count; ++i )
+      // Write member values
+      for ( var i = 0; i < mTypeCodes.Length; ++i )
+      {
+         var member = claas.Members[i];
+         var val = member.Value;
+         var typeInfo = mTypeCodes[i];
+         var binaryType = typeInfo.Item1;
+         if ( binaryType == BinaryTypeEnumeration.Primitive )
          {
-            var member = claas.Members[i];
-            var val = member.Value;
-            var typeInfo = mTypeCodes[i];
-            var binaryType = typeInfo.Item1;
-            if ( binaryType == BinaryTypeEnumeration.Primitive )
+            WritePrimitive( state, val, typeInfo.Item2 );
+         }
+         else
+         {
+            if ( binaryType == BinaryTypeEnumeration.String )
             {
-               WritePrimitive( state, val, typeInfo.Item2 );
+               WriteSingleRecord( state, null, false, val );
             }
             else
             {
-               if ( binaryType == BinaryTypeEnumeration.String )
+               if ( state.TryAddRecord( val, out id ) )
                {
-                  WriteSingleRecord( state, null, false, val );
+                  // The record hasn't been serialized, add to queue
+                  // This will force member references be serialized instead of member values being serialized in-place
+                  state.recordQueue.Enqueue( val );
                }
-               else
-               {
-                  if ( state.TryAddRecord( val, out id ) )
-                  {
-                     // The record hasn't been serialized, add to queue
-                     // This will force member references be serialized instead of member values being serialized in-place
-                     state.recordQueue.Enqueue( val );
-                  }
-                  WriteSingleRecord( state, (AbstractRecord) val, false );
-               }
+               WriteSingleRecord( state, (AbstractRecord) val, false );
             }
-
          }
 
-      }
-      if ( !state.serializedObjects.ContainsKey( metaDataKey ) )
-      {
-         state.serializedObjects.Add( metaDataKey, id );
+
       }
    }
 
    private static void WriteArrayRecord( SerializationState state, ArrayRecord array, Int32 id )
    {
       var rank = Math.Max( 1, array.Rank );
+      var kind = array.ArrayKind;
+      var values = array.ValuesAsVector;
+      RecordTypeEnumeration recType;
       Type pType = null;
-      // Default for empty arrays and arrays with just nulls is ArraySinglePrimitive
-      var recType = RecordTypeEnumeration.ArraySinglePrimitive;
-      var nonNullEncountered = false;
-      foreach ( var val in array.ValuesAsVector )
+      if ( kind == BinaryArrayTypeEnumeration.Single )
       {
-         if ( val != null )
+         if ( values.Count > 0 )
          {
-            var valType = val.GetType();
-            if ( nonNullEncountered )
+            recType = 0;
+            foreach ( var val in values )
             {
-               if (
-                  ( recType == RecordTypeEnumeration.ArraySingleString && !( val is String ) )
-                  || ( recType == RecordTypeEnumeration.ArraySinglePrimitive && !Object.Equals( pType, valType ) )
+               if ( val != null
+                  && !( val is AbstractRecord )
+                  && ( pType == null || Equals( pType, val.GetType() ) )
                   )
+               {
+                  recType = RecordTypeEnumeration.ArraySinglePrimitive;
+                  if ( pType == null )
+                  {
+                     pType = val.GetType();
+                  }
+               }
+               else
                {
                   recType = RecordTypeEnumeration.ArraySingleObject;
                }
-            }
-            else
-            {
-               recType = val is String ?
-                     RecordTypeEnumeration.ArraySingleString :
-                     ( val is AbstractRecord ?
-                        RecordTypeEnumeration.ArraySingleObject :
-                        RecordTypeEnumeration.ArraySinglePrimitive );
-               if ( recType == RecordTypeEnumeration.ArraySinglePrimitive )
+
+               if ( recType == RecordTypeEnumeration.ArraySingleObject )
                {
-                  pType = valType;
+                  break;
                }
-               nonNullEncountered = true;
             }
          }
-         if ( recType == RecordTypeEnumeration.ArraySingleObject )
+         else
          {
-            break;
+            // Empty arrays are serialized like this
+            recType = RecordTypeEnumeration.ArraySinglePrimitive;
          }
       }
-      var recTypeToUse = BinaryArrayTypeEnumeration.Single == array.ArrayKind ? recType : RecordTypeEnumeration.BinaryArray;
+      else
+      {
+         recType = RecordTypeEnumeration.BinaryArray;
+      }
+
+      if ( recType == RecordTypeEnumeration.ArraySinglePrimitive && Equals( typeof( String ), pType ) )
+      {
+         recType = RecordTypeEnumeration.ArraySingleString;
+      }
+
 
       // Write information common for all arrays
       state.EnsureCapacity( 9 );
       state.array
-         .WriteByteToBytes( ref state.idx, (Byte) recTypeToUse )
+         .WriteByteToBytes( ref state.idx, (Byte) recType )
          .WriteInt32LEToBytes( ref state.idx, id );
-      if ( RecordTypeEnumeration.BinaryArray != recTypeToUse )
+      if ( RecordTypeEnumeration.BinaryArray != recType )
       {
          state.array.WriteInt32LEToBytes( ref state.idx, array.ValuesAsVector.Count );
       }
       state.WriteArrayToStream();
       PrimitiveTypeEnumeration pEnum;
-      switch ( recTypeToUse )
+      switch ( recType )
       {
          case RecordTypeEnumeration.BinaryArray:
             var ak = array.ArrayKind;
@@ -886,7 +897,7 @@ public static partial class E_CILPhysical
       internal readonly IDictionary<Object, Int32> records;
       internal readonly IDictionary<String, Int32> assemblies;
       internal readonly Queue<Object> recordQueue;
-      internal readonly IDictionary<Tuple<String, String>, Int32> serializedObjects;
+      internal readonly IDictionary<Tuple<String, String>, Tuple<Int32, Tuple<BinaryTypeEnumeration, PrimitiveTypeEnumeration>[]>> serializedObjects;
 
       internal SerializationState( Stream aStream )
       {
@@ -904,7 +915,7 @@ public static partial class E_CILPhysical
             } ) );
          this.assemblies = new Dictionary<String, Int32>();
          this.recordQueue = new Queue<Object>();
-         this.serializedObjects = new Dictionary<Tuple<String, String>, Int32>();
+         this.serializedObjects = new Dictionary<Tuple<String, String>, Tuple<Int32, Tuple<BinaryTypeEnumeration, PrimitiveTypeEnumeration>[]>>();
       }
 
       internal Boolean TryAddAssemblyName( String aName, out Int32 id )
