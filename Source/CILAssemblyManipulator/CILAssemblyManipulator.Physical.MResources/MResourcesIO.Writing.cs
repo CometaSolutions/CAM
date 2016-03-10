@@ -356,36 +356,8 @@ public static partial class E_CILPhysical
          {
             var member = claas.Members[i];
             var tuple = mTypeCodes[i];
-            switch ( tuple.Item1 )
-            {
-               case BinaryTypeEnumeration.Primitive:
-                  state.EnsureCapacity( 1 );
-                  state.array.WriteByteToBytes( ref state.idx, (Byte) tuple.Item2 );
-                  break;
-               case BinaryTypeEnumeration.SystemClass:
-                  nameByteCount = SafeByteCount( member.TypeName );
-                  state.EnsureCapacity( 5 + nameByteCount );
-                  state.array
-                     .WriteInt32Encoded7Bit( ref state.idx, nameByteCount )
-                     .WriteStringToBytes( ref state.idx, UTF8, member.TypeName );
-                  break;
-               case BinaryTypeEnumeration.Class:
-                  nameByteCount = SafeByteCount( member.TypeName );
-                  state.EnsureCapacity( 9 + nameByteCount );
-                  state.array
-                     .WriteInt32Encoded7Bit( ref state.idx, nameByteCount )
-                     .WriteStringToBytes( ref state.idx, UTF8, member.TypeName )
-                     .WriteInt32LEToBytes( ref state.idx, state.assemblies[member.AssemblyName] );
-                  break;
-               case BinaryTypeEnumeration.PrimitiveArray:
-                  state.EnsureCapacity( 1 );
-                  state.array
-                     .WriteByteToBytes( ref state.idx, (Byte) tuple.Item2 );
-                  break;
-            }
-            state.WriteArrayToStream();
+            WriteAdditionalTypeInfo( state, tuple.Item1, tuple.Item2, member );
          }
-
 
          // Write this class assembly name if needed
          if ( !isSystem )
@@ -434,150 +406,271 @@ public static partial class E_CILPhysical
       var rank = Math.Max( 1, array.Rank );
       var kind = array.ArrayKind;
       var values = array.ValuesAsVector;
+      var typeName = array.TypeName;
+      var assemblyName = array.AssemblyName;
       RecordTypeEnumeration recType;
       Type pType = null;
-      if ( kind == BinaryArrayTypeEnumeration.Single )
+      if ( kind == BinaryArrayTypeEnumeration.Single
+         && String.IsNullOrEmpty( assemblyName )
+         && String.IsNullOrEmpty( typeName )
+         )
       {
-         if ( values.Count > 0 )
-         {
-            recType = 0;
-            foreach ( var val in values )
-            {
-               if ( val != null
-                  && !( val is AbstractRecord )
-                  && ( pType == null || Equals( pType, val.GetType() ) )
-                  )
-               {
-                  recType = RecordTypeEnumeration.ArraySinglePrimitive;
-                  if ( pType == null )
-                  {
-                     pType = val.GetType();
-                  }
-               }
-               else
-               {
-                  recType = RecordTypeEnumeration.ArraySingleObject;
-               }
-
-               if ( recType == RecordTypeEnumeration.ArraySingleObject )
-               {
-                  break;
-               }
-            }
-         }
-         else
-         {
-            // Empty arrays are serialized like this
-            recType = RecordTypeEnumeration.ArraySinglePrimitive;
-         }
+         recType = GetSingleArrayRecordType( values, out pType );
+         WriteArrayRecord_Single( state, id, values, recType, GetPrimitiveTypeFromType( pType ) );
       }
       else
       {
-         recType = RecordTypeEnumeration.BinaryArray;
+         WriteArrayRecord_Other( state, array, id );
       }
+   }
 
-      if ( recType == RecordTypeEnumeration.ArraySinglePrimitive && Equals( typeof( String ), pType ) )
-      {
-         recType = RecordTypeEnumeration.ArraySingleString;
-      }
-
-
-      // Write information common for all arrays
+   private static void WriteArrayRecord_Single(
+      SerializationState state,
+      Int32 id,
+      List<Object> values,
+      RecordTypeEnumeration recType,
+      PrimitiveTypeEnumeration pEnum
+      )
+   {
       state.EnsureCapacity( 9 );
       state.array
          .WriteByteToBytes( ref state.idx, (Byte) recType )
-         .WriteInt32LEToBytes( ref state.idx, id );
-      if ( RecordTypeEnumeration.BinaryArray != recType )
-      {
-         state.array.WriteInt32LEToBytes( ref state.idx, array.ValuesAsVector.Count );
-      }
+         .WriteInt32LEToBytes( ref state.idx, id )
+         .WriteInt32LEToBytes( ref state.idx, values.Count );
       state.WriteArrayToStream();
-      PrimitiveTypeEnumeration pEnum;
+
       switch ( recType )
       {
-         case RecordTypeEnumeration.BinaryArray:
-            var ak = array.ArrayKind;
-            var cap = 7 + 4 * rank; // array type (1), rank (4), rank lengths (4 each) + type info (1) + possible primitive info
-            var hasOffset = false;
-            switch ( array.ArrayKind )
-            {
-               case BinaryArrayTypeEnumeration.SingleOffset:
-               case BinaryArrayTypeEnumeration.JaggedOffset:
-               case BinaryArrayTypeEnumeration.RectangularOffset:
-                  hasOffset = true;
-                  cap += 4 * rank; // rank offsets (4 each);
-                  break;
-            }
-            state.EnsureCapacity( cap );
-            state.array
-               .WriteByteToBytes( ref state.idx, (Byte) RecordTypeEnumeration.BinaryArray )
-               .WriteInt32LEToBytes( ref state.idx, rank );
-            for ( var i = 0; i < rank; ++i )
-            {
-               state.array.WriteInt32LEToBytes( ref state.idx, array.Lengths[i] );
-            }
-            if ( hasOffset )
-            {
-               for ( var i = 0; i < rank; ++i )
-               {
-                  state.array.WriteInt32LEToBytes( ref state.idx, array.LowerBounds[i] );
-               }
-            }
-            BinaryTypeEnumeration typeEnum;
-            switch ( recType )
-            {
-               case RecordTypeEnumeration.ArraySinglePrimitive:
-                  typeEnum = BinaryTypeEnumeration.Primitive;
-                  break;
-               case RecordTypeEnumeration.ArraySingleObject:
-                  typeEnum = BinaryTypeEnumeration.Object;
-                  break;
-               case RecordTypeEnumeration.ArraySingleString:
-                  typeEnum = BinaryTypeEnumeration.String;
-                  break;
-               default:
-                  throw new InvalidOperationException( "The code to detect array type has changed and this switch clause wasn't adjusted appropriately." );
-            }
-            state.array.WriteByteToBytes( ref state.idx, (Byte) typeEnum );
-            pEnum = GetPrimitiveTypeFromType( pType );
-            if ( BinaryTypeEnumeration.Primitive == typeEnum )
-            {
-               state.array.WriteByteToBytes( ref state.idx, (Byte) pEnum );
-            }
-            state.WriteArrayToStream();
-            WriteArrayValues( state, array.ValuesAsVector, obj =>
-            {
-               if ( BinaryTypeEnumeration.Primitive == typeEnum )
-               {
-                  WritePrimitive( state, obj, pEnum );
-               }
-               else
-               {
-                  WriteSingleRecord( state, obj as AbstractRecord, false, obj );
-               }
-            } );
-            break;
-         // Serialize all information about array
          case RecordTypeEnumeration.ArraySinglePrimitive:
             state.EnsureCapacity( 1 );
-            pEnum = GetPrimitiveTypeFromType( pType );
             state.array.WriteByteToBytes( ref state.idx, (Byte) pEnum );
             state.WriteArrayToStream();
-            WriteArrayValues( state, array.ValuesAsVector, obj => WritePrimitive( state, obj, pEnum ) );
+            WriteArrayValues( state, values, obj => WritePrimitive( state, obj, pEnum ) );
             break;
          case RecordTypeEnumeration.ArraySingleObject:
-            WriteArrayValues( state, array.ValuesAsVector, obj =>
+            WriteArrayValues( state, values, obj =>
             {
                WriteSingleRecord( state, obj as AbstractRecord, false, obj );
             } );
             break;
          case RecordTypeEnumeration.ArraySingleString:
-            WriteArrayValues( state, array.ValuesAsVector, obj =>
+            WriteArrayValues( state, values, obj =>
             {
                WriteSingleRecord( state, null, false, obj );
             } );
             break;
+         default:
+            throw new ManifestResourceSerializationException( "Invalid single array record kind:" + recType + "." );
       }
+   }
+
+   private static void WriteArrayRecord_Other(
+      SerializationState state,
+      ArrayRecord array,
+      Int32 id
+      )
+   {
+      state.EnsureCapacity( 5 );
+      state.array
+         .WriteByteToBytes( ref state.idx, (Byte) RecordTypeEnumeration.BinaryArray )
+         .WriteInt32LEToBytes( ref state.idx, id );
+      state.WriteArrayToStream();
+
+      var rank = array.Rank;
+      var cap = 7 + 4 * rank; // array type (1), rank (4), rank lengths (4 each) + type info (1) + possible primitive info
+      var hasOffset = false;
+      var arrayKind = array.ArrayKind;
+      switch ( arrayKind )
+      {
+         case BinaryArrayTypeEnumeration.SingleOffset:
+         case BinaryArrayTypeEnumeration.JaggedOffset:
+         case BinaryArrayTypeEnumeration.RectangularOffset:
+            hasOffset = true;
+            cap += 4 * rank; // rank offsets (4 each);
+            break;
+      }
+      state.EnsureCapacity( cap );
+      state.array
+         .WriteByteToBytes( ref state.idx, (Byte) arrayKind )
+         .WriteInt32LEToBytes( ref state.idx, rank );
+      for ( var i = 0; i < rank; ++i )
+      {
+         state.array.WriteInt32LEToBytes( ref state.idx, array.Lengths[i] );
+      }
+      if ( hasOffset )
+      {
+         for ( var i = 0; i < rank; ++i )
+         {
+            state.array.WriteInt32LEToBytes( ref state.idx, array.LowerBounds[i] );
+         }
+      }
+
+      var typeName = array.TypeName;
+      var assemblyName = array.AssemblyName;
+      var values = array.ValuesAsVector;
+      Type pType = null;
+      BinaryTypeEnumeration typeEnum;
+      if ( !String.IsNullOrEmpty( typeName ) )
+      {
+         if ( String.IsNullOrEmpty( assemblyName ) )
+         {
+            typeEnum = BinaryTypeEnumeration.SystemClass;
+         }
+         else
+         {
+            typeEnum = BinaryTypeEnumeration.Class;
+         }
+      }
+      else
+      {
+         var singleKind = GetSingleArrayRecordType( values, out pType );
+         switch ( singleKind )
+         {
+            case RecordTypeEnumeration.ArraySinglePrimitive:
+               typeEnum = BinaryTypeEnumeration.Primitive;
+               break;
+            case RecordTypeEnumeration.ArraySingleObject:
+               // This can be: Object, ObjectArray, StringArray, PrimitiveArray
+               // It is something else than Object only when all values are non-null ArrayRecords
+               var valueArrayInfo = values.Select( v =>
+               {
+                  var arr = v as ArrayRecord;
+                  Type arrPType;
+                  return arr == null ? null : Tuple.Create( GetSingleArrayRecordType( arr.ValuesAsVector, out arrPType ), arrPType );
+               } );
+               if ( valueArrayInfo.All( v => v != null ) )
+               {
+                  if ( valueArrayInfo.All( v => v.Item1 == RecordTypeEnumeration.ArraySingleString ) )
+                  {
+                     typeEnum = BinaryTypeEnumeration.StringArray;
+                  }
+                  else
+                  {
+                     Tuple<RecordTypeEnumeration, Type> first;
+                     typeEnum = valueArrayInfo.EmptyOrAllEqual( out first ) && first.Item1 == RecordTypeEnumeration.ArraySinglePrimitive ?
+                        BinaryTypeEnumeration.PrimitiveArray :
+                        BinaryTypeEnumeration.ObjectArray;
+                     if ( typeEnum == BinaryTypeEnumeration.PrimitiveArray )
+                     {
+                        pType = first.Item2;
+                     }
+                  }
+               }
+               else
+               {
+                  typeEnum = BinaryTypeEnumeration.Object;
+               }
+               break;
+            case RecordTypeEnumeration.ArraySingleString:
+               typeEnum = BinaryTypeEnumeration.String;
+               break;
+            default:
+               throw new InvalidOperationException( "The code to detect array type has changed and this switch clause wasn't adjusted appropriately." );
+         }
+      }
+      state.array.WriteByteToBytes( ref state.idx, (Byte) typeEnum );
+      state.WriteArrayToStream();
+
+      var pEnum = GetPrimitiveTypeFromType( pType );
+      WriteAdditionalTypeInfo( state, typeEnum, pEnum, array );
+
+      WriteArrayValues( state, values, obj =>
+      {
+         if ( BinaryTypeEnumeration.Primitive == typeEnum )
+         {
+            WritePrimitive( state, obj, pEnum );
+         }
+         else
+         {
+            WriteSingleRecord( state, obj as AbstractRecord, false, obj );
+         }
+      } );
+   }
+
+   private static void WriteAdditionalTypeInfo(
+      SerializationState state,
+      BinaryTypeEnumeration typeEnum,
+      PrimitiveTypeEnumeration pType,
+      ElementWithTypeInfo element
+      )
+   {
+      Int32 nameByteCount;
+      String str;
+      switch ( typeEnum )
+      {
+         case BinaryTypeEnumeration.Primitive:
+            state.EnsureCapacity( 1 );
+            state.array.WriteByteToBytes( ref state.idx, (Byte) pType );
+            break;
+         case BinaryTypeEnumeration.SystemClass:
+            str = element.TypeName;
+            nameByteCount = SafeByteCount( str );
+            state.EnsureCapacity( 5 + nameByteCount );
+            state.array
+               .WriteInt32Encoded7Bit( ref state.idx, nameByteCount )
+               .WriteStringToBytes( ref state.idx, UTF8, str );
+            break;
+         case BinaryTypeEnumeration.Class:
+            str = element.TypeName;
+            nameByteCount = SafeByteCount( str );
+            state.EnsureCapacity( 9 + nameByteCount );
+            state.array
+               .WriteInt32Encoded7Bit( ref state.idx, nameByteCount )
+               .WriteStringToBytes( ref state.idx, UTF8, str )
+               .WriteInt32LEToBytes( ref state.idx, state.assemblies[element.AssemblyName] );
+            break;
+         case BinaryTypeEnumeration.PrimitiveArray:
+            state.EnsureCapacity( 1 );
+            state.array
+               .WriteByteToBytes( ref state.idx, (Byte) pType );
+            break;
+      }
+      state.WriteArrayToStream();
+   }
+
+   private static RecordTypeEnumeration GetSingleArrayRecordType( List<Object> values, out Type pType )
+   {
+      RecordTypeEnumeration recType;
+      pType = null;
+      if ( values.Count > 0 )
+      {
+         recType = 0;
+         foreach ( var val in values )
+         {
+            if ( val != null
+               && !( val is AbstractRecord )
+               && ( pType == null || Equals( pType, val.GetType() ) )
+               )
+            {
+               recType = RecordTypeEnumeration.ArraySinglePrimitive;
+               if ( pType == null )
+               {
+                  pType = val.GetType();
+               }
+            }
+            else
+            {
+               recType = RecordTypeEnumeration.ArraySingleObject;
+            }
+
+            if ( recType == RecordTypeEnumeration.ArraySingleObject )
+            {
+               break;
+            }
+         }
+
+         if ( recType == RecordTypeEnumeration.ArraySinglePrimitive && Equals( typeof( String ), pType ) )
+         {
+            recType = RecordTypeEnumeration.ArraySingleString;
+         }
+      }
+      else
+      {
+         // Empty arrays are serialized like this
+         recType = RecordTypeEnumeration.ArraySinglePrimitive;
+      }
+
+      return recType;
    }
 
    private static void WriteArrayValues( SerializationState state, IEnumerable<Object> elements, Action<Object> nonNullAction )
@@ -643,33 +736,54 @@ public static partial class E_CILPhysical
                var rec = obj as AbstractRecord;
                if ( rec != null )
                {
-                  switch ( rec.RecordKind )
+                  if ( !String.IsNullOrEmpty( rec.TypeName ) )
                   {
-                     case RecordKind.Class:
-                        return ( (ClassRecord) obj ).AssemblyName == null ? BinaryTypeEnumeration.SystemClass : BinaryTypeEnumeration.Class;
-                     case RecordKind.Array:
-                        var array = (ArrayRecord) obj;
-                        if ( array.ArrayKind == BinaryArrayTypeEnumeration.Single )
-                        {
-                           var firstNonNull = array.ValuesAsVector.FirstOrDefault( o => o != null );
-                           switch ( GetTypeInfo( firstNonNull, out pType ) )
+                     return String.IsNullOrEmpty( rec.AssemblyName ) ? BinaryTypeEnumeration.SystemClass : BinaryTypeEnumeration.Class;
+                  }
+                  else
+                  {
+                     switch ( rec.RecordKind )
+                     {
+                        case RecordKind.Class:
+                           return BinaryTypeEnumeration.Object;
+                        case RecordKind.Array:
+                           var array = (ArrayRecord) obj;
+                           if ( array.ArrayKind == BinaryArrayTypeEnumeration.Single )
                            {
-                              case BinaryTypeEnumeration.String:
-                                 return BinaryTypeEnumeration.StringArray;
-                              case BinaryTypeEnumeration.Primitive:
-                                 return BinaryTypeEnumeration.PrimitiveArray;
-                              default:
-                                 // If firstNonNull == null then all of them are nulls => PrimitiveArray with PrimitiveTypeEnumeration.Null
-                                 return firstNonNull == null ? BinaryTypeEnumeration.PrimitiveArray : BinaryTypeEnumeration.ObjectArray;
+                              Type primitiveType;
+                              var recType = GetSingleArrayRecordType( array.ValuesAsVector, out primitiveType );
+                              pType = GetPrimitiveTypeFromType( primitiveType );
+                              switch ( recType )
+                              {
+                                 case RecordTypeEnumeration.ArraySingleObject:
+                                    return BinaryTypeEnumeration.ObjectArray;
+                                 case RecordTypeEnumeration.ArraySinglePrimitive:
+                                    return BinaryTypeEnumeration.PrimitiveArray;
+                                 case RecordTypeEnumeration.ArraySingleString:
+                                    return BinaryTypeEnumeration.StringArray;
+                                 default:
+                                    throw new ManifestResourceSerializationException( "Unrecognized single array kind: " + recType + "." );
+                              }
+                              //var firstNonNull = array.ValuesAsVector.FirstOrDefault( o => o != null );
+                              //switch ( GetTypeInfo( firstNonNull, out pType ) )
+                              //{
+                              //   case BinaryTypeEnumeration.String:
+                              //      return BinaryTypeEnumeration.StringArray;
+                              //   case BinaryTypeEnumeration.Primitive:
+                              //      return BinaryTypeEnumeration.PrimitiveArray;
+                              //   default:
+                              //      // If firstNonNull == null then all of them are nulls => PrimitiveArray with PrimitiveTypeEnumeration.Null
+                              //      return firstNonNull == null ? BinaryTypeEnumeration.PrimitiveArray : BinaryTypeEnumeration.ObjectArray;
+                              //}
                            }
-                        }
-                        else
-                        {
-                           return BinaryTypeEnumeration.ObjectArray;
-                        }
-                     default:
-                        throw new NotSupportedException( "Unknown record kind " + rec.RecordKind + "." );
+                           else
+                           {
+                              return BinaryTypeEnumeration.ObjectArray;
+                           }
+                        default:
+                           throw new NotSupportedException( "Unknown record kind " + rec.RecordKind + "." );
 
+                     }
                   }
                }
                else if ( obj is TimeSpan )

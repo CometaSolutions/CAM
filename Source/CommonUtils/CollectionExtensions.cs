@@ -372,13 +372,31 @@ public static partial class E_CommonUtils
    /// <exception cref="NullReferenceException">If <paramref name="enumerable"/> is <c>null</c>.</exception>
    public static Boolean EmptyOrAllEqual<T>( this IEnumerable<T> enumerable, IEqualityComparer<T> equalityComparer = null )
    {
+      T first;
+      return enumerable.EmptyOrAllEqual( out first, equalityComparer );
+   }
+
+   /// <summary>
+   /// Checks that the enumerable is either empty, or all of its values are considered to be same.
+   /// </summary>
+   /// <typeparam name="T">The enumerable element type.</typeparam>
+   /// <param name="enumerable">The enumerable.</param>
+   /// <param name="first">This parameter will have the first value of the enumerable, if the enumerable is not empty. If this method returns <c>true</c>, and enumerable is not empty, then this can be considered as single value that enumerable consists of.</param>
+   /// <param name="equalityComparer">The optional equality comparer to use when comparing values, default will be used if none is supplied.</param>
+   /// <returns><c>true</c> if <paramref name="enumerable"/> is empty or all of its values are considered to be the same; <c>false</c> otherwise.</returns>
+   /// <remarks>
+   /// This method will enumerable <paramref name="enumerable"/> exactly once, and has a <c>O(n)</c> performance time.
+   /// </remarks>
+   /// <exception cref="NullReferenceException">If <paramref name="enumerable"/> is <c>null</c>.</exception>
+   public static Boolean EmptyOrAllEqual<T>( this IEnumerable<T> enumerable, out T first, IEqualityComparer<T> equalityComparer = null )
+   {
       Boolean retVal;
       using ( var enumerator = enumerable.GetEnumerator() )
       {
          retVal = !enumerator.MoveNext();
          if ( !retVal )
          {
-            var first = enumerator.Current;
+            first = enumerator.Current;
             if ( equalityComparer == null )
             {
                equalityComparer = EqualityComparer<T>.Default;
@@ -392,6 +410,10 @@ public static partial class E_CommonUtils
                   retVal = false;
                }
             }
+         }
+         else
+         {
+            first = default( T );
          }
       }
 

@@ -418,7 +418,7 @@ namespace CILAssemblyManipulator.Physical.MResources
    /// It is recommended to read the document explaining the .NET Remoting Binary Protocol (NRBF), available from <see href="http://download.microsoft.com/download/9/5/E/95EF66AF-9026-4BB0-A41D-A4F81802D92C/%5BMS-NRBF%5D.pdf"/>.
    /// The various records and overall structure of contents of manifest resource are a subset of the protocol defined in that document.
    /// </remarks>
-   public abstract class AbstractRecord
+   public abstract class AbstractRecord : ElementWithTypeInfo
    {
       // Disable inheritance to other assemblies
       internal AbstractRecord()
@@ -431,12 +431,24 @@ namespace CILAssemblyManipulator.Physical.MResources
       /// <value>The <see cref="MResources.RecordKind"/> enumeration descripting the actual type of this <see cref="AbstractRecord"/>.</value>
       /// <seealso cref="MResources.RecordKind"/>
       public abstract RecordKind RecordKind { get; }
+
+      /// <summary>
+      /// Gets or sets the type name of the serialized object instance.
+      /// </summary>
+      /// <value>The type name of the serialized object instance.</value>
+      public String TypeName { get; set; }
+
+      /// <summary>
+      /// Gets or sets the assembly name of the type of the serialized object instance.
+      /// </summary>
+      /// <value>The assembly name of the type of the serialized object instance.</value>
+      public String AssemblyName { get; set; }
    }
 
    /// <summary>
    /// This class represents a single instance of object within the contents of manifest resource.
    /// </summary>
-   public sealed class ClassRecord : AbstractRecord, ElementWithTypeInfo
+   public sealed class ClassRecord : AbstractRecord
    {
       /// <summary>
       /// Creates a blank instance of <see cref="ClassRecord"/>.
@@ -452,18 +464,6 @@ namespace CILAssemblyManipulator.Physical.MResources
       /// <value>The list of all members of the serialized object instance.</value>
       /// <seealso cref="ClassRecordMember"/>
       public List<ClassRecordMember> Members { get; }
-
-      /// <summary>
-      /// Gets or sets the type name of the serialized object instance.
-      /// </summary>
-      /// <value>The type name of the serialized object instance.</value>
-      public String TypeName { get; set; }
-
-      /// <summary>
-      /// Gets or sets the assembly name of the type of the serialized object instance.
-      /// </summary>
-      /// <value>The assembly name of the type of the serialized object instance.</value>
-      public String AssemblyName { get; set; }
 
       /// <summary>
       /// Returns the <see cref="RecordKind.Class"/>.
@@ -526,7 +526,7 @@ namespace CILAssemblyManipulator.Physical.MResources
    /// <summary>
    /// This class represents a serialized array of objects.
    /// </summary>
-   public sealed class ArrayRecord : AbstractRecord, ElementWithTypeInfo
+   public sealed class ArrayRecord : AbstractRecord
    {
 
       /// <summary>
@@ -570,18 +570,6 @@ namespace CILAssemblyManipulator.Physical.MResources
       /// </summary>
       /// <value>All values of this <see cref="ArrayRecord"/> as a single list.</value>
       public List<Object> ValuesAsVector { get; }
-
-      /// <summary>
-      /// Gets or sets the assembly name of the type name of the array type.
-      /// </summary>
-      /// <value>The assembly name of the type name of the array type.</value>
-      public String AssemblyName { get; set; }
-
-      /// <summary>
-      /// Gets or sets the type name of the array type.
-      /// </summary>
-      /// <value>The type name of the array type.</value>
-      public String TypeName { get; set; }
 
       /// <summary>
       /// Returns the <see cref="RecordKind.Array"/>.

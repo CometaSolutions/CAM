@@ -657,7 +657,8 @@ public static class E_Util
       var retVal = new ArrayRecord()
       {
          ArrayKind = BinaryArrayTypeEnumeration.Single
-      }.AddValuesToArrayRecord( array.Select( t => itemProcessor == null ? (Object) t : itemProcessor( t ) ) );
+      };
+      retVal.ValuesAsVector.AddRange( array.Select( t => itemProcessor == null ? (Object) t : itemProcessor( t ) ) );
       if ( ArrayElementTypeNeedsInfo( array.GetType().GetElementType() ) )
       {
          retVal.AssemblyName = elementType.Assembly.GetName().ToString();
@@ -679,12 +680,6 @@ public static class E_Util
          default:
             return false;
       }
-   }
-
-   internal static ArrayRecord AddValuesToArrayRecord( this ArrayRecord record, IEnumerable<Object> values )
-   {
-      record.ValuesAsVector.AddRange( values );
-      return record;
    }
 
    public static String NextString( this Random rng )

@@ -78,8 +78,8 @@ namespace CILAssemblyManipulator.Physical
       /// <remarks>
       /// Two instances of <see cref="ClassRecord"/> are considered to be equal by this equality when:
       /// <list type="bullet">
-      /// <item><description><see cref="ClassRecord.TypeName"/> match exactly, with <see cref="String.Equals(String, String)"/> method, and</description></item>
-      /// <item><description><see cref="ClassRecord.AssemblyName"/> match exactly, with <see cref="String.Equals(String, String)"/> method, and</description></item>
+      /// <item><description><see cref="AbstractRecord.TypeName"/> match exactly, with <see cref="String.Equals(String, String)"/> method, and</description></item>
+      /// <item><description><see cref="AbstractRecord.AssemblyName"/> match exactly, with <see cref="String.Equals(String, String)"/> method, and</description></item>
       /// <item><description><see cref="ClassRecord.Members"/> match using <see cref="ListEqualityComparer{T, U}.IsPermutation"/> method (i.e. the order of <see cref="ClassRecordMember"/>s does not matter), with elements being compared using <see cref="ClassRecordMemberEqualityComparer"/>.</description></item>
       /// </list>
       /// </remarks>
@@ -93,8 +93,8 @@ namespace CILAssemblyManipulator.Physical
       /// <remarks>
       /// Two instances of <see cref="ArrayRecord"/> are considered to be equal by this equality when:
       /// <list type="bullet">
-      /// <item><description><see cref="ArrayRecord.TypeName"/> match exactly, with <see cref="String.Equals(String, String)"/> method, and</description></item>
-      /// <item><description><see cref="ArrayRecord.AssemblyName"/> match exactly, with <see cref="String.Equals(String, String)"/> method, and</description></item>
+      /// <item><description><see cref="AbstractRecord.TypeName"/> match exactly, with <see cref="String.Equals(String, String)"/> method, and</description></item>
+      /// <item><description><see cref="AbstractRecord.AssemblyName"/> match exactly, with <see cref="String.Equals(String, String)"/> method, and</description></item>
       /// <item><description><see cref="ArrayRecord.ArrayKind"/> match exactly, and</description></item>
       /// <item><description><see cref="ArrayRecord.Rank"/> match exactly, and</description></item>
       /// <item><description><see cref="ArrayRecord.Lengths"/> match exactly, and</description></item>
@@ -186,11 +186,39 @@ namespace CILAssemblyManipulator.Physical
       private static Boolean Equality_Stream( Stream x, Stream y )
       {
          // TODO using ReadUntilTheEnd here is not very memory efficient...
-         return Object.ReferenceEquals( x, y )
-            || ( x != null && y != null
-            && x.Length == y.Length
-            && ArrayEqualityComparer<Byte>.ArrayEquality( x.SeekFromBegin( 0 ).ReadUntilTheEnd(), y.SeekFromBegin( 0 ).ReadUntilTheEnd() )
-            );
+         var retVal = Object.ReferenceEquals( x, y );
+         if ( !retVal )
+         {
+            retVal = x != null && y != null && x.Length == y.Length;
+            if ( retVal && x.Length > 0 )
+            {
+               const Int32 BUFFER_SIZE = 1024;
+               var xBuf = new Byte[BUFFER_SIZE];
+               var yBuf = new Byte[BUFFER_SIZE];
+               x = x.SeekFromBegin( 0 );
+               y = y.SeekFromBegin( 0 );
+               do
+               {
+                  var readSize = (Int32) Math.Min( BUFFER_SIZE, x.Length - x.Position );
+                  x.ReadSpecificAmount( xBuf, 0, readSize );
+                  y.ReadSpecificAmount( yBuf, 0, readSize );
+
+                  if ( readSize == BUFFER_SIZE )
+                  {
+                     retVal = ArrayEqualityComparer<Byte>.ArrayEquality( xBuf, yBuf );
+                  }
+                  else
+                  {
+                     // TODO need some kind of "ArrayRangeEquality" method to ArrayEqualityComparer
+                     var xIdx = 0;
+                     var yIdx = 0;
+                     retVal = ArrayEqualityComparer<Byte>.ArrayEquality( xBuf.CreateAndBlockCopyTo( ref xIdx, readSize ), yBuf.CreateAndBlockCopyTo( ref yIdx, readSize ) );
+                  }
+               } while ( retVal && x.Position < x.Length );
+            }
+         }
+
+         return retVal;
       }
 
       private static Boolean Equality_ResourceManagerEntry_UserDefined( UserDefinedResourceManagerEntry x, UserDefinedResourceManagerEntry y )
@@ -205,7 +233,13 @@ namespace CILAssemblyManipulator.Physical
       private static Boolean Equality_AbstractRecord( AbstractRecord x, AbstractRecord y )
       {
          var retVal = ReferenceEquals( x, y );
-         if ( !retVal && x != null && y != null && x.RecordKind == y.RecordKind )
+         if ( !retVal
+            && x != null
+            && y != null
+            && x.RecordKind == y.RecordKind
+            && String.Equals( x.TypeName, y.TypeName )
+            && String.Equals( x.AssemblyName, y.AssemblyName )
+            )
          {
             switch ( x.RecordKind )
             {
@@ -224,8 +258,6 @@ namespace CILAssemblyManipulator.Physical
       {
          return ReferenceEquals( x, y ) ||
             ( x != null && y != null
-            && String.Equals( x.TypeName, y.TypeName )
-            && String.Equals( x.AssemblyName, y.AssemblyName )
             && ListEqualityComparer<List<ClassRecordMember>, ClassRecordMember>.IsPermutation( x.Members, y.Members, ClassRecordMemberEqualityComparer )
             );
       }
@@ -235,8 +267,6 @@ namespace CILAssemblyManipulator.Physical
          return ReferenceEquals( x, y ) ||
             ( x != null && y != null
             && x.ArrayKind == y.ArrayKind
-            && String.Equals( x.TypeName, y.TypeName )
-            && String.Equals( x.AssemblyName, y.AssemblyName )
             && x.Rank == y.Rank
             && ListEqualityComparer<List<Int32>, Int32>.ListEquality( x.Lengths, y.Lengths )
             && ListEqualityComparer<List<Int32>, Int32>.ListEquality( x.LowerBounds, y.LowerBounds )
