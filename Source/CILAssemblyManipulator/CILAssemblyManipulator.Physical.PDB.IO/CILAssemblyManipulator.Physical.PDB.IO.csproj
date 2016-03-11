@@ -2,20 +2,20 @@
 <Project ToolsVersion="4.0" DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <Import Project="$(MSBuildExtensionsPath)\$(MSBuildToolsVersion)\Microsoft.Common.props" Condition="Exists('$(MSBuildExtensionsPath)\$(MSBuildToolsVersion)\Microsoft.Common.props')" />
   <PropertyGroup>
-    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
     <MinimumVisualStudioVersion>10.0</MinimumVisualStudioVersion>
     <Configuration Condition=" '$(Configuration)' == '' ">Debug</Configuration>
     <Platform Condition=" '$(Platform)' == '' ">AnyCPU</Platform>
-    <ProjectGuid>{5F874824-AEA5-45A0-A0A2-408210397B08}</ProjectGuid>
+    <ProjectGuid>{F4C562B5-A26A-44C2-B5B0-9DE29EB5CA40}</ProjectGuid>
     <OutputType>Library</OutputType>
     <AppDesignerFolder>Properties</AppDesignerFolder>
-    <RootNamespace>CILAssemblyManipulator.Physical.PDB</RootNamespace>
-    <AssemblyName>CILAssemblyManipulator.Physical.PDB</AssemblyName>
-    <TargetFrameworkVersion>v4.0</TargetFrameworkVersion>
-    <TargetFrameworkProfile>Profile328</TargetFrameworkProfile>
+    <RootNamespace>CILAssemblyManipulator.Physical.PDB.IO</RootNamespace>
+    <AssemblyName>CILAssemblyManipulator.Physical.PDB.IO</AssemblyName>
+    <DefaultLanguage>en-US</DefaultLanguage>
     <FileAlignment>512</FileAlignment>
     <ProjectTypeGuids>{786C830F-07A1-408B-BD7F-6EE04809D6DB};{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}</ProjectTypeGuids>
-    <GenerateSerializationAssemblies>Off</GenerateSerializationAssemblies>
+    <TargetFrameworkProfile>Profile328</TargetFrameworkProfile>
+    <TargetFrameworkVersion>v4.0</TargetFrameworkVersion>
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|AnyCPU' ">
     <DebugSymbols>true</DebugSymbols>
@@ -46,9 +46,17 @@
       <Project>{7f7ebfb0-2bf4-44d8-b96f-accc5f99f529}</Project>
       <Name>CollectionsWithRoles</Name>
     </ProjectReference>
+    <ProjectReference Include="..\CILAssemblyManipulator.Physical.PDB\CILAssemblyManipulator.Physical.PDB.csproj">
+      <Project>{5f874824-aea5-45a0-a0a2-408210397b08}</Project>
+      <Name>CILAssemblyManipulator.Physical.PDB</Name>
+    </ProjectReference>
   </ItemGroup>
   <ItemGroup>
-    <Compile Include="DataModel.cs" />
+    <Compile Include="GUIDs.cs" />
+    <Compile Include="PDBException.cs" />
+    <Compile Include="PDBIO.Common.cs" />
+    <Compile Include="PDBIO.Reading.cs" />
+    <Compile Include="PDBIO.Writing.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
   </ItemGroup>
   <ItemGroup>

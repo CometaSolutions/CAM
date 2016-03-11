@@ -56,7 +56,7 @@ public static partial class E_CILPhysical
       var array = new ResizableArray<Byte>( 8 );
       var idx = 0;
       var val = entry.Value;
-      var tc = PreDefinedResourceManagerEntry.GetResourceTypeCodeForObject( val );
+      var tc = ResourceManagerEntryInformation.GetResourceTypeCodeForObject( val );
       if ( tc.HasValue )
       {
          var writeArray = true;

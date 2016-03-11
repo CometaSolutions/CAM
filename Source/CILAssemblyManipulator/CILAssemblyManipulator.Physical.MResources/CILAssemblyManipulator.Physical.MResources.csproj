@@ -15,7 +15,6 @@
     <TargetFrameworkProfile>Profile328</TargetFrameworkProfile>
     <FileAlignment>512</FileAlignment>
     <ProjectTypeGuids>{786C830F-07A1-408B-BD7F-6EE04809D6DB};{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}</ProjectTypeGuids>
-    <GenerateSerializationAssemblies>Off</GenerateSerializationAssemblies>
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|AnyCPU' ">
     <DebugSymbols>true</DebugSymbols>
@@ -50,9 +49,6 @@
   <ItemGroup>
     <Compile Include="Comparers.cs" />
     <Compile Include="DataModel.cs" />
-    <Compile Include="MResourcesIO.Common.cs" />
-    <Compile Include="MResourcesIO.Writing.cs" />
-    <Compile Include="MResourcesIO.Reading.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
   </ItemGroup>
   <ItemGroup>
@@ -67,5 +63,4 @@
     </Reference>
   </ItemGroup>
   <Import Project="$(MSBuildExtensionsPath32)\Microsoft\Portable\$(TargetFrameworkVersion)\Microsoft.Portable.CSharp.targets" />
-  <Import Project="../../../CommonBuildTools/CLR/MSBuild/TargetFramework.targets" />
 </Project>

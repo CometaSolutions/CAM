@@ -21,6 +21,7 @@ extern alias CAMPhysicalM;
 using CAMPhysicalM;
 using CAMPhysicalM::CILAssemblyManipulator.Physical.MResources;
 
+using CILAssemblyManipulator.Physical.MResources;
 using CommonUtils;
 using NUnit.Framework;
 using System;
@@ -269,7 +270,7 @@ namespace CILAssemblyManipulator.Tests.Physical
          {
             var res = resources[idx];
             var obj = res.Item2;
-            var code = PreDefinedResourceManagerEntry.GetResourceTypeCodeForObject( obj );
+            var code = ResourceManagerEntryInformation.GetResourceTypeCodeForObject( obj );
             return new ResourceManagerEntryInformation()
             {
                Name = res.Item1,

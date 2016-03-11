@@ -77,10 +77,18 @@
       <Project>{10ef5dbb-29d5-4266-9561-1fc44b671ac7}</Project>
       <Name>CILAssemblyManipulator.Physical.IO.Loading</Name>
     </ProjectReference>
+    <ProjectReference Include="..\CILAssemblyManipulator\CILAssemblyManipulator.Physical.MResources.IO\CILAssemblyManipulator.Physical.MResources.IO.csproj">
+      <Project>{bda8be95-5905-4b4e-87fa-624ee4f6ac85}</Project>
+      <Name>CILAssemblyManipulator.Physical.MResources.IO</Name>
+    </ProjectReference>
     <ProjectReference Include="..\CILAssemblyManipulator\CILAssemblyManipulator.Physical.MResources\CILAssemblyManipulator.Physical.MResources.csproj">
       <Project>{99fcb99e-c7eb-49d0-980f-86e61f874fcb}</Project>
       <Name>CILAssemblyManipulator.Physical.MResources</Name>
       <Aliases>CAMPhysicalM</Aliases>
+    </ProjectReference>
+    <ProjectReference Include="..\CILAssemblyManipulator\CILAssemblyManipulator.Physical.PDB.IO\CILAssemblyManipulator.Physical.PDB.IO.csproj">
+      <Project>{f4c562b5-a26a-44c2-b5b0-9de29eb5ca40}</Project>
+      <Name>CILAssemblyManipulator.Physical.PDB.IO</Name>
     </ProjectReference>
     <ProjectReference Include="..\CILAssemblyManipulator\CILAssemblyManipulator.Physical.PDB\CILAssemblyManipulator.Physical.PDB.csproj">
       <Project>{5f874824-aea5-45a0-a0a2-408210397b08}</Project>

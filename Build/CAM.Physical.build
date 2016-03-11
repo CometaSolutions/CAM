@@ -17,12 +17,12 @@
     
     <!-- Build CAMPhysical projects -->
     <MSBuild
-      Projects="$(CAMPhysicalBaseDir)/Source/CILAssemblyManipulator/CILAssemblyManipulator.Physical.PDB/CILAssemblyManipulator.Physical.PDB.csproj"
+      Projects="$(CAMPhysicalBaseDir)/Source/CILAssemblyManipulator/CILAssemblyManipulator.Physical.PDB.IO/CILAssemblyManipulator.Physical.PDB.IO.csproj"
       Targets="Build"
       Properties="Configuration=$(CAMPhysicalConfiguration);Platform=$(CAMPhysicalPlatform);IsCommandLineBuild=true;UseUtilpackReference=true"
       />
     <MSBuild
-      Projects="$(CAMPhysicalBaseDir)/Source/CILAssemblyManipulator/CILAssemblyManipulator.Physical.MResources/CILAssemblyManipulator.Physical.MResources.csproj"
+      Projects="$(CAMPhysicalBaseDir)/Source/CILAssemblyManipulator/CILAssemblyManipulator.Physical.MResources.IO/CILAssemblyManipulator.Physical.MResources.IO.csproj"
       Targets="Build"
       Properties="Configuration=$(CAMPhysicalConfiguration);Platform=$(CAMPhysicalPlatform);IsCommandLineBuild=true;UseUtilpackReference=true"
       />

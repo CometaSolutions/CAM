@@ -26,6 +26,8 @@ namespace CILAssemblyManipulator.Physical.MResources
    /// <summary>
    /// This is abstract class for entries that are managed by <see cref="System.Resources.ResourceManager"/>.
    /// </summary>
+   /// <seealso cref="PreDefinedResourceManagerEntry"/>
+   /// <seealso cref="UserDefinedResourceManagerEntry"/>
    public abstract class ResourceManagerEntry
    {
       internal ResourceManagerEntry()
@@ -51,6 +53,9 @@ namespace CILAssemblyManipulator.Physical.MResources
       /// Gets or sets the value of this <see cref="PreDefinedResourceManagerEntry"/>.
       /// </summary>
       /// <value>The value of this <see cref="PreDefinedResourceManagerEntry"/>.</value>
+      /// <remarks>
+      /// See <see cref="T:CILAssemblyManipulator.Physical.MResources.ResourceTypeCode"/> enumeration for more information about which values should be used here.
+      /// </remarks>
       public Object Value { get; set; }
 
       /// <summary>
@@ -74,78 +79,6 @@ namespace CILAssemblyManipulator.Physical.MResources
          var val = this.Value;
          var str = val as String;
          return str == null ? val.ToStringSafe( "<null>" ) : ( "\"" + str + "\"" );
-      }
-
-      /// <summary>
-      /// Gets the <see cref="ResourceTypeCode"/> which corresponds to the type of the given object.
-      /// </summary>
-      /// <param name="obj">The object, may be <c>null</c>.</param>
-      /// <returns>The <see cref="ResourceTypeCode"/> for given <paramref name="obj"/>, or <c>null</c> if the <paramref name="obj"/> needs to be represented using <see cref="UserDefinedResourceManagerEntry"/>.</returns>
-      public static ResourceTypeCode? GetResourceTypeCodeForObject( Object obj )
-      {
-         return GetResourceTypeCodeForType( obj?.GetType() );
-      }
-
-      /// <summary>
-      /// Gets the <see cref="ResourceTypeCode"/> which corresponds to given type.
-      /// </summary>
-      /// <param name="type">The type, may be <c>null</c>.</param>
-      /// <returns>The <see cref="ResourceTypeCode"/> for given <paramref name="type"/>, or <c>null</c> if the <paramref name="type"/> needs to be represented using <see cref="UserDefinedResourceManagerEntry"/>.</returns>
-      public static ResourceTypeCode? GetResourceTypeCodeForType( Type type )
-      {
-         switch ( Type.GetTypeCode( type ) )
-         {
-            case TypeCode.Empty:
-               return ResourceTypeCode.Null;
-            case TypeCode.Boolean:
-               return ResourceTypeCode.Boolean;
-            case TypeCode.Char:
-               return ResourceTypeCode.Char;
-            case TypeCode.SByte:
-               return ResourceTypeCode.SByte;
-            case TypeCode.Byte:
-               return ResourceTypeCode.Byte;
-            case TypeCode.Int16:
-               return ResourceTypeCode.Int16;
-            case TypeCode.UInt16:
-               return ResourceTypeCode.UInt16;
-            case TypeCode.Int32:
-               return ResourceTypeCode.Int32;
-            case TypeCode.UInt32:
-               return ResourceTypeCode.UInt32;
-            case TypeCode.Int64:
-               return ResourceTypeCode.Int64;
-            case TypeCode.UInt64:
-               return ResourceTypeCode.UInt64;
-            case TypeCode.Single:
-               return ResourceTypeCode.Single;
-            case TypeCode.Double:
-               return ResourceTypeCode.Double;
-            case TypeCode.String:
-               return ResourceTypeCode.String;
-            case TypeCode.DateTime:
-               return ResourceTypeCode.DateTime;
-            case TypeCode.Decimal:
-               return ResourceTypeCode.Decimal;
-            default:
-               if ( Equals( type, typeof( TimeSpan ) ) )
-               {
-                  return ResourceTypeCode.TimeSpan;
-               }
-               else if ( Equals( type, typeof( Byte[] ) ) )
-               {
-                  return ResourceTypeCode.ByteArray;
-               }
-               else if ( typeof( System.IO.Stream ).IsAssignableFrom_IgnoreGenericArgumentsForGenericTypes( type ) )
-               {
-                  return ResourceTypeCode.Stream;
-               }
-               else
-               {
-                  return null;
-               }
-         }
-
       }
    }
 
@@ -199,116 +132,7 @@ namespace CILAssemblyManipulator.Physical.MResources
       UserDefined
    }
 
-   /// <summary>
-   /// This enumeration contains type codes for pre-defined resource types.
-   /// </summary>
-   public enum ResourceTypeCode
-   {
-      /// <summary>
-      /// The resource is <c>null</c> value.
-      /// </summary>
-      Null = 0,
 
-      /// <summary>
-      /// The resource is a <see cref="System.String"/>.
-      /// </summary>
-      String = 1,
-
-      /// <summary>
-      /// The resource is a <see cref="System.Boolean"/>.
-      /// </summary>
-      Boolean = 2,
-
-      /// <summary>
-      /// The resource is a <see cref="System.Char"/>.
-      /// </summary>
-      Char = 3,
-
-      /// <summary>
-      /// The resource is a <see cref="System.Byte"/>.
-      /// </summary>
-      Byte = 4,
-
-      /// <summary>
-      /// The resource is a <see cref="System.SByte"/>.
-      /// </summary>
-      SByte = 5,
-
-      /// <summary>
-      /// The resource is a <see cref="System.Int16"/>.
-      /// </summary>
-      Int16 = 6,
-
-      /// <summary>
-      /// The resource is a <see cref="System.UInt16"/>.
-      /// </summary>
-      UInt16 = 7,
-
-      /// <summary>
-      /// The resource is a <see cref="System.Int32"/>.
-      /// </summary>
-      Int32 = 8,
-
-      /// <summary>
-      /// The resource is a <see cref="System.UInt32"/>.
-      /// </summary>
-      UInt32 = 9,
-
-      /// <summary>
-      /// The resource is a <see cref="System.Int64"/>.
-      /// </summary>
-      Int64 = 10,
-
-      /// <summary>
-      /// The resource is a <see cref="System.UInt64"/>.
-      /// </summary>
-      UInt64 = 11,
-
-      /// <summary>
-      /// The resource is a <see cref="System.Single"/>.
-      /// </summary>
-      Single = 12,
-
-      /// <summary>
-      /// The resource is a <see cref="System.Double"/>.
-      /// </summary>
-      Double = 13,
-
-      /// <summary>
-      /// The resource is a <see cref="System.Decimal"/>.
-      /// </summary>
-      Decimal = 14,
-
-      /// <summary>
-      /// The resource is a <see cref="System.DateTime"/>.
-      /// </summary>
-      DateTime = 15,
-
-      /// <summary>
-      /// This value is the biggest value for primitive types.
-      /// </summary>
-      LastPrimitive = 16,
-
-      /// <summary>
-      /// The resource is a <see cref="System.TimeSpan"/>.
-      /// </summary>
-      TimeSpan = 16,
-
-      /// <summary>
-      /// The resource is a byte array.
-      /// </summary>
-      ByteArray = 32,
-
-      /// <summary>
-      /// The resource is a <see cref="System.IO.Stream"/>.
-      /// </summary>
-      Stream = 33,
-
-      /// <summary>
-      /// This value indicates the first value which is used by user-defined types.
-      /// </summary>
-      StartOfUserTypes = 64,
-   }
 
 
    /// <summary>
@@ -577,22 +401,5 @@ namespace CILAssemblyManipulator.Physical.MResources
       /// The array is multi-dimensional array with at least one of the dimensions having lower bound index greater than <c>0</c>.
       /// </summary>
       RectangularOffset = 5
-   }
-
-   /// <summary>
-   /// This exception is thrown whenever something goes wrong when serializing or deserializing manifest resources (<see cref="ResourceManagerEntry"/>).
-   /// </summary>
-   public class ManifestResourceSerializationException : Exception
-   {
-      /// <summary>
-      /// Creates a new instance of <see cref="ManifestResourceSerializationException"/> with given message and optional inner exception.
-      /// </summary>
-      /// <param name="msg">The message.</param>
-      /// <param name="inner">The inner exception.</param>
-      public ManifestResourceSerializationException( String msg, Exception inner = null )
-         : base( msg, inner )
-      {
-
-      }
    }
 }
