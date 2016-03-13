@@ -30,12 +30,33 @@
 //
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-//using System;
-//using System.Collections.Generic;
-//using System.IO;
-//using System.Linq;
-//using System.Text;
-//using CommonUtils;
+using System;
+using System.Collections.Generic;
+using System.IO;
+using System.Linq;
+using System.Text;
+using CommonUtils;
+using CILAssemblyManipulator.Physical.PDB;
+
+#pragma warning disable 1591
+public static partial class E_CILPhysical
+#pragma warning restore 1591
+{
+   /// <summary>
+   /// 
+   /// </summary>
+   /// <param name="instance"></param>
+   /// <param name="stream"></param>
+   /// <param name="timeStamp"></param>
+   public static void WriteToStream( this PDBInstance instance, Stream stream, Int32 timeStamp = 0 )
+   {
+      // Some notes:
+      // Original write function set psSymStream to 9, but never emitted the psSymStream (might be the cause for not loading, altho cvdump claims no public symbols stored, but maybe the stream itself should exist?!)
+      // https://github.com/Microsoft/microsoft-pdb is good place to start
+      // Also might need to emit TPI stream (which will probably always be the same) at #2
+   }
+}
+
 
 //namespace CILAssemblyManipulator.PDB
 //{

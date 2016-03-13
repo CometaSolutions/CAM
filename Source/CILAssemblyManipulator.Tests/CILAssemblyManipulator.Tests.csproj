@@ -50,6 +50,7 @@
     <Compile Include="Physical\Miscellaneous.cs" />
     <Compile Include="Physical\MResources.cs" />
     <Compile Include="Physical\Ordering.cs" />
+    <Compile Include="Physical\PDB.cs" />
     <Compile Include="Physical\Reading.cs" />
     <Compile Include="Physical\Roundtrip.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />

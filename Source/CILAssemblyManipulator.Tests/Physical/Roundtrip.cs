@@ -48,17 +48,6 @@ namespace CILAssemblyManipulator.Tests.Physical
    public class RoundtripTest : AbstractCAMTest
    {
 
-      //[Test]
-      //[Category( "CAM.Physical.PDB" )]
-      //public void TestPDB()
-      //{
-      //   PDBInstance pdb;
-      //   using ( var fs = File.OpenRead( Path.Combine( Path.GetDirectoryName( CILMergeLocation ), "CILAssemblyManipulator.Physical.Core.pdb" ) ) )
-      //   {
-      //      pdb = fs.ReadPDBInstance();
-      //   }
-      //}
-
       [Test]
       public void TestRoundtripMSCorLib()
       {
@@ -122,8 +111,6 @@ namespace CILAssemblyManipulator.Tests.Physical
             read1.WriteModule( ms, eArgs );
             written = ms.ToArray();
          }
-
-         File.WriteAllBytes( "mscorlib_gen.dll", written );
 
          var rArgs2 = new ReadingArguments();
 
