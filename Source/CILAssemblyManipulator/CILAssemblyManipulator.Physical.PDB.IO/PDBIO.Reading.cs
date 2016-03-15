@@ -193,6 +193,25 @@ namespace CILAssemblyManipulator.Physical.PDB
          //}
          //var srcHdrStr = String.Join( "\n", srcHdrStrs.Select( s => String.Join( "\n", s ) ) );
 
+         var kekke = streamNameIndices["/src/headerblock"];
+         streamHelper.ReadPagedData( pageSize, dataStreamPages[kekke], dataStreamSizes[kekke], array );
+         var hashBucketCount = array.ReadInt32LEFromBytesNoRef( 68 );
+         var entries = new List<Int32>( hashBucketCount );
+         for ( var i = 84; i < dataStreamSizes[kekke]; i += 44 )
+         {
+            entries.Add( array.ReadInt32LEFromBytesNoRef( i ) );
+         }
+
+         var hashBucketIndices = new HashSet<Int32>();
+         foreach ( var entry in entries )
+         {
+            var hashIdx = entry % hashBucketCount;
+            if ( !hashBucketIndices.Add( hashIdx ) )
+            {
+
+            }
+         }
+
          // TEMP END
          // Read modules.
          var allSources = new Dictionary<String, PDBSource>();

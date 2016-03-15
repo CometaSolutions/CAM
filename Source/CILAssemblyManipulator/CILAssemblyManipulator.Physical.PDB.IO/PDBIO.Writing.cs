@@ -37,11 +37,15 @@ using System.Linq;
 using System.Text;
 using CommonUtils;
 using CILAssemblyManipulator.Physical.PDB;
+using TStreamInfo = System.Tuple<System.Int32, System.Int32[]>;
+using TSourceHeaderInfo = System.Tuple<System.Int32, System.Int32, System.Int32>;
 
 #pragma warning disable 1591
 public static partial class E_CILPhysical
 #pragma warning restore 1591
 {
+
+
    private sealed class PDBWritingState
    {
       private Int32 _nameIdx;
@@ -54,7 +58,7 @@ public static partial class E_CILPhysical
 
          this.NameIndex = new Dictionary<String, Int32>();
          this._nameIdx = 0;
-         this.DataStreams = new List<Tuple<Int32, Int32[]>>();
+         this.DataStreams = new List<TStreamInfo>();
          this.DataStreamNames = new Dictionary<String, Int32>();
          this.ZeroesArray = new Byte[this.PageSize];
       }
@@ -67,7 +71,7 @@ public static partial class E_CILPhysical
 
       public Dictionary<String, Int32> NameIndex { get; }
 
-      public List<Tuple<Int32, Int32[]>> DataStreams { get; }
+      public List<TStreamInfo> DataStreams { get; }
 
       public Dictionary<String, Int32> DataStreamNames { get; }
 
@@ -106,20 +110,22 @@ public static partial class E_CILPhysical
 
    private const Int32 GUID_SIZE = 16;
 
-   private static Tuple<Int32, Int32>[] WritePDBSources( this PDBWritingState state )
+   private static IDictionary<PDBSource, Int32> WritePDBSources( this PDBWritingState state, Int32 startingIndex = 8 )
    {
-      var sources = state.PDB.Modules
+      var streams = state.DataStreams;
+      var pad = startingIndex - streams.Count;
+      if ( pad > 0 )
+      {
+         streams.AddRange( Enumerable.Repeat<TStreamInfo>( null, pad ) );
+      }
+
+      return state.PDB.Modules
          .SelectMany( m => m.Functions )
          .SelectMany( f => f.Lines )
          .Select( l => l.Source )
-         .Distinct( ReferenceEqualityComparer<PDBSource>.ReferenceBasedComparer )
-         .ToArray();
-      var srcInfos = new Tuple<Int32, Int32>[sources.Length];
-
-      for ( var i = 0; i < sources.Length; ++i )
-      {
-         var src = sources[i];
-         state.AddNewNamedStream(
+         .ToDictionary_Preserve(
+            src => src,
+            src => state.AddNewNamedStream(
             PDBIO.SOURCE_FILE_PREFIX + src.Name,
             GUID_SIZE * 4 + src.Hash?.Length ?? 0,
             ( array, idx ) => array
@@ -128,67 +134,78 @@ public static partial class E_CILPhysical
                .WriteGUIDToBytes( ref idx, src.DocumentType )
                .WriteGUIDToBytes( ref idx, src.HashAlgorithm )
                .BlockCopyFrom( ref idx, src.Hash ?? Empty<Byte>.Array )
-            );
-
-         var nIdx = state.GetNameIndex( src.Name );
-         var dummy = state.GetNameIndex( "" );
-         var sIdx = state.GetNameIndex( src.Name.ToLowerInvariant() );
-         srcInfos[i] = Tuple.Create( sIdx, nIdx );
-      }
-
-      return srcInfos;
+            ),
+            equalityComparer: ReferenceEqualityComparer<PDBSource>.ReferenceBasedComparer
+         );
    }
 
-   private static void WriteSourceHeaderBlock( this PDBWritingState state, Tuple<Int32, Int32>[] sourceInfos )
+   private static void WriteSourceHeaderBlock( this PDBWritingState state, IEnumerable<PDBSource> sourcesEnumerable )
    {
       // Emit src/headerblock
-      var hashBucketCount = sourceInfos.Length * 2; // Starting count is this, this will guarantee that eventually there always will be enough hash buckets
-      var srcHash = new Tuple<Int32, Int32>[hashBucketCount];
-      foreach ( var srcInfo in sourceInfos )
+      var sources = sourcesEnumerable.ToArray();
+      var hashFunction = new Func<TSourceHeaderInfo[], TSourceHeaderInfo, Int32?>( ( sourceInfos, curSource ) =>
       {
-         var hIdx = srcInfo.Item1 % hashBucketCount;
-         while ( hIdx < hashBucketCount && srcHash[hIdx] != null )
+         var len = sourceInfos.Length;
+         var hIdx = curSource.Item1 % len;
+         while ( hIdx < len && sourceInfos[hIdx] != null )
          {
             ++hIdx;
          }
-         if ( hIdx == hashBucketCount )
+         return hIdx < len ? hIdx : (Int32?) null;
+      } );
+
+      const Int32 BUCKETS_INCREASE = 10;
+      var srcHash = new TSourceHeaderInfo[BinaryUtils.AmountOfPagesTaken( sources.Length, BUCKETS_INCREASE ) * BUCKETS_INCREASE];
+
+      foreach ( var src in sources )
+      {
+         var srcInfo = Tuple.Create(
+            state.GetNameIndex( src.Name.ToLowerInvariant() ),
+            state.GetNameIndex( "" ),
+            state.GetNameIndex( src.Name )
+            );
+         var hashBucketCount = srcHash.Length;
+         var hIdx = hashFunction( srcHash, srcInfo );
+         if ( hIdx.HasValue )
          {
-            // Overflow - make hash bucket count smaller
-            // Find first free bucket
-            while ( hIdx >= 0 && srcHash[hIdx] != null )
-            {
-               --hIdx;
-            }
-            if ( hIdx < 0 )
-            {
-               // Shouldn't be possible, since hash bucket size was twice as big as source size in the beginning.
-               throw new PDBException( "Failed to hash source file names?" );
-            }
-            // New count to accomodate the overflowing item
-            hashBucketCount = hIdx + 1;
-            // Set the item
-            srcHash[hIdx] = srcInfo;
-            // Move all buckets which are now beyond the border
-            ++hIdx;
-            var curIdx = 0;
-            while ( hIdx < srcHash.Length && srcHash[hIdx] != null )
-            {
-               // There should be enough free entries for all buckets to be moved because of the start size of hash bucket array.
-               while ( srcHash[curIdx] != null )
-               {
-                  ++curIdx;
-               }
-               srcHash[curIdx] = srcHash[hIdx];
-               srcHash[hIdx] = null; // Remember to remove the old entry
-               ++hIdx;
-            }
+            srcHash[hIdx.Value] = srcInfo;
          }
          else
          {
-            srcHash[hIdx] = srcInfo;
+            // Need to fully re-hash whole thing here!!!
+            var oldHashSize = hashBucketCount;
+            Boolean success;
+            TSourceHeaderInfo[] newHash;
+            do
+            {
+               var newHashSize = oldHashSize + BUCKETS_INCREASE;
+               success = true;
+               newHash = new TSourceHeaderInfo[newHashSize];
+               foreach ( var info in srcHash.ConcatSingle( srcInfo ) )
+               {
+                  var curHash = hashFunction( newHash, info );
+                  if ( curHash.HasValue )
+                  {
+                     newHash[curHash.Value] = info;
+                  }
+                  else
+                  {
+                     success = false;
+                     break;
+                  }
+               }
+               oldHashSize = newHashSize;
+            } while ( !success );
+            srcHash = newHash;
          }
       }
 
+      // Write order: Item3, Item2, Item1
+
+      //var nIdx = state.GetNameIndex( src.Name );
+      //var dummy = state.GetNameIndex( "" );
+      //var sIdx = state.GetNameIndex( src.Name.ToLowerInvariant() );
+      //srcInfos[i] = Tuple.Create( sIdx, nIdx );
       //      array = NewArrayIfNeeded( array, SRC_HEADER_FIXED_SIZE + AmountOfPagesTaken( hashBucketCount, 32 ) * INT_SIZE + SRC_HEADER_BLOCK_ENTRY_SIZE * sources.Length, out idx, out arrayLen );
       //      array
       //         .WriteUInt32LEToBytes( ref idx, SRC_HEADER_BLOCK_SIG ) // Starting signature
@@ -329,7 +346,7 @@ public static partial class E_CILPhysical
       {
          if ( streamIndex > count )
          {
-            dataStreams.AddRange( Enumerable.Repeat<Tuple<Int32, Int32[]>>( null, count - streamIndex ) );
+            dataStreams.AddRange( Enumerable.Repeat<TStreamInfo>( null, count - streamIndex ) );
          }
          dataStreams.Add( streamInfo );
       }
