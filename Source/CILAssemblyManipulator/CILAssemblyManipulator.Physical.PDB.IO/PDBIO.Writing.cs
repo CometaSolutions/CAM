@@ -42,6 +42,49 @@ using CILAssemblyManipulator.Physical.PDB;
 public static partial class E_CILPhysical
 #pragma warning restore 1591
 {
+   private sealed class PDBWritingState
+   {
+      private Int32 _nameIdx;
+
+      public PDBWritingState( PDBInstance pdb, StreamHelper stream, Int32 pageSize )
+      {
+         this.PDB = pdb;
+         this.Stream = stream;
+         this.PageSize = pageSize;
+
+         this.NameIndex = new Dictionary<String, Int32>();
+         this._nameIdx = 0;
+         this.DataStreams = new List<Tuple<Int32, Int32[]>>();
+         this.DataStreamNames = new Dictionary<String, Int32>();
+         this.ZeroesArray = new Byte[this.PageSize];
+      }
+
+      public PDBInstance PDB { get; }
+
+      public StreamHelper Stream { get; }
+
+      public Int32 PageSize { get; }
+
+      public Dictionary<String, Int32> NameIndex { get; }
+
+      public List<Tuple<Int32, Int32[]>> DataStreams { get; }
+
+      public Dictionary<String, Int32> DataStreamNames { get; }
+
+      public Byte[] ZeroesArray { get; }
+
+      public Int32 GetNameIndex( String name )
+      {
+         return this.NameIndex.GetOrAdd_NotThreadSafe( name ?? String.Empty, str =>
+         {
+            var result = this._nameIdx;
+
+            this._nameIdx += PDBIO.NameEncoding.SafeByteCount( name, true );
+            return result;
+         } );
+      }
+   }
+
    /// <summary>
    /// 
    /// </summary>
@@ -54,6 +97,263 @@ public static partial class E_CILPhysical
       // Original write function set psSymStream to 9, but never emitted the psSymStream (might be the cause for not loading, altho cvdump claims no public symbols stored, but maybe the stream itself should exist?!)
       // https://github.com/Microsoft/microsoft-pdb is good place to start
       // Also might need to emit TPI stream (which will probably always be the same) at #2
+
+      var state = new PDBWritingState( instance, new StreamHelper( stream ), 0x200 );
+
+      // Start by writing sources
+
+   }
+
+   private const Int32 GUID_SIZE = 16;
+
+   private static Tuple<Int32, Int32>[] WritePDBSources( this PDBWritingState state )
+   {
+      var sources = state.PDB.Modules
+         .SelectMany( m => m.Functions )
+         .SelectMany( f => f.Lines )
+         .Select( l => l.Source )
+         .Distinct( ReferenceEqualityComparer<PDBSource>.ReferenceBasedComparer )
+         .ToArray();
+      var srcInfos = new Tuple<Int32, Int32>[sources.Length];
+
+      for ( var i = 0; i < sources.Length; ++i )
+      {
+         var src = sources[i];
+         state.AddNewNamedStream(
+            PDBIO.SOURCE_FILE_PREFIX + src.Name,
+            GUID_SIZE * 4 + src.Hash?.Length ?? 0,
+            ( array, idx ) => array
+               .WriteGUIDToBytes( ref idx, src.Language )
+               .WriteGUIDToBytes( ref idx, src.Vendor )
+               .WriteGUIDToBytes( ref idx, src.DocumentType )
+               .WriteGUIDToBytes( ref idx, src.HashAlgorithm )
+               .BlockCopyFrom( ref idx, src.Hash ?? Empty<Byte>.Array )
+            );
+
+         var nIdx = state.GetNameIndex( src.Name );
+         var dummy = state.GetNameIndex( "" );
+         var sIdx = state.GetNameIndex( src.Name.ToLowerInvariant() );
+         srcInfos[i] = Tuple.Create( sIdx, nIdx );
+      }
+
+      return srcInfos;
+   }
+
+   private static void WriteSourceHeaderBlock( this PDBWritingState state, Tuple<Int32, Int32>[] sourceInfos )
+   {
+      // Emit src/headerblock
+      var hashBucketCount = sourceInfos.Length * 2; // Starting count is this, this will guarantee that eventually there always will be enough hash buckets
+      var srcHash = new Tuple<Int32, Int32>[hashBucketCount];
+      foreach ( var srcInfo in sourceInfos )
+      {
+         var hIdx = srcInfo.Item1 % hashBucketCount;
+         while ( hIdx < hashBucketCount && srcHash[hIdx] != null )
+         {
+            ++hIdx;
+         }
+         if ( hIdx == hashBucketCount )
+         {
+            // Overflow - make hash bucket count smaller
+            // Find first free bucket
+            while ( hIdx >= 0 && srcHash[hIdx] != null )
+            {
+               --hIdx;
+            }
+            if ( hIdx < 0 )
+            {
+               // Shouldn't be possible, since hash bucket size was twice as big as source size in the beginning.
+               throw new PDBException( "Failed to hash source file names?" );
+            }
+            // New count to accomodate the overflowing item
+            hashBucketCount = hIdx + 1;
+            // Set the item
+            srcHash[hIdx] = srcInfo;
+            // Move all buckets which are now beyond the border
+            ++hIdx;
+            var curIdx = 0;
+            while ( hIdx < srcHash.Length && srcHash[hIdx] != null )
+            {
+               // There should be enough free entries for all buckets to be moved because of the start size of hash bucket array.
+               while ( srcHash[curIdx] != null )
+               {
+                  ++curIdx;
+               }
+               srcHash[curIdx] = srcHash[hIdx];
+               srcHash[hIdx] = null; // Remember to remove the old entry
+               ++hIdx;
+            }
+         }
+         else
+         {
+            srcHash[hIdx] = srcInfo;
+         }
+      }
+
+      //      array = NewArrayIfNeeded( array, SRC_HEADER_FIXED_SIZE + AmountOfPagesTaken( hashBucketCount, 32 ) * INT_SIZE + SRC_HEADER_BLOCK_ENTRY_SIZE * sources.Length, out idx, out arrayLen );
+      //      array
+      //         .WriteUInt32LEToBytes( ref idx, SRC_HEADER_BLOCK_SIG ) // Starting signature
+      //         .WriteInt32LEToBytes( ref idx, arrayLen ) // Stream size
+      //         .ZeroesInt32( ref idx, 14 ) // The following 14 ints are ignored on read
+      //         .WriteInt32LEToBytes( ref idx, sources.Length ) // Amount of entries
+      //         .WriteInt32LEToBytes( ref idx, hashBucketCount ) // Amount of hash buckets
+      //         .WriteInt32LEToBytes( ref idx, AmountOfPagesTaken( hashBucketCount, 32 ) ); // How many int32's hash bucket present bitset takes
+      //                                                                                     // Write hash bucket present set
+      //      tmpUInt32 = 0u;
+      //      for ( var i = 0; i < hashBucketCount; ++i )
+      //      {
+      //         if ( srcHash[i] != null )
+      //         {
+      //            tmpUInt32 |= ( 1u << ( i % 32 ) );
+      //         }
+      //         if ( i + 1 == hashBucketCount || ( i != 0 && i % 32 == 0 ) )
+      //         {
+      //            // Write UInt32
+      //            array.WriteUInt32LEToBytes( ref idx, tmpUInt32 );
+      //         }
+      //      }
+      //      // Magic zero
+      //      array.ZeroesInt32( ref idx, 1 );
+      //      // Write entries
+      //      foreach ( var srcInfo in srcHash )
+      //      {
+      //         if ( srcInfo != null )
+      //         {
+      //            array
+      //               .WriteInt32LEToBytes( ref idx, srcInfo.Item1 ) // Search term name index - MSVS seems to want the lowercase version
+      //               .WriteInt32LEToBytes( ref idx, SRC_HEADER_BLOCK_ENTRY_SIZE - INT_SIZE ) // The size of the entry
+      //               .WriteUInt32LEToBytes( ref idx, SRC_HEADER_BLOCK_SIG ) // Signature, ignored on read
+      //               .ZeroesInt32( ref idx, 1 ) // Checksum (?), ignored on read
+      //               .WriteUInt32LEToBytes( ref idx, SRC_HEADER_SRC_TYPE ) // Source data format (?)
+      //               .WriteInt32LEToBytes( ref idx, srcInfo.Item2 ) // File name index, ignored on read
+      //               .ZeroesInt32( ref idx, 1 ) // Seems to be always name index to empty string, ignored on read
+      //               .WriteInt32LEToBytes( ref idx, srcInfo.Item2 ) // Stream suffix name index
+      //               .WriteUInt32LEToBytes( ref idx, SRC_HEADER_OTHER_TYPE ) // Some other format?
+      //               .ZeroesInt32( ref idx, 2 );
+      //         }
+      //      }
+      //#if DEBUG
+      //      if ( idx != arrayLen )
+      //      {
+      //         throw new PDBException( "Debyyg" );
+      //      }
+      //#endif
+      //      // Write to stream
+      //      startPage = stream.GetCurrentPage( pageSize );
+      //      stream.stream.Write( array, arrayLen );
+      //      dataStreams[7] = Tuple.Create( arrayLen, stream.PagesFromContinuousStream( pageSize, startPage, zeroesPageArray ) );
+
+   }
+
+   private static void WriteTPIStream( this PDBWritingState state )
+   {
+      const Int32 TPI_HEADER_SIZE = 0x38;
+      const Int32 VERSION_80 = 20040203;
+      const Int32 TI_LOWEST = 0x1000;
+      const Int32 TI_HIGHEST = TI_LOWEST;
+      const Int16 SN = -1;
+      const Int16 SN_PAD = SN;
+      const Int32 HASH_KEY_SIZE = sizeof( Int32 );
+      const Int32 HASH_BUCKET_COUNT = 0x0003FFFF;
+      const Int32 HASH_VALUES_OFFSET = 0;
+      const Int32 HASH_VALUES_COUNT = -1;
+      const Int32 TI_PAIRS_OFFSET = 0;
+      const Int32 TI_PAIRS_COUNT = -1;
+      const Int32 HASH_HEAD_LIST_OFFSET = 0;
+      const Int32 HASH_HEAD_LIST_COUNT = 0;
+
+      state.AddNewIndexedStream( 2, TPI_HEADER_SIZE, ( array, idx ) =>
+          array
+             // HDR struct
+             .WriteInt32LEToBytes( ref idx, VERSION_80 ) // Version
+             .WriteInt32LEToBytes( ref idx, TPI_HEADER_SIZE ) // Size of this header, including version
+             .WriteInt32LEToBytes( ref idx, TI_LOWEST ) // Lowest TI
+             .WriteInt32LEToBytes( ref idx, TI_HIGHEST ) // Highest TI + 1
+             .WriteInt32LEToBytes( ref idx, 0 ) // Byte size of REC stream, is always empty
+
+             // TpiHash struct
+             .WriteInt16LEToBytes( ref idx, SN ) // Main hash stream
+             .WriteInt16LEToBytes( ref idx, SN_PAD ) // Auxiliary hash data, if needed
+             .WriteInt32LEToBytes( ref idx, HASH_KEY_SIZE ) // Byte count for each hash key
+             .WriteUInt32LEToBytes( ref idx, HASH_BUCKET_COUNT ) // Count of hash buckets
+             .WriteInt32LEToBytes( ref idx, HASH_VALUES_OFFSET ) // Byte offset of hash values
+             .WriteInt32LEToBytes( ref idx, HASH_VALUES_COUNT ) // Byte count of hash values
+             .WriteInt32LEToBytes( ref idx, TI_PAIRS_OFFSET ) // Byte offset of (TI,OFF) pairs
+             .WriteInt32LEToBytes( ref idx, TI_PAIRS_COUNT ) // Byte count of (TI,OFF) pairs
+             .WriteInt32LEToBytes( ref idx, HASH_HEAD_LIST_OFFSET ) // Byte offset of hash head list
+             .WriteInt32LEToBytes( ref idx, HASH_HEAD_LIST_COUNT ) // Byte count of hash head list
+      );
+   }
+
+   private static Int32 SafeByteCount( this Encoding encoding, String str, Boolean zeroTerminated ) // = true )
+   {
+      var result = zeroTerminated ? 1 : sizeof( Int32 );
+      if ( str != null )
+      {
+         result += encoding.GetByteCount( str );
+      }
+      return result;
+   }
+
+   private static Int32 AddNewNamedStream( this PDBWritingState state, String streamName, Int32 streamSize, Action<Byte[], Int32> write )
+   {
+      var startPage = state.GetCurrentPage();
+      var array = state.Stream.Buffer.SetCapacityAndReturnArray( streamSize );
+
+      write( array, 0 );
+      state.Stream.Stream.Write( array, streamSize );
+
+      var dataStreams = state.DataStreams;
+      var retVal = dataStreams.Count;
+      state.DataStreamNames.Add( streamName, retVal );
+      dataStreams.Add( Tuple.Create( streamSize, state.PagesFromContinuousStream( startPage ) ) );
+
+      return retVal;
+   }
+
+   private static void AddNewIndexedStream( this PDBWritingState state, Int32 streamIndex, Int32 streamSize, Action<Byte[], Int32> write )
+   {
+      var startPage = state.GetCurrentPage();
+      var array = state.Stream.Buffer.SetCapacityAndReturnArray( streamSize );
+
+      write( array, 0 );
+      state.Stream.Stream.Write( array, streamSize );
+
+      var dataStreams = state.DataStreams;
+      var count = dataStreams.Count;
+      var streamInfo = Tuple.Create( streamSize, state.PagesFromContinuousStream( startPage ) );
+      if ( streamIndex < count )
+      {
+         dataStreams[streamIndex] = streamInfo;
+      }
+      else
+      {
+         if ( streamIndex > count )
+         {
+            dataStreams.AddRange( Enumerable.Repeat<Tuple<Int32, Int32[]>>( null, count - streamIndex ) );
+         }
+         dataStreams.Add( streamInfo );
+      }
+   }
+
+   private static Int32 GetCurrentPage( this PDBWritingState state )
+   {
+      return ( (Int32) state.Stream.Stream.Position ) / state.PageSize;
+   }
+
+   private static void SkipToNextPage( this PDBWritingState state )
+   {
+      var stream = state.Stream.Stream;
+      var remainder = (Int32) ( stream.Position % state.PageSize );
+      if ( remainder != 0 )
+      {
+         stream.Write( state.ZeroesArray, state.PageSize - remainder );
+      }
+   }
+
+   private static Int32[] PagesFromContinuousStream( this PDBWritingState state, Int32 startPage )
+   {
+      state.SkipToNextPage();
+      return Enumerable.Range( startPage, state.GetCurrentPage() - startPage ).ToArray();
    }
 }
 

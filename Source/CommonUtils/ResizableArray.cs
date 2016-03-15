@@ -830,4 +830,18 @@ public static partial class E_CommonUtils
       return retVal;
    }
 
+   /// <summary>
+   /// Helper function to set <see cref="ResizableArray{T}.CurrentMaxCapacity"/> and then return the <see cref="ResizableArray{T}.Array"/>.
+   /// </summary>
+   /// <typeparam name="T">The type of the array.</typeparam>
+   /// <param name="array">The <see cref="ResizableArray{T}"/></param>
+   /// <param name="capacity">The capacity.</param>
+   /// <returns>The <see cref="ResizableArray{T}.Array"/>, which will be at least the size of given <paramref name="capacity"/>.</returns>
+   /// <exception cref="NullReferenceException">If this <see cref="ResizableArray{T}"/> is <c>null</c>.</exception>
+   public static T[] SetCapacityAndReturnArray<T>( this ResizableArray<T> array, Int32 capacity )
+   {
+      array.CurrentMaxCapacity = capacity;
+      return array.Array;
+   }
+
 }

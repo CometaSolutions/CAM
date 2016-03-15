@@ -40,7 +40,7 @@ namespace CommonUtils
          ArgumentValidator.ValidateNotNull( "Stream", stream );
 
          this.Stream = stream;
-         this.Buffer = new Byte[bufferLength];
+         this.Buffer = new ResizableArray<Byte>( bufferLength );
       }
 
       /// <summary>
@@ -48,10 +48,11 @@ namespace CommonUtils
       /// </summary>
       public Stream Stream { get; }
 
+      // TODO: maybe instead of exposing buffer directly, have some kind of UseBuffer<T>(Int32 readCount, Func<Byte[], T> valueFactory) ?
       /// <summary>
       /// Gets the buffer to read data to.
       /// </summary>
-      public Byte[] Buffer { get; }
+      public ResizableArray<Byte> Buffer { get; }
    }
 
    /// <summary>
@@ -429,9 +430,10 @@ public static partial class E_CommonUtils
       helper.Stream.SeekFromCurrent( amount );
       return helper;
    }
+
    private static Byte[] ReadAndReturnArray( this StreamHelper helper, Int32 amount )
    {
-      var retVal = helper.Buffer;
+      var retVal = helper.Buffer.Array;
       helper.Stream.ReadSpecificAmount( retVal, 0, amount );
       return retVal;
    }
@@ -475,8 +477,9 @@ public static partial class E_CommonUtils
    /// <returns><c>true</c> if read operation was successful; <c>false</c> otherwise.</returns>
    public static Boolean TryReadByteFromBytes( this StreamHelper stream, out Byte value )
    {
-      var retVal = stream.Stream.Read( stream.Buffer, 0, 1 ) > 0;
-      value = retVal ? stream.Buffer[0] : default( Byte );
+      var array = stream.Buffer.Array;
+      var retVal = stream.Stream.Read( array, 0, 1 ) > 0;
+      value = retVal ? array[0] : default( Byte );
       return retVal;
    }
 
@@ -499,7 +502,7 @@ public static partial class E_CommonUtils
    /// <returns>The <paramref name="array"/>.</returns>
    public static StreamHelper WriteByteToBytes( this StreamHelper array, Byte aByte )
    {
-      var bytez = array.Buffer;
+      var bytez = array.Buffer.Array;
       bytez[0] = aByte;
       array.Stream.Write( bytez, sizeof( Byte ) );
       return array;
@@ -678,9 +681,7 @@ public static partial class E_CommonUtils
    /// <returns>The <paramref name="array"/>.</returns>
    public static StreamHelper WriteInt16LEToBytes( this StreamHelper array, Int16 value )
    {
-      var bytez = array.Buffer;
-      bytez.WriteInt16LEToBytesNoRef( 0, value );
-      array.Stream.Write( bytez, sizeof( Int16 ) );
+      array.Stream.Write( array.Buffer.Array.WriteInt16LEToBytesNoRef( 0, value ), sizeof( Int16 ) );
       return array;
    }
 
@@ -704,9 +705,7 @@ public static partial class E_CommonUtils
    /// <returns>The <paramref name="array"/>.</returns>
    public static StreamHelper WriteInt32LEToBytes( this StreamHelper array, Int32 value )
    {
-      var bytez = array.Buffer;
-      bytez.WriteInt32LEToBytesNoRef( 0, value );
-      array.Stream.Write( bytez, sizeof( Int32 ) );
+      array.Stream.Write( array.Buffer.Array.WriteInt32LEToBytesNoRef( 0, value ), sizeof( Int32 ) );
       return array;
    }
 
@@ -730,9 +729,7 @@ public static partial class E_CommonUtils
    /// <returns>The <paramref name="array"/>.</returns>
    public static StreamHelper WriteInt64LEToBytes( this StreamHelper array, Int64 value )
    {
-      var bytez = array.Buffer;
-      bytez.WriteInt64LEToBytesNoRef( 0, value );
-      array.Stream.Write( bytez, sizeof( Int64 ) );
+      array.Stream.Write( array.Buffer.Array.WriteInt64LEToBytesNoRef( 0, value ), sizeof( Int64 ) );
       return array;
    }
 
@@ -756,9 +753,7 @@ public static partial class E_CommonUtils
    /// <returns>The <paramref name="array"/>.</returns>
    public static StreamHelper WriteSingleLEToBytes( this StreamHelper array, Single value )
    {
-      var bytez = array.Buffer;
-      bytez.WriteSingleLEToBytesNoRef( 0, value );
-      array.Stream.Write( bytez, sizeof( Single ) );
+      array.Stream.Write( array.Buffer.Array.WriteSingleLEToBytesNoRef( 0, value ), sizeof( Single ) );
       return array;
    }
 
@@ -770,9 +765,7 @@ public static partial class E_CommonUtils
    /// <returns>The <paramref name="array"/>.</returns>
    public static StreamHelper WriteDoubleLEToBytes( this StreamHelper array, Double value )
    {
-      var bytez = array.Buffer;
-      bytez.WriteDoubleLEToBytesNoRef( 0, value );
-      array.Stream.Write( bytez, sizeof( Double ) );
+      array.Stream.Write( array.Buffer.Array.WriteDoubleLEToBytesNoRef( 0, value ), sizeof( Double ) );
       return array;
    }
 
@@ -919,9 +912,7 @@ public static partial class E_CommonUtils
    /// <returns>The <paramref name="array"/>.</returns>
    public static StreamHelper WriteInt16BEToBytes( this StreamHelper array, Int16 value )
    {
-      var bytez = array.Buffer;
-      bytez.WriteInt16BEToBytesNoRef( 0, value );
-      array.Stream.Write( bytez, sizeof( Int16 ) );
+      array.Stream.Write( array.Buffer.Array.WriteInt16BEToBytesNoRef( 0, value ), sizeof( Int16 ) );
       return array;
    }
 
@@ -945,9 +936,7 @@ public static partial class E_CommonUtils
    /// <returns>The <paramref name="array"/>.</returns>
    public static StreamHelper WriteInt32BEToBytes( this StreamHelper array, Int32 value )
    {
-      var bytez = array.Buffer;
-      bytez.WriteInt32BEToBytesNoRef( 0, value );
-      array.Stream.Write( bytez, sizeof( Int32 ) );
+      array.Stream.Write( array.Buffer.Array.WriteInt32BEToBytesNoRef( 0, value ), sizeof( Int32 ) );
       return array;
    }
 
@@ -971,9 +960,7 @@ public static partial class E_CommonUtils
    /// <returns>The <paramref name="array"/>.</returns>
    public static StreamHelper WriteInt64BEToBytes( this StreamHelper array, Int64 value )
    {
-      var bytez = array.Buffer;
-      bytez.WriteInt64BEToBytesNoRef( 0, value );
-      array.Stream.Write( bytez, sizeof( Int64 ) );
+      array.Stream.Write( array.Buffer.Array.WriteInt64BEToBytesNoRef( 0, value ), sizeof( Int64 ) );
       return array;
    }
 
@@ -997,9 +984,7 @@ public static partial class E_CommonUtils
    /// <returns>The <paramref name="array"/>.</returns>
    public static StreamHelper WriteSingleBEToBytes( this StreamHelper array, Single value )
    {
-      var bytez = array.Buffer;
-      bytez.WriteSingleBEToBytesNoRef( 0, value );
-      array.Stream.Write( bytez, sizeof( Single ) );
+      array.Stream.Write( array.Buffer.Array.WriteSingleBEToBytesNoRef( 0, value ), sizeof( Single ) );
       return array;
    }
 
@@ -1011,9 +996,7 @@ public static partial class E_CommonUtils
    /// <returns>The <paramref name="array"/>.</returns>
    public static StreamHelper WriteDoubleBEToBytes( this StreamHelper array, Double value )
    {
-      var bytez = array.Buffer;
-      bytez.WriteDoubleBEToBytesNoRef( 0, value );
-      array.Stream.Write( bytez, sizeof( Double ) );
+      array.Stream.Write( array.Buffer.Array.WriteDoubleBEToBytesNoRef( 0, value ), sizeof( Double ) );
       return array;
    }
 

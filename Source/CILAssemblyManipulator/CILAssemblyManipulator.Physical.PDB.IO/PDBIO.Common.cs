@@ -53,7 +53,7 @@ namespace CILAssemblyManipulator.Physical.PDB
 
       private const Int32 EC_INFO_SIZE = 0x19;
 
-      private const String SOURCE_FILE_PREFIX = "/src/files/";
+      internal const String SOURCE_FILE_PREFIX = "/src/files/";
       private const String NAMES_STREAM_NAME = "/names";
 
       private class StreamInfo
@@ -355,7 +355,7 @@ namespace CILAssemblyManipulator.Physical.PDB
 
       private static Byte[] WriteZeroTerminatedString( this Byte[] array, ref Int32 idx, String str, Boolean useUTF8 = true )
       {
-         array.WriteStringToBytes( ref idx, useUTF8 ? NAME_ENCODING : UTF16, str );
+         array.WriteStringToBytes( ref idx, useUTF8 ? NameEncoding : UTF16, str );
          array.WriteByteToBytes( ref idx, 0 );
          if ( !useUTF8 )
          {

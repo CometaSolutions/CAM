@@ -33,8 +33,14 @@ namespace CILAssemblyManipulator.Physical.PDB
       private const UInt32 METHOD_TABLE = 0x06000000;
       private const UInt32 METHOD_TABLE_INDEX_MASK = 0x00FFFFFF;
 
-      private static readonly Encoding NAME_ENCODING = new UTF8Encoding( false, true );
-      private static readonly Encoding UTF16 = new UnicodeEncoding( false, false, true );
+      internal static Encoding NameEncoding { get; }
+      internal static Encoding UTF16 { get; }
+
+      static PDBIO()
+      {
+         NameEncoding = new UTF8Encoding( false, true );
+         UTF16 = new UnicodeEncoding( false, false, true );
+      }
 
       private const String SOURCE_SERVER_STREAM_NAME = "srcsrv";
 
@@ -134,7 +140,7 @@ namespace CILAssemblyManipulator.Physical.PDB
          {
             streamHelper.ReadPagedData( pageSize, dataStreamPages[srcStrmIdx], dataStreamSizes[srcStrmIdx], array );
             idx = 0;
-            instance.SourceServer = array.ReadStringWithEncoding( ref idx, dataStreamSizes[srcStrmIdx], NAME_ENCODING );
+            instance.SourceServer = array.ReadStringWithEncoding( ref idx, dataStreamSizes[srcStrmIdx], NameEncoding );
          }
 
          // Read name index.
@@ -242,7 +248,7 @@ namespace CILAssemblyManipulator.Physical.PDB
                var idxValue = array.ReadInt32LEFromBytes( ref idx );
                var oldIdx = idx;
                idx = strStart + strIdx;
-               retVal.Add( array.ReadZeroTerminatedStringFromBytes( ref idx, NAME_ENCODING ), idxValue );
+               retVal.Add( array.ReadZeroTerminatedStringFromBytes( ref idx, NameEncoding ), idxValue );
                idx = oldIdx;
             }
          }
@@ -274,7 +280,7 @@ namespace CILAssemblyManipulator.Physical.PDB
                // Read name
                var oldIdx = idx;
                idx = strStart + nameIdx;
-               retVal.Add( nameIdx, array.ReadZeroTerminatedStringFromBytes( ref idx, NAME_ENCODING ) );
+               retVal.Add( nameIdx, array.ReadZeroTerminatedStringFromBytes( ref idx, NameEncoding ) );
                idx = oldIdx;
             }
          }
@@ -291,7 +297,7 @@ namespace CILAssemblyManipulator.Physical.PDB
          var list = new List<DBIModuleInfo>();
          while ( idx < max )
          {
-            list.Add( new DBIModuleInfo( array, ref idx, NAME_ENCODING ) );
+            list.Add( new DBIModuleInfo( array, ref idx, NameEncoding ) );
             Align4( ref idx );
          }
          modules = list.ToArray();
@@ -627,7 +633,7 @@ namespace CILAssemblyManipulator.Physical.PDB
             //Address = array.ReadInt32LEFromBytes( ref idx ),
             Flags = (PDBSlotFlags) array.Skip( ref idx, 6 ) // Skip address & segment
                .ReadInt16LEFromBytes( ref idx ),
-            Name = array.ReadZeroTerminatedStringFromBytes( ref idx, NAME_ENCODING ),
+            Name = array.ReadZeroTerminatedStringFromBytes( ref idx, NameEncoding ),
          };
       }
 
@@ -641,7 +647,7 @@ namespace CILAssemblyManipulator.Physical.PDB
          segment = array.ReadUInt16LEFromBytes( ref idx );
          var result = new PDBScope()
          {
-            Name = array.ReadZeroTerminatedStringFromBytes( ref idx, NAME_ENCODING ),
+            Name = array.ReadZeroTerminatedStringFromBytes( ref idx, NameEncoding ),
             Offset = address - funcOffset,
             Length = length
          };
@@ -672,7 +678,7 @@ namespace CILAssemblyManipulator.Physical.PDB
          array.ReadByteFromBytes( ref idx );
          /*var returnReg = */
          array.ReadUInt16LEFromBytes( ref idx );
-         result.Name = array.ReadZeroTerminatedStringFromBytes( ref idx, NAME_ENCODING );
+         result.Name = array.ReadZeroTerminatedStringFromBytes( ref idx, NameEncoding );
 
          idx = listsStartIdx;
          try
@@ -724,7 +730,7 @@ namespace CILAssemblyManipulator.Physical.PDB
                   scope.Slots.Add( NewPDBSlot( array, ref idx ) );
                   break;
                case SYM_USED_NS:
-                  scope.UsedNamespaces.Add( array.ReadZeroTerminatedStringFromBytes( ref idx, NAME_ENCODING ) );
+                  scope.UsedNamespaces.Add( array.ReadZeroTerminatedStringFromBytes( ref idx, NameEncoding ) );
                   break;
                case SYM_MANAGED_CONSTANT:
                   // TODO
@@ -850,7 +856,7 @@ namespace CILAssemblyManipulator.Physical.PDB
                   break;
                case MD2_ITERATOR_CLASS:
                   // Forward iterator class
-                  func.IteratorClass = array.ReadZeroTerminatedStringFromBytes( ref idx, NAME_ENCODING );
+                  func.IteratorClass = array.ReadZeroTerminatedStringFromBytes( ref idx, NameEncoding );
                   break;
                case MD2_YET_UNKNOWN:
                   break;
